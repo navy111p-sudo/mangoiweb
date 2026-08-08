@@ -11,6 +11,11 @@
   var PERMS = {
     // === 상단 대시보드 — 경영진·관리자 전용 ===
     'card-ai-insights':            {exec:'V', mgr:'V'},
+    // 🌅 (2026-08-08) 아침 브리핑 — 지금까지 이 표에 «없어서» 아무에게도 안 가려지고 있었다.
+    //   이 표는 Object.keys(PERMS) 를 돌기 때문에, 목록에 없는 카드는 전 역할에 그대로 노출된다.
+    //   브리핑 문장에는 전사 매출·미납 학생 수·2주+ 결석·출석률이 들어간다 → 본사만.
+    //   (서버 쪽 차단은 index.ts TEACHER_BLOCKED_PREFIXES 의 '/api/admin/briefing' — 화면만 가리면 URL 로 뚫린다)
+    'card-daily-briefing':         {exec:'V', mgr:'V'},
     // === 평가서 통합 ===
     'card-eval-mgmt':              {exec:'V', mgr:'V', teacher:'V', branch:'R'},
     'card-bulk-eval':              {exec:'V', mgr:'V', teacher:'V'},

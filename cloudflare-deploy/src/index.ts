@@ -333,6 +333,13 @@ const worker = {
             '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
             // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
+            //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
+            //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
+            '/api/admin/briefing',
+            // ── 📊 운영 KPI 대시보드 — 매출·미납·상담이 한 번에 나온다. 카드는 이미 교사 차단이지만
+            //    화면만 가리는 것이라 URL 로 직접 부르면 그대로 응답했다. 서버에서도 막는다.
+            '/api/admin/kpi/',
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
             // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
@@ -483,6 +490,13 @@ const worker = {
     // 🏆 주간 랭킹 — GET /api/games/leaderboard?limit=  → 이번 주 코인 상위 학생(닉네임)
     if (path === '/api/games/leaderboard' && request.method === 'GET') {
       return handleGamesLeaderboard(request, env);
+    }
+    // 🎮 판(session) 기록 — POST /api/games/session → 게임이 끝날 때 딱 1행(game_sessions)
+    //   여기가 «게임별 분석» 을 가능하게 하는 유일한 통로다. game_progress 에는 게임 이름 칸이
+    //   없어서 8종이 한 표에 섞여 있었다(2026-08-08 실측). 학생 공개 경로 — sendBeacon 으로 온다.
+    if (path === '/api/games/session' && request.method === 'POST') {
+      const { handleGameSession } = await import('./game-insights');
+      return handleGameSession(request, env);
     }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
@@ -1727,6 +1741,24 @@ const worker = {
     // 🎓 /admin/learning-insights — 학습 인사이트 대시보드 페이지 (관리자 전용)
     if (path === '/admin/learning-insights' || path === '/admin/learning-insights/') {
       const r = new Request(new URL('/admin/learning-insights.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🎮 전 게임 통합 분석 API (2026-08-08 신설) — GET /api/admin/game-insights?range=7
+    //   /api/admin/ 접두사라 인증 게이트(default-deny)에 자동으로 걸린다.
+    //   지사·대리점도 봐야 하므로 isAgencyAllowedApi 에 함께 등록했다.
+    if (path === '/api/admin/game-insights') {
+      const { gameInsightsRouter } = await import('./game-insights');
+      return gameInsightsRouter(request, env);
+    }
+
+    // 🎮 /admin/game-insights — 전 게임 통합 분석 화면 (관리자·매니저·지사)
+    //   ⚠️ admin.html(1.0MB · 카드 91개)에 카드로 넣지 않았다. 얹으면 전원이 함께 느려진다.
+    //      manager.html 이 같은 이유로 934KB→10KB(44배)를 냈다. 여기도 같은 길을 간다.
+    //   경로가 /admin/ 로 시작하므로 isAdminPath 와 미인증 리다이렉트 목록에 **이미 걸린다**
+    //   (둘 다 startsWith('/admin/')). 그래서 이 화면은 JSON 원문 사고가 구조적으로 안 난다.
+    if (path === '/admin/game-insights' || path === '/admin/game-insights/') {
+      const r = new Request(new URL('/admin/game-insights.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -3038,15 +3070,20 @@ async function handleGamesProgress(request: Request, env: Env): Promise<Response
     const lang = (String(body?.lang || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
     const events: any[] = Array.isArray(body?.events) ? body.events.slice(0, 200) : [];
     if (!userId || !events.length) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
-    await _ensureGameProgressTable(env);
+    // 🎮 (2026-08-08) 어느 게임에서 온 기록인지 — 이 칸이 없어서 게임 8종이 한 표에 섞여 있었다.
+    //    옛 클라이언트는 game 을 안 보낸다 → '' 로 남고 분석 화면이 «(계측 이전)» 으로 구분해 준다.
+    const { ensureGameTables, normalizeGameId } = await import('./game-insights');
+    const game = normalizeGameId(body?.game, '');
+    await ensureGameTables(env);
     const now = Date.now();
     const stmt = env.DB.prepare(
-      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, last_seen, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, last_seen, updated_at, game)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, lang, item) DO UPDATE SET
          wrong_count = wrong_count + excluded.wrong_count,
          correct_count = correct_count + excluded.correct_count,
          ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         game = COALESCE(NULLIF(excluded.game,''), game),
          last_seen = excluded.last_seen, updated_at = excluded.updated_at`
     );
     const batch: any[] = [];
@@ -3054,7 +3091,7 @@ async function handleGamesProgress(request: Request, env: Env): Promise<Response
       const item = String(e?.item || '').trim().slice(0, 200); if (!item) continue;
       const ko = String(e?.ko || '').trim().slice(0, 200);
       const correct = e?.correct ? 1 : 0;
-      batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now));
+      batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now, game));
     }
     if (batch.length) await env.DB.batch(batch);
     return new Response(JSON.stringify({ ok: true, saved: batch.length }), { status: 200, headers: _MS_JSON });
@@ -3126,18 +3163,22 @@ async function handleGamesShadow(request: Request, env: Env): Promise<Response> 
     const ko = String(body?.ko || '').trim().slice(0, 200);
     let score = Math.round(Number(body?.score) || 0); if (score < 0) score = 0; if (score > 100) score = 100;
     if (!userId || !item) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
-    await _ensureGameProgressTable(env);
+    // 🎮 (2026-08-08) 발음 기록에도 게임 이름을 남긴다 — 「어느 게임에서 따라말하기를 하나」.
+    const { ensureGameTables: _ensureGT, normalizeGameId: _normGid } = await import('./game-insights');
+    const game = _normGid(body?.game, '');
+    await _ensureGT(env);
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, pron_best, pron_last, pron_count, last_seen, updated_at)
-       VALUES (?, ?, ?, ?, 0, 0, ?, ?, 1, ?, ?)
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, pron_best, pron_last, pron_count, last_seen, updated_at, game)
+       VALUES (?, ?, ?, ?, 0, 0, ?, ?, 1, ?, ?, ?)
        ON CONFLICT(user_id, lang, item) DO UPDATE SET
          pron_best = MAX(pron_best, excluded.pron_best),
          pron_last = excluded.pron_last,
          pron_count = pron_count + 1,
          ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         game = COALESCE(NULLIF(excluded.game,''), game),
          last_seen = excluded.last_seen, updated_at = excluded.updated_at`
-    ).bind(userId, lang, item, ko, score, score, now, now).run();
+    ).bind(userId, lang, item, ko, score, score, now, now, game).run();
     return new Response(JSON.stringify({ ok: true, score }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
@@ -4863,6 +4904,9 @@ function isAgencyAllowedPage(path: string): boolean {
   // 🏢 캐피타운 정산 화면 — 캐피타운 지사(capi_*, scope=branch)·본사(franchise 스코프)도 진입 허용.
   //   데이터는 /api/admin/capitown/ 가 계정별로 자기 지사만 내려주므로 화면 진입 자체는 안전(2026-07-22).
   if (path === '/admin/capitown-settlement' || path === '/admin/capitown-settlement/' || path === '/admin/capitown-settlement.html') return true;
+  // 🎮 전 게임 통합 분석 (2026-08-08) — 지사·대리점도 본다.
+  //   개인정보가 없는 화면이다: 집계 숫자 + 익명 uid 뿐이고 실명·연락처는 응답에도 없다.
+  if (path === '/admin/game-insights' || path === '/admin/game-insights/' || path === '/admin/game-insights.html') return true;
   return false;
 }
 
@@ -4878,6 +4922,8 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/settlement/',
     // 🏢 캐피타운 정산 — 핸들러가 계정별(경영진·capitown=전체 / capi_* 지사=자기 지사만) 자체 격리(2026-07-22)
     '/api/admin/capitown/',
+    // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
+    '/api/admin/game-insights',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
