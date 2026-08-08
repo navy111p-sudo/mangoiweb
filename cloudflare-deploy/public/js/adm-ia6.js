@@ -221,11 +221,31 @@
       else el.classList.add(HIDE);
     });
     // 대표 카드(첫 번째)는 펼쳐 준다 — 한 장뿐인 항목에서 또 한 번 누르게 하지 않는다.
+    var lead = null;
     (item.cards || []).slice(0, 1).forEach(function (id) {
       var el = document.getElementById(id);
-      if (el && el.tagName === 'DETAILS') el.open = true;
+      if (el) { lead = el; if (el.tagName === 'DETAILS') el.open = true; }
     });
-    try { window.scrollTo(0, 0); } catch (e) { /* 무시 */ }
+    /* 🔴 (2026-08-08) 예전엔 여기서 `window.scrollTo(0,0)` 였다. 「카드만 남기니 맨 위면 보인다」는
+       전제였는데 **틀렸다** — 대시보드 머리(hero·KPI·오늘 KPI·빠른메뉴 ≈ 1,200px)는 카드가 아니라
+       감춰지지 않는다. 실측: 레벨테스트 카드가 top 1203px 에 있는데 화면은 0 으로 올라가
+       «눌렀는데 아무 데도 안 갔다» 로 보였다. → 대표 카드를 화면에 올린다.
+       ⚠️ 배치가 끝난 뒤에 한 번 더 보정한다. 방금 display 를 되돌린 카드들의 높이가
+          아직 안 정해져서, 곧바로 재면 엉뚱한 위치로 간다(ph97 주석의 content-visibility 문제).
+       ⚠️ 🔴 rAF 를 쓰지 않는다 — **백그라운드 탭에서는 rAF 가 아예 안 돈다**(실측: 발화 0회).
+          그러면 스크롤이 영영 안 일어나 또 «눌러도 안 움직인다» 가 된다. 타이머는 돈다.
+       ⚠️ behavior:'auto' — smooth 금지(「오른쪽이 왔다갔다 해서 정신없다」로 이미 제거된 규칙.
+          숨은 탭에서는 smooth 가 애니메이션을 못 돌려 «움직이지 않는» 결과가 되기도 한다). */
+    if (lead) {
+      var toLead = function () {
+        try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }
+      };
+      toLead();                    // 우선 한 번
+      setTimeout(toLead, 60);      // 배치가 끝난 뒤 보정
+      setTimeout(toLead, 260);     // 늦게 그려지는 카드(표·차트)까지 감안한 마지막 보정
+    } else {
+      try { window.scrollTo(0, 0); } catch (e) { /* 무시 */ }
+    }
   }
 
   function showAll() {
@@ -321,33 +341,41 @@
     return true;
   }
 
+  /* 🔴🔴 (2026-08-08) 「눌러도 아무 데도 안 간다」 —
+     사이드바(#ph85-sidebar)에 리스너를 달면 **영원히 발화하지 않는다.**
+     `adm-s11.js`(ph97)가 **window 캡처**에서 `.ph85-sub`·`.ph85-head` 를 잡고
+     `e.stopPropagation()` 을 부른다(그 파일 주석: «어떤 stopPropagation 도 막을 수 없음»).
+     캡처는 window → … → 사이드바 순서라, 거기서 끊기면 이벤트가 사이드바까지 **내려오지 않는다.**
+     → 우리도 **window 캡처**로 올라간다. ph97 은 `stopImmediatePropagation` 이 아니라
+       `stopPropagation` 이므로, **같은 노드·같은 단계의 다른 리스너는 그대로 실행된다.**
+       (등록 순서: adm-s11 이 문서상 위 → 먼저 실행. 우리는 그 다음에 실행된다.)
+
+     ⚠️ 아코디언(그룹 헤더 펼치기)은 **ph97 에게 맡긴다.** 둘 다 토글하면 서로 상쇄돼
+        (ph97 이 열고 → 우리가 «이미 열림» 으로 보고 닫는다) 그룹이 영영 안 열린다.
+        우리가 헤더에서 처리할 것은 「전체 보기」 하나뿐이다.
+     ⚠️ 여기서 stopPropagation 하지 않는다 — 더 아래 리스너를 우리가 굶기지 않기 위해서다. */
   function wireDelegate(bar) {
-    if (bar.__ia6Deleg) return;
-    bar.__ia6Deleg = true;
-    bar.addEventListener('click', function (e) {
+    if (window.__ia6Deleg) return;
+    window.__ia6Deleg = true;
+    window.addEventListener('click', function (e) {
       var t = e.target;
-      var sub = t.closest && t.closest('[data-ia6-item]');
+      if (!t || !t.closest) return;
+      var sub = t.closest('[data-ia6-item]');
       if (sub) {
-        e.stopPropagation();
         select(sub.getAttribute('data-ia6-item'));
-        if (window.matchMedia('(max-width: 1023px)').matches) bar.classList.remove('open');
+        var sb = document.getElementById('ph85-sidebar');
+        if (sb && window.matchMedia('(max-width: 1023px)').matches) sb.classList.remove('open');
         return;
       }
-      var head = t.closest && t.closest('[data-ia6-head]');
-      if (head) {
-        e.stopPropagation();
-        if (head.getAttribute('data-ia6-head') === '__all') {
-          showAll();
-          try { localStorage.removeItem(LS_KEY); } catch (er) { /* 무시 */ }
-          bar.querySelectorAll('.ph85-sub.ia6-on').forEach(function (x) { x.classList.remove('ia6-on'); });
-          return;
-        }
-        var grp = head.parentElement;
-        var wasOpen = grp.classList.contains('open');
-        bar.querySelectorAll('.ph85-group').forEach(function (x) { x.classList.remove('open'); });
-        if (!wasOpen) grp.classList.add('open');
+      var head = t.closest('[data-ia6-head]');
+      if (head && head.getAttribute('data-ia6-head') === '__all') {
+        showAll();
+        try { localStorage.removeItem(LS_KEY); } catch (er) { /* 무시 */ }
+        document.querySelectorAll('#ph85-sidebar .ph85-sub.ia6-on')
+          .forEach(function (x) { x.classList.remove('ia6-on'); });
       }
-    });
+      // 그 밖의 그룹 헤더 = 아코디언 → ph97 이 처리한다. 여기서 손대면 상쇄된다.
+    }, true);   // ← 반드시 캡처. 버블로 두면 ph97 의 stopPropagation 에 막힌다.
   }
 
   // ── 검색을 쓰면 필터를 푼다 ──────────────────────────────────────────────
