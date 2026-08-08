@@ -557,6 +557,24 @@
 
     <link rel="stylesheet" href="/css/admin-inline-c.css?v=10"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
 
+    <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
+         왜 여기냐 —
+           위 admin-inline-c.css 가 `.card-value{color:… !important}` 로 모든 숫자를 한 색으로 못박는다.
+           그래서 인라인 style="color:…" 은 먹지 않는다. 이길 수 있는 유일한 자리가 «그 뒤 + !important».
+         왜 이 색만이냐 —
+           한쪽 변만 칠하던 컬러 스트라이프를 전부 걷어냈다(방향 있는 선은 «여기서 잘렸나»로 읽히고,
+           박스마다 다른 변이 칠해지면 눈이 줄을 못 맞춘다). 대신 색을 «지금 손봐야 하는 숫자»에만 남긴다.
+           색이 적어야 색이 눈에 띈다. 배경 틴트는 쓰지 않는다 — 테마가 흰 배경을 !important 로 고정하고 있어
+           억지로 덮으면 이 페이지만 테마에서 떨어져 나온다. -->
+    <style id="dash-value-colors">
+      /* ⚠️ #kpi-today 안쪽은 테마가 `html[data-admin-theme="ivory"] #kpi-today .card-value` 로 잡고 있다.
+         id 하나짜리 선택자로는 못 이긴다 → 부모 id 를 같이 적어 id 2개로 올린다.
+         (이 한 줄을 놓쳐서 «규칙은 넣었는데 색이 안 바뀌는» 상태였다) */
+      #kpi-today #today-absence { color:#b91c1c !important }   /* 결석률 — 나쁜 쪽 */
+      #sf-dropped               { color:#b91c1c !important }   /* 기간 내 탈락 */
+      #sf-net                   { color:#047857 !important }   /* 순 증가 — 좋은 쪽 */
+    </style>
+
     <script id="mi-speed-dial-js">
     (function(){
       'use strict';
@@ -826,7 +844,7 @@
   </div>
   <div class="card">
     <div class="card-label" data-ko="🚫 오늘의 결석률" data-en="🚫 Today's Absence Rate">🚫 오늘의 결석률</div>
-    <div class="card-value" id="today-absence" style="color:#b91c1c">—</div>
+    <div class="card-value" id="today-absence">—</div>
     <div class="card-sub" id="today-absence-sub" data-ko="결석 / 예정 수업" data-en="Absent / Scheduled">결석 / 예정 수업</div>
   </div>
   <div class="card">
@@ -1189,8 +1207,8 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
       <div class="card" style="text-align:center"><div class="card-label" data-ko="활성 학생" data-en="Active">활성 학생</div><div class="card-value" id="sf-active">—</div></div>
       <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 신규" data-en="New (period)">기간 내 신규</div><div class="card-value" id="sf-new">—</div></div>
-      <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped" style="color:#b91c1c">—</div></div>
-      <div class="card" style="text-align:center"><div class="card-label" data-ko="순 증가" data-en="Net Growth">순 증가</div><div class="card-value" id="sf-net" style="color:#047857">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="순 증가" data-en="Net Growth">순 증가</div><div class="card-value" id="sf-net">—</div></div>
     </div>
   </div>
 </details>
