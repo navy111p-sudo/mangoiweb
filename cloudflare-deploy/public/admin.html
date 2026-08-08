@@ -1002,30 +1002,89 @@
 <script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
 <script src="/js/adm-quickmenu.js?v=1" defer></script>
 
-<details class="table-card menu-card" id="card-ai-insights">
-  <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
-  <div class="menu-body">
-    
-    <div class="ai-hub-grid">
-      <a class="ai-hub-card fin" href="/admin/finance-realtime">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 8-8"/><path d="M15 7h5v5"/></svg></span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
-        <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
-      </a>
-      <a class="ai-hub-card lrn" href="/admin/learning-insights">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5"/></svg></span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
-        <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
-      </a>
-      <a class="ai-hub-card mkt" href="/admin/marketing-studio">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l5 4V6l-5 4H3z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a7.5 7.5 0 010 11"/></svg></span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
-        <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
-      </a>
-    </div>
-  </div>
-</details>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     📊 통합 대시보드 (2026-08-08)
 
-<details class="table-card menu-card" id="card-kpi-dashboard">
-  <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
+     왜 합쳤나 —
+       「🌅 아침 브리핑」·「🤖 AI 인사이트」·「📊 운영 KPI」·「📅 일자별 차트」 네 카드가
+       같은 질문(«어제 무슨 일이 있었나»)에 서로 다른 숫자로 답하고 있었다.
+       이번 달 매출·활동 학생·이번 달 출석·매출 추세가 겹치고, 브리핑의 6개 칩은
+       운영 KPI 타일의 부분집합이었다. 심지어 «미납»과 «출석»은 두 카드가 서로 다른 표를 봤다.
+       → 카드 하나 + 탭 3개로 묶어 «정본은 하나»를 강제한다.
+
+     ⚠️ 각 카드의 내용은 «한 줄도 바꾸지 않고» 그대로 옮겼다.
+       내부를 쪼개면 위험만 커지고 얻는 게 없다. 바뀐 것은 «담는 그릇»뿐이다.
+
+     ⚠️ 옛 카드 id 4개(card-daily-briefing · card-kpi-dashboard · card-daily-charts ·
+       card-ai-insights)는 탭 안쪽 <div> 에 그대로 남긴다. 이 id 들은
+       퀵메뉴·사이드바(ph85)·통합검색·AI 명령 라우터(adm-p2)·쉬운말 툴팁·아이콘맵·
+       권한 매트릭스(adm-q10)·jumpToMenu 등 열 곳 넘게서 참조한다. 지우면 다 끊긴다.
+       대신 아래 스크립트가 «그 id 에 open=true 를 넣으면 이 카드를 펼치고 해당 탭으로»
+       가도록 이어 준다 — 부르는 쪽 코드는 한 글자도 안 고쳤다.
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style id="dash-tabs-css">
+  /* 탭 — 그림자·그라데이션·hover 확대 없음. 강조는 색과 밑줄만(hover 확대는 «정신없다»고 걷어낸 것). */
+  #dash-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid rgba(15,23,42,.10);margin-bottom:14px}
+  #dash-tabs button{border:0 !important;background:transparent !important;padding:8px 15px;font-size:13.5px;
+    font-weight:800;color:#6b7280 !important;cursor:pointer;border-bottom:3px solid transparent !important;
+    margin-bottom:-2px;font-family:inherit;white-space:nowrap;border-radius:0 !important}
+  #dash-tabs button:hover{color:#7c2d12 !important}
+  #dash-tabs button.on{color:#7c2d12 !important;border-bottom-color:#f59e0b !important}
+  #dash-tabs button[hidden]{display:none}
+  .dash-pane[hidden]{display:none}
+  /* 접힘 요약줄 — 카드를 열지 않고도 핵심 숫자와 브리핑 한 줄이 보인다(둘 다 이미 받아 둔 것이라 요청 0건) */
+  #dash-sum-r1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #dash-pills{display:flex;gap:6px;flex-wrap:wrap}
+  #dash-pills .dp{background:rgba(255,255,255,.75);border:1px solid rgba(15,23,42,.10);border-radius:999px;
+    padding:2px 9px;font-size:11.5px;color:#4b5563;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #dash-pills .dp b{color:#7c2d12;font-weight:900;font-size:12.5px}
+  #dash-pills .dp .u{color:#047857;font-weight:800;font-size:10.5px}
+  #dash-pills .dp .d{color:#b91c1c;font-weight:800;font-size:10.5px}
+  #dash-brief1{margin-top:6px;font-size:12.5px;color:#5b4636;background:rgba(255,251,240,.85);
+    border:1px solid rgba(180,140,60,.22);border-radius:9px;padding:6px 11px;line-height:1.55}
+</style>
+<details class="table-card menu-card" id="card-dashboard"
+         data-menu-label-ko="📊 통합 대시보드" data-menu-label-en="📊 Dashboard">
+  <summary>
+    <span id="dash-sum-r1">
+      <span data-ko="📊 통합 대시보드" data-en="📊 Dashboard">📊 통합 대시보드</span>
+      <span id="dash-pills"></span>
+    </span>
+    <span id="dash-brief1" hidden></span>
+  </summary>
   <div class="menu-body">
+    <div id="dash-tabs" role="tablist">
+      <button type="button" class="on" data-tab="today" data-card="card-kpi-dashboard"
+              data-ko="🌅 오늘" data-en="🌅 Today">🌅 오늘</button>
+      <button type="button" data-tab="chart" data-card="card-daily-charts"
+              data-ko="📈 매출·학생 추세" data-en="📈 Trends">📈 매출·학생 추세</button>
+      <button type="button" data-tab="ai" data-card="card-ai-insights"
+              data-ko="🤖 AI 인사이트" data-en="🤖 AI Insights">🤖 AI 인사이트</button>
+    </div>
+
+    <!-- ▸ 탭 1 : 오늘 — 브리핑 문장 + 그 근거가 되는 KPI 타일을 «한 화면에» 둔다.
+         따로 있을 때는 «위험 2809 vs 활동학생 2914» 같은 모순을 아무도 못 봤다. -->
+    <div class="dash-pane" id="dash-pane-today">
+      <div id="card-daily-briefing">
+    <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
+         data-ko="💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다."
+         data-en="💡 Runs automatically daily at KST 03:00 — yesterday's enrollment, inquiry, overdue, attendance, evaluation data summarized in 5-7 warm Korean sentences by AI (Llama 3.3 70B).">
+      💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button onclick="dbGenerate(true)" class="primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
+        <span data-ko="🔄 다시 생성" data-en="🔄 Re-generate">🔄 다시 생성</span>
+      </button>
+      <button onclick="dbLatest(1)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
+        <span data-ko="📋 최신 브리핑" data-en="📋 Latest">📋 최신 브리핑</span>
+      </button>
+      <button onclick="dbLatest(7)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
+        <span data-ko="📋 최근 7일" data-en="📋 Last 7 Days">📋 최근 7일</span>
+      </button>
+    </div>
+    <div id="db-result" style="margin-top:14px"></div>
+      </div>
+      <div id="card-kpi-dashboard" style="margin-top:14px">
     
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">↻ 새로고침</button>
@@ -1042,92 +1101,12 @@
       <div class="kpi-spark" id="kpi-spark"></div>
       <div id="kpi-spark-labels" style="display:flex;gap:2px;margin-top:4px;font-size:10px;color:#9ca3af"></div>
     </div>
-  </div>
-</details>
-<script>
-(function(){
-  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
-  const fmtWon = (n) => fmt(n) + '원';
-  const fmtTrend = (t) => {
-    if (t == null) return '';
-    if (t === 0) return '<span class="kpi-trend flat">→ 동일</span>';
-    if (t > 0) return `<span class="kpi-trend up">▲ +${t}%</span>`;
-    return `<span class="kpi-trend down">▼ ${t}%</span>`;
-  };
+      </div>
+    </div>
 
-  window.kpiLoad = async function(){
-    const wrap = document.getElementById('kpi-grid');
-    if (!wrap) return;
-    const isEn = (window.adminLang === 'en');
-    // 🔇 조용한 갱신(26-07-22): 5분 자동갱신·재진입 때마다 그리드를 스피너로 갈아끼우면
-    //   "계속 로딩이 돈다"로 보인다 → 이미 타일이 떠 있으면 스피너 없이 뒤에서 갱신.
-    const hasTiles = !!wrap.querySelector('.kpi-tile');
-    if (!hasTiles) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
-    try {
-      const r = await fetch('/api/admin/kpi/dashboard');
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
-      const k = d.kpi || {};
-      const tiles = [
-        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
-        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
-        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
-        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
-        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
-        { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
-        { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
-        { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
-      ];
-      wrap.innerHTML = tiles.map(t => `
-        <div class="kpi-tile ${t.cls}">
-          <div class="kpi-label">${t.label}</div>
-          <div class="kpi-value">${t.value}</div>
-          <div class="kpi-sub">${t.sub}</div>
-          ${t.trend}
-        </div>`).join('');
-      document.getElementById('kpi-updated').textContent = (isEn?'Updated: ':'최종 업데이트: ') + new Date(d.ts).toLocaleTimeString(isEn?'en-US':'ko-KR');
-
-      // 7일 매출 미니 차트
-      const dr = d.daily_revenue || [];
-      const max = Math.max(1, ...dr.map(x => x.revenue || 0));
-      const total = dr.reduce((s,x)=>s+(x.revenue||0), 0);
-      document.getElementById('kpi-spark-total').textContent = (isEn?'Total ':'합계 ') + fmtWon(total);
-      const spark = document.getElementById('kpi-spark');
-      spark.innerHTML = dr.map(x => {
-        const h = max > 0 ? Math.max(2, (x.revenue/max)*100) : 2;
-        return `<div class="kpi-spark-bar" style="height:${h}%" title="${x.date}: ${fmtWon(x.revenue)}"></div>`;
-      }).join('');
-      const labels = document.getElementById('kpi-spark-labels');
-      labels.innerHTML = dr.map(x => `<div style="flex:1;text-align:center">${x.date}</div>`).join('');
-    } catch(e) {
-      // 백그라운드 갱신 실패면 기존 타일 유지(스피너/에러로 갈아끼우지 않음)
-      if (!wrap.querySelector('.kpi-tile')) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
-    }
-  };
-  // 페이지 로드 시 자동 + 5분마다 새로고침
-  //
-  // 🐢 (2026-08-08) 두 가지를 고쳤다.
-  //   ① 5분 자동 갱신이 «카드가 접혀 있어도» 계속 돌았다. 아무도 안 보는 화면을 위해
-  //      5분마다 API 를 한 번씩 쓰고 있었다 → 펼쳐져 있을 때만 돈다.
-  //   ② 탭이 백그라운드로 내려가 있으면 갱신하지 않는다. 돌아올 때 어차피 한 번 부른다.
-  //      (관리자 콘솔을 하루 종일 켜 두는 사무실 PC 에서 특히 크다)
-  function kpiCardOpen(){
-    var c = document.getElementById('card-dashboard') || document.getElementById('card-kpi-dashboard');
-    return !!(c && c.open);
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(kpiLoad, 500));
-  else setTimeout(kpiLoad, 500);
-  setInterval(function(){
-    if (!kpiCardOpen()) return;
-    if (document.visibilityState === 'hidden') return;
-    kpiLoad();
-  }, 5*60*1000);
-})();
-</script>
-
-<details class="table-card menu-card" id="card-daily-charts">
-  <summary><span data-ko="📅 일자별 차트 (출석·보상·매출·학생)" data-en="📅 Daily Charts (Attendance · Rewards · Revenue · Students)">📅 일자별 차트 (출석·보상·매출·학생)</span></summary>
-  <div class="menu-body">
+    <!-- ▸ 탭 2 : 매출·학생 추세 -->
+    <div class="dash-pane" id="dash-pane-chart" hidden>
+      <div id="card-daily-charts">
     <!-- (역할 안내 배너 제거: 사용자 요청) -->
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
@@ -1210,8 +1189,225 @@
       <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped">—</div></div>
       <div class="card" style="text-align:center"><div class="card-label" data-ko="순 증가" data-en="Net Growth">순 증가</div><div class="card-value" id="sf-net">—</div></div>
     </div>
+      </div>
+    </div>
+
+    <!-- ▸ 탭 3 : AI 인사이트 — 링크만 있어 API 를 부르지 않는다. 카드 한 칸 대신 탭 한 칸이면 충분하다. -->
+    <div class="dash-pane" id="dash-pane-ai" hidden>
+      <div id="card-ai-insights">
+    
+    <div class="ai-hub-grid">
+      <a class="ai-hub-card fin" href="/admin/finance-realtime">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 8-8"/><path d="M15 7h5v5"/></svg></span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
+        <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
+      </a>
+      <a class="ai-hub-card lrn" href="/admin/learning-insights">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5"/></svg></span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
+        <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
+      </a>
+      <a class="ai-hub-card mkt" href="/admin/marketing-studio">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l5 4V6l-5 4H3z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a7.5 7.5 0 010 11"/></svg></span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
+        <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
+      </a>
+    </div>
+      </div>
+    </div>
   </div>
 </details>
+
+<script id="dash-tab-controller">
+/* ═══════════════════════════════════════════════════════════════════════════
+   📊 통합 대시보드 — 탭 전환 + «옛 카드 id» 이어주기 (2026-08-08)
+
+   이 스크립트에서 가장 중요한 부분은 탭 전환이 아니라 아래 «open 이어주기» 다.
+   카드 4개를 하나로 합치면서 옛 id 들은 <details> 가 아니라 탭 안쪽 <div> 가 됐다.
+   그런데 사이드바·통합검색·AI 명령 라우터·jumpToMenu 는 전부
+   «getElementById(id).open = true» 로 카드를 연다. div 에 open 을 넣으면 아무 일도
+   일어나지 않으므로, 열 곳 넘는 진입 경로가 조용히 죽는다 —
+   «눌러도 아무 반응이 없다» 는, 제일 알아채기 어려운 고장이다.
+
+   → 그 div 들의 open 프로퍼티를 가로채서, 넣으면 이 카드를 펼치고 해당 탭으로 간다.
+     부르는 쪽 코드는 한 글자도 안 고쳤다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var TAB_OF = {
+    'card-daily-briefing': 'today',
+    'card-kpi-dashboard':  'today',
+    'card-daily-charts':   'chart',
+    'card-ai-insights':    'ai'
+  };
+
+  var card   = document.getElementById('card-dashboard');
+  var tabsEl = document.getElementById('dash-tabs');
+  if (!card || !tabsEl) return;
+
+  var cur = 'today';
+
+  function buttons(){ return tabsEl.querySelectorAll('button[data-tab]'); }
+  function panes(){ return card.querySelectorAll('.dash-pane'); }
+
+  function firstVisibleTab(){
+    var bs = buttons();
+    for (var i = 0; i < bs.length; i++) if (!bs[i].hidden) return bs[i].getAttribute('data-tab');
+    return null;
+  }
+
+  window.dashSelectTab = function (name) {
+    var bs = buttons(), ok = false, i;
+    for (i = 0; i < bs.length; i++) if (bs[i].getAttribute('data-tab') === name && !bs[i].hidden) ok = true;
+    if (!ok) { name = firstVisibleTab(); if (!name) return; }
+    cur = name;
+    for (i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].getAttribute('data-tab') === name);
+    var ps = panes();
+    for (i = 0; i < ps.length; i++) ps[i].hidden = (ps[i].id !== 'dash-pane-' + name);
+    onTabShown(name);
+  };
+
+  // 탭을 «처음 보여줄 때» 그 탭 것만 불러온다. 두 번째부터는 이미 그려져 있으므로 조용하다.
+  var shown = {};
+  function onTabShown(name){
+    if (!card.open) return;          // 접혀 있으면 아무것도 안 부른다
+    if (shown[name]) return;
+    shown[name] = true;
+    try {
+      // 브리핑 — 대개 하루 캐시라 요청 0건
+      if (name === 'today' && typeof dbLatest === 'function') dbLatest(1);
+      // 차트 4개 + 스파크라인 5개 — 여기서 처음 그린다
+      if (name === 'chart' && typeof admDashOnOpen === 'function') admDashOnOpen();
+      // 'ai' 탭은 링크뿐이라 부를 것이 없다
+    } catch (e) { try { console.warn('[dash] tab load', name, e); } catch (_) {} }
+  }
+
+  tabsEl.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button[data-tab]') : null;
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.dashSelectTab(b.getAttribute('data-tab'));
+  });
+
+  // ── 옛 카드 id 이어주기 ──────────────────────────────────────────────
+  Object.keys(TAB_OF).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el.tagName === 'DETAILS') return;   // 혹시 되돌려져 details 면 손대지 않는다
+    try {
+      Object.defineProperty(el, 'open', {
+        configurable: true,
+        get: function () { return !!card.open && cur === TAB_OF[id]; },
+        set: function (v) {
+          if (!v) { card.open = false; return; }
+          card.open = true;
+          window.dashSelectTab(TAB_OF[id]);
+        }
+      });
+    } catch (e) {}
+  });
+
+  // 카드를 펼치면 «지금 탭» 것만 그때 불러온다 (접혀 있는 동안은 아무것도 안 부른다)
+  card.addEventListener('toggle', function () { if (card.open) onTabShown(cur); });
+
+  // ── 권한: 숨겨진 옛 카드에 딸린 탭은 버튼째 숨긴다 ───────────────────
+  //   adm-q10.js(ph118Apply)가 옛 id 에 .ph118-card-hidden 을 붙이는 방식은 그대로 두고,
+  //   여기서는 그 «결과만» 읽어 탭에 반영한다 — 권한 매트릭스는 한 글자도 안 고쳤다.
+  //   ⚠️ 브리핑(card-daily-briefing)은 오늘 처음 권한 표에 올렸다. 그전까지는 표에 없어서
+  //      아무에게도 안 가려지고 있었다(그 표는 목록에 있는 카드만 가린다).
+  function syncPerm(){
+    var bs = buttons(), i;
+    for (i = 0; i < bs.length; i++) {
+      var owner = document.getElementById(bs[i].getAttribute('data-card'));
+      bs[i].hidden = !!(owner && owner.classList.contains('ph118-card-hidden'));
+    }
+    // 보고 있던 탭이 숨겨졌으면 남아 있는 첫 탭으로 옮긴다
+    var curHidden = true;
+    for (i = 0; i < bs.length; i++) {
+      if (bs[i].getAttribute('data-tab') === cur && !bs[i].hidden) curHidden = false;
+    }
+    if (curHidden) { var n = firstVisibleTab(); if (n) window.dashSelectTab(n); }
+    // 볼 수 있는 탭이 하나도 없으면 카드 자체를 숨긴다
+    if (firstVisibleTab()) card.classList.remove('ph118-card-hidden');
+    else card.classList.add('ph118-card-hidden');
+  }
+  window.dashSyncPerm = syncPerm;
+
+  // 권한 적용은 부팅 뒤 여러 번 일어난다(세션 로드·권한표 저장 등) → 클래스 변화를 관찰해 따라간다
+  try {
+    var mo = new MutationObserver(function () { syncPerm(); });
+    Object.keys(TAB_OF).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+  } catch (e) {}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncPerm);
+  else syncPerm();
+  setTimeout(syncPerm, 800);
+})();
+</script>
+
+<script id="dash-summary-line">
+/* 📊 접힘 요약줄 — 카드를 열지 않고도 핵심 숫자와 브리핑 한 줄이 보인다.
+   둘 다 «이미 받아 둔 것»을 다시 쓰는 것이라 요청이 늘지 않는다:
+     · 숫자 — 부팅 때 어차피 한 번 부르는 /api/admin/kpi/dashboard 결과를 그대로 사용
+     · 브리핑 — 날짜를 열쇠로 저장해 둔 하루 캐시 (없으면 그냥 안 보여준다. 받으러 가지 않는다)
+   직원 대부분은 이 한 줄이면 카드를 열 일 자체가 없다. */
+(function () {
+  'use strict';
+  var pillsEl = document.getElementById('dash-pills');
+  var b1El    = document.getElementById('dash-brief1');
+  if (!pillsEl) return;
+
+  function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function n(v){ return (Number(v) || 0).toLocaleString('ko-KR'); }
+  function won(v){
+    v = Number(v) || 0;
+    if (v >= 100000000) return (v/100000000).toFixed(1) + '억';
+    if (v >= 10000)     return Math.round(v/10000).toLocaleString('ko-KR') + '만';
+    return n(v);
+  }
+  function arrow(t){
+    if (t == null || t === 0) return '';
+    return t > 0 ? ' <span class="u">▲</span>' : ' <span class="d">▼</span>';
+  }
+
+  // KPI 응답 → pill 6개
+  window.dashRenderPills = function (k) {
+    if (!k) return;
+    var en = (window.adminLang === 'en');
+    var items = [
+      [en?'Students':'활동 학생',  n(k.students && k.students.total),        k.students && k.students.trend],
+      [en?'Revenue':'이번 달 매출', won(k.revenue && k.revenue.this_month) + (en?'':'원'), k.revenue && k.revenue.trend],
+      [en?'Attend':'이번 달 출석',  n(k.attendance && k.attendance.this_month), k.attendance && k.attendance.trend],
+      [en?'Overdue':'미납',        n(k.overdue && k.overdue.count),          null],
+      [en?'Inquiry':'신규 상담',    n(k.inquiry && k.inquiry.last_30_days),   null],
+      [en?'Eval':'평가 평균',       (k.evaluation && k.evaluation.avg_score ? k.evaluation.avg_score.toFixed(1) : '—'), null]
+    ];
+    pillsEl.innerHTML = items.map(function (it) {
+      return '<span class="dp">' + esc(it[0]) + ' <b>' + it[1] + '</b>' + arrow(it[2]) + '</span>';
+    }).join('');
+  };
+
+  // 브리핑 캐시가 있으면 첫 문장만 한 줄로 (받으러 가지는 않는다)
+  function renderBrief(){
+    if (!b1El) return;
+    var uid = '';
+    try { uid = (JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || ''; } catch (e) {}
+    var o = null;
+    try { o = JSON.parse(localStorage.getItem('mangoi_briefing_v1:' + uid) || 'null'); } catch (e) {}
+    if (!o || !o.items || !o.items.length) { b1El.hidden = true; return; }
+    var b = o.items[0];
+    var first = String(b.briefing_text || '').split('\n').filter(function (x) { return x.trim(); })[0] || '';
+    if (!first) { b1El.hidden = true; return; }
+    if (first.length > 110) first = first.slice(0, 110) + '…';
+    b1El.innerHTML = '🌅 <b style="color:#7c2d12">' + esc(b.briefing_date || '') + '</b> · ' + esc(first);
+    b1El.hidden = false;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderBrief);
+  else renderBrief();
+  document.addEventListener('mangoi:lang-changed', renderBrief);
+})();
+</script>
 
 <details class="table-card menu-card" id="card-rankings">
   <summary><span data-ko="🏆 학생 랭킹 (발화·시선·집중도)" data-en="🏆 Student Rankings (Speaking · Gaze · Focus)">🏆 학생 랭킹 (발화·시선·집중도)</span></summary>
@@ -4153,28 +4349,6 @@ window.__admSettleRun = function(fn){
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🌅 Daily Morning Briefing — 매일 아침 자동 일일 브리핑              -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<details class="table-card menu-card" id="card-daily-briefing">
-  <summary><span data-ko="🌅 매일 아침 자동 브리핑" data-en="🌅 Daily Morning Briefing">🌅 매일 아침 자동 브리핑</span></summary>
-  <div class="menu-body">
-    <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
-         data-ko="💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다."
-         data-en="💡 Runs automatically daily at KST 03:00 — yesterday's enrollment, inquiry, overdue, attendance, evaluation data summarized in 5-7 warm Korean sentences by AI (Llama 3.3 70B).">
-      💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다.
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <button onclick="dbGenerate(true)" class="primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
-        <span data-ko="🔄 다시 생성" data-en="🔄 Re-generate">🔄 다시 생성</span>
-      </button>
-      <button onclick="dbLatest(1)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
-        <span data-ko="📋 최신 브리핑" data-en="📋 Latest">📋 최신 브리핑</span>
-      </button>
-      <button onclick="dbLatest(7)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
-        <span data-ko="📋 최근 7일" data-en="📋 Last 7 Days">📋 최근 7일</span>
-      </button>
-    </div>
-    <div id="db-result" style="margin-top:14px"></div>
-  </div>
-</details>
 <script>
 (function(){
   const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -4276,7 +4450,9 @@ window.__admSettleRun = function(fn){
       box.innerHTML = `<div style="color:#fca5a5;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:12px">❌ ${esc(e.message)}</div>`;
     }
   };
-  document.getElementById('card-daily-briefing')?.addEventListener('toggle', function(){ if (this.open) dbLatest(1); });
+  // 🔀 (2026-08-08) 예전엔 이 카드가 <details> 라 toggle 로 불렀다. 이제 탭 안쪽 <div> 라 toggle 이 없다.
+  //   대신 통합 대시보드의 탭 컨트롤러가 「오늘」 탭을 처음 보여줄 때 dbLatest(1) 을 부른다.
+  //   부르는 자리가 한 곳뿐이라 «열 때마다 또 받는» 일도 없다 (게다가 대개 하루 캐시라 요청 0건).
 })();
 </script>
 
@@ -8563,7 +8739,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=48" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=49" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -10749,7 +10925,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 118 admin (2026-05-25) — 권한 매트릭스 실제 사이드바 적용 (역할별 V/X 자동 반영) -->
 
 
-<script src="/js/adm-q10.js?v=5" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=6" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
