@@ -6,7 +6,7 @@
        suspect-mystery·battle-3d)은 정오답을 아예 안 보냈다.
        → 「테트리스가 잘 되고 있나」를 물어볼 수조차 없었다.
 
-   사용: <script src="/js/game-track.js?v=1" defer></script> **한 줄만.**
+   사용: <script src="/js/game-track.js?v=N" defer></script> **한 줄만.** (N=현재 버전)
         게임 로직은 한 글자도 고치지 않는다. 13개 파일 내부를 고치면
         사고 반경이 게임 13개가 된다 — 그래서 바깥에서 붙인다.
 
