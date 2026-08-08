@@ -7411,14 +7411,20 @@ LIMIT $limit`;
       const b = await parseJsonBody(request);
       if (!b || !b.student_name || !b.package) return invalidBody(['student_name', 'package']);
       const now = Date.now();
+      // 🥭 2026-08-08 — 요일·시간·인원방식·수업유형·강사를 여기서 «버리고» 있었다.
+      //   등록 폼(Phase 24 다중 등록표)과 파일/카톡 import 는 이 값들을 다 받아 CSV 로
+      //   내보내기까지 했는데, INSERT 목록에 없어서 DB 에는 한 번도 들어간 적이 없다.
+      //   그래서 목록 표가 «패키지» 말고는 보여줄 것이 없었다. (컬럼은 위에서 이미 보강함)
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
         b.ended_at ? Number(b.ended_at) : null,
         b.monthly_fee_krw != null ? Number(b.monthly_fee_krw) : null,
-        b.status || 'pending', b.notes || null, now, now
+        b.status || 'pending', b.notes || null, now, now,
+        b.days_of_week || null, b.time || null, b.class_size || null,
+        b.type || null, b.teacher_name || null, b.end_date || null
       ).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }
