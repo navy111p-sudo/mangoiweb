@@ -5845,6 +5845,10 @@ window.mgIsSlowNet = function(){
       if(title) title.textContent = HOME_CARD_TITLE[currentLang] || HOME_CARD_TITLE.en;
       // data-* 속성 (fallback en → ko)
       document.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
+       /* 🛡 (2026-08-08) 요소 하나가 던지면 여기서 루프가 통째로 죽는다.
+          그러면 «화면 절반만 언어가 바뀌는» 꼴이 되고, 함수 끝의 langchange 통지도 못 나간다.
+          한 요소의 사고가 나머지 화면을 인질로 잡지 않게 각각 감싼다. */
+       try {
         var txt = _pickAttr(el, currentLang, '');
         if(txt === null) return;
         // 🩹 (2026-07-14) 자식에 폼 컨트롤(input 등)이 있으면 textContent 교체가
@@ -5859,6 +5863,7 @@ window.mgIsSlowNet = function(){
         } else {
           el.textContent = txt;
         }
+       } catch(_){}
       });
       document.querySelectorAll('[data-ko-ph],[data-en-ph]').forEach(function(el){
         var ph = _pickAttr(el, currentLang, '-ph');
@@ -5886,7 +5891,19 @@ window.mgIsSlowNet = function(){
         btn.style.borderColor = (currentLang === 'ko') ? 'rgba(148,163,184,0.2)' : 'rgba(56,189,248,0.4)';
         btn.style.color = (currentLang === 'ko') ? '#cbd5e1' : '#38bdf8';
       }
-      mangoiSendLang();   // A.i 상담사 iframe 에 현재 언어 전달
+      /* A.i 상담사 iframe 에 현재 언어 전달.
+         🛡 감싼 이유: 이 함수가 아직 정의되기 전(스크립트 로딩 중)에 언어 복원이 돌면
+         ReferenceError 로 applyLang 이 여기서 끊기고, 아래 langchange 통지가 영영 안 나간다. */
+      try { if (typeof mangoiSendLang === 'function') mangoiSendLang(); } catch(_){}
+      /* 🌐 (2026-08-08 사장님 제보 「수업입장 화면이 한국어로 안 바뀐다」)
+         위의 data-ko/data-en 루프는 **HTML 에 두 벌이 적혀 있는 요소**만 고친다.
+         수업 화면 버튼 상당수는 JS 가 상태(잠금/공유중/접힘)에 따라 textContent 를 직접 쓴다
+         — 학생 필기 잠금·내 화면 공유·얼굴 접기·회의방·내 마이크 미터.
+         이들은 EN 으로 한 번 그려지면 KO 로 돌아와도 **다시 그려주는 사람이 없어 영어로 굳었다**.
+         (i18n-sweep 의 restore() 도 못 고친다 — textContent 대입이 기록해 둔 텍스트 노드를
+          통째로 갈아치워서, 복원이 화면에 없는 죽은 노드에 쓰인다.)
+         이 이벤트를 «듣는» 쪽은 이미 3곳 있었는데 **쏘는 쪽이 없었다.** 여기서 쏜다. */
+      try { window.dispatchEvent(new CustomEvent('mangoi:langchange', { detail: { lang: currentLang } })); } catch(_){}
     }
 
     function toggleLang() {
@@ -10425,7 +10442,11 @@ window.vcRenderScreenShareChip = function(){
     var on = !!window.__vcScreenSharing;
     var en = (typeof _vcBgLockEn === 'function') ? _vcBgLockEn() : false;
     btn.style.background = on ? '#dc2626' : '#0ea5e9';
-    btn.textContent = on ? (en ? 'Stop sharing' : '화면 공유 중지') : (en ? 'Share my screen' : '내 화면 공유');
+    /* 🌐 필기 잠금 칩과 같은 이유로 data-ko/data-en 을 함께 남긴다 (언어 전환 시 applyLang 이 복원) */
+    var _sKo = on ? '화면 공유 중지' : '내 화면 공유';
+    var _sEn = on ? 'Stop sharing'  : 'Share my screen';
+    btn.setAttribute('data-ko', _sKo); btn.setAttribute('data-en', _sEn);
+    btn.textContent = en ? _sEn : _sKo;
 };
 
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
@@ -12600,6 +12621,9 @@ async function vcJoinRoom(skipUI) {
       }
       const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
       chip.innerHTML = '<span class="fr-face">🙂</span><span class="fr-x">✕</span>';
+      /* 🌐 툴팁도 언어를 따라오게 두 벌로 남긴다 (얼굴을 숨긴 동안 계속 떠 있는 칩이라 굳으면 눈에 띈다) */
+      chip.setAttribute('data-ko-title', '얼굴 화면 꺼짐 — 누르면 다시 보여요');
+      chip.setAttribute('data-en-title', 'Faces hidden — tap to show again');
       chip.title = en ? 'Faces hidden — tap to show again' : '얼굴 화면 꺼짐 — 누르면 다시 보여요';
       chip.setAttribute('aria-label', chip.title);
       chip.style.display = 'flex';
@@ -15507,7 +15531,9 @@ function startMicLevelMeter() {
                이 미터는 **내 마이크만** 잰다(vcLocalStream). 그 사실을 라벨로 못박는다.
                강사 다수가 필리핀이라 한/영을 함께 적는다 — 라벨만 영어고 상태가 한국어면 소용없다. */
             var _mmEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
-            _micMeterEl.innerHTML = '🎤 <span style="opacity:.75;font-weight:800">'
+            /* 🌐 (2026-08-08) 라벨에 data-ko/data-en 을 달아 둔다 — 언어를 바꿔도 applyLang 이 고쳐 준다.
+               (상태 글자는 100ms 마다 현재 언어로 다시 쓰이므로 스스로 따라온다) */
+            _micMeterEl.innerHTML = '🎤 <span id="mic-meter-label" style="opacity:.75;font-weight:800" data-ko="내 마이크" data-en="MY MIC">'
                 + (_mmEn ? 'MY MIC' : '내 마이크')
                 + '</span> <span id="mic-meter-status">' + (_mmEn ? 'Waiting' : '대기중') + '</span>'
                 + ' <div style="width:120px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
@@ -16657,6 +16683,15 @@ window.vcClassLockChipsRender = function(){
   }
 };
 
+/* 🌐 (2026-08-08) 언어를 바꾸면 수업 통제 칩 4종을 다시 그린다.
+   data-ko/data-en 만으로도 글자는 바뀌지만, 이 칩들은 «상태(잠금/공유중)에 따라 라벨과 색이
+   같이 바뀌는» 버튼이라 그리는 주체를 하나로 두는 편이 안전하다. */
+try {
+  window.addEventListener('mangoi:langchange', function(){
+    try { if (typeof window.vcClassLockChipsRender === 'function') window.vcClassLockChipsRender(); } catch(_){}
+  });
+} catch(_){}
+
 window.vcMicLockToggle = function(){
   window.__vcMicLockOn = !window.__vcMicLockOn;
   window.vcClassLockChipsRender();
@@ -16696,9 +16731,12 @@ window.vcRenderDrawLockChip = function(){
   var on = !!window.__pdfStudentDrawLock;
   var en = (typeof _vcBgLockEn === 'function') ? _vcBgLockEn() : false;
   btn.style.background = on ? '#dc2626' : '#16a34a';
-  btn.textContent = on
-    ? (en ? 'Drawing locked' : '학생 필기 잠김')
-    : (en ? 'Lock drawing' : '학생 필기 허용');
+  /* 🌐 라벨을 data-ko/data-en 에도 남긴다 — 언어를 바꾸면 applyLang 이 이 두 벌로 다시 쓴다.
+     (없으면 EN 으로 그려진 뒤 KO 로 돌아와도 'Lock drawing' 인 채 굳는다 — 2026-08-08 제보) */
+  var _dKo = on ? '학생 필기 잠김' : '학생 필기 허용';
+  var _dEn = on ? 'Drawing locked' : 'Lock drawing';
+  btn.setAttribute('data-ko', _dKo); btn.setAttribute('data-en', _dEn);
+  btn.textContent = en ? _dEn : _dKo;
 };
 
 window.vcFocusLockToggle = function(){
@@ -30959,7 +30997,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
 <script src="/js/mango-attendance.js?v=35" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
-<script src="/js/mango-i18n.js?v=36" defer></script>
+<script src="/js/mango-i18n.js?v=37" defer></script>
 <script src="/js/session-guard.js" defer></script>
 
 <style id="v33-exit-anchor-style">
@@ -34132,6 +34170,9 @@ window.vcAutoLoadStudentTextbook = async function(){
       c.addEventListener('click', function(){ try { window.vcToggleVideoSidebar(false); } catch(_){} });
       document.body.appendChild(c);
     }
+    c.setAttribute('data-ko', '🙂 얼굴 다시 보기');   c.setAttribute('data-en', '🙂 Show faces');
+    c.setAttribute('data-ko-title', '얼굴·도구 사이드바를 다시 펼칩니다');
+    c.setAttribute('data-en-title', 'Show the video / tools sidebar again');
     c.textContent = en ? '🙂 Show faces' : '🙂 얼굴 다시 보기';
     c.title = en ? 'Show the video / tools sidebar again' : '얼굴·도구 사이드바를 다시 펼칩니다';
     c.setAttribute('aria-label', c.title);
@@ -34141,10 +34182,16 @@ window.vcAutoLoadStudentTextbook = async function(){
     if (!b) return;
     var en = isEn();
     ensureRestoreChip(en);
-    b.textContent = collapsed ? (en ? '‹ Show faces' : '‹ 얼굴 펼치기')
-                              : (en ? '› Hide faces' : '› 얼굴 접기');
-    b.title = collapsed ? (en ? 'Show the video / tools sidebar' : '얼굴·도구 사이드바 펼치기')
-                        : (en ? 'Collapse the sidebar — textbook full width' : '얼굴·도구 사이드바 접기 (교재를 전체 폭으로)');
+    /* 🌐 라벨 두 벌을 data-* 로 남긴다 — 언어를 바꾸면 applyLang 이 이 값으로 다시 쓰고,
+       i18n-sweep 도 이 요소를 건너뛴다(스윕이 만지면 KO 복원이 어긋나 영어로 굳었다). */
+    var _ko = collapsed ? '‹ 얼굴 펼치기' : '› 얼굴 접기';
+    var _en = collapsed ? '‹ Show faces'  : '› Hide faces';
+    var _koT = collapsed ? '얼굴·도구 사이드바 펼치기' : '얼굴·도구 사이드바 접기 (교재를 전체 폭으로)';
+    var _enT = collapsed ? 'Show the video / tools sidebar' : 'Collapse the sidebar — textbook full width';
+    b.setAttribute('data-ko', _ko);        b.setAttribute('data-en', _en);
+    b.setAttribute('data-ko-title', _koT); b.setAttribute('data-en-title', _enT);
+    b.textContent = en ? _en : _ko;
+    b.title = en ? _enT : _koT;
     b.setAttribute('aria-label', b.title);
     b.setAttribute('aria-pressed', collapsed ? 'true' : 'false');
   }
