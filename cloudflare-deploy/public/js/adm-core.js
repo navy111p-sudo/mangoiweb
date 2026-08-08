@@ -251,7 +251,18 @@ async function load() {
   let data;
   let httpStatus = null;
   let rawBody = '';
-  try {
+
+  // ♻️ (2026-08-08) 부팅 때 한 번, 차트 탭을 열 때 또 한 번 — 같은 주소를 두 번 부르고 있었다.
+  //   부팅 호출은 카드 밖 #kpi 4박스를 채우려고 꼭 필요하고(항상 보인다), 차트 탭 호출은
+  //   그 응답을 그대로 다시 쓰면 된다. 90초 안·같은 기간이면 방금 받은 것을 재사용한다.
+  //   ⚠️ «렌더까지 건너뛰지» 않는다 — 아래 그리는 코드는 그대로 탄다. 건너뛰는 건 fetch 뿐이다.
+  //      (기간이 다르거나 90초가 지나면 평소처럼 새로 받는다. 오래된 값을 붙잡고 있지 않는다)
+  const _c = window._admDashCache;
+  const _fresh = !!(_c && _c.days === days && (Date.now() - _c.at) < 90000);
+
+  if (_fresh) {
+    data = _c.data;
+  } else try {
     const r = await fetch('/api/dashboard?days=' + days);
     httpStatus = r.status;
     rawBody = await r.text();      // 먼저 text로 받아서 비JSON 응답도 진단 가능
@@ -269,7 +280,7 @@ async function load() {
     const statusLabel = httpStatus ? ('HTTP ' + httpStatus) : (L ? 'Network error' : '네트워크 에러');
     const msg = String(e && e.message || e).replace(/</g, '&lt;');
     document.getElementById('kpi').innerHTML =
-      '<div class="card" style="grid-column:1/-1;border-left:4px solid #dc2626;">' +
+      '<div class="card" style="grid-column:1/-1;background:#fdf4f4;border:1px solid #f0d2d2;">' +
         '<div class="card-label" style="color:#dc2626;font-weight:700;">⚠️ ' + (L?'Dashboard Load Failed':'데이터 로드 실패') + ' · ' + statusLabel + '</div>' +
         '<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:MangoiHanSC,ui-monospace,monospace;">' + msg + '</div>' +
         '<div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">' +
@@ -280,6 +291,8 @@ async function load() {
     return;
   }
   if (!data) return;
+  // 방금 받은 것을 담아 둔다 — 차트 탭을 열 때 같은 주소를 또 부르지 않게
+  if (!_fresh) { try { window._admDashCache = { days: days, at: Date.now(), data: data }; } catch (e) {} }
 
   // KPI 카드
   const totalSessions = data.connection?.total_sessions || 0;
