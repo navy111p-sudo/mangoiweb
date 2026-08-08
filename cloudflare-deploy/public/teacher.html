@@ -498,8 +498,8 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     <h2 data-en="Materials &amp; Quick Links" data-ko="교재 · 퀵링크">Materials &amp; Quick Links</h2>
     <div id="resources"></div>
     <a class="btn btn-gray btn-wide" href="/admin/mypage"
-       data-en="My Records &amp; Settings (postpone request, profile, login history)"
-       data-ko="내 기록 · 설정 (연기요청 · 프로필 · 로그인 이력)">My Records &amp; Settings (postpone request, profile, login history)</a>
+       data-en="My Records &amp; Settings (profile, login history, sessions)"
+       data-ko="내 기록 · 설정 (프로필 · 로그인 이력 · 세션)">My Records &amp; Settings (profile, login history, sessions)</a>
     <!-- ↑ 라벨에 '무엇이 그 안에 있는지'를 전부 적는다. '전체 마이페이지' 같은 이름은
          강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다.
          🇵🇭 (2026-08-08) 정산·내 평가·비밀번호는 아래로 옮겨 왔으므로 라벨에서 뺐다.
@@ -518,6 +518,17 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
           여기 있는 카드 중 하나라도 첫 화면에서 부르면 이 화면의 설계 계약 4번이 깨진다.
        ⚠️ 연기요청은 일부러 안 옮겼다(사장님 지시). mypage 에 그대로 있다.
        ══════════════════════════════════════════════════════════════════════ -->
+
+  <!-- 📅 연기 · 변경 요청 — 버튼을 «여기» 로 옮겨 되살렸다 (2026-08-08)
+         경위: 08-08 마이마이 요청으로 수업 줄의 [연기] 버튼을 뺐다. 이유는 «기능» 이 아니라
+         **위치** 였다 — [수업 입장] 바로 옆이라 잘못 누르기 쉬웠다.
+         그래서 기능은 살리되, 접어 둔 카드 안(입장 버튼에서 멀리)에 둔다.
+         한 번 펼쳐야 보이므로 오탭이 나지 않고, 강사는 이것 때문에 화면을 갈아탈 필요가 없다.
+         ⚠️ 수업 줄에는 다시 붙이지 말 것. 그게 뺀 이유다. -->
+  <details class="card mycard" id="c-postpone" ontoggle="if(this.open)renderPostponeList()">
+    <summary data-en="Postpone / change a class" data-ko="수업 연기 · 변경 요청">Postpone / change a class</summary>
+    <div id="ppList" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
 
   <details class="card mycard" id="c-pay" ontoggle="if(this.open)loadPay()">
     <summary data-en="Pay &amp; deductions (this month)" data-ko="수업료 정산 (이번 달)">Pay &amp; deductions (this month)</summary>
@@ -1348,9 +1359,10 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Postpone / Change request','연기 · 변경 요청')) + '</h3>'
-      + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '<br>'
-      +   esc(T('For classes on other dates, use My Records & Settings.',
-                '다른 날짜 수업은 「내 기록 · 설정」에서 요청하세요.')) + '</p>'
+      // 🗓 (2026-08-08) 예전엔 «오늘 수업» 만 여기서 됐고 다른 날짜는 마이페이지로 보냈다.
+      //    이제 「수업 연기 · 변경 요청」 카드가 오늘+7일치를 다 골라 주므로 그 안내를 지운다.
+      //    (안내와 실제가 어긋나면 강사는 매번 두 곳을 확인하게 된다.)
+      + '<p class="sub">' + esc(stuName(c) + ' · ' + (c.date && !c.today ? c.date + ' ' : '') + c.start_time) + '</p>'
       + '<div class="' + (isFree ? 'ok' : 'err') + '" style="margin-bottom:14px">'
       +   esc(isFree ? T('More than 30 minutes before the class — no fee.',
                          '수업 시작 30분 전보다 이르므로 요금이 붙지 않습니다.')
@@ -1401,7 +1413,11 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
           teacher_name: DATA.me.name,
           requester_name: DATA.me.name,
           student_name: c.student_name,
-          orig_date: DATA.today,
+          // 🪤 (2026-08-08) 여기는 원래 «오늘 수업만» 다루던 자리라 DATA.today 가 박혀 있었다.
+          //    연기 목록이 오늘+7일치를 다루게 되면서, 다른 날짜 수업을 요청해도
+          //    매니저에게는 «오늘 수업» 으로 기록되는 버그가 됐다(실측에서 잡음).
+          //    → 고른 수업의 날짜를 쓰고, 없을 때만 오늘로 떨어진다.
+          orig_date: c.date || DATA.today,
           orig_time: c.start_time,
           new_date: type === 'change' ? nd : null,
           new_time: type === 'change' ? nt : null,
@@ -2251,6 +2267,52 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
   }
   function myName(){ return (DATA && DATA.me && DATA.me.name) || ''; }
 
+  // ── 📅 연기 · 변경 요청 (목록에서 수업을 고른다) ──────────────────────────
+  //   🪤 서버가 두 목록에 **다른 이름**을 쓴다 — 오늘 수업은 schedule_id, 다가오는 수업은 id.
+  //      (api-teacher.ts: today.push({schedule_id: s.id …}) / upcoming.push({id: s.id …}))
+  //      여기서 한 번 정규화해 두지 않으면 «다가오는 수업만 요청이 안 되는» 버그가 된다.
+  window.renderPostponeList = function(){
+    var t = now();
+    var rows = [];
+    (DATA && DATA.classes || []).forEach(function(c){
+      if (c.done) return;                       // 이미 끝난 수업은 연기할 수 없다
+      if (c.kind && c.kind !== 'class') return; // LMS 점유·샘플 행은 우리 일정이 아니다
+      if (!c.schedule_id) return;
+      rows.push({ schedule_id: c.schedule_id, start_ts: c.start_ts, start_time: c.start_time,
+                  student_name: c.student_name, student_name_en: c.student_name_en,
+                  date: DATA.today, today: true });
+    });
+    (DATA && DATA.upcoming || []).forEach(function(u){
+      var sid = u.schedule_id || u.id;
+      if (!sid) return;
+      rows.push({ schedule_id: sid, start_ts: u.start_ts, start_time: u.start_time,
+                  student_name: u.student_name, student_name_en: u.student_name_en,
+                  date: u.date, today: false });
+    });
+    rows.sort(function(a, b){ return (a.start_ts || 0) - (b.start_ts || 0); });
+
+    if (!rows.length){
+      fill('ppList', '<div class="mini">' + esc(T('No classes to change right now.','지금 변경할 수 있는 수업이 없습니다.')) + '</div>');
+      return;
+    }
+    var h = '<div class="mini" style="padding-bottom:6px">'
+          + esc(T('Pick the class you need to move. Your manager receives the request.',
+                  '옮길 수업을 고르세요. 요청은 매니저에게 전달됩니다.')) + '</div>';
+    rows.forEach(function(r, i){
+      var free = t < (r.start_ts - 30 * 60000);
+      h += '<div class="payrow">'
+        +   '<span><b>' + esc(r.start_time || '') + '</b> '
+        +     esc(stuName(r) || T('(name not set)','(이름 미등록)'))
+        +     ' <span class="cls-meta">' + esc(r.today ? T('today','오늘') : (r.date || '')) + '</span></span>'
+        +   '<button class="btn btn-gray btn-sm g" type="button" data-pp="' + i + '">'
+        +     esc(free ? T('Request','요청') : T('Request (may be charged)','요청 (유료 가능)')) + '</button>'
+        + '</div>';
+    });
+    fill('ppList', h);
+    // 목록을 다시 그릴 때마다 인덱스가 바뀌므로 클로저가 아니라 «현재 rows» 를 참조한다.
+    bindAll(document.getElementById('ppList'), 'data-pp', function(i){ openPostpone(rows[+i]); });
+  };
+
   // ── 💰 수업료 정산 ────────────────────────────────────────────────────────
   //   ⚠️ 이 API 는 첫 화면에서 loadMonthStats() 가 이미 부르고 있다(완료수·페널티용).
   //      여기서는 **같은 응답의 나머지 필드**(실지급 예상액·공제 내역)를 마저 보여 줄 뿐이라
@@ -2447,6 +2509,9 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 
   // 언어를 바꾸면 위 카드들도 다시 그린다(applyLang 은 data-en 만 다룬다).
   function repaintMy(){
+    // 연기 목록은 서버 캐시가 아니라 DATA 에서 매번 만든다 — 펼쳐져 있을 때만 다시 그린다.
+    var pp = document.getElementById('c-postpone');
+    if (pp && pp.open) window.renderPostponeList();
     if (MY.pay) paintPay();
     if (MY.rate) paintRatings();
     if (MY.insight) paintInsight();
