@@ -4,6 +4,15 @@
 const CACHE_NAME = 'mangoi-20260808100306-fresh';
 const RUNTIME_CACHE = 'mangoi-20260808100306-fresh-rt';
 
+// 🔒 버전이 박힌 자산 전용 캐시 — 이름에 **배포 시각을 넣지 않는다**(2026-08-08).
+//   위 두 이름은 deploy.ps1 이 배포할 때마다 새 값으로 갈아끼우고, activate 가
+//   «이름이 다른 캐시»를 전부 지운다. 그래서 배포 한 번에 **전 사용자의 캐시가 통째로 버려졌다.**
+//   그런데 여기 담기는 것은 URL 에 ?v= 가 붙은 js/css 뿐이다 — 내용이 바뀌면 URL 도 바뀌므로
+//   옛것이 잘못 나올 수가 없다. 버릴 이유가 없으니 배포와 무관하게 살려 둔다.
+//   ⚠️ deploy.ps1 은 CACHE_NAME / RUNTIME_CACHE 두 줄만 정규식으로 치환한다. 이 이름은 안 건드린다.
+const ASSET_CACHE = 'mangoi-assets-v1';
+const ASSET_CACHE_MAX = 400;   // 넘으면 오래된 것부터 정리(버전이 바뀐 옛 파일이 쌓인다)
+
 // 첫 설치 때 미리 캐시할 핵심 자산 (필수 only — 너무 많으면 install 실패)
 const PRECACHE_URLS = [
   '/',
@@ -27,16 +36,30 @@ self.addEventListener('install', (event) => {
 });
 
 // === Activate: 오래된 캐시 정리 ===
+//   ⚠️ ASSET_CACHE 는 **지우지 않는다**. 이름에 배포 시각이 없어서 여기 필터에 걸리지 않는다.
+//      대신 너무 커지지 않게 이때 한 번만 솎아 낸다(배포마다 1회, 사용자는 못 느낀다).
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys
-        .filter(k => k !== CACHE_NAME && k !== RUNTIME_CACHE)
+        .filter(k => k !== CACHE_NAME && k !== RUNTIME_CACHE && k !== ASSET_CACHE)
         .map(k => caches.delete(k))
       )
-    ).then(() => self.clients.claim())
+    ).then(pruneAssetCache).then(() => self.clients.claim())
   );
 });
+
+// 버전이 올라간 옛 파일(예: adm-core.js?v=44)은 아무도 다시 요청하지 않으므로 그냥 쌓인다.
+// 넘치면 오래된 쪽(먼저 들어온 순)부터 잘라 낸다. Cache API 는 삽입 순서를 보존한다.
+async function pruneAssetCache() {
+  try {
+    const cache = await caches.open(ASSET_CACHE);
+    const keys = await cache.keys();
+    if (keys.length <= ASSET_CACHE_MAX) return;
+    const drop = keys.slice(0, keys.length - Math.floor(ASSET_CACHE_MAX / 2));
+    await Promise.all(drop.map(k => cache.delete(k)));
+  } catch (e) { /* 캐시 정리 실패가 화면을 막으면 안 된다 */ }
+}
 
 // === Fetch 전략 ===
 //   - API 호출 (/api/*) : 네트워크 우선 (오프라인 시 캐시 fallback)
@@ -55,6 +78,23 @@ self.addEventListener('fetch', (event) => {
 
   // WebSocket 업그레이드는 SW 가 가로채지 않음
   if (url.pathname.startsWith('/ws/')) return;
+
+  // ⚡ (2026-08-08) 버전이 박힌 js/css 는 **cache-first**. 관리자 제외 규칙보다 먼저 본다.
+  //
+  //   왜 안전한가 — URL 에 ?v= 가 붙어 있으면 **URL 이 곧 내용의 버전**이다.
+  //   파일을 고치면 그것을 부르는 HTML 의 ?v= 도 함께 올라가므로(그렇게 안 하면 지금도
+  //   1년짜리 immutable HTTP 캐시 때문에 옛 파일이 나간다), 같은 URL 로 다른 내용이
+  //   내려오는 일이 구조적으로 없다. 즉 아래 «옛 화면 잔상» 사고의 원인과 무관하다.
+  //   그 사고의 진짜 원인은 캐시가 아니라 **networkFirst 의 타임아웃 폴백**이었다
+  //   (느린 회선에서 4초가 지나면 «아직 오고 있는 새 파일» 대신 옛 캐시를 내줬다).
+  //   그 타임아웃은 이번에 제거했다. 아래 networkFirst 주석 참조.
+  //
+  //   효과 — admin.html 은 ?v= 붙은 js/css 를 79개 부른다. 두 번째 방문부터 요청 0건.
+  //   ⚠️ 관리자 화면의 **HTML·API** 는 여전히 캐시하지 않는다(그건 아래 제외 규칙 그대로).
+  if (/\.(js|css)$/.test(url.pathname) && /(^|&)v=/.test(url.search.replace(/^\?/, ''))) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
 
   // 🛡️ (2026-07-22) 관리자 화면은 SW 캐시를 아예 안 태움 — 네트워크로 직접 통과.
   //   networkFirst 의 timeout(4~5초) 폴백이 느린 회선에서 "옛날 CSS/이미지/API 응답"을
@@ -76,9 +116,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // API: 네트워크 우선 + 짧은 캐시 fallback
+  // API: 네트워크 우선 + 캐시 fallback
+  //   🪤 (2026-08-08) 폴백 시각을 5초 → 25초로 늘렸다.
+  //      필리핀 회선에서 API 가 5초 넘는 건 «고장» 이 아니라 그냥 «느린 것» 이다.
+  //      5초에서 폴백하면 아직 오고 있는 최신 응답을 버리고 옛 데이터를 내주게 된다.
+  //      타임아웃은 «무한 스피너 방지» 라는 원래 목적만 남기고, 그 선을 훨씬 뒤로 민다.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(request, RUNTIME_CACHE, 5000));
+    event.respondWith(networkFirst(request, RUNTIME_CACHE, 25000));
     return;
   }
 
@@ -117,9 +161,32 @@ var _n=0,_t=setInterval(async function(){
     return;
   }
 
-  // 정적 자산 (이미지/JS/CSS/폰트): 네트워크 우선 — 배포 즉시 반영, 오프라인 시 캐시 fallback
-  event.respondWith(networkFirst(request, RUNTIME_CACHE, 4000));
+  // 정적 자산 (이미지/폰트, 그리고 ?v= 가 없는 js/css): 네트워크 우선.
+  //   🪤 (2026-08-08) **타임아웃 폴백을 없앴다.** 이것이 「관리자 화면에 옛 CSS·이미지가
+  //      남는다」던 사고의 진짜 원인이었다 — 느린 회선에서 4초가 지나면, 새 파일이 아직
+  //      오고 있는데도 옛 캐시를 내주고 그걸로 화면을 그렸다. 회선이 느릴수록 더 자주 터졌다.
+  //      이제 폴백은 **네트워크가 실제로 실패했을 때만** 일어난다(= 진짜 오프라인).
+  //      느린 것은 기다린다. 기다리는 동안 화면이 비는 것보다, 옛것으로 잘못 그리는 게 나쁘다.
+  event.respondWith(networkFirst(request, RUNTIME_CACHE));
 });
+
+// 캐시 우선 — ?v= 로 버전이 박힌 자산 전용.
+//   같은 URL 이면 같은 내용이 보장되므로 «최신 확인» 자체가 불필요하다.
+//   지연 350ms 회선에서 이 확인 한 번이 파일당 0.35초다. admin.html 은 그런 파일이 79개다.
+async function cacheFirst(request) {
+  const cache = await caches.open(ASSET_CACHE);
+  const hit = await cache.match(request);
+  if (hit) return hit;
+  try {
+    const resp = await fetch(request);
+    // 성공한 것만 담는다. 실패 응답을 담으면 그 URL 이 영원히 깨진 채로 굳는다.
+    if (resp && resp.ok) cache.put(request, resp.clone()).catch(() => {});
+    return resp;
+  } catch (e) {
+    // 오프라인인데 캐시에도 없다 — 브라우저에게 평소의 네트워크 오류를 그대로 보여 준다.
+    throw e;
+  }
+}
 
 // 네트워크 우선 (timeout 시 캐시 fallback)
 async function networkFirst(request, cacheName, timeoutMs) {
