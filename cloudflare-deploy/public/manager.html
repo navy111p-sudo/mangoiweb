@@ -399,14 +399,22 @@ body.is-off .card{opacity:.82}
   function paintToday(){
     var d = D.today; if (!d) return;
     document.getElementById('todayDate').textContent = d.date || '';
-    var absent = (d.absence && d.absence.rate_pct) || 0;
+    // 🪤 (2026-08-08) rate_pct 는 «모르면 null» 이다(서버가 오늘 예정 정보를 못 찾은 경우).
+    //    0 으로 떨어뜨리면 «결석 없음» 이라는 틀린 사실이 된다 → «–» 로 그린다.
+    var _ab = d.absence || {};
+    var absentKnown = (typeof _ab.rate_pct === 'number');
+    var absent = absentKnown ? _ab.rate_pct : 0;
     document.getElementById('kToday').innerHTML =
       tile(won(d.revenue && d.revenue.amount_krw), T('Revenue today', '오늘 매출'),
            T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건')) +
       tile(n0(d.students && d.students.attended), T('Attended', '출석'),
            T('of ' + n0(d.students && d.students.active) + ' active', '재원 ' + n0(d.students && d.students.active) + '명 중')) +
-      tile(absent.toFixed(1) + '%', T('Absence rate', '결석률'),
-           T(n0(d.absence && d.absence.absent) + ' absent', n0(d.absence && d.absence.absent) + '명 결석'), absent >= 30 ? 'warn' : '') +
+      tile(absentKnown ? absent.toFixed(1) + '%' : '–', T('Absence rate', '결석률'),
+           absentKnown
+             ? T(n0(_ab.absent) + ' of ' + n0(_ab.scheduled) + ' scheduled',
+                 '예정 ' + n0(_ab.scheduled) + '명 중 ' + n0(_ab.absent) + '명 결석')
+             : T('Not enough class-schedule data for today', '오늘 예정된 수업 정보가 부족합니다'),
+           (absentKnown && absent >= 30) ? 'warn' : '') +
       tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
   }
   function tile(big, label, sub, cls){
@@ -803,6 +811,6 @@ body.is-off .card{opacity:.82}
   boot();
 })();
 </script>
-<!-- BUILD:20260808201855 -->
+<!-- BUILD:20260808211817 -->
 </body>
 </html>

@@ -7192,22 +7192,36 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- 🏢 Phase 9: 6개 메뉴 카드 (클릭 토글 메뉴 — 닫힘 상태로 시작) -->
 
 
-<!-- 가맹점 관리 -->
-<details class="table-card menu-card" id="card-franchises">
-  <summary><span data-ko="🏬 가맹점 관리" data-en="🏬 Franchises">🏬 가맹점 관리</span></summary>
+<!-- 조직 관리 (본사 › 지사 › 대리점(학원))
+     ⚠️ (2026-08-08) 라벨을 바로잡았다. 실데이터 확인 결과 이름이 «한 칸 밀려» 있었다:
+        · franchises 테이블 241건 = "본사지사·노원지사·서귀포지사…" → 실제로 «지사»
+        · centers    테이블 921건 = "노원 백점 학원·우리 대리점·선운일등학원…" → 실제로 «대리점(학원)»
+          (921건 중 744건이 학생 명부 shop_name 과 글자 그대로 일치)
+        원인: cafe24-sync 가 Neo4j (:Branch)→franchises, (:Center)→centers 로 넣는데
+              한국어 라벨을 «가맹점/교육센터»로 붙여서 한 단계씩 어긋났다.
+        테이블명은 정산·회계가 물려 있어 그대로 두고 «화면 라벨만» 고쳤다. -->
+<details class="table-card menu-card" id="card-franchises" data-menu-label-ko="조직 관리 (본사·지사)" data-menu-label-en="Organization (HQ · Branch)"
+         ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('franchises')">
+  <summary><span data-ko="🏢 조직 관리 (본사 › 지사)" data-en="🏢 Organization (HQ › Branch)">🏢 조직 관리 (본사 › 지사)</span></summary>
   <div class="menu-body">
 
-    <!-- 🥭 Phase 44 — 가맹점 관리 하위 8개 메뉴 -->
+    <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다."
+         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The agency list lives in the “🏪 Agency (Academy)” card below.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다.</div>
+
+    <!-- 🥭 Phase 44 — 하위 메뉴. 2)~8) 은 «표를 채우는 JS 가 저장소에 0곳»이라 영원히
+         "데이터 없음" 만 뜨던 껍데기였다(2026-08-08 실측). 지워버리면 되살리기 어려워
+         style="display:none" 로 감추기만 했다 — 배선이 붙는 날 이 속성만 빼면 그대로 보인다. -->
     <div class="sub-menu">
 
-      <!-- 1) 대리점 -->
+      <!-- 1) 지사 — franchises 테이블(실데이터 241건) -->
       <details class="sub-item">
-        <summary data-ko="🏪 대리점" data-en="🏪 Agency">🏪 대리점</summary>
+        <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점 신규 등록" data-en="＋ Add Agency">＋ 대리점 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 신규 등록" data-en="＋ Add Branch">＋ 지사 신규 등록</summary>
             <div class="menu-form">
-              <input id="fr-name" placeholder="대리점 이름 (필수)" data-ko-placeholder="대리점 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
+              <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
               <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
               <input id="fr-phone" placeholder="전화번호" style="width:140px;" />
               <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
@@ -7215,14 +7229,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="이름" data-en="Name">이름</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개업일" data-en="Opened">개업일</th></tr></thead>
+          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
             <tbody id="franchises-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
-      <!-- 2) 지사 -->
-      <details class="sub-item">
-        <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
+      <!-- 2) 지사 — 🚧 배선 없음(#branches-table 채우는 JS 0곳) + 위 1)번과 중복이라 감춤 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
+        <summary data-ko="🏢 지사 (구)" data-en="🏢 Branch (old)">🏢 지사 (구)</summary>
         <div class="sub-body">
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 등록" data-en="＋ Register Branch">＋ 지사 등록</summary>
@@ -7240,8 +7254,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 3) 대표지사 -->
-      <details class="sub-item">
+      <!-- 3) 대표지사 — 🚧 배선 없음(#mbranches-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
         <div class="sub-body">
           <details>
@@ -7263,8 +7277,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 4) 영입본부 -->
-      <details class="sub-item">
+      <!-- 4) 영입본부 — 🚧 배선 없음(#recruit-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🎯 영입본부" data-en="🎯 Recruitment HQ">🎯 영입본부</summary>
         <div class="sub-body">
           <details>
@@ -7287,8 +7301,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 5) 본사 관리 -->
-      <details class="sub-item">
+      <!-- 5) 본사 관리 — 🚧 배선 없음(#hq-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🏯 본사 관리" data-en="🏯 HQ Management">🏯 본사 관리</summary>
         <div class="sub-body">
           <details>
@@ -7307,8 +7321,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 6) 독립 사이트 -->
-      <details class="sub-item">
+      <!-- 6) 독립 사이트 — 🚧 배선 없음(#indep-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🌐 독립 사이트" data-en="🌐 Standalone Site">🌐 독립 사이트</summary>
         <div class="sub-body">
           <details>
@@ -7330,8 +7344,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 7) 종전금 내역 -->
-      <details class="sub-item">
+      <!-- 7) 종전금 내역 — 🚧 배선 없음(#settle-table 채우는 JS 0곳) + 정산 카드와 중복 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="💵 종전금 내역" data-en="💵 Settlement History">💵 종전금 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -7358,8 +7372,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 8) 포인트 내역 -->
-      <details class="sub-item">
+      <!-- 8) 포인트 내역 — 🚧 배선 없음(#points-table 채우는 JS 0곳) + 🎁 포인트 카드와 중복 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="💎 포인트 내역" data-en="💎 Points History">💎 포인트 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -12469,6 +12483,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260808201855 -->
+<!-- BUILD:20260808211817 -->
 </body>
 </html>

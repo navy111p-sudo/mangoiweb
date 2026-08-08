@@ -7794,10 +7794,26 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 };
 { const _pe = document.getElementById('period'); if (_pe) _pe.onchange = load; }   // #period 제거됨 → null 가드
 // 초기 로드 (각각 독립적으로)
+// 🐢 (2026-08-08) loadFranchises·loadCenters 를 여기서 뺐다 — 카드가 닫혀 있는데도
+//    지사 241행 + 대리점·학원 921행(약 155KB)을 부팅마다 받아서 DOM 에 그렸다.
+//    이제 카드를 열 때 로드한다(admin.html 의 ontoggle → adminLazyLoadCard).
+//    ⚠️ 되살리지 말 것. 두 표는 각자 카드 안에서만 쓰이므로 부팅 때 없어도 아무것도 안 깨진다.
 Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadFranchises(), loadCenters(), loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
+  loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
 ]);
+// 🔁 카드 최초 열림 때 한 번만 로드 (admin.html 의 ontoggle 에서 호출)
+window.adminLazyLoadCard = function(kind) {
+  try {
+    if (kind === 'franchises') {
+      if (window.__lazyFranchises) return; window.__lazyFranchises = true;
+      if (typeof loadFranchises === 'function') loadFranchises();
+    } else if (kind === 'centers') {
+      if (window.__lazyCenters) return; window.__lazyCenters = true;
+      if (typeof loadCenters === 'function') loadCenters();
+    }
+  } catch (e) { console.warn('lazy load 실패:', kind, e); }
+};
 // 활성 방 목록 15초마다 자동 갱신
 setInterval(loadActiveRooms, 15000);
 
@@ -7915,14 +7931,16 @@ async function buildGlobalIndex() {
       label: t => t.name,
       sub:   t => `${t.status || '—'} · ${t.years != null ? t.years + 'y' : ''} · rate ${t.rate_per_10min_php || '—'}`,
       action: () => jumpToMenuByLabelMatch('강사') },
-    { url: '/api/admin/franchises',       kindKo: '🏬 가맹점',     kindEn: '🏬 Franchise',    items: 'items',
+    // 🏢 조직 — 본사 › 지사 › 대리점(학원). fields=min 으로 {id,name} 만 받는다
+    //    (예전엔 두 목록의 전체 컬럼을 받아 약 155KB. 이름만 받으니 약 35KB — 검색 범위는 그대로 전건)
+    { url: '/api/admin/franchises?fields=min', kindKo: '🏢 지사',   kindEn: '🏢 Branch',      items: 'items',
       label: f => f.name,
-      sub:   f => f.owner_name || '',
-      action: () => jumpToMenuByLabelMatch('가맹점') },
-    { url: '/api/admin/centers',          kindKo: '🏫 교육센터',   kindEn: '🏫 Center',       items: 'items',
+      sub:   () => '',
+      action: () => jumpToMenuByLabelMatch('조직 관리') },
+    { url: '/api/admin/centers?fields=min&limit=0', kindKo: '🏪 대리점(학원)', kindEn: '🏪 Agency', items: 'items',
       label: c => c.name,
-      sub:   c => c.country || '',
-      action: () => jumpToMenuByLabelMatch('교육센터') },
+      sub:   () => '',
+      action: () => jumpToMenuByLabelMatch('대리점(학원)') },
     { url: '/api/admin/enrollments?limit=500', kindKo: '📚 수강신청', kindEn: '📚 Enrollment', items: 'items',
       label: e => e.student_name,
       sub:   e => `${e.package} · ${e.status}`,

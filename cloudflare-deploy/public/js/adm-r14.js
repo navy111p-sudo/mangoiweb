@@ -24,6 +24,29 @@
   }
   function userOf(){ try{ return JSON.parse(localStorage.getItem('admin_session')||'null'); }catch(e){ return null; } }
 
+  // 🔔 (2026-08-08) 관리자 평가 알람은 **첫 화면이 아니라 「오늘 → 알림함」 안**에 둔다.
+  //   왜 —
+  //     · 같은 내용이 「강사 → 강사 평가」(card-class-ratings)에 이미 있고 **같은 API**를 쓴다
+  //       (/api/admin/ratings/summary?days=30). 첫 화면 배너는 그 카드의 중복 표면이었다.
+  //     · 30일 «요약» 은 사건이 아니라 상태다. 상태는 메뉴에, 사건은 알림함에 둔다.
+  //     · 매 세션 다시 뜨는 배너(sessionStorage 닫기)는 곧 «안 읽는 배너» 가 된다.
+  //   ⚠️ 알림함 카드를 못 찾으면 **그냥 아무것도 안 한다.** 예전처럼 첫 화면 맨 위로
+  //      되돌아가면 이 변경의 의미가 없다.
+  function adminAnchor(){
+    var card = document.getElementById('card-admin-alerts');
+    if (!card) return null;
+    var host = document.getElementById('rating-alarm-slot');
+    if (host) return host;
+    host = document.createElement('div');
+    host.id = 'rating-alarm-slot';
+    host.style.cssText = 'margin:0 0 12px';
+    // summary 바로 뒤(카드 본문 맨 앞)에 넣는다 — 펼치면 제일 먼저 보이게.
+    var sm = card.querySelector('summary');
+    if (sm && sm.nextSibling) card.insertBefore(host, sm.nextSibling);
+    else card.appendChild(host);
+    return host;
+  }
+
   function anchor(){
     var host = document.getElementById('rating-role-panel');
     if (host) return host;
@@ -87,7 +110,8 @@
   // ── 관리자: 강사 평가 알람 ──
   async function renderAdmin(){
     var EN = (window.adminLang === 'en');
-    var host = anchor();
+    var host = adminAnchor();
+    if (!host) return;            // 알림함 카드가 없는 화면에서는 아무 것도 하지 않는다
     try{
       var r = await fetch('/api/admin/ratings/summary?days=30');
       var d = await r.json();
@@ -134,7 +158,7 @@
         + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<div style="font-size:15px;font-weight:800;color:#b45309">'+(EN?'🔔 Teacher rating alerts':'🔔 강사 평가 알람')+'</div>'
         + '<span style="font-size:11.5px;color:'+MUTED+'">'+(EN?'Last 30 days · student class ratings':'최근 30일 학생 수업 평가 요약')+'</span></div>'
-        + warnHtml + topHtml
+        + warnHtml   /* 🏆 우수 강사는 알림이 아니다 → card-praise-stats 담당 */
         + '<div style="margin-top:12px"><button id="rating-alarm-more" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#3f2d0b;border:0;border-radius:8px;padding:8px 16px;font-size:12.5px;font-weight:800;cursor:pointer">'+(EN?'View details →':'자세히 보기 →')+'</button></div>'
         + '</div>';
       if (typeof window.applyRatingTr === 'function') window.applyRatingTr(host);

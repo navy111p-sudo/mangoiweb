@@ -708,6 +708,11 @@ export async function handleAdminApi(
       } catch {}
 
       const todayKst = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+      // 오늘의 요일(KST) → 자유 형식 요일 필드와 맞출 LIKE 패턴 두 벌(영문·한글).
+      //   데이터 실측: 'Wed' 'wed' 형태가 대부분이고 한글도 섞일 수 있다.
+      const _dowIdx = new Date(Date.now() + 9*3600*1000).getUTCDay();
+      const _dowEn = '%' + ['sun','mon','tue','wed','thu','fri','sat'][_dowIdx] + '%';
+      const _dowKo = '%' + ['일','월','화','수','목','금','토'][_dowIdx] + '%';
       const startMs = new Date(todayKst + 'T00:00:00+09:00').getTime();
       const endMs = startMs + 86400000;
 
@@ -721,7 +726,7 @@ export async function handleAdminApi(
       const _sf = _tf;   // 위 캐시 키 계산에서 이미 조회 — 재호출 낭비 방지
       const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
 
-      const [revRow, attRow, activeRow, signupRow] = await Promise.all([
+      const [revRow, attRow, activeRow, signupRow, schedRow] = await Promise.all([
         safe(() => env.DB.prepare(
           `SELECT COALESCE(SUM(amount_krw), 0) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
@@ -737,9 +742,12 @@ export async function handleAdminApi(
         { attended: 0 } as any),
 
         safe(() => env.DB.prepare(
+          // 🧮 (2026-08-08) status 를 함께 본다. 예전엔 end_date 만 봐서
+          //    status='inactive' 인 385명이 «재원» 으로 세어지고 있었다(실측).
           `SELECT COUNT(*) AS active
            FROM students_erp
-           WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)${_erpScope}`
+           WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)
+             AND (status IS NULL OR status <> 'inactive')${_erpScope}`
         ).bind(todayKst, ..._sb).first<{ active: number }>(),
         { active: 0 } as any),
 
@@ -747,7 +755,27 @@ export async function handleAdminApi(
           `SELECT COUNT(*) AS signups
            FROM students_erp WHERE signup_date = ?${_erpScope}`
         ).bind(todayKst, ..._sb).first<{ signups: number }>(),
-        { signups: 0 } as any)
+        { signups: 0 } as any),
+
+        // 📅 오늘 «수업이 예정된» 학생 수 — 결석률의 분모.
+        //   두 곳에 흩어져 있다: 일회성/반복은 class_schedules, 수강신청은 enrollments.
+        //   요일 값이 자유 형식(Wed·wed·수·수요일)이라 소문자 LIKE 와 한글 LIKE 를 함께 본다.
+        //   ⚠️ 스코프 격리 — _uidScope 는 `AND user_id IN (…)` 형태다. 여기선 합집합 별칭이
+        //      uid 라서 컬럼 이름만 바꿔 그대로 쓴다(격리 규칙 자체는 한 곳에서만 만든다).
+        safe(() => env.DB.prepare(
+          `SELECT COUNT(DISTINCT uid) AS scheduled FROM (
+             SELECT user_id AS uid FROM class_schedules
+              WHERE scheduled_date = ?
+                 OR ((scheduled_date IS NULL OR scheduled_date = '')
+                     AND (LOWER(day_of_week) LIKE ? OR day_of_week LIKE ?))
+             UNION
+             SELECT student_user_id AS uid FROM enrollments
+              WHERE days_of_week IS NOT NULL AND days_of_week <> ''
+                AND (LOWER(days_of_week) LIKE ? OR days_of_week LIKE ?)
+                AND (status IS NULL OR status <> 'cancelled')
+           ) WHERE uid IS NOT NULL AND uid <> ''${_uidScope.replace('AND user_id IN', 'AND uid IN')}`
+        ).bind(todayKst, _dowEn, _dowKo, _dowEn, _dowKo, ..._sb).first<{ scheduled: number }>(),
+        { scheduled: 0 } as any)
       ]);
 
       const revenue = revRow?.revenue || 0;
@@ -756,15 +784,42 @@ export async function handleAdminApi(
       const active = activeRow?.active || 0;
       const signups = signupRow?.signups || 0;
 
-      const absentCount = Math.max(0, active - attended);
-      const absenceRate = active > 0 ? (absentCount * 100 / active) : 0;
+      // 📉 결석률 — 분모는 «오늘 수업이 예정된 학생» 이어야 한다 (2026-08-08 수정)
+      //
+      //   무엇이 틀렸었나 — 분모가 **전체 재원 학생**이었다.
+      //     absentCount = active - attended  →  8,052 - 8 = 8,044  →  99.9%
+      //   오늘 수업이 없는 학생까지 전부 «결석» 으로 셌다. 그래서 화면에는 매일
+      //   빨간 글씨로 99.9% 가 떠 있었고, 진짜 결석이 늘어도 아무도 알아챌 수 없었다.
+      //   (실측 2026-08-08: 재원 8,052 · 오늘 출석 8 · 오늘 예정 조회 결과는 아래 참고)
+      //
+      //   그런데 «오늘 예정» 을 정확히 아는 데이터가 아직 없다 —
+      //     class_schedules 666행 중 학생은 **6명**(140행은 type_seed 데모)
+      //     enrollments 에 요일이 있는 것은 **50명**
+      //   즉 8,052명 중 대다수는 «언제 수업인지» 가 기록돼 있지 않다.
+      //
+      //   그래서 **지어내지 않는다.** 예정 정보가 없으면 비율을 내지 않고 null 을 준다.
+      //   화면은 null 을 «–» 로 그린다. 이 저장소에는 같은 이유로 만들어진 하니스가 있다
+      //   (attendance_no_fabrication_harness — 없는 기록을 계산식으로 만들어 붙였다가
+      //    그 «지어낸 지각» 이 강사 급여를 깎을 뻔했다). 같은 실수를 KPI 에서 반복하지 않는다.
+      const scheduledToday = Math.max(0, Number(schedRow?.scheduled || 0));
+      // ⚠️ 「예정보다 출석이 많다」 = 시간표가 등록되지 않은 학생이 그만큼 있다는 뜻이다.
+      //   실측(2026-08-08 토): 예정 2명인데 출석 8명. 이때 결석률을 0% 로 그리면
+      //   «오늘 결석 없음» 이라는 **또 다른 거짓말**이 된다. 99.9% 만큼이나 나쁘다.
+      //   → 분모를 믿을 수 있을 때만 계산한다. 아니면 모른다고 말한다.
+      const hasSchedule = scheduledToday > 0 && scheduledToday >= attended;
+      const absentCount = hasSchedule ? Math.max(0, scheduledToday - attended) : 0;
+      const absenceRate: number | null = hasSchedule
+        ? Math.round((absentCount * 100 / scheduledToday) * 10) / 10
+        : null;
 
       return admCachePut(env, _tKey, {
         ok: true,
         date: todayKst,
         revenue: { amount_krw: revenue, pay_count: payCount },
         students: { attended, active },
-        absence: { rate_pct: Math.round(absenceRate * 10) / 10, absent: absentCount, scheduled: active },
+        // rate_pct 는 «모르면 null». 화면은 null 을 «–» 로 그린다(숫자를 지어내지 않는다).
+        //   known=false 면 오늘 예정 정보가 아예 없다는 뜻 — 0% 도 100% 도 사실이 아니다.
+        absence: { rate_pct: absenceRate, absent: absentCount, scheduled: scheduledToday, known: hasSchedule },
         signups: { count: signups }
       }, 60);
     }
@@ -6474,14 +6529,20 @@ LIMIT $limit`;
 
     // ========================================================================
 
-    // 🏢 Phase 9 — 메뉴 6개 (가맹점·교육센터·레벨테스트·수강신청·커뮤니티·교재)
+    // 🏢 Phase 9 — 메뉴 6개 (지사·대리점학원·레벨테스트·수강신청·커뮤니티·교재)
+    //   ⚠️ 테이블명 franchises=지사 / centers=대리점·학원 (이름이 한 칸 밀려 있음. 아래 주석 참고)
     //   각 테이블은 cold start 시 IF NOT EXISTS 자동 생성. 별도 마이그레이션 불필요.
     // ========================================================================
-    // ─── 가맹점 ──────────────────────────────────────────────────────────
+    // ─── 지사 (테이블명은 franchises 지만 실제 내용은 «지사» 241건) ──────────────
+    //   ⚠️ 이름이 한 칸 밀려 있다. cafe24-sync 가 Neo4j (:Branch)=지사 → franchises,
+    //      (:Center)=대리점·학원 → centers 로 넣는다. 테이블명을 지금 바꾸면 정산·회계까지
+    //      번지므로 «화면 라벨만» 바로잡았다(2026-08-08). 테이블명 변경은 별도 작업.
+    //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       if (method === 'GET') {
-        const rs = await env.DB.prepare(`SELECT * FROM franchises ORDER BY active DESC, name ASC`).all();
+        const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
+        const rs = await env.DB.prepare(`SELECT ${cols} FROM franchises ORDER BY active DESC, name ASC`).all();
         return json({ ok: true, items: rs.results || [] });
       }
       const b = await parseJsonBody(request);
@@ -6493,14 +6554,37 @@ LIMIT $limit`;
       return json({ ok: true, id: r.meta.last_row_id });
     }
 
-    // ─── 교육센터 ─────────────────────────────────────────────────────────
+    // ─── 대리점·학원 (테이블명은 centers 지만 실제 내용은 «대리점/학원» 921건) ──────
+    //   🔎 실측(2026-08-08): 921건 중 744건이 students_erp.shop_name 과 글자 그대로 일치.
+    //      «교육센터»(=필리핀 직영 센터, 홈페이지 문구)와는 전혀 다른 것이다.
+    //   🐢 예전엔 921건을 «한 번에 전부» 돌려줬고(약 130KB), 그걸 부팅 때 두 번 받았다.
+    //      → 기본 50건 + 검색(q) + total. limit=0 이면 전체(하위호환·CSV 용).
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/centers') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       if (method === 'GET') {
+        const q = (url.searchParams.get('q') || '').trim();
+        const rawLimit = url.searchParams.get('limit');
+        const limit = rawLimit === '0' ? 0 : Math.max(1, Math.min(500, parseInt(rawLimit || '50', 10) || 50));
+        const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+        const min = url.searchParams.get('fields') === 'min';
+        const where: string[] = [];
+        const binds: any[] = [];
+        if (q) {
+          where.push(`(c.name LIKE ? OR c.manager LIKE ? OR c.address LIKE ? OR f.name LIKE ?)`);
+          const like = `%${q}%`;
+          binds.push(like, like, like, like);
+        }
+        const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+        const cnt: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
+        ).bind(...binds).first();
+        const cols = min ? 'c.id, c.name' : 'c.*, f.name AS franchise_name';
+        const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
+        const pageBinds = limit === 0 ? binds : [...binds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT c.*, f.name AS franchise_name FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id ORDER BY c.active DESC, c.name ASC`
-        ).all();
-        return json({ ok: true, items: rs.results || [] });
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+        ).bind(...pageBinds).all();
+        return json({ ok: true, items: rs.results || [], total: Number(cnt?.n || 0), limit, offset });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
