@@ -448,11 +448,19 @@ async function loadTodayKpi() {
       (L ? 'Attended ' : '출석 ') + att + (L ? ' / Active ' : ' / 활성 ') + act + (L ? '' : '명');
 
     // 결석률 — 백분율 (소수 1자리)
-    const rate = (typeof j.absence?.rate_pct === 'number') ? j.absence.rate_pct : 0;
-    $('today-absence').textContent = rate.toFixed(1) + '%';
-    $('today-absence-sub').textContent =
-      (j.absence?.absent || 0) + (L ? ' absent / ' : '명 결석 / ') +
-      (j.absence?.scheduled || 0) + (L ? ' scheduled' : '명 예정');
+    //   🪤 (2026-08-08) 예전엔 서버가 «전체 재원 − 오늘 출석» 을 결석으로 줘서
+    //      매일 99.9% 가 빨갛게 떠 있었다(실측: 재원 8,052 · 오늘 출석 8).
+    //      오늘 수업이 없는 학생까지 결석으로 센 것이다. 서버에서 분모를
+    //      «오늘 예정된 학생» 으로 바로잡았고, 예정 정보를 모르면 null 을 준다.
+    //      모를 때 0% 로 그리면 «결석 없음» 이라는 **틀린 사실**이 된다 → «–» 로 둔다.
+    const _abs = j.absence || {};
+    const _rateKnown = (typeof _abs.rate_pct === 'number');
+    $('today-absence').textContent = _rateKnown ? _abs.rate_pct.toFixed(1) + '%' : '–';
+    $('today-absence-sub').textContent = _rateKnown
+      ? ((_abs.absent || 0) + (L ? ' absent / ' : '명 결석 / ') +
+         (_abs.scheduled || 0) + (L ? ' scheduled' : '명 예정'))
+      : (L ? 'Not enough class-schedule data for today'
+           : '오늘 예정된 수업 정보가 부족합니다');
 
     // 신규 등록 — 단순 카운트
     const sign = j.signups?.count || 0;
@@ -1287,7 +1295,18 @@ async function loadActiveRooms() {
       if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
     } catch(_) {}
     if (!rooms || rooms.length === 0) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'No active classes':'현재 진행 중인 수업 없음')+'</td></tr>';
+      /* 🔴 (2026-08-08) 「⚡ 자주 쓰는 기능 → 수업 종료 / 연장」이 이 카드로 온다.
+         그런데 진행 중인 수업이 없으면 «현재 진행 중인 수업 없음» 한 줄만 떠서,
+         종료·연장을 하러 온 사람 눈에는 «눌렀는데 아무 일도 안 일어났다» 로 보였다.
+         → 여기가 무엇을 하는 곳이고 왜 비어 있는지를 한 줄로 알려 준다. 15초마다 자동 갱신된다. */
+      tb.innerHTML = '<tr><td colspan="6" class="empty" style="padding:18px 12px;line-height:1.7">'
+        + '<div style="font-weight:800;color:#374151">'
+        + (_L ? 'No class is running right now' : '지금 진행 중인 수업이 없습니다')
+        + '</div>'
+        + '<div style="font-size:12px;color:#6b7280;margin-top:4px">'
+        + (_L ? 'Classes appear here the moment they start — you can end or extend them from this table. Refreshes every 15s.'
+              : '수업이 시작되면 여기에 바로 나타나고, 이 표에서 종료·연장할 수 있습니다. 15초마다 자동으로 새로고침됩니다.')
+        + '</div></td></tr>';
       return;
     }
     const TYPE_KO = { silence_20s:'침묵 20초', forbidden_word:'금지어 감지', low_engagement:'참여 저하', network_poor:'네트워크 저하' };
@@ -3156,8 +3175,19 @@ async function loadFranchises() {
 function _populateFranchiseSelect(items) {
   const sel = document.getElementById('ct-franchise');
   if (!sel) return;
-  const placeholder = adminLang==='en' ? 'Select franchise…' : '가맹점 선택…';
+  const placeholder = adminLang==='en' ? 'Select branch…' : '지사 선택…';
   sel.innerHTML = '<option value="">' + placeholder + '</option>' + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+}
+// 🏢 지사 드롭다운만 필요할 때 (대리점·학원 카드를 먼저 연 경우) — {id,name} 만 받는다.
+//    이게 없으면 «조직 관리» 카드를 안 열고 대리점을 등록하려 할 때 지사 목록이 빈칸이었다.
+async function _ensureFranchiseSelect() {
+  const sel = document.getElementById('ct-franchise');
+  if (!sel || sel.options.length > 1) return;
+  try {
+    const r = await fetch('/api/admin/franchises?fields=min',{cache:'no-store',credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok && Array.isArray(d.items)) _populateFranchiseSelect(d.items);
+  } catch (e) { /* 목록 없이도 등록은 가능(지사 미지정) */ }
 }
 async function addFranchise() {
   const e = id => document.getElementById(id);
@@ -3170,15 +3200,61 @@ async function addFranchise() {
   if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
 
-// ── 교육센터 ─────────────────────────────────────────────────────────
-async function loadCenters() {
-  const r = await fetch('/api/admin/centers',{cache:'no-store',credentials:'include'});
-  const d = await r.json().catch(()=>({}));
+// ── 대리점·학원 (테이블명 centers) ────────────────────────────────────
+//   ⚠️ «교육센터»가 아니다. 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이고
+//      921건 중 744건이 학생 명부의 shop_name(대리점명)과 글자 그대로 일치한다.
+//      «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 다른 말이라 라벨을 바꿨다.
+//   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
+//      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
+var _ctState = { q: '', offset: 0, limit: 50, total: 0 };
+async function loadCenters(opts) {
+  opts = opts || {};
+  if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
+  if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
-  if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; return; }
+  if (!tb) return;
+  _ensureFranchiseSelect();
+  const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
+           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '');
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
+    d = await r.json().catch(()=>({}));
+  } catch (e) { d = {}; }
+  _ctState.total = Number(d.total || 0);
+  if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">'
+      + (_ctState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+    _ctRenderPager();
+    return;
+  }
   tb.innerHTML = d.items.map(c =>
     `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
   ).join('');
+  _ctRenderPager();
+}
+function _ctRenderPager() {
+  const el = document.getElementById('ct-pager');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const t = _ctState.total;
+  const from = t ? _ctState.offset + 1 : 0;
+  const to = Math.min(_ctState.offset + _ctState.limit, t);
+  const hasPrev = _ctState.offset > 0;
+  const hasNext = to < t;
+  const btn = (on, label, fn) =>
+    `<button onclick="${fn}" ${on?'':'disabled'} style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:${on?'pointer':'default'};opacity:${on?1:0.4}">${label}</button>`;
+  el.innerHTML =
+    `<span style="font-size:12px;color:#64748b">${en?'Showing':'표시'} <b>${from}–${to}</b> / ${t}${_ctState.q?(en?' (search)':' (검색)'):''}</span>`
+    + btn(hasPrev, en?'‹ Prev':'‹ 이전', 'ctPrevPage()')
+    + btn(hasNext, en?'Next ›':'다음 ›', 'ctNextPage()');
+}
+function ctPrevPage() { loadCenters({ offset: Math.max(0, _ctState.offset - _ctState.limit) }); }
+function ctNextPage() { loadCenters({ offset: _ctState.offset + _ctState.limit }); }
+var _ctSearchTimer = null;
+function ctSearch(v) {
+  clearTimeout(_ctSearchTimer);
+  _ctSearchTimer = setTimeout(() => loadCenters({ q: v }), 250);
 }
 async function addCenter() {
   const e = id => document.getElementById(id);
