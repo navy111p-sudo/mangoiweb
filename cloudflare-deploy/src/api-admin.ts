@@ -708,11 +708,6 @@ export async function handleAdminApi(
       } catch {}
 
       const todayKst = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
-      // 오늘의 요일(KST) → 자유 형식 요일 필드와 맞출 LIKE 패턴 두 벌(영문·한글).
-      //   데이터 실측: 'Wed' 'wed' 형태가 대부분이고 한글도 섞일 수 있다.
-      const _dowIdx = new Date(Date.now() + 9*3600*1000).getUTCDay();
-      const _dowEn = '%' + ['sun','mon','tue','wed','thu','fri','sat'][_dowIdx] + '%';
-      const _dowKo = '%' + ['일','월','화','수','목','금','토'][_dowIdx] + '%';
       const startMs = new Date(todayKst + 'T00:00:00+09:00').getTime();
       const endMs = startMs + 86400000;
 
@@ -736,8 +731,13 @@ export async function handleAdminApi(
         { revenue: 0, pay_count: 0 } as any),
 
         safe(() => env.DB.prepare(
+          // 🪤 (2026-08-08) 예전엔 status 를 안 보고 **그날의 모든 행**을 셌다.
+          //    attendance 에는 «예정(scheduled)» 행도 함께 들어온다(카페24 동기화).
+          //    그래서 「오늘 출석 8명」이 사실은 «예정 7 + 실제출석 1» 이었다.
+          //    실측 08-07: 모든 행 190 · 실제 출석 125 · 예정 92.
           `SELECT COUNT(DISTINCT user_id) AS attended
-           FROM attendance WHERE date = ?${_uidScope}`
+           FROM attendance
+           WHERE date = ? AND status IN ('present','left','attended')${_uidScope}`
         ).bind(todayKst, ..._sb).first<{ attended: number }>(),
         { attended: 0 } as any),
 
@@ -757,25 +757,29 @@ export async function handleAdminApi(
         ).bind(todayKst, ..._sb).first<{ signups: number }>(),
         { signups: 0 } as any),
 
-        // 📅 오늘 «수업이 예정된» 학생 수 — 결석률의 분모.
-        //   두 곳에 흩어져 있다: 일회성/반복은 class_schedules, 수강신청은 enrollments.
-        //   요일 값이 자유 형식(Wed·wed·수·수요일)이라 소문자 LIKE 와 한글 LIKE 를 함께 본다.
-        //   ⚠️ 스코프 격리 — _uidScope 는 `AND user_id IN (…)` 형태다. 여기선 합집합 별칭이
-        //      uid 라서 컬럼 이름만 바꿔 그대로 쓴다(격리 규칙 자체는 한 곳에서만 만든다).
+        // 📅 오늘 «예정» 과 «그중 안 온 사람» — 결석률의 분모·분자.
+        //
+        //   🔑 출처는 attendance 다. 카페24 동기화가 예약을 `status='scheduled'` 로 미리 넣어 둔다
+        //      (room_id 가 c24-*). 즉 «오늘 누가 수업인지» 는 처음부터 여기 있었다.
+        //      ⚠️ class_schedules 를 쓰면 안 된다 — 666행이지만 학생은 6명뿐이고 140행은
+        //         type_seed 데모다. 실제 수업과 연결돼 있지 않다(실측 확인).
+        //
+        //   결석 = «예정된 사람» 중 그날 present/left/attended 기록이 하나도 없는 사람.
+        //   실측 08-07: 예정 92 · 출석 125 · 결석 65 → 70.7%.
+        //   (출석이 예정보다 많은 것은 예약 없이 들어온 수업이 있기 때문이다. 정상이다.)
         safe(() => env.DB.prepare(
-          `SELECT COUNT(DISTINCT uid) AS scheduled FROM (
-             SELECT user_id AS uid FROM class_schedules
-              WHERE scheduled_date = ?
-                 OR ((scheduled_date IS NULL OR scheduled_date = '')
-                     AND (LOWER(day_of_week) LIKE ? OR day_of_week LIKE ?))
-             UNION
-             SELECT student_user_id AS uid FROM enrollments
-              WHERE days_of_week IS NOT NULL AND days_of_week <> ''
-                AND (LOWER(days_of_week) LIKE ? OR days_of_week LIKE ?)
-                AND (status IS NULL OR status <> 'cancelled')
-           ) WHERE uid IS NOT NULL AND uid <> ''${_uidScope.replace('AND user_id IN', 'AND uid IN')}`
-        ).bind(todayKst, _dowEn, _dowKo, _dowEn, _dowKo, ..._sb).first<{ scheduled: number }>(),
-        { scheduled: 0 } as any)
+          `SELECT
+             (SELECT COUNT(DISTINCT user_id) FROM attendance
+               WHERE date = ? AND status = 'scheduled'${_uidScope}) AS scheduled,
+             (SELECT COUNT(DISTINCT a.user_id) FROM attendance a
+               WHERE a.date = ? AND a.status = 'scheduled'
+                 AND a.user_id NOT IN (
+                   SELECT b.user_id FROM attendance b
+                    WHERE b.date = ? AND b.status IN ('present','left','attended'))
+                 ${_uidScope.replace('AND user_id IN', 'AND a.user_id IN')}) AS absent`
+        ).bind(todayKst, ..._sb, todayKst, todayKst, ..._sb)
+         .first<{ scheduled: number; absent: number }>(),
+        { scheduled: 0, absent: 0 } as any)
       ]);
 
       const revenue = revRow?.revenue || 0;
@@ -802,12 +806,11 @@ export async function handleAdminApi(
       //   (attendance_no_fabrication_harness — 없는 기록을 계산식으로 만들어 붙였다가
       //    그 «지어낸 지각» 이 강사 급여를 깎을 뻔했다). 같은 실수를 KPI 에서 반복하지 않는다.
       const scheduledToday = Math.max(0, Number(schedRow?.scheduled || 0));
-      // ⚠️ 「예정보다 출석이 많다」 = 시간표가 등록되지 않은 학생이 그만큼 있다는 뜻이다.
-      //   실측(2026-08-08 토): 예정 2명인데 출석 8명. 이때 결석률을 0% 로 그리면
-      //   «오늘 결석 없음» 이라는 **또 다른 거짓말**이 된다. 99.9% 만큼이나 나쁘다.
-      //   → 분모를 믿을 수 있을 때만 계산한다. 아니면 모른다고 말한다.
-      const hasSchedule = scheduledToday > 0 && scheduledToday >= attended;
-      const absentCount = hasSchedule ? Math.max(0, scheduledToday - attended) : 0;
+      // 결석은 «예정된 사람 중 안 온 사람» 을 서버가 직접 센 값이다(뺄셈이 아니다).
+      //   뺄셈(예정 − 출석)은 틀린다 — 예약 없이 들어온 수업이 있어서 출석이 예정보다 클 수 있다.
+      const absentCount = Math.max(0, Number(schedRow?.absent || 0));
+      // 예정 기록이 아예 없는 날(주말·공휴일·동기화 지연)은 비율을 내지 않는다.
+      const hasSchedule = scheduledToday > 0;
       const absenceRate: number | null = hasSchedule
         ? Math.round((absentCount * 100 / scheduledToday) * 10) / 10
         : null;
