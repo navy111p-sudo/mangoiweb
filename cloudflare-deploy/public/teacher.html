@@ -78,6 +78,40 @@ body{
 }
 .card > h2 small{font-weight:400;color:#7a8794;font-size:13px}
 
+/* ── 📁 내 기록 카드 (2026-08-08) — details 는 브라우저가 공짜로 주는 접기다.
+      JS 도 애니메이션도 쓰지 않는다(이 화면의 설계 계약 3번). ── */
+details.mycard > summary{
+  font-size:15px;font-weight:700;color:#2c3a48;cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:8px;min-height:44px;   /* 손가락으로 누른다 */
+}
+details.mycard > summary::-webkit-details-marker{display:none}
+details.mycard > summary::after{content:'+';margin-left:auto;font-size:20px;color:#8b97a4;font-weight:700}
+details.mycard[open] > summary::after{content:'\2212'}
+details.mycard > summary + *{margin-top:10px}
+html[data-t="dark"] details.mycard > summary{color:#c9d4e0}
+
+/* 정산 히어로 — 강사가 가장 먼저 보고 싶어하는 숫자 하나 */
+.payhero{background:#0b7a3d;color:#fff;border-radius:10px;padding:14px 16px;margin-bottom:10px}
+.payhero .big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.2}
+.payhero .cap{font-size:12.5px;color:#c9f0d8}
+.payrow{border-top:1px solid #eaeef2;padding:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
+.payrow:first-of-type{border-top:0}
+.payrow .g{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
+.neg{color:#b3261e}
+.pos{color:#0b7a3d}
+
+/* ✏️ 피드백 문구 수정 — 초안 카드 안에서 펼친다 */
+.fbedit{margin-top:8px;padding-top:8px;border-top:1px dashed #e0d4b8}
+.fbedit .fld{margin-bottom:8px}
+.fbedit .fld label{font-size:12.5px;color:#8a5a00}
+
+/* 비밀번호 폼 */
+.pwform .fld{margin-bottom:10px}
+.pwform label{display:block;font-size:12.5px;font-weight:700;color:#5d6b7a;margin-bottom:4px}
+.pwform input{width:100%;min-height:44px;padding:9px 12px;border:1px solid #d7dee6;border-radius:8px;
+  font-size:15px;font-family:inherit;color:#16202c;background:#fff}
+html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
+
 /* ── 오늘 수업 리스트 ── */
 .cls{border-top:1px solid #eaeef2;padding:12px 0;display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
 .cls:first-of-type{border-top:0}
@@ -464,11 +498,66 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     <h2 data-en="Materials &amp; Quick Links" data-ko="교재 · 퀵링크">Materials &amp; Quick Links</h2>
     <div id="resources"></div>
     <a class="btn btn-gray btn-wide" href="/admin/mypage"
-       data-en="My Records &amp; Settings (payroll, ratings, postpone, password)"
-       data-ko="내 기록 · 설정 (정산 · 내 평가 · 연기요청 · 비밀번호)">My Records &amp; Settings (payroll, ratings, postpone, password)</a>
+       data-en="My Records &amp; Settings (postpone request, profile, login history)"
+       data-ko="내 기록 · 설정 (연기요청 · 프로필 · 로그인 이력)">My Records &amp; Settings (postpone request, profile, login history)</a>
     <!-- ↑ 라벨에 '무엇이 그 안에 있는지'를 전부 적는다. '전체 마이페이지' 같은 이름은
-         강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다. -->
+         강사에게 "이 화면은 일부인가?" 라는 의문만 남기고, 두 화면의 성격을 갈라 주지 못한다.
+         🇵🇭 (2026-08-08) 정산·내 평가·비밀번호는 아래로 옮겨 왔으므로 라벨에서 뺐다.
+            남은 것(연기요청·프로필·로그인 이력)만 적는다 — 라벨과 실제가 어긋나면
+            강사는 «여기 있나 저기 있나» 를 매번 두 번 확인하게 된다. -->
   </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       📁 내 기록 — mypage 에 있던 것을 옮겨 왔다 (2026-08-08)
+         실측 근거: 강사가 정산을 보려면 /teacher(0.83초) → /admin/mypage(2.42초) 로
+         화면을 갈아타야 했다. 그런데 그 기능들의 마크업은 다 합쳐 61KB 뿐이고,
+         mypage 가 무거운 이유는 기능이 아니라 공통 셸(i18n-sweep 204KB + 인라인 JS 137KB)이었다.
+         → 기능만 옮기면 무게는 거의 안 늘고 무거운 셸을 안 타게 된다.
+
+       ⚠️ 전부 «펼칠 때만» 부른다. 첫 화면 API 호출 수는 종전과 같이 1회(portal)로 유지된다.
+          여기 있는 카드 중 하나라도 첫 화면에서 부르면 이 화면의 설계 계약 4번이 깨진다.
+       ⚠️ 연기요청은 일부러 안 옮겼다(사장님 지시). mypage 에 그대로 있다.
+       ══════════════════════════════════════════════════════════════════════ -->
+
+  <details class="card mycard" id="c-pay" ontoggle="if(this.open)loadPay()">
+    <summary data-en="Pay &amp; deductions (this month)" data-ko="수업료 정산 (이번 달)">Pay &amp; deductions (this month)</summary>
+    <div id="payBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-rate" ontoggle="if(this.open)loadRatings()">
+    <summary data-en="My ratings from students" data-ko="학생이 준 내 평가">My ratings from students</summary>
+    <div id="rateBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-insight" ontoggle="if(this.open)loadInsight()">
+    <summary data-en="Lesson reports" data-ko="수업 리포트">Lesson reports</summary>
+    <div id="insightBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-report" ontoggle="if(this.open)loadReports()">
+    <summary data-en="Monthly reports waiting for my approval" data-ko="내 승인이 필요한 성적표">Monthly reports waiting for my approval</summary>
+    <div id="reportBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-lt" ontoggle="if(this.open)loadLevelTests()">
+    <summary data-en="Level test applicants" data-ko="레벨테스트 신청자">Level test applicants</summary>
+    <div id="ltBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <details class="card mycard" id="c-pw">
+    <summary data-en="Change my password" data-ko="비밀번호 변경">Change my password</summary>
+    <div class="pwform">
+      <div class="fld"><label data-en="Current password" data-ko="현재 비밀번호">Current password</label>
+        <input type="password" id="pw-cur" autocomplete="current-password"></div>
+      <div class="fld"><label data-en="New password (6+ characters)" data-ko="새 비밀번호 (6자 이상)">New password (6+ characters)</label>
+        <input type="password" id="pw-new" autocomplete="new-password"></div>
+      <div class="fld"><label data-en="New password again" data-ko="새 비밀번호 확인">New password again</label>
+        <input type="password" id="pw-new2" autocomplete="new-password"></div>
+      <button class="btn btn-eval btn-wide btn-sm" type="button" id="pw-save"
+              data-en="Change password" data-ko="비밀번호 바꾸기">Change password</button>
+      <div id="pw-msg" class="mini"></div>
+    </div>
+  </details>
 
   <!-- 🧪 (2026-08-07 강사 건의 2 — Kaye)
          "보다(BODA)처럼 관리자 데모 방을 만들어 달라. 강사가 앱에서 수업을 연습하거나,
@@ -548,6 +637,9 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     // 상태에 따라 글자가 바뀌는 것들(data-en 방식으로는 못 다룬다)도 여기서 다시 그린다
     applyTheme(themeOn());
     paintNewBadge();
+    // 📁 내 기록 카드들 — 서버에서 받아 그린 표라 data-en 으로는 못 바꾼다. 캐시로 다시 그린다.
+    //   (applyLang 이 이 스크립트보다 먼저 정의되므로 존재 확인 후 호출)
+    if (typeof window.__repaintMy === 'function') window.__repaintMy();
   }
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
@@ -1958,6 +2050,12 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
             at: Date.now(), summary: j.summary, lessons: slim
           }));
         } catch (e) {}
+        // 💰 (2026-08-08) 정산 카드가 같은 응답을 또 받지 않게 여기서 넘겨 둔다.
+        //   이 API 는 서버가 «그 달 전체 강사» 수업료를 계산한 뒤 본인 것만 걸러 주는,
+        //   이 화면에서 가장 무거운 호출이다. 두 번 부를 이유가 없다.
+        //   ⚠️ localStorage 에는 넣지 않는다 — 원본을 통째로 저장하면 저사양 폰에서
+        //      파싱 비용이 그대로 렉이 된다(위 slim 처리와 같은 이유). 메모리에만 둔다.
+        MY.pay = j;
         applyMonthStats(j.summary, slim);
       })
       .catch(function(){ /* 집계 실패는 첫 화면을 망치지 않는다 — '–' 로 남겨 둔다 */ });
@@ -2025,8 +2123,8 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       return;
     }
     var h = '<div class="warnline">' +
-      esc(T('Approving sends this feedback to the parent by SMS. To edit the wording first, use My Records & Settings.',
-            '승인하면 이 내용이 학부모에게 문자로 발송됩니다. 문구를 고쳐서 보내려면 「내 기록 · 설정」에서 하세요.')) + '</div>';
+      esc(T('Approving sends this feedback to the parent by SMS. Tap Edit if you want to change the wording first.',
+            '승인하면 이 내용이 학부모에게 문자로 발송됩니다. 문구를 고치려면 「수정」을 누르세요.')) + '</div>';
     for (var i = 0; i < pend.length; i++){
       var d = pend[i];
       h += '<div class="draft">'
@@ -2036,14 +2134,40 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
         +   '<div class="mrow">'
         +     '<button class="btn btn-appr btn-sm" type="button" data-appr="' + d.id + '">'
         +       esc(T('Approve & send', '승인 · 발송')) + '</button>'
+        +     '<button class="btn btn-gray btn-sm" type="button" data-edit="' + d.id + '">'
+        +       esc(T('Edit', '수정')) + '</button>'
         +     '<button class="btn btn-skip btn-sm" type="button" data-skip="' + d.id + '">'
         +       esc(T('Skip', '건너뛰기')) + '</button>'
+        +   '</div>'
+        // ✏️ (2026-08-08) 문구 수정 — 이것 하나 때문에 강사가 mypage(2.4초)로 갈아타야 했다.
+        //    두 벌(한국어·영어)을 다 보여 준다: 학부모에게 나가는 문자는 한국어지만,
+        //    필리핀 강사는 자기가 무엇을 승인하는지 영어로 확인해야 한다.
+        +   '<div class="fbedit" id="fbe-' + d.id + '" hidden>'
+        +     '<div class="fld"><label>' + esc(T('Korean (sent to the parent)','한국어 (학부모에게 발송)')) + '</label>'
+        +       '<textarea id="fbe-ko-' + d.id + '" rows="4">' + esc(d.draft_ko || '') + '</textarea></div>'
+        +     '<div class="fld"><label>' + esc(T('English (for your own check)','영어 (강사 확인용)')) + '</label>'
+        +       '<textarea id="fbe-en-' + d.id + '" rows="4">' + esc(d.draft_en || '') + '</textarea></div>'
+        +     '<button class="btn btn-appr btn-sm btn-wide" type="button" data-apprx="' + d.id + '">'
+        +       esc(T('Approve with my changes', '수정한 내용으로 승인')) + '</button>'
         +   '</div>'
         + '</div>';
     }
     box.innerHTML = h;
     bindAll(box, 'data-appr', function(id, btn){ decideDraft(id, 'approve', btn); });
     bindAll(box, 'data-skip', function(id, btn){ decideDraft(id, 'skip', btn); });
+    bindAll(box, 'data-edit', function(id, btn){
+      var e = document.getElementById('fbe-' + id);
+      if (!e) return;
+      e.hidden = !e.hidden;
+      btn.textContent = e.hidden ? T('Edit','수정') : T('Cancel edit','수정 취소');
+    });
+    bindAll(box, 'data-apprx', function(id, btn){
+      var ko = (document.getElementById('fbe-ko-' + id) || {}).value || '';
+      var en = (document.getElementById('fbe-en-' + id) || {}).value || '';
+      if (!ko.trim()){ alert(T('Korean text cannot be empty — that is what the parent receives.',
+                               '한국어 내용은 비울 수 없습니다 — 학부모에게 나가는 문장입니다.')); return; }
+      decideDraft(id, 'approve', btn, { final_ko: ko, final_en: en });
+    });
   }
 
   function bindAll(root, attr, fn){
@@ -2053,12 +2177,15 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     }
   }
 
-  function decideDraft(id, action, btn){
+  function decideDraft(id, action, btn, edited){
     btn.disabled = true;
     btn.textContent = T('Working…', '처리 중…');
+    var body = { id: Number(id), action: action };
+    // 수정본이 있으면 함께 보낸다 — 서버가 final_ko/final_en 을 우선 저장한다(mypage 와 같은 계약).
+    if (edited && edited.final_ko){ body.final_ko = edited.final_ko; body.final_en = edited.final_en || ''; }
     fetch('/api/admin/feedback-drafts/approve', {
       method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ id: Number(id), action: action })
+      body: JSON.stringify(body)
     })
     .then(function(r){ return r.json(); })
     .then(function(j){
@@ -2085,6 +2212,248 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     .then(function(){ loadDrafts(); })
     .catch(function(){ b.disabled = false; b.textContent = T('Create AI drafts','AI 초안 만들기'); });
   }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // 📁 내 기록 — mypage 에 있던 기능을 옮겨 왔다 (2026-08-08)
+  //
+  //   ⚠️ 전부 «펼칠 때만» 부른다. 첫 화면 API 호출은 종전대로 1회(portal)다.
+  //   ⚠️ applyLang() 은 [data-en] 을 가진 요소의 textContent 를 통째로 되쓴다.
+  //      그래서 내용을 채운 뒤에는 그 속성을 **떼어내야** 한다. 안 떼면 언어를 바꾸는
+  //      순간 방금 그린 표가 "펼치면 불러옵니다." 로 되돌아간다(이 화면의 알려진 함정).
+  //      대신 언어가 바뀌면 repaintMy() 가 캐시로 다시 그린다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var MY = { pay:null, rate:null, insight:null, report:null, lt:null };
+  var myBusy = Object.create(null);
+
+  function fill(id, html){
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.removeAttribute('data-en'); el.removeAttribute('data-ko');
+    el.innerHTML = html;
+  }
+  function loading(id){ fill(id, '<div class="mini">' + esc(T('Loading…','불러오는 중…')) + '</div>'); }
+  function failed(id){
+    fill(id, '<div class="mini">' + esc(T('Could not load. Check your connection and try again.',
+                                          '불러오지 못했습니다. 연결을 확인하고 다시 열어 주세요.')) + '</div>');
+  }
+  function peso(v){ return '₱' + (Number(v) || 0).toLocaleString(); }
+
+  // 같은 카드를 두 번 펼치면 같은 요청이 두 번 나간다 — 이미 날아가는 요청에 올라탄다.
+  function myGet(key, url){
+    if (myBusy[key]) return myBusy[key];
+    var p = fetch(url, { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (!j || j.ok === false) throw new Error((j && j.error) || 'failed'); return j; });
+    myBusy[key] = p;
+    var done = function(){ delete myBusy[key]; };
+    p.then(done, done);
+    return p;
+  }
+  function myName(){ return (DATA && DATA.me && DATA.me.name) || ''; }
+
+  // ── 💰 수업료 정산 ────────────────────────────────────────────────────────
+  //   ⚠️ 이 API 는 첫 화면에서 loadMonthStats() 가 이미 부르고 있다(완료수·페널티용).
+  //      여기서는 **같은 응답의 나머지 필드**(실지급 예상액·공제 내역)를 마저 보여 줄 뿐이라
+  //      강사가 정산을 보려고 화면을 갈아탈 이유가 없어진다.
+  window.loadPay = function(){
+    if (MY.pay) { paintPay(); return; }
+    loading('payBody');
+    var d = new Date();
+    myGet('pay', '/api/admin/payroll/lessons?year=' + d.getFullYear() + '&month=' + (d.getMonth()+1))
+      .then(function(j){ MY.pay = j; paintPay(); }).catch(function(){ failed('payBody'); });
+  };
+  function paintPay(){
+    var j = MY.pay; if (!j) return;
+    var s = j.summary || {}, rate = (j.teacher && j.teacher.fee_per_10min) || 0;
+    var h = '<div class="payhero">'
+      + '<div class="cap">' + esc(T('Estimated pay this month','이번 달 받으실 예상 금액')) + '</div>'
+      + '<div class="big">' + esc(peso(s.final_amount)) + '</div>'
+      + '<div class="cap">' + esc(T('Lesson fees','수업료')) + ' ' + esc(peso(s.pay_amount))
+      +   ' &minus; ' + esc(T('deductions','공제')) + ' ' + esc(peso(s.deduction_total)) + '</div>'
+      + '</div>';
+    h += '<div class="payrow"><span>' + esc(T('Classes done','완료한 수업')) + '</span><span class="g">' + (s.finish_count||0) + '</span></div>';
+    h += '<div class="payrow"><span>' + esc(T('Student absent','학생 결석')) + '</span><span class="g">' + (s.absent_count||0) + '</span></div>';
+    if (s.postponed_count) h += '<div class="payrow"><span>' + esc(T('Postponed','연기됨')) + '</span><span class="g">' + s.postponed_count + '</span></div>';
+    h += '<div class="payrow"><span>' + esc(T('Feedback missing','피드백 미작성')) + '</span><span class="g neg">' + (s.no_feedback_count||0) + '</span></div>';
+    h += '<div class="payrow"><span>' + esc(T('Deductions total','공제 합계')) + '</span><span class="g neg">&minus; ' + esc(peso(s.deduction_total)) + '</span></div>';
+    h += '<div class="mini" style="padding-top:8px">' + esc(T('My rate','내 10분 단가')) + ': '
+       + (rate ? esc(peso(rate))
+               : '<b>' + esc(T('not set — ask your manager','미설정 — 관리자에게 요청해 주세요')) + '</b>') + '</div>';
+    fill('payBody', h);
+  }
+
+  // ── ⭐ 학생이 준 내 평가 ──────────────────────────────────────────────────
+  //   서버가 학생 신원을 **일부러 빼고** 준다(무기명). 여기서도 절대 짐작해 채우지 않는다.
+  window.loadRatings = function(){
+    if (MY.rate) { paintRatings(); return; }
+    var nm = myName();
+    if (!nm) { fill('rateBody', '<div class="mini">' + esc(T('Still loading your profile — please reopen in a moment.','프로필을 불러오는 중입니다 — 잠시 뒤 다시 열어 주세요.')) + '</div>'); return; }
+    loading('rateBody');
+    myGet('rate', '/api/teacher/my-ratings?days=180&limit=200&teacher_name=' + encodeURIComponent(nm))
+      .then(function(j){ MY.rate = j; paintRatings(); }).catch(function(){ failed('rateBody'); });
+  };
+  function paintRatings(){
+    var rows = (MY.rate && MY.rate.rows) || [];
+    if (!rows.length){ fill('rateBody', '<div class="mini">' + esc(T('No ratings in the last 180 days yet.','최근 180일간 받은 평가가 없습니다.')) + '</div>'); return; }
+    var sum = 0, n = 0;
+    rows.forEach(function(r){ if (r.score != null){ sum += Number(r.score); n++; } });
+    var avg = n ? (sum / n) : 0;
+    var h = '<div class="payrow"><span>' + esc(T('Average','평균')) + '</span><span class="g">'
+          + avg.toFixed(1) + ' / 5</span></div>'
+          + '<div class="payrow"><span>' + esc(T('Ratings received','받은 평가')) + '</span><span class="g">' + n + '</span></div>'
+          + '<div class="mini" style="padding-top:6px">' + esc(T('Ratings are anonymous — student names are never shown.','평가는 무기명입니다 — 학생 이름은 표시되지 않습니다.')) + '</div>';
+    var withText = rows.filter(function(r){ return r.feedback || r.tags; }).slice(0, 20);
+    withText.forEach(function(r){
+      h += '<div class="draft" style="border-color:#e4e9ee">'
+        +   '<div class="cls-meta">' + esc(r.rated_date || '') + ' &middot; ' + (r.score != null ? esc(r.score + ' / 5') : '') + '</div>'
+        +   (r.feedback ? '<div class="draft-txt">' + esc(r.feedback) + '</div>' : '')
+        +   (r.tags ? '<div class="mini">' + esc(r.tags) + '</div>' : '')
+        + '</div>';
+    });
+    fill('rateBody', h);
+  }
+
+  // ── 🎥 수업 리포트 ────────────────────────────────────────────────────────
+  window.loadInsight = function(){
+    if (MY.insight) { paintInsight(); return; }
+    var nm = myName();
+    loading('insightBody');
+    myGet('insight', '/api/admin/lesson-insights?limit=60' + (nm ? '&teacher_name=' + encodeURIComponent(nm) : ''))
+      .then(function(j){ MY.insight = j; paintInsight(); }).catch(function(){ failed('insightBody'); });
+  };
+  function paintInsight(){
+    var items = (MY.insight && MY.insight.items) || [];
+    if (!items.length){ fill('insightBody', '<div class="mini">' + esc(T('No lesson reports yet.','아직 수업 리포트가 없습니다.')) + '</div>'); return; }
+    var h = '';
+    items.slice(0, 30).forEach(function(it){
+      var txt = EN() ? (it.summary_en || it.summary_ko || '') : (it.summary_ko || it.summary_en || '');
+      h += '<div class="draft" style="border-color:#e4e9ee">'
+        +   '<div class="cls-name">' + esc(it.student_name || it.student_uid || '-')
+        +     ' <span class="cls-meta">' + esc(it.lesson_date || '') + '</span></div>'
+        +   (txt ? '<div class="draft-txt">' + esc(txt) + '</div>' : '')
+        +   (it.disconnect_count ? '<div class="mini">' + esc(T('Disconnections','끊김')) + ': ' + it.disconnect_count + '</div>' : '')
+        + '</div>';
+    });
+    fill('insightBody', h);
+  }
+
+  // ── 🌟 성적표 승인 ────────────────────────────────────────────────────────
+  //   ⚠️ 「승인」과 「학부모 발송」은 서버에서 **다른 단계**다(approve / send).
+  //      여기서는 승인만 한다. 발송은 관리자가 한다 — 강사 손끝에서 학부모에게
+  //      바로 나가는 경로를 새로 만들지 않는다.
+  window.loadReports = function(){
+    if (MY.report) { paintReports(); return; }
+    var nm = myName();
+    loading('reportBody');
+    myGet('report', '/api/admin/monthly-report/list?approval_status=pending' + (nm ? '&teacher_name=' + encodeURIComponent(nm) : ''))
+      .then(function(j){ MY.report = j; paintReports(); }).catch(function(){ failed('reportBody'); });
+  };
+  function paintReports(){
+    var items = (MY.report && MY.report.items) || [];
+    if (!items.length){ fill('reportBody', '<div class="mini">' + esc(T('Nothing waiting for your approval.','승인 대기 중인 성적표가 없습니다.')) + '</div>'); return; }
+    var h = '';
+    items.slice(0, 30).forEach(function(it){
+      var c = EN() ? (it.ai_draft_comment_en || it.ai_draft_comment_ko || '') : (it.ai_draft_comment_ko || it.ai_draft_comment_en || '');
+      var tip = EN() ? (it.ai_draft_tip_en || it.ai_draft_tip_ko || '') : (it.ai_draft_tip_ko || it.ai_draft_tip_en || '');
+      var uid = it.student_uid || it.uid || '';
+      h += '<div class="draft" style="border-color:#e4e9ee">'
+        +   '<div class="cls-name">' + esc(it.student_name || uid || '-')
+        +     ' <span class="cls-meta">' + esc(it.period || '') + '</span></div>'
+        +   (c ? '<div class="draft-txt">' + esc(c) + '</div>' : '')
+        +   (tip ? '<div class="mini">' + esc(T('Tip','조언')) + ': ' + esc(tip) + '</div>' : '')
+        +   '<div class="mrow"><button class="btn btn-appr btn-sm" type="button" data-ra="'
+        +     esc(uid) + '|' + esc(it.period || '') + '">' + esc(T('Approve','승인')) + '</button></div>'
+        + '</div>';
+    });
+    h += '<div class="mini" style="padding-top:6px">'
+       + esc(T('Approving records your confirmation. Sending to parents is done by the office.',
+               '승인은 「확인했다」는 기록입니다. 학부모 발송은 사무실에서 합니다.')) + '</div>';
+    fill('reportBody', h);
+    bindAll(document.getElementById('reportBody'), 'data-ra', function(v, btn){
+      var p = v.split('|');
+      approveReport(p[0], p[1], btn);
+    });
+  }
+  function approveReport(uid, period, btn){
+    btn.disabled = true; btn.textContent = T('Working…','처리 중…');
+    fetch('/api/admin/monthly-report/approve', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ uid: uid, period: period, approved_by: myName() })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+      MY.report = null; window.loadReports();
+    })
+    .catch(function(){ btn.disabled = false; btn.textContent = T('Approve','승인'); });
+  }
+
+  // ── 🎯 레벨테스트 신청자 ──────────────────────────────────────────────────
+  window.loadLevelTests = function(){
+    if (MY.lt) { paintLevelTests(); return; }
+    loading('ltBody');
+    myGet('lt', '/api/admin/leveltest/applications?limit=100')
+      .then(function(j){ MY.lt = j; paintLevelTests(); }).catch(function(){ failed('ltBody'); });
+  };
+  function paintLevelTests(){
+    var items = (MY.lt && MY.lt.items) || [];
+    var nm = (myName() || '').toLowerCase();
+    // 서버가 전체를 주므로 «내 배정 + 미배정» 만 남긴다. 남의 배정 건은 보여주지 않는다.
+    var mine = items.filter(function(it){
+      var t = String(it.assigned_teacher || '').toLowerCase();
+      return !t || (nm && t.indexOf(nm) >= 0);
+    });
+    if (!mine.length){ fill('ltBody', '<div class="mini">' + esc(T('No level test applicants right now.','지금은 레벨테스트 신청자가 없습니다.')) + '</div>'); return; }
+    var h = '';
+    mine.slice(0, 30).forEach(function(it){
+      h += '<div class="payrow"><span>' + esc(it.desired_date || String(it.created_at || '').slice(0, 10)) + '</span>'
+        +  '<span class="g">' + esc(it.status || '') + '</span></div>';
+    });
+    h += '<div class="mini" style="padding-top:6px">'
+       + esc(T('Showing applicants assigned to you or not yet assigned.','내게 배정된 건과 아직 배정되지 않은 건만 보입니다.')) + '</div>';
+    fill('ltBody', h);
+  }
+
+  // ── 🔑 비밀번호 변경 ──────────────────────────────────────────────────────
+  document.getElementById('pw-save').onclick = function(){
+    var cur = document.getElementById('pw-cur').value;
+    var nw  = document.getElementById('pw-new').value;
+    var nw2 = document.getElementById('pw-new2').value;
+    var msg = document.getElementById('pw-msg');
+    msg.className = 'mini';
+    if (!cur || !nw){ msg.textContent = T('Please fill every box.','모든 칸을 채워 주세요.'); return; }
+    if (nw !== nw2){ msg.textContent = T('New passwords do not match.','새 비밀번호가 서로 다릅니다.'); return; }
+    if (nw.length < 6){ msg.textContent = T('New password must be at least 6 characters.','새 비밀번호는 6자 이상이어야 합니다.'); return; }
+    var b = this;
+    b.disabled = true; msg.textContent = T('Changing…','변경 중…');
+    fetch('/api/admin/change-password', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ current_password: cur, new_password: nw })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      b.disabled = false;
+      if (j && j.ok){
+        msg.textContent = T('Done. Use the new password next time you log in.','변경되었습니다. 다음 로그인부터 새 비밀번호를 쓰세요.');
+        document.getElementById('pw-cur').value = '';
+        document.getElementById('pw-new').value = '';
+        document.getElementById('pw-new2').value = '';
+      } else {
+        msg.textContent = T('Could not change: ','변경하지 못했습니다: ') + ((j && (j.message || j.error)) || '');
+      }
+    })
+    .catch(function(){ b.disabled = false; msg.textContent = T('Network error. Please try again.','네트워크 오류입니다. 다시 시도해 주세요.'); });
+  };
+
+  // 언어를 바꾸면 위 카드들도 다시 그린다(applyLang 은 data-en 만 다룬다).
+  function repaintMy(){
+    if (MY.pay) paintPay();
+    if (MY.rate) paintRatings();
+    if (MY.insight) paintInsight();
+    if (MY.report) paintReports();
+    if (MY.lt) paintLevelTests();
+  }
+  window.__repaintMy = repaintMy;
 
   // ── 1분 빠른 평가 ────────────────────────────────────────────────────────
   function openEval(c){
