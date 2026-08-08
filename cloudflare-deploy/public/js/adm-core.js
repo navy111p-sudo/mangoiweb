@@ -11215,11 +11215,11 @@ window.rebuildGlobalSearchIndex = function() {
     // 본사 + 지사
     'card-teacher-mgmt':      'branch',   // 강사관리
     'card-active-rooms':      'branch',   // 실시간 수업 현황
-    'card-centers':           'branch',   // 교육센터
+    'card-centers':           'branch',   // 🏪 대리점(학원) 전국 목록 — 대리점 계정엔 «남의 대리점»이라 안 보임
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    'card-franchises':        'agency',   // 가맹점 관리 (자기만 보임)
+    'card-franchises':        'agency',   // 🏢 조직 관리(본사·지사) (자기만 보임)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정
