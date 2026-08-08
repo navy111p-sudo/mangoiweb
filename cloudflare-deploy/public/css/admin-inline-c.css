@@ -162,42 +162,45 @@
 
 /* ── [style#no-id-8] ── */
 
-      .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
-      .kpi-tile{background:linear-gradient(135deg,#374151,#1f2937);border:1px solid rgba(75,85,99,0.55);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;transition:all .2s;color:#f9fafb}
-      .kpi-tile *{color:#f9fafb !important}
-      .kpi-tile .kpi-label,.kpi-tile .card-label{color:#cbd5e1 !important;font-size:12.5px;font-weight:700}
-      .kpi-tile .kpi-value,.kpi-tile .card-value{color:#fbbf24 !important;font-weight:900}
-      .kpi-tile .kpi-sub,.kpi-tile .card-sub{color:#94a3b8 !important;font-size:11.5px}
-      .kpi-tile .kpi-trend{color:#86efac !important;font-weight:700}
-      .kpi-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -8px rgba(0,0,0,.15)}
-      .kpi-tile::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px}
-      .kpi-tile.kpi-students::before{background:linear-gradient(180deg,#3b82f6,#1e40af)}
-      .kpi-tile.kpi-revenue::before{background:linear-gradient(180deg,#10b981,#059669)}
-      .kpi-tile.kpi-attendance::before{background:linear-gradient(180deg,#f59e0b,#d97706)}
-      .kpi-tile.kpi-eval::before{background:linear-gradient(180deg,#a855f7,#7c3aed)}
-      .kpi-tile.kpi-overdue::before{background:linear-gradient(180deg,#ef4444,#b91c1c)}
-      .kpi-tile.kpi-points::before{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
-      .kpi-tile.kpi-chat::before{background:linear-gradient(180deg,#06b6d4,#0891b2)}
-      .kpi-tile.kpi-inquiry::before{background:linear-gradient(180deg,#ec4899,#be185d)}
-      /* 아이콘(이모지) 제거(26-07-22): 8개 타일의 컬러 이모지가 숫자와 시선을 다퉈 눈이 피로했다.
-         식별은 왼쪽 컬러 바가 이미 하고 있으므로 장식 아이콘은 넣지 않는다. 재추가 금지.
-         ⚠️ 타일별 라벨 색을 따로 주려 해도 전역 규칙
-            `[id^="card-"] [class$="-label"]{color:#67e8f9!important}` 가 이겨서 먹지 않는다.
-            라벨 색은 건드리지 말 것(죽은 CSS 가 된다). */
-      .kpi-label{font-size:11.5px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-      .kpi-value{font-size:26px;font-weight:900;color:#1f2937;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
-      .kpi-unit{font-size:13px;color:#6b7280;font-weight:600;margin-left:3px}
-      .kpi-trend{font-size:11.5px;margin-top:6px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
-      .kpi-trend.up{color:#10b981}
-      .kpi-trend.down{color:#ef4444}
-      .kpi-trend.flat{color:#9ca3af}
-      .kpi-sub{font-size:11px;color:#9ca3af;margin-top:4px;line-height:1.4}
-      /* 일별 매출 미니 차트 */
+      .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:10px;margin-bottom:12px}
+      /* ═══════════════════════════════════════════════════════════════════
+         🎨 KPI 타일 8개 — 담백하게 (2026-08-08, 사장님 지시: 통합 제안서 샘플처럼)
+
+         전에는 진한 남색 그라데이션 + 왼쪽 5px 컬러바(::before) + hover 로 2px 떠오름이었다.
+         왼쪽 한 변만 칠한 컬러바가 바로 «한쪽만 테두리 있어서 이상한» 그것이다.
+         → 여덟 타일 전부 같은 얼굴(흰 배경 + 네 변 동일한 얇은 테두리),
+           색은 «지금 손봐야 하는 것»(미납·2주+결석)에만 옅은 면으로.
+         ⚠️ 왼쪽 컬러바(::before) 재추가 금지. 색을 넣으려면 면으로, 한두 개에만.
+         ═══════════════════════════════════════════════════════════════════ */
+      .kpi-tile{background:#fff;border:1px solid rgba(15,23,42,.10);border-radius:12px;padding:12px 14px;
+                position:relative;overflow:hidden;transition:background-color .15s ease;color:#1f2937}
+      .kpi-tile .kpi-label,.kpi-tile .card-label{color:#6b7280 !important;font-size:11.5px;font-weight:800}
+      .kpi-tile .kpi-value,.kpi-tile .card-value{color:#1f2937 !important;font-weight:900}
+      .kpi-tile .kpi-sub,.kpi-tile .card-sub{color:#9ca3af !important;font-size:11px}
+      .kpi-tile:hover{background:#fcfcfd}          /* hover 는 색만 — 크기·위치 고정 */
+      .kpi-tile::before{content:none}              /* 왼쪽 컬러바 제거 */
+
+      /* 유일한 색 — 손봐야 하는 두 가지. 선이 아니라 면으로 아주 옅게. */
+      .kpi-tile.kpi-overdue{background:#fdf4f4;border-color:#f0d2d2}
+      .kpi-tile.kpi-overdue:hover{background:#fcefef}
+      .kpi-tile.kpi-overdue .kpi-value{color:#b91c1c !important}
+      .kpi-tile.kpi-overdue .kpi-label{color:#9a5b5b !important}
+
+      /* 추세 배지 — 배경 있는 작은 알약 (샘플과 동일) */
+      .kpi-label{font-size:11.5px;color:#6b7280;font-weight:800;letter-spacing:0;margin-bottom:3px}
+      .kpi-value{font-size:22px;font-weight:900;color:#1f2937;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+      .kpi-unit{font-size:12px;color:#9ca3af;font-weight:800;margin-left:2px}
+      .kpi-trend{font-size:10.5px;margin-top:6px;font-weight:800;display:inline-flex;align-items:center;gap:3px;
+                 border-radius:999px;padding:1px 7px}
+      .kpi-trend.up{color:#047857;background:#e8f6ee}
+      .kpi-trend.down{color:#b91c1c;background:#fdecec}
+      .kpi-trend.flat{color:#6b7280;background:#f3f4f6}
+      .kpi-tile .kpi-trend{color:inherit !important}
+      .kpi-sub{font-size:11px;color:#9ca3af;margin-top:3px;line-height:1.4}
+      /* 일별 매출 미니 차트 — 한 가지 색(앰버)으로. hover 때 색이 바뀌면 «눌리는 것»처럼 보인다. */
       .kpi-spark{display:flex;gap:2px;align-items:flex-end;height:32px;margin-top:8px}
-      .kpi-spark-bar{flex:1;background:linear-gradient(180deg,#10b981,#059669);border-radius:2px 2px 0 0;min-height:2px;transition:all .3s}
-      .kpi-spark-bar:hover{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
-      @media (max-width:980px){ .kpi-grid{grid-template-columns:repeat(2,1fr)} }
-      @media (max-width:520px){ .kpi-grid{grid-template-columns:1fr 1fr;gap:8px} .kpi-tile{padding:12px 14px} .kpi-value{font-size:22px} }
+      .kpi-spark-bar{flex:1;background:#f59e0b;border-radius:2px 2px 0 0;min-height:2px}
+      @media (max-width:520px){ .kpi-tile{padding:11px 13px} .kpi-value{font-size:19px} }
     
 
 /* ── [style#no-id-9] ── */
@@ -6927,83 +6930,81 @@ button.chip:hover,
 
 /* ── [style#ph-kpi-colorful-css] ── */
 
-  /* ===== 🎨 KPI 카드 컬러풀 리디자인 (경영진/관리자 대시보드 상단 8박스) ===== */
-  #kpi, #kpi-today { gap: 18px !important; }
+  /* ═══════════════════════════════════════════════════════════════════════
+     🎨 상단 KPI 8박스 — 담백하게 다시 (2026-08-08, 사장님 지시)
+
+     전에는 —
+       박스마다 다른 색 그라데이션을 깔고, 위쪽에 4px 색 띠(::after)를 얹고,
+       글로우 그림자에 hover 로 5px 떠오르게 했다.
+       사장님 지적: "한쪽만 테두리 색이 있는 게 이상하다", "테두리 색을 없애줘".
+       실제로 그 «한쪽 테두리»는 border 가 아니라 ::after 색 띠였다 —
+       그래서 마크업에서 인라인 border 를 지워도 안 사라졌다.
+
+     지금은 —
+       ① 여덟 박스가 전부 같은 얼굴: 흰 배경 + 네 변 동일한 얇은 테두리.
+          방향이 있는 선은 «여기서 잘렸나»처럼 읽히고, 박스마다 다른 변·다른 색이
+          얹히면 눈이 줄을 못 맞춘다.
+       ② 색은 «지금 손봐야 하는 것»에만. 오늘의 결석률만 옅은 붉은 면 + 붉은 숫자.
+          색이 적어야 색이 눈에 띈다.
+       ③ 그라데이션·글로우·hover 이동 없음. hover 는 배경을 아주 살짝 어둡게만.
+          (관리자 화면의 hover 확대·이동은 "정신없다"고 걷어낸 규칙이다)
+
+     ⚠️ 되살리지 말 것. 색을 다시 넣고 싶으면 «면»으로, 그리고 한두 박스에만.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #kpi, #kpi-today { gap: 10px !important; }
 
   #kpi .card, #kpi-today .card {
     position: relative !important;
     overflow: hidden !important;
-    border: 1px solid rgba(255,255,255,0.07) !important;
-    border-radius: 18px !important;
-    padding: 22px 22px 20px !important;
-    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease !important;
-    box-shadow: 0 10px 26px -12px rgba(0,0,0,.45) !important;
-    background: var(--da-card, #142950) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(15,23,42,.10) !important;
+    border-radius: 12px !important;
+    padding: 13px 15px !important;
+    box-shadow: none !important;
+    transition: background-color .15s ease !important;
   }
-  /* 컬러 그라데이션 면 */
-  #kpi .card::before, #kpi-today .card::before {
-    content: ""; position: absolute; inset: 0; z-index: 0;
-    background: var(--kpi-grad, transparent);
-  }
-  /* 상단 글로우 컬러바 */
-  #kpi .card::after, #kpi-today .card::after {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; z-index: 2;
-    background: var(--kpi-bar, transparent);
-    box-shadow: 0 0 14px 1px var(--kpi-glow, transparent);
-  }
+  /* 그라데이션 면·상단 색 띠 모두 없앤다 */
+  #kpi .card::before, #kpi-today .card::before,
+  #kpi .card::after,  #kpi-today .card::after { content: none !important; }
   #kpi .card > *, #kpi-today .card > * { position: relative; z-index: 1; }
 
+  /* hover 는 색만 — 크기·위치 고정 */
   #kpi .card:hover, #kpi-today .card:hover {
-    transform: translateY(-5px) !important;
-    box-shadow: 0 20px 40px -12px var(--kpi-glow, rgba(0,0,0,.4)), 0 4px 12px rgba(0,0,0,.3) !important;
+    background: #fcfcfd !important;
+    box-shadow: none !important;
   }
 
   #kpi .card-label, #kpi-today .card-label {
-    font-size: 13.5px !important; font-weight: 800 !important;
-    letter-spacing: .2px !important; color: #e6ecff !important;
-    margin-bottom: 10px !important;
+    font-size: 12px !important; font-weight: 800 !important;
+    letter-spacing: 0 !important; color: #6b7280 !important;
+    margin-bottom: 3px !important; text-shadow: none !important;
   }
   #kpi .card-value, #kpi-today .card-value {
-    font-size: 34px !important; font-weight: 900 !important;
-    color: #ffffff !important; margin-top: 2px !important; line-height: 1.05 !important;
-    text-shadow: 0 2px 12px rgba(0,0,0,.30);
+    font-size: 22px !important; font-weight: 900 !important;
+    color: #1f2937 !important; margin-top: 2px !important; line-height: 1.15 !important;
+    letter-spacing: -.5px !important; text-shadow: none !important;
+    font-variant-numeric: tabular-nums;
   }
   #kpi .card-sub, #kpi-today .card-sub {
-    font-size: 11.5px !important; font-weight: 600 !important;
-    color: rgba(230,236,255,.72) !important; margin-top: 6px !important;
+    font-size: 11px !important; font-weight: 600 !important;
+    color: #9ca3af !important; margin-top: 3px !important; text-shadow: none !important;
   }
 
-  /* ── 1행 (#kpi): 인디고 · 에메랄드 · 앰버 · 핑크 ── */
-  #kpi .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(99,102,241,.30),rgba(99,102,241,.05));--kpi-bar:linear-gradient(90deg,#6366f1,#818cf8);--kpi-glow:rgba(99,102,241,.55);}
-  #kpi .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
-  #kpi .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
-  #kpi .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(236,72,153,.30),rgba(236,72,153,.05));--kpi-bar:linear-gradient(90deg,#ec4899,#f472b6);--kpi-glow:rgba(236,72,153,.55);}
+  /* 유일한 색 — 오늘의 결석률(나쁜 쪽). 선이 아니라 «면»으로 아주 옅게. */
+  #kpi-today .card:nth-child(3) {
+    background: #fdf4f4 !important;
+    border-color: #f0d2d2 !important;
+  }
+  #kpi-today .card:nth-child(3):hover { background: #fcefef !important; }
+  #kpi-today .card:nth-child(3) .card-label { color: #9a5b5b !important; }
+  #kpi-today #today-absence { color: #b91c1c !important; }
 
-  /* ── 2행 (#kpi-today): 앰버 · 에메랄드 · 레드 · 블루 (inline border-left 덮어씀) ── */
-  #kpi-today .card { border-left: 1px solid rgba(255,255,255,0.07) !important; }
-  #kpi-today .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
-  #kpi-today .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
-  #kpi-today .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(239,68,68,.30),rgba(239,68,68,.05));--kpi-bar:linear-gradient(90deg,#ef4444,#f87171);--kpi-glow:rgba(239,68,68,.55);}
-  #kpi-today .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(59,130,246,.30),rgba(59,130,246,.05));--kpi-bar:linear-gradient(90deg,#3b82f6,#60a5fa);--kpi-glow:rgba(59,130,246,.55);}
-
-
-  /* 모바일: 라벨/값 약간 축소 */
+  /* 모바일 */
   @media (max-width: 560px){
-    #kpi .card-value, #kpi-today .card-value { font-size: 28px !important; }
-    #kpi .card, #kpi-today .card { padding: 18px 16px 16px !important; }
+    #kpi .card-value, #kpi-today .card-value { font-size: 19px !important; }
+    #kpi .card, #kpi-today .card { padding: 11px 13px !important; }
   }
 
-  /* 🩹 (2026-06-23) 휴대폰/모바일: 헤더 밑 회색 번짐 방지
-     — 카드 기본 그림자 축소 + 터치에서 hover 떠오름/그림자 확대 끄기 */
-  @media (max-width: 900px){
-    #kpi .card, #kpi-today .card { box-shadow: 0 4px 12px -8px rgba(0,0,0,.35) !important; }
-  }
-  @media (hover: none){
-    #kpi .card:hover, #kpi-today .card:hover {
-      transform: none !important;
-      box-shadow: 0 4px 12px -8px rgba(0,0,0,.35) !important;
-    }
-  }
 
 
 /* ── [style#no-id-101] ── */

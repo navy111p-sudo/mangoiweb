@@ -555,7 +555,7 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=10"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=13"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -573,6 +573,48 @@
       #kpi-today #today-absence { color:#b91c1c !important }   /* 결석률 — 나쁜 쪽 */
       #sf-dropped               { color:#b91c1c !important }   /* 기간 내 탈락 */
       #sf-net                   { color:#047857 !important }   /* 순 증가 — 좋은 쪽 */
+
+      /* ═══════════════════════════════════════════════════════════════════
+         📊 통합 대시보드 안쪽 타일 — 한 얼굴로 통일
+
+         왜 여기서 또 한 번 —
+           테마(admin-inline-c.css)에 `.kpi-tile` 을 다시 칠하는 ivory 층이 여러 겹 있다.
+           그중 가장 센 것이 `html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-overdue`
+           라, 클래스만으로는 못 이긴다. → id(#card-dashboard)로 스코프를 올려 한 번에 정리한다.
+           이 카드 안에서만 적용되므로 다른 화면은 건드리지 않는다.
+
+         규칙은 하나 — 여덟 타일이 전부 같은 얼굴, 색은 «손봐야 하는 것»에만 «면»으로.
+         ═══════════════════════════════════════════════════════════════════ */
+      #card-dashboard #card-kpi-dashboard .kpi-tile{
+        background:#fff !important; border:1px solid rgba(15,23,42,.10) !important;
+        border-radius:12px !important; box-shadow:none !important; padding:12px 14px !important;
+      }
+      #card-dashboard #card-kpi-dashboard .kpi-tile::before{ content:none !important }        /* 왼쪽 컬러바 */
+      #card-dashboard #card-kpi-dashboard .kpi-tile *{ color:inherit !important }             /* 다크층의 흰 글자 해제 */
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-label{ color:#6b7280 !important; font-size:11.5px !important; font-weight:800 !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-value{ color:#1f2937 !important; font-size:22px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-unit { color:#9ca3af !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-sub  { color:#9ca3af !important; font-size:11px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile:hover{ background:#fcfcfd !important }    /* hover 는 색만 */
+      /* 유일한 색 — 미납(손봐야 하는 것) */
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue{ background:#fdf4f4 !important; border-color:#f0d2d2 !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue:hover{ background:#fcefef !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue .kpi-value{ color:#b91c1c !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue .kpi-label{ color:#9a5b5b !important }
+      /* 추세 배지 */
+      #card-dashboard #card-kpi-dashboard .kpi-trend{ border-radius:999px !important; padding:1px 7px !important; font-size:10.5px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.up  { color:#047857 !important; background:#e8f6ee !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.down{ color:#b91c1c !important; background:#fdecec !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.flat{ color:#6b7280 !important; background:#f3f4f6 !important }
+      /* 7일 매출 미니 막대 — 한 가지 색 */
+      #card-dashboard #card-kpi-dashboard .kpi-spark-bar{ background:#f59e0b !important }
+      /* 카드 안 .card 들(매출 5개·학생흐름 4개)도 같은 얼굴로 */
+      #card-dashboard #card-daily-charts .card{
+        background:#fff !important; border:1px solid rgba(15,23,42,.10) !important;
+        border-radius:12px !important; box-shadow:none !important;
+      }
+      #card-dashboard #card-daily-charts .card::before,
+      #card-dashboard #card-daily-charts .card::after{ content:none !important }
     </style>
 
     <script id="mi-speed-dial-js">
