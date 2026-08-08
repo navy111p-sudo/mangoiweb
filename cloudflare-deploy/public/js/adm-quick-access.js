@@ -32,16 +32,61 @@
     { ko: '수강신청 / 등록', en: 'Enrollment', card: 'card-enrollments', sub: null,
       ico: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
     /* (2026-08-08 사장님) 레벨테스트는 «교육/콘텐츠» 하위에 있어 두 번 눌러야 닿았다.
-       중요한 기능이라 자주 쓰는 기능 맨 마지막에 바로가기를 얹는다 — 기존 메뉴 위치는 그대로 둔다. */
-    { ko: '📊 레벨테스트', en: '📊 Level Test', card: 'card-level-tests', sub: null,
+       중요한 기능이라 자주 쓰는 기능 맨 마지막에 바로가기를 얹는다 — 기존 메뉴 위치는 그대로 둔다.
+       ⚠️ 라벨에 이모지를 넣지 않는다. 이 목록은 왼쪽에 SVG 아이콘을 따로 그리므로
+          이모지를 같이 쓰면 «아이콘이 두 개» 로 보인다(사장님 지적, 2026-08-08). */
+    { ko: '레벨테스트', en: 'Level test', card: 'card-level-tests', sub: null,
       ico: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' }
   ];
+
+  /* 🧭 (2026-08-08) 메뉴 6그룹 개편(adm-ia6.js)이 라이브로 켜지면서 이 바로가기들이 죽었다.
+     ia6 는 «고른 항목의 카드만» 남기고 나머지에 .ia6-hide(display:none !important)를 건다.
+     그래서 여기서 곧바로 scrollIntoView 를 하면 **감춰진 카드로 가느라 화면이 그대로**다 —
+     사장님이 「눌러도 아무 반응이 없다」고 하신 것이 이것이다. 5개 항목 전부 같은 상태였다.
+
+     고치는 방법 — 우리가 직접 감춘 걸 되돌리지 않는다. 그건 ia6 의 상태를 몰래 어긋내고,
+     인라인 style 로는 !important 를 이기지도 못한다. 대신 **그 항목의 사이드바 버튼을 대신 눌러 준다.**
+     그러면 ia6 자신의 로직(감춘 것 복원 + 대표 카드 펼치기 + 3단 스크롤 보정 + 선택 강조)이
+     그대로 돌고, ia6 를 끄면 아래 옛 경로로 저절로 폴백한다.
+
+     버튼은 한글 키(`student:레벨테스트`)가 아니라 **data-card 로** 찾는다.
+     항목 이름이 바뀌어도 안 깨지게 하려는 것이다. */
+  function ia6Btn(cardId) {
+    try {
+      return document.querySelector('#ph85-sidebar [data-ia6-item][data-card="' + cardId + '"]');
+    } catch (e) { return null; }
+  }
 
   /* 카드로 이동 + 펼치기 + 잠깐 강조.
      ⚠ 스크롤은 'auto' — 부드러운 스크롤을 시작만 하고 끊으면 멀미가 난다는 지적이 이미 있었다. */
   window.ph161Go = function (cardId, subId) {
+    /* ① ia6(6그룹 메뉴)가 켜져 있으면 그쪽에 맡긴다 — 위 주석 참고 */
+    var btn = ia6Btn(cardId);
+    if (btn) {
+      btn.click();                      // ia6 의 window 캡처 위임이 받는다
+      if (subId) {
+        /* 하위 details 가 목표면 ia6 의 스크롤 보정(0·60·260ms)이 끝난 뒤에 다시 잡는다.
+           먼저 잡으면 ia6 가 곧바로 대표 카드 맨 위로 되돌려 놓는다. */
+        setTimeout(function () {
+          var s = document.getElementById(subId);
+          if (!s) return;
+          if (s.tagName === 'DETAILS') s.open = true;
+          try { s.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) {}
+          flash(s);
+        }, 320);
+      }
+      closeMobileNav();
+      return;
+    }
+
+    /* ② ia6 가 없을 때(옛 9그룹 메뉴) — 예전 그대로 */
     var c = document.getElementById(cardId);
     if (!c) { return; }
+    /* ia6 는 없는데 감춤 클래스만 남아 있는 어중간한 상태에 대한 보험 */
+    try {
+      var n = c;
+      while (n && n !== document.body) { n.classList.remove('ia6-hide'); n = n.parentElement; }
+    } catch (e) {}
     try { if (c.tagName === 'DETAILS') c.open = true; } catch (e) {}
     if (subId) {
       var s = document.getElementById(subId);
