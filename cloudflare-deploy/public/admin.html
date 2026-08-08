@@ -1257,6 +1257,94 @@
   </div>
 </details>
 
+<script id="kpi-dashboard-loader">
+/* ⚠️ (2026-08-08) 이 블록은 통합 대시보드 병합 때 «같이 잘려» 사라졌었다.
+     네 카드를 한 카드로 합치면서 줄 범위를 통째로 갈아끼웠는데, 하필 카드와 카드 사이에
+     이 <script> 가 끼어 있었다. 마크업(id)은 다 살아 있어서 화면은 멀쩡해 보였고,
+     대신 window.kpiLoad 가 정의되지 않아 KPI 8타일이 «📥 로딩 중…» 에서 영원히 멈췄다.
+     → 교훈: 카드를 옮길 때는 «그 사이에 있는 스크립트»를 따로 세어 볼 것.
+       (전역함수 이름을 대조하면 바로 잡힌다: 병합 전후로 window.* 목록을 비교) */
+(function(){
+  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+  const fmtWon = (n) => fmt(n) + '원';
+  const fmtTrend = (t) => {
+    if (t == null) return '';
+    if (t === 0) return '<span class="kpi-trend flat">→ 동일</span>';
+    if (t > 0) return `<span class="kpi-trend up">▲ +${t}%</span>`;
+    return `<span class="kpi-trend down">▼ ${t}%</span>`;
+  };
+
+  window.kpiLoad = async function(){
+    const wrap = document.getElementById('kpi-grid');
+    if (!wrap) return;
+    const isEn = (window.adminLang === 'en');
+    // 🔇 조용한 갱신(26-07-22): 5분 자동갱신·재진입 때마다 그리드를 스피너로 갈아끼우면
+    //   "계속 로딩이 돈다"로 보인다 → 이미 타일이 떠 있으면 스피너 없이 뒤에서 갱신.
+    const hasTiles = !!wrap.querySelector('.kpi-tile');
+    if (!hasTiles) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
+    try {
+      const r = await fetch('/api/admin/kpi/dashboard');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
+      const k = d.kpi || {};
+      const tiles = [
+        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
+        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
+        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
+        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
+        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
+        { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
+        { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
+        { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
+      ];
+      wrap.innerHTML = tiles.map(t => `
+        <div class="kpi-tile ${t.cls}">
+          <div class="kpi-label">${t.label}</div>
+          <div class="kpi-value">${t.value}</div>
+          <div class="kpi-sub">${t.sub}</div>
+          ${t.trend}
+        </div>`).join('');
+      // 📊 접힘 요약줄(pill) 도 같은 응답을 그대로 쓴다 — 추가 요청 0건
+      try { if (typeof window.dashRenderPills === 'function') window.dashRenderPills(k); } catch(e){}
+      document.getElementById('kpi-updated').textContent = (isEn?'Updated: ':'최종 업데이트: ') + new Date(d.ts).toLocaleTimeString(isEn?'en-US':'ko-KR');
+
+      // 7일 매출 미니 차트
+      const dr = d.daily_revenue || [];
+      const max = Math.max(1, ...dr.map(x => x.revenue || 0));
+      const total = dr.reduce((s,x)=>s+(x.revenue||0), 0);
+      document.getElementById('kpi-spark-total').textContent = (isEn?'Total ':'합계 ') + fmtWon(total);
+      const spark = document.getElementById('kpi-spark');
+      spark.innerHTML = dr.map(x => {
+        const h = max > 0 ? Math.max(2, (x.revenue/max)*100) : 2;
+        return `<div class="kpi-spark-bar" style="height:${h}%" title="${x.date}: ${fmtWon(x.revenue)}"></div>`;
+      }).join('');
+      const labels = document.getElementById('kpi-spark-labels');
+      labels.innerHTML = dr.map(x => `<div style="flex:1;text-align:center">${x.date}</div>`).join('');
+    } catch(e) {
+      // 백그라운드 갱신 실패면 기존 타일 유지(스피너/에러로 갈아끼우지 않음)
+      if (!wrap.querySelector('.kpi-tile')) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
+    }
+  };
+  // 페이지 로드 시 자동 + 5분마다 새로고침
+  //
+  // 🐢 (2026-08-08) 두 가지를 고쳤다.
+  //   ① 5분 자동 갱신이 «카드가 접혀 있어도» 계속 돌았다. 아무도 안 보는 화면을 위해
+  //      5분마다 API 를 한 번씩 쓰고 있었다 → 펼쳐져 있을 때만 돈다.
+  //   ② 탭이 백그라운드로 내려가 있으면 갱신하지 않는다. 돌아올 때 어차피 한 번 부른다.
+  //      (관리자 콘솔을 하루 종일 켜 두는 사무실 PC 에서 특히 크다)
+  function kpiCardOpen(){
+    var c = document.getElementById('card-dashboard') || document.getElementById('card-kpi-dashboard');
+    return !!(c && c.open);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(kpiLoad, 500));
+  else setTimeout(kpiLoad, 500);
+  setInterval(function(){
+    if (!kpiCardOpen()) return;
+    if (document.visibilityState === 'hidden') return;
+    kpiLoad();
+  }, 5*60*1000);
+})();
+</script>
 <script id="dash-tab-controller">
 /* ═══════════════════════════════════════════════════════════════════════════
    📊 통합 대시보드 — 탭 전환 + «옛 카드 id» 이어주기 (2026-08-08)
@@ -8781,7 +8869,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=50" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=51" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
@@ -12241,6 +12329,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
+<script src="/js/adm-ia6.js?v=1" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
