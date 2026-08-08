@@ -18,7 +18,7 @@
 //     첫 화면(오늘 수업)의 렌더를 막으면 안 되므로 페이지가 나중에 따로 부른다.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { getAdminActor, PH_MANAGERS } from './auth-admin';
+import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
@@ -588,6 +588,9 @@ export async function handleTeacherApi(
       //    이때는 수업을 한 건도 보여주지 않는다(남의 수업이 섞이는 것보다 낫다).
       identity_ambiguous: identityAmbiguous,
       identity_candidates: ambiguousNames,
+      // 👥 «이 사람은 계정이 하나 더 있다» — 있으면 화면이 한 줄로 안내한다.
+      //    (auth-admin.ts SAME_PERSON_ACCOUNTS: 지금은 Maimai 한 사람뿐)
+      also_account: otherAccountOf(actor.username || ''),
     },
     classes,
     // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.

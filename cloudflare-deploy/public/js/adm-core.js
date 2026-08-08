@@ -453,14 +453,19 @@ async function loadTodayKpi() {
     //      오늘 수업이 없는 학생까지 결석으로 센 것이다. 서버에서 분모를
     //      «오늘 예정된 학생» 으로 바로잡았고, 예정 정보를 모르면 null 을 준다.
     //      모를 때 0% 로 그리면 «결석 없음» 이라는 **틀린 사실**이 된다 → «–» 로 둔다.
+    // 📅 오늘은 «진행상황», 판단용 비율은 «직전 영업일» 것을 쓴다.
+    //   아침 9시에 오늘 미실시율을 내면 100% 다 — 아직 아무 수업도 안 끝났으니까.
+    //   시간이 갈수록 저절로 내려가는 숫자는 판단에 못 쓴다. 그래서 둘을 나눠 보여준다.
     const _abs = j.absence || {};
-    const _rateKnown = (typeof _abs.rate_pct === 'number');
-    $('today-absence').textContent = _rateKnown ? _abs.rate_pct.toFixed(1) + '%' : '–';
-    $('today-absence-sub').textContent = _rateKnown
-      ? ((_abs.absent || 0) + (L ? ' absent / ' : '명 결석 / ') +
-         (_abs.scheduled || 0) + (L ? ' scheduled' : '명 예정'))
-      : (L ? ('Booking ' + (_abs.scheduled || 0) + ' · bookings and attendance are not linked yet')
-           : ('예약 ' + (_abs.scheduled || 0) + '건 · 예약과 출석 기록이 아직 연결돼 있지 않습니다'));
+    const _booked = _abs.booked_today || 0, _done = _abs.done_today || 0;
+    const _prevRate = (typeof _abs.prev_rate_pct === 'number') ? _abs.prev_rate_pct : null;
+    $('today-absence').textContent = _booked
+      ? (_done + ' / ' + _booked)
+      : (L ? 'No class' : '수업 없음');
+    $('today-absence-sub').textContent = _prevRate !== null
+      ? (L ? ('Done / booked today · ' + (_abs.prev_date || '') + ' missed ' + _prevRate.toFixed(1) + '%')
+           : ('오늘 완료 / 예약 · ' + (_abs.prev_date || '') + ' 미실시 ' + _prevRate.toFixed(1) + '%'))
+      : (L ? 'Done / booked today' : '오늘 완료 / 예약');
 
     // 신규 등록 — 단순 카운트
     const sign = j.signups?.count || 0;

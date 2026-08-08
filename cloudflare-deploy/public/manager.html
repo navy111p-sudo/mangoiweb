@@ -132,6 +132,14 @@ body.is-off .card{opacity:.82}
      background:#eef1f5;color:#4a5765;white-space:nowrap}
 .tag.hot{background:#fdecea;color:#8c1d18}
 .tag.ok{background:#e7f5ee;color:#0b7a3d}
+
+/* ⭐ 자주 쓰는 기능 바로가기 — 새 API 0, 아래 카드를 펼치고 이동만 한다.
+   설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. */
+.qlbl{font-size:12.5px;font-weight:800;color:#5d6b7a;padding:2px 2px 4px}
+.qbar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 8px;margin-bottom:4px}
+.qbar button{flex:0 0 auto;border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:999px;
+  padding:9px 14px;font-size:14px;font-weight:700;font-family:inherit;min-height:44px;cursor:pointer;white-space:nowrap}
+.qbar button:active{background:#eef1f5}
 </style>
 </head>
 <body>
@@ -151,6 +159,17 @@ body.is-off .card{opacity:.82}
 
   <div id="off" data-en="Offline — showing the last information received. Press Refresh when you are back online."
        data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결이 되면 새로고침을 눌러 주세요.">Offline</div>
+
+  <!-- ⭐ 자주 쓰는 기능 — 바로가기 바. 새 API 를 부르지 않는다.
+       버튼은 아래에 이미 있는 <details> 카드를 «펼치고 그 위치로 이동» 만 한다(openCard).
+       펼치는 순간 각 카드의 기존 지연로딩(ontoggle)이 값을 받는다 — 로직 중복 0. -->
+  <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
+  <div class="qbar">
+    <button type="button" onclick="openCard('c-search')"><span data-en="Search" data-ko="통합 검색">Search</span></button>
+    <button type="button" onclick="openCard('c-wait')"><span data-en="Waiting list" data-ko="대기자">Waiting list</span></button>
+    <button type="button" onclick="openCard('c-students')"><span data-en="My students" data-ko="학생 명부">My students</span></button>
+    <button type="button" onclick="openCard('c-util')"><span data-en="Teacher use" data-ko="강사 가동률">Teacher use</span></button>
+  </div>
 
   <!-- ① 오늘 — 첫 화면 API 1/2 -->
   <div class="card">
@@ -321,6 +340,14 @@ body.is-off .card{opacity:.82}
     applyLang();
   };
 
+  // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
+  window.openCard = function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 알아서 부른다
+    try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
+  };
+
   // ── 숫자 표기 ─────────────────────────────────────────────────────────────
   function n0(v){ return (Number(v) || 0).toLocaleString(); }
   function won(v){
@@ -399,23 +426,23 @@ body.is-off .card{opacity:.82}
   function paintToday(){
     var d = D.today; if (!d) return;
     document.getElementById('todayDate').textContent = d.date || '';
-    // 🪤 (2026-08-08) rate_pct 는 «모르면 null» 이다(서버가 오늘 예정 정보를 못 찾은 경우).
-    //    0 으로 떨어뜨리면 «결석 없음» 이라는 틀린 사실이 된다 → «–» 로 그린다.
+    // 📅 (2026-08-09) 오늘은 «진행상황», 판단용 비율은 «직전 영업일» 것을 쓴다.
+    //    아침엔 오늘 미실시율이 100% 다 — 아직 아무 수업도 안 끝났으니까.
+    //    시간이 갈수록 저절로 내려가는 숫자는 판단에 못 쓴다.
     var _ab = d.absence || {};
-    var absentKnown = (typeof _ab.rate_pct === 'number');
-    var absent = absentKnown ? _ab.rate_pct : 0;
+    var _booked = _ab.booked_today || 0, _done = _ab.done_today || 0;
+    var _prevRate = (typeof _ab.prev_rate_pct === 'number') ? _ab.prev_rate_pct : null;
     document.getElementById('kToday').innerHTML =
       tile(won(d.revenue && d.revenue.amount_krw), T('Revenue today', '오늘 매출'),
            T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건')) +
       tile(n0(d.students && d.students.attended), T('Attended', '출석'),
            T('of ' + n0(d.students && d.students.active) + ' active', '재원 ' + n0(d.students && d.students.active) + '명 중')) +
-      tile(absentKnown ? absent.toFixed(1) + '%' : '–', T('Absence rate', '결석률'),
-           absentKnown
-             ? T(n0(_ab.absent) + ' of ' + n0(_ab.scheduled) + ' scheduled',
-                 '예정 ' + n0(_ab.scheduled) + '명 중 ' + n0(_ab.absent) + '명 결석')
-             : T('Booking ' + n0(_ab.scheduled) + ' · bookings and attendance are not linked yet',
-                 '예약 ' + n0(_ab.scheduled) + '건 · 예약과 출석 기록이 아직 연결돼 있지 않습니다'),
-           (absentKnown && absent >= 30) ? 'warn' : '') +
+      tile(_booked ? (n0(_done) + ' / ' + n0(_booked)) : T('No class', '수업 없음'),
+           T("Today's classes", '오늘 수업 진행'),
+           _prevRate !== null
+             ? T((_ab.prev_date || '') + ' missed ' + _prevRate.toFixed(1) + '%',
+                 (_ab.prev_date || '') + ' 미실시 ' + _prevRate.toFixed(1) + '%')
+             : T('Done / booked today', '오늘 완료 / 예약'), '') +
       tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
   }
   function tile(big, label, sub, cls){
@@ -757,11 +784,25 @@ body.is-off .card{opacity:.82}
   function paintMe(){
     var j = D.me; if (!j) return;
     var u = j.user || j.admin || j;
+    /* 👥 «계정이 하나 더 있다» — 서버(SAME_PERSON_ACCOUNTS)가 정한 사람에게만 내려온다.
+       왜: Maimai 는 매니저 계정(mgr_maimai)과 옛 LMS 에서 이관된 강사 계정(mangoi_033)을
+       둘 다 쓰는데, 화면 어디에도 그 사실이 없어 두 비밀번호를 서로 바꿔 넣는 로그인 실패가
+       반복됐다. «다른 쪽에 무엇이 있는지»까지 적어야 헛걸음을 막는다. */
+    var also = j.also_account;
     document.getElementById('meBody').className = '';
     document.getElementById('meBody').innerHTML =
       '<div class="row"><b>' + esc(T('ID', '아이디')) + '</b><span>' + esc(u.uid || u.username || '') + '</span></div>'
       + '<div class="row"><b>' + esc(T('Name', '이름')) + '</b><span>' + esc(u.name || u.display_name || '') + '</span></div>'
-      + '<div class="row"><b>' + esc(T('Role', '역할')) + '</b><span>' + esc(u.role || '') + '</span></div>';
+      /* 🐞 역할 칸이 늘 비어 있었다 — 서버(/api/admin/me)는 role·roleLabel 을 **최상위**로 주는데
+            여기서는 j.user 안을 봤다. 한국어 라벨(roleLabel)을 먼저, 없으면 코드값을 쓴다. */
+      + '<div class="row"><b>' + esc(T('Role', '역할')) + '</b><span>'
+        + esc(u.role || (EN() ? (j.role || j.roleLabel || '') : (j.roleLabel || j.role || '')) || '') + '</span></div>'
+      + (also ? '<div class="row"><b>' + esc(T('Your other account', '내 다른 계정')) + '</b>'
+                + '<span>' + esc(also.username) + ' &middot; ' + esc(T(also.role_en, also.role_ko)) + '</span></div>'
+                + '<div class="muted" style="font-size:12px;padding:2px 0 0">'
+                + esc(T('Log out first — each account has its own password.',
+                        '먼저 로그아웃해야 합니다 — 두 계정은 비밀번호가 각각 다릅니다.')) + '</div>'
+              : '');
   }
 
   // ── 다시 그리기(언어 전환 시) ─────────────────────────────────────────────

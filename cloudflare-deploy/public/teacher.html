@@ -338,6 +338,12 @@ html[data-t="dark"] .nextup.soon .nu-c{color:#f7897f}
 html[data-t="dark"] .nextup.open{background:#13291d;border-color:#2c5c41}
 html[data-t="dark"] .nextup.open .nu-l,
 html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
+
+/* ⭐ 자주 쓰는 기능 바로가기 — .tbtn 재사용(다크·44px 상속). 외부 리소스 0·애니메이션 0. */
+.qlbl{font-size:12.5px;font-weight:700;color:#5d6b7a;padding:2px 2px 4px}
+html[data-t="dark"] .qlbl{color:#9dabb9}
+.qbar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 8px;margin:0 0 4px}
+.qbar .tbtn{flex:0 0 auto}
 </style>
 <!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
      흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
@@ -368,7 +374,23 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     </nav>
   </div>
 
+  <!-- ⭐ 자주 쓰는 기능 — 바로가기 바(새 API 0). 아래 <details> 카드를 펼치고 이동만 한다.
+       장애 신고는 이미 화면 최상단 라이브 배너로 처리돼 여기 중복하지 않는다. -->
+  <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
+  <nav class="qbar" aria-label="Quick access">
+    <button class="tbtn" type="button" onclick="openCard('c-postpone')" data-en="Postpone / change" data-ko="수업 연기·변경">Postpone / change</button>
+    <button class="tbtn" type="button" onclick="openCard('c-pay')" data-en="Pay" data-ko="급여">Pay</button>
+    <button class="tbtn" type="button" onclick="openCard('c-rate')" data-en="My ratings" data-ko="내 평점">My ratings</button>
+    <button class="tbtn" type="button" onclick="openCard('c-report')" data-en="Reports" data-ko="수업 리포트">Reports</button>
+  </nav>
+
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
+
+  <!-- 👥 (2026-08-09) 계정이 두 개인 사람에게만 뜬다(서버 SAME_PERSON_ACCOUNTS 가 정한다).
+       왜: Maimai 는 매니저 계정과 옛 LMS 강사 계정을 둘 다 쓰는데, 화면 어디에도 그 사실이
+       없어 «매니저 화면에서 평가서를 찾다 못 찾고» 두 비밀번호를 바꿔 넣는 일이 반복됐다.
+       추측하지 않는다 — 서버가 also_account 를 줄 때만 그린다. -->
+  <div class="card" id="also-acct" hidden></div>
 
   <!-- 캐시를 그렸는데 갱신에 실패했을 때만 뜬다. 오래된 시간표를 '지금 것'으로 믿게 두지 않는다. -->
   <div class="card err" id="stale" hidden
@@ -661,6 +683,14 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     if (typeof window.__repaintMy === 'function') window.__repaintMy();
     if (typeof paintOutbox === 'function') paintOutbox();
   }
+  // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
+  window.openCard = function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.hidden) el.hidden = false;
+    if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 부른다
+    try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
+  };
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
     langPickedByUser = true;
@@ -924,6 +954,7 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       ct.setAttribute('data-ko', '내 커버 수업');
     }
 
+    renderAlsoAccount(d.me);
     renderClasses(d.classes || []);
     renderUpcoming(d.upcoming || []);
     renderWeek(d.week);
@@ -940,6 +971,36 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
     //    강사가 "오늘 5개 있네" 하고 잘못 읽는다(실제 입장 가능한 건 0개일 수 있다).
     paintClassCount(d.classes);
+  }
+
+  /* 👥 «계정이 하나 더 있다» 안내 — 서버가 also_account 를 줄 때만 그린다.
+     ⚠️ 화면에서 아이디 규칙으로 추측하지 않는다. `mgr_` 접두사에는 한국 매니저도 있고,
+        `mangoi_0NN` 은 강사 전원이 쓴다 — 추측하면 엉뚱한 사람에게 남의 아이디를 보여 준다.
+     ⚠️ data-en/data-ko 를 붙이지 않는다(붙이면 applyLang 이 innerHTML 을 통째로 되쓴다).
+        언어 전환은 lang 버튼이 render(DATA) 를 다시 부르므로 여기서 다시 그려진다. */
+  function renderAlsoAccount(me){
+    var box = document.getElementById('also-acct');
+    if (!box) return;
+    var a = me && me.also_account;
+    if (!a){ box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    /* ⚠️ 문장을 조각으로 이어 붙이지 않는다 — 한국어는 조사가 붙어 «…업무 은(는) 로그아웃 후»
+       처럼 깨진다. 언어마다 문장을 통째로 만든다. */
+    var here = '<b>' + esc(me.username || '') + '</b>';
+    var them = '<b>' + esc(a.username) + '</b>';
+    var what = '<b>' + esc(T(a.role_en, a.role_ko)) + '</b>';
+    box.innerHTML =
+      '<div style="font-weight:700">' + esc(T('You have a second account', '계정이 하나 더 있습니다')) + '</div>'
+      + '<div style="font-size:13px;padding-top:4px">'
+      +   (EN()
+            ? 'This screen is ' + here + '. For ' + what + ', log out and sign in as ' + them + '.'
+            // ⚠️ 아이디 뒤에 조사를 직접 붙이지 않는다 — 끝소리에 따라 «로/으로» 가 갈린다.
+            //    아이디는 사람마다 다르므로 «계정으로» 를 끼워 조사 문제를 없앤다.
+            : '지금 화면은 ' + here + ' 입니다. ' + what + '를 하려면 로그아웃 후 ' + them + ' 계정으로 로그인하세요.')
+      + '</div>'
+      + '<div class="muted" style="font-size:12px;padding-top:4px">'
+      +   esc(T('The two accounts have different passwords.', '두 계정은 비밀번호가 각각 다릅니다.'))
+      + '</div>';
   }
 
   // 제목 옆 개수 — render() 와 자동 갱신(요청 26번) 두 곳에서 쓴다.

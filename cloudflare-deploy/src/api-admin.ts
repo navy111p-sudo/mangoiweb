@@ -768,19 +768,30 @@ export async function handleAdminApi(
         //   결석 = «예정된 사람» 중 그날 present/left/attended 기록이 하나도 없는 사람.
         //   실측 08-07: 예정 92 · 출석 125 · 결석 65 → 70.7%.
         //   (출석이 예정보다 많은 것은 예약 없이 들어온 수업이 있기 때문이다. 정상이다.)
+        // 📅 카페24 «수업 1건 = 행 1개» 를 상태별로 센다.
+        //   cafe24-sync.ts: room_id=`c24-{class_id}`, class_state 2 → 'present'(완료), 그 외 → 'scheduled'(미실시).
+        //   즉 한 방에 한 행뿐이라 예정·출석이 «겹치지 않는» 것이 정상이다.
+        //   ⚠️ 세는 단위는 **수업(행)** 이지 학생이 아니다. 한 학생이 하루에 여러 수업을 듣는다.
+        //   ⚠️ 오늘 값으로 «미실시율» 을 내면 안 된다 — 아침엔 100% 가 나온다(아직 안 했으니까).
+        //      그래서 오늘은 «완료/예약» 진행상황만 주고, 비율은 **직전 영업일**(정산된 날) 것을 준다.
         safe(() => env.DB.prepare(
-          `SELECT
-             (SELECT COUNT(DISTINCT user_id) FROM attendance
-               WHERE date = ? AND status = 'scheduled'${_uidScope}) AS scheduled,
-             (SELECT COUNT(DISTINCT a.user_id) FROM attendance a
-               WHERE a.date = ? AND a.status = 'scheduled'
-                 AND a.user_id NOT IN (
-                   SELECT b.user_id FROM attendance b
-                    WHERE b.date = ? AND b.status IN ('present','left','attended'))
-                 ${_uidScope.replace('AND user_id IN', 'AND a.user_id IN')}) AS absent`
-        ).bind(todayKst, ..._sb, todayKst, todayKst, ..._sb)
-         .first<{ scheduled: number; absent: number }>(),
-        { scheduled: 0, absent: 0 } as any)
+          `WITH prev AS (
+             SELECT date, COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
+               FROM attendance
+              WHERE room_id LIKE 'c24-%' AND date < ? AND date >= date(?, '-14 days')
+              GROUP BY date HAVING COUNT(*) >= 20
+              ORDER BY date DESC LIMIT 1)
+           SELECT
+             (SELECT COUNT(*) FROM attendance
+               WHERE room_id LIKE 'c24-%' AND date = ?${_uidScope}) AS booked_today,
+             (SELECT COUNT(*) FROM attendance
+               WHERE room_id LIKE 'c24-%' AND date = ? AND status = 'present'${_uidScope}) AS done_today,
+             (SELECT date FROM prev) AS prev_date,
+             (SELECT n    FROM prev) AS prev_booked,
+             (SELECT done FROM prev) AS prev_done`
+        ).bind(todayKst, todayKst, todayKst, ..._sb, todayKst, ..._sb)
+         .first<{ booked_today: number; done_today: number; prev_date: string | null; prev_booked: number; prev_done: number }>(),
+        { booked_today: 0, done_today: 0, prev_date: null, prev_booked: 0, prev_done: 0 } as any)
       ]);
 
       const revenue = revRow?.revenue || 0;
@@ -806,26 +817,36 @@ export async function handleAdminApi(
       //   화면은 null 을 «–» 로 그린다. 이 저장소에는 같은 이유로 만들어진 하니스가 있다
       //   (attendance_no_fabrication_harness — 없는 기록을 계산식으로 만들어 붙였다가
       //    그 «지어낸 지각» 이 강사 급여를 깎을 뻔했다). 같은 실수를 KPI 에서 반복하지 않는다.
-      const scheduledToday = Math.max(0, Number(schedRow?.scheduled || 0));
-      const absentCount = Math.max(0, Number(schedRow?.absent || 0));
+      // 📊 오늘은 «진행상황», 비율은 «직전 영업일» — 이렇게 나눈 이유는 아래 주석 참조.
+      const bookedToday = Math.max(0, Number(schedRow?.booked_today || 0));
+      const doneToday   = Math.max(0, Number(schedRow?.done_today || 0));
+      const prevBooked  = Math.max(0, Number(schedRow?.prev_booked || 0));
+      const prevDone    = Math.max(0, Number(schedRow?.prev_done || 0));
+      const prevRate    = prevBooked > 0
+        ? Math.round(((prevBooked - prevDone) * 1000 / prevBooked)) / 10
+        : null;
+      const scheduledToday = Math.max(0, bookedToday - doneToday);   // 오늘 아직 안 한 수업
+      const absentCount = scheduledToday;
 
-      // 🔴 결석률은 **지금 계산할 수 없다.** 그래서 내지 않는다. (2026-08-08 조사 결과)
+      // 📌 왜 «오늘의 비율» 을 안 내는가 (2026-08-09, 연동 코드까지 읽고 정리)
       //
-      //   왜 — «예정» 과 «출석» 이 서로 연결돼 있지 않다. 운영 D1 실측:
-      //     · 최근 30일 c24 방 3,487개 중 «예정과 출석이 같은 방에 있는 경우» = **0건**
-      //       (예정만 1,328방 · 출석만 2,159방). 두 기록이 **다른 예약번호 공간**을 쓴다.
-      //     · 학생 단위로 봐도 5일간 예정 228명 · 출석 368명 중 겹치는 사람은 133명뿐이고,
-      //       «왔는데 예정 기록이 없는» 학생이 235명이다.
-      //   즉 예정 피드는 실제 수업의 3분의 1가량만 덮는다. 이 둘을 나누면
-      //   «예약해 놓고 안 온 비율» 이 아니라 **두 기록이 어긋난 정도**가 나온다.
-      //   그렇게 나온 값이 70.7% 였다. 이전의 99.9% 보다 그럴듯할 뿐 여전히 사실이 아니다.
+      //   앞서 두 번 틀렸다. 기록해 둔다 —
+      //     ① 분모가 «전체 재원» 이었다 → 8,052−8 = 99.9%. 오늘 수업 없는 학생까지 결석으로 셌다.
+      //     ② 그다음엔 «예정 학생 중 출석 안 한 학생» 으로 고쳤다 → 70.7%. 이것도 틀렸다.
+      //        학생 단위로 맞추려 했는데, 한 학생이 하루에 여러 수업을 듣기 때문이다.
+      //        «겹치는 방이 0건» 인 것을 «두 피드가 끊겼다» 고 오해하기도 했다.
       //
-      //   ⚠️ 이 저장소의 원칙(attendance_no_fabrication_harness)을 그대로 따른다 —
-      //      계산할 수 없으면 만들어 내지 않는다. 예약 건수와 출석 인원은 각각 사실이므로
-      //      그대로 내보내고, 화면은 비율 자리에 «–» 를 그린다.
-      //   되살리려면: 두 피드의 예약번호를 맞추거나(같은 room_id 를 쓰거나),
-      //      예정 행이 출석 시 **갱신**되도록 고쳐야 한다. 그 뒤에 known 을 되살릴 것.
-      const hasSchedule = false;
+      //   진실은 cafe24-sync.ts 에 있었다 — 카페24 **수업 1건 = attendance 행 1개**이고,
+      //   class_state 2 면 'present'(완료), 아니면 'scheduled'(미실시)로 **같은 행의 상태**만 갈린다.
+      //   그러니 한 방에 한 행뿐인 게 정상이고, 세는 단위는 학생이 아니라 **수업(행)** 이다.
+      //
+      //   그런데 «오늘» 로 비율을 내면 여전히 거짓말이 된다 — 아침 9시엔 오늘 수업이
+      //   하나도 안 끝났으니 미실시율 100% 다. 시간이 갈수록 저절로 내려간다.
+      //   → 오늘은 «완료 M / 예약 N» 이라는 **진행상황**만 말하고,
+      //     판단에 쓸 비율은 **직전 영업일**(수업이 다 끝나 값이 굳은 날) 것을 준다.
+      //   실측 미실시율: 08-06 30.1% · 08-05 43.4% · 08-04 32.1% · 08-03 31.2%
+      //     (예약 200건이 넘는 금요일만 ~50% 로 튄다 — 그건 들여다볼 «사실» 이다)
+      const hasSchedule = false;   // 오늘 비율은 내지 않는다(위 이유). 대신 prev_* 를 쓴다.
       const absenceRate: number | null = hasSchedule
         ? Math.round((absentCount * 100 / scheduledToday) * 10) / 10
         : null;
@@ -841,7 +862,11 @@ export async function handleAdminApi(
         //   reason 은 화면이 «왜 못 내는지» 를 사람 말로 보여주기 위한 것.
         absence: {
           rate_pct: absenceRate, absent: absentCount, scheduled: scheduledToday,
-          known: hasSchedule, reason: hasSchedule ? null : 'booking_attendance_unlinked',
+          known: hasSchedule, reason: hasSchedule ? null : 'today_in_progress',
+          // 오늘 진행상황(사실) + 직전 영업일 미실시율(판단용)
+          booked_today: bookedToday, done_today: doneToday,
+          prev_date: schedRow?.prev_date || null, prev_rate_pct: prevRate,
+          prev_booked: prevBooked, prev_done: prevDone,
         },
         signups: { count: signups }
       }, 60);
