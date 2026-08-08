@@ -266,169 +266,135 @@
     return _awSeedBanner() + html;
   }
 
+  /* ────────────────────────────────────────────────────────────────────────
+     🪶 (2026-08-08) 출근현황 그래프 — Chart.js 를 걷어내고 «HTML 막대» 로 다시 씀
+     사장님 요청: 최대한 가볍게 · 빠르게 · 버퍼링/레깅 없게.
+
+     걷어낸 것
+       · Chart.js CDN 로드(cdn.jsdelivr.net) — 외부 의존 0. 필리핀 회선에서 제일 느리고,
+         막히면 그래프가 아예 안 뜨던 지점이다. 저장소에 로컬 사본이 있는데도 이 카드만
+         CDN 을 보고 있었다.
+       · 캔버스 3개(막대·도넛·랭킹) → 막대 «하나». 강사 30명 규모에서 3개는 과하고,
+         도넛은 비율 하나를 원으로 그린 것이라 숫자 한 줄이면 끝난다.
+         (게다가 도넛 분모가 data.length*7 «1주일 가정» 이라는 근거 없는 값이었다.)
+
+     그림 원칙 — 숫자를 먼저, 색은 예외에만
+       · 맨 위에 전체 정시 출근율을 큰 숫자로. 목표(95%) 대비 몇 %p 인지 같이 적는다.
+       · 막대는 목표 달성이면 회색, 미달일 때만 주황·빨강. 전부 색칠하면 아무것도 안 보인다.
+       · 목표선을 막대 위에 점선으로 얹어 «어디까지 가야 하는지» 를 눈으로 잡게 한다.
+
+     왜 SVG 가 아니라 HTML 인가 — 가로막대는 HTML 이 더 가볍고 안전하다.
+       viewBox 스케일에 글자가 같이 늘어나지 않고, 번역·복사·검색이 그대로 되며,
+       리플로우도 브라우저 기본 레이아웃이 처리한다. 렌더는 즉시라 레깅이 원천적으로 없다.
+     ──────────────────────────────────────────────────────────────────────── */
+  function _awEsc(v) {
+    return String(v == null ? '' : v).replace(/[<>&"]/g, c => ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;' }[c]));
+  }
+
+  const AW_GOAL = 95;   // 정시 출근율 목표(%)
+
   function renderChart(rows) {
     const wrap = document.getElementById('aw-chart-wrap');
+    const tableWrap = document.getElementById('aw-table-wrap');
+    if (!wrap) return;
     wrap.style.display = 'block';
-    document.getElementById('aw-table-wrap').style.display = 'none';
+    if (tableWrap) tableWrap.style.display = 'none';
+    const en = isEn();
+
+    // 예전 Chart.js 인스턴스가 남아 있으면 정리하고 참조를 끊는다
+    if (_awChart && typeof _awChart.destroy === 'function') { try { _awChart.destroy(); } catch (e) {} }
+    _awChart = null;
+
     const teachers = Array.from(new Set(rows.map(r => r.teacher_id))).map(id => {
       const t = _awTeachers.find(x => String(x.id) === String(id));
       return { id, name: t ? t.name : id };
-    }).sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
+    });
 
-    if (typeof Chart === 'undefined') {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
-      s.onload = () => renderChart(rows);
-      document.head.appendChild(s);
-      return;
-    }
-    const en = isEn();
-    if (_awChart) { _awChart.destroy(); _awChart = null; }
-
-    // 강사별 통계 계산
     const data = teachers.map(t => {
       const trs = rows.filter(r => String(r.teacher_id) === String(t.id) && r.actual);
       const lateRecs = trs.filter(r => r.late_min > 0);
-      const totalLate = lateRecs.reduce((a, r) => a + (r.late_min||0), 0);
+      const totalLate = lateRecs.reduce((a, r) => a + (r.late_min || 0), 0);
       const totalDays = trs.length;
       const onTimePct = totalDays ? Math.round(((totalDays - lateRecs.length) / totalDays) * 100) : 0;
       return { name: t.name, totalLate, lateCount: lateRecs.length, onTimePct, totalDays };
-    });
-    // 정렬: 지각 누적이 많은 순서
-    data.sort((a, b) => b.totalLate - a.totalLate);
+    }).filter(d => d.totalDays > 0);
 
-    // 색상: 지각이 많을수록 빨강
-    const maxLate = Math.max(...data.map(d => d.totalLate), 1);
-    const barColors = data.map(d => {
-      const ratio = d.totalLate / maxLate;
-      if (ratio > 0.66) return { bg: 'rgba(239,68,68,0.85)', border: '#b91c1c' };
-      if (ratio > 0.33) return { bg: 'rgba(245,158,11,0.85)', border: '#d97706' };
-      if (ratio > 0)    return { bg: 'rgba(59,130,246,0.85)', border: '#1d4ed8' };
-      return { bg: 'rgba(34,197,94,0.85)', border: '#15803d' };
-    });
+    if (!data.length) {
+      wrap.innerHTML = _awSeedBanner() +
+        '<div style="padding:36px;text-align:center;color:#98a2b3;font-size:13px">' +
+        (en ? 'No attendance records in this range.' : '선택 기간에 출근 기록이 없습니다.') + '</div>';
+      return;
+    }
 
-    // wrap inner — 듀얼 차트
-    // 🐞 (2026-08-08) 여기 첫 캔버스 id 가 «aw-chart-2» 였다. 그런데 바로 아래에서
-    //    getElementById('aw-chart') 를 부른다. innerHTML 로 원래 <canvas id="aw-chart"> 를
-    //    지워 버린 뒤라 null 이 돌아오고 .getContext 에서 TypeError → 함수가 그 자리에서 죽는다.
-    //    그래서 도넛(aw-chart2)·랭킹(aw-chart3)까지 통째로 안 그려지고 «빈 회색 박스»만 남았다.
-    //    id 를 aw-chart / aw-chart2 / aw-chart3 로 맞춘다.
-    wrap.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:6px 0">' +
-      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart"></canvas></div>' +
-      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart2"></canvas></div>' +
-    '</div>' +
-    '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:280px;margin-top:14px;position:relative"><canvas id="aw-chart3"></canvas></div>';
+    // 낮은 정시율이 위로 — 손봐야 할 사람이 먼저 보이게
+    data.sort((a, b) => a.onTimePct - b.onTimePct || b.totalLate - a.totalLate);
 
-    // 1) 막대: 강사별 지각 누적·횟수
-    _awChart = new Chart(document.getElementById('aw-chart').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.name),
-        datasets: [
-          {
-            label: en?'Total late (min)':'지각 누적(분)',
-            data: data.map(d => d.totalLate),
-            backgroundColor: barColors.map(c => c.bg),
-            borderColor: barColors.map(c => c.border),
-            borderWidth: 1.5,
-            borderRadius: 6,
-            yAxisID: 'y'
-          },
-          {
-            label: en?'Late count':'지각 횟수',
-            data: data.map(d => d.lateCount),
-            type: 'line',
-            borderColor: '#7c3aed',
-            backgroundColor: 'rgba(124,58,237,0.1)',
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointBackgroundColor: '#7c3aed',
-            tension: 0.3,
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 12, weight: 600 }, padding: 12 } },
-          title: { display: true, text: en?'Teacher Attendance — Late Minutes & Count':'강사별 지각 누적·횟수', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont: { size: 12, weight: 700 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8, borderColor: '#3b82f6', borderWidth: 1 }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-          y: { beginAtZero: true, position: 'left', title: { display: true, text: en?'Minutes':'분', color: '#dc2626' }, ticks: { color: '#dc2626' }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y1: { beginAtZero: true, position: 'right', title: { display: true, text: en?'Count':'횟수', color: '#7c3aed' }, ticks: { color: '#7c3aed', stepSize: 1 }, grid: { display: false } }
-        }
-      }
-    });
+    const days = data.reduce((a, d) => a + d.totalDays, 0);
+    const lateCnt = data.reduce((a, d) => a + d.lateCount, 0);
+    const lateMin = data.reduce((a, d) => a + d.totalLate, 0);
+    const overall = days ? Math.round(((days - lateCnt) / days) * 100) : 0;
+    const gap = overall - AW_GOAL;
+    const below = data.filter(d => d.onTimePct < AW_GOAL).length;
 
-    // 2) 도넛: 정시 vs 지각 비율 (전체 합)
-    const totalDaysAll = data.reduce((a, d) => a + d.totalDays, 0);
-    const totalLateCnt = data.reduce((a, d) => a + d.lateCount, 0);
-    const onTimeCnt = totalDaysAll - totalLateCnt;
-    new Chart(document.getElementById('aw-chart2').getContext('2d'), {
-      type: 'doughnut',
-      data: {
-        labels: [en?'On time':'정시 출근', en?'Late':'지각', en?'Absent':'미출근'],
-        datasets: [{
-          data: [onTimeCnt, totalLateCnt, Math.max(0, data.length * 7 - totalDaysAll)],  // 가정: 1주일 기준
-          backgroundColor: ['#10b981','#f59e0b','#94a3b8'],
-          borderColor: '#fff', borderWidth: 3
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 12, weight: 600 }, padding: 14, boxWidth: 14 } },
-          title: { display: true, text: en?'Overall On-time Rate':'전체 정시 출근율', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont:{size:12,weight:700}, bodyFont:{size:12}, padding:10, cornerRadius:8 }
-        },
-        cutout: '60%'
-      }
-    });
+    const tone = p => p >= AW_GOAL ? { bar: '#cbd5e1', txt: '#475467' }      // 달성 — 조용한 회색
+                    : p >= 80      ? { bar: '#fdb022', txt: '#b45309' }      // 주의
+                                   : { bar: '#f04438', txt: '#b42318' };     // 미달
 
-    // 3) 가로 막대: 정시 출근율 % 랭킹 (모든 강사)
-    const sortedByOnTime = [...data].sort((a,b) => b.onTimePct - a.onTimePct);
-    new Chart(document.getElementById('aw-chart3').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: sortedByOnTime.map(d => d.name),
-        datasets: [{
-          label: en?'On-time rate (%)':'정시 출근율 (%)',
-          data: sortedByOnTime.map(d => d.onTimePct),
-          backgroundColor: sortedByOnTime.map(d => {
-            if (d.onTimePct >= 95) return 'rgba(34,197,94,0.85)';
-            if (d.onTimePct >= 80) return 'rgba(59,130,246,0.85)';
-            if (d.onTimePct >= 60) return 'rgba(245,158,11,0.85)';
-            return 'rgba(239,68,68,0.85)';
-          }),
-          borderColor: sortedByOnTime.map(d => {
-            if (d.onTimePct >= 95) return '#15803d';
-            if (d.onTimePct >= 80) return '#1d4ed8';
-            if (d.onTimePct >= 60) return '#d97706';
-            return '#b91c1c';
-          }),
-          borderWidth: 1.5,
-          borderRadius: 4,
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: en?'On-time Rate Ranking':'강사별 정시 출근율 랭킹', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont:{size:12,weight:700}, bodyFont:{size:12}, padding:10, cornerRadius:8,
-            callbacks: { label: ctx => ' ' + ctx.parsed.x + '%' } }
-        },
-        scales: {
-          x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y: { grid: { display: false }, ticks: { font: { size: 11, weight: 600 } } }
-        }
-      }
-    });
+    const headColor = gap >= 0 ? '#067647' : '#b42318';
+    const head =
+      '<div style="display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:2px 2px 14px">' +
+        '<div>' +
+          '<div style="font-size:11.5px;font-weight:700;color:#667085;letter-spacing:.3px">' +
+            (en ? 'ON-TIME RATE' : '전체 정시 출근율') + '</div>' +
+          '<div style="font-size:34px;font-weight:800;color:' + headColor + ';line-height:1.1;font-variant-numeric:tabular-nums">' +
+            overall + '<span style="font-size:18px">%</span></div>' +
+        '</div>' +
+        '<div style="font-size:12px;color:#667085;line-height:1.7;padding-bottom:4px">' +
+          (en ? 'Goal ' : '목표 ') + AW_GOAL + '% · ' +
+          '<b style="color:' + headColor + '">' + (gap >= 0 ? '+' : '') + gap + '%p</b><br>' +
+          (en
+            ? (data.length + ' teachers · ' + days + ' days · late ' + lateCnt + ' times (' + lateMin + ' min)')
+            : ('강사 ' + data.length + '명 · 출근 ' + days + '일 · 지각 ' + lateCnt + '회 (' + lateMin + '분)')) +
+        '</div>' +
+        (below
+          ? '<div style="margin-left:auto;padding-bottom:6px;font-size:12px;font-weight:700;color:#b42318">' +
+              (en ? below + ' below goal' : '목표 미달 ' + below + '명') + '</div>'
+          : '<div style="margin-left:auto;padding-bottom:6px;font-size:12px;font-weight:700;color:#067647">' +
+              (en ? 'All on goal' : '전원 목표 달성') + '</div>') +
+      '</div>';
+
+    const bars = data.map(d => {
+      const c = tone(d.onTimePct);
+      return '<div style="display:grid;grid-template-columns:118px 1fr 92px;align-items:center;gap:10px;padding:3px 0">' +
+        '<div title="' + _awEsc(d.name) + '" style="font-size:12.5px;font-weight:700;color:#344054;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+          _awEsc(d.name) + '</div>' +
+        '<div style="position:relative;height:16px;background:#f2f4f7;border-radius:8px;overflow:hidden">' +
+          '<div style="width:' + d.onTimePct + '%;height:100%;background:' + c.bar + ';border-radius:8px"></div>' +
+        '</div>' +
+        '<div style="font-size:12px;font-variant-numeric:tabular-nums;text-align:right;color:' + c.txt + ';font-weight:700">' +
+          d.onTimePct + '%' +
+          '<span style="color:#98a2b3;font-weight:400"> · ' + d.totalLate + (en ? 'm' : '분') + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // 목표선 — 막대 영역(가운데 열) 위에만 얹는다
+    const goalLine =
+      '<div style="position:relative;height:0">' +
+        '<div style="position:absolute;left:calc(118px + 10px + (100% - 118px - 92px - 20px) * ' + (AW_GOAL / 100) + ');' +
+             'top:-' + (data.length * 22 + 8) + 'px;height:' + (data.length * 22 + 8) + 'px;' +
+             'border-left:1px dashed #98a2b3"></div>' +
+      '</div>';
+
+    wrap.innerHTML = _awSeedBanner() + head +
+      '<div style="border-top:1px solid #eaecf0;padding-top:12px">' +
+        '<div style="font-size:11.5px;font-weight:700;color:#667085;margin-bottom:8px">' +
+          (en ? 'BY TEACHER — lowest first' : '강사별 — 낮은 순') +
+          '<span style="float:right;font-weight:400;color:#98a2b3">' +
+            (en ? 'dashed line = goal ' : '점선 = 목표 ') + AW_GOAL + '%</span>' +
+        '</div>' +
+        bars + goalLine +
+      '</div>';
   }
 
   function awRender() {
