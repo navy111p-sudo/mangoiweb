@@ -1234,7 +1234,9 @@ const worker = {
         path === '/api/student/login' ||
         // 🔒 (2026-08-08) 세션 상태 조회 — 401 을 받았을 때 «왜» 인지 화면에 알려주기 위한 것.
         //   토큰만 보고 판정하며 개인정보를 돌려주지 않는다(uid 는 요청자가 이미 가진 값).
-        path === '/api/session/status' ||
+        //   ⚠️ 경로가 반드시 `/api/student/` 로 시작해야 한다 — api-mango.ts 가 그 네 개
+        //      접두사일 때만 handleStudentsApi 를 부른다(여기만 등록하면 404 가 난다).
+        path === '/api/student/session-status' ||
         path === '/api/student/register' ||
         path === '/api/student/lookup' ||
         path === '/api/student/set-password' ||

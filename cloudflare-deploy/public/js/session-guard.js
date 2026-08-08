@@ -8,7 +8,7 @@
  *
  *   어떻게 —
  *     ① window.fetch 를 감싸 같은 출처 `/api/…` 응답이 401 인지 본다.
- *     ② 401 이면 `/api/session/status` 에 토큰을 한 번 물어본다(이 호출은 감싸지 않는다).
+ *     ② 401 이면 `/api/student/session-status` 에 토큰을 한 번 물어본다(이 호출은 감싸지 않는다).
  *     ③ 답이 'kicked' 일 때만 안내창을 띄우고 토큰을 지운다.
  *        'expired'·'invalid' 는 기존 동작 그대로 둔다(여기서 손대면 회귀가 난다).
  *
@@ -129,7 +129,7 @@
       var tok = getToken();
       if (!tok) return;          // 애초에 로그인 상태가 아니면 볼 것 없음
       checking = true;
-      rawFetch('/api/session/status', { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' })
+      rawFetch('/api/student/session-status', { headers: { Authorization: 'Bearer ' + tok }, cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (j) {
           if (j && j.state === 'kicked') { clearLogin(); showKickedModal(); }
@@ -146,7 +146,7 @@
             if (!res || res.status !== 401 || shown) return;
             var u = (typeof input === 'string') ? input : (input && input.url) || '';
             if (u.indexOf('/api/') < 0) return;
-            if (u.indexOf('/api/session/status') >= 0) return;
+            if (u.indexOf('/api/student/session-status') >= 0) return;
             // 외부 도메인 호출은 우리 세션과 무관
             if (/^https?:\/\//i.test(u) && u.indexOf(location.origin) !== 0) return;
             askWhy();

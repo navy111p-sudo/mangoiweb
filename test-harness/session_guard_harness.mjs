@@ -32,7 +32,7 @@ function makeEnv({ token = 'TOK', statusState = 'kicked', statusFails = false } 
   };
 
   const calls = [];           // 감싼 fetch 가 실제로 통과시킨 요청
-  const statusCalls = [];     // /api/session/status 조회 횟수
+  const statusCalls = [];     // /api/student/session-status 조회 횟수
   const appended = [];        // body 에 붙은 엘리먼트
 
   function el(tag) {
@@ -58,7 +58,7 @@ function makeEnv({ token = 'TOK', statusState = 'kicked', statusFails = false } 
     },
     async fetch(input) {
       const u = typeof input === 'string' ? input : (input && input.url) || '';
-      if (u.indexOf('/api/session/status') >= 0) {
+      if (u.indexOf('/api/student/session-status') >= 0) {
         statusCalls.push(u);
         if (statusFails) throw new Error('network');
         return { ok: true, status: 200, async json() { return { ok: true, state: statusState, uid: 'stu1' }; } };
@@ -152,6 +152,35 @@ for (const st of ['expired', 'invalid', 'legacy', 'off', 'active']) {
   const before = env.win.fetch;
   run(env);                                    // 두 번 로드
   ok(env.win.fetch === before, '④ 두 번 로드해도 fetch 를 겹쳐 감싸지 않는다');
+}
+
+// ── 5) 배선 — 「등록했는데 404」를 막는다 ──
+//    실제로 당했다. index.ts 라우팅에는 넣었는데 **api-mango.ts 에 두 번째 관문이 또 있어서**
+//    /api/session/status 가 handleStudentsApi 까지 닿지 못하고 404 가 났다.
+//    CLAUDE.md 는 «라우팅 + 인증 게이트» 두 곳만 말하는데, 실제로는 **접두사 관문이 하나 더** 있다.
+{
+  const SRCD = path.join(HERE, '..', 'cloudflare-deploy', 'src');
+  const rd = f => { try { return fs.readFileSync(path.join(SRCD, f), 'utf8'); } catch { return ''; } };
+  const guard = fs.readFileSync(SRC, 'utf8');
+
+  const m = guard.match(/rawFetch\('([^']+)'/);
+  const API = m ? m[1] : '';
+  ok(!!API, '⑤ session-guard.js 가 부르는 경로를 읽었다: ' + API);
+
+  const idx = rd('index.ts'), mango = rd('api-mango.ts'), stu = rd('api-students.ts');
+  ok(idx.includes(`path === '${API}'`), '⑤ index.ts 라우팅에 등록돼 있다');
+  ok(stu.includes(`path === '${API}'`), '⑤ api-students.ts 에 핸들러가 있다');
+
+  // api-mango.ts 가 handleStudentsApi 를 부르는 접두사 목록을 소스에서 뽑아 실제로 대조한다
+  const blk = mango.slice(0, mango.indexOf('handleStudentsApi(request'));
+  const cond = blk.slice(blk.lastIndexOf('if (path.startsWith('));
+  const prefixes = [...cond.matchAll(/path\.startsWith\('([^']+)'\)/g)].map(x => x[1]);
+  ok(prefixes.length >= 3, '⑤ api-mango.ts 의 접두사 관문을 읽었다: ' + prefixes.join(' '));
+  ok(prefixes.some(p => API.startsWith(p)),
+     '⑤ 🚧 그 접두사 중 하나로 시작한다 — 아니면 라우팅에 넣어도 404 다');
+
+  // 클라이언트가 자기 자신을 재귀 호출하지 않도록 예외 처리한 경로도 같이 따라와야 한다
+  ok(guard.includes(`u.indexOf('${API}') >= 0`), '⑤ 재귀 방지 예외 경로도 같은 주소다 (이름만 바꾸면 무한루프)');
 }
 
 console.log('─'.repeat(66));
