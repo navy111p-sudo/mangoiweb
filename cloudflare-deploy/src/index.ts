@@ -1881,6 +1881,32 @@ const worker = {
       return new Response(tResp.body, { status: tResp.status, headers: tHeaders });
     }
 
+    /* 🏫 /manager — 매니저 전용 초경량 포털 (2026-08-08 신설)
+     *
+     * 🔴 (2026-08-09 버그수정) **이 블록이 통째로 빠져 있었다.**
+     *    `/manager` 는 확장자가 없어 아래 «정적자산» 블록(`path.match(/\.\w+$/)`)에 들어가지
+     *    못하고, 그대로 맨 아래 **SPA 폴백(index.html)** 까지 굴러떨어졌다.
+     *    → 매니저가 「내 페이지로 이동」을 눌러도 **홈 화면이 다시 뜬다.** 사장님 제보의 원인.
+     *    같은 자리에서 `/teacher` 만 재작성돼 있었다(바로 위 블록). 만들 때 한 쌍을 놓친 것이다.
+     *
+     *    🪤 이걸 왜 못 잡았나 — 검증을 **미인증 상태**로만 했다. 로그아웃 상태의 `/manager` 는
+     *       위 미들웨어가 302 `/admin/login?next=%2Fmanager` 를 주므로 «라우팅 정상» 처럼 보인다.
+     *       깨지는 건 **로그인한 뒤**뿐이다. 인증 뒤 경로는 인증된 상태로 확인해야 한다.
+     *
+     *    ⚠️ managerPortalRedirect 가 보내는 목적지도 `/manager`(확장자 없음)라, 지사·대리점과
+     *       필리핀 본사 매니저가 `/admin.html` 을 열 때마다 홈으로 튕겨 왔다.
+     */
+    if (path === '/manager' || path === '/manager/') {
+      const r = new Request(new URL('/manager.html' + url.search, request.url).toString(), request);
+      const mResp = await env.ASSETS.fetch(r);
+      // /teacher 와 같은 이유로 ETag/304 를 직접 붙인다 — 안 붙이면 열 때마다 통째로 다시 받는다.
+      const mHeaders = new Headers(mResp.headers);
+      mHeaders.set('Cache-Control', 'no-cache');
+      const mNotMod = htmlEtag304(request, '/manager.html', env, mHeaders);
+      if (mNotMod) return mNotMod;
+      return new Response(mResp.body, { status: mResp.status, headers: mHeaders });
+    }
+
     // Static assets (실제 파일 확장자가 있는 요청)
     if (path.match(/\.\w+$/)) {
       const assetResp = await env.ASSETS.fetch(request);

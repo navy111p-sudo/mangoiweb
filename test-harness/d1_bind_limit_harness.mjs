@@ -171,6 +171,9 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     // 🪙 GAME_QUIZ_RULES 는 코드에 박힌 상수 배열(현재 7개)이라 사용자 입력으로 늘지 않는다.
     //    규칙을 90개 넘게 추가할 일이 생기면 그때 selectInChunks 로 바꿀 것.
     'point-policy.ts': '게임·퀴즈 규칙 코드 상수 배열(고정 7개) — 입력으로 늘지 않음',
+    // 🇵🇭 PH_MANAGERS 는 코드에 박힌 상수 배열(현재 3명)이라 사용자 입력으로 늘지 않는다.
+    //    필리핀 본사 매니저가 90명을 넘길 일은 없다(사람이 손으로 추가하는 명단이다).
+    'auth-admin.ts': '필리핀 매니저 명단 PH_MANAGERS 코드 상수 배열(현재 3명) — 입력으로 늘지 않음',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
