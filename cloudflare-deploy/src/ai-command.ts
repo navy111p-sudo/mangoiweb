@@ -43,8 +43,8 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-daily-charts    (일자별 차트·매출·학생수·탈락·증가 | daily charts, revenue chart, growth)
 - card-rankings        (학생 랭킹·발화·시선·집중도 | student ranking, speaking, gaze, focus)
 - card-payroll         (강사 급여·평가 대시보드 | teacher payroll, salary)
-- card-franchises      (가맹점 관리 | franchises, branches)
-- card-centers         (교육센터 | education centers)
+- card-franchises      (조직 관리·본사·지사 | organization, HQ, branches)
+- card-centers         (대리점·학원 | agency, academy)
 - card-level-tests     (레벨 테스트·레벨테스트 | level test)
 - card-enrollments     (수강신청 관리 | enrollment, course application)
 - card-community       (커뮤니티·공지·게시판 | community, notice, board)
@@ -186,11 +186,11 @@ Output: {"intent":"navigate","menu_id":"card-level-tests","answer":"레벨 테�
 User: "레벨 테스트"
 Output: {"intent":"navigate","menu_id":"card-level-tests","answer":"레벨 테스트 카드로 이동합니다."}
 
-User: "가맹점 관리 열어줘"
-Output: {"intent":"navigate","menu_id":"card-franchises","answer":"가맹점 관리 카드로 이동합니다."}
+User: "지사 관리 열어줘"
+Output: {"intent":"navigate","menu_id":"card-franchises","answer":"조직 관리(본사·지사) 카드로 이동합니다."}
 
-User: "교육센터 보여줘"
-Output: {"intent":"navigate","menu_id":"card-centers","answer":"교육센터 카드로 이동합니다."}
+User: "대리점 보여줘"
+Output: {"intent":"navigate","menu_id":"card-centers","answer":"대리점(학원) 카드로 이동합니다."}
 
 User: "수강신청 열어줘"
 Output: {"intent":"navigate","menu_id":"card-enrollments","answer":"수강신청 관리 카드로 이동합니다."}
@@ -423,8 +423,13 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(교재\s*콘텐츠|교재|textbook)/i, menu_id: 'card-textbooks', ko: '교재 콘텐츠 카드로 이동합니다.', en: 'Opening the textbook content card.' },
   { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://mangoi-speech.pages.dev/practice', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
   // ── 조직/상담/기타 ──
-  { re: /(가맹점|프랜차이즈|franchise|branch)/i, menu_id: 'card-franchises', ko: '가맹점 관리 카드로 이동합니다.', en: 'Opening the franchises card.' },
-  { re: /(교육\s*센터|학습\s*센터|센터\s*관리|education\s*center)/i, menu_id: 'card-centers', ko: '교육센터 카드로 이동합니다.', en: 'Opening the education centers card.' },
+  // 🏢 조직 = 본사 › 지사 › 대리점(학원). 아래 두 줄의 «순서»가 중요하다:
+  //    «대리점 자료실»처럼 자료실이 붙은 말이 조직 카드로 새지 않도록 자료실을 먼저 잡는다.
+  { re: /(대리점\s*자료실|agency\s*library)/i, menu_id: 'card-lib-agency', ko: '대리점 자료실 카드로 이동합니다.', en: 'Opening the agency library card.' },
+  { re: /(지사\s*자료실|branch\s*library)/i, menu_id: 'card-lib-branch', ko: '지사 자료실 카드로 이동합니다.', en: 'Opening the branch library card.' },
+  { re: /(지사|가맹점|프랜차이즈|본사\s*관리|franchise|branch|organization)/i, menu_id: 'card-franchises', ko: '조직 관리(본사·지사) 카드로 이동합니다.', en: 'Opening the organization (HQ · branch) card.' },
+  // ⚠️ «교육센터»는 옛 이름이다(홈페이지에선 필리핀 직영 센터를 뜻함). 옛 이름으로 불러도 찾아가게 남겨둔다.
+  { re: /(대리점|교육\s*센터|학습\s*센터|센터\s*관리|agency|education\s*center)/i, menu_id: 'card-centers', ko: '대리점(학원) 카드로 이동합니다.', en: 'Opening the agency (academy) card.' },
   { re: /(수강\s*신청|수강신청|enrollment|course\s*application)/i, menu_id: 'card-enrollments', ko: '수강신청 관리 카드로 이동합니다.', en: 'Opening the enrollments card.' },
   { re: /(신규\s*상담|문의\s*관리|상담\s*접수|inquiry|consultation\s*intake)/i, menu_id: 'card-inquiry-mgmt', ko: '신규상담 카드로 이동합니다.', en: 'Opening the new inquiry card.' },
   { re: /(상담\s*예약|counseling\s*booking)/i, menu_id: 'card-counseling-booking', ko: '상담 예약 카드로 이동합니다.', en: 'Opening the counseling booking card.' },

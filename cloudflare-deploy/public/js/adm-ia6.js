@@ -95,7 +95,9 @@
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         { ko: '지사 정산',   en: 'Settlement',  cards: [], href: '/admin/capitown-settlement.html' },
-        { ko: '가맹점·센터', en: 'Franchises',  cards: ['card-franchises', 'card-centers'] }
+        // 🏢 조직 순서 = 본사 › 지사 › 대리점(학원). card-franchises=지사, card-centers=대리점(학원)
+        //    (2026-08-08 라벨 정정 — 예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
+        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises', 'card-centers'] }
       ]
     },
     {

@@ -276,8 +276,8 @@ const ENDPOINTS = [
   { path: '/api/admin/payroll/all?year=2026&month=4', method: 'GET', expect: '2xx', label: 'Payroll Calc All', body: null,
     desc: '활성 강사 전원의 월 급여+평가 통합 (수업수×2×10분단가 + 가중점수 + 등급). KRW 환산 포함.' },
   // Phase 9: 메뉴 6종
-  { path: '/api/admin/franchises',       method: 'GET', expect: '2xx', label: 'Franchises',     body: null, desc: '가맹점 목록 (Phase 9).' },
-  { path: '/api/admin/centers',          method: 'GET', expect: '2xx', label: 'Centers',        body: null, desc: '교육센터 목록 (가맹점 종속, Phase 9).' },
+  { path: '/api/admin/franchises',       method: 'GET', expect: '2xx', label: 'Branches',       body: null, desc: '지사 목록 (테이블명 franchises, Phase 9).' },
+  { path: '/api/admin/centers',          method: 'GET', expect: '2xx', label: 'Agencies',       body: null, desc: '대리점·학원 목록 (테이블명 centers, 지사 종속, 서버 페이징 50건).' },
   { path: '/api/admin/level-tests',      method: 'GET', expect: '2xx', label: 'Level Tests',    body: null, desc: '학생 레벨테스트 결과 목록 (Phase 9).' },
   { path: '/api/admin/enrollments',      method: 'GET', expect: '2xx', label: 'Enrollments',    body: null, desc: '수강신청 목록 (status 필터 가능, Phase 9).' },
   { path: '/api/admin/community-posts',  method: 'GET', expect: '2xx', label: 'Community',      body: null, desc: '공지·게시판 목록 (Phase 9).' },
