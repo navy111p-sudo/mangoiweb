@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <script src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 녹음+Whisper 전사(말 끝날 때까지 듣기) -->
 <script src="/js/mango-i18n.js" defer></script>
+<script src="/js/session-guard.js" defer></script>
 <script src="/js/game-vocab.js" defer></script><!-- 🔮 예습: 교재/레벨 맞춤 문장(학생게임과 공용 로더) -->
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <link rel="preload" as="image" href="/img/vocab-bg.webp?v=1">
@@ -280,7 +281,7 @@
   .onb-skip-row{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:14px;font-size:12.5px;color:#8b9bbd}
   .onb-skip-row input{accent-color:#4f7cff;cursor:pointer;width:15px;height:15px}
 </style>
-<script src="/js/game-track.js?v=2" defer></script>
+<script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
 <a class="home-btn" href="/">🏠 <span data-ko="홈" data-en="Home">홈</span></a>

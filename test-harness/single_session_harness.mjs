@@ -142,6 +142,54 @@ ok(typeof A.singleSessionOn === 'function', 'singleSessionOn 킬 스위치 로�
      '⑥ 대소문자가 달라도 같은 세션으로 본다 — 아니면 «대문자로 로그인» 하나로 차단이 뚫린다');
 }
 
+// ── 7) inspectSession — 「왜 401 인지」 사유 판정 (/api/session/status 가 그대로 돌려준다) ──
+//    화면은 'kicked' 일 때만 안내창을 띄운다. 그러니 **kicked 를 정확히 골라내는 것**이 핵심이고,
+//    반대로 다른 상태를 kicked 라 잘못 부르면 멀쩡한 사람에게 「다른 기기」라고 거짓말을 하게 된다.
+{
+  const env = { ...SECRET, SESSION_STATE: fakeKV(), SINGLE_SESSION: 'on' };
+
+  const sidA = await A.startSession('stu9', env);
+  const tokA = await A.signUidToken('stu9', env, undefined, sidA);
+  let r = await A.inspectSession(tokA, env);
+  ok(r.state === 'active' && r.uid === 'stu9', '⑦ 현재 세션 = active');
+
+  await A.startSession('stu9', env);                          // 다른 기기 로그인
+  r = await A.inspectSession(tokA, env);
+  ok(r.state === 'kicked' && r.uid === 'stu9', '⑦ 밀려난 토큰 = kicked');
+  ok(await A.verifyUidToken(tokA, env) === null, '⑦ 그 토큰은 실제로 401 (판정과 실제가 일치)');
+
+  ok((await A.inspectSession(tokA, { ...env, SINGLE_SESSION: 'off' })).state === 'off',
+     '⑦ 스위치가 꺼져 있으면 off — 켜기 전에는 안내창이 절대 안 뜬다');
+
+  const legacy = await A.signUidToken('stu10', env);          // sid 없는 옛 토큰
+  ok((await A.inspectSession(legacy, env)).state === 'legacy', '⑦ sid 없는 옛 토큰 = legacy');
+
+  const expired = await A.signUidToken('stu11', env, -1000, 'x');
+  ok((await A.inspectSession(expired, env)).state === 'expired', '⑦ 만료 = expired (kicked 아님)');
+
+  ok((await A.inspectSession(tokA.slice(0, -3) + 'xyz', env)).state === 'invalid', '⑦ 위조 = invalid');
+  ok((await A.inspectSession('', env)).state === 'invalid', '⑦ 빈 토큰 = invalid');
+  ok((await A.inspectSession(tokA, { ...env, ROOM_JWT_SECRET: 'other' })).state === 'invalid',
+     '⑦ 다른 시크릿 토큰 = invalid (uid 를 흘리지 않는다)');
+
+  // fail-open 과 판정이 어긋나면 안 된다 — 통과시켰는데 화면엔 「밀려났다」가 뜨는 사고
+  const envNoKV = { ...SECRET, SINGLE_SESSION: 'on' };
+  const tokNo = await A.signUidToken('stu12', envNoKV, undefined, 'sid');
+  ok((await A.inspectSession(tokNo, envNoKV)).state === 'active',
+     '⑦ KV 없음 = active (verifyUidToken 의 fail-open 과 같은 판단)');
+
+  const envThrow = { ...SECRET, SINGLE_SESSION: 'on', SESSION_STATE: { async get() { throw new Error('KV down'); }, async put() {} } };
+  const tokTh = await A.signUidToken('stu13', envThrow, undefined, 'sid');
+  ok((await A.inspectSession(tokTh, envThrow)).state === 'active', '⑦ KV 예외 = active (fail-open 일치)');
+
+  // 대소문자 — 차단과 사유 판정이 같은 키를 봐야 한다
+  const envC = { ...SECRET, SESSION_STATE: fakeKV(), SINGLE_SESSION: 'on' };
+  const sidU = await A.startSession('Stu14', envC);
+  const tokU = await A.signUidToken('Stu14', envC, undefined, sidU);
+  await A.startSession('stu14', envC);
+  ok((await A.inspectSession(tokU, envC)).state === 'kicked', '⑦ 대소문자가 달라도 kicked 로 잡는다');
+}
+
 console.log('─'.repeat(66));
 console.log(`  PASS ${pass}    ⚠ FAIL ${fail}`);
 console.log('═'.repeat(66));

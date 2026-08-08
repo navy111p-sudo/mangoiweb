@@ -105,6 +105,37 @@ export async function verifyUidToken(token: string, env: any): Promise<string | 
 }
 
 /**
+ * 🔎 토큰을 «세션 대조 없이» 뜯어본다 — 왜 401 인지 화면에 알려주기 위한 용도.
+ *
+ *   verifyUidToken 은 실패 사유를 구분하지 않고 null 만 준다(호출부가 20곳 넘어 반환 계약을
+ *   바꾸는 건 위험). 그래서 «사유 조회»는 이 함수로 따로 뺀다 — 기존 경로는 한 줄도 안 건드린다.
+ *
+ *   state: 'invalid'(위조·형식오류) | 'expired' | 'legacy'(sid 없는 옛 토큰)
+ *        | 'off'(스위치 꺼짐) | 'active'(현재 세션) | 'kicked'(다른 기기에서 로그인됨)
+ */
+export async function inspectSession(token: string, env: any): Promise<{ state: string; uid: string | null }> {
+  try {
+    const [payload, sig] = String(token || '').split('.');
+    if (!payload || !sig) return { state: 'invalid', uid: null };
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    const ok = await crypto.subtle.verify('HMAC', key, b64uToBytes(sig) as any, enc.encode(payload));
+    if (!ok) return { state: 'invalid', uid: null };
+    const p = JSON.parse(new TextDecoder().decode(b64uToBytes(payload)));
+    if (!p.uid) return { state: 'invalid', uid: null };
+    const uid = String(p.uid);
+    if (p.exp && p.exp < Date.now()) return { state: 'expired', uid };
+    if (!p.sid) return { state: 'legacy', uid };
+    if (!singleSessionOn(env)) return { state: 'off', uid };
+    if (!env?.SESSION_STATE) return { state: 'active', uid };   // fail-open 과 같은 판단
+    let cur: string | null = null;
+    try { cur = await env.SESSION_STATE.get(sessKey(uid)); } catch { return { state: 'active', uid }; }
+    if (!cur) return { state: 'active', uid };                  // 기록 없음 = fail-open
+    return { state: cur === p.sid ? 'active' : 'kicked', uid };
+  } catch { return { state: 'invalid', uid: null }; }
+}
+
+/**
  * 요청에서 인증된 uid 추출: Authorization: Bearer > body.token > ?token=
  * 반환값이 없거나 요청 uid 와 다르면 호출자가 401 처리.
  */

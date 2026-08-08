@@ -1232,6 +1232,9 @@ const worker = {
         path === '/api/student/full' ||
         // 🔐 Phase LOGIN 통합 로그인
         path === '/api/student/login' ||
+        // 🔒 (2026-08-08) 세션 상태 조회 — 401 을 받았을 때 «왜» 인지 화면에 알려주기 위한 것.
+        //   토큰만 보고 판정하며 개인정보를 돌려주지 않는다(uid 는 요청자가 이미 가진 값).
+        path === '/api/session/status' ||
         path === '/api/student/register' ||
         path === '/api/student/lookup' ||
         path === '/api/student/set-password' ||

@@ -8,7 +8,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
-import { authUidFromRequest as authUidGlobal, signUidToken, startSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급
+import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspectSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급+세션 사유 조회
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
 import type { MangoEnv } from './api-mango';
@@ -406,6 +406,20 @@ Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴
     // ── POST /api/student/login — 학생/학부모 통합 로그인 ──
     //   body: { user_id, password? }
     //   비밀번호 미설정자는 user_id 만으로 로그인 가능 (개발 단계 편의)
+    // ── GET /api/session/status — 「왜 로그아웃됐는지」를 화면에 알려주기 위한 조회 ──
+    //   🔒 (2026-08-08) 동시접속 1세션을 켜면 밀려난 기기가 401 을 받는데, 지금은 그냥
+    //      「로그인해주세요」로만 보여 사용자가 이유를 모른다. 401 을 받은 화면이 이걸 한 번 물어
+    //      «다른 기기에서 로그인되었습니다» 를 정확히 띄운다.
+    //   ⚠️ 개인정보를 돌려주지 않는다 — uid 는 요청자가 이미 토큰으로 갖고 있는 값이고,
+    //      DB 조회도 하지 않는다(서명 + KV 대조뿐). 그래서 인증 게이트 없이 열어도 안전하다.
+    if (method === 'GET' && path === '/api/session/status') {
+      const h = request.headers.get('Authorization') || '';
+      const tok = (h.startsWith('Bearer ') ? h.slice(7) : '').trim() || String(url.searchParams.get('token') || '').trim();
+      if (!tok) return json({ ok: true, state: 'none', uid: null });
+      const r = await inspectSession(tok, env);
+      return json({ ok: true, state: r.state, uid: r.uid });
+    }
+
     if (method === 'POST' && path === '/api/student/login') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
       await ensureLoginTable();
