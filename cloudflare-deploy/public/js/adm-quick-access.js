@@ -139,13 +139,23 @@
   }
 
   /* ── 역할 권한으로 감춰진 항목은 빼고 그린다 ───────────────────────────
-     역할 숨김(adm-core `_applyMenuVisibility`)은 details.menu-card 에 **인라인** style.display='none' 을 건다.
-     ia6 의 카드 필터는 **class**(.ia6-hide) 라 서로 구분된다 — 인라인만 보면 권한만 정확히 걸러진다.
-     ⚠️ 예전 코드는 카드의 «존재»만 확인해서, 지사·대리점에 열 수 없는 바로가기가 그대로 보였다. */
+     역할 숨김(adm-core `_applyMenuVisibility`)은 **`details.menu-card` 자신에게만**
+     인라인 `style.display='none'` 을 건다. 그래서 판정도 딱 그 범위에서만 한다.
+
+     🔴 (2026-08-08 실측으로 잡은 버그) 처음엔 «조상 아무나 인라인 display:none 이면 권한 없음»
+        으로 짰다가 바로가기가 **10개 중 1개만 남았다.** 범인은 권한이 아니라 화면 전환이었다 —
+        카드들을 통째로 담은 컨테이너 `<div id="legacy-cards">` 가 잠깐 display:none 이 되는데,
+        그걸 «권한 없음»으로 읽어 그 안의 카드 9개를 전부 지워 버린 것이다.
+        (`card-payments-b2b` 만 그 컨테이너 밖에 있어서 혼자 살아남았다. 그 «1개»가 단서였다.)
+     → 컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
+        조상을 훑되 **menu-card 만** 본다(카드가 카드를 품는 구조가 실제로 있다 — ia6 주석 참고).
+     ⚠️ ia6 의 카드 필터는 class(.ia6-hide) 라 인라인을 안 건드리지만, 과거에 인라인으로
+        건드린 코드가 있었으므로 방어적으로 한 번 더 제외한다. */
   function roleHidden(el) {
     for (var n = el; n && n !== document.body; n = n.parentElement) {
-      if (n.style && n.style.display === 'none' &&
-          !(n.classList && n.classList.contains('ia6-hide'))) return true;
+      if (n.tagName !== 'DETAILS') continue;
+      if (!n.classList || !n.classList.contains('menu-card')) continue;
+      if (n.style && n.style.display === 'none' && !n.classList.contains('ia6-hide')) return true;
     }
     return false;
   }
@@ -274,8 +284,14 @@
       var it = list[i];
       html += '<div class="ph161-q" role="button" tabindex="0"'
         + ' data-qa="' + it.key + '"'
-        + ' style="display:flex;align-items:center;gap:9px;padding:9px 12px;cursor:pointer;color:#fde68a;'
-        + 'font-size:13px;font-weight:700;border-top:' + (i ? '1px solid rgba(251,191,36,0.14)' : '0')
+        /* 🔎 (2026-08-08) 6개 → 10개가 되면서 «상자 하나가 사이드바보다 커지는» 문제가 생겼다.
+           실측: 행 39.4px(관리자 확대 1.32배 → 화면 52px) × 10 = 520px 로
+           사이드바 가시 높이 591px 를 상자 혼자 넘겨서 6그룹 메뉴가 통째로 접힘 아래로 밀렸다.
+           → 여백 9→7px, 줄높이 1.65→1.35 로 행을 31.5px 로 줄인다(글자 크기는 그대로 13px).
+              항목을 빼지 않고 «메뉴가 첫 화면에 보이는» 상태를 되찾는 가장 싼 방법이다. */
+        + ' style="display:flex;align-items:center;gap:9px;padding:7px 12px;cursor:pointer;color:#fde68a;'
+        + 'font-size:13px;line-height:1.35;font-weight:700;border-top:'
+        + (i ? '1px solid rgba(251,191,36,0.14)' : '0')
         + ';min-width:0;overflow-wrap:anywhere">'
         + '<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"'
         + ' stroke-linejoin="round" width="16" height="16" style="flex:none" aria-hidden="true">' + it.ico + '</svg>'

@@ -53,15 +53,27 @@ function node() {
   };
 }
 
-function makeDom({ ia6On = true, cardIds = [], roleHidden = [] } = {}) {
+function clist(init = []) {
+  return { _s: new Set(init), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } };
+}
+
+// containerHidden = 카드들을 담은 바깥 컨테이너(#legacy-cards)가 display:none 인 상태.
+//   🔴 이건 «권한 없음» 이 아니라 «지금 다른 화면을 보고 있음» 이다. 아래 ④-2 가 이걸 못박는다.
+function makeDom({ ia6On = true, cardIds = [], roleHidden = [], containerHidden = false } = {}) {
   const log = { clicked: [], scrolled: [] };
   const cards = {};
+  // 실제 admin.html 구조: <div id="legacy-cards"> … <details class="menu-card"> … </div>
+  const legacy = {
+    id: 'legacy-cards', tagName: 'DIV',
+    style: containerHidden ? { display: 'none' } : {},
+    classList: clist(['legacy-cards']), parentElement: null
+  };
   cardIds.forEach((id) => {
     cards[id] = {
       id, tagName: 'DETAILS', open: false,
       style: roleHidden.includes(id) ? { display: 'none' } : {},
-      classList: { _s: new Set(), add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } },
-      parentElement: null,
+      classList: clist(['menu-card']),
+      parentElement: legacy,
       scrollIntoView() { log.scrolled.push(id); }
     };
   });
@@ -173,6 +185,15 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   ALL.forEach((id) => dom.cards[id].classList.add('ia6-hide'));
   runQa(dom);
   check('.ia6-hide 는 권한 숨김이 아니다 — 10개가 그대로 남는다',
+    labelsOf(dom.box.innerHTML).length === 10);
+}
+{
+  // 🔴 (2026-08-08 실측 회귀) 바깥 컨테이너 #legacy-cards 가 display:none 인 순간이 있다.
+  //    그걸 «권한 없음» 으로 읽었다가 바로가기가 10개 중 1개만 남았다(컨테이너 밖에 있던 결제만 생존).
+  //    컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
+  const dom = makeDom({ cardIds: ALL, containerHidden: true });
+  runQa(dom);
+  check('바깥 컨테이너가 감춰져 있어도 10개가 그대로 남는다 (권한과 화면전환을 구분한다)',
     labelsOf(dom.box.innerHTML).length === 10);
 }
 
