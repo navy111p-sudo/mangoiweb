@@ -252,9 +252,13 @@ check('티켓이 있으면 티켓 쪽을 쓴다 («지금 입장하기» 까지 
   /if \(!k\) \{ loadMine\(\); return; \}/.test(idxHtml));
 check('티켓이 죽어도 회원이면 신청을 다시 찾는다 (티켓만 만료된 경우)',
   /localStorage\.removeItem\(KEY\)[\s\S]{0,160}?loadMine\(\);/.test(idxHtml));
+/* 🪤 (2026-08-07) 예전엔 «loadMine 시작에서 1400자 안» 이라는 창으로 봤다가, 주석 몇 줄이
+   늘자 코드가 창 밖으로 밀려 깨졌다. 창 길이는 동작이 아니다 — 함수 구간을 잘라서 본다. */
+const _mineSrc = idxHtml.slice(idxHtml.indexOf('function loadMine()'), idxHtml.indexOf('function load()'));
 check('⛔ 회원 경로에서 «지금 입장하기» 를 만들지 않는다 (join_open 을 모른다)',
-  /function loadMine\(\)[\s\S]{0,1400}?el\.classList\.remove\('is-open'\)/.test(idxHtml)
-  && !/function loadMine\(\)[\s\S]{0,1400}?classList\.add\('is-open'\)/.test(idxHtml));
+  _mineSrc.length > 200
+  && /el\.classList\.remove\('is-open'\)/.test(_mineSrc)
+  && !/classList\.add\('is-open'\)/.test(_mineSrc));
 check('회원 카드는 마이페이지로 보낸다 (거기에 「내 레벨테스트」 가 있다)',
   /el\.href = '\/parent\.html\?uid=' \+ encodeURIComponent\(myUid\)/.test(idxHtml));
 check('취소된 신청은 홈에 띄우지 않는다',

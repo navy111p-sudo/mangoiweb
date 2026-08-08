@@ -505,10 +505,14 @@
     min-width: 100%;
     border-collapse: collapse;
     font-size: 12.5px;
+    /* 🩹 표 자체 배경이 다크용 rgba(15,23,42,0.55) 였다. 실화면에선 JS 페인터(adm-s13)가
+       덧칠해 가려져 있었을 뿐이라, 페인터가 늦거나 안 돌면 표가 통째로 어두워진다.
+       여기서 흰 바탕을 못 박아 «JS 없이도» 밝게 유지한다. */
+    background: #fff !important;
   }
   #sm-students-table th, #sm-students-table td {
     padding: 9px 12px;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f0f2f5 !important;
     vertical-align: middle;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -517,29 +521,48 @@
   /* 컬럼 너비 — ERP 다컬럼: 자동 너비 + 가로 스크롤 (래퍼 overflow-x) */
   #sm-students-table th, #sm-students-table td { min-width: 72px; }
 
+  /* 🎨 (2026-08-08) 학생 목록 «조용한 표» — 사장님 지적 3건.
+       ① 아이디가 붉은/주황 박스 ② 회색 줄무늬가 너무 진함 ③ 상세가 파란색과 겹침.
+     원인은 셋 다 «남의 규칙이 이 표까지 칠한 것»이었다.
+       ① admin-inline-c.css 의 공용 code{} 배지 (모든 <code> 에 주황 배지)
+       ② details.menu-card tbody tr:nth-child(even) = rgba(30,41,59,.35) — 다크용 네이비 35%
+       ③ [id^="card-"] a = #1d4ed8 + 밑줄
+     그 규칙들이 전부 !important 라, 여기서도 !important 로 되받되
+     선택자에 #id 를 넣어 «이 표에서만» 이기게 한다 (다른 화면의 코드 배지·링크는 그대로).
+     원칙: 색은 «데이터»가 아니라 «상태»에만 쓴다. 늘 있는 값(아이디·이름·날짜)은
+     색을 빼고 굵기·농도로만 층을 나눠야, 봐야 할 것이 눈에 걸린다. */
+
   /* 헤더 강조 — 📌 sticky 고정 (세로 스크롤해도 컬럼 제목이 항상 보임) */
   #sm-students-table thead th {
     position: sticky; top: 0; z-index: 5;
-    background: linear-gradient(180deg, #fffbeb, #fef0d9);
-    color: #7c2d12; font-weight: 700; font-size: 12px;
-    border-bottom: 2px solid rgba(245,158,11,0.35);
+    background: #f7f9fc !important;
+    color: #5b6b7f !important; font-weight: 700 !important; font-size: 11.5px !important;
+    border-bottom: 1px solid #dde3ea !important;
     /* border-collapse 표에서 sticky 시 border가 함께 고정되지 않으므로 그림자로 하단선 보강 */
-    box-shadow: 0 2px 0 rgba(245,158,11,0.35);
-    text-transform: uppercase; letter-spacing: 0.4px;
+    box-shadow: 0 1px 0 #dde3ea;
+    text-transform: none; letter-spacing: 0.2px;
   }
-  /* 표 래퍼 — 세로 스크롤 영역 (헤더 sticky 기준 컨테이너) */
-  #sm-students-wrap { max-height: 62vh; overflow: auto; }
-  /* 행 줄무늬 + 호버 강조 */
-  #sm-students-table tbody tr:nth-child(even) td { background: rgba(254,243,199,0.18); }
-  #sm-students-table tbody tr:hover td { background: rgba(245,158,11,0.12); cursor: default; }
-  /* USER_ID — 모노 폰트, 색상 흐리게 */
+  /* 표 래퍼 — 세로 스크롤 영역 (헤더 sticky 기준 컨테이너).
+     테두리는 admin.html 에 인라인(앰버)으로 박혀 있어 !important 로만 덮인다. */
+  #sm-students-wrap { max-height: 62vh; overflow: auto; border-color: #e4e8ee !important; }
+  /* 행 줄무늬 — 종전 네이비 35% → 중성회색 «약 1/9 세기». 줄은 세어지되 화면은 조용하다.
+     홀수 줄도 «흰색»으로 못 박는다. 안 그러면 뒤 컨테이너 색(#f6f9fd)이 그대로 비쳐
+     짝수(#fafbfc)와 구분이 사라져 줄무늬가 통째로 없어진다. */
+  #sm-students-table tbody tr:nth-child(odd)  td { background: #ffffff !important; }
+  #sm-students-table tbody tr:nth-child(even) td { background: #fafbfc !important; }
+  /* 호버 — 옅은 파랑 + 왼쪽 3px 띠. 19칸을 가로로 훑어도 보던 줄을 안 놓친다 */
+  #sm-students-table tbody tr:hover td { background: #f2f7ff !important; cursor: default; }
+  #sm-students-table tbody tr:hover td:first-child { box-shadow: inset 3px 0 0 #2563eb; }
+  /* USER_ID — 배지 벗기고 모노 회청색. 이름이 주인공이 된다 */
   #sm-students-table td:nth-child(1) code {
     font-family: MangoiHanSC,ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 11px; color: #78716c; background: transparent;
+    font-size: 11.5px !important; color: #64748b !important;
+    background: transparent !important; border: 0 !important;
+    padding: 0 !important; letter-spacing: -0.2px;
   }
   /* 이름 — 굵게 + role 배지 */
   #sm-students-table td:nth-child(2) b {
-    color: #1c1917; font-weight: 700;
+    color: #0f172a !important; font-weight: 700;
   }
   #sm-students-table td:nth-child(2) .role-badge {
     display: inline-block;
@@ -564,18 +587,19 @@
   }
   #sm-students-table td .date-line .date-d { color: #44403c; font-weight: 500; }
   #sm-students-table td .date-line .date-t { color: #a8a29e; font-size: 10px; }
-  /* 상세보기 버튼 */
-  #sm-students-table td:nth-child(6) a {
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 5px 12px; font-size: 11px; font-weight: 700;
-    background: linear-gradient(135deg, #f59e0b, #ea580c);
-    color: #fff; border-radius: 14px; text-decoration: none;
-    box-shadow: 0 2px 6px -1px rgba(245,158,11,0.4);
-    transition: all 0.15s;
+  /* 상세보기 버튼 — 🪤 선택자가 nth-child(6) 이었다. 컬럼 순서가 바뀌어 3번으로 옮겨 온 뒤
+       이 규칙은 «아무 것도 안 맞는 죽은 규칙»이었고, 그래서 상세가 맨 파란 밑줄 링크로 보였다.
+     조용한 고스트 버튼으로. 평소 무채색, 마우스 올렸을 때만 색이 든다 → 19줄이 파랗게 안 깜빡인다. */
+  #sm-students-table td:nth-child(3) a {
+    display: inline-block;
+    padding: 2px 10px; font-size: 11.5px; font-weight: 700;
+    color: #475467 !important; background: #fff;
+    border: 1px solid #dde3ea; border-radius: 6px;
+    text-decoration: none !important;
+    transition: color .12s, border-color .12s, background .12s;
   }
-  #sm-students-table td:nth-child(6) a:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px -2px rgba(245,158,11,0.55);
+  #sm-students-table td:nth-child(3) a:hover {
+    color: #c2410c !important; border-color: #f0b27a; background: #fff8f2;
   }
 
   /* 🔃 Phase 18 — 정렬 가능 표 헤더 (멀티 정렬: Shift+클릭으로 최대 3개 동시) */

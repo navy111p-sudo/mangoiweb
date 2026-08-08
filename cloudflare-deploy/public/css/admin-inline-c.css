@@ -162,42 +162,45 @@
 
 /* ── [style#no-id-8] ── */
 
-      .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
-      .kpi-tile{background:linear-gradient(135deg,#374151,#1f2937);border:1px solid rgba(75,85,99,0.55);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;transition:all .2s;color:#f9fafb}
-      .kpi-tile *{color:#f9fafb !important}
-      .kpi-tile .kpi-label,.kpi-tile .card-label{color:#cbd5e1 !important;font-size:12.5px;font-weight:700}
-      .kpi-tile .kpi-value,.kpi-tile .card-value{color:#fbbf24 !important;font-weight:900}
-      .kpi-tile .kpi-sub,.kpi-tile .card-sub{color:#94a3b8 !important;font-size:11.5px}
-      .kpi-tile .kpi-trend{color:#86efac !important;font-weight:700}
-      .kpi-tile:hover{transform:translateY(-2px);box-shadow:0 8px 24px -8px rgba(0,0,0,.15)}
-      .kpi-tile::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px}
-      .kpi-tile.kpi-students::before{background:linear-gradient(180deg,#3b82f6,#1e40af)}
-      .kpi-tile.kpi-revenue::before{background:linear-gradient(180deg,#10b981,#059669)}
-      .kpi-tile.kpi-attendance::before{background:linear-gradient(180deg,#f59e0b,#d97706)}
-      .kpi-tile.kpi-eval::before{background:linear-gradient(180deg,#a855f7,#7c3aed)}
-      .kpi-tile.kpi-overdue::before{background:linear-gradient(180deg,#ef4444,#b91c1c)}
-      .kpi-tile.kpi-points::before{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
-      .kpi-tile.kpi-chat::before{background:linear-gradient(180deg,#06b6d4,#0891b2)}
-      .kpi-tile.kpi-inquiry::before{background:linear-gradient(180deg,#ec4899,#be185d)}
-      /* 아이콘(이모지) 제거(26-07-22): 8개 타일의 컬러 이모지가 숫자와 시선을 다퉈 눈이 피로했다.
-         식별은 왼쪽 컬러 바가 이미 하고 있으므로 장식 아이콘은 넣지 않는다. 재추가 금지.
-         ⚠️ 타일별 라벨 색을 따로 주려 해도 전역 규칙
-            `[id^="card-"] [class$="-label"]{color:#67e8f9!important}` 가 이겨서 먹지 않는다.
-            라벨 색은 건드리지 말 것(죽은 CSS 가 된다). */
-      .kpi-label{font-size:11.5px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
-      .kpi-value{font-size:26px;font-weight:900;color:#1f2937;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
-      .kpi-unit{font-size:13px;color:#6b7280;font-weight:600;margin-left:3px}
-      .kpi-trend{font-size:11.5px;margin-top:6px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
-      .kpi-trend.up{color:#10b981}
-      .kpi-trend.down{color:#ef4444}
-      .kpi-trend.flat{color:#9ca3af}
-      .kpi-sub{font-size:11px;color:#9ca3af;margin-top:4px;line-height:1.4}
-      /* 일별 매출 미니 차트 */
+      .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:10px;margin-bottom:12px}
+      /* ═══════════════════════════════════════════════════════════════════
+         🎨 KPI 타일 8개 — 담백하게 (2026-08-08, 사장님 지시: 통합 제안서 샘플처럼)
+
+         전에는 진한 남색 그라데이션 + 왼쪽 5px 컬러바(::before) + hover 로 2px 떠오름이었다.
+         왼쪽 한 변만 칠한 컬러바가 바로 «한쪽만 테두리 있어서 이상한» 그것이다.
+         → 여덟 타일 전부 같은 얼굴(흰 배경 + 네 변 동일한 얇은 테두리),
+           색은 «지금 손봐야 하는 것»(미납·2주+결석)에만 옅은 면으로.
+         ⚠️ 왼쪽 컬러바(::before) 재추가 금지. 색을 넣으려면 면으로, 한두 개에만.
+         ═══════════════════════════════════════════════════════════════════ */
+      .kpi-tile{background:#fff;border:1px solid rgba(15,23,42,.10);border-radius:12px;padding:12px 14px;
+                position:relative;overflow:hidden;transition:background-color .15s ease;color:#1f2937}
+      .kpi-tile .kpi-label,.kpi-tile .card-label{color:#6b7280 !important;font-size:11.5px;font-weight:800}
+      .kpi-tile .kpi-value,.kpi-tile .card-value{color:#1f2937 !important;font-weight:900}
+      .kpi-tile .kpi-sub,.kpi-tile .card-sub{color:#9ca3af !important;font-size:11px}
+      .kpi-tile:hover{background:#fcfcfd}          /* hover 는 색만 — 크기·위치 고정 */
+      .kpi-tile::before{content:none}              /* 왼쪽 컬러바 제거 */
+
+      /* 유일한 색 — 손봐야 하는 두 가지. 선이 아니라 면으로 아주 옅게. */
+      .kpi-tile.kpi-overdue{background:#fdf4f4;border-color:#f0d2d2}
+      .kpi-tile.kpi-overdue:hover{background:#fcefef}
+      .kpi-tile.kpi-overdue .kpi-value{color:#b91c1c !important}
+      .kpi-tile.kpi-overdue .kpi-label{color:#9a5b5b !important}
+
+      /* 추세 배지 — 배경 있는 작은 알약 (샘플과 동일) */
+      .kpi-label{font-size:11.5px;color:#6b7280;font-weight:800;letter-spacing:0;margin-bottom:3px}
+      .kpi-value{font-size:22px;font-weight:900;color:#1f2937;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+      .kpi-unit{font-size:12px;color:#9ca3af;font-weight:800;margin-left:2px}
+      .kpi-trend{font-size:10.5px;margin-top:6px;font-weight:800;display:inline-flex;align-items:center;gap:3px;
+                 border-radius:999px;padding:1px 7px}
+      .kpi-trend.up{color:#047857;background:#e8f6ee}
+      .kpi-trend.down{color:#b91c1c;background:#fdecec}
+      .kpi-trend.flat{color:#6b7280;background:#f3f4f6}
+      .kpi-tile .kpi-trend{color:inherit !important}
+      .kpi-sub{font-size:11px;color:#9ca3af;margin-top:3px;line-height:1.4}
+      /* 일별 매출 미니 차트 — 한 가지 색(앰버)으로. hover 때 색이 바뀌면 «눌리는 것»처럼 보인다. */
       .kpi-spark{display:flex;gap:2px;align-items:flex-end;height:32px;margin-top:8px}
-      .kpi-spark-bar{flex:1;background:linear-gradient(180deg,#10b981,#059669);border-radius:2px 2px 0 0;min-height:2px;transition:all .3s}
-      .kpi-spark-bar:hover{background:linear-gradient(180deg,#fbbf24,#f59e0b)}
-      @media (max-width:980px){ .kpi-grid{grid-template-columns:repeat(2,1fr)} }
-      @media (max-width:520px){ .kpi-grid{grid-template-columns:1fr 1fr;gap:8px} .kpi-tile{padding:12px 14px} .kpi-value{font-size:22px} }
+      .kpi-spark-bar{flex:1;background:#f59e0b;border-radius:2px 2px 0 0;min-height:2px}
+      @media (max-width:520px){ .kpi-tile{padding:11px 13px} .kpi-value{font-size:19px} }
     
 
 /* ── [style#no-id-9] ── */
@@ -6927,83 +6930,81 @@ button.chip:hover,
 
 /* ── [style#ph-kpi-colorful-css] ── */
 
-  /* ===== 🎨 KPI 카드 컬러풀 리디자인 (경영진/관리자 대시보드 상단 8박스) ===== */
-  #kpi, #kpi-today { gap: 18px !important; }
+  /* ═══════════════════════════════════════════════════════════════════════
+     🎨 상단 KPI 8박스 — 담백하게 다시 (2026-08-08, 사장님 지시)
+
+     전에는 —
+       박스마다 다른 색 그라데이션을 깔고, 위쪽에 4px 색 띠(::after)를 얹고,
+       글로우 그림자에 hover 로 5px 떠오르게 했다.
+       사장님 지적: "한쪽만 테두리 색이 있는 게 이상하다", "테두리 색을 없애줘".
+       실제로 그 «한쪽 테두리»는 border 가 아니라 ::after 색 띠였다 —
+       그래서 마크업에서 인라인 border 를 지워도 안 사라졌다.
+
+     지금은 —
+       ① 여덟 박스가 전부 같은 얼굴: 흰 배경 + 네 변 동일한 얇은 테두리.
+          방향이 있는 선은 «여기서 잘렸나»처럼 읽히고, 박스마다 다른 변·다른 색이
+          얹히면 눈이 줄을 못 맞춘다.
+       ② 색은 «지금 손봐야 하는 것»에만. 오늘의 결석률만 옅은 붉은 면 + 붉은 숫자.
+          색이 적어야 색이 눈에 띈다.
+       ③ 그라데이션·글로우·hover 이동 없음. hover 는 배경을 아주 살짝 어둡게만.
+          (관리자 화면의 hover 확대·이동은 "정신없다"고 걷어낸 규칙이다)
+
+     ⚠️ 되살리지 말 것. 색을 다시 넣고 싶으면 «면»으로, 그리고 한두 박스에만.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #kpi, #kpi-today { gap: 10px !important; }
 
   #kpi .card, #kpi-today .card {
     position: relative !important;
     overflow: hidden !important;
-    border: 1px solid rgba(255,255,255,0.07) !important;
-    border-radius: 18px !important;
-    padding: 22px 22px 20px !important;
-    transition: transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s ease !important;
-    box-shadow: 0 10px 26px -12px rgba(0,0,0,.45) !important;
-    background: var(--da-card, #142950) !important;
+    background: #ffffff !important;
+    border: 1px solid rgba(15,23,42,.10) !important;
+    border-radius: 12px !important;
+    padding: 13px 15px !important;
+    box-shadow: none !important;
+    transition: background-color .15s ease !important;
   }
-  /* 컬러 그라데이션 면 */
-  #kpi .card::before, #kpi-today .card::before {
-    content: ""; position: absolute; inset: 0; z-index: 0;
-    background: var(--kpi-grad, transparent);
-  }
-  /* 상단 글로우 컬러바 */
-  #kpi .card::after, #kpi-today .card::after {
-    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; z-index: 2;
-    background: var(--kpi-bar, transparent);
-    box-shadow: 0 0 14px 1px var(--kpi-glow, transparent);
-  }
+  /* 그라데이션 면·상단 색 띠 모두 없앤다 */
+  #kpi .card::before, #kpi-today .card::before,
+  #kpi .card::after,  #kpi-today .card::after { content: none !important; }
   #kpi .card > *, #kpi-today .card > * { position: relative; z-index: 1; }
 
+  /* hover 는 색만 — 크기·위치 고정 */
   #kpi .card:hover, #kpi-today .card:hover {
-    transform: translateY(-5px) !important;
-    box-shadow: 0 20px 40px -12px var(--kpi-glow, rgba(0,0,0,.4)), 0 4px 12px rgba(0,0,0,.3) !important;
+    background: #fcfcfd !important;
+    box-shadow: none !important;
   }
 
   #kpi .card-label, #kpi-today .card-label {
-    font-size: 13.5px !important; font-weight: 800 !important;
-    letter-spacing: .2px !important; color: #e6ecff !important;
-    margin-bottom: 10px !important;
+    font-size: 12px !important; font-weight: 800 !important;
+    letter-spacing: 0 !important; color: #6b7280 !important;
+    margin-bottom: 3px !important; text-shadow: none !important;
   }
   #kpi .card-value, #kpi-today .card-value {
-    font-size: 34px !important; font-weight: 900 !important;
-    color: #ffffff !important; margin-top: 2px !important; line-height: 1.05 !important;
-    text-shadow: 0 2px 12px rgba(0,0,0,.30);
+    font-size: 22px !important; font-weight: 900 !important;
+    color: #1f2937 !important; margin-top: 2px !important; line-height: 1.15 !important;
+    letter-spacing: -.5px !important; text-shadow: none !important;
+    font-variant-numeric: tabular-nums;
   }
   #kpi .card-sub, #kpi-today .card-sub {
-    font-size: 11.5px !important; font-weight: 600 !important;
-    color: rgba(230,236,255,.72) !important; margin-top: 6px !important;
+    font-size: 11px !important; font-weight: 600 !important;
+    color: #9ca3af !important; margin-top: 3px !important; text-shadow: none !important;
   }
 
-  /* ── 1행 (#kpi): 인디고 · 에메랄드 · 앰버 · 핑크 ── */
-  #kpi .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(99,102,241,.30),rgba(99,102,241,.05));--kpi-bar:linear-gradient(90deg,#6366f1,#818cf8);--kpi-glow:rgba(99,102,241,.55);}
-  #kpi .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
-  #kpi .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
-  #kpi .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(236,72,153,.30),rgba(236,72,153,.05));--kpi-bar:linear-gradient(90deg,#ec4899,#f472b6);--kpi-glow:rgba(236,72,153,.55);}
+  /* 유일한 색 — 오늘의 결석률(나쁜 쪽). 선이 아니라 «면»으로 아주 옅게. */
+  #kpi-today .card:nth-child(3) {
+    background: #fdf4f4 !important;
+    border-color: #f0d2d2 !important;
+  }
+  #kpi-today .card:nth-child(3):hover { background: #fcefef !important; }
+  #kpi-today .card:nth-child(3) .card-label { color: #9a5b5b !important; }
+  #kpi-today #today-absence { color: #b91c1c !important; }
 
-  /* ── 2행 (#kpi-today): 앰버 · 에메랄드 · 레드 · 블루 (inline border-left 덮어씀) ── */
-  #kpi-today .card { border-left: 1px solid rgba(255,255,255,0.07) !important; }
-  #kpi-today .card:nth-child(1){--kpi-grad:linear-gradient(135deg,rgba(245,158,11,.32),rgba(245,158,11,.05));--kpi-bar:linear-gradient(90deg,#f59e0b,#fbbf24);--kpi-glow:rgba(245,158,11,.55);}
-  #kpi-today .card:nth-child(2){--kpi-grad:linear-gradient(135deg,rgba(16,185,129,.30),rgba(16,185,129,.05));--kpi-bar:linear-gradient(90deg,#10b981,#34d399);--kpi-glow:rgba(16,185,129,.55);}
-  #kpi-today .card:nth-child(3){--kpi-grad:linear-gradient(135deg,rgba(239,68,68,.30),rgba(239,68,68,.05));--kpi-bar:linear-gradient(90deg,#ef4444,#f87171);--kpi-glow:rgba(239,68,68,.55);}
-  #kpi-today .card:nth-child(4){--kpi-grad:linear-gradient(135deg,rgba(59,130,246,.30),rgba(59,130,246,.05));--kpi-bar:linear-gradient(90deg,#3b82f6,#60a5fa);--kpi-glow:rgba(59,130,246,.55);}
-
-
-  /* 모바일: 라벨/값 약간 축소 */
+  /* 모바일 */
   @media (max-width: 560px){
-    #kpi .card-value, #kpi-today .card-value { font-size: 28px !important; }
-    #kpi .card, #kpi-today .card { padding: 18px 16px 16px !important; }
+    #kpi .card-value, #kpi-today .card-value { font-size: 19px !important; }
+    #kpi .card, #kpi-today .card { padding: 11px 13px !important; }
   }
 
-  /* 🩹 (2026-06-23) 휴대폰/모바일: 헤더 밑 회색 번짐 방지
-     — 카드 기본 그림자 축소 + 터치에서 hover 떠오름/그림자 확대 끄기 */
-  @media (max-width: 900px){
-    #kpi .card, #kpi-today .card { box-shadow: 0 4px 12px -8px rgba(0,0,0,.35) !important; }
-  }
-  @media (hover: none){
-    #kpi .card:hover, #kpi-today .card:hover {
-      transform: none !important;
-      box-shadow: 0 4px 12px -8px rgba(0,0,0,.35) !important;
-    }
-  }
 
 
 /* ── [style#no-id-101] ── */
@@ -8251,3 +8252,339 @@ button.chip:hover,
     /* ⛔ hover 로 라벨/서브메뉴를 띄우지 않는다. 강조는 배경색까지만 */
     html[data-adm-nav="rail"] .ph85-head:hover { background: rgba(251,191,36,0.14); }
   }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🎨 (2026-08-08) 관리자 «조용한 표» — 학생 목록에 먼저 적용한 원칙을 전 표로 확장
+   ───────────────────────────────────────────────────────────────────────────
+   사장님 지적: 레벨테스트 최근응시 · 음성코칭 진도 · 강사 급여 정산 …
+   「아이디가 붉은 박스」「회색 줄무늬가 너무 진함」이 표마다 똑같이 반복됐다.
+
+   원인은 표마다 다른 게 아니라 «한 곳»이었다 — 이 파일 위쪽의 다크 테마 잔재.
+     · details.menu-card table              = rgba(15,23,42,0.55)  (네이비 55%)
+     · details.menu-card tbody tr:nth(even) = rgba(30,41,59,0.35)  (네이비 35%)
+     · .pm-table tbody tr:nth(even) td      = rgba(30,41,59,0.45)
+     · code{}                               = 주황/보라 배지
+   테마는 admin.html:280 에서 «항상 ivory» 로 고정돼 다크가 쓰이지 않는데,
+   ivory 쪽에 대응 규칙이 없는 속성은 저 다크 값이 그대로 남아 화면에 나왔다.
+   개별 표에 하나씩 덧칠하면 또 다음 표에서 같은 일이 반복되므로 여기서 한 번에 끊는다.
+
+   원칙 — 색은 «데이터»가 아니라 «상태»에만 쓴다.
+     줄무늬 #ffffff / #fafbfc (종전의 약 1/9 세기) · 호버 #f2f7ff · 아이디는 배지를 벗고 모노 회청색
+
+   🪤 처음엔 :not([style*="background"]) 로 «인라인으로 색을 칠한 칸·행»을 비켜 가게 짰다가
+      되돌렸다. 실측해 보니 그 칸들은 이미 이 파일 1287행
+        .menu-card table td { background: transparent !important; }
+      에 덮여 «색이 죽은 채»였고(같은 층의 3435행은 오히려 다크 그라데이션을 씌운다),
+      비켜 가 봐야 살아나지 않고 줄무늬에 구멍만 생겼다. → 전 칸을 균일하게 칠한다.
+      ⚠️ 음성코칭 표의 «점수별 행 배경 틴트»는 그래서 여기서도 안 살아난다.
+         (원래도 짝수 줄은 다크에 덮여 안 보였다. 점수는 정확도·발음·유창성 «막대»가
+          이미 더 정확히 보여 준다.) 틴트를 되살리려면 위 1287행부터 손봐야 한다 — 별건.
+   ⚠️ 표 전용 규칙(#sm-students-table · #card-permissions · .rf-table · .sa-table 등)은
+      선택자에 #id 가 있어 여기보다 우선순위가 높다 → 의도한 색을 그대로 지킨다.
+      (권한표 그룹행의 앰버 그라데이션이 그대로인 것을 실측으로 확인했다.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 표 바탕 — 다크 네이비 55% → 흰색 */
+html[data-admin-theme="ivory"] .menu-card table { background: #ffffff !important; }
+
+/* 줄무늬 — 흰색 / 아주 옅은 중성회색.
+   background 축약형이라 위층이 씌운 다크 그라데이션(background-image)까지 같이 지운다. */
+html[data-admin-theme="ivory"] .menu-card tbody tr:nth-child(odd)  > td { background: #ffffff !important; }
+html[data-admin-theme="ivory"] .menu-card tbody tr:nth-child(even) > td { background: #fafbfc !important; }
+
+/* 호버 — 보던 줄을 놓치지 않게 (가로로 긴 표가 많다) */
+html[data-admin-theme="ivory"] .menu-card tbody tr:hover > td { background: #f2f7ff !important; }
+
+/* 아이디·코드 — 표 안에서는 배지를 벗기고 조용한 모노 회청색으로.
+   표 밖(안내문·도움말 등)의 <code> 배지는 그대로 둔다. */
+html[data-admin-theme="ivory"] .menu-card td code {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  color: #64748b !important;
+  font-size: 11.5px !important;
+  letter-spacing: -0.2px;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   🔐 권한 매트릭스 — 위 전역 블록이 «못 덮은 유일한 표»
+   admin.html 의 표 54개 · 칸 786개를 전수 주사한 결과 여기 하나만 다크로 남았다.
+   이 표의 규칙은 선택자에 #card-permissions 가 있어(=id) 전역 블록보다 세기 때문.
+   의도한 색이면 그대로 두는 게 맞지만, 이건 «다크 테마용 잔재»라 되돌린다.
+
+   🪤 칸 배경만 밝게 바꾸면 안 된다. 권한 셀(✅/👁️/❌)의 글자색이 다크 배경 전제의
+      «아주 연한 색»(#dcfce7 등)이라, 바탕만 희게 하면 글자가 통째로 사라진다.
+      → 셀 상태색을 이 파일 303~305행의 «원래 밝은 안»으로 같이 되돌린다.
+   ⚠️ 그룹 헤더 행의 앰버는 의도한 색이다(332~335행). 값을 그대로 다시 적어 지킨다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody td {
+  background: #ffffff !important;
+  color: #1f2937 !important;
+  border-color: rgba(15,23,42,0.08) !important;
+  border-bottom: 1px solid #f0f2f5 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr:nth-child(even) td { background: #fafbfc !important; }
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr:hover td { background: #f2f7ff !important; }
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody td:first-child { color: #0f172a !important; }
+
+/* 그룹 헤더 행 — 앰버 유지 (다크 인디고로 덮이던 것을 되돌림) */
+html[data-admin-theme="ivory"] #card-permissions .perm-table tbody tr.group-row td {
+  background: linear-gradient(90deg, #fef3c7 0%, #fde68a 100%) !important;
+  color: #78350f !important;
+  border-top: 2px solid #fcd34d !important;
+  border-bottom: 1px solid rgba(180,83,9,0.25) !important;
+}
+
+/* 권한 셀 — 상태색을 밝은 원안으로 (글자도 진한 색으로 같이 되돌려야 보인다) */
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell {
+  background: #ffffff !important;
+  border: 1px solid #dde3ea !important;
+  color: #475467 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="✅"] {
+  background: linear-gradient(135deg,#dcfce7,#bbf7d0) !important; border-color:#86efac !important; color:#15803d !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="👁️"] {
+  background: linear-gradient(135deg,#dbeafe,#bfdbfe) !important; border-color:#93c5fd !important; color:#1d4ed8 !important;
+}
+html[data-admin-theme="ivory"] #card-permissions .perm-table .perm-cell[data-state="❌"] {
+  background: linear-gradient(135deg,#fee2e2,#fecaca) !important; border-color:#fca5a5 !important; color:#b91c1c !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   🧭 사이드바 — 다크 전제로 박힌 색이 «흰 사이드바»에서 안 읽히던 2곳
+   admin.html 전 요소의 «글자 대 제 배경» 대비를 재서 찾았다.
+   (JS 페인터 adm-s13 은 [id^="card-"] 안만 칠한다 → 사이드바는 구제 대상 밖이라
+    다크 색이 그대로 남아 있었다. 42패턴 중 페인터가 못 덮는 것만 남은 것이 이것.)
+
+     .ph85-subhead  앰버 #fbbf24 + opacity .72  → 흰 바탕 대비 1.67  «거의 안 보임»
+     .ph85-arrow    회색 #98a2b3               → 흰 바탕 대비 2.58
+
+   🪤 .ph85-subhead 는 admin.html 에 인라인 color 로 박혀 있다(8655행 등 4곳).
+      인라인이라 !important 로만 덮인다. opacity 도 같이 올려야 색이 제 값으로 나온다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"] #ph85-sidebar .ph85-subhead {
+  color: #b45309 !important;
+  opacity: 1 !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-subhead {
+  color: #9a3412 !important;
+  opacity: 1 !important;
+}
+html[data-admin-theme="ivory"] #ph85-sidebar .ph85-arrow { color: #7c7566 !important; }
+html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph85-arrow { color: #667085 !important; }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   🔎 표 «행마다 반복되는» 상세 링크 — 학생 목록에 적용한 원칙을 전 표로
+   사장님 지적: 「오늘 출결 한눈에」에서 주황 알약이 세로로 20개 넘게 쌓여
+   그 열만 도드라진다. 학생 목록에서 파란 밑줄 링크로 겪었던 것과 같은 문제다.
+
+   원인은 adm-core.js 의 drillBtn() — 행마다
+     <a style="background:#f59e0b;color:#fff;...">🔍 자세히</a> 를 그린다(5곳에서 사용).
+   인라인이라 !important 로만 덮인다. JS 는 손대지 않는다(표시만 바꾸면 되는 일).
+
+   원칙 — 행마다 반복되는 «이동» 버튼은 상태가 아니다. 평소 무채색, 마우스 올렸을 때만 색.
+   ⚠️ <button> 은 건드리지 않는다. 「취소」처럼 실행·되돌릴 수 없는 행위는 강조가 정보다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"] .menu-card td a[href^="/admin/student"] {
+  display: inline-block;
+  padding: 2px 10px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: #475467 !important;
+  background: #ffffff !important;
+  border: 1px solid #dde3ea !important;
+  border-radius: 6px !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  box-shadow: none !important;
+  transition: color .12s, border-color .12s, background .12s;
+}
+html[data-admin-theme="ivory"] .menu-card td a[href^="/admin/student"]:hover {
+  color: #c2410c !important;
+  border-color: #f0b27a !important;
+  background: #fff8f2 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔵 버튼 위계 — 「파란 버튼이 너무 많다」
+   ───────────────────────────────────────────────────────────────────────────
+   실측: .menu-card 안 버튼 370개 중 354개가 «완전히 같은» 파란 그라데이션
+         linear-gradient(135deg,#2563EB,#3B82F6). 이 파일의 블록들이 그렇게 만든다.
+           L3656 «alu/vd/sup 버튼 통일»   L3947 «모든 *-btn 인디고 통일»
+           L3869 #card-permissions button  … 외 8곳
+         (검색이 계속 빗나갔던 이유 = 색이 «대문자» #2563EB 로 적혀 있었다.)
+
+   🔴 그래서 생긴 진짜 결함 — «선택한 것이 보이지 않는다».
+      AI 자동 시험 만들기(#card-mini-toeic)의 난이도·주제 버튼은 .on 이 붙어도
+      안 붙어도 계산색이 «똑같다»(페인터 끈 상태에서 두 번 확인). 즉 A1~C1 중
+      무엇을 골랐는지, 주제를 골랐는지 화면상 구분할 방법이 없다.
+      맨 아래 «AI에게 시험 만들어 달라고 하기» 도 같은 파랑이라 위계도 없다.
+
+   원칙 — 색은 «상태»에만. 선택은 상태다 → 채운 파랑.
+          평범한 버튼은 상태가 아니다 → 조용한 흰 버튼, 마우스 올렸을 때만 색.
+          한 화면에 «채운 파랑»은 지금 할 일 하나만 남긴다.
+   ⚠️ 위험·삭제 계열(danger/del/remove/red)과 사이드바는 건드리지 않는다.
+      되돌릴 수 없는 행위의 색은 정보다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 기본 버튼 = 조용 ──
+   🪤 처음엔 [id^="card-"] button 으로 «모든» 버튼을 잡았다가 되돌렸다. 실측해 보니
+      초록 「➕ 신규 양식 등록」·주황 「📲 위험군 학부모 알림」처럼 «의도해서 색을 준»
+      버튼까지 걸렸는데, 저쪽은 배경 규칙이 #id 로 더 세서 «배경은 제 색 그대로 + 글자만
+      내 회색»이 됐다 → 대비 1.84~2.84 로 글자가 사라졌다.
+      CSS 는 배경만 이기고 글자만 지는 «반쪽 적용»이 생긴다. 그래서 범위를
+      «획일적 파랑을 칠하던 바로 그 집합»(*-btn 계열 · 권한카드 · 시험 만들기)으로만 좁힌다. */
+html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"]:not(.primary):not(.on):not(.active):not([class*="danger"]):not([class*="del"]):not([class*="remove"]):not([class*="red"]):not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn),
+html[data-admin-theme="ivory"] #card-permissions button:not(.primary):not(.on):not(.active):not([class*="danger"]):not([class*="del"]),
+html[data-admin-theme="ivory"] [id^="card-"] button:not([class]),
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-choice:not(.on),
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-chip:not(.on) {
+  background: #ffffff !important;
+  color: #344054 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"]:not(.primary):not(.on):not(.active):not([class*="danger"]):not([class*="del"]):not(.ph85-head):not(.ph85-sub):hover,
+html[data-admin-theme="ivory"] #card-permissions button:not(.primary):not(.on):not(.active):hover,
+html[data-admin-theme="ivory"] [id^="card-"] button:not([class]):hover,
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-choice:not(.on):hover,
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-chip:not(.on):hover {
+  border-color: #93b4f0 !important;
+  background: #f5f9ff !important;
+  color: #1d4ed8 !important;
+}
+
+/* ── 선택됨 / 주요 실행 = 채운 파랑 (여기만 색을 쓴다) ── */
+html[data-admin-theme="ivory"] [id^="card-"] button.on,
+html[data-admin-theme="ivory"] [id^="card-"] button.active,
+html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"].on,
+html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"].active,
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-choice.on,
+html[data-admin-theme="ivory"] #card-mini-toeic .mtw-chip.on {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8 !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+html[data-admin-theme="ivory"] [id^="card-"] button.primary:hover,
+html[data-admin-theme="ivory"] .mtw-choice.on:hover,
+html[data-admin-theme="ivory"] .mtw-chip.on:hover {
+  background: #1d4ed8 !important;
+}
+
+/* ── 선택형 버튼은 «누를 수 있음»이 보이게 살짝 도드라지는 테두리 ── */
+html[data-admin-theme="ivory"] .mtw-choice,
+html[data-admin-theme="ivory"] .mtw-chip { transition: background .12s, color .12s, border-color .12s; }
+
+/* ── 2차: 클래스 «없는» 버튼 + 활성 표시가 확인된 탭·페이지 버튼 ──────────────
+   1차 뒤 실측: 아직 291개가 같은 파랑. 뜯어보니
+     158개 = class 속성이 «아예 없는» 버튼 (📥 CSV 다운로드 · 🔄 새로고침 … 55개 카드에 산재)
+      87개 = .primary (각 카드의 주 동작) → 파랑이 맞다. 그대로 둔다.
+      나머지 = 탭·필터·기간·페이지 등 «선택형» + 개별 액션
+
+   🪤 1차에서 button:not([class]) 로 이미 잡았는데 안 먹었다. 선택자가 (0,3,2) 라
+      카드별 규칙에 밀린 것. 클래스가 없는 버튼엔 «항상 참»인 :not() 을 덧붙여
+      우선순위만 올린다 — 대상은 그대로, 힘만 세진다.
+   ✅ class 속성이 없다 = 클래스로 «의도한 색»을 준 적이 없다는 뜻 → 흰 버튼으로 바꿔도
+      1차에서 겪은 «배경만 이기고 글자만 지는 반쪽 적용»이 생길 수 없다. 그래서 안전하다.
+   ⚠️ 활성 표시 클래스를 «실측으로 확인한» 것만 선택형으로 처리한다
+      (.pm-page-btn → .active, .ns-tab → .is-active). 나머지 탭·필터는 활성 클래스가
+      런타임에 붙어 정적 DOM 에서 확인되지 않아 이번엔 건드리지 않는다.
+      모르는 채로 흰색을 칠하면 «선택된 것이 사라지는» 더 나쁜 결과가 된다. */
+
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class]):not(.primary):not(.on):not(.active):not(.is-active):not([class*="danger"]):not([class*="del"]):not([class*="remove"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn:not(.active):not(.on):not(.primary):not([class*="danger"]):not([class*="del"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab:not(.is-active):not(.active):not(.on):not(.primary):not([class*="danger"]) {
+  background: #ffffff !important;
+  color: #344054 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class]):not(.primary):not(.on):not(.active):not(.is-active):not([class*="danger"]):not([class*="del"]):not([class*="remove"]):hover,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn:not(.active):not(.on):not(.primary):not([class*="danger"]):not([class*="del"]):hover,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab:not(.is-active):not(.active):not(.on):not(.primary):not([class*="danger"]):hover {
+  border-color: #93b4f0 !important;
+  background: #f5f9ff !important;
+  color: #1d4ed8 !important;
+}
+/* 선택된 탭·페이지는 채운 파랑 (선택 = 상태) */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .pm-page-btn.active,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] .ns-tab.is-active {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: 1px solid #1d4ed8 !important;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   ⌨️ 입력창·선택상자 — 「너무 진하다」
+   사장님 지적. 진단 페이지 문제가 아니라 «실제 화면»이 그렇다.
+
+   🔑 왜 여기만 남았나 — JS 페인터(adm-s13)의 EXCLUDE 목록에
+      input,textarea,select,option 이 들어 있다. 카드 안 다른 면은 페인터가 밝게
+      덧칠해 주지만 «입력요소는 일부러 건드리지 않는다». 그래서 다크 잔재가
+      이 부류에만 고스란히 남았다.
+
+   실측(페인터 켠 상태 = 실화면): .menu-card 안 입력요소 885개 중 466개가 어둡다.
+        <option> 458개  배경 rgb(15,23,42)      글자 #f8fafc
+        <input>    8개  배경 rgba(15,23,42,.85) 글자 #f8fafc
+
+   ⚠️ 배경만 밝히면 «흰 바탕에 흰 글자»가 된다(글자가 #f8fafc 로 박혀 있다).
+      배경·글자·테두리·placeholder 를 «한 벌로» 바꾼다.
+   ─────────────────────────────────────────────────────────────────────────── */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select:not([multiple]),
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea {
+  background: #ffffff !important;
+  color: #101828 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input::placeholder,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea::placeholder {
+  color: #98a2b3 !important;
+  opacity: 1;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select option,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select optgroup {
+  background: #ffffff !important;
+  color: #101828 !important;
+}
+/* 포커스 — 어디에 입력 중인지 보이게 (색은 여기서만 쓴다) */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input:focus,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] select:focus,
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] textarea:focus {
+  border-color: #2563eb !important;
+  outline: 2px solid rgba(37,99,235,0.18) !important;
+  outline-offset: 0 !important;
+}
+
+/* ── 체크박스·라디오 — 위 규칙에서 제외했더니 다크가 남았다 ──
+   네모 칸 자체가 네이비라 «체크 여부»가 잘 안 보인다. 브라우저 기본 위젯을 살리고
+   accent-color 로 브랜드색만 준다(모양은 OS 표준, 색만 우리 것). */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input[type="checkbox"],
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] input[type="radio"] {
+  background: #ffffff !important;
+  border: 1px solid #b9c2ce !important;
+  accent-color: #2563eb;
+  box-shadow: none !important;
+}
+
+/* ── 「↗ 3D 배틀 열기」가 빨간 이유 = HTML 에 인라인으로 background:rgb(244,63,94) ──
+   사장님 지적. 하는 일은 «새 창으로 열기» 뿐인데 색은 «위험/삭제»를 말한다.
+   관리자 화면에서 빨강은 되돌릴 수 없는 행위에만 남겨야 오래 쓸 수 있다.
+   인라인이라 !important 로만 덮인다. 대상은 이 링크 하나로 좁혀 둔다. */
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/battle-3d.html"] {
+  background: #ffffff !important;
+  color: #344054 !important;
+  border: 1px solid #dde3ea !important;
+  box-shadow: none !important;
+}
+html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/battle-3d.html"]:hover {
+  background: #f5f9ff !important;
+  color: #1d4ed8 !important;
+  border-color: #93b4f0 !important;
+}

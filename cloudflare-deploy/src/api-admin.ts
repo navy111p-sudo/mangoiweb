@@ -1895,6 +1895,99 @@ export async function handleAdminApi(
       return json({ ok: true, teacher_id: tid, level_code: code, fee_per_10min: fee, rate_per_20min: Number(lvl.rate_per_20min) || 0 });
     }
 
+    /* ── GET /api/admin/payroll/late-detect?year=&month= — 지각 «자동 감지» (참고용) ──────
+     *
+     * [왜] 지각분은 지금까지 관리자가 손으로 세어 넣었다(아래 late-minutes). 강사 20명 × 한 달치를
+     *      사람이 세는 일이라 빠지거나 틀리기 쉽다. 원천 데이터(attendance.joined_at)는 이미 있다.
+     *
+     * ⛔ **자동으로 급여를 깎지 않는다.** 이 창구는 «세어 보니 이렇습니다» 만 돌려준다.
+     *    공제에 반영되는 값은 여전히 lesson_late_minutes(사람이 확정한 값)뿐이다.
+     *    돈은 사람이 확정한다 — 접속 기록이 곧 지각은 아니다(회선 끊김·재입장·시계 오차).
+     *
+     * 🔑 방 이름 규약으로 수업과 접속을 잇는다: room_id = class-{schedule_id}-{YYYYMMDD}
+     * ⚠️ 강사의 «가장 이른» 입장만 본다. 끊겼다 다시 들어온 것을 지각으로 세면 안 된다.
+     */
+    if (method === 'GET' && path === '/api/admin/payroll/late-detect') {
+      const _ldActor = await getAdminActor(request, env as any);
+      if (_ldActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const y = parseInt(url.searchParams.get('year') || '', 10);
+      const mo = parseInt(url.searchParams.get('month') || '', 10);
+      if (!y || !mo || mo < 1 || mo > 12) return invalidBody(['year', 'month']);
+      const p2 = (n: number) => String(n).padStart(2, '0');
+      const from = `${y}-${p2(mo)}-01`;
+      const to = `${y}-${p2(mo)}-31`;
+      // 몇 분부터 «지각» 으로 볼지 — 기본 3분(시계 오차·입장 지연을 지각으로 세지 않기 위한 여유)
+      const grace = Math.max(0, Math.min(30, parseInt(url.searchParams.get('grace') || '3', 10) || 3));
+      try {
+        const empty = { results: [] as any[] };
+        const [attRs, manRs] = await Promise.all([
+          env.DB.prepare(
+            `SELECT room_id, user_id, username, MIN(joined_at) AS first_join, date
+               FROM attendance
+              WHERE role = 'teacher' AND date >= ? AND date <= ? AND room_id LIKE 'class-%'
+              GROUP BY room_id`
+          ).bind(from, to).all<any>().catch(() => empty),
+          env.DB.prepare(
+            `SELECT schedule_id, lesson_date, minutes FROM lesson_late_minutes WHERE lesson_date >= ? AND lesson_date <= ?`
+          ).bind(from, to).all<any>().catch(() => empty),
+        ]);
+        const manual: Record<string, number> = {};
+        for (const m of (manRs.results || []) as any[]) manual[`${m.schedule_id}|${m.lesson_date}`] = Number(m.minutes) || 0;
+
+        // 방 이름에서 schedule_id 를 뽑아, 그 수업의 예정 시작 시각을 한 번에 읽는다.
+        const rows = (attRs.results || []) as any[];
+        const sids = Array.from(new Set(rows.map((r) => {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(r.room_id || ''));
+          return m ? Number(m[1]) : 0;
+        }).filter(Boolean)));
+        const startById: Record<number, { start: string; teacher: string }> = {};
+        // ⚠️ D1 은 쿼리당 바인드 100개 한도 — 손으로 끊지 말고 공용 헬퍼를 쓴다(가드가 지킨다)
+        const schedRows = await selectInChunks<any>(
+          env.DB, sids, (ph) => `SELECT id, start_time, teacher_id FROM class_schedules WHERE id IN (${ph})`
+        );
+        for (const s of schedRows) {
+          startById[Number(s.id)] = { start: String(s.start_time || ''), teacher: String(s.teacher_id || '') };
+        }
+
+        const toMin = (hhmm: string) => {
+          const m = /^(\d{1,2}):(\d{2})/.exec(String(hhmm || ''));
+          return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+        };
+        const out: any[] = [];
+        for (const r of rows) {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(r.room_id || ''));
+          if (!m) continue;
+          const sid = Number(m[1]);
+          const sched = startById[sid];
+          if (!sched || !sched.start) continue;
+          const planned = toMin(sched.start);
+          if (planned == null || !r.first_join) continue;
+          // 입장 시각을 KST 분 단위로 (예정 시각도 KST 기준으로 적혀 있다)
+          const d = new Date(Number(r.first_join) + 9 * 3600 * 1000);
+          const actual = d.getUTCHours() * 60 + d.getUTCMinutes();
+          const lateMin = actual - planned;
+          if (lateMin <= grace) continue;                       // 여유 안이면 지각 아님
+          const key = `${sid}|${r.date}`;
+          out.push({
+            schedule_id: sid, lesson_date: r.date, room_id: r.room_id,
+            teacher: r.username || sched.teacher || '', planned_start: sched.start,
+            actual_start: `${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`,
+            detected_minutes: lateMin,
+            entered_minutes: manual[key] ?? null,               // 사람이 이미 넣은 값(비교용)
+            differs: manual[key] != null && manual[key] !== lateMin,
+          });
+        }
+        out.sort((a, b) => b.detected_minutes - a.detected_minutes);
+        return json({
+          ok: true, year: y, month: mo, grace_minutes: grace, count: out.length, rows: out,
+          note: '참고용입니다. 공제에 반영되는 값은 관리자가 확정한 지각분(late-minutes)뿐입니다.',
+          note_en: 'Advisory only. Only the manually confirmed late minutes affect payroll deductions.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'late_detect_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+    }
+
     // ── POST /api/admin/payroll/late-minutes — 수업별 '지각 연장실패' 분 수동 입력 ──
     //   body: { schedule_id, lesson_date(YYYY-MM-DD), minutes }
     //   근태 자동로그 도입 전까지 관리자가 상세표에서 직접 기입 → late_no_extend 공제에 반영.
@@ -6655,7 +6748,7 @@ LIMIT $limit`;
         let ticketLine = '';
         try { ticketUrl = await ltTicketUrl(Number(appId), env); ticketLine = `
 ▶ 확인·입장: ${ticketUrl}`; } catch {}
-        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd/chat`;
+        const smsText = `[망고아이] ${name}님, 레벨테스트 신청이 접수됐어요! 🎯\n📅 희망: ${whenLabel}\n담당 선생님이 확정되면 다시 안내드릴게요.${ticketLine}\n문의: pf.kakao.com/_xlqnSxd`;
         try { await sendPlainSms(env, phone, smsText); }
         catch (e: any) { console.warn('[leveltest] applicant receipt skipped:', e?.message || e); }
       }
@@ -6769,7 +6862,7 @@ LIMIT $limit`;
           const openMin = Math.round(OPEN_BEFORE_MS / 60000);
           let ticketLine2 = `\n※ 시작 ${openMin}분 전부터 입장할 수 있어요.`;
           try { ticketLine2 = `\n▶ 확인·입장: ${await ltTicketUrl(Number(app.id), env)}\n※ 시작 ${openMin}분 전부터 입장 버튼이 열려요.`; } catch {}
-          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd/chat`;
+          const smsText = `[망고아이] ${app.student_name}님, 레벨테스트 담당 선생님이 확정됐어요! ✅\n📅 ${whenLabel2}\n👩‍🏫 담당: ${tLabel}${ticketLine2}\n문의: pf.kakao.com/_xlqnSxd`;
           try {
             const tmpl = (env as any).SOLAPI_TEMPLATE_LEVELTEST;
             if (tmpl) {
@@ -7178,7 +7271,7 @@ LIMIT $limit`;
             ];
             if (book) lines.push(`📚 추천 교재: ${book}`);
             if (guide) lines.push(`▶ 다음 단계: ${guide}`);
-            lines.push(`정규 수업 상담: pf.kakao.com/_xlqnSxd/chat`);
+            lines.push(`정규 수업 상담: pf.kakao.com/_xlqnSxd`);
             const r = await sendPlainSms(env, app2.phone, lines.join('\n'));
             resultNotify = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';
             if (r && r.ok) {
@@ -7773,22 +7866,52 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     if ((method === 'POST' && path === '/api/admin/briefing/generate') || (method === 'GET' && path === '/api/admin/briefing/latest')) {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS daily_briefings (id INTEGER PRIMARY KEY AUTOINCREMENT, briefing_date TEXT NOT NULL, briefing_text TEXT NOT NULL, stats TEXT, created_at INTEGER NOT NULL);`);
-
         // GET latest — 최근 N개 또는 단건
+        //   ⚡ (2026-08-08) 조회 경로에서 CREATE TABLE 을 걷어냈다. 읽을 때마다 DDL 왕복을 한 번 더 하고 있었고,
+        //      표가 없으면 아래 SELECT 가 알아서 실패하므로 빈 목록으로 돌려주면 된다.
         if (method === 'GET' && path === '/api/admin/briefing/latest') {
           const limit = Math.min(parseInt(url.searchParams.get('limit') || '1'), 30);
-          const rs: any = await env.DB.prepare(`SELECT id, briefing_date, briefing_text, stats, created_at FROM daily_briefings ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+          let rs: any = { results: [] };
+          try {
+            rs = await env.DB.prepare(`SELECT id, briefing_date, briefing_text, stats, created_at FROM daily_briefings ORDER BY created_at DESC LIMIT ?`).bind(limit).all();
+          } catch { /* 표가 아직 없음 → 빈 목록 */ }
           const items = (rs.results || []).map((r: any) => { let st = null; try { st = r.stats ? JSON.parse(r.stats) : null; } catch {} return { ...r, stats: st }; });
           return json({ ok: true, items });
         }
 
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS daily_briefings (id INTEGER PRIMARY KEY AUTOINCREMENT, briefing_date TEXT NOT NULL, briefing_text TEXT NOT NULL, stats TEXT, created_at INTEGER NOT NULL);`);
+
         // POST generate — 어제 데이터 집계 + AI 작문
+        //
+        // 🕒 (2026-08-08 수정) 날짜가 이틀 밀리던 것 —
+        //   cron 은 "0 18 * * *"(UTC) = KST 03:00 에 돈다. 그런데 여기서 `now - 24h` 를 UTC 로 잘라 쓰니,
+        //   KST 8일 새벽에 돌면 UTC 로는 아직 7일 18시 → 하루 빼면 6일 → "어제"가 그저께가 됐다.
+        //   (화면에 오늘이 08-08 인데 브리핑 날짜가 08-06 으로 찍히던 원인)
+        //   → KST(UTC+9) 로 옮겨 놓고 날짜를 자른 뒤, 집계 구간도 KST 하루로 잡는다.
+        const KST = 9 * 3600000;
         const now = Date.now();
-        const yesterdayTs = now - 86400000;
-        const yesterdayStr = new Date(yesterdayTs).toISOString().slice(0, 10);
-        const todayStartTs = new Date(yesterdayStr + 'T00:00:00.000Z').getTime();
+        const kstNow = now + KST;
+        const kstTodayStr = new Date(kstNow).toISOString().slice(0, 10);
+        const yesterdayStr = new Date(kstNow - 86400000).toISOString().slice(0, 10);
+        // KST 하루의 시작/끝을 UTC 타임스탬프로 (KST 00:00 = 그 날짜의 UTC 00:00 − 9h)
+        const todayStartTs = new Date(yesterdayStr + 'T00:00:00.000Z').getTime() - KST;
         const todayEndTs = todayStartTs + 86400000;
+
+        // 🔁 같은 날짜 브리핑이 이미 있으면 그대로 돌려준다 (force=1 이면 새로 만든다).
+        //   지금까지 「지금 생성」을 누를 때마다 Llama 70B 를 호출하고 D1 에 행을 새로 쌓았다.
+        //   자동 cron 이 하루 두 번 불려도 중복 생성되지 않게 하는 안전장치이기도 하다.
+        const force = url.searchParams.get('force') === '1';
+        if (!force) {
+          try {
+            const dup: any = await env.DB.prepare(
+              `SELECT briefing_date, briefing_text, stats FROM daily_briefings WHERE briefing_date = ? ORDER BY created_at DESC LIMIT 1`
+            ).bind(yesterdayStr).first();
+            if (dup) {
+              let st = null; try { st = dup.stats ? JSON.parse(dup.stats) : null; } catch {}
+              return json({ ok: true, cached: true, briefing_text: dup.briefing_text, stats: st, briefing_date: dup.briefing_date });
+            }
+          } catch {}
+        }
 
         // 1) 신규 등록 (students_erp.created_at 가 있을 경우)
         let newEnroll = 0;
@@ -7804,24 +7927,46 @@ LIMIT $limit`;
           newInquiry = r?.n || 0;
         } catch {}
 
-        // 3) 미납 건수
+        // 3) 미납 «학생 수»
+        //   ⚠️ (2026-08-08 수정) 여기만 `payments` 라는 별개 표를 보고 있었다. 심지어 없으면 만들어서
+        //      거의 빈 표를 세고 있었다. 운영 KPI 대시보드(/api/admin/kpi/dashboard)는 `student_payments`
+        //      기준으로 «35일 넘게 결제 기록이 없는 활성 학생 수» 를 미납으로 센다.
+        //      같은 «미납» 이라는 말이 두 화면에서 다른 숫자였다 → KPI 쪽 정의로 통일한다.
         let overdueCount = 0;
         try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
-          const r: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM payments WHERE (paid_at IS NULL OR paid_at = 0) AND due_at < ?`).bind(now).first();
+          const cutoff35 = now - 35 * 86400000;
+          const r: any = await env.DB.prepare(
+            `SELECT COUNT(DISTINCT s.user_id) AS n FROM students_erp s
+              WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')
+                AND s.user_id NOT IN (SELECT user_id FROM student_payments WHERE status='paid' AND paid_at >= ?)`
+          ).bind(cutoff35).first();
           overdueCount = r?.n || 0;
         } catch {}
 
-        // 4) 위험 학생 수 — 기존 retention/risk 로직을 가볍게 재호출 대신 직접 카운트
+        // 4) 2주 이상 결석한 학생 수
+        //   🔴 (2026-08-08 수정) 원래 쿼리는 `WHERE joined_at < (now-14일)` 이었다.
+        //      이건 «14일 전에 한 번이라도 출석한 적 있는 모든 사람» 이라, 그 뒤 매일 나와도 포함된다.
+        //      즉 사실상 전교생 수가 나왔다(화면에 2,809 로 찍히던 값). 주석은 «최근 14일간 결석» 이었지만
+        //      정작 그 조건이 쿼리에 없었다.
+        //      → 사람마다 «마지막 출석» 을 구한 뒤, 그게 14일보다 오래된 사람만 센다.
         let atRiskCount = 0;
         try {
-          const r: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE joined_at < ?`).bind(now - 14 * 86400000).first();
-          // 최근 14일간 결석한 사람 근사치 — 정확한 점수는 풀 risk 엔드포인트 사용
+          const r: any = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM (
+               SELECT user_id, MAX(joined_at) AS last_at
+                 FROM attendance
+                WHERE role = 'student' OR role IS NULL
+                GROUP BY user_id
+             ) WHERE last_at < ?`
+          ).bind(now - 14 * 86400000).first();
           atRiskCount = r?.n || 0;
         } catch {}
 
-        // 5) 출석률 (어제 기준 — 등록한 활성 학생 수 대비 출석한 학생 수)
-        let attendanceRate = 0, attendedYesterday = 0, activeStudents = 0;
+        // 5) 출석률 (어제 기준 — 활성 학생 수 대비 출석한 학생 수)
+        //   분자는 `attendance.date`(KST 'YYYY-MM-DD') 기준. 위 KST 보정으로 이제 진짜 «어제» 를 본다.
+        //   분모(활성 학생)는 KPI 대시보드의 «활동 학생» 과 같은 조건을 그대로 쓴다 — 두 화면이 어긋나지 않게.
+        let attendanceRate: number | null = null;
+        let attendedYesterday = 0, activeStudents = 0;
         try {
           const att: any = await env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS n FROM attendance WHERE date = ?`).bind(yesterdayStr).first();
           attendedYesterday = att?.n || 0;
@@ -7830,33 +7975,67 @@ LIMIT $limit`;
           if (activeStudents > 0) attendanceRate = Math.round((attendedYesterday / activeStudents) * 100);
         } catch {}
 
-        // 6) 최근 평가 평균
-        let recentEvalAvg = 0;
+        // 6) 최근 7일 평가 평균
+        //   🔴 (2026-08-08 수정) 평가가 한 건도 없으면 AVG 가 NULL 인데 `|| 0` 으로 0 을 넣고 있었다.
+        //      «0점» 과 «자료 없음» 은 완전히 다른 말인데, AI 가 이걸 «평균 0점으로 낮다» 고 보고했다.
+        //      → 자료가 없으면 null 로 둔다. 아래 프롬프트·화면은 null 을 «자료 없음» 으로 다룬다.
+        let recentEvalAvg: number | null = null;
+        let recentEvalCount = 0;
         try {
-          const r: any = await env.DB.prepare(`SELECT AVG(score_overall) AS a FROM student_evaluations WHERE created_at >= ?`).bind(now - 7 * 86400000).first();
-          recentEvalAvg = Math.round((r?.a || 0) * 10) / 10;
+          const r: any = await env.DB.prepare(
+            `SELECT AVG(score_overall) AS a, COUNT(*) AS n FROM student_evaluations WHERE created_at >= ?`
+          ).bind(now - 7 * 86400000).first();
+          recentEvalCount = r?.n || 0;
+          if (recentEvalCount > 0 && r?.a != null) recentEvalAvg = Math.round(r.a * 10) / 10;
         } catch {}
 
         const stats = {
           date: yesterdayStr,
+          generated_for_kst: kstTodayStr,
           new_enrollment: newEnroll,
           new_inquiry: newInquiry,
-          overdue_count: overdueCount,
-          at_risk_count: atRiskCount,
-          attendance_rate: attendanceRate,
+          overdue_count: overdueCount,          // 미납 «학생 수» (KPI 대시보드와 같은 정의)
+          at_risk_count: atRiskCount,           // 마지막 출석이 14일 이전인 학생 수
+          attendance_rate: attendanceRate,      // null = 산출 불가
           attended_yesterday: attendedYesterday,
           active_students: activeStudents,
-          recent_eval_avg: recentEvalAvg,
+          recent_eval_avg: recentEvalAvg,       // null = 최근 7일 평가 없음
+          recent_eval_count: recentEvalCount,
         };
 
         // AI 작문 — 친근한 한국어 5-7문장 브리핑
+        //
+        // 🔴 (2026-08-08) 여기가 가장 위험한 자리였다.
+        //   위 집계에 «자료 없음» 이 섞여도 프롬프트는 그걸 숫자 0 으로 넘겼고, 지시문이
+        //   «우려되는 부분은 부드럽게 짚어주세요» 였다. 그래서 AI 는 «평가 평균 0점으로 낮습니다»,
+        //   «출석률 1%로 낮게 유지되고 있습니다» 같은 문장을 아주 차분하게 써 냈다.
+        //   숫자가 틀린 줄 모르는 사람이 읽으면 학원이 무너지는 줄 안다.
+        //   → 자료가 없는 항목은 아예 «자료 없음» 이라고 적어 보내고, 그 항목은 평가하지 말라고 못 박는다.
+        const evalLine = (recentEvalAvg == null)
+          ? `- 최근 7일 평가 평균: 자료 없음 (7일 내 작성된 평가서 0건)`
+          : `- 최근 7일 평가 평균: ${recentEvalAvg}점 (${recentEvalCount}건)`;
+        const attLine = (attendanceRate == null)
+          ? `- 어제 출석률: 자료 없음`
+          : `- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents}명)`;
         let briefingText = '';
         try {
           if (env.AI) {
-            const prompt = `다음은 어제(${yesterdayStr}) 망고아이 학원의 운영 데이터입니다.\n\n- 신규 등록: ${newEnroll}명\n- 신규 상담: ${newInquiry}건\n- 미납 건수: ${overdueCount}건\n- 위험학생(2주+ 결석): ${atRiskCount}명\n- 어제 출석률: ${attendanceRate}% (${attendedYesterday}/${activeStudents})\n- 최근 7일 평가 평균: ${recentEvalAvg}점\n\n원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요. 좋은 점은 칭찬하고, 우려되는 부분은 부드럽게 짚어주며 오늘 우선 챙겨야 할 액션 1-2개를 제안하세요.`;
+            const prompt = `다음은 어제(${yesterdayStr}, 한국시간) 망고아이 학원의 운영 데이터입니다.\n\n`
+              + `- 신규 등록: ${newEnroll}명\n`
+              + `- 신규 상담: ${newInquiry}건\n`
+              + `- 미납 학생: ${overdueCount}명 (35일 넘게 결제 기록이 없는 활성 학생)\n`
+              + `- 2주 이상 결석한 학생: ${atRiskCount}명\n`
+              + `${attLine}\n`
+              + `${evalLine}\n\n`
+              + `원장님께 드리는 아침 브리핑을 5-7문장으로 따뜻하고 명료한 한국어 존댓말로 작성해 주세요.\n`
+              + `좋은 점은 칭찬하고, 우려되는 부분은 부드럽게 짚어주며 오늘 우선 챙겨야 할 액션 1-2개를 제안하세요.\n\n`
+              + `[반드시 지킬 것]\n`
+              + `1. 위에 적힌 숫자만 사용하세요. 없는 숫자를 지어내지 마세요.\n`
+              + `2. "자료 없음"이라고 적힌 항목은 0이나 낮은 값으로 해석하지 마세요. 그 항목은 평가하지 말고, 필요하면 "아직 집계된 자료가 없습니다"라고만 적으세요.\n`
+              + `3. 추측한 원인·전망을 사실처럼 단정하지 마세요.`;
             const ai: any = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
               messages: [
-                { role: 'system', content: 'You are Mangoi admin assistant. Respond in warm, professional Korean.' },
+                { role: 'system', content: 'You are Mangoi admin assistant. Respond in warm, professional Korean. Never invent numbers that were not given to you, and never treat "자료 없음" as zero.' },
                 { role: 'user', content: prompt }
               ],
               max_tokens: 512,
@@ -7867,7 +8046,14 @@ LIMIT $limit`;
           console.warn('[briefing] AI failed', aiErr?.message);
         }
         if (!briefingText) {
-          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents})이며 최근 평가 평균은 ${recentEvalAvg}점입니다.\n미납 ${overdueCount}건과 위험학생 ${atRiskCount}명에 대한 케어가 필요합니다.\n오늘도 좋은 하루 되세요!`;
+          briefingText = `🌅 어제(${yesterdayStr}) 망고아이 브리핑입니다.\n`
+            + `신규 등록 ${newEnroll}명, 신규 상담 ${newInquiry}건이 접수되었습니다.\n`
+            + (attendanceRate == null ? `어제 출석 자료는 아직 집계되지 않았습니다.\n`
+                                      : `어제 출석률은 ${attendanceRate}%(${attendedYesterday}/${activeStudents}명)입니다.\n`)
+            + (recentEvalAvg == null ? `최근 7일 안에 작성된 평가서는 없습니다.\n`
+                                     : `최근 7일 평가 평균은 ${recentEvalAvg}점(${recentEvalCount}건)입니다.\n`)
+            + `미납 학생 ${overdueCount}명, 2주 이상 결석 ${atRiskCount}명에 대한 케어가 필요합니다.\n`
+            + `오늘도 좋은 하루 되세요!`;
         }
 
         await env.DB.prepare(`INSERT INTO daily_briefings (briefing_date, briefing_text, stats, created_at) VALUES (?,?,?,?)`)

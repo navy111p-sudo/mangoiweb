@@ -193,13 +193,76 @@ function fmtMs(ms) {
   return Math.floor(m/60) + '시간 ' + (m%60) + '분';
 }
 
+/* ════════════════════════════════════════════════════════════
+   🐢 대시보드 차트 게이트 (2026-08-08)
+
+   왜 —
+     관리자 첫 화면은 <details> 카드가 전부 «접힘» 으로 시작한다. 그런데 부팅 때
+     load() 가 무조건 끝까지 돌면서, 아무도 안 보는 접힌 카드 안에
+       · API 를 10번 (그중 /api/admin/stats/revenue 만 6번 — 스파크라인 5 + 매출차트 1)
+       · Chart 인스턴스를 9개 (크기가 0×0 인 캔버스에)
+     만들고 있었다. 이게 관리자 첫 화면이 무거운 가장 큰 이유였다.
+
+   어떻게 —
+     ① 차트를 품은 카드가 하나라도 열려 있을 때만 그린다.
+     ② 닫혀 있으면 _admDashPending 만 세워 두고 조용히 빠진다.
+     ③ 사용자가 카드를 펼치면 admDashOnOpen() 이 그때 한 번 그린다.
+     ④ 한 번 그린 뒤로는 평소처럼 동작한다(언어 변경·수동 새로고침 등).
+
+   ⚠️ #kpi · #kpi-today 4박스는 카드 밖(항상 보임)이라 이 게이트 위에서 이미 채워진다.
+      즉 «화면이 비어 보이는» 구간은 없다.
+════════════════════════════════════════════════════════════ */
+var ADM_DASH_CARDS = ['card-dashboard', 'card-daily-charts', 'card-kpi-dashboard', 'card-rankings'];
+function admDashWanted() {
+  try {
+    for (var i = 0; i < ADM_DASH_CARDS.length; i++) {
+      var el = document.getElementById(ADM_DASH_CARDS[i]);
+      if (el && el.open) return true;
+    }
+  } catch (e) { return true; }   // 판단이 안 되면 예전처럼 그린다 (기능이 사라지는 쪽으로 실패하지 않게)
+  return false;
+}
+function admDashOnOpen() {
+  // ⚠️ «_admDashPending 이 서 있을 때만» 으로 두면 안 된다 —
+  //   load() 는 /api/dashboard 가 실패하면 그 위(`if (!data) return`)에서 먼저 빠져나가므로
+  //   플래그가 안 서고, 그러면 카드를 펼쳐도 영영 아무것도 안 그려진다.
+  //   → «아직 한 번도 안 그렸으면» 그린다. 이러면 첫 요청이 실패했어도 펼칠 때 다시 시도한다.
+  if (window._admDashDrawn) return;
+  window._admDashPending = false;
+  try { load(); } catch (e) {}
+}
+(function bindDashOpen(){
+  var bind = function(){
+    ADM_DASH_CARDS.forEach(function(id){
+      var el = document.getElementById(id);
+      if (el && !el.__admDashBound) {
+        el.__admDashBound = true;
+        el.addEventListener('toggle', function(){ if (this.open) admDashOnOpen(); });
+      }
+    });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
+
 async function load() {
   const _pe = document.getElementById('period');
   const days = (_pe && _pe.value) || '7';   // #period 제거됨 → 기본 7일
   let data;
   let httpStatus = null;
   let rawBody = '';
-  try {
+
+  // ♻️ (2026-08-08) 부팅 때 한 번, 차트 탭을 열 때 또 한 번 — 같은 주소를 두 번 부르고 있었다.
+  //   부팅 호출은 카드 밖 #kpi 4박스를 채우려고 꼭 필요하고(항상 보인다), 차트 탭 호출은
+  //   그 응답을 그대로 다시 쓰면 된다. 90초 안·같은 기간이면 방금 받은 것을 재사용한다.
+  //   ⚠️ «렌더까지 건너뛰지» 않는다 — 아래 그리는 코드는 그대로 탄다. 건너뛰는 건 fetch 뿐이다.
+  //      (기간이 다르거나 90초가 지나면 평소처럼 새로 받는다. 오래된 값을 붙잡고 있지 않는다)
+  const _c = window._admDashCache;
+  const _fresh = !!(_c && _c.days === days && (Date.now() - _c.at) < 90000);
+
+  if (_fresh) {
+    data = _c.data;
+  } else try {
     const r = await fetch('/api/dashboard?days=' + days);
     httpStatus = r.status;
     rawBody = await r.text();      // 먼저 text로 받아서 비JSON 응답도 진단 가능
@@ -217,7 +280,7 @@ async function load() {
     const statusLabel = httpStatus ? ('HTTP ' + httpStatus) : (L ? 'Network error' : '네트워크 에러');
     const msg = String(e && e.message || e).replace(/</g, '&lt;');
     document.getElementById('kpi').innerHTML =
-      '<div class="card" style="grid-column:1/-1;border-left:4px solid #dc2626;">' +
+      '<div class="card" style="grid-column:1/-1;background:#fdf4f4;border:1px solid #f0d2d2;">' +
         '<div class="card-label" style="color:#dc2626;font-weight:700;">⚠️ ' + (L?'Dashboard Load Failed':'데이터 로드 실패') + ' · ' + statusLabel + '</div>' +
         '<div style="margin-top:10px;font-size:13px;color:#374151;white-space:pre-wrap;word-break:break-all;font-family:MangoiHanSC,ui-monospace,monospace;">' + msg + '</div>' +
         '<div style="margin-top:10px;font-size:11px;color:#6b7280;line-height:1.5;">' +
@@ -228,6 +291,8 @@ async function load() {
     return;
   }
   if (!data) return;
+  // 방금 받은 것을 담아 둔다 — 차트 탭을 열 때 같은 주소를 또 부르지 않게
+  if (!_fresh) { try { window._admDashCache = { days: days, at: Date.now(), data: data }; } catch (e) {} }
 
   // KPI 카드
   const totalSessions = data.connection?.total_sessions || 0;
@@ -248,16 +313,34 @@ async function load() {
   // 🥭 Phase 20 — 오늘의 KPI 4박스 갱신 (병렬 fetch, 실패해도 다른 위젯에 영향 없음)
   loadTodayKpi();
 
-  // 🐛 fix(2026-07-14): Chart.js 는 필요 시 CDN 지연 로드되는데, 대시보드 load() 가
-  //   그보다 먼저 뜨면 'Chart is not defined' 로 죽어 이하 위젯이 전부 멈췄음(태초 버그,
-  //   리팩토링 무관). 미로드면 CDN 로드 후 load() 1회 재실행하고 지금은 조용히 반환.
+  // 🐢 (2026-08-08) 여기서부터는 «차트» 구역이다. 접혀 있는 카드에는 그리지 않는다.
+  //   지금까지는 카드가 접혀 있어도 부팅 때 무조건 여기까지 내려와, 크기가 0×0 인 캔버스에
+  //   Chart 인스턴스를 9개 만들고 API 를 10번 불렀다. 직원이 열어보지도 않는 화면이다.
+  //   → 카드가 닫혀 있으면 조용히 돌아가고, 나중에 카드를 펼칠 때 admDashOnOpen() 이 다시 부른다.
+  if (!admDashWanted()) { window._admDashPending = true; return; }
+  window._admDashDrawn = true;   // 여기부터는 실제로 그린다 — 펼침 재시도 루프를 끊는 표시
+
+  // 🐛 fix(2026-07-14): Chart.js 가 없으면 'Chart is not defined' 로 죽어 이하 위젯이 전부 멈췄음.
+  //   미로드면 불러온 뒤 load() 1회 재실행하고 지금은 조용히 반환.
+  //   🚚 (2026-08-08) 받는 곳을 jsdelivr → 우리 서버 /vendor/chartjs/ 로 옮겼다.
+  //     같은 파일(chart.umd.min.js 4.4.1, 205KB)이 이미 저장소에 있는데 남의 CDN 에서 받고 있었다.
+  //     필리핀 회선에서 아픈 건 파일 굵기가 아니라 «왕복»이고, 외부 도메인은 DNS+TLS 왕복을 통째로 더한다.
   if (typeof Chart === 'undefined') {
     if (!window._admChartLoading) {
       window._admChartLoading = true;
       var _cs = document.createElement('script');
-      _cs.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      _cs.src = '/vendor/chartjs/chart.umd.min.js';
       _cs.onload = function(){ window._admChartLoading = false; try { load(); } catch(e){} };
-      _cs.onerror = function(){ window._admChartLoading = false; };
+      _cs.onerror = function(){
+        // 우리 서버에서 못 받으면 예전 CDN 으로 한 번만 물러선다 (차트가 통째로 사라지지 않게)
+        window._admChartLoading = false;
+        if (window._admChartCdnTried) return;
+        window._admChartCdnTried = true;
+        var _c2 = document.createElement('script');
+        _c2.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+        _c2.onload = function(){ try { load(); } catch(e){} };
+        document.head.appendChild(_c2);
+      };
       document.head.appendChild(_cs);
     }
     return;
@@ -534,71 +617,78 @@ async function loadKpiSparklines() {
   }));
 }
 
+/**
+ * 📈 KPI 카드 미니 꺾은선 — Chart.js 없이 인라인 SVG 로 그린다 (2026-08-08)
+ *
+ * 왜 바꿨나 —
+ *   이 스파크라인 5개 때문에 부팅 때 Chart 인스턴스가 5개 더 생기고, 205KB 짜리 차트
+ *   라이브러리가 «스파크라인 하나 때문에» 필요해졌다. 축도 범례도 없는 선 하나를 그리는 데
+ *   차트 엔진을 통째로 켜고 있었던 셈이다.
+ *   SVG polyline 은 브라우저가 그냥 그린다 — 라이브러리 0, 인스턴스 0, 리사이즈 관찰 0.
+ *
+ * 마크업 —
+ *   원래 <canvas id="spark-*"> 였다. 처음 그릴 때 같은 id 의 <div> 로 한 번 바꿔치기하고,
+ *   그 다음부터는 그 div 를 다시 쓴다. 바깥에서 부르는 방식(id 로 찾기)은 그대로다.
+ *
+ * 값 보기 —
+ *   점마다 투명한 사각형 + <title> 을 얹어 마우스를 올리면 브라우저 기본 툴팁이 뜬다.
+ *   (Chart.js 툴팁과 달리 JS 가 한 줄도 안 돈다)
+ */
 function renderSparkline(canvasId, items, color) {
-  const el = document.getElementById(canvasId);
+  let el = document.getElementById(canvasId);
   if (!el) return;
-  if (_sparkCharts[canvasId]) _sparkCharts[canvasId].destroy();
 
-  // 데이터 없으면 빈 라인 표시
-  const labels = items.map(i => i.label);
-  const data   = items.map(i => i.revenue || 0);
+  // <canvas> → <div> 로 한 번만 교체 (id 유지)
+  if (el.tagName === 'CANVAS') {
+    const box = document.createElement('div');
+    box.id = canvasId;
+    box.className = 'spark-svg';
+    box.style.cssText = 'width:100%;height:100%;min-height:34px';
+    if (el.parentNode) el.parentNode.replaceChild(box, el);
+    el = box;
+  }
+
+  const data = (items || []).map(i => i.revenue || 0);
+  const labels = (items || []).map(i => i.label || '');
   const hasData = data.some(v => v > 0);
+  const stroke = hasData ? color : '#d1d5db';
 
-  // 색상 → rgba 알파 변환 (#f59e0b → rgba(245,158,11,0.18))
-  const hex2rgba = (hex, a) => {
-    const h = hex.replace('#','');
-    const n = parseInt(h.length === 3 ? h.split('').map(c=>c+c).join('') : h, 16);
-    return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+  if (!data.length) {
+    el.innerHTML = '<svg viewBox="0 0 100 34" preserveAspectRatio="none" style="width:100%;height:100%;display:block">'
+      + '<line x1="0" y1="30" x2="100" y2="30" stroke="#e5e7eb" stroke-width="1.5"/></svg>';
+    return;
+  }
+
+  const W = 100, H = 34, PAD = 3;
+  const max = Math.max.apply(null, data) || 1;
+  const n = data.length;
+  const xAt = (i) => (n === 1 ? W / 2 : (i / (n - 1)) * W);
+  const yAt = (v) => H - PAD - (v / max) * (H - PAD * 2);
+
+  const pts = data.map((v, i) => xAt(i).toFixed(2) + ',' + yAt(v).toFixed(2)).join(' ');
+  const area = '0,' + H + ' ' + (n === 1 ? (xAt(0).toFixed(2) + ',' + yAt(data[0]).toFixed(2) + ' ') : '') + pts + ' ' + W + ',' + H;
+
+  const won = (v) => {
+    if (v >= 100000000) return (v / 100000000).toFixed(1) + '억';
+    if (v >= 10000)     return (v / 10000).toFixed(1) + '만원';
+    return (v || 0).toLocaleString('ko-KR') + '원';
   };
 
-  _sparkCharts[canvasId] = new Chart(el.getContext('2d'), {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        data,
-        borderColor: hasData ? color : '#d1d5db',
-        backgroundColor: hasData ? hex2rgba(color, 0.18) : 'rgba(209,213,219,.1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.35,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: color,
-        pointHoverBorderColor: '#fff',
-        pointHoverBorderWidth: 2,
-      }]
-    },
-    options: {
-      maintainAspectRatio: false,
-      responsive: true,
-      animation: { duration: 600 },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          enabled: true,
-          backgroundColor: 'rgba(28,25,23,0.95)',
-          titleFont: { size: 11, weight: '600' },
-          bodyFont: { size: 12, weight: '700' },
-          padding: 8,
-          cornerRadius: 6,
-          callbacks: {
-            label: (ctx) => {
-              const v = ctx.parsed.y || 0;
-              if (v >= 100000000) return (v/100000000).toFixed(1) + '억';
-              if (v >= 10000)     return (v/10000).toFixed(1) + '만원';
-              return v.toLocaleString('ko-KR') + '원';
-            }
-          }
-        }
-      },
-      scales: {
-        x: { display: false },
-        y: { display: false, beginAtZero: true }
-      },
-      elements: { line: { capBezierPoints: true }}
-    }
-  });
+  // 값 보기용 투명 히트 영역 (구간마다 하나)
+  let hits = '';
+  const bw = W / n;
+  for (let i = 0; i < n; i++) {
+    hits += '<rect x="' + (i * bw).toFixed(2) + '" y="0" width="' + bw.toFixed(2) + '" height="' + H + '" fill="transparent">'
+          + '<title>' + String(labels[i]).replace(/[<&]/g, '') + ': ' + won(data[i]) + '</title></rect>';
+  }
+
+  el.innerHTML =
+    '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block;overflow:visible">'
+    + '<polygon points="' + area + '" fill="' + stroke + '" opacity="0.16"/>'
+    + '<polyline points="' + pts + '" fill="none" stroke="' + stroke + '" stroke-width="1.6"'
+    + ' stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>'
+    + hits
+    + '</svg>';
 }
 
 // 적용 버튼 + 기간 변경 핸들러
@@ -3654,29 +3744,178 @@ async function lessonInsightSweep() {
   }
 }
 
-// ── 수강신청 ─────────────────────────────────────────────────────────
+/* ── 수강신청 ─────────────────────────────────────────────────────────
+   🥭 2026-08-08 — 액션 열 재설계
+   원래는 «✓ ▶ ✕» 아이콘 3개뿐이었다. 이름표도 툴팁도 없어서 무엇을 하는 버튼인지
+   알 수 없었고, 이미 그 상태인 행에서도 버튼이 다 눌렸다. 서버는 status 한 칸만
+   UPDATE 하므로(그것 말고는 아무 일도 안 한다) 눌러도 «아무 일도 안 일어난» 것처럼
+   보였다 — 실제로 값이 이미 같아서 정말 아무 일도 안 일어난 경우가 많았다.
+     · 버튼에 이름표를 붙이고, 갈 수 없는 전이는 비활성으로 잠근다
+     · 취소는 확인 한 번 (오탭하면 바로 취소되던 것)
+     · 성공하면 토스트로 «무엇이 바뀌었는지» 말해 준다
+     · 취소·종료 건을 되살리는 «대기로» 경로를 눈에 보이게 꺼냈다
+     · DB 에 있는데 표에서 버려지던 요일·시간·인원방식·강사를 두 번째 줄에 보여준다
+     · 같은 학생·같은 패키지가 살아 있는 채로 2건 이상이면 «중복 의심» 경고
+   ──────────────────────────────────────────────────────────────────── */
+const EN_STATUS_META = {
+  pending:   { ko:'대기',   en:'Pending',   bg:'#fef3c7', fg:'#92400e' },
+  confirmed: { ko:'확정',   en:'Confirmed', bg:'#dbeafe', fg:'#1e40af' },
+  active:    { ko:'수강중', en:'Active',    bg:'#d1fae5', fg:'#065f46' },
+  cancelled: { ko:'취소',   en:'Cancelled', bg:'#fee2e2', fg:'#991b1b' },
+  expired:   { ko:'종료',   en:'Expired',   bg:'#f3f4f6', fg:'#4b5563' }
+};
+const EN_LIVE = ['pending', 'confirmed', 'active'];   // 아직 «살아 있는» 신청
+let _enItems = [];        // 마지막으로 받아온 원본 — 검색·중복필터는 재요청 없이 다시 그린다
+let _enDupOnly = false;
+let _enQuery = '';
+let _enToastT = null;
+
+function _enStatusMeta(s) {
+  return EN_STATUS_META[String(s || '')] || { ko: String(s || '—'), en: String(s || '—'), bg:'#f3f4f6', fg:'#4b5563' };
+}
+// 중복 판정 키 — UID 가 있으면 UID, 없으면 이름. 패키지까지 같아야 중복으로 본다
+function _enDupKey(it) {
+  const who = String(it.student_user_id || it.student_name || '').trim().toLowerCase();
+  return who + '|' + String(it.package || '').trim().toLowerCase();
+}
+// 백그라운드 탭에서 CSS transition 이 멈춰도 확실히 보이도록 display 로만 토글한다
+function _enToast(msg) {
+  let el = document.getElementById('en-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'en-toast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;' +
+      'padding:11px 20px;border-radius:999px;background:#111827;color:#fff;font-size:13px;font-weight:700;' +
+      'box-shadow:0 10px 30px rgba(0,0,0,.28);pointer-events:none;display:none;max-width:80vw;text-align:center';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(_enToastT);
+  _enToastT = setTimeout(() => { el.style.display = 'none'; }, 2600);
+}
+
 async function loadEnrollments() {
   const status = document.getElementById('en-status-filter').value;
   const url = '/api/admin/enrollments' + (status ? `?status=${status}` : '');
   const r = await fetch(url,{cache:'no-store',credentials:'include'});
   const d = await r.json().catch(()=>({}));
-  const tb = document.getElementById('enrollments-table');
-  if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; return; }
+  let items = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
   // 🔐 RBAC 스코프 필터
-  let _items = d.items;
-  if (typeof window.adminScopeFilter === 'function') _items = window.adminScopeFilter(_items, 'enrollments');
-  if (!_items.length) { tb.innerHTML='<tr><td colspan="6" class="empty">' + (adminLang==='en'?'No enrollments visible to your role':'권한 범위에 표시할 수강신청이 없습니다') + '</td></tr>'; return; }
-  tb.innerHTML = _items.map(en => {
-    const fee = en.monthly_fee_krw ? '₩' + Number(en.monthly_fee_krw).toLocaleString() : '—';
-    const statusColor = en.status==='active'?'#10b981':en.status==='confirmed'?'#3b82f6':en.status==='pending'?'#f59e0b':en.status==='cancelled'?'#ef4444':'#6b7280';
-    return `<tr><td>${_fmtDate(en.created_at)}</td><td><b>${_esc(en.student_name)}</b></td><td>${_esc(en.package)}</td><td style="text-align:right;">${fee}</td><td><span style="color:${statusColor};font-weight:600;">${_esc(en.status)}</span></td>
-      <td>
-        <button onclick="setEnrollmentStatus(${en.id},'confirmed')" style="padding:2px 6px;font-size:10px;background:#3b82f6;color:#fff;border:none;border-radius:3px;cursor:pointer;">✓</button>
-        <button onclick="setEnrollmentStatus(${en.id},'active')"    style="padding:2px 6px;font-size:10px;background:#10b981;color:#fff;border:none;border-radius:3px;cursor:pointer;">▶</button>
-        <button onclick="setEnrollmentStatus(${en.id},'cancelled')" style="padding:2px 6px;font-size:10px;background:#ef4444;color:#fff;border:none;border-radius:3px;cursor:pointer;">✕</button>
-      </td></tr>`;
+  if (items.length && typeof window.adminScopeFilter === 'function') items = window.adminScopeFilter(items, 'enrollments');
+  _enItems = items;
+  _renderEnrollments();
+}
+
+function _renderEnrollments() {
+  const en = (adminLang === 'en');
+  const tb = document.getElementById('enrollments-table');
+  if (!tb) return;
+
+  // ── 중복 의심 — 살아 있는 건(대기·확정·수강중)끼리만 본다.
+  //    취소된 옛 신청과 지금 수업 중인 신청이 나란히 있는 건 정상이므로 세지 않는다.
+  const cnt = {};
+  _enItems.forEach(it => {
+    if (EN_LIVE.indexOf(String(it.status || '')) < 0) return;
+    const k = _enDupKey(it); cnt[k] = (cnt[k] || 0) + 1;
+  });
+  const isDup = it => EN_LIVE.indexOf(String(it.status || '')) >= 0 && cnt[_enDupKey(it)] > 1;
+  const dupTotal = _enItems.filter(isDup).length;
+
+  // ── 상태별 건수 칩 (누르면 그 상태만 보기)
+  const box = document.getElementById('en-summary');
+  if (box) {
+    const by = {};
+    _enItems.forEach(it => { const s = String(it.status || ''); by[s] = (by[s] || 0) + 1; });
+    const chips = Object.keys(EN_STATUS_META).filter(s => by[s]).map(s => {
+      const m = EN_STATUS_META[s];
+      return '<button type="button" onclick="enFilterStatus(\'' + s + '\')" ' +
+        'style="padding:4px 12px;border:0;border-radius:999px;font-size:12px;font-weight:700;cursor:pointer;' +
+        'background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + ' ' + by[s] + '</button>';
+    });
+    if (dupTotal) {
+      chips.push('<button type="button" onclick="enToggleDupOnly()" ' +
+        'style="padding:4px 12px;border:' + (_enDupOnly ? '2px solid #991b1b' : '0') + ';border-radius:999px;' +
+        'font-size:12px;font-weight:700;cursor:pointer;background:#fee2e2;color:#991b1b">⚠ ' +
+        (en ? 'Possible duplicates ' : '중복 의심 ') + dupTotal + '</button>');
+    }
+    box.innerHTML = chips.join(' ') || '<span style="font-size:12px;color:#9ca3af">' + (en ? 'No enrollments' : '수강신청 없음') + '</span>';
+  }
+
+  // ── 검색 + 중복만 보기
+  const q = String(_enQuery || '').trim().toLowerCase();
+  let rows = _enItems;
+  if (q) rows = rows.filter(it => (
+    String(it.student_name || '').toLowerCase().includes(q) ||
+    String(it.student_user_id || '').toLowerCase().includes(q) ||
+    String(it.package || '').toLowerCase().includes(q) ||
+    String(it.teacher_name || '').toLowerCase().includes(q)
+  ));
+  if (_enDupOnly) rows = rows.filter(isDup);
+
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">' +
+      (_enItems.length
+        ? (en ? 'Nothing matches this filter' : '이 조건에 맞는 신청이 없습니다')
+        : (en ? 'No enrollments visible to your role' : '권한 범위에 표시할 수강신청이 없습니다')) +
+      '</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = rows.map(it => {
+    const m = _enStatusMeta(it.status);
+    const cur = String(it.status || '');
+    const fee = it.monthly_fee_krw ? '₩' + Number(it.monthly_fee_krw).toLocaleString() : '—';
+
+    // 두 번째 줄 — DB 에 있는데 지금까지 표에서 버려지던 것들
+    const sched = [it.days_of_week, it.time, it.class_size].filter(Boolean).map(v => _esc(String(v))).join(' · ');
+    const who = it.student_user_id ? '<span style="font-size:11px;color:#9ca3af">' + _esc(it.student_user_id) + '</span>' : '';
+    const teacher = it.teacher_name
+      ? '<span style="font-size:11px;color:#6b7280">👤 ' + _esc(it.teacher_name) + '</span>'
+      : (cur === 'confirmed' || cur === 'active'
+          ? '<span style="font-size:11px;color:#b45309;font-weight:700">' + (en ? 'no teacher yet' : '강사 미배정') + '</span>' : '');
+    const sub = [sched, teacher].filter(Boolean).join(' · ');
+
+    const dupBadge = isDup(it)
+      ? ' <span title="' + (en ? 'Same student, same package, more than one live enrollment' : '같은 학생·같은 패키지가 살아 있는 채로 2건 이상입니다')
+        + '" style="font-size:10px;font-weight:800;padding:1px 7px;border-radius:999px;background:#fee2e2;color:#991b1b">'
+        + (en ? 'DUP?' : '중복?') + '</span>' : '';
+
+    return '<tr>' +
+      '<td style="white-space:nowrap">' + _fmtDate(it.created_at) + '</td>' +
+      '<td><b>' + _esc(it.student_name) + '</b>' + dupBadge + (who ? '<br>' + who : '') + '</td>' +
+      '<td>' + _esc(it.package || '—') + (sub ? '<br><span style="font-size:11px;color:#6b7280">' + sub + '</span>' : '') + '</td>' +
+      '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
+      '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
+      '<td style="white-space:nowrap">' +
+        _enBtn(it.id, 'confirmed', en ? '✓ Confirm'  : '✓ 확정',    '#3b82f6', cur) +
+        _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
+        _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
+        ((cur === 'cancelled' || cur === 'expired')
+          ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
+      '</td></tr>';
   }).join('');
 }
+
+// 갈 수 없는 전이(이미 그 상태)는 눌리지 않게 잠근다 — 눌러도 아무 일 없던 것의 정체
+function _enBtn(id, target, label, bg, cur) {
+  const off = (cur === target);
+  return '<button type="button" ' + (off ? 'disabled ' : '') +
+    'onclick="setEnrollmentStatus(' + id + ',\'' + target + '\')" ' +
+    'style="padding:3px 9px;font-size:11px;font-weight:700;border:0;border-radius:5px;margin-right:4px;' +
+      (off ? 'background:#e5e7eb;color:#9ca3af;cursor:default' : 'background:' + bg + ';color:#fff;cursor:pointer') +
+    '">' + label + '</button>';
+}
+
+function enFilterStatus(s) {
+  const sel = document.getElementById('en-status-filter');
+  if (!sel) return;
+  sel.value = (sel.value === s) ? '' : s;   // 같은 칩을 다시 누르면 전체로
+  _enDupOnly = false;
+  loadEnrollments();
+}
+function enToggleDupOnly() { _enDupOnly = !_enDupOnly; _renderEnrollments(); }
+function enSearch(v) { _enQuery = v; _renderEnrollments(); }
 // 🥭 Phase 25 — 빈 수강신청 양식 다운로드 (배포·인쇄·공유용)
 //   3종: Excel(.csv), Word(.doc), 카톡 텍스트(클립보드)
 //   양식에 적힌 그대로 채워서 Phase 23 import 영역에 다시 업로드하면 자동 등록
@@ -4407,6 +4646,12 @@ function _readEnrollmentRows() {
       package: pkg || (typesKo.join('+') || '미정'), // 패키지 비어있으면 유형으로 자동 채움
       monthly_fee_krw: fee ? parseInt(fee, 10) : null,
       started_at: start ? new Date(start).getTime() : null,
+      // 🥭 2026-08-08 — DB 컬럼 이름 그대로. 아래 `_` 붙은 것들은 export 용 메타라
+      //   서버가 무시했고, 그래서 요일·시간이 한 번도 저장되지 않았다.
+      days_of_week: daysKo.join('') || null,
+      time: time || null,
+      class_size: classSize || null,
+      type: typesKo.join('+') || null,
       // 추가 메타 (자동 export·import 시 사용)
       _types: types,
       _types_ko: typesKo,
@@ -4444,7 +4689,9 @@ async function addEnrollment() {
       student_user_id: r.student_user_id,
       package: r.package,
       monthly_fee_krw: r.monthly_fee_krw,
-      started_at: r.started_at
+      started_at: r.started_at,
+      days_of_week: r.days_of_week, time: r.time,
+      class_size: r.class_size, type: r.type
     });
     if (d) {
       const enrollmentData = {
@@ -4489,7 +4736,9 @@ async function addEnrollment() {
           student_user_id: r.student_user_id,
           package: r.package,
           monthly_fee_krw: r.monthly_fee_krw,
-          started_at: r.started_at
+          started_at: r.started_at,
+          days_of_week: r.days_of_week, time: r.time,
+          class_size: r.class_size, type: r.type
         })
       });
       const j = await res.json().catch(() => ({}));
@@ -4715,9 +4964,25 @@ function _downloadBlob(blob, filename) {
   }, 100);
 }
 async function setEnrollmentStatus(id, status) {
+  const en = (adminLang === 'en');
+  const cur = _enItems.find(x => String(x.id) === String(id)) || {};
+  const name = cur.student_name ? String(cur.student_name) : '';
+  const m = _enStatusMeta(status);
+  const label = en ? m.en : m.ko;
+  // 되돌리기 어려운 쪽만 확인 — 취소는 오탭 한 번에 그대로 넘어가던 자리였다
+  if (status === 'cancelled') {
+    const msg = en
+      ? ('Cancel this enrollment' + (name ? ' — ' + name : '') + '?\nThe student account stays; only this enrollment is marked cancelled.')
+      : ('이 수강신청을 «취소» 처리할까요' + (name ? ' — ' + name : '') + '?\n학생 계정은 그대로 남고, 이 신청 건만 취소로 표시됩니다.');
+    if (!confirm(msg)) return;
+  }
   const r = await fetch('/api/admin/enrollments/'+id, {method:'PATCH',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify({status})});
   const d = await r.json().catch(()=>({}));
-  if (!r.ok || d.ok === false) { alert((adminLang==='en'?'Failed: ':'실패: ')+(d.error||('HTTP '+r.status))); return; }
+  if (!r.ok || d.ok === false) { alert((en?'Failed: ':'실패: ')+(d.error||('HTTP '+r.status))); return; }
+  // 서버는 status 한 칸만 바꾼다. 무엇이 바뀌었는지 말해 주지 않으면 «아무 일도 안 난» 것으로 보인다
+  _enToast(en
+    ? ((name ? name + ' — ' : '') + 'status changed to ' + label)
+    : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다'));
   loadEnrollments();
 }
 
@@ -4822,12 +5087,20 @@ function _normalizeEnrollment(raw) {
   if (types.length === 1 && types[0] === 'level') category = 'test_only';
   else if (types.length === 3) category = 'full';
   else if (types.length > 0) category = types.join('+');
+  const daysKo = days.map(d => ({mon:'월',tue:'화',wed:'수',thu:'목',fri:'금',sat:'토',sun:'일'}[d]));
+  const typesKo = types.map(t => ({level:'레벨테스트',trial:'체험수업',regular:'정규수업'}[t]));
+  const sizeStd = String(raw.class_size || '').replace(/\s/g, '').replace('대', ':');
   return {
     student_name: name,
     student_user_id: (raw.student_user_id || '').trim() || null,
     package: pkg || '미정',
     monthly_fee_krw: feeNum,
     started_at: startMs,
+    // 🥭 2026-08-08 — DB 컬럼 이름 그대로 (import 경로는 이 객체를 통째로 POST 한다)
+    days_of_week: daysKo.join('') || null,
+    time: timeRaw || null,
+    class_size: sizeStd || null,
+    type: typesKo.join('+') || null,
     _types: types,
     _types_ko: types.map(t => ({level:'레벨테스트',trial:'체험수업',regular:'정규수업'}[t])),
     _days: days,

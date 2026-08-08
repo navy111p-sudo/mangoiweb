@@ -1,24 +1,24 @@
-# Change-set QA report (2026-07-26T20:40:35.433Z)
+# Change-set QA report (2026-08-07T15:40:52.038Z)
 
-PASS=78 FAIL=0
+PASS=74 FAIL=4
 
-PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=30795 WORK=30795 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/index.html delta  — HEAD=34471 WORK=34471 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/index.html tail  — tail="</html>"
-PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=3113 WORK=3113 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/api-mango.ts delta  — HEAD=3497 WORK=3497 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/api-mango.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/api-mango.ts brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=4482 WORK=4482 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/src/index.ts delta  — HEAD=4789 WORK=4789 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/src/index.ts tail  — tail="}"
 PASS  integrity:cloudflare-deploy/src/index.ts brace-balance preserved  — workNet=1 headNet=1 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1913 WORK=1913 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html delta  — HEAD=1867 WORK=1867 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/lesson-postpone-demo.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=21430 WORK=21430 delta=0 (expect 0)
+PASS  integrity:cloudflare-deploy/public/admin.html delta  — HEAD=12028 WORK=12028 delta=0 (expect 0)
 PASS  integrity:cloudflare-deploy/public/admin.html tail  — tail="</html>"
 PASS  integrity:cloudflare-deploy/public/admin.html brace-balance preserved  — workNet=0 headNet=0 (edits must not change net)
-PASS  syntax:cloudflare-deploy/public/index.html  — 70 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/index.html  — 75 inline scripts, 0 errors
 PASS  syntax:cloudflare-deploy/public/lesson-postpone-demo.html  — 0 inline scripts, 0 errors
-PASS  syntax:cloudflare-deploy/public/admin.html  — 74 inline scripts, 0 errors
+PASS  syntax:cloudflare-deploy/public/admin.html  — 75 inline scripts, 0 errors
 PASS  syntax:mangoi-speech-patch/mangoi_Speech/practice.html  — 8 inline scripts, 0 errors
 PASS  wiring:gate registered in index.ts
 PASS  wiring:handler present in api-mango.ts
@@ -44,7 +44,7 @@ PASS  about:intro player defined+called
 PASS  about:reuses abm_muted mute key
 PASS  about:intro mp3 file present
 PASS  htmlvalid:index ends with </html>
-PASS  htmlvalid:index <script> balanced
+FAIL  htmlvalid:index <script> balanced
 PASS  feature:lesson-video IIFE closed + defined
 PASS  logic:no user_id → 400  — status=400 user_id_required
 PASS  logic:not found → 404  — status=404 user_not_found
@@ -67,11 +67,11 @@ PASS  lp:video+FAB at body level
 PASS  lp:consult FAB present + kakao link
 PASS  lp:visibility sync on screen change
 PASS  lp:FAB z-index above sticky bar
-PASS  sb:sub active CSS (!important)
-PASS  sb:head active CSS
+FAIL  sb:sub active CSS (!important)
+FAIL  sb:head active CSS
 PASS  sb:click sets active + clears prev
 PASS  sb:ancestor details opened (손자 카드)
-PASS  hl:::after overlay pulse
+FAIL  hl:::after overlay pulse
 PASS  hl:rAFx2 start in ph97 + jumpToMenu
 PASS  fam:6 handlers implemented
 PASS  fam:lazy tables

@@ -7,7 +7,7 @@
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
-<script defer src="/js/i18n-sweep.js?v=18"></script>
+<script defer src="/js/i18n-sweep.js?v=21"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>🎓 학습 인사이트 — 망고아이</title>
 <script src="/vendor/chartjs/chart.umd.min.js?v=1"></script>
@@ -62,10 +62,35 @@
   table.list tr:hover td{background:rgba(245,158,11,.06)}
   tr.clk{cursor:pointer}
   .badge{display:inline-block;padding:2px 9px;border-radius:11px;font-size:11px;font-weight:700}
-  .badge.high{background:rgba(239,68,68,.18);color:#fca5a5;border:1px solid #991b1b}
-  .badge.medium{background:rgba(245,158,11,.18);color:#fcd34d;border:1px solid #92400e}
-  .badge.low{background:rgba(16,185,129,.18);color:#6ee7b7;border:1px solid #065f46}
+  /* 🎨 (2026-08-08) 배지 3종은 «다크 배경용» 연한 글자였다. 이 페이지는 밝은 테마인데
+        adm-light-theme.css 는 변수만 덮고 하드코딩된 색은 못 덮는다.
+        실측 대비 high 1.49 · medium 1.26 · low 1.28 — 사실상 안 보였다. */
+  .badge.high{background:#fef3f2;color:#b42318;border:1px solid #fecdca}
+  .badge.medium{background:#fffaeb;color:#b45309;border:1px solid #fedf89}
+  .badge.low{background:#ecfdf3;color:#067647;border:1px solid #abefc6}
+  /* 🪤 (2026-08-08) 여기 max-width:320px 는 «무시되고 있었다».
+        table-layout:auto 에서는 셀의 max-width 를 표 열 계산이 안 본다.
+        그래서 사유 열이 끝없이 늘어나 오른쪽 «연락» 열 글자와 겹쳐 보였다.
+        ⚠️ 이 주석에 CJK 홑낫표(U+300C·U+300D)를 쓰면 안 된다 — 예시로도 적으면 안 된다.
+           <style> 안 주석도 폰트 판정에 들어가서
+           한자가 한 글자도 없는 화면이 983KB 한자 폰트를 통째로 받는다
+           (admin_lazyload_harness 가 잡아 준다).
+        → 케어 표만 table-layout:fixed 로 못 박고 열 너비를 직접 준다. */
   .reasons{color:var(--mut);font-size:12px;white-space:normal;max-width:320px}
+  #careTable{table-layout:fixed;width:100%}
+  #careTable th:nth-child(1){width:15%}
+  #careTable th:nth-child(2){width:9%}
+  #careTable th:nth-child(3){width:11%}
+  #careTable th:nth-child(4){width:9%}
+  #careTable th:nth-child(5){width:auto}
+  #careTable th:nth-child(6){width:9%}
+  /* 사유 — 두 줄까지만 보이고 넘치면 …. 원문은 마우스를 올리면 title 로 나온다 */
+  #careTable td.reasons{
+    white-space:normal; word-break:break-word; line-height:1.5;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  /* 나머지 칸은 한 줄 + … (이름·아이디는 두 줄 구조라 예외) */
+  #careTable td:not(.reasons){overflow:hidden;text-overflow:ellipsis}
   .empty{text-align:center;padding:34px 10px;color:var(--mut);font-size:13px}
 
   .chart-box{position:relative;height:300px;width:100%}
@@ -118,7 +143,7 @@
     <h2 class="sec">🚨 오늘의 케어 대상 <span class="hint" id="careHint" style="font-weight:400"></span></h2>
     <div class="card">
       <div class="scroll">
-        <table class="list">
+        <table class="list" id="careTable">
           <thead><tr>
             <th>학생</th><th>상태</th><th class="num">연속 부정사슬</th><th class="num">사슬점수</th><th>사유</th><th>연락</th>
           </tr></thead>
@@ -220,6 +245,28 @@ async function loadOverview(){
   }catch(e){ if(e.message!=='auth') $('#kpiGrid').innerHTML = '<div class="kpi"><div class="empty">요약 로드 실패: '+esc(e.message)+'</div></div>'; }
 }
 
+/* 🔤 (2026-08-08) 사유 문구 다듬기 — 사장님 「가독성이 떨어진다」
+   서버가 주는 사유는 «부정 행동 사슬 26연속(MISSED→MISSED→…26번…)» 형태다.
+   ① 영문 코드가 그대로 나온다. 이 페이지 아래쪽 세그먼트 표는 이미 한글로 바꿔 쓰는데
+      케어 표만 안 바꾸고 있었다(같은 파일 안에서 처리가 갈려 있었다).
+   ② 같은 값이 26번 반복돼 열을 끝없이 밀어낸다 → «결석 ×26» 으로 접는다.
+   원문은 <td title="…"> 로 남겨, 마우스를 올리면 그대로 확인할 수 있다. */
+const CARE_PATH_KO = { MISSED:'결석', IGNORED:'알림톡 무시', LOW_GAZE:'저집중',
+                       LEFT_EARLY:'조기이탈', UNSTABLE:'끊김', DORMANT:'휴면' };
+function careReason(raw){
+  let s = String(raw == null ? '' : raw);
+  // 괄호 안 사슬만 골라 «한글 + 연속 접기» 로 바꾼다
+  return s.replace(/\(([A-Z_]+(?:→[A-Z_]+)*)\)/g, (m, chain) => {
+    const parts = chain.split('→').map(t => CARE_PATH_KO[t] || t);
+    const runs = [];
+    for (const p of parts) {
+      const last = runs[runs.length - 1];
+      if (last && last.t === p) last.n++; else runs.push({ t: p, n: 1 });
+    }
+    return '(' + runs.map(r => r.n > 1 ? `${r.t} ×${r.n}` : r.t).join(' → ') + ')';
+  });
+}
+
 // ①a 오늘의 케어 대상
 async function loadCareToday(){
   try{
@@ -230,13 +277,15 @@ async function loadCareToday(){
       const status = c.absent_yesterday
         ? '<span class="badge high">어제 결석</span>'
         : (c.dormant ? '<span class="badge high">휴면</span>' : '<span class="badge medium">관찰</span>');
-      const col = c.chain_score>=6?'#fca5a5':(c.chain_score>=3?'#fcd34d':'var(--mut)');
+      // 🎨 #fca5a5·#fcd34d 는 «다크 배경용» 연한 색이라 흰 바탕에서 대비가 2 도 안 됐다.
+      //    밝은 테마(adm-light-theme)가 변수는 덮지만 하드코딩된 색은 못 덮는다.
+      const col = c.chain_score>=6?'#b42318':(c.chain_score>=3?'#b45309':'var(--mut)');
       return `<tr class="clk" data-uid="${esc(c.user_id)}" data-name="${esc(c.name)}">
         <td><b>${esc(c.name)}</b><div style="color:var(--dim);font-size:11px">${esc(c.user_id)}</div></td>
         <td>${status}</td>
         <td class="num">${c.consecutive_misses}</td>
         <td class="num" style="color:${col};font-weight:600">${c.chain_score}</td>
-        <td class="reasons">${(c.reasons||[]).map(esc).join(' · ')}</td>
+        <td class="reasons" title="${esc((c.reasons||[]).join(' · '))}">${(c.reasons||[]).map(t=>esc(careReason(t))).join(' · ')}</td>
         <td>${c.has_parent_contact?'📞 가능':'<span style="color:var(--dim)">없음</span>'}</td>
       </tr>`;
     }).join('');
@@ -254,14 +303,14 @@ async function loadSegments(){
     const chainCell = s=>{
       if (!s.chain_path) return '<span style="color:var(--dim)">-</span>';
       const seq = String(s.chain_path).split('→').map(t=>pathKo[t]||t).join(' → ');
-      const col = s.chain_score>=6?'#fca5a5':(s.chain_score>=3?'#fcd34d':'var(--mut)');
+      const col = s.chain_score>=6?'#b42318':(s.chain_score>=3?'#b45309':'var(--mut)');
       return `<span style="font-weight:600;color:${col}">${esc(seq)}</span>`+
              `<div style="color:var(--dim);font-size:11px">사슬점수 ${s.chain_score} · 결석 ${s.missed} · 미열람 ${s.ignored}</div>`;
     };
     $('#segBody').innerHTML = j.students.map(s=>{
       const last = s.days_since_last==null?'-':(s.days_since_last+'일 전');
       const tr = s.eval_trend==null?'-':(s.eval_trend>0?('▲ '+s.eval_trend):(s.eval_trend<0?('▼ '+Math.abs(s.eval_trend)):'±0'));
-      const trCol = s.eval_trend>0?'color:#6ee7b7':(s.eval_trend<0?'color:#fca5a5':'');
+      const trCol = s.eval_trend>0?'color:#067647':(s.eval_trend<0?'color:#b42318':'');
       return `<tr class="clk" data-uid="${esc(s.user_id)}" data-name="${esc(s.name)}">
         <td><b>${esc(s.name)}</b><div style="color:var(--dim);font-size:11px">${esc(s.user_id)}</div></td>
         <td><span class="badge ${s.risk}">${riskKo[s.risk]}</span></td>

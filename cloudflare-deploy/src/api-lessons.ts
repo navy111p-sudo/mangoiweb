@@ -476,8 +476,13 @@ export async function handleLessonsApi(
       if (!env.AI) return json({ ok: false, error: 'AI_binding_missing' }, 503);
 
       // 1) 녹음 → STT
+      //   ⭐ 정상 경로는 «클라이언트가 미리 잘라 전사해서 transcript 로 보내는» 쪽이다.
+      //      (adm-r4.js 머리 주석 참고 — 브라우저에서 16kHz 모노 60초 조각으로 나눠 전사한다)
+      //      아래 서버 STT 는 짧은 클립용 보조 경로로만 남긴다.
       let transcript = String(b.transcript || '').trim();  // 클라이언트가 미리 STT 했으면 사용
-      let speakingSeconds = 0;
+      //   ⏱ 발화 길이는 클라이언트가 실제 오디오 길이를 알고 있다. 주면 그걸 쓴다
+      //      (서버 STT 는 word_count 로 «추정» 할 수밖에 없어 늘 부정확했다)
+      let speakingSeconds = Math.max(0, Math.round(Number(b.speaking_seconds) || 0));
       if (!transcript) {
         // R2 에서 녹음 파일 가져오기
         let audioBuf: ArrayBuffer | null = null;
@@ -499,14 +504,49 @@ export async function handleLessonsApi(
         if (!audioBuf || audioBuf.byteLength < 1000) {
           return json({ ok: false, error: 'audio_not_found_or_too_small', message: '녹음 파일을 가져올 수 없어요. recording_id, recording_url, audio_base64, transcript 중 하나가 필요합니다.' }, 400);
         }
-        if (audioBuf.byteLength > 25 * 1024 * 1024) {
-          return json({ ok: false, error: 'audio_too_large', message: '오디오가 25MB 를 초과합니다. 더 짧은 클립을 시도해주세요.' }, 400);
+        /* 📏 (2026-08-08 라이브 실측) 서버 직접 전사의 실제 한계.
+              🪤 사인파로 재면 3.66MB 부터 «3006: Request is too large» 가 떠서 천장이
+                 3MB 인 것처럼 보인다. 아니다 — 같은 크기의 **실제 말소리는 통과한다**
+                 (톤 9.16MB ❌ 3회 / 말소리 9.83MB ✅ 3회, 번갈아 재현).
+                 톤은 Whisper 가 무한 반복하다 안에서 터지는 것이고 문구만 크기 얘기처럼 생겼다.
+              실제 말소리 실측: 14.18MB(7.7분) 21.6초 ✅ · 19.5MB(10.7분) 46초 ✅ · 23.05MB(12.6분) 45초 ✅
+              → 25MB 는 근거 있는 선이다(api-games 의 /api/voice/transcribe 와 같은 값).
+              단, 이 경로는 **짧은 클립용 보조**다. 45분 수업은 base64 가 ×1.37 로 부풀어
+              Cloudflare 본문 상한 100MB 에 먼저 걸린다 → 브라우저 분할 전사(adm-r4.js)가 정본. */
+        const STT_MAX = 25 * 1024 * 1024;
+        if (audioBuf.byteLength > STT_MAX) {
+          return json({
+            ok: false, error: 'audio_too_large',
+            message: `오디오 ${(audioBuf.byteLength / 1048576).toFixed(1)}MB — 서버 직접 전사는 25MB(약 13분)까지입니다. 관리자 화면의 [🚀 AI 리포트 자동 생성] 을 쓰면 긴 수업도 브라우저에서 60초 조각으로 나눠 전사합니다.`,
+            message_en: `Audio is ${(audioBuf.byteLength / 1048576).toFixed(1)}MB — direct server transcription caps at 25MB (~13 min). Use [🚀 Generate AI Report] in the admin UI; it splits long lessons into 60s chunks in the browser.`,
+            max_bytes: STT_MAX,
+          }, 400);
         }
 
         try {
-          const sttResp: any = await env.AI.run('@cf/openai/whisper', { audio: [...new Uint8Array(audioBuf)] });
+          // whisper-large-v3-turbo 는 base64 문자열을 받고 언어 힌트를 지원한다.
+          // 구 whisper 는 오디오를 «숫자 배열» 로 보내야 해서 JSON 이 4배로 부푼다 = 천장이 더 낮다.
+          // → turbo 를 먼저 쓰고, 실패할 때만 구 whisper 로 내려간다.
+          const langMap: Record<string, string> = { en: 'en', ko: 'ko', zh: 'zh', 'zh-cn': 'zh' };
+          const sttLang = langMap[String(b.lang || 'en').trim().toLowerCase()] || 'en';
+          const bytes = new Uint8Array(audioBuf);
+          let binary = '';
+          const CHUNK = 0x8000;
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + CHUNK)) as any);
+          }
+          let sttResp: any = null;
+          try {
+            sttResp = await env.AI.run('@cf/openai/whisper-large-v3-turbo', {
+              audio: btoa(binary), language: sttLang, task: 'transcribe', vad_filter: true,
+              condition_on_previous_text: false,
+            });
+          } catch (turboErr: any) {
+            console.warn('[ai-lesson-report] turbo failed, fallback base whisper:', turboErr?.message);
+            sttResp = await env.AI.run('@cf/openai/whisper', { audio: [...bytes] });
+          }
           transcript = String(sttResp?.text || '').trim();
-          speakingSeconds = Math.round((sttResp?.word_count || 0) * 0.4);  // 대략 추정 (분당 150단어 기준)
+          if (!speakingSeconds) speakingSeconds = Math.round((sttResp?.word_count || 0) * 0.4);  // 대략 추정 (분당 150단어 기준)
         } catch (e: any) {
           console.error('[ai-lesson-report] whisper:', e?.message);
           return json({ ok: false, error: 'stt_failed', detail: String(e?.message || e) }, 500);
@@ -517,13 +557,28 @@ export async function handleLessonsApi(
       // 2) LLM 분석
       const studentName = String(b.student_name || studentUid).trim();
       const lessonTitle = String(b.lesson_title || '').trim();
+
+      /* 📏 (2026-08-08) 예전엔 transcript.slice(0, 6000) 하나였다.
+            45분 수업 전사는 3만 자가 넘는다 → LLM 이 «앞 6분» 만 보고 리포트를 썼고,
+            수업 후반부의 문법 오류·성장은 통째로 사라졌다(아무도 눈치 못 챈 조용한 손실).
+            그렇다고 전부 넣으면 문맥창을 넘긴다. → 넘칠 때만 앞·중간·뒤를 고르게 뜬다. */
+      const LLM_BUDGET = 18000;
+      let promptBody = transcript;
+      if (transcript.length > LLM_BUDGET) {
+        const part = Math.floor(LLM_BUDGET / 3);
+        const mid = Math.floor(transcript.length / 2 - part / 2);
+        promptBody = transcript.slice(0, part)
+          + '\n…(중략)…\n' + transcript.slice(mid, mid + part)
+          + '\n…(중략)…\n' + transcript.slice(transcript.length - part);
+      }
+
       const prompt = `You are an expert English coach. Analyze this Korean student's spoken English transcript from a 1:1 lesson.
 
 Student: ${studentName}${lessonTitle ? ` · Lesson: ${lessonTitle}` : ''}
 
 Transcript:
 """
-${transcript.slice(0, 6000)}
+${promptBody}
 """
 
 Produce a comprehensive learning report. Respond in STRICT JSON only, no markdown:

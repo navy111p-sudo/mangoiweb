@@ -47,6 +47,9 @@ export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   NEO4J_PASSWORD?: string;
   // 🥭 Phase 21 — Workers AI 바인딩 (검색창 AI 명령)
   AI?: any;
+  // 🔒 (2026-08-08) 동시접속 1세션 킬 스위치 — 'on' 일 때만 작동. 기본 off(dormant).
+  //   auth-token.ts 의 singleSessionOn / startSession / verifyUidToken 이 읽는다.
+  SINGLE_SESSION?: string;
   // 📟 UptimeRobot 장애 웹훅 → 관리자 문자 알림 (api-uptime.ts)
   UPTIME_HOOK_KEY?: string;    // 웹훅 호출 보호 토큰(무단 호출 방지)
   OWNER_ALERT_PHONE?: string;  // 장애 문자 받을 관리자 번호
@@ -463,6 +466,33 @@ export async function handleMangoApi(
            VALUES (?, ?, ?, ?, ?, 'present', ?)`
         ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date).run();
       }
+      /* ═══════════════════════════════════════════════════════════════════════
+         🎓 강사가 레벨테스트 방에 들어오면 «수락한 것» 으로 본다  (2026-08-07)
+         ───────────────────────────────────────────────────────────────────────
+         [무슨 일이 있었나] 8/7 18:00 레벨테스트(신청 #15 · schedule 854).
+           강사가 18:01 에 들어와 18:45 까지 빈 방을 지켰는데, 신청은 끝까지
+           `proposed` 였다. 이 단계에서는 설계상 교사 이름을 학생에게 숨긴다
+           (교사가 거절했을 때 «담당이 바뀌었다» 는 혼선을 막으려고).
+           그래서 학생 홈 카드는 수업이 끝난 뒤까지 「담당 선생님 배정 중」 이었다.
+         [왜 입장이 곧 수락인가] «들어왔다» 보다 분명한 수락 신호는 없다.
+           별도의 수락 버튼을 새로 만들어 강사에게 하나 더 누르게 하는 것보다,
+           이미 하는 행동을 읽는 편이 실제로 작동한다.
+         [안전] proposed 일 때만 올린다 — confirmed·done·cancelled 는 그대로 둔다.
+                실패해도 출석 기록에는 영향이 없다(위 INSERT 와 분리된 try).
+         ═══════════════════════════════════════════════════════════════════════ */
+      if ((b.role || 'student') === 'teacher') {
+        try {
+          const m = /^class-(\d+)-\d{8}$/.exec(String(b.room_id || ''));
+          if (m) {
+            await env.DB.prepare(
+              `UPDATE leveltest_applications
+                  SET status = 'confirmed', teacher_confirmed_at = ?, updated_at = ?
+                WHERE schedule_id = ? AND status = 'proposed'`
+            ).bind(now, now, Number(m[1])).run();
+          }
+        } catch { /* 레벨테스트 표가 없는 배포본 등 — 출석은 그대로 진행 */ }
+      }
+
       if (!existing) {
         await enqueueNotification(env, {
           type: 'class_start',
@@ -1617,14 +1647,23 @@ export async function handleMangoApi(
       }
       if (!row) return json({ ok: true, authorized: 'unknown', reason: 'schedule_not_found' }); // 예약 없음 → 통과(fail-open)
       let ok = false;
+      /* 🎭 (2026-08-08 강사 피드백 Teacher Ana ① 「먼저 들어온 학생이 강사 역할을 받는다」)
+       *  여태 역할은 **클라이언트가 말한 것을 그대로** 썼다(DO 도 그 값을 로스터에 박는다).
+       *  그래서 브라우저에 남아 있던 낡은 'teacher' 하나로 학생이 강사가 됐다.
+       *  이 게이트는 이미 «이 사람이 이 예약의 학생인가 교사인가» 를 알아내고 있다 —
+       *  그 답을 버리지 말고 `resolved_role` 로 함께 돌려준다.
+       *  🔑 클라이언트는 이 값을 **내리는 데만** 쓴다. 올리는 데 쓰면 이름 매칭 한 번 어긋난 것으로
+       *     학생이 강사가 되어 지금 고치는 사고를 반대 방향으로 다시 만든다.
+       *  ⚠️ 확실할 때만 값을 채운다. 모르면 null → 예전과 100% 동일(«수업을 막지 않는다» 1원칙 유지). */
+      let resolvedRole: 'student' | 'teacher' | null = null;
       if (userId) {
-        if (String(row.user_id) === userId) ok = true;                    // 학생 uid 일치
-        if (!ok && String(row.teacher_id || '') === userId) ok = true;    // 교사 uid == teacher_id
+        if (String(row.user_id) === userId) { ok = true; resolvedRole = 'student'; }       // 학생 uid 일치
+        if (!ok && String(row.teacher_id || '') === userId) { ok = true; resolvedRole = 'teacher'; }  // 교사 uid == teacher_id
         if (!ok) {
           // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
           try {
             const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
-            for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; break; } }
+            for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; resolvedRole = 'student'; break; } }
           } catch {}
         }
       }
@@ -1639,7 +1678,7 @@ export async function handleMangoApi(
           String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
         const npRaw = nameParam;
         const npBare = stripRolePrefix(nameParam);
-        if (row.student_name && (row.student_name === npRaw || row.student_name === npBare)) ok = true;  // 학생 이름 일치
+        if (row.student_name && (row.student_name === npRaw || row.student_name === npBare)) { ok = true; resolvedRole = 'student'; }  // 학생 이름 일치
         // 🔧 (2026-07-24) 교사 이름은 완전일치 대신 부분일치(양방향) — sessions/today 매칭 완화와 동일 사유.
         if (!ok && row.teacher_name) {
           const tnRaw = String(row.teacher_name);
@@ -1649,8 +1688,14 @@ export async function handleMangoApi(
             for (const n of [npRaw, npBare]) { if (hit(t, n)) { ok = true; break; } }
             if (ok) break;
           }
+          /* ⚠️ 교사 이름 매칭은 «부분일치» 다 — 이름이 짧으면 우연히 걸릴 수 있다.
+             그래서 이 경로로 붙은 것은 **강사로 «올리는» 근거로 쓰지 않는다.**
+             (resolvedRole 은 클라이언트에서 내림 전용이므로 null 로 두면 아무 일도 안 일어난다) */
         }
       }
+      /* 🎭 학생 이름으로만 붙었는데 «강사» 를 주장하는 경우 = 이번 신고의 그림 그대로다.
+         (공용 PC 에 남아 있던 낡은 teacher 를 물려받은 학생) → resolvedRole 이 'student' 로 남아
+         클라이언트가 스스로 역할을 내린다. 그래도 **입장은 막지 않는다**(1원칙 유지). */
       // 🔒 (2026-07-28) 교사는 차단하지 않는다 — "수업을 방해하지 않는다"가 이 게이트의 1원칙이다.
       //   담당 지정이 어긋나 있어도 수업은 열려야 한다(어긋남 자체는 운영에서 흔하다).
       //   클라이언트는 authorized === false 일 때만 막으므로, 'unknown' 을 주면 경고만 띄우고 통과한다.
@@ -1658,9 +1703,9 @@ export async function handleMangoApi(
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
       if (!ok && /teacher/.test(role)) {
-        return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null });
+        return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
       }
-      return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch' });
+      return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch', resolved_role: resolvedRole });
     }
 
     // (🥭 노쇼·스케줄CRUD·중복병합 → api-admin.ts — admin 5회차)
@@ -1684,14 +1729,22 @@ export async function handleMangoApi(
       const kv = (env as any).SESSION_STATE;
       const map: Record<string, string> = {};
       const need: string[] = [];
-      for (const t of texts) {
-        let cached: string | null = null;
-        if (kv) { try { cached = await kv.get('i18n:en:' + t); } catch {} }
-        if (cached != null) map[t] = cached; else need.push(t);
+      // ⚡ (2026-08-08) KV 조회를 순차 await 로 돌던 것을 병렬로 — 50개면 왕복이 50번 쌓여
+      //   전부 캐시 적중이어도 1.5초 넘게 걸렸다(강사 제보: "EN 누르면 한참 기다린다").
+      const cachedList = await Promise.all(texts.map(async (t) => {
+        if (!kv) return null;
+        try { return await kv.get('i18n:en:' + t) as string | null; } catch { return null; }
+      }));
+      for (let i = 0; i < texts.length; i++) {
+        if (cachedList[i] != null) map[texts[i]] = cachedList[i] as string; else need.push(texts[i]);
       }
+      const kvPuts: Promise<any>[] = [];
       if (need.length && ai) {
-        for (let i = 0; i < need.length; i += 20) {
-          const chunk = need.slice(i, i + 20);
+        // ⚡ (2026-08-08) 20개씩 끊은 청크를 순차로 돌던 것을 병렬로 — 50개 요청 하나가
+        //   AI 왕복 3번을 줄줄이 기다려 실측 16.2초였다. 병렬이면 가장 느린 1번으로 줄어든다.
+        const aiChunks: string[][] = [];
+        for (let i = 0; i < need.length; i += 20) aiChunks.push(need.slice(i, i + 20));
+        await Promise.all(aiChunks.map(async (chunk) => {
           // ⚠️ llama 는 "JSON 배열로만" 지시를 자주 무시 → 번호 줄 형식이 훨씬 안정적.
           //    (JSON 파싱 실패 시 원문을 그대로 돌려줘 자동번역이 통째로 무력화되던 버그 수정 2026-07-21)
           const numbered = chunk.map((s, k) => (k + 1) + '. ' + s).join('\n');
@@ -1735,10 +1788,15 @@ ${numbered}`;
             let en = (typeof got[j] === 'string' && got[j].trim()) ? got[j].trim() : '';
             if (!en || /[가-힣]/.test(en)) en = chunk[j];   // 번역 실패(빈값·한글 잔존) → 원문 유지, 캐시 안 함
             map[chunk[j]] = en;
-            if (kv && en !== chunk[j]) { try { await kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }); } catch { /* 캐시 실패 무시 */ } }
+            // ⚡ 캐시 쓰기는 응답을 붙잡지 않는다 — 아래 waitUntil 로 넘긴다.
+            if (kv && en !== chunk[j]) kvPuts.push(kv.put('i18n:en:' + chunk[j], en, { expirationTtl: 60 * 60 * 24 * 180 }).catch(() => {}));
           }
-        }
+        }));
       } else if (need.length) { for (const c of need) map[c] = c; }
+      if (kvPuts.length) {
+        const allPuts = Promise.all(kvPuts).catch(() => {});
+        if (ctx && ctx.waitUntil) ctx.waitUntil(allPuts); else await allPuts;
+      }
       return json({ ok: true, map });
     }
 
@@ -2878,7 +2936,11 @@ ${numbered}`;
           (ph) => `SELECT user_id FROM consents WHERE user_id IN (${ph}) AND withdrawn_at IS NULL AND recording_consent = 1`);
         consentedIds = rows.map(r => r.user_id);
       }
-      const RETENTION_MS = 30 * 24 * 3600 * 1000; // 1개월
+      // 녹화 보관기간 = 3개월 (2026-08-06 사장님 결정. 그 전 값은 30일이었다)
+      // ⚠️ 이 값은 «앞으로 만들어질» 녹화에만 적용된다. 이미 있는 행의 expires_at 은
+      //    그대로 둔다 — 학부모가 동의한 시점의 기간보다 더 오래 갖고 있게 되면
+      //    보관기간을 늘리는 것이 곧 동의 범위를 넘는 일이 되기 때문.
+      const RETENTION_MS = 90 * 24 * 3600 * 1000; // 3개월
       const res = await env.DB.prepare(
         `INSERT INTO recordings (room_id, teacher_id, teacher_name, filename, participant_ids, participant_names, consented_user_ids, started_at, expires_at, storage)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'local')`

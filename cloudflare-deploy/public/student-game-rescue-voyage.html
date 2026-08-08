@@ -234,6 +234,7 @@
   #speakDots{ font-size:22px; letter-spacing:8px; }
   #speakFeedback{ font-size:12.5px; margin-top:6px; min-height:16px; opacity:.9; }
 </style>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body>
   <div id="stage"><canvas id="cv"></canvas></div>
@@ -1241,6 +1242,8 @@
       floatText(obj.position.clone(), '+'+gain, golden?'gold':'good');
       if(G.combo>1 && G.combo%3===0) comboBanner(G.combo);
       // 문장 순서 진행 — 이 친구가 다음 목표 단어였으면 한 칸 전진
+      // 🎮 계측(2026-08-08) — sentNext 를 올리기 «전» 에 판정해야 한다
+      try{ if(window.MangoiGame) window.MangoiGame.answer(obj.userData.order===G.sentNext, G._lastWordText); }catch(_e){}
       if(obj.userData.order===G.sentNext) G.sentNext++;
       setHUD();
       if(G.sentNext>=G.sentWords.length){   // 문장 완성! → 문장 전체를 무조건 3번 들려준 뒤 클리어
@@ -1551,6 +1554,6 @@
   })();
   </script>
 <!-- BUILD:20260724 rescue-voyage v2 tension+juice -->
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 </body>
 </html>

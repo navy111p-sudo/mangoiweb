@@ -25,7 +25,7 @@ import { purgeExpired } from './retention';
 import { purgeOrphanedRecordings } from './recordings-cleanup';
 import { handleLivekit, ensureLivekitSchema } from './livekit-bridge';
 import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeSweep } from './recordings-r2';
-import { handleAdminAuthApi, checkAdminSession, getAdminActor } from './auth-admin';
+import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
@@ -253,7 +253,8 @@ const worker = {
         //      **두 곳 모두**(isAdminPath + 아래 리다이렉트 목록) 등록할 것.
         if (path === '/admin' || path === '/admin/' || path === '/admin.html'
             || path.startsWith('/admin/')
-            || path === '/teacher' || path === '/teacher/' || path === '/teacher.html') {
+            || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
+            || path === '/manager' || path === '/manager/' || path === '/manager.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -270,6 +271,14 @@ const worker = {
       if (sess.ok) {
         const _tp = await teacherPortalRedirect(request, url, path, env);
         if (_tp) return _tp;
+      }
+
+      // 🏫 지사·대리점 분기 (2026-08-08) — 강사에게 해 준 것과 같은 일.
+      //   반드시 아래 «대리점 제한 뷰» 블록보다 **먼저** 온다: 그 블록은 admin.html 을
+      //   허용 페이지로 보고 통과시키므로, 여기서 먼저 경량 화면으로 보내야 한다.
+      if (sess.ok) {
+        const _mp = await managerPortalRedirect(request, url, path, env);
+        if (_mp) return _mp;
       }
 
       // 🏪 대리점/지사(비-본사) 제한 뷰 — 본사 전용 콘솔/ API 차단, 자기 대시보드로 유도
@@ -324,6 +333,13 @@ const worker = {
             '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
             // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
+            //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
+            //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
+            '/api/admin/briefing',
+            // ── 📊 운영 KPI 대시보드 — 매출·미납·상담이 한 번에 나온다. 카드는 이미 교사 차단이지만
+            //    화면만 가리는 것이라 URL 로 직접 부르면 그대로 응답했다. 서버에서도 막는다.
+            '/api/admin/kpi/',
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
             // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
@@ -474,6 +490,13 @@ const worker = {
     // 🏆 주간 랭킹 — GET /api/games/leaderboard?limit=  → 이번 주 코인 상위 학생(닉네임)
     if (path === '/api/games/leaderboard' && request.method === 'GET') {
       return handleGamesLeaderboard(request, env);
+    }
+    // 🎮 판(session) 기록 — POST /api/games/session → 게임이 끝날 때 딱 1행(game_sessions)
+    //   여기가 «게임별 분석» 을 가능하게 하는 유일한 통로다. game_progress 에는 게임 이름 칸이
+    //   없어서 8종이 한 표에 섞여 있었다(2026-08-08 실측). 학생 공개 경로 — sendBeacon 으로 온다.
+    if (path === '/api/games/session' && request.method === 'POST') {
+      const { handleGameSession } = await import('./game-insights');
+      return handleGameSession(request, env);
     }
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
@@ -1230,6 +1253,10 @@ const worker = {
         path === '/api/voice/coach' ||
         path === '/api/voice/history' ||
         path === '/api/voice/stats' ||
+        // 🎤 (2026-08-08) Azure 발음평가용 «10분짜리 임시 출입증». 키 자체는 서버에만 있다.
+        //   REST 창구가 발음평가 헤더를 무시해서, 평가는 브라우저 SDK 가 직접 한다.
+        //   음성코치는 비로그인(게스트)도 쓰므로 여기(공개 목록)에 있어야 한다.
+        path === '/api/voice/azure-token' ||
         // 💬 Phase K5 카카오 양방향
         path === '/api/webhook/kakao-inbound' ||
         path === '/api/admin/kakao/inbound' ||
@@ -1714,6 +1741,24 @@ const worker = {
     // 🎓 /admin/learning-insights — 학습 인사이트 대시보드 페이지 (관리자 전용)
     if (path === '/admin/learning-insights' || path === '/admin/learning-insights/') {
       const r = new Request(new URL('/admin/learning-insights.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🎮 전 게임 통합 분석 API (2026-08-08 신설) — GET /api/admin/game-insights?range=7
+    //   /api/admin/ 접두사라 인증 게이트(default-deny)에 자동으로 걸린다.
+    //   지사·대리점도 봐야 하므로 isAgencyAllowedApi 에 함께 등록했다.
+    if (path === '/api/admin/game-insights') {
+      const { gameInsightsRouter } = await import('./game-insights');
+      return gameInsightsRouter(request, env);
+    }
+
+    // 🎮 /admin/game-insights — 전 게임 통합 분석 화면 (관리자·매니저·지사)
+    //   ⚠️ admin.html(1.0MB · 카드 91개)에 카드로 넣지 않았다. 얹으면 전원이 함께 느려진다.
+    //      manager.html 이 같은 이유로 934KB→10KB(44배)를 냈다. 여기도 같은 길을 간다.
+    //   경로가 /admin/ 로 시작하므로 isAdminPath 와 미인증 리다이렉트 목록에 **이미 걸린다**
+    //   (둘 다 startsWith('/admin/')). 그래서 이 화면은 JSON 원문 사고가 구조적으로 안 난다.
+    if (path === '/admin/game-insights' || path === '/admin/game-insights/') {
+      const r = new Request(new URL('/admin/game-insights.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -3025,15 +3070,20 @@ async function handleGamesProgress(request: Request, env: Env): Promise<Response
     const lang = (String(body?.lang || 'en').toLowerCase() === 'zh') ? 'zh' : 'en';
     const events: any[] = Array.isArray(body?.events) ? body.events.slice(0, 200) : [];
     if (!userId || !events.length) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
-    await _ensureGameProgressTable(env);
+    // 🎮 (2026-08-08) 어느 게임에서 온 기록인지 — 이 칸이 없어서 게임 8종이 한 표에 섞여 있었다.
+    //    옛 클라이언트는 game 을 안 보낸다 → '' 로 남고 분석 화면이 «(계측 이전)» 으로 구분해 준다.
+    const { ensureGameTables, normalizeGameId } = await import('./game-insights');
+    const game = normalizeGameId(body?.game, '');
+    await ensureGameTables(env);
     const now = Date.now();
     const stmt = env.DB.prepare(
-      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, last_seen, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, last_seen, updated_at, game)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(user_id, lang, item) DO UPDATE SET
          wrong_count = wrong_count + excluded.wrong_count,
          correct_count = correct_count + excluded.correct_count,
          ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         game = COALESCE(NULLIF(excluded.game,''), game),
          last_seen = excluded.last_seen, updated_at = excluded.updated_at`
     );
     const batch: any[] = [];
@@ -3041,7 +3091,7 @@ async function handleGamesProgress(request: Request, env: Env): Promise<Response
       const item = String(e?.item || '').trim().slice(0, 200); if (!item) continue;
       const ko = String(e?.ko || '').trim().slice(0, 200);
       const correct = e?.correct ? 1 : 0;
-      batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now));
+      batch.push(stmt.bind(userId, lang, item, ko, correct ? 0 : 1, correct, now, now, game));
     }
     if (batch.length) await env.DB.batch(batch);
     return new Response(JSON.stringify({ ok: true, saved: batch.length }), { status: 200, headers: _MS_JSON });
@@ -3113,18 +3163,22 @@ async function handleGamesShadow(request: Request, env: Env): Promise<Response> 
     const ko = String(body?.ko || '').trim().slice(0, 200);
     let score = Math.round(Number(body?.score) || 0); if (score < 0) score = 0; if (score > 100) score = 100;
     if (!userId || !item) return new Response(JSON.stringify({ ok: false, error: 'missing' }), { status: 400, headers: _MS_JSON });
-    await _ensureGameProgressTable(env);
+    // 🎮 (2026-08-08) 발음 기록에도 게임 이름을 남긴다 — 「어느 게임에서 따라말하기를 하나」.
+    const { ensureGameTables: _ensureGT, normalizeGameId: _normGid } = await import('./game-insights');
+    const game = _normGid(body?.game, '');
+    await _ensureGT(env);
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, pron_best, pron_last, pron_count, last_seen, updated_at)
-       VALUES (?, ?, ?, ?, 0, 0, ?, ?, 1, ?, ?)
+      `INSERT INTO game_progress (user_id, lang, item, ko, wrong_count, correct_count, pron_best, pron_last, pron_count, last_seen, updated_at, game)
+       VALUES (?, ?, ?, ?, 0, 0, ?, ?, 1, ?, ?, ?)
        ON CONFLICT(user_id, lang, item) DO UPDATE SET
          pron_best = MAX(pron_best, excluded.pron_best),
          pron_last = excluded.pron_last,
          pron_count = pron_count + 1,
          ko = COALESCE(NULLIF(excluded.ko,''), ko),
+         game = COALESCE(NULLIF(excluded.game,''), game),
          last_seen = excluded.last_seen, updated_at = excluded.updated_at`
-    ).bind(userId, lang, item, ko, score, score, now, now).run();
+    ).bind(userId, lang, item, ko, score, score, now, now, game).run();
     return new Response(JSON.stringify({ ok: true, score }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), { status: 500, headers: _MS_JSON });
@@ -3901,13 +3955,50 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
         const row: any = await env.DB.prepare('SELECT r2_key, mime, ext FROM textbook_files WHERE id = ?').bind(tbId).first();
         const r2b = (env as any).RECORDINGS as R2Bucket | undefined;
         if (row && row.r2_key && r2b) {
+          const ct = row.mime || (row.ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
+          /* ⏱ (2026-08-08 강사 피드백 — Belle ① 「수업을 열 때 로딩이 지연된다」)
+           *  이 갈래가 **라이브러리 교재**(BTS·MES 등 실제 수업에서 쓰는 책)다. 그런데 여기만
+           *  Range 처리도 Accept-Ranges 도 없어서, 브라우저는 34과짜리 책을 **통째로 다 받은 뒤에야**
+           *  1페이지를 그렸다. 업로드 교재(pdfs/…) 쪽은 2026-07-13 에 이미 Range 를 넣어 뒀는데
+           *  라이브러리만 빠져 있었다 — 정작 수업에서 더 많이 쓰는 쪽이 느렸다.
+           *  → 같은 방식으로 맞춘다. Content-Length 를 반드시 실어야 pdf.js 가 «조각 받기» 를 켠다. */
+          const rh = request ? (request.headers.get('range') || '') : '';
+          const rm = rh.match(/^bytes=(\d*)-(\d*)$/);
+          if (rm && (rm[1] !== '' || rm[2] !== '')) {
+            const head = await r2b.head(row.r2_key);
+            if (head) {
+              const total = head.size;
+              let start: number; let end: number;
+              if (rm[1] === '') { const suffix = Math.min(Number(rm[2]), total); start = total - suffix; end = total - 1; }
+              else { start = Number(rm[1]); end = rm[2] === '' ? total - 1 : Math.min(Number(rm[2]), total - 1); }
+              if (start <= end && start < total) {
+                const part = await r2b.get(row.r2_key, { range: { offset: start, length: end - start + 1 } });
+                if (part) {
+                  return new Response(part.body, {
+                    status: 206,
+                    headers: {
+                      'Content-Type': ct,
+                      'Content-Range': `bytes ${start}-${end}/${total}`,
+                      'Content-Length': String(end - start + 1),
+                      'Accept-Ranges': 'bytes',
+                      'Access-Control-Allow-Origin': '*',
+                      'Cache-Control': 'public, max-age=3600'
+                    }
+                  });
+                }
+              }
+            }
+          }
           const obj = await r2b.get(row.r2_key);
           if (obj) {
-            const ct = row.mime || (row.ext === 'pdf' ? 'application/pdf' : 'image/jpeg');
-            return new Response(obj.body, {
-              status: 200,
-              headers: { 'Content-Type': ct, 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=3600' }
-            });
+            const h: Record<string, string> = {
+              'Content-Type': ct,
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*',
+              'Cache-Control': 'public, max-age=3600'
+            };
+            if (typeof obj.size === 'number') h['Content-Length'] = String(obj.size);
+            return new Response(obj.body, { status: 200, headers: h });
           }
         }
       } catch (e) { console.warn('[pdf-proxy] lib_srv lookup failed:', (e as any)?.message); }
@@ -3924,6 +4015,7 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
     const r2 = (env as any).RECORDINGS as R2Bucket | undefined;
     let bodyStream: ReadableStream<Uint8Array> | null = null;
     let pdfBuffer: ArrayBuffer | null = null;
+    let objSize: number | null = null;
     let ctype = 'application/pdf';   // fix (2026-06-01) 저장된 실제 형식으로 서빙 (이미지 교재 지원)
     if (r2) {
       // fix (2026-07-13) — 동영상 구간 재생(Range) 지원: iOS Safari 는 Range 206 응답이
@@ -3962,7 +4054,12 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
         }
       }
       const obj = await r2.get(`pdfs/${fileKey}`);
-      if (obj) { bodyStream = obj.body; if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType; }
+      if (obj) {
+        bodyStream = obj.body;
+        if (obj.httpMetadata && obj.httpMetadata.contentType) ctype = obj.httpMetadata.contentType;
+        // ⏱ Content-Length 가 없으면 pdf.js 가 «조각 받기» 를 켜지 못하고 통짜로 받는다(Belle ①)
+        if (typeof obj.size === 'number') objSize = obj.size;
+      }
     }
     if (!bodyStream) {
       const kv = await env.PDF_STORE.get(fileKey, { type: 'arrayBuffer' });
@@ -3983,15 +4080,14 @@ async function handlePdfDownload(path: string, env: Env, request?: Request): Pro
       });
     }
 
-    return new Response(bodyStream || pdfBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': ctype,
-        'Accept-Ranges': 'bytes',
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=3600'
-      }
-    });
+    const okHeaders: Record<string, string> = {
+      'Content-Type': ctype,
+      'Accept-Ranges': 'bytes',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=3600'
+    };
+    if (objSize !== null) okHeaders['Content-Length'] = String(objSize);
+    return new Response(bodyStream || pdfBuffer, { status: 200, headers: okHeaders });
   } catch (err) {
     console.error('PDF download error:', err);
     return new Response(JSON.stringify({ error: 'Download failed' }), {
@@ -4500,6 +4596,82 @@ async function teacherPortalRedirect(
   return null;
 }
 
+/**
+ * 🏫 지사·대리점 → 초경량 매니저 포털 (2026-08-08)
+ *
+ *   왜 —
+ *     지금 지사·대리점은 admin.html 로 들어간다(isAgencyAllowedPage 가 '대리점 모드'로 허용).
+ *     그런데 실측하면 그 화면은 gzip 934KB · 요청 145개 · DOM 8,762개고,
+ *     거기서 부르는 관리자 API 231개 중 **매니저에게 허용되는 것은 25개(10%)** 뿐이다.
+ *     나머지 90%는 열어도 403 이다(isAgencyAllowedApi). 즉 «안 맞는 옷»을 주고 있었다.
+ *     → 강사에게 해 준 것과 똑같이, 그들이 실제로 쓸 수 있는 것만 담은 화면으로 보낸다.
+ *
+ *   판정 근거는 getScope() 하나뿐이다. 프런트에서만 나누면 URL 을 직접 치는 것으로 뚫린다.
+ *   ⚠️ 권한이 늘거나 주는 변경이 **아니다** — 서버 허용목록(isAgencyAllowedApi)은 그대로다.
+ *      어느 화면에 착지하는가만 바뀐다.
+ *   ⚠️ ?full=1 은 탈출구다. 매니저가 옛 화면을 봐야 할 때(그리고 사고 시 되돌릴 때) 쓴다.
+ */
+async function managerPortalRedirect(
+  request: Request, url: URL, path: string, env: Env
+): Promise<Response | null> {
+  const isManagerPage = (path === '/manager' || path === '/manager/' || path === '/manager.html');
+  const isAdminHome   = (path === '/admin' || path === '/admin/' || path === '/admin.html');
+  if (!isManagerPage && !isAdminHome) return null;
+  if (url.searchParams.get('full') === '1') return null;      // 탈출구
+
+  let sc: { type: string };
+  try {
+    sc = await getScope(env as any, request) as any;
+  } catch (e) {
+    console.warn('[manager-route] scope resolve failed:', (e as any)?.message);
+    return null;                                              // 판정 실패 → 기존 동작 유지
+  }
+  const isOrg = (sc.type === 'agency' || sc.type === 'branch' || sc.type === 'franchise');
+
+  // 지사·대리점이 관리자 첫 화면을 열었다 → 경량 포털로
+  if (isOrg && isAdminHome) {
+    return Response.redirect(new URL('/manager', request.url).toString(), 302);
+  }
+
+  // 🇵🇭 필리핀 본사 매니저(Maimai·Melca·Karl)도 경량 포털로 (2026-08-08 사장님 지시)
+  //   경위: 세 분은 scope_type='hq' 라 위 조직 분기에 걸리지 않아, 「페이지가 무겁다」고
+  //   요청한 당사자인데도 계속 admin.html(gzip 934KB · 흉내회선 19초)을 받고 있었다.
+  //   ⚠️ 권한은 그대로다 — hq 는 admin.html 에서 이미 전부 본다. 착지 화면만 바뀐다.
+  //   ⚠️ 판정은 PH_MANAGERS 상수 하나로만 한다. `mgr_` 접두사로 «필리핀» 을 가르면 안 된다 —
+  //      mgr_jjw·mgr_lby 처럼 **한국 본사 매니저도 같은 접두사**를 쓴다(auth-admin.ts 주석,
+  //      과거에 그렇게 갈랐다가 한국 매니저 두 분이 영어 화면을 받는 사고를 냈다).
+  //   무거운 작업(급여 명세 편집·인사평가 등)은 화면 안의 「전체 경영 대시보드」 링크와
+  //   ?full=1 탈출구로 언제든 갈 수 있다.
+  if (isAdminHome) {
+    try {
+      const _a = await getAdminActor(request, env as any);
+      if (_a.ok && PH_MANAGERS.indexOf(String((_a as any).username || '')) >= 0) {
+        return Response.redirect(new URL('/manager', request.url).toString(), 302);
+      }
+    } catch (e) { /* 판정 실패 → 기존 동작(관리자 화면) 유지 */ }
+  }
+
+  // 조직 계정이 아닌 사람이 /manager 를 열었다 → 각자의 화면으로 돌려보낸다.
+  //   본사(hq·staff)는 그대로 통과시킨다 — 강사 포털과 같은 이유로, 같은 정보를
+  //   가볍게 보는 창을 하나 더 갖는 것뿐이다(권한 변화 없음).
+  if (isManagerPage && !isOrg) {
+    let actor: { ok: boolean; isTeacher: boolean; role: string };
+    try {
+      actor = await getAdminActor(request, env as any);
+    } catch (e) {
+      return null;
+    }
+    if (!actor.ok) return null;                               // 미인증은 세션 미들웨어가 처리
+    if (actor.isTeacher) {
+      return Response.redirect(new URL('/teacher', request.url).toString(), 302);
+    }
+    if (actor.role !== 'hq' && actor.role !== 'staff') {
+      return Response.redirect(new URL('/admin.html?full=1', request.url).toString(), 302);
+    }
+  }
+  return null;
+}
+
 function isAdminPath(path: string, method: string): boolean {
   // 🔒🔒 [보안 근본수정 2026-07-27] 관리자 **화면**도 DEFAULT-DENY 로 전환.
   //   과거엔 /admin/xxx.html 을 한 줄씩 이 목록에 등록하는 allowlist 였다. 그래서 새 화면을
@@ -4516,6 +4688,14 @@ function isAdminPath(path: string, method: string): boolean {
   //   같은 도메인·같은 세션쿠키(mango_admin_session)를 그대로 쓴다 → 재로그인 없음.
   //   역할 분기(강사만 통과)는 미들웨어의 teacherPortalRedirect() 가 담당한다.
   if (path === '/teacher' || path === '/teacher/' || path === '/teacher.html') return true;
+
+  // 🏫 지사·대리점 전용 초경량 포털 (2026-08-08) — 화면 로그인 필수.
+  //   강사에게 해 준 것과 같은 일이다. 역할 분기는 managerPortalRedirect() 가 담당한다.
+  //   ⚠️ 새 화면 경로를 추가할 때는 **두 곳 모두** 등록할 것 —
+  //      여기(isAdminPath)와, 미인증 시 로그인으로 보내는 리다이렉트 목록.
+  //      한쪽만 하면 인증은 걸리는데 'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
+
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
@@ -4724,6 +4904,9 @@ function isAgencyAllowedPage(path: string): boolean {
   // 🏢 캐피타운 정산 화면 — 캐피타운 지사(capi_*, scope=branch)·본사(franchise 스코프)도 진입 허용.
   //   데이터는 /api/admin/capitown/ 가 계정별로 자기 지사만 내려주므로 화면 진입 자체는 안전(2026-07-22).
   if (path === '/admin/capitown-settlement' || path === '/admin/capitown-settlement/' || path === '/admin/capitown-settlement.html') return true;
+  // 🎮 전 게임 통합 분석 (2026-08-08) — 지사·대리점도 본다.
+  //   개인정보가 없는 화면이다: 집계 숫자 + 익명 uid 뿐이고 실명·연락처는 응답에도 없다.
+  if (path === '/admin/game-insights' || path === '/admin/game-insights/' || path === '/admin/game-insights.html') return true;
   return false;
 }
 
@@ -4739,6 +4922,8 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/settlement/',
     // 🏢 캐피타운 정산 — 핸들러가 계정별(경영진·capitown=전체 / capi_* 지사=자기 지사만) 자체 격리(2026-07-22)
     '/api/admin/capitown/',
+    // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
+    '/api/admin/game-insights',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

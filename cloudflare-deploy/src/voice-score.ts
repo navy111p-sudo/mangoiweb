@@ -26,6 +26,8 @@ export interface VoiceScore {
   overall: number;         // 0~100 — 종합(accuracy 0.6 + pron 0.25 + fluency 0.15)
   langMismatch: boolean;   // 목표 언어와 발화 언어가 다른가(영어 목표에 한국어 등)
   acoustic: boolean;       // 음향 지표를 실제로 반영했는가(false = 텍스트만 본 옛 방식)
+  /** 🎤 Azure 음소 발음평가를 반영했는가(true = 소리를 «직접» 잰 점수) */
+  phoneme?: boolean;
   counts: { ok: number; close: number; wrong: number; wrongContent: number; missing: number; extra: number };
 }
 
@@ -48,23 +50,43 @@ export interface VoiceScore {
 //
 // ⚠️ 한계 1: words[] 에 '단어별 확률'은 오지 않는다(word/start/end 뿐). 확신도는 구간 단위가 최대.
 //            음성코치는 짧은 문장 하나 = 대개 세그먼트 1개라 실용상 문제는 작다.
-// ⚠️ 한계 2: 아래 임계값은 **잠정치**다. 실제 녹음(잘한 발음/뭉갠 발음/딴소리)으로
-//            보정하기 전까지는 추정이다. 보정은 ACOUSTIC_TUNING 상수만 고치면 된다.
+// ⚠️ 한계 2: → 2026-08-08 실제 녹음 20건으로 보정 완료. 아래 LP_GOOD/LP_BAD 주석 참고.
 // ⚠️ 한계 3: 음향정보는 프론트가 전달한다 → 위조 가능. 단 spoken(전사 텍스트)도 원래
 //            프론트가 보내므로 신뢰모델은 이전과 동일하다. 서버가 오디오를 다시 받지 않는 한
 //            더 강하게 만들 수 없다.
+// 🔴 한계 4 (2026-08-08 실측으로 확인된 «천장»): avg_logprob 은 발음이 아니라
+//            **«Whisper 가 자기 전사를 얼마나 확신하는가»** 다. Whisper 는 언어모델이라
+//            **흔한 문장은 문맥으로 메워서** 웅얼거려도 확신한다.
+//            실측: "Thank you very much for your help." 또렷 -0.286 / 뭉갬 -0.374 → 거의 차이 없음.
+//                  "I love studying English with Mangoi." 또렷 -0.436 / 뭉갬 -0.817 → 크게 벌어짐.
+//            차이는 발음 실력이 아니라 **Mangoi 가 Whisper 가 모르는 단어**라는 것뿐이다.
+//            → 상수를 어떻게 조정해도 «흔한 문장을 뭉갠 경우»는 못 잡는다. 눈금 문제가 아니라
+//              **재는 자(尺)의 한계**다. 진짜로 잡으려면 서버가 오디오를 직접 받아
+//              음소 단위로 재는 발음평가가 필요하다(별도 비용·설계 결정).
 // ═══════════════════════════════════════════════════════════════════════
 
 /** 보정용 상수 — 실제 녹음으로 값을 맞출 때 여기만 고친다. */
 export const ACOUSTIC_TUNING = {
-  LP_GOOD: -0.25,      // avg_logprob 이 이 이상이면 또렷함 100
-  LP_BAD: -1.10,       // 이 이하면 0. Whisper 기본 log_prob_threshold 가 -1.0(저신뢰 경계)
+  /* 🎚 2026-08-08 실측 보정 — 옛 값(-0.25 / -1.10)은 «눈금의 절반이 안 쓰이는» 값이었다.
+     실제 녹음 20건에서 나온 범위: 또렷 -0.25~-0.30 · 보통 -0.37~-0.45 · 뭉갬 -0.50~-0.82 ·
+     아예 못 알아들음 -1.15. 즉 -0.85 아래는 «전사 실패» 구간이지 «발음이 나쁜» 구간이 아니었다.
+     0점 기준을 -1.10 에 두니 뭉갠 발음이 또렷함 80~90 을 받았다.
+     [효과] 뭉갬 실측 -0.728 → 또렷함 56 → 33 · -0.817 → 49 → 26 (종합 76→70 · 69→64). */
+  LP_GOOD: -0.28,      // avg_logprob 이 이 이상이면 또렷함 100 (실측 최고 -0.286)
+  LP_BAD: -0.78,       // 이 이하면 0. 실측 «뭉갬» 하단. (옛 -1.10 = Whisper 전사실패 경계였다)
   NO_SPEECH_MAX: 0.60, // no_speech_prob 이 이 이상이면 말이 아닌 것으로 보고 크게 감점
   RATE_LO: 1.6,        // 적정 말속도 하한(단어/초) — 이보다 느리면 뚝뚝 끊김
   RATE_HI: 3.6,        // 적정 말속도 상한 — 이보다 빠르면 뭉개서 읽음
   GAP_OK: 0.35,        // 단어 사이 공백이 이 이하면 머뭇거림 없음(초)
   GAP_BAD: 1.20,       // 이 이상이면 크게 머뭇거림
   MIN_WORDS: 2,        // 단어 타이밍이 이 개수 미만이면 흐름 판정 불가(텍스트 방식 유지)
+  /* 🔇 소리를 못 들었을 때의 상한 (2026-08-07).
+     [실측] 음향정보가 없으면 «I have a dog» 를 정확히 전사하기만 해도 종합 100 = S(«완벽해요!») 가 나왔다.
+            S 는 «발음이 완벽하다» 는 주장인데, 텍스트만으로는 뭉개서 말했는지 알 수 없다.
+            (Whisper 는 웅얼거려도 맞는 글자를 곧잘 뱉는다 — 그래서 텍스트는 발음의 증거가 못 된다.)
+     [처치] 소리 증거가 없으면 S 자리는 비워 둔다. 못 들은 것을 «완벽» 이라 부르지 않는다.
+     ⚠️ 점수를 깎는 게 목적이 아니다 — 음향정보가 오면 이 상한은 적용되지 않는다. */
+  NO_ACOUSTIC_MAX: 94, // scoreTier 의 S 경계(95) 바로 아래
 };
 
 export interface AcousticSegment {
@@ -351,9 +373,15 @@ function combine(accuracy: number, pronunciation: number, fluency: number): numb
  * 음향정보가 없거나 부실하면 원본을 그대로 돌려준다 → 옛 동작과 100% 동일(하위호환).
  */
 function applyAcoustic(base: VoiceScore, info?: AcousticInfo | null): VoiceScore {
-  if (!info) return base;
+  /* 🔇 소리를 못 들었으면 «완벽» 이라고 말하지 않는다 — 자세한 이유는 NO_ACOUSTIC_MAX 주석.
+     딴말(langMismatch·정확도 0)까지 끌어올리지 않도록 «상한» 으로만 쓴다(점수를 올리는 일은 없다). */
+  const capNoAcoustic = (s: VoiceScore): VoiceScore =>
+    (s.overall > ACOUSTIC_TUNING.NO_ACOUSTIC_MAX)
+      ? { ...s, overall: ACOUSTIC_TUNING.NO_ACOUSTIC_MAX }
+      : s;
+  if (!info) return capNoAcoustic(base);
   const a = analyzeAcoustic(info);
-  if (!a.ok) return base;
+  if (!a.ok) return capNoAcoustic(base);
   // 언어가 아예 다르면(0점 처리) 음향으로 되살리지 않는다.
   if (base.langMismatch) return base;
 
@@ -363,6 +391,74 @@ function applyAcoustic(base: VoiceScore, info?: AcousticInfo | null): VoiceScore
     ...base,
     pronunciation, fluency, acoustic: true,
     overall: combine(base.accuracy, pronunciation, fluency),
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🎤 Azure 음소 발음평가를 점수판에 얹는다 (2026-08-08)
+
+   왜: Whisper 확신도(avg_logprob)는 «흔한 문장을 뭉갠 것» 을 원리적으로 못 잡는다
+       (한계 4 주석 참고). Azure 는 **음소 단위로 소리를 직접** 재므로 문맥으로 못 메운다.
+
+   무엇을 바꾸나 — 축마다 «가장 좋은 증거» 를 쓴다:
+     · 또렷함 ← Azure AccuracyScore   (음소 기반. 옛 확신도 방식을 «대체»)
+     · 흐름   ← Azure FluencyScore    (끊김·머뭇거림)
+     · 정확도 ← **우리 텍스트 비교 그대로 유지**
+       🔑 Azure 는 «모범 문장을 알고» 듣는다. 그 결과로 정확도까지 매기면 채점이 한쪽
+          증거에만 기대게 된다. «무슨 말을 했나» 는 모범 문장을 모르는 Whisper 전사가
+          더 정직한 증거다(2026-07-29 정답유출 사고와 같은 이유).
+
+   🔑 종합 상한 — 글자가 맞아도 소리가 엉망이면 «좋아요» 라고 하지 않는다.
+      종합의 60%가 정확도라 지금은 글자만 맞으면 B 아래로 안 내려간다. 그건 음소 증거가
+      없을 때의 안전장치였다. 이제 증거가 있으므로 «또렷함 + 30» 을 상한으로 건다.
+      ⚠️ Azure 가 없을 때는 이 상한을 걸지 않는다 — 근거 없이 깎으면 억울한 학생이 생긴다.
+   ═══════════════════════════════════════════════════════════════════════ */
+export interface AzurePronInput {
+  accuracy: number; fluency: number; completeness: number; pron: number;
+}
+/** Azure 발음평가 상한 — azure-pronunciation.ts 의 AZURE_TUNING 과 같은 값을 쓴다. */
+export const AZURE_OVERALL_CAP_OVER_PRON = 30;
+/* 🏆 «완벽해요(S)» 는 **발음에 대한 주장**이다. 글자를 다 맞히고 막힘없이 읽어도
+   음소 점수가 이 아래면 S 자리는 비워 둔다(A=훌륭해요 까지는 준다).
+   [실측 2026-08-08] 발음 84 인데 정확도 100·흐름 99 라서 종합 96 = S 가 나왔다.
+   84 는 «잘한다» 이지 «완벽» 이 아니다 — 사장님이 처음 지적한 것이 정확히 이 모양이었다.
+   ⚠️ 음소 근거가 있을 때만 적용한다. 근거 없이 등급을 깎으면 억울한 학생이 생긴다. */
+export const AZURE_S_MIN_PRON = 90;
+
+export function applyAzurePronunciation(base: VoiceScore, az?: AzurePronInput | null): VoiceScore {
+  if (!az) return base;
+  const n = (v: any) => {
+    const x = Number(v);
+    return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : null;
+  };
+  const acc = n(az.accuracy), flu = n(az.fluency);
+  if (acc === null) return base;                       // 값이 없으면 손대지 않는다
+  // 딴말(정확도 0)을 발음점수로 되살리지 않는다 — 기존 규칙과 동일.
+  if (base.langMismatch) return base;
+
+  const pronunciation = acc;
+  const completeness = n(az.completeness) ?? base.completeness;
+
+  /* 📐 정확도 축도 Azure 것을 쓴다 (2026-08-08, 실측으로 되잡음)
+     [무슨 일이 있었나] 전사를 Azure 것으로 바꾸자 정확도가 **늘 100 에 붙어 버렸다.**
+       Azure 는 모범 문장에 맞춰 정렬해 들으므로, 뭉개도 «글자» 는 다 나온다.
+       실측: 발음 58 · 완성도 33(단어의 1/3만 제대로 소리 냄)인데 정확도 100 → 종합 86 «훌륭해요».
+       억울한 감점은 없앴지만 **신호도 같이 없앴다.**
+     [처치] 글자 비교 대신 Azure **완성도**(실제로 몇 단어를 제대로 소리 냈나)를 쓴다.
+       이건 철자가 아니라 **소리에서 나온 값**이라 이 문제가 없다.
+     ⚠️ Azure 가 없을 때는 예전 그대로 글자 비교를 쓴다. */
+  const accuracy = completeness;
+  const fluency = flu === null ? base.fluency : Math.min(flu, accuracy + 15);
+  const raw = combine(accuracy, pronunciation, fluency);
+  let overall = Math.min(raw, pronunciation + AZURE_OVERALL_CAP_OVER_PRON);
+  // 🏆 발음이 «완벽» 이라 부를 수준이 아니면 S 자리(95+)는 비워 둔다 — 위 AZURE_S_MIN_PRON 주석 참고
+  if (pronunciation < AZURE_S_MIN_PRON && overall > 94) overall = 94;
+
+  return {
+    ...base,
+    accuracy, pronunciation, fluency, completeness,
+    acoustic: true, phoneme: true,
+    overall,
   };
 }
 

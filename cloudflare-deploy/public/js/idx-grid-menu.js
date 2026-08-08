@@ -755,7 +755,7 @@
     <div class="cs-hero">
       <div class="cs-hero-left">
         <div class="cs-hero-label">💬 카카오톡 상담</div>
-        <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" class="cs-hero-phone" style="font-size:clamp(20px,4vw,30px);text-decoration:none">카카오상담 바로하기</a>
+        <a href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" class="cs-hero-phone" style="font-size:clamp(20px,4vw,30px);text-decoration:none">카카오상담 바로하기</a>
         <div class="cs-hero-hours">
           <span class="cs-dot"></span>
           운영시간 <b>10:00 ~ 23:00</b>
@@ -763,7 +763,7 @@
         </div>
       </div>
       <div class="cs-hero-right">
-        <a href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener" class="cs-hero-cta">💬 바로 채팅 시작 →</a>
+        <a href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" class="cs-hero-cta">💬 바로 채팅 시작 →</a>
       </div>
     </div>
 
@@ -1254,7 +1254,12 @@
     },
     reviews:     () => { closeGrid(); showModal(REVIEWS); },
     diagnosis:   () => { closeGrid(); runDiagnosis(); },
-    kakao:       () => { closeGrid(); window.open('https://pf.kakao.com/_xlqnSxd/chat', '_blank'); },
+    /* 💬 상담 = 채널 «홈». /chat 을 붙이면 비로그인 PC 가 카카오 로그인 화면으로 튕긴다.
+       window.open 이 막히면(인앱 브라우저) 같은 창으로라도 연다 — 조용히 죽는 것이 최악. */
+    kakao:       () => { closeGrid();
+                         if (window.openKakao) return window.openKakao();
+                         const u = 'https://pf.kakao.com/_xlqnSxd';
+                         if (!window.open(u, '_blank', 'noopener')) location.href = u; },
     remote:      () => { closeGrid(); openRemoteSupportModal(); },
     installguide:() => { closeGrid(); showModal(INSTALLGUIDE); },
     library:     () => { closeGrid(); showModal(LIBRARY); },

@@ -54,7 +54,10 @@
   .remind span{display:block;color:#cbb994;font-size:12.5px;line-height:1.6}
   .muted{font-size:12px;color:#6b7a99;line-height:1.7;text-align:center;margin-top:18px}
   .err{background:rgba(239,68,68,.1);border-color:rgba(248,113,113,.4);color:#fecaca}
-  a.help{color:#a5b4fc;font-weight:700;text-decoration:none}
+  /* 💬 문의 = 카카오 채널. 문자로 들어오는 화면이라 «폰에서 엄지로» 누른다 —
+     12px 인라인 글자는 조준이 안 된다. 색은 카카오 노랑으로, 손가락 크기의 칩으로 준다. */
+  a.help{display:inline-block;margin-left:4px;padding:9px 15px;border-radius:99px;
+         background:#FEE500;color:#191919;font-weight:800;font-size:13px;text-decoration:none}
 </style>
 </head>
 <body>
@@ -66,7 +69,18 @@
   <div id="body"><div class="card"><div class="sub" data-ko="불러오는 중…" data-en="Loading…">불러오는 중…</div></div></div>
   <div class="muted">
     <span data-ko="문의" data-en="Questions">문의</span>
-    <a class="help" href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener">카카오톡 채널</a>
+    <!-- 🔴 fix (2026-08-08) — 눌러도 아무 일이 안 일어나던 카카오 채널 링크.
+         원인이 둘이었다.
+         ① 주소가 `/chat` 이었다. PC 웹에서 pf.kakao.com/<id>/chat 은 «비로그인이면»
+            accounts.kakao.com 로그인 화면으로 튕긴다. 문의하려던 학부모가 로그인 벽을 만난다.
+            채널 «홈»(/<id>)은 로그인 없이 열리고, 그 안에 「채팅으로 문의하기」·전화·위치가 다 있다.
+         ② 이 화면은 문자 링크로 들어온다 → 카톡·문자앱 «인앱 브라우저» 인 경우가 많은데
+            거기선 target="_blank" 가 조용히 씹힌다(새 창을 못 연다). 그래서 아래에서
+            window.open 이 실패하면 같은 창으로라도 반드시 연다.
+         ⚠️ 채널 ID `_xlqnSxd` 는 저장소 전체 공통값이다. 바꿀 일이 생기면 여기만 고치지 말 것. -->
+    <a class="help" id="kakao-help" href="https://pf.kakao.com/_xlqnSxd"
+       target="_blank" rel="noopener"
+       data-ko="💬 카카오톡 채널 문의" data-en="💬 Ask on KakaoTalk">💬 카카오톡 채널 문의</a>
   </div>
 </div>
 
@@ -294,12 +308,25 @@
 
   /* 🔄 30초마다 다시 확인 — 학부모가 화면을 열어 두고 기다리는 것이 자연스러운 흐름이다.
      새로고침을 시키면 그 순간 이탈한다. 시간이 되면 입장 버튼이 «저절로» 나타나야 한다. */
+  /* 💬 카카오 채널 — 인앱 브라우저에서 «새 창» 이 막히면 아무 일도 안 일어난 것처럼 보인다.
+     열리지 않으면 같은 창으로라도 반드시 연다. 문의 창구가 조용히 죽는 것이 최악이다. */
+  (function(){
+    var kh = document.getElementById('kakao-help');
+    if (!kh) return;
+    kh.addEventListener('click', function(e){
+      var url = this.href, w = null;
+      try { w = window.open(url, '_blank', 'noopener'); } catch(_){}
+      if (!w) { e.preventDefault(); location.href = url; }   // 팝업차단·인앱: 같은 창으로
+      else e.preventDefault();                               // 새 창이 떴으면 중복 이동 방지
+    });
+  })();
+
   applyStatic();
   load();
   timer = setInterval(load, 30000);
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
 })();
 </script>
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 </body>
 </html>

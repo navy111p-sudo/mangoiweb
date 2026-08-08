@@ -30,7 +30,11 @@
     { ko: '수업 종료 / 연장', en: 'End / extend classes', card: 'card-active-rooms', sub: null,
       ico: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },
     { ko: '수강신청 / 등록', en: 'Enrollment', card: 'card-enrollments', sub: null,
-      ico: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' }
+      ico: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' },
+    /* (2026-08-08 사장님) 레벨테스트는 «교육/콘텐츠» 하위에 있어 두 번 눌러야 닿았다.
+       중요한 기능이라 자주 쓰는 기능 맨 마지막에 바로가기를 얹는다 — 기존 메뉴 위치는 그대로 둔다. */
+    { ko: '📊 레벨테스트', en: '📊 Level Test', card: 'card-level-tests', sub: null,
+      ico: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' }
   ];
 
   /* 카드로 이동 + 펼치기 + 잠깐 강조.

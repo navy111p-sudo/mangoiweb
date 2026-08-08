@@ -141,7 +141,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=4"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=5"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -153,17 +153,20 @@
          (스윕이 늦어져도 최대 1.2초 뒤 무조건 표시 — 화면이 안 뜨는 사고 방지)
      ═══════════════════════════════════════════════════════════════════════ -->
 <style id="adm-en-boot-gate">html.adm-en-pending body{visibility:hidden !important}</style>
+<!-- 🐢 좁은 회선·싼 폰 절약 장치 (2026-08-08) — 반드시 «다른 스크립트보다 먼저, defer 없이».
+     늦게 실리면 그 전에 걸린 타이머를 영영 못 잡는다. 하는 일은 파일 머리 주석 참조. -->
+<script src="/js/net-lite.js?v=1"></script>
 <!-- 🌐 인라인이던 판정 로직을 /js/adm-lang-boot.js 로 옮겼다(2026-07-23).
      하위 페이지 19장도 같은 파일을 읽는다 — 복사본을 다시 만들지 말 것. -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
-<script defer src="/js/i18n-sweep.js?v=19"></script>
+<script defer src="/js/i18n-sweep.js?v=21"></script>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
 <!-- ⚡ 관리자 메뉴 로딩 가속 — fetch 타임아웃(무한 스피너 방지)+무거운 분석 GET 클라이언트 캐시. scope-guard 다음에 로드 -->
-<script src="/js/adm-perf.js?v=3" defer></script>
+<script src="/js/adm-perf.js?v=4" defer></script>
 
 <!-- 🗑️ (2026-07-22) Phase 58 'SW 킬' 스크립트 삭제 — 재추가 금지.
      아래 sw-always-fresh 가 SW 를 다시 등록하기 때문에, 새 탭에서 관리자에 들어올 때마다
@@ -517,7 +520,7 @@
 
         <!-- 💬 카톡상담 -->
         <a id="kakao-chat-fab" class="mi-sd-action mi-sd-kakao" role="menuitem"
-           href="https://pf.kakao.com/_xlqnSxd/chat" target="_blank" rel="noopener"
+           href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener"
            aria-label="카톡상담"
            onclick="if(window.miSdClose)window.miSdClose();">
           <span class="mi-sd-ico" aria-hidden="true">
@@ -552,7 +555,67 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=3"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=13"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+
+    <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
+         왜 여기냐 —
+           위 admin-inline-c.css 가 `.card-value{color:… !important}` 로 모든 숫자를 한 색으로 못박는다.
+           그래서 인라인 style="color:…" 은 먹지 않는다. 이길 수 있는 유일한 자리가 «그 뒤 + !important».
+         왜 이 색만이냐 —
+           한쪽 변만 칠하던 컬러 스트라이프를 전부 걷어냈다(방향 있는 선은 «여기서 잘렸나»로 읽히고,
+           박스마다 다른 변이 칠해지면 눈이 줄을 못 맞춘다). 대신 색을 «지금 손봐야 하는 숫자»에만 남긴다.
+           색이 적어야 색이 눈에 띈다. 배경 틴트는 쓰지 않는다 — 테마가 흰 배경을 !important 로 고정하고 있어
+           억지로 덮으면 이 페이지만 테마에서 떨어져 나온다. -->
+    <style id="dash-value-colors">
+      /* ⚠️ #kpi-today 안쪽은 테마가 `html[data-admin-theme="ivory"] #kpi-today .card-value` 로 잡고 있다.
+         id 하나짜리 선택자로는 못 이긴다 → 부모 id 를 같이 적어 id 2개로 올린다.
+         (이 한 줄을 놓쳐서 «규칙은 넣었는데 색이 안 바뀌는» 상태였다) */
+      #kpi-today #today-absence { color:#b91c1c !important }   /* 결석률 — 나쁜 쪽 */
+      #sf-dropped               { color:#b91c1c !important }   /* 기간 내 탈락 */
+      #sf-net                   { color:#047857 !important }   /* 순 증가 — 좋은 쪽 */
+
+      /* ═══════════════════════════════════════════════════════════════════
+         📊 통합 대시보드 안쪽 타일 — 한 얼굴로 통일
+
+         왜 여기서 또 한 번 —
+           테마(admin-inline-c.css)에 `.kpi-tile` 을 다시 칠하는 ivory 층이 여러 겹 있다.
+           그중 가장 센 것이 `html[data-admin-theme="ivory"][data-admin-tone="slate"] .kpi-tile.kpi-overdue`
+           라, 클래스만으로는 못 이긴다. → id(#card-dashboard)로 스코프를 올려 한 번에 정리한다.
+           이 카드 안에서만 적용되므로 다른 화면은 건드리지 않는다.
+
+         규칙은 하나 — 여덟 타일이 전부 같은 얼굴, 색은 «손봐야 하는 것»에만 «면»으로.
+         ═══════════════════════════════════════════════════════════════════ */
+      #card-dashboard #card-kpi-dashboard .kpi-tile{
+        background:#fff !important; border:1px solid rgba(15,23,42,.10) !important;
+        border-radius:12px !important; box-shadow:none !important; padding:12px 14px !important;
+      }
+      #card-dashboard #card-kpi-dashboard .kpi-tile::before{ content:none !important }        /* 왼쪽 컬러바 */
+      #card-dashboard #card-kpi-dashboard .kpi-tile *{ color:inherit !important }             /* 다크층의 흰 글자 해제 */
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-label{ color:#6b7280 !important; font-size:11.5px !important; font-weight:800 !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-value{ color:#1f2937 !important; font-size:22px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-unit { color:#9ca3af !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile .kpi-sub  { color:#9ca3af !important; font-size:11px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile:hover{ background:#fcfcfd !important }    /* hover 는 색만 */
+      /* 유일한 색 — 미납(손봐야 하는 것) */
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue{ background:#fdf4f4 !important; border-color:#f0d2d2 !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue:hover{ background:#fcefef !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue .kpi-value{ color:#b91c1c !important }
+      #card-dashboard #card-kpi-dashboard .kpi-tile.kpi-overdue .kpi-label{ color:#9a5b5b !important }
+      /* 추세 배지 */
+      #card-dashboard #card-kpi-dashboard .kpi-trend{ border-radius:999px !important; padding:1px 7px !important; font-size:10.5px !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.up  { color:#047857 !important; background:#e8f6ee !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.down{ color:#b91c1c !important; background:#fdecec !important }
+      #card-dashboard #card-kpi-dashboard .kpi-trend.flat{ color:#6b7280 !important; background:#f3f4f6 !important }
+      /* 7일 매출 미니 막대 — 한 가지 색 */
+      #card-dashboard #card-kpi-dashboard .kpi-spark-bar{ background:#f59e0b !important }
+      /* 카드 안 .card 들(매출 5개·학생흐름 4개)도 같은 얼굴로 */
+      #card-dashboard #card-daily-charts .card{
+        background:#fff !important; border:1px solid rgba(15,23,42,.10) !important;
+        border-radius:12px !important; box-shadow:none !important;
+      }
+      #card-dashboard #card-daily-charts .card::before,
+      #card-dashboard #card-daily-charts .card::after{ content:none !important }
+    </style>
 
     <script id="mi-speed-dial-js">
     (function(){
@@ -807,24 +870,26 @@
 <!-- 🥭 Phase 20 — 오늘의 KPI 4박스 (매출·학생수·결석률·신규등록)
      - 위 .grid#kpi 가 7일 누적 4박스, 이 .grid#kpi-today 가 오늘 4박스
      - 같은 .card 스타일 재사용해서 시각적 통일
-     - 좌측 색 보더로 일일 지표임을 시각 구분 -->
+     - 🎨 (2026-08-08) 한쪽 변만 색칠하던 것을 없앴다. 방향이 있는 선은 «여기서 잘렸나» 처럼 보이고,
+       박스마다 다른 변이 칠해지면 눈이 줄을 못 맞춘다. 네 변 모두 같은 얇은 테두리로,
+       색은 «지금 손봐야 하는 것»(결석률)에만 면으로 아주 옅게. -->
 <div class="grid" id="kpi-today">
-  <div class="card" style="border-left:4px solid #f59e0b">
+  <div class="card">
     <div class="card-label" data-ko="📅 오늘의 매출" data-en="📅 Today's Revenue">📅 오늘의 매출</div>
     <div class="card-value" id="today-revenue">—</div>
     <div class="card-sub" id="today-revenue-sub" data-ko="KST 기준 오늘 결제 합계" data-en="KST today's payments">KST 기준 오늘 결제 합계</div>
   </div>
-  <div class="card" style="border-left:4px solid #10b981">
+  <div class="card">
     <div class="card-label" data-ko="👥 오늘의 학생수" data-en="👥 Today's Students">👥 오늘의 학생수</div>
     <div class="card-value" id="today-students">—</div>
     <div class="card-sub" id="today-students-sub" data-ko="오늘 출석한 고유 학생" data-en="Unique students attended today">오늘 출석한 고유 학생</div>
   </div>
-  <div class="card" style="border-left:4px solid #ef4444">
+  <div class="card">
     <div class="card-label" data-ko="🚫 오늘의 결석률" data-en="🚫 Today's Absence Rate">🚫 오늘의 결석률</div>
     <div class="card-value" id="today-absence">—</div>
     <div class="card-sub" id="today-absence-sub" data-ko="결석 / 예정 수업" data-en="Absent / Scheduled">결석 / 예정 수업</div>
   </div>
-  <div class="card" style="border-left:4px solid #3b82f6">
+  <div class="card">
     <div class="card-label" data-ko="✨ 오늘의 신규 등록" data-en="✨ New Signups Today">✨ 오늘의 신규 등록</div>
     <div class="card-value" id="today-signups">—</div>
     <div class="card-sub" id="today-signups-sub" data-ko="오늘 신규 가입 학생" data-en="New students enrolled today">오늘 신규 가입 학생</div>
@@ -979,30 +1044,89 @@
 <script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
 <script src="/js/adm-quickmenu.js?v=1" defer></script>
 
-<details class="table-card menu-card" id="card-ai-insights">
-  <summary><span data-ko="🤖 AI 인사이트 대시보드" data-en="🤖 AI Insight Dashboards">🤖 AI 인사이트 대시보드</span></summary>
-  <div class="menu-body">
-    
-    <div class="ai-hub-grid">
-      <a class="ai-hub-card fin" href="/admin/finance-realtime">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 8-8"/><path d="M15 7h5v5"/></svg></span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
-        <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
-      </a>
-      <a class="ai-hub-card lrn" href="/admin/learning-insights">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5"/></svg></span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
-        <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
-      </a>
-      <a class="ai-hub-card mkt" href="/admin/marketing-studio">
-        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l5 4V6l-5 4H3z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a7.5 7.5 0 010 11"/></svg></span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
-        <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
-      </a>
-    </div>
-  </div>
-</details>
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     📊 통합 대시보드 (2026-08-08)
 
-<details class="table-card menu-card" id="card-kpi-dashboard">
-  <summary><span data-ko="📊 운영 대시보드 KPI" data-en="📊 Operations KPI Dashboard">📊 운영 대시보드 KPI</span></summary>
+     왜 합쳤나 —
+       「🌅 아침 브리핑」·「🤖 AI 인사이트」·「📊 운영 KPI」·「📅 일자별 차트」 네 카드가
+       같은 질문(«어제 무슨 일이 있었나»)에 서로 다른 숫자로 답하고 있었다.
+       이번 달 매출·활동 학생·이번 달 출석·매출 추세가 겹치고, 브리핑의 6개 칩은
+       운영 KPI 타일의 부분집합이었다. 심지어 «미납»과 «출석»은 두 카드가 서로 다른 표를 봤다.
+       → 카드 하나 + 탭 3개로 묶어 «정본은 하나»를 강제한다.
+
+     ⚠️ 각 카드의 내용은 «한 줄도 바꾸지 않고» 그대로 옮겼다.
+       내부를 쪼개면 위험만 커지고 얻는 게 없다. 바뀐 것은 «담는 그릇»뿐이다.
+
+     ⚠️ 옛 카드 id 4개(card-daily-briefing · card-kpi-dashboard · card-daily-charts ·
+       card-ai-insights)는 탭 안쪽 <div> 에 그대로 남긴다. 이 id 들은
+       퀵메뉴·사이드바(ph85)·통합검색·AI 명령 라우터(adm-p2)·쉬운말 툴팁·아이콘맵·
+       권한 매트릭스(adm-q10)·jumpToMenu 등 열 곳 넘게서 참조한다. 지우면 다 끊긴다.
+       대신 아래 스크립트가 «그 id 에 open=true 를 넣으면 이 카드를 펼치고 해당 탭으로»
+       가도록 이어 준다 — 부르는 쪽 코드는 한 글자도 안 고쳤다.
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<style id="dash-tabs-css">
+  /* 탭 — 그림자·그라데이션·hover 확대 없음. 강조는 색과 밑줄만(hover 확대는 «정신없다»고 걷어낸 것). */
+  #dash-tabs{display:flex;gap:2px;flex-wrap:wrap;border-bottom:2px solid rgba(15,23,42,.10);margin-bottom:14px}
+  #dash-tabs button{border:0 !important;background:transparent !important;padding:8px 15px;font-size:13.5px;
+    font-weight:800;color:#6b7280 !important;cursor:pointer;border-bottom:3px solid transparent !important;
+    margin-bottom:-2px;font-family:inherit;white-space:nowrap;border-radius:0 !important}
+  #dash-tabs button:hover{color:#7c2d12 !important}
+  #dash-tabs button.on{color:#7c2d12 !important;border-bottom-color:#f59e0b !important}
+  #dash-tabs button[hidden]{display:none}
+  .dash-pane[hidden]{display:none}
+  /* 접힘 요약줄 — 카드를 열지 않고도 핵심 숫자와 브리핑 한 줄이 보인다(둘 다 이미 받아 둔 것이라 요청 0건) */
+  #dash-sum-r1{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  #dash-pills{display:flex;gap:6px;flex-wrap:wrap}
+  #dash-pills .dp{background:rgba(255,255,255,.75);border:1px solid rgba(15,23,42,.10);border-radius:999px;
+    padding:2px 9px;font-size:11.5px;color:#4b5563;white-space:nowrap;font-variant-numeric:tabular-nums}
+  #dash-pills .dp b{color:#7c2d12;font-weight:900;font-size:12.5px}
+  #dash-pills .dp .u{color:#047857;font-weight:800;font-size:10.5px}
+  #dash-pills .dp .d{color:#b91c1c;font-weight:800;font-size:10.5px}
+  #dash-brief1{margin-top:6px;font-size:12.5px;color:#5b4636;background:rgba(255,251,240,.85);
+    border:1px solid rgba(180,140,60,.22);border-radius:9px;padding:6px 11px;line-height:1.55}
+</style>
+<details class="table-card menu-card" id="card-dashboard"
+         data-menu-label-ko="📊 통합 대시보드" data-menu-label-en="📊 Dashboard">
+  <summary>
+    <span id="dash-sum-r1">
+      <span data-ko="📊 통합 대시보드" data-en="📊 Dashboard">📊 통합 대시보드</span>
+      <span id="dash-pills"></span>
+    </span>
+    <span id="dash-brief1" hidden></span>
+  </summary>
   <div class="menu-body">
+    <div id="dash-tabs" role="tablist">
+      <button type="button" class="on" data-tab="today" data-card="card-kpi-dashboard"
+              data-ko="🌅 오늘" data-en="🌅 Today">🌅 오늘</button>
+      <button type="button" data-tab="chart" data-card="card-daily-charts"
+              data-ko="📈 매출·학생 추세" data-en="📈 Trends">📈 매출·학생 추세</button>
+      <button type="button" data-tab="ai" data-card="card-ai-insights"
+              data-ko="🤖 AI 인사이트" data-en="🤖 AI Insights">🤖 AI 인사이트</button>
+    </div>
+
+    <!-- ▸ 탭 1 : 오늘 — 브리핑 문장 + 그 근거가 되는 KPI 타일을 «한 화면에» 둔다.
+         따로 있을 때는 «위험 2809 vs 활동학생 2914» 같은 모순을 아무도 못 봤다. -->
+    <div class="dash-pane" id="dash-pane-today">
+      <div id="card-daily-briefing">
+    <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
+         data-ko="💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다."
+         data-en="💡 Runs automatically daily at KST 03:00 — yesterday's enrollment, inquiry, overdue, attendance, evaluation data summarized in 5-7 warm Korean sentences by AI (Llama 3.3 70B).">
+      💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button onclick="dbGenerate(true)" class="primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
+        <span data-ko="🔄 다시 생성" data-en="🔄 Re-generate">🔄 다시 생성</span>
+      </button>
+      <button onclick="dbLatest(1)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
+        <span data-ko="📋 최신 브리핑" data-en="📋 Latest">📋 최신 브리핑</span>
+      </button>
+      <button onclick="dbLatest(7)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
+        <span data-ko="📋 최근 7일" data-en="📋 Last 7 Days">📋 최근 7일</span>
+      </button>
+    </div>
+    <div id="db-result" style="margin-top:14px"></div>
+      </div>
+      <div id="card-kpi-dashboard" style="margin-top:14px">
     
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">↻ 새로고침</button>
@@ -1019,107 +1143,41 @@
       <div class="kpi-spark" id="kpi-spark"></div>
       <div id="kpi-spark-labels" style="display:flex;gap:2px;margin-top:4px;font-size:10px;color:#9ca3af"></div>
     </div>
-  </div>
-</details>
-<script>
-(function(){
-  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
-  const fmtWon = (n) => fmt(n) + '원';
-  const fmtTrend = (t) => {
-    if (t == null) return '';
-    if (t === 0) return '<span class="kpi-trend flat">→ 동일</span>';
-    if (t > 0) return `<span class="kpi-trend up">▲ +${t}%</span>`;
-    return `<span class="kpi-trend down">▼ ${t}%</span>`;
-  };
+      </div>
+    </div>
 
-  window.kpiLoad = async function(){
-    const wrap = document.getElementById('kpi-grid');
-    if (!wrap) return;
-    const isEn = (window.adminLang === 'en');
-    // 🔇 조용한 갱신(26-07-22): 5분 자동갱신·재진입 때마다 그리드를 스피너로 갈아끼우면
-    //   "계속 로딩이 돈다"로 보인다 → 이미 타일이 떠 있으면 스피너 없이 뒤에서 갱신.
-    const hasTiles = !!wrap.querySelector('.kpi-tile');
-    if (!hasTiles) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
-    try {
-      const r = await fetch('/api/admin/kpi/dashboard');
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
-      const k = d.kpi || {};
-      const tiles = [
-        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
-        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
-        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
-        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
-        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
-        { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
-        { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
-        { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
-      ];
-      wrap.innerHTML = tiles.map(t => `
-        <div class="kpi-tile ${t.cls}">
-          <div class="kpi-label">${t.label}</div>
-          <div class="kpi-value">${t.value}</div>
-          <div class="kpi-sub">${t.sub}</div>
-          ${t.trend}
-        </div>`).join('');
-      document.getElementById('kpi-updated').textContent = (isEn?'Updated: ':'최종 업데이트: ') + new Date(d.ts).toLocaleTimeString(isEn?'en-US':'ko-KR');
-
-      // 7일 매출 미니 차트
-      const dr = d.daily_revenue || [];
-      const max = Math.max(1, ...dr.map(x => x.revenue || 0));
-      const total = dr.reduce((s,x)=>s+(x.revenue||0), 0);
-      document.getElementById('kpi-spark-total').textContent = (isEn?'Total ':'합계 ') + fmtWon(total);
-      const spark = document.getElementById('kpi-spark');
-      spark.innerHTML = dr.map(x => {
-        const h = max > 0 ? Math.max(2, (x.revenue/max)*100) : 2;
-        return `<div class="kpi-spark-bar" style="height:${h}%" title="${x.date}: ${fmtWon(x.revenue)}"></div>`;
-      }).join('');
-      const labels = document.getElementById('kpi-spark-labels');
-      labels.innerHTML = dr.map(x => `<div style="flex:1;text-align:center">${x.date}</div>`).join('');
-    } catch(e) {
-      // 백그라운드 갱신 실패면 기존 타일 유지(스피너/에러로 갈아끼우지 않음)
-      if (!wrap.querySelector('.kpi-tile')) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
-    }
-  };
-  // 페이지 로드 시 자동 + 5분마다 새로고침
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(kpiLoad, 500));
-  else setTimeout(kpiLoad, 500);
-  setInterval(kpiLoad, 5*60*1000);
-})();
-</script>
-
-<details class="table-card menu-card" id="card-daily-charts">
-  <summary><span data-ko="📅 일자별 차트 (출석·보상·매출·학생)" data-en="📅 Daily Charts (Attendance · Rewards · Revenue · Students)">📅 일자별 차트 (출석·보상·매출·학생)</span></summary>
-  <div class="menu-body">
+    <!-- ▸ 탭 2 : 매출·학생 추세 -->
+    <div class="dash-pane" id="dash-pane-chart" hidden>
+      <div id="card-daily-charts">
     <!-- (역할 안내 배너 제거: 사용자 요청) -->
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px" id="rev-kpis">
-      <div class="card" style="text-align:center;border-top:3px solid #f59e0b">
+      <div class="card" style="text-align:center">
         <div class="card-label" data-ko="오늘 매출" data-en="Today">오늘 매출</div>
         <div class="card-value" id="rev-today">—</div>
         <div class="card-sub" data-ko="최근 14일 추이" data-en="Last 14 days">최근 14일 추이</div>
         <div class="spark-wrap"><canvas id="spark-today"></canvas></div>
       </div>
-      <div class="card" style="text-align:center;border-top:3px solid #ea580c">
+      <div class="card" style="text-align:center">
         <div class="card-label" data-ko="이번 달 매출" data-en="This Month">이번 달 매출</div>
         <div class="card-value" id="rev-month">—</div>
         <div class="card-sub" data-ko="최근 6개월 추이" data-en="Last 6 months">최근 6개월 추이</div>
         <div class="spark-wrap"><canvas id="spark-month"></canvas></div>
       </div>
-      <div class="card" style="text-align:center;border-top:3px solid #dc2626">
+      <div class="card" style="text-align:center">
         <div class="card-label" data-ko="이번 분기 매출" data-en="This Quarter">이번 분기 매출</div>
         <div class="card-value" id="rev-quarter">—</div>
         <div class="card-sub" data-ko="최근 6분기 추이" data-en="Last 6 quarters">최근 6분기 추이</div>
         <div class="spark-wrap"><canvas id="spark-quarter"></canvas></div>
       </div>
-      <div class="card" style="text-align:center;border-top:3px solid #a855f7">
+      <div class="card" style="text-align:center">
         <div class="card-label" data-ko="반기 매출" data-en="Half-year">반기 매출</div>
         <div class="card-value" id="rev-half">—</div>
         <div class="card-sub" data-ko="최근 4반기 추이" data-en="Last 4 halves">최근 4반기 추이</div>
         <div class="spark-wrap"><canvas id="spark-half"></canvas></div>
       </div>
-      <div class="card" style="text-align:center;border-top:3px solid #3b82f6">
+      <div class="card" style="text-align:center">
         <div class="card-label" data-ko="연간 매출" data-en="This Year">연간 매출</div>
         <div class="card-value" id="rev-year">—</div>
         <div class="card-sub" data-ko="최근 5년 추이" data-en="Last 5 years">최근 5년 추이</div>
@@ -1168,13 +1226,318 @@
 
     <!-- 📊 학생 흐름 KPI 카드 -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
-      <div class="card" style="text-align:center;border-left:4px solid #10b981"><div class="card-label" data-ko="활성 학생" data-en="Active">활성 학생</div><div class="card-value" id="sf-active" style="color:#10b981">—</div></div>
-      <div class="card" style="text-align:center;border-left:4px solid #3b82f6"><div class="card-label" data-ko="기간 내 신규" data-en="New (period)">기간 내 신규</div><div class="card-value" id="sf-new" style="color:#3b82f6">—</div></div>
-      <div class="card" style="text-align:center;border-left:4px solid #ef4444"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped" style="color:#ef4444">—</div></div>
-      <div class="card" style="text-align:center;border-left:4px solid #f59e0b"><div class="card-label" data-ko="순 증가" data-en="Net Growth">순 증가</div><div class="card-value" id="sf-net" style="color:#f59e0b">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="활성 학생" data-en="Active">활성 학생</div><div class="card-value" id="sf-active">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 신규" data-en="New (period)">기간 내 신규</div><div class="card-value" id="sf-new">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped">—</div></div>
+      <div class="card" style="text-align:center"><div class="card-label" data-ko="순 증가" data-en="Net Growth">순 증가</div><div class="card-value" id="sf-net">—</div></div>
+    </div>
+      </div>
+    </div>
+
+    <!-- ▸ 탭 3 : AI 인사이트 — 링크만 있어 API 를 부르지 않는다. 카드 한 칸 대신 탭 한 칸이면 충분하다. -->
+    <div class="dash-pane" id="dash-pane-ai" hidden>
+      <div id="card-ai-insights">
+    
+    <div class="ai-hub-grid">
+      <a class="ai-hub-card fin" href="/admin/finance-realtime">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 3 3 8-8"/><path d="M15 7h5v5"/></svg></span><span><span class="tt" data-ko="실시간 재무" data-en="Live Finance">실시간 재무</span>
+        <span class="ds" data-ko="일·주 수입/지출·순이익·스냅샷" data-en="Daily/weekly income·expense·net">일·주 수입/지출·순이익·스냅샷</span></span>
+      </a>
+      <a class="ai-hub-card lrn" href="/admin/learning-insights">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4L2 9l10 5 10-5-10-5z"/><path d="M6 11.5V16c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-4.5"/></svg></span><span><span class="tt" data-ko="학습 인사이트" data-en="Learning Insights">학습 인사이트</span>
+        <span class="ds" data-ko="위험도 세그먼트·장기 트렌드" data-en="Risk segments·long-term trends">위험도 세그먼트·장기 트렌드</span></span>
+      </a>
+      <a class="ai-hub-card mkt" href="/admin/marketing-studio">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l5 4V6l-5 4H3z"/><path d="M16.5 9a4 4 0 010 6"/><path d="M19 6.5a7.5 7.5 0 010 11"/></svg></span><span><span class="tt" data-ko="마케팅 스튜디오" data-en="Marketing Studio">마케팅 스튜디오</span>
+        <span class="ds" data-ko="AI 카피 생성·세그먼트 타겟팅" data-en="AI copy·segment targeting">AI 카피 생성·세그먼트 타겟팅</span></span>
+      </a>
+    </div>
+      </div>
     </div>
   </div>
 </details>
+
+<script id="kpi-dashboard-loader">
+/* ⚠️ (2026-08-08) 이 블록은 통합 대시보드 병합 때 «같이 잘려» 사라졌었다.
+     네 카드를 한 카드로 합치면서 줄 범위를 통째로 갈아끼웠는데, 하필 카드와 카드 사이에
+     이 <script> 가 끼어 있었다. 마크업(id)은 다 살아 있어서 화면은 멀쩡해 보였고,
+     대신 window.kpiLoad 가 정의되지 않아 KPI 8타일이 «📥 로딩 중…» 에서 영원히 멈췄다.
+     → 교훈: 카드를 옮길 때는 «그 사이에 있는 스크립트»를 따로 세어 볼 것.
+       (전역함수 이름을 대조하면 바로 잡힌다: 병합 전후로 window.* 목록을 비교) */
+(function(){
+  const fmt = (n) => (Number(n)||0).toLocaleString('ko-KR');
+  const fmtWon = (n) => fmt(n) + '원';
+  const fmtTrend = (t) => {
+    if (t == null) return '';
+    if (t === 0) return '<span class="kpi-trend flat">→ 동일</span>';
+    if (t > 0) return `<span class="kpi-trend up">▲ +${t}%</span>`;
+    return `<span class="kpi-trend down">▼ ${t}%</span>`;
+  };
+
+  window.kpiLoad = async function(){
+    const wrap = document.getElementById('kpi-grid');
+    if (!wrap) return;
+    const isEn = (window.adminLang === 'en');
+    // 🔇 조용한 갱신(26-07-22): 5분 자동갱신·재진입 때마다 그리드를 스피너로 갈아끼우면
+    //   "계속 로딩이 돈다"로 보인다 → 이미 타일이 떠 있으면 스피너 없이 뒤에서 갱신.
+    const hasTiles = !!wrap.querySelector('.kpi-tile');
+    if (!hasTiles) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280">'+(isEn?'📥 Loading KPIs…':'📥 KPI 로딩 중…')+'</div>';
+    try {
+      const r = await fetch('/api/admin/kpi/dashboard');
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || (isEn?'Failed to load KPIs':'KPI 로드 실패'));
+      const k = d.kpi || {};
+      const tiles = [
+        { cls:'kpi-students', label:(isEn?'Active Students':'활동 학생'), value:fmt(k.students.total), sub:(isEn?`+${fmt(k.students.new_this_month)} new this month`:`이번 달 신규 +${fmt(k.students.new_this_month)}명`), trend:fmtTrend(k.students.trend) },
+        { cls:'kpi-revenue', label:(isEn?"This Month's Revenue":'이번 달 매출'), value:fmtWon(k.revenue.this_month), sub:(isEn?`${fmt(k.revenue.this_month_count)} payments`:`결제 ${fmt(k.revenue.this_month_count)}건`), trend:fmtTrend(k.revenue.trend) },
+        { cls:'kpi-attendance', label:(isEn?"This Month's Attendance":'이번 달 출석'), value:fmt(k.attendance.this_month), sub:(isEn?`${fmt(k.attendance.last_month)} last month`:`전월 ${fmt(k.attendance.last_month)}회`), trend:fmtTrend(k.attendance.trend) },
+        { cls:'kpi-eval', label:(isEn?'Avg Evaluation':'평가서 평균'), value:(k.evaluation.avg_score||0).toFixed(1)+'<span class="kpi-unit">/5</span>', sub:(isEn?`${fmt(k.evaluation.count)} written · ${fmt(k.evaluation.notified)} via KakaoTalk`:`${fmt(k.evaluation.count)}건 작성 · ${fmt(k.evaluation.notified)}건 카톡`), trend:'' },
+        { cls:'kpi-overdue', label:(isEn?'Overdue Students':'미납 학생'), value:fmt(k.overdue.count), sub:(isEn?`${fmt(k.overdue.notified_this_month)} reminders sent (this month)`:`알림 ${fmt(k.overdue.notified_this_month)}건 발송 (이번 달)`), trend:'' },
+        { cls:'kpi-points', label:(isEn?"This Month's Points":'이번 달 포인트'), value:fmt(k.points.earned_this_month)+'<span class="kpi-unit">P</span>', sub:(isEn?`${fmt(k.points.spent_this_month)}P spent`:`사용 ${fmt(k.points.spent_this_month)}P`), trend:'' },
+        { cls:'kpi-chat', label:(isEn?'Chat Messages':'채팅 메시지'), value:fmt(k.chat.messages_this_month), sub:(isEn?'Cumulative this month':'이번 달 누적'), trend:'' },
+        { cls:'kpi-inquiry', label:(isEn?'New Inquiries':'신규 상담'), value:fmt(k.inquiry.last_30_days), sub:(isEn?'Last 30 days':'최근 30일'), trend:'' },
+      ];
+      wrap.innerHTML = tiles.map(t => `
+        <div class="kpi-tile ${t.cls}">
+          <div class="kpi-label">${t.label}</div>
+          <div class="kpi-value">${t.value}</div>
+          <div class="kpi-sub">${t.sub}</div>
+          ${t.trend}
+        </div>`).join('');
+      // 📊 접힘 요약줄(pill) 도 같은 응답을 그대로 쓴다 — 추가 요청 0건
+      try { if (typeof window.dashRenderPills === 'function') window.dashRenderPills(k); } catch(e){}
+      document.getElementById('kpi-updated').textContent = (isEn?'Updated: ':'최종 업데이트: ') + new Date(d.ts).toLocaleTimeString(isEn?'en-US':'ko-KR');
+
+      // 7일 매출 미니 차트
+      const dr = d.daily_revenue || [];
+      const max = Math.max(1, ...dr.map(x => x.revenue || 0));
+      const total = dr.reduce((s,x)=>s+(x.revenue||0), 0);
+      document.getElementById('kpi-spark-total').textContent = (isEn?'Total ':'합계 ') + fmtWon(total);
+      const spark = document.getElementById('kpi-spark');
+      spark.innerHTML = dr.map(x => {
+        const h = max > 0 ? Math.max(2, (x.revenue/max)*100) : 2;
+        return `<div class="kpi-spark-bar" style="height:${h}%" title="${x.date}: ${fmtWon(x.revenue)}"></div>`;
+      }).join('');
+      const labels = document.getElementById('kpi-spark-labels');
+      labels.innerHTML = dr.map(x => `<div style="flex:1;text-align:center">${x.date}</div>`).join('');
+    } catch(e) {
+      // 백그라운드 갱신 실패면 기존 타일 유지(스피너/에러로 갈아끼우지 않음)
+      if (!wrap.querySelector('.kpi-tile')) wrap.innerHTML = '<div style="grid-column:1/-1;padding:30px;color:#ef4444;text-align:center">❌ '+e.message+'</div>';
+    }
+  };
+  // 페이지 로드 시 자동 + 5분마다 새로고침
+  //
+  // 🐢 (2026-08-08) 두 가지를 고쳤다.
+  //   ① 5분 자동 갱신이 «카드가 접혀 있어도» 계속 돌았다. 아무도 안 보는 화면을 위해
+  //      5분마다 API 를 한 번씩 쓰고 있었다 → 펼쳐져 있을 때만 돈다.
+  //   ② 탭이 백그라운드로 내려가 있으면 갱신하지 않는다. 돌아올 때 어차피 한 번 부른다.
+  //      (관리자 콘솔을 하루 종일 켜 두는 사무실 PC 에서 특히 크다)
+  function kpiCardOpen(){
+    var c = document.getElementById('card-dashboard') || document.getElementById('card-kpi-dashboard');
+    return !!(c && c.open);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(kpiLoad, 500));
+  else setTimeout(kpiLoad, 500);
+  setInterval(function(){
+    if (!kpiCardOpen()) return;
+    if (document.visibilityState === 'hidden') return;
+    kpiLoad();
+  }, 5*60*1000);
+})();
+</script>
+<script id="dash-tab-controller">
+/* ═══════════════════════════════════════════════════════════════════════════
+   📊 통합 대시보드 — 탭 전환 + «옛 카드 id» 이어주기 (2026-08-08)
+
+   이 스크립트에서 가장 중요한 부분은 탭 전환이 아니라 아래 «open 이어주기» 다.
+   카드 4개를 하나로 합치면서 옛 id 들은 <details> 가 아니라 탭 안쪽 <div> 가 됐다.
+   그런데 사이드바·통합검색·AI 명령 라우터·jumpToMenu 는 전부
+   «getElementById(id).open = true» 로 카드를 연다. div 에 open 을 넣으면 아무 일도
+   일어나지 않으므로, 열 곳 넘는 진입 경로가 조용히 죽는다 —
+   «눌러도 아무 반응이 없다» 는, 제일 알아채기 어려운 고장이다.
+
+   → 그 div 들의 open 프로퍼티를 가로채서, 넣으면 이 카드를 펼치고 해당 탭으로 간다.
+     부르는 쪽 코드는 한 글자도 안 고쳤다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var TAB_OF = {
+    'card-daily-briefing': 'today',
+    'card-kpi-dashboard':  'today',
+    'card-daily-charts':   'chart',
+    'card-ai-insights':    'ai'
+  };
+
+  var card   = document.getElementById('card-dashboard');
+  var tabsEl = document.getElementById('dash-tabs');
+  if (!card || !tabsEl) return;
+
+  var cur = 'today';
+
+  function buttons(){ return tabsEl.querySelectorAll('button[data-tab]'); }
+  function panes(){ return card.querySelectorAll('.dash-pane'); }
+
+  function firstVisibleTab(){
+    var bs = buttons();
+    for (var i = 0; i < bs.length; i++) if (!bs[i].hidden) return bs[i].getAttribute('data-tab');
+    return null;
+  }
+
+  window.dashSelectTab = function (name) {
+    var bs = buttons(), ok = false, i;
+    for (i = 0; i < bs.length; i++) if (bs[i].getAttribute('data-tab') === name && !bs[i].hidden) ok = true;
+    if (!ok) { name = firstVisibleTab(); if (!name) return; }
+    cur = name;
+    for (i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i].getAttribute('data-tab') === name);
+    var ps = panes();
+    for (i = 0; i < ps.length; i++) ps[i].hidden = (ps[i].id !== 'dash-pane-' + name);
+    onTabShown(name);
+  };
+
+  // 탭을 «처음 보여줄 때» 그 탭 것만 불러온다. 두 번째부터는 이미 그려져 있으므로 조용하다.
+  var shown = {};
+  function onTabShown(name){
+    if (!card.open) return;          // 접혀 있으면 아무것도 안 부른다
+    if (shown[name]) return;
+    shown[name] = true;
+    try {
+      // 브리핑 — 대개 하루 캐시라 요청 0건
+      if (name === 'today' && typeof dbLatest === 'function') dbLatest(1);
+      // 차트 4개 + 스파크라인 5개 — 여기서 처음 그린다
+      if (name === 'chart' && typeof admDashOnOpen === 'function') admDashOnOpen();
+      // 'ai' 탭은 링크뿐이라 부를 것이 없다
+    } catch (e) { try { console.warn('[dash] tab load', name, e); } catch (_) {} }
+  }
+
+  tabsEl.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('button[data-tab]') : null;
+    if (!b) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.dashSelectTab(b.getAttribute('data-tab'));
+  });
+
+  // ── 옛 카드 id 이어주기 ──────────────────────────────────────────────
+  Object.keys(TAB_OF).forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el || el.tagName === 'DETAILS') return;   // 혹시 되돌려져 details 면 손대지 않는다
+    try {
+      Object.defineProperty(el, 'open', {
+        configurable: true,
+        get: function () { return !!card.open && cur === TAB_OF[id]; },
+        set: function (v) {
+          if (!v) { card.open = false; return; }
+          card.open = true;
+          window.dashSelectTab(TAB_OF[id]);
+        }
+      });
+    } catch (e) {}
+  });
+
+  // 카드를 펼치면 «지금 탭» 것만 그때 불러온다 (접혀 있는 동안은 아무것도 안 부른다)
+  card.addEventListener('toggle', function () { if (card.open) onTabShown(cur); });
+
+  // ── 권한: 숨겨진 옛 카드에 딸린 탭은 버튼째 숨긴다 ───────────────────
+  //   adm-q10.js(ph118Apply)가 옛 id 에 .ph118-card-hidden 을 붙이는 방식은 그대로 두고,
+  //   여기서는 그 «결과만» 읽어 탭에 반영한다 — 권한 매트릭스는 한 글자도 안 고쳤다.
+  //   ⚠️ 브리핑(card-daily-briefing)은 오늘 처음 권한 표에 올렸다. 그전까지는 표에 없어서
+  //      아무에게도 안 가려지고 있었다(그 표는 목록에 있는 카드만 가린다).
+  function syncPerm(){
+    var bs = buttons(), i;
+    for (i = 0; i < bs.length; i++) {
+      var owner = document.getElementById(bs[i].getAttribute('data-card'));
+      bs[i].hidden = !!(owner && owner.classList.contains('ph118-card-hidden'));
+    }
+    // 보고 있던 탭이 숨겨졌으면 남아 있는 첫 탭으로 옮긴다
+    var curHidden = true;
+    for (i = 0; i < bs.length; i++) {
+      if (bs[i].getAttribute('data-tab') === cur && !bs[i].hidden) curHidden = false;
+    }
+    if (curHidden) { var n = firstVisibleTab(); if (n) window.dashSelectTab(n); }
+    // 볼 수 있는 탭이 하나도 없으면 카드 자체를 숨긴다
+    if (firstVisibleTab()) card.classList.remove('ph118-card-hidden');
+    else card.classList.add('ph118-card-hidden');
+  }
+  window.dashSyncPerm = syncPerm;
+
+  // 권한 적용은 부팅 뒤 여러 번 일어난다(세션 로드·권한표 저장 등) → 클래스 변화를 관찰해 따라간다
+  try {
+    var mo = new MutationObserver(function () { syncPerm(); });
+    Object.keys(TAB_OF).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) mo.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+  } catch (e) {}
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncPerm);
+  else syncPerm();
+  setTimeout(syncPerm, 800);
+})();
+</script>
+
+<script id="dash-summary-line">
+/* 📊 접힘 요약줄 — 카드를 열지 않고도 핵심 숫자와 브리핑 한 줄이 보인다.
+   둘 다 «이미 받아 둔 것»을 다시 쓰는 것이라 요청이 늘지 않는다:
+     · 숫자 — 부팅 때 어차피 한 번 부르는 /api/admin/kpi/dashboard 결과를 그대로 사용
+     · 브리핑 — 날짜를 열쇠로 저장해 둔 하루 캐시 (없으면 그냥 안 보여준다. 받으러 가지 않는다)
+   직원 대부분은 이 한 줄이면 카드를 열 일 자체가 없다. */
+(function () {
+  'use strict';
+  var pillsEl = document.getElementById('dash-pills');
+  var b1El    = document.getElementById('dash-brief1');
+  if (!pillsEl) return;
+
+  function esc(t){ return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function n(v){ return (Number(v) || 0).toLocaleString('ko-KR'); }
+  function won(v){
+    v = Number(v) || 0;
+    if (v >= 100000000) return (v/100000000).toFixed(1) + '억';
+    if (v >= 10000)     return Math.round(v/10000).toLocaleString('ko-KR') + '만';
+    return n(v);
+  }
+  function arrow(t){
+    if (t == null || t === 0) return '';
+    return t > 0 ? ' <span class="u">▲</span>' : ' <span class="d">▼</span>';
+  }
+
+  // KPI 응답 → pill 6개
+  window.dashRenderPills = function (k) {
+    if (!k) return;
+    var en = (window.adminLang === 'en');
+    var items = [
+      [en?'Students':'활동 학생',  n(k.students && k.students.total),        k.students && k.students.trend],
+      [en?'Revenue':'이번 달 매출', won(k.revenue && k.revenue.this_month) + (en?'':'원'), k.revenue && k.revenue.trend],
+      [en?'Attend':'이번 달 출석',  n(k.attendance && k.attendance.this_month), k.attendance && k.attendance.trend],
+      [en?'Overdue':'미납',        n(k.overdue && k.overdue.count),          null],
+      [en?'Inquiry':'신규 상담',    n(k.inquiry && k.inquiry.last_30_days),   null],
+      [en?'Eval':'평가 평균',       (k.evaluation && k.evaluation.avg_score ? k.evaluation.avg_score.toFixed(1) : '—'), null]
+    ];
+    pillsEl.innerHTML = items.map(function (it) {
+      return '<span class="dp">' + esc(it[0]) + ' <b>' + it[1] + '</b>' + arrow(it[2]) + '</span>';
+    }).join('');
+  };
+
+  // 브리핑 캐시가 있으면 첫 문장만 한 줄로 (받으러 가지는 않는다)
+  function renderBrief(){
+    if (!b1El) return;
+    var uid = '';
+    try { uid = (JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || ''; } catch (e) {}
+    var o = null;
+    try { o = JSON.parse(localStorage.getItem('mangoi_briefing_v1:' + uid) || 'null'); } catch (e) {}
+    if (!o || !o.items || !o.items.length) { b1El.hidden = true; return; }
+    var b = o.items[0];
+    var first = String(b.briefing_text || '').split('\n').filter(function (x) { return x.trim(); })[0] || '';
+    if (!first) { b1El.hidden = true; return; }
+    if (first.length > 110) first = first.slice(0, 110) + '…';
+    b1El.innerHTML = '🌅 <b style="color:#7c2d12">' + esc(b.briefing_date || '') + '</b> · ' + esc(first);
+    b1El.hidden = false;
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderBrief);
+  else renderBrief();
+  document.addEventListener('mangoi:lang-changed', renderBrief);
+})();
+</script>
 
 <details class="table-card menu-card" id="card-rankings">
   <summary><span data-ko="🏆 학생 랭킹 (발화·시선·집중도)" data-en="🏆 Student Rankings (Speaking · Gaze · Focus)">🏆 학생 랭킹 (발화·시선·집중도)</span></summary>
@@ -1983,22 +2346,22 @@
 
           <!-- 📊 KPI 요약 4개 -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px" id="acc-card-kpis">
-            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #2563eb;padding:12px;border-radius:8px">
+            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280">이번 달 사용액</div>
               <div style="font-size:20px;font-weight:800;color:#1e40af;margin-top:2px" id="kpi-cur-month">₩—</div>
               <div style="font-size:10px;color:#9ca3af;margin-top:2px" id="kpi-cur-month-sub">건수 —</div>
             </div>
-            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;padding:12px;border-radius:8px">
+            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280">전월 사용액</div>
               <div style="font-size:20px;font-weight:800;color:#047857;margin-top:2px" id="kpi-prev-month">₩—</div>
               <div style="font-size:10px;color:#9ca3af;margin-top:2px" id="kpi-prev-vs-cur">전월 대비 —%</div>
             </div>
-            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;padding:12px;border-radius:8px">
+            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280">3개월 평균</div>
               <div style="font-size:20px;font-weight:800;color:#b45309;margin-top:2px" id="kpi-3m-avg">₩—</div>
               <div style="font-size:10px;color:#9ca3af;margin-top:2px" id="kpi-3m-vs-cur">평균 대비 —%</div>
             </div>
-            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #ef4444;padding:12px;border-radius:8px">
+            <div class="kpi-tile" style="background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280">과다지출 알림</div>
               <div style="font-size:20px;font-weight:800;color:#b91c1c;margin-top:2px" id="kpi-alerts">—건</div>
               <div style="font-size:10px;color:#9ca3af;margin-top:2px">평균 대비 +30%↑</div>
@@ -2234,13 +2597,13 @@
         <summary data-ko="👤 역할별 사용자 관리" data-en="👤 Users by Role">👤 역할별 사용자 관리</summary>
         <div class="sub-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-bottom:12px" id="role-counts">
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #dc2626;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👑 본사·경영진</div><div style="font-size:18px;font-weight:800;color:#7f1d1d" id="cnt-hq_exec">2명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #ef4444;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🛠️ 본사·관리자</div><div style="font-size:18px;font-weight:800;color:#b91c1c" id="cnt-hq_mgr">1명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f87171;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👨‍🏫 본사·교사</div><div style="font-size:18px;font-weight:800;color:#dc2626" id="cnt-hq_teacher">2명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🏬 지사</div><div style="font-size:18px;font-weight:800;color:#b45309" id="cnt-branch">8명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🤝 대리점</div><div style="font-size:18px;font-weight:800;color:#047857" id="cnt-agency">15명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #3b82f6;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👨‍👩 학부모</div><div style="font-size:18px;font-weight:800;color:#1d4ed8" id="cnt-parent">427명</div></div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #a855f7;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🎓 학생</div><div style="font-size:18px;font-weight:800;color:#6d28d9" id="cnt-student">512명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👑 본사·경영진</div><div style="font-size:18px;font-weight:800;color:#7f1d1d" id="cnt-hq_exec">2명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🛠️ 본사·관리자</div><div style="font-size:18px;font-weight:800;color:#b91c1c" id="cnt-hq_mgr">1명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👨‍🏫 본사·교사</div><div style="font-size:18px;font-weight:800;color:#dc2626" id="cnt-hq_teacher">2명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🏬 지사</div><div style="font-size:18px;font-weight:800;color:#b45309" id="cnt-branch">8명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🤝 대리점</div><div style="font-size:18px;font-weight:800;color:#047857" id="cnt-agency">15명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">👨‍👩 학부모</div><div style="font-size:18px;font-weight:800;color:#1d4ed8" id="cnt-parent">427명</div></div>
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px"><div style="font-size:11px;color:#6b7280">🎓 학생</div><div style="font-size:18px;font-weight:800;color:#6d28d9" id="cnt-student">512명</div></div>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
             <select id="role-filter" onchange="renderUsersByRole()" style="padding:5px 10px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
@@ -2499,19 +2862,19 @@
 
           <!-- KPI 4개 -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px" id="sub-kpi">
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #ef4444;padding:10px 12px;border-radius:8px">
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280" data-ko="결석 강사" data-en="Absent Teachers">결석 강사</div>
               <div style="font-size:18px;font-weight:800;color:#b91c1c" id="kpi-absent" data-ko="0명" data-en="0">0명</div>
             </div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #f59e0b;padding:10px 12px;border-radius:8px">
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280" data-ko="영향받는 수업" data-en="Affected Classes">영향받는 수업</div>
               <div style="font-size:18px;font-weight:800;color:#b45309" id="kpi-classes" data-ko="0개" data-en="0">0개</div>
             </div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #10b981;padding:10px 12px;border-radius:8px">
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280" data-ko="매칭 성공" data-en="Matched">매칭 성공</div>
               <div style="font-size:18px;font-weight:800;color:#047857" id="kpi-matched" data-ko="0건" data-en="0">0건</div>
             </div>
-            <div style="background:#fff;border:1px solid #e5e7eb;border-left:4px solid #8b5cf6;padding:10px 12px;border-radius:8px">
+            <div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px">
               <div style="font-size:11px;color:#6b7280" data-ko="자동화 절감 시간" data-en="Time Saved by Automation">자동화 절감 시간</div>
               <div style="font-size:18px;font-weight:800;color:#6d28d9" id="kpi-saved" data-ko="0분" data-en="0 min">0분</div>
             </div>
@@ -2574,7 +2937,7 @@
                      data-ko="＋ 신규 강사 등록" data-en="＋ Add New Teacher">＋ 신규 강사 등록</summary>
             <div style="background:rgba(99,102,241,0.06);border:1px dashed rgba(99,102,241,0.35);border-radius:10px;padding:14px;margin-top:8px">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
-                <div style="grid-column:1/-1;padding:7px 12px;background:rgba(99,102,241,0.14);border-left:3px solid #6366f1;border-radius:6px;font-size:12.5px;font-weight:800;color:#a5b4fc" data-ko="👤 기본 정보 · 연락처" data-en="👤 Basic Info · Contact">👤 기본 정보 · 연락처</div>
+                <div style="grid-column:1/-1;padding:7px 12px;background:rgba(99,102,241,0.14);border-radius:6px;font-size:12.5px;font-weight:800;color:#a5b4fc" data-ko="👤 기본 정보 · 연락처" data-en="👤 Basic Info · Contact">👤 기본 정보 · 연락처</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="한글 이름 *" data-en="Korean Name *">한글 이름 *</label>
                   <input id="tp-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="Hong Gildong" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="영문 이름" data-en="English Name">영문 이름</label>
@@ -2618,7 +2981,7 @@
                     <option value="VN" data-ko="베트남 (영어 화면)" data-en="Vietnam (English UI)">베트남 (영어 화면)</option>
                     <option value="ZZ" data-ko="기타 국가 (영어 화면)" data-en="Other country (English UI)">기타 국가 (영어 화면)</option>
                   </select></div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(16,185,129,0.12);border-left:3px solid #10b981;border-radius:6px;font-size:12.5px;font-weight:800;color:#6ee7b7" data-ko="💼 근무 정보" data-en="💼 Work Info">💼 근무 정보</div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(16,185,129,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#6ee7b7" data-ko="💼 근무 정보" data-en="💼 Work Info">💼 근무 정보</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="활동 지역" data-en="Active Region">활동 지역</label>
                   <input id="tp-active-region" type="text" placeholder="예: 서울 강남" data-ko-placeholder="예: 서울 강남" data-en-placeholder="e.g., Seoul Gangnam" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="출신 지역" data-en="Origin Region">출신 지역</label>
@@ -2647,7 +3010,7 @@
                   <input id="tp-join-date" type="date" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="퇴사일 (해당 시)" data-en="Leave Date (if any)">퇴사일 (해당 시)</label>
                   <input id="tp-leave-date" type="date" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.12);border-left:3px solid #fbbf24;border-radius:6px;font-size:12.5px;font-weight:800;color:#fcd34d"
+                <div style="grid-column:1/-1;margin-top:10px;padding:8px 12px;background:rgba(251,191,36,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#fcd34d"
                      data-ko="🎬 학생 페이지 프로필 — 사진 · 소개 영상 <span style='font-weight:600;font-size:11px;opacity:.85'>(여기 입력하면 학생 홈페이지 ‘강사 소개’에 자동 표시)</span>"
                      data-en="🎬 Student-page Profile — Photo · Intro Video">🎬 학생 페이지 프로필 — 사진 · 소개 영상 <span style="font-weight:600;font-size:11px;opacity:.85">(여기 입력하면 학생 홈페이지 ‘강사 소개’에 자동 표시)</span></div>
                 <div style="grid-column:1/-1">
@@ -2688,24 +3051,24 @@
                         data-ko="YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시"
                         data-en="YouTube/MP4 URL auto-embed · Max 30MB · Auto-shows in student Teacher Intro page">YouTube/MP4 URL 자동 임베드 · 파일은 최대 30MB · 학생 페이지 강사소개에 자동 표시</span>
                 </div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(59,130,246,0.12);border-left:3px solid #3b82f6;border-radius:6px;font-size:12.5px;font-weight:800;color:#93c5fd" data-ko="🎓 학력 · 경력 · 자격" data-en="🎓 Education · Career · Certs">🎓 학력 · 경력 · 자격</div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(59,130,246,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#93c5fd" data-ko="🎓 학력 · 경력 · 자격" data-en="🎓 Education · Career · Certs">🎓 학력 · 경력 · 자격</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="학력" data-en="Education">학력</label>
                   <input id="tp-education" type="text" placeholder="예: 서울대 영문과 졸업" data-ko-placeholder="예: 서울대 영문과 졸업" data-en-placeholder="e.g., SNU English Lit BA" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="경력" data-en="Career">경력</label>
                   <input id="tp-career" type="text" placeholder="예: 5년" data-ko-placeholder="예: 5년" data-en-placeholder="e.g., 5 years" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="자격증" data-en="Certifications">자격증</label>
                   <input id="tp-cert" type="text" placeholder="TESOL, CELTA 등" data-ko-placeholder="TESOL, CELTA 등" data-en-placeholder="TESOL, CELTA, etc." style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(168,85,247,0.12);border-left:3px solid #a855f7;border-radius:6px;font-size:12.5px;font-weight:800;color:#d8b4fe" data-ko="🗓 수업 가능 시간" data-en="🗓 Availability">🗓 수업 가능 시간</div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(168,85,247,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#d8b4fe" data-ko="🗓 수업 가능 시간" data-en="🗓 Availability">🗓 수업 가능 시간</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="가능 요일" data-en="Available Days">가능 요일</label>
                   <input id="tp-avail-days" type="text" placeholder="월화수목금" data-ko-placeholder="월화수목금" data-en-placeholder="Mon Tue Wed Thu Fri" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="가능 시간대" data-en="Available Hours">가능 시간대</label>
                   <input id="tp-avail-hours" type="text" placeholder="09:00-18:00" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(236,72,153,0.12);border-left:3px solid #ec4899;border-radius:6px;font-size:12.5px;font-weight:800;color:#f9a8d4" data-ko="💰 정산 계좌" data-en="💰 Payout Account">💰 정산 계좌</div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(236,72,153,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#f9a8d4" data-ko="💰 정산 계좌" data-en="💰 Payout Account">💰 정산 계좌</div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="은행명" data-en="Bank Name">은행명</label>
                   <input id="tp-bank-name" type="text" placeholder="국민은행" data-ko-placeholder="국민은행" data-en-placeholder="KB Bank" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="계좌번호" data-en="Account Number">계좌번호</label>
                   <input id="tp-bank-acct" type="text" placeholder="123-456-789012" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" /></div>
-                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(148,163,184,0.12);border-left:3px solid #94a3b8;border-radius:6px;font-size:12.5px;font-weight:800;color:#cbd5e1" data-ko="📝 메모" data-en="📝 Notes">📝 메모</div>
+                <div style="grid-column:1/-1;margin-top:10px;padding:7px 12px;background:rgba(148,163,184,0.12);border-radius:6px;font-size:12.5px;font-weight:800;color:#cbd5e1" data-ko="📝 메모" data-en="📝 Notes">📝 메모</div>
                 <div style="grid-column:1/-1"><label style="font-size:11px;color:#374151;font-weight:600" data-ko="메모" data-en="Notes">메모</label>
                   <textarea id="tp-notes" rows="2" placeholder="기타 참고사항" data-ko-placeholder="기타 참고사항" data-en-placeholder="Additional notes" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:inherit;resize:vertical"></textarea></div>
 
@@ -3394,6 +3757,17 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <input id="alr-recording-id" type="text" placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-ko-placeholder="① R2 녹음 ID (예: room123/2026-05-20.webm)" data-en-placeholder="① R2 recording ID (e.g. room123/2026-05-20.webm)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
         <input id="alr-recording-url" type="text" placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-ko-placeholder="② 외부 URL (https://... 직접 다운로드 가능한 wav/webm/mp4)" data-en-placeholder="② External URL (https://... downloadable wav/webm/mp4)" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
         <input id="alr-audio-file" type="file" accept="audio/*,video/*" style="padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px"/>
+        <!-- 🗣 (2026-08-08) 전사 언어. 이걸 안 주면 Whisper 가 짧은 영어 발화를 한국어로 오인식한다
+             (07-24 직원 피드백 사고와 같은 원인). 중국어 수업도 있으므로 고정하지 않는다. -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="font-size:12px;color:#a3b3d1;font-weight:700" data-ko="🗣 수업 언어" data-en="🗣 Lesson language">🗣 수업 언어</label>
+          <select id="alr-lang" style="padding:8px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:12.5px">
+            <option value="en" selected data-ko="영어" data-en="English">영어</option>
+            <option value="ko" data-ko="한국어" data-en="Korean">한국어</option>
+            <option value="zh" data-ko="중국어" data-en="Chinese">중국어</option>
+          </select>
+          <span style="font-size:11px;color:#94a3b8" data-ko="긴 녹음은 브라우저에서 60초 조각으로 잘라 전사합니다 (최대 120분 · 영상 mp4 도 소리만 뽑아 씁니다)" data-en="Long recordings are split into 60s chunks in your browser (max 120 min · mp4 video is fine, only the audio track is used)">긴 녹음은 브라우저에서 60초 조각으로 잘라 전사합니다 (최대 120분 · 영상 mp4 도 소리만 뽑아 씁니다)</span>
+        </div>
         <details style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;margin-top:4px">
           <summary style="cursor:pointer;font-size:11.5px;color:#a3b3d1" data-ko="📝 또는 STT 결과 직접 붙여넣기 (Whisper 미사용)" data-en="📝 Or paste the transcript directly (skip Whisper)">📝 또는 STT 결과 직접 붙여넣기 (Whisper 미사용)</summary>
           <textarea id="alr-transcript" rows="4" placeholder="이미 변환된 텍스트가 있으면 여기에 붙여넣으세요. (Whisper STT 건너뛰고 바로 분석)" data-ko-placeholder="이미 변환된 텍스트가 있으면 여기에 붙여넣으세요. (Whisper STT 건너뛰고 바로 분석)" data-en-placeholder="Paste already-transcribed text here. (Skips Whisper STT, analyzes directly)" style="width:100%;margin-top:8px;padding:8px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:6px;font-size:12px;font-family:inherit;resize:vertical"></textarea>
@@ -3404,14 +3778,14 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
       <button onclick="alrGenerate()" id="alr-go-btn" style="padding:12px 22px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(139,92,246,0.45)" data-ko="🚀 AI 리포트 자동 생성" data-en="🚀 Generate AI Report">🚀 AI 리포트 자동 생성</button>
       <button onclick="alrLoadList()" style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer" data-ko="📜 최근 리포트 목록" data-en="📜 Recent Reports">📜 최근 리포트 목록</button>
-      <span style="font-size:11.5px;color:#a3b3d1;align-self:center" data-ko="⏱ 평균 20~40초 소요 (수업 길이에 따라)" data-en="⏱ ~20–40s (depending on lesson length)">⏱ 평균 20~40초 소요 (수업 길이에 따라)</span>
+      <span style="font-size:11.5px;color:#a3b3d1;align-self:center" data-ko="⏱ 10분 수업 약 30초 · 45분 수업 약 1~2분 (진행률이 표시됩니다)" data-en="⏱ ~30s for a 10-min lesson · 1–2 min for 45 min (progress is shown)">⏱ 10분 수업 약 30초 · 45분 수업 약 1~2분 (진행률이 표시됩니다)</span>
     </div>
 
     <div id="alr-result" style="margin-top:16px"></div>
   </div>
 </details>
 
-<script src="/js/adm-r4.js?v=2" defer></script><!-- 분할추출:adm-r4 -->
+<script src="/js/adm-r4.js?v=4" defer></script><!-- 분할추출:adm-r4 · v=3 (2026-08-08) 브라우저 분할 전사 -->
 
 <!-- Phase 60 admin (2026-05-23) — 상단 ▲ 토글 제거 + 칩 3개씩 정렬 -->
 
@@ -4105,28 +4479,6 @@ window.__admSettleRun = function(fn){
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🌅 Daily Morning Briefing — 매일 아침 자동 일일 브리핑              -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
-<details class="table-card menu-card" id="card-daily-briefing">
-  <summary><span data-ko="🌅 매일 아침 자동 브리핑" data-en="🌅 Daily Morning Briefing">🌅 매일 아침 자동 브리핑</span></summary>
-  <div class="menu-body">
-    <div style="background:linear-gradient(135deg,rgba(251,191,36,0.10),rgba(245,158,11,0.05));border:1px solid rgba(251,191,36,0.30);border-radius:10px;padding:14px 16px;margin-bottom:14px;font-size:13px;color:#fde68a;line-height:1.65"
-         data-ko="💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다."
-         data-en="💡 Runs automatically daily at KST 03:00 — yesterday's enrollment, inquiry, overdue, attendance, evaluation data summarized in 5-7 warm Korean sentences by AI (Llama 3.3 70B).">
-      💡 매일 KST 03:00 자동 실행 — 어제의 등록·상담·미납·출석·평가 데이터를 AI(Llama 3.3 70B)가 5-7문장 따뜻한 한국어로 요약해 드립니다.
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-      <button onclick="dbGenerate()" class="primary" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
-        <span data-ko="🔄 지금 생성" data-en="🔄 Generate Now">🔄 지금 생성</span>
-      </button>
-      <button onclick="dbLatest(1)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
-        <span data-ko="📋 최신 브리핑" data-en="📋 Latest">📋 최신 브리핑</span>
-      </button>
-      <button onclick="dbLatest(7)" style="background:#334155;color:#e2e8f0;border:1px solid #475569;border-radius:10px;padding:10px 16px;font-weight:600;cursor:pointer">
-        <span data-ko="📋 최근 7일" data-en="📋 Last 7 Days">📋 최근 7일</span>
-      </button>
-    </div>
-    <div id="db-result" style="margin-top:14px"></div>
-  </div>
-</details>
 <script>
 (function(){
   const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
@@ -4137,6 +4489,13 @@ window.__admSettleRun = function(fn){
     const r = await fetch(url, opts);
     return r.json();
   }
+  // 🔴 (2026-08-08) «자료 없음» 을 0 으로 보여주지 않는다.
+  //   서버가 평가 평균·출석률을 못 구하면 이제 null 을 준다. 예전엔 `||0` 이라 «평균 0점» 으로 찍혔고,
+  //   AI 도 그 0 을 받아 «평균 0점으로 낮습니다» 라고 보고했다. 0점과 자료 없음은 다른 말이다.
+  function nz(v, unit){
+    if (v === null || v === undefined || v === '') return isEn() ? '—' : '자료 없음';
+    return v + (unit || '');
+  }
   function renderOne(b){
     const en = isEn();
     const stats = b.stats || {};
@@ -4146,37 +4505,84 @@ window.__admSettleRun = function(fn){
       <div style="margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;font-size:11px;color:#94a3b8">
         <div>📝 ${en?'New':'신규'} ${stats.new_enrollment||0}</div>
         <div>💬 ${en?'Inquiry':'상담'} ${stats.new_inquiry||0}</div>
-        <div>💰 ${en?'Overdue':'미납'} ${stats.overdue_count||0}</div>
-        <div>🚨 ${en?'Risk':'위험'} ${stats.at_risk_count||0}</div>
-        <div>✅ ${en?'Attend':'출석'} ${stats.attendance_rate||0}%</div>
-        <div>⭐ ${en?'Avg':'평균'} ${stats.recent_eval_avg||0}</div>
+        <div>💰 ${en?'Overdue':'미납'} ${stats.overdue_count||0}${en?'':'명'}</div>
+        <div>🚨 ${en?'2wk+ absent':'2주+ 결석'} ${stats.at_risk_count||0}</div>
+        <div>✅ ${en?'Attend':'출석'} ${nz(stats.attendance_rate, '%')}</div>
+        <div>⭐ ${en?'Avg':'평균'} ${nz(stats.recent_eval_avg)}</div>
       </div>
     </div>`;
   }
-  window.dbGenerate = async function(){
+  // 💸 (2026-08-08) 「지금 생성」은 누를 때마다 Llama 3.3 70B 를 호출하고 D1 에 행을 하나씩 쌓았다.
+  //   연타하면 그대로 연타로 돈다 → 확인을 한 번 받고, force=1 일 때만 진짜 새로 만든다.
+  //   (force 없이 부르면 서버가 같은 날짜의 기존 브리핑을 그대로 돌려준다)
+  window.dbGenerate = async function(force){
     const box = document.getElementById('db-result');
+    if (force) {
+      const msg = isEn()
+        ? 'Re-generate today\'s briefing with AI?\n(Calls Llama 3.3 70B — takes a few seconds and costs credits)'
+        : '오늘 브리핑을 AI로 다시 만듭니다.\n(Llama 3.3 70B 를 호출하므로 몇 초 걸리고 비용이 발생합니다)\n\n계속할까요?';
+      if (!confirm(msg)) return;
+    }
     box.innerHTML = `<div style="color:#fbbf24;padding:14px">⏳ ${isEn()?'Generating briefing...':'브리핑 생성 중...'}</div>`;
     try {
-      const r = await call('POST', '/api/admin/briefing/generate');
+      const r = await call('POST', '/api/admin/briefing/generate' + (force ? '?force=1' : ''));
       if (!r.ok) throw new Error(r.error||'gen_failed');
-      box.innerHTML = renderOne({ briefing_date: r.briefing_date, briefing_text: r.briefing_text, stats: r.stats });
+      const fresh = [{ briefing_date: r.briefing_date, briefing_text: r.briefing_text, stats: r.stats }];
+      dbCacheWrite(fresh);                 // 새로 만든 것을 오늘치 캐시로 갈아끼운다
+      box.innerHTML = fresh.map(renderOne).join('');
     } catch(e){
       box.innerHTML = `<div style="color:#fca5a5;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:12px">❌ ${esc(e.message)}</div>`;
     }
   };
+  // 💾 (2026-08-08) 브리핑은 하루에 한 번만 바뀐다 — 그런데 카드를 열 때마다 매번 새로 받고 있었다.
+  //   받은 것을 «오늘 날짜» 를 열쇠로 저장해 두고, 날짜가 같으면 요청 없이 그대로 그린다.
+  //   화면을 열 때마다 나가던 요청이 브라우저당 하루 1회로 준다.
+  //   ⚠️ 관리자만 쓰는 화면이고 저장하는 것은 «이미 그 사람이 본 요약문» 뿐이다.
+  //      역할이 바뀌면(=다른 계정) 키가 달라지도록 uid 를 섞는다.
+  const DB_CACHE_KEY = (function(){
+    var uid = '';
+    try { uid = (JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid || ''; } catch(e){}
+    return 'mangoi_briefing_v1:' + uid;
+  })();
+  function dbCacheRead(){
+    try {
+      var raw = localStorage.getItem(DB_CACHE_KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      var todayKst = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+      if (!o || o.day !== todayKst || !o.items || !o.items.length) return null;
+      return o.items;
+    } catch(e){ return null; }
+  }
+  function dbCacheWrite(items){
+    try {
+      var todayKst = new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+      localStorage.setItem(DB_CACHE_KEY, JSON.stringify({ day: todayKst, items: items.slice(0,1) }));
+    } catch(e){}   // 용량 초과 등은 무시 — 캐시는 있으면 좋은 것이지 없으면 안 되는 것이 아니다
+  }
+  window.dbCacheClear = function(){ try { localStorage.removeItem(DB_CACHE_KEY); } catch(e){} };
+
   window.dbLatest = async function(limit){
     const box = document.getElementById('db-result');
+    // 단건(최신)만 캐시를 쓴다. 「최근 7일」은 눌렀을 때 항상 새로 받는다.
+    if (limit === 1) {
+      const cached = dbCacheRead();
+      if (cached) { box.innerHTML = cached.map(renderOne).join(''); return; }
+    }
     box.innerHTML = `<div style="color:#fbbf24;padding:14px">⏳ ${isEn()?'Loading...':'불러오는 중...'}</div>`;
     try {
       const r = await call('GET', '/api/admin/briefing/latest?limit='+limit);
       if (!r.ok) throw new Error(r.error||'load_failed');
       if (!r.items || !r.items.length) { box.innerHTML = `<div style="color:#94a3b8;padding:14px">${isEn()?'No briefings yet':'아직 브리핑이 없습니다'}</div>`; return; }
+      if (limit === 1) dbCacheWrite(r.items);
       box.innerHTML = r.items.map(renderOne).join('');
     } catch(e){
       box.innerHTML = `<div style="color:#fca5a5;background:rgba(239,68,68,0.10);border:1px solid rgba(239,68,68,0.30);border-radius:10px;padding:12px">❌ ${esc(e.message)}</div>`;
     }
   };
-  document.getElementById('card-daily-briefing')?.addEventListener('toggle', function(){ if (this.open) dbLatest(1); });
+  // 🔀 (2026-08-08) 예전엔 이 카드가 <details> 라 toggle 로 불렀다. 이제 탭 안쪽 <div> 라 toggle 이 없다.
+  //   대신 통합 대시보드의 탭 컨트롤러가 「오늘」 탭을 처음 보여줄 때 dbLatest(1) 을 부른다.
+  //   부르는 자리가 한 곳뿐이라 «열 때마다 또 받는» 일도 없다 (게다가 대개 하루 캐시라 요청 0건).
 })();
 </script>
 
@@ -5597,12 +6003,26 @@ window.__admSettleRun = function(fn){
 
 <!-- 🎮 Phase BTL — 영어 게임 배틀 P2P 관리 -->
 <details class="table-card menu-card" id="card-battle-mgmt">
-  <summary><span data-ko="🎮 영어 배틀 관리" data-en="🎮 English Battle Mgmt">🎮 영어 배틀 관리</span></summary>
+  <summary><span data-ko="🎮 게임 학습 분석" data-en="🎮 Game Insights">🎮 게임 학습 분석</span></summary>
   <div class="menu-body">
-    <div style="background:linear-gradient(135deg,rgba(244,63,94,0.10),rgba(225,29,72,0.05));border:1px solid rgba(244,63,94,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#fda4af;line-height:1.6"
-         data-ko="💡 친구와 영어 배틀 — 도전장 → 수락/거절 → 동시 응시 → 자동 채점 → 보상 포인트 지급."
-         data-en="💡 Friend-vs-Friend English battle — challenge → accept/decline → both play → auto-score → reward points.">
-      💡 비동기 P2P 배틀 — 도전장 + 폴링 + 자동 채점 + 보상
+    <!-- 🎯 전 게임 통합 분석으로 가는 문 (2026-08-08 신설)
+         이 카드가 원래 「영어 배틀 관리」였는데, P2P 배틀 백엔드는 만들어진 적이 없었다
+         (api-admin.ts:9730 주석). 아래 숫자는 배틀이 아니라 game_progress 의 단어 정답 누계다.
+         제대로 된 게임별 분석은 초경량 전용 화면에 있다 — admin.html 에 얹으면 전원이 느려진다. -->
+    <div style="background:linear-gradient(135deg,rgba(56,189,248,0.12),rgba(29,78,216,0.06));border:1px solid rgba(56,189,248,0.35);border-radius:12px;padding:14px;margin-bottom:14px">
+      <div style="font-size:13.5px;color:#7dd3fc;font-weight:800;margin-bottom:4px"
+           data-ko="🎮 전 게임 통합 분석 (게임 21종)" data-en="🎮 All-games insights (21 games)">🎮 전 게임 통합 분석 (게임 21종)</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:10px;line-height:1.65"
+           data-ko="게임별 참여·재미×학습·약점 단어·이탈 조기신호를 한 화면에서 봅니다. 별도 경량 페이지라 1초 안에 열립니다."
+           data-en="Activity per game, fun × learning, weak words and early drop-out signals in one place. Separate lightweight page — opens in about a second.">게임별 참여·재미×학습·약점 단어·이탈 조기신호를 한 화면에서 봅니다.</div>
+      <a href="/admin/game-insights" style="background:#0ea5e9;color:#04283a;border-radius:10px;padding:10px 18px;font-weight:800;text-decoration:none;display:inline-block;font-size:13.5px">
+        <span data-ko="📊 게임 학습 분석 열기" data-en="📊 Open Game Insights">📊 게임 학습 분석 열기</span></a>
+    </div>
+
+    <div style="background:rgba(161,98,7,0.10);border:1px solid rgba(161,98,7,0.35);border-radius:10px;padding:11px 14px;margin-bottom:14px;font-size:12.5px;color:#fcd34d;line-height:1.65"
+         data-ko="⚠️ 아래 숫자는 «배틀» 이 아닙니다. 친구 대결(P2P) 기능은 만들어진 적이 없고, 여기 보이는 값은 게임에서 쌓인 단어 정답/오답 누계입니다. 게임별로 나눠 보려면 위 버튼을 쓰세요."
+         data-en="⚠️ The numbers below are NOT battles. Friend-vs-friend (P2P) was never built; these are cumulative right/wrong word counts from the games. Use the button above to break them down per game.">
+      ⚠️ 아래 숫자는 «배틀» 이 아닙니다 — 게임에서 쌓인 단어 정답/오답 누계입니다.
     </div>
 
     <!-- 🕹️ 3D 영어 배틀 (레슨 보스전) — battle-3d.html -->
@@ -5634,11 +6054,11 @@ window.__admSettleRun = function(fn){
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px">
-        <div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="🏆 리더보드 Top 10" data-en="🏆 Top 10 Leaderboard">🏆 리더보드 Top 10</div>
+        <div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="🏆 정답 누계 Top 10" data-en="🏆 Top 10 by correct answers">🏆 정답 누계 Top 10</div>
         <div id="btl-leaderboard" style="font-size:12px;color:#e2e8f0"></div>
       </div>
       <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px">
-        <div style="font-size:13px;color:#a5b4fc;font-weight:700;margin-bottom:10px" data-ko="📜 최근 배틀" data-en="📜 Recent Battles">📜 최근 배틀</div>
+        <div style="font-size:13px;color:#a5b4fc;font-weight:700;margin-bottom:10px" data-ko="📜 최근 학습한 단어" data-en="📜 Recently practiced words">📜 최근 학습한 단어</div>
         <div id="btl-recent" style="font-size:12px;color:#e2e8f0;max-height:300px;overflow-y:auto"></div>
       </div>
     </div>
@@ -5670,10 +6090,12 @@ window.__admSettleRun = function(fn){
           const topUid = lbr.list[0].user_id;
           const hist = await fetch('/api/battle/history?user_id='+encodeURIComponent(topUid)+'&limit=20').then(x=>x.json()).catch(()=>({ok:false,list:[]}));
           const items = hist.list || [];
+          // ⚠️ 이건 대결 기록이 아니다 — 단어 하나의 «맞은 횟수 : 틀린 횟수» 다.
+          //    예전엔 이걸 「jeong vs AI → 🏆 jeong」 으로 그려서 대결처럼 보이게 했다(2026-08-08 정정).
           rc.innerHTML = items.length ? items.map(b => `<div style="padding:6px 8px;border-bottom:1px solid #1e293b">
-            <div style="display:flex;justify-content:space-between"><span style="color:#a5b4fc">${esc(b.game_type)}</span><span style="color:#fbbf24">${b.challenger_score}:${b.opponent_score}</span></div>
-            <div style="font-size:11px;color:#94a3b8">${esc(b.challenger_uid)} vs ${esc(b.opponent_uid)} → 🏆 ${esc(b.winner_uid||(en?'tie':'무승부'))}</div>
-          </div>`).join('') : `<div style="color:#64748b;padding:10px;text-align:center">${en?'No finished battles':'완료된 배틀 없음'}</div>`;
+            <div style="display:flex;justify-content:space-between"><span style="color:#a5b4fc">${esc(b.game_type)}</span><span style="color:#fbbf24">${en?'right':'맞음'} ${b.challenger_score} · ${en?'wrong':'틀림'} ${b.opponent_score}</span></div>
+            <div style="font-size:11px;color:#94a3b8">${esc(b.challenger_uid)} — ${b.challenger_score>b.opponent_score?(en?'mastered':'익힘'):(en?'needs review':'복습 필요')}</div>
+          </div>`).join('') : `<div style="color:#64748b;padding:10px;text-align:center">${en?'No records':'기록 없음'}</div>`;
         } else {
           rc.innerHTML = `<div style="color:#64748b;padding:10px;text-align:center">${en?'No data':'데이터 없음'}</div>`;
         }
@@ -5683,9 +6105,9 @@ window.__admSettleRun = function(fn){
       const totalPlayers = (lbr.list||[]).length;
       const avgWins = totalPlayers ? (totalWins/totalPlayers).toFixed(1) : '0';
       if (stats) stats.innerHTML = `
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="총 완료 배틀" data-en="Total Wins">총 완료 배틀</div><div style="color:#fbbf24;font-size:22px;font-weight:800">${totalWins}</div></div>
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="참여 유저" data-en="Top Players">참여 유저</div><div style="color:#a5b4fc;font-size:22px;font-weight:800">${totalPlayers}</div></div>
-        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="평균 승수" data-en="Avg Wins">평균 승수</div><div style="color:#86efac;font-size:22px;font-weight:800">${avgWins}</div></div>`;
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="단어 정답 누계" data-en="Correct answers">단어 정답 누계</div><div style="color:#fbbf24;font-size:22px;font-weight:800">${totalWins}</div></div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="기록 있는 학생" data-en="Students with records">기록 있는 학생</div><div style="color:#a5b4fc;font-size:22px;font-weight:800">${totalPlayers}</div></div>
+        <div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:12px;text-align:center"><div style="color:#94a3b8;font-size:11px" data-ko="1인 평균 정답" data-en="Avg per student">1인 평균 정답</div><div style="color:#86efac;font-size:22px;font-weight:800">${avgWins}</div></div>`;
     } catch(e) { if (stats) stats.innerHTML = `<div style="color:#fca5a5">❌ ${esc(e.message)}</div>`; }
   };
   document.getElementById('card-battle-mgmt')?.addEventListener('toggle', function(){ if (this.open) btlLoadAll(); });
@@ -5867,7 +6289,9 @@ window.__admSettleRun = function(fn){
           <div id="wl-table" style="overflow-x:auto"></div>
         </div>
       </details>
-      <script src="/js/adm-waitlist.js?v=3" defer></script><!-- 🪑 대기자 명단 -->
+      <!-- 🪑 대기자 명단 — 즉시로딩 태그가 여기 있었다. 아래 5949 줄에 «지연» 태그가
+           따로 또 있어서 같은 파일을 두 번 선언한 꼴이었고, 즉시로딩이 이기므로
+           지연 선언은 아무 일도 하지 않았다. (2026-08-08 정리) -->
 
     <!-- 🎨 외부는 진한 톤, 안의 통계/박스는 연한 흰빛 — 명도 반전 -->
     
@@ -5943,10 +6367,17 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-r7.js?v=1" data-card="card-inquiry-mgmt" data-globals="iqLoadStats,iqLoad,iqUpdateStatus,iqEditNotes,iqDelete"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r7 -->
-<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=3" data-card="card-inquiry-mgmt" data-globals="addWaitlist,resolveWaitlist,loadWaitlist"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규) -->
+<script type="text/lazy-js" data-src="/js/adm-waitlist.js?v=3" data-card="card-inquiry-mgmt" data-globals="wlLoad,wlAdd,wlResolve,wlCancel"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 🪑 대기자 명단 (2026-08-04 신규)
+     🪤 (2026-08-08) data-globals 에 적혀 있던 addWaitlist/resolveWaitlist/loadWaitlist 는
+        **이 파일에 없는 이름**이었다. 그래서 껍데기가 엉뚱한 곳에 깔리고, 실제 동작은
+        위쪽 즉시로딩 태그가 떠받치고 있었다. 진짜 이름(wl*)으로 바로잡고 즉시로딩을 없앴다.
+        → 이름을 고칠 때는 «window.X = » 로 실제 노출되는 이름을 확인할 것. -->
 
 <!-- 💰 Phase F2 — 미납 알림 JS 모듈 -->
-<script src="/js/adm-r8.js?v=1" defer></script><!-- 분할추출:adm-r8 -->
+<script type="text/lazy-js" data-src="/js/adm-r8.js?v=1" data-card="card-accounting-mgmt" data-globals="ovScan,ovNotifyAll,ovNotifyOne,ovLoadLog"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r8
+     (2026-08-08) 미납 관리 카드 전용임을 기계 검사로 확인하고 지연으로 돌렸다 —
+     이 파일이 만지는 요소 id 가 전부 card-accounting-mgmt 안에 있고,
+     노출 전역 4개가 그 카드 밖 어디에서도 안 불린다. -->
 
 <!-- 🐞 교사 버그/피드백 접수함 -->
 <details class="table-card menu-card" id="card-bug-reports">
@@ -6943,15 +7374,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <button id="pt-add-btn" style="padding:5px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 수동 적립/차감" data-en="＋ Manual Add/Deduct">＋ 수동 적립/차감</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px">
-            <div style="background:rgba(34,197,94,0.08);padding:10px 14px;border-left:3px solid #10b981;border-radius:6px;font-size:12px">
+            <div style="background:rgba(34,197,94,0.08);padding:10px 14px;border-radius:6px;font-size:12px">
               <div style="color:#6b7280">총 적립 포인트</div>
               <div style="font-size:18px;font-weight:700;color:#065f46" id="pt-total-earn">0 P</div>
             </div>
-            <div style="background:rgba(239,68,68,0.08);padding:10px 14px;border-left:3px solid #ef4444;border-radius:6px;font-size:12px">
+            <div style="background:rgba(239,68,68,0.08);padding:10px 14px;border-radius:6px;font-size:12px">
               <div style="color:#6b7280">총 사용 포인트</div>
               <div style="font-size:18px;font-weight:700;color:#991b1b" id="pt-total-use">0 P</div>
             </div>
-            <div style="background:rgba(59,130,246,0.08);padding:10px 14px;border-left:3px solid #3b82f6;border-radius:6px;font-size:12px">
+            <div style="background:rgba(59,130,246,0.08);padding:10px 14px;border-radius:6px;font-size:12px">
               <div style="color:#6b7280">현재 잔여 포인트</div>
               <div style="font-size:18px;font-weight:700;color:#1e40af" id="pt-balance">0 P</div>
             </div>
@@ -7288,12 +7719,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <!-- 미리보기 영역 (전체 너비) -->
       <div id="en-import-preview" style="display:none;margin-top:14px;padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 4px 12px -4px rgba(0,0,0,0.06)"></div>
     </div>
+    <!-- 🥭 2026-08-08 — 상태 칩(건수)·검색. 표 전체를 훑지 않고 손댈 것만 보게 한다 -->
+    <div id="en-summary" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:12px 0 8px;"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;">
       <select id="en-status-filter" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
         <option value="" data-ko="전체" data-en="All">전체</option>
-        <option value="pending">pending</option><option value="confirmed">confirmed</option><option value="active">active</option>
-        <option value="cancelled">cancelled</option><option value="expired">expired</option>
+        <option value="pending" data-ko="대기" data-en="Pending">대기</option>
+        <option value="confirmed" data-ko="확정" data-en="Confirmed">확정</option>
+        <option value="active" data-ko="수강중" data-en="Active">수강중</option>
+        <option value="cancelled" data-ko="취소" data-en="Cancelled">취소</option>
+        <option value="expired" data-ko="종료" data-en="Expired">종료</option>
       </select>
+      <input id="en-search" type="search" oninput="window.enSearch&&enSearch(this.value)"
+             placeholder="학생 이름 · 아이디 · 패키지 · 강사"
+             data-ko-ph="학생 이름 · 아이디 · 패키지 · 강사"
+             data-en-ph="Student · ID · package · teacher"
+             style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;min-width:200px;" />
       <button id="en-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;" data-ko="새로고침" data-en="Refresh">새로고침</button>
     </div>
     <table><thead><tr><th data-ko="신청일" data-en="Created">신청일</th><th data-ko="학생" data-en="Student">학생</th><th data-ko="패키지" data-en="Package">패키지</th><th data-ko="월 수강료" data-en="Monthly Fee">월 수강료</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
@@ -7424,7 +7865,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <details class="sub-item" id="sub-mango-videos">
         <summary data-ko="🎬 망고아이 비디오 관리 (YouTube)" data-en="🎬 Mango-i Videos (YouTube)">🎬 망고아이 비디오 관리 (YouTube)</summary>
         <div class="sub-body">
-          <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);padding:10px 12px;border-radius:8px;border-left:3px solid #f59e0b;margin-bottom:10px;font-size:12px;color:#78350f;line-height:1.55;">
+          <div style="background:linear-gradient(135deg,#fff7ed,#fef3c7);padding:10px 12px;border-radius:8px;margin-bottom:10px;font-size:12px;color:#78350f;line-height:1.55;">
             <strong data-ko="💡 자동화 안내" data-en="💡 How it works">💡 자동화 안내</strong><br>
             <span data-ko="YouTube URL만 입력하면 썸네일이 자동 추출되고, 학생 홈페이지에 교재 → 챕터 → 유닛 순으로 자동 정리됩니다." data-en="Paste a YouTube URL — the thumbnail is auto-extracted and the video appears on the student home, grouped by textbook → chapter → unit.">YouTube URL만 입력하면 썸네일이 자동 추출되고, 학생 홈페이지에 교재 → 챕터 → 유닛 순으로 자동 정리됩니다.</span><br>
             <strong style="color:#9a3412">📝 망고아이 교재 제목 형식</strong>: <code style="background:#fff;padding:2px 6px;border-radius:3px;color:#78350f">BTS 01(My school) UNIT 001</code> · <code style="background:#fff;padding:2px 6px;border-radius:3px;color:#78350f">BTS 01(My school) REVIEW</code> · <code style="background:#fff;padding:2px 6px;border-radius:3px;color:#78350f">BTS 01(My school) TEST</code><br>
@@ -8428,10 +8869,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=45" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=51" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=1" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
+<script src="/js/adm-quick-access.js?v=2" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
 <script src="/js/adm-light-surfaces.js?v=11" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -8791,7 +9232,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="🎬 영상 사전" data-en="🎬 Video Dictionary" data-card="card-video-dict" onclick="event.stopPropagation();var c=document.getElementById('card-video-dict');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-video-dict');}">🎬 영상 사전</div>
       <div class="ph85-sub" data-ko="🎙 음성 일기" data-en="🎙 Voice Diary" data-card="card-voice-diary" onclick="event.stopPropagation();var c=document.getElementById('card-voice-diary');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-voice-diary');}">🎙 음성 일기</div>
       <div class="ph85-sub" data-ko="📊 레벨테스트" data-en="📊 Level Test" data-card="card-level-tests" onclick="event.stopPropagation();var c=document.getElementById('card-level-tests');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-level-tests');}">📊 레벨테스트</div>
-      <div class="ph85-sub" data-ko="⚔ 영어 배틀" data-en="⚔ English Battle" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
+      <div class="ph85-sub" data-ko="🎮 게임 학습 분석" data-en="🎮 Game Insights" data-card="card-battle-mgmt" onclick="event.stopPropagation();var c=document.getElementById('card-battle-mgmt');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-battle-mgmt');}">⚔ 영어 배틀</div>
       <div class="ph85-sub" data-ko="💾 녹화 보관" data-en="💾 Recording Storage" data-card="card-recording-storage" onclick="event.stopPropagation();var c=document.getElementById('card-recording-storage');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-recording-storage');}">💾 녹화 보관</div>
       <div class="ph85-sub" data-ko="📚 숙제 관리 ⭐신규" data-en="📚 Homework ⭐NEW" data-card="card-homework" onclick="event.stopPropagation();var c=document.getElementById('card-homework');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-homework');}">📚 숙제 관리 ⭐신규</div>
     </div>
@@ -9611,7 +10052,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 안내 박스 -->
-    <div style="background:rgba(37,99,235,0.15) !important; border-left:4px solid #2563EB; color:#F8FAFC; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; line-height:1.7">
+    <div style="background:rgba(37,99,235,0.15) !important; color:#F8FAFC; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; line-height:1.7">
       <b style="color:#93C5FD">💡 발행 안내:</b><br>
       ▸ <b>발행하기</b>: 팝빌 시스템을 통해 수동 발행 &nbsp;
       ▸ <b>재발행하기</b>: 팝빌 시스템을 통해 자동 또는 수동 발행, 실패한 건은 재발행 하기<br>
@@ -9814,7 +10255,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- 🧪 (2026-07-27 강사 피드백 3차 #6) "오늘 수업이 없어 교재·영상·퀴즈·리포트가 어떻게 보이는지 확인할 수 없다"
          → 서버에 seed-demo 엔드포인트는 이미 있었으나 화면에 실행 버튼이 없었다(연결 누락).
          🔴 실제 운영 DB에 수업이 생기므로: 확인창 + 데모 학생 계정(user_id=student) 고정으로 실학생 오염 방지. -->
-    <div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:10px;padding:11px 14px;margin:10px 0">
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:11px 14px;margin:10px 0">
       <div style="font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:6px"
            data-ko="🧪 샘플 수업 만들기 (강사 확인용)" data-en="🧪 Create sample classes (for teacher review)">🧪 샘플 수업 만들기 (강사 확인용)</div>
       <div style="font-size:11.5px;color:#78350f;line-height:1.6;margin-bottom:8px"
@@ -10614,7 +11055,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 118 admin (2026-05-25) — 권한 매트릭스 실제 사이드바 적용 (역할별 V/X 자동 반영) -->
 
 
-<script src="/js/adm-q10.js?v=4" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q10.js?v=6" defer></script><!-- 분할추출:adm-q10 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 119 admin (2026-05-25) — SLP 수업현황 위치 재조정: 학생/학부모 그룹으로 단일 노출 -->
@@ -10682,6 +11123,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var cell = cells[idx];
         cell.classList.add('ph122-clickable');
         if (idx === 3) cell.classList.add('ph122-name');
+        // 🚫 (2026-08-08) translate="no" — 이 title 은 학생마다 문구가 달라서(이름·아이디 포함)
+        //   EN 모드에서 «학생 수만큼» 서버 번역기를 부르고 그 이름이 캐시에 180일 남았다.
+        //   번역할 이유도 없으므로 스윕이 아예 손대지 않게 표시한다.
+        cell.setAttribute('translate', 'no');
         cell.setAttribute('title', '🔗 클릭하면 ' + studentName + ' (' + studentId + ') 학생 상세보기 새 탭으로 열림');
         cell.addEventListener('click', function(e){
           e.stopPropagation();
@@ -11718,7 +12163,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script>
 (function(){
-  var TIP={"card-eval-mgmt": "학생 한 명 한 명의 성적·태도를 적어 평가서를 만들어요.", "card-bulk-eval": "여러 학생의 평가서를 한 번에 모아서 작성해요.", "card-ai-lesson-report": "AI가 수업 내용을 자동으로 정리해 리포트로 만들어요.", "card-ai-eval-draft": "AI가 평가서 초안을 먼저 써 주고 선생님이 다듬어요.", "card-monthly-report": "한 달 동안의 학습·성적을 한눈에 보는 보고서예요.", "card-comparison-report": "지난달과 이번 달, 반끼리 성적을 나란히 비교해요.", "card-webpush-mgmt": "브라우저로 '띵!' 하고 알림을 보내는 기능이에요.", "card-kakao-mgmt": "카카오톡으로 안내 메시지를 보내요.", "card-popups-mgmt": "화면에 뜨는 공지 팝업창을 만들고 관리해요.", "card-notifications": "이벤트·소식을 자동 알림으로 보내는 설정이에요.", "card-notice-board": "모두에게 알리는 공지글을 올리는 게시판이에요.", "card-teacher-mgmt": "선생님 정보와 담당 반을 등록·관리해요.", "card-payroll-auto": "수업 기록을 바탕으로 급여를 자동으로 계산해요.", "card-payroll": "선생님 급여를 확인하고 정산하는 곳이에요.", "card-mbti-mgmt": "강사·학생의 성향(MBTI)을 모아 보는 곳이에요.", "card-praise-stats": "누가 칭찬을 많이 주고받았는지 통계로 봐요.", "card-supervisor": "선생님들의 수업을 점검하고 지도하는 화면이에요.", "card-room-invite": "화상수업 방에 학생을 초대하는 링크를 관리해요.", "card-timetable": "수업 시간표를 짜고 보는 곳이에요.", "card-lesson-log": "오늘 무엇을 가르쳤는지 수업 기록을 남겨요.", "card-report-forms": "보고서에 쓰는 기본 양식(템플릿)을 관리해요.", "card-kpi-dashboard": "매출·학생 수 같은 핵심 숫자를 한 화면에 모아 봐요.", "card-daily-charts": "날짜별 변화를 그래프로 보는 곳이에요.", "card-rankings": "성적·활동 순위를 매겨서 보여 줘요.", "card-retention-risk": "곧 그만둘 것 같은 학생을 미리 찾아 줘요.", "card-retention": "오래된 데이터를 정해진 기간에 맞춰 자동 삭제해요.", "card-active-rooms": "지금 진행 중인 수업 방을 실시간으로 확인해요.", "card-nps-monthly": "서비스를 추천할 만한지(만족도)를 매달 측정해요.", "card-ai-forecast": "AI가 앞으로의 매출·학생 수를 예측해요.", "card-voice-stats": "학생들이 말한 양·발음 점수를 통계로 봐요.", "card-accounting-mgmt": "수입·지출 같은 돈의 흐름을 정리하는 곳이에요.", "card-payments-b2b": "기업·학원 간(B2B) 결제 내역을 관리해요.", "card-payments-b2c": "학생·학부모(B2C) 결제 내역을 관리해요.", "card-recurring-billing": "매달 자동으로 결제되도록 설정해요.", "card-auto-dunning": "안 낸 돈(미납)을 자동으로 알려 받아내요.", "card-settlement-stats": "지사·대리점에 줄 돈을 정산하는 통계예요.", "card-points-mgmt": "학생에게 주는 포인트를 관리해요.", "card-students-mgmt": "학생 정보를 등록·수정·관리해요.", "card-school-attendance-stats": "학원마다 학생들이 수업을 얼마나 듣는지 봐요.", "card-family-mgmt": "형제·부모 등 가족 단위로 묶어서 관리해요.", "card-inquiry-mgmt": "들어온 문의·질문에 답하는 곳이에요.", "card-enrollments": "수강 신청·등록을 받고 처리해요.", "card-badges-mgmt": "잘한 학생에게 주는 뱃지(배지)를 관리해요.", "card-community": "학생·학부모가 글을 나누는 공간이에요.", "card-counseling-booking": "상담 날짜·시간을 예약받는 곳이에요.", "card-parent-digest": "학부모에게 보내는 한 주 요약 소식이에요.", "card-parent-faq-bot": "자주 묻는 질문에 챗봇이 자동으로 답해요.", "card-referral": "친구를 소개하면 혜택을 주는 추천 이벤트예요.", "card-alumni": "졸업한 학생들이 모이는 공간이에요.", "card-gallery": "수업 사진·영상을 모아 두는 갤러리예요.", "card-review-quiz": "배운 내용을 복습하는 퀴즈를 내요.", "card-textbooks": "수업에 쓰는 교재·자료를 관리해요.", "card-microlearn": "짧고 가볍게 배우는 미니 학습 콘텐츠예요.", "card-mini-toeic": "짧게 풀어 보는 토익 연습 문제예요.", "card-pronunciation": "AI가 발음을 듣고 고쳐 줘요.", "card-video-dict": "단어를 영상으로 보여 주는 사전이에요.", "card-voice-diary": "말로 녹음해서 쓰는 영어 일기예요.", "card-level-tests": "실력을 확인하는 레벨 테스트예요.", "card-battle-mgmt": "학생끼리 겨루는 영어 대결 게임이에요.", "card-recording-storage": "수업 녹화 영상을 저장·관리해요.", "card-homework": "숙제를 내주고 제출을 확인해요.", "card-calendar": "일정·행사를 달력으로 관리해요.", "card-permissions": "누가 어떤 메뉴를 볼 수 있는지 정해요.", "card-franchises": "가맹점(지사·대리점)을 등록·관리해요.", "card-centers": "학습 센터(지점)를 관리해요.", "card-data-export": "필요한 자료를 엑셀 등으로 내려받아요.", "card-admin-alerts": "관리자에게 오는 중요한 알림 모음이에요.", "card-admin-ghost": "학생 화면을 살짝 들여다보는 기능이에요.", "card-admin-whisper": "수업 중 학생에게만 살짝 메시지를 전달해요.", "card-attendance-status": "누가 왔는지(출석/결석)를 확인해요.", "card-auto-attendance": "QR코드를 찍어 자동으로 출석 체크해요.", "card-class-attendance": "수업별로 출석을 기록해요."};
+  var TIP={"card-eval-mgmt": "학생 한 명 한 명의 성적·태도를 적어 평가서를 만들어요.", "card-bulk-eval": "여러 학생의 평가서를 한 번에 모아서 작성해요.", "card-ai-lesson-report": "AI가 수업 내용을 자동으로 정리해 리포트로 만들어요.", "card-ai-eval-draft": "AI가 평가서 초안을 먼저 써 주고 선생님이 다듬어요.", "card-monthly-report": "한 달 동안의 학습·성적을 한눈에 보는 보고서예요.", "card-comparison-report": "지난달과 이번 달, 반끼리 성적을 나란히 비교해요.", "card-webpush-mgmt": "브라우저로 '띵!' 하고 알림을 보내는 기능이에요.", "card-kakao-mgmt": "카카오톡으로 안내 메시지를 보내요.", "card-popups-mgmt": "화면에 뜨는 공지 팝업창을 만들고 관리해요.", "card-notifications": "이벤트·소식을 자동 알림으로 보내는 설정이에요.", "card-notice-board": "모두에게 알리는 공지글을 올리는 게시판이에요.", "card-teacher-mgmt": "선생님 정보와 담당 반을 등록·관리해요.", "card-payroll-auto": "수업 기록을 바탕으로 급여를 자동으로 계산해요.", "card-payroll": "선생님 급여를 확인하고 정산하는 곳이에요.", "card-mbti-mgmt": "강사·학생의 성향(MBTI)을 모아 보는 곳이에요.", "card-praise-stats": "누가 칭찬을 많이 주고받았는지 통계로 봐요.", "card-supervisor": "선생님들의 수업을 점검하고 지도하는 화면이에요.", "card-room-invite": "화상수업 방에 학생을 초대하는 링크를 관리해요.", "card-timetable": "수업 시간표를 짜고 보는 곳이에요.", "card-lesson-log": "오늘 무엇을 가르쳤는지 수업 기록을 남겨요.", "card-report-forms": "보고서에 쓰는 기본 양식(템플릿)을 관리해요.", "card-kpi-dashboard": "매출·학생 수 같은 핵심 숫자를 한 화면에 모아 봐요.", "card-daily-charts": "날짜별 변화를 그래프로 보는 곳이에요.", "card-rankings": "성적·활동 순위를 매겨서 보여 줘요.", "card-retention-risk": "곧 그만둘 것 같은 학생을 미리 찾아 줘요.", "card-retention": "오래된 데이터를 정해진 기간에 맞춰 자동 삭제해요.", "card-active-rooms": "지금 진행 중인 수업 방을 실시간으로 확인해요.", "card-nps-monthly": "서비스를 추천할 만한지(만족도)를 매달 측정해요.", "card-ai-forecast": "AI가 앞으로의 매출·학생 수를 예측해요.", "card-voice-stats": "학생들이 말한 양·발음 점수를 통계로 봐요.", "card-accounting-mgmt": "수입·지출 같은 돈의 흐름을 정리하는 곳이에요.", "card-payments-b2b": "기업·학원 간(B2B) 결제 내역을 관리해요.", "card-payments-b2c": "학생·학부모(B2C) 결제 내역을 관리해요.", "card-recurring-billing": "매달 자동으로 결제되도록 설정해요.", "card-auto-dunning": "안 낸 돈(미납)을 자동으로 알려 받아내요.", "card-settlement-stats": "지사·대리점에 줄 돈을 정산하는 통계예요.", "card-points-mgmt": "학생에게 주는 포인트를 관리해요.", "card-students-mgmt": "학생 정보를 등록·수정·관리해요.", "card-school-attendance-stats": "학원마다 학생들이 수업을 얼마나 듣는지 봐요.", "card-family-mgmt": "형제·부모 등 가족 단위로 묶어서 관리해요.", "card-inquiry-mgmt": "들어온 문의·질문에 답하는 곳이에요.", "card-enrollments": "수강 신청·등록을 받고 처리해요.", "card-badges-mgmt": "잘한 학생에게 주는 뱃지(배지)를 관리해요.", "card-community": "학생·학부모가 글을 나누는 공간이에요.", "card-counseling-booking": "상담 날짜·시간을 예약받는 곳이에요.", "card-parent-digest": "학부모에게 보내는 한 주 요약 소식이에요.", "card-parent-faq-bot": "자주 묻는 질문에 챗봇이 자동으로 답해요.", "card-referral": "친구를 소개하면 혜택을 주는 추천 이벤트예요.", "card-alumni": "졸업한 학생들이 모이는 공간이에요.", "card-gallery": "수업 사진·영상을 모아 두는 갤러리예요.", "card-review-quiz": "배운 내용을 복습하는 퀴즈를 내요.", "card-textbooks": "수업에 쓰는 교재·자료를 관리해요.", "card-microlearn": "짧고 가볍게 배우는 미니 학습 콘텐츠예요.", "card-mini-toeic": "짧게 풀어 보는 토익 연습 문제예요.", "card-pronunciation": "AI가 발음을 듣고 고쳐 줘요.", "card-video-dict": "단어를 영상으로 보여 주는 사전이에요.", "card-voice-diary": "말로 녹음해서 쓰는 영어 일기예요.", "card-level-tests": "실력을 확인하는 레벨 테스트예요.", "card-battle-mgmt": "게임 21종에서 학생들이 무엇을 배우고 어디서 막히는지 한눈에 봐요.", "card-recording-storage": "수업 녹화 영상을 저장·관리해요.", "card-homework": "숙제를 내주고 제출을 확인해요.", "card-calendar": "일정·행사를 달력으로 관리해요.", "card-permissions": "누가 어떤 메뉴를 볼 수 있는지 정해요.", "card-franchises": "가맹점(지사·대리점)을 등록·관리해요.", "card-centers": "학습 센터(지점)를 관리해요.", "card-data-export": "필요한 자료를 엑셀 등으로 내려받아요.", "card-admin-alerts": "관리자에게 오는 중요한 알림 모음이에요.", "card-admin-ghost": "학생 화면을 살짝 들여다보는 기능이에요.", "card-admin-whisper": "수업 중 학생에게만 살짝 메시지를 전달해요.", "card-attendance-status": "누가 왔는지(출석/결석)를 확인해요.", "card-auto-attendance": "QR코드를 찍어 자동으로 출석 체크해요.", "card-class-attendance": "수업별로 출석을 기록해요."};
   function ready(fn){ if(document.readyState!=='loading')fn(); else document.addEventListener('DOMContentLoaded',fn); }
   ready(function(){
     // 공용 회색 말풍선(window.__sbTip)으로 위임 — 메뉴 글자에 가깝게 + body{zoom} 보정
@@ -11777,7 +12222,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script>
 (function(){
-  var CARD={"card-eval-mgmt": "학생 한 명 한 명의 성적·태도를 적어 평가서를 만들어요.", "card-bulk-eval": "여러 학생의 평가서를 한 번에 모아서 작성해요.", "card-ai-lesson-report": "AI가 수업 내용을 자동으로 정리해 리포트로 만들어요.", "card-ai-eval-draft": "AI가 평가서 초안을 먼저 써 주고 선생님이 다듬어요.", "card-monthly-report": "한 달 동안의 학습·성적을 한눈에 보는 보고서예요.", "card-comparison-report": "지난달과 이번 달, 반끼리 성적을 나란히 비교해요.", "card-webpush-mgmt": "브라우저로 '띵!' 하고 알림을 보내는 기능이에요.", "card-kakao-mgmt": "카카오톡으로 안내 메시지를 보내요.", "card-popups-mgmt": "화면에 뜨는 공지 팝업창을 만들고 관리해요.", "card-notifications": "이벤트·소식을 자동 알림으로 보내는 설정이에요.", "card-notice-board": "모두에게 알리는 공지글을 올리는 게시판이에요.", "card-teacher-mgmt": "선생님 정보와 담당 반을 등록·관리해요.", "card-payroll-auto": "수업 기록을 바탕으로 급여를 자동으로 계산해요.", "card-payroll": "선생님 급여를 확인하고 정산하는 곳이에요.", "card-mbti-mgmt": "강사·학생의 성향(MBTI)을 모아 보는 곳이에요.", "card-praise-stats": "누가 칭찬을 많이 주고받았는지 통계로 봐요.", "card-supervisor": "선생님들의 수업을 점검하고 지도하는 화면이에요.", "card-room-invite": "화상수업 방에 학생을 초대하는 링크를 관리해요.", "card-timetable": "수업 시간표를 짜고 보는 곳이에요.", "card-lesson-log": "오늘 무엇을 가르쳤는지 수업 기록을 남겨요.", "card-report-forms": "보고서에 쓰는 기본 양식(템플릿)을 관리해요.", "card-kpi-dashboard": "매출·학생 수 같은 핵심 숫자를 한 화면에 모아 봐요.", "card-daily-charts": "날짜별 변화를 그래프로 보는 곳이에요.", "card-rankings": "성적·활동 순위를 매겨서 보여 줘요.", "card-retention-risk": "곧 그만둘 것 같은 학생을 미리 찾아 줘요.", "card-retention": "오래된 데이터를 정해진 기간에 맞춰 자동 삭제해요.", "card-active-rooms": "지금 진행 중인 수업 방을 실시간으로 확인해요.", "card-nps-monthly": "서비스를 추천할 만한지(만족도)를 매달 측정해요.", "card-ai-forecast": "AI가 앞으로의 매출·학생 수를 예측해요.", "card-voice-stats": "학생들이 말한 양·발음 점수를 통계로 봐요.", "card-accounting-mgmt": "수입·지출 같은 돈의 흐름을 정리하는 곳이에요.", "card-payments-b2b": "기업·학원 간(B2B) 결제 내역을 관리해요.", "card-payments-b2c": "학생·학부모(B2C) 결제 내역을 관리해요.", "card-recurring-billing": "매달 자동으로 결제되도록 설정해요.", "card-auto-dunning": "안 낸 돈(미납)을 자동으로 알려 받아내요.", "card-settlement-stats": "지사·대리점에 줄 돈을 정산하는 통계예요.", "card-points-mgmt": "학생에게 주는 포인트를 관리해요.", "card-students-mgmt": "학생 정보를 등록·수정·관리해요.", "card-school-attendance-stats": "학원마다 학생들이 수업을 얼마나 듣는지 봐요.", "card-family-mgmt": "형제·부모 등 가족 단위로 묶어서 관리해요.", "card-inquiry-mgmt": "들어온 문의·질문에 답하는 곳이에요.", "card-enrollments": "수강 신청·등록을 받고 처리해요.", "card-badges-mgmt": "잘한 학생에게 주는 뱃지(배지)를 관리해요.", "card-community": "학생·학부모가 글을 나누는 공간이에요.", "card-counseling-booking": "상담 날짜·시간을 예약받는 곳이에요.", "card-parent-digest": "학부모에게 보내는 한 주 요약 소식이에요.", "card-parent-faq-bot": "자주 묻는 질문에 챗봇이 자동으로 답해요.", "card-referral": "친구를 소개하면 혜택을 주는 추천 이벤트예요.", "card-alumni": "졸업한 학생들이 모이는 공간이에요.", "card-gallery": "수업 사진·영상을 모아 두는 갤러리예요.", "card-review-quiz": "배운 내용을 복습하는 퀴즈를 내요.", "card-textbooks": "수업에 쓰는 교재·자료를 관리해요.", "card-microlearn": "짧고 가볍게 배우는 미니 학습 콘텐츠예요.", "card-mini-toeic": "짧게 풀어 보는 토익 연습 문제예요.", "card-pronunciation": "AI가 발음을 듣고 고쳐 줘요.", "card-video-dict": "단어를 영상으로 보여 주는 사전이에요.", "card-voice-diary": "말로 녹음해서 쓰는 영어 일기예요.", "card-level-tests": "실력을 확인하는 레벨 테스트예요.", "card-battle-mgmt": "학생끼리 겨루는 영어 대결 게임이에요.", "card-recording-storage": "수업 녹화 영상을 저장·관리해요.", "card-homework": "숙제를 내주고 제출을 확인해요.", "card-calendar": "일정·행사를 달력으로 관리해요.", "card-permissions": "누가 어떤 메뉴를 볼 수 있는지 정해요.", "card-franchises": "가맹점(지사·대리점)을 등록·관리해요.", "card-centers": "학습 센터(지점)를 관리해요.", "card-data-export": "필요한 자료를 엑셀 등으로 내려받아요.", "card-admin-alerts": "관리자에게 오는 중요한 알림 모음이에요.", "card-admin-ghost": "학생 화면을 살짝 들여다보는 기능이에요.", "card-admin-whisper": "수업 중 학생에게만 살짝 메시지를 전달해요.", "card-attendance-status": "누가 왔는지(출석/결석)를 확인해요.", "card-auto-attendance": "QR코드를 찍어 자동으로 출석 체크해요.", "card-class-attendance": "수업별로 출석을 기록해요.", "card-ai-insights": "AI가 찾아낸 중요한 흐름·경고를 모아 보는 곳이에요.", "card-auto-schedule": "AI가 일주일 수업 시간표를 자동으로 짜 줘요.", "card-classroom-test": "수업 전에 카메라·마이크가 잘 되는지 점검해요.", "card-daily-briefing": "매일 아침 중요한 소식을 자동으로 정리해 줘요.", "card-monthly-ai-report": "한 달 학습을 AI가 분석해 레포트로 만들어요."};
+  var CARD={"card-eval-mgmt": "학생 한 명 한 명의 성적·태도를 적어 평가서를 만들어요.", "card-bulk-eval": "여러 학생의 평가서를 한 번에 모아서 작성해요.", "card-ai-lesson-report": "AI가 수업 내용을 자동으로 정리해 리포트로 만들어요.", "card-ai-eval-draft": "AI가 평가서 초안을 먼저 써 주고 선생님이 다듬어요.", "card-monthly-report": "한 달 동안의 학습·성적을 한눈에 보는 보고서예요.", "card-comparison-report": "지난달과 이번 달, 반끼리 성적을 나란히 비교해요.", "card-webpush-mgmt": "브라우저로 '띵!' 하고 알림을 보내는 기능이에요.", "card-kakao-mgmt": "카카오톡으로 안내 메시지를 보내요.", "card-popups-mgmt": "화면에 뜨는 공지 팝업창을 만들고 관리해요.", "card-notifications": "이벤트·소식을 자동 알림으로 보내는 설정이에요.", "card-notice-board": "모두에게 알리는 공지글을 올리는 게시판이에요.", "card-teacher-mgmt": "선생님 정보와 담당 반을 등록·관리해요.", "card-payroll-auto": "수업 기록을 바탕으로 급여를 자동으로 계산해요.", "card-payroll": "선생님 급여를 확인하고 정산하는 곳이에요.", "card-mbti-mgmt": "강사·학생의 성향(MBTI)을 모아 보는 곳이에요.", "card-praise-stats": "누가 칭찬을 많이 주고받았는지 통계로 봐요.", "card-supervisor": "선생님들의 수업을 점검하고 지도하는 화면이에요.", "card-room-invite": "화상수업 방에 학생을 초대하는 링크를 관리해요.", "card-timetable": "수업 시간표를 짜고 보는 곳이에요.", "card-lesson-log": "오늘 무엇을 가르쳤는지 수업 기록을 남겨요.", "card-report-forms": "보고서에 쓰는 기본 양식(템플릿)을 관리해요.", "card-kpi-dashboard": "매출·학생 수 같은 핵심 숫자를 한 화면에 모아 봐요.", "card-daily-charts": "날짜별 변화를 그래프로 보는 곳이에요.", "card-rankings": "성적·활동 순위를 매겨서 보여 줘요.", "card-retention-risk": "곧 그만둘 것 같은 학생을 미리 찾아 줘요.", "card-retention": "오래된 데이터를 정해진 기간에 맞춰 자동 삭제해요.", "card-active-rooms": "지금 진행 중인 수업 방을 실시간으로 확인해요.", "card-nps-monthly": "서비스를 추천할 만한지(만족도)를 매달 측정해요.", "card-ai-forecast": "AI가 앞으로의 매출·학생 수를 예측해요.", "card-voice-stats": "학생들이 말한 양·발음 점수를 통계로 봐요.", "card-accounting-mgmt": "수입·지출 같은 돈의 흐름을 정리하는 곳이에요.", "card-payments-b2b": "기업·학원 간(B2B) 결제 내역을 관리해요.", "card-payments-b2c": "학생·학부모(B2C) 결제 내역을 관리해요.", "card-recurring-billing": "매달 자동으로 결제되도록 설정해요.", "card-auto-dunning": "안 낸 돈(미납)을 자동으로 알려 받아내요.", "card-settlement-stats": "지사·대리점에 줄 돈을 정산하는 통계예요.", "card-points-mgmt": "학생에게 주는 포인트를 관리해요.", "card-students-mgmt": "학생 정보를 등록·수정·관리해요.", "card-school-attendance-stats": "학원마다 학생들이 수업을 얼마나 듣는지 봐요.", "card-family-mgmt": "형제·부모 등 가족 단위로 묶어서 관리해요.", "card-inquiry-mgmt": "들어온 문의·질문에 답하는 곳이에요.", "card-enrollments": "수강 신청·등록을 받고 처리해요.", "card-badges-mgmt": "잘한 학생에게 주는 뱃지(배지)를 관리해요.", "card-community": "학생·학부모가 글을 나누는 공간이에요.", "card-counseling-booking": "상담 날짜·시간을 예약받는 곳이에요.", "card-parent-digest": "학부모에게 보내는 한 주 요약 소식이에요.", "card-parent-faq-bot": "자주 묻는 질문에 챗봇이 자동으로 답해요.", "card-referral": "친구를 소개하면 혜택을 주는 추천 이벤트예요.", "card-alumni": "졸업한 학생들이 모이는 공간이에요.", "card-gallery": "수업 사진·영상을 모아 두는 갤러리예요.", "card-review-quiz": "배운 내용을 복습하는 퀴즈를 내요.", "card-textbooks": "수업에 쓰는 교재·자료를 관리해요.", "card-microlearn": "짧고 가볍게 배우는 미니 학습 콘텐츠예요.", "card-mini-toeic": "짧게 풀어 보는 토익 연습 문제예요.", "card-pronunciation": "AI가 발음을 듣고 고쳐 줘요.", "card-video-dict": "단어를 영상으로 보여 주는 사전이에요.", "card-voice-diary": "말로 녹음해서 쓰는 영어 일기예요.", "card-level-tests": "실력을 확인하는 레벨 테스트예요.", "card-battle-mgmt": "게임 21종에서 학생들이 무엇을 배우고 어디서 막히는지 한눈에 봐요.", "card-recording-storage": "수업 녹화 영상을 저장·관리해요.", "card-homework": "숙제를 내주고 제출을 확인해요.", "card-calendar": "일정·행사를 달력으로 관리해요.", "card-permissions": "누가 어떤 메뉴를 볼 수 있는지 정해요.", "card-franchises": "가맹점(지사·대리점)을 등록·관리해요.", "card-centers": "학습 센터(지점)를 관리해요.", "card-data-export": "필요한 자료를 엑셀 등으로 내려받아요.", "card-admin-alerts": "관리자에게 오는 중요한 알림 모음이에요.", "card-admin-ghost": "학생 화면을 살짝 들여다보는 기능이에요.", "card-admin-whisper": "수업 중 학생에게만 살짝 메시지를 전달해요.", "card-attendance-status": "누가 왔는지(출석/결석)를 확인해요.", "card-auto-attendance": "QR코드를 찍어 자동으로 출석 체크해요.", "card-class-attendance": "수업별로 출석을 기록해요.", "card-ai-insights": "AI가 찾아낸 중요한 흐름·경고를 모아 보는 곳이에요.", "card-auto-schedule": "AI가 일주일 수업 시간표를 자동으로 짜 줘요.", "card-classroom-test": "수업 전에 카메라·마이크가 잘 되는지 점검해요.", "card-daily-briefing": "매일 아침 중요한 소식을 자동으로 정리해 줘요.", "card-monthly-ai-report": "한 달 학습을 AI가 분석해 레포트로 만들어요."};
   function ready(fn){ if(document.readyState!=='loading'){fn();} else {document.addEventListener('DOMContentLoaded',fn);} }
   ready(function(){
     var el=document.getElementById('ph85tip');
@@ -11884,6 +12329,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
+<script src="/js/adm-ia6.js?v=1" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
@@ -12023,6 +12469,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 </body>
 </html>

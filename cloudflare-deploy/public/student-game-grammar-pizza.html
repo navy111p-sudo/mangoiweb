@@ -326,7 +326,8 @@
      MangoiMemory.log 를 감싸 자동으로 POST /api/games/shadow 로 보낸다 — 채점 코드는 안 건드린다.
      ⚠️ 반드시 mangoi-memory.js **다음에** 실을 것. -->
 <script src="/js/mangoi-shadow-sync.js?v=1"></script>
-<script src="/js/i18n-sweep.js?v=19" defer></script>
+<script src="/js/i18n-sweep.js?v=21" defer></script>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body>
 
@@ -810,6 +811,9 @@ function _legacyMatchScore(said, target){
 /* 🧠 판정이 끝난 순간에만 기억 큐에 적립한다.
    matchScore 는 인식 중간결과마다 불리므로 거기서 적립하면 한 문장이 수십 번 쌓인다. */
 function _pzRemember(ok){
+  // 🎮 계측(2026-08-08) — MangoiMemory 유무와 무관하게 먼저 기록한다.
+  //    아래 early return 뒤에 두면 그 환경에서는 영영 안 잡힌다.
+  try{ if(window.MangoiGame) window.MangoiGame.answer(!!ok, sentenceText()); }catch(_e){}
   try{
     if(!window.MangoiMemory) return;
     MangoiMemory.log({ en: sentenceText() }, !!ok,
@@ -1276,6 +1280,6 @@ renderLevelBar();
 setupSentence();
 mountLessonNav();
 </script>
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 </body>
 </html>

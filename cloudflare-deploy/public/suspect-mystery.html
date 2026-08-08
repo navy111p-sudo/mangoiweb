@@ -75,7 +75,8 @@
 <script src="/js/mangoi-speak-score.js?v=1"></script>
 <script src="/js/mangoi-pron-tags.js?v=1"></script>
 <script src="/js/mangoi-memory.js?v=1"></script>
-<script src="/js/i18n-sweep.js?v=19" defer></script>
+<script src="/js/i18n-sweep.js?v=21" defer></script>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body class="min-h-screen text-white overflow-x-hidden flex flex-col justify-between">
 
@@ -1029,6 +1030,8 @@
 
                 // Check correctness immediately or wait for speech?
                 // Traditional mystery: Unlock Speaking target!
+                // 🎮 계측(2026-08-08) — 추리 게임이라 «단어 약점»은 남기지 않는다(정확도만).
+                try{ if(window.MangoiGame) window.MangoiGame.answer(id === currentData.answer); }catch(_e){}
                 if (id === currentData.answer) {
                     playSound('correct');
                     revealSelectionState(true);
@@ -1227,6 +1230,6 @@ html{overflow-x:hidden}
 }
 </style>
 <script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 </body>
 </html>

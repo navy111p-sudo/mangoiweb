@@ -76,6 +76,19 @@
   .score-box-hero .score-num { font-size: 30px; }
   .score-label { font-size: 9.5px; color: #94a3b8; margin-top: 5px; letter-spacing: 0.8px; font-weight: 700; }
   .score-note { font-size: 11.5px; color: #94a3b8; text-align: center; margin-bottom: 14px; line-height: 1.5; }
+  /* 🎯 단어별 발음 지도 — 색은 «잘함/조금만더/다시» 세 단계만. 네 단계 넘어가면 못 읽는다. */
+  .wordmap { margin: 0 0 14px; padding: 14px 12px; border-radius: 14px; background: rgba(18,24,42,0.55); border: 1px solid rgba(139,92,246,0.18); }
+  .wordmap-title { font-size: 11.5px; font-weight: 800; color: #c4b5fd; text-align: center; margin-bottom: 10px; }
+  .wordmap-words { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; }
+  .wm { border: 0; border-radius: 10px; padding: 7px 11px; font-size: 15px; font-weight: 800; cursor: pointer;
+        line-height: 1.15; min-height: 34px; }        /* 손가락으로 눌리는 크기 */
+  .wm small { display: block; font-size: 9.5px; font-weight: 700; opacity: .85; margin-top: 1px; }
+  .wm-good { background: #064e3b; color: #6ee7b7; }
+  .wm-mid  { background: #78350f; color: #fcd34d; }
+  .wm-bad  { background: #7f1d1d; color: #fca5a5; }
+  .wm-miss { background: #1e293b; color: #94a3b8; text-decoration: line-through; }
+  .wordmap-hint { font-size: 10.5px; color: #94a3b8; text-align: center; margin-top: 9px; line-height: 1.5; }
+  @media (max-width: 640px) { .wordmap { padding: 11px 9px; margin-bottom: 8px; } .wm { font-size: 14px; padding: 6px 9px; } }
   .feedback { padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(59,130,246,0.08)); border-left: 4px solid #34d399; border-radius: 8px; margin-bottom: 10px; font-size: 13.5px; line-height: 1.6; }
   .suggestion { padding: 14px; background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); border-left: 4px solid #fbbf24; border-radius: 8px; font-size: 13.5px; line-height: 1.6; }
   .grammar { margin-top: 10px; padding: 14px; background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.06)); border-left: 4px solid #60a5fa; border-radius: 8px; font-size: 13px; line-height: 1.65; }
@@ -245,6 +258,7 @@
     .rec-status { font-size: 10.5px; margin-top: 8px; }
   }
 </style>
+<script src="/js/game-track.js?v=2" defer></script>
 </head>
 <body>
 
@@ -398,6 +412,10 @@
       <div class="score-box"><div class="score-num" id="sc-flue">0</div><div class="score-label" data-ko="흐름" data-en="FLOW">흐름</div></div>
     </div>
     <div class="score-note" data-ko="AI가 네 목소리를 알아듣고, 문장을 얼마나 정확히 말했는지 채점했어요" data-en="The AI understood your voice and scored how accurately you said the sentence">AI가 네 목소리를 알아듣고, 문장을 얼마나 정확히 말했는지 채점했어요</div>
+    <!-- 🎯 단어별 발음 지도 (2026-08-08) — Azure 음소 평가가 있을 때만 나온다.
+         점수 4개만 보여주면 «그래서 뭘 고치지?» 가 남는다. 학생에게 제일 쓸모 있는 건
+         «어느 단어를 다시 해볼까» 다. 단어를 누르면 그 단어만 원어민 발음으로 들려준다. -->
+    <div class="wordmap" id="wordmap" style="display:none"></div>
     <div class="transcript"><b data-ko="너의 발화:" data-en="You said:">너의 발화:</b> <span id="transcript-text">-</span></div>
     <div class="feedback" id="feedback-text">-</div>
     <div class="suggestion" id="suggestion-text">-</div>
@@ -671,6 +689,90 @@ async function toggleTargetMeaning() {
   }
 }
 
+/* 🎯 단어별 발음 지도 (2026-08-08)
+   Azure 가 «어느 단어가 몇 점인지» 를 준다. 점수 4개만 보여주면 «그래서 뭘 고치지?» 가 남는다.
+
+   🌟 문구는 학생향이라 **항상 희망 톤**이다(사장님 지시).
+      «틀렸어요» 가 아니라 «여기만 다시 해볼까요». 색도 세 단계까지만 — 넷이 넘으면 못 읽는다.
+   🔊 단어를 누르면 **그 단어만** 원어민 발음으로 들려준다. 틀린 곳을 바로 고쳐 볼 수 있게. */
+function renderWordMap(words) {
+  const box = document.getElementById('wordmap');
+  if (!box) return;
+  const list = Array.isArray(words) ? words.filter(w => w && w.word) : [];
+  if (!list.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const en = (window.getLang && window.getLang() === 'en');
+  /* ⛔ 화면에 글자를 넣는 곳은 «전부» 이 함수를 거친다.
+     알약만 이스케이프하고 안내문을 빼먹어서 태그가 샌 적이 있다(하니스가 잡았다). */
+  const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // «없는 말을 덧붙임(Insertion)» 은 지도에 넣지 않는다 — 모범 문장에 없는 단어라 눌러도 배울 게 없다.
+  const shown = list.filter(w => String(w.errorType || '') !== 'Insertion');
+  let weakest = null;
+  const chips = shown.map((w, idx) => {
+    const miss = String(w.errorType || '') === 'Omission';
+    const sc = miss ? 0 : Math.round(Number(w.accuracy) || 0);
+    if (!miss && (!weakest || sc < weakest.sc)) weakest = { word: w.word, sc };
+    const cls = miss ? 'wm-miss' : sc >= 80 ? 'wm-good' : sc >= 60 ? 'wm-mid' : 'wm-bad';
+    const tag = miss ? (en ? 'skipped' : '빠뜨림') : String(sc);
+    /* ⛔ 단어를 onclick 안에 문자열로 박지 않는다. 따옴표 하나만 섞여도 새는 길이 열린다.
+       화면에 그릴 때만 이스케이프하고, 어느 단어인지는 «번호» 로만 넘긴다(아래 위임 클릭). */
+    return `<button type="button" class="wm ${cls}" data-i="${idx}">${esc(w.word)}<small>${tag}</small></button>`;
+  }).join('');
+
+  // 🌟 희망 톤 — «가장 아쉬운 한 곳»만 짚어 준다. 여러 개를 늘어놓으면 의욕이 꺾인다.
+  let hint;
+  const ww = weakest ? esc(weakest.word) : '';
+  if (weakest && weakest.sc < 60) {
+    hint = en ? `Try <b>${ww}</b> once more — you're close!`
+              : `<b>${ww}</b> 하나만 다시 해볼까요? 거의 다 왔어요!`;
+  } else if (weakest && weakest.sc < 80) {
+    hint = en ? `Nice! Polish <b>${ww}</b> and it's perfect.`
+              : `좋아요! <b>${ww}</b> 만 다듬으면 완벽해요.`;
+  } else {
+    hint = en ? 'Every word came out clearly. Great job!' : '모든 단어가 또렷했어요. 아주 잘했어요!';
+  }
+
+  box.innerHTML =
+    `<div class="wordmap-title">${en ? '🎯 Word-by-word pronunciation' : '🎯 단어별 발음'}</div>` +
+    `<div class="wordmap-words">${chips}</div>` +
+    `<div class="wordmap-hint">${hint}<br>${en ? 'Tap a word to hear it.' : '단어를 누르면 원어민 발음을 들려줘요.'}</div>`;
+  box.style.display = 'block';
+  // 클릭은 상자 하나에만 건다(단어마다 걸면 다시 그릴 때마다 새는 자리가 생긴다)
+  box.onclick = function (ev) {
+    const btn = ev.target && ev.target.closest ? ev.target.closest('.wm') : null;
+    if (!btn) return;
+    const w = shown[Number(btn.getAttribute('data-i'))];
+    if (w && w.word) speakWord(w.word);
+  };
+}
+
+/** 단어 하나만 읽어 준다 (모범 문장 재생과 같은 통로를 쓴다). */
+async function speakWord(w) {
+  const t = String(w || '').trim();
+  if (!t) return;
+  const lang = detectTtsLang(t) || 'en';
+  if (lang === 'ko') { speakFallback(t, lang); return; }
+  try {
+    if (ttsAudio) { try { ttsAudio.pause(); } catch (e) {} }
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    let url = ttsCache[lang + '|' + t];
+    if (!url) {
+      const resp = await fetch('/api/voice/tts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: t, lang })
+      });
+      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts');
+      const blob = await resp.blob();
+      if (blob.size < 200) throw new Error('tts_empty');
+      url = URL.createObjectURL(blob);
+      ttsCache[lang + '|' + t] = url;
+    }
+    if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
+    ttsAudio.src = url;
+    await ttsAudio.play();
+  } catch (e) { speakFallback(t, lang); }   // 서버 TTS 가 안 되면 브라우저 음성으로
+}
+
 async function speakTarget() {
   const t = document.getElementById('target-input').value || document.getElementById('target-display').textContent;
   if (!t) return;
@@ -705,8 +807,148 @@ async function speakTarget() {
 
 function resetUI() {
   document.getElementById('result').style.display = 'none';
+  // 🎯 지난 시도의 단어 지도를 남기지 않는다 — 새 녹음이 실패했을 때 옛 점수가 붙어 있으면 오해한다
+  const _wm = document.getElementById('wordmap');
+  if (_wm) { _wm.style.display = 'none'; _wm.innerHTML = ''; }
   document.body.classList.remove('m-showing-result');   // 📱 결과→녹음 버튼 자리로 복귀(모바일)
   document.getElementById('rec-status').textContent = (window.getLang && window.getLang() === 'en' ? 'Tap mic to start recording' : '마이크 버튼을 눌러 녹음 시작');
+}
+
+/* 🎤 (2026-08-08) 같은 마이크 스트림에서 «16kHz mono WAV» 도 같이 뜬다.
+   왜: Azure 발음평가(음소 단위)는 **webm 을 받지 않는다.** MediaRecorder 기본값이 webm 이라
+       그대로 보내면 발음평가가 통째로 건너뛰어진다. WAV(PCM)는 Whisper 도 그대로 받는다.
+   ⚠️ 기존 MediaRecorder 경로는 «지우지 않고» 그대로 둔다. WAV 만들기가 실패하면
+      (구형 브라우저·AudioContext 차단) 예전처럼 webm 을 보낸다 — 녹음이 죽는 것이 최악이다.
+   ScriptProcessor 는 deprecated 지만 AudioWorklet 과 달리 별도 모듈 파일이 필요 없고
+   모든 현행 브라우저에서 동작한다. 출력 버퍼에 아무것도 안 쓰므로 소리가 새지 않는다. */
+let _pcmCtx = null, _pcmNode = null, _pcmSrc = null, _pcmBuf = [], _pcmRate = 0;
+function pcmStart(stream) {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return false;
+    _pcmCtx = new AC();
+    _pcmRate = _pcmCtx.sampleRate || 48000;
+    _pcmSrc = _pcmCtx.createMediaStreamSource(stream);
+    _pcmNode = _pcmCtx.createScriptProcessor(4096, 1, 1);
+    _pcmBuf = [];
+    _pcmNode.onaudioprocess = (e) => { _pcmBuf.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+    _pcmSrc.connect(_pcmNode);
+    _pcmNode.connect(_pcmCtx.destination);
+    return true;
+  } catch (e) { _pcmCtx = null; return false; }
+}
+function pcmStopToWav() {
+  try {
+    if (!_pcmCtx) return null;
+    try { _pcmNode.disconnect(); _pcmSrc.disconnect(); } catch (e) {}
+    const rate = _pcmRate, parts = _pcmBuf;
+    _pcmBuf = [];
+    try { _pcmCtx.close(); } catch (e) {}
+    _pcmCtx = null;
+    let len = 0; for (const p of parts) len += p.length;
+    if (!len) return null;
+    const flat = new Float32Array(len);
+    let o = 0; for (const p of parts) { flat.set(p, o); o += p.length; }
+    const OUT = 16000, ratio = rate / OUT, n = Math.floor(flat.length / ratio);
+    if (n < 1600) return null;                       // 0.1초 미만 = 사실상 빈 녹음
+    const pcm = new Int16Array(n);
+    for (let i = 0; i < n; i++) {                    // 선형 보간 리샘플
+      const x = i * ratio, i0 = Math.floor(x), i1 = Math.min(i0 + 1, flat.length - 1), t = x - i0;
+      let v = flat[i0] * (1 - t) + flat[i1] * t;
+      v = Math.max(-1, Math.min(1, v));
+      pcm[i] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+    }
+    const buf = new ArrayBuffer(44 + pcm.length * 2), dv = new DataView(buf);
+    const ws = (off, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(off + i, s.charCodeAt(i)); };
+    ws(0, 'RIFF'); dv.setUint32(4, 36 + pcm.length * 2, true); ws(8, 'WAVE'); ws(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, OUT, true); dv.setUint32(28, OUT * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    ws(36, 'data'); dv.setUint32(40, pcm.length * 2, true);
+    new Int16Array(buf, 44).set(pcm);
+    return new Blob([buf], { type: 'audio/wav' });
+  } catch (e) { return null; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🎤 Azure 음소 발음평가 — **브라우저에서** 돌린다 (2026-08-08)
+
+   왜 서버가 아니라 브라우저인가:
+     Azure 의 REST 짧은오디오 창구는 Pronunciation-Assessment 헤더를 **무시한다**(실측 확정).
+     문장은 완벽히 알아듣는데(«Mangoi» 까지) 평가 블록만 빠져서 온다. 공식 SDK 로만 받을 수 있다.
+     SDK 는 브라우저용이라 여기서 돌린다.
+
+   ⛔ 구독 키는 브라우저로 내려보내지 않는다.
+     서버가 Azure 에서 받아 온 **10분짜리 임시 토큰**만 받아 쓴다(/api/voice/azure-token).
+     토큰으로 할 수 있는 일은 우리 리소스의 음성 인식뿐이고 10분 뒤 죽는다.
+
+   🪤 SDK 는 369KB 다. **녹음을 실제로 마쳤을 때 처음 한 번만** 내려받는다(지연 로딩).
+      화면을 열기만 한 학생은 한 바이트도 받지 않는다.
+   🪤 SDK 가 못 뜨거나 토큰이 안 나와도 **채점은 그대로 된다** — 어제 재보정한 Whisper 방식으로
+      자동 복귀한다. 발음평가는 «덤» 이지 수업을 세울 이유가 아니다.
+   ═══════════════════════════════════════════════════════════════════════ */
+let _azSdkP = null, _azTok = null, _azTokAt = 0;
+function azLoadSdk() {
+  if (window.SpeechSDK) return Promise.resolve(window.SpeechSDK);
+  if (!_azSdkP) _azSdkP = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = '/vendor/azure-speech-sdk.js?v=1';
+    s.onload = () => window.SpeechSDK ? res(window.SpeechSDK) : rej(new Error('sdk_no_global'));
+    s.onerror = () => rej(new Error('sdk_load_failed'));
+    document.head.appendChild(s);
+  });
+  return _azSdkP;
+}
+async function azToken() {
+  // 유효 10분 — 8분마다 새로 받는다(경계에서 만료되는 일이 없게)
+  if (_azTok && (Date.now() - _azTokAt) < 8 * 60 * 1000) return _azTok;
+  const r = await fetch('/api/voice/azure-token');
+  const d = await r.json();
+  if (!d || !d.ok || !d.token) throw new Error(d && d.error ? d.error : 'token_failed');
+  _azTok = d; _azTokAt = Date.now();
+  return _azTok;
+}
+const AZ_LOCALE = { en: 'en-US', ko: 'ko-KR', zh: 'zh-CN' };
+async function azAssess(wavBlob, reference, langShort) {
+  if (!wavBlob || String(wavBlob.type || '').indexOf('wav') < 0) return { ok: false, reason: 'not_wav' };
+  const locale = AZ_LOCALE[langShort];
+  if (!locale) return { ok: false, reason: 'lang_unsupported' };
+  if (!reference) return { ok: false, reason: 'no_reference' };
+  let rec = null;
+  try {
+    const SDK = await azLoadSdk();
+    const tk = await azToken();
+    const cfg = SDK.SpeechConfig.fromAuthorizationToken(tk.token, tk.region);
+    cfg.speechRecognitionLanguage = locale;
+    // 🔑 Phoneme = 음소 단위 · 마지막 true = 빠뜨린/없는 단어 잡기(이게 없으면 «절반만 읽어도 만점»)
+    const pac = new SDK.PronunciationAssessmentConfig(
+      reference,
+      SDK.PronunciationAssessmentGradingSystem.HundredMark,
+      SDK.PronunciationAssessmentGranularity.Phoneme,
+      true);
+    const audio = SDK.AudioConfig.fromWavFileInput(new File([wavBlob], 'rec.wav', { type: 'audio/wav' }));
+    rec = new SDK.SpeechRecognizer(cfg, audio);
+    pac.applyTo(rec);
+    const res = await new Promise((resolve, reject) => rec.recognizeOnceAsync(resolve, reject));
+    if (res.reason !== SDK.ResultReason.RecognizedSpeech) return { ok: false, reason: 'recog_' + res.reason };
+    const p = SDK.PronunciationAssessmentResult.fromResult(res);
+    const n = (v) => { const x = Number(v); return isFinite(x) ? Math.max(0, Math.min(100, Math.round(x))) : 0; };
+    const raw = (p.detailResult && p.detailResult.Words) ? p.detailResult.Words : [];
+    return {
+      ok: true,
+      accuracy: n(p.accuracyScore), fluency: n(p.fluencyScore),
+      completeness: n(p.completenessScore), pron: n(p.pronunciationScore),
+      text: res.text || '',
+      words: raw.slice(0, 40).map(w => ({
+        word: String(w.Word || ''),
+        accuracy: n(w.PronunciationAssessment && w.PronunciationAssessment.AccuracyScore),
+        errorType: (w.PronunciationAssessment && w.PronunciationAssessment.ErrorType) || undefined,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, reason: 'sdk_' + String((e && (e.message || e.errorDetails)) || e).slice(0, 60) };
+  } finally {
+    try { if (rec) rec.close(); } catch (e) {}
+  }
 }
 
 async function toggleRec() {
@@ -715,11 +957,13 @@ async function toggleRec() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder = new MediaRecorder(stream);
     chunks = [];
+    pcmStart(stream);                                 // 🎤 WAV 도 같이 뜬다(실패해도 무시)
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
-      await processAudio(blob);
+      const webm = new Blob(chunks, { type: chunks[0]?.type || 'audio/webm' });
+      const wav = pcmStopToWav();                     // 없으면 예전 그대로 webm 을 쓴다
+      await processAudio(wav || webm);
     };
     mediaRecorder.start();
     isRecording = true;
@@ -746,8 +990,13 @@ async function processAudio(blob) {
     //      "한국어로 말했다"며 항상 0점이 나오던 버그가 있었다. 모범문장(target)의 문자로 판정.
     const _target0 = document.getElementById('target-display').textContent || '';
     const fd = new FormData();
-    fd.append('audio', blob, 'rec.webm');
+    const _isWav = (blob.type || '').indexOf('wav') >= 0;
+    fd.append('audio', blob, _isWav ? 'rec.wav' : 'rec.webm');
     fd.append('lang', detectTtsLang(_target0));
+    /* 🚫 (2026-08-08) 서버로 reference 를 보내지 않는다 — 보내면 서버가 Azure REST 를 부르는데,
+       그 창구는 발음평가 헤더를 **무시한다**(실측 확정: 문장은 알아듣고 평가 블록만 없음).
+       왕복만 늘고 얻는 게 없다. 평가는 아래에서 **브라우저 SDK** 가 한다.
+       ⛔ 여기에 prompt(=Whisper initial_prompt)를 넣지 말 것 — 07-29 만점 사고. */
     // 🚫 (2026-07-30) 목표 문장을 Whisper 에 initial_prompt 로 넘기던 코드를 제거했다.
     //   07-29 에 환각(엉뚱한 문장으로 들림) 완화용으로 넣었으나, 부작용이 훨씬 컸다:
     //   짧은 문장에 정답을 미리 알려주면 디코더가 그쪽으로 강하게 기울어, 발음을 엉망으로
@@ -771,7 +1020,30 @@ async function processAudio(blob) {
     const _scAcoustic = (trD.segments || trD.transcription_info)
       ? { segments: trD.segments || undefined, transcription_info: trD.transcription_info || undefined }
       : null;
-    const _scPayload = { target, spoken, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic };
+    /* 🎤 (2026-08-08) Azure 음소 발음평가 결과를 그대로 넘긴다. 서버가 있으면 «또렷함·흐름» 을
+       이걸로 대체한다(Whisper 확신도는 흔한 문장을 뭉갠 것을 못 잡는다).
+       키가 없거나 Azure 가 실패하면 서버가 null 을 주므로 이 값도 null → 예전과 똑같이 동작. */
+    /* 🎤 브라우저 SDK 로 음소 발음평가. 실패해도 채점은 계속된다(Whisper 방식으로 복귀).
+       ⏱ 전사와 «동시에» 돌리지 않는다 — 같은 오디오를 두 곳이 물면 탈이 난다(서버에서 겪음). */
+    const _az = await azAssess(blob, _target0, detectTtsLang(_target0));
+    const _scAzure = (_az && _az.ok) ? _az : null;
+
+    /* 📝 (2026-08-08) Azure 가 성공하면 «들은 글자» 도 Azure 것을 쓴다.
+       왜: 정확도 축은 «받아 적은 글자» 와 모범 문장을 비교한다. 그런데 Whisper 가 틀리게 적으면
+           **학생이 바르게 말하고도 감점**된다. 실측이 분명했다 —
+             학생: "…with Mangoi"  →  Whisper: MongoEye · my whole eye · Mangguay · MungoI (전부 오답)
+                                      Azure  : Mangoi (정확)
+           그래서 정확도가 79점으로 깎이고 있었다. 채점 «방식» 은 그대로 두고 «입력» 만 정확한 쪽으로.
+       ⛔ 정답 유출이 아니다(07-29 사고와 다름): Azure 는 모범 문장을 알지만 **그대로 베끼지 않는다.**
+          실측에서 학생이 빠뜨린 단어는 Azure 도 빠뜨렸다("I love English with mangoi" — studying 없음).
+          베끼는 구조라면 모범 문장이 그대로 나왔을 것이다. */
+    const _spokenAz = (_scAzure && String(_scAzure.text || '').trim()) || '';
+    const _spokenSrc = _spokenAz ? 'azure' : 'whisper';
+    const _spokenFinal = _spokenAz || spoken;
+    // 🔍 «왜 안 붙었나» 를 기록에 남긴다. 이게 없으면 azure_used=0 만 보이고 원인을 못 짚는다.
+    const _scAzureDiag = _scAzure ? ('ok(sdk)' + (_spokenSrc === 'azure' ? '+text' : ''))
+                                  : ('sdk:' + String((_az && _az.reason) || 'none'));
+    const _scPayload = { target, spoken: _spokenFinal, student_uid: user?.user_id || 'guest', student_name: user?.user_name || '', token: _scTok, acoustic: _scAcoustic, azure: _scAzure, azure_diag: _scAzureDiag };
     let coachResp = await fetch('/api/voice/coach', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(_scPayload)
@@ -786,11 +1058,14 @@ async function processAudio(blob) {
     if (!cD.ok) throw new Error('평가 실패: ' + (cD.error || ''));
 
     // 3) 화면 표시
-    document.getElementById('transcript-text').textContent = spoken || '(음성을 인식하지 못했어요)';
+    // 채점에 쓴 글자를 그대로 보여준다 — 화면과 점수가 어긋나면 «왜 깎였는지» 를 설명할 수 없다
+    document.getElementById('transcript-text').textContent = _spokenFinal || '(음성을 인식하지 못했어요)';
     document.getElementById('sc-overall').textContent = cD.scores.overall;
     document.getElementById('sc-accuracy').textContent = cD.scores.accuracy;
     document.getElementById('sc-pron').textContent = cD.scores.pronunciation;
     document.getElementById('sc-flue').textContent = cD.scores.fluency;
+    // 🎯 단어별 발음 지도 — Azure 평가가 있을 때만. 없으면 조용히 감춘다(예전 화면 그대로).
+    renderWordMap(_scAzure && _scAzure.words);
     document.getElementById('feedback-text').textContent = '💡 ' + cD.feedback;
     document.getElementById('suggestion-text').textContent = '🎯 ' + cD.suggestion;
     // 🎖 등급 배너 — 점수 구간에 따라 색/문구 (긴장감·성취감). tier 는 서버가 내려줌.
@@ -991,7 +1266,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260807224301 -->
+<!-- BUILD:20260808151835 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>
