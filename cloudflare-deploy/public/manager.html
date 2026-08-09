@@ -471,6 +471,14 @@ body.is-off .card{opacity:.82}
       //    지사·대리점에는 켜지 않는다(그쪽은 강사 화면을 쓰지 않고, 서버가 되돌려보낸다).
       var _tt = document.getElementById('toTeacher');
       if (_tt) _tt.hidden = false;
+      /* 🔔 수업 유도 배너도 여기서 시작한다 — «본사 매니저로 확인된 뒤» 라는 조건이 같다.
+         Start the class-reminder banner here — same condition (confirmed HQ manager).
+         ⚠️ 순서에 기대지 않는다 / don't rely on script order: 응답이 빠르면(로컬·캐시)
+            이 콜백이 **아래 배너 <script> 보다 먼저** 돈다(마이크로태스크는 script 사이에서
+            실행된다). 그때는 깃발만 세우고, 배너 쪽이 로드되면서 스스로 시작한다.
+            A fast response runs this callback before the banner <script> is parsed;
+            in that case we just raise a flag and the widget starts itself. */
+      try { window.__crbWanted = true; if (window.__crbStart) window.__crbStart(); } catch (e) {}
     }
     document.getElementById('kMonth').innerHTML =
       tile(n0(st.active), T('Active students', '재원 학생'), '') +
@@ -831,6 +839,8 @@ body.is-off .card{opacity:.82}
     if (D.live) paintLive();
     if (D.outage) paintOutage();
     if (D.bugs) paintBugs();
+    // 🔔 배너 문구도 언어를 따라간다 / the reminder banner follows the language too
+    try { if (window.__crbRepaint) window.__crbRepaint(); } catch (e) {}
   }
 
   // ── 첫 화면: API 2회 ──────────────────────────────────────────────────────
@@ -864,6 +874,201 @@ body.is-off .card{opacity:.82}
   boot();
 })();
 </script>
-<!-- BUILD:20260809084708 -->
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   🔔 수업 유도 배너 / Class reminder banner            (2026-08-09)
+
+   왜 / Why
+     매니저가 매니저 화면에서 일하다가 자기 커버수업·레벨테스트를 놓치는 일을 막는다.
+     Stop a manager from missing their own cover class / level test while working here.
+
+   ⚠️ 왜 파일이 아니라 «인라인» 인가 / Why inline instead of /js/…js
+     이 화면의 설계 계약 1번이 «외부 리소스 0개» 다(파일 머리 주석). 지연 350ms 회선에서
+     요청 하나가 첫 화면의 0.4초를 먹는다 — 전에 teacher.html 에 유틸 스크립트를 넣었다가
+     같은 이유로 되돌린 적이 있다. 그래서 <script src> 대신 여기에 둔다.
+     Contract #1 of this page is "zero external resources"; one extra request costs ~0.4s
+     on a 350ms-latency line. So the widget lives here instead of a separate file.
+
+   ⚠️ 계약에 맞춘 다른 점 / Other contract adjustments
+     · 애니메이션·transition·hover 확대 없음(저사양 기기 렉·백그라운드 탭 정지 사고 방지).
+       No animation / transition / hover-scale.
+     · 배너가 뜨는 동안에도 **새 네트워크 요청은 10분에 한 번**뿐이다. 30초마다 하는 일은
+       이미 받아 둔 시각으로 «몇 분 남았나» 를 다시 계산하는 것뿐 — 회선을 건드리지 않는다.
+       Only one network call per 10 min; the 30s tick is pure local arithmetic.
+
+   구조 / Structure
+     일정 로직은 getActiveClass() 하나에만 있다. 나머지는 UI 다.
+     All schedule logic is isolated in getActiveClass(). Everything else is UI.
+   ══════════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  // ===== 1) 설정 / CONFIG =====
+  var CONFIG = {
+    // 수업 방이 아직 안 열렸을 때 보낼 곳 / where to go before the room opens.
+    //   같은 로그인 쿠키라 재로그인이 없다 / same session cookie — no re-login.
+    teacherSiteUrl: '/teacher',
+    leadMinutes: 15,          // 수업 몇 분 전부터 / minutes before class
+    checkIntervalSec: 30,     // 화면 갱신 주기(네트워크 아님) / redraw interval (no network)
+    refetchMinutes: 10,       // 일정 다시 받는 주기 / schedule refetch interval
+    openInNewTab: true        // 새 탭 — 매니저가 하던 일을 잃지 않게 / keep manager work open
+  };
+
+  var NS = 'crb';
+  var STATE = { next: null, fetchedAt: 0, skew: 0, dismissed: null, started: false };
+
+  // ===== 2) 일정 제공자 / SCHEDULE PROVIDER — ★ 유일한 연동 지점 / the only wiring point ★ =====
+  //   반환 / returns: { label, minutesUntil, enterUrl } 또는 null / or null
+  //
+  //   데이터 출처 / Source: GET /api/teacher/portal?only=next  (초경량 모드 / lightweight mode)
+  //     · 이 계정(hq)이 강사원부의 누구인지 서버가 이미 판정한다 → 여기서 추측하지 않는다.
+  //       The server already resolves which teacher this hq account is — no guessing here.
+  //     · 응답은 다음 수업 하나뿐(수백 바이트) / response is a single class (a few hundred bytes).
+  function fetchNext() {
+    return fetch('/api/teacher/portal?only=next', {
+      credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+    }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        STATE.next = (j && j.ok) ? (j.next || null) : null;
+        STATE.fetchedAt = Date.now();
+        // 🕐 단말 시계가 틀려도 «몇 분 뒤» 가 어긋나지 않게 서버 시각으로 보정.
+        //    Correct for a wrong device clock using the server's clock.
+        if (j && j.now) STATE.skew = j.now - Date.now();
+        return STATE.next;
+      })
+      .catch(function () { return STATE.next; });   // 끊겨도 마지막 값으로 계속 센다 / keep last value
+  }
+
+  function needRefetch() {
+    if (!STATE.fetchedAt) return true;
+    if (Date.now() - STATE.fetchedAt > CONFIG.refetchMinutes * 60000) return true;
+    // 들고 있던 수업이 끝났으면 다음 것을 확인한다 / current one is over → look for the next
+    if (STATE.next && (Date.now() + STATE.skew) > STATE.next.ends_at) return true;
+    return false;
+  }
+
+  function getActiveClass() {
+    /* 첫 조회는 **무조건** 한다. 그 뒤의 «다시 받기» 만 탭이 보일 때로 미룬다.
+       Always do the first fetch; only *re*fetches wait for the tab to be visible.
+       ⚠️ 처음부터 document.hidden 으로 막으면, 매니저가 배경 탭에 열어 둔 경우
+          탭을 누를 때까지 배너가 영영 안 뜬다(실제로 이 검증에서 그렇게 걸렸다).
+          Guarding the first call too means a background tab never shows the banner. */
+    var first = !STATE.fetchedAt;
+    var p = (first || (!document.hidden && needRefetch())) ? fetchNext() : Promise.resolve(STATE.next);
+    return p.then(function (n) {
+      if (!n) return null;
+      var now = Date.now() + STATE.skew;
+      var minutesUntil = Math.round((n.starts_at - now) / 60000);
+      // 창 / window: 시작 leadMinutes 분 전 ~ 실제 종료 시각까지.
+      //   ⚠️ «시작 + 고정 60분» 이 아니라 서버가 준 진짜 종료 시각을 쓴다 — 수업 길이가 다르다.
+      //      Use the real end time, not a fixed duration: classes differ in length.
+      if (minutesUntil > CONFIG.leadMinutes || now > n.ends_at) return null;
+      var en = (document.documentElement.lang !== 'ko');
+      return {
+        label: en ? (n.label_en || n.label) : (n.label || n.label_en),
+        minutesUntil: minutesUntil,
+        // 문이 열렸으면 방으로 바로, 아니면 강사 화면으로(거기서 준비하고 기다린다).
+        // Door open → straight into the room; otherwise the teacher screen.
+        enterUrl: (n.can_enter && n.enter_url) ? n.enter_url : CONFIG.teacherSiteUrl
+      };
+    });
+  }
+
+  // ===== 3) 배너 UI / BANNER =====
+  function ensureStyles() {
+    if (document.getElementById(NS + '-style')) return;
+    var s = document.createElement('style');
+    s.id = NS + '-style';
+    s.textContent =
+      '#' + NS + '-banner{position:fixed;top:0;left:0;right:0;z-index:2147483646;' +
+      'display:flex;align-items:center;gap:14px;padding:11px 18px;' +
+      'background:#15803d;color:#fff;font-family:inherit;font-size:15px;line-height:1.4;' +
+      'box-shadow:0 2px 8px rgba(0,0,0,.25)}' +
+      '#' + NS + '-banner .msg{flex:1;min-width:0}' +
+      '#' + NS + '-banner .msg b{font-weight:700}' +
+      '#' + NS + '-banner .sub{opacity:.92;font-size:13px;margin-top:2px}' +
+      '#' + NS + '-banner .go{flex:none;border:0;border-radius:8px;padding:10px 16px;font-size:15px;' +
+      'font-weight:700;background:#fff;color:#15803d;text-decoration:none;white-space:nowrap;min-height:44px;' +
+      'display:inline-flex;align-items:center}' +
+      '#' + NS + '-banner .go:active{background:#e8f3ec}' +
+      '#' + NS + '-banner .x{flex:none;cursor:pointer;border:0;background:transparent;color:#fff;' +
+      'font-size:22px;line-height:1;opacity:.85;padding:4px 8px;font-family:inherit;min-height:44px}' +
+      'body.' + NS + '-has-banner{padding-top:62px}' +
+      '@media (max-width:420px){#' + NS + '-banner{padding:9px 12px;gap:10px;font-size:14px}' +
+      '#' + NS + '-banner .go{padding:9px 12px;font-size:14px}}';
+    document.head.appendChild(s);
+  }
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+    });
+  }
+
+  function removeBanner() {
+    var el = document.getElementById(NS + '-banner');
+    if (el) el.parentNode.removeChild(el);
+    document.body.classList.remove(NS + '-has-banner');
+  }
+
+  function renderBanner(active) {
+    if (!active) { removeBanner(); STATE.dismissed = null; return; }
+    // 닫은 수업은 다시 띄우지 않는다(다음 수업이면 라벨이 달라 다시 뜬다).
+    // Once dismissed, stay dismissed for that class (a different class has a different label).
+    if (STATE.dismissed === active.label) { removeBanner(); return; }
+    ensureStyles();
+    var el = document.getElementById(NS + '-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = NS + '-banner';
+      el.setAttribute('role', 'status');
+      document.body.appendChild(el);
+      document.body.classList.add(NS + '-has-banner');
+    }
+    var en = (document.documentElement.lang !== 'ko');
+    var soon = active.minutesUntil > 0;
+    var ko = soon ? ('곧 수업이 있어요 — 약 ' + active.minutesUntil + '분 후') : '수업이 진행 중이에요';
+    var eng = soon ? ('Class starting soon — in about ' + active.minutesUntil + ' min') : 'Class is in progress';
+    el.innerHTML =
+      '<div class="msg"><b>🎓 ' + esc(active.label) + '</b>' +
+      '<div class="sub">' + esc(en ? eng : ko) + '</div></div>' +
+      '<a class="go" href="' + esc(active.enterUrl) + '"' +
+        (CONFIG.openInNewTab ? ' target="_blank" rel="noopener"' : '') + '>' +
+        esc(en ? 'Go to class →' : '수업 화면으로 →') + '</a>' +
+      '<button class="x" type="button" aria-label="' + esc(en ? 'Dismiss' : '닫기') + '">&times;</button>';
+    el.querySelector('.x').onclick = function () { STATE.dismissed = active.label; removeBanner(); };
+  }
+
+  // ===== 4) 메인 루프 / MAIN LOOP =====
+  function tick() {
+    // ⚠️ 이 위젯이 무슨 일이 있어도 매니저 화면을 깨뜨리지 않게 한다.
+    //    Never let this widget break the host page.
+    try {
+      getActiveClass().then(renderBanner).catch(function (e) { console.warn('[' + NS + ']', e); });
+    } catch (e) { console.warn('[' + NS + ']', e); }
+  }
+
+  /* 시작은 «본사 매니저로 확인된 뒤» 에만 한다 / start only once confirmed as an HQ manager.
+     지사·대리점은 강사 화면을 쓰지 않아 서버가 403 을 준다 — 그 회선에서 헛요청을 만들지 않는다.
+     Agencies/branches get 403 from the teacher API; don't waste their bandwidth. */
+  window.__crbStart = function () {
+    if (STATE.started) return;
+    STATE.started = true;
+    tick();
+    setInterval(tick, CONFIG.checkIntervalSec * 1000);
+    // 탭으로 돌아오면 즉시 한 번 — 자리를 비운 사이 수업이 다가왔을 수 있다.
+    // Returning to the tab: check at once; a class may have come due while away.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) tick(); });
+  };
+  // 언어를 바꾸면 배너도 그 자리에서 다시 그린다 / redraw on language change.
+  window.__crbRepaint = function () { if (STATE.started) tick(); };
+
+  // 위 화면 코드가 이미 «시작해 달라» 고 깃발을 세워 뒀다면(=응답이 우리보다 빨랐다면) 지금 시작한다.
+  // If the page already asked for us (its response beat this script), start now.
+  if (window.__crbWanted) window.__crbStart();
+})();
+</script>
+<!-- BUILD:20260809094222 -->
 </body>
 </html>
