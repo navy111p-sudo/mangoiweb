@@ -584,7 +584,7 @@ ${promptBody}
 Produce a comprehensive learning report. Respond in STRICT JSON only, no markdown:
 {
   "overall_score": 0-100 (overall English proficiency in this session),
-  "summary_ko": "한국어로 학생의 이번 수업 영어 사용 요약 (2-3 문장)",
+  "summary_ko": "이번 수업에서 ${studentName} 학생이 영어로 무엇을 해냈는지 2-3문장 (사실 + 격려)",
   "grammar_errors": [
     { "original": "<wrong sentence student said>", "corrected": "<correct version>", "reason": "한국어 설명 (1줄)" }
   ],
@@ -593,11 +593,29 @@ Produce a comprehensive learning report. Respond in STRICT JSON only, no markdow
   ],
   "word_freq": [{ "word": "<word>", "count": <int> }],
   "strengths": ["한국어 강점 1줄 ×3"],
-  "weaknesses": ["한국어 약점 1줄 ×3"],
+  "weaknesses": ["다음에 더 잘할 수 있는 것 1줄 ×3"],
   "next_goals": ["다음 수업에서 시도할 한국어 목표 ×2-3"]
 }
 
-Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific and helpful.`;
+Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific and helpful.
+
+⚠️ TWO HARD RULES — the report is sent to the student's parents in Korea.
+
+(1) LANGUAGE — every Korean field must be **pure Korean (Hangul) only**.
+    Never use Chinese characters, Kanji, or Hanja anywhere in Korean text.
+    Write 과거 not 过去 · 시제 not 时制 · 관사 not 冠词 · 문법 not 语法 · 동사 not 动词.
+    English words are allowed only inside "original", "corrected", "learned", "better", "word".
+
+(2) TONE — "weaknesses" is printed to the child and the parents under the heading
+    「보완할 점」. Write each line as **what the student can do better next time**,
+    never as a verdict on the student. Be concrete and honest — do not inflate — but
+    do not write sentences that only state a deficiency.
+      ✗ 학생은 문법 오류와 어휘의 한계가 있습니다
+      ✓ 과거형을 쓸 때 동사를 바꾸는 연습을 더 하면 문장이 한결 또렷해집니다
+      ✗ 발음과 억양이 아직 자연스럽지 않습니다
+      ✓ 문장 끝을 조금 길게 늘여 읽으면 훨씬 자연스럽게 들립니다
+    Apply the same warmth to "summary_ko" and "next_goals". Name a real behaviour,
+    not a label. Never compare this student to other students.`;
 
       let raw = '';
       const models = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast','@cf/meta/llama-3.1-8b-instruct','@cf/meta/llama-3-8b-instruct'];
@@ -612,6 +630,53 @@ Limit: max 5 grammar_errors, max 5 alternatives, max 10 word_freq. Be specific a
       const mm = raw.match(/\{[\s\S]*\}/);
       let parsed: any = {};
       try { parsed = JSON.parse(mm ? mm[0] : raw); } catch {}
+
+      /* 🈲 (2026-08-09) 한국어 설명에 한자가 섞여 나온다 — 실측으로 잡힌 것.
+            첫 샘플의 문법 사유가 «과거의 완료된 행동을 나타내는 过去형을 사용해야 합니다» 였다.
+            Llama 가 한국어를 쓰다 중국어 글자를 흘린다. 이 글이 **그대로 학부모에게 간다.**
+            프롬프트에 «한글만» 을 못 박았지만 LLM 지시는 확률이지 보장이 아니다 → 저장 전에 한 번 더 거른다.
+            ⚠️ 영어 칸(original·corrected·learned·better·word)은 건드리지 말 것 — 교정 원문이 망가진다. */
+      const HANJA_KO: Record<string, string> = {
+        '过去':'과거','過去':'과거','现在':'현재','現在':'현재','未来':'미래','未來':'미래',
+        '时制':'시제','時制':'시제','时态':'시제','時態':'시제','语法':'문법','語法':'문법',
+        '文法':'문법','冠词':'관사','冠詞':'관사','动词':'동사','動詞':'동사','名词':'명사','名詞':'명사',
+        '形容词':'형용사','形容詞':'형용사','副词':'부사','副詞':'부사','主语':'주어','主語':'주어',
+        '目的语':'목적어','目的語':'목적어','单数':'단수','單數':'단수','复数':'복수','複數':'복수',
+        '单词':'단어','單語':'단어','单语':'단어','句子':'문장','发音':'발음','發音':'발음',
+        '表现':'표현','表現':'표현','语调':'억양','語調':'억양','英语':'영어','英語':'영어',
+        '学生':'학생','學生':'학생','使用':'사용','完了':'완료','否定':'부정','疑问':'의문','疑問':'의문',
+      };
+      /* ⚠️ 이 정규식은 «match» 로만 쓴다. /g 정규식 하나를 만들어 test() 로 돌려 쓰면
+            lastIndex 가 밀려 **두 번째 호출부터 조용히 false** 가 된다.
+            그러면 한자가 든 문장이 검사만 통과해 그대로 학부모에게 간다. */
+      const ideographs = (s: string) => s.match(/[㐀-䶿一-鿿豈-﫿]/g) || [];
+      const deHanja = (v: any): string => {
+        let s = String(v == null ? '' : v);
+        if (!ideographs(s).length) return s;
+        for (const [cn, ko] of Object.entries(HANJA_KO)) if (s.includes(cn)) s = s.split(cn).join(ko);
+        const left = ideographs(s);
+        if (left.length) {
+          // 표에 없는 글자 — 지우고 띄어쓰기만 정리한다. 남겨 두는 것보다 낫다.
+          console.warn('[ai-lesson-report] 표에 없는 한자:', left.join(''));
+          s = s.replace(/[㐀-䶿一-鿿豈-﫿]/g, '')
+               .replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim();
+        }
+        return s;
+      };
+      const deHanjaList = (a: any, keys: string[]): any[] =>
+        (Array.isArray(a) ? a : []).map((it: any) => {
+          if (typeof it === 'string') return deHanja(it);
+          const o = { ...it };
+          for (const k of keys) if (o[k] != null) o[k] = deHanja(o[k]);
+          return o;
+        });
+
+      parsed.summary_ko = deHanja(parsed.summary_ko);
+      parsed.grammar_errors = deHanjaList(parsed.grammar_errors, ['reason']);       // original·corrected 는 영어라 그대로
+      parsed.alternatives   = deHanjaList(parsed.alternatives,   ['when_to_use']);  // learned·better 도 그대로
+      parsed.strengths      = deHanjaList(parsed.strengths, []);
+      parsed.weaknesses     = deHanjaList(parsed.weaknesses, []);
+      parsed.next_goals     = deHanjaList(parsed.next_goals, []);
 
       // 3) 결과 정규화 + DB 저장
       const overallScore = Math.max(0, Math.min(100, Number(parsed.overall_score || 75)));
