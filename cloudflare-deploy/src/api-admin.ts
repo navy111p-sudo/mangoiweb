@@ -1679,6 +1679,23 @@ export async function handleAdminApi(
         if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = kstDay(f.approved_at);
       }
 
+      /* 📝 (2026-08-09) 강사 화면의 「1분 평가」도 당일 피드백으로 인정한다.
+         지금까지 이 판정은 teacher_class_feedback 과 «승인된» feedback_drafts 두 곳만 봤다.
+         그런데 강사가 /teacher 에서 실제로 쓰는 평가는 student_evaluations 에 들어간다
+         (teacher.html 의 「1분 평가」 → POST /api/eval/create).
+         → 성실하게 평가를 쓴 강사도 «미작성» 으로 잡혀 수업 1건당 ₱25 씩 깎이고 있었다.
+            강사 화면 맨 위 「⚠ 피드백 미작성」 경고에도 그대로 떴다.
+         ⚠️ room_id 정확 매칭만 인정한다 — 위의 «강사명+같은 날» 폴백은 주지 않는다.
+            평가 1건으로 그날 수업 전부를 «작성함» 으로 만들면 반대 방향 오류(과소 공제)가 난다.
+         ⚠️ 데모/시드 행은 room_id 가 NULL 이라 자연히 걸리지 않는다(운영 104행 중 102행). */
+      const evs: any = await env.DB.prepare(
+        `SELECT room_id, created_at FROM student_evaluations
+          WHERE created_at >= ? AND created_at < ? AND room_id IS NOT NULL AND room_id <> ''`
+      ).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      for (const e of (evs.results || [])) {
+        if (e.room_id && !fbByRoom[e.room_id]) fbByRoom[e.room_id] = kstDay(e.created_at);
+      }
+
       // 학생 이름 맵 (students_erp 컬럼 구성이 배포본마다 달라 순차 폴백)
       //   운영 class_schedules 에는 student_name 이 행에 직접 있어 이 맵은 폴백용.
       const uids: any[] = [...new Set(instances.filter((l: any) => !l.student_name).map((l: any) => l.user_id).filter(Boolean))];
