@@ -785,11 +785,25 @@ export async function handleAdminApi(
         //      `weekday_avg_pct` = 같은 요일의 **굳은 날(15일 이상 지난 날)** 평균. 최근 60일.
         //      화면은 「8-07(금) 51.2% · 금 확정평균 44%」처럼 둘을 나란히 적는다.
         //   📌 요일 편차는 지연이 아니라 진짜다 — 굳은 날 기준으로도 월 21.6% ↔ 금 44.3% 다.
+        //
+        //   🧹 테스트·교육용 대리점 제외 (2026-08-09 실측) — 이 4곳은 **60일간 169건을 예약하고
+        //      완료가 0건**이다. 실수업이 아니라 시연·연습용 계정이 매주 예약을 만드는 것이다.
+        //        무료수업(지인) 90건 · 망고아이 기본대리점 43 · 교육용 대리점 27 · 테스트대리점 9  (전부 완료 0)
+        //      빼면 미실시율이 월 21.6→21.0 · 금 44.3→42.7 로 내려간다. 크지 않지만 **가짜 숫자**다.
+        //      ⚠️ 이름으로 거르지 않는다 — 「라이크테스트프랩어학원」은 이름만 비슷한 **실제 학원**이다
+        //         (예약 0건이라 무해하지만, LIKE '%테스트%' 로 걸렀으면 멀쩡한 학원을 지웠을 것이다).
+        //         그래서 **대리점 이름 4개를 명시적으로 못박는다.** 새 테스트 대리점이 생기면 여기 추가.
+        //      ⚠️ 재원 수(active)에는 적용하지 않는다 — 그건 사장님이 대외적으로 쓰는 숫자라
+        //         내 판단으로 정의를 바꾸지 않는다. 여기서 빼는 것은 «미실시율» 하나뿐이다.
         safe(() => env.DB.prepare(
-          `WITH prev AS (
+          `WITH ghost AS (
+             SELECT user_id FROM students_erp
+              WHERE shop_name IN ('무료수업(지인)','망고아이 기본대리점','교육용 대리점','테스트대리점')),
+           prev AS (
              SELECT date, COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
                FROM attendance
               WHERE room_id LIKE 'c24-%' AND date < ? AND date >= date(?, '-14 days')
+                AND user_id NOT IN (SELECT user_id FROM ghost)
               GROUP BY date HAVING COUNT(*) >= 20
               ORDER BY date DESC LIMIT 1),
            wd AS (
@@ -799,13 +813,16 @@ export async function handleAdminApi(
                 WHERE room_id LIKE 'c24-%'
                   AND date >= date(?, '-60 days')
                   AND date <= date(?, '-15 days')          -- 굳은 날만
+                  AND user_id NOT IN (SELECT user_id FROM ghost)
                   AND strftime('%w', date) = (SELECT strftime('%w', date) FROM prev)
                 GROUP BY date HAVING COUNT(*) >= 20))
            SELECT
              (SELECT COUNT(*) FROM attendance
-               WHERE room_id LIKE 'c24-%' AND date = ?${_uidScope}) AS booked_today,
+               WHERE room_id LIKE 'c24-%' AND date = ?
+                 AND user_id NOT IN (SELECT user_id FROM ghost)${_uidScope}) AS booked_today,
              (SELECT COUNT(*) FROM attendance
-               WHERE room_id LIKE 'c24-%' AND date = ? AND status = 'present'${_uidScope}) AS done_today,
+               WHERE room_id LIKE 'c24-%' AND date = ? AND status = 'present'
+                 AND user_id NOT IN (SELECT user_id FROM ghost)${_uidScope}) AS done_today,
              (SELECT date FROM prev) AS prev_date,
              (SELECT n    FROM prev) AS prev_booked,
              (SELECT done FROM prev) AS prev_done,
