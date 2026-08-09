@@ -18,7 +18,7 @@
 //     첫 화면(오늘 수업)의 렌더를 막으면 안 되므로 페이지가 나중에 따로 부른다.
 // ────────────────────────────────────────────────────────────────────────────
 
-import { getAdminActor, PH_MANAGERS } from './auth-admin';
+import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
@@ -64,6 +64,20 @@ export async function handleTeacherApi(
   const method = request.method;
 
   if (path !== '/api/teacher/portal' || method !== 'GET') return null;
+
+  /* 🔔 `?only=next` — «다음 수업 하나» 만 돌려주는 초경량 모드 (2026-08-09)
+   *
+   *  [왜] 매니저 화면(manager.html)이 「곧 수업이 있어요」 배너를 띄우려면 수업 시각이
+   *       필요한데, 포털 응답 전체(주간 스케줄·공지·자료·평점·매니저 블록)를 받게 하면
+   *       **배너 하나 때문에 화면에서 제일 무거운 응답을 주기적으로 받는 꼴**이 된다.
+   *       집에서 일하는 필리핀 매니저 회선에서는 그게 곧 «멈춤» 이다.
+   *  [무엇] 신원 판정(계정→강사원부)은 **그대로 재사용**하고, 응답만 몇백 바이트로 줄인다.
+   *       새 경로를 만들지 않은 이유 = 같은 판정 로직을 두 벌 두면 반드시 어긋난다
+   *       (이 파일 위쪽 'Anna → HANNAH' 사고가 그 이야기다).
+   *  [건너뛰는 것] 공지·자료·평점 조회(D1 3회) · 매니저 블록(D1 2회, 오늘 전체 수업 스캔)
+   *       · 학생 읽기밴드(KV). 즉 D1 왕복이 5회 줄고 본문이 수십 KB → 수백 B 가 된다.
+   */
+  const onlyNext = url.searchParams.get('only') === 'next';
 
   // ── 신원: 쿠키 세션에서만 (클라이언트가 보내는 값은 일절 신뢰하지 않는다) ──
   const actor = await getAdminActor(request, env as any);
@@ -127,15 +141,16 @@ export async function handleTeacherApi(
         ).bind(tname, tname, tname, tname).all<any>()
          .catch((e) => { console.warn('[teacher-portal] teacher id lookup:', e?.message); return empty; })
       : Promise.resolve(empty),
-    env.DB.prepare(
+    // ⚡ 공지·자료·평점은 배너에 쓰이지 않는다 → `?only=next` 면 조회 자체를 안 한다.
+    onlyNext ? Promise.resolve(empty) : env.DB.prepare(
       `SELECT id, title, body, pinned, created_at FROM community_posts
         ORDER BY pinned DESC, created_at DESC LIMIT 5`
     ).all<any>().catch((e) => { console.warn('[teacher-portal] notices:', e?.message); return empty; }),
-    env.DB.prepare(
+    onlyNext ? Promise.resolve(empty) : env.DB.prepare(
       `SELECT id, name, kind, level, size_bytes FROM textbook_files
         WHERE active = 1 ORDER BY created_at DESC LIMIT 8`
     ).all<any>().catch((e) => { console.warn('[teacher-portal] resources:', e?.message); return empty; }),
-    tname
+    (tname && !onlyNext)
       ? env.DB.prepare(
           `SELECT COUNT(*) AS n, AVG(score) AS avg FROM class_ratings
             WHERE teacher_name = ? AND created_at >= ?`
@@ -447,7 +462,8 @@ export async function handleTeacherApi(
     //   · 판단력 훈련을 한 번도 안 한 학생은 값이 없어 아무것도 안 붙는다
     //     (없는 값을 기본값으로 채워 보여주면 강사가 "이 아이는 초급이구나" 하고 오해한다).
     //   · 실패해도 포털 전체를 막지 않는다.
-    try {
+    // ⚡ 읽기밴드는 수업 카드에만 쓰인다 → 배너용 호출(`?only=next`)에서는 KV 조회를 건너뛴다.
+    if (!onlyNext) try {
       const uids = [...new Set(classes.map((c) => String(c.student_uid || '')).filter(Boolean))];
       const found = new Map<string, any>();
       await Promise.all(uids.map(async (u) => {
@@ -462,6 +478,45 @@ export async function handleTeacherApi(
         c.reading_band_lv = b.lv;
       }
     } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
+  }
+
+  /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
+   *
+   *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
+   *    ⚠️ `lms`(옛 LMS 점유 슬롯)·`sample`(시연 시드)은 **뺀다** — 들어갈 방이 없는 행이라
+   *       배너가 「수업이 있어요」 하고 부르면 아무도 없는 방으로 보내게 된다.
+   *    ⚠️ «몇 분 전부터 띄울지» 는 여기서 정하지 않는다. 서버는 사실(시각)만 주고
+   *       띄울지 말지는 화면이 정한다 — 그래야 설정을 바꿀 때 서버를 안 건드린다.
+   *  🌐 라벨은 한/영 두 벌. 학생 이름은 번역하지 않고 원부의 영문명을 쓴다(위 주석과 같은 이유).
+   */
+  if (onlyNext) {
+    const GRACE_AFTER_END = 30 * 60 * 1000;   // 끝나고도 30분은 «진행 중» 으로 본다(연장·마무리)
+    const cand = classes
+      .filter((c: any) => c.kind === 'class' && now <= c.end_ts + GRACE_AFTER_END)
+      .sort((a: any, b: any) => a.start_ts - b.start_ts)[0] || null;
+    let next: any = null;
+    if (cand) {
+      const who = String(cand.student_name || '').trim();
+      const whoEn = String(cand.student_name_en || cand.student_name || '').trim();
+      // 🚪 입장 주소는 **서버가 만든다** — teacher.html 의 joinClass() 와 같은 규약이라
+      //    화면마다 따로 조립하면 언젠가 어긋나 학생과 다른 방에 들어가게 된다.
+      const vcName = '교사 ' + String(actor.name || 'Teacher');
+      const enterUrl = '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(cand.room_id)
+                     + '&vc_name=' + encodeURIComponent(vcName);
+      next = {
+        label: cand.is_level_test ? ('레벨테스트' + (who ? ' · ' + who : ''))
+                                  : (who ? who + ' 수업' : '수업'),
+        label_en: cand.is_level_test ? ('Level test' + (whoEn ? ' · ' + whoEn : ''))
+                                     : (whoEn ? 'Class with ' + whoEn : 'Class'),
+        starts_at: cand.start_ts,
+        ends_at: cand.end_ts,
+        enter_from_ts: cand.enter_from_ts,
+        can_enter: cand.can_enter,
+        room_id: cand.room_id,
+        enter_url: enterUrl,
+      };
+    }
+    return json({ ok: true, now, today: todayStr, next });
   }
 
   // ── 🧑‍💼 매니저 전용 블록 (강사에게는 조회 자체를 안 한다 = 강사 화면은 1바이트도 안 무거워짐) ──
@@ -588,6 +643,9 @@ export async function handleTeacherApi(
       //    이때는 수업을 한 건도 보여주지 않는다(남의 수업이 섞이는 것보다 낫다).
       identity_ambiguous: identityAmbiguous,
       identity_candidates: ambiguousNames,
+      // 👥 «이 사람은 계정이 하나 더 있다» — 있으면 화면이 한 줄로 안내한다.
+      //    (auth-admin.ts SAME_PERSON_ACCOUNTS: 지금은 Maimai 한 사람뿐)
+      also_account: otherAccountOf(actor.username || ''),
     },
     classes,
     // 📅 앞으로 7일 안의 «일회성» 수업(레벨테스트 포함). 오늘 목록과 별개로 미리 준비하라고 알린다.

@@ -218,8 +218,10 @@
     {re:/팝업|popup/i, menu_id:'card-popups-mgmt', ko:'공지/팝업 관리 카드로 이동할게요.', en:'Opening the notice/popup management card.'},
     {re:/공지|게시판|notice|board/i, menu_id:'card-notice-board', ko:'공지사항 게시판 카드로 이동할게요.', en:'Opening the notice board card.'},
     {re:/카카오|알림톡|kakao/i, menu_id:'card-kakao-mgmt', ko:'카카오 알림톡 카드로 이동할게요.', en:'Opening the KakaoTalk card.'},
-    {re:/가맹점|franchise/i, menu_id:'card-franchises', ko:'가맹점 관리 카드로 이동할게요.', en:'Opening the franchises card.'},
-    {re:/교육\s*센터|센터|center/i, menu_id:'card-centers', ko:'교육센터 카드로 이동할게요.', en:'Opening the education centers card.'},
+    {re:/지사|가맹점|franchise|organization/i, menu_id:'card-franchises', ko:'조직 관리(본사·지사) 카드로 이동할게요.', en:'Opening the organization (HQ · branch) card.'},
+    // 🏪 대리점(학원) — «교육센터»는 옛 이름이라 별칭으로 남겨둔다.
+    //    ⚠️ 예전엔 여기 «센터» 한 글자가 들어 있어서 바로 아래 «실시간 알림 센터»가 이 카드로 새어나갔다.
+    {re:/대리점|교육\s*센터|학습\s*센터|agency|education\s*center/i, menu_id:'card-centers', ko:'대리점(학원) 카드로 이동할게요.', en:'Opening the agency (academy) card.'},
     {re:/이상\s*감지|이상감지|알림\s*센터|모니터링|anomaly|alert|monitor/i, menu_id:'card-admin-alerts', ko:'실시간 알림 센터 카드로 이동할게요.', en:'Opening the real-time alert center card.'},
     {re:/랭킹|순위|ranking/i, menu_id:'card-rankings', ko:'학생 랭킹 카드로 이동할게요.', en:'Opening the rankings card.'},
     {re:/매출|차트|일자별|revenue|chart/i, menu_id:'card-daily-charts', ko:'일자별 차트 카드로 이동할게요.', en:'Opening the daily charts card.'},

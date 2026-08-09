@@ -161,7 +161,7 @@
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <!-- 🌐 EN 스위퍼 — 머리에서 먼저 받아 두어야(defer 중 첫 실행) 한글이 보이기 전에 영어로 바뀐다.
      ⚠️ 문서 끝(옛 위치)에 두면 외부 스크립트 70여 개 뒤에 실행돼 해외(필리핀) 회선에서 수십 초 걸렸다. -->
-<script defer src="/js/i18n-sweep.js?v=21"></script>
+<script defer src="/js/i18n-sweep.js?v=22"></script>
 
 <!-- 🛡️ 대리점·지사 계정의 본사 전용 API 콘솔 403 소음 제거 — 반드시 다른 fetch 코드보다 먼저 로드 -->
 <script src="/js/adm-scope-guard.js?v=1"></script>
@@ -555,7 +555,7 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=13"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=14"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -570,7 +570,8 @@
       /* ⚠️ #kpi-today 안쪽은 테마가 `html[data-admin-theme="ivory"] #kpi-today .card-value` 로 잡고 있다.
          id 하나짜리 선택자로는 못 이긴다 → 부모 id 를 같이 적어 id 2개로 올린다.
          (이 한 줄을 놓쳐서 «규칙은 넣었는데 색이 안 바뀌는» 상태였다) */
-      #kpi-today #today-absence { color:#b91c1c !important }   /* 결석률 — 나쁜 쪽 */
+      /* 🎨 (2026-08-09) 이 자리는 «결석률(나쁨=빨강)» 이 아니라 «오늘 완료/예약» 진행상황이 되었다.
+         진행 중인 숫자를 빨갛게 칠하면 매일 아침이 «사고» 처럼 보인다 → 기본색으로 되돌린다. */
       #sf-dropped               { color:#b91c1c !important }   /* 기간 내 탈락 */
       #sf-net                   { color:#047857 !important }   /* 순 증가 — 좋은 쪽 */
 
@@ -885,9 +886,9 @@
     <div class="card-sub" id="today-students-sub" data-ko="오늘 출석한 고유 학생" data-en="Unique students attended today">오늘 출석한 고유 학생</div>
   </div>
   <div class="card">
-    <div class="card-label" data-ko="🚫 오늘의 결석률" data-en="🚫 Today's Absence Rate">🚫 오늘의 결석률</div>
+    <div class="card-label" data-ko="📅 오늘 수업 진행" data-en="📅 Today's classes">📅 오늘 수업 진행</div>
     <div class="card-value" id="today-absence">—</div>
-    <div class="card-sub" id="today-absence-sub" data-ko="결석 / 예정 수업" data-en="Absent / Scheduled">결석 / 예정 수업</div>
+    <div class="card-sub" id="today-absence-sub" data-ko="오늘 완료 / 예약" data-en="Done / booked today">오늘 완료 / 예약</div>
   </div>
   <div class="card">
     <div class="card-label" data-ko="✨ 오늘의 신규 등록" data-en="✨ New Signups Today">✨ 오늘의 신규 등록</div>
@@ -1042,7 +1043,7 @@
      자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
 <div id="quick-menu-bar" style="display:none"></div>
 <script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
-<script src="/js/adm-quickmenu.js?v=1" defer></script>
+<script src="/js/adm-quickmenu.js?v=2" defer></script>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      📊 통합 대시보드 (2026-08-08)
@@ -2914,19 +2915,26 @@
         <summary data-ko="📋 강사 정보 (등록·수정·제거)" data-en="📋 Teacher Profile (Add · Edit · Remove)">📋 강사 정보 (등록·수정·제거)</summary>
         <div class="sub-body">
 
-          <!-- 🆕 학생 페이지 자동 반영 안내 — 다크 톤 (다른 카드들과 통일) -->
-          <div style="background:linear-gradient(135deg,rgba(99,102,241,0.18),rgba(59,130,246,0.10));border:1px solid rgba(99,102,241,0.45);border-left:5px solid #6366f1;border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:12.5px;line-height:1.7;color:#c7d2fe">
-            <b style="font-size:14px;color:#fbbf24" data-ko="🎓 자동 연동 활성화됨" data-en="🎓 Auto-sync Enabled">🎓 자동 연동 활성화됨</b>
-            <p style="margin:6px 0 4px;color:#e0e7ff"
-               data-ko="여기에 강사를 등록·수정하면 <b style='color:#fde68a'>학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음."
-               data-en="When you add or edit a teacher here, photo · intro video · career instantly appear on <b style='color:#fde68a'>Student Homepage → Teacher Profiles</b>. No extra steps.">
-              여기에 강사를 등록·수정하면 <b style="color:#fde68a">학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음.
+          <!-- 🆕 학생 페이지 자동 반영 안내 — 밝은 민트 톤
+               (2026-08-08) 옛 인디고(#6366f1) 톤은 «학생목록» 등 메뉴 카드 색과 같아서
+               안내문이 메뉴처럼 보인다는 지적. 안내문임이 한눈에 구분되도록 민트로 바꿈.
+               ⚠️ 반드시 `background-color:` 로 쓸 것. `background:linear-gradient(135deg…` 나
+                  `background:#f…` 로 쓰면 admin-inline-c.css 의 옛 다크 규칙
+                  (details.menu-card [style*="background:linear-gradient(135deg"] 등)이
+                  !important 로 남색을 덮어씌우고, 그 위를 adm-s13 페인터가 다시 흰-회청색으로
+                  칠해 버려 여기서 고른 색이 화면에 안 나온다(실측). -->
+          <div style="background-color:#ecfdf5;border:1px solid #a7f3d0;border-left:5px solid #10b981;border-radius:10px;padding:14px 18px;margin-bottom:14px;font-size:12.5px;line-height:1.7;color:#134e4a">
+            <b style="font-size:14px;color:#047857" data-ko="🎓 자동 연동 활성화됨" data-en="🎓 Auto-sync Enabled">🎓 자동 연동 활성화됨</b>
+            <p style="margin:6px 0 4px;color:#115e59"
+               data-ko="여기에 강사를 등록·수정하면 <b style='color:#b45309'>학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음."
+               data-en="When you add or edit a teacher here, photo · intro video · career instantly appear on <b style='color:#b45309'>Student Homepage → Teacher Profiles</b>. No extra steps.">
+              여기에 강사를 등록·수정하면 <b style="color:#b45309">학생 홈페이지 → 강사 소개</b> 페이지에 즉시 사진/소개영상/경력이 표시됩니다. 별도 작업 없음.
             </p>
-            <div style="display:flex;gap:14px;font-size:11px;color:#a5b4fc;margin-top:8px;flex-wrap:wrap">
+            <div style="display:flex;gap:14px;font-size:11px;color:#0f766e;margin-top:8px;flex-wrap:wrap">
               <span data-ko="✔ 상태=활동중 만 노출" data-en="✔ Only Active teachers shown">✔ 상태=활동중 만 노출</span>
               <span data-ko="✔ 한글이름 가나다 순" data-en="✔ Sorted by Korean name">✔ 한글이름 가나다 순</span>
               <span data-ko="✔ 사진/영상 R2 자동 저장" data-en="✔ Photo/video auto-saved to R2">✔ 사진/영상 R2 자동 저장</span>
-              <a href="/" target="_blank" style="color:#fbbf24;font-weight:700;text-decoration:underline"
+              <a href="/" target="_blank" style="color:#b45309;font-weight:700;text-decoration:underline"
                  data-ko="👀 학생 페이지 새창에서 보기" data-en="👀 Open student page in new tab">👀 학생 페이지 새창에서 보기</a>
             </div>
           </div>
@@ -3192,10 +3200,43 @@
         </div>
       </details>
 
+      <!-- ━━━━━━━━━━ 🔗 강사 계정 연결 (근태 계산의 전제) ━━━━━━━━━━
+           라이브 실측(2026-08-08): teacher_account_links 0행 · teachers 29명 중 로그인 계정 7명 ·
+           최근 30일 출석 4,954행 중 강사와 매칭되는 행 0건.
+           이 연결이 없으면 «누가 몇 시에 들어왔는가» 를 강사와 묶을 수 없어 근태가 계산되지 않는다.
+           ⚠️ 자동 매칭은 일부러 안 한다 — 로그인 계정의 이름 칸이 아이디 복사본(mangoi_006)이라
+              근거가 없다. 추측으로 이으면 엉뚱한 사람의 근태·급여가 된다. 사람이 골라야 한다. -->
+      <details id="card-teacher-links" style="margin-top:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow:hidden">
+        <summary style="padding:12px 16px;cursor:pointer;background:#f7f9fc;font-weight:700;color:#344054;font-size:14px">
+          <span data-ko="🔗 강사 계정 연결" data-en="🔗 Link Teacher Accounts">🔗 강사 계정 연결</span>
+          <span id="tl-badge" style="margin-left:8px;font-size:11.5px;font-weight:700;color:#b45309"></span>
+        </summary>
+        <div style="padding:14px 16px">
+          <div style="margin:0 0 12px;padding:10px 12px;border:1px solid #fedf89;background:#fffaeb;border-radius:8px;color:#b45309;font-size:12.5px;line-height:1.7">
+            <span data-ko="강사가 쓰는 로그인 아이디를 실제 강사와 이어 주세요. 이 연결이 있어야 «출근·지각» 을 계산할 수 있습니다. 한 번만 이어 두면 이후는 자동입니다." data-en="Link each login ID to the actual teacher. Attendance and lateness can only be computed once this link exists. One-time setup.">강사가 쓰는 로그인 아이디를 실제 강사와 이어 주세요. 이 연결이 있어야 «출근·지각» 을 계산할 수 있습니다. 한 번만 이어 두면 이후는 자동입니다.</span>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+            <button type="button" onclick="tlLoad()" style="padding:6px 12px;font-size:12px;font-weight:700">
+              <span data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</span></button>
+            <input id="tl-search" type="search" oninput="tlRender()" placeholder="🔍 아이디 검색"
+                   data-ko-placeholder="🔍 아이디 검색" data-en-placeholder="🔍 Search ID"
+                   style="padding:6px 10px;font-size:12.5px;max-width:200px" />
+            <label style="font-size:12px;color:#475467;display:inline-flex;align-items:center;gap:5px">
+              <input id="tl-only-unlinked" type="checkbox" oninput="tlRender()" />
+              <span data-ko="아직 연결 안 된 것만" data-en="Unlinked only">아직 연결 안 된 것만</span></label>
+            <span id="tl-count" style="font-size:11.5px;color:#667085;margin-left:auto"></span>
+          </div>
+          <div id="tl-wrap" style="overflow:auto;border:1px solid #e4e8ee;border-radius:10px">
+            <div style="padding:30px;text-align:center;color:#98a2b3;font-size:13px"
+                 data-ko="「불러오기」를 눌러 주세요." data-en="Press Load.">「불러오기」를 눌러 주세요.</div>
+          </div>
+        </div>
+      </details>
+
       <!-- ━━━━━━━━━━ 🕒 출근현황 (Status of Work) — 강사관리 하위 ━━━━━━━━━━ -->
       <details id="card-attendance-status" style="margin-top:12px;border:1px solid #e5e7eb;border-radius:10px;background:#fff;overflow:hidden">
         <summary style="padding:12px 16px;cursor:pointer;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(99,102,241,0.06));font-weight:700;color:#1e3a8a;font-size:14px">
-          <span data-ko="🕒 출근현황 (Status of Work)" data-en="🕒 Status of Work">🕒 출근현황 (Status of Work)</span>
+          <span data-ko="🕒 강사 수업 스케줄 현황" data-en="🕒 Teacher Class Schedule">🕒 강사 수업 스케줄 현황</span>
         </summary>
         <div style="padding:14px 16px">
           <!-- 컨트롤 바: 강사 + 기간 + 액션 버튼 -->
@@ -3234,14 +3275,11 @@
             <canvas id="aw-chart"></canvas>
           </div>
 
-          <!-- 범례 + 도움말 -->
-          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:#6b7280">
-            <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#10b981;border-radius:2px;display:inline-block"></span> <span data-ko="정시 도착" data-en="On time">정시 도착</span></span>
-            <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#f59e0b;border-radius:2px;display:inline-block"></span> <span data-ko="5분 이내 지각" data-en="≤5min late">5분 이내 지각</span></span>
-            <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#ef4444;border-radius:2px;display:inline-block"></span> <span data-ko="5분 초과 지각" data-en=">5min late">5분 초과 지각</span></span>
-            <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:#9ca3af;border-radius:2px;display:inline-block"></span> <span data-ko="결근/미체크" data-en="Absent">결근/미체크</span></span>
+          <!-- 범례 + 도움말 — 실제 출근 시각이 없어 «정시/지각» 색 범례는 뺐다(2026-08-08) -->
+          <div style="margin-top:10px;font-size:11.5px;color:#667085;line-height:1.7">
+            <span data-ko="각 강사의 «그 날 첫 수업» 이 출근 기준입니다 — 강사마다 다릅니다. 표의 «실제출근시간» 은 강사 계정이 출석 기록과 연결되면 채워집니다." data-en="Each teacher&apos;s first class of the day is their start time — it differs per teacher. «Actual attend time» will fill in once teacher accounts are linked to attendance logs.">각 강사의 «그 날 첫 수업» 이 출근 기준입니다 — 강사마다 다릅니다. 표의 «실제출근시간» 은 강사 계정이 출석 기록과 연결되면 채워집니다.</span>
           </div>
-        </div>
+        </div><!-- /padding:14px 16px — 범례를 지울 때 이 닫는 태그가 같이 지워져 있었다(2026-08-09 복구) -->
       </details>
 
       <!-- ━━━━━━━━━━ 📚 출석현황 (Status of Class Attendance) — 수업당 출결 ━━━━━━━━━━ -->
@@ -7079,7 +7117,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 강사  → "내 수업 평가" (자기 이름으로 필터된 평균/최근/건의사항)
      · 관리자 → "강사 평가 알람" (평가 낮은 강사 경고 + 우수 강사) → 클릭 시 상세 카드
      · 로그인 정보(admin_session)·역할로 판정, 최상단 #legacy-cards 앞에 주입 -->
-<script src="/js/adm-r14.js?v=2" defer></script><!-- 분할추출:adm-r14 -->
+<script src="/js/adm-r14.js?v=3" defer></script><!-- 분할추출:adm-r14 -->
 
 <details class="table-card menu-card" id="card-payroll">
   <!-- ⚠️ justify-content:space-between 금지 — adm-menu-icons.js 가 summary 맨 앞에 아이콘을
@@ -7192,22 +7230,36 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- 🏢 Phase 9: 6개 메뉴 카드 (클릭 토글 메뉴 — 닫힘 상태로 시작) -->
 
 
-<!-- 가맹점 관리 -->
-<details class="table-card menu-card" id="card-franchises">
-  <summary><span data-ko="🏬 가맹점 관리" data-en="🏬 Franchises">🏬 가맹점 관리</span></summary>
+<!-- 조직 관리 (본사 › 지사 › 대리점(학원))
+     ⚠️ (2026-08-08) 라벨을 바로잡았다. 실데이터 확인 결과 이름이 «한 칸 밀려» 있었다:
+        · franchises 테이블 241건 = "본사지사·노원지사·서귀포지사…" → 실제로 «지사»
+        · centers    테이블 921건 = "노원 백점 학원·우리 대리점·선운일등학원…" → 실제로 «대리점(학원)»
+          (921건 중 744건이 학생 명부 shop_name 과 글자 그대로 일치)
+        원인: cafe24-sync 가 Neo4j (:Branch)→franchises, (:Center)→centers 로 넣는데
+              한국어 라벨을 «가맹점/교육센터»로 붙여서 한 단계씩 어긋났다.
+        테이블명은 정산·회계가 물려 있어 그대로 두고 «화면 라벨만» 고쳤다. -->
+<details class="table-card menu-card" id="card-franchises" data-menu-label-ko="조직 관리 (본사·지사)" data-menu-label-en="Organization (HQ · Branch)"
+         ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('franchises')">
+  <summary><span data-ko="🏢 조직 관리 (본사 › 지사)" data-en="🏢 Organization (HQ › Branch)">🏢 조직 관리 (본사 › 지사)</span></summary>
   <div class="menu-body">
 
-    <!-- 🥭 Phase 44 — 가맹점 관리 하위 8개 메뉴 -->
+    <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다."
+         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The agency list lives in the “🏪 Agency (Academy)” card below.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다.</div>
+
+    <!-- 🥭 Phase 44 — 하위 메뉴. 2)~8) 은 «표를 채우는 JS 가 저장소에 0곳»이라 영원히
+         "데이터 없음" 만 뜨던 껍데기였다(2026-08-08 실측). 지워버리면 되살리기 어려워
+         style="display:none" 로 감추기만 했다 — 배선이 붙는 날 이 속성만 빼면 그대로 보인다. -->
     <div class="sub-menu">
 
-      <!-- 1) 대리점 -->
+      <!-- 1) 지사 — franchises 테이블(실데이터 241건) -->
       <details class="sub-item">
-        <summary data-ko="🏪 대리점" data-en="🏪 Agency">🏪 대리점</summary>
+        <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점 신규 등록" data-en="＋ Add Agency">＋ 대리점 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 신규 등록" data-en="＋ Add Branch">＋ 지사 신규 등록</summary>
             <div class="menu-form">
-              <input id="fr-name" placeholder="대리점 이름 (필수)" data-ko-placeholder="대리점 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
+              <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
               <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
               <input id="fr-phone" placeholder="전화번호" style="width:140px;" />
               <input id="fr-address" placeholder="주소" data-ko-placeholder="주소" data-en-placeholder="Address" style="width:240px;" />
@@ -7215,14 +7267,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="이름" data-en="Name">이름</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개업일" data-en="Opened">개업일</th></tr></thead>
+          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
             <tbody id="franchises-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
-      <!-- 2) 지사 -->
-      <details class="sub-item">
-        <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
+      <!-- 2) 지사 — 🚧 배선 없음(#branches-table 채우는 JS 0곳) + 위 1)번과 중복이라 감춤 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
+        <summary data-ko="🏢 지사 (구)" data-en="🏢 Branch (old)">🏢 지사 (구)</summary>
         <div class="sub-body">
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 등록" data-en="＋ Register Branch">＋ 지사 등록</summary>
@@ -7240,8 +7292,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 3) 대표지사 -->
-      <details class="sub-item">
+      <!-- 3) 대표지사 — 🚧 배선 없음(#mbranches-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
         <div class="sub-body">
           <details>
@@ -7263,8 +7315,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 4) 영입본부 -->
-      <details class="sub-item">
+      <!-- 4) 영입본부 — 🚧 배선 없음(#recruit-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🎯 영입본부" data-en="🎯 Recruitment HQ">🎯 영입본부</summary>
         <div class="sub-body">
           <details>
@@ -7287,8 +7339,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 5) 본사 관리 -->
-      <details class="sub-item">
+      <!-- 5) 본사 관리 — 🚧 배선 없음(#hq-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🏯 본사 관리" data-en="🏯 HQ Management">🏯 본사 관리</summary>
         <div class="sub-body">
           <details>
@@ -7307,8 +7359,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 6) 독립 사이트 -->
-      <details class="sub-item">
+      <!-- 6) 독립 사이트 — 🚧 배선 없음(#indep-table 채우는 JS 0곳) -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🌐 독립 사이트" data-en="🌐 Standalone Site">🌐 독립 사이트</summary>
         <div class="sub-body">
           <details>
@@ -7330,8 +7382,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 7) 종전금 내역 -->
-      <details class="sub-item">
+      <!-- 7) 종전금 내역 — 🚧 배선 없음(#settle-table 채우는 JS 0곳) + 정산 카드와 중복 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="💵 종전금 내역" data-en="💵 Settlement History">💵 종전금 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -7358,8 +7410,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 8) 포인트 내역 -->
-      <details class="sub-item">
+      <!-- 8) 포인트 내역 — 🚧 배선 없음(#points-table 채우는 JS 0곳) + 🎁 포인트 카드와 중복 -->
+      <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="💎 포인트 내역" data-en="💎 Points History">💎 포인트 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
@@ -7413,7 +7465,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     });
   }
   // ② 목록 필터 — 각 표 위에 검색 입력 자동 삽입 (모든 열 텍스트 대상 즉시 필터)
-  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table','centers-table'];
+  //   🚫 (2026-08-08) 'centers-table' 을 빼냈다 — 대리점(학원) 921건은 이제 서버 페이징(50건)이라
+  //      «화면에 있는 행만» 거르는 이 필터는 «921건 중 50건만 검색»하는 거짓말이 된다.
+  //      그 카드는 전용 서버 검색창(#ct-q → ctSearch)을 쓴다. 다시 넣지 말 것.
+  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table'];
   function bindFilters(){
     TABLES.forEach(function(id){
       var tb = document.getElementById(id); if (!tb) return;
@@ -7451,22 +7506,38 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 
-<!-- 교육센터 -->
-<details class="table-card menu-card" id="card-centers">
-  <summary><span data-ko="🏫 교육센터" data-en="🏫 Education Centers">🏫 교육센터</span></summary>
+<!-- 대리점(학원) — 테이블명은 centers 지만 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이다.
+     «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 말이라 같은 단어가 두 뜻이었다.
+     조직 순서: 본사 › 지사 › 대리점(학원) — 이 카드는 맨 아래 단계. -->
+<details class="table-card menu-card" id="card-centers" data-menu-label-ko="대리점(학원)" data-menu-label-en="Agency (Academy)"
+         ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
+  <summary><span data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</span></summary>
   <div class="menu-body">
+    <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다."
+         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The branch list lives in the “🏢 Organization” card above.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다.</div>
     <details>
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 센터 신규 등록" data-en="＋ Add Center">＋ 센터 신규 등록</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
       <div class="menu-form">
-        <select id="ct-franchise" style="width:180px;"><option value="" data-ko="가맹점 선택…" data-en="Select franchise…">가맹점 선택…</option></select>
-        <input id="ct-name"     placeholder="센터 이름 (필수)" data-ko-placeholder="센터 이름 (필수)" data-en-placeholder="Center name (required)" style="width:180px;" />
-        <input id="ct-country"  placeholder="국가 (예: PH)"   data-ko-placeholder="국가 (예: PH)"   data-en-placeholder="Country (e.g. PH)" style="width:110px;" />
-        <input id="ct-manager"  placeholder="매니저"          data-ko-placeholder="매니저"          data-en-placeholder="Manager" style="width:120px;" />
+        <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
+        <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
+        <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
+        <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
         <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
         <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
       </div>
     </details>
-    <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="가맹점" data-en="Franchise">가맹점</th><th data-ko="이름" data-en="Name">이름</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="매니저" data-en="Manager">매니저</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+    <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
+         (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+      <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
+             placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+             data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+             data-en-placeholder="🔎 Search agency, manager, address, branch (all records)"
+             style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
+      <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
+    </div>
+    <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
       <tbody id="centers-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
   </div>
 </details>
@@ -8869,10 +8940,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=51" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=59" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=2" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23) -->
+<script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
 <script src="/js/adm-light-surfaces.js?v=11" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -8890,7 +8961,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- 🕒 출근현황 (강사관리 하위) — 데이터 + 렌더링 + Excel/Chart -->
-<script src="/js/adm-p6.js?v=2" defer></script><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p6.js?v=5" defer></script>
+<script src="/js/adm-teacher-links.js?v=2" defer></script><!-- 🔗 강사↔로그인 연결 (되돌리기=이 줄 + #card-teacher-links 제거) --><!-- 분할추출:adm-p6 (원복: 이 위치에 인라인) -->
 
 
 <!-- 📚 출석현황 (수업당 출결) — 데이터 + 렌더링 + Excel/Chart -->
@@ -9263,8 +9335,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="ph85-subs">
       <div class="ph85-sub" data-ko="📅 캘린더 관리" data-en="📅 Calendar Management" data-card="card-calendar" onclick="event.stopPropagation();var c=document.getElementById('card-calendar');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-calendar');}">📅 캘린더 관리</div>
       <div class="ph85-sub" data-ko="권한 관리" data-en="Permissions" data-card="card-permissions" onclick="event.stopPropagation();var c=document.getElementById('card-permissions');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-permissions');}">권한 관리</div>
-      <div class="ph85-sub" data-ko="가맹점" data-en="Franchises" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">가맹점</div>
-      <div class="ph85-sub" data-ko="센터" data-en="Centers" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">센터</div>
+      <div class="ph85-sub" data-ko="🏢 조직 (본사·지사)" data-en="🏢 Organization (HQ·Branch)" data-card="card-franchises" onclick="event.stopPropagation();var c=document.getElementById('card-franchises');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-franchises');}">🏢 조직 (본사·지사)</div>
+      <div class="ph85-sub" data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)" data-card="card-centers" onclick="event.stopPropagation();var c=document.getElementById('card-centers');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-centers');}">🏪 대리점(학원)</div>
       <div class="ph85-sub" data-ko="🗂 카페24 명부 ⭐신규" data-en="🗂 Cafe24 Records ⭐NEW" data-card="card-cafe24-lists" onclick="event.stopPropagation();var c=document.getElementById('card-cafe24-lists');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-cafe24-lists');}">🗂 카페24 명부 ⭐신규</div>
       <div class="ph85-sub" data-ko="데이터 추출" data-en="Data Export" data-card="card-data-export" onclick="event.stopPropagation();var c=document.getElementById('card-data-export');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-data-export');}">데이터 추출</div>
       <div class="ph85-sub" data-ko="🔔 관리자 알림" data-en="🔔 Admin Alerts" data-card="card-admin-alerts" onclick="event.stopPropagation();var c=document.getElementById('card-admin-alerts');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-admin-alerts');}">🔔 관리자 알림</div>
@@ -9287,7 +9359,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 기존 inline onclick(event.stopPropagation) 을 방해하지 않도록 document '캡처' 단계에서 청취(읽기 전용, preventDefault 안 함).
      · 🔊 토글로 켜고 끔(localStorage 'ph85VoiceOn' 기억, 기본 켜짐). -->
 
-<script src="/js/adm-r15.js?v=1" defer></script><!-- 분할추출:adm-r15 -->
+<script src="/js/adm-r15.js?v=3" defer></script><!-- 분할추출:adm-r15 -->
 
 <!-- ⭐ (2026-06-20) 메뉴 중요도·활용도 별점 — 테두리만 노란 '투명 별' ☆ 자동 부여
      · 자식(사이드바 .ph85-sub) + 손자(카드 안 하위 summary) 모두 적용
@@ -12052,7 +12124,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=2" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=4" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 
@@ -12329,7 +12401,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
-<script src="/js/adm-ia6.js?v=1" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-ia6.js?v=5" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
@@ -12469,6 +12541,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260808151835 -->
+<!-- BUILD:20260809115806 -->
 </body>
 </html>

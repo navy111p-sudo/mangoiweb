@@ -158,7 +158,29 @@
     var t = e.target; if (!t || !t.closest) return;
     if (!t.closest('#ph85-sidebar')) return;
     if (t.closest('#ph85-voice-toggle')) return;   // 토글 버튼은 제외
+
+    /* 🔴 (2026-08-08) 「수업 종료 / 연장」을 눌렀는데 «오늘의 수업»이라고 읽던 것 —
+       「⚡ 자주 쓰는 기능」(ph161)은 ia6 가 카드를 감추는 문제 때문에 직접 스크롤하지 않고
+       **해당 카드를 담당하는 ia6 사이드바 항목을 대신 눌러서** 맡긴다(adm-quick-access.js).
+       그 «대신 누른» 클릭도 #ph85-sidebar 안이라 여기까지 올라오고, 우리는 그 항목의 이름을
+       읽어 버렸다. 「수업 종료 / 연장」의 카드(card-active-rooms)를 담당하는 항목 이름이
+       하필 「오늘의 수업」이라, 누른 것과 전혀 다른 이름이 들렸다.
+       → 사람이 실제로 누른 클릭만 읽는다. 코드가 만든 클릭(isTrusted=false)은 읽지 않는다.
+       ⚠️ 되돌리지 말 것 — 앞으로 어떤 위임이 생겨도 «남의 이름을 읽는» 사고가 재발한다. */
+    if (e.isTrusted === false) return;
+
     prime();                                        // 첫 클릭에서 오디오 잠금해제
+
+    /* ⚡ 자주 쓰는 기능 항목은 .ph85-sub 가 아니라서 지금까지 아무 안내도 없었다.
+       (그리고 위임된 클릭이 엉뚱한 이름을 대신 읽고 있었다) → 자기 이름으로 안내한다. */
+    var q = t.closest('.ph161-q');
+    if (q) {
+      var qlabel = clean(isEnUI() ? (q.getAttribute('data-en') || q.textContent)
+                                  : (q.getAttribute('data-ko') || q.textContent));
+      if (qlabel) speak(qlabel);
+      return;
+    }
+
     var sub = t.closest('.ph85-sub');   if (sub){ describeSub(sub); return; }
     var head = t.closest('.ph85-head'); if (head){ describeHead(head); return; }
   }, true);

@@ -30,7 +30,11 @@ function check(name, cond, detail) {
   else { fail++; failures.push(name + (detail ? ' — ' + detail : '')); console.log('  ❌ ' + name + (detail ? '\n       ' + detail : '')); }
 }
 
-const html   = readFileSync(join(PUB, 'index.html'), 'utf8');
+// 🪤 (2026-08-08) 읽을 때 줄바꿈을 LF 로 통일한다.
+//   git 에는 LF 로 들어 있지만 Windows 의 autocrlf 가 체크아웃 때 CRLF 로 바꾼다.
+//   그러면 아래 slice() 의 «여러 줄짜리 표시자» 가 안 맞아 함수 끝을 못 찾고,
+//   파일 끝까지 훑게 되어 **멀쩡한 코드가 실패로** 잡힌다(브랜치 전환 뒤 재현).
+const html   = readFileSync(join(PUB, 'index.html'), 'utf8').split('\r\n').join('\n');
 const dock   = readFileSync(join(PUB, 'js', 'vc-dock.js'), 'utf8');
 const spot   = readFileSync(join(PUB, 'js', 'vc-spotlight.js'), 'utf8');
 const doTs   = readFileSync(join(SRC, 'video-call-room.ts'), 'utf8');

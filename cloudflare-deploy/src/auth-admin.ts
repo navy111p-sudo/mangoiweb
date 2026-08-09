@@ -42,6 +42,44 @@ export interface AuthEnv {
  */
 export const PH_MANAGERS = ['mgr_melca', 'mgr_maimai', 'mgr_karl'];
 
+/**
+ * 👥 «한 사람이 두 계정을 쓴다» 표 (2026-08-09)
+ *
+ *   왜 —
+ *     Maimai(필리핀 매니저)는 계정이 두 개다. 실수로 만들어진 중복이 아니라 **출처가 다르다**:
+ *       · `mgr_maimai`  = 2026-07-14 본사 매니저 일괄 시드. admin_scope.scope_type='hq' → /manager
+ *       · `mangoi_033`  = 2026-07-28 본인이 **옛 카페24 LMS 아이디**로 로그인해 자동 이관된 계정.
+ *                         legacy-teacher-auth.ts 가 만드는 계정은 scope_type='teacher' 고정 → /teacher
+ *     둘 다 실제로 쓰고 있다(강사원부 teachers#27 MAIMAI 로 배정된 수업이 있다).
+ *     그런데 화면 어디에도 «당신에겐 다른 계정이 하나 더 있다»는 말이 없어서, 로그인 이력에
+ *     **두 아이디의 비밀번호를 서로 바꿔 넣는 실패가 반복**된다(실측: 실패 직후 다른 아이디로 성공).
+ *
+ *   ⛔ 계정을 합치지 않는다 — 합치면 강사 권한 고정(자동이관 계정의 안전장치)과 hq 권한이
+ *      한 계정에서 부딪힌다. 대신 **양쪽 화면이 서로를 가리키게** 한다.
+ *   ⚠️ 이 표는 «본인에게 본인 계정을 알려주는» 용도다. 로그인 전에는 절대 노출하지 않는다
+ *      (아이디 존재 여부가 새면 무차별 대입의 표적이 된다). 두 API 모두 인증 뒤에서만 실어 보낸다.
+ */
+export const SAME_PERSON_ACCOUNTS: Record<string, { username: string; role_ko: string; role_en: string; href: string }> = {
+  /* 🔑 방향이 한쪽뿐인 이유 —
+     `mgr_maimai`(hq) 하나면 **매니저 화면과 강사 화면을 재로그인 없이 둘 다** 쓸 수 있다.
+     서버가 이미 그렇게 돼 있다: /api/teacher/portal 은 hq 계정도 받고(isManager),
+     강사원부 매칭이 계정 이름 'Maimai (본사 매니저)' 안의 낱말 'MAIMAI' 로 teachers#27 에
+     붙기 때문에 **커버수업·레벨테스트가 그 계정에서 그대로 보인다.**
+     반대로 `mangoi_033`(scope='teacher')은 매니저 화면에 못 들어간다(서버가 되돌려보낸다).
+     → 그러니 «갈아타라» 가 아니라 «한 계정으로 모으라» 고 안내한다. 안내는 강사 계정 쪽에만. */
+  mangoi_033: {
+    username: 'mgr_maimai',
+    role_ko: '매니저 화면과 내 수업을 한 계정에서 (로그아웃 없이 오갈 수 있습니다)',
+    role_en: 'Manager view and your classes in one account (switch without logging out)',
+    href: '/manager',
+  },
+};
+
+/** 로그인한 본인의 «다른 계정». 없으면 null. */
+export function otherAccountOf(username: string) {
+  return SAME_PERSON_ACCOUNTS[String(username || '').trim().toLowerCase()] || null;
+}
+
 // 로그인 계정의 scope(쿠키세션 기준)를 마이페이지용 역할/표시라벨로 환산.
 //   scope.type: hq | franchise | branch | agency | none
 //   none 은 교사(hq_t_* · 이름에 교사/강사/선생)와 일반 직원으로 세분.
@@ -288,9 +326,28 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
       ).bind(nowN, u).run();
     }
     // 한국인 매니저 컨벤션 mgr_*  (장지웅·이병엽 등)
+    //   🇵🇭 ⚠️ **PH_MANAGERS 는 빼야 한다.** 이 줄이 정확히 그 사고를 냈다 —
+    //      Maimai·Melca·Karl 도 `mgr_` 접두사라 여기에 걸려 nationality='KR' 이 박혔고,
+    //      위(로그인 응답)의 «② nationality 가 정식 기준» 규칙에 따라 **필리핀 매니저 3명이
+    //      한국어 화면을 받게** 됐다(2026-08-09 운영 DB 실측: 3명 전원 KR · pref_lang 은 NULL).
+    //      이 파일 맨 위 주석이 「접두사로 필리핀을 가르지 말라」고 경고하는 바로 그 함정을
+    //      백필 SQL 이 다시 밟은 것이다. 명단으로 못박은 사람은 명단이 이긴다.
+    const _phIn = PH_MANAGERS.map(() => '?').join(',');
     await env.DB.prepare(
-      `UPDATE admin_account SET nationality = 'KR', updated_at = ? WHERE username LIKE 'mgr\\_%' ESCAPE '\\' AND (nationality IS NULL OR nationality = '')`
-    ).bind(nowN).run();
+      `UPDATE admin_account SET nationality = 'KR', updated_at = ?
+        WHERE username LIKE 'mgr\\_%' ESCAPE '\\'
+          AND username NOT IN (${_phIn})
+          AND (nationality IS NULL OR nationality = '')`
+    ).bind(nowN, ...PH_MANAGERS).run();
+    // 🩹 이미 잘못 박힌 3행을 되돌린다(1회성·멱등).
+    //   ⚠️ 위 원칙(«값이 들어가면 다시 안 덮는다»)의 **좁은 예외**다. 조건을 두 겹으로 막았다:
+    //      ① 대상은 PH_MANAGERS 세 명뿐  ② 지금 값이 정확히 'KR' 일 때만.
+    //      사람이 손으로 다른 값(예: 'US')을 넣어 뒀다면 건드리지 않고, 한 번 'PH' 가 되면
+    //      다음 부팅부터는 0행이라 사실상 no-op 이다.
+    await env.DB.prepare(
+      `UPDATE admin_account SET nationality = 'PH', updated_at = ?
+        WHERE username IN (${_phIn}) AND nationality = 'KR'`
+    ).bind(nowN, ...PH_MANAGERS).run();
     // 해외 강사·스태프 컨벤션 mangoi_NNN + 시연용 hq_t_*  → 필리핀
     await env.DB.prepare(
       `UPDATE admin_account SET nationality = 'PH', updated_at = ? WHERE (username LIKE 'mangoi\\_%' ESCAPE '\\' OR username LIKE 'hq\\_t%' ESCAPE '\\') AND (nationality IS NULL OR nationality = '')`
@@ -645,7 +702,9 @@ export async function handleAdminAuthApi(
       } catch (e) {
         console.warn('[auth-admin] /me scope err:', (e as any)?.message);
       }
-      return json({ ok: true, user: row || null, role, roleLabel, scope });
+      // 👥 본인에게 «다른 계정» 이 있으면 알려 준다(SAME_PERSON_ACCOUNTS 주석 참고).
+      //    인증을 통과한 뒤라 본인에게만 보인다. 없으면 null 이라 화면은 아무것도 안 그린다.
+      return json({ ok: true, user: row || null, role, roleLabel, scope, also_account: otherAccountOf(me) });
     }
 
     // ── 프로필 업데이트 ──

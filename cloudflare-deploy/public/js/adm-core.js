@@ -448,11 +448,49 @@ async function loadTodayKpi() {
       (L ? 'Attended ' : '출석 ') + att + (L ? ' / Active ' : ' / 활성 ') + act + (L ? '' : '명');
 
     // 결석률 — 백분율 (소수 1자리)
-    const rate = (typeof j.absence?.rate_pct === 'number') ? j.absence.rate_pct : 0;
-    $('today-absence').textContent = rate.toFixed(1) + '%';
-    $('today-absence-sub').textContent =
-      (j.absence?.absent || 0) + (L ? ' absent / ' : '명 결석 / ') +
-      (j.absence?.scheduled || 0) + (L ? ' scheduled' : '명 예정');
+    //   🪤 (2026-08-08) 예전엔 서버가 «전체 재원 − 오늘 출석» 을 결석으로 줘서
+    //      매일 99.9% 가 빨갛게 떠 있었다(실측: 재원 8,052 · 오늘 출석 8).
+    //      오늘 수업이 없는 학생까지 결석으로 센 것이다. 서버에서 분모를
+    //      «오늘 예정된 학생» 으로 바로잡았고, 예정 정보를 모르면 null 을 준다.
+    //      모를 때 0% 로 그리면 «결석 없음» 이라는 **틀린 사실**이 된다 → «–» 로 둔다.
+    // 📅 오늘은 «진행상황», 판단용 비율은 «직전 영업일» 것을 쓴다.
+    //   아침 9시에 오늘 미실시율을 내면 100% 다 — 아직 아무 수업도 안 끝났으니까.
+    //   시간이 갈수록 저절로 내려가는 숫자는 판단에 못 쓴다. 그래서 둘을 나눠 보여준다.
+    //   🪤🪤 (2026-08-09) «어제 값» 도 아직 확정이 아니다 — 카페24 야간 동기화가 최근 14일만
+    //      다시 가져오므로 완료 처리가 15일에 걸쳐 들어온다. 굳은 날과 비교하면 일관되게
+    //      +5~8%p 나쁘게 나온다. 보정하지 않고(없는 숫자를 지어내는 것) **잣대를 나란히 적는다** —
+    //      서버가 주는 weekday_avg_pct = 같은 요일 «굳은 날» 평균.
+    const _abs = j.absence || {};
+    const _booked = _abs.booked_today || 0, _done = _abs.done_today || 0;
+    const _prevRate = (typeof _abs.prev_rate_pct === 'number') ? _abs.prev_rate_pct : null;
+    const _wdRate   = (typeof _abs.weekday_avg_pct === 'number') ? _abs.weekday_avg_pct : null;
+    $('today-absence').textContent = _booked
+      ? (_done + ' / ' + _booked)
+      : (L ? 'No class' : '수업 없음');
+    // 「8-07(금)」 — 연도는 빼고 요일을 붙인다(같은 요일끼리 비교하는 지표라 요일이 핵심).
+    //   ⚠️ getDay() 는 브라우저 시간대를 타므로 getUTCDay() 를 쓴다('2026-08-07' 은 UTC 자정으로 파싱된다).
+    function _dLabel(s) {
+      if (!s) return '';
+      var p = String(s).split('-'); if (p.length !== 3) return String(s);
+      var d = new Date(s + 'T00:00:00Z');
+      var w = isNaN(d) ? '' : (L ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                                 : ['일','월','화','수','목','금','토'])[d.getUTCDay()];
+      return (+p[1]) + '-' + (+p[2]) + (w ? '(' + w + ')' : '');
+    }
+    var _sub;
+    if (_prevRate === null) {
+      _sub = L ? 'Done / booked today' : '오늘 완료 / 예약';
+    } else if (_wdRate !== null) {
+      _sub = _dLabel(_abs.prev_date) + ' ' + _prevRate.toFixed(1) + '%'
+           + (L ? ' missed · avg ' : ' 미실시 · 확정평균 ') + _wdRate.toFixed(1) + '%';
+    } else {
+      _sub = _dLabel(_abs.prev_date) + (L ? ' missed ' : ' 미실시 ') + _prevRate.toFixed(1) + '%';
+    }
+    $('today-absence-sub').textContent = _sub;
+    $('today-absence-sub').title = _wdRate !== null
+      ? (L ? 'The previous day is not final yet — Cafe24 keeps posting completions for about 15 days, so it always looks worse. "avg" is the settled average for the same weekday (last 60 days).'
+           : '직전 영업일 값은 아직 확정이 아닙니다 — 카페24 완료 처리가 약 15일에 걸쳐 들어와 항상 나쁘게 보입니다. «확정평균» 은 같은 요일의 굳은 날 평균(최근 60일)입니다.')
+      : '';
 
     // 신규 등록 — 단순 카운트
     const sign = j.signups?.count || 0;
@@ -1287,7 +1325,18 @@ async function loadActiveRooms() {
       if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
     } catch(_) {}
     if (!rooms || rooms.length === 0) {
-      tb.innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'No active classes':'현재 진행 중인 수업 없음')+'</td></tr>';
+      /* 🔴 (2026-08-08) 「⚡ 자주 쓰는 기능 → 수업 종료 / 연장」이 이 카드로 온다.
+         그런데 진행 중인 수업이 없으면 «현재 진행 중인 수업 없음» 한 줄만 떠서,
+         종료·연장을 하러 온 사람 눈에는 «눌렀는데 아무 일도 안 일어났다» 로 보였다.
+         → 여기가 무엇을 하는 곳이고 왜 비어 있는지를 한 줄로 알려 준다. 15초마다 자동 갱신된다. */
+      tb.innerHTML = '<tr><td colspan="6" class="empty" style="padding:18px 12px;line-height:1.7">'
+        + '<div style="font-weight:800;color:#374151">'
+        + (_L ? 'No class is running right now' : '지금 진행 중인 수업이 없습니다')
+        + '</div>'
+        + '<div style="font-size:12px;color:#6b7280;margin-top:4px">'
+        + (_L ? 'Classes appear here the moment they start — you can end or extend them from this table. Refreshes every 15s.'
+              : '수업이 시작되면 여기에 바로 나타나고, 이 표에서 종료·연장할 수 있습니다. 15초마다 자동으로 새로고침됩니다.')
+        + '</div></td></tr>';
       return;
     }
     const TYPE_KO = { silence_20s:'침묵 20초', forbidden_word:'금지어 감지', low_engagement:'참여 저하', network_poor:'네트워크 저하' };
@@ -3156,8 +3205,19 @@ async function loadFranchises() {
 function _populateFranchiseSelect(items) {
   const sel = document.getElementById('ct-franchise');
   if (!sel) return;
-  const placeholder = adminLang==='en' ? 'Select franchise…' : '가맹점 선택…';
+  const placeholder = adminLang==='en' ? 'Select branch…' : '지사 선택…';
   sel.innerHTML = '<option value="">' + placeholder + '</option>' + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+}
+// 🏢 지사 드롭다운만 필요할 때 (대리점·학원 카드를 먼저 연 경우) — {id,name} 만 받는다.
+//    이게 없으면 «조직 관리» 카드를 안 열고 대리점을 등록하려 할 때 지사 목록이 빈칸이었다.
+async function _ensureFranchiseSelect() {
+  const sel = document.getElementById('ct-franchise');
+  if (!sel || sel.options.length > 1) return;
+  try {
+    const r = await fetch('/api/admin/franchises?fields=min',{cache:'no-store',credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok && Array.isArray(d.items)) _populateFranchiseSelect(d.items);
+  } catch (e) { /* 목록 없이도 등록은 가능(지사 미지정) */ }
 }
 async function addFranchise() {
   const e = id => document.getElementById(id);
@@ -3170,15 +3230,61 @@ async function addFranchise() {
   if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
 
-// ── 교육센터 ─────────────────────────────────────────────────────────
-async function loadCenters() {
-  const r = await fetch('/api/admin/centers',{cache:'no-store',credentials:'include'});
-  const d = await r.json().catch(()=>({}));
+// ── 대리점·학원 (테이블명 centers) ────────────────────────────────────
+//   ⚠️ «교육센터»가 아니다. 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이고
+//      921건 중 744건이 학생 명부의 shop_name(대리점명)과 글자 그대로 일치한다.
+//      «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 다른 말이라 라벨을 바꿨다.
+//   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
+//      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
+var _ctState = { q: '', offset: 0, limit: 50, total: 0 };
+async function loadCenters(opts) {
+  opts = opts || {};
+  if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
+  if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
-  if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; return; }
+  if (!tb) return;
+  _ensureFranchiseSelect();
+  const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
+           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '');
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
+    d = await r.json().catch(()=>({}));
+  } catch (e) { d = {}; }
+  _ctState.total = Number(d.total || 0);
+  if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" class="empty">'
+      + (_ctState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+    _ctRenderPager();
+    return;
+  }
   tb.innerHTML = d.items.map(c =>
     `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
   ).join('');
+  _ctRenderPager();
+}
+function _ctRenderPager() {
+  const el = document.getElementById('ct-pager');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const t = _ctState.total;
+  const from = t ? _ctState.offset + 1 : 0;
+  const to = Math.min(_ctState.offset + _ctState.limit, t);
+  const hasPrev = _ctState.offset > 0;
+  const hasNext = to < t;
+  const btn = (on, label, fn) =>
+    `<button onclick="${fn}" ${on?'':'disabled'} style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:${on?'pointer':'default'};opacity:${on?1:0.4}">${label}</button>`;
+  el.innerHTML =
+    `<span style="font-size:12px;color:#64748b">${en?'Showing':'표시'} <b>${from}–${to}</b> / ${t}${_ctState.q?(en?' (search)':' (검색)'):''}</span>`
+    + btn(hasPrev, en?'‹ Prev':'‹ 이전', 'ctPrevPage()')
+    + btn(hasNext, en?'Next ›':'다음 ›', 'ctNextPage()');
+}
+function ctPrevPage() { loadCenters({ offset: Math.max(0, _ctState.offset - _ctState.limit) }); }
+function ctNextPage() { loadCenters({ offset: _ctState.offset + _ctState.limit }); }
+var _ctSearchTimer = null;
+function ctSearch(v) {
+  clearTimeout(_ctSearchTimer);
+  _ctSearchTimer = setTimeout(() => loadCenters({ q: v }), 250);
 }
 async function addCenter() {
   const e = id => document.getElementById(id);
@@ -3888,13 +3994,211 @@ function _renderEnrollments() {
       '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
       '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
       '<td style="white-space:nowrap">' +
+        // 「처리」 = 계정·강사·시간표·구독·안내까지 한 번에. 상태만 바꾸려면 옆의 낱개 버튼.
+        ((cur === 'pending' || cur === 'confirmed')
+          ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
+            'style="padding:3px 10px;font-size:11px;font-weight:800;border:0;border-radius:5px;margin-right:6px;' +
+            'background:#7c3aed;color:#fff;cursor:pointer">' + (en ? '▸ Process' : '▸ 처리') + '</button>' : '') +
         _enBtn(it.id, 'confirmed', en ? '✓ Confirm'  : '✓ 확정',    '#3b82f6', cur) +
         _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
-      '</td></tr>';
+      '</td></tr>' +
+      '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
+}
+
+/* ── 「처리」 패널 — 확정 파이프라인 ──────────────────────────────────────
+   상태만 뒤집던 자리에 «무슨 일이 일어날지 먼저 보여주고, 켠 것만 실행» 을 넣었다.
+   서버 GET .../plan 은 아무것도 바꾸지 않는다. 며칟날 몇 회가 잡히는지, 그 시간에
+   비어 있는 강사가 누구인지, 무엇이 막고 있는지를 먼저 계산해 준다.
+   ⚠️ 학부모 문자와 결제 예약은 **기본 꺼짐** — 바깥으로 나가는 일과 돈은 매번 사람이 켠다.
+   ──────────────────────────────────────────────────────────────────── */
+async function enOpenPanel(id, teacherId) {
+  const en = (adminLang === 'en');
+  const row = document.getElementById('en-panel-' + id);
+  if (!row) return;
+  const cell = row.querySelector('td');
+  if (row.style.display !== 'none' && teacherId === undefined) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  cell.innerHTML = '<div style="padding:14px;font-size:12.5px;color:#6b21a8">' + (en ? 'Checking…' : '확인 중…') + '</div>';
+
+  const qs = teacherId ? ('?teacher_id=' + encodeURIComponent(teacherId)) : '';
+  let p = null;
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/plan' + qs, { cache:'no-store', credentials:'include' });
+    p = await r.json();
+    if (!r.ok || !p.ok) throw new Error(p && p.error ? p.error : ('HTTP ' + r.status));
+  } catch (e) {
+    cell.innerHTML = '<div style="padding:14px;font-size:12.5px;color:#b91c1c">' +
+      (en ? 'Could not build a plan: ' : '계획을 세우지 못했습니다: ') + _esc(String(e.message || e)) + '</div>';
+    return;
+  }
+  cell.innerHTML = _enPanelHtml(p, en);
+}
+
+function _enPanelHtml(p, en) {
+  const L = (ko, eng) => (en ? eng : ko);
+  const line = (label, value, tone) =>
+    '<div style="display:flex;gap:10px;padding:3px 0;font-size:12.5px">' +
+    '<span style="min-width:92px;color:#6b7280">' + label + '</span>' +
+    '<span style="color:' + (tone || '#111827') + '">' + value + '</span></div>';
+
+  // 강사 고르기 — 그 요일·시간에 «실제로 비어 있는» 사람만 서버가 계산해 준다
+  const free = (p.teacher && p.teacher.free) || [];
+  const teacherPick = '<select id="en-teacher-' + p.id + '" onchange="enOpenPanel(' + p.id + ', this.value)" ' +
+    'style="padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">' +
+    '<option value="">' + L('— 고르세요 —', '— pick —') + '</option>' +
+    free.map(t => '<option value="' + _esc(t.id) + '"' + (String(p.teacher.id) === String(t.id) ? ' selected' : '') + '>' +
+      _esc(t.name) + '</option>').join('') +
+    (p.teacher && p.teacher.id && !free.some(t => String(t.id) === String(p.teacher.id))
+      ? '<option value="' + _esc(p.teacher.id) + '" selected>' + _esc(p.teacher.name || p.teacher.id) + ' ' + L('(그 시간 다른 수업 있음)', '(busy then)') + '</option>' : '') +
+    '</select> <span style="font-size:11px;color:#6b7280">' +
+    L('그 시간 가능 ' + free.length + '명 / 전체 ' + (p.teacher.total_active || 0) + '명',
+      free.length + ' free of ' + (p.teacher.total_active || 0)) + '</span>';
+
+  const dates = p.dates || [];
+  const datePreview = dates.length
+    ? dates.slice(0, 6).map(_esc).join(', ') + (dates.length > 6 ? ' … ' + L('외 ' + (dates.length - 6) + '회', '+' + (dates.length - 6)) : '')
+    : '<span style="color:#b45309">' + L('아직 잡을 수 없습니다', 'nothing schedulable yet') + '</span>';
+
+  const blockers = (p.blockers || []).map(b =>
+    '<div style="font-size:12px;color:#991b1b;padding:2px 0">⛔ ' + _esc(b) + '</div>').join('');
+  const warnings = (p.warnings || []).map(w =>
+    '<div style="font-size:12px;color:#92400e;padding:2px 0">⚠ ' + _esc(w) + '</div>').join('');
+
+  const canRun = (p.blockers || []).length === 0;
+  const chk = (key, label, on, note) =>
+    '<label style="display:flex;align-items:flex-start;gap:7px;font-size:12.5px;padding:3px 0;cursor:pointer">' +
+    '<input type="checkbox" class="en-step" data-step="' + key + '"' + (on ? ' checked' : '') + ' style="margin-top:2px">' +
+    '<span>' + label + (note ? '<span style="color:#9ca3af;font-size:11px"> — ' + note + '</span>' : '') + '</span></label>';
+
+  return '<div style="padding:14px 16px;border-left:3px solid #7c3aed">' +
+    '<div style="font-weight:800;font-size:13px;color:#5b21b6;margin-bottom:8px">' +
+      L('확정하면 이렇게 됩니다', 'What confirming will do') + '</div>' +
+
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">' +
+      '<div>' +
+        line(L('학생', 'Student'),
+          _esc(p.student_name || '') + (p.student.linked
+            ? ' <span style="color:#059669">✓ ' + _esc(p.student.user_id) + '</span>'
+            : (p.student.candidates && p.student.candidates.length
+                ? ' <span style="color:#b45309">' + L('명부 후보 ' + p.student.candidates.length + '명', p.student.candidates.length + ' candidates') + '</span>'
+                : ' <span style="color:#b91c1c">' + L('명부에 없음', 'not in roster') + '</span>'))) +
+        line(L('수업', 'Class'), _esc(p.days_label || '—') + ' ' +
+          _esc(Object.values(p.times || {})[0] || '') + ' · ' + p.minutes + L('분', 'min')) +
+        line(L('회차', 'Sessions'), p.sessions + L('회', '') + ' · ' + L('시작 ', 'from ') + _esc(p.start_date)) +
+        line(L('강사', 'Teacher'), teacherPick) +
+      '</div>' +
+      '<div>' +
+        line(L('잡히는 날', 'Dates'), datePreview,
+          dates.length && dates.length < p.sessions ? '#b45309' : '#111827') +
+        line(L('건너뜀', 'Skipped'), (p.skipped || []).length
+          ? _esc((p.skipped || []).slice(0, 5).join(', ')) + L(' (공휴일·충돌)', ' (holiday/conflict)')
+          : L('없음', 'none')) +
+        line(L('학부모', 'Parent'), p.student.parent_phone_masked
+          ? _esc(p.student.parent_phone_masked)
+          : '<span style="color:#b45309">' + L('연락처 없음', 'no phone') + '</span>') +
+        line(L('다음 청구', 'Next billing'), _esc(p.next_billing || '—') + ' · ' +
+          (p.monthly_fee_krw ? '₩' + Number(p.monthly_fee_krw).toLocaleString() : L('금액 없음', 'no amount'))) +
+      '</div>' +
+    '</div>' +
+
+    (blockers || warnings ? '<div style="margin:10px 0;padding:8px 10px;background:#fff;border-radius:8px">' + blockers + warnings + '</div>' : '') +
+
+    '<div style="margin-top:10px;padding:10px 12px;background:#fff;border-radius:8px">' +
+      '<div style="font-size:11.5px;font-weight:800;color:#6b7280;margin-bottom:4px">' +
+        L('실행할 것 (켠 것만 합니다)', 'Steps to run (only what is checked)') + '</div>' +
+      chk('link_student', L('학생 계정 연결', 'Link student account'), true, L('없는 계정을 새로 만들지는 않습니다', 'never creates a new account')) +
+      chk('assign_teacher', L('강사 배정', 'Assign teacher'), true) +
+      chk('create_schedules', L('시간표 생성', 'Create class schedule'), true, L('두 번 눌러도 두 벌 생기지 않습니다', 'idempotent')) +
+      chk('create_subscription', L('결제 예약 등록', 'Register billing schedule'), false, L('청구하지 않습니다 — 다음 청구 예정일만 적습니다', 'records the due date only, never charges')) +
+      chk('notify_parent', L('학부모 안내 문자', 'Text the parent'), false, L('실제로 발송됩니다', 'actually sends')) +
+    '</div>' +
+
+    '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">' +
+      '<button type="button" onclick="enRunPanel(' + p.id + ',true)" ' +
+        'style="padding:6px 14px;font-size:12px;font-weight:700;border:1px solid #7c3aed;background:#fff;color:#6d28d9;border-radius:6px;cursor:pointer">' +
+        L('미리보기', 'Dry run') + '</button>' +
+      '<button type="button" ' + (canRun ? '' : 'disabled ') + 'onclick="enRunPanel(' + p.id + ',false)" ' +
+        'style="padding:6px 16px;font-size:12.5px;font-weight:800;border:0;border-radius:6px;' +
+        (canRun ? 'background:#7c3aed;color:#fff;cursor:pointer' : 'background:#e5e7eb;color:#9ca3af;cursor:default') + '">' +
+        L('확정하고 실행', 'Confirm and run') + '</button>' +
+      '<button type="button" onclick="enOpenPanel(' + p.id + ')" ' +
+        'style="padding:6px 12px;font-size:12px;border:1px solid #d1d5db;background:#fff;border-radius:6px;cursor:pointer">' +
+        L('닫기', 'Close') + '</button>' +
+      (p.already_created ? '<span style="font-size:11.5px;color:#6b7280">' +
+        L('이미 수업 ' + p.already_created + '회 생성됨', p.already_created + ' classes already created') + '</span>' : '') +
+    '</div>' +
+    '<div id="en-run-' + p.id + '" style="margin-top:10px"></div>' +
+  '</div>';
+}
+
+async function enRunPanel(id, dry) {
+  const en = (adminLang === 'en');
+  const row = document.getElementById('en-panel-' + id);
+  if (!row) return;
+  const out = document.getElementById('en-run-' + id);
+  const steps = {};
+  row.querySelectorAll('.en-step').forEach(c => { steps[c.getAttribute('data-step')] = c.checked; });
+  const sel = document.getElementById('en-teacher-' + id);
+  const teacher_id = sel && sel.value ? sel.value : null;
+
+  // 실제 발송·저장 전에는 무엇이 나가는지 한 번 더 말해 준다
+  if (!dry) {
+    const outward = [];
+    if (steps.notify_parent) outward.push(en ? 'a text to the parent' : '학부모에게 문자 발송');
+    if (steps.create_subscription) outward.push(en ? 'a billing schedule' : '결제 예약 등록');
+    const msg = (en ? 'Run now?' : '지금 실행할까요?') +
+      (outward.length ? '\n\n' + (en ? 'This includes: ' : '여기에는 다음이 포함됩니다: ') + outward.join(', ') : '');
+    if (!confirm(msg)) return;
+  }
+
+  if (out) out.innerHTML = '<div style="font-size:12.5px;color:#6b21a8">' + (en ? 'Running…' : '실행 중…') + '</div>';
+  let d = null;
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/activate', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'confirmed', dry: !!dry, teacher_id, steps })
+    });
+    d = await r.json();
+    if (!r.ok || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+  } catch (e) {
+    if (out) out.innerHTML = '<div style="font-size:12.5px;color:#b91c1c">' +
+      (en ? 'Failed: ' : '실패: ') + _esc(String(e.message || e)) + '</div>';
+    return;
+  }
+
+  const LBL = {
+    link_student: en ? 'Link student' : '학생 계정 연결',
+    assign_teacher: en ? 'Assign teacher' : '강사 배정',
+    create_schedules: en ? 'Create schedule' : '시간표 생성',
+    create_subscription: en ? 'Billing schedule' : '결제 예약',
+    notify_parent: en ? 'Parent text' : '학부모 문자',
+    set_status: en ? 'Status' : '상태'
+  };
+  if (out) {
+    out.innerHTML = '<div style="padding:10px 12px;background:#fff;border-radius:8px">' +
+      '<div style="font-size:11.5px;font-weight:800;color:#6b7280;margin-bottom:5px">' +
+        (dry ? (en ? 'Dry run — nothing was saved' : '미리보기 — 아무것도 저장하지 않았습니다')
+             : (en ? 'Done' : '실행 결과')) + '</div>' +
+      (d.steps || []).map(s =>
+        '<div style="font-size:12.5px;padding:2px 0;color:' + (s.ok ? (s.skipped ? '#6b7280' : '#065f46') : '#b91c1c') + '">' +
+        (s.ok ? (s.skipped ? '⏭' : '✅') : '❌') + ' <b>' + (LBL[s.step] || _esc(s.step)) + '</b> — ' +
+        _esc(s.detail).replace(/\n/g, '<br>') + '</div>').join('') +
+    '</div>';
+  }
+  if (!dry) {
+    _enToast(d.all_ok
+      ? (en ? 'Enrollment processed' : '수강신청 처리 완료')
+      : (en ? 'Processed with some failures — see the panel' : '일부 단계가 실패했습니다 — 패널을 확인하세요'));
+    // 표만 새로 그린다. 패널은 결과를 읽을 수 있게 열어 둔다.
+    const keep = row.querySelector('td').innerHTML;
+    await loadEnrollments();
+    const again = document.getElementById('en-panel-' + id);
+    if (again) { again.style.display = ''; again.querySelector('td').innerHTML = keep; }
+  }
 }
 
 // 갈 수 없는 전이(이미 그 상태)는 눌리지 않게 잠근다 — 눌러도 아무 일 없던 것의 정체
@@ -7718,10 +8022,26 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 };
 { const _pe = document.getElementById('period'); if (_pe) _pe.onchange = load; }   // #period 제거됨 → null 가드
 // 초기 로드 (각각 독립적으로)
+// 🐢 (2026-08-08) loadFranchises·loadCenters 를 여기서 뺐다 — 카드가 닫혀 있는데도
+//    지사 241행 + 대리점·학원 921행(약 155KB)을 부팅마다 받아서 DOM 에 그렸다.
+//    이제 카드를 열 때 로드한다(admin.html 의 ontoggle → adminLazyLoadCard).
+//    ⚠️ 되살리지 말 것. 두 표는 각자 카드 안에서만 쓰이므로 부팅 때 없어도 아무것도 안 깨진다.
 Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadFranchises(), loadCenters(), loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
+  loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
 ]);
+// 🔁 카드 최초 열림 때 한 번만 로드 (admin.html 의 ontoggle 에서 호출)
+window.adminLazyLoadCard = function(kind) {
+  try {
+    if (kind === 'franchises') {
+      if (window.__lazyFranchises) return; window.__lazyFranchises = true;
+      if (typeof loadFranchises === 'function') loadFranchises();
+    } else if (kind === 'centers') {
+      if (window.__lazyCenters) return; window.__lazyCenters = true;
+      if (typeof loadCenters === 'function') loadCenters();
+    }
+  } catch (e) { console.warn('lazy load 실패:', kind, e); }
+};
 // 활성 방 목록 15초마다 자동 갱신
 setInterval(loadActiveRooms, 15000);
 
@@ -7839,14 +8159,16 @@ async function buildGlobalIndex() {
       label: t => t.name,
       sub:   t => `${t.status || '—'} · ${t.years != null ? t.years + 'y' : ''} · rate ${t.rate_per_10min_php || '—'}`,
       action: () => jumpToMenuByLabelMatch('강사') },
-    { url: '/api/admin/franchises',       kindKo: '🏬 가맹점',     kindEn: '🏬 Franchise',    items: 'items',
+    // 🏢 조직 — 본사 › 지사 › 대리점(학원). fields=min 으로 {id,name} 만 받는다
+    //    (예전엔 두 목록의 전체 컬럼을 받아 약 155KB. 이름만 받으니 약 35KB — 검색 범위는 그대로 전건)
+    { url: '/api/admin/franchises?fields=min', kindKo: '🏢 지사',   kindEn: '🏢 Branch',      items: 'items',
       label: f => f.name,
-      sub:   f => f.owner_name || '',
-      action: () => jumpToMenuByLabelMatch('가맹점') },
-    { url: '/api/admin/centers',          kindKo: '🏫 교육센터',   kindEn: '🏫 Center',       items: 'items',
+      sub:   () => '',
+      action: () => jumpToMenuByLabelMatch('조직 관리') },
+    { url: '/api/admin/centers?fields=min&limit=0', kindKo: '🏪 대리점(학원)', kindEn: '🏪 Agency', items: 'items',
       label: c => c.name,
-      sub:   c => c.country || '',
-      action: () => jumpToMenuByLabelMatch('교육센터') },
+      sub:   () => '',
+      action: () => jumpToMenuByLabelMatch('대리점(학원)') },
     { url: '/api/admin/enrollments?limit=500', kindKo: '📚 수강신청', kindEn: '📚 Enrollment', items: 'items',
       label: e => e.student_name,
       sub:   e => `${e.package} · ${e.status}`,
@@ -11121,11 +11443,11 @@ window.rebuildGlobalSearchIndex = function() {
     // 본사 + 지사
     'card-teacher-mgmt':      'branch',   // 강사관리
     'card-active-rooms':      'branch',   // 실시간 수업 현황
-    'card-centers':           'branch',   // 교육센터
+    'card-centers':           'branch',   // 🏪 대리점(학원) 전국 목록 — 대리점 계정엔 «남의 대리점»이라 안 보임
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    'card-franchises':        'agency',   // 가맹점 관리 (자기만 보임)
+    'card-franchises':        'agency',   // 🏢 조직 관리(본사·지사) (자기만 보임)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정

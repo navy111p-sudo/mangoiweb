@@ -192,6 +192,8 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 
 .empty{color:#7a8794;font-size:14px;padding:6px 0}
 .err{background:#fdecea;border:1px solid #f5c2bd;color:#8c1d18;border-radius:8px;padding:12px;font-size:14px}
+/* 📮 보관함 안내 — 경고(빨강)가 아니라 «안심»(초록) 이다. 강사가 쓴 것이 살아 있다는 뜻이므로. */
+.ok{background:#e7f5ee;border:1px solid #b7e0c8;color:#0b5c33;border-radius:8px;padding:12px;font-size:14px}
 .ok{background:#e6f4ea;border:1px solid #a8d5b5;color:#0b5c2a;border-radius:8px;padding:12px;font-size:14px}
 
 /* ⚠️ 경고 카드 — 돈이 걸린 정보라 시각적으로 확실히 구분한다 */
@@ -336,6 +338,12 @@ html[data-t="dark"] .nextup.soon .nu-c{color:#f7897f}
 html[data-t="dark"] .nextup.open{background:#13291d;border-color:#2c5c41}
 html[data-t="dark"] .nextup.open .nu-l,
 html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
+
+/* ⭐ 자주 쓰는 기능 바로가기 — .tbtn 재사용(다크·44px 상속). 외부 리소스 0·애니메이션 0. */
+.qlbl{font-size:12.5px;font-weight:700;color:#5d6b7a;padding:2px 2px 4px}
+html[data-t="dark"] .qlbl{color:#9dabb9}
+.qbar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:0 2px 8px;margin:0 0 4px}
+.qbar .tbtn{flex:0 0 auto}
 </style>
 <!-- 🌙 저장된 테마를 **첫 페인트 전에** 적용한다. 본문 스크립트(문서 끝)에서 하면
      흰 화면이 한 번 번쩍인 뒤 어두워진다 — 새벽 근무 강사에게는 그 한 번이 눈부시다.
@@ -355,6 +363,10 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
          아이콘만 남기고 글자를 숨긴다(.lbl). 화면낭독기용 이름은 aria-label 로 남겨 둔다. -->
     <nav class="tnav">
       <button class="tbtn" id="back" type="button" data-en="← Back" data-ko="← 뒤로">← Back</button>
+      <!-- 🧑‍💼 (2026-08-09) 매니저로 열었을 때만 켠다. 같은 로그인 쿠키라 **재로그인이 없다** —
+           매니저 화면 ↔ 내 수업을 링크 하나로 오간다(새 요청 0, 스크립트 0). -->
+      <a class="tbtn" id="to-manager" href="/manager" hidden
+         data-en="Manager view" data-ko="매니저 화면">Manager view</a>
       <a class="tbtn" id="home" href="/" aria-label="Home"><span aria-hidden="true">🏠</span><span class="lbl" data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" type="button">한국어</button>
       <!-- 🌙 다크 모드 (요청 24번) — 라벨은 '지금 누르면 무엇이 되는지'로 쓴다.
@@ -366,12 +378,34 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     </nav>
   </div>
 
+  <!-- ⭐ 자주 쓰는 기능 — 바로가기 바(새 API 0). 아래 <details> 카드를 펼치고 이동만 한다.
+       장애 신고는 이미 화면 최상단 라이브 배너로 처리돼 여기 중복하지 않는다. -->
+  <div class="qlbl" data-en="Quick access" data-ko="자주 쓰는 기능">Quick access</div>
+  <nav class="qbar" aria-label="Quick access">
+    <button class="tbtn" type="button" onclick="openCard('c-postpone')" data-en="Postpone / change" data-ko="수업 연기·변경">Postpone / change</button>
+    <button class="tbtn" type="button" onclick="openCard('c-pay')" data-en="Pay" data-ko="급여">Pay</button>
+    <button class="tbtn" type="button" onclick="openCard('c-rate')" data-en="My ratings" data-ko="내 평점">My ratings</button>
+    <button class="tbtn" type="button" onclick="openCard('c-report')" data-en="Reports" data-ko="수업 리포트">Reports</button>
+  </nav>
+
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
+
+  <!-- 👥 (2026-08-09) 계정이 두 개인 사람에게만 뜬다(서버 SAME_PERSON_ACCOUNTS 가 정한다).
+       왜: Maimai 는 매니저 계정과 옛 LMS 강사 계정을 둘 다 쓰는데, 화면 어디에도 그 사실이
+       없어 «매니저 화면에서 평가서를 찾다 못 찾고» 두 비밀번호를 바꿔 넣는 일이 반복됐다.
+       추측하지 않는다 — 서버가 also_account 를 줄 때만 그린다. -->
+  <div class="card" id="also-acct" hidden></div>
 
   <!-- 캐시를 그렸는데 갱신에 실패했을 때만 뜬다. 오래된 시간표를 '지금 것'으로 믿게 두지 않는다. -->
   <div class="card err" id="stale" hidden
        data-en="Offline — showing the last information received. Tap Refresh when your connection is back."
        data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결이 되면 새로고침을 눌러 주세요.">Offline — showing the last information received.</div>
+
+  <!-- 📮 (2026-08-08) 못 보낸 승인이 이 기기에 남아 있을 때만 뜬다.
+       정전·회선 끊김에 강사가 쓴 것이 사라지지 않았다는 걸 «보이게» 알려야 한다 —
+       조용히 큐에만 넣으면 강사는 «날아갔구나» 하고 다시 쓴다. c-alert 밖에 둔 이유는
+       피드백 미작성 경고가 없어도(=다 썼어도) 큐는 남아 있을 수 있기 때문이다. -->
+  <div class="card ok" id="outbox-note" hidden></div>
 
   <!-- ⚡ 내가 신고한 장애가 «아직 진행 중» 일 때만. 화면 맨 위 — 복구 버튼을 찾아 헤매지 않게. -->
   <div class="card err" id="c-outage-live" hidden>
@@ -651,7 +685,16 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     // 📁 내 기록 카드들 — 서버에서 받아 그린 표라 data-en 으로는 못 바꾼다. 캐시로 다시 그린다.
     //   (applyLang 이 이 스크립트보다 먼저 정의되므로 존재 확인 후 호출)
     if (typeof window.__repaintMy === 'function') window.__repaintMy();
+    if (typeof paintOutbox === 'function') paintOutbox();
   }
+  // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
+  window.openCard = function(id){
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (el.hidden) el.hidden = false;
+    if (!el.open) el.open = true;   // ontoggle → 기존 loadXxx() 가 부른다
+    try { el.scrollIntoView({ block: 'start' }); } catch (e) { el.scrollIntoView(); }
+  };
   document.getElementById('lang').onclick = function(){
     LANG = EN() ? 'ko' : 'en';
     langPickedByUser = true;
@@ -909,12 +952,16 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
 
     // 🧑‍💼 매니저인가 — 수업 목록의 뜻이 통째로 달라진다(내 수업 → 내 커버 수업).
     IS_MGR = !!(d.me && d.me.is_manager);
+    // 🧑‍💼 매니저면 「매니저 화면」 으로 돌아가는 링크를 켠다(재로그인 없음).
+    var _tm = document.getElementById('to-manager');
+    if (_tm) _tm.hidden = !IS_MGR;
     if (IS_MGR){
       var ct = document.getElementById('cls-title');
       ct.setAttribute('data-en', 'My cover classes');
       ct.setAttribute('data-ko', '내 커버 수업');
     }
 
+    renderAlsoAccount(d.me);
     renderClasses(d.classes || []);
     renderUpcoming(d.upcoming || []);
     renderWeek(d.week);
@@ -931,6 +978,34 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     // 🔢 개수는 **진짜 망고아이 수업만** 센다. LMS 점유 슬롯·시드까지 세면
     //    강사가 "오늘 5개 있네" 하고 잘못 읽는다(실제 입장 가능한 건 0개일 수 있다).
     paintClassCount(d.classes);
+  }
+
+  /* 👥 «계정이 하나 더 있다» 안내 — 서버가 also_account 를 줄 때만 그린다.
+     ⚠️ 화면에서 아이디 규칙으로 추측하지 않는다. `mgr_` 접두사에는 한국 매니저도 있고,
+        `mangoi_0NN` 은 강사 전원이 쓴다 — 추측하면 엉뚱한 사람에게 남의 아이디를 보여 준다.
+     ⚠️ data-en/data-ko 를 붙이지 않는다(붙이면 applyLang 이 innerHTML 을 통째로 되쓴다).
+        언어 전환은 lang 버튼이 render(DATA) 를 다시 부르므로 여기서 다시 그려진다. */
+  function renderAlsoAccount(me){
+    var box = document.getElementById('also-acct');
+    if (!box) return;
+    var a = me && me.also_account;
+    if (!a){ box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    /* ⚠️ 문장을 조각으로 이어 붙이지 않는다 — 한국어는 조사가 붙어 «…업무 은(는) 로그아웃 후»
+       처럼 깨진다. 언어마다 문장을 통째로 만든다. */
+    var here = '<b>' + esc(me.username || '') + '</b>';
+    var them = '<b>' + esc(a.username) + '</b>';
+    box.innerHTML =
+      '<div style="font-weight:700">' + esc(T('Use one account from now on', '이제 한 계정만 쓰시면 됩니다')) + '</div>'
+      + '<div style="font-size:13px;padding-top:4px">'
+      +   (EN()
+            ? 'This account (' + here + ') only shows your classes. Sign in with ' + them
+              + ' instead — it shows the manager view <i>and</i> your classes, and you can move between them without logging out.'
+            // ⚠️ 아이디 뒤에 조사를 직접 붙이지 않는다 — 끝소리에 따라 «로/으로» 가 갈린다.
+            //    아이디는 사람마다 다르므로 «계정» 을 끼워 조사 문제를 없앤다.
+            : '이 계정(' + here + ')에는 수업만 보입니다. ' + them
+              + ' 계정으로 로그인하시면 매니저 화면과 내 수업을 <b>로그아웃 없이</b> 오갈 수 있습니다.')
+      + '</div>'
   }
 
   // 제목 옆 개수 — render() 와 자동 갱신(요청 26번) 두 곳에서 쓴다.
@@ -2226,6 +2301,77 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // 📮 보관함(outbox) — 정전·회선 끊김에 강사가 쓴 것이 날아가지 않게 (2026-08-08)
+  //
+  //   왜 — 필리핀에서 아픈 건 «느린 것» 이 아니라 «끊기는 것» 이다(정전·태풍).
+  //   지금까지는 승인 버튼을 눌렀을 때 전송이 실패하면 그대로 사라졌다. 특히
+  //   문구를 직접 고쳐 쓴 경우엔 강사가 쓴 글이 통째로 없어졌다.
+  //
+  //   🔑 서버에 멱등성 키를 새로 만들 필요가 없었다 — 이미 안전하다.
+  //      approve 핸들러가 `if (row.status !== 'draft') return 409 already_decided` 로 막는다.
+  //      즉 같은 건을 두 번 보내도 두 번 저장되지 않는다. 그래서 재전송에서 409/already_decided
+  //      가 오면 **성공으로 친다**(이미 처리된 것이므로).
+  //   ⚠️ 서버가 «판단해서» 거절한 것(draft_not_found 등)은 다시 보내도 소용없다 → 큐에서 버린다.
+  //      네트워크 실패만 큐에 남긴다. 안 그러면 영영 안 되는 것을 영원히 재시도한다.
+  // ══════════════════════════════════════════════════════════════════════════
+  var OUTBOX_KEY = 'mangoi_teacher_outbox_v1';
+
+  function outboxRead(){
+    try { var a = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function outboxWrite(a){
+    try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(a.slice(-50))); } catch (e) {}
+    paintOutbox();
+  }
+  function outboxAdd(body){
+    var a = outboxRead();
+    // 같은 초안을 두 번 담지 않는다(사용자가 여러 번 눌렀을 수 있다) — 마지막 내용이 이긴다.
+    a = a.filter(function(x){ return x.id !== body.id; });
+    a.push(body);
+    outboxWrite(a);
+  }
+  function paintOutbox(){
+    var el = document.getElementById('outbox-note');
+    if (!el) return;
+    var n = outboxRead().length;
+    el.hidden = !n;
+    if (n) el.textContent = T(n + ' approval(s) saved on this phone — they will be sent automatically when you are back online.',
+                             '보내지 못한 승인 ' + n + '건을 이 기기에 저장했습니다 — 연결되면 자동으로 보냅니다.');
+  }
+
+  var outboxBusy = false;
+  function outboxFlush(){
+    if (outboxBusy) return;
+    var a = outboxRead();
+    if (!a.length) return;
+    outboxBusy = true;
+    var body = a[0];
+    fetch('/api/admin/feedback-drafts/approve', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(body)
+    })
+    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j }; }); })
+    .then(function(res){
+      var j = res.j || {};
+      // 성공, 또는 «이미 처리됨» → 둘 다 «할 일이 끝났다» 는 뜻이다.
+      var done = j.ok || j.error === 'already_decided' || res.status === 409;
+      // 서버가 판단해서 거절한 것(없는 초안 등)도 재시도해봐야 소용없다 → 버린다.
+      var hopeless = !done && res.status >= 400 && res.status < 500;
+      if (done || hopeless){
+        var rest = outboxRead().filter(function(x){ return x.id !== body.id; });
+        outboxWrite(rest);
+        outboxBusy = false;
+        if (rest.length) return outboxFlush();     // 남은 것 계속
+        loadDrafts(); loadMonthStats(true);
+        return;
+      }
+      outboxBusy = false;                          // 5xx — 나중에 다시
+    })
+    .catch(function(){ outboxBusy = false; });     // 여전히 오프라인 — 큐는 그대로 둔다
+  }
+
   function decideDraft(id, action, btn, edited){
     btn.disabled = true;
     btn.textContent = T('Working…', '처리 중…');
@@ -2236,15 +2382,26 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
       method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify(body)
     })
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j }; }); })
+    .then(function(res){
+      var j = res.j || {};
+      if (!(j.ok || j.error === 'already_decided')) throw new Error(j.error || 'failed');
       loadDrafts();
       // 승인하면 공제가 풀릴 수 있으므로 경고·KPI 를 다시 계산한다.
       // force=true — 이때만은 10분 캐시를 무시해야 방금 한 일이 화면에 반영된다.
       loadMonthStats(true);
     })
-    .catch(function(){
+    .catch(function(e){
+      // 📮 네트워크가 끊겨서 못 보낸 것이면 버리지 않고 보관한다.
+      //    (서버가 «안 된다» 고 답한 경우는 res 가 왔으므로 여기 오지 않는다)
+      var offline = (typeof navigator !== 'undefined' && navigator.onLine === false)
+                 || !e || /Failed to fetch|NetworkError|Load failed|network/i.test(String(e.message || e));
+      if (offline){
+        outboxAdd(body);
+        btn.disabled = true;
+        btn.textContent = T('Saved — will send', '저장됨 — 나중에 전송');
+        return;
+      }
       btn.disabled = false;
       btn.textContent = action === 'approve' ? T('Approve & send','승인 · 발송') : T('Skip','건너뛰기');
     });
@@ -2792,13 +2949,18 @@ html[data-t="dark"] .nextup.open .nu-c{color:#6cd394}
     if (DATA) { renderClasses(DATA.classes || []); renderUpcoming(DATA.upcoming || []); if (DATA.week) renderWeek(DATA.week); }
     scheduleAutoRefresh(1500);
   });
-  window.addEventListener('online', function(){ arDelay = AR_MIN; scheduleAutoRefresh(1000); });
+  window.addEventListener('online', function(){
+    arDelay = AR_MIN; scheduleAutoRefresh(1000);
+    outboxFlush();          // 📮 회선이 돌아오면 못 보낸 승인부터 보낸다
+  });
 
   applyLang();
+  paintOutbox();            // 📮 지난번에 못 보낸 것이 있으면 먼저 알린다
+  outboxFlush();            // 그리고 조용히 다시 보내 본다
   load();
   scheduleAutoRefresh(AR_MIN);
 })();
 </script>
-<!-- BUILD:20260808151835 -->
+<!-- BUILD:20260809115806 -->
 </body>
 </html>

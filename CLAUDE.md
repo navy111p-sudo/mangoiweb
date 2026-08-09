@@ -67,6 +67,8 @@
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |
 | i18n 사전 | 전체 문자열 일치 방식입니다. 라벨에서 이모지만 떼도 번역이 깨집니다 |
+| 언어 판정 | `index.html` 은 i18n 엔진이 **두 개**입니다. 나중에 로드되는 `js/mango-i18n.js` 가 `setLang/getLang/toggleLang` 을 덮어쓰는데, 인라인 엔진의 전역 `currentLang` 은 안 건드립니다. **언어 판정은 반드시 `getLang()`** 로 하세요. 인라인 `currentLang` 을 직접 읽으면 🌐 를 눌러도 안 따라옵니다 |
+| JS 로 그린 라벨 | `textContent` 로 직접 쓴 글자는 `data-ko/data-en` 루프도, `i18n-sweep` 의 `restore()` 도 못 고칩니다(대입이 텍스트 노드를 갈아치워 복원이 죽은 노드에 쓰입니다). 상태에 따라 라벨이 바뀌는 버튼은 **그릴 때 `data-ko`/`data-en` 도 함께 갱신**하세요 |
 | TTS 검증 | Cloudflare발 구글 TTS(한국어·중국어)는 **깨진 음성**이 나옵니다. 서버 TTS는 영어만 정상 |
 | 셸에서 한글 POST | UTF-8 파일로 저장해서 보내세요. 인라인 한글은 깨집니다 |
 | 카카오 상담 링크 | 주소 뒤에 **`/chat` 을 붙이지 마세요.** `pf.kakao.com/<id>/chat` 은 **비로그인 PC 를 `accounts.kakao.com` 로그인 화면으로 튕깁니다.** 채널 홈 `pf.kakao.com/_xlqnSxd` 은 로그인 없이 열리고 그 안에 채팅·챗봇·전화·길찾기가 다 있습니다 |
@@ -75,6 +77,7 @@
 | 브라우저 애니메이션 | 백그라운드 탭·저전력 모드에서 CSS transition과 rAF가 멈춥니다. `opacity:0` 으로 시작하는 요소는 영영 안 보일 수 있습니다 |
 | hover 때 글자가 움직임 | `transform` 만 찾으면 못 찾습니다. 사이드바 `.ph85-sub` 는 **별점과 말풍선이 같은 `::after` 를 나눠 써서**, hover 시 별점이 `absolute` 로 흐름에서 빠지고 그 순간 `justify-content:space-between` 이 라벨을 가운데로 밀었습니다. **flex 컨테이너에서 `space-between` 금지, `flex-start` + `margin-left:auto` 로 오른쪽 정렬**할 것 |
 | 로그인 역할 판정 로직 | `public/index.html`(`tryAdminLoginFallback`, 학생홈 통합 로그인)과 `public/admin/login.html`(ph239)에 **아이디 접두사 기반 역할판정 로직이 그대로 복제**돼 있습니다. 역할 분기(교사/본사/지사/대리점/캐피타운)를 고치면 반드시 두 파일 다 고쳐야 합니다 |
+| 관리자 카드 안 박스 색이 안 먹음 | 인라인 `style="background:linear-gradient(135deg,…"` 나 `background:#f…` 는 **`admin-inline-c.css` 의 옛 다크 규칙**(`details.menu-card [style*="background:linear-gradient(135deg"]` 등)이 `!important` 남색으로 덮고, 그걸 본 `js/adm-s13.js` 페인터가 다시 흰-회청색으로 칠합니다. **`background-color:` 로 쓰면** 어느 선택자에도 안 걸려 고른 색이 그대로 나옵니다. 글자색은 `.sub-body :is(p,span,div,b,strong…)` 가 통째로 `#101828 !important` — `<a>` 만 예외 |
 
 ---
 

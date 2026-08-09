@@ -212,7 +212,7 @@ async function riskScan(env: Env): Promise<Response> {
              (SELECT COUNT(DISTINCT a.date) FROM attendance a
                 WHERE a.user_id=e.user_id AND a.role='student' AND a.date>=date('now','-30 day')) AS attended
       FROM students_erp e
-      WHERE e.status='정상' AND e.parent_phone IS NOT NULL AND e.parent_phone<>'')
+      WHERE (e.status IN ('정상','활동','active') OR e.status IS NULL OR e.status = '') AND e.parent_phone IS NOT NULL AND e.parent_phone<>'')
     SELECT student_id, student_name, parent_phone,
            MIN(1.0, attended*1.0/(cpw*4.3)) AS rate
     FROM att

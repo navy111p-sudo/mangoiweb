@@ -176,7 +176,7 @@ export async function runTeacherGraphSync(
     const interestCol = interestSrc ? `"${interestSrc}" AS interests` : `'' AS interests`;
 
     const srs = await env.DB
-      .prepare(`SELECT user_id, ${nameCol} AS student_name, ${mbtiCol}, ${interestCol} FROM students_erp WHERE status = '정상' OR status IS NULL OR status = '' LIMIT 2000`)
+      .prepare(`SELECT user_id, ${nameCol} AS student_name, ${mbtiCol}, ${interestCol} FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '') LIMIT 2000`)
       .all<{ user_id: string; student_name: string; mbti: string; interests: string }>();
     students = (srs.results || []).map((r) => ({
       student_id: String(r.user_id),

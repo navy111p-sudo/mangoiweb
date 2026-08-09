@@ -5,18 +5,24 @@
 (function(){
   // ── 데이터 소스: /api/admin/teachers + /api/admin/teacher-attendance (없으면 클라이언트 시드)
   // ── 시드 모드: localStorage 에 저장된 출근 기록을 사용 + 없으면 자동 생성 (관리자 데모용)
-  const AW_LS_KEY = 'mango_attendance_seed_v1';
   let _awTeachers = []; // [{ id, name }]
   let _awRecords = [];  // [{ teacher_id, teacher_name, date, scheduled, actual, late_min }]
-  let _awSeeded = false; // true = 서버 데이터가 아님(시드/로컬 사본). 화면에 경고를 띄운다.
+  let _awNoActual = true; // 실제 출근 시각을 아직 못 채운다는 뜻. 화면에 사실대로 적는다.
   // 서버 미연동 경고 배너 — 한/영 (강사 다수가 필리핀)
+  /* 이 카드가 무엇을 보여주는지 «화면 위에» 적어 둔다.
+     수업 스케줄은 DB(class_schedules)의 실제 값이지만, «실제 출근 시각» 은 아직 기록되지 않는다.
+     강사 계정(teachers.user_id)·강사↔로그인 연결표가 비어 있어 출석 로그를 강사와 묶을 수 없다.
+     그 사실을 숨기면 화면이 거짓말을 한다. */
   function _awSeedBanner() {
-    if (!_awSeeded) return '';
-    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
-      + 'border-radius:8px;color:#b45309;font-size:13px;font-weight:700">'
-      + '⚠️ 서버 미연동 — 아래는 실제 출근 기록이 아니라 예시(시드) 데이터입니다. 급여 판단에 사용하지 마세요.<br>'
-      + '<span style="font-weight:500">Not connected to the server — the rows below are sample data, not real attendance records.</span></div>';
+    if (!_awNoActual) return '';
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #fedf89;background:#fffaeb;'
+      + 'border-radius:8px;color:#b45309;font-size:12.5px;line-height:1.6">'
+      + '<b>수업 스케줄은 실제 데이터입니다.</b> 다만 «실제 출근 시각» 은 아직 기록되지 않습니다 '
+      + '— 강사 로그인 계정과 출석 기록이 연결돼 있지 않습니다. 지각 판정은 그 연결 후에 가능합니다.<br>'
+      + '<span style="color:#93701a">Class schedules are real. Actual check-in times are not recorded yet '
+      + '(teacher accounts are not linked to attendance logs).</span></div>';
   }
+
   let _awMode = 'byTeacher';
   let _awChart = null;
 
@@ -53,64 +59,77 @@
     return { from: new Date(fy, fm-1, fd), to: new Date(ty, tm-1, td) };
   }
 
-  // 강사 목록 로드 — 기존 ERP teacher_profiles 사용
+  // 강사 목록 — class_schedules.teacher_id 는 «teachers.id» 를 가리킨다.
+  //   예전엔 teacher-profiles(다른 id 체계)를 불러서 스케줄과 안 맞았다.
   async function loadTeachers() {
     try {
-      const r = await fetch('/api/admin/teacher-profiles?limit=200', { credentials:'include' });
+      const r = await fetch('/api/admin/teachers', { credentials: 'include' });
       if (r.ok) {
         const j = await r.json();
-        const rows = j.rows || j.items || j;
+        const rows = j.teachers || j.rows || j.items || j;
         if (Array.isArray(rows) && rows.length) {
-          _awTeachers = rows.map(x => ({ id: x.id || x.korean_name, name: x.english_name || x.korean_name }));
+          _awTeachers = rows
+            .filter(x => x && (x.active == null || x.active) )
+            .map(x => ({ id: String(x.id), name: x.name || x.english_name || x.korean_name || ('#' + x.id) }));
         }
       }
-    } catch(e) {}
-    // fallback: 캡처에 보였던 강사들 사용
-    if (!_awTeachers.length) {
-      _awTeachers = ['Karl','Melca','Mo','Teacher Ana','Teacher Belle','Teacher Chaine','Teacher Diana','Teacher Eric'].map((n,i)=>({ id:'t'+i, name:n }));
-    }
-    // select 옵션
+    } catch (e) {}
     const sel = document.getElementById('aw-teacher');
-    _awTeachers.forEach(t => { const o=document.createElement('option'); o.value=t.id; o.textContent=t.name; sel.appendChild(o); });
+    if (sel) _awTeachers.forEach(t => { const o = document.createElement('option'); o.value = t.id; o.textContent = t.name; sel.appendChild(o); });
   }
 
-  // 출근 기록 로드 — DB endpoint 가 있으면 그걸 사용, 없으면 시드 생성
+  // 그 주의 월요일 (로컬 기준)
+  function _awMonday(d) {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    return x;
+  }
+
+  /* 수업 스케줄 로드 — /api/admin/schedules?week= 는 «그 주»를 날짜로 펼쳐서 준다.
+     선택한 기간이 여러 주에 걸치면 주 단위로 나눠 받아 합친다(보통 1~2회).
+     한 강사·하루에 수업이 여러 개면 «첫 수업 시각» 을 그 날의 기준 시각으로 쓴다.
+     — 사장님 지적대로 출근 기준은 강사마다 다르다. 고정 09:00 이 아니라 «그 사람의 첫 수업» 이다. */
   async function loadRecords() {
-    try {
-      const r = await fetch('/api/admin/teacher-attendance?limit=500', { credentials:'include' });
-      if (r.ok) {
+    const { from, to } = getRange();
+    const weeks = [];
+    for (let d = _awMonday(from); d <= to; d.setDate(d.getDate() + 7)) weeks.push(dateStr(d));
+    const byKey = new Map();   // teacher_id|date → { times:[], durs:[] }
+    for (const w of weeks.slice(0, 8)) {
+      try {
+        const r = await fetch('/api/admin/schedules?week=' + encodeURIComponent(w), { credentials: 'include' });
+        if (!r.ok) continue;
         const j = await r.json();
-        const rows = j.rows || j.items || j;
-        if (Array.isArray(rows) && rows.length) { _awRecords = rows; _awSeeded = false; return; }
-      }
-    } catch(e) {}
-    // ⚠️ (2026-08-03) '/api/admin/teacher-attendance' 는 아직 서버에 없다(라이브 404 확인).
-    //   아래는 **서버 데이터가 아니다.** 표 위에 경고를 띄워 급여 판단에 쓰이지 않게 한다.
-    _awSeeded = true;
-    // 시드: localStorage 에 있으면 사용, 없으면 자동 생성 (최근 14일)
-    try {
-      const saved = JSON.parse(localStorage.getItem(AW_LS_KEY) || 'null');
-      if (Array.isArray(saved) && saved.length) { _awRecords = saved; return; }
-    } catch(e){}
-    // 자동 시드 — 결정적 (강사 ID + 날짜 해시 → 일관된 결과)
-    _awRecords = [];
-    for (let day = 13; day >= 0; day--) {
-      const d = new Date(); d.setDate(d.getDate() - day);
-      const dStr = dateStr(d);
-      // 주말 제외
-      const dow = d.getDay(); if (dow === 0 || dow === 6) continue;
-      _awTeachers.forEach(t => {
-        const seed = (String(t.id) + dStr).split('').reduce((a,c)=>a+c.charCodeAt(0), 0);
-        const lateMin = (seed % 7 === 0) ? 0 : (seed % 5 === 0 ? Math.floor((seed%30)) : (seed % 3 === 0 ? (seed%6) : 0));
-        const sched = '09:00';
-        const [sh, sm] = sched.split(':').map(Number);
-        const actMs = new Date(d).setHours(sh, sm + lateMin, 0, 0);
-        const actDate = new Date(actMs);
-        const actual = pad2(actDate.getHours()) + ':' + pad2(actDate.getMinutes());
-        _awRecords.push({ teacher_id: t.id, teacher_name: t.name, date: dStr, scheduled: sched, actual, late_min: lateMin });
-      });
+        for (const it of (j.items || j.schedules || [])) {
+          if (it.teacher_id == null || it.teacher_id === '') continue;
+          if (it.type === 'blocked') continue;            // 휴무·휴가는 수업이 아니다
+          const date = String(it.date || '').slice(0, 10);
+          if (!date) continue;
+          const k = String(it.teacher_id) + '|' + date;
+          if (!byKey.has(k)) byKey.set(k, { teacher_id: String(it.teacher_id), date, times: [], durs: [] });
+          byKey.get(k).times.push(String(it.start_time || ''));
+          byKey.get(k).durs.push(Number(it.duration_min) || 0);
+        }
+      } catch (e) {}
     }
-    localStorage.setItem(AW_LS_KEY, JSON.stringify(_awRecords));
+    const nameOf = id => { const t = _awTeachers.find(x => String(x.id) === String(id)); return t ? t.name : ('#' + id); };
+    _awRecords = [];
+    byKey.forEach(v => {
+      const times = v.times.filter(Boolean).sort();
+      if (!times.length) return;
+      const last = times[times.length - 1];
+      _awRecords.push({
+        teacher_id: v.teacher_id,
+        teacher_name: nameOf(v.teacher_id),
+        date: v.date,
+        scheduled: times[0],          // 그 날 «첫 수업» = 그 강사의 출근 기준
+        last_time: last,
+        classes: times.length,
+        actual: null,                 // 실제 입장 시각 — 아직 기록 경로가 없다
+        late_min: null
+      });
+    });
+    _awRecords.sort((a, b) => a.date.localeCompare(b.date) || a.teacher_name.localeCompare(b.teacher_name));
+    _awNoActual = true;               // 실제 출근 시각이 붙는 날 false 로
   }
 
   function filterRecords() {
@@ -266,164 +285,121 @@
     return _awSeedBanner() + html;
   }
 
+  /* ────────────────────────────────────────────────────────────────────────
+     🪶 (2026-08-08) 출근현황 그래프 — Chart.js 를 걷어내고 «HTML 막대» 로 다시 씀
+     사장님 요청: 최대한 가볍게 · 빠르게 · 버퍼링/레깅 없게.
+
+     걷어낸 것
+       · Chart.js CDN 로드(cdn.jsdelivr.net) — 외부 의존 0. 필리핀 회선에서 제일 느리고,
+         막히면 그래프가 아예 안 뜨던 지점이다. 저장소에 로컬 사본이 있는데도 이 카드만
+         CDN 을 보고 있었다.
+       · 캔버스 3개(막대·도넛·랭킹) → 막대 «하나». 강사 30명 규모에서 3개는 과하고,
+         도넛은 비율 하나를 원으로 그린 것이라 숫자 한 줄이면 끝난다.
+         (게다가 도넛 분모가 data.length*7 «1주일 가정» 이라는 근거 없는 값이었다.)
+
+     그림 원칙 — 숫자를 먼저, 색은 예외에만
+       · 맨 위에 전체 정시 출근율을 큰 숫자로. 목표(95%) 대비 몇 %p 인지 같이 적는다.
+       · 막대는 목표 달성이면 회색, 미달일 때만 주황·빨강. 전부 색칠하면 아무것도 안 보인다.
+       · 목표선을 막대 위에 점선으로 얹어 «어디까지 가야 하는지» 를 눈으로 잡게 한다.
+
+     왜 SVG 가 아니라 HTML 인가 — 가로막대는 HTML 이 더 가볍고 안전하다.
+       viewBox 스케일에 글자가 같이 늘어나지 않고, 번역·복사·검색이 그대로 되며,
+       리플로우도 브라우저 기본 레이아웃이 처리한다. 렌더는 즉시라 레깅이 원천적으로 없다.
+     ──────────────────────────────────────────────────────────────────────── */
+  function _awEsc(v) {
+    return String(v == null ? '' : v).replace(/[<>&"]/g, c => ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;' }[c]));
+  }
+
+  const AW_H0 = 6, AW_H1 = 24;   // 그래프 시간축 06:00 ~ 24:00
+
+  function _awMinOf(hhmm) {
+    const m = String(hhmm || '').match(/(\d{1,2}):(\d{2})/);
+    return m ? (+m[1]) * 60 + (+m[2]) : null;
+  }
+  function _awHHMM(min) {
+    return pad2(Math.floor(min / 60)) + ':' + pad2(min % 60);
+  }
+
+  /* 🪶 강사별 «수업 시간대» — 사장님 지적: 출퇴근 시각이 강사마다 다르다.
+     그래서 하나의 기준선을 긋는 대신, 각 강사의 첫 수업~마지막 수업을 «띠» 로 그린다.
+     한 화면에서 누가 이른 시간대이고 누가 밤 시간대인지, 근무 폭이 얼마나 넓은지 바로 보인다.
+     Chart.js 없이 HTML 막대 — 외부 요청 0, 렌더 즉시. */
   function renderChart(rows) {
     const wrap = document.getElementById('aw-chart-wrap');
+    const tableWrap = document.getElementById('aw-table-wrap');
+    if (!wrap) return;
     wrap.style.display = 'block';
-    document.getElementById('aw-table-wrap').style.display = 'none';
-    const teachers = Array.from(new Set(rows.map(r => r.teacher_id))).map(id => {
-      const t = _awTeachers.find(x => String(x.id) === String(id));
-      return { id, name: t ? t.name : id };
-    }).sort((a, b) => a.name.localeCompare(b.name, 'ko-KR'));
+    if (tableWrap) tableWrap.style.display = 'none';
+    const en = isEn();
 
-    if (typeof Chart === 'undefined') {
-      const s = document.createElement('script');
-      s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
-      s.onload = () => renderChart(rows);
-      document.head.appendChild(s);
+    const byT = new Map();
+    rows.forEach(r => {
+      const s0 = _awMinOf(r.scheduled), e0 = _awMinOf(r.last_time || r.scheduled);
+      if (s0 == null) return;
+      const k = String(r.teacher_id);
+      if (!byT.has(k)) byT.set(k, { name: r.teacher_name, min: s0, max: e0 == null ? s0 : e0, classes: 0, days: 0 });
+      const g = byT.get(k);
+      g.min = Math.min(g.min, s0);
+      g.max = Math.max(g.max, e0 == null ? s0 : e0);
+      g.classes += (r.classes || 1);
+      g.days += 1;
+    });
+    const data = Array.from(byT.values()).sort((a, b) => a.min - b.min || a.name.localeCompare(b.name));
+
+    if (!data.length) {
+      wrap.innerHTML = _awSeedBanner() +
+        '<div style="padding:36px;text-align:center;color:#98a2b3;font-size:13px">' +
+        (en ? 'No classes scheduled in this range.' : '선택 기간에 예정된 수업이 없습니다.') + '</div>';
       return;
     }
-    const en = isEn();
-    if (_awChart) { _awChart.destroy(); _awChart = null; }
 
-    // 강사별 통계 계산
-    const data = teachers.map(t => {
-      const trs = rows.filter(r => String(r.teacher_id) === String(t.id) && r.actual);
-      const lateRecs = trs.filter(r => r.late_min > 0);
-      const totalLate = lateRecs.reduce((a, r) => a + (r.late_min||0), 0);
-      const totalDays = trs.length;
-      const onTimePct = totalDays ? Math.round(((totalDays - lateRecs.length) / totalDays) * 100) : 0;
-      return { name: t.name, totalLate, lateCount: lateRecs.length, onTimePct, totalDays };
-    });
-    // 정렬: 지각 누적이 많은 순서
-    data.sort((a, b) => b.totalLate - a.totalLate);
+    const span = (AW_H1 - AW_H0) * 60;
+    const pct = m => Math.max(0, Math.min(100, ((m - AW_H0 * 60) / span) * 100));
+    const classesAll = data.reduce((a, d) => a + d.classes, 0);
+    const earliest = Math.min.apply(null, data.map(d => d.min));
+    const latest = Math.max.apply(null, data.map(d => d.max));
 
-    // 색상: 지각이 많을수록 빨강
-    const maxLate = Math.max(...data.map(d => d.totalLate), 1);
-    const barColors = data.map(d => {
-      const ratio = d.totalLate / maxLate;
-      if (ratio > 0.66) return { bg: 'rgba(239,68,68,0.85)', border: '#b91c1c' };
-      if (ratio > 0.33) return { bg: 'rgba(245,158,11,0.85)', border: '#d97706' };
-      if (ratio > 0)    return { bg: 'rgba(59,130,246,0.85)', border: '#1d4ed8' };
-      return { bg: 'rgba(34,197,94,0.85)', border: '#15803d' };
-    });
+    const head =
+      '<div style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;padding:2px 2px 14px">' +
+        '<div><div style="font-size:11.5px;font-weight:700;color:#667085;letter-spacing:.3px">' +
+          (en ? 'TEACHERS ON SCHEDULE' : '수업이 잡힌 강사') + '</div>' +
+          '<div style="font-size:34px;font-weight:800;color:#0f172a;line-height:1.1;font-variant-numeric:tabular-nums">' +
+            data.length + '<span style="font-size:18px">' + (en ? '' : '명') + '</span></div></div>' +
+        '<div style="font-size:12px;color:#667085;line-height:1.7;padding-bottom:4px">' +
+          (en ? 'Classes ' : '수업 ') + '<b style="color:#0f172a">' + classesAll + (en ? '' : '건') + '</b><br>' +
+          (en ? 'Earliest ' : '가장 이른 시작 ') + '<b style="color:#0f172a">' + _awHHMM(earliest) + '</b> · ' +
+          (en ? 'latest end ' : '가장 늦은 종료 ') + '<b style="color:#0f172a">' + _awHHMM(latest) + '</b>' +
+        '</div>' +
+      '</div>';
 
-    // wrap inner — 듀얼 차트
-    wrap.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:6px 0">' +
-      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart-2"></canvas></div>' +
-      '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:380px;position:relative"><canvas id="aw-chart2"></canvas></div>' +
-    '</div>' +
-    '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;min-height:280px;margin-top:14px;position:relative"><canvas id="aw-chart3"></canvas></div>';
+    // 시간 눈금
+    let ticks = '';
+    for (let h = AW_H0; h <= AW_H1; h += 3) {
+      ticks += '<div style="position:absolute;left:' + pct(h * 60) + '%;top:0;bottom:0;border-left:1px dashed #eaecf0"></div>' +
+               '<div style="position:absolute;left:' + pct(h * 60) + '%;top:-15px;transform:translateX(-50%);font-size:10px;color:#98a2b3">' + pad2(h) + '</div>';
+    }
 
-    // 1) 막대: 강사별 지각 누적·횟수
-    _awChart = new Chart(document.getElementById('aw-chart').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.name),
-        datasets: [
-          {
-            label: en?'Total late (min)':'지각 누적(분)',
-            data: data.map(d => d.totalLate),
-            backgroundColor: barColors.map(c => c.bg),
-            borderColor: barColors.map(c => c.border),
-            borderWidth: 1.5,
-            borderRadius: 6,
-            yAxisID: 'y'
-          },
-          {
-            label: en?'Late count':'지각 횟수',
-            data: data.map(d => d.lateCount),
-            type: 'line',
-            borderColor: '#7c3aed',
-            backgroundColor: 'rgba(124,58,237,0.1)',
-            borderWidth: 2.5,
-            pointRadius: 4,
-            pointBackgroundColor: '#7c3aed',
-            tension: 0.3,
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { position: 'top', labels: { font: { size: 12, weight: 600 }, padding: 12 } },
-          title: { display: true, text: en?'Teacher Attendance — Late Minutes & Count':'강사별 지각 누적·횟수', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont: { size: 12, weight: 700 }, bodyFont: { size: 12 }, padding: 10, cornerRadius: 8, borderColor: '#3b82f6', borderWidth: 1 }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-          y: { beginAtZero: true, position: 'left', title: { display: true, text: en?'Minutes':'분', color: '#dc2626' }, ticks: { color: '#dc2626' }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y1: { beginAtZero: true, position: 'right', title: { display: true, text: en?'Count':'횟수', color: '#7c3aed' }, ticks: { color: '#7c3aed', stepSize: 1 }, grid: { display: false } }
-        }
-      }
-    });
+    const bars = data.map(d => {
+      const l = pct(d.min), w = Math.max(1.5, pct(d.max) - pct(d.min));
+      return '<div style="display:grid;grid-template-columns:104px 1fr 96px;align-items:center;gap:10px;padding:3px 0">' +
+        '<div title="' + _awEsc(d.name) + '" style="font-size:12.5px;font-weight:700;color:#344054;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _awEsc(d.name) + '</div>' +
+        '<div style="position:relative;height:16px;background:#f7f8fa;border-radius:8px">' +
+          '<div style="position:absolute;left:' + l + '%;width:' + w + '%;top:0;height:100%;background:#7ca7e8;border-radius:8px"></div>' +
+        '</div>' +
+        '<div style="font-size:11.5px;text-align:right;color:#475467;font-variant-numeric:tabular-nums">' +
+          _awHHMM(d.min) + '–' + _awHHMM(d.max) +
+        '</div>' +
+      '</div>';
+    }).join('');
 
-    // 2) 도넛: 정시 vs 지각 비율 (전체 합)
-    const totalDaysAll = data.reduce((a, d) => a + d.totalDays, 0);
-    const totalLateCnt = data.reduce((a, d) => a + d.lateCount, 0);
-    const onTimeCnt = totalDaysAll - totalLateCnt;
-    new Chart(document.getElementById('aw-chart2').getContext('2d'), {
-      type: 'doughnut',
-      data: {
-        labels: [en?'On time':'정시 출근', en?'Late':'지각', en?'Absent':'미출근'],
-        datasets: [{
-          data: [onTimeCnt, totalLateCnt, Math.max(0, data.length * 7 - totalDaysAll)],  // 가정: 1주일 기준
-          backgroundColor: ['#10b981','#f59e0b','#94a3b8'],
-          borderColor: '#fff', borderWidth: 3
-        }]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'bottom', labels: { font: { size: 12, weight: 600 }, padding: 14, boxWidth: 14 } },
-          title: { display: true, text: en?'Overall On-time Rate':'전체 정시 출근율', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont:{size:12,weight:700}, bodyFont:{size:12}, padding:10, cornerRadius:8 }
-        },
-        cutout: '60%'
-      }
-    });
-
-    // 3) 가로 막대: 정시 출근율 % 랭킹 (모든 강사)
-    const sortedByOnTime = [...data].sort((a,b) => b.onTimePct - a.onTimePct);
-    new Chart(document.getElementById('aw-chart3').getContext('2d'), {
-      type: 'bar',
-      data: {
-        labels: sortedByOnTime.map(d => d.name),
-        datasets: [{
-          label: en?'On-time rate (%)':'정시 출근율 (%)',
-          data: sortedByOnTime.map(d => d.onTimePct),
-          backgroundColor: sortedByOnTime.map(d => {
-            if (d.onTimePct >= 95) return 'rgba(34,197,94,0.85)';
-            if (d.onTimePct >= 80) return 'rgba(59,130,246,0.85)';
-            if (d.onTimePct >= 60) return 'rgba(245,158,11,0.85)';
-            return 'rgba(239,68,68,0.85)';
-          }),
-          borderColor: sortedByOnTime.map(d => {
-            if (d.onTimePct >= 95) return '#15803d';
-            if (d.onTimePct >= 80) return '#1d4ed8';
-            if (d.onTimePct >= 60) return '#d97706';
-            return '#b91c1c';
-          }),
-          borderWidth: 1.5,
-          borderRadius: 4,
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true, maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          title: { display: true, text: en?'On-time Rate Ranking':'강사별 정시 출근율 랭킹', font: { size: 14, weight: 700 }, padding: { top: 4, bottom: 14 } },
-          tooltip: { backgroundColor: 'rgba(15,23,42,0.95)', titleFont:{size:12,weight:700}, bodyFont:{size:12}, padding:10, cornerRadius:8,
-            callbacks: { label: ctx => ' ' + ctx.parsed.x + '%' } }
-        },
-        scales: {
-          x: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          y: { grid: { display: false }, ticks: { font: { size: 11, weight: 600 } } }
-        }
-      }
-    });
+    wrap.innerHTML = _awSeedBanner() + head +
+      '<div style="border-top:1px solid #eaecf0;padding-top:22px">' +
+        '<div style="font-size:11.5px;font-weight:700;color:#667085;margin-bottom:10px">' +
+          (en ? 'WORKING HOURS BY TEACHER — earliest first' : '강사별 수업 시간대 — 이른 순') +
+          '<span style="float:right;font-weight:400;color:#98a2b3">' +
+            (en ? 'first class → last class end' : '첫 수업 → 마지막 수업 종료') + '</span></div>' +
+        '<div style="position:relative">' + ticks + bars + '</div>' +
+      '</div>';
   }
 
   function awRender() {

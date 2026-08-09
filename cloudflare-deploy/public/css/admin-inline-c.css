@@ -6990,14 +6990,10 @@ button.chip:hover,
     color: #9ca3af !important; margin-top: 3px !important; text-shadow: none !important;
   }
 
-  /* 유일한 색 — 오늘의 결석률(나쁜 쪽). 선이 아니라 «면»으로 아주 옅게. */
-  #kpi-today .card:nth-child(3) {
-    background: #fdf4f4 !important;
-    border-color: #f0d2d2 !important;
-  }
-  #kpi-today .card:nth-child(3):hover { background: #fcefef !important; }
-  #kpi-today .card:nth-child(3) .card-label { color: #9a5b5b !important; }
-  #kpi-today #today-absence { color: #b91c1c !important; }
+  /* 3번 타일은 «오늘의 결석률»이던 시절 붉게 칠해져 있었다.
+     지금은 «오늘 수업 진행(완료/예약)» 이라 나쁜 소식이 아니다.
+     아침 9시에 0/34 인 것은 사고가 아니라 아직 시작 안 한 것뿐인데,
+     붉은 면 + 붉은 숫자는 매일 아침을 장애처럼 보이게 했다. 색을 뺀다. */
 
   /* 모바일 */
   @media (max-width: 560px){

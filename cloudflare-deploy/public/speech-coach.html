@@ -20,6 +20,7 @@
      ↳ 되살리려면 이 meta 한 줄만 지우면 된다. -->
 <meta name="mangoi-no-global-bar" content="1">
 <script src="/js/mango-i18n.js" defer></script>
+<script src="/js/session-guard.js" defer></script>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <style>
   *,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -258,7 +259,7 @@
     .rec-status { font-size: 10.5px; margin-top: 8px; }
   }
 </style>
-<script src="/js/game-track.js?v=2" defer></script>
+<script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
 
@@ -1266,7 +1267,7 @@ if (typeof window.speechSynthesis !== 'undefined') {
   setTimeout(() => window.speechSynthesis.getVoices(), 200);
 }
 </script>
-<!-- BUILD:20260808151835 -->
+<!-- BUILD:20260809115806 -->
 <!-- 🔊 발음 연습 안내 음성 자동 재생 (카드 클릭 → 페이지 진입 시) -->
 <audio id="speech-voice" src="/audio/speech-curriculum.mp3" preload="auto"></audio>
 <script>

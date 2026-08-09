@@ -69,6 +69,8 @@ const srcCopy = join(outDir, 'src');
 cpSync(join(CF, 'src'), srcCopy, { recursive: true });
 writeFileSync(join(srcCopy, 'auth-admin.ts'), `
 export const PH_MANAGERS: string[] = [];
+export const SAME_PERSON_ACCOUNTS: Record<string, any> = {};
+export function otherAccountOf(_u: string) { return null; }
 export async function getAdminActor(_req: any, _env: any) {
   return { ok: true, isTeacher: true, role: 'teacher', username: 'maimai', name: 'MAIMAI' };
 }

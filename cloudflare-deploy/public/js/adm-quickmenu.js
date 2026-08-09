@@ -77,7 +77,11 @@
     if (!el) return;
     try { el.open = true; } catch (e) { }
     setTimeout(function () {
-      try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) { }
+      /* 🎯 (2026-08-08) smooth → auto. 이 저장소의 확립된 규칙이다 —
+         「오른쪽이 왔다갔다 움직여 정신없다」(사장님)로 admin.html·adm-quick-access 는 이미
+         auto 로 바꿨는데 이 파일만 남아 있었다. 숨은 탭에서는 smooth 가 애니메이션을 못 돌려
+         «아예 안 움직이는» 결과가 되기도 한다. 되돌리지 말 것. */
+      try { el.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { }
     }, 60);
   }
 

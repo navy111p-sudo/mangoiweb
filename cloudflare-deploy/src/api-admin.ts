@@ -28,6 +28,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
@@ -721,7 +722,7 @@ export async function handleAdminApi(
       const _sf = _tf;   // 위 캐시 키 계산에서 이미 조회 — 재호출 낭비 방지
       const _uidScope = _sf.uidScope, _erpScope = _sf.erpScope, _sb = _sf.binds;
 
-      const [revRow, attRow, activeRow, signupRow] = await Promise.all([
+      const [revRow, attRow, activeRow, signupRow, schedRow] = await Promise.all([
         safe(() => env.DB.prepare(
           `SELECT COALESCE(SUM(amount_krw), 0) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
@@ -731,15 +732,23 @@ export async function handleAdminApi(
         { revenue: 0, pay_count: 0 } as any),
 
         safe(() => env.DB.prepare(
+          // 🪤 (2026-08-08) 예전엔 status 를 안 보고 **그날의 모든 행**을 셌다.
+          //    attendance 에는 «예정(scheduled)» 행도 함께 들어온다(카페24 동기화).
+          //    그래서 「오늘 출석 8명」이 사실은 «예정 7 + 실제출석 1» 이었다.
+          //    실측 08-07: 모든 행 190 · 실제 출석 125 · 예정 92.
           `SELECT COUNT(DISTINCT user_id) AS attended
-           FROM attendance WHERE date = ?${_uidScope}`
+           FROM attendance
+           WHERE date = ? AND status IN ('present','left','attended')${_uidScope}`
         ).bind(todayKst, ..._sb).first<{ attended: number }>(),
         { attended: 0 } as any),
 
         safe(() => env.DB.prepare(
+          // 🧮 (2026-08-08) status 를 함께 본다. 예전엔 end_date 만 봐서
+          //    status='inactive' 인 385명이 «재원» 으로 세어지고 있었다(실측).
           `SELECT COUNT(*) AS active
            FROM students_erp
-           WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)${_erpScope}`
+           WHERE (end_date IS NULL OR end_date = '' OR end_date >= ?)
+             AND (status IS NULL OR status <> 'inactive')${_erpScope}`
         ).bind(todayKst, ..._sb).first<{ active: number }>(),
         { active: 0 } as any),
 
@@ -747,7 +756,83 @@ export async function handleAdminApi(
           `SELECT COUNT(*) AS signups
            FROM students_erp WHERE signup_date = ?${_erpScope}`
         ).bind(todayKst, ..._sb).first<{ signups: number }>(),
-        { signups: 0 } as any)
+        { signups: 0 } as any),
+
+        // 📅 오늘 «예정» 과 «그중 안 온 사람» — 결석률의 분모·분자.
+        //
+        //   🔑 출처는 attendance 다. 카페24 동기화가 예약을 `status='scheduled'` 로 미리 넣어 둔다
+        //      (room_id 가 c24-*). 즉 «오늘 누가 수업인지» 는 처음부터 여기 있었다.
+        //      ⚠️ class_schedules 를 쓰면 안 된다 — 666행이지만 학생은 6명뿐이고 140행은
+        //         type_seed 데모다. 실제 수업과 연결돼 있지 않다(실측 확인).
+        //
+        //   결석 = «예정된 사람» 중 그날 present/left/attended 기록이 하나도 없는 사람.
+        //   실측 08-07: 예정 92 · 출석 125 · 결석 65 → 70.7%.
+        //   (출석이 예정보다 많은 것은 예약 없이 들어온 수업이 있기 때문이다. 정상이다.)
+        // 📅 카페24 «수업 1건 = 행 1개» 를 상태별로 센다.
+        //   cafe24-sync.ts: room_id=`c24-{class_id}`, class_state 2 → 'present'(완료), 그 외 → 'scheduled'(미실시).
+        //   즉 한 방에 한 행뿐이라 예정·출석이 «겹치지 않는» 것이 정상이다.
+        //   ⚠️ 세는 단위는 **수업(행)** 이지 학생이 아니다. 한 학생이 하루에 여러 수업을 듣는다.
+        //   ⚠️ 오늘 값으로 «미실시율» 을 내면 안 된다 — 아침엔 100% 가 나온다(아직 안 했으니까).
+        //      그래서 오늘은 «완료/예약» 진행상황만 주고, 비율은 **직전 영업일** 것을 준다.
+        //
+        //   🪤🪤 그런데 «직전 영업일» 값도 **아직 확정이 아니다.** (2026-08-09 실측)
+        //      cafe24-sync 의 야간 증분은 **최근 14일만** 다시 가져온다(nightlyCafe24Refresh).
+        //      그래서 어떤 날이든 15일째에 값이 «굳고», 그 전까지는 완료(class_state=2)가 계속 들어온다.
+        //      굳은 날 vs 아직 움직이는 날을 요일별로 갈라 재니 **일관되게 +5~8%p** 차이가 났다:
+        //        월 21.6 → 28.4 · 화 28.3 → 33.1 · 수 29.8 → 44.3 · 목 33.9 → 40.1 · 금 44.3 → 51.1
+        //      즉 어제 숫자만 보면 **항상 실제보다 나쁘게 보인다.** 그 편차를 보정하지는 않는다
+        //      (없는 숫자를 지어내는 것이다). 대신 **잣대를 같이 준다** —
+        //      `weekday_avg_pct` = 같은 요일의 **굳은 날(15일 이상 지난 날)** 평균. 최근 60일.
+        //      화면은 「8-07(금) 51.2% · 금 확정평균 44%」처럼 둘을 나란히 적는다.
+        //   📌 요일 편차는 지연이 아니라 진짜다 — 굳은 날 기준으로도 월 21.6% ↔ 금 44.3% 다.
+        //
+        //   🧹 테스트·교육용 대리점 제외 (2026-08-09 실측) — 이 4곳은 **60일간 169건을 예약하고
+        //      완료가 0건**이다. 실수업이 아니라 시연·연습용 계정이 매주 예약을 만드는 것이다.
+        //        무료수업(지인) 90건 · 망고아이 기본대리점 43 · 교육용 대리점 27 · 테스트대리점 9  (전부 완료 0)
+        //      빼면 미실시율이 월 21.6→21.0 · 금 44.3→42.7 로 내려간다. 크지 않지만 **가짜 숫자**다.
+        //      ⚠️ 이름으로 거르지 않는다 — 「라이크테스트프랩어학원」은 이름만 비슷한 **실제 학원**이다
+        //         (예약 0건이라 무해하지만, LIKE '%테스트%' 로 걸렀으면 멀쩡한 학원을 지웠을 것이다).
+        //         그래서 **대리점 이름 4개를 명시적으로 못박는다.** 새 테스트 대리점이 생기면 여기 추가.
+        //      ⚠️ 재원 수(active)에는 적용하지 않는다 — 그건 사장님이 대외적으로 쓰는 숫자라
+        //         내 판단으로 정의를 바꾸지 않는다. 여기서 빼는 것은 «미실시율» 하나뿐이다.
+        safe(() => env.DB.prepare(
+          `WITH ghost AS (
+             SELECT user_id FROM students_erp
+              WHERE shop_name IN ('무료수업(지인)','망고아이 기본대리점','교육용 대리점','테스트대리점')),
+           prev AS (
+             SELECT date, COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
+               FROM attendance
+              WHERE room_id LIKE 'c24-%' AND date < ? AND date >= date(?, '-14 days')
+                AND user_id NOT IN (SELECT user_id FROM ghost)
+              GROUP BY date HAVING COUNT(*) >= 20
+              ORDER BY date DESC LIMIT 1),
+           wd AS (
+             SELECT SUM(n) AS n, SUM(done) AS done FROM (
+               SELECT COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
+                 FROM attendance
+                WHERE room_id LIKE 'c24-%'
+                  AND date >= date(?, '-60 days')
+                  AND date <= date(?, '-15 days')          -- 굳은 날만
+                  AND user_id NOT IN (SELECT user_id FROM ghost)
+                  AND strftime('%w', date) = (SELECT strftime('%w', date) FROM prev)
+                GROUP BY date HAVING COUNT(*) >= 20))
+           SELECT
+             (SELECT COUNT(*) FROM attendance
+               WHERE room_id LIKE 'c24-%' AND date = ?
+                 AND user_id NOT IN (SELECT user_id FROM ghost)${_uidScope}) AS booked_today,
+             (SELECT COUNT(*) FROM attendance
+               WHERE room_id LIKE 'c24-%' AND date = ? AND status = 'present'
+                 AND user_id NOT IN (SELECT user_id FROM ghost)${_uidScope}) AS done_today,
+             (SELECT date FROM prev) AS prev_date,
+             (SELECT n    FROM prev) AS prev_booked,
+             (SELECT done FROM prev) AS prev_done,
+             (SELECT n    FROM wd)   AS wd_booked,
+             (SELECT done FROM wd)   AS wd_done`
+        ).bind(todayKst, todayKst, todayKst, todayKst, todayKst, ..._sb, todayKst, ..._sb)
+         .first<{ booked_today: number; done_today: number; prev_date: string | null;
+                  prev_booked: number; prev_done: number; wd_booked: number; wd_done: number }>(),
+        { booked_today: 0, done_today: 0, prev_date: null, prev_booked: 0, prev_done: 0,
+          wd_booked: 0, wd_done: 0 } as any)
       ]);
 
       const revenue = revRow?.revenue || 0;
@@ -756,15 +841,85 @@ export async function handleAdminApi(
       const active = activeRow?.active || 0;
       const signups = signupRow?.signups || 0;
 
-      const absentCount = Math.max(0, active - attended);
-      const absenceRate = active > 0 ? (absentCount * 100 / active) : 0;
+      // 📉 결석률 — 분모는 «오늘 수업이 예정된 학생» 이어야 한다 (2026-08-08 수정)
+      //
+      //   무엇이 틀렸었나 — 분모가 **전체 재원 학생**이었다.
+      //     absentCount = active - attended  →  8,052 - 8 = 8,044  →  99.9%
+      //   오늘 수업이 없는 학생까지 전부 «결석» 으로 셌다. 그래서 화면에는 매일
+      //   빨간 글씨로 99.9% 가 떠 있었고, 진짜 결석이 늘어도 아무도 알아챌 수 없었다.
+      //   (실측 2026-08-08: 재원 8,052 · 오늘 출석 8 · 오늘 예정 조회 결과는 아래 참고)
+      //
+      //   그런데 «오늘 예정» 을 정확히 아는 데이터가 아직 없다 —
+      //     class_schedules 666행 중 학생은 **6명**(140행은 type_seed 데모)
+      //     enrollments 에 요일이 있는 것은 **50명**
+      //   즉 8,052명 중 대다수는 «언제 수업인지» 가 기록돼 있지 않다.
+      //
+      //   그래서 **지어내지 않는다.** 예정 정보가 없으면 비율을 내지 않고 null 을 준다.
+      //   화면은 null 을 «–» 로 그린다. 이 저장소에는 같은 이유로 만들어진 하니스가 있다
+      //   (attendance_no_fabrication_harness — 없는 기록을 계산식으로 만들어 붙였다가
+      //    그 «지어낸 지각» 이 강사 급여를 깎을 뻔했다). 같은 실수를 KPI 에서 반복하지 않는다.
+      // 📊 오늘은 «진행상황», 비율은 «직전 영업일» — 이렇게 나눈 이유는 아래 주석 참조.
+      const bookedToday = Math.max(0, Number(schedRow?.booked_today || 0));
+      const doneToday   = Math.max(0, Number(schedRow?.done_today || 0));
+      const prevBooked  = Math.max(0, Number(schedRow?.prev_booked || 0));
+      const prevDone    = Math.max(0, Number(schedRow?.prev_done || 0));
+      const prevRate    = prevBooked > 0
+        ? Math.round(((prevBooked - prevDone) * 1000 / prevBooked)) / 10
+        : null;
+      // 📏 같은 요일의 «굳은 날» 평균 — 어제 숫자를 재는 잣대.
+      //   어제 값은 아직 완료 처리가 덜 들어와 항상 나쁘게 나온다(위 SQL 주석의 실측표).
+      //   보정하지 않고 **둘을 나란히 보여 준다.**
+      const wdBooked = Math.max(0, Number(schedRow?.wd_booked || 0));
+      const wdDone   = Math.max(0, Number(schedRow?.wd_done || 0));
+      const wdRate   = wdBooked >= 100      // 표본이 너무 적으면 잣대가 못 된다
+        ? Math.round(((wdBooked - wdDone) * 1000 / wdBooked)) / 10
+        : null;
+      const scheduledToday = Math.max(0, bookedToday - doneToday);   // 오늘 아직 안 한 수업
+      const absentCount = scheduledToday;
+
+      // 📌 왜 «오늘의 비율» 을 안 내는가 (2026-08-09, 연동 코드까지 읽고 정리)
+      //
+      //   앞서 두 번 틀렸다. 기록해 둔다 —
+      //     ① 분모가 «전체 재원» 이었다 → 8,052−8 = 99.9%. 오늘 수업 없는 학생까지 결석으로 셌다.
+      //     ② 그다음엔 «예정 학생 중 출석 안 한 학생» 으로 고쳤다 → 70.7%. 이것도 틀렸다.
+      //        학생 단위로 맞추려 했는데, 한 학생이 하루에 여러 수업을 듣기 때문이다.
+      //        «겹치는 방이 0건» 인 것을 «두 피드가 끊겼다» 고 오해하기도 했다.
+      //
+      //   진실은 cafe24-sync.ts 에 있었다 — 카페24 **수업 1건 = attendance 행 1개**이고,
+      //   class_state 2 면 'present'(완료), 아니면 'scheduled'(미실시)로 **같은 행의 상태**만 갈린다.
+      //   그러니 한 방에 한 행뿐인 게 정상이고, 세는 단위는 학생이 아니라 **수업(행)** 이다.
+      //
+      //   그런데 «오늘» 로 비율을 내면 여전히 거짓말이 된다 — 아침 9시엔 오늘 수업이
+      //   하나도 안 끝났으니 미실시율 100% 다. 시간이 갈수록 저절로 내려간다.
+      //   → 오늘은 «완료 M / 예약 N» 이라는 **진행상황**만 말하고,
+      //     판단에 쓸 비율은 **직전 영업일**(수업이 다 끝나 값이 굳은 날) 것을 준다.
+      //   실측 미실시율: 08-06 30.1% · 08-05 43.4% · 08-04 32.1% · 08-03 31.2%
+      //     (예약 200건이 넘는 금요일만 ~50% 로 튄다 — 그건 들여다볼 «사실» 이다)
+      const hasSchedule = false;   // 오늘 비율은 내지 않는다(위 이유). 대신 prev_* 를 쓴다.
+      const absenceRate: number | null = hasSchedule
+        ? Math.round((absentCount * 100 / scheduledToday) * 10) / 10
+        : null;
 
       return admCachePut(env, _tKey, {
         ok: true,
         date: todayKst,
         revenue: { amount_krw: revenue, pay_count: payCount },
         students: { attended, active },
-        absence: { rate_pct: Math.round(absenceRate * 10) / 10, absent: absentCount, scheduled: active },
+        // rate_pct 는 «모르면 null». 화면은 null 을 «–» 로 그린다(숫자를 지어내지 않는다).
+        //   known=false 면 오늘 예정 정보가 아예 없다는 뜻 — 0% 도 100% 도 사실이 아니다.
+        // scheduled·absent 는 «사실» 이므로 그대로 내보낸다. rate_pct 만 null 이다.
+        //   reason 은 화면이 «왜 못 내는지» 를 사람 말로 보여주기 위한 것.
+        absence: {
+          rate_pct: absenceRate, absent: absentCount, scheduled: scheduledToday,
+          known: hasSchedule, reason: hasSchedule ? null : 'today_in_progress',
+          // 오늘 진행상황(사실) + 직전 영업일 미실시율(판단용)
+          booked_today: bookedToday, done_today: doneToday,
+          prev_date: schedRow?.prev_date || null, prev_rate_pct: prevRate,
+          prev_booked: prevBooked, prev_done: prevDone,
+          // 📏 잣대 — 같은 요일 «굳은 날»(15일 이상 지난 날, 최근 60일) 평균 미실시율.
+          //    표본 100건 미만이면 null(잣대로 못 씀). 화면은 있을 때만 나란히 그린다.
+          weekday_avg_pct: wdRate, weekday_sample: wdBooked,
+        },
         signups: { count: signups }
       }, 60);
     }
@@ -3435,6 +3590,64 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     }
 
     // 강사 목록
+    /* 🔗 (2026-08-08) 강사 ↔ 로그인 아이디 연결
+       왜 필요한가 — 출근/지각을 계산하려면 «출석 기록의 로그인 계정» 과 «강사» 를 이어야 한다.
+       라이브 실측: teacher_account_links 0행, teachers 29명 중 user_id 보유 7명,
+       최근 30일 출석 4,954행 중 강사와 매칭되는 행 0건. 이 연결이 없으면 근태는 계산 불가.
+       ⚠️ 자동 매칭은 «하지 않는다». teacher_legacy_accounts.teacher_name 은 아이디를 그대로
+          복사한 값(mangoi_006)이라 이름 근거가 전혀 없다. 추측으로 이으면 엉뚱한 사람의
+          근태·급여가 된다. 사람이 화면에서 고른 것만 저장한다.
+       경로를 '/api/admin/teachers/…' 로 지은 이유: api-mango 게이트의
+       startsWith('/api/admin/teachers') 에 이미 걸려 라우팅 추가가 최소로 끝난다. */
+    if (method === 'GET' && path === '/api/admin/teachers/links') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
+      } catch {}
+      const tRs = await env.DB.prepare(`SELECT id, name, active FROM teachers ORDER BY active DESC, name ASC`).all();
+      const aRs = await env.DB.prepare(
+        `SELECT username, last_login_at FROM teacher_legacy_accounts ORDER BY last_login_at DESC`
+      ).all();
+      const lRs = await env.DB.prepare(
+        `SELECT username, teacher_id, teacher_name, linked_by, linked_at FROM teacher_account_links`
+      ).all();
+      return json({
+        ok: true,
+        teachers: (tRs.results || []),
+        accounts: (aRs.results || []),
+        links: (lRs.results || []),
+      });
+    }
+
+    // 연결 저장 / 해제 — { username, teacher_id }  (teacher_id 가 비면 해제)
+    if (method === 'POST' && path === '/api/admin/teachers/links') {
+      const _lkActor = await getAdminActor(request, env as any);
+      if (_lkActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
+      } catch {}
+      const b: any = await request.json().catch(() => null);
+      const username = String(b?.username || '').trim();
+      const teacherId = String(b?.teacher_id ?? '').trim();
+      if (!username) return json({ ok: false, error: 'username_required' }, 400);
+
+      if (!teacherId) {
+        await env.DB.prepare(`DELETE FROM teacher_account_links WHERE username = ?`).bind(username).run();
+        return json({ ok: true, unlinked: true, username });
+      }
+      // 존재하는 강사인지 확인 — 오타로 유령 id 가 박히면 조용히 틀린 근태가 된다
+      const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`)
+        .bind(teacherId).first<any>();
+      if (!t) return json({ ok: false, error: 'teacher_not_found', teacher_id: teacherId }, 400);
+
+      await env.DB.prepare(
+        `INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_by, linked_at)
+         VALUES (?,?,?,?,?)
+         ON CONFLICT(username) DO UPDATE SET teacher_id=excluded.teacher_id,
+           teacher_name=excluded.teacher_name, linked_by=excluded.linked_by, linked_at=excluded.linked_at`
+      ).bind(username, String(t.id), t.name || null, _lkActor?.username || _lkActor?.role || 'admin', Date.now()).run();
+      return json({ ok: true, username, teacher_id: String(t.id), teacher_name: t.name });
+    }
+
     if (method === 'GET' && path === '/api/admin/teachers') {
       await ensurePayrollSchema(env);
       const includeInactive = url.searchParams.get('include_inactive') === '1';
@@ -6474,14 +6687,20 @@ LIMIT $limit`;
 
     // ========================================================================
 
-    // 🏢 Phase 9 — 메뉴 6개 (가맹점·교육센터·레벨테스트·수강신청·커뮤니티·교재)
+    // 🏢 Phase 9 — 메뉴 6개 (지사·대리점학원·레벨테스트·수강신청·커뮤니티·교재)
+    //   ⚠️ 테이블명 franchises=지사 / centers=대리점·학원 (이름이 한 칸 밀려 있음. 아래 주석 참고)
     //   각 테이블은 cold start 시 IF NOT EXISTS 자동 생성. 별도 마이그레이션 불필요.
     // ========================================================================
-    // ─── 가맹점 ──────────────────────────────────────────────────────────
+    // ─── 지사 (테이블명은 franchises 지만 실제 내용은 «지사» 241건) ──────────────
+    //   ⚠️ 이름이 한 칸 밀려 있다. cafe24-sync 가 Neo4j (:Branch)=지사 → franchises,
+    //      (:Center)=대리점·학원 → centers 로 넣는다. 테이블명을 지금 바꾸면 정산·회계까지
+    //      번지므로 «화면 라벨만» 바로잡았다(2026-08-08). 테이블명 변경은 별도 작업.
+    //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       if (method === 'GET') {
-        const rs = await env.DB.prepare(`SELECT * FROM franchises ORDER BY active DESC, name ASC`).all();
+        const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
+        const rs = await env.DB.prepare(`SELECT ${cols} FROM franchises ORDER BY active DESC, name ASC`).all();
         return json({ ok: true, items: rs.results || [] });
       }
       const b = await parseJsonBody(request);
@@ -6493,14 +6712,37 @@ LIMIT $limit`;
       return json({ ok: true, id: r.meta.last_row_id });
     }
 
-    // ─── 교육센터 ─────────────────────────────────────────────────────────
+    // ─── 대리점·학원 (테이블명은 centers 지만 실제 내용은 «대리점/학원» 921건) ──────
+    //   🔎 실측(2026-08-08): 921건 중 744건이 students_erp.shop_name 과 글자 그대로 일치.
+    //      «교육센터»(=필리핀 직영 센터, 홈페이지 문구)와는 전혀 다른 것이다.
+    //   🐢 예전엔 921건을 «한 번에 전부» 돌려줬고(약 130KB), 그걸 부팅 때 두 번 받았다.
+    //      → 기본 50건 + 검색(q) + total. limit=0 이면 전체(하위호환·CSV 용).
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/centers') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       if (method === 'GET') {
+        const q = (url.searchParams.get('q') || '').trim();
+        const rawLimit = url.searchParams.get('limit');
+        const limit = rawLimit === '0' ? 0 : Math.max(1, Math.min(500, parseInt(rawLimit || '50', 10) || 50));
+        const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+        const min = url.searchParams.get('fields') === 'min';
+        const where: string[] = [];
+        const binds: any[] = [];
+        if (q) {
+          where.push(`(c.name LIKE ? OR c.manager LIKE ? OR c.address LIKE ? OR f.name LIKE ?)`);
+          const like = `%${q}%`;
+          binds.push(like, like, like, like);
+        }
+        const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+        const cnt: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
+        ).bind(...binds).first();
+        const cols = min ? 'c.id, c.name' : 'c.*, f.name AS franchise_name';
+        const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
+        const pageBinds = limit === 0 ? binds : [...binds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT c.*, f.name AS franchise_name FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id ORDER BY c.active DESC, c.name ASC`
-        ).all();
-        return json({ ok: true, items: rs.results || [] });
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+        ).bind(...pageBinds).all();
+        return json({ ok: true, items: rs.results || [], total: Number(cnt?.n || 0), limit, offset });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
@@ -7379,6 +7621,14 @@ LIMIT $limit`;
     }
 
     // ─── 수강신청 ─────────────────────────────────────────────────────────
+    // 📚 확정 파이프라인 (.../:id/plan · .../:id/activate) — 아래 단순 CRUD 보다 먼저 잡는다
+    //   ⚠️ 경로가 맞을 때만 actor 를 조회한다 — 여기는 관리자 API 가 전부 지나가는 길목이라
+    //      무조건 getAdminActor() 를 부르면 호출마다 DB 왕복이 한 번씩 더 붙는다.
+    if (/^\/api\/admin\/enrollments\/\d+\/(plan|activate)$/.test(path)) {
+      const _actor = await getAdminActor(request, env).catch(() => null);
+      const _act = await handleEnrollActivateApi(request, url, env, (_actor && _actor.username) || 'admin');
+      if (_act) return _act;
+    }
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/enrollments') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS enrollments (id INTEGER PRIMARY KEY AUTOINCREMENT, student_user_id TEXT, student_name TEXT NOT NULL, package TEXT, started_at INTEGER, ended_at INTEGER, monthly_fee_krw INTEGER, status TEXT DEFAULT 'pending', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       // 🥭 Phase 37b — 누락 컬럼 자동 보강 (Phase 36 seed 가 사용하는 컬럼들)
@@ -7411,14 +7661,20 @@ LIMIT $limit`;
       const b = await parseJsonBody(request);
       if (!b || !b.student_name || !b.package) return invalidBody(['student_name', 'package']);
       const now = Date.now();
+      // 🥭 2026-08-08 — 요일·시간·인원방식·수업유형·강사를 여기서 «버리고» 있었다.
+      //   등록 폼(Phase 24 다중 등록표)과 파일/카톡 import 는 이 값들을 다 받아 CSV 로
+      //   내보내기까지 했는데, INSERT 목록에 없어서 DB 에는 한 번도 들어간 적이 없다.
+      //   그래서 목록 표가 «패키지» 말고는 보여줄 것이 없었다. (컬럼은 위에서 이미 보강함)
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
         b.ended_at ? Number(b.ended_at) : null,
         b.monthly_fee_krw != null ? Number(b.monthly_fee_krw) : null,
-        b.status || 'pending', b.notes || null, now, now
+        b.status || 'pending', b.notes || null, now, now,
+        b.days_of_week || null, b.time || null, b.class_size || null,
+        b.type || null, b.teacher_name || null, b.end_date || null
       ).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }

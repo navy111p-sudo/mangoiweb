@@ -57,6 +57,44 @@ async function safe<T>(fn: () => Promise<T>, fb: T): Promise<T> { try { return a
 const scopeFor = (env: Env, request: Request) =>
   getScope(env as any, request, { noSessionScope: 'hq' });
 
+/* ⚠️⚠️ 재원 학생 판정 — `status='정상'` 은 **한 건도 안 맞는다** (2026-08-09 운영 D1 실측)
+ *
+ *   students_erp.status 의 실제 값은 **`active` 28,665 · `inactive` 726 두 가지뿐**이다.
+ *   카페24 동기화(cafe24-sync.ts)가 영어로 적재한다. `'정상'` 은 옛 수기 입력 시절의 값이고
+ *   지금 DB 에 **0건**이다. 그런데 이 파일은 그걸로 학생을 세고 있었다 —
+ *   그래서 경영 대시보드의 **재원생·신규·누적·일별 상세가 전부 0** 이었다.
+ *   (api-admin.ts 5913줄에 같은 사고를 겪고 남긴 경고 주석이 있다. 이 파일만 안 고쳐져 있었다.)
+ *
+ *   🔴 「이번달 탈락」은 `status<>'정상'` 이라 **전 학생 29,391명에 걸리는 조건**이었다.
+ *      지금은 end_date 가 이번달인 사람이 없어 우연히 0으로 보이지만, 재원 학생 한 명이
+ *      이번달 종료일을 받는 순간 **재원 전체가 탈락으로 세어진다.** 터지기 전에 고친다.
+ *      없는 값과 비교하면 «아무도 안 맞거나 모두가 맞거나» 둘 중 하나다. 둘 다 틀린다.
+ *
+ *   그래서 판정을 **여기 한 곳**으로 모은다. 새 조회를 붙일 때 이 함수를 쓰면 같은 실수가 안 난다.
+ *   NULL·빈 문자열도 재원으로 본다(수기 등록분이 status 없이 들어오는 경우가 있다).
+ */
+function activeCond(alias = ''): string {
+  const col = (alias ? alias + '.' : '') + 'status';
+  return `(${col} IN ('정상','활동','active') OR ${col} IS NULL OR ${col} = '')`;
+}
+function inactiveCond(alias = ''): string { return `NOT ${activeCond(alias)}`; }
+
+/* 📌 «재원» 은 status 만으로 정하지 않는다 — **종료일도 봐야 한다.**
+ *   api-admin.ts 의 오늘 KPI 는 이미 그렇게 센다:
+ *     (end_date IS NULL OR '' OR >= 오늘) AND status <> 'inactive'   → 약 7,667명
+ *   status 만 보면 28,665명이 된다. 두 화면이 **서로 다른 재원 수**를 말하면 그 자체가 사고다.
+ *   실측으로도 종료일은 믿을 만하다 — 종료 1년 지난 14,227명 중 최근 60일 수업자는 22명(0.15%).
+ *   🪤 `end_date='0000-00-00'`(MySQL 제로날짜) 6,770명은 «>= 오늘» 에 안 걸려 자동으로 빠진다.
+ *      실제로 그들 중 최근 60일 수업자는 0명이라 빠지는 것이 맞다.
+ *   🕘 `date('now','+9 hours')` = KST 오늘. 바인드를 늘리지 않으려고 인라인으로 쓴다
+ *      (호출부마다 바인드 순서를 맞추다 틀리는 것이 더 위험하다).
+ */
+function enrolledCond(alias = ''): string {
+  const p = alias ? alias + '.' : '';
+  return `(${p}end_date IS NULL OR ${p}end_date = '' OR ${p}end_date >= date('now','+9 hours'))`
+       + ` AND ${activeCond(alias)}`;
+}
+
 // 비용(재무) 노출 여부 — 본사·지사본사만
 function costVisible(scope: Scope): boolean {
   return scope.type === 'hq' || scope.type === 'franchise';
@@ -97,14 +135,14 @@ const HQ_FEE_RATE = 0.15;
 async function activeTotal(env: Env, scope: Scope): Promise<number> {
   return safe(async () => {
     const c = stuCond(scope);
-    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE status='정상'` + (c.clause ? ` AND ${c.clause}` : '')).bind(...c.binds).first<{ c: number }>();
+    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE ${enrolledCond()}` + (c.clause ? ` AND ${c.clause}` : '')).bind(...c.binds).first<{ c: number }>();
     return r?.c || 0;
   }, 0);
 }
 async function newStudents(env: Env, like: string, scope: Scope): Promise<number> {
   return safe(async () => {
     const c = stuCond(scope);
-    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE status='정상' AND signup_date LIKE ?` + (c.clause ? ` AND ${c.clause}` : '')).bind(like, ...c.binds).first<{ c: number }>();
+    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE ${activeCond()} AND signup_date LIKE ?` + (c.clause ? ` AND ${c.clause}` : '')).bind(like, ...c.binds).first<{ c: number }>();
     return r?.c || 0;
   }, 0);
 }
@@ -161,9 +199,9 @@ async function series(env: Env, url: URL, scope: Scope): Promise<Response> {
     payRows = await safe(async () => (await env.DB.prepare(`SELECT strftime('%Y-%m-%d', datetime((finalized_at/1000)+32400,'unixepoch')) d, COALESCE(SUM(payment_krw),0) s FROM payslips WHERE paid=1 AND finalized_at>=? GROUP BY d`).bind(startMs).all()).results as any[], []);
   }
   const stuRows = await safe(async () => (await env.DB.prepare(
-    `SELECT signup_date d, COUNT(*) c FROM students_erp WHERE status='정상' AND signup_date>=?` + (c.clause ? ` AND ${c.clause}` : '') + ` GROUP BY d`).bind(start, ...c.binds).all()).results as any[], []);
+    `SELECT signup_date d, COUNT(*) c FROM students_erp WHERE ${activeCond()} AND signup_date>=?` + (c.clause ? ` AND ${c.clause}` : '') + ` GROUP BY d`).bind(start, ...c.binds).all()).results as any[], []);
   const baseBefore = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE status='정상' AND signup_date<?` + (c.clause ? ` AND ${c.clause}` : '')).bind(start, ...c.binds).first<{ c: number }>();
+    const r = await env.DB.prepare(`SELECT COUNT(*) c FROM students_erp WHERE ${enrolledCond()} AND signup_date<?` + (c.clause ? ` AND ${c.clause}` : '')).bind(start, ...c.binds).first<{ c: number }>();
     return r?.c || 0;
   }, 0);
 
@@ -183,7 +221,23 @@ async function series(env: Env, url: URL, scope: Scope): Promise<Response> {
     cum += nw;
     out.push({ date: d, new_students: nw, cum_students: cum, income: inc, pay_count: incMap[d]?.c || 0, expense: exp, net: inc - exp });
   }
-  return j({ ok: true, days, from: start, to: today, cost_hq_only: !costVisible(scope), series: out });
+  /* 💰 «비용이 0» 과 «비용을 아직 안 적었다» 는 완전히 다른 말이다. (2026-08-09)
+   *   운영 실측: `finance_expenses` 는 **한 행도 없고**(개설 이래 0건),
+   *   `payslips paid=1` 은 24건이지만 마지막이 **2026-05-20** 이라 최근 30일에 0건이다.
+   *   그 결과 이 화면은 비용 막대가 안 보이고 **순익 선이 매출 막대를 그대로 따라갔다** —
+   *   즉 「번 돈이 전부 남는다」고 말하고 있었다. 경영 판단에 쓰는 화면에서 이건 위험하다.
+   *   → 숫자를 지어내지 않는다. **«아직 안 적혔다»는 사실을 그대로 실어 보내고**
+   *     화면이 순익 대신 그 사실을 말하게 한다. 비용이 한 건이라도 들어오면 자동으로 원상복귀.
+   */
+  const expenseRowCount = expRows.length + payRows.length;
+  return j({
+    ok: true, days, from: start, to: today, cost_hq_only: !costVisible(scope),
+    expense_recorded: expenseRowCount > 0,
+    expense_note: (costVisible(scope) && expenseRowCount === 0)
+      ? '이 기간에 입력된 비용이 없습니다 — 순익은 비용을 뺀 값이 아닙니다 / No expenses recorded for this period — "net" does not deduct costs'
+      : null,
+    series: out,
+  });
 }
 
 async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
@@ -204,7 +258,7 @@ async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
     payroll = await safe(async () => await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) s, COUNT(*) c FROM payslips WHERE paid=1 AND finalized_at>=? AND finalized_at<?`).bind(a, b).first<{ s: number; c: number }>(), { s: 0, c: 0 });
   }
   const newStu = await safe(async () => (await env.DB.prepare(
-    `SELECT korean_name, english_name, signup_date FROM students_erp WHERE status='정상' AND signup_date=?` + (c.clause ? ` AND ${c.clause}` : '') + ` LIMIT 200`).bind(date, ...c.binds).all()).results as any[], []);
+    `SELECT korean_name, english_name, signup_date FROM students_erp WHERE ${activeCond()} AND signup_date=?` + (c.clause ? ` AND ${c.clause}` : '') + ` LIMIT 200`).bind(date, ...c.binds).all()).results as any[], []);
 
   const incomeTotal = payments.reduce((s, r) => s + (r.amount_krw || 0), 0);
   const manualTotal = expenses.reduce((s, r) => s + (r.amount_krw || 0), 0);
@@ -219,7 +273,7 @@ async function detail(env: Env, url: URL, scope: Scope): Promise<Response> {
 // 본사: 드릴다운용 대리점/지사 목록
 async function scopes(env: Env, scope: Scope): Promise<Response> {
   if (scope.type !== 'hq') return j({ ok: true, hq: false, options: [] });
-  const shops = await safe(async () => (await env.DB.prepare(`SELECT shop_name, franchise, COUNT(*) c FROM students_erp WHERE status='정상' AND shop_name IS NOT NULL GROUP BY shop_name ORDER BY shop_name`).all()).results as any[], []);
+  const shops = await safe(async () => (await env.DB.prepare(`SELECT shop_name, franchise, COUNT(*) c FROM students_erp WHERE ${enrolledCond()} AND shop_name IS NOT NULL GROUP BY shop_name ORDER BY shop_name`).all()).results as any[], []);
   const regions = await safe(async () => (await env.DB.prepare(`SELECT DISTINCT substr(franchise,1,instr(franchise||' ',' ')-1) region FROM students_erp WHERE franchise IS NOT NULL`).all()).results as any[], []);
   return j({
     ok: true, hq: true,
@@ -306,7 +360,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
   // 이번달 탈락(퇴원/휴원) — status<>'정상' AND end_date 이번달
   const dropMonth = await safe(async () => {
     const r = await env.DB.prepare(
-      `SELECT COUNT(*) c FROM students_erp WHERE status<>'정상' AND end_date LIKE ?` + stuClause
+      `SELECT COUNT(*) c FROM students_erp WHERE ${inactiveCond()} AND end_date LIKE ?` + stuClause
     ).bind(mo + '%', ...c.binds).first<{ c: number }>();
     return r?.c || 0;
   }, 0);
@@ -331,7 +385,7 @@ async function breakdown(env: Env, url: URL, scope: Scope): Promise<Response> {
               COALESCE(SUM(CASE WHEN sp.status='paid' AND sp.paid_at>=? THEN sp.amount_krw ELSE 0 END),0) rev_month
        FROM students_erp se
        LEFT JOIN student_payments sp ON sp.user_id = se.user_id
-       WHERE se.status IN ('정상','active') AND se.shop_name IS NOT NULL AND se.shop_name<>''` + bWhere + `
+       WHERE ${enrolledCond('se')} AND se.shop_name IS NOT NULL AND se.shop_name<>''` + bWhere + `
        GROUP BY se.shop_name ORDER BY rev_month DESC`
     ).bind(monStart, ...bc.binds).all()).results as any[], []);
   }

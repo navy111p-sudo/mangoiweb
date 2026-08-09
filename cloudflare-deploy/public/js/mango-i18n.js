@@ -168,10 +168,45 @@
       } catch(e){}
     }
     applyI18n();
+
+    /* 🔴 (2026-08-08 사장님 제보 「수업입장 화면이 한국어로 안 바뀐다」)
+       index.html 은 이 파일보다 먼저 **자기 i18n 엔진**(전역 var currentLang + applyLang)을 갖고 있다.
+       이 파일이 나중에 로드되며 setLang/getLang/toggleLang 을 덮어쓰는데, 덮어쓴 setLang 은
+       **자기 안의 currentLang 만** 바꿨다. 그래서 🌐 버튼을 눌러도 index.html 의 전역
+       currentLang 은 처음 값 그대로 굳었고(실측: 버튼을 눌러 getLang()='en' 이 돼도
+       window.currentLang 은 'ko'), 그 변수를 읽는 화면들만 언어가 어긋났다 —
+       내 마이크 미터·로비 음성 라벨처럼 «수업 화면에 계속 떠 있는 것들»이 여기 해당한다.
+       → 두 엔진이 한 값을 보게 맞춘다. (이 전역을 가진 페이지는 index.html 하나뿐)            */
+    try { if (typeof window.currentLang !== 'undefined') window.currentLang = l; } catch(e){}
+
+    /* index.html 쪽 applyLang 은 여기서 안 하는 일을 더 한다(홈 카드 문구, A.i 상담사 iframe 에
+       언어 전달, 그리고 아래 langchange 통지). 있으면 함께 돌린다. */
+    var ranApplyLang = false;
+    try { if (typeof window.applyLang === 'function') { window.applyLang(); ranApplyLang = true; } } catch(e){}
+
+    /* 🌐 JS 가 직접 그린 라벨(학생 필기 잠금·내 화면 공유·얼굴 접기·회의방·채팅 번역)은
+       data-ko/data-en 이 없어 위 루프가 못 고친다. 그 버튼들은 이 이름의 이벤트를 듣고 있는데
+       **여태 아무도 쏘지 않아** 한 번 그려진 언어로 굳어 있었다. applyLang 이 돌았으면 거기서
+       이미 쐈으므로 두 번 쏘지 않는다. */
+    if (!ranApplyLang) {
+      try { window.dispatchEvent(new CustomEvent('mangoi:langchange', { detail: { lang: l } })); } catch(e){}
+    }
     window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail: { lang: l } }));
   };
   window.toggleLang = function(){
-    window.setLang(nextLangOf(currentLang), 'user');
+    /* 🪤 (2026-08-08) 「🌐 를 한 번 눌렀는데 아무 일도 안 일어난다」
+       이 파일은 로드 시점에 localStorage 를 한 번 읽고 currentLang 에 «캐시» 해 둔다.
+       그런데 그 뒤에 다른 스크립트(부팅 언어 자동판정 등)가 localStorage 를 바꾸면
+       캐시가 낡는다 — 실측: 화면·localStorage 는 'ko' 인데 이 안의 currentLang 은 'en'.
+       그 상태로 누르면 nextLangOf('en')='ko' 라 «이미 한국어인데 또 한국어»가 돼서
+       첫 클릭이 헛눌린다. → 누르는 순간 저장값(=화면의 실제 언어)을 다시 읽고 계산한다. */
+    var now = currentLang;
+    try {
+      var ls = localStorage.getItem('mangoi_lang');
+      if (ls && LANG_CYCLE.indexOf(ls) >= 0) now = ls;
+    } catch(e){}
+    currentLang = now;
+    window.setLang(nextLangOf(now), 'user');
   };
 
   // ━━━━ 우측 상단 [🏠 Home] + [🌐 EN] 두 버튼 한 쌍 자동 inject ━━━━

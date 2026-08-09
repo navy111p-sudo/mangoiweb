@@ -90,7 +90,7 @@ async function activeStudents(env: Env): Promise<{ user_id: string; name: string
     const rs = await env.DB.prepare(
       `SELECT user_id, COALESCE(korean_name, english_name, user_id) AS name
        FROM students_erp
-       WHERE status='정상' OR status IS NULL OR status=''`
+       WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')   /* 🪤 '정상' 은 운영 DB 에 0건 — 'active' 를 반드시 함께 (2026-08-09) */`
     ).all<{ user_id: string; name: string }>();
     return rs.results || [];
   }, [] as { user_id: string; name: string }[]);

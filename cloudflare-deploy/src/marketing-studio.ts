@@ -94,7 +94,7 @@ async function segmentCounts(env: Env, segKey: string): Promise<{ total: number;
            (SELECT 1 FROM kakao_ids k WHERE k.user_id=s.user_id AND (k.kakao_id IS NOT NULL OR k.phone IS NOT NULL) LIMIT 1) AS ch_ok,
            (SELECT 1 FROM push_subscriptions p WHERE p.user_id=s.user_id LIMIT 1) AS push_ok
          FROM students_erp s
-         WHERE (s.status='정상' OR s.status IS NULL OR s.status='') AND (${cond})
+         WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '') AND (${cond})
        )`
     ).bind(...binds).first<{ total: number; kakao: number; push: number }>();
     return { total: r?.total || 0, kakao: r?.kakao || 0, push: r?.push || 0 };
