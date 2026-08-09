@@ -456,16 +456,41 @@ async function loadTodayKpi() {
     // 📅 오늘은 «진행상황», 판단용 비율은 «직전 영업일» 것을 쓴다.
     //   아침 9시에 오늘 미실시율을 내면 100% 다 — 아직 아무 수업도 안 끝났으니까.
     //   시간이 갈수록 저절로 내려가는 숫자는 판단에 못 쓴다. 그래서 둘을 나눠 보여준다.
+    //   🪤🪤 (2026-08-09) «어제 값» 도 아직 확정이 아니다 — 카페24 야간 동기화가 최근 14일만
+    //      다시 가져오므로 완료 처리가 15일에 걸쳐 들어온다. 굳은 날과 비교하면 일관되게
+    //      +5~8%p 나쁘게 나온다. 보정하지 않고(없는 숫자를 지어내는 것) **잣대를 나란히 적는다** —
+    //      서버가 주는 weekday_avg_pct = 같은 요일 «굳은 날» 평균.
     const _abs = j.absence || {};
     const _booked = _abs.booked_today || 0, _done = _abs.done_today || 0;
     const _prevRate = (typeof _abs.prev_rate_pct === 'number') ? _abs.prev_rate_pct : null;
+    const _wdRate   = (typeof _abs.weekday_avg_pct === 'number') ? _abs.weekday_avg_pct : null;
     $('today-absence').textContent = _booked
       ? (_done + ' / ' + _booked)
       : (L ? 'No class' : '수업 없음');
-    $('today-absence-sub').textContent = _prevRate !== null
-      ? (L ? ('Done / booked today · ' + (_abs.prev_date || '') + ' missed ' + _prevRate.toFixed(1) + '%')
-           : ('오늘 완료 / 예약 · ' + (_abs.prev_date || '') + ' 미실시 ' + _prevRate.toFixed(1) + '%'))
-      : (L ? 'Done / booked today' : '오늘 완료 / 예약');
+    // 「8-07(금)」 — 연도는 빼고 요일을 붙인다(같은 요일끼리 비교하는 지표라 요일이 핵심).
+    //   ⚠️ getDay() 는 브라우저 시간대를 타므로 getUTCDay() 를 쓴다('2026-08-07' 은 UTC 자정으로 파싱된다).
+    function _dLabel(s) {
+      if (!s) return '';
+      var p = String(s).split('-'); if (p.length !== 3) return String(s);
+      var d = new Date(s + 'T00:00:00Z');
+      var w = isNaN(d) ? '' : (L ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                                 : ['일','월','화','수','목','금','토'])[d.getUTCDay()];
+      return (+p[1]) + '-' + (+p[2]) + (w ? '(' + w + ')' : '');
+    }
+    var _sub;
+    if (_prevRate === null) {
+      _sub = L ? 'Done / booked today' : '오늘 완료 / 예약';
+    } else if (_wdRate !== null) {
+      _sub = _dLabel(_abs.prev_date) + ' ' + _prevRate.toFixed(1) + '%'
+           + (L ? ' missed · avg ' : ' 미실시 · 확정평균 ') + _wdRate.toFixed(1) + '%';
+    } else {
+      _sub = _dLabel(_abs.prev_date) + (L ? ' missed ' : ' 미실시 ') + _prevRate.toFixed(1) + '%';
+    }
+    $('today-absence-sub').textContent = _sub;
+    $('today-absence-sub').title = _wdRate !== null
+      ? (L ? 'The previous day is not final yet — Cafe24 keeps posting completions for about 15 days, so it always looks worse. "avg" is the settled average for the same weekday (last 60 days).'
+           : '직전 영업일 값은 아직 확정이 아닙니다 — 카페24 완료 처리가 약 15일에 걸쳐 들어와 항상 나쁘게 보입니다. «확정평균» 은 같은 요일의 굳은 날 평균(최근 60일)입니다.')
+      : '';
 
     // 신규 등록 — 단순 카운트
     const sign = j.signups?.count || 0;

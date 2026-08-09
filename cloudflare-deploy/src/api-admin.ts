@@ -773,14 +773,34 @@ export async function handleAdminApi(
         //   즉 한 방에 한 행뿐이라 예정·출석이 «겹치지 않는» 것이 정상이다.
         //   ⚠️ 세는 단위는 **수업(행)** 이지 학생이 아니다. 한 학생이 하루에 여러 수업을 듣는다.
         //   ⚠️ 오늘 값으로 «미실시율» 을 내면 안 된다 — 아침엔 100% 가 나온다(아직 안 했으니까).
-        //      그래서 오늘은 «완료/예약» 진행상황만 주고, 비율은 **직전 영업일**(정산된 날) 것을 준다.
+        //      그래서 오늘은 «완료/예약» 진행상황만 주고, 비율은 **직전 영업일** 것을 준다.
+        //
+        //   🪤🪤 그런데 «직전 영업일» 값도 **아직 확정이 아니다.** (2026-08-09 실측)
+        //      cafe24-sync 의 야간 증분은 **최근 14일만** 다시 가져온다(nightlyCafe24Refresh).
+        //      그래서 어떤 날이든 15일째에 값이 «굳고», 그 전까지는 완료(class_state=2)가 계속 들어온다.
+        //      굳은 날 vs 아직 움직이는 날을 요일별로 갈라 재니 **일관되게 +5~8%p** 차이가 났다:
+        //        월 21.6 → 28.4 · 화 28.3 → 33.1 · 수 29.8 → 44.3 · 목 33.9 → 40.1 · 금 44.3 → 51.1
+        //      즉 어제 숫자만 보면 **항상 실제보다 나쁘게 보인다.** 그 편차를 보정하지는 않는다
+        //      (없는 숫자를 지어내는 것이다). 대신 **잣대를 같이 준다** —
+        //      `weekday_avg_pct` = 같은 요일의 **굳은 날(15일 이상 지난 날)** 평균. 최근 60일.
+        //      화면은 「8-07(금) 51.2% · 금 확정평균 44%」처럼 둘을 나란히 적는다.
+        //   📌 요일 편차는 지연이 아니라 진짜다 — 굳은 날 기준으로도 월 21.6% ↔ 금 44.3% 다.
         safe(() => env.DB.prepare(
           `WITH prev AS (
              SELECT date, COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
                FROM attendance
               WHERE room_id LIKE 'c24-%' AND date < ? AND date >= date(?, '-14 days')
               GROUP BY date HAVING COUNT(*) >= 20
-              ORDER BY date DESC LIMIT 1)
+              ORDER BY date DESC LIMIT 1),
+           wd AS (
+             SELECT SUM(n) AS n, SUM(done) AS done FROM (
+               SELECT COUNT(*) AS n, SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS done
+                 FROM attendance
+                WHERE room_id LIKE 'c24-%'
+                  AND date >= date(?, '-60 days')
+                  AND date <= date(?, '-15 days')          -- 굳은 날만
+                  AND strftime('%w', date) = (SELECT strftime('%w', date) FROM prev)
+                GROUP BY date HAVING COUNT(*) >= 20))
            SELECT
              (SELECT COUNT(*) FROM attendance
                WHERE room_id LIKE 'c24-%' AND date = ?${_uidScope}) AS booked_today,
@@ -788,10 +808,14 @@ export async function handleAdminApi(
                WHERE room_id LIKE 'c24-%' AND date = ? AND status = 'present'${_uidScope}) AS done_today,
              (SELECT date FROM prev) AS prev_date,
              (SELECT n    FROM prev) AS prev_booked,
-             (SELECT done FROM prev) AS prev_done`
-        ).bind(todayKst, todayKst, todayKst, ..._sb, todayKst, ..._sb)
-         .first<{ booked_today: number; done_today: number; prev_date: string | null; prev_booked: number; prev_done: number }>(),
-        { booked_today: 0, done_today: 0, prev_date: null, prev_booked: 0, prev_done: 0 } as any)
+             (SELECT done FROM prev) AS prev_done,
+             (SELECT n    FROM wd)   AS wd_booked,
+             (SELECT done FROM wd)   AS wd_done`
+        ).bind(todayKst, todayKst, todayKst, todayKst, todayKst, ..._sb, todayKst, ..._sb)
+         .first<{ booked_today: number; done_today: number; prev_date: string | null;
+                  prev_booked: number; prev_done: number; wd_booked: number; wd_done: number }>(),
+        { booked_today: 0, done_today: 0, prev_date: null, prev_booked: 0, prev_done: 0,
+          wd_booked: 0, wd_done: 0 } as any)
       ]);
 
       const revenue = revRow?.revenue || 0;
@@ -824,6 +848,14 @@ export async function handleAdminApi(
       const prevDone    = Math.max(0, Number(schedRow?.prev_done || 0));
       const prevRate    = prevBooked > 0
         ? Math.round(((prevBooked - prevDone) * 1000 / prevBooked)) / 10
+        : null;
+      // 📏 같은 요일의 «굳은 날» 평균 — 어제 숫자를 재는 잣대.
+      //   어제 값은 아직 완료 처리가 덜 들어와 항상 나쁘게 나온다(위 SQL 주석의 실측표).
+      //   보정하지 않고 **둘을 나란히 보여 준다.**
+      const wdBooked = Math.max(0, Number(schedRow?.wd_booked || 0));
+      const wdDone   = Math.max(0, Number(schedRow?.wd_done || 0));
+      const wdRate   = wdBooked >= 100      // 표본이 너무 적으면 잣대가 못 된다
+        ? Math.round(((wdBooked - wdDone) * 1000 / wdBooked)) / 10
         : null;
       const scheduledToday = Math.max(0, bookedToday - doneToday);   // 오늘 아직 안 한 수업
       const absentCount = scheduledToday;
@@ -867,6 +899,9 @@ export async function handleAdminApi(
           booked_today: bookedToday, done_today: doneToday,
           prev_date: schedRow?.prev_date || null, prev_rate_pct: prevRate,
           prev_booked: prevBooked, prev_done: prevDone,
+          // 📏 잣대 — 같은 요일 «굳은 날»(15일 이상 지난 날, 최근 60일) 평균 미실시율.
+          //    표본 100건 미만이면 null(잣대로 못 씀). 화면은 있을 때만 나란히 그린다.
+          weekday_avg_pct: wdRate, weekday_sample: wdBooked,
         },
         signups: { count: signups }
       }, 60);
