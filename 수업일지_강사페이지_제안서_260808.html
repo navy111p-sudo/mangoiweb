@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>📝 수업 일지 — 어디에 어떻게 넣을 것인가 (제안서 2026-08-08)</title>
+<style>
+  :root{ --bg:#fdfcf7; --card:#fff; --ink:#1b2233; --ink2:#5a6478; --line:#e6e2d6;
+         --accent:#c2410c; --good:#15803d; --bad:#b91c1c; --warn:#a16207; --blue:#1d4ed8; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:-apple-system,BlinkMacSystemFont,'Malgun Gothic','Apple SD Gothic Neo','Noto Sans KR',sans-serif;
+       line-height:1.75;font-size:15.5px}
+  .wrap{max-width:960px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:27px;font-weight:800;margin:0 0 6px;letter-spacing:-.5px}
+  .sub{color:var(--ink2);font-size:14px;margin-bottom:28px}
+  h2{font-size:20px;font-weight:800;margin:44px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16.5px;font-weight:800;margin:26px 0 8px;color:#0f172a}
+  p{margin:9px 0}
+  ul,ol{margin:9px 0;padding-left:22px} li{margin:5px 0}
+  code{background:#f1efe6;padding:1px 6px;border-radius:5px;font-size:13.5px;
+       font-family:Consolas,'D2Coding',monospace}
+  pre{background:#1b2233;color:#e6ecff;padding:14px 16px;border-radius:10px;overflow-x:auto;
+      font-size:13px;line-height:1.6;font-family:Consolas,'D2Coding',monospace}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;display:block;overflow-x:auto}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#f6f4ec;font-weight:800;white-space:nowrap}
+  .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:16px 0}
+  .box.red{border-left:5px solid var(--bad);background:#fef5f5}
+  .box.green{border-left:5px solid var(--good);background:#f4faf5}
+  .box.warn{border-left:5px solid var(--warn);background:#fdfaf0}
+  .box.blue{border-left:5px solid var(--blue);background:#f4f7fe}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:800;
+       background:#eee9dc;color:#4b4433;margin-right:5px}
+  .tag.n{background:#fde8e8;color:#991b1b} .tag.y{background:#dcf5e3;color:#14532d}
+  .tag.p{background:#e4ecfd;color:#1e3a8a}
+  .kpi{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+  .kpi div{flex:1 1 150px;background:var(--card);border:1px solid var(--line);border-radius:10px;
+           padding:12px 14px;text-align:center}
+  .kpi b{display:block;font-size:23px;font-weight:800;color:var(--accent);line-height:1.3}
+  .kpi span{font-size:12.5px;color:var(--ink2)}
+  .en{color:var(--ink2);font-size:13px}
+  hr{border:0;border-top:1px solid var(--line);margin:34px 0}
+  .foot{color:var(--ink2);font-size:13px;margin-top:40px;padding-top:14px;border-top:1px solid var(--line)}
+  .mock{background:#f7f9fb;border:1px solid #d9e0e8;border-radius:12px;padding:14px 16px;margin:14px 0;
+        font-size:14px;max-width:430px}
+  .mock .mtitle{font-weight:800;font-size:15px;margin-bottom:2px}
+  .mock .mmeta{color:#5d6b7a;font-size:12.5px;margin-bottom:10px}
+  .mock .mdraft{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;
+                font-size:13.5px;line-height:1.6;color:#20293a}
+  .mock .chips{margin:10px 0 4px}
+  .mock .chip{display:inline-block;border:1px solid #c9d2dc;border-radius:999px;padding:4px 10px;
+              font-size:12.5px;margin:0 5px 5px 0;background:#fff}
+  .mock .chip.on{background:#1d4ed8;border-color:#1d4ed8;color:#fff;font-weight:700}
+  .mock .btn{display:inline-block;border-radius:8px;padding:9px 14px;font-size:14px;font-weight:700;
+             margin:8px 6px 0 0;border:1px solid #c9d2dc;background:#fff}
+  .mock .btn.pri{background:#15803d;border-color:#15803d;color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>📝 수업 일지 — 관리자 화면인가, 강사 화면인가</h1>
+<div class="sub">
+  2026-08-08 · 대상: 사장님 · 본사 매니저 · 필리핀 강사<br>
+  요청: ① 담당 강사가 쉽게 보고 쓰게 ② 강사 화면이 렉·딜레이·튕김 없이 가볍게
+  ③ AI가 거의 다 쓰고 강사는 판단·발송만 ④ 경쟁사 장점 정리
+</div>
+
+<div class="box red">
+  <b>답부터 — 강사 화면이 맞습니다. 그런데 더 중요한 사실이 있습니다.</b><br>
+  <b>수업 일지는 이미 강사 화면에 두 벌이 들어가 있습니다.</b>
+  「1분 평가」(<code>teacher.html:2557</code>)와 「AI 피드백 초안 승인」(<code>teacher.html:2154</code>)입니다.
+  관리자 화면의 「📝 수업 일지 🚧 준비 중」 카드(<code>admin.html:10230</code>)는 <b>홍보 카드일 뿐 기능이 아닙니다.</b>
+  <br><br>
+  그런데 운영 DB를 직접 재 보니 — <b>실제 강사가 실제 학생에게 쓴 기록은 0건입니다.</b>
+  기능이 없어서가 아니라 <b>써도 아무 일도 일어나지 않게 배선돼 있어서</b>입니다(3장에 코드 근거).
+  <br><br>
+  그래서 이 제안은 <b>「새로 만들기」가 아니라 「이미 있는 세 벌을 하나로 합치고 길을 뚫기」</b>입니다.
+  새 화면·새 파일을 만들지 않기 때문에 요구사항 ②(가볍게)를 지킬 수 있습니다.
+</div>
+
+<p class="en">※ 이 제안서를 만들며 <b>코드는 한 줄도 바꾸지 않았습니다.</b> 아래 수치는 운영 D1(<code>mango-db</code>)에서 <b>SELECT 만</b>으로 조회한 실제 값입니다.</p>
+
+<hr>
+
+<h2>1. 실측 — 지금 무엇이 있고, 얼마나 쓰이고 있나</h2>
+
+<div class="kpi">
+  <div><b>6</b><span>「수업 후 기록」용 테이블 수</span></div>
+  <div><b>0</b><span>실제 학생 대상 평가서</span></div>
+  <div><b>0 / 104</b><span>학부모가 열어본 평가서</span></div>
+  <div><b>0 / 18</b><span>강사가 승인한 AI 초안</span></div>
+  <div><b>0 / 18</b><span>재료(신호)가 있던 AI 초안</span></div>
+</div>
+
+<table>
+<tr><th>테이블</th><th>용도</th><th>실측</th><th>판정</th></tr>
+<tr><td><code>student_evaluations</code></td><td>강사 「1분 평가」 (별점5+강점/보완/다음목표)</td>
+    <td>104행. 그중 <b>102행이 데모 계정</b>(minjun01·seoyeon02·doyun03 …)에 2026-06-04 하루 들어온 시드. 나머지 2행은 테스트 계정 <b>홍길동</b>.<br>학부모 열람 <b>0 / 104</b></td>
+    <td><span class="tag n">실사용 0</span></td></tr>
+<tr><td><code>feedback_drafts</code></td><td>AI 초안 → 강사 승인 → 학부모 문자</td>
+    <td>18행, 2026-07-10~13 나흘뿐. <b>전부 status='draft'</b> — 승인 0 · 수정 0 · 건너뜀 0.<br><b>has_signals = 0 (18/18)</b></td>
+    <td><span class="tag n">한 번도 승인 안 됨</span></td></tr>
+<tr><td><code>teacher_feedbacks</code></td><td>승인된 피드백의 최종 보관함</td><td><b>0행</b> (승인이 0이니 당연)</td><td><span class="tag n">빈 상자</span></td></tr>
+<tr><td><code>teacher_class_feedback</code></td><td><b>강사 코칭용</b> AI 총평(학부모용 아님)</td><td>5행 — 대부분 테스트 방(<code>mangoi-class</code>, <code>교사 TEACHER WIN</code>)</td><td><span class="tag p">용도 다름</span></td></tr>
+<tr><td><code>ai_lesson_reports</code></td><td>녹음 STT → AI 학습 리포트</td><td><b>0행</b></td><td><span class="tag n">미가동</span></td></tr>
+<tr><td><code>monthly_reports</code> / <code>class_ratings</code></td><td>월간 리포트 / 학생 별점</td><td>53행 / 36행(10개 방)</td><td><span class="tag p">참고</span></td></tr>
+</table>
+
+<div class="box warn">
+  <b>즉, 「수업 후에 무언가를 쓰는 곳」이 서로 모르는 채 6군데 흩어져 있습니다.</b>
+  강사는 어디에 써야 할지 모르고, 학부모는 어디에도 못 받고, 관리자는 무엇을 보고 독촉해야 할지 모릅니다.
+  <b>일지를 하나 더 만들면 일곱 번째가 됩니다.</b>
+</div>
+
+<hr>
+
+<h2>2. 재료도 실측했습니다 — AI가 지금 쓸 수 있는 것</h2>
+<p>요구사항 ③(AI가 거의 다 쓰기)의 성패는 <b>AI가 볼 재료가 있느냐</b>에 달려 있습니다. 지금 초안 생성기가 보는 재료는 셋입니다.</p>
+
+<table>
+<tr><th>재료</th><th>출처</th><th>실측</th><th>지금 쓸 수 있나</th></tr>
+<tr><td>아이 발화 비율</td><td><code>attendance.total_active_ms</code> (교사·학생 두 행 필요)</td>
+    <td>학생 행 183,409개인데 <b>교사 행은 27개 · 방 5개뿐</b></td><td><span class="tag n">사실상 불가</span></td></tr>
+<tr><td>수업 중 칭찬 횟수</td><td><code>point_rule_log</code> (화상수업 칭찬 버튼)</td><td>67건</td><td><span class="tag p">적지만 살아 있음</span></td></tr>
+<tr><td>학생이 매긴 수업 별점</td><td><code>class_ratings</code></td><td>36건 / 10개 방</td><td><span class="tag p">적지만 살아 있음</span></td></tr>
+<tr><td>수업 녹음</td><td><code>recordings</code> (R2)</td><td><b>완료 420건 · 약 14GB · 평균 5.1분</b></td><td><span class="tag y">있음 (STT 경로도 이미 있음)</span></td></tr>
+</table>
+
+<div class="box red">
+  <b>🔴 그래서 지금 AI 초안은 «재료 없이» 쓰고 있습니다.</b><br>
+  초안 18건 전부 <code>has_signals = 0</code> 입니다. 프롬프트가 <i>「목록에 없는 것은 지어내지 말 것」</i>이라
+  올바르게 막고 있어서(<code>api-admin.ts:2549</code>), 재료가 없으면 AI는 <b>당연한 말만 쓰게</b> 됩니다.
+  <br>
+  → 강사 입장에서는 <b>「고칠 바에 내가 쓰겠다」</b>가 됩니다. 승인 0건이 그 결과입니다.
+  <br><br>
+  <b>결론: 화면을 예쁘게 만드는 것보다 「재료 모으기」가 먼저입니다.</b> (5장 Phase 2)
+</div>
+
+<hr>
+
+<h2>3. 왜 안 쓰였나 — 코드에서 확인된 원인 4가지</h2>
+
+<h3>🔴 ① 강사가 「1분 평가」를 써도 급여 공제는 그대로 붙습니다</h3>
+<ul>
+  <li>강사 화면의 1분 평가는 <code>/api/eval/create</code> → <code>student_evaluations</code> 에 저장됩니다 (<code>teacher.html:2584</code>)</li>
+  <li>그런데 「당일 피드백 미작성」 공제 판정(<code>api-admin.ts:1610</code>)은
+      <code>teacher_class_feedback</code> 과 <b>승인된</b> <code>feedback_drafts</code> <b>둘만</b> 봅니다.
+      <code>student_evaluations</code> 는 <b>아예 보지 않습니다.</b></li>
+  <li>공제액은 <b>수업 1건당 ₱25</b> (<code>payroll_deduction_rules.no_feedback_day</code>, 사용 중)</li>
+</ul>
+<div class="box red">
+  성실하게 평가를 쓴 강사도 <b>「미작성」으로 집계되어 깎입니다.</b>
+  강사 화면 맨 위 「⚠ 피드백 미작성」 경고 카드에도 그대로 뜹니다.
+  <b>이건 제안이 아니라 지금 당장 고쳐야 할 버그입니다.</b> (Phase 0)
+</div>
+
+<h3>🔴 ② 강사가 쓴 글이 학부모에게 나가지 않습니다</h3>
+<ul>
+  <li>서버는 <code>parent_phone</code> 또는 <code>student_phone</code> 이 <b>함께 올 때만</b> 알림을 보냅니다 (<code>api-lessons.ts:172</code>)</li>
+  <li>강사 화면은 그 값을 보내지 않습니다 (<code>teacher.html:2587~2599</code> — 전송 항목에 전화번호가 없음)</li>
+  <li>실측 열람 <b>0 / 104</b>. 강사는 <b>자기 글을 읽었는지도 알 수 없습니다.</b></li>
+</ul>
+
+<h3>⚠ ③ 「AI 초안 만들기」 버튼 한 번이 그 달 <b>전 강사 급여</b>를 다시 계산합니다</h3>
+<ul>
+  <li><code>/api/admin/feedback-drafts/generate</code> 는 첫 줄에서 <code>computeLessonFeeMonth(년,월)</code> 를 부릅니다 (<code>api-admin.ts:2502</code>)</li>
+  <li>이 엔진은 그 달 <b>전체 강사</b>의 수업을 전개·집계합니다. 강사 화면 주석도 이 API를 두고
+      <i>「이 화면에서 가장 무거운 호출」</i>이라고 적어 두었습니다 (<code>teacher.html:2064</code>)</li>
+  <li>버튼 문구가 <b>「만드는 중… (최대 30초)」</b> 인 이유가 이것입니다</li>
+</ul>
+<div class="box warn">
+  필리핀 회선(RTT 300~600ms)에서 30초 대기는 <b>사실상 「안 되는 기능」</b>입니다.
+  요구사항 ②(가볍게·안 멈추게)와 정면으로 부딪힙니다. → 4장에서 <b>「미리 구워 두기」</b>로 바꿉니다.
+</div>
+
+<h3>⚠ ④ 강사가 무엇을 써야 하는지 화면마다 다릅니다</h3>
+<p>같은 「오늘 수업」에 대해 강사가 마주치는 입력구가 셋입니다 — 1분 평가(별점 2 + 자유서술 3칸),
+AI 초안 승인(한국어·영어 두 칸), 그리고 관리자 화면의 평가서.
+<b>무엇을 쓰면 «다 쓴 것»인지 아무도 모릅니다.</b></p>
+
+<hr>
+
+<h2>4. 제안 — 「강사 화면에서, 탭 3번, 12초」</h2>
+
+<h3>4-1. 위치: 작성은 강사 화면, 감독은 관리자 화면(읽기 전용)</h3>
+<table>
+<tr><th>구분</th><th>누가</th><th>언제·어디서</th><th>화면</th></tr>
+<tr><td><b>작성</b></td><td>담당 강사</td><td>수업 끝난 직후 5분 이내, 필리핀 모바일</td>
+    <td><b>/teacher — 「오늘의 수업」 카드 안</b> (새 화면 없음)</td></tr>
+<tr><td><b>확인·독촉</b></td><td>본사·지사 매니저</td><td>하루 1~2회, 사무실 PC</td>
+    <td>admin.html 「수업 일지」 카드를 <b>현황판</b>으로 교체 (미작성·발송률·열람률)</td></tr>
+<tr><td><b>열람</b></td><td>학부모</td><td>문자 링크</td><td>기존 <code>eval.html</code> 재사용</td></tr>
+</table>
+<div class="box blue">
+  <b>왜 강사를 관리자 화면에 들이면 안 되는가 — 이미 측정된 숫자가 있습니다.</b><br>
+  admin.html 934KB · 첫 화면 <b>19초</b> / 강사 포털 <b>0.83초</b> (흉내 회선 실측, 25배 차이).
+  그래서 <code>login.html</code> 은 강사를 아예 <code>/teacher</code> 로 보냅니다.
+  <b>일지를 관리자 화면에 만들면 강사는 영원히 쓰지 못합니다.</b>
+</div>
+
+<h3>4-2. 강사가 보는 것 (탭 3번으로 끝)</h3>
+<div class="mock">
+  <div class="mtitle">📝 일지 · 김서연</div>
+  <div class="mmeta">오늘 14:00 · 25분 · 초안 준비됨</div>
+  <div class="mdraft">
+    Today Seoyeon practiced past-tense questions and spoke for most of the lesson.
+    She answered confidently and I praised her 3 times.
+    At home, reading today's sentences aloud once more will help a lot.
+    <div style="margin-top:8px;color:#5d6b7a;font-size:12.5px">
+      [학부모에게 나가는 한국어] 오늘 서연이는 과거형 질문을 연습했고, 수업 대부분을 스스로 말했습니다. …
+    </div>
+  </div>
+  <div class="chips">
+    <span class="chip on">잘 말했어요</span>
+    <span class="chip on">칭찬 3회</span>
+    <span class="chip">발음 연습 필요</span>
+    <span class="chip">숙제 미제출</span>
+  </div>
+  <div>
+    <span class="btn pri">✅ 보내기</span>
+    <span class="btn">✏ 고치고 보내기</span>
+    <span class="btn">나중에</span>
+  </div>
+</div>
+<ul>
+  <li><b>강사가 하는 일은 «읽고 → 판단하고 → 보내기» 뿐입니다.</b> 빈 칸이 없습니다.</li>
+  <li>탭 수: 지금 1분 평가 = 별점 2 + 텍스트 3칸 + 제출 → <b>최소 6회 입력</b>.
+      제안 = <b>일지 열기 1탭 + 보내기 1탭 = 2탭</b>(고칠 때만 3탭)</li>
+  <li>고칠 때 보이는 두 칸(영어·한국어)은 <b>지금 이미 있는 방식</b>입니다 —
+      필리핀 강사는 영어로 확인하고, 학부모에게는 한국어가 나갑니다 (<code>teacher.html:2191</code>)</li>
+</ul>
+
+<h3>4-3. 요구사항 ③의 핵심 — 초안을 «강사가 열기 전에» 미리 구워 둡니다</h3>
+<table>
+<tr><th></th><th>지금</th><th>제안</th></tr>
+<tr><td>초안 생성 시점</td><td>강사가 버튼을 누른 뒤</td><td><b>수업이 끝나는 순간</b> (서버가 알아서)</td></tr>
+<tr><td>강사 대기</td><td>최대 30초 (그 달 전체 급여 재계산)</td><td><b>0초</b> — 열면 이미 있음</td></tr>
+<tr><td>서버가 읽는 범위</td><td>그 달 전 강사 × 전 수업</td><td><b>그 방 하나</b> (<code>room_id</code> 1건)</td></tr>
+<tr><td>LLM 호출</td><td>버튼 누를 때마다 최대 5건</td><td>수업 1건당 1회, 실패해도 강사 화면은 무사</td></tr>
+</table>
+<div class="box green">
+  <b>⛔ 절대 규칙: 일지 관련 API에서 <code>computeLessonFeeMonth</code> 를 부르지 않습니다.</b>
+  이 한 줄이 이 기능의 무게를 결정합니다.
+</div>
+
+<h3>4-4. 재료는 «수업 중에» 모읍니다 (AI 품질의 전부)</h3>
+<ul>
+  <li><b>이미 있는 것을 씁니다</b> — 화상수업의 칭찬 버튼(<code>vc-praise-roster</code>, 67건 기록 중)은
+      그대로 <b>「무엇을 잘했나」</b> 재료가 됩니다.</li>
+  <li><b>원탭 칩 4개를 칭찬 버튼 옆에 추가</b>: <span class="tag">오늘 배운 것</span>
+      <span class="tag">잘한 것</span> <span class="tag">어려워한 것</span> <span class="tag">다음에 할 것</span><br>
+      누르면 <b>브라우저에 쌓아 두었다가 수업 종료 때 1회만 전송</b>합니다 — 수업 중 네트워크 부담 0.
+      (화상수업 화면은 공동 금지구역이므로 <b>배포 권한자와 합의 후</b> 진행)</li>
+  <li><b>선행 수정 1건</b>: 강사 입장 시 출석 기록의 <code>role</code> 이 <code>'teacher'</code> 로 저장되게 합니다.
+      지금은 교사 행이 27개뿐이라 <b>「아이가 얼마나 말했는지」를 계산할 수 없습니다</b>(2장).
+      작은 수정인데 AI 초안 품질이 여기서 갈립니다.</li>
+  <li><b>녹음 STT는 «있으면 더 좋은 것»으로만</b>: 이미 완료 녹음 420건·14GB가 있고
+      브라우저 60초 분할 전사 경로도 있습니다. 다만 <b>강사를 기다리게 하지 않습니다</b> — 백그라운드에서만 돌리고,
+      늦게 끝나면 다음 초안에 반영합니다.</li>
+</ul>
+
+<h3>4-5. 영어로 쓰면 한국어로 나갑니다 (문법·문장도 다듬어서)</h3>
+<p>필리핀 강사가 <b>영어로 편하게 쓰면</b> → ① 영어 문법·문장을 자연스럽게 다듬고 ② <b>학부모용 한국어</b>로 옮겨
+학부모에게는 한국어만 나갑니다. 강사에게는 다듬은 영어를 함께 보여 줘서 <b>자기가 무엇을 승인하는지</b> 알게 합니다.</p>
+
+<div class="box green">
+  <b>✅ 새로 만들 것이 거의 없습니다 — <code>/api/translate</code> 가 이미 있습니다.</b><br>
+  Workers AI 번역 + KV 캐시 + 존댓말 고정까지 들어 있고, 인증 게이트에도 이미 등록돼 있습니다.
+  강사 화면도 이미 이 API를 쓰고 있습니다(<code>teacher.html:768</code>).
+  <br>
+  🔑 <b>새 경로를 만들면 안 됩니다</b> — 게이트가 <code>path === '/api/translate'</code> <b>정확 일치</b>라
+  새 주소는 등록 전까지 404 입니다(<code>api-mango.ts:1813</code>에 같은 이유가 적혀 있습니다).
+  <b>모드를 하나 더하는 것</b>이 이 저장소의 정석입니다.
+</div>
+
+<div class="box red">
+  <b>⛔ 다만 기존 <code>mode:'chat'</code> 을 그대로 쓰면 일지가 잘립니다.</b> 실제 코드에서 확인한 세 가지:
+  <ul>
+    <li><b>응답에서 첫 줄만 가져옵니다</b> — <code>out.split(/\r?\n/)[0]</code> (<code>api-mango.ts:1880</code>).
+        채팅 한 줄에는 맞지만 <b>세 문장짜리 일지는 한 문장이 되어 나갑니다.</b></li>
+    <li><b><code>max_tokens: 300</code></b> — 일지 길이에는 모자랍니다.</li>
+    <li><b>KV 캐시가 원문 전체를 키로 180일 저장</b>합니다. 정해진 라벨에는 좋지만
+        <b>일지는 매번 다른 문장이라 재사용률이 0</b>이고 KV만 쌓입니다.</li>
+  </ul>
+  → 그래서 <b><code>mode:'note'</code></b> 를 더합니다: <b>한 번의 호출로 «다듬은 영어 + 한국어» 둘 다</b>
+  (두 번 부르지 않습니다) · 줄바꿈 보존 · <code>max_tokens</code> 여유 · <b>캐시하지 않음</b>.
+</div>
+
+<h4 style="margin:18px 0 6px;font-size:15px">지켜야 할 규칙 — 이미 코드에 있는 자산을 그대로 씁니다</h4>
+<table>
+<tr><th>규칙</th><th>왜</th><th>지금 상태</th></tr>
+<tr><td><b>학생 실명은 가려서 보냅니다</b><br><code>{{STUDENT}}</code> 로 바꿔 보내고 돌아오면 되돌림</td>
+    <td>번역 API로 <b>학생 실명·아이디가 새던 적이 있습니다</b></td><td><span class="tag y">이번에 추가</span></td></tr>
+<tr><td><b>학부모에게는 항상 존댓말</b></td>
+    <td>영어 원문의 캐주얼한 말투가 그대로 옮겨져 반말이 나왔던 실사고</td>
+    <td><span class="tag y">이미 프롬프트에 있음</span> (<code>api-mango.ts:1861</code>)</td></tr>
+<tr><td><b>어미 중첩 교정</b> (「합니다요」)</td>
+    <td>존댓말을 시키면 모델이 <code>-습니다</code> 뒤에 「요」를 또 붙입니다</td>
+    <td><span class="tag y">이미 코드로 교정</span> (<code>api-mango.ts:1884</code>)</td></tr>
+<tr><td><b>「숙제」는 homework 고정</b></td>
+    <td>번역 모델이 집안일·직업으로 옮긴 실측 오역</td>
+    <td><span class="tag y">이미 프롬프트에 있음</span> (<code>api-mango.ts:1858</code>)</td></tr>
+<tr><td><b>학부모 어투로 부드럽게</b><br>“tell mom to check” → 「어머님께서 확인해 주시면 좋겠습니다」</td>
+    <td>직역하면 통보처럼 읽힙니다. 학부모가 받는 문장입니다</td><td><span class="tag y">이번에 추가</span></td></tr>
+<tr><td>🔴 <b>한국어가 안 나오면 발송하지 않습니다</b></td>
+    <td>폴백 경로가 <b>실패 시 원문을 그대로 돌려줍니다</b>(<code>api-mango.ts:1908</code>) —
+        그대로 두면 <b>학부모에게 영어가 갑니다</b></td>
+    <td><span class="tag n">반드시 막을 것</span></td></tr>
+</table>
+
+<div class="box blue">
+  <b>강사에게도 이득입니다.</b> 「고친 곳 3군데 — 시제 <code>do → did</code> · 표현 <code>speak many → spoke a lot</code>」처럼
+  <b>무엇을 고쳤는지 보여 줍니다.</b> 매일 쓰는 사람에게는 이것이 곧 영어 코칭이 됩니다.
+  <br>비용·지연: <b>「보내기」 전에 1회</b>, 약 1.5초. 초안이 이미 있는 수업(4-3)에서는 <b>이 호출조차 필요 없습니다.</b>
+</div>
+
+<h3>4-6. 매니저를 거치지 않습니다 — 검수를 «사람» 에서 «규칙» 으로</h3>
+<div class="box green">
+  <b>✅ 결정(사장님, 2026-08-08): 강사가 학부모에게 직접 보냅니다. 매니저 승인 단계는 두지 않습니다.</b><br>
+  이유: 하루 40여 건을 사람이 읽으면 <b>매니저 일이 그만큼 늘어납니다.</b>
+  게다가 승인 대기가 생기면 <b>「승인 0건」이 또 반복됩니다</b> — AI 초안 18건이 전부 승인 대기로 멈춰 있던 것이 바로 그 모양입니다.
+</div>
+<p>대신 <b>사고를 사람이 아니라 규칙이 막습니다.</b> 「보내기」를 누른 그 순간, 서버에서 아래를 확인합니다(0.01초, 강사는 못 느낍니다).</p>
+<table>
+<tr><th></th><th>무엇을 보나</th><th>걸리면</th></tr>
+<tr><td>🔴 <b>차단</b></td>
+    <td>한국어가 비었거나 <b>한글 비율이 낮음</b>(=영어가 그대로 나갈 판) · 학생 이름이 그 수업의 학생과 다름</td>
+    <td><b>보내지 않고</b> 강사에게 되돌립니다</td></tr>
+<tr><td>🟠 <b>확인 권고</b></td>
+    <td>단정적 표현(「게으르다」「전혀 안 됩니다」) · <b>다른 아이와 비교</b> · 400자 초과</td>
+    <td>한 번 붙잡고 <b>「부드럽게 고쳐 주기」</b>를 제안. 강사가 판단해 그대로 보낼 수도 있습니다</td></tr>
+<tr><td>🌙 <b>야간</b></td>
+    <td>한국 시각 <b>22시~08시</b></td>
+    <td>저장만 하고 <b>다음 날 오전 8시</b>에 발송</td></tr>
+</table>
+<div class="box warn">
+  <b>야간 규칙은 실제 시간표에서 나온 것입니다.</b> 지금 등록된 수업의 시작 시각이 <b>최대 23:00</b> 입니다.
+  그대로 두면 23:25 에 끝난 수업의 일지가 <b>한국 학부모 집에 자정 넘어 문자로</b> 갑니다.
+</div>
+<p><b>관리자 화면에는 «전수»가 아니라 «걸린 것»만 올라옵니다.</b>
+자동 점검에 걸렸는데도 그대로 보낸 건, 학부모가 오래 안 읽은 건 정도입니다 — 하루 한두 건입니다.
+<b>매니저가 41건을 읽는 일은 생기지 않습니다.</b></p>
+<div class="box blue">
+  <b>보낸 뒤에 고칠 수 있습니다.</b> 문자는 회수할 수 없지만 <b>링크로 열리는 본문은 수정·비공개</b>가 됩니다.
+  실수를 되돌릴 길이 있어야 「직접 발송」을 마음 편히 쓸 수 있습니다.
+</div>
+
+<h3>4-7. 요구사항 ② — 「가볍게·안 멈추게」를 숫자로 못 박습니다</h3>
+<p>강사 포털 <code>teacher.html</code> 머리에 적힌 5규칙(외부 리소스 0 · 차트 금지 · 애니메이션 금지 ·
+첫 화면 API 1회 · 이모지 제한)을 <b>그대로 지킵니다.</b> 그 위에 일지의 예산을 더합니다.</p>
+<table>
+<tr><th>항목</th><th>예산</th><th>방법</th></tr>
+<tr><td>첫 화면 추가 요청</td><td><b>0회</b></td><td>기존 <code>/api/teacher/portal</code> 응답에 <code>note_status</code> 한 필드만 얹음 (배지만 그림)</td></tr>
+<tr><td>일지 열 때</td><td>1회 · ≤8KB</td><td>탭할 때만 본문 요청 (<code>details</code> 지연 로딩 — 이미 이 화면이 쓰는 방식)</td></tr>
+<tr><td>보내기</td><td>1회 · ≤4KB</td><td><b>낙관적 저장</b> — 누르면 즉시 「보냈습니다」, 전송은 뒤에서</td></tr>
+<tr><td>전송 실패</td><td>화면 안 멈춤</td><td>로컬 큐에 넣고 <b>다음에 화면 열 때 자동 재시도</b> (회선이 끊겨도 글이 사라지지 않음)</td></tr>
+<tr><td>추가 코드</td><td>인라인 ≤6KB</td><td><b>외부 JS 파일 금지</b> — 이 화면의 «외부 리소스 0개» 계약</td></tr>
+<tr><td>영어→한국어 다듬기</td><td>1회 · 약 1.5초</td><td>「보내기」 전 1회만. <b>한 번의 호출로 영어·한국어 둘 다</b> 받음(두 번 부르지 않음)</td></tr>
+<tr><td>사진(선택)</td><td>1장 ≤200KB</td><td>브라우저에서 1024px·JPEG 0.7로 줄여 업로드. <b>원본 업로드 금지</b></td></tr>
+<tr><td>차트·애니메이션</td><td><b>0</b></td><td>숫자와 글자만</td></tr>
+</table>
+<div class="box blue">
+  <b>「튕김」의 정체는 대개 «큰 파일»이 아니라 «많은 왕복»입니다.</b>
+  (실측: 950KB 화면이 23초인데 순수 전송은 2~3초였습니다.)
+  그래서 일지는 <b>요청 수</b>를 예산으로 잡았습니다.
+</div>
+
+<hr>
+
+<h2>5. 흩어진 3벌을 하나로</h2>
+<table>
+<tr><th>지금</th><th>담고 있는 것</th><th>앞으로</th></tr>
+<tr><td><code>student_evaluations</code></td><td>별점 5 + 강점/보완/다음목표</td><td>기존 104행은 <b>읽기 전용 보존</b>. 신규 작성은 새 <code>lesson_notes</code> 로</td></tr>
+<tr><td><code>feedback_drafts</code></td><td>AI 초안 + 승인 흐름</td><td><b><code>lesson_notes</code> 의 «초안» 상태로 흡수</b> (흐름은 그대로 살림)</td></tr>
+<tr><td><code>teacher_feedbacks</code></td><td>승인본 보관(0행)</td><td>역할 종료 — <code>lesson_notes</code> 가 대신함</td></tr>
+<tr><td><code>teacher_class_feedback</code></td><td><b>강사 코칭</b>(학부모용 아님)</td><td><b>그대로 둠</b> — 대상이 다름(강사 본인용)</td></tr>
+</table>
+<div class="box red">
+  <b>🔑 합칠 때 반드시 같이 해야 하는 것 — 급여 공제 판정을 <code>lesson_notes</code> 한 곳으로 옮기기.</b><br>
+  이걸 빼면 이번에도 <b>「써도 소용없다」</b>가 반복됩니다. 3장 ①이 그렇게 생긴 문제입니다.
+</div>
+
+<hr>
+
+<h2>6. 경쟁사에서 가져올 것 · 가져오지 말 것</h2>
+<p class="en">아래는 각 서비스가 공개적으로 알려진 대표 기능 기준입니다. 세부 사양은 각 사 정책에 따라 달라질 수 있습니다.</p>
+<table>
+<tr><th>서비스</th><th>핵심 강점</th><th>우리가 가져올 것</th></tr>
+<tr><td><b>Brightwheel</b><br><span class="en">미국 유아·어린이집</span></td>
+    <td>하루치 리포트가 제품의 본체. <b>체크박스·템플릿 위주</b>라 입력이 빠르고, 반 전체에 <b>일괄 발송</b></td>
+    <td><b>「빈 칸이 아니라 선택지」</b> — 우리 원탭 칩 4개가 이 아이디어. 매일 쓰게 하려면 자유서술을 줄여야 함</td></tr>
+<tr><td><b>ClassDojo</b><br><span class="en">초등 · 학부모 소통</span></td>
+    <td>사진 한 장 = 소식(Class Story). 행동 기록·메시지·사진을 <b>한 앱에 통합</b></td>
+    <td><b>사진 1장의 힘</b>(선택 기능) + <b>통합</b> — 지금 우리가 6군데 흩어진 것과 정반대</td></tr>
+<tr><td><b>Seesaw</b><br><span class="en">포트폴리오</span></td>
+    <td>기록이 <b>학생별로 쌓여 학기말에 그대로 자료</b>가 됨. 학부모 댓글</td>
+    <td><b>누적</b> — 일지를 학생 타임라인으로 쌓아 월간·학기 리포트에 자동 재사용(이미 <code>monthly_reports</code> 있음)</td></tr>
+<tr><td><b>링글</b><br><span class="en">국내 1:1 화상영어</span></td>
+    <td>수업이 끝나도 <b>남는 것</b>: 수업 노트 · 문장 단위 교정 · 녹화 · AI 분석 리포트</td>
+    <td><b>「남는 것」을 학부모 언어로</b> — 우리는 아동 대상이므로 성인용 교정 리포트가 아니라 <b>학부모용 3문장</b>이 정답</td></tr>
+<tr><td><b>Preply · italki</b><br><span class="en">글로벌 튜터 마켓</span></td>
+    <td>강사 lesson note가 <b>짧은 자유서술 1칸</b>. 강제하지 않음</td>
+    <td><b>길게 요구할수록 안 쓴다</b>는 반면교사. 우리 1분 평가는 입력칸이 5개였고 실사용 0건</td></tr>
+</table>
+
+<h3>공통 교훈 3가지</h3>
+<ol>
+  <li><b>입력을 줄여야 매일 쓴다.</b> 잘 쓰이는 제품은 하나같이 «쓰기»가 아니라 «고르기»입니다.</li>
+  <li><b>「읽음」이 강사의 연료다.</b> 우리는 열람 0/104인데 <b>강사에게 보이지도 않습니다.</b>
+      일지 카드에 <span class="tag y">학부모 읽음</span> 표시 한 줄이 들어가야 합니다.</li>
+  <li><b>사진 1장 &gt; 문장 5줄.</b> 학부모 반응은 사진에서 나옵니다(다만 아래 «안 가져올 것» 참고).</li>
+</ol>
+
+<div class="box warn">
+  <b>가져오지 말 것</b>
+  <ul>
+    <li><b>얼굴 인식 자동 태깅</b>(관리자 카드에 적혀 있는 기능) — 아동 생체정보입니다. 동의·보관 정책이 먼저입니다.
+        <b>지금 우리 사이트에는 개인정보처리방침 페이지 자체가 없습니다.</b></li>
+    <li><b>실시간 학부모 채팅</b> — 필리핀 강사와 한국 학부모는 시차가 있습니다. 24시간 응대 압박은 강사 이탈로 돌아옵니다.
+        <b>단방향 발송 + 관리자 경유 답변</b>이 우리 구조에 맞습니다.</li>
+    <li><b>점수·등급 공개</b> — 지금 평가서는 「종합 4.2/10」 같은 숫자를 학부모에게 그대로 보냅니다.
+        경쟁 제품들이 아동 리포트에서 점수를 빼는 데는 이유가 있습니다.</li>
+  </ul>
+</div>
+
+<hr>
+
+<h2>7. 단계 계획 — 작은 것부터, 되돌릴 수 있게</h2>
+<table>
+<tr><th>단계</th><th>내용</th><th>규모</th><th>효과</th></tr>
+<tr><td><b>Phase 0</b><br><span class="tag n">지금 손해 중</span></td>
+    <td>① 공제 판정에 <code>student_evaluations</code> 포함<br>② 1분 평가 저장 시 학부모 알림 연결(전화번호 전달)</td>
+    <td>반나절 · 서버 소량</td>
+    <td><b>성실한 강사가 깎이는 것을 멈춤</b> + 학부모가 처음으로 무언가를 받음</td></tr>
+<tr><td><b>Phase 1</b></td>
+    <td><code>lesson_notes</code> 통합 + 「오늘의 수업」 카드 안 📝 일지 + 낙관적 저장/자동 재시도<br>
+        + <b>영어→한국어 다듬기</b>(<code>/api/translate</code> 에 <code>mode:'note'</code> 추가)</td>
+    <td>2~3일 (+ 번역 0.5일)</td><td>강사가 <b>한 곳에서 영어로</b> 끝냄. 학부모는 한국어를 받음. 첫 화면 요청 증가 0</td></tr>
+<tr><td><b>Phase 2</b></td>
+    <td>수업 중 원탭 칩 + 출석 <code>role='teacher'</code> 수정 → <b>재료 확보</b></td>
+    <td>2일 (화상수업 화면 — 배포 권한자 합의 필요)</td><td>AI 초안이 <b>사실</b>을 쓰기 시작</td></tr>
+<tr><td><b>Phase 3</b></td>
+    <td>수업 종료 시 초안 미리 굽기(방 1건만) + 학부모 발송 + <b>읽음 표시</b><br>
+        + <b>보내기 전 자동 점검</b>(차단·확인 권고) + <b>야간 22–08시 예약 발송</b></td>
+    <td>2일 (+ 점검 0.5일)</td><td>강사 대기 30초 → <b>0초</b>. 탭 2번으로 완료. <b>매니저 검수 없이도 사고가 막힘</b></td></tr>
+<tr><td><b>Phase 4</b><br><span class="tag p">선택</span></td>
+    <td>사진 1~3장(동의 정책 확정 후) · 학생 타임라인 · 학기말 자동 정리</td>
+    <td>추후</td><td>Seesaw식 누적 가치</td></tr>
+<tr><td><b>관리자</b></td>
+    <td>「📝 수업 일지 🚧 준비 중」 카드 → <b>현황판</b>(미작성 강사 · 발송률 · 열람률 · <b>⚠ 확인 필요만</b>)</td>
+    <td>0.5일</td><td>홍보 문구가 <b>사실</b>이 됨. 매니저는 <b>규칙에 걸린 한두 건</b>만 봄</td></tr>
+</table>
+
+<div class="box green">
+  <b>Phase 0만 해도 오늘의 손해가 멈춥니다.</b> 나머지는 순서대로 붙이면 되고, 각 단계는 독립적으로 되돌릴 수 있습니다.
+</div>
+
+<hr>
+
+<h2>8. 사장님 결정이 필요한 것</h2>
+<ol>
+  <li><b>학부모 발송 채널</b> — 문자(SMS)로 갈지, 알림톡으로 갈지.
+      알림톡은 <b>템플릿 사전 승인</b>이 필요합니다. 지금 평가서는 채팅요약용 템플릿을 임시로 돌려 쓰고 있습니다(<code>api-lessons.ts:180</code>).</li>
+  <li><b>공제 정책</b> — 일지를 「당일 피드백」으로 인정할지(현재 ₱25/건). 인정한다면 <b>일지 하나로 일원화</b>합니다.</li>
+  <li><b>사진 첨부</b> — 허용 여부. 허용하려면 <b>개인정보처리방침 + 동의 절차</b>가 먼저입니다.</li>
+  <li><b>점수 공개</b> — 학부모에게 종합 점수를 계속 보낼지, 문장만 보낼지.</li>
+  <li><s>번역본 검수</s> → <b>결정됨: 강사가 직접 발송.</b> 매니저 승인 단계 없음(4-6). 대신 자동 점검 규칙으로 막습니다.</li>
+  <li><b>「부드럽게 고쳐 주기」의 강도</b> — 단정적 표현이 걸렸을 때 AI가 다시 써 주는 문장의 수위.
+      너무 부드럽게 만들면 <b>학부모가 문제를 모르고 지나갑니다.</b> 샘플의 예시 문장으로 한 번 봐 주시면 기준을 잡겠습니다.</li>
+  <li><b>화상수업 화면 수정 동의</b> — Phase 2의 원탭 칩은 공동 금지구역(<code>public/index.html</code>)을 건드립니다.
+      배포 권한자와 사전 합의가 필요합니다.</li>
+</ol>
+
+<div class="box blue">
+  <b>담당 영역 안내</b> — 이 작업은 <code>teacher.html</code>(강사 화면), <code>api-admin.ts</code>·<code>admin.html</code>(A 영역),
+  <code>public/index.html</code>(공동 금지구역)에 걸쳐 있습니다. 착수 전 두 사람이 순서를 맞춰야 합니다.
+</div>
+
+<div class="foot">
+  📊 수치 출처: 운영 D1 <code>mango-db</code> 직접 조회(SELECT 전용, 2026-08-08) ·
+  코드 근거: <code>teacher.html</code>, <code>admin.html</code>, <code>src/api-lessons.ts</code>, <code>src/api-admin.ts</code><br>
+  이 문서 작성 과정에서 <b>코드·데이터 변경은 없습니다.</b>
+</div>
+
+</div>
+</body>
+</html>

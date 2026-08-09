@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>수업 일지 샘플 — 강사 화면 (2026-08-08)</title>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  📝 수업 일지 샘플 (클릭해 볼 수 있는 시안)
+     · teacher.html 의 계약을 그대로 지켜서 만들었습니다:
+       외부 리소스 0개 · 차트 0개 · 애니메이션 0개 · 시스템 폰트만
+     · 데이터는 전부 가짜입니다. 서버를 부르지 않습니다.
+     · ⚠ 이 파일은 저장소 루트에 둡니다. public/ 에 두면 배포 시
+       실서비스에 그대로 올라갑니다.
+  ════════════════════════════════════════════════════════════════════
+-->
+<style>
+  *{box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,.06)}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",'Malgun Gothic',Roboto,Arial,sans-serif;
+       font-size:16px;line-height:1.5;color:#16202c;background:#eef1f5}
+  .page{max-width:1080px;margin:0 auto;padding:20px 16px 70px}
+  .hd{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+  .hd h1{font-size:21px;margin:0;font-weight:800;flex:1;min-width:240px}
+  .hd .desc{width:100%;color:#5d6b7a;font-size:13.5px;margin:2px 0 0}
+  .langbtn{border:1px solid #c9d2dc;background:#fff;border-radius:8px;padding:9px 13px;
+           font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;min-height:44px}
+  .budget{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 22px}
+  .budget span{background:#fff;border:1px solid #d9e0e8;border-radius:999px;padding:5px 11px;
+               font-size:12.5px;color:#2c3a48;font-weight:700}
+  .cols{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+  .col{flex:1 1 330px;min-width:300px}
+  .coltitle{font-size:13px;font-weight:800;color:#5d6b7a;margin:0 0 8px;letter-spacing:.02em}
+
+  /* ── 강사 화면(teacher.html 의 실제 스타일 값) ── */
+  .phone{background:#f4f6f8;border:1px solid #cbd3dc;border-radius:14px;padding:12px;max-width:430px}
+  .top{display:flex;align-items:center;gap:10px;padding:4px 2px 12px}
+  .top h2{font-size:18px;margin:0;font-weight:700;flex:1}
+  .top h2 span{display:block;font-size:12.5px;font-weight:400;color:#5d6b7a}
+  .card{background:#fff;border:1px solid #dde3ea;border-radius:10px;padding:12px 13px;margin-bottom:10px}
+  .card h3{font-size:14.5px;margin:0 0 8px;font-weight:800}
+  .cls{border:1px solid #e2e8f0;border-radius:9px;padding:10px 11px;margin-bottom:8px;background:#fff}
+  .cls.done{background:#fbfcfd}
+  .cls .nm{font-weight:700;font-size:15px}
+  .cls .mt{color:#5d6b7a;font-size:12.5px;margin-top:1px}
+  .badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;margin-left:6px;vertical-align:1px}
+  .badge.rdy{background:#dbeafe;color:#1e3a8a}
+  .badge.sent{background:#dcf5e3;color:#14532d}
+  .badge.miss{background:#fde8e8;color:#991b1b}
+  .badge.soon{background:#eef1f5;color:#4b5563}
+  .btn{border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:8px;
+       padding:9px 13px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;
+       min-height:44px;display:inline-flex;align-items:center;justify-content:center;
+       margin:8px 6px 0 0;line-height:1.2}
+  .btn:active{background:#eef1f5}
+  .btn.pri{background:#15803d;border-color:#15803d;color:#fff}
+  .btn.blue{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+  .btn.sm{min-height:38px;padding:7px 11px;font-size:13.5px}
+  .btn[disabled]{opacity:.55;cursor:default}
+  .note{border-top:1px dashed #dde3ea;margin-top:10px;padding-top:10px}
+  .draft{background:#f7f9fb;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;
+         font-size:13.5px;line-height:1.62;color:#20293a}
+  .draft .ko{margin-top:8px;padding-top:8px;border-top:1px dashed #dde3ea;color:#334155}
+  .lab{font-size:12px;font-weight:800;color:#5d6b7a;margin-bottom:3px}
+  .chips{margin:10px 0 2px}
+  .chip{display:inline-block;border:1px solid #c9d2dc;border-radius:999px;padding:7px 12px;
+        font-size:13px;margin:0 6px 6px 0;background:#fff;cursor:pointer;font-family:inherit;
+        color:#2c3a48;min-height:38px}
+  .chip.on{background:#1d4ed8;border-color:#1d4ed8;color:#fff;font-weight:700}
+  .msg{margin-top:9px;font-size:13.5px;font-weight:700}
+  .msg.ok{color:#15803d}
+  .msg.q{color:#a16207}
+  textarea{width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:9px 10px;font-size:13.5px;
+           font-family:inherit;line-height:1.55;color:#16202c;resize:vertical}
+  .hint{color:#5d6b7a;font-size:12.5px;margin-top:7px}
+  .fixnote{margin-top:7px;font-size:12.5px;color:#5d6b7a}
+  .fixnote i{font-style:normal;background:#fef3c7;border-radius:4px;padding:1px 5px;margin-right:5px;color:#78350f}
+  .guard{margin-top:11px;background:#f7f9fb;border:1px solid #e2e8f0;border-radius:8px;
+         padding:9px 11px;font-size:12.5px;color:#475569;line-height:1.6}
+  .guard b{display:block;color:#1b2233;font-size:12.5px;margin-bottom:3px}
+  .pref{margin-top:11px;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.6}
+  .pref b{display:block;margin-bottom:4px;font-size:13.5px}
+  .pref.bad{background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}
+  .pref.warn{background:#fffbeb;border:1px solid #fcd34d;color:#78350f}
+  .pref .btn{margin-top:8px}
+  .sw{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:#374151}
+  .sw button{border:1px solid #c9d2dc;background:#fff;border-radius:999px;padding:6px 11px;
+             font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;min-height:36px}
+  .sw button.off{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
+
+  /* ── 학부모가 받는 것 ── */
+  .sms{background:#fff;border:1px solid #dde3ea;border-radius:12px;padding:14px}
+  .bub{background:#f1f5f9;border-radius:12px 12px 12px 3px;padding:11px 13px;font-size:13.5px;
+       line-height:1.62;color:#1b2233;max-width:330px}
+  .bub b{color:#0f172a}
+  .link{color:#1d4ed8;text-decoration:underline;word-break:break-all}
+
+  /* ── 관리자 현황판 ── */
+  .kpi{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 10px}
+  .kpi div{flex:1 1 90px;background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:9px 8px;text-align:center}
+  .kpi b{display:block;font-size:20px;font-weight:800;color:#c2410c;line-height:1.25}
+  .kpi span{font-size:11.5px;color:#5d6b7a}
+  table{border-collapse:collapse;width:100%;font-size:13px;background:#fff}
+  th,td{border:1px solid #e2e8f0;padding:6px 8px;text-align:left}
+  th{background:#f6f8fa;font-weight:800;white-space:nowrap}
+
+  .cmp{background:#fff;border:1px solid #dde3ea;border-radius:12px;padding:14px 16px;margin-top:22px}
+  .cmp h3{margin:0 0 8px;font-size:15.5px}
+  .cmp table{font-size:13.5px}
+  .foot{color:#5d6b7a;font-size:12.5px;margin-top:26px;border-top:1px solid #dde3ea;padding-top:12px}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="hd">
+    <h1 data-ko="📝 수업 일지 — 강사 화면 샘플" data-en="📝 Class Log — Teacher screen sample">📝 수업 일지 — 강사 화면 샘플</h1>
+    <button class="langbtn" id="lang" onclick="toggleLang()">EN</button>
+    <p class="desc" data-ko="눌러 보실 수 있는 시안입니다. 데이터는 가짜이고 서버를 부르지 않습니다. 강사 포털(teacher.html)의 규칙 — 외부 리소스 0개 · 차트 0개 · 애니메이션 0개 — 을 그대로 지켜 만들었습니다."
+       data-en="A clickable mock-up. All data is fake and no server is called. Built under the teacher portal rules: zero external resources, zero charts, zero animation.">
+       눌러 보실 수 있는 시안입니다. 데이터는 가짜이고 서버를 부르지 않습니다. 강사 포털(teacher.html)의 규칙 — 외부 리소스 0개 · 차트 0개 · 애니메이션 0개 — 을 그대로 지켜 만들었습니다.</p>
+  </div>
+
+  <div class="budget">
+    <span data-ko="외부 리소스 0개" data-en="0 external resources">외부 리소스 0개</span>
+    <span data-ko="첫 화면 추가 요청 0회" data-en="0 extra first-paint requests">첫 화면 추가 요청 0회</span>
+    <span data-ko="일지 열 때 1회 (8KB 이하)" data-en="1 request to open (≤8KB)">일지 열 때 1회 (8KB 이하)</span>
+    <span data-ko="보내기 1회 (4KB 이하)" data-en="1 request to send (≤4KB)">보내기 1회 (4KB 이하)</span>
+    <span data-ko="초안 대기 0초" data-en="0s waiting for the draft">초안 대기 0초</span>
+    <span data-ko="영어→한국어 다듬기 1회 (약 1.5초)" data-en="Polish + translate: 1 call (~1.5 s)">영어→한국어 다듬기 1회 (약 1.5초)</span>
+    <span data-ko="매니저 승인 단계 없음 — 강사가 바로 발송" data-en="No manager approval — the teacher sends">매니저 승인 단계 없음 — 강사가 바로 발송</span>
+  </div>
+
+  <div class="cols">
+
+    <!-- ══════════ 1. 강사 화면 ══════════ -->
+    <div class="col" style="flex:1 1 430px">
+      <p class="coltitle" data-ko="① 강사가 보는 화면 (/teacher · 휴대폰)" data-en="① What the teacher sees (/teacher · phone)">① 강사가 보는 화면 (/teacher · 휴대폰)</p>
+      <div class="phone">
+        <div class="top">
+          <h2>Teacher Maimai
+            <span data-ko="2026-08-08 (금) · 오늘 수업 3건" data-en="Fri 8 Aug 2026 · 3 classes today">2026-08-08 (금) · 오늘 수업 3건</span></h2>
+        </div>
+
+        <div class="card">
+          <h3 data-ko="오늘의 수업" data-en="Today's Classes">오늘의 수업</h3>
+
+          <!-- 수업 1 : 초안 준비됨 -->
+          <div class="cls done" id="c1">
+            <div class="nm">김서연 <span class="badge rdy" id="b1" data-ko="일지 초안 준비됨" data-en="Draft ready">일지 초안 준비됨</span></div>
+            <div class="mt">14:00 – 14:25 · 25<span data-ko="분" data-en=" min">분</span> · <span data-ko="완료" data-en="finished">완료</span></div>
+            <button class="btn blue sm" id="open1" onclick="openNote()"
+                    data-ko="📝 일지 열기" data-en="📝 Open log">📝 일지 열기</button>
+
+            <!-- 일지 패널 -->
+            <div class="note" id="note" hidden>
+              <div class="lab" data-ko="AI 초안 — 수업이 끝나는 순간 서버가 미리 만들어 둔 것입니다"
+                   data-en="AI draft — prepared by the server the moment the class ended">AI 초안 — 수업이 끝나는 순간 서버가 미리 만들어 둔 것입니다</div>
+              <div class="draft" id="draftView">
+                <div id="dEn">Today Seoyeon practised past-tense questions and spoke for most of the lesson.
+                  She answered confidently and I praised her 3 times. At home, reading today's sentences
+                  aloud once more will help a lot.</div>
+                <div class="ko" id="dKo"><b data-ko="[학부모에게 나가는 한국어]" data-en="[Korean — this is what the parent receives]">[학부모에게 나가는 한국어]</b><br>
+                  오늘 서연이는 과거형 질문을 연습했고 수업 대부분을 스스로 말했습니다.
+                  자신 있게 대답해서 세 번 칭찬했습니다. 집에서 오늘 문장을 한 번 더 소리 내어 읽어 보면 큰 도움이 됩니다.</div>
+              </div>
+
+              <!-- 수정 모드 -->
+              <div id="editBox" hidden style="margin-top:10px">
+                <div class="lab" data-ko="영어 (강사 확인용)" data-en="English (for your own check)">영어 (강사 확인용)</div>
+                <textarea id="tEn" rows="4">Today Seoyeon practised past-tense questions and spoke for most of the lesson. She answered confidently and I praised her 3 times. At home, reading today's sentences aloud once more will help a lot.</textarea>
+                <div class="lab" style="margin-top:8px" data-ko="한국어 (학부모에게 발송)" data-en="Korean (sent to the parent)">한국어 (학부모에게 발송)</div>
+                <textarea id="tKo" rows="4">오늘 서연이는 과거형 질문을 연습했고 수업 대부분을 스스로 말했습니다. 자신 있게 대답해서 세 번 칭찬했습니다. 집에서 오늘 문장을 한 번 더 소리 내어 읽어 보면 큰 도움이 됩니다.</textarea>
+              </div>
+
+              <div class="lab" style="margin-top:11px"
+                   data-ko="수업 중에 눌러 둔 것 (그대로 두거나 고치면 됩니다)"
+                   data-en="Tapped during class (keep them, or change them)">수업 중에 눌러 둔 것 (그대로 두거나 고치면 됩니다)</div>
+              <div class="chips" id="chips">
+                <button class="chip on" onclick="tog(this)" data-ko="잘 말했어요" data-en="Spoke well">잘 말했어요</button>
+                <button class="chip on" onclick="tog(this)" data-ko="칭찬 3회" data-en="Praised 3×">칭찬 3회</button>
+                <button class="chip" onclick="tog(this)" data-ko="발음 연습 필요" data-en="Needs pronunciation work">발음 연습 필요</button>
+                <button class="chip" onclick="tog(this)" data-ko="숙제 미제출" data-en="Homework not done">숙제 미제출</button>
+              </div>
+
+              <div id="acts">
+                <button class="btn pri" id="send" onclick="send()" data-ko="✅ 보내기" data-en="✅ Send">✅ 보내기</button>
+                <button class="btn" id="edit" onclick="toggleEdit()" data-ko="✏ 고치고 보내기" data-en="✏ Edit, then send">✏ 고치고 보내기</button>
+                <button class="btn" onclick="later()" data-ko="나중에" data-en="Later">나중에</button>
+              </div>
+              <div class="msg" id="msg" hidden></div>
+              <div class="hint" id="hint" data-ko="탭 2번이면 끝납니다 — 열기 → 보내기. 빈 칸을 채울 일이 없습니다."
+                   data-en="Two taps and it is done — open, send. There is no empty box to fill.">탭 2번이면 끝납니다 — 열기 → 보내기. 빈 칸을 채울 일이 없습니다.</div>
+            </div>
+          </div>
+
+          <!-- 수업 2 : 초안 없음 → 강사가 영어로 직접 쓰는 경우 -->
+          <div class="cls done" id="c2">
+            <div class="nm">박도윤 <span class="badge miss" id="b2" data-ko="일지 미작성" data-en="No log yet">일지 미작성</span></div>
+            <div class="mt">15:00 – 15:25 · 25<span data-ko="분" data-en=" min">분</span> · <span data-ko="완료 · 녹음 없음 → 강사가 직접" data-en="finished · no recording → written by the teacher">완료 · 녹음 없음 → 강사가 직접</span></div>
+            <button class="btn blue sm" id="open2" onclick="openNote2()"
+                    data-ko="📝 일지 열기" data-en="📝 Open log">📝 일지 열기</button>
+
+            <div class="note" id="note2" hidden>
+              <div class="lab" data-ko="영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다."
+                   data-en="Just write in English. Do not worry about grammar.">영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다.</div>
+              <textarea id="rawEn" rows="4" oninput="rawChanged()"
+                        placeholder="e.g. He not do the homework again..."></textarea>
+              <div class="hint" data-ko="예문 넣어 보기:" data-en="Try an example:">예문 넣어 보기:</div>
+              <div class="chips" id="samples">
+                <button class="chip" onclick="fill(0)" data-ko="① 칭찬" data-en="① Praise">① 칭찬</button>
+                <button class="chip" onclick="fill(1)" data-ko="② 숙제 안 해 옴" data-en="② Homework missed">② 숙제 안 해 옴</button>
+                <button class="chip" onclick="fill(2)" data-ko="③ 수줍은 아이" data-en="③ Shy student">③ 수줍은 아이</button>
+                <button class="chip" onclick="fill(3)" data-ko="④ 걸리는 표현" data-en="④ Risky wording">④ 걸리는 표현</button>
+              </div>
+              <button class="btn blue" id="trBtn" onclick="translateNote()"
+                      data-ko="🌐 다듬어서 한국어로" data-en="🌐 Polish &amp; translate">🌐 다듬어서 한국어로</button>
+              <span class="hint" id="trHint" style="display:inline-block;margin-left:6px"
+                    data-ko="약 1.5초" data-en="about 1.5 s">약 1.5초</span>
+
+              <div id="trOut" hidden style="margin-top:11px">
+                <div class="lab" data-ko="① 다듬은 영어 — 강사가 확인용" data-en="① Polished English — for your own check">① 다듬은 영어 — 강사가 확인용</div>
+                <div class="draft" id="outEn"></div>
+                <div class="fixnote" id="fixList"></div>
+
+                <div class="lab" style="margin-top:10px" data-ko="② 학부모에게 나가는 한국어 — 고칠 수 있습니다"
+                     data-en="② Korean the parent receives — you can edit it">② 학부모에게 나가는 한국어 — 고칠 수 있습니다</div>
+                <textarea id="outKo" rows="4"></textarea>
+
+                <div class="guard" id="guard">
+                  <b data-ko="번역기에 보내기 전에 지키는 것" data-en="Guards applied before anything is sent">번역기에 보내기 전에 지키는 것</b>
+                  <div data-ko="· 학생 실명은 {{STUDENT}} 로 가려서 보내고, 돌아오면 되돌립니다"
+                       data-en="· The student's real name is masked as {{STUDENT}} and restored afterwards">· 학생 실명은 {{STUDENT}} 로 가려서 보내고, 돌아오면 되돌립니다</div>
+                  <div data-ko="· 학부모에게는 항상 존댓말 (반말·번역투 금지)"
+                       data-en="· Always polite Korean for parents (no plain form, no translationese)">· 학부모에게는 항상 존댓말 (반말·번역투 금지)</div>
+                  <div data-ko="· 「숙제」는 homework 로 고정 (집안일·직업으로 옮기던 오역 차단)"
+                       data-en="· “숙제” is always school homework (blocks the housework/job mistranslation)">· 「숙제」는 homework 로 고정 (집안일·직업으로 옮기던 오역 차단)</div>
+                  <div data-ko="· 한국어가 안 나오면 발송하지 않고 강사에게 되돌립니다"
+                       data-en="· If no Korean comes back, nothing is sent — it comes back to you">· 한국어가 안 나오면 발송하지 않고 강사에게 되돌립니다</div>
+                </div>
+
+                <div id="pref" hidden></div>
+                <button class="btn pri" id="send2" onclick="send2()" data-ko="✅ 보내기" data-en="✅ Send">✅ 보내기</button>
+                <div class="msg" id="msg2" hidden></div>
+                <div class="hint" data-ko="강사가 바로 학부모에게 보냅니다. 매니저 승인 단계는 없습니다 — 대신 보내기 직전에 아래 자동 점검이 돕니다."
+                     data-en="The teacher sends straight to the parent. There is no manager approval step — an automatic check runs at the moment of sending instead.">강사가 바로 학부모에게 보냅니다. 매니저 승인 단계는 없습니다 — 대신 보내기 직전에 아래 자동 점검이 돕니다.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 수업 3 : 예정 -->
+          <div class="cls">
+            <div class="nm">최민준 <span class="badge soon" data-ko="예정" data-en="Upcoming">예정</span></div>
+            <div class="mt">19:00 – 19:25 · <span data-ko="4시간 12분 뒤" data-en="in 4h 12m">4시간 12분 뒤</span></div>
+          </div>
+        </div>
+
+        <!-- 회선 상태 시뮬레이터 -->
+        <div class="card">
+          <h3 data-ko="회선이 끊겨도 멈추지 않습니다" data-en="It does not stall when the line drops">회선이 끊겨도 멈추지 않습니다</h3>
+          <div class="sw">
+            <span data-ko="지금 회선:" data-en="Line now:">지금 회선:</span>
+            <button id="netbtn" onclick="toggleNet()" data-ko="정상" data-en="online">정상</button>
+            <span class="hint" style="margin:0" id="nethint"
+                  data-ko="끊긴 상태로 「보내기」를 눌러 보세요."
+                  data-en="Try tapping Send while it is off.">끊긴 상태로 「보내기」를 눌러 보세요.</span>
+          </div>
+          <div class="hint" id="queue" hidden></div>
+          <div class="sw" style="margin-top:10px">
+            <span data-ko="지금 시각:" data-en="Time now:">지금 시각:</span>
+            <button id="nightbtn" onclick="toggleNight()" data-ko="낮 (15:30)" data-en="daytime (15:30)">낮 (15:30)</button>
+            <span class="hint" style="margin:0"
+                  data-ko="밤으로 바꾸고 보내면 «내일 오전 8시 예약»이 됩니다."
+                  data-en="Switch to night and send — it becomes “scheduled for 8 a.m.”">밤으로 바꾸고 보내면 «내일 오전 8시 예약»이 됩니다.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ 2 & 3 ══════════ -->
+    <div class="col">
+      <p class="coltitle" data-ko="② 학부모가 받는 것" data-en="② What the parent receives">② 학부모가 받는 것</p>
+      <div class="sms">
+        <div class="bub" id="smsbub">
+          <b>[망고아이]</b> <span id="smsName">김서연</span> <span data-ko="학생의 오늘 수업 일지가 도착했어요" data-en="— today's class log has arrived">학생의 오늘 수업 일지가 도착했어요</span><br><br>
+          👩‍🏫 Teacher Maimai:<br>
+          "<span id="smsBody">오늘 서연이는 과거형 질문을 연습했고 수업 대부분을 스스로 말했습니다. 자신 있게 대답해서 세 번 칭찬했습니다. 집에서 오늘 문장을 한 번 더 소리 내어 읽어 보면 큰 도움이 됩니다.</span>"<br><br>
+          <span class="link">mango-i.com/eval/2481</span>
+        </div>
+        <div class="hint" id="readState"
+             data-ko="아직 보내지 않았습니다. 왼쪽에서 「보내기」를 눌러 보세요."
+             data-en="Not sent yet. Tap Send on the left.">아직 보내지 않았습니다. 왼쪽에서 「보내기」를 눌러 보세요.</div>
+        <button class="btn sm" id="readBtn" hidden onclick="markRead()"
+                data-ko="👀 학부모가 열어봤다고 치기" data-en="👀 Pretend the parent opened it">👀 학부모가 열어봤다고 치기</button>
+      </div>
+
+      <p class="coltitle" style="margin-top:22px" data-ko="③ 관리자 화면은 «현황판»으로 (작성 아님)" data-en="③ Admin becomes a dashboard (not a writing screen)">③ 관리자 화면은 «현황판»으로 (작성 아님)</p>
+      <div class="card">
+        <div class="kpi">
+          <div><b>38 / 41</b><span data-ko="오늘 일지 작성" data-en="logs written today">오늘 일지 작성</span></div>
+          <div><b>36</b><span data-ko="학부모 발송" data-en="sent to parents">학부모 발송</span></div>
+          <div><b>27</b><span data-ko="열람" data-en="opened">열람</span></div>
+          <div><b>3</b><span data-ko="미작성" data-en="missing">미작성</span></div>
+        </div>
+        <table>
+          <tr><th data-ko="강사" data-en="Teacher">강사</th>
+              <th data-ko="수업" data-en="Classes">수업</th>
+              <th data-ko="미작성" data-en="Missing">미작성</th>
+              <th data-ko="열람률" data-en="Open rate">열람률</th></tr>
+          <tr><td>Maimai</td><td>6</td><td>0</td><td>83%</td></tr>
+          <tr><td>Melca</td><td>7</td><td>1</td><td>71%</td></tr>
+          <tr><td>Kaye</td><td>5</td><td>2</td><td>40%</td></tr>
+        </table>
+        <div class="pref warn" style="margin-top:10px">
+          <b data-ko="⚠ 확인 필요 1건 (전수 검수 아님)" data-en="⚠ 1 item to check (not a full review)">⚠ 확인 필요 1건 (전수 검수 아님)</b>
+          <div data-ko="Kaye · 박도윤 15:00 — 자동 점검에 「단정적 표현」으로 걸렸는데 그대로 보냈습니다."
+               data-en="Kaye · Doyun 15:00 — flagged as blunt wording and sent anyway.">Kaye · 박도윤 15:00 — 자동 점검에 「단정적 표현」으로 걸렸는데 그대로 보냈습니다.</div>
+        </div>
+        <div class="hint" data-ko="매니저는 41건을 읽지 않습니다. 규칙에 걸린 것만 올라옵니다 — 오늘은 1건입니다."
+             data-en="The manager does not read 41 logs. Only rule-flagged ones surface — one today.">매니저는 41건을 읽지 않습니다. 규칙에 걸린 것만 올라옵니다 — 오늘은 1건입니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ 비교 ══════════ -->
+  <div class="cmp">
+    <h3 data-ko="지금과 무엇이 다른가" data-en="What changes">지금과 무엇이 다른가</h3>
+    <table>
+      <tr><th></th>
+          <th data-ko="지금 (1분 평가)" data-en="Now (Quick Evaluation)">지금 (1분 평가)</th>
+          <th data-ko="이 샘플" data-en="This sample">이 샘플</th></tr>
+      <tr><td data-ko="강사 입력" data-en="Teacher input">강사 입력</td>
+          <td data-ko="별점 2 + 빈 칸 3개 + 제출 (최소 6회)" data-en="2 star rows + 3 empty boxes + submit (6+ actions)">별점 2 + 빈 칸 3개 + 제출 (최소 6회)</td>
+          <td data-ko="열기 + 보내기 (2회)" data-en="Open + Send (2 taps)">열기 + 보내기 (2회)</td></tr>
+      <tr><td data-ko="초안 대기" data-en="Waiting for a draft">초안 대기</td>
+          <td data-ko="최대 30초 (그 달 전 강사 급여 재계산)" data-en="up to 30 s (recomputes the whole month's payroll)">최대 30초 (그 달 전 강사 급여 재계산)</td>
+          <td data-ko="0초 (수업 끝날 때 미리 구움)" data-en="0 s (baked when the class ends)">0초 (수업 끝날 때 미리 구움)</td></tr>
+      <tr><td data-ko="학부모 발송" data-en="Sent to parent">학부모 발송</td>
+          <td data-ko="안 됨 (전화번호를 안 보냄) — 실측 열람 0/104" data-en="never (phone number not sent) — 0/104 opened">안 됨 (전화번호를 안 보냄) — 실측 열람 0/104</td>
+          <td data-ko="저장과 동시에 발송 + 열람 표시" data-en="sent on save + read receipt">저장과 동시에 발송 + 열람 표시</td></tr>
+      <tr><td data-ko="급여 공제" data-en="Payroll deduction">급여 공제</td>
+          <td data-ko="써도 «미작성»으로 깎임 (₱25/건)" data-en="still counted as missing (₱25 each)">써도 «미작성»으로 깎임 (₱25/건)</td>
+          <td data-ko="일지 하나로 인정" data-en="one log counts, full stop">일지 하나로 인정</td></tr>
+      <tr><td data-ko="강사가 직접 쓸 때" data-en="When the teacher writes it">강사가 직접 쓸 때</td>
+          <td data-ko="영어로 쓴 글이 그대로 저장 — 학부모는 못 읽음" data-en="English is stored as-is — the parent cannot read it">영어로 쓴 글이 그대로 저장 — 학부모는 못 읽음</td>
+          <td data-ko="영어로 쓰면 → 문법 다듬기 + 학부모용 한국어 (한 번의 호출)" data-en="Write in English → grammar polished + parent-facing Korean (one call)">영어로 쓰면 → 문법 다듬기 + 학부모용 한국어 (한 번의 호출)</td></tr>
+      <tr><td data-ko="검수" data-en="Review">검수</td>
+          <td data-ko="없음 (애초에 학부모에게 안 나갔음)" data-en="none (nothing ever reached a parent)">없음 (애초에 학부모에게 안 나갔음)</td>
+          <td data-ko="사람 대신 규칙 — 보내기 직전 자동 점검, 걸린 것만 관리자에게" data-en="rules instead of people — auto-check at send time, only flagged items surface">사람 대신 규칙 — 보내기 직전 자동 점검, 걸린 것만 관리자에게</td></tr>
+      <tr><td data-ko="밤 수업" data-en="Late classes">밤 수업</td>
+          <td data-ko="—" data-en="—">—</td>
+          <td data-ko="22시 이후는 저장만, 다음 날 오전 8시 발송" data-en="after 22:00 it is stored and delivered at 8 a.m.">22시 이후는 저장만, 다음 날 오전 8시 발송</td></tr>
+      <tr><td data-ko="회선 끊김" data-en="Line drops">회선 끊김</td>
+          <td data-ko="제출 실패 → 쓴 글이 사라짐" data-en="submit fails → the text is lost">제출 실패 → 쓴 글이 사라짐</td>
+          <td data-ko="즉시 «보냈습니다» + 큐에 저장 후 자동 재시도" data-en="instant “sent” + queued and retried automatically">즉시 «보냈습니다» + 큐에 저장 후 자동 재시도</td></tr>
+    </table>
+  </div>
+
+  <div class="foot" data-ko="※ 시안입니다. 학생 이름·수치는 전부 가짜이며 서버를 부르지 않습니다. 실제 구현은 teacher.html 안에 인라인 6KB 이하로 들어갑니다."
+       data-en="※ Mock-up only. Names and numbers are fake and no server is called. The real thing goes inline into teacher.html in under 6 KB.">
+    ※ 시안입니다. 학생 이름·수치는 전부 가짜이며 서버를 부르지 않습니다. 실제 구현은 teacher.html 안에 인라인 6KB 이하로 들어갑니다.</div>
+</div>
+
+<script>
+/* ── 5줄 applyLang — 사전 파일 없이 data-ko/data-en 만으로 (제안서 4-5) ── */
+var EN = false;
+function L(ko, en){ return EN ? en : ko; }
+function applyLang(){
+  var n = document.querySelectorAll('[data-ko]');
+  for (var i = 0; i < n.length; i++) n[i].textContent = EN ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
+  document.getElementById('lang').textContent = EN ? '한국어' : 'EN';
+  document.documentElement.lang = EN ? 'en' : 'ko';
+}
+function toggleLang(){ EN = !EN; applyLang(); repaint(); }
+
+/* ── 상태 ── */
+var opened = false, sent = false, online = true, queued = 0, night = false;
+
+/* 🌙 22:00~08:00(한국 시각)에는 저장만 하고 아침 8시에 보낸다.
+   수업이 밤 11시에도 있어서(시간표 실측 최대 23:00 시작) 그대로 두면
+   한국 학부모 집에 자정 넘어 문자가 간다. */
+function toggleNight(){
+  night = !night;
+  var b = document.getElementById('nightbtn');
+  b.className = night ? 'off' : '';
+  b.textContent = L(night ? '밤 (23:40)' : '낮 (15:30)', night ? 'night (23:40)' : 'daytime (15:30)');
+}
+
+function openNote(){
+  opened = true;
+  document.getElementById('note').hidden = false;
+  document.getElementById('open1').hidden = true;
+}
+function tog(b){ b.className = (b.className.indexOf('on') >= 0) ? 'chip' : 'chip on'; }
+
+function toggleEdit(){
+  var e = document.getElementById('editBox'), v = document.getElementById('draftView');
+  var on = e.hidden;
+  e.hidden = !on; v.hidden = on;
+  document.getElementById('edit').textContent = on ? L('수정 취소','Cancel edit') : L('✏ 고치고 보내기','✏ Edit, then send');
+}
+
+/* ── 보내기: 낙관적 UI — 누르면 즉시 성공, 전송은 뒤에서 ── */
+function send(){
+  var ko = document.getElementById('editBox').hidden
+         ? document.getElementById('tKo').defaultValue
+         : document.getElementById('tKo').value;
+  var msg = document.getElementById('msg');
+  msg.hidden = false;
+  document.getElementById('send').disabled = true;
+  document.getElementById('edit').disabled = true;
+
+  if (online){
+    msg.className = 'msg ok';
+    msg.textContent = L('✅ 보냈습니다 · 학부모에게 발송 중','✅ Sent · delivering to the parent');
+    document.getElementById('smsBody').textContent = ko;
+    document.getElementById('readState').textContent = L('발송됨 · 아직 열어보지 않음','Delivered · not opened yet');
+    document.getElementById('readBtn').hidden = false;
+    setBadge('sent', L('보냈습니다','Sent'));
+    sent = true;
+  } else {
+    /* 회선이 끊겨도 화면은 즉시 성공. 큐에 넣고 다음에 자동 재시도 */
+    msg.className = 'msg ok';
+    msg.textContent = L('✅ 보냈습니다','✅ Sent');
+    queued = 1;
+    setBadge('sent', L('보냈습니다','Sent'));
+    var q = document.getElementById('queue');
+    q.hidden = false;
+    q.textContent = L('대기 중 1건 — 회선이 돌아오면 자동으로 보냅니다. 강사는 아무것도 하지 않습니다.',
+                      'Queued: 1 — it goes out by itself when the line returns. The teacher does nothing.');
+  }
+  document.getElementById('hint').textContent =
+    L('여기까지 탭 2번입니다. 화면은 한 번도 기다리지 않았습니다.',
+      'That was two taps. The screen never made you wait.');
+}
+
+/* ══ 영어로 쓰면 한국어로 나간다 ══════════════════════════════════════
+   실제 구현: POST /api/translate 에 mode:'note' 를 더해 **한 번의 호출**로
+   ① 영어 다듬기 ② 학부모용 한국어 를 함께 받는다(두 번 부르지 않는다).
+   ⚠ 기존 mode:'chat' 을 그대로 쓰면 안 된다 — 응답에서 **첫 줄만** 취하고
+     (api-mango.ts:1880) max_tokens 가 300 이라 세 문장짜리 일지가 잘린다.
+   여기 샘플은 서버를 부르지 않고 미리 준비한 결과를 보여 줍니다.        */
+var SAMPLES = [
+  { raw: "Doyun do very good today. He answer all question about past tense and he speak many. Only he need more practice for pronounce th.",
+    en:  "Doyun did very well today. He answered every question on the past tense and spoke a lot. He just needs a little more practice with the “th” sound.",
+    ko:  "오늘 도윤이가 아주 잘했습니다. 과거형 질문에 모두 답했고 말도 많이 했어요. ‘th’ 발음만 조금 더 연습하면 좋겠습니다.",
+    fix: [['do → did','시제'],['answer → answered','시제'],['speak many → spoke a lot','표현'],['pronounce th → the “th” sound','표현']] },
+  { raw: "He not do the homework again. Please tell mom to check him.",
+    en:  "Doyun has not done his homework again. Could you please ask his mother to check it with him?",
+    ko:  "도윤이가 이번에도 숙제를 못 해 왔습니다. 어머님께서 한 번 함께 확인해 주시면 좋겠습니다.",
+    fix: [['not do → has not done','시제'],['tell mom → ask his mother','학부모 어투'],['숙제=homework','오역 차단']] },
+  { raw: "Today we study animals vocabulary. He is shy but he try. I give him 3 praise.",
+    en:  "Today we studied animal vocabulary. Doyun was shy at first, but he kept trying, and I praised him three times.",
+    ko:  "오늘은 동물 단어를 공부했습니다. 도윤이가 처음에는 조금 수줍어했지만 끝까지 시도했고, 세 번 칭찬해 주었습니다.",
+    fix: [['study → studied','시제'],['he try → he kept trying','표현'],['3 praise → praised three times','표현']] },
+  { raw: "He is very lazy today and he is worse than the other student. He never listen.",
+    en:  "Doyun found it hard to stay focused today and needed several reminders to listen.",
+    ko:  "오늘 도윤이가 게으르고 다른 학생보다 못했습니다. 전혀 듣지 않습니다.",
+    fix: [['listen → to listen','표현']],
+    note: 'flag' }
+];
+var picked = -1;
+
+function openNote2(){
+  document.getElementById('note2').hidden = false;
+  document.getElementById('open2').hidden = true;
+}
+function fill(i){
+  picked = i;
+  document.getElementById('rawEn').value = SAMPLES[i].raw;
+  document.getElementById('trOut').hidden = true;
+}
+function rawChanged(){
+  /* 문장을 고치면 이전 번역은 버린다 — 옛 한국어가 남아 나가면 안 된다 */
+  document.getElementById('trOut').hidden = true;
+  var v = document.getElementById('rawEn').value.trim();
+  if (picked >= 0 && v !== SAMPLES[picked].raw) picked = -1;
+}
+function translateNote(){
+  var raw = document.getElementById('rawEn').value.trim();
+  if (!raw){ alert(L('먼저 영어로 몇 줄 써 주세요.','Please write a few lines in English first.')); return; }
+  var b = document.getElementById('trBtn');
+  b.disabled = true; b.textContent = L('다듬는 중…','Polishing…');
+
+  /* 실제로는 여기서 서버 1회 호출. 샘플이라 잠깐 기다렸다가 보여 줍니다. */
+  setTimeout(function(){
+    var s = (picked >= 0) ? SAMPLES[picked] : null;
+    document.getElementById('outEn').textContent = s ? s.en
+      : raw + '  ' + L('(실제로는 서버 AI가 이 문장을 다듬습니다)','(the server AI polishes this for real)');
+    document.getElementById('outKo').value = s ? s.ko
+      : L('(실제로는 위 영어가 학부모용 한국어로 옮겨져 여기에 들어옵니다. 예문 버튼을 눌러 보시면 실제 결과를 보실 수 있습니다.)',
+          '(In the real thing the polished English arrives here as parent-facing Korean. Tap an example button to see a real result.)');
+    var f = '';
+    if (s) for (var i = 0; i < s.fix.length; i++) f += '<i>' + s.fix[i][1] + '</i>' + s.fix[i][0] + '<br>';
+    document.getElementById('fixList').innerHTML = f
+      ? ('<b>' + L('고친 곳 ' + s.fix.length + '군데','' + s.fix.length + ' corrections') + '</b><br>' + f) : '';
+    document.getElementById('trOut').hidden = false;
+    b.disabled = false; b.textContent = L('🌐 다시 다듬기','🌐 Polish again');
+  }, 900);
+}
+/* ══ 보내기 직전 자동 점검 — «사람 검수» 를 대신하는 규칙 ══════════════
+   매니저 승인 단계를 두지 않기로 했으므로(사장님 결정), 사고는 규칙으로 막는다.
+   🔴 차단 = 학부모에게 나가면 사고인 것만. 🟠 확인 = 강사가 판단할 것.
+   서버에서 같은 규칙을 한 번 더 돈다(클라이언트만 믿지 않는다).            */
+var BAN = [
+  ['게으르', '단정적 표현'], ['멍청', '단정적 표현'], ['문제아', '단정적 표현'],
+  ['전혀', '단정적 표현'], ['못합니다', '단정적 표현'], ['안 됩니다', '단정적 표현'],
+  ['다른 학생보다', '다른 아이와 비교'], ['보다 못', '다른 아이와 비교']
+];
+function preflight(ko){
+  var hard = [], soft = [];
+  var hangul = (ko.match(/[가-힣]/g) || []).length;
+  if (!ko) hard.push(L('한국어가 비어 있습니다','The Korean text is empty'));
+  else if (hangul < ko.length * 0.3)
+    hard.push(L('한국어가 아닙니다 — 학부모는 한국어만 읽습니다','This is not Korean — parents read Korean only'));
+  if (ko.length > 400) soft.push(L('조금 깁니다 (400자 넘음)','A little long (over 400 characters)'));
+  /* 같은 사유가 여러 번 걸리면 첫 낱말 하나만 보여 준다 — 목록이 길면 안 읽는다 */
+  var seen = {};
+  for (var i = 0; i < BAN.length; i++){
+    if (ko.indexOf(BAN[i][0]) < 0 || seen[BAN[i][1]]) continue;
+    seen[BAN[i][1]] = 1;
+    soft.push(L(BAN[i][1] + ' — 「' + BAN[i][0] + '」', 'Wording to check — “' + BAN[i][0] + '”'));
+  }
+  return { hard: hard, soft: soft };
+}
+function softenKo(){
+  var t = document.getElementById('outKo');
+  t.value = '오늘 도윤이가 집중을 이어 가기 어려워해서 몇 번 다시 안내했습니다. 다음 수업에는 짧게 끊어 가며 도와주겠습니다.';
+  document.getElementById('pref').hidden = true;
+  document.getElementById('msg2').hidden = true;
+}
+function send2(){
+  var ko = document.getElementById('outKo').value.trim();
+  var m = document.getElementById('msg2');
+  var p = document.getElementById('pref');
+  var chk = preflight(ko);
+
+  /* 🔴 차단 — 보내지 않고 강사에게 되돌린다 */
+  if (chk.hard.length){
+    p.hidden = false;
+    p.className = 'pref bad';
+    p.innerHTML = '<b>' + L('보내지 않았습니다','Not sent') + '</b>' + chk.hard.map(function(x){ return '<div>· ' + x + '</div>'; }).join('');
+    m.hidden = true;
+    return;
+  }
+  /* 🟠 확인 권고 — 한 번은 붙잡고, 강사가 판단해 그대로 보낼 수도 있다 */
+  if (chk.soft.length && !window.__warned){
+    window.__warned = true;
+    p.hidden = false;
+    p.className = 'pref warn';
+    p.innerHTML = '<b>' + L('학부모가 읽는 문장입니다 — 이 표현만 확인해 주세요','A parent will read this — please check this wording') + '</b>'
+      + chk.soft.map(function(x){ return '<div>· ' + x + '</div>'; }).join('')
+      + '<button class="btn sm" onclick="softenKo()">' + L('부드럽게 고쳐 주기','Soften it for me') + '</button>'
+      + '<button class="btn sm" onclick="send2()">' + L('이대로 보내기','Send as it is') + '</button>';
+    m.hidden = true;
+    return;
+  }
+  p.hidden = true;
+
+  /* 🌙 밤에는 예약 발송 — 한국 학부모 집에 새벽 문자가 가면 안 된다 */
+  if (night){
+    m.hidden = false; m.className = 'msg q';
+    m.textContent = L('✅ 저장했습니다 · 밤이라 내일 오전 8시에 발송됩니다','✅ Saved · it will be delivered at 8 a.m. (too late to text now)');
+    document.getElementById('send2').disabled = true;
+    var b0 = document.getElementById('b2');
+    b0.className = 'badge rdy';
+    b0.setAttribute('data-ko', L('발송 예약','Scheduled')); b0.setAttribute('data-en', 'Scheduled');
+    b0.textContent = L('발송 예약','Scheduled');
+    return;
+  }
+
+  m.hidden = false;
+  m.className = 'msg ok';
+  m.textContent = L('✅ 보냈습니다 · 학부모에게 발송 중','✅ Sent · delivering to the parent');
+  document.getElementById('send2').disabled = true;
+  document.getElementById('smsName').textContent = '박도윤';
+  document.getElementById('smsBody').textContent = ko;
+  document.getElementById('readState').textContent = L('발송됨 · 아직 열어보지 않음','Delivered · not opened yet');
+  document.getElementById('readBtn').hidden = false;
+  var b = document.getElementById('b2');
+  b.className = 'badge sent';
+  b.setAttribute('data-ko', L('보냈습니다','Sent')); b.setAttribute('data-en', 'Sent');
+  b.textContent = L('보냈습니다','Sent');
+}
+
+function later(){
+  var msg = document.getElementById('msg');
+  msg.hidden = false; msg.className = 'msg q';
+  msg.textContent = L('나중에 — 오늘 안에 알림이 한 번 더 옵니다.','Later — you will get one more reminder today.');
+}
+
+function markRead(){
+  document.getElementById('readState').textContent = L('👀 학부모가 열어봤습니다 (14:41)','👀 Parent opened it (14:41)');
+  document.getElementById('readBtn').hidden = true;
+  setBadge('sent', L('학부모 읽음','Parent read'));
+}
+
+function setBadge(cls, txt){
+  var b = document.getElementById('b1');
+  b.className = 'badge ' + cls;
+  b.removeAttribute('data-ko'); b.removeAttribute('data-en');
+  b.setAttribute('data-ko', txt); b.setAttribute('data-en', txt);
+  b.textContent = txt;
+}
+
+function toggleNet(){
+  online = !online;
+  var b = document.getElementById('netbtn');
+  b.className = online ? '' : 'off';
+  b.textContent = L(online ? '정상' : '끊김', online ? 'online' : 'offline');
+  if (online && queued){
+    queued = 0;
+    document.getElementById('queue').textContent =
+      L('대기 중이던 1건을 방금 보냈습니다.','The queued item has just gone out.');
+    document.getElementById('smsBody').textContent = document.getElementById('tKo').value;
+    document.getElementById('readState').textContent = L('발송됨 · 아직 열어보지 않음','Delivered · not opened yet');
+    document.getElementById('readBtn').hidden = false;
+  }
+}
+
+/* 언어를 바꾸면 위에서 JS 로 쓴 문구도 다시 그린다 */
+function repaint(){
+  var b = document.getElementById('netbtn');
+  b.textContent = L(online ? '정상' : '끊김', online ? 'online' : 'offline');
+  document.getElementById('nightbtn').textContent =
+    L(night ? '밤 (23:40)' : '낮 (15:30)', night ? 'night (23:40)' : 'daytime (15:30)');
+  if (!document.getElementById('editBox').hidden)
+    document.getElementById('edit').textContent = L('수정 취소','Cancel edit');
+}
+applyLang();
+</script>
+</body>
+</html>

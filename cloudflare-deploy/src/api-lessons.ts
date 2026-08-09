@@ -170,7 +170,11 @@ export async function handleLessonsApi(
     //      영어→한국어 다듬기는 다음 단계에서 붙는다.
     const sendEvalSms = async (phone: string, studentName: string, evalId: any): Promise<boolean> => {
       try {
-        const evalUrl = `https://mango-i.com/eval.html?id=${evalId}`;
+        /* 🔴 주소를 손으로 쓰지 말 것 — `mango-i.com` 은 **등록조차 안 된 도메인**이다(NXDOMAIN 실측).
+              CLAUDE.md 머리에 운영 주소로 적혀 있어서 그대로 썼다가 «죽은 링크가 학부모에게 나가는» 사고가 될 뻔했다.
+              이 저장소에서 학부모에게 실제로 나가는 문자들(absent-sweep.ts:189, enroll-ops.ts:516,
+              api-retention.ts:61)이 모두 쓰는 주소가 정본이다. */
+        const evalUrl = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
         const { sendKakaoAlimtalk } = await import('./solapi-client');
         const r = await sendKakaoAlimtalk(env as any, {
           templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',
