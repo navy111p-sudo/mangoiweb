@@ -9420,21 +9420,50 @@ window.mgIsSlowNet = function(){
      cdnjs 에서 pdf.worker.min.js 를 못 받으면 pdf.js 가 '가짜 워커'로 떨어져
      PDF 파싱 전체가 메인 스레드에서 돌며 영상·터치까지 수 초~수십 초 정지.
      코어·워커 모두 같은 오리진(/js/)에서 서빙해 CDN 의존을 없앤다. -->
-<script src="/js/pdf.min.js?v=3.11.174"></script>
 <script>
-  if (window.pdfjsLib) {
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
-    console.log('[ph254] PDF.js 로드 완료 — v3.11.174 (local)');
-  } else {
-    /* 자체 서빙 실패 시에만 CDN 폴백 */
-    console.warn('[ph254] 로컬 PDF.js 실패 → CDN 폴백');
-    var _pjs = document.createElement('script');
-    _pjs.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    _pjs.onload = function(){
-      if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  /* 📕 (2026-08-09) PDF.js 를 «교재를 열 때» 로 미룬다.
+     그전엔 여기에 pdf.min.js 를 가리키는 스크립트 태그가 **동기(blocking)** 로 걸려 있었다.
+     (주석 안에 태그를 그대로 쓰지 않는다 — 자산 무게를 세는 도구가 그걸 실제 태그로 오인한다)
+     316KB 를 다 받고 실행할 때까지 첫 화면이 그려지지 않는다 — 그런데 이 라이브러리는
+     교재를 열기 전까지 한 번도 쓰이지 않는다(index.html 안 실사용처는 두 곳뿐).
+     필리핀 회선·모바일 데이터에서 홈 첫 화면이 그만큼 늦어졌다.
+
+     ⚠️ 워커(pdf.worker.min.js 1MB)도 같은 오리진에서 준다 — CDN 에서 못 받으면
+        pdf.js 가 «가짜 워커» 로 떨어져 PDF 파싱이 메인 스레드에서 돌고
+        영상·터치까지 수 초~수십 초 멈춘다(ph254 에서 겪은 것). CDN 은 폴백으로만 둔다.
+     ⚠️ 여러 곳에서 동시에 불러도 로딩은 한 번만 — 약속(promise)을 재사용한다. */
+  window.ensurePdfJs = (function () {
+    var p = null;
+    function load(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { reject(new Error('load failed: ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+    return function ensurePdfJs() {
+      if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+      if (p) return p;
+      p = load('/js/pdf.min.js?v=3.11.174').then(function () {
+        if (!window.pdfjsLib) throw new Error('pdfjsLib missing after local load');
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
+        console.log('[ph254] PDF.js 지연 로드 완료 — v3.11.174 (local)');
+        return window.pdfjsLib;
+      }).catch(function () {
+        console.warn('[ph254] 로컬 PDF.js 실패 → CDN 폴백');
+        return load('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js').then(function () {
+          if (!window.pdfjsLib) throw new Error('pdfjsLib missing after CDN load');
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          return window.pdfjsLib;
+        });
+      });
+      /* 실패했으면 약속을 버린다 — 안 그러면 다음 시도도 영원히 같은 실패를 되돌려준다 */
+      p.catch(function () { p = null; });
+      return p;
     };
-    document.head.appendChild(_pjs);
-  }
+  })();
 </script>
 
 <!-- ================================================================
@@ -20016,6 +20045,9 @@ async function pdfLoad(url, kind) {
     if (kind === 'image') {
         pdfDoc = await pdfBuildImageDoc(url);
     } else {
+        /* 📕 PDF.js 는 여기서 «처음» 받는다(2026-08-09 지연 로딩). 홈 첫 화면에선 안 받는다.
+           ensurePdfJs() 가 workerSrc 까지 세팅해 주고, 이미 받아 뒀으면 즉시 돌아온다. */
+        await window.ensurePdfJs();
         /* workerSrc 는 로드 시점(자체 서버 우선)에 이미 설정됨 — 비어 있을 때만 보강 */
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js?v=3.11.174';
         /* ⏱ (2026-08-08 강사 피드백 — Belle ① 「수업을 열 때 로딩이 지연된다」)
