@@ -8030,6 +8030,20 @@ Promise.allSettled([
   load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
   loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
 ]);
+// 🔗 (2026-08-09) 하위항목이 열리면 «조상 <details> 도» 함께 연다.
+//    「🏪 대리점(학원)」을 「🏢 조직 관리」 카드 안으로 합치면서 필요해졌다 —
+//    사이드바·허브·AI 명령·통합검색은 전부 `getElementById(id).open = true` 로 여는데,
+//    부모 카드가 닫혀 있으면 열려도 화면에 안 보여서 «눌렀는데 아무 일도 안 난» 것처럼 보인다.
+//    진입점마다 고치는 대신 여기 한 곳에서 처리한다(그래야 새 진입점이 생겨도 안 깨진다).
+//    ⚠️ toggle 이벤트는 버블링하지 않는다 → document 에 «캡처»로 달아야 잡힌다.
+document.addEventListener('toggle', function (e) {
+  var d = e.target;
+  if (!d || d.tagName !== 'DETAILS' || !d.open) return;
+  for (var p = d.parentElement; p; p = p.parentElement) {
+    if (p.tagName === 'DETAILS' && !p.open) p.open = true;
+  }
+}, true);
+
 // 🔁 카드 최초 열림 때 한 번만 로드 (admin.html 의 ontoggle 에서 호출)
 window.adminLazyLoadCard = function(kind) {
   try {
@@ -8168,7 +8182,13 @@ async function buildGlobalIndex() {
     { url: '/api/admin/centers?fields=min&limit=0', kindKo: '🏪 대리점(학원)', kindEn: '🏪 Agency', items: 'items',
       label: c => c.name,
       sub:   () => '',
-      action: () => jumpToMenuByLabelMatch('대리점(학원)') },
+      // 🏪 목록은 «조직 관리» 카드 안의 하위항목이다. 하위항목을 직접 열면
+      //    위의 «조상 details 자동 열기» 가 부모 카드까지 같이 펼쳐 준다.
+      action: () => {
+        const el = document.getElementById('card-centers');
+        if (el) { el.open = true; el.scrollIntoView({ behavior: 'auto', block: 'start' }); }
+        else jumpToMenuByLabelMatch('조직 관리');
+      } },
     { url: '/api/admin/enrollments?limit=500', kindKo: '📚 수강신청', kindEn: '📚 Enrollment', items: 'items',
       label: e => e.student_name,
       sub:   e => `${e.package} · ${e.status}`,
@@ -11443,11 +11463,19 @@ window.rebuildGlobalSearchIndex = function() {
     // 본사 + 지사
     'card-teacher-mgmt':      'branch',   // 강사관리
     'card-active-rooms':      'branch',   // 실시간 수업 현황
-    'card-centers':           'branch',   // 🏪 대리점(학원) 전국 목록 — 대리점 계정엔 «남의 대리점»이라 안 보임
+    // ⚠️ (2026-08-09) card-centers 는 이제 «카드»가 아니라 card-franchises 안의 하위항목이다.
+    //    _applyMenuVisibility 는 details.menu-card 만 순회하므로 이 줄은 더 이상 발동하지 않는다.
+    //    지우지 않고 남겨 둔 이유 = 다시 카드로 떼어낼 때 원래 등급이 무엇이었는지 알아야 해서.
+    //    실효 등급은 아래 card-franchises 의 'branch' 가 대신한다(둘 중 엄격한 쪽으로 맞췄다).
+    'card-centers':           'branch',   // (inert) 🏪 대리점(학원) 전국 목록
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    'card-franchises':        'agency',   // 🏢 조직 관리(본사·지사) (자기만 보임)
+    // 🏢 조직 관리 — 안에 지사(241) + 대리점·학원 전국 목록(921)이 함께 들어 있다.
+    //    합치기 전 두 카드 등급이 agency / branch 로 갈렸는데, 전국 목록이 더 민감하므로
+    //    엄격한 쪽('branch' = 본사+지사)으로 통일했다. (대리점 계정은 애초에 admin.html 을
+    //    못 받는다 — index.ts 가 /admin/exec 로 돌려보낸다. 그래도 화면 쪽도 맞춰 둔다.)
+    'card-franchises':        'branch',   // 🏢 조직 관리 (본사 › 지사 › 대리점)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정
