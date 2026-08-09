@@ -421,16 +421,48 @@
   <tr><td>지금 상태를 <b>태그로 못 박기</b> (<code>git tag pre-surgery</code>) — 언제든 돌아올 지점</td><td>—</td><td>5분</td></tr>
 </table></div>
 
-<h3>1단계 · 죽은 살 도려내기 (3~5일) — 되돌릴 필요조차 없는 “순수 삭제”</h3>
-<p class="quiet">먼저 지웁니다. 지우고 나면 남은 게 훨씬 작아져서, 뒤 단계가 절반으로 줄어듭니다.</p>
+<h3>1단계 · 죽은 살 도려내기 <span class="quiet" style="font-size:14px">— 실측 후 하향 수정</span></h3>
+
+<div class="card p1" style="margin:0 0 16px">
+  <p style="margin-top:0"><b>실제로 재 봤더니, 여기서 얻을 게 거의 없었습니다.</b>
+  이 항목은 제가 <b>과장했습니다.</b> 계측 결과를 그대로 적습니다.</p>
+  <div class="scroll"><table>
+    <tr><th></th><th>제가 예상한 것</th><th>실제 계측</th></tr>
+    <tr><td>죽은 js 파일</td><td>“덧칠 90겹을 걷어낸다”</td><td><b>1개뿐</b> (<code>adm-s8.js</code>, 5KB).
+      나머지 146개는 <b>전부 실제로 로드됩니다.</b></td></tr>
+    <tr><td>죽은 다크 테마</td><td>“<code>!important</code> 상당수가 나간다”</td><td><code>!important</code> 3,282개가 몰려 있는
+      <code>admin-inline-c.css</code>는 <b>죽은 테마가 아니라</b> admin.html에서 빼낸
+      <b>살아있는 스타일 8,586줄</b>이고 <b>순서가 의미를 갖습니다.</b>
+      어두운 색 지정은 3,282개 중 <b>280개</b>뿐입니다.</td></tr>
+  </table></div>
+  <p style="margin-bottom:0"><b>왜 틀렸나</b> — 이름이 <code>adm-p1·q7·r14</code>처럼 뜻이 없으면
+  사람은 “버려진 것”으로 짐작하게 됩니다. 실제로는 <b>이름만 나쁘고 전부 쓰이고 있었습니다.</b>
+  진단은 짐작이 아니라 재 봐야 한다는 걸 이 항목이 보여줍니다.</p>
+</div>
+
+<p><b>그래서 1단계의 진짜 내용은 “삭제”가 아니라 “겹침 풀기”입니다.</b>
+덧칠은 파일 사이가 아니라 <b>이름 위에</b> 쌓여 있었습니다:</p>
+<div class="scroll"><table>
+  <tr><th>겹친 것</th><th>몇 겹</th><th>왜 위험한가</th></tr>
+  <tr><td><code>window.fetch</code>를 가로채기</td><td><b>2개 파일</b><br><code>adm-perf.js</code>, <code>adm-scope-guard.js</code></td>
+      <td>모든 서버 통신이 두 번 감싸집니다. <b>로드 순서가 바뀌면 동작이 달라집니다.</b></td></tr>
+  <tr><td><code>#ph85-sidebar</code> (사이드바)</td><td><b>11개 파일</b></td>
+      <td>“눌러도 안 움직인다” 사고의 정체. 앞 파일이 클릭을 먹으면 뒤 파일은 못 봅니다.</td></tr>
+  <tr><td><code>#admin-login-overlay</code></td><td><b>5개 파일</b></td><td>로그인 창을 다섯 곳이 각자 여닫습니다.</td></tr>
+  <tr><td><code>ph134Open/Close/Toggle</code></td><td><b>2개 파일</b><br><code>adm-r30.js</code>, <code>adm-s16.js</code></td>
+      <td>같은 함수가 두 벌 — 나중에 로드된 것이 이깁니다.</td></tr>
+</table></div>
+<p class="quiet">전역 이름 충돌은 총 8건, 여러 파일이 같이 만지는 DOM 요소는 47건입니다.
+<b>이건 삭제가 아니라 «한 곳으로 모으는» 작업</b>이라 1단계보다 2단계에 가깝고, 며칠이 아니라 <b>1~2주</b>짜리입니다.</p>
+
+<p><b>그래도 바로 지울 수 있는 것</b>은 남아 있습니다:</p>
 <ul>
-  <li><b>덧칠 90겹 벗기기</b> — <code>js/adm-p*·q*·r*·s*.js</code>가 실제로 무엇을 하는지 계측해,
-    <b>죽은 것은 삭제 / 산 것은 뜻 있는 이름으로 통합</b>. 1판에서는 “주석만 달자”였는데, 이제 진짜로 정리할 수 있습니다.</li>
-  <li><b>죽은 다크 테마 삭제</b> — <code>!important</code> 3,828개(css)+2,006개(index.html)의 상당수.
-    테마는 ivory 하나로 고정이므로 다크 규칙은 통째로 나갑니다.</li>
+  <li><b>✅ 완료 — <code>adm-s8.js</code> 삭제.</b> <code>#mi-menu-fly</code>(사이드바 hover 상세 카드)를 만드는 코드인데,
+    <code>CLAUDE.md</code>의 “되살리면 안 되는 것” 첫 줄이 바로 그 기능이었습니다.
+    배선만 끊고 <b>파일은 남겨 둔</b> 상태였습니다 — 남겨 두면 언젠가 누가 다시 잇습니다.</li>
   <li><b>루트 레거시 삭제</b> — <code>modules/</code>, <code>public/</code>, <code>server.js</code>.
     (<code>CLAUDE.md</code>가 “삭제하지 말라”고 한 건 <b>라이브를 지키려는 규칙</b>이었습니다. 이제 지울 수 있습니다.)</li>
-  <li><b>중복 자산 삭제</b> — <code>intro.original.mp4</code>(4.2MB) 등, <code>library/</code> 311MB를 R2로 이전.</li>
+  <li><b>중복 자산 정리</b> — <code>intro.original.mp4</code>(4.2MB) 등, <code>library/</code> 311MB를 R2로 이전.</li>
 </ul>
 
 <h3>2단계 · 뼈대 바로잡기 (1~2주) — 여기가 진짜 수술</h3>
