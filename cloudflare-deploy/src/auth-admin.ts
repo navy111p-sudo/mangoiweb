@@ -60,8 +60,19 @@ export const PH_MANAGERS = ['mgr_melca', 'mgr_maimai', 'mgr_karl'];
  *      (아이디 존재 여부가 새면 무차별 대입의 표적이 된다). 두 API 모두 인증 뒤에서만 실어 보낸다.
  */
 export const SAME_PERSON_ACCOUNTS: Record<string, { username: string; role_ko: string; role_en: string; href: string }> = {
-  mgr_maimai: { username: 'mangoi_033', role_ko: '강사 업무 (수업 · 평가서 · 급여)', role_en: 'Teaching (classes, feedback, payroll)', href: '/teacher' },
-  mangoi_033: { username: 'mgr_maimai', role_ko: '매니저 업무 (운영 · 신고 · 급여 관리)', role_en: 'Manager work (operations, reports, payroll)', href: '/manager' },
+  /* 🔑 방향이 한쪽뿐인 이유 —
+     `mgr_maimai`(hq) 하나면 **매니저 화면과 강사 화면을 재로그인 없이 둘 다** 쓸 수 있다.
+     서버가 이미 그렇게 돼 있다: /api/teacher/portal 은 hq 계정도 받고(isManager),
+     강사원부 매칭이 계정 이름 'Maimai (본사 매니저)' 안의 낱말 'MAIMAI' 로 teachers#27 에
+     붙기 때문에 **커버수업·레벨테스트가 그 계정에서 그대로 보인다.**
+     반대로 `mangoi_033`(scope='teacher')은 매니저 화면에 못 들어간다(서버가 되돌려보낸다).
+     → 그러니 «갈아타라» 가 아니라 «한 계정으로 모으라» 고 안내한다. 안내는 강사 계정 쪽에만. */
+  mangoi_033: {
+    username: 'mgr_maimai',
+    role_ko: '매니저 화면과 내 수업을 한 계정에서 (로그아웃 없이 오갈 수 있습니다)',
+    role_en: 'Manager view and your classes in one account (switch without logging out)',
+    href: '/manager',
+  },
 };
 
 /** 로그인한 본인의 «다른 계정». 없으면 null. */

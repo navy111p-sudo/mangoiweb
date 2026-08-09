@@ -465,7 +465,13 @@ body.is-off .card{opacity:.82}
     document.getElementById('monthLbl').textContent = m.period || '';
     // 🏢 본사 매니저면 전용 카드를 켠다. 판정은 이미 받은 exec/summary 의 scope 로 한다(추가 요청 0).
     //    ⚠️ 화면을 켜는 것뿐이고 권한은 서버가 정한다 — 여기 값을 고쳐도 API 는 안 열린다.
-    if (sc.type === 'hq') document.getElementById('hqCards').hidden = false;
+    if (sc.type === 'hq') {
+      document.getElementById('hqCards').hidden = false;
+      // 🧑‍🏫 본사 매니저는 커버수업·레벨테스트를 직접 하기도 한다 → 「내 수업」 버튼을 켠다.
+      //    지사·대리점에는 켜지 않는다(그쪽은 강사 화면을 쓰지 않고, 서버가 되돌려보낸다).
+      var _tt = document.getElementById('toTeacher');
+      if (_tt) _tt.hidden = false;
+    }
     document.getElementById('kMonth').innerHTML =
       tile(n0(st.active), T('Active students', '재원 학생'), '') +
       tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건')) +
