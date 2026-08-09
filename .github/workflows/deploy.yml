@@ -66,9 +66,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: TypeScript check (src/*.ts)
-        run: npx tsc --noEmit
-        continue-on-error: true
+      # ─── 컴파일 게이트 (차단) ───
+      # 2026-08-09 이전엔 여기에 continue-on-error: true 가 붙어 있어서
+      #   「검사는 하는데 실패해도 그냥 배포」 였다. 검사한 척만 하는 상태다.
+      #
+      # 그리고 npx 는 쓰지 않는다 — npx 가 조용히 실패해도 «출력 없음 + exit 0» 이라
+      #   통과와 화면이 똑같다(CLAUDE.md 함정 목록에 있는 그것).
+      #   node 로 로컬 typescript 바이너리를 직접 부르면 그 착시가 없다.
+      #   deploy.ps1 과 같은 방식이어야 두 배포 경로의 검사 수준이 같아진다.
+      - name: TypeScript check (src/*.ts) — 차단
+        run: node node_modules/typescript/bin/tsc --noEmit
+
+      # ─── 회귀 하니스 (차단) ───
+      # 하니스 138개는 하나하나가 «예전에 이렇게 고장 났었다» 는 사고 기록이다.
+      # 그런데 이 CI 경로는 그중 2개(문법·캐시버전)만 돌리고 있었고,
+      # 전체 게이트는 로컬 deploy.ps1 에만 걸려 있었다 —
+      # main 으로 배포하면 검사를 사실상 안 받고 나가는 구조였다.
+      #
+      # 기준선(2026-08-09): PASS 115 / SKIP(E2E) 20 / FAIL 0.
+      # E2E 20개는 라이브 화상수업·브라우저 상태가 필요해 헤드리스에서 자동 제외된다.
+      - name: Regression harness (run.mjs --fast) — 차단
+        working-directory: .
+        run: node test-harness/run.mjs --fast
 
       # ─── 인라인 JS 문법 게이트 (차단) ───
       # 이 경로는 deploy.ps1 을 타지 않는다. 로컬 배포에만 게이트를 걸면

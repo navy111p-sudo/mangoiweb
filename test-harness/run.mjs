@@ -5,7 +5,7 @@
 //       ⏭ SKIP(E2E)    — 활성 화상수업/브라우저 상태가 필요한 E2E (헤드리스로는 원래 불가)
 //       ⚠ FAIL         — 실제 확인 필요 (리팩토링 노후화 아님)
 //   · 실제 FAIL 이 하나라도 있으면 exit 1. 실행:  node test-harness/run.mjs
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import http from 'node:http';
@@ -77,7 +77,14 @@ function runHarness(f) {
   let harnessBody = ''; try { harnessBody = readFileSync(join(__dir, f), 'utf8'); } catch {}
   const isE2E = /puppeteer/i.test(harnessBody);
   if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E'];
-  if (crash) return ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)'];
+  // ⚠️ 2026-08-09 수정 — 이 완화들은 **E2E 하니스에만** 적용한다.
+  //   그전엔 E2E 여부를 안 보고 crash 면 무조건 SKIP 이었다. 그래서
+  //   순수 소스/fetch 하니스가 «Cannot read properties» 같은 **진짜 버그**로 죽어도
+  //   SKIP 으로 내려가 초록불이 됐다 — 경보기 안에 있던 경보기 고장이다.
+  //   E2E 가 아닌 하니스가 죽으면 그건 브라우저 환경 탓이 아니라 코드 탓이다 → FAIL.
+  if (crash) return isE2E
+    ? ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)']
+    : ['FAIL', '⚠  하니스가 오류로 죽음(E2E 아님 — 코드 문제)'];
   if (r.status === 0 && !failCount) return ['PASS', '✅'];
   if (isE2E) return ['SKIP', '⏭  E2E(브라우저는 떴으나 활성 수업 상태 필요 — 헤드리스 불가)'];
   return ['FAIL', '⚠  실제 확인 필요'];
@@ -93,4 +100,51 @@ if (fails.length) { console.log('\n  ⚠ 실제 확인 필요:'); fails.forEach(
 const skips = rows.filter(r => r.cat === 'SKIP');
 if (skips.length) { console.log('\n  ⏭ E2E(정상 — 라이브 화상수업/브라우저 상태 필요, 헤드리스 제외):'); skips.forEach(r => console.log('    - ' + r.f)); }
 console.log('═'.repeat(60));
+
+// ── 기준선(baseline) 검사 ── (2026-08-09 신설)
+//   FAIL 0 만 보면 «조용히 사라진 검사» 를 못 잡는다:
+//   하니스가 SKIP 으로 내려가거나 파일이 지워져도 FAIL 은 0 이라 초록불이 된다.
+//   대수술 중엔 그게 가장 위험하다 — 부순 걸 «통과» 로 보고받게 되므로.
+//   그래서 «PASS 가 기준선보다 줄었는가 / SKIP 이 늘었는가» 를 같이 본다.
+//   기준선을 의도적으로 올릴 땐:  node test-harness/run.mjs --fast --update-baseline
+const BASELINE_PATH = join(__dir, 'baseline.json');
+const mode = FAST ? 'fast' : 'full';
+// ⚠️ 여기서 파싱 실패를 조용히 삼키면 **게이트가 통째로 꺼진 채 초록불**이 된다.
+//    (실제로 그랬다 — PowerShell Out-File 이 붙인 BOM 하나에 검사가 사라졌다.)
+//    그래서 ① BOM 을 벗기고 ② 못 읽으면 «없음» 이 아니라 «고장» 으로 크게 실패한다.
+let baseline = {};
+let baselineRaw = null;
+try { baselineRaw = readFileSync(BASELINE_PATH, 'utf8').replace(/^﻿/, ''); } catch { /* 파일 없음 = 아직 기준선 미설정, 정상 */ }
+if (baselineRaw !== null) {
+  try {
+    baseline = JSON.parse(baselineRaw);
+  } catch (e) {
+    console.log(`\n  🚨 baseline.json 을 읽을 수 없습니다 — 기준선 검사가 꺼진 채로 통과시키지 않습니다.`);
+    console.log(`     ${BASELINE_PATH}`);
+    console.log(`     ${e.message}`);
+    console.log('═'.repeat(60));
+    process.exit(1);
+  }
+}
+const cur = { pass: n('PASS'), skip: n('SKIP'), fail: n('FAIL') };
+
+if (process.argv.includes('--update-baseline')) {
+  baseline[mode] = { pass: cur.pass, skip: cur.skip };
+  writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
+  console.log(`  📌 기준선 갱신(${mode}): PASS ${cur.pass} / SKIP ${cur.skip}`);
+} else if (baseline[mode]) {
+  const b = baseline[mode];
+  const drift = [];
+  if (cur.pass < b.pass) drift.push(`PASS ${b.pass} → ${cur.pass} (${b.pass - cur.pass}개 줄었다)`);
+  if (cur.skip > b.skip) drift.push(`SKIP ${b.skip} → ${cur.skip} (${cur.skip - b.skip}개 늘었다 — 검사가 조용히 빠졌다)`);
+  if (drift.length) {
+    console.log('\n  🚨 기준선 이탈 — 통과한 검사가 줄었습니다:');
+    drift.forEach(d => console.log('    - ' + d));
+    console.log('    의도한 변경이면: node test-harness/run.mjs --fast --update-baseline');
+    console.log('═'.repeat(60));
+    process.exit(1);
+  }
+  console.log(`  📌 기준선 유지(${mode}): PASS ${cur.pass} ≥ ${b.pass} · SKIP ${cur.skip} ≤ ${b.skip}`);
+}
+
 process.exit(fails.length ? 1 : 0);

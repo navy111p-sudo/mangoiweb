@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>망고아이 코드 진단 보고서 (2026-08-09)</title>
+<style>
+  :root{
+    --bg:#fbfaf7; --card:#fff; --ink:#101828; --sub:#5b6470; --line:#e6e3dc;
+    --red:#c0392b; --redbg:#fdf0ee; --amber:#b7791f; --amberbg:#fdf7e8;
+    --green:#1f7a4d; --greenbg:#edf7f1; --blue:#1d4ed8; --bluebg:#eef2ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Malgun Gothic","맑은 고딕",-apple-system,system-ui,sans-serif;
+    line-height:1.75; font-size:16px;}
+  .wrap{max-width:940px;margin:0 auto;padding:32px 20px 80px}
+  header{border-bottom:3px solid var(--ink);padding-bottom:18px;margin-bottom:28px}
+  h1{font-size:30px;margin:0 0 8px;letter-spacing:-.5px}
+  .meta{color:var(--sub);font-size:14px}
+  h2{font-size:23px;margin:44px 0 14px;padding-top:14px;border-top:1px solid var(--line)}
+  h3{font-size:18px;margin:26px 0 8px}
+  p{margin:10px 0}
+  .lead{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:20px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--line);
+    border-radius:10px;padding:18px 20px;margin:18px 0}
+  .card.p1{border-left-color:var(--red)}
+  .card.p2{border-left-color:var(--amber)}
+  .card.p3{border-left-color:var(--blue)}
+  .card h3{margin-top:0}
+  .tag{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:99px;
+    vertical-align:middle;margin-right:8px}
+  .t1{background:var(--redbg);color:var(--red)}
+  .t2{background:var(--amberbg);color:var(--amber)}
+  .t3{background:var(--bluebg);color:var(--blue)}
+  .ok{background:var(--greenbg);color:var(--green)}
+  .num{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-align:center}
+  .num b{display:block;font-size:26px;line-height:1.2}
+  .num span{font-size:12.5px;color:var(--sub)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:18px 0}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:#f4f2ec;font-weight:700}
+  code{background:#f1efe9;padding:1px 6px;border-radius:5px;font-size:13.5px;
+    font-family:Consolas,"D2Coding",monospace}
+  .why{background:#f7f5f0;border-radius:8px;padding:12px 14px;margin:12px 0}
+  .why b{color:var(--red)}
+  .fix{background:var(--greenbg);border-radius:8px;padding:12px 14px;margin:12px 0}
+  .fix b{color:var(--green)}
+  ul{margin:8px 0 8px 0;padding-left:22px}
+  li{margin:5px 0}
+  .quiet{color:var(--sub);font-size:14px}
+  .scroll{overflow-x:auto}
+  footer{margin-top:60px;padding-top:18px;border-top:1px solid var(--line);color:var(--sub);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>망고아이 코드 진단 보고서</h1>
+  <div class="meta">
+    2026-08-09 (2판) · 대상: <code>cloudflare-deploy/</code> ·
+    브랜치 <code>feat-unified-dashboard-260808</code><br>
+    쉬운 말로 썼습니다. 숫자는 전부 실제로 세어 본 값입니다.
+  </div>
+</header>
+
+<div class="card p1" style="margin-top:22px">
+  <h3 style="margin-top:0"><span class="tag t1">1판 정정</span> 이 사이트에는 실사용자가 없습니다</h3>
+  <p>1판에서 “학생 29,000명이 쓰는 라이브”라고 전제했는데 <b>틀렸습니다.</b> 확인한 사실:</p>
+  <ul>
+    <li>실제 학생이 쓰는 곳은 <code>www.mangoi.co.kr</code> — <b>완전히 다른 시스템</b>입니다.
+      Apache + PHP 7.2.5로 돌아가고, 첫 화면 57KB이며, 이 저장소와 코드를 <b>한 줄도 공유하지 않습니다.</b></li>
+    <li><code>test.mangoi.co.kr</code>(이 저장소)는 <b>아직 출시 전</b>입니다. 강사들이 남긴 사용 흔적은 <b>테스트</b>입니다.</li>
+    <li>DB의 학생 29,391명은 Cafe24에서 <b>한 방향으로 복제해 온 미러</b>입니다
+      (<code>cafe24-sync.ts:89</code>, <code>INSERT OR REPLACE</code>). 지워도 <b>다시 받아올 수 있습니다.</b></li>
+  </ul>
+  <p style="margin-bottom:0"><b>그래서 이 보고서의 결론이 바뀝니다.</b>
+  1판은 “깨지면 안 되니 몇 달에 걸쳐 조금씩”이었는데, 그 제약이 통째로 사라졌습니다.
+  아래 5장의 계획을 그 전제로 다시 썼습니다. <b>진단(1~4장)의 숫자와 문제는 그대로 유효합니다.</b></p>
+</div>
+
+<div class="lead">
+  <b>세 줄 요약</b>
+  <ul>
+    <li>망고아이 코드는 <b>망가진 게 아니라 “너무 크게 자란” 상태</b>입니다. 기능은 잘 돌아갑니다.</li>
+    <li>문제는 <b>“고치기가 점점 어려워진다”</b>는 것입니다. 파일 하나가 3만 줄이 넘고, 고장이 나도 조용히 숨겨지고, 자동 배포에는 안전장치가 거의 없습니다.</li>
+    <li><b>지금이 이걸 바로잡을 수 있는 거의 유일한 시기</b>입니다. 사용자가 붙으면 다시 못 합니다.
+      다만 <b>백지에서 새로 쓰는 것</b>은 여전히 권하지 않습니다 — 이유는 5장에 적었습니다.</li>
+  </ul>
+</div>
+
+<h2>0. 먼저, 지금 규모가 어느 정도인지</h2>
+
+<div class="grid">
+  <div class="num"><b>47,139</b><span>서버 코드 줄 수 (TS 76개)</span></div>
+  <div class="num"><b>33,458</b><span>index.html 한 파일 줄 수</span></div>
+  <div class="num"><b>11,682</b><span>admin.html 한 파일 줄 수</span></div>
+  <div class="num"><b>147</b><span>public/js 안 JS 파일</span></div>
+  <div class="num"><b>1,019</b><span>API 주소 분기(if) 개수</span></div>
+  <div class="num"><b>1.5GB</b><span>깃 저장소 크기</span></div>
+</div>
+
+<p class="quiet">
+비교를 위해: 보통 회사에서 “이 파일 너무 커서 나눠야겠다”고 말하는 기준이 <b>파일 1,000줄</b> 정도입니다.
+망고아이의 <code>index.html</code>은 그 <b>33배</b>, <code>api-admin.ts</code>(9,561줄)는 <b>9배</b>입니다.
+</p>
+
+<!-- ============ 1군 ============ -->
+<h2>1. 지금 가장 위험한 것 (빨간불)</h2>
+
+<div class="card p1">
+  <h3><span class="tag t1">위험 1</span> 고장이 나도 아무도 모른다 — “조용히 삼키는 코드”</h3>
+
+  <p>프로그램에는 “여기서 문제 생기면 이렇게 하자”라고 적는 자리가 있습니다(<code>catch</code>).
+  그 자리에 <b>아무것도 안 적어두면</b>, 문제가 생겨도 프로그램은 아무 말 없이 그냥 지나갑니다.</p>
+
+  <div class="scroll"><table>
+    <tr><th>어디</th><th>“아무 말 없이 지나가는” 자리 수</th></tr>
+    <tr><td><code>public/index.html</code> (학생·수업 화면)</td><td><b>431개</b> (전체 catch 1,388개 중)</td></tr>
+    <tr><td><code>src/*.ts</code> (서버 전체)</td><td><b>약 700개</b> (전체 catch 1,604개 중)</td></tr>
+  </table></div>
+
+  <div class="why"><b>왜 문제냐면</b> — 화재경보기 431개의 전선을 잘라 둔 것과 같습니다.
+  불이 안 나는 게 아니라, <b>불이 나도 소리가 안 나는</b> 겁니다.
+  실제로 이 저장소의 사고 기록을 보면 “학생이 수업에 못 들어갔는데 서버는 정상(200)으로 응답했다”는 장애가 있었습니다.
+  화면은 멀쩡해 보이는데 속은 죽어 있는 상태가 이래서 생깁니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b>
+  <ul>
+    <li>빈 자리를 전부 채울 필요는 없습니다. <b>돈·수업·로그인과 관련된 곳부터</b> 골라
+      최소한 <code>console.warn</code> 한 줄이라도 남깁니다. (지금도 <code>console.*</code>은 296개뿐이라 너무 적습니다)</li>
+    <li>서버에는 <b>“에러 모아 보는 곳”</b>을 하나 만듭니다. Cloudflare Workers에는 이미 로그 기능이 있어 새로 살 게 없습니다.</li>
+    <li>새로 쓰는 코드에서는 빈 <code>catch{}</code>를 금지하고, 하니스에 검사 항목을 하나 추가해 자동으로 막습니다.</li>
+  </ul>
+  <span class="quiet">난이도: 중 · 효과: 매우 큼 (앞으로의 모든 버그 찾는 시간이 줄어듭니다)</span></div>
+</div>
+
+<div class="card p1">
+  <h3><span class="tag t1">위험 2</span> 자동 배포에는 안전장치가 거의 없다</h3>
+
+  <p>망고아이는 실서비스에 올리는 길이 <b>두 개</b>입니다. 그런데 두 길의 <b>검사 수준이 완전히 다릅니다.</b></p>
+
+  <div class="scroll"><table>
+    <tr><th></th><th>① 사람이 직접 (<code>deploy.ps1</code>)</th><th>② 자동 (main에 push하면 GitHub Actions)</th></tr>
+    <tr><td>문법 검사(tsc)</td><td>✅ 실패하면 배포 중단</td><td>⚠️ <code>continue-on-error: true</code> — <b>실패해도 그냥 배포됨</b></td></tr>
+    <tr><td>회귀 테스트</td><td>✅ 하니스 전체(<code>run.mjs --fast</code>, 114개)</td><td>❌ <b>2개만</b> 실행 (문법·캐시버전)</td></tr>
+    <tr><td>라이브 스모크 15종</td><td>✅ 있음</td><td>❌ 없음</td></tr>
+  </table></div>
+
+  <div class="why"><b>왜 문제냐면</b> — 공항에 검색대가 두 개인데
+  <b>한쪽만 제대로 검사하고 다른 쪽은 그냥 통과</b>시키는 상황입니다.
+  실수로 ②번 길로 나가면 검사를 아예 안 받습니다.
+  게다가 <code>npx tsc</code>는 이 저장소의 <code>CLAUDE.md</code>에도 적혀 있듯이
+  <b>조용히 실패했을 때와 통과했을 때의 화면이 똑같습니다</b> — 검사한 척만 하고 있을 수 있습니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b> — 이건 <b>반나절이면 끝나는 일</b>이고 효과가 가장 큽니다.
+  <ul>
+    <li><code>.github/workflows/deploy.yml</code>에서 <code>continue-on-error: true</code>를 <b>지웁니다</b>.</li>
+    <li>같은 파일에서 <code>npx tsc</code> 대신 <code>node node_modules/typescript/bin/tsc --noEmit</code>을 씁니다.</li>
+    <li><code>node test-harness/run.mjs --fast</code> 한 줄을 추가해 자동 배포도 같은 검사를 받게 합니다.</li>
+  </ul>
+  <span class="quiet">난이도: 하 (파일 1개, 3줄) · 효과: 매우 큼</span></div>
+</div>
+
+<div class="card p1">
+  <h3><span class="tag t1">위험 3</span> 데이터베이스의 “설계도”가 어디에도 없다</h3>
+
+  <p>DB(자료를 담는 창고)에는 보통 <b>설계도 파일</b>이 따로 있고, 바뀔 때마다 순서대로 기록합니다.
+  망고아이는 그게 아니라 <b>서비스가 돌아가는 도중에 코드가 표를 만듭니다.</b></p>
+
+  <div class="grid">
+    <div class="num"><b>324</b><span>코드 안 <code>CREATE TABLE IF NOT EXISTS</code></span></div>
+    <div class="num"><b>96</b><span>코드 안 <code>ALTER TABLE ADD COLUMN</code></span></div>
+    <div class="num"><b>0</b><span>migrations 폴더 (없음)</span></div>
+    <div class="num"><b>116</b><span>그중 <code>api-admin.ts</code> 한 파일에만</span></div>
+  </div>
+
+  <div class="why"><b>왜 문제냐면</b> —
+  <ul>
+    <li><b>지금 DB가 정확히 어떤 모양인지 아무도 모릅니다.</b> 324군데를 다 읽어야 알 수 있습니다.</li>
+    <li>학생이 버튼을 누를 때마다 “표 있나? 없으면 만들어” 같은 명령이 같이 나갑니다 — <b>느리고, 돈도 더 듭니다.</b></li>
+    <li>같은 표를 여러 파일이 각자 만들면 <b>모양이 서로 조금씩 다를 수 있습니다.</b></li>
+  </ul>
+  실제로 이 저장소에서는 <code>status='정상'</code>이라는 값이 DB에 <b>0건</b>인데 코드는 그걸 찾고 있어
+  경영 대시보드가 통째로 0으로 나온 사고가 있었습니다. 설계도가 있었다면 바로 보였을 문제입니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b>
+  <ul>
+    <li>먼저 <b>지금 운영 DB의 실제 모양을 그대로 뽑아</b> <code>schema.sql</code> 한 파일로 만듭니다(읽기만 하므로 안전).</li>
+    <li>앞으로 표 모양이 바뀌면 <code>migrations/0001_xxx.sql</code>처럼 <b>번호를 붙여 파일로</b> 남깁니다.</li>
+    <li>요청을 처리하는 코드 안의 <code>CREATE TABLE</code>은 <b>한 번에 다 지우지 말고</b>,
+      건드리는 파일이 생길 때마다 하나씩 걷어냅니다.</li>
+  </ul>
+  <span class="quiet">난이도: 중상 · 효과: 큼 (앞으로의 데이터 사고를 미리 막습니다)</span></div>
+</div>
+
+<!-- ============ 2군 ============ -->
+<h2>2. 계속 발목을 잡는 것 (노란불)</h2>
+
+<div class="card p2">
+  <h3><span class="tag t2">문제 4</span> 파일 하나가 너무 커서 두 사람이 같이 못 만진다</h3>
+
+  <div class="scroll"><table>
+    <tr><th>파일</th><th>크기</th><th>줄 수</th><th>안에 든 것</th></tr>
+    <tr><td><code>public/index.html</code></td><td>2.0MB</td><td>33,458</td><td>&lt;script&gt; 128개, &lt;style&gt; 86개, 인라인 style 892개</td></tr>
+    <tr><td><code>public/admin.html</code></td><td>1.0MB</td><td>11,682</td><td>&lt;script&gt; 188개, 인라인 style 2,688개</td></tr>
+    <tr><td><code>src/api-admin.ts</code></td><td>674KB</td><td>9,561</td><td>API 분기 191개</td></tr>
+    <tr><td><code>src/index.ts</code></td><td>289KB</td><td>4,625</td><td>API 분기 <b>472개</b></td></tr>
+  </table></div>
+
+  <div class="why"><b>왜 문제냐면</b> — 파일이 크면 두 사람이 동시에 못 고칩니다.
+  그래서 <code>CLAUDE.md</code>에 “A는 admin, B는 게임” 같은 <b>영역 분담 규칙</b>이 생겼는데,
+  이건 문제를 <b>해결한 게 아니라 피해 다니는 것</b>입니다.
+  사람이 세 명이 되면 규칙이 다시 막힙니다.<br><br>
+  <code>src/index.ts</code>는 특히 심합니다. 주소를 찾을 때 <b>if를 472번 순서대로 비교</b>합니다.
+  그래서 “새 API를 만들었는데 라이브에서 404가 난다”는 사고가 반복됩니다 —
+  여기에 등록하는 걸 잊으면 없는 기능이 되기 때문입니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b> — <b>한 번에 쪼개면 안 됩니다.</b> 위험합니다. 순서가 있습니다.
+  <ol>
+    <li><b>가장 쉬운 것부터</b>: <code>index.html</code>의 &lt;script&gt; 128개 중, 화면과 상관없이 혼자 도는 덩어리를
+      <code>js/</code> 파일로 하나씩 빼냅니다. (이미 <code>idx-*.js</code> 13개로 하던 방식 그대로)</li>
+    <li><b>API 주소는 표로</b>: if 472개를 <code>{ 'POST /api/x': 함수 }</code> 형태의 <b>목록 하나</b>로 바꿉니다.
+      그러면 등록을 빠뜨릴 수가 없고, 속도도 빨라집니다.</li>
+    <li><code>api-admin.ts</code> 9,561줄은 <b>주제별로</b>(급여 / 통계 / 강사 / 스케줄) 나눕니다.</li>
+  </ol>
+  <span class="quiet">난이도: 상 · 효과: 큼 · 기간: 몇 달에 걸쳐 조금씩</span></div>
+</div>
+
+<div class="card p2">
+  <h3><span class="tag t2">문제 5</span> 같은 규칙이 3벌 있고, 이미 서로 달라졌다</h3>
+
+  <p>“이 아이디는 본사인가, 지사인가, 대리점인가”를 판단하는 규칙이 <b>세 곳에 복사돼</b> 있습니다.</p>
+
+  <div class="scroll"><table>
+    <tr><th>위치</th><th>쓰는 이름</th><th>상태</th></tr>
+    <tr><td><code>public/index.html:24762</code></td><td><code>hq_mgr</code>, <code>hq_exec</code>, <code>hq_teacher</code>…</td><td>학생/학부모 분기 <b>없음</b></td></tr>
+    <tr><td><code>public/admin/login.html:190</code></td><td>같은 이름</td><td>학생/학부모 분기 <b>있음</b> ← 이미 갈라짐</td></tr>
+    <tr><td><code>src/auth-admin.ts:86</code></td><td><code>hq</code>, <code>teacher</code>, <code>branch</code>… <b>이름이 다름</b></td><td>서버가 진짜로 믿는 값</td></tr>
+  </table></div>
+
+  <div class="why"><b>왜 문제냐면</b> — 규칙을 한 번 고치려면 <b>세 군데를 다 고쳐야</b> 하고,
+  한 곳을 잊으면 “어떤 사람은 되고 어떤 사람은 안 되는” 버그가 됩니다.
+  그리고 <b>이미 갈라져 있습니다</b>(위 표의 학생/학부모 분기).
+  <br><br>
+  <span class="quiet">※ 보안은 괜찮습니다. 화면에서 뭐라고 정하든 <b>서버가 따로 다시 판단</b>하기 때문에
+  아이디를 <code>hq_</code>로 바꿔 만든다고 권한이 생기지는 않습니다. 이건 보안 문제가 아니라 <b>일관성 문제</b>입니다.</span></div>
+
+  <div class="fix"><b>어떻게 고치나</b> — <b>서버가 정답을 내려주면 됩니다.</b>
+  로그인 응답에 이미 <code>server_role</code>이 들어 있습니다(<code>auth-admin.ts:664</code>).
+  화면 두 곳의 판단 코드를 지우고 <b>서버가 준 값을 그대로 쓰기만</b> 하면 3벌이 1벌이 됩니다.
+  <span class="quiet">난이도: 하~중 · 효과: 큼</span></div>
+</div>
+
+<div class="card p2">
+  <h3><span class="tag t2">문제 6</span> 파일 이름만 봐서는 무슨 일을 하는지 알 수 없다</h3>
+
+  <p><code>public/js/</code> 안 147개 중 <b>90개가 <code>adm-</code>로 시작</b>하는데, 이름이 이렇습니다:</p>
+  <p><code>adm-p1 ~ adm-p7</code>, <code>adm-q1 ~ adm-q12</code>, <code>adm-r1 ~ adm-r14</code>,
+  <code>adm-s11</code>, <code>adm-s13</code>, <code>adm-ia6</code> …</p>
+
+  <div class="why"><b>왜 문제냐면</b> — 이건 “고칠 때마다 새 파일을 위에 한 겹 덮은” 흔적입니다.
+  벽에 페인트를 30번 덧칠한 것과 같습니다. 지금 보이는 색이 몇 번째 층인지 알 수 없습니다.<br>
+  실제로 이 저장소에는 <b>“사이드바를 눌러도 안 움직인다”</b>는 사고가 있었는데,
+  원인이 <code>adm-s11.js</code>가 클릭을 먼저 가로채서 <code>adm-ia6.js</code>에는 아예 도달하지 않은 것이었습니다.
+  이름이 <code>adm-s11</code>이라 <b>거기에 그런 코드가 있는 줄 아무도 몰랐던</b> 겁니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b>
+  <ul>
+    <li>당장 전부 바꾸지는 않습니다. <b>파일 맨 위에 한 줄 주석</b>으로 “이 파일이 하는 일”을 적는 것부터 시작합니다(90개, 하루면 됩니다).</li>
+    <li>앞으로 <b>새 파일에는 뜻이 있는 이름</b>만 씁니다(<code>adm-payroll.js</code>처럼).
+      이미 <code>adm-bugreports.js</code>, <code>adm-hr-analysis.js</code>처럼 잘 지은 것도 있습니다 — 그 방식이 맞습니다.</li>
+    <li>이름 있는 파일로 옮길 때는 <b>한 번에 한 개씩</b>, 하니스로 확인하며 합칩니다.</li>
+  </ul>
+  <span class="quiet">난이도: 하(주석) / 상(통합) · 효과: 중~큼</span></div>
+</div>
+
+<div class="card p2">
+  <h3><span class="tag t2">문제 7</span> 첫 화면이 너무 무겁다 — 필리핀 회선에서 특히</h3>
+
+  <p>실제로 라이브에서 받아 봤습니다.</p>
+  <div class="grid">
+    <div class="num"><b>546KB</b><span>홈 첫 화면 (압축 후 실측)</span></div>
+    <div class="num"><b>2.0MB</b><span>압축 전 원본</span></div>
+    <div class="num"><b>1,064KB</b><span>pdf.worker.min.js 한 개</span></div>
+    <div class="num"><b>712KB</b><span>adm-core.js 한 개</span></div>
+  </div>
+
+  <div class="why"><b>왜 문제냐면</b> — 요즘 웹에서 “첫 화면은 압축 후 <b>150KB 아래</b>”가 목표입니다.
+  546KB는 그 <b>3.6배</b>입니다. 한국 광랜에서는 티가 안 나지만,
+  필리핀 강사나 학생 휴대폰 데이터에서는 <b>첫 화면이 뜨기까지 몇 초</b> 차이가 납니다.
+  그리고 이 파일은 <b>수업에 들어가는 코드가 들어 있는 파일</b>이라, 늦게 뜨면 수업 입장이 늦어집니다.</div>
+
+  <div class="fix"><b>어떻게 고치나</b>
+  <ul>
+    <li><b>바로 필요 없는 건 나중에 받기</b>: PDF 뷰어(1.4MB)는 교재를 열 때만 받으면 됩니다.
+      이미 <code>adm-lazy.js</code>로 하고 있는 방식을 홈에도 적용합니다.</li>
+    <li><b>인라인 style 892개를 CSS 파일로</b> 옮기면 브라우저가 그 부분을 캐시할 수 있습니다.</li>
+    <li>목표를 숫자로 정합니다: <b>홈 첫 화면 250KB 이하</b>. 하니스에 검사 항목을 넣어 다시 커지면 배포를 막습니다.</li>
+  </ul>
+  <span class="quiet">난이도: 중 · 효과: 큼 (사용자가 바로 체감)</span></div>
+</div>
+
+<!-- ============ 3군 ============ -->
+<h2>3. 지금 당장은 아니지만 정리하면 좋은 것 (파란불)</h2>
+
+<div class="card p3">
+  <h3><span class="tag t3">문제 8</span> 타입 검사가 사실상 꺼져 있다</h3>
+  <p>TypeScript는 “여기 들어올 값은 숫자야”라고 미리 적어두면 <b>실수를 컴퓨터가 잡아주는</b> 언어입니다.
+  그런데 <code>any</code>라고 적으면 “아무거나”라는 뜻이라 <b>검사를 끄는 것</b>과 같습니다.</p>
+  <div class="grid">
+    <div class="num"><b>2,162</b><span>코드 안 <code>: any</code> 개수</span></div>
+    <div class="num"><b>0</b><span>단위 테스트 파일</span></div>
+  </div>
+  <div class="fix"><b>어떻게 고치나</b> — 2,162개를 다 없앨 필요는 없습니다.
+  <b>돈이 오가는 코드</b>(<code>api-pay.ts</code>, <code>api-payroll-auto.ts</code>, <code>org-settlement.ts</code>)부터
+  타입을 제대로 붙입니다. 여기서 나는 실수는 바로 금액 오류가 됩니다.
+  <span class="quiet">난이도: 중 · 효과: 중</span></div>
+</div>
+
+<div class="card p3">
+  <h3><span class="tag t3">문제 9</span> 저장소가 1.5GB — 동영상을 깃에 넣었다</h3>
+  <div class="scroll"><table>
+    <tr><th>깃 안에 들어간 큰 파일</th><th>크기</th><th>비고</th></tr>
+    <tr><td><code>library/admin/admin-kr.mp4</code></td><td>19MB</td><td><b>같은 파일이 4번</b> 들어 있음(13+15+19MB…)</td></tr>
+    <tr><td><code>library/teacher/teacher-en.pdf</code></td><td>18MB</td><td></td></tr>
+    <tr><td><code>library/agency/agency-kr.pdf</code></td><td>17MB</td><td>2번</td></tr>
+  </table></div>
+  <p class="quiet">현재 <code>public/</code> 폴더 전체 544MB 중 <code>library/</code>가 311MB입니다.</p>
+  <div class="why"><b>왜 문제냐면</b> — 깃은 <b>파일을 고칠 때마다 통째로 새로 저장</b>합니다.
+  글자 파일은 괜찮지만 동영상은 20MB짜리가 그대로 쌓입니다. 지울 수도 없습니다(과거 기록이라).
+  그래서 새 개발자가 코드를 받는 데 <b>1.5GB를 내려받아야</b> 합니다.</div>
+  <div class="fix"><b>어떻게 고치나</b> — 과거 기록은 그냥 둡니다(건드리면 더 위험합니다).
+  <b>앞으로만</b> 동영상·PDF를 R2(이미 쓰고 있는 파일 저장소)에 올리고,
+  <code>.gitignore</code>에 <code>public/library/*.mp4</code>를 추가합니다.
+  <span class="quiet">난이도: 하 · 효과: 중</span></div>
+</div>
+
+<div class="card p3">
+  <h3><span class="tag t3">문제 10</span> 기록의 69%가 “배포 도장”이라 진짜 변경을 찾기 어렵다</h3>
+  <div class="grid">
+    <div class="num"><b>3,304</b><span>전체 커밋</span></div>
+    <div class="num"><b>2,282</b><span>그중 <code>deploy:</code> 커밋 (69%)</span></div>
+    <div class="num"><b>1,715</b><span>최근 30일 커밋</span></div>
+  </div>
+  <div class="why"><b>왜 문제냐면</b> — 배포할 때마다 HTML 69개 전부에 시각 도장을 새로 찍습니다.
+  그래서 “누가 언제 이걸 바꿨지?”를 찾을 때 도장 커밋 2,282개를 헤치고 가야 합니다.</div>
+  <div class="fix"><b>어떻게 고치나</b> — 도장을 <b>파일 안이 아니라 서버가 응답할 때 붙이도록</b> 바꾸면
+  커밋 자체가 사라집니다. Cloudflare Worker에서 HTML을 내보낼 때 한 줄 끼워 넣으면 됩니다.
+  <span class="quiet">난이도: 중 · 효과: 중 (배포도 훨씬 빨라집니다)</span></div>
+</div>
+
+<div class="card p3">
+  <h3><span class="tag t3">문제 11</span> 죽은 디자인이 살아서 색을 덮어쓴다</h3>
+  <div class="grid">
+    <div class="num"><b>3,828</b><span>css 파일 안 <code>!important</code></span></div>
+    <div class="num"><b>2,006</b><span>index.html 안 <code>!important</code></span></div>
+  </div>
+  <div class="why"><b>왜 문제냐면</b> — <code>!important</code>는 “무조건 내 말이 맞다”는 뜻입니다.
+  옛날에 쓰다 버린 <b>다크 테마</b> 규칙 수백 개가 아직 남아 이걸 달고 있어서,
+  새로 색을 정해도 안 먹습니다. 이건 이미 <code>CLAUDE.md</code>에 함정으로 적혀 있습니다
+  (“관리자 카드 안 박스 색이 안 먹는 이유”).</div>
+  <div class="fix"><b>어떻게 고치나</b> — 테마가 <b>항상 ivory 하나로 고정</b>이므로,
+  다크 전용 규칙은 통째로 지울 수 있습니다. 다만 지우면 색이 바뀌는 곳이 나오니
+  <b>화면 하나씩</b> 사진을 찍어 비교하며 걷어냅니다.
+  <span class="quiet">난이도: 중 · 효과: 중 (앞으로 디자인 수정이 훨씬 쉬워집니다)</span></div>
+</div>
+
+<!-- ============ 잘한 것 ============ -->
+<h2>4. 잘 되어 있는 것 (이건 지켜야 합니다)</h2>
+
+<div class="card" style="border-left-color:var(--green)">
+  <ul>
+    <li><span class="tag ok">좋음</span> <b>회귀 테스트 하니스 138개.</b> 이건 정말 잘 만들어진 자산입니다.
+      보통 이 규모 회사에도 없습니다. 문제는 <b>자동 배포에서 안 돌린다</b>는 것뿐입니다(위험 2).</li>
+    <li><span class="tag ok">좋음</span> <b><code>CLAUDE.md</code>의 “함정” 목록.</b>
+      한 번 밟은 실수를 글로 남겨 두는 습관은 대부분의 팀이 못 합니다.</li>
+    <li><span class="tag ok">좋음</span> <b>되돌리기 쉬운 구조.</b>
+      기능을 <code>&lt;script&gt;</code> 한 줄로 붙였다 떼는 방식이라, 문제가 생기면 한 줄 지우면 원상복구됩니다.</li>
+    <li><span class="tag ok">좋음</span> <b>SQL 안전.</b> DB 명령을 글자로 이어 붙인 곳이 73군데 있어 확인했는데,
+      전부 <b>컬럼 이름 목록에서 고르거나 물음표를 만드는 용도</b>였습니다.
+      바깥에서 들어온 글자가 직접 들어가는 곳은 <b>없었습니다</b>. 흔한 해킹 통로가 막혀 있습니다.</li>
+  </ul>
+</div>
+
+<!-- ============ 계획 ============ -->
+<h2>5. 그래서 무엇부터 하면 되나 <span class="quiet" style="font-size:15px">(2판 — 사용자 없음 전제)</span></h2>
+
+<div class="lead">
+  <b>가장 중요한 이야기 먼저.</b><br>
+  “구조를 갈아엎는 일”이 어려운 이유는 기술이 아니라 <b>사람이 쓰고 있어서</b>입니다.
+  쓰는 사람이 있으면 한 번에 못 바꾸니, 옛것 위에 새것을 덧대게 되고 —
+  <code>adm-p1~r14</code> 같은 <b>덧칠 90겹</b>이 바로 그렇게 생긴 것입니다.<br><br>
+  지금은 쓰는 사람이 없습니다. <b>덧칠하지 않고 벽을 벗겨낼 수 있는 시기</b>이고,
+  이 시기는 출시하는 순간 끝납니다.
+</div>
+
+<h3>그래도 “백지에서 새로” 는 권하지 않습니다 — 이유가 바뀌었습니다</h3>
+<p>1판에서는 “사용자가 있어서”라고 썼는데 그 이유는 이제 없습니다. <b>진짜 이유는 따로 있습니다.</b></p>
+<ul>
+  <li>이 저장소에는 <b>회귀 테스트 하니스 138개</b>가 있습니다. 그 하나하나가
+    “예전에 이렇게 고장 났었다”는 <b>사고 기록</b>입니다 — 마이크가 안 잡히던 것, 녹화가 잘리던 것,
+    수업이 갑자기 끊기던 것, 학부모 링크가 없는 주소로 나가던 것…</li>
+  <li><code>CLAUDE.md</code>의 <b>함정 목록</b>도 마찬가지입니다. 전부 한 번씩 밟아 보고 적은 것입니다.</li>
+  <li>백지에서 새로 쓰면 <b>이 지식이 통째로 날아가고, 같은 사고를 처음부터 다시 겪습니다.</b>
+    화상수업·녹화·마이크처럼 <b>현실에서만 드러나는 문제</b>는 특히 그렇습니다.</li>
+</ul>
+<p><b>그래서 방향은 “전면 재작성”이 아니라 “대수술”입니다.</b>
+뼈대는 과감하게 바꾸되, 하니스 138개는 그대로 두고 <b>그걸 합격 기준으로 삼아</b> 갈아엎습니다.
+1판과 다른 점은 <b>속도</b>입니다 — “몇 달에 걸쳐 하나씩”이 아니라 <b>“몇 주 안에 몰아서”</b>.</p>
+
+<h3>0단계 · 안전망부터 (반나절)</h3>
+<p class="quiet">부술 작정이면, 경보기가 먼저 울려야 합니다. 이 단계는 1판보다 <b>더</b> 중요해졌습니다.</p>
+<div class="scroll"><table>
+  <tr><th>할 일</th><th>파일</th><th>시간</th></tr>
+  <tr><td><code>continue-on-error: true</code> 삭제 — 문법 오류가 나면 배포를 막는다</td><td><code>.github/workflows/deploy.yml</code></td><td>10분</td></tr>
+  <tr><td><code>npx tsc</code> → <code>node node_modules/typescript/bin/tsc --noEmit</code></td><td>같은 파일</td><td>5분</td></tr>
+  <tr><td><code>node test-harness/run.mjs --fast</code> 추가 — 하니스 114개를 자동 배포에도</td><td>같은 파일</td><td>30분</td></tr>
+  <tr><td>지금 상태를 <b>태그로 못 박기</b> (<code>git tag pre-surgery</code>) — 언제든 돌아올 지점</td><td>—</td><td>5분</td></tr>
+</table></div>
+
+<h3>1단계 · 죽은 살 도려내기 (3~5일) — 되돌릴 필요조차 없는 “순수 삭제”</h3>
+<p class="quiet">먼저 지웁니다. 지우고 나면 남은 게 훨씬 작아져서, 뒤 단계가 절반으로 줄어듭니다.</p>
+<ul>
+  <li><b>덧칠 90겹 벗기기</b> — <code>js/adm-p*·q*·r*·s*.js</code>가 실제로 무엇을 하는지 계측해,
+    <b>죽은 것은 삭제 / 산 것은 뜻 있는 이름으로 통합</b>. 1판에서는 “주석만 달자”였는데, 이제 진짜로 정리할 수 있습니다.</li>
+  <li><b>죽은 다크 테마 삭제</b> — <code>!important</code> 3,828개(css)+2,006개(index.html)의 상당수.
+    테마는 ivory 하나로 고정이므로 다크 규칙은 통째로 나갑니다.</li>
+  <li><b>루트 레거시 삭제</b> — <code>modules/</code>, <code>public/</code>, <code>server.js</code>.
+    (<code>CLAUDE.md</code>가 “삭제하지 말라”고 한 건 <b>라이브를 지키려는 규칙</b>이었습니다. 이제 지울 수 있습니다.)</li>
+  <li><b>중복 자산 삭제</b> — <code>intro.original.mp4</code>(4.2MB) 등, <code>library/</code> 311MB를 R2로 이전.</li>
+</ul>
+
+<h3>2단계 · 뼈대 바로잡기 (1~2주) — 여기가 진짜 수술</h3>
+<div class="scroll"><table>
+  <tr><th>무엇을</th><th>지금</th><th>바꾼 뒤</th><th>얻는 것</th></tr>
+  <tr><td>API 주소 찾기</td><td><code>index.ts</code>에 if <b>472개</b></td><td>주소 → 함수 <b>목록 1개</b></td><td>“새 API가 404” 사고가 <b>구조적으로 불가능</b>해짐</td></tr>
+  <tr><td>관리자 서버 코드</td><td><code>api-admin.ts</code> <b>9,561줄</b></td><td>주제별 <b>5개 파일</b></td><td>두 사람이 동시에 작업 가능</td></tr>
+  <tr><td>DB 설계도</td><td>코드 안 <code>CREATE TABLE</code> <b>324개</b></td><td><code>schema.sql</code> + <code>migrations/</code></td><td>DB 모양을 한눈에. 요청마다 나가던 표 만들기 명령이 사라져 <b>빨라지고 싸짐</b></td></tr>
+  <tr><td>역할 판정</td><td><b>3벌</b> (이미 갈라짐)</td><td>서버 <code>server_role</code> <b>1벌</b></td><td>권한 버그 근절</td></tr>
+</table></div>
+<p class="quiet">DB는 <b>새로 만들어도 됩니다.</b> 학생 표는 Cafe24에서 다시 받아오면 되고,
+나머지는 강사 테스트 데이터입니다. 다만 <b>새 DB를 하나 더 만들어</b>(<code>mango-db-dev</code>) 거기서 먼저 세우면,
+“개발과 운영이 같은 DB”라는 지금의 위험도 같이 없앨 수 있습니다.</p>
+
+<h3>3단계 · 화면 (1~2주)</h3>
+<ul>
+  <li><code>index.html</code> <b>33,458줄 분해</b> — &lt;script&gt; 128개를 기능별 파일로.
+    1판에서는 “한 번에 하나씩”이었지만 이제 <b>한 번에</b> 할 수 있습니다.</li>
+  <li><b>첫 화면 546KB → 250KB 이하.</b> PDF 뷰어 1.4MB를 교재 열 때만 받기 + 인라인 style 892개를 CSS로.</li>
+  <li><b>조용히 삼키는 <code>catch</code> 정리</b> — 431개 + 서버 700개. 최소한 로그 한 줄씩.</li>
+  <li>배포 도장을 파일이 아니라 <b>서버 응답에서</b> 붙이기 → 커밋의 69%를 차지하던 도장 커밋이 사라짐.</li>
+</ul>
+
+<h3>합치면</h3>
+<div class="scroll"><table>
+  <tr><th>단계</th><th>기간</th><th>끝나면</th></tr>
+  <tr><td>0 · 안전망</td><td>반나절</td><td>부숴도 알람이 울린다</td></tr>
+  <tr><td>1 · 삭제</td><td>3~5일</td><td>코드가 눈에 띄게 줄어든다</td></tr>
+  <tr><td>2 · 뼈대</td><td>1~2주</td><td>404·권한·DB 사고의 <b>원인 자체</b>가 없어진다</td></tr>
+  <tr><td>3 · 화면</td><td>1~2주</td><td>첫 화면 2배 이상 빨라진다</td></tr>
+  <tr><td><b>합계</b></td><td><b>약 3~5주</b></td><td>출시해도 되는 상태</td></tr>
+</table></div>
+
+<div class="lead" style="border-left:5px solid var(--green)">
+  <b>한 문장으로</b><br>
+  <b>“백지에서 새로”가 아니라 “하니스 138개를 합격 기준으로 삼은 3~5주짜리 대수술”</b>이 맞습니다.
+  그리고 이 수술은 <b>출시 전에만</b> 할 수 있습니다 — 사용자가 붙는 순간,
+  지금 지우려는 <code>adm-p1~r14</code> 같은 덧칠을 <b>다시 쌓기 시작</b>하게 됩니다.
+</div>
+
+<footer>
+  이 보고서의 모든 숫자는 2026-08-09 기준으로 실제 파일을 세어 얻은 값입니다.
+  라이브 전송 크기(546KB)는 <code>https://test.mangoi.co.kr/</code>에 실제로 요청해 측정했습니다.
+  DB는 <b>읽지 않았고</b>, 코드도 <b>고치지 않았습니다</b> — 진단만 한 문서입니다.
+</footer>
+
+</div>
+</body>
+</html>
