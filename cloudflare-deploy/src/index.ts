@@ -29,6 +29,7 @@ import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } fro
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
+import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -924,6 +925,14 @@ const worker = {
     if (path.startsWith('/api/outage/')) {
       const oRes = await handleOutageApi(request, url, env as any);
       if (oRes) return oRes;
+    }
+
+    // 📏 관리자 메뉴 클릭 계측 — 메뉴를 87개에서 줄이려면 «안 눌리는 메뉴» 를 알아야 한다.
+    //   지금까지 이 사실이 서버에 한 번도 기록된 적이 없어 우선순위가 전부 인터뷰와 감이었다.
+    //   ⚠️ 누가 눌렀는지는 저장하지 않는다(역할만). 직원 감시 도구가 되면 켜 둘 수 없다.
+    if (path === '/api/admin/menu-hit' || path === '/api/admin/menu-hit/stats') {
+      const mRes = await handleMenuHitApi(request, url, env as any);
+      if (mRes) return mRes;
     }
 
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
@@ -4959,6 +4968,9 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/capitown/',
     // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
     '/api/admin/game-insights',
+    // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
+    //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
+    '/api/admin/menu-hit',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
