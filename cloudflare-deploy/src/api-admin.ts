@@ -8454,7 +8454,10 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     if (method === 'POST' && path === '/api/admin/schedule/auto') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        // ⚠️ (2026-08-09) 여기 있던 CREATE TABLE class_schedules (student_uid, teacher_uid, day, time, mbti_score …) 를 지웠다.
+        //   그 표는 이미 다른 모양으로 존재한다(user_id · teacher_id · day_of_week · start_time …).
+        //   IF NOT EXISTS 라 아무 일도 안 일어나면서, 「이 표는 이런 모양」이라는 **거짓 설명**만 남아
+        //   아래 /schedule/approve 의 INSERT 가 그 거짓을 믿고 짜여 매번 실패했다.
 
         // Teachers (active)
         let teachers: any[] = [];
@@ -8557,20 +8560,47 @@ LIMIT $limit`;
 
     if (method === 'POST' && path === '/api/admin/schedule/approve') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        // 🔧 (2026-08-09) 이 기능은 «한 건도 저장하지 않으면서 성공했다고» 답하고 있었다.
+        //   사슬:
+        //     ① 여기서 class_schedules 를 student_uid/teacher_uid/day/time/mbti_score 로 만들려 했다
+        //     ② 그런데 그 표는 이미 있다 → IF NOT EXISTS 라 **아무 일도 안 일어난다**
+        //        운영 실제 컬럼: user_id · teacher_id · day_of_week · start_time · scheduled_date …
+        //     ③ 아래 INSERT 가 「no such column: student_uid」 로 매번 실패
+        //     ④ 그 실패를 catch {} 가 조용히 삼킴 → inserted 는 0
+        //     ⑤ return { ok:true, inserted:0 } — 화면엔 성공으로 보인다
+        //   ①의 CREATE 를 지우고, INSERT 를 **운영 실제 컬럼**에 맞춘다.
+        //   (mbti_score 는 표에 자리가 없어 notes 에 남긴다 — 값을 버리지 않기 위해)
         const b: any = await request.json().catch(() => ({}));
         const rows = Array.isArray(b.rows) ? b.rows : [];
         if (!rows.length) return json({ ok: false, error: 'rows_required' }, 400);
         const now = Date.now();
         let inserted = 0;
+        const failures: string[] = [];
         for (const r of rows) {
           try {
-            await env.DB.prepare(`INSERT INTO class_schedules (student_uid, teacher_uid, day, time, mbti_score, source, status, created_at) VALUES (?,?,?,?,?,?,?,?)`)
-              .bind(String(r.student_uid || ''), String(r.teacher_uid || ''), String(r.day || ''), String(r.time || ''), Number(r.mbti_score || 0), 'ai_auto', 'proposed', now).run();
+            await env.DB.prepare(
+              `INSERT INTO class_schedules (user_id, teacher_id, day_of_week, start_time, duration_min, schedule_kind, source, status, notes, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)`
+            ).bind(
+              String(r.student_uid || ''), String(r.teacher_uid || ''),
+              String(r.day || ''), String(r.time || ''),
+              // ⚠️ duration_min 은 반드시 명시한다 — 운영 표의 DEFAULT 가 옛 정책(30분)이라
+              //   생략하면 30 이 들어간다(class-policy.ts 주석). 하니스가 이 누락을 잡는다.
+              Number(r.duration_min) || DEFAULT_CLASS_MINUTES,
+              'weekly', 'ai_auto', 'proposed',
+              `mbti_score=${Number(r.mbti_score || 0)}`, now
+            ).run();
             inserted++;
-          } catch {}
+          } catch (e: any) {
+            // ⚠️ 조용히 삼키지 않는다 — 위 ④가 이 기능을 죽여 놓고도 성공으로 보이게 한 원인이다.
+            if (failures.length < 5) failures.push(String(e?.message || e));
+          }
         }
-        return json({ ok: true, inserted });
+        if (!inserted && failures.length) {
+          console.warn('[schedule/approve] 전건 실패:', failures[0]);
+          return json({ ok: false, error: 'insert_failed', inserted: 0, detail: failures[0] }, 500);
+        }
+        return json({ ok: true, inserted, failed: rows.length - inserted, ...(failures.length ? { errors: failures } : {}) });
       } catch (e: any) {
         return json({ ok: false, error: e?.message || 'schedule_approve_failed' }, 500);
       }

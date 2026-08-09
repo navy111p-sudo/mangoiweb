@@ -129,9 +129,15 @@ if (baselineRaw !== null) {
 const cur = { pass: n('PASS'), skip: n('SKIP'), fail: n('FAIL') };
 
 if (process.argv.includes('--update-baseline')) {
-  baseline[mode] = { pass: cur.pass, skip: cur.skip };
-  writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
-  console.log(`  📌 기준선 갱신(${mode}): PASS ${cur.pass} / SKIP ${cur.skip}`);
+  // ⚠️ FAIL 이 있는 상태를 기준선으로 못 박으면 «고장난 상태» 가 정상이 된다.
+  //    실제로 밟았다 — FAIL 1 인 채로 PASS 120 이 기준선으로 저장됐다.
+  if (cur.fail) {
+    console.log(`  ⛔ FAIL ${cur.fail}건이 있어 기준선을 갱신하지 않습니다. 먼저 고치세요.`);
+  } else {
+    baseline[mode] = { pass: cur.pass, skip: cur.skip };
+    writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + '\n');
+    console.log(`  📌 기준선 갱신(${mode}): PASS ${cur.pass} / SKIP ${cur.skip}`);
+  }
 } else if (baseline[mode]) {
   const b = baseline[mode];
   const drift = [];

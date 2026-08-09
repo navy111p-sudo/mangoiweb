@@ -1,0 +1,27 @@
+{
+  "ghosts": [
+    "api-admin.ts:class_schedules|duration_minutes,teacher_name",
+    "api-admin.ts:counseling_bookings|date,staff_uid,start_time",
+    "api-admin.ts:students_erp|name",
+    "api-mango.ts:students_erp|id",
+    "api-notify.ts:chat_messages|created_at",
+    "api-students.ts:point_rule_log|source"
+  ],
+  "conflicts": [
+    "attendance",
+    "class_schedules",
+    "enrollments",
+    "game_progress",
+    "point_rule_log",
+    "point_transactions",
+    "push_queue",
+    "push_subscriptions",
+    "student_evaluations",
+    "student_payments",
+    "student_points",
+    "students_erp",
+    "teacher_mbti",
+    "teacher_profiles",
+    "voice_coaching"
+  ]
+}
