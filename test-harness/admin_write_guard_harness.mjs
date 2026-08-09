@@ -36,7 +36,9 @@ if (!bm) { console.log('1 FAIL — TEACHER_BLOCKED_PREFIXES 를 못 찾음 (inde
 const blocked = [...bm[1].matchAll(/['"]([^'"]+)['"]/g)].map(m => m[1]);
 
 // ── /api/admin/* 쓰기 핸들러 수집 ──
-const GUARD = /isTeacher|forbidden_teacher|ownName|teacherName|actor\.role/;
+// 가드로 인정하는 표현. 새 가드 패턴을 도입하면 여기에도 추가해야 한다 —
+// 안 그러면 실제로는 막았는데 하니스가 「무방비」로 계속 세어 개선이 안 보인다(실제로 밟았다).
+const GUARD = /isTeacher|forbidden_teacher|denyTeacher|ownName|teacherName|actor\.role/;
 const found = [];
 for (const f of readdirSync(SRC).filter(f => f.endsWith('.ts'))) {
   const lines = readFileSync(join(SRC, f), 'utf8').split('\n');

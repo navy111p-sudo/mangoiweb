@@ -18,8 +18,6 @@
     "POST /api/admin/exam/toggle",
     "POST /api/admin/feedback-drafts/approve",
     "POST /api/admin/forbidden-words",
-    "POST /api/admin/gifts/catalog",
-    "POST /api/admin/gifts/seed-catalog",
     "POST /api/admin/homework/save",
     "POST /api/admin/judgment/mark-migrated",
     "POST /api/admin/judgment/snapshot",
@@ -35,8 +33,6 @@
     "POST /api/admin/monthly-report/send",
     "POST /api/admin/no-shows/contact",
     "POST /api/admin/notify-queue",
-    "POST /api/admin/points/adjust",
-    "POST /api/admin/points/seed-rules",
     "POST /api/admin/retention/care",
     "POST /api/admin/review-quiz/ai-generate",
     "POST /api/admin/review-quiz/build-bank",
@@ -51,7 +47,6 @@
     "POST /api/admin/teacher/mbti",
     "POST /api/admin/teacher/mbti/seed-demo",
     "POST /api/admin/textbook-files",
-    "POST /api/admin/whisper/send",
-    "PUT /api/admin/points/rules"
+    "POST /api/admin/whisper/send"
   ]
 }
