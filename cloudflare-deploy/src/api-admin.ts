@@ -3900,6 +3900,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   (강사 등록 + 평가 5점수 + 수업수). 이미 같은 이름이 있으면 skip.
     //   POST /api/admin/payroll/seed-demo  body: { year, month }
     if (method === 'POST' && path === '/api/admin/payroll/seed-demo') {
+      // 🔐 (2026-08-09) 강사 차단 — 바로 위 finalize 에는 이 가드가 있는데 여기만 없었다.
+      //   이 핸들러는 UPDATE teachers SET rate_per_10min_php=… 로 **전 강사의 급여 단가**를
+      //   하드코딩된 데모값으로 덮어쓴다. 그런데 /api/admin/payroll/* 는
+      //   TEACHER_BLOCKED_PREFIXES(차단 목록)에 없어서 강사도 도달할 수 있다
+      //   — 그 목록은 «차단 목록» 이라 새 API 의 기본값이 «강사 허용» 이기 때문이다(index.ts:313).
+      //   payroll 의 다른 엔드포인트들은 각자 본인-필터로 막고 있었고, 이것만 빠져 있었다.
+      const _seedActor = await getAdminActor(request, env as any);
+      if (_seedActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 데모 데이터를 생성할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       const year  = (b && b.year)  ? Number(b.year)  : new Date().getFullYear();
