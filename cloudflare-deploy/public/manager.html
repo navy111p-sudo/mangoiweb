@@ -438,20 +438,34 @@ body.is-off .card{opacity:.82}
     // 📅 (2026-08-09) 오늘은 «진행상황», 판단용 비율은 «직전 영업일» 것을 쓴다.
     //    아침엔 오늘 미실시율이 100% 다 — 아직 아무 수업도 안 끝났으니까.
     //    시간이 갈수록 저절로 내려가는 숫자는 판단에 못 쓴다.
+    //    🪤🪤 «어제 값» 도 확정이 아니다 — 카페24 야간 동기화가 최근 14일만 다시 가져와서
+    //    완료 처리가 약 15일에 걸쳐 들어온다(굳은 날 대비 일관되게 +5~8%p 나쁘게 보인다).
+    //    보정하지 않고 잣대를 나란히 적는다 — weekday_avg_pct = 같은 요일 «굳은 날» 평균.
     var _ab = d.absence || {};
     var _booked = _ab.booked_today || 0, _done = _ab.done_today || 0;
     var _prevRate = (typeof _ab.prev_rate_pct === 'number') ? _ab.prev_rate_pct : null;
+    var _wdRate   = (typeof _ab.weekday_avg_pct === 'number') ? _ab.weekday_avg_pct : null;
+    // 「8-07(금)」 — ⚠️ getDay() 는 브라우저 시간대를 탄다. 'YYYY-MM-DD' 는 UTC 자정으로 파싱되므로 getUTCDay().
+    function _dLabel(s){
+      if (!s) return '';
+      var p = String(s).split('-'); if (p.length !== 3) return String(s);
+      var dt = new Date(s + 'T00:00:00Z');
+      var w = isNaN(dt) ? '' : (EN() ? ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                                     : ['일','월','화','수','목','금','토'])[dt.getUTCDay()];
+      return (+p[1]) + '-' + (+p[2]) + (w ? '(' + w + ')' : '');
+    }
+    var _absSub;
+    if (_prevRate === null)      _absSub = T('Done / booked today', '오늘 완료 / 예약');
+    else if (_wdRate !== null)   _absSub = _dLabel(_ab.prev_date) + ' ' + _prevRate.toFixed(1)
+                                         + T('% missed · avg ', '% 미실시 · 확정평균 ') + _wdRate.toFixed(1) + '%';
+    else                         _absSub = _dLabel(_ab.prev_date) + T(' missed ', ' 미실시 ') + _prevRate.toFixed(1) + '%';
     document.getElementById('kToday').innerHTML =
       tile(won(d.revenue && d.revenue.amount_krw), T('Revenue today', '오늘 매출'),
            T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건')) +
       tile(n0(d.students && d.students.attended), T('Attended', '출석'),
            T('of ' + n0(d.students && d.students.active) + ' active', '재원 ' + n0(d.students && d.students.active) + '명 중')) +
       tile(_booked ? (n0(_done) + ' / ' + n0(_booked)) : T('No class', '수업 없음'),
-           T("Today's classes", '오늘 수업 진행'),
-           _prevRate !== null
-             ? T((_ab.prev_date || '') + ' missed ' + _prevRate.toFixed(1) + '%',
-                 (_ab.prev_date || '') + ' 미실시 ' + _prevRate.toFixed(1) + '%')
-             : T('Done / booked today', '오늘 완료 / 예약'), '') +
+           T("Today's classes", '오늘 수업 진행'), _absSub, '') +
       tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
   }
   function tile(big, label, sub, cls){
