@@ -9,8 +9,17 @@
 //   그 이득을 지키는 것이 이 하니스의 일이다 — 무게 예산은 «한 번 줄이면 반드시 다시 는다».
 //
 // 무엇을 재나
-//   defer/async 가 **없는** <script src> 의 원본 크기 합 = 브라우저가 첫 그림 전에
-//   반드시 받고 실행해야 하는 양. (defer 는 파싱을 막지 않으므로 따로 센다)
+//   브라우저가 «첫 그림 전에 반드시 받고 실행해야 하는» 양:
+//     ① 인라인 <script> 본문 전부           ← 파싱을 그 자리에서 멈춘다
+//     ② defer/async 가 **없는** <script src>  ← 받아서 실행할 때까지 멈춘다
+//   defer 는 파싱을 막지 않으므로 따로 센다.
+//
+//   ⚠️ ①을 세는 게 핵심이다. 처음엔 ②만 셌는데, 그러면 인라인을 파일로 빼내는 «분해» 가
+//      지표를 나쁘게 만든다 — 같은 바이트·같은 실행 순서인데 숫자만 는다.
+//      지표가 옳은 일을 벌주면 아무도 그 지표를 안 지킨다.
+//
+//   실측(2026-08-09) — index.html 은 인라인만 1,319KB 다. 지연 로딩으로 덜어낸
+//   pdf.js 316KB 의 4배다. 진짜 무게는 파일 안에 있다.
 //
 // 예산을 의도적으로 바꿀 때:  node test-harness/first_paint_budget_harness.mjs --update
 
@@ -33,6 +42,17 @@ function weigh(page) {
   try { html = readFileSync(join(PUB, page), 'utf8'); } catch { return null; }
   let blocking = 0, deferred = 0;
   const items = [];
+
+  // ⚠️ 인라인 <script> 본문도 «blocking» 으로 센다 (2026-08-09 수정).
+  //   처음엔 외부 파일만 셌는데, 그러면 인라인을 파일로 빼내는 «분해» 가 지표를 나쁘게 만든다 —
+  //   실제 첫 화면 비용은 그대로이거나(같은 바이트, 같은 실행 순서) 오히려 낫다(캐시가 된다).
+  //   지표가 옳은 일을 벌주면 아무도 그 지표를 안 지킨다. 그래서 둘 다 센다.
+  let inline = 0;
+  for (const m of html.matchAll(/<script\b(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
+    inline += Buffer.byteLength(m[1], 'utf8');
+  }
+  blocking += inline;
+
   for (const m of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/g)) {
     const tag = m[0], src = m[1].split('?')[0];
     // ⚠️ 주석 안에 태그 리터럴이 있으면 여기에 걸린다. 그래서 소스 파일이 실제로 있는 것만 센다
@@ -43,14 +63,19 @@ function weigh(page) {
     else { blocking += size; items.push([size, src]); }
   }
   items.sort((a, b) => b[0] - a[0]);
-  return { blocking: Math.round(blocking / 1024), deferred: Math.round(deferred / 1024), top: items.slice(0, 5) };
+  return {
+    blocking: Math.round(blocking / 1024),
+    inline: Math.round(inline / 1024),
+    deferred: Math.round(deferred / 1024),
+    top: items.slice(0, 5),
+  };
 }
 
 const cur = {};
 for (const p of PAGES) { const w = weigh(p); if (w) cur[p] = w; }
 
 for (const [p, w] of Object.entries(cur)) {
-  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB · defer ${String(w.deferred).padStart(4)}KB`);
+  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB (인라인 ${String(w.inline).padStart(4)}KB + 외부 ${String(w.blocking - w.inline).padStart(3)}KB) · defer ${String(w.deferred).padStart(4)}KB`);
 }
 
 if (UPDATE) {

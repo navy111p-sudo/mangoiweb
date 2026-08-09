@@ -30,6 +30,14 @@ const server = http.createServer(async (req, res) => {
 });
 // --fast: puppeteer E2E 하니스 제외(빠르고 안정적) — 배포 게이트용. 정적서버도 생략.
 const FAST = process.argv.includes('--fast');
+
+/** 이 하니스가 정말 브라우저(E2E)를 쓰는가 — **실제 import/require 로만** 판정한다.
+ *  ⚠️ 예전엔 /puppeteer/ 로 본문 아무 데나 찾았다. 그래서 주석에 그 단어를 한 번 쓴
+ *     순수 정적 하니스가 통째로 SKIP 됐다 — 게이트가 조용히 꺼진 것이다(2026-08-09 실제 발생).
+ *     「검사가 사라져도 FAIL 은 0」 이라 초록불로 보인다. 이름 언급과 실제 사용을 구분한다. */
+function usesPuppeteer(body) {
+  return /\bfrom\s+['"]puppeteer(?:-\w+)?['"]|\brequire\(\s*['"]puppeteer(?:-\w+)?['"]\s*\)|\bimport\(\s*['"]puppeteer(?:-\w+)?['"]\s*\)/.test(body);
+}
 // 게이트(--fast)에서 제외할 하니스: git worktree==HEAD 무결성/brace-balance 검사 포함 → 커밋 전엔 미커밋 변경으로 오탐
 const GATE_EXCLUDE = new Set(['changes_qa_harness.mjs']);
 let served = false;
@@ -52,7 +60,7 @@ for (const f of files) {
     // 게이트 제외: git worktree==HEAD 무결성 검사가 있어 커밋 전 게이트에선 미커밋 변경으로 항상 실패(오탐)
     if (GATE_EXCLUDE.has(f)) { rows.push({ f, cat: 'SKIP', note: '⏭ 게이트 제외(git 상태 의존)' }); continue; }
     let body = ''; try { body = readFileSync(join(__dir, f), 'utf8'); } catch {}
-    if (/puppeteer/.test(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
+    if (usesPuppeteer(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
   }
   process.stdout.write('  ▶ ' + f + ' … ');
   let [cat, note] = runHarness(f);
@@ -75,7 +83,7 @@ function runHarness(f) {
   //   'puppeteer 를 쓰는데 실패 카운트만 있는' 경우는 진짜 회귀가 아니라 E2E → SKIP.
   //   (실제 소스/fetch 하니스는 puppeteer 를 안 쓰므로 이 완화에 안 걸린다 = 진짜 FAIL 은 그대로 FAIL)
   let harnessBody = ''; try { harnessBody = readFileSync(join(__dir, f), 'utf8'); } catch {}
-  const isE2E = /puppeteer/i.test(harnessBody);
+  const isE2E = usesPuppeteer(harnessBody);
   if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E'];
   // ⚠️ 2026-08-09 수정 — 이 완화들은 **E2E 하니스에만** 적용한다.
   //   그전엔 E2E 여부를 안 보고 crash 면 무조건 SKIP 이었다. 그래서
