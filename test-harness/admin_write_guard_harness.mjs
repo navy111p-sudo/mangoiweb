@@ -17,7 +17,13 @@
 //     ② 핸들러 안에 강사 판정(isTeacher 등)도 없는 것
 //   을 찾는다. 둘 다 없으면 강사가 그대로 실행할 수 있다.
 //
-// 기존 부채는 allowlist 로 인정하고, **새로 생기는 것만** 막는다.
+// 목록에 남은 48건은 **미검토 부채가 아니라 검토 후 허용**이다.
+//   2026-08-09 사장님 확정: monthly-report/approve·send, exam/delete,
+//   microlearn/send-all, feedback-drafts/approve, forbidden-words 등
+//   「강사도 해도 된다」. 그래서 닫지 않는다.
+//   (닫은 것은 돈과 직결된 6건뿐 — payroll/seed-demo, points 3종, gifts 2종)
+// 이 하니스의 목적은 「지금 열린 것을 닫는 것」이 아니라
+//   **앞으로 새로 열리는 것을 사람이 반드시 보게 하는 것** 이다.
 // 목록 갱신:  node test-harness/admin_write_guard_harness.mjs --update
 
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';

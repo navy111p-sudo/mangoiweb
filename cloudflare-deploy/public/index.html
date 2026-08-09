@@ -24759,15 +24759,16 @@ window.addEventListener('DOMContentLoaded', () => {
         return true;
       }
       if (!(r2.ok && data && data.ok)) return false;
-      var role = 'hq_mgr', branch = '', branch_id = null, agency_id = null, name = uid;
-      if (uid === 'capitown' || uid.indexOf('capi') === 0) { role = 'capitown'; name = data.name || '캐피타운 본사'; }
-      else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { role = 'hq_exec'; name = '본사 경영진'; }
-      else if (uid.indexOf('hq_t') === 0) { role = 'hq_teacher'; name = '본사 교사'; }
-      else if (uid.indexOf('hq_') === 0) { role = 'hq_mgr'; name = '본사 관리자'; }
-      else if (uid.indexOf('branch_') === 0) { role = 'branch'; branch_id = uid.replace(/^branch_/, ''); branch = branch_id; name = '지사 (' + branch_id + ')'; }
-      else if (uid.indexOf('agency_') === 0) { role = 'agency'; agency_id = uid.replace(/^agency_/, ''); name = '대리점 (' + agency_id + ')'; }
-      if (data.is_teacher) { role = 'hq_teacher'; }
-      if (data.name && data.name !== uid) name = data.name;
+      // 🪪 (2026-08-09) 역할 판정을 서버 한 곳(auth-admin.ts resolveUiIdentity)으로 모았다.
+      //   여기 있던 접두사 추측 8줄은 admin/login.html 의 복사본이었는데 **이미 갈라져 있었다** —
+      //   그쪽엔 parent/student 분기가 있고 여기엔 없었다. 규칙을 한 번 고치려면 두 곳을
+      //   다 고쳐야 했고, 한 곳을 잊으면 「어떤 사람은 되고 어떤 사람은 안 되는」 버그가 됐다.
+      //   ⚠️ 접두사 규칙을 고칠 일이 생기면 auth-admin.ts 의 resolveUiIdentity() 만 고친다.
+      var role = data.ui_role || 'hq_mgr';
+      var branch_id = (data.branch_id != null) ? data.branch_id : null;
+      var agency_id = (data.agency_id != null) ? data.agency_id : null;
+      var branch = branch_id || '';
+      var name = data.display_name || data.name || uid;
       var wantLang = (data.pref_lang === 'en' || data.pref_lang === 'ko') ? data.pref_lang : 'ko';
       try {
         localStorage.setItem('mangoi_lang', wantLang);

@@ -114,6 +114,51 @@ function resolveRole(scopeType: string, username: string, name: string): { role:
   return { role: 'staff', roleLabel: nm || '직원' };
 }
 
+/** 🪪 화면 어휘의 «완전한» 신원 — 역할 판정의 단일 정본 (2026-08-09 신설)
+ *
+ *  왜 만들었나
+ *    같은 규칙이 세 곳에 복사돼 있었고 **이미 갈라져 있었다**:
+ *      · public/index.html  (tryAdminLoginFallback) — 학생/학부모 분기 없음
+ *      · public/admin/login.html (ph239)            — 학생/학부모 분기 있음
+ *      · 여기 resolveRole()                          — 어휘가 아예 다름
+ *
+ *    이전 세션이 통일을 시도했다가 포기한 이유가 login.html:216 에 적혀 있다:
+ *      「hq 는 hq_exec 인지 hq_mgr 인지 구분이 안 되고, branch/agency 로 바꿔봐야
+ *        로그인 응답에 branch_id/agency_id 가 없어 스코프가 비어버린다」
+ *    즉 막힌 건 클라이언트가 아니라 **서버가 덜 주고 있던 것**이었다. 그래서 여기서 다 준다.
+ *
+ *  ⚠️ 접두사 규칙을 고칠 일이 생기면 **이 함수만** 고친다. 화면 두 곳은 이 값을 그대로 쓴다.
+ */
+export function resolveUiIdentity(
+  username: string, acctName: string, isTeacher: boolean
+): { ui_role: string; branch_id: string | null; agency_id: string | null; display_name: string } {
+  const uid = String(username || '');
+  let ui_role = 'hq_mgr';
+  let branch_id: string | null = null;
+  let agency_id: string | null = null;
+  let name = uid;
+
+  // 🏢 capi_* 지사 계정은 서버 DB 이름('캐피 강남 지사' 등)이 우선 — 전부 '캐피타운 본사'로
+  //    찍히던 것 수정(2026-07-22). 아래 「DB 이름 우선」 규칙이 그 역할을 대신한다.
+  if (uid === 'capitown' || uid.indexOf('capi') === 0) { ui_role = 'capitown'; name = acctName || '캐피타운 본사'; }
+  else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { ui_role = 'hq_exec'; name = '본사 경영진'; }
+  else if (uid.indexOf('hq_t') === 0) { ui_role = 'hq_teacher'; name = '본사 교사'; }
+  else if (uid.indexOf('hq_') === 0)  { ui_role = 'hq_mgr';     name = '본사 관리자'; }
+  else if (uid.indexOf('branch_') === 0) { ui_role = 'branch'; branch_id = uid.replace(/^branch_/, ''); name = '지사 (' + branch_id + ')'; }
+  else if (uid.indexOf('agency_') === 0) { ui_role = 'agency'; agency_id = uid.replace(/^agency_/, ''); name = '대리점 (' + agency_id + ')'; }
+  else if (uid === 'parent'  || uid.indexOf('parent_')  === 0) { ui_role = 'parent';  name = '학부모'; }
+  else if (uid === 'student' || uid.indexOf('student_') === 0) { ui_role = 'student'; name = '학생'; }
+
+  // 🪪 접두사 없는 강사 계정 구제 (예: 'jeong' = 정우영(교사), scope=hq).
+  //    접두사 추측만 쓰던 탓에 관리자로 잘못 표시되던 문제(2026-07-05).
+  if (isTeacher) { ui_role = 'hq_teacher'; if (acctName) name = acctName; }
+
+  // 🪪 DB 이름을 표시 이름으로 우선 (2026-07-22). 아이디로 추측하던 탓에 mgr_* 이름이 아이디로 찍혔다.
+  if (acctName && acctName !== uid) name = acctName;
+
+  return { ui_role, branch_id, agency_id, display_name: name };
+}
+
 const json = (data: any, status = 200, extraHeaders: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(data), {
     status,
@@ -662,6 +707,11 @@ export async function handleAdminAuthApi(
           ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
           name: acctName || username,
           server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
+          // 🪪 (2026-08-09) 화면 어휘의 완전한 신원 — 이제 화면은 «추측하지 않는다».
+          //   login.html:216 이 지적한 두 가지 결핍(hq_exec/hq_mgr 구분 · branch_id/agency_id 부재)을
+          //   여기서 채운다. 접두사 규칙의 정본은 resolveUiIdentity() 하나뿐이다.
+          ...(() => { const ui = resolveUiIdentity(username, acctName, isTeacher);
+            return { ui_role: ui.ui_role, branch_id: ui.branch_id, agency_id: ui.agency_id, display_name: ui.display_name }; })(),
           pref_lang: prefLang, nationality: acctNationality || null,
         },
         200,

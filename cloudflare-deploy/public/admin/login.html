@@ -187,50 +187,22 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         } catch(e){}
         // ph239: admin.html 의 두 번째 로그인 모달 안 뜨도록 SESSION_KEY 자동 채움
         try {
-          var role = 'hq_mgr';
-          var branch = '', branch_id = null, agency_id = null;
-          var name = uid;
-          // 🏢 capi_* 지사 계정은 서버가 준 실제 이름('캐피 강남 지사' 등) 우선 — 전부 '캐피타운 본사'로 찍히던 것 수정(2026-07-22)
-          if (uid === 'capitown' || uid.indexOf('capi') === 0) { role = 'capitown'; name = (data && data.name) || '캐피타운 본사'; }
-          else if (uid === 'admin' || uid === 'hq_exec' || uid === 'exec') { role = 'hq_exec'; name = '본사 경영진'; }
-          else if (uid.indexOf('hq_t') === 0) { role = 'hq_teacher'; name = '본사 교사'; }
-          else if (uid.indexOf('hq_') === 0) { role = 'hq_mgr'; name = '본사 관리자'; }
-          else if (uid.indexOf('branch_') === 0) {
-            role = 'branch';
-            branch_id = uid.replace(/^branch_/, '');
-            branch = branch_id;
-            name = '지사 (' + branch_id + ')';
-          } else if (uid.indexOf('agency_') === 0) {
-            role = 'agency';
-            agency_id = uid.replace(/^agency_/, '');
-
-            name = '대리점 (' + agency_id + ')';
-          } else if (uid === 'parent' || uid.indexOf('parent_') === 0) { role = 'parent'; name = '학부모'; }
-          else if (uid === 'student' || uid.indexOf('student_') === 0) { role = 'student'; name = '학생'; }
-          // ⚠️ (2026-08-03) 여기 있던 `data.user.*` 블록을 제거했다 — **죽은 코드였다.**
-          //   /api/admin/login 응답에는 `user` 가 없다(그건 /api/admin/me 의 응답 형태다).
-          //   로그인 응답이 주는 건 `server_role` · `role_label` · `is_teacher` · `name` 이다.
-          //   그래서 "서버 권위 역할 우선 적용"이라는 원래 의도가 한 번도 실행된 적이 없고,
-          //   실질 판정은 아래 아이디 접두사 추측이었다(`is_teacher` 특례만 예외).
+          // 🪪 (2026-08-09) 역할 판정을 **서버 한 곳**으로 모았다.
+          //   여기 있던 아이디 접두사 추측 30여 줄을 지웠다. 같은 규칙이 index.html 에도
+          //   복사돼 있었고 **이미 갈라져 있었다**(그쪽엔 parent/student 분기가 없었다).
           //
-          //   ⚠️ 어휘가 서로 다르다 — 서버 resolveRole(): teacher/hq/branch/agency/franchise/staff
-          //                          화면:              hq_teacher/hq_mgr/hq_exec/branch/agency/capitown
-          //   `hq` 는 hq_exec 인지 hq_mgr 인지 구분이 안 되고, branch/agency 로 바꿔봐야
-          //   로그인 응답에 branch_id/agency_id 가 없어 스코프가 비어버린다. 그래서 역할 자체는
-          //   바꾸지 않고, **서버 값을 세션에 그대로 실어** 화면이 참고할 수 있게만 한다
-          //   (admin.html 의 `_ses.server_role` 폴백이 여태 undefined 였던 이유가 이것이다).
-          // 🪪 (2026-07-05) 서버가 판정한 권위 역할 우선 적용.
-          //   아이디 접두사(hq_t_*)만으로 역할을 추측하던 탓에, 접두사 없는 강사 계정
-          //   (예: 'jeong' = 정우영(교사), scope=hq)이 '관리자'로 잘못 표시되고
-          //   교사 화면 대신 관리자 화면이 떠서 "다시 로그인" 하게 되던 문제 해결.
-          if (data.is_teacher) {
-            role = 'hq_teacher';
-            if (data.name) name = data.name;
-          }
-          // 🪪 (2026-07-22) 서버 DB 이름을 표시 이름으로 우선 사용.
-          //   아이디 접두사로 추측하던 탓에 mgr_* 계정 이름이 아이디 그대로 찍혔다.
-          //   (아래 언어 자동판정도 이 이름을 쓰므로 정확해야 한다)
-          if (data.name && data.name !== uid) name = data.name;
+          //   바로 위 주석(구버전)이 통일을 포기한 이유로 두 가지를 들었다:
+          //     ① 서버 server_role 은 hq_exec/hq_mgr 을 구분 못 한다
+          //     ② 로그인 응답에 branch_id/agency_id 가 없어 스코프가 빈다
+          //   둘 다 **서버가 덜 주던 것**이었다. 이제 서버가 준다
+          //   (auth-admin.ts resolveUiIdentity → ui_role · branch_id · agency_id · display_name).
+          //
+          //   ⚠️ 접두사 규칙을 고칠 일이 생기면 auth-admin.ts 의 resolveUiIdentity() 만 고친다.
+          var role = data.ui_role || 'hq_mgr';
+          var branch_id = (data.branch_id != null) ? data.branch_id : null;
+          var agency_id = (data.agency_id != null) ? data.agency_id : null;
+          var branch = branch_id || '';
+          var name = data.display_name || data.name || uid;
 
           // 🌐 (2026-07-22 사장님 지시) 해외 매니저·강사 = 로그인하면 처음부터 영어 화면.
           //   (2026-07-23) 판정을 **서버로 옮겼다**(auth-admin.ts `pref_lang`).
