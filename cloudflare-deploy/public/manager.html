@@ -160,6 +160,7 @@ body.is-off .card{opacity:.82}
            평소엔 숨겨 두고 scope 가 hq 일 때만 켠다(지사·대리점은 강사 화면을 쓰지 않는다). -->
       <a class="tbtn" id="toTeacher" href="/teacher" hidden
          data-en="My classes" data-ko="내 수업">My classes</a>
+      <a class="tbtn" href="/"><span data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" onclick="toggleLang()">한국어</button>
       <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
       <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
@@ -313,7 +314,7 @@ body.is-off .card{opacity:.82}
   </details>
 
   <div class="muted" style="text-align:center;padding:6px 0 0">
-    <a href="/admin/exec" style="color:#5d6b7a" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
+    <a href="/admin.html?full=1" style="color:#5d6b7a" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
   </div>
 
 </div>
