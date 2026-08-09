@@ -270,6 +270,9 @@
   <!-- ⑤ 매출·비용·순익 추이 -->
   <section>
     <h2 class="sec">💰 매출 · 비용 · 순익 추이</h2>
+    <!-- 💰 비용이 한 건도 안 적힌 기간이면 서버가 이유를 한 줄로 준다(순익을 안 그리는 이유).
+         Shown when no costs were recorded — explains why the "net" line is absent. -->
+    <p id="finNote" class="hint" style="display:none;color:#b45309;font-weight:600"></p>
     <div class="chart-wrap"><div class="chart-box"><canvas id="finChart"></canvas></div></div>
     <p class="hint">📌 차트의 막대/점을 누르면 그날의 상세(결제·지출·신규 학생)가 열립니다.</p>
   </section>
@@ -278,7 +281,11 @@
   <section id="branchSection" style="display:none">
     <h2 class="sec">🏬 대리점별 비교 <span class="tag">이번 달 매출 기준</span></h2>
     <div class="grid g2" style="align-items:start">
-      <div class="chart-wrap"><div class="chart-box sm"><canvas id="branchChart"></canvas></div></div>
+      <div class="chart-wrap">
+        <!-- 🏬 그래프에서 몇 곳을 뺐는지 밝힌다(조용한 잘라내기 금지) / say what the chart omits -->
+        <p id="branchChartNote" class="hint" style="margin:0 0 6px"></p>
+        <div class="chart-box sm"><canvas id="branchChart"></canvas></div>
+      </div>
       <div class="card" style="padding:0;overflow:hidden">
         <table class="list" id="branchTable">
           <thead><tr><th>대리점</th><th class="num">재원</th><th class="num">이번달 매출</th><th class="num">수수료(15%)</th><th class="num">인당</th></tr></thead>
@@ -385,12 +392,25 @@ async function loadSeries(days){
       y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:tickC,font:{size:10},precision:0},title:{display:true,text:'신규(명)',color:tickC,font:{size:10}}}
     }}});
 
+  /* 💰 비용이 한 건도 안 적힌 기간에는 «순익» 을 그리지 않는다. (2026-08-09)
+     Don't draw "net profit" for a period with no recorded costs.
+     왜 / Why: 비용이 0이면 순익 = 매출이 되어 파란 선이 초록 막대를 그대로 따라간다.
+       화면은 「번 돈이 전부 남는다」고 말하게 되는데, 사실은 «아직 안 적었다» 일 뿐이다.
+       (실측: finance_expenses 0행 · payslips 마지막 지급 2026-05-20)
+       경영 판단에 쓰는 화면이라 «모른다» 를 «0» 으로 그리지 않는다. 비용이 한 건이라도
+       들어오면 서버 플래그가 바뀌어 자동으로 원래 3계열 그래프로 돌아온다. */
+  const noCost = (r.expense_recorded === false);
+  const finNote = $('#finNote');
+  if (finNote) { finNote.textContent = r.expense_note || ''; finNote.style.display = r.expense_note ? '' : 'none'; }
+  const finSets = [
+    {type:'bar',label:'매출 / Revenue',data:inc,backgroundColor:'rgba(16,185,129,.6)',borderRadius:4,order:2}
+  ];
+  if (!noCost) {
+    finSets.push({type:'bar',label:'비용 / Cost',data:exp,backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,order:2});
+    finSets.push({type:'line',label:'순익 / Net',data:net,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.35,fill:true,pointRadius:2,order:1});
+  }
   if(finChart) finChart.destroy();
-  finChart = new Chart($('#finChart'),{ data:{labels,datasets:[
-      {type:'bar',label:'매출',data:inc,backgroundColor:'rgba(16,185,129,.6)',borderRadius:4,order:2},
-      {type:'bar',label:'비용',data:exp,backgroundColor:'rgba(239,68,68,.55)',borderRadius:4,order:2},
-      {type:'line',label:'순익',data:net,borderColor:'#3b82f6',backgroundColor:'rgba(59,130,246,.1)',tension:.35,fill:true,pointRadius:2,order:1}
-    ]}, options:{...baseOpts(), scales:{
+  finChart = new Chart($('#finChart'),{ data:{labels,datasets:finSets}, options:{...baseOpts(), scales:{
       x:{grid:{color:gridC},ticks:{color:tickC,maxRotation:0,autoSkip:true,maxTicksLimit:8,font:{size:10}}},
       y:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>(v/10000)+'만'}}
     }}});
@@ -431,9 +451,27 @@ async function loadBreakdown(){
   const branches = b.branches||[];
   if(branches.length){
     $('#branchSection').style.display='';
+    /* 🏬 그래프에는 «매출이 있는 곳» 만, 그것도 상위 15개까지. (2026-08-09)
+       Chart shows only agencies with revenue, capped at 15.
+       왜 / Why: 대리점이 **729개**인데 그중 **721개가 이번달 매출 0원**이다(운영 실측).
+         전부 그리면 고정 높이 상자에 729줄이 들어가 막대가 1픽셀도 안 되고,
+         y축 라벨도 Chart.js 가 임의로 솎아내 **표(1위 UMC…)와 그래프의 이름이 서로 달라졌다**.
+         「이번 달 매출 비교」에 0원인 곳을 그리는 것은 정보가 아니라 잡음이다.
+       ⚠️ 표(아래)는 그대로 전부 보여준다 — 그래프만 줄인다. 숨긴 개수는 아래 캡션에 적는다. */
+    const withRev = branches.filter(x => (x.rev_month||0) > 0);
+    const top = withRev.slice(0, 15);
+    const capNote = $('#branchChartNote');
+    if (capNote) {
+      capNote.textContent = withRev.length
+        ? ('매출이 있는 ' + withRev.length + '개 중 상위 ' + top.length + '곳 / '
+           + 'Top ' + top.length + ' of ' + withRev.length + ' with revenue'
+           + '  ·  0원 ' + (branches.length - withRev.length) + '곳은 그래프에서 제외 / '
+           + (branches.length - withRev.length) + ' with no revenue omitted')
+        : ('이번 달 매출이 있는 대리점이 없습니다 / No agency has revenue this month');
+    }
     if(branchChart) branchChart.destroy();
     branchChart = new Chart($('#branchChart'),{ type:'bar',
-      data:{labels:branches.map(x=>x.shop.replace('망고아이 ','').replace(' 대리점','')),datasets:[{label:'이번달 매출',data:branches.map(x=>x.rev_month),backgroundColor:branches.map((_,i)=>PALETTE[i%PALETTE.length]),borderRadius:5}]},
+      data:{labels:top.map(x=>x.shop.replace('망고아이 ','').replace(' 대리점','')),datasets:[{label:'이번달 매출 / Revenue',data:top.map(x=>x.rev_month),backgroundColor:top.map((_,i)=>PALETTE[i%PALETTE.length]),borderRadius:5}]},
       options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gridC},ticks:{color:tickC,font:{size:10},callback:v=>(v/10000)+'만'}},y:{grid:{display:false},ticks:{color:tickC,font:{size:11}}}}}});
     $('#branchTable').querySelector('tbody').innerHTML = branches.map((x,i)=>{
       const per = x.students? Math.round(x.rev_month/x.students):0;
