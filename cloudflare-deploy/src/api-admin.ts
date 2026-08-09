@@ -3538,6 +3538,64 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     }
 
     // 강사 목록
+    /* 🔗 (2026-08-08) 강사 ↔ 로그인 아이디 연결
+       왜 필요한가 — 출근/지각을 계산하려면 «출석 기록의 로그인 계정» 과 «강사» 를 이어야 한다.
+       라이브 실측: teacher_account_links 0행, teachers 29명 중 user_id 보유 7명,
+       최근 30일 출석 4,954행 중 강사와 매칭되는 행 0건. 이 연결이 없으면 근태는 계산 불가.
+       ⚠️ 자동 매칭은 «하지 않는다». teacher_legacy_accounts.teacher_name 은 아이디를 그대로
+          복사한 값(mangoi_006)이라 이름 근거가 전혀 없다. 추측으로 이으면 엉뚱한 사람의
+          근태·급여가 된다. 사람이 화면에서 고른 것만 저장한다.
+       경로를 '/api/admin/teachers/…' 로 지은 이유: api-mango 게이트의
+       startsWith('/api/admin/teachers') 에 이미 걸려 라우팅 추가가 최소로 끝난다. */
+    if (method === 'GET' && path === '/api/admin/teachers/links') {
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
+      } catch {}
+      const tRs = await env.DB.prepare(`SELECT id, name, active FROM teachers ORDER BY active DESC, name ASC`).all();
+      const aRs = await env.DB.prepare(
+        `SELECT username, last_login_at FROM teacher_legacy_accounts ORDER BY last_login_at DESC`
+      ).all();
+      const lRs = await env.DB.prepare(
+        `SELECT username, teacher_id, teacher_name, linked_by, linked_at FROM teacher_account_links`
+      ).all();
+      return json({
+        ok: true,
+        teachers: (tRs.results || []),
+        accounts: (aRs.results || []),
+        links: (lRs.results || []),
+      });
+    }
+
+    // 연결 저장 / 해제 — { username, teacher_id }  (teacher_id 가 비면 해제)
+    if (method === 'POST' && path === '/api/admin/teachers/links') {
+      const _lkActor = await getAdminActor(request, env as any);
+      if (_lkActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER)`);
+      } catch {}
+      const b: any = await request.json().catch(() => null);
+      const username = String(b?.username || '').trim();
+      const teacherId = String(b?.teacher_id ?? '').trim();
+      if (!username) return json({ ok: false, error: 'username_required' }, 400);
+
+      if (!teacherId) {
+        await env.DB.prepare(`DELETE FROM teacher_account_links WHERE username = ?`).bind(username).run();
+        return json({ ok: true, unlinked: true, username });
+      }
+      // 존재하는 강사인지 확인 — 오타로 유령 id 가 박히면 조용히 틀린 근태가 된다
+      const t = await env.DB.prepare(`SELECT id, name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`)
+        .bind(teacherId).first<any>();
+      if (!t) return json({ ok: false, error: 'teacher_not_found', teacher_id: teacherId }, 400);
+
+      await env.DB.prepare(
+        `INSERT INTO teacher_account_links (username, teacher_id, teacher_name, linked_by, linked_at)
+         VALUES (?,?,?,?,?)
+         ON CONFLICT(username) DO UPDATE SET teacher_id=excluded.teacher_id,
+           teacher_name=excluded.teacher_name, linked_by=excluded.linked_by, linked_at=excluded.linked_at`
+      ).bind(username, String(t.id), t.name || null, _lkActor?.username || _lkActor?.role || 'admin', Date.now()).run();
+      return json({ ok: true, username, teacher_id: String(t.id), teacher_name: t.name });
+    }
+
     if (method === 'GET' && path === '/api/admin/teachers') {
       await ensurePayrollSchema(env);
       const includeInactive = url.searchParams.get('include_inactive') === '1';

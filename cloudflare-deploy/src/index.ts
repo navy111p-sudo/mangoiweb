@@ -965,6 +965,9 @@ const worker = {
         /^\/api\/admin\/teacher-profiles\/\d+$/.test(path) ||
         path === '/api/admin/teachers' ||
         /^\/api\/admin\/teachers\/\d+$/.test(path) ||
+        // 🔗 (2026-08-08) 강사 ↔ 로그인 아이디 연결. 근태 계산의 전제라 화면 하나가 통째로 여기 걸린다.
+        //   api-mango 게이트는 startsWith('/api/admin/teachers') 라 이미 통과 — 여기만 등록하면 된다.
+        path === '/api/admin/teachers/links' ||
         path === '/api/admin/teacher-hours' ||
         path === '/api/admin/teacher-classes' ||
         path === '/api/admin/teacher-evaluation' ||
