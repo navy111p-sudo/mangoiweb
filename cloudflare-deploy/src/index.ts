@@ -1428,6 +1428,15 @@ const worker = {
         path === '/api/judgment/scenario' ||
         path === '/api/judgment/answer' ||
         path === '/api/judgment/inclass' ||
+        // 🧠 판단력 «관리자» 3종 (2026-08-09 배선 복구)
+        //   api-points.ts:670·687·697 에 온전히 구현돼 있는데 이 게이트에 없어서
+        //   URL 로 부르면 index.html 로 흘러가 405/HTML 이 나왔다 — 즉 통째로 죽어 있었다.
+        //   (api-mango.ts:1320 은 이미 받을 준비가 돼 있었다. 빠진 건 여기 한 곳뿐)
+        path.startsWith('/api/admin/judgment/') ||
+        // 🔁 Streak 일괄 정합화 (api-games.ts:2048, POST) — 같은 사고.
+        //   index.ts:4881 의 «인증 필수» 목록에는 등록해 놓고 이 전달 목록엔 빠뜨렸다.
+        //   목록이 둘이라 한쪽만 고치면 이렇게 된다.
+        path === '/api/admin/streak/reconcile' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing
