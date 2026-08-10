@@ -179,17 +179,22 @@ const html = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'speech-coac
 ok('프론트: WAV 만들기가 실패하면 예전 webm 으로 돌아간다', /processAudio\(wav \|\| webm\)/.test(html));
 ok('프론트: prompt 는 여전히 안 보낸다 (07-29 사고)', !/fd\.append\('prompt'/.test(html));
 
-/* ── 🎤 브라우저 SDK 경로 (2026-08-08) ─────────────────────────────────────
+/* ── 🎤 브라우저 SDK 경로 (2026-08-08 · 2026-08-10 모듈 이사) ────────────────
    Azure REST 가 발음평가 헤더를 무시하는 것이 실측으로 확정돼, 평가는 브라우저 SDK 가 한다.
+   2026-08-10: SDK 호출 구현이 공용 서비스 계층 js/speech-azure.js 로 이사했다(중국어 코치와
+   공유). 화면(html)에는 얇은 azAssess 위임만 남는다 — 그래서 아래 검사는 «화면+모듈» 을 함께 본다.
    여기서 지키는 것은 «키가 브라우저로 새지 않는가» 와 «없어도 굴러가는가» 두 가지다. */
+const azMod = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'js', 'speech-azure.js'), 'utf8');
 ok('프론트: 서버로 reference 를 보내지 않는다 (REST 가 무시하므로 왕복만 낭비)',
    !/fd\.append\('reference'/.test(html));
-ok('프론트: 브라우저 SDK 로 평가한다', /async function azAssess/.test(html) && /PronunciationAssessmentConfig/.test(html));
-ok('프론트: SDK 는 «녹음을 마친 뒤» 지연 로딩한다(369KB)', /azLoadSdk[\s\S]{0,400}?createElement\('script'\)/.test(html));
+ok('프론트: 브라우저 SDK 로 평가한다 (화면 azAssess → 공용 모듈)',
+   /async function azAssess/.test(html) && /SpeechAzure\.assess/.test(html) && /PronunciationAssessmentConfig/.test(azMod));
+ok('프론트: SDK 는 «녹음을 마친 뒤» 지연 로딩한다(369KB)', /function loadSdk[\s\S]{0,400}?createElement\('script'\)/.test(azMod));
 ok('프론트: 음소 단위 + 빠뜨린 단어 잡기를 켠다',
-   /PronunciationAssessmentGranularity\.Phoneme/.test(html) && /Granularity\.Phoneme,\s*\n?\s*true/.test(html.replace(/\r/g, '')));
+   /PronunciationAssessmentGranularity\.Phoneme/.test(azMod) && /Granularity\.Phoneme,\s*\n?\s*true/.test(azMod.replace(/\r/g, '')));
 ok('⛔ 프론트에 구독 키가 없다 (임시 토큰만 쓴다)',
-   !/AZURE_SPEECH_KEY/.test(html) && /fromAuthorizationToken/.test(html) && /\/api\/voice\/azure-token/.test(html));
+   !/AZURE_SPEECH_KEY/.test(html) && !/AZURE_SPEECH_KEY/.test(azMod)
+   && /fromAuthorizationToken/.test(azMod) && /\/api\/voice\/azure-token/.test(azMod));
 ok('프론트: 평가가 실패해도 채점은 계속된다', /_scAzure = \(_az && _az\.ok\) \? _az : null/.test(html));
 
 /* ── 📝 «들은 글자» 는 정확한 쪽을 쓴다 (2026-08-08) ────────────────────────────
