@@ -11,6 +11,7 @@
  * 실행: node test-harness/stt_hardening_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -334,7 +335,7 @@ console.log('\n▶ speech-coach-cn.html — 말이 끝나야 채점하는가');
 /* ══ 2-C. index.html 수업 중 "따라 말하기"(gameShadow) — 실제 수업에서 쓰는 경로 ══ */
 console.log('\n▶ index.html gameShadow — 말하다 끊겨도 오답 처리되지 않는가');
 {
-  const html = readFileSync(join(PUB, 'index.html'), 'utf8');
+  const html = readPageSource('index.html');
   // 채점 헬퍼(_shadowGrade/_shadowScore)부터 원문 그대로 가져온다 — gameShadow 가 이들을 쓴다
   const s = html.indexOf('function _shadowGrade(said, target){');
   const e = html.indexOf('\n// 🎢 난이도(스테이지)', s);
@@ -402,7 +403,7 @@ const TARGETS = [
   'index.html',                       // 수업 중 따라 말하기(gameShadow)
 ];
 for (const f of TARGETS) {
-  const h = readFileSync(join(PUB, f), 'utf8');
+  const h = readPageSource(f);   // 분해 대응: 코드가 /js/*.js 로 옮겨가도 «그 페이지의 코드» 로 본다
   check(`${f} — 보호막 모듈 인클루드`, /mangoi-stt\.js/.test(h));
   check(`${f} — harden() 호출`, /MangoiSTT\.harden\(/.test(h));
 }

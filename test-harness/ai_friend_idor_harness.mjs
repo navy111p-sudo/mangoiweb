@@ -18,6 +18,7 @@
  * 실행: node test-harness/ai_friend_idor_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { allSrc } from './_srcbundle.mjs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -32,7 +33,7 @@ const ok = (c, l) => { c ? (pass++, out.push('  ✅ ' + l)) : (fail++, out.push(
 const apiMango = allSrc();
 const indexTs = read('src/index.ts');
 const aiFriend = read('public/ai-friend.html');
-const indexHtml = read('public/index.html');
+const indexHtml = readPageSource('index.html');   // 분해 대응
 const reportHtml = read('public/report.html');
 
 // ── 헬퍼: path 핸들러 블록 추출 (다음 "if (method ===" 전까지) ──

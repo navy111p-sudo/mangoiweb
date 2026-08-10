@@ -7,10 +7,11 @@
 //     ② speaking-time·gaze D1 쓰기 10초 주기 → 30초
 //     ③ vc_quality D1 쓰기 30초 → 60초
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
-const R = (p) => readFileSync(resolve(__dir, p), 'utf8');
+const R = (p) => { const m = /public\/([\w.-]+\.html)$/.exec(p); return m ? readPageSource(m[1]) : readFileSync(resolve(__dir, p), 'utf8'); };   // 분해 대응
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function ok(name, cond){ if (cond) PASS++; else { FAIL++; FAILS.push(name); } console.log(`  ${cond ? '✅' : '❌'} ${name}`); }

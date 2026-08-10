@@ -12,6 +12,7 @@
  *   ⑤ 스위치(LEGACY_TEACHER_LOGIN)·아이디 형식 검사가 옛 서버 호출 **전에** 걸린다.
  */
 import { execSync } from 'child_process';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, resolve, join } from 'path';
 import { existsSync, unlinkSync, readFileSync } from 'fs';
@@ -145,7 +146,7 @@ const TOML = readFileSync(resolve(root, 'cloudflare-deploy', 'wrangler.toml'), '
 const varsHits = (TOML.match(/^LEGACY_TEACHER_LOGIN\s*=/gm) || []).length;
 ok(varsHits >= 2, 'wrangler.toml [vars] 와 [env.production.vars] 양쪽에 스위치 존재 (한쪽만 = 운영 미적용)');
 
-const IDX = readFileSync(resolve(root, 'cloudflare-deploy', 'public', 'index.html'), 'utf8');
+const IDX = readPageSource('index.html');   // 분해 대응
 // 🇵🇭 (2026-08-02) 강사 목적지가 /admin/mypage → /teacher (초경량 강사 포털)로 바뀌었다.
 //   이 가드가 지키려는 것은 목적지 문자열이 아니라 **판정 순서**다:
 //   교사 판정이 아이디 접두사(capi…)보다 먼저여야 한다. 순서가 뒤집히면 옛 LMS 에서 넘어온

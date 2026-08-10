@@ -144,8 +144,12 @@ git diff -I'BUILD:' main..작업브랜치
 
 ### 4-4. 검증 — 코드를 고쳤으면 반드시
 
-1. `cd cloudflare-deploy && npx tsc --noEmit` — 컴파일 통과
-2. `node test-harness/run.mjs --fast` — 회귀 하니스 (약 25초)
+1. `cd cloudflare-deploy && node node_modules/typescript/bin/tsc --noEmit` — 컴파일 통과
+   ⚠️ `npx tsc` 는 **"출력 없음"이 통과가 아닙니다**(npx 가 조용히 실패해도 똑같이 아무것도 안 찍힘)
+2. **리포 루트에서** `node test-harness/run.mjs --fast` — 회귀 하니스 (약 90초, PASS 114 / SKIP 20)
+   ⚠️ 하니스는 **리포 루트 `test-harness/`** 에 있습니다. `cloudflare-deploy/test-harness/` 에도
+   같은 이름의 폴더가 있지만 그 안엔 `run.mjs` 가 **없습니다** — 1번의 `cd cloudflare-deploy` 를
+   그대로 이어서 실행하면 `MODULE_NOT_FOUND` 가 납니다
 3. 화면 변경이면 실제 브라우저에서 확인
 
 **"고쳤습니다"라고만 말하지 말고, 무엇으로 확인했는지 함께 보고하세요.**

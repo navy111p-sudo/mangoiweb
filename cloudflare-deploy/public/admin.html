@@ -7272,6 +7272,42 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
+      <!-- 1b) 🏪 대리점(학원) — centers 테이블(실데이터 921건).
+           «교육센터»라는 옛 이름은 홈페이지에서 «필리핀 직영 센터»를 가리키는 말이라 두 뜻이었다.
+           원래 별도 카드였는데, 조직이 본사 › 지사 › 대리점 한 흐름이라 여기로 합쳤다.
+           ⚠️ id 를 «card-centers» 그대로 둔 것은 실수가 아니다 — 이 id 를 getElementById 로 찾는
+              곳이 14개 파일에 있다(사이드바·허브·AI 명령·권한 매트릭스·툴팁·아이콘·CSS).
+              id 를 바꾸면 그것들이 전부 조용히 죽는다. 접기요소인 건 그대로라 .open=true 도 통한다. -->
+      <details class="sub-item" id="card-centers"
+               ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
+        <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
+        <div class="sub-body">
+          <details>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
+            <div class="menu-form">
+              <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
+              <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
+              <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
+              <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
+              <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
+              <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
+            </div>
+          </details>
+          <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
+               (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+            <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
+                   placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+                   data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
+                   data-en-placeholder="🔎 Search agency, manager, address, branch (all records)"
+                   style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
+            <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
+          </div>
+          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+            <tbody id="centers-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
+        </div>
+      </details>
+
       <!-- 2) 지사 — 🚧 배선 없음(#branches-table 채우는 JS 0곳) + 위 1)번과 중복이라 감춤 -->
       <details class="sub-item" data-unwired="1" style="display:none">
         <summary data-ko="🏢 지사 (구)" data-en="🏢 Branch (old)">🏢 지사 (구)</summary>
@@ -7455,7 +7491,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   // ① 등록 폼(＋ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
   //    (summary 를 건드리는 다른 전역 클릭/툴팁 스크립트와 무관하게 동작 보장)
   function bindToggles(){
-    document.querySelectorAll('#card-franchises .sub-body > details > summary, #card-centers .menu-body > details > summary').forEach(function(sm){
+    document.querySelectorAll('#card-franchises .sub-body > details > summary').forEach(function(sm){
       if (sm.__frnTgl) return; sm.__frnTgl = true;
       sm.addEventListener('click', function(ev){
         ev.preventDefault();
@@ -7506,41 +7542,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 
-<!-- 대리점(학원) — 테이블명은 centers 지만 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이다.
-     «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 말이라 같은 단어가 두 뜻이었다.
-     조직 순서: 본사 › 지사 › 대리점(학원) — 이 카드는 맨 아래 단계. -->
-<details class="table-card menu-card" id="card-centers" data-menu-label-ko="대리점(학원)" data-menu-label-en="Agency (Academy)"
-         ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
-  <summary><span data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</span></summary>
-  <div class="menu-body">
-    <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
-         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다."
-         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The branch list lives in the “🏢 Organization” card above.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 지사 목록은 위 «🏢 조직 관리» 카드에 있습니다.</div>
-    <details>
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
-      <div class="menu-form">
-        <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
-        <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
-        <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
-        <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
-        <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
-        <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
-      </div>
-    </details>
-    <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
-         (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
-      <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
-             placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
-             data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
-             data-en-placeholder="🔎 Search agency, manager, address, branch (all records)"
-             style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
-      <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
-    </div>
-    <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
-      <tbody id="centers-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
-  </div>
-</details>
+<!-- 🏪 대리점(학원) 카드는 «🏢 조직 관리» 카드 안의 2번째 하위항목으로 옮겼다(2026-08-09).
+     조직이 본사 › 지사 › 대리점(학원) 한 흐름인데 카드가 둘로 나뉘어 있어서,
+     같은 「학원」을 두 군데서 찾아야 했다.
+     id=card-centers 는 그대로 살아 있다(조직 관리 카드 안의 하위항목으로). 그래서 이 id 를 찾던
+     사이드바·허브·AI 명령·권한 매트릭스·툴팁은 손대지 않아도 그대로 동작한다.
+     부모 카드를 같이 여는 일은 adm-core.js 의 «조상 접기요소 자동 열기» 가 맡는다. -->
 
 <!-- 레벨 테스트 -->
 <details class="table-card menu-card" id="card-level-tests">
@@ -8940,7 +8947,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=59" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=60" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -12401,7 +12408,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
-<script src="/js/adm-ia6.js?v=5" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-ia6.js?v=7" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
      인사말 배너·캐릭터를 축소하고 검색창은 존재감 유지하되 소폭 축소.
@@ -12541,6 +12549,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   setTimeout(syncBtn, 3000);
 })();
 </script>
-<!-- BUILD:20260809115806 -->
+<!-- BUILD:20260810161823 -->
 </body>
 </html>

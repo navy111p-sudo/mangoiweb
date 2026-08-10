@@ -111,6 +111,20 @@ export async function handlePointsApi(
   const path = url.pathname;
   const method = request.method;
 
+  // 🔐 (2026-08-09) 강사 차단 헬퍼.
+  //   왜 필요한가: index.ts 의 TEACHER_BLOCKED_PREFIXES 는 «차단 목록» 이라
+  //   목록에 없는 /api/admin/* 는 기본이 «강사 허용» 이다(index.ts:313 주석).
+  //   /api/admin/points/* · /api/admin/gifts/* 는 그 목록에 없다 —
+  //   그런데 포인트는 기프티콘으로 교환되는 실질 화폐다. 쓰기는 본사만 해야 한다.
+  //   (읽기는 막지 않는다. 강사 화면이 카탈로그·잔액을 보여 준다)
+  const denyTeacher = async (): Promise<Response | null> => {
+    const a = await getAdminActor(request, env as any);
+    if (!a.isTeacher) return null;
+    return json({ ok: false, error: 'forbidden_teacher',
+      message: '강사 권한으로는 변경할 수 없습니다.',
+      message_en: 'This change is not available with a teacher account.' }, 403);
+  };
+
     // ═══════════════════════════════════════════════════════════════
     // 🎁 Phase P1 - 망고아이 포인트 시스템 + 기프티콘 교환
     // ═══════════════════════════════════════════════════════════════
@@ -212,6 +226,7 @@ export async function handlePointsApi(
     // ── POST /api/admin/points/adjust — 관리자가 포인트 지급/차감 ──
     //   body: { user_id, student_name, amount, reason, type? ('admin_grant'|'admin_deduct') }
     if (method === 'POST' && path === '/api/admin/points/adjust') {
+      const _dt = await denyTeacher(); if (_dt) return _dt;   // 🔐 포인트 지급/차감은 본사만 — 포인트는 기프티콘으로 교환된다
       await ensurePointTables(env);
       const body: any = await request.json().catch(() => ({}));
       const userId = (body.user_id || '').trim();
@@ -991,6 +1006,7 @@ Return STRICT JSON only, in BOTH Korean and English:
 
     // ── PUT /api/admin/points/rules — 자동 적립 규칙 갱신/생성 ──
     if (method === 'PUT' && path === '/api/admin/points/rules') {
+      const _dt = await denyTeacher(); if (_dt) return _dt;   // 🔐 적립 규칙(정책) 변경은 본사만
       await ensurePointTables(env);
       const body: any = await request.json().catch(() => ({}));
       const code = (body.code || '').trim();
@@ -1038,6 +1054,7 @@ Return STRICT JSON only, in BOTH Korean and English:
     // ── POST /api/admin/gifts/catalog — 카탈로그 추가/수정 ──
     //   body: { id?, brand, name, category, face_value, point_price, thumbnail_url?, stock?, enabled?, sort_order?, description?, external_id? }
     if (method === 'POST' && path === '/api/admin/gifts/catalog') {
+      const _dt = await denyTeacher(); if (_dt) return _dt;   // 🔐 기프티콘 카탈로그 변경은 본사만 — 실제 금액이 걸린다
       await ensurePointTables(env);
       const body: any = await request.json().catch(() => ({}));
       const now = Date.now();
@@ -1258,6 +1275,7 @@ Return STRICT JSON only, in BOTH Korean and English:
 
     // ── POST /api/admin/points/seed-rules — 기본 규칙 시드 (없을 때만) ──
     if (method === 'POST' && path === '/api/admin/points/seed-rules') {
+      const _dt = await denyTeacher(); if (_dt) return _dt;   // 🔐 규칙 시드는 본사만
       await ensurePointTables(env);
       const now = Date.now();
       const seeds = [
@@ -1279,6 +1297,7 @@ Return STRICT JSON only, in BOTH Korean and English:
 
     // ── POST /api/admin/gifts/seed-catalog — 데모 카탈로그 시드 ──
     if (method === 'POST' && path === '/api/admin/gifts/seed-catalog') {
+      const _dt = await denyTeacher(); if (_dt) return _dt;   // 🔐 카탈로그 시드는 본사만
       await ensurePointTables(env);
       const n = await seedGiftCatalog(env);   // 🎁 공용 시드 헬퍼 재사용(공개 읽기와 동일 로직)
       return json({ ok: true, seeded: n });

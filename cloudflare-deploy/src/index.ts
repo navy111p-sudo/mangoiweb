@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
+import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit, runAutoRenewChargeSweep } from './api-pay';
@@ -29,6 +30,7 @@ import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } fro
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
+import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
 import { settlementRouter } from './org-settlement';
 import { capitownRouter } from './api-capitown';
@@ -162,6 +164,12 @@ const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // ⚡ (2026-08-09) 같은 DDL 을 이 격리에서 한 번만 D1 으로 보낸다.
+    //   이 저장소는 표를 요청 처리 도중 만든다(CREATE TABLE IF NOT EXISTS 가 핸들러 첫 줄마다).
+    //   실측: DDL 411건 중 392건이 «요청마다» 나갈 수 있었다. 표가 이미 있어도 왕복은 그대로다.
+    //   호출부 392곳을 손대는 건 그 자체가 사고 위험이라 DB 층에서 막는다 — exec 만 감싼다
+    //   (DDL 300건이 exec 으로 나가고, exec 의 반환값을 쓰는 곳이 한 군데도 없다).
+    env = { ...env, DB: wrapDbDdlOnce(env.DB) } as Env;
     let resp: Response;
     try {
       resp = await worker.handle(request, env, ctx);
@@ -926,6 +934,14 @@ const worker = {
       if (oRes) return oRes;
     }
 
+    // 📏 관리자 메뉴 클릭 계측 — 메뉴를 87개에서 줄이려면 «안 눌리는 메뉴» 를 알아야 한다.
+    //   지금까지 이 사실이 서버에 한 번도 기록된 적이 없어 우선순위가 전부 인터뷰와 감이었다.
+    //   ⚠️ 누가 눌렀는지는 저장하지 않는다(역할만). 직원 감시 도구가 되면 켜 둘 수 없다.
+    if (path === '/api/admin/menu-hit' || path === '/api/admin/menu-hit/stats') {
+      const mRes = await handleMenuHitApi(request, url, env as any);
+      if (mRes) return mRes;
+    }
+
     // v3 명세서 신규 API (출석/보상/카카오/대시보드)
     // ⚠ 새 API 경로를 api-mango.ts 에 추가했을 때는 반드시 이 게이트에도 등록할 것.
     //    여기 목록에 없으면 index.html 로 fallthrough → CF Assets 가 POST 에 405 반환.
@@ -1419,6 +1435,15 @@ const worker = {
         path === '/api/judgment/scenario' ||
         path === '/api/judgment/answer' ||
         path === '/api/judgment/inclass' ||
+        // 🧠 판단력 «관리자» 3종 (2026-08-09 배선 복구)
+        //   api-points.ts:670·687·697 에 온전히 구현돼 있는데 이 게이트에 없어서
+        //   URL 로 부르면 index.html 로 흘러가 405/HTML 이 나왔다 — 즉 통째로 죽어 있었다.
+        //   (api-mango.ts:1320 은 이미 받을 준비가 돼 있었다. 빠진 건 여기 한 곳뿐)
+        path.startsWith('/api/admin/judgment/') ||
+        // 🔁 Streak 일괄 정합화 (api-games.ts:2048, POST) — 같은 사고.
+        //   index.ts:4881 의 «인증 필수» 목록에는 등록해 놓고 이 전달 목록엔 빠뜨렸다.
+        //   목록이 둘이라 한쪽만 고치면 이렇게 된다.
+        path === '/api/admin/streak/reconcile' ||
         // 🌐 양방향 번역 (평가 글·건의사항 영↔한)
         path === '/api/translate' ||
         // Audit-added: student recordings listing
@@ -1975,6 +2000,7 @@ const worker = {
   //   - UTC 10:00 (KST 19:00) : 학생 일일 streak/참여 푸시 알림
   //   - UTC 10:00 + 금요일      : 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    env = { ...env, DB: wrapDbDdlOnce(env.DB) } as Env;   // fetch 와 같은 이유 — DDL 1회화
     const date = new Date(event.scheduledTime);
     const hour = date.getUTCHours();
     // KST 기준 요일 (UTC + 9시간) — Friday = 5
@@ -4959,6 +4985,9 @@ function isAgencyAllowedApi(path: string): boolean {
     '/api/admin/capitown/',
     // 🎮 전 게임 통합 분석 (2026-08-08) — 집계 숫자만 나가고 실명·연락처가 응답에 없다.
     '/api/admin/game-insights',
+    // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
+    //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
+    '/api/admin/menu-hit',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

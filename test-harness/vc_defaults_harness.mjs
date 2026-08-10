@@ -9,6 +9,7 @@
  * 실행: node test-harness/vc_defaults_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -23,7 +24,7 @@ function check(name, cond, detail) {
   else { fail++; failures.push(name + (detail ? ' — ' + detail : '')); console.log('  ❌ ' + name + (detail ? '\n       ' + detail : '')); }
 }
 
-const html = readFileSync(join(PUB, 'index.html'), 'utf8');
+const html = readPageSource('index.html');
 const dock = readFileSync(join(PUB, 'js', 'vc-dock.js'), 'utf8');
 
 /* ── index.html 의 설정 블록을 원문 그대로 잘라내 실행 ── */

@@ -172,7 +172,11 @@ export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: 
     try {
       const toPhone = (env as any).OWNER_ALERT_PHONE;
       if (toPhone) await sendPlainSms(env, toPhone, `[망고아이] ♻️ 자동연장 자동해지\n${sub.student_name || sub.user_id}\n사유: ${(q as any).error} (현재 수업 패턴 확인 불가)\n학부모에게 재신청 안내 필요`);
-    } catch (_) {}
+    } catch (e) {
+      // 🔇→🔊 (2026-08-09) 문자 실패로 «해지 처리» 를 되돌리지는 않는다 — 삼키는 건 옳다.
+      //   잘못된 건 «아무 기록도 안 남기는 것» 이었다. 그러면 사장님은 해지 사실을 영영 모른다.
+      console.warn('[api-pay] 자동해지 알림 문자 실패:', (e as any)?.message, 'sub=', sub.id);
+    }
     return { ok: false, error: (q as any).error || 'quote_failed' };
   }
 
@@ -704,7 +708,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
           const who = String(order.student_name || order.payer_name || '');
           await sendPlainSms(env, toPhone, `[망고아이] ✅ 웹훅 보완확정\n${who ? who + ' · ' : ''}${Number(order.amount).toLocaleString('ko-KR')}원\n(브라우저 미완료 결제를 서버가 자동 확정)\n주문: ${orderId}`);
         }
-      } catch (_) {}
+      } catch (e) {
+        // 🔇→🔊 (2026-08-09) 문자 실패로 결제 확정을 되돌리지 않는다 — 삼키는 건 옳다.
+        //   다만 기록이 없으면 「보완확정이 일어난 줄 모르는」 상태가 된다. 유령결제 확인용 통지다.
+        console.warn('[api-pay] 웹훅 보완확정 알림 문자 실패:', (e as any)?.message, 'order=', orderId);
+      }
       return json({ ok: true, confirmed: true });
     }
 
@@ -717,7 +725,11 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
           const who = String(order.student_name || order.payer_name || '');
           await sendPlainSms(env, toPhone, `[망고아이] ↩️ 결제 취소 통지\n${who ? who + ' · ' : ''}${Number(order.amount).toLocaleString('ko-KR')}원\n주문: ${orderId}`);
         }
-      } catch (_) {}
+      } catch (e) {
+        // 🔇→🔊 (2026-08-09) 결제 취소는 이미 DB 에 반영됐다(위 UPDATE). 문자 실패로 되돌리지 않는다.
+        //   그러나 조용히 넘기면 «환불이 나갔는데 아무도 모르는» 상태가 된다.
+        console.warn('[api-pay] 결제 취소 통지 문자 실패:', (e as any)?.message, 'order=', orderId);
+      }
       return json({ ok: true, cancelled: true });
     }
 

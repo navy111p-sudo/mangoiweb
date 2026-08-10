@@ -13,6 +13,7 @@
 //      같은 알고리즘을 여기에 다시 적어 비교하면 «내가 쓴 것과 내가 쓴 것» 을 맞춰보는
 //      가짜 검사가 된다(그 함정으로 이미 두 번 당했다).
 import { readFileSync, existsSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -188,7 +189,7 @@ console.log('\n[ ⑤-2 «신청이 됐는지» 를 화면에서도 확인할 수
    신청한 본인에게 주는 링크라 노출 문제도 없다 — 응답에 실어 화면에도 남긴다. */
 const gridJs = rd('../cloudflare-deploy/public/js/idx-grid-menu.js');
 const ltHtml = rd('../cloudflare-deploy/public/level-test.html');
-const idxHtml = rd('../cloudflare-deploy/public/index.html');
+const idxHtml = readPageSource('index.html');   // 분해 대응
 check('신청 응답이 티켓 주소를 돌려준다', /ticket_url: ticketUrl \|\| null/.test(api));
 check('전화번호가 없어 문자를 못 보내도 링크는 만든다',
   /if \(!ticketUrl\) \{ try \{ ticketUrl = await ltTicketUrl/.test(api));

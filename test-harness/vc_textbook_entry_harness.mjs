@@ -23,12 +23,13 @@
  *   - 교재가 도착하면 카드가 사라지는 경로가 살아 있을 것
  */
 import { readFileSync, existsSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const HTML = readFileSync(join(ROOT, 'cloudflare-deploy/public/index.html'), 'utf8');
+const HTML = readPageSource('index.html');
 const DO   = readFileSync(join(ROOT, 'cloudflare-deploy/src/video-call-room.ts'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];

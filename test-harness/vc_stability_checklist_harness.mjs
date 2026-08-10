@@ -9,11 +9,12 @@
  * 통과 기준: 전 항목 ✅ (exit code 0)
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'public', 'index.html'), 'utf8');
+const html = readPageSource('index.html');
 const doTs = readFileSync(join(__dirname, '..', 'cloudflare-deploy', 'src', 'video-call-room.ts'), 'utf8');
 
 let pass = 0, fail = 0;

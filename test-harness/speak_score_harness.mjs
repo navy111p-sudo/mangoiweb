@@ -14,6 +14,7 @@
  * 실행: node test-harness/speak_score_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -155,7 +156,7 @@ console.log('\n▶ 예전 방식과 비교');
 /* ══ 8. 화면 배선 — 따라 말하기 두 곳이 실제로 새 채점기를 쓰는가 ══ */
 console.log('\n▶ 화면 배선');
 for (const f of ['index.html', 'student-games.html']) {
-  const h = readFileSync(join(PUB, f), 'utf8');
+  const h = readPageSource(f);   // 분해 대응
   check(`${f} — 채점 모듈 인클루드`, /mangoi-speak-score\.js/.test(h));
   check(`${f} — _shadowGrade 로 판정`, /_shadowGrade\(said/.test(h));
   check(`${f} — 옛 0.6 단독 판정이 남아 있지 않음`,

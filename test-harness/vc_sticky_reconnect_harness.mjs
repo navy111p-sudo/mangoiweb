@@ -6,10 +6,11 @@
 //   ⚠️ 스위치 VC_STICKY_UID 기본값 = 'off'. 켜기 전까지 동작은 예전과 100% 동일해야 한다(dormant).
 //      이 하네스는 "새 로직이 맞게 들어갔는가" + "OFF 경로가 보존되는가" 둘 다 검사한다.
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
-const R = (p) => readFileSync(resolve(__dir, p), 'utf8');
+const R = (p) => { const m = /public\/([\w.-]+\.html)$/.exec(p); return m ? readPageSource(m[1]) : readFileSync(resolve(__dir, p), 'utf8'); };   // 분해 대응
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function ok(name, cond){ if (cond) PASS++; else { FAIL++; FAILS.push(name); } console.log(`  ${cond ? '✅' : '❌'} ${name}`); }

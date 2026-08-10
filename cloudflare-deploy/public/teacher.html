@@ -2752,7 +2752,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           score_comprehension: pick(mask,'comprehension'),
           strengths:   mask.querySelector('#ev-s').value.slice(0,500),
           improvements:mask.querySelector('#ev-i').value.slice(0,500),
-          next_goals:  mask.querySelector('#ev-n').value.slice(0,500)
+          next_goals:  mask.querySelector('#ev-n').value.slice(0,500),
+          // 📲 (2026-08-09) 학부모에게 «도착했습니다» 알림을 보내 달라는 표시.
+          //   번호는 보내지 않는다 — 서버가 students_erp 에서 찾는다(번호는 화면이 다룰 값이 아니다).
+          //   이 플래그가 없던 동안 평가서 104건 중 학부모가 열어본 것은 0건이었다.
+          notify_parent: true
         })
       })
       .then(function(r){ return r.json(); })
@@ -2961,6 +2965,6 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   scheduleAutoRefresh(AR_MIN);
 })();
 </script>
-<!-- BUILD:20260809115806 -->
+<!-- BUILD:20260810161823 -->
 </body>
 </html>

@@ -125,6 +125,10 @@ export async function handleLessonsApi(
           ['strengths','TEXT'],['improvements','TEXT'],['weaknesses','TEXT'],['next_goals','TEXT'],['teacher_comment','TEXT'],
           ['parent_notified','INTEGER'],['parent_notified_at','INTEGER'],['viewed_by_parent','INTEGER'],['viewed_at','INTEGER'],
           ['updated_at','INTEGER'],
+          // 🌙 (2026-08-09) 야간 발송 보류용 — 22~08시(KST)에 쓴 평가는 아침에 내보낸다.
+          //    운영 시간표 실측: 21:30 이후 시작 수업이 65건 있다. 그대로 보내면
+          //    학부모 집에 자정 넘어 문자가 간다.
+          ['notify_pending','INTEGER'],['notify_phone','TEXT'],
         ];
         for (const [col, typ] of want) {
           if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE student_evaluations ADD COLUMN ${col} ${typ}`); } catch {} }
@@ -132,6 +136,78 @@ export async function handleLessonsApi(
       } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_student ON student_evaluations(student_uid, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_teacher ON student_evaluations(teacher_uid, created_at DESC);`); } catch {}
+    };
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       📲 학부모 발송 공통부 (2026-08-09)
+
+       왜 생겼나: 평가서 104행 중 학부모가 열어본 것이 **0건**이었다.
+       서버는 body 에 전화번호가 함께 올 때만 보내게 돼 있었는데(아래 sendEvalToParent),
+       정작 강사 화면(teacher.html)은 그 값을 보내지 않는다 —
+       **번호는 클라이언트가 다룰 값이 아니다.** 그래서 서버가 직접 찾아 쓰기로 한다.
+
+       🌙 야간 규칙: 한국 시각 22:00~07:59 에는 보내지 않고 `notify_pending=1` 로 미뤘다가,
+          다음에 평가가 하나라도 작성될 때(=아침 첫 수업 이후) 함께 내보낸다.
+          cron 에 붙이지 않은 이유는 index.ts(공동 금지구역)를 건드리지 않기 위해서다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    const kstHour = () => new Date(Date.now() + 9 * 3600 * 1000).getUTCHours();
+    const isQuietHour = () => { const h = kstHour(); return h >= 22 || h < 8; };
+
+    // 학생 uid 로 학부모(없으면 학생) 번호를 찾는다. feedback-drafts 승인 경로와 같은 소스.
+    const lookupParentPhone = async (studentUid: string): Promise<string> => {
+      if (!studentUid) return '';
+      try {
+        const stu: any = await env.DB.prepare(
+          `SELECT * FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+        ).bind(studentUid, studentUid).first();
+        return stu ? String(stu.parent_phone || stu.student_phone || stu.phone || '').trim() : '';
+      } catch { return ''; }
+    };
+
+    // 실제 발송 1건. 알림톡 실패 시 문자로 떨어진다(solapi-client 가 처리).
+    //   ⚠️ 문자 본문은 **한국어 고정 템플릿 + 링크** 다. 강사가 쓴 영어 원문을 그대로 보내지 않는다
+    //      (필리핀 강사가 영어로 쓰므로, 본문을 그대로 보내면 학부모가 영어를 받는다).
+    //      영어→한국어 다듬기는 다음 단계에서 붙는다.
+    const sendEvalSms = async (phone: string, studentName: string, evalId: any): Promise<boolean> => {
+      try {
+        /* 🔴 주소를 손으로 쓰지 말 것 — `mango-i.com` 은 **등록조차 안 된 도메인**이다(NXDOMAIN 실측).
+              CLAUDE.md 머리에 운영 주소로 적혀 있어서 그대로 썼다가 «죽은 링크가 학부모에게 나가는» 사고가 될 뻔했다.
+              이 저장소에서 학부모에게 실제로 나가는 문자들(absent-sweep.ts:189, enroll-ops.ts:516,
+              api-retention.ts:61)이 모두 쓰는 주소가 정본이다. */
+        const evalUrl = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+        const { sendKakaoAlimtalk } = await import('./solapi-client');
+        const r = await sendKakaoAlimtalk(env as any, {
+          templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',
+          recipientPhone: phone,
+          variables: {
+            '#{학생명}': studentName || '학생',
+            '#{수업명}': '오늘 수업',
+            '#{메시지수}': '평가서',
+            '#{요약URL}': evalUrl,
+          },
+          fallbackSmsText: `[망고아이] ${studentName || ''} 학생의 오늘 수업 평가서가 도착했어요. ${evalUrl}`,
+        });
+        return !!(r && r.ok);
+      } catch (e: any) { console.warn('[eval] sms err:', e?.message); return false; }
+    };
+
+    /* 밤에 밀어 둔 발송을 내보낸다. 조용한 시간이면 아무것도 안 한다.
+       한 번에 20건까지만 — 이 경로는 평가 작성 요청에 얹혀 도는 곁다리라 길어지면 안 된다. */
+    const flushPendingEvalNotifies = async () => {
+      if (isQuietHour()) return;
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT id, student_name, notify_phone FROM student_evaluations
+            WHERE notify_pending = 1 AND notify_phone IS NOT NULL AND notify_phone <> ''
+            ORDER BY id LIMIT 20`
+        ).all().catch(() => ({ results: [] }));
+        for (const row of (rs.results || [])) {
+          const sent = await sendEvalSms(String(row.notify_phone), String(row.student_name || ''), row.id);
+          await env.DB.prepare(
+            `UPDATE student_evaluations SET notify_pending = 0, parent_notified = ?, parent_notified_at = ? WHERE id = ?`
+          ).bind(sent ? 1 : 0, sent ? Date.now() : null, row.id).run().catch(() => {});
+        }
+      } catch (e: any) { console.warn('[eval] flush err:', e?.message); }
     };
 
     // ── POST /api/eval/create — 강사가 평가서 작성 ──
@@ -167,38 +243,39 @@ export async function handleLessonsApi(
       ).run();
       const evalId = ins?.meta?.last_row_id;
 
-      // 평가서 작성 완료 → 학부모/학생 카톡 알림 자동 발송 (옵션)
+      /* 📲 학부모 발송 (2026-08-09 개편)
+         · 번호가 body 에 실려 오면 그대로 쓰고(기존 호출부 호환),
+           없으면 `notify_parent: true` 일 때만 서버가 students_erp 에서 찾는다.
+           ⚠️ 기본값을 «찾아서 보냄» 으로 두지 않는 이유: 이 엔드포인트는 관리자 화면
+              (adm-q1.js·adm-r6.js)에서도 불린다. 기본 발송으로 바꾸면 관리자가 평가를
+              저장할 때마다 학부모에게 문자가 나간다. 강사 화면만 명시적으로 켠다.
+         · 밤이면 보내지 않고 미뤄 둔다(위 야간 규칙). */
       let notifyResult: any = null;
-      if (body.parent_phone || body.student_phone) {
-        try {
-          const evalUrl = `https://webrtc-unified-platform-prod.navy111p.workers.dev/eval/${evalId}`;
-          // 카카오 알림톡 시도 (mock/disabled 면 조용히 건너뜀)
-          const { sendKakaoAlimtalk } = await import('./solapi-client');
-          const phones = [body.parent_phone, body.student_phone].filter(Boolean);
-          notifyResult = { sent: [], failed: [] };
+      let phones: string[] = [body.parent_phone, body.student_phone].filter(Boolean).map((p: any) => String(p));
+      if (!phones.length && body.notify_parent === true) {
+        const found = await lookupParentPhone(String(body.student_uid || ''));
+        if (found) phones = [found];
+      }
+      if (phones.length) {
+        if (isQuietHour()) {
+          // 🌙 저장만 하고 아침에 보낸다 — 화면에는 «예약» 으로 표시된다.
+          await env.DB.prepare(
+            `UPDATE student_evaluations SET notify_pending = 1, notify_phone = ? WHERE id = ?`
+          ).bind(phones[0], evalId).run().catch(() => {});
+          notifyResult = { deferred: true, reason: 'quiet_hours', sent: [], failed: [] };
+        } else {
+          notifyResult = { sent: [] as string[], failed: [] as any[] };
           for (const phone of phones) {
-            // 임시: chat_summary 템플릿 재사용 (평가서 전용 템플릿 등록 전)
-            const r = await sendKakaoAlimtalk(env, {
-              templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',
-              recipientPhone: phone,
-              variables: {
-                '#{학생명}': body.student_name || '학생',
-                '#{수업명}': body.lesson_title || '오늘 수업',
-                '#{메시지수}': '평가서',
-                '#{요약URL}': evalUrl,
-              },
-              fallbackSmsText: `[망고아이] ${body.student_name||''} 학생 오늘 수업 평가서 도착. ${evalUrl}`,
-            });
-            if (r.ok) notifyResult.sent.push(phone);
-            else notifyResult.failed.push({ phone, error: r.error || r.message });
+            const okSent = await sendEvalSms(phone, String(body.student_name || ''), evalId);
+            if (okSent) notifyResult.sent.push(phone); else notifyResult.failed.push({ phone });
           }
           if (notifyResult.sent.length > 0) {
-            await env.DB.prepare(`UPDATE student_evaluations SET parent_notified=1, parent_notified_at=? WHERE id=?`).bind(now, evalId).run();
+            await env.DB.prepare(`UPDATE student_evaluations SET parent_notified=1, parent_notified_at=? WHERE id=?`).bind(now, evalId).run().catch(() => {});
           }
-        } catch (e: any) {
-          console.warn('[eval] notify err:', e?.message);
         }
       }
+      // 밤에 밀어 둔 것이 있으면 이 참에 함께 내보낸다(조용한 시간이면 아무것도 안 함).
+      await flushPendingEvalNotifies();
       // 🆕 Web Push 도 함께 (학생/학부모 user_id 가 있으면)
       const pushTitle = `📝 ${body.student_name || '학생'}님의 평가서 도착!`;
       const pushBody = `종합 점수 ${overall}/10. 자세히 보기 클릭`;

@@ -15,6 +15,7 @@
  * 실행: node test-harness/melca_feedback_260808_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -34,7 +35,7 @@ function check(name, cond, detail) {
 //   git 에는 LF 로 들어 있지만 Windows 의 autocrlf 가 체크아웃 때 CRLF 로 바꾼다.
 //   그러면 아래 slice() 의 «여러 줄짜리 표시자» 가 안 맞아 함수 끝을 못 찾고,
 //   파일 끝까지 훑게 되어 **멀쩡한 코드가 실패로** 잡힌다(브랜치 전환 뒤 재현).
-const html   = readFileSync(join(PUB, 'index.html'), 'utf8').split('\r\n').join('\n');
+const html   = readPageSource('index.html');
 const dock   = readFileSync(join(PUB, 'js', 'vc-dock.js'), 'utf8');
 const spot   = readFileSync(join(PUB, 'js', 'vc-spotlight.js'), 'utf8');
 const doTs   = readFileSync(join(SRC, 'video-call-room.ts'), 'utf8');

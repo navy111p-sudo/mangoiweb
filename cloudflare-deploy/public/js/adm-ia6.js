@@ -95,9 +95,10 @@
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         { ko: '지사 정산',   en: 'Settlement',  cards: [], href: '/admin/capitown-settlement.html' },
-        // 🏢 조직 순서 = 본사 › 지사 › 대리점(학원). card-franchises=지사, card-centers=대리점(학원)
-        //    (2026-08-08 라벨 정정 — 예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
-        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises', 'card-centers'] }
+        // 🏢 조직 = 본사 › 지사 › 대리점(학원). 카드는 이제 card-franchises 하나뿐이다 —
+        //    card-centers(대리점 목록)는 그 카드 «안의 하위항목» 으로 합쳤다(2026-08-09).
+        //    (예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
+        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] }
       ]
     },
     {
@@ -440,10 +441,58 @@
     if (el) el.classList.add('ia6-on');
   }
 
+  /* ── 🔴 (2026-08-09) 감춰진 카드로 «점프» 하는 것들을 되살린다 ─────────────────
+     ia6 는 사이드바만 바꾼 게 아니라 **본문 카드를 감춘다**. 그래서 사이드바 «밖» 에서
+     카드로 데려가던 것들이 전부 «눌러도 아무 일 없음» 이 된다 — 감춰진 요소에
+     scrollIntoView 를 해도 화면은 안 움직이기 때문이다. 에러도 콘솔도 0.
+     실제로 당한 것: ⚡자주 쓰는 기능(먼저 개별 수리됨) · 📅「#852 ✓」배지(calGotoDate) ·
+     달력 칩(calGotoLT) · jumpToMenu · goCard · 해시 딥링크 · 카드 안 «…하러 가기» 버튼들.
+
+     한 곳에서 막는다 — 카드로 가려는 scrollIntoView 를 보고, 그 카드가 우리 손에
+     감춰져 있으면 **그 카드를 맡은 사이드바 항목을 대신 눌러 준다.**
+     ⚠️ 감춤 class 를 직접 지우지 않는다. 그러면 필터가 반쯤 풀린 어중간한 화면이 된다.
+        버튼을 누르면 ia6 자신의 로직(복원·펼치기·스크롤 3단 보정·선택 표시)이 그대로 돈다.
+     ⚠️ 이 파일을 빼면(되돌리기) 래퍼도 같이 사라진다 — 원래 동작으로 완전히 되돌아간다. */
+  function cardOf(el) {
+    // 점프 대상이 카드 «안» 요소일 수도 있다(예: sm-all-schedules). 감춰진 카드까지 올라간다.
+    var n = el;
+    while (n && n !== document.body) {
+      if (n.classList && n.classList.contains(HIDE) && /^card-/.test(n.id || '')) return n;
+      n = n.parentElement;
+    }
+    return null;
+  }
+  function wireRevealOnJump() {
+    if (window.__ia6Reveal) return;
+    window.__ia6Reveal = true;
+    var orig = Element.prototype.scrollIntoView;
+    if (typeof orig !== 'function') return;
+    var busy = false;                       // 되살리는 중의 재진입을 막는다
+    Element.prototype.scrollIntoView = function () {
+      if (!busy) {
+        try {
+          var card = cardOf(this);
+          if (card) {
+            busy = true;
+            try {
+              var btn = document.querySelector(
+                '#ph85-sidebar [data-ia6-item][data-card="' + card.id + '"]');
+              // 🔑 한글 항목명이 아니라 data-card 로 찾는다 — 이름이 바뀌어도 안 깨진다.
+              if (btn) btn.click();
+              else showAll();               // 어느 항목도 안 맡은 카드 → 필터를 푼다(갇히지 않게)
+            } finally { busy = false; }
+          }
+        } catch (e) { /* 무시 — 점프는 어떤 경우에도 막지 않는다 */ }
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
   // 본문·역할 적용이 늦게 끝나는 경우가 있어 한 번 더 시도한다(중복 실행은 __ia6 로 막힘).
   setTimeout(init, 900);
+  wireRevealOnJump();   // init 성공 여부와 무관하게 건다(감춘 게 없으면 cardOf 가 늘 null)
 
   // 다른 코드가 필요할 때 쓰도록 최소한만 노출
   window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS };

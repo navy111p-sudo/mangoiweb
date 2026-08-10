@@ -1679,6 +1679,23 @@ export async function handleAdminApi(
         if (f.room_id && !fbByRoom[f.room_id]) fbByRoom[f.room_id] = kstDay(f.approved_at);
       }
 
+      /* 📝 (2026-08-09) 강사 화면의 「1분 평가」도 당일 피드백으로 인정한다.
+         지금까지 이 판정은 teacher_class_feedback 과 «승인된» feedback_drafts 두 곳만 봤다.
+         그런데 강사가 /teacher 에서 실제로 쓰는 평가는 student_evaluations 에 들어간다
+         (teacher.html 의 「1분 평가」 → POST /api/eval/create).
+         → 성실하게 평가를 쓴 강사도 «미작성» 으로 잡혀 수업 1건당 ₱25 씩 깎이고 있었다.
+            강사 화면 맨 위 「⚠ 피드백 미작성」 경고에도 그대로 떴다.
+         ⚠️ room_id 정확 매칭만 인정한다 — 위의 «강사명+같은 날» 폴백은 주지 않는다.
+            평가 1건으로 그날 수업 전부를 «작성함» 으로 만들면 반대 방향 오류(과소 공제)가 난다.
+         ⚠️ 데모/시드 행은 room_id 가 NULL 이라 자연히 걸리지 않는다(운영 104행 중 102행). */
+      const evs: any = await env.DB.prepare(
+        `SELECT room_id, created_at FROM student_evaluations
+          WHERE created_at >= ? AND created_at < ? AND room_id IS NOT NULL AND room_id <> ''`
+      ).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      for (const e of (evs.results || [])) {
+        if (e.room_id && !fbByRoom[e.room_id]) fbByRoom[e.room_id] = kstDay(e.created_at);
+      }
+
       // 학생 이름 맵 (students_erp 컬럼 구성이 배포본마다 달라 순차 폴백)
       //   운영 class_schedules 에는 student_name 이 행에 직접 있어 이 맵은 폴백용.
       const uids: any[] = [...new Set(instances.filter((l: any) => !l.student_name).map((l: any) => l.user_id).filter(Boolean))];
@@ -3883,6 +3900,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   (강사 등록 + 평가 5점수 + 수업수). 이미 같은 이름이 있으면 skip.
     //   POST /api/admin/payroll/seed-demo  body: { year, month }
     if (method === 'POST' && path === '/api/admin/payroll/seed-demo') {
+      // 🔐 (2026-08-09) 강사 차단 — 바로 위 finalize 에는 이 가드가 있는데 여기만 없었다.
+      //   이 핸들러는 UPDATE teachers SET rate_per_10min_php=… 로 **전 강사의 급여 단가**를
+      //   하드코딩된 데모값으로 덮어쓴다. 그런데 /api/admin/payroll/* 는
+      //   TEACHER_BLOCKED_PREFIXES(차단 목록)에 없어서 강사도 도달할 수 있다
+      //   — 그 목록은 «차단 목록» 이라 새 API 의 기본값이 «강사 허용» 이기 때문이다(index.ts:313).
+      //   payroll 의 다른 엔드포인트들은 각자 본인-필터로 막고 있었고, 이것만 빠져 있었다.
+      const _seedActor = await getAdminActor(request, env as any);
+      if (_seedActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 데모 데이터를 생성할 수 없습니다.' }, 403);
       await ensurePayrollSchema(env);
       const b = await parseJsonBody(request);
       const year  = (b && b.year)  ? Number(b.year)  : new Date().getFullYear();
@@ -8429,7 +8454,10 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     if (method === 'POST' && path === '/api/admin/schedule/auto') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        // ⚠️ (2026-08-09) 여기 있던 CREATE TABLE class_schedules (student_uid, teacher_uid, day, time, mbti_score …) 를 지웠다.
+        //   그 표는 이미 다른 모양으로 존재한다(user_id · teacher_id · day_of_week · start_time …).
+        //   IF NOT EXISTS 라 아무 일도 안 일어나면서, 「이 표는 이런 모양」이라는 **거짓 설명**만 남아
+        //   아래 /schedule/approve 의 INSERT 가 그 거짓을 믿고 짜여 매번 실패했다.
 
         // Teachers (active)
         let teachers: any[] = [];
@@ -8532,20 +8560,47 @@ LIMIT $limit`;
 
     if (method === 'POST' && path === '/api/admin/schedule/approve') {
       try {
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT, teacher_uid TEXT, day TEXT, time TEXT, mbti_score INTEGER, source TEXT, status TEXT, created_at INTEGER NOT NULL);`);
+        // 🔧 (2026-08-09) 이 기능은 «한 건도 저장하지 않으면서 성공했다고» 답하고 있었다.
+        //   사슬:
+        //     ① 여기서 class_schedules 를 student_uid/teacher_uid/day/time/mbti_score 로 만들려 했다
+        //     ② 그런데 그 표는 이미 있다 → IF NOT EXISTS 라 **아무 일도 안 일어난다**
+        //        운영 실제 컬럼: user_id · teacher_id · day_of_week · start_time · scheduled_date …
+        //     ③ 아래 INSERT 가 「no such column: student_uid」 로 매번 실패
+        //     ④ 그 실패를 catch {} 가 조용히 삼킴 → inserted 는 0
+        //     ⑤ return { ok:true, inserted:0 } — 화면엔 성공으로 보인다
+        //   ①의 CREATE 를 지우고, INSERT 를 **운영 실제 컬럼**에 맞춘다.
+        //   (mbti_score 는 표에 자리가 없어 notes 에 남긴다 — 값을 버리지 않기 위해)
         const b: any = await request.json().catch(() => ({}));
         const rows = Array.isArray(b.rows) ? b.rows : [];
         if (!rows.length) return json({ ok: false, error: 'rows_required' }, 400);
         const now = Date.now();
         let inserted = 0;
+        const failures: string[] = [];
         for (const r of rows) {
           try {
-            await env.DB.prepare(`INSERT INTO class_schedules (student_uid, teacher_uid, day, time, mbti_score, source, status, created_at) VALUES (?,?,?,?,?,?,?,?)`)
-              .bind(String(r.student_uid || ''), String(r.teacher_uid || ''), String(r.day || ''), String(r.time || ''), Number(r.mbti_score || 0), 'ai_auto', 'proposed', now).run();
+            await env.DB.prepare(
+              `INSERT INTO class_schedules (user_id, teacher_id, day_of_week, start_time, duration_min, schedule_kind, source, status, notes, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)`
+            ).bind(
+              String(r.student_uid || ''), String(r.teacher_uid || ''),
+              String(r.day || ''), String(r.time || ''),
+              // ⚠️ duration_min 은 반드시 명시한다 — 운영 표의 DEFAULT 가 옛 정책(30분)이라
+              //   생략하면 30 이 들어간다(class-policy.ts 주석). 하니스가 이 누락을 잡는다.
+              Number(r.duration_min) || DEFAULT_CLASS_MINUTES,
+              'weekly', 'ai_auto', 'proposed',
+              `mbti_score=${Number(r.mbti_score || 0)}`, now
+            ).run();
             inserted++;
-          } catch {}
+          } catch (e: any) {
+            // ⚠️ 조용히 삼키지 않는다 — 위 ④가 이 기능을 죽여 놓고도 성공으로 보이게 한 원인이다.
+            if (failures.length < 5) failures.push(String(e?.message || e));
+          }
         }
-        return json({ ok: true, inserted });
+        if (!inserted && failures.length) {
+          console.warn('[schedule/approve] 전건 실패:', failures[0]);
+          return json({ ok: false, error: 'insert_failed', inserted: 0, detail: failures[0] }, 500);
+        }
+        return json({ ok: true, inserted, failed: rows.length - inserted, ...(failures.length ? { errors: failures } : {}) });
       } catch (e: any) {
         return json({ ok: false, error: e?.message || 'schedule_approve_failed' }, 500);
       }
