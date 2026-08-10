@@ -3872,6 +3872,11 @@ function vcHandleMessage(msg) {
                 var _tsTab = msg.data && msg.data.tab;
                 if (_tsTab && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
                     window._vcTabSyncApplying = true;
+                    /* 🔴 (2026-08-10 마이마이) 「교사가 칠판·교재로 옮겨도 학생은 얼굴 화면 그대로」
+                       vcSwitchTab 은 .active 클래스만 바꾼다 — 학생이 탭을 두 번 눌러 콘텐츠를
+                       «접어» 둔 상태(vc-content-collapsed)면 숨겨진 칸에서만 탭이 바뀌어
+                       화면상 아무 일도 일어나지 않았다. 교사가 화면을 바꾸면 반드시 펼친다. */
+                    try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(_){}
                     try { vcSwitchTab(_tsTab); } finally { window._vcTabSyncApplying = false; }
                     console.log('[tab-sync] 교사 탭 따라감:', _tsTab);
                     try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 화면을 바꿨어요'); } catch(_){}
@@ -7293,8 +7298,10 @@ window.vcRenderDrawLockChip = function(){
   btn.style.background = on ? '#dc2626' : '#16a34a';
   /* 🌐 라벨을 data-ko/data-en 에도 남긴다 — 언어를 바꾸면 applyLang 이 이 두 벌로 다시 쓴다.
      (없으면 EN 으로 그려진 뒤 KO 로 돌아와도 'Lock drawing' 인 채 굳는다 — 2026-08-08 제보) */
-  var _dKo = on ? '학생 필기 잠김' : '학생 필기 허용';
-  var _dEn = on ? 'Drawing locked' : 'Lock drawing';
+  /* 🌐 (2026-08-10) 라벨을 «상태» 가 아니라 «누르면 일어나는 일» 로 바꾼다.
+     초록 「학생 필기 허용」은 상태 표시로 읽혀, 강사들이 기능이 없는 줄 알았다. */
+  var _dKo = on ? '🔒 필기 잠김 — 풀기' : '✋ 학생 필기 잠그기';
+  var _dEn = on ? '🔒 Locked — unlock' : '✋ Lock student drawing';
   btn.setAttribute('data-ko', _dKo); btn.setAttribute('data-en', _dEn);
   btn.textContent = en ? _dEn : _dKo;
 };
@@ -10162,6 +10169,15 @@ function wbReceiveText(data) {
 }
 
 function wbClear() {
+    /* ✋ (2026-08-10) 「학생 필기 잠금」이 그리기만 막고 «전체 지우기» 는 그대로 열려 있었다.
+       낙서보다 나쁜 장난이다 — 학생이 버튼 한 번으로 선생님 판서를 통째로 지운다.
+       그리기 게이트(mousedown)와 똑같은 판정을 쓴다. */
+    if (window.__pdfStudentDrawLock && !(typeof vcIsStaffNow === 'function' ? vcIsStaffNow()
+            : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'))) {
+        var _cen = (typeof getLang === 'function' && getLang() === 'en');
+        if (typeof mangoToast === 'function') mangoToast(_cen ? 'The teacher has locked drawing.' : '선생님이 필기를 잠갔어요.');
+        return;
+    }
     wbReceiveClear();
     if (vcConn) vcConn.send({ type: 'whiteboard-clear', data: {} });
 }

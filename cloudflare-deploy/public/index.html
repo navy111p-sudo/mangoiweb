@@ -8216,7 +8216,7 @@ window.mgIsSlowNet = function(){
                 <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
                 <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
-                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">학생 필기 허용</button>
+                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">✋ 학생 필기 잠그기</button>
                 <!-- 🖥 (2026-07-30 Kaye 4번) 내 컴퓨터 화면을 학생에게 보여주기 — 교사·관리자에게만 보임 -->
                 <button id="vc-screenshare-btn" type="button" class="vc-classlock-chip" onclick="vcShareMyScreen()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#0ea5e9">내 화면 공유</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
@@ -8808,7 +8808,7 @@ window.mgIsSlowNet = function(){
      7. PDF 공유
      8. 채팅
 ================================================================ -->
-<script src="/js/idx-main.js?v=1"></script>
+<script src="/js/idx-main.js?v=2"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11341,7 +11341,7 @@ window.mgIsSlowNet = function(){
       <select id="tbf-lib-level" onchange="if(window.loadTextbookLibrary)loadTextbookLibrary()" title="교재 선택">
         <option value="">📚 전체 교재</option>
         <option value="Phonics">🔤 Phonics</option>
-        <option value="MES">🎯 MES</option>
+<!-- (2026-08-10) MES 제거 — 더 이상 사용하지 않는 교재군(강사 요청) -->
         <option value="BTS">🌟 BTS</option>
         <option value="SIU">🦁 SIU</option>
         <option value="마스터">🏆 중국어 마스터 3</option>
@@ -17817,9 +17817,9 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   function dodge() {
     var p = panel(); if (!p) return;
     var pr = p.getBoundingClientRect();
-    var list = coverers();
     // 세로 하단시트(폭이 화면의 60% 이상)면 «위로», 옆 패널이면 «왼쪽으로»
     var horizontal = pr.width < innerWidth * 0.6;
+    var list = coverers(horizontal);
 
     for (var i = 0; i < list.length; i++) {
       var el = list[i];
@@ -17849,17 +17849,29 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
 
   var t = null;
+  /* ⚠️ 패널은 transform 0.3s 로 «미끄러져» 들어온다. 열자마자 재면 패널이 아직 화면
+     밖이라 «겹친 것 없음»이 나온다(실제로 그래서 한 번 안 먹었다). 기본 대기 380ms
+     + transitionend 로 두 번 확인한다. */
   function sync(delay) {
     clearTimeout(t);
     t = setTimeout(function () {
       if (isOpen()) { restore(); dodge(); } else { restore(); }
-    }, delay == null ? 60 : delay);
+    }, delay == null ? 380 : delay);
   }
+
+  // 🧪 검증용 훅 — 브라우저/하니스에서 «정말 비켰는지» 확인할 수 있게. 동작엔 영향 없음.
+  window.__vcChatClearzone = {
+    sync: sync, dodge: dodge, restore: restore, coverers: coverers,
+    moved: function () { return moved.map(function (m) { return m.el; }); }
+  };
 
   function boot() {
     var p = panel(); if (!p) { setTimeout(boot, 800); return; }
     new MutationObserver(function () { sync(); })
       .observe(p, { attributes: true, attributeFilter: ['class'] });
+    p.addEventListener('transitionend', function (e) {
+      if (e.propertyName === 'transform') sync(20);
+    });
     // 채팅이 열린 «뒤에» 뜬 창(📌PIP·미니플레이어)도 잡는다.
     // 사람이 끌어다 놓은 창은 skip() 의 2초 유예가 지켜 준다.
     document.addEventListener('click', function () { if (isOpen()) sync(300); }, true);

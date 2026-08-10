@@ -9496,16 +9496,39 @@ LIMIT $limit`;
       const row: any = await env.DB.prepare(`SELECT r2_key, mime, kind, name, ext FROM textbook_files WHERE id = ? AND active = 1`).bind(id).first();
       if (!row) return new Response('Not Found', { status: 404 });
       const r2 = (env as any).RECORDINGS;
-      const obj = await r2.get(row.r2_key);
+      /* 📕 (2026-08-10 마이마이 「시스템 PDF 가 안 넘어간다 / 내 컴퓨터 jpg 가 훨씬 빠르다」)
+         [원인] 여기서 Range 헤더를 통째로 무시하고 R2 객체 «전부» 를 돌려주고 있었다.
+                Accept-Ranges 도 없으니 pdf.js 는 부분 요청을 포기하고 파일 전체를 받는다.
+                교재 PDF 평균 6.3MB(최대 9.3MB) → 필리핀 회선에서 1페이지가 뜨기까지 수십 초.
+                강사에게는 「안 넘어간다」로 보인다(실은 아직 받는 중).
+         [수정] R2 바인딩에 Range 헤더를 그대로 넘겨 206 부분응답을 지원한다.
+                pdf.js 가 필요한 페이지 조각만 받아 첫 페이지가 즉시 뜬다.
+         ⚠️ r2_key 는 업로드마다 새로 만들어지므로 내용이 바뀌지 않는다 → immutable 캐시 가능.
+            (기존 max-age=3600 은 매 수업마다 6MB 를 다시 받게 하고 있었다) */
+      const rangeHeader = request.headers.get('range');
+      const obj = rangeHeader
+        ? await r2.get(row.r2_key, { range: request.headers })
+        : await r2.get(row.r2_key);
       if (!obj) return new Response('Not Found in R2', { status: 404 });
       const headers = new Headers();
       obj.writeHttpMetadata(headers);
       if (!headers.get('content-type')) {
         headers.set('content-type', row.mime || (row.kind === 'pdf' ? 'application/pdf' : 'image/jpeg'));
       }
-      headers.set('Cache-Control', 'public, max-age=3600');
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+      headers.set('Accept-Ranges', 'bytes');
       headers.set('Access-Control-Allow-Origin', '*');
+      headers.set('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length');
       headers.set('Content-Disposition', `inline; filename="${encodeURIComponent(row.name || 'file')}"`);
+      const rng: any = (obj as any).range;
+      if (rangeHeader && rng && typeof rng.offset === 'number') {
+        const start = rng.offset;
+        const end = start + (rng.length ?? ((obj as any).size - start)) - 1;
+        headers.set('Content-Range', `bytes ${start}-${end}/${(obj as any).size}`);
+        headers.set('Content-Length', String(end - start + 1));
+        return new Response(obj.body, { status: 206, headers });
+      }
+      headers.set('Content-Length', String((obj as any).size));
       return new Response(obj.body, { headers });
     }
 
