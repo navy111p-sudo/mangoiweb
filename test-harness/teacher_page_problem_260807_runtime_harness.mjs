@@ -144,15 +144,28 @@ async function portal(startTimeHHMM) {
   return res.json();
 }
 
-// ① 한참 뒤(23:50) 수업 — 예전이면 «5시간 뒤 입장» 으로 잠겨 있던 상황
-const late = await portal('23:50');
+// ① 한참 뒤 수업 — 예전이면 «5시간 뒤 입장» 으로 잠겨 있던 상황.
+//   ⚠️ (2026-08-10) 예전엔 '23:50' 로 못 박았다가 **밤 23:20 이후 실행에서 거짓 실패**했다:
+//      23:50 이 지금으로부터 30분 이내가 되면 서버가 status='open' 으로 판정하는데
+//      아래 검사는 'early' 를 기대한다. 아래 ② 가 '00:05' 하드코딩으로 겪은 그 함정과 같다.
+//   → «지금(KST)보다 충분히 뒤(+90분 이상)» 인 시각을 계산해서 쓴다. 단 오늘(TODAY) 안이어야
+//      enter_from/until_ts 검사가 성립하므로, +90분이 자정을 넘으면 이 «early» 검사는 건너뛴다
+//      (그 시간대엔 오늘 안에 «30분 이상 남은» 수업을 만들 수 없다 — 코드 문제가 아니라 시각 문제).
+const FAR_MIN = (kNow.getUTCHours() * 60 + kNow.getUTCMinutes()) + 90;   // 지금 +90분 (open 창 30분보다 넉넉히 밖)
+const canTestEarly = FAR_MIN < 24 * 60;             // 오늘 안에 들어가나
+const farHHMM = canTestEarly ? `${pad(Math.floor(FAR_MIN / 60))}:${pad(FAR_MIN % 60)}` : '23:50';
+const late = await portal(farHHMM);
 const lateC = (late.classes || [])[0] || {};
 check('응답에 classes 가 있다', !!lateC.schedule_id, late.error || Object.keys(late));
 check('enter_from_ts = 오늘 00:00(KST)', lateC.enter_from_ts === DAY_START, { got: lateC.enter_from_ts, want: DAY_START });
 check('enter_until_ts = 오늘 23:59:59.999(KST)', lateC.enter_until_ts === DAY_START + 86400000 - 1, lateC.enter_until_ts);
 check('🚪 시작 몇 시간 전이어도 can_enter = true', lateC.can_enter === true, lateC.can_enter);
-check('🔴 그래도 «수업 시간» 판정은 그대로다 (join_open=false · status=early)',
-  lateC.join_open === false && lateC.status === 'early', { join_open: lateC.join_open, status: lateC.status });
+if (canTestEarly) {
+  check('🔴 그래도 «수업 시간» 판정은 그대로다 (join_open=false · status=early)',
+    lateC.join_open === false && lateC.status === 'early', { join_open: lateC.join_open, status: lateC.status });
+} else {
+  console.log('  ⏭ 지금은 KST 22:30 이후라 «오늘 안에 30분 이상 남은 수업» 을 만들 수 없어 early 검사를 건너뜁니다(실패 아님).');
+}
 check('🔴 open_at_ts 는 예전 규칙(시작 30분 전) 그대로 — 카운트다운이 흔들리지 않는다',
   lateC.start_ts - lateC.open_at_ts === 30 * 60 * 1000, (lateC.start_ts - lateC.open_at_ts) / 60000);
 
