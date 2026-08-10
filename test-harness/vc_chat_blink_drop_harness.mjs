@@ -8,10 +8,11 @@
 //   ⚠️ 이 파일은 "왜 이렇게 짰는지"를 보존하는 용도다. 아래 항목이 깨지면
 //      과거에 실제로 났던 사고가 그대로 재발한다는 뜻이므로 지우지 말 것.
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
-const R = (p) => readFileSync(resolve(__dir, p), 'utf8');
+const R = (p) => { const m = /public\/([\w.-]+\.html)$/.exec(p); return m ? readPageSource(m[1]) : readFileSync(resolve(__dir, p), 'utf8'); };   // 분해 대응
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function ok(name, cond){

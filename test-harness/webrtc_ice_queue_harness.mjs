@@ -14,6 +14,7 @@
  * 실행: node test-harness/webrtc_ice_queue_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -113,8 +114,7 @@ async function run() {
 
   // ── 시나리오 E: 주 수업 경로(index.html 인라인)에도 동일한 큐잉이 유지되는지 소스 단언 ──
   //   index.html 인라인 WebRTC 는 별도 구현이라 파일을 로드하지 않고 핵심 불변식만 확인.
-  const idxPath = join(__dirname, '..', 'cloudflare-deploy', 'public', 'index.html');
-  const idx = readFileSync(idxPath, 'utf8');
+  const idx = readPageSource('index.html');   // 분해 대응: 페이지 코드 전체
   ok(/vcPendingCandidates/.test(idx), 'E: index.html 인라인에 ICE 버퍼(vcPendingCandidates) 존재');
   ok(/function vcFlushPendingIce/.test(idx), 'E: index.html 인라인에 flush 헬퍼(vcFlushPendingIce) 존재');
   ok(/!pc\.remoteDescription\s*\|\|\s*!pc\.remoteDescription\.type/.test(idx),

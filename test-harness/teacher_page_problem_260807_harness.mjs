@@ -9,11 +9,17 @@
 //      (실제로 이번에도 prompt→작은 창 리팩터링에서 옛 하네스 2건이 깨졌다)
 //   ⛔ 검사 대상이 아닌 항목: ⑫ RAM 증설(하드웨어) · ⑰ 샘플 교재가 MES 였다(자료 관찰, 문서도 "No changes")
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
+const rd = (p) => { try {
+  // 분해 대응: public/*.html 은 «그 페이지가 로드하는 스크립트까지» 읽는다
+  const m = /public\/([\w.-]+\.html)$/.exec(p);
+  if (m) return readPageSource(m[1]);
+  return readFileSync(resolve(__dir, p), 'utf8');
+} catch { return ''; } };
 
 const tapi   = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mapi   = rd('../cloudflare-deploy/src/api-mango.ts');

@@ -15,6 +15,7 @@
  * 실행: node test-harness/teacher_kaye_feedback_260807_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -30,7 +31,7 @@ function check(name, cond, detail) {
   else { fail++; failures.push(name + (detail ? ' — ' + detail : '')); console.log('  ❌ ' + name + (detail ? '\n       ' + detail : '')); }
 }
 
-const html = readFileSync(join(PUB, 'index.html'), 'utf8');
+const html = readPageSource('index.html');
 const teacher = readFileSync(join(PUB, 'teacher.html'), 'utf8');
 const rec = readFileSync(join(PUB, 'js', 'mango-rec.js'), 'utf8');
 const doTs = readFileSync(join(SRC, 'video-call-room.ts'), 'utf8');

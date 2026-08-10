@@ -85,10 +85,16 @@ function globalsOf(corpus) {
   return g;
 }
 
-/** 인라인 핸들러가 «부르는» 최상위 이름들 */
-function calledNamesOf(html) {
+/** 인라인 핸들러가 «부르는» 최상위 이름들
+ *
+ *  ⚠️ HTML 만 보면 안 된다. 이 저장소는 JS 가 문자열로 HTML 을 만들어 넣는 곳이 많고,
+ *     그 문자열 안에도 onclick="…" 이 들어 있다. 그리고 그런 코드는 «분해» 로 .js 파일로 옮겨간다.
+ *     실제로 밟았다 — index.html 의 큰 블록을 idx-main.js 로 옮겼더니
+ *     검사 대상이 159종 → 141종으로 **줄었다**. 쪼갤수록 게이트가 약해지는 구조였다.
+ *     그래서 HTML 과 «그 페이지가 로드하는 스크립트 본문» 을 모두 훑는다. */
+function calledNamesOf(html, corpus) {
   const calls = new Map();   // 이름 → 첫 등장 줄
-  const lines = html.split('\n');
+  const lines = (html + '\n/*── 아래는 이 페이지가 로드하는 스크립트 본문 ──*/\n' + corpus).split('\n');
   const ATTR = /\bon(?:click|change|input|submit|load|error|focus|blur|keyup|keydown|keypress|mouseenter|mouseleave|touchstart|touchend)\s*=\s*"([^"]*)"/g;
   for (let i = 0; i < lines.length; i++) {
     ATTR.lastIndex = 0;
@@ -114,7 +120,7 @@ for (const page of PAGES) {
   if (!existsSync(join(PUB, page))) continue;
   const { html, corpus } = scriptCorpusOf(page);
   const globals = globalsOf(corpus);
-  const calls = calledNamesOf(html);
+  const calls = calledNamesOf(html, corpus);
   let bad = 0;
   for (const [name, line] of calls) {
     if (globals.has(name)) continue;

@@ -10,12 +10,13 @@
 //      실제로 실행**하고, 탭 전환 이벤트를 쏴서 카메라 트랙이 어떻게 되는지 관찰한다.
 //      (글자로 박아 두면 옳은 리팩터링이 하네스를 깨서 되돌리게 만든다)
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/index.html'), 'utf8');
+const html = readPageSource('index.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {

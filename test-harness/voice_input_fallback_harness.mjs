@@ -14,6 +14,7 @@
  * 실행: node test-harness/voice_input_fallback_harness.mjs
  */
 import { readFileSync } from 'node:fs';
+import { readPageSource, htmlOnly } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import vm from 'node:vm';
@@ -190,13 +191,18 @@ console.log('\n▶ 실패 상황 안내');
    대상이 없음, 처음부터 Whisper). warmup.html 은 아직 SpeechRecognition 이 1차라 그대로 둔다. */
 console.log('\n▶ 화면 배선 (warmup · ai-friend)');
 for (const f of ['warmup.html', 'ai-friend.html']) {
-  const h = readFileSync(join(PUB, f), 'utf8');
+  const h = readPageSource(f);   // 분해 대응
   check(`${f} — 폴백 모듈을 불러옴`, /mangoi-voice-input\.js/.test(h));
   check(`${f} — 음성인식 미지원이면 micViaWhisper 로`, /micViaWhisper\(\)/.test(h));
   check(`${f} — 더 이상 "지원하지 않아요"로 끝내지 않음`,
         !/지원하지 않아요 😢 크롬/.test(h) && !/is not supported on this browser\. Please use Chrome/.test(h));
   if (f === 'ai-friend.html') {
-    check(`${f} — SpeechRecognition 완전 제거(Whisper 전용)`, !/webkitSpeechRecognition/.test(h) && !/\b_recog\b/.test(h));
+    // ⚠️ 「없어야 한다」는 **부정 단언**이라 htmlOnly 로 그 페이지 자신의 코드만 본다.
+    //    readPageSource 는 공용 js 까지 이어붙이는데, 거기엔 다른 화면용 SpeechRecognition 이
+    //    정당하게 들어 있다 — 그걸 세면 「제거 안 됨」 이라는 가짜 실패가 난다(2026-08-09 실제 발생).
+    //    긍정 단언(«있어야 한다»)은 readPageSource, 부정 단언은 htmlOnly 가 맞다.
+    const own = htmlOnly(f);
+    check(`${f} — SpeechRecognition 완전 제거(Whisper 전용)`, !/webkitSpeechRecognition/.test(own) && !/\b_recog\b/.test(own));
   } else {
     check(`${f} — network 오류 시 녹음 방식으로 전환`, /micViaWhisper\(\); \}, 300\)/.test(h));
   }
@@ -207,7 +213,7 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
    micro-quiz·vocab 은 **3초 고정 녹음**이라 아이가 조금만 뜸들이면 말이 통째로 잘렸다. */
 console.log('\n▶ 고정 시간 녹음 폐기 (micro-quiz · vocab)');
 for (const f of ['micro-quiz.html', 'vocab.html']) {
-  const h = readFileSync(join(PUB, f), 'utf8');
+  const h = readPageSource(f);   // 분해 대응
   check(`${f} — 3초 고정 녹음이 사라짐`,
         !/setTimeout\(res,\s*3000\)/.test(h), '아직 3초 고정 녹음이 남아 있음');
   check(`${f} — 공용 녹음 모듈 사용(말 끝나면 종료)`, /MangoiVoice\.record\(/.test(h));
@@ -218,7 +224,7 @@ for (const f of ['micro-quiz.html', 'vocab.html']) {
 /* ══ 3-C. 따라 말하기 — AI 낭독 중에 마이크를 켜지 않는가 ══ */
 console.log('\n▶ 따라 말하기: AI 목소리를 받아 적지 않게');
 for (const f of ['index.html', 'student-games.html']) {
-  const h = readFileSync(join(PUB, f), 'utf8');
+  const h = readPageSource(f);   // 분해 대응
   check(`${f} — gameSpeak 이 낭독 종료(onend)를 넘겨줌`,
         /window\.gameSpeak = function\(text, onend\)/.test(h));
   check(`${f} — 850ms 고정으로 마이크를 켜지 않음`,

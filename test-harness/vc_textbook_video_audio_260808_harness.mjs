@@ -13,12 +13,13 @@
 //   ⚠️ ② 는 함수를 떼어내 **가짜 브라우저에서 실제로 실행**한다(글자 매칭 아님).
 //      🔴 ctx.window = ctx 를 안 걸면 맨 이름이 ReferenceError → catch 에 먹혀 헛통과한다.
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
-const html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/index.html'), 'utf8');
+const html = readPageSource('index.html');
 const x3   = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-x3.js'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];

@@ -14,6 +14,7 @@
 //      🔴 ctx.window = ctx 로 자기참조를 걸지 않으면 맨 이름이 ReferenceError 로 죽고
 //         try/catch 에 먹혀 «아무 일도 안 했는데 통과» 한다. (블랙아웃 하네스에서 실제로 겪음)
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응: 페이지 코드 전체를 읽는다
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -23,7 +24,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 //   git 에는 LF 로 들어 있지만 Windows 의 autocrlf 가 체크아웃 때 CRLF 로 바꾼다.
 //   그러면 아래 slice() 의 «여러 줄짜리 표시자» 가 안 맞아 함수 끝을 못 찾고,
 //   파일 끝까지 훑게 되어 **멀쩡한 코드가 실패로** 잡힌다(브랜치 전환 뒤 재현).
-const html = readFileSync(resolve(__dir, '../cloudflare-deploy/public/index.html'), 'utf8').split('\r\n').join('\n');
+const html = readPageSource('index.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
