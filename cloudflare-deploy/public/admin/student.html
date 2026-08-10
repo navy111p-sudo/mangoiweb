@@ -1476,10 +1476,11 @@ $('evAddBtn').addEventListener('click', async () => {
 });
 
 // ═══════════════════════ 🎯 발음연습 → 평가서 자동 기록 ═══════════════════════
-//   - 새 창으로 mangoi-speech.pages.dev/practice 열기
+//   - (2026-08-10) pages.dev 연습앱이 /speech-coach.html 로 통합돼 새 창 대상도 교체
 //   - 학생 정보 (uid, username) + 콜백 origin 을 URL 파라미터로 전달
 //   - 발음연습 페이지가 window.opener.postMessage 로 결과 송신 → 자동 평가서 INSERT
 //   - 발음연습 페이지가 아직 postMessage 미지원이면 수동 입력 fallback 안내
+//     (speech-coach.html 은 현재 postMessage 를 안 쏘고 서버 voice_coaching 에 직접 저장)
 let _pronPopup = null;
 window.openPronPractice = function() {
   const f = _state.full || {};
@@ -1492,7 +1493,7 @@ window.openPronPractice = function() {
     callback_origin: location.origin,
     return: '1'
   });
-  const url = 'https://mangoi-speech.pages.dev/practice?' + params;
+  const url = '/speech-coach.html?' + params;
   // 팝업 윈도우 (postMessage 양방향 통신 가능, 마이크 권한 정상)
   _pronPopup = window.open(url, 'mangoi-pron-practice',
     'width=900,height=720,toolbar=0,location=0,menubar=0,resizable=1,scrollbars=1');
@@ -1508,9 +1509,8 @@ window.openPronPractice = function() {
 
 // postMessage 수신 — 발음연습 페이지가 보낸 결과를 자동으로 평가서로 저장
 window.addEventListener('message', async (ev) => {
-  // 보안: mangoi-speech.pages.dev 출처만 허용
-  const allowedOrigins = ['https://mangoi-speech.pages.dev', 'https://mangoi-speech.workers.dev'];
-  if (!allowedOrigins.some(o => ev.origin === o || ev.origin.endsWith('mangoi-speech.pages.dev'))) {
+  // 보안: 같은 출처(통합 발음 코치 /speech-coach.html)만 허용
+  if (ev.origin !== location.origin) {
     return;   // 다른 origin 메시지는 무시
   }
   const data = ev.data;
