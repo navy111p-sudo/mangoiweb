@@ -1860,19 +1860,54 @@ ${numbered}`;
           + 'Reply with STRICT JSON only: {"en":"<polished English>","ko":"<Korean for the parent>"}';
 
         let outEn = '', outKo = '';
+        const dbgNote: any = { raw: null, err: null, fallback: false };
         try {
           const resp: any = await ai0.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
               { role: 'system', content: sys },
-              { role: 'user', content: `Teacher's note:\n${masked}` },
+              // 🪤 JSON 지시를 system 에만 두면 모델이 설명문을 붙여 내보낸다(실측).
+              //    user 쪽에도 한 번 더 못 박아야 «{...}» 만 나온다.
+              { role: 'user', content: `Teacher's note:\n${masked}\n\nReturn ONLY this JSON, nothing else:\n{"en":"...","ko":"..."}` },
             ],
             max_tokens: 700,
           });
           const text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : '');
+          dbgNote.raw = String(text || '').slice(0, 500);
           const m = String(text || '').match(/\{[\s\S]*\}/);
-          if (m) { const j = JSON.parse(m[0]); outEn = String(j.en || '').trim(); outKo = String(j.ko || '').trim(); }
+          if (m) {
+            try { const j = JSON.parse(m[0]); outEn = String(j.en || '').trim(); outKo = String(j.ko || '').trim(); }
+            catch (pe: any) { dbgNote.err = 'parse:' + String(pe?.message || pe).slice(0, 80); }
+          }
         } catch (e: any) {
+          dbgNote.err = 'ai:' + String(e?.message || e).slice(0, 120);
           console.warn('[translate:note] ai err:', e?.message);
+        }
+
+        /* 🛟 폴백 — JSON 이 깨졌거나 한국어가 비면 «번역만» 한 번 더 시킨다.
+           한 문장짜리 지시라 모델이 훨씬 안정적이다(chat 모드가 이미 이 방식으로 돌고 있다).
+           강사를 두 번 기다리게 하지 않으려고 **실패했을 때만** 탄다. */
+        if (!/[가-힣]/.test(outKo)) {
+          dbgNote.fallback = true;
+          try {
+            const base = outEn || masked;
+            const r2: any = await ai0.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+              messages: [
+                { role: 'system', content:
+                    'You translate a teacher\'s after-class note into Korean for the child\'s parent. '
+                  + 'Reply with ONLY the Korean sentences — no quotes, no notes, no English. '
+                  + 'Always polite Korean (합니다체 or 해요체), never 반말. Keep it to 2-4 short sentences. '
+                  + 'In a school context "숙제" is school homework. '
+                  + `Keep the placeholder ${MASK} exactly as it is if it appears.` },
+                { role: 'user', content: base },
+              ],
+              max_tokens: 500,
+            });
+            const t2 = typeof r2 === 'string' ? r2 : (typeof r2?.response === 'string' ? r2.response : '');
+            let ko2 = String(t2 || '').trim().replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
+            ko2 = ko2.replace(/^(translation|번역|korean)\s*[:：]\s*/i, '').trim();
+            if (ko2.length > 1 && /^["'“”「『]/.test(ko2) && /["'“”」』]$/.test(ko2)) ko2 = ko2.slice(1, -1).trim();
+            if (/[가-힣]/.test(ko2)) outKo = ko2;
+          } catch (e: any) { dbgNote.err = (dbgNote.err || '') + ' fb:' + String(e?.message || e).slice(0, 80); }
         }
 
         // 어미 중첩 교정 — 존댓말을 시키면 모델이 -습니다 뒤에 「요」를 한 번 더 붙인다(chat 모드와 같은 처리)
@@ -1884,10 +1919,14 @@ ${numbered}`;
         // 가림막 복원
         if (stuName) { outEn = outEn.split(MASK).join(stuName); outKo = outKo.split(MASK).join(stuName); }
 
+        const noteDebug = url.searchParams.get('debug') === '1';
         const hasKo = /[가-힣]/.test(outKo);
-        if (!hasKo) return json({ ok: false, error: 'no_korean', message: '한국어를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 502);
+        if (!hasKo) {
+          return json({ ok: false, error: 'no_korean', message: '한국어를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.',
+                        ...(noteDebug ? { _debug: dbgNote } : {}) }, 502);
+        }
         if (!outEn) outEn = raw;   // 영어 다듬기만 실패하면 원문을 그대로 보여 준다(발송은 한국어로 나가므로 무해)
-        return json({ ok: true, en: outEn, ko: outKo });
+        return json({ ok: true, en: outEn, ko: outKo, ...(noteDebug ? { _debug: dbgNote } : {}) });
       }
 
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
