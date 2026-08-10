@@ -288,9 +288,10 @@
     <div class="m-sheet-handle"></div>
     <div class="m-sheet-title">🎯 <span data-ko="레벨 선택" data-en="Choose Level">레벨 선택</span></div>
     <div class="m-sheet-cards">
-      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=phonics" target="_blank" style="background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(5,150,105,.08));border-color:rgba(16,185,129,.45);">🇺🇸 Phonics<small data-ko="영어 · Lv 0" data-en="English · Lv 0">영어 · Lv 0</small></a>
-      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=bts" target="_blank" style="background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-color:rgba(251,191,36,.45);">🇺🇸 BTS<small data-ko="영어 · Lv 1~8" data-en="English · Lv 1~8">영어 · Lv 1~8</small></a>
-      <a class="m-sheet-card" href="https://mangoi-speech.pages.dev/practice?course=siu" target="_blank" style="background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(99,102,241,.08));border-color:rgba(139,92,246,.45);">🇺🇸 SIU<small data-ko="영어 · 고급" data-en="English · Advanced">영어 · 고급</small></a>
+      <!-- 📚 (2026-08-10) 영어 3코스는 새 탭(pages.dev)이 아니라 이 페이지 안에서 연다 — 커리큘럼 통합 -->
+      <a class="m-sheet-card" id="m-course-card-phonics" href="#" onclick="selectCourse('phonics');closeMobileSheet();return false" style="background:linear-gradient(135deg,rgba(16,185,129,.18),rgba(5,150,105,.08));border-color:rgba(16,185,129,.45);">🇺🇸 Phonics<small data-ko="영어 · Lv 0" data-en="English · Lv 0">영어 · Lv 0</small></a>
+      <a class="m-sheet-card" id="m-course-card-bts" href="#" onclick="selectCourse('bts');closeMobileSheet();return false" style="background:linear-gradient(135deg,rgba(251,191,36,.18),rgba(245,158,11,.08));border-color:rgba(251,191,36,.45);">🇺🇸 BTS<small data-ko="영어 · Lv 1~8" data-en="English · Lv 1~8">영어 · Lv 1~8</small></a>
+      <a class="m-sheet-card" id="m-course-card-siu" href="#" onclick="selectCourse('siu');closeMobileSheet();return false" style="background:linear-gradient(135deg,rgba(139,92,246,.18),rgba(99,102,241,.08));border-color:rgba(139,92,246,.45);">🇺🇸 SIU<small data-ko="영어 · 고급" data-en="English · Advanced">영어 · 고급</small></a>
       <a class="m-sheet-card" href="/speech-coach-cn.html" style="background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));border-color:rgba(220,38,38,.55);">🇨🇳 <span data-ko="중국어" data-en="Chinese">중국어</span><small data-ko="마스터 · Lv 1~20" data-en="Master · Lv 1~20">마스터 · Lv 1~20</small></a>
     </div>
     <div class="m-sheet-title">📖 <span data-ko="단계" data-en="Step">단계</span></div>
@@ -310,8 +311,8 @@
       <span style="font-size:11px;color:#94a3b8;" data-ko="언어와 레벨을 선택하세요" data-en="Pick language and level">언어와 레벨을 선택하세요</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
-      <!-- 영어 Phonics -->
-      <a href="https://mangoi-speech.pages.dev/practice?course=phonics" target="_blank"
+      <!-- 영어 Phonics — (2026-08-10) pages.dev 새 탭 대신 이 페이지 안에서 코스를 연다 -->
+      <a href="#" id="course-card-phonics" onclick="selectCourse('phonics');return false"
          style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(16,185,129,0.18),rgba(5,150,105,0.08));border:1.5px solid rgba(16,185,129,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(16,185,129,0.4)'"
          onmouseout="this.style.transform='';this.style.boxShadow=''">
@@ -319,7 +320,7 @@
         <div style="font-size:11px;color:#a7f3d0;margin-top:3px;font-weight:600;" data-ko="영어 · Level 0" data-en="English · Level 0">영어 · Level 0</div>
       </a>
       <!-- 영어 BTS -->
-      <a href="https://mangoi-speech.pages.dev/practice?course=bts" target="_blank"
+      <a href="#" id="course-card-bts" onclick="selectCourse('bts');return false"
          style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.08));border:1.5px solid rgba(251,191,36,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(251,191,36,0.4)'"
          onmouseout="this.style.transform='';this.style.boxShadow=''">
@@ -327,7 +328,7 @@
         <div style="font-size:11px;color:#fde68a;margin-top:3px;font-weight:600;" data-ko="영어 · Level 1~8" data-en="English · Level 1~8">영어 · Level 1~8</div>
       </a>
       <!-- 영어 SIU -->
-      <a href="https://mangoi-speech.pages.dev/practice?course=siu" target="_blank"
+      <a href="#" id="course-card-siu" onclick="selectCourse('siu');return false"
          style="display:block;padding:14px 12px;background:linear-gradient(135deg,rgba(139,92,246,0.18),rgba(99,102,241,0.08));border:1.5px solid rgba(139,92,246,0.45);border-radius:12px;text-decoration:none;text-align:center;color:#fff;font-weight:800;transition:transform .15s,box-shadow .15s;"
          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 10px 24px -6px rgba(139,92,246,0.4)'"
          onmouseout="this.style.transform='';this.style.boxShadow=''">
@@ -343,6 +344,18 @@
         <div style="font-size:13.5px;">🇨🇳 <span data-ko="중국어" data-en="Chinese">중국어</span></div>
         <div style="font-size:11px;color:#fecaca;margin-top:3px;font-weight:600;" data-ko="중국어 마스터 · Lv 1~20" data-en="CN Master · Lv 1~20">중국어 마스터 · Lv 1~20</div>
       </a>
+    </div>
+    <!-- 📚 유닛 선택 (2026-08-10) — pages.dev 연습앱(mangoi_Speech)의 커리큘럼을 이 페이지로 통합.
+         영어 코스 카드를 누르면 그 코스의 데이터 파일만 그때 내려받고(제일 큰 SIU 고급이 419KB)
+         여기서 유닛(교재 단원)을 고른다. 채점은 이 페이지의 기존 Azure 발음평가를 그대로 쓴다.
+         코스를 안 골랐을 때(기본 5문장 모드)는 숨김. -->
+    <div id="unit-picker" style="display:none;margin-top:10px;padding:12px;background:rgba(15,20,38,0.66);border:1px solid rgba(167,139,250,0.35);border-radius:12px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:800;color:#ddd6fe;">📚 <span data-ko="유닛" data-en="Unit">유닛</span></span>
+        <select id="unit-select" onchange="selectUnit(this.value)" aria-label="유닛 선택" style="flex:1;min-width:220px;padding:9px 12px;font-size:13.5px;background:rgba(15,20,38,0.9);color:#fff;border:1px solid rgba(139,92,246,0.4);border-radius:9px;"></select>
+        <button type="button" onclick="exitCourse()" style="padding:9px 12px;font-size:12px;font-weight:700;background:rgba(148,163,184,0.14);color:#cbd5e1;border:1px solid rgba(148,163,184,0.35);border-radius:9px;cursor:pointer;" data-ko="기초 5문장" data-en="Basic 5">기초 5문장</button>
+      </div>
+      <div id="unit-topic" style="margin-top:8px;font-size:11.5px;color:#a5b4cf;"></div>
     </div>
   </div>
 
@@ -477,8 +490,14 @@ function markStepDone(i){
   if (STEPS[i] && !doneSet.has(STEPS[i])) {
     doneSet.add(STEPS[i]); saveDone(); renderStepSelect(); updateStepUI();
     if (STEPS.every(function(s){ return doneSet.has(s); })) {
-      celebrate('🎉 모든 단계 완료! 정말 잘했어요!');       // 세트 완주 축하
-      awardSpeechPoints('en:voice-coach', '🏅 영어 발음 마스터');  // 배지 + 포인트 적립
+      // 📚 커리큘럼 유닛(100문장)을 다 끝냈으면 유닛 이름으로, 기본 5문장 세트면 기존 그대로
+      if (curCourse && curUnit) {
+        celebrate((window.getLang && getLang() === 'en') ? ('🎉 ' + curUnit + ' complete! Amazing!') : ('🎉 ' + curUnit + ' 완주! 정말 잘했어요!'));
+        awardSpeechPoints('en:' + curCourse + ':' + curUnit, '🏅 ' + curUnit + ' 완주');
+      } else {
+        celebrate('🎉 모든 단계 완료! 정말 잘했어요!');       // 세트 완주 축하
+        awardSpeechPoints('en:voice-coach', '🏅 영어 발음 마스터');  // 배지 + 포인트 적립
+      }
     }
   }
 }
@@ -597,6 +616,130 @@ try {
   if (!isNaN(_saved) && _saved >= 0 && _saved < STEPS.length) { loadStep(_saved, false); }
   else { updateStepUI(); }
 } catch(e){ updateStepUI(); }
+
+/* ===== 📚 커리큘럼 코스 (2026-08-10) — 옛 pages.dev 연습앱(mangoi_Speech) 통합 =====
+   문장 데이터(Phonics 26유닛·BTS 35유닛·SIU 50유닛, 총 11,100문장)는 /js/speech-data-*.js 로 이식.
+   코스를 고른 순간에만 해당 파일을 내려받아 STEPS 를 통째로 바꿔 끼운다 — 녹음·Azure 채점·
+   결과 저장(/api/voice/coach)·단계 UI 는 전부 기존 흐름 그대로다.
+   ⚠️ BTS 데이터는 top-level const 라 window.BTS_SENTENCES 로는 못 읽는다 — 전역 렉시컬 스코프의
+   bare 식별자로 읽어야 해서 각 코스에 get() 접근자를 둔다(typeof 가드로 로드 전 참조 안전). */
+var BASIC_STEPS = STEPS;   // 기본 5문장 세트로 돌아올 때 쓴다
+var COURSES = {
+  'phonics': { files: ['/js/speech-data-phonics.js?v=1'], get: function(){ return (typeof PHONICS_SENTENCES !== 'undefined') ? PHONICS_SENTENCES : null; },
+               lv: function(){ return 'Lv 0'; } },
+  'bts':     { files: ['/js/speech-data-bts.js?v=1'], get: function(){ return (typeof BTS_SENTENCES !== 'undefined') ? BTS_SENTENCES : null; },
+               // pages.dev 의 category-ui.js 와 같은 매핑: BTS 1~4=Lv1, 4개씩 올라가 29~35=Lv8
+               lv: function(key){ var n = parseInt((key.match(/\d+/) || [0])[0], 10); return 'Lv ' + (n <= 28 ? Math.ceil(n / 4) : 8); } },
+  'siu':     { files: ['/js/speech-data-siu-basic.js?v=1', '/js/speech-data-siu-advance.js?v=1'],
+               get: function(){ var o = {};
+                 if (typeof SIU_BASIC_SENTENCES !== 'undefined') Object.assign(o, SIU_BASIC_SENTENCES);
+                 if (typeof SIU_ADVANCE_SENTENCES !== 'undefined') Object.assign(o, SIU_ADVANCE_SENTENCES);
+                 return Object.keys(o).length ? o : null; },
+               lv: null }
+};
+var curCourse = '', curUnit = '';
+var _dataLoaded = {};
+function loadScriptOnce(src){
+  return new Promise(function(resolve, reject){
+    if (_dataLoaded[src]) return resolve();
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = function(){ _dataLoaded[src] = 1; resolve(); };
+    s.onerror = function(){ reject(new Error('script_load_fail')); };
+    document.head.appendChild(s);
+  });
+}
+function selectCourse(course){
+  var c = COURSES[course];
+  if (!c) return false;
+  var status = document.getElementById('rec-status');
+  if (status && !c.get()) status.textContent = (window.getLang && getLang() === 'en') ? 'Loading course…' : '커리큘럼 불러오는 중…';
+  // SIU 는 파일이 둘(기초 218KB + 고급 419KB) — 기초만 기다려서 바로 열고, 고급은 뒤에서 마저 받아 목록에 붙인다
+  loadScriptOnce(c.files[0]).then(function(){
+    enterCourse(course);
+    if (c.files[1]) loadScriptOnce(c.files[1]).then(function(){ if (curCourse === course) populateUnits(); }).catch(function(){});
+  }).catch(function(){
+    if (status) status.textContent = (window.getLang && getLang() === 'en') ? 'Could not load the course. Check your connection.' : '커리큘럼을 불러오지 못했어요. 연결을 확인해 주세요.';
+  });
+  return false;
+}
+function enterCourse(course){
+  var c = COURSES[course], data = c && c.get();
+  if (!data) return;
+  curCourse = course;
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
+  var unit = (saved && saved.course === course && data[saved.unit]) ? saved.unit : Object.keys(data)[0];
+  populateUnits();
+  applyUnit(unit, false);
+  markCourseCards();
+  var up = document.getElementById('unit-picker');
+  if (up) up.style.display = '';
+  var status = document.getElementById('rec-status');
+  if (status) status.textContent = (window.getLang && getLang() === 'en') ? 'Tap the mic and speak clearly' : '마이크를 누르고 또박또박 말해보세요';
+}
+function populateUnits(){
+  var c = COURSES[curCourse]; if (!c) return;
+  var data = c.get(); if (!data) return;
+  var sel = document.getElementById('unit-select'); if (!sel) return;
+  sel.innerHTML = Object.keys(data).map(function(k){
+    var lv = c.lv ? '[' + c.lv(k) + '] ' : '';
+    var t = data[k].title ? ' · ' + data[k].title : '';
+    return '<option value="' + k.replace(/"/g, '&quot;') + '">' + lv + k + t + '</option>';
+  }).join('');
+  if (curUnit && data[curUnit]) sel.value = curUnit;
+}
+function applyUnit(unitKey, speak){
+  var c = COURSES[curCourse], data = c && c.get();
+  if (!data || !data[unitKey]) return;
+  curUnit = unitKey;
+  STEPS = data[unitKey].sentences;
+  // 진행 저장 키를 유닛별로 분리 — 안 나누면 유닛끼리 완료 표시가 뒤섞인다
+  LS_STEP = 'mangoi_speech_en_step@' + curCourse + '@' + unitKey;
+  LS_DONE = 'mangoi_speech_en_done@' + curCourse + '@' + unitKey;
+  doneSet = loadDone();
+  try { localStorage.setItem('mangoi_speech_course_pos', JSON.stringify({ course: curCourse, unit: unitKey })); } catch(e){}
+  var sel = document.getElementById('unit-select');
+  if (sel && sel.value !== unitKey) sel.value = unitKey;
+  var topic = document.getElementById('unit-topic');
+  if (topic) topic.textContent = (data[unitKey].topic ? data[unitKey].topic + ' · ' : '') + STEPS.length + ((window.getLang && getLang() === 'en') ? ' sentences' : '문장');
+  renderStepSelect();
+  var savedStep = parseInt(localStorage.getItem(LS_STEP), 10);
+  loadStep((!isNaN(savedStep) && savedStep >= 0 && savedStep < STEPS.length) ? savedStep : 0, !!speak);
+}
+function selectUnit(v){ applyUnit(v, true); }
+function exitCourse(){
+  curCourse = ''; curUnit = '';
+  STEPS = BASIC_STEPS;
+  LS_STEP = 'mangoi_speech_en_step'; LS_DONE = 'mangoi_speech_en_done';
+  doneSet = loadDone();
+  try { localStorage.removeItem('mangoi_speech_course_pos'); } catch(e){}
+  var up = document.getElementById('unit-picker');
+  if (up) up.style.display = 'none';
+  markCourseCards();
+  renderStepSelect();
+  var savedStep = parseInt(localStorage.getItem(LS_STEP), 10);
+  loadStep((!isNaN(savedStep) && savedStep >= 0 && savedStep < STEPS.length) ? savedStep : 0, false);
+}
+/* 고른 코스 카드에 색 테두리(outline)만 켠다 — hover/선택 강조는 색만, 크기·위치는 고정(저장소 규칙) */
+function markCourseCards(){
+  ['phonics', 'bts', 'siu'].forEach(function(k){
+    ['course-card-' + k, 'm-course-card-' + k].forEach(function(id){
+      var el = document.getElementById(id); if (!el) return;
+      el.style.outline = (k === curCourse) ? '2px solid #fbbf24' : '';
+      el.style.outlineOffset = (k === curCourse) ? '2px' : '';
+    });
+  });
+}
+/* 이어서 하기 + ?course= 딥링크 (옛 pages.dev 링크의 course 값과 동일: phonics|bts|siu) */
+try {
+  var _qsCourse = (new URLSearchParams(location.search)).get('course');
+  if (_qsCourse === 'siu-basic' || _qsCourse === 'siu-advance') _qsCourse = 'siu';
+  var _savedPos = null;
+  try { _savedPos = JSON.parse(localStorage.getItem('mangoi_speech_course_pos') || 'null'); } catch(e){}
+  if (_qsCourse && COURSES[_qsCourse]) selectCourse(_qsCourse);
+  else if (_savedPos && COURSES[_savedPos.course]) selectCourse(_savedPos.course);
+} catch(e){}
 
 // 🔊 첫 진입: 안내 멘트가 "원어민 음성을 들어보세요"라고 하므로, 안내가 끝나면 모범 음성을 한 번 자동 재생.
 //   overlap 방지를 위해 아래 안내음성(speech-voice)의 'ended' 에 연결한다. 안내가 음소거/차단이면
