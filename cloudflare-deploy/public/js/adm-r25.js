@@ -84,7 +84,6 @@
       { ko:'📅 캘린더에서 보기', en:'📅 On Calendar',   fn:'ltGotoCalendar' },
       { ko:'＋ 결과 수동 등록',  en:'＋ Add Result',    anchor:'lt-sec-add' }
     ],
-    'card-battle-mgmt':         ['오늘의 배틀','리그 운영','순위','뱃지'],
     'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
     'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
     'card-permissions':         ['역할 관리','메뉴 권한','데이터 권한','감사 로그'],

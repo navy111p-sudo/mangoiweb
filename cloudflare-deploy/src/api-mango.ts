@@ -1359,7 +1359,7 @@ export async function handleMangoApi(
         // 학생·학부모측 창구(관리자 표의 반대쪽 반쪽). 인증게이트는 index.ts 에 등록돼 있다.
         || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
-        || path === '/api/battle/leaderboard' || path === '/api/battle/history'
+        // 🎮 (2026-08-11 삭제) /api/battle/leaderboard·history 위임 가드 제거 — 영어 배틀 기능째 삭제.
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')

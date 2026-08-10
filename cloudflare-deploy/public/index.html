@@ -4900,10 +4900,7 @@ window.mgIsSlowNet = function(){
     <button id="mini-toeic-chip" class="hero-chip" title="Mini TOEIC" style="background:rgba(99,102,241,0.15);border-color:rgba(99,102,241,0.5);color:#c7d2fe" onclick="openMiniToeicModal()">
       <span data-ko="📝 영어시험" data-en="📝 Mini TOEIC">📝 영어시험</span>
     </button>
-    <!-- 🎮 Phase BTL — 영어 배틀 진입 칩 -->
-    <button id="battle-chip" class="hero-chip" title="영어 배틀" style="background:rgba(244,63,94,0.15);border-color:rgba(244,63,94,0.5);color:#fda4af" onclick="openBattleModal()">
-      <span data-ko="🎮 배틀" data-en="🎮 Battle">🎮 배틀</span>
-    </button>
+    <!-- 🎮 영어 배틀 진입 칩 삭제 (2026-08-11, 사장님 결정) — 서버 API 7종 미구현/404 -->
     <!-- 📔 Phase VD — AI 음성 일기 진입 칩 -->
     <button id="voice-diary-chip" class="hero-chip" title="AI 음성 일기" style="background:rgba(20,184,166,0.15);border-color:rgba(20,184,166,0.5);color:#99f6e4" onclick="openVoiceDiaryModal()">
       <span data-ko="📔 음성일기" data-en="📔 Diary">📔 음성일기</span>
@@ -11510,7 +11507,7 @@ window.mgIsSlowNet = function(){
 </script>
 
 <!-- 📝 Phase MT — Mini TOEIC 학생 모달 + 🎮 Phase BTL — 영어 배틀 학생 모달 -->
-<script src="/js/idx-x4.js?v=3"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x4.js?v=4"></script><!-- 분할추출:idx-x4 (원복: 이 위치에 인라인) -->
 
 <!-- ════════════════════════════════════════════════════════════════════
      📔 Phase VD — AI 음성 일기 (학생용 모달)
@@ -13147,63 +13144,10 @@ window.mgIsSlowNet = function(){
      1. Remove dictionary FAB completely
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
-<!-- Phase 53 (2026-05-22) — 배틀 완전 제거
-     (2026-08-10) 모바일뿐 아니라 **전 화면**으로 확대. 사장님 결정.
-     이유: 배틀은 UI 만 있고 서버 API 7종(challenge·accept·decline·word-set·
-     submit-score·active·incoming)이 통째로 없다 — leaderboard·history 만 구현됨.
-     그래서 PC 에서는 칩이 보이고, 눌러 도전장을 보내면 항상 «❌ 실패» 였다.
-     배틀은 포인트(=기프티콘=현금)를 걸고 겨루는 도박형이라 완성하려면 부정방지·
-     동시성까지 필요하다 — 반쪽으로 두느니 완전히 끈다. 살릴 땐 부정방지부터 새로 설계.
-     (test-harness/frontend_api_exists_harness.mjs 가 죽은 호출 9개를 감시 중) -->
-<style id="ph53-overrides">
-  /* 전 화면에서 배틀 관련 hide (2026-08-10 — 옛날엔 max-width:1024px 로 모바일만) */
-  #battle-chip,
-  .battle-chip,
-  [onclick*="openBattleModal"],
-  [data-go="battle"],
-  .ai-quick-btn[data-go="battle"],
-  button[title*="배틀"],
-  button[title*="Battle"] { display: none !important; visibility: hidden !important; }
-</style>
-
-<script>
-(function(){
-  'use strict';
-  function ph53RemoveBattle(){
-    // (2026-08-10) 전 화면 적용 — 옛날엔 여기서 max-width:1024px 가드로 모바일만 제거했다.
-    //   서버 API 가 없어 PC 에서 도전장이 항상 실패했으므로 이제 PC 도 끈다.
-    try {
-      // ID 로 직접 제거
-      var chip = document.getElementById('battle-chip');
-      if (chip && chip.parentNode) chip.parentNode.removeChild(chip);
-      // 추가 후보들: onclick 에 openBattleModal 가진 모든 버튼
-      document.querySelectorAll('[onclick*="openBattleModal"], [data-go="battle"]').forEach(function(el){
-        if (el.parentNode) el.parentNode.removeChild(el);
-      });
-      // title 에 "배틀" 또는 "Battle" 가진 버튼
-      document.querySelectorAll('button[title], a[title]').forEach(function(el){
-        var t = (el.getAttribute('title') || '');
-        if (/배틀|Battle/i.test(t)) {
-          if (el.parentNode) el.parentNode.removeChild(el);
-        }
-      });
-      // 함수 자체도 no-op 로 — 우연히 호출돼도 모달 안 뜨게
-      window.openBattleModal = function(){};
-    } catch(e){ console.warn('[ph53]', e); }
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', ph53RemoveBattle);
-  } else {
-    ph53RemoveBattle();
-  }
-  [200, 800, 2000, 5000, 10000].forEach(function(d){ setTimeout(ph53RemoveBattle, d); });
-  // 동적으로 다시 추가될 가능성 — Mutation 감지
-  if (typeof MutationObserver !== 'undefined') {
-    var mo = new MutationObserver(ph53RemoveBattle);
-    mo.observe(document.body, { childList: true, subtree: true });
-  }
-})();
-</script>
+<!-- Phase 53 (2026-05-22 → 2026-08-11) — 배틀 완전 삭제.
+     칩·모달·JS(idx-x4.js 배틀 섹션)·서버 게이트를 통째로 지웠으므로,
+     여기 있던 «숨김 override 블록(ph53-overrides + ph53RemoveBattle)»도 함께 제거한다.
+     더 이상 숨길 배틀 요소가 없다 — 죽은 방어 코드였다. (Mini TOEIC 은 그대로 유지) -->
 
 <!-- Phase 52 (2026-05-22) — restore cache clear button
      PWA 캐시·SW 가 옛 HTML 을 보여줄 때 수동으로 비울 수 있는 ♻ 버튼.
