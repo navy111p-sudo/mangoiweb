@@ -500,5 +500,10 @@
   "/js/idx-push-sw.js?v=1": "595cb0f465f81969",
   "/js/idx-remote-support.js?v=1": "8560b21bf881bdce",
   "/js/idx-user-session.js?v=1": "5f7c037d8cf065dd",
-  "/js/idx-voice-diary.js?v=1": "e67cc38f09b2796a"
+  "/js/idx-voice-diary.js?v=1": "e67cc38f09b2796a",
+  "/js/idx-vc-chat.js?v=1": "df01433820d034ca",
+  "/js/idx-vc-room.js?v=1": "05f1de1c6169aaf2",
+  "/js/idx-vc-screenmode.js?v=1": "283f4f735f042fe4",
+  "/js/idx-vc-seg-lessonchange.js?v=1": "6dbbda612eafc7b3",
+  "/js/idx-vc-textbook.js?v=1": "5a145bc9262841ef"
 }
