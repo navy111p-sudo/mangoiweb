@@ -5,6 +5,27 @@
 // ═══════════════════════════════════════════════════════════════
 (function(){
   "use strict";
+
+  /* 🗄 (2026-08-11 마이마이 ⑥) 「목록에서 MES 를 빼 주세요 — 이제 안 씁니다」
+     ─────────────────────────────────────────────────────────────────────
+     [무엇을 했나] 교재를 **지우지 않는다.** 목록에서 안 보이게만 한다.
+        운영 DB 에 MES 교재 파일이 325개 있고, 옛 수업 기록이 그 파일을 가리킬 수 있다.
+        지우면 지난 수업의 교재가 깨진다 — 되돌릴 수 없는 일은 하지 않는다.
+     [왜 여기 한 곳인가] 목록(왼쪽 트리)·카드·검색이 전부 window._libAllBooks 를 본다.
+        여기서 한 번 거르면 세 곳이 저절로 일치한다. 트리에서만 빼면 검색으로는 여전히 나온다.
+     [되살리려면] 아래 배열에서 이름만 빼면 즉시 돌아온다. */
+  var RETIRED_COURSES = ['MES'];
+  window.__libIsRetiredCourse = function(b){
+    try {
+      var s = ((b && (b.publisher || '')) + ' ' + (b && (b.textbook || ''))).toUpperCase();
+      for (var i = 0; i < RETIRED_COURSES.length; i++) {
+        // 낱말 경계로 본다 — 'JAMES' 안의 'MES' 에 걸리면 엉뚱한 교재가 사라진다
+        if (new RegExp('(^|[^A-Z])' + RETIRED_COURSES[i] + '([^A-Z]|$)').test(s)) return true;
+      }
+    } catch (e) {}
+    return false;
+  };
+
   var COURSE_ORDER = ['Phonics','MES','BTS','SIU','마스터3','마스터','Master'];
   var CATEGORY_ORDER = ['영어','중국어','일본어','기타'];
   var CATEGORY_ICON = { '영어':'🇬🇧', '중국어':'🇨🇳', '일본어':'🇯🇵', '기타':'📚' };
@@ -83,21 +104,19 @@
             if (done) return; done = true; clearTimeout(to);
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
-    /* 🎬 교재(책)가 바뀔 때 1회만 예습/복습 동영상을 «준비» 한다 (페이지 넘김엔 반복 안함).
-       🔴 (2026-08-08 마이마이 ②) 예전엔 이게 **자동재생 + 영상 탭 전환** 이었다.
-          아래에서 vcSwitchTab('pdf') 를 먼저 하지만, 이 호출은 fetch 라 **나중에 끝나서
-          항상 영상 탭이 이겼다** → 「교재를 열었는데 영상만 나오고 교재가 안 보인다」.
-          이제 autoOpen 을 주지 않으면 영상은 [동영상] 탭에 정지 상태로 대기만 한다.
-          (index.html 의 mangoiPlayLessonVideo 주석 참고) */
+    /* 🎬 교재 → 예습/복습 동영상 «자동 연결» 은 여기서 완전히 끊었다.
+       ─────────────────────────────────────────────────────────────────────
+       [경과] 8/8 마이마이 ② 「교재를 열었는데 영상만 나온다」 → 화면을 안 뺏도록 «대기» 로 바꿨다.
+              8/11 마이마이 ⑩ 「수업 중에는 그 영상들이 아예 필요 없다 — 오래됐다」
+              → 이제 교재를 열 때 영상을 부르지 않는다. 호출 자체를 없앤다.
+       [무엇이 남았나] window.mangoiPlayLessonVideo 함수는 **지우지 않았다** —
+              누르면 보는 경로(동영상 탭)는 그대로다. 없앤 것은 «묻지도 않고 부르는» 것뿐이다.
+       [되살리려면] 이 자리에서 window.mangoiPlayLessonVideo(교재명) 한 줄이면 된다.
+       ⚠️ __mangoiCurrentBookId 는 다른 코드가 «지금 어느 책인가» 로 읽으므로 계속 채운다. */
     try {
       var _bm = String(name || '').match(/\[([^\]]+)\]/);   // 파일명 앞 "[교재명]" 추출
       var _bk = _bm ? _bm[1] : '';
-      if (_bk && _bk !== window.__mangoiLastVideoBook) {
-        window.__mangoiLastVideoBook = _bk;
-        window.__mangoiCurrentBookId = _bk;
-        // ⛔ 두 번째 인자를 주지 않는다 = 화면을 뺏지 않는다. 일부러 비워 둔 것이니 채우지 말 것.
-        if (window.mangoiPlayLessonVideo) window.mangoiPlayLessonVideo(_bk);
-      }
+      if (_bk) window.__mangoiCurrentBookId = _bk;
     } catch(_) {}
     try {
       if (typeof window.vcSwitchTab === 'function') {
@@ -299,7 +318,7 @@
     grid.innerHTML = '<div class="tbf-empty"><div class="tbf-empty-ico">📥</div><div class="tbf-empty-title">로딩 중…</div></div>';
 
     var res = await loadAll();
-    window._libAllBooks = res.textbooks || [];
+    window._libAllBooks = (res.textbooks || []).filter(function(b){ return !window.__libIsRetiredCourse(b); });
     window._libFileMap = res.files || {};
 
     if (window._libAllBooks.length === 0) {

@@ -101,9 +101,15 @@ console.log('\n[ 🌐 강사가 보는 안내는 한/영 둘 다 (강사 다수 
     /getLang[\s\S]{0,160}mangoi_lang/.test(lv) && /_en\s*\?/.test(lv));
 }
 
-console.log('\n[ ② 교재 선택부가 화면을 뺏지 않게 부른다 ]');
-check('교재를 고를 때 autoOpen 을 주지 않는다',
-  /window\.mangoiPlayLessonVideo\(_bk\);/.test(x3) && !/mangoiPlayLessonVideo\(_bk,\s*\{/.test(x3));
+console.log('\n[ ② 교재 선택부가 화면을 뺏지 않는다 ]');
+/* 🔁 (2026-08-11) 요구가 한 단계 더 갔다.
+     8/08 ② 「교재를 열었는데 영상만 나온다」 → «부르되 화면은 안 뺏게» 로 고쳤다.
+     8/11 ⑩ 「수업 중에는 그 영상들이 아예 필요 없다」 → **호출 자체를 없앴다.**
+   그래서 검사도 «autoOpen 없이 부르는가» → «아예 안 부르는가» 로 바꾼다.
+   (요구가 바뀐 것이지 구현이 퇴화한 게 아니다 — 자세한 규칙은
+    retired_course_video_260811_harness.mjs 가 이어서 지킨다) */
+check('교재를 고를 때 영상을 자동 호출하지 않는다',
+  !/mangoiPlayLessonVideo\(_bk/.test(x3));
 check('교재 선택은 여전히 교재 탭으로 간다', /window\.vcSwitchTab\('pdf'\)/.test(x3));
 
 console.log('\n[ ④ 소리는 «트랙이 오는 순간» 살린다 — 워치독을 기다리지 않는다 ]');
