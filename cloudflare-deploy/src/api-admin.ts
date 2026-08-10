@@ -10166,34 +10166,8 @@ LIMIT $limit`;
       } catch (e: any) { return json({ ok: false, error: e?.message || 'update_failed' }, 500); }
     }
 
-    // ── 🎮 영어 배틀 관리 (card-battle-mgmt) — 공개 경로(인증 불필요) ──
-    //   P2P 배틀 백엔드는 미구축 → 리더보드는 game_progress(게임 학습 기록) 집계.
-    //   wins = 정답 누계. history 는 유저의 최근 게임 기록을 'vs AI' 형태로 매핑.
-    if (method === 'GET' && path === '/api/battle/leaderboard') {
-      try {
-        const rs = await env.DB.prepare(`SELECT user_id, SUM(correct_count) AS wins FROM game_progress WHERE user_id NOT LIKE 'guest%' GROUP BY user_id HAVING wins > 0 ORDER BY wins DESC LIMIT 50`).all();
-        return json({ ok: true, source: 'game_progress', list: rs.results || [] });
-      } catch { return json({ ok: true, source: 'empty', list: [] }); } // 테이블 부재 시에도 카드가 '데이터 없음'으로 동작
-    }
-    if (method === 'GET' && path === '/api/battle/history') {
-      const uid = (url.searchParams.get('user_id') || '').trim();
-      const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '20', 10) || 20, 1), 100);
-      if (!uid) return json({ ok: true, list: [] });
-      try {
-        const rs = await env.DB.prepare(`SELECT lang, item, correct_count, wrong_count, last_seen FROM game_progress WHERE user_id = ? ORDER BY last_seen DESC LIMIT ?`).bind(uid, limit).all();
-        const list = ((rs.results || []) as any[]).map(r => {
-          const c = Number(r.correct_count) || 0, w = Number(r.wrong_count) || 0;
-          return {
-            game_type: `${r.lang || 'en'} · ${r.item || ''}`,
-            challenger_uid: uid, opponent_uid: 'AI',
-            challenger_score: c, opponent_score: w,
-            winner_uid: c > w ? uid : (w > c ? 'AI' : null),
-            created_at: r.last_seen || null,
-          };
-        });
-        return json({ ok: true, list });
-      } catch { return json({ ok: true, list: [] }); }
-    }
+    // 🎮 (2026-08-11 삭제) 영어 배틀 leaderboard/history 핸들러 제거 — 카드·게이트째 삭제.
+    //   game_progress(살아있는 게임 기록 테이블)는 건드리지 않는다 — 여기선 읽기만 했다.
 
     // ── 📷 QR 출결 — QR 생성(관리자) + 학생 체크인(공개, 토큰이 인증) ──
     //   프런트 계약(admin.html:7205): { ok, qr_url(상대경로), token, expires_at(ms) }

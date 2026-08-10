@@ -6414,81 +6414,15 @@ async function vcToggleMic() {
     else stopMicLevelMeter();
 }
 
-/** 🎤 실시간 마이크 음성 레벨 미터 — 마이크가 진짜 작동하는지 시각 확인 */
+/* 🗑 (2026-08-10 사장님 지시) 왼쪽 아래에 떠 있던 «🎤 내 마이크» 음량 미터 제거.
+   (id 는 CLAUDE.md 1-3 참고 — 여기 적으면 «부활 금지» 하니스 가드가 이 주석에 걸린다)
+   얼굴 타일의 음량 막대(attachStreamMonitor — 말하면 초록 칸이 차오르는 그것)와 중복이라
+   화면만 어지럽혔다. 가운데→왼쪽(236px)으로 두 번 옮겨 온 역사가 있는 위젯인데, 자리 문제가
+   아니라 «두 개일 필요가 없는 것»이었다. 다시 살리지 말 것(CLAUDE.md 1-3 등재).
+   호출부(마이크 토글·장치 교체·자가치유 등 5곳)는 그대로 두고 함수만 무동작으로 남긴다 —
+   호출부까지 걷어내면 병합 반경만 커진다. 옛 구현은 git history (이 커밋 직전) 에 있다. */
 let _micMeterCtx = null, _micMeterTimer = null, _micMeterEl = null;
-function startMicLevelMeter() {
-    if (!vcLocalStream || _micMeterTimer) return;
-    // 📱 모바일에서는 볼륨 미터 생성 안 함 (사용자 요청 — 화면 정리)
-    try { if (window.matchMedia('(max-width: 920px)').matches) return; } catch(e){}
-    const audioTracks = vcLocalStream.getAudioTracks();
-    if (!audioTracks.length) return;
-    try {
-        if (!_micMeterCtx) _micMeterCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (_micMeterCtx.state === 'suspended') _micMeterCtx.resume();
-        const src = _micMeterCtx.createMediaStreamSource(new MediaStream([audioTracks[0]]));
-        const analyser = _micMeterCtx.createAnalyser();
-        analyser.fftSize = 256;
-        src.connect(analyser);
-        const data = new Uint8Array(analyser.frequencyBinCount);
-        // UI: 컨트롤바 옆에 레벨 바
-        if (!_micMeterEl) {
-            _micMeterEl = document.createElement('div');
-            _micMeterEl.id = 'vc-mic-meter';
-            /* 📍 (2026-08-07 마이마이 ⑨ 「마이크 표시기가 화면분할 설정을 가린다 — 좌우로 옮겨 달라」)
-               예전 자리: bottom:90px + left:50% (화면 **정가운데 아래**). 하필 그 자리가
-               [화면 분할] 패널이 열리는 곳이라 아래 두 칸(솔로 · 칠판만)을 덮었다.
-               → 왼쪽 아래로 보낸다. 오른쪽은 얼굴 사이드바·PIP 가 이미 쓰고 있어 남은 곳이 왼쪽이다.
-               ⚠️ transform:translateX 를 빼야 한다 — 남겨 두면 left 를 바꿔도 다시 가운데로 당겨진다. */
-            /* 📏 (브라우저 실측 2026-08-07) 왼쪽 아래에는 이미 4개가 층으로 서 있다 —
-                  신고 FAB(18) · AI질문 FAB(64) · 세계시계(96~163) · 캐시 FAB(186~226).
-                  96 에 두면 세계시계(z-index 최대)가 미터를 덮어 «고쳤는데 안 보이는» 꼴이 된다.
-                  → 그 층 위(236)로 올린다. 실측 없이 «왼쪽으로 옮김» 만 했으면 못 봤을 문제다. */
-            /* 🔻 z-index 9999 -> 9300: «상태 표시»가 «대화상자» 위에 올라오면 안 된다.
-                  실측에서 [화면 분할] 시트(z 9800)가 열렸는데 미터가 그 위에 그려져,
-                  자리를 옮기고도 원래 신고와 같은 그림이 됐다. 이제 시트가 미터를 덮는다. */
-            _micMeterEl.style.cssText = 'position:fixed;bottom:236px;left:12px;z-index:9300;background:rgba(0,0,0,0.85);padding:8px 14px;border-radius:99px;color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,0.5);font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;pointer-events:none;max-width:calc(100vw - 24px)';
-            /* 🙋 (요청 ⑩ 「지금 켜진 게 내 마이크인지 학생 마이크인지 모르겠다」)
-               이 미터는 **내 마이크만** 잰다(vcLocalStream). 그 사실을 라벨로 못박는다.
-               강사 다수가 필리핀이라 한/영을 함께 적는다 — 라벨만 영어고 상태가 한국어면 소용없다. */
-            var _mmEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
-            /* 🌐 (2026-08-08) 라벨에 data-ko/data-en 을 달아 둔다 — 언어를 바꿔도 applyLang 이 고쳐 준다.
-               (상태 글자는 100ms 마다 현재 언어로 다시 쓰이므로 스스로 따라온다) */
-            _micMeterEl.innerHTML = '🎤 <span id="mic-meter-label" style="opacity:.75;font-weight:800" data-ko="내 마이크" data-en="MY MIC">'
-                + (_mmEn ? 'MY MIC' : '내 마이크')
-                + '</span> <span id="mic-meter-status">' + (_mmEn ? 'Waiting' : '대기중') + '</span>'
-                + ' <div style="width:120px;height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden"><div id="mic-meter-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22c55e,#fbbf24,#ef4444);transition:width .1s"></div></div>';
-            document.body.appendChild(_micMeterEl);
-        }
-        const bar = document.getElementById('mic-meter-bar');
-        const status = document.getElementById('mic-meter-status');
-        let silentCount = 0;
-        _micMeterTimer = setInterval(() => {
-            analyser.getByteTimeDomainData(data);
-            let sum = 0;
-            for (let i = 0; i < data.length; i++) {
-                const v = (data[i] - 128) / 128;
-                sum += v * v;
-            }
-            const rms = Math.sqrt(sum / data.length);
-            const pct = Math.min(100, Math.floor(rms * 600));
-            if (bar) bar.style.width = pct + '%';
-            // 🌐 상태 글자도 강사 언어를 따른다(라벨만 영어인 채 상태가 한국어면 읽을 수 없다)
-            const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
-            if (rms < 0.005) {
-                silentCount++;
-                if (status) status.textContent = silentCount > 30 ? (_en ? '⚠️ No sound' : '⚠️ 무음') : (_en ? 'Waiting' : '대기중');
-                if (silentCount === 50) {
-                    console.warn('[mic] 5초간 무음 감지 — 마이크 입력이 없거나 음소거 상태');
-                }
-            } else {
-                silentCount = 0;
-                if (status) status.textContent = pct > 50 ? (_en ? '🔊 Loud' : '🔊 큰소리')
-                                               : pct > 15 ? (_en ? '✓ Good' : '✓ 정상')
-                                                          : (_en ? '🔉 Quiet' : '🔉 작은소리');
-            }
-        }, 100);
-    } catch (e) { console.warn('[mic-meter]', e); }
-}
+function startMicLevelMeter() { return; }
 function stopMicLevelMeter() {
     if (_micMeterTimer) { clearInterval(_micMeterTimer); _micMeterTimer = null; }
     if (_micMeterEl) { _micMeterEl.remove(); _micMeterEl = null; }

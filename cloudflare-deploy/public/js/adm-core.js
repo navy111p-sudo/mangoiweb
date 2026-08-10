@@ -8116,7 +8116,6 @@ function buildMenuIndex() {
     { kw:'카카오 알림톡 카톡 kakao', card:'card-kakao-mgmt', label:'카카오 알림톡' },
     { kw:'푸시 웹푸시 알림 push notification', card:'card-webpush-mgmt', label:'웹푸시 알림' },
     { kw:'mbti 매칭 성향 mbti', card:'card-mbti-mgmt', label:'MBTI 매칭' },
-    { kw:'배틀 대결 battle', card:'card-battle-mgmt', label:'영어 배틀' },
     { kw:'토익 toeic 시험 미니토익', card:'card-mini-toeic', label:'Mini TOEIC' },
     { kw:'음성일기 일기 다이어리 voice diary', card:'card-voice-diary', label:'AI 음성 일기' },
     { kw:'평가 평가서 평가관리 성적 eval', card:'card-eval-mgmt', label:'평가 관리' },
@@ -8347,7 +8346,6 @@ const SB_ID_MAP = {
   'card-video-dict':       'edu',       // 📺 비디오 자막+사전 → 교육
   'card-family-mgmt':      'student',   // 👨‍👩‍👧 가족 통합 → 학생/학부모
   'card-mini-toeic':       'edu',       // 📝 Mini TOEIC → 교육
-  'card-battle-mgmt':      'student',   // 🎮 영어 배틀 P2P → 학생
   'card-alumni':           'student',   // 🏆 졸업생 동문 커뮤니티 → 학생
   'card-voice-diary':      'edu',       // 📔 AI 음성 일기 → 교육
   'card-supervisor':       'teacher',   // 🎯 강사 슈퍼바이저 모드 → 강사
@@ -10874,7 +10872,6 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-voice-diary', name_ko: '음성 일기',                    name_en: 'Voice Diary',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'👁️', student:'✅' } },
       { id: 'card-level-tests', name_ko: '레벨 테스트 관리',              name_en: 'Level Tests',               def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
       { id: 'card-homework',    name_ko: '숙제 관리',                    name_en: 'Homework',                  def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'✅', student:'✅' } },
-      { id: 'card-battle-mgmt', name_ko: '영어 배틀 (3D 보스전)',         name_en: 'English Battle (3D)',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
       { id: 'card-badges-mgmt', name_ko: '배지·업적 관리',                name_en: 'Badges · Achievements',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'❌', parent:'❌', student:'✅' } },
       { id: 'card-gallery',     name_ko: '학습 갤러리·전시',              name_en: 'Learning Gallery',          def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'✅', student:'✅' } },
     ]},

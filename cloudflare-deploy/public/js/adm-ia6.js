@@ -84,7 +84,7 @@
         { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'] },
         { ko: '숙제',        en: 'Homework',          cards: ['card-homework'] },
         { ko: '녹화',        en: 'Recordings',        cards: ['card-recording-storage'] },
-        { ko: '학습 분석',   en: 'Learning analytics',cards: ['card-battle-mgmt', 'card-voice-stats', 'card-selfscore'] }
+        { ko: '학습 분석',   en: 'Learning analytics',cards: ['card-voice-stats', 'card-selfscore'] }
       ]
     },
     {

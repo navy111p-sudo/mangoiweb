@@ -78,7 +78,6 @@
     'card-video-dict':             '🎬 영상 사전 단어 학습',
     'card-voice-diary':            '🎙 음성 일기 (AI 첨삭)',
     'card-level-tests':            '📊 레벨 테스트 응시·결과',
-    'card-battle-mgmt':            '⚔ 영어 배틀 (게임)',
     'card-recording-storage':      '💾 수업 녹화 영상 보관',
     'card-homework':               '📚 숙제 출제·제출·채점',
 
