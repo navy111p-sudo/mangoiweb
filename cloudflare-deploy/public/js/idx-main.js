@@ -5153,6 +5153,7 @@ function vcClientId(){
 }
 function vcRegisterRosterIdentity(){
     try {
+        if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;   // 👁 참관자는 로스터에 안 올린다(칭찬 적립 대상 아님)
         if (vcIsTeacherRole()) return;                 // 학생만 등록(선생님 X)
         if (!vcUserId || !vcRoomId) return;
         var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
