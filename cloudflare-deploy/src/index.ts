@@ -1332,8 +1332,8 @@ const worker = {
         path === '/api/admin/video/subtitle-upload' ||
         path === '/api/video/subtitle' ||
         path === '/api/admin/video/subtitles' ||
-        path === '/api/dictionary' ||
-        path === '/api/vocab/save-from-dict' ||
+        // 📖 (2026-08-10 삭제) /api/dictionary · /api/vocab/save-from-dict 게이트 등록 제거.
+        //    둘 다 핸들러가 없어 라이브 404 였다(반쪽 배선). 사전 UI 를 통째로 지우며 함께 제거.
         // 👨‍👩‍👧 Phase FAM — 가족 계정 통합
         path === '/api/admin/family/create' ||
         path === '/api/admin/family/add-child' ||

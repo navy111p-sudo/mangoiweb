@@ -11560,69 +11560,10 @@ window.mgIsSlowNet = function(){
 </div>
 <script src="/js/idx-voice-diary.js?v=1"></script>
 
-<!-- 📖 비디오 단어 클릭 사전 (Phase VD) — 작은 플로팅 버튼 + 모달 -->
-<style>
-  #mangoi-dict-fab { position:fixed; bottom:18px; left:18px; z-index:99998; background:linear-gradient(135deg,#a855f7,#7c3aed); color:#fff; border:none; border-radius:99px; padding:10px 14px; font-size:13px; font-weight:800; cursor:pointer; box-shadow:0 6px 18px -2px rgba(124,58,237,0.45); display:flex; align-items:center; gap:6px; }
-  #mangoi-dict-fab:hover { transform:translateY(-1px); filter:brightness(1.05); }
-  #mangoi-dict-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:999990; align-items:center; justify-content:center; padding:20px; }
-  #mangoi-dict-modal.open { display:flex; }
-  #mangoi-dict-box { background:#1e293b; border:1px solid #a855f7; border-radius:14px; padding:18px; width:100%; max-width:420px; color:#e2e8f0; }
-  #mangoi-dict-box h3 { margin:0 0 12px; font-size:15px; color:#d8b4fe; }
-  #mangoi-dict-box input { width:100%; background:#0f172a; border:1px solid #475569; color:#e2e8f0; border-radius:8px; padding:10px; font-size:14px; }
-  #mangoi-dict-box .row-btns { display:flex; gap:8px; margin-top:10px; }
-  #mangoi-dict-box button { flex:1; background:linear-gradient(135deg,#a855f7,#7c3aed); color:#fff; border:0; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; }
-  #mangoi-dict-box button.close { background:#475569; }
-  #mangoi-dict-result { margin-top:14px; padding:12px; background:#0f172a; border-radius:8px; min-height:60px; font-size:13px; line-height:1.6; }
-</style>
-<button id="mangoi-dict-fab" onclick="mangoiOpenDict()" title="단어 사전">
-  <span style="font-size:14px">📖</span> <span data-ko="단어 사전" data-en="Dictionary">단어 사전</span>
-</button>
-<div id="mangoi-dict-modal" onclick="if(event.target===this)mangoiCloseDict()">
-  <div id="mangoi-dict-box">
-    <h3 data-ko="📖 단어 클릭 사전 (AI 즉시 번역)" data-en="📖 Click-to-translate Dictionary (AI)">📖 단어 클릭 사전 (AI)</h3>
-    <input id="mangoi-dict-input" type="text" placeholder="word (e.g. ambitious)" data-ko-ph="영어 단어 입력" data-en-ph="Enter English word" onkeydown="if(event.key==='Enter')mangoiLookupDict()">
-    <div class="row-btns">
-      <button onclick="mangoiLookupDict()" data-ko="🔍 번역" data-en="🔍 Translate">🔍 번역</button>
-      <button class="close" onclick="mangoiCloseDict()" data-ko="닫기" data-en="Close">닫기</button>
-    </div>
-    <div id="mangoi-dict-result"></div>
-  </div>
-</div>
-<script>
-(function(){
-  function esc(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-  window.mangoiOpenDict = function(){
-    var m = document.getElementById('mangoi-dict-modal');
-    if (m) { m.classList.add('open'); setTimeout(function(){ var i = document.getElementById('mangoi-dict-input'); if(i) i.focus(); }, 50); }
-  };
-  window.mangoiCloseDict = function(){
-    var m = document.getElementById('mangoi-dict-modal');
-    if (m) m.classList.remove('open');
-  };
-  window.mangoiLookupDict = async function(){
-    var input = document.getElementById('mangoi-dict-input');
-    var word = (input && input.value || '').trim();
-    if (!word) return;
-    var box = document.getElementById('mangoi-dict-result');
-    box.innerHTML = '<div style="color:#d8b4fe">⏳ AI 번역 중...</div>';
-    try {
-      var r = await fetch('/api/dictionary?word=' + encodeURIComponent(word) + '&lang=ko').then(function(x){ return x.json(); });
-      if (!r.ok) throw new Error(r.error || 'failed');
-      box.innerHTML =
-        '<div style="font-size:18px;color:#fbbf24;font-weight:800">' + esc(r.word) + '</div>' +
-        '<div style="color:#d8b4fe;margin-top:4px;font-weight:700">' + esc(r.translation||'-') + '</div>' +
-        (r.pos ? '<div style="color:#94a3b8;font-size:11px;margin-top:3px">[' + esc(r.pos) + ']</div>' : '') +
-        (r.example ? '<div style="color:#cbd5e1;font-size:12px;margin-top:6px;font-style:italic">"' + esc(r.example) + '"</div>' : '') +
-        '<button onclick="mangoiSaveVocab(\'' + esc(r.word).replace(/'/g,"\\'") + '\',\'' + esc(r.translation||'').replace(/'/g,"\\'") + '\',\'' + esc(r.example||'').replace(/'/g,"\\'") + '\')" style="background:#22c55e;color:#fff;border:0;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-top:10px">💾 단어장에 저장</button>';
-    } catch(e) { box.innerHTML = '<div style="color:#fca5a5">❌ ' + esc(e.message) + '</div>'; }
-  };
-  window.mangoiSaveVocab = async function(word, translation, example){
-    var uid = (window.MANGO_USER && window.MANGO_USER.user_id) || (localStorage.getItem('mangoi_uid')) || 'guest';
-    var r = await fetch('/api/vocab/save-from-dict', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({user_id:uid, word, translation, example}) }).then(function(x){ return x.json(); }).catch(function(){ return {ok:false}; });
-    alert(r.ok ? (r.dup ? '이미 단어장에 있어요' : '✅ 단어장에 저장 완료!') : '❌ 저장 실패');
-  };
-})();
-</script>
+<!-- 📖 단어 클릭 사전(Phase VD) 삭제 (2026-08-10, 사장님 결정)
+     서버 API 가 둘 다 라이브 404 였다: /api/dictionary · /api/vocab/save-from-dict
+     (게이트에만 등록되고 핸들러 없음). 학생이 단어를 검색·저장하면 항상 실패했다.
+     UI·JS·게이트 등록·숨김 CSS 를 전부 지운다. 관리자 «비디오 자막+사전» 도 함께 제거. -->
 
 <!-- Phase 60 (2026-05-23) — 대시보드 잘림 + 캘린더 안 보임 fix -->
 <style id="ph60-fix">
