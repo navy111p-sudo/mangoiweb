@@ -13220,27 +13220,31 @@ window.mgIsSlowNet = function(){
      1. Remove dictionary FAB completely
      2. Mobile: pack voice-diary / login / points / lang chips into one tidy row
 -->
-<!-- Phase 53 (2026-05-22) — 배틀 완전 제거 (모바일/태블릿)
-     사용자 요청: 반응형에서 완전히 제거. CSS + JS 양쪽으로 차단. -->
+<!-- Phase 53 (2026-05-22) — 배틀 완전 제거
+     (2026-08-10) 모바일뿐 아니라 **전 화면**으로 확대. 사장님 결정.
+     이유: 배틀은 UI 만 있고 서버 API 7종(challenge·accept·decline·word-set·
+     submit-score·active·incoming)이 통째로 없다 — leaderboard·history 만 구현됨.
+     그래서 PC 에서는 칩이 보이고, 눌러 도전장을 보내면 항상 «❌ 실패» 였다.
+     배틀은 포인트(=기프티콘=현금)를 걸고 겨루는 도박형이라 완성하려면 부정방지·
+     동시성까지 필요하다 — 반쪽으로 두느니 완전히 끈다. 살릴 땐 부정방지부터 새로 설계.
+     (test-harness/frontend_api_exists_harness.mjs 가 죽은 호출 9개를 감시 중) -->
 <style id="ph53-overrides">
-  /* 모바일·태블릿 전 폭에서 배틀 관련 hide */
-  @media (max-width: 1024px) {
-    #battle-chip,
-    .battle-chip,
-    [onclick*="openBattleModal"],
-    [data-go="battle"],
-    .ai-quick-btn[data-go="battle"],
-    button[title*="배틀"],
-    button[title*="Battle"] { display: none !important; visibility: hidden !important; }
-  }
+  /* 전 화면에서 배틀 관련 hide (2026-08-10 — 옛날엔 max-width:1024px 로 모바일만) */
+  #battle-chip,
+  .battle-chip,
+  [onclick*="openBattleModal"],
+  [data-go="battle"],
+  .ai-quick-btn[data-go="battle"],
+  button[title*="배틀"],
+  button[title*="Battle"] { display: none !important; visibility: hidden !important; }
 </style>
 
 <script>
 (function(){
   'use strict';
   function ph53RemoveBattle(){
-    var isResponsive = window.matchMedia('(max-width: 1024px)').matches;
-    if (!isResponsive) return;
+    // (2026-08-10) 전 화면 적용 — 옛날엔 여기서 max-width:1024px 가드로 모바일만 제거했다.
+    //   서버 API 가 없어 PC 에서 도전장이 항상 실패했으므로 이제 PC 도 끈다.
     try {
       // ID 로 직접 제거
       var chip = document.getElementById('battle-chip');
@@ -17734,6 +17738,11 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
   /* 비켜설 때만 살짝 미끄러지게 (원위치도 같은 속도) */
   .vc-chat-dodged { transition: transform .18s ease !important; }
+  /* 3) 「앱 추가」 설치 띠(z9800)는 폭이 화면 전체(실측 1158px)라 «비켜설 자리»가 없다.
+     실측: 채팅 패널과 8,866px² 겹치고 입력칸 윗부분을 덮는다.
+     → 2227줄이 홍보영상(z100050)·캐시FAB(z99999)를 같은 이유로 숨기는 것과 동일하게 처리.
+       채팅을 닫으면 그대로 다시 나온다. */
+  body:has(#vc-chat-panel.open) #pwa-install-bar { display: none !important; }
 </style>
 <script>
 (function () {
@@ -17855,17 +17864,29 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
 
   var t = null;
+  /* ⚠️ 패널은 transform 0.3s 로 «미끄러져» 들어온다. 열자마자 재면 패널이 아직 화면
+     밖이라 «겹친 것 없음»이 나온다(실제로 그래서 한 번 안 먹었다). 기본 대기 380ms
+     + transitionend 로 두 번 확인한다. */
   function sync(delay) {
     clearTimeout(t);
     t = setTimeout(function () {
       if (isOpen()) { restore(); dodge(); } else { restore(); }
-    }, delay == null ? 60 : delay);
+    }, delay == null ? 380 : delay);
   }
+
+  // 🧪 검증용 훅 — 브라우저/하니스에서 «정말 비켰는지» 확인할 수 있게. 동작엔 영향 없음.
+  window.__vcChatClearzone = {
+    sync: sync, dodge: dodge, restore: restore, coverers: coverers,
+    moved: function () { return moved.map(function (m) { return m.el; }); }
+  };
 
   function boot() {
     var p = panel(); if (!p) { setTimeout(boot, 800); return; }
     new MutationObserver(function () { sync(); })
       .observe(p, { attributes: true, attributeFilter: ['class'] });
+    p.addEventListener('transitionend', function (e) {
+      if (e.propertyName === 'transform') sync(20);
+    });
     // 채팅이 열린 «뒤에» 뜬 창(📌PIP·미니플레이어)도 잡는다.
     // 사람이 끌어다 놓은 창은 skip() 의 2초 유예가 지켜 준다.
     document.addEventListener('click', function () { if (isOpen()) sync(300); }, true);

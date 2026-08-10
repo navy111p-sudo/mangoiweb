@@ -1431,53 +1431,12 @@ if (typeof window.speechSynthesis !== 'undefined') {
   })();
 })();
 </script>
-<!-- 🔗 발음 연습 앱(mangoi-speech.pages.dev)에 학생 신원 전달 (2026-07-28)
-     연습 결과가 학부모·강사 화면과 통계에 잡히려면 연습 앱이 "누구인지"를 알아야 한다.
-     · uid·이름 : 기존 관리자 연동 규약대로 URL 파라미터 (자격증명 아님)
-     · 인증 토큰: 주소창·브라우저 기록에 남지 않도록 postMessage 로만 전달하고,
-                  요청이 연습 앱 출처에서 온 경우에만 응답한다. -->
-<script>
-(function(){
-  var PRACTICE_ORIGIN = 'https://mangoi-speech.pages.dev';
-  function me(){
-    var u = null; try { u = JSON.parse(localStorage.getItem('mango_user') || 'null'); } catch(e){}
-    return u || null;
-  }
-  /* 연습 앱 링크에 uid·이름·회신 출처를 붙인다 (게스트면 그대로 둔다) */
-  document.addEventListener('click', function(ev){
-    var a = ev.target && ev.target.closest ? ev.target.closest('a[href^="' + PRACTICE_ORIGIN + '"]') : null;
-    if (!a) return;
-    var u = me();
-    if (!u || !u.user_id) return;
-    try {
-      var url = new URL(a.href);
-      url.searchParams.set('uid', u.user_id);
-      if (u.user_name) url.searchParams.set('name', u.user_name);
-      url.searchParams.set('callback_origin', location.origin);
-      a.href = url.toString();
-    } catch(e){}
-  }, true);
+<!-- 🔗 (2026-08-10) 옛 발음 연습 앱(mangoi-speech.pages.dev)에 uid·토큰을 건네주던 신원전달
+     스크립트(2026-07-28)를 제거 — 커리큘럼이 이 페이지로 통합돼(PR #55) pages.dev 링크가
+     더는 없고, 링크 장식·auth postMessage 모두 죽은 코드였다.
+     · 2026-08-03 사장님 지시(그대로 유효): ← 는 항상 back-nav.js 의 history.back()(=직전
+       페이지), 처음 페이지로 나가는 문은 우상단 [🏠 홈] 버튼 하나. -->
 
-  /* 2026-08-03 사장님 지시: "뒤로가기는 바로 직전 페이지로, 홈 버튼은 처음 페이지로."
-     07-28에는 연습 앱에서 돌아온 경우(#from-practice) 이 화면의 ← 를 '홈페이지로' 바꿔
-     끼웠으나(왔다갔다 방지), 그러면 ← 가 홈 버튼과 같은 일을 해서 두 버튼이 구분되지
-     않는다. 이제 ← 는 어떤 경우에도 back-nav.js 의 history.back()(=직전 페이지)이고,
-     처음 페이지로 나가는 문은 우상단 [🏠 홈] 버튼 하나로 정리한다.
-     ↳ 되돌리려면 이 자리에 mangoi-back-btn 의 onclick 을 다시 덮어쓰면 된다. */
-
-  /* 연습 앱이 토큰을 요청하면 — 그 출처가 연습 앱일 때만 — 건네준다 */
-  window.addEventListener('message', function(ev){
-    if (ev.origin !== PRACTICE_ORIGIN) return;
-    if (!ev.data || ev.data.type !== 'mangoi_speech_auth_request') return;
-    var u = me(); if (!u || !u.user_id) return;
-    var tok = ''; try { tok = localStorage.getItem('mango_token') || ''; } catch(e){}
-    if (!tok) return;
-    try {
-      ev.source.postMessage({ type: 'mangoi_speech_auth', uid: u.user_id, name: u.user_name || '', token: tok }, ev.origin);
-    } catch(e){}
-  });
-})();
-</script>
 <style id="mb-tidy2-2026-07-11">
 /* 자체 홈 버튼 숨김. (2026-08-04) 공용 홈/EN 바도 meta 로 껐으므로 이 화면에는 홈 버튼이
    아예 없다 — ← 바로 앞이 홈이라 사장님 지시로 뺐다. 규칙은 안전망으로 남겨 둔다. */

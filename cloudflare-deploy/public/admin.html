@@ -7658,7 +7658,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </details>
 
-<!-- 🎯 발음교정 (외부 도구) -->
+<!-- 🎯 발음교정 — (2026-08-10) pages.dev 연습앱이 /speech-coach.html 로 통합돼 내부 링크로 교체 -->
 <details class="table-card menu-card" id="card-pronunciation">
   <summary><span data-ko="🎯 발음교정" data-en="🎯 Pronunciation">🎯 발음교정</span></summary>
   <div class="menu-body">
@@ -7666,9 +7666,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <span style="font-size:24px">🎙</span>
       <div style="flex:1;min-width:240px">
         <div style="font-size:14px;font-weight:700;color:#7c2d12" data-ko="망고아이 발음교정 연습" data-en="Mangoi Pronunciation Practice">망고아이 발음교정 연습</div>
-        <div style="font-size:11px;color:#92400e;margin-top:2px" data-ko="음성 인식 + AI 발음 평가 — 외부 페이지에서 학생이 직접 연습" data-en="Speech recognition + AI pronunciation feedback — external practice page">음성 인식 + AI 발음 평가 — 외부 페이지에서 학생이 직접 연습</div>
+        <div style="font-size:11px;color:#92400e;margin-top:2px" data-ko="음성 인식 + AI 발음 평가 — 발음 코치 페이지에서 학생이 직접 연습" data-en="Speech recognition + AI pronunciation feedback — students practice on the speech coach page">음성 인식 + AI 발음 평가 — 발음 코치 페이지에서 학생이 직접 연습</div>
       </div>
-      <a href="https://mangoi-speech.pages.dev/practice" target="_blank" rel="noopener"
+      <a href="/speech-coach.html" target="_blank" rel="noopener"
          class="primary"
          style="padding:8px 18px;font-size:13px;border-radius:8px;text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-weight:700"
          data-ko="🔗 새 탭에서 열기" data-en="🔗 Open in new tab">🔗 새 탭에서 열기</a>
@@ -7677,13 +7677,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- iframe 미리보기 (토글로 펼침) -->
     <div id="pron-preview" style="display:none;margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;height:600px;position:relative">
       <div style="position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px">
-        <a href="https://mangoi-speech.pages.dev/practice" target="_blank" rel="noopener"
+        <a href="/speech-coach.html" target="_blank" rel="noopener"
            style="padding:5px 12px;font-size:11px;background:#1e293b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">🔗 새 탭</a>
         <button onclick="togglePronPreview()" style="padding:5px 10px;font-size:11px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer">✕</button>
       </div>
-      <iframe src="https://mangoi-speech.pages.dev/practice"
+      <iframe src="/speech-coach.html"
               style="width:100%;height:100%;border:0"
               referrerpolicy="no-referrer"
+              allow="microphone"
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals"
               loading="lazy"
               title="망고아이 발음교정"></iframe>
@@ -12131,7 +12132,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=4" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=5" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 
