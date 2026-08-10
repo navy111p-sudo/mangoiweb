@@ -48,8 +48,18 @@ console.log('▶ 1. Durable Object — 공유 상태 보존');
     leave.length > 100 && !/storage\.delete\('videoState'\)/.test(leave));
 
   const join = DO.slice(DO.indexOf('private handleJoinRoom'), DO.indexOf('private handleLeaveRoom'));
-  check('③ 첫 입장 정리는 «시각(mediaAt)» 조건이 붙어 있다 (무조건 삭제 금지)',
-    /userCount <= 1[\s\S]{0,200}mediaAt[\s\S]{0,200}storage\.delete\('pdfState'\)/.test(join));
+  /* 🪤 (2026-08-11) 예전엔 «userCount<=1 로부터 200자 안에 mediaAt» 이라는 글자 거리로 봤다.
+     그래서 조건을 하나 더 늘리는 «옳은» 수정(빈 시간 기준 추가)에 이 검사가 깨졌다.
+     지켜야 할 규칙은 거리가 아니라 «무조건 지우지 않는다» 이다 —
+     삭제를 감싼 if 조건에 사람 수 + 시간 판단이 둘 다 들어 있는지만 본다. */
+  {
+    const di = join.indexOf("storage.delete('pdfState')");
+    const guard = di > 0 ? join.lastIndexOf('if (', di) : -1;
+    const cond = guard > 0 ? join.slice(guard, di) : '';
+    check('③ 첫 입장 정리는 조건부다 — 사람 수 + 시간 판단 (무조건 삭제 금지)',
+      di > 0 && /userCount <= 1/.test(cond) && /(mediaAt|emptyAt)/.test(cond),
+      '조건: ' + cond.replace(/\s+/g, ' ').slice(0, 160));
+  }
   check('④ 보존 한도 상수(SHARE_KEEP_MS)가 있고 1시간 이상이다',
     /SHARE_KEEP_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*60\s*\*\s*1000/.test(DO) &&
     Number(DO.match(/SHARE_KEEP_MS\s*=\s*(\d+)\s*\*\s*60\s*\*\s*60\s*\*\s*1000/)[1]) >= 1);
