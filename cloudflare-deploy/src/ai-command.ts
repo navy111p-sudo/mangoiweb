@@ -37,7 +37,7 @@ Schema (one of these exactly):
 
 Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/weekly-schedule.html (전체/주간/강사 스케줄·시간표 — 강사명 있으면 /admin/weekly-schedule.html?q=이름), /admin/all-schedules.html
 
-Allowed external_url (new tab): https://mangoi-speech.pages.dev/practice (발음교정·발음 연습)
+Allowed external_url (new tab): https://test.mangoi.co.kr/speech-coach.html (발음교정·발음 연습)
 
 Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keywords:
 - card-daily-charts    (일자별 차트·매출·학생수·탈락·증가 | daily charts, revenue chart, growth)
@@ -166,10 +166,10 @@ User: "시스템 상태"
 Output: {"intent":"navigate","url":"/admin/health.html","answer":"시스템 상태 페이지로 이동합니다."}
 
 User: "발음 교정 열어줘"
-Output: {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"발음 교정 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 교정 도구를 새 탭에서 엽니다."}
 
 User: "발음 연습"
-Output: {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"발음 연습 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 연습 도구를 새 탭에서 엽니다."}
 
 User: "성적표 보여줘"
 Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서(성적표) 카드로 이동합니다."}
@@ -283,7 +283,7 @@ User: "open overdue payment alerts"
 Output: {"intent":"navigate","menu_id":"card-auto-dunning","answer":"Opening the overdue payment auto-alert card."}
 
 User: "open pronunciation practice"
-Output: {"intent":"navigate","external_url":"https://mangoi-speech.pages.dev/practice","answer":"Opening the pronunciation practice tool in a new tab."}
+Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"Opening the pronunciation practice tool in a new tab."}
 
 User: "what is the review quiz?"
 Output: {"intent":"answer","answer":"The Review Quiz lets you create quizzes that students solve and get auto-graded for revision."}
@@ -421,7 +421,7 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(레벨\s*테스트|레벨테스트|level\s*test)/i, menu_id: 'card-level-tests', ko: '레벨 테스트 카드로 이동합니다.', en: 'Opening the level test card.' },
   { re: /(복습\s*퀴즈|퀴즈|review\s*quiz|ai\s*quiz)/i, menu_id: 'card-review-quiz', ko: '복습퀴즈 카드로 이동합니다.', en: 'Opening the review quiz card.' },
   { re: /(교재\s*콘텐츠|교재|textbook)/i, menu_id: 'card-textbooks', ko: '교재 콘텐츠 카드로 이동합니다.', en: 'Opening the textbook content card.' },
-  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://mangoi-speech.pages.dev/practice', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
+  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://test.mangoi.co.kr/speech-coach.html', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
   // ── 조직/상담/기타 ──
   // 🏢 조직 = 본사 › 지사 › 대리점(학원). 아래 두 줄의 «순서»가 중요하다:
   //    «대리점 자료실»처럼 자료실이 붙은 말이 조직 카드로 새지 않도록 자료실을 먼저 잡는다.
@@ -744,7 +744,9 @@ export async function processAiCommand(
     // 외부 URL 새 탭 — 화이트리스트 검증 (https 만, 알려진 도메인만)
     if (aiResponse.external_url) {
       const eu = String(aiResponse.external_url);
-      const allowedHosts = ['mangoi-speech.pages.dev'];
+      // (2026-08-10) 발음 연습이 /speech-coach.html 로 통합 — 정본 도메인만 허용
+      //   (adm-core.js 가 new URL(external_url).hostname 을 그리므로 절대 URL 이어야 한다)
+      const allowedHosts = ['test.mangoi.co.kr'];
       try {
         const u = new URL(eu);
         if (u.protocol === 'https:' && allowedHosts.includes(u.hostname)) {

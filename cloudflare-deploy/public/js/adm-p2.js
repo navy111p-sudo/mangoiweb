@@ -193,7 +193,7 @@
 
   // 🔁 결정적 키워드 라우터 — 서버 AI 실패/뉴런 소진 시에도 올바른 메뉴로 이동 (무료·즉시·안정)
   var MI_ROUTES=[
-    {re:/발음|스피킹|speaking|pronunc/i, external_url:'https://mangoi-speech.pages.dev/practice', ko:'발음 연습 도구를 새 탭에서 열어드릴게요.', en:'Opening the pronunciation practice tool in a new tab.'},
+    {re:/발음|스피킹|speaking|pronunc/i, external_url:'/speech-coach.html', ko:'발음 연습 도구를 새 탭에서 열어드릴게요.', en:'Opening the pronunciation practice tool in a new tab.'},
     {re:/연기|미루|미룸|변경|일정\s*변경|스케줄\s*변경|날짜\s*변경|시간\s*변경|reschedul|postpon/i, menu_id:'card-timetable', ko:'통합 시간표에서 수업을 연기·변경할 수 있어요.', en:'You can postpone or reschedule classes in the timetable.'},
     {re:/시간표|타임테이블|timetable/i, menu_id:'card-timetable', ko:'통합 시간표 카드로 이동할게요.', en:'Opening the timetable card.'},
     {re:/정기\s*결제|자동\s*결제|구독|recurring/i, menu_id:'card-recurring-billing', ko:'정기결제 자동화 카드로 이동할게요.', en:'Opening the recurring billing card.'},
