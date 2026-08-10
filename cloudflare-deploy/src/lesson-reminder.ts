@@ -99,7 +99,11 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
       const key = String(c.teacher_id ?? c.teacher_name ?? 'unknown');
       if (!missingByTeacher[key]) missingByTeacher[key] = { name: c.teacher_name || key, teacher_id: c.teacher_id, items: [] };
       missingByTeacher[key].items.push(c);
-    } catch {}
+    } catch (e) {
+      // 🔇→🔊 (2026-08-09) 한 수업이 조용히 빠지면 그 강사는 «피드백 미작성» 안내를 못 받고,
+      //   자정이 지나 공제(-25PHP/건)를 맞는다. 돈이 걸린 누락이라 기록은 반드시 남긴다.
+      console.warn('[feedback-reminder] 수업 1건 판정 실패 → 안내에서 누락:', (e as any)?.message, 'room=', c.room_id);
+    }
   }
 
   let budget = 20;
@@ -206,7 +210,14 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
     try {
       const dup = await env.DB.prepare(`SELECT 1 FROM lesson_reminder_log WHERE room_id = ? LIMIT 1`).bind(c.room_id).first();
       if (dup) { result.details.push({ room_id: c.room_id, status: 'already_sent' }); continue; }
-    } catch {}
+    } catch (e) {
+      // 🔇→🔊 (2026-08-09) 여기가 조용하면 «중복 발송» 이 조용해진다.
+      //   이 조회가 실패하면 아래 코드는 「아직 안 보냄」으로 간주하고 그대로 문자를 보낸다.
+      //   학부모 휴대폰에 같은 안내가 두 번 가고, 아무 기록이 없어 아무도 모른다.
+      //   ⚠️ 흐름은 바꾸지 않았다(문자 경로의 판단은 사람이 정할 일) — 다만 보이게는 한다.
+      console.warn('[lesson-reminder] 중복확인 실패 → 중복 발송 위험:', (e as any)?.message, 'room=', c.room_id);
+      result.details.push({ room_id: c.room_id, status: 'dedup_check_failed' });
+    }
 
     const name = c.student_name || c.user_id || '학생';
     const hhmm = String(c.start_time || '');
@@ -222,7 +233,11 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
         parentPhone = String(stu.parent_phone || '').trim();
         studentPhone = String(stu.student_phone || stu.phone || '').trim();
       }
-    } catch {}
+    } catch (e) {
+      // 🔇→🔊 조회가 실패하면 아래에서 'no_phone' 으로 처리돼 «번호가 없는 학생» 과 구분되지 않는다.
+      //   진짜 번호가 없는 건지, 조회가 깨진 건지 로그가 없으면 영영 모른다.
+      console.warn('[lesson-reminder] 전화번호 조회 실패:', (e as any)?.message, 'uid=', c.user_id);
+    }
     if (!parentPhone && !studentPhone) {
       detail.status = 'no_phone';
       result.details.push(detail);
