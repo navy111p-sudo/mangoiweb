@@ -9121,7 +9121,7 @@ window.mgIsSlowNet = function(){
   if (!log || !input || !send) return;
   var history = [];
   var greeted = false;
-  var SUGGEST = ['수업 시간이 어떻게 되나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
+  var SUGGEST = ['수업 시간이 어떻게 되나요?','AI 예습·복습이랑 게임도 있나요?','포인트로 뭘 받을 수 있나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
 
   function bubble(text, who){
     var d = document.createElement('div');
@@ -9170,7 +9170,11 @@ window.mgIsSlowNet = function(){
   // 상담 모달이 열릴 때 첫 인사 1회
   window.__cbGreet = function(){
     if (greeted) return; greeted = true;
-    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
+    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n'
+      + '① 수업은 오전 10시부터 오후 11시까지 (평일 월~금)\n'
+      + '② AI로 예습·복습을 재미있게 — 3D 게임 학습까지\n'
+      + '③ 배우면서 포인트를 모아 기프티콘·선물로 교환\n'
+      + '궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
   };
   send.addEventListener('click', ask);
   input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); ask(); } });
@@ -9991,7 +9995,7 @@ window.mgIsSlowNet = function(){
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=28"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=29"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -16847,7 +16851,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=4"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=3"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
