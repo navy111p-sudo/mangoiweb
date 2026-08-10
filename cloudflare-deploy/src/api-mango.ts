@@ -1861,6 +1861,19 @@ ${numbered}`;
 
         let outEn = '', outKo = '';
         const dbgNote: any = { raw: null, err: null, fallback: false };
+
+        /* 🪤 (2026-08-10 실측) 응답에서 글자를 꺼내는 방법이 모델마다 다르다.
+           `typeof resp.response === 'string'` 만 보고 아니면 '' 로 떨어뜨렸더니
+           **매번 빈 문자열**이 나와 폴백만 돌았다(= 영어 다듬기가 통째로 죽어 있었다.
+           한국어는 폴백이 만들어 주니 «되는 것처럼» 보여서 더 안 보였다).
+           feedback-drafts 가 쓰던 방식대로 «문자열이 아니면 통째로 문자열화» 한다. */
+        const pickText = (r: any): string => {
+          if (typeof r === 'string') return r;
+          if (r && typeof r.response === 'string') return r.response;
+          if (r && r.response) return JSON.stringify(r.response);
+          if (r && r.result && typeof r.result.response === 'string') return r.result.response;
+          return r ? JSON.stringify(r) : '';
+        };
         try {
           const resp: any = await ai0.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [
@@ -1871,7 +1884,7 @@ ${numbered}`;
             ],
             max_tokens: 700,
           });
-          const text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : '');
+          const text = pickText(resp);
           dbgNote.raw = String(text || '').slice(0, 500);
           const m = String(text || '').match(/\{[\s\S]*\}/);
           if (m) {
@@ -1897,12 +1910,15 @@ ${numbered}`;
                   + 'Reply with ONLY the Korean sentences — no quotes, no notes, no English. '
                   + 'Always polite Korean (합니다체 or 해요체), never 반말. Keep it to 2-4 short sentences. '
                   + 'In a school context "숙제" is school homework. '
+                  // 폴백에도 같은 순화 규칙을 준다 — 폴백만 돌던 동안 「게으르다」가 그대로 나갔다.
+                  + 'Soften blunt or judgemental wording into what the child did and what will help next. '
+                  + 'Never compare the child with other students. '
                   + `Keep the placeholder ${MASK} exactly as it is if it appears.` },
                 { role: 'user', content: base },
               ],
               max_tokens: 500,
             });
-            const t2 = typeof r2 === 'string' ? r2 : (typeof r2?.response === 'string' ? r2.response : '');
+            const t2 = pickText(r2);
             let ko2 = String(t2 || '').trim().replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
             ko2 = ko2.replace(/^(translation|번역|korean)\s*[:：]\s*/i, '').trim();
             if (ko2.length > 1 && /^["'“”「『]/.test(ko2) && /["'“”」』]$/.test(ko2)) ko2 = ko2.slice(1, -1).trim();

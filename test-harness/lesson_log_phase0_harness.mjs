@@ -139,6 +139,13 @@ check('단정적 표현·비교를 프롬프트에서 눌러 준다',
   /Soften blunt or judgemental wording/.test(SRC) && /Never compare the child with other students/.test(SRC));
 check('⚠ note 모드는 chat 모드의 «첫 줄만» 처리를 타지 않는다 (일지가 잘리면 안 된다)',
   SRC.indexOf("if (b.mode === 'note')") < SRC.indexOf('out.split(/\\r?\\n/)[0]'));
+/* 🪤 (2026-08-10 실측) 응답에서 글자를 꺼내는 방법이 모델마다 다르다.
+      `typeof resp.response === 'string'` 만 보고 아니면 '' 로 떨어뜨렸더니 매번 빈 문자열이 나와
+      **영어 다듬기가 통째로 죽고 폴백만 돌았다**. 한국어는 폴백이 만들어 주니 «되는 것처럼» 보였다. */
+check('🔑 모델 응답을 문자열이 아니어도 꺼낸다 (빈 문자열로 떨어뜨리지 않는다)',
+  /const pickText = \(r: any\): string =>/.test(SRC) && /if \(r && r\.response\) return JSON\.stringify\(r\.response\);/.test(SRC));
+check('폴백에도 순화 규칙이 있다 (폴백만 돌 때 「게으르다」가 그대로 나갔다)',
+  /Soften blunt or judgemental wording into what the child did and what will help next\. '\s*\n\s*\+ 'Never compare the child with other students\. '/.test(SRC));
 check('⚠ note 모드는 KV 캐시를 쓰지 않는다 (자유서술은 재사용률 0)',
   !/mode === 'note'[\s\S]{0,2500}kv\.put/.test(SRC));
 
