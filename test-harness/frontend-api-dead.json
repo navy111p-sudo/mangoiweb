@@ -7,7 +7,6 @@
     "/api/battle/incoming",
     "/api/battle/submit-score",
     "/api/battle/word-set",
-    "/api/dictionary",
     "/api/report/comparison"
   ],
   "call_sites": [
@@ -44,16 +43,8 @@
       "at": "js/idx-x4.js:290"
     },
     {
-      "path": "/api/dictionary",
-      "at": "admin.html:5795"
-    },
-    {
-      "path": "/api/dictionary",
-      "at": "index.html:11609"
-    },
-    {
       "path": "/api/report/comparison",
-      "at": "admin.html:6186"
+      "at": "admin.html:6100"
     }
   ]
 }
