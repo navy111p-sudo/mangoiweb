@@ -2963,9 +2963,6 @@
             /* 채팅 패널 — 11.5px 강제 축소는 너무 작아 안 보임 → 13.5px로 완화 */
             body.vc-in-call .chat-panel { font-size: 13.5px !important; }
 
-            /* 🚫 모바일 가로에서 볼륨 미터 숨김 */
-            #vc-mic-meter { display: none !important; }
-
             /* ════════════════════════════════════════════════
                🚫 모바일 가로 — 모든 중복 UI 강제 숨김
                (하단 5개 폴더에서 모든 기능 접근)
@@ -3097,11 +3094,6 @@
             body.vc-in-call .vc-main-row.video-pip          .video-pane { width: 22% !important; height: 30% !important; top: 8px !important; left: 8px !important; }
             body.vc-in-call .vc-main-row.video-solo         .video-pane { display: none !important; }
             body.vc-in-call .vc-main-row.video-solo         .content-pane { width: 100% !important; }
-        }
-
-        /* 모바일 세로에서도 볼륨 미터 숨김 (모바일 전반에서 가림) */
-        @media (max-width: 920px) {
-            #vc-mic-meter { display: none !important; }
         }
 
         /* ──────────────────────────────────────────────────────────
@@ -8808,7 +8800,7 @@ window.mgIsSlowNet = function(){
      7. PDF 공유
      8. 채팅
 ================================================================ -->
-<script src="/js/idx-main.js?v=4"></script>
+<script src="/js/idx-main.js?v=5"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
