@@ -1328,12 +1328,11 @@ const worker = {
         path === '/api/attendance/check-in' ||
         path === '/api/admin/attendance/today' ||
         path === '/api/admin/attendance/qr-history' ||
-        // 📺 Phase VD — 비디오 자막 + AI 사전
-        path === '/api/admin/video/subtitle-upload' ||
-        path === '/api/video/subtitle' ||
-        path === '/api/admin/video/subtitles' ||
-        // 📖 (2026-08-10 삭제) /api/dictionary · /api/vocab/save-from-dict 게이트 등록 제거.
-        //    둘 다 핸들러가 없어 라이브 404 였다(반쪽 배선). 사전 UI 를 통째로 지우며 함께 제거.
+        // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
+        //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
+        //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
+        //      /api/dictionary · /api/vocab/save-from-dict
+        //    관련 UI(홈 단어 사전 · 관리자 «비디오 자막+사전» 카드)를 통째로 지우며 함께 제거.
         // 👨‍👩‍👧 Phase FAM — 가족 계정 통합
         path === '/api/admin/family/create' ||
         path === '/api/admin/family/add-child' ||
