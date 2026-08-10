@@ -121,21 +121,13 @@ check('강사가 직접 부르면 예전처럼 재생된다 (필요할 때 쓸 �
 check('알림은 스스로 사라진다 (수업 화면에 오래 남는 것 자체가 방해)',
   /_mlNoteT = setTimeout/.test(idx));
 
-console.log('\n[ ⑨  마이크 표시기가 화면분할 설정을 가리지 않는다 ]');
-/* ⚠️ 「id 에서 몇 글자 안에 left:12px 이 있는가」로 검사했더니 주석 한 줄을 늘리자 깨졌다.
-   → 미터의 **style 문자열 자체**를 뽑아 그 안의 규칙을 본다(주석 길이와 무관). */
-const micCss = (/_micMeterEl\.style\.cssText = '([^']*)'/.exec(idx) || ['', ''])[1];
-check('스타일 문자열을 찾았다 (없으면 아래 검사가 전부 무의미하다)', micCss.length > 30, micCss.slice(0, 40));
-check('왼쪽에 붙는다 (가운데 아래가 아니다)', /left:12px/.test(micCss) && !/left:50%/.test(micCss), micCss.slice(0, 60));
-check('🔴 가운데로 당기는 transform 을 남기지 않았다', !/translateX\(-50%\)/.test(micCss));
-check('클릭을 가로채지 않는다 (pointer-events:none)', /pointer-events:none/.test(micCss));
-/* 🔴 브라우저 실측에서 잡은 것: 자리를 옮겨도 **대화상자보다 위**면 같은 신고가 다시 난다.
-      [화면 분할] 시트는 z-index 9800 → 미터는 그보다 낮아야 한다.
-      그리고 왼쪽 아래는 이미 4층(신고 FAB 18 · AI질문 64 · 세계시계 96~163 · 캐시 FAB 186~226)이다. */
-const micZ = Number((/z-index:(\d+)/.exec(micCss) || [0, 0])[1]);
-check('🔴 대화상자(z 9800)보다 아래에 그려진다', micZ > 0 && micZ < 9800, micZ);
-check('왼쪽 아래에 이미 선 것들(≤226) 위로 올라가 있다',
-  Number((/bottom:(\d+)px/.exec(micCss) || [0, 0])[1]) >= 230, (/bottom:(\d+)px/.exec(micCss) || [])[1]);
+console.log('\n[ ⑨  왼쪽 마이크 미터 — 2026-08-10 제거됨 (부활 금지) ]');
+/* ⑨는 원래 «미터가 화면분할 설정을 가리지 않는 자리에 있는가»(left/z-index/bottom)를 검사했다.
+   그런데 자리를 두 번 옮겨도(가운데→왼쪽 236px) 신고가 이어졌고, 2026-08-10 사장님이
+   «얼굴 타일 밑 음량 막대와 중복이니 왼쪽 것은 삭제» 로 결정 — 미터 자체를 제거했다.
+   위치 검사는 전부 무의미해졌으므로, 대신 «다시 만들지 않는가»를 지킨다(CLAUDE.md 1-3). */
+check('🗑 떠 있는 마이크 미터(#vc-mic-meter)를 다시 만들지 않는다', !/vc-mic-meter/.test(idx));
+check('🗑 미터 생성 코드(cssText 조립)도 남아 있지 않다', !/_micMeterEl\.style\.cssText/.test(idx));
 
 console.log('\n[ ⑩  얼굴이 사라지면 되돌리는 길이 보인다 ]');
 /* "Teacher and student's videos hide sometimes and the option to show it again is not visible."
@@ -145,9 +137,8 @@ check('표시 여부는 CSS 한 곳에서만 정한다 (두 곳에서 만지면 
   /body\.vc-in-call\.vc-side-collapsed-on #vc-side-restore \{ display: inline-flex; \}/.test(idx));
 check('탭바의 접기 버튼도 접힌 동안 눈에 띈다',
   /vc-side-collapsed-on #vc-side-collapse-btn \{[\s\S]{0,200}background/.test(idx));
-check('마이크 미터가 «내 마이크» 라고 밝힌다', /MY MIC/.test(idx) && /내 마이크/.test(idx));
-check('🌐 상태 글자가 강사 언어를 따른다 (라벨만 영어면 소용없다)',
-  /'🔊 Loud'[\s\S]{0,200}'🔉 Quiet'/.test(idx));
+/* (2026-08-10) 「미터가 «내 마이크» 라고 밝힌다」·「상태 글자가 언어를 따른다」 두 검사는
+   미터 제거와 함께 삭제 — «내 것/학생 것» 구분은 이제 얼굴 타일의 음량 막대가 담당한다. */
 
 console.log('\n[ ⑭⑮ 휴식시간 — 지우는 법 · 직접 고르는 시간 ]');
 /* ⑭ "how to remove the teachers' breaktime. Will it be permanently Monday breaktime?"
