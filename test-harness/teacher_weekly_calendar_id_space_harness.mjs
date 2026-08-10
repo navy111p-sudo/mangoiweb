@@ -79,8 +79,41 @@ if (typeof resolve2 === 'function') {
 
 console.log('\n[ ④ 레벨테스트가 캘린더에서 한눈에 구분돼야 한다 ]');
 check('서버가 level_test 를 별도 유형으로 내려준다', /c === 'level_test'[\s\S]{0,90}?return 'leveltest'/.test(api));
-check('화면에 그 유형의 색이 있다', /'leveltest':'#0d9488'/.test(q6));
+/* 🎨 (2026-08-11) 예전엔 색을 «#0d9488» 로 못박아 검사했다. 그러다 팔레트를 통째로
+   파스텔로 바꾸자 «구분은 여전히 되는데» 하네스만 빨개졌다 — 검사가 의도가 아니라
+   그때의 색깔을 외우고 있었던 것이다. 의도는 「레벨테스트가 다른 유형과 구분된다」다. */
+const COLORS = Object.fromEntries(
+  [...q6.matchAll(/'(1on1|group|temp|leveltest)':\s*'(#[0-9a-fA-F]{3,8})'/g)].map(m => [m[1], m[2].toLowerCase()])
+);
+check('화면에 그 유형의 색이 있다', !!COLORS.leveltest);
+check('⛔ 레벨테스트 색이 다른 유형과 겹치지 않는다 (겹치면 구분이 안 된다)',
+  !!COLORS.leveltest && ['1on1', 'group', 'temp'].every(k => COLORS[k] && COLORS[k] !== COLORS.leveltest));
 check('화면에 그 유형의 이름이 있다', /'leveltest':'레벨테스트'/.test(q6));
+
+/* ⑦·⑧ 은 2026-08-11 「BELLE 스케줄 24개가 정확한가?」 확인에서 나왔다.
+   답: 그림은 DB 와 정확히 일치했지만, 그 24개가 전부 «수업이 아닌 것» 이었다. */
+console.log('\n[ ⑦ 스케줄 캘린더 두 개의 박스색이 같아야 한다 (사장님 지시 2026-08-11) ]');
+const ws = rd('../cloudflare-deploy/public/admin/weekly-schedule.html');
+const wsColor = (cls) => (ws.match(new RegExp('\\.slot-' + cls + '\\{background:(#[0-9a-fA-F]{3,8})')) || [])[1]?.toLowerCase();
+for (const [type, cls] of [['1on1', '1on1'], ['group', 'group'], ['temp', 'temp']]) {
+  const a = COLORS[type], b = wsColor(cls);
+  check(`${type} — 통합 캘린더(${a || '?'}) = 주간 스케줄(${b || '?'})`, !!a && a === b);
+}
+check('밝은 파스텔이 됐으니 카드 글자는 흰색이 아니다 (흰 글자면 안 읽힌다)',
+  /\.ph54-ev\s*\{[^}]*color:\s*#1e293b/.test(rd('../cloudflare-deploy/public/css/admin-inline-c.css')));
+
+console.log('\n[ ⑧ 「수업이 아닌 칸」 을 수업처럼 보여 주지 않는다 ]');
+// 운영 실측(2026-08-11): 활성 667행 중 진짜 수업 9행. 나머지는 LMS 점유 518 + 시연 시드 140.
+check('서버가 정체(origin)를 함께 내려준다',
+  /origin\s*=\s*_uid === 'lms' \? 'lms' : \(_uid === 'type_seed' \? 'sample' : 'class'\)/.test(api));
+check('그 판정이 api-teacher.ts 의 kind 와 같은 식이다 (두 화면이 갈리면 안 된다)',
+  /_uid === 'lms' \? 'lms' : \(_uid === 'type_seed' \? 'sample' : 'class'\)/.test(rd('../cloudflare-deploy/src/api-teacher.ts')));
+check('카드가 유형 라벨 대신 정체를 적는다 (학생이 없다고 «1:1» 로 폴백하지 않는다)',
+  /org\s*\?\s*ph54T\(org\.ko, org\.en\)/.test(q6));
+check('카드에 시각 표식이 붙는다 (배지 + 회색·사선)',
+  /ph54-ev-tag/.test(q6) && /ph54-nonclass/.test(q6));
+check('⛔ 「총 N개 수업」 으로 뭉뚱그리지 않는다 — 진짜 수업과 점유를 갈라 센다',
+  /nReal\s*=\s*evClass\.filter/.test(q6) && /nOther\s*=\s*evClass\.length - nReal/.test(q6));
 
 console.log('\n[ ⑤ 일회성 수업이 주간 캘린더에서 빠지지 않는다 ]');
 // 레벨테스트 수업은 전부 one_off 라, 반복(day_of_week)만 그리면 영영 안 보인다

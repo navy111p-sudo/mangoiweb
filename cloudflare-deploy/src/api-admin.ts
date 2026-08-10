@@ -4432,12 +4432,24 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const tnum = Number(r.teacher_id);
         const teacher_id = Number.isFinite(tnum) ? tnum : r.teacher_id;
         const students = r.student_name ? [{ name: r.student_name, uid: r.user_id || '' }] : [];
+        /* 🏷 (2026-08-11) 「이 칸이 진짜 망고아이 수업이냐」 를 캘린더가 알 수 있게 내려준다.
+           실측(2026-08-11) 활성 667행 중 진짜 수업은 9행뿐이고, 나머지는 학생이 안 붙은 자리표시다:
+             · user_id='lms'       518행 (source=lms_import_w26, notes='LMS 수업중')
+                 → 강사가 **옛 LMS 에서 수업 중이라 못 쓰는 시간**. 망고아이 수업이 아니다.
+             · user_id='type_seed' 140행 (source=type_seed_20260623) → 6월 시연용 시드
+           학생이 없으니 카드에 이름이 안 뜨고, 그래서 매니저는 이걸 «누군지 모를 1:1 수업» 으로
+           읽어 왔다(2026-08-11 사장님 확인 요청의 발단).
+           ⚠️ 판정식은 api-teacher.ts 의 `kind` 와 **글자 하나까지 같게** 유지할 것 —
+              두 화면이 같은 행을 다르게 부르기 시작하면 어느 쪽이 맞는지 아무도 모르게 된다. */
+        const _uid = String(r.user_id || '').toLowerCase();
+        const origin = _uid === 'lms' ? 'lms' : (_uid === 'type_seed' ? 'sample' : 'class');
         const base = {
           id: r.id,                       // ← 드래그 이동 영구 저장(PATCH)에 필요
           teacher_id,
           hour: hourOf(r.start_time),
           start_time: r.start_time,
           type: mapType(r.class_type),
+          origin,                         // 'class' | 'lms' | 'sample'
           students,
           duration_min: r.duration_min || DEFAULT_CLASS_MINUTES,
           note: r.notes || '',
@@ -4482,6 +4494,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           const base2 = {
             block_id: b.id,                 // 삭제용. id 로는 넘기지 않는다(위 주석 참고)
             source: 'unavailability',
+            origin: 'block',                // 위 class 슬롯의 origin 과 같은 축(정체 표시용)
             teacher_id: Number.isFinite(tnum2) ? tnum2 : b.teacher_id,
             hour: hourOf(st), start_time: st, end_time: et,
             type: 'blocked', students: [], duration_min: dur,

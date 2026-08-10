@@ -153,9 +153,33 @@
 
   // HTML 이스케이프 (학생 이름 등 안전 출력)
   function ph54Esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-  // 수업 유형별 색/라벨 — 🎯 레벨테스트는 정규수업과 성격이 달라 한눈에 구분되게 별도 색
-  var PH54_TYPE_COLOR = { '1on1':'#7c3aed', 'group':'#2563eb', 'temp':'#f59e0b', 'blocked':'#475569', 'leveltest':'#0d9488' };
+  /* 🎨 (2026-08-11 사장님 지시) 「다른 캘린더 스케줄의 박스색들과 동일하게」
+     스케줄 캘린더가 두 개인데 색이 서로 달랐다 — 같은 1:1 수업이 여기서는 진보라(#7c3aed),
+     admin/weekly-schedule.html 에서는 라벤더(#bcaef0) 였다. 두 화면을 오가는 매니저에게는
+     «다른 것» 으로 보인다. 정본은 **admin/weekly-schedule.html** 쪽 파스텔로 맞춘다
+     (그쪽은 ivory 테마 변수 --cell-1on1/group/temp 까지 갖춘 완성된 팔레트라 옮기기 쉽다).
+       · 1:1   #bcaef0 라벤더      (weekly-schedule .slot-1on1)
+       · 그룹  #f4abce 소프트핑크  (weekly-schedule .slot-group)
+       · 대체  #8cc3f0 스카이블루  (weekly-schedule .slot-temp)
+       · 휴무  회색 사선          (weekly-schedule .slot-blocked 와 같은 패턴)
+       · 레벨테스트 #a7ddd4 — 저쪽엔 없는 유형이라 같은 명도대(파스텔)로 새로 뽑았다
+     ⚠️ 배경이 밝아졌으므로 카드 글자는 흰색이면 안 읽힌다.
+        admin-inline-c.css 의 `.ph54-ev { color }` 를 #1e293b 로 함께 바꿨다(둘은 한 몸). */
+  var PH54_BLOCK_HATCH = 'repeating-linear-gradient(45deg,#cbd5e1,#cbd5e1 5px,#aab6c6 5px,#aab6c6 10px)';
+  var PH54_TYPE_COLOR = { '1on1':'#bcaef0', 'group':'#f4abce', 'temp':'#8cc3f0', 'blocked':PH54_BLOCK_HATCH, 'leveltest':'#a7ddd4' };
   var PH54_TYPE_LABEL = { '1on1':'1:1', 'group':'그룹', 'temp':'대체', 'blocked':'휴무', 'leveltest':'레벨테스트' };
+
+  /* 🏷 (2026-08-11) 「이 칸은 무엇인가」 — 카드에 정체를 적는다.
+     활성 667행 중 진짜 망고아이 수업은 9행뿐이고, BELLE 처럼 24칸이 꽉 찬 강사도
+     사실은 전부 «옛 LMS 에서 수업 중이라 못 쓰는 시간» 이다(user_id='lms').
+     학생이 안 붙어 있어 카드에 이름 대신 유형만 나오는데, 그게 「1:1 수업」 으로 읽혔다.
+     → 지우지 않고(운영 판단 영역) 정체만 밝힌다. api-teacher.ts 가 [수업 입장] 버튼을
+       빼는 것과 같은 처리 — 그쪽과 판정 기준(origin)이 하나여야 한다. */
+  var PH54_ORIGIN = {
+    lms:    { badge:'LMS',  ko:'LMS 점유 (망고아이 수업 아님)', en:'LMS busy (not a Mangoi class)' },
+    sample: { badge:'시드', ko:'시연용 샘플 데이터',            en:'Demo seed data' }
+  };
+  function ph54OriginOf(s){ return PH54_ORIGIN[String(s && s.origin || '')] || null; }
 
   /* 강사 원부(teachers)와 강사관리 표(teacher_profiles)는 «이름 표기» 도 다르다:
        'Teacher Maimai'(profiles) vs 'MAIMAI'(teachers)
@@ -232,23 +256,28 @@
        · 드래그 금지 — id 체계가 class_schedules 와 겹쳐서, 끌면 **엉뚱한 수업**에 PATCH 가 나간다.
        · 사유를 카드에 보여 준다. 「왜 막혔는지」를 모르면 매니저가 그냥 지워 버린다. */
     var isBlock  = (s.source === 'unavailability') || s.type === 'blocked';
+    /* 🏷 LMS 점유·시연 시드는 «수업» 이 아니다. 이름 자리에 정체를 그대로 적는다 —
+       예전엔 학생이 없어서 유형 라벨('1:1')로 폴백했고, 그게 수업처럼 읽혔다. */
+    var org      = isBlock ? null : ph54OriginOf(s);
     var nameTxt  = isBlock ? (s.reason || ph54T('휴식/근무불가', 'Break / unavailable'))
+                 : org    ? ph54T(org.ko, org.en)
                            : (student || (PH54_TYPE_LABEL[s.type] || ph54T('수업', 'Class')));
     // ⑭ 「매주 반복인가 하루짜리인가」 를 카드에서 바로 읽히게 — 질문의 절반은 이걸 몰라서 나왔다.
     var typeTxt  = isBlock ? (s.recurring ? ph54T('매주 반복 차단', 'Every week') : ph54T('이 날짜만 차단', 'This date only'))
                            : (PH54_TYPE_LABEL[s.type] || '');
     var canDrag  = (s.source !== 'unavailability');
-    return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+'"'
+    return '<div class="ph54-ev ph54-t-'+(s.type||'')+(canDrag?'':' ph54-locked')+(org?' ph54-nonclass':'')+'"'
       + (canDrag ? ' draggable="true"' : '')
       + ' data-idx="'+idx+'"'
       + (s.block_id != null ? ' data-block="'+s.block_id+'"' : '')
       /* 차단 카드는 «누를 수 있는 것» 이다(누르면 지운다) → 손가락 커서. 예전 default 커서는
          «아무 일도 안 일어나는 칸» 처럼 보여서 지우는 길이 있다는 걸 아무도 몰랐다. */
       + ' style="top:'+top+'px;height:'+height+'px;background:'+c+(canDrag?'':';cursor:pointer;opacity:.92')+'" '
-      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(student?(' · '+student):'')))
+      + 'title="'+ph54Esc(timeTxt+' · '+typeTxt+(isBlock?(s.reason?(' · '+s.reason):''):(org?(' · '+ph54T(org.ko,org.en)):(student?(' · '+student):''))))
       + (canDrag ? '' : ph54T(' (드래그 불가 — 누르면 이 차단을 지웁니다)',
                               ' (cannot drag — click to delete this block)'))+'">'
-      +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)+'</div>'
+      +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
+      +     (org ? '<span class="ph54-ev-tag">'+ph54Esc(org.badge)+'</span>' : '')+'</div>'
       +   '<div class="ph54-ev-name">'+ph54Esc(nameTxt)+'</div>'   /* ← 학생 이름 (말줄임 처리) */
       +   '<div class="ph54-ev-type">'+ph54Esc(typeTxt)+'</div>'
       + '</div>';
@@ -333,13 +362,26 @@
       + '<div id="ph54-cal-track">'+gutter+cols+'</div>'
       + '</div></div></div>';
 
-    // ── 범례 + 카운트
+    /* ── 범례 + 카운트
+       🔢 (2026-08-11) 예전엔 「총 24개 수업」 하나만 찍었다. 그런데 그 24개가 전부
+          LMS 점유라 **진짜 수업은 0개**였다 — 숫자가 매니저를 정확히 반대로 속였다.
+          → 「수업 N개」와 「점유·시드 N개」를 갈라서 찍는다. 색은 위 PH54_TYPE_COLOR 를
+            그대로 쓴다(범례와 카드가 갈라지면 범례가 거짓말을 한다). */
+    var evClass = events.filter(function(e){ return e.rec.type !== 'blocked'; });
+    var nReal   = evClass.filter(function(e){ return !ph54OriginOf(e.rec); }).length;
+    var nOther  = evClass.length - nReal;
     html += '<div class="ph54-legend">'
-      +   '<span><i style="background:#7c3aed"></i>1:1 수업</span>'
-      +   '<span><i style="background:#2563eb"></i>그룹 수업</span>'
-      +   '<span><i style="background:#f59e0b"></i>대체</span>'
-      +   '<span><i style="background:#475569"></i>휴무</span>'
-      +   '<span class="ph54-legend-count">총 '+events.filter(function(e){ return e.rec.type!=='blocked'; }).length+'개 수업 · 카드를 드래그해 이동</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['1on1']+'"></i>'+ph54T('1:1 수업','1:1')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['group']+'"></i>'+ph54T('그룹 수업','Group')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['temp']+'"></i>'+ph54T('대체','Substitute')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['leveltest']+'"></i>'+ph54T('레벨테스트','Level test')+'</span>'
+      +   '<span><i style="background:'+PH54_TYPE_COLOR['blocked']+'"></i>'+ph54T('휴무','Off')+'</span>'
+      +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'
+      +   '<span class="ph54-legend-count">'
+      +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
+      +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
+      +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')
+      +   '</span>'
       + '</div>';
 
     wrap.innerHTML = html;
