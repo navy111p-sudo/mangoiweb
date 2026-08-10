@@ -433,7 +433,11 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
     //   (다른 앱/탭이 카메라를 놓는 중이거나, PC 카메라가 켜지는 데 시간이 걸리는 경우 대응)
     async function _gum(constraints, retries) {
         for (let i = 0; ; i++) {
-            try { return await navigator.mediaDevices.getUserMedia(constraints); }
+            try {
+                const _s = await navigator.mediaDevices.getUserMedia(constraints);
+                try { window.vcApplyContentHints && window.vcApplyContentHints(_s); } catch (_) {}
+                return _s;
+            }
             catch (e) {
                 var busy = (e && (e.name === 'NotReadableError' || e.name === 'TrackStartError' || e.name === 'AbortError'));
                 if (i < (retries || 0) && busy) { console.warn('[media] 장치 사용중, ' + (i+1) + '차 재시도:', e.name); await _sleep(600); continue; }
@@ -643,6 +647,25 @@ window.vcStopPdfPoll = function(){
   try { if (window._vcPdfPollTimer) { clearInterval(window._vcPdfPollTimer); window._vcPdfPollTimer = null; } } catch(_){}
 };
 
+/* 🎯 (2026-08-11 강사 피드백 — "영상이 멈춘다", "렉") 트랙에 «무엇을 찍고 있는지» 를 알려 준다.
+   인코더는 이 힌트가 없으면 «화질을 지킬지, 초당 장수를 지킬지» 를 스스로 짐작한다.
+   수업 영상은 사람 얼굴·입모양이라 **초당 장수가 먼저**다 — 잠깐 흐려지는 것보다 멈추는 게 나쁘다.
+     · 카메라  → 'motion' : 부하가 걸리면 화질을 먼저 낮추고 프레임을 지킨다(끊김 방지)
+     · 마이크  → 'speech' : 음악이 아니라 말이라고 알려 주면 잡음억제·인코딩이 대화에 맞춰진다
+     · 화면공유는 여기서 건드리지 않는다 — 글자가 뭉개지면 안 되므로 'detail'(vcShareMyScreen 참조)
+   ⚠️ 표준 속성이라 미지원 브라우저에서는 그냥 무시된다(예외 없음). */
+window.vcApplyContentHints = function (stream) {
+    try {
+        if (!stream || !stream.getTracks) return;
+        stream.getTracks().forEach(function (t) {
+            try {
+                if (!('contentHint' in t)) return;
+                if (t.kind === 'video') { if (!t.contentHint) t.contentHint = 'motion'; }
+                else if (t.kind === 'audio') { if (!t.contentHint) t.contentHint = 'speech'; }
+            } catch (_) {}
+        });
+    } catch (_) {}
+};
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
 
@@ -916,6 +939,10 @@ window.vcShareMyScreen = async function(){
         var ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
         var st = ds.getVideoTracks()[0];
         if (!st) return;
+        /* 🎯 (2026-08-11) 화면 공유만은 «글자 선명함» 이 먼저다 — 카메라와 정반대.
+           'detail' 을 주면 인코더가 부하 시 초당 장수를 먼저 줄이고 해상도를 지킨다.
+           (카메라는 'motion' — 얼굴은 멈추면 안 되고, 화면은 글자가 뭉개지면 안 된다) */
+        try { if ('contentHint' in st) st.contentHint = 'detail'; } catch (_) {}
 
         // 지금 보내고 있는 카메라 트랙을 보관(복귀용)
         try {
@@ -4160,7 +4187,10 @@ function vcApplyLowPower(pc) {
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
       params.encodings[0].maxBitrate   = (isMobile ? 500 : 1200) * 1000; // 모바일 500kbps
       params.encodings[0].maxFramerate = isMobile ? 15 : 24;
-      params.degradationPreference = 'balanced';   // 부하 시 화질·fps 균형 저하
+      /* 🎞 (2026-08-11) 'balanced' → 'maintain-framerate'.
+         balanced 는 부하가 걸리면 «초당 장수» 도 함께 깎는다 → 강사가 신고한 "영상이 멈춘다".
+         수업은 얼굴·입모양을 보는 일이라 잠깐 흐려지는 편이 멈추는 것보다 낫다. */
+      params.degradationPreference = 'maintain-framerate';
       sender.setParameters(params).catch(function(e){ console.warn('[lowpower params]', e); });
     }
   } catch(e){ console.warn('[lowpower bitrate]', e); }
@@ -4385,6 +4415,36 @@ function vcArmFullscreenRetry() {
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24, scale: 1 };
     }
     const SCALE = [1, 1.5, 2, 3];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
+
+    /* 🕐 (2026-08-11 강사 피드백 — "오디오 지연", "렉", "버퍼링")
+       [빠져 있던 것] 보내는 쪽은 오래 다듬어 왔다(비트레이트 적응·Opus FEC/DTX·AAO).
+         그런데 «받는 쪽» 은 한 번도 손대지 않았다. 브라우저의 지터버퍼는 회선이 한 번 흔들리면
+         지연을 크게 잡고, 회선이 좋아져도 한동안 그 지연을 물고 있는다(수백 ms).
+         강사가 말하는 "소리가 늦게 온다"의 상당 부분이 이 «물고 있는 지연» 이다.
+       [왜 그냥 0 으로 낮추면 안 되나] 손실이 있는 회선(필리핀)에서 버퍼를 깎으면
+         소리가 끊기고 튄다. 지연을 없애려다 «끊김»을 만드는 것 — 더 나쁜 교환이다.
+       [그래서] 이 연결이 «지금 실제로 좋다»고 측정됐을 때만 낮추고, 나빠지면 즉시 손을 뗀다
+         (null = 브라우저의 적응 알고리즘에 그대로 돌려줌). 판단 근거는 바로 아래 루프가
+         이미 재고 있는 손실률·RTT 다 — 새로 재지 않는다.
+       ⚠️ 두 API 모두 크롬 계열에만 있다. 없으면 아무 일도 하지 않는다(기능 감지). */
+    function tuneReceiveLatency(pc, good) {
+        try {
+            if (!pc || !pc.getReceivers) return;
+            if (pc.__rxLowLat === good) return;          // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
+            pc.__rxLowLat = good;
+            pc.getReceivers().forEach(function (r) {
+                if (!r || !r.track) return;
+                var isAudio = r.track.kind === 'audio';
+                /* 목표 지연(ms). 오디오는 대화라 최대한 낮추고, 영상은 조금 여유를 둔다
+                   — 영상이 튀는 것보다 20~30ms 늦는 편이 수업에 낫다. */
+                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = good ? (isAudio ? 0 : 100) : null; } catch (_) {}
+                try { if ('playoutDelayHint' in r) r.playoutDelayHint = good ? 0 : null; } catch (_) {}
+            });
+            console.log('[vc-latency] 수신 지연', good ? '낮춤(회선 양호)' : '브라우저 자동(회선 불안정)');
+        } catch (_) {}
+    }
+    window.__vcTuneReceiveLatency = tuneReceiveLatency;   // 하니스·진단에서 부를 수 있게
+
     function applyStep(pc, step) {
         try {
             const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -4450,6 +4510,10 @@ function vcArmFullscreenRetry() {
                     pc.__qStep = step;
                     applyStep(pc, step);
                 }
+                /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
+                   기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
+                   한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
+                try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
             }).catch(function() {});
 
@@ -7440,8 +7504,9 @@ function vcSwapVideoTrack(newTrack){
           if (!params.encodings || !params.encodings.length) params.encodings = [{}];
           params.encodings[0].maxBitrate   = (mobile ? 500 : 1000) * 1000;
           params.encodings[0].maxFramerate = isBgTrack ? (mobile ? 12 : 20) : (mobile ? 15 : 24);
-          // 가상배경일 때만 프레임 우선(끊김 방지), 원본 복귀 시엔 균형
-          params.degradationPreference = isBgTrack ? 'maintain-framerate' : 'balanced';
+          /* 🎞 (2026-08-11) 원본 복귀 시에도 프레임 우선으로 통일 — 예전엔 가상배경일 때만
+             프레임을 지키고 원본은 'balanced' 라, 배경을 끄는 순간 끊김이 다시 시작됐다. */
+          params.degradationPreference = 'maintain-framerate';
           sender.setParameters(params).catch(e => console.warn('[vc-bg] setParameters:', e));
         }
       } catch(e){ console.warn('[vc-bg] replaceTrack 실패:', e); }
