@@ -1813,6 +1813,83 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
+
+      /* ═══════════════════════════════════════════════════════════════════════
+         📝 mode='note' — 수업 일지 전용 (2026-08-10)
+
+         필리핀 강사가 **영어로 편하게 쓰면** 한 번의 호출로 둘을 받는다.
+           ① en — 문법·표현을 다듬은 영어 (강사가 «내가 무엇을 승인하는지» 확인용)
+           ② ko — 학부모에게 나가는 한국어
+
+         ⛔ mode='chat' 을 그대로 쓰면 안 되는 이유(실제 코드에서 확인):
+            · 응답에서 **첫 줄만** 취한다(아래 chatTranslate 의 `split(/\r?\n/)[0]`)
+              → 세 문장짜리 일지가 한 문장이 되어 학부모에게 간다.
+            · max_tokens 300 — 일지 길이에 모자란다.
+            · KV 캐시가 원문 전체를 키로 180일 저장 — 일지는 매번 다른 문장이라
+              재사용률이 0 인데 KV 만 쌓인다. → 이 모드는 **캐시하지 않는다**.
+
+         🔒 학생 실명은 {{STUDENT}} 로 가려서 보내고 돌아오면 되돌린다
+            (번역 API 로 학생 실명이 새던 전례가 있다).
+         🔴 한국어가 안 나오면 ok:false 를 준다 — 화면이 **발송을 막아야** 한다.
+            (아래 일반 경로의 m2m100 폴백은 실패 시 «원문 그대로» 를 돌려주므로,
+             그 경로를 타면 학부모에게 영어가 나간다.)
+         ═══════════════════════════════════════════════════════════════════════ */
+      if (b.mode === 'note') {
+        const raw = String(b.text || '').trim().slice(0, 2000);
+        if (!raw) return json({ ok: false, error: 'empty_text' }, 400);
+        const ai0 = (env as any).AI;
+        if (!ai0) return json({ ok: false, error: 'ai_unavailable' }, 503);
+
+        const stuName = String(b.student_name || '').trim();
+        const MASK = '{{STUDENT}}';
+        const masked = stuName ? raw.split(stuName).join(MASK) : raw;
+
+        const sys = 'You help a Filipino English teacher write a short after-class note for the KOREAN PARENT of a child. '
+          + 'You do two things at once: (1) rewrite the teacher\'s English so it is correct and natural, '
+          + '(2) translate that into Korean for the parent. '
+          + 'Keep every fact the teacher wrote. Never invent skills, topics, scores or quotes that are not there. '
+          + 'Keep it to 2-4 short sentences. Do not add greetings or sign-offs. '
+          + `Keep the placeholder ${MASK} exactly as it is if it appears. `
+          // 학부모가 읽는 글이다 — 존댓말과 어투는 타협하지 않는다(chat 모드와 같은 규칙).
+          + 'The Korean MUST use polite speech (합니다체 or 해요체). Never 반말. '
+          + 'Write natural Korean: 합니다 / 해요 / 좋겠습니다. Never stack endings (합니다요 is not Korean). '
+          + 'In a school context "숙제" is school homework, never housework or a job. '
+          // 학부모에게 통보처럼 읽히면 안 된다.
+          + 'Soften blunt or judgemental wording into what the child did and what will help next '
+          + '(e.g. "he is lazy" becomes "found it hard to stay focused"). Never compare the child with other students. '
+          + 'Reply with STRICT JSON only: {"en":"<polished English>","ko":"<Korean for the parent>"}';
+
+        let outEn = '', outKo = '';
+        try {
+          const resp: any = await ai0.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [
+              { role: 'system', content: sys },
+              { role: 'user', content: `Teacher's note:\n${masked}` },
+            ],
+            max_tokens: 700,
+          });
+          const text = typeof resp === 'string' ? resp : (typeof resp?.response === 'string' ? resp.response : '');
+          const m = String(text || '').match(/\{[\s\S]*\}/);
+          if (m) { const j = JSON.parse(m[0]); outEn = String(j.en || '').trim(); outKo = String(j.ko || '').trim(); }
+        } catch (e: any) {
+          console.warn('[translate:note] ai err:', e?.message);
+        }
+
+        // 어미 중첩 교정 — 존댓말을 시키면 모델이 -습니다 뒤에 「요」를 한 번 더 붙인다(chat 모드와 같은 처리)
+        outKo = outKo
+          .replace(/(습니다|합니다|입니다|ㅂ니다)요(?=[\s.!?,]|$)/g, '$1')
+          .replace(/(습니까|합니까|입니까|니까)요(?=[\s.!?,]|$)/g, '$1')
+          .replace(/(이에요|예요|어요|아요|해요|세요)요(?=[\s.!?,]|$)/g, '$1');
+
+        // 가림막 복원
+        if (stuName) { outEn = outEn.split(MASK).join(stuName); outKo = outKo.split(MASK).join(stuName); }
+
+        const hasKo = /[가-힣]/.test(outKo);
+        if (!hasKo) return json({ ok: false, error: 'no_korean', message: '한국어를 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 502);
+        if (!outEn) outEn = raw;   // 영어 다듬기만 실패하면 원문을 그대로 보여 준다(발송은 한국어로 나가므로 무해)
+        return json({ ok: true, en: outEn, ko: outKo });
+      }
+
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).

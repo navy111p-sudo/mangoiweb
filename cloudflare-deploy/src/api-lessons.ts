@@ -129,6 +129,8 @@ export async function handleLessonsApi(
           //    운영 시간표 실측: 21:30 이후 시작 수업이 65건 있다. 그대로 보내면
           //    학부모 집에 자정 넘어 문자가 간다.
           ['notify_pending','INTEGER'],['notify_phone','TEXT'],
+          // 📝 (2026-08-10 Phase 1) 수업 일지 본문 — 강사가 쓴 영어 / 학부모에게 나간 한국어 / 원탭 칩
+          ['note_en','TEXT'],['note_ko','TEXT'],['note_chips','TEXT'],
         ];
         for (const [col, typ] of want) {
           if (!have.has(col)) { try { await env.DB.exec(`ALTER TABLE student_evaluations ADD COLUMN ${col} ${typ}`); } catch {} }
@@ -168,8 +170,20 @@ export async function handleLessonsApi(
     //   ⚠️ 문자 본문은 **한국어 고정 템플릿 + 링크** 다. 강사가 쓴 영어 원문을 그대로 보내지 않는다
     //      (필리핀 강사가 영어로 쓰므로, 본문을 그대로 보내면 학부모가 영어를 받는다).
     //      영어→한국어 다듬기는 다음 단계에서 붙는다.
-    const sendEvalSms = async (phone: string, studentName: string, evalId: any): Promise<boolean> => {
+    const sendEvalSms = async (phone: string, studentName: string, evalId: any, noteKo?: string | null): Promise<boolean> => {
       try {
+        /* 📝 (2026-08-10) 일지 본문이 있으면 **한국어 본문을 그대로** 보낸다.
+           학부모가 링크를 눌러야만 내용을 볼 수 있으면 대부분 안 본다(열람 0/104 가 그 증거).
+           본문은 이미 학부모용 한국어로 다듬어진 글이다(mode='note'). 길면 잘라서 링크로 잇는다. */
+        const bodyKo = String(noteKo || '').trim();
+        if (bodyKo) {
+          const { sendPlainSms } = await import('./solapi-client');
+          const url = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+          const msg = `[망고아이] ${studentName || ''} 학생의 오늘 수업 일지가 도착했어요\n`
+            + `"${bodyKo.slice(0, 300)}"\n${url}`;
+          const r = await sendPlainSms(env as any, phone, msg);
+          return !!(r && r.ok);
+        }
         /* 🔴 주소를 손으로 쓰지 말 것 — `mango-i.com` 은 **등록조차 안 된 도메인**이다(NXDOMAIN 실측).
               CLAUDE.md 머리에 운영 주소로 적혀 있어서 그대로 썼다가 «죽은 링크가 학부모에게 나가는» 사고가 될 뻔했다.
               이 저장소에서 학부모에게 실제로 나가는 문자들(absent-sweep.ts:189, enroll-ops.ts:516,
@@ -197,12 +211,12 @@ export async function handleLessonsApi(
       if (isQuietHour()) return;
       try {
         const rs: any = await env.DB.prepare(
-          `SELECT id, student_name, notify_phone FROM student_evaluations
+          `SELECT id, student_name, notify_phone, note_ko FROM student_evaluations
             WHERE notify_pending = 1 AND notify_phone IS NOT NULL AND notify_phone <> ''
             ORDER BY id LIMIT 20`
         ).all().catch(() => ({ results: [] }));
         for (const row of (rs.results || [])) {
-          const sent = await sendEvalSms(String(row.notify_phone), String(row.student_name || ''), row.id);
+          const sent = await sendEvalSms(String(row.notify_phone), String(row.student_name || ''), row.id, row.note_ko);
           await env.DB.prepare(
             `UPDATE student_evaluations SET notify_pending = 0, parent_notified = ?, parent_notified_at = ? WHERE id = ?`
           ).bind(sent ? 1 : 0, sent ? Date.now() : null, row.id).run().catch(() => {});
@@ -223,11 +237,35 @@ export async function handleLessonsApi(
       const overall = scores.length > 0
         ? Math.round((scores.reduce((a,b)=>a+b,0) / scores.length) * 10) / 10
         : null;
+      /* 📝 수업 일지 본문 (Phase 1, 2026-08-10)
+         강사는 영어로 쓰고, 학부모에게는 한국어가 나간다. 둘 다 보관한다
+         (강사는 자기가 무엇을 승인했는지 영어로 되볼 수 있어야 한다).
+         ⚠️ 새 테이블을 만들지 않았다 — 「수업 후에 쓰는 곳」이 이미 6군데다.
+            student_evaluations 는 이미 공제 판정·학부모 발송·eval.html 열람에 배선돼 있어,
+            여기에 칸을 더하는 쪽이 7번째 테이블을 만드는 것보다 훨씬 적게 부순다. */
+      const noteEn = String(body.note_en || '').trim().slice(0, 2000) || null;
+      const noteKo = String(body.note_ko || '').trim().slice(0, 2000) || null;
+      const noteChips = Array.isArray(body.chips) ? body.chips.slice(0, 8).map((c: any) => String(c).slice(0, 40)).join('|') : null;
+
+      /* 🔴 발송 전 자동 점검 — 매니저 승인 단계를 두지 않기로 했으므로(사장님 결정)
+            사고는 규칙이 막는다. 화면에서도 같은 검사를 하지만 **서버가 정본**이다.
+            차단은 «학부모에게 나가면 사고인 것» 만 — 어투 지적은 화면에서 권고로 끝낸다. */
+      if (body.notify_parent === true && noteKo) {
+        const hangul = (noteKo.match(/[가-힣]/g) || []).length;
+        if (hangul < noteKo.length * 0.3) {
+          return json({
+            ok: false, error: 'note_not_korean',
+            message: '학부모에게 나가는 칸이 한국어가 아닙니다. 「다듬어서 한국어로」를 먼저 눌러 주세요.',
+            message_en: 'The parent-facing text is not Korean. Tap “Polish & translate” first.',
+          }, 400);
+        }
+      }
+
       const ins = await env.DB.prepare(
         `INSERT INTO student_evaluations (user_id, eval_at, student_uid, student_name, teacher_uid, teacher_name, room_id, lesson_title, lesson_date,
           score_participation, score_comprehension, score_homework, score_attitude, score_speaking, score_overall,
-          strengths, improvements, next_goals, teacher_comment, created_at, updated_at)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+          strengths, improvements, next_goals, teacher_comment, note_en, note_ko, note_chips, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         body.student_uid, now,
         body.student_uid, body.student_name || null,
@@ -239,6 +277,7 @@ export async function handleLessonsApi(
         body.score_speaking || null, overall,
         body.strengths || null, body.improvements || null,
         body.next_goals || null, body.teacher_comment || null,
+        noteEn, noteKo, noteChips,
         now, now
       ).run();
       const evalId = ins?.meta?.last_row_id;
@@ -266,7 +305,7 @@ export async function handleLessonsApi(
         } else {
           notifyResult = { sent: [] as string[], failed: [] as any[] };
           for (const phone of phones) {
-            const okSent = await sendEvalSms(phone, String(body.student_name || ''), evalId);
+            const okSent = await sendEvalSms(phone, String(body.student_name || ''), evalId, noteKo);
             if (okSent) notifyResult.sent.push(phone); else notifyResult.failed.push({ phone });
           }
           if (notifyResult.sent.length > 0) {
