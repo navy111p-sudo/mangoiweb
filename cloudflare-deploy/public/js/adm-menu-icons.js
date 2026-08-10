@@ -92,7 +92,7 @@
 
     'card-review-quiz':'brain','card-textbooks':'bookOpen','card-microlearn':'book',
     'card-mini-toeic':'target','card-pronunciation':'mic','card-video-dict':'film',
-    'card-voice-diary':'mic','card-level-tests':'gauge','card-battle-mgmt':'swords',
+    'card-voice-diary':'mic','card-level-tests':'gauge',
     'card-recording-storage':'drive','card-homework':'tasks',
 
     'card-lib-admin':'shield','card-lib-teacher':'userCheck','card-lib-branch':'building',

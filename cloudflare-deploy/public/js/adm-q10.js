@@ -86,7 +86,6 @@
     'card-video-dict':             {exec:'V', mgr:'V', teacher:'V', student:'V'},
     'card-voice-diary':            {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'R'},
     'card-level-tests':            {exec:'V', mgr:'V', teacher:'V', student:'V'},
-    'card-battle-mgmt':            {exec:'V', mgr:'V', teacher:'V', student:'V'},
     'card-recording-storage':      {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'R'},
     'card-homework':               {exec:'V', mgr:'V', teacher:'V', student:'V', parent:'V'},
 

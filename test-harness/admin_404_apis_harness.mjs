@@ -2,7 +2,7 @@
 // 🧪 태초 404 API 4종 구현 검증 하니스 (2026-07-14)
 //   실행:  node test-harness/admin_404_apis_harness.mjs
 //   대상:  ① /api/admin/referrals(+/stats) ② /api/admin/counseling/*(bookings·slot/open·cancel)
-//          ③ /api/battle/leaderboard(+history) ④ /api/admin/attendance/qr-gen + /api/attendance/check-in
+//          ③ /api/admin/attendance/qr-gen + /api/attendance/check-in
 //   방식:  api-admin.ts 를 esbuild 로 실번들 → 가짜 D1 로 handleAdminApi 를 직접 호출해
 //          라우팅·프런트 계약(응답 shape)·토큰 만료 로직을 실제 코드로 검증.
 //          + api-mango.ts 위임 가드 / index.ts 게이트에 경로가 등록됐는지 소스 검사.
@@ -103,7 +103,6 @@ function fakeDB(state) {
         }
         if (m.is(/FROM counseling_bookings ORDER BY/i)) return { results: state.bookings };
         if (m.is(/SUM\(correct_count\) AS wins FROM game_progress/i)) return { results: state.gameLeader };
-        if (m.is(/FROM game_progress WHERE user_id/i)) return { results: state.gameRows.filter(r => r.user_id === args[0]) };
         return { results: [] };
       };
       const api = { bind: (...args) => ({ run: () => run(...args), first: () => first(...args), all: () => all(...args) }), run: () => run(), first: () => first(), all: () => all() };
@@ -120,11 +119,6 @@ const state = {
   ],
   bookings: [
     { id: 11, slot_id: 3, staff_uid: 'teacher_ann', date: '2026-07-15', start_time: '14:00', parent_name: '김학부모', parent_phone: '010-1234-5678', student_uid: 'wondang', topic: '레벨 상담', status: '예약', created_at: 1752470000000 },
-  ],
-  gameLeader: [{ user_id: 'wondang', wins: 42 }, { user_id: 'student', wins: 17 }],
-  gameRows: [
-    { user_id: 'wondang', lang: 'en', item: 'apple', correct_count: 5, wrong_count: 1, last_seen: 1752480000000 },
-    { user_id: 'wondang', lang: 'en', item: 'grape', correct_count: 1, wrong_count: 3, last_seen: 1752470000000 },
   ],
 };
 const env = { DB: fakeDB(state) };
@@ -165,17 +159,6 @@ console.log('\n[2] 📅 /api/admin/counseling/*');
   check('cancel: 없는 예약 404', nf?.status === 404);
 }
 
-// ═══ 3) 🎮 영어 배틀 ═══
-console.log('\n[3] 🎮 /api/battle/leaderboard + history');
-{
-  const lb = await call('GET', '/api/battle/leaderboard');
-  check('leaderboard: ok + list[{user_id,wins}]', lb?.json?.ok === true && lb.json.list[0]?.user_id === 'wondang' && lb.json.list[0]?.wins === 42);
-  const h = await call('GET', '/api/battle/history?user_id=wondang&limit=20');
-  check('history: ok + 프런트 계약 필드', h?.json?.ok === true && ['game_type', 'challenger_uid', 'opponent_uid', 'challenger_score', 'opponent_score'].every(k => k in h.json.list[0]));
-  check('history: 승패 판정(5:1→학생 승, 1:3→AI 승)', h.json.list[0].winner_uid === 'wondang' && h.json.list[1].winner_uid === 'AI');
-  const h0 = await call('GET', '/api/battle/history');
-  check('history: user_id 없으면 빈 목록 ok', h0?.json?.ok === true && h0.json.list.length === 0);
-}
 
 // ═══ 4) 📷 QR 출결 ═══
 console.log('\n[4] 📷 /api/admin/attendance/qr-gen + /api/attendance/check-in');
@@ -216,10 +199,9 @@ console.log('\n[5] 🔌 배선(가드·게이트·랜딩) 소스 검사');
   check('가드: /api/admin/counseling/', guard.includes("path.startsWith('/api/admin/counseling/')"));
   check('가드: /api/admin/attendance/qr-gen', guard.includes("'/api/admin/attendance/qr-gen'"));
   check('가드: /api/attendance/check-in', guard.includes("'/api/attendance/check-in'"));
-  check('가드: /api/battle/leaderboard + history', guard.includes("'/api/battle/leaderboard'") && guard.includes("'/api/battle/history'"));
 
   const idx = readFileSync(join(CF, 'src', 'index.ts'), 'utf8');
-  for (const p of ['/api/admin/referrals', '/api/admin/referrals/stats', '/api/admin/counseling/bookings', '/api/admin/counseling/slot/open', '/api/admin/counseling/cancel', '/api/battle/leaderboard', '/api/battle/history', '/api/admin/attendance/qr-gen', '/api/attendance/check-in']) {
+  for (const p of ['/api/admin/referrals', '/api/admin/referrals/stats', '/api/admin/counseling/bookings', '/api/admin/counseling/slot/open', '/api/admin/counseling/cancel', '/api/admin/attendance/qr-gen', '/api/attendance/check-in']) {
     check(`게이트(index.ts): ${p}`, idx.includes(`'${p}'`));
   }
 

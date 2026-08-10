@@ -1,45 +1,4 @@
 {
-  "dead_and_called": [
-    "/api/battle/accept",
-    "/api/battle/active",
-    "/api/battle/challenge",
-    "/api/battle/decline",
-    "/api/battle/incoming",
-    "/api/battle/submit-score",
-    "/api/battle/word-set"
-  ],
-  "call_sites": [
-    {
-      "path": "/api/battle/accept",
-      "at": "js/idx-x4.js:249"
-    },
-    {
-      "path": "/api/battle/active",
-      "at": "js/idx-x4.js:260"
-    },
-    {
-      "path": "/api/battle/challenge",
-      "at": "js/idx-x4.js:232"
-    },
-    {
-      "path": "/api/battle/decline",
-      "at": "js/idx-x4.js:253"
-    },
-    {
-      "path": "/api/battle/incoming",
-      "at": "js/idx-x4.js:239"
-    },
-    {
-      "path": "/api/battle/submit-score",
-      "at": "js/idx-x4.js:278"
-    },
-    {
-      "path": "/api/battle/submit-score",
-      "at": "js/idx-x4.js:322"
-    },
-    {
-      "path": "/api/battle/word-set",
-      "at": "js/idx-x4.js:290"
-    }
-  ]
+  "dead_and_called": [],
+  "call_sites": []
 }
