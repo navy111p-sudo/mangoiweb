@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
+import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit, runAutoRenewChargeSweep } from './api-pay';
@@ -163,6 +164,12 @@ const worker = {
   // 얇은 래퍼: 실제 처리는 handle()이 하고, 여기서 보안 헤더만 씌운다.
   //   this 바인딩에 의존하지 않도록 worker.handle 로 명시 참조(진입점 안정성).
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // ⚡ (2026-08-09) 같은 DDL 을 이 격리에서 한 번만 D1 으로 보낸다.
+    //   이 저장소는 표를 요청 처리 도중 만든다(CREATE TABLE IF NOT EXISTS 가 핸들러 첫 줄마다).
+    //   실측: DDL 411건 중 392건이 «요청마다» 나갈 수 있었다. 표가 이미 있어도 왕복은 그대로다.
+    //   호출부 392곳을 손대는 건 그 자체가 사고 위험이라 DB 층에서 막는다 — exec 만 감싼다
+    //   (DDL 300건이 exec 으로 나가고, exec 의 반환값을 쓰는 곳이 한 군데도 없다).
+    env = { ...env, DB: wrapDbDdlOnce(env.DB) } as Env;
     let resp: Response;
     try {
       resp = await worker.handle(request, env, ctx);
@@ -1993,6 +2000,7 @@ const worker = {
   //   - UTC 10:00 (KST 19:00) : 학생 일일 streak/참여 푸시 알림
   //   - UTC 10:00 + 금요일      : 학부모 위클리 다이제스트 일괄 발송 (Phase WD)
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    env = { ...env, DB: wrapDbDdlOnce(env.DB) } as Env;   // fetch 와 같은 이유 — DDL 1회화
     const date = new Date(event.scheduledTime);
     const hour = date.getUTCHours();
     // KST 기준 요일 (UTC + 9시간) — Friday = 5
