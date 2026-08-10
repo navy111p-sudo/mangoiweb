@@ -1896,6 +1896,13 @@ ${numbered}`;
           console.warn('[translate:note] ai err:', e?.message);
         }
 
+        /* 🚨 (2026-08-10 라이브 실측) 모델이 한국어 문장 안에 **다른 문자체계를 섞어** 뱉는다.
+              실제로 나온 것: "서연이는 오늘 очень 잘했습니다" — 러시아어 낱말이 그대로 박혔다.
+              한글이 있으니 «한국어» 검사는 통과해 버려서, 이걸 따로 안 막으면 학부모에게 그대로 간다.
+              키릴·가나·타이·아랍 문자가 하나라도 보이면 실패로 보고 폴백(단순 번역)으로 넘긴다. */
+        const FOREIGN = /[Ѐ-ӿ぀-ヿ฀-๿؀-ۿ]/;
+        if (outKo && FOREIGN.test(outKo)) { dbgNote.err = (dbgNote.err || '') + ' foreign_script'; outKo = ''; }
+
         /* 🛟 폴백 — JSON 이 깨졌거나 한국어가 비면 «번역만» 한 번 더 시킨다.
            한 문장짜리 지시라 모델이 훨씬 안정적이다(chat 모드가 이미 이 방식으로 돌고 있다).
            강사를 두 번 기다리게 하지 않으려고 **실패했을 때만** 탄다. */
@@ -1922,7 +1929,8 @@ ${numbered}`;
             let ko2 = String(t2 || '').trim().replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
             ko2 = ko2.replace(/^(translation|번역|korean)\s*[:：]\s*/i, '').trim();
             if (ko2.length > 1 && /^["'“”「『]/.test(ko2) && /["'“”」』]$/.test(ko2)) ko2 = ko2.slice(1, -1).trim();
-            if (/[가-힣]/.test(ko2)) outKo = ko2;
+            // 폴백 결과에도 같은 검사를 건다 — 여기서도 섞여 나오면 아예 안 보낸다.
+            if (/[가-힣]/.test(ko2) && !FOREIGN.test(ko2)) outKo = ko2;
           } catch (e: any) { dbgNote.err = (dbgNote.err || '') + ' fb:' + String(e?.message || e).slice(0, 80); }
         }
 

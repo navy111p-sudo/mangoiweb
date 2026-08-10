@@ -144,6 +144,10 @@ check('⚠ note 모드는 chat 모드의 «첫 줄만» 처리를 타지 않는�
       **영어 다듬기가 통째로 죽고 폴백만 돌았다**. 한국어는 폴백이 만들어 주니 «되는 것처럼» 보였다. */
 check('🔑 모델 응답을 문자열이 아니어도 꺼낸다 (빈 문자열로 떨어뜨리지 않는다)',
   /const pickText = \(r: any\): string =>/.test(SRC) && /if \(r && r\.response\) return JSON\.stringify\(r\.response\);/.test(SRC));
+/* 🚨 (2026-08-10 라이브 실측) "서연이는 오늘 очень 잘했습니다" — 러시아어가 박혀 나왔다.
+      한글이 있어 «한국어» 검사는 통과하므로 따로 막지 않으면 학부모에게 그대로 간다. */
+check('🔑 한국어에 다른 문자체계(키릴·가나 등)가 섞이면 버린다', /const FOREIGN = \/\[/.test(SRC));
+check('   폴백 결과에도 같은 검사를 건다', /\/\[가-힣\]\/\.test\(ko2\) && !FOREIGN\.test\(ko2\)/.test(SRC));
 check('폴백에도 순화 규칙이 있다 (폴백만 돌 때 「게으르다」가 그대로 나갔다)',
   /Soften blunt or judgemental wording into what the child did and what will help next\. '\s*\n\s*\+ 'Never compare the child with other students\. '/.test(SRC));
 check('⚠ note 모드는 KV 캐시를 쓰지 않는다 (자유서술은 재사용률 0)',
