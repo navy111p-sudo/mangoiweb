@@ -144,7 +144,23 @@
     var navNext = (i<total-1)
       ? '<button id="rqv-next" '+(st.answers[i]==null||st.answers[i]===''?'disabled':'')+' onclick="rqvMove(1)" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(st.answers[i]==null||st.answers[i]===''?'0.45':'1')+'">'+(isEn()?'Next →':'다음 →')+'</button>'
       : '<button id="rqv-next" '+(st.answers[i]==null||st.answers[i]===''?'disabled':'')+' onclick="rqvSubmit()" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(st.answers[i]==null||st.answers[i]===''?'0.45':'1')+'">✅ '+(isEn()?'Submit':'제출하기')+'</button>';
-    var nav = '<div style="display:flex;gap:10px;margin-top:16px">'
+    /* 💡 (2026-08-11 강사 LEN ①) "학생이 퀴즈를 넘길 수가 없다"
+       「다음 →」 은 답을 고르기 전에는 disabled 다(위 navNext). 그런데 화면에는 «흐린 버튼» 만
+       보이고 왜 안 눌리는지 한 글자도 없었다 — 학생 눈에는 «고장난 버튼» 이다.
+       특히 듣기 문항은 소리를 못 들으면 답을 고를 수 없어 영영 흐린 채로 남는다
+       (자동재생이 막히면 소리가 안 난다) → 그때는 「다시 듣기」 를 함께 안내한다.
+       ⚠️ 버튼을 «항상 켜는» 것으로 고치면 안 된다. 답 없이 넘어가면 채점이 빈칸으로 제출된다. */
+    var _need = (st.answers[i] == null || st.answers[i] === '');
+    var _needMsg = _need
+      ? '<div style="margin-top:14px;padding:9px 12px;border-radius:10px;background:rgba(251,191,36,0.12);'
+        + 'border:1px solid rgba(251,191,36,0.35);color:#fcd34d;font-size:12.5px;line-height:1.5;text-align:center">'
+        + (isEn() ? 'Pick an answer first — then “Next” turns on.' : '먼저 답을 고르세요 — 그래야 「다음」이 켜집니다.')
+        + (typ === 'listen'
+            ? '<br>' + (isEn() ? 'Can’t hear it? Tap ▶ Play again above.' : '소리가 안 들리면 위의 ▶ 다시 듣기를 눌러 주세요.')
+            : '')
+        + '</div>'
+      : '';
+    var nav = _needMsg + '<div style="display:flex;gap:10px;margin-top:16px">'
       + (i>0?'<button onclick="rqvMove(-1)" style="flex:1;padding:13px;background:rgba(255,255,255,0.06);color:#e6ecff;border:1px solid rgba(251,191,36,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px">← '+(isEn()?'Prev':'이전')+'</button>':'')
       + navNext + '</div>'
       + '<div style="text-align:center;margin-top:10px"><button onclick="rqvLoadList()" style="padding:8px 16px;background:transparent;color:#a3b3d1;border:1px solid rgba(148,163,184,0.3);border-radius:8px;font-size:12px;cursor:pointer">'+(isEn()?'Quit':'그만두기')+'</button></div>';

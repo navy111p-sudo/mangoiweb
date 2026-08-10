@@ -8680,7 +8680,19 @@ window.mgIsSlowNet = function(){
             <button onclick="rqvAuto(true)" style="padding:6px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:12px;font-weight:800;cursor:pointer" data-ko="🤖 이 수업 맞춤 퀴즈" data-en="🤖 Auto quiz for this class">🤖 <span data-ko="이 수업 맞춤 퀴즈" data-en="Auto quiz">이 수업 맞춤 퀴즈</span></button>
             <button onclick="rqvLoadList()" style="padding:6px 11px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:transparent;color:#a3b3d1;font-size:12px;font-weight:700;cursor:pointer" data-ko="📋 전체 목록" data-en="📋 All">📋 <span data-ko="전체 목록" data-en="All">전체 목록</span></button>
           </div>
-          <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto;padding:16px"></div>
+          <!-- 🛟 (2026-08-11 강사 LEN ①) "학생이 퀴즈를 넘길 수가 없다"
+               퀴즈의 「다음 →」 버튼은 보기 아래 «맨 끝» 에 그려진다. 그런데 수업 중에는 하단 독이
+               position:fixed 로 그 자리에 떠 있어 버튼을 덮는다(강사 스크린샷에서도 독이 보기 D 를 덮고 있다).
+               스크롤해도 본문 끝이 독 뒤에 깔려 있어 «버튼이 없는» 것처럼 보인다.
+               → 독 높이만큼 아래 여백을 둔다. 독을 위로 올렸거나(vc-dock-top) 접었으면(collapsed)
+                 여백이 필요 없다. padding 을 인라인이 아니라 여기에 두는 이유: 인라인이면 CSS 로 못 덮는다. -->
+          <style id="rqv-dock-clearzone">
+            #rqv-body { padding: 16px; }
+            body.vc-in-call #rqv-body { padding-bottom: 132px; }
+            body.vc-in-call.vc-dock-top #rqv-body,
+            body.vc-in-call.vc-dock-collapsed #rqv-body { padding-bottom: 16px; }
+          </style>
+          <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto"></div>
         </div>
 
             </div><!-- /.tab-content -->
@@ -16730,7 +16742,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=3"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=4"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->
