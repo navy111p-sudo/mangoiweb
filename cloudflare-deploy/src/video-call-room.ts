@@ -152,6 +152,7 @@ export class VideoCallRoom {
 
       switch (msg.type) {
         case 'join-room':       this.handleJoinRoom(ws, userId, msg.data as any); break;
+        case 'join-observe':    this.handleJoinObserve(ws, userId, msg.data as any); break;
         case 'leave-room':
           this.handleLeaveRoom(userId, ws, att.username, 'left');
           // 뒤따르는 소켓 close 가 같은 사용자를 또 'user-left' 로 방송하지 않도록 선반영
@@ -181,6 +182,8 @@ export class VideoCallRoom {
         case 'tab-sync':             // 📡 교사 탭 전환 동기화 (칠판/동영상/교재 따라가기)
         case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
         case 'device-report':        // 🎧 (2026-08-07) 학생 → 강사: 마이크 재획득 결과. 대상 지정은 클라이언트가 id 로 거른다.
+        case 'device-list':          // 🎛 (2026-08-10) 학생 → 강사: 장치 도우미 — 내 카메라·마이크·스피커 목록 회신.
+        case 'device-set-result':    //    학생 → 강사: 장치 교체 결과(성공/실패/보류). 셋 다 수신측이 staff 여부로 거른다.
         case 'cam-state':            // 📷 (2026-07-24) 카메라 on/off 를 상대에게 알림.
                                      //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
@@ -206,12 +209,16 @@ export class VideoCallRoom {
           this.handleClassLock(userId, att, msg.type, msg.data as any);
           break;
         /* 🎧 (2026-08-07) 강사 → 특정 학생: "마이크를 다시 잡아 주세요".
-           ⚠️ 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 마이크를 원격으로
-              건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
-        case 'device-fix': {
+           🎛 (2026-08-10) 장치 도우미 확장 — 강사 → 특정 학생:
+              device-list-req = "장치 목록 보내줘", device-set = "이 장치로 바꿔줘".
+           ⚠️ 셋 다 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 카메라·마이크를
+              원격으로 건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
+        case 'device-fix':
+        case 'device-list-req':
+        case 'device-set': {
           const dfRole = (att.role || '').toLowerCase();
           if (!this.isJoined(userId) || (dfRole !== 'teacher' && dfRole !== 'admin')) break;
-          this.broadcast(userId, { type: 'device-fix', data: msg.data });
+          this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
@@ -335,6 +342,14 @@ export class VideoCallRoom {
     //   (안 그러면 재연결마다 상대 화면에 새 타일이 생기고 "님이 입장했습니다"가 도배된다.)
     if (!inherited) {
       this.broadcast(effectiveUserId, { type: 'user-joined', data: { userId: effectiveUserId, username, role: role || 'student', userCount } });
+      // 👁 참관자 전용 신호 — 참관자는 이걸 받고 곧바로 recvonly offer 를 보낸다.
+      //    (일반 user-joined 만으로는 클라이언트 안전장치가 3초 기다린 뒤에야 offer 를 낸다)
+      for (const other of this.state.getWebSockets()) {
+        const oa = this.attOf(other);
+        if (oa && oa.role === 'observer' && other.readyState === WebSocket.OPEN) {
+          try { other.send(JSON.stringify({ type: 'observer-user-joined', data: { userId: effectiveUserId, username } })); } catch {}
+        }
+      }
     }
 
     /* 🖍 (2026-08-08) 지금까지의 칠판 판서를 새 입장자에게 한 번에 돌려준다.
@@ -358,6 +373,54 @@ export class VideoCallRoom {
     }
 
     console.log(`[VideoChat] User ${username} (${effectiveUserId}) joined room ${this.roomId}${inherited ? ' (sticky-reconnect)' : ''}`);
+  }
+
+  /* 👁 (2026-08-10) 고스트 참관 — 관리자 「Ghost」 버튼(/?observe=방ID)의 서버 짝.
+     [역사] join-observe 는 구 시그널링 DO 시절 프로토콜인데 이 DO 로 옮길 때 핸들러가
+     누락돼 default(Unknown message type)로 버려지고 있었다 → 참관 화면이 '연결 중'에서
+     영영 멈춤(2026-08-10 신고). 클라이언트(vcJoinAsObserver·vcCreatePeer 의 recvonly
+     분기·observer-user-joined 처리)는 이미 완성돼 있어 서버만 채우면 된다.
+     [설계 — 투명 유령]
+     · 핵심은 joined:false 유지. joinedUsers()/usernameOf() 가 joined 만 세므로 정원·
+       userCount·existing-users·퇴장 방송 어디에도 안 나타난다 = 학생·강사 화면 무변화.
+       webSocketClose 도 joined 를 보고 건너뛰므로 나갈 때도 조용하다.
+     · broadcast() 는 attachment 존재만 보므로 참관자도 방송(user-joined·채팅·잠금…)을
+       그대로 받는다. 새 참가자가 참관 중에 들어와도 즉시 observer-user-joined 를 따로
+       보내 참관자가 지체 없이 recvonly offer 를 낸다(클라이언트의 user-joined 3초
+       안전장치도 이중 백업으로 남는다).
+     · 미디어는 참관자→참가자 recvonly offer + 참가자 answer 의 기존 시그널링 그대로 —
+       offer/answer/ice 릴레이는 joined 를 요구하지 않는다(실측). 참가자 화면에는 타일이
+       생기지 않는다(참관자가 트랙을 안 보내 ontrack 이 안 불림).
+     · 수신 전용이라도 mesh 라 참가자(특히 필리핀 강사)의 «업로드»가 참관자 수만큼 늘어난다
+       → 동시 참관 2명까지만 받는다(초과는 room-full).
+     ⚠️ role 은 클라이언트 신고값이라 보안 경계가 아니다 — join-room 과 같은 전제.
+        (감사 기록은 관리자 화면이 /api/admin/ghost/start 로 별도 남긴다.
+         강화하려면 ghost/start 가 발급한 단기 토큰을 여기서 검증하는 구조가 필요) */
+  private handleJoinObserve(ws: WebSocket, userId: string, data: any): void {
+    const OBSERVER_MAX = 2;
+    let observers = 0;
+    for (const other of this.state.getWebSockets()) {
+      if (other === ws || other.readyState !== WebSocket.OPEN) continue;
+      const oa = this.attOf(other);
+      if (oa && oa.role === 'observer') observers++;
+    }
+    if (observers >= OBSERVER_MAX) {
+      this.send(userId, { type: 'room-full', data: { roomId: this.roomId, limit: OBSERVER_MAX, observe: true } });
+      try { ws.close(1000, 'observe-full'); } catch {}
+      return;
+    }
+
+    const att = this.attOf(ws) || { userId, roomId: this.roomId };
+    ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username: (data && data.username) || '관찰자', role: 'observer', joined: false } as VcAttachment);
+
+    // 참가자 입장(join-room)과 같은 회신 묶음 — 단, 방송은 하나도 하지 않는다(유령).
+    const users = this.joinedUsers();
+    this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true } });
+    this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
+    if (this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
+    if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
+    if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
+    console.log(`[VideoChat] 👁 Observer joined room ${this.roomId} (uid=${userId}, watching ${users.length})`);
   }
 
   private handleLeaveRoom(userId: string, exclude?: WebSocket, knownUsername?: string, reason: 'left' | 'dropped' = 'left'): void {

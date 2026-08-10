@@ -1453,6 +1453,7 @@ function vcSpawnAuxAudio(id) {
         a.setAttribute('playsinline', '');
         a.srcObject = new MediaStream(at);
         a.style.display = 'none';
+        try { vcApplySavedSink(a); } catch(e){}   // 🔊 보조 오디오도 고른 스피커로
         document.body.appendChild(a);
         v.muted = true;   // 소리는 aux 전담
         const p = a.play(); if (p && p.catch) p.catch(()=>{});
@@ -3707,6 +3708,10 @@ function vcHandleMessage(msg) {
                 ? `${msg.data.username} 님과 연결이 잠시 끊겼습니다. 재연결을 기다리는 중…`
                 : `${msg.data.username} 님이 퇴장했습니다.`);
             try { vcRefreshChatTargets(); } catch(e){}   // 🔒 나간 사람이 개별채팅 대상이면 전체로 복귀
+            /* 🎛 장치 도우미 대상 학생이 «완전히» 나가면 패널을 닫는다.
+               dropped(순단)는 곧 재입장 가능성이 높지만 재입장 시 userId 가 새로 발급돼
+               옛 uid 로는 어차피 못 만진다 → 혼란을 남기지 말고 둘 다 닫는 게 정직하다. */
+            try { if (window.__vcDevHelp && window.__vcDevHelp.uid === msg.data.userId) vcDevHelpClose(); } catch(e){}
             break;
 
         // WebRTC 시그널링
@@ -3974,6 +3979,73 @@ function vcHandleMessage(msg) {
                                  : '✅ ' + (_drNm || '학생') + ' — 마이크를 다시 잡았어요' + (msg.data.label ? ' (' + msg.data.label + ')' : ''))
                         : (_drEn ? '⚠ ' + (_drNm || 'Student') + ' — could not pick up the mic. Ask them to allow microphone permission.'
                                  : '⚠ ' + (_drNm || '학생') + ' — 마이크를 못 잡았어요. 학생에게 마이크 권한 허용을 부탁하세요.'));
+            } catch(_){}
+            break;
+        }
+        /* 🎛 (2026-08-10 장치 도우미 — BODA의 원격 장치설정을 웹으로) 강사 → 나: "장치 목록 보내줘"
+           목록만 보낸다 — 아무것도 바꾸지 않는다. 몰래 이뤄지지 않도록 학생 화면에 토스트를 띄운다. */
+        case 'device-list-req': {
+            try {
+                if (!msg.data || msg.data.targetUserId !== vcUserId) break;
+                var _dlEn = (typeof getLang === 'function' && getLang() === 'en');
+                var _dlNow = Date.now();
+                if (!window.__vcDevHelpToastAt || _dlNow - window.__vcDevHelpToastAt > 60000) {
+                    window.__vcDevHelpToastAt = _dlNow;
+                    try { if (typeof showToast === 'function') showToast(_dlEn ? '🎛 Your teacher is helping with your device setup.' : '🎛 선생님이 장치 설정을 도와주고 있어요.'); } catch(_){}
+                }
+                vcDevHelpSendList();
+            } catch(_){}
+            break;
+        }
+        /* 🎛 강사 → 나: "이 장치로 바꿔줘". 이미 검증된 전환 함수(vcSwitchMic/vcSetCamDevice)를 그대로 탄다.
+           음소거 해제는 절대 하지 않는다 — 장치를 바꿔도 켬/끔 상태(vcMicOn·강사 잠금)는 그대로 존중. */
+        case 'device-set': {
+            (async () => {
+                try {
+                    if (!msg.data || msg.data.targetUserId !== vcUserId) return;
+                    var kind = msg.data.kind, devId = msg.data.deviceId;
+                    if (!devId || (kind !== 'cam' && kind !== 'mic' && kind !== 'spk')) return;
+                    var _dsEn = (typeof getLang === 'function' && getLang() === 'en');
+                    var ok = false, reason = '';
+                    if (kind === 'cam') {
+                        var rc = await window.vcSetCamDevice(devId);
+                        if (rc === 'deferred') { ok = true; reason = 'deferred'; }   // 화면 공유 중 → 끝나면 적용
+                        else ok = (rc === true);
+                    } else if (kind === 'mic') {
+                        ok = (await vcSwitchMic(devId)) === true;
+                        /* 강사가 전체 음소거 중이면 새 트랙도 무음이어야 한다 — 잠금이 장치 교체로 풀리면 안 됨 */
+                        if (window.__vcMicLockedByTeacher) { try { vcLocalStream.getAudioTracks().forEach(function(t){ t.enabled = false; }); } catch(_){} }
+                    } else {
+                        ok = (await window.vcSetSpkDevice(devId)) === true;
+                        if (!ok && !('setSinkId' in HTMLMediaElement.prototype)) reason = 'nosink';
+                    }
+                    var label = '';
+                    try {
+                        if (kind === 'cam') label = (vcLocalStream.getVideoTracks()[0] || {}).label || '';
+                        else if (kind === 'mic') label = (vcLocalStream.getAudioTracks()[0] || {}).label || '';
+                    } catch(_){}
+                    /* 목록을 먼저, 결과를 나중에 — 강사 패널에서 최종 상태줄이 «결과»로 남게 하기 위한 순서다 */
+                    try { await vcDevHelpSendList(); } catch(_){}
+                    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-set-result', data: { fromUserId: vcUserId, kind: kind, ok: ok, reason: reason, label: String(label).slice(0, 60) } }); } catch(_){}
+                    if (ok && reason !== 'deferred') {
+                        try { if (typeof showToast === 'function') showToast(_dsEn ? '🎛 Your teacher adjusted your device settings.' : '🎛 선생님이 장치 설정을 바꿔 줬어요.'); } catch(_){}
+                    }
+                } catch(e) { console.warn('[dev-help] set 실패:', e); }
+            })();
+            break;
+        }
+        /* 🎛 학생 → 강사: 장치 목록/교체 결과 — 패널이 열려 있으면 갱신 (staff 만) */
+        case 'device-list': {
+            try {
+                if (!(typeof vcIsStaffNow === 'function' && vcIsStaffNow())) break;
+                if (typeof vcDevHelpOnList === 'function') vcDevHelpOnList(msg.data || {});
+            } catch(_){}
+            break;
+        }
+        case 'device-set-result': {
+            try {
+                if (!(typeof vcIsStaffNow === 'function' && vcIsStaffNow())) break;
+                if (typeof vcDevHelpOnResult === 'function') vcDevHelpOnResult(msg.data || {});
             } catch(_){}
             break;
         }
@@ -4806,6 +4878,7 @@ function vcAddRemoteVideo(userId, username, stream) {
     box.innerHTML = `<video autoplay playsinline muted></video><span class="video-label">${escHtml(username)}</span>`;
     const vid = box.querySelector('video');
     vid.srcObject = stream;
+    try { vcApplySavedSink(vid); } catch(e){}   // 🔊 장치 도우미로 고른 스피커를 새 타일도 물려받음
     // fix (2026-06-01) — 메타데이터 로드/트랙 도착 시 재생 재시도(원격 영상 검게 나오던 문제 보강)
     vid.onloadedmetadata = () => { vid.play().catch(()=>{}); };
     // 🧑‍🏫 (2026-07-14 사장님 지시) 상대(교사) 타일은 항상 내 타일보다 '위' — 내 박스 앞에 삽입
@@ -4841,6 +4914,7 @@ function vcAddRemoteVideo(userId, username, stream) {
     attachStreamMonitor(box, stream);
     vcAddDetachButton(box);
     try { vcAddStarButton(box, userId); } catch(e){}
+    try { vcAddDevBtn(box, userId); } catch(e){}   // 🎛 장치 도우미 (강사 화면에서만 붙음)
     try { vcAddDmButton(box, userId); vcRefreshChatTargets(); } catch(e){}   // 🔒 개별채팅 버튼/칩
 }
 
@@ -5005,9 +5079,11 @@ function vcRefreshPraiseUI(){
                 var uid = (box.id || '').replace('vc-video-', '');
                 if (uid && vcBoxIsStudent(box)) {
                     vcAddStarButton(box, uid);
+                    try { vcAddDevBtn(box, uid); } catch(e){}   // 🎛 장치 도우미 — 역할이 늦게 정해져도 여기서 붙는다
                 } else {
                     var s = box.querySelector('.vc-star-btn'); if (s) s.remove();
                     var t = box.querySelector('.vc-star-toast'); if (t) t.remove();
+                    var dv = box.querySelector('.vc-devhelp-btn'); if (dv) dv.remove();
                 }
             });
         } else {
@@ -5077,6 +5153,7 @@ function vcClientId(){
 }
 function vcRegisterRosterIdentity(){
     try {
+        if (typeof vcIsObserver !== 'undefined' && vcIsObserver) return;   // 👁 참관자는 로스터에 안 올린다(칭찬 적립 대상 아님)
         if (vcIsTeacherRole()) return;                 // 학생만 등록(선생님 X)
         if (!vcUserId || !vcRoomId) return;
         var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
@@ -5729,6 +5806,219 @@ window.vcRequestMicFix = function (uid, btn) {
     }, 8000);
 };
 
+/* ══════════════════════════════════════════════════════════════════
+   🎛 (2026-08-10) 장치 도우미 — BODA(2019 설치형)의 「User Management ▸ Device control」을 웹으로.
+   강사가 학생 타일의 🎛 버튼을 누르면: 학생 기기의 카메라·마이크·스피커 목록을 받아 보고,
+   골라 주면 학생 브라우저가 그 자리에서 갈아끼운다(검증된 vcSwitchMic/vcSetCamDevice 경로).
+   [원칙]
+   · 설치 없음 — 전부 브라우저 표준(enumerateDevices/replaceTrack/setSinkId). WS 로 JSON 몇 줄뿐.
+   · 몰래 없음 — 목록 요청·교체 모두 학생 화면에 토스트가 뜬다.
+   · 음소거 해제 없음 — 장치를 바꿔도 켬/끔 상태와 강사 잠금은 그대로.
+   · 스피커는 setSinkId 미지원 기기(iOS 사파리)가 있어 sinkOk 로 미리 알리고 패널에서 잠근다.
+   서버 게이트는 video-call-room.ts 의 device-fix 와 같은 자리 — 강사/관리자 role 만 보낼 수 있다.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── 학생 쪽: 내 장치 목록·현재 선택을 강사에게 보낸다 ── */
+async function vcDevHelpGather() {
+    var out = { cams: [], mics: [], spks: [] };
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return out;
+    var list = await navigator.mediaDevices.enumerateDevices();
+    var c = 0, m = 0, s = 0;
+    list.forEach(function (d) {
+        if (!d.deviceId || d.deviceId === 'communications') return;   // 윈도우 가짜 중복 항목 제외 (vc-dock 과 동일)
+        var label = String(d.label || '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*/i, '').trim().slice(0, 60);
+        if (d.kind === 'videoinput'  && out.cams.length < 15) out.cams.push({ id: d.deviceId, label: label || ('Camera '  + (++c)) });
+        if (d.kind === 'audioinput'  && out.mics.length < 15) out.mics.push({ id: d.deviceId, label: label || ('Mic '     + (++m)) });
+        if (d.kind === 'audiooutput' && out.spks.length < 15) out.spks.push({ id: d.deviceId, label: label || ('Speaker ' + (++s)) });
+    });
+    return out;
+}
+async function vcDevHelpSendList() {
+    try {
+        var devs = await vcDevHelpGather();
+        var cur = { cam: '', mic: '', spk: (typeof vcSavedSpkId === 'function' && vcSavedSpkId()) || 'default', camSaved: '', micSaved: '' };
+        /* 가상배경·화면공유 중엔 송출 트랙이 캔버스라 deviceId 가 목록에 없는 임의 값이다(vc-dock 주석 참고)
+           → 저장된 선택(camSaved/micSaved)을 같이 보내 강사 패널이 폴백으로 쓴다. */
+        try { var vt = vcLocalStream && vcLocalStream.getVideoTracks()[0]; if (vt && vt.getSettings) cur.cam = vt.getSettings().deviceId || ''; } catch (_) {}
+        try { var at = vcLocalStream && vcLocalStream.getAudioTracks()[0]; if (at && at.getSettings) cur.mic = at.getSettings().deviceId || ''; } catch (_) {}
+        try { cur.camSaved = (typeof vcSavedCamId === 'function' && vcSavedCamId()) || ''; } catch (_) {}
+        try { cur.micSaved = (typeof vcSavedMicId === 'function' && vcSavedMicId()) || ''; } catch (_) {}
+        if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-list', data: {
+            fromUserId: vcUserId, devices: devs, current: cur,
+            sinkOk: ('setSinkId' in HTMLMediaElement.prototype)
+        } });
+    } catch (e) { console.warn('[dev-help] 목록 전송 실패:', e); }
+}
+
+/* ── 강사 쪽: 학생 타일의 🎛 버튼 + 장치 패널 ── */
+function vcDevHelpEnsureCss() {
+    if (document.getElementById('vc-devhelp-css')) return;
+    var st = document.createElement('style');
+    st.id = 'vc-devhelp-css';
+    st.textContent =
+        '.vc-devhelp-btn{position:absolute;top:40px;right:8px;z-index:8;background:rgba(15,23,42,.72);color:#fff;border:1px solid rgba(148,163,184,.35);border-radius:999px;padding:4px 9px;font-size:13px;line-height:1;cursor:pointer;}' +
+        '.vc-devhelp-btn:hover{background:rgba(16,185,129,.85);}' +
+        '#vc-devhelp-panel{position:fixed;right:16px;bottom:96px;z-index:2600;width:min(320px,calc(100vw - 24px));background:#0f172a;border:1px solid rgba(148,163,184,.35);border-radius:14px;box-shadow:0 18px 50px -12px rgba(0,0,0,.6);color:#e2e8f0;font-size:13px;padding:12px 14px;}' +
+        '#vc-devhelp-panel h4{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:6px;}' +
+        /* ⚠ flex 에서 space-between 금지(사이드바 hover 사고) — flex-start + margin-left:auto 로 오른쪽 정렬 */
+        '#vc-devhelp-panel .dh-x{margin-left:auto;background:none;border:0;color:#94a3b8;font-size:15px;cursor:pointer;padding:2px 4px;}' +
+        '#vc-devhelp-panel .dh-row{display:flex;align-items:center;gap:8px;margin:7px 0;}' +
+        '#vc-devhelp-panel .dh-row label{flex:0 0 92px;color:#cbd5e1;font-weight:700;}' +
+        '#vc-devhelp-panel .dh-row select{flex:1;min-width:0;background:#1e293b;color:#f1f5f9;border:1px solid rgba(148,163,184,.35);border-radius:8px;padding:6px 8px;font-size:12.5px;}' +
+        '#vc-devhelp-panel .dh-row select:disabled{opacity:.45;}' +
+        '#vc-devhelp-panel .dh-status{margin-top:8px;padding:7px 9px;border-radius:8px;background:rgba(148,163,184,.12);color:#cbd5e1;line-height:1.45;min-height:30px;}' +
+        '#vc-devhelp-panel .dh-note{margin-top:4px;font-size:11px;color:#94a3b8;}' +
+        '#vc-devhelp-panel .dh-refresh{background:rgba(37,99,235,.25);border:1px solid #3b82f6;color:#dbeafe;border-radius:8px;padding:4px 8px;font-size:12px;cursor:pointer;}';
+    document.head.appendChild(st);
+}
+/* JS 로 그리는 글자는 data-ko/data-en 도 «같이» 갱신해야 i18n-sweep 이 살아 있다 (CLAUDE.md 함정 표) */
+function vcDevHelpTxt(el, ko, en) {
+    if (!el) return;
+    el.setAttribute('data-ko', ko); el.setAttribute('data-en', en);
+    el.textContent = (typeof getLang === 'function' && getLang() === 'en') ? en : ko;
+}
+function vcDevHelpStatus(ko, en) {
+    var p = document.getElementById('vc-devhelp-panel');
+    if (p) vcDevHelpTxt(p.querySelector('.dh-status'), ko, en);
+}
+function vcDevHelpNote(ko, en) {
+    var p = document.getElementById('vc-devhelp-panel');
+    if (!p) return;
+    var el = p.querySelector('.dh-note');
+    vcDevHelpTxt(el, ko, en);
+    el.style.display = ko ? '' : 'none';
+}
+function vcDevHelpClose() {
+    var p = document.getElementById('vc-devhelp-panel'); if (p) p.remove();
+    if (window.__vcDevHelp) clearTimeout(window.__vcDevHelp.timer);
+    window.__vcDevHelp = null;
+}
+window.vcDevHelpClose = vcDevHelpClose;
+function vcDevHelpRequest() {
+    var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
+    if (!st || !p) return;
+    p.querySelectorAll('select').forEach(function (s) { s.disabled = true; s.innerHTML = ''; });
+    vcDevHelpStatus('📡 학생 장치 목록을 요청했어요…', '📡 Asking the student for their devices…');
+    vcDevHelpNote('', '');
+    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-list-req', data: { targetUserId: st.uid } }); } catch (_) {}
+    clearTimeout(st.timer);
+    st.timer = setTimeout(function () {
+        vcDevHelpStatus('⚠ 응답이 없어요 — 학생 화면이 예전 버전이거나 연결이 불안정할 수 있어요. 🔄 로 다시 시도하세요.',
+                        '⚠ No response — the student may be on an older page or have a bad connection. Try 🔄 again.');
+    }, 10000);
+}
+window.vcOpenDevHelp = function (uid, name) {
+    if (!uid) return;
+    vcDevHelpEnsureCss();
+    var p = document.getElementById('vc-devhelp-panel');
+    if (!p) {
+        p = document.createElement('div');
+        p.id = 'vc-devhelp-panel';
+        var rows = [
+            { k: 'cam', ko: '📷 카메라', en: '📷 Camera' },
+            { k: 'mic', ko: '🎙 마이크', en: '🎙 Microphone' },
+            { k: 'spk', ko: '🔊 스피커', en: '🔊 Speaker' }
+        ].map(function (d) {
+            return '<div class="dh-row"><label data-ko="' + d.ko + '" data-en="' + d.en + '">' + d.ko + '</label><select data-kind="' + d.k + '"></select></div>';
+        }).join('');
+        p.innerHTML = '<h4>🎛 <span class="dh-title"></span><button type="button" class="dh-x" aria-label="close">✕</button></h4>'
+            + rows
+            + '<div class="dh-status"></div><div class="dh-note" style="display:none"></div>'
+            + '<div style="margin-top:8px"><button type="button" class="dh-refresh">🔄 <span data-ko="목록 새로고침" data-en="Refresh list">목록 새로고침</span></button></div>';
+        p.querySelector('.dh-x').onclick = vcDevHelpClose;
+        p.querySelector('.dh-refresh').onclick = vcDevHelpRequest;
+        p.querySelectorAll('select').forEach(function (sel) {
+            sel.onchange = function () { vcDevHelpApply(sel.getAttribute('data-kind'), sel.value); };
+        });
+        document.body.appendChild(p);
+        try { if (window.applyI18n) window.applyI18n(p); } catch (_) {}
+    }
+    window.__vcDevHelp = { uid: uid, name: name || '' };
+    vcDevHelpTxt(p.querySelector('.dh-title'), '장치 도우미 — ' + (name || '학생'), 'Device Helper — ' + (name || 'Student'));
+    vcDevHelpRequest();
+};
+function vcDevHelpApply(kind, deviceId) {
+    var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
+    if (!st || !p || !deviceId) return;
+    try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-set', data: { targetUserId: st.uid, kind: kind, deviceId: deviceId } }); } catch (_) {}
+    p.querySelectorAll('select').forEach(function (s) { s.disabled = true; });
+    vcDevHelpStatus('⏳ 적용 중…', '⏳ Applying…');
+    clearTimeout(st.timer);
+    st.timer = setTimeout(function () {
+        p.querySelectorAll('select').forEach(function (s) { s.disabled = false; });
+        vcDevHelpStatus('⚠ 결과 응답이 없어요 — 🔄 새로고침으로 상태를 다시 확인해 주세요.', '⚠ No result came back — press 🔄 to re-check.');
+    }, 10000);
+}
+function vcDevHelpOnList(data) {
+    var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
+    if (!st || !p || !data || data.fromUserId !== st.uid) return;
+    clearTimeout(st.timer);
+    var devs = data.devices || {};
+    var cur = data.current || {};
+    var map = { cam: [devs.cams || [], cur.cam, cur.camSaved], mic: [devs.mics || [], cur.mic, cur.micSaved], spk: [devs.spks || [], cur.spk, ''] };
+    p.querySelectorAll('select').forEach(function (sel) {
+        var k = sel.getAttribute('data-kind');
+        var arr = map[k][0];
+        sel.innerHTML = '';
+        arr.forEach(function (d) {
+            var o = document.createElement('option');
+            o.value = d.id; o.textContent = d.label || String(d.id).slice(0, 8);
+            sel.appendChild(o);
+        });
+        /* 지금 쓰는 장치 → 저장된 선택 순서로, 목록에 실제로 있는 첫 후보를 선택(vc-dock 과 같은 규칙) */
+        var want = [map[k][1], map[k][2]];
+        for (var i = 0; i < want.length; i++) {
+            if (!want[i]) continue;
+            var hit = false;
+            for (var j = 0; j < sel.options.length; j++) if (sel.options[j].value === want[i]) { hit = true; break; }
+            if (hit) { sel.value = want[i]; break; }
+        }
+        sel.disabled = !arr.length || (k === 'spk' && data.sinkOk === false);
+    });
+    if (data.sinkOk === false) vcDevHelpNote('ℹ 이 학생 기기는 스피커 원격 변경을 지원하지 않아요 (iPhone·iPad 등).', 'ℹ This device cannot switch speakers remotely (iPhone/iPad etc.).');
+    vcDevHelpStatus('✅ 목록을 받았어요 — 고르면 학생 기기에 바로 적용돼요.', "✅ Got the list — picking one applies instantly on the student's device.");
+}
+function vcDevHelpOnResult(data) {
+    var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
+    if (!st || !p || !data || data.fromUserId !== st.uid) return;
+    clearTimeout(st.timer);
+    p.querySelectorAll('select').forEach(function (s) { s.disabled = false; });
+    var lbl = data.label ? ' (' + data.label + ')' : '';
+    if (data.ok && data.reason === 'deferred')
+        vcDevHelpStatus('🖥 학생이 화면 공유 중 — 공유가 끝나면 새 카메라로 바뀌어요.', '🖥 Student is screen-sharing — the new camera applies when it ends.');
+    else if (data.ok)
+        vcDevHelpStatus('✅ 바꿨어요' + lbl, '✅ Changed' + lbl);
+    else if (data.reason === 'nosink')
+        vcDevHelpStatus('⚠ 이 기기는 스피커 원격 변경이 안 돼요 (iPhone·iPad 등).', '⚠ This device cannot switch speakers remotely (iPhone/iPad etc.).');
+    else
+        vcDevHelpStatus('⚠ 실패 — 학생 화면에 원인 안내가 떴어요 (권한 차단·다른 앱 점유 등). 학생에게 확인을 부탁하세요.',
+                        '⚠ Failed — the student saw the reason on their screen (permission blocked or another app using it). Ask them to check.');
+}
+/* 학생 타일 우측(💬 아래)에 🎛 버튼 — 강사·관리자에게만, 학생 박스에만 */
+function vcAddDevBtn(box, uid) {
+    try {
+        if (!box || !uid || uid === 'demoteacher') return;
+        if (!(typeof vcIsStaffNow === 'function' && vcIsStaffNow())) return;
+        if (typeof vcBoxIsStudent === 'function' && !vcBoxIsStudent(box)) return;
+        if (box.querySelector('.vc-devhelp-btn')) return;
+        vcDevHelpEnsureCss();
+        var en = (typeof getLang === 'function' && getLang() === 'en');
+        var btn = document.createElement('button');
+        btn.className = 'vc-devhelp-btn';
+        btn.type = 'button';
+        btn.textContent = '🎛';
+        btn.title = en ? "Device helper — see and switch this student's camera/mic/speaker"
+                       : '장치 도우미 — 이 학생의 카메라·마이크·스피커를 보고 바꿔 줍니다';
+        btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var lbl = box.querySelector('.video-label');
+            window.vcOpenDevHelp(uid, ((lbl && lbl.textContent) || '').trim());
+        });
+        box.style.position = box.style.position || 'relative';
+        box.appendChild(btn);
+    } catch (_) {}
+}
+
 /** 참가자 퇴장 시 비디오 및 연결 제거 */
 /* 🇵🇭 (2026-07-24) 순단(dropped) 유령 타일 정리 시간 — 이 시간 안에 재접속하지 않으면 타일을 치운다.
    서버는 재접속마다 '새 userId' 를 발급하므로, 옛 타일을 그냥 두면 영원히 남는다.
@@ -5866,6 +6156,7 @@ async function vcLeaveRoom() {
     // 🧹 (2026-07-24 재점검) 남아 있는 '재연결 중' 유령 타일 + 종료 안내 배너 정리.
     //   안 지우면 SPA 로 홈에 갔다가 곧바로 재입장했을 때 지난 수업의 잔재가 새 화면에 남는다.
     try { vcSweepGhostTiles(); } catch(_) {}
+    try { vcDevHelpClose(); } catch(_) {}   // 🎛 장치 도우미 패널 — 다음 수업에 남지 않게
     try { const _n = document.getElementById('vc-conn-notice'); if (_n) _n.remove(); } catch(_) {}
     // ── 자동 녹화 중이면 먼저 중지하고 R2 업로드 완료까지 대기 ──
     let vcRecResult = null;
@@ -6197,6 +6488,7 @@ async function vcSwitchMic(deviceId) {
         if (typeof vcMicOn === 'undefined' || vcMicOn) { try { startMicLevelMeter(); } catch(e){} }
         await vcPopulateMicSelect();
         console.log('[mic-switch] ✅ 마이크 전환 완료:', newTrack.label);
+        return true;    // 🎛 (2026-08-10) 장치 도우미(원격 설정)가 결과를 강사에게 보고할 때 쓴다
     } catch (e) {
         console.error('[mic-switch] 실패:', e);
         const msg = (e && e.name === 'NotAllowedError') ? '브라우저 마이크 권한이 차단되어 있습니다.' :
@@ -6204,6 +6496,7 @@ async function vcSwitchMic(deviceId) {
                     '마이크 전환 실패: ' + (e && e.message || e);
         alert('🎙 ' + msg);
         try { await vcPopulateMicSelect(); } catch(e2){}
+        return false;
     }
 }
 window.vcSwitchMic = vcSwitchMic;
@@ -6235,7 +6528,7 @@ window.vcSetCamDevice = async function(deviceId){
        여기서 카메라로 바꾸면 학생 화면에서 공유가 끊긴다. 선택만 저장해 두고 공유가 끝나면 적용된다. */
     if (window.__vcScreenSharing) {
         try { if (typeof showToast === 'function') showToast('📷 화면 공유가 끝나면 새 카메라로 바뀝니다.'); } catch(e){}
-        return;
+        return 'deferred';   // 🎛 장치 도우미: "지금은 못 바꾸고 공유 끝나면 적용" 을 강사에게 그대로 알린다
     }
     const mobile = window.matchMedia('(max-width: 920px)').matches
                    || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
@@ -6257,11 +6550,11 @@ window.vcSetCamDevice = async function(deviceId){
                       : (e2 && (e2.name === 'NotReadableError' || e2.name === 'TrackStartError')) ? '다른 앱(Zoom·Teams·카메라 앱 등)이 이 카메라를 쓰고 있습니다. 그 앱을 끄고 다시 선택해 주세요.'
                       : '카메라 전환 실패: ' + ((e2 && e2.message) || e2);
             alert('📷 ' + msg);
-            return;
+            return false;
         }
     }
     const newTrack = stream.getVideoTracks()[0];
-    if (!newTrack) { alert('📷 선택한 카메라에서 영상 트랙을 얻지 못했습니다.'); return; }
+    if (!newTrack) { alert('📷 선택한 카메라에서 영상 트랙을 얻지 못했습니다.'); return false; }
     newTrack.enabled = (typeof vcCamOn === 'undefined') ? true : !!vcCamOn;   // 카메라 OFF 상태 존중
     if (!vcLocalStream) vcLocalStream = new MediaStream();
     vcLocalStream.getVideoTracks().forEach(old => {
@@ -6294,7 +6587,38 @@ window.vcSetCamDevice = async function(deviceId){
     try { __vcCamMutedTicks = 0; } catch(e){}   // 자가치유가 교체 직후를 '이상'으로 오인하지 않게
     console.log('[cam-switch] ✅ 카메라 전환 완료:', newTrack.label);
     try { if (typeof showToast === 'function') showToast('📷 ' + (newTrack.label || '카메라') + ' 로 바꿨어요.'); } catch(e){}
+    return true;    // 🎛 (2026-08-10) 장치 도우미(원격 설정) 결과 보고용
 };
+
+/* 🔊 (2026-08-10 장치 도우미) 스피커(출력 장치) 전환 — 지금 재생 중인 모든 원격 소리에 적용.
+   setSinkId 는 크롬·엣지·파이어폭스(116+)만 지원, iOS 사파리는 아예 없다 → 미지원이면 false.
+   새로 생기는 원격 타일·보조 오디오는 만들 때 vcApplySavedSink 로 같은 스피커를 물려받는다. */
+const VC_SPK_PREF_KEY = 'mangoi_vc_spk_id';
+function vcSavedSpkId(){ try { return localStorage.getItem(VC_SPK_PREF_KEY) || ''; } catch(e){ return ''; } }
+window.vcSetSpkDevice = async function(deviceId){
+    if (!deviceId) return false;
+    if (!('setSinkId' in HTMLMediaElement.prototype)) return false;
+    try { localStorage.setItem(VC_SPK_PREF_KEY, deviceId); } catch(e){}
+    let okAny = false, failAny = false;
+    const els = document.querySelectorAll('#vc-video-grid video, audio[id^="vc-aud-"]');
+    for (const el of els) {
+        if (el.closest && el.closest('#vc-local-box')) continue;   // 내 미리보기는 영구 음소거 — 건드릴 이유 없음
+        try { await el.setSinkId(deviceId); okAny = true; }
+        catch (e) { failAny = true; console.warn('[spk-switch] setSinkId 실패:', e && e.name); }
+    }
+    // 타일이 아직 없어도(수업 초반) 저장은 됐고 이후 타일이 물려받으므로 성공으로 친다
+    const ok = !failAny || okAny;
+    if (ok) console.log('[spk-switch] ✅ 스피커 전환:', deviceId === 'default' ? '기본 장치' : deviceId.slice(0, 8) + '…');
+    return ok;
+};
+/* 새로 만들어지는 <video>·<audio> 가 저장된 스피커 선택을 물려받게 한다(원격 타일 생성부에서 호출). */
+function vcApplySavedSink(el){
+    try {
+        const id = vcSavedSpkId();
+        if (!id || !el || typeof el.setSinkId !== 'function') return;
+        const p = el.setSinkId(id); if (p && p.catch) p.catch(()=>{});
+    } catch(e){}
+}
 
 /** 🔇 잡음 제거 on/off — 살아있는 트랙에 먼저 적용하고, 안 먹는 브라우저는 재획득으로 확실히 반영 */
 window.vcSetNoiseSuppression = async function(on){
