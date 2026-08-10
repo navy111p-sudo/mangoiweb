@@ -63,11 +63,21 @@ for (const f of files) {
     if (usesPuppeteer(body)) { rows.push({ f, cat: 'SKIP', note: '⏭ E2E(fast 제외)' }); continue; }
   }
   process.stdout.write('  ▶ ' + f + ' … ');
-  let [cat, note] = runHarness(f);
+  let [cat, note, out] = runHarness(f);
   // 일시적 라이브 blip(동시 배포 등) 흡수: 실패면 1회 재시도, 두 번 실패해야 진짜 FAIL
-  if (cat === 'FAIL') { const [c2, n2] = runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; } }
-  rows.push({ f, cat, note });
+  if (cat === 'FAIL') { const [c2, n2, o2] = runHarness(f); if (c2 !== 'FAIL') { cat = c2; note = n2 + ' (재시도 통과)'; out = o2; } }
+  rows.push({ f, cat, note, out });
   console.log(note);
+  // 🔊 실패하면 «왜» 를 여기서 바로 보여 준다.
+  //   그전엔 분류만 찍고 하니스 출력을 버렸다. 로컬에서는 그 하니스를 직접 다시 돌리면 되지만
+  //   **CI 에서는 그럴 수가 없다** — 2026-08-10 에 CI 만 실패했을 때 로그에 이유가 한 줄도 없어
+  //   원인을 추측으로 좁혀야 했다. 진단 없는 게이트는 사람을 막을 뿐 돕지 않는다.
+  if (cat === 'FAIL') {
+    const tail = String(out || '').split('\n').filter(l => l.trim()).slice(-14);
+    console.log('    ┌─ 실패 출력(마지막 14줄) ' + '─'.repeat(24));
+    tail.forEach(l => console.log('    │ ' + l.slice(0, 160)));
+    console.log('    └' + '─'.repeat(48));
+  }
 }
 
 function runHarness(f) {
@@ -84,18 +94,18 @@ function runHarness(f) {
   //   (실제 소스/fetch 하니스는 puppeteer 를 안 쓰므로 이 완화에 안 걸린다 = 진짜 FAIL 은 그대로 FAIL)
   let harnessBody = ''; try { harnessBody = readFileSync(join(__dir, f), 'utf8'); } catch {}
   const isE2E = usesPuppeteer(harnessBody);
-  if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E'];
+  if (timedOut) return ['SKIP', '⏱  timeout(90s) — netem 다중클라이언트 E2E', out];
   // ⚠️ 2026-08-09 수정 — 이 완화들은 **E2E 하니스에만** 적용한다.
   //   그전엔 E2E 여부를 안 보고 crash 면 무조건 SKIP 이었다. 그래서
   //   순수 소스/fetch 하니스가 «Cannot read properties» 같은 **진짜 버그**로 죽어도
   //   SKIP 으로 내려가 초록불이 됐다 — 경보기 안에 있던 경보기 고장이다.
   //   E2E 가 아닌 하니스가 죽으면 그건 브라우저 환경 탓이 아니라 코드 탓이다 → FAIL.
   if (crash) return isE2E
-    ? ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)']
-    : ['FAIL', '⚠  하니스가 오류로 죽음(E2E 아님 — 코드 문제)'];
-  if (r.status === 0 && !failCount) return ['PASS', '✅'];
-  if (isE2E) return ['SKIP', '⏭  E2E(브라우저는 떴으나 활성 수업 상태 필요 — 헤드리스 불가)'];
-  return ['FAIL', '⚠  실제 확인 필요'];
+    ? ['SKIP', '⏭  E2E(로컬서버/활성 화상수업 상태 필요)', out]
+    : ['FAIL', '⚠  하니스가 오류로 죽음(E2E 아님 — 코드 문제)', out];
+  if (r.status === 0 && !failCount) return ['PASS', '✅', out];
+  if (isE2E) return ['SKIP', '⏭  E2E(브라우저는 떴으나 활성 수업 상태 필요 — 헤드리스 불가)', out];
+  return ['FAIL', '⚠  실제 확인 필요', out];
 }
 if (served) server.close();
 

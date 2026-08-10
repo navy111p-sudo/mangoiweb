@@ -59,13 +59,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # 24 이상이어야 한다 — 낮추지 말 것.
-          #   회귀 하니스 9개가 src/*.ts 를 **직접 import** 해서 순수 모듈을 실행한다
-          #   (once_per_isolate · ddl_once · judgment_* · org_settlement · cafe24_sync 등).
-          #   Node 는 22.6 부터 타입 벗기기를 지원하고 23.6+/24 부터 기본으로 켜진다.
-          #   20 에서는 그 import 가 통째로 실패한다.
-          #   2026-08-10: 20 인 채로 하니스 게이트를 붙였다가 배포가 막혔다 —
-          #   로컬(Node 24)에서만 확인하고 CI 환경에서 확인하지 않은 실수였다.
+          # 24 이상이어야 한다 — 낮추지 말 것. 검사와 배포가 이제 같은 Node 를 쓴다(둘 다 24).
+          #   ① 회귀 하니스 9개가 src/*.ts 를 **직접 import** 해서 순수 모듈을 실행한다
+          #      (once_per_isolate · ddl_once · judgment_* · org_settlement · cafe24_sync 등).
+          #      Node 는 22.6 부터 타입 벗기기를 지원하고 23.6+/24 부터 기본으로 켜진다. 20 에선 실패.
+          #   ② 배포 단계(wrangler-action)의 npm ci 도 24 에서 돈다 — 2026-08-10 에
+          #      @cloudflare/workers-types 를 ^4 → ^5 로 올려 npm 11 의 peer 충돌을 없앴다.
+          #      (그전엔 배포만 Node 20 으로 되돌려야 했다. 이제 그 분리가 필요 없다.)
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
