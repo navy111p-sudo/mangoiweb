@@ -22,12 +22,24 @@ function check(name, cond) { if (cond) { PASS++; } else { FAIL++; FAILS.push(nam
 // ═══ 0) esbuild 로 api-admin.ts 번들 ═══
 const outDir = mkdtempSync(join(tmpdir(), 'mangoi-h-'));
 const outFile = join(outDir, 'api-admin.bundle.mjs');
-execFileSync(process.execPath, [
-  join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'),
-  join(CF, 'src', 'api-admin.ts'),
-  '--bundle', '--format=esm', '--platform=neutral', '--target=es2022',
-  `--outfile=${outFile}`,
-], { stdio: ['ignore', 'ignore', 'inherit'] });
+try {
+  execFileSync(process.execPath, [
+    join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'),
+    join(CF, 'src', 'api-admin.ts'),
+    '--bundle', '--format=esm', '--platform=neutral', '--target=es2022',
+    `--outfile=${outFile}`,
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  } catch (e) {
+    // 🔊 (2026-08-10) esbuild 가 왜 실패했는지 반드시 남긴다.
+    //   그전엔 stderr 를 'inherit' 로 흘려보내 러너 로그에 섞였고, CI 에서는
+    //   「실제 확인 필요」 한 줄만 남아 원인을 추측으로 좁혀야 했다.
+    const msg = (e && (e.stderr ? String(e.stderr) : e.message)) || String(e);
+    console.log('  ❌ esbuild 번들 실패 — 이 하니스는 esbuild 가 있어야 돕니다');
+    msg.split(/\r?\n/).filter(Boolean).slice(-6).forEach((l) => console.log('     ' + l));
+    console.log('');
+    console.log('  1 FAIL (esbuild 사용 불가)');
+    process.exit(1);
+  }
 const { handleAdminApi } = await import(pathToFileURL(outFile).href);
 console.log('— api-admin.ts 실번들 로드 완료 —');
 
