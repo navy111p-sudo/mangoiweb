@@ -79,6 +79,21 @@ check('고르면 «그 주» 로 실제 이동한다 (배선 없으면 장식일
 check('PC 직접입력용 이동 버튼도 있다', /id="wk-go"/.test(thtml));
 check('한/영 라벨', /data-en="Jump to date"/.test(thtml));
 
+console.log('\n[ ④ 교재를 잘못 골랐을 때 목록에서 뺄 수 있다 ]');
+const main = rd('../cloudflare-deploy/public/js/idx-main.js');
+const pl = main.slice(main.indexOf('async function pdfTogglePageList'), main.indexOf('window.pdfTogglePageList ='));
+check('페이지마다 빼기(✕) 버튼이 있다', /data-del="/.test(pl));
+check('«교재 잘못 골랐나요» 통째 비우기 버튼이 있다', /data-clearseq="1"/.test(pl));
+check('🔴 서버 파일을 지우지 않는다 (DELETE 요청이 없다)',
+  !/method:\s*['"]DELETE['"]/.test(pl) && !/textbook-files\/\d*\/?delete/.test(pl));
+check('🔴 내 화면 목록(_libSequence)만 건드린다', /_libSequence\s*=\s*\[\]/.test(pl) && /s\.splice\(i, 1\)/.test(pl));
+check('보던 위치를 잃지 않게 인덱스를 맞춘다', /if \(i < cur\) cur--/.test(pl));
+check('통째로 비울 땐 확인을 받는다', /window\.confirm\(/.test(pl));
+check('«파일은 안 지워진다» 를 사용자에게 알린다',
+  /파일은 지워지지 않습니다|the file is not deleted|NOT deleted/i.test(pl));
+check('비운 뒤 바로 교재를 고르게 도와준다', /openTextbookLibrary\(\)/.test(pl));
+check('한/영 둘 다', /Wrong book\? Clear this list/.test(pl) && /교재를 잘못 골랐나요/.test(pl));
+
 console.log('\n[ 🧪 헛통과 방지 ]');
 check('가짜 브라우저에서 판정 함수가 실제로 돌았다',
   typeof ctx.window.__libIsRetiredCourse === 'function' && typeof c2.window.__t === 'function');
