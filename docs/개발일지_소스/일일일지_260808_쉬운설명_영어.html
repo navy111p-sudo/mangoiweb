@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mangoi Daily Log — 8 August 2026</title>
+<style>
+  @page { size: A4; margin: 15mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    font-size: 11pt; line-height: 1.7; color: #1e293b; margin: 0;
+  }
+  .head { border-bottom: 3px solid #f59e0b; padding-bottom: 10px; margin-bottom: 18px; }
+  .head h1 { margin: 0; font-size: 19pt; color: #78350f; font-weight: 800; }
+  .head p { margin: 4px 0 0; font-size: 10pt; color: #64748b; }
+  h2 {
+    font-size: 13.5pt; color: #0f172a; margin: 22px 0 10px;
+    padding: 7px 12px; background: #fef3c7; border-left: 5px solid #f59e0b; border-radius: 0 8px 8px 0;
+  }
+  h3 { font-size: 11.5pt; color: #b45309; margin: 16px 0 6px; }
+  p { margin: 8px 0; }
+  .lead {
+    background: #1e3a8a; color: #fff; padding: 14px 16px; border-radius: 12px;
+    font-size: 11.5pt; line-height: 1.65; margin-bottom: 16px;
+  }
+  .lead b { color: #fde68a; }
+  .box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 12px 15px; margin: 12px 0; }
+  .box-q { background: #eff6ff; border-color: #93c5fd; }
+  .box-a { background: #f0fdf4; border-color: #86efac; }
+  .box-w { background: #fffbeb; border-color: #fcd34d; }
+  .box b.tag { display: block; font-size: 10pt; margin-bottom: 5px; color: #1d4ed8; }
+  .box-a b.tag { color: #15803d; }
+  .box-w b.tag { color: #b45309; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10.5pt; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px 9px; text-align: left; }
+  th { background: #f1f5f9; font-weight: 800; color: #0f172a; }
+  td.n { text-align: center; font-weight: 800; }
+  .good { color: #15803d; }
+  .bad { color: #b91c1c; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  .quiet { color: #64748b; font-size: 10pt; }
+  h2, h3 { page-break-after: avoid; }
+  table, tr { page-break-inside: avoid; }
+  .end { margin-top: 22px; padding: 12px 15px; background: #fef3c7; border-radius: 10px; font-size: 10.5pt; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Mangoi Daily Log — Saturday, 8 August 2026</h1>
+  <p>Written in plain language · readable by a 15-year-old · midnight to 5 a.m.</p>
+</div>
+
+<div class="lead">
+  <b>Today in one sentence</b> — Our English pronunciation practice was giving <b>high scores even when you mumbled.</b>
+  Digging in, the scoring maths was not wrong — <b>the measuring tool was never measuring pronunciation at all.</b>
+  So we replaced the tool.
+</div>
+
+<h2>1. What was wrong</h2>
+
+<p>Mangoi has a feature called <b>"Voice Coach."</b> A student reads an English sentence out loud,
+an AI listens, and it gives a score.</p>
+
+<p>But if you <b>deliberately mumbled, the score stayed high.</b> A student would then think
+"I'm doing fine" and move on. <b>It is a practice tool where no practice happens.</b></p>
+
+<div class="box box-q">
+  <b class="tag">First thing we did</b>
+  We did not guess. We <b>recorded the same sentence 20 times and measured the numbers directly</b> —
+  clear readings and mumbled readings, side by side.
+</div>
+
+<h2>2. The real cause — measuring temperature with a tape measure</h2>
+
+<p>Here is how the score was built. When a student speaks, a <b>dictation AI</b> turns the sound into text.
+That AI also reports <b>"how confident I am in what I wrote."</b> We were using
+<b>that confidence number as the pronunciation score.</b></p>
+
+<p>There is a trap in this. A dictation AI is trained to <b>guess from context</b> —
+the same way you understand a friend even when you only half hear them.</p>
+
+<div class="box">
+  <b class="tag">What the measurements showed</b>
+  <table>
+    <tr><th>Sentence read</th><th>Clearly</th><th>Mumbled</th><th>Gap</th></tr>
+    <tr><td>Thank you very much for your help.</td><td class="n">-0.29</td><td class="n">-0.37</td><td class="n bad">almost none</td></tr>
+    <tr><td>I love studying English with <b>Mangoi</b>.</td><td class="n">-0.44</td><td class="n">-0.82</td><td class="n good">wide open</td></tr>
+  </table>
+  <p class="quiet" style="margin-bottom:0">"Thank you very much for your help" is one of the most common sentences in English.
+  The dictation AI <b>gets it right almost without listening</b> — so it stays confident even when you mumble.<br>
+  <b>"Mangoi" is a word that AI does not know</b>, so it cannot guess. It has to actually listen,
+  and mumbling showed up immediately.</p>
+</div>
+
+<p><b>So what we were measuring was not "how well you pronounce" but "how common the sentence is."</b>
+We were holding a tape measure and trying to read a temperature. No amount of re-marking the scale gives you degrees.</p>
+
+<h2>3. How we fixed it — we changed the tool</h2>
+
+<p>We needed something that measures the sound <b>phoneme by phoneme.</b> A phoneme is the smallest
+unit of speech sound. <b>studying</b>, for example, is made of small sound pieces —
+and this checks whether each piece was actually produced. Context cannot paper over that.</p>
+
+<h3>We compared four vendors</h3>
+
+<table>
+  <tr><th>Vendor</th><th>Billing</th><th>Chinese</th><th>Monthly cost at our volume</th></tr>
+  <tr><td><b>Azure</b> (Microsoft)</td><td>per second</td><td class="n good">yes</td><td class="n"><b>$0</b> (free tier)</td></tr>
+  <tr><td>SpeechSuper</td><td>per request</td><td class="n good">yes</td><td class="n">~$20</td></tr>
+  <tr><td>Speechace</td><td>per 15 seconds</td><td class="n bad">no</td><td class="n">~$40</td></tr>
+  <tr><td>Language Confidence</td><td>per 15 seconds</td><td class="n">unstated</td><td class="n">~$100</td></tr>
+</table>
+
+<div class="box box-a">
+  <b class="tag">Three reasons Azure won</b>
+  <ol style="margin-top:4px">
+    <li><b>The billing shape fits us.</b> One sentence takes our students 3–7 seconds.
+      The others <b>bill in 15-second blocks</b> — say five seconds, pay for fifteen. <b>You throw away 3×.</b></li>
+    <li><b>Chinese is supported.</b> Mangoi already runs a Chinese voice coach; Speechace is English-only.</li>
+    <li><b>There is a server in Korea.</b> Student voices <b>never leave the country</b> — these are minors.</li>
+  </ol>
+</div>
+
+<h3>It was not one problem but four layers</h3>
+
+<table>
+  <tr><th>#</th><th>What was wrong</th><th>What we did</th></tr>
+  <tr><td class="n">1</td><td>Nobody ever touched the <b>bottom half of the scale</b><br>
+    <span class="quiet">Zero sat at "heard nothing at all", not at "pronounced badly"</span></td>
+    <td>Re-drew the scale against the real spread</td></tr>
+  <tr><td class="n">2</td><td>We measured the <b>AI's confidence</b>, not pronunciation</td>
+    <td><b>Replaced the tool</b> with Azure, which measures phonemes</td></tr>
+  <tr><td class="n">3</td><td>Students <b>lost marks for our dictation errors</b><br>
+    <span class="quiet">"Mangoi" written as MongoEye, Mangguay, and so on</span></td>
+    <td>Score against the more accurate transcript</td></tr>
+  <tr><td class="n">4</td><td>Pronunciation 84 still printed <b>"Perfect!"</b></td>
+    <td>"Perfect" now needs 90 or above</td></tr>
+</table>
+
+<div class="box box-w">
+  <b class="tag">I made a mistake of my own along the way</b>
+  Fixing #3 pinned the <b>accuracy score at 100 every time.</b>
+  Azure listens aligned to the model sentence, so the <b>words</b> come out even when you mumble.
+  <b>We removed the unfair penalty but killed the signal with it.</b><br>
+  → Replaced text comparison with <b>"how many words were actually voiced properly."</b>
+  This too was found <b>by re-measuring the recordings, not by guessing.</b>
+</div>
+
+<h2>4. The result — it really does separate</h2>
+
+<p>Verified on <b>four real recordings</b> of the same sentence read different ways.</p>
+
+<table>
+  <tr><th>How it was read</th><th>Accuracy</th><th>Pron.</th><th>Flow</th><th>Overall</th><th>Grade</th></tr>
+  <tr><td>Clear and careful</td><td class="n">100</td><td class="n">92</td><td class="n">99</td><td class="n">98</td><td class="n good">S Perfect</td></tr>
+  <tr><td>Normal</td><td class="n">83</td><td class="n">88</td><td class="n">94</td><td class="n">86</td><td class="n good">A Excellent</td></tr>
+  <tr><td>Mumbled</td><td class="n">33</td><td class="n">58</td><td class="n">48</td><td class="n">42</td><td class="n bad">D Try again</td></tr>
+  <tr><td>Heavily mumbled</td><td class="n">33</td><td class="n">42</td><td class="n">45</td><td class="n">37</td><td class="n bad">D Try again</td></tr>
+</table>
+
+<p>Look at the third row. <b>Only a third of the words were properly voiced</b> —
+and before today that scored <b>"Excellent."</b> Now it reads <b>"Let's try again."</b></p>
+
+<h3>We changed the student screen too</h3>
+
+<p>Four numbers alone leave a student asking <b>"so what do I fix?"</b>
+So the sentence now <b>opens up word by word.</b></p>
+
+<div class="box">
+  <p style="margin-top:0"><b>What the screen shows</b></p>
+  <p style="font-family:Consolas,monospace;font-size:10pt;line-height:2;margin:6px 0">
+  [ I 95 ] [ love 92 ] <span class="bad">[ studying 41 ]</span> [ English 88 ]
+  <span class="quiet">[ with skipped ]</span> [ Mangoi 72 ]</p>
+  <p style="margin-bottom:0">→ <b>Try studying once more — you're close!</b><br>
+  <span class="quiet">Tap any word and it plays that word in a native voice.</span></p>
+</div>
+
+<ul>
+  <li><b>Three colours only</b> — good / almost / try again. Beyond three, the eye stops reading it.</li>
+  <li>It points at <b>one</b> weak spot. Listing several is discouraging.</li>
+  <li>The wording is <b>always hopeful</b> — not "wrong" but "you're close."</li>
+</ul>
+
+<h2>5. Five walls on the way in</h2>
+
+<p>Connecting the new tool did not go smoothly. We hit five walls, and
+<b>each time we left a note explaining why.</b></p>
+
+<ol>
+  <li><b>Only 2 characters of the password went in.</b> The paste failed and <b>nothing on screen said so.</b>
+    Worse, Azure answers this with <b>a refusal carrying no explanation</b> rather than "wrong password."
+    → It now says <b>"the key is too short"</b> straight away.</li>
+  <li><b>Calling two things at once broke it.</b> To be fast we ran "dictation" and "scoring" together,
+    and it failed erratically. → We run them <b>in order.</b> Half a second slower, and reliable.</li>
+  <li><b>Azure does not accept the browser's recording format.</b> Sent as-is,
+    <b>the scoring is silently skipped with no sign on screen.</b>
+    → The same microphone now also produces <b>the format Azure accepts.</b></li>
+  <li><b>Azure's simple endpoint ignored the scoring request entirely.</b> It understood the sentence
+    perfectly and returned everything <b>except the score.</b>
+    → We moved to running the <b>official toolkit inside the student's browser.</b></li>
+  <li><b>Every failure was silent.</b> When it didn't work, no reason was recorded anywhere,
+    so <b>all you can do is guess.</b> → Every failure now <b>records why.</b>
+    That single change is what made the last two problems quick to find.</li>
+</ol>
+
+<div class="box box-a">
+  <b class="tag">What this taught us</b>
+  <b>The worst state is "it doesn't work and nobody knows why."</b> Spending a little time
+  making failures explain themselves pays for itself almost immediately.
+</div>
+
+<h2>6. An unexpected find</h2>
+
+<div class="box">
+  <p style="margin-top:0"><b>The new tool also <em>hears</em> far better.</b></p>
+  <table>
+    <tr><th>What the student said</th><th>Our current dictation</th><th>Azure</th></tr>
+    <tr><td>… with <b>Mangoi</b></td>
+      <td class="bad">MongoEye · my whole eye · Mangguay · MungoI · manguide</td>
+      <td class="n good"><b>Mangoi</b></td></tr>
+  </table>
+  <p style="margin-bottom:0">On the same audio, <b>ours never got it right once; Azure got it exactly.</b>
+  Moving <b>dictation itself</b> to Azure is worth considering.</p>
+</div>
+
+<h2>7. Today in numbers</h2>
+
+<table>
+  <tr><th>Item</th><th>Result</th></tr>
+  <tr><td>Changes saved</td><td class="n">15</td></tr>
+  <tr><td>Times pushed to the live service</td><td class="n">12</td></tr>
+  <tr><td>New automated checks written</td><td class="n">80</td></tr>
+  <tr><td>All automated checks</td><td class="n good">105 passed · 0 failed</td></tr>
+  <tr><td>Verified on real recordings</td><td class="n good">clear S / normal A / mumbled D</td></tr>
+</table>
+
+<p class="quiet"><b>What is an "automated check"?</b> Nobody can eyeball everything every time,
+so we write down "this must always be true" and let the computer verify it.
+The four recordings we measured today are <b>written into those checks.</b>
+If someone later breaks this part, <b>those four light up red first.</b></p>
+
+<h2>8. Still to do</h2>
+
+<ul>
+  <li><b>Replace the password</b> — it appeared in a screen capture during the work.
+    Harm is limited on the free tier, but it should be changed.</li>
+  <li><b>Check whether the bar is too strict for real students.</b> The adult tested today reached 92,
+    but <b>a primary schooler will rarely reach 92.</b> If most land in A–B that is right;
+    if they pile up in C–D we must lower it. <b>Only real usage data can settle this.</b></li>
+  <li><b>Decide whether the Chinese voice coach gets the same.</b> That screen records and scores
+    a completely different way, so it would need rebuilding — doable, but a separate day's work.</li>
+</ul>
+
+<div class="end">
+  <b>Closing</b> — the important thing today was not "which score went up or down."
+  It was discovering that <b>what we believed we were measuring and what we were actually measuring
+  were two different things</b> — and confirming it <b>with real recordings and real numbers,
+  not with guesswork.</b> The two mistakes I made while fixing it were found the same way.
+</div>
+
+</body>
+</html>
