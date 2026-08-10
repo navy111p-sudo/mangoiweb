@@ -1311,8 +1311,8 @@ const worker = {
         path === '/api/referral/use' ||
         path === '/api/admin/referrals' ||
         path === '/api/admin/referrals/stats' ||
-        // 📊 Phase CR — 자녀 성장 비교 리포트
-        path === '/api/report/comparison' ||
+        // 📊 (2026-08-11 삭제) 자녀 성장 비교(/api/report/comparison) 게이트 등록 제거.
+        //    핸들러가 없어 라이브 404 였다(반쪽 배선). UI 카드를 통째로 지우며 함께 제거.
         // 🌟 Phase NPS — 자동 NPS 설문
         path === '/api/admin/nps/send-monthly' ||
         path === '/api/nps/respond' ||

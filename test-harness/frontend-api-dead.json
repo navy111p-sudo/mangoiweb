@@ -6,8 +6,7 @@
     "/api/battle/decline",
     "/api/battle/incoming",
     "/api/battle/submit-score",
-    "/api/battle/word-set",
-    "/api/report/comparison"
+    "/api/battle/word-set"
   ],
   "call_sites": [
     {
@@ -41,10 +40,6 @@
     {
       "path": "/api/battle/word-set",
       "at": "js/idx-x4.js:290"
-    },
-    {
-      "path": "/api/report/comparison",
-      "at": "admin.html:6100"
     }
   ]
 }

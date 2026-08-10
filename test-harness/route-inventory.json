@@ -626,7 +626,6 @@
     "/api/referral/*",
     "/api/referral/my-code",
     "/api/referral/use",
-    "/api/report/comparison",
     "/api/report/monthly*",
     "/api/report/monthly-view",
     "/api/report/monthly/latest",
