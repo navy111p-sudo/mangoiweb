@@ -184,6 +184,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 </style>
 <script src="/js/game-track.js?v=3" defer></script>
 <script src="/js/session-guard.js" defer></script>
+<!-- 🎤 Azure 발음평가 공용 서비스 계층(영어 코치와 공유) — zh-CN 음소 평가 (2026-08-10) -->
+<script src="/js/speech-azure.js?v=1" defer></script>
 </head>
 <body>
 <div class="wrap">
@@ -1224,6 +1226,33 @@ async function speak(){
 
 /* ── 녹음 + 평가 ── */
 let recognition = null, recording = false;
+/* 🎤 (2026-08-10) Azure zh-CN 음소 발음평가 — 브라우저 STT 로 «들은 글자»를 보여주는 UX 는
+   그대로 두고, 같은 시간에 WAV(16k mono)를 병행 녹음해 말이 끝나면 Azure 로 채점한다.
+   지금까지는 인식된 글자가 목표 문장에 «포함되는지»만 세는 글자맞춤 점수였다 — 성조·발음이
+   틀려도 STT 가 알아서 교정하면 만점이 나온다. Azure 가 실패하면 옛 글자맞춤으로 그대로 복귀. */
+let _azRec = null, _azStream = null, _azCapTimer = null;
+function _azStartCapture(){
+  _azRec = null; _azStream = null;
+  if (!window.SpeechAzure || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(st){
+    if (!recording) { st.getTracks().forEach(function(t){ t.stop(); }); return; }  // 이미 끝났으면 바로 반납
+    _azStream = st;
+    var r = SpeechAzure.createRecorder();
+    if (r.start(st)) { _azRec = r; }
+    else { st.getTracks().forEach(function(t){ t.stop(); }); _azStream = null; }
+  }).catch(function(){ /* 마이크 획득 실패 — 옛 방식으로 계속 */ });
+  // ⏱ 문장 단위 과금 상한 15초 — 침묵 타이머와 별개의 최후 방벽(60초 초과 금지)
+  if (_azCapTimer) clearTimeout(_azCapTimer);
+  _azCapTimer = setTimeout(function(){ try { recognition && recognition.stop(); } catch(e){} }, 15000);
+}
+function _azStopCapture(){
+  if (_azCapTimer) { clearTimeout(_azCapTimer); _azCapTimer = null; }
+  var wav = null;
+  try { wav = _azRec ? _azRec.stopToWav() : null; } catch(e){}
+  try { if (_azStream) _azStream.getTracks().forEach(function(t){ t.stop(); }); } catch(e){}
+  _azRec = null; _azStream = null;
+  return wav;
+}
 function startRecord(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { alert('이 브라우저는 음성 인식을 지원하지 않습니다.\nChrome 또는 Edge 를 사용해 주세요.'); return; }
@@ -1241,6 +1270,7 @@ function startRecord(){
   btn.textContent = '🛑 녹음 중지'; btn.classList.add('recording');
   recording = true;
   document.getElementById('progress').textContent = '🎙 듣고 있어요…';
+  _azStartCapture();   // 🎤 Azure 발음평가용 WAV 병행 녹음(실패해도 옛 채점으로 계속)
 
   var _scSaid = '', _scBase = '', _scDone = false, _scSil = null;
   /* 말이 끝나고 조용해지면 종료. 아직 한 마디도 못 들었으면 넉넉히 기다린다(아이들은 오래 뜸들인다) */
@@ -1270,6 +1300,7 @@ function startRecord(){
   recognition.onerror = function(e){
     if (e.error === 'no-speech') return;      // 보호막이 다시 듣는다
     if (_scSil) clearTimeout(_scSil);
+    _azStopCapture();                          // 🎤 마이크 반납(WAV 는 버린다)
     stopRecord();
     document.getElementById('progress').textContent = '⚠️ 인식 실패: ' + (e.error || 'error');
   };
@@ -1280,18 +1311,37 @@ function startRecord(){
     if (_scDone) return;
     _scDone = true;
     var said = _scSaid;
-    if (!said) {
+    var wav = _azStopCapture();               // 🎤 병행 녹음 종료 — Azure 평가 입력
+    if (!said && !wav) {
       document.getElementById('progress').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요.';
       return;
     }
+    /* 옛 글자맞춤 점수 — Azure 실패 시 폴백으로만 쓴다 */
     var target = document.getElementById('cn-text').textContent.replace(/[,.。?!?!]/g, '').trim();
-    var saidClean = said.replace(/[,.。?!?!]/g, '').trim();
+    var saidClean = (said || '').replace(/[,.。?!?!]/g, '').trim();
     var match = 0;
     for (var i = 0; i < target.length; i++) {
       if (saidClean.includes(target[i])) match++;
     }
-    var score = target.length ? Math.min(100, Math.round((match / target.length) * 100)) : 0;
-    showResult(score, said);
+    var fallbackScore = target.length ? Math.min(100, Math.round((match / target.length) * 100)) : 0;
+    if (wav && window.SpeechAzure) {
+      document.getElementById('progress').textContent = '🤖 AI 발음 분석 중…';
+      var reference = document.getElementById('cn-text').textContent.trim();
+      SpeechAzure.trimWav(wav).then(function(t){
+        return SpeechAzure.assess({ wavBlob: t.blob, reference: reference, locale: 'zh-CN', rawSeconds: t.rawSec });
+      }).then(function(az){
+        if (az && az.ok) showResult(az.pron, said || az.text, az);
+        else if (said) showResult(fallbackScore, said);
+        else document.getElementById('progress').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요.';
+      }).catch(function(){
+        if (said) showResult(fallbackScore, said);
+        else document.getElementById('progress').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요.';
+      });
+    } else if (said) {
+      showResult(fallbackScore, said);
+    } else {
+      document.getElementById('progress').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요.';
+    }
   };
   /* 브라우저가 제멋대로 끊으면(안드로이드) 지금까지 들은 것을 유지한 채 다시 듣는다 */
   try { if (typeof MangoiSTT !== 'undefined') MangoiSTT.harden(recognition, { isDone: function(){ return _scDone; }, beforeRestart: function(){ _scBase = _scSaid; }, onRestart: _scArm }); } catch(e){}
@@ -1302,7 +1352,7 @@ function stopRecord(){
   const btn = document.getElementById('btn-rec');
   btn.textContent = '🎙 녹음 시작'; btn.classList.remove('recording');
 }
-function showResult(score, said){
+function showResult(score, said, az){
   const r = document.getElementById('result');
   r.classList.add('show');
   try { markSentenceDone(); } catch(e){}   // 채점 완료 → 이 문장 완료 체크
@@ -1311,6 +1361,11 @@ function showResult(score, said){
   if (score >= 85) fb = '✅ 정말 잘했어요! 원어민처럼 정확해요.\n인식: "' + said + '"';
   else if (score >= 60) fb = '👍 잘했어요! 조금만 더 또박또박.\n인식: "' + said + '"';
   else fb = '💪 다시 한번 도전!\n원어민 발음을 다시 들어보세요.\n인식: "' + said + '"';
+  // 🎤 Azure 음소 평가가 있으면 축별 점수를 함께 — 글자맞춤이 아니라 «실제 소리» 채점임을 보여준다
+  if (az && az.ok) {
+    fb = '🎯 정확도 ' + az.accuracy + ' · 흐름 ' + az.fluency
+       + (az.prosody != null ? ' · 운율 ' + az.prosody : '') + '\n' + fb;
+  }
   document.getElementById('feedback').textContent = fb;
   state.attempt = Math.min(3, state.attempt + 1);
   document.getElementById('progress').textContent = '시도 ' + state.attempt + '/3';

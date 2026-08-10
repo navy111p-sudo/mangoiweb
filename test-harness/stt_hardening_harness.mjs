@@ -281,7 +281,10 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
 console.log('\n▶ speech-coach-cn.html — 말이 끝나야 채점하는가');
 {
   const html = readFileSync(join(PUB, 'speech-coach-cn.html'), 'utf8');
-  const s = html.indexOf('function startRecord(){');
+  /* (2026-08-10) Azure 병행녹음 헬퍼(_azStartCapture/_azStopCapture)가 startRecord 위에 생겨
+     함께 오려낸다 — sandbox 에는 window.SpeechAzure 가 없으므로 헬퍼는 안전하게 no-op 이고,
+     이 하니스가 지키는 «말이 끝나야 채점» 로직은 옛 글자맞춤 폴백 경로로 그대로 검증된다. */
+  const s = html.indexOf('let _azRec');
   const e = html.indexOf('\nfunction stopRecord(){', s);
   if (s < 0 || e < 0) { check('speech-coach-cn 블록 추출', false, '표지를 못 찾음'); }
   else {
