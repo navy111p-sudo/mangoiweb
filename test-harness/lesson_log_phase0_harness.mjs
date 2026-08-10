@@ -122,6 +122,79 @@ check('07시는 야간(보류)', quietAt(7) === true);
 check('08시는 발송 시간', quietAt(8) === false);
 check('15시(수업 한창)는 발송 시간', quietAt(15) === false);
 
+// ── ④ Phase 1 — 영어로 쓰면 한국어로 나간다 ────────────────────────────
+console.log('\n[4] 영어 → 학부모용 한국어 (mode=note)');
+
+check('translate 에 note 모드가 있다', /if \(b\.mode === 'note'\)/.test(SRC));
+check('🔑 한 번의 호출로 en·ko 를 함께 받는다 (두 번 부르지 않는다)',
+  /Reply with STRICT JSON only: \{"en":"<polished English>","ko":"<Korean for the parent>"\}/.test(SRC));
+check('🔒 학생 실명은 가려서 보낸다', /const MASK = '\{\{STUDENT\}\}'/.test(SRC) && /stuName \? raw\.split\(stuName\)\.join\(MASK\)/.test(SRC));
+check('🔒 돌아오면 실명을 되돌린다', /outEn\.split\(MASK\)\.join\(stuName\)/.test(SRC));
+check('🔴 한국어가 없으면 ok:false (화면이 발송을 막아야 한다)',
+  /const hasKo = \/\[가-힣\]\/\.test\(outKo\);[\s\S]{0,120}error: 'no_korean'/.test(SRC));
+check('존댓말을 강제한다', /The Korean MUST use polite speech/.test(SRC));
+check('어미 중첩(합니다요)을 코드로 교정한다', /\(습니다\|합니다\|입니다\|ㅂ니다\)요/.test(SRC));
+check('「숙제」 오역을 막는다', /"숙제" is school homework, never housework or a job/.test(SRC));
+check('단정적 표현·비교를 프롬프트에서 눌러 준다',
+  /Soften blunt or judgemental wording/.test(SRC) && /Never compare the child with other students/.test(SRC));
+check('⚠ note 모드는 chat 모드의 «첫 줄만» 처리를 타지 않는다 (일지가 잘리면 안 된다)',
+  SRC.indexOf("if (b.mode === 'note')") < SRC.indexOf('out.split(/\\r?\\n/)[0]'));
+check('⚠ note 모드는 KV 캐시를 쓰지 않는다 (자유서술은 재사용률 0)',
+  !/mode === 'note'[\s\S]{0,2500}kv\.put/.test(SRC));
+
+console.log('\n[5] 일지 본문 저장·발송');
+check('note_en/note_ko/note_chips 를 저장한다', /noteEn, noteKo, noteChips,/.test(SRC));
+check('컬럼 마이그레이션에 들어 있다', /\['note_en','TEXT'\],\['note_ko','TEXT'\],\['note_chips','TEXT'\]/.test(SRC));
+check('🔑 서버도 «한국어가 아니면» 발송을 막는다 (화면만 믿지 않는다)',
+  /error: 'note_not_korean'/.test(SRC) && /hangul < noteKo\.length \* 0\.3/.test(SRC));
+check('문자에 한국어 본문을 실어 보낸다 (링크만 보내면 안 읽는다)',
+  /학생의 오늘 수업 일지가 도착했어요[\s\S]{0,80}bodyKo\.slice\(0, 300\)/.test(SRC));
+check('밤에 미뤄 둔 것도 본문과 함께 나간다', /notify_phone, note_ko FROM student_evaluations/.test(SRC));
+
+console.log('\n[6] 강사 화면 — 실제 코드를 오려내 실행한다');
+// ⚠️ 미러 함수로 재구현하면 화면을 고쳐도 통과한다(이미 한 번 겪음).
+//    그래서 teacher.html 에서 규칙 본문을 «그대로 오려내» 실행한다.
+const banSrc = (TEACHER.match(/var BAN = \[[\s\S]*?\];/) || [''])[0];
+const pfSrc  = (TEACHER.match(/function preflight\(ko\)\{[\s\S]*?\n    \}/) || [''])[0];
+check('화면에서 자동 점검 규칙을 찾았다', banSrc.length > 0 && pfSrc.length > 0);
+
+let preflight = null;
+try {
+  // T() 는 화면의 번역 헬퍼 — 한국어를 돌려주게 두면 실제 문구 그대로 검사할 수 있다
+  preflight = new Function('T', banSrc + '\n' + pfSrc + '\nreturn preflight;')((en, ko) => ko);
+} catch (e) { console.log('  (실행 실패: ' + e.message + ')'); }
+check('규칙 함수를 실행할 수 있다', typeof preflight === 'function');
+
+if (typeof preflight === 'function') {
+  const ok = preflight('오늘 서연이가 과거형 질문을 잘 연습했습니다. 발음을 조금 더 보면 좋겠습니다.');
+  check('정상 문장은 차단도 경고도 없다', ok.hard.length === 0 && ok.soft.length === 0);
+
+  const eng = preflight('He did very well today and answered every question.');
+  check('🔴 영어가 그대로면 차단한다 (학부모는 한국어만 읽는다)', eng.hard.length === 1);
+
+  check('🔴 비어 있으면 차단한다', preflight('').hard.length === 1);
+
+  const blunt = preflight('오늘 도윤이가 게으르고 전혀 듣지 않았습니다.');
+  check('🟠 단정적 표현은 붙잡는다', blunt.hard.length === 0 && blunt.soft.length >= 1);
+  check('   같은 사유는 한 줄로만 (길면 안 읽는다)', blunt.soft.length === 1);
+
+  const cmp = preflight('도윤이가 다른 학생보다 못했습니다.');
+  check('🟠 다른 아이와 비교도 붙잡는다', cmp.soft.some(s => s.indexOf('비교') >= 0));
+
+  const mixed = preflight('오늘 도윤이가 게으르고 다른 학생보다 못했습니다.');
+  check('   사유가 둘이면 두 줄', mixed.soft.length === 2);
+}
+
+console.log('\n[7] 강사 화면 — 가볍게·안 멈추게');
+check('낙관적 저장 — 누르면 즉시 닫는다', /btn\.disabled = true;\s*\n\s*close\(\);/.test(TEACHER));
+check('실패하면 큐에 넣는다', /\.catch\(function\(\)\{ qPush\(payload\); \}\)/.test(TEACHER));
+check('다시 열 때 자동 재시도한다', /if \(!document\.hidden\) qFlush\(\);/.test(TEACHER));
+check('⚠ 외부 리소스 0개 계약 유지 (script src·link 없음)',
+  !/<script[^>]+src=/i.test(TEACHER) && !/<link[^>]+rel=["']?stylesheet/i.test(TEACHER));
+check('⚠ 애니메이션 금지 계약 유지 (transition·animation 없음)',
+  !/transition\s*:/i.test(TEACHER) && !/@keyframes/i.test(TEACHER));
+check('칩은 손가락 크기(44px 이상)', /\.tchip\{[\s\S]{0,220}min-height:44px/.test(TEACHER));
+
 // ── 결과 ───────────────────────────────────────────────────────────────
 console.log('\n──────────────────────────────────────────');
 console.log(`  총 ${PASS + FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

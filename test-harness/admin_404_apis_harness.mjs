@@ -35,7 +35,11 @@ try {
     //   「실제 확인 필요」 한 줄만 남아 원인을 추측으로 좁혀야 했다.
     const msg = (e && (e.stderr ? String(e.stderr) : e.message)) || String(e);
     console.log('  ❌ esbuild 번들 실패 — 이 하니스는 esbuild 가 있어야 돕니다');
-    msg.split(/\r?\n/).filter(Boolean).slice(-6).forEach((l) => console.log('     ' + l));
+    // ⚠️ 오류 «메시지» 는 맨 앞줄에 있고 그 뒤는 스택이다. 뒤에서 자르면 정작 이유가 잘린다
+    //    (2026-08-10 에 그렇게 잘라서 CI 사이클을 한 번 더 썼다). 스택이 아닌 줄을 앞에서 보여 준다.
+    const _l = msg.split(/\r?\n/).filter(Boolean);
+    const _m = _l.filter((x) => !/^\s*at /.test(x));
+    (_m.length ? _m : _l).slice(0, 8).forEach((x) => console.log('     ' + x));
     console.log('');
     console.log('  1 FAIL (esbuild 사용 불가)');
     process.exit(1);
