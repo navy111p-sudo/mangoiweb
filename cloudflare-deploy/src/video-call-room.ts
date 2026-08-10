@@ -181,6 +181,8 @@ export class VideoCallRoom {
         case 'tab-sync':             // 📡 교사 탭 전환 동기화 (칠판/동영상/교재 따라가기)
         case 'file-share':           // 📎 파일 공유 다운로드 카드 (워드/엑셀/PPT 등)
         case 'device-report':        // 🎧 (2026-08-07) 학생 → 강사: 마이크 재획득 결과. 대상 지정은 클라이언트가 id 로 거른다.
+        case 'device-list':          // 🎛 (2026-08-10) 학생 → 강사: 장치 도우미 — 내 카메라·마이크·스피커 목록 회신.
+        case 'device-set-result':    //    학생 → 강사: 장치 교체 결과(성공/실패/보류). 셋 다 수신측이 staff 여부로 거른다.
         case 'cam-state':            // 📷 (2026-07-24) 카메라 on/off 를 상대에게 알림.
                                      //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
@@ -206,12 +208,16 @@ export class VideoCallRoom {
           this.handleClassLock(userId, att, msg.type, msg.data as any);
           break;
         /* 🎧 (2026-08-07) 강사 → 특정 학생: "마이크를 다시 잡아 주세요".
-           ⚠️ 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 마이크를 원격으로
-              건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
-        case 'device-fix': {
+           🎛 (2026-08-10) 장치 도우미 확장 — 강사 → 특정 학생:
+              device-list-req = "장치 목록 보내줘", device-set = "이 장치로 바꿔줘".
+           ⚠️ 셋 다 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 카메라·마이크를
+              원격으로 건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
+        case 'device-fix':
+        case 'device-list-req':
+        case 'device-set': {
           const dfRole = (att.role || '').toLowerCase();
           if (!this.isJoined(userId) || (dfRole !== 'teacher' && dfRole !== 'admin')) break;
-          this.broadcast(userId, { type: 'device-fix', data: msg.data });
+          this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
