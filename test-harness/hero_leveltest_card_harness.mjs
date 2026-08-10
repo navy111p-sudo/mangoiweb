@@ -13,14 +13,20 @@
      그래야 «고쳤다» 가 아니라 «이 입력에 이 화면이 나온다» 를 말할 수 있다.
    ══════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 const HERE = dirname(fileURLToPath(import.meta.url));
 /* 🌐 배포 뒤에는 «라이브가 내려주는 그 HTML» 에 같은 검사를 돌린다.
    저장소가 옳아도 CDN 에 구버전이 남아 있으면 사용자가 보는 화면은 옛것이다.
      HERO_LT_HTML=<내려받은파일> node test-harness/hero_leveltest_card_harness.mjs */
-const SRC_PATH = process.env.HERO_LT_HTML || join(HERE, '../cloudflare-deploy/public/index.html');
-const HTML = readFileSync(SRC_PATH, 'utf8');
+// 분해 대응(2026-08-09): 이 IIFE 는 index.html 에서 /js/idx-leveltest-card.js 로 옮겨갔다.
+//   코드는 한 글자도 안 바뀌었지만 «파일 하나» 만 읽으면 못 찾는다.
+//   readPageSource 는 그 페이지가 로드하는 스크립트까지 이어붙여 준다.
+//   (HERO_LT_HTML 로 내려받은 파일을 직접 지정한 경우는 그 파일만 본다 — CDN 검증용 경로)
+const HTML = process.env.HERO_LT_HTML
+  ? readFileSync(process.env.HERO_LT_HTML, 'utf8')
+  : readPageSource('index.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
