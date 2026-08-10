@@ -159,7 +159,7 @@ export class VideoCallRoom {
           break;
         case 'chat-message':    this.handleChatMessage(userId, msg.data as any); break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
-        case 'whiteboard-clear':this.handleWhiteboardClear(userId); break;
+        case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
         case 'pdf-share':       await this.handlePdfShare(userId, msg.data as any); break;
         case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
         case 'pdf-stop-share':  await this.handlePdfStopShare(userId); break;
@@ -186,6 +186,11 @@ export class VideoCallRoom {
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
                                      //   6초마다 연결을 다시 맺으며 화면을 깜빡이게 만든다.
           if (!this.isJoined(userId)) break;
+          /* ✋ (2026-08-10) 필기 잠금 중 학생의 «그리기» 는 서버에서 버린다.
+             클라이언트 게이트(pointerdown/mousedown)는 콘솔로 우회할 수 있다.
+             포인터(pdf-pointer)·탭동기화·칭찬 등은 그리기가 아니므로 통과시킨다. */
+          if (this.lockState.drawLock && !this.isStaffAtt(att)
+              && (msg.type.startsWith('pdf-anno-') || msg.type.startsWith('whiteboard-'))) break;
           /* 🖍 (2026-08-08) 칠판에 «남는» 3종만 기록한다 — 늦게 들어온 사람에게 되돌려주기 위함.
              포인터(whiteboard-pointer)·교재 판서(pdf-anno-*)는 여기 대상이 아니다:
              포인터는 1.6초 뒤 사라지고, 교재 판서는 클라이언트가 페이지별로 따로 들고 있다. */
@@ -448,10 +453,20 @@ export class VideoCallRoom {
     this.broadcast(userId, { type: 'whiteboard-draw', data });
   }
 
-  private handleWhiteboardClear(userId: string): void {
+  /* ✋ (2026-08-10) 필기 잠금 중에는 학생이 칠판을 «지우는» 것도 막는다.
+     클라이언트 게이트만으로는 콘솔에서 wbClear() 를 부르면 그만이다 —
+     잠금 3종과 같은 이유로 판정은 소켓 attachment 의 role 로 한다. */
+  private handleWhiteboardClear(userId: string, att: VcAttachment): void {
     if (!this.isJoined(userId)) return;
+    if (this.lockState.drawLock && !this.isStaffAtt(att)) return;
     this.wbOps = [];
     this.broadcast(userId, { type: 'whiteboard-clear' });
+  }
+
+  /** 소켓 attachment 기준 강사·관리자 판정 — 학생이 위조 전송해도 통하지 않는다. */
+  private isStaffAtt(att: VcAttachment): boolean {
+    const r = (att?.role || '').toLowerCase();
+    return r === 'teacher' || r === 'admin';
   }
 
   /* 🖍 (2026-08-08 Ana③ · Kes① 「학생 펜이 강사 화면에 안 보인다」)

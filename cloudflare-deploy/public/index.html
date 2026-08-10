@@ -8216,7 +8216,7 @@ window.mgIsSlowNet = function(){
                 <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
                 <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
-                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">학생 필기 허용</button>
+                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">✋ 학생 필기 잠그기</button>
                 <!-- 🖥 (2026-07-30 Kaye 4번) 내 컴퓨터 화면을 학생에게 보여주기 — 교사·관리자에게만 보임 -->
                 <button id="vc-screenshare-btn" type="button" class="vc-classlock-chip" onclick="vcShareMyScreen()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#0ea5e9">내 화면 공유</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
@@ -8808,7 +8808,7 @@ window.mgIsSlowNet = function(){
      7. PDF 공유
      8. 채팅
 ================================================================ -->
-<script src="/js/idx-main.js?v=1"></script>
+<script src="/js/idx-main.js?v=2"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11341,7 +11341,7 @@ window.mgIsSlowNet = function(){
       <select id="tbf-lib-level" onchange="if(window.loadTextbookLibrary)loadTextbookLibrary()" title="교재 선택">
         <option value="">📚 전체 교재</option>
         <option value="Phonics">🔤 Phonics</option>
-        <option value="MES">🎯 MES</option>
+<!-- (2026-08-10) MES 제거 — 더 이상 사용하지 않는 교재군(강사 요청) -->
         <option value="BTS">🌟 BTS</option>
         <option value="SIU">🦁 SIU</option>
         <option value="마스터">🏆 중국어 마스터 3</option>
