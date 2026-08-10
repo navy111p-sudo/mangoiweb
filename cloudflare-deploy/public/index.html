@@ -17728,6 +17728,11 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   }
   /* 비켜설 때만 살짝 미끄러지게 (원위치도 같은 속도) */
   .vc-chat-dodged { transition: transform .18s ease !important; }
+  /* 3) 「앱 추가」 설치 띠(z9800)는 폭이 화면 전체(실측 1158px)라 «비켜설 자리»가 없다.
+     실측: 채팅 패널과 8,866px² 겹치고 입력칸 윗부분을 덮는다.
+     → 2227줄이 홍보영상(z100050)·캐시FAB(z99999)를 같은 이유로 숨기는 것과 동일하게 처리.
+       채팅을 닫으면 그대로 다시 나온다. */
+  body:has(#vc-chat-panel.open) #pwa-install-bar { display: none !important; }
 </style>
 <script>
 (function () {
