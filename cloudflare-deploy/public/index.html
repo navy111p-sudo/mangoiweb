@@ -14129,7 +14129,7 @@ window.mgIsSlowNet = function(){
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260810175750 -->
+<!-- BUILD:20260810180319 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -17692,5 +17692,184 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
         서버는 /api/translate 에 target='zh' 를 더한 것뿐(en/ko 기존 동작 그대로).
      ══════════════════════════════════════════════════════════════════════ -->
 <script src="/js/idx-vc-chat.js?v=1"></script>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     💬 (2026-08-10) 「떠 있는 영상창이 채팅창을 가린다」 — 채팅 안전지대
+     ─────────────────────────────────────────────────────────────────────
+     [증상] 한국 학생이 채팅을 보냈는데 필리핀 강사 화면에서 안 보임.
+            메시지는 «도착해 있었다». 떠 있는 얼굴 영상창이 채팅 패널의
+            마지막 말풍선과 입력칸 위를 덮고 있었을 뿐.
+
+     [왜 생기나] 떠 있는 창들의 z-index 가 채팅 패널보다 높다.
+            채팅 패널 z:100  <  📌PIP 오버레이 z:850  <  미니 플레이어 z:900
+            (그래서 이미 홍보영상 z100050·캐시FAB z99999 는 채팅 열릴 때
+             숨기는 규칙이 2227줄에 있다. 같은 문제의 나머지 절반이다.)
+
+     [고침] 두 겹으로 막는다.
+       1) 비켜서기(주). 채팅이 열리는 «순간» 패널 위를 실제로 덮고 있는 요소를
+          elementsFromPoint 로 찾아, 그 요소가 속한 떠 있는 창을 채팅 폭만큼
+          옆(모바일 하단시트면 위)으로 밀어 둔다. 채팅을 닫으면 원위치.
+          → 영상도 보이고 채팅도 보인다. 둘 중 하나를 숨기지 않는다.
+       2) 그래도 못 비킨 게 있으면(화면이 좁아 밀 자리가 없을 때) 데스크톱에서만
+          채팅 패널을 떠 있는 창들 위로 올린다(z:950 — 하단 독 99993 아래).
+
+     ⚠️ 강사가 «직접» 끌어다 놓은 창은 건드리지 않는다(2초 안에 그 창을 만졌으면
+        건너뜀). 사람이 옮긴 걸 코드가 되돌리면 그게 더 나쁜 버그다.
+     ⚠️ 하단 컨트롤 독(#vc-dock*)·전체화면 오버레이(화면의 80% 이상)는 제외.
+        독은 채팅 패널이 이미 padding-bottom 으로 자리를 비워 준다.
+
+     🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
+     ══════════════════════════════════════════════════════════════════════ -->
+<style id="vc-chat-clearzone-css">
+  /* 2) 최후의 보루 — 데스크톱에서만 채팅을 떠 있는 영상창 위로.
+     하단 독(99993)·상담 아바타(100050)보다는 아래라 그쪽 동작은 그대로다. */
+  @media (min-width: 901px) {
+    #vc-chat-panel.chat-panel { z-index: 950; }
+  }
+  /* 비켜설 때만 살짝 미끄러지게 (원위치도 같은 속도) */
+  .vc-chat-dodged { transition: transform .18s ease !important; }
+</style>
+<script>
+(function () {
+  'use strict';
+
+  var PANEL_ID = 'vc-chat-panel';
+  var GAP = 10;            // 채팅 패널과 띄워 둘 여백(px)
+  var USER_GRACE = 2000;   // 사람이 만진 직후엔 안 건드림(ms)
+
+  var moved = [];          // [{el, prev}] — 되돌리기용
+  var lastTouched = null, lastTouchedAt = 0;
+
+  function panel() { return document.getElementById(PANEL_ID); }
+  function isOpen() { var p = panel(); return !!(p && p.classList.contains('open')); }
+
+  document.addEventListener('pointerdown', function (e) {
+    lastTouched = e.target; lastTouchedAt = Date.now();
+  }, true);
+
+  /* 겹친 요소 → 그 요소가 들어 있는 «떠 있는 창»의 뿌리 */
+  function floatRoot(el) {
+    var n = el;
+    while (n && n !== document.body && n.nodeType === 1) {
+      var pos = getComputedStyle(n).position;
+      if (pos === 'fixed' || pos === 'absolute') return n;
+      n = n.parentElement;
+    }
+    return null;
+  }
+
+  function skip(el, pr, horizontal) {
+    if (!el || el.nodeType !== 1) return true;
+    var p = panel();
+    if (el === p || (p && p.contains(el)) || el.contains(p)) return true;
+    if (el.id && el.id.indexOf('vc-dock') === 0) return true;
+    if (el.closest && el.closest('#vc-dock, [id^="vc-dock"]')) return true;
+    var r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return true;
+    // 전체화면 오버레이·모달·레이아웃 판때기는 밀 대상이 아니다 — «떠 있는 작은 창»만
+    if (r.width >= innerWidth * 0.8 && r.height >= innerHeight * 0.8) return true;
+    if (horizontal ? (r.width > innerWidth * 0.6) : (r.height > innerHeight * 0.6)) return true;
+    // 실제로 패널과 «겹쳐» 있어야 한다 (가로·세로 둘 다)
+    if (r.right <= pr.left || r.left >= pr.right) return true;
+    if (r.bottom <= pr.top || r.top >= pr.bottom) return true;
+    // 사람이 방금 만진 창은 그대로 둔다
+    if (lastTouched && (el === lastTouched || el.contains(lastTouched)) &&
+        Date.now() - lastTouchedAt < USER_GRACE) return true;
+    return false;
+  }
+
+  /* 채팅 패널과 겹쳐 있는 «떠 있는 창»들을 찾는다.
+     좌표 탐침 = 마지막 말풍선 자리 ~ 입력칸까지 세로로 훑는다.
+     ⚠️ 쌓임 순서(z-index)로 판정하지 않는다. 아래 CSS 가 패널을 위로 올려 두기 때문에
+        «덮고 있나»로 물으면 항상 «아니오»가 나온다. 겹침은 좌표로만 판정한다. */
+  function coverers(horizontal) {
+    var p = panel(); if (!p) return [];
+    var pr = p.getBoundingClientRect();
+    if (pr.width < 2 || pr.height < 2) return [];
+    var xs = [pr.left + pr.width * 0.3, pr.left + pr.width * 0.7];
+    var ys = [0.35, 0.55, 0.75, 0.88, 0.96].map(function (f) { return pr.top + pr.height * f; });
+    var found = [], seen = [];
+    for (var i = 0; i < xs.length; i++) for (var j = 0; j < ys.length; j++) {
+      var x = xs[i], y = ys[j];
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) continue;
+      var stack = document.elementsFromPoint(x, y) || [];
+      for (var k = 0; k < stack.length; k++) {
+        var el = stack[k];
+        if (el === p || p.contains(el)) continue;   // 패널 자신은 건너뛴다
+        var root = floatRoot(el);
+        if (!root || seen.indexOf(root) >= 0) continue;
+        seen.push(root);
+        if (!skip(root, pr, horizontal)) found.push(root);
+      }
+    }
+    return found;
+  }
+
+  function restore() {
+    for (var i = 0; i < moved.length; i++) {
+      var m = moved[i];
+      m.el.style.transform = m.prev;
+      m.el.classList.remove('vc-chat-dodged');
+    }
+    moved = [];
+  }
+
+  function dodge() {
+    var p = panel(); if (!p) return;
+    var pr = p.getBoundingClientRect();
+    var list = coverers();
+    // 세로 하단시트(폭이 화면의 60% 이상)면 «위로», 옆 패널이면 «왼쪽으로»
+    var horizontal = pr.width < innerWidth * 0.6;
+
+    for (var i = 0; i < list.length; i++) {
+      var el = list[i];
+      var already = false;
+      for (var m = 0; m < moved.length; m++) if (moved[m].el === el) already = true;
+      if (already) continue;
+
+      var r = el.getBoundingClientRect(), need, room;
+      if (horizontal) {
+        need = r.right - pr.left + GAP;
+        room = r.left - 4;                 // 화면 왼쪽 밖으로는 못 나간다
+      } else {
+        need = r.bottom - pr.top + GAP;
+        room = r.top - 4;
+      }
+      if (need <= 0) continue;
+      var shift = Math.min(need, room);
+      if (shift <= 0) continue;            // 밀 자리가 없다 → 2) z-index 가 막는다
+
+      var prev = el.style.transform || '';
+      moved.push({ el: el, prev: prev });
+      el.classList.add('vc-chat-dodged');
+      el.style.transform = (prev ? prev + ' ' : '') +
+        (horizontal ? 'translateX(-' + Math.round(shift) + 'px)'
+                    : 'translateY(-' + Math.round(shift) + 'px)');
+    }
+  }
+
+  var t = null;
+  function sync(delay) {
+    clearTimeout(t);
+    t = setTimeout(function () {
+      if (isOpen()) { restore(); dodge(); } else { restore(); }
+    }, delay == null ? 60 : delay);
+  }
+
+  function boot() {
+    var p = panel(); if (!p) { setTimeout(boot, 800); return; }
+    new MutationObserver(function () { sync(); })
+      .observe(p, { attributes: true, attributeFilter: ['class'] });
+    // 채팅이 열린 «뒤에» 뜬 창(📌PIP·미니플레이어)도 잡는다.
+    // 사람이 끌어다 놓은 창은 skip() 의 2초 유예가 지켜 준다.
+    document.addEventListener('click', function () { if (isOpen()) sync(300); }, true);
+    addEventListener('resize', function () { if (isOpen()) sync(200); });
+    addEventListener('orientationchange', function () { if (isOpen()) sync(400); });
+    if (isOpen()) sync(0);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
 </body>
 </html>
