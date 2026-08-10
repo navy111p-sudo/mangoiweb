@@ -57,10 +57,11 @@ const outDir = mkdtempSync(join(tmpdir(), 'mangoi-rt-'));
 function bundle(entryAbs, outName) {
   const outFile = join(outDir, outName);
   try {
-    execFileSync(process.execPath, [
-      ESBUILD, entryAbs, '--bundle', '--format=esm', '--platform=neutral', '--target=es2022',
-      `--outfile=${outFile}`,
-    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+    // 🖥/🐧 Windows 는 bin/esbuild 가 JS 셸 스크립트(→node), Linux/macOS 는 네이티브 바이너리(→직접).
+    //   무조건 node 로 돌리면 리눅스에서 «SyntaxError: Invalid or unexpected token» 이 난다(2026-08-10 CI).
+    const _args = [entryAbs, '--bundle', '--format=esm', '--platform=neutral', '--target=es2022', `--outfile=${outFile}`];
+    if (process.platform === 'win32') execFileSync(process.execPath, [ESBUILD, ..._args], { stdio: ['ignore', 'ignore', 'pipe'] });
+    else execFileSync(ESBUILD, _args, { stdio: ['ignore', 'ignore', 'pipe'] });
   } catch (e) {
     // 🔊 (2026-08-10) esbuild 가 왜 실패했는지 반드시 남긴다.
     //   그전엔 stderr 를 'inherit' 로 흘려보내 러너 로그에 섞였고, CI 에서는

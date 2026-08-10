@@ -22,9 +22,17 @@ function check(name, cond) { if (cond) { PASS++; } else { FAIL++; FAILS.push(nam
 // ═══ 0) esbuild 로 api-admin.ts 번들 ═══
 const outDir = mkdtempSync(join(tmpdir(), 'mangoi-h-'));
 const outFile = join(outDir, 'api-admin.bundle.mjs');
+// 🖥/🐧 esbuild 실행 방식은 OS 마다 다르다 (2026-08-10)
+//   Windows: node_modules/esbuild/bin/esbuild 는 **JS 셸 스크립트** → node 로 실행해야 한다
+//   Linux/macOS: 같은 경로가 **네이티브 ELF 바이너리** → 직접 실행해야 한다
+//   그전엔 무조건 node 로 실행해서, 리눅스(CI)에서 「SyntaxError: Invalid or unexpected token」이
+//   났다. 바이너리를 JS 로 읽으려 한 것이다. 이 하니스들은 사실상 Windows 전용이었고,
+//   CI 가 한 번도 안 돌려서 아무도 몰랐다.
+const RUN_ESBUILD = (esbuildPath, args, opts) => (process.platform === 'win32'
+  ? execFileSync(process.execPath, [esbuildPath, ...args], opts)
+  : execFileSync(esbuildPath, args, opts));
 try {
-  execFileSync(process.execPath, [
-    join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'),
+  RUN_ESBUILD(join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild'), [
     join(CF, 'src', 'api-admin.ts'),
     '--bundle', '--format=esm', '--platform=neutral', '--target=es2022',
     `--outfile=${outFile}`,

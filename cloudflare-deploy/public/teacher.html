@@ -205,6 +205,18 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .draft{border-top:1px solid #f0e0c0;padding:12px 0}
 .draft-txt{font-size:14px;background:#fff;border:1px solid #e4dcc8;border-radius:8px;padding:10px;margin:6px 0;white-space:pre-wrap}
 .warnline{font-size:12.5px;color:#8a5a00;margin-bottom:8px}
+/* 📝 수업 일지 — 원탭 칩 / 확인 권고 알림 (2026-08-10)
+   ⚠️ transition·animation 없음: 저사양 기기에서 렉이고, 백그라운드 탭에서 멈춰
+      요소가 영영 안 보이는 사고가 났던 자리다(이 화면의 계약). */
+.tchip{
+  border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:999px;
+  padding:9px 13px;font-size:14px;font-weight:600;font-family:inherit;
+  margin:0 6px 6px 0;min-height:44px;cursor:pointer;
+}
+.tchip.on{background:#1355a8;border-color:#1355a8;color:#fff}
+.tchip:active{background:#eef1f5}
+.tchip.on:active{background:#0f4488}
+.warn{background:#fffbeb;border:1px solid #f2d08a;color:#7a5300;border-radius:8px;padding:12px;font-size:14px}
 .btn-appr{background:#0b7a3d;color:#fff;flex:1}
 .btn-skip{background:#e7ebef;color:#2c3a48;flex:0 0 auto}
 .btn-sm{min-height:44px;padding:11px 14px;font-size:14px}
@@ -1384,7 +1396,9 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
                 +   esc(T('Re-enter','다시 입장')) + '</button>'
               : '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>')
           +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
-          +    esc(T('Evaluate','평가하기')) + '</button>';
+          //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
+          //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
+          +    esc(T('Class log','일지 쓰기')) + '</button>';
       } else if (open){
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
@@ -2710,67 +2724,188 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   }
   window.__repaintMy = repaintMy;
 
-  // ── 1분 빠른 평가 ────────────────────────────────────────────────────────
+  /* ══ 📝 수업 일지 (2026-08-10 Phase 1) ═══════════════════════════════════════
+     강사는 **영어로만** 쓰면 된다. [다듬어서 한국어로] 한 번이면
+     ① 문법·표현이 다듬어진 영어 ② 학부모에게 나갈 한국어 가 함께 온다(서버 1회 호출).
+
+     설계 원칙(제안서 4-5·4-6):
+       · 빈 칸을 늘리지 않는다 — 별점 2줄은 기본값이 이미 찍혀 있어 «안 만져도» 된다.
+       · 보내기 직전 자동 점검이 사람 검수를 대신한다(매니저 승인 단계 없음 — 사장님 결정).
+       · 회선이 끊겨도 화면은 즉시 «보냈습니다» — 실패하면 큐에 넣고 다음에 자동 재시도.
+     ⚠️ 이 화면의 계약: 외부 리소스 0개 · 애니메이션 0개. 여기서도 지킨다.        */
+  var NQ = 'mangoi_note_queue_v1';
+
+  function qLoad(){ try { return JSON.parse(localStorage.getItem(NQ) || '[]'); } catch(e){ return []; } }
+  function qSave(a){ try { localStorage.setItem(NQ, JSON.stringify(a.slice(0,20))); } catch(e){} }
+  function qPush(p){ var a = qLoad(); a.push(p); qSave(a); }
+
+  // 큐 비우기 — 화면을 열 때/다시 보일 때 조용히 돈다. 실패하면 남겨 두고 다음에 또 시도한다.
+  function qFlush(){
+    var a = qLoad();
+    if (!a.length) return;
+    var one = a[0];
+    fetch('/api/eval/create', {
+      method:'POST', credentials:'same-origin',
+      headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(one)
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok) return;               // 서버가 거절하면(예: 한국어 아님) 큐에 남긴다
+      var rest = qLoad(); rest.shift(); qSave(rest);
+      if (rest.length) qFlush();
+    })
+    .catch(function(){ /* 아직 회선이 없다 — 다음 기회에 */ });
+  }
+
   function openEval(c){
     var mask = document.createElement('div');
     mask.className = 'mask';
     mask.innerHTML =
       '<div class="modal" role="dialog" aria-modal="true">'
-      + '<h3>' + esc(T('Quick Evaluation','1분 평가')) + '</h3>'
+      + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '</p>'
+      + '<div class="fld"><label>' + esc(T('Write in English. Grammar does not matter.','영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다.')) + '</label>'
+      +   '<textarea id="ev-raw" rows="4"></textarea></div>'
+      + '<div class="fld"><label>' + esc(T('Tap what happened','수업에서 있었던 것을 눌러 주세요')) + '</label><div id="ev-chips">'
+      +   chip('spoke_well',  T('Spoke well','잘 말했어요'))
+      +   chip('praised',     T('Praised a lot','칭찬 많이'))
+      +   chip('pronounce',   T('Needs pronunciation','발음 연습 필요'))
+      +   chip('homework',    T('Homework not done','숙제 미제출'))
+      + '</div></div>'
+      + '<button class="btn btn-eval btn-wide" type="button" id="ev-tr">' + esc(T('Polish & translate','다듬어서 한국어로')) + '</button>'
+      + '<div id="ev-out" hidden>'
+      +   '<div class="fld"><label>' + esc(T('Polished English (your own check)','다듬은 영어 (강사 확인용)')) + '</label>'
+      +     '<textarea id="ev-en" rows="3"></textarea></div>'
+      +   '<div class="fld"><label>' + esc(T('Korean the parent receives','학부모에게 나가는 한국어')) + '</label>'
+      +     '<textarea id="ev-ko" rows="4"></textarea></div>'
+      + '</div>'
       + stars('participation', T('Participation','참여도'))
       + stars('comprehension', T('Comprehension','이해도'))
-      + '<div class="fld"><label>' + esc(T('Strengths','강점')) + '</label><textarea id="ev-s"></textarea></div>'
-      + '<div class="fld"><label>' + esc(T('To improve','보완점')) + '</label><textarea id="ev-i"></textarea></div>'
-      + '<div class="fld"><label>' + esc(T('Next goal','다음 목표')) + '</label><textarea id="ev-n"></textarea></div>'
       + '<div id="ev-msg"></div>'
       + '<div class="mrow">'
       +   '<button class="btn btn-gray" type="button" id="ev-x">' + esc(T('Cancel','취소')) + '</button>'
-      +   '<button class="btn btn-eval" type="button" id="ev-ok">' + esc(T('Submit','제출')) + '</button>'
+      +   '<button class="btn btn-eval" type="button" id="ev-ok">' + esc(T('Send','보내기')) + '</button>'
       + '</div></div>';
     document.body.appendChild(mask);
 
     function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
+    function say(cls, txt){ mask.querySelector('#ev-msg').innerHTML = '<div class="' + cls + '">' + esc(txt) + '</div>'; }
     mask.querySelector('#ev-x').onclick = close;
     mask.onclick = function(ev){ if (ev.target === mask) close(); };
 
-    mask.querySelector('#ev-ok').onclick = function(){
-      var btn = this;
-      btn.disabled = true;
-      btn.textContent = T('Submitting…','제출 중…');
-      fetch('/api/eval/create', {
-        method:'POST', credentials:'same-origin',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({
-          student_uid: c.student_uid,
-          student_name: c.student_name,
-          teacher_uid: DATA.me.username,
-          teacher_name: DATA.me.name,
-          room_id: c.room_id,
-          lesson_date: DATA.today,
-          score_participation: pick(mask,'participation'),
-          score_comprehension: pick(mask,'comprehension'),
-          strengths:   mask.querySelector('#ev-s').value.slice(0,500),
-          improvements:mask.querySelector('#ev-i').value.slice(0,500),
-          next_goals:  mask.querySelector('#ev-n').value.slice(0,500),
-          // 📲 (2026-08-09) 학부모에게 «도착했습니다» 알림을 보내 달라는 표시.
-          //   번호는 보내지 않는다 — 서버가 students_erp 에서 찾는다(번호는 화면이 다룰 값이 아니다).
-          //   이 플래그가 없던 동안 평가서 104건 중 학부모가 열어본 것은 0건이었다.
-          notify_parent: true
-        })
+    // 칩 토글 — 눌린 것만 서버로 간다(빈 칸을 채우게 하지 않기 위한 장치다).
+    var chipBox = mask.querySelector('#ev-chips');
+    chipBox.onclick = function(ev){
+      var b = ev.target.closest ? ev.target.closest('[data-chip]') : null;
+      if (b) b.className = (b.className.indexOf('on') >= 0) ? 'tchip' : 'tchip on';
+    };
+    function chosenChips(){
+      var n = chipBox.querySelectorAll('.tchip.on'), out = [];
+      for (var i=0;i<n.length;i++) out.push(n[i].getAttribute('data-chip'));
+      return out;
+    }
+
+    // ── 다듬어서 한국어로 (서버 1회) ──
+    mask.querySelector('#ev-tr').onclick = function(){
+      var raw = mask.querySelector('#ev-raw').value.trim();
+      if (!raw){ say('err', T('Please write a few lines in English first.','먼저 영어로 몇 줄 써 주세요.')); return; }
+      var b = this;
+      b.disabled = true; b.textContent = T('Polishing…','다듬는 중…');
+      say('', '');
+      fetch('/api/translate', {
+        method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ mode:'note', text: raw, student_name: c.student_name || '' })
       })
       .then(function(r){ return r.json(); })
       .then(function(j){
-        if (!j || !j.ok) throw new Error(j && j.error || 'failed');
-        close();
+        b.disabled = false; b.textContent = T('Polish again','다시 다듬기');
+        if (!j || !j.ok || !j.ko){
+          say('err', T('Could not make the Korean. Please try again.','한국어를 만들지 못했습니다. 다시 시도해 주세요.'));
+          return;
+        }
+        mask.querySelector('#ev-en').value = j.en || raw;
+        mask.querySelector('#ev-ko').value = j.ko;
+        mask.querySelector('#ev-out').hidden = false;
       })
       .catch(function(){
-        btn.disabled = false;
-        btn.textContent = T('Submit','제출');
-        mask.querySelector('#ev-msg').innerHTML =
-          '<div class="err">' + esc(T('Could not submit. Please try again.','제출하지 못했습니다. 다시 시도해 주세요.')) + '</div>';
+        b.disabled = false; b.textContent = T('Polish & translate','다듬어서 한국어로');
+        say('err', T('Network error. Please try again.','네트워크 오류입니다. 다시 시도해 주세요.'));
       });
     };
+
+    /* ── 보내기 전 자동 점검 — 사람 검수 대신 도는 규칙 ──
+       🔴 차단: 학부모에게 나가면 사고인 것만. 🟠 확인: 한 번 붙잡고, 판단은 강사가 한다.
+       ⚠️ 서버에서도 같은 검사를 한다(화면만 믿지 않는다). */
+    var BAN = [['게으르',1],['멍청',1],['문제아',1],['전혀',1],['다른 학생보다',2],['보다 못',2]];
+    var warned = false;
+    function preflight(ko){
+      var hard = [], soft = {}, i;
+      var hangul = (ko.match(/[가-힣]/g) || []).length;
+      if (!ko) hard.push(T('The Korean text is empty.','한국어가 비어 있습니다.'));
+      else if (hangul < ko.length * 0.3)
+        hard.push(T('This is not Korean — parents read Korean only.','한국어가 아닙니다 — 학부모는 한국어만 읽습니다.'));
+      for (i=0;i<BAN.length;i++){
+        if (ko.indexOf(BAN[i][0]) < 0) continue;
+        var why = BAN[i][1] === 1 ? T('blunt wording','단정적 표현') : T('comparing with other children','다른 아이와 비교');
+        soft[why] = why + ' — 「' + BAN[i][0] + '」';        // 같은 사유는 한 줄만(길면 안 읽는다)
+      }
+      var softArr = []; for (var k in soft) if (soft.hasOwnProperty(k)) softArr.push(soft[k]);
+      return { hard: hard, soft: softArr };
+    }
+
+    mask.querySelector('#ev-ok').onclick = function(){
+      var btn = this;
+      var ko  = (mask.querySelector('#ev-ko').value || '').trim();
+      var en  = (mask.querySelector('#ev-en').value || '').trim();
+      var raw = mask.querySelector('#ev-raw').value.trim();
+      if (!ko && raw){
+        say('err', T('Tap “Polish & translate” first — the parent receives the Korean.',
+                     '「다듬어서 한국어로」를 먼저 눌러 주세요 — 학부모가 받는 것은 한국어입니다.'));
+        return;
+      }
+      var chk = preflight(ko);
+      if (chk.hard.length){ say('err', chk.hard.join(' / ')); return; }
+      if (chk.soft.length && !warned){
+        warned = true;
+        say('warn', T('A parent will read this — please check: ','학부모가 읽는 문장입니다 — 확인해 주세요: ')
+                    + chk.soft.join(' · ')
+                    + T(' (tap Send again to send as it is)',' (그대로 보내려면 「보내기」를 한 번 더)'));
+        return;
+      }
+
+      var payload = {
+        student_uid: c.student_uid,
+        student_name: c.student_name,
+        teacher_uid: DATA.me.username,
+        teacher_name: DATA.me.name,
+        room_id: c.room_id,
+        lesson_date: DATA.today,
+        score_participation: pick(mask,'participation'),
+        score_comprehension: pick(mask,'comprehension'),
+        note_en: en || raw,
+        note_ko: ko,
+        chips: chosenChips(),
+        // 📲 (2026-08-09) 학부모에게 보내 달라는 표시. 번호는 보내지 않는다 —
+        //   서버가 students_erp 에서 찾는다(번호는 화면이 다룰 값이 아니다).
+        notify_parent: true
+      };
+
+      /* 🚀 낙관적 저장 — 누르면 «즉시» 닫힌다. 전송은 뒤에서.
+         실패하면 큐에 넣고 다음에 화면을 열 때 자동으로 다시 보낸다.
+         필리핀 회선에서 「눌렀는데 멈췄다」가 사라지는 지점이다. */
+      btn.disabled = true;
+      close();
+      fetch('/api/eval/create', {
+        method:'POST', credentials:'same-origin',
+        headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){ if (!j || !j.ok) qPush(payload); })
+      .catch(function(){ qPush(payload); });
+    };
+  }
+  function chip(key, label){
+    return '<button type="button" class="tchip" data-chip="' + key + '">' + esc(label) + '</button>';
   }
   function stars(key, label){
     var h = '<div class="fld"><label>' + esc(label) + '</label><div class="stars">';
@@ -2794,7 +2929,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   setInterval(function(){ if (document.hidden) return; if (DATA) renderClasses(DATA.classes || []); }, 60000);
   document.addEventListener('visibilitychange', function(){
     if (!document.hidden && DATA) renderClasses(DATA.classes || []);
+    // 📝 회선이 끊겨 못 보낸 일지가 있으면 여기서 조용히 다시 보낸다(강사는 아무것도 안 한다).
+    if (!document.hidden) qFlush();
   });
+  qFlush();   // 화면을 열 때도 한 번 — 어제 밤 회선이 끊겼다면 지금 나간다
 
   // ══ ⏳ 다음 수업 카운트다운 (요청 2번) ════════════════════════════════════
   //   남은 시간이 「입장」 버튼 안에만 작게 있었고 60초에 한 번만 갱신됐다 → 목록 맨 위에
