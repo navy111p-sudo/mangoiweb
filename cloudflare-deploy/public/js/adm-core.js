@@ -8132,7 +8132,6 @@ function buildMenuIndex() {
     { kw:'녹화 녹화본 활성방 recording', card:'card-active-rooms', label:'녹화·활성 방' },
     { kw:'가족 가족계정 family', card:'card-family-mgmt', label:'가족 계정' },
     { kw:'동영상 비디오 영상 유튜브 youtube 비디오관리 video', card:'sub-mango-videos', label:'망고아이 비디오 관리 (YouTube)' },
-    { kw:'자막 사전 비디오자막 subtitle', card:'card-video-dict', label:'비디오 자막·사전' },
     { kw:'콘텐츠 컨텐츠 교재 자료 content', card:'card-textbooks', label:'교재 콘텐츠 관리' },
     { kw:'갤러리 사진 영상갤러리 gallery', card:'card-gallery', label:'사진·영상 갤러리' },
     { kw:'수강신청 수강 등록 enrollment', card:'card-students-mgmt', label:'학생·수강 관리' },
