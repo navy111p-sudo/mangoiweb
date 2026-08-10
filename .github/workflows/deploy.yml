@@ -59,13 +59,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          # 24 이상이어야 한다 — 낮추지 말 것.
-          #   회귀 하니스 9개가 src/*.ts 를 **직접 import** 해서 순수 모듈을 실행한다
-          #   (once_per_isolate · ddl_once · judgment_* · org_settlement · cafe24_sync 등).
-          #   Node 는 22.6 부터 타입 벗기기를 지원하고 23.6+/24 부터 기본으로 켜진다.
-          #   20 에서는 그 import 가 통째로 실패한다.
-          #   2026-08-10: 20 인 채로 하니스 게이트를 붙였다가 배포가 막혔다 —
-          #   로컬(Node 24)에서만 확인하고 CI 환경에서 확인하지 않은 실수였다.
+          # 24 이상이어야 한다 — 낮추지 말 것. 검사와 배포가 이제 같은 Node 를 쓴다(둘 다 24).
+          #   ① 회귀 하니스 9개가 src/*.ts 를 **직접 import** 해서 순수 모듈을 실행한다
+          #      (once_per_isolate · ddl_once · judgment_* · org_settlement · cafe24_sync 등).
+          #      Node 는 22.6 부터 타입 벗기기를 지원하고 23.6+/24 부터 기본으로 켜진다. 20 에선 실패.
+          #   ② 배포 단계(wrangler-action)의 npm ci 도 24 에서 돈다 — 2026-08-10 에
+          #      @cloudflare/workers-types 를 ^4 → ^5 로 올려 npm 11 의 peer 충돌을 없앴다.
+          #      (그전엔 배포만 Node 20 으로 되돌려야 했다. 이제 그 분리가 필요 없다.)
           node-version: '24'
           cache: 'npm'
           cache-dependency-path: 'cloudflare-deploy/package-lock.json'
@@ -127,24 +127,6 @@ jobs:
       - name: Static asset cache-version gate (?v= 누락)
         working-directory: .
         run: node test-harness/asset_version_harness.mjs
-
-      # ─── 배포 단계용 Node 되돌리기 (20) ───
-      # 왜 두 벌을 쓰나 — 두 단계가 서로 다른 것을 요구한다.
-      #   · 위 «검사» 단계: Node 24 가 필요하다. 하니스 9개가 src/*.ts 를 직접 import 하는데
-      #     Node 20 은 타입 벗기기를 못 한다(22.6+ 지원, 23.6+/24 기본).
-      #   · 아래 «배포» 단계: Node 20 이 필요하다. wrangler-action 이 내부에서 npm install 을
-      #     하는데, npm 11(Node 24 동봉)이 이 저장소의 optional peer 충돌에서 멈춘다:
-      #         found  @cloudflare/workers-types@4.20260413.1        (이 저장소가 ^4 로 고정)
-      #         wants  peerOptional @cloudflare/workers-types@^5...  (wrangler 4.120)
-      #     npm 10(Node 20 동봉)은 optional peer 라 넘어갔다. npm 11 은 ERESOLVE 로 죽는다.
-      #     마지막 성공 실행(2026-08-09)이 Node 20.20.2 였던 것이 그 증거다.
-      #
-      # 근본 해결은 @cloudflare/workers-types 를 ^5 로 올리는 것이지만, 그건 src/*.ts 76개의
-      # 타입이 바뀌는 일이라 별도 작업으로 다룬다. 여기서는 두 요구를 그대로 인정한다.
-      - name: Setup Node.js 20 (배포 단계 전용)
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
 
       # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
       - name: Check required secrets
