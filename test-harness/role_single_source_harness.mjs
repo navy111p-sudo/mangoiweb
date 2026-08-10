@@ -14,6 +14,7 @@
 //   (급할 때 "여기서 한 줄만" 이 복사본의 시작이다 — 실제로 그렇게 세 벌이 됐다)
 
 import { readFileSync } from 'node:fs';
+import { readPageSource } from './page-source.mjs';   // 분해 대응
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,6 +43,26 @@ for (const f of FILES) {
       if (/^\s*(\/\/|\*|<!--)/.test(lines[i])) continue;          // 주석은 봐준다
       console.log(`  🚨 ${f}:${i + 1} — ${b.why}`);
       console.log(`     ${lines[i].trim().slice(0, 100)}`);
+      fail++;
+    }
+  }
+}
+
+// 화면이 서버 값을 «실제로 쓰는지» — 서버가 보내도 화면이 안 읽으면 아무 소용이 없다.
+//   (2026-08-09 브라우저 실측으로 4케이스 확인: admin→hq_exec · branch_seoul→branch/seoul ·
+//    agency_wondang→agency/wondang · jeong(is_teacher)→hq_teacher. 그 배선을 여기서 고정한다)
+const CONSUMERS = [
+  { f: 'index.html',       need: ['data.ui_role', 'data.display_name'] },
+  { f: 'admin/login.html', need: ['data.ui_role', 'data.display_name', 'data.branch_id', 'data.agency_id'] },
+];
+for (const c of CONSUMERS) {
+  // ⚠️ readPageSource 를 쓴다 — index.html 의 로그인 코드는 분해로 /js/idx-user-session.js 로
+  //    옮겨갔다. HTML 만 보면 「안 읽는다」는 가짜 경보가 난다(내가 이 검사를 만들자마자 밟았다).
+  let t = '';
+  try { t = readPageSource(c.f); } catch { continue; }
+  for (const n of c.need) {
+    if (!t.includes(n)) {
+      console.log(`  🚨 ${c.f} 이 ${n} 를 읽지 않습니다 — 서버가 보내도 화면이 안 쓰면 소용없습니다.`);
       fail++;
     }
   }
