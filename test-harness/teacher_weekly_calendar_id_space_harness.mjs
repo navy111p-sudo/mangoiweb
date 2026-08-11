@@ -115,6 +115,22 @@ check('카드에 시각 표식이 붙는다 (배지 + 회색·사선)',
 check('⛔ 「총 N개 수업」 으로 뭉뚱그리지 않는다 — 진짜 수업과 점유를 갈라 센다',
   /nReal\s*=\s*evClass\.filter/.test(q6) && /nOther\s*=\s*evClass\.length - nReal/.test(q6));
 
+/* ⑨ 같은 API 를 쓰는 «강사 출근현황»(adm-p6.js) — 여기서 LMS 점유를 세면 「규정출근시간」이
+   옛 LMS 슬롯의 첫 시각이 되고, 그 숫자가 급여·평가로 이어진다. 캘린더만 고치면 반쪽이다. */
+console.log('\n[ ⑨ 강사 출근현황도 «수업이 아닌 것» 으로 출근을 판정하지 않는다 ]');
+const p6 = rd('../cloudflare-deploy/public/js/adm-p6.js');
+check('출근 집계가 LMS 점유·시드를 뺀다',
+  /_org === 'lms' \|\| _org === 'sample'/.test(p6));
+check('뺀 건수를 세어 둔다 (조용히 빼지 않는다)', /_awSkipped/.test(p6));
+check('⛔ 「수업 스케줄은 실제 데이터입니다」 라고 더는 단언하지 않는다',
+  !/<b>수업 스케줄은 실제 데이터입니다\.<\/b>/.test(p6));
+check('배너가 «왜 뺐는지» 를 한/영으로 밝힌다',
+  /옛 LMS 점유·시연 시드/.test(p6) && /legacy-LMS \/ demo placeholders/.test(p6));
+check('빈 화면이 «기록 없음» 이 아니라 «수업이 없음 + 이유» 를 말한다',
+  /망고아이 수업<\/b>이 없습니다/.test(p6) && /전부 옛 LMS 점유·시연 시드입니다/.test(p6));
+check('엑셀 내려받기도 같은 필터를 탄다 (filterRecords 경유)',
+  (p6.match(/const rows = filterRecords\(\)/g) || []).length >= 2);
+
 console.log('\n[ ⑤ 일회성 수업이 주간 캘린더에서 빠지지 않는다 ]');
 // 레벨테스트 수업은 전부 one_off 라, 반복(day_of_week)만 그리면 영영 안 보인다
 check('one_off / scheduled_date 도 그 주 범위면 넣는다',
