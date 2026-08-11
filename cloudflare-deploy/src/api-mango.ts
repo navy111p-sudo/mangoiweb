@@ -3041,8 +3041,33 @@ ${numbered}`;
         }
         await (env as any).SESSION_STATE?.put?.(rkey, String(cur + 1), { expirationTtl: 7200 });
       } catch { /* KV 장애로 정상 수업이 막히면 안 되므로 통과 */ }
-      // 동의 안 한 학생 필터링
       const participantIds = (b.participant_ids || []) as string[];
+      const participantNames = (b.participant_names || []) as string[];
+
+      // 🔴 2026-08-05: 화상수업 화면이 넘겨주는 참가자 정보는 «접속할 때마다 새로 생기는 임시
+      //   번호»(bsqcli1ybw1team263jbo 같은)와 화면 표시 이름뿐이라, 학생 «계정 아이디» 가 한 번도
+      //   안 들어갔다. 그래서 학생이 로그인해도 목록 API(participant_ids LIKE '%uid%')가 못 찾아
+      //   **자기 수업 녹화가 안 보였다** — 완료 416건 중 318건(76%)이 참가자=강사뿐.
+      //   같은 이유로 아래 동의 조회도 대상이 비어 consented_user_ids 가 416건 전부 빈 값이었다
+      //   (미성년 수업 영상인데 녹화 동의가 한 건도 기록되지 않음).
+      //   → 방 번호가 `class-<스케줄id>-<날짜>` 면 서버가 스케줄에서 학생 계정을 채운다.
+      //     클라이언트는 안 건드린다. (meet-*·mangoi-class 같은 공용방은 스케줄이 없어 해당 없음)
+      const schedMatch = /^class-(\d+)-/.exec(String(b.room_id || ''));
+      if (schedMatch) {
+        try {
+          const cs: any = await env.DB.prepare(
+            `SELECT user_id, student_name FROM class_schedules WHERE id = ?`
+          ).bind(parseInt(schedMatch[1], 10)).first();
+          const suid = String(cs?.user_id || '').trim();
+          const sname = String(cs?.student_name || '').trim();
+          if (suid && !participantIds.includes(suid)) participantIds.push(suid);
+          if (sname && !participantNames.includes(sname)) participantNames.push(sname);
+        } catch (e: any) {
+          console.error('[recordings] 스케줄에서 학생 채우기 실패:', e?.message || e);
+        }
+      }
+
+      // 동의 안 한 학생 필터링
       let consentedIds: string[] = [];
       if (participantIds.length > 0) {
         // ⚠️ (2026-08-07) participant_ids 는 요청 본문에서 그대로 온 배열입니다.
@@ -3063,7 +3088,7 @@ ${numbered}`;
       ).bind(
         b.room_id, b.teacher_id, b.teacher_name || null,
         b.filename || `rec_${b.room_id}_${now}.webm`,
-        JSON.stringify(participantIds), JSON.stringify(b.participant_names || []),
+        JSON.stringify(participantIds), JSON.stringify(participantNames),
         JSON.stringify(consentedIds), now, now + RETENTION_MS
       ).run();
       return json({
