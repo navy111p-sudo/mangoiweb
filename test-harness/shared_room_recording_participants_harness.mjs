@@ -52,22 +52,48 @@ check('③ 이미 들어와 있다: joined_at <= 기준시각',
 check('🚫 last_seen_at 이 없는 옛 행은 쓰지 않는다',
   /last_seen_at\s+IS\s+NOT\s+NULL/i.test(BLOCK));
 
-console.log('\n[ 🚮 임시 접속번호 거르기 ]');
-const rxm = /\/\^\[a-z0-9\]\{(\d+),\}\$\//.exec(BLOCK);
-check('임시번호 판정 정규식이 있다', !!rxm, BLOCK.match(/looksEphemeral[^\n]*/)?.[0]);
-check('걸러진 것만 «빼고», 이름은 그대로 남긴다 (표시이름은 사람이 읽는 값)',
-  /!looksEphemeral\s*&&/.test(BLOCK) && /participantNames\.push\(unm\)/.test(BLOCK));
+console.log('\n[ 🆔 «계정» 아이디만 참가자로 넣는다 — 여기가 이 수정의 핵심이다 ]');
+/* 🪤 처음엔 attendance.user_id 를 계정으로 알고 그걸 넣었다. 아니었다.
+      user_id 는 로그인해도 브라우저 localStorage 의 기기 식별자(`u_`+난수)가 오고,
+      로그인 안 하면 접속마다 바뀌는 번호가 온다. 실측으로 한 기기 값(u_zfak0wl7r4)이
+      두 계정(student·mangoi_155)에 걸쳐 있었다 — 같은 PC 를 두 사람이 썼다.
+      그 값을 넣으면 학생 로그인과 영영 안 맞아 목록·재생·동의 어느 것도 안 붙는다. */
+check('account_uid 를 읽는다', /SELECT\s+DISTINCT\s+account_uid/i.test(BLOCK));
+check('🚫 user_id(기기 식별자)를 참가자로 넣지 않는다',
+  !/participantIds\.push\(\s*[^)]*user_id/i.test(BLOCK) && !/r\.user_id/.test(BLOCK));
+check('이름은 그대로 남긴다 (로그인 안 한 참가자는 이름밖에 없다)',
+  /participantNames\.push\(unm\)/.test(BLOCK));
 
-if (rxm) {
-  const rx = new RegExp(`^[a-z0-9]{${rxm[1]},}$`);
-  console.log('\n[ 판정을 실제 값으로 돌려 본다 (운영 D1 에서 뽑은 실물) ]');
-  // 임시번호 — 접속마다 새로 생긴다. 어떤 로그인 토큰과도 안 맞는다.
-  for (const e of ['oucdtt8rwg63yjr4rdhe9', 'gz3iqyk6kcd3euyr2kh3gj', '4asz3a0amrku7nj4z3qpme'])
-    check(`임시번호는 뺀다: ${e}`, rx.test(e));
-  // 계정 아이디 — 이게 빠지면 학생이 자기 녹화를 못 본다(고치려던 문제 그 자체).
-  for (const a of ['u_kdoj4an523', 'u_zfak0wl7r4', 'u_prf59yuu9l', 'jeong', 'mangoi_155', 'navy111p'])
-    check(`계정 아이디는 남긴다: ${a}`, !rx.test(a));
-}
+console.log('\n[ 🆔 attendance 가 계정 아이디를 실제로 받아 적는가 ]');
+const attnJoin = src.slice(src.indexOf("'/api/attendance/join'"), src.indexOf("'/api/attendance/join'") + 2600);
+check('INSERT 에 account_uid 칸이 있다', /INSERT INTO attendance[\s\S]{0,200}account_uid/i.test(attnJoin));
+check('요청 본문의 account_uid 를 바인딩한다', /b\.account_uid/.test(attnJoin));
+check('🔒 기존 user_id 컬럼은 그대로 둔다 (출석·발화시간 집계가 여기 이어져 있다)',
+  /INSERT INTO attendance \(room_id, user_id, account_uid/.test(attnJoin));
+check('컬럼이 없는 배포본 대비 ALTER 폴백이 있다',
+  /ALTER TABLE attendance ADD COLUMN account_uid TEXT/.test(attnJoin));
+
+console.log('\n[ 🛑 동의 없으면 녹화하지 않는다 (2026-08-12 사장님 결정) ]');
+const consentJs = rd('../cloudflare-deploy/public/js/mango-consent.js');
+check('녹화 시작이 consent_required 로 거절될 수 있다', /error:\s*'consent_required'/.test(src));
+check('강사는 동의 대상에서 뺀다 (촬영 주체다)', /id\s*!==\s*teacherId/.test(src));
+check('임시번호는 «미동의» 로 세지 않는다 (한 명만 있어도 수업 녹화가 통째로 멈춘다)',
+  /_looksEphemeral\(String\(id\)\)/.test(src));
+check('동의 창 파일이 있다', consentJs.length > 0);
+check('학생 화면이 동의를 서버에 남긴다', /fetch\('\/api\/consents'/.test(consentJs) && /method:\s*'POST'/.test(consentJs));
+check('🚪 동의하지 않아도 수업 입장은 막지 않는다 (막으면 사실상 강요다)',
+  !/return\s*;/.test((/mangoConsentEnsure[\s\S]{0,400}/.exec(consentJs) || [''])[0].split('\n').filter(l => /입장|join/.test(l)).join('\n')));
+check('한 번만 묻는다 (이미 답이 있으면 다시 안 묻는다)',
+  /askedBefore\(uid\)/.test(consentJs) && /fetchExisting\(uid\)/.test(consentJs));
+check('한/영 둘 다 있다', /I agree/.test(consentJs) && /동의합니다/.test(consentJs));
+check('언어 판정은 getLang() 으로 한다 (인라인 currentLang 은 🌐 를 안 따라온다)',
+  /getLang\s*===\s*'function'|typeof window\.getLang/.test(consentJs));
+
+console.log('\n[ 🔐 동의를 남의 이름으로 만들 수 없다 ]');
+check('동의 저장에 본인확인이 걸려 있다',
+  /'\/api\/consents' && method === 'POST'[\s\S]{0,700}_attnSoftAuthOk/.test(src));
+check('동의 철회에도 본인확인이 걸려 있다',
+  /'\/api\/consents\/withdraw'[\s\S]{0,400}_attnSoftAuthOk/.test(src));
 
 console.log('\n[ 기존 «스케줄 방» 경로를 건드리지 않았다 ]');
 check('class-<id>- 경로는 그대로 있다', /\/\^class-\(\\d\+\)-\//.test(src));
