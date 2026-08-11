@@ -2428,26 +2428,6 @@ async function vcJoinRoom(skipUI) {
         }
       }
     } catch (_) {}
-
-    /* 🎥📝 (2026-08-12) 녹화 «동의» 를 입장보다 먼저 한 번 묻는다.
-       [왜 여기인가] 위 블록이 끝난 지점이 vcMyRole 이 확정되는 유일한 곳이고, 아래부터는
-         미디어 권한·소켓이 열린다. 녹화는 수업이 시작되면 자동으로 켜지므로, 그보다 앞서
-         답이 서버에 남아 있어야 한다. 모든 입장 경로가 이 한 곳을 지난다(위 주석과 같은 이유).
-       [수업은 막지 않는다] 동의하든 안 하든 아래로 그대로 내려간다. 막히는 건 녹화뿐이다
-         (서버 api-mango.ts 의 consent_required 게이트). 여기서 수업을 막으면 사실상 강요가 된다.
-       [학생만] 강사는 촬영 주체지 피촬영 동의 대상이 아니다. 관찰자(고스트)도 묻지 않는다.
-       [계정이 있어야 남길 수 있다] 비로그인 참가자는 임시 번호뿐이라 동의를 이어 붙일 곳이 없다. */
-    try {
-      if (window.vcMyRole === 'student' && !vcIsObserver && typeof window.mangoConsentEnsure === 'function') {
-        var _cu = (window.getCurrentUser ? window.getCurrentUser() : null);
-        /* ⚠️ 꺼내는 순서를 mango-attendance.js 의 accountUid 와 «글자까지» 같게 둔다.
-           동의는 이 아이디로 저장되고, 참가자는 attendance.account_uid 로 채워진다.
-           둘이 한 글자라도 다르면 서버 게이트가 영영 안 맞아 녹화가 계속 거절된다. */
-        var _cuid = String((_cu && (_cu.uid || _cu.user_id || _cu.id)) || '').trim();
-        if (_cuid) await window.mangoConsentEnsure(_cuid, vcUsername);
-      }
-    } catch (_) { /* 동의 창 오류로 수업을 못 들어가면 안 된다 — 녹화는 서버가 어차피 안 켠다 */ }
-
     // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
     //   모든 입장 경로(수동 입력·?room=·vc_autojoin·오늘 내 수업)가 이 한 곳을 지난다.
     try { await window.vcEnsureMediaPermission(); } catch (_) {}

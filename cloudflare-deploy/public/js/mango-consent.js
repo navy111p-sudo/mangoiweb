@@ -152,4 +152,40 @@
     if (ok) rememberAsked(uid);                               // 저장 실패면 다음 입장에서 다시 묻는다
     return agreed && ok;
   };
+
+  /* 🔌 입장 함수에 «스스로» 붙는다 — idx-main.js 를 건드리지 않기 위해서다.
+     [왜 이렇게까지] idx-main.js 는 두 사람이 동시에 만지는 파일이고, 고치면 index.html 의
+       ?v= 를 올려야 한다. 그 번호를 두 세션이 각자 올리다가 «같은 주소 다른 내용»이
+       1년 캐시에 박히는 사고가 이미 여러 번 났다(v=5·v=6·v=8·v=12). 이 파일은 새 파일이라
+       ?v=1 로 시작하고 아무와도 겹치지 않는다.
+     [타이밍] 이 스크립트는 defer 로 idx-main.js 뒤에 실행되므로 vcJoinRoom 이 이미 있다.
+       혹시 없으면 조용히 넘어간다 — 동의 때문에 수업 입장이 깨지면 안 된다.
+     [역할 판정] vcMyRole 은 vcJoinRoom «안에서» 정해지므로 아직 못 읽는다. 대신 계정이
+       말해 주는 역할을 쓴다. 강사·관리자는 촬영 주체라 묻지 않는다. */
+  function attach() {
+    if (typeof window.vcJoinRoom !== 'function' || window.__mangoConsentAttached) return;
+    window.__mangoConsentAttached = true;
+    var original = window.vcJoinRoom;
+    window.vcJoinRoom = async function () {
+      try {
+        var cu = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+        /* ⚠️ 아이디를 꺼내는 순서를 mango-attendance.js 의 accountUid 와 «글자까지» 같게 둔다.
+           동의는 이 값으로 저장되고 참가자는 attendance.account_uid 로 채워진다.
+           한 글자만 달라도 서버 게이트가 영영 안 맞아 녹화가 계속 거절된다. */
+        var uid = String((cu && (cu.uid || cu.user_id || cu.id)) || '').trim();
+        var role = String((cu && cu.role) || '').toLowerCase();
+        var isStaff = /teacher|tutor|admin|hq/.test(role);
+        var observing = false;
+        try { observing = (window.vcIsObserver === true) || (window._vcObserverMode === true); } catch (_) {}
+        if (uid && !isStaff && !observing) {
+          var nm = '';
+          try { nm = (document.getElementById('vc-name-input') || {}).value || (cu && cu.name) || ''; } catch (_) {}
+          await window.mangoConsentEnsure(uid, String(nm || '').trim() || uid);
+        }
+      } catch (_) { /* 동의 창 오류로 수업을 못 들어가면 안 된다 — 녹화는 서버가 어차피 안 켠다 */ }
+      return original.apply(this, arguments);
+    };
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach);
+  else attach();
 })();
