@@ -11,6 +11,7 @@ import { json } from './api-util';
 import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspectSession } from './auth-token';  // 🔐 소유자 검증(IDOR 방지)+토큰 발급+세션 사유 조회
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
+import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(홈 상담봇과 공유)
 import type { MangoEnv } from './api-mango';
 
 export async function handleStudentsApi(
@@ -277,24 +278,26 @@ export async function handleStudentsApi(
         const conversationId = String(b.conversation_id || '').trim() || `pc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         if (!userMessage) return json({ ok: false, error: 'message_required' }, 400);
 
-        const faqContext = `당신은 한국 어린이 영어학원 "망고아이(Mangoi)"의 친절한 학부모 상담 AI 어시스턴트입니다. 아래 FAQ를 참고해 답변하세요. 모르는 내용은 추측하지 말고 "원장님께 직접 문의드리겠다"고 안내한 뒤 응답 끝에 [ESCALATE] 토큰을 붙이세요. 항상 따뜻한 한국어 존댓말로 답변하세요.
+        // 📚 사실 근거는 src/mangoi-facts.ts 하나뿐입니다 — 홈 상담봇(/api/consult-bot)과 같은 파일을 씁니다.
+        //    ⚠️ 2026-08-11 이전에는 이 자리에 FAQ 가 통째로 복사돼 있었고, 그 사본이 틀렸습니다:
+        //       지어낸 수강료(월 19/26/39만원)·틀린 환불규정(7일 이내 100%)·틀린 강사 구성(한국인 강사 위주).
+        //       학부모가 어느 챗봇에 묻느냐에 따라 다른 답을 받고 있었습니다. 여기에 다시 복사하지 마세요.
+        const faqContext = `당신은 한국 어린이 영어학원 "망고아이(Mangoi)"의 친절한 학부모 상담 AI 어시스턴트입니다.
+아래 [정보]에 있는 사실만 근거로 답변하세요. [정보]에 없는 내용(특히 수강료·할인·교재비 등 금액)은 절대 지어내지 말고, "원장님께 직접 문의드리겠다"고 안내한 뒤 응답 끝에 [ESCALATE] 토큰을 붙이세요.
+항상 따뜻한 한국어 존댓말로 답변하세요.
 
-— 망고아이 FAQ —
-Q1. 수강료는 얼마인가요? A. 주 2회 1:1 화상수업 기준 월 19만원, 주 3회 26만원, 주 5회 39만원입니다. 첫 달 50% 할인 프로모션이 상시 진행됩니다.
-Q2. 무료 체험 수업이 있나요? A. 네, 30분 무료 체험 수업과 레벨 테스트가 무료로 제공됩니다. 홈페이지 신규상담에서 신청하실 수 있습니다.
-Q3. 수업 시간표는 어떻게 되나요? A. 평일(월~금) 오전 10시부터 밤 11시까지 1:1 시간 예약제로 운영됩니다. (주말 수업은 준비 중입니다.)
-Q4. 몇 살부터 수강할 수 있나요? A. 만 4세(7세)부터 고등학생까지 가능합니다. 유아부는 노래·놀이 중심, 초등부는 회화·문법, 중고등부는 입시/원서 영어로 커리큘럼이 다릅니다.
-Q5. 환불 규정은 어떻게 되나요? A. 교육청 환불규정 및 관련 법령에 따라 수업 진행 정도로 정산됩니다. 수업 시작 전 100%, 총 수업시간의 1/3 이전 70%, 1/2 이전 50%, 1/2 이후는 0%입니다. 할인가로 결제하신 경우 정상가로 재정산되며, 레벨테스트·체험수업은 무료입니다.
-Q6. 강사는 어떤 분들인가요? A. 영어권 거주 경력 5년+ 또는 영어교육 학위를 가진 한국인 강사 위주이며 모든 강사가 사전 채용 인터뷰와 시범 수업을 통과합니다.
-Q7. 수업은 어떤 플랫폼으로 진행되나요? A. 망고아이 자체 화상수업 플랫폼(WebRTC)에서 PC/태블릿/모바일로 입장하시면 됩니다. 별도 앱 설치 불필요합니다.
-Q8. 결석 시 보강이 가능한가요? A. 수업 24시간 전 취소 시 무료 보강, 당일 취소는 1회 한정 보강 가능합니다.
-Q9. 교재는 별도 구매해야 하나요? A. 자체 디지털 교재는 무료 제공되며, 종이 교재가 필요한 경우 권당 1.2~2만원 별도 구매입니다.
-Q10. 결제 방법은? A. 카드 자동결제, 무통장 입금, 카카오페이가 가능합니다. 매월 1일 자동결제됩니다.
-Q11. 형제자매 할인이 있나요? A. 형제자매 동시 등록 시 둘째부터 10% 할인입니다.
-Q12. 숙제는 얼마나 나오나요? A. 하루 10-20분 분량의 단어/회화/영작 숙제가 나가며 AI 음성 코칭 앱으로 자동 채점됩니다.
-Q13. 학습 보고는 어떻게 받나요? A. 매 수업 후 평가서 카톡 알림, 매주 금요일 위클리 다이제스트, 매월 학습 보고서가 자동 발송됩니다.
-Q14. 레벨 테스트는 어떻게 진행되나요? A. 화상으로 30분간 발음·듣기·말하기·읽기 4영역을 진단하고 맞춤 커리큘럼을 제안드립니다.
-Q15. 상담 가능 시간은? A. 평일 오전 10시-오후 11시(주말·공휴일 휴무)이며, 카카오톡 채널 "@망고아이"가 가장 빠릅니다(24시간 접수).`;
+[정보]
+${MANGOI_KNOWLEDGE}`;
+
+        // 🎯 요금·환불처럼 틀리면 안 되는 주제는 LLM 에 묻지 않고 사람이 쓴 답을 그대로 씁니다(환각 0).
+        //    홈 상담봇과 글자까지 같은 답이 나갑니다.
+        const faqHits = matchMangoiFaq(userMessage);
+        if (faqHits.length) {
+          const reply = faqHits.join('\n\n');
+          await env.DB.prepare(`INSERT INTO parent_chat_log (conversation_id, user_message, ai_reply, escalated, created_at) VALUES (?,?,?,?,?)`)
+            .bind(conversationId, userMessage, reply, 0, Date.now()).run();
+          return json({ ok: true, reply, escalate: false, conversation_id: conversationId });
+        }
 
         let aiReply = '';
         let escalate = false;
