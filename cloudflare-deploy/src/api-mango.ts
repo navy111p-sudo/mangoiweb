@@ -3067,6 +3067,56 @@ ${numbered}`;
         }
       }
 
+      /* 🏫 (2026-08-12) 공용방(`mangoi-class`)에는 스케줄이 없어 위 경로가 통째로 비켜간다.
+         [규모] 운영 D1 실측 recordings 1,552건 중 공용방이 1,329건(86%). 위 스케줄 경로가
+                덮는 `class-<id>-` 는 58건(3.7%)뿐이라, 공용방을 안 채우면 사실상 안 고친 것이다.
+         [무엇을 근거로 채우나] `attendance.last_seen_at`.
+                이 값은 클라이언트가 30초마다 부르는 /api/speaking-time 이 **서버 도착 시각으로**
+                찍는다(클라 값으로 대체되지 않는다). 그래서 위조도 과다계상도 안 된다.
+                user_id 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다.
+         [왜 «겹침»이 아니라 «지금 살아 있음» 인가] left_at 은 자주 안 닫힌다 —
+                공용방 학생 1,583행 중 272행이 left_at 없음이고, 세션 길이 최대치가 15일이었다.
+                그걸로 시간겹침을 재면 무관한 학생까지 걸린다(느슨한 창으로 재 봤을 때 1,359건 중
+                1,122건이 «학생 2명 이상»에 걸렸다 = 남의 아이 영상이 보일 위험).
+                반면 「방금 하트비트를 보냈다」는 회선이 끊기면 바로 멈추므로 지금 있는 사람만 남는다.
+         [같은 방에 여럿이면?] 공용방은 Durable Object 하나(정원 4명)라, 같은 시각에 있는 사람은
+                서로의 화면을 이미 보고 있는 «같은 수업»이다. 함께 적는 것이 사실과 맞다.
+         [안전] 실패해도 녹화는 그대로 시작된다(try 로 감쌌다). */
+      if (!schedMatch) {
+        try {
+          /* 세 조건을 모두 만족해야 «지금 이 방에 있는 사람» 이다. 하나라도 빼면 남이 섞인다.
+             ① 하트비트가 90초 안 — 주기가 30초이므로 3번 연속 안 오면 끊긴 것으로 본다
+             ② 아직 나가지 않음 — 퇴장은 sendBeacon 으로 left_at 을 남긴다
+             ③ 이미 들어와 있음 — joined_at 이 녹화 시작보다 앞(시계 오차 60초 허용)
+             느슨하게 3분+겹침으로 재 봤더니 앞 수업 학생까지 걸려 한 녹화에 9개 아이디가 붙었다. */
+          const FRESH_MS = 90 * 1000;
+          const live = await env.DB.prepare(
+            `SELECT DISTINCT user_id, username
+               FROM attendance
+              WHERE room_id = ?
+                AND last_seen_at IS NOT NULL
+                AND last_seen_at >= ?
+                AND joined_at <= ?
+                AND (left_at IS NULL OR left_at >= ?)`
+          ).bind(b.room_id, now - FRESH_MS, now + 60000, now).all();
+          for (const r of ((live.results || []) as any[])) {
+            const uid = String(r.user_id || '').trim();
+            const unm = String(r.username || '').trim();
+            /* 🚮 임시 접속번호는 버린다. 비로그인 참가자의 attendance 는 계정이 아니라
+               «접속마다 새로 생기는 번호»(oucdtt8rwg63yjr4rdhe9 — 18자 이상 소문자·숫자, 밑줄 없음)를
+               user_id 로 남긴다. 그건 어차피 누구의 로그인 토큰과도 안 맞아 목록·재생에 쓸모가 없고,
+               participant_ids 만 부풀려 아래 동의 조회의 파라미터 수를 밀어올린다.
+               계정 아이디는 `u_xxxxxxxxxx` 처럼 밑줄을 갖거나 사람이 고른 짧은 아이디다.
+               ⚠️ 이 판정은 «빼는» 쪽으로만 쓴다 — 잘못 빼도 예전과 같아질 뿐, 남을 넣지 않는다. */
+            const looksEphemeral = /^[a-z0-9]{18,}$/.test(uid);
+            if (uid && !looksEphemeral && !participantIds.includes(uid)) participantIds.push(uid);
+            if (unm && !participantNames.includes(unm)) participantNames.push(unm);
+          }
+        } catch (e: any) {
+          console.error('[recordings] 공용방 참가자 채우기 실패:', e?.message || e);
+        }
+      }
+
       // 동의 안 한 학생 필터링
       let consentedIds: string[] = [];
       if (participantIds.length > 0) {
