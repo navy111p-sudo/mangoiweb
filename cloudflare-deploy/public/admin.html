@@ -7455,22 +7455,29 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
                data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
                data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
-      <!-- 🥭 Phase 24 — 다중 학생 동시 등록 표 -->
+      <!-- 🥭 Phase 24 — 다중 학생 동시 등록 표
+           🧑‍🏫 (2026-08-12) 요구사항 정리 — 등록 시 사람이 «입력·선택» 하는 것은 아래 5가지뿐이다.
+             ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 배정 우선순위(요일·시간 우선 / 강사 우선)
+             ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일
+           ⛔ 강사를 «이름으로» 고르는 칸은 이 화면에 두지 않는다. 누구를 붙일지는 ③ 우선순위와
+              그 시간에 실제로 비어 있는지를 보고 「▸ 처리」 단계에서 정해진다.
+           ※ 학생 이름·패키지·월 수강료는 «치는 칸»만 없앴다. 이름은 학생 아이디로 명부에서
+              자동으로 찾아 넣고, 패키지는 레벨 구분으로 채운다(서버 필수값 + 등록 후 자동
+              카톡·CSV·워드 요약이 읽는다). 아래 「양식 등록」 가져오기는 이 표를 거치지 않고
+              바로 서버로 올라가므로 예전 양식 그대로 계속 쓸 수 있다. -->
       <div style="margin-top:10px">
         <div style="overflow-x:auto">
-          <table id="en-multi-table" style="min-width:1100px;font-size:12px;border-collapse:collapse;background:#fff">
+          <table id="en-multi-table" style="min-width:1040px;font-size:12px;border-collapse:collapse;background:#fff">
             <thead>
               <tr style="background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(251,146,60,0.18))">
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;width:30px">#</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="학생 이름*" data-en="Student name*">학생 이름*</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:90px">UID</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:170px" data-ko="수업 유형 (레벨/체험/정규)" data-en="Type (Level/Trial/Regular)">수업 유형*</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="패키지" data-en="Package">패키지</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:100px" data-ko="월 수강료" data-en="Fee">월 수강료</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:150px" data-ko="① 학생 아이디*" data-en="① Student ID*">① 학생 아이디*</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:170px" data-ko="② 레벨 구분* (레벨/체험/정규)" data-en="② Type* (Level/Trial/Regular)">② 레벨 구분* (레벨/체험/정규)</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:150px" data-ko="③ 배정 우선순위*" data-en="③ Matching priority*">③ 배정 우선순위*</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:200px" data-ko="요일" data-en="Days">요일</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:90px" data-ko="시간" data-en="Time">시간</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:90px" data-ko="인원 방식" data-en="Class size">인원 방식</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="시작일" data-en="Start">시작일</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="시간" data-en="Time">시간</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="④ 그룹수업 여부" data-en="④ 1:1 or group">④ 그룹수업 여부</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="⑤ 시작일" data-en="⑤ Start">⑤ 시작일</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;width:36px"></th>
               </tr>
             </thead>
@@ -8703,7 +8710,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=62" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=64" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
