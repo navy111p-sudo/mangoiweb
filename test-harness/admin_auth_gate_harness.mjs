@@ -10,7 +10,8 @@
 //     그래서 게이트를 DEFAULT-DENY 로 바꿨고, 그게 되돌아가지 않는지 여기서 지킨다.
 //
 //   방식: 네트워크 없이 소스 계약만 검사한다(배포 전 게이트에서 돌아야 하므로).
-//         라이브 확인은 별도 — curl -si https://mango-i.com/admin/ghost-view.html → 302 여야 한다.
+//         라이브 확인은 별도 — curl -si https://test.mangoi.co.kr/admin/ghost-view.html → 302 여야 한다.
+//         (2026-07-28 주소 정정: 예전엔 mango-i.com 으로 적혀 있었는데 없는 도메인이라 항상 실패했다)
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

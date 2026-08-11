@@ -21,7 +21,8 @@
 | §8.3 | "api-mango.ts = 최대 모듈(단일 거대 파일)" | 🟡 **도메인 분리 착수.** `api-diary.ts`·`api-util.ts` 추출 시작. 계획: [REFACTOR_PLAN.md](REFACTOR_PLAN.md) |
 
 **검증 방법(미팅 중 즉석 시연 가능):** 로그아웃 상태에서
-`https://mango-i.com/api/admin/eval/list` → **401**(수정 전 200), `…/api/points/leaderboard` → **200**.
+`https://test.mangoi.co.kr/api/admin/eval/list` → **401**(수정 전 200), `…/api/points/leaderboard` → **200**.
+(2026-07-28 주소 정정: 원문에 `mango-i.com` 으로 적혀 있었으나 그런 도메인은 존재하지 않습니다)
 
 > ⚠️ 위 보안 수정은 **배포해야 활성화**됩니다(`deploy.ps1`). 미팅 전 배포 권장.
 
