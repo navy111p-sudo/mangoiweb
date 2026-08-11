@@ -8680,6 +8680,12 @@ window.mgIsSlowNet = function(){
 
         <!-- 🗣️ AI 웜업 탭 (학생 사이드바의 /warmup.html 을 iframe으로 — 탭 첫 진입 시 lazy-load, ?room= 으로 수업방 연동) -->
         <div class="tab-panel" id="tab-warmup" style="flex-direction:column;background:#0a1530;color:#e6ecff">
+          <!-- 🗣️ (2026-08-11 강사 LEN ②) "AI 웜업이 강사 전용인지 학생도 쓰는 것인지 헷갈린다"
+               화면 어디에도 «누가 쓰는 것인지» 가 적혀 있지 않았다. 기능을 바꾸지 않고 한 줄로 못박는다.
+               강사 다수가 필리핀이라 한/영 두 벌을 함께 적는다(한쪽만 적으면 같은 질문이 언어만 바꿔 돌아온다). -->
+          <div style="flex-shrink:0;padding:8px 14px;background:rgba(167,139,250,0.14);border-bottom:1px solid rgba(167,139,250,0.32);font-size:12px;line-height:1.5;color:#ddd6fe"
+               data-ko="🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 강사는 옆에서 듣고 고쳐 주세요."
+               data-en="🗣️ The student is the one who speaks — when you open this tab the student's screen follows, and the student answers with their microphone. You listen and correct.">🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 강사는 옆에서 듣고 고쳐 주세요.</div>
           <iframe id="vc-warmup-frame" title="수업 전 AI 웜업" allow="microphone; autoplay"
                   style="flex:1;min-height:0;width:100%;border:0;background:#0a1530"></iframe>
         </div>
@@ -8694,7 +8700,19 @@ window.mgIsSlowNet = function(){
             <button onclick="rqvAuto(true)" style="padding:6px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:12px;font-weight:800;cursor:pointer" data-ko="🤖 이 수업 맞춤 퀴즈" data-en="🤖 Auto quiz for this class">🤖 <span data-ko="이 수업 맞춤 퀴즈" data-en="Auto quiz">이 수업 맞춤 퀴즈</span></button>
             <button onclick="rqvLoadList()" style="padding:6px 11px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:transparent;color:#a3b3d1;font-size:12px;font-weight:700;cursor:pointer" data-ko="📋 전체 목록" data-en="📋 All">📋 <span data-ko="전체 목록" data-en="All">전체 목록</span></button>
           </div>
-          <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto;padding:16px"></div>
+          <!-- 🛟 (2026-08-11 강사 LEN ①) "학생이 퀴즈를 넘길 수가 없다"
+               퀴즈의 「다음 →」 버튼은 보기 아래 «맨 끝» 에 그려진다. 그런데 수업 중에는 하단 독이
+               position:fixed 로 그 자리에 떠 있어 버튼을 덮는다(강사 스크린샷에서도 독이 보기 D 를 덮고 있다).
+               스크롤해도 본문 끝이 독 뒤에 깔려 있어 «버튼이 없는» 것처럼 보인다.
+               → 독 높이만큼 아래 여백을 둔다. 독을 위로 올렸거나(vc-dock-top) 접었으면(collapsed)
+                 여백이 필요 없다. padding 을 인라인이 아니라 여기에 두는 이유: 인라인이면 CSS 로 못 덮는다. -->
+          <style id="rqv-dock-clearzone">
+            #rqv-body { padding: 16px; }
+            body.vc-in-call #rqv-body { padding-bottom: 132px; }
+            body.vc-in-call.vc-dock-top #rqv-body,
+            body.vc-in-call.vc-dock-collapsed #rqv-body { padding-bottom: 16px; }
+          </style>
+          <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto"></div>
         </div>
 
             </div><!-- /.tab-content -->
@@ -9126,7 +9144,7 @@ window.mgIsSlowNet = function(){
   if (!log || !input || !send) return;
   var history = [];
   var greeted = false;
-  var SUGGEST = ['수업 시간이 어떻게 되나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
+  var SUGGEST = ['수업 시간이 어떻게 되나요?','AI 예습·복습이랑 게임도 있나요?','포인트로 뭘 받을 수 있나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
 
   function bubble(text, who){
     var d = document.createElement('div');
@@ -9175,7 +9193,11 @@ window.mgIsSlowNet = function(){
   // 상담 모달이 열릴 때 첫 인사 1회
   window.__cbGreet = function(){
     if (greeted) return; greeted = true;
-    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
+    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n'
+      + '① 수업은 오전 10시부터 오후 11시까지 (평일 월~금)\n'
+      + '② AI로 예습·복습을 재미있게 — 3D 게임 학습까지\n'
+      + '③ 배우면서 포인트를 모아 기프티콘·선물로 교환\n'
+      + '궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
   };
   send.addEventListener('click', ask);
   input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); ask(); } });
@@ -9996,7 +10018,7 @@ window.mgIsSlowNet = function(){
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=28"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=29"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -14967,7 +14989,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=3" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=18" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=19" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
 <script src="/js/mango-rec.js?v=46" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
@@ -16739,10 +16761,10 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=4"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=3"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=4"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->

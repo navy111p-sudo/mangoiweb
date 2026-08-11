@@ -1927,7 +1927,7 @@
       monthOptions += '<option value="' + _y + '-' + ('0' + _m).slice(-2) + '">' + _m + '월</option>';
     }
     var hourOptions = '';
-    for (var _h = 14; _h <= 23; _h++) { var _hh = ('0' + _h).slice(-2); hourOptions += '<option value="' + _hh + '">' + _h + '시</option>'; }
+    for (var _h = 10; _h <= 23; _h++) { var _hh = ('0' + _h).slice(-2); hourOptions += '<option value="' + _hh + '">' + _h + '시</option>'; }
     var minOptions = '';
     ['00','10','20','30','40','50'].forEach(function(m){ minOptions += '<option value="' + m + '">' + m + '분</option>'; });
     // 🔑 로그인이면 «누구로 신청하는지» 를 보이고, 비로그인이면 계정란 자체를 그리지 않는다
@@ -2171,7 +2171,7 @@
             </div>
           </div>
 
-          <div class="ltf-sec">📅 예약 희망 (오후 2시~밤 11시 · 10분 단위)</div>
+          <div class="ltf-sec">📅 예약 희망 (오전 10시~밤 11시 · 10분 단위)</div>
           <div class="ltf-grid">
             <div class="ltf-f">
               <label>📅 월 <span class="ltf-req">*</span></label>

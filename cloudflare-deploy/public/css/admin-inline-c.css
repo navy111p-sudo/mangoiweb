@@ -2329,15 +2329,35 @@ button.chip:hover,
   .ph54-cal-col.today { background-color:rgba(59,130,246,.05); }
   .ph54-cal-col.ph54-col-over { background-color:rgba(59,130,246,.14); }   /* 드래그 오버 하이라이트 */
   /* 수업(이벤트) 카드 — top/height로 절대배치, 내부 3줄: 시간 / 학생이름 / 유형 */
+  /* 🎨 (2026-08-11) 카드 배경을 admin/weekly-schedule.html 과 같은 파스텔로 통일했다
+     (adm-q6.js PH54_TYPE_COLOR — 두 파일은 한 몸이니 한쪽만 고치지 말 것).
+     밝은 배경이 됐으므로 글자는 흰색이면 안 읽힌다. 저쪽 `.slot-text` 와 같은 #1e293b 로 맞춘다
+     (파스텔 5색 전부 AA 통과 — 가장 어두운 #8cc3f0 위에서도 6.4:1).
+     테두리·그림자도 흰 반투명/짙은 그림자에서 밝은 배경용으로 낮춘다. */
   .ph54-ev { position:absolute; left:3px; right:3px; border-radius:6px; padding:3px 6px;
-     color:#fff; overflow:hidden; cursor:grab; box-sizing:border-box;
-     box-shadow:0 1px 5px rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.18); }
-  /* ph169 — '대체'(주황) 카드만 흰 글자 대비가 낮다(2.1:1). 진한 갈색으로 바꿔 읽히게.
-     나머지 3색(보라·파랑·회색)은 흰 글자로 AA 통과라 그대로 둔다.
-     유형 클래스 ph54-t-temp 는 adm-q6.js 가 붙인다(인라인 색 매칭은 브라우저가 rgb 로
-     정규화해 깨지므로 클래스로 타겟). */
-  .ph54-ev.ph54-t-temp, .ph54-slot.ph54-t-temp { color:#3d2600; }
+     color:#1e293b; overflow:hidden; cursor:grab; box-sizing:border-box;
+     box-shadow:0 1px 4px rgba(15,23,42,.18); border:1px solid rgba(15,23,42,.14); }
+  /* ph169 의 '대체(주황) 카드만 진한 갈색' 예외는 없앴다 — 주황을 안 쓰게 됐고,
+     이제 5색 전부 같은 #1e293b 로 통일이라 예외가 남아 있으면 그 카드만 색이 튄다. */
   .ph54-ev:hover { filter:brightness(1.08); z-index:3; }
+  /* 🏷 LMS 점유·시연 시드 — 수업이 아니다. 채도를 빼고 사선을 얹어 «비어 있는 칸» 으로 읽히게.
+     색을 아예 회색으로 바꾸지는 않는다. 유형(1:1/그룹)은 그대로 알아볼 수 있어야 한다. */
+  .ph54-ev.ph54-nonclass { filter:saturate(.45) brightness(1.06); border-style:dashed;
+     border-color:rgba(15,23,42,.30); box-shadow:none; }
+  .ph54-ev.ph54-nonclass::after { content:''; position:absolute; inset:0; pointer-events:none;
+     background:repeating-linear-gradient(45deg, transparent, transparent 6px,
+        rgba(15,23,42,.075) 6px, rgba(15,23,42,.075) 12px); }
+  .ph54-ev.ph54-nonclass:hover { filter:saturate(.6) brightness(1.02); }
+  /* 배지 — 시간 줄 오른쪽 끝에 'LMS' / '시드' */
+  .ph54-ev-tag { float:right; margin-left:4px; padding:0 4px; border-radius:4px;
+     background:rgba(15,23,42,.55); color:#fff; font-size:8.5px; font-weight:800;
+     letter-spacing:.3px; line-height:13px; }
+  /* 범례 — 위 사선과 같은 무늬로 칠해야 범례가 카드를 대변한다 */
+  .ph54-legend i.ph54-legend-nonclass { background:#e2e8f0;
+     background-image:repeating-linear-gradient(45deg, transparent, transparent 3px,
+        rgba(15,23,42,.22) 3px, rgba(15,23,42,.22) 6px);
+     border:1px dashed rgba(15,23,42,.35); box-sizing:border-box; }
+  .ph54-count-warn { color:#b45309; font-weight:800; }
   .ph54-ev:active { cursor:grabbing; }
   .ph54-ev.dragging { opacity:.4; }
   .ph54-ev-time { font-size:10px; font-weight:800; opacity:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
