@@ -11,8 +11,16 @@
 
 **실서비스는 `cloudflare-deploy/` 폴더 하나입니다.** 나머지 폴더 대부분은 보조 프로젝트, 실험, 레거시, 문서 제작용입니다. 헷갈리면 `cloudflare-deploy/` 밖은 건드리지 마세요.
 
-- 운영 주소: **mango-i.com** → Cloudflare Worker `webrtc-unified-platform-prod`
+- 운영 주소: **https://test.mangoi.co.kr** → Cloudflare Worker `webrtc-unified-platform-prod`
 - 배포 방법: 리포 루트에서 `deploy.ps1` 실행 (또는 `배포하기.bat` 더블클릭)
+
+> **주소 관련 주의 (2026-07-28 정정)**
+> 이 문서를 포함해 여러 곳에 운영 주소가 `mango-i.com` 으로 적혀 있었는데, **그런 도메인은 없습니다.**
+> 등록 자체가 안 되어 있어 DNS 가 아예 응답하지 않습니다(공개 DNS·.com 레지스트리 양쪽 확인).
+> - 실제 서비스 주소: **test.mangoi.co.kr** (Cloudflare 존 `mangoi.co.kr`, Worker 가 응답)
+> - `mangoi.co.kr` / `www.mangoi.co.kr` → 118.219.234.180 **구 서버**(옛 LMS). Worker 화면·API 없음
+> - 그래서 배포 후 검증을 `mango-i.com` 으로 하면 "고쳤는데 확인이 안 된다"가 아니라 **주소가 없어서** 실패합니다
+> - 나중에 `mango-i.com` 을 실제로 구입·연결하게 되면 이 항목을 다시 고쳐 주세요
 
 ## 2. 폴더 지도 — 어디가 뭐고, 건드려도 되는가
 
