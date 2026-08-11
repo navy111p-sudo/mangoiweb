@@ -89,6 +89,22 @@ check('한/영 둘 다 있다', /I agree/.test(consentJs) && /동의합니다/.t
 check('언어 판정은 getLang() 으로 한다 (인라인 currentLang 은 🌐 를 안 따라온다)',
   /getLang\s*===\s*'function'|typeof window\.getLang/.test(consentJs));
 
+console.log('\n[ 🚪 학생이 동의를 «남길 수» 있는가 — 여기가 막히면 녹화가 통째로 멈춘다 ]');
+/* 🔴 실제로 겪었다(2026-08-12). /api/consents 가 index.ts 의 관리자 전용 목록에 통째로 들어 있어
+      학생 화면이 401 을 받았다. 그래서 consents 가 0행이었고, 그 상태로 「동의 없으면 녹화 안 함」을
+      켜니 라이브에서 녹화가 거절되기 시작했다. 게이트와 기능이 서로 반대를 보고 있었던 것이다. */
+const idxSrc = rd('../cloudflare-deploy/src/index.ts');
+check('POST /api/consents 는 관리자 전용이 아니다 (본인이 남기는 쓰기)',
+  /path === '\/api\/consents' && method !== 'POST'/.test(idxSrc));
+check('POST /api/consents/withdraw 도 열려 있다 (철회는 학생의 권리)',
+  /method === 'POST' && path === '\/api\/consents\/withdraw'/.test(idxSrc));
+check('GET /api/consents/<uid> 는 열되 핸들러가 «관리자 또는 본인» 으로 막는다',
+  /method !== 'GET'/.test(idxSrc) && /resolveOwnerScope\(request, url, env as any, userId\)/.test(src));
+check('동의 창이 본인확인 토큰을 보낸다 (없으면 내 동의도 못 읽는다)',
+  /Authorization/.test(consentJs) && /Bearer/.test(consentJs));
+check('토큰을 URL 쿼리에 싣지 않는다 (프록시·로그·리퍼러에 남는다)',
+  !/\?token=/.test(consentJs));
+
 console.log('\n[ 🔐 동의를 남의 이름으로 만들 수 없다 ]');
 check('동의 저장에 본인확인이 걸려 있다',
   /'\/api\/consents' && method === 'POST'[\s\S]{0,700}_attnSoftAuthOk/.test(src));

@@ -4910,7 +4910,22 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/subscription/create') return true;            // 임의 유저 구독 무단생성 방지
   // 🔒 [PII 3차 2026-07-10] 학부모/전화 — 관리자 진단페이지만 사용(admin/health) 또는 호출없음 → 잠금.
   if (path === '/api/kakao-id' || path.startsWith('/api/kakao-id/')) return true;  // 임의유저 전화·kakao_id 조회/덮어쓰기
-  if (path === '/api/consents' || path.startsWith('/api/consents/')) return true;  // 동의서 전화·IP·기기정보 조회/위조
+  /* 🔓 (2026-08-12) 동의서 — «본인이 남기는 것» 만 연다. 조회·열거는 계속 관리자 전용.
+     [왜 열어야 하나] 이 경로가 통째로 관리자 전용이라 **학생 화면이 동의를 남길 방법이 없었다.**
+       그래서 consents 표가 1행도 없이 0행이었고, 녹화 1,552건의 동의가 전부 빈 값이었다.
+       그 상태에서 「동의 없으면 녹화 안 함」을 켜면 녹화가 통째로 멈춘다.
+     [무엇을 여는가] 쓰기 두 개뿐이다.
+       · POST /api/consents           — 내 동의를 남긴다
+       · POST /api/consents/withdraw  — 내 동의를 철회한다(철회는 학생의 권리다)
+       둘 다 핸들러에서 _attnSoftAuthOk 로 «토큰이 있는데 다른 uid» 면 거부한다.
+     [무엇을 계속 잠그는가] GET /api/consents/<uid> 는 전화·IP·기기정보가 나오는 조회다.
+       핸들러가 resolveOwnerScope 로 «관리자 또는 본인» 만 통과시키므로 게이트에서 빼도
+       남의 것은 못 본다. 열거(목록) 경로는 애초에 없다.
+     ⚠️ 여기에 새 하위 경로를 추가할 때는 «쓰기인가 조회인가» 를 먼저 판단할 것. */
+  if (path === '/api/consents' && method !== 'POST') return true;                  // 열거·기타 메서드는 관리자만
+  if (path.startsWith('/api/consents/')
+      && method !== 'GET'                                                          // GET /api/consents/<uid> = 본인 조회(핸들러가 resolveOwnerScope 로 막는다)
+      && !(method === 'POST' && path === '/api/consents/withdraw')) return true;
   if (path === '/api/parent/link-child') return true;              // 아무 학생을 공격자 학부모에 연결
   if (path === '/api/parent/my-children') return true;             // 학부모 자녀명단 조회
   // 대시보드·활성 방·방 상태 — 모두 관리자 전용
