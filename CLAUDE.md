@@ -10,7 +10,11 @@
 ## 0. 가장 먼저 알아야 할 것
 
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
-- 운영 주소: **mango-i.com** → Cloudflare Worker `webrtc-unified-platform-prod`
+- 운영 주소: **https://test.mangoi.co.kr** → Cloudflare Worker `webrtc-unified-platform-prod`
+  (Cloudflare 존 = `mangoi.co.kr`. `deploy.ps1` 의 스모크 테스트도 이 주소를 씁니다)
+  - `mangoi.co.kr` / `www.mangoi.co.kr` (118.219.234.180) 는 **구 서버**. 옛 LMS만 있고 Worker 경로(`/library/...` 등)는 404입니다
+  - ~~`mango-i.com`~~ 은 **존재하지 않는 도메인**입니다(2026-07-28 확인: 등록조차 안 됨 → NXDOMAIN).
+    옛 문서 표기 오류이니 이 주소로 curl 검증하지 마세요. 무조건 실패합니다
 - `modules/`, `public/`, `server.js` 는 **레거시**. 운영에 안 씁니다. 수정도 삭제도 하지 마세요.
 - **실제 학생 29,000명이 쓰는 라이브 서비스입니다.** 실험은 실서비스에서 하지 않습니다.
 
@@ -63,7 +67,7 @@
 |---|---|
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
-| 배포 후 curl 검증 | CDN에 구버전이 남아 있을 수 있습니다. `curl --compressed` + 캐시 우회로 확인 |
+| 배포 후 curl 검증 | 주소는 **`https://test.mangoi.co.kr`**. `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
 | D1 쿼리 | 파라미터 **100개 제한**. `IN` 절은 90개 이하로 잘라서 실행 |
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |
