@@ -3935,6 +3935,16 @@ function vcHandleMessage(msg) {
             } catch(e){ console.warn('[wb-replay]', e); }
             break;
 
+        /* 🙋 (2026-08-12 Shas 5-b·5-c) 수업 안 복습퀴즈 잇기 —
+           quiz-share: 강사 → 학생 «이 퀴즈를 같이 풀자» (id 만)
+           quiz-pick / quiz-done: 학생 → 강사 «지금 이걸 골랐어요 / 제출했어요»
+           처리는 전부 idx-x8.js(rqvOnClassMsg)가 한다 — 퀴즈 상태(st)가 거기 있다. */
+        case 'quiz-share':
+        case 'quiz-pick':
+        case 'quiz-done':
+            try { if (typeof window.rqvOnClassMsg === 'function') window.rqvOnClassMsg(msg.type, msg.data); } catch(_){}
+            break;
+
         /* 🪞 (2026-08-12 Shas 1번) 학생의 웜업 대화 — 강사 화면에만 비춘다.
            서버는 방 전체에 뿌리므로(다른 학생도 받는다) 여기서 강사만 그린다. */
         case 'warmup-echo':

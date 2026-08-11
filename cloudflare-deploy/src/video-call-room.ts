@@ -198,6 +198,8 @@ export class VideoCallRoom {
         case 'device-report':        // 🎧 (2026-08-07) 학생 → 강사: 마이크 재획득 결과. 대상 지정은 클라이언트가 id 로 거른다.
         case 'device-list':          // 🎛 (2026-08-10) 학생 → 강사: 장치 도우미 — 내 카메라·마이크·스피커 목록 회신.
         case 'device-set-result':    //    학생 → 강사: 장치 교체 결과(성공/실패/보류). 셋 다 수신측이 staff 여부로 거른다.
+        case 'quiz-pick':            // 🙋 (2026-08-12 Shas 5-b) 학생 → 강사: 복습퀴즈에서 지금 고른 답.
+        case 'quiz-done':            //    학생 → 강사: 제출 완료(점수) 또는 그만두기. 그리는 쪽에서 강사만 표시.
         case 'warmup-echo':          // 🪞 (2026-08-12 Shas 1번) 학생 → 강사: AI 웜업 대화 한 줄.
                                      //   강사가 «학생이 지금 뭘 하고 있는지» 볼 수 있게 하는 읽기 전용 중계.
                                      //   방 전체로 나가지만 그리는 쪽에서 강사만 표시한다(다른 릴레이와 같은 규칙).
@@ -230,6 +232,11 @@ export class VideoCallRoom {
               device-list-req = "장치 목록 보내줘", device-set = "이 장치로 바꿔줘".
            ⚠️ 셋 다 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 카메라·마이크를
               원격으로 건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
+        /* 🙋 (2026-08-12 Shas 5-b·5-c) 수업 안 복습퀴즈 잇기.
+           quiz-pick / quiz-done (학생 → 강사) 은 위 일반 릴레이 묶음에 있다.
+           quiz-share (강사 → 학생 «이 퀴즈를 같이 풀자») 만은 강사 전용 — 아무나 보낼 수 있으면
+           학생이 반 전체의 퀴즈를 제멋대로 갈아치운다(교재 갈아치우기와 같은 구멍). */
+        case 'quiz-share':
         case 'device-fix':
         case 'device-list-req':
         case 'device-set': {

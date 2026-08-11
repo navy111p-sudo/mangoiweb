@@ -8215,8 +8215,10 @@ window.mgIsSlowNet = function(){
                 <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
                 <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
-                <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기" data-ko-title="교재도구 펼치기/접기" data-en-title="Show/hide textbook tools">📚 교재도구 ▾</button>
-                <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기" data-ko-title="필기도구 펼치기/접기" data-en-title="Show/hide writing tools">✍️ 필기도구 ▾</button>
+                <!-- 🌐 (2026-08-12) data-ko/data-en 필수 — 없으면 EN 모드에서 i18n-sweep 이 라벨 속 «(교재도구)» 를 번역하고
+                     mango-tools-dock 의 1.2초 enforce 가 되돌려 → 칩이 1.2초 주기로 깜박인다 (필리핀 강사 제보) -->
+                <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기" data-ko-title="교재도구 펼치기/접기" data-en-title="Show/hide textbook tools" data-ko="📚 교재도구 (Textbook Tools) ▾" data-en="📚 Textbook Tools (교재도구) ▾">📚 교재도구 ▾</button>
+                <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기" data-ko-title="필기도구 펼치기/접기" data-en-title="Show/hide writing tools" data-ko="✍️ 필기도구 (Writing Tools) ▾" data-en="✍️ Writing Tools (필기도구) ▾">✍️ 필기도구 ▾</button>
                 <!-- 📖 (2026-07-29 강사 제보) "업로드된 다른 교재를 못 찾겠다 / 첫 페이지만 보인다"
                      라이브러리 버튼이 [📚 교재도구 ▾] 드롭다운 안에 있어 펼치기 전에는 보이지 않았다.
                      교재는 60개 그룹이 정상 등록돼 있는데 강사가 입구를 못 찾은 것 → 상단에 바로 노출.
@@ -8728,6 +8730,17 @@ window.mgIsSlowNet = function(){
             body.vc-in-call.vc-dock-top #rqv-body,
             body.vc-in-call.vc-dock-collapsed #rqv-body { padding-bottom: 16px; }
           </style>
+          <!-- 🙋 (2026-08-12 강사 Shas 5-b·5-c) "학생이 고른 답이 강사 화면에 안 보인다 /
+                 학생 쪽에서는 퀴즈가 사라졌는데 강사 화면엔 그대로 남아 동기화가 깨진다."
+               [뿌리] 강사와 학생이 «각자 다른 퀴즈» 를 풀고 있었다 — 양쪽 다 rqvAuto() 로
+               자기 교재·레벨에 맞는 퀴즈를 따로 받아왔고, 서로를 잇는 채널이 아예 없었다.
+               그러니 문항 수도 내용도 달라 «동기화» 라고 부를 것 자체가 없었다.
+               → ① 강사가 연 퀴즈를 학생에게 그대로 내려보내 «같은 퀴즈» 를 풀게 하고
+                 ② 학생의 선택·제출을 강사 화면 이 띠에 실시간으로 띄운다.
+               ⚠️ 이 띠는 #rqv-body «밖» 에 둔다 — renderQ() 가 body 를 통째로 다시 그리므로
+                  안에 넣으면 문항을 넘길 때마다 학생 현황이 지워진다.
+               강사에게만 보인다(rqvLiveRender 가 관리). -->
+          <div id="rqv-live" style="display:none;flex-shrink:0;padding:7px 14px;background:rgba(16,185,129,.10);border-bottom:1px solid rgba(16,185,129,.28);font-size:12px;line-height:1.6;color:#d1fae5"></div>
           <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto"></div>
         </div>
 
@@ -8854,7 +8867,7 @@ window.mgIsSlowNet = function(){
 <!-- ⚠ idx-main 버전 규칙: v=5·v=6·v=8 은 재사용 금지 — 「같은 주소 다른 내용」이 엣지·브라우저
      1년 캐시에 박힌 번호다. v=5·v=6 은 26-08-11 새벽 사고, v=8 은 main 과 이 브랜치가
      서로 다른 내용으로 동시에 써 버렸다(병합으로 내용이 또 달라짐). 다음 번호는 항상 큰 쪽으로만. -->
-<script src="/js/idx-main.js?v=12"></script>
+<script src="/js/idx-main.js?v=13"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -15013,7 +15026,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
-<script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
+<script src="/js/mango-tools-dock.js?v=6" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
 <script src="/js/mango-attendance.js?v=35" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
 <script src="/js/mango-i18n.js?v=38" defer></script>
@@ -16781,7 +16794,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=5"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=6"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->
