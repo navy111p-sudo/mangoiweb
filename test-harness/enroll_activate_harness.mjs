@@ -167,8 +167,23 @@ check('실제 실행 전에 «무엇이 바깥으로 나가는지» 확인한다
   /outward\.push/.test(coreSrc) && /if \(!confirm\(msg\)\) return/.test(coreSrc));
 check('미리보기 결과는 «저장하지 않았다» 고 명시한다',
   /아무것도 저장하지 않았습니다/.test(coreSrc));
-check('처리 패널은 pending·confirmed 에서만 뜬다 (취소된 건에 안 뜬다)',
-  /\(cur === 'pending' \|\| cur === 'confirmed'\)[\s\S]{0,120}enOpenPanel/.test(coreSrc));
+/* ✅ (2026-08-12) 등록 = 확정으로 합치면서 이 줄의 계약이 바뀌었다.
+   예전: pending·confirmed 둘 다 «▸ 처리» (사람이 눌러야 확정됨)
+   지금: 등록하는 순간 자동 확정 → pending 은 «확정이 막힌 건» 이라 「▸ 확정 안 됨」,
+         confirmed 는 학부모 문자·결제 예약을 나중에 켜는 「⚙ 후속」. 취소된 건엔 여전히 없다. */
+check('pending = 「▸ 확정 안 됨」 (확정이 막힌 건만)',
+  /cur === 'pending'[\s\S]{0,400}enOpenPanel[\s\S]{0,400}확정 안 됨/.test(coreSrc));
+check('confirmed = 「⚙ 후속」 (문자·결제만 남는다)',
+  /cur === 'confirmed'[\s\S]{0,400}enOpenPanel[\s\S]{0,400}후속/.test(coreSrc));
+check('⛔ 별도 「확정」 버튼은 화면에서 사라졌다',
+  !/_enBtn\([^)]*'confirmed'/.test(coreSrc), (coreSrc.match(/_enBtn\([^)]*'confirmed'[^)]*\)/) || [])[0]);
+check('등록이 끝나면 확정 파이프라인이 바로 이어진다',
+  /_enAutoConfirm\s*\(/.test(coreSrc) && /async function _enAutoConfirm/.test(coreSrc));
+check('자동 확정은 «바깥으로 나가는 것»을 켜지 않는다 (문자·결제)',
+  /_enAutoConfirm[\s\S]{0,700}create_subscription:\s*false[\s\S]{0,80}notify_parent:\s*false/.test(coreSrc));
+check('실패한 단계가 있으면 서버가 상태를 안 올린다 (조용한 반쪽 성공 금지)',
+  /const finalStatus = hardFail \? 'pending' : wantStatus/.test(actSrc) &&
+  /\.bind\(finalStatus, now, id\)/.test(actSrc));
 
 console.log('\n──────────────────────────────────────────');
 console.log(`총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);

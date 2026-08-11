@@ -16,11 +16,10 @@
 //     ⑤ 우선순위대로 강사가 «이름 없이» 정해져야 한다 — 아무도 안 비면 멋대로 배정하지 말고 막는다
 //
 //   실행: node test-harness/enroll_priority_assign_harness.mjs
-import { readFileSync, existsSync, mkdtempSync } from 'fs';
+import { readFileSync, mkdtempSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { tmpdir } from 'os';
-import { execFileSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -108,13 +107,20 @@ check('아무도 안 비고 가르치던 강사도 없으면 «막는다» (멋�
 
 // 실제로 돌려 본다 — esbuild 로 번들해 가짜 D1 을 물린다
 console.log('\n──────── 4-2. buildEnrollPlan 실행 (가짜 D1, 운영 DB 무접촉) ────────');
-const esbuild = join(CF, 'node_modules', 'esbuild', 'bin', 'esbuild');
-if (!existsSync(esbuild)) {
+// ⚠️ (2026-08-12) bin/esbuild 를 node 로 직접 실행하면 안 된다 — Windows 에선 JS 심이라
+//   돌지만, Linux(CI)에선 그 자리가 네이티브 ELF 바이너리라 node 가 «\x7fELF …» 를 JS 로
+//   읽다 죽는다. 이걸로 main 자동배포가 3연속 차단됐다. → JS API(buildSync)로 크로스플랫폼.
+let esbuildApi = null;
+try {
+  const { createRequire } = await import('node:module');
+  esbuildApi = createRequire(join(CF, 'package.json'))('esbuild');
+} catch (e) { /* 미설치 → 아래에서 건너뜀 */ }
+if (!esbuildApi) {
   console.log('  ⏭ esbuild 없음 — 실행 검증 건너뜀 (정적 검사만 유효)');
 } else {
   const out = join(mkdtempSync(join(tmpdir(), 'enrollplan-')), 'bundle.mjs');
-  execFileSync(process.execPath, [esbuild, join(CF, 'src', 'enroll-activate.ts'),
-    '--bundle', '--format=esm', '--platform=neutral', '--outfile=' + out], { stdio: 'pipe' });
+  esbuildApi.buildSync({ entryPoints: [join(CF, 'src', 'enroll-activate.ts')],
+    bundle: true, format: 'esm', platform: 'neutral', outfile: out, logLevel: 'silent' });
   const { buildEnrollPlan } = await import('file://' + out.replace(/\\/g, '/'));
 
   const TEACHERS = [{ id: 't1', name: 'Melca' }, { id: 't2', name: 'Anna' }, { id: 't3', name: 'Belle' }];

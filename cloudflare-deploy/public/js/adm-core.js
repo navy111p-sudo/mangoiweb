@@ -3999,12 +3999,22 @@ function _renderEnrollments() {
       '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
       '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
       '<td style="white-space:nowrap">' +
-        // 「처리」 = 계정·강사·시간표·구독·안내까지 한 번에. 상태만 바꾸려면 옆의 낱개 버튼.
-        ((cur === 'pending' || cur === 'confirmed')
+        /* ✅ (2026-08-12) 등록 = 확정. 「✓ 확정」 버튼을 없앴다 — 등록하는 순간 파이프라인이
+           같이 돈다(_enAutoConfirm). 그래도 막히는 건은 pending 으로 남으므로, **그때만**
+           이유를 열어 보는 버튼을 둔다. 정상 등록건에는 아무 «다음 단계»도 안 보인다.
+           확정된 건은 학부모 문자·결제 예약을 나중에 켜야 할 수 있어 «⚙ 후속» 으로 들어간다. */
+        (cur === 'pending'
           ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
             'style="padding:3px 10px;font-size:11px;font-weight:800;border:0;border-radius:5px;margin-right:6px;' +
-            'background:#7c3aed;color:#fff;cursor:pointer">' + (en ? '▸ Process' : '▸ 처리') + '</button>' : '') +
-        _enBtn(it.id, 'confirmed', en ? '✓ Confirm'  : '✓ 확정',    '#3b82f6', cur) +
+            'background:#b45309;color:#fff;cursor:pointer" title="' +
+            (en ? 'Registration saved but confirmation is on hold — see why' : '등록은 됐지만 확정이 보류된 건입니다 — 이유 보기') + '">' +
+            (en ? '▸ Not confirmed' : '▸ 확정 안 됨') + '</button>'
+          : (cur === 'confirmed'
+            ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
+              'style="padding:3px 10px;font-size:11px;font-weight:700;border:1px solid #7c3aed;border-radius:5px;margin-right:6px;' +
+              'background:#fff;color:#6d28d9;cursor:pointer" title="' +
+              (en ? 'Parent text / billing schedule — opt in here' : '학부모 문자·결제 예약은 여기서 켭니다') + '">' +
+              (en ? '⚙ Follow-up' : '⚙ 후속') + '</button>' : '')) +
         _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
@@ -5105,6 +5115,32 @@ function _readEnrollmentRows() {
   return out;
 }
 
+/* ✅ (2026-08-12) 등록 = 확정. 「등록」 다음에 「확정」을 또 눌러야 하던 두 단계를 하나로 합쳤다.
+   등록이 성공하면 그 자리에서 확정 파이프라인(계정 연결 · 강사 배정 · 시간표 생성)을 돌린다.
+   ⛔ 바깥으로 나가는 두 가지는 **켜지 않는다** — 학부모 문자(실제 발송)와 결제 예약(돈).
+      이건 사람이 매번 직접 켜야 하는 것이라 「▸ 처리」 패널에 그대로 남겨 뒀다.
+   막는 조건(강사 없음·명부에 없음 등)이 있으면 확정은 안 되고 pending 으로 남는다 —
+   그 경우에만 목록에 「▸ 확정 안 됨」 이 뜬다. 조용히 성공한 척하지 않는다. */
+async function _enAutoConfirm(id) {
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/activate', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'confirmed', dry: false, teacher_id: null,
+        steps: { link_student: true, assign_teacher: true, create_schedules: true,
+                 create_subscription: false, notify_parent: false }
+      })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) };
+    // 판정은 서버의 all_ok 를 따른다 — 한 단계라도 실패하면 서버가 상태를 안 올린다
+    const failed = (d.steps || []).filter(s => !s.ok);
+    return { ok: d.all_ok !== false && failed.length === 0, steps: d.steps || [], failed: failed };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
 async function addEnrollment() {
   const records = _readEnrollmentRows();
   const status = document.getElementById('en-multi-status');
@@ -5150,13 +5186,24 @@ async function addEnrollment() {
         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
       };
       autoExportEnrollment(enrollmentData);
+      // ✅ 등록 = 확정. 별도 「확정」 클릭 없이 여기서 바로 이어 돌린다.
+      if (status) status.textContent = '⏳ 확정 처리 중…';
+      const cf = await _enAutoConfirm(d.id || d.enrollment_id);
       // 행 초기화
       document.getElementById('en-multi-rows').innerHTML = '';
       _addEnrollmentRow();
-      if (status) status.textContent = '✅ 1명 등록 완료';
+      if (status) {
+        status.textContent = cf.ok
+          ? (adminLang==='en' ? '✅ Registered and confirmed' : '✅ 등록·확정 완료 (강사 배정·시간표 생성됨)')
+          : (adminLang==='en' ? '⚠️ Registered, but not confirmed — open ▸ why' : '⚠️ 등록은 됐지만 확정이 안 됐습니다 — 목록의 「▸ 확정 안 됨」 을 눌러 이유를 보세요');
+        status.style.color = cf.ok ? '#059669' : '#b45309';
+      }
+      if (!cf.ok && cf.failed && cf.failed.length) {
+        console.warn('[enroll] 확정 실패 단계:', cf.failed.map(s => s.step + ': ' + s.detail).join(' / '));
+      }
       loadEnrollments();
     } else {
-      if (status) status.textContent = '❌ 등록 실패';
+      if (status) { status.textContent = '❌ 등록 실패'; status.style.color = '#b91c1c'; }
     }
     return;
   }
@@ -5164,7 +5211,7 @@ async function addEnrollment() {
   // N>1 — 일괄 등록 (Phase 23 의 _bulkRegisterEnrollments 와 동일 패턴)
   if (!confirm((adminLang==='en' ? 'Register ' : '') + records.length + (adminLang==='en' ? ' students at once?' : '명 학생을 동시에 등록하시겠습니까?'))) return;
   if (status) status.textContent = '⏳ 일괄 등록 중… (0 / ' + records.length + ')';
-  let ok = 0, fail = 0; const errs = [];
+  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [];
   const successList = [];
   for (let i = 0; i < records.length; i++) {
     const r = records[i];
@@ -5187,6 +5234,11 @@ async function addEnrollment() {
       if (res.ok && j.ok !== false) {
         ok++;
         successList.push(r);
+        // ✅ 등록 = 확정. 한 건씩 바로 이어 돌린다(별도 확정 클릭 없음).
+        const cf = await _enAutoConfirm(j.id || j.enrollment_id);
+        if (cf.ok) confirmed++;
+        else notConfirmed.push(r.student_user_id + ': ' +
+          (cf.error || (cf.failed || []).map(s => s.detail).join(' / ') || '확정 보류'));
       } else {
         fail++;
         errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status)));
@@ -5194,9 +5246,18 @@ async function addEnrollment() {
     } catch (e) {
       fail++; errs.push(r.student_name + ': ' + (e.message || e));
     }
-    if (status) status.textContent = '⏳ 일괄 등록 중… (' + (i+1) + ' / ' + records.length + ')';
+    if (status) status.textContent = '⏳ 등록·확정 중… (' + (i+1) + ' / ' + records.length + ')';
   }
-  if (status) status.textContent = '✅ 성공 ' + ok + '명 / 실패 ' + fail + '명';
+  if (status) {
+    status.textContent = '✅ 등록 ' + ok + '명 · 확정 ' + confirmed + '명' +
+      (notConfirmed.length ? ' · ⚠️ 확정 보류 ' + notConfirmed.length + '명' : '') +
+      (fail ? ' · ❌ 실패 ' + fail + '명' : '');
+    status.style.color = (fail || notConfirmed.length) ? '#b45309' : '#059669';
+  }
+  if (notConfirmed.length) {
+    alert('⚠️ 등록은 됐지만 확정이 보류된 건:\n\n' + notConfirmed.join('\n') +
+          '\n\n목록에서 「▸ 확정 안 됨」 을 눌러 이유를 보고 고쳐 주세요.');
+  }
   // N>1 자동화 — 통합 알림 + 통합 CSV/Word
   if (ok > 0) {
     autoExportBulkEnrollment(successList);
