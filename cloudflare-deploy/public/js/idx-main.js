@@ -11926,13 +11926,34 @@ async function pdfTogglePageList(){
         + 'font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
     var onCss = 'background:rgba(56,189,248,.22);border-color:rgba(56,189,248,.6);color:#fff;font-weight:800';
 
+    /* 🗑 (2026-08-11 마이마이 ④) 「교재를 잘못 골랐을 때 올린 페이지를 뺄 수 있게 해 주세요」
+       ───────────────────────────────────────────────────────────────────────────
+       ⚠️ 이 목록의 교재는 **모든 강사가 함께 쓰는 자료**다(BTS 한 종류만 28,555개).
+          서버에서 지우면 다른 선생님 수업까지 깨진다 → **서버 파일은 절대 건드리지 않는다.**
+          여기서 빼는 것은 «지금 내 화면에 열려 있는 목록»(window._libSequence) 뿐이다.
+       [그래서 무엇이 해결되나] 잘못 연 책을 통째로 비우고 바로 옳은 책을 열 수 있다 —
+          그게 요청의 실제 목적이다(«in case we select a wrong book»).
+       [학생 화면] 학생은 교사가 공유(pdf-share)한 것만 본다. 내 목록 정리는 학생 화면을
+          건드리지 않고, 다음에 옳은 교재를 열면 그때 따라온다. */
+    var delCss = 'flex:0 0 auto;width:26px;height:26px;border-radius:7px;border:1px solid rgba(148,163,184,.35);'
+        + 'background:rgba(30,41,59,.9);color:#94a3b8;font-size:12px;cursor:pointer;padding:0;line-height:1';
+    var rowCssFlex = rowCss.replace('margin-bottom:3px;', '').replace('display:block;width:100%;', 'display:block;');
     if (seq.length > 1){
         for (var i = 0; i < seq.length; i++){
             var nm = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
-            html += '<button type="button" data-seq="' + i + '" style="' + rowCss + (i === curIdx ? ';' + onCss : '') + '">'
+            html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">'
+                 + '<button type="button" data-seq="' + i + '" style="flex:1;min-width:0;' + rowCssFlex + (i === curIdx ? ';' + onCss : '') + '">'
                  + (i + 1) + '. ' + nm.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
-                 + '</button>';
+                 + '</button>'
+                 + '<button type="button" data-del="' + i + '" title="'
+                 + (en ? 'Remove from my list (the file is not deleted)' : '내 목록에서 빼기 (파일은 지워지지 않습니다)')
+                 + '" style="' + delCss + '">✕</button>'
+                 + '</div>';
         }
+        html += '<button type="button" data-clearseq="1" style="display:block;width:100%;margin:6px 0 2px;padding:8px;'
+             + 'border-radius:8px;border:1px solid rgba(239,68,68,.45);background:rgba(239,68,68,.12);color:#fca5a5;'
+             + 'font-size:11.5px;font-weight:700;cursor:pointer;font-family:inherit">🗑 '
+             + (en ? 'Wrong book? Clear this list' : '교재를 잘못 골랐나요? 목록 비우기') + '</button>';
     }
     // 현재 파일이 여러 쪽짜리 PDF 면 그 안쪽 페이지도 이어서 보여준다
     if (typeof pdfDoc !== 'undefined' && pdfDoc && pdfDoc.numPages > 1){
@@ -11959,6 +11980,42 @@ async function pdfTogglePageList(){
             window._libSeqIdx = i;
             try { _pdfGoSeqFile(f); } catch(e){ console.warn('[pagelist]', e); }
             pdfClosePageList();
+        });
+    });
+    /* 🗑 한 줄 빼기 — 목록(내 화면)에서만. 서버 요청을 보내지 않는다(위 주석 참고). */
+    body.querySelectorAll('[data-del]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+            ev.stopPropagation();
+            var i = parseInt(this.getAttribute('data-del'), 10);
+            var s = window._libSequence || [];
+            if (!s.length || i < 0 || i >= s.length) return;
+            s.splice(i, 1);
+            /* 보고 있던 위치를 잃지 않게 맞춘다 —
+               앞쪽을 빼면 한 칸 당기고, 끝을 빼면 마지막으로 물린다. */
+            var cur = window._libSeqIdx || 0;
+            if (i < cur) cur--;
+            window._libSeqIdx = Math.max(0, Math.min(cur, s.length - 1));
+            try { if (typeof showToast === 'function') showToast(en
+                ? '🗑 Removed from your list (the file is still in the library)'
+                : '🗑 내 목록에서 뺐어요 (자료실의 파일은 그대로예요)'); } catch(_){}
+            pdfClosePageList(); pdfTogglePageList();   // 번호를 다시 매겨 그린다
+        });
+    });
+    /* 🗑 통째로 비우기 — 「교재를 잘못 골랐다」의 실제 해결책. 되돌릴 수 없는 일이 아니라
+       (다시 고르면 된다) 확인 한 번만 받는다. */
+    body.querySelectorAll('[data-clearseq]').forEach(function(b){
+        b.addEventListener('click', function(){
+            var msg = en
+                ? 'Clear this textbook from your list?\n\nThe file is NOT deleted — it stays in the library and other teachers are not affected.'
+                : '이 교재를 내 목록에서 비울까요?\n\n파일은 지워지지 않습니다 — 자료실에 그대로 있고 다른 선생님께도 영향이 없습니다.';
+            if (!window.confirm(msg)) return;
+            window._libSequence = [];
+            window._libSeqIdx = 0;
+            try { if (typeof showToast === 'function') showToast(en
+                ? '🗑 List cleared — pick the right textbook now'
+                : '🗑 목록을 비웠어요 — 이제 옳은 교재를 골라 주세요'); } catch(_){}
+            pdfClosePageList();
+            try { if (typeof openTextbookLibrary === 'function') openTextbookLibrary(); } catch(_){}
         });
     });
     body.querySelectorAll('[data-page]').forEach(function(b){

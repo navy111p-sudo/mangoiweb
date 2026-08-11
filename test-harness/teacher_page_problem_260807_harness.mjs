@@ -101,8 +101,16 @@ check('🔴 이동은 기존 함수만 쓴다 (학생 화면과 어긋나는 두
   /_pdfGoSeqFile\(f\)/.test(idx) && /pdfGoToPage\(n\);[\s\S]{0,120}_pdfBroadcastPage/.test(idx));
 check('시퀀스가 없으면 서버에서 다시 만든다 (새 기기·재접속에서도 목록이 나온다)',
   /pdfTogglePageList[\s\S]{0,1800}pdfEnsureSequence\(\)/.test(idx));
-check('교재를 안 열었을 때는 이유를 말해 준다 (빈 상자 금지)',
-  /pdfTogglePageList[\s\S]{0,4000}Open a textbook first/.test(idx));
+/* ⚠️ (2026-08-11) 예전엔 «pdfTogglePageList 뒤 4000자 안에» 로 봤다. 그런데 그 함수에
+   기능(④ 목록에서 빼기)이 붙자 거리가 늘어 **규칙은 그대로인데 검사만 깨졌다.**
+   거리가 아니라 «그 함수 안에 있는가» 로 본다 — 거리는 규칙이 아니다. */
+{
+  const _s = idx.indexOf('async function pdfTogglePageList');
+  const _e = idx.indexOf('window.pdfTogglePageList =', _s);
+  const _fn = (_s >= 0 && _e > _s) ? idx.slice(_s, _e) : '';
+  check('교재를 안 열었을 때는 이유를 말해 준다 (빈 상자 금지)',
+    /Open a textbook first/.test(_fn) && /먼저 교재를 열어 주세요/.test(_fn));
+}
 
 console.log('\n[ ⑧  수업 중에 영상이 튀어나오지 않는다 ]');
 /* "No need for the videos for BTS, SIU and Teachers videos during the class."

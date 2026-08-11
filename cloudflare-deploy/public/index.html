@@ -7262,12 +7262,32 @@ window.mgIsSlowNet = function(){
     } catch (e) {}
     return (document.documentElement.lang || 'ko');
   }
+  /* 🎬 (2026-08-11 마이마이 ⑩) 「수업 중에는 BTS·SIU·교사안내 영상이 필요 없습니다 — 오래됐습니다」
+     ───────────────────────────────────────────────────────────────────────────
+     [무엇을 했나] 영상을 **지우지 않는다.** 수업 화면 목록에서 안 보이게만 한다.
+        운영 DB 의 mango_videos 398건 중 BTS 113·Teachers 3 건이 여기 걸린다.
+        관리자 화면에서는 그대로 보이고, 지우는 것은 사람이 정할 일이다.
+     [되살리려면] 아래 배열에서 이름만 빼면 즉시 돌아온다.
+     ⚠️ MES 영상(138건)은 **일부러 남겼다** — 요청서가 지목한 것은 「MES 책」이고
+        영상은 BTS·SIU·교사안내만 적혀 있었다. 영상까지 빼려면 여기에 'MES' 를 더하면 된다. */
+  var MV_RETIRED = ['BTS', 'SIU', 'TEACHER'];
+  function mvIsRetired(v) {
+    try {
+      var s = ((v && v.title) || '') + ' ' + ((v && v.title_en) || '') + ' ' + ((v && v.category) || '');
+      s = s.toUpperCase();
+      for (var i = 0; i < MV_RETIRED.length; i++) {
+        if (new RegExp('(^|[^A-Z])' + MV_RETIRED[i] + '([^A-Z]|$)').test(s)) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
   async function mvFetchHome() {
     if (mvCache) return mvCache;
     try {
       const r = await fetch('/api/mango-videos', { cache:'no-store' });
       const d = await r.json().catch(()=>({}));
-      mvCache = d.items || [];
+      // 수업 화면에서만 거른다 — 서버 응답 자체는 그대로 두어 관리자 화면에 영향이 없다.
+      mvCache = (d.items || []).filter(function(v){ return !mvIsRetired(v); });
     } catch (e) { console.warn('mv fetch failed', e); mvCache = []; }
     return mvCache;
   }
@@ -8815,8 +8835,10 @@ window.mgIsSlowNet = function(){
      7. PDF 공유
      8. 채팅
 ================================================================ -->
-<!-- ⚠ idx-main 버전 규칙: v=5·v=6 은 엣지 오염으로 봉인됨(재사용 금지). 다음 번호는 항상 큰 쪽으로만. -->
-<script src="/js/idx-main.js?v=8"></script>
+<!-- ⚠ idx-main 버전 규칙: v=5·v=6·v=8 은 재사용 금지 — 「같은 주소 다른 내용」이 엣지·브라우저
+     1년 캐시에 박힌 번호다. v=5·v=6 은 26-08-11 새벽 사고, v=8 은 main 과 이 브랜치가
+     서로 다른 내용으로 동시에 써 버렸다(병합으로 내용이 또 달라짐). 다음 번호는 항상 큰 쪽으로만. -->
+<script src="/js/idx-main.js?v=9"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11394,7 +11416,7 @@ window.mgIsSlowNet = function(){
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=4"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=5"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -14032,7 +14054,7 @@ window.mgIsSlowNet = function(){
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260810183642 -->
+<!-- BUILD:20260811084701 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
