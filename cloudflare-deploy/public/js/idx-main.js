@@ -3935,6 +3935,17 @@ function vcHandleMessage(msg) {
             } catch(e){ console.warn('[wb-replay]', e); }
             break;
 
+        /* 🪞 (2026-08-12 Shas 1번) 학생의 웜업 대화 — 강사 화면에만 비춘다.
+           서버는 방 전체에 뿌리므로(다른 학생도 받는다) 여기서 강사만 그린다. */
+        case 'warmup-echo':
+            try {
+                if (window.vcCanControlTextbook && window.vcCanControlTextbook()
+                    && typeof window.vcWarmupMirror === 'function') {
+                    window.vcWarmupMirror(msg.data && msg.data.who, msg.data && msg.data.text);
+                }
+            } catch(_){}
+            break;
+
         /* ✋ (2026-07-28 Kaye 9번) 교사의 '학생 필기 잠금' 신호 — 학생 쪽에 잠금 상태를 알린다.
            교사가 새로 들어온 학생에게도 알릴 수 있게, 잠금은 켤 때마다 방송한다. */
         case 'pdf-drawlock':
@@ -4057,6 +4068,8 @@ function vcHandleMessage(msg) {
                 if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') {
                     window.__vcFocusLockOn = _fcLk;
                     if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender();
+                    /* 다른 강사가 걸었거나 새로고침으로 다시 들어온 경우 — 띠도 함께 맞춘다 */
+                    try { window.vcFocusBadge(_fcLk, true); } catch(_){}
                 } else if (typeof vcFocusLockApply === 'function') {
                     vcFocusLockApply(_fcLk);
                 }
@@ -5108,6 +5121,17 @@ function vcIsTeacherRole(){
         if (!r) { try { if (window.MangoV3 && window.MangoV3.user && window.MangoV3.user.role) r = window.MangoV3.user.role; } catch(e){} }
         if (!r) r = window.vcMyRole || '';
         if (r === 'teacher' || r === 'admin') return true;
+        /* 🚫 (2026-08-12 Melca 6번 「학생 화면에 자물쇠 아이콘이 보인다」)
+           역할이 **이미 정해져 있으면** 이름 추측을 쓰지 않는다.
+           이름 휴리스틱은 «아무 정보도 없을 때» 쓰는 마지막 수단인데, 아래 두 경우에
+           정해진 답을 덮어써 학생에게 강사 칩(🔒 필기 잠금·🔒 배경 잠금 등)을 보여 줬다.
+             ① ?vc_role=student 로 «학생» 이라고 URL 이 명시했는데도 이름에 teacher 가 있어 승격
+             ② 서버가 «이 예약의 학생» 이라 판정해 vcMyRole 을 student 로 내렸는데(2627행)
+                로그인이 없어 여기서 다시 올라감 — 서버의 결정이 조용히 뒤집혔다
+           🔑 «내리는» 쪽으로만 작동하므로 진짜 강사가 못 들어오는 일은 없다.
+              역할이 아직 비어 있으면(r === '') 예전처럼 이름으로 백업 판정한다. */
+        if (r === 'student' || r === 'observer') return false;
+        if (window.__vcRoleFromUrl) return false;
         /* 🚫 이름 휴리스틱은 «로그인이 아예 없을 때» 만. 로그인한 사람에게 쓰면
            아이디에 teacher 가 들어간 학생이 강사 권한을 갖는다(반 전체 교재를 넘길 수 있다). */
         if (_u0) return false;
@@ -5126,6 +5150,96 @@ window.vcIsStaffNow = function(){
         if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return true;
         return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
     } catch(e){ return false; }
+};
+
+/* 🪞 (2026-08-12 강사 Shas 1번) AI 웜업 — 학생의 대화를 강사 화면에 비춰 준다.
+   [무엇이 오해였나] Shas 선생님은 「텍스트 상자로 서로 대화하는 기능」으로 보고,
+   보내도 상대에게 안 간다고 하셨다. 실제로 웜업의 대화 상대는 **AI** 다(학생이 영어로
+   말하고 AI 가 받아 준다). 그래서 서로에게 안 가는 것이 설계다.
+   [그래도 진짜 빈 곳] 강사가 «학생이 지금 뭘 하고 있는지» 확인할 길이 아예 없었다.
+   → 학생 화면의 웜업 한 줄 한 줄을 강사에게 중계해 읽기 전용으로 비춘다.
+     양방향 채팅을 새로 만들지 않는 이유: 수업 채팅이 이미 그 일을 한다. */
+window.vcWarmupMirror = function(who, text){
+  try {
+    var box = document.getElementById('vc-warmup-mirror');
+    var log = document.getElementById('vc-warmup-mirror-log');
+    if (!box || !log) return;
+    box.style.display = 'block';
+    var row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:3px;word-break:break-word';
+    var tag = document.createElement('b');
+    tag.style.color = (who === 'ai') ? '#fbbf24' : '#7dd3fc';
+    tag.textContent = (who === 'ai') ? '🥭 Mango: ' : '🙋 학생: ';
+    row.appendChild(tag);
+    row.appendChild(document.createTextNode(String(text || '')));   // textContent — HTML 주입 차단
+    log.appendChild(row);
+    /* 길어지면 앞쪽을 버린다 — 한 수업 내내 쌓이면 강사 화면이 무거워진다 */
+    while (log.childNodes.length > 60) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  } catch(_){}
+};
+/* 웜업 iframe → 부모. 학생이면 강사에게 중계하고, 강사면(자기 연습) 아무것도 하지 않는다. */
+try {
+  window.addEventListener('message', function(ev){
+    try {
+      if (ev.origin !== location.origin) return;            // 같은 오리진만
+      var d = ev.data;
+      if (!d || d.__mangoiWarmup !== 1) return;
+      if (window.vcCanControlTextbook && window.vcCanControlTextbook()) return;  // 강사 자기 연습은 안 보냄
+      if (typeof vcConn === 'undefined' || !vcConn) return;
+      vcConn.send({ type: 'warmup-echo', data: { who: d.who, text: d.text } });
+    } catch(_){}
+  });
+} catch(_){}
+
+/* 📚 (2026-08-12 Melca 7·8번) 「교재를 누가 조종할 수 있는가」의 정본.
+   [무엇이 문제였나] 상단 탭바의 강사 전용 칩은 잘 숨겨져 있었는데, **교재도구 바
+   (.pdf-controls) 는 학생에게도 통째로 열려 있었다.** 그래서 학생이
+     · 📁 교재·📎 파일을 올려 반 전체에 띄우고
+     · 📚 라이브러리에서 다른 교재를 골라 수업 교재를 갈아치우고
+     · ◀▶ 로 반 전체의 페이지를 넘기고 (첫 페이지에서 ◀ 를 누르면 «이전 파일»로
+       통째로 이동하며 vcShareTextbook 까지 쏜다)
+     · 📋 그림을 붙여넣어 업로드·공유하고 (Melca 8번)
+     · 🖱 파일을 끌어다 놓아 업로드할 수 있었다.
+   강사가 「펜 권한을 주면 제어권을 잃는다」(Melca 7번)고 느낀 것도 이 때문이다 —
+   권한을 «준» 것이 아니라, 학생이 처음부터 갖고 있던 조작권으로 강사의 페이지를
+   되돌려 버린 것이다(pdf-page-change 는 보내는 쪽 검사가 없다).
+   ⚠️ 학생의 «내 화면에서만» 보기(확대·다운로드·페이지 넘겨보기)는 막지 않는다.
+      막는 것은 **반 전체에 영향을 주는 조작**뿐이다. */
+window.vcCanControlTextbook = function(){
+    try { return (typeof vcIsStaffNow === 'function') ? !!vcIsStaffNow()
+                 : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'); }
+    catch(e){ return false; }
+};
+/* 학생이 눌렀을 때 «왜 안 되는지» 한 줄로 말해 준다 — 조용히 무시하면 고장으로 읽힌다.
+   4초에 한 번만(연타·드래그로 도배되지 않게). */
+window.vcTextbookDenied = function(){
+    try {
+        if (window.__vcTbDenyAt && Date.now() - window.__vcTbDenyAt < 4000) return;
+        window.__vcTbDenyAt = Date.now();
+        var en = (typeof getLang === 'function' && getLang() === 'en');
+        if (typeof mangoToast === 'function') mangoToast(en
+            ? 'Only the teacher can change the textbook for the class.'
+            : '교재는 선생님만 바꿀 수 있어요.');
+    } catch(_){}
+};
+/* 🙈 반 전체를 움직이는 버튼은 학생에게 아예 보이지 않게 한다.
+   (동작 게이트와 «둘 다» 둔다 — 필기 잠금과 같은 이중 방어. 버튼을 지워도 콘솔·단축키로
+    함수를 부를 수 있고, 반대로 게이트만 두면 «눌리는데 거절당하는» 버튼이 남는다.) */
+window.vcRenderTextbookControls = function(){
+    try {
+        var bar = document.querySelector('#tab-pdf .pdf-controls');
+        if (!bar) return;
+        var staff = window.vcCanControlTextbook();
+        var SEL = ['button[onclick*="triggerUpload"]',
+                   'button[onclick*="openTextbookLibrary"]',
+                   'button[onclick*="pdfStopShare"]'];
+        SEL.forEach(function(sel){
+            bar.querySelectorAll(sel).forEach(function(b){
+                b.style.display = staff ? '' : 'none';
+            });
+        });
+    } catch(_){}
 };
 // 🔍 (2026-07-05) 이 원격 박스가 '학생'인지 판별 — 다른 선생님/강사/관찰자는 칭찬 대상에서 제외.
 //   역할(dataset.role / vcPeerRoles) + 이름 휴리스틱(교사/강사/선생님/teacher) 둘 다로 거른다.
@@ -7641,6 +7755,10 @@ window.__vcFocusLockOn = false;    window.__vcFocusLockedByTeacher = false;
 window.vcClassLockChipsRender = function(){
   var staff = _vcBgLockIsStaff() || ((typeof vcIsTeacherRole === 'function') && vcIsTeacherRole());
   var en = _vcBgLockEn();
+  /* 👥 (2026-08-12 Shas 3번) 「학생 제어」 이름표 — 아래 세 칩이 무엇을 하는 묶음인지 알려 준다.
+     칩들과 «똑같은 조건» 으로 켜고 끈다. 따로 두면 학생 화면에 이름표만 남는다. */
+  var sctl = document.getElementById('vc-studentctl-label');
+  if (sctl) sctl.style.display = staff ? 'inline-flex' : 'none';
   var mic = document.getElementById('vc-miclock-btn');
   if (mic) {
     mic.style.display = staff ? 'inline-flex' : 'none';
@@ -7668,6 +7786,9 @@ window.vcClassLockChipsRender = function(){
   try { if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip(); } catch(_){}
   /* 🖥 (2026-07-30 Kaye 4번) 내 화면 공유 버튼도 함께 갱신 */
   try { if (typeof vcRenderScreenShareChip === 'function') vcRenderScreenShareChip(); } catch(_){}
+  /* 📚 (2026-08-12 Melca 7·8번) 교재도구 바의 강사 전용 버튼도 같은 시점에 함께 —
+     역할이 확정되는 모든 경로가 이 함수를 부르므로 여기 한 곳이면 전부 덮인다. */
+  try { if (typeof vcRenderTextbookControls === 'function') vcRenderTextbookControls(); } catch(_){}
   var fc = document.getElementById('vc-focuslock-btn');
   if (fc) {
     fc.style.display = staff ? 'inline-flex' : 'none';
@@ -7688,6 +7809,14 @@ window.vcClassLockChipsRender = function(){
 try {
   window.addEventListener('mangoi:langchange', function(){
     try { if (typeof window.vcClassLockChipsRender === 'function') window.vcClassLockChipsRender(); } catch(_){}
+    /* 🎯 집중 모드 띠도 글자를 갈아 끼운다 — textContent 로 그린 것이라
+       data-ko/data-en 루프가 못 고친다(CLAUDE.md 의 «JS 로 그린 라벨» 함정). */
+    try {
+      if (document.getElementById('vc-focus-badge')) {
+        var _fs = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        window.vcFocusBadge(_fs ? !!window.__vcFocusLockOn : !!window.__vcFocusLockedByTeacher, _fs);
+      }
+    } catch(_){}
   });
 } catch(_){}
 
@@ -7743,6 +7872,9 @@ window.vcRenderDrawLockChip = function(){
 window.vcFocusLockToggle = function(){
   window.__vcFocusLockOn = !window.__vcFocusLockOn;
   window.vcClassLockChipsRender();
+  /* 🎯 (Shas 4번) 강사 자신에게도 «켜져 있다» 를 계속 보여 준다 — 칩 색만으로는
+     눌렀는지 알기 어려워 「아무 변화가 없다」는 제보가 나왔다. */
+  try { window.vcFocusBadge(window.__vcFocusLockOn, true); } catch(_){}
   try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'focus-lock', data: { locked: window.__vcFocusLockOn } }); } catch(_){}
   try {
     if (typeof showToast === 'function') showToast(window.__vcFocusLockOn
@@ -7795,10 +7927,45 @@ window.vcMicLockApply = function(locked){
 };
 
 // 학생: 집중 모드 적용/해제 — 실제 차단은 vcToggleContentTab/vcMobileTabSwitch 가드가 수행
+/* 🎯 (2026-08-12 강사 Shas 4번) 「Focus Mode 를 눌렀는데 아무런 변화가 없다」
+   기능은 멀쩡히 돌고 있었다 — 학생의 탭 전환(vcToggleContentTab·vcMobileTabSwitch)과
+   채팅 자동열기를 막는다. 문제는 **그 사실이 화면 어디에도 남지 않는 것**이었다.
+   토스트는 몇 초 뒤 사라지고, 켠 «뒤에» 들어온 학생은 그마저도 못 본다.
+   그래서 강사에게는 눌러도 아무 일이 없는 버튼으로 보였다.
+   → 켜져 있는 «동안» 계속 떠 있는 띠를 둔다. 강사와 학생에게 각각 다른 말로.
+   ⚠️ pointer-events:none — 수업 화면 위에 뜨므로 클릭을 절대 가로채면 안 된다.
+      (예전에 «보이는데 눌리지 않는 유령 창» 사고가 있었다) */
+window.vcFocusBadge = function(on, forStaff){
+  try {
+    var old = document.getElementById('vc-focus-badge');
+    if (old) old.remove();
+    if (!on) return;
+    var en = false;
+    try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch(_){}
+    var box = document.createElement('div');
+    box.id = 'vc-focus-badge';
+    box.style.cssText = 'position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:2147482000;'
+      + 'pointer-events:none;max-width:min(520px,94vw);padding:7px 16px;border-radius:999px;'
+      + 'font-size:12.5px;font-weight:800;line-height:1.4;text-align:center;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;'
+      + 'background:rgba(180,83,9,.94);border:1px solid #fbbf24;color:#fef3c7;'
+      + 'box-shadow:0 8px 24px -8px rgba(0,0,0,.5)';
+    box.textContent = forStaff
+      ? (en ? '🎯 Focus mode ON — students cannot switch tabs'
+            : '🎯 집중 모드 켜짐 — 학생은 화면을 바꿀 수 없어요')
+      : (en ? '🎯 Focus mode — follow your teacher’s screen'
+            : '🎯 집중 모드 — 선생님 화면을 따라가요');
+    document.body.appendChild(box);
+  } catch(_){}
+};
 window.vcFocusLockApply = function(locked){
   locked = !!locked;
   var changed = window.__vcFocusLockedByTeacher !== locked;
   window.__vcFocusLockedByTeacher = locked;
+  /* 띠는 «상태» 다 — changed 와 무관하게 항상 맞춘다.
+     늦게 들어온 학생은 서버가 재전송해 주는데, 그때 changed 는 true 지만
+     새로고침·재입장으로 값이 같은 채 들어오는 경우도 있어 여기서 한 번 더 맞춘다. */
+  try { window.vcFocusBadge(locked, false); } catch(_){}
   if (changed) {
     try {
       if (typeof showToast === 'function') showToast(locked
@@ -10673,6 +10840,8 @@ async function pdfBuildImageDoc(url) {
 // 📎 모든 파일 공유 업로드 (워드·엑셀·PPT·한글·ZIP 등) — 렌더링 대신 다운로드 링크로 학생에게 공유
 // 📎 업로드 버튼 클릭 → 숨겨진 파일 입력 강제 트리거 (label 방식보다 확실. 콘솔 로그로 클릭 등록 여부 판별)
 function triggerUpload(kind) {
+    /* 📚 (2026-08-12 Melca 8번) 올린 파일은 곧바로 반 전체에 공유된다 → 강사·관리자만. */
+    if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     var id = (kind === 'pdf') ? 'pdf-upload' : 'file-share-upload';
     var el = document.getElementById(id);
     try { console.log('[업로드] 버튼 클릭 →', kind, '| 입력요소 존재:', !!el); } catch(_){}
@@ -10692,6 +10861,9 @@ async function fileShareUpload(input) {
     try { console.log('[업로드] fileShareUpload 실행 (파일 선택됨)'); } catch(_){}
     const file = input.files && input.files[0];
     if (!file) return;
+    /* 📚 (2026-08-12 Melca 8번) 워드·엑셀·ZIP 등은 아래에서 «다운로드 카드» 로 반 전체에
+       뿌려진다 — pdfUpload 를 안 거치는 별도 길이라 여기도 따로 막는다. */
+    if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     // 📄 PDF·JPG·PNG 는 교재 뷰어(pdf.js)가 화면에 바로 그릴 수 있다 → 다운로드 카드 대신 교재로 렌더.
     //    드래그앤드롭 dropzone(위 initPdfDropzone)과 동일한 라우팅. 📎 파일 버튼으로 올려도 교재 스크린에 즉시 표시된다.
     //    (워드·엑셀·PPT·한글·ZIP 등 렌더 불가 파일만 아래 다운로드 공유 경로로 내려간다)
@@ -10807,6 +10979,8 @@ window.fileShareShowInViewer = fileShareShowInViewer;
     zone.addEventListener('drop', function(e){
       var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
       if (!f) return;
+      /* 📚 (2026-08-12 Melca 8번) 끌어다 놓기도 붙여넣기와 같은 입구다 — 같이 막는다. */
+      if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
       var ln = (f.name||'').toLowerCase();
       if (/\.(pdf|jpe?g|png)$/.test(ln)) { try { pdfUpload({ files:[f], value:'' }); } catch(_){} }
       else { try { fileShareUpload({ files:[f], value:'' }); } catch(_){} }
@@ -10859,6 +11033,9 @@ async function pdfUpload(input) {
     const files = Array.prototype.slice.call(input.files || []);
     try { console.log('[업로드] pdfUpload 실행 — 선택된 파일', files.length + '개'); } catch(_){}
     if (!files.length) return;
+    /* 📚 (2026-08-12 Melca 8번) 업로드가 모이는 «마지막 길목». 버튼·붙여넣기·드래그를 각각
+       막아 뒀지만, 입구가 셋이나 되므로 여기에도 한 겹 둔다(하나를 놓쳐도 새지 않게). */
+    if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
 
     // file:// 프로토콜로 직접 열면 서버 API 호출이 불가능 → 사용자에게 명확히 안내
     if (location.protocol === 'file:') {
@@ -10977,6 +11154,12 @@ async function pdfUpload(input) {
 
         var blob = imgItem.getAsFile();
         if (!blob) return;
+        /* 📚 (2026-08-12 Melca 8번) 「학생이 보드에 파일을 직접 붙여넣을 수 있다」
+           맞다. 붙여넣기는 업로드로 끝나지 않고 아래에서 pdf-share 까지 쏘므로,
+           학생이 허가 없이 **반 전체 화면을 자기 그림으로 갈아치울 수 있었다.**
+           ⚠️ 그림일 때만 여기까지 온다 — 글자 붙여넣기는 위에서 이미 빠져나가므로
+              학생의 평범한 붙여넣기에 잔소리가 붙지 않는다. */
+        if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
         ev.preventDefault();
 
         var ext = /png/i.test(blob.type) ? '.png' : '.jpg';
@@ -11866,6 +12049,10 @@ async function pdfEnsureSequence() {
 // fix (2026-07-12) — 시퀀스 파일 이동. selectFromTextbookLibrary 는 교재 라이브러리 모달을
 //   한 번 연 세션에서만 정의됨(IDB 로드 콜백 내부) → 새 기기/학생용 직접 로드 폴백 필수.
 function _pdfGoSeqFile(f) {
+    /* 📖 (2026-08-12 Melca 7번) 이건 «페이지» 가 아니라 «교재 파일» 을 통째로 바꾸는 길이다
+       (아래에서 vcShareTextbook 을 쏜다). 학생이 첫 페이지에서 ◀ 를 한 번 누르면 반 전체의
+       교재가 이전 파일로 갈아치워졌다 — 페이지 넘김보다 반경이 훨씬 크다. */
+    if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     if (typeof window.selectFromTextbookLibrary === 'function') {
         window.selectFromTextbookLibrary(f.id, f.url, f.kind, f.name);
         return;
@@ -11886,6 +12073,14 @@ function _pdfBroadcastPage() {
     //   폴링이 끼어들어 이전 페이지로 되돌리는 것을 막는다. vcConn 이 없어도 갱신한다.
     _pdfSyncShownKey();
     window._vcPdfLocalNavAt = Date.now();   // 방금 '내가' 넘겼다는 표시 — 폴링이 끌어가지 못하게
+    /* 📖 (2026-08-12 Melca 7번) 「펜 권한을 주면 강사가 페이지를 못 넘긴다」의 진짜 원인.
+       페이지 이동은 방 전체에 방송되는데 **보내는 쪽 검사가 없었다.** 그래서 학생이 ◀▶ 를
+       누르면 강사 화면도 함께 끌려갔고, 강사에게는 «내가 넘겼는데 되돌아온다 = 제어권을
+       빼앗겼다» 로 보였다. 키보드(←→)와 휠은 이미 강사 전용이었는데 **버튼만 뚫려 있었다**
+       — 「버튼은 강사 UI 안에만 있다」는 옛 가정이 교재도구 바가 공용이 되면서 깨진 것.
+       ⚠️ 학생의 «내 화면에서만» 넘겨보기는 그대로 둔다(위 렌더는 이미 끝났다).
+          막는 것은 방송뿐이다 — 수업을 방해하지 않으면서 제어권만 강사에게 돌려준다. */
+    if (!window.vcCanControlTextbook()) return;
     if (!vcConn) return;
     if (_pdfBcTimer) clearTimeout(_pdfBcTimer);
     _pdfBcTimer = setTimeout(function () {
@@ -12083,6 +12278,8 @@ window.pdfTogglePageList = pdfTogglePageList;
 window.pdfClosePageList = pdfClosePageList;
 
 function pdfStopShare() {
+    /* 📚 (2026-08-12 Melca 7번) 학생이 누르면 **반 전체의 교재가 사라진다** — 강사·관리자만. */
+    if (!window.vcCanControlTextbook()) { window.vcTextbookDenied(); return; }
     pdfDoc = null;
     pdfCurrentId = null;
     document.getElementById('pdf-canvas').getContext('2d').clearRect(0, 0, 9999, 9999);
