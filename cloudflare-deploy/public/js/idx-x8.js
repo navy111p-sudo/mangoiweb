@@ -18,6 +18,94 @@
     var g; try { g = localStorage.getItem('rqv_guest'); if(!g){ g='guest_'+Math.random().toString(36).slice(2,9); localStorage.setItem('rqv_guest',g);} }catch(e){ g='guest'; }
     return { uid:g, name:'게스트', level:'' };
   }
+  /* ═══ 🙋 (2026-08-12 강사 Shas 5-b·5-c) 수업 안에서 강사 ↔ 학생 퀴즈 잇기 ═══
+     [무엇이 문제였나] 강사와 학생이 «각자 다른 퀴즈» 를 풀고 있었다. 양쪽 모두 rqvAuto() 로
+     자기 교재·레벨에 맞는 퀴즈를 따로 받아오는데(AI 자동 출제라 같은 조건이어도 다를 수 있다),
+     서로를 잇는 메시지가 한 줄도 없었다. 그래서
+       · 5-b 「학생이 고른 답이 강사 화면에 안 보인다」 — 볼 방법이 애초에 없었다
+       · 5-c 「학생 쪽에선 퀴즈가 사라지는데 강사 화면엔 남는다」 — 문항 수가 서로 달라
+              학생이 먼저 마지막 문항에 닿아 제출·결과 화면으로 넘어간 것이다
+     [고치는 방향] 강사가 «퀴즈를 정하고», 학생의 진행 상황이 강사에게 보이게 한다.
+     ⚠️ 학생을 강사와 «같은 문항에 묶지는» 않는다. 묶으면 학생이 스스로 못 넘기게 되어
+        LEN ① 「학생이 퀴즈를 넘길 수가 없다」를 반대 방향으로 다시 만든다.
+        같은 «퀴즈» 를 풀되, 문항 진도는 각자 — 대신 강사가 그 진도를 눈으로 본다. */
+  function rqvIsStaff(){
+    try { return !!(window.vcIsStaffNow && window.vcIsStaffNow()); }
+    catch(e){ return window.vcMyRole === 'teacher' || window.vcMyRole === 'admin'; }
+  }
+  function rqvInClass(){
+    try { return document.body.classList.contains('vc-in-call') && !!window.vcConn; } catch(e){ return false; }
+  }
+  function rqvSend(type, data){
+    /* 수업 밖(학생 사이드바에서 혼자 풀기)에서는 아무 데도 보내지 않는다 — 예전과 똑같이 동작한다. */
+    if (!rqvInClass()) return;
+    try { window.vcConn.send({ type: type, data: data }); } catch(e){}
+  }
+  /* 강사 화면에 뜨는 «학생 현황» — uid 별 마지막 상태만 들고 있는다(쌓지 않는다). */
+  var live = {};
+  function rqvLiveRender(){
+    var el = $('rqv-live'); if (!el) return;
+    var ids = Object.keys(live);
+    if (!rqvIsStaff() || !ids.length) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    var rows = ids.map(function(uid){
+      var s = live[uid];
+      var who = '<b>🙋 ' + esc(s.name || uid) + '</b>';
+      if (s.quit) return who + ' — <span style="color:#fca5a5">' + (isEn()?'left the quiz':'퀴즈를 그만뒀어요') + '</span>';
+      if (s.done) return who + ' — <span style="color:#6ee7b7;font-weight:800">✅ ' + (isEn()?'submitted':'제출 완료')
+                        + (s.score != null ? ' ' + s.score + '/' + s.total : '') + '</span>';
+      var pos = (isEn()?'Q':'문항 ') + (s.idx + 1) + '/' + s.total;
+      var pick = (s.text != null && s.text !== '')
+        ? '<span style="color:#fde68a;font-weight:800">' + esc(s.text) + '</span>'
+        : '<span style="color:#94a3b8">' + (isEn()?'not answered yet':'아직 안 골랐어요') + '</span>';
+      return who + ' — ' + pos + ' · ' + pick;
+    });
+    /* innerHTML 을 쓰지만 학생이 넣은 값(name·text)은 전부 esc() 를 거친다 */
+    el.innerHTML = '<div style="font-size:10.5px;font-weight:800;color:#6ee7b7;margin-bottom:3px">'
+      + (isEn() ? '🙋 What students are doing right now' : '🙋 학생이 지금 무엇을 고르고 있는지')
+      + '</div>' + rows.join('<br>');
+  }
+  /* 학생이 «지금 고른 것» 을 강사에게 알린다. 사람이 읽을 글자까지 함께 보내
+     강사 쪽에서 퀴즈 원문을 다시 뒤지지 않아도 되게 한다(문항이 달라도 읽힌다). */
+  function rqvReportPick(){
+    if (rqvIsStaff() || !st.quiz) return;
+    var i = st.idx, a = st.answers[i], q = st.quiz.questions[i] || {};
+    var text = '';
+    if (a != null && a !== '') {
+      text = (typeof a === 'number')
+        ? (ABC[a] + '. ' + String((q.opts && q.opts[a]) || ''))
+        : String(a);
+    }
+    var u = me();
+    rqvSend('quiz-pick', { uid: u.uid, name: u.name || (window.vcUsername || ''),
+                           idx: i, total: st.quiz.questions.length, text: text.slice(0, 80) });
+  }
+  /* 수업 메시지 수신 — idx-main.js 의 소켓 switch 가 여기로 넘겨 준다. */
+  window.rqvOnClassMsg = function(type, d){
+    try {
+      d = d || {};
+      if (type === 'quiz-share') {
+        /* 강사가 연 퀴즈를 학생도 «같은 것» 으로 연다. 강사 자신은 이미 열려 있으니 무시. */
+        if (rqvIsStaff() || !d.id) return;
+        if (st.quiz && String(st.quiz.id) === String(d.id)) return;   // 이미 같은 퀴즈다
+        st.loadedOnce = true;              // rqvOnEnter 의 자동 출제가 이걸 덮어쓰지 않게
+        window.rqvOpen(d.id);
+        return;
+      }
+      if (type === 'quiz-pick' || type === 'quiz-done') {
+        if (!rqvIsStaff() || !d.uid) return;             // 학생 화면에는 남의 답을 띄우지 않는다
+        var prev = live[d.uid] || {};
+        live[d.uid] = {
+          name: d.name || prev.name, idx: d.idx != null ? d.idx : prev.idx,
+          total: d.total != null ? d.total : prev.total, text: d.text != null ? d.text : prev.text,
+          done: type === 'quiz-done' && !d.quit, quit: type === 'quiz-done' && !!d.quit,
+          score: d.score != null ? d.score : prev.score
+        };
+        rqvLiveRender();
+      }
+    } catch(e){}
+  };
+
   // 이 수업의 교재/레벨/레슨 컨텍스트 추정
   function ctx(){
     var textbook = '';
@@ -76,6 +164,13 @@
   // 📋 전체 목록 (학생 사이드바와 동일)
   window.rqvLoadList = async function(){
     var body = $('rqv-body'); if (!body) return;
+    /* 🙋 (Shas 5-c) 학생이 「그만두기」로 퀴즈를 떠나면 강사에게 알린다 —
+       예전엔 학생 화면에서만 퀴즈가 사라져 「내 화면엔 남아 있는데?」가 됐다. */
+    if (!rqvIsStaff() && st.quiz) {
+      var _uq = me();
+      rqvSend('quiz-done', { uid: _uq.uid, name: _uq.name || (window.vcUsername || ''), quit: true });
+      st.quiz = null;
+    }
     setCtxLabel();
     body.innerHTML = '<div style="text-align:center;padding:30px;color:#a3b3d1;font-size:13px">⏳ '+(isEn()?'Loading…':'불러오는 중…')+'</div>';
     try {
@@ -110,6 +205,13 @@
     // 🈶 목록에서 직접 연 퀴즈는 EN/中文 토글과 무관하게 실제 퀴즈 언어를 따른다(말하기 STT 힌트용).
     st.lang = (quiz.lang === 'zh') ? 'zh' : 'en';
     if (generated) { var t=$('rqv-ctx'); if(t) t.textContent='🤖 '+(isEn()?'AI just created this':'AI가 방금 만든 퀴즈')+' · '+(t.textContent||''); }
+    /* 🙋 (Shas 5-b·5-c) 강사가 퀴즈를 열면 학생도 «같은 퀴즈» 를 연다.
+       id 만 보낸다 — 문항 전체를 실어 보내면 회선을 먹고, 학생은 어차피 같은 API 로 받을 수 있다.
+       ⚠️ 새 퀴즈를 열면 앞 퀴즈의 학생 현황은 지운다(남으면 옛 답이 새 문항 옆에 붙어 보인다). */
+    if (rqvIsStaff() && quiz && quiz.id != null) {
+      live = {}; rqvLiveRender();
+      rqvSend('quiz-share', { id: quiz.id, title: quiz.title || '', n: quiz.questions.length });
+    }
     renderQ();
   }
   var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
@@ -169,9 +271,10 @@
        막히는 것은 정상이므로 실패로 취급하지 않고 «눌러 주세요» 안내로만 바꾼다(rqvSoundState). */
     if (typ==='listen') setTimeout(function(){ rqvPlay(i, true); }, 350);
   }
-  window.st_setText = function(v){ st.answers[st.idx]=v; var n=$('rqv-next'); if(n){ n.disabled=!v.trim(); n.style.opacity=v.trim()?'1':'0.45'; } };
-  window.rqvPick = function(k){ st.answers[st.idx]=k; renderQ(); };
-  window.rqvMove = function(d){ st.idx+=d; renderQ(); $('rqv-body').scrollTop=0; };
+  window.st_setText = function(v){ st.answers[st.idx]=v; var n=$('rqv-next'); if(n){ n.disabled=!v.trim(); n.style.opacity=v.trim()?'1':'0.45'; } rqvReportPick(); };
+  window.rqvPick = function(k){ st.answers[st.idx]=k; renderQ(); rqvReportPick(); };
+  /* 문항을 옮길 때도 알린다 — 강사가 «어디까지 갔는지» 를 봐야 5-c 의 어긋남을 눈치챈다 */
+  window.rqvMove = function(d){ st.idx+=d; renderQ(); $('rqv-body').scrollTop=0; rqvReportPick(); };
   // 🔊 듣기 음성 재생 (서버 TTS — 정답 원문 비공개)
   /* 🔊 (2026-08-11 강사 Shas 5-a) "듣기 오디오가 강사에게는 들리는데 학생에게는 안 들린다"
      [원인] 이 함수는 `a.play().catch(function(){})` 로 **재생 거부를 아무 말 없이 삼켰다.**
@@ -254,6 +357,7 @@
           st.answers[i]=text;
           if(stt) stt.innerHTML='🗣 '+esc(text);
           var n=$('rqv-next'); if(n){ n.disabled=false; n.style.opacity='1'; }
+          rqvReportPick();   // 🙋 말하기 답도 강사 현황에 — 객관식(rqvPick)과 같은 규칙
         } catch(e){ if(stt) stt.textContent=isEn()?'Recognition failed':'인식 실패. 다시 시도해주세요'; }
       };
       st.rec.start();
@@ -276,6 +380,15 @@
         r = await fetch('/api/review-quiz/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(_payload) }).then(function(x){return x.json();});
       }
       if(!r.ok) throw new Error(r.error||'submit');
+      /* 🙋 (Shas 5-c) 학생이 제출하면 강사 화면의 현황이 «✅ 제출 완료 + 점수» 로 바뀐다.
+         예전엔 이 순간 학생 화면만 결과로 넘어가 «동기화가 깨진 것» 처럼 보였다 —
+         이제 강사가 그 순간을 눈으로 본다. */
+      if (!rqvIsStaff() && st.quiz) {
+        var _u2 = me();
+        rqvSend('quiz-done', { uid: _u2.uid, name: _u2.name || (window.vcUsername || ''),
+                               total: st.quiz.questions.length,
+                               score: (r.score != null ? r.score : null) });
+      }
       showResult(r);
     } catch(e){ alert(isEn()?'Submit failed.':'제출 실패. 다시 시도해주세요.'); renderQ(); }
   };
