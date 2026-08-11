@@ -3692,6 +3692,11 @@ function vcObserverBanner(kind, extra) {
     var msg = kind === 'empty'
         ? (en ? '👀 Nobody is in this room yet. The screen will appear when someone joins.'
               : '👀 이 방에는 아직 아무도 없습니다. 누군가 들어오면 화면이 나타납니다.')
+        /* 👁 (2026-08-12) 세 번째 상태 — «붙기는 했는데 영상이 안 온다» (사장님 실제 증상).
+           로스터가 정상이면 예전 판정은 «성공» 이라 화면이 영영 침묵했다. vcObserverMediaWatch 참조. */
+        : kind === 'nomedia'
+        ? (en ? '⚠ Joined the class, but no participant video is arriving.'
+              : '⚠ 수업에는 붙었지만 참가자 영상이 오지 않습니다.')
         : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
               : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
     var box = document.createElement('div');
@@ -3701,6 +3706,9 @@ function vcObserverBanner(kind, extra) {
         + 'font-size:13.5px;font-weight:700;line-height:1.55;box-shadow:0 12px 32px -8px rgba(0,0,0,.45);'
         + (kind === 'empty'
             ? 'background:#0c2a4a;border:1px solid #38bdf8;color:#bae6fd'
+            : kind === 'nomedia'
+            /* 호박색 — «고장(빨강)» 과 «정상(파랑)» 사이. 붙긴 했으니 빨강은 과하다 */
+            ? 'background:#3a2a06;border:1px solid #f59e0b;color:#fde68a'
             : 'background:#3b1111;border:1px solid #f87171;color:#fecaca');
     box.textContent = msg + (extra ? ' (' + extra + ')' : '');
     document.body.appendChild(box);
@@ -3718,6 +3726,72 @@ function vcObserverWatch() {
             vcObserverBanner('fail', open ? 'no reply' : 'not connected');
         } catch (_) {}
     }, 8000);
+}
+
+/* 👁 (2026-08-12) 두 번째 감시 — «붙었는데 영상이 안 온다».
+   [무엇이 빠져 있었나] 위의 vcObserverWatch 는 existing-users 를 받은 순간 «성공» 으로 보고
+   입을 닫는다(`__vcObserveSawUsers` → return). 그런데 사장님이 실제로 겪은 것은 그 다음 칸이다:
+   참가자 타일은 생겼는데(=로스터 정상) 영상이 영영 안 와서 타일이 「📷 연결 중…」 에 멈춘 상태.
+   로스터가 왔으니 «실패» 도 아니고, 영상이 없으니 «성공» 도 아닌데, 어느 배너도 이 칸을 맡지
+   않아 화면이 통째로 침묵했다 → 「눌러도 아무 일도 안 일어난다」 로 보인다.
+   [판정] 새로 재지 않는다 — 브라우저가 이미 아는 사실(피어별 signalingState·ICE)만 읽는다.
+     · have-local-offer 에서 멈춤   → 상대가 answer 를 안 보냄 (시그널링에서 끊김)
+     · stable 인데 ICE checking/failed → 연결 경로를 못 찾음 (TURN·방화벽 쪽)
+     · ICE connected 인데 트랙 없음   → 붙었는데 미디어가 안 옴 (협상은 됐으나 송신이 없음)
+   왜 10초인가 — 8초짜리 첫 감시(붙었나)보다 뒤에 와야 한다. 그리고 필리핀 회선의 TURN 경유
+   연결이 실제로 5~7초까지 걸리는 것을 봤다. 그보다 짧으면 «정상인데 늦은 것» 을 고장이라 부른다.
+   ⚠️ 참관 모드에서만. 영상이 하나라도 살아 있으면 아무 말도 하지 않는다. */
+function vcObserverMediaWatch() {
+    if (!window._vcObserverMode) return;
+    // existing-users 는 재연결 때 다시 온다 — 감시는 한 번만 건다
+    if (window.__vcObserveMediaWatching) return;
+    window.__vcObserveMediaWatching = true;
+    setTimeout(function () {
+        try {
+            if (!window._vcObserverMode) return;
+            if (vcObserverHasLiveVideo()) return;        // 영상이 왔다 — 조용히
+            vcObserverBanner('nomedia', vcObserverStallReason());
+        } catch (_) {}
+    }, 10000);
+}
+
+/** 참관 화면에 «실제로 재생 중인» 원격 영상이 하나라도 있는가 */
+function vcObserverHasLiveVideo() {
+    try {
+        var vids = document.querySelectorAll('.video-box video');
+        for (var i = 0; i < vids.length; i++) {
+            var s = vids[i].srcObject;
+            if (!s || !s.getVideoTracks) continue;
+            var tr = s.getVideoTracks();
+            for (var j = 0; j < tr.length; j++) {
+                if (tr[j].readyState === 'live') return true;
+            }
+        }
+    } catch (_) {}
+    return false;
+}
+
+/** 피어 상태를 읽어 «어느 단계에서 멈췄는지» 를 한 줄로 — 배너 괄호 안에 그대로 붙는다.
+ *  콘솔을 못 여는 사람도 이 한 줄만 찍어서 보내면 원인 분류가 된다. */
+function vcObserverStallReason() {
+    var ids = [];
+    try { ids = Object.keys(vcPeerConnections || {}); } catch (_) {}
+    if (!ids.length) return 'no-peer';                   // offer 를 아예 못 보냄
+    var noAnswer = 0, iceStuck = 0, noTrack = 0, states = [];
+    ids.forEach(function (id) {
+        var pc = null;
+        try { pc = vcPeerConnections[id]; } catch (_) {}
+        if (!pc) return;
+        var ss = pc.signalingState, ice = pc.iceConnectionState;
+        states.push(ss + '/' + ice);
+        if (ss === 'have-local-offer') noAnswer++;
+        else if (ice === 'connected' || ice === 'completed') noTrack++;
+        else iceStuck++;
+    });
+    var head = noAnswer ? ('no-answer x' + noAnswer)
+             : iceStuck ? ('ice-stuck x' + iceStuck)
+             : ('no-track x' + noTrack);
+    return head + ' · ' + states.join(', ');
 }
 
 /** 다자간 통화 메시지 처리 */
@@ -3754,6 +3828,11 @@ function vcHandleMessage(msg) {
             if (window._vcObserverMode) {
                 window.__vcObserveSawUsers = true;
                 try { vcObserverBanner((msg.data.users || []).length ? '' : 'empty'); } catch (_) {}
+                /* 👁 (2026-08-12) 사람이 있는데도 영상이 안 오는 칸을 여기서부터 감시한다.
+                   빈 방이면 걸지 않는다 — 안 오는 게 정상이고 위에서 이미 그렇게 말했다. */
+                if ((msg.data.users || []).length) {
+                    try { vcObserverMediaWatch(); } catch (_) {}
+                }
             }
             msg.data.users.forEach((user, idx) => {
                 try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
@@ -5045,6 +5124,11 @@ function vcAddRemoteVideo(userId, username, stream) {
     // 🇵🇭 (2026-07-24) 원격 영상이 들어왔다 = 상대가 (새 userId 로) 돌아왔다
     //   → 순단 때 남겨 둔 '재연결 중' 유령 타일을 즉시 치운다. 안 치우면 타일이 두 개로 보인다.
     try { if (document.querySelector('.video-box[data-vc-ghost="1"]')) vcSweepGhostTiles(); } catch (_) {}
+    /* 👁 (2026-08-12) 영상이 늦게라도 도착하면 «영상이 안 온다» 배너를 걷는다.
+       10초 감시가 이미 띄운 뒤에 TURN 경유로 붙는 경우가 있다 — 그때 경고가 남아 있으면 거짓말이 된다.
+       ⚠️ 이 블록을 위의 vcSweepGhostTiles() «앞» 으로 옮기지 말 것 — vc_chat_blink_drop_harness 가
+          「function vcAddRemoteVideo 뒤 400자 안에 vcSweepGhostTiles()」 로 검사한다(실제로 한 번 깨뜨림). */
+    try { if (window._vcObserverMode) vcObserverBanner(''); } catch (_) {}
     // 이미 존재하는 비디오가 있으면 스트림만 교체 (미리 만든 placeholder 박스 포함)
     const existing = document.getElementById(`vc-video-${userId}`);
     if (existing) {
