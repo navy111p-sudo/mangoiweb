@@ -3607,6 +3607,11 @@ async function vcJoinAsObserver(roomId) {
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
+    /* 👁 (2026-08-11 SID ③ "고스트가 안 눌리고 로딩도 안 됐다")
+       서버가 join-observe 를 버리던 문제는 고쳐졌지만, «실패했을 때 화면이 아무 말도 안 하는» 것은
+       그대로였다. 붙지 못해도, 방이 비어 있어도, 화면은 똑같이 «연결 중…» 이라 관리자는
+       고장인지 기다리면 되는 건지 알 수 없었다. 결과를 반드시 글자로 말해 준다. */
+    try { vcObserverWatch(); } catch(_){}
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
     // 🔧 (2026-07-12) 입장 기본 크기 — 가로(landscape)에서만 3/4 적용. 세로(portrait)는 phero의
     //   'pip(교재 크게)' 기본이 담당한다. 예전엔 여기서 세로에서도 무조건 vcSetVideoSize('threequarter')를
@@ -3616,6 +3621,52 @@ async function vcJoinAsObserver(roomId) {
       if(!_isPortrait){ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }
     }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로:3/4 / 세로:phero pip(교재 크게)
     setStatusDot('vc-status-dot', 'connecting');
+}
+
+/* 👁 (2026-08-11 SID ③) 참관 결과를 «글자로» 말해 준다.
+   [고치는 것] 예전에는 붙든 못 붙든 화면이 「연결 중…」 하나였다. 관리자는 고장인지, 기다리면
+   되는 건지, 방이 원래 빈 건지 구분할 방법이 없었다. 「안 눌린다 / 로딩이 안 된다」 는 신고의
+   절반은 이 «말 없음» 이다.
+   [판정] 서버가 보내 주는 사실만 쓴다 — 새로 재지 않는다.
+     · existing-users 를 받았고 사람이 있다  → 붙었다(배너 없음, 화면이 곧 뜬다)
+     · existing-users 를 받았는데 0명        → 방은 살아 있는데 아무도 없다(고장 아님)
+     · 8초가 지나도 아무 응답이 없다          → 참관 자체가 실패 = 다시 시도할 것
+   ⚠️ 배너는 «참관 모드에서만» 띄운다. 일반 수업 화면에 뜨면 학생이 겁먹는다. */
+function vcObserverBanner(kind, extra) {
+    var old = document.getElementById('vc-observe-note');
+    if (old) old.remove();
+    if (!kind) return;
+    var en = false;
+    try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch (_) {}
+    var msg = kind === 'empty'
+        ? (en ? '👀 Nobody is in this room yet. The screen will appear when someone joins.'
+              : '👀 이 방에는 아직 아무도 없습니다. 누군가 들어오면 화면이 나타납니다.')
+        : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
+              : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
+    var box = document.createElement('div');
+    box.id = 'vc-observe-note';
+    box.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2147483000;'
+        + 'max-width:min(560px,92vw);padding:12px 18px;border-radius:12px;text-align:center;'
+        + 'font-size:13.5px;font-weight:700;line-height:1.55;box-shadow:0 12px 32px -8px rgba(0,0,0,.45);'
+        + (kind === 'empty'
+            ? 'background:#0c2a4a;border:1px solid #38bdf8;color:#bae6fd'
+            : 'background:#3b1111;border:1px solid #f87171;color:#fecaca');
+    box.textContent = msg + (extra ? ' (' + extra + ')' : '');
+    document.body.appendChild(box);
+}
+
+function vcObserverWatch() {
+    if (!window._vcObserverMode) return;
+    window.__vcObserveSawUsers = false;
+    setTimeout(function () {
+        try {
+            if (!window._vcObserverMode) return;
+            if (window.__vcObserveSawUsers) return;          // 붙었다 — 아무 말도 하지 않는다
+            var open = false;
+            try { open = !!(window.vcConn && vcConn.ws && vcConn.ws.readyState === 1); } catch (_) {}
+            vcObserverBanner('fail', open ? 'no reply' : 'not connected');
+        } catch (_) {}
+    }, 8000);
 }
 
 /** 다자간 통화 메시지 처리 */
@@ -3647,6 +3698,12 @@ function vcHandleMessage(msg) {
         case 'existing-users':
             // 기존 사용자 각각에 대해 P2P 연결 시작 (내가 Offer를 보냄)
             console.log('[vc] existing-users:', msg.data.users.length, '명');
+            /* 👁 (2026-08-11 SID ③) 참관은 여기서 «붙었다» 가 확정된다 — 서버가 방 사람 목록을 준 순간.
+               사람이 0명이면 고장이 아니라 «빈 방» 이다. 그 둘을 화면에서 갈라 준다. */
+            if (window._vcObserverMode) {
+                window.__vcObserveSawUsers = true;
+                try { vcObserverBanner((msg.data.users || []).length ? '' : 'empty'); } catch (_) {}
+            }
             msg.data.users.forEach((user, idx) => {
                 try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
                 try { vcEnsureParticipantBox(user.userId, user.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
@@ -4116,6 +4173,9 @@ function vcHandleMessage(msg) {
         case 'observer-user-joined':
             if (vcIsObserver && msg.data.userId) {
                 console.log('[vc-observer] 새 참가자 감지, offer 전송:', msg.data.userId);
+                /* 👁 (2026-08-11) 빈 방이라 띄워 둔 «아직 아무도 없습니다» 를 여기서 걷는다.
+                   사람이 들어왔는데 그 안내가 남아 있으면 그게 더 헷갈린다. */
+                try { vcObserverBanner(''); } catch (_) {}
                 vcCreatePeerAndOffer(msg.data.userId, msg.data.username);
             }
             break;
