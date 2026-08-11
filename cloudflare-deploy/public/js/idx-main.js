@@ -3935,6 +3935,17 @@ function vcHandleMessage(msg) {
             } catch(e){ console.warn('[wb-replay]', e); }
             break;
 
+        /* 🪞 (2026-08-12 Shas 1번) 학생의 웜업 대화 — 강사 화면에만 비춘다.
+           서버는 방 전체에 뿌리므로(다른 학생도 받는다) 여기서 강사만 그린다. */
+        case 'warmup-echo':
+            try {
+                if (window.vcCanControlTextbook && window.vcCanControlTextbook()
+                    && typeof window.vcWarmupMirror === 'function') {
+                    window.vcWarmupMirror(msg.data && msg.data.who, msg.data && msg.data.text);
+                }
+            } catch(_){}
+            break;
+
         /* ✋ (2026-07-28 Kaye 9번) 교사의 '학생 필기 잠금' 신호 — 학생 쪽에 잠금 상태를 알린다.
            교사가 새로 들어온 학생에게도 알릴 수 있게, 잠금은 켤 때마다 방송한다. */
         case 'pdf-drawlock':
@@ -4057,6 +4068,8 @@ function vcHandleMessage(msg) {
                 if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') {
                     window.__vcFocusLockOn = _fcLk;
                     if (typeof vcClassLockChipsRender === 'function') vcClassLockChipsRender();
+                    /* 다른 강사가 걸었거나 새로고침으로 다시 들어온 경우 — 띠도 함께 맞춘다 */
+                    try { window.vcFocusBadge(_fcLk, true); } catch(_){}
                 } else if (typeof vcFocusLockApply === 'function') {
                     vcFocusLockApply(_fcLk);
                 }
@@ -5138,6 +5151,46 @@ window.vcIsStaffNow = function(){
         return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
     } catch(e){ return false; }
 };
+
+/* 🪞 (2026-08-12 강사 Shas 1번) AI 웜업 — 학생의 대화를 강사 화면에 비춰 준다.
+   [무엇이 오해였나] Shas 선생님은 「텍스트 상자로 서로 대화하는 기능」으로 보고,
+   보내도 상대에게 안 간다고 하셨다. 실제로 웜업의 대화 상대는 **AI** 다(학생이 영어로
+   말하고 AI 가 받아 준다). 그래서 서로에게 안 가는 것이 설계다.
+   [그래도 진짜 빈 곳] 강사가 «학생이 지금 뭘 하고 있는지» 확인할 길이 아예 없었다.
+   → 학생 화면의 웜업 한 줄 한 줄을 강사에게 중계해 읽기 전용으로 비춘다.
+     양방향 채팅을 새로 만들지 않는 이유: 수업 채팅이 이미 그 일을 한다. */
+window.vcWarmupMirror = function(who, text){
+  try {
+    var box = document.getElementById('vc-warmup-mirror');
+    var log = document.getElementById('vc-warmup-mirror-log');
+    if (!box || !log) return;
+    box.style.display = 'block';
+    var row = document.createElement('div');
+    row.style.cssText = 'margin-bottom:3px;word-break:break-word';
+    var tag = document.createElement('b');
+    tag.style.color = (who === 'ai') ? '#fbbf24' : '#7dd3fc';
+    tag.textContent = (who === 'ai') ? '🥭 Mango: ' : '🙋 학생: ';
+    row.appendChild(tag);
+    row.appendChild(document.createTextNode(String(text || '')));   // textContent — HTML 주입 차단
+    log.appendChild(row);
+    /* 길어지면 앞쪽을 버린다 — 한 수업 내내 쌓이면 강사 화면이 무거워진다 */
+    while (log.childNodes.length > 60) log.removeChild(log.firstChild);
+    log.scrollTop = log.scrollHeight;
+  } catch(_){}
+};
+/* 웜업 iframe → 부모. 학생이면 강사에게 중계하고, 강사면(자기 연습) 아무것도 하지 않는다. */
+try {
+  window.addEventListener('message', function(ev){
+    try {
+      if (ev.origin !== location.origin) return;            // 같은 오리진만
+      var d = ev.data;
+      if (!d || d.__mangoiWarmup !== 1) return;
+      if (window.vcCanControlTextbook && window.vcCanControlTextbook()) return;  // 강사 자기 연습은 안 보냄
+      if (typeof vcConn === 'undefined' || !vcConn) return;
+      vcConn.send({ type: 'warmup-echo', data: { who: d.who, text: d.text } });
+    } catch(_){}
+  });
+} catch(_){}
 
 /* 📚 (2026-08-12 Melca 7·8번) 「교재를 누가 조종할 수 있는가」의 정본.
    [무엇이 문제였나] 상단 탭바의 강사 전용 칩은 잘 숨겨져 있었는데, **교재도구 바
@@ -7702,6 +7755,10 @@ window.__vcFocusLockOn = false;    window.__vcFocusLockedByTeacher = false;
 window.vcClassLockChipsRender = function(){
   var staff = _vcBgLockIsStaff() || ((typeof vcIsTeacherRole === 'function') && vcIsTeacherRole());
   var en = _vcBgLockEn();
+  /* 👥 (2026-08-12 Shas 3번) 「학생 제어」 이름표 — 아래 세 칩이 무엇을 하는 묶음인지 알려 준다.
+     칩들과 «똑같은 조건» 으로 켜고 끈다. 따로 두면 학생 화면에 이름표만 남는다. */
+  var sctl = document.getElementById('vc-studentctl-label');
+  if (sctl) sctl.style.display = staff ? 'inline-flex' : 'none';
   var mic = document.getElementById('vc-miclock-btn');
   if (mic) {
     mic.style.display = staff ? 'inline-flex' : 'none';
@@ -7752,6 +7809,14 @@ window.vcClassLockChipsRender = function(){
 try {
   window.addEventListener('mangoi:langchange', function(){
     try { if (typeof window.vcClassLockChipsRender === 'function') window.vcClassLockChipsRender(); } catch(_){}
+    /* 🎯 집중 모드 띠도 글자를 갈아 끼운다 — textContent 로 그린 것이라
+       data-ko/data-en 루프가 못 고친다(CLAUDE.md 의 «JS 로 그린 라벨» 함정). */
+    try {
+      if (document.getElementById('vc-focus-badge')) {
+        var _fs = (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        window.vcFocusBadge(_fs ? !!window.__vcFocusLockOn : !!window.__vcFocusLockedByTeacher, _fs);
+      }
+    } catch(_){}
   });
 } catch(_){}
 
@@ -7807,6 +7872,9 @@ window.vcRenderDrawLockChip = function(){
 window.vcFocusLockToggle = function(){
   window.__vcFocusLockOn = !window.__vcFocusLockOn;
   window.vcClassLockChipsRender();
+  /* 🎯 (Shas 4번) 강사 자신에게도 «켜져 있다» 를 계속 보여 준다 — 칩 색만으로는
+     눌렀는지 알기 어려워 「아무 변화가 없다」는 제보가 나왔다. */
+  try { window.vcFocusBadge(window.__vcFocusLockOn, true); } catch(_){}
   try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'focus-lock', data: { locked: window.__vcFocusLockOn } }); } catch(_){}
   try {
     if (typeof showToast === 'function') showToast(window.__vcFocusLockOn
@@ -7859,10 +7927,45 @@ window.vcMicLockApply = function(locked){
 };
 
 // 학생: 집중 모드 적용/해제 — 실제 차단은 vcToggleContentTab/vcMobileTabSwitch 가드가 수행
+/* 🎯 (2026-08-12 강사 Shas 4번) 「Focus Mode 를 눌렀는데 아무런 변화가 없다」
+   기능은 멀쩡히 돌고 있었다 — 학생의 탭 전환(vcToggleContentTab·vcMobileTabSwitch)과
+   채팅 자동열기를 막는다. 문제는 **그 사실이 화면 어디에도 남지 않는 것**이었다.
+   토스트는 몇 초 뒤 사라지고, 켠 «뒤에» 들어온 학생은 그마저도 못 본다.
+   그래서 강사에게는 눌러도 아무 일이 없는 버튼으로 보였다.
+   → 켜져 있는 «동안» 계속 떠 있는 띠를 둔다. 강사와 학생에게 각각 다른 말로.
+   ⚠️ pointer-events:none — 수업 화면 위에 뜨므로 클릭을 절대 가로채면 안 된다.
+      (예전에 «보이는데 눌리지 않는 유령 창» 사고가 있었다) */
+window.vcFocusBadge = function(on, forStaff){
+  try {
+    var old = document.getElementById('vc-focus-badge');
+    if (old) old.remove();
+    if (!on) return;
+    var en = false;
+    try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch(_){}
+    var box = document.createElement('div');
+    box.id = 'vc-focus-badge';
+    box.style.cssText = 'position:fixed;left:50%;top:10px;transform:translateX(-50%);z-index:2147482000;'
+      + 'pointer-events:none;max-width:min(520px,94vw);padding:7px 16px;border-radius:999px;'
+      + 'font-size:12.5px;font-weight:800;line-height:1.4;text-align:center;white-space:nowrap;'
+      + 'overflow:hidden;text-overflow:ellipsis;'
+      + 'background:rgba(180,83,9,.94);border:1px solid #fbbf24;color:#fef3c7;'
+      + 'box-shadow:0 8px 24px -8px rgba(0,0,0,.5)';
+    box.textContent = forStaff
+      ? (en ? '🎯 Focus mode ON — students cannot switch tabs'
+            : '🎯 집중 모드 켜짐 — 학생은 화면을 바꿀 수 없어요')
+      : (en ? '🎯 Focus mode — follow your teacher’s screen'
+            : '🎯 집중 모드 — 선생님 화면을 따라가요');
+    document.body.appendChild(box);
+  } catch(_){}
+};
 window.vcFocusLockApply = function(locked){
   locked = !!locked;
   var changed = window.__vcFocusLockedByTeacher !== locked;
   window.__vcFocusLockedByTeacher = locked;
+  /* 띠는 «상태» 다 — changed 와 무관하게 항상 맞춘다.
+     늦게 들어온 학생은 서버가 재전송해 주는데, 그때 changed 는 true 지만
+     새로고침·재입장으로 값이 같은 채 들어오는 경우도 있어 여기서 한 번 더 맞춘다. */
+  try { window.vcFocusBadge(locked, false); } catch(_){}
   if (changed) {
     try {
       if (typeof showToast === 'function') showToast(locked
