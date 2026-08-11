@@ -7225,6 +7225,56 @@ LIMIT $limit`;
       if (!authUid || authUid !== myUid) {
         return json({ ok: false, error: 'auth_required', message: '로그인이 필요합니다.', message_en: 'Please sign in.' }, 401);
       }
+
+      /* ═══════════════════════════════════════════════════════════════════════
+         🔗 (2026-08-11) «PC 에서 신청한 것이 폰에서도 보이게» — 티켓 + 로그인 = 스스로 잇기
+         ───────────────────────────────────────────────────────────────────────
+         [왜] 비로그인으로 낸 신청은 서버가 만든 체험 계정 `lt{번호}` 에 붙는다(createTrialStudent).
+              그 계정으로 로그인하는 사람은 세상에 없으므로, 자기 예약을 찾는 길이
+              «신청한 그 브라우저에 남은 티켓» 하나뿐이 된다. 기기를 옮기면 통째로 사라진다.
+              실사고: 신청 #17(pauljeong) — PC 에서는 티켓으로 보였는데 폰에서는 아무것도 없었다.
+              계정은 `jeong`, 신청 주인은 `lt17_1` 이라 uid 조회가 영원히 0건이었다.
+         [무엇] 티켓 서명(k) = «신청자 본인» 증명, mango_token = «계정 주인» 증명.
+              **둘 다 가진 사람만** 자기 신청을 자기 계정으로 가져온다.
+              한 번 이으면 그 뒤로는 로그인만 하면 어느 기기에서나 보인다.
+         ⛔ 남의 신청을 뺏지 않는다 — 주인이 «없거나 체험 계정(lt*)» 인 건만 옮긴다.
+            진짜 계정이 이미 붙어 있으면 서명이 맞아도 손대지 않는다.
+         ⚠️ 수업 주인(class_schedules.user_id)도 반드시 같이 옮긴다. 신청서만 옮기면
+            «연결은 됐는데 오늘 수업엔 안 뜨는» 반쪽이 된다 — link_student 가 밟았던 함정과 같다.
+         ⚠️ 잇기가 실패해도 조회는 그대로 진행한다. 부가 기능이 본 기능을 막으면 안 된다.
+         ═══════════════════════════════════════════════════════════════════════ */
+      const claimK = (url.searchParams.get('k') || '').trim();
+      if (claimK) {
+        try {
+          const claimId = await verifyLtTicket(claimK, env);
+          if (claimId) {
+            const row = await env.DB.prepare(
+              `SELECT id, student_uid, schedule_id FROM leveltest_applications WHERE id = ? LIMIT 1`
+            ).bind(claimId).first<any>();
+            const owner = row ? String(row.student_uid || '') : '';
+            const ownerIsTrial = /^lt\d+(_\d+)?$/i.test(owner);
+            if (row && owner !== myUid && (!owner || ownerIsTrial)) {
+              const claimAt = Date.now();
+              await env.DB.prepare(`UPDATE leveltest_applications SET student_uid = ?, updated_at = ? WHERE id = ?`)
+                .bind(myUid, claimAt, Number(row.id)).run();
+              if (row.schedule_id) {
+                try {
+                  await env.DB.prepare(`UPDATE class_schedules SET user_id = ?, updated_at = ? WHERE id = ?`)
+                    .bind(myUid, claimAt, Number(row.schedule_id)).run();
+                } catch { /* 수업 이동 실패 — 신청서는 이미 이어졌다. 관리자 link_student 로 마저 옮길 수 있다 */ }
+              }
+              try {
+                await writeClassAudit(env, {
+                  action: 'leveltest_self_claim', schedule_id: row.schedule_id || null,
+                  actor: myUid, actor_role: 'student', source: 'leveltest_ticket',
+                  detail: JSON.stringify({ app_id: row.id, from: owner || null, to: myUid, from_was_trial: ownerIsTrial }),
+                });
+              } catch {}
+            }
+          }
+        } catch { /* 잇기 실패는 조용히 넘긴다 — 아래 목록 조회는 그대로 */ }
+      }
+
       const rs = await env.DB.prepare(
         `SELECT id, student_name, desired_date, desired_time, status, assigned_teacher, teacher_confirmed_at,
                 ai_score, pron_score, teacher_score, final_level,
