@@ -423,12 +423,23 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
 
   // ── 6. 상태 — 마지막에. 앞 단계가 다 실패했는데 «확정»으로 보이면 안 된다.
   const hardFail = results.some(x => !x.ok && !x.skipped);
+  /* ✅ (2026-08-12) 실패한 단계가 있으면 상태를 올리지 않는다.
+     그동안은 강사 배정이 실패해도 status 를 confirmed 로 박아서, 목록에는 «확정» 으로 보이는데
+     실제로는 강사도 시간표도 없는 건이 남았다. 등록과 확정을 한 번에 묶은 뒤로는(등록 즉시
+     자동 확정) 사람이 결과를 안 볼 수도 있어서, 이 «조용한 반쪽 성공» 이 그대로 사고가 된다.
+     → 하나라도 실패하면 pending 으로 남기고 화면이 「▸ 확정 안 됨」 으로 부른다. */
+  const finalStatus = hardFail ? 'pending' : wantStatus;
   if (!dry) {
-    await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(wantStatus, now, id).run();
+    await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(finalStatus, now, id).run();
   }
-  results.push({ step: 'set_status', ok: true, detail: '상태 → ' + wantStatus + (dry ? ' (미리보기라 저장 안 함)' : '') });
+  results.push({
+    step: 'set_status', ok: !hardFail,
+    detail: hardFail
+      ? '실패한 단계가 있어 «대기» 로 남겨 둡니다 — 고친 뒤 다시 실행하세요'
+      : '상태 → ' + finalStatus + (dry ? ' (미리보기라 저장 안 함)' : '')
+  });
 
-  return json({ ok: true, id, dry, status: wantStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings });
+  return json({ ok: true, id, dry, status: finalStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings });
 }
 
 /** 시작일 + 1개월 (말일 보정 — 1/31 + 1개월 = 2/28) */

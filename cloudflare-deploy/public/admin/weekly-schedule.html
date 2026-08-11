@@ -304,8 +304,9 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 .tl-blockday{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(239,68,68,.10),rgba(239,68,68,.10) 5px,rgba(239,68,68,.20) 5px,rgba(239,68,68,.20) 10px);pointer-events:none}
 
 /* ── 일간 뷰(작업면) ── */
+/* ⏱ (2026-08-12) 한 시간 = 10분 칸 6개. 헤더 하나가 6칸을 덮으므로(colspan) 폭은 6×16px. */
 .dg-th-t{position:sticky;top:0;z-index:5;background:var(--bg3);border-bottom:1px solid var(--bd2);
-  border-right:1px solid var(--bd);width:76px;min-width:76px;height:46px;font-size:11px;font-weight:700;
+  border-right:1px solid var(--bd2);width:96px;min-width:96px;height:46px;font-size:11px;font-weight:700;
   color:var(--tx2);font-variant-numeric:tabular-nums;padding:3px 0 2px!important}
 .dg-th-t.peak{background:rgba(251,191,36,.18);color:var(--ac)}
 .dg-th-t.now{box-shadow:inset 0 -3px 0 #ef4444}
@@ -314,7 +315,11 @@ html[data-admin-theme="ivory"] .tl-seg.s-temp{background:var(--cell-temp)}
 .dg-th-t.peak .dg-histo i{background:var(--ac)}
 .tl-scroll td.slot{border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);
   height:var(--rowh);font-size:10.5px;font-weight:800;text-align:center;overflow:hidden;
-  white-space:nowrap;cursor:pointer;padding:0 3px!important;position:relative;color:#1e293b}
+  white-space:nowrap;cursor:pointer;padding:0 1px!important;position:relative;color:#1e293b}
+/* ⏱ 10분 칸 — 정시(:00) 칸 왼쪽에만 진한 선을 둬서 «한 시간» 이 눈에 남게 한다.
+   이게 없으면 10분 칸 6개가 균일해서 시간 경계를 못 읽는다. */
+.tl-scroll td.slot.dg-hour-edge{border-left:1px solid var(--bd2)}
+.tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{font-size:0}   /* 빈 10분 칸엔 글자를 넣지 않는다 */
 .tl-scroll td.slot.slot-empty,.tl-scroll td.slot.slot-weekend{color:var(--tx3)}
 .tl-scroll td.slot:hover{outline:2px solid var(--ac);outline-offset:-2px;z-index:4}
 .tl-scroll td.slot.col-today{background:rgba(251,191,36,.07)}
@@ -384,7 +389,7 @@ body.compact .mini-cal td.col-time.row10{height:4px}
 body.compact .mini-cal td.slot.row10 .slot-text10{font-size:8px}
 
 /* Duration 옵션 카드 */
-.dur-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.dur-choices{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}
 .dur-choice{padding:14px 10px;border:2px solid var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;transition:all .15s;text-align:center;user-select:none}
 .dur-choice:hover{transform:translateY(-2px);border-color:var(--ac)}
 .dur-choice.selected{border-color:var(--ac);background:rgba(251,191,36,.12);box-shadow:0 6px 16px rgba(245,158,11,.25)}
@@ -721,7 +726,10 @@ body.dragging{cursor:crosshair}
   <div class="view-toggle"><button data-dens="cozy" data-ko="넉넉" data-en="Cozy">넉넉</button><button class="active" data-dens="mid" data-ko="보통" data-en="Normal">보통</button><button data-dens="tight" data-ko="촘촘" data-en="Tight">촘촘</button></div>
   <button class="btn-free" id="btn-free" data-ko="빈자리 찾기" data-en="Find open slots">빈자리 찾기</button>
   <span style="font-size:11.5px;color:var(--tx3);margin-left:auto" data-ko="새 수업 기본 길이" data-en="New class length">새 수업 기본 길이</span>
-  <div class="view-toggle"><button class="active" data-dur="60" data-ko="60분" data-en="60m">60분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button><button data-dur="20" data-ko="20분" data-en="20m">20분</button></div>
+  <!-- ⏱ (2026-08-12) 수업 시간 옵션에서 60분을 없앴다. 실제 수업은 20분이 기본이고
+       (서버도 class-policy.ts 의 DEFAULT_CLASS_MINUTES = 20), 60분은 LMS 쪽 값이 흘러든 것이었다.
+       20분이 맨 왼쪽 + 화면 열자마자 선택돼 있어야 한다. -->
+  <div class="view-toggle"><button class="active" data-dur="20" data-ko="20분" data-en="20m">20분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button></div>
 </section>
 <div class="legend-bar" style="display:none">
   <span class="legend-label" data-ko="셀 색상:" data-en="Cell color:">셀 색상:</span>
@@ -831,8 +839,41 @@ var viewMode='week';                    // 'week' = 개요 / 'day' = 작업면
 var curDow=(function(){var g=new Date().getDay();return g===0?6:g-1;})();  // 월=0
 var sortMode='name', freeMode=false;
 var demoNames=['홍길동','김민수','이지민','박서연','최우진','정수아','강지원','윤하린','오은서','신예린','한지유','조서진','백채원','권유나','황도윤'];
-function addSlot(tid,d,h,s){SLOTS[tid+'__'+d+'__'+h]=s;}
-function getSlot(tid,d,h){return SLOTS[tid+'__'+d+'__'+h];}
+/* ⏱ (2026-08-12) 스케줄을 10분 단위로 — 그동안 슬롯 키가 «시(hour)» 였다.
+   실데이터의 분은 loadData 에서 getHours() 로 통째로 잘려 나갔고(19:20 수업이 19:00 으로 보였다),
+   20분 수업이 기본인데 칸은 1시간짜리라 한 칸에 세 수업이 겹쳐도 하나만 보였다.
+   → 키를 «자정부터의 분(startMin)» 으로 옮긴다.
+   ⚠️ addSlot/getSlot 의 3번째 인자는 예전처럼 «시» 다. 분은 4번째(선택)로 받는다 —
+      기존 호출부(데모·마법사·자동배정 등)를 한 줄도 안 고쳐도 그대로 돌게 하려는 것. */
+var SLOT_STEP=10;                  // 분
+var STEPS_PER_HOUR=60/SLOT_STEP;   // 6
+function slotKey(tid,d,startMin){return tid+'__'+d+'__'+startMin;}
+function addSlot(tid,d,h,s,m){SLOTS[slotKey(tid,d,h*60+(m||0))]=s;}
+function getSlot(tid,d,h,m){return SLOTS[slotKey(tid,d,h*60+(m||0))];}
+function getSlotAt(tid,d,startMin){return SLOTS[slotKey(tid,d,startMin)];}
+/** 그 «시간» 안에 시작하거나 걸쳐 있는 슬롯이 하나라도 있나 (빈칸 찾기용) */
+function hourHasSlot(tid,d,h){
+  var from=h*60, to=from+60;
+  for(var k in SLOTS){
+    if(k.indexOf(tid+'__'+d+'__')!==0)continue;
+    var st=parseInt(k.slice((tid+'__'+d+'__').length),10);
+    if(isNaN(st))continue;
+    var en=st+((SLOTS[k]&&SLOTS[k].duration_min)||SLOT_STEP);
+    if(st<to&&from<en)return true;
+  }
+  return false;
+}
+/** 그 날 그 교사의 슬롯들을 [{startMin,slot}] 로, 시작 시각 순 */
+function slotsOfDay(tid,d){
+  var pre=tid+'__'+d+'__',out=[];
+  for(var k in SLOTS){
+    if(k.indexOf(pre)!==0)continue;
+    var st=parseInt(k.slice(pre.length),10);
+    if(!isNaN(st))out.push({startMin:st,slot:SLOTS[k]});
+  }
+  return out.sort(function(a,b){return a.startMin-b.startMin;});
+}
+function minLabel(startMin){return pad2(Math.floor(startMin/60))+':'+pad2(startMin%60);}
 
 function loadDemoData(){
   TEACHERS=[
@@ -866,11 +907,11 @@ function loadDemoData(){
         var r=(seed%100)/100;
         if(r<0.35){
           var stu=(ti+di+h)%demoNames.length;
-          var dur=[60,40,20][(ti+di+h)%3];
+          var dur=[20,40,20][(ti+di+h)%3];
           addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         }else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          var durG=[60,40][(ti+di+h)%2];
+          var durG=[20,40][(ti+di+h)%2];
           addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }else if(r<0.56){
           var stt=(ti+di+h)%demoNames.length;
@@ -899,8 +940,25 @@ async function loadData(){
             var slots=Array.isArray(sd)?sd:(sd.schedules||sd.data||sd.items||[]);
             SLOTS={};
             slots.forEach(function(s){
-              var hh=(s.hour!==undefined)?s.hour:new Date(s.start_time).getHours();
-              addSlot(s.teacher_id,s.date,hh,{type:s.type||'1on1',students:s.students||[],start_date:s.start_date,end_date:s.end_date,note:s.note});
+              /* ⏱ (2026-08-12) 분을 버리지 말 것. 예전엔 getHours() 만 써서 19:20 수업이
+                 19:00 으로 그려졌고, duration_min 도 옮겨 담지 않아 길이가 항상 기본값이었다.
+                 start_time 은 'HH:MM' 문자열로 오기도 하고 ISO 로 오기도 한다 — 둘 다 받는다. */
+              var hh,mm;
+              if(s.hour!==undefined){ hh=Number(s.hour)||0; mm=Number(s.minute)||0; }
+              else{
+                var raw=String(s.start_time||'');
+                var m=/^(\d{1,2}):(\d{2})/.exec(raw);
+                if(m){ hh=parseInt(m[1],10); mm=parseInt(m[2],10); }
+                else{ var dt=new Date(raw); hh=dt.getHours(); mm=dt.getMinutes(); }
+              }
+              if(isNaN(hh))return;
+              mm=Math.round((mm||0)/SLOT_STEP)*SLOT_STEP;   // 10분 격자에 맞춰 스냅
+              if(mm>=60){hh+=1;mm-=60;}
+              addSlot(s.teacher_id,s.date,hh,{
+                type:s.type||'1on1',students:s.students||[],
+                start_date:s.start_date,end_date:s.end_date,note:s.note,
+                duration_min:Number(s.duration_min)>0?Number(s.duration_min):20
+              },mm);
             });
             // 슬롯도 정상이고 teachers도 있으면 실 데이터 사용
             if(Object.keys(SLOTS).length>0)return;
@@ -929,11 +987,11 @@ function generateDemoSlots(){
         var r=((ti*7+di*13+h*3)%100)/100;
         if(r<0.35){
           var stu=(ti+di+h)%demoNames.length;
-          var dur=[60,40,20][(ti+di+h)%3];
+          var dur=[20,40,20][(ti+di+h)%3];
           addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         } else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          var durG=[60,40][(ti+di+h)%2];
+          var durG=[20,40][(ti+di+h)%2];
           addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }
       }
@@ -1034,10 +1092,13 @@ function teacherLoad(tid){
     var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
     var iso=fmtISO(d);
     var blockedDay=!!BLOCKED_DATES[iso];
-    for(var h=GRID_H0;h<GRID_H1;h++){
-      var sl=getSlot(tid,iso,h);
-      if(sl){ if(sl.type!=='blocked')classes++; }
-      else if(!blockedDay) free++;
+    // ⏱ 10분 격자 — 수업은 «실제 슬롯 수» 로 세고, 빈칸은 «수업이 하나도 안 걸친 시간» 으로 센다
+    slotsOfDay(tid,iso).forEach(function(it){
+      if(it.startMin<GRID_H0*60||it.startMin>=GRID_H1*60)return;
+      if(it.slot.type!=='blocked')classes++;
+    });
+    if(!blockedDay){
+      for(var h=GRID_H0;h<GRID_H1;h++){ if(!hourHasSlot(tid,iso,h))free++; }
     }
   }
   return{classes:classes,free:free,util:(classes+free)?Math.round(classes/(classes+free)*100):0};
@@ -1123,34 +1184,39 @@ function nowPct(){
 function weekStripHTML(t,iso){
   var out='',L=currentLang==='ko';
   var blockedDay=!!BLOCKED_DATES[iso];
+  // ⏱ (2026-08-12) 10분 격자. 위치·길이를 «분» 으로 계산한다 — 정시 눈금에 붙이지 않는다.
+  var DAY0=GRID_H0*60, SPAN_MIN=GRID_SPAN*60;
+  var items=slotsOfDay(t.id,iso);
   if(freeMode){
     if(blockedDay)return '';
-    var runS=null;
-    for(var h=GRID_H0;h<=GRID_H1;h++){
-      var occupied=(h<GRID_H1)&&!!getSlot(t.id,iso,h);
-      if(!occupied&&h<GRID_H1){ if(runS===null)runS=h; continue; }
-      if(runS!==null){
-        out+='<span class="tl-seg s-free" style="left:'+((runS-GRID_H0)/GRID_SPAN*100).toFixed(2)+
-          '%;width:'+(((h-runS)/GRID_SPAN*100)-0.3).toFixed(2)+'%" title="'+escapeHtml(tName(t))+' · '+iso+' '+
-          pad2(runS)+':00~'+pad2(h)+':00 '+(L?'배정 가능':'open')+'"></span>';
-        runS=null;
+    // 수업이 없는 «분» 구간을 초록으로. 겹침이 있어도 끝시각을 계속 밀어 가며 본다.
+    var cursor=DAY0;
+    items.concat([{startMin:DAY0+SPAN_MIN,slot:{duration_min:0}}]).forEach(function(it){
+      if(it.startMin>cursor){
+        var a=Math.max(DAY0,cursor),b=Math.min(DAY0+SPAN_MIN,it.startMin);
+        if(b>a){
+          out+='<span class="tl-seg s-free" style="left:'+((a-DAY0)/SPAN_MIN*100).toFixed(2)+
+            '%;width:'+Math.max(0.4,((b-a)/SPAN_MIN*100)-0.3).toFixed(2)+'%" title="'+escapeHtml(tName(t))+' · '+iso+' '+
+            minLabel(a)+'~'+minLabel(b)+' '+(L?'배정 가능':'open')+'"></span>';
+        }
       }
-    }
+      cursor=Math.max(cursor,it.startMin+((it.slot&&it.slot.duration_min)||0));
+    });
     return out;
   }
-  for(var h2=GRID_H0;h2<GRID_H1;h2++){
-    var s=getSlot(t.id,iso,h2);
-    if(!s)continue;
-    var dur=s.duration_min||60;
-    var left=(h2-GRID_H0)/GRID_SPAN*100;
-    var w=(dur/60)/GRID_SPAN*100;
+  items.forEach(function(it){
+    var s=it.slot;
+    var dur=Number(s.duration_min)>0?Number(s.duration_min):20;
+    var left=(it.startMin-DAY0)/SPAN_MIN*100;
+    var w=dur/SPAN_MIN*100;
+    if(left<0||left>=100)return;
     var who=(s.students&&s.students.length)
       ? (s.students.length===1?s.students[0].name:(L?'그룹 '+s.students.length+'명':'Group '+s.students.length))
       : (s.type==='blocked'?(L?'휴무':'Off'):'');
-    var title=escapeHtml(tName(t))+' · '+iso+' '+pad2(h2)+':00 ('+dur+(L?'분':'m')+')'+(who?' · '+who:'');
-    out+='<span class="tl-seg s-'+s.type+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(1.2,w-0.3).toFixed(2)+
+    var title=escapeHtml(tName(t))+' · '+iso+' '+minLabel(it.startMin)+' ('+dur+(L?'분':'m')+')'+(who?' · '+who:'');
+    out+='<span class="tl-seg s-'+s.type+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(0.6,w-0.15).toFixed(2)+
       '%" title="'+escapeHtml(title)+'"></span>';
-  }
+  });
   return out;
 }
 function tName(t){return (currentLang==='en'&&t.name_en)?t.name_en:t.name;}
@@ -1165,46 +1231,66 @@ function renderDayGrid(list){
   var hev=(HOLIDAY_MAP&&HOLIDAY_MAP[iso])||[];
 
   // 시간대별 수업 수 → 피크 표시
+  // ⏱ 10분 격자 — 그 «시간» 안에서 시작하는 수업을 모두 센다(예전엔 정시 하나만 셌다)
   var hist={},mx=1;
   for(var h=GRID_H0;h<GRID_H1;h++){
     var n=0;
-    list.forEach(function(t){var s=getSlot(t.id,iso,h);if(s&&s.type!=='blocked')n++;});
+    list.forEach(function(t){
+      for(var q=0;q<STEPS_PER_HOUR;q++){
+        var s=getSlotAt(t.id,iso,h*60+q*SLOT_STEP);
+        if(s&&s.type!=='blocked')n++;
+      }
+    });
     hist[h]=n;if(n>mx)mx=n;
   }
+  /* ⏱ (2026-08-12) 한 시간 = 10분짜리 칸 6개. 헤더는 정시 하나가 6칸을 덮는다(colspan).
+     20분 수업이 기본인데 칸이 1시간이라 «한 칸에 세 수업» 이 겹쳐도 하나만 보이던 것을 고친다. */
   var head='<div class="tl-scroll"><table><colgroup><col style="width:var(--nameW)">';
-  for(var c=GRID_H0;c<GRID_H1;c++)head+='<col style="width:76px">';
+  for(var c=GRID_H0;c<GRID_H1;c++)for(var cs=0;cs<STEPS_PER_HOUR;cs++)head+='<col style="width:16px">';
   head+='</colgroup><thead><tr><th class="tl-th-name">'+
     dn[curDow]+' '+d.getDate()+(L?'일 · 교사 ':' · ')+list.length+(L?'명':' teachers')+
     (hev.length?' <span style="color:#ef4444">· '+escapeHtml(hev[0].title)+'</span>':'')+'</th>';
   for(var h2=GRID_H0;h2<GRID_H1;h2++){
     var peak=hist[h2]>0&&hist[h2]>=mx*0.8;
-    head+='<th class="dg-th-t'+(peak?' peak':'')+((isToday&&h2===nowH)?' now':'')+'">'+pad2(h2)+':00'+
+    head+='<th colspan="'+STEPS_PER_HOUR+'" class="dg-th-t'+(peak?' peak':'')+((isToday&&h2===nowH)?' now':'')+'">'+pad2(h2)+':00'+
       '<div class="dg-histo"><i style="height:'+Math.max(1,Math.round(hist[h2]/mx*12))+'px"></i></div></th>';
   }
   head+='</tr></thead><tbody>';
 
+  var TOTAL_STEPS=(GRID_H1-GRID_H0)*STEPS_PER_HOUR;
   var body='';
   list.forEach(function(t){
     var nm=tName(t);
     body+='<tr>'+teacherCellHTML(t);
-    for(var h3=GRID_H0;h3<GRID_H1;h3++){
-      var s=getSlot(t.id,iso,h3);
-      var base=' data-tid="'+escapeHtml(t.id)+'" data-date="'+iso+'" data-hour="'+h3+'" data-min="0"';
+    var skip=0;   // 앞 슬롯이 colspan 으로 이미 덮은 칸 수
+    for(var step=0;step<TOTAL_STEPS;step++){
+      if(skip>0){skip--;continue;}
+      var startMin=GRID_H0*60+step*SLOT_STEP;
+      var h3=Math.floor(startMin/60), m3=startMin%60;
+      var s=getSlotAt(t.id,iso,startMin);
+      var base=' data-tid="'+escapeHtml(t.id)+'" data-date="'+iso+'" data-hour="'+h3+'" data-min="'+m3+'"';
       var todayCls=isToday?' col-today':'';
+      var edge=(m3===0)?' dg-hour-edge':'';
       if(!s){
         var dim=(freeMode&&blockedDay)?' dimmed':'';
         var hit=(freeMode&&!blockedDay)?' freehit':'';
-        body+='<td class="slot '+(curDow>=5?'slot-weekend':'slot-empty')+(blockedDay?' slot-blocked-day':'')+todayCls+hit+dim+'"'+base+
-          (blockedDay?' data-blockdate="'+iso+'" title="'+(L?'공휴일·휴가 — 배정 불가':'Holiday — cannot assign')+'"':'')+'></td>';
+        body+='<td class="slot '+(curDow>=5?'slot-weekend':'slot-empty')+(blockedDay?' slot-blocked-day':'')+todayCls+hit+dim+edge+'"'+base+
+          ' title="'+minLabel(startMin)+'"'+
+          (blockedDay?' data-blockdate="'+iso+'"':'')+'></td>';
       }else{
-        var payload=encodeURIComponent(JSON.stringify({teacher:nm,date:iso,hour:h3,slot:s,minute:0}));
+        var durMin=Number(s.duration_min)>0?Number(s.duration_min):SLOT_STEP;
+        var span=Math.max(1,Math.ceil(durMin/SLOT_STEP));
+        if(step+span>TOTAL_STEPS)span=TOTAL_STEPS-step;      // 격자 밖으로 넘치지 않게
+        var payload=encodeURIComponent(JSON.stringify({teacher:nm,date:iso,hour:h3,slot:s,minute:m3}));
         var txt='';
         if(s.students&&s.students.length){
           txt=(s.students.length===1)?s.students[0].name:((L?'그룹·':'G·')+s.students.length);
         }else if(s.type==='blocked'){ txt=L?'휴무':'Off'; }
         var dur=s.duration_min?'<span class="dg-dur">'+s.duration_min+'m</span>':'';
-        body+='<td class="slot slot-'+s.type+todayCls+(freeMode?' dimmed':'')+'"'+base+
+        body+='<td colspan="'+span+'" class="slot slot-'+s.type+todayCls+(freeMode?' dimmed':'')+edge+'"'+base+
+          ' title="'+minLabel(startMin)+'~'+minLabel(startMin+durMin)+'"'+
           ' data-slot="'+payload+'">'+escapeHtml(txt)+dur+'</td>';
+        skip=span-1;
       }
     }
     body+='</tr>';
@@ -1227,16 +1313,15 @@ function buildDayPicker(){
 
 // 셀(hour,minute)이 어떤 슬롯에 속하는지 + 그 슬롯의 시작 셀인지 반환
 function findSlotForCell(teacherId,dateISO,hour,minute){
-  var cellMin=hour*60+minute;
-  // 슬롯 시작 시간은 hour 단위. 그 슬롯이 cellMin 을 포함하면 매치.
-  for(var startHour=Math.max(0,hour-1);startHour<=hour;startHour++){
-    var s=getSlot(teacherId,dateISO,startHour);
-    if(!s)continue;
-    var startMin=startHour*60;
-    var dur=s.duration_min||60;
-    var endMin=startMin+dur;
-    if(cellMin>=startMin && cellMin<endMin){
-      return {slot:s,isStart:(cellMin===startMin)};
+  var cellMin=hour*60+(minute||0);
+  // ⏱ 10분 격자 — 슬롯 시작이 10분 단위이므로 «분» 으로 훑는다(예전엔 시 단위로만 봤다)
+  var items=slotsOfDay(teacherId,dateISO);
+  for(var i=0;i<items.length;i++){
+    var startMin=items[i].startMin;
+    if(startMin>cellMin)break;
+    var dur=Number(items[i].slot.duration_min)>0?Number(items[i].slot.duration_min):SLOT_STEP;
+    if(cellMin<startMin+dur){
+      return {slot:items[i].slot,isStart:(cellMin===startMin)};
     }
   }
   return null;
@@ -1383,10 +1468,11 @@ function getCellTeacher(td){
 function getCellCoords(td){
   if(td&&td.dataset&&td.dataset.date&&td.dataset.hour!==undefined){
     var hh=parseInt(td.dataset.hour,10);
+    var mm=parseInt(td.dataset.min||'0',10)||0;   // ⏱ 10분 격자
     if(!isNaN(hh)){
       var dd=new Date(td.dataset.date+'T00:00:00');
       var dow=(dd.getDay()===0)?6:dd.getDay()-1;
-      return {dateISO:td.dataset.date,hour:hh,dow:dow};
+      return {dateISO:td.dataset.date,hour:hh,minute:mm,startMin:hh*60+mm,dow:dow};
     }
   }
   var tr=td.parentElement;
@@ -1396,7 +1482,7 @@ function getCellCoords(td){
   var hour=parseInt(tr.children[0].textContent,10);
   if(isNaN(hour))return null;
   var d=new Date(currentWeekStart);d.setDate(d.getDate()+(colIdx-1));
-  return {dateISO:fmtISO(d),hour:hour,dow:colIdx-1};
+  return {dateISO:fmtISO(d),hour:hour,minute:0,startMin:hour*60,dow:colIdx-1};
 }
 
 function showDndToast(msg,kind){
@@ -1580,8 +1666,9 @@ window.confirmMoveDo=function(){
   var ctx=window.__moveCtx;
   if(!ctx){closeModal();return;}
   // 실제 이동
-  delete SLOTS[ctx.srcTeacher.id+'__'+ctx.srcCoords.dateISO+'__'+ctx.srcCoords.hour];
-  addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot);
+  // ⏱ 10분 격자 — 키가 «시» 가 아니라 «분» 이다. 분을 빼먹으면 원본이 안 지워져 «복사» 가 된다.
+  delete SLOTS[slotKey(ctx.srcTeacher.id,ctx.srcCoords.dateISO,ctx.srcCoords.hour*60+(ctx.srcCoords.minute||0))];
+  addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot,ctx.dstCoords.minute||0);
   closeModal();
   var msg=L
     ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00 으로 이동됨')
@@ -1884,7 +1971,7 @@ function computeMatches(){
       var d=new Date(currentWeekStart);d.setDate(d.getDate()+parseInt(dow,10));
       var dateISO=fmtISO(d);
       prefHours[dow].forEach(function(h){
-        if(!getSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});
+        if(!hourHasSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});
       });
     });
     if(openSlots.length>0){
@@ -1924,7 +2011,7 @@ function wizPickMatch(i){
     Object.keys(prefHours).forEach(function(dow){
       var d=new Date(currentWeekStart);d.setDate(d.getDate()+parseInt(dow,10));
       var dateISO=fmtISO(d);
-      prefHours[dow].forEach(function(h){if(!getSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});});
+      prefHours[dow].forEach(function(h){if(!hourHasSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});});
     });
     if(openSlots.length>0){matches.push({teacher:t,slots:openSlots,score:Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)))});}
   });
@@ -1943,7 +2030,7 @@ function wizFinalize(){
   var m=s.chosenMatch;
   // 슬롯 등록 - 첫 몇 개만 자동 배정 (또는 전체)
   var assigned=0;
-  var dur=(typeof defaultDuration!=='undefined')?defaultDuration:60;
+  var dur=(typeof defaultDuration!=='undefined')?defaultDuration:20;
   m.slots.slice(0,3).forEach(function(sl){
     addSlot(m.teacher.id,sl.date,sl.hour,{
       type:'1on1',
@@ -1983,8 +2070,8 @@ document.addEventListener('contextmenu',function(e){
   var data=JSON.parse(decodeURIComponent(t.dataset.slot));
   var L=currentLang==='ko';
   ctxMenu.innerHTML=
-    '<div class="ctx-item" onclick="openSlotDetail(\''+data.teacher+'\',\''+data.date+'\','+data.hour+',JSON.parse(decodeURIComponent(\''+encodeURIComponent(JSON.stringify(data.slot))+'\')));hideCtx()">📋 '+(L?'상세보기':'Details')+'</div>'+
-    '<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>'+
+    '<div class="ctx-item" onclick="openSlotDetail(\''+data.teacher+'\',\''+data.date+'\','+data.hour+',JSON.parse(decodeURIComponent(\''+encodeURIComponent(JSON.stringify(data.slot))+'\')),'+(data.minute||0)+');hideCtx()">📋 '+(L?'상세보기':'Details')+'</div>'+
+    '<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>'+
     '<div class="ctx-divider"></div>'+
     '<div class="ctx-item danger" onclick="deleteSlotConfirm(\''+data.teacher+'\',\''+data.date+'\','+data.hour+');hideCtx()">🗑 '+(L?'삭제':'Delete')+'</div>';
   ctxMenu.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
@@ -1997,11 +2084,12 @@ window.hideCtx=hideCtx;
 
 // ═══ 수업 변경 (간단 모드): 클릭으로 새 시간 선택 ═══
 var movingSlot=null;
-function moveSlotStart(teacherName,dateISO,hour){
+function moveSlotStart(teacherName,dateISO,hour,minute){
+  minute=minute||0;   // ⏱ 10분 격자
   var L=currentLang==='ko';
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
-  var slot=getSlot(t.id,dateISO,hour);if(!slot)return;
+  var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
   movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,slot:slot};
   // 위저드처럼 시간 그리드로 새 시간 선택
   var html='<div class="modal wiz-modal">'+
@@ -2032,7 +2120,7 @@ function renderMoveGrid(t){
     for(var di=0;di<7;di++){
       var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
       var dateISO=fmtISO(d);
-      var s=getSlot(t.id,dateISO,h);
+      var s=hourHasSlot(t.id,dateISO,h);
       var cls=s?'tp-cell':'tp-cell';
       var inline=s?'background:rgba(239,68,68,.15);cursor:not-allowed':'cursor:pointer;background:rgba(16,185,129,.08)';
       var click=s?'':'onclick="confirmMove(\''+dateISO+'\','+h+')"';
@@ -2050,28 +2138,57 @@ function renderMoveGrid(t){
 //   - 벤치마킹: Cambly/iTalki(24h), Ringle(4h), Preply(4h), 한국 화상영어 표준
 // ═══════════════════════════════════════════════════════════════════
 
-// 수업 시작 시각 계산 (날짜 + 시간 → Date)
-function getClassStartTime(dateISO, hour){
-  return new Date(dateISO + 'T' + String(hour).padStart(2,'0') + ':00:00');
+// 수업 시작 시각 계산 (날짜 + 시각 → Date). ⏱ 10분 격자라 «분» 도 받는다 —
+//   분을 버리면 19:50 수업을 19:00 으로 재서 컷오프 판정이 최대 59분 어긋난다.
+function getClassStartTime(dateISO, hour, minute){
+  return new Date(dateISO + 'T' + String(hour).padStart(2,'0') + ':' + String(minute||0).padStart(2,'0') + ':00');
 }
 
-// 연기 가능 여부 (30분 이상 남아있으면 OK)
-function canPostpone(dateISO, hour){
-  var classTime = getClassStartTime(dateISO, hour);
+/* 🔓 (2026-08-12) 매니저 권한은 «수업까지 남은 시간» 제약을 받지 않는다.
+   연기 30분 전 / 변경 24시간 전 컷오프는 학부모·학생이 스스로 바꿀 때 쓰는 규정이다.
+   운영 매니저는 학부모 전화를 받고 대신 고쳐 주는 사람이라, 같은 컷오프에 걸리면
+   «지금 당장 고쳐야 하는» 바로 그 상황에서만 손이 묶였다.
+   ⚠️ 서버는 원래도 이 시각 제한으로 막지 않는다(요금 무료/유료만 계산). 화면만의 제약이었다.
+   역할 판정은 adm-core.js 의 _effectiveRole 과 같은 규칙 — 역할 미리보기 중이면 그 역할을 따른다. */
+var MANAGER_ROLES = /^(hq_mgr|hq_exec|admin)$/;
+function schedEffectiveRole(){
+  try{
+    var p = JSON.parse(localStorage.getItem('admin_session') || 'null');   // ph117 역할 미리보기
+    if (p && p.uid){
+      if (/^hq_t/.test(p.uid))    return 'hq_teacher';
+      if (/^branch/.test(p.uid))  return 'branch';
+      if (/^agency/.test(p.uid))  return 'agency';
+      if (/^parent/.test(p.uid))  return 'parent';
+      if (/^student/.test(p.uid)) return 'student';
+      if (p.uid === 'hq_mgr')     return 'hq_mgr';
+      if (p.uid === 'hq_exec' || p.uid === 'admin') return 'hq_exec';
+    }
+    var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || 'null');
+    return (s && s.role) || '';
+  }catch(e){ return ''; }
+}
+function canOverrideTimeLimit(){ return MANAGER_ROLES.test(schedEffectiveRole()); }
+window.canOverrideTimeLimit = canOverrideTimeLimit;
+
+// 연기 가능 여부 (30분 이상 남아있으면 OK · 매니저는 항상 OK)
+function canPostpone(dateISO, hour, minute){
+  if (canOverrideTimeLimit()) return true;
+  var classTime = getClassStartTime(dateISO, hour, minute);
   var diffMin = (classTime - new Date()) / 60000;
   return diffMin >= 30;
 }
-// 변경 가능 여부 (24시간 = 1440분 이상 남아있으면 OK)
-function canChange(dateISO, hour){
-  var classTime = getClassStartTime(dateISO, hour);
+// 변경 가능 여부 (24시간 = 1440분 이상 남아있으면 OK · 매니저는 항상 OK)
+function canChange(dateISO, hour, minute){
+  if (canOverrideTimeLimit()) return true;
+  var classTime = getClassStartTime(dateISO, hour, minute);
   var diffMin = (classTime - new Date()) / 60000;
   return diffMin >= 1440;
 }
 
 // 거부 팝업
-function showRejectModal(mode, dateISO, hour){
+function showRejectModal(mode, dateISO, hour, minute){
   var L = currentLang === 'ko';
-  var classTime = getClassStartTime(dateISO, hour);
+  var classTime = getClassStartTime(dateISO, hour, minute);
   var diffMin = Math.round((classTime - new Date()) / 60000);
   var diffStr;
   if (diffMin < 0) diffStr = L ? '이미 시작/종료된 수업' : 'Class already started';
@@ -2107,16 +2224,17 @@ function showRejectModal(mode, dateISO, hour){
 window.showRejectModal = showRejectModal;
 
 // 연기/변경 모달 열기 (제한 체크 후)
-function openRescheduleModal(teacherName, dateISO, hour, mode){
+function openRescheduleModal(teacherName, dateISO, hour, mode, minute){
+  minute=minute||0;   // ⏱ 10분 격자
   // mode: 'postpone' or 'change'
-  if (mode === 'postpone' && !canPostpone(dateISO, hour)){
+  if (mode === 'postpone' && !canPostpone(dateISO, hour, minute)){
     closeModal();
-    setTimeout(function(){ showRejectModal('postpone', dateISO, hour); }, 150);
+    setTimeout(function(){ showRejectModal('postpone', dateISO, hour, minute); }, 150);
     return;
   }
-  if (mode === 'change' && !canChange(dateISO, hour)){
+  if (mode === 'change' && !canChange(dateISO, hour, minute)){
     closeModal();
-    setTimeout(function(){ showRejectModal('change', dateISO, hour); }, 150);
+    setTimeout(function(){ showRejectModal('change', dateISO, hour, minute); }, 150);
     return;
   }
   var t = TEACHERS.find(function(t){
@@ -2124,7 +2242,7 @@ function openRescheduleModal(teacherName, dateISO, hour, mode){
     return nm===teacherName;
   });
   if (!t) return;
-  var slot = getSlot(t.id, dateISO, hour);
+  var slot = getSlot(t.id, dateISO, hour, minute);
   if (!slot) return;
 
   window.__rescheduleCtx = {
@@ -2148,7 +2266,12 @@ function renderRescheduleModal(){
   var ctx = window.__rescheduleCtx;
   if (!ctx) return;
   var modeTitle = ctx.mode === 'postpone' ? '📅 ' + (L?'수업 연기':'Postpone Class') : '🔄 ' + (L?'수업 변경':'Modify Class');
-  var ruleLabel = ctx.mode === 'postpone' ? (L?'수업 시작 30분 전까지 가능':'Up to 30 min before class') : (L?'수업 시작 24시간 전까지 가능':'Up to 24 hours before class');
+  /* 🔓 (2026-08-12) 매니저는 시각 제한을 안 받는다. 규정 문구도 그대로 두면 «되는데 안 된다고
+     적힌» 화면이 되므로 함께 바꾼다. 조용히 풀지 않고 «지금 규정 밖으로 고치는 중» 임을 알린다. */
+  var mgrOverride = canOverrideTimeLimit();
+  var ruleLabel = mgrOverride
+    ? (L?'🔓 매니저 권한 — 시간 제한 없이 수정 가능':'🔓 Manager — no time limit')
+    : (ctx.mode === 'postpone' ? (L?'수업 시작 30분 전까지 가능':'Up to 30 min before class') : (L?'수업 시작 24시간 전까지 가능':'Up to 24 hours before class'));
 
   // 탭: 연기는 시간만, 변경은 시간 또는 강사
   var tabsHtml = ctx.mode === 'change'
@@ -2189,14 +2312,15 @@ function renderRescheduleModal(){
       for (var di=0;di<7;di++){
         var d=new Date(currentWeekStart);d.setDate(d.getDate()+di);
         var dateISO=fmtISO(d);
-        var existing=getSlot(ctx.teacher.id,dateISO,h);
+        var existing=hourHasSlot(ctx.teacher.id,dateISO,h);
         var isOrig = (dateISO===ctx.origDate && h===ctx.origHour);
         var isPicked = (ctx.pickedDate===dateISO && ctx.pickedHour===h);
         var canPick = !existing || isOrig;
         // 시간 제한 체크: 연기/변경 가능한지
         var cellTime = getClassStartTime(dateISO, h);
         var diffMin = (cellTime - new Date()) / 60000;
-        var tooSoon = (ctx.mode==='postpone' && diffMin<30) || (ctx.mode==='change' && diffMin<1440);
+        // 🔓 매니저는 이 컷오프를 통과한다 (위 canPostpone/canChange 와 같은 규칙)
+        var tooSoon = !mgrOverride && ((ctx.mode==='postpone' && diffMin<30) || (ctx.mode==='change' && diffMin<1440));
         var style='';
         var click='';
         if (existing && !isOrig){
@@ -2297,14 +2421,14 @@ window.openSlotDetail = function(teacherName, dateISO, hour, slot){
     postponeBtn.setAttribute('data-rsc','postpone');
     postponeBtn.style.cssText = 'border-color:#3b82f6;color:#60a5fa';
     postponeBtn.innerHTML = '📅 '+(L?'연기':'Postpone');
-    postponeBtn.onclick = function(){ openRescheduleModal(teacherName, dateISO, hour, 'postpone'); };
+    postponeBtn.onclick = function(){ openRescheduleModal(teacherName, dateISO, hour, 'postpone', minute); };
 
     var changeBtn = document.createElement('button');
     changeBtn.className = 'modal-btn ghost';
     changeBtn.setAttribute('data-rsc','change');
     changeBtn.style.cssText = 'border-color:#a78bfa;color:#c4b5fd';
     changeBtn.innerHTML = '🔄 '+(L?'변경':'Change');
-    changeBtn.onclick = function(){ openRescheduleModal(teacherName, dateISO, hour, 'change'); };
+    changeBtn.onclick = function(){ openRescheduleModal(teacherName, dateISO, hour, 'change', minute); };
 
     // 닫기 버튼 뒤, 삭제 버튼 앞에 삽입
     var firstBtn = actions.querySelector('button');
@@ -2339,12 +2463,12 @@ document.addEventListener('contextmenu', function(e){
     p.className = 'ctx-item';
     p.setAttribute('data-ctx-rsc','postpone');
     p.innerHTML = '📅 '+(L?'수업 연기':'Postpone');
-    p.onclick = function(){ hideCtx(); openRescheduleModal(data.teacher, data.date, data.hour, 'postpone'); };
+    p.onclick = function(){ hideCtx(); openRescheduleModal(data.teacher, data.date, data.hour, 'postpone', data.minute||0); };
     var c = document.createElement('div');
     c.className = 'ctx-item';
     c.setAttribute('data-ctx-rsc','change');
     c.innerHTML = '🔄 '+(L?'수업 변경':'Modify');
-    c.onclick = function(){ hideCtx(); openRescheduleModal(data.teacher, data.date, data.hour, 'change'); };
+    c.onclick = function(){ hideCtx(); openRescheduleModal(data.teacher, data.date, data.hour, 'change', data.minute||0); };
     // 첫 번째 아이템 다음에 삽입
     first.parentNode.insertBefore(p, first.nextSibling);
     first.parentNode.insertBefore(c, p.nextSibling);
@@ -2390,8 +2514,9 @@ document.querySelectorAll('.view-toggle button[data-mode]').forEach(function(btn
     document.body.classList.toggle('compact',btn.dataset.mode==='compact');
   });
 });
-// ═══ 기본 수업 길이 토글 (60/40/20분) ═══
-var defaultDuration=60;
+// ═══ 기본 수업 길이 토글 (20/40분) ═══
+//   ⏱ (2026-08-12) 60분 제거 · 기본값 20분. 위 버튼의 class="active" 와 반드시 같이 움직일 것.
+var defaultDuration=20;
 document.querySelectorAll('.view-toggle button[data-dur]').forEach(function(btn){
   btn.addEventListener('click',function(){
     document.querySelectorAll('.view-toggle button[data-dur]').forEach(function(b){b.classList.remove('active');});
@@ -2480,7 +2605,7 @@ function aiSuggestSlot(){
       var dateISO=fmtISO(d);
       for(var h=10;h<=20;h++){
         if(h===12)continue;
-        if(!getSlot(t.id,dateISO,h))empty.push({t:t,date:dateISO,hour:h});
+        if(!hourHasSlot(t.id,dateISO,h))empty.push({t:t,date:dateISO,hour:h});
       }
     }
   });
@@ -2541,7 +2666,8 @@ function typePill(type){
   return '<span class="modal-type-pill '+info.cls+'">'+info.ico+' '+(currentLang==='ko'?info.ko:info.en)+'</span>';
 }
 
-function openSlotDetail(teacherName,dateISO,hour,slot){
+function openSlotDetail(teacherName,dateISO,hour,slot,minute){
+  minute=minute||0;   // ⏱ 10분 격자
   var L=currentLang==='ko';
   var stuHtml='';
   if(slot.students&&slot.students.length>0){
@@ -2576,7 +2702,7 @@ function openSlotDetail(teacherName,dateISO,hour,slot){
     '<div class="modal-actions">'+
       '<button class="modal-btn ghost" onclick="closeModal()">'+(L?'닫기':'Close')+'</button>'+
       '<button class="modal-btn danger" onclick="deleteSlotConfirm(\''+teacherName+'\',\''+dateISO+'\','+hour+')">🗑 '+(L?'삭제':'Delete')+'</button>'+
-      '<button class="modal-btn primary" onclick="editSlotPrompt(\''+teacherName+'\',\''+dateISO+'\','+hour+')">✏️ '+(L?'편집':'Edit')+'</button>'+
+      '<button class="modal-btn primary" onclick="editSlotPrompt(\''+teacherName+'\',\''+dateISO+'\','+hour+','+minute+')">✏️ '+(L?'편집':'Edit')+'</button>'+
     '</div>';
   openModal(html);
 }
@@ -2587,7 +2713,7 @@ document.addEventListener('click',function(e){
   if(!t)return;
   if(t.dataset.slot){
     var data=JSON.parse(decodeURIComponent(t.dataset.slot));
-    openSlotDetail(data.teacher,data.date,data.hour,data.slot);
+    openSlotDetail(data.teacher,data.date,data.hour,data.slot,data.minute||0);
   }
 });
 
@@ -2599,10 +2725,11 @@ function getCellInfo(td){
   if(td&&td.dataset&&td.dataset.tid&&td.dataset.date&&td.dataset.hour!==undefined){
     var teacher=getCellTeacher(td);
     var hour=parseInt(td.dataset.hour,10);
+    var minute=parseInt(td.dataset.min||'0',10)||0;   // ⏱ 10분 격자
     if(!teacher||isNaN(hour))return null;
     var nm=(currentLang==='en'&&teacher.name_en)?teacher.name_en:teacher.name;
-    return{teacher:teacher,teacherName:nm,dateISO:td.dataset.date,hour:hour,
-           colIdx:hour,td:td,card:td.parentElement};
+    return{teacher:teacher,teacherName:nm,dateISO:td.dataset.date,hour:hour,minute:minute,
+           startMin:hour*60+minute,colIdx:hour*60+minute,td:td,card:td.parentElement};
   }
   var card=td.closest('.teacher-card');if(!card)return null;
   var nameEl=card.querySelector('.teacher-name');
@@ -2616,7 +2743,7 @@ function getCellInfo(td){
   var d=new Date(currentWeekStart);d.setDate(d.getDate()+(colIdx-1));
   var dateISO=fmtISO(d);
   var teacher2=TEACHERS.find(function(t){var nm2=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm2===name;});
-  return{teacher:teacher2,teacherName:name,dateISO:dateISO,hour:hour2,colIdx:colIdx,td:td,card:card};
+  return{teacher:teacher2,teacherName:name,dateISO:dateISO,hour:hour2,minute:0,startMin:hour2*60,colIdx:colIdx,td:td,card:card};
 }
 
 document.addEventListener('mousedown',function(e){
@@ -2639,8 +2766,8 @@ document.addEventListener('mousemove',function(e){
   if(!info)return;
   // 같은 교사 안에서만 (새 구조에서는 한 행 = 교사 한 명)
   if(info.card!==dragStart.card)return;
-  // 시작 시각 ~ 현재 시각 사이를 선택
-  var hMin=Math.min(dragStart.hour,info.hour),hMax=Math.max(dragStart.hour,info.hour);
+  // 시작 시각 ~ 현재 시각 사이를 선택 (⏱ 10분 격자 — «시» 가 아니라 «분» 으로 비교)
+  var sMin=Math.min(dragStart.startMin,info.startMin),sMax=Math.max(dragStart.startMin,info.startMin);
   dragSelected.forEach(function(c){c.classList.remove('selecting');});
   dragSelected=[];
   var scope=dragStart.card&&dragStart.card.querySelectorAll?dragStart.card:document;
@@ -2648,7 +2775,10 @@ document.addEventListener('mousemove',function(e){
     if(cell.dataset.slot)return;                       // 이미 수업이 있는 칸은 제외
     if(cell.dataset.tid!==dragStart.td.dataset.tid)return;
     var hh=parseInt(cell.dataset.hour,10);
-    if(isNaN(hh)||hh<hMin||hh>hMax)return;
+    var mm=parseInt(cell.dataset.min||'0',10)||0;
+    if(isNaN(hh))return;
+    var cm=hh*60+mm;
+    if(cm<sMin||cm>sMax)return;
     cell.classList.add('selecting');dragSelected.push(cell);
   });
 });
@@ -2721,10 +2851,11 @@ window.clearDragSel=clearDragSel;
 function renderNewSlotFields(type){
   var L=currentLang==='ko';
   var box=document.getElementById('new-slot-fields');
-  var dd=(typeof defaultDuration!=='undefined')?defaultDuration:60;
+  // ⏱ (2026-08-12) 60분 제거 · 20분이 먼저 오고 기본값이다
+  var dd=(typeof defaultDuration!=='undefined')?defaultDuration:20;
   var durCards='<label>'+(L?'수업 길이':'Class Duration')+'</label><div class="dur-choices" id="ns-dur-choices">'+
-    [60,40,20].map(function(d){
-      return '<div class="dur-choice '+(d===dd?'selected':'')+'" data-dur="'+d+'" onclick="window.__pickDur('+d+')"><div class="dc-num">'+d+'</div><div class="dc-unit">'+(L?'분':'min')+'</div><div class="dc-tag">'+(d===60?(L?'기본':'Default'):(d===40?(L?'중':'Mid'):(L?'짧음':'Short')))+'</div></div>';
+    [20,40].map(function(d){
+      return '<div class="dur-choice '+(d===dd?'selected':'')+'" data-dur="'+d+'" onclick="window.__pickDur('+d+')"><div class="dc-num">'+d+'</div><div class="dc-unit">'+(L?'분':'min')+'</div><div class="dc-tag">'+(d===20?(L?'기본':'Default'):(L?'김':'Long'))+'</div></div>';
     }).join('')+'</div>';
   window.__currentDur=dd;
   window.__pickDur=function(d){
@@ -2769,13 +2900,13 @@ function saveNewSlot(){
   var start=document.getElementById('ns-start')?.value||infos[0].dateISO;
   var end=document.getElementById('ns-end')?.value||infos[infos.length-1].dateISO;
   // 슬롯 생성
-  var dur=window.__currentDur||(typeof defaultDuration!=='undefined'?defaultDuration:60);
+  var dur=window.__currentDur||(typeof defaultDuration!=='undefined'?defaultDuration:20);
   infos.forEach(function(info){
     addSlot(info.teacher.id,info.dateISO,info.hour,{
       type:type,students:students,
       start_date:start,end_date:end,note:note,
       duration_min:dur
-    });
+    },info.minute||0);   // ⏱ 10분 격자 — 고른 칸의 «분» 그대로 저장
   });
   closeModal();clearDragSel();
   render();
@@ -2792,15 +2923,16 @@ function deleteSlotConfirm(teacherName,dateISO,hour){
 }
 window.deleteSlotConfirm=deleteSlotConfirm;
 
-function editSlotPrompt(teacherName,dateISO,hour){
+function editSlotPrompt(teacherName,dateISO,hour,minute){
+  minute=minute||0;   // ⏱ 10분 격자
   var L=currentLang==='ko';
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
-  var slot=getSlot(t.id,dateISO,hour);if(!slot)return;
+  var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
   // 단일 슬롯 편집: 새 슬롯 모달 재활용 (1개 셀)
   closeModal();
   setTimeout(function(){
-    openNewSlotModal([{teacher:t,teacherName:teacherName,dateISO:dateISO,hour:hour,td:null,card:null,colIdx:1}]);
+    openNewSlotModal([{teacher:t,teacherName:teacherName,dateISO:dateISO,hour:hour,minute:minute,td:null,card:null,colIdx:1}]);
     // 기본값 채우기
     setTimeout(function(){
       var sel=document.querySelector('.type-choice[data-type="'+slot.type+'"]');
@@ -3108,13 +3240,14 @@ reloadAndRender();
   function resolveCell(td){
     if(!td || !td.classList.contains('slot')) return null;
     var hour = parseInt(td.dataset.hour, 10);
+    var minute = parseInt(td.dataset.min||'0', 10) || 0;   // ⏱ 10분 격자
     if(isNaN(hour)) return null;
     var teacher = (typeof getCellTeacher === 'function') ? getCellTeacher(td) : null;
     if(!teacher) return null;
     // 새 구조: 셀이 날짜를 직접 들고 있다
     if(td.dataset.date){
       var dd = new Date(td.dataset.date+'T00:00:00');
-      return { teacher:teacher, dateISO:td.dataset.date, hour:hour,
+      return { teacher:teacher, dateISO:td.dataset.date, hour:hour, minute:minute,
                dow:(dd.getDay()===0?6:dd.getDay()-1) };
     }
     var tr = td.parentElement; if(!tr) return null;   // 옛 구조 폴백
@@ -3122,12 +3255,12 @@ reloadAndRender();
     var colIdx = cells.indexOf(td);
     if(colIdx < 1) return null;
     var d = new Date(currentWeekStart); d.setDate(d.getDate() + (colIdx - 1));
-    return { teacher:teacher, dateISO:fmtISO(d), hour:hour, dow:(colIdx-1) };
+    return { teacher:teacher, dateISO:fmtISO(d), hour:hour, minute:minute, dow:(colIdx-1) };
   }
   // 충돌 사유 반환: null = 배정 가능 / 문자열 = 거부 사유
   function conflictReason(td, info){
     if(td.dataset.slot || td.dataset.cont) return (currentLang==='ko'?'이미 예약된':'occupied');
-    if(getSlot(info.teacher.id, info.dateISO, info.hour)) return (currentLang==='ko'?'이미 예약된':'occupied');
+    if(getSlot(info.teacher.id, info.dateISO, info.hour, info.minute||0)) return (currentLang==='ko'?'이미 예약된':'occupied');
     if(typeof HOLIDAY_MAP!=='undefined' && HOLIDAY_MAP[info.dateISO] && HOLIDAY_MAP[info.dateISO].length)
       return (currentLang==='ko'?'휴가/공휴일':'holiday');
     return null;
@@ -3212,14 +3345,15 @@ reloadAndRender();
 
   // ── 8) 배정 처리 + 학부모 알림톡 큐 적재 + 토스트 ────────────────────
   function assignStudent(stu, info){
-    // 슬롯 생성 (1대1, 정시 시작, 50분 기본)
+    // 슬롯 생성 (1대1). ⏱ (2026-08-12) 고른 칸의 «분» 그대로, 길이는 기본 20분.
+    //   예전엔 50분이 박혀 있었는데 50분은 고를 수 있는 길이가 아니다(20/40분).
     addSlot(info.teacher.id, info.dateISO, info.hour, {
       type:'1on1',
       students:[{name:stu.name, uid:stu.uid}],
-      duration_min:50,
+      duration_min:(typeof defaultDuration!=='undefined'?defaultDuration:20),
       start_date:info.dateISO,
       note:(currentLang==='ko'?'대기 풀에서 배정':'Assigned from pool')
-    });
+    }, info.minute||0);
     // 대기 풀에서 제거
     POOL = POOL.filter(function(s){return s.uid !== stu.uid;});
 

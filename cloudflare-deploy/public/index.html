@@ -8215,20 +8215,29 @@ window.mgIsSlowNet = function(){
                 <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
                 <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
-                <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기" data-ko-title="교재도구 펼치기/접기" data-en-title="Show/hide textbook tools">📚 교재도구 ▾</button>
-                <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기" data-ko-title="필기도구 펼치기/접기" data-en-title="Show/hide writing tools">✍️ 필기도구 ▾</button>
+                <!-- 🌐 (2026-08-12) data-ko/data-en 필수 — 없으면 EN 모드에서 i18n-sweep 이 라벨 속 «(교재도구)» 를 번역하고
+                     mango-tools-dock 의 1.2초 enforce 가 되돌려 → 칩이 1.2초 주기로 깜박인다 (필리핀 강사 제보) -->
+                <button class="mango-tool-chip" data-tool="materials" type="button" onclick="mangoToggleToolDock('materials', this)" title="교재도구 펼치기/접기" data-ko-title="교재도구 펼치기/접기" data-en-title="Show/hide textbook tools" data-ko="📚 교재도구 (Textbook Tools) ▾" data-en="📚 Textbook Tools (교재도구) ▾">📚 교재도구 ▾</button>
+                <button class="mango-tool-chip" data-tool="write" type="button" onclick="mangoToggleToolDock('write', this)" title="필기도구 펼치기/접기" data-ko-title="필기도구 펼치기/접기" data-en-title="Show/hide writing tools" data-ko="✍️ 필기도구 (Writing Tools) ▾" data-en="✍️ Writing Tools (필기도구) ▾">✍️ 필기도구 ▾</button>
                 <!-- 📖 (2026-07-29 강사 제보) "업로드된 다른 교재를 못 찾겠다 / 첫 페이지만 보인다"
                      라이브러리 버튼이 [📚 교재도구 ▾] 드롭다운 안에 있어 펼치기 전에는 보이지 않았다.
                      교재는 60개 그룹이 정상 등록돼 있는데 강사가 입구를 못 찾은 것 → 상단에 바로 노출.
                      강사·관리자에게만 보인다(vcClassLockChipsRender 가 노출 관리). -->
                 <button id="vc-lib-open-btn" type="button" onclick="if(typeof openTextbookLibrary==='function')openTextbookLibrary()" title="업로드된 교재 목록에서 고르기" data-ko-title="업로드된 교재 목록에서 고르기" data-en-title="Pick from the uploaded textbook list" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#6366f1);white-space:nowrap">📖 교재 고르기</button>
-                <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
-                <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
-                <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
-                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">✋ 학생 필기 잠그기</button>
                 <!-- 🖥 (2026-07-30 Kaye 4번) 내 컴퓨터 화면을 학생에게 보여주기 — 교사·관리자에게만 보임 -->
-                <button id="vc-screenshare-btn" type="button" class="vc-classlock-chip" onclick="vcShareMyScreen()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#0ea5e9">내 화면 공유</button>
-                <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
+                <button id="vc-screenshare-btn" type="button" class="vc-classlock-chip" onclick="vcShareMyScreen()" title="내 컴퓨터 화면을 학생에게 보여줍니다. 다시 누르면 카메라로 돌아갑니다." data-ko-title="내 컴퓨터 화면을 학생에게 보여줍니다. 다시 누르면 카메라로 돌아갑니다." data-en-title="Show your computer screen to the student. Press again to go back to your camera." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#0ea5e9">내 화면 공유</button>
+
+                <!-- 👥 (2026-08-12 강사 Shas 3번) "「Lock Student Drawing」 버튼을 찾기까지 여러 번 시도해야 했다.
+                       수업 중 빠르게 제어해야 하는데 접근성이 떨어지면 지연과 혼란이 생긴다."
+                     버튼은 원래 이 상단 툴바에 있었지만, 옆 칩들과 생김새가 똑같아 «학생을 제어하는 것» 이라는
+                     신호가 없었다. 기능은 그대로 두고 ① 한 묶음으로 모으고 ② 앞에 이름표를 달고
+                     ③ 마우스를 올리면 설명이 뜨게 한다. 라벨은 vcClassLockChipsRender 가 상태에 맞춰 다시 쓴다. -->
+                <span id="vc-studentctl-label" class="vc-classlock-chip" style="display:none;align-items:center;padding:5px 4px 5px 10px;margin-left:4px;border-left:1px solid rgba(148,163,184,0.35);font-size:11.5px;font-weight:800;color:#94a3b8;white-space:nowrap" data-ko="👥 학생 제어" data-en="👥 Student controls">👥 학생 제어</span>
+                <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
+                <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" title="학생 전체의 마이크를 한 번에 끕니다. 다시 누르면 풀립니다." data-ko-title="학생 전체의 마이크를 한 번에 끕니다. 다시 누르면 풀립니다." data-en-title="Mute every student at once. Press again to unmute." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
+                <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
+                <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" title="학생이 교재·칠판에 펜·텍스트로 쓰거나 「전체 지우기」를 누르는 것을 막습니다. 선생님은 그대로 쓸 수 있어요." data-ko-title="학생이 교재·칠판에 펜·텍스트로 쓰거나 「전체 지우기」를 누르는 것을 막습니다. 선생님은 그대로 쓸 수 있어요." data-en-title="Stops students writing on the textbook or whiteboard with the pen or text tool, and from pressing Clear. You are not affected." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">✋ 학생 필기 잠그기</button>
+                <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" title="학생이 다른 탭(칠판·동영상·게임 등)으로 옮기지 못하게 묶어 둡니다 — 선생님이 보여 주는 화면만 봅니다." data-ko-title="학생이 다른 탭(칠판·동영상·게임 등)으로 옮기지 못하게 묶어 둡니다 — 선생님이 보여 주는 화면만 봅니다." data-en-title="Keeps students on your screen — they cannot switch to other tabs (whiteboard, video, games)." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
                 <!-- 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 — 교재를 전체 폭으로.
                      라벨·툴팁은 mg-vc-right-sidebar 블록의 JS가 상태·언어에 맞춰 다시 씀. -->
                 <button id="vc-side-collapse-btn" type="button" onclick="vcToggleVideoSidebar()" title="얼굴·도구 사이드바 접기 (교재를 전체 폭으로)" style="margin-left:auto;border:1px solid rgba(148,163,184,0.35);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#e2e8f0;cursor:pointer;background:rgba(148,163,184,0.18);white-space:nowrap">› 얼굴 접기</button>
@@ -8684,10 +8693,19 @@ window.mgIsSlowNet = function(){
                화면 어디에도 «누가 쓰는 것인지» 가 적혀 있지 않았다. 기능을 바꾸지 않고 한 줄로 못박는다.
                강사 다수가 필리핀이라 한/영 두 벌을 함께 적는다(한쪽만 적으면 같은 질문이 언어만 바꿔 돌아온다). -->
           <div style="flex-shrink:0;padding:8px 14px;background:rgba(167,139,250,0.14);border-bottom:1px solid rgba(167,139,250,0.32);font-size:12px;line-height:1.5;color:#ddd6fe"
-               data-ko="🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 강사는 옆에서 듣고 고쳐 주세요."
-               data-en="🗣️ The student is the one who speaks — when you open this tab the student's screen follows, and the student answers with their microphone. You listen and correct.">🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 강사는 옆에서 듣고 고쳐 주세요.</div>
+               data-ko="🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 대화 상대는 AI 라서 여기에 강사가 쓴 글은 학생에게 가지 않습니다(글로 말하려면 수업 채팅). 학생이 쓴 글은 아래에 그대로 비칩니다."
+               data-en="🗣️ The student is the one who speaks — when you open this tab the student's screen follows, and the student answers with their microphone. The partner here is the AI, so anything you type is not sent to the student (use the class chat for that). What the student types is mirrored below.">🗣️ 말하는 사람은 «학생» 입니다 — 강사가 이 탭을 열면 학생 화면도 함께 넘어가고, 학생이 마이크로 답합니다. 대화 상대는 AI 라서 여기에 강사가 쓴 글은 학생에게 가지 않습니다(글로 말하려면 수업 채팅). 학생이 쓴 글은 아래에 그대로 비칩니다.</div>
           <iframe id="vc-warmup-frame" title="수업 전 AI 웜업" allow="microphone; autoplay"
                   style="flex:1;min-height:0;width:100%;border:0;background:#0a1530"></iframe>
+          <!-- 🪞 (2026-08-12 강사 Shas 1번) "학생이 입력한 글이 강사 화면에 보이지 않는다"
+               웜업은 «학생 ↔ AI» 대화라 원래 강사에게 안 보인다. 하지만 강사가 학생이 뭘 하고
+               있는지 확인할 길이 아예 없었다 → 학생의 웜업 대화를 강사 화면 아래에 «비춰» 준다.
+               읽기 전용이다. 강사가 학생에게 글로 말하려면 수업 채팅을 쓴다(웜업 상대는 AI 다).
+               강사에게만, 그리고 첫 줄이 도착했을 때만 나타난다(vcWarmupMirror 가 관리). -->
+          <div id="vc-warmup-mirror" style="display:none;flex-shrink:0;max-height:34%;overflow-y:auto;padding:8px 14px;background:rgba(15,23,42,.92);border-top:1px solid rgba(167,139,250,.35)">
+            <div style="font-size:11px;font-weight:800;color:#c4b5fd;margin-bottom:5px" data-ko="🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)" data-en="🪞 Student's warm-up (read-only — use the class chat to reply in text)">🪞 학생의 웜업 대화 (읽기 전용 — 글로 답하려면 수업 채팅을 쓰세요)</div>
+            <div id="vc-warmup-mirror-log" style="font-size:12.5px;line-height:1.6;color:#e6ecff"></div>
+          </div>
         </div>
 
         <!-- 🧠 복습퀴즈 탭 (학생 사이드바와 동일한 퀴즈 + AI 자동 출제) -->
@@ -8712,6 +8730,17 @@ window.mgIsSlowNet = function(){
             body.vc-in-call.vc-dock-top #rqv-body,
             body.vc-in-call.vc-dock-collapsed #rqv-body { padding-bottom: 16px; }
           </style>
+          <!-- 🙋 (2026-08-12 강사 Shas 5-b·5-c) "학생이 고른 답이 강사 화면에 안 보인다 /
+                 학생 쪽에서는 퀴즈가 사라졌는데 강사 화면엔 그대로 남아 동기화가 깨진다."
+               [뿌리] 강사와 학생이 «각자 다른 퀴즈» 를 풀고 있었다 — 양쪽 다 rqvAuto() 로
+               자기 교재·레벨에 맞는 퀴즈를 따로 받아왔고, 서로를 잇는 채널이 아예 없었다.
+               그러니 문항 수도 내용도 달라 «동기화» 라고 부를 것 자체가 없었다.
+               → ① 강사가 연 퀴즈를 학생에게 그대로 내려보내 «같은 퀴즈» 를 풀게 하고
+                 ② 학생의 선택·제출을 강사 화면 이 띠에 실시간으로 띄운다.
+               ⚠️ 이 띠는 #rqv-body «밖» 에 둔다 — renderQ() 가 body 를 통째로 다시 그리므로
+                  안에 넣으면 문항을 넘길 때마다 학생 현황이 지워진다.
+               강사에게만 보인다(rqvLiveRender 가 관리). -->
+          <div id="rqv-live" style="display:none;flex-shrink:0;padding:7px 14px;background:rgba(16,185,129,.10);border-bottom:1px solid rgba(16,185,129,.28);font-size:12px;line-height:1.6;color:#d1fae5"></div>
           <div id="rqv-body" style="flex:1;min-height:0;overflow-y:auto"></div>
         </div>
 
@@ -8838,7 +8867,7 @@ window.mgIsSlowNet = function(){
 <!-- ⚠ idx-main 버전 규칙: v=5·v=6·v=8 은 재사용 금지 — 「같은 주소 다른 내용」이 엣지·브라우저
      1년 캐시에 박힌 번호다. v=5·v=6 은 26-08-11 새벽 사고, v=8 은 main 과 이 브랜치가
      서로 다른 내용으로 동시에 써 버렸다(병합으로 내용이 또 달라짐). 다음 번호는 항상 큰 쪽으로만. -->
-<script src="/js/idx-main.js?v=10"></script>
+<script src="/js/idx-main.js?v=13"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11416,7 +11445,7 @@ window.mgIsSlowNet = function(){
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=5"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=6"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
@@ -14997,7 +15026,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
 <script src="/js/mango-hover-tip.js?v=2" defer></script><!-- 💬 버튼 hover 즉시 말풍선 툴팁 (title 기반, 마우스 환경 전용) -->
-<script src="/js/mango-tools-dock.js?v=5" defer></script><!-- 교재도구/필기도구 칩 토글 [초안] -->
+<script src="/js/mango-tools-dock.js?v=6" defer></script><!-- 교재도구/필기도구 칩 토글 — v6: EN 모드 칩 깜박임(i18n-sweep 핑퐁) 수리 -->
 <script src="/js/mango-attendance.js?v=36" defer></script>
 <!-- 🎥 녹화 동의 — 학생이 수업에 들어갈 때 한 번 묻는다.
      vcJoinRoom 에 이 파일이 «스스로» 붙는다(idx-main.js 는 안 건드린다 — 두 사람이 같이 만지는
@@ -16769,7 +16798,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=5"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=6"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->

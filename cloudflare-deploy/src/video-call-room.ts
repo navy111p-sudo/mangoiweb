@@ -129,7 +129,10 @@ export class VideoCallRoom {
     if (url.pathname === '/status') {
       const users = this.joinedUsers();
       return new Response(
-        JSON.stringify({ roomId: this.roomId, userCount: users.length, users, pdfState: this.pdfState, videoState: this.videoState, bgLock: this.lockState.bgLock, locks: this.lockState }),
+        /* 👁 observerCount — 관리자 표(adm-core.js «실시간 수업 현황»)가 «(관찰 N)» 으로 그리는 값.
+           그동안 서버가 이걸 한 번도 안 보내 undefined 였다 → 배지가 영영 안 떴고,
+           관리자는 [Ghost] 를 눌러도 «붙었는지» 를 표에서 확인할 길이 없었다. */
+        JSON.stringify({ roomId: this.roomId, userCount: users.length, observerCount: this.observerCount(), users, pdfState: this.pdfState, videoState: this.videoState, bgLock: this.lockState.bgLock, locks: this.lockState }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -195,6 +198,11 @@ export class VideoCallRoom {
         case 'device-report':        // 🎧 (2026-08-07) 학생 → 강사: 마이크 재획득 결과. 대상 지정은 클라이언트가 id 로 거른다.
         case 'device-list':          // 🎛 (2026-08-10) 학생 → 강사: 장치 도우미 — 내 카메라·마이크·스피커 목록 회신.
         case 'device-set-result':    //    학생 → 강사: 장치 교체 결과(성공/실패/보류). 셋 다 수신측이 staff 여부로 거른다.
+        case 'quiz-pick':            // 🙋 (2026-08-12 Shas 5-b) 학생 → 강사: 복습퀴즈에서 지금 고른 답.
+        case 'quiz-done':            //    학생 → 강사: 제출 완료(점수) 또는 그만두기. 그리는 쪽에서 강사만 표시.
+        case 'warmup-echo':          // 🪞 (2026-08-12 Shas 1번) 학생 → 강사: AI 웜업 대화 한 줄.
+                                     //   강사가 «학생이 지금 뭘 하고 있는지» 볼 수 있게 하는 읽기 전용 중계.
+                                     //   방 전체로 나가지만 그리는 쪽에서 강사만 표시한다(다른 릴레이와 같은 규칙).
         case 'cam-state':            // 📷 (2026-07-24) 카메라 on/off 를 상대에게 알림.
                                      //   이게 없으면 수신측은 '상대가 껐다' 와 '회선이 나빠 영상만 죽었다' 를
                                      //   구분할 수 없어, 자가복구 워치독이 정상 상태를 장애로 오인해
@@ -224,6 +232,11 @@ export class VideoCallRoom {
               device-list-req = "장치 목록 보내줘", device-set = "이 장치로 바꿔줘".
            ⚠️ 셋 다 반드시 강사만. 아무나 보낼 수 있게 두면 학생이 다른 학생의 카메라·마이크를
               원격으로 건드릴 수 있다(«잠금 3종»과 같은 이유로 role 을 소켓 attachment 에서 본다). */
+        /* 🙋 (2026-08-12 Shas 5-b·5-c) 수업 안 복습퀴즈 잇기.
+           quiz-pick / quiz-done (학생 → 강사) 은 위 일반 릴레이 묶음에 있다.
+           quiz-share (강사 → 학생 «이 퀴즈를 같이 풀자») 만은 강사 전용 — 아무나 보낼 수 있으면
+           학생이 반 전체의 퀴즈를 제멋대로 갈아치운다(교재 갈아치우기와 같은 구멍). */
+        case 'quiz-share':
         case 'device-fix':
         case 'device-list-req':
         case 'device-set': {
@@ -416,12 +429,8 @@ export class VideoCallRoom {
          강화하려면 ghost/start 가 발급한 단기 토큰을 여기서 검증하는 구조가 필요) */
   private handleJoinObserve(ws: WebSocket, userId: string, data: any): void {
     const OBSERVER_MAX = 2;
-    let observers = 0;
-    for (const other of this.state.getWebSockets()) {
-      if (other === ws || other.readyState !== WebSocket.OPEN) continue;
-      const oa = this.attOf(other);
-      if (oa && oa.role === 'observer') observers++;
-    }
+    // 정원 판정과 관리자 표의 «(관찰 N)» 이 같은 셈법을 쓰도록 helper 하나로 모았다.
+    const observers = this.observerCount(ws);
     if (observers >= OBSERVER_MAX) {
       this.send(userId, { type: 'room-full', data: { roomId: this.roomId, limit: OBSERVER_MAX, observe: true } });
       try { ws.close(1000, 'observe-full'); } catch {}
@@ -671,6 +680,19 @@ export class VideoCallRoom {
       if (att && att.joined && att.username) out.push({ userId: att.userId, username: att.username, role: att.role });
     }
     return out;
+  }
+
+  /** 👁 붙어 있는 참관자 수. joinedUsers() 와 짝 — 저쪽은 joined 만, 이쪽은 role==='observer' 만 센다.
+   *  참관자는 joined:false 라서 로스터 어디에도 안 나타나므로(투명 유령), 세는 길이 따로 필요하다. */
+  private observerCount(exclude?: WebSocket): number {
+    let n = 0;
+    for (const ws of this.state.getWebSockets()) {
+      if (ws === exclude) continue;
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      const att = this.attOf(ws);
+      if (att && att.role === 'observer') n++;
+    }
+    return n;
   }
 
   private isJoined(userId: string): boolean {

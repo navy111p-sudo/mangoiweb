@@ -49,8 +49,15 @@
   function syncChip(which) {
     var chip = chipOf(which);
     if (!chip) return;
-    var name = CHIP_NAME[which][lang()];
-    var text = name + (openState[which] ? ' ▴' : ' ▾');
+    var arrow = openState[which] ? ' ▴' : ' ▾';
+    var text = CHIP_NAME[which][lang()] + arrow;
+    // 🌐 (2026-08-12) EN 모드 1.2초 주기 깜박임의 진짜 원인 — i18n-sweep 와의 핑퐁.
+    //   이 칩엔 data-ko/data-en 이 없어서 sweep 이 라벨 속 한국어 «(교재도구)» 를 번역해
+    //   textContent 를 바꿔 버리고, 다음 enforce 틱(1.2s)이 "값이 다르다"며 되돌린다 → 무한 반복.
+    //   아래 "값이 바뀔 때만 갱신" 가드(어제 수정)로는 못 막는다 — sweep 이 계속 값을 바꾸니까.
+    //   data-ko/data-en 을 달아 두면 sweep 이 이 요소를 통째로 건너뛴다(_i18nManaged).
+    if (chip.getAttribute('data-ko') !== CHIP_NAME[which].ko + arrow) chip.setAttribute('data-ko', CHIP_NAME[which].ko + arrow);
+    if (chip.getAttribute('data-en') !== CHIP_NAME[which].en + arrow) chip.setAttribute('data-en', CHIP_NAME[which].en + arrow);
     // 🔧 깜박임 방지: 값이 실제로 바뀔 때만 DOM 갱신 (매 틱 textContent 재작성 금지)
     if (chip.textContent !== text) chip.textContent = text;
     if (chip.classList.contains('open') !== openState[which]) {
