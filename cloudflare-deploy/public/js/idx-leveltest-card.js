@@ -114,7 +114,26 @@
             .catch(function(e){ try { console.warn('[hero-lt:my]', e); } catch(_){} });
         }
 
+        /* 🔗 (2026-08-11) 티켓 + 로그인 = 이 신청을 «내 계정» 으로 잇는다.
+           [왜] 티켓은 «신청한 그 브라우저» 에만 남는다. PC 로 신청하면 폰에서는 통째로 안 보였다.
+                한 번 이어 두면 그 뒤로는 로그인만 하면 어느 기기에서나 보인다.
+           ⚠️ 한 번만 보낸다 — load() 는 60초마다·탭 복귀마다 돈다. 매번 보내면 쓰기가 쌓인다.
+           ⚠️ 응답을 기다리지 않는다. 잇기는 «다음 기기» 를 위한 것이고, 이 화면은 티켓으로
+              이미 제대로 그려진다. 실패해도 지금 보이는 것이 나빠지지 않아야 한다. */
+        var claimed = false;
+        function claimOnce(){
+          if (claimed || !k || !canAskServer) return;
+          claimed = true;
+          try {
+            fetch('/api/leveltest/my?uid=' + encodeURIComponent(myUid)
+                  + '&token=' + encodeURIComponent(myToken)
+                  + '&k=' + encodeURIComponent(k), { cache:'no-store' })
+              .catch(function(){});
+          } catch(e){}
+        }
+
         function load(){
+          claimOnce();
           if (!k) { loadMine(); return; }
           fetch('/api/leveltest/ticket?k=' + encodeURIComponent(k), { cache:'no-store' })
             .then(function(r){ return r.json(); })
