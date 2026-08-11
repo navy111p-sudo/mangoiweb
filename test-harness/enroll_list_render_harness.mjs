@@ -77,22 +77,29 @@ for (const lang of ['ko', 'en']) {
 
   ok(rows.length === 5, `행 5개 렌더 (실제 ${rows.length})`);
   ok(panels === 5, `행마다 처리 패널 자리 1개 (실제 ${panels})`);
-  ok(!/<tr id="en-panel-1"[\s\S]*?enOpenPanel\(1\)/.test(html), 'cancelled 행에는 「처리」 버튼이 없다');
+  ok(!/<tr id="en-panel-1"[\s\S]*?enOpenPanel\(1\)/.test(html), 'cancelled 행에는 패널 버튼이 없다');
   ok(/onclick="enOpenPanel\(3\)"/.test(html) && /onclick="enOpenPanel\(5\)"/.test(html),
-     'pending·confirmed 행에는 「처리」 버튼이 있다');
+     'pending·confirmed 행에는 패널 버튼이 있다');
 
-  // 1) 버튼에 이름표가 붙었는가
-  const wantConfirm = lang === 'en' ? '✓ Confirm' : '✓ 확정';
+  /* ✅ (2026-08-12) 등록 = 확정으로 합치면서 버튼 구성이 바뀌었다.
+     「✓ 확정」은 없앴다 — 등록하는 순간 자동으로 확정 파이프라인이 돈다.
+     pending 은 «확정이 막힌 건» 이므로 「▸ 확정 안 됨」, confirmed 는 「⚙ 후속」. */
   const wantStart   = lang === 'en' ? '▶ Start'   : '▶ 수강시작';
   const wantCancel  = lang === 'en' ? '✕ Cancel'  : '✕ 취소';
-  ok(html.includes(wantConfirm) && html.includes(wantStart) && html.includes(wantCancel),
-     `버튼 이름표 3종 (${wantConfirm} / ${wantStart} / ${wantCancel})`);
+  const goneConfirm = lang === 'en' ? '✓ Confirm' : '✓ 확정';
+  ok(html.includes(wantStart) && html.includes(wantCancel),
+     `버튼 이름표 2종 (${wantStart} / ${wantCancel})`);
+  ok(!html.includes(goneConfirm), `⛔ 「${goneConfirm}」 버튼은 없어야 한다 (등록 즉시 확정)`);
+  ok(html.includes(lang === 'en' ? '▸ Not confirmed' : '▸ 확정 안 됨'),
+     'pending 행 = 「▸ 확정 안 됨」');
+  ok(html.includes(lang === 'en' ? '⚙ Follow-up' : '⚙ 후속'),
+     'confirmed 행 = 「⚙ 후속」 (문자·결제만 남는다)');
 
   // 2) 이미 그 상태인 버튼만 비활성 — id=4 는 active 이므로 '수강시작'만 잠겨야 한다
   const row4 = rows.find(r => r.includes('setEnrollmentStatus(4,') || r.includes('김민준'));
   const btns4 = [...row4.matchAll(/<button type="button" (disabled )?onclick="setEnrollmentStatus\(4,'(\w+)'\)/g)]
                   .map(m => ({ target: m[2], disabled: !!m[1] }));
-  ok(btns4.length === 3, `active 행 버튼 3개 (되살리기 없음) — 실제 ${btns4.length}`);
+  ok(btns4.length === 2, `active 행 버튼 2개 (확정 없음·되살리기 없음) — 실제 ${btns4.length}`);
   ok(btns4.every(b => b.disabled === (b.target === 'active')),
      'active 행: «수강시작»만 잠김 ' + JSON.stringify(btns4.map(b => b.target + (b.disabled ? '(잠김)' : ''))));
 
