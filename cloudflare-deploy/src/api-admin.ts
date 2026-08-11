@@ -7729,6 +7729,9 @@ LIMIT $limit`;
       await _addEnrCol2('type', 'TEXT');
       await _addEnrCol2('teacher_name', 'TEXT');
       await _addEnrCol2('end_date', 'TEXT');
+      // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
+      //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
+      await _addEnrCol2('assign_priority', 'TEXT');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -7753,8 +7756,9 @@ LIMIT $limit`;
       //   등록 폼(Phase 24 다중 등록표)과 파일/카톡 import 는 이 값들을 다 받아 CSV 로
       //   내보내기까지 했는데, INSERT 목록에 없어서 DB 에는 한 번도 들어간 적이 없다.
       //   그래서 목록 표가 «패키지» 말고는 보여줄 것이 없었다. (컬럼은 위에서 이미 보강함)
+      const _prio = b.assign_priority === 'teacher' ? 'teacher' : 'schedule';
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -7762,7 +7766,8 @@ LIMIT $limit`;
         b.monthly_fee_krw != null ? Number(b.monthly_fee_krw) : null,
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
-        b.type || null, b.teacher_name || null, b.end_date || null
+        b.type || null, b.teacher_name || null, b.end_date || null,
+        _prio
       ).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }
