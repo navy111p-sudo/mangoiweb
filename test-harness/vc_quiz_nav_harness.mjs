@@ -84,6 +84,47 @@ check('padding 을 인라인에 두지 않았다 (인라인이면 CSS 로 못 �
       '인라인 padding 이 남아 있으면 위 규칙이 전부 무시된다');
 check('좌우·위 여백은 그대로다', /#rqv-body\s*\{\s*padding:\s*16px;\s*\}/.test(html));
 
+/* ── ③ 듣기 소리가 학생에게 닿는가 ────────────────────────── */
+console.log('\n▶ ③ 듣기 오디오 (Shas 5-a: "강사는 들리는데 학생은 안 들린다")');
+/* 주석 안에는 «예전엔 이랬다» 는 설명으로 그 코드가 남아 있다 → 블록주석을 걷어내고 본다.
+   (걷지 않으면 옳게 고쳐 놓고도 자기 설명 때문에 실패한다) */
+const jsNoComment = js.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+check('재생 거부를 빈 catch 로 삼키지 않는다',
+      !/a\.play\(\)\.catch\(function\(\)\{\}\)/.test(jsNoComment),
+      '삼키면 «소리가 안 나는데 이유를 모르는» 상태가 된다 — 이게 학생이 퀴즈를 못 넘긴 뿌리');
+check('재생 결과를 기다렸다가 «막힘» 으로 남긴다', /try \{ await a\.play\(\); \} catch\(err\)\{ blocked = true; \}/.test(js));
+check('자동 재생은 «사람이 누른 게 아님» 을 표시한다', /rqvPlay\(i, true\)/.test(js),
+      '막히는 게 정상이므로 실패로 취급하면 안 된다');
+{
+  const s2 = js.indexOf('function rqvSoundState(btn, s){');
+  const e2 = js.indexOf('window.rqvPlay =', s2);
+  const blk = s2 >= 0 && e2 > s2 ? js.slice(s2, e2) : '';
+  check('소리 상태 표시 함수를 찾았다', blk.length > 200);
+  if (blk.length > 200) {
+    const run = (state, en) => {
+      const seen = { hint: null, label: null, disabled: null };
+      const btn = { style: {}, set textContent(v) { seen.label = v; }, get textContent() { return seen.label; },
+                    set disabled(v) { seen.disabled = v; }, get disabled() { return seen.disabled; },
+                    parentNode: { appendChild(n) { seen.hint = n.textContent; } } };
+      const doc = { getElementById: () => null,
+                    createElement: () => ({ style: {}, set textContent(v) { this._t = v; }, get textContent() { return this._t; } }) };
+      Function('isEn', 'document', blk + '; return rqvSoundState;')(() => en, doc)(btn, state);
+      return seen;
+    };
+    const blocked = run({ blocked: true, failed: false }, false);
+    check('막히면 «눌러서 듣기» 로 바꾼다', /눌러서 문제 듣기/.test(blocked.label || ''), blocked.label);
+    check('막히면 이유를 한 줄로 설명한다', /브라우저가 소리를 막았어요/.test(blocked.hint || ''), blocked.hint);
+    check('막혀도 버튼은 눌 수 있어야 한다', blocked.disabled === false,
+          'disabled 로 두면 학생이 소리를 켤 방법이 없다');
+    const en = run({ blocked: true, failed: false }, true);
+    check('영어도 함께', /Tap to hear the question/.test(en.label || '') && /blocked the sound/.test(en.hint || ''));
+    const ok = run({ blocked: false, failed: false }, false);
+    check('정상 재생이면 안내를 띄우지 않는다', ok.hint === null && /다시 듣기/.test(ok.label || ''));
+    const fail = run({ blocked: false, failed: true }, false);
+    check('TTS 자체가 실패한 경우와 구분한다', /음성 실패/.test(fail.label || '') && fail.hint === null);
+  }
+}
+
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
 if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }

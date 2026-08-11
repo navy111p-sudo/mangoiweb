@@ -165,20 +165,63 @@
       + navNext + '</div>'
       + '<div style="text-align:center;margin-top:10px"><button onclick="rqvLoadList()" style="padding:8px 16px;background:transparent;color:#a3b3d1;border:1px solid rgba(148,163,184,0.3);border-radius:8px;font-size:12px;cursor:pointer">'+(isEn()?'Quit':'그만두기')+'</button></div>';
     $('rqv-body').innerHTML = head + inner + nav + '</div>';
-    if (typ==='listen') setTimeout(function(){ rqvPlay(i); }, 350);
+    /* 🔊 auto=true — «사람이 누른 게 아니라 화면이 스스로 튼 것» 이라고 알려 준다.
+       막히는 것은 정상이므로 실패로 취급하지 않고 «눌러 주세요» 안내로만 바꾼다(rqvSoundState). */
+    if (typ==='listen') setTimeout(function(){ rqvPlay(i, true); }, 350);
   }
   window.st_setText = function(v){ st.answers[st.idx]=v; var n=$('rqv-next'); if(n){ n.disabled=!v.trim(); n.style.opacity=v.trim()?'1':'0.45'; } };
   window.rqvPick = function(k){ st.answers[st.idx]=k; renderQ(); };
   window.rqvMove = function(d){ st.idx+=d; renderQ(); $('rqv-body').scrollTop=0; };
   // 🔊 듣기 음성 재생 (서버 TTS — 정답 원문 비공개)
-  window.rqvPlay = async function(i){
+  /* 🔊 (2026-08-11 강사 Shas 5-a) "듣기 오디오가 강사에게는 들리는데 학생에게는 안 들린다"
+     [원인] 이 함수는 `a.play().catch(function(){})` 로 **재생 거부를 아무 말 없이 삼켰다.**
+       듣기 문항은 그려진 뒤 350ms 에 «자동으로» 재생한다. 그런데 브라우저는 사용자가 그 페이지를
+       한 번도 누르지 않았으면 소리를 막는다(자동재생 정책).
+         · 강사 — 퀴즈를 고르고 버튼을 누르며 들어왔다 = 이미 «눌렀음» → 소리가 난다
+         · 학생 — 강사가 탭을 바꿔 «따라 넘어온» 것이라 누른 적이 없다 → 차단 → 조용
+       게다가 실패해도 버튼은 700ms 뒤 «다시 듣기» 로 되돌아가 아무 흔적도 남지 않았다.
+       그래서 학생은 «소리가 안 나는데 왜인지 모르는» 상태가 되고, 듣기 문제라 답을 고를 수 없어
+       「다음」이 영영 꺼져 있다 = LEN ① 「학생이 퀴즈를 못 넘긴다」의 뿌리.
+     [수정] 거부를 삼키지 않는다. 막혔으면 «한 번 눌러 주세요» 를 눈에 띄게 띄운다(한/영).
+       한 번 누르면 그때부터 이 페이지는 소리가 허용되므로 다음 문항부터는 자동으로 들린다. */
+  function rqvSoundState(btn, s){
+    var hintId = 'rqv-sound-hint';
+    var old = document.getElementById(hintId); if (old) old.remove();
+    if (!btn) return;
+    btn.disabled = false;
+    if (s.failed){ btn.textContent = '⚠️ ' + (isEn()?'audio failed':'음성 실패'); return; }
+    if (s.blocked){
+      btn.textContent = '🔊 ' + (isEn()?'Tap to hear the question':'눌러서 문제 듣기');
+      btn.style.background = 'linear-gradient(135deg,#f59e0b,#d97706)';
+      btn.style.animation = 'none';
+      var h = document.createElement('div');
+      h.id = hintId;
+      h.style.cssText = 'margin-top:8px;font-size:12px;font-weight:700;line-height:1.5;color:#fcd34d';
+      h.textContent = isEn()
+        ? 'Your browser blocked the sound. Tap the button once — after that it plays by itself.'
+        : '브라우저가 소리를 막았어요. 버튼을 한 번만 눌러 주세요 — 그 뒤로는 저절로 들립니다.';
+      try { btn.parentNode.appendChild(h); } catch(_){}
+      return;
+    }
+    btn.style.background = 'linear-gradient(135deg,#3b82f6,#6366f1)';
+    btn.textContent = '🔊 ' + (isEn()?'Play again':'다시 듣기');
+  }
+
+  window.rqvPlay = async function(i, auto){
     var btn=$('rqv-play'); if(btn){ btn.disabled=true; btn.textContent='🔊 …'; }
+    var blocked = false, failed = false;
     try {
       var resp = await fetch('/api/review-quiz/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ quiz_id:st.quiz.id, idx:(st.quiz.questions[i] && st.quiz.questions[i].idx!=null ? st.quiz.questions[i].idx : i) }) });
       if(!resp.ok) throw new Error('tts');
-      var blob = await resp.blob(); var a = new Audio(URL.createObjectURL(blob)); a.play().catch(function(){});
-    } catch(e){ if(btn) btn.textContent='⚠️ '+(isEn()?'audio failed':'음성 실패'); }
-    finally { if(btn){ setTimeout(function(){ btn.disabled=false; btn.textContent='🔊 '+(isEn()?'Play again':'다시 듣기'); }, 700);} }
+      var blob = await resp.blob();
+      var url = URL.createObjectURL(blob);
+      var a = new Audio(url);
+      try { a.addEventListener('ended', function(){ try { URL.revokeObjectURL(url); } catch(_){} }); } catch(_){}
+      st.audio = a;
+      /* 여기가 핵심 — 거부를 잡아서 «막혔다» 로 남긴다(예전엔 빈 catch 로 버렸다) */
+      try { await a.play(); } catch(err){ blocked = true; }
+    } catch(e){ failed = true; }
+    setTimeout(function(){ rqvSoundState(btn, { blocked: blocked, failed: failed }); }, blocked || failed ? 0 : 700);
   };
   // 🎤 말하기 녹음 → 서버 STT → 텍스트 답안 저장
   window.rqvMic = async function(i){

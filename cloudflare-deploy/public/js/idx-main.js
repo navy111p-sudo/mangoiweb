@@ -951,13 +951,60 @@ window.vcShareMyScreen = async function(){
         } catch(_){}
 
         window.__vcScreenSharing = true;
-        Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+        /* 🖥 (2026-08-11 강사 Shas 2번) "공유하면 강사 자신에게만 보이고 학생에게는 안 나타난다"
+           [원인 ①] 카메라가 «꺼져 있거나 없는» 강사에게는 보낼 비디오 sender 가 없다.
+             그때 예전 코드는 `pc.addTrack(...)` 만 하고 끝냈다. 그런데 이 앱에는
+             onnegotiationneeded 핸들러가 없다(1286행 주석) = **재협상을 아무도 안 한다.**
+             트랙은 추가됐지만 상대에게는 그 트랙이 있다는 사실조차 전달되지 않는다 → 영영 안 보임.
+             내 미리보기는 로컬 스트림을 직접 붙이므로 «나만 보이는» 정확히 그 증상이 된다.
+           [원인 ②] `replaceTrack(...).catch(function(){})` 로 실패를 삼켰다. 한 명에게 못 갔는지
+             전원에게 못 갔는지 강사는 알 방법이 없었고, 화면엔 «공유 중» 이라고만 떴다.
+           [수정] 새 트랙을 추가한 연결은 반드시 offer 를 다시 보낸다(재협상).
+             그리고 몇 명에게 실제로 갔는지 세어, 아무에게도 못 갔으면 강사에게 알린다. */
+        var _peers = Object.entries(window.vcPeerConnections || {});
+        var _ok = 0, _fail = 0, _nego = [];
+        _peers.forEach(function(ent){
+            var uid = ent[0], pc = ent[1];
             try {
                 var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'video'; });
-                if (sender) sender.replaceTrack(st).catch(function(){});
-                else pc.addTrack(st, ds);
-            } catch(e){ console.warn('[screen-share] sender 교체 실패:', e); }
+                if (sender) {
+                    sender.replaceTrack(st).then(function(){ _ok++; })
+                        .catch(function(e){ _fail++; console.warn('[screen-share] replaceTrack 실패:', uid, e); });
+                } else {
+                    pc.addTrack(st, ds);
+                    _nego.push([uid, pc]);        // ← 재협상 없이는 상대가 못 받는다
+                }
+            } catch(e){ _fail++; console.warn('[screen-share] sender 교체 실패:', uid, e); }
         });
+        /* 트랙을 «새로» 붙인 연결만 재협상한다. replaceTrack 은 재협상이 필요 없다(그게 장점). */
+        _nego.forEach(function(ent){
+            var uid = ent[0], pc = ent[1];
+            (async function(){
+                try {
+                    var off = await pc.createOffer();
+                    try { off.sdp = vcTuneAudioSdp(off.sdp); } catch(_){}
+                    await pc.setLocalDescription(off);
+                    vcConn.send({ type: 'offer', data: { targetUserId: uid, sdp: pc.localDescription } });
+                    _ok++;
+                    console.log('[screen-share] 재협상 offer 전송 →', uid);
+                } catch(e){ _fail++; console.warn('[screen-share] 재협상 실패:', uid, e); }
+            })();
+        });
+        /* 결과를 강사에게 말해 준다 — «공유 중» 이라고만 뜨고 학생은 못 보는 상태를 없앤다. */
+        setTimeout(function(){
+            try {
+                if (!window.__vcScreenSharing) return;
+                if (_peers.length === 0) {
+                    if (typeof showToast === 'function') showToast(en
+                        ? '⚠ Nobody is in the class yet — they will see it when they join.'
+                        : '⚠ 아직 수업에 아무도 없어요 — 들어오면 보이게 됩니다.');
+                } else if (_ok === 0) {
+                    if (typeof showToast === 'function') showToast(en
+                        ? '⚠ The screen could not be sent to the student. Please stop and start sharing again.'
+                        : '⚠ 학생에게 화면이 전달되지 않았어요. 공유를 멈췄다가 다시 눌러 주세요.');
+                }
+            } catch(_){}
+        }, 2500);
         // 내 화면 미리보기도 공유 화면으로
         try {
             var lv = document.getElementById('vc-local-video');
@@ -1003,6 +1050,10 @@ window.vcStopMyScreen = async function(){
             try {
                 var sender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'video'; });
                 if (sender && cam && cam.readyState === 'live') sender.replaceTrack(cam).catch(function(){});
+                /* 🖥 (2026-08-11) 되돌릴 카메라가 아예 없는 강사(카메라 없음·권한 거부)를 위한 마무리.
+                   그냥 두면 sender 가 «끝난 화면 트랙» 을 계속 붙잡아 학생 화면에 마지막 장면이
+                   얼어붙은 채로 남는다. null 로 갈아끼우면 깔끔히 비어 «카메라 꺼짐» 으로 보인다. */
+                else if (sender && !cam) sender.replaceTrack(null).catch(function(){});
             } catch(_){}
         });
         try {
