@@ -300,6 +300,21 @@
   }
 
   window.openTextbookLibrary = function(){
+    /* 📚 (2026-08-12 Melca 7·8번) 여기서 교재를 고르면 «반 전체» 의 교재가 바뀐다
+       (selectFromTextbookLibrary → vcShareTextbook). 수업 중에는 강사·관리자만.
+       ⚠️ 수업 밖(vcRoomId 없음)에서는 예전대로 열어 둔다 — 강사가 수업 전에 교재를
+          살펴보는 길까지 막으면 준비를 못 한다. */
+    /* 🪤 vcRoomId 는 idx-main.js 의 `let` 이라 window 에 없다 — 여기서 읽으면 늘 undefined 가
+       되어 게이트가 «영원히 통과» 한다. 수업 중 여부는 body 클래스로 본다(같은 판정을
+       #rqv-body 여백 CSS 도 쓴다). */
+    try {
+      if (document.body.classList.contains('vc-in-call')
+          && typeof window.vcCanControlTextbook === 'function'
+          && !window.vcCanControlTextbook()) {
+        if (typeof window.vcTextbookDenied === 'function') window.vcTextbookDenied();
+        return;
+      }
+    } catch(_){}
     var m = document.getElementById('tbf-lib-modal');
     if (!m) { alert('교재 라이브러리 모달이 없습니다.'); return; }
     m.style.display = 'flex';

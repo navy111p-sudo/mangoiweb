@@ -130,7 +130,13 @@ export interface EnrollPlan {
   dates: string[];
   skipped_holidays: string[];
   student: { linked: boolean; user_id: string | null; candidates: any[]; parent_phone_masked: string };
-  teacher: { id: string | null; name: string | null; free: Array<{ id: string; name: string }>; total_active: number };
+  assign_priority: 'schedule' | 'teacher';
+  teacher: {
+    id: string | null; name: string | null;
+    free: Array<{ id: string; name: string }>; total_active: number;
+    /** 사람이 이름을 대지 않고 ③ 우선순위로 자동 배정된 경우에만 값이 있다 */
+    auto: 'continuity' | 'free' | null;
+  };
   already_created: number;
   blockers: string[];
   warnings: string[];
@@ -198,9 +204,17 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
     free = all.filter(t => freeIds.has(String(t.id))).map(t => ({ id: String(t.id), name: String(t.name || '') }));
   }
 
-  // 배정 대상 — 호출자가 고른 사람 > 이미 적혀 있는 이름 > 없음
+  // 배정 대상 — 호출자가 고른 사람 > 이미 적혀 있는 이름 > ③ 우선순위 자동 배정 > 없음
+  //   🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없앴다. 그래서 아무도 이름을 대지
+  //   않아도 여기서 정해져야 한다. 기준은 등록 때 고른 ③ 배정 우선순위 하나뿐이다.
+  //     · schedule(요일·시간 우선) — 그 시간에 «실제로 비어 있는» 사람 중에서만 고른다
+  //     · teacher(강사 우선)       — 이 학생을 이미 가르치던 사람을 유지한다(시간은 겹치면 건너뜀)
+  //   두 경우 모두 «이 학생을 이미 가르치던 사람» 을 먼저 본다. 새 얼굴로 바꾸지 않는 것이
+  //   학생·학부모 입장에서 기본값이기 때문이다.
+  const assignPriority = String(e.assign_priority || 'schedule') === 'teacher' ? 'teacher' : 'schedule';
   let teacherId: string | null = teacherOverride ? String(teacherOverride) : null;
   let teacherName: string | null = null;
+  let autoAssigned: 'continuity' | 'free' | null = null;
   if (teacherId) {
     const t: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE id = ? LIMIT 1`).bind(teacherId).first().catch(() => null);
     teacherName = t ? String(t.name || '') : null;
@@ -214,7 +228,36 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
     if (t) { teacherId = String(t.id); teacherName = String(t.name || ''); }
     else warnings.push('적혀 있는 강사 «' + e.teacher_name + '» 을(를) 강사 명부에서 못 찾았습니다');
   }
-  if (!teacherId) blockers.push('강사를 골라 주세요' + (free.length ? ' (그 시간 가능: ' + free.length + '명)' : ' — 그 시간에 비어 있는 강사가 없습니다'));
+
+  if (!teacherId) {
+    // 이 학생을 지금까지 가장 많이 가르친 활성 강사 (없으면 null)
+    let keep: { id: string; name: string } | null = null;
+    if (linkedUid) {
+      const k: any = await env.DB.prepare(
+        `SELECT t.id AS id, t.name AS name, COUNT(*) AS n
+           FROM class_schedules cs JOIN teachers t ON t.id = cs.teacher_id
+          WHERE cs.user_id = ? AND cs.teacher_id IS NOT NULL AND t.active = 1
+          GROUP BY t.id ORDER BY n DESC LIMIT 1`
+      ).bind(linkedUid).first().catch(() => null);
+      if (k && k.id) keep = { id: String(k.id), name: String(k.name || '') };
+    }
+    if (assignPriority === 'teacher' && keep) {
+      teacherId = keep.id; teacherName = keep.name; autoAssigned = 'continuity';
+      if (!free.some(f => f.id === keep!.id)) {
+        warnings.push('강사 우선 — «' + keep.name + '» 을(를) 유지합니다. 그 시간에 다른 수업이 있는 날짜는 건너뜁니다');
+      }
+    } else if (keep && free.some(f => f.id === keep!.id)) {
+      teacherId = keep.id; teacherName = keep.name; autoAssigned = 'continuity';
+    } else if (free.length) {
+      teacherId = free[0].id; teacherName = free[0].name; autoAssigned = 'free';
+      if (assignPriority === 'teacher' && !keep) {
+        warnings.push('강사 우선으로 신청됐지만 이 학생을 가르치던 강사가 없습니다 — 그 시간에 비어 있는 강사로 배정했습니다');
+      }
+    }
+  }
+  if (!teacherId) {
+    blockers.push('배정할 강사가 없습니다 — 그 시간에 비어 있는 강사가 없고, 이 학생을 가르치던 강사도 없습니다');
+  }
 
   // ── 실제로 잡힐 날짜 (충돌·공휴일 회피)
   let dates: string[] = [];
@@ -245,7 +288,8 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
       linked: !!linkedUid, user_id: linkedUid, candidates,
       parent_phone_masked: maskPhone(parentPhone)
     },
-    teacher: { id: teacherId, name: teacherName, free, total_active: totalActive },
+    assign_priority: assignPriority,
+    teacher: { id: teacherId, name: teacherName, free, total_active: totalActive, auto: autoAssigned },
     already_created: already,
     blockers, warnings
   };
@@ -379,12 +423,23 @@ async function runActivate(env: any, id: number, body: any, actor: string) {
 
   // ── 6. 상태 — 마지막에. 앞 단계가 다 실패했는데 «확정»으로 보이면 안 된다.
   const hardFail = results.some(x => !x.ok && !x.skipped);
+  /* ✅ (2026-08-12) 실패한 단계가 있으면 상태를 올리지 않는다.
+     그동안은 강사 배정이 실패해도 status 를 confirmed 로 박아서, 목록에는 «확정» 으로 보이는데
+     실제로는 강사도 시간표도 없는 건이 남았다. 등록과 확정을 한 번에 묶은 뒤로는(등록 즉시
+     자동 확정) 사람이 결과를 안 볼 수도 있어서, 이 «조용한 반쪽 성공» 이 그대로 사고가 된다.
+     → 하나라도 실패하면 pending 으로 남기고 화면이 「▸ 확정 안 됨」 으로 부른다. */
+  const finalStatus = hardFail ? 'pending' : wantStatus;
   if (!dry) {
-    await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(wantStatus, now, id).run();
+    await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(finalStatus, now, id).run();
   }
-  results.push({ step: 'set_status', ok: true, detail: '상태 → ' + wantStatus + (dry ? ' (미리보기라 저장 안 함)' : '') });
+  results.push({
+    step: 'set_status', ok: !hardFail,
+    detail: hardFail
+      ? '실패한 단계가 있어 «대기» 로 남겨 둡니다 — 고친 뒤 다시 실행하세요'
+      : '상태 → ' + finalStatus + (dry ? ' (미리보기라 저장 안 함)' : '')
+  });
 
-  return json({ ok: true, id, dry, status: wantStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings });
+  return json({ ok: true, id, dry, status: finalStatus, all_ok: !hardFail, steps: results, plan_warnings: plan.warnings });
 }
 
 /** 시작일 + 1개월 (말일 보정 — 1/31 + 1개월 = 2/28) */
@@ -418,6 +473,7 @@ export async function handleEnrollActivateApi(request: Request, url: URL, env: a
       dates: plan.dates, dates_count: plan.dates.length,
       skipped: plan.skipped_holidays.slice(0, 20),
       student: plan.student, teacher: plan.teacher,
+      assign_priority: plan.assign_priority,
       already_created: plan.already_created,
       next_billing: nextBillingDay(plan.start_date),
       blockers: plan.blockers, warnings: plan.warnings

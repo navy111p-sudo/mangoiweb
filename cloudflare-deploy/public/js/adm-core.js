@@ -3980,7 +3980,12 @@ function _renderEnrollments() {
       ? '<span style="font-size:11px;color:#6b7280">👤 ' + _esc(it.teacher_name) + '</span>'
       : (cur === 'confirmed' || cur === 'active'
           ? '<span style="font-size:11px;color:#b45309;font-weight:700">' + (en ? 'no teacher yet' : '강사 미배정') + '</span>' : '');
-    const sub = [sched, teacher].filter(Boolean).join(' · ');
+    // 🧭 (2026-08-12) ③ 배정 우선순위 — 등록 때 무엇을 먼저 맞춰 달라고 했는지
+    const prio = it.assign_priority === 'teacher'
+      ? '<span style="font-size:11px;color:#6d28d9">' + (en ? '👨‍🏫 teacher first' : '👨‍🏫 강사 우선') + '</span>'
+      : (it.assign_priority === 'schedule'
+          ? '<span style="font-size:11px;color:#0369a1">' + (en ? '⏰ day·time first' : '⏰ 요일·시간 우선') + '</span>' : '');
+    const sub = [sched, prio, teacher].filter(Boolean).join(' · ');
 
     const dupBadge = isDup(it)
       ? ' <span title="' + (en ? 'Same student, same package, more than one live enrollment' : '같은 학생·같은 패키지가 살아 있는 채로 2건 이상입니다')
@@ -3994,12 +3999,22 @@ function _renderEnrollments() {
       '<td style="text-align:right;white-space:nowrap">' + fee + '</td>' +
       '<td><span style="display:inline-block;padding:3px 10px;border-radius:999px;font-size:11.5px;font-weight:800;background:' + m.bg + ';color:' + m.fg + '">' + (en ? m.en : m.ko) + '</span></td>' +
       '<td style="white-space:nowrap">' +
-        // 「처리」 = 계정·강사·시간표·구독·안내까지 한 번에. 상태만 바꾸려면 옆의 낱개 버튼.
-        ((cur === 'pending' || cur === 'confirmed')
+        /* ✅ (2026-08-12) 등록 = 확정. 「✓ 확정」 버튼을 없앴다 — 등록하는 순간 파이프라인이
+           같이 돈다(_enAutoConfirm). 그래도 막히는 건은 pending 으로 남으므로, **그때만**
+           이유를 열어 보는 버튼을 둔다. 정상 등록건에는 아무 «다음 단계»도 안 보인다.
+           확정된 건은 학부모 문자·결제 예약을 나중에 켜야 할 수 있어 «⚙ 후속» 으로 들어간다. */
+        (cur === 'pending'
           ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
             'style="padding:3px 10px;font-size:11px;font-weight:800;border:0;border-radius:5px;margin-right:6px;' +
-            'background:#7c3aed;color:#fff;cursor:pointer">' + (en ? '▸ Process' : '▸ 처리') + '</button>' : '') +
-        _enBtn(it.id, 'confirmed', en ? '✓ Confirm'  : '✓ 확정',    '#3b82f6', cur) +
+            'background:#b45309;color:#fff;cursor:pointer" title="' +
+            (en ? 'Registration saved but confirmation is on hold — see why' : '등록은 됐지만 확정이 보류된 건입니다 — 이유 보기') + '">' +
+            (en ? '▸ Not confirmed' : '▸ 확정 안 됨') + '</button>'
+          : (cur === 'confirmed'
+            ? '<button type="button" onclick="enOpenPanel(' + it.id + ')" ' +
+              'style="padding:3px 10px;font-size:11px;font-weight:700;border:1px solid #7c3aed;border-radius:5px;margin-right:6px;' +
+              'background:#fff;color:#6d28d9;cursor:pointer" title="' +
+              (en ? 'Parent text / billing schedule — opt in here' : '학부모 문자·결제 예약은 여기서 켭니다') + '">' +
+              (en ? '⚙ Follow-up' : '⚙ 후속') + '</button>' : '')) +
         _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
@@ -4045,18 +4060,36 @@ function _enPanelHtml(p, en) {
     '<span style="min-width:92px;color:#6b7280">' + label + '</span>' +
     '<span style="color:' + (tone || '#111827') + '">' + value + '</span></div>';
 
-  // 강사 고르기 — 그 요일·시간에 «실제로 비어 있는» 사람만 서버가 계산해 준다
+  // 🧑‍🏫 (2026-08-12) 강사는 등록 화면에서 «이름으로» 지정하지 않는다. 등록 때 고른
+  //   ③ 배정 우선순위로 서버가 정해 오고, 여기서는 «누가 왜 붙었는지» 를 보여 준다.
+  //   드롭다운은 남겨 두되 «자동 배정 결과를 고치는 자리» 로 이름을 바꿨다 — 자동이 틀렸을 때
+  //   운영자가 손 쓸 곳이 아예 없어지면 그건 그것대로 사고다.
   const free = (p.teacher && p.teacher.free) || [];
-  const teacherPick = '<select id="en-teacher-' + p.id + '" onchange="enOpenPanel(' + p.id + ', this.value)" ' +
-    'style="padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">' +
-    '<option value="">' + L('— 고르세요 —', '— pick —') + '</option>' +
-    free.map(t => '<option value="' + _esc(t.id) + '"' + (String(p.teacher.id) === String(t.id) ? ' selected' : '') + '>' +
-      _esc(t.name) + '</option>').join('') +
-    (p.teacher && p.teacher.id && !free.some(t => String(t.id) === String(p.teacher.id))
-      ? '<option value="' + _esc(p.teacher.id) + '" selected>' + _esc(p.teacher.name || p.teacher.id) + ' ' + L('(그 시간 다른 수업 있음)', '(busy then)') + '</option>' : '') +
-    '</select> <span style="font-size:11px;color:#6b7280">' +
-    L('그 시간 가능 ' + free.length + '명 / 전체 ' + (p.teacher.total_active || 0) + '명',
-      free.length + ' free of ' + (p.teacher.total_active || 0)) + '</span>';
+  const prio = (p.assign_priority === 'teacher') ? 'teacher' : 'schedule';
+  const prioChip = '<span style="display:inline-block;padding:1px 8px;border-radius:999px;font-size:10.5px;font-weight:800;' +
+    (prio === 'teacher' ? 'background:#ede9fe;color:#5b21b6' : 'background:#e0f2fe;color:#075985') + '">' +
+    (prio === 'teacher' ? L('👨‍🏫 강사 우선', '👨‍🏫 teacher first') : L('⏰ 요일·시간 우선', '⏰ day·time first')) + '</span>';
+  const autoWhy = !p.teacher.auto ? ''
+    : p.teacher.auto === 'continuity'
+      ? '<span style="font-size:11px;color:#059669">' + L('· 자동 — 이 학생을 가르치던 강사', '· auto — current teacher') + '</span>'
+      : '<span style="font-size:11px;color:#0369a1">' + L('· 자동 — 그 시간 가능한 강사', '· auto — free at that time') + '</span>';
+  const teacherPick =
+    '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">' +
+      '<b style="color:#111827">' + _esc(p.teacher.name || L('미정', 'none')) + '</b>' + prioChip + autoWhy +
+    '</div>' +
+    '<div style="margin-top:4px">' +
+      '<select id="en-teacher-' + p.id + '" onchange="enOpenPanel(' + p.id + ', this.value)" ' +
+        'style="padding:4px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:6px">' +
+        '<option value="">' + L('자동 배정 그대로', 'keep auto-assigned') + '</option>' +
+        free.map(t => '<option value="' + _esc(t.id) + '"' + (String(p.teacher.id) === String(t.id) ? ' selected' : '') + '>' +
+          _esc(t.name) + '</option>').join('') +
+        (p.teacher && p.teacher.id && !free.some(t => String(t.id) === String(p.teacher.id))
+          ? '<option value="' + _esc(p.teacher.id) + '" selected>' + _esc(p.teacher.name || p.teacher.id) + ' ' + L('(그 시간 다른 수업 있음)', '(busy then)') + '</option>' : '') +
+      '</select> ' +
+      '<span style="font-size:11px;color:#6b7280">' +
+        L('필요하면 바꿉니다 · 그 시간 가능 ' + free.length + '명 / 전체 ' + (p.teacher.total_active || 0) + '명',
+          'override if needed · ' + free.length + ' free of ' + (p.teacher.total_active || 0)) + '</span>' +
+    '</div>';
 
   const dates = p.dates || [];
   const datePreview = dates.length
@@ -4738,12 +4771,28 @@ function _addEnrollmentRow(prefill) {
   const v = prefill || {};
   const types = v.types || [];
   const days = v.days || [];
-  // 🥭 Phase 26 — 수업 인원 방식 select (1:1, 1:2, 1:3, 1:4, 1:5, 1:6, 1:N)
-  const sizeOptionsList = ['1:1', '1:2', '1:3', '1:4', '1:5', '1:6', '1:N'];
-  const sizeOpts = '<option value="">—</option>' +
-    sizeOptionsList.map(s => '<option value="' + s + '"' + (v.class_size === s ? ' selected' : '') + '>' + s + '</option>').join('');
-  // 수업 유형 — 3 체크박스 (레벨/체험/정규)
+  // 🥭 Phase 26 — 수업 인원 방식 select
+  //   🧑‍🏫 (2026-08-12) 요구사항 ④ 「그룹수업 여부 (1:1, 그룹 중 선택)」 — 1:2~1:6 을 낱개로
+  //   고르게 두면 «인원 수»를 묻는 칸이 되어 버린다. 저장값은 예전 그대로 1:1 / 1:N 을 쓴다
+  //   (서버 parseClassSize 가 '1:N' 을 0=그룹으로 읽고, 기존 데이터도 이 표기다).
   const _enrIsEn = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const sizeOptionsList = [
+    { v: '1:1', ko: '1:1 개인',      en: '1:1' },
+    { v: '1:N', ko: '그룹 (1:N)',   en: 'Group (1:N)' }
+  ];
+  // 예전 데이터·가져오기 값(1:2~1:6)은 그룹으로 접어서 보여 준다
+  const _sizeCur = (v.class_size === '1:1' || !v.class_size) ? (v.class_size || '') : '1:N';
+  const sizeOpts = '<option value="">—</option>' +
+    sizeOptionsList.map(s => '<option value="' + s.v + '"' + (_sizeCur === s.v ? ' selected' : '') + '>' + (_enrIsEn ? s.en : s.ko) + '</option>').join('');
+  // 🧭 (2026-08-12) 요구사항 ③ 배정 우선순위 — 강사를 이름으로 지정하는 대신 «무엇을 먼저 맞출지»만 고른다
+  const prioOptionsList = [
+    { v: 'schedule', ko: '⏰ 요일·시간 우선', en: '⏰ Day·time first' },
+    { v: 'teacher',  ko: '👨‍🏫 강사 우선',     en: '👨‍🏫 Teacher first' }
+  ];
+  const _prioCur = (v.assign_priority === 'teacher') ? 'teacher' : 'schedule';
+  const prioOpts = prioOptionsList.map(p =>
+    '<option value="' + p.v + '"' + (_prioCur === p.v ? ' selected' : '') + '>' + (_enrIsEn ? p.en : p.ko) + '</option>').join('');
+  // 수업 유형 — 3 체크박스 (레벨/체험/정규)
   const _typeLbl = _enrIsEn ? { level:'Level', trial:'Trial', regular:'Regular' } : { level:'레벨', trial:'체험', regular:'정규' };
   const typeChecks =
     '<label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" class="en-row-type" value="level"' + (types.includes('level')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.level+'</label>' +
@@ -4756,16 +4805,31 @@ function _addEnrollmentRow(prefill) {
     '<label style="font-size:11px;margin-right:3px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-right:1px;vertical-align:middle"/>' + dayLabels[i] + '</label>'
   ).join('');
 
+  // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
+  //    · 이름: 아래 _enLookupStudent 가 학생 아이디로 명부에서 찾아 넣는다
+  //    · 패키지: 비면 _readEnrollmentRows 가 레벨 구분(정규/체험/레벨)으로 채운다
+  //    둘 다 서버 POST /api/admin/enrollments 의 «필수값» 이고, 등록 후 자동으로 나가는
+  //    카톡·CSV·워드 요약이 이 값을 그대로 읽는다. 칸만 없앤 것이지 값을 없앤 게 아니다.
+  const hiddenCarry =
+    '<input type="hidden" class="en-row-name" value="' + _esc(v.name) + '" />' +
+    '<input type="hidden" class="en-row-package" value="' + _esc(v.package) + '" />' +
+    '<input type="hidden" class="en-row-fee" value="' + _esc(v.fee) + '" />';
+
   tr.innerHTML =
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">' + idx + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-name" placeholder="홍길동" value="' + (v.name||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-uid" placeholder="user001" value="' + (v.uid||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
+    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' + hiddenCarry +
+      '<input class="en-row-uid" placeholder="user001" value="' + _esc(v.uid) + '" ' +
+        'title="' + (_enrIsEn ? 'Student login ID — the name is looked up from the roster' : '학생 로그인 아이디 — 이름은 학생 명부에서 자동으로 찾습니다') + '" ' +
+        'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+      '<div class="en-row-who" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px">' +
+        (v.name ? '👤 ' + _esc(v.name) : '') + '</div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-package" placeholder="'+(_enrIsEn?'1-Year Regular Class':'1년 정규반')+'" value="' + (v.package||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-fee" type="number" placeholder="350000" value="' + (v.fee||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
+    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
+      '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
-      '<input class="en-row-time" type="text" placeholder="'+(_enrIsEn?'10:30 or Mon 7:30, Wed 8:00':'10:30 또는 월7:30,수8:00')+'" value="' + (v.time||'') + '" ' +
+      '<input class="en-row-time" type="text" placeholder="'+(_enrIsEn?'10:30 or Mon 7:30, Wed 8:00':'10:30 또는 월7:30,수8:00')+'" value="' + _esc(v.time) + '" ' +
         'title="'+(_enrIsEn?'Single time (e.g. 10:30) or per-day time (e.g. Mon 7:30, Wed 8:00)':'단일 시간(예: 10:30) 또는 요일별 시간(예: 월 7:30, 수 8:00)')+'" ' +
         'style="width:calc(100% - 28px);padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
@@ -4778,9 +4842,17 @@ function _addEnrollmentRow(prefill) {
   // 행 삭제 — 마지막 1행은 항상 유지
   tr.querySelector('.en-row-del').addEventListener('click', () => {
     if (tbody.children.length <= 1) {
-      tr.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]').forEach(inp => inp.value = '');
-      tr.querySelectorAll('input[type="checkbox"]').forEach(inp => inp.checked = false);
-      const sel = tr.querySelector('select'); if (sel) sel.value = '';
+      // ⚠️ 선택자를 type 으로 잡으면 안 된다 — 학생 아이디 칸은 `type` 속성이 아예 없어서
+      //    옛 `input[type="text"]` 규칙에 걸리지 않았고, ✕ 를 눌러도 값이 남아 있었다.
+      //    hidden(이름·패키지·수강료)까지 비워야 «지웠는데 옛 학생으로 등록되는» 사고가 없다.
+      tr.querySelectorAll('input').forEach(inp => {
+        if (inp.type === 'checkbox') inp.checked = false; else inp.value = '';
+      });
+      const who = tr.querySelector('.en-row-who'); if (who) who.textContent = '';
+      tr.dataset.enUidDone = '';
+      const size = tr.querySelector('.en-row-size'); if (size) size.value = '';
+      const prio = tr.querySelector('.en-row-priority'); if (prio) prio.value = 'schedule';
+      _enPrioNote(tr);
     } else {
       tr.remove();
       _renumberEnrollmentRows();
@@ -4790,8 +4862,75 @@ function _addEnrollmentRow(prefill) {
   tr.querySelector('.en-row-time-builder').addEventListener('click', () => {
     _openTimeBuilder(tr);
   });
+  // 🧭 (2026-08-12) ③ 우선순위 — 고른 값이 «다음 단계에서 무슨 뜻인지» 한 줄로 알려 준다
+  tr.querySelector('.en-row-priority').addEventListener('change', () => _enPrioNote(tr));
+  _enPrioNote(tr);
+  // 👤 학생 아이디 → 이름 자동 조회. 이름 칸을 없앤 대신, 아이디가 «누구»인지 눈으로 확인시킨다.
+  //    조회 결과는 hidden .en-row-name 에 넣는다(서버 student_name 필수값 + CSV 내보내기용).
+  tr.querySelector('.en-row-uid').addEventListener('change', () => _enLookupStudent(tr));
+  tr.querySelector('.en-row-uid').addEventListener('blur',   () => _enLookupStudent(tr));
   if (prefill === undefined) {
-    setTimeout(() => { const inp = tr.querySelector('.en-row-name'); if (inp) inp.focus(); }, 0);
+    setTimeout(() => { const inp = tr.querySelector('.en-row-uid'); if (inp) inp.focus(); }, 0);
+  }
+}
+
+/* ③ 우선순위 안내문 — 「강사 우선」이 곧 «이름 지정» 이 아니라는 것을 여기서 못박아 둔다 */
+function _enPrioNote(tr) {
+  const box = tr.querySelector('.en-row-prio-note');
+  if (!box) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const val = (tr.querySelector('.en-row-priority')?.value || 'schedule');
+  box.textContent = val === 'teacher'
+    ? (en ? 'Teacher fit first — time may shift' : '강사 적합도 먼저 · 시간은 조정될 수 있음')
+    : (en ? 'This day·time first' : '적어 준 요일·시간 먼저');
+}
+
+/* 👤 학생 아이디 → 학생 명부(students_erp)에서 이름 찾기.
+   ⚠️ 전용 API 를 새로 만들지 않았다 — 새 경로는 src/index.ts 라우팅+인증게이트에 등록해야 하고
+      («새 API 추가» 함정) 이 조회 하나 때문에 금지구역을 건드릴 이유가 없다.
+      이미 게이트를 통과하는 /api/admin/students/unified 를 아이디로 좁혀서 쓴다. */
+const _enUidCache = Object.create(null);
+async function _enLookupStudent(tr) {
+  const inp = tr.querySelector('.en-row-uid');
+  const who = tr.querySelector('.en-row-who');
+  const nameHidden = tr.querySelector('.en-row-name');
+  if (!inp || !who) return;
+  const uid = (inp.value || '').trim();
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  // 비우면 «다시 같은 아이디를 쳤을 때 조회가 안 되는» 일이 없도록 기억도 함께 지운다
+  if (!uid) { who.textContent = ''; tr.dataset.enUidDone = ''; if (nameHidden) nameHidden.value = ''; return; }
+  if (tr.dataset.enUidDone === uid) return;      // 같은 값으로 blur/change 가 두 번 와도 한 번만
+  tr.dataset.enUidDone = uid;
+
+  const hit = (name) => {
+    if (name) {
+      who.style.color = '#059669';
+      who.textContent = '👤 ' + name;
+      if (nameHidden) nameHidden.value = name;
+    } else {
+      who.style.color = '#b45309';
+      who.textContent = en ? '⚠ not in the student roster' : '⚠ 학생 명부에 없는 아이디';
+      // 명부에 없어도 등록 자체는 막지 않는다 — 서버 필수값만 아이디로 채워 둔다
+      if (nameHidden) nameHidden.value = uid;
+    }
+  };
+  if (Object.prototype.hasOwnProperty.call(_enUidCache, uid)) { hit(_enUidCache[uid]); return; }
+
+  who.style.color = '#9ca3af';
+  who.textContent = en ? 'looking up…' : '조회 중…';
+  try {
+    const r = await fetch('/api/admin/students/unified?q=' + encodeURIComponent(uid),
+                          { credentials: 'include', cache: 'no-store' });
+    const d = await r.json();
+    const list = (d && d.ok && Array.isArray(d.students)) ? d.students : [];
+    const exact = list.find(s => String(s.user_id || '').toLowerCase() === uid.toLowerCase());
+    const name = exact ? String(exact.name || exact.user_id || '') : '';
+    _enUidCache[uid] = name;
+    hit(name);
+  } catch (e) {
+    who.style.color = '#9ca3af';
+    who.textContent = en ? '(lookup failed — will register anyway)' : '(조회 실패 — 등록은 그대로 됩니다)';
+    if (nameHidden && !nameHidden.value) nameHidden.value = uid;
   }
 }
 
@@ -4925,17 +5064,20 @@ function _readEnrollmentRows() {
   const TYPE_LABELS = { level:'레벨테스트', trial:'체험수업', regular:'정규수업' };
   const DAY_LABELS  = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일' };
   rows.forEach((tr) => {
-    const name = (tr.querySelector('.en-row-name')?.value || '').trim();
     const uid = (tr.querySelector('.en-row-uid')?.value || '').trim();
+    // 🧑‍🏫 (2026-08-12) 이름 칸은 없앴다 — 아이디로 찾은 이름(hidden)을 쓰고, 못 찾았으면 아이디 그대로.
+    //   서버 POST /api/admin/enrollments 가 student_name 을 필수로 받으므로 빈 값이면 안 된다.
+    const name = (tr.querySelector('.en-row-name')?.value || '').trim() || uid;
     const pkg = (tr.querySelector('.en-row-package')?.value || '').trim();
     const fee = tr.querySelector('.en-row-fee')?.value || '';
     const start = tr.querySelector('.en-row-start')?.value || '';
     const time = tr.querySelector('.en-row-time')?.value || '';
     const classSize = tr.querySelector('.en-row-size')?.value || '';
+    const priority = (tr.querySelector('.en-row-priority')?.value || 'schedule');
     const types = Array.from(tr.querySelectorAll('.en-row-type:checked')).map(c => c.value);
     const days  = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
-    // 빈 행 건너뜀 (이름·유형·패키지 모두 비어있으면)
-    if (!name && types.length === 0 && !pkg) return;
+    // 빈 행 건너뜀 (아이디·유형·패키지 모두 비어있으면)
+    if (!uid && types.length === 0 && !pkg) return;
     // 사람이 읽을 수 있는 한글 레이블
     const typesKo = types.map(t => TYPE_LABELS[t] || t);
     const daysKo  = days.map(d => DAY_LABELS[d] || d);
@@ -4956,6 +5098,8 @@ function _readEnrollmentRows() {
       time: time || null,
       class_size: classSize || null,
       type: typesKo.join('+') || null,
+      // 🧭 (2026-08-12) ③ 배정 우선순위 — 강사를 이름으로 박는 대신 이 값만 남긴다
+      assign_priority: priority,
       // 추가 메타 (자동 export·import 시 사용)
       _types: types,
       _types_ko: typesKo,
@@ -4971,6 +5115,32 @@ function _readEnrollmentRows() {
   return out;
 }
 
+/* ✅ (2026-08-12) 등록 = 확정. 「등록」 다음에 「확정」을 또 눌러야 하던 두 단계를 하나로 합쳤다.
+   등록이 성공하면 그 자리에서 확정 파이프라인(계정 연결 · 강사 배정 · 시간표 생성)을 돌린다.
+   ⛔ 바깥으로 나가는 두 가지는 **켜지 않는다** — 학부모 문자(실제 발송)와 결제 예약(돈).
+      이건 사람이 매번 직접 켜야 하는 것이라 「▸ 처리」 패널에 그대로 남겨 뒀다.
+   막는 조건(강사 없음·명부에 없음 등)이 있으면 확정은 안 되고 pending 으로 남는다 —
+   그 경우에만 목록에 「▸ 확정 안 됨」 이 뜬다. 조용히 성공한 척하지 않는다. */
+async function _enAutoConfirm(id) {
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id + '/activate', {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        status: 'confirmed', dry: false, teacher_id: null,
+        steps: { link_student: true, assign_teacher: true, create_schedules: true,
+                 create_subscription: false, notify_parent: false }
+      })
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) return { ok: false, error: (d && d.error) || ('HTTP ' + r.status) };
+    // 판정은 서버의 all_ok 를 따른다 — 한 단계라도 실패하면 서버가 상태를 안 올린다
+    const failed = (d.steps || []).filter(s => !s.ok);
+    return { ok: d.all_ok !== false && failed.length === 0, steps: d.steps || [], failed: failed };
+  } catch (e) {
+    return { ok: false, error: String(e.message || e) };
+  }
+}
+
 async function addEnrollment() {
   const records = _readEnrollmentRows();
   const status = document.getElementById('en-multi-status');
@@ -4978,10 +5148,12 @@ async function addEnrollment() {
     alert(adminLang==='en' ? 'Add at least one student row' : '최소 1명 이상의 학생 정보를 입력해 주세요.');
     return;
   }
-  // 검증 — 이름 + 수업 유형 최소 1개 필수
-  const invalid = records.filter(r => !r.student_name || !r._types || r._types.length === 0);
+  // 검증 — ① 학생 아이디 + ② 레벨 구분 최소 1개 필수 (2026-08-12: 이름 → 아이디로 바뀜)
+  const invalid = records.filter(r => !r.student_user_id || !r._types || r._types.length === 0);
   if (invalid.length > 0) {
-    alert((adminLang==='en' ? 'Missing required (name + at least 1 type): ' : '필수 항목 누락 (이름 + 수업 유형 최소 1개): ') + invalid.length + '건');
+    alert((adminLang==='en'
+      ? 'Missing required (student ID + at least 1 level type): '
+      : '필수 항목 누락 (학생 아이디 + 레벨 구분 최소 1개): ') + invalid.length + '건');
     return;
   }
   // N=1 이면 단일 등록 + Phase 22 자동 export, N>1 이면 일괄 등록
@@ -4995,7 +5167,8 @@ async function addEnrollment() {
       monthly_fee_krw: r.monthly_fee_krw,
       started_at: r.started_at,
       days_of_week: r.days_of_week, time: r.time,
-      class_size: r.class_size, type: r.type
+      class_size: r.class_size, type: r.type,
+      assign_priority: r.assign_priority
     });
     if (d) {
       const enrollmentData = {
@@ -5013,13 +5186,24 @@ async function addEnrollment() {
         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
       };
       autoExportEnrollment(enrollmentData);
+      // ✅ 등록 = 확정. 별도 「확정」 클릭 없이 여기서 바로 이어 돌린다.
+      if (status) status.textContent = '⏳ 확정 처리 중…';
+      const cf = await _enAutoConfirm(d.id || d.enrollment_id);
       // 행 초기화
       document.getElementById('en-multi-rows').innerHTML = '';
       _addEnrollmentRow();
-      if (status) status.textContent = '✅ 1명 등록 완료';
+      if (status) {
+        status.textContent = cf.ok
+          ? (adminLang==='en' ? '✅ Registered and confirmed' : '✅ 등록·확정 완료 (강사 배정·시간표 생성됨)')
+          : (adminLang==='en' ? '⚠️ Registered, but not confirmed — open ▸ why' : '⚠️ 등록은 됐지만 확정이 안 됐습니다 — 목록의 「▸ 확정 안 됨」 을 눌러 이유를 보세요');
+        status.style.color = cf.ok ? '#059669' : '#b45309';
+      }
+      if (!cf.ok && cf.failed && cf.failed.length) {
+        console.warn('[enroll] 확정 실패 단계:', cf.failed.map(s => s.step + ': ' + s.detail).join(' / '));
+      }
       loadEnrollments();
     } else {
-      if (status) status.textContent = '❌ 등록 실패';
+      if (status) { status.textContent = '❌ 등록 실패'; status.style.color = '#b91c1c'; }
     }
     return;
   }
@@ -5027,7 +5211,7 @@ async function addEnrollment() {
   // N>1 — 일괄 등록 (Phase 23 의 _bulkRegisterEnrollments 와 동일 패턴)
   if (!confirm((adminLang==='en' ? 'Register ' : '') + records.length + (adminLang==='en' ? ' students at once?' : '명 학생을 동시에 등록하시겠습니까?'))) return;
   if (status) status.textContent = '⏳ 일괄 등록 중… (0 / ' + records.length + ')';
-  let ok = 0, fail = 0; const errs = [];
+  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [];
   const successList = [];
   for (let i = 0; i < records.length; i++) {
     const r = records[i];
@@ -5042,13 +5226,19 @@ async function addEnrollment() {
           monthly_fee_krw: r.monthly_fee_krw,
           started_at: r.started_at,
           days_of_week: r.days_of_week, time: r.time,
-          class_size: r.class_size, type: r.type
+          class_size: r.class_size, type: r.type,
+          assign_priority: r.assign_priority
         })
       });
       const j = await res.json().catch(() => ({}));
       if (res.ok && j.ok !== false) {
         ok++;
         successList.push(r);
+        // ✅ 등록 = 확정. 한 건씩 바로 이어 돌린다(별도 확정 클릭 없음).
+        const cf = await _enAutoConfirm(j.id || j.enrollment_id);
+        if (cf.ok) confirmed++;
+        else notConfirmed.push(r.student_user_id + ': ' +
+          (cf.error || (cf.failed || []).map(s => s.detail).join(' / ') || '확정 보류'));
       } else {
         fail++;
         errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status)));
@@ -5056,9 +5246,18 @@ async function addEnrollment() {
     } catch (e) {
       fail++; errs.push(r.student_name + ': ' + (e.message || e));
     }
-    if (status) status.textContent = '⏳ 일괄 등록 중… (' + (i+1) + ' / ' + records.length + ')';
+    if (status) status.textContent = '⏳ 등록·확정 중… (' + (i+1) + ' / ' + records.length + ')';
   }
-  if (status) status.textContent = '✅ 성공 ' + ok + '명 / 실패 ' + fail + '명';
+  if (status) {
+    status.textContent = '✅ 등록 ' + ok + '명 · 확정 ' + confirmed + '명' +
+      (notConfirmed.length ? ' · ⚠️ 확정 보류 ' + notConfirmed.length + '명' : '') +
+      (fail ? ' · ❌ 실패 ' + fail + '명' : '');
+    status.style.color = (fail || notConfirmed.length) ? '#b45309' : '#059669';
+  }
+  if (notConfirmed.length) {
+    alert('⚠️ 등록은 됐지만 확정이 보류된 건:\n\n' + notConfirmed.join('\n') +
+          '\n\n목록에서 「▸ 확정 안 됨」 을 눌러 이유를 보고 고쳐 주세요.');
+  }
   // N>1 자동화 — 통합 알림 + 통합 CSV/Word
   if (ok > 0) {
     autoExportBulkEnrollment(successList);

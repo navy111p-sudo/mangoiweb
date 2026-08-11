@@ -479,6 +479,18 @@ function addMsg(text, who){
     });
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
+  /* 🪞 (2026-08-12 강사 Shas 1번) 「학생이 입력한 글이 강사 화면에 보이지 않는다」
+     웜업은 «학생 ↔ AI» 대화다(강사와의 채팅이 아니다). 그래서 강사에게 안 보이는 게
+     당연했지만, 강사는 학생이 잘 하고 있는지 확인할 길이 아예 없었다.
+     → 이 화면이 수업 안에 iframe 으로 박혀 있을 때만, 부모 창에 한 줄씩 알려 준다.
+       부모(index.html)가 그걸 강사에게 중계한다. 혼자 열었을 땐(부모 없음) 아무 일도 없다.
+     ⚠️ targetOrigin 을 '*' 로 두지 않는다 — 같은 오리진에만 보낸다. */
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ __mangoiWarmup: 1, who: who, text: String(text || '').slice(0, 500) },
+                                location.origin);
+    }
+  } catch(e){}
   if(who==='ai'){ speak(text); }   // AI 답변/첫 인사 자동 낭독(원어민 음성)
   try{ idleHookOnMsg(who); }catch(e){}   // ⏱ 머뭇거림 감지 타이머 (AI 질문 후 재시작, 내 답변 시 해제)
   return d;
