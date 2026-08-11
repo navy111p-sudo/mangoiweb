@@ -56,7 +56,12 @@ ok('  · 해상도 축소(scaleResolutionDownBy) 단계 적용',
    has(/scaleResolutionDownBy\s*=[^;\n]*SCALE\[step\]/));
 ok('  · 구형 브라우저 scale 거부 시 비트레이트만 폴백', has('delete p2.encodings[0].scaleResolutionDownBy'));
 ok('송신 상한: 모바일 500kbps / PC 1200kbps', has(/isMobile \? 500 : 1200/));
-ok('degradationPreference balanced(부하 시 균형 저하)', has("degradationPreference = 'balanced'"));
+/* 🎞 (2026-08-11) 예전엔 'balanced' 를 지키게 했는데, 그 선택이 강사 신고의 원인이었다.
+   balanced 는 부하가 걸리면 화질과 «초당 장수» 를 함께 깎는다 → "영상이 멈춘다 / 렉이 걸린다".
+   수업은 얼굴·입모양을 보는 일이라 잠깐 흐려지는 편이 멈추는 것보다 낫다 → maintain-framerate.
+   ⚠️ 화면 공유는 반대다(글자가 뭉개지면 안 됨) — 그건 트랙 contentHint='detail' 로 따로 지킨다. */
+ok('degradationPreference maintain-framerate(부하 시 프레임 우선 = 멈추지 않음)',
+   has("degradationPreference = 'maintain-framerate'") && !has("degradationPreference = 'balanced'"));
 ok('백그라운드 시 비디오 인코딩 정지(발열·배터리)', has('vcBackgroundThrottle'));
 
 /* ═══════════════ 3. 시그널링(WebSocket) 생존성 ═══════════════ */

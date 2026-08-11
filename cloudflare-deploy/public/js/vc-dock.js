@@ -304,11 +304,22 @@
   function syncSizeLabel(){
     var el = document.getElementById('vc-dock-size'); if (!el) return;
     var v = getDockSize(), en = isEn();
-    var now = v === 'small' ? (en ? 'Small' : '작게') : v === 'top' ? (en ? 'Top' : '위') : (en ? 'Normal' : '기본');
-    var s = '⇕ ' + now;
+    /* 🏷 (2026-08-11 HT Ness ①·추가) "아래 아이콘을 없앨 수 없다 / 위로 옮겨 달라"
+       [실제] 위로 올리는 기능은 이 버튼에 «이미» 있었다(기본 → 작게 → 위). 그런데 라벨이
+              «⇕ 기본» 처럼 «지금 상태» 만 말해서, 눌렀을 때 무엇이 되는지 아무도 몰랐다.
+              그 정보는 hover 툴팁에만 있었는데 — 강사는 노트북에서 툴팁을 띄울 일이 없다.
+       [해결] 상태가 아니라 «다음에 무엇이 되는지» 를 함께 적는다. 같은 함정을 이 저장소에서
+              여러 번 겪었다(교재 고르기·참가자 전체 보기·칠판만 크게 — 전부 이름만 바꿔 해결). */
+    var next = v === '' ? (en ? 'Small' : '작게')
+             : v === 'small' ? (en ? 'Top' : '위로')
+             : (en ? 'Bottom' : '아래로');
+    var now = v === 'small' ? (en ? 'Small' : '작게')
+            : v === 'top' ? (en ? 'Top' : '위')
+            : (en ? 'Bottom' : '아래');
+    var s = '⇕ ' + now + ' → ' + next;
     if (el.textContent !== s) el.textContent = s;
-    var tip = en ? 'Menu bar size / position — Normal → Small → Top (click to change)'
-                 : '메뉴바 크기·위치 — 기본 → 작게 → 위로 (누를 때마다 바뀝니다)';
+    var tip = en ? 'Where the class menu sits — Bottom → Small → Top. Choose Top to move it up with the other icons; your choice is remembered.'
+                 : '수업 메뉴 자리 — 아래 → 작게 → 위. 「위」를 고르면 위쪽 아이콘들과 같은 줄로 올라가고, 고른 자리는 기억됩니다.';
     el.title = tip; el.setAttribute('aria-label', tip);
   }
   function cycleDockSize(){

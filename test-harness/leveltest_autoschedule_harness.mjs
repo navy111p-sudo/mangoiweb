@@ -174,7 +174,13 @@ check('한/영 둘 다', /T\('No classes','수업 없음'\)/.test(thtml));
 
 console.log('\n[ ⑦ 관리자 화면 — 오늘 수업 · 주간 캘린더 ]');
 check('「오늘 수업」이 레벨테스트를 구분한다', /is_level_test/.test(tc));
-check('주간 캘린더에 레벨테스트 색이 있다', /'leveltest':'#0d9488'/.test(q6));
+/* 🎨 (2026-08-11) 색을 «#0d9488» 로 못박지 않는다 — 팔레트를 파스텔로 통일했을 때
+   구분은 멀쩡한데 이 줄만 빨개졌다. 의도는 「다른 유형과 구분되는 제 색이 있다」다. */
+check('주간 캘린더에 레벨테스트 색이 있다', (() => {
+  const c = Object.fromEntries(
+    [...q6.matchAll(/'(1on1|group|temp|leveltest)':\s*'(#[0-9a-fA-F]{3,8})'/g)].map(m => [m[1], m[2].toLowerCase()]));
+  return !!c.leveltest && ['1on1', 'group', 'temp'].every(k => c[k] !== c.leveltest);
+})());
 check('주간 캘린더에 레벨테스트 이름이 있다', /'leveltest':'레벨테스트'/.test(q6));
 check('서버가 level_test 를 별도 유형으로 내려준다',
   /c === 'level_test'[\s\S]{0,90}?return 'leveltest'/.test(api));

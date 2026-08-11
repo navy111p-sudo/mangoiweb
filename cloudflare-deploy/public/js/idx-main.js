@@ -433,7 +433,11 @@ async function acquireLocalMedia({ video = true, audio = true } = {}) {
     //   (다른 앱/탭이 카메라를 놓는 중이거나, PC 카메라가 켜지는 데 시간이 걸리는 경우 대응)
     async function _gum(constraints, retries) {
         for (let i = 0; ; i++) {
-            try { return await navigator.mediaDevices.getUserMedia(constraints); }
+            try {
+                const _s = await navigator.mediaDevices.getUserMedia(constraints);
+                try { window.vcApplyContentHints && window.vcApplyContentHints(_s); } catch (_) {}
+                return _s;
+            }
             catch (e) {
                 var busy = (e && (e.name === 'NotReadableError' || e.name === 'TrackStartError' || e.name === 'AbortError'));
                 if (i < (retries || 0) && busy) { console.warn('[media] 장치 사용중, ' + (i+1) + '차 재시도:', e.name); await _sleep(600); continue; }
@@ -643,6 +647,25 @@ window.vcStopPdfPoll = function(){
   try { if (window._vcPdfPollTimer) { clearInterval(window._vcPdfPollTimer); window._vcPdfPollTimer = null; } } catch(_){}
 };
 
+/* 🎯 (2026-08-11 강사 피드백 — "영상이 멈춘다", "렉") 트랙에 «무엇을 찍고 있는지» 를 알려 준다.
+   인코더는 이 힌트가 없으면 «화질을 지킬지, 초당 장수를 지킬지» 를 스스로 짐작한다.
+   수업 영상은 사람 얼굴·입모양이라 **초당 장수가 먼저**다 — 잠깐 흐려지는 것보다 멈추는 게 나쁘다.
+     · 카메라  → 'motion' : 부하가 걸리면 화질을 먼저 낮추고 프레임을 지킨다(끊김 방지)
+     · 마이크  → 'speech' : 음악이 아니라 말이라고 알려 주면 잡음억제·인코딩이 대화에 맞춰진다
+     · 화면공유는 여기서 건드리지 않는다 — 글자가 뭉개지면 안 되므로 'detail'(vcShareMyScreen 참조)
+   ⚠️ 표준 속성이라 미지원 브라우저에서는 그냥 무시된다(예외 없음). */
+window.vcApplyContentHints = function (stream) {
+    try {
+        if (!stream || !stream.getTracks) return;
+        stream.getTracks().forEach(function (t) {
+            try {
+                if (!('contentHint' in t)) return;
+                if (t.kind === 'video') { if (!t.contentHint) t.contentHint = 'motion'; }
+                else if (t.kind === 'audio') { if (!t.contentHint) t.contentHint = 'speech'; }
+            } catch (_) {}
+        });
+    } catch (_) {}
+};
 let vcLocalStream = null;       // 내 미디어 스트림
 let vcPeerConnections = {};     // { userId: RTCPeerConnection } 맵
 
@@ -916,6 +939,10 @@ window.vcShareMyScreen = async function(){
         var ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
         var st = ds.getVideoTracks()[0];
         if (!st) return;
+        /* 🎯 (2026-08-11) 화면 공유만은 «글자 선명함» 이 먼저다 — 카메라와 정반대.
+           'detail' 을 주면 인코더가 부하 시 초당 장수를 먼저 줄이고 해상도를 지킨다.
+           (카메라는 'motion' — 얼굴은 멈추면 안 되고, 화면은 글자가 뭉개지면 안 된다) */
+        try { if ('contentHint' in st) st.contentHint = 'detail'; } catch (_) {}
 
         // 지금 보내고 있는 카메라 트랙을 보관(복귀용)
         try {
@@ -3580,6 +3607,11 @@ async function vcJoinAsObserver(roomId) {
         () => setStatusDot('vc-status-dot', 'disconnected')
     );
     window.vcConn = vcConn;   // fix (2026-06-01) — window.vcConn 노출
+    /* 👁 (2026-08-11 SID ③ "고스트가 안 눌리고 로딩도 안 됐다")
+       서버가 join-observe 를 버리던 문제는 고쳐졌지만, «실패했을 때 화면이 아무 말도 안 하는» 것은
+       그대로였다. 붙지 못해도, 방이 비어 있어도, 화면은 똑같이 «연결 중…» 이라 관리자는
+       고장인지 기다리면 되는 건지 알 수 없었다. 결과를 반드시 글자로 말해 준다. */
+    try { vcObserverWatch(); } catch(_){}
     try { window.vcStartPdfPoll && window.vcStartPdfPoll(); } catch(_){}  // fix (2026-06-02) 교재 표시 안전장치
     // 🔧 (2026-07-12) 입장 기본 크기 — 가로(landscape)에서만 3/4 적용. 세로(portrait)는 phero의
     //   'pip(교재 크게)' 기본이 담당한다. 예전엔 여기서 세로에서도 무조건 vcSetVideoSize('threequarter')를
@@ -3589,6 +3621,52 @@ async function vcJoinAsObserver(roomId) {
       if(!_isPortrait){ var _tb=document.querySelector('.video-size-bar button[onclick*="threequarter"]'); window.vcSetVideoSize && window.vcSetVideoSize('threequarter', _tb); }
     }catch(_){} window.vcApplyDefaultVideoSize && window.vcApplyDefaultVideoSize(); }, 500); } catch(_){}  // 가로:3/4 / 세로:phero pip(교재 크게)
     setStatusDot('vc-status-dot', 'connecting');
+}
+
+/* 👁 (2026-08-11 SID ③) 참관 결과를 «글자로» 말해 준다.
+   [고치는 것] 예전에는 붙든 못 붙든 화면이 「연결 중…」 하나였다. 관리자는 고장인지, 기다리면
+   되는 건지, 방이 원래 빈 건지 구분할 방법이 없었다. 「안 눌린다 / 로딩이 안 된다」 는 신고의
+   절반은 이 «말 없음» 이다.
+   [판정] 서버가 보내 주는 사실만 쓴다 — 새로 재지 않는다.
+     · existing-users 를 받았고 사람이 있다  → 붙었다(배너 없음, 화면이 곧 뜬다)
+     · existing-users 를 받았는데 0명        → 방은 살아 있는데 아무도 없다(고장 아님)
+     · 8초가 지나도 아무 응답이 없다          → 참관 자체가 실패 = 다시 시도할 것
+   ⚠️ 배너는 «참관 모드에서만» 띄운다. 일반 수업 화면에 뜨면 학생이 겁먹는다. */
+function vcObserverBanner(kind, extra) {
+    var old = document.getElementById('vc-observe-note');
+    if (old) old.remove();
+    if (!kind) return;
+    var en = false;
+    try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch (_) {}
+    var msg = kind === 'empty'
+        ? (en ? '👀 Nobody is in this room yet. The screen will appear when someone joins.'
+              : '👀 이 방에는 아직 아무도 없습니다. 누군가 들어오면 화면이 나타납니다.')
+        : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
+              : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
+    var box = document.createElement('div');
+    box.id = 'vc-observe-note';
+    box.style.cssText = 'position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:2147483000;'
+        + 'max-width:min(560px,92vw);padding:12px 18px;border-radius:12px;text-align:center;'
+        + 'font-size:13.5px;font-weight:700;line-height:1.55;box-shadow:0 12px 32px -8px rgba(0,0,0,.45);'
+        + (kind === 'empty'
+            ? 'background:#0c2a4a;border:1px solid #38bdf8;color:#bae6fd'
+            : 'background:#3b1111;border:1px solid #f87171;color:#fecaca');
+    box.textContent = msg + (extra ? ' (' + extra + ')' : '');
+    document.body.appendChild(box);
+}
+
+function vcObserverWatch() {
+    if (!window._vcObserverMode) return;
+    window.__vcObserveSawUsers = false;
+    setTimeout(function () {
+        try {
+            if (!window._vcObserverMode) return;
+            if (window.__vcObserveSawUsers) return;          // 붙었다 — 아무 말도 하지 않는다
+            var open = false;
+            try { open = !!(window.vcConn && vcConn.ws && vcConn.ws.readyState === 1); } catch (_) {}
+            vcObserverBanner('fail', open ? 'no reply' : 'not connected');
+        } catch (_) {}
+    }, 8000);
 }
 
 /** 다자간 통화 메시지 처리 */
@@ -3620,6 +3698,12 @@ function vcHandleMessage(msg) {
         case 'existing-users':
             // 기존 사용자 각각에 대해 P2P 연결 시작 (내가 Offer를 보냄)
             console.log('[vc] existing-users:', msg.data.users.length, '명');
+            /* 👁 (2026-08-11 SID ③) 참관은 여기서 «붙었다» 가 확정된다 — 서버가 방 사람 목록을 준 순간.
+               사람이 0명이면 고장이 아니라 «빈 방» 이다. 그 둘을 화면에서 갈라 준다. */
+            if (window._vcObserverMode) {
+                window.__vcObserveSawUsers = true;
+                try { vcObserverBanner((msg.data.users || []).length ? '' : 'empty'); } catch (_) {}
+            }
             msg.data.users.forEach((user, idx) => {
                 try { (window.vcPeerRoles = window.vcPeerRoles || {})[user.userId] = user.role || 'student'; } catch(e){}
                 try { vcEnsureParticipantBox(user.userId, user.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
@@ -4089,6 +4173,9 @@ function vcHandleMessage(msg) {
         case 'observer-user-joined':
             if (vcIsObserver && msg.data.userId) {
                 console.log('[vc-observer] 새 참가자 감지, offer 전송:', msg.data.userId);
+                /* 👁 (2026-08-11) 빈 방이라 띄워 둔 «아직 아무도 없습니다» 를 여기서 걷는다.
+                   사람이 들어왔는데 그 안내가 남아 있으면 그게 더 헷갈린다. */
+                try { vcObserverBanner(''); } catch (_) {}
                 vcCreatePeerAndOffer(msg.data.userId, msg.data.username);
             }
             break;
@@ -4160,7 +4247,10 @@ function vcApplyLowPower(pc) {
       if (!params.encodings || !params.encodings.length) params.encodings = [{}];
       params.encodings[0].maxBitrate   = (isMobile ? 500 : 1200) * 1000; // 모바일 500kbps
       params.encodings[0].maxFramerate = isMobile ? 15 : 24;
-      params.degradationPreference = 'balanced';   // 부하 시 화질·fps 균형 저하
+      /* 🎞 (2026-08-11) 'balanced' → 'maintain-framerate'.
+         balanced 는 부하가 걸리면 «초당 장수» 도 함께 깎는다 → 강사가 신고한 "영상이 멈춘다".
+         수업은 얼굴·입모양을 보는 일이라 잠깐 흐려지는 편이 멈추는 것보다 낫다. */
+      params.degradationPreference = 'maintain-framerate';
       sender.setParameters(params).catch(function(e){ console.warn('[lowpower params]', e); });
     }
   } catch(e){ console.warn('[lowpower bitrate]', e); }
@@ -4385,6 +4475,36 @@ function vcArmFullscreenRetry() {
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24, scale: 1 };
     }
     const SCALE = [1, 1.5, 2, 3];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
+
+    /* 🕐 (2026-08-11 강사 피드백 — "오디오 지연", "렉", "버퍼링")
+       [빠져 있던 것] 보내는 쪽은 오래 다듬어 왔다(비트레이트 적응·Opus FEC/DTX·AAO).
+         그런데 «받는 쪽» 은 한 번도 손대지 않았다. 브라우저의 지터버퍼는 회선이 한 번 흔들리면
+         지연을 크게 잡고, 회선이 좋아져도 한동안 그 지연을 물고 있는다(수백 ms).
+         강사가 말하는 "소리가 늦게 온다"의 상당 부분이 이 «물고 있는 지연» 이다.
+       [왜 그냥 0 으로 낮추면 안 되나] 손실이 있는 회선(필리핀)에서 버퍼를 깎으면
+         소리가 끊기고 튄다. 지연을 없애려다 «끊김»을 만드는 것 — 더 나쁜 교환이다.
+       [그래서] 이 연결이 «지금 실제로 좋다»고 측정됐을 때만 낮추고, 나빠지면 즉시 손을 뗀다
+         (null = 브라우저의 적응 알고리즘에 그대로 돌려줌). 판단 근거는 바로 아래 루프가
+         이미 재고 있는 손실률·RTT 다 — 새로 재지 않는다.
+       ⚠️ 두 API 모두 크롬 계열에만 있다. 없으면 아무 일도 하지 않는다(기능 감지). */
+    function tuneReceiveLatency(pc, good) {
+        try {
+            if (!pc || !pc.getReceivers) return;
+            if (pc.__rxLowLat === good) return;          // 상태가 그대로면 건드리지 않는다(불필요한 재설정 = 소리 튐)
+            pc.__rxLowLat = good;
+            pc.getReceivers().forEach(function (r) {
+                if (!r || !r.track) return;
+                var isAudio = r.track.kind === 'audio';
+                /* 목표 지연(ms). 오디오는 대화라 최대한 낮추고, 영상은 조금 여유를 둔다
+                   — 영상이 튀는 것보다 20~30ms 늦는 편이 수업에 낫다. */
+                try { if ('jitterBufferTarget' in r) r.jitterBufferTarget = good ? (isAudio ? 0 : 100) : null; } catch (_) {}
+                try { if ('playoutDelayHint' in r) r.playoutDelayHint = good ? 0 : null; } catch (_) {}
+            });
+            console.log('[vc-latency] 수신 지연', good ? '낮춤(회선 양호)' : '브라우저 자동(회선 불안정)');
+        } catch (_) {}
+    }
+    window.__vcTuneReceiveLatency = tuneReceiveLatency;   // 하니스·진단에서 부를 수 있게
+
     function applyStep(pc, step) {
         try {
             const sender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
@@ -4450,6 +4570,10 @@ function vcArmFullscreenRetry() {
                     pc.__qStep = step;
                     applyStep(pc, step);
                 }
+                /* 🕐 받는 쪽 지연 — «지금 좋다»고 측정된 연결에서만 낮춘다(위 함수 주석 참조).
+                   기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
+                   한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
+                try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
                 try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
             }).catch(function() {});
 
@@ -7374,8 +7498,9 @@ function vcSwapVideoTrack(newTrack){
           if (!params.encodings || !params.encodings.length) params.encodings = [{}];
           params.encodings[0].maxBitrate   = (mobile ? 500 : 1000) * 1000;
           params.encodings[0].maxFramerate = isBgTrack ? (mobile ? 12 : 20) : (mobile ? 15 : 24);
-          // 가상배경일 때만 프레임 우선(끊김 방지), 원본 복귀 시엔 균형
-          params.degradationPreference = isBgTrack ? 'maintain-framerate' : 'balanced';
+          /* 🎞 (2026-08-11) 원본 복귀 시에도 프레임 우선으로 통일 — 예전엔 가상배경일 때만
+             프레임을 지키고 원본은 'balanced' 라, 배경을 끄는 순간 끊김이 다시 시작됐다. */
+          params.degradationPreference = 'maintain-framerate';
           sender.setParameters(params).catch(e => console.warn('[vc-bg] setParameters:', e));
         }
       } catch(e){ console.warn('[vc-bg] replaceTrack 실패:', e); }

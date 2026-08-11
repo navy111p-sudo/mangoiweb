@@ -58,6 +58,16 @@ export class VideoCallRoom {
   private mediaAt: number = 0;
   /** 공유 상태 보존 한도 — 이 시간이 지난 뒤의 첫 입장은 «새 수업»으로 보고 화면을 비운다. */
   private static readonly SHARE_KEEP_MS = 3 * 60 * 60 * 1000;   // 3시간
+  /* 🎬 (2026-08-11 강사 LEN ④) "수업에 들어갈 때마다 앞 수업에서 Karl 선생님이 틀었던 유튜브가 그대로 있다"
+     [원인] 위 3시간 규칙은 «새로고침·순단으로 잠깐 나갔다 오는 것» 을 보호하려고 넣은 것인데,
+            공용방(mangoi-class)처럼 방을 이어 쓰는 경우엔 «앞 수업» 도 3시간 안이라 함께 보호돼
+            다음 수업 첫 입장자에게 앞 수업의 동영상·교재가 그대로 재전송됐다.
+     [해결] 시간이 아니라 «방이 얼마나 비어 있었는가» 로 가른다.
+            새로고침·순단은 몇 초 만에 돌아오고, 수업과 수업 사이는 그보다 훨씬 길다.
+            빈 시간이 이 값을 넘으면 «다음 수업» 으로 보고 앞 수업의 화면을 버린다. */
+  private static readonly NEW_CLASS_GAP_MS = 5 * 60 * 1000;     // 5분
+  /** 방이 마지막으로 «빈» 시각. 0 = 빈 적 없음(첫 수업) */
+  private emptyAt: number = 0;
   // 🔒 강사의 수업 통제 잠금 3종(배경 변경/전체 음소거/집중 모드)
   //   — 저장해야 늦게 입장/재접속한 학생에게도 적용됨. 방이 비면 자동 해제.
   /* ✋ (2026-08-07 Kaye 1번) drawLock 추가 — «학생 필기 잠금».
@@ -90,6 +100,7 @@ export class VideoCallRoom {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
+      this.emptyAt = (await this.state.storage.get<number>('emptyAt')) || 0;
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
       }
@@ -314,8 +325,12 @@ export class VideoCallRoom {
     //         "나갔다 들어오니 교재가 다른 게 보인다"(사장님 신고)의 직접 원인이 됐다.
     //   지금: 마지막 공유로부터 SHARE_KEEP_MS(3시간)가 지난 것만 «지난 수업»으로 보고 버린다.
     //         그 안이면 그대로 두고 아래에서 pdf-sync 로 재전송 → 강사가 보던 그 교재·그 페이지 복원.
+    /* 🎬 (2026-08-11 LEN ④) «방이 오래 비어 있었다» = 앞 수업이 끝났다 → 그 화면은 버린다.
+       새로고침·순단은 몇 초 만에 돌아오므로 여기 걸리지 않는다(그 보호는 그대로 유지). */
+    const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
+    const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
     if (userCount <= 1 && (this.pdfState || this.videoState) &&
-        (!this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
+        (_newClass || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
@@ -323,10 +338,13 @@ export class VideoCallRoom {
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
-      console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`);
+      console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`
+        + (_newClass ? ` (new class — room was empty for ${Math.round(_emptyGap / 1000)}s)` : ' (age)'));
     }
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
+    /* 방에 사람이 있으니 «비어 있던 시각» 은 지운다 — 다음에 다시 비면 그때 새로 찍는다. */
+    if (this.emptyAt) { this.emptyAt = 0; void this.state.storage.delete('emptyAt'); }
 
     // room-joined 는 반드시 물려받은 userId 로 회신한다 — 클라이언트가 이 값이 '직전 vcUserId 와 같은가'
     //   로 "정체성 유지됨 → 살아있는 연결 보존"을 판단한다.
@@ -437,6 +455,13 @@ export class VideoCallRoom {
     //   낡은 상태 정리는 다음 입장 시점에 시각(mediaAt)으로 판단한다 — handleJoinRoom 참조.
     if (userCount === 0 && (this.pdfState || this.videoState)) {
       console.log(`[VideoChat] Room ${this.roomId} empty — shared media kept for re-entry (at=${this.mediaAt})`);
+    }
+    /* 🎬 (2026-08-11 LEN ④) «비기 시작한 시각» 을 찍는다. 다음 첫 입장자가 이 값으로
+       «잠깐 나갔다 온 것(초 단위)» 과 «다음 수업(분 단위)» 을 가른다.
+       이미 찍혀 있으면 덮지 않는다 — 마지막 한 명이 나간 그 시각이 기준이어야 한다. */
+    if (userCount === 0 && !this.emptyAt) {
+      this.emptyAt = Date.now();
+      void this.state.storage.put('emptyAt', this.emptyAt);
     }
     // 🔒 방이 비면 통제 잠금도 전부 해제 — 다음 수업이 잠긴 채로 시작하지 않게
     if (userCount === 0) this.clearAllLocks();
