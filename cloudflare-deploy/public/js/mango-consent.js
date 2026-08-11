@@ -46,10 +46,26 @@
     } catch (_) {}
   }
 
+  /* 🔐 학생 본인 확인용 서명 토큰 — mango-attendance.js 와 같은 방식.
+     이게 없으면 서버가 «누구인지 모르는 요청» 으로 보고 조회를 401 로 막는다(내 동의도 못 읽는다).
+     쓰기(POST)는 토큰이 없어도 통과하지만, 있으면 «남의 uid 로 남기기» 가 막힌다. */
+  function tok() {
+    try { return localStorage.getItem('mango_token') || ''; } catch (_) { return ''; }
+  }
+
+  /* 토큰은 «헤더»로 보낸다. 서버(auth-token.ts)는 Authorization: Bearer 를 먼저 읽고,
+     없으면 body.token → 쿼리 파라미터 순으로 본다. 쿼리스트링은 프록시·로그·리퍼러에 그대로 남으므로
+     자격증명을 거기 싣지 않는다. */
+  function authHeaders(extra) {
+    var h = Object.assign({ 'Accept': 'application/json' }, extra || {});
+    if (tok()) h['Authorization'] = 'Bearer ' + tok();
+    return h;
+  }
+
   async function fetchExisting(uid) {
     try {
       var r = await fetch('/api/consents/' + encodeURIComponent(uid), {
-        headers: { 'Accept': 'application/json' }, credentials: 'include'
+        headers: authHeaders(), credentials: 'include'
       });
       if (!r.ok) return null;                       // 401 등 — «없다» 가 아니라 «모른다»
       var row = await r.json();
@@ -61,10 +77,11 @@
     try {
       var r = await fetch('/api/consents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         credentials: 'include',
         body: JSON.stringify({
           user_id: uid,
+          token: tok() || undefined,   // 헤더를 못 쓰는 경로 대비(서버는 body.token 도 읽는다)
           username: username || uid,
           role: 'student',
           consent_version: CONSENT_VERSION,
