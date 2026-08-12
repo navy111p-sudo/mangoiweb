@@ -109,7 +109,12 @@ check('슬롯 이동 시 원본 키를 분까지 맞춰 지운다 (안 지우면
 
 console.log('\n──────── 2-3. 실데이터 로더가 분·길이를 살리는가 ────────');
 check('⛔ getHours() 로 분을 버리지 않는다', !/new Date\(s\.start_time\)\.getHours\(\)/.test(src));
-check("'HH:MM' 문자열과 ISO 를 둘 다 받는다", /\/\^\(\\d\{1,2\}\):\(\\d\{2\}\)\/\.exec\(raw\)/.test(src));
+/* (2026-08-12) 서버 /api/admin/schedules 는 hour 를 «분 절삭»으로 항상 내려주고 minute 필드가
+   없다 — s.hour 를 먼저 보면 start_time 파싱이 영영 안 타서 19:20 이 도로 19:00 이 된다.
+   그래서 계약이 「start_time 의 시:분('HH:MM' 맨 앞·ISO 의 T 뒤·공백 뒤)이 정본, hour 는 폴백」으로 바뀌었다. */
+check("start_time 에서 «시:분» 을 찾는다 ('HH:MM'·ISO·공백 구분 모두)", /\/\(\?:\^\|\[T \]\)\(\\d\{1,2\}\):\(\\d\{2\}\)\/\.exec\(raw\)/.test(src));
+check('⛔ start_time 이 hour(분 절삭)보다 우선한다 — hour 먼저 보면 분이 도로 사라진다',
+  /if\(m\)\{ hh=parseInt\(m\[1\],10\); mm=parseInt\(m\[2\],10\); \}\s*\n\s*else if\(s\.hour!==undefined\)/.test(src));
 check('10분 격자로 스냅한다', /mm=Math\.round\(\(mm\|\|0\)\/SLOT_STEP\)\*SLOT_STEP/.test(src));
 check('duration_min 을 옮겨 담는다 (예전엔 통째로 빠져 있었다)',
   /duration_min:Number\(s\.duration_min\)>0\?Number\(s\.duration_min\):20/.test(src));

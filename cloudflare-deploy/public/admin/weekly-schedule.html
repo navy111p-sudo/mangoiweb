@@ -942,15 +942,17 @@ async function loadData(){
             slots.forEach(function(s){
               /* ⏱ (2026-08-12) 분을 버리지 말 것. 예전엔 getHours() 만 써서 19:20 수업이
                  19:00 으로 그려졌고, duration_min 도 옮겨 담지 않아 길이가 항상 기본값이었다.
-                 start_time 은 'HH:MM' 문자열로 오기도 하고 ISO 로 오기도 한다 — 둘 다 받는다. */
+                 ⚠️ s.hour 를 먼저 보면 안 된다 — 서버(/api/admin/schedules)는 hour 를
+                 hourOf(start_time) 로 «분을 절삭해서» 항상 내려주고 minute 필드는 없다.
+                 그래서 hour 우선이면 start_time 파싱 분기가 영영 안 타서 19:20 이 도로
+                 19:00 이 된다. start_time 에서 «시:분» 을 찾으면 그것이 정본이다
+                 ('HH:MM' 은 맨 앞, ISO 는 T 뒤 — 둘 다 이 정규식 하나로 잡는다). */
               var hh,mm;
-              if(s.hour!==undefined){ hh=Number(s.hour)||0; mm=Number(s.minute)||0; }
-              else{
-                var raw=String(s.start_time||'');
-                var m=/^(\d{1,2}):(\d{2})/.exec(raw);
-                if(m){ hh=parseInt(m[1],10); mm=parseInt(m[2],10); }
-                else{ var dt=new Date(raw); hh=dt.getHours(); mm=dt.getMinutes(); }
-              }
+              var raw=String(s.start_time||'');
+              var m=/(?:^|[T ])(\d{1,2}):(\d{2})/.exec(raw);
+              if(m){ hh=parseInt(m[1],10); mm=parseInt(m[2],10); }
+              else if(s.hour!==undefined){ hh=Number(s.hour)||0; mm=Number(s.minute)||0; }
+              else{ var dt=new Date(raw); hh=dt.getHours(); mm=dt.getMinutes(); }
               if(isNaN(hh))return;
               mm=Math.round((mm||0)/SLOT_STEP)*SLOT_STEP;   // 10분 격자에 맞춰 스냅
               if(mm>=60){hh+=1;mm-=60;}
