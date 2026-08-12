@@ -4205,6 +4205,37 @@ function vcHandleMessage(msg) {
         case 'pdf-anno-shape':
             pdfReceiveAnnoShape(msg.data);
             break;
+        /* ✍️ (2026-08-12 Melca) 늦게 들어온·새로고침한 쪽에 지금까지의 교재 판서를 재생.
+           칠판(whiteboard-replay)은 2026-08-08 에 생겼는데 교재 판서만 빠져 있었다 —
+           "학생 필기가 강사 화면에 안 보인다" 신고의 한 갈래. 서버가 획 단위로 압축해 보낸다. */
+        case 'pdf-anno-replay': {
+            try {
+                window.__pdfAnnoReplaying = true;   // 재생 중에는 «다른 페이지 필기» 알림을 끈다
+                var _parOps = (msg.data && msg.data.ops) || [];
+                _parOps.forEach(function(op){
+                    try {
+                        if (op.t === 'stroke') {
+                            var _ps = op.d || {};
+                            var _pts = _ps.points || [];
+                            if (!_pts.length) return;
+                            /* 재접속(스티키)으로 이미 갖고 있는 획은 건너뛴다 — 이중 그리기 방지 */
+                            if (_ps.id != null && typeof _pdfRemoteStrokes !== 'undefined' && _pdfRemoteStrokes[_ps.id]) return;
+                            var _mine = (pdfAnnotations[_ps.page] || []).some(function(st){ return st && st._id === _ps.id; });
+                            if (_ps.id != null && _mine) return;
+                            pdfReceiveAnnoStart({ page: _ps.page, tool: _ps.tool, color: _ps.color, size: _ps.size, id: _ps.id, point: _pts[0] });
+                            for (var _pi = 1; _pi < _pts.length; _pi++) pdfReceiveAnnoPoint({ id: _ps.id, page: _ps.page, point: _pts[_pi] });
+                        }
+                        else if (op.t === 'pdf-anno-text')  pdfReceiveAnnoText(op.d);
+                        else if (op.t === 'pdf-anno-shape') pdfReceiveAnnoShape(op.d);
+                        else if (op.t === 'pdf-anno-clear') pdfReceiveAnnoClear(op.d);
+                        else if (op.t === 'pdf-anno-undo')  pdfReceiveAnnoUndo(op.d);
+                    } catch(_){}
+                });
+                console.log('[pdf-anno] 교재 판서 재생:', _parOps.length, '개 op');
+            } catch(_){}
+            window.__pdfAnnoReplaying = false;
+            break;
+        }
         case 'pdf-pointer':
             pdfReceivePointer(msg.data);
             break;
@@ -12102,6 +12133,22 @@ function pdfAnnoElForPage(page) {
 // 원격 진행 중인 획을 id 로 빠르게 잇기 위한 캐시
 let _pdfRemoteStrokes = {};
 
+/* 🔔 (2026-08-12 Melca) 받은 판서가 «지금 내 화면에 없는 페이지» 면 예전엔 조용히 사라졌다
+   (획은 pdfAnnotations 에 쌓이지만 화면엔 영영 안 보임) — "잠금을 풀어도 학생 필기가 안 보인다"
+   신고의 실제 원인 중 하나. 강사에게 어느 페이지인지 알려 준다(8초 스로틀). */
+function _pdfAnnoOffPageNotify(page){
+    try {
+        if (window.__pdfAnnoReplaying) return;
+        if (typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook()) return;
+        var now = Date.now();
+        if (window.__pdfAnnoOffPageAt && now - window.__pdfAnnoOffPageAt < 8000) return;
+        window.__pdfAnnoOffPageAt = now;
+        var en = (typeof getLang === 'function' && getLang() === 'en');
+        if (typeof showToast === 'function') showToast(en
+            ? ('✍️ A student is writing on page ' + page + ' — turn to that page to see it.')
+            : ('✍️ 학생이 ' + page + '쪽에 필기하고 있어요 — 그 페이지로 넘기면 보여요.'));
+    } catch(_){}
+}
 function pdfReceiveAnnoStart(d) {
     if (!pdfAnnotations[d.page]) pdfAnnotations[d.page] = [];
     var stroke = { tool: d.tool, color: d.color, size: d.size, points: [d.point], _id: d.id, _t: Date.now() };
@@ -12109,6 +12156,7 @@ function pdfReceiveAnnoStart(d) {
     _pdfRemoteStrokes[d.id] = stroke;
     var el = pdfAnnoElForPage(d.page);
     if (el) pdfRedrawAnno(el, d.page);
+    else _pdfAnnoOffPageNotify(d.page);
 }
 function pdfReceiveAnnoPoint(d) {
     var stroke = _pdfRemoteStrokes[d.id];
