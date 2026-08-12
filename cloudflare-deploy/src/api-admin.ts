@@ -4854,14 +4854,35 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           const dupUids = rows.slice(1).map((r: any) => r.uid);
 
           // 3) class_schedules 의 user_id 를 canonical 로 일괄 변경
-          let scheduleMoved = 0;
+          /* 📜 (2026-08-12) 여기에 감사 기록이 없었다 — 수업 주인을 «통째로» 옮기는 자리인데
+             누가·언제·어느 계정에서 어느 계정으로 옮겼는지 어디에도 안 남았다.
+             병합은 되돌리기 어려운 작업이라 기록이 특히 필요하다.
+             ⚠️ 실제로 옮겨진 행이 있을 때만 남긴다 — 0건 로그가 쌓이면 진짜 사건이 묻힌다. */
+          let mergeActor = 'admin';
+          try { const _ma = await getAdminActor(request, env as any); if (_ma?.name) mergeActor = _ma.name; }
+          catch (e) { console.warn('[student-merge] actor 조회 실패 — 감사기록에 이름 대신 admin 이 남습니다:', (e as any)?.message); }
+          let scheduleMoved = 0, scheduleFailed = 0;
           for (const dupUid of dupUids) {
             try {
               const upd = await env.DB.prepare(
                 `UPDATE class_schedules SET user_id = ?, updated_at = ? WHERE user_id = ?`
               ).bind(canonicalUid, Date.now(), dupUid).run();
-              scheduleMoved += (upd?.meta?.changes as number) || 0;
-            } catch {}
+              const movedNow = (upd?.meta?.changes as number) || 0;
+              scheduleMoved += movedNow;
+              if (movedNow > 0) {
+                await writeClassAudit(env, {
+                  action: 'owner_merge', student_name: name || null,
+                  actor: mergeActor, actor_role: 'admin', source: 'student-merge',
+                  reason: '중복 학생 계정 병합',
+                  detail: JSON.stringify({ from: dupUid, to: canonicalUid, schedules_moved: movedNow }),
+                });
+              }
+            } catch (e) {
+              /* ⚠️ 여기가 조용히 죽으면 scheduleMoved 가 0 인 채로 «병합 성공» 이 응답에 실린다.
+                 관리자는 옮겨진 줄 알고 넘어가고, 학생 수업은 옛 계정에 남는다. 반드시 남긴다. */
+              scheduleFailed++;
+              console.warn('[student-merge] 수업 주인 이동 실패', dupUid, '→', canonicalUid, ':', (e as any)?.message);
+            }
           }
           // 4) 중복 학생 row 비활성화 (status='병합됨')
           for (const dup of rows.slice(1)) {
@@ -4877,7 +4898,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             canonical_id: canonical.id,
             duplicates_merged: rows.length - 1,
             duplicate_user_ids: dupUids,
-            schedules_moved: scheduleMoved
+            schedules_moved: scheduleMoved,
+            /* ⚠️ 실패 건수를 응답에 싣는다 — 0 이 아니면 그 학생 수업은 옛 계정에 남아 있다.
+               화면이 «병합 완료» 만 보여주면 관리자가 그대로 넘어간다. */
+            schedules_failed: scheduleFailed
           });
         }
         return json({
@@ -7685,6 +7709,18 @@ LIMIT $limit`;
               await env.DB.prepare(`UPDATE class_schedules SET teacher_id = ?, updated_at = ? WHERE id = ?`)
                 .bind(String(hit.id), Date.now(), Number(appT.schedule_id)).run();
               teacherSync = { schedule_id: appT.schedule_id, teacher_id: String(hit.id), teacher: hit.name };
+              /* 📜 (2026-08-12) 강사 교체가 이력에 안 남던 자리 —
+                 「내 수업 강사가 언제 왜 바뀌었나」를 학생도 강사도 되짚을 수 없었다. */
+              let _tsActor = 'admin';
+              try { const _a = await getAdminActor(request, env as any); if (_a?.name) _tsActor = _a.name; }
+              catch (e) { console.warn('[leveltest teacherSync] actor 조회 실패 — 감사기록에 이름 대신 admin 이 남습니다:', (e as any)?.message); }
+              await writeClassAudit(env, {
+                action: 'teacher_change', schedule_id: appT.schedule_id,
+                teacher_name: hit.name || null,
+                actor: _tsActor, actor_role: 'admin', source: 'leveltest_app',
+                reason: '레벨테스트 신청서의 담당 강사 변경을 수업에 반영',
+                detail: JSON.stringify({ app_id: appT.id, to_teacher_id: String(hit.id), to_teacher: hit.name }),
+              });
             } else {
               // 못 찾으면 조용히 넘기지 않는다 — 화면은 «바뀐 것처럼» 보이는데 수업은 안 바뀐 상태다
               teacherSync = { schedule_id: appT.schedule_id, error: 'teacher_not_in_roster', candidate: appT.assigned_teacher };

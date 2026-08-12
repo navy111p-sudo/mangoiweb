@@ -19,6 +19,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { sendPlainSms } from './solapi-client';
+import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
 export const ENROLL_MONTHS = [1, 3, 6, 12];
@@ -606,6 +607,16 @@ export async function runHolidayShiftSweep(env: any, opts?: { dry?: boolean }): 
             `UPDATE class_schedules SET scheduled_date = ?, updated_at = ?, notes = ? WHERE id = ? AND status='active'`
           ).bind(target, Date.now(), `${String(r.notes || '')} · 공휴일(${hday}) 자동 연기`.slice(0, 500), r.id).run();
           out.moved++;
+          /* 📜 (2026-08-12) 자동 연기가 이력에 안 남던 자리. 사람이 누른 연기는 남는데
+             «시스템이 옮긴 것» 만 빈칸이라, 학부모가 「왜 날짜가 바뀌었냐」 물으면
+             notes 문자열 말고는 근거가 없었다. actor 는 system — 사람이 한 일이 아니다. */
+          await writeClassAudit(env, {
+            action: 'reschedule', schedule_id: r.id, student_name: (r as any).student_name || null,
+            lesson_date: hday, lesson_time: String((r as any).start_time || '') || null,
+            actor: 'system', actor_role: 'system', source: 'holiday-auto',
+            reason: `공휴일(${hday}) 자동 연기`,
+            detail: JSON.stringify({ from: hday, to: target }),
+          });
         } catch (e) { out.failed++; }
       }
     }
@@ -918,6 +929,16 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       if (!dry) {
         await env.DB.prepare(`UPDATE class_schedules SET teacher_id=?, updated_at=?, notes=COALESCE(notes,'')||' · 강사 휴가 대체' WHERE id=? AND status='active'`)
           .bind(to, Date.now(), r.id).run();
+        /* 📜 (2026-08-12) 하루치 수업의 강사를 통째로 바꾸는데 이력이 없었다.
+           학생·학부모가 「오늘 왜 다른 선생님이냐」 물었을 때 댈 근거가 notes 문자열뿐이었다.
+           ⚠️ dry 실행에는 남기지 않는다 — 미리보기는 사건이 아니다. */
+        await writeClassAudit(env, {
+          action: 'teacher_change', schedule_id: r.id, student_name: r.student_name || null,
+          lesson_date: day, lesson_time: String(r.start_time || '') || null,
+          actor: (sess as any)?.username || (sess as any)?.name || 'admin', actor_role: 'admin',
+          source: 'teacher-leave-sub', reason: '강사 휴가 대체',
+          detail: JSON.stringify({ from_teacher_id: from, to_teacher_id: to }),
+        });
       }
       moved.push({ id: r.id, student: r.student_name, time: r.start_time });
     }
