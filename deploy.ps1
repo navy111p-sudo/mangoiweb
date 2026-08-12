@@ -1,9 +1,14 @@
 ﻿# ============================================================
 # Mangoi 강제 재배포 v3 — HTML hash 강제 변경 모드
 #   v3.1 (2026-07-14): 배포 전 안전 게이트(tsc+스모크) 추가 — REFACTOR_PLAN 5단계
+#   v3.2 (2026-08-12): [0b] 라이브 되감김 게이트 추가
+#       이 스크립트는 로컬 public 폴더를 통째로 올린다. 그 사이 남이 배포한 것이
+#       내 폴더에 없으면 라이브에서 조용히 사라진다 — 하루에 세 번 겪고 넣었다.
 #   급할 때 게이트 우회: powershell -File deploy.ps1 -SkipSmoke
+#   되감김 게이트만 우회:  powershell -File deploy.ps1 -SkipLiveDrift
+#     ⚠️ -SkipSmoke 는 되감김 게이트를 끄지 않는다. 급할수록 남의 작업을 지우기 쉽다.
 # ============================================================
-param([switch]$SkipSmoke)
+param([switch]$SkipSmoke, [switch]$SkipLiveDrift)
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $ErrorActionPreference = 'Continue'
@@ -42,6 +47,98 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 Write-Host "  인라인 JS 문법 통과" -ForegroundColor Green
+
+# ============================================================================
+# [0b] 라이브 되감김 게이트 — "내 배포가 남의 작업을 지우는가"
+# ----------------------------------------------------------------------------
+#   왜 필요한가 (2026-08-12 하루에 세 번 겪었다):
+#     이 스크립트는 로컬 cloudflare-deploy/public 폴더를 **통째로** 올린다.
+#     그래서 그 사이 누가 main 에 머지하고 Actions 로 배포했으면, 그 결과물이
+#     내 로컬 폴더에 없다는 이유만으로 **라이브에서 조용히 사라진다.**
+#     실제 사고: 05:43 Actions 배포(PR #72·#78 — 녹화 동의)가 06:18 로컬 배포에
+#     통째로 덮였다. 아무 에러도 안 났고, 몇 시간 뒤 "동의가 0행" 으로만 드러났다.
+#     반대 방향도 같은 날 있었다 — main 머지가 로컬 배포분을 지웠다.
+#
+#   무엇을 보는가:
+#     라이브 index.html 에는 있는데 내 로컬 index.html 에는 없는 줄.
+#     그런 줄이 있으면 = 내가 지금 올리면 그게 사라진다 = 멈춘다.
+#     (BUILD 스탬프 줄은 매 배포마다 바뀌므로 비교에서 뺀다)
+#
+#   왜 workers.dev 원본을 보는가:
+#     커스텀 도메인(test.mangoi.co.kr)은 엣지가 "/" 를 쿼리 무시하고 HIT 로 굳혀
+#     옛 HTML 을 내주는 일이 있다. 원본은 그 영향을 안 받는다.
+#
+#   우회: powershell -File deploy.ps1 -SkipLiveDrift
+#     ⚠️ -SkipSmoke 로는 안 꺼진다. 이 게이트가 막는 것은 "느린 배포" 가 아니라
+#        "남의 작업 소실" 이고, 그건 급할수록 더 크게 터진다.
+# ============================================================================
+if (-not $SkipLiveDrift) {
+    Write-Step "0b/7" "라이브 되감김 게이트: 라이브에만 있는 줄이 없는지 (우회: -SkipLiveDrift)"
+    $liveUrl = "https://webrtc-unified-platform-prod.navy111p.workers.dev/?nocache=$([DateTime]::UtcNow.Ticks)"
+    $localIndex = Join-Path $scriptDir "cloudflare-deploy\public\index.html"
+    $liveHtml = $null
+    try {
+        $resp = Invoke-WebRequest -Uri $liveUrl -UseBasicParsing -TimeoutSec 30 -Headers @{ 'Cache-Control' = 'no-cache' }
+        # ⚠️ .Content 를 그대로 쓰면 안 된다 — PS 5.1 이 응답을 Latin-1 로 디코딩해
+        #    한글이 들어간 줄이 전부 «다른 줄» 로 보인다. 처음 만들 때 이걸로 오탐 3,456줄이
+        #    나왔다(=모든 배포가 막힌다). 바이트로 받아 UTF-8 로 직접 읽는다.
+        $liveHtml = [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
+    } catch {
+        $liveHtml = $null
+        $fetchErr = $_.Exception.Message
+    }
+
+    if ([string]::IsNullOrWhiteSpace($liveHtml)) {
+        Write-Host "  [X] 라이브를 못 읽었습니다 — 배포 중단." -ForegroundColor Red
+        Write-Host "      $fetchErr" -ForegroundColor DarkGray
+        Write-Host "      라이브 상태를 모르는 채로 폴더를 통째로 덮으면, 남이 방금 배포한 것이" -ForegroundColor Yellow
+        Write-Host "      조용히 사라져도 아무도 못 알아챕니다(오늘 실제로 그렇게 잃었습니다)." -ForegroundColor Yellow
+        Write-Host "      네트워크 문제가 확실하다면: powershell -File deploy.ps1 -SkipLiveDrift" -ForegroundColor Cyan
+        exit 1
+    }
+    elseif (-not (Test-Path $localIndex)) {
+        Write-Host "  [!] 로컬 index.html 이 없어 비교를 건너뜁니다" -ForegroundColor Yellow
+    }
+    else {
+        $norm = {
+            param($text)
+            ($text -split "`r?`n") |
+                Where-Object { $_ -notmatch 'BUILD:' } |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { $_ -ne '' }
+        }
+        $liveLines  = & $norm $liveHtml
+        $localLines = & $norm (Get-Content $localIndex -Raw -Encoding UTF8)
+        $localSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$localLines)
+        $onlyLive = @($liveLines | Where-Object { -not $localSet.Contains($_) } | Select-Object -Unique)
+
+        if ($onlyLive.Count -gt 0) {
+            Write-Host ""
+            Write-Host "  [X] 라이브에만 있는 줄이 $($onlyLive.Count)개 — 배포 중단." -ForegroundColor Red
+            Write-Host "      지금 올리면 아래가 라이브에서 사라집니다:" -ForegroundColor Red
+            $onlyLive | Select-Object -First 15 | ForEach-Object { Write-Host "        $_" -ForegroundColor DarkYellow }
+            if ($onlyLive.Count -gt 15) { Write-Host "        ... 외 $($onlyLive.Count - 15)줄" -ForegroundColor DarkYellow }
+            Write-Host ""
+            Write-Host "      대개 원인은 하나입니다 — 그 사이 누가 main 에 머지했고" -ForegroundColor Yellow
+            Write-Host "      Actions 가 배포했는데, 내 로컬 폴더가 그걸 모릅니다." -ForegroundColor Yellow
+            Write-Host "      해결: git fetch origin; git merge origin/main   후 다시 배포" -ForegroundColor Cyan
+            Write-Host "      (되돌리는 게 맞다고 판단했다면: -SkipLiveDrift)" -ForegroundColor DarkGray
+            exit 1
+        }
+        Write-Host "  라이브에만 있는 줄 없음 — 지워질 것이 없습니다" -ForegroundColor Green
+    }
+
+    # 참고용(중단하지 않음): 내 트리가 origin/main 보다 뒤처져 있는가.
+    #   뒤처졌다고 항상 사고는 아니다(핫픽스는 일부러 앞설 수 있다). 다만 모르고 있는 것과
+    #   알고 하는 것은 다르므로 숫자만 보여 준다.
+    try {
+        & git fetch origin main --quiet 2>$null
+        $behind = (& git rev-list --count HEAD..origin/main 2>$null)
+        if ($behind -and [int]$behind -gt 0) {
+            Write-Host "  [!] 내 트리가 origin/main 보다 $behind 커밋 뒤처져 있습니다 (참고)" -ForegroundColor Yellow
+        }
+    } catch { Write-Host "  (git 비교 생략)" -ForegroundColor DarkGray }
+}
 
 # [0] 배포 전 안전 게이트 — 실패하면 파일 하나 안 건드리고 여기서 중단 (REFACTOR_PLAN 5단계)
 #   ① tsc 컴파일: 새 코드가 깨졌으면 배포 금지
