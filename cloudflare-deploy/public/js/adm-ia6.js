@@ -94,7 +94,12 @@
         { ko: '회계',        en: 'Accounting',  cards: ['card-accounting-mgmt'] },
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
-        { ko: '지사 정산',   en: 'Settlement',  cards: [], href: '/admin/capitown-settlement.html' },
+        // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
+        //    직행하던 것을 고친다 — 캐피타운이 아닌 지사 관리자는 그 페이지의 게이트에서
+        //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
+        //    지사정산 카드(card-franchises · /api/admin/settlement/branch-summary)이고,
+        //    캐피타운 계열 계정(role capitown/franchise · uid capi*)만 capiHref 로 보낸다.
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' },
         // 🏢 조직 = 본사 › 지사 › 대리점(학원). 카드는 이제 card-franchises 하나뿐이다 —
         //    card-centers(대리점 목록)는 그 카드 «안의 하위항목» 으로 합쳤다(2026-08-09).
         //    (예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
@@ -329,9 +334,20 @@
     return found;
   }
 
+  // 🏢 캐피타운 계열 계정인가 — capiHref 분기 전용. 경영진(exec)은 여기 넣지 않는다:
+  //    경영진은 전체 조직 카드(card-franchises)가 더 맞고, 캐피타운 페이지는 별도 항목으로도 간다.
+  function isCapiAccount() {
+    try {
+      var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}');
+      var r = String(s.role || '').toLowerCase(), u = String(s.uid || '').toLowerCase();
+      return r === 'capitown' || r === 'franchise' || u === 'capitown' || u.indexOf('capi') === 0;
+    } catch (e) { return false; }
+  }
+
   function select(key) {
     var it = itemByKey(key);
     if (!it) return false;
+    if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
