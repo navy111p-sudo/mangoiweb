@@ -6700,8 +6700,14 @@ LIMIT $limit`;
       const conds: string[] = [];
       const binds: any[] = [];
       if (q) {
-        conds.push(`(s.korean_name LIKE ? OR s.english_name LIKE ? OR s.student_name LIKE ? OR s.user_id LIKE ? OR s.student_phone LIKE ?)`);
-        binds.push(like, like, like, like, like);
+        // 🔍 (2026-08-12 수정요청 #02) 이름·아이디뿐 아니라 가맹점(학원)명·지사명, 그리고
+        //    원장·담당자 이름(centers.manager / franchises.owner_name)으로도 학생을 찾을 수 있게.
+        //    centers·franchises 는 운영 D1 에 이미 존재(schema-live.sql 확인).
+        conds.push(`(s.korean_name LIKE ? OR s.english_name LIKE ? OR s.student_name LIKE ? OR s.user_id LIKE ? OR s.student_phone LIKE ?
+          OR s.shop_name LIKE ? OR s.franchise LIKE ?
+          OR EXISTS (SELECT 1 FROM centers c WHERE c.name = s.shop_name AND c.manager LIKE ?)
+          OR EXISTS (SELECT 1 FROM franchises f WHERE f.name = s.franchise AND f.owner_name LIKE ?))`);
+        binds.push(like, like, like, like, like, like, like, like, like);
       }
       if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
@@ -6756,8 +6762,26 @@ LIMIT $limit`;
     //      «교육센터»(=필리핀 직영 센터, 홈페이지 문구)와는 전혀 다른 것이다.
     //   🐢 예전엔 921건을 «한 번에 전부» 돌려줬고(약 130KB), 그걸 부팅 때 두 번 받았다.
     //      → 기본 50건 + 검색(q) + total. limit=0 이면 전체(하위호환·CSV 용).
-    if ((method === 'GET' || method === 'POST') && path === '/api/admin/centers') {
+    if ((method === 'GET' || method === 'POST' || method === 'PATCH') && path === '/api/admin/centers') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 💳 (2026-08-12 수정요청 #05) 대리점별 결제 유형(B2B/B2C) — 멱등 ALTER.
+      //    CREATE 에 넣지 않는 이유: schema_drift 하니스가 «운영 실제에 없는 CREATE 컬럼» 을 막는다.
+      //    NULL = 미지정. #03 의 B2B/B2C 결제 리스트 분리가 이 값을 필터 기준으로 쓴다.
+      try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN payment_type TEXT`); } catch {}
+      const _normPayType = (v: any): string | null => {
+        const s = String(v || '').trim().toUpperCase();
+        return s === 'B2B' || s === 'B2C' ? s : null;
+      };
+      if (method === 'PATCH') {
+        // 기존 대리점의 결제유형 지정 — centers 에는 수정 API 가 없었어서 이번에 신설(경로 재사용).
+        const b = await parseJsonBody(request);
+        const cid = parseInt(String(b?.id || ''), 10);
+        if (!cid) return invalidBody(['id']);
+        const pt = _normPayType(b?.payment_type);
+        await env.DB.prepare(`UPDATE centers SET payment_type = ?, updated_at = ? WHERE id = ?`)
+          .bind(pt, Date.now(), cid).run();
+        return json({ ok: true, id: cid, payment_type: pt });
+      }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
         const rawLimit = url.searchParams.get('limit');
@@ -6787,8 +6811,8 @@ LIMIT $limit`;
       if (!b || !b.name) return invalidBody(['name']);
       const now = Date.now();
       const r = await env.DB.prepare(
-        `INSERT INTO centers (franchise_id, name, country, address, manager, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, now, now).run();
+        `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }
 

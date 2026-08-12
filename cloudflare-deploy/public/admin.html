@@ -1638,7 +1638,7 @@
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="sm-load-students" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <input id="sm-student-search" type="search" placeholder="🔍 학생명·아이디 검색 (Name/ID)" autocomplete="off"
+            <input id="sm-student-search" type="search" placeholder="🔍 학생명·아이디·학원명 검색 (Name/ID/Academy)" autocomplete="off"
                    style="flex:1;min-width:180px;max-width:320px;padding:6px 12px;font-size:12.5px;border:1px solid rgba(245,158,11,0.4);border-radius:8px;outline:none;background:#fffbeb;color:#1c1917;" />
             <!-- 🏫 (2026-07-23) 대리점/학원 필터 — 강사·매니저 요청.
                  목록에 '대리점명' 컬럼은 원래 있었지만 걸러볼 방법이 없어서, 지사 담당자가
@@ -1971,6 +1971,13 @@
               <option value="fail" data-ko="실패" data-en="Failed">실패</option>
               <option value="refund" data-ko="환불" data-en="Refunded">환불</option>
             </select>
+            <!-- 💳 (2026-08-12 수정요청 #03) B2B/B2C 분리 — 대리점 관리의 결제유형 지정이 기준 -->
+            <select id="acc-pay-channel" title="B2B = 학원이 본사·대리점에 결제 / B2C = 학부모 직접 결제. 대리점 관리의 «결제유형» 지정이 기준입니다"
+                    style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #2563eb;background:#eff6ff;color:#1d4ed8;font-weight:700">
+              <option value="" data-ko="💳 B2B+B2C 전체" data-en="💳 B2B+B2C All">💳 B2B+B2C 전체</option>
+              <option value="B2B" data-ko="🏢 B2B 결제만" data-en="🏢 B2B only">🏢 B2B 결제만</option>
+              <option value="B2C" data-ko="👪 B2C 결제만" data-en="👪 B2C only">👪 B2C 결제만</option>
+            </select>
             <button id="acc-pay-load" class="primary" onclick="accLoadPayments()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
             <button id="acc-pay-csv" onclick="accDownloadPaymentsCsv()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 CSV" data-en="📥 CSV">📥 CSV</button>
           </div>
@@ -1979,12 +1986,14 @@
               <th data-ko="시각" data-en="Time">시각</th>
               <th data-ko="주문번호" data-en="Order #">주문번호</th>
               <th data-ko="학생" data-en="Student">학생</th>
+              <th data-ko="구분" data-en="Type">구분</th>
+              <th data-ko="가맹점" data-en="Agency">가맹점</th>
               <th data-ko="상품" data-en="Product">상품</th>
               <th data-ko="금액" data-en="Amount">금액</th>
               <th data-ko="결제수단" data-en="Method">결제수단</th>
               <th data-ko="상태" data-en="Status">상태</th>
             </tr></thead>
-            <tbody id="acc-pay-tbody"><tr><td colspan="7" class="empty">[🧮 불러오기]를 누르면 결제 내역이 표시됩니다.</td></tr></tbody>
+            <tbody id="acc-pay-tbody"><tr><td colspan="9" class="empty">[🧮 불러오기]를 누르면 결제 내역이 표시됩니다.</td></tr></tbody>
           </table>
         </div>
       </details>
@@ -7045,6 +7054,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="ct-country"  placeholder="국가 (예: KR)"   data-ko-placeholder="국가 (예: KR)"   data-en-placeholder="Country (e.g. KR)" style="width:110px;" />
               <input id="ct-manager"  placeholder="원장·담당자"      data-ko-placeholder="원장·담당자"      data-en-placeholder="Manager" style="width:120px;" />
               <input id="ct-address"  placeholder="주소"            data-ko-placeholder="주소"            data-en-placeholder="Address" style="width:240px;" />
+              <!-- 💳 (2026-08-12 수정요청 #05) 결제 유형 — B2B(학원이 본사·대리점에 결제) / B2C(학부모 직접 결제) -->
+              <select id="ct-paytype" title="이 대리점의 결제 방식 — B2B/B2C 결제 리스트 분리의 기준이 됩니다" style="width:130px;">
+                <option value=""    data-ko="결제유형 미지정" data-en="Pay type: none">결제유형 미지정</option>
+                <option value="B2B">B2B</option>
+                <option value="B2C">B2C</option>
+              </select>
               <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
@@ -7058,8 +7073,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                    style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
             <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
           </div>
-          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
-            <tbody id="centers-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
+          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+            <tbody id="centers-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -8710,7 +8725,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=65" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=66" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -12167,7 +12182,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
-<script src="/js/adm-ia6.js?v=8" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-ia6.js?v=9" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

@@ -2091,7 +2091,7 @@
         </div>
       </div>
       <div style="text-align:center;margin-top:6px">
-        <a href="/admin/capitown-settlement.html" class="btn-primary" style="text-decoration:none;background:linear-gradient(135deg,#6366f1,#4338ca)" data-ko="🏢 캐피타운 정산 대시보드 열기 →" data-en="🏢 Open Capitown Settlement →">🏢 캐피타운 정산 대시보드 열기 →</a>
+        <a id="settleDashBtn" href="/admin/capitown-settlement.html" class="btn-primary" style="text-decoration:none;background:linear-gradient(135deg,#6366f1,#4338ca)" data-ko="🏢 캐피타운 정산 대시보드 열기 →" data-en="🏢 Open Capitown Settlement →">🏢 캐피타운 정산 대시보드 열기 →</a>
       </div>
     </section>
 
@@ -2823,6 +2823,15 @@
         var capEn = role==='franchise' ? '🏢 Franchise Settlement' : role==='branch' ? '🏬 Branch Settlement' : '🏢 Settlement';
         tCap.setAttribute('data-ko', capKo); tCap.setAttribute('data-en', capEn);
         tCap.textContent = en ? capEn : capKo;
+        // 🏬 (2026-08-12 수정요청 #04) 지사 계정(캐피타운 계열 아님)에게 이 탭의 버튼이
+        //   캐피타운 전용 페이지로 가서 「접근 권한이 없습니다」만 보였다.
+        //   지사는 권한 스코프가 걸린 본사 콘솔의 지사정산 카드로 보낸다.
+        var _sBtn = el('settleDashBtn');
+        if (_sBtn && role === 'branch' && _settleUid.indexOf('capi') !== 0){
+          _sBtn.setAttribute('href', '/admin.html#card-franchises');
+          _sBtn.setAttribute('data-ko', '🏬 지사 정산 열기 →'); _sBtn.setAttribute('data-en', '🏬 Open Branch Settlement →');
+          _sBtn.textContent = en ? '🏬 Open Branch Settlement →' : '🏬 지사 정산 열기 →';
+        }
       } else {
         tCap.style.display = 'none';
       }
