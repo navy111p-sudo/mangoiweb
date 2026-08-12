@@ -419,6 +419,16 @@
     <li><b>Automatic lateness detection</b> (Admin → Payroll). Enter a month and a grace period (3 min default) and you get late minutes per teacher, <b>side by side with whatever a human already entered.</b></li>
     <li><b>The KakaoTalk contact button</b> now opens without a login, and opens reliably inside in-app browsers.</li>
     <li><b>Unblocked the deploy gate</b> by fixing one test that was shaken by code formatting.</li>
+    <li><b>Shipped 12 teacher-page fixes to production</b> (both workers) — from the 17 points our PH manager sent:
+      <b>enter the room early and re-enter after class</b> (it used to lock as "Done", so extending was impossible),
+      <b>level tests now visible in My Classes</b>, <b>jump to any date</b> in the weekly schedule, a <b>page list</b> for textbooks
+      (reaching page 15 took nine taps of "Next"), the <b>mic indicator</b> no longer covering Screen Split,
+      and <b>deleting a break time by tapping it</b> (there was no way to remove one).
+      <small>→ Most of the 17 were not "the feature is missing" but <b>"the door was shut"</b> — a button pushed off-screen, a time window too narrow, or a message only in Korean that a Filipino teacher cannot read.
+      ⚠️ <b>Teacher and admin screens need a login, so I could not see them myself</b> — Maimai has been asked to check 7 items.</small></li>
+    <li><b>Text checks all passed, yet four defects appeared only once the screen was actually opened.</b> The mic indicator was <b>hidden under the world clock</b>
+      and <b>painted above the Screen Split dialog</b> — moving it alone would have reproduced the original complaint.
+      <small>→ Screen checks now run against a <b>fake server with the real pages</b>, and server calculations (entry window, postponement pay) run the <b>real code on a fake database</b> — 21 checks.</small></li>
   </ul>
 </div>
 
