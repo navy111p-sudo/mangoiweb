@@ -8,19 +8,37 @@
   let _awTeachers = []; // [{ id, name }]
   let _awRecords = [];  // [{ teacher_id, teacher_name, date, scheduled, actual, late_min }]
   let _awNoActual = true; // 실제 출근 시각을 아직 못 채운다는 뜻. 화면에 사실대로 적는다.
+  let _awSkipped = { lms: 0, sample: 0 }; // «수업이 아니라» 집계에서 뺀 슬롯 수 (loadRecords 가 채움)
   // 서버 미연동 경고 배너 — 한/영 (강사 다수가 필리핀)
   /* 이 카드가 무엇을 보여주는지 «화면 위에» 적어 둔다.
      수업 스케줄은 DB(class_schedules)의 실제 값이지만, «실제 출근 시각» 은 아직 기록되지 않는다.
      강사 계정(teachers.user_id)·강사↔로그인 연결표가 비어 있어 출석 로그를 강사와 묶을 수 없다.
      그 사실을 숨기면 화면이 거짓말을 한다. */
+  /* ⚠️ (2026-08-12) 예전 문구는 「수업 스케줄은 실제 데이터입니다」였다. 그게 거짓이 됐다 —
+     class_schedules 의 98.7%(667행 중 658)는 학생이 안 붙은 자리표시(옛 LMS 점유·시연 시드)라
+     이제 집계에서 뺀다. 뺀 사실을 안 적으면 「우리 강사가 왜 안 보이냐」가 되고,
+     그 다음엔 이 필터를 되돌리게 된다. 그래서 **몇 건을 왜 뺐는지** 를 숫자로 적는다. */
   function _awSeedBanner() {
-    if (!_awNoActual) return '';
-    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #fedf89;background:#fffaeb;'
-      + 'border-radius:8px;color:#b45309;font-size:12.5px;line-height:1.6">'
-      + '<b>수업 스케줄은 실제 데이터입니다.</b> 다만 «실제 출근 시각» 은 아직 기록되지 않습니다 '
-      + '— 강사 로그인 계정과 출석 기록이 연결돼 있지 않습니다. 지각 판정은 그 연결 후에 가능합니다.<br>'
-      + '<span style="color:#93701a">Class schedules are real. Actual check-in times are not recorded yet '
-      + '(teacher accounts are not linked to attendance logs).</span></div>';
+    const skipped = (_awSkipped.lms || 0) + (_awSkipped.sample || 0);
+    if (!_awNoActual && !skipped) return '';
+    let h = '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #fedf89;background:#fffaeb;'
+      + 'border-radius:8px;color:#b45309;font-size:12.5px;line-height:1.6">';
+    if (skipped) {
+      h += '<b>여기 세는 것은 «망고아이 수업» 뿐입니다.</b> 이 기간의 슬롯 ' + skipped + '건은 '
+        + '옛 LMS 점유·시연 시드(학생이 배정되지 않은 자리표시)라 출근 집계에서 뺐습니다. '
+        + '「강사 스케줄(주간 통합 캘린더)」에서는 <b>LMS</b>·<b>시드</b> 배지로 확인하실 수 있습니다.<br>'
+        + '<span style="color:#93701a">Only real Mangoi classes are counted here. '
+        + skipped + ' slot(s) in this range are legacy-LMS / demo placeholders with no student assigned, '
+        + 'so they are excluded from attendance.</span>';
+    }
+    if (_awNoActual) {
+      h += (skipped ? '<hr style="border:0;border-top:1px solid #fde68a;margin:8px 0">' : '')
+        + '«실제 출근 시각» 은 아직 기록되지 않습니다 — 강사 로그인 계정과 출석 기록이 '
+        + '연결돼 있지 않습니다. 지각 판정은 그 연결 후에 가능합니다.<br>'
+        + '<span style="color:#93701a">Actual check-in times are not recorded yet '
+        + '(teacher accounts are not linked to attendance logs).</span>';
+    }
+    return h + '</div>';
   }
 
   let _awMode = 'byTeacher';
@@ -90,6 +108,7 @@
      한 강사·하루에 수업이 여러 개면 «첫 수업 시각» 을 그 날의 기준 시각으로 쓴다.
      — 사장님 지적대로 출근 기준은 강사마다 다르다. 고정 09:00 이 아니라 «그 사람의 첫 수업» 이다. */
   async function loadRecords() {
+    _awSkipped = { lms: 0, sample: 0 };   // 이번 조회에서 «수업이 아니라» 뺀 건수
     const { from, to } = getRange();
     const weeks = [];
     for (let d = _awMonday(from); d <= to; d.setDate(d.getDate() + 7)) weeks.push(dateStr(d));
@@ -102,6 +121,15 @@
         for (const it of (j.items || j.schedules || [])) {
           if (it.teacher_id == null || it.teacher_id === '') continue;
           if (it.type === 'blocked') continue;            // 휴무·휴가는 수업이 아니다
+          /* 🔴 (2026-08-12) 「규정출근시간」이 **옛 LMS 점유 슬롯의 첫 시각**으로 잡히고 있었다.
+             class_schedules 활성 667행 중 진짜 망고아이 수업은 9행뿐이고, 나머지는
+             user_id='lms'(518) / 'type_seed'(140) — 학생이 안 붙은 자리표시다.
+             그걸 세면 BELLE 은 「월요일 14:00 출근」이 되는데, 그 시간에 망고아이 수업은 없다.
+             수업이 아닌 것으로 출근·지각을 판정하면 **급여·평가로 이어지는 숫자가 통째로 거짓**이 된다.
+             → 서버가 주는 origin 으로 거른다(api-admin.ts). 몇 건을 걸렀는지는 화면에 밝힌다 —
+               조용히 빼면 「왜 우리 강사가 안 보이지」가 되고, 그때 이 필터를 되돌리게 된다. */
+          const _org = String(it.origin || 'class');
+          if (_org === 'lms' || _org === 'sample') { _awSkipped[_org] = (_awSkipped[_org] || 0) + 1; continue; }
           const date = String(it.date || '').slice(0, 10);
           if (!date) continue;
           const k = String(it.teacher_id) + '|' + date;
@@ -413,7 +441,20 @@
     chartWrap.style.display = 'none';
     tableWrap.style.display = 'block';
     if (!rows.length) {
-      tableWrap.innerHTML = '<div style="padding:36px;text-align:center;color:#9ca3af;font-size:13px">' + (isEn()?'No attendance records in this range.':'선택 기간에 출근 기록이 없습니다.') + '</div>';
+      /* 🔴 (2026-08-12) 그냥 「기록이 없습니다」로 끝내면 안 된다. 이 화면이 비는 가장 흔한 이유는
+         «기록이 없어서» 가 아니라 «그 기간 슬롯이 전부 LMS 점유·시드라 걸러져서» 다.
+         이유를 안 적으면 고장으로 읽히고, 그 오해가 이 필터를 되돌리게 만든다. */
+      const skipped = (_awSkipped.lms || 0) + (_awSkipped.sample || 0);
+      tableWrap.innerHTML = _awSeedBanner()
+        + '<div style="padding:36px;text-align:center;color:#9ca3af;font-size:13px;line-height:1.7">'
+        + (isEn() ? 'No Mangoi class in this range.' : '선택 기간에 <b>망고아이 수업</b>이 없습니다.')
+        + (skipped
+            ? '<br><span style="color:#b45309">' + (isEn()
+                ? ('All ' + skipped + ' slot(s) here are legacy-LMS / demo placeholders — not classes.')
+                : ('이 기간의 슬롯 ' + skipped + '건은 전부 옛 LMS 점유·시연 시드입니다 — 수업이 아닙니다.'))
+              + '</span>'
+            : '')
+        + '</div>';
       return;
     }
     tableWrap.innerHTML = (_awMode === 'byTeacher') ? renderByTeacher(rows) : renderByDate(rows);

@@ -158,7 +158,7 @@ export async function runDecisionGraphSync(
 
     // 취약도: 최선이 아니었거나(오답) 오답유형이 있는 이벤트를 스킬별로 집계
     if (skillTag && (!isOptimal || misc)) {
-      const key = studentId + '' + skillTag;
+      const key = studentId + '\x01' + skillTag;
       const cur = weakAgg.get(key);
       if (cur) { cur.count++; if (at > cur.last_at) cur.last_at = at; }
       else weakAgg.set(key, { student_id: studentId, skill: skillTag, count: 1, last_at: at });
