@@ -455,11 +455,26 @@ export async function handleMangoApi(
       // 📡 M1 — last_seen_at 은 서버 시각(now = Date.now(), 여기선 클라 값으로 대체되지 않음)
       let res;
       try {
+        /* 🆔 (2026-08-12) account_uid — «계정» 아이디를 따로 남긴다.
+           user_id 는 계정이 아니다. 로그인해도 브라우저 localStorage 의 기기 식별자
+           (`u_`+난수)가 오고, 로그인 안 하면 접속마다 바뀌는 임시 번호가 온다.
+           실측으로 한 기기 값이 두 계정에 걸쳐 있었다(같은 PC 를 두 사람이 씀).
+           그래서 이 표만으로는 «누구의 수업인가» 를 끝내 알 수 없었고, 녹화 참가자와
+           녹화 동의가 계정에 이어지지 못했다.
+           ⚠️ user_id 는 그대로 둔다 — 출석·발화시간 집계가 그 값에 이어져 있다. 새 칸만 더한다. */
         res = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, 'present', ?, ?)`
-        ).bind(b.room_id, b.user_id, b.username || null, b.role || 'student', now, date, now).run();
+          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?)`
+        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now).run();
       } catch {
+        // 컬럼이 아직 없는 배포본 → 한 번 만들어 두고 아래 기존 경로로 처리(다음 입장부터 채워진다)
+        try {
+          await env.DB.exec(`ALTER TABLE attendance ADD COLUMN account_uid TEXT`);
+        } catch (e: any) {
+          // 이미 있으면 여기로 온다(정상). 그 밖의 이유면 계정 아이디가 영영 안 쌓이므로 남긴다.
+          const m = String(e?.message || e);
+          if (!/duplicate column/i.test(m)) console.warn('[attendance] account_uid 컬럼 추가 실패:', m);
+        }
         // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
         res = await env.DB.prepare(
           `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
@@ -3041,8 +3056,80 @@ ${numbered}`;
         }
         await (env as any).SESSION_STATE?.put?.(rkey, String(cur + 1), { expirationTtl: 7200 });
       } catch { /* KV 장애로 정상 수업이 막히면 안 되므로 통과 */ }
-      // 동의 안 한 학생 필터링
       const participantIds = (b.participant_ids || []) as string[];
+      const participantNames = (b.participant_names || []) as string[];
+
+      // 🔴 2026-08-05: 화상수업 화면이 넘겨주는 참가자 정보는 «접속할 때마다 새로 생기는 임시
+      //   번호»(bsqcli1ybw1team263jbo 같은)와 화면 표시 이름뿐이라, 학생 «계정 아이디» 가 한 번도
+      //   안 들어갔다. 그래서 학생이 로그인해도 목록 API(participant_ids LIKE '%uid%')가 못 찾아
+      //   **자기 수업 녹화가 안 보였다** — 완료 416건 중 318건(76%)이 참가자=강사뿐.
+      //   같은 이유로 아래 동의 조회도 대상이 비어 consented_user_ids 가 416건 전부 빈 값이었다
+      //   (미성년 수업 영상인데 녹화 동의가 한 건도 기록되지 않음).
+      //   → 방 번호가 `class-<스케줄id>-<날짜>` 면 서버가 스케줄에서 학생 계정을 채운다.
+      //     클라이언트는 안 건드린다. (meet-*·mangoi-class 같은 공용방은 스케줄이 없어 해당 없음)
+      const schedMatch = /^class-(\d+)-/.exec(String(b.room_id || ''));
+      if (schedMatch) {
+        try {
+          const cs: any = await env.DB.prepare(
+            `SELECT user_id, student_name FROM class_schedules WHERE id = ?`
+          ).bind(parseInt(schedMatch[1], 10)).first();
+          const suid = String(cs?.user_id || '').trim();
+          const sname = String(cs?.student_name || '').trim();
+          if (suid && !participantIds.includes(suid)) participantIds.push(suid);
+          if (sname && !participantNames.includes(sname)) participantNames.push(sname);
+        } catch (e: any) {
+          console.error('[recordings] 스케줄에서 학생 채우기 실패:', e?.message || e);
+        }
+      }
+
+      /* 🏫 (2026-08-12) 공용방(`mangoi-class`)에는 스케줄이 없어 위 경로가 통째로 비켜간다.
+         [규모] 운영 D1 실측 recordings 1,552건 중 공용방이 1,329건(86%). 위 스케줄 경로가
+                덮는 `class-<id>-` 는 58건(3.7%)뿐이라, 공용방을 안 채우면 사실상 안 고친 것이다.
+         [무엇을 근거로 채우나] `attendance.last_seen_at`.
+                이 값은 클라이언트가 30초마다 부르는 /api/speaking-time 이 **서버 도착 시각으로**
+                찍는다(클라 값으로 대체되지 않는다). 그래서 위조도 과다계상도 안 된다.
+                user_id 역시 mango_token 과 다르면 거부되므로(_attnSoftAuthOk) 남의 계정을 못 적는다.
+         [왜 «겹침»이 아니라 «지금 살아 있음» 인가] left_at 은 자주 안 닫힌다 —
+                공용방 학생 1,583행 중 272행이 left_at 없음이고, 세션 길이 최대치가 15일이었다.
+                그걸로 시간겹침을 재면 무관한 학생까지 걸린다(느슨한 창으로 재 봤을 때 1,359건 중
+                1,122건이 «학생 2명 이상»에 걸렸다 = 남의 아이 영상이 보일 위험).
+                반면 「방금 하트비트를 보냈다」는 회선이 끊기면 바로 멈추므로 지금 있는 사람만 남는다.
+         [같은 방에 여럿이면?] 공용방은 Durable Object 하나(정원 4명)라, 같은 시각에 있는 사람은
+                서로의 화면을 이미 보고 있는 «같은 수업»이다. 함께 적는 것이 사실과 맞다.
+         [안전] 실패해도 녹화는 그대로 시작된다(try 로 감쌌다). */
+      if (!schedMatch) {
+        try {
+          /* 세 조건을 모두 만족해야 «지금 이 방에 있는 사람» 이다. 하나라도 빼면 남이 섞인다.
+             ① 하트비트가 90초 안 — 주기가 30초이므로 3번 연속 안 오면 끊긴 것으로 본다
+             ② 아직 나가지 않음 — 퇴장은 sendBeacon 으로 left_at 을 남긴다
+             ③ 이미 들어와 있음 — joined_at 이 녹화 시작보다 앞(시계 오차 60초 허용)
+             느슨하게 3분+겹침으로 재 봤더니 앞 수업 학생까지 걸려 한 녹화에 9개 아이디가 붙었다. */
+          const FRESH_MS = 90 * 1000;
+          const live = await env.DB.prepare(
+            `SELECT DISTINCT account_uid, username
+               FROM attendance
+              WHERE room_id = ?
+                AND last_seen_at IS NOT NULL
+                AND last_seen_at >= ?
+                AND joined_at <= ?
+                AND (left_at IS NULL OR left_at >= ?)`
+          ).bind(b.room_id, now - FRESH_MS, now + 60000, now).all();
+          for (const r of ((live.results || []) as any[])) {
+            /* 🆔 account_uid «만» 쓴다. user_id 는 계정이 아니라 기기·접속 식별자라
+               학생 로그인과 영영 안 맞는다(그걸 넣으면 목록·재생·동의 어느 것도 안 붙는다).
+               로그인 안 한 참가자는 account_uid 가 비어 있고, 그건 지금 구조로는 계정을 알 길이
+               없다는 뜻이다 — 이름만 남긴다. */
+            const uid = String(r.account_uid || '').trim();
+            const unm = String(r.username || '').trim();
+            if (uid && !participantIds.includes(uid)) participantIds.push(uid);
+            if (unm && !participantNames.includes(unm)) participantNames.push(unm);
+          }
+        } catch (e: any) {
+          console.error('[recordings] 공용방 참가자 채우기 실패:', e?.message || e);
+        }
+      }
+
+      // 동의 안 한 학생 필터링
       let consentedIds: string[] = [];
       if (participantIds.length > 0) {
         // ⚠️ (2026-08-07) participant_ids 는 요청 본문에서 그대로 온 배열입니다.
@@ -3052,6 +3139,36 @@ ${numbered}`;
           (ph) => `SELECT user_id FROM consents WHERE user_id IN (${ph}) AND withdrawn_at IS NULL AND recording_consent = 1`);
         consentedIds = rows.map(r => r.user_id);
       }
+
+      /* 🛑 (2026-08-12 사장님 결정) «동의하지 않았으면 녹화 자체를 하지 않는다».
+         예전엔 동의를 조회만 하고 결과에 상관없이 녹화를 만들었다(자동녹화는 팝업조차 건너뛰었다).
+
+         [무엇을 «미동의» 로 볼 것인가 — 여기가 이 규칙의 전부다]
+         판정 대상은 «누구인지 아는 학생» 뿐이다:
+           · 강사 본인(teacher_id)은 뺀다 — 촬영 주체지 피촬영 동의 대상이 아니다.
+           · 임시 접속번호는 뺀다 — 비로그인 참가자라 어떤 동의 행과도 이어지지 않는다.
+             이걸 «미동의» 로 세면 로그인 안 한 사람이 한 명만 있어도 수업 녹화가 통째로 멈춘다.
+         ⚠️ 그래서 이 게이트는 «신원이 확인된 학생이 거부했거나 아직 안 물어봤을 때» 막는다.
+            비로그인 참가자는 못 막는다 — 남은 구멍이며, 그건 로그인 강제가 있어야 닫힌다.
+
+         [왜 지금 켜도 수업이 안 멈추나] 학생 화면이 입장할 때 동의를 먼저 묻고(mango-consent.js),
+         그 답이 저장된 뒤에야 녹화가 시작된다. 즉 «아직 안 물어본 사람» 은 정상 흐름에서 안 생긴다.
+         그래도 막혔다면 그건 진짜 미동의이므로 막는 것이 맞다. */
+      const _looksEphemeral = (s: string) => /^[a-z0-9]{18,}$/.test(s);
+      const teacherId = String(b.teacher_id || '').trim();
+      const identified = participantIds.filter(id =>
+        id && id !== teacherId && !_looksEphemeral(String(id)));
+      const blockers = identified.filter(id => !consentedIds.includes(id));
+      if (blockers.length > 0) {
+        console.log(`[recordings] 동의 없음으로 녹화 거절 room=${b.room_id} 미동의=${blockers.join(',')}`);
+        return json({
+          ok: false,
+          error: 'consent_required',
+          non_consented: blockers,
+          message: '녹화 동의를 하지 않은 참가자가 있어 녹화를 시작하지 않았습니다.'
+        }, 200);   // 200 — 수업 화면이 «실패» 로 오인해 재시도 폭주하지 않도록(본문으로 판단)
+      }
+
       // 녹화 보관기간 = 3개월 (2026-08-06 사장님 결정. 그 전 값은 30일이었다)
       // ⚠️ 이 값은 «앞으로 만들어질» 녹화에만 적용된다. 이미 있는 행의 expires_at 은
       //    그대로 둔다 — 학부모가 동의한 시점의 기간보다 더 오래 갖고 있게 되면
@@ -3063,7 +3180,7 @@ ${numbered}`;
       ).bind(
         b.room_id, b.teacher_id, b.teacher_name || null,
         b.filename || `rec_${b.room_id}_${now}.webm`,
-        JSON.stringify(participantIds), JSON.stringify(b.participant_names || []),
+        JSON.stringify(participantIds), JSON.stringify(participantNames),
         JSON.stringify(consentedIds), now, now + RETENTION_MS
       ).run();
       return json({
@@ -3263,6 +3380,14 @@ ${numbered}`;
     if (path === '/api/consents' && method === 'POST') {
       const b = await parseJsonBody(request);
       if (!b || !b.user_id) return invalidBody(['user_id']);
+      /* 🔐 (2026-08-12) 남의 이름으로 동의를 만들 수 없게 한다.
+         예전엔 아무 검사가 없었다. 그때는 이 표가 아무 데도 안 쓰여서 티가 안 났지만,
+         이제 이 값이 «녹화를 할지 말지» 를 정한다 — 위조가 되면 남의 아이 동의를 대신
+         눌러 녹화를 켤 수 있고, 반대로 남의 동의를 «철회» 시켜 수업 녹화를 끌 수도 있다.
+         출석과 같은 규칙을 쓴다(_attnSoftAuthOk): 자격증명이 있는데 그게 다른 uid 를
+         가리킬 때만 거부한다. 자격증명이 아예 없는 요청은 예전처럼 통과시킨다 —
+         여기서 조이면 로그인 없이 들어온 학생이 동의를 «남길 수조차» 없어진다. */
+      if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       const ip = request.headers.get('cf-connecting-ip') || '';
       const ua = request.headers.get('user-agent') || '';
@@ -3296,6 +3421,9 @@ ${numbered}`;
 
     if (path === '/api/consents/withdraw' && method === 'POST') {
       const b = await request.json() as any;
+      if (!b || !b.user_id) return invalidBody(['user_id']);
+      // 🔐 철회도 본인만 — 남의 동의를 철회시키면 그 학생 수업의 녹화가 꺼진다(위와 같은 규칙).
+      if (!(await _attnSoftAuthOk(b.user_id, b))) return json({ ok: false, error: 'uid_mismatch' }, 403);
       const now = Date.now();
       await env.DB.prepare(
         `UPDATE consents SET withdrawn_at = ? WHERE user_id = ? AND withdrawn_at IS NULL`
