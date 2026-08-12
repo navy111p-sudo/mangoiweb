@@ -7273,9 +7273,9 @@ window.mgIsSlowNet = function(){
         운영 DB 의 mango_videos 398건 중 BTS 113·Teachers 3 건이 여기 걸린다.
         관리자 화면에서는 그대로 보이고, 지우는 것은 사람이 정할 일이다.
      [되살리려면] 아래 배열에서 이름만 빼면 즉시 돌아온다.
-     ⚠️ MES 영상(138건)은 **일부러 남겼다** — 요청서가 지목한 것은 「MES 책」이고
-        영상은 BTS·SIU·교사안내만 적혀 있었다. 영상까지 빼려면 여기에 'MES' 를 더하면 된다. */
-  var MV_RETIRED = ['BTS', 'SIU', 'TEACHER'];
+     (2026-08-13 사장님 지시) MES 영상 138건도 숨긴다 — 「사이트 영상에서도 MES 숨겨줘」.
+        처음(8/11)엔 요청서가 「MES 책」만 지목해 영상은 남겼었다. 데이터는 여전히 안 지운다. */
+  var MV_RETIRED = ['BTS', 'SIU', 'TEACHER', 'MES'];
   function mvIsRetired(v) {
     try {
       var s = ((v && v.title) || '') + ' ' + ((v && v.title_en) || '') + ' ' + ((v && v.category) || '');
