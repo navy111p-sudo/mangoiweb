@@ -1586,11 +1586,45 @@ export async function handleAdminApi(
       (lateRows.results || []).forEach((r: any) => { lateMap[`${r.schedule_id}|${r.lesson_date}`] = Math.max(0, Number(r.minutes) || 0); });
 
       // 강사 목록 + 단가 + 등급
+      //   ⚠️ (2026-08-12) 강사 번호 체계가 **둘**이다 — class_schedules.teacher_id 는 원부
+      //   teachers.id 인데 단가·등급·이름은 teacher_profiles 에 있고, 두 id 는 서로 다른
+      //   일련번호다(예: KAYE = teachers 8 / profiles 11). 예전엔 tMap[l.teacher_id] 로
+      //   프로필을 번호 직조회했는데, 라이브 대조 결과 **우연히라도 일치하는 강사가 0명** —
+      //   전원이 남의 프로필(=남의 단가·남의 이름)에 붙어 있었다.
+      //   → 원부(teachers)를 함께 읽어 ① linked_teacher_id(관리자 「🔗 강사 연결」/auto-match 가
+      //     채우는 수동 연결) ② 정규화 이름 «유일» 일치(auto-match 와 같은 규칙) 순서로
+      //     «teachers.id → 프로필» 다리를 놓는다. 동명이인·부분일치는 자동 연결하지 않는다
+      //     (틀린 연결 = 남의 급여). linked_teacher_id 컬럼이 없는 배포본도 SELECT * 라 안 죽는다.
       const teachers: any = await env.DB.prepare(
-        `SELECT id, korean_name, english_name, fee_per_10min, level FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
+        `SELECT * FROM teacher_profiles WHERE status = '활동중' OR status IS NULL ORDER BY korean_name`
       ).all().catch(() => ({ results: [] }));
-      const tMap: any = {}; const tByName: any = {};
-      for (const t of (teachers.results || [])) { tMap[t.id] = t; if (t.korean_name) tByName[t.korean_name] = t; if (t.english_name) tByName[t.english_name] = t; }
+      const tByName: any = {};
+      for (const t of (teachers.results || [])) { if (t.korean_name) tByName[t.korean_name] = t; if (t.english_name) tByName[t.english_name] = t; }
+      const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers`).all().catch(() => ({ results: [] }));
+      const normTeacher = (s: any) => String(s || '').trim().toUpperCase().replace(/^TEACHER\s+/, '').replace(/\s+/g, ' ');
+      const teacherNameById: any = {};   // String(teachers.id) → 원부 이름 (프로필 미연결 강사 표시용)
+      const profByTeacherId: any = {};   // String(teachers.id) → teacher_profiles 행
+      {
+        const byNorm = new Map<string, any[]>();
+        for (const t of (tRows.results || [])) {
+          teacherNameById[String(t.id)] = t.name;
+          const n = normTeacher(t.name);
+          if (!n) continue;
+          if (!byNorm.has(n)) byNorm.set(n, []);
+          byNorm.get(n)!.push(t);
+        }
+        // 1패스: 관리자가 손으로 확인한 연결(linked_teacher_id)이 항상 우선
+        for (const p of (teachers.results || [])) {
+          const linkTid = (p.linked_teacher_id != null && p.linked_teacher_id !== '') ? String(p.linked_teacher_id) : '';
+          if (linkTid && !profByTeacherId[linkTid]) profByTeacherId[linkTid] = p;
+        }
+        // 2패스: 나머지는 정규화 이름이 «유일하게» 일치할 때만
+        for (const p of (teachers.results || [])) {
+          if (p.linked_teacher_id != null && p.linked_teacher_id !== '') continue;
+          const cands = byNorm.get(normTeacher(p.korean_name)) || byNorm.get(normTeacher(p.english_name)) || [];
+          if (cands.length === 1 && !profByTeacherId[String(cands[0].id)]) profByTeacherId[String(cands[0].id)] = p;
+        }
+      }
 
       // 이 달 수업 (취소 제외)
       //   ⚠️ 실제 운영 class_schedules 스키마는 코드 DDL과 다르다(2026-07-10 확인):
@@ -1598,8 +1632,12 @@ export async function handleAdminApi(
       //   그리고 전 행이 schedule_kind='recurring'(요일 반복, scheduled_date=NULL).
       //   → SELECT * 로 어떤 스키마든 읽고, 반복 스케줄은 해당 월의 날짜 인스턴스로 전개한다.
       const ymPrefix = `${year}-${String(month).padStart(2, '0')}`;
+      //   ⚠️ (2026-08-12) user_id 가 'lms'(구 LMS 점유 슬롯 — 수업이 아니라 자리 표시,
+      //   운영 667행 중 대부분)·'type_seed'(시드 데이터)인 행은 급여·출석 계산에서 제외한다.
+      //   안 거르면 점유 슬롯이 «완료 수업» 으로 잡혀 급여에 그대로 합산된다.
       const ls: any = await env.DB.prepare(
-        `SELECT * FROM class_schedules WHERE COALESCE(status,'active') != 'cancelled' AND teacher_id IS NOT NULL`
+        `SELECT * FROM class_schedules WHERE COALESCE(status,'active') != 'cancelled' AND teacher_id IS NOT NULL
+            AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
       ).all().catch(() => ({ results: [] }));
 
       const DOW: any = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6 };
@@ -1728,9 +1766,11 @@ export async function handleAdminApi(
       for (const l of instances) {
         const dateStr = l._date;
         const roomId = `class-${l.id}-${dateStr.replace(/-/g, '')}`;
-        const prof = tMap[l.teacher_id] || tByName[l.teacher_name || ''] || null;
+        // teacher_id(원부 teachers.id) → 연결된 프로필. 번호 직조회(tMap[l.teacher_id])는
+        // 다른 번호 체계라 남의 프로필이 나온다 — 위 profByTeacherId 다리로만 건넌다.
+        const prof = profByTeacherId[String(l.teacher_id)] || tByName[l.teacher_name || ''] || null;
         const mins = l._mins;
-        const teacherName = l.teacher_name || (prof ? prof.korean_name : null);
+        const teacherName = l.teacher_name || (prof ? prof.korean_name : null) || teacherNameById[String(l.teacher_id)] || null;
         // 등급(Level) + 요율: 개별 fee_per_10min 우선, 없으면 등급 기본요율(rate_per_20min/2)
         const levelCode: string | null = (prof && prof.level) ? String(prof.level) : null;
         const lvl = levelCode ? levelMap[levelCode] : null;
@@ -1797,7 +1837,7 @@ export async function handleAdminApi(
           schedule_id: l.id, room_id: roomId, date: dateStr, start_time: l.start_time || '', end_time: endTime,
           duration_minutes: mins, user_id: l.user_id || null,
           student_name: l.student_name || stuName[l.user_id] || null,
-          teacher_id: l.teacher_id, teacher_name: teacherName,
+          teacher_id: l.teacher_id, profile_id: prof ? prof.id : null, teacher_name: teacherName,
           lesson_type: lessonType,
           level_code: levelCode, level_label_ko: lvl ? lvl.label_ko : null, level_label_en: lvl ? lvl.label_en : null,
           rate_per_20min: rate20,
@@ -1810,8 +1850,13 @@ export async function handleAdminApi(
           feedback_ok: fbOk, deductions: dedus, deduction_total: dSum, net_amount: netAmount,
         });
 
-        const agg = perTeacher[l.teacher_id] || (perTeacher[l.teacher_id] = {
-          teacher_id: l.teacher_id, lesson_count: 0, upcoming_count: 0, finish_count: 0,
+        // 집계 키: 연결된 프로필 id(급여 화면 로스터·teacher_payroll 저장이 프로필 기준).
+        // 프로필 미연결 강사는 't{원부id}' — 원부 번호를 그대로 키로 쓰면 같은 번호의
+        // 프로필(=다른 강사) 줄에 합산되는 사고가 나서 접두사로 격리한다.
+        const aggKey = prof ? String(prof.id) : ('t' + String(l.teacher_id));
+        const agg = perTeacher[aggKey] || (perTeacher[aggKey] = {
+          teacher_id: l.teacher_id, profile_id: prof ? prof.id : null, teacher_name: teacherName,
+          lesson_count: 0, upcoming_count: 0, finish_count: 0,
           absent_count: 0, postponed_count: 0, teacher_no_show_count: 0, no_feedback_count: 0,
           total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0,
         });
@@ -1829,7 +1874,7 @@ export async function handleAdminApi(
         agg.final_amount = agg.pay_amount - agg.deduction_total;
       }
 
-      return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, postponed_pay_percent: postponePct, lessons, perTeacher, teachers: teachers.results || [] };
+      return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, postponed_pay_percent: postponePct, lessons, perTeacher, teachers: teachers.results || [], teacherNames: teacherNameById };
     };
 
     // ── GET /api/admin/payroll/calculate?year=&month= — 월별 강사 급여 자동 계산 ──
@@ -1900,6 +1945,33 @@ export async function handleAdminApi(
           payroll_id: s?.id || null,
         });
       }
+      // 프로필 미연결 강사(원부 teachers 에만 있고 teacher_profiles 연결이 안 된 강사)의 수업 —
+      // 예전엔 같은 번호의 «다른 강사» 프로필 줄에 합산됐다. 이제 별도 행으로 분리해 보여 준다.
+      // 단가 정보(프로필·등급)가 없어 금액은 0 — 관리자 「🔗 강사 연결」로 프로필을 이으면
+      // 다음 계산부터 그 강사 줄에 정상 단가로 붙는다.
+      for (const k of Object.keys(data.perTeacher || {})) {
+        if (!/^t\d+$/.test(k)) continue;
+        const a = (data.perTeacher as any)[k];
+        if (_prOwn && !sameTeacherName(_prOwn, a.teacher_name)) continue;
+        const s = savedMap[k];
+        totalAmount += a.pay_amount;
+        totalLessons += a.lesson_count;
+        totalDeduction += a.deduction_total;
+        totalFinal += a.final_amount;
+        if (s && s.status === 'paid') paidCount++;
+        rows.push({
+          teacher_id: k, korean_name: a.teacher_name, english_name: null,
+          unlinked_profile: true,
+          fee_per_10min: 0, level_code: null, level_label_ko: null, level_label_en: null, rate_per_20min: 0,
+          lesson_count: a.lesson_count, total_minutes: a.total_minutes,
+          calculated_amount: a.pay_amount, deduction_total: a.deduction_total, final_amount: a.final_amount,
+          finish_count: a.finish_count, absent_count: a.absent_count,
+          teacher_no_show_count: a.teacher_no_show_count, no_feedback_count: a.no_feedback_count,
+          upcoming_count: a.upcoming_count,
+          adjusted_amount: s?.adjusted_amount ?? null, paid_amount: s?.paid_amount ?? null,
+          status: s?.status || 'pending', paid_at: s?.paid_at || null, memo: s?.memo || null, payroll_id: s?.id || null,
+        });
+      }
       return json({
         ok: true, year, month,
         summary: {
@@ -1924,7 +1996,10 @@ export async function handleAdminApi(
       const now = new Date();
       const year = parseInt(url.searchParams.get('year') || String(now.getFullYear()), 10);
       const month = parseInt(url.searchParams.get('month') || String(now.getMonth() + 1), 10);
-      let tid = parseInt(url.searchParams.get('teacher_id') || '', 10) || 0;
+      const tidParamRaw = (url.searchParams.get('teacher_id') || '').trim();
+      let tid = parseInt(tidParamRaw, 10) || 0;
+      // 프로필 미연결 강사 행(/calculate 가 만든 합성 키 teacher_id='t{원부id}')의 상세 조회 지원
+      let rawTid = /^t\d+$/i.test(tidParamRaw) ? tidParamRaw.slice(1) : '';
       let tname = (url.searchParams.get('teacher_name') || '').trim();
       // 🔐 강사(teacher) 로그인 시엔 요청한 teacher_id/teacher_name 을 무시하고 항상 본인 것만.
       //   (강사가 남의 teacher_id 를 넣어 타인의 수업별 단가·공제를 조회하는 것을 서버에서 차단)
@@ -1932,6 +2007,7 @@ export async function handleAdminApi(
       if (_lsActor.isTeacher) {
         if (!_lsActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
         tid = 0;
+        rawTid = '';
         tname = _lsActor.name;
       }
 
@@ -1953,18 +2029,23 @@ export async function handleAdminApi(
         });
       }
 
-      if (!tid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
+      if (!tid && !rawTid && !tname) return json({ ok: false, error: 'teacher_id_or_teacher_name_required' }, 400);
 
       const data = await computeLessonFeeMonth(year, month);
       let teacher: any = null;
       if (tid) teacher = (data.teachers || []).find((t: any) => t.id === tid) || null;
-      else {
-        teacher = (data.teachers || []).find((t: any) => t.korean_name === tname || t.english_name === tname) || null;
+      else if (!rawTid) {
+        teacher = (data.teachers || []).find((t: any) => sameTeacherName(t.korean_name, tname) || sameTeacherName(t.english_name, tname)) || null;
         if (teacher) tid = teacher.id;
       }
-      // 운영 DB teacher_id 는 TEXT("28") — 숫자/문자 혼용에 안전하게 문자열 비교
+      /* ⚠️ (2026-08-12) 두 번호 체계 — l.teacher_id 는 원부 teachers.id, tid 는 teacher_profiles.id.
+         예전엔 String(l.teacher_id) === String(tid) 로 번호끼리 직접 비교해서, 프로필 번호와
+         같은 번호의 «다른 강사» 수업이 나왔다(라이브 대조 결과 우연 일치 0명 — 전원 남의 수업).
+         이제 수업 행에 실어 둔 profile_id(연결된 프로필)로 거른다. */
       const lessons = data.lessons.filter((l: any) =>
-        (tid && String(l.teacher_id) === String(tid)) || (!tid && tname && l.teacher_name === tname));
+        (rawTid && String(l.teacher_id) === rawTid) ||
+        (tid && String(l.profile_id ?? '') === String(tid)) ||
+        (tname && sameTeacherName(l.teacher_name, tname)));
 
       // 필터된 수업으로 요약 재계산 (이름만 일치하는 프로필 없는 강사도 지원)
       const sum: any = { lesson_count: 0, upcoming_count: 0, finish_count: 0, absent_count: 0, postponed_count: 0, teacher_no_show_count: 0, no_feedback_count: 0, total_minutes: 0, base_amount: 0, pay_amount: 0, deduction_total: 0, final_amount: 0 };
@@ -1993,7 +2074,7 @@ export async function handleAdminApi(
           level_label_ko: _tLvl ? _tLvl.label_ko : null,
           level_label_en: _tLvl ? _tLvl.label_en : null,
           rate_per_20min: teacher.fee_per_10min ? Number(teacher.fee_per_10min) * 2 : (_tLvl ? Number(_tLvl.rate_per_20min) || 0 : 0),
-        } : { id: tid || null, korean_name: tname || null },
+        } : { id: rawTid ? ('t' + rawTid) : (tid || null), korean_name: tname || (rawTid ? ((data as any).teacherNames || {})[rawTid] || null : null) },
         summary: sum,
         rules: (data.rules || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rule_type: r.rule_type, amount: r.amount, enabled: r.enabled })),
         levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
@@ -2673,10 +2754,12 @@ export async function handleAdminApi(
 
       // 그날 완료된 이 강사의 수업(반복 전개 포함) — 정산 엔진 재사용으로 계산과 100% 일치
       const data = await computeLessonFeeMonth(gy, gm);
-      const prof = (data.teachers || []).find((t: any) => t.korean_name === teacherName || t.english_name === teacherName);
+      const prof = (data.teachers || []).find((t: any) => sameTeacherName(t.korean_name, teacherName) || sameTeacherName(t.english_name, teacherName));
+      // ⚠️ 두 번호 체계 — l.teacher_id 는 원부 teachers.id 라 프로필 번호와 비교하면 남의 수업이
+      //   잡힌다. 수업 행의 profile_id(연결된 프로필)로 거른다(2026-08-12, payroll/lessons 와 동일 수리).
       const done = data.lessons.filter((l: any) =>
         l.date === dateStr && l.status === 'finish' &&
-        ((prof && String(l.teacher_id) === String(prof.id)) || l.teacher_name === teacherName));
+        ((prof && String(l.profile_id ?? '') === String(prof.id)) || sameTeacherName(l.teacher_name, teacherName)));
 
       // 이미 초안 있는 방 제외
       const roomIds = done.map((l: any) => l.room_id);
