@@ -4545,19 +4545,12 @@ function vcApplyLowPower(pc) {
   }
 
   /* 🔴 (2026-08-12 마이마이 재신고 「탭을 열 때마다 강사 영상이 꺼진다」)
-     «강사가 아니면 끈다»(!staffNow) 로는 부족했다 — 로그인은 됐지만 role 이 비어
-     vcIsTeacherRole() 이 false 를 돌려주는 강사, vcMyRole 이 아직 확정되기 전의 강사가
-     전부 «학생» 으로 오판돼 카메라가 꺼졌다.
-     → 절약은 «학생이 확실할 때만» 건다. 역할이 불확실하면 끄지 않는다
-       (학생 배터리를 조금 못 아끼는 것 < 강사 얼굴이 검게 되는 사고). */
+     «강사가 아니면 끈다»(!staffNow) 로는 부족했다 — 역할이 아직 확정되지 않은 강사가
+     «학생» 으로 오판돼 카메라가 꺼졌다. → 절약은 «확실한 학생»(정본 vcIsStudentNow)일 때만.
+     ⚠️ 역할 추측을 여기서 하지 않는다 — 판정은 전부 정본(vcIsStaffNow/vcIsStudentNow)에 있다. */
   function studentNow(){
-    if (staffNow()) return false;
-    try {
-      if (window.vcMyRole === 'student' || window.vcMyRole === 'observer') return true;
-      var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-      if (u && String(u.role || '').toLowerCase() === 'student') return true;
-    } catch(_){}
-    return false;
+    try { if (typeof vcIsStudentNow === 'function') return !!vcIsStudentNow(); } catch(_){}
+    return !staffNow();   // 정본이 없는 옛 환경에서는 종전 동작(강사 아님=학생) 유지
   }
   // 수업 중 + «확실한 학생»일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
   function active(){ return document.body.classList.contains('vc-in-call') && studentNow(); }
@@ -5337,6 +5330,21 @@ window.vcIsStaffNow = function(){
         if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return true;
         return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
     } catch(e){ return false; }
+};
+/* 🎭 (2026-08-13) 학생 판정의 «정본» — 배터리 절전 등 «학생일 때만» 거는 기능은 전부 이걸 쓴다.
+   [왜 별도로 두는가] «강사가 아니면 학생»(!vcIsStaffNow) 판정은 역할이 아직 확정되지 않은
+   강사(로그인은 됐지만 role 이 빈 값, vcMyRole 미설정 입장 경로)를 학생으로 오판해
+   탭 전환마다 강사 카메라를 꺼 버렸다(필리핀 매니저 재신고 8/10).
+   → «확실한 학생»만 true. 역할이 불확실하면 false — 학생 배터리를 조금 못 아끼는 것이
+   강사 얼굴이 검게 되는 사고보다 싸다. 역할 추측은 이 정본 안에서만 한다. */
+window.vcIsStudentNow = function(){
+    try {
+        if (window.vcIsStaffNow && window.vcIsStaffNow()) return false;
+        if (window.vcMyRole === 'student' || window.vcMyRole === 'observer') return true;
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && String(u.role || '').toLowerCase() === 'student') return true;
+    } catch(e){}
+    return false;
 };
 
 /* 🪞 (2026-08-12 강사 Shas 1번) AI 웜업 — 학생의 대화를 강사 화면에 비춰 준다.
