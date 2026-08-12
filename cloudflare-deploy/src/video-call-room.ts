@@ -86,6 +86,15 @@ export class VideoCallRoom {
   private wbOps: { t: string; d: any }[] = [];
   private static readonly WB_OPS_MAX = 4000;
 
+  /** ✍️ (2026-08-12 Melca) 교재(PDF) 판서도 칠판과 같은 이유로 버퍼 —
+   *  "학생 필기가 강사 화면에 안 보인다" 신고의 한 갈래가 «늦게 들어온·새로고침한 강사» 였다.
+   *  칠판(wbOps)은 2026-08-08 에 replay 가 생겼는데 교재 판서만 빠져 있었다.
+   *  점(point)은 획(stroke) 안에 압축해 쌓는다 — 점 하나가 op 하나면 상한이 획 몇 개로 끝난다.
+   *  ✨ 사라지는 펜(vanish)은 기록하지 않는다(재입장 때 옛 획이 되살아나는 것 방지). */
+  private pdfAnnoOps: { t: string; d: any }[] = [];
+  private pdfAnnoStrokes: Record<string, any> = {};
+  private static readonly PDF_ANNO_OPS_MAX = 2000;
+
   // 🔁 (2026-07-24) 무중단 재연결 스위치. wrangler.toml 의 VC_STICKY_UID='on' 일 때만 켜진다.
   //   기본값은 꺼짐 → 아래 인계 로직을 전부 건너뛰고 예전과 100% 동일하게 동작한다.
   //   서버 변수 하나로 클라 재배포 없이 즉시 원복 가능(문제 시 'off' 로 바꾸고 재배포).
@@ -175,12 +184,12 @@ export class VideoCallRoom {
         case 'chat-message':    this.handleChatMessage(userId, msg.data as any); break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
-        case 'pdf-share':       await this.handlePdfShare(userId, msg.data as any); break;
+        case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
         case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
-        case 'pdf-stop-share':  await this.handlePdfStopShare(userId); break;
+        case 'pdf-stop-share':  await this.handlePdfStopShare(userId, att); break;
         case 'video-share':
-        case 'video-sync':      await this.handleVideoShare(userId, msg.data as any); break;
-        case 'video-stop-share':await this.handleVideoStopShare(userId); break;
+        case 'video-sync':      await this.handleVideoShare(userId, att, msg.data as any); break;
+        case 'video-stop-share':await this.handleVideoStopShare(userId, att); break;
         case 'pdf-anno-start':
         case 'pdf-anno-point':
         case 'pdf-anno-text':
@@ -219,6 +228,10 @@ export class VideoCallRoom {
           if (msg.type === 'whiteboard-text' || msg.type === 'whiteboard-shape' || msg.type === 'whiteboard-stroke') {
             this.recordWb(msg.type, msg.data);
           }
+          /* ✍️ (2026-08-12 Melca) 교재 판서도 기록 — 늦게 들어온 강사에게 pdf-anno-replay 로 돌려준다 */
+          if (msg.type.startsWith('pdf-anno-')) {
+            this.recordPdfAnno(msg.type, msg.data);
+          }
           this.broadcast(userId, { type: msg.type, data: msg.data });
           break;
         case 'bg-lock':              // 🔒 강사 → 학생 수업 통제 잠금 4종 (공통 처리)
@@ -243,6 +256,14 @@ export class VideoCallRoom {
           const dfRole = (att.role || '').toLowerCase();
           if (!this.isJoined(userId) || (dfRole !== 'teacher' && dfRole !== 'admin')) break;
           this.broadcast(userId, { type: msg.type, data: msg.data });
+          break;
+        }
+        /* 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 강사 전용. 수신 학생은 토스트와
+           강사 타일 «화면 공유 중» 배지를 그린다. fromUserId 를 실어 어느 타일인지 알려 준다. */
+        case 'screen-share-state': {
+          const ssRole = (att.role || '').toLowerCase();
+          if (!this.isJoined(userId) || (ssRole !== 'teacher' && ssRole !== 'admin')) break;
+          this.broadcast(userId, { type: 'screen-share-state', data: { ...(msg.data || {}), fromUserId: userId } });
           break;
         }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
@@ -348,6 +369,7 @@ export class VideoCallRoom {
       this.videoState = null;
       this.mediaAt = 0;
       this.wbOps = [];   // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
+      this.pdfAnnoOps = []; this.pdfAnnoStrokes = {};   // ✍️ 교재 판서도 함께
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
@@ -388,12 +410,20 @@ export class VideoCallRoom {
     if (this.wbOps.length) {
       this.send(effectiveUserId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
     }
+    /* ✍️ (2026-08-12 Melca) 교재 판서도 돌려준다 — 칠판만 replay 되고 교재는 빠져 있던 구멍 */
+    if (this.pdfAnnoOps.length) {
+      this.send(effectiveUserId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });
+    }
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
-    // 🔒 통제 잠금(배경/음소거/집중/필기) 중이면 늦게 입장한 학생에게도 즉시 적용
+    // 🔒 통제 잠금(배경/음소거/집중/필기) 상태를 늦게 입장한 사람에게 즉시 적용.
+    //   (2026-08-12 Melca) 켜짐만 보내던 것을 «꺼짐도» 보낸다 — 이전 수업에서 잠금을 겪은
+    //   클라이언트는 localStorage/전역에 true 가 굳어 있는데, 「해제됨」 신호가 없으면
+    //   교재를 올린 뒤에도 학생 펜이 영영 안 풀리는 것처럼 보였다(8/12 「잠금 해제해도 안 됨」 신고).
     for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
-      if (this.lockState[key]) this.send(effectiveUserId, { type: msgType, data: { locked: true, on: true } });
+      const lk = !!this.lockState[key];
+      this.send(effectiveUserId, { type: msgType, data: { locked: lk, on: lk } });
     }
 
     if (!inherited) {
@@ -445,6 +475,7 @@ export class VideoCallRoom {
     this.send(userId, { type: 'room-joined', data: { roomId: this.roomId, userId, userCount: users.length, pdfState: this.pdfState, observer: true } });
     this.send(userId, { type: 'existing-users', data: { users, pdfState: this.pdfState } });
     if (this.wbOps.length) this.send(userId, { type: 'whiteboard-replay', data: { ops: this.wbOps } });
+    if (this.pdfAnnoOps.length) this.send(userId, { type: 'pdf-anno-replay', data: { ops: this.pdfAnnoOps } });
     if (this.pdfState) this.send(userId, { type: 'pdf-sync', data: this.pdfState });
     if (this.videoState) this.send(userId, { type: 'video-share', data: this.videoState });
     console.log(`[VideoChat] 👁 Observer joined room ${this.roomId} (uid=${userId}, watching ${users.length})`);
@@ -513,6 +544,11 @@ export class VideoCallRoom {
       if (this.lockState[k]) {
         this.lockState[k] = false;
         void this.state.storage.delete(k);
+        // (2026-08-12 Melca) 해제를 방송도 한다 — 방이 비며 풀릴 때 남아 있던(참관자 등)
+        //   소켓과, 브로드캐스트 직후 재접속한 클라이언트의 stale 잠금 방지. 빈 방이면 no-op.
+        for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
+          if (key === k) this.broadcastAll({ type: msgType, data: { locked: false, on: false } });
+        }
       }
     }
   }
@@ -583,10 +619,44 @@ export class VideoCallRoom {
     } catch {}
   }
 
-  private async handlePdfShare(userId: string, data: any): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  /* ✍️ (2026-08-12 Melca) 교재 판서 기록 — 점은 획 안에 압축, 사라지는 펜은 제외.
+     clear/undo 는 순서대로 함께 기록해 재생 시 같은 결과가 나오게 한다. */
+  private recordPdfAnno(type: string, data: any): void {
+    try {
+      if (!data) return;
+      if (type === 'pdf-anno-start') {
+        if (data.tool === 'vanish') return;
+        const s = { page: data.page, tool: data.tool, color: data.color, size: data.size, id: data.id, points: [data.point] };
+        this.pdfAnnoOps.push({ t: 'stroke', d: s });
+        if (data.id != null) this.pdfAnnoStrokes[data.id] = s;
+      } else if (type === 'pdf-anno-point') {
+        const s = (data.id != null) ? this.pdfAnnoStrokes[data.id] : null;
+        if (s) s.points.push(data.point);
+      } else if (type === 'pdf-anno-text' || type === 'pdf-anno-shape'
+              || type === 'pdf-anno-clear' || type === 'pdf-anno-undo') {
+        this.pdfAnnoOps.push({ t: type, d: data });
+      }
+      if (this.pdfAnnoOps.length > VideoCallRoom.PDF_ANNO_OPS_MAX) {
+        const dropped = this.pdfAnnoOps.splice(0, this.pdfAnnoOps.length - VideoCallRoom.PDF_ANNO_OPS_MAX);
+        for (const o of dropped) { if (o.t === 'stroke' && o.d && o.d.id != null) delete this.pdfAnnoStrokes[o.d.id]; }
+      }
+    } catch {}
+  }
+
+  // 📎 (2026-08-12 Melca) 교재/영상 공유·중지는 반 전체를 움직인다 — pdf-page-change 와
+  //   같은 이유로 '강사/관리자만'. 클라이언트는 버튼을 숨기지만(붙여넣기 게이트 포함)
+  //   콘솔에서 vcConn.send 를 직접 쏘면 학생이 반 전체 교재·영상을 갈아치울 수 있었다.
+  private staffOnly(userId: string, att: VcAttachment): boolean {
+    const senderRole = (att?.role || '').toLowerCase();
+    return this.isJoined(userId) && (senderRole === 'teacher' || senderRole === 'admin');
+  }
+
+  private async handlePdfShare(userId: string, att: VcAttachment, data: any): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
+    // ✍️ 교재가 «다른 것» 으로 바뀌면 이전 교재의 판서 버퍼는 버린다 (페이지 번호가 다른 책과 섞임)
+    if (this.pdfState && this.pdfState.url !== url) { this.pdfAnnoOps = []; this.pdfAnnoStrokes = {}; }
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
     this.mediaAt = Date.now();
     await this.state.storage.put('pdfState', this.pdfState);
@@ -615,16 +685,16 @@ export class VideoCallRoom {
     this.broadcast(userId, { type: 'pdf-page-change', data: { pageNum, currentPage: pageNum } });
   }
 
-  private async handlePdfStopShare(userId: string): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handlePdfStopShare(userId: string, att: VcAttachment): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     this.pdfState = null;
     await this.state.storage.delete('pdfState');
     this.broadcast(userId, { type: 'pdf-stop-share' });
     console.log(`[VideoChat] PDF sharing stopped in room ${this.roomId}`);
   }
 
-  private async handleVideoShare(userId: string, data: any): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handleVideoShare(userId: string, att: VcAttachment, data: any): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     const { url, type } = data || {};
     if (!url) return;
     // blob: URL 은 공유한 기기에서만 열 수 있으므로 상태로 저장하지 않음 (중계만)
@@ -638,8 +708,8 @@ export class VideoCallRoom {
     console.log(`[VideoChat] Video shared in room ${this.roomId}: ${url}`);
   }
 
-  private async handleVideoStopShare(userId: string): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handleVideoStopShare(userId: string, att: VcAttachment): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     this.videoState = null;
     await this.state.storage.delete('videoState');
     this.broadcast(userId, { type: 'video-stop-share', data: {} });
