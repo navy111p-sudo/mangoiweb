@@ -175,12 +175,12 @@ export class VideoCallRoom {
         case 'chat-message':    this.handleChatMessage(userId, msg.data as any); break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
-        case 'pdf-share':       await this.handlePdfShare(userId, msg.data as any); break;
+        case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
         case 'pdf-page-change': await this.handlePdfPageChange(userId, att, msg.data as any); break;
-        case 'pdf-stop-share':  await this.handlePdfStopShare(userId); break;
+        case 'pdf-stop-share':  await this.handlePdfStopShare(userId, att); break;
         case 'video-share':
-        case 'video-sync':      await this.handleVideoShare(userId, msg.data as any); break;
-        case 'video-stop-share':await this.handleVideoStopShare(userId); break;
+        case 'video-sync':      await this.handleVideoShare(userId, att, msg.data as any); break;
+        case 'video-stop-share':await this.handleVideoStopShare(userId, att); break;
         case 'pdf-anno-start':
         case 'pdf-anno-point':
         case 'pdf-anno-text':
@@ -243,6 +243,14 @@ export class VideoCallRoom {
           const dfRole = (att.role || '').toLowerCase();
           if (!this.isJoined(userId) || (dfRole !== 'teacher' && dfRole !== 'admin')) break;
           this.broadcast(userId, { type: msg.type, data: msg.data });
+          break;
+        }
+        /* 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 강사 전용. 수신 학생은 토스트와
+           강사 타일 «화면 공유 중» 배지를 그린다. fromUserId 를 실어 어느 타일인지 알려 준다. */
+        case 'screen-share-state': {
+          const ssRole = (att.role || '').toLowerCase();
+          if (!this.isJoined(userId) || (ssRole !== 'teacher' && ssRole !== 'admin')) break;
+          this.broadcast(userId, { type: 'screen-share-state', data: { ...(msg.data || {}), fromUserId: userId } });
           break;
         }
         case 'offer':           this.handleOffer(userId, msg.data as any); break;
@@ -391,9 +399,13 @@ export class VideoCallRoom {
     if (this.pdfState) this.send(effectiveUserId, { type: 'pdf-sync', data: this.pdfState });
     // 🎬 공유 중인 동영상도 새 입장자에게 재전송 (예전엔 방송 1회뿐 → 늦게 온 학생은 영영 못 봄)
     if (this.videoState) this.send(effectiveUserId, { type: 'video-share', data: this.videoState });
-    // 🔒 통제 잠금(배경/음소거/집중/필기) 중이면 늦게 입장한 학생에게도 즉시 적용
+    // 🔒 통제 잠금(배경/음소거/집중/필기) 상태를 늦게 입장한 사람에게 즉시 적용.
+    //   (2026-08-12 Melca) 켜짐만 보내던 것을 «꺼짐도» 보낸다 — 이전 수업에서 잠금을 겪은
+    //   클라이언트는 localStorage/전역에 true 가 굳어 있는데, 「해제됨」 신호가 없으면
+    //   교재를 올린 뒤에도 학생 펜이 영영 안 풀리는 것처럼 보였다(8/12 「잠금 해제해도 안 됨」 신고).
     for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
-      if (this.lockState[key]) this.send(effectiveUserId, { type: msgType, data: { locked: true, on: true } });
+      const lk = !!this.lockState[key];
+      this.send(effectiveUserId, { type: msgType, data: { locked: lk, on: lk } });
     }
 
     if (!inherited) {
@@ -513,6 +525,11 @@ export class VideoCallRoom {
       if (this.lockState[k]) {
         this.lockState[k] = false;
         void this.state.storage.delete(k);
+        // (2026-08-12 Melca) 해제를 방송도 한다 — 방이 비며 풀릴 때 남아 있던(참관자 등)
+        //   소켓과, 브로드캐스트 직후 재접속한 클라이언트의 stale 잠금 방지. 빈 방이면 no-op.
+        for (const [msgType, key] of Object.entries(VideoCallRoom.LOCK_KEYS)) {
+          if (key === k) this.broadcastAll({ type: msgType, data: { locked: false, on: false } });
+        }
       }
     }
   }
@@ -583,8 +600,16 @@ export class VideoCallRoom {
     } catch {}
   }
 
-  private async handlePdfShare(userId: string, data: any): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  // 📎 (2026-08-12 Melca) 교재/영상 공유·중지는 반 전체를 움직인다 — pdf-page-change 와
+  //   같은 이유로 '강사/관리자만'. 클라이언트는 버튼을 숨기지만(붙여넣기 게이트 포함)
+  //   콘솔에서 vcConn.send 를 직접 쏘면 학생이 반 전체 교재·영상을 갈아치울 수 있었다.
+  private staffOnly(userId: string, att: VcAttachment): boolean {
+    const senderRole = (att?.role || '').toLowerCase();
+    return this.isJoined(userId) && (senderRole === 'teacher' || senderRole === 'admin');
+  }
+
+  private async handlePdfShare(userId: string, att: VcAttachment, data: any): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     const { url, currentPage, kind, name } = data || {};
     if (!url) return;
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
@@ -615,16 +640,16 @@ export class VideoCallRoom {
     this.broadcast(userId, { type: 'pdf-page-change', data: { pageNum, currentPage: pageNum } });
   }
 
-  private async handlePdfStopShare(userId: string): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handlePdfStopShare(userId: string, att: VcAttachment): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     this.pdfState = null;
     await this.state.storage.delete('pdfState');
     this.broadcast(userId, { type: 'pdf-stop-share' });
     console.log(`[VideoChat] PDF sharing stopped in room ${this.roomId}`);
   }
 
-  private async handleVideoShare(userId: string, data: any): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handleVideoShare(userId: string, att: VcAttachment, data: any): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     const { url, type } = data || {};
     if (!url) return;
     // blob: URL 은 공유한 기기에서만 열 수 있으므로 상태로 저장하지 않음 (중계만)
@@ -638,8 +663,8 @@ export class VideoCallRoom {
     console.log(`[VideoChat] Video shared in room ${this.roomId}: ${url}`);
   }
 
-  private async handleVideoStopShare(userId: string): Promise<void> {
-    if (!this.isJoined(userId)) return;
+  private async handleVideoStopShare(userId: string, att: VcAttachment): Promise<void> {
+    if (!this.staffOnly(userId, att)) return;
     this.videoState = null;
     await this.state.storage.delete('videoState');
     this.broadcast(userId, { type: 'video-stop-share', data: {} });

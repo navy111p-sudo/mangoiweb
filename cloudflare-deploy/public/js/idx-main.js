@@ -936,7 +936,10 @@ window.vcShareMyScreen = async function(){
         }
         if (window.__vcScreenSharing) { window.vcStopMyScreen(); return; }   // 다시 누르면 중지
 
-        var ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        /* 🔊 (2026-08-12 Melca 피드백) audio:true — "유튜브를 공유하면 그림만 가고 소리는 안 간다".
+           탭 공유는 «탭 소리 공유» 체크, 전체 화면 공유는 Windows 에서 시스템 소리를 준다.
+           강사가 체크를 안 하면 오디오 트랙이 없을 뿐, 영상 공유는 그대로 된다. */
+        var ds = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         var st = ds.getVideoTracks()[0];
         if (!st) return;
         /* 🎯 (2026-08-11) 화면 공유만은 «글자 선명함» 이 먼저다 — 카메라와 정반대.
@@ -951,6 +954,35 @@ window.vcShareMyScreen = async function(){
         } catch(_){}
 
         window.__vcScreenSharing = true;
+        window.__vcScreenTrack = st;   // 🖥 공유 «이후» 입장한 사람에게도 이 트랙을 준다 (vcCreatePeer)
+
+        /* 🔊 시스템 소리가 있으면 «마이크 + 화면 소리» 를 WebAudio 로 섞어 하나의 오디오 트랙으로.
+           마이크 sender 를 통째로 화면 소리로 갈아끼우면 강사 목소리가 사라지므로 반드시 믹스.
+           마이크 음소거(track.enabled=false)는 믹스 안에서도 그대로 침묵이 되어 존중된다. */
+        try {
+            var sysA = ds.getAudioTracks()[0] || null;
+            if (sysA) {
+                var _AC = window.AudioContext || window.webkitAudioContext;
+                var ac = new _AC();
+                var dest = ac.createMediaStreamDestination();
+                ac.createMediaStreamSource(new MediaStream([sysA])).connect(dest);
+                var micT = null;
+                try { micT = (window.vcLocalStream && vcLocalStream.getAudioTracks().find(function(t){ return t.readyState === 'live'; })) || null; } catch(_){}
+                if (micT) ac.createMediaStreamSource(new MediaStream([micT])).connect(dest);
+                var mixed = dest.stream.getAudioTracks()[0];
+                window.__vcScreenAudio = { ctx: ac, mixed: mixed, micBackup: micT, sys: sysA };
+                Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+                    try {
+                        var aSender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'audio'; });
+                        if (aSender) aSender.replaceTrack(mixed).catch(function(e){ console.warn('[screen-share] 오디오 믹스 교체 실패:', e); });
+                    } catch(_){}
+                });
+                console.log('[screen-share] 시스템 소리 믹스 전송 시작');
+            } else {
+                window.__vcScreenAudio = null;
+                console.log('[screen-share] 시스템 소리 없음(공유 창 선택 시 «소리 공유» 체크 안 함) — 영상만 공유');
+            }
+        } catch(e){ window.__vcScreenAudio = null; console.warn('[screen-share] 시스템 소리 믹스 실패(영상은 계속):', e); }
         /* 🖥 (2026-08-11 강사 Shas 2번) "공유하면 강사 자신에게만 보이고 학생에게는 안 나타난다"
            [원인 ①] 카메라가 «꺼져 있거나 없는» 강사에게는 보낼 비디오 sender 가 없다.
              그때 예전 코드는 `pc.addTrack(...)` 만 하고 끝냈다. 그런데 이 앱에는
@@ -990,7 +1022,9 @@ window.vcShareMyScreen = async function(){
                 } catch(e){ _fail++; console.warn('[screen-share] 재협상 실패:', uid, e); }
             })();
         });
-        /* 결과를 강사에게 말해 준다 — «공유 중» 이라고만 뜨고 학생은 못 보는 상태를 없앤다. */
+        /* 결과를 강사에게 말해 준다 — «공유 중» 이라고만 뜨고 학생은 못 보는 상태를 없앤다.
+           ✅ (2026-08-12 강사 Shas 2번) 성공했을 때도 말해 준다 — "공유가 되고 있는지 몰라서
+           학생에게 «내 화면 보여요?» 라고 물어봐야 했다. 확인 메시지를 띄워 달라." */
         setTimeout(function(){
             try {
                 if (!window.__vcScreenSharing) return;
@@ -1002,9 +1036,16 @@ window.vcShareMyScreen = async function(){
                     if (typeof showToast === 'function') showToast(en
                         ? '⚠ The screen could not be sent to the student. Please stop and start sharing again.'
                         : '⚠ 학생에게 화면이 전달되지 않았어요. 공유를 멈췄다가 다시 눌러 주세요.');
+                } else {
+                    if (typeof showToast === 'function') showToast(en
+                        ? '✅ Students can now see your shared screen (' + _ok + ')'
+                        : '✅ 학생이 지금 선생님의 공유 화면을 보고 있어요 (' + _ok + '명)');
                 }
             } catch(_){}
         }, 2500);
+        /* 📣 (2026-08-12 Melca) 학생에게도 시작을 알린다 — 예전엔 채팅 안내가 «내 화면 전용»
+           (vcAddChatSystem 은 로컬 표시만) 이라 학생은 예고 없이 얼굴 타일이 화면으로 바뀌었다. */
+        try { if (vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true } }); } catch(_){}
         // 내 화면 미리보기도 공유 화면으로
         try {
             var lv = document.getElementById('vc-local-video');
@@ -1026,6 +1067,26 @@ window.vcStopMyScreen = async function(){
     var en = (typeof getLang === 'function' && getLang() === 'en');
     try {
         window.__vcScreenSharing = false;
+        window.__vcScreenTrack = null;
+        /* 🔊 (2026-08-12 Melca) 시스템 소리 믹스를 마이크 단독으로 되돌린다 */
+        try {
+            var sa = window.__vcScreenAudio;
+            if (sa) {
+                var micBack = (sa.micBackup && sa.micBackup.readyState === 'live') ? sa.micBackup
+                    : ((window.vcLocalStream && vcLocalStream.getAudioTracks().find(function(t){ return t.readyState === 'live'; })) || null);
+                Object.values(window.vcPeerConnections || {}).forEach(function(pc){
+                    try {
+                        var aSender = pc.getSenders().find(function(s){ return s.track && s.track.kind === 'audio'; });
+                        if (aSender && micBack) aSender.replaceTrack(micBack).catch(function(){});
+                    } catch(_){}
+                });
+                try { if (sa.sys) sa.sys.stop(); } catch(_){}
+                try { if (sa.ctx) sa.ctx.close(); } catch(_){}
+                window.__vcScreenAudio = null;
+            }
+        } catch(_){}
+        /* 📣 학생에게도 종료를 알린다 */
+        try { if (vcConn) vcConn.send({ type: 'screen-share-state', data: { on: false } }); } catch(_){}
         /* 카메라로 되돌릴 트랙을 3단으로 찾는다 —
            ① 공유 시작 때 보관한 트랙 ② 지금 내 스트림의 카메라 ③ 둘 다 죽었으면 카메라를 새로 획득.
            [왜] 되돌릴 트랙을 못 찾으면 sender 가 '끝난 화면 트랙'을 계속 붙잡아
@@ -4110,10 +4171,14 @@ function vcHandleMessage(msg) {
         case 'pdf-drawlock':
             try {
                 /* 서버는 { on, locked } 를 함께 보낸다 — 한쪽 이름만 보면 조용히 «항상 해제»가 된다 */
+                var _dlPrev = !!window.__pdfStudentDrawLock;
                 window.__pdfStudentDrawLock = !!(msg.data && (msg.data.on || msg.data.locked));
                 if (typeof vcRenderDrawLockChip === 'function') vcRenderDrawLockChip();
                 var _dl = (typeof getLang === 'function' && getLang() === 'en');
-                if (window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin' && typeof mangoToast === 'function') {
+                /* (2026-08-12 Melca) 입장 시 서버가 «꺼짐» 상태도 내려보내므로(stale 잠금 방지)
+                   토스트는 값이 실제로 바뀔 때만 — 안 그러면 입장마다 「다시 필기할 수 있어요」 헛토스트 */
+                if (_dlPrev !== window.__pdfStudentDrawLock
+                    && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin' && typeof mangoToast === 'function') {
                     mangoToast(window.__pdfStudentDrawLock
                         ? (_dl ? 'The teacher locked drawing.' : '선생님이 필기를 잠갔어요.')
                         : (_dl ? 'You can draw again.' : '이제 다시 필기할 수 있어요.'));
@@ -4181,6 +4246,9 @@ function vcHandleMessage(msg) {
             try {
                 var _tsTab = msg.data && msg.data.tab;
                 if (_tsTab && window.vcMyRole !== 'teacher' && window.vcMyRole !== 'admin') {
+                    // 🧑‍🎓 (2026-08-12 Melca) 강사가 웜업 탭을 열어 주면 «강사 주도 웜업» 허가,
+                    //   다른 탭으로 옮기면 허가 종료 (수업 중 학생 단독 웜업 차단의 예외 스위치)
+                    window.__vcWarmupTeacherLed = (_tsTab === 'warmup');
                     window._vcTabSyncApplying = true;
                     /* 🔴 (2026-08-10 마이마이) 「교사가 칠판·교재로 옮겨도 학생은 얼굴 화면 그대로」
                        vcSwitchTab 은 .active 클래스만 바꾼다 — 학생이 탭을 두 번 눌러 콘텐츠를
@@ -4192,6 +4260,33 @@ function vcHandleMessage(msg) {
                     try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 화면을 바꿨어요'); } catch(_){}
                 }
             } catch(_){ window._vcTabSyncApplying = false; }
+            break;
+        }
+        // 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 예전엔 학생은 예고 없이
+        //   선생님 얼굴 타일이 갑자기 컴퓨터 화면으로 바뀌었다. 토스트 + 타일에 «화면 공유 중» 배지.
+        case 'screen-share-state': {
+            try {
+                var _ssOn = !!(msg.data && msg.data.on);
+                var _ssUid = msg.data && msg.data.fromUserId;
+                var _ssEn = (typeof getLang === 'function' && getLang() === 'en');
+                if (typeof showToast === 'function') showToast(_ssOn
+                    ? (_ssEn ? '🖥 The teacher is sharing their screen.' : '🖥 선생님이 화면 공유를 시작했어요.')
+                    : (_ssEn ? '🖥 Screen sharing ended.' : '🖥 화면 공유가 끝났어요.'));
+                var _ssBox = _ssUid ? document.getElementById('vc-video-' + _ssUid) : null;
+                if (_ssBox) {
+                    var _ssOld = _ssBox.querySelector('.vc-ss-badge');
+                    if (_ssOld) _ssOld.remove();
+                    if (_ssOn) {
+                        var _ssB = document.createElement('span');
+                        _ssB.className = 'vc-ss-badge';
+                        _ssB.setAttribute('data-ko', '🖥 화면 공유 중');
+                        _ssB.setAttribute('data-en', '🖥 Screen sharing');
+                        _ssB.textContent = _ssEn ? '🖥 Screen sharing' : '🖥 화면 공유 중';
+                        _ssB.style.cssText = 'position:absolute;top:6px;left:6px;z-index:8;padding:3px 8px;border-radius:999px;background:rgba(14,165,233,.92);color:#fff;font-size:11px;font-weight:800;pointer-events:none';
+                        _ssBox.appendChild(_ssB);
+                    }
+                }
+            } catch(_){}
             break;
         }
         // 🔒 (2026-07-20) 강사의 학생 배경 변경 잠금/해제 수신 — 서버(DO)가 강사 role 검증 후 릴레이.
@@ -4936,7 +5031,20 @@ function vcCreatePeer(userId, username) {
     } else if (vcLocalStream) {
         const tracks = vcLocalStream.getTracks();
         console.log('[vc-webrtc] addTrack:', tracks.length, '개 (video:', vcLocalStream.getVideoTracks().length, ', audio:', vcLocalStream.getAudioTracks().length, ')');
-        tracks.forEach(t => pc.addTrack(t, vcLocalStream));
+        /* 🖥 (2026-08-12 Melca) 화면 공유 «도중» 입장한 사람에게는 카메라 대신 지금 공유 중인
+           화면(그리고 소리 믹스)을 준다 — 예전엔 늦게 온 학생만 카메라를 받아
+           "들어오면 보이게 됩니다" 안내와 반대로 영영 화면을 못 봤다. */
+        tracks.forEach(t => {
+            if (t.kind === 'video' && window.__vcScreenSharing
+                && window.__vcScreenTrack && window.__vcScreenTrack.readyState === 'live') {
+                pc.addTrack(window.__vcScreenTrack, vcLocalStream);
+            } else if (t.kind === 'audio' && window.__vcScreenSharing
+                && window.__vcScreenAudio && window.__vcScreenAudio.mixed && window.__vcScreenAudio.mixed.readyState === 'live') {
+                pc.addTrack(window.__vcScreenAudio.mixed, vcLocalStream);
+            } else {
+                pc.addTrack(t, vcLocalStream);
+            }
+        });
         // 🔥 발열 최소화 — 송신 비디오에 효율 코덱(H.264/VP8) 우선 + 비트레이트·fps 상한
         try { vcApplyLowPower(pc); } catch(e) { console.warn('[lowpower]', e); }
     } else {
@@ -5403,6 +5511,27 @@ window.vcRenderTextbookControls = function(){
         var SEL = ['button[onclick*="triggerUpload"]',
                    'button[onclick*="openTextbookLibrary"]',
                    'button[onclick*="pdfStopShare"]'];
+        SEL.forEach(function(sel){
+            bar.querySelectorAll(sel).forEach(function(b){
+                b.style.display = staff ? '' : 'none';
+            });
+        });
+    } catch(_){}
+};
+/* 🎬 (2026-08-12 Melca 피드백) 동영상 툴바도 교재와 같은 이중 방어.
+   "학생이 영상을 빨리감기·되감기 할 수 있다 — BODA 처럼 강사만 재생을 제어하게 해 달라."
+   학생에게 숨기는 것: URL 입력·▶ YouTube·🔗 URL 재생·📁 파일 업로드·🗑 닫기(반 전체에 영향).
+   남기는 것: 📚 바로 수업으로(자기 화면 탈출)·📌 미니(자기 화면 배치만 바꿈). */
+window.vcRenderVideoControls = function(){
+    try {
+        var bar = document.querySelector('#tab-video .vp-controls');
+        if (!bar) return;
+        var staff = window.vcCanControlTextbook();
+        var SEL = ['#vp-url',
+                   'button[onclick*="vpOpenYouTube"]',
+                   'button[onclick*="vpLoadUrl"]',
+                   '.vp-file-btn',
+                   'button[onclick*="vpClear"]'];
         SEL.forEach(function(sel){
             bar.querySelectorAll(sel).forEach(function(b){
                 b.style.display = staff ? '' : 'none';
@@ -7238,7 +7367,13 @@ function vcSwitchTab(tabName, evt) {
     // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
     if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
     // 🗣️ AI 웜업 탭 — 첫 진입 시에만 iframe 로드 (수업방 room id + 오늘 교재/레벨/레슨 연동)
-    if (tabName === 'warmup') {
+    // 🧑‍🎓 (2026-08-12 Melca 피드백) 수업 중 «학생 단독» 웜업은 게임과 같은 정책으로 차단.
+    //   강사가 tab-sync 로 열어 준 «강사 주도 웜업» 은 허용(웜업은 수업 중 강사 도구이기도 하다).
+    //   강사가 다른 탭으로 옮기면 허가도 끝난다(tab-sync 수신부가 __vcWarmupTeacherLed 갱신).
+    if (tabName === 'warmup' && typeof _warmupStudentBlocked === 'function' && _warmupStudentBlocked()) {
+        _warmupRenderBlocked();
+    } else if (tabName === 'warmup') {
+        if (typeof _warmupClearBlocked === 'function') _warmupClearBlocked();
         const wf = document.getElementById('vc-warmup-frame');
         if (wf && !wf.getAttribute('src')) {
             const wp = new URLSearchParams();
@@ -7968,6 +8103,8 @@ window.vcClassLockChipsRender = function(){
   /* 📚 (2026-08-12 Melca 7·8번) 교재도구 바의 강사 전용 버튼도 같은 시점에 함께 —
      역할이 확정되는 모든 경로가 이 함수를 부르므로 여기 한 곳이면 전부 덮인다. */
   try { if (typeof vcRenderTextbookControls === 'function') vcRenderTextbookControls(); } catch(_){}
+  /* 🎬 (2026-08-12 Melca) 동영상 툴바의 강사 전용 버튼도 같은 시점에 */
+  try { if (typeof vcRenderVideoControls === 'function') vcRenderVideoControls(); } catch(_){}
   var fc = document.getElementById('vc-focuslock-btn');
   if (fc) {
     fc.style.display = staff ? 'inline-flex' : 'none';
@@ -8798,6 +8935,47 @@ function _gameIsClassActive() {
   const count = el ? parseInt(el.textContent, 10) || 0 : 0;
   // 2명 이상 = 나 + 교사 (또는 다른 참가자) 가 있음
   return count >= 2;
+}
+
+// 🧑‍🎓 (2026-08-12 Melca 피드백) AI 웜업 — 수업 중 «학생 단독» 사용 차단.
+//   강사 제안: "게임과 같은 제한을 — 수업 전이나 후에 이용해 주세요 경고".
+//   게임(Phase 48)과 같은 판정(참가자 2명 이상 = 수업 중)을 쓰되,
+//   강사가 tab-sync 로 열어 준 «강사 주도 웜업» 은 허용한다 — 웜업은 원래
+//   수업 중 강사가 학생 입 풀기용으로 쓰는 도구이기도 하기 때문(탭바 진입 시 room 연동).
+function _warmupStudentBlocked() {
+  if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return false;
+  if (window.__vcWarmupTeacherLed) return false;          // 강사가 열어 준 것 — 허용
+  if (!document.body.classList.contains('vc-in-call')) return false;  // 수업 화면 밖(/warmup.html 단독)은 별개
+  return _gameIsClassActive();
+}
+
+function _warmupRenderBlocked() {
+  const panel = document.getElementById('tab-warmup');
+  if (!panel) return;
+  const wf = document.getElementById('vc-warmup-frame');
+  if (wf) wf.style.display = 'none';
+  let bl = document.getElementById('vc-warmup-blocked');
+  if (!bl) {
+    bl = document.createElement('div');
+    bl.id = 'vc-warmup-blocked';
+    bl.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px';
+    bl.innerHTML =
+      '<div style="font-size:72px;margin-bottom:16px">🚫</div>' +
+      '<div style="font-size:21px;font-weight:800;color:#ef4444;margin-bottom:12px" data-ko="수업 중에는 사용할 수 없습니다." data-en="Cannot use during class.">수업 중에는 사용할 수 없습니다.</div>' +
+      '<div style="font-size:15px;color:#cbd5e1;line-height:1.6" data-ko="수업 전이나 후에 이용해 주세요." data-en="Please use it before or after class.">수업 전이나 후에 이용해 주세요.</div>' +
+      '<div style="margin-top:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px 18px;font-size:12.5px;color:#fca5a5;max-width:420px">' +
+        '💡 <span data-ko="선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요." data-en="You can use it together when your teacher opens the warm-up screen.">선생님이 웜업 화면을 열어 주시면 함께 쓸 수 있어요.</span>' +
+      '</div>';
+    panel.appendChild(bl);
+  }
+  bl.style.display = 'flex';
+}
+
+function _warmupClearBlocked() {
+  const bl = document.getElementById('vc-warmup-blocked');
+  if (bl) bl.style.display = 'none';
+  const wf = document.getElementById('vc-warmup-frame');
+  if (wf) wf.style.display = '';
 }
 
 function _gameRenderBlocked() {
@@ -10049,6 +10227,15 @@ function updateUserCount(count) {
         if (_gameState.started === false) gameInit();
       }
     }
+    // 🧑‍🎓 (2026-08-12 Melca) AI 웜업도 게임과 같은 정책 — 학생이 먼저 열어 두고 있어도
+    //   강사가 입장하면(참가자 ≥2) 즉시 잠그고, 수업이 끝나 혼자 남으면 다시 푼다.
+    try {
+      const wuTab = document.getElementById('tab-warmup');
+      if (wuTab && wuTab.classList.contains('active') && typeof _warmupStudentBlocked === 'function') {
+        if (_warmupStudentBlocked()) _warmupRenderBlocked();
+        else _warmupClearBlocked();
+      }
+    } catch(e){}
 }
 
 /* ================================================================
@@ -12786,28 +12973,34 @@ function vpLoadUrlRemote(url) {
     const ytId = vpExtractYouTubeId(url);
     const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
     const isVideoFile = /\.(mp4|webm|ogg|mov|m4v|mkv)(\?.*)?$/i.test(url);
+    // 🎬 (2026-08-12 Melca 피드백) 공유받은 영상은 «학생이 조작 불가» — 강사만 재생을 제어.
+    //   컨트롤 숨김(controls=0)만으로는 화면 클릭 일시정지가 남으므로 iframe 자체를
+    //   pointer-events:none 으로 잠근다. 「🔊 소리 켜기」 버튼은 iframe 밖 오버레이라 그대로 산다.
+    const _vpViewerLocked = (typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook());
 
     if (ytId) {
         const iframe = document.createElement('iframe');
         iframe.id = 'vp-yt-frame';
         iframe.className = 'vp-yt';
-        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(location.origin)}`;
+        iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&rel=0&playsinline=1&enablejsapi=1${_vpViewerLocked ? '&controls=0&disablekb=1&fs=0' : ''}&origin=${encodeURIComponent(location.origin)}`;
         iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
-        iframe.allowFullscreen = true;
+        iframe.allowFullscreen = !_vpViewerLocked;
         iframe.setAttribute('playsinline', '');
+        if (_vpViewerLocked) iframe.style.pointerEvents = 'none';
         stage.appendChild(iframe);
         vpAddSoundOverlay(stage, 'youtube');
     } else if (vimeoMatch) {
         const iframe = document.createElement('iframe');
         iframe.src = `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1`;
         iframe.allow = 'autoplay; fullscreen; picture-in-picture';
-        iframe.allowFullscreen = true;
+        iframe.allowFullscreen = !_vpViewerLocked;
+        if (_vpViewerLocked) iframe.style.pointerEvents = 'none';
         stage.appendChild(iframe);
         vpAddSoundOverlay(stage, 'vimeo');
     } else if (isVideoFile) {
         const vid = document.createElement('video');
         vid.src = url;
-        vid.controls = true;
+        vid.controls = !_vpViewerLocked;
         vid.autoplay = true;
         vid.muted = true;
         vid.playsInline = true;
@@ -13081,6 +13274,16 @@ window.vpOpenTextbook = vpOpenTextbook;
 
     // 클릭으로 원하는 위치로 이동(seek)
     track.addEventListener('click', function(ev){
+        // 🎬 (2026-08-12 Melca 피드백) 수업 중 학생은 재생 위치를 못 움직인다 — 강사만 제어.
+        //   "학생이 빨리감기·되감기를 하면 수업을 건너뛸 수 있다 — BODA 처럼 막아 달라."
+        if (document.body.classList.contains('vc-in-call')
+            && typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook()) {
+            try {
+                var _en = (typeof getLang === 'function' && getLang() === 'en');
+                if (typeof mangoToast === 'function') mangoToast(_en ? 'Only the teacher can control the video.' : '영상은 선생님만 조작할 수 있어요.');
+            } catch(_){}
+            return;
+        }
         var r = track.getBoundingClientRect();
         var pct = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
         if (curKind==='video' && cur && cur.duration) { cur.currentTime = pct*cur.duration; }

@@ -1270,13 +1270,24 @@
         }
 
         /* 탭 메뉴 */
+        /* 🧰 (2026-08-12 강사 Shas 3번) "화면 크기에 따라 Mute All·필기잠금·집중모드가 안 보여
+           «Free» 를 누르거나 창을 늘려야 했다" — 기본 규칙에 overflow 가 없어 901px 이상에서는
+           칩 15개가 flex-shrink 로 찌그러지거나 잘렸다(가로 스크롤은 920px 이하 미디어쿼리에만 있었음).
+           → 모든 폭에서 한 줄 가로 스크롤. 칩은 줄어들지 않게 고정(flex:0 0 auto). */
         .tab-bar {
             display: flex;
             gap: 2px;
             background: rgba(15,23,42,0.95);
             padding: 0 1rem;
             border-bottom: 1px solid rgba(148,163,184,0.1);
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: thin;
         }
+        .tab-bar > * { flex: 0 0 auto; white-space: nowrap; }
+        .tab-bar::-webkit-scrollbar { height: 5px; }
+        .tab-bar::-webkit-scrollbar-thumb { background: rgba(148,163,184,.5); border-radius: 4px; }
         .tab-btn {
             padding: 0.6rem 1.2rem;
             background: none;
@@ -8213,7 +8224,10 @@ window.mgIsSlowNet = function(){
                 <button class="tab-btn" onclick="vcToggleContentTab('game')" title="학생게임 — 수업 중 학습게임 함께 하기" data-ko="🎮 학생게임" data-en="🎮 Game">🎮 학생게임</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('bg')" title="배경화면 — 수업 화면 배경 테마 바꾸기" data-ko="🎨 배경화면" data-en="🎨 Background">🎨 배경화면</button>
                 <button class="tab-btn" onclick="vcToggleContentTab('warmup')" data-ko="🗣️ AI 웜업" data-en="🗣️ AI Warm-up" title="수업 전 AI 웜업 — 학생 사이드바와 동일 (영어로 입 풀기)">🗣️ AI 웜업</button>
-                <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" title="이 수업 교재·레벨·레슨에 맞는 복습퀴즈 (AI 자동 출제)">🧠 복습퀴즈</button>
+                <!-- 🧑‍🎓 (2026-08-12 사장님) 복습퀴즈는 «학생 전용» — 수업이 끝난 뒤 학생이 혼자 푸는 것.
+                     강사는 참여할 필요가 없다. 테스트 중 강사들이 수업 안에서 같이 풀어 보며
+                     «강사도 답해야 하나요» 같은 혼란이 있어, 라벨·툴팁에 용도를 명시한다. -->
+                <button class="tab-btn rqv-tab-btn" onclick="vcToggleContentTab('review-quiz')" data-ko="🧠 복습퀴즈 (학생 전용)" data-en="🧠 Review Quiz (Students only)" title="학생 전용 — 수업이 끝난 뒤 학생이 혼자 푸는 복습퀴즈입니다. 선생님은 참여하지 않아도 됩니다." data-ko-title="학생 전용 — 수업이 끝난 뒤 학생이 혼자 푸는 복습퀴즈입니다. 선생님은 참여하지 않아도 됩니다." data-en-title="Students only — the student takes this quiz alone after class. Teachers do not need to join.">🧠 복습퀴즈 (학생 전용)</button>
                 <!-- 복습퀴즈 옆: 교재도구 / 필기도구 토글 칩 (클릭 시 아래로 세로 드롭다운, 배경 투명) -->
                 <!-- 🌐 (2026-08-12) data-ko/data-en 필수 — 없으면 EN 모드에서 i18n-sweep 이 라벨 속 «(교재도구)» 를 번역하고
                      mango-tools-dock 의 1.2초 enforce 가 되돌려 → 칩이 1.2초 주기로 깜박인다 (필리핀 강사 제보) -->
@@ -8713,6 +8727,8 @@ window.mgIsSlowNet = function(){
           <div style="padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.18);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
             <button onclick="vcReviewQuizBackToClass()" title="수업 화면으로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;font-weight:800;cursor:pointer" data-ko="← 수업으로" data-en="← Back to class">← <span data-ko="수업으로" data-en="Back to class">수업으로</span></button>
             <span style="font-size:14px;font-weight:800;color:#fbbf24">🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></span>
+            <!-- 🧑‍🎓 (2026-08-12 사장님) 학생 전용임을 화면에 명시 — 강사 혼란 방지 -->
+            <span style="display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;background:rgba(96,165,250,.16);border:1px solid rgba(96,165,250,.4);font-size:11px;font-weight:800;color:#93c5fd;white-space:nowrap" data-ko="🧑‍🎓 학생 전용 · 수업 후 혼자 풀기" data-en="🧑‍🎓 Students only · solo after class" title="수업이 끝난 뒤 학생이 혼자 푸는 퀴즈입니다. 선생님은 참여하지 않아도 됩니다." data-ko-title="수업이 끝난 뒤 학생이 혼자 푸는 퀴즈입니다. 선생님은 참여하지 않아도 됩니다." data-en-title="The student takes this quiz alone after class. Teachers do not need to join.">🧑‍🎓 학생 전용 · 수업 후 혼자 풀기</span>
             <span id="rqv-ctx" style="font-size:11.5px;color:#a3b3d1"></span>
             <button id="rqv-lang-btn" onclick="rqvToggleLang()" title="영어 ↔ 중국어 퀴즈 전환" style="margin-left:auto;padding:6px 11px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:12px;font-weight:800;cursor:pointer">🇬🇧 EN</button>
             <button onclick="rqvAuto(true)" style="padding:6px 13px;border:0;border-radius:8px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:12px;font-weight:800;cursor:pointer" data-ko="🤖 이 수업 맞춤 퀴즈" data-en="🤖 Auto quiz for this class">🤖 <span data-ko="이 수업 맞춤 퀴즈" data-en="Auto quiz">이 수업 맞춤 퀴즈</span></button>
@@ -14092,7 +14108,7 @@ window.mgIsSlowNet = function(){
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260812202238 -->
+<!-- BUILD:20260812233946 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
