@@ -2349,6 +2349,20 @@
           ${ticketUrl ? `<li>아래 <b style="color:#fde68a">🎟️ 내 신청 확인하기</b> 를 누르면 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>` : `<li>문자로 보내드린 <b style="color:#fde68a">확인 링크</b>로 언제든 상태·일정·결과를 볼 수 있어요 (로그인 불필요)</li>`}
           <li>결과 수령 후 추천 코스로 즉시 수강 신청 가능</li>
         </ul>
+        ${(!loggedIn && ticketUrl) ? `
+        <!-- 📱 (2026-08-12) «다른 기기에서도 보이게» — 비로그인 신청의 유일한 단서인 확인 링크는
+             «이 브라우저에만» 남는다. PC 로 신청하고 폰으로 오면 아무것도 안 보인다.
+             실제로 신청 #15·#17·#18 이 연달아 같은 상태가 됐고, 그때마다 관리자가 손으로 계정을 이어줬다.
+             ⛔ 신청 «전» 폼에는 절대 넣지 않는다 — 「비로그인은 계정 칸을 그리지 않는다」(사장님 지적 2회).
+                여기는 접수가 이미 끝난 뒤라 이탈로 잃을 것이 없다. 그래서 이 자리다.
+             ⚠️ 권유일 뿐 막지 않는다. 안 눌러도 위 「🎟️ 내 신청 확인하기」로 전부 된다.
+             🔑 로그인만 하면 홈이 티켓+로그인으로 이 신청을 계정에 «스스로» 이어붙인다(idx-leveltest-card.js). -->
+        <div style="background:rgba(59,130,246,0.10);border:1px solid rgba(59,130,246,0.32);border-radius:12px;padding:12px 14px;margin:13px 0 2px;color:#bfdbfe;font-size:12.5px;line-height:1.6">
+          📱 <b style="color:#dbeafe">휴대폰에서도 보시려면</b><br>
+          확인 링크는 <b>지금 쓰시는 이 브라우저</b>에만 저장돼요. 로그인 한 번 해두시면 폰·태블릿 어디서나 예약이 보입니다.
+          <button type="button" onclick="if(window.openLoginModal)window.openLoginModal()"
+            style="width:100%;margin-top:10px;min-height:40px;padding:6px 12px;background:rgba(59,130,246,0.20);border:1px solid rgba(147,197,253,0.5);border-radius:10px;color:#dbeafe;font-size:12.5px;font-weight:800;line-height:1.3;cursor:pointer">🔑 로그인하고 내 예약 저장하기</button>
+        </div>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px">
           <a class="info-cta" onclick="closeInfoModal();window.openKakao&&window.openKakao()" style="margin:0;text-align:center;background:linear-gradient(135deg,#FEE500,#FFCD00);color:#3C1E1E">💬 카톡 채널 추가</a>
           ${ticketUrl
