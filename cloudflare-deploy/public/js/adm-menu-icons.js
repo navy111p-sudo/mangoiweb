@@ -146,7 +146,7 @@
 
   function clean(s){
     if (!s) return s;
-    return String(s).replace(NEWTAG, 'NEW').replace(LEAD, '').replace('NEW', '').trim();
+    return String(s).replace(NEWTAG, '\x01NEW').replace(LEAD, '').replace('\x01NEW', '').trim();
   }
   function hadNew(s){ return NEWTAG.test(String(s || '')); }
 

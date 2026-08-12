@@ -229,7 +229,7 @@ export async function runWarmupGraphSync(
   // (학생, 문장) 단위 집계 — count 절대값 + 최근 시각
   const agg = new Map<string, { student_id: string; text: string; textbook: string; count: number; last_at: number }>();
   for (const e of events) {
-    const key = e.student_id + ' ' + e.text;
+    const key = e.student_id + '\u0000' + e.text;
     const cur = agg.get(key);
     if (cur) { cur.count++; if (e.at > cur.last_at) { cur.last_at = e.at; cur.textbook = e.textbook; } }
     else agg.set(key, { student_id: e.student_id, text: e.text, textbook: e.textbook, count: 1, last_at: e.at });

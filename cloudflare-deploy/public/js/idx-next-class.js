@@ -6,7 +6,10 @@
 
       (function nextClassCountdown(){
         var CARD_ID='next-class-countdown';
-        var state={ session:null, skew:0, fetching:false, lastFetch:0, lastKey:'' };
+        var state={ session:null, list:[], skew:0, fetching:false, lastFetch:0, lastKey:'' };
+        /* 강사 이름은 DB 값이다. 문자열을 그대로 innerHTML 에 붙이므로 반드시 막고 쓴다. */
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
         function L(){ try{ return (window.getLang?window.getLang():'ko')!=='en'; }catch(e){ return true; } }
         function el(){ return document.getElementById(CARD_ID); }
         function homeActive(){ var v=document.getElementById('view-home'); return !!(v&&v.classList.contains('active')); }
@@ -32,6 +35,10 @@
               list.sort(function(a,b){return (a.start_ts||0)-(b.start_ts||0);});
               cur=list[0]||null;
             }
+            /* 📋 (2026-08-12) 오늘 수업이 둘 이상이면 목록으로도 보여준다 — 전체를 들고 있는다.
+               ⚠️ current 하나만 들고 있으면 «앞 수업이 끝났는데 다음 수업이 아직 안 뜨는»
+                  공백이 생긴다(지각 입장 15분 동안 서버는 끝난 수업을 계속 current 로 준다). */
+            state.list=((d&&d.sessions)||[]);
             state.session=cur; state.lastFetch=Date.now();
           }catch(e){ /* 네트워크 오류는 조용히 무시(다음 주기 재시도) */ }
           finally{ state.fetching=false; }
@@ -92,20 +99,54 @@
           bell(3);
         }
 
+        /* 오늘 «아직 안 끝난» 수업을 시각 순으로. 진행 중인 수업은 시작시각이 가장 이르므로
+           자연히 맨 앞에 온다 — 서버의 current 선택(입장가능 우선)과 결과가 같다. */
+        function remaining(now){
+          var src=(state.list && state.list.length) ? state.list : (state.session?[state.session]:[]);
+          var seen={}, out=[];
+          for(var i=0;i<src.length;i++){
+            var x=src[i]; if(!x) continue;
+            if(x.end_ts && now>x.end_ts) continue;          // 이미 끝난 수업
+            if(seen[x.schedule_id]) continue; seen[x.schedule_id]=1;
+            out.push(x);
+          }
+          return out.sort(function(a,b){ return (a.start_ts||0)-(b.start_ts||0); });
+        }
+
+        /* 📋 오늘 남은 수업이 2개 이상일 때만 붙인다. 1개면 카드 하나로 충분하고,
+           줄을 더하면 홈만 길어진다(수업 3~4개인 학생 화면에서 특히). */
+        function moreHtml(rest){
+          if(!rest.length) return '';
+          return '<div class="ncc-more"><div class="ncc-more-top">'
+            +(L()?'오늘 남은 수업':'Later today')+'</div>'
+            +rest.map(function(x){
+              return '<div class="ncc-more-row"><b>'+timeLabel(x.start_ts)+'</b>'
+                +(x.teacher_name?('<span>'+esc(x.teacher_name)+'</span>'):'')+'</div>';
+            }).join('')+'</div>';
+        }
+
         function render(){
           var c=el(); if(!c) return;
-          if(!homeActive()||!state.session){ hide(); return; }
-          var s=state.session;
+          if(!homeActive()){ hide(); return; }
           var now=Date.now()+state.skew;
-          if(s.end_ts && now>s.end_ts){ hide(); return; }   // 이미 끝난 수업
+          // 표시 대상 = 오늘 남은 것 중 가장 가까운 것. 끝난 수업은 여기서 걸러지므로
+          // «앞 수업이 끝나면» 다음 수업으로 저절로 넘어간다(예전엔 카드가 사라졌다).
+          var all=remaining(now);
+          var s=all[0];
+          if(!s){ hide(); return; }
+          var rest=all.slice(1);
           var toStart=(s.start_ts||0)-now;
           var joinable=(s.status==='open'||s.status==='live')||toStart<=0;
           var soon=(!joinable && toStart>0 && toStart<=5*60*1000);   // 수업 5분 전
-          var teacher=s.teacher_name?( (L()?'강사 ':'Teacher ')+s.teacher_name ):'';
+          var teacher=s.teacher_name?( (L()?'강사 ':'Teacher ')+esc(s.teacher_name) ):'';
           // 🔔 알림: 5분 전 1회 / 정시부터 60초 간격 반복
           if(soon && onceOnly(sid(s)+':soon')) bell(2);
           if(joinable) ringLive(s, now-(s.start_ts||now));
-          var key=joinable?('live:'+(s.room_id||'')):('cd:'+(soon?'soon:':'')+fmt(toStart));
+          /* ⚠️ 남은 수업 목록도 키에 넣는다 — 안 넣으면 «입장 가능» 상태(키가 고정)에서
+             뒤 수업이 끝나도 목록이 옛날 것으로 남는다. 목록은 자주 안 바뀌므로
+             입장 버튼을 지우는 재렌더도 사실상 안 일어난다. */
+          var restKey=rest.map(function(x){ return x.schedule_id; }).join(',');
+          var key=(joinable?('live:'+(s.room_id||'')):('cd:'+(soon?'soon:':'')+fmt(toStart)))+'|'+restKey;
           if(key===state.lastKey && c.style.display==='block') return;   // 불필요한 재렌더 방지(입장버튼 클릭 보호)
           state.lastKey=key; c.style.display='block';
           if(joinable){
@@ -114,14 +155,14 @@
               +'<div class="ncc-top">🔴 '+(L()?'지금 입장할 수 있어요':'You can join now')+'</div>'
               +'<button class="ncc-join" onclick="if(typeof vcJoinMyClass===\'function\')vcJoinMyClass()">▶ '+(L()?'수업 입장':'Join class')+'</button>'
               +(teacher?'<div class="ncc-sub">'+timeLabel(s.start_ts)+' · '+teacher+'</div>':'')
-              +'</div>';
+              +'</div>'+moreHtml(rest);
           }else{
             c.innerHTML='<div class="ncc-card'+(soon?' ncc-soon':'')+'">'
               +(soon?'<div class="ncc-bubble ncc-bubble-soon">🔔 곧 수업이 시작돼요<span class="en">Class starts soon!</span></div>':'')
               +'<div class="ncc-top">⏰ '+(L()?'다음 수업까지':'Next class in')+'</div>'
               +'<div class="ncc-time">'+fmt(toStart)+'</div>'
               +'<div class="ncc-sub">'+timeLabel(s.start_ts)+(teacher?' · '+teacher:'')+'</div>'
-              +'</div>';
+              +'</div>'+moreHtml(rest);
           }
         }
 
@@ -144,7 +185,14 @@
               +'.ncc-time{font-size:30px;font-weight:900;letter-spacing:-1px;color:#7dd3fc;font-variant-numeric:tabular-nums;line-height:1.1}'
               +'.ncc-sub{font-size:11.5px;color:#94a3b8;margin-top:5px}'
               +'.ncc-join{margin-top:2px;background:#f59e0b;color:#1a1a1a;border:none;border-radius:10px;padding:9px 22px;font-size:14px;font-weight:800;cursor:pointer}'
-              +'.ncc-join:hover{background:#fbbf24}';
+              +'.ncc-join:hover{background:#fbbf24}'
+              /* 📋 오늘 남은 수업 목록 — 위 카드보다 한 단 조용하게(글씨·투명도).
+                 ⚠️ hover 확대(scale/translate) 금지 — 「정신없다」고 걷어낸 규칙(CLAUDE.md 1-3). */
+              +'.ncc-more{margin:8px auto 0;background:rgba(0,0,0,.34);border:1px solid rgba(148,163,184,.28);border-radius:13px;padding:8px 16px;text-align:center;backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}'
+              +'.ncc-more-top{font-size:10.5px;color:#94a3b8;font-weight:700;letter-spacing:.2px;margin-bottom:4px}'
+              +'.ncc-more-row{font-size:12.5px;color:#cbd5e1;line-height:1.7;white-space:nowrap}'
+              +'.ncc-more-row b{color:#e2e8f0;font-weight:800;font-variant-numeric:tabular-nums}'
+              +'.ncc-more-row span{color:#94a3b8;margin-left:7px}';
             document.head.appendChild(st);
           }
           refresh().then(render);

@@ -109,8 +109,277 @@
 </div>
 
 <div class="datehead">
-  <h1>Saturday, August 8</h1>
+  <h1>Wednesday, August 12</h1>
   <span class="badge">LATEST</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — A day spent on the reports that say <b>"I pressed it and nothing happened."</b>
+  We also stopped <b>recording without consent</b>, and cut what the home screen must download before it can appear.
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">23</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">1612→1506</div><div class="l">KB before first paint</div></div>
+  <div class="kpi"><div class="n">2</div><div class="l">places that swallowed failures</div></div>
+  <div class="kpi"><div class="n">2</div><div class="l">deploys (teacher page, 12 items)</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (4 things to know)</h3>
+  <ul>
+    <li><b>We were recording without having taken consent.</b> These are videos of minors. From now on <b>consent is actually collected, and without it we do not record.</b>
+      <small>→ We also <b>linked recording participants to accounts.</b> As found yesterday, a student's account ID had <b>never once</b> been written into the participant list, so a student could not find their own recording. The shared-room backlog (1,329 files · 86%) was filled in too.</small></li>
+    <li><b>A student could replace the textbook for the whole class.</b> One student changing their book <b>changed it for everyone in that class.</b>
+      <small>→ Permissions are now enforced. This was not an inconvenience — it <b>broke other students' lessons.</b></small></li>
+    <li><b>Twice in one day I wrongly said something "did not exist."</b> ① A search returned nothing, so I reported the server feature missing — <b>it was there in 19 places.</b> ② I said a screen was "not in main" — <b>it already was</b>; the copy I was reading was <b>28 commits behind.</b>
+      <small>→ ② led you to instruct a merge that had nothing to merge. The procedure now requires checking <b>"is the copy I am looking at current?"</b> before claiming absence.</small></li>
+    <li><b>We stopped two rollbacks just before deploying.</b> The working branch was <b>12 commits behind the live site</b>; shipping it would have <b>erased someone else's newer work from production.</b>
+      <small>→ "Same build stamp means same content" is <b>false</b> — automatic deploys do not re-stamp. We now compare <b>file contents</b> directly.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done today</h3>
+  <ul>
+    <li><b>Shipped 12 teacher-page fixes to production</b> (both workers). These come from the 17 points our PH manager sent —
+      <b>enter the room early and re-enter after class</b> (it used to lock as "Done"), <b>level tests now visible in My Classes</b>,
+      <b>jump to any date</b> in the weekly schedule, a <b>page list</b> for textbooks, the <b>mic indicator</b> no longer covering Screen Split,
+      and <b>deleting a break time by tapping it</b> (there was no way to remove it before).
+      <small>→ Most of the 17 were not "the feature is missing" but <b>"the door was shut"</b> — a button pushed off-screen, a time window too narrow, or a message only in Korean that a Filipino teacher cannot read.
+      ⚠️ <b>Teacher and admin screens need a login, so I could not see them myself</b> — Maimai has been asked to check 7 items.</small></li>
+    <li><b>Four defects only appeared once we actually opened the screen.</b> Text checks all passed, yet the mic indicator was <b>hidden under the world clock</b>
+      and <b>painted above the Screen Split dialog</b> — moving it alone would have reproduced the original complaint.
+      <small>→ So screen checks now run against a <b>fake server with the real pages</b>, and server calculations (entry window, postponement pay) run the <b>real code on a fake database</b> — 21 checks.</small></li>
+    <li><b>First-paint weight</b> — deferred <b>7 features unrelated to the first image</b> (1,612KB → 1,506KB). Which ones were safe to defer was <b>verified in four stages.</b></li>
+    <li><b>Screen share was visible only to the teacher</b> — the new video track was attached but <b>the other side was never told again</b>, so it never appeared for the student.</li>
+    <li><b>Review-quiz audio played for nobody but the student's side</b> — the browser blocked autoplay and the <b>rejection was silently swallowed.</b></li>
+    <li><b>Teachers can now watch a student's answers and submissions live</b> (review quiz). Three "I press it and nothing happens" items in the teacher tools were fixed with it.</li>
+    <li><b>Two observation (👁) fixes</b> — "it connected but no video arrives" where the screen <b>said nothing at all</b>, and the admin table's <b>"(observing N)" that never appeared</b> (the server had never sent that number).</li>
+    <li><b>The class registration screen</b> was reduced to the five requested fields. The <b>free-text teacher name box is gone</b>; assignment now follows priority order, and <b>if nobody is free it blocks</b> rather than guessing.
+      <small>→ But <b>"register = confirmed" means nobody reviews the result</b>, so a failure now leaves the booking <b>pending instead of confirmed.</b></small></li>
+    <li><b>Attendance "scheduled start time"</b> was being taken from the first slot of an old legacy booking. Fixed.</li>
+    <li><b>In EN mode the top chips flickered every 1.2 seconds</b> — two features were <b>overwriting each other back and forth.</b> Found by comparing video frames to <b>measure the exact spot and interval.</b></li>
+    <li><b>The chatbot said "no information available"</b> where the truth is <b>"it does not exist"</b> (make-up lessons, textbook fees, sibling discount — confirmed with you).</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>The 23 items above have not shipped.</b> They need a merge (the 12 teacher-page fixes were on a separate branch and went out first).</li>
+    <li><b>Another engineer's unfinished work shipped together with mine</b> — the green speaking border, the "no sound" badge and the practice-room button.
+      I had deliberately kept them out, but <b>that branch's PR was merged first</b> and they went live with it.
+      <small>→ My mistake: <b>opening a PR means "someone will merge it"</b>, and I opened one knowing it was mixed. Everything passes (101 checks), but the <b>author should confirm</b> it was intended.</small></li>
+    <li><b>This diary had fallen four days behind.</b> I kept saying "August 8" <b>without re-checking today's date.</b> This entry is that correction.</li>
+    <li><b>The first-paint budget is a blocking gate.</b> If someone else grows a screen file, <b>my deploy is blocked.</b> That happened once today.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Next</h3>
+  <ul>
+    <li><b>Please merge today's work (23 items).</b></li>
+    <li><b>Please decide the postponement pay rate.</b> The rule "postponed more than 30 min before = ₱0" exists but is <b>switched OFF</b> — pay is exactly as before. Turn it on in Admin → Payroll → Deduction rules; it applies from that month and reverts the moment it is turned off.</li>
+    <li><b>Waiting for Maimai's reply</b> — one photo of the Screen Split panel during a class would settle the mic-indicator item.</li>
+    <li><b>Finish linking shared-room recordings.</b> Some still have no schedule to link against.</li>
+    <li><b>Some of August 8's 📌 items still stand</b> — staff password, student textbook/level data, Toss live keys.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Tuesday, August 11</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — We found the causes behind things users described as <b>"I definitely did it, but it isn't there."</b>
+  And we removed, by your decision, features that were <b>only half alive.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">26</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">1,552</div><div class="l">recordings with no owner</div></div>
+  <div class="kpi"><div class="n">8</div><div class="l">docs with the wrong site address</div></div>
+  <div class="kpi"><div class="n">3</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>Students could not watch their own lesson recordings.</b> A student's account ID had <b>never once been written</b> into the participant list — <b>all 1,552 records</b> were blank.
+      <small>→ With no way to know whose recording it is, there is no way to show it. Of those, <b>1,329 (86%) are shared-room files</b> with no lesson schedule at all, which is harder. ⚠️ These are <b>videos of minors and the consent record was zero</b> (addressed the next day).</small></li>
+    <li><b>A level test booked on a PC was completely invisible on a phone.</b> Booking without logging in attaches it to a <b>temporary trial account.</b> Later, signing in with the real account shows <b>nothing at all — and no error.</b>
+      <small>→ We looked at matching by phone number, but <b>only 7 of 29,395 rows have one.</b></small></li>
+    <li><b>The production address was wrong in 8 documents</b> — the address written there is a <b>domain that was never even registered.</b> Checking against it makes <b>a successful deploy look like a failure.</b> That misdiagnosis had actually happened.</li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li><b>Deleted the English Battle feature entirely</b> (your decision). Removing it cleanly means removing it in <b>four places</b> — screen, admin card, server, permissions. The <b>"Child growth comparison" card</b> went too; its server side was dead.</li>
+    <li><b>The facts our chat assistants quote lived in four copies</b> and disagreed with each other → <b>merged into one source.</b> Refund policy was aligned with the parent bot as well.</li>
+    <li><b>Stopped a file with the same address but different content</b> from being cached in browsers <b>for a year.</b> The version number had collided with one already live.</li>
+    <li><b>Removed the floating "my microphone" meter</b> at the bottom-left of the class screen — duplicated by the indicator on the face tile (your instruction).</li>
+    <li><b>"Students cannot advance the review quiz"</b> — the greyed-out button <b>never said why</b>, and the bottom bar was covering it.</li>
+    <li><b>Three class-screen items</b> — remove a wrongly chosen textbook from the list, hide unused textbooks and videos (Maimai's request), and stop the previous lesson's video from lingering into the next.</li>
+    <li><b>The schedule calendar was showing legacy bookings as if they were lessons</b>; the two calendars now use the same colours.</li>
+    <li><b>Receive-side audio delay</b> — the relevant settings were <b>not used anywhere.</b></li>
+    <li><b>Branch cleanup</b> (local 99→24 · remote 87→24). Every branch was <b>opened and checked for uncommitted work</b> before deletion.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>1,329 shared-room recordings were not fixed that day.</b> With no lesson schedule there is <b>nothing to link an owner to.</b></li>
+    <li><b>Level tests trapped on temporary accounts</b> have no recovery path yet — phone numbers are almost entirely missing.</li>
+    <li><b>A merge strategy that discards whole conflicted regions</b> nearly swallowed someone else's change. It was recovered and verified, but <b>that strategy will not be used again.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Decided that day, to do next</h3>
+  <ul>
+    <li><b>Actually collect recording consent</b> — these are videos of minors and the consent record was zero. <b>Done the next day.</b></li>
+    <li><b>Find another way to link shared-room recordings</b> to their students.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Monday, August 10</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — <b>45 items in one day.</b> We stripped out features that <b>existed on screen but were dead on the server</b>,
+  and added <b>remote device help for teachers</b> plus <b>Chinese pronunciation assessment.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">45</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">9</div><div class="l">dead endpoints the UI still called</div></div>
+  <div class="kpi"><div class="n">Chinese</div><div class="l">pronunciation assessment added</div></div>
+  <div class="kpi"><div class="n">9</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>Nine endpoints the screens call do not exist on the server.</b> We pressed them on the live site and kept only those that <b>actually returned "not found."</b>
+      <small>→ By your decision we deleted <b>the subtitle/dictionary card, the word dictionary, English Battle and the growth-comparison card.</b> <b>A half-alive feature is the worst kind</b> — the student presses it and is disappointed, and we believe we "have" it.</small></li>
+    <li><b>A merge into main erased five pieces of work that were already live.</b> The automatic deploy <b>overwrote them with older code.</b>
+      <small>→ We noticed only by looking at the <b>build stamp on the origin server.</b> ⚠️ <b>"Same build stamp" does not mean "same content"</b> — the automatic deploy does not re-stamp. Judge by <b>content comparison.</b></small></li>
+    <li><b>Observation (👁) was stuck at "connecting."</b> The server was <b>discarding the observe request entirely.</b> Confirmed by <b>13 measurements against the production server.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li><b>🎛 Device helper</b> — a teacher can now <b>see and change a student's camera, microphone and speaker remotely.</b> "I can't hear anything" is solved by the teacher on the spot.</li>
+    <li><b>Pronunciation assessment extended to Chinese.</b> Split into a shared service layer with <b>cost controls</b>, and the separately hosted practice curriculum was <b>merged into one screen.</b></li>
+    <li><b>Lesson log, phase 1</b> — the teacher writes <b>in English only</b>, and the parent receives it <b>in Korean.</b></li>
+    <li><b>"Teachers can't see student chat"</b> was not a delivery problem but <b>a covering problem</b> — the floating video window and the install banner sat on top of it. Found by <b>auditing everything that overlaps above the chat.</b></li>
+    <li><b>"The textbook PDF won't go through"</b> was not a fault — <b>9MB was still downloading.</b> The server was ignoring range requests.</li>
+    <li><b>Drawing lock blocked "draw" but left "erase all" open.</b> Fixed with three tab-sync issues.</li>
+    <li><b>"Works on my PC, breaks in CI"</b> — the test tooling had been written Windows-only.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>The deleted features cannot be brought back.</b> They were removed by your decision and <b>their servers were already dead</b> — reviving them means building them again.</li>
+    <li><b>The five erased items were restored</b>, but <b>the structure that allowed it still exists.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Decided that day, to do next</h3>
+  <ul>
+    <li><b>Always check "is live newer than us?" before deploying</b> — by <b>content</b>, not by stamp.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Sunday, August 9</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — We fixed numbers on the management and admin screens that <b>did not match reality</b>,
+  and joined <b>manager and teacher into a single account.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">16</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">0 → 28,665</div><div class="l">enrolled students on the exec screen</div></div>
+  <div class="kpi"><div class="n">169</div><div class="l">test bookings distorting the KPI</div></div>
+  <div class="kpi"><div class="n">13</div><div class="l">deploys verified</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (3 things to know)</h3>
+  <ul>
+    <li><b>Enrolled, new and cumulative student counts on the executive dashboard were all zero.</b> We were counting students whose status is <b>"정상" (Korean for "normal")</b> — and <b>that value does not appear even once</b> in the real data.
+      <small>→ The real values are English (<b>active</b> 28,665 / inactive 726). The screen showed <b>a clean zero with no error at all.</b> <b>A zero can mean "you asked the wrong question," not "there is none."</b></small></li>
+    <li><b>Test and training agencies were mixed into the "not-delivered rate."</b> Those accounts had <b>169 bookings and zero completions over 60 days</b>, badly distorting the number.
+      <small>→ Also, "yesterday's not-delivered rate" is <b>not final yet.</b> We now print a <b>comparison baseline</b> (the average for the same weekday, once settled) beside it. "Today's absence rate" became <b>a progress figure rather than a ratio.</b></small></li>
+    <li><b>The lesson-log link sent to parents pointed at a domain that does not exist.</b> Pressing it goes nowhere. And the <b>AI study report was going out to parents with Chinese characters mixed in.</b>
+      <small>→ The link was corrected and the report is now <b>Korean only.</b> The wording for areas to improve was rewritten in a <b>growth-oriented tone.</b></small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li><b>Manager and teacher joined into one account</b> — you can move between the two <b>without logging out.</b> A banner keeps a manager from <b>missing their own lesson</b> while working in the manager view.</li>
+    <li><b>The one field that was blocking attendance calculation</b> — built the screen that <b>links a teacher to their login ID.</b></li>
+    <li><b>The attendance board was drawn from fake seed data</b>; it now uses the <b>real lesson schedule.</b> The expected start time <b>differs per teacher.</b></li>
+    <li><b>Started measuring admin menu usage</b> — until now there was <b>no way to tell what nobody clicks.</b></li>
+    <li><b>Menus that "jumped" to hidden cards were entirely dead</b>; revived in one place. <b>Agencies were moved inside "Organisation"</b> so one job is one flow.</li>
+    <li><b>The "full executive dashboard" pointed at an address that does not exist.</b></li>
+    <li><b>Two corrections to the working-rules document</b> — the verification procedure <b>did not actually run as written</b>, and the reason admin card colours <b>refuse to apply</b> is now recorded as a known trap.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>We have not found every screen still showing invented numbers.</b> One more turned up that day, on the attendance board.</li>
+    <li><b>Menu measurement has only just started.</b> It needs days of data before it can say what nobody uses.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Decided that day, to do next</h3>
+  <ul>
+    <li><b>Audit every dead endpoint</b> the screens still call. <b>Nine were found the next day.</b></li>
+    <li><b>Once measurement accumulates, retire the menus nobody uses.</b></li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Saturday, August 8</h1>
+  <span class="badge past">PAST ENTRY</span>
 </div>
 
 <div class="oneline">
@@ -128,7 +397,7 @@
 </div>
 
 <div class="blk blk-imp">
-  <h3>🔴 The important thing tonight</h3>
+  <h3>🔴 The important thing that night</h3>
   <ul>
     <li><b>"Mumbling still scores high" was never a numbers problem — it was the ruler.</b> We believed we were measuring pronunciation. What we were actually measuring was <b>"how confident the dictation AI is in its own answer."</b> That AI is a language model: for a <b>common sentence it fills in the gaps from context</b> and stays confident even when you mumble.
       <small>→ Your own recordings proved it. <b>"Thank you very much for your help" scored almost the same clear or mumbled</b>, while <b>the sentence containing "Mangoi" split wide open.</b> The difference was not pronunciation — it was that <b>"Mangoi" is a word the AI does not know.</b> No amount of re-scaling can catch that.</small></li>
@@ -154,7 +423,7 @@
 </div>
 
 <div class="blk blk-did">
-  <h3>✅ Done today</h3>
+  <h3>✅ Done that day</h3>
   <ul>
     <li><b>First we re-drew the existing ruler.</b> <b>Nobody was ever touching the bottom half of the scale</b> — the zero mark sat where "the AI heard nothing at all" is, not where "pronunciation is poor" is. Re-drawn against the real distribution, your recordings split <b>78 clear / 20 mumbled.</b></li>
     <li><b>Compared four pronunciation-assessment vendors</b> on billing shape, supported languages, and whether our server can call them at all — including what each would cost us at 120 and at 29,000 attempts a month.</li>
@@ -199,7 +468,7 @@
 </div>
 
 <div class="blk blk-next">
-  <h3>📌 Next</h3>
+  <h3>📌 Decided that day, to do next</h3>
   <ul>
     <li><b>Replace the Azure key</b> (you) — invalidate the one caught in the capture.</li>
     <li><b>Collect real scores and calibrate.</b> Once a few students' recordings accumulate we can decide what "good" should be worth.</li>

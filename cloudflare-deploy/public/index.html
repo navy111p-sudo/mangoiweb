@@ -4488,7 +4488,7 @@ window.mgIsSlowNet = function(){
   }catch(_){ return false; }
 };
 </script>
-<script src="/js/idx-promo-video.js?v=1"></script>
+<script defer src="/js/idx-promo-video.js?v=1"></script>
 <!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
 <div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
 <aside id="mg-drawer" aria-label="메뉴 사이드바" data-ko-aria="메뉴 사이드바" data-en-aria="Menu sidebar">
@@ -5965,7 +5965,7 @@ window.mgIsSlowNet = function(){
         <!-- ph178 (2026-05-29) — 수업 신청 카드 (시간·교사 선택 → 결제) -->
         <button class="ai-quick-btn" data-go="booking" data-ko="📝 수업 신청" data-en="📝 Book Class" onclick="event.preventDefault();location.href='/lesson-booking-demo.html';return false;">📝 수업 신청</button>
       </div>
-      <script src="/js/idx-about.js?v=1"></script>
+      <script defer src="/js/idx-about.js?v=1"></script>
       <script>
       /* 🤖 AI와 친구하기 — AI 자기주도학습 모음 오버레이 (첫 화면 CTA)
          결제하기를 첫 화면에서 빼고 그 자리에 넣음. 결제는 사이드바/마이페이지에 있음. */
@@ -6084,7 +6084,7 @@ window.mgIsSlowNet = function(){
               비회원에게는 반드시 남아 있어야 한다 — 위 6340줄 주석 참조. -->
 
       <!-- ② 로그인한 회원 — 수업입장 + AI와 친구하기 한 줄 (같은 골드 스타일) -->
-      <script src="/js/idx-leveltest-card.js?v=2"></script>
+      <script defer src="/js/idx-leveltest-card.js?v=2"></script>
 
       <div class="ai-cta-row" id="hero-member" style="display:none">
         <button class="cta-enter" onclick="showView('view-videocall-lobby')">
@@ -6287,7 +6287,7 @@ window.mgIsSlowNet = function(){
       </div>
       <!-- ⏰ 다음 수업 카운트다운 (홈 대시보드) — /api/class/sessions/today 의 current + start_ts 기반 -->
       <div id="next-class-countdown" style="display:none"></div>
-      <script src="/js/idx-next-class.js?v=1"></script>
+      <script src="/js/idx-next-class.js?v=2"></script>
       <!-- 🐞 교사 버그/피드백 신고 FAB — 교사(vcIsTeacherRole)에게만 노출, POST /api/bug-report -->
       <script>
       (function bugReportFab(){
@@ -8866,8 +8866,12 @@ window.mgIsSlowNet = function(){
 ================================================================ -->
 <!-- ⚠ idx-main 버전 규칙: v=5·v=6·v=8 은 재사용 금지 — 「같은 주소 다른 내용」이 엣지·브라우저
      1년 캐시에 박힌 번호다. v=5·v=6 은 26-08-11 새벽 사고, v=8 은 main 과 이 브랜치가
-     서로 다른 내용으로 동시에 써 버렸다(병합으로 내용이 또 달라짐). 다음 번호는 항상 큰 쪽으로만. -->
-<script src="/js/idx-main.js?v=13"></script>
+     서로 다른 내용으로 동시에 써 버렸다(병합으로 내용이 또 달라짐). 다음 번호는 항상 큰 쪽으로만.
+     26-08-12: 13 → 15. 참관 «영상 안 옴» 감시(vcObserverMediaWatch)를 얹으며 내용이 바뀌었다.
+     14 는 별도 worktree 에서 잡았다가 미배포로 폐기한 번호 — 건너뛴다.
+     26-08-12(2차): 15 → 16. 감시가 보고만 하지 않고 «한 번 자동 재연결»(relay 강제)까지 하도록.
+     실전 첫 배너가 ice-stuck 이었다 — checking 고착은 failed 복구 루틴이 영영 안 불리는 칸. -->
+<script src="/js/idx-main.js?v=16"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -10883,7 +10887,7 @@ window.mgIsSlowNet = function(){
 <script src="/js/idx-user-session.js?v=1"></script>
 
 <!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
-<script src="/js/idx-remote-support.js?v=1"></script>
+<script defer src="/js/idx-remote-support.js?v=1"></script>
 
 <!-- 🆕 출석체크 + 학원 랭킹 + 학습목표 — 3개 신규 카드 핸들러 -->
 <style>
@@ -10918,10 +10922,10 @@ window.mgIsSlowNet = function(){
   .gl-progress-bar{height:100%;background:linear-gradient(90deg,#10b981,#34d399);transition:width .5s ease}
   .gl-meta{font-size:11.5px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between}
 </style>
-<script src="/js/idx-daily-checkin.js?v=1"></script>
+<script defer src="/js/idx-daily-checkin.js?v=1"></script>
 
 <!-- 📱 PWA — Service Worker 등록 + 홈화면 추가 안내 -->
-<script src="/js/idx-push-sw.js?v=1"></script>
+<script defer src="/js/idx-push-sw.js?v=1"></script>
 
 <!-- 🤖 AI 검색창 placeholder 강제 보장 — 새로고침/언어전환/탭복귀에도 무조건 표시 -->
 <script>
@@ -14083,7 +14087,7 @@ window.mgIsSlowNet = function(){
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
 <script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
-<!-- BUILD:20260811134847 -->
+<!-- BUILD:20260812061849 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
 <script id="lesson-change-unify">
 (function(){
@@ -14720,7 +14724,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script src="/js/idx-allmenu.js?v=1"></script>
+<script defer src="/js/idx-allmenu.js?v=1"></script>
 
 
 <!-- ============================================================
