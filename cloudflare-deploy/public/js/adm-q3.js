@@ -346,6 +346,11 @@
       // 🎖 등급 선택 셀 — 관리자만 변경 가능(강사 뷰는 읽기전용). 등급 미지정 시 요율만 표시.
       const _lvlLabel = (code) => { const x = _prLevels.find(v=>v.code===code); return x ? (isEn ? x.label_en : x.label_ko) : ''; };
       const levelCellMain = (r) => {
+        // 프로필 미연결 강사(원부 teachers 에만 있는 행) — 등급을 지정할 프로필이 없다.
+        // 관리자 「강사 사진 연결」에서 프로필을 이으면 다음 계산부터 단가·등급이 붙는다.
+        if (r.unlinked_profile) {
+          return `<span style="font-size:11px;color:#dc2626;font-weight:700">${isEn?'⚠ No linked profile':'⚠ 프로필 미연결'}</span><br><span style="font-size:10px;color:#9ca3af">${isEn?'Link a profile to set rates':'프로필 연결 후 단가 반영'}</span>`;
+        }
         const cur = r.level_code || '';
         const rate20 = r.rate_per_20min || ((r.fee_per_10min||0)*2);
         const rateTxt = `<span style="font-size:10.5px;color:#9ca3af">₱${fmt(rate20)}/20m</span>`;
@@ -397,7 +402,7 @@
                 : `<span style="color:#9ca3af">${H.pending}</span>`}
             </td>
             <td style="padding:8px 10px;text-align:center;white-space:nowrap">
-              <button onclick="prShowDetail(${r.teacher_id}, '${esc(r.korean_name||'')}')" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">${H.detail}</button>
+              <button onclick="prShowDetail('${r.teacher_id}', '${esc(r.korean_name||'')}')" style="padding:5px 10px;font-size:11px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">${H.detail}</button>
               ${r.payroll_id
                 ? (r.status === 'paid'
                     ? `<button onclick="prMarkUnpaid(${r.payroll_id})" style="padding:5px 10px;font-size:11px;background:#9ca3af;color:#fff;border:0;border-radius:5px;cursor:pointer">${H.cancel}</button>`

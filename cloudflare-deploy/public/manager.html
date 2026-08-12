@@ -743,8 +743,12 @@ body.is-off .card{opacity:.82}
     var rows = Array.isArray(j) ? j : ((j && (j.rooms || j.items)) || []);
     hqRows('liveBody', rows, function(r){
       var id = r.roomId || r.room_id || r.room || '';
-      var cnt = r.count != null ? r.count : (r.participants != null
-                  ? (r.participants.length != null ? r.participants.length : r.participants) : '');
+      // (2026-08-12) /api/active-rooms 실제 필드는 userCount·users — 예전 이름들만 보다 늘 빈칸이었다
+      var cnt = r.userCount != null ? r.userCount
+              : (r.count != null ? r.count
+              : (r.users && r.users.length != null ? r.users.length
+              : (r.participants != null
+                  ? (r.participants.length != null ? r.participants.length : r.participants) : '')));
       return '<div class="row"><b>' + esc(id) + '</b>'
            + (cnt !== '' ? '<span class="muted">' + esc(T(cnt + ' in room', '참여 ' + cnt + '명')) + '</span>' : '')
            + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room=' + encodeURIComponent(id) + '">'
@@ -1088,6 +1092,6 @@ body.is-off .card{opacity:.82}
   if (window.__crbWanted) window.__crbStart();
 })();
 </script>
-<!-- BUILD:20260812061849 -->
+<!-- BUILD:20260813015745 -->
 </body>
 </html>

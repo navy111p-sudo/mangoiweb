@@ -1312,6 +1312,12 @@ function _ensureRoomEnhCss(){
 async function loadActiveRooms() {
   _ensureRoomEnhCss();
   const _L = adminLang==='en';
+  // 🖱 (2026-08-12 수정요청 #01) 15초 자동 갱신이 마우스 아래에서 행을 갈아치워
+  //    조준한 행과 다른 방을 누르게 되던 것 — 표에 마우스가 올라가 있는 동안은 다시 안 그린다.
+  {
+    const tb0 = document.getElementById('active-rooms-table');
+    if (window.__roomsHover && tb0 && tb0.querySelector('tr[data-room]')) return;
+  }
   try {
     const [rr, ar] = await Promise.all([
       fetch('/api/active-rooms'),
@@ -1342,28 +1348,101 @@ async function loadActiveRooms() {
     const TYPE_KO = { silence_20s:'침묵 20초', forbidden_word:'금지어 감지', low_engagement:'참여 저하', network_poor:'네트워크 저하' };
     // 🚨 이상감지 방을 최상단으로 정렬
     const sorted = rooms.slice().sort((a,b)=> (alertMap[String(b.roomId)]?1:0) - (alertMap[String(a.roomId)]?1:0));
+    /* 🛠 (2026-08-12 수정요청 #01) 액션 버튼이 «엉뚱한 화면» 을 열던 근본 원인:
+       onclick="forceEndRoom(${JSON.stringify(roomId)})" — stringify 가 만든 큰따옴표가
+       큰따옴표 HTML 속성을 중간에서 끊어, 핸들러가 아예 안 달리거나 깨진 채 달렸다.
+       → 방·학생 정보를 <tr> 의 data-속성(_esc 이스케이프)에 싣고, 클릭은 위임 리스너가
+         «실제로 클릭된 행» 에서 읽는다. 이제 행과 다른 학생이 매핑될 수 없다. */
     tb.innerHTML = sorted.map(room => {
-      const userNames = (room.users || []).map(u => u.username).join(', ') || '-';
-      const roomIdJs = JSON.stringify(room.roomId);
+      const users = room.users || [];
+      const userNames = users.map(u => u.username).join(', ') || '-';
+      // 연장 버튼용 학생 목록 — 강사·관리자·참관자는 제외
+      const studentNames = users
+        .filter(u => !/^(teacher|admin|observer|ghost|manager)$/i.test(String(u.role || '')))
+        .map(u => String(u.username || '').trim()).filter(Boolean);
+      const roomAttr = _esc(String(room.roomId == null ? '' : room.roomId));
       const al = alertMap[String(room.roomId)];
       const badge = al ? ' <span class="room-alert-badge">🚨 '+(TYPE_KO[al.alert_type]||al.alert_type)+'</span>' : '';
-      return `<tr class="${al?'room-alert':''}">
-        <td>${room.roomId}${badge}</td>
+      const btnCss = 'padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;color:#fff;';
+      return `<tr class="${al?'room-alert':''}" data-room="${roomAttr}" data-students="${_esc(JSON.stringify(studentNames))}">
+        <td>${_esc(room.roomId)}${badge}</td>
         <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#f59e0b;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
-        <td>${userNames}</td>
+        <td>${_esc(userNames)}</td>
         <td>${room.hasPdf ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td>${room.hasVideo ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${al?`<button onclick="interveneRoom(${roomIdJs})" style="background:#ef4444;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
-          <button onclick="observeRoom(${roomIdJs})" style="background:#f59e0b;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
-          <button onclick="forceEndRoom(${roomIdJs})" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="background:#dc2626;color:#fff;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;">🛑 ${_L?'Force End':'강제 종료'}</button>
+          ${al?`<button data-act="intervene" style="${btnCss}background:#ef4444;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
+          <button data-act="observe" style="${btnCss}background:#f59e0b;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
+          <button data-act="extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}" style="${btnCss}background:#2563eb;">⏳ ${_L?'Extend':'연장'}</button>
+          <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
     }).join('');
+    _wireRoomsActions();
   } catch(e) {
     document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
   }
 }
+/* 🖱 실시간 수업 현황 액션 위임 (2026-08-12 수정요청 #01) — 한 번만 단다.
+   클릭된 <tr> 의 data-room/data-students 를 그 자리에서 읽으므로,
+   자동 갱신·재정렬이 끼어들어도 «클릭한 행» 과 다른 방·학생이 매핑될 수 없다. */
+function _wireRoomsActions(){
+  if (window.__roomsActWired) return;
+  window.__roomsActWired = true;
+  const tb = document.getElementById('active-rooms-table');
+  if (tb) {
+    tb.addEventListener('pointerenter', function(){ window.__roomsHover = true; });
+    tb.addEventListener('pointerleave', function(){ window.__roomsHover = false; });
+  }
+  document.addEventListener('click', function(e){
+    const btn = e.target && e.target.closest ? e.target.closest('#active-rooms-table [data-act]') : null;
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    const tr = btn.closest('tr'); if (!tr) return;
+    const roomId = tr.getAttribute('data-room') || '';
+    let students = [];
+    try { students = JSON.parse(tr.getAttribute('data-students') || '[]'); } catch(_) {}
+    const act = btn.getAttribute('data-act');
+    if (act === 'intervene') interveneRoom(roomId);
+    else if (act === 'observe') observeRoom(roomId);
+    else if (act === 'extend') extendRoomStudent(roomId, students);
+    else if (act === 'end') forceEndRoom(roomId, students);
+  }, true);
+}
+
+/* ⏳ 연장 (2026-08-12 수정요청 #01) — 그 방의 «그 학생» 수강 연장 화면으로.
+   방 참가자에는 계정 uid 가 없고 표시 이름뿐이라, 이름으로 명부를 조회해
+   정확히 1명으로 특정되면 학생 상세의 «수강 연장» 탭을, 아니면(동명이인 등)
+   그 이름으로 걸러진 학생 목록을 연다 — 엉뚱한 학생이 뜨는 일은 없다. */
+async function extendRoomStudent(roomId, students){
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  students = (students || []).filter(Boolean);
+  if (!students.length) { alert(_L ? 'No student participant in this room.' : '이 방에 학생 참가자가 없습니다.'); return; }
+  let name = students[0];
+  if (students.length > 1) {
+    const pick = prompt((_L ? 'Which student to extend?\n' : '어느 학생을 연장할까요?\n')
+      + students.map((s, i) => (i + 1) + ') ' + s).join('\n'), '1');
+    if (pick == null) return;
+    const idx = parseInt(pick, 10) - 1;
+    name = students[idx >= 0 && idx < students.length ? idx : 0];
+  }
+  try {
+    const r = await fetch('/api/admin/students/unified?q=' + encodeURIComponent(name), { credentials: 'include' });
+    const j = await r.json().catch(() => ({}));
+    const list = (j && j.students) || [];
+    const key = name.trim().toLowerCase();
+    const exact = list.filter(s => [s.name, s.english_name].some(x => String(x || '').trim().toLowerCase() === key));
+    const hit = exact.length === 1 ? exact[0] : (list.length === 1 ? list[0] : null);
+    if (hit && hit.user_id) {
+      mangoiOpenTab('/admin/student?uid=' + encodeURIComponent(hit.user_id) + '&tab=extension', _L ? 'Extend enrollment' : '수강 연장');
+      return;
+    }
+  } catch (_) {}
+  // 1명으로 특정 못하면(동명이인·명부 불일치) 그 이름으로 검색된 학생 목록을 연다
+  mangoiOpenTab('/admin.html?smq=' + encodeURIComponent(name) + '#card-students-mgmt', _L ? 'Student list' : '학생 목록');
+}
+window.extendRoomStudent = extendRoomStudent;
+
 // 🚨 즉시 개입 — 강사 귓속말(Whisper) 카드로 이동해 즉시 대처
 function interveneRoom(roomId){
   try{
@@ -1449,11 +1528,13 @@ window.observeRoom = observeRoom;
 // 🛑 관리자 강제 종료 (Phase 4)
 //   - 2단계 확인: confirm → 사유 입력(선택) → API 호출
 //   - API: POST /api/admin/room/:roomId/force-end  body: { reason? }
-async function forceEndRoom(roomId) {
+async function forceEndRoom(roomId, students) {
   const _L = adminLang==='en';
+  // (2026-08-12 수정요청 #01) 방 이름만으로는 어느 수업인지 가늠이 어렵다 — 학생 이름을 함께 보여 준다
+  const _who = (students && students.length) ? students.join(', ') : '';
   const confirmMsg = _L
-    ? `Force-end room "${roomId}"? All participants will be disconnected immediately.`
-    : `방 "${roomId}" 을 강제 종료하시겠습니까?\n모든 참가자 연결이 즉시 해제됩니다.`;
+    ? `Force-end room "${roomId}"${_who ? ` (students: ${_who})` : ''}? All participants will be disconnected immediately.`
+    : `방 "${roomId}"${_who ? ` — 학생: ${_who}` : ''} 을 강제 종료하시겠습니까?\n모든 참가자 연결이 즉시 해제됩니다.`;
   if (!confirm(confirmMsg)) return;
   const reason = (prompt(_L ? 'Reason (optional, shown to participants):' : '종료 사유 (선택 — 참가자에게 표시됨):', '') || '').trim();
   try {
@@ -3253,16 +3334,47 @@ async function loadCenters(opts) {
   } catch (e) { d = {}; }
   _ctState.total = Number(d.total || 0);
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">'
+    tb.innerHTML = '<tr><td colspan="7" class="empty">'
       + (_ctState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
+  // 💳 (2026-08-12 수정요청 #05) 결제유형 컬럼 — 행에서 바로 바꿀 수 있는 드롭다운.
+  //    centers 엔 수정 API 가 없었어서, 기존 921건에 유형을 지정할 방법이 이것뿐이다.
+  const _ptCell = c => {
+    const cur = String(c.payment_type || '');
+    const opt = (v, ko, en) => `<option value="${v}"${cur === v ? ' selected' : ''}>${adminLang==='en'?en:ko}</option>`;
+    return `<select onchange="ctSetPayType(${Number(c.id)},this)" data-prev="${cur}" title="${adminLang==='en'?'Payment type of this agency':'이 대리점의 결제 방식'}"
+      style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:${cur?'#eff6ff':'#fff'};color:${cur?'#1d4ed8':'#6b7280'};font-weight:${cur?'700':'400'}">`
+      + opt('', '미지정', 'None') + opt('B2B', 'B2B', 'B2B') + opt('B2C', 'B2C', 'B2C') + '</select>';
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
+// 💳 결제유형 저장 — 실패하면 화면 값을 되돌리고 알린다 (조용한 반쪽 성공 금지)
+async function ctSetPayType(id, sel) {
+  const want = sel.value || null;
+  const prev = sel.getAttribute('data-prev') || '';
+  try {
+    const r = await fetch('/api/admin/centers', {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, payment_type: want })
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+    sel.setAttribute('data-prev', want || '');
+    sel.style.background = want ? '#eff6ff' : '#fff';
+    sel.style.color = want ? '#1d4ed8' : '#6b7280';
+    sel.style.fontWeight = want ? '700' : '400';
+  } catch (e) {
+    sel.value = prev;
+    alert((adminLang==='en' ? 'Failed to save payment type: ' : '결제유형 저장 실패: ') + e.message);
+  }
+}
+window.ctSetPayType = ctSetPayType;
 function _ctRenderPager() {
   const el = document.getElementById('ct-pager');
   if (!el) return;
@@ -3293,9 +3405,10 @@ async function addCenter() {
   const d = await _menuPost('/api/admin/centers', {
     franchise_id: e('ct-franchise').value || null, name,
     country: e('ct-country').value||null, manager: e('ct-manager').value||null,
-    address: e('ct-address').value||null
+    address: e('ct-address').value||null,
+    payment_type: (e('ct-paytype') && e('ct-paytype').value) || null   // 💳 (2026-08-12 수정요청 #05)
   });
-  if (d) { ['ct-name','ct-country','ct-manager','ct-address'].forEach(id=>e(id).value=''); loadCenters(); }
+  if (d) { ['ct-name','ct-country','ct-manager','ct-address','ct-paytype'].forEach(id=>{ if(e(id)) e(id).value=''; }); loadCenters(); }
 }
 
 // ── 레벨테스트 ───────────────────────────────────────────────────────
@@ -7314,12 +7427,14 @@ function renderStudentTable() {
   const tb = document.getElementById('sm-students-tbody');
   if (!tb || !_smStudents.length) return;
 
-  // 🔍 검색 필터 — 학생명·아이디 부분일치 (대소문자 무시)
+  // 🔍 검색 필터 — 학생명·아이디·학원명·지사명 부분일치 (대소문자 무시)
+  //    (2026-08-12 수정요청 #02) 가맹점(학원)명으로도 걸리게 넓혔다 — 서버 unified 검색과 같은 폭.
   const _q = String(_smSearch || '').trim().toLowerCase();
   // 🏫 대리점·학원 필터 (2026-07-23) — 검색어와 함께 걸린다(AND)
   const _ag = String(_smAgency || '').trim();
   let _filtered = _smStudents;
-  if (_q) _filtered = _filtered.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0);
+  if (_q) _filtered = _filtered.filter(s => s._username_lc.indexOf(_q) >= 0 || String(s.user_id || '').toLowerCase().indexOf(_q) >= 0
+    || String(s.shop_name || '').toLowerCase().indexOf(_q) >= 0 || String(s.franchise || '').toLowerCase().indexOf(_q) >= 0);
   if (_ag) _filtered = _filtered.filter(s => String(s.shop_name || '').trim() === _ag);
 
   // 인원수 라벨 — 검색·필터 중이면 "N명 / 전체" 로 표시
@@ -10123,33 +10238,42 @@ window.rebuildGlobalSearchIndex = function() {
     const to     = document.getElementById('acc-pay-to').value;
     const method = document.getElementById('acc-pay-method').value;
     const status = document.getElementById('acc-pay-status').value;
+    // 💳 (2026-08-12 수정요청 #03) B2B/B2C 구분 — 서버가 대리점 결제유형으로 파생·필터
+    const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const tbody  = document.getElementById('acc-pay-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
     try {
       const qs = new URLSearchParams();
       if (from)   qs.set('from', from);
       if (to)     qs.set('to', to);
       if (method) qs.set('method', method);
       if (status) qs.set('status', status);
+      if (channel) qs.set('channel', channel);
       const r = await fetch('/api/admin/reports/payments-list?' + qs.toString(), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
       tbody.innerHTML = d.rows.map(p => {
         const t = new Date((p.paid_at||0)*1000+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
         const c = p.status === 'paid' ? 'ok' : p.status === 'refunded' ? 'warn' : 'bad';
+        const ch = p.channel === 'B2B'
+          ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700">B2B</span>'
+          : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#0891b2;color:#fff;font-size:11px;font-weight:700">B2C</span>';
         return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${_esc(p.user_id||'')}</td>
+                <td>${ch}</td><td>${_esc(p.shop_name||'-')}</td>
                 <td>${_esc(p.memo||'-')}</td><td style="text-align:right">${_fmt(p.amount_krw)}</td>
                 <td>${_esc(p.method||'')}</td><td>${_badge(p.status, c)}</td></tr>`;
       }).join('');
-    } catch(e) { _showErr(tbody, e, 7); }
+    } catch(e) { _showErr(tbody, e, 9); }
   };
   window.accDownloadPaymentsCsv = function(){
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
+    const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const qs = new URLSearchParams({ format:'csv' });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    if (channel) qs.set('channel', channel);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
 

@@ -33,8 +33,10 @@ const check = (n, c, d) => {
 
 const share = js.slice(js.indexOf('window.vcShareMyScreen = async function'),
                        js.indexOf('window.vcStopMyScreen = async function'));
+/* (2026-08-12 Melca) 중지 함수 머리에 시스템 소리 복원 블록이 들어와 3000자 창으로는
+   replaceTrack(null) 마무리가 창 밖으로 밀린다 → 6000자로 확장 */
 const stop  = js.slice(js.indexOf('window.vcStopMyScreen = async function'),
-                       js.indexOf('window.vcStopMyScreen = async function') + 3000);
+                       js.indexOf('window.vcStopMyScreen = async function') + 6000);
 
 console.log('\n════════ 화면 공유가 학생에게 닿는가 ════════\n');
 
@@ -72,6 +74,17 @@ check('replaceTrack 경로는 여전히 재협상하지 않는다 (끊김 없는
       '여기에 재협상을 붙이면 수업이 잠깐 끊긴다');
 check('화면 공유 트랙은 detail 힌트를 유지한다', /st\.contentHint = 'detail'/.test(share));
 check('강사·관리자만 공유할 수 있다', /vcIsStaffNow/.test(share));
+
+console.log('\n▶ ⑤ (2026-08-12 Melca) 소리·늦입장·알림');
+check('시스템 소리를 요청한다 (audio:true)', /getDisplayMedia\(\{ video: true, audio: true \}\)/.test(share),
+      '유튜브를 공유하면 그림만 가고 소리가 안 갔다');
+check('시스템 소리는 마이크와 «믹스» 해서 보낸다 (마이크 sender 통째 교체 금지)',
+      /createMediaStreamDestination/.test(share) && /__vcScreenAudio/.test(share));
+check('성공했을 때도 강사에게 확인을 띄운다', /공유 화면을 보고 있어요/.test(share) && /can now see your shared screen/.test(share));
+check('학생에게 시작/종료를 알린다 (screen-share-state)', /screen-share-state/.test(share) && /screen-share-state/.test(stop));
+check('공유 «도중» 입장한 사람에게도 화면 트랙을 준다 (__vcScreenTrack)',
+      /__vcScreenTrack/.test(share) && /__vcScreenTrack && window\.__vcScreenTrack\.readyState === 'live'/.test(js));
+check('중지 시 마이크 단독으로 되돌린다', /micBackup/.test(stop));
 
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);

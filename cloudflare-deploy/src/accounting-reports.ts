@@ -991,23 +991,49 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   const to = url.searchParams.get('to');
   const method = url.searchParams.get('method');
   const status = url.searchParams.get('status');
+  // 💳 (2026-08-12 수정요청 #03) B2B/B2C 구분 — 결제 행엔 구분값이 없어서
+  //    학생(students_erp.shop_name) → 대리점(centers.payment_type) 으로 파생한다.
+  //    대리점에 지정이 없으면 학생의 payment_type('B2B 결제'류), 그마저 없으면 B2C(기본값).
+  const channel = String(url.searchParams.get('channel') || '').trim().toUpperCase();
   const limit = Math.min(Number(url.searchParams.get('limit')) || 200, 500);
 
   const where: string[] = ['1=1'];
   const args: unknown[] = [];
-  if (from) { where.push('paid_at >= ?'); args.push(new Date(from + 'T00:00:00+09:00').getTime()); }
-  if (to)   { where.push('paid_at < ?');  args.push(new Date(to   + 'T23:59:59+09:00').getTime()); }
-  if (method) { where.push('method = ?'); args.push(method); }
-  if (status) { where.push('status = ?'); args.push(status); }
+  if (from) { where.push('p.paid_at >= ?'); args.push(new Date(from + 'T00:00:00+09:00').getTime()); }
+  if (to)   { where.push('p.paid_at < ?');  args.push(new Date(to   + 'T23:59:59+09:00').getTime()); }
+  if (method) { where.push('p.method = ?'); args.push(method); }
+  if (status) { where.push('p.status = ?'); args.push(status); }
 
   const rows = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT id, paid_at, user_id, amount_krw, method, memo, status
-      FROM student_payments
-      WHERE ${where.join(' AND ')}
-      ORDER BY paid_at DESC LIMIT ?
-    `).bind(...args, limit).all();
-    return (r.results || []) as Array<any>;
+    // centers 이름이 유일하지 않을 수 있어 JOIN 대신 스칼라 서브쿼리(행 뻥튀기 방지)
+    const chExpr = `CASE WHEN UPPER(COALESCE(
+        (SELECT c.payment_type FROM centers c WHERE c.name = s.shop_name AND c.payment_type IS NOT NULL ORDER BY c.id LIMIT 1),
+        CASE WHEN s.payment_type LIKE 'B2B%' THEN 'B2B' ELSE '' END
+      )) = 'B2B' THEN 'B2B' ELSE 'B2C' END`;
+    const chFilter = (channel === 'B2B' || channel === 'B2C') ? ` AND channel = ?` : '';
+    const binds = (channel === 'B2B' || channel === 'B2C') ? [...args, channel, limit] : [...args, limit];
+    try {
+      const r = await env.DB.prepare(`
+        SELECT * FROM (
+          SELECT p.id, p.paid_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
+                 s.shop_name AS shop_name, ${chExpr} AS channel
+          FROM student_payments p
+          LEFT JOIN students_erp s ON s.user_id = p.user_id
+          WHERE ${where.join(' AND ')}
+        ) WHERE 1=1${chFilter}
+        ORDER BY paid_at DESC LIMIT ?
+      `).bind(...binds).all();
+      return (r.results || []) as Array<any>;
+    } catch {
+      // centers·students_erp 가 아직 없는 새 환경 — 구분 없이 예전 그대로의 목록이라도 준다
+      const r = await env.DB.prepare(`
+        SELECT p.id, p.paid_at, p.user_id, p.amount_krw, p.method, p.memo, p.status
+        FROM student_payments p
+        WHERE ${where.join(' AND ')}
+        ORDER BY p.paid_at DESC LIMIT ?
+      `).bind(...args, limit).all();
+      return (r.results || []) as Array<any>;
+    }
   }, []);
 
   const totals = rows.reduce((a, r) => ({
@@ -1018,14 +1044,14 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   const data = { ok: true, type: 'payments-list', rows, totals };
   if (fmt === 'csv') {
     return csv('payments.csv', [
-      ['망고아이 학생 결제 내역'],
+      ['망고아이 학생 결제 내역' + (channel === 'B2B' || channel === 'B2C' ? ` (${channel})` : '')],
       [],
-      ['시각(KST)', '주문ID', '학생ID', '금액', '결제수단', '메모', '상태'],
+      ['시각(KST)', '주문ID', '학생ID', '구분', '가맹점', '금액', '결제수단', '메모', '상태'],
       ...rows.map(r => [
         new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
-        r.id, r.user_id, r.amount_krw, r.method || '', r.memo || '', r.status,
+        r.id, r.user_id, r.channel || '', r.shop_name || '', r.amount_krw, r.method || '', r.memo || '', r.status,
       ]),
-      ['합계', '', '', totals.paid, '', '', `${totals.count}건`],
+      ['합계', '', '', '', '', totals.paid, '', '', `${totals.count}건`],
     ]);
   }
   return json(data);
