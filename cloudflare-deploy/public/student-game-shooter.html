@@ -713,6 +713,10 @@
     }catch(e){ return 'space'; }
   })();
   var FACES = THEMES[THEME].foes;
+  /* 🌌 우주 테마 여부. 우주에서는 몬스터가 도로 소실점(중앙)에서 걸어 나오는 대신
+     화면 사방(위·아래·좌·우) 가장자리에서 랜덤으로 날아와 넓게 퍼져 사수에게 수렴한다.
+     좀비 도시는 기존 도로 원근 모델 그대로 둔다(사장님 지시 2026-08-12). */
+  var SPACE = (THEME==='space');
   // 걷기 스프라이트(4프레임 가로 스트립). 정지컷 shooter-mon-/shooter-zom- 는 폴백으로 남겨둔다.
   var FACE_SRC = function(id){ return '/img/shooter-anim-' + id + '.webp'; };
   // 🙋 민간인 4명 — 테마와 무관하게 공통(좀비 도시든 우주든 '구해야 할 사람')
@@ -1498,6 +1502,7 @@
             //    이보다 빠르면 단어를 읽고 순서대로 쏠 시간이 안 나온다.
             vDepth:rand(0.072,0.115),
             vLane:(Math.random()<0.5?-1:1)*rand(0.10,0.26) };   // 걸으며 좌우로도 조금씩 이동
+    if(SPACE) assignSpacePath(m);                  // 🌌 우주: 사방 가장자리 진입 경로 배정
     m.y=depthY(m.depth, fh); m.x=fw/2;
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     /* 걸음 애니메이션은 .face 에 걸려 있다(.monster 의 sway 는 제거됨).
@@ -1572,6 +1577,32 @@
     return hy + (by-hy) * Math.pow(Math.min(1,Math.max(0,d)), 1.7);
   }
   function depthScale(d){ return SCALE_FAR + (SCALE_NEAR-SCALE_FAR) * Math.pow(Math.min(1,Math.max(0,d)), SCALE_POW); }
+  /* 🌌 우주 진입 경로 — 화면 사방 가장자리 중 한 곳(위·오른쪽·아래·왼쪽)에서 랜덤으로
+     시작해 사수(하단 중앙) 부근으로 수렴하는 직선을 개체마다 뽑는다. 값은 화면비에
+     무관하게 쓰도록 '화면폭/높이에 대한 비율'로 저장한다(음수/1초과 = 화면 밖).
+     depth 0=가장자리 → 1=코앞 을 그대로 진행도로 쓰므로 크기·경고·생명력·대기 로직은
+     좀비와 완전히 동일하게 재사용된다. 스폰 시와 위협선 통과 후 재등장 때 다시 뽑는다. */
+  /* 🪖 사수(슈터)는 화면 하단 중앙에 서 있다. 적이 그 자리에서 솟아오르면
+     '사수 몸에서 적이 나오는' 것처럼 보인다(사장님 지시 2026-08-12: 슈터 몸에서 안 나오게).
+     그래서 ① '아래에서' 진입은 화면 하단 중앙 밴드(사수 자리)를 피해 좌우 바깥에서만,
+     ② 목표점도 사수 중앙을 직접 겨냥하지 않게 살짝 좌우로 비켜 잡는다. 코앞에서의
+     좌우 회피(needS)와 합쳐져 적이 사수 몸을 통과·중첩하지 않고 옆으로 흘러간다. */
+  var SHOOTER_BAND=0.30;                          // 하단 중앙 ±30% = 사수 자리(진입 금지 구역)
+  function assignSpacePath(m){
+    var side=Math.floor(Math.random()*4), off=0.14;
+    if(side===0){ m.sEx=Math.random();  m.sEy=-off;  }        // 위에서
+    else if(side===1){ m.sEx=1+off; m.sEy=Math.random(); }   // 오른쪽에서
+    else if(side===2){                                        // 아래에서 — 단, 사수 자리(중앙)는 피해 좌우에서만
+      m.sEx = (Math.random()<0.5) ? Math.random()*(0.5-SHOOTER_BAND)
+                                  : (0.5+SHOOTER_BAND) + Math.random()*(0.5-SHOOTER_BAND);
+      m.sEy = 1+off;
+    }
+    else { m.sEx=-off; m.sEy=Math.random(); }                // 왼쪽에서
+    // 목표: 사수 정중앙(0.5)을 피해 한쪽으로 비켜 다가온다(±0.16~0.30) → 몸을 통과하지 않음
+    var sgn=(Math.random()<0.5?-1:1);
+    m.sTx=0.5 + sgn*(0.16 + Math.random()*0.14);
+    m.sTy=0.80 + (Math.random()*2-1)*0.06;
+  }
   function faceScaleFor(fracY){ return depthScale(fracY); }   // (구 호출부 호환)
   function clearMonsters(){ monsters.forEach(function(m){ if(m.el&&m.el.parentNode) m.el.remove(); }); monsters=[]; }
   function renderSentence(){
@@ -1983,24 +2014,40 @@
          배경 실측: 소실점~위협선 구간에서 도로의 반폭은 화면폭의 0 ~ 0.13 정도밖에 안 된다.
          그래서 폭 0.17·지수 1.25 — 멀리서는 도로 가운데로 바짝 모였다가 가까워질수록
          도로가 벌어지는 만큼만 퍼진다. 더 키우면 다시 인도·차 위로 올라간다. */
-      var spread=(w*0.17)*Math.pow(d,1.25);
       var halfW=(m.faceEl ? m.faceEl.offsetWidth : 40)*sc/2;
       /* 🚶 발이 지면선에 붙게 — depthY 는 '지면선'을 주므로 요소 top 은 거기서 face 높이만큼
          빼야 한다. 이걸 안 해서 캐릭터가 도로 위에 떠 있었다(사장님: "하늘에서 날아오는 것 같아"). */
       var faceH=(m.faceEl ? m.faceEl.offsetHeight : 0);
-      m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
-      /* 🎯 사수를 비켜 지나가게(사장님 지시) — 코앞에 왔을 때 화면 가운데 아래는 사수 자리다.
-         그대로 두면 좀비가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
-         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 도로 가운데 대열은 그대로 유지된다. */
-      var need=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
-      var dx=m.x - w/2;
-      if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
-      // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
-      m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
-      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
-         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
-      var bob = Math.sin(m.wob*2) * 1.6 * sc;
-      m.y=depthY(d,h,w) - faceH + bob;
+      if(!SPACE){
+        /* 🧟 좀비 도시 — 도로 소실점에서 걸어 나온다(기존 그대로). */
+        var spread=(w*0.17)*Math.pow(d,1.25);
+        m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
+        /* 🎯 사수를 비켜 지나가게(사장님 지시) — 코앞에 왔을 때 화면 가운데 아래는 사수 자리다.
+           그대로 두면 좀비가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
+           벌려 좌우로 흘려보낸다. 멀리서는 0 이라 도로 가운데 대열은 그대로 유지된다. */
+        var need=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
+        var dx=m.x - w/2;
+        if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
+        // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
+        m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
+        /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
+           이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
+        var bob = Math.sin(m.wob*2) * 1.6 * sc;
+        m.y=depthY(d,h,w) - faceH + bob;
+      } else {
+        /* 🌌 우주 — 화면 사방(위·아래·좌·우) 가장자리에서 랜덤으로 날아와 사수에게 수렴한다.
+           depth(0=가장자리, 1=코앞) 를 '가장자리→사수' 직선의 진행도로 써서 x,y 만 보간한다.
+           개체마다 진입 변이 달라 매 순간 화면 전체에 넓게 흩어져 사방에서 다가오는 그림이 된다. */
+        m.x=(m.sEx + (m.sTx-m.sEx)*d) * w + Math.sin(m.wob)*6*sc;        // 날며 좌우로 살짝 흔들
+        m.y=(m.sEy + (m.sTy-m.sEy)*d) * h + Math.cos(m.wob*0.8)*5*sc - faceH*sc*0.5;
+        // 코앞(d 클수록)에선 사수 위에 겹쳐 앉지 않게 좌우로 흘려보낸다.
+        var needS=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
+        var dxS=m.x - w/2;
+        if(Math.abs(dxS) < needS) m.x = w/2 + (dxS<0 ? -needS : needS);
+        // 화면 밖으로 잘리지 않게 가둔다(가장자리 진입은 여기서 화면 끝에 붙어 나타난다).
+        m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
+        m.y=Math.max(4, Math.min(h - faceH - 4, m.y));
+      }
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
@@ -2039,6 +2086,7 @@
         m.breached=true;
         if(m.isTarget && m.word===targetWords[currentIndex]) loseLife();
         m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
+        if(SPACE) assignSpacePath(m);                              // 🌌 우주: 새 방향(사방 중 랜덤)으로 재등장
       }
       m._halfW=halfW;                                // 아래 겹침 밀어내기에서 쓴다
       m._d=d;
@@ -2293,6 +2341,6 @@
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 speed5 back1 speakmerge1(슈팅+말하기 융합: 말하기 미션 3회, 영/중) -->
 <script defer src="/js/flow.js?v=13"></script>
-<!-- BUILD:20260812061849 -->
+<!-- BUILD:20260812230240 -->
 </body>
 </html>

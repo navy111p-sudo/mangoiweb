@@ -1025,7 +1025,7 @@ Return STRICT JSON only, in BOTH Korean and English:
       //   직접 호출해서 채웠는데(그래서 그 admin API 를 공개로 열어둬야 했음),
       //   이제 공개 읽기 시 서버가 알아서 시드하므로 그 공개 예외가 필요 없어졌다.
       const cnt: any = await env.DB.prepare(`SELECT COUNT(*) AS c FROM gift_catalog WHERE enabled=1`).first();
-      if (!cnt || (cnt.c || 0) === 0) { try { await seedGiftCatalog(env); } catch {} }
+      if (!cnt || (cnt.c || 0) === 0) { try { await seedGiftCatalog(env); } catch (e) { console.warn('[points] 기프트 카탈로그 시드 실패:', e); } }
       const rs = await env.DB.prepare(`SELECT id, brand, name, category, face_value, point_price, thumbnail_url, stock, description FROM gift_catalog WHERE enabled=1 ORDER BY sort_order ASC, point_price ASC`).all();
       return json({ ok: true, rows: rs.results || [] });
     }
@@ -1354,7 +1354,7 @@ Return STRICT JSON only, in BOTH Korean and English:
         try {
           await env.DB.prepare(`INSERT INTO gift_redemptions (user_id, student_name, catalog_id, gift_name, face_value, point_price, status, requested_at, meta) VALUES ('webhook_orphan','-',0,'(매칭없음)',0,0,'failed',?,?)`)
             .bind(now, JSON.stringify(body)).run();
-        } catch {}
+        } catch (e) { console.warn('[points] 미매칭 기프티콘 감사기록 저장 실패:', e); }
         return json({ ok: false, error: 'no_matching_redemption', received: ev });
       }
       const red: any = await env.DB.prepare(`SELECT * FROM gift_redemptions WHERE id=?`).bind(redId).first();
@@ -1399,7 +1399,7 @@ Return STRICT JSON only, in BOTH Korean and English:
             if (red.catalog_id) {
               await env.DB.prepare(`UPDATE gift_catalog SET stock=stock+1, updated_at=? WHERE id=? AND stock IS NOT NULL`).bind(now, red.catalog_id).run();
             }
-          } catch {}
+          } catch (e) { console.warn('[points] 기프티콘 재고 복구 실패:', e); }
         }
       }
 

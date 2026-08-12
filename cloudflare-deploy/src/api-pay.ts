@@ -243,7 +243,7 @@ async function bumpSubscriptionFailure(env: any, sub: any, reason: string): Prom
     if (toPhone) {
       await sendPlainSms(env, toPhone, `[망고아이] ⚠️ 자동연장 청구 실패 (${failCount}/3)\n${sub.student_name || sub.user_id}\n사유: ${reason}${failCount >= 3 ? '\n→ 자동 해지됨. 학부모에게 재결제 안내 필요' : '\n→ 내일 재시도'}`);
     }
-  } catch (_) {}
+  } catch (e) { console.warn('[pay] 자동연장 청구 스윕 실패:', e); }
 }
 
 /** cron 전용 — KV 'billing:auto_renew_live' 가 '1' 일 때만 실제 청구(기본 dry-run, 오청구 방지) */
@@ -604,7 +604,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     let stu: any = null;
     try {
       stu = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ? LIMIT 1`).bind(authUid).first();
-    } catch (_) {}
+    } catch (e) { console.warn('[pay] students_erp 조회 실패:', e); }
 
     const s = (v: any) => String(v ?? '').trim();
     // 컬럼 구성이 배포마다 조금씩 다르다(parent_name 은 있는 곳도 없는 곳도 있다) — 있는 것만 쓴다.
@@ -686,7 +686,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       const r = await fetch(`https://api.tosspayments.com/v1/payments/orders/${encodeURIComponent(orderId)}`,
         { headers: { 'Authorization': auth } });
       if (r.ok) pay = await r.json();
-    } catch (_) {}
+    } catch (e) { console.warn('[pay] 외부 결제정보 조회 실패:', e); }
     if (!pay || !pay.status) return json({ ok: true, skipped: 'verify_failed' });
 
     if (pay.status === 'DONE' && order.status !== 'paid') {
