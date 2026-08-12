@@ -182,6 +182,8 @@
       role,
       timestamp: Date.now()
     };
+    // 🆔 계정 아이디(로그인했을 때만). 서버가 attendance.account_uid 에 «따로» 남긴다.
+    if (state.accountUid) body.account_uid = state.accountUid;
     // 🔐 학생 본인 확인용 서명 토큰(서버 소프트 인증). 없으면 서버가 그대로 통과시켜 출석 안 깨짐.
     //    ⚠️ 교사는 관리자 세션 쿠키(credentials:'include')로 통과 → 토큰을 보내지 않는다.
     //    (교사가 다른 계정의 잔여 mango_token 을 갖고 있어도 uid_mismatch 오탐이 안 나게 하기 위함)
@@ -247,6 +249,21 @@
     const mango = window.MangoV3;
     const vc    = getVcCtx();
     const userId   = opts.userId   || (mango && mango.userId) || vc.userId || null;
+    /* 🆔 (2026-08-12) «계정» 아이디를 따로 실어 보낸다.
+       [왜] 위 userId 는 계정이 아니다 —
+         · MangoV3.userId 는 `u_` + 난수를 **브라우저 localStorage 에 만들어 둔 기기 식별자**다
+           (mango.js: ensureUserId). 실측으로 한 값(u_zfak0wl7r4)이 두 계정(student·mangoi_155)에
+           걸쳐 있었다. 같은 PC 를 두 사람이 쓴 것이다.
+         · vc.userId 는 Durable Object 가 접속마다 새로 발급하는 임시 번호다.
+       그래서 이 표만 봐서는 «누구의 수업인가» 를 끝내 알 수 없었고, 녹화 참가자·녹화 동의가
+       계정과 이어지지 못했다(consents 0행, 녹화 1,552건 동의 전부 빈 값).
+       ⚠️ 기존 user_id 컬럼은 **건드리지 않는다** — 출석·발화시간 집계가 그 값으로 이어져 있다.
+          새 칸(account_uid)에 «추가로» 남긴다. 로그인 안 했으면 null 이고 예전과 똑같이 동작한다. */
+    let accountUid = null;
+    try {
+      const _cu = (typeof window.getCurrentUser === 'function') ? window.getCurrentUser() : null;
+      accountUid = (_cu && String(_cu.uid || _cu.user_id || _cu.id || '').trim()) || null;
+    } catch (_) { accountUid = null; }
     const roomId   = opts.roomId   || vc.roomId;
     const stream   = opts.stream   || vc.stream;
     const username = opts.username || vc.username || '';
@@ -266,6 +283,7 @@
     state = {
       roomId:    String(roomId),
       userId:    String(userId),
+      accountUid: accountUid,
       username:  username,
       role:      opts.role || 'student',
       stream:    stream || null,

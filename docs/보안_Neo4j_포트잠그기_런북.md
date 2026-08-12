@@ -108,8 +108,8 @@ cloudflared tunnel login
 
 **2-3. 터널 만들기 + Neo4j에 연결**
 - `cloudflared tunnel create mangoi-neo4j`
-- 설정 파일 작성: `neo4j.mango-i.com` → `http://localhost:8880` 로 연결
-- `cloudflared tunnel route dns mangoi-neo4j neo4j.mango-i.com`
+- 설정 파일 작성: `neo4j.mangoi.co.kr` → `http://localhost:8880` 로 연결
+- `cloudflared tunnel route dns mangoi-neo4j neo4j.mangoi.co.kr`
 - (정확한 설정 파일 내용은 Claude가 2-2 결과 보고 만들어 줌)
 
 **2-4. 터널을 서비스로 등록** (서버 재부팅돼도 자동 실행)
@@ -118,14 +118,18 @@ cloudflared service install
 systemctl status cloudflared --no-pager | head -5
 ```
 
-**2-5. 확인: 터널로 Neo4j에 닿는지** — Claude가 `https://neo4j.mango-i.com` 경로로 점검
+**2-5. 확인: 터널로 Neo4j에 닿는지** — Claude가 `https://neo4j.mangoi.co.kr` 경로로 점검
+
+> **2026-07-28 주소 정정.** 이 런북은 원래 터널 호스트가 `neo4j.mango-i.com` 으로 적혀 있었습니다.
+> `mango-i.com` 은 **등록조차 안 된 도메인**이라 그 이름으로는 `tunnel route dns` 가 성립하지 않습니다.
+> 실제로 살아 있는 터널 주소는 **`neo4j.mangoi.co.kr`**(Cloudflare 존 `mangoi.co.kr`)이며, 이미 응답합니다.
 
 ---
 
 ## Phase 3 — 우리 시스템을 터널 주소로 전환
 
 **3-1. Worker 시크릿 교체** (Claude가 실행 — 기본+prod 두 워커)
-- `NEO4J_QUERY_URL` 을 `https://neo4j.mango-i.com/db/neo4j/tx/commit` 로
+- `NEO4J_QUERY_URL` 을 `https://neo4j.mangoi.co.kr/db/neo4j/tx/commit` 로
 **3-2. 배포 + 확인** — admin 학생목록·강사매칭·웜업 개인화가 **여전히 정상**인지 라이브 점검
 → 정상 확인되면 다음. **안 되면 시크릿을 원래대로 되돌리고 멈춤.**
 
