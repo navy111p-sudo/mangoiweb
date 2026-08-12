@@ -135,6 +135,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
             //   다르면(스위치 off 또는 첫 입장) 그때 정리한다. 판단은 vcHandleMessage 의 room-joined 에서.
             //   ⚠️ 스위치 off 서버는 항상 '새 userId' 를 주므로 room-joined 에서 반드시 정리된다 = 예전과 동일.
             window.__vcWasReconnect = isReconnect;
+            try { window.vcBB && vcBB('ws-open', isReconnect ? '재연결(attempts>0)' : '첫 연결'); } catch(_){}
             // 🛟 안전망: room-joined 가 오지 않는 경로(관찰자 등)에서도 예전처럼 정리되도록 4초 후 폴백.
             //   (정상 경로는 room-joined 가 즉시 도착해 이 폴백 전에 __vcWasReconnect 를 false 로 만든다.)
             if (isReconnect) {
@@ -203,6 +204,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
         sock.onclose = (event) => {
             if (sock !== ws) return;   // 이미 교체된 낡은 소켓 → keepalive·재연결 건드리지 않음
             console.log('[WebSocket] 연결 종료: code=' + event.code + ' reason=' + event.reason);
+            try { window.vcBB && vcBB('ws-close', 'code=' + event.code + (event.reason ? ' ' + event.reason : '')); } catch(_){}
             stopPing();
             if (onClose) onClose(event);
 
@@ -694,6 +696,51 @@ try {
 } catch (e) { console.warn('[vc] window 전역 노출 실패:', e); }
 let vcPendingCandidates = {};   // fix (2026-07-05) { userId: [candidate...] } — remoteDescription 전에 온 ICE 후보 버퍼(유실 방지)
 let vcRemoteStreams = {};       // fix (2026-06-01) { userId: MediaStream } — 트랙별 ontrack 누적용 (원격 영상 검게 나오던 문제)
+/* 📼 (2026-08-12) 수업 블랙박스 — 「화면이 깜빡인다」「카메라가 갑자기 꺼진다」(Ness·Belle·Ana)
+   신고는 오는데 재현 조건이 없어 매번 추측으로 끝났다. 비행기록장치처럼 «신고가 오기 전에»
+   이미 기록하고 있어야 다음 신고 때 원인이 잡힌다.
+   · 기록: 소켓 개폐·ICE/연결 상태·전체정리(깜빡임 지문)·피어 재연결·카메라 자가치유
+   · 메모리 400줄 링버퍼 + 5초 스로틀로 localStorage 백업(새로고침 직전 기록이 살아남는다)
+   · 꺼내기: 콘솔 vcBBDump() 또는 연결상태 표시(#vc-ice-status)를 빠르게 5번 클릭 → 클립보드 복사
+   ⚠️ 절대 가벼워야 한다 — 한 줄 push 뿐, 수업 경로에 await·DOM 작업 없음. */
+(function vcBlackbox(){
+    var buf = [];
+    try { var old = JSON.parse(localStorage.getItem('vc_blackbox') || '[]'); if (old.length) buf = old.slice(-400); } catch(_){}
+    var saveT = 0;
+    function hhmmss(){ var d = new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2); }
+    window.vcBB = function(ev, detail){
+        try {
+            buf.push(hhmmss() + ' ' + ev + (detail != null && detail !== '' ? ' | ' + String(detail).slice(0, 90) : ''));
+            if (buf.length > 400) buf.splice(0, buf.length - 400);
+            if (!saveT) saveT = setTimeout(function(){
+                saveT = 0;
+                try { localStorage.setItem('vc_blackbox', JSON.stringify(buf)); } catch(_){}
+            }, 5000);
+        } catch(_){}
+    };
+    window.vcBBDump = function(){
+        var txt = '📼 수업 블랙박스 (' + buf.length + '줄, 기기시각 기준)\n' + buf.join('\n');
+        try { console.log(txt); } catch(_){}
+        try {
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+            if (typeof showToast === 'function') showToast('📼 진단 기록 ' + buf.length + '줄을 복사했어요 — 붙여넣어 보내 주세요');
+        } catch(_){}
+        return txt;
+    };
+    /* 연결상태 글씨를 빠르게 5번 클릭 → 복사. 강사는 콘솔을 못 여니 이 길이 실사용 입구다. */
+    var clicks = [];
+    document.addEventListener('click', function(e){
+        try {
+            if (!e.target || e.target.id !== 'vc-ice-status') return;
+            var now = Date.now();
+            clicks.push(now);
+            clicks = clicks.filter(function(t){ return now - t < 2500; });
+            if (clicks.length >= 5) { clicks = []; window.vcBBDump(); }
+        } catch(_){}
+    }, true);
+    window.vcBB('boot', (buf.length ? '이전 기록 이어짐' : '새 기록') + ' · ' + (navigator.userAgent || '').slice(0, 60));
+})();
+
 let vcRoomId = '';
 let vcUsername = '';
 let vcUserId = '';              // 서버가 부여한 내 ID
@@ -873,6 +920,8 @@ async function vcHealLocalVideo() {
         if (now - __vcCamHealAt < 10000) return;                                 // 10초 쿨다운
         __vcCamHealAt = now; __vcCamMutedTicks = 0;
         console.warn('[cam-heal] 송출 영상 트랙 이상(ended/muted) → 카메라 재획득 시도');
+        /* 📼 「카메라가 갑자기 꺼진다」 의 지문 — ended(장치가 죽음)와 muted(프레임 0)를 구분해 남긴다 */
+        try { window.vcBB && vcBB('cam-heal', live ? 'muted(프레임0 지속)' : 'ended(트랙 죽음)'); } catch(_){}
         let stream;
         // 📷 (2026-08-06) 사용자가 고른 카메라를 존중한다. 그냥 {video:true} 로 다시 잡으면
         //   자가치유가 돌 때마다 USB 웹캠 → 노트북 내장 카메라로 되돌아간다(사용자 눈엔 '설정이 안 먹음').
@@ -1297,6 +1346,7 @@ function vcReconnectPeer(userId) {
     const now = Date.now();
     if (__vcReconnectAt[userId] && now - __vcReconnectAt[userId] < 8000) return;  // 8초 쿨다운
     __vcReconnectAt[userId] = now;
+    try { window.vcBB && vcBB('reconnect-peer', userId); } catch(_){}
     vcShowReconnecting();   // "재연결 중…" 배너 노출
 
     const old = vcPeerConnections[userId];
@@ -1743,6 +1793,8 @@ window.addEventListener('offline', () => { console.warn('[vc-recover] 네트워�
 /** WebSocket 재연결 시 기존 PeerConnection 모두 정리 (전역 함수 — createWebSocket에서 호출) */
 function vcCleanupAllPeers() {
     console.log('[vc] vcCleanupAllPeers: 기존 PC', Object.keys(vcPeerConnections).length, '개 정리');
+    /* 📼 깜빡임의 대표 지문 — 이게 잦으면 «수업 내내 화면이 끊겼다 붙었다» 그 증상이다 */
+    try { window.vcBB && vcBB('cleanup-all', Object.keys(vcPeerConnections).length + '개'); } catch(_){}
     Object.keys(vcPeerConnections).forEach(id => {
         try { vcPeerConnections[id].close(); } catch(_) {}
         const el = document.getElementById(`vc-video-${id}`);
@@ -4936,6 +4988,8 @@ function vcCreatePeer(userId, username) {
     pc.oniceconnectionstatechange = () => {
         const st = pc.iceConnectionState;
         console.log('[vc-webrtc] ICE(' + userId + '):', st);
+        /* 📼 connected/completed 는 정상 소음이라 뺀다 — 이상 신호만 남겨 400줄을 아낀다 */
+        if (st !== 'connected' && st !== 'completed') { try { window.vcBB && vcBB('ice', userId + ' ' + st); } catch(_){} }
         // 화면에 ICE 상태 표시
         const iceEl = document.getElementById('vc-ice-status');
         if (iceEl) {
@@ -4967,6 +5021,7 @@ function vcCreatePeer(userId, username) {
 
     pc.onconnectionstatechange = () => {
         console.log('[vc-webrtc] conn(' + userId + '):', pc.connectionState);
+        if (pc.connectionState !== 'connected') { try { window.vcBB && vcBB('conn', userId + ' ' + pc.connectionState); } catch(_){} }
         if (pc.connectionState === 'connected') {
             console.log('[vc-webrtc] ✅ P2P 연결 완료!', userId);
         }
