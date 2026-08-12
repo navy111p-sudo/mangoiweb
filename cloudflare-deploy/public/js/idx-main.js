@@ -5520,7 +5520,10 @@ function vcRefreshPraiseUI(){
                 } else {
                     var s = box.querySelector('.vc-star-btn'); if (s) s.remove();
                     var t = box.querySelector('.vc-star-toast'); if (t) t.remove();
-                    var dv = box.querySelector('.vc-devhelp-btn'); if (dv) dv.remove();
+                    /* 🎛 (2026-08-12) 여기서 .vc-devhelp-btn 을 지우지 말 것.
+                       위 vcAddDevBtn 이 «모든 원격 박스» 에 붙이는 게 새 의도(abf53d893 — 강사 타일에도)인데,
+                       이 옛 정리줄이 남아 «붙임→즉시 제거» 를 매 스윕 반복 — 강사 타일만 버튼이 영영 없었다
+                       (사장님 실측: 학생 타일 🎛 O · 강사 타일 X). 별(칭찬)은 학생 전용이 맞으니 그대로 둔다. */
                 }
             });
         } else {
