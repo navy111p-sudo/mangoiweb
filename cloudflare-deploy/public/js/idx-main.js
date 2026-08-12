@@ -3697,6 +3697,10 @@ function vcObserverBanner(kind, extra) {
         : kind === 'nomedia'
         ? (en ? '⚠ Joined the class, but no participant video is arriving.'
               : '⚠ 수업에는 붙었지만 참가자 영상이 오지 않습니다.')
+        /* 🔁 (2026-08-12) 자동 재시도 중 — nomedia 확정 전 12초 동안 뜨는 중간 안내 */
+        : kind === 'retry'
+        ? (en ? '🔄 No video yet — reconnecting automatically…'
+              : '🔄 영상이 아직 안 와서 자동으로 다시 연결하는 중…')
         : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
               : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
     var box = document.createElement('div');
@@ -3706,7 +3710,7 @@ function vcObserverBanner(kind, extra) {
         + 'font-size:13.5px;font-weight:700;line-height:1.55;box-shadow:0 12px 32px -8px rgba(0,0,0,.45);'
         + (kind === 'empty'
             ? 'background:#0c2a4a;border:1px solid #38bdf8;color:#bae6fd'
-            : kind === 'nomedia'
+            : (kind === 'nomedia' || kind === 'retry')
             /* 호박색 — «고장(빨강)» 과 «정상(파랑)» 사이. 붙긴 했으니 빨강은 과하다 */
             ? 'background:#3a2a06;border:1px solid #f59e0b;color:#fde68a'
             : 'background:#3b1111;border:1px solid #f87171;color:#fecaca');
@@ -3750,9 +3754,52 @@ function vcObserverMediaWatch() {
         try {
             if (!window._vcObserverMode) return;
             if (vcObserverHasLiveVideo()) return;        // 영상이 왔다 — 조용히
-            vcObserverBanner('nomedia', vcObserverStallReason());
+            /* 🔁 (2026-08-12 사장님 실측 «ice-stuck x1») 보고만 하지 말고 한 번은 스스로 고쳐 본다.
+               참가자들이 쓰는 복구(vcReconnectPeer)와 같은 길인데, 참관자는 ICE 가 'failed' 로
+               넘어가기 전(checking 고착)에는 아무도 안 불러 줬다 — 여기서 강제로 부른다.
+               재시도는 TURN 릴레이 강제(__vcForceRelay) — 직접 경로가 안 되는 상황이므로. */
+            vcObserverBanner('retry', vcObserverStallReason());
+            vcObserverRetryStalled();
+            setTimeout(function () {
+                try {
+                    if (!window._vcObserverMode) return;
+                    if (vcObserverHasLiveVideo()) return;   // 재시도 성공 — 배너는 vcAddRemoteVideo 가 걷었다
+                    vcObserverBanner('nomedia', vcObserverStallReason());
+                } catch (_) {}
+            }, 12000);
         } catch (_) {}
     }, 10000);
+}
+
+/** 🔁 영상을 못 주는 피어 목록 — 재시도 대상 선정. (감시 판정과 같은 기준: «살아있는 비디오 트랙») */
+function vcObserverStalledPeerIds() {
+    var out = [];
+    try {
+        Object.keys(vcPeerConnections || {}).forEach(function (id) {
+            var live = false;
+            try {
+                var s = (typeof vcRemoteStreams !== 'undefined') && vcRemoteStreams[id];
+                if (s && s.getVideoTracks) live = s.getVideoTracks().some(function (t) { return t.readyState === 'live'; });
+            } catch (_) {}
+            if (!live) out.push(id);
+        });
+    } catch (_) {}
+    return out;
+}
+
+/** 🔁 멈춘 피어를 «한 번만» 자동 복구 — TURN 릴레이 강제 + 참가자용 복구 루틴 재사용.
+ *  한 번만인 이유: 두 번째도 실패하는 연결은 세 번째도 실패한다. 반복하면 상대(강사) 쪽
+ *  업로드에 offer 폭탄만 던지는 꼴이라, 최종 배너를 남기고 사람에게 넘기는 쪽이 맞다. */
+function vcObserverRetryStalled() {
+    if (window.__vcObserveRetried) return;
+    window.__vcObserveRetried = true;
+    var ids = vcObserverStalledPeerIds();
+    console.warn('[vc-observer] 🔁 영상 미수신 자동 재시도 (relay 강제):', ids.join(', ') || '(피어 없음)');
+    ids.forEach(function (id, i) {
+        try { (window.__vcForceRelay = window.__vcForceRelay || {})[id] = true; } catch (_) {}
+        /* 400ms 간격 — 동시 offer 폭주 방지(existing-users 의 300ms 간격과 같은 이유) */
+        setTimeout(function () { try { vcReconnectPeer(id); } catch (_) {} }, i * 400);
+    });
 }
 
 /** 참관 화면에 «실제로 재생 중인» 원격 영상이 하나라도 있는가 */
