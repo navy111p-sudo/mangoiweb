@@ -1306,6 +1306,9 @@ const worker = {
         path === '/api/admin/subscription/cron-check' ||
         // 🔗 강사 계정 ↔ 강사 원부 연결 (이름 추측 대신 사람이 정한 정답표)
         path === '/api/admin/teacher-links' ||
+        // 📇 강사 원부 ↔ 프로필(연락처) 연결 — 핸들러는 8/7부터 있었는데 이 게이트와
+        //    api-mango 위임 가드 «둘 다» 등록이 빠져 라이브 404 였다(2026-08-13 수리)
+        path === '/api/admin/teacher-contacts' ||
         // 🎁 Phase RF — 추천 친구 보상
         path === '/api/referral/my-code' ||
         path === '/api/referral/use' ||
