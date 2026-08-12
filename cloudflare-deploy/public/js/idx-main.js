@@ -3697,6 +3697,10 @@ function vcObserverBanner(kind, extra) {
         : kind === 'nomedia'
         ? (en ? '⚠ Joined the class, but no participant video is arriving.'
               : '⚠ 수업에는 붙었지만 참가자 영상이 오지 않습니다.')
+        /* 🔁 (2026-08-12) 자동 재시도 중 — nomedia 확정 전 12초 동안 뜨는 중간 안내 */
+        : kind === 'retry'
+        ? (en ? '🔄 No video yet — reconnecting automatically…'
+              : '🔄 영상이 아직 안 와서 자동으로 다시 연결하는 중…')
         : (en ? '⚠ Could not join as observer. Please close this tab and press Ghost again.'
               : '⚠ 참관에 연결하지 못했습니다. 이 탭을 닫고 [Ghost] 를 다시 눌러 주세요.');
     var box = document.createElement('div');
@@ -3706,7 +3710,7 @@ function vcObserverBanner(kind, extra) {
         + 'font-size:13.5px;font-weight:700;line-height:1.55;box-shadow:0 12px 32px -8px rgba(0,0,0,.45);'
         + (kind === 'empty'
             ? 'background:#0c2a4a;border:1px solid #38bdf8;color:#bae6fd'
-            : kind === 'nomedia'
+            : (kind === 'nomedia' || kind === 'retry')
             /* 호박색 — «고장(빨강)» 과 «정상(파랑)» 사이. 붙긴 했으니 빨강은 과하다 */
             ? 'background:#3a2a06;border:1px solid #f59e0b;color:#fde68a'
             : 'background:#3b1111;border:1px solid #f87171;color:#fecaca');
@@ -3750,9 +3754,52 @@ function vcObserverMediaWatch() {
         try {
             if (!window._vcObserverMode) return;
             if (vcObserverHasLiveVideo()) return;        // 영상이 왔다 — 조용히
-            vcObserverBanner('nomedia', vcObserverStallReason());
+            /* 🔁 (2026-08-12 사장님 실측 «ice-stuck x1») 보고만 하지 말고 한 번은 스스로 고쳐 본다.
+               참가자들이 쓰는 복구(vcReconnectPeer)와 같은 길인데, 참관자는 ICE 가 'failed' 로
+               넘어가기 전(checking 고착)에는 아무도 안 불러 줬다 — 여기서 강제로 부른다.
+               재시도는 TURN 릴레이 강제(__vcForceRelay) — 직접 경로가 안 되는 상황이므로. */
+            vcObserverBanner('retry', vcObserverStallReason());
+            vcObserverRetryStalled();
+            setTimeout(function () {
+                try {
+                    if (!window._vcObserverMode) return;
+                    if (vcObserverHasLiveVideo()) return;   // 재시도 성공 — 배너는 vcAddRemoteVideo 가 걷었다
+                    vcObserverBanner('nomedia', vcObserverStallReason());
+                } catch (_) {}
+            }, 12000);
         } catch (_) {}
     }, 10000);
+}
+
+/** 🔁 영상을 못 주는 피어 목록 — 재시도 대상 선정. (감시 판정과 같은 기준: «살아있는 비디오 트랙») */
+function vcObserverStalledPeerIds() {
+    var out = [];
+    try {
+        Object.keys(vcPeerConnections || {}).forEach(function (id) {
+            var live = false;
+            try {
+                var s = (typeof vcRemoteStreams !== 'undefined') && vcRemoteStreams[id];
+                if (s && s.getVideoTracks) live = s.getVideoTracks().some(function (t) { return t.readyState === 'live'; });
+            } catch (_) {}
+            if (!live) out.push(id);
+        });
+    } catch (_) {}
+    return out;
+}
+
+/** 🔁 멈춘 피어를 «한 번만» 자동 복구 — TURN 릴레이 강제 + 참가자용 복구 루틴 재사용.
+ *  한 번만인 이유: 두 번째도 실패하는 연결은 세 번째도 실패한다. 반복하면 상대(강사) 쪽
+ *  업로드에 offer 폭탄만 던지는 꼴이라, 최종 배너를 남기고 사람에게 넘기는 쪽이 맞다. */
+function vcObserverRetryStalled() {
+    if (window.__vcObserveRetried) return;
+    window.__vcObserveRetried = true;
+    var ids = vcObserverStalledPeerIds();
+    console.warn('[vc-observer] 🔁 영상 미수신 자동 재시도 (relay 강제):', ids.join(', ') || '(피어 없음)');
+    ids.forEach(function (id, i) {
+        try { (window.__vcForceRelay = window.__vcForceRelay || {})[id] = true; } catch (_) {}
+        /* 400ms 간격 — 동시 offer 폭주 방지(existing-users 의 300ms 간격과 같은 이유) */
+        setTimeout(function () { try { vcReconnectPeer(id); } catch (_) {} }, i * 400);
+    });
 }
 
 /** 참관 화면에 «실제로 재생 중인» 원격 영상이 하나라도 있는가 */
@@ -4228,7 +4275,12 @@ function vcHandleMessage(msg) {
                 var _dlNow = Date.now();
                 if (!window.__vcDevHelpToastAt || _dlNow - window.__vcDevHelpToastAt > 60000) {
                     window.__vcDevHelpToastAt = _dlNow;
-                    try { if (typeof showToast === 'function') showToast(_dlEn ? '🎛 Your teacher is helping with your device setup.' : '🎛 선생님이 장치 설정을 도와주고 있어요.'); } catch(_){}
+                    /* 🎛 (2026-08-12) 도움받는 쪽이 «강사» 일 수도 있다(재택 강사 지원) —
+                       강사에게 「선생님이 도와주고 있어요」 는 어색해서 역할에 맞춰 말한다. */
+                    var _dlStaff = (typeof vcIsStaffNow === 'function' && vcIsStaffNow());
+                    try { if (typeof showToast === 'function') showToast(_dlStaff
+                        ? (_dlEn ? '🎛 A staff member is checking your device setup with you.' : '🎛 다른 강사·관리자가 장치 설정을 함께 보고 있어요.')
+                        : (_dlEn ? '🎛 Your teacher is helping with your device setup.' : '🎛 선생님이 장치 설정을 도와주고 있어요.')); } catch(_){}
                 }
                 vcDevHelpSendList();
             } catch(_){}
@@ -5460,9 +5512,11 @@ function vcRefreshPraiseUI(){
             document.querySelectorAll('#vc-video-grid .video-box').forEach(function(box){
                 if (box.id === 'vc-local-box') return;
                 var uid = (box.id || '').replace('vc-video-', '');
+                /* 🎛 장치 도우미 — 별(칭찬)과 달리 «모든 원격 박스» 에 붙는다(2026-08-12 재택 강사 지원).
+                   학생 체크 안에 두면 강사 타일은 역할이 늦게 확정될 때 영영 버튼을 못 받는다. */
+                if (uid) { try { vcAddDevBtn(box, uid); } catch(e){} }
                 if (uid && vcBoxIsStudent(box)) {
                     vcAddStarButton(box, uid);
-                    try { vcAddDevBtn(box, uid); } catch(e){}   // 🎛 장치 도우미 — 역할이 늦게 정해져도 여기서 붙는다
                 } else {
                     var s = box.querySelector('.vc-star-btn'); if (s) s.remove();
                     var t = box.querySelector('.vc-star-toast'); if (t) t.remove();
@@ -6281,13 +6335,13 @@ function vcDevHelpRequest() {
     var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
     if (!st || !p) return;
     p.querySelectorAll('select').forEach(function (s) { s.disabled = true; s.innerHTML = ''; });
-    vcDevHelpStatus('📡 학생 장치 목록을 요청했어요…', '📡 Asking the student for their devices…');
+    vcDevHelpStatus('📡 상대 장치 목록을 요청했어요…', '📡 Asking them for their devices…');
     vcDevHelpNote('', '');
     try { if (typeof vcConn !== 'undefined' && vcConn) vcConn.send({ type: 'device-list-req', data: { targetUserId: st.uid } }); } catch (_) {}
     clearTimeout(st.timer);
     st.timer = setTimeout(function () {
-        vcDevHelpStatus('⚠ 응답이 없어요 — 학생 화면이 예전 버전이거나 연결이 불안정할 수 있어요. 🔄 로 다시 시도하세요.',
-                        '⚠ No response — the student may be on an older page or have a bad connection. Try 🔄 again.');
+        vcDevHelpStatus('⚠ 응답이 없어요 — 상대 화면이 예전 버전이거나 연결이 불안정할 수 있어요. 🔄 로 다시 시도하세요.',
+                        '⚠ No response — they may be on an older page or have a bad connection. Try 🔄 again.');
     }, 10000);
 }
 window.vcOpenDevHelp = function (uid, name) {
@@ -6317,7 +6371,7 @@ window.vcOpenDevHelp = function (uid, name) {
         try { if (window.applyI18n) window.applyI18n(p); } catch (_) {}
     }
     window.__vcDevHelp = { uid: uid, name: name || '' };
-    vcDevHelpTxt(p.querySelector('.dh-title'), '장치 도우미 — ' + (name || '학생'), 'Device Helper — ' + (name || 'Student'));
+    vcDevHelpTxt(p.querySelector('.dh-title'), '장치 도우미 — ' + (name || '참가자'), 'Device Helper — ' + (name || 'Participant'));
     vcDevHelpRequest();
 };
 function vcDevHelpApply(kind, deviceId) {
@@ -6358,8 +6412,8 @@ function vcDevHelpOnList(data) {
         }
         sel.disabled = !arr.length || (k === 'spk' && data.sinkOk === false);
     });
-    if (data.sinkOk === false) vcDevHelpNote('ℹ 이 학생 기기는 스피커 원격 변경을 지원하지 않아요 (iPhone·iPad 등).', 'ℹ This device cannot switch speakers remotely (iPhone/iPad etc.).');
-    vcDevHelpStatus('✅ 목록을 받았어요 — 고르면 학생 기기에 바로 적용돼요.', "✅ Got the list — picking one applies instantly on the student's device.");
+    if (data.sinkOk === false) vcDevHelpNote('ℹ 이 기기는 스피커 원격 변경을 지원하지 않아요 (iPhone·iPad 등).', 'ℹ This device cannot switch speakers remotely (iPhone/iPad etc.).');
+    vcDevHelpStatus('✅ 목록을 받았어요 — 고르면 상대 기기에 바로 적용돼요.', "✅ Got the list — picking one applies instantly on their device.");
 }
 function vcDevHelpOnResult(data) {
     var st = window.__vcDevHelp, p = document.getElementById('vc-devhelp-panel');
@@ -6368,21 +6422,26 @@ function vcDevHelpOnResult(data) {
     p.querySelectorAll('select').forEach(function (s) { s.disabled = false; });
     var lbl = data.label ? ' (' + data.label + ')' : '';
     if (data.ok && data.reason === 'deferred')
-        vcDevHelpStatus('🖥 학생이 화면 공유 중 — 공유가 끝나면 새 카메라로 바뀌어요.', '🖥 Student is screen-sharing — the new camera applies when it ends.');
+        vcDevHelpStatus('🖥 상대가 화면 공유 중 — 공유가 끝나면 새 카메라로 바뀌어요.', '🖥 They are screen-sharing — the new camera applies when it ends.');
     else if (data.ok)
         vcDevHelpStatus('✅ 바꿨어요' + lbl, '✅ Changed' + lbl);
     else if (data.reason === 'nosink')
         vcDevHelpStatus('⚠ 이 기기는 스피커 원격 변경이 안 돼요 (iPhone·iPad 등).', '⚠ This device cannot switch speakers remotely (iPhone/iPad etc.).');
     else
-        vcDevHelpStatus('⚠ 실패 — 학생 화면에 원인 안내가 떴어요 (권한 차단·다른 앱 점유 등). 학생에게 확인을 부탁하세요.',
-                        '⚠ Failed — the student saw the reason on their screen (permission blocked or another app using it). Ask them to check.');
+        vcDevHelpStatus('⚠ 실패 — 상대 화면에 원인 안내가 떴어요 (권한 차단·다른 앱 점유 등). 확인을 부탁하세요.',
+                        '⚠ Failed — they saw the reason on their screen (permission blocked or another app using it). Ask them to check.');
 }
-/* 학생 타일 우측(💬 아래)에 🎛 버튼 — 강사·관리자에게만, 학생 박스에만 */
+/* 참가자 타일 우측(💬 아래)에 🎛 버튼 — 보는 사람은 강사·관리자만.
+   🎛 (2026-08-12 강사 요청) 예전엔 «학생 박스에만» 붙였는데(vcBoxIsStudent),
+   재택 강사의 카메라·헤드셋이 고장났을 때 관리자·다른 강사가 도와줄 길이 없었다.
+   → 강사 타일에도 붙인다. 서버는 어차피 «보내는 쪽이 강사·관리자» 일 때만 릴레이하고,
+     받는 쪽은 targetUserId 가 자기일 때만 응답하므로 학생이 악용할 길은 그대로 막혀 있다.
+   ⚠️ 내 타일(vc-local-box)에는 안 붙인다 — 자기 장치는 아래 독의 장치 메뉴로 바꾼다. */
 function vcAddDevBtn(box, uid) {
     try {
         if (!box || !uid || uid === 'demoteacher') return;
+        if (box.id === 'vc-local-box') return;
         if (!(typeof vcIsStaffNow === 'function' && vcIsStaffNow())) return;
-        if (typeof vcBoxIsStudent === 'function' && !vcBoxIsStudent(box)) return;
         if (box.querySelector('.vc-devhelp-btn')) return;
         vcDevHelpEnsureCss();
         var en = (typeof getLang === 'function' && getLang() === 'en');
@@ -6390,8 +6449,8 @@ function vcAddDevBtn(box, uid) {
         btn.className = 'vc-devhelp-btn';
         btn.type = 'button';
         btn.textContent = '🎛';
-        btn.title = en ? "Device helper — see and switch this student's camera/mic/speaker"
-                       : '장치 도우미 — 이 학생의 카메라·마이크·스피커를 보고 바꿔 줍니다';
+        btn.title = en ? "Device helper — see and switch this participant's camera/mic/speaker"
+                       : '장치 도우미 — 이 참가자의 카메라·마이크·스피커를 보고 바꿔 줍니다';
         btn.addEventListener('click', function (e) {
             e.stopPropagation();
             var lbl = box.querySelector('.video-label');

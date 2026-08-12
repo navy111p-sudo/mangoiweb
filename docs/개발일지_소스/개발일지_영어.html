@@ -122,7 +122,7 @@
   <div class="kpi"><div class="n">23</div><div class="l">things fixed or built</div></div>
   <div class="kpi"><div class="n">1612→1506</div><div class="l">KB before first paint</div></div>
   <div class="kpi"><div class="n">2</div><div class="l">places that swallowed failures</div></div>
-  <div class="kpi"><div class="n">0</div><div class="l">deploys (awaiting merge)</div></div>
+  <div class="kpi"><div class="n">2</div><div class="l">deploys (teacher page, 12 items)</div></div>
 </div>
 
 <div class="blk blk-imp">
@@ -142,6 +142,15 @@
 <div class="blk blk-did">
   <h3>✅ Done today</h3>
   <ul>
+    <li><b>Shipped 12 teacher-page fixes to production</b> (both workers). These come from the 17 points our PH manager sent —
+      <b>enter the room early and re-enter after class</b> (it used to lock as "Done"), <b>level tests now visible in My Classes</b>,
+      <b>jump to any date</b> in the weekly schedule, a <b>page list</b> for textbooks, the <b>mic indicator</b> no longer covering Screen Split,
+      and <b>deleting a break time by tapping it</b> (there was no way to remove it before).
+      <small>→ Most of the 17 were not "the feature is missing" but <b>"the door was shut"</b> — a button pushed off-screen, a time window too narrow, or a message only in Korean that a Filipino teacher cannot read.
+      ⚠️ <b>Teacher and admin screens need a login, so I could not see them myself</b> — Maimai has been asked to check 7 items.</small></li>
+    <li><b>Four defects only appeared once we actually opened the screen.</b> Text checks all passed, yet the mic indicator was <b>hidden under the world clock</b>
+      and <b>painted above the Screen Split dialog</b> — moving it alone would have reproduced the original complaint.
+      <small>→ So screen checks now run against a <b>fake server with the real pages</b>, and server calculations (entry window, postponement pay) run the <b>real code on a fake database</b> — 21 checks.</small></li>
     <li><b>First-paint weight</b> — deferred <b>7 features unrelated to the first image</b> (1,612KB → 1,506KB). Which ones were safe to defer was <b>verified in four stages.</b></li>
     <li><b>Screen share was visible only to the teacher</b> — the new video track was attached but <b>the other side was never told again</b>, so it never appeared for the student.</li>
     <li><b>Review-quiz audio played for nobody but the student's side</b> — the browser blocked autoplay and the <b>rejection was silently swallowed.</b></li>
@@ -158,7 +167,10 @@
 <div class="blk blk-not">
   <h3>⚠️ Not done · still not working</h3>
   <ul>
-    <li><b>Today's work has not shipped.</b> It needs a merge, and <b>the deploy command is blocked on my side</b> — you have to run it.</li>
+    <li><b>The 23 items above have not shipped.</b> They need a merge (the 12 teacher-page fixes were on a separate branch and went out first).</li>
+    <li><b>Another engineer's unfinished work shipped together with mine</b> — the green speaking border, the "no sound" badge and the practice-room button.
+      I had deliberately kept them out, but <b>that branch's PR was merged first</b> and they went live with it.
+      <small>→ My mistake: <b>opening a PR means "someone will merge it"</b>, and I opened one knowing it was mixed. Everything passes (101 checks), but the <b>author should confirm</b> it was intended.</small></li>
     <li><b>This diary had fallen four days behind.</b> I kept saying "August 8" <b>without re-checking today's date.</b> This entry is that correction.</li>
     <li><b>The first-paint budget is a blocking gate.</b> If someone else grows a screen file, <b>my deploy is blocked.</b> That happened once today.</li>
   </ul>
@@ -167,7 +179,9 @@
 <div class="blk blk-next">
   <h3>📌 Next</h3>
   <ul>
-    <li><b>Please merge today's work</b> — the deploy command is blocked on my side.</li>
+    <li><b>Please merge today's work (23 items).</b></li>
+    <li><b>Please decide the postponement pay rate.</b> The rule "postponed more than 30 min before = ₱0" exists but is <b>switched OFF</b> — pay is exactly as before. Turn it on in Admin → Payroll → Deduction rules; it applies from that month and reverts the moment it is turned off.</li>
+    <li><b>Waiting for Maimai's reply</b> — one photo of the Screen Split panel during a class would settle the mic-indicator item.</li>
     <li><b>Finish linking shared-room recordings.</b> Some still have no schedule to link against.</li>
     <li><b>Some of August 8's 📌 items still stand</b> — staff password, student textbook/level data, Toss live keys.</li>
   </ul>
