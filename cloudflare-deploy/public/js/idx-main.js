@@ -2466,9 +2466,32 @@ async function vcJoinRoom(skipUI) {
         _rr = String(_rr).toLowerCase();
         /* 역할 표기가 경로마다 다르다 — 마이페이지는 'teacher', 홈 통합로그인 폴백은 'hq_teacher'.
            정확일치로 보면 hq_teacher 강사가 또 학생 취급을 받는다(2026-08-06 같은 함정). */
+        /* 🎛 (2026-08-12 사장님·IT담당자) 관리자 콘솔 로그인(mangoi_admin_session)을 역할 판정에 넣는다.
+           [실제 사고] IT 담당자가 관리자로 로그인한 브라우저에서 수업에 들어가 장치 도우미로 강사
+           장치를 봐 줘야 하는데, 이 사슬이 관리자 세션을 안 봐서 재입장 때마다 «학생» 으로
+           떨어졌다 → 🎛·칭찬이 전부 사라지고, 서버도 장치 명령을 거부(role=student).
+           [안전선] ① 계정이 «학생» 이라고 분명히 말하면 조용히 올리지 않는다 — 물어본다
+           (Ana ①·Melca 6 과 같은 원칙: 명시된 역할을 침묵으로 뒤집지 않는다. 공용 PC 에
+           남은 관리자 세션으로 학생이 승격되는 길을 confirm 한 겹으로 막는다).
+           ② 관리자 세션이 없으면 이 블록은 아무것도 바꾸지 않는다 = 기존과 100% 동일. */
+        var _admUid = '';
+        try { _admUid = String((JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}).uid || '').trim(); } catch (_) {}
         if (/teacher|tutor/.test(_rr)) window.vcMyRole = 'teacher';
         else if (/^admin$|^hq$|^hq_admin$/.test(_rr)) window.vcMyRole = 'admin';
-        else if (_rr) window.vcMyRole = 'student';
+        else if (_rr) {
+          window.vcMyRole = 'student';
+          if (_admUid) {
+            var _admEn = false; try { _admEn = (typeof getLang === 'function' && getLang() === 'en'); } catch (_) {}
+            if (confirm(_admEn
+                ? 'Admin console login detected (' + _admUid + ').\nEnter this class as STAFF (device helper / praise tools)?\nCancel = enter as student.'
+                : '이 브라우저에 관리자 로그인(' + _admUid + ')이 있습니다.\n스태프(장치 도우미·칭찬 도구)로 입장할까요?\n취소 = 학생으로 입장')) {
+              window.vcMyRole = 'admin';
+            }
+          }
+        }
+        /* 관리자 세션이 있고 계정 역할이 «비어» 있으면 — 물을 것도 없다, 그 사람이 관리자다.
+           (이름 휴리스틱보다 훨씬 강한 근거라서 그 앞에 둔다) */
+        else if (_admUid) window.vcMyRole = 'admin';
         /* 🚫 이름 휴리스틱(«아이디에 teacher 가 들어있다»)으로 **올리는** 길을 닫는다.
            로그인한 사람에게 쓰면 «Teacher_Kim 이라는 아이디의 학생» 이 반 전체 교재를 넘긴다.
            로그인이 아예 없는 경우(관리자 임베드·데모)에만 예전처럼 백업으로 둔다. */
