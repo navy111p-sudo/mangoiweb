@@ -1371,6 +1371,10 @@ export async function handleMangoApi(
         || path === '/api/admin/lesson-reminder/run'
         || path.startsWith('/api/admin/referrals') || path.startsWith('/api/admin/counseling/')
         || path.startsWith('/api/admin/teacher-links')
+        // 📇 (2026-08-13) 강사 «연락처» 연결 — 핸들러(api-admin.ts)와 index.ts 게이트는 8/7부터
+        //    있었는데 이 위임 가드에만 빠져 있어 라이브에서 GET/POST 전부 404 였다.
+        //    (「🔗 강사 연결」 화면·프로필 연결 API 가 통째로 먹통이던 원인)
+        || path.startsWith('/api/admin/teacher-contacts')
         // 학생·학부모측 창구(관리자 표의 반대쪽 반쪽). 인증게이트는 index.ts 에 등록돼 있다.
         || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
