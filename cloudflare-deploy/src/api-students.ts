@@ -772,7 +772,7 @@ ${MANGOI_KNOWLEDGE}`;
       }
       const codeHash = await hashPwd('pwreset|' + canonUid + '|' + code);
       if (codeHash !== row.code_hash) {
-        try { await env.DB.prepare(`UPDATE student_pw_reset SET attempts = attempts + 1 WHERE user_id = ?`).bind(canonUid).run(); } catch {}
+        try { await env.DB.prepare(`UPDATE student_pw_reset SET attempts = attempts + 1 WHERE user_id = ?`).bind(canonUid).run(); } catch (e) { console.warn('[student] pw-reset 시도 카운트 실패:', e); }
         return json({ ok: false, error: 'invalid_code', message: '인증번호가 일치하지 않아요.' }, 401);
       }
       const newHash = await hashPwd(newPwd);
@@ -851,7 +851,7 @@ ${MANGOI_KNOWLEDGE}`;
       }
       const codeHash = await hashPwd('wfverify|' + canonUid + '|' + code);
       if (codeHash !== row.code_hash) {
-        try { await env.DB.prepare(`UPDATE wf_parent_verify SET attempts = attempts + 1 WHERE user_id = ?`).bind(canonUid).run(); } catch {}
+        try { await env.DB.prepare(`UPDATE wf_parent_verify SET attempts = attempts + 1 WHERE user_id = ?`).bind(canonUid).run(); } catch (e) { console.warn('[student] 학부모인증 시도 카운트 실패:', e); }
         return json({ ok: false, error: 'invalid_code', message: '인증번호가 일치하지 않아요.' }, 401);
       }
       await env.DB.prepare(`UPDATE students_erp SET wf_verified_at = ? WHERE user_id = ?`).bind(now, canonUid).run();

@@ -3619,7 +3619,7 @@ ${numbered}`;
         try {
           await env.DB.prepare(`UPDATE room_tokens SET consumed_at = ? WHERE jti = ?`)
             .bind(Date.now(), payload.jti).run();
-        } catch {}
+        } catch (e) { console.warn('[mango] room_token 소비 실패(재사용 위험):', e); }
       }
       return json({ ok: true, room_id: roomId, user_id: payload.sub, role: payload.role, jti: payload.jti });
     }
