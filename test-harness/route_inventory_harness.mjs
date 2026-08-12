@@ -31,6 +31,8 @@ const routes = new Set();
 for (const [f, t] of src) {
   for (const m of t.matchAll(/path\s*===\s*['"`]([^'"`]+)['"`]/g)) routes.add(m[1]);
   for (const m of t.matchAll(/path\.startsWith\(\s*['"`]([^'"`]+)['"`]/g)) routes.add(m[1] + '*');
+  // API_ROUTES 테이블 키: 'METHOD /path': ...  (2026-08-11 라우팅 테이블화 대응 — if 형식과 동일 취급)
+  for (const m of t.matchAll(/['"`](?:GET|POST|PUT|DELETE|PATCH)\s+(\/[^'"`\s]+)['"`]\s*:/g)) routes.add(m[1]);
 }
 const routeList = [...routes].sort();
 
