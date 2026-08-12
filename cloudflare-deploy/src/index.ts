@@ -419,8 +419,86 @@ const worker = {
     //      별개 개념. 여기서는 게임/퀴즈 완료 기반의 '학습 불꽃'만 처리한다.
     //   - POST /api/streak/complete-quiz  {student_id}
     //   - GET  /api/streak/:student_id     (단, 예약어 status/leaderboard/check-in 은 제외 → 아래 게이트로 통과)
-    if (path === '/api/streak/complete-quiz' && request.method === 'POST') {
-      return handleLearnStreakComplete(request, env);
+    // ── 라우팅 테이블 (batch-1, 2026-08-11) ──────────────────────────
+    //   순수 위임 정확일치 라우트를 여기 한 줄로 등록한다. 등록 누락 → "새 API 404" 를 구조적으로 막는다.
+    //   테이블에 없는 경로는 그대로 아래 if 체인으로 흘러간다(덧셈식). 되돌리려면 이 블록만 지우면 된다.
+    const API_ROUTES: Record<string, (request: Request, env: Env, ctx: ExecutionContext) => Promise<Response> | Response> = {
+      'POST /api/streak/complete-quiz':    (rq, e) => handleLearnStreakComplete(rq, e),
+      'POST /api/warmup/chat':             (rq, e) => handleWarmupChat(rq, e),
+      'GET /api/warmup/context':           (rq, e) => handleWarmupContext(rq, e),
+      'POST /api/warmup/questions':        (rq, e) => handleWarmupQuestions(rq, e),
+      'GET /api/games/vocab':              (rq, e) => handleGamesVocab(rq, e),
+      'GET /api/games/zh-vocab':           (rq, e) => handleGamesZhVocab(rq, e),
+      'GET /api/games/zh-passage':         (rq, e) => handleGamesZhPassage(rq, e),
+      'GET /api/games/lessons':            (rq, e) => handleGamesLessons(rq, e),
+      'GET /api/games/en-vocab':           (rq, e) => handleGamesEnVocab(rq, e),
+      'GET /api/games/define':             (rq, e) => handleGamesDefine(rq, e),
+      'POST /api/games/progress':          (rq, e) => handleGamesProgress(rq, e),
+      'POST /api/games/ux-track':          (rq, e) => handleUxTrack(rq, e),
+      'GET /api/games/weak':               (rq, e) => handleGamesWeak(rq, e),
+      'POST /api/games/shadow':            (rq, e) => handleGamesShadow(rq, e),
+      'GET /api/games/recommend':          (rq, e) => handleGamesRecommend(rq, e),
+      'POST /api/games/coins':             (rq, e) => handleGamesCoins(rq, e),
+      'GET /api/games/leaderboard':        (rq, e) => handleGamesLeaderboard(rq, e),
+      // ── batch-2 (2026-08-11): 단순 위임 라우트 ──
+      'POST /api/games/session':           async (rq, e) => { const { handleGameSession } = await import('./game-insights'); return handleGameSession(rq, e); },
+      'POST /api/video-call/upload-pdf':   (rq, e) => handlePdfUpload(rq, e),
+      'POST /api/wb-ocr':                  (rq, e) => handleWbOcr(rq, e),
+      'GET /api/video-call/pdf-list':      (rq, e) => handlePdfList(e),
+      'POST /api/video-call/upload-file':  (rq, e) => handleFileShareUpload(rq, e),
+      'GET /api/active-rooms':             (rq, e) => handleActiveRooms(e),
+      'POST /api/recordings/complete':     (rq, e) => handleRecordingComplete(rq, e),
+      'POST /api/recordings/blob/upload':  (rq, e) => handleRecordingUpload(rq, e),
+      'GET /api/recordings/blob/list':     (rq, e) => handleRecordingList(rq, e),
+      // ── batch-3 (2026-08-11): 본문 그대로 감싼 위임(verbatim) ──
+      'POST /api/retention/run': async (request, env, ctx) => {
+      const result = await purgeExpired(env);
+      return new Response(JSON.stringify(result), {
+        status: 200, headers: { 'Content-Type': 'application/json' }
+      });
+      },
+      'GET /api/retention/status': async (request, env, ctx) => {
+      const last = await env.SESSION_STATE.get('retention:last_run');
+      return new Response(last || 'null', {
+        status: 200, headers: { 'Content-Type': 'application/json' }
+      });
+      },
+      'POST /api/admin/retention/send': async (request, env, ctx) => {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        const ids = Array.isArray(b?.user_ids) ? b.user_ids.map((x: any) => String(x)).filter(Boolean) : [];
+        const data = await sendRetentionMessages(env as any, ids, { by: 'admin' });
+        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      }
+      },
+      'POST /api/admin/retention/contacted': async (request, env, ctx) => {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        await markRetentionContacted(env as any, String(b?.user_id || ''), !!b?.contacted);
+        return new Response(JSON.stringify({ ok: true }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+      },
+      'POST /api/admin/duplicate-payments/resolve': async (request, env, ctx) => {
+      try {
+        const b: any = await request.json().catch(() => ({}));
+        await resolveDuplicate(env as any, String(b?.dup_key || ''), String(b?.status || ''), String(b?.note || ''), String(b?.by || ''));
+        return new Response(JSON.stringify({ ok: true }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+      },
+    };
+    {
+      const _h = API_ROUTES[request.method + ' ' + path];
+      if (_h) return _h(request, env, ctx);
     }
     {
       const _sm = path.match(/^\/api\/streak\/([^\/]+)$/);
@@ -436,76 +514,41 @@ const worker = {
     // 🗣️ 수업 전 AI 웜업 — Cloudflare Workers AI(Llama 3.3 70B)로 실제 대화 (키 불필요)
     //   - POST /api/warmup/chat     {session_id, student_input, lesson_topic?, user_id?, textbook?, level?, lesson_no?}
     //   - GET  /api/warmup/context  ?user_id=&textbook=&level=&lesson=  → 오늘 배울 교재/문장 (students_erp + review_quizzes)
-    if (path === '/api/warmup/chat' && request.method === 'POST') {
-      return handleWarmupChat(request, env);
-    }
-    if (path === '/api/warmup/context' && request.method === 'GET') {
-      return handleWarmupContext(request, env);
-    }
+
+
     //   - POST /api/warmup/questions {session_id?, user_id?, textbook?, level?, topic?, difficulty?, pick?}
     //     → 레벨·교재·주제 기반 추가 질문(Follow-up Questions) 3개 동적 생성 (반복 방지)
-    if (path === '/api/warmup/questions' && request.method === 'POST') {
-      return handleWarmupQuestions(request, env);
-    }
+
     // 🎮 학생게임 맞춤 출제 — GET /api/games/vocab?user_id=  → 학생 배정 교재/레벨의 문장+단어(en/ko)
-    if (path === '/api/games/vocab' && request.method === 'GET') {
-      return handleGamesVocab(request, env);
-    }
+
     // 🀄 중국어 게임 어휘 — GET /api/games/zh-vocab?textbook=&level=&lesson=  → 다락원 교재 추출 한자+병음+뜻(zh_vocab)
-    if (path === '/api/games/zh-vocab' && request.method === 'GET') {
-      return handleGamesZhVocab(request, env);
-    }
+
     // 📖 중국어 독해 문단 — GET /api/games/zh-passage?textbook=&level=&lesson=  → 다락원 读&说 문단+이해질문(zh_passage)
-    if (path === '/api/games/zh-passage' && request.method === 'GET') {
-      return handleGamesZhPassage(request, env);
-    }
+
     // 📚 진도(레슨) 순차 — GET /api/games/lessons?glang=&textbook=&level=&user_id=  → 교재의 레슨별 문장(예습/복습 네비게이션)
-    if (path === '/api/games/lessons' && request.method === 'GET') {
-      return handleGamesLessons(request, env);
-    }
+
     // 🔤 영어 게임 어휘 은행 — GET /api/games/en-vocab  → 난이도별 영어 문장+단어(en_vocab, 폴백 강화)
-    if (path === '/api/games/en-vocab' && request.method === 'GET') {
-      return handleGamesEnVocab(request, env);
-    }
+
     // 📖 단어 뜻 — GET /api/games/define?word=&lang=en|zh&sent=  → 단어 브릭 클릭 시 한국어 뜻(+병음). D1 캐시+어휘은행+AI 폴백
-    if (path === '/api/games/define' && request.method === 'GET') {
-      return handleGamesDefine(request, env);
-    }
+
     // 🧠 게임 학습기록 — POST /api/games/progress {user_id,lang,events:[{item,ko,correct}]} → 오답/정답 누적(game_progress)
-    if (path === '/api/games/progress' && request.method === 'POST') {
-      return handleGamesProgress(request, env);
-    }
+
     // 📊 UX 사용률 — POST /api/games/ux-track {user_id?, events:[{k,n?}]} → 메뉴·버튼 클릭 집계(ux_events)
-    if (path === '/api/games/ux-track' && request.method === 'POST') {
-      return handleUxTrack(request, env);
-    }
+
     // 🧠 약점 단어 — GET /api/games/weak?user_id=&lang=&limit=  → 자주 틀린 단어(교사 대시보드·맞춤 복습용)
-    if (path === '/api/games/weak' && request.method === 'GET') {
-      return handleGamesWeak(request, env);
-    }
+
     // 🎤 발음 점수 — POST /api/games/shadow {user_id,lang,item,ko,score} → 따라말하기 발음 점수 누적(game_progress)
-    if (path === '/api/games/shadow' && request.method === 'POST') {
-      return handleGamesShadow(request, env);
-    }
+
     // 🎯 맞춤 추천 — GET /api/games/recommend?user_id=&lang= → 정오답·발음 진단 + 다음 연습 추천(룰 기반, KV 10분 캐시)
-    if (path === '/api/games/recommend' && request.method === 'GET') {
-      return handleGamesRecommend(request, env);
-    }
+
     // 🪙 코인 적립 — POST /api/games/coins {user_id,nickname,add} → 주간/누적 코인(game_stats), 주간 리더보드용
-    if (path === '/api/games/coins' && request.method === 'POST') {
-      return handleGamesCoins(request, env);
-    }
+
     // 🏆 주간 랭킹 — GET /api/games/leaderboard?limit=  → 이번 주 코인 상위 학생(닉네임)
-    if (path === '/api/games/leaderboard' && request.method === 'GET') {
-      return handleGamesLeaderboard(request, env);
-    }
+
     // 🎮 판(session) 기록 — POST /api/games/session → 게임이 끝날 때 딱 1행(game_sessions)
     //   여기가 «게임별 분석» 을 가능하게 하는 유일한 통로다. game_progress 에는 게임 이름 칸이
     //   없어서 8종이 한 표에 섞여 있었다(2026-08-08 실측). 학생 공개 경로 — sendBeacon 으로 온다.
-    if (path === '/api/games/session' && request.method === 'POST') {
-      const { handleGameSession } = await import('./game-insights');
-      return handleGameSession(request, env);
-    }
+
 
     // 📩 알림톡 클릭추적 (공개·학부모용) — 버튼 클릭 시 read_at 기록 후 원래 URL 로 리다이렉트.
     //    이탈위험 그래프의 (학부모)-[:IGNORED]->(알림톡) 판정을 정밀화한다.
@@ -564,19 +607,13 @@ const worker = {
     }
 
     // PDF upload endpoint
-    if (path === '/api/video-call/upload-pdf' && request.method === 'POST') {
-      return await handlePdfUpload(request, env);
-    }
+
 
     // ✨ 칠판 손글씨 OCR (Workers AI 비전) — PNG 바이트(raw)를 받아 텍스트로 변환
-    if (path === '/api/wb-ocr' && request.method === 'POST') {
-      return await handleWbOcr(request, env);
-    }
+
 
     // PDF list endpoint
-    if (path === '/api/video-call/pdf-list' && request.method === 'GET') {
-      return await handlePdfList(env);
-    }
+
 
     // PDF download endpoint (SPA에서 PDF.js로 렌더링할 때 사용)
     if (path.startsWith('/api/video-call/pdf/') && request.method === 'GET') {
@@ -584,32 +621,18 @@ const worker = {
     }
 
     // 📎 모든 파일 공유 업로드 (Word/Excel/PPT/ZIP 등) — 수업 중 파일 첨부. R2 files/ 에 저장.
-    if (path === '/api/video-call/upload-file' && request.method === 'POST') {
-      return await handleFileShareUpload(request, env);
-    }
+
     // 📎 공유 파일 다운로드 (첨부 형태로 내려줌)
     if (path.startsWith('/api/video-call/file/') && request.method === 'GET') {
       return await handleFileShareDownload(path, env);
     }
 
     // 보관기간 자동 파기: 수동 실행/상태 조회
-    if (path === '/api/retention/run' && request.method === 'POST') {
-      const result = await purgeExpired(env);
-      return new Response(JSON.stringify(result), {
-        status: 200, headers: { 'Content-Type': 'application/json' }
-      });
-    }
-    if (path === '/api/retention/status' && request.method === 'GET') {
-      const last = await env.SESSION_STATE.get('retention:last_run');
-      return new Response(last || 'null', {
-        status: 200, headers: { 'Content-Type': 'application/json' }
-      });
-    }
+
+
 
     // 활성 방 목록 (관리자용)
-    if (path === '/api/active-rooms' && request.method === 'GET') {
-      return await handleActiveRooms(env);
-    }
+
 
     // 특정 방 상태 조회 (관리자용)
     if (path.startsWith('/api/room-status/') && request.method === 'GET') {
@@ -781,9 +804,7 @@ const worker = {
     }
 
     // ── 녹화 완료: blob 업로드 + DB 업데이트를 한 번에 처리 ──
-    if (path === '/api/recordings/complete' && request.method === 'POST') {
-      return await handleRecordingComplete(request, env);
-    }
+
 
     // 🔊 AI 운영비서 한국어 음성 프록시 — 아바타 Worker(/api/tts)를 같은 도메인에서 받아 CORS/무음 회피
     if (path === '/api/ops-tts' && request.method === 'OPTIONS') {
@@ -886,12 +907,8 @@ const worker = {
 
     // R2 녹화 블롭 저장소 (MediaRecorder → POST /api/recordings/blob/upload)
     // Mango DB API(`/api/recordings`)와 공존하도록 `/blob/` 서브경로 사용
-    if (path === '/api/recordings/blob/upload' && request.method === 'POST') {
-      return await handleRecordingUpload(request, env);
-    }
-    if (path === '/api/recordings/blob/list' && request.method === 'GET') {
-      return await handleRecordingList(request, env);
-    }
+
+
     if (path.startsWith('/api/recordings/blob/') && request.method === 'GET') {
       return await handleRecordingDownload(path, request, env);
     }
@@ -1536,16 +1553,7 @@ const worker = {
       }
     }
     // 🔁 수강권 자동연락 — 실제 발송 (관리자). POST { user_ids: [] }
-    if (path === '/api/admin/retention/send' && request.method === 'POST') {
-      try {
-        const b: any = await request.json().catch(() => ({}));
-        const ids = Array.isArray(b?.user_ids) ? b.user_ids.map((x: any) => String(x)).filter(Boolean) : [];
-        const data = await sendRetentionMessages(env as any, ids, { by: 'admin' });
-        return new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-      }
-    }
+
     // 🔁 수강권 자동연락 — 설정 조회/저장 (관리자). GET / POST { auto_enabled, daily_cap, resend_gap_days, link_url }
     if (path === '/api/admin/retention/settings') {
       try {
@@ -1560,17 +1568,7 @@ const worker = {
     }
 
     // 🔁 수강권 '연락함' 토글 (관리자 전용). POST { user_id, contacted }
-    if (path === '/api/admin/retention/contacted' && request.method === 'POST') {
-      try {
-        const b: any = await request.json().catch(() => ({}));
-        await markRetentionContacted(env as any, String(b?.user_id || ''), !!b?.contacted);
-        return new Response(JSON.stringify({ ok: true }),
-          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      }
-    }
+
 
     // 🔁 /admin/retention — 수강권 만료·재활성 대시보드 (관리자 전용)
     if (path === '/admin/retention' || path === '/admin/retention/') {
@@ -1590,17 +1588,7 @@ const worker = {
       }
     }
     // 💸 이중결제 처리 저장 (관리자 전용). POST { dup_key, status, note }
-    if (path === '/api/admin/duplicate-payments/resolve' && request.method === 'POST') {
-      try {
-        const b: any = await request.json().catch(() => ({}));
-        await resolveDuplicate(env as any, String(b?.dup_key || ''), String(b?.status || ''), String(b?.note || ''), String(b?.by || ''));
-        return new Response(JSON.stringify({ ok: true }),
-          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      }
-    }
+
     // 💸 /admin/duplicate-payments — 이중결제 감사·환불 처리 (관리자 전용)
     if (path === '/admin/duplicate-payments' || path === '/admin/duplicate-payments/') {
       const r = new Request(new URL('/admin/duplicate-payments.html' + url.search, request.url).toString(), request);
