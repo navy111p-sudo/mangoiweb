@@ -2264,8 +2264,13 @@
         }
         .chat-msg { max-width: 85%; }
         .chat-msg.mine { align-self: flex-end; }
-        .chat-msg.mine .msg-bubble { background: #2563eb; }
-        .chat-msg.other .msg-bubble { background: #334155; }
+        /* 💬 (2026-08-12 마이마이 「학생 채팅이 안 보인다」) 말풍선 글자색을 명시한다.
+           라이트 테마(mango-theme-light.css)가 body color 를 #334155 로 바꾸는데
+           .msg-bubble 은 색을 상속만 받아서 — 학생 말풍선(배경 #334155)에서
+           글자색 = 배경색이 되어 «빈 회색 박스» 로 보였다. KST 18시 이전엔
+           라이트가 자동 기본값이라 필리핀 강사가 정확히 이걸 맞았다. */
+        .chat-msg.mine .msg-bubble { background: #2563eb; color: #f8fafc; }
+        .chat-msg.other .msg-bubble { background: #334155; color: #f1f5f9; }
         .chat-msg.system { align-self: center; }
         .chat-msg.system .msg-bubble { background: rgba(148,163,184,0.1); color: #94a3b8; font-size: 0.8rem; }
         .msg-sender { font-size: 0.7rem; color: #94a3b8; margin-bottom: 2px; }
@@ -7279,9 +7284,9 @@ window.mgIsSlowNet = function(){
         운영 DB 의 mango_videos 398건 중 BTS 113·Teachers 3 건이 여기 걸린다.
         관리자 화면에서는 그대로 보이고, 지우는 것은 사람이 정할 일이다.
      [되살리려면] 아래 배열에서 이름만 빼면 즉시 돌아온다.
-     ⚠️ MES 영상(138건)은 **일부러 남겼다** — 요청서가 지목한 것은 「MES 책」이고
-        영상은 BTS·SIU·교사안내만 적혀 있었다. 영상까지 빼려면 여기에 'MES' 를 더하면 된다. */
-  var MV_RETIRED = ['BTS', 'SIU', 'TEACHER'];
+     (2026-08-13 사장님 지시) MES 영상 138건도 숨긴다 — 「사이트 영상에서도 MES 숨겨줘」.
+        처음(8/11)엔 요청서가 「MES 책」만 지목해 영상은 남겼었다. 데이터는 여전히 안 지운다. */
+  var MV_RETIRED = ['BTS', 'SIU', 'TEACHER', 'MES'];
   function mvIsRetired(v) {
     try {
       var s = ((v && v.title) || '') + ' ' + ((v && v.title_en) || '') + ' ' + ((v && v.category) || '');
@@ -8892,7 +8897,8 @@ window.mgIsSlowNet = function(){
      나갔으므로 이 커밋은 반드시 새 번호로 올린다. -->
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
-<script src="/js/idx-main.js?v=20"></script>
+<!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
+<script src="/js/idx-main.js?v=22"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11470,7 +11476,7 @@ window.mgIsSlowNet = function(){
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=6"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=7"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>

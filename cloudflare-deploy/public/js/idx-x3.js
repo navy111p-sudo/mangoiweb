@@ -417,7 +417,8 @@
       var courseKeys = Object.keys(courses).sort(function(a, b){
         var oa = courseOrder(a), ob = courseOrder(b);
         if (oa !== ob) return oa - ob;
-        return a.localeCompare(b, 'ko');
+        // (2026-08-12 마이마이 ①) 「BTS 를 1~34 순서로」 — numeric 없이는 BTS 34 < BTS 4
+        return a.localeCompare(b, 'ko', { numeric:true, sensitivity:'base' });
       });
       var catTotal = 0; courseKeys.forEach(function(p){ catTotal += courses[p]; });
       html += '<div class="tbf-cat open" data-cat="' + esc(cat) + '">';
@@ -460,6 +461,17 @@
     var titleEl = document.getElementById('tbf-main-title');
     var subEl = document.getElementById('tbf-main-sub');
     var books = window._libAllBooks.slice();
+    // (2026-08-12 마이마이 ①) 「BTS 를 1~34 순서로」 — 서버는 BINARY 정렬(BTS 34 < BTS 4)이라 여기서 재정렬
+    books.sort(function(a, b){
+      var pa = a.publisher || '', pb = b.publisher || '';
+      if (pa !== pb) {
+        var oa = courseOrder(pa), ob = courseOrder(pb);
+        if (oa !== ob) return oa - ob;
+        var pc = pa.localeCompare(pb, 'ko', { numeric:true, sensitivity:'base' });
+        if (pc) return pc;
+      }
+      return String(a.textbook || '').localeCompare(String(b.textbook || ''), 'ko', { numeric:true, sensitivity:'base' });
+    });
     var lvFilter = (document.getElementById('tbf-lib-level') || {}).value || '';
     var qFilter = ((document.getElementById('tbf-lib-search') || {}).value || '').trim().toLowerCase();
 

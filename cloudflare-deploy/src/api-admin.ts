@@ -7683,9 +7683,68 @@ LIMIT $limit`;
       if (b.next_class_guide != null)     { fields.push('next_class_guide = ?');     binds.push(String(b.next_class_guide)); }
       // 결과 확정(final_level)인데 추천 교재가 함께 오지 않으면 누락 경고를 응답에 실어 UI가 재확인하게 함
       if (!fields.length) return invalidBody(['status']);
+      /* 🧹 (2026-08-13 사장님 지시) 취소·되돌리기 동기화를 위해 «바꾸기 전» 상태를 먼저 읽어 둔다 */
+      let stPrev: any = null;
+      if (b.status != null) {
+        try {
+          stPrev = await env.DB.prepare(
+            `SELECT id, status, student_name, student_uid, desired_date, desired_time, assigned_teacher, schedule_id FROM leveltest_applications WHERE id = ? LIMIT 1`
+          ).bind(Number(b.id)).first();
+        } catch {}
+      }
       fields.push('updated_at = ?'); binds.push(Date.now());
       binds.push(Number(b.id));
       await env.DB.prepare(`UPDATE leveltest_applications SET ${fields.join(', ')} WHERE id = ?`).bind(...binds).run();
+
+      /* ═══════════════════════════════════════════════════════════════════════
+         🧹 (2026-08-13 사장님 지시) 「취소했는데 수업은 살아 있다 + 누가 했는지 기록이 없다」
+         ───────────────────────────────────────────────────────────────────────
+         실사례: 신청 #19(paul7038) 를 취소했는데
+           · 연결 수업 #862 는 status='active' 그대로 → 강사 주간표·달력에 유령 수업
+           · 취소가 어디에도 안 남아 「누가 했나」 를 DB 로도 답할 수 없었다
+         [무엇]
+           ① 취소(cancelled)      → 연결 수업도 status='cancelled' 로 함께 정리
+           ② 되돌리기(→ pending·proposed·confirmed) → 취소해 뒀던 수업을 다시 active 로
+           ③ 두 경우 모두 class_audit_log 에 누가·언제·왜 를 남긴다 (best-effort)
+         ⚠️ done 으로의 변경은 수업을 되살리지 않는다 — 이미 지나간 수업이다. */
+      let scheduleSync: any = undefined;
+      if (b.status != null && stPrev) {
+        try {
+          const newSt = String(b.status);
+          const prevSt = String(stPrev.status || '');
+          const toCancel  = newSt === 'cancelled' && prevSt !== 'cancelled';
+          const toRestore = prevSt === 'cancelled' && ['pending', 'proposed', 'confirmed'].includes(newSt);
+          if (toCancel || toRestore) {
+            let actorName = 'admin';
+            try { const a = await getAdminActor(request, env as any); if (a?.name) actorName = a.name; } catch {}
+            if (stPrev.schedule_id) {
+              const sched: any = await env.DB.prepare(
+                `SELECT id, status, scheduled_date, start_time FROM class_schedules WHERE id = ? LIMIT 1`
+              ).bind(Number(stPrev.schedule_id)).first();
+              if (sched && toCancel && String(sched.status || 'active') !== 'cancelled') {
+                await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`)
+                  .bind(Date.now(), Number(sched.id)).run();
+                scheduleSync = { schedule_id: Number(sched.id), status: 'cancelled' };
+              } else if (sched && toRestore && String(sched.status || '') === 'cancelled') {
+                await env.DB.prepare(`UPDATE class_schedules SET status='active', updated_at=? WHERE id=?`)
+                  .bind(Date.now(), Number(sched.id)).run();
+                scheduleSync = { schedule_id: Number(sched.id), status: 'active' };
+              }
+            }
+            await writeClassAudit(env, {
+              action: toCancel ? 'cancel' : 'restore',
+              schedule_id: stPrev.schedule_id || null,
+              teacher_name: stPrev.assigned_teacher || null,
+              student_name: stPrev.student_name || null,
+              lesson_date: stPrev.desired_date || null,
+              lesson_time: stPrev.desired_time || null,
+              actor: actorName, actor_role: 'admin', source: 'leveltest_app',
+              reason: toCancel ? '레벨테스트 신청 취소 (연결 수업 함께 정리)' : '레벨테스트 신청 되돌리기 (연결 수업 복구)',
+              detail: JSON.stringify({ app_id: Number(b.id), from: prevSt, to: newSt, schedule_sync: scheduleSync || null }),
+            });
+          }
+        } catch (e: any) { scheduleSync = { error: String(e?.message || e).slice(0, 80) }; }
+      }
 
       /* 🔗 (2026-08-06) 강사를 바꿨으면 «이미 만들어진 수업»의 담당도 같이 바꾼다.
          [왜] 신청 즉시 수업이 자동으로 만들어지게 된 뒤로, 관리자가 목록에서 강사 드롭다운만
@@ -7756,7 +7815,7 @@ LIMIT $limit`;
         } catch (e: any) { resultNotify = 'error:' + String(e?.message || e).slice(0, 80); }
       }
       const missingBook = (b.final_level != null) && !String(b.recommended_textbook || '').trim();
-      return json({ ok: true, result_notify: resultNotify, teacher_sync: teacherSync, warn: missingBook ? 'recommended_textbook_missing' : undefined });
+      return json({ ok: true, result_notify: resultNotify, teacher_sync: teacherSync, schedule_sync: scheduleSync, warn: missingBook ? 'recommended_textbook_missing' : undefined });
     }
 
     // ─── 🧠 AI 자동 진단 (CEFR 객관식 배치테스트) ─────────────────────────────

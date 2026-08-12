@@ -2295,7 +2295,12 @@ function vcStopWaitingMonitor() {
     try { if (vcWaitTimer) { clearInterval(vcWaitTimer); vcWaitTimer = null; } } catch (e) {}
     try { if (window.__vcDemoTeacherTimer) { clearTimeout(window.__vcDemoTeacherTimer); window.__vcDemoTeacherTimer = null; } } catch (e) {}
     try { vcRemoveDemoTeacher(); } catch (e) {}
-    var c = document.getElementById('vc-wait-card'); if (c) c.remove();
+    /* 🪪 (2026-08-12) id 를 vc-wait-toast 로 분리 — 예전엔 vc-wait-card 를 썼는데,
+       그 id 는 index.html 의 «교재 여는 중» 정적 카드가 이미 쓰고 있었다.
+       ① if(!card) 가 항상 거짓이라 토스트 전용 스타일(fixed·bottom:88px)이 한 번도 안 붙고
+          inset:0 짜리 교재 카드가 «기다리는 중…» 판때기로 교재 패널 전면을 덮었고
+       ② 여기 remove() 가 교재 대기 카드를 DOM 에서 영구 삭제해 다시는 못 뜨게 했다. */
+    var c = document.getElementById('vc-wait-toast'); if (c) c.remove();
 }
 function vcStartWaitingMonitor(session, myRole) {
     vcStopWaitingMonitor();
@@ -2312,10 +2317,10 @@ function vcStartWaitingMonitor(session, myRole) {
     try { isDemo = !!(typeof demoStudents !== 'undefined' && session.student_uid && demoStudents[session.student_uid]) || /[?&]demoteacher=1/.test(location.search) || (localStorage.getItem('mangoi_demo_teacher') === '1'); } catch (e) {}
 
     if (!document.getElementById('vc-wait-kf')) { var st = document.createElement('style'); st.id = 'vc-wait-kf'; st.textContent = '@keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.35}}'; document.head.appendChild(st); }
-    var card = document.getElementById('vc-wait-card');
+    var card = document.getElementById('vc-wait-toast');
     if (!card) {
         card = document.createElement('div');
-        card.id = 'vc-wait-card';
+        card.id = 'vc-wait-toast';
         card.style.cssText = 'position:fixed;left:50%;bottom:88px;transform:translateX(-50%);z-index:9800;background:rgba(15,23,42,.92);border:1px solid rgba(148,163,184,.3);border-radius:16px;padding:12px 18px;color:#e2e8f0;font-family:MangoiHanSC,"Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;box-shadow:0 16px 40px -12px rgba(0,0,0,.6);display:flex;align-items:center;gap:12px;max-width:92vw';
         document.body.appendChild(card);
     }
@@ -2337,21 +2342,28 @@ function vcStartWaitingMonitor(session, myRole) {
         } catch (e) {}
         return false;
     }
-    function elapsed() { var s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60); s = s % 60; return m + '분 ' + String(s).padStart(2, '0') + '초'; }
+    function elapsed() { var s = Math.floor((Date.now() - startedAt) / 1000), m = Math.floor(s / 60); s = s % 60; return m + ':' + String(s).padStart(2, '0'); }   // 3:07 — 한/영 공용 표기
     function paint(state) {
         if (!card) return;
+        /* 🌐 (2026-08-12) 필리핀 강사도 보는 토스트 — 언어 판정은 반드시 getLang() (CLAUDE.md) */
+        var en = false; try { en = (typeof getLang === 'function') && getLang() === 'en'; } catch (e) {}
+        var who = waitingFor === 'teacher' ? (en ? 'teacher' : '선생님') : (en ? 'student' : '학생');
         if (state === 'met') {
-            card.innerHTML = '<span style="font-size:20px">🎉</span><span style="font-size:14px;font-weight:700">' + waitingLabel + '이 입장했어요! 수업을 시작하세요.</span>';
+            var metMsg = en ? ('The ' + who + ' joined! You can start the class.') : (who + '이 입장했어요! 수업을 시작하세요.');
+            card.innerHTML = '<span style="font-size:20px">🎉</span><span style="font-size:14px;font-weight:700">' + metMsg + '</span>';
             setTimeout(vcStopWaitingMonitor, 3500);
             return;
         }
-        var callLabel = (calledTeacher && waitingFor === 'teacher') ? '선생님을 부르는 중…' : (waitingLabel + '을 기다리는 중…');
-        var sent = (calledTeacher && waitingFor === 'teacher') ? '<div style="font-size:11px;color:#34d399;margin-top:2px">📣 선생님을 호출했어요 — 곧 입장하십니다</div>'
-                 : (noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 상대에게 입장 알림을 보냈어요</div>' : '');
+        var callLabel = (calledTeacher && waitingFor === 'teacher')
+            ? (en ? 'Calling the teacher…' : '선생님을 부르는 중…')
+            : (en ? ('Waiting for the ' + who + '…') : (who + '을 기다리는 중…'));
+        var sent = (calledTeacher && waitingFor === 'teacher')
+            ? '<div style="font-size:11px;color:#34d399;margin-top:2px">📣 ' + (en ? 'Teacher has been called — joining soon' : '선생님을 호출했어요 — 곧 입장하십니다') + '</div>'
+            : (noShowSent ? '<div style="font-size:11px;color:#fbbf24;margin-top:2px">📣 ' + (en ? 'We sent them a reminder to join' : '상대에게 입장 알림을 보냈어요') + '</div>' : '');
         card.innerHTML = '<span style="width:10px;height:10px;border-radius:50%;background:#fbbf24;box-shadow:0 0 0 4px rgba(251,191,36,.2);animation:vcPulse 1.4s infinite;flex:0 0 auto"></span>'
             + '<div><div style="font-size:14px;font-weight:700">' + callLabel + ' <span style="color:#94a3b8;font-weight:500">(' + elapsed() + ')</span></div>'
-            + '<div style="font-size:11px;color:#94a3b8">입장하면 자동으로 사라져요</div>' + sent + '</div>'
-            + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">닫기</button>';
+            + '<div style="font-size:11px;color:#94a3b8">' + (en ? 'Disappears when they join' : '입장하면 자동으로 사라져요') + '</div>' + sent + '</div>'
+            + '<button onclick="vcStopWaitingMonitor()" style="background:rgba(148,163,184,.15);border:0;color:#cbd5e1;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;flex:0 0 auto">' + (en ? 'Close' : '닫기') + '</button>';
     }
     paint('waiting');
     // 🆕 (A) 학생이 들어오면 담당 선생님 즉시 호출(1회) — 이미 선생님이 있으면 생략
@@ -3298,12 +3310,19 @@ async function vcJoinRoom(skipUI) {
         //   ("화면 이동하면 영상이 나왔다 안 나왔다" 대책 — 5초 감시를 기다리지 않음)
         if (typeof vcResumeAllVideos === 'function') try { vcResumeAllVideos(); } catch(e){}
       }, 280);
-      // 🙉 얼굴 숨김 이외의 모드로 바뀌면 복귀 칩은 자동 숨김 (⋯ 메뉴로 복귀해도 칩이 남지 않게)
+      // 🙉 (2026-08-12 마이마이 ⑩) 얼굴이 사라지는 모드는 hidefaces 만이 아니다 —
+      //    솔로·칠판만·교재만도 video-solo 로 얼굴을 통째로 숨긴다. 예전 코드는 이 세 모드에서
+      //    복귀 칩까지 꺼 버려서, 되돌리는 길이 «화면분할 시트를 다시 여는 것» 뿐이었다.
+      //    얼굴이 안 보이는 모드에서는 칩을 띄우고, 보이는 모드로 바뀌면 숨긴다.
       try {
-        if (mode !== 'hidefaces') {
-          window.__vcFacesHidden = false;   // 다른 모드로 바뀌면 얼굴 숨김 상태 해제
+        const facesGone = (mode === 'hidefaces' || mode === 'solo' || mode === 'boardonly' || mode === 'bookonly');
+        if (!facesGone) {
+          window.__vcFacesHidden = false;   // 얼굴이 보이는 모드로 바뀌면 숨김 상태 해제
           const chip = document.getElementById('vc-faces-restore');
           if (chip) chip.style.display = 'none';
+        } else if (mode !== 'hidefaces' && typeof window.vcFacesEnsureRestoreChip === 'function') {
+          // hidefaces 는 vcFacesHide() 가 칩을 직접 띄운다 — 중복 호출 방지
+          window.vcFacesEnsureRestoreChip();
         }
       } catch(e){}
       // 사용자 피드백 토스트
@@ -3333,7 +3352,13 @@ async function vcJoinRoom(skipUI) {
       }
       vcScreenSet('hidefaces');
       window.__vcFacesHidden = true;   // 세로폰 자동 레이아웃(공유 재평가 포함)이 되돌리지 못하게 표시
-      // 🙂✕ 복귀 칩 — 이모지 원형 버튼(작게, 라이트 버튼 등 다른 버튼을 가리지 않는 위치)
+      vcFacesEnsureRestoreChip();
+    };
+    /* 🙂✕ 복귀 칩 생성·표시 — (2026-08-12 마이마이 ⑩) vcFacesHide 전용이던 것을 분리.
+       화면분할의 솔로·칠판만·교재만도 얼굴을 통째로 숨기는데(video-solo 재활용)
+       거기엔 복귀 버튼이 하나도 없어서 「비디오가 사라졌는데 되살리는 게 안 보인다」
+       신고가 왔다. 얼굴이 사라지는 모든 모드가 이 칩을 공유한다. */
+    window.vcFacesEnsureRestoreChip = function(){
       let chip = document.getElementById('vc-faces-restore');
       if (!chip) {
         chip = document.createElement('button');
@@ -3342,7 +3367,8 @@ async function vcJoinRoom(skipUI) {
         chip.addEventListener('click', function(){ try { vcFacesShow(); } catch(e){} });
         document.body.appendChild(chip);
       }
-      const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      const en = (typeof getLang === 'function') ? (getLang() === 'en')
+               : (typeof currentLang !== 'undefined' && currentLang === 'en');
       chip.innerHTML = '<span class="fr-face">🙂</span><span class="fr-x">✕</span>';
       /* 🌐 툴팁도 언어를 따라오게 두 벌로 남긴다 (얼굴을 숨긴 동안 계속 떠 있는 칩이라 굳으면 눈에 띈다) */
       chip.setAttribute('data-ko-title', '얼굴 화면 꺼짐 — 누르면 다시 보여요');
@@ -4667,8 +4693,16 @@ function vcApplyLowPower(pc) {
     } catch(_){}
   }
 
-  // 수업 중 + 학생일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
-  function active(){ return document.body.classList.contains('vc-in-call') && !staffNow(); }
+  /* 🔴 (2026-08-12 마이마이 재신고 「탭을 열 때마다 강사 영상이 꺼진다」)
+     «강사가 아니면 끈다»(!staffNow) 로는 부족했다 — 역할이 아직 확정되지 않은 강사가
+     «학생» 으로 오판돼 카메라가 꺼졌다. → 절약은 «확실한 학생»(정본 vcIsStudentNow)일 때만.
+     ⚠️ 역할 추측을 여기서 하지 않는다 — 판정은 전부 정본(vcIsStaffNow/vcIsStudentNow)에 있다. */
+  function studentNow(){
+    try { if (typeof vcIsStudentNow === 'function') return !!vcIsStudentNow(); } catch(_){}
+    return !staffNow();   // 정본이 없는 옛 환경에서는 종전 동작(강사 아님=학생) 유지
+  }
+  // 수업 중 + «확실한 학생»일 때만 동작 (강사는 탭을 옮겨도 얼굴이 계속 나간다)
+  function active(){ return document.body.classList.contains('vc-in-call') && studentNow(); }
 
   document.addEventListener('visibilitychange', function(){
     if (!active()) return;
@@ -5458,6 +5492,21 @@ window.vcIsStaffNow = function(){
         if (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin') return true;
         return (typeof vcIsTeacherRole === 'function') ? !!vcIsTeacherRole() : false;
     } catch(e){ return false; }
+};
+/* 🎭 (2026-08-13) 학생 판정의 «정본» — 배터리 절전 등 «학생일 때만» 거는 기능은 전부 이걸 쓴다.
+   [왜 별도로 두는가] «강사가 아니면 학생»(!vcIsStaffNow) 판정은 역할이 아직 확정되지 않은
+   강사(로그인은 됐지만 role 이 빈 값, vcMyRole 미설정 입장 경로)를 학생으로 오판해
+   탭 전환마다 강사 카메라를 꺼 버렸다(필리핀 매니저 재신고 8/10).
+   → «확실한 학생»만 true. 역할이 불확실하면 false — 학생 배터리를 조금 못 아끼는 것이
+   강사 얼굴이 검게 되는 사고보다 싸다. 역할 추측은 이 정본 안에서만 한다. */
+window.vcIsStudentNow = function(){
+    try {
+        if (window.vcIsStaffNow && window.vcIsStaffNow()) return false;
+        if (window.vcMyRole === 'student' || window.vcMyRole === 'observer') return true;
+        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
+        if (u && String(u.role || '').toLowerCase() === 'student') return true;
+    } catch(e){}
+    return false;
 };
 
 /* 🪞 (2026-08-12 강사 Shas 1번) AI 웜업 — 학생의 대화를 강사 화면에 비춰 준다.
@@ -11642,6 +11691,8 @@ async function pdfLoad(url, kind) {
     } catch (e) {}
     pdfPageNum = 1;
     pdfRender();
+    /* ⚡ (2026-08-12 마이마이 ②) 현재 파일 렌더가 자리 잡은 뒤 시퀀스의 다음 파일을 미리 받는다 */
+    setTimeout(function () { try { _pdfPrefetchNextSeq(); } catch (_) {} }, 1200);
 }
 
 // fix (2026-06-01) — 현재 화면의 교재 파일 다운로드
@@ -12460,6 +12511,31 @@ async function pdfEnsureSequence() {
         return seq.length > 1;
     } catch(e) { console.warn('[pdfEnsureSequence]', e); return false; }
 }
+/* ⚡ (2026-08-12 마이마이 ②) 「책이 다음 장으로 안 넘어가고 랙이 걸린다」 — 남은 원인.
+   1장=1파일 교재에서는 ◀▶ 의 대부분이 «다음 파일 통째 교체» 라 매번 새 다운로드였다.
+   /raw 응답은 immutable 캐시이므로, 시퀀스의 다음 파일을 미리 받아 두면 넘김이 캐시에서 뜬다.
+   ⚠️ 수업 회선(WebRTC)과 경쟁하지 않게: 동시 1개만, 20MB 초과는 건너뛴다.
+      받다 만 응답은 캐시에 안 남으므로 blob() 으로 끝까지 받는다. */
+let _pdfPrefetchingUrl = null;
+function _pdfPrefetchNextSeq() {
+    try {
+        var seq = window._libSequence;
+        if (!seq || seq.length < 2) return;
+        var next = seq[(window._libSeqIdx || 0) + 1];
+        if (!next || !next.url) return;
+        if (_pdfPrefetchingUrl === next.url || window._pdfPrefetchedUrl === next.url) return;
+        _pdfPrefetchingUrl = next.url;
+        fetch(next.url).then(function (r) {
+            if (!r.ok) return null;
+            var len = parseInt(r.headers.get('content-length') || '0', 10);
+            if (len > 20 * 1024 * 1024) { try { if (r.body) r.body.cancel(); } catch (_) {} return null; }
+            return r.blob();
+        }).then(function (b) {
+            if (b) window._pdfPrefetchedUrl = next.url;
+            _pdfPrefetchingUrl = null;
+        }).catch(function () { _pdfPrefetchingUrl = null; });
+    } catch (_) {}
+}
 // fix (2026-07-12) — 시퀀스 파일 이동. selectFromTextbookLibrary 는 교재 라이브러리 모달을
 //   한 번 연 세션에서만 정의됨(IDB 로드 콜백 내부) → 새 기기/학생용 직접 로드 폴백 필수.
 function _pdfGoSeqFile(f) {
@@ -12529,6 +12605,8 @@ async function pdfNextPage() {
         pdfPageNum = Math.min(pdfDoc.numPages, pdfPageNum + pdfPagesPerView);
         pdfRender();
         _pdfBroadcastPage();
+        // ⚡ 마지막 페이지에 닿으면 다음 «파일» 을 미리 받아 둔다 — 다음 클릭이 파일 교체이므로
+        if (pdfPageNum >= pdfDoc.numPages) { try { _pdfPrefetchNextSeq(); } catch (_) {} }
         return;
     }
     // 마지막 페이지 → 시퀀스의 다음 파일로 (시퀀스가 없으면 서버에서 재구성 — 새 기기/학생도 동작)
