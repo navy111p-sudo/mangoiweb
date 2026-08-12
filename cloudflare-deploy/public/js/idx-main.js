@@ -1148,6 +1148,126 @@ window.vcRenderScreenShareChip = function(){
     btn.textContent = en ? _sEn : _sKo;
 };
 
+/* ──────────────────────────────────────────────────────────────
+   🖥 수신측 «메인 보드» 표시 (2026-08-13, Melca 8/12 p19)
+   지적: "강사가 화면 공유를 하면 학생에게는 강사 얼굴 «작은 타일»에만 나온다"
+   방식: screen-share-state(on) 을 받으면 콘텐츠 영역(교재/칠판이 쓰는 #vc-content-pane)에
+        동적 패널(#tab-screenshare)을 만들어 강사 타일의 스트림을 크게 띄운다.
+        강사 타일은 그대로 남아 «작은 미리보기» 역할(일반 화상회의 UX).
+   주의: ① 보드 <video> 는 반드시 muted — 소리는 강사 타일이 이미 내고 있다(중복 방지)
+         ② 스트림은 replaceTrack 이라 타일과 «같은 MediaStream» — srcObject 를 공유하면 끝.
+            단 늦입장·재연결이면 타일 스트림이 늦게/새로 오므로 켜져 있는 동안 1초마다 동기화
+         ③ vcSwitchTab 호출은 _vcTabSyncApplying 로 감싼다 — 공동수업 관리자가 수신했을 때
+            자기 role 때문에 tab-sync 를 재방송해 학생 화면을 흔드는 루프 방지
+   ────────────────────────────────────────────────────────────── */
+window.__vcSSView = null;   // { uid, prevTab, prevCollapsed, timer } — 공유 중일 때만 존재
+/* 보드 <video> 를 강사 타일의 현재 스트림과 맞춘다(없으면 다음 틱에 다시) */
+window.vcScreenShareViewSync = function(){
+    try {
+        var st = window.__vcSSView; if (!st) return;
+        var bv = document.getElementById('vc-ss-board'); if (!bv) return;
+        var tile = document.getElementById('vc-video-' + st.uid);
+        var tv = tile && tile.querySelector('video');
+        if (tv && tv.srcObject && bv.srcObject !== tv.srcObject) {
+            bv.srcObject = tv.srcObject;
+            var p = bv.play(); if (p && p.catch) p.catch(function(){});
+        } else if (bv.srcObject && bv.paused) {
+            var p2 = bv.play(); if (p2 && p2.catch) p2.catch(function(){});
+        }
+    } catch(_){}
+};
+window.vcScreenShareViewOn = function(uid){
+    try {
+        if (!uid) return;
+        if (window.__vcScreenSharing) return;   // 내가 공유자 — 내 미리보기(vc-local-video)가 정본
+        var en = (typeof getLang === 'function' && getLang() === 'en');
+        /* 늦입장 재방송(user-joined 때 강사가 다시 알림)이 와도 멱등 — 상태를 덮어쓰지 않는다 */
+        if (window.__vcSSView && window.__vcSSView.uid === uid) { vcScreenShareViewSync(); return; }
+        if (!window.__vcSSView) {
+            var _cur = document.querySelector('.tab-panel.active');
+            var _curId = _cur && _cur.id ? _cur.id.replace('tab-', '') : '';
+            window.__vcSSView = {
+                uid: uid,
+                prevTab: (_curId && _curId !== 'screenshare') ? _curId : '',
+                prevCollapsed: (typeof vcIsContentCollapsed === 'function') ? vcIsContentCollapsed() : false,
+                timer: null
+            };
+        } else {
+            window.__vcSSView.uid = uid;        // 공유자가 바뀐 경우(드묾) — 복귀 상태는 유지
+        }
+        var pane = document.getElementById('vc-content-pane');
+        if (!pane) return;
+        var panel = document.getElementById('tab-screenshare');
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'tab-panel';
+            panel.id = 'tab-screenshare';
+            panel.style.cssText = 'background:#000;position:relative;padding:0';
+            var v = document.createElement('video');
+            v.id = 'vc-ss-board';
+            v.autoplay = true; v.muted = true;
+            v.setAttribute('playsinline', '');
+            v.style.cssText = 'width:100%;height:100%;object-fit:contain;background:#000;display:block';
+            panel.appendChild(v);
+            var lb = document.createElement('span');
+            lb.id = 'vc-ss-board-label';
+            lb.setAttribute('data-ko', '🖥 선생님 화면');
+            lb.setAttribute('data-en', "🖥 Teacher's screen");
+            lb.style.cssText = 'position:absolute;top:8px;left:8px;z-index:5;padding:3px 10px;border-radius:999px;background:rgba(14,165,233,.92);color:#fff;font-size:12px;font-weight:800;pointer-events:none';
+            panel.appendChild(lb);
+            pane.appendChild(panel);
+        }
+        try { var _lb = document.getElementById('vc-ss-board-label'); if (_lb) _lb.textContent = en ? "🖥 Teacher's screen" : '🖥 선생님 화면'; } catch(_){}
+        try { if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(false); } catch(_){}
+        /* 참가자 전체 보기(video-full)는 콘텐츠 칸을 display:none 으로 통째로 숨긴다 —
+           그대로면 보드가 안 보인다. 기본 분할(half)로 내리고 공유가 끝나면 되돌린다. */
+        try {
+            var _row = document.getElementById('vc-main-row');
+            if (_row && _row.classList.contains('video-full')) {
+                window.__vcSSView.prevMode = 'full';
+                if (typeof vcScreenSet === 'function') vcScreenSet('half');
+            }
+        } catch(_){}
+        var _was = window._vcTabSyncApplying; window._vcTabSyncApplying = true;
+        try { vcSwitchTab('screenshare'); } finally { window._vcTabSyncApplying = _was; }
+        /* 세로폰 — 공유 시작은 최우선(학생이 얼굴 크게를 골랐어도 반반으로). 가로/PC 는 내부에서 무시 */
+        try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
+        vcScreenShareViewSync();
+        window.__vcSSView.timer = setInterval(window.vcScreenShareViewSync, 1000);
+        console.log('[screen-share] 메인 보드 표시:', uid);
+    } catch(e){ console.warn('[screen-share] 메인 보드 표시 실패:', e); }
+};
+window.vcScreenShareViewOff = function(){
+    try {
+        var st = window.__vcSSView;
+        if (!st) return;
+        window.__vcSSView = null;
+        try { if (st.timer) clearInterval(st.timer); } catch(_){}
+        var panel = document.getElementById('tab-screenshare');
+        var bv = document.getElementById('vc-ss-board');
+        try { if (bv) bv.srcObject = null; } catch(_){}
+        /* 학생이 그 사이 다른 탭으로 옮겨 갔으면(보드가 안 보이는 상태) 화면은 건드리지 않는다 */
+        var showing = panel && panel.classList.contains('active');
+        if (showing) {
+            var _was = window._vcTabSyncApplying; window._vcTabSyncApplying = true;
+            try {
+                if (st.prevTab && document.getElementById('tab-' + st.prevTab)) {
+                    vcSwitchTab(st.prevTab);
+                    if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(!!st.prevCollapsed);
+                } else {
+                    /* 이전 콘텐츠를 모르면 얼굴 위주로(수업 기본 화면) — 하얀 화면 방지 */
+                    if (typeof vcSetContentCollapsed === 'function') vcSetContentCollapsed(true);
+                    try { document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); } catch(_){}
+                }
+                /* 공유 때문에 반반으로 내렸던 «참가자 전체 보기» 를 되돌린다 */
+                if (st.prevMode === 'full' && typeof vcScreenSet === 'function') { try { vcScreenSet('full'); } catch(_){} }
+            } finally { window._vcTabSyncApplying = _was; }
+        }
+        if (panel) panel.classList.remove('active');
+        console.log('[screen-share] 메인 보드 종료 — 이전 화면 복원:', st.prevTab || '(얼굴 위주)');
+    } catch(e){ console.warn('[screen-share] 메인 보드 복원 실패:', e); }
+};
+
 /** 앱 복귀 시: 트랙 enable + 비디오 재생 + ICE/WebSocket 복구 */
 async function vcOnAppResume(reason) {
     console.log('[app-resume] 복귀 감지:', reason);
@@ -1814,6 +1934,9 @@ function vcCleanupAllPeers() {
     // 🇵🇭 (2026-07-24) 순단으로 남겨 둔 '재연결 중' 유령 타일도 함께 정리
     //   (유령은 id 가 vcghost-* 로 바뀌어 있어 위의 vc-video-* 루프에 안 걸린다)
     try { vcSweepGhostTiles(); } catch(_) {}
+    // 🖥 (2026-08-13 Melca p19) 공유 화면 메인 보드도 함께 — 피어가 다 사라졌는데 보드만 남으면
+    //   마지막 장면이 얼어붙은 채 크게 남는다. (공유가 살아 있으면 재연결 후 재송신이 다시 연다)
+    try { if (typeof vcScreenShareViewOff === 'function') vcScreenShareViewOff(); } catch(_) {}
 }
 let vcMicOn = true;
 let vcCamOn = true;
@@ -3948,6 +4071,9 @@ function vcHandleMessage(msg) {
             updateUserCount(msg.data.userCount);
             // 🌟 학생이면 (방·피어ID → 내 계정 uid) 를 서버에 등록 → 선생님이 별 누르면 서버가 내 계정에 확실히 적립.
             try { vcRegisterRosterIdentity(); setTimeout(vcRegisterRosterIdentity, 3000); } catch(e){}
+            /* 🖥 (2026-08-13 Melca p19) 공유 중에 내 WS 가 순단→재연결된 경우 — 학생들은 user-left 로
+               메인 보드를 닫았다. 다시 알려 보드를 되살린다(수신측 멱등이라 무중단 재연결이어도 무해). */
+            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true } }); } catch(e){}
             break;
         }
 
@@ -4027,6 +4153,10 @@ function vcHandleMessage(msg) {
             // 📷 내 카메라가 꺼져 있다면 새로 들어온 사람에게도 알려 준다.
             //   안 알리면 그 사람 화면에서는 '이유 없는 검은 화면' 이 되고 워치독이 재협상을 시도한다.
             try { if (window.vcCamOn === false) vcBroadcastCamState(false, 'user'); } catch(e){}
+            /* 🖥 (2026-08-13 Melca p19) 공유 «이후» 입장한 사람에게도 지금 공유 중임을 알린다 —
+               트랙은 vcCreatePeer 가 주지만 신호가 없으면 새 학생의 메인 보드가 안 열린다.
+               DO 릴레이는 전체 방송이라 기존 학생도 다시 받는데, 수신측이 멱등이라 중복 표시는 없다. */
+            try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true } }); } catch(e){}
             try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             try { vcEnsureParticipantBox(msg.data.userId, msg.data.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
             updateUserCount(msg.data.userCount);
@@ -4049,6 +4179,10 @@ function vcHandleMessage(msg) {
             //   'dropped'는 같은 사람이 곧 재입장할 가능성이 높으므로 수업 종료로 즉시 오인하면
             //   안 된다(2026-07-13 실사용 신고: 수업 도중 갑자기 수업 종료됨).
             vcRemovePeer(msg.data.userId, msg.data.reason);
+            /* 🖥 (2026-08-13 Melca p19) 공유하던 강사가 나가면(순단 포함) 메인 보드를 원래 화면으로
+               되돌린다 — 얼어붙은 마지막 장면이 크게 남는 것 방지. 재입장하면 새 userId 로
+               user-joined 재송신이 다시 보드를 연다. */
+            try { if (window.__vcSSView && window.__vcSSView.uid === msg.data.userId) vcScreenShareViewOff(); } catch(e){}
             vcAddChatSystem(msg.data.reason === 'dropped'
                 ? `${msg.data.username} 님과 연결이 잠시 끊겼습니다. 재연결을 기다리는 중…`
                 : `${msg.data.username} 님이 퇴장했습니다.`);
@@ -4280,6 +4414,15 @@ function vcHandleMessage(msg) {
                     // 🧑‍🎓 (2026-08-12 Melca) 강사가 웜업 탭을 열어 주면 «강사 주도 웜업» 허가,
                     //   다른 탭으로 옮기면 허가 종료 (수업 중 학생 단독 웜업 차단의 예외 스위치)
                     window.__vcWarmupTeacherLed = (_tsTab === 'warmup');
+                    /* 🖥 (2026-08-13 Melca p19) 공유 화면이 메인 보드를 차지하는 동안에는 화면을
+                       뺏지 않는다(공유가 우선 — 일반 화상회의 UX). 강사가 그 사이 옮긴 탭은
+                       공유가 끝났을 때 돌아갈 자리로만 기억해 둔다. */
+                    if (window.__vcSSView) {
+                        window.__vcSSView.prevTab = _tsTab;
+                        window.__vcSSView.prevCollapsed = false;
+                        console.log('[tab-sync] 화면 공유 중 — 복귀 탭만 갱신:', _tsTab);
+                        break;
+                    }
                     window._vcTabSyncApplying = true;
                     /* 🔴 (2026-08-10 마이마이) 「교사가 칠판·교재로 옮겨도 학생은 얼굴 화면 그대로」
                        vcSwitchTab 은 .active 클래스만 바꾼다 — 학생이 탭을 두 번 눌러 콘텐츠를
@@ -4300,7 +4443,11 @@ function vcHandleMessage(msg) {
                 var _ssOn = !!(msg.data && msg.data.on);
                 var _ssUid = msg.data && msg.data.fromUserId;
                 var _ssEn = (typeof getLang === 'function' && getLang() === 'en');
-                if (typeof showToast === 'function') showToast(_ssOn
+                /* 🖥 (2026-08-13 Melca p19) 늦입장 재방송(user-joined 때 강사가 다시 알림)은 전체에게
+                   다시 가므로, 이미 같은 상태를 알고 있으면 토스트를 또 띄우지 않는다 */
+                var _ssDup = _ssOn ? !!(window.__vcSSView && window.__vcSSView.uid === _ssUid)
+                                   : !window.__vcSSView;
+                if (!_ssDup && typeof showToast === 'function') showToast(_ssOn
                     ? (_ssEn ? '🖥 The teacher is sharing their screen.' : '🖥 선생님이 화면 공유를 시작했어요.')
                     : (_ssEn ? '🖥 Screen sharing ended.' : '🖥 화면 공유가 끝났어요.'));
                 var _ssBox = _ssUid ? document.getElementById('vc-video-' + _ssUid) : null;
@@ -4317,6 +4464,10 @@ function vcHandleMessage(msg) {
                         _ssBox.appendChild(_ssB);
                     }
                 }
+                /* 🖥 (2026-08-13 Melca p19) 공유 화면을 «메인 보드»(교재/칠판 영역)에 크게 —
+                   강사 타일은 그대로 남아 작은 미리보기가 된다(일반 화상회의 UX) */
+                if (_ssOn) { try { vcScreenShareViewOn(_ssUid); } catch(_){} }
+                else { try { vcScreenShareViewOff(); } catch(_){} }
             } catch(_){}
             break;
         }
