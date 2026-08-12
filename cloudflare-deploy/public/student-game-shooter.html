@@ -713,6 +713,18 @@
     }catch(e){ return 'space'; }
   })();
   var FACES = THEMES[THEME].foes;
+  /* 🛸 (2026-08-13) 우주 테마는 경로가 다르다 — 사장님: "괴물이 사수 몸에서 솟지 말고 사방에서 나오게".
+     좀비는 도로 소실점에서 걸어오는 게 맞지만, 우주 배경은 행성 지평선이 화면 아래(0.698)라
+     같은 방식이면 몬스터 전부가 사수 코앞에서 솟아난다(스크린샷 확인). 그래서 우주에서는
+     화면 가장자리(위·왼쪽·오른쪽)에서 작게 나타나 플레이어 쪽으로 날아온다.
+     depth 엔진(크기·페이드·경고·통과 판정·동시수 제한)은 그대로 쓰고 좌표 계산만 가른다. */
+  var SPACE_FLY = (THEME === 'space');
+  function assignSpacePath(m, fw, fh){   // 진입 가장자리를 추첨해 시작점(sx,sy)을 준다
+    var r = Math.random();
+    if(r < 0.5){      m.sx = (0.06 + Math.random()*0.88) * fw; m.sy = -50; }            // 위쪽 50%
+    else if(r < 0.75){ m.sx = -60;    m.sy = (0.04 + Math.random()*0.50) * fh; }        // 왼쪽 25%
+    else {             m.sx = fw + 60; m.sy = (0.04 + Math.random()*0.50) * fh; }       // 오른쪽 25%
+  }
   // 걷기 스프라이트(4프레임 가로 스트립). 정지컷 shooter-mon-/shooter-zom- 는 폴백으로 남겨둔다.
   var FACE_SRC = function(id){ return '/img/shooter-anim-' + id + '.webp'; };
   // 🙋 민간인 4명 — 테마와 무관하게 공통(좀비 도시든 우주든 '구해야 할 사람')
@@ -1498,7 +1510,8 @@
             //    이보다 빠르면 단어를 읽고 순서대로 쏠 시간이 안 나온다.
             vDepth:rand(0.072,0.115),
             vLane:(Math.random()<0.5?-1:1)*rand(0.10,0.26) };   // 걸으며 좌우로도 조금씩 이동
-    m.y=depthY(m.depth, fh); m.x=fw/2;
+    if(SPACE_FLY){ assignSpacePath(m, fw, fh); m.x=m.sx; m.y=m.sy; }   // 🛸 우주: 가장자리에서 출발
+    else { m.y=depthY(m.depth, fh); m.x=fw/2; }
     el.style.left=m.x+'px'; el.style.top=m.y+'px';
     /* 걸음 애니메이션은 .face 에 걸려 있다(.monster 의 sway 는 제거됨).
        개체마다 주기를 다르게 + 시작 시점도 흩어 놓아야 여럿이 군무처럼 안 보인다. */
@@ -1842,6 +1855,7 @@
       setTimeout(function(){                            // 쓰러진 뒤 저 멀리서 다시 걸어온다
         if(_mm.el){ _mm.el.classList.remove('hurt'); }
         _mm.depth=-0.35; _mm.lane=Math.random()*2-1;
+        if(SPACE_FLY) assignSpacePath(_mm, field.clientWidth, field.clientHeight);   // 🛸 우주: 새 가장자리에서
       }, 720);
       updateHUD();
       return;
@@ -1988,19 +2002,31 @@
       /* 🚶 발이 지면선에 붙게 — depthY 는 '지면선'을 주므로 요소 top 은 거기서 face 높이만큼
          빼야 한다. 이걸 안 해서 캐릭터가 도로 위에 떠 있었다(사장님: "하늘에서 날아오는 것 같아"). */
       var faceH=(m.faceEl ? m.faceEl.offsetHeight : 0);
+      var bob = Math.sin(m.wob*2) * 1.6 * sc;
+      if(SPACE_FLY){
+        /* 🛸 우주 비행 경로 — 자기 가장자리 시작점(sx,sy)에서 목표점까지 직선 보간.
+           목표점은 사수가 아니라 화면 하부의 '자기 lane 자리'(폭 80%에 분산) — 그래서
+           다가와도 사수 몸 위로 모이지 않고 화면 전역에 퍼진 채 커진다.
+           ease 지수 1.3: 멀리(작을 때)는 천천히, 가까울수록 빨리 = 원근감. */
+        if(m.sx==null) assignSpacePath(m, w, h);
+        var ease=Math.pow(d,1.3);
+        var ex=w/2 + m.lane*(w*0.40), ey=h*0.86;
+        m.x=m.sx + (ex-m.sx)*ease + Math.sin(m.wob)*4*sc;
+        m.y=m.sy + (ey-m.sy)*ease - faceH*ease + bob;
+      }else{
       m.x=w/2 + m.lane*spread + Math.sin(m.wob)*2*sc;
+      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
+         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
+      m.y=depthY(d,h,w) - faceH + bob;
+      }
       /* 🎯 사수를 비켜 지나가게(사장님 지시) — 코앞에 왔을 때 화면 가운데 아래는 사수 자리다.
-         그대로 두면 좀비가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
-         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 도로 가운데 대열은 그대로 유지된다. */
+         그대로 두면 몬스터가 사수 몸을 뚫고 지나간다. 가까워질수록(=d 의 세제곱) 최소 간격을
+         벌려 좌우로 흘려보낸다. 멀리서는 0 이라 대열은 그대로 유지된다. (두 테마 공통) */
       var need=(SHOOTER_HALF + halfW) * Math.pow(d, 3);
       var dx=m.x - w/2;
       if(Math.abs(dx) < need) m.x = w/2 + (dx<0 || (dx===0 && m.lane<0) ? -need : need);
       // 커진 만큼 화면 밖으로 잘리지 않게 자기 폭을 기준으로 가둔다(예전엔 40px 고정이었다)
       m.x=Math.max(halfW+2, Math.min(w-halfW-2, m.x));
-      /* 한 걸음마다 몸이 한 번 오르내린다 → 한 사이클(두 걸음)에 2회. 실제 걷기의 특징이라
-         이것만 넣어도 '미끄러지듯 다가오는' 느낌이 사라진다. 진폭은 거리에 비례. */
-      var bob = Math.sin(m.wob*2) * 1.6 * sc;
-      m.y=depthY(d,h,w) - faceH + bob;
       if(m.faceEl) m.faceEl.style.transform='scale('+sc.toFixed(3)+')';
       /* 🌫 공기원근 — 안개 속에서 서서히 떠오르게. 앞 FADE_IN 구간 동안 0 → 1 로 올리고,
          그 구간에선 살짝 흐리게(blur) 해 '멀리 희미하게' 가 눈에 보이도록 한다. */
@@ -2039,6 +2065,7 @@
         m.breached=true;
         if(m.isTarget && m.word===targetWords[currentIndex]) loseLife();
         m.depth=-0.05; m.lane=Math.random()*2-1; m.breached=false; // 다시 저 멀리서 걸어온다
+        if(SPACE_FLY) assignSpacePath(m, w, h);                    // 🛸 우주: 새 가장자리에서 재진입
       }
       m._halfW=halfW;                                // 아래 겹침 밀어내기에서 쓴다
       m._d=d;
