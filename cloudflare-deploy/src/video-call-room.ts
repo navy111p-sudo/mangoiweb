@@ -66,6 +66,14 @@ export class VideoCallRoom {
             새로고침·순단은 몇 초 만에 돌아오고, 수업과 수업 사이는 그보다 훨씬 길다.
             빈 시간이 이 값을 넘으면 «다음 수업» 으로 보고 앞 수업의 화면을 버린다. */
   private static readonly NEW_CLASS_GAP_MS = 5 * 60 * 1000;     // 5분
+  /* 🎬 (2026-08-12 LEN 재신고 — 빨간 글씨) 「Karl 선생님의 유튜브가 새 수업에도 남아 있다」
+     5분 규칙이 못 잡는 구멍: 공용방(mangoi-class)은 수업이 연달아 있어 5분씩 비는 일이
+     드물다. 앞 강사가 나가고 2~3분 만에 «다른 강사» 가 들어오면 영상이 그대로 이어졌다.
+     → 공유한 사람(clientId)을 적어 두고, «다른 강사» 가 빈 방에 처음 들어오면 새 수업으로
+       본다. 90초 유예는 네트워크 순단(강사 둘 다 끊겼다 한쪽만 먼저 복귀)을 보호한다 —
+       순단 복귀는 몇 초 안이고, 같은 강사의 새로고침은 clientId 가 같아 애초에 안 걸린다. */
+  private static readonly NEW_TEACHER_GAP_MS = 90 * 1000;       // 90초
+  private mediaBy: string = '';                                 // 마지막 공유자의 clientId
   /** 방이 마지막으로 «빈» 시각. 0 = 빈 적 없음(첫 수업) */
   private emptyAt: number = 0;
   // 🔒 강사의 수업 통제 잠금 3종(배경 변경/전체 음소거/집중 모드)
@@ -100,6 +108,7 @@ export class VideoCallRoom {
       this.pdfState = (await this.state.storage.get<PdfShareData>('pdfState')) || null;
       this.videoState = (await this.state.storage.get<{ url: string; type?: string }>('videoState')) || null;
       this.mediaAt = (await this.state.storage.get<number>('mediaAt')) || 0;
+      this.mediaBy = (await this.state.storage.get<string>('mediaBy')) || '';
       this.emptyAt = (await this.state.storage.get<number>('emptyAt')) || 0;
       for (const k of ['bgLock', 'micLock', 'focusLock', 'drawLock'] as const) {
         this.lockState[k] = (await this.state.storage.get<boolean>(k)) || false;
@@ -342,17 +351,27 @@ export class VideoCallRoom {
        새로고침·순단은 몇 초 만에 돌아오므로 여기 걸리지 않는다(그 보호는 그대로 유지). */
     const _emptyGap = this.emptyAt ? (Date.now() - this.emptyAt) : 0;
     const _newClass = this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_CLASS_GAP_MS;
+    /* 🎬 (2026-08-12 LEN 재신고) «다른 강사» 가 빈 방에 처음 들어오면 새 수업이다 — 5분을 안 기다린다.
+       공용방은 수업이 연달아 있어 5분씩 비는 일이 드물어, 앞 강사의 유튜브가 다음 수업에 남았다.
+       ⚠️ 학생은 이 규칙에 안 걸린다(순단 복귀한 학생이 먼저 들어와도 교재·영상 유지 — 2026-08-06 보호 그대로).
+       ⚠️ 같은 강사의 새로고침도 안 걸린다(clientId 가 같다). 공유자 clientId 를 모르면(옛 클라이언트) 5분 규칙으로. */
+    const _isTeacherJoin = role === 'teacher' || role === 'admin';
+    const _diffTeacher = _isTeacherJoin && !!clientId && !!this.mediaBy && clientId !== this.mediaBy
+        && this.emptyAt > 0 && _emptyGap > VideoCallRoom.NEW_TEACHER_GAP_MS;
     if (userCount <= 1 && (this.pdfState || this.videoState) &&
-        (_newClass || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
+        (_newClass || _diffTeacher || !this.mediaAt || (Date.now() - this.mediaAt) > VideoCallRoom.SHARE_KEEP_MS)) {
       this.pdfState = null;
       this.videoState = null;
       this.mediaAt = 0;
+      this.mediaBy = '';
       this.wbOps = [];   // 🖍 지난 수업 판서도 같은 기준으로 버린다(새로고침·순단은 여기 안 걸린다)
       void this.state.storage.delete('pdfState');
       void this.state.storage.delete('videoState');
       void this.state.storage.delete('mediaAt');
+      void this.state.storage.delete('mediaBy');
       console.log(`[VideoChat] Stale shared media cleared on first join in room ${this.roomId}`
-        + (_newClass ? ` (new class — room was empty for ${Math.round(_emptyGap / 1000)}s)` : ' (age)'));
+        + (_newClass ? ` (new class — room was empty for ${Math.round(_emptyGap / 1000)}s)`
+           : _diffTeacher ? ` (different teacher after ${Math.round(_emptyGap / 1000)}s empty)` : ' (age)'));
     }
     // 🔒 지난 수업의 통제 잠금(배경/음소거/집중)도 새 수업 첫 입장 시엔 해제 상태로 시작
     if (userCount <= 1) this.clearAllLocks();
@@ -589,6 +608,7 @@ export class VideoCallRoom {
     if (!url) return;
     this.pdfState = { url, currentPage: currentPage || 1, kind: kind || '', name: name || '' };
     this.mediaAt = Date.now();
+    this.rememberSharer(userId);   // 🎬 «누가» 공유했는지 — 다른 강사 입장 시 새 수업 판정에 쓴다
     await this.state.storage.put('pdfState', this.pdfState);
     await this.state.storage.put('mediaAt', this.mediaAt);
     this.broadcast(userId, { type: 'pdf-sync', data: this.pdfState });
@@ -631,6 +651,7 @@ export class VideoCallRoom {
     if (!/^blob:/i.test(url)) {
       this.videoState = { url, type: type || '' };
       this.mediaAt = Date.now();
+      this.rememberSharer(userId);   // 🎬 «누가» 공유했는지 — 다른 강사 입장 시 새 수업 판정에 쓴다
       await this.state.storage.put('videoState', this.videoState);
       await this.state.storage.put('mediaAt', this.mediaAt);
     }
@@ -667,6 +688,20 @@ export class VideoCallRoom {
   }
 
   // ── 헬퍼 ──
+  /* 🎬 공유자의 clientId 를 적어 둔다 — clientId 는 브라우저에 고정이라 새로고침·순단 재접속에도
+     같은 값이 온다(userId 는 접속마다 새로 발급되므로 못 쓴다). 없으면(옛 클라이언트) 빈 값 유지. */
+  private rememberSharer(userId: string): void {
+    try {
+      const ws = this.wsOf(userId);
+      const att = ws ? this.attOf(ws) : null;
+      const cid = (att && att.clientId) ? String(att.clientId) : '';
+      if (cid && cid !== this.mediaBy) {
+        this.mediaBy = cid;
+        void this.state.storage.put('mediaBy', cid);
+      }
+    } catch (e) { console.warn('[rememberSharer] 공유자 기록 실패:', (e as any)?.message); }
+  }
+
   private attOf(ws: WebSocket): VcAttachment | null {
     try { return ws.deserializeAttachment() as VcAttachment; } catch { return null; }
   }

@@ -52,17 +52,35 @@ check('재기동 후에도 살아남는다 (storage 에서 복구)',
 check('버릴 때 동영상·교재·판서를 함께 버린다',
       /this\.videoState = null;/.test(src) && /this\.pdfState = null;/.test(src) && /this\.wbOps = \[\]/.test(src));
 
+/* ── 1-b) 「다른 강사 = 새 수업」 규칙 (2026-08-12 LEN 재신고 — 빨간 글씨) ──
+   5분 규칙의 구멍: 공용방은 수업이 연달아 있어 5분씩 비는 일이 드물다.
+   앞 강사가 나가고 2~3분 만에 «다른 강사» 가 들어오면 유튜브가 그대로 이어졌다. */
+const mTGap = /NEW_TEACHER_GAP_MS\s*=\s*([0-9*\s]+);/.exec(src);
+check('«다른 강사» 유예값(NEW_TEACHER_GAP_MS)이 있다', !!mTGap);
+const TGAP = mTGap ? Function('return ' + mTGap[1])() : 0;
+check('유예가 순단 복귀(수 초~수십 초)는 보호할 만큼 길다 (60초 이상)', TGAP >= 60_000, 'TGAP=' + TGAP + 'ms');
+check('유예가 5분 규칙보다 짧다 (아니면 이 규칙이 무의미)', TGAP > 0 && TGAP < GAP);
+check('공유자 clientId 를 적어 둔다 (userId 는 접속마다 새로 발급되므로 못 쓴다)',
+      /rememberSharer/.test(src) && /storage\.put\('mediaBy'/.test(src));
+check('교재·동영상 공유 «둘 다» 에서 적는다',
+      (src.match(/this\.rememberSharer\(userId\)/g) || []).length >= 2);
+check('재기동 후에도 살아남는다', /this\.mediaBy = \(await this\.state\.storage\.get<string>\('mediaBy'\)\) \|\| ''/.test(src));
+check('버릴 때 mediaBy 도 함께 버린다', /this\.mediaBy = '';/.test(src) && /storage\.delete\('mediaBy'\)/.test(src));
+
 /* ── 2) 동작: 판정식을 실제로 돌려 본다 ── */
 //   소스의 조건을 그대로 옮겨 «같은 식» 인지 눈으로 확인할 수 있게 둔다.
-const condInSrc = /_newClass \|\| !this\.mediaAt \|\| \(Date\.now\(\) - this\.mediaAt\) > VideoCallRoom\.SHARE_KEEP_MS/.test(src);
-check('버림 조건에 «새 수업» 이 포함돼 있다', condInSrc);
+const condInSrc = /_newClass \|\| _diffTeacher \|\| !this\.mediaAt \|\| \(Date\.now\(\) - this\.mediaAt\) > VideoCallRoom\.SHARE_KEEP_MS/.test(src);
+check('버림 조건에 «새 수업»·«다른 강사» 가 포함돼 있다', condInSrc);
 
-function willClear({ emptyForMs, mediaAgeMs, userCount = 1 }) {
+function willClear({ emptyForMs, mediaAgeMs, userCount = 1, role = 'student', clientId = '', sharerId = '' }) {
   const now = 1_000_000_000;
   const emptyAt = emptyForMs === null ? 0 : now - emptyForMs;
   const mediaAt = now - mediaAgeMs;
   const newClass = emptyAt > 0 && (now - emptyAt) > GAP;
-  return userCount <= 1 && (newClass || !mediaAt || (now - mediaAt) > KEEP);
+  const isTeacherJoin = role === 'teacher' || role === 'admin';
+  const diffTeacher = isTeacherJoin && !!clientId && !!sharerId && clientId !== sharerId
+      && emptyAt > 0 && (now - emptyAt) > TGAP;
+  return userCount <= 1 && (newClass || diffTeacher || !mediaAt || (now - mediaAt) > KEEP);
 }
 
 console.log('\n  ── 상황별 판정 ──');
@@ -84,6 +102,22 @@ check('⑥ 3시간 넘은 화면은 빈 적이 없어도 버린다(기존 규칙
 check('⑦ 방에 이미 여러 명이면 절대 버리지 않는다',
       willClear({ emptyForMs: 60 * 60_000, mediaAgeMs: 90 * 60_000, userCount: 2 }) === false,
       '수업 중인 방의 교재를 지우면 대형 사고다');
+
+console.log('\n  ── «다른 강사 = 새 수업» 상황별 판정 (2026-08-12) ──');
+check('⑧ 다른 강사가 3분 빈 방에 입장 → 앞 강사의 유튜브를 버린다',
+      willClear({ emptyForMs: 3 * 60_000, mediaAgeMs: 20 * 60_000, role: 'teacher', clientId: 'cB', sharerId: 'cA' }) === true,
+      'LEN 이 빨간 글씨로 재신고한 바로 그 상황 — 5분 규칙만으로는 유지돼 버린다');
+check('⑨ 같은 강사의 재입장(새로고침·기기 그대로) → 유지',
+      willClear({ emptyForMs: 3 * 60_000, mediaAgeMs: 20 * 60_000, role: 'teacher', clientId: 'cA', sharerId: 'cA' }) === false,
+      'clientId 가 같으면 같은 수업의 연속이다');
+check('⑩ 순단 복귀한 «학생» 이 먼저 들어옴 → 유지 (2026-08-06 보호 그대로)',
+      willClear({ emptyForMs: 3 * 60_000, mediaAgeMs: 20 * 60_000, role: 'student', clientId: 'cS', sharerId: 'cA' }) === false,
+      '학생이 이 규칙에 걸리면 «나갔다 오니 교재가 사라졌다» 가 재발한다');
+check('⑪ 다른 강사라도 순단 수준(30초)이면 → 유지',
+      willClear({ emptyForMs: 30_000, mediaAgeMs: 20 * 60_000, role: 'teacher', clientId: 'cB', sharerId: 'cA' }) === false,
+      '공동 수업에서 둘 다 끊겼다 한쪽이 먼저 복귀하는 경우의 보호');
+check('⑫ 공유자 clientId 를 모르면(옛 클라이언트) → 5분 규칙으로 폴백',
+      willClear({ emptyForMs: 3 * 60_000, mediaAgeMs: 20 * 60_000, role: 'teacher', clientId: 'cB', sharerId: '' }) === false);
 
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
