@@ -163,3 +163,7 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 | [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) | 초대형 파일 분리 계획 (전/후 구조) |
 | [cloudflare-deploy/README.md](cloudflare-deploy/README.md) | 워커 기술 상세 (WebSocket 프로토콜 등) |
 | [README.md](README.md) | 초기 통합 당시 개요 (레거시 내용 포함) |
+| [docs/프론트_JS_지도_260811.md](docs/프론트_JS_지도_260811.md) | **프론트 JS 169개 해독표** — 기능·카드ID로 어느 파일인지 검색 (2026-08-11 신설) |
+| [docs/라우팅_테이블화_실행계획_260811.md](docs/라우팅_테이블화_실행계획_260811.md) | index.ts 라우팅 테이블화 계획·현황 (2026-08-11) |
+| [cloudflare-deploy/migrations/README.md](cloudflare-deploy/migrations/README.md) | **D1 스키마 변경 규율** + 드리프트 지도 (2026-08-11 신설) |
+| [망고아이_코드품질_진단보고서_260811.html](망고아이_코드품질_진단보고서_260811.html) | 코드 진단 3판 — 오늘 실측·고친것·로드맵 |
