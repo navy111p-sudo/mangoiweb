@@ -161,6 +161,10 @@
     <li><b>Attendance "scheduled start time"</b> was being taken from the first slot of an old legacy booking. Fixed.</li>
     <li><b>In EN mode the top chips flickered every 1.2 seconds</b> — two features were <b>overwriting each other back and forth.</b> Found by comparing video frames to <b>measure the exact spot and interval.</b></li>
     <li><b>The chatbot said "no information available"</b> where the truth is <b>"it does not exist"</b> (make-up lessons, textbook fees, sibling discount — confirmed with you).</li>
+    <li><b>Removed a "dead feature" without a trace — English Battle.</b> It was on the screen but <b>the server had no real match</b>; it dressed up learning records as "vs AI" — a <b>half-wired feature.</b> Screen, admin card, server and even the dead CSS are <b>all gone</b> (the live game-record table was <b>left untouched</b>).
+      <small>→ After removing it I swept for <b>any other address the screen calls but the server lacks</b> — <b>zero.</b></small></li>
+    <li><b>I turned that sweep into an automatic check.</b> On every deploy it now verifies that <b>every server address the screen calls (517)</b> <b>really exists on the server (against 625 tokens)</b>. If new code calls an address that is not there, <b>the deploy is blocked.</b>
+      <small>→ A <b>net</b> so the "I press it and nothing happens" complaint never arises in the first place. I injected a fake address to confirm it truly catches one, and closed <b>two false-alarm traps</b> (comments and regex routes).</small></li>
   </ul>
 </div>
 
