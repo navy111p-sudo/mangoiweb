@@ -942,22 +942,27 @@ async function loadData(){
             slots.forEach(function(s){
               /* ⏱ (2026-08-12) 분을 버리지 말 것. 예전엔 getHours() 만 써서 19:20 수업이
                  19:00 으로 그려졌고, duration_min 도 옮겨 담지 않아 길이가 항상 기본값이었다.
-                 start_time 은 'HH:MM' 문자열로 오기도 하고 ISO 로 오기도 한다 — 둘 다 받는다. */
+                 ⚠️ s.hour 를 먼저 보면 안 된다 — 서버(/api/admin/schedules)는 hour 를
+                 hourOf(start_time) 로 «분을 절삭해서» 항상 내려주고 minute 필드는 없다.
+                 그래서 hour 우선이면 start_time 파싱 분기가 영영 안 타서 19:20 이 도로
+                 19:00 이 된다. start_time 에서 «시:분» 을 찾으면 그것이 정본이다
+                 ('HH:MM' 은 맨 앞, ISO 는 T 뒤 — 둘 다 이 정규식 하나로 잡는다). */
               var hh,mm;
-              if(s.hour!==undefined){ hh=Number(s.hour)||0; mm=Number(s.minute)||0; }
-              else{
-                var raw=String(s.start_time||'');
-                var m=/^(\d{1,2}):(\d{2})/.exec(raw);
-                if(m){ hh=parseInt(m[1],10); mm=parseInt(m[2],10); }
-                else{ var dt=new Date(raw); hh=dt.getHours(); mm=dt.getMinutes(); }
-              }
+              var raw=String(s.start_time||'');
+              var m=/(?:^|[T ])(\d{1,2}):(\d{2})/.exec(raw);
+              if(m){ hh=parseInt(m[1],10); mm=parseInt(m[2],10); }
+              else if(s.hour!==undefined){ hh=Number(s.hour)||0; mm=Number(s.minute)||0; }
+              else{ var dt=new Date(raw); hh=dt.getHours(); mm=dt.getMinutes(); }
               if(isNaN(hh))return;
               mm=Math.round((mm||0)/SLOT_STEP)*SLOT_STEP;   // 10분 격자에 맞춰 스냅
               if(mm>=60){hh+=1;mm-=60;}
               addSlot(s.teacher_id,s.date,hh,{
                 type:s.type||'1on1',students:s.students||[],
                 start_date:s.start_date,end_date:s.end_date,note:s.note,
-                duration_min:Number(s.duration_min)>0?Number(s.duration_min):20
+                duration_min:Number(s.duration_min)>0?Number(s.duration_min):20,
+                /* 🚫 차단 메타를 버리지 말 것 — source/block_id 가 없으면 근무불가 차단이
+                   일반 슬롯처럼 드래그·삭제되고, 지워도 서버엔 남아 새로고침하면 되살아난다 */
+                source:s.source,block_id:s.block_id,recurring:!!s.recurring,origin:s.origin
               },mm);
             });
             // 슬롯도 정상이고 teachers도 있으면 실 데이터 사용
@@ -1336,7 +1341,9 @@ document.addEventListener('mousemove',function(e){
   var L=currentLang==='ko';
   var html='<div class="tooltip-title">'+typeL+'</div>';
   html+='<div class="tooltip-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(data.teacher)+'</span></div>';
-  html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+String(data.hour).padStart(2,'0')+':00 ~ '+String(data.hour+1).padStart(2,'0')+':00</span></div>';
+  // ⏱ 10분 격자 — 분·실제 길이로 표시(그리드와 같은 기본값 SLOT_STEP)
+  var ttSt=data.hour*60+(data.minute||0), ttDur=Number(s.duration_min)>0?Number(s.duration_min):SLOT_STEP;
+  html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+minLabel(ttSt)+' ~ '+minLabel(ttSt+ttDur)+'</span></div>';
   if(s.note)html+='<div class="tooltip-row"><span class="k">'+(L?'메모':'Note')+'</span><span class="v">'+escapeHtml(s.note)+'</span></div>';
   if(s.students&&s.students.length>0){
     html+='<div class="tooltip-students"><div class="ttl">'+(L?'학생':'Students')+' ('+s.students.length+(L?'명':'')+')</div>';
@@ -1516,6 +1523,16 @@ document.addEventListener('mousemove', function(e){
   if(!dnd.sourceEl)return;
   var dx=e.clientX-dnd.startX, dy=e.clientY-dnd.startY;
   if(!dnd.active && (dx*dx+dy*dy) > 64){ // > 8px
+    /* 🚫 근무불가 차단(teacher_unavailability)은 드래그 이동 금지 — 서버가 id 를 일부러
+       안 내려주므로(수업 id 와 겹침) 옮겨도 저장할 곳이 없고, 메모리만 옮기면 새로고침 때 되돌아온다.
+       지우고 다시 등록하는 것이 정본 경로다. */
+    if(dnd.sourceData&&dnd.sourceData.slot&&dnd.sourceData.slot.source==='unavailability'){
+      showDndToast(currentLang==='ko'
+        ?'🚫 근무불가 차단은 드래그로 못 옮겨요 — 카드를 눌러 삭제 후 다시 등록하세요'
+        :'🚫 Unavailability blocks cannot be dragged — click the card to delete, then re-add','bad');
+      dnd.sourceEl=null;dnd.sourceData=null;dnd.moved=true;
+      return;
+    }
     // 진짜 드래그 시작
     dnd.active=true;
     dnd.moved=true;
@@ -1623,8 +1640,8 @@ function showMoveConfirm(ctx){
         ? '👤 '+escapeHtml(students[0].name)+' <span style="color:#94a3b8;font-size:11px">('+escapeHtml(students[0].uid)+')</span>'
         : (L?'👥 그룹 ':'👥 Group ')+students.length+(L?'명':''))
     : (ctx.srcData.slot.note?'📝 '+escapeHtml(ctx.srcData.slot.note):'');
-  var srcTime=ctx.srcCoords.dateISO+' '+String(ctx.srcCoords.hour).padStart(2,'0')+':00';
-  var dstTime=ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00';
+  var srcTime=ctx.srcCoords.dateISO+' '+minLabel(ctx.srcCoords.startMin);
+  var dstTime=ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin);
 
   var html='<div class="modal" style="max-width:480px;width:calc(100% - 32px)">'+
     '<div class="modal-head"><div class="modal-title">'+
@@ -1671,8 +1688,8 @@ window.confirmMoveDo=function(){
   addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot,ctx.dstCoords.minute||0);
   closeModal();
   var msg=L
-    ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00 으로 이동됨')
-    : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00');
+    ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin)+' 으로 이동됨')
+    : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin));
   showDndToast(msg,'ok');
   window.__moveCtx=null;
   render();
@@ -2069,11 +2086,13 @@ document.addEventListener('contextmenu',function(e){
   e.preventDefault();
   var data=JSON.parse(decodeURIComponent(t.dataset.slot));
   var L=currentLang==='ko';
+  // 🚫 근무불가 차단은 이동 불가(서버에 저장할 길이 없음) — 상세보기·삭제만
+  var isBlock=data.slot&&data.slot.source==='unavailability';
   ctxMenu.innerHTML=
     '<div class="ctx-item" onclick="openSlotDetail(\''+data.teacher+'\',\''+data.date+'\','+data.hour+',JSON.parse(decodeURIComponent(\''+encodeURIComponent(JSON.stringify(data.slot))+'\')),'+(data.minute||0)+');hideCtx()">📋 '+(L?'상세보기':'Details')+'</div>'+
-    '<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>'+
+    (isBlock?'':'<div class="ctx-item" onclick="moveSlotStart(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🔄 '+(L?'시간 변경':'Move')+'</div>')+
     '<div class="ctx-divider"></div>'+
-    '<div class="ctx-item danger" onclick="deleteSlotConfirm(\''+data.teacher+'\',\''+data.date+'\','+data.hour+');hideCtx()">🗑 '+(L?'삭제':'Delete')+'</div>';
+    '<div class="ctx-item danger" onclick="deleteSlotConfirm(\''+data.teacher+'\',\''+data.date+'\','+data.hour+','+(data.minute||0)+');hideCtx()">🗑 '+(L?'삭제':'Delete')+'</div>';
   ctxMenu.style.left=Math.min(e.clientX,window.innerWidth-200)+'px';
   ctxMenu.style.top=Math.min(e.clientY,window.innerHeight-160)+'px';
   ctxMenu.classList.add('show');
@@ -2090,14 +2109,14 @@ function moveSlotStart(teacherName,dateISO,hour,minute){
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
   var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
-  movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,slot:slot};
+  movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,oldMinute:minute,slot:slot};
   // 위저드처럼 시간 그리드로 새 시간 선택
   var html='<div class="modal wiz-modal">'+
     '<div class="modal-head"><div class="modal-title">🔄 '+(L?'시간 변경':'Move Class')+'</div>'+
     '<button class="modal-close" onclick="closeModal();movingSlot=null">✕</button></div>'+
     '<div class="wiz-body">'+
       '<div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px">'+
-        '<b style="color:#fde68a">'+(L?'기존':'From')+':</b> '+escapeHtml(teacherName)+' · '+dateISO+' '+String(hour).padStart(2,'0')+':00'+
+        '<b style="color:#fde68a">'+(L?'기존':'From')+':</b> '+escapeHtml(teacherName)+' · '+dateISO+' '+minLabel(hour*60+minute)+
       '</div>'+
       '<div style="font-size:11.5px;color:var(--tx2);font-weight:700;margin-bottom:8px">'+(L?'새 시간을 클릭하세요 (회색 빈 칸만)':'Click a new empty slot below')+'</div>'+
       '<div id="move-grid">'+renderMoveGrid(t)+'</div>'+
@@ -2213,7 +2232,7 @@ function showRejectModal(mode, dateISO, hour, minute){
     '<h3>'+title+'</h3>'+
     '<div class="reject-msg">'+msg+'</div>'+
     '<div class="reject-detail">'+
-      '<b style="color:#fff">📅 '+dateISO+' '+String(hour).padStart(2,'0')+':00</b><br>'+
+      '<b style="color:#fff">📅 '+dateISO+' '+minLabel(hour*60+(minute||0))+'</b><br>'+
       '⏰ '+(L?'현재 기준 ':'')+diffStr+'<br>'+
       (L?'필요 시 학생/학부모에게 직접 안내 부탁드립니다.':'Please contact the student/parent directly.')+
     '</div>'+
@@ -2251,6 +2270,7 @@ function openRescheduleModal(teacherName, dateISO, hour, mode, minute){
     teacherName: teacherName,
     origDate: dateISO,
     origHour: hour,
+    origMinute: minute,   // ⏱ 10분 격자 — 분을 잃으면 아래 rscConfirm 이 슬롯을 못 찾는다
     slot: slot,
     activeTab: 'time',
     pickedDate: null,
@@ -2299,7 +2319,7 @@ function renderRescheduleModal(){
       // 강사 선택 후 → 시간 자동: 같은 원래 시간 유지 또는 첫 빈 시간
       bodyHtml += '<div class="modal-section" style="text-align:center;font-size:13px;color:var(--tx)">'+
         (L?'선택된 강사: ':'Selected: ')+'<b style="color:#fff">'+escapeHtml((currentLang==='en'&&ctx.pickedTeacher.name_en)?ctx.pickedTeacher.name_en:ctx.pickedTeacher.name)+'</b><br>'+
-        '<span style="color:var(--tx2);font-size:11.5px">'+(L?'시간은 그대로 ':'Time stays at ')+ctx.origDate+' '+String(ctx.origHour).padStart(2,'0')+':00'+(L?' 유지':'')+'</span>'+
+        '<span style="color:var(--tx2);font-size:11.5px">'+(L?'시간은 그대로 ':'Time stays at ')+ctx.origDate+' '+minLabel(ctx.origHour*60+(ctx.origMinute||0))+(L?' 유지':'')+'</span>'+
         '</div>';
     }
   } else {
@@ -2351,7 +2371,7 @@ function renderRescheduleModal(){
     '<div class="modal-head"><div class="modal-title">'+modeTitle+'</div><button class="modal-close" onclick="closeModal();window.__rescheduleCtx=null">✕</button></div>'+
     tabsHtml+
     '<div class="modal-body">'+
-      '<div class="rsc-info-banner"><span class="rsc-ico">⏱</span><div><b>'+ruleLabel+'</b><br>'+(L?'기존: ':'Original: ')+ctx.origDate+' '+String(ctx.origHour).padStart(2,'0')+':00 · '+escapeHtml(ctx.teacherName)+'</div></div>'+
+      '<div class="rsc-info-banner"><span class="rsc-ico">⏱</span><div><b>'+ruleLabel+'</b><br>'+(L?'기존: ':'Original: ')+ctx.origDate+' '+minLabel(ctx.origHour*60+(ctx.origMinute||0))+' · '+escapeHtml(ctx.teacherName)+'</div></div>'+
       bodyHtml+
     '</div>'+
     '<div class="modal-actions">'+
@@ -2380,7 +2400,8 @@ window.rscConfirm = function(){
   var ctx = window.__rescheduleCtx;
   if (!ctx) return;
   // 실제 적용
-  var oldKey = ctx.teacher.id + '__' + ctx.origDate + '__' + ctx.origHour;
+  // ⏱ 10분 격자 — 키는 «자정부터의 분». 옛 «시» 키로는 슬롯을 못 찾아 연기/변경이 조용히 무동작이었다.
+  var oldKey = slotKey(ctx.teacher.id, ctx.origDate, ctx.origHour*60 + (ctx.origMinute||0));
   var slot = SLOTS[oldKey];
   if (!slot) { closeModal(); return; }
   var actionLabel;
@@ -2391,7 +2412,7 @@ window.rscConfirm = function(){
       ': '+ctx.pickedDate+' '+String(ctx.pickedHour).padStart(2,'0')+':00';
   } else if (ctx.activeTab === 'teacher' && ctx.pickedTeacher){
     delete SLOTS[oldKey];
-    addSlot(ctx.pickedTeacher.id, ctx.origDate, ctx.origHour, slot);
+    addSlot(ctx.pickedTeacher.id, ctx.origDate, ctx.origHour, slot, ctx.origMinute||0);   // 시간은 분까지 그대로
     var nm = (currentLang==='en'&&ctx.pickedTeacher.name_en)?ctx.pickedTeacher.name_en:ctx.pickedTeacher.name;
     actionLabel = '👨‍🏫 '+(L?'담당 강사 변경':'Teacher changed')+': '+nm;
   } else {
@@ -2406,8 +2427,11 @@ window.rscConfirm = function(){
 // ═══ 셀 풀 모달에 "📅 연기" "🔄 변경" 버튼 추가 (openSlotDetail 확장) ═══
 // 기존 openSlotDetail 의 actions 영역을 후처리로 강화
 var __origOpenSlotDetail = window.openSlotDetail;
-window.openSlotDetail = function(teacherName, dateISO, hour, slot){
-  __origOpenSlotDetail(teacherName, dateISO, hour, slot);
+// ⏱ 래퍼가 minute 을 삼키면 안 된다 — 안 받으면 아래 연기/변경 onclick 의 minute 이
+//    미정의 참조(ReferenceError)가 되고, 원본 모달도 항상 :00 으로 그려진다.
+window.openSlotDetail = function(teacherName, dateISO, hour, slot, minute){
+  minute = minute||0;
+  __origOpenSlotDetail(teacherName, dateISO, hour, slot, minute);
   // 모달 액션 영역 찾아 버튼 추가
   setTimeout(function(){
     var L = currentLang === 'ko';
@@ -2480,7 +2504,8 @@ window.confirmMove=function(newDate,newHour){
   if(!movingSlot)return;
   var L=currentLang==='ko';
   // 기존 위치에서 제거, 새 위치에 추가
-  delete SLOTS[movingSlot.teacher.id+'__'+movingSlot.oldDate+'__'+movingSlot.oldHour];
+  // ⏱ 10분 격자 — 키는 «분». 옛 «시» 키로 지우면 원본이 안 지워져 «복사» 가 됐다.
+  delete SLOTS[slotKey(movingSlot.teacher.id,movingSlot.oldDate,movingSlot.oldHour*60+(movingSlot.oldMinute||0))];
   addSlot(movingSlot.teacher.id,newDate,newHour,movingSlot.slot);
   movingSlot=null;
   closeModal();
@@ -2689,8 +2714,9 @@ function openSlotDetail(teacherName,dateISO,hour,slot,minute){
     '<div class="modal-body">'+
       '<div class="modal-section">'+
         '<div class="modal-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(teacherName)+'</span></div>'+
-        '<div class="modal-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+dateISO+' · '+String(hour).padStart(2,'0')+':00 ~ '+String(hour+1).padStart(2,'0')+':00</span></div>'+
+        '<div class="modal-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+dateISO+' · '+minLabel(hour*60+minute)+' ~ '+minLabel(hour*60+minute+(Number(slot.duration_min)>0?Number(slot.duration_min):SLOT_STEP))+'</span></div>'+
         (slot.note?'<div class="modal-row"><span class="k">'+(L?'메모':'Note')+'</span><span class="v">'+escapeHtml(slot.note)+'</span></div>':'')+
+        (slot.source==='unavailability'?'<div class="modal-row"><span class="k">'+(L?'차단':'Block')+'</span><span class="v">'+(slot.recurring?(L?'🔁 매주 반복 (지우면 모든 주에서 사라짐)':'🔁 Repeats weekly (delete removes all weeks)'):(L?'이 날짜만':'This date only'))+'</span></div>':'')+
       '</div>'+
       stuHtml+
       ((slot.start_date||slot.end_date)?
@@ -2701,8 +2727,9 @@ function openSlotDetail(teacherName,dateISO,hour,slot,minute){
     '</div>'+
     '<div class="modal-actions">'+
       '<button class="modal-btn ghost" onclick="closeModal()">'+(L?'닫기':'Close')+'</button>'+
-      '<button class="modal-btn danger" onclick="deleteSlotConfirm(\''+teacherName+'\',\''+dateISO+'\','+hour+')">🗑 '+(L?'삭제':'Delete')+'</button>'+
-      '<button class="modal-btn primary" onclick="editSlotPrompt(\''+teacherName+'\',\''+dateISO+'\','+hour+','+minute+')">✏️ '+(L?'편집':'Edit')+'</button>'+
+      '<button class="modal-btn danger" onclick="deleteSlotConfirm(\''+teacherName+'\',\''+dateISO+'\','+hour+','+minute+')">🗑 '+(L?'삭제':'Delete')+'</button>'+
+      // 🚫 근무불가 차단은 «편집» 이 없다 — 편집 모달은 메모리 슬롯을 만들 뿐이라, 지우고 다시 등록이 정본
+      (slot.source==='unavailability'?'':'<button class="modal-btn primary" onclick="editSlotPrompt(\''+teacherName+'\',\''+dateISO+'\','+hour+','+minute+')">✏️ '+(L?'편집':'Edit')+'</button>')+
     '</div>';
   openModal(html);
 }
@@ -2801,12 +2828,12 @@ function openNewSlotModal(infos){
   var L=currentLang==='ko';
   var t=infos[0].teacher;
   var name=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
-  // 시간 범위 요약
-  var hours=infos.map(function(i){return i.hour;});
+  // 시간 범위 요약 — ⏱ 10분 격자: 칸의 «분» 까지 반영 (칸 하나 = SLOT_STEP 분)
+  var mins=infos.map(function(i){return i.hour*60+(i.minute||0);});
   var dates=Array.from(new Set(infos.map(function(i){return i.dateISO;}))).sort();
-  var hMin=Math.min.apply(null,hours),hMax=Math.max.apply(null,hours);
+  var mMin=Math.min.apply(null,mins),mMax=Math.max.apply(null,mins);
   var rangeText=dates.length===1
-    ? dates[0]+' · '+String(hMin).padStart(2,'0')+':00 ~ '+String(hMax+1).padStart(2,'0')+':00 ('+infos.length+(L?'칸':' cells')+')'
+    ? dates[0]+' · '+minLabel(mMin)+' ~ '+minLabel(mMax+SLOT_STEP)+' ('+infos.length+(L?'칸':' cells')+')'
     : (L?dates.length+'일에 걸쳐 '+infos.length+'칸':dates.length+' days, '+infos.length+' cells');
   var html=
     '<div class="modal-head">'+
@@ -2901,6 +2928,54 @@ function saveNewSlot(){
   var end=document.getElementById('ns-end')?.value||infos[infos.length-1].dateISO;
   // 슬롯 생성
   var dur=window.__currentDur||(typeof defaultDuration!=='undefined'?defaultDuration:20);
+  if(type==='blocked'){
+    /* 🚫 (2026-08-12) 차단은 메모리 SLOTS 가 아니라 서버(teacher_unavailability)에 저장한다 —
+       예전엔 addSlot 만 하고 POST 가 없어서 새로고침하면 사라졌다(껍데기 UI).
+       고른 칸마다 [시작, 시작+dur] 구간을 만들고, 같은 강사·날짜에서 겹치는 구간은 합쳐 한 건으로 보낸다. */
+    var groups={};
+    infos.forEach(function(info){
+      var k=info.teacher.id+'__'+info.dateISO;
+      var st=info.hour*60+(info.minute||0);
+      (groups[k]=groups[k]||{teacher:info.teacher,dateISO:info.dateISO,ivs:[]}).ivs.push([st,st+dur]);
+    });
+    var reqs=[];
+    Object.keys(groups).forEach(function(k){
+      var g=groups[k];
+      g.ivs.sort(function(a,b){return a[0]-b[0];});
+      var merged=[];
+      g.ivs.forEach(function(iv){
+        var last=merged[merged.length-1];
+        if(last&&iv[0]<=last[1])last[1]=Math.max(last[1],iv[1]);
+        else merged.push(iv.slice());
+      });
+      merged.forEach(function(iv){
+        reqs.push({teacher_id:String(g.teacher.id),teacher_name:g.teacher.name,kind:'date_range',
+          start_date:g.dateISO,end_date:g.dateISO,
+          start_time:minLabel(iv[0]),end_time:minLabel(Math.min(iv[1],24*60)),reason:note});
+      });
+    });
+    var saveBtn=document.getElementById('new-slot-save');if(saveBtn)saveBtn.disabled=true;
+    Promise.all(reqs.map(function(p){
+      return fetch('/api/admin/teacher-unavailability',{method:'POST',credentials:'include',
+        headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+        .then(function(r){return r.json().catch(function(){return{};});});
+    })).then(function(results){
+      var fail=results.filter(function(r){return !(r&&r.ok);});
+      if(fail.length===0){
+        closeModal();clearDragSel();
+        reloadAndRender();   // 서버에서 다시 읽어야 block_id/source 메타가 붙는다
+        showDndToast(L?('✅ 차단 '+results.length+'건 저장됨'):('✅ '+results.length+' block(s) saved'),'ok');
+        console.log('[saved:server]',results.length,'blocks');
+      }else{
+        if(saveBtn)saveBtn.disabled=false;
+        alert((L?'⚠️ 차단 저장 실패: ':'⚠️ Block save failed: ')+((fail[0].message||fail[0].error)||(L?'서버 오류':'server error')));
+      }
+    }).catch(function(){
+      if(saveBtn)saveBtn.disabled=false;
+      alert(L?'⚠️ 차단 저장 실패(네트워크)':'⚠️ Block save failed (network)');
+    });
+    return;
+  }
   infos.forEach(function(info){
     addSlot(info.teacher.id,info.dateISO,info.hour,{
       type:type,students:students,
@@ -2914,11 +2989,34 @@ function saveNewSlot(){
 }
 window.saveNewSlot=saveNewSlot;
 
-function deleteSlotConfirm(teacherName,dateISO,hour){
+function deleteSlotConfirm(teacherName,dateISO,hour,minute){
+  minute=minute||0;   // ⏱ 10분 격자 — 키는 «자정부터의 분». 분을 빼먹으면 화면에서 안 지워진다
   var L=currentLang==='ko';
-  if(!confirm(L?'이 슬롯을 삭제하시겠어요?':'Delete this slot?'))return;
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
-  if(t)delete SLOTS[t.id+'__'+dateISO+'__'+hour];
+  var slot=t?getSlot(t.id,dateISO,hour,minute):null;
+  /* 🚫 근무불가 차단은 서버(teacher_unavailability)에서 지워야 진짜 지워진다 —
+     메모리만 지우면 새로고침 때 되살아난다. adm-q6.js 의 삭제 흐름과 같은 API. */
+  if(slot&&slot.source==='unavailability'&&slot.block_id){
+    var whenTxt=slot.recurring
+      ?(L?'매주 반복되는 차단입니다. 지우면 모든 주에서 사라집니다.':'This block repeats weekly — deleting removes it for every week.')
+      :(L?'이 날짜에만 있는 차단입니다.':'This block is for this date only.');
+    if(!confirm('🚫 '+(slot.note||(L?'근무불가 차단':'Unavailability block'))+'\n'+dateISO+' '+minLabel(hour*60+minute)+'\n\n'+whenTxt+'\n\n'+(L?'이 차단을 지울까요? (수업은 그대로)':'Delete this block? (classes are not touched)')))return;
+    fetch('/api/admin/teacher-unavailability/'+encodeURIComponent(slot.block_id),{method:'DELETE',credentials:'include'})
+      .then(function(r){return r.json().catch(function(){return{};});})
+      .then(function(res){
+        if(res&&res.ok){
+          closeModal();
+          reloadAndRender();   // 서버 기준으로 다시 그리기
+          showDndToast(L?'✅ 차단을 지웠습니다':'✅ Block removed','ok');
+        }else{
+          alert((L?'⚠️ 삭제 실패: ':'⚠️ Delete failed: ')+((res&&(res.message||res.error))||(L?'서버 오류':'server error')));
+        }
+      })
+      .catch(function(){alert(L?'⚠️ 삭제 실패(네트워크)':'⚠️ Delete failed (network)');});
+    return;
+  }
+  if(!confirm(L?'이 슬롯을 삭제하시겠어요?':'Delete this slot?'))return;
+  if(t)delete SLOTS[slotKey(t.id,dateISO,hour*60+minute)];
   closeModal();render();
 }
 window.deleteSlotConfirm=deleteSlotConfirm;
@@ -2929,6 +3027,7 @@ function editSlotPrompt(teacherName,dateISO,hour,minute){
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
   var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
+  if(slot.source==='unavailability')return;   // 🚫 차단은 편집 불가 — 삭제 후 재등록이 정본
   // 단일 슬롯 편집: 새 슬롯 모달 재활용 (1개 셀)
   closeModal();
   setTimeout(function(){
