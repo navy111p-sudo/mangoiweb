@@ -1341,7 +1341,9 @@ document.addEventListener('mousemove',function(e){
   var L=currentLang==='ko';
   var html='<div class="tooltip-title">'+typeL+'</div>';
   html+='<div class="tooltip-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(data.teacher)+'</span></div>';
-  html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+String(data.hour).padStart(2,'0')+':00 ~ '+String(data.hour+1).padStart(2,'0')+':00</span></div>';
+  // ⏱ 10분 격자 — 분·실제 길이로 표시(그리드와 같은 기본값 SLOT_STEP)
+  var ttSt=data.hour*60+(data.minute||0), ttDur=Number(s.duration_min)>0?Number(s.duration_min):SLOT_STEP;
+  html+='<div class="tooltip-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+data.date+' · '+minLabel(ttSt)+' ~ '+minLabel(ttSt+ttDur)+'</span></div>';
   if(s.note)html+='<div class="tooltip-row"><span class="k">'+(L?'메모':'Note')+'</span><span class="v">'+escapeHtml(s.note)+'</span></div>';
   if(s.students&&s.students.length>0){
     html+='<div class="tooltip-students"><div class="ttl">'+(L?'학생':'Students')+' ('+s.students.length+(L?'명':'')+')</div>';
@@ -1638,8 +1640,8 @@ function showMoveConfirm(ctx){
         ? '👤 '+escapeHtml(students[0].name)+' <span style="color:#94a3b8;font-size:11px">('+escapeHtml(students[0].uid)+')</span>'
         : (L?'👥 그룹 ':'👥 Group ')+students.length+(L?'명':''))
     : (ctx.srcData.slot.note?'📝 '+escapeHtml(ctx.srcData.slot.note):'');
-  var srcTime=ctx.srcCoords.dateISO+' '+String(ctx.srcCoords.hour).padStart(2,'0')+':00';
-  var dstTime=ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00';
+  var srcTime=ctx.srcCoords.dateISO+' '+minLabel(ctx.srcCoords.startMin);
+  var dstTime=ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin);
 
   var html='<div class="modal" style="max-width:480px;width:calc(100% - 32px)">'+
     '<div class="modal-head"><div class="modal-title">'+
@@ -1686,8 +1688,8 @@ window.confirmMoveDo=function(){
   addSlot(ctx.dstTeacher.id,ctx.dstCoords.dateISO,ctx.dstCoords.hour,ctx.srcData.slot,ctx.dstCoords.minute||0);
   closeModal();
   var msg=L
-    ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00 으로 이동됨')
-    : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+String(ctx.dstCoords.hour).padStart(2,'0')+':00');
+    ? ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'시간이 '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin)+' 으로 이동됨')
+    : ('✅ '+(ctx.movedTeacher?'<b>'+escapeHtml(ctx.srcNm)+'</b> → <b>'+escapeHtml(ctx.dstNm)+'</b><br>':'')+'Moved to '+ctx.dstCoords.dateISO+' '+minLabel(ctx.dstCoords.startMin));
   showDndToast(msg,'ok');
   window.__moveCtx=null;
   render();
@@ -2107,14 +2109,14 @@ function moveSlotStart(teacherName,dateISO,hour,minute){
   var t=TEACHERS.find(function(t){var nm=(currentLang==='en'&&t.name_en)?t.name_en:t.name;return nm===teacherName;});
   if(!t)return;
   var slot=getSlot(t.id,dateISO,hour,minute);if(!slot)return;
-  movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,slot:slot};
+  movingSlot={teacher:t,oldDate:dateISO,oldHour:hour,oldMinute:minute,slot:slot};
   // 위저드처럼 시간 그리드로 새 시간 선택
   var html='<div class="modal wiz-modal">'+
     '<div class="modal-head"><div class="modal-title">🔄 '+(L?'시간 변경':'Move Class')+'</div>'+
     '<button class="modal-close" onclick="closeModal();movingSlot=null">✕</button></div>'+
     '<div class="wiz-body">'+
       '<div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:10px;margin-bottom:14px;font-size:13px">'+
-        '<b style="color:#fde68a">'+(L?'기존':'From')+':</b> '+escapeHtml(teacherName)+' · '+dateISO+' '+String(hour).padStart(2,'0')+':00'+
+        '<b style="color:#fde68a">'+(L?'기존':'From')+':</b> '+escapeHtml(teacherName)+' · '+dateISO+' '+minLabel(hour*60+minute)+
       '</div>'+
       '<div style="font-size:11.5px;color:var(--tx2);font-weight:700;margin-bottom:8px">'+(L?'새 시간을 클릭하세요 (회색 빈 칸만)':'Click a new empty slot below')+'</div>'+
       '<div id="move-grid">'+renderMoveGrid(t)+'</div>'+
@@ -2230,7 +2232,7 @@ function showRejectModal(mode, dateISO, hour, minute){
     '<h3>'+title+'</h3>'+
     '<div class="reject-msg">'+msg+'</div>'+
     '<div class="reject-detail">'+
-      '<b style="color:#fff">📅 '+dateISO+' '+String(hour).padStart(2,'0')+':00</b><br>'+
+      '<b style="color:#fff">📅 '+dateISO+' '+minLabel(hour*60+(minute||0))+'</b><br>'+
       '⏰ '+(L?'현재 기준 ':'')+diffStr+'<br>'+
       (L?'필요 시 학생/학부모에게 직접 안내 부탁드립니다.':'Please contact the student/parent directly.')+
     '</div>'+
@@ -2268,6 +2270,7 @@ function openRescheduleModal(teacherName, dateISO, hour, mode, minute){
     teacherName: teacherName,
     origDate: dateISO,
     origHour: hour,
+    origMinute: minute,   // ⏱ 10분 격자 — 분을 잃으면 아래 rscConfirm 이 슬롯을 못 찾는다
     slot: slot,
     activeTab: 'time',
     pickedDate: null,
@@ -2316,7 +2319,7 @@ function renderRescheduleModal(){
       // 강사 선택 후 → 시간 자동: 같은 원래 시간 유지 또는 첫 빈 시간
       bodyHtml += '<div class="modal-section" style="text-align:center;font-size:13px;color:var(--tx)">'+
         (L?'선택된 강사: ':'Selected: ')+'<b style="color:#fff">'+escapeHtml((currentLang==='en'&&ctx.pickedTeacher.name_en)?ctx.pickedTeacher.name_en:ctx.pickedTeacher.name)+'</b><br>'+
-        '<span style="color:var(--tx2);font-size:11.5px">'+(L?'시간은 그대로 ':'Time stays at ')+ctx.origDate+' '+String(ctx.origHour).padStart(2,'0')+':00'+(L?' 유지':'')+'</span>'+
+        '<span style="color:var(--tx2);font-size:11.5px">'+(L?'시간은 그대로 ':'Time stays at ')+ctx.origDate+' '+minLabel(ctx.origHour*60+(ctx.origMinute||0))+(L?' 유지':'')+'</span>'+
         '</div>';
     }
   } else {
@@ -2368,7 +2371,7 @@ function renderRescheduleModal(){
     '<div class="modal-head"><div class="modal-title">'+modeTitle+'</div><button class="modal-close" onclick="closeModal();window.__rescheduleCtx=null">✕</button></div>'+
     tabsHtml+
     '<div class="modal-body">'+
-      '<div class="rsc-info-banner"><span class="rsc-ico">⏱</span><div><b>'+ruleLabel+'</b><br>'+(L?'기존: ':'Original: ')+ctx.origDate+' '+String(ctx.origHour).padStart(2,'0')+':00 · '+escapeHtml(ctx.teacherName)+'</div></div>'+
+      '<div class="rsc-info-banner"><span class="rsc-ico">⏱</span><div><b>'+ruleLabel+'</b><br>'+(L?'기존: ':'Original: ')+ctx.origDate+' '+minLabel(ctx.origHour*60+(ctx.origMinute||0))+' · '+escapeHtml(ctx.teacherName)+'</div></div>'+
       bodyHtml+
     '</div>'+
     '<div class="modal-actions">'+
@@ -2397,7 +2400,8 @@ window.rscConfirm = function(){
   var ctx = window.__rescheduleCtx;
   if (!ctx) return;
   // 실제 적용
-  var oldKey = ctx.teacher.id + '__' + ctx.origDate + '__' + ctx.origHour;
+  // ⏱ 10분 격자 — 키는 «자정부터의 분». 옛 «시» 키로는 슬롯을 못 찾아 연기/변경이 조용히 무동작이었다.
+  var oldKey = slotKey(ctx.teacher.id, ctx.origDate, ctx.origHour*60 + (ctx.origMinute||0));
   var slot = SLOTS[oldKey];
   if (!slot) { closeModal(); return; }
   var actionLabel;
@@ -2408,7 +2412,7 @@ window.rscConfirm = function(){
       ': '+ctx.pickedDate+' '+String(ctx.pickedHour).padStart(2,'0')+':00';
   } else if (ctx.activeTab === 'teacher' && ctx.pickedTeacher){
     delete SLOTS[oldKey];
-    addSlot(ctx.pickedTeacher.id, ctx.origDate, ctx.origHour, slot);
+    addSlot(ctx.pickedTeacher.id, ctx.origDate, ctx.origHour, slot, ctx.origMinute||0);   // 시간은 분까지 그대로
     var nm = (currentLang==='en'&&ctx.pickedTeacher.name_en)?ctx.pickedTeacher.name_en:ctx.pickedTeacher.name;
     actionLabel = '👨‍🏫 '+(L?'담당 강사 변경':'Teacher changed')+': '+nm;
   } else {
@@ -2423,8 +2427,11 @@ window.rscConfirm = function(){
 // ═══ 셀 풀 모달에 "📅 연기" "🔄 변경" 버튼 추가 (openSlotDetail 확장) ═══
 // 기존 openSlotDetail 의 actions 영역을 후처리로 강화
 var __origOpenSlotDetail = window.openSlotDetail;
-window.openSlotDetail = function(teacherName, dateISO, hour, slot){
-  __origOpenSlotDetail(teacherName, dateISO, hour, slot);
+// ⏱ 래퍼가 minute 을 삼키면 안 된다 — 안 받으면 아래 연기/변경 onclick 의 minute 이
+//    미정의 참조(ReferenceError)가 되고, 원본 모달도 항상 :00 으로 그려진다.
+window.openSlotDetail = function(teacherName, dateISO, hour, slot, minute){
+  minute = minute||0;
+  __origOpenSlotDetail(teacherName, dateISO, hour, slot, minute);
   // 모달 액션 영역 찾아 버튼 추가
   setTimeout(function(){
     var L = currentLang === 'ko';
@@ -2497,7 +2504,8 @@ window.confirmMove=function(newDate,newHour){
   if(!movingSlot)return;
   var L=currentLang==='ko';
   // 기존 위치에서 제거, 새 위치에 추가
-  delete SLOTS[movingSlot.teacher.id+'__'+movingSlot.oldDate+'__'+movingSlot.oldHour];
+  // ⏱ 10분 격자 — 키는 «분». 옛 «시» 키로 지우면 원본이 안 지워져 «복사» 가 됐다.
+  delete SLOTS[slotKey(movingSlot.teacher.id,movingSlot.oldDate,movingSlot.oldHour*60+(movingSlot.oldMinute||0))];
   addSlot(movingSlot.teacher.id,newDate,newHour,movingSlot.slot);
   movingSlot=null;
   closeModal();
@@ -2706,7 +2714,7 @@ function openSlotDetail(teacherName,dateISO,hour,slot,minute){
     '<div class="modal-body">'+
       '<div class="modal-section">'+
         '<div class="modal-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(teacherName)+'</span></div>'+
-        '<div class="modal-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+dateISO+' · '+String(hour).padStart(2,'0')+':00 ~ '+String(hour+1).padStart(2,'0')+':00</span></div>'+
+        '<div class="modal-row"><span class="k">'+(L?'일시':'When')+'</span><span class="v">'+dateISO+' · '+minLabel(hour*60+minute)+' ~ '+minLabel(hour*60+minute+(Number(slot.duration_min)>0?Number(slot.duration_min):SLOT_STEP))+'</span></div>'+
         (slot.note?'<div class="modal-row"><span class="k">'+(L?'메모':'Note')+'</span><span class="v">'+escapeHtml(slot.note)+'</span></div>':'')+
         (slot.source==='unavailability'?'<div class="modal-row"><span class="k">'+(L?'차단':'Block')+'</span><span class="v">'+(slot.recurring?(L?'🔁 매주 반복 (지우면 모든 주에서 사라짐)':'🔁 Repeats weekly (delete removes all weeks)'):(L?'이 날짜만':'This date only'))+'</span></div>':'')+
       '</div>'+
@@ -2820,12 +2828,12 @@ function openNewSlotModal(infos){
   var L=currentLang==='ko';
   var t=infos[0].teacher;
   var name=(currentLang==='en'&&t.name_en)?t.name_en:t.name;
-  // 시간 범위 요약
-  var hours=infos.map(function(i){return i.hour;});
+  // 시간 범위 요약 — ⏱ 10분 격자: 칸의 «분» 까지 반영 (칸 하나 = SLOT_STEP 분)
+  var mins=infos.map(function(i){return i.hour*60+(i.minute||0);});
   var dates=Array.from(new Set(infos.map(function(i){return i.dateISO;}))).sort();
-  var hMin=Math.min.apply(null,hours),hMax=Math.max.apply(null,hours);
+  var mMin=Math.min.apply(null,mins),mMax=Math.max.apply(null,mins);
   var rangeText=dates.length===1
-    ? dates[0]+' · '+String(hMin).padStart(2,'0')+':00 ~ '+String(hMax+1).padStart(2,'0')+':00 ('+infos.length+(L?'칸':' cells')+')'
+    ? dates[0]+' · '+minLabel(mMin)+' ~ '+minLabel(mMax+SLOT_STEP)+' ('+infos.length+(L?'칸':' cells')+')'
     : (L?dates.length+'일에 걸쳐 '+infos.length+'칸':dates.length+' days, '+infos.length+' cells');
   var html=
     '<div class="modal-head">'+
