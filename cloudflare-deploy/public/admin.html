@@ -3912,7 +3912,12 @@ window.__admSettleRun = function(fn){
     var se = document.scrollingElement || document.documentElement;
     if (se && se.scrollLeft) se.scrollLeft = 0;
     if (document.body && document.body.scrollLeft) document.body.scrollLeft = 0;
-    var p = el && el.parentElement;
+    /* ⬅⬅⬅⬅ (2026-08-12 마이마이 재보고 "The middle still shows")
+       1024px+ 에서는 html{overflow-x:hidden} 이라 문서는 애초에 안 밀리고,
+       가로 스크롤은 각 카드(details.menu-card{overflow-x:auto})가 «자신이» 가진다.
+       그런데 이 루프가 el.parentElement 부터 돌아서 — 정작 밀려 있는 유일한
+       컨테이너인 카드 자신은 한 번도 0 으로 못 돌렸다. el 자신부터 돈다. */
+    var p = el;
     while (p && p !== document.body) {
       if (p.scrollLeft && p.scrollWidth > p.clientWidth) p.scrollLeft = 0;
       p = p.parentElement;
@@ -3977,7 +3982,8 @@ window.__admSettleRun = function(fn){
     var se = document.scrollingElement || document.documentElement;
     if (se && se.scrollLeft > 8) return se;
     if (document.body && document.body.scrollLeft > 8) return document.body;
-    var wide = document.querySelectorAll('.table-card, .tbl-wrap, [style*="overflow-x"]');
+    /* (2026-08-12) .menu-card 가 빠져 있었다 — 카드 자신이 밀려도 버튼이 안 떴다 */
+    var wide = document.querySelectorAll('.table-card, .menu-card, .tbl-wrap, [style*="overflow-x"]');
     for (var i = 0; i < wide.length && i < 60; i++){
       if (wide[i].scrollLeft > 8 && wide[i].scrollWidth > wide[i].clientWidth) return wide[i];
     }
@@ -3987,7 +3993,7 @@ window.__admSettleRun = function(fn){
     var se = document.scrollingElement || document.documentElement;
     if (se) se.scrollLeft = 0;
     if (document.body) document.body.scrollLeft = 0;
-    var all = document.querySelectorAll('.table-card, .tbl-wrap, [style*="overflow-x"]');
+    var all = document.querySelectorAll('.table-card, .menu-card, .tbl-wrap, [style*="overflow-x"]');
     for (var i = 0; i < all.length && i < 60; i++){ if (all[i].scrollLeft) all[i].scrollLeft = 0; }
   }
   var snapBtn = null;

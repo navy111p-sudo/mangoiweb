@@ -2253,8 +2253,13 @@
         }
         .chat-msg { max-width: 85%; }
         .chat-msg.mine { align-self: flex-end; }
-        .chat-msg.mine .msg-bubble { background: #2563eb; }
-        .chat-msg.other .msg-bubble { background: #334155; }
+        /* 💬 (2026-08-12 마이마이 「학생 채팅이 안 보인다」) 말풍선 글자색을 명시한다.
+           라이트 테마(mango-theme-light.css)가 body color 를 #334155 로 바꾸는데
+           .msg-bubble 은 색을 상속만 받아서 — 학생 말풍선(배경 #334155)에서
+           글자색 = 배경색이 되어 «빈 회색 박스» 로 보였다. KST 18시 이전엔
+           라이트가 자동 기본값이라 필리핀 강사가 정확히 이걸 맞았다. */
+        .chat-msg.mine .msg-bubble { background: #2563eb; color: #f8fafc; }
+        .chat-msg.other .msg-bubble { background: #334155; color: #f1f5f9; }
         .chat-msg.system { align-self: center; }
         .chat-msg.system .msg-bubble { background: rgba(148,163,184,0.1); color: #94a3b8; font-size: 0.8rem; }
         .msg-sender { font-size: 0.7rem; color: #94a3b8; margin-bottom: 2px; }
@@ -8874,7 +8879,7 @@ window.mgIsSlowNet = function(){
      26-08-12(3차): 16 → 17. ⚠ v=16 도 재사용 금지 — PR #81 이 머지되며 main 과 라이브가 «둘 다
      v=16» 인데 내용이 42줄 달라졌다(장치도우미 🎛 강사타일 유무). 같은 번호에 두 벌이 이미
      나갔으므로 이 커밋은 반드시 새 번호로 올린다. -->
-<script src="/js/idx-main.js?v=17"></script>
+<script src="/js/idx-main.js?v=18"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11452,7 +11457,7 @@ window.mgIsSlowNet = function(){
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=6"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=7"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 
 <!-- 📸 Phase SNS — 성취 카드 자동 생성 (Canvas 1080x1080) + 🎁 Phase RF — 추천 코드 모달 -->
 <script>
