@@ -495,6 +495,13 @@ const worker = {
           { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
       }
       },
+      // ── batch-4 (2026-08-11): 핸들러 추출 후 등록 ──
+      'GET /api/recordings/list-recent': (rq, e, ctx) => handleRecordingsListRecent(rq, e, ctx),
+      'GET /api/recordings/check': (rq, e, ctx) => handleRecordingsCheck(rq, e, ctx),
+      'GET /api/recordings/test-r2': (rq, e, ctx) => handleRecordingsTestR2(rq, e, ctx),
+      'POST /api/ops-tts': (rq, e, ctx) => handleOpsTtsProxy(rq, e, ctx),
+      'POST /api/admin/payroll/rate': (rq, e, ctx) => handleAdminPayrollRate(rq, e, ctx),
+      'POST /api/admin/payroll/mark-paid': (rq, e, ctx) => handleAdminPayrollMarkPaid(rq, e, ctx),
     };
     {
       const _h = API_ROUTES[request.method + ' ' + path];
@@ -659,141 +666,13 @@ const worker = {
     // 📋 학생 홈페이지 — 최근 녹화 목록 (R2 source of truth, 날짜순 desc, 공개)
     //   응답: { ok, rows: [{ id, room_id, teacher, date, duration, size, url, status, playable }] }
     //   R2 의 rec/ prefix 파일을 1차 데이터로 사용하고, D1 의 recordings row 로 metadata 보강
-    if (path === '/api/recordings/list-recent' && request.method === 'GET') {
-      try {
-        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured', rows:[] }), { headers:{'Content-Type':'application/json'} });
-        const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10)));
 
-        // 1) R2 list — rec/ + recordings/ 두 prefix 모두 (legacy 호환)
-        const [recList, recordingsList] = await Promise.all([
-          env.RECORDINGS.list({ prefix: 'rec/', limit: 200 }),
-          env.RECORDINGS.list({ prefix: 'recordings/', limit: 50 }),
-        ]);
-        let allFiles = [
-          ...recList.objects,
-          ...recordingsList.objects,
-        ];
-        // uploaded date desc
-        allFiles.sort((a: any, b: any) => {
-          const ta = a.uploaded ? new Date(a.uploaded).getTime() : 0;
-          const tb = b.uploaded ? new Date(b.uploaded).getTime() : 0;
-          return tb - ta;
-        });
-        allFiles = allFiles.slice(0, limit);
-
-        // 2) D1 metadata 매핑 (file_url 또는 filename 기준)
-        const dbMap = new Map<string, any>();
-        try {
-          await env.DB.exec(`CREATE TABLE IF NOT EXISTS recordings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, teacher_id TEXT, teacher_name TEXT, filename TEXT, file_url TEXT, size_bytes INTEGER, duration_ms INTEGER, participant_ids TEXT, participant_names TEXT, consented_user_ids TEXT, started_at INTEGER, ended_at INTEGER, status TEXT, storage TEXT, expires_at INTEGER);`);
-          const rs = await env.DB.prepare(
-            `SELECT id, room_id, teacher_name, teacher_id, filename, file_url, size_bytes, duration_ms, started_at, ended_at, status FROM recordings WHERE COALESCE(status, '') != 'deleted'`
-          ).all();
-          const rows = (rs.results || []) as any[];
-          rows.forEach((r: any) => {
-            if (r.file_url) dbMap.set(String(r.file_url), r);
-            if (r.filename) dbMap.set(String(r.filename), r);
-          });
-        } catch (e) { /* DB 없어도 R2 만으로 응답 */ }
-
-        // 3) 응답 빌드
-        const rows = allFiles.map((o: any, i: number) => {
-          const db = dbMap.get(o.key) || dbMap.get(String(o.key).split('/').pop() || '') || {};
-          // 날짜: DB started_at 우선, 없으면 R2 uploaded
-          const startMs = db.started_at || (o.uploaded ? new Date(o.uploaded).getTime() : 0);
-          const date = startMs ? new Date(startMs).toISOString().slice(0,10) : '-';
-          // 시간: DB duration_ms 우선
-          const durMs = db.duration_ms || 0;
-          const durSec = durMs ? Math.round(durMs / 1000) : 0;
-          const durStr = durSec >= 60 ? (Math.floor(durSec/60) + '분 ' + (durSec%60) + '초') : (durSec ? (durSec + '초') : '-');
-          // 크기: R2 object size 우선 (DB 보다 정확)
-          const sz = o.size || db.size_bytes || 0;
-          const sizeStr = sz ? (sz >= 1048576 ? (Math.round(sz/104857.6)/10) + ' MB' : Math.round(sz/1024) + ' KB') : '-';
-          // room_id 추출: rec/{roomId}/{...}.webm
-          const m = /^rec\/([^\/]+)\//.exec(String(o.key));
-          const roomId = (db.room_id) || (m ? m[1] : '-');
-          // 🕒 시간: started_at HH:MM ~ ended_at HH:MM (DB started_at 우선, 없으면 R2 uploaded 사용)
-          const fmtHM = (ms: number) => {
-            if (!ms) return '';
-            const d = new Date(ms);
-            const hh = String(d.getHours()).padStart(2, '0');
-            const mm = String(d.getMinutes()).padStart(2, '0');
-            return hh + ':' + mm;
-          };
-          const sourceStartMs = startMs || (o.uploaded ? new Date(o.uploaded).getTime() : 0);
-          const endedMs = db.ended_at || (sourceStartMs && durMs ? (sourceStartMs + durMs) : 0);
-          const startHM = fmtHM(sourceStartMs);
-          const endHM = fmtHM(endedMs);
-          const timeRange = (startHM && endHM) ? (startHM + '~' + endHM) : startHM;
-          return {
-            id: db.id || ('r2_' + i),
-            date,
-            room_id: roomId,
-            teacher: db.teacher_name || db.teacher_id || '정우영',
-            topic: '방 ' + roomId + ' — 1:1 영어 회화',
-            duration: durStr,
-            time_range: timeRange,
-            started_at_ms: sourceStartMs,
-            ended_at_ms: endedMs,
-            size: sizeStr,
-            url: '/api/recordings/blob/' + encodeURIComponent(String(o.key)),
-            status: db.status || 'completed',
-            playable: true,
-            key: o.key,
-          };
-        });
-        return new Response(JSON.stringify({ ok: true, count: rows.length, rows }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: e?.message, rows: [] }), { headers:{'Content-Type':'application/json'} });
-      }
-    }
 
     // 🩺 R2 녹화 파일 공개 진단 (학생용) — file 존재여부 확인
-    if (path === '/api/recordings/check' && request.method === 'GET') {
-      try {
-        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured' }), { headers:{'Content-Type':'application/json'} });
-        const k = url.searchParams.get('key') || '';
-        if (!k) {
-          // 🎬 두 prefix 모두 검사: rec/ (multipart 자동녹화) + recordings/ (옛날 단일 업로드)
-          const [recList, recordingsList] = await Promise.all([
-            env.RECORDINGS.list({ prefix: 'rec/', limit: 50 }),
-            env.RECORDINGS.list({ prefix: 'recordings/', limit: 50 }),
-          ]);
-          const items = [
-            ...recList.objects.map(o=>({ key:o.key, size:o.size, uploaded:o.uploaded, prefix:'rec/' })),
-            ...recordingsList.objects.map(o=>({ key:o.key, size:o.size, uploaded:o.uploaded, prefix:'recordings/' })),
-          ];
-          return new Response(JSON.stringify({ ok:true, total: items.length, recCount: recList.objects.length, recordingsCount: recordingsList.objects.length, items }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
-        }
-        const obj = await env.RECORDINGS.head(k);
-        return new Response(JSON.stringify({
-          ok: true, key: k, exists: !!obj,
-          size: obj?.size, uploaded: obj?.uploaded,
-          contentType: obj?.httpMetadata?.contentType
-        }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
-      } catch(e:any) {
-        return new Response(JSON.stringify({ ok:false, error: e?.message }), { headers:{'Content-Type':'application/json'} });
-      }
-    }
+
 
     // R2 녹화 저장소 연결 테스트
-    if (path === '/api/recordings/test-r2' && request.method === 'GET') {
-      try {
-        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok: false, error: 'RECORDINGS bucket not bound' }), { headers: { 'Content-Type': 'application/json' } });
-        const testKey = '_test/' + Date.now() + '.txt';
-        await env.RECORDINGS.put(testKey, 'test-' + Date.now(), { httpMetadata: { contentType: 'text/plain' } });
-        const obj = await env.RECORDINGS.get(testKey);
-        const text = obj ? await obj.text() : null;
-        await env.RECORDINGS.delete(testKey);
-        // 녹화 파일 목록도 확인
-        const recList = await env.RECORDINGS.list({ prefix: 'recordings/', limit: 10 });
-        return new Response(JSON.stringify({
-          ok: true, bucket: 'connected', testWrite: !!text, testContent: text,
-          recordingFiles: recList.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
-        }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
-      }
-    }
+
 
     // ── 자동녹화 R2 multipart upload + stream (auto-recording-patch) ──
     // 기존 /api/recordings/blob 보다 먼저 매칭해야 함
@@ -810,42 +689,7 @@ const worker = {
     if (path === '/api/ops-tts' && request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' } });
     }
-    if (path === '/api/ops-tts' && request.method === 'POST') {
-      const ttsHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
-      try {
-        const reqBody = await request.text();
-        let ttsText = '';
-        try { ttsText = String((JSON.parse(reqBody || '{}') || {}).text || ''); } catch { ttsText = ''; }
 
-        // 1순위: 아바타 Worker(Typecast) 한국어 음성 — 크레딧 소진/장애 시 아래 폴백으로 넘어감
-        try {
-          const up = await fetch('https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: reqBody,
-          });
-          if (up.ok && up.body) {
-            const ct = up.headers.get('Content-Type') || 'audio/mpeg';
-            return new Response(up.body, { status: 200, headers: { ...ttsHeaders, 'Content-Type': ct } });
-          }
-        } catch (_) { /* 폴백으로 진행 */ }
-
-        // 2순위(폴백): Google 번역 TTS — 무료·무키. Typecast 크레딧이 없어도 항상 소리가 나도록 보장.
-        //   (요청당 ~200자 제한이 있어 안내문 길면 잘릴 수 있으나, '무음'보다 낫다)
-        if (ttsText) {
-          const q = encodeURIComponent(ttsText.slice(0, 200));
-          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ko&q=${q}`, {
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
-          });
-          if (g.ok && g.body) {
-            return new Response(g.body, { status: 200, headers: ttsHeaders });
-          }
-        }
-        return new Response('tts_all_failed', { status: 502 });
-      } catch (e: any) {
-        return new Response('tts_proxy_error: ' + (e?.message || ''), { status: 502 });
-      }
-    }
 
     // 🔊 무료 '기계음' 전용 TTS — Google 번역 TTS(무료·무키·크레딧 0). Typecast 절대 안 씀.
     //    사이드바 음성안내처럼 '클릭마다' 울리는 곳에서 비용 없이, OS 한국어 음성 유무와 무관하게 소리내기 위함.
@@ -1619,41 +1463,11 @@ const worker = {
 
     // 🧾 강사 급여 페소→원화 환율 저장 (관리자 전용, 쓰기). POST { rate }
     //   🔐 강사는 환율(급여 정책)을 바꿀 수 없다 — 관리자·경영진만.
-    if (path === '/api/admin/payroll/rate' && request.method === 'POST') {
-      try {
-        const actor = await getAdminActor(request, env as any);
-        if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 환율을 변경할 수 없습니다.' }),
-            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-        }
-        const b: any = await request.json().catch(() => ({}));
-        const v = await setPhpKrwRate(env as any, Number(b?.rate));
-        return new Response(JSON.stringify({ ok: true, php_krw: v }),
-          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      }
-    }
+
 
     // 🧾 강사 급여 지급완료 토글 (관리자 전용, 쓰기). POST { teacher_id, year, month, paid }
     //   🔐 강사는 지급 상태를 바꿀 수 없다(본인 것 포함) — 관리자·경영진만.
-    if (path === '/api/admin/payroll/mark-paid' && request.method === 'POST') {
-      try {
-        const actor = await getAdminActor(request, env as any);
-        if (actor.isTeacher) {
-          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }),
-            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-        }
-        const b: any = await request.json().catch(() => ({}));
-        await markPayrollPaid(env as any, Number(b?.teacher_id), Number(b?.year), Number(b?.month), !!b?.paid);
-        return new Response(JSON.stringify({ ok: true }),
-          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      } catch (e: any) {
-        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
-          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
-      }
-    }
+
 
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
@@ -2381,6 +2195,214 @@ const worker = {
     })());
   }
 };
+
+// ── batch-4 추출 핸들러 (2026-08-11) ──
+async function handleRecordingsListRecent(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+      try {
+        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured', rows:[] }), { headers:{'Content-Type':'application/json'} });
+        const limit = Math.min(50, Math.max(1, parseInt(url.searchParams.get('limit') || '30', 10)));
+
+        // 1) R2 list — rec/ + recordings/ 두 prefix 모두 (legacy 호환)
+        const [recList, recordingsList] = await Promise.all([
+          env.RECORDINGS.list({ prefix: 'rec/', limit: 200 }),
+          env.RECORDINGS.list({ prefix: 'recordings/', limit: 50 }),
+        ]);
+        let allFiles = [
+          ...recList.objects,
+          ...recordingsList.objects,
+        ];
+        // uploaded date desc
+        allFiles.sort((a: any, b: any) => {
+          const ta = a.uploaded ? new Date(a.uploaded).getTime() : 0;
+          const tb = b.uploaded ? new Date(b.uploaded).getTime() : 0;
+          return tb - ta;
+        });
+        allFiles = allFiles.slice(0, limit);
+
+        // 2) D1 metadata 매핑 (file_url 또는 filename 기준)
+        const dbMap = new Map<string, any>();
+        try {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS recordings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id TEXT, teacher_id TEXT, teacher_name TEXT, filename TEXT, file_url TEXT, size_bytes INTEGER, duration_ms INTEGER, participant_ids TEXT, participant_names TEXT, consented_user_ids TEXT, started_at INTEGER, ended_at INTEGER, status TEXT, storage TEXT, expires_at INTEGER);`);
+          const rs = await env.DB.prepare(
+            `SELECT id, room_id, teacher_name, teacher_id, filename, file_url, size_bytes, duration_ms, started_at, ended_at, status FROM recordings WHERE COALESCE(status, '') != 'deleted'`
+          ).all();
+          const rows = (rs.results || []) as any[];
+          rows.forEach((r: any) => {
+            if (r.file_url) dbMap.set(String(r.file_url), r);
+            if (r.filename) dbMap.set(String(r.filename), r);
+          });
+        } catch (e) { /* DB 없어도 R2 만으로 응답 */ }
+
+        // 3) 응답 빌드
+        const rows = allFiles.map((o: any, i: number) => {
+          const db = dbMap.get(o.key) || dbMap.get(String(o.key).split('/').pop() || '') || {};
+          // 날짜: DB started_at 우선, 없으면 R2 uploaded
+          const startMs = db.started_at || (o.uploaded ? new Date(o.uploaded).getTime() : 0);
+          const date = startMs ? new Date(startMs).toISOString().slice(0,10) : '-';
+          // 시간: DB duration_ms 우선
+          const durMs = db.duration_ms || 0;
+          const durSec = durMs ? Math.round(durMs / 1000) : 0;
+          const durStr = durSec >= 60 ? (Math.floor(durSec/60) + '분 ' + (durSec%60) + '초') : (durSec ? (durSec + '초') : '-');
+          // 크기: R2 object size 우선 (DB 보다 정확)
+          const sz = o.size || db.size_bytes || 0;
+          const sizeStr = sz ? (sz >= 1048576 ? (Math.round(sz/104857.6)/10) + ' MB' : Math.round(sz/1024) + ' KB') : '-';
+          // room_id 추출: rec/{roomId}/{...}.webm
+          const m = /^rec\/([^\/]+)\//.exec(String(o.key));
+          const roomId = (db.room_id) || (m ? m[1] : '-');
+          // 🕒 시간: started_at HH:MM ~ ended_at HH:MM (DB started_at 우선, 없으면 R2 uploaded 사용)
+          const fmtHM = (ms: number) => {
+            if (!ms) return '';
+            const d = new Date(ms);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return hh + ':' + mm;
+          };
+          const sourceStartMs = startMs || (o.uploaded ? new Date(o.uploaded).getTime() : 0);
+          const endedMs = db.ended_at || (sourceStartMs && durMs ? (sourceStartMs + durMs) : 0);
+          const startHM = fmtHM(sourceStartMs);
+          const endHM = fmtHM(endedMs);
+          const timeRange = (startHM && endHM) ? (startHM + '~' + endHM) : startHM;
+          return {
+            id: db.id || ('r2_' + i),
+            date,
+            room_id: roomId,
+            teacher: db.teacher_name || db.teacher_id || '정우영',
+            topic: '방 ' + roomId + ' — 1:1 영어 회화',
+            duration: durStr,
+            time_range: timeRange,
+            started_at_ms: sourceStartMs,
+            ended_at_ms: endedMs,
+            size: sizeStr,
+            url: '/api/recordings/blob/' + encodeURIComponent(String(o.key)),
+            status: db.status || 'completed',
+            playable: true,
+            key: o.key,
+          };
+        });
+        return new Response(JSON.stringify({ ok: true, count: rows.length, rows }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e?.message, rows: [] }), { headers:{'Content-Type':'application/json'} });
+      }
+}
+
+async function handleRecordingsCheck(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+      try {
+        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok:false, error:'R2 not configured' }), { headers:{'Content-Type':'application/json'} });
+        const k = url.searchParams.get('key') || '';
+        if (!k) {
+          // 🎬 두 prefix 모두 검사: rec/ (multipart 자동녹화) + recordings/ (옛날 단일 업로드)
+          const [recList, recordingsList] = await Promise.all([
+            env.RECORDINGS.list({ prefix: 'rec/', limit: 50 }),
+            env.RECORDINGS.list({ prefix: 'recordings/', limit: 50 }),
+          ]);
+          const items = [
+            ...recList.objects.map(o=>({ key:o.key, size:o.size, uploaded:o.uploaded, prefix:'rec/' })),
+            ...recordingsList.objects.map(o=>({ key:o.key, size:o.size, uploaded:o.uploaded, prefix:'recordings/' })),
+          ];
+          return new Response(JSON.stringify({ ok:true, total: items.length, recCount: recList.objects.length, recordingsCount: recordingsList.objects.length, items }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
+        }
+        const obj = await env.RECORDINGS.head(k);
+        return new Response(JSON.stringify({
+          ok: true, key: k, exists: !!obj,
+          size: obj?.size, uploaded: obj?.uploaded,
+          contentType: obj?.httpMetadata?.contentType
+        }, null, 2), { headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'} });
+      } catch(e:any) {
+        return new Response(JSON.stringify({ ok:false, error: e?.message }), { headers:{'Content-Type':'application/json'} });
+      }
+}
+
+async function handleRecordingsTestR2(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+      try {
+        if (!env.RECORDINGS) return new Response(JSON.stringify({ ok: false, error: 'RECORDINGS bucket not bound' }), { headers: { 'Content-Type': 'application/json' } });
+        const testKey = '_test/' + Date.now() + '.txt';
+        await env.RECORDINGS.put(testKey, 'test-' + Date.now(), { httpMetadata: { contentType: 'text/plain' } });
+        const obj = await env.RECORDINGS.get(testKey);
+        const text = obj ? await obj.text() : null;
+        await env.RECORDINGS.delete(testKey);
+        // 녹화 파일 목록도 확인
+        const recList = await env.RECORDINGS.list({ prefix: 'recordings/', limit: 10 });
+        return new Response(JSON.stringify({
+          ok: true, bucket: 'connected', testWrite: !!text, testContent: text,
+          recordingFiles: recList.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+        }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
+      }
+}
+
+async function handleOpsTtsProxy(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+      const ttsHeaders = { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
+      try {
+        const reqBody = await request.text();
+        let ttsText = '';
+        try { ttsText = String((JSON.parse(reqBody || '{}') || {}).text || ''); } catch { ttsText = ''; }
+
+        // 1순위: 아바타 Worker(Typecast) 한국어 음성 — 크레딧 소진/장애 시 아래 폴백으로 넘어감
+        try {
+          const up = await fetch('https://mangoi-ai-avatar-cf.navy111p.workers.dev/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: reqBody,
+          });
+          if (up.ok && up.body) {
+            const ct = up.headers.get('Content-Type') || 'audio/mpeg';
+            return new Response(up.body, { status: 200, headers: { ...ttsHeaders, 'Content-Type': ct } });
+          }
+        } catch (_) { /* 폴백으로 진행 */ }
+
+        // 2순위(폴백): Google 번역 TTS — 무료·무키. Typecast 크레딧이 없어도 항상 소리가 나도록 보장.
+        //   (요청당 ~200자 제한이 있어 안내문 길면 잘릴 수 있으나, '무음'보다 낫다)
+        if (ttsText) {
+          const q = encodeURIComponent(ttsText.slice(0, 200));
+          const g = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ko&q=${q}`, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
+          });
+          if (g.ok && g.body) {
+            return new Response(g.body, { status: 200, headers: ttsHeaders });
+          }
+        }
+        return new Response('tts_all_failed', { status: 502 });
+      } catch (e: any) {
+        return new Response('tts_proxy_error: ' + (e?.message || ''), { status: 502 });
+      }
+}
+
+async function handleAdminPayrollRate(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+      try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.isTeacher) {
+          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 급여 환율을 변경할 수 없습니다.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
+        const b: any = await request.json().catch(() => ({}));
+        const v = await setPhpKrwRate(env as any, Number(b?.rate));
+        return new Response(JSON.stringify({ ok: true, php_krw: v }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+}
+
+async function handleAdminPayrollMarkPaid(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+      try {
+        const actor = await getAdminActor(request, env as any);
+        if (actor.isTeacher) {
+          return new Response(JSON.stringify({ ok: false, error: 'forbidden_teacher', message: '강사는 지급 상태를 변경할 수 없습니다.' }),
+            { status: 403, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+        }
+        const b: any = await request.json().catch(() => ({}));
+        await markPayrollPaid(env as any, Number(b?.teacher_id), Number(b?.year), Number(b?.month), !!b?.paid);
+        return new Response(JSON.stringify({ ok: true }),
+          { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: 'api_error', detail: String(e?.message || e) }),
+          { status: 500, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+      }
+}
 
 export default worker;
 
