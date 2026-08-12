@@ -10827,14 +10827,25 @@ window.rebuildGlobalSearchIndex = function() {
       setTimeout(() => btn.textContent = '🔄 신한 동기화', _cardSynced ? 1500 : 3000);
     }
     if (!_cardSynced) {
-      alert('⚠️ 카드사 동기화가 아직 연동되지 않았습니다.\n\n'
-        + '화면에 보이는 내역은 실제 지출이 아니라 예시(샘플) 데이터입니다. 회계 판단에 사용하지 마세요.\n\n'
-        + 'Card sync is not connected — the figures shown are sample data, not real transactions.');
+      // (2026-08-13) 서버 연동(CODEF)은 준비 완료 — 키 3개만 등록하면 이 버튼이 실데이터를 당겨온다.
+      alert('⚠️ 카드사 연동 키(CODEF)가 아직 등록되지 않았습니다.\n\n'
+        + '연동 코드는 서버에 준비돼 있습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급)\n'
+        + '→ 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록만 하면 자동으로 불러옵니다.\n\n'
+        + 'Card sync (CODEF) keys are not registered yet. Once the 3 secrets are set, this button pulls real transactions.');
     }
   };
 
-  window.cardLoad = function() {
-    // 카드사 연동이 없으면 가짜로 채우지 않는다 — 섹션을 열었을 때 «미연동»이 보여야 한다.
+  window.cardLoad = async function() {
+    // 💳 (2026-08-13) 서버 적재분 조회 — CODEF 일일 자동 동기화가 채운 D1 데이터를 읽는다.
+    //   연동(키) 미설정이고 적재분도 없으면 «미연동»을 그대로 보여 준다. 가짜 숫자는 안 채운다.
+    var monthEl = document.getElementById('acc-card-month');
+    var q = monthEl && monthEl.value ? ('?month=' + encodeURIComponent(monthEl.value)) : '';
+    try {
+      var r = await fetch('/api/admin/corpcard/transactions' + q, { credentials: 'include' });
+      var d = null; try { d = await r.json(); } catch (e) {}
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
+      else { _cardData = null; _cardSynced = false; }
+    } catch (e) { _cardData = null; _cardSynced = false; }
     if (!_cardData) { renderCardNotConnected(); return; }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
   };
@@ -10865,6 +10876,9 @@ window.rebuildGlobalSearchIndex = function() {
     var d = document.getElementById('acc-corpcard');
     if (d && !d.__cardAutoBound) {
       d.__cardAutoBound = true;
+      // 월 선택 기본값 = 이번 달(KST) — admin.html 의 하드코딩(2026-04)을 덮는다
+      var mEl = document.getElementById('acc-card-month');
+      if (mEl) mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
       d.addEventListener('toggle', function(){ if (d.open) window.cardLoad(); });
       if (d.open) window.cardLoad();
     }

@@ -29,6 +29,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { corpcardConfigured, runCorpCardSync, corpcardData } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
@@ -9946,6 +9947,33 @@ LIMIT $limit`;
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER);`);
       } catch {}
+    }
+
+    /* ── 💳 법인카드(신한) — CODEF 연동 (corpcard-sync.ts) ──────────────────────
+       admin.html 「법인카드 사용내역」 카드가 부른다. CODEF 키(secret) 3개가 없으면
+       ok:false + codef_not_configured 로 답하고 화면은 «미연동» 을 그대로 보여 준다.
+       ⚠️ 새 API 등록 3종 세트를 잊지 말 것: index.ts 게이트 + api-mango 위임 가드
+          + (재무 데이터라) index.ts TEACHER_BLOCKED_PREFIXES — 셋 다 했다(2026-08-13). */
+    if (method === 'POST' && path === '/api/admin/corpcard/sync') {
+      if (!corpcardConfigured(env)) {
+        return json({
+          ok: false, error: 'codef_not_configured',
+          message: 'CODEF 키가 아직 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → wrangler secret 3개 등록 후 사용할 수 있습니다.',
+          message_en: 'CODEF keys are not configured yet.',
+        });
+      }
+      const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+      const data = await corpcardData(env, url.searchParams.get('month') || undefined);
+      return json({ ok: true, sync, data });
+    }
+    if (method === 'GET' && path === '/api/admin/corpcard/transactions') {
+      const configured = corpcardConfigured(env);
+      const data = await corpcardData(env, url.searchParams.get('month') || undefined);
+      // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
+      if (!configured && !data.current.length && !Object.values(data.history).some((v: any) => v > 0)) {
+        return json({ ok: false, error: 'codef_not_configured' });
+      }
+      return json({ ok: true, configured, data });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
