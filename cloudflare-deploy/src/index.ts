@@ -333,6 +333,8 @@ const worker = {
             // ── 강사 연락처 (2026-08-07) — 동료의 전화·이메일·카톡ID 가 한 화면에 모인다.
             //    수업 배정과 달리 «남의 개인 연락처» 라 교사에게는 열지 않는다. 본사/매니저만.
             '/api/admin/teacher-contacts',
+            // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
+            '/api/admin/corpcard/',
             // ── 계정·권한·감사 (permissions · audit_log) ──
             '/api/admin/permissions', '/api/admin/audit-logs', '/api/admin/login-history',
             '/api/admin/staff', '/api/admin/sessions', '/api/admin/2fa',
@@ -1306,6 +1308,11 @@ const worker = {
         path === '/api/admin/subscription/cron-check' ||
         // 🔗 강사 계정 ↔ 강사 원부 연결 (이름 추측 대신 사람이 정한 정답표)
         path === '/api/admin/teacher-links' ||
+        // 📇 강사 원부 ↔ 프로필(연락처) 연결 — 핸들러는 8/7부터 있었는데 이 게이트와
+        //    api-mango 위임 가드 «둘 다» 등록이 빠져 라이브 404 였다(2026-08-13 수리)
+        path === '/api/admin/teacher-contacts' ||
+        // 💳 법인카드 CODEF 연동 (corpcard-sync.ts) — 게이트+위임가드+강사차단 3종 세트
+        path.startsWith('/api/admin/corpcard/') ||
         // 🎁 Phase RF — 추천 친구 보상
         path === '/api/referral/my-code' ||
         path === '/api/referral/use' ||
@@ -2006,6 +2013,21 @@ const worker = {
         if (w.changed) console.log('[watchdog] state change', JSON.stringify(w));
       } catch (err) {
         console.error('[watchdog] error', err);
+      }
+
+      // 💳 법인카드(신한) 자동 동기화 — CODEF 키가 등록돼 있을 때만.
+      //   cron 은 계정 한도 5/5 라 새로 못 늘려서, 기존 "0 0 * * *"(09:00 KST 일일)에 얹는다.
+      //   event.cron 정확 일치로 거른다 — 같은 시각에 15분 cron 도 울리므로 hour 비교는 이중 실행.
+      if ((event as any).cron === '0 0 * * *') {
+        try {
+          const { corpcardConfigured, runCorpCardSync } = await import('./corpcard-sync');
+          if (corpcardConfigured(env)) {
+            const cc = await runCorpCardSync(env as any);
+            console.log('[corpcard-sync]', JSON.stringify(cc).slice(0, 500));
+          }
+        } catch (err) {
+          console.error('[corpcard-sync] error', err);
+        }
       }
 
       // 🛟 버려진 녹화 자동 마무리 — 매 15분: 브라우저가 complete 를 못 보내고 죽어

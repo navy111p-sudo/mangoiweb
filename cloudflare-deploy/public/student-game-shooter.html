@@ -1161,6 +1161,42 @@
     o.frequency.setValueAtTime(170,t); o.frequency.exponentialRampToValueAtTime(80,t+0.2);
     o.connect(g); g.connect(master||actx.destination); g.gain.setValueAtTime(0.15,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.22); o.start(t); o.stop(t+0.24);
   }catch(e){} }
+  /* 🙋 민간인 오사 경고 — "No! No! Stop!! Please stop!!!" 을 크게 외친다.
+     · 1순위 = 미리 구운 실감 연기 음성 /audio/civilian-stop.mp3 (Higgsfield Seed Audio, 2.7초).
+       서버 TTS(단조로운 낭독)보다 훨씬 생동감 있어서 이걸 기본으로 쓴다.
+     · 폴백 = 서버 TTS "Stop!!!!" (항상 lang:'en' 고정 — zh 서버 TTS 는 깨진 소리) → 브라우저 음성.
+     · ttsAudio(단어 읽기용 <audio>)를 안 쓰고 WebAudio 버퍼로 재생 —
+       단어 발음을 끊지 않으면서, 마스터 게인(1.4)+리미터를 타고 게인 2.2 를 얹어 확실히 크게 들린다. */
+  var CIV_STOP_URL='/audio/civilian-stop.mp3';
+  var civStopBuf=null, civStopLoading=false;
+  function _decodeToCivBuf(ab){ ensureCtx(); if(!actx) throw new Error('ctx');
+    return actx.decodeAudioData(ab).then(function(buf){ civStopBuf=buf; }); }
+  function prefetchCivStop(){
+    if(civStopBuf || civStopLoading) return; civStopLoading=true;
+    fetch(CIV_STOP_URL)
+      .then(function(r){ if(!r.ok) throw new Error('asset'); return r.arrayBuffer(); })
+      .then(_decodeToCivBuf)
+      .catch(function(){                              // 정적 파일이 없으면 서버 TTS 로
+        return fetch(TTS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:'Stop!!!!',lang:'en'})})
+          .then(function(r){ var ct=r.headers.get('content-type')||''; if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.arrayBuffer(); })
+          .then(_decodeToCivBuf);
+      })
+      .catch(function(){ civStopLoading=false; });    // 둘 다 실패하면 다음 기회에 다시 받는다
+  }
+  function sndCivStop(){ try{
+    ensureCtx();
+    if(civStopBuf && actx){
+      var s=actx.createBufferSource(), g=actx.createGain();
+      s.buffer=civStopBuf; g.gain.value=2.2;
+      s.connect(g); g.connect(master||actx.destination);
+      s.start();
+      return;
+    }
+    prefetchCivStop();                               // 아직 못 받았으면 이번엔 브라우저 음성으로 외치고, 다음을 위해 받아둔다
+    if(synth){ synth.cancel();
+      var u=new SpeechSynthesisUtterance('Stop!'); u.lang='en-US'; if(enVoice) u.voice=enVoice;
+      u.rate=1.1; u.pitch=1.15; u.volume=1; synth.speak(u); }
+  }catch(e){} }
 
   // ===================================================================
   //  🎤 말하기 미션 (Mastery Loop) — english-mastery-suite(슈팅+말하기) 이식
@@ -1453,6 +1489,7 @@
     currentIndex = 0;
     targetWords.forEach(function(w){ prefetchTTS(w.replace(/[.?!]/g,'')); });          // 원어민 음성 미리받기(즉시 재생)
     prefetchTTS(targetWords.join(' ').replace(/[.?!]/g,''));
+    prefetchCivStop();                                  // 🙋 "Stop!!!!" 음성도 미리 받아 첫 오사부터 즉시 들리게
     lvlPill.textContent = '단계' + stageLvl + ' · 문장 ' + (level+1) + ' · ' + correctWords + '/' + GOAL;
     var pool = DISTRACTORS.filter(function(w){ return targetWords.indexOf(w)<0; });
     shuffle(pool);
@@ -1856,6 +1893,7 @@
     if(m.isCiv){                                        // 🙋 민간인을 쐈다 — 점수만 깎고 생명력은 안 건드린다
       score=Math.max(0, score-CIV_PENALTY);
       combo=0;
+      sndCivStop();                                     // 🔊 "Stop!!!!" — 민간인이 큰 소리로 외친다
       floatScore('oh no! -'+CIV_PENALTY, x, y, false);
       showCombo('민간인이에요! -'+CIV_PENALTY);
       m.el.classList.add('hurt');
