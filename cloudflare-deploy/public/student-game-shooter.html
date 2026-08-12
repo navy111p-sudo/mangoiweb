@@ -152,17 +152,20 @@
      '배경 없이도 어떤 사진 위에서든 읽히게' 한다 — 학습 게임이라 가독성은 못 버린다.
      ⚠ 외곽선은 -webkit-text-stroke 가 아니라 text-shadow 4방향으로 — stroke 는 글자 안쪽을
        파먹어 한자 획이 뭉갠다. */
-  .monster .word{font-size:12px;font-weight:800;color:#fff;background:rgba(10,16,34,.26);
-    border:1px solid rgba(255,255,255,.20);border-radius:999px;padding:1px 8px;white-space:nowrap;
-    text-shadow:-1.5px -1.5px 0 rgba(0,0,0,.9), 1.5px -1.5px 0 rgba(0,0,0,.9),
-                -1.5px  1.5px 0 rgba(0,0,0,.9), 1.5px  1.5px 0 rgba(0,0,0,.9),
-                 0 0 7px rgba(0,0,0,.95)}
+  /* (2026-08-13) 사장님: "글자가 너무 두꺼워서 안 보여. 바탕색도 투명으로" —
+     외곽선 1.5px 는 한자(吉他 등) 획 사이를 메워 검은 덩어리로 만들었다. 1px 로 줄이고
+     대신 부드러운 검은 글로우로 배경과 분리한다. 알약 배경·테두리는 완전 투명. */
+  .monster .word{font-size:12px;font-weight:800;color:#fff;background:transparent;
+    border:none;border-radius:999px;padding:1px 8px;white-space:nowrap;
+    text-shadow:-1px -1px 0 rgba(0,0,0,.95), 1px -1px 0 rgba(0,0,0,.95),
+                -1px  1px 0 rgba(0,0,0,.95), 1px  1px 0 rgba(0,0,0,.95),
+                 0 0 6px rgba(0,0,0,.9), 0 2px 10px rgba(0,0,0,.8)}
   .monster.distractor .word{border-color:rgba(255,120,120,.30)}
   /* 🙋 민간인 — 단어를 안 들고 있고 라벨이 파랗다. 좀비와 헷갈리면 안 되므로 확실히 구분한다. */
   /* ⚠ 배경을 투명하게 낮췄으므로 글자색을 뒤집어야 한다 — 예전의 어두운 남색 글자(#04283a)는
        밝은 파란 알약 위라서 읽혔던 것이라, 배경을 빼면 어두운 도로 위에서 안 보인다.
        민간인은 '쏘면 감점'이라 다른 라벨보다 확실히 보여야 한다 → 투명하게 하되 대비는 더 준다. */
-  .monster.civ .word{background:rgba(14,116,190,.42);color:#e6f8ff;border-color:rgba(186,230,253,.75)}
+  .monster.civ .word{background:transparent;color:#9fdcff}   /* 투명 배경 — 하늘색 글자로만 구분 */
   .monster.civ.hurt{animation:civFall .7s forwards}      /* 잘못 쏘면 "oh no!" 하며 쓰러진다 */
   @keyframes civFall{0%{transform:none;opacity:1}
     35%{transform:translateY(6px) rotate(-14deg)}
@@ -174,8 +177,13 @@
      무작위 하나(45%)에 붙어서 대개 지금 쏠 단어가 아니었다. 같은 색이 서로 다른 곳을
      가리키니 화면을 믿을 수 없었다.
      → 금색은 상단칩과 필드 모두 '지금 쏠 단어'로 통일. 보너스는 색이 아니라 왕관으로. */
-  .monster.cur .word{background:linear-gradient(135deg,#fde68a,#f59e0b);color:#3a2e05;
-    border-color:#fff7d6;box-shadow:0 0 18px rgba(251,191,36,.95),0 4px 12px rgba(0,0,0,.45)}
+  /* (2026-08-13) 금색 알약 배경 + 진갈색 글자였는데, 기본 라벨의 검은 외곽선 그림자가
+     그대로 상속돼 어두운 글자와 겹치면서 한자가 검은 덩어리로 보였다(사장님 스크린샷).
+     배경을 빼고 '금색 = 글자 자체'로 — 검은 외곽선 위에 금빛 글로우라 어디서든 읽힌다. */
+  .monster.cur .word{background:transparent;color:#ffd845;
+    text-shadow:-1px -1px 0 rgba(0,0,0,.95), 1px -1px 0 rgba(0,0,0,.95),
+                -1px  1px 0 rgba(0,0,0,.95), 1px  1px 0 rgba(0,0,0,.95),
+                 0 0 6px rgba(0,0,0,.9), 0 0 16px rgba(251,191,36,.85)}
   /* ⚠ 확대(transform)와 광채(filter)는 여기 적으면 안 먹는다 — 루프가 매 프레임
      .word 의 transform 과 .face 의 filter 를 인라인으로 덮어쓰기 때문이다. JS 쪽에서 함께 넣는다. */
   /* 💰 보너스 표적(2배 점수) — 색이 아니라 왕관 뱃지로만 구분한다.
