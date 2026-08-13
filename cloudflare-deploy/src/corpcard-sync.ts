@@ -23,7 +23,15 @@ const APPROVAL_PATH = '/v1/kr/card/b/account/approval-list';   // 법인카드 �
 /* 🧼 시크릿 소독 — PowerShell 붙여넣기가 제어문자( 등)·CR·공백을 끼워 넣는 사고가
    실제로 났다(2026-08-13: CODEF_API_BASE 가 "" 한 글자로 저장 → fetch 실패,
    Basic 인증에 CR 이 섞이면 OAuth 401). ASCII 인쇄문자만 남기고 다듬는다. */
-const cleanSecret = (v: any): string => String(v ?? '').replace(/[^\x20-\x7E]/g, '').trim();
+export const cleanSecret = (v: any): string => String(v ?? '').replace(/[^\x20-\x7E]/g, '').trim();
+
+// 값 노출 없는 지문 — SHA-256 앞 8 hex. «저장된 키 = 손으로 테스트한 키» 대조용(2026-08-13)
+export async function secretFp8(v: any): Promise<string> {
+  const s = cleanSecret(v);
+  if (!s) return '';
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(d)).map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 8);
+}
 
 function codefCreds(env: any) {
   return {
@@ -64,8 +72,12 @@ async function codefToken(env: any): Promise<string> {
     headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=client_credentials&scope=read',
   });
-  const j: any = await r.json().catch(() => null);
-  if (!r.ok || !j || !j.access_token) throw new Error(`codef_token_failed: HTTP ${r.status} ${JSON.stringify(j || {}).slice(0, 200)}`);
+  const text = await r.text();
+  let j: any = null; try { j = JSON.parse(text); } catch {}
+  // ⚠️ 401 이 Tomcat HTML 로 오는 경우가 있어(로컬 실측) JSON 파싱 실패 시 원문 머리를 남긴다
+  if (!r.ok || !j || !j.access_token) {
+    throw new Error(`codef_token_failed: HTTP ${r.status} ${(j ? JSON.stringify(j) : text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ')).slice(0, 180)}`);
+  }
   return String(j.access_token);
 }
 
