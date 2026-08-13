@@ -201,6 +201,24 @@ console.log('\n[ ⑤ 데이터도 카드를 열 때 받는다 (2026-08-13 #02) ]
   check('⚠️ 실패해도 inflight 를 풀어 준다 — 안 풀면 영영 재시도 못 한다',
     /_erpInflight\.finally\(\(\) => \{ _erpInflight = null; \}\)/.test(core));
 
+  /* 🔔 (2026-08-13) 강사 평가 알람(adm-r14)의 «가디언» 이 API 를 폭주시켰다.
+     1초마다 «#rating-role-panel 이 없으면 다시 그린다» 인데, render 가 async 라 fetch 중에는
+     패널이 아직 없어 다음 초에 또 불렀다. 게다가 평가가 0건이면 host.remove() 로 끝나
+     패널이 «영영» 안 생기므로 20초 내내 두드렸다 — 실측 부팅 8초에 10회(최대 21회).
+     최근 30일 평가가 없는 날에는 관리자가 접속할 때마다 그만큼 나갔다는 뜻이다. */
+  console.log('\n[ ⑥-3 강사 평가 알람 가디언이 API 를 폭주시키지 않는다 (2026-08-13) ]');
+  const r14 = rd('../cloudflare-deploy/public/js/adm-r14.js');
+  check('그리는 중이면 겹쳐 부르지 않는다 (busy)',
+    /var _rgBusy = false/.test(r14) && /if \(_rgBusy\) return;/.test(r14));
+  check('한 번 그려도 패널이 없으면 «보여줄 게 없는 것» 으로 보고 멈춘다 (settled)',
+    /_rgSettled = true;/.test(r14) && /\+\+ticks > 20 \|\| _rgSettled/.test(r14));
+  check('🔴 가디언이 render 를 맨몸으로 부르지 않는다 (safeRender 를 거친다)',
+    !/if \(!document\.getElementById\('rating-role-panel'\)\) render\(\);/.test(r14));
+  check('⚠️ 패널이 «생겼다가 지워진» 경우는 종전대로 다시 붙인다 (가디언 본래 목적)',
+    /if \(!document\.getElementById\('rating-role-panel'\)\) safeRender\(render\);/.test(r14));
+  check('언어를 바꾸면 다시 그린다 (settled 를 푼다)',
+    /_rgSettled = false;\s*\n\s*safeRender\(role === 'teacher'/.test(r14));
+
   console.log('\n[ ⑦ 캐시 — 고친 adm-core 가 실제로 내려가야 한다 ]');
   const m = html.match(/adm-core\.js\?v=(\d+)/);
   check(`admin.html 이 adm-core.js 를 버전과 함께 부른다 (?v=${m ? m[1] : '없음'})`, !!m);
