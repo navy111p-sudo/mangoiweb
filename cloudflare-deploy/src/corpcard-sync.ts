@@ -20,6 +20,18 @@
 const OAUTH_URL = 'https://oauth.codef.io/oauth/token';
 const APPROVAL_PATH = '/v1/kr/card/b/account/approval-list';   // 법인카드 승인내역
 
+/* ── 🏠 호스트: 정식 vs 샌드박스 (2026-08-13 라이브 실측으로 확정) ─────────────────
+   CODEF 계정은 «데모(샌드박스)» 와 «정식» 두 가지고, **토큰 종류와 호스트가 반드시 짝이
+   맞아야 한다.** 데모 토큰으로 api.codef.io 를 부르면 조회가 통째로 실패한다:
+     CF-00017 "요청 도메인이 올바르지 않습니다. 해당 토큰은 샌드박스용입니다.
+               https://sandbox.codef.io로 요청하세요."
+   ⚠️ 이 파일의 첫 주석은 데모 호스트를 `development.codef.io` 로 적어 뒀는데 CODEF 가
+      `sandbox.codef.io` 로 이름을 바꿨다. 옛 이름이 들어와도 새 이름으로 바꿔 준다.
+   ⛔ 샌드박스 응답은 **CODEF 가 만든 가짜 거래**다. 회계 테이블에 절대 넣지 않는다
+      (2026-08-07 «가짜 숫자를 띄우지 않는다» 결정과 같은 이유). 연결 자가진단에만 쓴다. */
+export const CODEF_PROD_BASE = 'https://api.codef.io';
+export const CODEF_SANDBOX_BASE = 'https://sandbox.codef.io';
+
 /* 🧼 시크릿 소독 — PowerShell 붙여넣기가 제어문자( 등)·CR·공백을 끼워 넣는 사고가
    실제로 났다(2026-08-13: CODEF_API_BASE 가 "" 한 글자로 저장 → fetch 실패,
    Basic 인증에 CR 이 섞이면 OAuth 401). ASCII 인쇄문자만 남기고 다듬는다. */
@@ -48,6 +60,19 @@ export function corpcardConfigured(env: any): boolean {
   const c = codefCreds(env);
   return !!(c.clientId && c.clientSecret && c.connectedId);
 }
+
+/** 설정된 호스트 + 그게 샌드박스인지. CODEF_API_BASE 가 비었거나 http 가 아니면 정식으로 본다. */
+export function codefBase(env: any): { base: string; sandbox: boolean } {
+  let b = codefCreds(env).apiBase;
+  if (!/^https:\/\//.test(b)) b = CODEF_PROD_BASE;
+  b = b.replace(/\/+$/, '');
+  if (/\/\/development\.codef\.io$/.test(b)) b = CODEF_SANDBOX_BASE;   // 구 이름 → 새 이름
+  return { base: b, sandbox: b === CODEF_SANDBOX_BASE };
+}
+
+/** 「이 토큰은 샌드박스용」 이라는 CODEF 의 거절(CF-00017). 문구가 바뀌어도 코드로 잡는다. */
+export const isSandboxTokenError = (msg: any): boolean =>
+  /CF-00017/.test(String(msg || '')) || /샌드박스/.test(String(msg || ''));
 
 async function ensureTables(env: any): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS corpcard_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, approval_no TEXT UNIQUE, used_at TEXT NOT NULL, card_no TEXT, merchant TEXT, category TEXT, amount INTEGER NOT NULL DEFAULT 0, cancelled INTEGER NOT NULL DEFAULT 0, memo TEXT, raw TEXT, created_at INTEGER NOT NULL);`);
@@ -88,10 +113,9 @@ function parseCodefBody(text: string): any {
   throw new Error('codef_parse_failed: ' + text.slice(0, 200));
 }
 
-async function codefRequest(env: any, path: string, body: any): Promise<any> {
+async function codefRequest(env: any, path: string, body: any, baseOverride?: string): Promise<any> {
   const token = await codefToken(env);
-  const cBase = codefCreds(env).apiBase;
-  const base = (/^https:\/\//.test(cBase) ? cBase : 'https://api.codef.io').replace(/\/$/, '');
+  const base = baseOverride || codefBase(env).base;
   const r = await fetch(base + path, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -134,9 +158,16 @@ const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
 /* ── 동기화 본체 — 승인내역을 월 단위로 끊어 당겨서 approval_no 로 중복 없이 적재.
       (카드사에 따라 한 번에 조회 가능한 기간이 짧아, 월 단위가 안전하다)
       첫 실행: 최근 6개월. 이후: 마지막 거래일 7일 전부터(취소 반영 여유). ── */
-export async function runCorpCardSync(env: any): Promise<any> {
+export async function runCorpCardSync(env: any, opts: { base?: string; dryRun?: boolean } = {}): Promise<any> {
   if (!corpcardConfigured(env)) return { ok: false, error: 'codef_not_configured' };
   await ensureTables(env);
+
+  /* 호스트 결정 + 적재 여부. 샌드박스로 조회하면 돌아오는 건 CODEF 의 데모 거래이므로
+     **무조건 dryRun**(적재 안 함). 미리보기만 돌려주고 회계 테이블은 건드리지 않는다. */
+  const hostSandbox = opts.base ? opts.base.replace(/\/+$/, '') === CODEF_SANDBOX_BASE : codefBase(env).sandbox;
+  const base = (opts.base || codefBase(env).base).replace(/\/+$/, '');
+  const dryRun = opts.dryRun ?? hostSandbox;
+  const preview: any[] = [];
 
   const today = kstToday();
   let from = new Date(today.getTime() - 180 * 86400000);
@@ -170,7 +201,7 @@ export async function runCorpCardSync(env: any): Promise<any> {
         orderBy: '0', inquiryType: '0',
       };
       if (c.cardNo) { body.cardNo = c.cardNo; body.inquiryType = '1'; }
-      data = await codefRequest(env, APPROVAL_PATH, body);
+      data = await codefRequest(env, APPROVAL_PATH, body, base);
     } catch (e: any) {
       errors.push(`${span.s}~${span.e}: ${String(e?.message || e).slice(0, 300)}`);
       continue;
@@ -196,6 +227,14 @@ export async function runCorpCardSync(env: any): Promise<any> {
       // 승인번호가 없는 카드사 대비 — 일시+금액+가맹점으로 준식별키를 만든다
       const key = apNo || `${usedAt}|${amount}|${merchant}`.slice(0, 120);
       seen++;
+      // 🧪 자가진단(샌드박스) — 파싱까지만 확인하고 DB 에는 한 줄도 안 쓴다
+      if (dryRun) {
+        if (preview.length < 20) {
+          preview.push({ datetime: usedAt, merchant, category: categorize(merchant, storeType), amount, cancelled: isCancel ? 1 : 0 });
+        }
+        if (isCancel) cancelledCnt++;
+        continue;
+      }
       const now = Date.now();
       if (isCancel) {
         // 취소 승인: 원거래가 있으면 취소 표시, 없으면 취소 행으로 적재(합계에서 제외됨)
@@ -217,10 +256,78 @@ export async function runCorpCardSync(env: any): Promise<any> {
     }
   }
 
-  const summary = { ok: errors.length < spans.length, spans: spans.length, seen, inserted, cancelled: cancelledCnt, errors };
-  await metaSet(env, 'last_sync_at', String(Date.now()));
-  await metaSet(env, 'last_sync_result', JSON.stringify(summary).slice(0, 1500));
+  const summary: any = {
+    ok: errors.length < spans.length, spans: spans.length, seen, inserted, cancelled: cancelledCnt, errors,
+    base, sandbox: hostSandbox, dry_run: dryRun,
+    // 🔎 «키는 맞는데 계정이 데모» 인 상태를 한 칸으로 못박는다. 화면이 이걸 그대로 읽는다.
+    sandbox_token: errors.some(isSandboxTokenError),
+  };
+  if (dryRun) summary.preview = preview;
+  // 자가진단(dryRun)은 «마지막 동기화» 기록을 덮지 않는다 — 진짜 적재 이력이 지워지면 안 된다
+  if (!dryRun) {
+    await metaSet(env, 'last_sync_at', String(Date.now()));
+    await metaSet(env, 'last_sync_result', JSON.stringify(summary).slice(0, 1500));
+  }
   return summary;
+}
+
+/* ── 📣 화면에 «지금 무슨 상태인지» 한 줄로 알려 주기 ─────────────────────────────
+   [왜 만들었나] 2026-08-13 실측: 시크릿 3개는 제대로 등록돼 있고 OAuth 토큰도 잘 나오는데,
+   일일 동기화가 7개 구간 전부 CF-00017(샌드박스 토큰) 로 실패해 D1 적재분이 0건이었다.
+   그런데 화면은 «카드사 연동이 아직 되어 있지 않습니다» 라고만 말했다 — 사실과 다르다.
+   연동은 돼 있고, 계정이 데모라 조회가 막힌 것이다. 원인이 화면에 안 뜨니 «키를 또 등록»
+   하는 헛수고만 반복됐다. 그래서 상태를 코드로 구분해 그대로 내보낸다. ───────────── */
+export type CorpcardState = 'ok' | 'not_configured' | 'sandbox_account' | 'sync_error' | 'never_synced' | 'no_data';
+
+export async function corpcardStatus(env: any, data?: any): Promise<any> {
+  await ensureTables(env);
+  const { base, sandbox } = codefBase(env);
+  const configured = corpcardConfigured(env);
+  const lastAtRaw = await metaGet(env, 'last_sync_at');
+  const lastResRaw = await metaGet(env, 'last_sync_result');
+  let last: any = null; try { last = lastResRaw ? JSON.parse(lastResRaw) : null; } catch {}
+
+  const rowCnt: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM corpcard_transactions WHERE cancelled = 0`).first().catch(() => null);
+  const totalRows = Number(rowCnt?.n) || 0;
+  const monthRows = data && Array.isArray(data.current) ? data.current.length : null;
+
+  const errText = String((last?.errors || []).join(' | '));
+  const sandboxAcct = sandbox || !!last?.sandbox_token || isSandboxTokenError(errText);
+
+  let state: CorpcardState;
+  if (!configured) state = 'not_configured';
+  else if (sandboxAcct && totalRows === 0) state = 'sandbox_account';
+  else if (!lastAtRaw) state = 'never_synced';
+  else if (totalRows === 0 && last && !last.ok) state = 'sync_error';
+  else if (monthRows === 0) state = 'no_data';
+  else state = 'ok';
+
+  const MSG: Record<CorpcardState, [string, string]> = {
+    ok: ['카드사 연동 정상. 아래는 실제 결제 내역입니다.',
+         'Card sync is healthy — the rows below are real transactions.'],
+    not_configured: [
+      'CODEF 키가 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록이 필요합니다.',
+      'CODEF keys are not registered yet (CODEF_CLIENT_ID / SECRET / CONNECTED_ID).'],
+    sandbox_account: [
+      '키는 정상 등록됐고 CODEF 로그인도 성공합니다. 다만 지금 키가 «데모(샌드박스) 계정» 이라 실제 카드내역 조회가 거부됩니다(CF-00017). '
+      + 'CODEF 정식 계약(유료 전환) 후 발급받은 정식 키로 바꾸면 이 화면에 실제 결제가 바로 채워집니다. '
+      + '지금 연결 상태만 확인하려면 아래 «연동 자가진단» 을 누르세요(데모 데이터는 저장하지 않습니다).',
+      'Keys are valid and CODEF login succeeds, but this is a demo (sandbox) account, so real card data is refused (CF-00017). Switch to production CODEF keys to see real transactions.'],
+    sync_error: ['카드사 동기화가 실패했습니다. 아래 오류 원문을 확인하세요.',
+                 'Card sync failed — see the raw error below.'],
+    never_synced: ['아직 한 번도 동기화하지 않았습니다. «신한 동기화» 를 눌러 주세요.',
+                   'No sync has run yet — press “Sync”.'],
+    no_data: ['연동은 정상입니다. 선택한 달에는 결제 내역이 없습니다.',
+              'Sync is healthy. No transactions for the selected month.'],
+  };
+
+  return {
+    state, configured, sandbox_account: sandboxAcct, base,
+    message_ko: MSG[state][0], message_en: MSG[state][1],
+    last_sync_at: lastAtRaw ? Number(lastAtRaw) : null,
+    last_error: errText.slice(0, 400) || null,
+    rows_total: totalRows, rows_month: monthRows,
+  };
 }
 
 /* ── 화면(adm-core.js)이 기대하는 모양으로 꺼내기:
@@ -253,5 +360,6 @@ export async function corpcardData(env: any, month?: string): Promise<any> {
   for (const r of (hs.results || [])) if (r.ym in history) history[r.ym] = Number(r.total) || 0;
 
   const lastSync = await metaGet(env, 'last_sync_at');
-  return { current, history, month: m, last_sync_at: lastSync ? Number(lastSync) : null };
+  const lastRes = await metaGet(env, 'last_sync_result');
+  return { current, history, month: m, last_sync_at: lastSync ? Number(lastSync) : null, last_sync_result: lastRes || null };
 }
