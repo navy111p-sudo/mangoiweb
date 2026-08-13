@@ -68,6 +68,28 @@ check('스크롤 위치를 보존한다', /wrap\.scrollLeft = keepLeft/.test(cor
 check('CSV·정렬은 전체(_smStudents)를 그대로 쓴다', /_pre = _smStudents/.test(core));
 check('그래프DB 가 죽으면 재시도하지 않는다', /_smGraphOff/.test(core));
 
+/* 🕸️ (2026-08-13) 운영 화면 라벨이 «D1» 로 나온다 = 그래프DB 경로가 계속 실패하고 있다는 뜻.
+   그런데 실패 판정이 «그 페이지를 켜 있는 동안» 만 살아 있어서, 접속할 때마다 학생 목록
+   첫 조회가 한 번씩 그 실패를 기다렸다. 서버 쪽 Neo4j 타임아웃이 8초다(teacher-match.ts).
+   그리고 «오류는 아닌데 0명» 인 응답은 아예 표시가 안 남아 **검색할 때마다** 다시 두드렸다.
+   D1 쪽을 183만 행 → 12.6만 행으로 줄여 놔도 이 대기가 앞을 막으면 아무 소용이 없다. */
+console.log('\n[ ⑤-2 그래프DB 대기가 D1 개선을 가리지 않게 (2026-08-13) ]');
+check('실패 판정을 sessionStorage 에 기억한다 (새로고침해도 다시 안 기다린다)',
+  /sessionStorage\.setItem\(_SM_GRAPH_OFF_KEY/.test(core) && /sessionStorage\.getItem\(_SM_GRAPH_OFF_KEY\)/.test(core));
+check('⚠️ 영구 저장이 아니다 — 고쳐졌을 때 영영 안 쓰는 상태가 되면 안 된다',
+  /_SM_GRAPH_OFF_TTL = 30 \* 60 \* 1000/.test(core) &&
+  !/localStorage\.setItem\(_SM_GRAPH_OFF_KEY/.test(core));
+check('⏱️ 응답이 늦으면 기다리지 않고 D1 로 간다 (서버 타임아웃 8초를 그대로 앉아 있지 않는다)',
+  /const SM_GRAPH_WAIT_MS = \d+;/.test(core) && /Promise\.race\(\[_graphReq, _timeout\]\)/.test(core));
+check('그 대기 시간이 8초보다 확실히 짧다',
+  (Number((core.match(/const SM_GRAPH_WAIT_MS = (\d+);/) || [])[1]) || 99999) <= 3000);
+check('🔴 «오류는 아닌데 0명» 도 건너뛰기로 친다 (검색마다 다시 두드리던 구멍)',
+  /_smGraphOffMark\('전체 명부가 0명으로 옴'\)/.test(core));
+check('⚠️ 검색 결과가 0건인 것은 «정상» 이라 끄지 않는다 (else if (!_qSrv) 로 가른다)',
+  /\} else if \(!_qSrv\) \{/.test(core));
+check('AbortError(최신 요청에 밀림)는 «고장» 으로 치지 않는다',
+  /if \(e && e\.name === 'AbortError'\) return;\s*\/\/[^\n]*\n\s*_smGraphOffMark/.test(core));
+
 console.log('\n[ ⑥ 배선 IIFE — addEventListener 대상 변수에 선언이 있는지 (선언 삭제 사고 방지) ]');
 //   `(function NAME(){ … })()` 블록을 잘라, 그 안에서 `X.addEventListener` 로 쓰인 X 가
 //   같은 블록에 const/let/var 로 선언돼 있는지 본다. 브라우저 전역은 예외.

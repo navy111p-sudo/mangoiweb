@@ -7222,7 +7222,31 @@ let _smShown = 0;                                           // 지금 그려둔 
 let _smRows = [];                                           // 필터·정렬이 끝난 현재 목록 (이어붙이기용)
 let _smRowHtml = null;                                      // 한 행 HTML 생성기 (renderStudentTable 이 채움)
 const SM_CHUNK = 200;                                       // 한 번에 그리는 행 수
-let _smGraphOff = false;                                    // 그래프DB 가 한 번 죽으면 이 화면에선 재시도 안 함
+/* 🕸️ 그래프DB(Neo4j) 가 못 쓰는 상태면 건너뛴다.
+   🔴 (2026-08-13) 예전엔 이 값이 «페이지를 새로 열 때마다» false 로 돌아갔다. 그래서
+      그래프DB 가 죽어 있는 동안에도 **접속할 때마다 학생 목록 첫 조회가 한 번씩 그 실패를
+      기다렸다.** 서버 쪽 Neo4j 호출 타임아웃이 8초다(teacher-match.ts runCypher) —
+      즉 최악의 경우 목록이 뜨기까지 8초를 그냥 버린 뒤에야 D1 로 갔다.
+      운영 화면 라벨이 «D1» 로 나온다는 것은 지금 이 경로가 계속 실패하고 있다는 뜻이다.
+      → 판정을 sessionStorage 에 30분 기억한다. 탭을 새로 열어도 다시 안 기다린다.
+   ⚠️ 영구 저장(localStorage)은 쓰지 않는다. 그래프DB 가 고쳐졌을 때 «영영 안 쓰는» 상태가
+      되면 안 된다. 30분 뒤·새 세션이면 자연히 한 번 다시 두드려 본다. */
+const _SM_GRAPH_OFF_KEY = 'mangoi_sm_graph_off';
+const _SM_GRAPH_OFF_TTL = 30 * 60 * 1000;
+function _smGraphOffRead() {
+  try {
+    const raw = sessionStorage.getItem(_SM_GRAPH_OFF_KEY);
+    if (!raw) return false;
+    return (Date.now() - Number(raw)) < _SM_GRAPH_OFF_TTL;
+  } catch (e) { return false; }
+}
+function _smGraphOffMark(why) {
+  _smGraphOff = true;
+  try { sessionStorage.setItem(_SM_GRAPH_OFF_KEY, String(Date.now())); } catch (e) { /* 무시 */ }
+  console.warn('[students] 그래프DB 를 이번 세션에서는 건너뜁니다 —', why);
+}
+let _smGraphOff = _smGraphOffRead();                        // 그래프DB 가 죽으면 이 세션에선 재시도 안 함
+const SM_GRAPH_WAIT_MS = 2500;                              // 이만큼 안 오면 기다리지 않고 D1 로 간다
 
 /* 🏫 대리점·학원 드롭다운 채우기 (2026-07-23) — 불러온 학생들의 대리점명(shop_name)에서 자동 생성.
    서버가 이미 권한 범위로 걸러 보낸 _smStudents 만 쓰므로, 지사 계정엔 자기 대리점만 나온다. */
@@ -7327,18 +7351,37 @@ async function loadStudentList(q, opts) {
   //   ⚡ (2026-08-05) 한 번 죽은 그래프DB 를 검색마다 다시 두드리면 502 를 기다린 뒤에야 D1 로
   //      가서 지연이 두 배가 된다. 이 화면에서는 첫 실패 이후 건너뛴다(_smGraphOff).
   if (!_smGraphOff) try {
-    const rg = await fetch('/api/admin/students/graph-list?limit=1000' + _qs, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
-    const dg = await rg.json();
-    if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
-      d = dg; _dataSource = 'Neo4j';
-    } else if (dg && dg.error) {
-      if (rg.status === 502 || rg.status === 503) _smGraphOff = true;   // 미설정·접속불가 → 이후 D1 직행
-      console.warn('[students] 그래프DB 폴백 (D1 사용):', dg.error);
+    /* ⏱️ (2026-08-13) 그래프DB 를 «무한정» 기다리지 않는다.
+       서버는 8초까지 기다려 주지만(runCypher), 사람이 목록을 보려고 8초를 기다릴 이유는 없다.
+       2.5초 안에 안 오면 그냥 D1 로 간다 — D1 은 실측 74ms 이고 컬럼도 더 많다(세션수·최근방문).
+       ⚠️ 늦게 온 그래프 응답을 «취소» 하지는 않는다. 취소하려면 _ac(최신 요청 판별용)와
+          신호를 합쳐야 하는데, 그걸 잘못 엮으면 목록 전체가 조용히 죽는다. 그냥 안 기다린다. */
+    const _graphReq = fetch('/api/admin/students/graph-list?limit=1000' + _qs,
+      { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined })
+      .then(async (rg) => ({ rg, dg: await rg.json() }));
+    const _timeout = new Promise((res) => setTimeout(() => res('__timeout__'), SM_GRAPH_WAIT_MS));
+    const _first = await Promise.race([_graphReq, _timeout]);
+    if (_first === '__timeout__') {
+      _smGraphOffMark('응답이 ' + SM_GRAPH_WAIT_MS + 'ms 안에 안 옴');
+      _graphReq.catch(() => {});                                         // 뒤늦은 실패로 콘솔이 더러워지지 않게
+    } else {
+      const { rg, dg } = _first;
+      if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
+        d = dg; _dataSource = 'Neo4j';
+      } else if (dg && dg.error) {
+        // 미설정(503)·접속불가(502) 뿐 아니라 «어떤 오류든» 이 세션에서는 다시 안 두드린다.
+        _smGraphOffMark(dg.error);
+      } else if (!_qSrv) {
+        /* 🔴 (2026-08-13) 여기가 구멍이었다 — 오류는 아닌데 학생이 0명인 응답(ok:true, students:[])
+           이면 아무 표시도 안 남아서, **검색할 때마다** 그래프DB 를 다시 두드렸다.
+           검색어가 있을 때 0건인 것은 «그런 학생이 없다» 는 정상 결과이므로 그때는 끄지 않는다.
+           검색어 없이 전체 명부가 0명이면 그래프DB 에 학생이 없는 것이다 → 건너뛴다. */
+        _smGraphOffMark('전체 명부가 0명으로 옴');
+      }
     }
   } catch (e) {
     if (e && e.name === 'AbortError') return;                            // 최신 요청에 밀림 — 조용히 종료
-    _smGraphOff = true;
-    console.warn('[students] 그래프DB 접속 실패 — D1 폴백:', e);
+    _smGraphOffMark(e && e.message ? e.message : String(e));
   }
   if (_stale()) return;
   try {
