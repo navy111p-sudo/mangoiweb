@@ -201,11 +201,22 @@
   // ━━━━━━━━━━ 학생관리 5개 섹션 자동 로드 (페이지 진입 즉시) ━━━━━━━━━━
   // loadExpiring / loadTodayAttend / loadStreakRanking / loadRecentConsult / loadBulkList
   // → 사용자가 [불러오기] 버튼을 누르지 않아도 시드 학생들이 자동으로 표시되도록
+  /* 🐢 (2026-08-13 수정요청 #02) 이 함수는 아래에서 1.5초·3.5초·6초 **세 번** 불린다.
+     재시도를 둔 이유는 「loadExpiring 등이 늦게 정의되는 경우 대비」였다. 그런데 성공해도
+     세 번 다 돌았고, 매번 맨 앞에서 _erpCache 를 지웠다 —
+     결과: 부팅에 «학생 2000명» 요청이 3번 나가고 5개 뷰를 15번 그렸다.
+     (실제 브라우저로 부팅 요청을 세다가 잡았다. 같은 URL 이 3번 찍혔다)
+     → «준비되면 한 번만» 으로 바꾼다. 재시도 사다리는 그대로 두되, 아직 함수가 안 떴을 때만
+       다음 차례로 넘긴다. 늦게 뜨는 경우 대비라는 원래 의도는 그대로다. */
   function autoLoadStudentMgmt() {
-    try { window._erpCache = null; } catch{}
+    if (window.__autoLoadStudentMgmtDone) return;
     const fns = ['loadExpiring','loadTodayAttend','loadStreakRanking','loadRecentConsult','loadBulkList'];
+    // 하나라도 아직 정의 전이면 이번 차례는 건너뛴다 — 다음 재시도가 맡는다
+    if (!fns.every(fn => typeof window[fn] === 'function')) return;
+    window.__autoLoadStudentMgmtDone = true;
+    try { window._erpCache = null; } catch{}
     fns.forEach(fn => {
-      try { if (typeof window[fn] === 'function') window[fn](); }
+      try { window[fn](); }
       catch (e) { console.warn('[seed-autoload]', fn, e); }
     });
   }

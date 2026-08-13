@@ -173,6 +173,34 @@ console.log('\n[ ⑤ 데이터도 카드를 열 때 받는다 (2026-08-13 #02) ]
   check('탭으로 돌아오면 15초를 기다리지 않는다 (visibilitychange 즉시 1회)',
     /addEventListener\('visibilitychange'[\s\S]{0,160}_activeRoomsVisible\(\)\) loadActiveRooms\(\)/.test(core));
 
+  /* 🔬 (2026-08-13) ⑤⑥ 을 넣고도 «실제 브라우저» 로 부팅 요청을 세어 보니 아직 많았다.
+     jsdom 으로 블록만 떼어 돌릴 때는 안 보이던 경로 세 갈래가 더 있었다 —
+       · 통합검색 색인(buildGlobalIndex)이 부팅 800ms 뒤 데이터 API 를 **9개** 불렀다
+       · adm-q5 의 autoLoadStudentMgmt 가 1.5s·3.5s·6s **세 번** 돌며 매번 _erpCache 를 지웠다
+       · getErpList 의 캐시가 await 뒤에 채워져, 동시 호출이 각자 학생 2000명을 받아 갔다
+     실측(Playwright, 부팅 8초): 기준선 55건/33경로 → 28건/18경로. erp-list 4회 → 1회. */
+  console.log('\n[ ⑥-2 부팅 요청을 더 줄인 세 갈래 (2026-08-13, 실제 브라우저로 발견) ]');
+  const q5 = rd('../cloudflare-deploy/public/js/adm-q5.js');
+  check('🔴 통합검색 색인을 부팅 타이머로 만들지 않는다',
+    !/setTimeout\(\(\) => \{\s*buildGlobalIndex\(\)/.test(core));
+  check('검색창을 처음 건드릴 때 만든다 (focus·input)',
+    /function ensureGlobalIndex\(\)/.test(core) &&
+    /addEventListener\('focus', ensureGlobalIndex\)/.test(core) &&
+    /addEventListener\('input', ensureGlobalIndex\)/.test(core));
+  check('⚠️ 메뉴 검색은 즉시 되게 buildMenuIndex 는 그대로 부팅에 돈다',
+    /^buildMenuIndex\(\);$/m.test(core));
+  check('색인이 늦게 와도 이미 친 검색어에 결과를 채운다',
+    /renderSearchDropdown\(el\.value\)/.test(core));
+  check('🔴 autoLoadStudentMgmt 가 여러 번 돌지 않는다 (한 번만)',
+    /if \(window\.__autoLoadStudentMgmtDone\) return;/.test(q5) &&
+    /window\.__autoLoadStudentMgmtDone = true;/.test(q5));
+  check('⚠️ 늦게 정의되는 경우 대비(재시도)는 남긴다 — 준비 안 됐으면 다음 차례로',
+    /if \(!fns\.every\(fn => typeof window\[fn\] === 'function'\)\) return;/.test(q5));
+  check('getErpList 가 «받는 중» 요청을 나눠 쓴다 (동시 호출 중복 제거)',
+    /let _erpInflight = null;/.test(core) && /if \(_erpInflight\) return _erpInflight;/.test(core));
+  check('⚠️ 실패해도 inflight 를 풀어 준다 — 안 풀면 영영 재시도 못 한다',
+    /_erpInflight\.finally\(\(\) => \{ _erpInflight = null; \}\)/.test(core));
+
   console.log('\n[ ⑦ 캐시 — 고친 adm-core 가 실제로 내려가야 한다 ]');
   const m = html.match(/adm-core\.js\?v=(\d+)/);
   check(`admin.html 이 adm-core.js 를 버전과 함께 부른다 (?v=${m ? m[1] : '없음'})`, !!m);

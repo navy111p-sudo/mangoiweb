@@ -7853,6 +7853,7 @@ document.addEventListener('click', (ev) => {
 
 // 공통: students_erp 캐시 (한 번 fetch 후 재사용 — 시드 갱신 시 무효화 가능)
 let _erpCache = null;
+let _erpInflight = null;   // 받는 중인 요청 — 동시 호출이 각자 또 받지 않게 (2026-08-13 #02)
 async function getErpList() {
   // 외부에서 _erpCache가 null로 초기화되면 다시 fetch
   if (window._erpCache === null) _erpCache = null;
@@ -7863,14 +7864,23 @@ async function getErpList() {
     if (hasSeed) _erpCache = null; // 강제 재 fetch
   }
   if (_erpCache && _erpCache.length > 0) return _erpCache;
-  try {
-    const r = await fetch('/api/admin/students/erp-list?limit=2000', { credentials:'include' });
-    const j = await r.json();
-    if (window.PIIMask && j && typeof j.can_view_pii !== 'undefined') PIIMask.setCanView(j.can_view_pii);  // 🔒 PII 권한 반영
-    _erpCache = (j && j.ok && j.items) || [];
-  } catch { _erpCache = []; }
-  try { window._erpCache = _erpCache; } catch{}
-  return _erpCache;
+  /* 🐢 (2026-08-13 수정요청 #02) 캐시가 «await 뒤에» 채워져서, 여럿이 동시에 부르면
+     전부 캐시를 비어 있다고 보고 각자 학생 2000명을 받아 갔다(실측: 부팅에 같은 URL 3번).
+     받는 중인 «약속» 을 하나 붙잡아 두고 나눠 쓴다 — 결과는 종전과 같고 요청만 1번이 된다. */
+  if (_erpInflight) return _erpInflight;
+  _erpInflight = (async () => {
+    try {
+      const r = await fetch('/api/admin/students/erp-list?limit=2000', { credentials:'include' });
+      const j = await r.json();
+      if (window.PIIMask && j && typeof j.can_view_pii !== 'undefined') PIIMask.setCanView(j.can_view_pii);  // 🔒 PII 권한 반영
+      _erpCache = (j && j.ok && j.items) || [];
+    } catch { _erpCache = []; }
+    try { window._erpCache = _erpCache; } catch{}
+    return _erpCache;
+  })();
+  // ⚠️ 실패해도 반드시 풀어 준다 — 안 풀면 «한 번 실패하면 영영 재시도 못 하는» 상태가 된다.
+  try { _erpInflight.finally(() => { _erpInflight = null; }); } catch { _erpInflight = null; }
+  return _erpInflight;
 }
 
 function escSm(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -10078,17 +10088,43 @@ document.getElementById('admin-sidebar-list')?.addEventListener('click', (ev) =>
   document.addEventListener('scroll', onceTrigger, { capture: true, passive: true });
 })();
 
-// 페이지 로드 시 메뉴 인덱스 빌드 + 통합 색인 비동기로 빌드
+// 페이지 로드 시 메뉴 인덱스 빌드 — 이건 fetch 가 없어서 즉시 끝난다(메뉴 검색은 바로 된다).
 buildMenuIndex();
-// 통합 색인은 데이터 fetch 가 시간 걸리므로 background 로 빌드. 빌드 중에도 메뉴는 검색 가능.
-setTimeout(() => {
+
+/* 🐢 (2026-08-13 수정요청 #02 보강) 데이터 색인은 «검색창을 처음 건드릴 때» 만든다.
+   예전엔 부팅 800ms 뒤에 무조건 만들었다. 그런데 buildGlobalIndex 는 데이터 API 를 **9개** 부른다 —
+     학생 1000명 · 강사 · 지사 · 대리점 전체(limit=0) · 수강신청 500 · 레벨테스트 500 ·
+     공지 · 교재 · 녹화 200
+   부팅 통짜 로드 12개를 카드 열 때로 미뤄 놓고도 이게 남아 있어서, 결국 첫 화면에서
+   API 10개가 나가고 있었다. 실제 브라우저(Playwright)로 부팅 요청을 세어 보고 발견했다 —
+   jsdom 으로 블록만 떼어 돌릴 때는 이 경로가 안 잡혔다.
+   직원 대부분은 사이드바로 다니고 통합검색은 가끔 쓴다. 안 쓰는 사람에겐 9개가 전부 낭비다.
+
+   ⚠️ 메뉴 검색은 그대로 «즉시» 된다 — 위 buildMenuIndex() 가 이미 돌았다.
+      데이터 색인이 늦게 완성되면 그때 드롭다운을 한 번 다시 그려 결과를 채운다
+      (검색어를 이미 친 상태에서 색인이 도착하는 경우). */
+let _globalIndexStarted = false;
+function ensureGlobalIndex() {
+  if (_globalIndexStarted) return;
+  _globalIndexStarted = true;
   buildGlobalIndex().then(() => {
     console.log('[search] global index built:', _globalSearchIndex.length, 'items');
+    const el = document.getElementById('menu-search');
+    if (el && el.value.trim()) renderSearchDropdown(el.value);
   });
-}, 800);
-// 색인 재빌드용 헬퍼 (등록·삭제 후 호출하면 됨)
+}
+window.ensureAdminSearchIndex = ensureGlobalIndex;   // 진단·수동 호출용
+(function wireLazyGlobalIndex() {
+  const el = document.getElementById('menu-search');
+  if (!el) { setTimeout(wireLazyGlobalIndex, 1000); return; }   // 늦게 그려져도 붙는다
+  el.addEventListener('focus', ensureGlobalIndex);
+  el.addEventListener('input', ensureGlobalIndex);
+})();
+
+// 색인 재빌드용 헬퍼 (등록·삭제 후 호출하면 됨) — 명시적 요청이므로 지연 규칙과 무관하게 바로 만든다
 window.rebuildGlobalSearchIndex = function() {
   buildMenuIndex();
+  _globalIndexStarted = true;
   return buildGlobalIndex();
 };
 
