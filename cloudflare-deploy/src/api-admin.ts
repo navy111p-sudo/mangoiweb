@@ -10034,6 +10034,8 @@ LIMIT $limit`;
         client_secret: !!(env as any).CODEF_CLIENT_SECRET,
         connected_id: !!(env as any).CODEF_CONNECTED_ID,
         api_base: (env as any).CODEF_API_BASE || null,
+        // env 에 실린 바인딩 «이름» 전부(값 없음) — 시크릿이 env 로 안 오는 계층을 찾는 중
+        env_keys: Object.keys(env as any).sort(),
       };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
