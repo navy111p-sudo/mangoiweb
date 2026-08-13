@@ -8,8 +8,10 @@
    [키 3개가 없으면 아무 것도 안 한다] — wrangler secret 로 넣는다:
      · CODEF_CLIENT_ID / CODEF_CLIENT_SECRET  (CODEF 콘솔 > 마이페이지 > 키 발급)
      · CODEF_CONNECTED_ID                     (신한카드 기업회원 계정을 CODEF 에 1회 등록하면 발급)
-   선택: CODEF_ORG(기본 '0306'=신한카드) · CODEF_API_BASE(기본 https://api.codef.io,
-         개발 계정이면 https://development.codef.io) · CODEF_CARD_NO(특정 카드만 조회)
+   선택: CODEF_ORG(기본 '0306'=신한카드) · CODEF_CARD_NO(특정 카드만 조회)
+         CODEF_API_BASE — 기본 https://api.codef.io(정식). 데모 계정이면
+         https://development.codef.io, 샌드박스면 https://sandbox.codef.io.
+         ⚠️ 정식이 아닌 두 호스트의 응답은 실제 결제가 아니라 적재하지 않는다(아래 참조)
 
    ⚠️ 요청/응답 필드명은 CODEF 공식 SDK(easycodef) 계약 기준으로 썼다.
       실키 연결 첫 실행에서 결과가 비면 corpcard_meta.last_sync_result 에 남는
@@ -20,16 +22,25 @@
 const OAUTH_URL = 'https://oauth.codef.io/oauth/token';
 const APPROVAL_PATH = '/v1/kr/card/b/account/approval-list';   // 법인카드 승인내역
 
-/* ── 🏠 호스트: 정식 vs 샌드박스 (2026-08-13 라이브 실측으로 확정) ─────────────────
-   CODEF 계정은 «데모(샌드박스)» 와 «정식» 두 가지고, **토큰 종류와 호스트가 반드시 짝이
-   맞아야 한다.** 데모 토큰으로 api.codef.io 를 부르면 조회가 통째로 실패한다:
+/* ── 🏠 호스트: CODEF 는 환경이 «셋» 이다 (2026-08-13 공식 SDK 원문으로 확정) ─────
+   easycodef-node `lib/constant.ts` 원문:
+     API_DOMAIN      = 'https://api.codef.io'          ← 정식(SERVICE_TYPE_API=0)
+     DEMO_DOMAIN     = 'https://development.codef.io'  ← 데모(SERVICE_TYPE_DEMO=1)
+     SANDBOX_DOMAIN  = 'https://sandbox.codef.io'      ← 샌드박스(SERVICE_TYPE_SANDBOX=2)
+   ⚠️ development 는 sandbox 의 «옛 이름» 이 아니라 **서로 다른 환경**이다.
+      (한때 그렇게 착각하고 development → sandbox 로 바꿔치기했었다. 데모 계정을 가진
+       사람의 요청이 조용히 샌드박스로 새서 «고정 응답» 을 진짜인 줄 알게 된다.)
+
+   **토큰 등급과 호스트가 짝이 맞아야 한다.** 짝이 틀리면 조회가 통째로 실패한다 —
+   2026-08-13 라이브 실측(7개 구간 전부):
      CF-00017 "요청 도메인이 올바르지 않습니다. 해당 토큰은 샌드박스용입니다.
                https://sandbox.codef.io로 요청하세요."
-   ⚠️ 이 파일의 첫 주석은 데모 호스트를 `development.codef.io` 로 적어 뒀는데 CODEF 가
-      `sandbox.codef.io` 로 이름을 바꿨다. 옛 이름이 들어와도 새 이름으로 바꿔 준다.
-   ⛔ 샌드박스 응답은 **CODEF 가 만든 가짜 거래**다. 회계 테이블에 절대 넣지 않는다
-      (2026-08-07 «가짜 숫자를 띄우지 않는다» 결정과 같은 이유). 연결 자가진단에만 쓴다. */
+
+   ⛔ 정식(api)이 아닌 두 호스트의 응답은 **실제 결제가 아니다**
+      (샌드박스=고정 응답, 데모=체험용). 회계 테이블에 절대 넣지 않는다
+      — 2026-08-07 «가짜 숫자를 띄우지 않는다» 결정과 같은 이유. 자가진단에만 쓴다. */
 export const CODEF_PROD_BASE = 'https://api.codef.io';
+export const CODEF_DEMO_BASE = 'https://development.codef.io';
 export const CODEF_SANDBOX_BASE = 'https://sandbox.codef.io';
 
 /* 🧼 시크릿 소독 — PowerShell 붙여넣기가 제어문자( 등)·CR·공백을 끼워 넣는 사고가
@@ -61,13 +72,13 @@ export function corpcardConfigured(env: any): boolean {
   return !!(c.clientId && c.clientSecret && c.connectedId);
 }
 
-/** 설정된 호스트 + 그게 샌드박스인지. CODEF_API_BASE 가 비었거나 http 가 아니면 정식으로 본다. */
+/** 설정된 호스트 + «실데이터 호스트인가». CODEF_API_BASE 가 비었거나 http 가 아니면 정식으로 본다.
+ *  sandbox=true 는 «샌드박스 또는 데모» = 실제 결제가 아닌 응답이 오는 호스트라는 뜻이다. */
 export function codefBase(env: any): { base: string; sandbox: boolean } {
   let b = codefCreds(env).apiBase;
   if (!/^https:\/\//.test(b)) b = CODEF_PROD_BASE;
   b = b.replace(/\/+$/, '');
-  if (/\/\/development\.codef\.io$/.test(b)) b = CODEF_SANDBOX_BASE;   // 구 이름 → 새 이름
-  return { base: b, sandbox: b === CODEF_SANDBOX_BASE };
+  return { base: b, sandbox: b === CODEF_SANDBOX_BASE || b === CODEF_DEMO_BASE };
 }
 
 /** 「이 토큰은 샌드박스용」 이라는 CODEF 의 거절(CF-00017). 문구가 바뀌어도 코드로 잡는다. */
@@ -164,7 +175,8 @@ export async function runCorpCardSync(env: any, opts: { base?: string; dryRun?: 
 
   /* 호스트 결정 + 적재 여부. 샌드박스로 조회하면 돌아오는 건 CODEF 의 데모 거래이므로
      **무조건 dryRun**(적재 안 함). 미리보기만 돌려주고 회계 테이블은 건드리지 않는다. */
-  const hostSandbox = opts.base ? opts.base.replace(/\/+$/, '') === CODEF_SANDBOX_BASE : codefBase(env).sandbox;
+  const optBase = opts.base ? opts.base.replace(/\/+$/, '') : '';
+  const hostSandbox = optBase ? (optBase === CODEF_SANDBOX_BASE || optBase === CODEF_DEMO_BASE) : codefBase(env).sandbox;
   const base = (opts.base || codefBase(env).base).replace(/\/+$/, '');
   const dryRun = opts.dryRun ?? hostSandbox;
   const preview: any[] = [];
@@ -309,10 +321,10 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
       'CODEF 키가 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록이 필요합니다.',
       'CODEF keys are not registered yet (CODEF_CLIENT_ID / SECRET / CONNECTED_ID).'],
     sandbox_account: [
-      '키는 정상 등록됐고 CODEF 로그인도 성공합니다. 다만 지금 키가 «데모(샌드박스) 계정» 이라 실제 카드내역 조회가 거부됩니다(CF-00017). '
-      + 'CODEF 정식 계약(유료 전환) 후 발급받은 정식 키로 바꾸면 이 화면에 실제 결제가 바로 채워집니다. '
-      + '지금 연결 상태만 확인하려면 아래 «연동 자가진단» 을 누르세요(데모 데이터는 저장하지 않습니다).',
-      'Keys are valid and CODEF login succeeds, but this is a demo (sandbox) account, so real card data is refused (CF-00017). Switch to production CODEF keys to see real transactions.'],
+      '키는 정상 등록됐고 CODEF 로그인도 성공합니다. 다만 지금 키가 «정식(운영) 등급이 아니라» 실제 카드내역 조회가 거부됩니다(CF-00017). '
+      + 'CODEF 정식 서비스 신청·승인 후 발급되는 «정식 클라이언트 키» 로 바꾸면 이 화면에 실제 결제가 바로 채워집니다. '
+      + '지금 연결 상태만 확인하려면 아래 «연동 자가진단» 을 누르세요(정식이 아닌 응답은 저장하지 않습니다).',
+      'Keys are valid and CODEF login succeeds, but they are not production-tier, so real card data is refused (CF-00017). Switch to production CODEF client keys to see real transactions.'],
     sync_error: ['카드사 동기화가 실패했습니다. 아래 오류 원문을 확인하세요.',
                  'Card sync failed — see the raw error below.'],
     never_synced: ['아직 한 번도 동기화하지 않았습니다. «신한 동기화» 를 눌러 주세요.',

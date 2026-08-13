@@ -70,10 +70,17 @@ check('② /selftest 는 샌드박스 + dryRun 으로만 부른다',
   /corpcard\/selftest'[\s\S]{0,600}?runCorpCardSync\(env,\s*\{\s*base:\s*CODEF_SANDBOX_BASE,\s*dryRun:\s*true\s*\}/.test(admin));
 
 /* ── 호스트 판정: 데모 호스트의 옛 이름(development)도 새 이름으로 ───────────── */
-check('sandbox.codef.io 상수가 있다', /CODEF_SANDBOX_BASE\s*=\s*'https:\/\/sandbox\.codef\.io'/.test(sync));
-check('구 이름 development.codef.io 를 sandbox 로 바꿔 준다',
-  // 소스에는 정규식 리터럴이라 «development\.codef\.io» 처럼 역슬래시가 끼어 있다
-  /development\\?\.codef\\?\.io[\s\S]{0,120}?CODEF_SANDBOX_BASE/.test(sync));
+check('CODEF 세 호스트가 모두 상수로 있다 (정식·데모·샌드박스)',
+  /CODEF_PROD_BASE\s*=\s*'https:\/\/api\.codef\.io'/.test(sync)
+  && /CODEF_DEMO_BASE\s*=\s*'https:\/\/development\.codef\.io'/.test(sync)
+  && /CODEF_SANDBOX_BASE\s*=\s*'https:\/\/sandbox\.codef\.io'/.test(sync));
+// ⚠️ 공식 SDK(easycodef-node lib/constant.ts) 기준 development 는 «데모» 호스트이고
+//    sandbox 의 옛 이름이 아니다. 한때 둘을 같은 것으로 보고 바꿔치기했던 코드를 막는다.
+check('데모 호스트를 샌드박스로 바꿔치기하지 않는다',
+  !/development\\?\.codef\\?\.io\$?\/?\.test\(b\)\)\s*b\s*=\s*CODEF_SANDBOX_BASE/.test(sync),
+  '데모 계정 요청이 조용히 샌드박스(고정 응답)로 새면 가짜를 진짜로 읽는다');
+check('데모·샌드박스 둘 다 «실데이터 아님» 으로 본다',
+  /b === CODEF_SANDBOX_BASE \|\| b === CODEF_DEMO_BASE/.test(sync));
 check('CF-00017(샌드박스 토큰)을 코드로 판정한다', /CF-00017/.test(sync) && /isSandboxTokenError/.test(sync));
 check('상태에 sandbox_account 가 있다', /'sandbox_account'/.test(sync) && /sandbox_account:/.test(sync));
 
