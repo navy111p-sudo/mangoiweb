@@ -10027,12 +10027,20 @@ LIMIT $limit`;
     }
     if (method === 'GET' && path === '/api/admin/corpcard/transactions') {
       const configured = corpcardConfigured(env);
+      // 🔬 진단(2026-08-13): 시크릿 4개를 등록했는데 런타임이 codef_not_configured 를 돌려줘,
+      //    «활성 배포판에 어떤 키가 보이는지» 를 불리언으로만 노출한다(값은 절대 노출 금지).
+      const have = {
+        client_id: !!(env as any).CODEF_CLIENT_ID,
+        client_secret: !!(env as any).CODEF_CLIENT_SECRET,
+        connected_id: !!(env as any).CODEF_CONNECTED_ID,
+        api_base: (env as any).CODEF_API_BASE || null,
+      };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
       if (!configured && !data.current.length && !Object.values(data.history).some((v: any) => v > 0)) {
-        return json({ ok: false, error: 'codef_not_configured' });
+        return json({ ok: false, error: 'codef_not_configured', have });
       }
-      return json({ ok: true, configured, data });
+      return json({ ok: true, configured, have, data });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
