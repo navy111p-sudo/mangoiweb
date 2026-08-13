@@ -2359,6 +2359,9 @@ const _TP_IC = {
   edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
   // 제거 (휴지통)
   trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  // 💬 카카오·문자 전달 (말풍선) — 버튼 바탕이 카카오 노랑(#fee500)이라 선 색만 검정.
+  //    다른 아이콘은 stroke="#fff" 인데 이것만 다르다. 노랑 위 흰 선은 안 보인다.
+  chat: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
   // 스케줄 (달력)
   calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // 삭제 무장(2차 확인 대기) — 경고 삼각형
@@ -2514,7 +2517,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="13" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -2539,7 +2542,7 @@ async function loadTeacherProfiles() {
   }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -2563,7 +2566,17 @@ async function loadTeacherProfiles() {
       '</span>';
     const fee = t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') : '—';
     const join = t.join_date || '—';
-    const phone = t.phone || t.kakao_id || '—';
+    // 💬 (2026-08-13) 연락처와 카카오ID 를 갈라 놓는다. 전엔 `t.phone || t.kakao_id` 라
+    //    전화번호가 있는 강사는 카카오ID 가 화면 어디에도 안 나왔다(있는데 없는 것처럼 보임).
+    const phone = t.phone || '—';
+    const kakaoCell = t.kakao_id
+      ? '<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:11px">' + _aiEsc(t.kakao_id) + '</span>' +
+        // 값을 onclick 문자열에 끼워 넣지 않는다 — 카카오ID 에 따옴표·역슬래시가 섞이면
+        // 따옴표 이스케이프가 두 겹(HTML+JS)이라 조용히 깨진다. 옆 <span> 의 글자를 그대로 읽는다.
+        '<button type="button" onclick="window.tkCopy && window.tkCopy(this.previousElementSibling.textContent,this)" ' +
+        'title="카카오ID 복사" aria-label="카카오ID 복사" ' +
+        'style="margin-left:5px;padding:0 5px;font-size:10px;line-height:17px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer">📋</button>'
+      : '<span style="color:#9ca3af">—</span>';
     return '<tr>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
@@ -2574,6 +2587,7 @@ async function loadTeacherProfiles() {
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:right">' + fee + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(phone) + '</td>' +
+      '<td style="padding:6px;border:1px solid #e5e7eb;white-space:nowrap">' + kakaoCell + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + join + '</td>' +
       // 📊 인사평가 — 클릭하면 "왜 이 점수인가" 분석 모달 (점수는 서버가 채움)
       '<td class="hr-eval-col" id="hrv-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;cursor:pointer" ' +
@@ -2589,6 +2603,8 @@ async function loadTeacherProfiles() {
       '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
         '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
+        // 💬 (2026-08-13) 이 강사에게 바로 메시지 — 카카오톡(원클릭 붙여넣기) + 문자(자동발송)
+        '<button class="tp-act-btn tp-act--kakao" onclick="window.tkOpenSend && window.tkOpenSend(' + t.id + ')" title="카카오·문자로 메시지 보내기" data-en-title="Message by KakaoTalk / SMS" style="' + _TP_ACT_BTN + 'background:#fee500;color:#191919" aria-label="카카오·문자 전달">' + _TP_IC.chat + '</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).

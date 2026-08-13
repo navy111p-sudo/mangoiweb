@@ -174,6 +174,9 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     // 🇵🇭 PH_MANAGERS 는 코드에 박힌 상수 배열(현재 3명)이라 사용자 입력으로 늘지 않는다.
     //    필리핀 본사 매니저가 90명을 넘길 일은 없다(사람이 손으로 추가하는 명단이다).
     'auth-admin.ts': '필리핀 매니저 명단 PH_MANAGERS 코드 상수 배열(현재 3명) — 입력으로 늘지 않음',
+    // 💬 강사 카카오·문자 전달 — 두 곳 모두 «핸들러 첫머리에서 90개 초과를 400 으로 거절» 한다
+    //    (send: profile_ids, mark-sent: log_ids). 화면에서도 90명을 넘기면 보내기가 막힌다.
+    'teacher-kakao.ts': 'send/mark-sent 가 입력 90개 초과를 400 으로 반려 — 바인드가 90을 넘을 수 없음',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
