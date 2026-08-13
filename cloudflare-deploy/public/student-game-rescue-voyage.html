@@ -1115,21 +1115,26 @@
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
     var speakMission = { active:false, sent:null, lang:'en', done:0, need:3, rec:null, listening:false };
     function _norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9一-鿿\s]/g,'').replace(/\s+/g,' ').trim(); }
+    /* 💯 (2026-08-13 원장님 제안) 원샷 통과 판정용 정확도(0~1) — 판정할 때마다 갱신한다.
+       boolean 만으로는 "100점"과 "턱걸이 통과"를 구분할 수 없다. */
+    var _spAcc = 0, SP_PERFECT = 0.98;
     function _matchSpoken(said, target, lang){
       said=_norm(said); target=_norm(target);
+      _spAcc = 0;
       if(!said) return false;
       if(lang==='zh'){ // 중국어: 한자 문자 단위 겹침 비율
         var t=target.replace(/\s/g,'').split(''), hit=0, sset={};
         said.replace(/\s/g,'').split('').forEach(function(c){ sset[c]=1; });
         t.forEach(function(c){ if(sset[c]) hit++; });
-        return t.length? (hit/t.length)>=0.6 : false;
+        _spAcc = t.length ? (hit/t.length) : 0;
+        return t.length? _spAcc>=0.6 : false;
       }
       /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
          예전엔 `sw[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
          어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
          ⚠️ 반환 boolean 유지 → 호출부 무변경. 어린이 대상이라 채점기의 관대함(기능어
             가중치·억양 구제)은 그대로 살아 있다. */
-      if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+      if(window.MangoiScore){ var _g = MangoiScore.grade(said, target); _spAcc = _g.accuracy; return _g.pass; }
       var tw=target.split(' ').filter(Boolean), sw={}; said.split(' ').forEach(function(w){ sw[w]=1; });
       var hit=0; tw.forEach(function(w){ if(sw[w]) hit++; });
       return tw.length? (hit/tw.length)>=0.6 : false;   // 60% 단어 일치면 통과(채점기 로드 실패 시 폴백)
@@ -1203,6 +1208,13 @@
         if(ok){
           speakMission.done++; sfxDing(speakMission.done+3); _updateSpeakDots();
           try{ if(typeof _pronCoach==='function') _pronCoach(heard, true); }catch(_e){}   // 🧠 성공도 기억 큐에
+          /* 🏆 원샷 원킬 — 첫 시도에서 100점이면 남은 회차 없이 즉시 통과 + 퍼펙트 보너스 */
+          if(_spAcc>=SP_PERFECT && speakMission.done===1){
+            speakMission.done=speakMission.need; _updateSpeakDots();
+            G.score += 300; sfxFanfare();
+            $('speakFeedback').innerHTML='🏆 퍼펙트! 첫 시도 100점! 원샷 보너스 +300점'; btn.style.display='none';
+            return;
+          }
           if(speakMission.done>=speakMission.need){
             G.score += 150; sfxFanfare();
             $('speakFeedback').innerHTML='🎉 완벽해요! 발음 보너스 +150점'; btn.style.display='none';

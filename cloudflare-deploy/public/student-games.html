@@ -189,6 +189,31 @@
   @media(prefers-reduced-motion:reduce){.game-card,.game-card .ph{transition:none}
     .game-card:hover{transform:none}.game-card:hover .ph{transform:none}}
 
+  /* ===== 🔒 퀘스트(단계별 해금) 모드 =====
+     원장님 제안(2026-08-13): 21개를 한 번에 보여주면 아이가 한 게임에 3분도 못 머문다.
+     잠긴 카드는 **지우지 않고** 흐리게 남긴다 — 아예 안 보이면 목표가 안 생긴다. */
+  .game-card.locked{filter:grayscale(.85) brightness(.86);cursor:not-allowed}
+  .game-card.locked:hover{transform:none;border-color:rgba(255,255,255,.85);
+    box-shadow:0 6px 18px rgba(20,60,120,.18)}
+  .game-card.locked:hover .ph{transform:none}
+  .game-card .lockveil{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:6px;text-align:center;padding:14px;
+    background:rgba(8,20,44,.52);color:#fff;font-weight:800}
+  .game-card .lockveil .lk{font-size:40px;line-height:1;filter:drop-shadow(0 3px 8px rgba(0,0,0,.5))}
+  .game-card .lockveil .lkm{font-size:14px;line-height:1.45;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+  @media(max-width:640px){.game-card .lockveil .lk{font-size:30px}
+    .game-card .lockveil .lkm{font-size:12px}}
+  /* 🎯 퀘스트 안내 바 — 다음 해금까지 얼마나 남았는지 한 줄로 */
+  .quest-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;
+    margin:0 auto 14px;padding:11px 18px;border-radius:16px;width:fit-content;max-width:100%;
+    background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);color:#fde68a;
+    font-size:15px;font-weight:800;text-align:center}
+  .quest-bar b{color:#fff}
+  .quest-bar .qbtn{background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.2);border-radius:999px;
+    color:#e2e8f0;padding:6px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+  .quest-bar .qbtn:hover{background:rgba(0,0,0,.4);color:#fff}
+  @media(max-width:640px){.quest-bar{font-size:13.5px;padding:9px 13px}}
+
   /* ===== 게임 화면 ===== */
   #hub-game{display:none;flex:1;flex-direction:column;min-height:100dvh}
   #hub-game.active{display:flex}
@@ -602,6 +627,9 @@
       <div class="rec-chips" id="rec-chips" style="display:none"></div>
       <button type="button" class="rec-cta" id="rec-cta" style="display:none"></button>
     </div>
+
+    <!-- 🎯 퀘스트(단계별 해금) 안내 — JS 렌더. 퀘스트 모드가 꺼져 있으면 숨김 -->
+    <div class="quest-bar" id="quest-bar" style="display:none"></div>
 
     <!-- 🖐 카드 순서 바꾸기 — 학생이 좋아하는 게임을 앞으로 끌어다 놓을 수 있다 -->
     <div class="order-bar">
@@ -1867,14 +1895,124 @@ function _orderedGames(){
   return out;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   🔒 퀘스트 모드 — 단계별 게임 해금(Lock/Unlock)   (원장님 제안 2026-08-13)
+   · 왜: 21개를 한 번에 열어 두니 "선택의 패러독스"로 한 게임에 3분도 못 머문다.
+     처음엔 2개만 열고, 미션을 하나 깰 때마다 다음 게임이 하나씩 열린다.
+   · ⚠️ 이미 쓰고 있는 학생 29,000명을 하루아침에 잠그면 안 된다.
+     그래서 **처음 오는 학생만** 퀘스트 모드로 시작한다(코인·순서·기록이 있으면 전체 개방).
+     누구든 안내 바의 버튼으로 즉시 켜고 끌 수 있다.
+   · 해금 판정은 학생이 바꾼 카드 순서가 아니라 **기본 순서(HUB_GAMES)** 를 따른다.
+     안 그러면 순서를 바꾸는 것만으로 잠금이 뒤죽박죽 된다.
+   ══════════════════════════════════════════════════════════════════ */
+var QUEST_KEY = 'mangoi_quest_mode';       // 'on' | 'off'
+var CLEAR_KEY = 'mangoi_game_clears';      // { mode: 클리어 횟수 }
+var QUEST_START = 2;                       // 처음부터 열려 있는 게임 수
+
+function _clears(){
+  try{ var v = JSON.parse(localStorage.getItem(CLEAR_KEY)); return (v && typeof v === 'object') ? v : {}; }
+  catch(_){ return {}; }
+}
+function _clearTotal(){ var c = _clears(), n = 0; for(var k in c){ n += (parseInt(c[k],10)||0); } return n; }
+/* 이 학생이 예전부터 쓰던 사람인가 — 코인·카드순서·클리어 기록 중 하나라도 있으면 그렇다 */
+function _isReturning(){
+  try{
+    if(localStorage.getItem(ORDER_KEY)) return true;
+    if(_coinsEarned() > 0) return true;
+    if(_clearTotal() > 0) return true;
+  }catch(_){}
+  return false;
+}
+var _questMode = (function(){
+  try{
+    var v = localStorage.getItem(QUEST_KEY);
+    if(v === 'on' || v === 'off') return v === 'on';
+    var on = !_isReturning();                 // 신규 학생만 기본 ON
+    localStorage.setItem(QUEST_KEY, on ? 'on' : 'off');
+    return on;
+  }catch(_){ return false; }
+})();
+/* 지금 몇 개까지 열려 있나 — 기본 2개 + 미션 클리어 수만큼 하나씩 더 */
+function _unlockedCount(){ return Math.min(HUB_GAMES.length, QUEST_START + _clearTotal()); }
+function _isUnlocked(mode){
+  if(!_questMode) return true;
+  var i = HUB_GAMES.findIndex(function(g){ return g.mode === mode; });
+  if(i < 0) return true;
+  return i < _unlockedCount();
+}
+/* 미션 1회 완료 → 클리어 적립 + 새로 열린 게임이 있으면 알려 준다 */
+function _questClear(mode){
+  try{
+    var c = _clears();
+    c[mode] = (parseInt(c[mode],10)||0) + 1;
+    localStorage.setItem(CLEAR_KEY, JSON.stringify(c));
+  }catch(_){ return; }
+  if(!_questMode) return;
+  var idx = _unlockedCount() - 1;             // 이번에 새로 열린 자리
+  var g = HUB_GAMES[idx];
+  _renderQuestBar();
+  if(g && idx >= QUEST_START){
+    try{ _toastHub('🔓 새 게임 해금! ' + g.ico + ' ' + g.ttl.split(' (')[0]); }catch(_){}
+  }
+}
+/* 허브 상단 토스트(게임 화면 위에서도 보이게 최상단 고정) */
+function _toastHub(msg){
+  var t = document.getElementById('quest-toast');
+  if(!t){
+    t = document.createElement('div');
+    t.id = 'quest-toast';
+    t.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:9999;' +
+      'background:rgba(15,23,42,.94);color:#fde68a;border:1px solid rgba(251,191,36,.6);' +
+      'border-radius:999px;padding:11px 22px;font-weight:800;font-size:15px;' +
+      'box-shadow:0 10px 30px rgba(0,0,0,.45);transition:opacity .25s;pointer-events:none';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(_toastHub._t);
+  _toastHub._t = setTimeout(function(){ t.style.opacity = '0'; }, 2600);
+}
+
+function toggleQuestMode(){
+  _questMode = !_questMode;
+  try{ localStorage.setItem(QUEST_KEY, _questMode ? 'on' : 'off'); }catch(_){}
+  hubRenderMenu();
+  _toastHub(_questMode ? '🎯 퀘스트 모드 ON — 하나씩 깨서 열어 봐요!' : '🔓 전체 게임을 모두 열었어요!');
+}
+
+function _renderQuestBar(){
+  var bar = document.getElementById('quest-bar');
+  if(!bar) return;
+  var open = _unlockedCount(), total = HUB_GAMES.length;
+  if(!_questMode){
+    bar.style.display = 'flex';
+    bar.innerHTML = '<span>🔓 모든 게임이 열려 있어요 (' + total + '개)</span>' +
+      '<button type="button" class="qbtn" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
+    return;
+  }
+  bar.style.display = 'flex';
+  var next = (open < total) ? HUB_GAMES[open] : null;
+  bar.innerHTML = '<span>🎯 오늘의 퀘스트 · 열린 게임 <b>' + open + ' / ' + total + '</b></span>' +
+    (next ? '<span>미션 1개를 끝내면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
+          : '<span>👑 모든 게임을 다 열었어요!</span>') +
+    '<button type="button" class="qbtn" onclick="toggleQuestMode()">🔓 전체 열기</button>';
+}
+
 function hubRenderMenu(){
   // 3D 배틀은 영어/중국어 모두 지원(glang 전달) — 전체 노출
   var list = _orderedGames();
+  _renderQuestBar();
   document.getElementById('game-grid').innerHTML = list.map(function(g,i){
     // 🖼️ 카드 사진: 파일명은 mode 와 같다(/img/games/<mode>.webp).
     //    첫 6장은 바로 보이는 자리라 eager, 나머지는 lazy — 29,000명이 쓰는 화면이라 전송량을 아낀다.
     var eager = i < 6;
-    return '<div class="game-card" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
+    // 🔒 퀘스트 모드에서 아직 안 열린 게임 — 카드는 남기고 자물쇠 막을 덮는다
+    var unlocked = _isUnlocked(g.mode);
+    var need = unlocked ? 0 : (HUB_GAMES.findIndex(function(x){ return x.mode===g.mode; }) - _unlockedCount() + 1);
+    return '<div class="game-card'+(unlocked?'':' locked')+'" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
+      + (unlocked ? '' :
+          '<div class="lockveil"><span class="lk">🔒</span>'
+          + '<span class="lkm">미션 <b>'+need+'개</b> 더 완료하면 열려요!</span></div>')
       + '<div class="phwrap">'
       +   '<span class="badge">'+g.badge+'</span>'
       +   '<img class="ph" src="/img/games/'+g.mode+'.webp" alt="" width="720" height="540"'
@@ -1990,6 +2128,13 @@ function _applyGameTheme(mode){
 
 function hubOpenGame(mode){
   var g = _hubGame(mode); if(!g) return;
+  // 🔒 아직 안 열린 게임 — 왜 못 여는지 알려주고 지금 할 일을 가리킨다
+  if(!_isUnlocked(mode)){
+    var open = _unlockedCount();
+    var now = HUB_GAMES[Math.max(0, open - 1)];
+    _toastHub('🔒 아직 잠겨 있어요! ' + (now ? now.ico + ' ' + now.ttl.split(' (')[0] + ' 미션부터 완료해 봐요!' : '미션을 완료해 주세요!'));
+    return;
+  }
   _gameState.mode = mode;
   /* 🗣 (2026-08-04) 이 학생의 **약점 문장**을 서버에서 미리 받아둔다.
      4단 사이클은 보통 3문제에 1번만 도는데, 약점으로 잡힌 문장은 **매번** 돌린다.
@@ -2541,7 +2686,8 @@ function gameBrickCheck(){
   if (full){
     _stopRoundTimer();
     const r = _onCorrect('sent', sent, 10);
-    try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}
+    try{ _questClear('brick'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">' + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     if (fbi) fbi.innerHTML = '<div style="color:#34d399;font-weight:800;font-size:clamp(20px,3.4vmin,30px)">' + (r.boss?'👹 보스 격파!':'✅ 정답!') + ' +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</div>' +
       '<div style="color:#f8fafc;font-size:clamp(15px,2.2vmin,24px);margin-top:4px">' + target.join(' ') + '</div>' +
@@ -2639,7 +2785,8 @@ function gameMatchFlip(card){
         a.style.transform = ''; b.style.transform = '';
         _gameState.current.matched.add(a.dataset.pair);
         const r = _onCorrect('word', _witem, 5);   // 🧠 점수·콤보·하트·기록 일원화
-        try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}  // 🔥 오늘 학습 달성
+        try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}
+    try{ _questClear('match'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
         _gameState.current.flipped = [];
         _gameUpdateScore();
         const total = _gameState.current.cards.length / 2;
@@ -2753,7 +2900,8 @@ function gameFillCheck(picked, btn){
     btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
     btn.style.transform = 'scale(1.05)';
     const r = _onCorrect('sent', sent, 8);
-    try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}
+    try{ _questClear('fill'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
     const em = _emojiFor(sent, 'sent');
     fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>' + _growthNote(sent);
     try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
@@ -2877,13 +3025,17 @@ function gameRenderBalloon(){
    🎈📝 문장 풍선 (Balloon Sentence) — 2026-08-04 사장님 지시
      · 풍선에 실린 단어를 **어순대로** 터뜨려 문장을 완성한다
      · 맞을 때마다 그 단어를 소리로 들려준다
-     · 문장이 완성되면 → 문장 3번 듣기 → 3번 따라 말하기(발음 채점) → 보너스
+     · 문장이 완성되면 → 문장 듣기 → 따라 말하기(발음 채점) → 보너스
+     · 💯 (2026-08-13 원장님 제안) 고정 3회 반복 폐지: 듣기는 1회, 말하기는 첫 시도
+       100점(정확도 0.98+)이면 즉시 통과+퍼펙트 보너스. 70점 미만이면 정답을
+       다시 들려주고 재시도 — 적응형 반복 학습.
      · 순서를 틀리면 **아무 일도 일어나지 않는다**(감점 없음). 어린 학생이 위축되지 않게.
    ⚠️ 기존 '풍선 터뜨리기'(뜻 맞추기)는 건드리지 않았다. 별도 모드다.
    ⚠️ 음성인식은 gameShadow 를 그대로 재사용한다(_afterShadow 훅으로 회차 제어) —
       여기서 새로 짜면 안드로이드 예외처리·Whisper 폴백·침묵감시를 통째로 복제하게 된다.
    ══════════════════════════════════════════════════════════════════════════ */
-var _BSENT_LISTEN = 3, _BSENT_SPEAK = 3;
+var _BSENT_LISTEN = 1, _BSENT_SPEAK = 3;   // 💯 듣기 1회면 말하기 시작(원장님 제안 2026-08-13)
+var _BSENT_PERFECT = 0.98;                 // 이 정확도(≈100점) 이상 첫 시도 = 원샷 원킬
 
 function _bsEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function _bsAttr(s){ return _bsEsc(s).replace(/"/g,'&quot;'); }
@@ -3094,20 +3246,36 @@ function _balloonSentComplete(){
     if(fb) fb.innerHTML = '<span style="color:#fbbf24">🎤 따라 말하기 (' + rep + '/' + _BSENT_SPEAK + ')</span>';
     setTimeout(function(){ try{ gameShadow(encodeURIComponent(text)); }catch(_){ finish(); } }, 380);
   }
+  /* 💯 정확도 기반 적응형 통과 (원장님 제안 2026-08-13)
+     · 100점(_BSENT_PERFECT 이상) → 남은 회차를 건너뛰고 즉시 통과.
+       그게 첫 시도면 '원샷 원킬' 퍼펙트 보너스까지 얹는다.
+     · 100점 미만이면 예전처럼 3회를 채워 자연스러운 반복 학습. */
   function onRep(g){
     if(g && typeof g.sc === 'number') scores.push(g.sc);
-    if(rep < _BSENT_SPEAK) setTimeout(nextRep, 1000);
-    else setTimeout(finish, 1000);
+    var sc = (g && typeof g.sc === 'number') ? g.sc : 0;
+    if(sc >= _BSENT_PERFECT){ setTimeout(function(){ finish(rep <= 1); }, 900); return; }
+    if(rep >= _BSENT_SPEAK){ setTimeout(function(){ finish(false); }, 1000); return; }
+    /* 많이 틀렸으면 정답을 한 번 다시 들려주고 재시도 — 뭘 고쳐야 할지 모른 채 반복하지 않게 */
+    if(sc < 0.7){
+      var fired = false, go = function(){ if(fired) return; fired = true; nextRep(); };
+      setTimeout(function(){ try{ window.gameSpeak ? gameSpeak(text, go) : go(); }catch(_){ go(); } }, 700);
+      setTimeout(go, Math.max(3600, String(text).length * 160));
+      return;
+    }
+    setTimeout(nextRep, 1000);
   }
-  function finish(){
+  function finish(perfect){
     _gameState._drill = null;
     var avg = scores.length ? scores.reduce(function(a,b){ return a+b; }, 0) / scores.length : 0;
     var bonus = 50 + Math.round(avg * 100);            /* 50 ~ 150 : 다 말하면 기본, 발음 좋으면 더 */
+    if(perfect) bonus += 100;                          /* 🏆 첫 시도 100점 = 퍼펙트 보너스 */
     _gameState.score += bonus;
     _gameUpdateScore();
-    if(fb) fb.innerHTML = '<span style="color:#10b981">🎉 보너스 +' + bonus + '점!</span>' +
+    try{ _addCoins(perfect ? 10 : 3); }catch(_){}      /* 💰 코인도 함께 — 퍼펙트는 넉넉히 */
+    if(fb) fb.innerHTML = (perfect
+        ? '<span style="color:#fbbf24">🏆 퍼펙트! 첫 시도 100점! +' + bonus + '점!</span>'
+        : '<span style="color:#10b981">🎉 보너스 +' + bonus + '점!</span>') +
       (scores.length ? ' <span style="color:#fbbf24">발음 평균 ' + Math.round(avg*100) + '점</span>' : '');
-    try{ if(typeof _gameScoreVoice==='function') _gameScoreVoice(bonus); }catch(_){}
     _gameState._advTimer = setTimeout(gameNextRound, 2200);
   }
 
@@ -3175,7 +3343,8 @@ function gameBalloonPop(bl){
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   if (correct){
     const r = _onCorrect('word', _gameState.current.word, 7);
-    try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}
+    try{ _questClear('balloon'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
     document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     _gameUpdateScore();
     /* 🗣 맞힌 낱말이 든 문장으로 4단(단어 → 문장). 게이트가 3문제에 1번만 열어 준다.
@@ -3201,6 +3370,8 @@ window.addEventListener('message', function (ev){
     _gameState.score += (d.score || 0);
     _gameState.correct += 1;
     try{ window.MangoiStreak && MangoiStreak.complete('iframe'); }catch(_){}  // 🔥 오늘 학습 달성(배틀/낚시/슈팅 미션 완료)
+    // 🔓 퀘스트 해금 적립 — 지금 열려 있는 게임의 미션이 끝났다는 뜻
+    try{ _questClear(d.game || _gameState.mode || 'iframe'); }catch(_){}
   }
 });
 

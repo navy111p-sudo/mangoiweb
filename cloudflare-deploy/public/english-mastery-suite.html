@@ -637,7 +637,10 @@
      0) 설정 & 공유 상태
   ========================================================================= */
   var CONFIDENCE_THRESHOLD = 0.70;   // 정확도 필터: 이 값 "초과"여야 성공
-  var SPEAK_TARGET = 3;              // 3회 말하기 성공해야 완료
+  var SPEAK_TARGET = 3;              // 3회 말하기 성공해야 완료 (100점이면 1회로 통과)
+  /* 💯 (2026-08-13 원장님 제안) 첫 시도에서 정확도 100점이면 남은 반복을 건너뛰고 즉시 통과.
+     고정 3회는 잘하는 학생에게 '횟수 채우기'가 되어 발음 집중도를 오히려 떨어뜨렸다. */
+  var SPEAK_PERFECT = 0.98, SPEAK_PERFECT_BONUS = 200;
   var SPEAK_POINTS = 100;           // 말하기 1회 성공 시 점수(회당 라이브로 가산)
   var COMBO_WINDOW = 2500;
 
@@ -1073,6 +1076,7 @@
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
   var recog=null, recogActive=false;
   var speakCount=0, speakAwarded=0, onMissionDone=null, onSpeakSuccess=null, audioPlayed=false;
+  var _speakTries=0;   // 💯 이 문장에서 말하기를 시도한 횟수(원샷 판정용)
 
   var speakOverlay=$('#speakOverlay'), micBtn=$('#micBtn'), starsEl=$('#stars'),
       missionStatus=$('#missionStatus'), speakTextEl=$('#speakText'), speakKoEl=$('#speakKo');
@@ -1082,6 +1086,7 @@
   }
   function startMission(done, onScore){
     onMissionDone = done; onSpeakSuccess = onScore || null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    _speakTries=0;
     speakTextEl.firstChild.nodeValue = targetSentence;
     speakKoEl.textContent = KO[targetSentence] || '';
     speakTextEl.classList.remove('show-ko');   // 새 문장은 다시 중국어/영어만 (탭하면 한국어 뜻)
@@ -1228,6 +1233,18 @@
     var line = '들린 말: <span class="heard">"'+ (heard||'…') +'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+confPct+'%</span>';
 
     if(pass){
+      _speakTries++;
+      /* 🏆 원샷 원킬 — 첫 시도 100점이면 3회를 채우지 않고 바로 통과 + 퍼펙트 보너스 */
+      if((_fishGrade ? _fishGrade.accuracy : (matched?1:0)) >= SPEAK_PERFECT && _speakTries<=1 && speakCount===0){
+        speakCount = SPEAK_TARGET; renderStars();
+        _fishSaveShadow(confPct);
+        if(onSpeakSuccess) onSpeakSuccess(SPEAK_PERFECT_BONUS);
+        missionStatus.innerHTML = line + '<br>🏆 <b>퍼펙트! 첫 시도 100점!</b> 바로 통과 <b>+'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🏆 원샷 통과!';
+        toast('🏆 원샷 원킬! +'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점', 'good');
+        setTimeout(finishMission, 1100);
+        return;
+      }
       speakCount++; renderStars(); awardSpeak();            // ★ 말할 때마다 +점수
       _fishSaveShadow(confPct);                             // 🎤 발음 점수 서버 적립
       if(speakCount>=SPEAK_TARGET){
@@ -1240,6 +1257,7 @@
         toast('👍 +'+SPEAK_POINTS+'점! '+speakCount+'/'+SPEAK_TARGET, 'good');
       }
     } else {
+      _speakTries++;
       // Fail State: confidence 미달 또는 문장 불일치 → 카운트 미증가
       // 「다시 해보세요」만 주면 뭘 바꿔야 할지 모른 채 같은 말을 반복한다 → 처방 한 줄
       var fix = _fishDiag || (_fishGrade && _fishGrade.tip) || '';
