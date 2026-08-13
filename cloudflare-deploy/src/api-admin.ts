@@ -6915,6 +6915,10 @@ LIMIT $limit`;
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
+        // 💳 (2026-08-14) 결제유형 필터 — 'B2B' | 'B2C' | 'NONE'(미지정). 그 밖의 값은 «전체».
+        //    921건을 50개씩 넘겨 보는 구조라, 이게 없으면 미지정 대리점을 눈으로 찾아야 했다.
+        const _ptRaw = (url.searchParams.get('payment_type') || '').trim().toUpperCase();
+        const pt = (_ptRaw === 'B2B' || _ptRaw === 'B2C' || _ptRaw === 'NONE') ? _ptRaw : '';
         const rawLimit = url.searchParams.get('limit');
         const limit = rawLimit === '0' ? 0 : Math.max(1, Math.min(500, parseInt(rawLimit || '50', 10) || 50));
         const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
@@ -6927,16 +6931,34 @@ LIMIT $limit`;
           binds.push(like, like, like, like);
         }
         const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+        // 미지정 = NULL 뿐 아니라 '' 같은 쓰레기값도 포함해야 «전체 = B2B+B2C+미지정» 이 맞는다.
+        const IS_NONE = `(c.payment_type IS NULL OR c.payment_type NOT IN ('B2B','B2C'))`;
+        // 유형별 건수 — 검색어(q)까지만 반영하고 «결제유형 필터는 일부러 빼서», 버튼마다 몇 건인지 보이게 한다.
+        // COUNT 쿼리 하나로 전체·B2B·B2C·미지정을 다 구하므로 왕복이 늘지 않는다.
         const cnt: any = await env.DB.prepare(
-          `SELECT COUNT(*) AS n FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
+          `SELECT COUNT(*) AS n,
+                  SUM(CASE WHEN c.payment_type = 'B2B' THEN 1 ELSE 0 END) AS b2b,
+                  SUM(CASE WHEN c.payment_type = 'B2C' THEN 1 ELSE 0 END) AS b2c,
+                  SUM(CASE WHEN ${IS_NONE} THEN 1 ELSE 0 END) AS none_ct
+             FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
         ).bind(...binds).first();
+        const counts: Record<string, number> = {
+          all: Number(cnt?.n || 0), B2B: Number(cnt?.b2b || 0),
+          B2C: Number(cnt?.b2c || 0), NONE: Number(cnt?.none_ct || 0),
+        };
+        // 목록에만 결제유형 조건을 더한다(건수 요약은 위에서 이미 계산됨).
+        const listWhere = [...where];
+        const listBinds = [...binds];
+        if (pt === 'NONE') listWhere.push(IS_NONE);
+        else if (pt) { listWhere.push(`c.payment_type = ?`); listBinds.push(pt); }
+        const listWhereSql = listWhere.length ? ` WHERE ${listWhere.join(' AND ')}` : '';
         const cols = min ? 'c.id, c.name' : 'c.*, f.name AS franchise_name';
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
-        const pageBinds = limit === 0 ? binds : [...binds, limit, offset];
+        const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: Number(cnt?.n || 0), limit, offset });
+        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
