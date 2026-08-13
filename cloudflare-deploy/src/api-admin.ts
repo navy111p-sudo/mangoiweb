@@ -29,7 +29,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
-import { corpcardConfigured, runCorpCardSync, corpcardData, secretFp8 } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
+import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
@@ -10195,7 +10195,21 @@ LIMIT $limit`;
       }
       const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
-      return json({ ok: true, sync, data });
+      const status = await corpcardStatus(env, data).catch(() => null);
+      return json({ ok: true, sync, data, status });
+    }
+
+    /* 🧪 연동 자가진단  POST /api/admin/corpcard/selftest
+       «키가 맞나 / CODEF 가 응답하나 / 파싱이 되나» 를 샌드박스 호스트로 확인한다.
+       ⛔ 돌아오는 건 CODEF 의 데모 거래다. 그래서 dryRun 고정 — D1 에 한 줄도 안 쓰고,
+          «마지막 동기화» 기록도 안 덮는다. 화면에서도 회계 표가 아니라 진단 상자에만 뜬다. */
+    if (method === 'POST' && path === '/api/admin/corpcard/selftest') {
+      if (!corpcardConfigured(env)) {
+        return json({ ok: false, error: 'codef_not_configured' });
+      }
+      const result = await runCorpCardSync(env, { base: CODEF_SANDBOX_BASE, dryRun: true })
+        .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+      return json({ ok: true, demo: true, result });
     }
     if (method === 'GET' && path === '/api/admin/corpcard/transactions') {
       const configured = corpcardConfigured(env);
@@ -10216,11 +10230,12 @@ LIMIT $limit`;
         secret_fp: await secretFp8((env as any).CODEF_CLIENT_SECRET),
       };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
-      // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
-      if (!configured && !data.current.length && !Object.values(data.history).some((v: any) => v > 0)) {
-        return json({ ok: false, error: 'codef_not_configured', have });
-      }
-      return json({ ok: true, configured, have, data });
+      const status = await corpcardStatus(env, data).catch(() => null);
+      /* ⚠️ (2026-08-13) 예전엔 여기서 «적재분이 없으면 codef_not_configured» 로 답했다.
+         그래서 키가 멀쩡한데도(=샌드박스 계정이라 조회만 막힌 상태) 화면은 «연동 안 됨» 이라고
+         말했고, 진짜 원인(CF-00017)은 아무 데도 안 보였다. 이제는 항상 ok:true 로 답하고
+         «무엇이 왜 비었는지» 는 status 가 설명한다. */
+      return json({ ok: true, configured, have, data, status });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════

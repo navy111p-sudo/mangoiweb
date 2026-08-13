@@ -2349,10 +2349,19 @@
               <div style="font-size:20px;font-weight:900;letter-spacing:2px;margin:3px 0 4px;font-family:MangoiHanSC,Consolas,monospace">**** **** **** 8842</div>
               <div style="font-size:11px;opacity:0.95">법인 (주)에듀비전 · 결제일: 매월 15일 · 한도 <b>₩1,000,000</b></div>
             </div>
-            <button onclick="cardSync()" id="acc-card-sync-btn" style="padding:9px 18px;background:rgba(255,255,255,0.95);color:#0f4c81;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">
-              🔄 신한 동기화
-            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+              <button onclick="cardSync()" id="acc-card-sync-btn" style="padding:9px 18px;background:rgba(255,255,255,0.95);color:#0f4c81;border:0;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">
+                🔄 신한 동기화
+              </button>
+              <!-- 🧪 연동 자가진단 — 키·응답·파싱만 확인(데모 데이터는 저장하지 않음) -->
+              <button onclick="cardSelfTest()" id="acc-card-selftest-btn" style="padding:9px 14px;background:rgba(255,255,255,0.18);color:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">
+                🧪 연동 자가진단
+              </button>
+            </div>
           </div>
+
+          <!-- 📣 연동 상태 — «왜 비어 있는지»를 숫자 대신 여기서 말한다(2026-08-13) -->
+          <div id="acc-card-status" style="margin-bottom:12px"></div>
 
           <!-- 📊 KPI 요약 4개 -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px" id="acc-card-kpis">
@@ -8745,7 +8754,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=70" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=71" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
