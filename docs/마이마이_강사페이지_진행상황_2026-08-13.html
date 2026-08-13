@@ -108,15 +108,28 @@
 </div>
 
 <div class="kpis">
-  <div class="kpi k-done"><b>19</b><span>✅ 다 된 것</span></div>
-  <div class="kpi k-part"><b>5</b><span>⚠️ 아직 안 된 것</span></div>
-  <div class="kpi k-todo"><b>7</b><span>📋 이제 해야 할 것</span></div>
+  <div class="kpi k-done"><b>25</b><span>✅ 다 된 것</span></div>
+  <div class="kpi k-part"><b>3</b><span>⚠️ 아직 안 된 것</span></div>
+  <div class="kpi k-todo"><b>5</b><span>📋 이제 해야 할 것</span></div>
+</div>
+
+<div class="item done" style="border-left-width:5px;margin-bottom:14px">
+  <p class="t">📌 8월 13일 오후 — 여기 적힌 것을 <b>실제로 고쳐서 올렸습니다</b> (커밋 301c603)</p>
+  <p class="d">이 문서를 만든 뒤 사장님 지시로 <b>전부 진행</b>했습니다. 아래 세 갈래는 <b>그 작업이 끝난 뒤의 상태</b>입니다.
+  처음 정리했을 때는 「아직 안 된 것 5 · 해야 할 것 7」이었는데, 그 중 <b>6건을 고쳐</b> 다 된 것으로 옮겼습니다.</p>
+  <p class="why"><b>⚠️ 조사 중에 이 문서의 앞선 판단 두 가지가 틀렸다는 것이 드러났습니다 — 바로잡습니다.</b><br>
+  ① <b>「서버에서 PDF 를 JPG 로 바꿔야 한다」는 틀렸습니다.</b> 운영 DB 를 직접 세어 보니
+  교재 파일 <b>38,922개 중 38,860개(99.84%)가 이미 JPG</b> 이고 PDF 는 <b>62개뿐</b>입니다.
+  느렸던 진짜 이유는 PDF 가 아니라 <b>「1장 = 1파일」이라 넘길 때마다 새로 받는 것</b>이었습니다.<br>
+  ② <b>「MES 파일이 325개 있다」도 틀렸습니다.</b> 그 325개는 <b>「Computer Games」의 GA<u>MES</u></b> 가
+  걸린 오탐이었습니다. 실제로 이름에 MES 가 든 서버 교재는 <b>0개</b>입니다 — 그래서 8월 11일 숨김이 아무것도 못 숨겼습니다.</p>
 </div>
 
 
 <!-- ══════════════════ 1. 다 된 것 ══════════════════ -->
-<h2 class="sec s-done">✅ 다 된 것 &nbsp;— 19건
-  <small>코드에 들어가 있고 라이브에 나갔습니다. 마이마이에게 「확인해 달라」고 요청할 목록입니다.</small>
+<h2 class="sec s-done">✅ 다 된 것 ① &nbsp;— 19건 <span style="font-weight:700;font-size:9.5pt">(8월 12일까지)</span>
+  <small>코드에 들어가 있고 라이브에 나갔습니다. 마이마이에게 「확인해 달라」고 요청할 목록입니다.
+  &nbsp;·&nbsp; 오늘(8/13) 새로 고친 6건은 뒤쪽 「다 된 것 ②」에 있습니다 — 합쳐서 25건.</small>
 </h2>
 
 <div class="item done">
@@ -151,7 +164,7 @@
   <p class="t"><span class="date">8/10 ⑥ · 8/12 ③</span>수업 화면 교재·영상 목록에서 MES 감추기</p>
   <p class="en">"Pls remove MES from the list we don't use anymore sir" / "MES (old BTS) is still in the system"</p>
   <p class="d">MES 교재는 <b>지우지 않고 감췄습니다</b> — 운영 DB에 파일이 325개 있고 지난 수업 기록이 그 파일을 가리키기 때문에, 지우면 옛 수업의 교재가 깨집니다. 수업 화면의 교재 목록·검색·드롭다운과 <b>영상 목록</b>에서 안 보이게 했습니다.
-  <span class="grey">단, 교재 라이브러리 트리에는 아직 남아 있습니다 — 아래 「아직 안 된 것」 1번 참고.</span></p>
+  <span class="grey">교재 라이브러리 트리에 남아 있던 것도 8/13 오후에 해결했습니다 — 「다 된 것 ②」 1번 참고.</span></p>
   <p class="ev">idx-x3.js:17 RETIRED_COURSES / index.html:7289 MV_RETIRED / 커밋 c37f6f2 · 87ac105</p>
 </div>
 
@@ -194,7 +207,7 @@
   <p class="t"><span class="date">8/7 ⑦</span>교재 페이지 목록을 잘 보이게 (Document list)</p>
   <p class="en">"The list of pages of the book should be easily be visible"</p>
   <p class="d">옛 시스템의 Document list 처럼 <b>[📑 페이지 목록]</b> 버튼으로 목록을 열고, 거기서 바로 페이지를 고릅니다. 지금 보고 있는 쪽은 색으로 표시됩니다.
-  <span class="grey">다만 「고르면 바로 닫히는」 문제는 아직입니다 — 「이제 해야 할 것」 1번.</span></p>
+  <span class="grey">「고르면 바로 닫히던」 문제도 8/13 오후에 고쳤습니다 — 「다 된 것 ②」 2번 참고.</span></p>
   <p class="ev">index.html:8319 📑 페이지 목록 / idx-main.js:12637 pdfTogglePageList()</p>
 </div>
 
@@ -217,7 +230,7 @@
   <p class="en">"For class fee, Please include Lesson time / Student / Status / Deductions"</p>
   <p class="d">💰 수업료 정산 탭에 <b>수업시간 · 학생 · 상태 · 수업유형 · 등급(요율) · 시간(분) · 금액 · 당일 피드백 · 공제 · 합계</b> 열을 모두 넣었습니다.
   <b>지각 10페소/분</b>(<span class="grey">연장을 못 한 경우</span>)과 <b>피드백 미작성 25페소</b>는 켜져 있습니다.
-  <span class="grey">사전 연기 지급률만 아직 정해지지 않았습니다 — 「이제 해야 할 것」 3번.</span></p>
+  <span class="grey">사전 연기 0페소도 8/13 사장님 결정으로 켰습니다 — 「다 된 것 ②」 참고.</span></p>
   <p class="ev">admin/mypage.html:1855~2035 (tab-lessonfee) / api-admin.ts:1485 late_no_extend · 1505 nofb_25</p>
 </div>
 
@@ -260,34 +273,77 @@
 
 
 <!-- ══════════════════ 2. 아직 안 된 것 ══════════════════ -->
-<h2 class="sec s-part">⚠️ 아직 안 된 것 &nbsp;— 5건
-  <small>고쳤는데도 다시 신고가 들어왔거나, 반만 된 것들입니다. 원인은 아래에 적었습니다.</small>
+<h2 class="sec s-done">✅ 다 된 것 ② &nbsp;— 6건 <span style="font-weight:700;font-size:9.5pt">(8월 13일 오후 — 오늘 새로 고친 것)</span>
+  <small>위 목록을 만든 뒤 사장님 「모두 진행해」 지시로 작업한 것들입니다. 커밋 301c603.</small>
 </h2>
 
-<div class="item part">
-  <p class="t"><span class="date">8/13 ①</span>교재 라이브러리에 MES 교재가 아직 보인다 (서버 교재)</p>
+<div class="item done">
+  <p class="t"><span class="date">8/13 ①</span>교재 라이브러리 MES — <b>이름으로 맞히지 않고 사람이 고르게</b> 바꿨습니다</p>
   <p class="en">"There are still MES books at the library, server textbooks"</p>
-  <p class="d">8월 11일에 MES 숨김을 넣었는데도 <b>여전히 보인다</b>는 신고입니다. <b>원인을 찾았습니다.</b></p>
-  <p class="why"><b>왜 아직 보이나</b> — 지금 필터는 교재 <b>이름에 「MES」라는 글자가 들어 있는지</b>만 봅니다.
-  그런데 서버 교재는 파일 이름 앞의 <code>[대괄호]</code> 로 묶음 이름을 만드는데,
-  마이마이가 표시한 것들은 <b>「LEVEL 1」~「LEVEL 7」 · 「(Others)」 · 「004. I visited my grandparents」</b> 처럼
-  <b>이름 어디에도 MES 가 없습니다.</b> 그래서 필터를 그대로 통과합니다.
-  → <b>이름이 아닌 다른 기준</b>(묶음 목록을 직접 지정하거나 서버에서 표시 여부를 관리)으로 바꿔야 합니다.</p>
-  <p class="ev">idx-x3.js:18 __libIsRetiredCourse() — publisher+textbook 문자열만 검사 / idx-x3.js:207~243 _serverFilesToBooks() — 묶음 이름 = 파일명의 [대괄호]</p>
+  <p class="d"><b>8월 11일 숨김이 왜 아무것도 못 숨겼나</b> — 그 필터는 교재 <b>이름에 「MES」라는 글자가 있는지</b>만 봅니다.
+  그런데 서버 교재의 묶음 이름은 파일명 앞 <code>[대괄호]</code> 에서 나오고, 실제 이름은
+  <b>「LEVEL 1」~「LEVEL 7」 · 「Mangoi Books」 · 「004. I visited my grandparents」</b> — <b>어디에도 MES 가 없습니다.</b></p>
+  <p class="why"><b>그래서 코드가 찍지 않게 했습니다.</b> 「LEVEL 1~7 이 MES 겠지」 하고 코드가 추측하면,
+  <b>틀렸을 때 강사가 지금 쓰는 교재가 사라집니다.</b> 어느 묶음이 MES 인지는 <b>사람이 압니다.</b><br>
+  → <b>교재 업로더 화면에 「🙈 라이브러리에서 숨길 교재」 체크박스 목록</b>을 만들었습니다.
+  체크하면 강사·학생 라이브러리에서 즉시 사라지고, 풀면 즉시 돌아옵니다. <b>배포가 필요 없습니다.</b>
+  파일은 지워지지 않고 지난 수업 기록도 그대로입니다.<br>
+  <b>⚠️ 마이마이가 어느 것을 숨길지 체크해 주어야 완료됩니다</b> — 질문지 1번.</p>
+  <p class="ev">api-admin.ts textbook_hidden_books + /api/admin/textbook-hidden-books / textbook-uploader.html 체크박스 / index.ts 라우팅 2곳 + 강사 차단</p>
 </div>
 
-<div class="item part">
-  <p class="t"><span class="date">8/13 ③ · 8/12 ② · 8/11 ① · 8/10 ③⑤</span>라이브러리 교재가 여전히 느리다 (5번 반복 신고)</p>
-  <p class="en">"The books from the library still lag" / "Book in pdf form from the system doesn't move to the next page, it lags. Better to use jpg file from the computer than the pdf book in the system"</p>
-  <p class="d"><b>가장 많이 반복된 신고입니다.</b> 지금까지 세 가지를 넣었습니다 —
-  ① <b>다음 장 미리 받기</b>(20MB 넘는 파일은 제외), ② <b>필요한 조각만 받기</b> + 1년 캐시, ③ 한 번 연 파일 <b>기억해 두기</b>.
-  그런데도 8월 13일에 또 <b>「still lag」</b> 이 들어왔습니다.</p>
-  <p class="why"><b>남은 차이</b> — 매니저가 계속 말하는 것은 <b>「내 컴퓨터의 JPG 가 시스템 PDF 보다 빠르다」</b> 입니다.
-  지금 시스템은 <b>PDF 를 PDF 그대로</b> 보냅니다. 브라우저가 매번 PDF 를 그림으로 바꿔야 해서, 이미 그림인 JPG 보다 느릴 수밖에 없습니다.
-  → <b>서버에서 PDF 를 미리 JPG 로 바꿔 두는 작업</b>이 필요합니다. 지금 코드에는 변환 기능이 <b>없습니다.</b>
-  아래 「강사 PC 램 증설」과도 겹치는 문제라, 둘을 같이 봐야 합니다.</p>
-  <p class="ev">idx-main.js:12519 _pdfPrefetchNextSeq() · 12531 20MB 제외 / api-admin.ts:9743 Range 206 + immutable / idx-x3.js:69 _tbfUrlCache — 변환 코드는 저장소 어디에도 없음</p>
+<div class="item done">
+  <p class="t"><span class="date">8/13 ②</span>페이지 고르는 창 — 고르면 <b>안 닫히고</b>, <b>크기를 늘릴 수</b> 있습니다</p>
+  <p class="en">"can we let it stay until we close it? Also can we resize it"</p>
+  <p class="d">이제 페이지를 골라도 <b>창이 그대로 있습니다</b> — BODA 처럼 목록을 띄워 둔 채 계속 넘길 수 있습니다.
+  닫는 길은 <b>[✕] 하나뿐</b>이라 실수로 사라지지 않습니다. 지금 보는 쪽은 <b>파란 강조</b>로 따라옵니다.<br>
+  창 <b>오른쪽 아래 모서리를 끌면 크기가 늘어나고</b>, 그 크기를 <b>기억</b>해서 다음에 열 때도 그대로 뜹니다.</p>
+  <p class="ev">idx-main.js pdfTogglePageList() — resize:both · _pdfPageListMark() · mangoi_pagelist_size</p>
 </div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/13 ③ · 8/12 ② · 8/11 ① · 8/10 ③⑤</span>교재 느림 — 미리 받는 양을 <b>4배로</b> 늘렸습니다</p>
+  <p class="en">"The books from the library still lag" (5번 반복 신고)</p>
+  <p class="d"><b>운영 DB 를 직접 세어 보고 원인을 다시 잡았습니다.</b> 교재 파일 <b>38,922개 중 38,860개(99.84%)가 이미 JPG</b> 이고
+  PDF 는 <b>62개뿐</b>입니다(SIU 58 · Shake it up 4). 즉 <b>「PDF 라서 느린 것」이 아니었습니다.</b></p>
+  <p class="why"><b>진짜 원인</b> — 이 교재들은 <b>「1장 = 파일 1개」</b> 라서, ▶ 를 누를 때마다 <b>새 파일을 새로 받습니다.</b>
+  마이마이가 말한 「내 컴퓨터의 JPG 가 빠르다」는 <b>파일이 이미 컴퓨터에 있어서</b>였지, JPG 라서가 아니었습니다.<br>
+  → 그래서 <b>앞 3장 + 뒤 1장을 미리 받아 둡니다</b>(전에는 앞 1장만). JPG 는 작아서 회선 부담이 적습니다.
+  수업 영상과 경쟁하지 않게 <b>한 번에 하나씩 순서대로</b> 받고, 20MB 넘는 파일은 건너뜁니다.<br>
+  <b>덕분에 「서버에서 PDF 를 JPG 로 바꾸는 큰 공사」는 필요 없어졌습니다</b> — 앞 버전 문서의 그 제안은 잘못된 진단이었습니다.</p>
+  <p class="ev">idx-main.js PDF_PREFETCH_AHEAD=3 · PDF_PREFETCH_BEHIND=1 · 순차 처리 · 20MB 상한 유지</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/7 ② 정책</span>사전 연기(30분보다 이른 연기) <b>0페소 — 사장님이 결정하셨습니다</b></p>
+  <p class="en">"-Postpone class more than 30 minutes before the class (0php)"</p>
+  <p class="d">8월 7일에 <b>꺼 둔 채</b> 만들어 놓았던 규칙을 <b>켰습니다.</b> 이제 마이마이 문서대로
+  <b>시작 30분 이내 연기는 전액, 그보다 이른 연기는 0페소</b> 입니다.</p>
+  <p class="why"><b>되돌리는 길은 남아 있습니다</b> — 관리자 → 급여 → 공제 규칙에서 [사전 연기 지급률] 을 끄면
+  <b>즉시</b> 예전 계산(전액 지급)으로 돌아갑니다. 금액(%)도 0 이 아닌 다른 값으로 바꿀 수 있습니다.<br>
+  <b>⚠️ 강사들에게 미리 알려 주셔야 합니다</b> — 이번 달 급여부터 실제로 줄어듭니다.</p>
+  <p class="ev">api-admin.ts postponed_early_pay_percent enabled=1 + 1회 마이그레이션(early_postpone_on_260813)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/13 ① 후속</span>동영상 강의의 <b>MES 탭이 기본으로 켜져 있던 것</b></p>
+  <p class="d">동영상 강의 페이지를 열면 <b>MES 탭이 먼저 보이던 것</b>을 고쳤습니다. 이제 <b>BTS 로 시작</b>하고 MES 탭은 감췄습니다.
+  레벨테스트 <b>추천 교재</b> 고르는 칸의 MES 선택지도 뺐습니다. <b>지우지 않고 감췄습니다</b> — 옛 영상과 기록은 그대로입니다.</p>
+  <p class="ev">lessons.html 탭 display:none + curTb='BTS' / admin/mypage.html 추천교재 datalist</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">보안</span>덤으로 잡힌 것 — <b>강사가 전 회사 교재를 숨길 수 있던 구멍</b></p>
+  <p class="d">위 ① 을 만들면서 자동 검사가 잡아 줬습니다. 새로 만든 숨김 기능이 <b>강사에게도 열려 있었습니다</b> —
+  강사 한 명이 체크하면 <b>모든 강사의 교재가 사라질</b> 수 있었습니다. <b>본사·매니저만</b> 쓰도록 막았습니다.</p>
+  <p class="ev">index.ts TEACHER_BLOCKED_PREFIXES / admin_write_guard_harness 가 검출</p>
+</div>
+
+<div class="pg"></div>
+
+<h2 class="sec s-part">⚠️ 아직 안 된 것 &nbsp;— 3건
+  <small>고칠 수는 있지만 <b>정보가 더 필요하거나</b>, 일부러 그렇게 둔 것들입니다.</small>
+</h2>
 
 <div class="item part">
   <p class="t"><span class="date">8/10 ①</span>교실 화면이 깜빡인다 (전체)</p>
@@ -324,19 +380,9 @@
 
 
 <!-- ══════════════════ 3. 이제 해야 할 것 ══════════════════ -->
-<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 7건
-  <small>아직 손대지 않았거나, 사람이 먼저 정해 줘야 코드를 쓸 수 있는 것들입니다.</small>
+<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 5건
+  <small>코드로 할 수 없거나, 사람이 먼저 정해 줘야 하는 것들입니다.</small>
 </h2>
-
-<div class="item todo">
-  <p class="t"><span class="date">8/13 ②</span>페이지 고르는 창을 열어 둔 채 쓰기 · 크기 조절</p>
-  <p class="en">"The page window closes immediately after selecting the page, can we let it stay until we close it? Also can we resize it, the pages # are not visible on the file name like the current in BODA"</p>
-  <p class="d">세 가지 요청 중 <b>한 가지는 이미 되어 있습니다</b> — 파일 이름 앞에 <b>순번</b>이 붙고, 여러 쪽 PDF 는 「n쪽 / 총 몇 쪽」이 나옵니다.</p>
-  <p class="why"><b>해야 할 것 두 가지</b><br>
-  ① <b>고르면 바로 닫힘</b> → 지금은 페이지를 누르는 순간 창을 닫습니다(두 곳). <b>[✕] 를 누를 때만</b> 닫히게 바꿔야 합니다.<br>
-  ② <b>크기 조절 불가</b> → 창 크기가 <b>가로 236px 로 고정</b>되어 있습니다. 끌어서 늘리는 손잡이가 없습니다.</p>
-  <p class="ev">idx-main.js:12719 · 12756 클릭 끝에서 pdfClosePageList() 호출 / :12643 width:236px 고정 (resize 속성·드래그 핸들 없음) / :12683 순번 표시는 구현됨</p>
-</div>
 
 <div class="item todo">
   <p class="t"><span class="date">8/12 ④</span>BTS 배치고사(레벨테스트) 교재를 라이브러리에 넣기</p>
@@ -349,24 +395,13 @@
 </div>
 
 <div class="item ask">
-  <p class="t"><span class="date">8/7 ② 정책</span>「30분보다 일찍 연기한 수업」의 지급률을 정해 주세요 <span class="grey">— 사장님 결정</span></p>
-  <p class="en">"-Postpone class 30 mins before the class (50php) / -Postpone class more than 30 minutes before the class (0php)"</p>
-  <p class="d">마이마이가 요청한 규칙은 <b>「30분보다 더 일찍 연기하면 0페소」</b> 입니다. 코드에는 <b>넣어 두었지만 꺼 놓았습니다.</b></p>
-  <p class="why"><b>왜 꺼 놓았나</b> — 이걸 켜는 순간, <b>지금까지 전액 지급되던 사전 연기분이 전부 0원이 됩니다.</b>
-  강사 급여가 실제로 줄어드는 변경이라 <b>코드가 마음대로 정할 일이 아닙니다.</b><br>
-  <b>지금 상태:</b> 사전 연기도 <b>전액 지급 중</b>입니다.
-  <b>필요한 것:</b> 「0%로 할지 / 다른 비율로 할지」 한 마디만 정해 주시면 관리자 → 급여 → 공제 규칙에서 켜면 끝입니다.</p>
-  <p class="ev">api-admin.ts:1502 postponed_early_pay_percent — enabled=0(꺼짐) / :1570 earlyPostponeOn 판정</p>
-</div>
-
-<div class="item ask">
   <p class="t"><span class="date">8/7-2 ①</span>강사 컴퓨터 램(RAM) 8GB → 16GB 증설 <span class="grey">— 사장님 결정 (코드 아님)</span></p>
   <p class="en">"The computers that we have in the company have only 8gb RAM… Suggestion: Purchase bigger RAM for teachers computers"</p>
   <p class="d">이건 <b>하드웨어 구매</b>라 코드로 할 수 없습니다. 소프트웨어 쪽에서는 이미 <b>수업 입장 시 가벼운 모드가 기본</b>이고, 첫 화면 대기량도 1,612KB → 1,506KB 로 줄였습니다.</p>
-  <p class="why"><b>같이 보셔야 할 것</b> — 위 「아직 안 된 것」 2번(교재가 느리다)과 <b>같은 뿌리</b>일 수 있습니다.
-  PDF 를 그림으로 바꾸는 일을 <b>강사 PC 가 하고 있어서</b> 램이 모자란 것이라면,
-  <b>서버에서 미리 JPG 로 바꿔 두면 램을 늘리지 않고도 해결</b>될 수 있습니다.
-  → <b>램 구매 전에 서버 변환을 먼저 시험해 보는 것을 권합니다.</b></p>
+  <p class="why"><b>사기 전에 한 주만 기다려 보시길 권합니다.</b> 오늘 <b>교재 미리 받기를 4배로 늘렸습니다</b>(위 참고).
+  교재가 느렸던 것이 램 부족이 아니라 <b>매번 새로 받느라</b> 그랬던 것이라면, 이 수정만으로 체감이 크게 달라집니다.<br>
+  또 DB 를 세어 보니 교재가 <b>거의 다 JPG</b> 라(99.84%), PDF 를 그림으로 바꾸느라 램을 쓰는 상황도 <b>아니었습니다.</b>
+  → <b>마이마이에게 며칠 써 보고 알려 달라고 한 뒤</b> 결정하셔도 늦지 않습니다(질문지 4번).</p>
 </div>
 
 <div class="item ask">
@@ -380,15 +415,15 @@
   <p class="ev">js/adm-q6.js:53~58 「이 날짜만」/「매주 ○요일 반복」 라디오 · 266 카드 표시 · 403 카드 클릭 삭제</p>
 </div>
 
-<div class="item todo">
-  <p class="t"><span class="date">8/13 ① 후속</span>라이브러리 말고 다른 화면에도 MES 가 남아 있습니다</p>
-  <p class="d">MES 숨김은 <b>수업 화면에만</b> 걸려 있습니다. 아래 세 곳은 <b>그대로 보입니다</b> — 마이마이가 본 것이 여기일 수도 있습니다.</p>
-  <p class="why">
-  ① <b>동영상 강의 페이지</b> — MES 탭이 <b>기본으로 켜져</b> 있습니다 <span class="grey">(제일 눈에 띕니다)</span><br>
-  ② <b>커리큘럼 페이지</b> — MES 항목 그대로<br>
-  ③ <b>관리자 마이페이지</b> — 레벨테스트 <b>추천 교재</b> 고르는 칸에 MES 선택지<br>
-  <span class="grey">서버 API 는 일부러 안 걸렀습니다 — 숨기는 것이지 지우는 것이 아니고, 옛 수업 기록이 그 파일을 가리키기 때문입니다.</span></p>
-  <p class="ev">lessons.html:192 · 202 · 317 (MES 탭 기본 활성) / curriculum.html:343~348 / admin/mypage.html:2352</p>
+<div class="item ask">
+  <p class="t"><span class="date">8/13 ① 후속</span>커리큘럼 소개 페이지의 MES <span class="grey">— 사장님 결정 (일부러 안 건드렸습니다)</span></p>
+  <p class="d">동영상 강의와 추천 교재의 MES 는 <b>오늘 감췄습니다.</b> 하지만 <b>커리큘럼 소개 페이지</b>는
+  <b>일부러 그대로 두었습니다.</b></p>
+  <p class="why"><b>왜 안 건드렸나</b> — 그 페이지는 학부모에게 보이는 <b>「자체 개발 교재 3종」 소개</b>이고,
+  MES 는 <b>「미국 교사들이 2년에 걸쳐 개발해 10년간 애용한 교재」</b> 로 소개되어 있습니다.
+  이걸 빼면 <b>3종이 2종이 되고</b>, 이는 <b>매출·마케팅 결정</b>이지 코드가 조용히 정할 일이 아닙니다.<br>
+  <b>필요한 것:</b> 「학부모에게도 MES 를 더 이상 안 보여줄지」 한 마디만 정해 주시면 바로 반영합니다.</p>
+  <p class="ev">curriculum.html:343~348 「자체 개발 교재 3종」 — MES · BTS · SIU</p>
 </div>
 
 <div class="item todo">
@@ -404,10 +439,14 @@
   <b>이 문서를 만든 방법</b> — 마이마이가 보낸 PDF·DOCX 두 파일에서 지적사항 31건을 뽑아,
   저장소 <b>main 브랜치(7854bae, 2026-08-13)</b> 의 실제 코드와 한 건씩 대조했습니다.
   「됐다」고 적은 것은 <b>해당 코드를 직접 찾아 확인한 것</b>이며, 근거 위치를 각 항목에 적었습니다.<br>
+  8월 13일 오후에 사장님 「모두 진행해」 지시로 <b>6건을 실제로 고쳐 커밋</b>했습니다(301c603).
+  검증: <b>타입검사 통과 · 자동검사 143건 전부 통과(실패 0) · 신규 검사 31건 추가.</b><br>
   <b>⚠️ 다만 「코드에 있다」와 「라이브에서 잘 보인다」는 다릅니다.</b>
   강사·관리자 화면은 로그인해야 보여서 <b>브라우저로 눈으로 확인하지는 못했습니다.</b>
-  ✅ 19건은 <b>마이마이에게 「확인해 달라」고 요청</b>해 주세요.<br>
-  <b>가장 급한 것 3가지</b> — ① 라이브러리 MES(원인 찾음, 고치면 됨) · ② 교재 느림(5번 반복 신고, 서버 JPG 변환 검토) · ③ 사전 연기 지급률 결정(사장님).
+  ✅ 25건은 <b>마이마이에게 「확인해 달라」고 요청</b>해 주세요 — 별도 질문지를 만들어 두었습니다.<br>
+  <b>지금 사장님이 하셔야 할 것 2가지</b> —
+  ① <b>강사들에게 「사전 연기 0페소」를 알려 주세요</b>(이번 달 급여부터 실제로 줄어듭니다).
+  ② <b>마이마이에게 질문지를 보내 주세요</b> — 특히 「어느 교재를 숨길지」는 그가 체크해야 끝납니다.
 </div>
 
 </body>
