@@ -753,6 +753,10 @@ document.getElementById('btn-save').onclick = async () => {
   pendingGroups.forEach(g => g.lessons.forEach(files => totalFiles += files.length));
   let done = 0;
   let savedBooks = 0;
+  /* 📡 (2026-08-13) 공용 자료실(서버) 업로드 결과 — «내 PC 에만 저장» 을 성공이라 말하지 않기 위해.
+     srvDenied 는 «권한이 없어서» 다(401/403). 강사에게는 이게 가장 흔한 경우다. */
+  const srvJobs = [];
+  let srvOk = 0, srvFail = 0, srvDenied = 0, srvSkipped = 0;
 
   try {
     if (!db) {
@@ -774,19 +778,33 @@ document.getElementById('btn-save').onclick = async () => {
             throw new Error('파일 "' + c.fileName + '" 저장 실패: ' + (e.message || e.name) + ' (브라우저 저장 공간 부족 가능)');
           }
           fileIds.push(fid);
-          // fix (2026-06-01) — 서버(R2)에도 best-effort 업로드: 모든 기기(휴대폰)에서 교재가 보이도록.
-          //   pdf/jpg/png/webp 만 지원. 관리자 세션이 있을 때만 성공(없으면 401 → 무시).
+          /* fix (2026-06-01) — 서버(R2)에도 업로드: 모든 기기(휴대폰)에서 교재가 보이도록.
+             pdf/jpg/png/webp 만 지원. 관리자 세션이 있을 때만 성공(없으면 401).
+
+             🔴 (2026-08-13 마이마이 Q5 답변) 「Teachers can upload every level test
+                but we don't know how to add in the library.」— **여기가 원인이었다.**
+                이 실패를 console.warn 으로만 남기고 화면에는 «✅ 저장 완료!» 라고 띄웠다.
+                강사 눈에는 성공인데 실제로는 **자기 PC(IndexedDB)에만** 들어갔다 —
+                공용 자료실에는 아무것도 안 올라갔고, 왜 안 되는지 알 길도 없었다.
+                → 결과를 세어서 «무엇이 어디까지 됐는지» 를 반드시 말해 준다(아래 완료 문구). */
           (function(file, kind, name, level){
-            if (kind !== 'pdf' && kind !== 'image') return;
+            if (kind !== 'pdf' && kind !== 'image') { srvSkipped++; return; }
             try {
               var fd = new FormData();
               fd.append('file', file, file.name || name);
               fd.append('name', name);
               if (level) fd.append('level', level);
-              fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
-                .then(function(r){ if (r.ok) console.log('[srvupload] OK:', name); else console.warn('[srvupload] skip(', r.status, '):', name); })
-                .catch(function(){ /* 오프라인/비관리자 — 무시 */ });
-            } catch(_) {}
+              srvJobs.push(
+                fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
+                  .then(function(r){
+                    if (r.ok) { srvOk++; return; }
+                    srvFail++;
+                    if (r.status === 401 || r.status === 403) srvDenied++;
+                    console.warn('[srvupload] skip(', r.status, '):', name);
+                  })
+                  .catch(function(){ srvFail++; /* 오프라인 */ })
+              );
+            } catch(_) { srvFail++; }
           })(c.file, c.kind, (g.textbook ? '['+g.textbook+'] ' : '') + (lsnName ? lsnName+' / ' : '') + c.fileName, g.level || '');
           done++;
           // 진행률 표시 (10개마다 또는 마지막)
@@ -811,7 +829,36 @@ document.getElementById('btn-save').onclick = async () => {
       console.log('[save] 교재 저장 완료:', meta.publisher, '/', meta.textbook, '·', meta.lessons.length, '레슨,', meta.totalFiles, '파일');
     }
 
-    btn.textContent = '✅ 저장 완료!';
+    /* 📡 (2026-08-13) 서버 업로드가 끝날 때까지 기다린 뒤 «어디까지 됐는지» 를 말한다.
+       기다리지 않으면 아직 올라가는 중인데 «완료» 라고 말하게 된다. */
+    if (srvJobs.length) {
+      btn.textContent = '📡 공용 자료실에 올리는 중… (' + srvJobs.length + '개)';
+      try { await Promise.all(srvJobs); } catch (_) {}
+    }
+    if (srvDenied > 0) {
+      btn.textContent = '⚠️ 이 컴퓨터에만 저장됨';
+      alert('⚠️ 이 컴퓨터에만 저장되었습니다\n\n'
+        + '파일 ' + srvDenied + '개가 «공용 자료실»에 올라가지 못했습니다 (권한 없음).\n'
+        + '지금은 이 컴퓨터의 내 수업에서만 쓸 수 있고, 다른 선생님께는 안 보입니다.\n\n'
+        + '👉 공용 자료실에 올리려면 «관리자 계정으로 로그인» 한 뒤 다시 저장하거나,\n'
+        + '    본사에 파일을 보내 올려 달라고 요청해 주세요.\n\n'
+        + '— — — — — — — — — —\n\n'
+        + '⚠️ Saved to THIS COMPUTER only\n\n'
+        + srvDenied + ' file(s) could not be added to the SHARED library (no permission).\n'
+        + 'You can use them in your own class on this computer, but other teachers cannot see them.\n\n'
+        + '👉 To add them to the shared library, log in as an admin and save again,\n'
+        + '    or send the files to the head office and ask them to upload.');
+    } else if (srvFail > 0) {
+      btn.textContent = '⚠️ 일부만 자료실에 올라감';
+      alert('⚠️ 파일 ' + srvFail + '개가 공용 자료실에 올라가지 못했습니다 (네트워크 문제로 보입니다).\n'
+        + '이 컴퓨터에는 저장되었습니다. 인터넷을 확인한 뒤 다시 저장해 주세요.\n\n'
+        + '⚠️ ' + srvFail + ' file(s) failed to reach the shared library (looks like a network problem).\n'
+        + 'They are saved on this computer. Please check your connection and save again.');
+    } else if (srvOk > 0) {
+      btn.textContent = '✅ 공용 자료실에 저장 완료! (' + srvOk + '개)';
+    } else {
+      btn.textContent = '✅ 저장 완료! (이 컴퓨터)';
+    }
     pendingGroups = [];
 
     // 필터 초기화 (저장한 교재가 보이도록)

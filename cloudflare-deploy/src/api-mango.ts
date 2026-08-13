@@ -1405,7 +1405,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/stats/') || path.startsWith('/api/admin/kpi/')
         || path.startsWith('/api/admin/payroll/') || path.startsWith('/api/admin/schedule-requests')
         || path.startsWith('/api/admin/feedback-drafts')) {
-      const rAdmin = await handleAdminApi(request, url, env);
+      // ctx 를 넘긴다 — 교재 /raw 가 엣지 캐시 쓰기(waitUntil)에 쓴다 (2026-08-13)
+      const rAdmin = await handleAdminApi(request, url, env, ctx);
       if (rAdmin) return rAdmin;
     }
 

@@ -334,10 +334,18 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   };
 }
 
+/* 🙈 (2026-08-13) MES 숨김 씨앗을 «이 아이솔레이트에서 이미 확인했는가».
+   숨김 목록은 강사가 교재를 열 때마다(공개 라이브러리) 읽히는 뜨거운 길이다.
+   플래그 확인 SELECT 를 매 요청 돌리지 않게 여기서 한 번만 본다.
+   ⚠️ 이건 «했다» 의 정본이 아니다 — 정본은 DB 의 payroll_meta 플래그다.
+      아이솔레이트가 새로 뜨면 한 번 더 확인하고, 이미 돼 있으면 그대로 지나간다. */
+let _mesHiddenSeedChecked = false;
+
 export async function handleAdminApi(
   request: Request,
   url: URL,
-  env: MangoEnv
+  env: MangoEnv,
+  ctx?: ExecutionContext   // 📚 교재 /raw 엣지 캐시(waitUntil) 전달용 — 선택적(하위호환)
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -9633,6 +9641,27 @@ LIMIT $limit`;
       await env.DB.exec(
         `CREATE TABLE IF NOT EXISTS textbook_hidden_books (book TEXT PRIMARY KEY, hidden_by TEXT, created_at INTEGER NOT NULL);`
       );
+      /* ✅ (2026-08-13) 마이마이 답변: **"Yes, Level 1 to 7 are MES"**
+         ─────────────────────────────────────────────────────────────────
+         위에서 «코드가 찍지 않는다» 고 한 그 답을 사람에게 받았다 → 이제 넣어도 된다.
+         ⚠️ 1회만 넣는다. 관리자가 나중에 «역시 보이게» 체크를 풀면 그 뜻을 지켜야 하는데,
+            매 요청마다 넣으면 푼 것이 되살아난다(플래그로 딱 한 번).
+         ⚠️ LEVEL 2 는 지금 운영 DB 에 없다 — 넣어도 해가 없고, 나중에 올라오면 자동으로 숨겨진다. */
+      if (_mesHiddenSeedChecked) return;
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
+        const seeded: any = await env.DB.prepare(`SELECT value FROM payroll_meta WHERE key = 'mes_hidden_seed_260813'`).first().catch(() => null);
+        _mesHiddenSeedChecked = true;
+        if (!seeded) {
+          const now2 = Date.now();
+          for (let lv = 1; lv <= 7; lv++) {
+            await env.DB.prepare(
+              `INSERT OR IGNORE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
+            ).bind(`LEVEL ${lv}`, 'maimai-260813', now2).run().catch(() => {});
+          }
+          await env.DB.prepare(`INSERT OR REPLACE INTO payroll_meta (key,value,updated_at) VALUES ('mes_hidden_seed_260813','1',?)`).bind(now2).run().catch(() => {});
+        }
+      } catch { /* 씨앗이 안 들어가도 화면에서 직접 체크하면 된다 */ }
     };
     const loadHiddenBooks = async (): Promise<Set<string>> => {
       try {
@@ -9813,7 +9842,29 @@ LIMIT $limit`;
                 pdf.js 가 필요한 페이지 조각만 받아 첫 페이지가 즉시 뜬다.
          ⚠️ r2_key 는 업로드마다 새로 만들어지므로 내용이 바뀌지 않는다 → immutable 캐시 가능.
             (기존 max-age=3600 은 매 수업마다 6MB 를 다시 받게 하고 있었다) */
+      /* ⚡ (2026-08-13 마이마이 「No, still lag, they are slow」 — 5번째 반복 신고)
+         ═══════════════════════════════════════════════════════════════════════
+         [측정] 교재 이미지 38,860장 평균 143.8KB(최대 1.7MB). 파일이 작다 —
+                «파일이 커서» 느린 게 아니다.
+         [남은 원인] 이 응답에 Cache-Control: immutable 을 달아도 그건 **브라우저 캐시**다.
+                Worker 가 만든 응답은 클라우드플레어 엣지에 자동으로 담기지 않는다.
+                그래서 «처음 보는 장» 은 강사마다·기기마다 매번
+                   마닐라 → (D1 조회) → R2(서울 ICN) → 마닐라
+                를 왕복했다. 한 반이 같은 교재를 봐도 캐시를 나눠 쓰지 못했다.
+         [수정] Cache API 로 엣지에 담는다. 마닐라 엣지가 한 번 데워지면 그 다음부터는
+                같은 도시의 모든 강사가 R2 왕복 없이 받는다 — 필리핀에서 체감이 가장 크다.
+         ⚠️ Range(206) 요청은 담지 않는다 — Cache API 는 206 을 못 담고, 조각마다 키가
+            달라 캐시를 오염시킨다. PDF(62개)만 Range 를 쓰므로 이미지 99.8% 는 그대로 이득.
+         ⚠️ r2_key 는 업로드마다 새로 만들어져 내용이 안 바뀐다 → 엣지에 오래 둬도 안전하다.
+            교재를 지우면 id 가 404 가 되므로 «지운 교재가 계속 보이는» 일도 없다. */
       const rangeHeader = request.headers.get('range');
+      const edgeCache: any = (globalThis as any).caches?.default;
+      if (!rangeHeader && edgeCache) {
+        try {
+          const hit = await edgeCache.match(request);
+          if (hit) return hit;
+        } catch { /* 캐시가 막혀 있어도 원본 경로로 계속 간다 */ }
+      }
       const obj = rangeHeader
         ? await r2.get(row.r2_key, { range: request.headers })
         : await r2.get(row.r2_key);
@@ -9837,7 +9888,17 @@ LIMIT $limit`;
         return new Response(obj.body, { status: 206, headers });
       }
       headers.set('Content-Length', String((obj as any).size));
-      return new Response(obj.body, { headers });
+      const full = new Response(obj.body, { headers });
+      /* 엣지에 담는다. 응답 본문은 한 번만 읽을 수 있으므로 clone() 을 넣고 원본을 돌려준다.
+         waitUntil 이 있으면 담기를 기다리지 않고 강사에게 먼저 보낸다(첫 요청도 안 느려진다). */
+      if (!rangeHeader && edgeCache) {
+        try {
+          const put = edgeCache.put(request, full.clone());
+          if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(put);
+          else await put;
+        } catch { /* 못 담아도 응답은 정상이다 */ }
+      }
+      return full;
     }
 
     // GET /api/textbook-files/:id — 메타데이터 (공개)

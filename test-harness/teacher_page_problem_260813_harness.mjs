@@ -34,6 +34,7 @@ const grid     = rd('../cloudflare-deploy/public/js/idx-grid-menu.js');
 const lvtest   = rd('../cloudflare-deploy/public/level-test-ai.html');
 const admin    = rd('../cloudflare-deploy/public/admin.html');
 const admcore  = rd('../cloudflare-deploy/public/js/adm-core.js');
+const mapi     = rd('../cloudflare-deploy/src/api-mango.ts');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond) {
@@ -146,6 +147,41 @@ check('관리자: 새 영상에 MES 를 «고르는» 목록에서 뺐다 (옛 �
   /<option value="MES" hidden>/.test(admin));
 check('🔴 관리자 교재명부 필터: MES 를 지우지 않았다 — 데이터에 있으면 칩이 자동으로 나온다',
   !/'전체교재', 'Phonics', 'MES'/.test(admcore) && /var extra = \{\}/.test(admcore));
+
+console.log('\n[ ⑥  마이마이 답변 처리 (2026-08-13 회신) ]');
+/* Q1 "Yes, Level 1 to 7 are MES" — 사람이 답했으므로 이제 넣어도 된다(코드가 찍는 게 아니다). */
+check('Q1: LEVEL 1~7 을 숨김 목록에 넣는다 (마이마이가 «MES 맞다» 고 답함)',
+  /mes_hidden_seed_260813/.test(aapi) && /`LEVEL \$\{lv\}`/.test(aapi));
+check('🔴 Q1: 딱 한 번만 넣는다 — 관리자가 «역시 보이게» 푼 것을 되살리면 안 된다',
+  /SELECT value FROM payroll_meta WHERE key = 'mes_hidden_seed_260813'/.test(aapi));
+check('🔴 Q1: 뜨거운 길(공개 라이브러리)에서 플래그 조회를 매번 하지 않는다',
+  /_mesHiddenSeedChecked/.test(aapi));
+
+/* Q4 "No, still lag" — 엣지 캐시. 측정값: 이미지 38,860장 평균 143.8KB → 파일 크기가 원인이 아니다. */
+check('Q4: 교재 /raw 를 엣지 캐시에서 먼저 찾는다 (R2 왕복을 없앤다)',
+  /edgeCache\.match\(request\)/.test(aapi));
+check('Q4: 받아온 뒤 엣지에 담는다 (다음 강사는 R2 까지 안 간다)',
+  /edgeCache\.put\(request, full\.clone\(\)\)/.test(aapi));
+check('🔴 Q4: Range(206) 응답은 담지 않는다 (Cache API 가 206 을 못 담는다)',
+  /if \(!rangeHeader && edgeCache\)/.test(aapi));
+check('🔴 Q4: 첫 요청을 느리게 만들지 않는다 (waitUntil 로 담기를 기다리지 않는다)',
+  /ctx\.waitUntil\(put\)/.test(aapi));
+check('🔴 Q4: 캐시가 막혀도 원본 경로로 계속 간다 (교재가 아예 안 뜨면 안 된다)',
+  /catch \{ \/\* 캐시가 막혀 있어도 원본 경로로 계속 간다 \*\/ \}/.test(aapi));
+check('Q4: ctx 가 실제로 전달된다 (선택 인자라 안 넘기면 조용히 안 된다)',
+  /handleAdminApi\(request, url, env, ctx\)/.test(mapi));
+
+/* Q5 "Teachers can upload … but we don't know how to add in the library" */
+check('Q5: 공용 자료실 업로드 «결과» 를 센다 (성공/실패/권한없음)',
+  /srvDenied/.test(uploader) && /srvOk/.test(uploader));
+check('🔴 Q5: 올라가는 중에 «완료» 라고 말하지 않는다 (끝까지 기다린다)',
+  /await Promise\.all\(srvJobs\)/.test(uploader));
+check('🔴 Q5: 권한이 없으면 «이 컴퓨터에만 저장됨» 이라고 분명히 말한다',
+  /이 컴퓨터에만 저장/.test(uploader) && /Saved to THIS COMPUTER only/.test(uploader));
+check('🌐 Q5: 안내가 한/영 둘 다다 (강사가 필리핀 사람이다)',
+  /shared library/.test(uploader) && /공용 자료실/.test(uploader));
+check('🔴 Q5: 무엇을 하면 되는지 말해 준다 (막다른 안내 금지)',
+  /관리자 계정으로 로그인/.test(uploader) && /본사에 파일을 보내/.test(uploader));
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
