@@ -10036,6 +10036,9 @@ LIMIT $limit`;
         api_base: (env as any).CODEF_API_BASE || null,
         // env 에 실린 바인딩 «이름» 전부(값 없음) — 시크릿이 env 로 안 오는 계층을 찾는 중
         env_keys: Object.keys(env as any).sort(),
+        // 길이만(값 미노출): 원본 vs ASCII 소독 후 — 붙여넣기 오염(제어문자·CR) 판정용
+        id_len: [String((env as any).CODEF_CLIENT_ID || '').length, String((env as any).CODEF_CLIENT_ID || '').replace(/[^\x20-\x7E]/g, '').trim().length],
+        secret_len: [String((env as any).CODEF_CLIENT_SECRET || '').length, String((env as any).CODEF_CLIENT_SECRET || '').replace(/[^\x20-\x7E]/g, '').trim().length],
       };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
