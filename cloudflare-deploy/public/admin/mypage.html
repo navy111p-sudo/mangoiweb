@@ -2346,10 +2346,11 @@
       + '</div>'
       // 📚 (2026-07-22) 학부모 컴플레인 #6: 추천 교재·다음 수업 안내 — 필수 입력, 결과 문자에 포함됨
       + '<label style="display:block;font-size:12.5px;font-weight:700;color:#a5b4fc;margin:14px 0 6px">📚 '+(en?'Recommended textbook (required)':'추천 교재 (필수)')+'</label>'
-      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. MES / BTS / SIU (with level)':'예: MES / BTS / SIU (+레벨)')+'" list="lt-book-options" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      + '<input id="lt-eval-book" type="text" value="'+ltEsc(app.recommended_textbook||'')+'" placeholder="'+(en?'e.g. BTS / SIU (with level)':'예: BTS / SIU (+레벨)')+'" list="lt-book-options" style="width:100%;box-sizing:border-box;background:#fff;color:#1a1a1a;border:1px solid #6366f1;border-radius:10px;padding:11px;font-size:14.5px;outline:none">'
+      /* 🙈 (2026-08-13 마이마이) MES 는 이제 안 쓴다 — 추천 교재 선택지에서 뺀다.
+         자유 입력 칸이라 옛 평가서에 남아 있는 «MES …» 값은 그대로 보인다(기록 보존). */
       + '<datalist id="lt-book-options">'
       +   '<option value="Phonics (파닉스)"></option>'
-      +   '<option value="MES (Mango English Study)"></option>'
       +   '<option value="BTS (Bubble Tea Study)"></option>'
       +   '<option value="SIU (Shake It Up)"></option>'
       +   '<option value="비즈니스 영어 코스"></option>'

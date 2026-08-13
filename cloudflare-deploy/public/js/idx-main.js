@@ -12515,26 +12515,54 @@ async function pdfEnsureSequence() {
    1장=1파일 교재에서는 ◀▶ 의 대부분이 «다음 파일 통째 교체» 라 매번 새 다운로드였다.
    /raw 응답은 immutable 캐시이므로, 시퀀스의 다음 파일을 미리 받아 두면 넘김이 캐시에서 뜬다.
    ⚠️ 수업 회선(WebRTC)과 경쟁하지 않게: 동시 1개만, 20MB 초과는 건너뛴다.
-      받다 만 응답은 캐시에 안 남으므로 blob() 으로 끝까지 받는다. */
-let _pdfPrefetchingUrl = null;
+      받다 만 응답은 캐시에 안 남으므로 blob() 으로 끝까지 받는다.
+
+   📊 (2026-08-13) 운영 DB 를 실제로 세어 보고 «한 장만 미리 받는» 것을 넓힌다.
+      textbook_files 38,922개 중 **38,860개(99.84%)가 JPG** 이고 PDF 는 62개뿐이다
+      (PDF 는 SIU BOOKS 58 · Shake it up 4). 즉 마이마이가 5번 반복한 「PDF 가 느리다」는
+      대부분 **PDF 가 아니라 «1장=1파일 JPG 를 넘길 때마다 새로 받는 것»** 이었다.
+      JPG 한 장은 작으므로 앞 3장을 미리 받아도 회선 부담이 크지 않다. 뒤로 넘기는 경우가
+      있어 **이전 1장**도 받아 둔다. 20MB 상한과 «동시 1개» 는 그대로 지킨다(순차 처리).
+      → 이래도 느리면 남은 원인은 회선이지 코드가 아니다(측정값을 문서에 남겼다). */
+const PDF_PREFETCH_AHEAD = 3;    // 앞으로 몇 장
+const PDF_PREFETCH_BEHIND = 1;   // 뒤로 몇 장
+let _pdfPrefetchBusy = false;
+window._pdfPrefetchedUrls = window._pdfPrefetchedUrls || Object.create(null);
 function _pdfPrefetchNextSeq() {
     try {
         var seq = window._libSequence;
         if (!seq || seq.length < 2) return;
-        var next = seq[(window._libSeqIdx || 0) + 1];
-        if (!next || !next.url) return;
-        if (_pdfPrefetchingUrl === next.url || window._pdfPrefetchedUrl === next.url) return;
-        _pdfPrefetchingUrl = next.url;
-        fetch(next.url).then(function (r) {
-            if (!r.ok) return null;
-            var len = parseInt(r.headers.get('content-length') || '0', 10);
-            if (len > 20 * 1024 * 1024) { try { if (r.body) r.body.cancel(); } catch (_) {} return null; }
-            return r.blob();
-        }).then(function (b) {
-            if (b) window._pdfPrefetchedUrl = next.url;
-            _pdfPrefetchingUrl = null;
-        }).catch(function () { _pdfPrefetchingUrl = null; });
-    } catch (_) {}
+        if (_pdfPrefetchBusy) return;
+        var cur = window._libSeqIdx || 0;
+        // 가까운 것부터: 다음 1·2·3장 → 이전 1장
+        var targets = [];
+        for (var a = 1; a <= PDF_PREFETCH_AHEAD; a++) targets.push(cur + a);
+        for (var b = 1; b <= PDF_PREFETCH_BEHIND; b++) targets.push(cur - b);
+        var queue = [];
+        targets.forEach(function (i) {
+            var f = seq[i];
+            if (!f || !f.url) return;
+            if (window._pdfPrefetchedUrls[f.url]) return;
+            queue.push(f.url);
+        });
+        if (!queue.length) return;
+        _pdfPrefetchBusy = true;
+        // 순차로 하나씩 — 동시에 여러 개를 받으면 수업 회선(WebRTC)과 경쟁한다
+        var step = function () {
+            var u = queue.shift();
+            if (!u) { _pdfPrefetchBusy = false; return; }
+            fetch(u).then(function (r) {
+                if (!r.ok) return null;
+                var len = parseInt(r.headers.get('content-length') || '0', 10);
+                if (len > 20 * 1024 * 1024) { try { if (r.body) r.body.cancel(); } catch (_) {} return null; }
+                return r.blob();
+            }).then(function (blob) {
+                if (blob) window._pdfPrefetchedUrls[u] = 1;
+                step();
+            }).catch(function () { step(); });
+        };
+        step();
+    } catch (_) { _pdfPrefetchBusy = false; }
 }
 // fix (2026-07-12) — 시퀀스 파일 이동. selectFromTextbookLibrary 는 교재 라이브러리 모달을
 //   한 번 연 세션에서만 정의됨(IDB 로드 콜백 내부) → 새 기기/학생용 직접 로드 폴백 필수.
@@ -12640,8 +12668,23 @@ async function pdfTogglePageList(){
     var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
     var panel = document.createElement('div');
     panel.id = 'pdf-pagelist';
-    /* 실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 4px 겹쳤다. 172 로 내린다. */
-    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;width:236px;max-height:min(58vh,520px);'
+    /* 📐 (2026-08-13 마이마이 8/13 ②) 「고르면 창이 바로 닫힌다 · 크기를 못 늘린다」
+       ─────────────────────────────────────────────────────────────────────
+       ① 크기 조절 — resize:both. 브라우저가 드래그로 width/height 를 인라인에 쓰므로
+          max-height 로 묶으면 세로가 안 늘어난다 → height 로 주고 max-* 는 화면 밖 방지용만.
+          resize 는 overflow 가 visible 이 아니어야 동작한다(아래 overflow:hidden 유지).
+       ② 고른 크기를 기억한다 — 매 수업마다 다시 늘리게 하지 않는다(localStorage).
+       실측: 위의 «관련 영상» 알약이 두 줄이면 100~156 을 쓴다 → 4px 겹쳤다. 172 로 내린다. */
+    var _sz = { w: 236, h: 0 };
+    try {
+        var _saved = JSON.parse(localStorage.getItem('mangoi_pagelist_size') || 'null');
+        if (_saved && _saved.w > 0) _sz = _saved;
+    } catch (_) {}
+    panel.style.cssText = 'position:fixed;left:12px;top:172px;z-index:9600;'
+        + 'width:' + Math.max(200, Math.min(_sz.w, window.innerWidth - 24)) + 'px;'
+        + (_sz.h > 0 ? 'height:' + Math.max(160, Math.min(_sz.h, window.innerHeight - 190)) + 'px;'
+                     : 'height:min(58vh,520px);')
+        + 'min-width:200px;min-height:160px;max-width:92vw;max-height:82vh;resize:both;'
         + 'display:flex;flex-direction:column;background:rgba(15,23,42,.97);border:1.5px solid rgba(56,189,248,.5);'
         + 'border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.5);color:#e2e8f0;font-size:12.5px;overflow:hidden';
     panel.innerHTML = '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.25);font-weight:800;color:#7dd3fc">'
@@ -12650,6 +12693,20 @@ async function pdfTogglePageList(){
         + '<div id="pdf-pagelist-body" style="overflow-y:auto;padding:6px"><div style="padding:14px;color:#94a3b8">'
         + (en ? 'Loading…' : '불러오는 중…') + '</div></div>';
     document.body.appendChild(panel);
+    /* 늘린 크기를 기억한다 — 창을 다시 열 때 그 크기로 뜬다.
+       ResizeObserver 가 없는 옛 브라우저에서는 그냥 저장을 건너뛴다(크기 조절 자체는 동작). */
+    try {
+        if (window.ResizeObserver) {
+            var _ro = new ResizeObserver(function(){
+                try {
+                    if (!panel.isConnected) return;
+                    localStorage.setItem('mangoi_pagelist_size',
+                        JSON.stringify({ w: Math.round(panel.offsetWidth), h: Math.round(panel.offsetHeight) }));
+                } catch (_) {}
+            });
+            _ro.observe(panel);
+        }
+    } catch (_) {}
 
     // 시퀀스가 없으면 서버에서 다시 만든다(새 기기·재접속에서도 목록이 나오게 — 화살표 자가복구와 같은 길)
     try { await pdfEnsureSequence(); } catch(_){}
@@ -12717,7 +12774,10 @@ async function pdfTogglePageList(){
             if (!f) return;
             window._libSeqIdx = i;
             try { _pdfGoSeqFile(f); } catch(e){ console.warn('[pagelist]', e); }
-            pdfClosePageList();
+            /* 📌 (2026-08-13 마이마이 8/13 ②) 「고르면 창이 바로 닫힌다 — 닫을 때까지 두면 안 되나요」
+               → 닫지 않는다. 대신 «지금 보는 쪽» 강조만 옮긴다(BODA 처럼 목록을 띄워 두고 넘긴다).
+                 닫는 길은 헤더의 [✕] 하나뿐 — 실수로 사라지지 않는다. */
+            _pdfPageListMark(this, 'seq');
         });
     });
     /* 🗑 한 줄 빼기 — 목록(내 화면)에서만. 서버 요청을 보내지 않는다(위 주석 참고). */
@@ -12762,9 +12822,30 @@ async function pdfTogglePageList(){
             if (!n) return;
             pdfGoToPage(n);
             try { _pdfBroadcastPage(); } catch(_){}     // 학생 화면도 같은 쪽으로
-            pdfClosePageList();
+            _pdfPageListMark(this, 'page');            // 닫지 않는다 — 위 data-seq 주석 참고
         });
     });
+}
+/* 📑 (2026-08-13) 목록을 열어 둔 채 쓰기 위한 «강조만 옮기기».
+   ⚠️ 다시 그리지(pdfTogglePageList) 않는다 — 스크롤 위치와 사용자가 늘린 창 크기가 초기화된다.
+      같은 갈래(seq ↔ 파일 목록 / page ↔ 파일 안쪽 쪽)끼리만 강조를 옮긴다. */
+function _pdfPageListMark(btn, group){
+    try {
+        var panel = document.getElementById('pdf-pagelist');
+        if (!panel || !btn) return;
+        var onParts = ['background:rgba(56,189,248,.22)', 'border-color:rgba(56,189,248,.6)', 'color:#fff', 'font-weight:800'];
+        panel.querySelectorAll('[data-' + group + ']').forEach(function(o){
+            o.style.background = 'rgba(30,41,59,.7)';
+            o.style.borderColor = 'transparent';
+            o.style.color = '#cbd5e1';
+            o.style.fontWeight = '';
+        });
+        onParts.forEach(function(p){
+            var kv = p.split(':');
+            btn.style.setProperty(kv[0], kv.slice(1).join(':'));
+        });
+        btn.scrollIntoView({ block: 'nearest' });
+    } catch (_) {}
 }
 window.pdfTogglePageList = pdfTogglePageList;
 window.pdfClosePageList = pdfClosePageList;

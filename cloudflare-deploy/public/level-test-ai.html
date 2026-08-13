@@ -249,12 +249,14 @@
     if (level === 'Starter') { $('ai-lv').textContent = '입문'; }
     $('ai-score').textContent = (d.ai_score != null ? d.ai_score : '—');
     $('ai-correct').textContent = (d.correct != null ? d.correct : '?') + '/' + (d.total != null ? d.total : questions.length);
-    // 📚 레벨별 추천 교재(참고용) — 망고아이 자체 커리큘럼(Phonics · MES Lv1-5 · BTS Lv2-5 · SIU Lv5-8)
-    //    최종 확정은 선생님 1:1 평가에서 (사장님 지정 2026-07-22: 자체 교재 + 파닉스 + 목적별 코스)
+    /* 📚 레벨별 추천 교재(참고용) — 망고아이 자체 커리큘럼(Phonics · BTS Lv1-5 · SIU Lv5-8)
+       최종 확정은 선생님 1:1 평가에서 (사장님 지정 2026-07-22: 자체 교재 + 파닉스 + 목적별 코스)
+       🙈 (2026-08-13 사장님 지시) MES 를 뺐다 — 이제 안 쓰는 교재를 학부모에게 추천하면 안 된다.
+          MES 가 맡던 «처음 시작~기초» 구간은 Phonics + BTS 가 이어받는다(홈 추천표와 같은 기준). */
     var BOOK_BY_LEVEL = {
-      'Starter':'Phonics(파닉스) · MES 기초',
-      'A1':'Phonics(파닉스) · MES (Mango English Study)',
-      'A2':'MES · BTS (Bubble Tea Study)',
+      'Starter':'Phonics(파닉스) 기초',
+      'A1':'Phonics(파닉스) · BTS (Bubble Tea Study)',
+      'A2':'BTS (Bubble Tea Study)',
       'B1':'BTS (Bubble Tea Study)',
       'B2':'SIU (Shake It Up)',
       'C1':'SIU (Shake It Up) 상급',

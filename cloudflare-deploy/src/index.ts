@@ -339,6 +339,9 @@ const worker = {
             '/api/admin/teachers/kakao',
             // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
             '/api/admin/corpcard/',
+            // ── 🙈 교재 라이브러리 숨김 (2026-08-13) — 한 강사가 체크하면 **전 강사의 교재가 사라진다.**
+            //    반경이 회사 전체라 강사에게는 열지 않는다(읽기 목록도 같은 경로라 함께 막힌다).
+            '/api/admin/textbook-hidden-books',
             // ── 계정·권한·감사 (permissions · audit_log) ──
             '/api/admin/permissions', '/api/admin/audit-logs', '/api/admin/login-history',
             '/api/admin/staff', '/api/admin/sessions', '/api/admin/2fa',
@@ -1026,6 +1029,8 @@ const worker = {
         // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
         path === '/api/admin/textbook-files' ||
         /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
+        // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
+        path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
         /^\/api\/textbook-files\/\d+(\/raw)?$/.test(path) ||
         path === '/api/admin/mango-videos' ||
@@ -4898,6 +4903,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbooks') return true;
   // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)
   if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
+  // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
+  if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
   if (path === '/api/admin/mango-videos' || /^\/api\/admin\/mango-videos\/\d+$/.test(path)) return true;
   if (path === '/api/admin/students/list') return true;
