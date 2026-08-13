@@ -1366,6 +1366,13 @@ export async function handleMangoApi(
         || path.startsWith('/api/get-lesson-video/') || path.startsWith('/api/admin/mango-videos')
         || path.startsWith('/api/admin/students/') || path.startsWith('/api/admin/selfscore/')
         || path === '/api/admin/attendance/import-cafe24' || path === '/api/admin/attendance/today' || path === '/api/admin/payments/import-cafe24'
+        // 🚷 (2026-08-13 수정요청 #05) 장기 결석생 — 핸들러는 api-admin.ts 에 있다.
+        //    ⚠️ 여기 안 적으면 handleAdminApi 까지 못 가서 **404** 다. 바로 위 teacher-contacts 가
+        //       그렇게 통째로 먹통이었다(8/13 기록). 새 /api/admin/* 경로는 여기도 반드시 추가할 것.
+        //    ℹ️ index.ts isAgencyAllowedApi 에는 «일부러» 넣지 않았다 — 이 화면(admin.html)은
+        //       본사 전용이고, 지사·대리점 계정은 index.ts 가 /admin/exec 로 돌려보낸다.
+        //       (그래도 쿼리 자체에는 scopeFragments 격리를 걸어 뒀다. 나중에 열어도 안 샌다.)
+        || path === '/api/admin/attendance/long-absent'
         || path === '/api/admin/payments/cafe24-diag'
         || path === '/api/admin/absent-sweep/run'
         || path === '/api/admin/lesson-reminder/run'

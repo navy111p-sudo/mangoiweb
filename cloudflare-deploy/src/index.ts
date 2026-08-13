@@ -1335,6 +1335,12 @@ const worker = {
         path === '/api/attendance/check-in' ||
         path === '/api/admin/attendance/today' ||
         path === '/api/admin/attendance/qr-history' ||
+        // 🚷 (2026-08-13 수정요청 #05) 장기 결석생 — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //       test-harness/mango_gate_harness.mjs 가 이 등록 누락을 배포 게이트에서 잡는다.
+        //    ℹ️ isAgencyAllowedApi 에는 넣지 않았다 — 이 화면은 본사 전용이고
+        //       지사·대리점 계정은 위쪽에서 /admin/exec 로 돌아간다.
+        path === '/api/admin/attendance/long-absent' ||
         // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
         //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
         //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
