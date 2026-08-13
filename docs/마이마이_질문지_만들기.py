@@ -74,11 +74,11 @@ para('마이마이에게 물어볼 것 — 강사페이지 지적사항 후속',
 para('August 13, 2026', size=10, color='808080',
      align=WD_ALIGN_PARAGRAPH.CENTER, space_after=12)
 
-para('Hi Maimai — thank you for the detailed reports. We fixed 25 of your 31 items. '
+para('Hi Maimai — thank you for the detailed reports. We fixed 26 of your 31 items. '
      'Below are the only things we could not finish on our own, because they need '
      'your answer or your decision. Please reply next to each question.',
      size=10.5, space_after=3, fill='F2F2F2')
-para('마이마이가 보낸 31건 중 25건을 고쳤습니다. 아래는 «마이마이의 답이 있어야» '
+para('마이마이가 보낸 31건 중 26건을 고쳤습니다. 아래는 «마이마이의 답이 있어야» '
      '끝낼 수 있는 것들입니다.', size=9.5, color='808080', space_after=14)
 
 # ═══════════════════════ 질문 ═══════════════════════
