@@ -29,7 +29,7 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
-import { corpcardConfigured, runCorpCardSync, corpcardData } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
+import { corpcardConfigured, runCorpCardSync, corpcardData, secretFp8 } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import type { MangoEnv } from './api-mango';
@@ -10039,6 +10039,9 @@ LIMIT $limit`;
         // 길이만(값 미노출): 원본 vs ASCII 소독 후 — 붙여넣기 오염(제어문자·CR) 판정용
         id_len: [String((env as any).CODEF_CLIENT_ID || '').length, String((env as any).CODEF_CLIENT_ID || '').replace(/[^\x20-\x7E]/g, '').trim().length],
         secret_len: [String((env as any).CODEF_CLIENT_SECRET || '').length, String((env as any).CODEF_CLIENT_SECRET || '').replace(/[^\x20-\x7E]/g, '').trim().length],
+        // 지문(SHA-256 앞 8자리, 값 미노출) — 로컬에서 성공한 키와 «같은 값»인지 대조용
+        id_fp: await secretFp8((env as any).CODEF_CLIENT_ID),
+        secret_fp: await secretFp8((env as any).CODEF_CLIENT_SECRET),
       };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
