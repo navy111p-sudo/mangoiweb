@@ -7215,38 +7215,14 @@ let _smCountBase = '';                                      // 전체 인원수 
    ② 요청 순서 보장이 없어 «정»→«정우»→«정우영» 중 늦게 온 옛 응답이 최신 결과를 덮어씀
    ③ 1000행 × 19열(19,000셀)을 매 입력마다 통째로 다시 그림
    ④ Neo4j 가 죽어 있으면 검색마다 502 를 기다린 뒤에야 D1 로 폴백 (지연 2배)
-   → seq/abort 로 ②, quiet 로 ①, _smShown 청크로 ③, _smGraphOff 로 ④ 를 각각 막는다. */
+   → seq/abort 로 ②, quiet 로 ①, _smShown 청크로 ③ 을 각각 막는다.
+      (④ 그래프DB 왕복은 2026-08-13 에 이 화면에서 아예 뺐다 — 아래 loadStudentList 주석 참고) */
 let _smReqSeq = 0;                                          // 요청 일련번호 — 늦게 온 옛 응답 폐기용
 let _smAbort = null;                                        // 진행 중 요청 취소 핸들
 let _smShown = 0;                                           // 지금 그려둔 행 수 (스크롤 시 증가)
 let _smRows = [];                                           // 필터·정렬이 끝난 현재 목록 (이어붙이기용)
 let _smRowHtml = null;                                      // 한 행 HTML 생성기 (renderStudentTable 이 채움)
 const SM_CHUNK = 200;                                       // 한 번에 그리는 행 수
-/* 🕸️ 그래프DB(Neo4j) 가 못 쓰는 상태면 건너뛴다.
-   🔴 (2026-08-13) 예전엔 이 값이 «페이지를 새로 열 때마다» false 로 돌아갔다. 그래서
-      그래프DB 가 죽어 있는 동안에도 **접속할 때마다 학생 목록 첫 조회가 한 번씩 그 실패를
-      기다렸다.** 서버 쪽 Neo4j 호출 타임아웃이 8초다(teacher-match.ts runCypher) —
-      즉 최악의 경우 목록이 뜨기까지 8초를 그냥 버린 뒤에야 D1 로 갔다.
-      운영 화면 라벨이 «D1» 로 나온다는 것은 지금 이 경로가 계속 실패하고 있다는 뜻이다.
-      → 판정을 sessionStorage 에 30분 기억한다. 탭을 새로 열어도 다시 안 기다린다.
-   ⚠️ 영구 저장(localStorage)은 쓰지 않는다. 그래프DB 가 고쳐졌을 때 «영영 안 쓰는» 상태가
-      되면 안 된다. 30분 뒤·새 세션이면 자연히 한 번 다시 두드려 본다. */
-const _SM_GRAPH_OFF_KEY = 'mangoi_sm_graph_off';
-const _SM_GRAPH_OFF_TTL = 30 * 60 * 1000;
-function _smGraphOffRead() {
-  try {
-    const raw = sessionStorage.getItem(_SM_GRAPH_OFF_KEY);
-    if (!raw) return false;
-    return (Date.now() - Number(raw)) < _SM_GRAPH_OFF_TTL;
-  } catch (e) { return false; }
-}
-function _smGraphOffMark(why) {
-  _smGraphOff = true;
-  try { sessionStorage.setItem(_SM_GRAPH_OFF_KEY, String(Date.now())); } catch (e) { /* 무시 */ }
-  console.warn('[students] 그래프DB 를 이번 세션에서는 건너뜁니다 —', why);
-}
-let _smGraphOff = _smGraphOffRead();                        // 그래프DB 가 죽으면 이 세션에선 재시도 안 함
-const SM_GRAPH_WAIT_MS = 2500;                              // 이만큼 안 오면 기다리지 않고 D1 로 간다
 
 /* 🏫 대리점·학원 드롭다운 채우기 (2026-07-23) — 불러온 학생들의 대리점명(shop_name)에서 자동 생성.
    서버가 이미 권한 범위로 걸러 보낸 _smStudents 만 쓰므로, 지사 계정엔 자기 대리점만 나온다. */
@@ -7344,45 +7320,30 @@ async function loadStudentList(q, opts) {
   else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
-  let _dataSource = 'D1';
   let d = null;
-  // 1차: Neo4j 그래프 DB 실데이터 (/api/admin/students/graph-list)
-  //   미설정(503)·연결 실패(502)·빈 결과·비본사 403 이면 조용히 D1(unified)로 폴백
-  //   ⚡ (2026-08-05) 한 번 죽은 그래프DB 를 검색마다 다시 두드리면 502 를 기다린 뒤에야 D1 로
-  //      가서 지연이 두 배가 된다. 이 화면에서는 첫 실패 이후 건너뛴다(_smGraphOff).
-  if (!_smGraphOff) try {
-    /* ⏱️ (2026-08-13) 그래프DB 를 «무한정» 기다리지 않는다.
-       서버는 8초까지 기다려 주지만(runCypher), 사람이 목록을 보려고 8초를 기다릴 이유는 없다.
-       2.5초 안에 안 오면 그냥 D1 로 간다 — D1 은 실측 74ms 이고 컬럼도 더 많다(세션수·최근방문).
-       ⚠️ 늦게 온 그래프 응답을 «취소» 하지는 않는다. 취소하려면 _ac(최신 요청 판별용)와
-          신호를 합쳐야 하는데, 그걸 잘못 엮으면 목록 전체가 조용히 죽는다. 그냥 안 기다린다. */
-    const _graphReq = fetch('/api/admin/students/graph-list?limit=1000' + _qs,
-      { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined })
-      .then(async (rg) => ({ rg, dg: await rg.json() }));
-    const _timeout = new Promise((res) => setTimeout(() => res('__timeout__'), SM_GRAPH_WAIT_MS));
-    const _first = await Promise.race([_graphReq, _timeout]);
-    if (_first === '__timeout__') {
-      _smGraphOffMark('응답이 ' + SM_GRAPH_WAIT_MS + 'ms 안에 안 옴');
-      _graphReq.catch(() => {});                                         // 뒤늦은 실패로 콘솔이 더러워지지 않게
-    } else {
-      const { rg, dg } = _first;
-      if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
-        d = dg; _dataSource = 'Neo4j';
-      } else if (dg && dg.error) {
-        // 미설정(503)·접속불가(502) 뿐 아니라 «어떤 오류든» 이 세션에서는 다시 안 두드린다.
-        _smGraphOffMark(dg.error);
-      } else if (!_qSrv) {
-        /* 🔴 (2026-08-13) 여기가 구멍이었다 — 오류는 아닌데 학생이 0명인 응답(ok:true, students:[])
-           이면 아무 표시도 안 남아서, **검색할 때마다** 그래프DB 를 다시 두드렸다.
-           검색어가 있을 때 0건인 것은 «그런 학생이 없다» 는 정상 결과이므로 그때는 끄지 않는다.
-           검색어 없이 전체 명부가 0명이면 그래프DB 에 학생이 없는 것이다 → 건너뛴다. */
-        _smGraphOffMark('전체 명부가 0명으로 옴');
-      }
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;                            // 최신 요청에 밀림 — 조용히 종료
-    _smGraphOffMark(e && e.message ? e.message : String(e));
-  }
+  /* 🕸️❌ (2026-08-13) 이 화면은 이제 그래프DB(/api/admin/students/graph-list)를 **안 부른다.**
+     예전엔 그것을 1차로 부르고 실패하면 D1(unified)로 폴백했다. 왜 뺐는지 —
+
+     ① 지금 아무것도 안 준다. 운영 화면 라벨이 «D1» 로 나오고 콘솔에는 아무 로그도 없다.
+        로그가 없다는 것은 오류(502·503)가 아니라 **`ok:true` + `students:[]`** 였다는 뜻이다
+        (오류면 dg.error 를 찍는 가지로 갔다). 즉 Neo4j 는 살아서 정상 응답하는데
+        `MATCH (s:Student)` 가 0건이다.
+        ⚠️ 예전엔 있었다 — cafe24-sync 의 importCafe24Students 가 **같은** `MATCH (s:Student)` 로
+           29,386명을 students_erp 에 넣었다(실측: created_at=CAFE24_STUDENT_SENTINEL 29,386행).
+           그 뒤 그래프가 비워졌거나 다른 인스턴스를 보고 있다.
+
+     ② 살아나도 이 표에는 **D1 보다 나쁘다.** 그래프 응답에는 이 표가 그리는 열 중
+        «가입일(created_at) · 수강신청(enroll_package) · 세션수(sessions) · 최근방문(last_seen)»
+        4개가 아예 없다. 그래프가 이기면 그 4열이 조용히 빈칸·0 으로 나온다.
+        반대로 그래프만 주는 것(family·parent_name)은 이 표가 하나도 안 그린다.
+        → 즉 이 화면에서는 그래프가 «느린 D1» 이 아니라 «데이터가 모자란 D1» 이다.
+
+     ③ D1 은 실측 74ms 다(2026-08-13 #01 에서 183만 행 → 12.6만 행으로 줄임).
+        앞에 왕복을 하나 더 두는 것 자체가 손해다.
+
+     되살리려면 — 엔드포인트·Cypher·KV 캐시는 **그대로 살아 있다**(진단·다른 화면용).
+     다만 그때는 «그래프를 먼저» 가 아니라 «D1 을 기본으로 두고 그래프가 더 주는 것만 덧대기» 로
+     할 것. 안 그러면 ②의 4열이 다시 빈다. */
   if (_stale()) return;
   try {
     if (!d) {
@@ -7445,7 +7406,7 @@ async function loadStudentList(q, opts) {
     _username_lc: String(s.username || s.user_id || '').toLowerCase()
   }));
   _smCountBase = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
-    + (_dataSource === 'Neo4j' ? (_L ? ' · 🕸️ Graph DB' : ' · 🕸️ 그래프DB 실데이터') : (_L ? ' · D1' : ' · D1'));
+    + ' · D1';   // 🕸️❌ (2026-08-13) 이 화면은 D1 만 쓴다 — 출처가 하나뿐이라 분기도 없앴다
   if (cnt) cnt.textContent = _smCountBase;
   try { smFillAgencyFilter(); } catch (_) {}   // 🏫 대리점·학원 드롭다운 채우기 (2026-07-23)
   renderStudentTable();

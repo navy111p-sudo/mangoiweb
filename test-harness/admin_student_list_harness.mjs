@@ -45,8 +45,20 @@ check('0건 응답이 이미 떠 있는 목록을 지우지 않는다',
 console.log('\n[ ③ 응답 경합 — 늦게 온 옛 응답이 최신 결과를 덮지 않기 ]');
 check('요청 일련번호가 있다', /_smReqSeq/.test(core));
 check('AbortController 로 이전 요청을 끊는다', /_smAbort\.abort\(\)/.test(core));
-check('AbortError 는 화면을 손대지 않고 종료한다',
-  (core.match(/name === 'AbortError'\) return/g) || []).length >= 2);
+/* ⚠️ (2026-08-13) 예전엔 «2개 이상» 을 셌다 — 이 화면이 네트워크를 두 번(그래프+D1) 탔기 때문이다.
+   그래프 왕복을 뺐으니 이제 fetch 는 하나뿐이고 가드도 하나다. 개수를 세는 대신
+   «loadStudentList 안의 fetch 개수만큼 가드가 있는가» 로 본다 — 나중에 호출이 늘어도 안 헐거워진다. */
+{
+  // ⚠️ 끝을 renderStudentTable 로 잡으면 사이의 openScheduleCalendar·aiOpenAnalysis 까지 딸려 온다
+  //    (그 둘의 fetch 는 목록 경합과 무관하다). loadStudentList «하나만» 자른다.
+  const _lsA = core.indexOf('async function loadStudentList');
+  const _lsB = core.indexOf('\nfunction ', _lsA);
+  const body = core.slice(_lsA, _lsB > _lsA ? _lsB : undefined);
+  const fetches = (body.match(/await fetch\(/g) || []).length;
+  const guards  = (body.match(/name === 'AbortError'\) return/g) || []).length;
+  check(`AbortError 는 화면을 손대지 않고 종료한다 (fetch ${fetches}개 · 가드 ${guards}개)`,
+    fetches >= 1 && guards >= fetches);
+}
 
 console.log('\n[ ④ 열 너비 고정 — 렌더마다 재측정해 좌우로 흔들리지 않기 ]');
 check('CSS 가 table-layout: fixed', /#sm-students-table\s*\{[^}]*table-layout:\s*fixed/.test(css));
@@ -66,29 +78,29 @@ check('이어붙이기 함수가 노출돼 있다', /window\.smAppendRows\s*=\s*
 check('스크롤로 이어붙인다', /addEventListener\('scroll'[\s\S]{0,200}smAppendRows/.test(core));
 check('스크롤 위치를 보존한다', /wrap\.scrollLeft = keepLeft/.test(core));
 check('CSV·정렬은 전체(_smStudents)를 그대로 쓴다', /_pre = _smStudents/.test(core));
-check('그래프DB 가 죽으면 재시도하지 않는다', /_smGraphOff/.test(core));
-
-/* 🕸️ (2026-08-13) 운영 화면 라벨이 «D1» 로 나온다 = 그래프DB 경로가 계속 실패하고 있다는 뜻.
-   그런데 실패 판정이 «그 페이지를 켜 있는 동안» 만 살아 있어서, 접속할 때마다 학생 목록
-   첫 조회가 한 번씩 그 실패를 기다렸다. 서버 쪽 Neo4j 타임아웃이 8초다(teacher-match.ts).
-   그리고 «오류는 아닌데 0명» 인 응답은 아예 표시가 안 남아 **검색할 때마다** 다시 두드렸다.
-   D1 쪽을 183만 행 → 12.6만 행으로 줄여 놔도 이 대기가 앞을 막으면 아무 소용이 없다. */
-console.log('\n[ ⑤-2 그래프DB 대기가 D1 개선을 가리지 않게 (2026-08-13) ]');
-check('실패 판정을 sessionStorage 에 기억한다 (새로고침해도 다시 안 기다린다)',
-  /sessionStorage\.setItem\(_SM_GRAPH_OFF_KEY/.test(core) && /sessionStorage\.getItem\(_SM_GRAPH_OFF_KEY\)/.test(core));
-check('⚠️ 영구 저장이 아니다 — 고쳐졌을 때 영영 안 쓰는 상태가 되면 안 된다',
-  /_SM_GRAPH_OFF_TTL = 30 \* 60 \* 1000/.test(core) &&
-  !/localStorage\.setItem\(_SM_GRAPH_OFF_KEY/.test(core));
-check('⏱️ 응답이 늦으면 기다리지 않고 D1 로 간다 (서버 타임아웃 8초를 그대로 앉아 있지 않는다)',
-  /const SM_GRAPH_WAIT_MS = \d+;/.test(core) && /Promise\.race\(\[_graphReq, _timeout\]\)/.test(core));
-check('그 대기 시간이 8초보다 확실히 짧다',
-  (Number((core.match(/const SM_GRAPH_WAIT_MS = (\d+);/) || [])[1]) || 99999) <= 3000);
-check('🔴 «오류는 아닌데 0명» 도 건너뛰기로 친다 (검색마다 다시 두드리던 구멍)',
-  /_smGraphOffMark\('전체 명부가 0명으로 옴'\)/.test(core));
-check('⚠️ 검색 결과가 0건인 것은 «정상» 이라 끄지 않는다 (else if (!_qSrv) 로 가른다)',
-  /\} else if \(!_qSrv\) \{/.test(core));
-check('AbortError(최신 요청에 밀림)는 «고장» 으로 치지 않는다',
-  /if \(e && e\.name === 'AbortError'\) return;\s*\/\/[^\n]*\n\s*_smGraphOffMark/.test(core));
+/* 🕸️❌ (2026-08-13) 이 화면은 그래프DB(/api/admin/students/graph-list)를 이제 «안 부른다».
+   왜 뺐는지 (adm-core.js 의 loadStudentList 주석에 근거를 적어 두었다) —
+     ① 지금 아무것도 안 준다. 라벨이 «D1» 이고 콘솔 로그가 없다 = ok:true + students:[] 다
+        (오류였다면 dg.error 가 찍힌다). 즉 Neo4j 는 살아 있는데 MATCH (s:Student) 가 0건.
+        예전엔 있었다 — 같은 MATCH 로 29,386명을 students_erp 에 넣었던 경로다.
+     ② 살아나도 이 표에는 D1 보다 나쁘다. 그래프 응답에는 이 표가 그리는
+        가입일·수강신청·세션수·최근방문 4열이 아예 없다. 그래프가 이기면 그 4열이 조용히 빈다.
+     ③ D1 은 실측 74ms 다. 앞에 왕복을 하나 더 두는 것 자체가 손해다.
+   되살릴 때는 «그래프 먼저» 가 아니라 «D1 기본 + 그래프가 더 주는 것만 덧대기» 로 할 것. */
+console.log('\n[ ⑤-2 학생 목록은 D1 만 쓴다 (2026-08-13) ]');
+// ⚠️ «경로 문자열이 등장하는가» 로 보면 안 된다 — 왜 뺐는지 적어 둔 주석에도 경로가 나온다.
+//    실제로 «부르는가»(fetch) 로 본다.
+check('🔴 학생 목록이 graph-list 를 부르지 않는다',
+  !/fetch\([^)]*students\/graph-list/.test(core.slice(core.indexOf('async function loadStudentList'),
+                                                       core.indexOf('function renderStudentTable'))));
+check('그래프 폴백 상태변수가 남아 있지 않다 (죽은 코드 금지)',
+  !/_smGraphOff|SM_GRAPH_WAIT_MS|_SM_GRAPH_OFF/.test(core));
+check('출처 라벨이 항상 D1 이다 (없는 출처를 «그래프DB 실데이터» 로 광고하지 않는다)',
+  !/그래프DB 실데이터/.test(core));
+check('⚠️ 그래도 서버 엔드포인트는 지우지 않았다 (진단·다른 화면용)',
+  /path === '\/api\/admin\/students\/graph-list'/.test(rd('../cloudflare-deploy/src/api-admin.ts')));
+check('왜 뺐는지 근거가 코드에 남아 있다 (되살릴 사람이 읽어야 한다)',
+  /가입일\(created_at\) · 수강신청\(enroll_package\) · 세션수\(sessions\) · 최근방문\(last_seen\)/.test(core));
 
 console.log('\n[ ⑥ 배선 IIFE — addEventListener 대상 변수에 선언이 있는지 (선언 삭제 사고 방지) ]');
 //   `(function NAME(){ … })()` 블록을 잘라, 그 안에서 `X.addEventListener` 로 쓰인 X 가
