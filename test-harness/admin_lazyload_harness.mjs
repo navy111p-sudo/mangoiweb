@@ -137,6 +137,48 @@ check('긴급 복구용 수동 호출구는 남겨 둔다', /loadRest: loadRest/
 check('같은 파일을 두 번 넣지 않는다', /loadedSrc\[src\]/.test(lazy));
 check('순서를 보존한다 (async=false)', /s\.async = false/.test(lazy));
 
+/* 🐢 (2026-08-13 수정요청 #02) 위 ①~③ 은 «파일(바이트)» 을 안 받게 한 것이었다.
+   그런데 «데이터(API)» 쪽에 같은 문제가 그대로 남아 있었다 — 부팅 때 API 13개를 쐈고
+   그중 화면에 항상 보이는 것은 load()(상단 KPI) 하나뿐, 나머지 12개는 닫힌 카드 안을
+   채우는 것이었다. 그리고 활성 방 15초 폴링(요청 2개)이 탭이 뒤에 있든 카드가 닫혀 있든
+   무조건 돌아, 켜 둔 탭 하나가 시간당 480 요청을 냈다.
+   되돌아가면 화면·파일을 아무리 줄여도 첫 화면이 다시 밀리므로 여기서 못박는다. */
+console.log('\n[ ⑤ 데이터도 카드를 열 때 받는다 (2026-08-13 #02) ]');
+{
+  const core = rd('../cloudflare-deploy/public/js/adm-core.js');
+  const bootIdx = core.indexOf('Promise.allSettled([ load() ]);');
+  check('부팅 호출이 load() 하나로 줄었다', bootIdx > 0);
+  check('🔴 옛 13개 통짜 부팅이 되살아나지 않았다',
+    !/Promise\.allSettled\(\[\s*\n?\s*load\(\), loadRecordings\(\)/.test(core));
+  check('카드→로더 표가 있다', /const CARD_LOADERS = \{/.test(core));
+  check('카드가 열리면 그 카드 로더를 돌린다 (toggle 캡처 한 곳에서)',
+    /runCardLoaders\(d\.id\);/.test(core) &&
+    /document\.addEventListener\('toggle'[\s\S]{0,400}\}, true\);/.test(core));
+  check('두 번 열어도 두 번 받지 않는다 (한 번만 표시)', /if \(!cardId \|\| _cardLoaded\[cardId\]\) return;/.test(core));
+  check('처음부터 열려 있는 카드도 챙긴다 (딥링크·복원 안전망)',
+    /Object\.keys\(CARD_LOADERS\)[\s\S]{0,220}el\.open\) runCardLoaders\(id\)/.test(core));
+  check('로더 하나가 터져도 나머지가 죽지 않는다', /try \{ fn\(\); \} catch/.test(core));
+
+  console.log('\n[ ⑥ 15초 폴링은 «보일 때만» 돈다 ]');
+  // ⚠️ 줄 첫머리(=실행되는 코드)만 본다. 주석에는 «예전엔 이랬다» 로 같은 글자가 일부러 남아 있다.
+  check('🔴 조건 없는 setInterval(loadActiveRooms, 15000) 로 되돌아가지 않았다',
+    !/^\s*setInterval\(loadActiveRooms, 15000\)/m.test(core));
+  check('가시성 판정 함수가 있다', /function _activeRoomsVisible\(\)/.test(core));
+  check('백그라운드 탭이면 건너뛴다', /if \(document\.hidden\) return false;/.test(core));
+  check('카드가 닫혀 있으면 건너뛴다', /if \(!c \|\| !c\.open\) return false;/.test(core));
+  check('ia6 가 감춰 둔 카드면 건너뛴다', /classList\.contains\('ia6-hide'\)\) return false;/.test(core));
+  check('폴링이 그 판정을 실제로 쓴다', /setInterval\(function \(\) \{ if \(_activeRoomsVisible\(\)\) loadActiveRooms\(\); \}, 15000\);/.test(core));
+  check('🪤 타이머를 꺼 버리지 않는다 — 껐다 켜면 «다시 안 켜지는» 사고가 난다',
+    !/clearInterval\([^)]*activeRooms/i.test(core));
+  check('탭으로 돌아오면 15초를 기다리지 않는다 (visibilitychange 즉시 1회)',
+    /addEventListener\('visibilitychange'[\s\S]{0,160}_activeRoomsVisible\(\)\) loadActiveRooms\(\)/.test(core));
+
+  console.log('\n[ ⑦ 캐시 — 고친 adm-core 가 실제로 내려가야 한다 ]');
+  const m = html.match(/adm-core\.js\?v=(\d+)/);
+  check(`admin.html 이 adm-core.js 를 버전과 함께 부른다 (?v=${m ? m[1] : '없음'})`, !!m);
+  check('버전이 68 이상 (이번 수정 반영)', !!m && Number(m[1]) >= 68);
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

@@ -8340,10 +8340,53 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 //    지사 241행 + 대리점·학원 921행(약 155KB)을 부팅마다 받아서 DOM 에 그렸다.
 //    이제 카드를 열 때 로드한다(admin.html 의 ontoggle → adminLazyLoadCard).
 //    ⚠️ 되살리지 말 것. 두 표는 각자 카드 안에서만 쓰이므로 부팅 때 없어도 아무것도 안 깨진다.
-Promise.allSettled([
-  load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
-]);
+/* 🐢 (2026-08-13 수정요청 #02) 「사이트 전체가 느리다」
+   위 2026-08-08 조치와 **똑같은 문제가 11곳 더 남아 있었다.** 부팅 때 API 13개를 한꺼번에
+   쐈는데, 그중 화면에 «항상 보이는» 것은 load()(상단 KPI 4박스) 하나뿐이다.
+   나머지 12개는 전부 닫혀 있는 카드 안을 채우는 것이라, 직원이 그 카드를 열지 않으면
+   받아 놓고 아무도 안 본다. 필리핀 저속 회선에서는 이 12개가 첫 화면을 그대로 밀어낸다.
+
+   확인한 것 — 12개 로더가 손대는 DOM 을 admin.html 을 파싱해 «어느 카드 안인지» 전부 대조했고,
+   전역·모듈 변수(_unifiedRecRows·_tbItems·_enItems·__liItems·__ltApps)도 소비처를 따라가
+   **자기 카드 밖에서 쓰는 곳이 하나도 없다**는 것을 확인했다. 그래서 미뤄도 아무것도 안 깨진다.
+   ⚠️ loadPayrollRates 만은 성격이 다르다 — 결과(_payrollSettings)를 **읽는 코드가 아예 없다**
+      (adm-*.js·admin.html 전수 확인). 지우지는 않고 급여 카드에 매달아 두었다.
+
+   ⚠️ 카드를 여는 경로가 여러 개다(사이드바·ia6·통합검색·허브·해시 딥링크·AI 명령).
+      그래서 진입점마다 손대지 않고, 위 «조상 열기» 와 같은 자리에서 toggle 을 한 번만 듣는다.
+      새 진입점이 생겨도 자동으로 따라온다. */
+const CARD_LOADERS = {
+  'card-active-rooms':      [loadActiveRooms],
+  'card-retention':         [loadRetention],
+  'card-recording-storage': [loadRecordings, loadStorageStats],
+  'card-notifications':     [loadNotifications],
+  'card-level-tests':       [loadLevelTests, loadLeveltestApps],
+  'card-lesson-insight':    [loadLessonInsights],
+  'card-enrollments':       [loadEnrollments],
+  'card-community':         [loadCommunity],
+  'card-textbooks':         [loadTextbooks],
+  'card-payroll':           [loadPayrollRates],
+};
+const _cardLoaded = Object.create(null);
+function runCardLoaders(cardId) {
+  if (!cardId || _cardLoaded[cardId]) return;
+  const fns = CARD_LOADERS[cardId];
+  if (!fns) return;
+  _cardLoaded[cardId] = true;          // 실패해도 다시 안 쏜다 — 카드 안에 새로고침 버튼이 따로 있다
+  fns.forEach(function (fn) {
+    try { fn(); } catch (e) { console.warn('[카드 지연로드 실패]', cardId, e); }
+  });
+}
+window.adminRunCardLoaders = runCardLoaders;   // 진단·수동 호출용
+
+// 부팅에는 «항상 보이는» 것만 남긴다. 나머지는 카드를 열 때 (아래 toggle 감시).
+Promise.allSettled([ load() ]);
+// 혹시 처음부터 열려 있는 카드가 있으면(딥링크·복원) 그것만 지금 채운다.
+//   ⚠️ 현재 admin.html 에 `<details open>` 인 카드는 없다. 나중에 생겨도 안 깨지게 두는 안전망이다.
+Object.keys(CARD_LOADERS).forEach(function (id) {
+  const el = document.getElementById(id);
+  if (el && el.open) runCardLoaders(id);
+});
 // 🔗 (2026-08-09) 하위항목이 열리면 «조상 <details> 도» 함께 연다.
 //    「🏪 대리점(학원)」을 「🏢 조직 관리」 카드 안으로 합치면서 필요해졌다 —
 //    사이드바·허브·AI 명령·통합검색은 전부 `getElementById(id).open = true` 로 여는데,
@@ -8353,6 +8396,7 @@ Promise.allSettled([
 document.addEventListener('toggle', function (e) {
   var d = e.target;
   if (!d || d.tagName !== 'DETAILS' || !d.open) return;
+  runCardLoaders(d.id);            // 🐢 (2026-08-13 #02) 이 카드가 처음 열렸으면 그때 데이터를 받는다
   for (var p = d.parentElement; p; p = p.parentElement) {
     if (p.tagName === 'DETAILS' && !p.open) p.open = true;
   }
@@ -8370,8 +8414,30 @@ window.adminLazyLoadCard = function(kind) {
     }
   } catch (e) { console.warn('lazy load 실패:', kind, e); }
 };
-// 활성 방 목록 15초마다 자동 갱신
-setInterval(loadActiveRooms, 15000);
+/* 🔄 활성 방 목록 15초마다 자동 갱신
+   🐢 (2026-08-13 수정요청 #02) 예전엔 `setInterval(loadActiveRooms, 15000)` 한 줄이었다.
+      이 함수는 매번 API 를 **2개**(/api/active-rooms · /api/admin/alerts) 부른다.
+      그런데 조건이 하나도 없어서 —
+        · 탭을 뒤로 넘겨 두어도 · 카드를 닫아 두어도 · ia6 가 그 카드를 감춰 놓아도
+      계속 돌았다. 관리자가 정산 화면을 보고 있는 동안에도 **탭 하나당 시간당 480 요청**이다.
+      (하루 종일 켜 두는 자리가 많다. 그게 워커·D1 부하로 그대로 돌아온다.)
+      → «지금 화면에 보이는 동안만» 돈다. 안 보이면 그냥 건너뛴다.
+   ⚠️ 끄는 게 아니라 «건너뛰는» 것이다. 다시 보이면 아래 visibilitychange 가 즉시 한 번 채운다.
+      (카드를 다시 열 때는 toggle → runCardLoaders 가 이미 채워 준다)
+   🪤 setInterval 자체를 clearInterval 하지 않는다 — 껐다 켜는 것을 관리하기 시작하면
+      «다시 안 켜지는» 사고가 난다. 조건만 본다. */
+function _activeRoomsVisible() {
+  if (document.hidden) return false;                       // 백그라운드 탭
+  const c = document.getElementById('card-active-rooms');
+  if (!c || !c.open) return false;                         // 카드가 닫혀 있음
+  if (c.classList.contains('ia6-hide')) return false;      // ia6 가 다른 항목을 보여 주는 중
+  return true;
+}
+setInterval(function () { if (_activeRoomsVisible()) loadActiveRooms(); }, 15000);
+// 탭으로 돌아왔을 때 15초를 기다리게 하지 않는다 — 보이는 순간 한 번 채운다.
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden && _activeRoomsVisible()) loadActiveRooms();
+});
 
 // ============================================================================
 // 🔍 통합 검색 (메뉴 + 학생·교사·가맹점·센터·수강·교재 등 모든 데이터)
