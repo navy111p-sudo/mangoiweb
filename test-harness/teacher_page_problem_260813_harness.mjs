@@ -29,6 +29,11 @@ const main     = rd('../cloudflare-deploy/public/js/idx-main.js');
 const idx      = rd('../cloudflare-deploy/public/index.html');
 const uploader = rd('../cloudflare-deploy/public/textbook-uploader.html');
 const lessons  = rd('../cloudflare-deploy/public/lessons.html');
+const curri    = rd('../cloudflare-deploy/public/curriculum.html');
+const grid     = rd('../cloudflare-deploy/public/js/idx-grid-menu.js');
+const lvtest   = rd('../cloudflare-deploy/public/level-test-ai.html');
+const admin    = rd('../cloudflare-deploy/public/admin.html');
+const admcore  = rd('../cloudflare-deploy/public/js/adm-core.js');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond) {
@@ -113,12 +118,34 @@ check('🔴 금액(%)은 손대지 않는다 (사장님이 0 이외 값을 넣�
 check('🔴 되돌리는 길이 있다 (끄면 예전 지급률로 복귀)',
   /earlyPostponeOn[\s\S]{0,200}: postponePct;/.test(aapi));
 
-console.log('\n[ ⑤  MES 잔존 — 수업 화면 밖 ]');
+console.log('\n[ ⑤  MES 잔존 — 수업 화면 밖 (2026-08-13 사장님 「커리큘럼 페이지도 빼줘」) ]');
 check('동영상 강의의 MES 탭이 기본으로 켜져 있지 않다',
   !/class="tb-tab active" data-tb="MES"/.test(lessons));
 check('시작 교재가 MES 가 아니다', !/let curTb = 'MES'/.test(lessons));
 check('🔴 지우지 않고 감췄다 (옛 영상·기록은 그대로)',
   /data-tb="MES"/.test(lessons));
+/* 🙈 커리큘럼 소개는 «학부모에게 보이는» 곳이라 숫자까지 같이 맞춰야 한다.
+   카드만 감추고 제목을 안 고치면 «3종» 이라 써 놓고 2개만 보인다. */
+check('커리큘럼: MES 카드를 감췄다',
+  /<details class="book-item" style="display:none">[\s\S]{0,300}>MES<\/span>/.test(curri));
+check('🔴 커리큘럼: 제목의 교재 수도 함께 고쳤다 (3종 → 2종)',
+  /자체 개발 교재 2종/.test(curri) && !/자체 개발 교재 3종"/.test(curri));
+check('커리큘럼: 이제 BTS 가 처음 펼쳐진다 (맨 위가 빈 채로 열리지 않게)',
+  /<details class="book-item" open>[\s\S]{0,300}>BTS<\/span>/.test(curri));
+check('🔴 커리큘럼: 지우지 않고 감췄다 (10년 쓴 교재 설명 원문 보존)',
+  /Mango English Study \(MES\)/.test(curri));
+check('홈 교재 카드도 같이 고쳤다 — 감춤 + «2종» + 추천표에서 MES 줄 제거',
+  /<details class="book-item" style="display:none">/.test(grid)
+  && /전용 교재 2종/.test(grid)
+  && !/📘 MES<\/td>/.test(grid));
+check('🔴 홈 추천표: MES 가 맡던 «처음 시작» 구간을 BTS 가 이어받는다 (빈 구간을 남기지 않는다)',
+  /🥤 BTS<\/td>[\s\S]{0,160}Lv 1-5/.test(grid));
+check('AI 레벨테스트가 학부모에게 MES 를 추천하지 않는다',
+  !/'Starter':'Phonics\(파닉스\) · MES/.test(lvtest) && !/MES \(Mango English Study\)'/.test(lvtest));
+check('관리자: 새 영상에 MES 를 «고르는» 목록에서 뺐다 (옛 영상 값은 그대로 보이게 hidden)',
+  /<option value="MES" hidden>/.test(admin));
+check('🔴 관리자 교재명부 필터: MES 를 지우지 않았다 — 데이터에 있으면 칩이 자동으로 나온다',
+  !/'전체교재', 'Phonics', 'MES'/.test(admcore) && /var extra = \{\}/.test(admcore));
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);

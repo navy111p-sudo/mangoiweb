@@ -108,15 +108,15 @@
 </div>
 
 <div class="kpis">
-  <div class="kpi k-done"><b>25</b><span>✅ 다 된 것</span></div>
+  <div class="kpi k-done"><b>26</b><span>✅ 다 된 것</span></div>
   <div class="kpi k-part"><b>3</b><span>⚠️ 아직 안 된 것</span></div>
-  <div class="kpi k-todo"><b>5</b><span>📋 이제 해야 할 것</span></div>
+  <div class="kpi k-todo"><b>4</b><span>📋 이제 해야 할 것</span></div>
 </div>
 
 <div class="item done" style="border-left-width:5px;margin-bottom:14px">
   <p class="t">📌 8월 13일 오후 — 여기 적힌 것을 <b>실제로 고쳐서 올렸습니다</b> (커밋 301c603)</p>
   <p class="d">이 문서를 만든 뒤 사장님 지시로 <b>전부 진행</b>했습니다. 아래 세 갈래는 <b>그 작업이 끝난 뒤의 상태</b>입니다.
-  처음 정리했을 때는 「아직 안 된 것 5 · 해야 할 것 7」이었는데, 그 중 <b>6건을 고쳐</b> 다 된 것으로 옮겼습니다.</p>
+  처음 정리했을 때는 「아직 안 된 것 5 · 해야 할 것 7」이었는데, 그 중 <b>7건을 고쳐</b> 다 된 것으로 옮겼습니다.</p>
   <p class="why"><b>⚠️ 조사 중에 이 문서의 앞선 판단 두 가지가 틀렸다는 것이 드러났습니다 — 바로잡습니다.</b><br>
   ① <b>「서버에서 PDF 를 JPG 로 바꿔야 한다」는 틀렸습니다.</b> 운영 DB 를 직접 세어 보니
   교재 파일 <b>38,922개 중 38,860개(99.84%)가 이미 JPG</b> 이고 PDF 는 <b>62개뿐</b>입니다.
@@ -273,7 +273,7 @@
 
 
 <!-- ══════════════════ 2. 아직 안 된 것 ══════════════════ -->
-<h2 class="sec s-done">✅ 다 된 것 ② &nbsp;— 6건 <span style="font-weight:700;font-size:9.5pt">(8월 13일 오후 — 오늘 새로 고친 것)</span>
+<h2 class="sec s-done">✅ 다 된 것 ② &nbsp;— 7건 <span style="font-weight:700;font-size:9.5pt">(8월 13일 오후 — 오늘 새로 고친 것)</span>
   <small>위 목록을 만든 뒤 사장님 「모두 진행해」 지시로 작업한 것들입니다. 커밋 301c603.</small>
 </h2>
 
@@ -380,7 +380,7 @@
 
 
 <!-- ══════════════════ 3. 이제 해야 할 것 ══════════════════ -->
-<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 5건
+<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 4건
   <small>코드로 할 수 없거나, 사람이 먼저 정해 줘야 하는 것들입니다.</small>
 </h2>
 
@@ -415,15 +415,25 @@
   <p class="ev">js/adm-q6.js:53~58 「이 날짜만」/「매주 ○요일 반복」 라디오 · 266 카드 표시 · 403 카드 클릭 삭제</p>
 </div>
 
-<div class="item ask">
-  <p class="t"><span class="date">8/13 ① 후속</span>커리큘럼 소개 페이지의 MES <span class="grey">— 사장님 결정 (일부러 안 건드렸습니다)</span></p>
-  <p class="d">동영상 강의와 추천 교재의 MES 는 <b>오늘 감췄습니다.</b> 하지만 <b>커리큘럼 소개 페이지</b>는
-  <b>일부러 그대로 두었습니다.</b></p>
-  <p class="why"><b>왜 안 건드렸나</b> — 그 페이지는 학부모에게 보이는 <b>「자체 개발 교재 3종」 소개</b>이고,
-  MES 는 <b>「미국 교사들이 2년에 걸쳐 개발해 10년간 애용한 교재」</b> 로 소개되어 있습니다.
-  이걸 빼면 <b>3종이 2종이 되고</b>, 이는 <b>매출·마케팅 결정</b>이지 코드가 조용히 정할 일이 아닙니다.<br>
-  <b>필요한 것:</b> 「학부모에게도 MES 를 더 이상 안 보여줄지」 한 마디만 정해 주시면 바로 반영합니다.</p>
-  <p class="ev">curriculum.html:343~348 「자체 개발 교재 3종」 — MES · BTS · SIU</p>
+<div class="item done">
+  <p class="t"><span class="date">8/13 ① 후속</span>학부모에게 보이는 곳에서도 MES 를 <b>전부 뺐습니다</b> <span class="grey">— 사장님 지시</span></p>
+  <p class="d">오전 문서에서는 <b>「매출과 얽힌 결정이라 사장님이 정하실 일」</b> 이라고 남겨 두었는데,
+  <b>「커리큘럼 페이지도 MES 빼줘」</b> 지시를 받아 <b>학부모·학생에게 보이는 곳을 전부 훑어</b> 정리했습니다.</p>
+  <p class="why"><b>고친 곳 5군데</b><br>
+  ① <b>커리큘럼 소개 페이지</b> — MES 카드를 감추고 제목을 <b>「자체 개발 교재 3종 → 2종」</b> 으로 함께 고쳤습니다
+  <span class="grey">(카드만 감추면 «3종» 이라 써 놓고 2개만 보입니다)</span>. 이제 BTS 가 처음 펼쳐집니다.<br>
+  ② <b>홈 화면의 교재 카드</b> — 같은 소개가 <b>홈에도 한 벌 더</b> 있었습니다. 똑같이 정리하고,
+  <b>레벨별 추천표에서 MES 줄</b>도 뺐습니다.<br>
+  ③ <b>AI 레벨테스트 결과</b> — 「입문·A1·A2」 학생에게 <b>MES 를 추천하고 있었습니다.</b>
+  MES 가 맡던 <b>「처음 시작」 구간은 파닉스 + BTS 가 이어받게</b> 했습니다
+  <span class="grey">(그냥 빼면 초급 학생에게 추천할 교재가 비어 버립니다)</span>.<br>
+  ④ <b>동영상 강의 · 레벨테스트 추천 교재</b> — 오전에 이미 처리했습니다.<br>
+  ⑤ <b>관리자 영상 등록</b> — 새 영상에 MES 를 <b>고르는 목록</b>에서 뺐습니다.</p>
+  <p class="why"><b>⚠️ 일부러 안 지운 것 — 관리자의 교재 명부 필터</b><br>
+  MES 칩을 <b>지우지 않았습니다.</b> 지우면 <b>옛 MES 수업 기록을 찾을 길이 막힙니다.</b>
+  대신 <b>「항상 띄우는 고정 칩」에서만 뺐고</b>, 명부에 MES 교재가 남아 있으면 칩은 그대로 나옵니다.
+  전부 <b>지우기가 아니라 감추기</b>라, 되살리려면 표시 설정 한 줄만 지우면 됩니다.</p>
+  <p class="ev">curriculum.html · js/idx-grid-menu.js(?v=31) · level-test-ai.html · admin.html · js/adm-core.js(?v=68)</p>
 </div>
 
 <div class="item todo">
