@@ -7088,6 +7088,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                    style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
             <span id="ct-pager" style="display:flex;gap:6px;align-items:center"></span>
           </div>
+          <!-- 💳 (2026-08-14) 결제유형 필터 + 유형별 건수 — 버튼·숫자는 adm-core.js _ctRenderPtFilter() 가 그린다.
+               921건을 50개씩 넘겨 보는 구조라, 이게 없으면 «미지정» 대리점을 눈으로 찾아야 했다. -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 8px">
+            <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
+            <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
+          </div>
           <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
             <tbody id="centers-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
@@ -8742,7 +8748,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=69" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=70" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
