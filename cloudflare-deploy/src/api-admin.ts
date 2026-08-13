@@ -32,6 +32,7 @@ import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin'
 import { corpcardConfigured, runCorpCardSync, corpcardData, secretFp8 } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
+import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -341,6 +342,17 @@ export async function handleAdminApi(
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+
+    // ════════════════════════════════════════════════════════════
+    // 💬 강사 카카오ID 명부 + 강사에게 메시지 전달 (2026-08-13)
+    //   ⚠️ 이 위임은 «/api/admin/teachers/:id» PATCH 보다 먼저 와야 한다 —
+    //      아래 라우팅은 숫자 id 만 받으므로 'kakao' 와는 겹치지 않지만,
+    //      순서를 바꾸면 나중에 와일드카드가 생겼을 때 조용히 가려진다.
+    // ════════════════════════════════════════════════════════════
+    if (path.startsWith('/api/admin/teachers/kakao')) {
+      const r = await handleTeacherKakaoApi(request, url, env as any);
+      if (r) return r;
+    }
 
     // ════════════════════════════════════════════════════════════
     // 📶 화상수업 회선품질 — 강사/학생별 손실·RTT 집계 (어느 강사 인터넷이 나쁜지 파악)
