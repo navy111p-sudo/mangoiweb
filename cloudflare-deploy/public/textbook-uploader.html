@@ -198,6 +198,26 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="lib-empty" id="lib-empty" style="display:none">아직 등록된 교재가 없습니다. 위에서 폴더를 드래그하거나 선택해 업로드하세요.</div>
 </div>
 
+<!-- 🙈 (2026-08-13 마이마이 8/13 ①) 라이브러리에서 숨길 교재 묶음 — 사람이 고른다.
+     이름으로 «MES 겠거니» 하고 코드가 찍으면 틀렸을 때 강사가 쓰는 교재가 사라진다.
+     여기서 체크한 묶음만 강사·학생 라이브러리에서 빠진다. 파일은 지워지지 않는다. -->
+<div class="library" id="hide-panel">
+  <h2>🙈 라이브러리에서 숨길 교재
+    <span id="hide-count" style="font-size:11px;color:var(--text-mute);font-weight:600;margin-left:4px"></span>
+  </h2>
+  <div style="font-size:12px;color:var(--text-mute);line-height:1.65;margin-bottom:12px">
+    체크한 교재는 <b>강사·학생의 교재 라이브러리에서 안 보이게</b> 됩니다.
+    <b style="color:#fca5a5">파일은 지워지지 않습니다</b> — 지난 수업 기록도 그대로입니다. 체크를 풀면 즉시 다시 보입니다.<br>
+    <span style="color:#fcd34d">※ 안 쓰는 옛 교재(MES 등)를 여기서 골라 주세요. 배포 없이 바로 적용됩니다.</span>
+  </div>
+  <div class="lib-toolbar">
+    <input type="search" id="hide-search" placeholder="교재 묶음 이름 검색...">
+    <button class="btn btn-cancel" id="hide-reload" style="padding:9px 14px;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">↻ 새로고침</button>
+  </div>
+  <div id="hide-list" style="max-height:360px;overflow-y:auto;display:grid;gap:6px"></div>
+  <div class="lib-empty" id="hide-empty" style="display:none">교재 묶음을 불러오는 중…</div>
+</div>
+
 <div class="tips">
   <b>💡 자동 분류 정확도를 높이는 팁</b><br>
   • 폴더명에 <code>출판사 / 교재명 / 레슨</code> 구조로 정리하면 가장 정확합니다 — 예: <code>다락원/마스터3/제1과</code><br>
@@ -733,6 +753,10 @@ document.getElementById('btn-save').onclick = async () => {
   pendingGroups.forEach(g => g.lessons.forEach(files => totalFiles += files.length));
   let done = 0;
   let savedBooks = 0;
+  /* 📡 (2026-08-13) 공용 자료실(서버) 업로드 결과 — «내 PC 에만 저장» 을 성공이라 말하지 않기 위해.
+     srvDenied 는 «권한이 없어서» 다(401/403). 강사에게는 이게 가장 흔한 경우다. */
+  const srvJobs = [];
+  let srvOk = 0, srvFail = 0, srvDenied = 0, srvSkipped = 0;
 
   try {
     if (!db) {
@@ -754,19 +778,33 @@ document.getElementById('btn-save').onclick = async () => {
             throw new Error('파일 "' + c.fileName + '" 저장 실패: ' + (e.message || e.name) + ' (브라우저 저장 공간 부족 가능)');
           }
           fileIds.push(fid);
-          // fix (2026-06-01) — 서버(R2)에도 best-effort 업로드: 모든 기기(휴대폰)에서 교재가 보이도록.
-          //   pdf/jpg/png/webp 만 지원. 관리자 세션이 있을 때만 성공(없으면 401 → 무시).
+          /* fix (2026-06-01) — 서버(R2)에도 업로드: 모든 기기(휴대폰)에서 교재가 보이도록.
+             pdf/jpg/png/webp 만 지원. 관리자 세션이 있을 때만 성공(없으면 401).
+
+             🔴 (2026-08-13 마이마이 Q5 답변) 「Teachers can upload every level test
+                but we don't know how to add in the library.」— **여기가 원인이었다.**
+                이 실패를 console.warn 으로만 남기고 화면에는 «✅ 저장 완료!» 라고 띄웠다.
+                강사 눈에는 성공인데 실제로는 **자기 PC(IndexedDB)에만** 들어갔다 —
+                공용 자료실에는 아무것도 안 올라갔고, 왜 안 되는지 알 길도 없었다.
+                → 결과를 세어서 «무엇이 어디까지 됐는지» 를 반드시 말해 준다(아래 완료 문구). */
           (function(file, kind, name, level){
-            if (kind !== 'pdf' && kind !== 'image') return;
+            if (kind !== 'pdf' && kind !== 'image') { srvSkipped++; return; }
             try {
               var fd = new FormData();
               fd.append('file', file, file.name || name);
               fd.append('name', name);
               if (level) fd.append('level', level);
-              fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
-                .then(function(r){ if (r.ok) console.log('[srvupload] OK:', name); else console.warn('[srvupload] skip(', r.status, '):', name); })
-                .catch(function(){ /* 오프라인/비관리자 — 무시 */ });
-            } catch(_) {}
+              srvJobs.push(
+                fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
+                  .then(function(r){
+                    if (r.ok) { srvOk++; return; }
+                    srvFail++;
+                    if (r.status === 401 || r.status === 403) srvDenied++;
+                    console.warn('[srvupload] skip(', r.status, '):', name);
+                  })
+                  .catch(function(){ srvFail++; /* 오프라인 */ })
+              );
+            } catch(_) { srvFail++; }
           })(c.file, c.kind, (g.textbook ? '['+g.textbook+'] ' : '') + (lsnName ? lsnName+' / ' : '') + c.fileName, g.level || '');
           done++;
           // 진행률 표시 (10개마다 또는 마지막)
@@ -791,7 +829,36 @@ document.getElementById('btn-save').onclick = async () => {
       console.log('[save] 교재 저장 완료:', meta.publisher, '/', meta.textbook, '·', meta.lessons.length, '레슨,', meta.totalFiles, '파일');
     }
 
-    btn.textContent = '✅ 저장 완료!';
+    /* 📡 (2026-08-13) 서버 업로드가 끝날 때까지 기다린 뒤 «어디까지 됐는지» 를 말한다.
+       기다리지 않으면 아직 올라가는 중인데 «완료» 라고 말하게 된다. */
+    if (srvJobs.length) {
+      btn.textContent = '📡 공용 자료실에 올리는 중… (' + srvJobs.length + '개)';
+      try { await Promise.all(srvJobs); } catch (_) {}
+    }
+    if (srvDenied > 0) {
+      btn.textContent = '⚠️ 이 컴퓨터에만 저장됨';
+      alert('⚠️ 이 컴퓨터에만 저장되었습니다\n\n'
+        + '파일 ' + srvDenied + '개가 «공용 자료실»에 올라가지 못했습니다 (권한 없음).\n'
+        + '지금은 이 컴퓨터의 내 수업에서만 쓸 수 있고, 다른 선생님께는 안 보입니다.\n\n'
+        + '👉 공용 자료실에 올리려면 «관리자 계정으로 로그인» 한 뒤 다시 저장하거나,\n'
+        + '    본사에 파일을 보내 올려 달라고 요청해 주세요.\n\n'
+        + '— — — — — — — — — —\n\n'
+        + '⚠️ Saved to THIS COMPUTER only\n\n'
+        + srvDenied + ' file(s) could not be added to the SHARED library (no permission).\n'
+        + 'You can use them in your own class on this computer, but other teachers cannot see them.\n\n'
+        + '👉 To add them to the shared library, log in as an admin and save again,\n'
+        + '    or send the files to the head office and ask them to upload.');
+    } else if (srvFail > 0) {
+      btn.textContent = '⚠️ 일부만 자료실에 올라감';
+      alert('⚠️ 파일 ' + srvFail + '개가 공용 자료실에 올라가지 못했습니다 (네트워크 문제로 보입니다).\n'
+        + '이 컴퓨터에는 저장되었습니다. 인터넷을 확인한 뒤 다시 저장해 주세요.\n\n'
+        + '⚠️ ' + srvFail + ' file(s) failed to reach the shared library (looks like a network problem).\n'
+        + 'They are saved on this computer. Please check your connection and save again.');
+    } else if (srvOk > 0) {
+      btn.textContent = '✅ 공용 자료실에 저장 완료! (' + srvOk + '개)';
+    } else {
+      btn.textContent = '✅ 저장 완료! (이 컴퓨터)';
+    }
     pendingGroups = [];
 
     // 필터 초기화 (저장한 교재가 보이도록)
@@ -1114,6 +1181,92 @@ window.delTextbook = async (id) => {
     }
   });
   openDB().then(() => renderLibrary()).catch(e => console.error('[init] DB 입력 실패:', e));
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   🙈 (2026-08-13 마이마이 8/13 ①) 라이브러리에서 숨길 교재 묶음
+   ──────────────────────────────────────────────────────────────────
+   서버의 묶음 이름(파일명 앞 [대괄호])을 그대로 보여주고 체크만 받는다.
+   ⚠️ 파일을 지우는 길은 여기 없다 — 숨김/되살림뿐이다(되돌릴 수 없는 일은 안 만든다).
+   ════════════════════════════════════════════════════════════════════ */
+let _hideBooks = [];
+
+async function loadHideBooks(){
+  const list = document.getElementById('hide-list');
+  const empty = document.getElementById('hide-empty');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/admin/textbook-hidden-books', { cache: 'no-store' });
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error(j && j.error || 'load_failed');
+    _hideBooks = j.books || [];
+    renderHideBooks();
+  } catch (e) {
+    console.warn('[hide] 목록 실패', e);
+    list.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.textContent = '목록을 불러오지 못했습니다 — 관리자로 로그인했는지 확인해 주세요.'; }
+  }
+}
+
+function renderHideBooks(){
+  const list = document.getElementById('hide-list');
+  const empty = document.getElementById('hide-empty');
+  const cnt = document.getElementById('hide-count');
+  if (!list) return;
+  const q = (document.getElementById('hide-search')?.value || '').trim().toLowerCase();
+  const rows = _hideBooks.filter(b => !q || String(b.book).toLowerCase().includes(q));
+  const nHidden = _hideBooks.filter(b => b.hidden).length;
+  if (cnt) cnt.textContent = '전체 ' + _hideBooks.length + '묶음 · 숨김 ' + nHidden + '개';
+  if (!rows.length){
+    list.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.textContent = q ? '검색 결과가 없습니다.' : '등록된 교재 묶음이 없습니다.'; }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = rows.map(b => {
+    const safe = String(b.book).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;'
+      + 'border:1px solid ' + (b.hidden ? 'rgba(239,68,68,.45)' : 'var(--border)') + ';'
+      + 'background:' + (b.hidden ? 'rgba(239,68,68,.10)' : 'rgba(255,255,255,.02)') + ';cursor:pointer">'
+      + '<input type="checkbox" data-hide-book="' + safe + '"' + (b.hidden ? ' checked' : '') + ' style="width:17px;height:17px;cursor:pointer;flex:0 0 auto">'
+      + '<span style="flex:1;min-width:0;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + safe + '</span>'
+      + '<span style="flex:0 0 auto;font-size:11px;color:var(--text-mute)">' + (b.files || 0) + '개 파일</span>'
+      + '<span style="flex:0 0 auto;font-size:11px;font-weight:800;color:' + (b.hidden ? '#fca5a5' : '#4ade80') + '">'
+      + (b.hidden ? '숨김' : '보임') + '</span>'
+      + '</label>';
+  }).join('');
+  list.querySelectorAll('[data-hide-book]').forEach(cb => {
+    cb.addEventListener('change', async function(){
+      const book = this.getAttribute('data-hide-book');
+      const hidden = this.checked;
+      this.disabled = true;
+      try {
+        const r = await fetch('/api/admin/textbook-hidden-books', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ book, hidden })
+        });
+        const j = await r.json();
+        if (!j || !j.ok) throw new Error(j && j.error || 'save_failed');
+        const row = _hideBooks.find(x => String(x.book) === book);
+        if (row) row.hidden = hidden;
+        renderHideBooks();
+      } catch (e) {
+        console.warn('[hide] 저장 실패', e);
+        this.checked = !hidden;   // 되돌린다 — 저장 안 됐는데 «된 것처럼» 보이면 안 된다
+        this.disabled = false;
+        alert('저장하지 못했습니다. 다시 시도해 주세요.');
+      }
+    });
+  });
+}
+
+(function initHide(){
+  const s = document.getElementById('hide-search');
+  if (s) s.addEventListener('input', renderHideBooks);
+  const rb = document.getElementById('hide-reload');
+  if (rb) rb.addEventListener('click', loadHideBooks);
+  loadHideBooks();
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>

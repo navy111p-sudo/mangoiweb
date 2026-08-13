@@ -55,8 +55,17 @@ console.log('\n[ ②  수업료 — 「언제 연기했나」로 금액이 갈�
 check('연기 지급률이 요청 시점 판정(fee_type)을 읽는다', /pFeeType === 'free'/.test(aapi));
 check('🔴 판정 근거가 없는 연기는 기존 규칙 그대로 (모르는 것을 «사전 연기» 로 단정하지 않는다)',
   /pFeeType === 'free' \? earlyPostponePct : postponePct/.test(aapi));
-check('🔴 새 규칙은 꺼진 채로 들어온다 (켜는 순간 급여가 바뀌므로 사람이 정한다)',
-  /'postponed_early_pay_percent'[\s\S]{0,200}'policy_percent',0,0,/.test(aapi));
+/* ⚠️ (2026-08-13) 이 검사는 원래 «꺼진 채로 들어온다» 였다 — 코드가 급여를 조용히 바꾸지
+   못하게 막는 규칙이었다. 오늘 **사장님이 「30분전 연기는 0으로」 결정**하셨으므로
+   규칙 자체가 바뀌었다. 이제 검사할 것은 «꺼짐» 이 아니라 다음 셋이다:
+     ① 켜진 채로 들어온다(0%, enabled=1)  ② 이미 배포된 DB 도 1회 마이그레이션으로 켠다
+     ③ 되돌리는 길이 남아 있다(관리자가 끄면 예전 계산으로 복귀) */
+check('🔴 사전 연기 0% 규칙이 «켜진 채로» 들어온다 (2026-08-13 사장님 결정)',
+  /'postponed_early_pay_percent'[\s\S]{0,200}'policy_percent',0,1,/.test(aapi));
+check('🔴 이미 배포된 DB 도 1회 마이그레이션으로 켠다 (INSERT OR IGNORE 는 기존 행을 안 건드린다)',
+  /early_postpone_on_260813[\s\S]{0,400}UPDATE payroll_deduction_rules SET enabled = 1[\s\S]{0,120}postponed_early_pay_percent/.test(aapi));
+check('🔴 되돌리는 길이 있다 (관리자가 끄면 예전 지급률로 복귀)',
+  /earlyPostponeOn[\s\S]{0,200}: postponePct;/.test(aapi));
 check('규칙이 꺼져 있으면 기존 지급률과 같다', /earlyPostponeOn[\s\S]{0,200}: postponePct;/.test(aapi));
 check('강사 화면이 «왜 이 금액인지» 를 한 줄로 설명한다', /postpone_fee_type/.test(mypage));
 check('요청 기록은 마지막 승인만 쓴다 (여러 번 요청했을 때)',
@@ -99,8 +108,16 @@ check('파일 시퀀스와 PDF 내부 쪽을 둘 다 보여준다',
   /data-seq=/.test(idx) && /data-page=/.test(idx));
 check('🔴 이동은 기존 함수만 쓴다 (학생 화면과 어긋나는 두 번째 경로 금지)',
   /_pdfGoSeqFile\(f\)/.test(idx) && /pdfGoToPage\(n\);[\s\S]{0,120}_pdfBroadcastPage/.test(idx));
-check('시퀀스가 없으면 서버에서 다시 만든다 (새 기기·재접속에서도 목록이 나온다)',
-  /pdfTogglePageList[\s\S]{0,1800}pdfEnsureSequence\(\)/.test(idx));
+/* ⚠️ (2026-08-13) 이 검사도 «거리(1800자)» 로 보고 있었다 — 바로 아래 주석이 경고한
+   그 함정이다. 창 크기 조절(마이마이 8/13 ②)이 붙어 글자 수가 늘자 **규칙은 그대로인데
+   검사만 깨졌다.** 아래 ⑦ 검사들처럼 «그 함수 안에 있는가» 로 바꾼다. */
+{
+  const _s2 = idx.indexOf('async function pdfTogglePageList');
+  const _e2 = idx.indexOf('window.pdfTogglePageList =', _s2);
+  const _fn2 = (_s2 >= 0 && _e2 > _s2) ? idx.slice(_s2, _e2) : '';
+  check('시퀀스가 없으면 서버에서 다시 만든다 (새 기기·재접속에서도 목록이 나온다)',
+    /pdfEnsureSequence\(\)/.test(_fn2));
+}
 /* ⚠️ (2026-08-11) 예전엔 «pdfTogglePageList 뒤 4000자 안에» 로 봤다. 그런데 그 함수에
    기능(④ 목록에서 빼기)이 붙자 거리가 늘어 **규칙은 그대로인데 검사만 깨졌다.**
    거리가 아니라 «그 함수 안에 있는가» 로 본다 — 거리는 규칙이 아니다. */

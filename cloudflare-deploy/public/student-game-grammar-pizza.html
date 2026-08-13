@@ -197,6 +197,16 @@
   .r-comp{background:#5c6bc0;}    .r-aux{background:#fb8c00;}
   .r-inf{background:#7e57c2;}     .r-word{background:#78909c;}
 
+  /* 🏷️ 문법 성분 힌트 가리기 — 재료 볼·피자 위 단어 칩의 성분 배지를 통째로 숨긴다
+     (원장님 제안 2026-08-13: 중·고급은 태그 맞추기 꼼수 방지를 위해 가리기 기본) */
+  body.roles-off .role{display:none !important;}
+  #btn-roles{
+    border:2px solid #e2b56b; background:#fff3cf; color:#7a4a12;
+    border-radius:12px; padding:4px 12px; font-family:inherit; font-weight:800;
+    font-size:.95em; cursor:pointer;
+  }
+  #btn-roles.off{background:#efe7d8; color:#a08a60; border-color:#cbbc9e;}
+
   /* ── ▶ 시작 전 듣기 오버레이 ─────────────── */
   #ready{
     position:fixed; inset:0; z-index:45; display:none;
@@ -338,6 +348,7 @@
     <div class="hud-chip" id="time-chip"><small>남은 시간</small><span id="timer">0:45</span></div>
     <div class="hud-chip"><small>내 토큰</small><span id="tokens">0</span> 💰</div>
     <div class="hud-chip"><small>진행</small><span id="progress">1 / 1</span></div>
+    <button id="btn-roles" title="주어·동사 같은 문법 성분 배지를 보이거나 가려요">🏷️ 성분 ON</button>
     <button id="btn-hint">💡 힌트!</button>
   </div>
 </header>
@@ -377,16 +388,16 @@
 
 <div id="mission">
   <div id="mission-card">
-    <div class="head">🔥 피자 완성! 이제 3번 듣고, 3번 말해요!</div>
+    <div class="head">🔥 피자 완성! 듣고 따라 말해요 — 100점이면 한 번에 통과!</div>
     <div class="sent" id="mission-sentence"></div>
     <div class="py" id="mission-py"></div>
     <div class="mission-row">
       <button class="big-btn" id="btn-listen">🔊 듣기</button>
-      <div><div class="dots" id="listen-dots"></div><small style="color:#a06a1b;">듣기 3회</small></div>
+      <div><div class="dots" id="listen-dots"></div><small style="color:#a06a1b;">1회만 들으면 말하기 시작!</small></div>
     </div>
     <div class="mission-row">
       <button class="big-btn green" id="btn-speak" disabled>🎤 말하기</button>
-      <div><div class="dots" id="speak-dots"></div><small style="color:#a06a1b;">말하기 3회</small></div>
+      <div><div class="dots" id="speak-dots"></div><small style="color:#a06a1b;">💯 첫 시도 100점 = 즉시 통과+보너스!</small></div>
     </div>
     <div id="speech-result"></div>
   </div>
@@ -615,6 +626,8 @@ var LESSON_POOL = null;     // 레슨 데이터 로드 시 [{tokens, ko, py, gra
 var LESSON_INFO = null;
 var levelIdx = 0, sentIdx = 0, placedCount = 0;
 var listenCount = 0, speakCount = 0, missionActive = false, baking = false;
+var speakAttempts = 0;      // 💯 이 문장에서 말하기를 시도한 횟수(원샷 판정용)
+var PERFECT_SC = 0.98;      // 이 정확도(≈100점) 이상이면 남은 반복 없이 즉시 통과
 var awaitingStart = true;   // ▶ 시작 전 문장 듣기 대기
 var tokens = parseInt(localStorage.getItem('mangoi_pizza_tokens') || '0', 10) || 0;
 var timerLeft = 45, timerInt = null;
@@ -833,6 +846,37 @@ $('btn-hint').onclick = showHint;
 $('hint-close').onclick = function(){ $('hint-overlay').classList.remove('show'); };
 $('hint-overlay').onclick = function(e){ if(e.target === $('hint-overlay')) $('hint-overlay').classList.remove('show'); };
 
+/* ══════════ 🏷️ 문법 성분 힌트 보이기/가리기 (원장님 제안 2026-08-13) ══════════
+   · 학생이 직접 토글하면 그 선택을 기기에 저장하고 끝까지 따른다.
+   · 토글한 적 없으면 단계별 기본값: Level 1(기초)·교재 레슨 = 보이기,
+     Level 2 이상 심화 = 가리기 → 힌트 없이 어순을 스스로 인지하게 유도.
+   · 선생님은 URL ?roles=on|off 로 초기값을 지정해 줄 수 있다(학생 토글이 우선). */
+var ROLES_KEY = 'mangoi_pizza_roles';
+var _rolesPref = (function(){
+  var q = (QS.get('roles') || '').toLowerCase();
+  var v = localStorage.getItem(ROLES_KEY);
+  if(v === 'on' || v === 'off') return v;          // 학생이 이미 고른 값
+  if(q === 'on' || q === 'off') return q;          // 선생님 지정 초기값(저장 안 함)
+  return null;                                     // 미지정 → 단계별 기본값
+})();
+function rolesVisible(){
+  if(_rolesPref) return _rolesPref === 'on';
+  if(LESSON_POOL) return true;                     // 교재 레슨 모드 = 보이기
+  return levelIdx === 0;                           // Level 1만 보이기, 2 이상 가리기
+}
+function applyRoles(){
+  var on = rolesVisible();
+  document.body.classList.toggle('roles-off', !on);
+  var b = $('btn-roles');
+  if(b){ b.textContent = on ? '🏷️ 성분 ON' : '🏷️ 성분 OFF'; b.classList.toggle('off', !on); }
+}
+$('btn-roles').onclick = function(){
+  _rolesPref = rolesVisible() ? 'off' : 'on';
+  try{ localStorage.setItem(ROLES_KEY, _rolesPref); }catch(_){}
+  applyRoles();
+  toast(_rolesPref === 'on' ? '🏷️ 문법 성분 배지를 보여줄게요!' : '🙈 배지를 가렸어요! 어순을 스스로 떠올려 보세요!');
+};
+
 /* ══════════ HUD ══════════ */
 function updateHud(){
   $('tokens').textContent = tokens;
@@ -883,7 +927,7 @@ function placeTopping(word, role, tokenIdx, total){
 }
 
 function setupSentence(){
-  placedCount = 0; listenCount = 0; speakCount = 0;
+  placedCount = 0; listenCount = 0; speakCount = 0; speakAttempts = 0;
   missionActive = false; baking = false; awaitingStart = true;
   stopTimer();
   var s = cur();
@@ -919,6 +963,7 @@ function setupSentence(){
     $('tray').appendChild(el);
   });
   updateHud();
+  applyRoles();   // 🏷️ 단계(Level)·레슨 전환에 맞춰 성분 힌트 기본값 적용
   // 🔊 서버 오디오 미리받기(문장+단어) — 클릭·듣기 즉시 재생
   prefetchTts(sentenceText());
   s.tokens.forEach(function(t){ prefetchTts(t[0]); });
@@ -1055,7 +1100,7 @@ function startMission(){
   if(recognition) recognition.lang = langOf(sentenceText());   // 문장 언어에 맞춰 인식
   $('mission-sentence').textContent = '"' + sentenceText() + '"';
   $('mission-py').textContent = (GLANG === 'zh' && cur().py) ? cur().py : '';
-  $('status').textContent = '🍕 완성! 3번 듣고 3번 말하면 토큰 획득!';
+  $('status').textContent = '🍕 완성! 듣고 따라 말해요 — 첫 시도 100점이면 보너스까지!';
   renderDots('listen-dots', 0);
   renderDots('speak-dots', 0);
   $('btn-listen').disabled = false;
@@ -1065,32 +1110,43 @@ function startMission(){
   $('mission').classList.add('show');
 }
 
+/* 💡 (2026-08-13 원장님 제안) 고정 '듣기 3회' 강제를 풀었다 — 1회만 들으면 말하기가 열리고,
+   더 듣고 싶은 학생만 3회까지 듣는다. 잘하는 학생의 형식적 횟수 채우기를 없애기 위함. */
 $('btn-listen').onclick = function(){
   if(listenCount >= 3) return;
   $('btn-listen').disabled = true;
   speak(sentenceText(), function(){
     listenCount++;
     renderDots('listen-dots', listenCount);
+    $('btn-speak').disabled = false;                 // 1회만 들어도 바로 말하기 가능
     if(listenCount >= 3){
       $('btn-listen').disabled = true;
-      $('btn-speak').disabled = false;
-      toast('듣기 완료! 이제 말하기!');
+      toast('충분히 들었어요! 이제 말하기!');
     } else {
       $('btn-listen').disabled = false;
-      toast('듣기 ' + listenCount + ' / 3');
+      toast('듣기 ' + listenCount + '회 — 준비되면 바로 🎤 말하기!');
     }
   });
 };
 
-function speakSuccess(){
+/* 💯 (2026-08-13 원장님 제안) 정확도 기반 적응형 통과.
+   · sc(정확도 0~1)가 PERFECT_SC 이상이면 남은 반복을 건너뛰고 즉시 통과.
+   · 그게 **첫 시도**(speakAttempts===1)면 '원샷 원킬' 퍼펙트 보너스 토큰까지.
+   · 100점 미만(0.7~)은 예전처럼 3회를 채워 자연스러운 반복 학습. */
+function speakSuccess(sc){
   speakCount++;
   try{ if(typeof _pzRemember === 'function') _pzRemember(true); }catch(_e){}   // 🧠 성공 적립 (부가기능은 본 흐름 뒤에)
+  if(sc != null && sc >= PERFECT_SC){
+    renderDots('speak-dots', 3);
+    missionComplete(speakAttempts <= 1);
+    return;
+  }
   renderDots('speak-dots', speakCount);
   if(speakCount >= 3){
-    missionComplete();
+    missionComplete(false);
   } else {
     toast('말하기 ' + speakCount + ' / 3 — 잘했어요!');
-    $('speech-result').textContent = '✅ 정확해요! ' + (3 - speakCount) + '번 더!';
+    $('speech-result').textContent = '✅ 정확해요! ' + (3 - speakCount) + '번 더! (100점이면 바로 통과!)';
   }
 }
 
@@ -1103,11 +1159,11 @@ $('btn-speak').onclick = function(){
   /* 🎤 (2026-07-23) 예전에는 단발 인식(continuous 기본값 false)이라 브라우저가 말 중간 짧은
      침묵만으로 끝내 버렸고, 첫 조각 하나로 바로 채점했다("한두 마디 하면 꺼진다").
      → continuous=true 로 브라우저 자동종료를 막고, 말이 끝나고 조용해지면 우리가 종료한다. */
-  var _pzSaid = '', _pzBase = '', _pzGot = false, _pzSil = null;
-  function _pzArm(){
+  var _pzSaid = '', _pzBase = '', _pzGot = false, _pzSil = null, _pzBest = 0;
+  function _pzArm(ms){
     if(_pzSil) clearTimeout(_pzSil);
     // 아직 아무 말도 못 들었으면 넉넉히 기다린다(아이들은 오래 뜸들인다)
-    _pzSil = setTimeout(function(){ try{ recognition.stop(); }catch(e){} }, _pzSaid ? 3000 : 9000);
+    _pzSil = setTimeout(function(){ try{ recognition.stop(); }catch(e){} }, ms || (_pzSaid ? 3000 : 9000));
   }
   // 안드로이드는 "지금까지 말한 문장 전체"를 확정 결과로 다시 보낸다(누적형) → 겹치는 만큼 지우고 잇는다
   function _pzMerge(a, b){
@@ -1157,14 +1213,20 @@ $('btn-speak').onclick = function(){
     // 브라우저가 세션을 끊고 다시 시작했으면 앞 세션에서 들은 것(_pzBase) 뒤에 잇는다
     _pzSaid = _pzMerge(_pzBase, full).trim();
     $('speech-result').textContent = '🎤 …(듣는 중) "' + _pzSaid + '"';
-    if(matchScore(_pzSaid, sentenceText()) >= 0.7){     // 정답이 들리면 즉시 통과
+    var sc = matchScore(_pzSaid, sentenceText());
+    if(sc > _pzBest) _pzBest = sc;
+    /* 💯 100점(PERFECT_SC)이면 그 자리에서 통과. 0.7~ 는 통과권이지만 바로 끊지 않고
+       1.5초 더 들어 준다 — 예전처럼 0.7에서 즉시 끊으면 문장을 끝까지 말하기도 전에
+       잘려서 '첫 시도 100점'이 사실상 불가능해진다. 조용해지면 onend 가 최고점으로 판정. */
+    if(sc >= PERFECT_SC){
       _pzGot = true;
       if(_pzSil) clearTimeout(_pzSil);
       try{ recognition.stop(); }catch(e){}
-      speakSuccess();
+      speakAttempts++;
+      speakSuccess(sc);
       return;
     }
-    _pzArm();                                            // 아직 아님 → 계속 말할 시간 부여
+    _pzArm(sc >= 0.7 ? 1500 : undefined);                // 통과권이면 마무리만 기다리고, 아직이면 계속
   };
   recognition.onerror = function(ev){
     if(ev.error === 'no-speech') return;                 // 보호막이 다시 듣는다
@@ -1176,9 +1238,10 @@ $('btn-speak').onclick = function(){
     if(_pzSil) clearTimeout(_pzSil);
     listening = false;
     $('btn-speak').textContent = '🎤 말하기';
-    if(!_pzGot){                                         // 말이 다 끝났는데 정답이 아니면 그때 판정
+    if(!_pzGot){                                         // 말이 다 끝났으면 그때 최고점으로 판정
       _pzGot = true;
-      if(_pzSaid) _pzFail();
+      if(_pzBest >= 0.7){ speakAttempts++; speakSuccess(_pzBest); }
+      else if(_pzSaid){ speakAttempts++; _pzFail(); }
       else $('speech-result').textContent = '🎤 소리가 잘 안 들렸어요. 다시 눌러서 또박또박 말해 주세요!';
     }
   };
@@ -1191,15 +1254,21 @@ $('btn-speak').onclick = function(){
   try { recognition.start(); } catch(e){ listening = false; }
 };
 
-function missionComplete(){
+function missionComplete(perfect){
   missionActive = false;
-  tokens += 10;
+  var gain = perfect ? 15 : 10;                          // 🏆 원샷 원킬(첫 시도 100점) = +5 퍼펙트 보너스
+  tokens += gain;
   updateHud();
   $('mission').classList.remove('show');
   var r = $('paddle').getBoundingClientRect();
   burst(r.left + r.width / 2, r.top + r.height / 2);
-  $('status').textContent = '🎉 미션 성공! 10토큰 획득! 다음 피자를 준비할게요...';
-  toast('+10 토큰!');
+  if(perfect) setTimeout(function(){ burst(r.left + r.width / 2, r.top + r.height / 2); }, 350);
+  $('status').textContent = perfect
+    ? '🏆 퍼펙트! 첫 시도 100점! ' + gain + '토큰 획득! 다음 피자를 준비할게요...'
+    : '🎉 미션 성공! ' + gain + '토큰 획득! 다음 피자를 준비할게요...';
+  toast(perfect ? '🏆 원샷 원킬! +' + gain + ' 토큰!' : '+' + gain + ' 토큰!');
+  // 🔓 허브 게임 해금 체인 신호 — 허브(student-games.html)가 미션 완료를 세어 다음 게임을 연다
+  try{ if(window.parent !== window) parent.postMessage({ type:'mangoi-game-complete', game:'pizza', score:gain }, '*'); }catch(_){}
   setTimeout(nextSentence, 2000);
 }
 

@@ -2165,7 +2165,7 @@ function spToolsEnable(on){
 function spFull(){ return SP.w.join(LANGMETA[MODE].join); }
 function startSpeaking(){
   G.speaking=true; stopSpeak();
-  SP={ w:G.sent.w.slice(), ko:G.sent.ko, listen:0, spoke:0, need:3 };
+  SP={ w:G.sent.w.slice(), ko:G.sent.ko, listen:0, spoke:0, need:3, tryBase:G.pronTry };
   document.getElementById('spSent').textContent=spFull();
   document.getElementById('spKo').textContent=SP.ko||'';
   document.getElementById('spHeard').textContent='';
@@ -2178,13 +2178,15 @@ function spDots(n, kind){
     h+='<div class="dot'+(i<n?' ok':(i===n?' act':''))+'"></div>'; }
   document.getElementById('spDots').innerHTML=h;
   document.getElementById('spState').textContent =
-    kind==='listen' ? ('🔊 잘 들으세요 ('+(n+1)+'/3) · LISTEN')
-                    : ('🎤 따라 말하세요 ('+(n+1)+'/3) · REPEAT');
+    kind==='listen' ? '🔊 잘 들으세요 · LISTEN'
+                    : ('🎤 따라 말하세요 · REPEAT (첫 시도 100점이면 바로 통과!)');
   document.getElementById('micBtn').style.display = (kind==='listen') ? 'none' : 'block';
 }
+/* 💡 (2026-08-13 원장님 제안) 고정 '듣기 3회' 폐지 — 1회 들으면 바로 말하기로 넘어간다.
+   더 듣고 싶은 학생은 '🔊 원어민 듣기' 버튼으로 몇 번이든 다시 들을 수 있다. */
 function spListenStep(){
   if(!SP) return;
-  if(SP.listen>=3){ spDots(0,'speak'); document.getElementById('micBtn').disabled=false; return; }
+  if(SP.listen>=1){ spDots(0,'speak'); document.getElementById('micBtn').disabled=false; return; }
   spDots(SP.listen,'listen');
   speak(spFull(), spRate, 1, function(){
     if(!SP) return; SP.listen++; setTimeout(spListenStep, 420);
@@ -2207,6 +2209,8 @@ function spSpeakStep(){
     if(ok){
       G.pronOk++; SP.spoke++; sndGood();
       try{ if(typeof _spkCoach==='function') _spkCoach(heard, _spkTarget(), true); }catch(_e){}   // 🧠 성공도 기억 큐에
+      /* 🏆 원샷 원킬 — 첫 시도에서 100점이면 남은 반복 없이 즉시 통과 + 퍼펙트 보너스 */
+      if(_spAcc>=SP_PERFECT && SP.spoke===1 && G.pronTry===SP.tryBase+1){ spFinish(true, true); return; }
       if(SP.spoke>=SP.need){ spFinish(true); return; }
       spDots(SP.spoke,'speak'); document.getElementById('micBtn').disabled=false;
     }else{
@@ -2219,13 +2223,18 @@ function spSpeakStep(){
     }
   });
 }
-function spFinish(success){
+function spFinish(success, perfect){
   document.getElementById('ovSpeak').classList.add('hide');
   // 카드를 닫을 때 재생과 마이크를 반드시 놓아 준다(마이크 표시등이 계속 켜져 있으면 안 된다)
   try{ if(_myAudio) _myAudio.pause(); }catch(_){}
   stopMyVoiceRec();
   SP=null; G.speaking=false;
-  if(success){ G.score+=250; banner('🎖️ 무전 교신 성공! +250', '#4ade80'); hubComplete(250); }
+  if(success){
+    var _gain = perfect ? 400 : 250;   // 🏆 첫 시도 100점 = 퍼펙트 보너스 +150
+    G.score+=_gain;
+    banner(perfect ? ('🏆 퍼펙트! 첫 시도 100점! +'+_gain) : ('🎖️ 무전 교신 성공! +'+_gain), '#4ade80');
+    hubComplete(_gain);
+  }
   updateHUD();
   if(G.sentences>=Math.ceil(GOAL/3) && G.kills>=GOAL){ endGame(true); return; }
   if(G.kills>=GOAL){ endGame(true); return; }
@@ -2339,19 +2348,25 @@ function listenOnce(cb){
   paint(); _tick=setInterval(paint, 200);
   _deadline=setTimeout(function(){ finish(matched,best); }, MS);
 }
+/* 💯 (2026-08-13 원장님 제안) 원샷 통과 판정용 정확도(0~1) — matchSentence 가 판정할 때마다 갱신.
+   boolean 만으로는 "100점"과 "턱걸이 통과"를 구분할 수 없다. */
+var _spAcc = 0;
+var SP_PERFECT = 0.98;
 function matchSentence(said, target){
+  _spAcc = 0;
   if(!said||!target) return false;
   if(MODE==='zh'){
     var s=said.replace(/[\s，。,.!?！？、]/g,''), t=target.replace(/[\s，。,.!?！？、]/g,'');
     if(!t) return false; var hit=0;
     for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
-    return hit/t.length>=0.7;
+    _spAcc = hit/t.length;
+    return _spAcc>=0.7;
   }
   /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
      예전엔 `set[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
      어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
      ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
-  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  if(window.MangoiScore){ var _g = MangoiScore.grade(said, target); _spAcc = _g.accuracy; return _g.pass; }
   return _legacyMatchSentence(said, target);
 }
 // 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다

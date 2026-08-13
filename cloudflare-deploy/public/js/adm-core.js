@@ -3317,25 +3317,35 @@ async function addFranchise() {
 //      «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 다른 말이라 라벨을 바꿨다.
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0 };
+//   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
+  if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
   _ensureFranchiseSelect();
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
-           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '');
+           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
+           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '');
   let d = {};
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
     d = await r.json().catch(()=>({}));
   } catch (e) { d = {}; }
   _ctState.total = Number(d.total || 0);
+  if (d && d.counts) _ctState.counts = d.counts;
+  _ctRenderPtFilter();
+  // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
+  // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
+  if (_ctState.offset > 0 && _ctState.offset >= _ctState.total) {
+    return loadCenters({ offset: Math.max(0, _ctState.total - _ctState.limit) });
+  }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     tb.innerHTML = '<tr><td colspan="7" class="empty">'
-      + (_ctState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+      + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
@@ -3372,9 +3382,42 @@ async function ctSetPayType(id, sel) {
   } catch (e) {
     sel.value = prev;
     alert((adminLang==='en' ? 'Failed to save payment type: ' : '결제유형 저장 실패: ') + e.message);
+    return;
   }
+  // 저장됐으면 건수 요약이 이미 틀렸다. 유형으로 거르는 중이면 그 행은 목록에서 빠져야 하고,
+  // 아니면 숫자만 갱신하면 된다 → 어느 쪽이든 다시 불러오는 게 맞다(50행 한 번).
+  loadCenters();
 }
 window.ctSetPayType = ctSetPayType;
+
+// 💳 (2026-08-14) 결제유형 필터 버튼 + 유형별 건수.
+//    ⚠️ hover 강조는 «색만» — 크기·위치를 움직이면 안 된다(CLAUDE.md 1-3 «정신없다»고 제거된 것).
+//    ⚠️ 라벨은 <span data-ko/data-en> 안에 두고 건수는 바깥 <b> 로 뺀다.
+//       i18n 사전이 «전체 문자열 일치»라, 숫자가 섞인 문자열은 번역이 안 걸린다.
+function _ctRenderPtFilter() {
+  const el = document.getElementById('ct-ptfilter');
+  if (!el) return;
+  const c = _ctState.counts || { all: 0, B2B: 0, B2C: 0, NONE: 0 };
+  const defs = [
+    ['',     '전체',   'All',   c.all],
+    ['B2B',  'B2B',    'B2B',   c.B2B],
+    ['B2C',  'B2C',    'B2C',   c.B2C],
+    ['NONE', '미지정', 'Unset', c.NONE],
+  ];
+  el.innerHTML = defs.map(function (d) {
+    const on = _ctState.pt === d[0];
+    return '<button type="button" onclick="ctFilterPayType(\'' + d[0] + '\')"'
+      + ' style="padding:4px 10px;font-size:12px;border-radius:8px;cursor:pointer;'
+      +   'border:1px solid ' + (on ? '#1d4ed8' : '#d1d5db') + ';'
+      +   'background:' + (on ? '#1d4ed8' : '#fff') + ';'
+      +   'color:' + (on ? '#fff' : '#374151') + ';'
+      +   'font-weight:' + (on ? '700' : '400') + '">'
+      + '<span data-ko="' + d[1] + '" data-en="' + d[2] + '">'
+      + (adminLang === 'en' ? d[2] : d[1]) + '</span> <b>' + Number(d[3] || 0) + '</b></button>';
+  }).join('');
+}
+function ctFilterPayType(v) { loadCenters({ pt: v }); }
+window.ctFilterPayType = ctFilterPayType;
 function _ctRenderPager() {
   const el = document.getElementById('ct-pager');
   if (!el) return;
@@ -6281,7 +6324,10 @@ function _tbRenderChips(items) {
     dl.innerHTML = opts;
   }
   // 고정 그룹 + 데이터에 있는 출판사 자동 추가
-  var fixed = ['전체교재', 'Phonics', 'MES', 'BTS', 'SIU', '중국어 마스터'];
+  /* 🙈 (2026-08-13) MES 를 «고정 칩» 에서 뺀다 — 이제 안 쓰는 교재를 항상 띄울 이유가 없다.
+     ⚠️ 지우는 게 아니다. 아래 extra 가 «데이터에 있는 출판사» 를 자동으로 붙이므로,
+        MES 교재가 명부에 남아 있는 한 칩은 그대로 나온다 — 옛 기록을 찾는 길은 막지 않는다. */
+  var fixed = ['전체교재', 'Phonics', 'BTS', 'SIU', '중국어 마스터'];
   var extra = {};
   (items || []).forEach(function(t){
     var pub = (t.publisher || '').trim();
