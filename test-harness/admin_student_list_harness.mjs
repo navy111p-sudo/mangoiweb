@@ -103,6 +103,42 @@ check(`배선 IIFE ${iifes.length}개 검사 — 선언 없는 대상 0개` +
 check('bindStudentList 에서 btn 을 선언한다',
   /function bindStudentList\(\)\{[\s\S]{0,200}const btn = document\.getElementById\('sm-load-students'\)/.test(core));
 
+/* 🐢 (2026-08-13 수정요청 #01) ①~⑥ 은 전부 «화면» 이야기였다. 그런데 정작 느린 곳은
+   서버였다 — /api/admin/students/unified 한 방이 운영 D1 에서 183만 행(294ms),
+   검색어가 붙으면 2,690만 행(1,361ms)을 읽고 있었다. 원인은 상관 서브쿼리 5개:
+     · SELECT 목록의 attendance ×2 · enrollments ×1  → 학생 한 줄마다 다시 훑음
+     · WHERE 의 centers·franchises EXISTS ×2        → 학생 한 줄마다 921·241행을 다시 훑음
+   되돌아가면 화면 최적화가 아무리 잘 돼 있어도 그대로 느려지므로 여기서 못박는다.
+   (실측 결과: 12.6만 행·74ms / 검색 9.7만 행·51ms. 결과 집합은 옛 쿼리와 행 단위로 동일) */
+console.log('\n[ ⑦ 서버 쿼리 — 학생 한 명마다 테이블을 다시 훑지 않기 (2026-08-13 #01) ]');
+{
+  const adminTs = rd('../cloudflare-deploy/src/api-admin.ts');
+  // 핸들러 «전체» 를 본다 — 고정 길이로 자르면 주석이 길어질 때 뒷부분이 잘려
+  // 있지도 않은 것을 «없다» 로 읽고 헛통과·헛실패한다(실제로 한 번 겪음).
+  const i = adminTs.indexOf(`path === '/api/admin/students/unified'`);
+  const j = i >= 0 ? adminTs.indexOf('can_view_pii: canViewPII', i) : -1;
+  const uni = (i >= 0 && j > i) ? adminTs.slice(i, j) : '';
+  check('unified 핸들러를 찾았다 (아래 검사의 전제)', uni.length > 100);
+  check('🔴 attendance 를 «행마다» 다시 세지 않는다 (COUNT 상관 서브쿼리 금지)',
+    !/\(SELECT COUNT\(\*\) FROM attendance a WHERE a\.user_id = s\.user_id\)/.test(uni));
+  check('🔴 attendance 최근방문도 «행마다» 다시 찾지 않는다 (MAX 상관 서브쿼리 금지)',
+    !/\(SELECT MAX\(date\) FROM attendance a WHERE a\.user_id = s\.user_id\)/.test(uni));
+  check('🔴 centers·franchises 를 «행마다» EXISTS 로 훑지 않는다 — 검색이 2,690만 행이 되던 원인',
+    !/EXISTS \(SELECT 1 FROM (centers|franchises)/.test(uni));
+  check('검색은 IN (비상관 서브쿼리) 로 한 번만 만든 목록을 재사용한다',
+    /s\.shop_name IN \(SELECT c\.name FROM centers c/.test(uni) &&
+    /s\.franchise IN \(SELECT f\.name FROM franchises f/.test(uni));
+  check('먼저 1000명을 확정하는 CTE(page)가 있다', /WITH page AS \(/.test(uni));
+  check('attendance 집계를 그 1000명으로 좁힌다 (통짜 GROUP BY 금지)',
+    /FROM attendance\s+WHERE user_id IN \(SELECT user_id FROM page\)/.test(uni));
+  check('⚠️ enrollments 조인의 MAX(id) 를 지우지 않았다 — 빼면 아무 행의 package 나 집힌다',
+    /SELECT student_user_id, MAX\(id\)[^)]*, package[\s\S]{0,80}GROUP BY student_user_id/.test(uni));
+  check('⚠️ sessions 는 LEFT JOIN 이 된 뒤에도 «없으면 0» 을 유지한다 (예전 COUNT(*) 와 같게)',
+    /COALESCE\(a\.sessions, 0\) AS sessions/.test(uni));
+  check('바깥 정렬을 명시했다 — 조인 뒤 순서가 «운» 에 맡겨지지 않게',
+    /ORDER BY COALESCE\(p\.created_at,0\) DESC, p\._rid DESC/.test(uni));
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

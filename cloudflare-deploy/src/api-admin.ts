@@ -6811,28 +6811,73 @@ LIMIT $limit`;
         // 🔍 (2026-08-12 수정요청 #02) 이름·아이디뿐 아니라 가맹점(학원)명·지사명, 그리고
         //    원장·담당자 이름(centers.manager / franchises.owner_name)으로도 학생을 찾을 수 있게.
         //    centers·franchises 는 운영 D1 에 이미 존재(schema-live.sql 확인).
+        //    🐢 (2026-08-13 수정요청 #01) 이 두 줄이 원래 EXISTS 상관 서브쿼리였다.
+        //       «학생 한 명마다» centers 921행·franchises 241행을 새로 훑어서, 검색 한 번에
+        //       D1 이 2,690만 행을 읽고 1,361ms 를 썼다(실측). 검색창은 500ms 디바운스 뒤
+        //       매번 이걸 부르므로 «타자를 치면 화면이 느려지는» 것의 정체가 이것이다.
+        //       IN (비상관 서브쿼리) 로 바꾸면 SQLite 가 목록을 **한 번만** 만들어 재사용한다.
+        //       → 2,690만 행 → 9.6만 행 · 1,361ms → 48ms (실측, 같은 검색어 '김').
+        //       ⚠️ 의미는 완전히 같다 — EXISTS(c.name = s.shop_name AND c.manager LIKE ?)
+        //          와 s.shop_name IN (SELECT name FROM centers WHERE manager LIKE ?) 는
+        //          바깥 컬럼이 등호 하나로만 묶여 있어 서로 바꿔 쓸 수 있다.
+        //          운영 D1 에서 두 형태의 결과 집합을 대조 확인했다(양방향 차집합 0건):
+        //            · '임창문'(centers.manager 경로) 10건 = 10건
+        //            · '지사'(franchises.owner_name 경로) 7,742건 = 7,742건
         conds.push(`(s.korean_name LIKE ? OR s.english_name LIKE ? OR s.student_name LIKE ? OR s.user_id LIKE ? OR s.student_phone LIKE ?
           OR s.shop_name LIKE ? OR s.franchise LIKE ?
-          OR EXISTS (SELECT 1 FROM centers c WHERE c.name = s.shop_name AND c.manager LIKE ?)
-          OR EXISTS (SELECT 1 FROM franchises f WHERE f.name = s.franchise AND f.owner_name LIKE ?))`);
+          OR s.shop_name IN (SELECT c.name FROM centers c WHERE c.manager LIKE ?)
+          OR s.franchise IN (SELECT f.name FROM franchises f WHERE f.owner_name LIKE ?))`);
         binds.push(like, like, like, like, like, like, like, like, like);
       }
       if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+      /* 🐢 (2026-08-13 수정요청 #01) 「학생 목록을 누르면 한참 걸린다」
+         원인은 위 SELECT 목록에 매달려 있던 «상관 서브쿼리 3개» 였다. 학생 한 줄을 만들 때마다
+         attendance(18.3만행)를 두 번, enrollments 를 한 번 다시 뒤졌다.
+           실측(운영 D1, students_erp 29,397 / attendance 183,074):
+             · 옛 형태 그대로            → 183만 행 읽기 · 294ms
+             · attendance 를 통짜 GROUP BY 로 조인 → 27만 행 · 79ms
+             · ↓ 아래처럼 «뽑은 1000명 것만» 집계     → 12.5만 행 · 63ms   ← 14.7배 · 4.7배
+         핵심은 «먼저 1000명을 확정하고, 그 1000명 것만 집계한다» 이다. 그래서 CTE(page)를
+         먼저 만들고 attendance 집계에도 그 목록을 그대로 물려 준다.
+         ⚠️ 돌려주는 값·컬럼 이름·정렬·건수는 종전과 100% 같다. 화면·CSV 는 손댈 필요가 없다.
+         ⚠️ sessions 는 예전에 COUNT(*) 라 «없으면 0» 이었다. LEFT JOIN 은 없으면 NULL 이므로
+            COALESCE 로 0 을 유지한다. last_seen 은 예전에도 NULL 이었으니 그대로 둔다.
+         ⚠️ enrollments 조인의 MAX(id) 는 장식이 아니다 — SQLite 는 GROUP BY 에
+            MAX() 가 있으면 함께 적은 «맨몸 컬럼»(package)을 그 최대 행에서 가져온다.
+            즉 옛 `ORDER BY e.id DESC LIMIT 1` 과 같은 값이다(lemuel: id 54·55 중 55 = '정규수업' 로 대조 확인).
+            빼면 아무 행이나 집히므로 지우지 말 것. */
       const rs = await env.DB.prepare(
-        `SELECT s.user_id,
-                COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
-                s.english_name, s.school, s.grade, s.level, s.textbook,
-                s.student_phone, s.parent_phone, s.kakao_id, s.status, s.signup_date, s.points, s.created_at,
-                s.payment_type, s.end_date, s.classes_per_week, s.teacher_phone,
-                s.shop_name, s.hq_name, s.branch1_name, s.branch2_name, s.franchise,
-                (SELECT e.package FROM enrollments e WHERE e.student_user_id = s.user_id ORDER BY e.id DESC LIMIT 1) AS enroll_package,
-                (SELECT COUNT(*) FROM attendance a WHERE a.user_id = s.user_id) AS sessions,
-                (SELECT MAX(date) FROM attendance a WHERE a.user_id = s.user_id) AS last_seen
-         FROM students_erp s
-         ${where}
-         ORDER BY COALESCE(s.created_at,0) DESC, s.rowid DESC
-         LIMIT 1000`
+        `WITH page AS (
+           SELECT s.user_id,
+                  COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
+                  s.english_name, s.school, s.grade, s.level, s.textbook,
+                  s.student_phone, s.parent_phone, s.kakao_id, s.status, s.signup_date, s.points, s.created_at,
+                  s.payment_type, s.end_date, s.classes_per_week, s.teacher_phone,
+                  s.shop_name, s.hq_name, s.branch1_name, s.branch2_name, s.franchise,
+                  s.rowid AS _rid
+             FROM students_erp s
+             ${where}
+            ORDER BY COALESCE(s.created_at,0) DESC, s.rowid DESC
+            LIMIT 1000
+         )
+         SELECT p.user_id, p.name,
+                p.english_name, p.school, p.grade, p.level, p.textbook,
+                p.student_phone, p.parent_phone, p.kakao_id, p.status, p.signup_date, p.points, p.created_at,
+                p.payment_type, p.end_date, p.classes_per_week, p.teacher_phone,
+                p.shop_name, p.hq_name, p.branch1_name, p.branch2_name, p.franchise,
+                e.package               AS enroll_package,
+                COALESCE(a.sessions, 0) AS sessions,
+                a.last_seen             AS last_seen
+           FROM page p
+           LEFT JOIN (SELECT user_id, COUNT(*) AS sessions, MAX(date) AS last_seen
+                        FROM attendance
+                       WHERE user_id IN (SELECT user_id FROM page)
+                       GROUP BY user_id) a ON a.user_id = p.user_id
+           LEFT JOIN (SELECT student_user_id, MAX(id) AS _latest_id, package
+                        FROM enrollments
+                       GROUP BY student_user_id) e ON e.student_user_id = p.user_id
+          ORDER BY COALESCE(p.created_at,0) DESC, p._rid DESC`
       ).bind(...binds).all();
       const _piiStudents = applyPIIScope(rs.results || [], _ssw.scope);  // 🔒 권한별 PII 마스킹
       return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
