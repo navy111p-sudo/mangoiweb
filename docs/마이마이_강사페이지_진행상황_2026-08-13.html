@@ -108,28 +108,33 @@
 </div>
 
 <div class="kpis">
-  <div class="kpi k-done"><b>26</b><span>✅ 다 된 것</span></div>
-  <div class="kpi k-part"><b>3</b><span>⚠️ 아직 안 된 것</span></div>
-  <div class="kpi k-todo"><b>4</b><span>📋 이제 해야 할 것</span></div>
+  <div class="kpi k-done"><b>30</b><span>✅ 다 된 것</span></div>
+  <div class="kpi k-part"><b>0</b><span>⚠️ 아직 안 된 것</span></div>
+  <div class="kpi k-todo"><b>1</b><span>📋 이제 해야 할 것</span></div>
 </div>
 
 <div class="item done" style="border-left-width:5px;margin-bottom:14px">
-  <p class="t">📌 8월 13일 오후 — 여기 적힌 것을 <b>실제로 고쳐서 올렸습니다</b> (커밋 301c603)</p>
-  <p class="d">이 문서를 만든 뒤 사장님 지시로 <b>전부 진행</b>했습니다. 아래 세 갈래는 <b>그 작업이 끝난 뒤의 상태</b>입니다.
-  처음 정리했을 때는 「아직 안 된 것 5 · 해야 할 것 7」이었는데, 그 중 <b>7건을 고쳐</b> 다 된 것으로 옮겼습니다.</p>
-  <p class="why"><b>⚠️ 조사 중에 이 문서의 앞선 판단 두 가지가 틀렸다는 것이 드러났습니다 — 바로잡습니다.</b><br>
-  ① <b>「서버에서 PDF 를 JPG 로 바꿔야 한다」는 틀렸습니다.</b> 운영 DB 를 직접 세어 보니
-  교재 파일 <b>38,922개 중 38,860개(99.84%)가 이미 JPG</b> 이고 PDF 는 <b>62개뿐</b>입니다.
-  느렸던 진짜 이유는 PDF 가 아니라 <b>「1장 = 1파일」이라 넘길 때마다 새로 받는 것</b>이었습니다.<br>
-  ② <b>「MES 파일이 325개 있다」도 틀렸습니다.</b> 그 325개는 <b>「Computer Games」의 GA<u>MES</u></b> 가
-  걸린 오탐이었습니다. 실제로 이름에 MES 가 든 서버 교재는 <b>0개</b>입니다 — 그래서 8월 11일 숨김이 아무것도 못 숨겼습니다.</p>
+  <p class="t">📌 8월 13일 저녁 — <b>마이마이 답변까지 받아서 반영</b>했습니다 (커밋 198a5cd)</p>
+  <p class="d">질문지 7개에 <b>전부 답을 받았고</b>, 그 답대로 처리를 끝냈습니다.
+  <b>「깜빡임 없어졌다」·「마이크 이제 괜찮다」·「연기 구조 괜찮다」·「입장 화면 괜찮다」</b> 4건은
+  <b>마이마이가 직접 해결을 확인</b>해 주었습니다.</p>
+  <p class="why"><b>🔴 가장 중요한 것 — 마이마이는 8월 13일 수정분을 «아직 받지 못했습니다».</b><br>
+  자동 배포는 <b>main 브랜치에 올릴 때만</b> 동작하는데, 오늘 작업은 전부 <b>작업 브랜치에만</b> 있습니다.
+  마이마이 회신의 체크표가 이것을 그대로 보여줍니다 —
+  <b>8월 12일 이전 항목은 전부 「/」(된다)</b> 인데 <b>8월 13일 항목 4개만 빈칸(☐)</b> 입니다.<br>
+  → 그래서 <b>「교재가 아직 느리다」는 고친 코드를 써 본 결과가 아닙니다.</b>
+  <b>배포해야 판정할 수 있습니다.</b></p>
+  <p class="why"><b>⚠️ 조사 중에 이 문서의 앞선 판단 두 가지가 틀렸던 것 — 바로잡았습니다.</b><br>
+  ① <b>「서버에서 PDF 를 JPG 로 바꿔야 한다」는 틀렸습니다.</b> 교재 파일 <b>38,922개 중 38,860개(99.84%)가 이미 JPG</b>,
+  PDF 는 <b>62개뿐</b>입니다.<br>
+  ② <b>「MES 파일이 325개 있다」도 틀렸습니다.</b> <b>「Computer Games」의 GA<u>MES</u></b> 오탐이었습니다.</p>
 </div>
 
 
 <!-- ══════════════════ 1. 다 된 것 ══════════════════ -->
 <h2 class="sec s-done">✅ 다 된 것 ① &nbsp;— 19건 <span style="font-weight:700;font-size:9.5pt">(8월 12일까지)</span>
   <small>코드에 들어가 있고 라이브에 나갔습니다. 마이마이에게 「확인해 달라」고 요청할 목록입니다.
-  &nbsp;·&nbsp; 오늘(8/13) 새로 고친 6건은 뒤쪽 「다 된 것 ②」에 있습니다 — 합쳐서 25건.</small>
+  &nbsp;·&nbsp; 오늘(8/13) 처리한 11건은 뒤쪽 「다 된 것 ②③④」에 있습니다 — 합쳐서 30건.</small>
 </h2>
 
 <div class="item done">
@@ -341,122 +346,118 @@
 
 <div class="pg"></div>
 
-<h2 class="sec s-part">⚠️ 아직 안 된 것 &nbsp;— 3건
-  <small>고칠 수는 있지만 <b>정보가 더 필요하거나</b>, 일부러 그렇게 둔 것들입니다.</small>
+<h2 class="sec s-done">✅ 다 된 것 ③ &nbsp;— 4건 <span style="font-weight:700;font-size:9.5pt">(마이마이가 직접 «이제 괜찮다» 고 확인)</span>
+  <small>오전에 「아직 안 된 것」으로 분류했던 것들입니다. 질문지 답변으로 <b>해결이 확인</b>됐습니다.</small>
 </h2>
 
-<div class="item part">
-  <p class="t"><span class="date">8/10 ①</span>교실 화면이 깜빡인다 (전체)</p>
-  <p class="en">"The classroom has flickering display"</p>
-  <p class="d">깜빡임 관련해 <b>여러 건을 고쳤습니다</b> — 상단 칩 핑퐁(8/11 신고분, 위 참고), 음량 미터 감시가 <b>두 번 걸려</b> 켜졌다 꺼졌다 하던 것, 수업 중 뒷작업이 화면을 다시 그리던 것.</p>
-  <p class="why"><b>남은 것</b> — 「교실 전체가 깜빡인다」는 <b>어디가 어떻게 깜빡이는지</b> 아직 재현하지 못했습니다.
-  8월 11일 신고에서 <b>「위쪽만」</b> 이라고 좁혀 주신 덕에 상단 칩을 잡았지만, 8월 10일 신고가 그것과 같은 것인지 확인이 안 됩니다.
-  → 마이마이에게 <b>화면 녹화</b>를 한 번 부탁드리는 것이 가장 빠릅니다.</p>
-  <p class="ev">idx-main.js:6358 미터 감시 중복 · 7015 vcMicOn 미동기화 / index.html:11981 등 수업 중 뒷작업 정지</p>
+<div class="item done">
+  <p class="t"><span class="date">8/10 ①</span>교실 화면 깜빡임 — <b>없어졌습니다</b></p>
+  <p class="en">답변: <b>"No more flickering now sir"</b></p>
+  <p class="d">8월 11일에 고친 <b>「위쪽만 깜빡임」</b>(영어 모드에서만 나던 문제) 수정으로
+  <b>8월 10일에 신고한 「교실 전체 깜빡임」까지 함께 해결</b>됐습니다. 화면 녹화는 받지 않아도 됩니다.</p>
 </div>
 
-<div class="item part">
-  <p class="t"><span class="date">8/7 ④</span>강사 페이지에서 연기(postpone) 버튼 없애기 — 절반만</p>
-  <p class="en">"Remove postpone option at teacher's page, they might postpone it by themselves or accidentally postpone it. Managers and students can only postpone"</p>
-  <p class="d">수업 줄에 붙어 있던 <b>[연기] 버튼은 없앴습니다</b>(실수로 누를 위험이 있던 그 버튼입니다).</p>
-  <p class="why"><b>남긴 것 —</b> 「수업 연기·변경 <b>요청</b>」 카드는 <b>사장님 지시로 일부러 남겼습니다.</b>
-  강사가 <b>요청만</b> 낼 수 있고, 실제 연기는 <b>매니저가 승인해야</b> 확정됩니다(승인 전에는 대기 상태).
-  마이마이가 말한 「매니저와 학생만 연기 가능」을 글자 그대로 보면 완전 제거는 아니므로,
-  → <b>이 구조로 괜찮은지 마이마이에게 알려 주고 확인받아야 합니다.</b></p>
-  <p class="ev">teacher.html:1436 「(연기 버튼 제거 2026-08-08)」 / teacher.html:565 「연기요청은 일부러 안 옮겼다(사장님 지시)」 · 568 #c-postpone / api-admin.ts:2278 status='pending'</p>
+<div class="item done">
+  <p class="t"><span class="date">8/7 ⑩</span>「내 마이크인지 학생 마이크인지 모르겠다」 — <b>해결됐습니다</b></p>
+  <p class="en">답변: <b>"It's all good now"</b></p>
+  <p class="d">떠 있던 음량 미터를 없애고 <b>얼굴 타일 안쪽</b>으로 옮긴 것으로 충분했습니다.
+  <b>참가자 목록은 따로 만들지 않습니다</b> — 필요 없다고 확인해 주었습니다.</p>
+  <p class="why"><b>덕분에 안 만든 것</b> — 「옛 교실처럼 이름+마이크 목록을 붙일까요」를 먼저 물어본 덕에,
+  <b>필요 없는 화면을 만들지 않았습니다.</b> 화상수업 화면은 학생 29,000명이 쓰는 곳이라 안 건드리는 것이 이득입니다.</p>
 </div>
 
-<div class="item part">
-  <p class="t"><span class="date">8/7 ⑩ 뒷부분</span>「지금 울리는 게 내 마이크인지 학생 마이크인지 모르겠다」</p>
-  <p class="en">"With the current microphone indicator, I don't know if it was mine that is working or the student's mic. … participants to see if the student and teachers mic are working"</p>
-  <p class="d">떠 있던 미터를 없애고 <b>음량 표시를 얼굴 타일 안쪽으로 통일</b>했으므로, 이제 <b>누구 타일에 붙어 있는지로 구분</b>됩니다.</p>
-  <p class="why"><b>확인 필요</b> — 마이마이가 함께 요청한 <b>「참가자 목록(participants)」</b>, 즉 옛 교실처럼
-  <b>사람 이름 옆에 마이크 상태가 줄줄이 보이는 화면</b>은 아직 만들지 않았습니다.
-  타일 안쪽 표시만으로 충분한지, 아니면 목록이 따로 필요한지 <b>물어봐야 합니다.</b></p>
-  <p class="ev">index.html:1684 .video-status (타일 안쪽) — 별도 참가자 목록 화면 없음</p>
+<div class="item done">
+  <p class="t"><span class="date">8/7 ④</span>강사 페이지의 연기(postpone) 구조 — <b>지금 상태로 괜찮습니다</b></p>
+  <p class="en">답변: <b>"It's okay now"</b></p>
+  <p class="d">실수로 누를 위험이 있던 <b>[연기] 버튼은 없앴고</b>,
+  <b>「수업 변경 요청」 카드는 사장님 지시대로 남긴</b> 지금 구조가 마이마이 뜻과 맞습니다
+  <span class="grey">(강사는 요청만, 매니저가 승인해야 확정)</span>. 더 고칠 것이 없습니다.</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/7-2 ④</span>입장 화면의 MES 샘플 교재 — <b>괜찮습니다</b></p>
+  <p class="en">답변: <b>"It's okay now"</b></p>
+  <p class="d">코드에는 MES 샘플 이미지가 없고, 원문에도 <b>"No changes"</b> 라고 적혀 있던 항목입니다.
+  더 볼 것 없이 종료합니다.</p>
+</div>
+
+<h2 class="sec s-done">✅ 다 된 것 ④ &nbsp;— 3건 <span style="font-weight:700;font-size:9.5pt">(마이마이 답변대로 오늘 저녁 처리)</span>
+  <small>답을 받아야 손댈 수 있었던 것들입니다. 커밋 198a5cd.</small>
+</h2>
+
+<div class="item done">
+  <p class="t"><span class="date">8/13 ①</span>MES 교재 숨김 — <b>LEVEL 1~7 로 확정</b>했습니다</p>
+  <p class="en">답변: <b>"Yes, Level 1 to 7 are MES"</b></p>
+  <p class="d">오전에 <b>「코드가 찍으면 안 된다」</b>며 비워 두었던 자리입니다. 마이마이가 확인해 주어
+  <b>LEVEL 1 ~ LEVEL 7 을 숨김 목록에 넣었습니다.</b> 배포되면 강사·학생 라이브러리에서 바로 사라집니다.</p>
+  <p class="why"><b>되돌리는 길</b> — 교재 업로더의 「🙈 라이브러리에서 숨길 교재」에서 <b>체크를 풀면 즉시 다시 보입니다.</b>
+  파일은 지워지지 않았고, 지난 수업 기록도 그대로입니다.<br>
+  <b>딱 한 번만 넣습니다</b> — 나중에 누가 「역시 보이게」 풀면 그 뜻이 지켜집니다(다시 살아나지 않습니다).</p>
+  <p class="ev">api-admin.ts mes_hidden_seed_260813 (1회 마이그레이션) · textbook_hidden_books</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/13 ③</span>교재 느림 — <b>남은 진짜 원인을 하나 더 찾았습니다</b></p>
+  <p class="en">답변: <b>"No, still lag, they are slow."</b></p>
+  <p class="d"><b>⚠️ 먼저 — 이 답변은 「고친 코드를 써 본 결과가 아닙니다」.</b> 위 배너대로 8월 13일 수정분은
+  아직 배포되지 않았습니다. 그래도 <b>답변을 그냥 넘기지 않고 더 파봤고, 원인을 하나 더 찾았습니다.</b></p>
+  <p class="why"><b>찾은 것 — 엣지 캐시가 없었습니다</b><br>
+  교재 이미지는 <b>평균 143KB</b>로 작습니다. 파일 크기 문제가 아니었습니다.
+  문제는 교재 파일에 「1년 캐시」를 달아 놨지만 그건 <b>강사 개인 브라우저 캐시</b>일 뿐이라는 점입니다.
+  <b>처음 보는 장은 강사마다·기기마다 매번</b>
+  <b>마닐라 → 서울(파일 창고) → 마닐라</b> 를 왕복했습니다. 같은 반이 같은 교재를 봐도 서로 나눠 쓰지 못했습니다.<br>
+  → <b>마닐라 쪽 서버에 교재를 담아 두도록</b> 고쳤습니다. 한 선생님이 한 번 열면
+  <b>같은 지역의 다른 선생님은 서울까지 안 갑니다.</b> 필리핀에서 체감이 가장 큰 지점입니다.<br>
+  <b>⚠️ 이건 배포 후에 실제로 재어 봐야 합니다.</b> 배포하고 마이마이에게 다시 물어봐 주세요.</p>
+  <p class="ev">api-admin.ts /raw — Cache API(엣지 캐시) + 프리페치 4배(8/13 오전분)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="date">8/12 ④</span>레벨테스트 교재 올리기 — <b>화면이 거짓말을 하고 있었습니다</b></p>
+  <p class="en">답변: <b>"Teachers can upload every level test but we don't know how to add in the library."</b></p>
+  <p class="d"><b>이 답변 덕분에 진짜 문제를 찾았습니다.</b> 강사들이 방법을 몰랐던 게 아니라,
+  <b>올린 줄 알았는데 안 올라가 있었습니다.</b></p>
+  <p class="why"><b>무슨 일이 있었나</b> — 교재 업로더는 파일을 <b>①내 컴퓨터에 저장</b>하고 <b>②공용 자료실에도 전송</b>합니다.
+  그런데 <b>②는 관리자 권한이 없으면 거부(401)</b>되는데, 그 실패를 <b>화면에 알리지 않고</b>
+  <b>「✅ 저장 완료!」</b> 라고만 띄웠습니다. 강사 눈에는 성공인데 <b>실제로는 자기 PC 에만</b> 들어갔고,
+  다른 선생님께는 안 보였습니다. 왜 안 되는지 알 방법도 없었습니다.<br>
+  → 이제 <b>「⚠️ 이 컴퓨터에만 저장되었습니다」</b> 라고 <b>한국어·영어로 분명히 알리고</b>,
+  <b>무엇을 하면 되는지</b>(관리자 계정으로 로그인 / 본사에 파일 보내기)까지 안내합니다.</p>
+  <p class="why"><b>사장님이 정하실 것 하나</b> — <b>강사에게 공용 자료실 «올리기» 권한을 줄까요?</b>
+  지금은 안 줬습니다. 전 강사가 함께 쓰는 자료라 <b>한 사람이 잘못 올리면 반경이 회사 전체</b>입니다.
+  권한을 주는 대신 <b>본사가 대신 올려 주는 방식</b>이 안전합니다.</p>
+  <p class="ev">textbook-uploader.html srvOk/srvFail/srvDenied 집계 + 완료 문구(한·영)</p>
 </div>
 
 <div class="pg"></div>
 
-
-<!-- ══════════════════ 3. 이제 해야 할 것 ══════════════════ -->
-<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 4건
-  <small>코드로 할 수 없거나, 사람이 먼저 정해 줘야 하는 것들입니다.</small>
+<h2 class="sec s-todo">📋 이제 해야 할 것 &nbsp;— 1건
+  <small>코드로 할 수 없는 것입니다.</small>
 </h2>
 
 <div class="item todo">
-  <p class="t"><span class="date">8/12 ④</span>BTS 배치고사(레벨테스트) 교재를 라이브러리에 넣기</p>
-  <p class="en">"Can we include BTS placement test (Level test) in the library?" <span class="grey">(구글드라이브 링크 첨부)</span></p>
-  <p class="d">저장소를 전부 뒤졌지만 <b>라이브러리에 배치고사 항목이 아예 없습니다.</b> 교재 분류 목록에도, 드롭다운에도 없습니다.</p>
-  <p class="why"><b>해야 할 일</b> — 이건 코드 수정이 아니라 <b>교재 파일을 올리는 일</b>에 가깝습니다.
-  마이마이가 준 구글드라이브 파일을 받아 <b>교재로 업로드</b>하고, 라이브러리 분류에 자리를 만들어 주면 됩니다.
-  <span class="grey">누가 올릴지(마이마이 직접 / 본사)만 정해 주시면 됩니다.</span></p>
-  <p class="ev">idx-x3.js:29 COURSE_ORDER · index.html:11436 드롭다운 — placement test 항목 없음</p>
+  <p class="t"><span class="date">가장 급함</span>🚀 <b>배포해 주세요</b> — 8월 13일 작업이 아직 라이브에 없습니다</p>
+  <p class="d">오늘 고친 것이 <b>전부 작업 브랜치에만</b> 있습니다. 자동 배포는 <b>main 브랜치에 올릴 때만</b> 동작합니다.
+  <b>배포하지 않으면 마이마이는 계속 옛 화면을 봅니다</b> — 「아직 느리다」도 그래서 나온 답입니다.</p>
+  <p class="why"><b>배포 후 마이마이에게 다시 물어볼 것 3가지</b><br>
+  ① <b>교재가 빨라졌나요?</b> <span class="grey">(프리페치 4배 + 엣지 캐시 — 이번엔 진짜 판정이 됩니다)</span><br>
+  ② <b>라이브러리에서 MES(LEVEL 1~7)가 안 보이나요?</b><br>
+  ③ <b>페이지 목록 창이 안 닫히고 크기가 늘어나나요?</b><br>
+  <b>⚠️ 그리고 강사들에게 「사전 연기 0페소」를 꼭 알려 주세요</b> — 이번 달 급여부터 실제로 줄어듭니다.</p>
+  <p class="ev">.github/workflows/deploy.yml — main push 시 자동 배포 / 작업 브랜치: claude/maimai-status-korean-pdf-ev8x4w</p>
 </div>
-
-<div class="item ask">
-  <p class="t"><span class="date">8/7-2 ①</span>강사 컴퓨터 램(RAM) 8GB → 16GB 증설 <span class="grey">— 사장님 결정 (코드 아님)</span></p>
-  <p class="en">"The computers that we have in the company have only 8gb RAM… Suggestion: Purchase bigger RAM for teachers computers"</p>
-  <p class="d">이건 <b>하드웨어 구매</b>라 코드로 할 수 없습니다. 소프트웨어 쪽에서는 이미 <b>수업 입장 시 가벼운 모드가 기본</b>이고, 첫 화면 대기량도 1,612KB → 1,506KB 로 줄였습니다.</p>
-  <p class="why"><b>사기 전에 한 주만 기다려 보시길 권합니다.</b> 오늘 <b>교재 미리 받기를 4배로 늘렸습니다</b>(위 참고).
-  교재가 느렸던 것이 램 부족이 아니라 <b>매번 새로 받느라</b> 그랬던 것이라면, 이 수정만으로 체감이 크게 달라집니다.<br>
-  또 DB 를 세어 보니 교재가 <b>거의 다 JPG</b> 라(99.84%), PDF 를 그림으로 바꾸느라 램을 쓰는 상황도 <b>아니었습니다.</b>
-  → <b>마이마이에게 며칠 써 보고 알려 달라고 한 뒤</b> 결정하셔도 늦지 않습니다(질문지 4번).</p>
-</div>
-
-<div class="item ask">
-  <p class="t"><span class="date">8/7-2 ③ 질문</span>「월요일 언더타임에 휴식시간을 넣으면 매주 월요일 영구가 되나요?」 <span class="grey">— 답변만 하면 됩니다</span></p>
-  <p class="en">"If we select 1 day, example Monday… how to remove the teachers' breaktime. Will it be permanently Monday breaktime?"</p>
-  <p class="d"><b>답: 아닙니다. 저장할 때 고르실 수 있습니다.</b> 휴식시간을 만드는 창에서
-  <b>「이 날짜만」</b> 과 <b>「매주 월요일 반복」</b> 중 하나를 고르게 되어 있고, 만들어진 카드에도 <b>어느 쪽인지 글자로 적혀</b> 있습니다.
-  <b>지우려면 그 카드를 누르면</b> 됩니다(반복인지 확인하는 물음이 한 번 뜹니다).</p>
-  <p class="why"><b>해야 할 일</b> — 기능은 8월 7일에 이미 들어갔습니다. <b>마이마이가 이 기능이 생긴 걸 모르고 있는 것</b>입니다.
-  → <b>사용법을 알려 주기만 하면 됩니다.</b> 질문의 절반이 「이걸 몰라서」 나왔습니다.</p>
-  <p class="ev">js/adm-q6.js:53~58 「이 날짜만」/「매주 ○요일 반복」 라디오 · 266 카드 표시 · 403 카드 클릭 삭제</p>
-</div>
-
-<div class="item done">
-  <p class="t"><span class="date">8/13 ① 후속</span>학부모에게 보이는 곳에서도 MES 를 <b>전부 뺐습니다</b> <span class="grey">— 사장님 지시</span></p>
-  <p class="d">오전 문서에서는 <b>「매출과 얽힌 결정이라 사장님이 정하실 일」</b> 이라고 남겨 두었는데,
-  <b>「커리큘럼 페이지도 MES 빼줘」</b> 지시를 받아 <b>학부모·학생에게 보이는 곳을 전부 훑어</b> 정리했습니다.</p>
-  <p class="why"><b>고친 곳 5군데</b><br>
-  ① <b>커리큘럼 소개 페이지</b> — MES 카드를 감추고 제목을 <b>「자체 개발 교재 3종 → 2종」</b> 으로 함께 고쳤습니다
-  <span class="grey">(카드만 감추면 «3종» 이라 써 놓고 2개만 보입니다)</span>. 이제 BTS 가 처음 펼쳐집니다.<br>
-  ② <b>홈 화면의 교재 카드</b> — 같은 소개가 <b>홈에도 한 벌 더</b> 있었습니다. 똑같이 정리하고,
-  <b>레벨별 추천표에서 MES 줄</b>도 뺐습니다.<br>
-  ③ <b>AI 레벨테스트 결과</b> — 「입문·A1·A2」 학생에게 <b>MES 를 추천하고 있었습니다.</b>
-  MES 가 맡던 <b>「처음 시작」 구간은 파닉스 + BTS 가 이어받게</b> 했습니다
-  <span class="grey">(그냥 빼면 초급 학생에게 추천할 교재가 비어 버립니다)</span>.<br>
-  ④ <b>동영상 강의 · 레벨테스트 추천 교재</b> — 오전에 이미 처리했습니다.<br>
-  ⑤ <b>관리자 영상 등록</b> — 새 영상에 MES 를 <b>고르는 목록</b>에서 뺐습니다.</p>
-  <p class="why"><b>⚠️ 일부러 안 지운 것 — 관리자의 교재 명부 필터</b><br>
-  MES 칩을 <b>지우지 않았습니다.</b> 지우면 <b>옛 MES 수업 기록을 찾을 길이 막힙니다.</b>
-  대신 <b>「항상 띄우는 고정 칩」에서만 뺐고</b>, 명부에 MES 교재가 남아 있으면 칩은 그대로 나옵니다.
-  전부 <b>지우기가 아니라 감추기</b>라, 되살리려면 표시 설정 한 줄만 지우면 됩니다.</p>
-  <p class="ev">curriculum.html · js/idx-grid-menu.js(?v=31) · level-test-ai.html · admin.html · js/adm-core.js(?v=68)</p>
-</div>
-
-<div class="item todo">
-  <p class="t"><span class="date">8/7-2 ④</span>입장 화면 샘플 교재가 BTS 가 아니라 MES 였던 것</p>
-  <p class="en">"The sample on the page was MES not BTS" <span class="grey">— 원문에도 "No changes" 라고 적혀 있습니다</span></p>
-  <p class="d">저장소의 이미지 폴더와 화면의 그림을 <b>전부 확인했지만 MES 샘플 이미지는 없습니다.</b> 코드가 아니라 <b>올려 둔 교재 데이터</b> 쪽입니다.</p>
-  <p class="why"><b>해야 할 일</b> — 마이마이가 본 화면이 <b>정확히 어디인지</b> 스크린샷으로 한 번 더 받아야 합니다.
-  원문에도 <b>"No changes"</b>(고칠 것 없음)라고 적혀 있어 <b>급하지 않습니다.</b></p>
-</div>
-
 
 <div class="foot">
   <b>이 문서를 만든 방법</b> — 마이마이가 보낸 PDF·DOCX 두 파일에서 지적사항 31건을 뽑아,
   저장소 <b>main 브랜치(7854bae, 2026-08-13)</b> 의 실제 코드와 한 건씩 대조했습니다.
   「됐다」고 적은 것은 <b>해당 코드를 직접 찾아 확인한 것</b>이며, 근거 위치를 각 항목에 적었습니다.<br>
-  8월 13일 오후에 사장님 「모두 진행해」 지시로 <b>6건을 실제로 고쳐 커밋</b>했습니다(301c603).
-  검증: <b>타입검사 통과 · 자동검사 143건 전부 통과(실패 0) · 신규 검사 31건 추가.</b><br>
+  8월 13일에 사장님 「모두 진행해」 지시로 작업하고, <b>마이마이 답변까지 받아 반영</b>했습니다.
+  검증: <b>타입검사 통과 · 자동검사 143건 전부 통과(실패 0) · 신규 검사 54건 추가.</b><br>
   <b>⚠️ 다만 「코드에 있다」와 「라이브에서 잘 보인다」는 다릅니다.</b>
   강사·관리자 화면은 로그인해야 보여서 <b>브라우저로 눈으로 확인하지는 못했습니다.</b>
-  ✅ 25건은 <b>마이마이에게 「확인해 달라」고 요청</b>해 주세요 — 별도 질문지를 만들어 두었습니다.<br>
   <b>지금 사장님이 하셔야 할 것 2가지</b> —
-  ① <b>강사들에게 「사전 연기 0페소」를 알려 주세요</b>(이번 달 급여부터 실제로 줄어듭니다).
-  ② <b>마이마이에게 질문지를 보내 주세요</b> — 특히 「어느 교재를 숨길지」는 그가 체크해야 끝납니다.
+  ① <b>배포</b>(main 에 올리기). 그래야 오늘 고친 것이 마이마이에게 갑니다.
+  ② <b>강사들에게 「사전 연기 0페소」를 알려 주세요</b> — 이번 달 급여부터 실제로 줄어듭니다.
 </div>
 
 </body>
