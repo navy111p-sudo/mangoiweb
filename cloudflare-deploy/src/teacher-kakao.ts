@@ -30,15 +30,35 @@ export interface TeacherKakaoEnv {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  📇 카카오ID 정본 — 2026-08-13 운영진 제공 목록(26건)
+//  📇 카카오ID 정본 — 운영진 «MANGOi Teacher Information Sheet» 25행 (2026-08-13)
 //    target = teacher_profiles 의 이름(korean_name 또는 english_name)과 «정확히» 맞는 값.
-//    ⚠️ target 이 null 인 건 «어느 강사인지 모르는» ID 입니다. 추측으로 붙이면 엉뚱한
-//       강사에게 급여·수업 안내가 나가므로 자동으로 붙이지 않고, 미배정함에 넣어
-//       관리자가 화면에서 직접 고르게 합니다.
+//    ⚠️ target 이 null 이면 «어느 강사인지 모르는» ID 라 자동으로 붙이지 않고
+//       미배정함에 넣습니다. 추측으로 붙이면 엉뚱한 강사에게 급여·수업 안내가 나갑니다.
+//       (지금은 null 이 하나도 없습니다 — 아래 두 건이 시트로 확인됐습니다)
+//
+//  🚫 «@teacher_belle» 은 여기 없습니다 — 넣지 마세요.
+//     시트 맨 윗줄(EX 행)의 **채워진 예시**입니다. 시트 안내문이 직접 말합니다:
+//     "Row 4 is a filled EXAMPLE — do not edit it, start from row 5".
+//     그 행의 값은 전부 견본이라 실제와 다릅니다(전화 0917-123-4567, 메일
+//     belle@mangoi.co.kr). 진짜 Teacher Belle 은 18행이고 카카오ID 는 «Teacher.Belle»,
+//     번호는 0935-844-4527 입니다. 견본을 실제 강사에게 붙이면 그 강사에게 가는
+//     안내가 통째로 존재하지 않는 곳으로 나갑니다.
+//
+//  ℹ️ 시트의 이름과 명부(teacher_profiles)의 이름이 다른 세 건 — target 은 «명부 쪽» 을 씁니다.
+//       시트 «Manager Maimai» → 명부 «Teacher Maimai»
+//       시트 «Manager Melca»  → 명부 «Melca»
+//       시트 «IT Karl»        → 명부 «Karl»
+//     셋 다 양쪽 목록에 동명이인이 없어 1:1 로 확정됩니다(직함만 다름).
 // ─────────────────────────────────────────────────────────────
-export const PH_TEACHER_KAKAO_SEED: Array<{ kakao_id: string; target: string | null; note?: string }> = [
-  { kakao_id: '@teacher_belle',         target: null, note: '카카오 채널(@) 형식 — Teacher Belle 의 채널인지 확인 필요' },
-  { kakao_id: 'Elle2586',               target: 'Teacher Far' },
+//
+//  ☎️ phone 이 붙은 세 건 — 이 셋만 명부에 «전화번호가 아예 없어서» 함께 채웁니다.
+//     번호가 없으면 문자 자동발송이 불가능해 카카오톡 붙여넣기 경로밖에 안 남습니다.
+//     나머지 22명은 명부에 이미 번호가 있고 시트와 일치해서 건드리지 않습니다.
+//     ⚠️ 이 세 번호는 시트 이미지를 보고 옮겨 적은 값입니다. 한 자리만 틀려도 «모르는
+//        사람» 에게 문자가 갑니다. 화면의 받는사람 목록에 번호를 그대로 띄워 두었으니
+//        처음 보낼 때 한 번 확인하세요. (빈 칸일 때만 채우므로 덮어쓰기 사고는 없습니다)
+export const PH_TEACHER_KAKAO_SEED: Array<{ kakao_id: string; target: string | null; note?: string; phone?: string }> = [
+  { kakao_id: 'Elle2586',               target: 'Teacher Far' },   // 시트 «Teacher Farrah» — 명부는 «Teacher Far»
   { kakao_id: 'ussiejag',               target: 'Teacher Janice' },
   { kakao_id: 'TeacherCindy',           target: 'Teacher Cindy' },
   { kakao_id: 'kes2729',                target: 'Teacher Kes' },
@@ -60,9 +80,9 @@ export const PH_TEACHER_KAKAO_SEED: Array<{ kakao_id: string; target: string | n
   { kakao_id: 'Teacher_Zee',            target: 'Teacher Zee' },
   { kakao_id: 'TEACHERWIN',             target: 'Teacher Win' },
   { kakao_id: 'eslteacher_juanie',      target: 'Teacher Wan' },
-  { kakao_id: 'welm',                   target: null, note: '이름 단서 없음 — 어느 강사인지 확인 필요' },
-  { kakao_id: 'Melca08',                target: 'Melca' },
-  { kakao_id: 'karlito',                target: 'Karl' },
+  { kakao_id: 'welm',                   target: 'Teacher Maimai', phone: '0975-046-6337' },  // 시트 23행 «Manager Maimai» (mangoi_033)
+  { kakao_id: 'Melca08',                target: 'Melca',          phone: '0953-678-3803' },  // 시트 24행 «Manager Melca» (mangoi_144)
+  { kakao_id: 'karlito',                target: 'Karl',           phone: '0975-822-2089' },  // 시트 25행 «IT Karl» (mangoi_045)
 ];
 
 let _tkSchemaReady = false;
@@ -168,7 +188,7 @@ export async function handleTeacherKakaoApi(
     const dryRun = b?.dry_run !== false;              // 명시적으로 false 여야 실제 반영
     const overwrite = b?.overwrite === true;          // 기존 값 덮어쓰기(기본 안 함)
     const profiles = await env.DB.prepare(
-      `SELECT id, korean_name, english_name, kakao_id FROM teacher_profiles`
+      `SELECT id, korean_name, english_name, kakao_id, phone FROM teacher_profiles`
     ).all<any>();
     const byName = new Map<string, any>();
     for (const p of (profiles.results || [])) {
@@ -180,7 +200,22 @@ export async function handleTeacherKakaoApi(
     const already: any[] = [];
     const conflicts: any[] = [];
     const parked: any[] = [];
+    const phonesFilled: any[] = [];   // ☎️ 번호가 «아예 없던» 강사에게만 채운 것
     const now = Date.now();
+
+    /* ☎️ 전화번호는 카카오ID 와 «따로» 처리한다.
+       카카오ID 가 이미 있어 건너뛴 강사라도 번호는 비어 있을 수 있고, 번호가 없으면
+       문자 자동발송이 통째로 불가능하기 때문이다. 여기서도 규칙은 같다 —
+       **빈 칸일 때만** 채우고, 값이 있으면 절대 덮어쓰지 않는다. */
+    async function fillPhoneIfEmpty(p: any, seed: { kakao_id: string; phone?: string }) {
+      if (!seed.phone) return;
+      if (String(p.phone || '').trim()) return;          // 이미 있으면 손대지 않는다
+      phonesFilled.push({ profile_id: p.id, name: p.korean_name, phone: seed.phone });
+      if (!dryRun) {
+        await env.DB.prepare(`UPDATE teacher_profiles SET phone = ?, updated_at = ? WHERE id = ?`)
+          .bind(seed.phone, now, p.id).run();
+      }
+    }
 
     for (const seed of PH_TEACHER_KAKAO_SEED) {
       const p = seed.target ? byName.get(normName(seed.target)) : null;
@@ -194,6 +229,8 @@ export async function handleTeacherKakaoApi(
         }
         continue;
       }
+      await fillPhoneIfEmpty(p, seed);   // 카카오ID 판정과 무관하게 번호는 항상 확인한다
+
       const cur = String(p.kakao_id || '').trim();
       if (cur === seed.kakao_id) { already.push({ profile_id: p.id, name: p.korean_name, kakao_id: seed.kakao_id }); continue; }
       if (cur && !overwrite) {
@@ -209,8 +246,12 @@ export async function handleTeacherKakaoApi(
 
     return json({
       ok: true, dry_run: dryRun, overwrite,
-      summary: { updated: updated.length, already: already.length, conflicts: conflicts.length, parked: parked.length },
-      updated, already, conflicts, parked,
+      summary: {
+        updated: updated.length, already: already.length,
+        conflicts: conflicts.length, parked: parked.length,
+        phones_filled: phonesFilled.length,
+      },
+      updated, already, conflicts, parked, phones_filled: phonesFilled,
     });
   }
 

@@ -172,6 +172,12 @@
     rowsHtml += section(T('❓ 주인을 모르는 카카오ID (미배정함으로)', '❓ Unassigned KakaoTalk IDs'), '#b91c1c', d.parked, function (u) {
       return '<div>· <code>' + esc(u.kakao_id) + '</code>' + (u.note ? ' — <span style="color:#6b7280">' + esc(u.note) + '</span>' : '') + '</div>';
     });
+    /* ☎️ 번호가 «아예 없던» 강사에게만 채운 것. 운영진 시트를 보고 옮겨 적은 값이라
+       한 자리만 틀려도 모르는 사람에게 문자가 간다 — 그래서 눈에 띄게 따로 보여준다. */
+    rowsHtml += section(T('☎️ 비어 있던 전화번호도 함께 채움 — 첫 발송 전에 확인하세요',
+                          '☎️ Missing phone numbers also filled — verify before the first send'), '#1d4ed8', d.phones_filled, function (u) {
+      return '<div>· <b>' + esc(u.name) + '</b> → <code>' + esc(u.phone) + '</code></div>';
+    });
 
     el.innerHTML =
       '<div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 12px;font-size:12px;line-height:1.7;color:#78350f">' +
@@ -184,6 +190,7 @@
         '<span style="color:#6b7280">' + T('이미 동일', 'Already') + ' ' + s.already + '</span>' +
         '<span style="color:#b45309">' + T('충돌', 'Conflict') + ' ' + s.conflicts + '</span>' +
         '<span style="color:#b91c1c">' + T('미배정', 'Unassigned') + ' ' + s.parked + '</span>' +
+        (s.phones_filled ? '<span style="color:#1d4ed8">' + T('번호 채움', 'Phones filled') + ' ' + s.phones_filled + '</span>' : '') +
       '</div>' +
       rowsHtml +
       '<div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end">' +
@@ -252,8 +259,10 @@
   function reachLabel(t) {
     var bits = [];
     if (t.has_kakao) bits.push('<span style="background:#fee500;color:#191919;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800">' + esc(t.kakao_id) + '</span>');
+    // 번호를 «그대로» 보여준다 — 시트에서 옮겨 적은 번호가 섞여 있어, 보내기 전에
+    // 사람 눈으로 한 번 걸러지게 하는 것이 목적이다(배지만 있으면 아무도 못 본다).
     if (t.sms_label) bits.push('<span style="background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800">' +
-      T('문자', 'SMS') + ' ' + t.sms_label + '</span>');
+      T('문자', 'SMS') + ' ' + t.sms_label + ' ' + esc(t.phone || '') + '</span>');
     if (!bits.length) bits.push('<span style="background:#fee2e2;color:#b91c1c;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:800">' +
       T('연락 수단 없음', 'no contact') + '</span>');
     return bits.join(' ');
