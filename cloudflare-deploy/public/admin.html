@@ -7787,7 +7787,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <select id="mv-category" style="width:180px;">
                 <option value="" data-ko="교재/카테고리…" data-en="Textbook/Category…">교재/카테고리…</option>
                 <optgroup label="📚 망고아이 교재">
-                  <option value="MES">MES — 입문</option>
+                  <!-- 🙈 (2026-08-13) 새 영상에 MES 를 붙일 일은 없다 → 목록에서 감춘다.
+                       hidden 은 «고르는 목록» 에서만 빼므로, 옛 MES 영상을 열면 값은 그대로 보인다. -->
+                  <option value="MES" hidden>MES — 입문</option>
                   <option value="BTS">BTS — 회화·표현</option>
                   <option value="SIU">SIU — 심화·고급</option>
                 </optgroup>
@@ -8394,7 +8396,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
       <!-- 🎯 교재/레벨/레슨 매칭 메타 (화상수업 [🧠 복습퀴즈] 자동 매칭에 사용) -->
       <div style="display:grid;grid-template-columns:1fr 1fr 90px;gap:8px;margin-top:6px">
-        <div><label data-ko="교재명 (자동매칭)" data-en="Textbook">교재명 (자동매칭)</label><input class="rq-in" id="rq-textbook" placeholder="예: SIU 1, MES 2" data-ko-placeholder="예: SIU 1, MES 2" data-en-placeholder="e.g. SIU 1, MES 2" /></div>
+        <div><label data-ko="교재명 (자동매칭)" data-en="Textbook">교재명 (자동매칭)</label><input class="rq-in" id="rq-textbook" placeholder="예: SIU 1, BTS 2" data-ko-placeholder="예: SIU 1, BTS 2" data-en-placeholder="e.g. SIU 1, BTS 2" /></div>
         <div><label data-ko="레벨" data-en="Level">레벨</label><input class="rq-in" id="rq-level" placeholder="예: Lv.3, A1" data-ko-placeholder="예: Lv.3, A1" data-en-placeholder="e.g. Lv.3, A1" /></div>
         <div><label data-ko="레슨" data-en="Lesson">레슨</label><input class="rq-in" id="rq-lesson" type="number" min="0" placeholder="예: 5" data-ko-placeholder="예: 5" data-en-placeholder="e.g. 5" /></div>
       </div>

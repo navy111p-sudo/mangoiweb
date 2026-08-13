@@ -73,60 +73,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ─── 컴파일 게이트 (차단) ───
-      # 2026-08-09 이전엔 여기에 continue-on-error: true 가 붙어 있어서
-      #   「검사는 하는데 실패해도 그냥 배포」 였다. 검사한 척만 하는 상태다.
+      # ─── 배포 차단 게이트 4종 ───
+      # 2026-08-13: step 4개로 늘어놓던 것을 test-harness/ci-gates.sh 로 옮겼다.
+      #   PR 용 워크플로(ci.yml)를 새로 만들면서, 같은 목록을 두 워크플로에 **복사**하면
+      #   이 저장소가 반복해서 밟은 함정이 되기 때문이다 — 바로 아래 8/7 사고 기록이
+      #   말하는 그것("목록이 둘이라 한쪽만 고치면 이렇게 된다").
+      #   각 게이트의 사고 기록·주의사항은 전부 그 스크립트 안으로 함께 옮겼다.
       #
-      # 그리고 npx 는 쓰지 않는다 — npx 가 조용히 실패해도 «출력 없음 + exit 0» 이라
-      #   통과와 화면이 똑같다(CLAUDE.md 함정 목록에 있는 그것).
-      #   node 로 로컬 typescript 바이너리를 직접 부르면 그 착시가 없다.
-      #   deploy.ps1 과 같은 방식이어야 두 배포 경로의 검사 수준이 같아진다.
-      - name: TypeScript check (src/*.ts) — 차단
-        run: node node_modules/typescript/bin/tsc --noEmit
-
-      # ─── 회귀 하니스 (차단) ───
-      # 하니스 138개는 하나하나가 «예전에 이렇게 고장 났었다» 는 사고 기록이다.
-      # 그런데 이 CI 경로는 그중 2개(문법·캐시버전)만 돌리고 있었고,
-      # 전체 게이트는 로컬 deploy.ps1 에만 걸려 있었다 —
-      # main 으로 배포하면 검사를 사실상 안 받고 나가는 구조였다.
-      #
-      # 기준선(2026-08-09): PASS 115 / SKIP(E2E) 20 / FAIL 0.
-      # E2E 20개는 라이브 화상수업·브라우저 상태가 필요해 헤드리스에서 자동 제외된다.
-      - name: Regression harness (run.mjs --fast) — 차단
-        working-directory: .
-        run: node test-harness/run.mjs --fast
-
-      # ─── 인라인 JS 문법 게이트 (차단) ───
-      # 이 경로는 deploy.ps1 을 타지 않는다. 로컬 배포에만 게이트를 걸면
-      # main 에 push 되는 순간 여기로 그대로 빠져나간다.
-      #
-      # 2026-07-23 장애: 폰트 일괄치환이 JS 문자열 안 CSS 를 건드려 문자열이 끊겼고
-      #   index.html 인라인 script 10블록이 통째로 SyntaxError → 수업 입장 함수가
-      #   아예 정의되지 않아 전 사용자가 수업에 못 들어갔다. 그런데
-      #     · 위 tsc 는 src/*.ts 만 본다 (게다가 continue-on-error 라 실패해도 통과)
-      #     · 아래 헬스체크는 HTTP 200 여부만 본다 (내용이 깨져도 200 이다)
-      #   이 두 개로는 절대 못 잡는다.
-      #
+      # ⚠️ 게이트를 추가·수정할 일이 생기면 **ci-gates.sh 만** 고친다. 여기는 부르기만 한다.
       # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
-      # 검사 대상: cloudflare-deploy/public 이하 .html 인라인 <script> + .js 전수
-      - name: Inline JS syntax gate (HTML <script> + .js)
+      #   (게이트는 아래 wrangler 배포 step 보다 **먼저** 돈다. 실패 = 배포 안 나감이지,
+      #    깨진 코드가 나가는 것이 아니다.)
+      - name: 배포 게이트 (tsc · 회귀 하니스 · 인라인 JS · ?v=) — 차단
         working-directory: .
-        run: node test-harness/inline_js_syntax_harness.mjs
-
-      # ─── 정적자산 캐시버전 게이트 (차단) ───
-      # deploy.ps1 은 sw.js 의 CACHE_NAME 만 자동으로 올린다. js/css 의 ?v= 는 사람이 손으로 올린다.
-      # 안 올리면 «배포는 됐는데 기존 사용자에게는 옛 파일이 그대로» 가 된다 —
-      # 화면은 새것, 스크립트는 옛것이라 원인 찾기가 특히 어렵다.
-      #
-      # 2026-08-07 하루에만 두 번 걸렸다: /js/adm-tlink.js (v=1) · /js/adm-core.js (v=39).
-      # 둘 다 deploy.ps1 의 게이트(run.mjs --fast 안에 이 하니스가 있다)가 잡아서 사람이 올렸다.
-      # 그런데 이 CI 경로에는 그 게이트가 없어서, main 으로 배포되면 그대로 빠져나간다.
-      # deploy.ps1 과 CI 두 경로 모두에 같은 게이트가 걸려 있어야 한다.
-      #
-      # continue-on-error 를 붙이지 않는다 — 실패하면 배포하지 않는다.
-      - name: Static asset cache-version gate (?v= 누락)
-        working-directory: .
-        run: node test-harness/asset_version_harness.mjs
+        run: bash test-harness/ci-gates.sh
 
       # 시크릿 존재 여부 확인 — 없으면 워크플로우는 성공 처리하고 배포만 건너뜀
       - name: Check required secrets
