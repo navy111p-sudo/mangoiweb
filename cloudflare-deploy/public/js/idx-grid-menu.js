@@ -576,15 +576,17 @@
 
   const LIBRARY = `
     <h2>📁 자료실</h2>
-    <p>망고아이가 자체 개발한 화상영어 전용 교재 3종과 학습 자료를 안내합니다.</p>
+    <p>망고아이가 자체 개발한 화상영어 전용 교재 2종과 학습 자료를 안내합니다.</p>
 
     <h3>📖 레벨별 교재 — 망고아이 전용 컨텐츠</h3>
     <p style="color:#94a3b8;font-size:12px;margin:6px 0 10px">교재명을 <b style="color:#fbbf24">클릭</b>하면 상세 설명·구성·특징이 펼쳐집니다.</p>
 
     <div class="book-list">
 
-      <!-- 📘 MES — Mango English Study -->
-      <details class="book-item" open>
+      <!-- 🙈 MES — (2026-08-13 사장님 지시) 이제 안 쓰는 교재라 학부모용 소개에서 뺀다.
+           지우지 않고 감춘다 — 되살리려면 style 만 지우면 된다.
+           ⚠️ 함께 고칠 것: 위 «교재 3종» → 2종, 아래 추천표의 MES 줄. 하나만 고치면 숫자가 어긋난다. -->
+      <details class="book-item" style="display:none">
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#fbbf24,#f59e0b)">MES</span>
           <div class="book-meta">
@@ -621,8 +623,8 @@
         </div>
       </details>
 
-      <!-- 🥤 BTS — Bubble Tea Study -->
-      <details class="book-item">
+      <!-- 🥤 BTS — MES 를 감췄으므로 이제 이쪽이 «처음 펼쳐져 있는» 교재다 -->
+      <details class="book-item" open>
         <summary>
           <span class="book-cover" style="background:linear-gradient(135deg,#ec4899,#db2777)">BTS</span>
           <div class="book-meta">
@@ -725,8 +727,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">📘 MES</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 1-5</td><td style="padding:8px;color:#cbd5e1">처음 시작 · 기초 회화 다지기</td></tr>
-        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">🥤 BTS</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 2-5</td><td style="padding:8px;color:#cbd5e1">발음·노래로 재미있게 학습</td></tr>
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)"><td style="padding:8px;color:#fff;font-weight:700">🥤 BTS</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 1-5</td><td style="padding:8px;color:#cbd5e1">처음 시작 · 발음·노래로 재미있게 학습</td></tr>
         <tr><td style="padding:8px;color:#fff;font-weight:700">💪 SIU</td><td style="padding:8px;text-align:center;color:#fbbf24">Lv 5-8</td><td style="padding:8px;color:#cbd5e1">긴 문장·토픽 토론 능력 강화</td></tr>
       </tbody>
     </table>
