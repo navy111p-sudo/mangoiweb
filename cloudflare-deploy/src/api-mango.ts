@@ -248,14 +248,27 @@ export async function handleMangoApi(
       //   등록 이름으로 조회하는 것도 본인으로 인정한다. (student_name 이 NULL 인 이관
       //   데이터가 많아 korean_name·english_name·username 까지 본인 이름으로 본다)
       const recAuthUid = await authUidGlobal(request, url, env);
-      if (!recAuthUid) {
+      /* 🧑‍🏫 (2026-08-13, 필리핀 IT매니저 Karl «Double Login Issue»)
+         [사고] 이미 «Teacher Win» 으로 로그인한 강사가 메뉴 → 「녹화 보기」를 누르면
+                로그인 창이 한 번 더 떴다. 교사·본사·지사 로그인은 admin_sessions 쿠키만
+                만들고 학생용 mango_token 은 만들지 않는데(idx-user-session.js 116줄 참고),
+                이 «목록» 엔드포인트만 토큰을 요구했기 때문이다.
+         [근거] 같은 녹화의 «재생» 은 이미 관리자 세션을 받는다(recordings-r2.ts 367줄).
+                목록만 안 받아서 생긴 한쪽짜리 게이트였고, 관리자 세션 보유자는 이미
+                /api/recordings/list-recent 로 전체 녹화를 열람할 수 있다 — 권한이 넓어지는
+                지점은 없고, 재생 쪽과 판정을 맞추는 것뿐이다.
+         ⚠️ 학생 신분(mangoi_logged_user)을 만들어 주는 방식으로 풀지 말 것 —
+            교사 계정으로 학생 전용 기능이 열린다. 여기서 조회 권한만 인정한다. */
+      const recAdminSess = recAuthUid ? { ok: false } : await checkAdminSession(request, env as any);
+      if (!recAuthUid && !recAdminSess.ok) {
         return json({ ok: false, error: 'auth_required', message: '로그인 후 본인 녹화만 조회할 수 있습니다.' }, 401);
       }
       // 재생 URL 에 동봉할 원본 토큰 (authUidGlobal 과 동일한 우선순위: Bearer > ?token=)
+      //   관리자·교사 세션으로 들어온 요청은 토큰이 없다 → 빈 문자열. 재생은 쿠키로 통과한다.
       const recPlayHdr = request.headers.get('Authorization') || '';
       const recPlayTok = recPlayHdr.startsWith('Bearer ') ? recPlayHdr.slice(7).trim()
         : String(url.searchParams.get('token') || '').trim();
-      if (recAuthUid !== uid) {
+      if (recAuthUid && recAuthUid !== uid) {
         let recOwnNames: string[] = [];
         try {
           const s: any = await env.DB.prepare(`SELECT student_name, korean_name, english_name, username FROM students_erp WHERE user_id = ?`).bind(recAuthUid).first();
@@ -1405,7 +1418,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/stats/') || path.startsWith('/api/admin/kpi/')
         || path.startsWith('/api/admin/payroll/') || path.startsWith('/api/admin/schedule-requests')
         || path.startsWith('/api/admin/feedback-drafts')) {
-      const rAdmin = await handleAdminApi(request, url, env);
+      // ctx 를 넘긴다 — 교재 /raw 가 엣지 캐시 쓰기(waitUntil)에 쓴다 (2026-08-13)
+      const rAdmin = await handleAdminApi(request, url, env, ctx);
       if (rAdmin) return rAdmin;
     }
 

@@ -334,10 +334,18 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   };
 }
 
+/* 🙈 (2026-08-13) MES 숨김 씨앗을 «이 아이솔레이트에서 이미 확인했는가».
+   숨김 목록은 강사가 교재를 열 때마다(공개 라이브러리) 읽히는 뜨거운 길이다.
+   플래그 확인 SELECT 를 매 요청 돌리지 않게 여기서 한 번만 본다.
+   ⚠️ 이건 «했다» 의 정본이 아니다 — 정본은 DB 의 payroll_meta 플래그다.
+      아이솔레이트가 새로 뜨면 한 번 더 확인하고, 이미 돼 있으면 그대로 지나간다. */
+let _mesHiddenSeedChecked = false;
+
 export async function handleAdminApi(
   request: Request,
   url: URL,
-  env: MangoEnv
+  env: MangoEnv,
+  ctx?: ExecutionContext   // 📚 교재 /raw 엣지 캐시(waitUntil) 전달용 — 선택적(하위호환)
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
@@ -1495,11 +1503,26 @@ export async function handleAdminApi(
       /*   ④ (2026-08-07) 「30분보다 일찍 연기한 수업」 의 지급률 — 마이마이 문서 ② 의 규칙:
              · 시작 30분 이내 연기 → 전액(위 postponed_pay_percent, 기본 100)
              · 30분보다 이른 연기  → 0
-           ⚠️ **enabled=0 으로 넣는다.** 켜는 순간 지금까지 전액 지급되던 사전 연기분이 0 이 된다.
-              금액을 바꾸는 것은 사장님 결정이라 코드가 대신 하지 않는다 — 스위치만 만들어 둔다.
-              (관리자 → 급여 → 공제 규칙에서 켜면 그 달 계산부터 즉시 반영된다) */
+           ✅ (2026-08-13) **사장님이 「30분전 연기는 0으로」 지시하셨다 → 켠다.**
+              8/7 에는 «급여를 조용히 깎지 않는다» 는 이유로 enabled=0 으로 넣어 두었고,
+              오늘 사람이 결정했으므로 스위치를 올린다. amount 는 그대로 0(%).
+              끄고 싶으면 관리자 → 급여 → 공제 규칙에서 [사전 연기 지급률] 을 끄면
+              즉시 예전 계산(전액 지급)으로 돌아간다. */
       try {
-        await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('postponed_early_pay_percent','사전 연기(시작 30분보다 이전) 지급률(%)','Pay rate when postponed more than 30 min before (%)','policy_percent',0,0,6,?)`).bind(now).run();
+        await env.DB.prepare(`INSERT OR IGNORE INTO payroll_deduction_rules (code,label_ko,label_en,rule_type,amount,enabled,sort_order,updated_at) VALUES ('postponed_early_pay_percent','사전 연기(시작 30분보다 이전) 지급률(%)','Pay rate when postponed more than 30 min before (%)','policy_percent',0,1,6,?)`).bind(now).run();
+      } catch {}
+      /*   ④-b (2026-08-13) 이미 배포된 DB 에는 위 행이 **enabled=0 으로 이미 들어가 있다**
+             (INSERT OR IGNORE 라 위 문장은 아무 일도 하지 않는다). 그래서 1회 마이그레이션으로
+             스위치를 올린다 — 위의 nofb_25 와 같은 방식이다.
+           ⚠️ 관리자가 **일부러 꺼 둔 것**까지 되켜면 안 되므로 플래그로 딱 한 번만 돈다.
+              amount 는 손대지 않는다(사장님이 0 이외의 값을 넣어 두셨다면 그 값을 지킨다). */
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
+        const earlyFlag: any = await env.DB.prepare(`SELECT value FROM payroll_meta WHERE key = 'early_postpone_on_260813'`).first().catch(() => null);
+        if (!earlyFlag) {
+          await env.DB.prepare(`UPDATE payroll_deduction_rules SET enabled = 1, updated_at = ? WHERE code = 'postponed_early_pay_percent'`).bind(now).run().catch(() => {});
+          await env.DB.prepare(`INSERT OR REPLACE INTO payroll_meta (key,value,updated_at) VALUES ('early_postpone_on_260813','1',?)`).bind(now).run().catch(() => {});
+        }
       } catch {}
       //   ② 당일 피드백 미작성 공제: 정책 변경 -50 → -25. 관리자가 손대지 않은 옛 기본값(50)만 1회 갱신.
       try {
@@ -1564,9 +1587,9 @@ export async function handleAdminApi(
            우리 DB 는 이미 요청 시점에 그 판정을 해 두었다(schedule_change_requests.fee_type:
            paid=30분 이내 / free=그 이전). 여기서 **다시 계산하지 않고 그 값을 읽는다** —
            양쪽에서 계산하면 화면과 급여가 갈라진다.
-         ⚠️ 기본값은 «규칙 꺼짐» 이다. 켜면 지금까지 전액 지급되던 사전 연기분이 0 이 된다 —
-            그건 사장님이 정할 일이라 코드가 조용히 바꾸지 않는다. 관리자 화면의 공제 규칙에서
-            [사전 연기 지급률] 을 켜는 순간부터 적용된다(끄면 즉시 예전 계산으로 복귀). */
+         ✅ (2026-08-13) 사장님 지시 「30분전 연기는 0으로」 → 규칙을 **켠 상태**로 바꿨다
+            (위 ensureDeductionRules ④·④-b). 이제 사전 연기(30분보다 이른 연기)는 0% 지급이다.
+            되돌리려면 관리자 → 급여 → 공제 규칙에서 [사전 연기 지급률] 을 끄면 즉시 전액 지급으로 복귀. */
       const earlyPostponeRule = rules.postponed_early_pay_percent;
       const earlyPostponeOn = !!(earlyPostponeRule && earlyPostponeRule.enabled);
       const earlyPostponePct = earlyPostponeOn
@@ -9601,6 +9624,85 @@ LIMIT $limit`;
       );
     };
 
+    /* 🙈 (2026-08-13 마이마이 8/13 ①) 「라이브러리에 MES 교재가 아직 보입니다 — server textbooks」
+       ═══════════════════════════════════════════════════════════════════════════════
+       [왜 8/11 의 숨김이 안 통했나] 그때 넣은 필터(idx-x3.js __libIsRetiredCourse)는
+          교재 **이름에 'MES' 라는 글자가 들어 있는지**만 본다. 그런데 서버 교재의 묶음 이름은
+          파일명 앞의 [대괄호]에서 나온다(_serverFilesToBooks) — 실제 이름은
+          「LEVEL 1」~「LEVEL 7」 · 「Mangoi Books」 · 「004. I visited my grandparents」 처럼
+          **어디에도 MES 가 없다.** 그래서 필터를 그대로 통과했다.
+          (참고: 8/11 주석의 «MES 파일 325개» 도 오탐이었다 — 'Computer GAMES' 안의 'MES' 였다.
+           낱말경계 정규식이 그걸 걸러 주므로 실제로 숨겨진 서버 교재는 **0개**였다.)
+       [그래서 이름으로 맞히지 않는다] 어느 묶음이 MES 인지는 **사람이 안다.**
+          코드가 「LEVEL 1~7 이 MES 겠지」 하고 찍으면, 틀렸을 때 강사가 쓰는 교재가 사라진다.
+          → 숨길 묶음을 **관리자가 목록에서 골라** 저장한다. 배포 없이 즉시 켜고 끌 수 있다.
+       [지우지 않는다] 파일·수업기록은 그대로다. 목록에서 안 보이게만 한다(8/11 결정과 동일). */
+    const ensureTextbookHiddenTable = async () => {
+      await env.DB.exec(
+        `CREATE TABLE IF NOT EXISTS textbook_hidden_books (book TEXT PRIMARY KEY, hidden_by TEXT, created_at INTEGER NOT NULL);`
+      );
+      /* ✅ (2026-08-13) 마이마이 답변: **"Yes, Level 1 to 7 are MES"**
+         ─────────────────────────────────────────────────────────────────
+         위에서 «코드가 찍지 않는다» 고 한 그 답을 사람에게 받았다 → 이제 넣어도 된다.
+         ⚠️ 1회만 넣는다. 관리자가 나중에 «역시 보이게» 체크를 풀면 그 뜻을 지켜야 하는데,
+            매 요청마다 넣으면 푼 것이 되살아난다(플래그로 딱 한 번).
+         ⚠️ LEVEL 2 는 지금 운영 DB 에 없다 — 넣어도 해가 없고, 나중에 올라오면 자동으로 숨겨진다. */
+      if (_mesHiddenSeedChecked) return;
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS payroll_meta (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)`);
+        const seeded: any = await env.DB.prepare(`SELECT value FROM payroll_meta WHERE key = 'mes_hidden_seed_260813'`).first().catch(() => null);
+        _mesHiddenSeedChecked = true;
+        if (!seeded) {
+          const now2 = Date.now();
+          for (let lv = 1; lv <= 7; lv++) {
+            await env.DB.prepare(
+              `INSERT OR IGNORE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
+            ).bind(`LEVEL ${lv}`, 'maimai-260813', now2).run().catch(() => {});
+          }
+          await env.DB.prepare(`INSERT OR REPLACE INTO payroll_meta (key,value,updated_at) VALUES ('mes_hidden_seed_260813','1',?)`).bind(now2).run().catch(() => {});
+        }
+      } catch { /* 씨앗이 안 들어가도 화면에서 직접 체크하면 된다 */ }
+    };
+    const loadHiddenBooks = async (): Promise<Set<string>> => {
+      try {
+        await ensureTextbookHiddenTable();
+        const rs: any = await env.DB.prepare(`SELECT book FROM textbook_hidden_books`).all();
+        return new Set((rs.results || []).map((r: any) => String(r.book || '')));
+      } catch { return new Set<string>(); }
+    };
+
+    // GET /api/admin/textbook-hidden-books — 묶음 전체 + 숨김 여부(관리자 화면의 체크박스 목록)
+    if (method === 'GET' && path === '/api/admin/textbook-hidden-books') {
+      await ensureTextbookFilesTable();
+      const hidden = await loadHiddenBooks();
+      const rs: any = await env.DB.prepare(
+        `SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                COUNT(*) AS files
+         FROM textbook_files WHERE active = 1 GROUP BY book ORDER BY book ASC`
+      ).all().catch(() => ({ results: [] }));
+      const books = (rs.results || []).map((g: any) => ({
+        book: g.book, files: g.files, hidden: hidden.has(String(g.book)),
+      }));
+      return json({ ok: true, books, hidden_count: hidden.size });
+    }
+
+    // POST /api/admin/textbook-hidden-books — { book, hidden } 한 묶음을 숨기거나 되살린다
+    if (method === 'POST' && path === '/api/admin/textbook-hidden-books') {
+      await ensureTextbookHiddenTable();
+      const b: any = await request.json().catch(() => ({}));
+      const book = String(b?.book || '').trim();
+      if (!book) return json({ ok: false, error: 'book_required' }, 400);
+      const who = String(b?.by || 'admin').slice(0, 80);
+      if (b?.hidden === false) {
+        await env.DB.prepare(`DELETE FROM textbook_hidden_books WHERE book = ?`).bind(book).run();
+        return json({ ok: true, book, hidden: false });
+      }
+      await env.DB.prepare(
+        `INSERT OR REPLACE INTO textbook_hidden_books (book, hidden_by, created_at) VALUES (?,?,?)`
+      ).bind(book, who, Date.now()).run();
+      return json({ ok: true, book, hidden: true });
+    }
+
     // POST /api/admin/textbook-files — 파일 업로드 (multipart/form-data)
     if (method === 'POST' && path === '/api/admin/textbook-files') {
       try {
@@ -9740,7 +9842,29 @@ LIMIT $limit`;
                 pdf.js 가 필요한 페이지 조각만 받아 첫 페이지가 즉시 뜬다.
          ⚠️ r2_key 는 업로드마다 새로 만들어지므로 내용이 바뀌지 않는다 → immutable 캐시 가능.
             (기존 max-age=3600 은 매 수업마다 6MB 를 다시 받게 하고 있었다) */
+      /* ⚡ (2026-08-13 마이마이 「No, still lag, they are slow」 — 5번째 반복 신고)
+         ═══════════════════════════════════════════════════════════════════════
+         [측정] 교재 이미지 38,860장 평균 143.8KB(최대 1.7MB). 파일이 작다 —
+                «파일이 커서» 느린 게 아니다.
+         [남은 원인] 이 응답에 Cache-Control: immutable 을 달아도 그건 **브라우저 캐시**다.
+                Worker 가 만든 응답은 클라우드플레어 엣지에 자동으로 담기지 않는다.
+                그래서 «처음 보는 장» 은 강사마다·기기마다 매번
+                   마닐라 → (D1 조회) → R2(서울 ICN) → 마닐라
+                를 왕복했다. 한 반이 같은 교재를 봐도 캐시를 나눠 쓰지 못했다.
+         [수정] Cache API 로 엣지에 담는다. 마닐라 엣지가 한 번 데워지면 그 다음부터는
+                같은 도시의 모든 강사가 R2 왕복 없이 받는다 — 필리핀에서 체감이 가장 크다.
+         ⚠️ Range(206) 요청은 담지 않는다 — Cache API 는 206 을 못 담고, 조각마다 키가
+            달라 캐시를 오염시킨다. PDF(62개)만 Range 를 쓰므로 이미지 99.8% 는 그대로 이득.
+         ⚠️ r2_key 는 업로드마다 새로 만들어져 내용이 안 바뀐다 → 엣지에 오래 둬도 안전하다.
+            교재를 지우면 id 가 404 가 되므로 «지운 교재가 계속 보이는» 일도 없다. */
       const rangeHeader = request.headers.get('range');
+      const edgeCache: any = (globalThis as any).caches?.default;
+      if (!rangeHeader && edgeCache) {
+        try {
+          const hit = await edgeCache.match(request);
+          if (hit) return hit;
+        } catch { /* 캐시가 막혀 있어도 원본 경로로 계속 간다 */ }
+      }
       const obj = rangeHeader
         ? await r2.get(row.r2_key, { range: request.headers })
         : await r2.get(row.r2_key);
@@ -9764,7 +9888,17 @@ LIMIT $limit`;
         return new Response(obj.body, { status: 206, headers });
       }
       headers.set('Content-Length', String((obj as any).size));
-      return new Response(obj.body, { headers });
+      const full = new Response(obj.body, { headers });
+      /* 엣지에 담는다. 응답 본문은 한 번만 읽을 수 있으므로 clone() 을 넣고 원본을 돌려준다.
+         waitUntil 이 있으면 담기를 기다리지 않고 강사에게 먼저 보낸다(첫 요청도 안 느려진다). */
+      if (!rangeHeader && edgeCache) {
+        try {
+          const put = edgeCache.put(request, full.clone());
+          if (ctx && typeof ctx.waitUntil === 'function') ctx.waitUntil(put);
+          else await put;
+        } catch { /* 못 담아도 응답은 정상이다 */ }
+      }
+      return full;
     }
 
     // GET /api/textbook-files/:id — 메타데이터 (공개)
@@ -9795,9 +9929,13 @@ LIMIT $limit`;
                       FROM textbook_files WHERE ${where.join(' AND ')}
                       GROUP BY book ORDER BY book ASC`;
         const grs: any = await env.DB.prepare(gsql).bind(...binds).all();
-        const groups = grs.results || [];
+        /* 🙈 (2026-08-13 마이마이 8/13 ①) 관리자가 숨긴 묶음은 강사·학생 라이브러리에서 뺀다.
+           여기 한 곳에서 거르면 트리·카드·검색이 저절로 일치한다(화면이 이 응답 하나를 본다).
+           ⚠️ 파일 자체는 그대로다 — 이미 열려 있는 수업(?book= 로드)은 계속 동작한다. */
+        const hidden = await loadHiddenBooks();
+        const groups = (grs.results || []).filter((g: any) => !hidden.has(String(g.book || '')));
         const total = groups.reduce((a: number, g: any) => a + (g.files || 0), 0);
-        return json({ ok: true, groups, total });
+        return json({ ok: true, groups, total, hidden_count: hidden.size });
       }
 
       // fix (2026-06-02) — limit 파라미터 허용(기본 500, 최대 20000). 교재 전체를 불러올 수 있게.

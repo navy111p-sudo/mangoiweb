@@ -6193,7 +6193,10 @@ function _tbRenderChips(items) {
     dl.innerHTML = opts;
   }
   // 고정 그룹 + 데이터에 있는 출판사 자동 추가
-  var fixed = ['전체교재', 'Phonics', 'MES', 'BTS', 'SIU', '중국어 마스터'];
+  /* 🙈 (2026-08-13) MES 를 «고정 칩» 에서 뺀다 — 이제 안 쓰는 교재를 항상 띄울 이유가 없다.
+     ⚠️ 지우는 게 아니다. 아래 extra 가 «데이터에 있는 출판사» 를 자동으로 붙이므로,
+        MES 교재가 명부에 남아 있는 한 칩은 그대로 나온다 — 옛 기록을 찾는 길은 막지 않는다. */
+  var fixed = ['전체교재', 'Phonics', 'BTS', 'SIU', '중국어 마스터'];
   var extra = {};
   (items || []).forEach(function(t){
     var pub = (t.publisher || '').trim();

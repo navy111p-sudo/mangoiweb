@@ -189,7 +189,7 @@
 <div class="wrap">
   <div class="brand">
     <span class="brand-logo">🎬 Mangoi Lessons</span>
-    <div class="sub" data-ko="MES · BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청" data-en="MES · BTS · SIU textbooks × 12 lessons — click to watch">MES · BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청</div>
+    <div class="sub" data-ko="BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청" data-en="BTS · SIU textbooks × 12 lessons — click to watch">BTS · SIU 교재 × 12개 Lesson — 클릭으로 바로 시청</div>
   </div>
 
   <!-- 📚 망고아이 교재 — 3단계 네비게이션 (교재 → 챕터 → 유닛) -->
@@ -199,8 +199,10 @@
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <div style="font-size:11px;color:#a3b3d1;font-weight:700;letter-spacing:0.5px"><span data-ko="📚 교재" data-en="📚 Textbook">📚 교재</span></div>
       <div class="tb-tabs">
-        <button class="tb-tab active" data-tb="MES">🌱 MES <span class="tb-tab-sub" data-ko="입문" data-en="Starter">입문</span></button>
-        <button class="tb-tab" data-tb="BTS">🎵 BTS <span class="tb-tab-sub" data-ko="회화·표현" data-en="Speaking">회화·표현</span></button>
+        <!-- 🙈 (2026-08-13 마이마이) MES 는 이제 안 쓴다 — 탭을 감추고 기본을 BTS 로.
+             지우지 않고 감춘다(옛 영상·기록은 그대로). 되살리려면 style 을 지우면 된다. -->
+        <button class="tb-tab" data-tb="MES" style="display:none">🌱 MES <span class="tb-tab-sub" data-ko="입문" data-en="Starter">입문</span></button>
+        <button class="tb-tab active" data-tb="BTS">🎵 BTS <span class="tb-tab-sub" data-ko="회화·표현" data-en="Speaking">회화·표현</span></button>
         <button class="tb-tab" data-tb="SIU">🚀 SIU <span class="tb-tab-sub" data-ko="심화·고급" data-en="Advanced">심화·고급</span></button>
         <button class="tb-tab" data-tb="EXT">🌐 <span data-ko="외부 컨텐츠" data-en="External">외부 컨텐츠</span> <span class="tb-tab-sub" data-ko="TED · 유튜브" data-en="TED · YouTube">TED · 유튜브</span></button>
       </div>
@@ -314,7 +316,7 @@
   <script>
     // 🎯 3단계 네비게이션 — 교재 → 챕터 → 유닛
     (function(){
-      let curTb = 'MES';
+      let curTb = 'BTS';   // (2026-08-13) MES 탭을 감췄으므로 시작 교재도 BTS 로
       let curChapter = null;  // 'BTS 01' 같은 형식
       let curUnit = null;     // 'UNIT 001' / 'REVIEW' / 'TEST'
 
@@ -603,7 +605,7 @@ function renderAll() {
           <div style="font-size:50px;line-height:1;margin-bottom:14px">📚</div>
           <h3 style="margin:0 0 10px 0;color:#fbbf24;font-size:18px;font-weight:800">${t('학습을 시작해보세요!','Start Learning!')}</h3>
           <p style="color:#cbd5e1;font-size:13.5px;line-height:1.7;margin:0">
-            ${t('위에서','Select a lesson from')} <b style="color:#6ee7b7">MES</b> · <b style="color:#c4b5fd">BTS</b> · <b style="color:#fcd34d">SIU</b> ${t('교재 중','textbooks above.')}<br>
+            ${t('위에서','Select a lesson from')} <b style="color:#c4b5fd">BTS</b> · <b style="color:#fcd34d">SIU</b> ${t('교재 중','textbooks above.')}<br>
             ${t('원하는 <b>Lesson 번호</b>를 선택하면 영상이 표시됩니다.','Pick a chapter and unit, and the video will appear here.')}
           </p>
         </div>`;
