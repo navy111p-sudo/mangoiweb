@@ -10825,6 +10825,8 @@ window.rebuildGlobalSearchIndex = function() {
   let _cardData = null;
   // false = 카드사 동기화가 안 된 상태(= 화면 숫자가 예시 데이터). 화면에 반드시 표시한다.
   let _cardSynced = false;
+  // 서버가 준 연동 상태(state / message_ko / last_error …) — «왜 비었는지»의 유일한 근거
+  let _cardStatus = null;
   function _cardSampleBanner() {
     if (_cardSynced) return '';
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
@@ -10849,11 +10851,14 @@ window.rebuildGlobalSearchIndex = function() {
     const btn = document.getElementById('acc-card-sync-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 동기화 중…'; }
     try {
-      const r = await fetch('/api/admin/corpcard/sync', { method: 'POST', credentials: 'include' });
+      const monthEl0 = document.getElementById('acc-card-month');
+      const q0 = monthEl0 && monthEl0.value ? ('?month=' + encodeURIComponent(monthEl0.value)) : '';
+      const r = await fetch('/api/admin/corpcard/sync' + q0, { method: 'POST', credentials: 'include' });
       let d = null;
       try { d = await r.json(); } catch {}
-      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
-      else { _cardData = null; _cardSynced = false; }
+      _cardStatus = (d && d.status) || null;
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = _cardHasReal(); }
+      else { _cardData = null; _cardSynced = false; if (!_cardStatus && d && d.error) _cardStatus = { state: d.error, message_ko: d.message || '', message_en: d.message_en || '' }; }
     } catch (e) {
       _cardData = null; _cardSynced = false;
     }
@@ -10861,7 +10866,8 @@ window.rebuildGlobalSearchIndex = function() {
      * 예전엔 여기서 generateCardSampleData() 로 가짜 지출내역을 채웠다. 경고 배너를 붙여도
      * 표에 숫자가 떠 있으면 사람은 그 숫자를 읽는다 — 회계 판단이 오도된다.
      * 없는 건 없다고 말하는 편이 낫다. */
-    if (_cardData) { renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback(); }
+    renderCardStatus();
+    if (_cardSynced && _cardData) { renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback(); }
     else { renderCardNotConnected(); }
     // ⚠️ (2026-08-03) 예전엔 실패했을 때도 무조건 '✅ 동기화 완료' 라고 찍었다.
     //   '/api/admin/corpcard/sync' 는 서버에 없고(라이브 404), 카드사 연동 자체가 없다.
@@ -10872,12 +10878,99 @@ window.rebuildGlobalSearchIndex = function() {
       btn.textContent = _cardSynced ? '✅ 동기화 완료' : '⚠️ 미연동 (예시 데이터)';
       setTimeout(() => btn.textContent = '🔄 신한 동기화', _cardSynced ? 1500 : 3000);
     }
+    /* ⚠️ (2026-08-13) 예전엔 실패하면 무조건 «키가 등록되지 않았습니다» 라고 띄웠다.
+       실제로는 키가 멀쩡한데 계정이 «데모(샌드박스)» 라 CODEF 가 조회를 거부(CF-00017)하는
+       경우가 있었고, 그때 이 문구는 사실이 아니었다 — 키를 몇 번을 다시 넣어도 해결되지 않는다.
+       이제 사유는 서버(status)가 판정하고, 여기서는 그 문장을 그대로 보여 준다. */
     if (!_cardSynced) {
-      // (2026-08-13) 서버 연동(CODEF)은 준비 완료 — 키 3개만 등록하면 이 버튼이 실데이터를 당겨온다.
-      alert('⚠️ 카드사 연동 키(CODEF)가 아직 등록되지 않았습니다.\n\n'
-        + '연동 코드는 서버에 준비돼 있습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급)\n'
-        + '→ 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록만 하면 자동으로 불러옵니다.\n\n'
-        + 'Card sync (CODEF) keys are not registered yet. Once the 3 secrets are set, this button pulls real transactions.');
+      var en0 = !!(window.adminLang && window.adminLang !== 'ko');
+      var msg = _cardStatus && (en0 ? _cardStatus.message_en : _cardStatus.message_ko);
+      alert('⚠️ ' + (msg || '카드사 동기화에 실패했습니다. 화면의 연동 상태를 확인하세요.')
+        + (_cardStatus && _cardStatus.last_error ? '\n\n[서버 원문]\n' + _cardStatus.last_error : ''));
+    }
+  };
+
+  // 실데이터로 볼 수 있는 상태인가 — 연동 정상(ok)이거나 그 달만 비었을 때(no_data)만 true
+  function _cardHasReal() {
+    if (!_cardData) return false;
+    if (_cardData.current && _cardData.current.length) return true;
+    return !!(_cardStatus && (_cardStatus.state === 'ok' || _cardStatus.state === 'no_data'));
+  }
+
+  /* 📣 연동 상태 한 줄 — «연동 안 됨» 한 마디로 뭉개지 않고 상태별로 다르게 말한다.
+     회계 담당이 필리핀 스태프라 한/영 두 벌([[accounting-staff-english]]). */
+  function renderCardStatus() {
+    var box = document.getElementById('acc-card-status');
+    if (!box) return;
+    var s = _cardStatus;
+    if (!s) { box.innerHTML = ''; return; }
+    var en = !!(window.adminLang && window.adminLang !== 'ko');
+    var TONE = {
+      ok:              ['#059669', 'rgba(5,150,105,0.08)',  '✅'],
+      no_data:         ['#0f4c81', 'rgba(15,76,129,0.08)',  'ℹ️'],
+      never_synced:    ['#b45309', 'rgba(245,158,11,0.10)', '⏳'],
+      not_configured:  ['#b45309', 'rgba(245,158,11,0.10)', '🔑'],
+      sandbox_account: ['#b45309', 'rgba(245,158,11,0.12)', '🧪'],
+      sync_error:      ['#b91c1c', 'rgba(220,38,38,0.08)',  '⚠️'],
+    };
+    var t = TONE[s.state] || TONE.sync_error;
+    var when = s.last_sync_at
+      ? new Date(s.last_sync_at + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' KST'
+      : (en ? 'never' : '없음');
+    var html = '<div style="border:1px solid ' + t[0] + ';background:' + t[1] + ';border-radius:8px;padding:10px 12px">'
+      + '<div style="font-size:13px;font-weight:800;color:' + t[0] + ';line-height:1.6">' + t[2] + ' '
+      + _esc(en ? (s.message_en || s.message_ko || '') : (s.message_ko || '')) + '</div>'
+      + '<div style="margin-top:5px;font-size:11px;color:#6b7280">'
+      + (en ? 'Last sync: ' : '마지막 동기화: ') + when
+      + ' · ' + (en ? 'stored rows: ' : '적재 건수: ') + (s.rows_total || 0)
+      + (s.base ? ' · ' + _esc(s.base) : '') + '</div>';
+    if (s.last_error) {
+      html += '<details style="margin-top:6px"><summary style="font-size:11px;color:#6b7280;cursor:pointer">'
+        + (en ? 'Raw error from CODEF' : '카드사(CODEF) 오류 원문') + '</summary>'
+        + '<div style="margin-top:4px;font-size:11px;color:#6b7280;word-break:break-all;line-height:1.6">'
+        + _esc(s.last_error) + '</div></details>';
+    }
+    box.innerHTML = html + '</div>';
+  }
+  /* 🧪 연동 자가진단 — 샌드박스 호스트로 «키·응답·파싱» 만 확인한다.
+     ⛔ 서버가 dryRun 으로 돌려 D1 에 한 줄도 안 쓴다. 결과도 회계 표가 아니라
+        이 진단 상자에만 띄운다(데모 숫자가 실제 지출로 오인되면 안 되므로). */
+  window.cardSelfTest = async function () {
+    var btn = document.getElementById('acc-card-selftest-btn');
+    var en = !!(window.adminLang && window.adminLang !== 'ko');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 진단 중…'; }
+    var d = null;
+    try {
+      var r = await fetch('/api/admin/corpcard/selftest', { method: 'POST', credentials: 'include' });
+      try { d = await r.json(); } catch (e) {}
+    } catch (e) {}
+    if (btn) { btn.disabled = false; btn.textContent = '🧪 연동 자가진단'; }
+
+    var box = document.getElementById('acc-card-status');
+    var res = d && d.result;
+    var lines = [];
+    if (!d || !d.ok) {
+      lines.push(en ? 'Self-test could not run (keys missing or request blocked).'
+                    : '자가진단을 실행하지 못했습니다(키 미등록이거나 요청이 막혔습니다).');
+    } else {
+      var okToken = !(res && (res.errors || []).some(function (e) { return /codef_token_failed/.test(e); }));
+      var got = res ? (res.seen || 0) : 0;
+      lines.push((okToken ? '✅ ' : '❌ ') + (en ? 'CODEF login (OAuth token)' : 'CODEF 로그인(토큰 발급)'));
+      lines.push((got > 0 ? '✅ ' : '❌ ') + (en ? 'Transaction query & parsing' : '거래내역 조회·파싱')
+        + ' — ' + got + (en ? ' demo rows' : '건(데모)'));
+      if (res && res.errors && res.errors.length) {
+        lines.push('⚠️ ' + _esc(String(res.errors[0]).slice(0, 220)));
+      }
+      lines.push(en
+        ? 'Demo rows are NOT stored — this only proves the pipeline works. Real data needs production CODEF keys.'
+        : '데모 데이터는 <b>저장하지 않습니다.</b> 배선이 살아 있다는 것만 확인한 것이며, 실제 내역은 CODEF 정식 키가 있어야 나옵니다.');
+    }
+    if (box) {
+      box.insertAdjacentHTML('beforeend',
+        '<div style="margin-top:8px;border:1px dashed #6b7280;border-radius:8px;padding:10px 12px;background:#f9fafb">'
+        + '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:4px">🧪 '
+        + (en ? 'Connection self-test' : '연동 자가진단') + '</div>'
+        + '<div style="font-size:12px;color:#4b5563;line-height:1.8">' + lines.join('<br>') + '</div></div>');
     }
   };
 
@@ -10889,10 +10982,16 @@ window.rebuildGlobalSearchIndex = function() {
     try {
       var r = await fetch('/api/admin/corpcard/transactions' + q, { credentials: 'include' });
       var d = null; try { d = await r.json(); } catch (e) {}
-      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
-      else { _cardData = null; _cardSynced = false; }
+      _cardStatus = (d && d.status) || null;
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = _cardHasReal(); }
+      else {
+        _cardData = null; _cardSynced = false;
+        if (!_cardStatus) _cardStatus = { state: (d && d.error) || 'sync_error', message_ko: '', message_en: '' };
+      }
     } catch (e) { _cardData = null; _cardSynced = false; }
-    if (!_cardData) { renderCardNotConnected(); return; }
+    renderCardStatus();
+    // 실데이터가 아니면 숫자를 한 칸도 채우지 않는다 — ₩0 도 «실제 0원 지출» 로 읽힌다
+    if (!_cardSynced) { renderCardNotConnected(); return; }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
   };
 
@@ -10900,14 +10999,25 @@ window.rebuildGlobalSearchIndex = function() {
      회계 담당이 필리핀 스태프라 한/영 두 벌로 쓴다([[accounting-staff-english]]). */
   function renderCardNotConnected() {
     var en = !!(window.adminLang && window.adminLang !== 'ko');
+    // 상태별 사유를 그대로 쓴다. «연동 안 됨» 은 사유를 모를 때만(2026-08-13)
+    var why = _cardStatus && (en ? (_cardStatus.message_en || _cardStatus.message_ko) : _cardStatus.message_ko);
     var tbody = document.getElementById('acc-card-rows');
     if (tbody) {
       tbody.innerHTML = '<tr><td colspan="9" style="padding:22px;text-align:center;color:#6b7280;font-size:13px;line-height:1.8">'
         + (en
-          ? '<b>Card company sync is not connected yet.</b><br>No real transactions to show. Nothing is displayed on purpose — sample figures could be mistaken for real spending.'
-          : '<b>카드사 연동이 아직 되어 있지 않습니다.</b><br>보여드릴 실제 지출내역이 없습니다. 예시 숫자를 띄우면 실제 지출로 오인될 수 있어 일부러 비워 둡니다.')
+          ? '<b>No real transactions to show.</b><br>Nothing is displayed on purpose — sample figures could be mistaken for real spending.'
+          : '<b>보여드릴 실제 지출내역이 없습니다.</b><br>예시 숫자를 띄우면 실제 지출로 오인될 수 있어 일부러 비워 둡니다.')
+        + (why ? '<br><span style="color:#b45309">' + _esc(why) + '</span>' : '')
         + '</td></tr>';
     }
+    // KPI 타일도 «—» 로 되돌린다 — 이전 조회의 숫자가 남아 있으면 그 달 값으로 오인된다
+    [['kpi-cur-month', '₩—'], ['kpi-prev-month', '₩—'], ['kpi-3m-avg', '₩—'], ['kpi-alerts', '—건'],
+     ['kpi-cur-month-sub', '건수 —'], ['kpi-prev-vs-cur', '전월 대비 —%'], ['kpi-3m-vs-cur', '평균 대비 —%']]
+      .forEach(function (p) { var el = document.getElementById(p[0]); if (el) el.textContent = p[1]; });
+    // 색은 renderCardKpis 가 칠한 두 칸만 원래 회색으로 (나머지는 HTML 인라인 색을 지키기 위해 안 건드림)
+    ['kpi-prev-vs-cur', 'kpi-3m-vs-cur'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.style.color = '#9ca3af';
+    });
     ['acc-card-pie', 'acc-card-line'].forEach(function (id) {
       var c = document.getElementById(id);
       if (c && c.getContext) { try { c.getContext('2d').clearRect(0, 0, c.width, c.height); } catch (e) {} }
