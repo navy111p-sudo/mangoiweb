@@ -198,6 +198,26 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
   <div class="lib-empty" id="lib-empty" style="display:none">아직 등록된 교재가 없습니다. 위에서 폴더를 드래그하거나 선택해 업로드하세요.</div>
 </div>
 
+<!-- 🙈 (2026-08-13 마이마이 8/13 ①) 라이브러리에서 숨길 교재 묶음 — 사람이 고른다.
+     이름으로 «MES 겠거니» 하고 코드가 찍으면 틀렸을 때 강사가 쓰는 교재가 사라진다.
+     여기서 체크한 묶음만 강사·학생 라이브러리에서 빠진다. 파일은 지워지지 않는다. -->
+<div class="library" id="hide-panel">
+  <h2>🙈 라이브러리에서 숨길 교재
+    <span id="hide-count" style="font-size:11px;color:var(--text-mute);font-weight:600;margin-left:4px"></span>
+  </h2>
+  <div style="font-size:12px;color:var(--text-mute);line-height:1.65;margin-bottom:12px">
+    체크한 교재는 <b>강사·학생의 교재 라이브러리에서 안 보이게</b> 됩니다.
+    <b style="color:#fca5a5">파일은 지워지지 않습니다</b> — 지난 수업 기록도 그대로입니다. 체크를 풀면 즉시 다시 보입니다.<br>
+    <span style="color:#fcd34d">※ 안 쓰는 옛 교재(MES 등)를 여기서 골라 주세요. 배포 없이 바로 적용됩니다.</span>
+  </div>
+  <div class="lib-toolbar">
+    <input type="search" id="hide-search" placeholder="교재 묶음 이름 검색...">
+    <button class="btn btn-cancel" id="hide-reload" style="padding:9px 14px;border:0;border-radius:9px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">↻ 새로고침</button>
+  </div>
+  <div id="hide-list" style="max-height:360px;overflow-y:auto;display:grid;gap:6px"></div>
+  <div class="lib-empty" id="hide-empty" style="display:none">교재 묶음을 불러오는 중…</div>
+</div>
+
 <div class="tips">
   <b>💡 자동 분류 정확도를 높이는 팁</b><br>
   • 폴더명에 <code>출판사 / 교재명 / 레슨</code> 구조로 정리하면 가장 정확합니다 — 예: <code>다락원/마스터3/제1과</code><br>
@@ -1114,6 +1134,92 @@ window.delTextbook = async (id) => {
     }
   });
   openDB().then(() => renderLibrary()).catch(e => console.error('[init] DB 입력 실패:', e));
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   🙈 (2026-08-13 마이마이 8/13 ①) 라이브러리에서 숨길 교재 묶음
+   ──────────────────────────────────────────────────────────────────
+   서버의 묶음 이름(파일명 앞 [대괄호])을 그대로 보여주고 체크만 받는다.
+   ⚠️ 파일을 지우는 길은 여기 없다 — 숨김/되살림뿐이다(되돌릴 수 없는 일은 안 만든다).
+   ════════════════════════════════════════════════════════════════════ */
+let _hideBooks = [];
+
+async function loadHideBooks(){
+  const list = document.getElementById('hide-list');
+  const empty = document.getElementById('hide-empty');
+  if (!list) return;
+  try {
+    const r = await fetch('/api/admin/textbook-hidden-books', { cache: 'no-store' });
+    const j = await r.json();
+    if (!j || !j.ok) throw new Error(j && j.error || 'load_failed');
+    _hideBooks = j.books || [];
+    renderHideBooks();
+  } catch (e) {
+    console.warn('[hide] 목록 실패', e);
+    list.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.textContent = '목록을 불러오지 못했습니다 — 관리자로 로그인했는지 확인해 주세요.'; }
+  }
+}
+
+function renderHideBooks(){
+  const list = document.getElementById('hide-list');
+  const empty = document.getElementById('hide-empty');
+  const cnt = document.getElementById('hide-count');
+  if (!list) return;
+  const q = (document.getElementById('hide-search')?.value || '').trim().toLowerCase();
+  const rows = _hideBooks.filter(b => !q || String(b.book).toLowerCase().includes(q));
+  const nHidden = _hideBooks.filter(b => b.hidden).length;
+  if (cnt) cnt.textContent = '전체 ' + _hideBooks.length + '묶음 · 숨김 ' + nHidden + '개';
+  if (!rows.length){
+    list.innerHTML = '';
+    if (empty) { empty.style.display = 'block'; empty.textContent = q ? '검색 결과가 없습니다.' : '등록된 교재 묶음이 없습니다.'; }
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = rows.map(b => {
+    const safe = String(b.book).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    return '<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;'
+      + 'border:1px solid ' + (b.hidden ? 'rgba(239,68,68,.45)' : 'var(--border)') + ';'
+      + 'background:' + (b.hidden ? 'rgba(239,68,68,.10)' : 'rgba(255,255,255,.02)') + ';cursor:pointer">'
+      + '<input type="checkbox" data-hide-book="' + safe + '"' + (b.hidden ? ' checked' : '') + ' style="width:17px;height:17px;cursor:pointer;flex:0 0 auto">'
+      + '<span style="flex:1;min-width:0;font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + safe + '</span>'
+      + '<span style="flex:0 0 auto;font-size:11px;color:var(--text-mute)">' + (b.files || 0) + '개 파일</span>'
+      + '<span style="flex:0 0 auto;font-size:11px;font-weight:800;color:' + (b.hidden ? '#fca5a5' : '#4ade80') + '">'
+      + (b.hidden ? '숨김' : '보임') + '</span>'
+      + '</label>';
+  }).join('');
+  list.querySelectorAll('[data-hide-book]').forEach(cb => {
+    cb.addEventListener('change', async function(){
+      const book = this.getAttribute('data-hide-book');
+      const hidden = this.checked;
+      this.disabled = true;
+      try {
+        const r = await fetch('/api/admin/textbook-hidden-books', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ book, hidden })
+        });
+        const j = await r.json();
+        if (!j || !j.ok) throw new Error(j && j.error || 'save_failed');
+        const row = _hideBooks.find(x => String(x.book) === book);
+        if (row) row.hidden = hidden;
+        renderHideBooks();
+      } catch (e) {
+        console.warn('[hide] 저장 실패', e);
+        this.checked = !hidden;   // 되돌린다 — 저장 안 됐는데 «된 것처럼» 보이면 안 된다
+        this.disabled = false;
+        alert('저장하지 못했습니다. 다시 시도해 주세요.');
+      }
+    });
+  });
+}
+
+(function initHide(){
+  const s = document.getElementById('hide-search');
+  if (s) s.addEventListener('input', renderHideBooks);
+  const rb = document.getElementById('hide-reload');
+  if (rb) rb.addEventListener('click', loadHideBooks);
+  loadHideBooks();
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>
