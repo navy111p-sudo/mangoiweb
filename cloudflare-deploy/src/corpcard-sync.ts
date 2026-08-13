@@ -20,8 +20,25 @@
 const OAUTH_URL = 'https://oauth.codef.io/oauth/token';
 const APPROVAL_PATH = '/v1/kr/card/b/account/approval-list';   // 법인카드 승인내역
 
+/* 🧼 시크릿 소독 — PowerShell 붙여넣기가 제어문자( 등)·CR·공백을 끼워 넣는 사고가
+   실제로 났다(2026-08-13: CODEF_API_BASE 가 "" 한 글자로 저장 → fetch 실패,
+   Basic 인증에 CR 이 섞이면 OAuth 401). ASCII 인쇄문자만 남기고 다듬는다. */
+const cleanSecret = (v: any): string => String(v ?? '').replace(/[^\x20-\x7E]/g, '').trim();
+
+function codefCreds(env: any) {
+  return {
+    clientId: cleanSecret(env.CODEF_CLIENT_ID),
+    clientSecret: cleanSecret(env.CODEF_CLIENT_SECRET),
+    connectedId: cleanSecret(env.CODEF_CONNECTED_ID),
+    apiBase: cleanSecret(env.CODEF_API_BASE),
+    org: cleanSecret(env.CODEF_ORG) || '0306',
+    cardNo: cleanSecret(env.CODEF_CARD_NO),
+  };
+}
+
 export function corpcardConfigured(env: any): boolean {
-  return !!(env.CODEF_CLIENT_ID && env.CODEF_CLIENT_SECRET && env.CODEF_CONNECTED_ID);
+  const c = codefCreds(env);
+  return !!(c.clientId && c.clientSecret && c.connectedId);
 }
 
 async function ensureTables(env: any): Promise<void> {
@@ -40,7 +57,8 @@ async function metaGet(env: any, k: string): Promise<string | null> {
 
 // ── CODEF OAuth 토큰 (client_credentials). 동기화는 하루 1~2회라 캐시 없이 매번 발급 ──
 async function codefToken(env: any): Promise<string> {
-  const basic = btoa(`${env.CODEF_CLIENT_ID}:${env.CODEF_CLIENT_SECRET}`);
+  const c = codefCreds(env);
+  const basic = btoa(`${c.clientId}:${c.clientSecret}`);
   const r = await fetch(OAUTH_URL, {
     method: 'POST',
     headers: { 'Authorization': `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -60,7 +78,8 @@ function parseCodefBody(text: string): any {
 
 async function codefRequest(env: any, path: string, body: any): Promise<any> {
   const token = await codefToken(env);
-  const base = String(env.CODEF_API_BASE || 'https://api.codef.io').replace(/\/$/, '');
+  const cBase = codefCreds(env).apiBase;
+  const base = (/^https:\/\//.test(cBase) ? cBase : 'https://api.codef.io').replace(/\/$/, '');
   const r = await fetch(base + path, {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -131,13 +150,14 @@ export async function runCorpCardSync(env: any): Promise<any> {
   for (const span of spans) {
     let data: any;
     try {
+      const c = codefCreds(env);
       const body: any = {
-        connectedId: env.CODEF_CONNECTED_ID,
-        organization: env.CODEF_ORG || '0306',        // 신한카드
+        connectedId: c.connectedId,
+        organization: c.org,                          // 신한카드 = 0306
         startDate: span.s, endDate: span.e,
         orderBy: '0', inquiryType: '0',
       };
-      if (env.CODEF_CARD_NO) { body.cardNo = env.CODEF_CARD_NO; body.inquiryType = '1'; }
+      if (c.cardNo) { body.cardNo = c.cardNo; body.inquiryType = '1'; }
       data = await codefRequest(env, APPROVAL_PATH, body);
     } catch (e: any) {
       errors.push(`${span.s}~${span.e}: ${String(e?.message || e).slice(0, 300)}`);
