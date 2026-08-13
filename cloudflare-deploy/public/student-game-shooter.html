@@ -1229,13 +1229,20 @@
        중국어는 채점기가 영어 전용이라 기존 경로를 그대로 둔다.
      ⚠️ 반환값은 예전과 같은 boolean 이다 — 호출부는 한 줄도 안 바뀐다. */
   var lastSpeakDiag = null;   // 마지막 판정의 처방(있으면 화면에 한 줄 띄운다)
+  /* 💯 (2026-08-13 원장님 제안) 원샷 통과 판정용 정확도(0~1). matchSpoken 이 판정할 때마다 갱신한다.
+     boolean 만으로는 "100점"과 "턱걸이 통과"를 구분할 수 없다. */
+  var lastSpeakAcc = 0;
+  var SPEAK_PERFECT = 0.98, SPEAK_PERFECT_BONUS = 200, _speakTries = 0;
   function matchSpoken(heard, target){
     var h=_mclean(heard), t=_mclean(target);
+    lastSpeakAcc = 0;
     if(!h||!t) return false;
-    if(h===t){ lastSpeakDiag=null; return true; }
-    if(GLANG==='zh'){ lastSpeakDiag=null; return h.indexOf(t)>=0 || t.indexOf(h)>=0 || simRatio(heard,target)>=0.8; }
+    if(h===t){ lastSpeakDiag=null; lastSpeakAcc=1; return true; }
+    if(GLANG==='zh'){ lastSpeakDiag=null; lastSpeakAcc=simRatio(heard,target);
+      return h.indexOf(t)>=0 || t.indexOf(h)>=0 || lastSpeakAcc>=0.8; }
     if(window.MangoiScore){
       var g = MangoiScore.grade(heard, target);
+      lastSpeakAcc = g.accuracy;
       var d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags:[], goodTags:[] };
       lastSpeakDiag = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
       try{
@@ -1245,6 +1252,7 @@
       }catch(_){}
       return !!g.pass;
     }
+    lastSpeakAcc = simRatio(heard, target);
     return _legacyMatchSpoken(heard, target);
   }
   // 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
@@ -1259,6 +1267,7 @@
   function awardSpeak(){ if(_onSpeakScore) _onSpeakScore(SPEAK_POINTS); speakAwarded++; }
   function startMission(done, onScore){
     onMissionDone=done; _onSpeakScore=onScore||null; speakCount=0; speakAwarded=0; audioPlayed=false;
+    _speakTries=0;   // 💯 이 문장에서 말하기를 시도한 횟수(원샷 판정용)
     // 🎧 새 문장 = 이전 문장 녹음은 버린다(다른 문장을 비교하면 헷갈린다)
     try{ if(myUrl){ URL.revokeObjectURL(myUrl); myUrl=''; } }catch(e){}
     if(playMineBtn){ playMineBtn.disabled=true; playMineBtn.classList.remove('playing'); }
@@ -1273,7 +1282,8 @@
     // ▼ Audio Prerequisite: 목표 문장을 1회 들려준 뒤에만 마이크 활성화 (+6초 보험 해제)
     var armed=false; function arm(){ if(armed) return; armed=true; audioPlayed=true;
       micBtn.disabled=false; micBtn.innerHTML='누르고 말하기';
-      missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. ('+SPEAK_TARGET+'회 성공 필요)'; }
+      missionStatus.innerHTML='버튼을 누르고 <b>또렷하게</b> 문장을 말하세요. '
+        + '(<b>첫 시도 100점이면 바로 통과!</b> 아니면 '+SPEAK_TARGET+'회 성공)'; }
     speakMission(arm); setTimeout(arm, 6000);   // 미션 발음 속도(느리게/보통/빠르게) 적용
   }
   function setupRecognition(){
@@ -1352,6 +1362,17 @@
     var pct=Math.round(simRatio(heard, missionSentence())*100);
     var line='들린 말: <span class="heard">"'+(heard||'…')+'"</span><br>정확도 <span class="conf '+(matched?'ok':'no')+'">'+pct+'%</span>';
     if(pass){
+      _speakTries++;
+      /* 💯 (2026-08-13 원장님 제안) 원샷 원킬 — 첫 시도에서 정확도 100점이면
+         남은 반복을 건너뛰고 즉시 통과 + 퍼펙트 보너스. 첫 시도부터 집중하게 만드는 장치다. */
+      if(lastSpeakAcc>=SPEAK_PERFECT && _speakTries<=1 && speakCount===0){
+        speakCount=SPEAK_TARGET; renderStars();
+        if(_onSpeakScore) _onSpeakScore(SPEAK_PERFECT_BONUS);
+        missionStatus.innerHTML=line+'<br><b>🏆 퍼펙트! 첫 시도 100점!</b> 바로 통과 <b>+'+(SPEAK_POINTS*SPEAK_TARGET+SPEAK_PERFECT_BONUS)+'점</b>';
+        micBtn.disabled=true; micBtn.classList.remove('listening'); micBtn.innerHTML='🏆 원샷 통과!';
+        setTimeout(finishMission, 1100);
+        return;
+      }
       speakCount++; renderStars(); awardSpeak();          // ★ 말할 때마다 +100(라이브 반영)
       if(speakCount>=SPEAK_TARGET){
         missionStatus.innerHTML=line+'<br><b>완벽해요!</b> '+SPEAK_TARGET+'회 모두 성공! <b>+'+SPEAK_POINTS+'점</b>';
@@ -1361,6 +1382,7 @@
         missionStatus.innerHTML=line+'<br><b>성공! +'+SPEAK_POINTS+'점</b> ('+speakCount+'/'+SPEAK_TARGET+') 다시 한 번!';
       }
     } else {
+      _speakTries++;
       /* 🌱 (2026-08-03) "다시 해보세요"만으로는 학생이 **뭘 고쳐야 하는지** 모른다.
          한국인 취약 발음(R/L, TH, 끝소리…)이 잡히면 그 처방을 한 줄 붙인다.
          한/영 둘 다 — 강사 다수가 필리핀이라 화면을 같이 볼 때 읽혀야 한다. */

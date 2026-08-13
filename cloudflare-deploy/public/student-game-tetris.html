@@ -701,7 +701,7 @@ function speakSentence(text, rate, times){
 /* ════════════════════════════════════════════════════════════
    🎤 말하기 연습 — 문장 완성 시: 3번 듣고 → 마이크로 3번 따라 말하기(발음 점수)
    ════════════════════════════════════════════════════════════ */
-var SPK={ sentence:'', ko:'', active:false, attempt:0, best:0 };
+var SPK={ sentence:'', ko:'', active:false, attempt:0, best:0, perfect:false };
 /* 문장 1번 낭독 후 콜백 — 서버 원어민 오디오 우선 공통 입구(speakCore)로 위임 */
 function speakOnce(text, rate, cb){ speakCore(text, rate, cb); }
 function spkNorm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9一-鿿\s]/g,'').replace(/\s+/g,' ').trim(); }
@@ -735,9 +735,11 @@ function _legacySpkScore(t, s){
   tw.forEach(function(w){ var i=sw.indexOf(w); if(i>=0){ hit++; sw.splice(i,1); } });
   return Math.round(hit/Math.max(1,tw.length)*100);
 }
-/* 팝업 시작: 게임 일시정지 + 3번 듣기 → 3번 말하기 */
+/* 팝업 시작: 게임 일시정지 + 듣기 → 따라 말하기
+   💯 (2026-08-13 원장님 제안) 고정 3회 반복 폐지 — 듣기는 1회, 말하기는 첫 시도 100점이면
+      즉시 통과 + 퍼펙트 보너스. 100점 미만이면 예전처럼 3회를 채워 반복 학습. */
 function speakPractice(sent){
-  SPK.sentence=sent.words.join(MODE==='zh'?'':' '); SPK.ko=sent.ko; SPK.active=true; SPK.attempt=0; SPK.best=0;
+  SPK.sentence=sent.words.join(MODE==='zh'?'':' '); SPK.ko=sent.ko; SPK.active=true; SPK.attempt=0; SPK.best=0; SPK.perfect=false;
   paused=true; stopGravity();
   document.getElementById('sp-sentence').textContent=SPK.sentence;
   document.getElementById('sp-ko').textContent='💡 '+SPK.ko;
@@ -748,11 +750,10 @@ function speakPractice(sent){
 }
 function spkListen(n){
   if(!SPK.active) return;
-  document.getElementById('sp-status').textContent='🔊 잘 들어요 — 듣기 '+n+' / 3';
+  document.getElementById('sp-status').textContent='🔊 잘 들어요';
   speakOnce(SPK.sentence, 0.9, function(){
     if(!SPK.active) return;
-    if(n<3) setTimeout(function(){ spkListen(n+1); }, 500);
-    else setTimeout(spkSpeakPhase, 400);
+    setTimeout(spkSpeakPhase, 400);
   });
 }
 function spkSpeakPhase(){
@@ -760,7 +761,11 @@ function spkSpeakPhase(){
   document.getElementById('sp-actions').style.display='flex';
   spkUpdateBtn();
 }
-function spkUpdateBtn(){ document.getElementById('sp-mic').textContent='🎤 말하기 '+(SPK.attempt+1)+' / 3'; }
+function spkUpdateBtn(){
+  document.getElementById('sp-mic').textContent = SPK.attempt===0
+    ? '🎤 말하기 (100점이면 바로 통과!)'
+    : ('🎤 말하기 '+(SPK.attempt+1)+' / 3');
+}
 function spkRecord(){
   if(!SPK.active) return;
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -794,6 +799,8 @@ function spkRecord(){
     if(_sil)clearTimeout(_sil); if(!got){ got=true; sc.textContent='🎤 다시 또렷하게 말해볼까요?'; spkAfter(); } };
   r.onend=function(){ if(_sil)clearTimeout(_sil); if(!got){ if(said) grade(); else spkAfter(); } };
   function spkAfter(){ mic.disabled=false; SPK.attempt++;
+    /* 🏆 원샷 원킬 — 첫 시도에서 100점이면 남은 회차 없이 즉시 통과 */
+    if(SPK.best>=98 && SPK.attempt<=1){ SPK.perfect=true; st.textContent='🏆 퍼펙트! 첫 시도 100점!'; setTimeout(spkFinish, 1100); return; }
     if(SPK.attempt>=3){ setTimeout(spkFinish, 900); }
     else { st.textContent='🎤 좋아요! 한 번 더 따라 말해요'; spkUpdateBtn(); } }
   /* 🎤 (2026-07-23) 안드로이드 크롬은 continuous 를 무시하고 첫 확정 결과 뒤 세션을 스스로 닫는다.
@@ -805,7 +812,8 @@ function spkRecord(){
 function spkFinish(){
   if(!SPK.active) return; SPK.active=false;
   document.getElementById('speakpop').classList.remove('on');
-  if(SPK.best>0) splash(SPK.best>=80?'발음 최고! 🌟':'잘했어요! 👏');
+  if(SPK.perfect) splash('🏆 원샷 원킬! 첫 시도 100점!');
+  else if(SPK.best>0) splash(SPK.best>=80?'발음 최고! 🌟':'잘했어요! 👏');
   paused=false; if(running){ if(!piece) spawn(); startGravity(); }   // 게임 재개
 }
 
