@@ -1113,7 +1113,7 @@
           미지원 환경(WebView/카톡 등)에서는 '듣기'만 노출하고 말하기는 건너뜀.
        ============================================================ */
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
-    var speakMission = { active:false, sent:null, lang:'en', done:0, need:3, rec:null, listening:false };
+    var speakMission = { active:false, sent:null, lang:'en', done:0, need:3, tries:0, rec:null, listening:false };
     function _norm(s){ return (s||'').toLowerCase().replace(/[^a-z0-9一-鿿\s]/g,'').replace(/\s+/g,' ').trim(); }
     /* 💯 (2026-08-13 원장님 제안) 원샷 통과 판정용 정확도(0~1) — 판정할 때마다 갱신한다.
        boolean 만으로는 "100점"과 "턱걸이 통과"를 구분할 수 없다. */
@@ -1184,7 +1184,7 @@
     }
     function startSpeakMission(st){
       var s = st.sent; if(!s){ $('speakBox').style.display='none'; return; }
-      speakMission.active=true; speakMission.sent=s; speakMission.lang=G.mode; speakMission.done=0;
+      speakMission.active=true; speakMission.sent=s; speakMission.lang=G.mode; speakMission.done=0; speakMission.tries=0;
       var main=(G.mode==='zh')?s.zh:s.en, sub=(G.mode==='zh')?((s.py?s.py+' · ':'')+s.ko):(s.ko||'');
       $('speakSentTxt').textContent=main; $('speakSubTxt').textContent=sub;
       $('speakMicBtn').style.display=SR?'':'none'; $('speakMicBtn').classList.remove('listening');
@@ -1201,6 +1201,7 @@
       $('speakFeedback').textContent='지금 말해보세요!';
       rec.onresult=function(ev){
         var ok=false, heard='';
+        speakMission.tries++;   // 💯 성공·실패를 모두 센다 — '첫 시도' 판정의 기준
         for(var i=0;i<ev.results.length;i++){ for(var j=0;j<ev.results[i].length;j++){
           var alt=ev.results[i][j].transcript; if(!heard) heard=alt;
           if(_matchSpoken(alt, G.mode==='zh'?speakMission.sent.zh:speakMission.sent.en, G.mode)){ ok=true; }
@@ -1209,7 +1210,7 @@
           speakMission.done++; sfxDing(speakMission.done+3); _updateSpeakDots();
           try{ if(typeof _pronCoach==='function') _pronCoach(heard, true); }catch(_e){}   // 🧠 성공도 기억 큐에
           /* 🏆 원샷 원킬 — 첫 시도에서 100점이면 남은 회차 없이 즉시 통과 + 퍼펙트 보너스 */
-          if(_spAcc>=SP_PERFECT && speakMission.done===1){
+          if(_spAcc>=SP_PERFECT && speakMission.done===1 && speakMission.tries===1){
             speakMission.done=speakMission.need; _updateSpeakDots();
             G.score += 300; sfxFanfare();
             $('speakFeedback').innerHTML='🏆 퍼펙트! 첫 시도 100점! 원샷 보너스 +300점'; btn.style.display='none';

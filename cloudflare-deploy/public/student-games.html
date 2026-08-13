@@ -1490,6 +1490,9 @@ function _gameCheckGoal(){
 }
 function _gameShowResult(){
   _stopRoundTimer();
+  /* 🔓 퀘스트 해금 적립 — 여기가 인라인 게임의 **진짜 클리어 지점**이다(목표 정답 수 달성).
+     ⚠️ 정답 1개마다 적립하면 한 판 만에 21개가 다 열려 해금이 무의미해진다. */
+  try{ _questClear(_gameState.mode || 'inline'); }catch(_){}
   if(_gameState.balloonTimer){ clearInterval(_gameState.balloonTimer); _gameState.balloonTimer = null; }
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(_){}
   try{ _flushProgress(false); }catch(_){}   // 🧠 결과 화면에서 학습기록 서버 전송
@@ -1914,6 +1917,10 @@ function _clears(){
   catch(_){ return {}; }
 }
 function _clearTotal(){ var c = _clears(), n = 0; for(var k in c){ n += (parseInt(c[k],10)||0); } return n; }
+/* 🔑 해금은 **서로 다른 게임을 몇 개 깼는가**로 센다.
+   같은 게임을 열 번 깨도 하나로 친다 — 안 그러면 한 게임만 반복해서 21개를 다 열어 버린다.
+   ("각 게임의 목표를 달성할 때마다 다음 게임이 연쇄 해금" — 원장님 제안의 원래 뜻) */
+function _clearedModes(){ var c = _clears(), n = 0; for(var k in c){ if((parseInt(c[k],10)||0) > 0) n++; } return n; }
 /* 이 학생이 예전부터 쓰던 사람인가 — 코인·카드순서·클리어 기록 중 하나라도 있으면 그렇다 */
 function _isReturning(){
   try{
@@ -1933,7 +1940,7 @@ var _questMode = (function(){
   }catch(_){ return false; }
 })();
 /* 지금 몇 개까지 열려 있나 — 기본 2개 + 미션 클리어 수만큼 하나씩 더 */
-function _unlockedCount(){ return Math.min(HUB_GAMES.length, QUEST_START + _clearTotal()); }
+function _unlockedCount(){ return Math.min(HUB_GAMES.length, QUEST_START + _clearedModes()); }
 function _isUnlocked(mode){
   if(!_questMode) return true;
   var i = HUB_GAMES.findIndex(function(g){ return g.mode === mode; });
@@ -1942,18 +1949,19 @@ function _isUnlocked(mode){
 }
 /* 미션 1회 완료 → 클리어 적립 + 새로 열린 게임이 있으면 알려 준다 */
 function _questClear(mode){
+  var before;
   try{
+    before = _unlockedCount();
     var c = _clears();
     c[mode] = (parseInt(c[mode],10)||0) + 1;
     localStorage.setItem(CLEAR_KEY, JSON.stringify(c));
   }catch(_){ return; }
   if(!_questMode) return;
-  var idx = _unlockedCount() - 1;             // 이번에 새로 열린 자리
-  var g = HUB_GAMES[idx];
+  var after = _unlockedCount();
   _renderQuestBar();
-  if(g && idx >= QUEST_START){
-    try{ _toastHub('🔓 새 게임 해금! ' + g.ico + ' ' + g.ttl.split(' (')[0]); }catch(_){}
-  }
+  if(after <= before) return;                 // 이미 깬 게임을 또 깬 것 — 새로 열린 게 없다
+  var g = HUB_GAMES[after - 1];
+  if(g){ try{ _toastHub('🔓 새 게임 해금! ' + g.ico + ' ' + g.ttl.split(' (')[0]); }catch(_){} }
 }
 /* 허브 상단 토스트(게임 화면 위에서도 보이게 최상단 고정) */
 function _toastHub(msg){
@@ -1993,7 +2001,7 @@ function _renderQuestBar(){
   bar.style.display = 'flex';
   var next = (open < total) ? HUB_GAMES[open] : null;
   bar.innerHTML = '<span>🎯 오늘의 퀘스트 · 열린 게임 <b>' + open + ' / ' + total + '</b></span>' +
-    (next ? '<span>미션 1개를 끝내면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
+    (next ? '<span>열린 게임 중 <b>안 깬 게임 하나</b>를 클리어하면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
           : '<span>👑 모든 게임을 다 열었어요!</span>') +
     '<button type="button" class="qbtn" onclick="toggleQuestMode()">🔓 전체 열기</button>';
 }
@@ -2012,7 +2020,7 @@ function hubRenderMenu(){
     return '<div class="game-card'+(unlocked?'':' locked')+'" data-mode="'+g.mode+'" style="--cardbg:'+g.bg+'" onclick="hubOpenGame(\''+g.mode+'\')">'
       + (unlocked ? '' :
           '<div class="lockveil"><span class="lk">🔒</span>'
-          + '<span class="lkm">미션 <b>'+need+'개</b> 더 완료하면 열려요!</span></div>')
+          + '<span class="lkm">게임 <b>'+need+'개</b>를 더 클리어하면 열려요!</span></div>')
       + '<div class="phwrap">'
       +   '<span class="badge">'+g.badge+'</span>'
       +   '<img class="ph" src="/img/games/'+g.mode+'.webp" alt="" width="720" height="540"'
@@ -2132,7 +2140,7 @@ function hubOpenGame(mode){
   if(!_isUnlocked(mode)){
     var open = _unlockedCount();
     var now = HUB_GAMES[Math.max(0, open - 1)];
-    _toastHub('🔒 아직 잠겨 있어요! ' + (now ? now.ico + ' ' + now.ttl.split(' (')[0] + ' 미션부터 완료해 봐요!' : '미션을 완료해 주세요!'));
+    _toastHub('🔒 아직 잠겨 있어요! ' + (now ? now.ico + ' ' + now.ttl.split(' (')[0] + ' 부터 클리어해 봐요!' : '먼저 열린 게임을 클리어해 주세요!'));
     return;
   }
   _gameState.mode = mode;
@@ -2686,8 +2694,7 @@ function gameBrickCheck(){
   if (full){
     _stopRoundTimer();
     const r = _onCorrect('sent', sent, 10);
-    try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}
-    try{ _questClear('brick'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('brick'); }catch(_){}  // 🔥 오늘 학습 달성
     fb.innerHTML = '<span style="color:#10b981">' + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     if (fbi) fbi.innerHTML = '<div style="color:#34d399;font-weight:800;font-size:clamp(20px,3.4vmin,30px)">' + (r.boss?'👹 보스 격파!':'✅ 정답!') + ' +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</div>' +
       '<div style="color:#f8fafc;font-size:clamp(15px,2.2vmin,24px);margin-top:4px">' + target.join(' ') + '</div>' +
@@ -2785,8 +2792,7 @@ function gameMatchFlip(card){
         a.style.transform = ''; b.style.transform = '';
         _gameState.current.matched.add(a.dataset.pair);
         const r = _onCorrect('word', _witem, 5);   // 🧠 점수·콤보·하트·기록 일원화
-        try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}
-    try{ _questClear('match'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
+        try{ window.MangoiStreak && MangoiStreak.complete('match'); }catch(_){}  // 🔥 오늘 학습 달성
         _gameState.current.flipped = [];
         _gameUpdateScore();
         const total = _gameState.current.cards.length / 2;
@@ -2900,8 +2906,7 @@ function gameFillCheck(picked, btn){
     btn.style.background = 'linear-gradient(135deg,#10b981,#059669)';
     btn.style.transform = 'scale(1.05)';
     const r = _onCorrect('sent', sent, 8);
-    try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}
-    try{ _questClear('fill'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('fill'); }catch(_){}  // 🔥 오늘 학습 달성
     const em = _emojiFor(sent, 'sent');
     fb.innerHTML = '<span style="color:#10b981">' + (em?em+' ':'') + (r.boss?'👹 보스 격파! ':'✅ 정답! ') + '+' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>' + _growthNote(sent);
     try{ window.gameSpeak && sent && gameSpeak(sent.en); }catch(_){}
@@ -3343,8 +3348,7 @@ function gameBalloonPop(bl){
   if (_gameState.balloonTimer) clearInterval(_gameState.balloonTimer);
   if (correct){
     const r = _onCorrect('word', _gameState.current.word, 7);
-    try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}
-    try{ _questClear('balloon'); }catch(_){}   // 🔓 퀘스트 해금 적립  // 🔥 오늘 학습 달성
+    try{ window.MangoiStreak && MangoiStreak.complete('balloon'); }catch(_){}  // 🔥 오늘 학습 달성
     document.getElementById('game-feedback').innerHTML = '<span style="color:#10b981">🎉 풍! +' + r.gain + '점' + (r.mult>1?(' 🔥×'+r.mult):'') + '</span>';
     _gameUpdateScore();
     /* 🗣 맞힌 낱말이 든 문장으로 4단(단어 → 문장). 게이트가 3문제에 1번만 열어 준다.
