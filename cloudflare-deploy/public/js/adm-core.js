@@ -4937,8 +4937,20 @@ function _addEnrollmentRow(prefill) {
       '<div class="en-row-who" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px">' +
         (v.name ? '👤 ' + _esc(v.name) : '') + '</div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
+    /* 👨‍🏫 (2026-08-13 수정요청 #03) 「강사 우선」을 고르면 «누구인지» 를 여기서 바로 고른다.
+       ⚠️ 표에 열을 새로 만들지 않는다 — ③ 배정 우선순위 칸 «안» 에 딸린 칸으로 둔다.
+          열을 늘리면 2026-08-12 에 정리한 «등록 때 사람이 고르는 것은 5가지» 가 다시 무너진다.
+       ⚠️ 얼굴 사진은 넣지 않는다(요구사항 2). datalist 라 타이핑하면 좁혀지고(요구사항 3),
+          목록은 강사 명부(GET /api/admin/teachers, active=1)를 그대로 쓴다.
+       ⚠️ 「시간 우선」이면 감추고 **값도 비운다**(요구사항 4) — 안 비우면 숨은 값이 저장된다. */
     '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
+      '<div class="en-row-teacher-wrap" style="display:none;margin-top:4px">' +
+        '<input class="en-row-teacher" list="en-teacher-list" value="' + _esc(v.teacher_name) + '" ' +
+          'placeholder="' + (_enrIsEn ? 'Teacher name' : '강사 이름') + '" ' +
+          'title="' + (_enrIsEn ? 'Pick from the teacher roster, or type to search' : '강사 명부에서 고르거나 이름을 쳐서 찾습니다') + '" ' +
+          'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+      '</div>' +
       '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
@@ -4977,6 +4989,8 @@ function _addEnrollmentRow(prefill) {
   });
   // 🧭 (2026-08-12) ③ 우선순위 — 고른 값이 «다음 단계에서 무슨 뜻인지» 한 줄로 알려 준다
   tr.querySelector('.en-row-priority').addEventListener('change', () => _enPrioNote(tr));
+  // 👨‍🏫 (2026-08-13 #03) 강사 이름을 치는 대로 «명부에 있는 사람인지» 를 테두리 색으로 알려 준다
+  tr.querySelector('.en-row-teacher').addEventListener('input', function () { _enTeacherMark(this); });
   _enPrioNote(tr);
   // 👤 학생 아이디 → 이름 자동 조회. 이름 칸을 없앤 대신, 아이디가 «누구»인지 눈으로 확인시킨다.
   //    조회 결과는 hidden .en-row-name 에 넣는다(서버 student_name 필수값 + CSV 내보내기용).
@@ -4987,15 +5001,79 @@ function _addEnrollmentRow(prefill) {
   }
 }
 
-/* ③ 우선순위 안내문 — 「강사 우선」이 곧 «이름 지정» 이 아니라는 것을 여기서 못박아 둔다 */
+/* ③ 우선순위 안내문 + 강사 선택칸 여닫기
+   📜 이력 — 2026-08-12 에는 「강사 우선」이 **이름 지정이 아니라는 것**을 여기서 못박았다.
+      2026-08-13 수정요청 #03 으로 방침이 바뀌었다: 「강사 우선」을 고르면 이름을 직접 고른다.
+      ⚠️ 이름을 «대지 않아도» 배정되는 길은 그대로 살아 있다(비워 두면 enroll-activate 가
+         가르치던 강사 → 그 시간에 비는 강사 순으로 자동 배정). 즉 «고를 수도 있게» 된 것이다. */
 function _enPrioNote(tr) {
   const box = tr.querySelector('.en-row-prio-note');
   if (!box) return;
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
   const val = (tr.querySelector('.en-row-priority')?.value || 'schedule');
+  const wrap = tr.querySelector('.en-row-teacher-wrap');
+  const inp  = tr.querySelector('.en-row-teacher');
+  if (wrap) wrap.style.display = (val === 'teacher') ? '' : 'none';
+  if (val === 'teacher') {
+    _enLoadTeachers();                       // 명부는 이때 처음 받는다(부팅 때 안 받는다)
+    if (inp) _enTeacherMark(inp);
+  } else if (inp && inp.value) {
+    // 🔴 감추기만 하면 «안 보이는 값» 이 그대로 저장된다. 시간 우선으로 바꾸면 비운다(요구사항 4).
+    inp.value = '';
+    _enTeacherMark(inp);
+  }
   box.textContent = val === 'teacher'
-    ? (en ? 'Teacher fit first — time may shift' : '강사 적합도 먼저 · 시간은 조정될 수 있음')
+    ? (en ? 'Teacher first — pick a name, or leave blank to auto-assign' : '강사 먼저 · 이름을 고르거나, 비우면 자동 배정')
     : (en ? 'This day·time first' : '적어 준 요일·시간 먼저');
+}
+
+/* 👨‍🏫 (2026-08-13 #03) 강사 명부 — 등록 표의 강사 선택칸이 쓰는 목록.
+   ⚠️ 새 API 를 만들지 않았다. 이미 두 게이트를 통과하는 GET /api/admin/teachers 를 그대로 쓴다.
+      («새 API 추가» 함정 — index.ts 게이트 + api-mango 위임 가드 둘 다 등록해야 한다)
+   ⚠️ 부팅 때 받지 않는다. 「강사 우선」을 처음 고르는 순간 한 번만 받는다(2026-08-13 #02 방침). */
+let _enTeacherNames = null;      // null = 아직 안 받음 / [] = 받았는데 비었음
+let _enTeacherLoading = null;
+function _enLoadTeachers() {
+  if (_enTeacherNames) return Promise.resolve(_enTeacherNames);
+  if (_enTeacherLoading) return _enTeacherLoading;
+  _enTeacherLoading = (async () => {
+    try {
+      const r = await fetch('/api/admin/teachers', { cache: 'no-store', credentials: 'include' });
+      const d = await r.json();
+      const list = (d && (d.items || d.teachers || d.data)) || [];
+      _enTeacherNames = list
+        .map(t => String((t && t.name) || '').trim()).filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .sort((a, b) => a.localeCompare(b));
+    } catch (e) {
+      // 못 받아도 «이름을 직접 치는» 길은 막지 않는다 — 서버가 이름으로 다시 찾는다.
+      _enTeacherNames = [];
+      console.warn('[수강신청] 강사 명부를 못 받았습니다 — 이름을 직접 입력하면 됩니다', e);
+    }
+    let dl = document.getElementById('en-teacher-list');
+    if (!dl) { dl = document.createElement('datalist'); dl.id = 'en-teacher-list'; document.body.appendChild(dl); }
+    dl.innerHTML = _enTeacherNames.map(n => '<option value="' + _esc(n) + '"></option>').join('');
+    document.querySelectorAll('.en-row-teacher').forEach(_enTeacherMark);
+    return _enTeacherNames;
+  })();
+  return _enTeacherLoading;
+}
+
+/* 친 이름이 명부에 있는 사람인가 — 테두리 색으로만 알려 주고 «막지는 않는다».
+   막으면 명부 표기가 조금 다른 강사(‘Teacher Kaye’ ↔ ‘Kaye’)를 못 넣는다.
+   명부에 없으면 서버(enroll-activate)가 경고를 띄우고 자동 배정으로 넘어간다. */
+function _enTeacherMark(inp) {
+  if (!inp) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const v = String(inp.value || '').trim().toLowerCase();
+  if (!v || !_enTeacherNames || !_enTeacherNames.length) {
+    inp.style.borderColor = '#e5e7eb'; inp.title = ''; return;
+  }
+  const hit = _enTeacherNames.some(n => n.toLowerCase() === v);
+  inp.style.borderColor = hit ? '#10b981' : '#f59e0b';
+  inp.title = hit ? '' : (en
+    ? 'Not in the teacher roster — saved anyway, but assignment may fall back to auto'
+    : '강사 명부에 없는 이름입니다 — 저장은 되지만 배정은 자동으로 넘어갈 수 있습니다');
 }
 
 /* 👤 학생 아이디 → 학생 명부(students_erp)에서 이름 찾기.
@@ -5187,6 +5265,10 @@ function _readEnrollmentRows() {
     const time = tr.querySelector('.en-row-time')?.value || '';
     const classSize = tr.querySelector('.en-row-size')?.value || '';
     const priority = (tr.querySelector('.en-row-priority')?.value || 'schedule');
+    /* 👨‍🏫 (2026-08-13 #03) 고른 강사 이름. 「시간 우선」이면 무조건 비운다 —
+       칸을 감출 때도 비우지만, 여기서 한 번 더 막는다(감추기 전에 저장을 누르는 경우). */
+    const teacherName = priority === 'teacher'
+      ? (tr.querySelector('.en-row-teacher')?.value || '').trim() : '';
     const types = Array.from(tr.querySelectorAll('.en-row-type:checked')).map(c => c.value);
     const days  = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
     // 빈 행 건너뜀 (아이디·유형·패키지 모두 비어있으면)
@@ -5211,8 +5293,12 @@ function _readEnrollmentRows() {
       time: time || null,
       class_size: classSize || null,
       type: typesKo.join('+') || null,
-      // 🧭 (2026-08-12) ③ 배정 우선순위 — 강사를 이름으로 박는 대신 이 값만 남긴다
+      // 🧭 (2026-08-12) ③ 배정 우선순위
       assign_priority: priority,
+      /* 👨‍🏫 (2026-08-13 수정요청 #03) 고른 강사 이름 — 서버 INSERT 의 teacher_name 으로 들어가고,
+         「▸ 처리」 때 enroll-activate 가 자동 배정보다 **먼저** 이 이름을 본다.
+         빈 문자열이면 null 로 보내야 한다 — '' 를 넣으면 «이름이 있다» 로 읽혀 명부 조회가 헛돈다. */
+      teacher_name: teacherName || null,
       // 추가 메타 (자동 export·import 시 사용)
       _types: types,
       _types_ko: typesKo,
@@ -5281,7 +5367,8 @@ async function addEnrollment() {
       started_at: r.started_at,
       days_of_week: r.days_of_week, time: r.time,
       class_size: r.class_size, type: r.type,
-      assign_priority: r.assign_priority
+      assign_priority: r.assign_priority,
+      teacher_name: r.teacher_name        // 👨‍🏫 (2026-08-13 #03) 고른 강사
     });
     if (d) {
       const enrollmentData = {
@@ -5340,7 +5427,8 @@ async function addEnrollment() {
           started_at: r.started_at,
           days_of_week: r.days_of_week, time: r.time,
           class_size: r.class_size, type: r.type,
-          assign_priority: r.assign_priority
+          assign_priority: r.assign_priority,
+          teacher_name: r.teacher_name    // 👨‍🏫 (2026-08-13 #03) 고른 강사
         })
       });
       const j = await res.json().catch(() => ({}));
