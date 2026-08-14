@@ -1,0 +1,275 @@
+<title>Maimai's August Checklist</title>
+<style>
+:root{
+  --paper:#ffffff; --panel:#f2f4f6; --panel2:#e9edf1;
+  --ink:#16181d; --ink2:#454b55; --ink3:#6b7280;
+  --line:#dfe3e8; --line2:#c9d0d8;
+  --mango:#c9660a; --mango-bg:#fdf0e2;
+  --done:#17564a; --done-bg:#e2efec;
+  --wait:#8a6410; --wait-bg:#faf0d8;
+  --todo:#1f4f8f; --todo-bg:#e4ecf8;
+  --sans:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171b; --panel:#1d2026; --panel2:#24282f;
+    --ink:#e8eaed; --ink2:#b3b9c2; --ink3:#8b929c;
+    --line:#2c3038; --line2:#3a3f49;
+    --mango:#f0a55c; --mango-bg:#33230f;
+    --done:#7fd3bd; --done-bg:#123029;
+    --wait:#e3bd6a; --wait-bg:#33290f;
+    --todo:#8fbaf0; --todo-bg:#132540;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171b; --panel:#1d2026; --panel2:#24282f;
+  --ink:#e8eaed; --ink2:#b3b9c2; --ink3:#8b929c;
+  --line:#2c3038; --line2:#3a3f49;
+  --mango:#f0a55c; --mango-bg:#33230f;
+  --done:#7fd3bd; --done-bg:#123029;
+  --wait:#e3bd6a; --wait-bg:#33290f;
+  --todo:#8fbaf0; --todo-bg:#132540;
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:16.5px; line-height:1.7; -webkit-font-smoothing:antialiased}
+.wrap{max-width:800px; margin:0 auto; padding:40px 22px 90px; display:flex; flex-direction:column; gap:34px}
+
+header{display:flex; flex-direction:column; gap:10px; padding-bottom:24px; border-bottom:2px solid var(--ink)}
+.eyebrow{font-size:12.5px; letter-spacing:.14em; font-weight:700; color:var(--mango); text-transform:uppercase}
+h1{margin:0; font-size:clamp(28px,5.4vw,38px); line-height:1.18; font-weight:800; letter-spacing:-.02em; text-wrap:balance}
+.sub{margin:0; color:var(--ink2); font-size:16px}
+.meta{font-size:13.5px; color:var(--ink3); font-family:var(--mono)}
+
+h2{margin:0; font-size:22px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+h2 em{font-style:normal; font-size:13.5px; font-weight:600; color:var(--ink3); font-family:var(--mono)}
+section{display:flex; flex-direction:column; gap:14px}
+.lead{margin:0; color:var(--ink2); font-size:15.5px}
+
+.banner{border:1px solid var(--line2); border-left:5px solid var(--done); background:var(--done-bg); border-radius:8px; padding:16px 19px; display:flex; flex-direction:column; gap:6px}
+.banner h3{margin:0; font-size:17px; font-weight:800}
+.banner p{margin:0; font-size:15.5px}
+
+/* checklist */
+.list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px}
+.list li{display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:10px; padding:14px 16px; background:var(--paper)}
+.list li.ask{background:var(--mango-bg); border-color:var(--mango)}
+.box{flex:0 0 22px; height:22px; margin-top:2px; border:2px solid var(--ink3); border-radius:5px}
+.tick{flex:0 0 22px; height:22px; margin-top:1px; border-radius:5px; background:var(--done-bg); color:var(--done); display:grid; place-items:center; font-weight:800; font-size:14px}
+.no{flex:0 0 22px; height:22px; margin-top:1px; border-radius:5px; background:var(--wait-bg); color:var(--wait); display:grid; place-items:center; font-weight:800; font-size:14px}
+.hand{flex:0 0 22px; height:22px; margin-top:1px; border-radius:5px; background:var(--todo-bg); color:var(--todo); display:grid; place-items:center; font-weight:800; font-size:13px}
+.txt{flex:1; min-width:0; display:flex; flex-direction:column; gap:5px}
+.txt strong{font-size:16.5px; font-weight:800; line-height:1.4}
+.txt span{font-size:15px; color:var(--ink2)}
+.txt .note{font-size:14px; color:var(--ink3)}
+.txt .you{font-size:14.5px; color:var(--mango); font-weight:700}
+.quote{font-family:var(--mono); font-size:12.5px; color:var(--ink3); background:var(--panel2); border-radius:6px; padding:7px 10px; overflow-x:auto}
+
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+table{border-collapse:collapse; width:100%; font-size:15px; min-width:420px}
+th,td{padding:9px 13px; text-align:left; border-bottom:1px solid var(--line)}
+th{background:var(--panel); font-weight:700; font-size:13px; color:var(--ink2); white-space:nowrap}
+td.num{text-align:right; font-variant-numeric:tabular-nums; font-family:var(--mono)}
+tbody tr:last-child td{border-bottom:0}
+
+footer{border-top:1px solid var(--line); padding-top:20px; font-size:14.5px; color:var(--ink3); display:flex; flex-direction:column; gap:8px}
+code{font-family:var(--mono); font-size:.88em; background:var(--panel2); padding:1px 5px; border-radius:4px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Mangoi · Teacher’s Page</div>
+  <h1>Maimai’s August Checklist</h1>
+  <p class="sub">Hi Maimai! Thank you for all your reports. You found real problems, and your numbers were correct.
+  Here is what we did, what we could not do, and what we need from you.</p>
+  <p class="meta">August 14, 2026 · from your reports of August 7–14 · 34 items</p>
+</header>
+
+<div class="banner">
+  <h3>✅ Everything below is already live. Please refresh your page first.</h3>
+  <p>Press <b>Ctrl + Shift + R</b> (hold Ctrl and Shift, then press R) one time. This makes your computer
+  throw away the old screen and get the new one. If you do not do this, you may still see the old page.</p>
+</div>
+
+<!-- ══════════ 1. REQUESTS TO MAIMAI ══════════ -->
+<section>
+  <h2>1. Please help us with these <em>7 things</em></h2>
+  <p class="lead">This is the most important part. We cannot finish without your answers.
+  You can just reply <b>Yes</b> or <b>No</b> to each one.</p>
+  <ul class="list">
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Are the books the right size now?</strong>
+      <span>Open <b>BTS 1 001</b> in the library. It should show <b>23 pages</b>, not 115.
+      Please check one or two other books too.</span>
+      <span class="you">→ Please tell us: Yes / No</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Does the page list show the page names now?</strong>
+      <span>Open a book, click <b>📑 Pages</b>. Before, every line looked the same
+      (“1. [BTS 6 Korea (Bedroom, li…”). Now each line should show the <b>real page name</b>
+      (like “Slide12.JPG”), the same idea as BODA.</span>
+      <span class="you">→ Please tell us: Is it easy to read now?</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Please press the 🌐 button and look around.</strong>
+      <span>We found <b>23 places</b> that stayed in Korean even after you pressed 🌐.
+      We fixed all of them. Only teachers in the Philippines could see this problem, so we need your eyes.</span>
+      <span class="you">→ Please tell us if you still see any Korean word.</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Are the 5 folders gone from Server Textbook?</strong>
+      <span>(Others) · 004. I visited my grandparents · 007. Commercials · Mangoi Books · Shake it up 2-18-25.
+      They are <b>hidden, not deleted</b>. We can bring any of them back in one second.</span>
+      <span class="you">→ If you need one of them back, just tell us the name.</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Please send us the Google Drive links for Phonics and BTS 2–34.</strong>
+      <span>We must <b>upload them one more time</b> so they split into small books
+      (“Mangoi Phonics A”, “Mangoi Phonics B”… and “BTS 2 001”, “BTS 2 002”…).
+      The head office will do the uploading — we only need the links.</span>
+      <span class="note">Don’t worry: the system now blocks the same file twice, so the pages will not double again.</span>
+      <span class="you">→ Please send the folder links.</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Please tell the teachers about the postpone rule.</strong>
+      <span>If a class is postponed <b>more than 30 minutes before</b> the class, the pay is <b>0 PHP</b>.
+      If it is postponed <b>within 30 minutes</b>, the pay is <b>full (50 PHP)</b>.
+      This starts with <b>this month’s salary</b>.</span>
+      <span class="you">→ Please tell the teachers before payday.</span>
+    </div></li>
+
+    <li class="ask"><div class="box"></div><div class="txt">
+      <strong>Please use the computers for one more week before we buy RAM.</strong>
+      <span>You said the system is slow. We found the real reason: the books had <b>2 to 3 times too many pages</b>.
+      We removed them. The books are much smaller now, so the computers may be fine.</span>
+      <span class="you">→ After one week, please tell us: still slow? Then we buy the RAM.</span>
+    </div></li>
+  </ul>
+</section>
+
+<!-- ══════════ 2. DONE ══════════ -->
+<section>
+  <h2>2. Done — please check these <em>34 requests · 30 finished · 4 need one more step</em></h2>
+  <p class="lead">Here are the newest ones. The older ones (August 7–12) are already working on your screen.</p>
+  <ul class="list">
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The books had too many pages. Fixed.</strong>
+      <div class="quote">"THE BOOK IS NOT SLOW ONLY THAT THE PAGES AT THE LIBRARY TRIPLED OR DOUBLED"</div>
+      <span>You were <b>right</b>, and our first answer was <b>wrong</b>. We thought the books were slow.
+      The real problem was that the <b>same page was saved many times</b>.</span>
+    </div></li>
+  </ul>
+  <div class="tablewrap"><table>
+    <thead><tr><th>What we counted</th><th class="num">Before</th><th class="num">Now</th><th class="num">Times</th></tr></thead>
+    <tbody>
+      <tr><td>All textbook files</td><td class="num">38,922</td><td class="num">17,170</td><td class="num">2.3×</td></tr>
+      <tr><td>BTS 1 001 (the book you found)</td><td class="num">115</td><td class="num">23</td><td class="num">5.0×</td></tr>
+      <tr><td>BTS 2</td><td class="num">762</td><td class="num">246</td><td class="num">3.1×</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="list">
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The same file cannot be uploaded twice any more.</strong>
+      <span>Before, if someone uploaded a book two times, the book became two times bigger.
+      Now the system <b>skips</b> the file it already has, and says
+      “<b>New: 20 · Already there, skipped: 5</b>”. Nothing is lost — nothing is doubled.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The page list now shows page names.</strong>
+      <span>Before, every line showed the long book name and the page number was cut off.
+      Now the line shows the page name, and the number stays (1. 2. 3.).
+      Put your mouse on a line to see the full name.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The page window stays open, and you can make it bigger.</strong>
+      <span>It closes only with the <b>✕</b> button. Pull the bottom-right corner to make it bigger.
+      The system <b>remembers your size</b> for next time.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The 🌐 button now works everywhere (23 places).</strong>
+      <span>The class page had <b>two language helpers</b> inside, and 23 places were listening to the
+      wrong one. That one never changed to English. Now they all listen to the same one.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>The book card said “0 and · 781”. Fixed.</strong>
+      <span>That was a translation mistake. Now it says “<b>7 units · 246 pages</b>”.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>MES is hidden — and we found a second copy of it.</strong>
+      <span>LEVEL 1 to LEVEL 7 were hidden yesterday. Today we found that
+      “<b>Mangoi Books</b>” was the <b>same MES pages with a different name</b> —
+      all 797 pages matched, one by one. That is why you crossed it out. It is hidden now too.</span>
+      <span class="note">Nothing is deleted. Old class records still work.</span>
+    </div></li>
+    <li><div class="tick">✓</div><div class="txt">
+      <strong>Phonics A–Z: the rule is fixed (but see part 3).</strong>
+      <span>The uploader only understood folders with <b>numbers</b> (001, 002).
+      Your folders use <b>letters</b> (Mangoi Phonics A, B, C…), so it put all 26 folders into one book.
+      Now it understands letters too.</span>
+    </div></li>
+  </ul>
+</section>
+
+<!-- ══════════ 3. NOT DONE ══════════ -->
+<section>
+  <h2>3. Not done yet — and why <em>2 things</em></h2>
+  <p class="lead">We want to be honest with you. These two are only <b>half done</b>.</p>
+  <ul class="list">
+    <li><div class="no">!</div><div class="txt">
+      <strong>Old books are still in one big piece.</strong>
+      <span>You asked: “please separate the book per unit — BTS 1 001, BTS 1 002 and so on.”
+      <b>New uploads will do this.</b> But books that are <b>already inside</b> cannot be split,
+      because the computer <b>did not save which unit each page came from</b>. That information is gone.</span>
+      <span><b>37 books · 15,580 pages</b> are like this today. The only way is to <b>upload them again</b>
+      from your Drive folders. That is why we asked you for the links.</span>
+    </div></li>
+    <li><div class="no">!</div><div class="txt">
+      <strong>The BTS placement test is not in the library yet.</strong>
+      <span>The teachers were not doing it wrong. The screen said “✅ Saved!” but the file
+      <b>only went to their own computer</b>. The screen was not telling the truth.
+      <b>That lie is fixed</b> — now it says “⚠️ Saved on this computer only”.</span>
+      <span>The head office will upload the real file, so all teachers can see it.</span>
+    </div></li>
+  </ul>
+</section>
+
+<!-- ══════════ 4. PEOPLE MUST DO ══════════ -->
+<section>
+  <h2>4. Things a person must do <em>not the computer</em></h2>
+  <ul class="list">
+    <li><div class="hand">👤</div><div class="txt">
+      <strong>Upload Phonics and BTS 2–34 one more time.</strong>
+      <span>Head office. Just drag the Drive folders into the uploader. Then the books split by themselves.</span>
+    </div></li>
+    <li><div class="hand">👤</div><div class="txt">
+      <strong>Upload the BTS placement test.</strong>
+      <span>Head office. We do <b>not</b> give teachers permission to upload to the shared library —
+      all teachers share it, so one mistake would hurt everybody.</span>
+    </div></li>
+    <li><div class="hand">👤</div><div class="txt">
+      <strong>Tell the teachers about the postpone rule.</strong>
+      <span>Manager (you). It changes their pay this month.</span>
+    </div></li>
+    <li><div class="hand">👤</div><div class="txt">
+      <strong>Decide about the RAM after one week.</strong>
+      <span>Owner. Please try the lighter books first.</span>
+    </div></li>
+  </ul>
+</section>
+
+<footer>
+  <div><b>Thank you, Maimai.</b> Your report from August 14 changed our whole plan.
+  We thought the books were slow. You told us the pages were doubled — and you were right.
+  Because of you we found and removed <b>21,752 extra pages</b>, and we also found a second hidden copy of MES.</div>
+  <div>If anything on this list is still not working, please write the <b>number</b> (for example “1-2 is still bad”)
+  and send a picture. That helps us very much.</div>
+</footer>
+
+</div>
