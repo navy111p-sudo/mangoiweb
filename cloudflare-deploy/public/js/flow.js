@@ -740,8 +740,13 @@
         (topWin().matchMedia && topWin().matchMedia('(display-mode: standalone)').matches) ||
         (navigator.standalone === true);
     } catch (_) {}
+    // 📥 자사 망고아이 앱 v2.0+ — UA 에 «MangoiApp/» 마커가 있으면 앱에 네이티브
+    //   다운로드 장치(DownloadListener→DownloadManager)가 있다(mobile-app MainActivity).
+    //   가로채지 않고 기본 <a download> 를 그대로 태우면 앱이 받아서 알림창에 저장한다.
+    //   (마커 없는 구버전 앱은 여전히 안내 시트 — 실행 시 앱 업데이트 안내가 뜬다)
+    var nativeDl = ua.indexOf('mangoiapp/') !== -1;
     return {
-      blocked: inapp || standalone,
+      blocked: (inapp || standalone) && !nativeDl,
       kakaoAndroid: ua.indexOf('kakaotalk') !== -1 && ua.indexOf('android') !== -1
     };
   }
