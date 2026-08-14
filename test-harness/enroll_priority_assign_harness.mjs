@@ -138,11 +138,13 @@ check('단건·일괄 POST 두 곳 모두 assign_priority 를 보낸다', postCo
 /* 👨‍🏫 (2026-08-13 #03) 고른 강사가 «저장까지» 가야 한다 (완료 기준 3) */
 const teacherPostCount = (coreSrc.match(/teacher_name: r\.teacher_name/g) || []).length;
 check('단건·일괄 POST 두 곳 모두 teacher_name 을 보낸다', teacherPostCount === 2, { teacherPostCount });
+/* ⚠️ 변수명은 2026-08-14 현장 피드백 반영 때 teacherName → wantTeacher 로 바뀌었다.
+   검사의 «뜻» 은 그대로다 — 「강사 우선」일 때만 읽고, 빈 값은 null 로 보낸다. */
 check('_readEnrollmentRows 가 teacher_name 을 담는다 (시간 우선이면 빈 값)',
-  /teacher_name: teacherName \|\| null/.test(coreSrc) &&
-  /priority === 'teacher'[\s\S]{0,120}\.en-row-teacher'\)\?\.value/.test(coreSrc));
+  /teacher_name: wantTeacher \|\| null/.test(coreSrc) &&
+  /priority === 'teacher'\)[\s\S]{0,120}\.en-row-teacher'\)\?\.value/.test(coreSrc));
 check('빈 값은 null 로 보낸다 — \'\' 를 넣으면 서버가 «이름이 있다» 로 읽는다',
-  /teacher_name: teacherName \|\| null/.test(coreSrc));
+  /teacher_name: wantTeacher \|\| null/.test(coreSrc));
 check('서버 INSERT 가 teacher_name 을 받는다 (이미 있던 컬럼)',
   /_addEnrCol2\('teacher_name', 'TEXT'\)/.test(admSrc) && /b\.teacher_name \|\| null/.test(admSrc));
 check('「▸ 처리」가 적혀 있는 이름을 자동 배정보다 «먼저» 본다',
