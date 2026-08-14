@@ -1247,14 +1247,49 @@
           });
       }
 
+      /* 🏆 (2026-08-13) 첫 시도 100점이면 한 번에 통과 — 원장님 제안.
+         [왜 여기에] 안내문에는 「첫 번째에 100점이 나오면 바로 통과」라고 써서 배포했는데,
+         학생이 **가장 먼저 만나는 이 게임**에는 그 기능이 없었다. 위 legacyDrill 은
+         마이크를 아예 안 켜므로 «점수 없이 무조건 3번» 이 될 수밖에 없었다(실측 제보).
+         [무엇을] 모범 낭독을 한 번 들려준 뒤 **실제로 듣고 채점한다.**
+           · 정확도 100점(0.98+) → 즉시 통과 + 원샷 보너스
+           · 그 미만 / 마이크 없음 / 인식 실패 → 예전 3회 반복(legacyDrill) 그대로
+         소리 노출을 줄이지 않는다 — 100점을 못 받으면 예전과 완전히 같은 훈련을 한다. */
+      const SP_PERFECT = 0.98, ONESHOT_BONUS = 300;
+      function speakDrill() {
+        const canMic = window.MangoiVoice && MangoiVoice.supported() && window.MangoiScore;
+        if (!canMic) { legacyDrill(); return; }
+        sentLine.textContent = full;                 // 따라 말하려면 문장이 보여야 한다
+        repeatPop.classList.add('show');
+        repeatPop.classList.remove('say');
+        dots.forEach((d) => d.classList.remove('on'));
+        speakOnce(full, (lang === 'zh') ? 0.72 : 0.78, () => {
+          if (!wave || !wave.drilling) return;       // 그 사이 라운드가 끝났으면 그만둔다
+          repeatPop.classList.add('say');
+          dots.forEach((d, i) => d.classList.toggle('on', i < 1));
+          MangoiVoice.record({ firstMs: 9000, silenceMs: 2400 }).then((said) => {
+            let acc = 0;
+            try { if (said) acc = MangoiScore.grade(said, full).accuracy || 0; } catch (e) {}
+            if (acc >= SP_PERFECT) {
+              score += ONESHOT_BONUS; scoreEl.textContent = score;
+              sentLine.textContent = '🏆 퍼펙트! 첫 시도 100점! +' + ONESHOT_BONUS;
+              dots.forEach((d) => d.classList.add('on'));
+              setTimeout(afterSpeaking, 1300);
+              return;
+            }
+            legacyDrill();                           // 100점이 아니면 예전처럼 3번 반복
+          }).catch(() => legacyDrill());
+        });
+      }
+
       setTimeout(() => {
-        if (!window.MangoiCycle) { legacyDrill(); return; }
+        if (!window.MangoiCycle) { speakDrill(); return; }
         /* ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
            낭독이 겹치지 않게 이 게임의 TTS 를 먼저 끊는다(안 끊으면 인식기가 AI 목소리를 받아 적는다). */
         try { stopSpeak(); } catch (e) {}
         MangoiCycle.run({ en: full, ko: S.ko || '', words: S.w || null, lang: lang })
-          .then((r) => { if (!r || !r.ran) { legacyDrill(); return; } afterSpeaking(); })
-          .catch(() => { legacyDrill(); });
+          .then((r) => { if (!r || !r.ran) { speakDrill(); return; } afterSpeaking(); })
+          .catch(() => { speakDrill(); });
       }, 900);
     }
 

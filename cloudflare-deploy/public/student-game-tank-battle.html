@@ -1475,14 +1475,24 @@ function startSpeaking(){ SP={ sent:G.sent, done:0, ok:0 }; G.speaking=true; bgm
 function spListen(){ spState='listen'; document.getElementById('spMic').classList.add('hide');
   document.getElementById('spDots').innerHTML=dotsHtml(3,-1); spHeard(''); spPhase('🔊 잘 들어보세요 ('+spRate.toFixed(2)+'배속, 3번)');
   speakTimes(spFull(), spRate, 3, spBeginSpeak); }
-function spBeginSpeak(){ spState='speak'; SP.done=0; SP.ok=0; document.getElementById('spDots').innerHTML=dotsHtml(3,0);
+function spBeginSpeak(){ spState='speak'; SP.done=0; SP.ok=0; SP.tries=0; document.getElementById('spDots').innerHTML=dotsHtml(3,0);
   spPhase('🎤 따라 말해보세요! (1/3)'); spHeard('아래 버튼을 <b>탭</b>하고 문장을 말하세요');
   var mic=document.getElementById('spMic'); mic.classList.remove('hide'); mic.textContent='🎤 탭해서 말하기'; mic.disabled=false; }
 function spDoRep(){ var mic=document.getElementById('spMic'); mic.disabled=true; mic.textContent='🔴 녹음 중…'; mic.classList.add('recording'); spHeard('말해보세요…');
-  listenOnce(function(ok, said){ mic.classList.remove('recording'); var idx=SP.done; SP.done++; if(ok) SP.ok++;
+  _tbResetAcc();                                  // 💯 이번 시도의 정확도만 본다
+  listenOnce(function(ok, said){ mic.classList.remove('recording'); var idx=SP.done; SP.done++; SP.tries=(SP.tries||0)+1; if(ok) SP.ok++;
     spSetDot(idx, ok); spHeard((said ? ('들린 말: <b>'+esc(said)+'</b> '+(ok?'✅':'❌')) : '❌ 잘 안 들렸어요')
       + (typeof _spkCoach==='function' ? _spkCoach(said, spFull(), ok) : ''));   // 🗣 뭘 고치면 되는지 한 줄
     if(ok) sndPickup(); else sndBuzz();
+    /* 🏆 원샷 원킬 (2026-08-13 원장님 제안) — 첫 시도에서 100점이면 남은 회차 없이 즉시 통과.
+       done 만 보면 세 번 틀리고 네 번째에 100점을 받아도 보너스가 붙는다(구조선에서 실제로 났던
+       결함) → **시도 횟수(tries)** 로 «첫 시도» 를 판정한다. */
+    if(ok && SP.tries===1 && _tbAcc>=TB_PERFECT){
+      SP.ok=3; SP.done=3; document.getElementById('spDots').innerHTML=dotsHtml(3,3);
+      mic.classList.add('hide'); G.score+=300; updateHUD();
+      spPhase('🏆 퍼펙트! 첫 시도 100점! 원샷 보너스 +300');
+      speak(spFull(), spRate, 1); setTimeout(spNext, 1800); return;
+    }
     if(SP.done<3){ spPhase('🎤 따라 말해보세요! ('+(SP.done+1)+'/3)'); mic.disabled=false; mic.textContent='🎤 탭해서 말하기'; }
     else { mic.classList.add('hide'); setTimeout(spResult, 1000); } }); }
 function spResult(){ spState='result';
@@ -1536,15 +1546,20 @@ function listenOnce(cb){ var SR=window.SpeechRecognition||window.webkitSpeechRec
   try{ rec.start(); }catch(_){ finish(false,''); return; }
   // ⏱ 무이벤트 워치독: 9초간 onstart/onresult가 전혀 없으면(마이크 권한 멈춤 등) 종료 — 말하는 중엔 절대 안 끊음
   setTimeout(function(){ if(!_started && !done) finish(matched, best); }, 9000); }
+/* 💯 (2026-08-13) 원샷 통과 판정용 정확도(0~1). boolean 만으로는 「100점」과 「턱걸이 통과」를
+   구분할 수 없다. matchSentence 는 인식 후보마다 불리므로 **한 시도 안의 최댓값**을 남긴다. */
+var _tbAcc = 0, TB_PERFECT = 0.98;
+function _tbResetAcc(){ _tbAcc = 0; }
 function matchSentence(said, target){ if(!said) return false;
   if(MODE==='zh'){ var s=said.replace(/[\s，。,.!?！？、]/g,''), t=target.replace(/[\s，。,.!?！？、]/g,'');
-    if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; } return hit/t.length >= 0.7; }
+    if(!t) return false; var hit=0; for(var i=0;i<t.length;i++){ if(s.indexOf(t.charAt(i))>=0) hit++; }
+    _tbAcc = Math.max(_tbAcc, hit/t.length); return hit/t.length >= 0.7; }
   /* 🗣 (2026-08-03) 허브와 같은 채점기로 교체.
      예전엔 `setS[w]` — **목표 단어가 발화 어딘가에 있기만 하면** 맞은 것으로 셌다.
      그래서 어순이 완전히 뒤바뀌어도, 같은 단어를 여러 번 말해도 통과했다.
      지금은 단어를 순서대로 정렬해 누락·삽입·치환을 구분한다(기능어는 가중치를 낮춘다).
      ⚠️ 반환값은 예전과 같은 boolean 이다 → 호출부는 한 줄도 안 바뀐다. */
-  if(window.MangoiScore) return MangoiScore.grade(said, target).pass;
+  if(window.MangoiScore){ var _g = MangoiScore.grade(said, target); _tbAcc = Math.max(_tbAcc, _g.accuracy||0); return _g.pass; }
   return _legacyMatchSentence(said, target);
 }
 // 채점기 로드 실패 시에만 쓰는 옛 방식 — 게임이 아예 안 되는 것보다는 낫다
