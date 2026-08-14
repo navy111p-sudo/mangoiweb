@@ -107,6 +107,8 @@ npx wrangler d1 execute mango-db --remote --command "SELECT * FROM student_point
    앱이 직접 받는 방식(HttpURLConnection→MediaStore)으로 교체했다. 업데이트로 해결.
 3. **v2.2 에서 «저장 실패» 대화상자** → 원인 문구가 그대로 찍힌다(서버 응답 코드 등).
    «서버 응답 401/404» 면 인증·만료 문제로 서버 쪽(recordings-r2.ts)을 볼 것.
+   «서버 응답 206» 은 기기·중간망이 요청에 Range 를 끼워 넣어 생긴다 — 서버는 dl=1 에서
+   Range 를 무시하고(#133), 앱 v2.3 부터는 206 도 정상 수신한다. v2.3 으로 업데이트.
    대화상자의 [브라우저로 받기] 는 어느 경우에도 동작하는 폴백이다(URL 에 서명 동봉).
 - 웹(브라우저·카톡 인앱)의 저장 폴백은 `public/js/flow.js` (MangoiApp UA 마커 감지),
   다운로드 서명은 `src/auth-token.ts` `signRecDlSig` 참조.
