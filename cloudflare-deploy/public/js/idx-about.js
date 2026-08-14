@@ -48,7 +48,7 @@
           {ic:'🎯', t:'AI 예복습 — 수업 전후를 A.I가 챙깁니다',
            d:'수업 전에는 배울 문장을 미리 보고, 수업 후에는 틀린 문제를 A.I가 다시 냅니다. 단어장·연속 학습으로 습관까지 잡아 줍니다.',
            p:['게임형 마이크로 퀴즈로 지루하지 않은 복습','단어장·연속 학습(스트릭)으로 꾸준한 습관 형성','푼 기록이 매달 성적표의 «이해·정확도»로 쌓임'],
-           cta:{l:'🎯 복습 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }},
+           cta:{l:'🎯 AI 단어 퀴즈 체험', go:function(){ closeAbout(); location.href='/micro-quiz.html'; }},
            cta2:{l:'📚 단어장 보기', go:function(){ closeAbout(); location.href='/vocab.html'; }}},
           {ic:'🤖', t:'A.I를 활용한 수업 평가 · 복습 · 소통', voice:'/audio/ai-report-voice.mp3',
            d:'매 수업이 끝나면 A.I가 발음·표현·참여도를 분석해 평가서를 자동으로 만들고, 아이에게 꼭 필요한 맞춤 복습을 추천합니다. 월간 리포트로 성장 흐름도 정리해 드립니다.',

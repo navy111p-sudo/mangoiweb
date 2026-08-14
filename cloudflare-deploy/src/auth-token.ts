@@ -135,6 +135,48 @@ export async function inspectSession(token: string, env: any): Promise<{ state: 
   } catch { return { state: 'invalid', uid: null }; }
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 📼 녹화 다운로드 서명 (2026-08-13) — «휴대폰에서 ⬇저장을 눌러도 저장이 안 돼요»
+//
+//   왜 필요한가 — 교사·관리자는 admin_sessions **쿠키로만** 인증된다(학생과 달리 재생
+//   URL 에 mango_token 이 없다). 페이지 안 재생(fetch·<video>)은 쿠키가 실려 통과하지만,
+//   카톡 인앱 브라우저·안드로이드 WebView 는 ⬇저장(다운로드)을 **별도 다운로드 관리자에
+//   위임하면서 쿠키를 떨어뜨린다** → /api/recording/play 가 401 → 눌러도 조용히 실패.
+//   그래서 목록 API 가 재생 URL 에 «그 녹화 1건 전용» 서명(&sig=)을 동봉해,
+//   쿠키를 못 싣는 다운로드 에이전트도 인증되게 한다.
+//
+//   권한이 넓어지는 지점이 없다 —
+//     · 서명은 /api/student/recordings 가 **자기 인증(토큰 or 관리자 세션)을 통과한 뒤에만** 발급
+//     · 대상은 녹화 id 하나뿐(계정 토큰이 아니다 — 학생 URL 의 mango_token 보다 오히려 좁다)
+//     · TTL 6시간(목록·팝업은 열 때마다 새로 받아 오므로 충분), 만료·위조는 verify 에서 탈락
+// ═══════════════════════════════════════════════════════════════════════
+
+const REC_DL_TTL_MS = 6 * 3600 * 1000;
+
+function recDlKey(env: any, usage: 'sign' | 'verify'): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  return crypto.subtle.importKey('raw', enc.encode(uidTokenSecret(env)), { name: 'HMAC', hash: 'SHA-256' }, false, [usage]);
+}
+
+/** 녹화 1건 전용 다운로드 서명 발급 — 반환 형식은 "만료ms.서명(b64url)" */
+export async function signRecDlSig(recId: number, env: any, ttlMs = REC_DL_TTL_MS): Promise<string> {
+  const exp = Date.now() + ttlMs;
+  const key = await recDlKey(env, 'sign');
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('recdl:' + recId + ':' + exp));
+  return exp + '.' + b64uFromBytes(new Uint8Array(mac));
+}
+
+/** 다운로드 서명 검증 — recId 불일치·만료·위조 모두 false */
+export async function verifyRecDlSig(recId: number, sig: string, env: any): Promise<boolean> {
+  try {
+    const [expStr, mac] = String(sig || '').split('.');
+    const exp = parseInt(expStr, 10);
+    if (!Number.isFinite(exp) || exp < Date.now() || !mac) return false;
+    const key = await recDlKey(env, 'verify');
+    return await crypto.subtle.verify('HMAC', key, b64uToBytes(mac) as any, new TextEncoder().encode('recdl:' + recId + ':' + exp));
+  } catch { return false; }
+}
+
 /**
  * 요청에서 인증된 uid 추출: Authorization: Bearer > body.token > ?token=
  * 반환값이 없거나 요청 uid 와 다르면 호출자가 401 처리.
