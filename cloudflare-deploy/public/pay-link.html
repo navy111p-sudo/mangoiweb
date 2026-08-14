@@ -2,8 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- 🚀 외부 도메인 미리 연결 (2026-08-14 피드백 ②) — DNS·TLS 왕복을 «쓰기 전에» 끝내 둔다.
+     저지연 회선에선 체감이 없지만 필리핀·지방 회선에선 이 왕복이 수백 ms 다. -->
+<link rel="dns-prefetch" href="https://js.tosspayments.com">
+<link rel="preconnect" href="https://js.tosspayments.com" crossorigin>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>결제하기 · 망고아이</title>
 <style>
   * { box-sizing: border-box; }
@@ -53,7 +58,7 @@
 
   function renderPay(){
     card.innerHTML =
-      '<div class="logo"><img src="/img/mango-char.png" alt="망고아이" style="height:78px;display:block;margin:0 auto 2px"><div style="color:#fbbf24;font-size:16px;font-weight:800">망고아이</div></div>'
+      '<div class="logo"><img src="/img/mango-char.png" alt="망고아이" style="height:78px;display:block;margin:0 auto 2px" loading="lazy" decoding="async"><div style="color:#fbbf24;font-size:16px;font-weight:800">망고아이</div></div>'
       + '<div class="hi">'+(name ? esc(name)+'님, 결제를 진행합니다' : '결제를 진행합니다')+'</div>'
       + '<div class="box"><div class="prog">'+esc(ORDER_NAME)+'</div><div class="amt">'+won(AMOUNT)+'</div></div>'
       + '<div class="methods">💳 카드 · 카카오페이 · 계좌이체 모두 가능</div>'

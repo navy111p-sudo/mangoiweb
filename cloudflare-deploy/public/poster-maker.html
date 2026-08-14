@@ -2,8 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<!-- 🚀 외부 도메인 미리 연결 (2026-08-14 피드백 ②) — DNS·TLS 왕복을 «쓰기 전에» 끝내 둔다.
+     저지연 회선에선 체감이 없지만 필리핀·지방 회선에선 이 왕복이 수백 ms 다. -->
+<link rel="dns-prefetch" href="https://www.youtube.com">
+<link rel="preconnect" href="https://www.youtube.com" crossorigin>
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>🎨 포스터 만들기 · 망고아이</title>
 <style>
   :root{
@@ -312,7 +317,7 @@ function renderMedia(){
   if(t==='none'){ box.style.display='none'; setHTML(''); return; }
   box.style.display='block';
   if(t==='youtube') setHTML(`<iframe src="https://www.youtube.com/embed/${mediaState.yt}" allowfullscreen></iframe>`);
-  else if(t==='image') setHTML(mediaState.img?`<img src="${mediaState.img}">`:placeholder('이미지 업로드'));
+  else if(t==='image') setHTML(mediaState.img?`<img src="${mediaState.img}" loading="lazy" decoding="async">`:placeholder('이미지 업로드'));
   else if(t==='video') setHTML(mediaState.vid?`<video src="${mediaState.vid}" controls muted playsinline></video>`:placeholder('mp4 업로드'));
 }
 const placeholder=txt=>`<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.15);font-size:.8em;font-weight:700">${txt}</div>`;
@@ -350,7 +355,7 @@ function exportPng(){
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
 }
 $('#dlHtml').onclick=()=>{
-  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260714150225 -->
+  const html=`<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>${$('#fTitle').value}</title><style>body{margin:0;background:#111;display:flex;justify-content:center;align-items:center;min-height:100vh}#poster{max-width:${state.w}px;width:100%}</style></head><body>${poster.outerHTML.replace('style="height','style="aspect-ratio:'+state.w+'/'+state.h+';height')}<!-- BUILD:20260714150225 -->
 </body></html>`;
   const blob=new Blob([html],{type:'text/html'}); const a=document.createElement('a');
   a.download='mangoi-poster.html'; a.href=URL.createObjectURL(blob); a.click(); toast('웹 포스터(HTML)로 저장했습니다 ✅');
@@ -393,7 +398,7 @@ function getPublishHtml(){
   var bg = state.bgImg ? ("url('"+state.bgImg+"') center/cover") : ("linear-gradient(135deg,"+state.cA+","+state.cB+")");
   var media='';
   if(mediaState.type==='youtube' && mediaState.yt) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><iframe src="https://www.youtube.com/embed/'+encodeURIComponent(mediaState.yt)+'" style="width:100%;aspect-ratio:16/9;border:0;display:block" allowfullscreen></iframe></div>';
-  else if(mediaState.type==='image' && mediaState.img) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><img src="'+escH(mediaState.img)+'" style="width:100%;display:block"></div>';
+  else if(mediaState.type==='image' && mediaState.img) media='<div style="width:82%;margin:0 auto 12px;border-radius:10px;overflow:hidden"><img src="'+escH(mediaState.img)+'" style="width:100%;display:block" loading="lazy" decoding="async"></div>';
   var scrim = state.bgImg ? '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.4))"></div>' : '';
   return '<div style="position:relative;width:100%;min-height:'+H+'px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:8%;background:'+bg+';color:'+state.cT+';border-radius:10px;overflow:hidden;font-family:MangoiHanSC,sans-serif">'
     +scrim+'<div style="position:relative;width:100%">'

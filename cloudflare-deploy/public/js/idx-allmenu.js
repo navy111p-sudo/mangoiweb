@@ -17,7 +17,7 @@
     {emoji:'👤', img:'/img/menu/mypage.webp', name:'마이페이지', url:'/parent.html'},
     {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt'},
     {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
-    {emoji:'📞', img:'/img/menu/contact.webp', name:'고객센터', url:'/contact.html'},
+    {emoji:'💬', img:'/img/menu/contact.webp', name:'카카오 상담', url:'https://pf.kakao.com/_xlqnSxd'},  // 2026-08-14 피드백 ⑤: 문의 페이지 폐지 → 카카오 채널 하나로
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
     {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},

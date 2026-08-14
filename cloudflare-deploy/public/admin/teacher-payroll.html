@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <script defer src="/js/i18n-sweep.js?v=22"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>강사 급여 자동 · 망고아이</title>
 <style>
   * { box-sizing: border-box; }
@@ -95,7 +96,7 @@
 <body>
 <div class="wrap">
   <div class="head">
-    <img src="/img/mango-char.png" alt="Mangoi">
+    <img src="/img/mango-char.png" alt="Mangoi" loading="lazy" decoding="async">
     <h1 id="t_title">🧾 Teacher Payroll</h1>
     <button class="langbtn lang-toggle" id="lang">🇰🇷 한국어</button>
   </div>
@@ -318,7 +319,7 @@
     var dd=t(); var r=cur.rows.filter(function(x){return x.teacher_id===tid;})[0]; if(!r) return;
     var rateEach=r.completed_classes?Math.round((r.pay_php/r.completed_classes)*100)/100:0;
     g('slipContent').innerHTML=
-      '<div class="logo"><img src="/img/mango-char.png" alt="Mangoi"></div>'
+      '<div class="logo"><img src="/img/mango-char.png" alt="Mangoi" loading="lazy" decoding="async"></div>'
       +'<h2>'+dd.slipTitle+'</h2>'
       +'<div class="period">'+dd.slipPeriod+': '+t().ymFmt(cur.year,cur.month)+'</div>'
       +'<div class="who">'+esc(r.teacher_name||('#'+r.teacher_id))+'</div>'

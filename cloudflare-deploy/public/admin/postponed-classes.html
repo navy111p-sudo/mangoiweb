@@ -3,10 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Postponed Classes · 연기 수업 현황 · 망고아이</title>
 <!--
   ⏸ 연기 수업 현황 (2026-07-23)
@@ -99,7 +100,7 @@
 <body>
 <div class="wrap">
   <div class="head">
-    <img src="/img/mango-char.png" alt="Mangoi">
+    <img src="/img/mango-char.png" alt="Mangoi" loading="lazy" decoding="async">
     <h1 id="t_title">Postponed Classes</h1>
     <a class="backbtn" href="/admin.html" id="t_back">← Back</a>
     <button class="langbtn" id="lang">한국어</button>

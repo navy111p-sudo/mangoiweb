@@ -9,7 +9,8 @@
 
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>MBTI 매칭 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
@@ -260,7 +261,7 @@ window.doMatch = async function() {
       const tname = (t.teacher_name||t.teacher_uid).replace(/'/g,'&#39;');
       return `<div class="teacher-card ${isTop?'top':''}" onclick="bookTeacher('${esc(t.teacher_uid)}','${esc(tname)}','${esc(t.mbti)}',${t.match_score})">
         <div style="display:flex;gap:14px;align-items:center;width:100%">
-          <div class="teacher-photo"><img src="${esc(photoUrl)}" alt="${esc(t.teacher_name)}" onerror="this.parentElement.innerHTML='<div class=&quot;teacher-photo-fallback&quot;>${(t.teacher_name||'?').charAt(0).toUpperCase()}</div>'" /></div>
+          <div class="teacher-photo"><img src="${esc(photoUrl)}" alt="${esc(t.teacher_name)}" onerror="this.parentElement.innerHTML='<div class=&quot;teacher-photo-fallback&quot; loading="lazy" decoding="async">${(t.teacher_name||'?').charAt(0).toUpperCase()}</div>'" /></div>
           <div class="match-score ${tier}">${t.match_score}<div style="font-size:9px;letter-spacing:1px;font-weight:700;color:#a3b3d1">SCORE</div></div>
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;color:#fff;font-size:14px">${esc(t.teacher_name)}${isTop?' 🥇':''} <span style="display:inline-block;padding:1px 8px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10.5px;font-weight:800;margin-left:4px">${esc(t.mbti)}</span></div>

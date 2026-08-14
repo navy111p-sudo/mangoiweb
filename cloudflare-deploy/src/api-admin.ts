@@ -7994,6 +7994,10 @@ LIMIT $limit`;
       // 🧑‍🏫 (2026-08-12) 등록 화면에서 «강사 이름 지정» 칸을 없애는 대신 남기는 값.
       //   'schedule' = 요일·시간 우선 / 'teacher' = 강사 적합도 우선. 「▸ 처리」 단계가 읽는다.
       await _addEnrCol2('assign_priority', 'TEXT');
+      // 🗓️ (2026-08-14) ⑥ 수업 기간(회차) — '1' | '3' | '6' | '12' | 'unlimited'.
+      //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
+      //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
+      await _addEnrCol2('duration_months', 'TEXT');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -8019,8 +8023,12 @@ LIMIT $limit`;
       //   내보내기까지 했는데, INSERT 목록에 없어서 DB 에는 한 번도 들어간 적이 없다.
       //   그래서 목록 표가 «패키지» 말고는 보여줄 것이 없었다. (컬럼은 위에서 이미 보강함)
       const _prio = b.assign_priority === 'teacher' ? 'teacher' : 'schedule';
+      // 🗓️ (2026-08-14) ⑥ 수업 기간 — 화면이 보내는 값만 받는다. 모르는 값은 저장하지 않는다
+      //   (오타·옛 폼이 보낸 쓰레기가 그대로 남으면 나중에 회차 계산이 조용히 틀어진다).
+      const _durRaw = b.duration_months == null ? '' : String(b.duration_months).trim();
+      const _dur = ['1', '3', '6', '12', 'unlimited'].includes(_durRaw) ? _durRaw : null;
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -8029,7 +8037,7 @@ LIMIT $limit`;
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio
+        _prio, _dur
       ).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }
