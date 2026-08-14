@@ -92,8 +92,8 @@ async function baroCall(env: any, method: string, args: Array<[string, any]>): P
     method: 'POST',
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
-      // SOAPAction 은 네임스페이스가 아니라 «접속 호스트» 기반이다(문서 예시 실측)
-      'SOAPAction': `"${soapAction(c.ws, method)}"`,
+      // SOAPAction = 네임스페이스 + 메서드명. 호스트 기반으로 보내면 서버가 거절한다(라이브 실측)
+      'SOAPAction': `"${soapAction(c.ws, method, c.ns)}"`,
     },
     body: soapEnvelope(method, args, c.ns),
   });
