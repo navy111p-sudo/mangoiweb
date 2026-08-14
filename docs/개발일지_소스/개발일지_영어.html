@@ -109,8 +109,156 @@
 </div>
 
 <div class="datehead">
-  <h1>Wednesday, August 12</h1>
+  <h1>Friday, August 14</h1>
   <span class="badge">LATEST</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — We chased <b>"I press Save on my phone and nothing happens"</b> all the way to the bottom and fixed it,
+  made the admin screens <b>much faster</b>, and cut the cost of pulling card records from <b>₩800,000 a month to ₩3,300 a month</b>.
+  <span class="grey">(Worked through the night, into the early hours of August 15.)</span>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">60</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">27×</div><div class="l">faster student search</div></div>
+  <div class="kpi"><div class="n">55→19</div><div class="l">admin start-up requests</div></div>
+  <div class="kpi"><div class="n">240×</div><div class="l">cheaper card lookup</div></div>
+  <div class="kpi"><div class="n">36</div><div class="l">merges · deploys</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (4 things to know)</h3>
+  <ul>
+    <li><b>Saving a class recording on a phone now works.</b> This one could <b>never</b> have been fixed on the website alone.
+      <small>→ What is installed on your phone is not a "website shortcut" — it is the <b>Mangoi app</b>, and that app had <b>no file-downloading part at all.</b> So no amount of website fixing could help. We fixed the app <b>four times, v2.0 through v2.3.</b> The last cause was this: some Galaxy phones ask for the file <b>"a bit at a time, starting from the front"</b>, the server politely sent "just a bit" as the rules say, and <b>the app treated that as a failure.</b> Now a save always sends the <b>whole file at once.</b> We only found it because we had made failures <b>print their reason on the screen.</b></small></li>
+    <li><b>Every night at 3 a.m., data we had entered was being wiped.</b>
+      <small>→ The <b>B2B/B2C setting for 574 agencies</b>, entered yesterday, <b>vanished at 03:45:51.</b> The nightly Cafe24 sync works by "delete the old row and insert a new one", so <b>any column Cafe24 does not know about was blanked every night.</b> The feature built on August 12 had therefore <b>never survived a single day.</b> Now only the columns Cafe24 supplies are overwritten. Final count: <b>B2B 446 · B2C 123.</b></small></li>
+    <li><b>Card-record lookup went from ₩800,000 to ₩3,300 a month</b> — a 240× difference.
+      <small>→ The formal quote for CODEF, which we connected yesterday, came back at <b>₩800,000 a month</b> (confirmed by phone today). That is not a price worth paying to read one card. <b>Barobill</b>, which we already have a contract with, does the same job for <b>₩3,300 a month</b>, so we moved. We also connected <b>Shinhan bank account transactions</b> — the "money spent" line in the P&amp;L is now <b>a real number instead of a guess (10% of revenue).</b></small></li>
+    <li><b>My diagnosis yesterday was wrong.</b> The textbooks were not <b>slow</b> — they had <b>doubled and tripled in pages.</b>
+      <small>→ Maimai wrote back that the problem was not "the book is slow" but "<b>the pages in the library doubled or tripled.</b>" Counting the live data: of <b>38,922 pages only 17,170 are real</b> — the rest are <b>copies of the same image</b> (about 3GB). One 23-page book had become <b>115 pages.</b> The cause: <b>uploading the same file twice made the server accept it twice.</b> People cannot be careful enough to prevent that, so <b>the server now blocks it.</b></small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done today</h3>
+  <ul>
+    <li><b>The admin screens got faster.</b> Student <b>search 1,361 → 51 ms (27×)</b>, list <b>294 → 74 ms (4×)</b>. Start-up questions to the server dropped from <b>55 to 19.</b>
+      <small>→ We removed the "ask again for every single student" pattern, and cards that are <b>collapsed now load only when opened.</b> The global search index is built <b>the first time you touch the search box</b> (it used to fire 9 requests at start-up). This time we <b>opened a real browser and counted</b> — which is how we found three more paths that had stayed hidden before.</small></li>
+    <li><b>Built a new "long-absent students" screen</b> — students who have missed 3 or more classes in a row. Of 207 candidates, <b>53 are real cases.</b></li>
+    <li><b>Split "new enquiries" out of the admin Bug &amp; Feedback screen.</b> One sidebar item used to open two cards; it is now two items. In class registration, choosing <b>"teacher first" now shows a box for picking the teacher's name.</b></li>
+    <li><b>Fixed three things in the games.</b>
+      <small>→ ① <b>Avatar Quest turned white about 20 seconds in.</b> The canvas drawing the stars <b>grew a little every frame</b> until it reached <b>41.9 million × 41.9 million</b>; white stars painted over that whole area turned the background white. ⚠️ Our dev PC runs at 100% display scale so it <b>could not be reproduced at all</b> — it only happens on the 125% and 150% laptops students and teachers actually use.
+      ② <b>The Space Monster speaking drill had no microphone at all</b> (you found this yourself). It made students read three times with no score. The guide says "100 on the first try passes immediately" — and <b>3 games were missing that.</b>
+      ③ Unified the quiz names and fixed <b>unlocks behaving differently on different devices.</b></small></li>
+    <li><b>Applied 5 items of on-site feedback</b> — the <b>screen jumping bigger/smaller</b> · slow loading · teacher-first · class period · Kakao consultation merged into one.
+      <small>→ The jumping was not font size but the <b>scrollbar</b>: it appears on long pages and not on short ones, so the page shifted <b>15–17px every time you moved</b>, magnified by the admin screen's 1.3× zoom. Loading was slow because <b>images, fonts and audio had no "keep this" instruction at all</b>, so the browser re-checked them on every page.</small></li>
+    <li><b>Added a dark-mode button and KO/EN labels to the manager screen</b>, and restored the <b>support phone number (1644-0561) and opening hours</b> on the customer-service card.</li>
+    <li><b>Fixed "I'm logged in but it asks me to log in again"</b> (reported by Karl). <b>Playing</b> a recording recognised the teacher's login but <b>the list did not.</b> Logins run on <b>two separate tracks</b> (student and teacher); that is now written into the pitfalls document.</li>
+    <li><b>Teacher page</b> (Maimai, Aug 14) — split Phonics into A–Z, and finished the <b>remaining half</b> of 3 items previously reported as done. Summarised August's <b>34 requests</b> as "30 done · 4 fixed today · 3 newly arrived · 5 for a human" and delivered it as a report.</li>
+    <li><b>Unified a menu name</b> — "Step-by-step Pronunciation" → <b>"AI Voice Coach."</b> It was the same feature under different names in different places.</li>
+    <li><b>Made deploys visible again.</b> Automatic deploys <b>did not stamp the date</b>, so you could not tell from the screen whether a change had shipped. It now stamps automatically, and the pre-deploy checks also run <b>before merging.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>One Barobill account number needs to be registered</b> before bank transactions switch on. Everything else is shared with the card setup.</li>
+    <li><b>The new app (v2.3) needs one more human push to reach the site.</b> A build the workflow pushes by itself <b>cannot wake the site deploy</b> (a GitHub rule). We walked into this trap twice today before writing it down.</li>
+    <li><b>Yesterday I misdiagnosed the textbooks as "slow."</b> The prefetch and caching added then cost nothing and were left in place, but <b>the real cause was something else.</b></li>
+    <li><b>CODEF never once succeeded.</b> A full day of work yesterday, and the account turned out to be a <b>sandbox.</b> We switched to Barobill today.</li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Next</h3>
+  <ul>
+    <li><b>Please register the Barobill account number</b> so real spending flows into the P&amp;L.</li>
+    <li><b>Please push once more to main</b> so the new app version ships — merging any small change is enough.</li>
+    <li><b>Teachers were told the 0% early-postponement rule starts August 15.</b> Please confirm whether to actually switch it on.</li>
+    <li><b>We are dropping CODEF.</b> If a contract is in progress, please stop it.</li>
+    <li><b>Some of August 8's 📌 items still stand</b> — staff password, student textbook/level data, Toss live keys.</li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Thursday, August 13</h1>
+  <span class="badge past">PAST ENTRY</span>
+</div>
+
+<div class="oneline">
+  <b>In one line</b> — Added <b>"clear one game to unlock the next"</b> to the student games,
+  removed <b>MES textbooks from every screen students and parents see</b> as you instructed,
+  and found a feature that was <b>completely dead because we forgot to register it on the server.</b>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><div class="n">21</div><div class="l">things fixed or built</div></div>
+  <div class="kpi"><div class="n">5</div><div class="l">places MES was still showing</div></div>
+  <div class="kpi"><div class="n">99.84%</div><div class="l">textbooks already images</div></div>
+  <div class="kpi"><div class="n">4</div><div class="l">deploys</div></div>
+</div>
+
+<div class="blk blk-imp">
+  <h3>🔴 Most important (4 things to know)</h3>
+  <ul>
+    <li><b>A whole feature was dead because we never put its name on the server's list</b> — the one that links teacher contacts.
+      <small>→ The code itself was <b>fine.</b> But its name was missing from <b>two gatekeepers</b>, so even signed in as an admin the answer was always "no such thing" (built on August 7, it had <b>never worked once</b>). Found while trying to link 3 teachers. <b>Every new feature must be registered in both places.</b></small></li>
+    <li><b>Removed MES textbooks from everywhere students and parents can see</b> (your instruction). Rather than fixing one page, we swept and cleaned <b>all five places.</b>
+      <small>→ Most importantly, the <b>AI level test was recommending MES to absolute beginners.</b> Phonics and BTS now cover that range. The blurb's "3 series" was changed to "2 series" at the same time — hiding just the card leaves you <b>saying "3" while showing 2.</b> ⚠️ MES was <b>deliberately left in the admin screens</b> — deleting it would <b>cut off the only way to find old MES lesson records.</b></small></li>
+    <li><b>"PDFs are slow" was reported five times — and it turns out there are almost no PDFs.</b>
+      <small>→ Counting the live data: of 38,922 textbook files, <b>38,860 (99.84%) are already images (JPG)</b> and only <b>62 are PDFs.</b> The real problem was that <b>each page is its own file</b>, fetched again on every page turn. Had we guessed and "converted the PDFs to images", it would have been <b>a large project for nothing.</b></small></li>
+    <li><b>Cancelling a level test left the class behind</b> — a <b>ghost lesson</b> sitting in the teacher's weekly schedule.
+      <small>→ Worse, <b>nothing anywhere recorded who cancelled it.</b> Now cancelling <b>clears the class too</b>, and <b>who · why · when</b> is kept. Undoing a cancellation brings the class back.</small></li>
+  </ul>
+</div>
+
+<div class="blk blk-did">
+  <h3>✅ Done that day</h3>
+  <ul>
+    <li><b>Added step-by-step unlocking to the student games</b> (your proposal): clear one game and the next opens. Grammar colouring can be <b>switched on and off</b>, and <b>a perfect pronunciation score passes in one go.</b></li>
+    <li><b>Then found 3 flaws in that unlocking and fixed them the same day.</b>
+      <small>→ ① The matching game counted <b>every single pair</b>, so one round <b>unlocked all 21 games.</b> ② Clearing <b>the same game twenty times</b> also unlocked everything — it now counts <b>how many different games</b> you have cleared. ③ Getting 100 on the fourth attempt still granted the "one-shot" bonus.</small></li>
+    <li><b>Three shooter-game items</b> — space monsters now enter from <b>the top and both sides</b>, word labels are easier to read, and shooting a civilian triggers a <b>"Stop!!!!" voice.</b></li>
+    <li><b>The corporate-card screen was an empty shell.</b> Its "sync" button called an address that <b>did not exist on the server</b>, so it always said "not connected". Shinhan does not open an API to companies directly, so we connected through a broker (CODEF).
+      <small>→ It took the whole day. <b>Invisible characters</b> had crept into the password, so it was rejected again and again, and the screen hid the reason behind "not connected". We made it <b>show the real reason instead.</b> <span class="grey">(The next day we moved to a far cheaper provider.)</span></small></li>
+    <li><b>Stopped guessing which textbooks to hide by their names.</b> The August 11 hiding had not worked because those books are named <b>"LEVEL 1"–"LEVEL 7" — the letters "MES" appear nowhere in them.</b>
+      <small>→ If code guesses "LEVEL 1–7 must be MES" and guesses wrong, <b>textbooks teachers are using disappear.</b> So <b>a person now ticks a checkbox.</b> ⚠️ Teachers cannot touch it — one teacher ticking a box would <b>remove that textbook for every teacher.</b></small></li>
+    <li><b>Loaded the teachers' Kakao ID roster</b> and sent it out to teachers by Kakao and SMS.</li>
+    <li><b>Handled 3 teacher-page reports</b> (Maimai) and your decision that <b>early postponement pays 0%.</b></li>
+    <li><b>Produced 3 documents</b> — the 31 teacher-page points organised into a Korean PDF, a question sheet for Maimai, and a one-page guide about the game changes for students and parents.</li>
+  </ul>
+</div>
+
+<div class="blk blk-not">
+  <h3>⚠️ Not done · still not working</h3>
+  <ul>
+    <li><b>The corporate card never connected.</b> We fixed the password over and over, and the account itself turned out to be a <b>practice (sandbox) account.</b></li>
+    <li><b>We only got halfway to the real cause of "the textbooks are slow."</b> We found "one page = one file", but that <b>the page count had doubled or tripled</b> was not discovered until <b>the next day.</b></li>
+  </ul>
+</div>
+
+<div class="blk blk-next">
+  <h3>📌 Decided that day, to do next</h3>
+  <ul>
+    <li><b>Five change requests</b> (student list · full loading · teacher selection · bug screen · long-absent students). <b>All done the next day.</b></li>
+    <li><b>Find another route for the corporate card.</b> <b>Solved the next day by moving to Barobill.</b></li>
+  </ul>
+</div>
+
+<div class="pg"></div>
+
+<div class="month">AUGUST 2026</div>
+
+<div class="datehead past">
+  <h1>Wednesday, August 12</h1>
+  <span class="badge past">PAST ENTRY</span>
 </div>
 
 <div class="oneline">
@@ -140,7 +288,7 @@
 </div>
 
 <div class="blk blk-did">
-  <h3>✅ Done today</h3>
+  <h3>✅ Done that day</h3>
   <ul>
     <li><b>Shipped 12 teacher-page fixes to production</b> (both workers). These come from the 17 points our PH manager sent —
       <b>enter the room early and re-enter after class</b> (it used to lock as "Done"), <b>level tests now visible in My Classes</b>,
@@ -181,7 +329,7 @@
 </div>
 
 <div class="blk blk-next">
-  <h3>📌 Next</h3>
+  <h3>📌 Decided that day, to do next</h3>
   <ul>
     <li><b>Please merge today's work (23 items).</b></li>
     <li><b>Please decide the postponement pay rate.</b> The rule "postponed more than 30 min before = ₱0" exists but is <b>switched OFF</b> — pay is exactly as before. Turn it on in Admin → Payroll → Deduction rules; it applies from that month and reverts the moment it is turned off.</li>
