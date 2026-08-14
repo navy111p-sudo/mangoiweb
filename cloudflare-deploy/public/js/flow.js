@@ -24,7 +24,7 @@
     { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
     { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
     { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
-    { key: 'miniquiz', emoji: '⚡', label: '미니퀴즈',     again: '미니퀴즈 다시' },
+    { key: 'miniquiz', emoji: '⚡', label: 'AI 단어 퀴즈', again: 'AI 단어 퀴즈 다시' },   // 화면 제목과 같은 이름으로 통일(2026-08-14)
     { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
@@ -81,7 +81,7 @@
         case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
         case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
         case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
-        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ 미니퀴즈
+        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ AI 단어 퀴즈
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
@@ -448,7 +448,7 @@
         var dlBtn = dlUrl
           // 📱 휴대폰에서 누를 버튼이다 — 높이 44px 는 이 저장소가 쓰는 터치 타깃 기준.
           //    (실측: 그냥 두면 31px 라 손가락으로 겨냥이 어렵다)
-          ? '<a href="' + esc(dlUrl) + '" download title="' + T('내 기기에 저장', 'Save to my device') + '" ' +
+          ? '<a href="' + esc(dlUrl) + '" download data-rec-dl title="' + T('내 기기에 저장', 'Save to my device') + '" ' +
             'style="flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;' +
             'background:rgba(148,163,184,.14);color:#cbd5e1;border-radius:8px;' +
             'padding:6px 12px;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">' + T('⬇ 저장', '⬇ Save') + '</a>'
@@ -675,7 +675,7 @@
           '<div style="color:#f8fafc;font-weight:800;font-size:16px;min-width:0">' + T('📼 최근 수업 녹화', '📼 Latest class recording') +
             (meta ? ' <span style="color:#94a3b8;font-weight:600;font-size:13px">· ' + meta + '</span>' : '') + '</div>' +
           '<div style="flex:0 0 auto;display:flex;align-items:center;gap:8px">' +
-            (pDl ? '<a href="' + pEsc(pDl) + '" download title="' + T('내 PC·휴대폰에 저장', 'Save to my PC or phone') + '" ' +
+            (pDl ? '<a href="' + pEsc(pDl) + '" download data-rec-dl title="' + T('내 PC·휴대폰에 저장', 'Save to my PC or phone') + '" ' +
               'style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border-radius:10px;' +
               'padding:8px 14px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap">' + T('⬇ 저장', '⬇ Save') + '</a>' : '') +
             '<button data-rec-close style="background:rgba(255,255,255,.1);color:#e2e8f0;border:0;width:34px;height:34px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;line-height:1">✕</button>' +
@@ -712,6 +712,63 @@
     bindRecButtons();
   }
 
+  /* 📱 ⬇저장 폴백 (2026-08-14, «저장을 눌러도 아무 반응이 없어요») ─────────────
+     카톡·문자앱 인앱 브라우저(WebView)와 홈 화면 설치형(standalone)은 파일 다운로드
+     기능 자체가 없어서, <a download> 를 눌러도 **에러조차 없이 조용히 무시**된다
+     (window.open null 함정과 같은 계열 — CLAUDE.md 2절). 일반 크롬·사파리는 이 코드가
+     개입하지 않고 기본 다운로드 그대로 둔다.
+       ① 안드로이드 카톡 인앱 → 외부 브라우저(크롬)로 다운로드 URL 을 바로 연다
+          (inapp-escape.js 의 kakaotalk://web/openExternal 방식). 열린 크롬엔 로그인
+          쿠키가 없지만, 서버가 URL 에 동봉한 &sig=/&token= 만으로 인증된다(2026-08-13).
+       ② 그 외 인앱·설치형 → 새 창을 시도하고, 막히면 같은 창 이동(서버가 첨부 응답이라
+          지원되는 환경에선 화면 유지 + 다운로드). 그리고 «다른 브라우저로 열기» 안내
+          토스트를 띄운다 — 무슨 일이 일어나는지 최소한 보이게 하는 것이 핵심. */
+  function recDlEnv() {
+    var ua = '';
+    try { ua = String(navigator.userAgent || '').toLowerCase(); } catch (_) {}
+    // '; wv)' = 안드로이드 WebView 공식 마커. 나머지는 국내에서 실제로 만나는 인앱들.
+    var inapp = /kakaotalk|naver\(inapp|line\/|instagram|fbav|fban|daumapps|; wv\)/.test(ua);
+    var standalone = false;
+    try {
+      standalone = (w.matchMedia && w.matchMedia('(display-mode: standalone)').matches) ||
+        (topWin().matchMedia && topWin().matchMedia('(display-mode: standalone)').matches) ||
+        (navigator.standalone === true);
+    } catch (_) {}
+    return {
+      blocked: inapp || standalone,
+      kakaoAndroid: ua.indexOf('kakaotalk') !== -1 && ua.indexOf('android') !== -1
+    };
+  }
+  function recDlToast(msg) {
+    try {
+      var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
+      if (!ov) return;
+      var t = doc.createElement('div');
+      t.style.cssText = 'position:absolute;left:50%;bottom:26px;transform:translateX(-50%);max-width:88%;' +
+        'background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:12px;' +
+        'padding:12px 16px;font-size:13px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.5)';
+      t.textContent = msg;
+      ov.appendChild(t);
+      setTimeout(function () { try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {} }, 8000);
+    } catch (_) {}
+  }
+  function recDlClick(e, a) {
+    var env = recDlEnv();
+    if (!env.blocked) return;                     // 일반 브라우저 — 기본 <a download> 그대로
+    e.preventDefault();
+    var abs = '';
+    try { abs = new URL(a.getAttribute('href'), topWin().location.href).href; } catch (_) { abs = a.href; }
+    if (env.kakaoAndroid) {
+      // 카톡 안드로이드: 외부 크롬으로 직접 — 열리면서 바로 저장이 시작된다
+      try { topWin().location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(abs); return; } catch (_) {}
+    }
+    var wn = null;
+    try { wn = w.open(abs, '_blank'); } catch (_) { wn = null; }
+    if (!wn) { try { topWin().location.href = abs; } catch (_) {} }   // 인앱은 새 창 불가 → 같은 창(첨부 응답)
+    recDlToast(T('저장이 시작되지 않으면: 우측 상단 메뉴에서 «다른 브라우저로 열기»(크롬/사파리)를 누른 뒤 다시 시도해 주세요.',
+      'If the download does not start, open this page in Chrome/Safari via the in-app menu and try again.'));
+  }
+
   function bindRecButtons() {
     var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
     if (!ov) return;
@@ -723,6 +780,9 @@
     });
     [].forEach.call(ov.querySelectorAll('[data-rec-list]'), function (b) {
       b.addEventListener('click', recShowList);
+    });
+    [].forEach.call(ov.querySelectorAll('[data-rec-dl]'), function (a) {
+      a.addEventListener('click', function (e) { recDlClick(e, a); });
     });
   }
 

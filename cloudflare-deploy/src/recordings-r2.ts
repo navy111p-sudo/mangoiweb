@@ -4,7 +4,7 @@
 //       R2 multipart upload로 청크를 그대로 흘려보내면 긴 수업(1~2시간)도 안전하게 이어붙일 수 있음.
 
 import { checkAdminSession } from './auth-admin';
-import { authUidFromRequest } from './auth-token';
+import { authUidFromRequest, verifyRecDlSig } from './auth-token';
 
 export interface Env {
   DB: D1Database;
@@ -364,11 +364,20 @@ export async function handleRecordingUpload(
     if (!Number.isFinite(id) || id <= 0) return J({ ok: false, error: "id required" }, 400);
 
     // 인증을 먼저 통과해야 레코드 존재 여부조차 알 수 없게 한다(열거 차단)
+    // 📼 &sig= (2026-08-13, «휴대폰 저장 안 됨») — 교사·관리자는 쿠키로만 인증되는데,
+    //   카톡 인앱 브라우저·안드로이드 WebView 는 ⬇저장을 쿠키 없는 다운로드 관리자에
+    //   위임한다 → 여기서 401 로 조용히 실패했다. 목록 API(/api/student/recordings)가
+    //   자기 인증을 통과한 뒤 동봉해 주는 «이 녹화 id 1건 전용» 단기 서명을 제3의 인증
+    //   경로로 인정한다. 범위가 id 하나뿐이라 소유권 재검증은 발급 시점에 끝난 셈이다.
     const sess = await checkAdminSession(request, env as any);
     let uid: string | null = null;
+    let sigOk = false;
     if (!sess.ok) {
       uid = await authUidFromRequest(request, url, env);
-      if (!uid) return J({ ok: false, error: "unauthorized" }, 401);
+      if (!uid) {
+        sigOk = await verifyRecDlSig(id, url.searchParams.get("sig") || "", env);
+        if (!sigOk) return J({ ok: false, error: "unauthorized" }, 401);
+      }
     }
 
     const row = await env.DB.prepare(
@@ -392,7 +401,8 @@ export async function handleRecordingUpload(
     // 학생은 본인이 참여한 녹화만 — 불일치도 404(존재 여부 오라클 방지).
     // 판정은 목록 API(/api/student/recordings)와 동일: 녹화가 학생 '이름'으로 저장되는
     // 관례가 있어 uid 외에 students_erp 등록 이름·데모 카드 이름·교사 본인까지 인정.
-    if (!sess.ok) {
+    // (sig 인증은 발급 자체가 녹화 1건에 못박혀 있어 이 소유권 대조를 거치지 않는다)
+    if (!sess.ok && !sigOk) {
       const identities = new Set<string>([String(uid)]);
       try {
         const s: any = await env.DB.prepare(

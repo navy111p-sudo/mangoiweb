@@ -472,6 +472,65 @@ function classifyFile(file) {
     if (num) lesson = '제' + num + '과';
   }
 
+  /* 📁 (2026-08-14 마이마이) 「BTS 2 가 762장 한 덩어리다 — 유닛별로 나눠 달라」
+     ═══════════════════════════════════════════════════════════════════════
+     [원인] 위 RX.lesson 은 «Unit 1 · Lesson 1 · 제1과» 처럼 **낱말이 있어야** 인식한다.
+        그런데 원본 폴더 이름은 「001」·「002」 처럼 **숫자뿐**이라 하나도 안 걸렸고,
+        BTS 2~34 의 모든 유닛이 «미분류 레슨» 하나로 뭉쳐 762장짜리 책이 됐다.
+        (BTS 1 만 멀쩡한 이유는 폴더 이름이 「BTS 1 001 (Welcome to school)」 라서
+         그 폴더명이 통째로 «교재 이름» 이 됐기 때문이다 — 운이 좋았던 것뿐이다.)
+     [고침] 숫자만으로 된 폴더(001 / 07 / 12. Title)를 유닛으로 인정한다.
+        그리고 그 유닛을 **교재 이름에 붙여** 유닛마다 별도 카드가 되게 한다 —
+        마이마이가 요청한 「BTS 1 001, BTS 1 002 …」 모양이 이것이다.
+     ⚠️ 파일 이름은 보지 않는다 — Slide3.JPG 의 3 을 유닛으로 잘못 읽는다.
+        폴더만, 그것도 1~3자리만 본다(2019 같은 연도 폴더를 유닛으로 읽지 않게).
+     ⚠️ 「제1과」·「Unit 1」 처럼 이미 이름이 붙은 폴더는 위 RX.lesson 이 먼저 잡는다.
+        여기는 그게 실패했을 때만 도는 보완 규칙이라 기존 교재 분류는 안 바뀐다. */
+  if (!lesson) {
+    for (let i = dirParts.length - 1; i >= 1; i--) {
+      const seg = String(dirParts[i]).trim();
+      const um = /^(\d{1,3})(?:\s*[.\-_)]\s*.+)?$/.exec(seg);
+      if (!um) continue;
+      lesson = '제' + parseInt(um[1], 10) + '과';
+      // 유닛을 교재 이름에 붙인다 — 이미 붙어 있으면(BTS 1 001 …) 그대로 둔다
+      const unitLabel = um[1];
+      if (textbook && textbook.indexOf(unitLabel) < 0) textbook = textbook + ' ' + unitLabel;
+      break;
+    }
+  }
+
+  /* 🔤 (2026-08-14 마이마이 ①) 「파닉스가 한 파일에 다 들어 있다 — A~Z 로 나눠 달라」
+     ═══════════════════════════════════════════════════════════════════════
+     [원인] 원본 드라이브에는 「Mangoi Phonics A」 … 「Mangoi Phonics Z」 26개 폴더가 있다.
+        그런데 위의 두 규칙은 **숫자**(001)나 **낱말+숫자**(Unit 1)만 유닛으로 본다.
+        글자로 나뉜 폴더는 하나도 안 걸려 26폴더가 통째로 «미분류 레슨» 이 됐고,
+        라이브러리에는 「Mangoi Phonics A-Z (8-9-21)」 한 권(781장)만 생겼다.
+        게다가 26폴더의 파일 이름이 다 Slide1.JPG … 라 쪽 순서까지 뒤엉켰다.
+     [고침] 폴더 이름이 **한 글자(A~Z)로 끝나면** 그 글자를 유닛으로 인정한다.
+        · 폴더에 이름이 붙어 있으면(「Mangoi Phonics A」) **그 폴더명을 그대로 교재 이름**으로 쓴다
+          → 라이브러리에 「Mangoi Phonics A」 … 「Mangoi Phonics Z」 26권이 생긴다.
+        · 폴더가 글자 하나뿐이면(「A」) 위 교재 이름 뒤에 글자를 붙인다(「Phonics A」).
+     ⚠️ 위 숫자 규칙이 실패했을 때만 돈다 — 기존 교재 분류는 바뀌지 않는다.
+     ⚠️ 마지막 낱말이 «딱 한 글자» 일 때만이다. 「Reading A1」·「Lesson AB」 는 안 걸린다.
+     ⚠️ 파일 이름은 보지 않는다(폴더만) — Slide A.JPG 를 유닛으로 읽지 않게. */
+  if (!lesson) {
+    for (let i = dirParts.length - 1; i >= 1; i--) {
+      const seg = String(dirParts[i]).trim();
+      const am = /^(.*?[\s_\-])?([A-Za-z])$/.exec(seg);
+      if (!am) continue;
+      const letter = am[2].toUpperCase();
+      lesson = letter + ' 유닛';
+      if (am[1]) {
+        // 「Mangoi Phonics A」 — 폴더 이름 자체가 그 권의 이름이다
+        textbook = seg;
+      } else if (textbook && !new RegExp('(^|[\\s_\\-])' + letter + '$', 'i').test(textbook)) {
+        // 「A」 처럼 글자만 있는 폴더 — 윗 이름에 글자를 붙인다
+        textbook = textbook + ' ' + letter;
+      }
+      break;
+    }
+  }
+
   // 언어 분류
   let category = '기타';
   if (RX.lang_cn.test(fullText)) category = '중국어';
@@ -757,7 +816,7 @@ document.getElementById('btn-save').onclick = async () => {
   /* 📡 (2026-08-13) 공용 자료실(서버) 업로드 결과 — «내 PC 에만 저장» 을 성공이라 말하지 않기 위해.
      srvDenied 는 «권한이 없어서» 다(401/403). 강사에게는 이게 가장 흔한 경우다. */
   const srvJobs = [];
-  let srvOk = 0, srvFail = 0, srvDenied = 0, srvSkipped = 0;
+  let srvOk = 0, srvFail = 0, srvDenied = 0, srvSkipped = 0, srvDup = 0;
 
   try {
     if (!db) {
@@ -798,10 +857,18 @@ document.getElementById('btn-save').onclick = async () => {
               srvJobs.push(
                 fetch('/api/admin/textbook-files', { method: 'POST', body: fd, credentials: 'same-origin' })
                   .then(function(r){
-                    if (r.ok) { srvOk++; return; }
-                    srvFail++;
-                    if (r.status === 401 || r.status === 403) srvDenied++;
-                    console.warn('[srvupload] skip(', r.status, '):', name);
+                    if (!r.ok) {
+                      srvFail++;
+                      if (r.status === 401 || r.status === 403) srvDenied++;
+                      console.warn('[srvupload] skip(', r.status, '):', name);
+                      return;
+                    }
+                    /* 🔁 (2026-08-14) 서버가 «이미 같은 파일이 있어 건너뛰었다» 고 답할 수 있다.
+                       그걸 성공으로 세면 «100장 올렸습니다» 라고 말해 놓고 실제로는 0장인
+                       상황이 된다 — 올린 것과 건너뛴 것을 나눠 센다. */
+                    return r.json().then(function(j){
+                      if (j && j.skipped) srvDup++; else srvOk++;
+                    }).catch(function(){ srvOk++; });
                   })
                   .catch(function(){ srvFail++; /* 오프라인 */ })
               );
@@ -855,8 +922,18 @@ document.getElementById('btn-save').onclick = async () => {
         + '이 컴퓨터에는 저장되었습니다. 인터넷을 확인한 뒤 다시 저장해 주세요.\n\n'
         + '⚠️ ' + srvFail + ' file(s) failed to reach the shared library (looks like a network problem).\n'
         + 'They are saved on this computer. Please check your connection and save again.');
-    } else if (srvOk > 0) {
-      btn.textContent = '✅ 공용 자료실에 저장 완료! (' + srvOk + '개)';
+    } else if (srvOk > 0 || srvDup > 0) {
+      /* 🔁 (2026-08-14) 「이미 있어서 건너뛴 것」을 올린 것처럼 말하지 않는다.
+         이게 안 보여서 같은 책을 몇 번씩 올렸고, 페이지가 2~5배가 됐다. */
+      btn.textContent = '✅ 저장 완료! (새로 ' + srvOk + '개'
+        + (srvDup > 0 ? ' · 이미 있어 건너뜀 ' + srvDup + '개' : '') + ')';
+      if (srvDup > 0 && srvOk === 0) {
+        alert('ℹ️ 이 교재는 이미 자료실에 있습니다\n\n'
+          + srvDup + '개 파일이 모두 이미 등록되어 있어 건너뛰었습니다. 중복으로 올라가지 않았습니다.\n\n'
+          + 'ℹ️ This textbook is already in the library\n\n'
+          + 'All ' + srvDup + ' file(s) were already registered, so they were skipped. '
+          + 'Nothing was duplicated.');
+      }
     } else {
       btn.textContent = '✅ 저장 완료! (이 컴퓨터)';
     }

@@ -768,9 +768,13 @@
   // ===== 복습 2 =====
   var r2line=document.getElementById('r2line'), r2heard=document.getElementById('r2heard'), r2next=document.getElementById('r2next'), r2ko=document.getElementById('r2ko');
   var SR=window.SpeechRecognition||window.webkitSpeechRecognition||null;
-  function startReview2(){ phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin bigpy">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML='🎤 <b>말하기</b>를 눌러 따라 말하거나, 아래 <b>다음 단계 ▶</b>로 진행하세요.'; r2next.style.display='inline-block'; setTimeout(speakSentence,250); }
+  /* 🏆 (2026-08-13) 첫 시도 100점이면 복습3(3번 반복)을 건너뛰고 바로 통과 — 원장님 제안.
+     이 게임의 복습3은 «듣기 3번 탭» 이 고정이라, 완벽하게 말한 학생도 똑같이 3번을 눌러야 했다. */
+  var _wfAcc=0, WF_PERFECT=0.98, _wfTries=0, _wfOneShot=false;
+  function startReview2(){ _wfTries=0; _wfOneShot=false; phase='r2'; setPhaseUI('r2'); review1.classList.remove('on'); review2.classList.add('on'); r2line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin bigpy">'+curPy()+'</div>':''); r2ko.textContent=curKo(); r2heard.innerHTML='🎤 <b>말하기</b>를 눌러 따라 말하거나, 아래 <b>다음 단계 ▶</b>로 진행하세요.'; r2next.style.display='inline-block'; setTimeout(speakSentence,250); }
   document.getElementById('r2listen').addEventListener('click', speakSentence);
   document.getElementById('r2speak').addEventListener('click', function(){
+    _wfAcc=0; _wfTries++;                        // 💯 시도마다 정확도를 새로 잰다
     if(!SR){ r2heard.innerHTML='🎤 큰 소리로 따라 말했나요? <b>좋아요!</b>'; score+=40; updateHUD(); r2next.style.display='inline-block'; return; }
     // 🎤 말 중간에 숨 쉬어도 안 끊기게: continuous=true + 침묵 감시. 맞으면 즉시 통과, 아니면 조용해질 때까지 대기.
     try{ var rec=new SR(); rec.lang=(GLANG==='zh'?'zh-CN':'en-US'); rec.interimResults=true; rec.continuous=true; rec.maxAlternatives=3; r2heard.textContent='🎙️ 듣는 중…';   // 🌐 중국어 모드는 중국어 인식
@@ -789,6 +793,7 @@
         if(norm===goal) { _wfDiag=''; return true; }
         if(window.MangoiScore){
           var g=MangoiScore.grade(norm, goal);
+          _wfAcc=Math.max(_wfAcc, g.accuracy||0);   // 💯 원샷 판정용 — 이 시도의 최고 정확도
           try{ var d=(window.MangoiPron&&MangoiPron.analyze(g))||{tags:[],goodTags:[]};
                _wfDiag=(window.MangoiPron&&MangoiPron.tipFor(d.tags))||'';
                if(window.MangoiMemory && (g.pass || (d.tags&&d.tags.length)))
@@ -800,7 +805,14 @@
       function judge(){ if(_done)return; _done=true; if(_sil)clearTimeout(_sil); var ok=isOk(_said);
         r2heard.innerHTML='들린 말: <b>'+_said.trim()+'</b> '+(ok?'✅':'🔁 다시!')
           + ((!ok && _wfDiag) ? '<div style="margin-top:5px;color:#fcd34d;font-weight:700">'+_wfDiag+'</div>' : '');   // 🌱 뭘 고치면 되는지
-        if(ok){ score+=60; updateHUD(); sndWin(); } r2next.style.display='inline-block'; }
+        if(ok){ score+=60; updateHUD(); sndWin(); }
+        /* 🏆 원샷 — 첫 시도(_wfTries===1)에서 100점이면 복습3을 자동 통과시킨다.
+           시도 횟수로 판정한다: 여러 번 눌러 겨우 맞춘 것을 «첫 시도» 로 세면 안 된다. */
+        if(ok && _wfTries===1 && _wfAcc>=WF_PERFECT){
+          _wfOneShot=true;
+          r2heard.innerHTML+='<div style="margin-top:5px;color:#4ade80;font-weight:800">🏆 퍼펙트! 첫 시도 100점 — 다음 단계는 바로 통과!</div>';
+        }
+        r2next.style.display='inline-block'; }
       rec.onstart=function(){ arm(); };
       rec.onresult=function(e){ if(_done)return; _said=''; for(var i=0;i<e.results.length;i++) _said+=(e.results[i][0].transcript||'')+' '; _said=_said.trim();
         if(isOk(_said)){ judge(); try{rec.stop();}catch(e){} return; }
@@ -821,11 +833,21 @@
 
   // ===== 복습 3 =====
   var r3line=document.getElementById('r3line'), repCount=0, r3start=0; var rdEls=[document.getElementById('rd1'),document.getElementById('rd2'),document.getElementById('rd3')];
-  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin bigpy">'+curPy()+'</div>':''); repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now(); setTimeout(speakSentence,250); }
+  /* 라운드 마무리 — 3번 반복으로 끝났든 원샷으로 끝났든 여기 하나로 모인다.
+     (예전엔 클릭 핸들러 안에만 있어서, 다른 경로로 끝내려면 통째로 베껴야 했다) */
+  function wfFinishRound(msg){ sndWin();
+    try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:200},'*'); }catch(e){}
+    celebrate(msg); level++; setTimeout(function(){ if(running){ review3.classList.remove('on'); startRound(); } },2100); }
+  function startReview3(){ phase='r3'; setPhaseUI('r3'); review2.classList.remove('on'); review3.classList.add('on'); r3line.innerHTML='“<span class="hl">'+targetWords.join(' ')+'</span>”'+(curPy()?'<div class="pinyin bigpy">'+curPy()+'</div>':''); repCount=0; rdEls.forEach(function(d){ d.classList.remove('on'); }); r3start=performance.now();
+    /* 🏆 복습2를 첫 시도 100점으로 통과했으면 3번 반복을 요구하지 않는다.
+       듣기 노출이 아주 없어지지는 않게 모범 문장은 한 번 들려준다. */
+    if(_wfOneShot){ _wfOneShot=false; rdEls.forEach(function(d){ d.classList.add('on'); }); repCount=3;
+      score+=300; updateHUD(); speakSentence();
+      setTimeout(function(){ wfFinishRound('🏆 첫 시도 100점! 원샷 통과 +300'); }, 900); return; }
+    setTimeout(speakSentence,250); }
   document.getElementById('r3rep').addEventListener('click', function(){ if(repCount>=3) return; speakSentence(); rdEls[repCount].classList.add('on'); repCount++; score+=20; updateHUD();
-    if(repCount>=3){ var elapsed=(performance.now()-r3start)/1000, speedBonus=elapsed<6?80:(elapsed<10?40:15); score+=speedBonus; updateHUD(); sndWin();
-      try{ if(window.parent&&window.parent!==window) window.parent.postMessage({type:'mangoi-game-complete',score:200},'*'); }catch(e){}
-      celebrate(speedBonus>=80?'⚡ PERFECT! 도파민 폭발!':'🎉 마스터 완료!'); level++; setTimeout(function(){ if(running){ review3.classList.remove('on'); startRound(); } },2100); } });
+    if(repCount>=3){ var elapsed=(performance.now()-r3start)/1000, speedBonus=elapsed<6?80:(elapsed<10?40:15); score+=speedBonus; updateHUD();
+      wfFinishRound(speedBonus>=80?'⚡ PERFECT! 도파민 폭발!':'🎉 마스터 완료!'); } });
 
   // ===== FX =====
   function bloodFX(x,y){ var d=document.createElement('div'); d.className='blood'; var s=rand(46,72); d.style.width=s+'px'; d.style.height=s+'px'; d.style.left=(x-s/2)+'px'; d.style.top=(y-s/2)+'px'; field.appendChild(d); burst(x,y,10); setTimeout(function(){ if(d.parentNode) d.remove(); },560); }
@@ -985,7 +1007,7 @@
   })();
 })();
 </script>
-<script defer src="/js/flow.js?v=15"></script>
+<script defer src="/js/flow.js?v=17"></script>
 <!-- BUILD:20260813015745 -->
 </body>
 </html>

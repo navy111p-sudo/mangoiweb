@@ -235,6 +235,9 @@
 
     /* 듣는 차례 = 파랑, 따라 말하는 차례 = 초록. 색이 바뀌면 지금 뭘 할 차례인지 바로 안다 */
     #repeatPop { border-color: rgba(96,165,250,.5); }
+    /* 🎤 점수·들린 말 — 학생이 «몇 점이었는지»를 알아야 다음 시도가 달라진다 */
+    #repeatPop .feed { margin-top:6px; min-height:18px; font-size:13.5px; font-weight:800; color:#cbd5e1; }
+    #repeatPop .feed b { color:#fde68a; }
     #repeatPop.say { border-color: rgba(74,222,128,.55); box-shadow: 0 10px 40px rgba(0,0,0,.7), 0 0 44px rgba(34,197,94,.3); }
     #repeatPop .icon { font-size: 40px; line-height: 1; animation: earPulse 1.1s ease-in-out infinite; }
     #repeatPop .sayIco, #repeatPop .sayTxt { display: none; }
@@ -362,6 +365,7 @@
         <div class="t2 listenTxt">Listen</div>
         <div class="t2 sayTxt">Now you say it</div>
         <div class="sent"></div>
+        <div class="feed"></div>
         <div class="dots"><i></i><i></i><i></i></div>
       </div>
       <div id="dangerBar"><div id="dangerFill"></div></div>
@@ -1234,27 +1238,159 @@
         setTimeout(startWave, 700);
       }
 
-      /* 🎤 예전 방식 — 망고아이가 3번 읽어주고 "따라 말하세요"라고만 했다(마이크 없음).
-         4단 사이클을 돌릴 차례가 아닐 때(3문장에 1번)와, 모듈이 안 실렸을 때의 경로로 남긴다.
-         입을 다물고 있어도 넘어가지만, 그 대신 소리 노출은 계속 유지된다. */
-      function legacyDrill() {
+      /* 🎤 (2026-08-14) 마이크를 켜고 **채점**하는 드릴.
+         ⚠️ 예전 이 자리는 «망고아이가 3번 읽어주고 따라 말하라고만 하는» 경로였다 — 마이크가 없었다.
+            4단 사이클(MangoiCycle)은 3문장에 1번만 도니까, 나머지 2번은 이 경로로 빠졌다.
+            그래서 학생 눈에는 «점수도 안 나오고 3번을 다 해도 통과가 안 되는» 게임이었다(현장 지적).
+         규칙은 다른 게임과 같다:
+           · 듣기 1회 → 바로 말하기
+           · 첫 시도 100점 → 즉시 통과 + 원샷 보너스
+           · 100점 미만이면 정답을 다시 들려주고 최대 3회까지 재도전
+           · 마이크가 없거나 소리가 안 잡히는 기기는 예전처럼 듣기만 하고 넘어간다(게임을 막지 않는다) */
+      const SM_PERFECT = 0.98;
+      function drillFeed(html){ const f = repeatPop.querySelector('.feed'); if (f) f.innerHTML = html || ''; }
+
+      function legacyDrill() {   // 이름은 그대로 둔다 — 부르는 곳이 여러 군데다
+        sentLine.textContent = full;                 // 따라 말하려면 문장이 보여야 한다
+        drillFeed('');
+        repeatPop.classList.add('show');
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        // 마이크가 아예 없는 기기 → 예전처럼 듣기만 (소리 노출은 유지)
+        if (!SR || !window.MangoiScore) {
+          repeatDrill(full, 3, (lang === 'zh') ? 0.72 : 0.78, afterSpeaking,
+            (phase, n) => {
+              repeatPop.classList.toggle('say', phase === 'say');
+              dots.forEach((d, i) => d.classList.toggle('on', i < n));
+            });
+          return;
+        }
+
+        let tries = 0, best = 0;
+        const setDots = (n) => dots.forEach((d, i) => d.classList.toggle('on', i < n));
+
+        function listenThenSpeak() {
+          repeatPop.classList.remove('say');
+          setDots(0);
+          drillFeed('');
+          speakOnce(full, (lang === 'zh') ? 0.72 : 0.78, () => {
+            if (!wave || !wave.drilling) return;   // 드릴이 끝났으면 중단
+            repeatPop.classList.add('say');           // 이제 말할 차례
+            listenSay();
+          });
+        }
+
+        function finish(perfect) {
+          stopRec();
+          if (perfect) {
+            drillFeed('<b>&#127942; 원샷 원킬! 100점</b>');
+            try { score += 200; scoreEl.textContent = score; } catch (e) {}
+          }
+          setTimeout(afterSpeaking, perfect ? 1100 : 700);
+        }
+
+        let rec = null;
+        function stopRec(){ try { if (rec) { rec.__done = true; rec.stop(); } } catch (e) {} rec = null; }
+
+        function listenSay() {
+          tries++;
+          setDots(tries - 1);
+          let said = '', done = false, sil = null;
+          try { rec = new SR(); } catch (e) { afterSpeaking(); return; }
+          rec.lang = (lang === 'zh') ? 'zh-CN' : 'en-US';
+          rec.interimResults = true; rec.continuous = true; rec.maxAlternatives = 3;
+          const arm = (ms) => { clearTimeout(sil); sil = setTimeout(() => { try { rec.stop(); } catch (e) {} }, ms || (said ? 2600 : 9000)); };
+
+          const judge = () => {
+            if (done) return; done = true; clearTimeout(sil);
+            const g = MangoiScore.grade(said, full);
+            const sc = g.accuracy || 0;
+            if (sc > best) best = sc;
+            try {
+              const d = (window.MangoiPron && MangoiPron.analyze(g)) || { tags: [], goodTags: [] };
+              if (window.MangoiMemory) MangoiMemory.log({ en: full }, !!g.pass, { tags: d.tags, goodTags: d.goodTags, score: g.score });
+              rec.__tip = (window.MangoiPron && MangoiPron.tipFor(d.tags)) || '';
+            } catch (e) {}
+            // 🏆 첫 시도 100점 → 즉시 통과 + 보너스
+            if (sc >= SM_PERFECT && tries <= 1) { setDots(3); finish(true); return; }
+            if (g.pass) { setDots(tries); drillFeed('<b>' + g.score + '점</b> &#128077;'); finish(false); return; }
+            drillFeed('들린 말 "' + (said || '…') + '" &middot; <b>' + g.score + '점</b>');
+            if (tries >= 3) { finish(false); return; }
+            // 정답을 다시 들려주고 재도전
+            setTimeout(() => { if (wave && wave.drilling) listenThenSpeak2(); }, 900);
+          };
+
+          rec.onstart = () => arm();
+          rec.onresult = (e) => {
+            if (done) return;
+            let full2 = '';
+            for (let i = 0; i < e.results.length; i++) full2 += (e.results[i][0].transcript || '') + ' ';
+            said = full2.trim();
+            drillFeed('&#127908; …' + said);
+            const sc = MangoiScore.grade(said, full).accuracy || 0;
+            if (sc >= SM_PERFECT) { judge(); try { rec.stop(); } catch (e2) {} return; }
+            arm(sc >= 0.7 ? 1500 : null);
+          };
+          rec.onerror = (e) => { if ((e && e.error) === 'no-speech') return; };
+          rec.onend = () => { if (!done) { if (said) judge(); else { drillFeed('소리가 잘 안 들렸어요'); finish(false); } } };
+          try { if (typeof MangoiSTT !== 'undefined') MangoiSTT.harden(rec, { isDone: () => done, onRestart: arm }); } catch (e) {}
+          try { rec.start(); } catch (e) { afterSpeaking(); }
+        }
+
+        function listenThenSpeak2() {   // 재도전 — 모범 문장을 한 번 더 들려주고 말하기
+          repeatPop.classList.remove('say');
+          speakOnce(full, (lang === 'zh') ? 0.72 : 0.78, () => {
+            if (!wave || !wave.drilling) return;   // 드릴이 끝났으면 중단
+            repeatPop.classList.add('say');
+            listenSay();
+          });
+        }
+
+        listenThenSpeak();
+      }
+
+      /* 🏆 (2026-08-13) 첫 시도 100점이면 한 번에 통과 — 원장님 제안.
+         [왜 여기에] 안내문에는 「첫 번째에 100점이 나오면 바로 통과」라고 써서 배포했는데,
+         학생이 **가장 먼저 만나는 이 게임**에는 그 기능이 없었다. 위 legacyDrill 은
+         마이크를 아예 안 켜므로 «점수 없이 무조건 3번» 이 될 수밖에 없었다(실측 제보).
+         [무엇을] 모범 낭독을 한 번 들려준 뒤 **실제로 듣고 채점한다.**
+           · 정확도 100점(0.98+) → 즉시 통과 + 원샷 보너스
+           · 그 미만 / 마이크 없음 / 인식 실패 → 예전 3회 반복(legacyDrill) 그대로
+         소리 노출을 줄이지 않는다 — 100점을 못 받으면 예전과 완전히 같은 훈련을 한다. */
+      const SP_PERFECT = 0.98, ONESHOT_BONUS = 300;
+      function speakDrill() {
+        const canMic = window.MangoiVoice && MangoiVoice.supported() && window.MangoiScore;
+        if (!canMic) { legacyDrill(); return; }
         sentLine.textContent = full;                 // 따라 말하려면 문장이 보여야 한다
         repeatPop.classList.add('show');
-        repeatDrill(full, 3, (lang === 'zh') ? 0.72 : 0.78, afterSpeaking,
-          (phase, n) => {               // 'listen' = 듣는 차례 / 'say' = 따라 말하는 차례
-            repeatPop.classList.toggle('say', phase === 'say');
-            dots.forEach((d, i) => d.classList.toggle('on', i < n));
-          });
+        repeatPop.classList.remove('say');
+        dots.forEach((d) => d.classList.remove('on'));
+        speakOnce(full, (lang === 'zh') ? 0.72 : 0.78, () => {
+          if (!wave || !wave.drilling) return;       // 그 사이 라운드가 끝났으면 그만둔다
+          repeatPop.classList.add('say');
+          dots.forEach((d, i) => d.classList.toggle('on', i < 1));
+          MangoiVoice.record({ firstMs: 9000, silenceMs: 2400 }).then((said) => {
+            let acc = 0;
+            try { if (said) acc = MangoiScore.grade(said, full).accuracy || 0; } catch (e) {}
+            if (acc >= SP_PERFECT) {
+              score += ONESHOT_BONUS; scoreEl.textContent = score;
+              sentLine.textContent = '🏆 퍼펙트! 첫 시도 100점! +' + ONESHOT_BONUS;
+              dots.forEach((d) => d.classList.add('on'));
+              setTimeout(afterSpeaking, 1300);
+              return;
+            }
+            legacyDrill();                           // 100점이 아니면 예전처럼 3번 반복
+          }).catch(() => legacyDrill());
+        });
       }
 
       setTimeout(() => {
-        if (!window.MangoiCycle) { legacyDrill(); return; }
+        if (!window.MangoiCycle) { speakDrill(); return; }
         /* ① 뜻 가리고 듣기 → ② 낱말 → ③ 문장 → ④ 되듣고 따라 말하기.
            낭독이 겹치지 않게 이 게임의 TTS 를 먼저 끊는다(안 끊으면 인식기가 AI 목소리를 받아 적는다). */
         try { stopSpeak(); } catch (e) {}
         MangoiCycle.run({ en: full, ko: S.ko || '', words: S.w || null, lang: lang })
-          .then((r) => { if (!r || !r.ran) { legacyDrill(); return; } afterSpeaking(); })
-          .catch(() => { legacyDrill(); });
+          .then((r) => { if (!r || !r.ran) { speakDrill(); return; } afterSpeaking(); })
+          .catch(() => { speakDrill(); });
       }, 900);
     }
 

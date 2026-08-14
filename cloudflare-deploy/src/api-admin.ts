@@ -30,6 +30,7 @@ import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버�
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
+import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
@@ -9765,6 +9766,26 @@ LIMIT $limit`;
         const r2 = (env as any).RECORDINGS;
         if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
 
+        /* 🔁 (2026-08-14 마이마이) 「같은 책이 여러 번 올라가 페이지가 2~3배가 됐다」
+           ═══════════════════════════════════════════════════════════════════════
+           [실측] 운영 DB 38,922행 중 고유 페이지는 17,170개 — **평균 2.3배**,
+              BTS 1 은 5배였다(115장짜리 책의 실제 내용은 23장). R2 오브젝트도 38,922개라
+              약 3.3GB 가 같은 그림의 사본이었다.
+           [원인] 이 API 는 **같은 파일을 또 올려도 그냥 새 행 + 새 R2 오브젝트를 만들었다.**
+              업로드를 두 번 하면 책이 두 배가 된다 — 사람이 조심하는 것으로 막을 수 없다.
+           [고침] 이름과 크기가 똑같은 파일이 이미 있으면 **올리지 않고 건너뛴다.**
+              R2 에도 쓰지 않으므로 저장공간도 안 늘어난다.
+           ⚠️ 실패가 아니라 «건너뜀» 이다 — 화면이 오류로 오해하지 않게 ok:true 로 답하고
+              skipped 를 함께 준다(업로더가 이 값을 세어 «N개는 이미 있어 건너뜀» 이라고 알린다).
+           ⚠️ 이름+크기가 같아도 내용이 다를 가능성은 남는다. 그래도 «같은 책을 두 번 올리는»
+              실제 사고를 막는 편이 이득이 훨씬 크다(교재는 덮어쓸 일이 거의 없다). */
+        const dupRow: any = await env.DB.prepare(
+          `SELECT id FROM textbook_files WHERE active = 1 AND name = ? AND size_bytes = ? LIMIT 1`
+        ).bind(rawName, file.size).first().catch(() => null);
+        if (dupRow && dupRow.id) {
+          return json({ ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName });
+        }
+
         const key = `textbook-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const buf = await file.arrayBuffer();
         await r2.put(key, buf, {
@@ -10194,11 +10215,21 @@ LIMIT $limit`;
        ⚠️ 새 API 등록 3종 세트를 잊지 말 것: index.ts 게이트 + api-mango 위임 가드
           + (재무 데이터라) index.ts TEACHER_BLOCKED_PREFIXES — 셋 다 했다(2026-08-13). */
     if (method === 'POST' && path === '/api/admin/corpcard/sync') {
+      /* 🔀 프로바이더 선택 (2026-08-14) — 바로빌 키가 있으면 바로빌, 없으면 기존 CODEF.
+         CODEF 정식 견적이 월 80만원이라 바로빌(월 3,300원)로 옮기는 중이다. 두 경로를
+         함께 두는 이유: 시크릿만 넣으면 전환되고, 문제가 생겨도 되돌릴 자리가 남는다. */
+      if (barobillConfigured(env)) {
+        const sync = await runBarobillSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+        const data = await corpcardData(env, url.searchParams.get('month') || undefined);
+        const status = await corpcardStatus(env, data).catch(() => null);
+        return json({ ok: true, provider: 'barobill', sync, data, status });
+      }
       if (!corpcardConfigured(env)) {
         return json({
-          ok: false, error: 'codef_not_configured',
-          message: 'CODEF 키가 아직 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → wrangler secret 3개 등록 후 사용할 수 있습니다.',
-          message_en: 'CODEF keys are not configured yet.',
+          ok: false, error: 'not_configured',
+          missing_barobill: baroMissing(env),
+          message: '카드사 연동 키가 등록되지 않았습니다. 바로빌 시크릿 4개(BAROBILL_CERTKEY/CORPNUM/ID/CARDNUM)를 등록하면 바로 동작합니다.',
+          message_en: 'No card provider keys configured. Set the four BAROBILL_* secrets.',
         });
       }
       const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
@@ -10212,8 +10243,15 @@ LIMIT $limit`;
        ⛔ 돌아오는 건 CODEF 의 데모 거래다. 그래서 dryRun 고정 — D1 에 한 줄도 안 쓰고,
           «마지막 동기화» 기록도 안 덮는다. 화면에서도 회계 표가 아니라 진단 상자에만 뜬다. */
     if (method === 'POST' && path === '/api/admin/corpcard/selftest') {
+      /* 바로빌은 «연습용 응답» 이라는 개념이 없다(실계정 = 실데이터). 그래서 자가진단도
+         실제 조회를 하되 dryRun 으로 **적재만 안 한다** — 접속·인증·파싱까지 확인된다. */
+      if (barobillConfigured(env)) {
+        const result = await runBarobillSync(env, { dryRun: true })
+          .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+        return json({ ok: true, provider: 'barobill', demo: false, result });
+      }
       if (!corpcardConfigured(env)) {
-        return json({ ok: false, error: 'codef_not_configured' });
+        return json({ ok: false, error: 'not_configured', missing_barobill: baroMissing(env) });
       }
       const result = await runCorpCardSync(env, { base: CODEF_SANDBOX_BASE, dryRun: true })
         .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
@@ -10237,13 +10275,19 @@ LIMIT $limit`;
         id_fp: await secretFp8((env as any).CODEF_CLIENT_ID),
         secret_fp: await secretFp8((env as any).CODEF_CLIENT_SECRET),
       };
+      // 💳 바로빌 진단 — 값은 절대 노출하지 않고 «어느 항목이 비었는지» 이름만 (2026-08-14)
+      const barobill = {
+        configured: barobillConfigured(env),
+        missing: baroMissing(env),
+        ws: baroCreds(env).ws,          // 접속 주소는 값이 아니라 설정이라 그대로 보여 준다
+      };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       const status = await corpcardStatus(env, data).catch(() => null);
       /* ⚠️ (2026-08-13) 예전엔 여기서 «적재분이 없으면 codef_not_configured» 로 답했다.
          그래서 키가 멀쩡한데도(=샌드박스 계정이라 조회만 막힌 상태) 화면은 «연동 안 됨» 이라고
          말했고, 진짜 원인(CF-00017)은 아무 데도 안 보였다. 이제는 항상 ok:true 로 답하고
          «무엇이 왜 비었는지» 는 status 가 설명한다. */
-      return json({ ok: true, configured, have, data, status });
+      return json({ ok: true, configured, have, barobill, data, status });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════

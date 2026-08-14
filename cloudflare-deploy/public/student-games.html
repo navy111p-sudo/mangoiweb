@@ -1909,6 +1909,7 @@ function _orderedGames(){
      안 그러면 순서를 바꾸는 것만으로 잠금이 뒤죽박죽 된다.
    ══════════════════════════════════════════════════════════════════ */
 var QUEST_KEY = 'mangoi_quest_mode';       // 'on' | 'off'
+var QUEST_SRC = 'mangoi_quest_src';        // 'user' = 학생이 버튼으로 직접 고름(서버 판정보다 우선)
 var CLEAR_KEY = 'mangoi_game_clears';      // { mode: 클리어 횟수 }
 var QUEST_START = 2;                       // 처음부터 열려 있는 게임 수
 
@@ -1930,15 +1931,49 @@ function _isReturning(){
   }catch(_){}
   return false;
 }
+function _questUserChosen(){
+  try{ return localStorage.getItem(QUEST_SRC) === 'user'; }catch(_){ return false; }
+}
+/* 첫 렌더용 **잠정** 값. 이 기기의 흔적으로 추측한다.
+   ⚠️ 추측을 저장하지 않는다 — 저장하면 그 기기에 «신규»가 박혀 버려서
+      나중에 서버가 «이 학생은 기존 학생»이라고 알려줘도 영영 안 바뀐다.
+      실제로 그렇게 만들었다가 «노트북은 2개만 열리고 폰은 다 열린다»가 됐다(2026-08-14 지적). */
 var _questMode = (function(){
   try{
     var v = localStorage.getItem(QUEST_KEY);
     if(v === 'on' || v === 'off') return v === 'on';
-    var on = !_isReturning();                 // 신규 학생만 기본 ON
-    localStorage.setItem(QUEST_KEY, on ? 'on' : 'off');
-    return on;
+    return !_isReturning();
   }catch(_){ return false; }
 })();
+
+/* 🌐 기기가 아니라 **계정**으로 «기존 학생»을 가려낸다 (2026-08-14 지적 대응)
+   문제: 잠금 여부를 기기(localStorage)로만 정하니, 같은 학생이 노트북에선 2개만 열리고
+         폰에선 전부 열렸다. 학생에겐 그냥 고장으로 보인다.
+   원인: 기존 학생이 **처음 쓰는 기기**에는 흔적(코인·순서·기록)이 없어 신규로 오판했다.
+
+   ⚠️ 그래서 서버 판정을 **한 방향으로만** 쓴다 — 「기존 학생인데 잠긴 경우」를 푸는 데만.
+      반대로 쓰면(기록이 적으면 잠금) 기능이 망가진다: /api/games/recommend 의
+      status:'no_data' 기준은 «최근 30일 8문제 미만»이라, 신규 학생이 8문제만 풀어도
+      «기존»으로 바뀌어 잠금이 통째로 풀려 버린다. 그 순간 퀘스트가 사라진다.
+      (처음엔 그렇게 짰다가 이 계산을 하고 되돌렸다.)
+
+   요약 — 자동 판정은 이렇게만 움직인다:
+     · 잠금 켜기 : 이 기기에 흔적이 없다(=신규일 가능성). 로컬 추측이 담당.
+     · 잠금 풀기 : 서버가 «이 계정엔 학습 기록이 충분하다」고 답했고,
+                   이 기기에서 아직 퀘스트를 한 판도 안 깼을 때만.
+     · 학생이 버튼으로 직접 고른 값은 어느 쪽이든 서버가 건드리지 않는다. */
+function _questApplyServer(d){
+  if(!d || !d.ok) return;
+  if(!_questMode) return;                          // 이미 전체 개방 — 건드릴 것 없다
+  if(_questUserChosen()) return;                   // 학생이 직접 고른 값이 우선
+  if(_clearedModes() > 0) return;                  // 이 기기에서 퀘스트 진행 중 — 뺏지 않는다
+  // 첫 세션 몇 문제로 «기존»이 되지 않도록 넉넉히 잡는다(신규 학생 보호)
+  var hasHistory = (Number(d.attempts) || 0) >= 20 || d.pron != null;
+  if(!hasHistory) return;
+  _questMode = false;
+  try{ localStorage.setItem(QUEST_KEY, 'off'); }catch(_){}
+  hubRenderMenu();                                 // 잠금이 풀렸으니 다시 그린다
+}
 /* 지금 몇 개까지 열려 있나 — 기본 2개 + 미션 클리어 수만큼 하나씩 더 */
 function _unlockedCount(){ return Math.min(HUB_GAMES.length, QUEST_START + _clearedModes()); }
 function _isUnlocked(mode){
@@ -1983,7 +2018,8 @@ function _toastHub(msg){
 
 function toggleQuestMode(){
   _questMode = !_questMode;
-  try{ localStorage.setItem(QUEST_KEY, _questMode ? 'on' : 'off'); }catch(_){}
+  // 'user' 표시 — 이후 서버 판정이 이 선택을 뒤집지 않는다
+  try{ localStorage.setItem(QUEST_KEY, _questMode ? 'on' : 'off'); localStorage.setItem(QUEST_SRC, 'user'); }catch(_){}
   hubRenderMenu();
   _toastHub(_questMode ? '🎯 퀘스트 모드 ON — 하나씩 깨서 열어 봐요!' : '🔓 전체 게임을 모두 열었어요!');
 }
@@ -3440,7 +3476,10 @@ _hubPlayIntroAudio();   // 🔊 게임 메뉴 진입 안내음성 자동재생(�
     var uid = _gameUid(); if(!uid) return;
     fetch('/api/games/recommend?user_id='+encodeURIComponent(uid)+'&lang='+GAME_LANG)
       .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(d){ if(d && d.ok){ _recData = d; _recRender(); } })
+      .then(function(d){
+        if(d && d.ok){ _recData = d; _recRender(); }
+        try{ _questApplyServer(d); }catch(_){}   // 🔒 계정 기준 잠금 판정도 같은 응답으로
+      })
       .catch(function(){});
   }
   // 사이트 언어 전환 시 카드 문구만 다시 그림 (lang 속성 관찰 — 카드 한정, 루프 없음)
@@ -3474,7 +3513,7 @@ window.addEventListener('load', function(){ try{ _mountStreakBadges(); }catch(_)
 </script>
 <!-- BUILD:20260702 gamesbig1 responsive1 streak1 speed5 back1 panelwide1 -->
 <!-- BUILD:20260813015745 -->
-<script defer src="/js/flow.js?v=15"></script>
+<script defer src="/js/flow.js?v=17"></script>
 <script src="/js/ux-track.js?v=1" defer></script>
 </body>
 </html>

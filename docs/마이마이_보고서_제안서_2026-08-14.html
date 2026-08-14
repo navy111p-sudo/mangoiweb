@@ -1,0 +1,444 @@
+<title>마이마이 8월 요청 34건</title>
+<style>
+:root{
+  --paper:#ffffff; --panel:#f2f4f6; --panel2:#e9edf1;
+  --ink:#16181d; --ink2:#454b55; --ink3:#6b7280;
+  --line:#dfe3e8; --line2:#c9d0d8;
+  --mango:#c9660a; --mango-bg:#fdf0e2;
+  --done:#17564a; --done-bg:#e2efec;
+  --wait:#8a6410; --wait-bg:#faf0d8;
+  --todo:#1f4f8f; --todo-bg:#e4ecf8;
+  --stop:#a32b2b; --stop-bg:#fbe6e6;
+  --sans:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","맑은 고딕",system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,"D2Coding","Cascadia Mono",Consolas,"Malgun Gothic",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15171b; --panel:#1d2026; --panel2:#24282f;
+    --ink:#e8eaed; --ink2:#b3b9c2; --ink3:#8b929c;
+    --line:#2c3038; --line2:#3a3f49;
+    --mango:#f0a55c; --mango-bg:#33230f;
+    --done:#7fd3bd; --done-bg:#123029;
+    --wait:#e3bd6a; --wait-bg:#33290f;
+    --todo:#8fbaf0; --todo-bg:#132540;
+    --stop:#f09a9a; --stop-bg:#3a1a1a;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15171b; --panel:#1d2026; --panel2:#24282f;
+  --ink:#e8eaed; --ink2:#b3b9c2; --ink3:#8b929c;
+  --line:#2c3038; --line2:#3a3f49;
+  --mango:#f0a55c; --mango-bg:#33230f;
+  --done:#7fd3bd; --done-bg:#123029;
+  --wait:#e3bd6a; --wait-bg:#33290f;
+  --todo:#8fbaf0; --todo-bg:#132540;
+  --stop:#f09a9a; --stop-bg:#3a1a1a;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:16.5px; line-height:1.72;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px; margin:0 auto; padding:40px 22px 90px; display:flex; flex-direction:column; gap:34px}
+
+/* ── 머리말 ── */
+header{display:flex; flex-direction:column; gap:10px; padding-bottom:26px; border-bottom:2px solid var(--ink)}
+.eyebrow{font-size:12.5px; letter-spacing:.14em; font-weight:700; color:var(--mango); text-transform:uppercase}
+h1{margin:0; font-size:clamp(28px,5.4vw,40px); line-height:1.2; font-weight:800; letter-spacing:-.02em; text-wrap:balance}
+.sub{margin:0; color:var(--ink2); font-size:16px}
+.meta{display:flex; flex-wrap:wrap; gap:8px 18px; font-size:13.5px; color:var(--ink3); font-family:var(--mono)}
+
+/* ── 숫자 타일 ── */
+.tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px}
+.tile{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px 16px 14px; display:flex; flex-direction:column; gap:4px}
+.tile b{font-size:34px; line-height:1; font-weight:800; font-variant-numeric:tabular-nums}
+.tile span{font-size:13.5px; color:var(--ink2); font-weight:600}
+.tile small{font-size:12.5px; color:var(--ink3)}
+.t-done b{color:var(--done)} .t-wait b{color:var(--wait)} .t-todo b{color:var(--todo)} .t-stop b{color:var(--stop)}
+
+/* ── 알림 상자 ── */
+.callout{border:1px solid var(--line2); border-left:5px solid var(--mango); background:var(--mango-bg); border-radius:8px; padding:18px 20px; display:flex; flex-direction:column; gap:8px}
+.callout.stop{border-left-color:var(--stop); background:var(--stop-bg)}
+.callout.calm{border-left-color:var(--todo); background:var(--todo-bg)}
+.callout h3{margin:0; font-size:17px; font-weight:800}
+.callout p{margin:0; font-size:15.5px; color:var(--ink)}
+
+h2{margin:0 0 4px; font-size:23px; font-weight:800; letter-spacing:-.01em; display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+h2 em{font-style:normal; font-size:14px; font-weight:600; color:var(--ink3); font-family:var(--mono)}
+section{display:flex; flex-direction:column; gap:14px}
+.lead{margin:0; color:var(--ink2); font-size:15.5px}
+
+/* ── 항목 카드 ── */
+.item{border:1px solid var(--line); border-radius:10px; background:var(--paper); overflow:hidden}
+.item-head{display:flex; gap:10px; align-items:flex-start; padding:14px 16px; background:var(--panel); border-bottom:1px solid var(--line)}
+.item-head h3{margin:0; font-size:16.5px; font-weight:800; flex:1; min-width:0; line-height:1.45}
+.chip{flex:0 0 auto; font-size:11.5px; font-weight:800; padding:3px 9px; border-radius:999px; letter-spacing:.02em; white-space:nowrap}
+.c-done{background:var(--done-bg); color:var(--done)}
+.c-wait{background:var(--wait-bg); color:var(--wait)}
+.c-todo{background:var(--todo-bg); color:var(--todo)}
+.c-half{background:var(--mango-bg); color:var(--mango)}
+.item-body{padding:14px 16px; display:flex; flex-direction:column; gap:10px}
+.item-body p{margin:0}
+.quote{font-family:var(--mono); font-size:13px; color:var(--ink3); background:var(--panel2); border-radius:6px; padding:8px 11px; overflow-x:auto; white-space:pre-wrap}
+.why{font-size:15px; color:var(--ink2)}
+.why b{color:var(--ink)}
+.src{font-family:var(--mono); font-size:12px; color:var(--ink3); border-top:1px dashed var(--line2); padding-top:9px; overflow-x:auto}
+.kid{background:var(--panel); border-radius:8px; padding:11px 13px; font-size:15px; color:var(--ink)}
+.kid b{color:var(--mango)}
+
+/* ── 표 ── */
+.tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px}
+table{border-collapse:collapse; width:100%; font-size:14.5px; min-width:520px}
+th,td{padding:9px 13px; text-align:left; border-bottom:1px solid var(--line)}
+th{background:var(--panel); font-weight:700; font-size:13px; color:var(--ink2); white-space:nowrap}
+td.num{text-align:right; font-variant-numeric:tabular-nums; font-family:var(--mono)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--panel)}
+
+ul,ol{margin:0; padding-left:22px; display:flex; flex-direction:column; gap:7px}
+li{padding-left:2px}
+.steps{list-style:none; padding:0; counter-reset:s}
+.steps li{counter-increment:s; display:flex; gap:12px; align-items:flex-start; border:1px solid var(--line); border-radius:9px; padding:13px 15px; background:var(--panel)}
+.steps li::before{content:counter(s); flex:0 0 26px; height:26px; border-radius:50%; background:var(--ink); color:var(--paper); font-weight:800; font-size:13.5px; display:grid; place-items:center; font-variant-numeric:tabular-nums}
+.steps div{flex:1; min-width:0}
+.steps strong{display:block; font-size:16px}
+.steps span{font-size:14.5px; color:var(--ink2)}
+footer{border-top:1px solid var(--line); padding-top:20px; font-size:14px; color:var(--ink3); display:flex; flex-direction:column; gap:8px}
+code{font-family:var(--mono); font-size:.88em; background:var(--panel2); padding:1px 5px; border-radius:4px}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Mangoi · 강사페이지 보고서 &amp; 제안서</div>
+  <h1>마이마이 8월 요청 34건 —<br>된 것 · 안 된 것 · 할 것</h1>
+  <p class="sub">필리핀 매니저 마이마이가 8월 7일부터 14일까지 보내 준 「NEW TEACHER’S PAGE PROBLEM」을
+  저장소 코드와 <b>운영 데이터베이스 실측</b>으로 한 건씩 대조했습니다. 추측은 넣지 않았습니다.</p>
+  <div class="meta">
+    <span>2026-08-14</span>
+    <span>원본: NEW_TEACHERS_PAGE_PROBLEM_7.docx</span>
+    <span>대조: main 7854bae + 작업브랜치</span>
+  </div>
+</header>
+
+<section>
+  <h2>한눈에 보기</h2>
+  <div class="tiles">
+    <div class="tile t-done"><b>30</b><span>다 된 것</span><small>8/13까지 접수분</small></div>
+    <div class="tile t-wait"><b>4</b><span>오늘 더 고친 것</span><small>「됐다」던 것의 남은 절반</small></div>
+    <div class="tile t-todo"><b>3</b><span>8/14 새로 온 것</span><small>코드는 다 고쳤습니다</small></div>
+    <div class="tile t-stop"><b>5</b><span>사람이 해야 할 일</span><small>코드로는 못 하는 것</small></div>
+  </div>
+</section>
+
+<div class="callout stop">
+  <h3>🚨 가장 급한 것 — 8월 13일·14일에 고친 것이 아직 마이마이에게 안 갔습니다</h3>
+  <p>고친 코드는 <b>작업 브랜치에만</b> 있습니다. 자동 배포는 <code>main</code>에 올릴 때만 움직입니다.
+  배포하지 않으면 마이마이는 계속 <b>옛 화면</b>을 봅니다. 「아직도 안 고쳐졌다」는 답이 나오는 이유가 이것입니다.</p>
+  <p>다만 <b>교재 중복 정리(2만 1천 줄)는 데이터라서 이미 살아 있습니다.</b>
+  지금 라이브러리를 열면 BTS 1 001은 115장이 아니라 <b>23장</b>으로 보입니다 — 마이마이가 말한 숫자와 같습니다.</p>
+</div>
+
+<!-- ═══════════ 8/14 새로 온 것 ═══════════ -->
+<section>
+  <h2>1. 8월 14일에 새로 온 것 <em>3건</em></h2>
+  <p class="lead">셋 다 <b>교재(책)</b> 이야기입니다. 뿌리가 하나였습니다 — 책을 컴퓨터에 올릴 때
+  <b>폴더를 제대로 못 읽어서</b> 생긴 일입니다.</p>
+
+  <div class="item">
+    <div class="item-head"><h3>① 파닉스가 한 권에 다 들어 있어요. A부터 Z까지 나눠 주세요</h3><span class="chip c-half">코드 고침 · 다시 올려야 끝</span></div>
+    <div class="item-body">
+      <div class="quote">"Mangoi Phonics is in one file can we separate each letter from A-Z"</div>
+      <p class="why"><b>왜 이렇게 됐나.</b> 마이마이의 구글 드라이브에는 「Mangoi Phonics A」부터 「Z」까지
+      <b>폴더 26개</b>가 얌전히 나뉘어 있습니다. 그런데 우리 업로더는 폴더 이름이
+      <b>숫자일 때만</b>(001, 002) 「아, 이건 다른 단원이구나」 하고 알아챕니다.
+      <b>글자(A, B, C)로 나뉜 폴더는 못 알아봤습니다.</b>
+      그래서 26개가 전부 한 덩어리로 뭉쳐 <b>「Mangoi Phonics A-Z」 한 권(781장)</b>이 됐습니다.</p>
+      <p class="why">더 나쁜 건 <b>쪽 순서</b>입니다. 26개 폴더의 파일 이름이 전부 Slide1, Slide2 … 로 똑같습니다.
+      한 권에 뭉치니 <b>서로 다른 글자의 1쪽끼리 나란히</b> 놓였습니다. 실제로 이 책은
+      <b>파일 299장인데 서로 다른 이름은 16개</b>뿐입니다. 순서대로 넘길 수가 없습니다.</p>
+      <div class="kid">🧒 <b>쉽게 말하면</b> — 사물함 26칸에 잘 넣어 둔 학습지를,
+      옮기는 사람이 칸을 안 보고 <b>한 상자에 다 쏟아부은</b> 것입니다. 종이마다 「1쪽」이라고만 적혀 있어서
+      어느 글자의 1쪽인지 알 수가 없습니다.</div>
+      <p class="why"><b>오늘 고친 것.</b> 폴더 이름이 <b>한 글자(A~Z)로 끝나면 단원으로 인정</b>하게 했습니다.
+      이제 다시 올리면 「Mangoi Phonics A」 … 「Mangoi Phonics Z」 <b>26권으로 나뉩니다.</b></p>
+      <p class="why"><b>솔직하게 남는 것.</b> 이미 올라간 파닉스는 <b>고칠 방법이 없습니다.</b>
+      어느 파일이 어느 글자였는지 <b>정보 자체가 사라졌기</b> 때문입니다(전부 「미분류」로 저장됨).
+      → <b>파닉스 폴더를 한 번만 다시 올려 주시면</b> 그때 26권으로 갈라집니다.</p>
+      <div class="src">textbook-uploader.html classifyFile() — 글자 폴더 규칙 추가 / 실측: 활성 299행, 고유 이름 16개</div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>② 서버 교재의 이 폴더들은 필요 없어요</h3><span class="chip c-todo">체크 5번이면 끝 — 사람이 결정</span></div>
+    <div class="item-body">
+      <div class="quote">"These folders in server books are not needed"</div>
+      <p class="why">마이마이가 스크린샷에 <b>X를 그은 폴더는 5개</b>입니다 —
+      (Others) · 004. I visited my grandparents · 007. Commercials · Mangoi Books · Shake it up 2-18-25.</p>
+      <p class="why"><b>이건 프로그램을 고칠 일이 아닙니다.</b> 8월 13일에 만들어 둔
+      <b>「🙈 라이브러리에서 숨길 교재」 체크박스</b>가 바로 이 일을 하라고 만든 것입니다.
+      교재 업로더 화면에서 <b>체크 5번만 누르면</b> 강사·학생 화면에서 즉시 사라집니다.
+      배포도 필요 없고, 파일도 안 지워지고, 지난 수업 기록도 그대로입니다. 언제든 체크를 풀면 돌아옵니다.</p>
+      <p class="why"><b>제가 대신 누르지 않은 이유.</b> 「Mangoi Books」는 이름 그대로
+      <b>망고아이 자체 교재</b>이고 <b>797장</b>이나 됩니다. 사진 한 장만 보고 제가 지워 버리기엔
+      영향 범위가 회사 전체입니다. <b>사장님이 확인만 해 주시면 1분 걸립니다.</b></p>
+      <div class="src">textbook-uploader.html 「🙈 라이브러리에서 숨길 교재」 / api-admin.ts textbook_hidden_books</div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>③ 책이 느린 게 아니라 페이지가 2~3배로 늘어나 있어요</h3><span class="chip c-done">원인 잡고 정리 끝</span></div>
+    <div class="item-body">
+      <div class="quote">"THE BOOK IS NOT SLOW ONLY THAT THE PAGES AT THE LIBRARY TRIPLED OR DOUBLED.
+EXAMPLE: BTS 2 HAS 762 PAGES, PLEASE SEPARATE THE BOOK PER UNIT, BTS 1 001, BTS 1 002 AND SO ON."</div>
+      <p class="why"><b>마이마이 말이 정확히 맞았습니다. 그리고 제 어제 진단은 틀렸습니다.</b>
+      저는 「1장이 파일 1개라서 넘길 때마다 새로 받아 느린 것」으로 보고 미리받기·캐시를 넣었습니다.
+      실제 문제는 <b>속도가 아니라 같은 페이지가 여러 벌 있는 것</b>이었습니다.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>확인한 것</th><th class="num">정리 전</th><th class="num">정리 후</th><th class="num">배수</th></tr></thead>
+        <tbody>
+          <tr><td>교재 파일 전체</td><td class="num">38,922</td><td class="num">17,170</td><td class="num">2.3배</td></tr>
+          <tr><td>BTS 1 001 (마이마이가 짚은 책)</td><td class="num">115</td><td class="num">23</td><td class="num">5.0배</td></tr>
+          <tr><td>BTS 2</td><td class="num">762</td><td class="num">246</td><td class="num">3.1배</td></tr>
+        </tbody>
+      </table></div>
+      <p class="why"><b>왜 늘어났나.</b> 파일을 올리는 창구가 <b>같은 파일을 또 올려도 그냥 새로 저장</b>했습니다.
+      두 번 올리면 책이 두 배가 됩니다. 사람이 조심해서 막을 수 있는 종류가 아니었습니다.
+      → 이제 <b>이름과 크기가 같은 파일이 있으면 올리지 않고 건너뜁니다.</b>
+      건너뛴 것은 「올렸다」고 말하지 않고 <b>「이미 있어 건너뜀 N개」</b>라고 따로 알려 줍니다.</p>
+      <p class="why"><b>이미 늘어난 것도 정리했습니다.</b> 중복 21,752줄을 <b>「안 보이게」 처리</b>했습니다
+      (지운 게 아니라 꺼 둔 것이라 되돌릴 수 있습니다. 그림 파일도 그대로 있습니다).
+      <b>이건 데이터라서 배포 없이 이미 적용돼 있습니다.</b></p>
+      <div class="src">api-admin.ts POST /api/admin/textbook-files 중복 차단 / 운영 DB active=0 21,752행 (되돌리기 가능)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 유닛 분리 ═══════════ -->
+<section>
+  <h2>2. 「책을 단원별로 나눠 주세요」 — 절반만 됐습니다 <em>솔직한 보고</em></h2>
+  <p class="lead">마이마이가 요청한 「BTS 1 001, BTS 1 002 …」 모양입니다. <b>앞으로 올릴 책은 됩니다.
+  이미 올라간 책은 안 됩니다.</b> 이유를 그대로 적습니다.</p>
+  <div class="item">
+    <div class="item-body">
+      <p class="why"><b>고친 것.</b> 업로더가 「001」·「002」 같은 <b>숫자 폴더를 단원으로 인정</b>하게 했습니다.
+      이제 새로 올리면 「BTS 2 001」, 「BTS 2 002」 … 처럼 <b>단원마다 따로 한 권</b>이 됩니다.</p>
+      <p class="why"><b>안 되는 것.</b> 이미 올라간 책에는 <b>「어느 단원이었는지」가 저장돼 있지 않습니다.</b>
+      전부 「미분류」 한 칸에 들어가 있어서, 코드로는 도로 나눌 수가 없습니다.
+      아래 <b>37권 · 15,580장</b>이 지금 이 상태입니다.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>지금 한 덩어리인 책</th><th class="num">쪽 수</th><th class="num">서로 다른 이름</th><th class="num">겹친 배수</th></tr></thead>
+        <tbody>
+          <tr><td>BTS Books</td><td class="num">5,215</td><td class="num">154</td><td class="num">33.9배</td></tr>
+          <tr><td>Shake it up 2-18-25</td><td class="num">1,088</td><td class="num">18</td><td class="num">60.4배</td></tr>
+          <tr><td>Mangoi Books</td><td class="num">797</td><td class="num">113</td><td class="num">7.1배</td></tr>
+          <tr><td>SIU BOOKS</td><td class="num">734</td><td class="num">53</td><td class="num">13.8배</td></tr>
+          <tr><td>Mangoi Phonics A-Z</td><td class="num">299</td><td class="num">16</td><td class="num">18.7배</td></tr>
+          <tr><td>BTS 2 ~ BTS 34 (각 권)</td><td class="num">109~292</td><td class="num">31~38</td><td class="num">약 7~8배</td></tr>
+        </tbody>
+      </table></div>
+      <div class="kid">🧒 <b>「겹친 배수」가 무슨 뜻이냐면</b> — 서로 다른 그림은 35장뿐인데 파일은 246장이라는 뜻입니다.
+      한 권 안에 <b>단원 7개가 겹쳐 쌓여</b> 있어서, 순서대로 넘기면 1쪽이 일곱 번 나옵니다.</div>
+      <p class="why"><b>제안.</b> 「Shake it up」과 「Mangoi Books」는 마이마이가 <b>필요 없다고 X를 그은</b> 책입니다.
+      그러니 실제로 다시 올려야 하는 것은 <b>파닉스 1개 + BTS 33권</b>입니다.
+      폴더는 이미 드라이브에 잘 나뉘어 있으니, <b>업로더에 폴더째 끌어다 놓기만</b> 하면 됩니다.
+      중복 차단이 켜져 있어서 <b>같은 것을 또 올려도 두 배가 되지 않습니다.</b></p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 오늘 더 고친 것 ═══════════ -->
+<section>
+  <h2>3. 「다 됐다」고 했던 것 중, 오늘 더 고친 것 <em>4건</em></h2>
+  <p class="lead">8월 14일 문서를 코드와 맞춰 보다가, <b>됐다고 보고한 것이 실제로는 반쪽</b>이던 것들이 나왔습니다.
+  숨기지 않고 적고, 오늘 다 고쳤습니다.</p>
+
+  <div class="item">
+    <div class="item-head"><h3>① 페이지 목록에 「몇 쪽인지」가 안 보이던 것</h3><span class="chip c-done">오늘 고침</span></div>
+    <div class="item-body">
+      <div class="quote">"the pages # are not visible on the file name like the current in BODA"</div>
+      <p class="why">8월 13일에 <b>「고르면 창이 안 닫히게」와 「크기 조절」은 했지만</b>,
+      정작 <b>「쪽 번호가 보이게」는 못 했습니다.</b> 마이마이가 파랗게 동그라미 친 부분이 그것입니다.</p>
+      <p class="why"><b>원인.</b> 자료실 파일의 진짜 이름은
+      <code>[BTS 6 Korea (Bedroom, living room)] 미분류 레슨 / Slide12.JPG</code> 처럼 <b>앞부분이 모든 줄에서 똑같습니다.</b>
+      목록은 한 줄이라 <b>화면에는 앞부분만 나오고</b> 정작 뒤의 「Slide12」가 잘려 나갔습니다.
+      그래서 모든 줄이 「[BTS 6 Korea (Bedroom, li…」로 <b>똑같아 보였습니다.</b></p>
+      <p class="why"><b>고침.</b> 줄에는 <b>뒤쪽 쪽 이름만</b> 남깁니다(Slide12.JPG). 번호(1. 2. 3.)는 그대로 두고,
+      <b>전체 이름은 마우스를 올리면</b> 풍선으로 뜹니다. BODA의 Document list와 같은 모양이 됐습니다.</p>
+      <div class="src">js/idx-main.js _pdfShortPageName() · pdfTogglePageList()</div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>② 🌐를 눌러도 영어로 안 바뀌던 자리 23곳</h3><span class="chip c-done">오늘 고침</span></div>
+    <div class="item-body">
+      <p class="why"><b>필리핀 선생님만 겪는 문제라 한국에서는 아무도 못 봅니다.</b>
+      수업 화면에는 언어 담당 프로그램이 <b>두 개</b> 들어 있습니다. 나중에 켜지는 쪽이 「지금 언어」를 갖고 있는데,
+      코드 <b>23곳이 먼저 켜진 쪽(옛 값)</b>을 보고 있었습니다. 그 값은 <b>영원히 「한국어」</b>입니다.</p>
+      <p class="why">그래서 <b>페이지 목록 · 영상 플레이어 · 「카메라 꺼짐」 표시 · 채팅 입력칸</b> 등이
+      🌐를 눌러 영어로 바꿔도 <b>한국어 그대로</b> 나왔습니다.</p>
+      <div class="kid">🧒 <b>쉽게 말하면</b> — 교실에 시계가 두 개인데, 하나는 <b>멈춰 있습니다.</b>
+      스물세 사람이 멈춘 시계를 보고 있었던 것입니다. 이제 <b>모두 진짜 시계 하나만</b> 보게 했습니다.</div>
+      <p class="why">이건 우리 규칙집(CLAUDE.md)에 <b>「함정」으로 이미 적혀 있던 것</b>입니다.
+      적어만 두고 옛 코드는 안 고쳤던 것이라, 이번에 <b>23곳을 전부</b> 정리했습니다.</p>
+      <div class="src">js/idx-main.js miIsEn() 정본 함수 신설 — getLang() → localStorage → 옛 값 순</div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>③ 교재 카드에 「0 and · 781」이라고 뜨던 것</h3><span class="chip c-done">오늘 고침</span></div>
+    <div class="item-body">
+      <p class="why">마이마이 스크린샷에 그대로 찍혀 있었습니다. 한국어로는 「0<b>과</b> · 781」이었는데,
+      번역 사전이 한국어 조사 <b>「과」를 영어 and로 번역</b>해 버렸습니다.
+      숫자만 남고 <b>그게 무엇의 숫자인지 사라졌습니다.</b></p>
+      <p class="why"><b>고침.</b> 조사를 아예 쓰지 않습니다 — 한국어는 「1단원 · 246쪽」,
+      영어는 「1 unit · 246 pages」. 🌐를 눌렀을 때도 따라오게 표시를 함께 붙였습니다.</p>
+      <div class="src">js/idx-x3.js 교재 카드 배지 — data-ko / data-en 동시 기록</div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>④ 파닉스·BTS를 나누는 규칙 (위 1번·2번의 코드 부분)</h3><span class="chip c-done">오늘 고침</span></div>
+    <div class="item-body">
+      <p class="why">글자 폴더(A~Z)와 숫자 폴더(001)를 <b>둘 다</b> 단원으로 읽습니다.
+      기존에 잘 분류돼 있던 책(제1과 · Unit 3 · BTS 1 001)은 <b>규칙을 건드리지 않았습니다</b> —
+      실제 경로 9개로 돌려서 <b>기존 분류가 그대로인지</b> 확인했습니다.</p>
+      <div class="src">textbook-uploader.html classifyFile() / 신규 회귀검사 24개 전부 통과</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 이미 된 것 ═══════════ -->
+<section>
+  <h2>4. 이미 다 된 것 <em>30건 · 8월 13일까지</em></h2>
+  <p class="lead">8월 7일~13일 접수분입니다. <b>코드에 들어가 있는 것을 직접 확인</b>했습니다.
+  ★은 마이마이가 <b>직접 「이제 괜찮다」고 확인</b>해 준 것입니다.</p>
+  <div class="tablewrap"><table>
+    <thead><tr><th>날짜</th><th>요청</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>8/10</td><td>교실 화면이 깜빡여요 ★</td><td>영어 화면에서만 나던 글자 되돌림 충돌 — 해결</td></tr>
+      <tr><td>8/11</td><td>위쪽만 깜빡여요</td><td>상단 칩 두 기능이 1.2초마다 서로 글자를 되돌리던 것 — 해결</td></tr>
+      <tr><td>8/10</td><td>다른 탭을 열면 선생님 영상이 꺼져요</td><td>절전 기능이 강사를 학생으로 오해 — 확실히 학생일 때만 끄게</td></tr>
+      <tr><td>8/10</td><td>학생 채팅이 안 보여요</td><td>글자색이 배경색과 같았음 — 색 고정</td></tr>
+      <tr><td>8/10</td><td>잘못 고른 교재 페이지를 지우고 싶어요</td><td>줄마다 [✕], 통째로 [🗑] — 서버 파일은 안 건드림</td></tr>
+      <tr><td>8/10·12</td><td>MES는 이제 안 써요, 빼 주세요</td><td>수업화면·영상목록·라이브러리에서 숨김(LEVEL 1~7)</td></tr>
+      <tr><td>8/12</td><td>BTS를 1~34 순서대로</td><td>글자 순서(34가 4 앞) → 숫자 순서로</td></tr>
+      <tr><td>8/13</td><td>페이지 창이 바로 닫혀요 / 크기 조절</td><td>[✕]로만 닫히게 + 모서리 끌어 크기 조절, 크기 기억</td></tr>
+      <tr><td>8/7</td><td>레벨테스트도 「내 수업」에 나오게 ★</td><td>유형 배지(LEVEL TEST·TRIAL) 달린 목록 신설</td></tr>
+      <tr><td>8/7</td><td>오늘 수업에 정규·체험·레벨테스트 한 화면에</td><td>서버가 네 종류를 구분해 전달</td></tr>
+      <tr><td>8/7</td><td>수업 전에 미리 들어가고 싶어요</td><td>강사 문을 하루 종일 개방([미리 입장]/[다시 입장])</td></tr>
+      <tr><td>8/7</td><td>끝난 뒤에도 들어가서 피드백 쓰게</td><td>「완료」로 잠그던 것 해제 — 연장이 안 되던 원인</td></tr>
+      <tr><td>8/7</td><td>수업료에 시간·학생·상태·공제 표시</td><td>정산 탭에 열 10개 + 지각 10페소/분, 피드백 미작성 25페소</td></tr>
+      <tr><td>8/7</td><td>연기(postpone) 버튼 없애 주세요 ★</td><td>강사는 요청만, 매니저가 승인 — 구조 확정</td></tr>
+      <tr><td>8/7</td><td>연·월·일을 한 번에 고르게</td><td>날짜 칸 + [이동], 폰에서는 OS 달력</td></tr>
+      <tr><td>8/7</td><td>페이지 목록이 잘 보이게</td><td>[📑 페이지 목록] 버튼 (쪽 이름 표시는 오늘 보완)</td></tr>
+      <tr><td>8/7</td><td>수업 중 BTS·SIU·강사 영상 필요 없어요</td><td>목록에서 제외 + 교재 열 때 영상 자동재생 자체를 끔</td></tr>
+      <tr><td>8/7</td><td>마이크 표시가 화면분할 설정을 가려요 ★</td><td>떠 있던 미터를 없애고 얼굴 타일 안으로</td></tr>
+      <tr><td>8/7</td><td>얼굴이 사라지면 되살릴 버튼이 없어요</td><td>[🙂 얼굴 다시 보기] 큰 버튼을 오른쪽에</td></tr>
+      <tr><td>8/7</td><td>메뉴를 고르면 화면 가운데가 보여요</td><td>되돌리는 코드가 카드 자신은 못 돌리던 것 — 해결</td></tr>
+      <tr><td>8/7</td><td>휴식시간을 직접 정하고 지우게</td><td>10분 단위 선택 + 「이 날짜만/매주 반복」 + 눌러서 삭제</td></tr>
+      <tr><td>8/7</td><td>매니저가 언더타임 시간을 막게</td><td>화면만 있고 저장 안 되던 것 — 서버에 연결, 예약도 차단</td></tr>
+      <tr><td>8/7</td><td>입장 화면에 망고아이 인사 이미지 ★</td><td>Mr.Mango + 한·영·중 인사말 (원문도 "No changes")</td></tr>
+      <tr><td>8/13</td><td>레벨테스트 교재를 못 올려요</td><td>「올렸다」고 거짓말하던 화면 — 「이 컴퓨터에만 저장됨」이라고 실토하게</td></tr>
+      <tr><td>8/13</td><td>(사장님 결정) 30분 전보다 이른 연기 0페소</td><td>규칙 켬 — 되돌리는 길도 남김</td></tr>
+    </tbody>
+  </table></div>
+  <p class="lead">※ 표는 비슷한 요청을 묶어 25줄로 정리한 것입니다(실제 30건).
+  ⚠️ 「코드에 있다」와 「라이브에서 잘 보인다」는 다릅니다. 강사·관리자 화면은 로그인해야 보여서
+  <b>브라우저로 눈으로 본 것은 아닙니다.</b></p>
+</section>
+
+<!-- ═══════════ 안 된 것 ═══════════ -->
+<section>
+  <h2>5. 아직 안 된 것 <em>2건 — 코드로는 못 합니다</em></h2>
+
+  <div class="item">
+    <div class="item-head"><h3>강사 컴퓨터 램(RAM)을 16GB로</h3><span class="chip c-wait">장비 구입 — 사장님 판단</span></div>
+    <div class="item-body">
+      <div class="quote">"The computers that we have in the company have only 8gb RAM… Suggestion: Purchase bigger RAM"</div>
+      <p class="why">이건 프로그램이 아니라 <b>물건</b>입니다. 다만 <b>먼저 배포부터</b> 해 보시길 권합니다 —
+      「느리다」의 진짜 원인이 <b>책이 2~3배로 불어난 것</b>이었기 때문입니다.
+      중복 정리로 <b>파일이 절반 이하</b>가 됐으니, 램을 사기 전에 <b>지금 상태로 한 주만</b> 써 보고
+      그래도 느리면 그때 사는 것이 순서입니다.</p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>BTS 레벨테스트(Placement test)를 라이브러리에 넣어 주세요</h3><span class="chip c-wait">본사가 올려야 함</span></div>
+    <div class="item-body">
+      <div class="quote">"Can we include BTS placement test (Level test) in the library?" (구글 드라이브 링크 첨부)</div>
+      <p class="why">강사들이 못 올린 게 아니라 <b>올린 줄 알았는데 안 올라가 있었습니다.</b>
+      화면이 「✅ 저장 완료!」라고만 띄우고 <b>공용 자료실 전송이 거부된 것을 안 알렸습니다.</b>
+      그 <b>거짓말은 8월 13일에 고쳤습니다</b>(이제 「이 컴퓨터에만 저장됐습니다」라고 분명히 알립니다).</p>
+      <p class="why"><b>남은 결정 하나.</b> 강사에게 <b>공용 자료실 올리기 권한을 줄까요?</b>
+      지금은 안 줬습니다. 전 강사가 함께 쓰는 자료라 <b>한 사람이 잘못 올리면 반경이 회사 전체</b>입니다.
+      <b>본사가 대신 올려 주는 쪽</b>이 안전합니다 — 파일은 마이마이가 링크로 이미 보내 주었습니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 할 일 ═══════════ -->
+<section>
+  <h2>6. 사장님이 하실 일 <em>순서대로 5가지</em></h2>
+  <ol class="steps">
+    <li><div><strong>배포하기 — 가장 급합니다</strong><span>8월 13일·14일에 고친 것이 전부 작업 브랜치에만 있습니다.
+    <code>main</code>에 올리면 자동으로 나갑니다. 이걸 안 하면 마이마이는 계속 옛 화면을 봅니다.</span></div></li>
+    <li><div><strong>필요 없는 폴더 5개에 체크</strong><span>교재 업로더 → 「🙈 라이브러리에서 숨길 교재」에서
+    (Others) · 004. I visited my grandparents · 007. Commercials · Mangoi Books · Shake it up 2-18-25.
+    <b>1분</b>이면 되고, 마음이 바뀌면 체크를 풀면 됩니다.</span></div></li>
+    <li><div><strong>파닉스 + BTS 2~34를 한 번만 다시 올리기</strong><span>드라이브 폴더를 그대로 끌어다 놓으면 됩니다.
+    그래야 「Mangoi Phonics A~Z」와 「BTS 2 001, 002 …」로 갈라집니다.
+    <b>중복 차단이 켜져 있어 두 배가 되지 않습니다.</b></span></div></li>
+    <li><div><strong>레벨테스트 파일은 본사가 올리기</strong><span>강사에게 권한을 주는 것보다 안전합니다.
+    권한을 주실 거면 그때 말씀해 주세요.</span></div></li>
+    <li><div><strong>강사들에게 「사전 연기 0페소」를 미리 알리기</strong><span>이번 달 급여부터 실제로 줄어듭니다.
+    말 없이 줄면 반드시 문제가 됩니다.</span></div></li>
+  </ol>
+</section>
+
+<!-- ═══════════ 제안 ═══════════ -->
+<section>
+  <h2>7. 제안 — 같은 사고가 다시 안 나게 <em>3가지</em></h2>
+
+  <div class="item">
+    <div class="item-head"><h3>제안 1. 교재를 올린 뒤 「몇 권 · 몇 쪽」을 화면에서 바로 보여 주기</h3><span class="chip c-todo">다음 작업 후보</span></div>
+    <div class="item-body">
+      <p class="why">이번 사고(2.3배 부풀림, 단원 뭉개짐)는 <b>올린 사람이 결과를 볼 방법이 없어서</b> 몇 달 동안 아무도 몰랐습니다.
+      올리기가 끝나면 <b>「BTS 2 → 7권 · 246쪽으로 저장됨」</b>처럼 결과를 요약해 보여 주면,
+      숫자가 이상할 때 <b>그 자리에서</b> 알아챌 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>제안 2. 필리핀 선생님 화면은 반드시 영어로 한 번 열어 보기</h3><span class="chip c-todo">일하는 방식</span></div>
+    <div class="item-body">
+      <p class="why">오늘 찾은 23곳은 <b>영어로 켜야만 보이는</b> 문제였습니다.
+      깜빡임(8/11)도 <b>영어 모드에서만</b> 나던 것이라 한국에서는 아무도 못 겪었습니다.
+      마이마이의 신고 중 <b>상당수가 「영어 화면 전용 버그」</b>입니다.
+      화면을 고칠 때마다 <b>🌐를 한 번 눌러 보는 것</b>만으로 이런 신고가 크게 줄어듭니다.</p>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="item-head"><h3>제안 3. 「고쳤습니다」와 「배포했습니다」를 구분해서 알리기</h3><span class="chip c-todo">일하는 방식</span></div>
+    <div class="item-body">
+      <p class="why">8월 13일에 고친 것을 마이마이는 <b>아직 못 받았습니다.</b>
+      그래서 「아직도 느리다」는 답이 왔고, 그 답을 보고 <b>또 다른 진단</b>을 하느라 하루를 썼습니다.
+      「고쳤다」고 알리기 전에 <b>배포까지 끝났는지</b> 한 번만 확인하면, 이 왕복이 통째로 사라집니다.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div><b>이 보고서를 만든 방법</b> — 마이마이의 8월 14일 문서(요청·건의 34건, 스크린샷 40장)를
+  저장소 코드와 한 건씩 대조하고, 숫자는 <b>운영 데이터베이스에서 직접 세었습니다</b>(읽기만 했습니다).
+  스크린샷 40장도 전부 열어서 확인했습니다.</div>
+  <div><b>검증</b> — 타입검사 통과 · 회귀검사 <b>149개 파일 전부 통과(실패 0)</b> ·
+  이번 작업용 신규 검사 <b>24개 추가, 전부 통과</b> · 분류 규칙은 실제 폴더 경로 9개로 직접 돌려 확인.</div>
+  <div><b>고친 파일</b> — <code>js/idx-main.js</code> · <code>js/idx-x3.js</code> ·
+  <code>textbook-uploader.html</code> · <code>index.html</code>(캐시 번호) ·
+  <code>test-harness/teacher_page_problem_260814_harness.mjs</code>(신규)</div>
+</footer>
+
+</div>
