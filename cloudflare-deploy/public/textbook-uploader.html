@@ -498,6 +498,38 @@ function classifyFile(file) {
     }
   }
 
+  /* 🔤 (2026-08-14 마이마이 ①) 「파닉스가 한 파일에 다 들어 있다 — A~Z 로 나눠 달라」
+     ═══════════════════════════════════════════════════════════════════════
+     [원인] 원본 드라이브에는 「Mangoi Phonics A」 … 「Mangoi Phonics Z」 26개 폴더가 있다.
+        그런데 위의 두 규칙은 **숫자**(001)나 **낱말+숫자**(Unit 1)만 유닛으로 본다.
+        글자로 나뉜 폴더는 하나도 안 걸려 26폴더가 통째로 «미분류 레슨» 이 됐고,
+        라이브러리에는 「Mangoi Phonics A-Z (8-9-21)」 한 권(781장)만 생겼다.
+        게다가 26폴더의 파일 이름이 다 Slide1.JPG … 라 쪽 순서까지 뒤엉켰다.
+     [고침] 폴더 이름이 **한 글자(A~Z)로 끝나면** 그 글자를 유닛으로 인정한다.
+        · 폴더에 이름이 붙어 있으면(「Mangoi Phonics A」) **그 폴더명을 그대로 교재 이름**으로 쓴다
+          → 라이브러리에 「Mangoi Phonics A」 … 「Mangoi Phonics Z」 26권이 생긴다.
+        · 폴더가 글자 하나뿐이면(「A」) 위 교재 이름 뒤에 글자를 붙인다(「Phonics A」).
+     ⚠️ 위 숫자 규칙이 실패했을 때만 돈다 — 기존 교재 분류는 바뀌지 않는다.
+     ⚠️ 마지막 낱말이 «딱 한 글자» 일 때만이다. 「Reading A1」·「Lesson AB」 는 안 걸린다.
+     ⚠️ 파일 이름은 보지 않는다(폴더만) — Slide A.JPG 를 유닛으로 읽지 않게. */
+  if (!lesson) {
+    for (let i = dirParts.length - 1; i >= 1; i--) {
+      const seg = String(dirParts[i]).trim();
+      const am = /^(.*?[\s_\-])?([A-Za-z])$/.exec(seg);
+      if (!am) continue;
+      const letter = am[2].toUpperCase();
+      lesson = letter + ' 유닛';
+      if (am[1]) {
+        // 「Mangoi Phonics A」 — 폴더 이름 자체가 그 권의 이름이다
+        textbook = seg;
+      } else if (textbook && !new RegExp('(^|[\\s_\\-])' + letter + '$', 'i').test(textbook)) {
+        // 「A」 처럼 글자만 있는 폴더 — 윗 이름에 글자를 붙인다
+        textbook = textbook + ' ' + letter;
+      }
+      break;
+    }
+  }
+
   // 언어 분류
   let category = '기타';
   if (RX.lang_cn.test(fullText)) category = '중국어';
