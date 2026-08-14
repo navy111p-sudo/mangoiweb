@@ -409,7 +409,16 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception ignored) {}
                 if (userAgent != null && !userAgent.isEmpty()) c.setRequestProperty("User-Agent", userAgent);
                 int http = c.getResponseCode();
-                if (http != 200) {
+                // 📱 (v2.3) 206(부분 응답)도 정상으로 받는다 — 기기 최적화 기능·중간 장비가
+                //   요청에 Range: bytes=0- 를 끼워 넣으면 응답이 206 으로 바뀌는데, 시작점이
+                //   0 이면 내용물은 어차피 파일 전체다. 0 이 아닌 진짜 조각만 거른다.
+                //   (v2.2 실기기에서 «서버 응답 206» 실패 실측 — 2026-08-15)
+                boolean partialFromStart = false;
+                if (http == 206) {
+                    String cr = c.getHeaderField("Content-Range");
+                    partialFromStart = cr == null || cr.replace(" ", "").startsWith("bytes0-");
+                }
+                if (http != 200 && !(http == 206 && partialFromStart)) {
                     err = "서버 응답 " + http;
                 } else {
                     java.io.InputStream in = c.getInputStream();
