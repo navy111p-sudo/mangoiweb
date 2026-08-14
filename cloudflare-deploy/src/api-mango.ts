@@ -13,6 +13,7 @@ import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
@@ -301,7 +302,7 @@ export async function handleMangoApi(
             LIMIT ?`
         ).bind(likePattern, likePattern, uid, uid, limit).all();
         const raw = (rs.results || []) as any[];
-        const rows = raw.map((r: any) => {
+        const rows = await Promise.all(raw.map(async (r: any) => {
           const startMs = r.started_at || 0;
           const date = startMs ? new Date(startMs).toISOString().slice(0,10) : '-';
           const durSec = r.duration_ms ? Math.round(r.duration_ms / 1000) : 0;
@@ -312,13 +313,19 @@ export async function handleMangoApi(
           // 🎬 재생 URL — 인증 게이트가 있는 /api/recording/play?id= 로 발급 (2026-07-20).
           //   과거엔 공개 blob 키 URL 을 그대로 줬는데, 키를 아는 누구나 재생 가능한 통로라
           //   서명 토큰을 동봉한 play 엔드포인트로 교체(소유권은 서버가 재검증).
-          //   이 핸들러는 토큰 없으면 위에서 401 이므로 recPlayTok 은 항상 존재.
+          //   학생은 요청에 들고 온 mango_token 을 그대로 되돌려 준다(recPlayTok).
+          //   📼 교사·관리자 세션(쿠키 인증)은 토큰이 없다 — 그대로 두면 카톡 인앱 브라우저·
+          //   안드로이드 WebView 가 ⬇저장(다운로드)을 쿠키 없는 다운로드 관리자에 위임할 때
+          //   401 로 조용히 실패한다(«휴대폰 저장 안 됨», 2026-08-13). 그래서 이 녹화 1건
+          //   전용 단기 서명(&sig=)을 동봉한다 — 발급은 이 핸들러의 인증을 통과한 뒤에만,
+          //   범위는 id 하나뿐이라 권한이 넓어지는 지점이 없다(auth-token.ts signRecDlSig).
           let playUrl = '';
           if (r.file_url && /^https?:\/\//.test(String(r.file_url))) {
             playUrl = String(r.file_url);         // 외부 http(s) 녹화는 그대로
           } else if (r.file_url || r.filename) {
             playUrl = '/api/recording/play?id=' + r.id
-              + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok) : '');
+              + (recPlayTok ? '&token=' + encodeURIComponent(recPlayTok)
+                            : '&sig=' + encodeURIComponent(await signRecDlSig(r.id, env)));
           }
           // 🔴 2026-08-04: 업로드가 실패한 녹화는 DB status 가 'completed' 여도 R2 에 실물이
           //   없다(storage 로만 구분됨). 재생 URL 을 주면 학생이 눌렀을 때 404 → "재생할 수
@@ -338,7 +345,7 @@ export async function handleMangoApi(
             storage: storageStr,
             failed,
           };
-        });
+        }));
         return json({ ok: true, rows, recordings: rows, count: rows.length });
       } catch (e: any) {
         return json({ ok: true, rows: [], count: 0, _err: String(e?.message || e) });
