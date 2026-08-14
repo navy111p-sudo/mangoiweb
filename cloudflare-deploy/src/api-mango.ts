@@ -1404,6 +1404,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/teacher-contacts')
         // 💳 (2026-08-13) 법인카드 CODEF 연동
         || path.startsWith('/api/admin/corpcard/')
+        // 🏦 (2026-08-14) 신한은행 계좌 입출금 — 바로빌 계좌조회
+        || path.startsWith('/api/admin/bankacct/')
         // 학생·학부모측 창구(관리자 표의 반대쪽 반쪽). 인증게이트는 index.ts 에 등록돼 있다.
         || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'

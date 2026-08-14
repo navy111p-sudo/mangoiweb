@@ -357,6 +357,8 @@ const worker = {
             '/api/admin/teachers/kakao',
             // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
             '/api/admin/corpcard/',
+            // ── 🏦 신한은행 계좌 입출금 (2026-08-14) — 회사 계좌 원장. 본사/매니저만.
+            '/api/admin/bankacct/',
             // ── 🙈 교재 라이브러리 숨김 (2026-08-13) — 한 강사가 체크하면 **전 강사의 교재가 사라진다.**
             //    반경이 회사 전체라 강사에게는 열지 않는다(읽기 목록도 같은 경로라 함께 막힌다).
             '/api/admin/textbook-hidden-books',
@@ -1342,6 +1344,8 @@ const worker = {
         path === '/api/admin/teacher-contacts' ||
         // 💳 법인카드 CODEF 연동 (corpcard-sync.ts) — 게이트+위임가드+강사차단 3종 세트
         path.startsWith('/api/admin/corpcard/') ||
+        // 🏦 신한은행 계좌 입출금 (bankacct-sync.ts) — 같은 3종 세트 (2026-08-14)
+        path.startsWith('/api/admin/bankacct/') ||
         // 🎁 Phase RF — 추천 친구 보상
         path === '/api/referral/my-code' ||
         path === '/api/referral/use' ||
@@ -2076,13 +2080,31 @@ const worker = {
       //   event.cron 정확 일치로 거른다 — 같은 시각에 15분 cron 도 울리므로 hour 비교는 이중 실행.
       if ((event as any).cron === '0 0 * * *') {
         try {
+          /* 🔀 (2026-08-14) 바로빌 키가 있으면 바로빌이 정본 — CODEF 는 바로빌이 없을 때만.
+             예전엔 cron 이 CODEF 만 돌려서, 바로빌로 옮긴 뒤에도 ①바로빌 데이터가 자동으로
+             안 들어오고 ②매일 아침 CODEF 실패(CF-00017)가 last_sync_result 를 덮었다.
+             바로빌 수집(매일 04:00 KST)보다 늦은 09:00 KST 라 시각은 그대로 좋다. */
           const { corpcardConfigured, runCorpCardSync } = await import('./corpcard-sync');
-          if (corpcardConfigured(env)) {
+          const { barobillConfigured, runBarobillSync } = await import('./barobill-sync');
+          if (barobillConfigured(env)) {
+            const bb = await runBarobillSync(env as any);
+            console.log('[barobill-sync]', JSON.stringify(bb).slice(0, 500));
+          } else if (corpcardConfigured(env)) {
             const cc = await runCorpCardSync(env as any);
             console.log('[corpcard-sync]', JSON.stringify(cc).slice(0, 500));
           }
         } catch (err) {
           console.error('[corpcard-sync] error', err);
+        }
+        // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
+        try {
+          const { bankConfigured, runBankSync } = await import('./bankacct-sync');
+          if (bankConfigured(env)) {
+            const bk = await runBankSync(env as any);
+            console.log('[bankacct-sync]', JSON.stringify(bk).slice(0, 500));
+          }
+        } catch (err) {
+          console.error('[bankacct-sync] error', err);
         }
       }
 

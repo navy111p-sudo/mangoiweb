@@ -31,6 +31,7 @@ import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수�
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
+import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
@@ -10388,16 +10389,22 @@ LIMIT $limit`;
       /* 🔀 프로바이더 선택 (2026-08-14) — 바로빌 키가 있으면 바로빌, 없으면 기존 CODEF.
          CODEF 정식 견적이 월 80만원이라 바로빌(월 3,300원)로 옮기는 중이다. 두 경로를
          함께 두는 이유: 시크릿만 넣으면 전환되고, 문제가 생겨도 되돌릴 자리가 남는다. */
+      /* 🏦 계좌도 같이 — «신한 동기화» 버튼 하나로 카드+계좌를 함께 당긴다(2026-08-14).
+         계좌번호 시크릿이 없으면 조용히 건너뛰지 않고 결과에 «왜 안 했는지» 를 싣는다. */
+      const bank = bankConfigured(env)
+        ? await runBankSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }))
+        : { ok: false, error: 'bankacct_not_configured', missing: bankMissing(env) };
       if (barobillConfigured(env)) {
         const sync = await runBarobillSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
         const data = await corpcardData(env, url.searchParams.get('month') || undefined);
         const status = await corpcardStatus(env, data).catch(() => null);
-        return json({ ok: true, provider: 'barobill', sync, data, status });
+        return json({ ok: true, provider: 'barobill', sync, bank, data, status });
       }
       if (!corpcardConfigured(env)) {
         return json({
           ok: false, error: 'not_configured',
           missing_barobill: baroMissing(env),
+          bank,
           message: '카드사 연동 키가 등록되지 않았습니다. 바로빌 시크릿 4개(BAROBILL_CERTKEY/CORPNUM/ID/CARDNUM)를 등록하면 바로 동작합니다.',
           message_en: 'No card provider keys configured. Set the four BAROBILL_* secrets.',
         });
@@ -10405,7 +10412,40 @@ LIMIT $limit`;
       const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       const status = await corpcardStatus(env, data).catch(() => null);
-      return json({ ok: true, sync, data, status });
+      return json({ ok: true, sync, bank, data, status });
+    }
+
+    /* ── 🏦 신한은행 계좌 입출금 (bankacct-sync.ts) ────────────────────────────
+       급여 이체·임대료처럼 계좌에서 바로 나가는 돈. 손익계산서(reports/statement)가
+       이 테이블(bankacct_transactions)의 출금분을 실지출로 읽는다.
+       ⚠️ 새 API 등록 3종 세트: index.ts 게이트 + api-mango 위임 가드
+          + (재무 데이터라) TEACHER_BLOCKED_PREFIXES — 셋 다 했다(2026-08-14). */
+    if (method === 'POST' && path === '/api/admin/bankacct/sync') {
+      if (!bankConfigured(env)) {
+        return json({
+          ok: false, error: 'not_configured', missing: bankMissing(env),
+          message: '계좌 연동 키가 없습니다. BAROBILL_BANK_ACCTNUM(계좌번호)을 등록하면 켜집니다(CERTKEY·CORPNUM·ID 는 카드 연동과 공유).',
+          message_en: 'Bank sync not configured. Set BAROBILL_BANK_ACCTNUM.',
+        });
+      }
+      const sync = await runBankSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+      const data = await bankacctData(env, url.searchParams.get('month') || undefined);
+      const status = await bankacctStatus(env, data).catch(() => null);
+      return json({ ok: true, provider: 'barobill-bank', sync, data, status });
+    }
+    /* 🧪 자가진단 — 실제 조회하되 dryRun 으로 적재만 안 한다(카드 selftest 와 같은 방식) */
+    if (method === 'POST' && path === '/api/admin/bankacct/selftest') {
+      if (!bankConfigured(env)) {
+        return json({ ok: false, error: 'not_configured', missing: bankMissing(env) });
+      }
+      const result = await runBankSync(env, { dryRun: true })
+        .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+      return json({ ok: true, provider: 'barobill-bank', demo: false, result });
+    }
+    if (method === 'GET' && path === '/api/admin/bankacct/transactions') {
+      const data = await bankacctData(env, url.searchParams.get('month') || undefined);
+      const status = await bankacctStatus(env, data).catch(() => null);
+      return json({ ok: true, configured: bankConfigured(env), missing: bankMissing(env), data, status });
     }
 
     /* 🧪 연동 자가진단  POST /api/admin/corpcard/selftest

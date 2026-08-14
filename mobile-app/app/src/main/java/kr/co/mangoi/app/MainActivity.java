@@ -19,8 +19,11 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
 import android.view.View;
+import android.widget.Toast;
+import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.GeolocationPermissions;
+import android.webkit.URLUtil;
 import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -127,8 +130,42 @@ public class MainActivity extends AppCompatActivity {
             }
         } catch (Throwable ignored) {}
 
+        // 📛 UA 마커 — 페이지 JS(flow.js 등)가 «망고아이 앱(다운로드 지원 버전)» 임을
+        //   알아보고, 인앱 브라우저용 우회 안내를 띄우지 않게 한다. 버전 비교가 아니라
+        //   존재 여부만 보므로 형식만 유지하면 된다.
+        try { s.setUserAgentString(s.getUserAgentString() + " MangoiApp/" + BuildConfig.VERSION_NAME); } catch (Exception ignored) {}
+
         // JS 브리지: 페이지에서 window.AndroidTTS.speak('안녕', 'ko', 1.05, 1.0) 로 호출
         webView.addJavascriptInterface(new TtsBridge(), "AndroidTTS");
+
+        // 📥 (v2.0) 파일 다운로드 — 녹화 «⬇저장» 등. WebView 는 DownloadListener 가 없으면
+        //   Content-Disposition: attachment 응답을 **에러도 없이 그냥 버린다** — 사장님이
+        //   겪은 «저장을 눌러도 아무 반응이 없다»(2026-08-14)의 뿌리가 이것이다.
+        //   시스템 DownloadManager 로 넘겨 공용 다운로드 폴더에 저장하고 알림을 띄운다.
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
+            try {
+                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
+                String name = URLUtil.guessFileName(url, contentDisposition, mimetype);
+                req.setTitle(name);
+                req.setMimeType(mimetype);
+                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+                // DownloadManager 는 WebView 쿠키를 물려받지 않는다 — 관리자 세션 쿠키로만
+                // 인증되는 URL 도 받아지도록 쿠키를 직접 실어 준다(녹화 URL 은 서명도 동봉됨).
+                try {
+                    String cookies = CookieManager.getInstance().getCookie(url);
+                    if (cookies != null && !cookies.isEmpty()) req.addRequestHeader("Cookie", cookies);
+                } catch (Exception ignored) {}
+                try { if (userAgent != null) req.addRequestHeader("User-Agent", userAgent); } catch (Exception ignored) {}
+                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                dm.enqueue(req);
+                Toast.makeText(MainActivity.this,
+                        "다운로드를 시작했어요 — 알림창·다운로드 폴더에서 확인하세요", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                // 최후 폴백: 외부 브라우저로 (URL 에 서명이 있어 로그인 없이도 받아진다)
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) {}
+            }
+        });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override

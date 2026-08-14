@@ -597,10 +597,42 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     return r?.total || 0;
   }, 0);
 
-  // 추정 비용 (실제 운영 회계 데이터가 없으므로 비율 기반 추정)
+  // 추정 비용 — PG 수수료·세금은 요율이라 계속 추정식
   const pgFee = Math.round(rev.revenue * 0.033);   // PG 3.3%
-  const opCost = Math.round(rev.revenue * 0.10);   // 운영비 10%
   const tax = Math.round(rev.revenue * 0.03);      // 부가세 등 3% 추정
+
+  /* 🏦💳 신한 실지출 (2026-08-14) — 법인카드 승인내역(corpcard_transactions) +
+     계좌 출금(bankacct_transactions)이 그 달에 적재돼 있으면, 운영비는 «추정 10%»
+     대신 실데이터를 쓴다. 적재는 관리자 «신한 동기화» 버튼 또는 일일 cron(09:00 KST).
+     이중계상 제외 규칙 (분류는 bankacct-sync.bankCategorize 가 적요로 붙인다):
+       · 계좌 출금 «급여이체» → II 매출원가의 강사 급여(payslips)와 겹침 → 판관비 제외
+       · 계좌 출금 «카드대금» → 법인카드 지출 합계와 겹침(카드값 계좌 인출) → 판관비 제외
+     제외해도 화면에 안내 줄로 «얼마를 왜 뺐는지» 를 보여 준다(조용히 빼지 않는다).
+     테이블이 아직 없어도 safe() 가 0 으로 감쇄한다(이 파일의 공통 원칙). */
+  const cardSpend = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount),0) AS total FROM corpcard_transactions
+      WHERE cancelled=0 AND substr(used_at,1,7)=?
+    `).bind(period).first<{ total: number }>();
+    return r?.total || 0;
+  }, 0);
+  const bankOut = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(category,'기타출금') AS category, COALESCE(SUM(amount),0) AS total
+      FROM bankacct_transactions WHERE kind='out' AND substr(trans_at,1,7)=?
+      GROUP BY category ORDER BY total DESC
+    `).bind(period).all();
+    return (r.results || []) as Array<{ category: string; total: number }>;
+  }, []);
+  const BANK_DUP = ['급여이체', '카드대금'];
+  const bankOpexRows = bankOut.filter(b => !BANK_DUP.includes(b.category));
+  const bankOpex = bankOpexRows.reduce((a, b) => a + (Number(b.total) || 0), 0);
+  const bankDup = bankOut.filter(b => BANK_DUP.includes(b.category))
+    .reduce((a, b) => a + (Number(b.total) || 0), 0);
+  const actualOpex = cardSpend + bankOpex;
+  const hasActual = actualOpex > 0;                       // 실데이터가 있는 달만 교체
+  const opCost = hasActual ? actualOpex : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
+
   const totalCost = payroll + pgFee + opCost + tax;
   const netIncome = rev.revenue - totalCost;
   const grossProfit = rev.revenue - payroll - pgFee;
@@ -625,8 +657,14 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         { title: 'III. 매출총이익 (Gross Profit)', items: [
           { name: '매출 - 매출원가', amount: grossProfit, highlight: true },
         ]},
-        { title: 'IV. 판매비와 관리비 (SG&A)', items: [
-          { name: '운영비 (서버·임대·기타)', amount: -opCost },
+        { title: 'IV. 판매비와 관리비 (SG&A)', items: hasActual ? [
+          // 실데이터 — 법인카드 + 계좌 출금 (신한 연동)
+          ...(cardSpend > 0 ? [{ name: '법인카드 지출 (신한·실데이터)', amount: -cardSpend }] : []),
+          ...bankOpexRows.map(b => ({ name: `계좌 출금 — ${b.category} (신한·실데이터)`, amount: -(Number(b.total) || 0) })),
+          ...(bankDup > 0 ? [{ name: `※ 계좌 출금 중 급여이체·카드대금 ₩${bankDup.toLocaleString('ko-KR')} 은 강사급여·법인카드 항목과 중복이라 제외`, sub: true }] : []),
+          { name: '판관비 합계', amount: -opCost, total: true },
+        ] : [
+          { name: '운영비 (서버·임대·기타, 추정 10%)', amount: -opCost },
           { name: '판관비 합계', amount: -opCost, total: true },
         ]},
         { title: 'V. 영업이익 (Operating Income)', items: [
@@ -639,7 +677,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '최종 순이익', amount: netIncome, highlight: true, big: true },
         ]},
       ],
-      summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0 },
+      summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
+        // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정
+        opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup },
     };
   }
   else if (type === 'bs') {
