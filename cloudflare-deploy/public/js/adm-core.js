@@ -11136,7 +11136,7 @@ window.rebuildGlobalSearchIndex = function() {
       + (s.base ? ' · ' + _esc(s.base) : '') + '</div>';
     if (s.last_error) {
       html += '<details style="margin-top:6px"><summary style="font-size:11px;color:#6b7280;cursor:pointer">'
-        + (en ? 'Raw error from CODEF' : '카드사(CODEF) 오류 원문') + '</summary>'
+        + (en ? 'Raw error from the card provider' : '카드사(' + _esc(s.provider === 'barobill' ? '바로빌' : 'CODEF') + ') 오류 원문') + '</summary>'
         + '<div style="margin-top:4px;font-size:11px;color:#6b7280;word-break:break-all;line-height:1.6">'
         + _esc(s.last_error) + '</div></details>';
     }
@@ -11158,26 +11158,40 @@ window.rebuildGlobalSearchIndex = function() {
 
     var box = document.getElementById('acc-card-status');
     var res = d && d.result;
+    // 프로바이더에 따라 문구가 다르다 — 바로빌엔 «토큰 발급» 단계도 «데모» 개념도 없다
+    var prov = (d && d.provider) || (_cardStatus && _cardStatus.provider) || 'codef';
+    var isBaro = prov === 'barobill';
     var lines = [];
     if (!d || !d.ok) {
       lines.push(en ? 'Self-test could not run (keys missing or request blocked).'
                     : '자가진단을 실행하지 못했습니다(키 미등록이거나 요청이 막혔습니다).');
     } else {
-      var okToken = !(res && (res.errors || []).some(function (e) { return /codef_token_failed/.test(e); }));
       var got = res ? (res.seen || 0) : 0;
-      lines.push((okToken ? '✅ ' : '❌ ') + (en ? 'CODEF login (OAuth token)' : 'CODEF 로그인(토큰 발급)'));
-      lines.push((got > 0 ? '✅ ' : '❌ ') + (en ? 'Transaction query & parsing' : '거래내역 조회·파싱')
-        + ' — ' + got + (en ? ' demo rows' : '건(데모)'));
-      if (res && res.errors && res.errors.length) {
-        lines.push('⚠️ ' + _esc(String(res.errors[0]).slice(0, 220)));
+      var errs = (res && res.errors) || [];
+      if (isBaro) {
+        // 접속 자체가 됐는가 — HTTP 오류·SOAP 오류가 없으면 문이 열린 것이다
+        var reached = !errs.some(function (e) { return /barobill_http_|soap_fault/.test(e); });
+        lines.push((reached ? '✅ ' : '❌ ') + (en ? 'Connecting to BaroBill' : '바로빌 접속·인증'));
+      } else {
+        var okToken = !errs.some(function (e) { return /codef_token_failed/.test(e); });
+        lines.push((okToken ? '✅ ' : '❌ ') + (en ? 'CODEF login (OAuth token)' : 'CODEF 로그인(토큰 발급)'));
       }
-      lines.push(en
-        ? 'Demo rows are NOT stored — this only proves the pipeline works. Real data needs production CODEF keys.'
-        : '데모 데이터는 <b>저장하지 않습니다.</b> 배선이 살아 있다는 것만 확인한 것이며, 실제 내역은 CODEF 정식 키가 있어야 나옵니다.');
+      lines.push((got > 0 ? '✅ ' : '❌ ') + (en ? 'Transaction query & parsing' : '거래내역 조회·파싱')
+        + ' — ' + got + (en ? ' rows' : '건'));
+      if (errs.length) lines.push('⚠️ ' + _esc(String(errs[0]).slice(0, 260)));
+      lines.push(isBaro
+        ? (en ? 'Nothing was saved — this only checks the connection. Press Sync to store real transactions.'
+              : '이 진단은 <b>저장하지 않습니다.</b> 실제로 채우려면 «🔄 동기화» 를 누르세요.')
+        : (en ? 'Demo rows are NOT stored — this only proves the pipeline works.'
+              : '데모 데이터는 <b>저장하지 않습니다.</b> 배선이 살아 있다는 것만 확인한 것입니다.'));
     }
     if (box) {
+      /* 이전 진단 결과는 지우고 새로 그린다.
+         예전엔 beforeend 로 계속 붙여서, 두 번 누르면 상자가 두 개·세 개로 쌓였다(실측). */
+      var old = document.getElementById('acc-card-selftest');
+      if (old) old.remove();
       box.insertAdjacentHTML('beforeend',
-        '<div style="margin-top:8px;border:1px dashed #6b7280;border-radius:8px;padding:10px 12px;background:#f9fafb">'
+        '<div id="acc-card-selftest" style="margin-top:8px;border:1px dashed #6b7280;border-radius:8px;padding:10px 12px;background:#f9fafb">'
         + '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:4px">🧪 '
         + (en ? 'Connection self-test' : '연동 자가진단') + '</div>'
         + '<div style="font-size:12px;color:#4b5563;line-height:1.8">' + lines.join('<br>') + '</div></div>');

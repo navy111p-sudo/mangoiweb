@@ -123,14 +123,19 @@ check('⑦ 빈 응답을 성공으로 읽지 않는다', !(M.parseApprovalXml(''
    ⚠️ 한 번 틀렸던 지점이다 — 네임스페이스를 www 로, SOAPAction 을 네임스페이스 기반으로
       잡았었다. 둘은 서로 다른 주소다. */
 eq('⑨ 본문 네임스페이스는 ws.baroservice.com (www 아님)', M.BAROBILL_NS, 'http://ws.baroservice.com/');
-eq('⑨ SOAPAction 은 접속 호스트 기반 — 운영',
+/* 🔴 라이브 실측(2026-08-14)으로 확정된 규칙. 문서 예시(https://testws…)를 따라
+   호스트 기반으로 보냈다가 서버에 거절당했다:
+     HTTP 500 SoapException "SOAPAction: https://ws.baroservice.com/GetApprovalHistories
+     의 값을 인식할 수 없습니다"
+   ASMX 는 SOAPAction 을 본문 네임스페이스와 대조한다. 되돌리면 다시 500 이 난다. */
+eq('⑨ SOAPAction = 네임스페이스 + 메서드명 (https 아님)',
   M.soapAction('https://ws.baroservice.com/CARD.asmx', 'GetApprovalHistories'),
-  'https://ws.baroservice.com/GetApprovalHistories');
-eq('⑨ SOAPAction 은 접속 호스트 기반 — 테스트(호스트를 바꾸면 따라간다)',
+  'http://ws.baroservice.com/GetApprovalHistories');
+eq('⑨ 접속 호스트가 테스트여도 SOAPAction 은 그대로다',
   M.soapAction('https://testws.baroservice.com/CARD.asmx', 'GetApprovalHistories'),
-  'https://testws.baroservice.com/GetApprovalHistories');
-check('⑨ SOAPAction 에 네임스페이스를 쓰지 않는다',
-  !M.soapAction('https://ws.baroservice.com/CARD.asmx', 'X').startsWith(M.BAROBILL_NS));
+  'http://ws.baroservice.com/GetApprovalHistories');
+check('⑨ SOAPAction 에 https:// 를 쓰지 않는다 — 서버가 거절한다',
+  !M.soapAction('https://ws.baroservice.com/CARD.asmx', 'X').startsWith('https://'));
 
 const env = M.soapEnvelope('GetApprovalHistories', [
   ['CERTKEY', 'K'], ['CorpNum', '1348630816'], ['ID', 'joey'], ['CardNum', '1234'],
