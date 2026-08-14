@@ -3186,6 +3186,9 @@
             </select>
             <button id="tp-refresh-btn" type="button" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
             <button id="tp-auto-match-btn" type="button" onclick="window.runTeacherAutoMatch && window.runTeacherAutoMatch()" style="padding:5px 12px;font-size:12px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;color:#1d4ed8;cursor:pointer;font-weight:600" data-ko="🔗 강사 계정 자동 매칭" data-en="🔗 Auto-match Teacher Accounts" title="이름이 정확히 일치하는 강사만 자동으로 연결하고, 애매한 경우는 건드리지 않습니다">🔗 강사 계정 자동 매칭</button>
+            <!-- 💬 (2026-08-13) 강사 카카오ID 반영 + 전달. 자세한 설명은 /js/adm-teacher-kakao.js 머리말 -->
+            <button id="tp-kakao-backfill-btn" type="button" onclick="window.tkOpenBackfill && window.tkOpenBackfill()" style="padding:5px 12px;font-size:12px;border:1px solid #fcd34d;border-radius:6px;background:#fffbeb;color:#92400e;cursor:pointer;font-weight:600" data-ko="📇 카카오ID 일괄 반영" data-en="📇 Import KakaoTalk IDs" data-ko-title="운영진이 준 필리핀 강사 카카오ID 명단을 강사 명부에 채웁니다. 빈 칸만 채우고, 이미 값이 있으면 건드리지 않습니다." data-en-title="Fills empty KakaoTalk ID cells from the Philippine teacher list. Existing values are never overwritten." title="운영진이 준 필리핀 강사 카카오ID 명단을 강사 명부에 채웁니다. 빈 칸만 채우고, 이미 값이 있으면 건드리지 않습니다.">📇 카카오ID 일괄 반영</button>
+            <button id="tp-kakao-send-btn" type="button" onclick="window.tkOpenSend && window.tkOpenSend()" style="padding:5px 12px;font-size:12px;border:0;border-radius:6px;background:#fee500;color:#191919;cursor:pointer;font-weight:800" data-ko="💬 카카오·문자 전달" data-en="💬 Message Teachers" data-ko-title="강사를 골라 카카오톡·문자로 메시지를 전달합니다." data-en-title="Pick teachers and send them a message by KakaoTalk / SMS." title="강사를 골라 카카오톡·문자로 메시지를 전달합니다.">💬 카카오·문자 전달</button>
             <span id="tp-count" style="font-size:11px;color:#6b7280;align-self:center">—</span>
             <span style="flex:1"></span>
             <button id="tp-hr-criteria" type="button" onclick="window.openHrCriteria && window.openHrCriteria()" style="padding:6px 12px;font-size:12px;background:#fff;color:#6b21a8;border:1px solid #e9d5ff;border-radius:6px;cursor:pointer;font-weight:700" data-ko="📋 평가 기준" data-en="📋 Criteria" title="인사평가가 어떤 항목·비중으로 계산되는지 보기">📋 평가 기준</button>
@@ -3205,6 +3208,9 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="활동지역" data-en="Region">활동지역</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="10분 수수료" data-en="Fee/10min">10분 수수료</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="연락처" data-en="Contact">연락처</th>
+                  <!-- 💬 (2026-08-13) 카카오ID 를 별도 칸으로. 전엔 «연락처» 칸이 phone || kakao_id 라
+                       전화번호가 있는 강사는 카카오ID 가 화면에 영영 안 보였다. -->
+                  <th style="padding:6px;border:1px solid #e5e7eb" data-ko="카카오ID" data-en="KakaoTalk ID">카카오ID</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="입사일" data-en="Join Date">입사일</th>
                   <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(168,85,247,0.18),rgba(124,58,237,0.18))" data-ko="인사평가" data-en="HR Score" data-ko-title="수업 25% · 재등록 30% · 근태 20% · 행정 15% · 조직 10% 가중평균 — 점수를 누르면 근거를 볼 수 있습니다" data-en-title="Weighted: Class 25% · Retention 30% · Punct 20% · Admin 15% · Contrib 10% — click a score for the breakdown">인사평가</th>
                   <th class="hr-eval-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.18))" data-ko="순위" data-en="Rank">순위</th>
@@ -3212,7 +3218,7 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="액션" data-en="Actions">액션</th>
                 </tr>
               </thead>
-              <tbody id="tp-list-body"><tr><td colspan="13" class="empty">—</td></tr></tbody>
+              <tbody id="tp-list-body"><tr><td colspan="14" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -8748,7 +8754,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=70" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=71" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -12205,6 +12211,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
+<script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
 <script src="/js/adm-ia6.js?v=9" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
