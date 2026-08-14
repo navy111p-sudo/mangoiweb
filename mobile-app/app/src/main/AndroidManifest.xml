@@ -11,6 +11,8 @@
     <!-- 📥 녹화 저장 등 파일 다운로드 → 공용 다운로드 폴더 (Android 9 이하만 권한 필요) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
+    <!-- 🔔 Android 13+ 다운로드 진행/완료 알림 표시용 (v2.1) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />

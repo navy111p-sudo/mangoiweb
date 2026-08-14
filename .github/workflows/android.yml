@@ -74,7 +74,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add ci-build.log dist cloudflare-deploy/public/app-version.json cloudflare-deploy/public/downloads 2>/dev/null || true
-          git commit -m "ci: publish build results + APK auto-update manifest [skip ci]" || echo "nothing to commit"
+          # ⚠️ 이 커밋 메시지에 «skip ci» 를 넣으면 안 된다 — 새 APK·매니페스트를 실어 나갈
+          #   사이트 배포(deploy.yml)까지 막혀서, 다음 main 푸시 전까지 앱 업데이트가 안 나갔다
+          #   (2026-08-14 실제로 밟음). android.yml 자신은 paths 필터(mobile-app/**) 때문에
+          #   이 커밋으로 다시 돌지 않으므로 무한루프 걱정은 없다.
+          git commit -m "ci: publish build results + APK auto-update manifest" || echo "nothing to commit"
           # 자동배포 워처가 main 을 빠르게 밀어올리므로 rebase 없는 push 는 거부되기 쉽다.
           # fetch→rebase→push 를 재시도해 CI 결과(APK+매니페스트)가 확실히 안착하게 한다.
           # 충돌 가능 파일은 CI 가 생성한 app-version.json 뿐 → 그럴 땐 항상 우리(CI) 버전 채택.
