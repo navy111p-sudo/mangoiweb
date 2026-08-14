@@ -137,6 +137,94 @@ check('긴급 복구용 수동 호출구는 남겨 둔다', /loadRest: loadRest/
 check('같은 파일을 두 번 넣지 않는다', /loadedSrc\[src\]/.test(lazy));
 check('순서를 보존한다 (async=false)', /s\.async = false/.test(lazy));
 
+/* 🐢 (2026-08-13 수정요청 #02) 위 ①~③ 은 «파일(바이트)» 을 안 받게 한 것이었다.
+   그런데 «데이터(API)» 쪽에 같은 문제가 그대로 남아 있었다 — 부팅 때 API 13개를 쐈고
+   그중 화면에 항상 보이는 것은 load()(상단 KPI) 하나뿐, 나머지 12개는 닫힌 카드 안을
+   채우는 것이었다. 그리고 활성 방 15초 폴링(요청 2개)이 탭이 뒤에 있든 카드가 닫혀 있든
+   무조건 돌아, 켜 둔 탭 하나가 시간당 480 요청을 냈다.
+   되돌아가면 화면·파일을 아무리 줄여도 첫 화면이 다시 밀리므로 여기서 못박는다. */
+console.log('\n[ ⑤ 데이터도 카드를 열 때 받는다 (2026-08-13 #02) ]');
+{
+  const core = rd('../cloudflare-deploy/public/js/adm-core.js');
+  const bootIdx = core.indexOf('Promise.allSettled([ load() ]);');
+  check('부팅 호출이 load() 하나로 줄었다', bootIdx > 0);
+  check('🔴 옛 13개 통짜 부팅이 되살아나지 않았다',
+    !/Promise\.allSettled\(\[\s*\n?\s*load\(\), loadRecordings\(\)/.test(core));
+  check('카드→로더 표가 있다', /const CARD_LOADERS = \{/.test(core));
+  check('카드가 열리면 그 카드 로더를 돌린다 (toggle 캡처 한 곳에서)',
+    /runCardLoaders\(d\.id\);/.test(core) &&
+    /document\.addEventListener\('toggle'[\s\S]{0,400}\}, true\);/.test(core));
+  check('두 번 열어도 두 번 받지 않는다 (한 번만 표시)', /if \(!cardId \|\| _cardLoaded\[cardId\]\) return;/.test(core));
+  check('처음부터 열려 있는 카드도 챙긴다 (딥링크·복원 안전망)',
+    /Object\.keys\(CARD_LOADERS\)[\s\S]{0,220}el\.open\) runCardLoaders\(id\)/.test(core));
+  check('로더 하나가 터져도 나머지가 죽지 않는다', /try \{ fn\(\); \} catch/.test(core));
+
+  console.log('\n[ ⑥ 15초 폴링은 «보일 때만» 돈다 ]');
+  // ⚠️ 줄 첫머리(=실행되는 코드)만 본다. 주석에는 «예전엔 이랬다» 로 같은 글자가 일부러 남아 있다.
+  check('🔴 조건 없는 setInterval(loadActiveRooms, 15000) 로 되돌아가지 않았다',
+    !/^\s*setInterval\(loadActiveRooms, 15000\)/m.test(core));
+  check('가시성 판정 함수가 있다', /function _activeRoomsVisible\(\)/.test(core));
+  check('백그라운드 탭이면 건너뛴다', /if \(document\.hidden\) return false;/.test(core));
+  check('카드가 닫혀 있으면 건너뛴다', /if \(!c \|\| !c\.open\) return false;/.test(core));
+  check('ia6 가 감춰 둔 카드면 건너뛴다', /classList\.contains\('ia6-hide'\)\) return false;/.test(core));
+  check('폴링이 그 판정을 실제로 쓴다', /setInterval\(function \(\) \{ if \(_activeRoomsVisible\(\)\) loadActiveRooms\(\); \}, 15000\);/.test(core));
+  check('🪤 타이머를 꺼 버리지 않는다 — 껐다 켜면 «다시 안 켜지는» 사고가 난다',
+    !/clearInterval\([^)]*activeRooms/i.test(core));
+  check('탭으로 돌아오면 15초를 기다리지 않는다 (visibilitychange 즉시 1회)',
+    /addEventListener\('visibilitychange'[\s\S]{0,160}_activeRoomsVisible\(\)\) loadActiveRooms\(\)/.test(core));
+
+  /* 🔬 (2026-08-13) ⑤⑥ 을 넣고도 «실제 브라우저» 로 부팅 요청을 세어 보니 아직 많았다.
+     jsdom 으로 블록만 떼어 돌릴 때는 안 보이던 경로 세 갈래가 더 있었다 —
+       · 통합검색 색인(buildGlobalIndex)이 부팅 800ms 뒤 데이터 API 를 **9개** 불렀다
+       · adm-q5 의 autoLoadStudentMgmt 가 1.5s·3.5s·6s **세 번** 돌며 매번 _erpCache 를 지웠다
+       · getErpList 의 캐시가 await 뒤에 채워져, 동시 호출이 각자 학생 2000명을 받아 갔다
+     실측(Playwright, 부팅 8초): 기준선 55건/33경로 → 28건/18경로. erp-list 4회 → 1회. */
+  console.log('\n[ ⑥-2 부팅 요청을 더 줄인 세 갈래 (2026-08-13, 실제 브라우저로 발견) ]');
+  const q5 = rd('../cloudflare-deploy/public/js/adm-q5.js');
+  check('🔴 통합검색 색인을 부팅 타이머로 만들지 않는다',
+    !/setTimeout\(\(\) => \{\s*buildGlobalIndex\(\)/.test(core));
+  check('검색창을 처음 건드릴 때 만든다 (focus·input)',
+    /function ensureGlobalIndex\(\)/.test(core) &&
+    /addEventListener\('focus', ensureGlobalIndex\)/.test(core) &&
+    /addEventListener\('input', ensureGlobalIndex\)/.test(core));
+  check('⚠️ 메뉴 검색은 즉시 되게 buildMenuIndex 는 그대로 부팅에 돈다',
+    /^buildMenuIndex\(\);$/m.test(core));
+  check('색인이 늦게 와도 이미 친 검색어에 결과를 채운다',
+    /renderSearchDropdown\(el\.value\)/.test(core));
+  check('🔴 autoLoadStudentMgmt 가 여러 번 돌지 않는다 (한 번만)',
+    /if \(window\.__autoLoadStudentMgmtDone\) return;/.test(q5) &&
+    /window\.__autoLoadStudentMgmtDone = true;/.test(q5));
+  check('⚠️ 늦게 정의되는 경우 대비(재시도)는 남긴다 — 준비 안 됐으면 다음 차례로',
+    /if \(!fns\.every\(fn => typeof window\[fn\] === 'function'\)\) return;/.test(q5));
+  check('getErpList 가 «받는 중» 요청을 나눠 쓴다 (동시 호출 중복 제거)',
+    /let _erpInflight = null;/.test(core) && /if \(_erpInflight\) return _erpInflight;/.test(core));
+  check('⚠️ 실패해도 inflight 를 풀어 준다 — 안 풀면 영영 재시도 못 한다',
+    /_erpInflight\.finally\(\(\) => \{ _erpInflight = null; \}\)/.test(core));
+
+  /* 🔔 (2026-08-13) 강사 평가 알람(adm-r14)의 «가디언» 이 API 를 폭주시켰다.
+     1초마다 «#rating-role-panel 이 없으면 다시 그린다» 인데, render 가 async 라 fetch 중에는
+     패널이 아직 없어 다음 초에 또 불렀다. 게다가 평가가 0건이면 host.remove() 로 끝나
+     패널이 «영영» 안 생기므로 20초 내내 두드렸다 — 실측 부팅 8초에 10회(최대 21회).
+     최근 30일 평가가 없는 날에는 관리자가 접속할 때마다 그만큼 나갔다는 뜻이다. */
+  console.log('\n[ ⑥-3 강사 평가 알람 가디언이 API 를 폭주시키지 않는다 (2026-08-13) ]');
+  const r14 = rd('../cloudflare-deploy/public/js/adm-r14.js');
+  check('그리는 중이면 겹쳐 부르지 않는다 (busy)',
+    /var _rgBusy = false/.test(r14) && /if \(_rgBusy\) return;/.test(r14));
+  check('한 번 그려도 패널이 없으면 «보여줄 게 없는 것» 으로 보고 멈춘다 (settled)',
+    /_rgSettled = true;/.test(r14) && /\+\+ticks > 20 \|\| _rgSettled/.test(r14));
+  check('🔴 가디언이 render 를 맨몸으로 부르지 않는다 (safeRender 를 거친다)',
+    !/if \(!document\.getElementById\('rating-role-panel'\)\) render\(\);/.test(r14));
+  check('⚠️ 패널이 «생겼다가 지워진» 경우는 종전대로 다시 붙인다 (가디언 본래 목적)',
+    /if \(!document\.getElementById\('rating-role-panel'\)\) safeRender\(render\);/.test(r14));
+  check('언어를 바꾸면 다시 그린다 (settled 를 푼다)',
+    /_rgSettled = false;\s*\n\s*safeRender\(role === 'teacher'/.test(r14));
+
+  console.log('\n[ ⑦ 캐시 — 고친 adm-core 가 실제로 내려가야 한다 ]');
+  const m = html.match(/adm-core\.js\?v=(\d+)/);
+  check(`admin.html 이 adm-core.js 를 버전과 함께 부른다 (?v=${m ? m[1] : '없음'})`, !!m);
+  check('버전이 68 이상 (이번 수정 반영)', !!m && Number(m[1]) >= 68);
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

@@ -80,6 +80,37 @@ console.log('\n[ ⑥ 캐시 — 고친 js 가 실제로 내려가야 한다 ]');
   check('버전이 3 이상 (이번 수정 반영 — ?v= 를 안 올리면 옛 파일이 캐시에서 나온다)', !!m && Number(m[1]) >= 3);
 }
 
+/* 🐞 (2026-08-13 수정요청 #04) 버그·문의 화면에 «신규상담 → 등록 전환» 이 같이 떴다.
+   원인은 GROUPS 의 한 항목이 두 카드를 함께 맡고 있던 것 하나뿐이다(다른 코드는 정상).
+   항목을 둘로 쪼개 고쳤으니, 「다시 한 칸으로 묶으면 신고가 되돌아온다」를 여기서 막는다.
+   ⚠️ 「card-inquiry-mgmt 를 통째로 지운다」로 고치는 것도 막는다 — 그러면 요구사항 2
+      (신규상담 기능은 다른 화면에서 그대로 유지)를 어기고 메뉴에서 아예 사라진다. */
+console.log('\n[ ⑦ 버그 화면과 신규상담 화면은 따로다 (2026-08-13 #04) ]');
+{
+  const start = ia6.indexOf('var GROUPS = [');
+  const end = ia6.indexOf('\n  ];', start);
+  const G = start >= 0 && end > start ? eval(ia6.slice(start + 'var GROUPS = '.length, end + 4)) : [];
+  const items = G.flatMap(g => g.items.map(it => ({ key: g.key + ':' + it.ko, cards: it.cards || [] })));
+  const owners = (id) => items.filter(it => it.cards.indexOf(id) >= 0);
+  const inq = owners('card-inquiry-mgmt'), bug = owners('card-bug-reports');
+
+  check('GROUPS 를 읽어냈다 (아래 검사의 전제)', items.length > 0);
+  check('💌 신규상담 카드를 맡은 항목이 있다 — 없으면 메뉴에서 사라진다', inq.length > 0);
+  check('🐞 버그 카드를 맡은 항목이 있다', bug.length > 0);
+  check('🔴 둘을 같은 항목이 맡지 않는다 — 같이 맡으면 한 화면에 함께 뜬다',
+    !items.some(it => it.cards.indexOf('card-inquiry-mgmt') >= 0 && it.cards.indexOf('card-bug-reports') >= 0));
+  check('🐞 버그 카드가 «대표 카드(cards[0])» 다 — 점프·딥링크가 제 항목을 찾는다',
+    bug.some(it => it.cards[0] === 'card-bug-reports'));
+}
+
+/* 🔁 항목 이름이 곧 localStorage 키다. 이름을 바꿔 놓고 이사를 안 시키면
+   쓰던 사람이 다음 접속에 「오늘의 수업」으로 튄다 — «메뉴가 없어졌다» 신고가 된다. */
+console.log('\n[ ⑧ 이름이 바뀐 항목은 옛 키를 새 키로 옮긴다 ]');
+check('RENAMED 이사표가 있다', /var RENAMED = \{/.test(ia6));
+check('옛 「문의·버그」 키를 잇는다', /'today:문의·버그'\s*:\s*'today:신규상담'/.test(ia6));
+check('옮긴 값을 localStorage 에 다시 적는다 (다음 접속에도 유지)',
+  /RENAMED\[want\][\s\S]{0,220}?localStorage\.setItem\(LS_KEY, want\)/.test(ia6));
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

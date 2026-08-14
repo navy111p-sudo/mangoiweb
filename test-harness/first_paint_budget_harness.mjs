@@ -53,12 +53,21 @@ function weigh(page) {
   }
   blocking += inline;
 
+  let lazy = 0;
   for (const m of html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/g)) {
     const tag = m[0], src = m[1].split('?')[0];
     // ⚠️ 주석 안에 태그 리터럴이 있으면 여기에 걸린다. 그래서 소스 파일이 실제로 있는 것만 센다
     //    (실제로 밟았다 — 주석에 써 둔 태그 때문에 「아직 313KB blocking」 이라는 오답이 나왔다)
     let size = 0;
     try { size = statSync(join(PUB, src)).size; } catch { continue; }
+    /* 🐢 (2026-08-13) `type="text/lazy-js"` 는 브라우저가 **아예 실행하지 않는** 태그다.
+       adm-lazy.js 가 카드를 펼칠 때 그때 받는다(= 이 하니스가 권하는 바로 그 방식).
+       그런데 위 정규식의 `\bsrc=` 가 **`data-src=` 에도 걸려서**, 지연 태그가
+       defer 도 없으니 전부 «blocking» 으로 세이고 있었다 — admin.html 20개 235KB.
+       숫자가 실제의 두 배 가까이 부풀었고, 카드를 지연으로 새로 만들 때마다 예산이 깎였다.
+       이 파일 머리말이 경계한 «지표가 옳은 일을 벌주는» 상태가 이미 벌어져 있었던 것이다.
+       → 따로 세어 눈에는 보이게 하되, blocking 에서는 뺀다. */
+    if (/type=["']text\/lazy-js["']/.test(tag)) { lazy += size; continue; }
     if (/\b(defer|async)\b/.test(tag)) { deferred += size; }
     else { blocking += size; items.push([size, src]); }
   }
@@ -67,6 +76,7 @@ function weigh(page) {
     blocking: Math.round(blocking / 1024),
     inline: Math.round(inline / 1024),
     deferred: Math.round(deferred / 1024),
+    lazy: Math.round(lazy / 1024),
     top: items.slice(0, 5),
   };
 }
@@ -75,7 +85,7 @@ const cur = {};
 for (const p of PAGES) { const w = weigh(p); if (w) cur[p] = w; }
 
 for (const [p, w] of Object.entries(cur)) {
-  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB (인라인 ${String(w.inline).padStart(4)}KB + 외부 ${String(w.blocking - w.inline).padStart(3)}KB) · defer ${String(w.deferred).padStart(4)}KB`);
+  console.log(`${p.padEnd(20)} blocking ${String(w.blocking).padStart(4)}KB (인라인 ${String(w.inline).padStart(4)}KB + 외부 ${String(w.blocking - w.inline).padStart(3)}KB) · defer ${String(w.deferred).padStart(4)}KB · 지연 ${String(w.lazy).padStart(4)}KB`);
 }
 
 if (UPDATE) {

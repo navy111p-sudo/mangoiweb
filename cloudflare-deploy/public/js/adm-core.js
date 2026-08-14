@@ -5042,6 +5042,12 @@ function _addEnrollmentRow(prefill) {
       '<div class="en-row-who" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px">' +
         (v.name ? '👤 ' + _esc(v.name) : '') + '</div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
+    /* 👨‍🏫 (2026-08-13 수정요청 #03) 「강사 우선」을 고르면 «누구인지» 를 여기서 바로 고른다.
+       ⚠️ 표에 열을 새로 만들지 않는다 — ③ 배정 우선순위 칸 «안» 에 딸린 칸으로 둔다.
+          열을 늘리면 2026-08-12 에 정리한 «등록 때 사람이 고르는 것은 5가지» 가 다시 무너진다.
+       ⚠️ 얼굴 사진은 넣지 않는다(요구사항 2). datalist 라 타이핑하면 좁혀지고(요구사항 3),
+          목록은 강사 명부(GET /api/admin/teachers, active=1)를 그대로 쓴다.
+       ⚠️ 「시간 우선」이면 감추고 **값도 비운다**(요구사항 4) — 안 비우면 숨은 값이 저장된다. */
     '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
       teacherSel +
@@ -5121,7 +5127,7 @@ function _enPrioNote(tr) {
     else _enLoadTeachers();
   }
   box.textContent = val === 'teacher'
-    ? (en ? 'Teacher fit first — time may shift' : '강사 적합도 먼저 · 시간은 조정될 수 있음')
+    ? (en ? 'Teacher first — pick a name, or leave blank to auto-assign' : '강사 먼저 · 이름을 고르거나, 비우면 자동 배정')
     : (en ? 'This day·time first' : '적어 준 요일·시간 먼저');
 }
 
@@ -5428,7 +5434,7 @@ function _readEnrollmentRows() {
       time: time || null,
       class_size: classSize || null,
       type: typesKo.join('+') || null,
-      // 🧭 (2026-08-12) ③ 배정 우선순위 — 강사를 이름으로 박는 대신 이 값만 남긴다
+      // 🧭 (2026-08-12) ③ 배정 우선순위
       assign_priority: priority,
       // 🧑‍🏫 (2026-08-14) ③ 「강사 우선」에서 고른 «희망» 강사. 서버가 이미 받던 컬럼이라 새 칸이 아니다.
       teacher_name: wantTeacher || null,
@@ -7375,14 +7381,14 @@ let _smCountBase = '';                                      // 전체 인원수 
    ② 요청 순서 보장이 없어 «정»→«정우»→«정우영» 중 늦게 온 옛 응답이 최신 결과를 덮어씀
    ③ 1000행 × 19열(19,000셀)을 매 입력마다 통째로 다시 그림
    ④ Neo4j 가 죽어 있으면 검색마다 502 를 기다린 뒤에야 D1 로 폴백 (지연 2배)
-   → seq/abort 로 ②, quiet 로 ①, _smShown 청크로 ③, _smGraphOff 로 ④ 를 각각 막는다. */
+   → seq/abort 로 ②, quiet 로 ①, _smShown 청크로 ③ 을 각각 막는다.
+      (④ 그래프DB 왕복은 2026-08-13 에 이 화면에서 아예 뺐다 — 아래 loadStudentList 주석 참고) */
 let _smReqSeq = 0;                                          // 요청 일련번호 — 늦게 온 옛 응답 폐기용
 let _smAbort = null;                                        // 진행 중 요청 취소 핸들
 let _smShown = 0;                                           // 지금 그려둔 행 수 (스크롤 시 증가)
 let _smRows = [];                                           // 필터·정렬이 끝난 현재 목록 (이어붙이기용)
 let _smRowHtml = null;                                      // 한 행 HTML 생성기 (renderStudentTable 이 채움)
 const SM_CHUNK = 200;                                       // 한 번에 그리는 행 수
-let _smGraphOff = false;                                    // 그래프DB 가 한 번 죽으면 이 화면에선 재시도 안 함
 
 /* 🏫 대리점·학원 드롭다운 채우기 (2026-07-23) — 불러온 학생들의 대리점명(shop_name)에서 자동 생성.
    서버가 이미 권한 범위로 걸러 보낸 _smStudents 만 쓰므로, 지사 계정엔 자기 대리점만 나온다. */
@@ -7480,26 +7486,30 @@ async function loadStudentList(q, opts) {
   else tb.innerHTML = '<tr><td colspan="19" class="empty">' + (_L?'Loading...':'불러오는 중...') + '</td></tr>';
   let seedStudents = [];
   let apiItems = [];
-  let _dataSource = 'D1';
   let d = null;
-  // 1차: Neo4j 그래프 DB 실데이터 (/api/admin/students/graph-list)
-  //   미설정(503)·연결 실패(502)·빈 결과·비본사 403 이면 조용히 D1(unified)로 폴백
-  //   ⚡ (2026-08-05) 한 번 죽은 그래프DB 를 검색마다 다시 두드리면 502 를 기다린 뒤에야 D1 로
-  //      가서 지연이 두 배가 된다. 이 화면에서는 첫 실패 이후 건너뛴다(_smGraphOff).
-  if (!_smGraphOff) try {
-    const rg = await fetch('/api/admin/students/graph-list?limit=1000' + _qs, { cache: 'no-store', credentials: 'include', signal: _ac ? _ac.signal : undefined });
-    const dg = await rg.json();
-    if (rg.ok && dg && dg.ok && Array.isArray(dg.students) && dg.students.length) {
-      d = dg; _dataSource = 'Neo4j';
-    } else if (dg && dg.error) {
-      if (rg.status === 502 || rg.status === 503) _smGraphOff = true;   // 미설정·접속불가 → 이후 D1 직행
-      console.warn('[students] 그래프DB 폴백 (D1 사용):', dg.error);
-    }
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;                            // 최신 요청에 밀림 — 조용히 종료
-    _smGraphOff = true;
-    console.warn('[students] 그래프DB 접속 실패 — D1 폴백:', e);
-  }
+  /* 🕸️❌ (2026-08-13) 이 화면은 이제 그래프DB(/api/admin/students/graph-list)를 **안 부른다.**
+     예전엔 그것을 1차로 부르고 실패하면 D1(unified)로 폴백했다. 왜 뺐는지 —
+
+     ① 지금 아무것도 안 준다. 운영 화면 라벨이 «D1» 로 나오고 콘솔에는 아무 로그도 없다.
+        로그가 없다는 것은 오류(502·503)가 아니라 **`ok:true` + `students:[]`** 였다는 뜻이다
+        (오류면 dg.error 를 찍는 가지로 갔다). 즉 Neo4j 는 살아서 정상 응답하는데
+        `MATCH (s:Student)` 가 0건이다.
+        ⚠️ 예전엔 있었다 — cafe24-sync 의 importCafe24Students 가 **같은** `MATCH (s:Student)` 로
+           29,386명을 students_erp 에 넣었다(실측: created_at=CAFE24_STUDENT_SENTINEL 29,386행).
+           그 뒤 그래프가 비워졌거나 다른 인스턴스를 보고 있다.
+
+     ② 살아나도 이 표에는 **D1 보다 나쁘다.** 그래프 응답에는 이 표가 그리는 열 중
+        «가입일(created_at) · 수강신청(enroll_package) · 세션수(sessions) · 최근방문(last_seen)»
+        4개가 아예 없다. 그래프가 이기면 그 4열이 조용히 빈칸·0 으로 나온다.
+        반대로 그래프만 주는 것(family·parent_name)은 이 표가 하나도 안 그린다.
+        → 즉 이 화면에서는 그래프가 «느린 D1» 이 아니라 «데이터가 모자란 D1» 이다.
+
+     ③ D1 은 실측 74ms 다(2026-08-13 #01 에서 183만 행 → 12.6만 행으로 줄임).
+        앞에 왕복을 하나 더 두는 것 자체가 손해다.
+
+     되살리려면 — 엔드포인트·Cypher·KV 캐시는 **그대로 살아 있다**(진단·다른 화면용).
+     다만 그때는 «그래프를 먼저» 가 아니라 «D1 을 기본으로 두고 그래프가 더 주는 것만 덧대기» 로
+     할 것. 안 그러면 ②의 4열이 다시 빈다. */
   if (_stale()) return;
   try {
     if (!d) {
@@ -7562,7 +7572,7 @@ async function loadStudentList(q, opts) {
     _username_lc: String(s.username || s.user_id || '').toLowerCase()
   }));
   _smCountBase = (_L ? _smStudents.length + ' students' : _smStudents.length + '명')
-    + (_dataSource === 'Neo4j' ? (_L ? ' · 🕸️ Graph DB' : ' · 🕸️ 그래프DB 실데이터') : (_L ? ' · D1' : ' · D1'));
+    + ' · D1';   // 🕸️❌ (2026-08-13) 이 화면은 D1 만 쓴다 — 출처가 하나뿐이라 분기도 없앴다
   if (cnt) cnt.textContent = _smCountBase;
   try { smFillAgencyFilter(); } catch (_) {}   // 🏫 대리점·학원 드롭다운 채우기 (2026-07-23)
   renderStudentTable();
@@ -7963,6 +7973,7 @@ document.addEventListener('click', (ev) => {
 
 // 공통: students_erp 캐시 (한 번 fetch 후 재사용 — 시드 갱신 시 무효화 가능)
 let _erpCache = null;
+let _erpInflight = null;   // 받는 중인 요청 — 동시 호출이 각자 또 받지 않게 (2026-08-13 #02)
 async function getErpList() {
   // 외부에서 _erpCache가 null로 초기화되면 다시 fetch
   if (window._erpCache === null) _erpCache = null;
@@ -7973,14 +7984,23 @@ async function getErpList() {
     if (hasSeed) _erpCache = null; // 강제 재 fetch
   }
   if (_erpCache && _erpCache.length > 0) return _erpCache;
-  try {
-    const r = await fetch('/api/admin/students/erp-list?limit=2000', { credentials:'include' });
-    const j = await r.json();
-    if (window.PIIMask && j && typeof j.can_view_pii !== 'undefined') PIIMask.setCanView(j.can_view_pii);  // 🔒 PII 권한 반영
-    _erpCache = (j && j.ok && j.items) || [];
-  } catch { _erpCache = []; }
-  try { window._erpCache = _erpCache; } catch{}
-  return _erpCache;
+  /* 🐢 (2026-08-13 수정요청 #02) 캐시가 «await 뒤에» 채워져서, 여럿이 동시에 부르면
+     전부 캐시를 비어 있다고 보고 각자 학생 2000명을 받아 갔다(실측: 부팅에 같은 URL 3번).
+     받는 중인 «약속» 을 하나 붙잡아 두고 나눠 쓴다 — 결과는 종전과 같고 요청만 1번이 된다. */
+  if (_erpInflight) return _erpInflight;
+  _erpInflight = (async () => {
+    try {
+      const r = await fetch('/api/admin/students/erp-list?limit=2000', { credentials:'include' });
+      const j = await r.json();
+      if (window.PIIMask && j && typeof j.can_view_pii !== 'undefined') PIIMask.setCanView(j.can_view_pii);  // 🔒 PII 권한 반영
+      _erpCache = (j && j.ok && j.items) || [];
+    } catch { _erpCache = []; }
+    try { window._erpCache = _erpCache; } catch{}
+    return _erpCache;
+  })();
+  // ⚠️ 실패해도 반드시 풀어 준다 — 안 풀면 «한 번 실패하면 영영 재시도 못 하는» 상태가 된다.
+  try { _erpInflight.finally(() => { _erpInflight = null; }); } catch { _erpInflight = null; }
+  return _erpInflight;
 }
 
 function escSm(s){ return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -8588,10 +8608,53 @@ if (_adminRefreshEl) _adminRefreshEl.onclick = async function() {
 //    지사 241행 + 대리점·학원 921행(약 155KB)을 부팅마다 받아서 DOM 에 그렸다.
 //    이제 카드를 열 때 로드한다(admin.html 의 ontoggle → adminLazyLoadCard).
 //    ⚠️ 되살리지 말 것. 두 표는 각자 카드 안에서만 쓰이므로 부팅 때 없어도 아무것도 안 깨진다.
-Promise.allSettled([
-  load(), loadRecordings(), loadRetention(), loadActiveRooms(), loadNotifications(), loadStorageStats(), loadPayrollRates(),
-  loadLevelTests(), loadLeveltestApps(), loadLessonInsights(), loadEnrollments(), loadCommunity(), loadTextbooks()
-]);
+/* 🐢 (2026-08-13 수정요청 #02) 「사이트 전체가 느리다」
+   위 2026-08-08 조치와 **똑같은 문제가 11곳 더 남아 있었다.** 부팅 때 API 13개를 한꺼번에
+   쐈는데, 그중 화면에 «항상 보이는» 것은 load()(상단 KPI 4박스) 하나뿐이다.
+   나머지 12개는 전부 닫혀 있는 카드 안을 채우는 것이라, 직원이 그 카드를 열지 않으면
+   받아 놓고 아무도 안 본다. 필리핀 저속 회선에서는 이 12개가 첫 화면을 그대로 밀어낸다.
+
+   확인한 것 — 12개 로더가 손대는 DOM 을 admin.html 을 파싱해 «어느 카드 안인지» 전부 대조했고,
+   전역·모듈 변수(_unifiedRecRows·_tbItems·_enItems·__liItems·__ltApps)도 소비처를 따라가
+   **자기 카드 밖에서 쓰는 곳이 하나도 없다**는 것을 확인했다. 그래서 미뤄도 아무것도 안 깨진다.
+   ⚠️ loadPayrollRates 만은 성격이 다르다 — 결과(_payrollSettings)를 **읽는 코드가 아예 없다**
+      (adm-*.js·admin.html 전수 확인). 지우지는 않고 급여 카드에 매달아 두었다.
+
+   ⚠️ 카드를 여는 경로가 여러 개다(사이드바·ia6·통합검색·허브·해시 딥링크·AI 명령).
+      그래서 진입점마다 손대지 않고, 위 «조상 열기» 와 같은 자리에서 toggle 을 한 번만 듣는다.
+      새 진입점이 생겨도 자동으로 따라온다. */
+const CARD_LOADERS = {
+  'card-active-rooms':      [loadActiveRooms],
+  'card-retention':         [loadRetention],
+  'card-recording-storage': [loadRecordings, loadStorageStats],
+  'card-notifications':     [loadNotifications],
+  'card-level-tests':       [loadLevelTests, loadLeveltestApps],
+  'card-lesson-insight':    [loadLessonInsights],
+  'card-enrollments':       [loadEnrollments],
+  'card-community':         [loadCommunity],
+  'card-textbooks':         [loadTextbooks],
+  'card-payroll':           [loadPayrollRates],
+};
+const _cardLoaded = Object.create(null);
+function runCardLoaders(cardId) {
+  if (!cardId || _cardLoaded[cardId]) return;
+  const fns = CARD_LOADERS[cardId];
+  if (!fns) return;
+  _cardLoaded[cardId] = true;          // 실패해도 다시 안 쏜다 — 카드 안에 새로고침 버튼이 따로 있다
+  fns.forEach(function (fn) {
+    try { fn(); } catch (e) { console.warn('[카드 지연로드 실패]', cardId, e); }
+  });
+}
+window.adminRunCardLoaders = runCardLoaders;   // 진단·수동 호출용
+
+// 부팅에는 «항상 보이는» 것만 남긴다. 나머지는 카드를 열 때 (아래 toggle 감시).
+Promise.allSettled([ load() ]);
+// 혹시 처음부터 열려 있는 카드가 있으면(딥링크·복원) 그것만 지금 채운다.
+//   ⚠️ 현재 admin.html 에 `<details open>` 인 카드는 없다. 나중에 생겨도 안 깨지게 두는 안전망이다.
+Object.keys(CARD_LOADERS).forEach(function (id) {
+  const el = document.getElementById(id);
+  if (el && el.open) runCardLoaders(id);
+});
 // 🔗 (2026-08-09) 하위항목이 열리면 «조상 <details> 도» 함께 연다.
 //    「🏪 대리점(학원)」을 「🏢 조직 관리」 카드 안으로 합치면서 필요해졌다 —
 //    사이드바·허브·AI 명령·통합검색은 전부 `getElementById(id).open = true` 로 여는데,
@@ -8601,6 +8664,7 @@ Promise.allSettled([
 document.addEventListener('toggle', function (e) {
   var d = e.target;
   if (!d || d.tagName !== 'DETAILS' || !d.open) return;
+  runCardLoaders(d.id);            // 🐢 (2026-08-13 #02) 이 카드가 처음 열렸으면 그때 데이터를 받는다
   for (var p = d.parentElement; p; p = p.parentElement) {
     if (p.tagName === 'DETAILS' && !p.open) p.open = true;
   }
@@ -8618,8 +8682,30 @@ window.adminLazyLoadCard = function(kind) {
     }
   } catch (e) { console.warn('lazy load 실패:', kind, e); }
 };
-// 활성 방 목록 15초마다 자동 갱신
-setInterval(loadActiveRooms, 15000);
+/* 🔄 활성 방 목록 15초마다 자동 갱신
+   🐢 (2026-08-13 수정요청 #02) 예전엔 `setInterval(loadActiveRooms, 15000)` 한 줄이었다.
+      이 함수는 매번 API 를 **2개**(/api/active-rooms · /api/admin/alerts) 부른다.
+      그런데 조건이 하나도 없어서 —
+        · 탭을 뒤로 넘겨 두어도 · 카드를 닫아 두어도 · ia6 가 그 카드를 감춰 놓아도
+      계속 돌았다. 관리자가 정산 화면을 보고 있는 동안에도 **탭 하나당 시간당 480 요청**이다.
+      (하루 종일 켜 두는 자리가 많다. 그게 워커·D1 부하로 그대로 돌아온다.)
+      → «지금 화면에 보이는 동안만» 돈다. 안 보이면 그냥 건너뛴다.
+   ⚠️ 끄는 게 아니라 «건너뛰는» 것이다. 다시 보이면 아래 visibilitychange 가 즉시 한 번 채운다.
+      (카드를 다시 열 때는 toggle → runCardLoaders 가 이미 채워 준다)
+   🪤 setInterval 자체를 clearInterval 하지 않는다 — 껐다 켜는 것을 관리하기 시작하면
+      «다시 안 켜지는» 사고가 난다. 조건만 본다. */
+function _activeRoomsVisible() {
+  if (document.hidden) return false;                       // 백그라운드 탭
+  const c = document.getElementById('card-active-rooms');
+  if (!c || !c.open) return false;                         // 카드가 닫혀 있음
+  if (c.classList.contains('ia6-hide')) return false;      // ia6 가 다른 항목을 보여 주는 중
+  return true;
+}
+setInterval(function () { if (_activeRoomsVisible()) loadActiveRooms(); }, 15000);
+// 탭으로 돌아왔을 때 15초를 기다리게 하지 않는다 — 보이는 순간 한 번 채운다.
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden && _activeRoomsVisible()) loadActiveRooms();
+});
 
 // ============================================================================
 // 🔍 통합 검색 (메뉴 + 학생·교사·가맹점·센터·수강·교재 등 모든 데이터)
@@ -10122,17 +10208,43 @@ document.getElementById('admin-sidebar-list')?.addEventListener('click', (ev) =>
   document.addEventListener('scroll', onceTrigger, { capture: true, passive: true });
 })();
 
-// 페이지 로드 시 메뉴 인덱스 빌드 + 통합 색인 비동기로 빌드
+// 페이지 로드 시 메뉴 인덱스 빌드 — 이건 fetch 가 없어서 즉시 끝난다(메뉴 검색은 바로 된다).
 buildMenuIndex();
-// 통합 색인은 데이터 fetch 가 시간 걸리므로 background 로 빌드. 빌드 중에도 메뉴는 검색 가능.
-setTimeout(() => {
+
+/* 🐢 (2026-08-13 수정요청 #02 보강) 데이터 색인은 «검색창을 처음 건드릴 때» 만든다.
+   예전엔 부팅 800ms 뒤에 무조건 만들었다. 그런데 buildGlobalIndex 는 데이터 API 를 **9개** 부른다 —
+     학생 1000명 · 강사 · 지사 · 대리점 전체(limit=0) · 수강신청 500 · 레벨테스트 500 ·
+     공지 · 교재 · 녹화 200
+   부팅 통짜 로드 12개를 카드 열 때로 미뤄 놓고도 이게 남아 있어서, 결국 첫 화면에서
+   API 10개가 나가고 있었다. 실제 브라우저(Playwright)로 부팅 요청을 세어 보고 발견했다 —
+   jsdom 으로 블록만 떼어 돌릴 때는 이 경로가 안 잡혔다.
+   직원 대부분은 사이드바로 다니고 통합검색은 가끔 쓴다. 안 쓰는 사람에겐 9개가 전부 낭비다.
+
+   ⚠️ 메뉴 검색은 그대로 «즉시» 된다 — 위 buildMenuIndex() 가 이미 돌았다.
+      데이터 색인이 늦게 완성되면 그때 드롭다운을 한 번 다시 그려 결과를 채운다
+      (검색어를 이미 친 상태에서 색인이 도착하는 경우). */
+let _globalIndexStarted = false;
+function ensureGlobalIndex() {
+  if (_globalIndexStarted) return;
+  _globalIndexStarted = true;
   buildGlobalIndex().then(() => {
     console.log('[search] global index built:', _globalSearchIndex.length, 'items');
+    const el = document.getElementById('menu-search');
+    if (el && el.value.trim()) renderSearchDropdown(el.value);
   });
-}, 800);
-// 색인 재빌드용 헬퍼 (등록·삭제 후 호출하면 됨)
+}
+window.ensureAdminSearchIndex = ensureGlobalIndex;   // 진단·수동 호출용
+(function wireLazyGlobalIndex() {
+  const el = document.getElementById('menu-search');
+  if (!el) { setTimeout(wireLazyGlobalIndex, 1000); return; }   // 늦게 그려져도 붙는다
+  el.addEventListener('focus', ensureGlobalIndex);
+  el.addEventListener('input', ensureGlobalIndex);
+})();
+
+// 색인 재빌드용 헬퍼 (등록·삭제 후 호출하면 됨) — 명시적 요청이므로 지연 규칙과 무관하게 바로 만든다
 window.rebuildGlobalSearchIndex = function() {
   buildMenuIndex();
+  _globalIndexStarted = true;
   return buildGlobalIndex();
 };
 

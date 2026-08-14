@@ -5766,6 +5766,52 @@ window.__admSettleRun = function(fn){
 })();
 </script>
 
+<!-- 🚷 장기 결석생 (연속 3회 이상) — 2026-08-13 수정요청 #05
+     ⚠️ 데이터 출처는 attendance 다. class_schedules 로 만들지 말 것 —
+        673행뿐이고 대부분 type_seed 데모라 실수업과 연결돼 있지 않다(api-admin.ts 주석 참고). -->
+<details class="table-card menu-card" id="card-long-absent" ontoggle="if(this.open&&window.laLoad)laLoad()">
+  <summary><span data-ko="🚷 장기 결석생 (연속 3회 이상)" data-en="🚷 Long-absent students (3+ in a row)">🚷 장기 결석생 (연속 3회 이상)</span></summary>
+  <div class="menu-body">
+    <div class="sub-menu">
+      <details class="sub-item" id="sub-long-absent" open>
+        <summary data-ko="📋 명단 (연속 결석 많은 순)" data-en="📋 List (most consecutive first)">📋 명단 (연속 결석 많은 순)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+            <select id="la-min" style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="3" data-ko="연속 3회 이상" data-en="3+ in a row">연속 3회 이상</option>
+              <option value="4" data-ko="연속 4회 이상" data-en="4+ in a row">연속 4회 이상</option>
+              <option value="5" data-ko="연속 5회 이상" data-en="5+ in a row">연속 5회 이상</option>
+              <option value="10" data-ko="연속 10회 이상" data-en="10+ in a row">연속 10회 이상</option>
+            </select>
+            <select id="la-days" style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="90" data-ko="최근 90일" data-en="Last 90 days">최근 90일</option>
+              <option value="180" selected data-ko="최근 180일" data-en="Last 180 days">최근 180일</option>
+              <option value="365" data-ko="최근 1년" data-en="Last 1 year">최근 1년</option>
+            </select>
+            <select id="la-sort" style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="streak" data-ko="연속 결석 많은 순" data-en="Most consecutive">연속 결석 많은 순</option>
+              <option value="last_present" data-ko="마지막 출석 오래된 순" data-en="Longest since check-in">마지막 출석 오래된 순</option>
+              <option value="name" data-ko="이름순" data-en="By name">이름순</option>
+            </select>
+            <input id="la-q" type="text" placeholder="이름 · 아이디 · 학원명" data-ko-ph="이름 · 아이디 · 학원명" data-en-ph="Name · ID · center"
+                   style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db;min-width:180px" />
+            <select id="la-include" style="padding:6px 10px;font-size:12.5px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="" data-ko="제외 대상 숨김" data-en="Hide excluded">제외 대상 숨김</option>
+              <option value="all" data-ko="제외 대상도 보기 ⚠" data-en="Show excluded too ⚠">제외 대상도 보기 ⚠</option>
+            </select>
+            <button class="primary" onclick="laLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <button onclick="laExportCsv()" style="padding:7px 14px;font-size:12.5px" data-ko="📥 CSV" data-en="📥 CSV">📥 CSV</button>
+            <span id="la-count" style="font-size:12px;color:#6b7280;margin-left:auto"></span>
+          </div>
+          <div id="la-note" style="margin-bottom:10px"></div>
+          <div id="la-list"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+</details>
+<script type="text/lazy-js" data-src="/js/adm-longabsent.js?v=1" data-card="card-long-absent" data-globals="laLoad,laExportCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
+
 <!-- 📺 «비디오 자막 + 사전» 카드 삭제 (2026-08-10, 사장님 결정)
      자막·사전 API 가 전부 라이브 404/미구현이었다(반쪽 배선):
        /api/dictionary · /api/admin/video/subtitle-upload · /api/admin/video/subtitles
@@ -6905,7 +6951,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 강사  → "내 수업 평가" (자기 이름으로 필터된 평균/최근/건의사항)
      · 관리자 → "강사 평가 알람" (평가 낮은 강사 경고 + 우수 강사) → 클릭 시 상세 카드
      · 로그인 정보(admin_session)·역할로 판정, 최상단 #legacy-cards 앞에 주입 -->
-<script src="/js/adm-r14.js?v=3" defer></script><!-- 분할추출:adm-r14 -->
+<script src="/js/adm-r14.js?v=4" defer></script><!-- 분할추출:adm-r14 -->
 
 <details class="table-card menu-card" id="card-payroll">
   <!-- ⚠️ justify-content:space-between 금지 — adm-menu-icons.js 가 summary 맨 앞에 아이콘을
@@ -8763,7 +8809,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=73" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=77" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -8775,7 +8821,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- /js/kakao-fab.js 는 사용하지 않음 (글로벌 홈 FAB 로 대체) -->
 
 <!-- ━━━━━━━━━━ 🌱 SEED 글로벌 주입 — 모든 admin 기능에 자동 통합 ━━━━━━━━━━ -->
-<script src="/js/adm-q5.js?v=2" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q5.js?v=3" defer></script><!-- 분할추출:adm-q5 (원복: 이 위치에 인라인) -->
 
 <!-- ━━━━━━━━━━ 🔄 결석 강사 자동 대체 시스템 ━━━━━━━━━━ -->
 <script src="/js/adm-p7.js?v=8" defer></script><!-- 분할추출:adm-p7 (원복: 이 위치에 인라인) -->
@@ -12221,7 +12267,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<script src="/js/adm-ia6.js?v=9" defer></script><!-- 🧭 메뉴 6그룹 36항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08) -->
+<script src="/js/adm-ia6.js?v=11" defer></script><!-- 🧭 메뉴 6그룹 38항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

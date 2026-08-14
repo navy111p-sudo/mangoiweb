@@ -135,6 +135,20 @@ check('필수값 검증이 «이름» 이 아니라 «학생 아이디» 다',
   /records\.filter\(r => !r\.student_user_id/.test(coreSrc));
 const postCount = (coreSrc.match(/assign_priority: r\.assign_priority/g) || []).length;
 check('단건·일괄 POST 두 곳 모두 assign_priority 를 보낸다', postCount === 2, { postCount });
+/* 👨‍🏫 (2026-08-13 #03) 고른 강사가 «저장까지» 가야 한다 (완료 기준 3) */
+const teacherPostCount = (coreSrc.match(/teacher_name: r\.teacher_name/g) || []).length;
+check('단건·일괄 POST 두 곳 모두 teacher_name 을 보낸다', teacherPostCount === 2, { teacherPostCount });
+/* ⚠️ 변수명은 2026-08-14 현장 피드백 반영 때 teacherName → wantTeacher 로 바뀌었다.
+   검사의 «뜻» 은 그대로다 — 「강사 우선」일 때만 읽고, 빈 값은 null 로 보낸다. */
+check('_readEnrollmentRows 가 teacher_name 을 담는다 (시간 우선이면 빈 값)',
+  /teacher_name: wantTeacher \|\| null/.test(coreSrc) &&
+  /priority === 'teacher'\)[\s\S]{0,120}\.en-row-teacher'\)\?\.value/.test(coreSrc));
+check('빈 값은 null 로 보낸다 — \'\' 를 넣으면 서버가 «이름이 있다» 로 읽는다',
+  /teacher_name: wantTeacher \|\| null/.test(coreSrc));
+check('서버 INSERT 가 teacher_name 을 받는다 (이미 있던 컬럼)',
+  /_addEnrCol2\('teacher_name', 'TEXT'\)/.test(admSrc) && /b\.teacher_name \|\| null/.test(admSrc));
+check('「▸ 처리」가 적혀 있는 이름을 자동 배정보다 «먼저» 본다',
+  /\} else if \(e\.teacher_name\) \{/.test(actSrc));
 check('서버가 enrollments.assign_priority 컬럼을 보강한다',
   /_addEnrCol2\('assign_priority', 'TEXT'\)/.test(admSrc));
 check('서버 INSERT 에 assign_priority 가 들어간다',
@@ -146,7 +160,8 @@ check('알 수 없는 값은 schedule 로 떨어진다 (자유 문자열 저장 
 console.log('\n════════ 4부. 「▸ 처리」 — 이름을 대지 않아도 강사가 정해지는가 ════════');
 check('plan 이 assign_priority 를 내려 준다', /assign_priority: assignPriority/.test(actSrc));
 check('자동 배정 근거(continuity / free)를 함께 내려 준다', /auto: autoAssigned/.test(actSrc));
-check('⛔ 「강사를 골라 주세요」 라는 막힘은 없어졌다 (사람이 이름을 댈 곳이 없으므로)',
+// (2026-08-13 #03 로 이름을 «고를 수는» 있게 됐지만, 비워 두고 넘어가는 길은 그대로다 → 막힘 없음)
+check('⛔ 「강사를 골라 주세요」 라는 막힘은 없다 — 이름을 안 대도 배정된다',
   !/blockers\.push\('강사를 골라 주세요/.test(actSrc));
 check('아무도 안 비고 가르치던 강사도 없으면 «막는다» (멋대로 배정하지 않는다)',
   /blockers\.push\('배정할 강사가 없습니다/.test(actSrc));
@@ -215,6 +230,14 @@ if (!esbuildApi) {
       { ...BASE, assign_priority: 'teacher' }, ['t2'], { id: 't1', name: 'Melca' }, 'Melca', 'continuity', true, '강사 우선'],
     ['강사 우선인데 가르치던 강사가 없음 — 비는 사람 + 경고',
       { ...BASE, assign_priority: 'teacher' }, ['t3'], null, 'Belle', 'free', true, '가르치던 강사가 없습니다'],
+    /* 👨‍🏫 (2026-08-13 수정요청 #03) 화면에서 고른 이름이 «실제로 그 강사를 붙이는가».
+       등록 폼이 teacher_name 을 넣어 주므로, 가르치던 강사(Melca)가 있어도 고른 사람이 이긴다. */
+    ['강사 우선 + 이름을 직접 고름 — 가르치던 강사보다 «고른 사람» 이 우선',
+      { ...BASE, assign_priority: 'teacher', teacher_name: 'Belle' }, ['t2', 't3'],
+      { id: 't1', name: 'Melca' }, 'Belle', null, true, null],
+    ['강사 우선 + 명부에 없는 이름 — 막지 않고 경고 + 자동 배정으로 넘어간다',
+      { ...BASE, assign_priority: 'teacher', teacher_name: 'NoSuchTeacher' }, ['t2'],
+      null, 'Anna', 'free', true, '못 찾았습니다'],
     ['우선순위 없는 옛 데이터 — schedule 로 읽는다',
       { ...BASE, assign_priority: null }, ['t1'], null, 'Melca', 'free', true, null],
     ['아무도 안 비고 가르치던 강사도 없음 — 막는다',

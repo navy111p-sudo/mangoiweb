@@ -142,7 +142,18 @@ const ltBody = ltCard.slice(0, ltCard.indexOf('</details>') + 10);
 check('⑫ 도착 카드 안에 「레벨테스트 신청 현황」 영역이 있다', /레벨테스트 신청 현황/.test(ltBody));
 check('⑬ 그 영역의 검색·필터 입력(lt-apps-q)이 있다', /id="lt-apps-q"/.test(ltBody));
 check('⑭ 목록 로더 loadLeveltestApps() 가 존재한다', /function loadLeveltestApps\s*\(/.test(CORE));
-check('⑮ 초기 로드에서 loadLeveltestApps() 를 부른다', /Promise\.allSettled\(\[[\s\S]{0,600}loadLeveltestApps\(\)/.test(CORE));
+/* ⑮ (2026-08-13 수정요청 #02 로 계약이 바뀜)
+   예전에는 «부팅 때 Promise.allSettled 안에서 부른다» 를 봤다. 이 검사가 지키려던 것은
+   «검색·손자메뉴로 이 카드에 도착했을 때 표가 비어 있으면 안 된다» 이지, 부팅에 부르는 것 자체가
+   아니었다. 부팅 통짜 로드가 첫 화면을 밀어내서(#02) 카드를 «열 때» 받도록 바꿨으므로,
+   이제는 그 경로가 살아 있는지를 본다 —
+     · CARD_LOADERS 의 card-level-tests 에 매달려 있고
+     · 카드가 열리면 toggle 한 곳에서 그 로더를 돌린다
+   도착 경로는 전부 카드를 «연다»(사이드바 c.open=true · ia6 showOnly · ph125Jump host.open=true)
+   ⚠️ 되돌리려면 두 줄 다 되돌려야 한다. 한쪽만 지우면 도착했을 때 표가 빈 채로 남는다. */
+check('⑮ 카드를 열면 loadLeveltestApps() 가 돌도록 매달려 있다',
+  /'card-level-tests':\s*\[[^\]]*loadLeveltestApps[^\]]*\]/.test(CORE) &&
+  /runCardLoaders\(d\.id\);/.test(CORE));
 
 // ── 8. 사이드바 손자 메뉴(ph125) — «이름만 다르고 동작이 같은» 항목 금지 ──────
 /* 2026-08-06: 이 카드의 손자 4개(레벨 테스트/결과 조회/레벨 변경/히스토리)는 전부 같은 동작이었다.
