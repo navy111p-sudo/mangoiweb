@@ -20,7 +20,7 @@
     { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
     { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
     { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
-    { key: 'speech', emoji: '🎤', label: '단계별 발음',   again: '단계별 발음 다시' },
+    { key: 'speech', emoji: '🎤', label: 'AI 음성코치',   again: 'AI 음성코치 다시' },   // 인트로 카드와 같은 이름으로 통일(2026-08-14, 구명 «단계별 발음»)
     { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
     { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
     { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
@@ -36,7 +36,7 @@
   // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
   var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech', aifriend: 'aifriend', aiwrite: 'aiwrite' };
 
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: '단계별 발음', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
+  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
@@ -77,7 +77,7 @@
         case 'warmup': nav('/warmup.html'); break;
         case 'quiz': nav('/review-quiz.html'); break;
         case 'game': nav('/student-games.html'); break;
-        case 'speech': nav('/speech-coach.html'); break;   // 🎤 단계별 발음
+        case 'speech': nav('/speech-coach.html'); break;   // 🎤 AI 음성코치
         case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
         case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
         case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
