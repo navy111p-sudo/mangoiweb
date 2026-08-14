@@ -95,3 +95,18 @@ npx wrangler d1 execute mango-db --remote --command "SELECT * FROM student_point
 2. `wrangler tail --env production` 켜고 재현
 3. 에러가 시크릿/설정이면 → [ENVIRONMENT.md](ENVIRONMENT.md)
 4. 코드 버그면 → 해당 파일 위치 메모해서 개발자(또는 AI)에게 전달: "이 파일 몇 줄 근처, 이 에러"
+
+## 앱(APK)에서 녹화 «⬇저장» 이 안 될 때
+
+2026-08-14~15 실사고. 증상별로 원인이 다 다르니 순서대로 확인.
+
+1. **눌러도 아무 반응이 없다** → 앱이 v1.x. 앱에 다운로드 장치(DownloadListener)가 없어
+   조용히 버려진다. 앱을 껐다 켜서 업데이트 안내를 수락(또는 `/downloads/mangoi.apk` 재설치).
+2. **«다운로드를 시작했어요» 토스트 후 파일이 없고, 알림창에 «다운로드에 실패했습니다»** →
+   앱이 v2.0~2.1. 시스템 DownloadManager 가 사유 없이 실패하는 문제 — v2.2 에서
+   앱이 직접 받는 방식(HttpURLConnection→MediaStore)으로 교체했다. 업데이트로 해결.
+3. **v2.2 에서 «저장 실패» 대화상자** → 원인 문구가 그대로 찍힌다(서버 응답 코드 등).
+   «서버 응답 401/404» 면 인증·만료 문제로 서버 쪽(recordings-r2.ts)을 볼 것.
+   대화상자의 [브라우저로 받기] 는 어느 경우에도 동작하는 폴백이다(URL 에 서명 동봉).
+- 웹(브라우저·카톡 인앱)의 저장 폴백은 `public/js/flow.js` (MangoiApp UA 마커 감지),
+  다운로드 서명은 `src/auth-token.ts` `signRecDlSig` 참조.
