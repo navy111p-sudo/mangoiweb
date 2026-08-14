@@ -439,8 +439,16 @@ export async function handleRecordingUpload(
     }
     if (!r2Key || /^https?:\/\//.test(r2Key)) return new Response("Not found", { status: 404 });
 
+    // 📱 dl=1(저장)은 Range 를 **무시하고 항상 200 전체 본문**으로 준다 (2026-08-15).
+    //   갤럭시 일부 기기(다운로드 가속 등)가 저장 요청에 Range: bytes=0- 를 끼워 넣는데,
+    //   규칙대로 206 을 돌려주면 안드로이드 다운로드 클라이언트가 «비정상 응답»으로
+    //   실패한다 — 시스템 DownloadManager 는 사유 없이 «다운로드에 실패했습니다»만
+    //   반복했고, 앱 v2.2 의 자체 다운로드가 «서버 응답 206» 을 찍어 준 덕에 잡았다.
+    //   저장은 이어받기(seek)가 필요 없으므로 전체 본문이 항상 옳다. 재생(dl 없음)은
+    //   <video> seek 를 위해 지금처럼 Range 를 그대로 존중한다.
+    const wantDl = url.searchParams.get("dl") === "1";
     const obj2 = await env.RECORDINGS.get(r2Key, (() => {
-      const range = request.headers.get("Range");
+      const range = wantDl ? null : request.headers.get("Range");
       const opts: R2GetOptions = {};
       if (range) {
         const m = /bytes=(\d+)-(\d*)/.exec(range);
@@ -465,7 +473,7 @@ export async function handleRecordingUpload(
     //   파일명은 사람이 알아볼 수 있게 «mangoi-날짜-방번호.확장자» 로 만든다
     //   (URL 이 /play?id=.. 라 그냥 받으면 확장자 없는 'play' 로 저장됐다).
     //   한글·공백이 섞이면 헤더가 깨지므로 ASCII 로만 조립한다.
-    if (url.searchParams.get("dl") === "1") {
+    if (wantDl) {
       const dt = row.started_at ? new Date(row.started_at) : null;
       const ymd = dt
         ? `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, "0")}${String(dt.getDate()).padStart(2, "0")}`
