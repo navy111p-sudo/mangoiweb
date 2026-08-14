@@ -745,9 +745,21 @@
       kakaoAndroid: ua.indexOf('kakaotalk') !== -1 && ua.indexOf('android') !== -1
     };
   }
+  // intent:// = 안드로이드가 «기본 브라우저 앱»을 직접 띄우는 공식 통로.
+  //   설치형(PWA)·대부분의 인앱에서 window.open 이 조용히 죽는 것과 달리 앱 전환이
+  //   눈에 보이고, 열린 브라우저가 첨부 응답을 받아 바로 다운로드한다.
+  function recDlIntent(abs) {
+    try {
+      var u = new URL(abs);
+      topWin().location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+      return true;
+    } catch (_) { return false; }
+  }
   // 다운로드가 막힌 환경용 안내 시트 — 설명 + 실행 버튼. (토스트 한 줄은 «뭘 하라는
   // 거냐»는 반응만 남겼다. 사용자가 직접 누르는 버튼이어야 팝업 차단에도 안 걸린다)
-  function recDlGuide(abs) {
+  //   autoTried=true 면 저장 탭 순간 이미 크롬을 띄운 뒤다(아래 recDlClick «바로 저장») —
+  //   시트는 «크롬이 안 열렸을 때» 를 위한 예비 통로로만 깔린다. 문구도 그에 맞춘다.
+  function recDlGuide(abs, autoTried) {
     var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
     if (!ov) return;
     var old = ov.querySelector('[data-rec-dl-guide]');
@@ -761,8 +773,11 @@
     sheet.innerHTML =
       '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + T('📥 파일 저장 안내', '📥 How to save the file') + '</div>' +
       '<div style="color:#94a3b8;font-size:13px;margin-bottom:12px">' +
-        T('지금 보시는 화면(설치한 앱·카톡 등)은 파일 다운로드를 지원하지 않아요. 아래 버튼으로 브라우저에서 저장해 주세요.',
-          'This screen (installed app / in-app viewer) cannot download files. Use a button below to save via your browser.') + '</div>' +
+        (autoTried
+          ? T('크롬이 열리면서 저장이 시작됐어요. 크롬이 열리지 않았다면 아래 버튼을 이용해 주세요.',
+              'Chrome should have opened and started the download. If it did not open, use a button below.')
+          : T('지금 보시는 화면(설치한 앱·카톡 등)은 파일 다운로드를 지원하지 않아요. 아래 버튼으로 브라우저에서 저장해 주세요.',
+              'This screen (installed app / in-app viewer) cannot download files. Use a button below to save via your browser.')) + '</div>' +
       '<button data-dlg-open style="display:block;width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">' +
         T('🌐 크롬(브라우저)으로 저장', '🌐 Save via Chrome/browser') + '</button>' +
       '<button data-dlg-copy style="display:block;width:100%;background:rgba(148,163,184,.16);color:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">' +
@@ -771,16 +786,7 @@
     ov.appendChild(sheet);
     var bOpen = sheet.querySelector('[data-dlg-open]');
     bOpen.addEventListener('click', function () {
-      if (isAndroid) {
-        // intent:// = 안드로이드가 «기본 브라우저 앱»을 직접 띄우는 공식 통로.
-        //   설치형(PWA)·대부분의 인앱에서 window.open 이 조용히 죽는 것과 달리 앱 전환이
-        //   눈에 보이고, 열린 브라우저가 첨부 응답을 받아 바로 다운로드한다.
-        try {
-          var u = new URL(abs);
-          topWin().location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
-          return;
-        } catch (_) {}
-      }
+      if (isAndroid && recDlIntent(abs)) return;
       var wn = null;
       try { wn = w.open(abs, '_blank'); } catch (_) { wn = null; }
       if (!wn) { try { topWin().location.href = abs; } catch (_) {} }   // 새 창이 막히면 같은 창(첨부 응답이라 화면 유지)
@@ -818,7 +824,16 @@
       // 카톡 안드로이드: 외부 크롬으로 직접 — 열리면서 바로 저장이 시작된다
       try { topWin().location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(abs); return; } catch (_) {}
     }
-    recDlGuide(abs);
+    // 📱 «바로 저장» (2026-08-14 사장님 «바로는 힘들어?») — 안드로이드는 시트를 띄워
+    //   버튼을 한 번 더 누르게 하지 않고, 저장 탭 즉시 intent:// 로 크롬을 연다
+    //   (한 번 탭 = 크롬 전환 + 저장 시작). 시트는 «크롬이 안 열렸을 때» 예비용으로만
+    //   깔아 둔다 — intent 실패를 코드로 감지할 방법이 없어서, 성공 시엔 돌아와서
+    //   닫기만 누르면 되는 수준의 비용으로 실패 시의 막다른 길을 없앤다.
+    if (/android/i.test(navigator.userAgent || '') && recDlIntent(abs)) {
+      recDlGuide(abs, true);
+      return;
+    }
+    recDlGuide(abs, false);
   }
 
   function bindRecButtons() {
