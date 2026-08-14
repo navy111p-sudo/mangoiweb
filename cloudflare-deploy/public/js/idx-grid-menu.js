@@ -768,7 +768,7 @@
       </div>
     </div>
 
-    <!-- 📨 온라인 상담 신청 (전체 너비) -->
+    <!-- 💬 상담 창구 (전체 너비) -->
     <div class="cs-channels cs-channels-1">
       <button type="button" onclick="closeInfoModal();window.openInquiryModal&&window.openInquiryModal()" class="cs-card cs-card-form cs-card-wide">
         <div class="cs-card-icon">💬</div>
@@ -779,6 +779,23 @@
         </div>
         <div class="cs-card-arrow">→</div>
       </button>
+    </div>
+
+    <!-- ☎️ 상담 전화 (2026-08-14) — contact.html 을 없애면서 전화번호가 갈 곳이 사라졌다.
+         ⚠️ 「모든 문의는 카카오로」 라는 요구는 그대로다. 이건 «또 하나의 문의 창구» 가 아니라
+            카카오를 못 쓰는 분을 위해 번호를 «남겨 두는» 자리다. 그래서 카카오 카드보다
+            작고 아래에 둔다 — 카카오 1순위는 2026-07-27 확정 사항이다.
+         ⚠️ tel: 링크는 PC 에서 아무 일도 안 일어날 수 있다. 그래서 번호를 글자로도 보여 준다. -->
+    <div class="cs-channels cs-channels-1" style="margin-top:8px">
+      <a href="tel:1644-0561" class="cs-card cs-card-tel">
+        <div class="cs-card-icon">☎️</div>
+        <div class="cs-card-body">
+          <div class="cs-card-title">상담 전화 <b style="color:#fbbf24">1644-0561</b></div>
+          <div class="cs-card-detail">10:00 ~ 23:00 (주말·공휴일 휴무)</div>
+          <div class="cs-card-meta" style="color:#94a3b8">💬 카카오톡이 더 빠릅니다</div>
+        </div>
+        <div class="cs-card-arrow">→</div>
+      </a>
     </div>
 
     <!-- 🏢 회사 정보 푸터 (법적 고지) -->

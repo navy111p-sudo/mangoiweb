@@ -9617,6 +9617,10 @@ window.mgIsSlowNet = function(){
   #info-modal-content .cs-card-email:hover { background: rgba(78,201,255,0.06); border-color: rgba(78,201,255,0.45); }
   #info-modal-content .cs-card-form { border-color: rgba(251,191,36,0.3); }
   #info-modal-content .cs-card-form:hover { background: rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.5); }
+  /* ☎️ (2026-08-14) 상담 전화 — contact.html 을 없애면서 전화번호가 갈 곳이 사라졌다.
+     ⚠️ 카카오보다 «작게·아래에» 둔다. 카카오가 1순위라는 것은 2026-07-27 확정 사항이다. */
+  #info-modal-content .cs-card-tel { border-color: rgba(148,163,184,0.28); }
+  #info-modal-content .cs-card-tel:hover { background: rgba(148,163,184,0.08); border-color: rgba(148,163,184,0.5); }
   #info-modal-content .cs-card-icon {
     font-size: 22px;
     text-align: center;
@@ -9837,7 +9841,7 @@ window.mgIsSlowNet = function(){
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=32"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=33"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
