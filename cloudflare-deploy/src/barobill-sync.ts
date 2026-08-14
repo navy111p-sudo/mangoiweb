@@ -42,13 +42,17 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 import { cleanSecret, ensureTables, metaSet, categorize, kstToday } from './corpcard-sync';
-import { xmlFirst, xmlEscape, parseApprovalXml } from './barobill-parse';
+import { xmlFirst, parseApprovalXml, soapEnvelope, soapAction, BAROBILL_NS } from './barobill-parse';
 export { baroDT, baroKind, baroRow, parseApprovalXml, xmlFirst, xmlBlocks, xmlUnescape } from './barobill-parse';
 
-/* ⚠️ 미확인 기본값 — 「개발준비」 문서를 확인하면 여기만 고치면 된다.
-   바로빌 SOAP 서비스는 서비스별로 엔드포인트가 갈린다(카드조회 = CARD). */
+/* 📍 접속 주소 — 「직접 HTTP 통신을 구현하는 방법」 원문에서 확인한 것:
+     · 호스트: 테스트 testws.baroservice.com / **운영 ws.baroservice.com**
+     · 경로  : 서비스마다 다르다. 세금계산서 예시가 `/TI.asmx` 였다.
+   ⚠️ 카드조회의 경로(`/CARD.asmx`)만 아직 원문으로 확인하지 못했다.
+      「카드조회 API 운영환경 통신규격 바로가기」 를 열면 확정된다.
+      틀려도 BAROBILL_WS_BASE 시크릿으로 덮어쓰면 되고, 그때 화면에 HTTP 404 원문과
+      접속 주소가 그대로 뜨므로 «조용히 0건» 이 되지 않는다. */
 export const BAROBILL_DEFAULT_WS = 'https://ws.baroservice.com/CARD.asmx';
-export const BAROBILL_DEFAULT_NS = 'http://www.baroservice.com/';
 
 export function baroCreds(env: any) {
   const digits = (v: any) => cleanSecret(v).replace(/\D/g, '');
@@ -58,7 +62,7 @@ export function baroCreds(env: any) {
     id: cleanSecret(env.BAROBILL_ID),
     cardNum: digits(env.BAROBILL_CARDNUM),
     ws: cleanSecret(env.BAROBILL_WS_BASE) || BAROBILL_DEFAULT_WS,
-    ns: cleanSecret(env.BAROBILL_SOAP_NS) || BAROBILL_DEFAULT_NS,
+    ns: cleanSecret(env.BAROBILL_SOAP_NS) || BAROBILL_NS,
   };
 }
 
@@ -84,20 +88,14 @@ export function baroMissing(env: any): string[] {
    바로빌은 ASMX(SOAP 1.1) 계열이다. 파라미터 «순서» 가 문서 표와 같아야 한다. */
 async function baroCall(env: any, method: string, args: Array<[string, any]>): Promise<string> {
   const c = baroCreds(env);
-  const body =
-    `<?xml version="1.0" encoding="utf-8"?>` +
-    `<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">` +
-    `<soap:Body><${method} xmlns="${c.ns}">` +
-    args.map(([k, v]) => `<${k}>${xmlEscape(v)}</${k}>`).join('') +
-    `</${method}></soap:Body></soap:Envelope>`;
-
   const r = await fetch(c.ws, {
     method: 'POST',
     headers: {
       'Content-Type': 'text/xml; charset=utf-8',
-      'SOAPAction': `${c.ns.replace(/\/?$/, '/')}${method}`,
+      // SOAPAction 은 네임스페이스가 아니라 «접속 호스트» 기반이다(문서 예시 실측)
+      'SOAPAction': `"${soapAction(c.ws, method)}"`,
     },
-    body,
+    body: soapEnvelope(method, args, c.ns),
   });
   const text = await r.text();
   if (!r.ok) {

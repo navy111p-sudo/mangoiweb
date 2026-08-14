@@ -116,6 +116,35 @@ check('⑦ CurrentPage 음수는 실패로 읽힌다', M.parseApprovalXml(failXm
   '문서 규약: 음수 = 오류코드');
 check('⑦ 빈 응답을 성공으로 읽지 않는다', !(M.parseApprovalXml('').currentPage > 0));
 
+/* ── ⑨ 통신 규격 — 개발자센터 「직접 HTTP 통신을 구현하는 방법」 원문과 대조 ───────
+   문서에 실린 세금계산서 예시:
+     SOAPAction: "https://testws.baroservice.com/IssueTaxInvoiceEx"
+     <IssueTaxInvoiceEx xmlns="http://ws.baroservice.com/">
+   ⚠️ 한 번 틀렸던 지점이다 — 네임스페이스를 www 로, SOAPAction 을 네임스페이스 기반으로
+      잡았었다. 둘은 서로 다른 주소다. */
+eq('⑨ 본문 네임스페이스는 ws.baroservice.com (www 아님)', M.BAROBILL_NS, 'http://ws.baroservice.com/');
+eq('⑨ SOAPAction 은 접속 호스트 기반 — 운영',
+  M.soapAction('https://ws.baroservice.com/CARD.asmx', 'GetApprovalHistories'),
+  'https://ws.baroservice.com/GetApprovalHistories');
+eq('⑨ SOAPAction 은 접속 호스트 기반 — 테스트(호스트를 바꾸면 따라간다)',
+  M.soapAction('https://testws.baroservice.com/CARD.asmx', 'GetApprovalHistories'),
+  'https://testws.baroservice.com/GetApprovalHistories');
+check('⑨ SOAPAction 에 네임스페이스를 쓰지 않는다',
+  !M.soapAction('https://ws.baroservice.com/CARD.asmx', 'X').startsWith(M.BAROBILL_NS));
+
+const env = M.soapEnvelope('GetApprovalHistories', [
+  ['CERTKEY', 'K'], ['CorpNum', '1348630816'], ['ID', 'joey'], ['CardNum', '1234'],
+  ['StartDate', '20260201'], ['EndDate', '20260813'],
+  ['CountPerPage', 100], ['CurrentPage', 1], ['OrderDirection', 1],
+]);
+check('⑨ 메서드 요소에 네임스페이스가 붙는다',
+  env.includes('<GetApprovalHistories xmlns="http://ws.baroservice.com/">'), env.slice(0, 260));
+check('⑨ 파라미터 순서가 문서 표와 같다',
+  /<CERTKEY>[\s\S]*<CorpNum>[\s\S]*<ID>[\s\S]*<CardNum>[\s\S]*<StartDate>[\s\S]*<EndDate>[\s\S]*<CountPerPage>[\s\S]*<CurrentPage>[\s\S]*<OrderDirection>/.test(env),
+  '순서가 바뀌면 ASMX 는 값을 엉뚱한 파라미터로 받는다');
+check('⑨ SOAP 1.1 봉투 형식', env.startsWith('<?xml version="1.0" encoding="utf-8"?><soap:Envelope')
+  && env.includes('xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"'));
+
 /* ── XML 이스케이프(요청 만들 때) ───────────────────────────────────────── */
 eq('⑧ 요청 값의 &,<,> 를 이스케이프', M.xmlEscape('a&b<c>d'), 'a&amp;b&lt;c&gt;d');
 check('⑧ &amp;lt; 를 < 로 잘못 풀지 않는다', M.xmlUnescape('&amp;lt;') === '&lt;',

@@ -37,6 +37,44 @@ export function xmlBlocks(xml: string, tag: string): string[] {
 export const xmlEscape = (v: any): string => String(v ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/* ── 📮 SOAP 요청 만들기 (2026-08-14 「직접 HTTP 통신을 구현하는 방법」 원문 기준) ──
+   문서에 실린 세금계산서 예시가 규격을 그대로 보여 준다:
+
+     POST /TI.asmx HTTP/1.1
+     Host: testws.baroservice.com
+     Content-Type: text/xml; charset=utf-8
+     SOAPAction: "https://testws.baroservice.com/IssueTaxInvoiceEx"
+     …
+       <IssueTaxInvoiceEx xmlns="http://ws.baroservice.com/">
+         <CERTKEY>string</CERTKEY> …
+
+   ⚠️ 두 가지가 헷갈리기 쉽다. 실제로 한 번 틀렸다:
+     ① 본문 네임스페이스는 **http://ws.baroservice.com/** 로 고정이다
+        (테스트/운영이 같다. www 가 아니다)
+     ② SOAPAction 은 네임스페이스가 아니라 **접속 호스트 기반**이다
+        (테스트면 https://testws.baroservice.com/…, 운영이면 https://ws.baroservice.com/…)
+   그래서 SOAPAction 은 «엔드포인트 주소에서» 만든다 — 호스트를 바꾸면 자동으로 따라간다. */
+export const BAROBILL_NS = 'http://ws.baroservice.com/';
+
+/** 엔드포인트 URL + 메서드명 → SOAPAction 헤더 값 */
+export function soapAction(wsUrl: string, method: string): string {
+  let origin = 'https://ws.baroservice.com';
+  const m = /^(https?:\/\/[^/]+)/i.exec(String(wsUrl || ''));
+  if (m) origin = m[1].replace(/^http:/i, 'https:');
+  return `${origin}/${method}`;
+}
+
+/** SOAP 1.1 요청 본문. 파라미터 «순서» 가 문서 표와 같아야 한다. */
+export function soapEnvelope(method: string, args: Array<[string, any]>, ns: string = BAROBILL_NS): string {
+  return `<?xml version="1.0" encoding="utf-8"?>`
+    + `<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`
+    + ` xmlns:xsd="http://www.w3.org/2001/XMLSchema"`
+    + ` xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">`
+    + `<soap:Body><${method} xmlns="${ns}">`
+    + args.map(([k, v]) => `<${k}>${xmlEscape(v)}</${k}>`).join('')
+    + `</${method}></soap:Body></soap:Envelope>`;
+}
+
 /* ── 💱 값 변환 ───────────────────────────────────────────────────────────── */
 
 /** ApprovalDT(YYYYMMDDHHMMSS) → 'YYYY-MM-DD HH:MM'. 짧게 와도 날짜까지는 살린다. */
