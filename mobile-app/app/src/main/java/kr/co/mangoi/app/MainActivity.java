@@ -138,40 +138,19 @@ public class MainActivity extends AppCompatActivity {
         // JS 브리지: 페이지에서 window.AndroidTTS.speak('안녕', 'ko', 1.05, 1.0) 로 호출
         webView.addJavascriptInterface(new TtsBridge(), "AndroidTTS");
 
-        // 📥 (v2.0) 파일 다운로드 — 녹화 «⬇저장» 등. WebView 는 DownloadListener 가 없으면
-        //   Content-Disposition: attachment 응답을 **에러도 없이 그냥 버린다** — 사장님이
-        //   겪은 «저장을 눌러도 아무 반응이 없다»(2026-08-14)의 뿌리가 이것이다.
-        //   시스템 DownloadManager 로 넘겨 공용 다운로드 폴더에 저장하고 알림을 띄운다.
-        // 🔎 (v2.1) 완료·실패를 눈에 보이게 — v2.0 실사용에서 «시작 토스트는 떴는데 파일이
-        //   없다»가 나왔다. DownloadManager 실패는 기본으로 아무 표시가 없고(13+는 알림
-        //   권한도 없으면 알림조차 안 뜸), 그래서 원인을 알 수 없었다. 건별로 완료 방송을
-        //   받아 성공은 «저장 완료», 실패는 **사유 코드와 함께 대화상자**로 알리고
-        //   [브라우저로 받기] 폴백을 제공한다.
-        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
-            try {
-                DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
-                String name = URLUtil.guessFileName(url, contentDisposition, mimetype);
-                req.setTitle(name);
-                req.setMimeType(mimetype);
-                req.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-                req.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-                // DownloadManager 는 WebView 쿠키를 물려받지 않는다 — 관리자 세션 쿠키로만
-                // 인증되는 URL 도 받아지도록 쿠키를 직접 실어 준다(녹화 URL 은 서명도 동봉됨).
-                try {
-                    String cookies = CookieManager.getInstance().getCookie(url);
-                    if (cookies != null && !cookies.isEmpty()) req.addRequestHeader("Cookie", cookies);
-                } catch (Exception ignored) {}
-                try { if (userAgent != null) req.addRequestHeader("User-Agent", userAgent); } catch (Exception ignored) {}
-                DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-                long id = dm.enqueue(req);
-                watchFileDownload(id, name, url);
-                Toast.makeText(MainActivity.this,
-                        "다운로드를 시작했어요: " + name, Toast.LENGTH_LONG).show();
-            } catch (Exception e) {
-                // 최후 폴백: 외부 브라우저로 (URL 에 서명이 있어 로그인 없이도 받아진다)
-                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) {}
-            }
-        });
+        // 📥 (v2.0→v2.2) 파일 다운로드 — 녹화 «⬇저장» 등.
+        //   v2.0: WebView 는 DownloadListener 가 없으면 attachment 응답을 에러도 없이 버린다
+        //         («저장을 눌러도 무반응» 의 뿌리) → 시스템 DownloadManager 로 연결.
+        //   v2.1: DownloadManager 실패가 무표시라 사유 대화상자 추가.
+        //   v2.2: **DownloadManager 를 버리고 앱이 직접 받는다** — 실기기에서
+        //         «다운로드에 실패했습니다» 만 반복됐다(2026-08-15 새벽, 4회+).
+        //         DownloadManager 는 쿠키·UA 를 제대로 안 물려주고 별도 프로세스로
+        //         요청하다 보안장비류에 걸리기도 하는데, 실패 사유도 안 알려준다.
+        //         반면 이 WebView 로는 같은 URL 의 «재생» 이 잘 된다 — 즉 같은 쿠키·UA 로
+        //         앱이 직접 GET 하면 반드시 받아진다. HttpURLConnection 으로 직접 받아
+        //         MediaStore(공용 다운로드 폴더)에 넣고, 성공·실패를 그 자리에서 알린다.
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) ->
+                downloadFileInApp(url, userAgent, contentDisposition, mimetype));
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -409,50 +388,81 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
-    // ====================== 📥 파일 다운로드 완료/실패 감시 (v2.1) ======================
-    //   왜: 실패가 «무표시»면 사용자는 파일이 어디에도 없는 이유를 알 길이 없다(2026-08-14 실사용).
-    //   APK 업데이트용 downloadReceiver 와 별개 — 그쪽은 자기 id 만 보고, 여기는 이 맵의 id 만 본다.
-    private final java.util.HashMap<Long, String[]> fileDownloads = new java.util.HashMap<>();
-    private BroadcastReceiver fileDownloadReceiver;
-
-    private void watchFileDownload(long id, String name, String url) {
-        fileDownloads.put(id, new String[]{name, url});
-        if (fileDownloadReceiver != null) return;
-        fileDownloadReceiver = new BroadcastReceiver() {
-            @Override public void onReceive(Context ctx, Intent it) {
-                long got = it.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-                String[] info = fileDownloads.remove(got);
-                if (info == null) return;   // 다른 다운로드(APK 업데이트 등)는 각자 리시버가 처리
-                int status = -1, reason = -1;
+    // ====================== 📥 앱 직접 다운로드 (v2.2) ======================
+    //   시스템 DownloadManager 를 쓰지 않는다 — 실기기에서 사유 없이 «실패» 만 반복했다.
+    //   재생이 되는 것과 똑같은 조건(같은 쿠키·같은 UA·같은 URL)으로 앱이 직접 받아서
+    //   공용 다운로드 폴더에 넣는다. 결과는 그 자리에서 토스트/대화상자로 알린다.
+    private void downloadFileInApp(String url, String userAgent, String contentDisposition, String mimetype) {
+        final String name = URLUtil.guessFileName(url, contentDisposition, mimetype);
+        final String mime = (mimetype != null && !mimetype.isEmpty()) ? mimetype : "video/webm";
+        Toast.makeText(this, "다운로드 중… " + name, Toast.LENGTH_LONG).show();
+        new Thread(() -> {
+            String err = null;
+            try {
+                HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(120000);           // 회선이 느려도 긴 수업 영상을 끊지 않게
+                c.setInstanceFollowRedirects(true);
                 try {
-                    DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-                    android.database.Cursor c = dm.query(new DownloadManager.Query().setFilterById(got));
-                    if (c != null) {
-                        if (c.moveToFirst()) {
-                            status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-                            reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
-                        }
-                        c.close();
-                    }
+                    String ck = CookieManager.getInstance().getCookie(url);
+                    if (ck != null && !ck.isEmpty()) c.setRequestProperty("Cookie", ck);
                 } catch (Exception ignored) {}
-                if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                    Toast.makeText(MainActivity.this, "저장 완료: " + info[0] + " (다운로드 폴더)", Toast.LENGTH_LONG).show();
+                if (userAgent != null && !userAgent.isEmpty()) c.setRequestProperty("User-Agent", userAgent);
+                int http = c.getResponseCode();
+                if (http != 200) {
+                    err = "서버 응답 " + http;
+                } else {
+                    java.io.InputStream in = c.getInputStream();
+                    if (Build.VERSION.SDK_INT >= 29) {
+                        // Android 10+ — MediaStore 로 공용 다운로드 폴더에 기록(권한 불필요)
+                        android.content.ContentValues cv = new android.content.ContentValues();
+                        cv.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, name);
+                        cv.put(android.provider.MediaStore.Downloads.MIME_TYPE, mime);
+                        cv.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+                        cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 1);
+                        Uri item = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                        if (item == null) throw new Exception("다운로드 폴더에 파일을 만들 수 없어요");
+                        try (java.io.OutputStream out = getContentResolver().openOutputStream(item)) {
+                            if (out == null) throw new Exception("파일 쓰기 통로가 열리지 않아요");
+                            byte[] buf = new byte[65536];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        } catch (Exception we) {
+                            try { getContentResolver().delete(item, null, null); } catch (Exception ignored) {}
+                            throw we;
+                        }
+                        cv.clear();
+                        cv.put(android.provider.MediaStore.Downloads.IS_PENDING, 0);
+                        getContentResolver().update(item, cv, null, null);
+                    } else {
+                        // Android 9 이하 — 공용 Download 폴더에 직접 기록(WRITE_EXTERNAL_STORAGE 보유)
+                        File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+                        //noinspection ResultOfMethodCallIgnored
+                        dir.mkdirs();
+                        File f = new File(dir, name);
+                        try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
+                            byte[] buf = new byte[65536];
+                            int n;
+                            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                        }
+                    }
+                    in.close();
+                }
+                c.disconnect();
+            } catch (Exception e) {
+                if (err == null) err = String.valueOf(e.getMessage());
+            }
+            final String ferr = err;
+            final String u = url;
+            runOnUiThread(() -> {
+                if (ferr == null) {
+                    Toast.makeText(MainActivity.this, "✅ 저장 완료: " + name + " (다운로드 폴더)", Toast.LENGTH_LONG).show();
                     return;
                 }
-                // 실패 — 사유를 사람이 읽을 수 있게. reason 이 4xx/5xx 면 서버 HTTP 응답 코드다.
-                final String u = info[1];
-                String why;
-                if (reason >= 400 && reason < 600) why = "서버 응답 " + reason;
-                else if (reason == DownloadManager.ERROR_INSUFFICIENT_SPACE) why = "저장 공간 부족";
-                else if (reason == DownloadManager.ERROR_HTTP_DATA_ERROR
-                        || reason == DownloadManager.ERROR_CANNOT_RESUME) why = "네트워크 전송 오류";
-                else if (reason == DownloadManager.ERROR_FILE_ERROR
-                        || reason == DownloadManager.ERROR_FILE_ALREADY_EXISTS) why = "파일 저장 오류";
-                else why = "사유 코드 " + reason;
                 try {
                     new AlertDialog.Builder(MainActivity.this)
                             .setTitle("저장 실패")
-                            .setMessage(info[0] + "\n\n원인: " + why
+                            .setMessage(name + "\n\n원인: " + ferr
                                     + "\n\n[브라우저로 받기]를 누르면 크롬에서 바로 받아집니다(로그인 불필요).")
                             .setPositiveButton("브라우저로 받기", (d, w) -> {
                                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) {}
@@ -460,14 +470,8 @@ public class MainActivity extends AppCompatActivity {
                             .setNegativeButton("닫기", null)
                             .show();
                 } catch (Exception ignored) {}
-            }
-        };
-        IntentFilter f = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(fileDownloadReceiver, f, Context.RECEIVER_EXPORTED);
-        } else {
-            registerReceiver(fileDownloadReceiver, f);
-        }
+            });
+        }).start();
     }
 
     /**
@@ -634,10 +638,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         unregisterDownloadReceiver();
-        if (fileDownloadReceiver != null) {
-            try { unregisterReceiver(fileDownloadReceiver); } catch (Exception ignored) {}
-            fileDownloadReceiver = null;
-        }
         try { if (tts != null) { tts.stop(); tts.shutdown(); tts = null; } } catch (Exception ignored) {}
         if (webView != null) {
             webView.destroy();
