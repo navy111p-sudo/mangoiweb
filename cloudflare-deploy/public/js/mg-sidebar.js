@@ -61,7 +61,7 @@
     { go:'payment',     cls:'mg-hl mg-s2', ko:'💳 결제하기',         en:'💳 Payment' },
     { go:'report',      cls:'mg-s1',       ko:'📋 평가표(성적표)',    en:'📋 Report Card' },
     { go:'points-shop', cls:'',            ko:'🎁 포인트상점',       en:'🎁 Point Shop' },
-    { go:'speech',      cls:'',            ko:'🎤 단계별 발음',       en:'🎤 Curriculum Pronunciation' },
+    { go:'speech',      cls:'',            ko:'🎤 AI 음성코치',       en:'🎤 AI Voice Coach' },
     { go:'lesson-change',cls:'',           ko:'📅 연기/변경',        en:'📅 Postpone/Change' },
     { go:'refund',      cls:'',            ko:'💰 환불규정',         en:'💰 Refund Policy' },
     { go:'inquiry',     cls:'mg-hl mg-s2', ko:'💬 신규상담',         en:'💬 New Inquiry' },
