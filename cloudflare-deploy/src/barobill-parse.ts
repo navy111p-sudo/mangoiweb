@@ -48,20 +48,25 @@ export const xmlEscape = (v: any): string => String(v ?? '')
        <IssueTaxInvoiceEx xmlns="http://ws.baroservice.com/">
          <CERTKEY>string</CERTKEY> …
 
-   ⚠️ 두 가지가 헷갈리기 쉽다. 실제로 한 번 틀렸다:
-     ① 본문 네임스페이스는 **http://ws.baroservice.com/** 로 고정이다
-        (테스트/운영이 같다. www 가 아니다)
-     ② SOAPAction 은 네임스페이스가 아니라 **접속 호스트 기반**이다
-        (테스트면 https://testws.baroservice.com/…, 운영이면 https://ws.baroservice.com/…)
-   그래서 SOAPAction 은 «엔드포인트 주소에서» 만든다 — 호스트를 바꾸면 자동으로 따라간다. */
+   ⚠️⚠️ SOAPAction 을 두 번 틀렸다. 최종 정답은 **네임스페이스 + 메서드명** 이다.
+
+     1차 오답: 네임스페이스가 www.baroservice.com 인 줄 알았다 → ws 가 맞다.
+     2차 오답: 위 문서 예시가 `https://testws.baroservice.com/…` 라 **접속 호스트 기반**으로
+               만들었다. 라이브에서 그대로 거절당했다(2026-08-14 실측):
+
+                 HTTP 500 SoapException: "서버에서 HTTP 헤더 SOAPAction:
+                 https://ws.baroservice.com/GetApprovalHistories 의 값을 인식할 수 없습니다."
+
+     ASMX 는 SOAPAction 을 **본문 네임스페이스**와 대조한다. 문서 예시는 테스트 호스트의
+     자동생성 도움말을 그대로 옮긴 것으로 보이고, **서버가 정답**이다.
+     → SOAPAction = `http://ws.baroservice.com/` + 메서드명  (https 아님, 호스트 무관)
+
+   ⚠️ 그래서 테스트 호스트로 바꿔도 SOAPAction 은 그대로다. 호스트를 따라가게 만들지 말 것. */
 export const BAROBILL_NS = 'http://ws.baroservice.com/';
 
-/** 엔드포인트 URL + 메서드명 → SOAPAction 헤더 값 */
-export function soapAction(wsUrl: string, method: string): string {
-  let origin = 'https://ws.baroservice.com';
-  const m = /^(https?:\/\/[^/]+)/i.exec(String(wsUrl || ''));
-  if (m) origin = m[1].replace(/^http:/i, 'https:');
-  return `${origin}/${method}`;
+/** SOAPAction 헤더 값 = 네임스페이스 + 메서드명. (엔드포인트 호스트와 무관하다) */
+export function soapAction(_wsUrl: string, method: string, ns: string = BAROBILL_NS): string {
+  return `${String(ns || BAROBILL_NS).replace(/\/?$/, '/')}${method}`;
 }
 
 /** SOAP 1.1 요청 본문. 파라미터 «순서» 가 문서 표와 같아야 한다. */
