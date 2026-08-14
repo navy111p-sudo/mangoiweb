@@ -523,7 +523,19 @@
         thumbHtml = '<div class="tbf-card-thumb"><div class="tbf-card-emoji">' + courseIcon(b.publisher) + '</div></div>';
       }
       var lvlChip = b.level ? '<span class="tbf-card-chip tbf-chip-lvl">' + esc(b.level) + '</span>' : '';
-      var cntChip = '<span class="tbf-card-chip tbf-chip-cnt">📑 ' + lessonCount + '과 · 📄 ' + totalFiles + '</span>';
+      /* 🔤 (2026-08-14 마이마이) 영어 화면에서 이 배지가 「0 and · 781」 로 나왔다.
+         ─────────────────────────────────────────────────────────────────────
+         [원인] 여기서 그리던 글자는 «0과 · 781» 이었는데, i18n 사전이 한국어 조사 「과」를
+            영어 and 로 바꿔 놓았다. 숫자만 남고 그게 «무엇의» 숫자인지가 사라졌다.
+         [고침] ① 조사 「과」를 쓰지 않는다(「단원」). ② 언어별 문구를 지금 바로 계산하고
+            data-ko / data-en 을 함께 달아 🌐 를 눌렀을 때도 따라오게 한다
+            (CLAUDE.md 「JS 로 그린 라벨」 함정 — 그릴 때 두 속성을 같이 갱신할 것). */
+      var _cntKo = '📑 ' + lessonCount + '단원 · 📄 ' + totalFiles + '쪽';
+      var _cntEn = '📑 ' + lessonCount + (lessonCount === 1 ? ' unit · 📄 ' : ' units · 📄 ')
+                 + totalFiles + (totalFiles === 1 ? ' page' : ' pages');
+      var _cntNow = (typeof getLang === 'function' && getLang() === 'en') ? _cntEn : _cntKo;
+      var cntChip = '<span class="tbf-card-chip tbf-chip-cnt" data-ko="' + esc(_cntKo) + '" data-en="' + esc(_cntEn) + '">'
+                  + esc(_cntNow) + '</span>';
       html += '<div class="tbf-card" data-tb-id="' + esc(b.id) + '">';
       html += thumbHtml;
       html += '<div class="tbf-card-body">';
