@@ -153,3 +153,59 @@ export function parseApprovalXml(xml: string): { currentPage: number; maxPage: n
   });
   return { currentPage, maxPage, rows: raw.map(baroRow), raw };
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 계좌 거래내역 (신한은행 계좌 입출금) — 2026-08-14
+   카드와 같은 바로빌 SOAP 계열. 입금(Deposit)·출금(Withdraw)이 «별도 컬럼» 으로 온다.
+   ⚠️ 필드명은 바로빌 계좌조회 API 통상 규격 기준(TransRefKey/TransDT/Deposit/Withdraw/
+      Balance/TransRemark/TransOffice). 카드 때처럼 응답이 다르면 raw 가 그대로 D1 에
+      남으므로 첫 실데이터를 보고 대조한다. 목록 블록명은 두 후보를 다 받는다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface BankRow {
+  key: string;            // 중복 방지 키 — TransRefKey, 비면 계좌|일시|입금|출금 준식별키
+  transAt: string;        // 'YYYY-MM-DD HH:MM'
+  kind: 'in' | 'out';     // 입금 / 출금
+  amount: number;         // 해당 방향 금액(양수)
+  balance: number;        // 거래 후 잔액 (없으면 0)
+  remark: string;         // 적요 — 비면 거래점(TransOffice)으로 대체
+  office: string;
+}
+
+/** BankAccountLog(Ex) 에서 뽑아 쓰는 필드 후보 */
+export const BANK_FIELDS = ['CorpNum', 'BankAccountNum', 'TransRefKey', 'TransDT', 'TransType',
+  'TransOffice', 'Deposit', 'Withdraw', 'Balance', 'TransRemark'];
+
+const bankNum = (v: any): number => parseInt(String(v || '0').replace(/[^\d-]/g, ''), 10) || 0;
+
+/** 응답 한 건 → 우리 DB 행의 재료. 분류(category)는 부르는 쪽이 붙인다(여기는 의존 없음). */
+export function bankRow(h: Record<string, string>): BankRow {
+  const dep = bankNum(h.Deposit);
+  const wd = bankNum(h.Withdraw);
+  // 출금이 한 푼이라도 있으면 출금 거래로 본다(은행 원장은 한 행에 한 방향만 온다)
+  const kind: 'in' | 'out' = wd > 0 ? 'out' : 'in';
+  const remark = h.TransRemark || h.TransOffice || '';
+  return {
+    key: h.TransRefKey || `${h.BankAccountNum || ''}|${h.TransDT || ''}|${dep}|${wd}`,
+    transAt: baroDT(h.TransDT),
+    kind,
+    amount: kind === 'out' ? Math.abs(wd) : Math.abs(dep),
+    balance: bankNum(h.Balance),
+    remark,
+    office: h.TransOffice || '',
+  };
+}
+
+/** SOAP 응답 XML → 계좌 거래 행 목록 + 페이징. CurrentPage 음수 = 실패(카드와 같은 규약). */
+export function parseBankLogXml(xml: string): { currentPage: number; maxPage: number; rows: BankRow[]; raw: Record<string, string>[] } {
+  const currentPage = parseInt(xmlFirst(xml, 'CurrentPage') || '0', 10) || 0;
+  const maxPage = parseInt(xmlFirst(xml, 'MaxPageNum') || '1', 10) || 1;
+  let blocks = xmlBlocks(xml, 'BankAccountLogEx');
+  if (!blocks.length) blocks = xmlBlocks(xml, 'BankAccountLog');
+  const raw = blocks.map((b) => {
+    const o: Record<string, string> = {};
+    for (const f of BANK_FIELDS) o[f] = xmlFirst(b, f);
+    return o;
+  });
+  return { currentPage, maxPage, rows: raw.map(bankRow), raw };
+}
