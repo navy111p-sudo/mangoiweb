@@ -26,7 +26,7 @@
     'speech':'/speech-coach.html',
     'lesson-change':'/lesson-postpone-demo.html',
     'refund':'/refund.html',
-    'inquiry':'/contact.html',
+    'inquiry':'https://pf.kakao.com/_xlqnSxd',            // 2026-08-14 피드백 ⑤: 문의/신규상담 페이지 폐지 → 카카오 채널
     'precheck':'/precheck.html',
     'booking':'/lesson-booking-demo.html',
     'faq':'/faq.html',

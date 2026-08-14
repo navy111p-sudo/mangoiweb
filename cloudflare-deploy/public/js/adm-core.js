@@ -4157,7 +4157,13 @@ function _renderEnrollments() {
       ? '<span style="font-size:11px;color:#6d28d9">' + (en ? '👨‍🏫 teacher first' : '👨‍🏫 강사 우선') + '</span>'
       : (it.assign_priority === 'schedule'
           ? '<span style="font-size:11px;color:#0369a1">' + (en ? '⏰ day·time first' : '⏰ 요일·시간 우선') + '</span>' : '');
-    const sub = [sched, prio, teacher].filter(Boolean).join(' · ');
+    // 🗓️ (2026-08-14) ⑥ 수업 기간 — 등록 때 고른 회차(개월). 끝나는 날이 있으면 같이 보여 준다.
+    const durTxt = _enDurLabel(it.duration_months, en);
+    const durChip = durTxt
+      ? '<span style="font-size:11px;color:#065f46">🗓️ ' + durTxt +
+        (it.duration_months !== 'unlimited' && it.end_date ? ' (~' + _esc(String(it.end_date)) + ')' : '') + '</span>'
+      : '';
+    const sub = [sched, prio, teacher, durChip].filter(Boolean).join(' · ');
 
     const dupBadge = isDup(it)
       ? ' <span title="' + (en ? 'Same student, same package, more than one live enrollment' : '같은 학생·같은 패키지가 살아 있는 채로 2건 이상입니다')
@@ -4194,6 +4200,17 @@ function _renderEnrollments() {
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
+}
+
+/* 🗓️ (2026-08-14) 수업 기간 값 → 사람이 읽는 라벨. 목록·CSV·카톡 요약이 같은 표기를 쓰도록 한곳에 둔다.
+   옛 등록건은 이 값이 비어 있다 — 그때는 빈 문자열을 돌려 «아무것도 안 그리게» 한다(«—» 도 안 찍는다). */
+function _enDurLabel(v, en) {
+  const s = String(v == null ? '' : v);
+  if (!s) return '';
+  if (s === 'unlimited') return en ? 'Unlimited' : '무기한';
+  const n = parseInt(s, 10);
+  if (!n || isNaN(n)) return '';
+  return en ? (n + (n === 1 ? ' month' : ' months')) : (n + '개월');
 }
 
 /* ── 「처리」 패널 — 확정 파이프라인 ──────────────────────────────────────
@@ -4964,6 +4981,35 @@ function _addEnrollmentRow(prefill) {
   const _prioCur = (v.assign_priority === 'teacher') ? 'teacher' : 'schedule';
   const prioOpts = prioOptionsList.map(p =>
     '<option value="' + p.v + '"' + (_prioCur === p.v ? ' selected' : '') + '>' + (_enrIsEn ? p.en : p.ko) + '</option>').join('');
+  // 🧑‍🏫 (2026-08-14 피드백 ③) «강사 우선» 을 골라도 강사 목록이 나오지 않았다.
+  //   고를 수는 있는데 «누구를» 바라는지 적을 곳이 없어서, 운영자 눈에는 눌러도 아무 일도
+  //   일어나지 않는 칸으로 보였다. 그래서 고른 순간 목록이 펼쳐지도록 칸을 하나 더 둔다.
+  //   ⚠️ 이건 «지명» 이 아니라 «희망» 이다 — 실제로 그 시간에 비는지는 「▸ 처리」 가 보고 정한다.
+  //      (admin.html ③ 설명의 «이름으로 고르는 칸은 두지 않는다» 는 지명 금지의 뜻이고,
+  //       희망 강사는 서버가 이미 teacher_name 으로 받고 있어 새 컬럼도 필요 없다.)
+  //   ⚠️ 목록은 teacher_profiles 를 쓴다 — 서버 자동배정이 보는 것과 «같은 표» 여야
+  //      화면에서 고른 이름이 배정 로직과 어긋나지 않는다(_ltLoadTeachers 와 같은 출처).
+  const teacherSel =
+    '<select class="en-row-teacher" title="' +
+      (_enrIsEn ? 'Preferred teacher — the actual match is decided at the ▸ Process step'
+                : '희망 강사 — 실제 배정은 「▸ 처리」 단계에서 확정됩니다') + '" ' +
+      'style="width:100%;margin-top:4px;padding:4px 6px;border:1px solid #ddd6fe;border-radius:4px;' +
+      'font-size:12px;background:#faf5ff' + (_prioCur === 'teacher' ? '' : ';display:none') + '">' +
+      '<option value="">' + (_enrIsEn ? '⏳ loading teachers…' : '⏳ 강사 목록 불러오는 중…') + '</option></select>';
+  // 🗓️ (2026-08-14 피드백 ④) ⑥ 수업 기간 — 몇 개월 할지 고르는 칸이 아예 없었다.
+  //   기본값을 미리 박아 두지 않는다. 실제 학생 등록이라 «안 고른 채로 지나가는» 것보다
+  //   «고르라고 막는» 쪽이 안전하다(아래 addEnrollment 가 빈 값이면 등록을 멈춘다).
+  const durOptionsList = [
+    { v: '1',  ko: '1개월',  en: '1 month'   },
+    { v: '3',  ko: '3개월',  en: '3 months'  },
+    { v: '6',  ko: '6개월',  en: '6 months'  },
+    { v: '12', ko: '12개월', en: '12 months' },
+    { v: 'unlimited', ko: '♾️ 무기한', en: '♾️ Unlimited' }
+  ];
+  const _durCur = String(v.duration_months || '');
+  const durOpts = '<option value="">' + (_enrIsEn ? '— select —' : '— 선택 —') + '</option>' +
+    durOptionsList.map(d => '<option value="' + d.v + '"' + (_durCur === d.v ? ' selected' : '') + '>' +
+      (_enrIsEn ? d.en : d.ko) + '</option>').join('');
   // 수업 유형 — 3 체크박스 (레벨/체험/정규)
   const _typeLbl = _enrIsEn ? { level:'Level', trial:'Trial', regular:'Regular' } : { level:'레벨', trial:'체험', regular:'정규' };
   const typeChecks =
@@ -5004,12 +5050,7 @@ function _addEnrollmentRow(prefill) {
        ⚠️ 「시간 우선」이면 감추고 **값도 비운다**(요구사항 4) — 안 비우면 숨은 값이 저장된다. */
     '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
-      '<div class="en-row-teacher-wrap" style="display:none;margin-top:4px">' +
-        '<input class="en-row-teacher" list="en-teacher-list" value="' + _esc(v.teacher_name) + '" ' +
-          'placeholder="' + (_enrIsEn ? 'Teacher name' : '강사 이름') + '" ' +
-          'title="' + (_enrIsEn ? 'Pick from the teacher roster, or type to search' : '강사 명부에서 고르거나 이름을 쳐서 찾습니다') + '" ' +
-          'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
-      '</div>' +
+      teacherSel +
       '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
@@ -5021,6 +5062,9 @@ function _addEnrollmentRow(prefill) {
     '</td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
+    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
+      '<div class="en-row-dur-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
     '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
   tbody.appendChild(tr);
   // 행 삭제 — 마지막 1행은 항상 유지
@@ -5036,7 +5080,10 @@ function _addEnrollmentRow(prefill) {
       tr.dataset.enUidDone = '';
       const size = tr.querySelector('.en-row-size'); if (size) size.value = '';
       const prio = tr.querySelector('.en-row-priority'); if (prio) prio.value = 'schedule';
+      const dur = tr.querySelector('.en-row-duration'); if (dur) dur.value = '';
+      const tsel = tr.querySelector('.en-row-teacher'); if (tsel) tsel.value = '';
       _enPrioNote(tr);
+      _enDurNote(tr);
     } else {
       tr.remove();
       _renumberEnrollmentRows();
@@ -5048,9 +5095,13 @@ function _addEnrollmentRow(prefill) {
   });
   // 🧭 (2026-08-12) ③ 우선순위 — 고른 값이 «다음 단계에서 무슨 뜻인지» 한 줄로 알려 준다
   tr.querySelector('.en-row-priority').addEventListener('change', () => _enPrioNote(tr));
-  // 👨‍🏫 (2026-08-13 #03) 강사 이름을 치는 대로 «명부에 있는 사람인지» 를 테두리 색으로 알려 준다
-  tr.querySelector('.en-row-teacher').addEventListener('input', function () { _enTeacherMark(this); });
   _enPrioNote(tr);
+  // 🗓️ (2026-08-14) ⑥ 기간 — 고른 기간이 언제 끝나는지 시작일과 묶어 한 줄로 보여 준다
+  tr.querySelector('.en-row-duration').addEventListener('change', () => _enDurNote(tr));
+  tr.querySelector('.en-row-start').addEventListener('change', () => _enDurNote(tr));
+  _enDurNote(tr);
+  // 🧑‍🏫 (2026-08-14) ③ 이 «강사 우선» 일 때만 강사 목록을 편다. 목록은 한 번만 받아 캐시한다.
+  _enLoadTeachers();
   // 👤 학생 아이디 → 이름 자동 조회. 이름 칸을 없앤 대신, 아이디가 «누구»인지 눈으로 확인시킨다.
   //    조회 결과는 hidden .en-row-name 에 넣는다(서버 student_name 필수값 + CSV 내보내기용).
   tr.querySelector('.en-row-uid').addEventListener('change', () => _enLookupStudent(tr));
@@ -5060,79 +5111,110 @@ function _addEnrollmentRow(prefill) {
   }
 }
 
-/* ③ 우선순위 안내문 + 강사 선택칸 여닫기
-   📜 이력 — 2026-08-12 에는 「강사 우선」이 **이름 지정이 아니라는 것**을 여기서 못박았다.
-      2026-08-13 수정요청 #03 으로 방침이 바뀌었다: 「강사 우선」을 고르면 이름을 직접 고른다.
-      ⚠️ 이름을 «대지 않아도» 배정되는 길은 그대로 살아 있다(비워 두면 enroll-activate 가
-         가르치던 강사 → 그 시간에 비는 강사 순으로 자동 배정). 즉 «고를 수도 있게» 된 것이다. */
+/* ③ 우선순위 안내문 — 「강사 우선」이 곧 «이름 지정» 이 아니라는 것을 여기서 못박아 둔다.
+   (2026-08-14) 「강사 우선」을 고르면 그 자리에서 강사 목록도 함께 펼친다. */
 function _enPrioNote(tr) {
   const box = tr.querySelector('.en-row-prio-note');
   if (!box) return;
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
   const val = (tr.querySelector('.en-row-priority')?.value || 'schedule');
-  const wrap = tr.querySelector('.en-row-teacher-wrap');
-  const inp  = tr.querySelector('.en-row-teacher');
-  if (wrap) wrap.style.display = (val === 'teacher') ? '' : 'none';
-  if (val === 'teacher') {
-    _enLoadTeachers();                       // 명부는 이때 처음 받는다(부팅 때 안 받는다)
-    if (inp) _enTeacherMark(inp);
-  } else if (inp && inp.value) {
-    // 🔴 감추기만 하면 «안 보이는 값» 이 그대로 저장된다. 시간 우선으로 바꾸면 비운다(요구사항 4).
-    inp.value = '';
-    _enTeacherMark(inp);
+  const tsel = tr.querySelector('.en-row-teacher');
+  if (tsel) {
+    tsel.style.display = (val === 'teacher') ? '' : 'none';
+    // 「요일·시간 우선」으로 되돌리면 희망 강사도 같이 비운다 —
+    // 안 보이는 칸에 남은 값이 조용히 등록되는 사고를 막는다.
+    if (val !== 'teacher') tsel.value = '';
+    else _enLoadTeachers();
   }
   box.textContent = val === 'teacher'
     ? (en ? 'Teacher first — pick a name, or leave blank to auto-assign' : '강사 먼저 · 이름을 고르거나, 비우면 자동 배정')
     : (en ? 'This day·time first' : '적어 준 요일·시간 먼저');
 }
 
-/* 👨‍🏫 (2026-08-13 #03) 강사 명부 — 등록 표의 강사 선택칸이 쓰는 목록.
-   ⚠️ 새 API 를 만들지 않았다. 이미 두 게이트를 통과하는 GET /api/admin/teachers 를 그대로 쓴다.
-      («새 API 추가» 함정 — index.ts 게이트 + api-mango 위임 가드 둘 다 등록해야 한다)
-   ⚠️ 부팅 때 받지 않는다. 「강사 우선」을 처음 고르는 순간 한 번만 받는다(2026-08-13 #02 방침). */
-let _enTeacherNames = null;      // null = 아직 안 받음 / [] = 받았는데 비었음
-let _enTeacherLoading = null;
-function _enLoadTeachers() {
-  if (_enTeacherNames) return Promise.resolve(_enTeacherNames);
-  if (_enTeacherLoading) return _enTeacherLoading;
-  _enTeacherLoading = (async () => {
-    try {
-      const r = await fetch('/api/admin/teachers', { cache: 'no-store', credentials: 'include' });
-      const d = await r.json();
-      const list = (d && (d.items || d.teachers || d.data)) || [];
-      _enTeacherNames = list
-        .map(t => String((t && t.name) || '').trim()).filter(Boolean)
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .sort((a, b) => a.localeCompare(b));
-    } catch (e) {
-      // 못 받아도 «이름을 직접 치는» 길은 막지 않는다 — 서버가 이름으로 다시 찾는다.
-      _enTeacherNames = [];
-      console.warn('[수강신청] 강사 명부를 못 받았습니다 — 이름을 직접 입력하면 됩니다', e);
-    }
-    let dl = document.getElementById('en-teacher-list');
-    if (!dl) { dl = document.createElement('datalist'); dl.id = 'en-teacher-list'; document.body.appendChild(dl); }
-    dl.innerHTML = _enTeacherNames.map(n => '<option value="' + _esc(n) + '"></option>').join('');
-    document.querySelectorAll('.en-row-teacher').forEach(_enTeacherMark);
-    return _enTeacherNames;
-  })();
-  return _enTeacherLoading;
+/* ⑥ 수업 기간 안내문 — 고른 기간이 시작일 기준으로 «언제 끝나는지» 를 그 자리에서 보여 준다.
+   (2026-08-14 피드백 ④) 몇 개월인지만 고르고 끝나는 날을 모르면 결제·연장 안내가 어긋난다. */
+function _enDurNote(tr) {
+  const box = tr.querySelector('.en-row-dur-note');
+  if (!box) return;
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const dur = (tr.querySelector('.en-row-duration')?.value || '');
+  const start = (tr.querySelector('.en-row-start')?.value || '');
+  if (!dur) { box.textContent = en ? 'Required' : '필수 선택'; box.style.color = '#b45309'; return; }
+  box.style.color = '#9ca3af';
+  if (dur === 'unlimited') { box.textContent = en ? 'No end date' : '종료일 없음'; return; }
+  if (!start) { box.textContent = en ? 'Pick a start date to see the end' : '시작일을 넣으면 종료일이 보입니다'; return; }
+  const end = _enAddMonths(start, parseInt(dur, 10));
+  box.textContent = end ? ('~ ' + end) : '';
 }
 
-/* 친 이름이 명부에 있는 사람인가 — 테두리 색으로만 알려 주고 «막지는 않는다».
-   막으면 명부 표기가 조금 다른 강사(‘Teacher Kaye’ ↔ ‘Kaye’)를 못 넣는다.
-   명부에 없으면 서버(enroll-activate)가 경고를 띄우고 자동 배정으로 넘어간다. */
-function _enTeacherMark(inp) {
-  if (!inp) return;
-  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
-  const v = String(inp.value || '').trim().toLowerCase();
-  if (!v || !_enTeacherNames || !_enTeacherNames.length) {
-    inp.style.borderColor = '#e5e7eb'; inp.title = ''; return;
+/* 시작일 + N개월 = 종료일(YYYY-MM-DD).
+   ⚠️ Date 에 setMonth 만 쓰면 1/31 + 1개월이 3/2·3/3 으로 «넘어간다». 말일은 그 달 말일로 눌러 준다. */
+function _enAddMonths(startISO, months) {
+  if (!startISO || !months || isNaN(months)) return '';
+  const p = String(startISO).split('-');
+  if (p.length !== 3) return '';
+  const y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+  if (!y || !m || !d) return '';
+  const total = (m - 1) + months;
+  const ny = y + Math.floor(total / 12);
+  const nm = (total % 12) + 1;
+  const lastDay = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
+  const nd = Math.min(d, lastDay);
+  return ny + '-' + String(nm).padStart(2, '0') + '-' + String(nd).padStart(2, '0');
+}
+
+/* 🧑‍🏫 (2026-08-14) ③ 「강사 우선」용 강사 목록.
+   ⚠️ 출처는 «teachers» 표(/api/admin/teachers, active=1)다. teacher_profiles 가 아니다 —
+      확정 파이프라인(enroll-activate.ts)이 enrollments.teacher_name 을
+      `SELECT id FROM teachers WHERE name = ? AND active = 1` 로 되찾는다. 다른 표에서 고르면
+      이름이 안 맞아 «명부에서 못 찾았습니다» 경고만 남고 배정이 자동으로 되돌아간다.
+   ⚠️ 한 번만 받아 캐시한다. 행을 추가할 때마다 부르면 10행에 10번 나간다.
+   ⚠️ 비어 있거나 못 받은 경우를 «로딩 중» 인 채로 두지 않는다 — 왜 목록이 없는지 칸에 적는다. */
+let __enTeachers = null, __enTeachersLoading = false, __enTeachersErr = '';
+async function _enLoadTeachers() {
+  if (__enTeachers || __enTeachersLoading) { _enFillTeacherSelects(); return __enTeachers; }
+  __enTeachersLoading = true;
+  try {
+    const r = await fetch('/api/admin/teachers', { cache: 'no-store', credentials: 'include' });
+    const d = await r.json().catch(() => ({}));
+    if (d && d.ok) {
+      __enTeachers = (d.items || d.teachers || [])
+        .map(t => String((t && t.name) || '').trim())
+        .filter(Boolean)
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .sort();
+    } else {
+      __enTeachersErr = (d && d.error) || ('HTTP ' + r.status);
+    }
+  } catch (e) {
+    __enTeachersErr = String(e.message || e);
   }
-  const hit = _enTeacherNames.some(n => n.toLowerCase() === v);
-  inp.style.borderColor = hit ? '#10b981' : '#f59e0b';
-  inp.title = hit ? '' : (en
-    ? 'Not in the teacher roster — saved anyway, but assignment may fall back to auto'
-    : '강사 명부에 없는 이름입니다 — 저장은 되지만 배정은 자동으로 넘어갈 수 있습니다');
+  __enTeachersLoading = false;
+  _enFillTeacherSelects();
+  return __enTeachers;
+}
+function _enFillTeacherSelects() {
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  document.querySelectorAll('select.en-row-teacher').forEach(sel => {
+    const cur = sel.value || '';
+    if (__enTeachersLoading) return;                       // 아직 오는 중 — 「불러오는 중」 그대로 둔다
+    if (!__enTeachers) {                                   // 못 받았다 — 조용히 빈 목록으로 두지 않는다
+      sel.innerHTML = '<option value="">' +
+        (en ? '⚠️ Could not load teachers' : '⚠️ 강사 목록을 불러오지 못했습니다') + '</option>';
+      sel.title = __enTeachersErr || '';
+      return;
+    }
+    if (!__enTeachers.length) {                            // 활동중 강사가 한 명도 없다
+      sel.innerHTML = '<option value="">' +
+        (en ? 'No teachers registered' : '등록된 강사가 없습니다') + '</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">' +
+        (en ? '— any teacher —' : '— 강사 무관 (자동 배정) —') + '</option>' +
+      __enTeachers.map(n => '<option value="' + _esc(n) + '"' + (n === cur ? ' selected' : '') + '>' +
+        _esc(n) + '</option>').join('');
+    sel.value = (__enTeachers.indexOf(cur) >= 0) ? cur : '';
+  });
 }
 
 /* 👤 학생 아이디 → 학생 명부(students_erp)에서 이름 찾기.
@@ -5324,10 +5406,10 @@ function _readEnrollmentRows() {
     const time = tr.querySelector('.en-row-time')?.value || '';
     const classSize = tr.querySelector('.en-row-size')?.value || '';
     const priority = (tr.querySelector('.en-row-priority')?.value || 'schedule');
-    /* 👨‍🏫 (2026-08-13 #03) 고른 강사 이름. 「시간 우선」이면 무조건 비운다 —
-       칸을 감출 때도 비우지만, 여기서 한 번 더 막는다(감추기 전에 저장을 누르는 경우). */
-    const teacherName = priority === 'teacher'
+    // 🧑‍🏫 (2026-08-14) ③ 이 「강사 우선」일 때만 희망 강사를 읽는다 — 그 외에는 값이 있어도 버린다
+    const wantTeacher = (priority === 'teacher')
       ? (tr.querySelector('.en-row-teacher')?.value || '').trim() : '';
+    const duration = (tr.querySelector('.en-row-duration')?.value || '');
     const types = Array.from(tr.querySelectorAll('.en-row-type:checked')).map(c => c.value);
     const days  = Array.from(tr.querySelectorAll('.en-row-day:checked')).map(c => c.value);
     // 빈 행 건너뜀 (아이디·유형·패키지 모두 비어있으면)
@@ -5354,10 +5436,14 @@ function _readEnrollmentRows() {
       type: typesKo.join('+') || null,
       // 🧭 (2026-08-12) ③ 배정 우선순위
       assign_priority: priority,
-      /* 👨‍🏫 (2026-08-13 수정요청 #03) 고른 강사 이름 — 서버 INSERT 의 teacher_name 으로 들어가고,
-         「▸ 처리」 때 enroll-activate 가 자동 배정보다 **먼저** 이 이름을 본다.
-         빈 문자열이면 null 로 보내야 한다 — '' 를 넣으면 «이름이 있다» 로 읽혀 명부 조회가 헛돈다. */
-      teacher_name: teacherName || null,
+      // 🧑‍🏫 (2026-08-14) ③ 「강사 우선」에서 고른 «희망» 강사. 서버가 이미 받던 컬럼이라 새 칸이 아니다.
+      teacher_name: wantTeacher || null,
+      // 🗓️ (2026-08-14) ⑥ 수업 기간. 'unlimited' 면 종료일 없음, 숫자면 시작일 + N개월을 끝으로 잡는다.
+      duration_months: duration || null,
+      end_date: (duration && duration !== 'unlimited' && start)
+        ? _enAddMonths(start, parseInt(duration, 10)) : null,
+      ended_at: (duration && duration !== 'unlimited' && start)
+        ? (new Date(_enAddMonths(start, parseInt(duration, 10))).getTime() || null) : null,
       // 추가 메타 (자동 export·import 시 사용)
       _types: types,
       _types_ko: typesKo,
@@ -5367,7 +5453,9 @@ function _readEnrollmentRows() {
       _class_size: classSize,
       _started_at_str: start,
       _fee_raw: fee,
-      _category: category
+      _category: category,
+      _duration: duration,
+      _want_teacher: wantTeacher
     });
   });
   return out;
@@ -5414,6 +5502,17 @@ async function addEnrollment() {
       : '필수 항목 누락 (학생 아이디 + 레벨 구분 최소 1개): ') + invalid.length + '건');
     return;
   }
+  // 🗓️ (2026-08-14) ⑥ 수업 기간 미선택 — 기본값을 몰래 넣지 않고 사람에게 돌려준다.
+  //   실제 학생 등록이고, 기간은 결제 회차·종료일·연장 안내가 모두 읽는 값이다.
+  const noDur = records.filter(r => !r._duration);
+  if (noDur.length > 0) {
+    alert(adminLang==='en'
+      ? 'Please pick ⑥ Class period (1/3/6/12 months or unlimited) — ' + noDur.length + ' row(s) missing.'
+      : '⑥ 수업 기간을 선택해 주세요 (1·3·6·12개월 또는 무기한) — ' + noDur.length + '건 미선택');
+    const firstEmpty = Array.from(document.querySelectorAll('.en-row-duration')).find(s => !s.value);
+    if (firstEmpty) { firstEmpty.focus(); firstEmpty.style.borderColor = '#ef4444'; }
+    return;
+  }
   // N=1 이면 단일 등록 + Phase 22 자동 export, N>1 이면 일괄 등록
   if (records.length === 1) {
     const r = records[0];
@@ -5427,7 +5526,8 @@ async function addEnrollment() {
       days_of_week: r.days_of_week, time: r.time,
       class_size: r.class_size, type: r.type,
       assign_priority: r.assign_priority,
-      teacher_name: r.teacher_name        // 👨‍🏫 (2026-08-13 #03) 고른 강사
+      teacher_name: r.teacher_name,
+      duration_months: r.duration_months, end_date: r.end_date, ended_at: r.ended_at
     });
     if (d) {
       const enrollmentData = {
@@ -5442,6 +5542,9 @@ async function addEnrollment() {
         time: r._time || '—',
         class_size: r._class_size || '—',
         category: r._category || '',
+        // 🗓️ (2026-08-14) ⑥ 기간 — 등록 직후 자동으로 나가는 카톡·CSV·워드 요약도 같이 읽는다
+        duration: _enDurLabel(r._duration, adminLang === 'en') || '—',
+        end_date: r.end_date || '—',
         created_at: new Date().toISOString().slice(0,19).replace('T', ' ')
       };
       autoExportEnrollment(enrollmentData);
@@ -5487,7 +5590,8 @@ async function addEnrollment() {
           days_of_week: r.days_of_week, time: r.time,
           class_size: r.class_size, type: r.type,
           assign_priority: r.assign_priority,
-          teacher_name: r.teacher_name    // 👨‍🏫 (2026-08-13 #03) 고른 강사
+          teacher_name: r.teacher_name,
+          duration_months: r.duration_months, end_date: r.end_date, ended_at: r.ended_at
         })
       });
       const j = await res.json().catch(() => ({}));

@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 월간 학습 레포트</title>
 <link rel="stylesheet" href="/css/mangoi-fonts.css?v=2"><!-- ph161: 구글폰트 → 자체호스팅(라틴 장식용). 한글은 시스템 폰트 폴백 -->
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
@@ -105,7 +106,7 @@
 </head>
 <body>
   <div class="topbar">
-    <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
+    <span class="logo"><img src="/img/mango-char.png" alt="" style="height:1.4em;width:auto;vertical-align:-0.35em;margin-right:.15em" loading="lazy" decoding="async"><span data-ko="망고아이 학습 레포트" data-en="Mangoi Learning Report">망고아이 학습 레포트</span></span>
     <span class="sp"></span>
     <button class="print-btn" onclick="window.print()" data-ko="🖨 인쇄 / PDF" data-en="🖨 Print / PDF">🖨 인쇄 / PDF</button>
     <button class="lang-btn" id="langBtn" onclick="toggleLang()">EN</button>
@@ -232,7 +233,7 @@
     var goals = items.map(function(r){return r.next_goals;}).filter(Boolean).slice(-3);
     var aiText = d.ai_text || (hasData ? t('이번 달 학습 요약입니다.','Monthly learning summary.') : '');
 
-    var html = '<div class="dash"><div class="hero"><div class="mango"><img src="/img/mango-char.png" alt="망고아이" style="width:52px;height:52px;object-fit:contain"></div>'+
+    var html = '<div class="dash"><div class="hero"><div class="mango"><img src="/img/mango-char.png" alt="망고아이" style="width:52px;height:52px;object-fit:contain" loading="lazy" decoding="async"></div>'+
       '<span class="badge">'+esc(d.year_month||period)+'</span>'+
       '<h2>'+esc(nm)+' '+t('학생 학습 레포트','Report')+'</h2>'+
       '<div class="who">'+(s.parent_name?(t('학부모: ','Parent: ')+esc(s.parent_name)):t('망고아이 영어','Mangoi English'))+'</div></div>'+

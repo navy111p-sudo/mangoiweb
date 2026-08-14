@@ -2,6 +2,7 @@
 <html lang="ko" translate="no" class="notranslate">
 <head>
   <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
        · 이 페이지는 자체 i18n(data-ko/data-en + adm-p3.js 사전)을 이미 갖고 있다.
@@ -204,7 +205,9 @@
 </script>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>망고아이 관리 대시보드</title>
 <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
 <link rel="shortcut icon" href="/img/icon-192.png">
@@ -485,7 +488,7 @@
       <div class="hero-character">
         <div class="hero-character-frame">
           <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
-               onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';" />
+               onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';" loading="lazy" decoding="async"/>
         </div>
       </div>
     </section>
@@ -3046,7 +3049,7 @@
                            style="flex:1;min-width:200px;padding:6px;border:1px dashed #d1d5db;border-radius:6px;font-size:12px;background:#fafafa;cursor:pointer"
                            onchange="handleProfileImageUpload(this)" />
                     <img id="tp-image-preview" alt="미리보기"
-                         style="display:none;max-width:60px;max-height:60px;border-radius:8px;border:1px solid #d1d5db;object-fit:cover" />
+                         style="display:none;max-width:60px;max-height:60px;border-radius:8px;border:1px solid #d1d5db;object-fit:cover" loading="lazy" decoding="async"/>
                     <span id="tp-image-info" style="font-size:11px;color:#6b7280;flex-basis:100%"></span>
                   </div>
                   <!-- 폼이 사용하는 실제 값 (data URL 또는 외부 URL) -->
@@ -5724,7 +5727,7 @@ window.__admSettleRun = function(fn){
     const qrImg = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(fullUrl)}`;
     const expireMin = Math.round((r.expires_at - Date.now())/60000);
     box.innerHTML = `<div style="background:#1e293b;border:1px solid #22c55e;border-radius:10px;padding:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
-      <img src="${qrImg}" alt="QR" style="background:#fff;padding:6px;border-radius:8px;width:180px;height:180px">
+      <img src="${qrImg}" alt="QR" style="background:#fff;padding:6px;border-radius:8px;width:180px;height:180px" loading="lazy" decoding="async">
       <div style="flex:1;min-width:180px">
         <div style="color:#86efac;font-size:12px;font-weight:700;margin-bottom:6px">${en?'Token':'토큰'}</div>
         <div style="color:#e2e8f0;font-family:MangoiHanSC,monospace;font-size:11px;word-break:break-all;background:#0f172a;padding:6px;border-radius:6px;margin-bottom:8px">${esc(r.token)}</div>
@@ -7544,28 +7547,34 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
                data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
       <!-- 🥭 Phase 24 — 다중 학생 동시 등록 표
-           🧑‍🏫 (2026-08-12) 요구사항 정리 — 등록 시 사람이 «입력·선택» 하는 것은 아래 5가지뿐이다.
+           🧑‍🏫 (2026-08-12) 요구사항 정리 — 등록 시 사람이 «입력·선택» 하는 것은 아래 6가지뿐이다.
              ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 배정 우선순위(요일·시간 우선 / 강사 우선)
-             ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일
-           ⛔ 강사를 «이름으로» 고르는 칸은 이 화면에 두지 않는다. 누구를 붙일지는 ③ 우선순위와
-              그 시간에 실제로 비어 있는지를 보고 「▸ 처리」 단계에서 정해진다.
+             ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일  ⑥ 수업 기간(1·3·6·12개월 / 무기한)
+           ⛔ 강사를 «이름으로 지명» 하는 칸은 이 화면에 두지 않는다. 최종적으로 누가 붙는지는
+              ③ 우선순위와 그 시간에 실제로 비어 있는지를 보고 「▸ 처리」 단계에서 정해진다.
+           🧑‍🏫 (2026-08-14 피드백 ③) 다만 ③ 에서 «강사 우선» 을 고르면 그 자리에서 강사 목록이
+              펼쳐진다 — 지명이 아니라 «희망» 이다. 예전에는 «강사 우선» 을 골라도 목록이 없어서
+              운영자 눈에는 눌러도 아무 일도 안 일어나는 칸으로 보였다.
+           🗓️ (2026-08-14 피드백 ④) ⑥ 수업 기간은 «필수» 다. 기본값을 몰래 넣지 않고, 안 고르면
+              등록을 멈춘다. 숫자 개월이면 시작일 + N개월을 종료일(end_date)로 함께 저장한다.
            ※ 학생 이름·패키지·월 수강료는 «치는 칸»만 없앴다. 이름은 학생 아이디로 명부에서
               자동으로 찾아 넣고, 패키지는 레벨 구분으로 채운다(서버 필수값 + 등록 후 자동
               카톡·CSV·워드 요약이 읽는다). 아래 「양식 등록」 가져오기는 이 표를 거치지 않고
               바로 서버로 올라가므로 예전 양식 그대로 계속 쓸 수 있다. -->
       <div style="margin-top:10px">
         <div style="overflow-x:auto">
-          <table id="en-multi-table" style="min-width:1040px;font-size:12px;border-collapse:collapse;background:#fff">
+          <table id="en-multi-table" style="min-width:1180px;font-size:12px;border-collapse:collapse;background:#fff">
             <thead>
               <tr style="background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(251,146,60,0.18))">
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;width:30px">#</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:150px" data-ko="① 학생 아이디*" data-en="① Student ID*">① 학생 아이디*</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:170px" data-ko="② 레벨 구분* (레벨/체험/정규)" data-en="② Type* (Level/Trial/Regular)">② 레벨 구분* (레벨/체험/정규)</th>
-                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:150px" data-ko="③ 배정 우선순위*" data-en="③ Matching priority*">③ 배정 우선순위*</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:170px" data-ko="③ 배정 우선순위*" data-en="③ Matching priority*">③ 배정 우선순위*</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:200px" data-ko="요일" data-en="Days">요일</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="시간" data-en="Time">시간</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="④ 그룹수업 여부" data-en="④ 1:1 or group">④ 그룹수업 여부</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="⑤ 시작일" data-en="⑤ Start">⑤ 시작일</th>
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="⑥ 수업 기간*" data-en="⑥ Class period*">⑥ 수업 기간*</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;width:36px"></th>
               </tr>
             </thead>
@@ -8800,7 +8809,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=76" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=77" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -8949,7 +8958,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <span class="ph160-lab" data-ko="접기" data-en="Collapse">접기</span>
   </button>
   <div class="ph85-brand">
-    <span class="ph85-brand-ico"><img src="/img/mango-ufo.png" alt="Mangoi" style="width:40px;height:auto;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))"></span>
+    <span class="ph85-brand-ico"><img src="/img/mango-ufo.png" alt="Mangoi" style="width:40px;height:auto;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))" loading="lazy" decoding="async"></span>
     <span class="ph85-brand-text">망고아이 관리</span>
   </div>
   <div class="ph85-search-wrap">
@@ -8962,7 +8971,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <a id="ph85-ai-asst" role="button" tabindex="0"
      onclick="event.preventDefault();event.stopPropagation();if(window.miAsstOpen){window.miAsstOpen();}else{alert('AI 운영비서를 불러오는 중입니다. 잠시 후 다시 눌러주세요.');}if(window.mgaClose)window.mgaClose();"
      style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin:2px 0 10px;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#ea8a04);color:#fff;text-decoration:none;cursor:pointer;box-shadow:0 6px 16px -6px rgba(245,158,11,0.6)">
-    <img src="/img/Mangoi_Character.png" alt="Mangoi / 망고아이" style="width:28px;height:28px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))">
+    <img src="/img/Mangoi_Character.png" alt="Mangoi / 망고아이" style="width:28px;height:28px;object-fit:contain;flex:none;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))" loading="lazy" decoding="async">
     <span style="flex:1;font-weight:800;font-size:13px" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
     <span style="font-size:10px;font-weight:900;letter-spacing:.5px;background:rgba(255,255,255,0.25);padding:2px 8px;border-radius:99px">AI</span>
   </a>
@@ -12247,7 +12256,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
   <div id="ag-stage">
     <button class="ag-nav" id="ag-prev" onclick="agGo(-1)" aria-label="이전">‹</button>
-    <img id="ag-img" src="" alt="사용법 슬라이드" draggable="false">
+    <img id="ag-img" src="" alt="사용법 슬라이드" draggable="false" loading="lazy" decoding="async">
     <button class="ag-nav" id="ag-next" onclick="agGo(1)" aria-label="다음">›</button>
   </div>
   <div id="ag-caption">시작하기</div>

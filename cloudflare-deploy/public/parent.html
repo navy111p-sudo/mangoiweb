@@ -9,7 +9,8 @@
 
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>학부모 대시보드 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
@@ -286,42 +287,42 @@ function showKakaoShareDialog(url) {
       <h3 style="text-align:center;color:#fbbf24;font-size:15px;font-weight:800;margin-bottom:16px" data-ko="✨ 어떤 정보를 볼 수 있나요?" data-en="✨ What can you see?">✨ 어떤 정보를 볼 수 있나요?</h3>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px">
         <div style="background:rgba(99,102,241,0.10);border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="출석 30일 그리드" data-en="30-Day Attendance">출석 30일 그리드</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="언제 수업 들었는지 한눈에" data-en="When child attended">언제 수업 들었는지 한눈에</div>
         </div>
         <div style="background:rgba(251,191,36,0.10);border:1px solid rgba(251,191,36,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="누적 적립·사용 + 잔액" data-en="Earned · Spent · Balance">누적 적립·사용 + 잔액</div>
         </div>
         <div style="background:rgba(16,185,129,0.10);border:1px solid rgba(16,185,129,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="결제 내역" data-en="Payment History">결제 내역</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="최근 4건 + 금액" data-en="Recent 4 + amount">최근 4건 + 금액</div>
         </div>
         <div style="background:rgba(167,139,250,0.10);border:1px solid rgba(167,139,250,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="학습 평가서" data-en="Evaluations">학습 평가서</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="강사가 쓴 최근 4건" data-en="Teacher's recent 4">강사가 쓴 최근 4건</div>
         </div>
         <div style="background:rgba(56,189,248,0.10);border:1px solid rgba(56,189,248,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach">AI 음성 코칭 진도</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="14일 점수 그래프" data-en="14-day score chart">14일 점수 그래프</div>
         </div>
         <div style="background:rgba(236,72,153,0.10);border:1px solid rgba(236,72,153,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="배지 진열장" data-en="Badge Collection">배지 진열장</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="10종 자동 부여 배지" data-en="10 auto badges">10종 자동 부여 배지</div>
         </div>
         <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.30);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="AI 학습 추천" data-en="AI Recommendations">AI 학습 추천</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="이번 주 맞춤 학습" data-en="Weekly plan">이번 주 맞춤 학습</div>
         </div>
         <div style="background:rgba(245,158,11,0.10);border:1px solid rgba(245,158,11,0.25);border-radius:12px;padding:14px 12px">
-          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📄" src="/img/menu/report.webp" alt=""></div>
+          <div style="margin-bottom:6px"><img class="pd-ico pd-ico-fb" data-emoji="📄" src="/img/menu/report.webp" alt="" loading="lazy" decoding="async"></div>
           <div style="font-weight:800;font-size:13px;color:#e6ecff" data-ko="월별 보고서" data-en="Monthly Report">월별 보고서</div>
           <div style="font-size:11px;color:#a3b3d1;margin-top:3px;line-height:1.4" data-ko="인쇄·PDF 저장 가능" data-en="Print / PDF">인쇄·PDF 저장 가능</div>
         </div>
@@ -349,7 +350,7 @@ function showKakaoShareDialog(url) {
   <div id="dashboard" style="display:none">
     <!-- 자녀 헤더 카드 -->
     <div class="child-card">
-      <div class="child-avatar"><img class="pd-avatar-img pd-ico-fb" data-emoji="👧" src="/img/menu/students.webp" alt=""></div>
+      <div class="child-avatar"><img class="pd-avatar-img pd-ico-fb" data-emoji="👧" src="/img/menu/students.webp" alt="" loading="lazy" decoding="async"></div>
       <div class="child-info">
         <h1 id="pd-name">-</h1>
         <p id="pd-meta">-</p>
@@ -364,7 +365,7 @@ function showKakaoShareDialog(url) {
 
       <!-- 출석 카드 -->
       <div class="card">
-        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt=""> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
+        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
         <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span></span></div>
         <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
         <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">0%</span></div>
@@ -373,7 +374,7 @@ function showKakaoShareDialog(url) {
 
       <!-- 포인트 카드 -->
       <div class="card">
-        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt=""> <span data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</span></h3>
+        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🏆" src="/img/menu/praise.webp" alt="" loading="lazy" decoding="async"> <span data-ko="포인트 흐름" data-en="Points Flow">포인트 흐름</span></h3>
         <div class="stat"><span data-ko="누적 적립" data-en="Lifetime earned">누적 적립</span><span class="v green">+<span id="pd-earned">0</span> P</span></div>
         <div class="stat"><span data-ko="누적 사용" data-en="Lifetime spent">누적 사용</span><span class="v red">-<span id="pd-spent">0</span> P</span></div>
         <div class="stat"><span data-ko="현재 잔액" data-en="Current balance">현재 잔액</span><span class="v gold"><span id="pd-balance2">0</span> P</span></div>
@@ -382,7 +383,7 @@ function showKakaoShareDialog(url) {
 
       <!-- 결제 카드 -->
       <div class="card">
-        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt=""> <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
+        <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="💳" src="/img/menu/payment.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 결제" data-en="Recent Payments">최근 결제</span></h3>
         <div id="pd-pays" style="font-size:12.5px"></div>
         <a href="/?pay=1" onclick="location.href='/?pay=1&uid='+encodeURIComponent(_currentUid||'');return false;" style="display:block;margin-top:12px;padding:12px;text-align:center;background:linear-gradient(135deg,#fbbf24,#d97706);color:#1a1a1a;text-decoration:none;border-radius:10px;font-weight:800;font-size:14px;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)" data-ko="💳 결제하기 / 수강권 연장" data-en="💳 Pay / Extend Package">💳 결제하기 / 수강권 연장</a>
       </div>
@@ -398,7 +399,7 @@ function showKakaoShareDialog(url) {
     </div>
 
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt=""> <span data-ko="최근 학습 평가서" data-en="Recent Evaluations">최근 학습 평가서</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📝" src="/img/menu/eval.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 학습 평가서" data-en="Recent Evaluations">최근 학습 평가서</span></h3>
       <div id="pd-evals"></div>
     </div>
 
@@ -411,19 +412,19 @@ function showKakaoShareDialog(url) {
 
     <!-- 🆕 AI 음성 코칭 진도 -->
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt=""> <span data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach Progress">AI 음성 코칭 진도</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎙" src="/img/menu/speech.webp" alt="" loading="lazy" decoding="async"> <span data-ko="AI 음성 코칭 진도" data-en="AI Voice Coach Progress">AI 음성 코칭 진도</span></h3>
       <div id="pd-voice-stats"></div>
     </div>
 
     <!-- 🆕 Phase BG — 배지 진열장 -->
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt=""> <span data-ko="자녀의 배지" data-en="My Child's Badges">자녀의 배지</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎮" src="/img/menu/badge.webp" alt="" loading="lazy" decoding="async"> <span data-ko="자녀의 배지" data-en="My Child's Badges">자녀의 배지</span></h3>
       <div id="pd-badges"></div>
     </div>
 
     <!-- 🆕 Phase AR — AI 추천 학습 경로 -->
     <div class="card" style="margin-top:16px">
-      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt=""> <span data-ko="AI 추천 학습 경로 (이번 주)" data-en="AI Recommended Path (This Week)">AI 추천 학습 경로 (이번 주)</span></h3>
+      <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="🎯" src="/img/menu/quiz.webp" alt="" loading="lazy" decoding="async"> <span data-ko="AI 추천 학습 경로 (이번 주)" data-en="AI Recommended Path (This Week)">AI 추천 학습 경로 (이번 주)</span></h3>
       <!-- 🎯 주간 학습 진단 요약 — /api/games/recommend (룰 기반·즉시 로드). 데이터 없으면 숨김 -->
       <div id="pd-weekrec" style="display:none"></div>
       <div id="pd-recommend"><div class="empty">아래 버튼을 눌러 AI 학습 플랜을 받아보세요</div>

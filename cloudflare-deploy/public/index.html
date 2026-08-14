@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 
 <!-- 카카오톡/인앱 브라우저 대응: 화상 시작 시 카메라가 막히면 외부 브라우저 안내 -->
 <script src="/js/inapp-escape.js"></script>
@@ -21,17 +22,17 @@
   var URLS = {
     'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
-    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'contact':'https://pf.kakao.com/_xlqnSxd','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
     'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
-    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'https://pf.kakao.com/_xlqnSxd',
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
-    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
@@ -136,7 +137,13 @@
 </script>
 
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="dns-prefetch" href="https://js.tosspayments.com">
+<link rel="preconnect" href="https://js.tosspayments.com" crossorigin>
+<!-- 🚀 외부 도메인 미리 연결 (2026-08-14 피드백 ②) — DNS·TLS 왕복을 «쓰기 전에» 끝내 둔다.
+     저지연 회선에선 체감이 없지만 필리핀·지방 회선에선 이 왕복이 수백 ms 다. -->
+<link rel="dns-prefetch" href="https://www.youtube.com">
+<link rel="preconnect" href="https://www.youtube.com" crossorigin>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>Mangoi 화상솔루션</title>
     <!-- 📱 PWA 메타 (홈화면 추가 + 앱 모드) -->
     <link rel="manifest" href="/manifest.json">
@@ -4509,12 +4516,12 @@ window.mgIsSlowNet = function(){
 <div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
 <aside id="mg-drawer" aria-label="메뉴 사이드바" data-ko-aria="메뉴 사이드바" data-en-aria="Menu sidebar">
   <div class="mg-drawer-head">
-    <span class="mg-drawer-logo" onclick="mgDrawerClose();location.href='/';" style="cursor:pointer" title="홈으로" data-ko-title="홈으로" data-en-title="Home" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){mgDrawerClose();location.href='/';}"><img src="/img/mango-ufo.png" alt="" style="height:31px;width:auto;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>
+    <span class="mg-drawer-logo" onclick="mgDrawerClose();location.href='/';" style="cursor:pointer" title="홈으로" data-ko-title="홈으로" data-en-title="Home" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){mgDrawerClose();location.href='/';}"><img src="/img/mango-ufo.png" alt="" style="height:31px;width:auto;vertical-align:middle;margin-right:6px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))" loading="lazy" decoding="async"> Mangoi</span>
     <button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>
   </div>
   <nav class="mg-drawer-nav">
     <!-- 📌 고정 메뉴 (그룹 밖, 항상 노출) -->
-    <button class="mg-hl mg-s3" onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:26px;width:26px;object-fit:contain;vertical-align:middle;margin-right:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
+    <button class="mg-hl mg-s3" onclick="mgGo('about')"><img src="/img/Mangoi_Character.png" alt="" style="height:26px;width:26px;object-fit:contain;vertical-align:middle;margin-right:8px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))" loading="lazy" decoding="async"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
 
     <!-- 🎓 그룹 1: 학습 공간 (기본 접힘 — 메뉴 열면 부모 메뉴만 보이고, 클릭해야 자식 메뉴 펼침) -->
     <details class="mg-acc">
@@ -4559,7 +4566,7 @@ window.mgIsSlowNet = function(){
         <button class="mg-hl mg-s2" onclick="mgGo('leveltest')" data-ko="🎯 레벨테스트" data-en="🎯 Level Test">🎯 레벨테스트</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.openTrialSignup)window.openTrialSignup();else if(window.gridActions&&window.gridActions.trial)window.gridActions.trial();" data-ko="🎁 체험수업" data-en="🎁 Free Trial">🎁 체험수업</button>
         <button onclick="mgGo('points-shop')" data-ko="🎁 포인트상점" data-en="🎁 Point Shop">🎁 포인트상점</button>
-        <button class="mg-hl mg-s2" onclick="mgGo('inquiry')" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
+        <button class="mg-hl mg-s2" onclick="mgDrawerClose();if(window.openInquiryModal)window.openInquiryModal();else mgGo('inquiry');" data-ko="💬 카카오 상담" data-en="💬 KakaoTalk Chat">💬 카카오 상담</button>
         <button onclick="mgDrawerClose();location.href='/refund.html';" data-ko="💰 환불규정" data-en="💰 Refund Policy">💰 환불규정</button>
         <button id="mg-faq-btn" class="mg-hl mg-s2" onclick="event.preventDefault();if(window.mgDrawerClose)mgDrawerClose();if(window.openFaqOverlay)openFaqOverlay();return false;" data-ko="❓ 자주 묻는 질문" data-en="❓ FAQ">❓ 자주 묻는 질문</button>
         <button class="mg-s1" onclick="mgGo('admin')" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
@@ -4711,7 +4718,7 @@ window.mgIsSlowNet = function(){
     '단계별 발음':'커리큘럼별 발음 연습',
     '연기':'수업 일정 연기·변경',
     '환불규정':'환불·변경 규정 안내',
-    '신규상담':'무료 상담 신청하기',
+    '카카오 상담':'카카오톡으로 실시간 상담하기',
     '수업 진단':'카메라·마이크 사전 점검',
     '수업 신청':'원하는 수업 예약하기',
     '교사 소개':'원어민·전문 강사 보기',
@@ -5330,13 +5337,13 @@ window.mgIsSlowNet = function(){
     </style>
     <div id="starfield"></div>
     <!-- 🛸 망고 UFO — 왼쪽 멀리서 작게 시작해 오른쪽으로 크게 가로지름 -->
-    <img id="mango-ufo" class="mango-ufo" src="/img/mango-ufo.png" alt="망고 UFO" aria-hidden="true" onerror="this.style.display='none'" />
+    <img id="mango-ufo" class="mango-ufo" src="/img/mango-ufo.png" alt="망고 UFO" aria-hidden="true" onerror="this.style.display='none'" loading="lazy" decoding="async"/>
 
     <!-- 🌌 Phase 8: 우주 데코 (좌상단 나선은하 + 우상단 토성 + 우하단 작은 은하들) -->
     <img class="deco-saturn" src="/img/saturn-right.png" alt="" aria-hidden="true"
-         onerror="this.style.display='none'" />
+         onerror="this.style.display='none'" loading="lazy" decoding="async"/>
     <img class="deco-saturn-left" src="/img/saturn-left.png" alt="" aria-hidden="true"
-         onerror="this.style.display='none'" />
+         onerror="this.style.display='none'" loading="lazy" decoding="async"/>
     <!-- (우하단 작은 은하 4개 deco-mini-galaxies — 사용자 요청으로 제거됨, 2026-06-16) -->
 
     <!-- 🚀 USS 망고아이 NCC-2026 — 영화 수준 vivid 우주선 -->
@@ -5548,9 +5555,9 @@ window.mgIsSlowNet = function(){
     <!-- 🐶 마티즈 우주비행사 (입체감 강화 — 다층 그라데이션 + 명암 + 하이라이트) -->
     <div id="astronaut" class="astronaut-wrap">
       <div class="astro-bubble" role="status" aria-hidden="true">
-        <img src="/img/astro-bubble-metal.png?v=1" alt="AI 시대를 이끄는 힘, 생각하고 결정하는 영어: 망고아이!" draggable="false">
+        <img src="/img/astro-bubble-metal.png?v=1" alt="AI 시대를 이끄는 힘, 생각하고 결정하는 영어: 망고아이!" draggable="false" loading="lazy" decoding="async">
       </div>
-      <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" /><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
+      <img src="/img/astronaut.png?v=20260713b" class="astronaut-img" alt="망고 우주비행사" loading="lazy" decoding="async"/><!-- ?v 갱신: 신발 밑창 잘림 수정판(크로마키 임계 150 + 그림자 제거) 강제 로드 -->
       <div class="astro-hotspot" role="button" tabindex="0" aria-label="망고 우주비행사 인사말"></div>
     </div>
     <script>
@@ -5782,7 +5789,7 @@ window.mgIsSlowNet = function(){
       <div class="mascot-bubble" aria-hidden="false">
         <img src="/img/Mangoi_Character.png" alt="Mangoi"
              onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';"
-             class="mascot-img" />
+             class="mascot-img" loading="lazy" decoding="async"/>
         <span class="mascot-shine"></span>
         <span class="mascot-rim"></span>
       </div>
@@ -5967,13 +5974,13 @@ window.mgIsSlowNet = function(){
       <div id="ai-home-suggest" class="ai-suggest" style="display:none"></div>
       <div class="ai-quick">
         <!-- 🔤 가나다 순 (관 → 마 → 발 → 수 → 신 → 홈) -->
-        <button class="ai-quick-btn" data-go="about" onclick="event.preventDefault();openAboutMangoi();return false;"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
+        <button class="ai-quick-btn" data-go="about" onclick="event.preventDefault();openAboutMangoi();return false;"><img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em" loading="lazy" decoding="async"><span data-ko="망고아이란?" data-en="About Mangoi">망고아이란?</span></button>
         <button class="ai-quick-btn" data-go="admin" data-ko="📊 관리자" data-en="📊 Admin">📊 관리자</button>
         <button class="ai-quick-btn" data-go="mypage" data-ko="👤 마이페이지" data-en="👤 My Page">👤 마이페이지</button>
         <button class="ai-quick-btn" data-go="points-shop" data-ko="🎁 포인트상점" data-en="🎁 Point Shop" onclick="event.preventDefault();showPointsShop();">🎁 포인트상점</button>
         <button class="ai-quick-btn" data-go="speech" data-ko="🎤 단계별 발음" data-en="🎤 Curriculum Pronunciation">🎤 단계별 발음</button>
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
-        <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 신규상담" data-en="💬 New Inquiry">💬 신규상담</button>
+        <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 카카오 상담" data-en="💬 KakaoTalk Chat">💬 카카오 상담</button>
         <button class="ai-quick-btn" data-go="review-quiz" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" onclick="event.preventDefault();location.href='/review-quiz.html';return false;">🧠 복습퀴즈</button>
         <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();if(window.openAllMenuOverlay)window.openAllMenuOverlay();return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
@@ -5998,7 +6005,7 @@ window.mgIsSlowNet = function(){
            ko:'AI 웜업', en:'AI Warm-up', dko:'수업 전 입 풀기 준비운동', den:'Pre-class speaking warm-up', url:'/warmup.html'},
           {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
            ko:'AI 음성코치', en:'AI Voice Coach', dko:'단계별 발음 교정 연습', den:'Step-by-step pronunciation', url:'/speech-coach.html'},
-          {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg">',
+          {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg" loading="lazy" decoding="async">',
            ko:'AI 친구 (망고아이)', en:'AI Friend (Mangoi)', dko:'망고아이와 영어로 수다', den:'Chat in English with Mangoi', url:'/ai-friend.html'},
           {ic:aifSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
            ko:'AI 영작', en:'AI Writing', dko:'영어 글쓰기 자동 첨삭', den:'Auto English-writing feedback', url:'/ai-write.html'},
@@ -6046,7 +6053,7 @@ window.mgIsSlowNet = function(){
         ov.innerHTML=
           '<div class="aif-card">'
          +'<button class="aif-close" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
-         +'<div class="aif-head"><div class="aif-logo"><img src="/img/mango-char.png" alt="망고아이"></div>'
+         +'<div class="aif-head"><div class="aif-logo"><img src="/img/mango-char.png" alt="망고아이" loading="lazy" decoding="async"></div>'
          +'<h2 class="aif-title" data-ko="AI와 친구하기" data-en="Play with AI">AI와 친구하기</h2>'
          +'<p class="aif-sub" data-ko="AI로 스스로 공부해요 · 자기주도 학습" data-en="Self-directed learning with AI">AI로 스스로 공부해요 · 자기주도 학습</p></div>'
          +'<div class="aif-grid">'+cards+'</div>'
@@ -6590,7 +6597,7 @@ window.mgIsSlowNet = function(){
   <div class="grid-menu-inner">
     <div class="grid-menu-head">
       <span class="grid-menu-title">
-        <img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em"><span data-ko="망고아이 신규 고객 안내" data-en="Mangoi New Customer Guide">망고아이 신규 고객 안내</span>
+        <img src="/img/mango-char.png" alt="" style="height:1.1em;width:auto;vertical-align:-0.2em;margin-right:.1em" loading="lazy" decoding="async"><span data-ko="망고아이 신규 고객 안내" data-en="Mangoi New Customer Guide">망고아이 신규 고객 안내</span>
         <span id="gm-sort-badge" style="margin-left:8px;padding:3px 9px;background:rgba(251,191,36,0.15);border:1px solid rgba(251,191,36,0.35);border-radius:6px;color:#fde68a;font-size:10.5px;font-weight:700;letter-spacing:0.3px" data-ko="🔤 가나다순 · A→Z" data-en="🔤 A → Z">🔤 가나다순 · A→Z</span>
         <button id="gm-lang-toggle" type="button" style="margin-left:8px;padding:4px 10px;background:rgba(78,201,255,0.12);border:1px solid rgba(78,201,255,0.35);border-radius:6px;color:#9ee5ff;font-size:10.5px;font-weight:800;cursor:pointer">🌐 EN</button>
       </span>
@@ -6831,7 +6838,7 @@ window.mgIsSlowNet = function(){
 
     <div class="grid-menu-cards" id="gm-cards">
 <!-- 🔐 로그인 가드 — 모든 .gm-card 클릭 시 비로그인이면 로그인 모달 -->
-<script src="/js/idx-x2.js?v=1"></script><!-- 분할추출:idx-x2 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x2.js?v=2"></script><!-- 분할추출:idx-x2 (원복: 이 위치에 인라인) -->
 
       <button class="gm-card" data-go="franchise" data-en-key="franchise inquiry">
         <span class="gm-icon">🏢</span>
@@ -7844,7 +7851,7 @@ window.mgIsSlowNet = function(){
 <div id="view-videocall-lobby" class="view lobby">
     <!-- 🌌 로비 우주 배경 데코 (학생 홈페이지 동일 스타일) -->
     <div class="lobby-starfield" id="lobby-starfield" aria-hidden="true"></div>
-    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn-right.png" alt="" aria-hidden="true" onerror="this.style.display='none'" />
+    <img class="lobby-deco lobby-deco-saturn" src="/img/saturn-right.png" alt="" aria-hidden="true" onerror="this.style.display='none'" loading="lazy" decoding="async"/>
     <div class="lobby-deco lobby-deco-planet" aria-hidden="true"></div>
 
     <!-- 🔊 로비 환영 음성 (수업입장 시 자동 재생, 작은 볼륨, 음소거 토글) -->
@@ -7874,7 +7881,7 @@ window.mgIsSlowNet = function(){
         <!-- 🥭 (2026-07-25 강사 피드백) 수업 입장 화면에 정본 캐릭터 Mr.Mango + 3개 언어 인사말 -->
         <div style="text-align:center;margin-bottom:14px">
             <img src="/img/mango-char.png" alt="Mr.Mango" onerror="this.onerror=null;this.src='/img/Mangoi_Character.png'"
-                 style="width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(124,58,237,0.45))" />
+                 style="width:74px;height:74px;object-fit:contain;filter:drop-shadow(0 6px 14px rgba(124,58,237,0.45))" loading="lazy" decoding="async"/>
             <div style="margin-top:8px;font-size:0.82rem;font-weight:700;line-height:1.65;color:#ddd6fe">
                 <div>👋 안녕하세요! 저는 Mr.Mango예요. 오늘도 반가워요!</div>
                 <div>👋 Hi! I'm Mr.Mango. Great to see you today!</div>
@@ -8380,7 +8387,7 @@ window.mgIsSlowNet = function(){
                          "나갔다 들어오니 교재가 다른 게 보인다"의 원인이었다. 추측해서 띄우지 않는다.
                          ⚠️ opacity:0 으로 시작하지 않는다 — 백그라운드 탭에서 영영 안 보이는 사고 방지(CLAUDE.md). -->
                     <div id="vc-wait-card" style="display:none;">
-                        <img id="vc-wait-mango" src="/img/mango-char.png" alt="Mr. Mango" />
+                        <img id="vc-wait-mango" src="/img/mango-char.png" alt="Mr. Mango" loading="lazy" decoding="async"/>
                         <div class="vwc-ko" data-ko="잠시만 기다려 주세요" data-en="Please wait">잠시만 기다려 주세요</div>
                         <div class="vwc-en">Please wait.</div>
                         <div class="vwc-sub" id="vc-wait-sub" data-ko="선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook" data-en="Your teacher is opening the textbook · 선생님이 교재를 여는 중이에요">선생님이 교재를 여는 중이에요 · Your teacher is opening the textbook</div>
@@ -8918,355 +8925,107 @@ window.mgIsSlowNet = function(){
 -->
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
-<script defer src="/js/idx-ai-home.js?v=8"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
+<script defer src="/js/idx-ai-home.js?v=9"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
 
-<!-- 💬 신규상담 모달 (2026-05-03 추가) -->
-<div id="inquiry-modal" style="display:none;position:fixed;inset:0;z-index:2147483646;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);align-items:center;justify-content:center;animation:fadeIn 0.25s">
-  <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(251,191,36,0.4);border-radius:18px;padding:32px;max-width:480px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 24px 64px -16px rgba(0,0,0,0.8);position:relative">
-    <button id="inquiry-close" style="position:absolute;top:14px;right:14px;background:transparent;border:0;color:#94a3b8;font-size:22px;cursor:pointer">✕</button>
-    <h2 style="color:#fbbf24;font-size:22px;margin:0 0 6px;font-weight:800">💬 상담 신청 (카톡·이메일)</h2>
-    <p style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:14px">궁금하신 점을 남겨 주세요. <b style="color:#fde68a">카카오톡 또는 이메일로 답변</b>드려요 (영업일 1일 내).<br/><span style="color:#94a3b8;font-size:12.5px">전화 상담 대신 카톡으로 편하게 — 아래 <b style="color:#FEE500">카카오 채널</b>이 가장 빨라요.</span></p>
 
-    <!-- 🤖 AI 상담봇 — 사람·전화 없이 24시간 자동 응대 -->
-    <div id="consult-bot" style="margin-bottom:16px;padding:13px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.14),rgba(79,124,255,0.06));border:1px solid rgba(99,102,241,0.35);border-radius:14px">
-      <div style="font-weight:800;color:#a5b4fc;font-size:13.5px;margin-bottom:2px">🤖 AI에게 먼저 물어보기</div>
-      <div style="color:#94a3b8;font-size:11.5px;margin-bottom:10px">24시간 자동 답변 · 궁금한 걸 바로 물어보세요</div>
-      <div id="cb-log" style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:9px"></div>
-      <div id="cb-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px"></div>
-      <div style="display:flex;gap:6px">
-        <input id="cb-input" type="text" maxlength="200" placeholder="예: 수업 시간이 어떻게 되나요?" style="flex:1;min-width:0;padding:10px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:13px;outline:none" />
-        <button type="button" id="cb-send" style="padding:10px 16px;background:linear-gradient(135deg,#6366f1,#4f46e5);border:0;border-radius:10px;color:#fff;font-weight:800;font-size:13px;cursor:pointer;flex-shrink:0">전송</button>
-      </div>
-    </div>
-
-    <!-- 🧠 MBTI 매칭으로 잘 맞는 강사 추천 받기 -->
-    <a href="/mbti.html?from=inquiry" style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(79,124,255,0.20),rgba(99,102,241,0.10));border:1px solid rgba(79,124,255,0.45);border-radius:12px;text-decoration:none;cursor:pointer;transition:all .15s">
-      <span style="font-size:28px;flex-shrink:0">🧠</span>
-      <div style="flex:1;min-width:0">
-        <div style="color:#a5b4fc;font-size:13.5px;font-weight:800;line-height:1.3">MBTI 매칭으로 강사 추천 받기 →</div>
-        <div style="color:#cbd5e1;font-size:11.5px;margin-top:3px;line-height:1.4">자녀에게 잘 맞을 강사를 AI 가 추천해드려요 (1분 소요)</div>
-      </div>
-    </a>
-
-    <!-- 선택된 강사 표시 (MBTI 매칭에서 돌아온 경우 자동 표시) -->
-    <div id="inq-selected-teacher" style="display:none;padding:14px 16px;margin-bottom:14px;background:linear-gradient(135deg,rgba(251,191,36,0.18),rgba(245,158,11,0.06));border:1px solid rgba(251,191,36,0.5);border-radius:12px;align-items:center;gap:12px">
-      <span style="font-size:24px">⭐</span>
-      <div style="flex:1;min-width:0">
-        <div style="color:#fbbf24;font-size:12.5px;font-weight:800">선택된 강사</div>
-        <div id="inq-selected-name" style="color:#fff;font-size:14px;font-weight:800;margin-top:2px"></div>
-        <div id="inq-selected-meta" style="color:#cbd5e1;font-size:11px;margin-top:2px"></div>
-      </div>
-      <button type="button" onclick="document.getElementById('inq-selected-teacher').style.display='none';try{sessionStorage.removeItem('mangoi_selected_teacher');}catch(e){}" style="background:transparent;color:#a3b3d1;border:0;cursor:pointer;font-size:18px;padding:4px 8px">✕</button>
-    </div>
-
-    <!-- 카카오 즉시상담 (대안 진입) -->
-    <button type="button" onclick="window.openKakao&&window.openKakao()" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:14px;margin-bottom:18px;background:#FEE500;border:0;border-radius:12px;color:#3C1E1E;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 4px 12px -2px rgba(254,229,0,0.4);transition:transform 0.2s" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-      <svg width="22" height="20" viewBox="0 0 256 240" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <path fill="#3C1E1E" d="M128 0C57.31 0 0 45.16 0 100.97c0 36.49 24.61 68.42 61.6 86.07-1.96 7.27-12.67 47.05-13.1 49.97 0 0-.26 2.21 1.18 3.05 1.43.84 3.13.18 3.13.18 4.05-.57 47.05-30.86 54.83-36.41 6.66.94 13.51 1.43 20.36 1.43 70.69 0 128-45.16 128-100.97S198.69 0 128 0z"/>
-      </svg>
-      <span>💬 카카오로 즉시 상담받기</span>
-    </button>
-    <div style="text-align:center;color:#94a3b8;font-size:12px;margin-bottom:14px;position:relative">
-      <span style="background:linear-gradient(135deg,#1e293b,#0f172a);padding:0 12px;position:relative;z-index:1">또는 폼으로 신청</span>
-      <span style="position:absolute;left:0;right:0;top:50%;height:1px;background:rgba(255,255,255,0.1);z-index:0"></span>
-    </div>
-
-    <form id="inquiry-form" onsubmit="return false">
-      <div style="margin-bottom:14px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">이름 <span style="color:#ef4444">*</span></label>
-        <input id="inq-name" type="text" required maxlength="40" placeholder="홍길동"
-               style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none;transition:border-color 0.2s" />
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">답변 받을 곳 — 카카오톡 ID <span style="color:#ef4444">*</span> <span style="color:#94a3b8;font-weight:400">(또는 이메일)</span></label>
-        <input id="inq-contact" type="text" required maxlength="60" placeholder="카카오 ID 또는 이메일 (전화번호도 가능)"
-               style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none" />
-        <p style="color:#7c88a8;font-size:11px;margin:6px 0 0;line-height:1.5">💬 남겨주시면 <b style="color:#a7b6d6">카카오톡(또는 이메일)</b>으로 답변드려요. 전화 상담은 운영하지 않아요.</p>
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">이메일 (선택)</label>
-        <input id="inq-email" type="email" maxlength="100" placeholder="example@domain.com"
-               style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none" />
-      </div>
-      <div style="margin-bottom:14px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">관심 과정</label>
-        <select id="inq-program"
-                style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none">
-          <option value="">선택해 주세요</option>
-          <option value="1:1">1:1 화상영어</option>
-          <option value="group">그룹 수업</option>
-          <option value="kids">키즈 영어</option>
-          <option value="business">비즈니스 영어</option>
-          <option value="exam">시험 영어 (TOEIC/OPIc)</option>
-          <option value="trial">무료 체험</option>
-          <option value="other">기타</option>
-        </select>
-      </div>
-      <div style="margin-bottom:18px">
-        <label style="display:block;color:#fbbf24;font-size:12px;font-weight:700;margin-bottom:6px">문의 내용 <span style="color:#ef4444">*</span></label>
-        <textarea id="inq-message" required maxlength="500" rows="4" placeholder="궁금한 점이나 희망하시는 수업 시간대 등을 알려주세요"
-                  style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;font-size:14px;outline:none;resize:vertical;font-family:inherit"></textarea>
-      </div>
-      <label style="display:flex;align-items:flex-start;gap:8px;color:#94a3b8;font-size:11.5px;line-height:1.5;cursor:pointer;margin-bottom:14px">
-        <input id="inq-agree" type="checkbox" style="width:16px;height:16px;accent-color:#fbbf24;margin-top:1px;cursor:pointer;flex-shrink:0" />
-        <span>개인정보 수집·이용에 동의합니다 (상담 답변 목적: 이름·카톡ID/이메일·문의내용, 목적 달성 후 파기)</span>
-      </label>
-      <div style="display:flex;gap:8px">
-        <button type="button" id="inquiry-cancel"
-                style="flex:1;padding:12px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#cbd5e1;font-size:14px;font-weight:600;cursor:pointer">취소</button>
-        <button type="submit" id="inquiry-submit"
-                style="flex:2;padding:12px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border:0;border-radius:10px;color:#1a0f08;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 16px -4px rgba(245,158,11,0.5)">📨 상담 신청</button>
-      </div>
-    </form>
-
-    <div id="inquiry-result" style="display:none;margin-top:18px;padding:14px;background:rgba(34,197,94,0.18);border:1px solid rgba(34,197,94,0.4);border-radius:10px;color:#86efac;font-size:14px;line-height:1.5;text-align:center"></div>
-  </div>
-</div>
-
+<!-- 💬 신규상담 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
+     문의 페이지(/contact.html)와 신규상담 폼 모달을 함께 없앴다. 상담 창구는 카카오 채널 하나다.
+     ⛔ 상담 폼을 되살리지 말 것 — 창구가 둘이면 카톡으로 온 문의와 폼으로 온 문의가 갈려
+        답변이 늦어진다는 것이 이번 요구의 이유다. (폼이 쓰던 /api/student/inquiry 와
+        관리자 「💌 신규상담 관리」 카드는 그대로 둔다 — 이미 들어와 있는 문의를 봐야 한다.)
+     ⚠️ `openInquiryModal` 이라는 **이름은 그대로 남긴다.** 이 함수를 부르는 곳이 홈 검색창·
+        그리드메뉴·AI 상담사·결제모달·MBTI 매칭 등 여러 군데라, 이름을 바꾸면 그중 하나가
+        조용히 죽는다. 여는 «대상» 만 카카오 채널로 바꿨다. -->
 <script>
 (function(){
-  const modal = document.getElementById('inquiry-modal');
-  const form  = document.getElementById('inquiry-form');
-  const result = document.getElementById('inquiry-result');
-  const closeBtn = document.getElementById('inquiry-close');
-  const cancelBtn = document.getElementById('inquiry-cancel');
-
-  // 🆕 신규상담 안내 음성 (모달 열 때 자동 재생, 우상단 작은 버튼으로 끄기 가능)
-  var inquiryAudio = null;
-  var inquiryAudioBtn = null;
-  function playInquiryGreeting(){
-    try {
-      if (!inquiryAudio) {
-        inquiryAudio = new Audio('/audio/신규학생.wav');
-        inquiryAudio.preload = 'auto';
-        inquiryAudio.addEventListener('ended', updateAudioBtn);
-        inquiryAudio.addEventListener('pause', updateAudioBtn);
-        inquiryAudio.addEventListener('play', updateAudioBtn);
-      }
-      inquiryAudio.volume = 0.5;     // 🆕 음성 볼륨을 50% (중간 정도 작게)
-      inquiryAudio.currentTime = 0;
-      var p = inquiryAudio.play();
-      if (p && p.catch) p.catch(function(e){ console.warn('[inquiry] 음성 자동재생 차단:', e); updateAudioBtn(); });
-      updateAudioBtn();
-    } catch(e) { console.warn('[inquiry] audio err:', e); }
-  }
-  function stopInquiryGreeting(){
-    if (inquiryAudio) { try { inquiryAudio.pause(); inquiryAudio.currentTime = 0; } catch(e){} }
-    updateAudioBtn();
-  }
-  function ensureAudioBtn(){
-    if (inquiryAudioBtn) return inquiryAudioBtn;
-    // 모달 컨테이너 찾기 → 우상단에 작은 끄기/켜기 버튼 삽입
-    var modalBox = modal.querySelector('div[style*="background"]') || modal.firstElementChild;
-    if (!modalBox) return null;
-    modalBox.style.position = modalBox.style.position || 'relative';
-    var btn = document.createElement('button');
-    btn.id = 'inquiry-audio-btn';
-    btn.type = 'button';
-    btn.title = '안내 음성 끄기/켜기';
-    btn.style.cssText = 'position:absolute;top:10px;right:48px;width:30px;height:30px;border-radius:50%;border:1px solid rgba(251,191,36,.45);background:rgba(20,28,48,.65);backdrop-filter:blur(8px);color:#fde68a;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:10;line-height:1;padding:0';
-    btn.addEventListener('click', function(){
-      if (inquiryAudio && !inquiryAudio.paused) stopInquiryGreeting();
-      else playInquiryGreeting();
-    });
-    modalBox.appendChild(btn);
-    inquiryAudioBtn = btn;
-    return btn;
-  }
-  function updateAudioBtn(){
-    if (!inquiryAudioBtn) return;
-    var playing = inquiryAudio && !inquiryAudio.paused && !inquiryAudio.ended;
-    inquiryAudioBtn.innerHTML = playing ? '🔇' : '🔊';
-    inquiryAudioBtn.style.borderColor = playing ? 'rgba(251,191,36,.7)' : 'rgba(251,191,36,.45)';
+  'use strict';
+  /* 카카오 채널 열기.
+     ⚠️ window.openKakao 는 이 문서 **아래쪽**(카카오 FAB 블록)에서 정의된다. 이 스크립트가
+        먼저 실행되므로 «호출 시점» 에 찾는다 — 로드 순서에 기대면 초기 클릭이 죽는다.
+     ⚠️ 인앱 브라우저(카톡·문자앱)는 window.open 이 «예외 없이 null» 이다. try/catch 로는 못 잡으니
+        반환값이 비면 같은 창으로라도 반드시 연다. */
+  function toKakao(){
+    if (window.openKakao) return window.openKakao();
+    var url = (window.KAKAO_CHANNEL_URL || 'https://pf.kakao.com/_xlqnSxd'), w = null;
+    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
+    if (!w) { try { location.href = url; } catch(_){} }
+    return false;
   }
 
-  window.openInquiryModal = function(opts){
-    // 주의: 토글(열려있으면 닫기)로 하면 안 됨 — QUICK_MAP 핸들러와 ph166 안전망 위임 핸들러가
-    // 같은 클릭에 둘 다 실행되어 열자마자 닫히는 버그가 됨. 이미 열려있으면 그대로 유지.
-    if (modal.style.display === 'flex') return;
-    form.reset();
-    result.style.display = 'none';
-    form.style.display = 'block';
-    modal.style.display = 'flex';
-    // 🧠 MBTI 매칭에서 선택된 강사 prefill (sessionStorage)
+  /* 🧠 MBTI 강사매칭에서 고른 강사를 카카오로 들고 간다.
+     카카오 채널 «홈» 은 첫 메시지 프리필을 지원하지 않는다. 그래서 보낼 문장을 클립보드에
+     복사해 두고 «붙여넣기만 하면 된다» 고 알려 준다. 조용히 버리면 학부모가 매칭 결과를
+     처음부터 다시 설명해야 한다. */
+  function carryTeacherToKakao(){
+    var sel = null;
+    try { sel = JSON.parse(sessionStorage.getItem('mangoi_selected_teacher') || 'null'); } catch(e){}
+    if (!sel || !sel.teacher_name) return false;
+    var L = (window.getLang ? window.getLang() : 'ko') === 'ko';
+    var what = (sel.request_type === 'trial')
+      ? (L ? '무료체험' : 'a free trial')
+      : (L ? '수업' : 'classes');
+    var msg = L
+      ? ('[MBTI 매칭] ' + sel.teacher_name + ' 선생님' +
+         (sel.teacher_mbti ? ' (' + sel.teacher_mbti + ')' : '') + ' 으로 ' + what + ' 신청하고 싶어요.')
+      : ('[MBTI match] I would like ' + what + ' with ' + sel.teacher_name +
+         (sel.teacher_mbti ? ' (' + sel.teacher_mbti + ')' : '') + '.');
     try {
-      const sel = JSON.parse(sessionStorage.getItem('mangoi_selected_teacher') || 'null');
-      const box = document.getElementById('inq-selected-teacher');
-      if (sel && sel.teacher_uid && box) {
-        document.getElementById('inq-selected-name').textContent = sel.teacher_name + (sel.teacher_mbti ? ` (${sel.teacher_mbti})` : '');
-        document.getElementById('inq-selected-meta').textContent = '매칭 점수 ' + (sel.match_score || 0) + '점 · ' + (sel.request_type === 'trial' ? '🎁 무료체험 희망' : '💬 신규상담');
-        box.style.display = 'flex';
-        // 메시지 영역에도 자동 prefill
-        const msg = document.getElementById('inq-message');
-        if (msg && !msg.value) {
-          const reqLabel = sel.request_type === 'trial' ? '무료체험' : '수업 신청';
-          msg.value = `[MBTI 매칭으로 선정] ${sel.teacher_name} 선생님 (${sel.teacher_mbti}, 매칭점수 ${sel.match_score}점) ${reqLabel} 희망합니다.\n\n원하는 시간대·과정 등을 알려주세요:\n`;
-        }
-      } else if (box) {
-        box.style.display = 'none';
-      }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(msg);
     } catch(e){}
-    setTimeout(() => document.getElementById('inq-name').focus(), 100);
-    // 안내 음성 자동 재생 + 끄기 버튼 설치
-    setTimeout(function(){
-      ensureAudioBtn();
-      playInquiryGreeting();
-    }, 200);
-  };
-  function closeModal(){
-    modal.style.display = 'none';
-    // 모달 닫으면 음성도 즉시 정지
-    stopInquiryGreeting();
-    // 신규상담 모달 닫으면 히트맵 그리드로 자동 복귀
-    const gmEl = document.getElementById('grid-menu');
-    if (gmEl) gmEl.style.display = 'block';
+    try { sessionStorage.removeItem('mangoi_selected_teacher'); } catch(e){}
+    alert((L ? '아래 문장을 복사해 뒀어요. 카카오톡 상담창에 붙여넣기만 하세요.\n\n'
+             : 'Copied — just paste it into the KakaoTalk chat.\n\n') + msg);
+    return true;
   }
-  closeBtn.addEventListener('click', closeModal);
-  cancelBtn.addEventListener('click', closeModal);
-  /* 🔒 (2026-08-07 QA #4) 신규상담도 여러 칸을 채우는 폼이다 — 배경 클릭으로 날려버리지 않는다. */
-  modal.addEventListener('click', (e) => { if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) closeModal(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
-  });
 
-  // 🧠 [2026-07-27] MBTI 강사매칭에서 넘어온 ?go= 수신부.
-  //   mbti.html / mbti-test.html 은 강사를 고르면 `/?go=inquiry&teacher=…` 로 홈에 보낸다.
-  //   그런데 **받는 쪽이 없어서** 홈에 도착만 하고 상담창이 안 열렸다(직원 피드백 #3).
-  //   강사 정보를 채워 넣는 로직은 openInquiryModal() 안에 이미 있었다 — 여는 것만 빠져 있었음.
-  //   ⚠️ 여기서는 **상담 모달만** 연다. 수업 입장류를 URL 로 자동 실행하면 안 된다
-  //      (과거 ?vc_autojoin=1 이 권한 팝업 전에 입장해 고착된 사고 전례).
+  window.openInquiryModal = function(){ carryTeacherToKakao(); return toKakao(); };
+  window.openContactPage  = window.openInquiryModal;
+
+  /* 🧠 [2026-07-27] MBTI 강사매칭에서 넘어온 ?go= 수신부.
+     mbti.html / mbti-test.html 은 강사를 고르면 `/?go=inquiry&teacher=…` 로 홈에 보낸다.
+     ⚠️ 여기서는 **상담 창구만** 연다. 수업 입장류를 URL 로 자동 실행하면 안 된다
+        (과거 ?vc_autojoin=1 이 권한 팝업 전에 입장해 고착된 사고 전례).
+     ⚠️ 자동으로 새 창을 열면 팝업 차단에 걸린다(사용자 클릭이 아니다). 그래서 도착하자마자
+        여는 대신 «카카오로 상담하기» 한 줄을 띄우고, 누르면 그때 연다. */
   (function _goParamReceiver(){
     function run(){
       var go = '';
       try { go = new URLSearchParams(location.search).get('go') || ''; } catch(e){ return; }
       if (!go) return;
-      // URL 은 먼저 정리 — 새로고침 때 또 열리지 않게.
       try { history.replaceState(null, '', location.pathname + location.hash); } catch(e){}
       if (go === 'inquiry' || go === 'trial') {
-        window.openInquiryModal && window.openInquiryModal();
+        showKakaoNudge();
       } else if (go === 'enroll') {
         if (window.gridActions && window.gridActions.payment) window.gridActions.payment();
-        else window.openInquiryModal && window.openInquiryModal();
+        else showKakaoNudge();
       }
     }
-    // 홈 화면·그리드가 준비된 뒤에 열어야 모달이 뒤에 깔리지 않는다.
+    function showKakaoNudge(){
+      var L = (window.getLang ? window.getLang() : 'ko') === 'ko';
+      var old = document.getElementById('mi-kakao-nudge');
+      if (old) old.remove();
+      var box = document.createElement('div');
+      box.id = 'mi-kakao-nudge';
+      box.style.cssText = 'position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:2147483646;' +
+        'display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;background:#FEE500;' +
+        'color:#3C1E1E;font-size:14px;font-weight:800;box-shadow:0 10px 28px -8px rgba(0,0,0,.45);cursor:pointer;' +
+        'max-width:92vw';
+      box.textContent = L ? '💬 카카오톡으로 상담하기 →' : '💬 Chat with us on KakaoTalk →';
+      box.setAttribute('role', 'button');
+      box.addEventListener('click', function(){ box.remove(); window.openInquiryModal(); });
+      document.body.appendChild(box);
+      setTimeout(function(){ if (box.parentNode) box.remove(); }, 15000);
+    }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ setTimeout(run, 300); });
     else setTimeout(run, 300);
   })();
-
-  document.getElementById('inquiry-submit').addEventListener('click', async (e) => {
-    e.preventDefault();
-    const name    = document.getElementById('inq-name').value.trim();
-    const contact = document.getElementById('inq-contact').value.trim();
-    const email   = document.getElementById('inq-email').value.trim();
-    const program = document.getElementById('inq-program').value;
-    const message = document.getElementById('inq-message').value.trim();
-
-    if (!name || !contact || !message) {
-      alert('필수 항목(이름·답변 받을 곳·문의 내용)을 모두 입력해 주세요.');
-      return;
-    }
-    if (!document.getElementById('inq-agree') || !document.getElementById('inq-agree').checked) {
-      alert('개인정보 수집·이용에 동의해 주세요.');
-      return;
-    }
-
-    const btn = document.getElementById('inquiry-submit');
-    btn.disabled = true;
-    btn.textContent = '전송 중…';
-    try {
-      const r = await fetch('/api/student/inquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, contact, email, program, message })
-      });
-      const d = await r.json();
-      if (!d.ok) throw new Error(d.error || '전송 실패');
-      form.style.display = 'none';
-      result.style.display = 'block';
-      result.innerHTML = `✅ <b>상담 신청이 접수되었습니다!</b><br/><span style="color:#cbd5e1;font-size:13px">접수번호: <code>${d.inquiry_id||'-'}</code><br/>남겨주신 <b style="color:#fde68a">카카오톡(또는 이메일)으로 답변</b>드릴게요 (영업일 1일 내).<br/>더 빠른 답변은 <b style="color:#FEE500">카카오 채널</b>을 이용해 주세요!</span>`;
-      setTimeout(closeModal, 4000);
-    } catch (err) {
-      alert('상담 신청 중 오류가 발생했어요: ' + err.message + '\n\n잠시 후 다시 시도해 주세요.');
-      btn.disabled = false;
-      btn.textContent = '📨 상담 신청';
-    }
-  });
 })();
 </script>
 
-<!-- 🤖 AI 상담봇 채팅 로직 -->
-<script>
-(function(){
-  var log = document.getElementById('cb-log');
-  var input = document.getElementById('cb-input');
-  var send = document.getElementById('cb-send');
-  var chips = document.getElementById('cb-chips');
-  if (!log || !input || !send) return;
-  var history = [];
-  var greeted = false;
-  var SUGGEST = ['수업 시간이 어떻게 되나요?','AI 예습·복습이랑 게임도 있나요?','포인트로 뭘 받을 수 있나요?','레벨테스트는 무료인가요?','필요한 장비가 뭔가요?','환불 규정 알려주세요','수강 요금이 궁금해요'];
-
-  function bubble(text, who){
-    var d = document.createElement('div');
-    d.style.cssText = 'max-width:90%;padding:9px 12px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word;'
-      + (who === 'user'
-          ? 'align-self:flex-end;background:rgba(251,191,36,0.18);color:#fde68a;border:1px solid rgba(251,191,36,0.3)'
-          : 'align-self:flex-start;background:rgba(255,255,255,0.06);color:#e2e8f0;border:1px solid rgba(255,255,255,0.12)');
-    d.textContent = text;
-    log.appendChild(d);
-    log.scrollTop = log.scrollHeight;
-    return d;
-  }
-  function renderChips(){
-    chips.innerHTML = '';
-    SUGGEST.forEach(function(q){
-      var b = document.createElement('button');
-      b.type = 'button'; b.textContent = q;
-      b.style.cssText = 'padding:5px 10px;font-size:11.5px;border-radius:999px;border:1px solid rgba(165,180,252,0.4);background:rgba(99,102,241,0.12);color:#c7d2fe;cursor:pointer';
-      b.onclick = function(){ input.value = q; ask(); };
-      chips.appendChild(b);
-    });
-  }
-  async function ask(){
-    var msg = (input.value || '').trim();
-    if (!msg) return;
-    input.value = '';
-    bubble(msg, 'user');
-    history.push({ role:'user', content: msg });
-    send.disabled = true;
-    var typing = bubble('…', 'bot');
-    try {
-      var r = await fetch('/api/consult-bot', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ message: msg, history: history.slice(-6) })
-      });
-      var d = await r.json();
-      var reply = (d && d.reply) ? d.reply : '화면 우하단 카카오 채널로 문의해 주세요!';
-      typing.textContent = reply;
-      history.push({ role:'assistant', content: reply });
-    } catch(e){
-      typing.textContent = '지금 답변이 어려워요. 화면 우하단 카카오 채널로 문의해 주시면 바로 도와드릴게요!';
-    }
-    send.disabled = false;
-    log.scrollTop = log.scrollHeight;
-  }
-  // 상담 모달이 열릴 때 첫 인사 1회
-  window.__cbGreet = function(){
-    if (greeted) return; greeted = true;
-    bubble('안녕하세요! 망고아이 AI 상담 도우미예요 🥭\n'
-      + '① 수업은 오전 10시부터 오후 11시까지 (평일 월~금)\n'
-      + '② AI로 예습·복습을 재미있게 — 3D 게임 학습까지\n'
-      + '③ 배우면서 포인트를 모아 기프티콘·선물로 교환\n'
-      + '궁금한 걸 물어보시거나 아래 버튼을 눌러보세요.', 'bot');
-  };
-  send.addEventListener('click', ask);
-  input.addEventListener('keydown', function(e){ if (e.key === 'Enter'){ e.preventDefault(); ask(); } });
-  renderChips();
-  // 페이지에 바로 인사 렌더(모달은 display:none 이라 열면 보임)
-  window.__cbGreet();
-})();
-</script>
+<!-- 🤖 AI 상담봇 — 제거됨 (2026-08-14 피드백 ⑤).
+     이 봇은 신규상담 모달 «안에만» 있던 위젯이라(#cb-log·#cb-input), 모달이 사라지면서
+     붙을 곳이 없어졌다. 상담 창구는 카카오 채널 하나로 통일한다.
+     ⚠️ 서버 /api/consult-bot 은 지우지 않았다 — 다른 화면이 붙을 수 있는 엔드포인트다. -->
 
 <!-- 🥭 그리드 메뉴 — 정보 모달들 + 핸들러 (2026-05-03) -->
 <div id="info-modal" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);align-items:center;justify-content:center" onclick="if(event.target===this)closeInfoModal()">
@@ -9859,6 +9618,10 @@ window.mgIsSlowNet = function(){
   #info-modal-content .cs-card-email:hover { background: rgba(78,201,255,0.06); border-color: rgba(78,201,255,0.45); }
   #info-modal-content .cs-card-form { border-color: rgba(251,191,36,0.3); }
   #info-modal-content .cs-card-form:hover { background: rgba(251,191,36,0.06); border-color: rgba(251,191,36,0.5); }
+  /* ☎️ (2026-08-14) 상담 전화 — contact.html 을 없애면서 전화번호가 갈 곳이 사라졌다.
+     ⚠️ 카카오보다 «작게·아래에» 둔다. 카카오가 1순위라는 것은 2026-07-27 확정 사항이다. */
+  #info-modal-content .cs-card-tel { border-color: rgba(148,163,184,0.28); }
+  #info-modal-content .cs-card-tel:hover { background: rgba(148,163,184,0.08); border-color: rgba(148,163,184,0.5); }
   #info-modal-content .cs-card-icon {
     font-size: 22px;
     text-align: center;
@@ -10079,7 +9842,7 @@ window.mgIsSlowNet = function(){
   }
 </style>
 
-<script defer src="/js/idx-grid-menu.js?v=31"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
+<script defer src="/js/idx-grid-menu.js?v=33"></script><!-- 분할추출:grid-menu (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음. 최상위 getElementById 는 defer 에서 DOM 완성 후라 오히려 안전 -->
 <!-- /js/kakao-fab.js 는 사용하지 않음 -->
 
 <!-- 💳 결제 신청 모달 v2 — 3단계 위저드 (2026-05-04 재디자인) -->
@@ -11217,7 +10980,7 @@ window.mgIsSlowNet = function(){
     let bodyHtml = '';
     const _isInstall = (p.link_url === '#install');
     if (p.image_url) {
-      const _img = `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" />`;
+      const _img = `<img src="${escAttr(p.image_url)}" alt="${escAttr(p.title)}" loading="lazy" decoding="async"/>`;
       bodyHtml += _isInstall
         ? `<a href="javascript:void(0)" title="앱 설치하기" style="display:block;cursor:pointer" onclick="paInstallApp(${p.id});return false;">${_img}</a>`
         : _img;
@@ -11585,7 +11348,7 @@ window.mgIsSlowNet = function(){
     // 모달 표시
     const overlay = document.createElement('div');
     overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:14px';
-    overlay.innerHTML = `<img src="${dataUrl}" style="max-width:min(420px,90vw);border-radius:14px;box-shadow:0 20px 60px rgba(251,191,36,0.4)">
+    overlay.innerHTML = `<img src="${dataUrl}" style="max-width:min(420px,90vw);border-radius:14px;box-shadow:0 20px 60px rgba(251,191,36,0.4)" loading="lazy" decoding="async">
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
         <a href="${dataUrl}" download="mangoi-${type}-${date}.png" style="background:#22c55e;color:#fff;border:0;border-radius:10px;padding:12px 20px;cursor:pointer;font-weight:700;text-decoration:none">⬇️ ${en?'Download':'다운로드'}</a>
         <button onclick="(async()=>{try{const blob=await(await fetch('${dataUrl}')).blob();const f=new File([blob],'mangoi.png',{type:'image/png'});if(navigator.share){await navigator.share({files:[f],title:'Mangoi'});}else{await navigator.clipboard.write([new ClipboardItem({[blob.type]:blob})]);alert('${en?'Copied!':'클립보드에 복사됨!'}');}}catch(e){alert('${en?'Share unavailable':'공유 불가'}');}})()" style="background:#a855f7;color:#fff;border:0;border-radius:10px;padding:12px 20px;cursor:pointer;font-weight:700">📤 ${en?'Share':'공유'}</button>
@@ -14329,17 +14092,17 @@ document.addEventListener('keydown', function(e){
   var URLS = {
     'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
-    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'contact':'https://pf.kakao.com/_xlqnSxd','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
     'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
-    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'https://pf.kakao.com/_xlqnSxd',
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
-    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
@@ -14466,17 +14229,17 @@ document.addEventListener('keydown', function(e){
   var URLS = {
     'admin':'/admin.html','adminmgr':'/admin.html','mypage':'/parent.html',
     'payment':'/payment.html','franchise':'/franchise.html','teachers':'/teachers.html',
-    'contact':'/contact.html','notice':'/notice.html','curriculum':'/curriculum.html',
+    'contact':'https://pf.kakao.com/_xlqnSxd','notice':'/notice.html','curriculum':'/curriculum.html',
     'homepage':'/','features':'/features.html','vocab':'/vocab.html','enroll':'/enroll.html',
     'trial':'/trial.html','event':'/event.html','faq':'/faq.html',
     'installguide':'/install-guide.html','learnguide':'/learn-guide.html',
-    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'/contact.html',
+    'remote':'/remote.html','diagnosis':'/admin/health.html','callcenter':'https://pf.kakao.com/_xlqnSxd',
     'library':'/docs/index.html','reviews':'/reviews.html','recordings':'/admin.html',
     'report':'/admin.html','speech-coach':'/speech-coach.html','speech':'/speech-coach.html','speech-coach-cn':'/speech-coach-cn.html','speech-cn':'/speech-coach-cn.html','chinese-speech':'/speech-coach-cn.html','textbook-uploader':'/textbook-uploader.html','textbook':'/textbook-uploader.html','textbook-viewer':'/textbook-viewer.html',
     'streak':'/streak.html','mbti':'/mbti.html','microquiz':'/micro-quiz.html',
     'leveltest':'/?menu=leveltest','battle':'/battle.html',   /* 2026-08-07: 신청서 통일 — 옛 /level-test.html(두 번째 신청서) 폐지, 홈 모달로 */
     'lesson-change':'/lesson-postpone-demo.html','booking':'/lesson-booking-demo.html','lesson-booking':'/lesson-booking-demo.html','수업신청':'/lesson-booking-demo.html','videolesson':'/video-call/',
-    'inquiry':'/contact.html','kakao':'/contact.html','focus':'/focus.html',
+    'inquiry':'https://pf.kakao.com/_xlqnSxd','kakao':'https://pf.kakao.com/_xlqnSxd','focus':'/focus.html',
     'goals':'/goals.html','write':'/ai-write.html','parent-dashboard':'/parent.html',
     'chat':'/ai-friend.html','teacher-praise':'/teacher-praise.html',
     'points-shop':'/?shop=1','mypoints':'/?shop=1','checkin':'/streak.html',
@@ -14751,7 +14514,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=2"></script>
+<script defer src="/js/idx-allmenu.js?v=3"></script>
 
 
 <!-- ============================================================
@@ -15352,10 +15115,10 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
     'lesson-change':    { fn: function(){ if (window.openLessonChangeModal) window.openLessonChangeModal(); else location.href = '/lesson-postpone-demo.html'; } },
     'booking':          { href: '/lesson-booking-demo.html' },
     'lesson-booking':   { href: '/lesson-booking-demo.html' },
-    'inquiry':          { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
-    'trial':            { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
-    'enroll':           { fn: function(){ if (window.openInquiryModal) window.openInquiryModal(); else location.href = '/contact.html'; } },
-    'kakao':            { fn: function(){ var b = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn'); if (b) b.click(); else location.href = '/contact.html'; } },
+    'inquiry':          { fn: function(){ if (window.openInquiryModal) return window.openInquiryModal(); location.href = 'https://pf.kakao.com/_xlqnSxd'; } },
+    'trial':            { fn: function(){ if (window.openInquiryModal) return window.openInquiryModal(); location.href = 'https://pf.kakao.com/_xlqnSxd'; } },
+    'enroll':           { fn: function(){ if (window.openInquiryModal) return window.openInquiryModal(); location.href = 'https://pf.kakao.com/_xlqnSxd'; } },
+    'kakao':            { fn: function(){ if (window.openKakao) return window.openKakao(); var b = document.getElementById('kakaoChannelBtn') || document.querySelector('.kakao-chat-btn'); if (b) b.click(); else location.href = 'https://pf.kakao.com/_xlqnSxd'; } },
     'enter-class':      { fn: function(){ if (typeof showView === 'function') showView('view-videocall-lobby'); else location.hash = '#videocall-lobby'; } },
     'payment':          { fn: function(){ if (window.gridActions && window.gridActions.payment) window.gridActions.payment(); else { var m = document.getElementById('payment-modal'); if (m) { m.style.display = 'flex'; } } } },
     'homepage':         { fn: function(){ if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } },
@@ -16826,7 +16589,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     .mg-faq-cats{flex-wrap:wrap;overflow-x:visible}
   }
 </style>
-<script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x7.js?v=6"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
 <script src="/js/idx-x8.js?v=6"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->

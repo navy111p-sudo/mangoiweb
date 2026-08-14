@@ -1,14 +1,22 @@
 // 🧑‍🏫 수강신청 «등록 화면» 항목 정리 + ③ 배정 우선순위 하니스 — 2026-08-12
 //
 //   배경: 「수업 등록 창에서 강사를 직접 지정할 수 있게 되어 있다 — 요구사항과 불일치」.
-//     등록 때 사람이 «입력·선택» 하는 것은 아래 5가지뿐이어야 한다.
+//     등록 때 사람이 «입력·선택» 하는 것은 아래 6가지뿐이어야 한다.
 //       ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 요일·시간 우선 / 강사 우선
-//       ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일
-//     강사를 «이름으로» 고르는 칸은 이 화면에 두지 않는다. 누구를 붙일지는 ③ 과
-//     «그 시간에 실제로 비어 있는가» 로 「▸ 처리」 단계에서 정해진다.
+//       ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일  ⑥ 수업 기간(1·3·6·12개월 / 무기한)
+//     강사를 «이름으로 지명» 하는 «항상 떠 있는» 칸은 이 화면에 두지 않는다. 최종적으로
+//     누구를 붙일지는 ③ 과 «그 시간에 실제로 비어 있는가» 로 「▸ 처리」 단계에서 정해진다.
+//
+//   🔄 2026-08-14 갱신 (현장 피드백 ③④) — 위 규칙 중 두 가지가 바뀌었다:
+//     ③ «강사 우선» 을 골라도 강사 목록이 안 나와서, 운영자 눈에는 눌러도 아무 일도
+//        안 일어나는 칸으로 보였다. → 「강사 우선」일 때**만** 강사 목록(select)이 열린다.
+//        이건 «지명» 이 아니라 «희망» 이다 — 서버는 enrollments.teacher_name 으로 이미 받고 있고,
+//        그 시간에 실제로 비는지는 여전히 「▸ 처리」 가 본다. 자유 입력 칸은 여전히 금지다.
+//     ④ 몇 개월 할지 고르는 칸이 아예 없었다. → ⑥ 수업 기간을 «필수» 로 추가.
 //
 //   이 하니스가 못 박는 것 — 전부 조용히 되돌아가기 쉬운 것들:
-//     ① 등록 표에 강사 이름 칸이 다시 생기면 안 된다
+//     ① 등록 표에 «항상 떠 있는» 강사 이름 칸이 다시 생기면 안 된다
+//        (강사 목록은 ③ 이 「강사 우선」일 때만 열리는 select 하나뿐)
 //     ② 없앤 칸(이름·패키지·수강료)의 «값» 까지 사라지면 서버 필수값이 깨진다 → hidden 유지
 //     ③ ✕ 초기화가 학생 아이디를 안 지우면 «지웠는데 옛 학생으로 등록» 된다
 //        (옛 코드는 `input[type="text"]` 로 잡았는데 아이디 칸엔 type 속성이 없었다)
@@ -70,30 +78,45 @@ check('③ 우선순위 select 는 schedule / teacher 두 값뿐',
   /v: 'schedule'/.test(rowFn) && /v: 'teacher'/.test(rowFn) && !/v: 'name'/.test(rowFn));
 check('④ 그룹수업 여부는 1:1 / 1:N 두 개뿐 (1:2~1:6 낱개 선택 없음)',
   /v: '1:1'/.test(rowFn) && /v: '1:N'/.test(rowFn) && !/'1:2'|'1:3'|'1:4'/.test(rowFn));
-/* 👨‍🏫 (2026-08-13 수정요청 #03) — 여기 있던 검사는 «행 안에 강사 이름 고르는 컨트롤이 없다» 였다.
-   2026-08-12 방침(강사는 ③ 과 «그 시간에 비는가» 로만 정한다)을 못 박은 것이었는데,
-   하루 뒤 요청으로 방침이 바뀌었다: 「강사 우선」을 고르면 이름을 직접 고를 수 있어야 한다.
-   ⚠️ 다만 2026-08-12 에 정리한 것 중 **아직 유효한 것은 그대로 지킨다** —
-      · 표의 «열» 은 늘리지 않는다(위 1부 thead 검사가 계속 막는다). 우선순위 칸 안에 딸린 칸이다.
-      · 이름을 «대지 않아도» 배정되는 길은 살아 있다(비우면 자동 배정. 4부 실행검증이 지킨다).
-   그래서 «없어야 한다» 를 «있되 이렇게 동작해야 한다» 로 바꿔 적는다. */
-check('③-1 「강사 우선」일 때 쓸 강사 선택칸이 우선순위 칸 «안» 에 있다',
-  /class="en-row-teacher"/.test(rowFn) && /en-row-teacher-wrap/.test(rowFn));
-check('③-2 얼굴 사진을 넣지 않는다 — 이름만 (요구사항 2)',
-  !/<img|avatar|photo|프로필\s*사진/i.test(rowFn));
-check('③-3 검색·선택이 되게 강사 명부를 datalist 로 붙인다 (요구사항 3)',
-  /list="en-teacher-list"/.test(rowFn) && /id = 'en-teacher-list'/.test(coreSrc));
-check('③-4 목록은 강사 명부(GET /api/admin/teachers)에서 온다 — 새 API 를 만들지 않았다',
+
+/* 🧑‍🏫 2026-08-14 피드백 ③ — 「강사 우선」일 때만 강사 목록이 열린다 */
+check('③ 「강사 우선」용 강사 목록 select 가 있다 (en-row-teacher)',
+  /class="en-row-teacher"/.test(rowFn));
+check('⛔ 강사는 «고르는» 것이지 «치는» 것이 아니다 (자유 입력 칸 금지)',
+  !/<input[^>]*class="en-row-teacher"/.test(rowFn));
+check('③ 강사 목록은 기본값(요일·시간 우선)에서 접혀 있다',
+  /_prioCur === 'teacher' \? '' : ';display:none'/.test(rowFn));
+check('③ 우선순위를 바꾸면 강사 목록이 열리고/닫힌다',
+  /tsel\.style\.display = \(val === 'teacher'\) \? '' : 'none'/.test(coreSrc));
+check('③ 「요일·시간 우선」으로 되돌리면 고른 강사도 비운다 (안 보이는 값이 몰래 등록되지 않게)',
+  /if \(val !== 'teacher'\) tsel\.value = ''/.test(coreSrc));
+check('③ 강사 목록은 «teachers» 표에서 온다 — 확정 파이프라인이 teacher_name 을 되찾는 그 표',
   /fetch\('\/api\/admin\/teachers'/.test(coreSrc));
-check('③-5 강사 명부는 «부팅 때» 받지 않는다 (「강사 우선」을 고를 때 처음 받는다)',
-  /_enLoadTeachers\(\);\s*\/\//.test(coreSrc) && !/Promise\.allSettled\(\[[^\]]*_enLoadTeachers/.test(coreSrc));
-check('③-6 기본값은 감춰져 있다 (「시간 우선」이 기본 — 요구사항 4)',
-  /class="en-row-teacher-wrap" style="display:none/.test(rowFn));
-check('③-7 「시간 우선」으로 바꾸면 감추고 **값도 비운다** (숨은 값이 저장되면 안 된다)',
-  /wrap\.style\.display = \(val === 'teacher'\) \? '' : 'none'/.test(coreSrc) &&
-  /\} else if \(inp && inp\.value\) \{[\s\S]{0,220}inp\.value = '';/.test(coreSrc));
-check('③-8 명부에 없는 이름도 막지는 않는다 (표기 차이 «Teacher Kaye ↔ Kaye» 를 막으면 안 된다)',
-  /function _enTeacherMark/.test(coreSrc) && !/disabled|preventDefault/.test((/function _enTeacherMark[\s\S]*?\n\}/.exec(coreSrc) || [''])[0]));
+check('③ 목록이 비면 «등록된 강사가 없습니다» 라고 말한다 (조용한 빈 칸 금지)',
+  /등록된 강사가 없습니다/.test(coreSrc));
+check('③ 목록을 못 받으면 그 사실을 말한다 (로딩 중인 채로 두지 않는다)',
+  /강사 목록을 불러오지 못했습니다/.test(coreSrc));
+check('③ 강사 목록은 한 번만 받아 캐시한다 (행 10개에 10번 부르지 않는다)',
+  /__enTeachers \|\| __enTeachersLoading/.test(coreSrc));
+check('③ 고른 희망 강사는 「강사 우선」일 때만 서버로 간다',
+  /priority === 'teacher'\)\s*\?\s*\(tr\.querySelector\('\.en-row-teacher'\)/.test(coreSrc));
+
+/* 🗓️ 2026-08-14 피드백 ④ — ⑥ 수업 기간(회차) */
+check('⑥ 수업 기간 select 가 있다 (en-row-duration)', /class="en-row-duration"/.test(rowFn));
+check('⑥ 선택지는 1·3·6·12개월 + 무기한 다섯 가지',
+  ["'1'", "'3'", "'6'", "'12'", "'unlimited'"].every(v => new RegExp('v: ' + v).test(rowFn)));
+check('⑥ 기본값을 몰래 넣지 않는다 («— 선택 —» 이 기본)', /— 선택 —/.test(rowFn));
+check('⑥ 안 고르면 등록을 막는다', /const noDur = records\.filter\(r => !r\._duration\)/.test(coreSrc));
+check('⑥ 숫자 개월이면 종료일(end_date)을 시작일 + N개월로 함께 저장한다',
+  /_enAddMonths\(start, parseInt\(duration, 10\)\)/.test(coreSrc));
+check('⑥ 말일 넘침 처리 (1/31 + 1개월이 3/2 로 튀지 않게)',
+  /Math\.min\(d, lastDay\)/.test(coreSrc));
+check('⑥ 단건·일괄 POST 두 곳 모두 duration_months 를 보낸다',
+  (coreSrc.match(/duration_months: r\.duration_months/g) || []).length === 2);
+check('⑥ 서버가 enrollments.duration_months 컬럼을 보강한다',
+  /_addEnrCol2\('duration_months', 'TEXT'\)/.test(admSrc));
+check('⑥ 서버는 아는 값만 저장한다 (오타·옛 폼이 보낸 값 금지)',
+  /\['1', '3', '6', '12', 'unlimited'\]\.includes\(_durRaw\)/.test(admSrc));
 check('③ 초기 포커스는 학생 아이디 칸 (이름 칸이 없어졌으므로)',
   /querySelector\('\.en-row-uid'\); if \(inp\) inp\.focus\(\)/.test(rowFn));
 
@@ -127,7 +150,8 @@ check('「▸ 처리」가 적혀 있는 이름을 자동 배정보다 «먼저�
 check('서버가 enrollments.assign_priority 컬럼을 보강한다',
   /_addEnrCol2\('assign_priority', 'TEXT'\)/.test(admSrc));
 check('서버 INSERT 에 assign_priority 가 들어간다',
-  /assign_priority\)\s*VALUES/.test(admSrc) && /const _prio = b\.assign_priority === 'teacher'/.test(admSrc));
+  // ⚠️ 뒤에 컬럼이 더 붙을 수 있다(2026-08-14 duration_months). 마지막 칸이라고 가정하지 않는다.
+  /assign_priority(,\s*\w+)*\)\s*VALUES/.test(admSrc) && /const _prio = b\.assign_priority === 'teacher'/.test(admSrc));
 check('알 수 없는 값은 schedule 로 떨어진다 (자유 문자열 저장 금지)',
   /b\.assign_priority === 'teacher' \? 'teacher' : 'schedule'/.test(admSrc));
 

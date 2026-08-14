@@ -9,7 +9,8 @@
 
 <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>간단 MBTI 테스트 — 망고아이</title>
 <link rel="icon" type="image/png" href="/img/icon-192.png">
 <link rel="icon" href="data:," />
@@ -219,7 +220,7 @@ async function loadTeacherMatches(mbti){
       return '<div onclick="bookTeacher(\''+esc(t.teacher_uid)+'\',\''+tname+'\',\''+esc(t.mbti)+'\','+t.match_score+',\'inquiry\')" '
         + 'style="display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.05);border:1px solid '+bd+';border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer;transition:transform .15s,border-color .15s" '
         + 'onmouseover="this.style.transform=\'translateY(-2px)\';this.style.borderColor=\'#fbbf24\'" onmouseout="this.style.transform=\'\';this.style.borderColor=\''+bd+'\'">'
-        + '<img src="'+esc(photo)+'" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:#1e293b">'
+        + '<img src="'+esc(photo)+'" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex:none;background:#1e293b" loading="lazy" decoding="async">'
         + '<div style="text-align:center;min-width:44px"><div style="font-size:22px;font-weight:900;color:'+tier+'">'+t.match_score+'</div><div style="font-size:8px;letter-spacing:1px;color:#a3b3d1;font-weight:700">SCORE</div></div>'
         + '<div style="flex:1;min-width:0;text-align:left">'
           + '<div style="font-weight:800;color:#fff;font-size:14px">'+esc(t.teacher_name)+(top?' 🥇':'')+' <span style="padding:1px 7px;background:rgba(79,124,255,0.25);color:#a5b4fc;border-radius:99px;font-size:10px;font-weight:800">'+esc(t.mbti)+(MBTI_NAMES[(t.mbti||'').toUpperCase()]?(' '+esc(MBTI_NAMES[(t.mbti||'').toUpperCase()].name)):'')+'</span></div>'
