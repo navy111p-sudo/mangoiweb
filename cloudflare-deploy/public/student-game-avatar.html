@@ -41,7 +41,14 @@
       radial-gradient(55% 40% at 82% 26%, rgba(230,120,60,.24), transparent 66%),
       radial-gradient(70% 55% at 50% 105%, rgba(40,120,190,.28), transparent 62%),
       #0a0714;}
-  #bgStars{position:absolute;inset:0}
+  /* ⚠️ width/height 를 반드시 준다 (2026-08-14 사고).
+     <canvas> 는 «대체 요소»라 inset:0 만으로는 안 늘어나고, **width/height 속성값이 곧 CSS 크기**가 된다.
+     그 상태에서 fitCanvas 가 매 프레임 «CSS크기 × 화면배율»을 속성에 다시 써 넣으므로,
+     배율이 1이 아닌 화면(윈도우 125%·150%)에서는 크기가 프레임마다 곱해지며 폭주한다.
+     실측: 20초 남짓 만에 4,194만 × 4,194만 px 까지 커지고 배경이 흰색으로 덮여
+     («어두웠던 화면이 20초 뒤 밝아져 글씨가 안 보인다» 의 정체) 글자 대비가 무너졌다.
+     배율 100% 인 개발 PC·헤드리스에서는 곱셈이 1이라 절대 재현되지 않는다. */
+  #bgStars{position:absolute;inset:0;width:100%;height:100%}
 
   /* ───────── 상단 HUD ───────── */
   .hud{position:relative;z-index:20;display:flex;align-items:center;gap:10px;
@@ -1069,9 +1076,16 @@ var homeCv = document.getElementById('avatarCv'), homeCtx = homeCv.getContext('2
 function fitCanvas(cv){
   var dpr = Math.min(2, window.devicePixelRatio || 1);
   var r = cv.getBoundingClientRect();
-  var w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
-  if (cv.width !== w * dpr || cv.height !== h * dpr){
-    cv.width = w * dpr; cv.height = h * dpr;
+  /* 🛡 상한 — 캔버스에 CSS 크기가 없으면 여기 값이 다시 속성으로 들어가 매 프레임 배율만큼
+     곱해진다(대체 요소의 크기 = 속성값). 화면보다 큰 값이 나올 수 없으므로 잘라낸다.
+     이 한 줄이 없으면 배율 125% 화면에서 캔버스가 수천만 px 로 자란다. */
+  var LIMIT = Math.max(2048, Math.round(Math.max(screen.width || 0, screen.height || 0, 2048) * 2));
+  var w = Math.max(1, Math.min(LIMIT, Math.round(r.width)));
+  var h = Math.max(1, Math.min(LIMIT, Math.round(r.height)));
+  // 속성은 정수여야 한다 — 소수를 넣으면 잘려서 비교가 매 프레임 어긋나고 캔버스가 계속 재할당된다
+  var aw = Math.round(w * dpr), ah = Math.round(h * dpr);
+  if (cv.width !== aw || cv.height !== ah){
+    cv.width = aw; cv.height = ah;
     var c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   return { w:w, h:h };

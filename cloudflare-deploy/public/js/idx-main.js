@@ -11,6 +11,24 @@
 // ⚠️ 고칠 때는 이 파일을 고친다. index.html 로 되돌리지 말 것.
 // ⚠️ 내용을 바꾸면 태그의 ?v= 를 반드시 올린다(asset_version_harness 가 막는다).
 
+/* 🌐 (2026-08-14) 언어 판정의 «정본» — miIsEn()
+   ══════════════════════════════════════════════════════════════════
+   [왜 필요한가] index.html 에는 i18n 엔진이 두 개다. 나중에 로드되는 js/mango-i18n.js 가
+      setLang/getLang/toggleLang 을 덮어쓰는데, **인라인 엔진의 전역 currentLang 은 안 건드린다.**
+      그래서 강사가 🌐 를 눌러 영어로 바꿔도 currentLang 은 'ko' 인 채로 남는다.
+      이 파일이 currentLang 을 직접 읽던 23곳은 그동안 «영어로 안 바뀌는 자리» 였다 —
+      페이지 목록·영상 플레이어·카메라 꺼짐 표시·채팅 입력칸 등. 필리핀 강사에게만 나는 문제다.
+      (CLAUDE.md 「언어 판정」 함정에 적혀 있는 그것이다.)
+   [고침] 판정을 여기 하나로 모은다. getLang() → localStorage → currentLang 순으로 본다.
+   ⚠️ 새 코드에서 currentLang 을 직접 읽지 말 것. miIsEn() 을 쓴다. */
+function miIsEn(){
+    try { if (typeof getLang === 'function') return getLang() === 'en'; } catch (_) {}
+    try { var ls = localStorage.getItem('mangoi_lang'); if (ls) return ls === 'en'; } catch (_) {}
+    try { if (typeof currentLang !== 'undefined') return currentLang === 'en'; } catch (_) {}
+    return false;
+}
+window.miIsEn = miIsEn;
+
 /* ================================================================
    1. 뷰(화면) 전환 시스템
    ──────────────────────────────────────────────────────────────────
@@ -170,7 +188,7 @@ function createWebSocket(path, onMessage, onOpen, onClose) {
                     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
                     // 아무 안내도 없이 조용히 멈추면 "그냥 튕겼다"로 보인다 → 이유를 보여준다(한/영)
                     try {
-                        const _en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+                        const _en = miIsEn();
                         const _full = (data.type === 'room-full');
                         /* 🚪 (2026-08-06) 정원 숫자를 서버가 알려 준 값으로 표시한다.
                            예전엔 '10명' 이 하드코딩돼 있었는데, 방 종류별로 정원이 달라졌으므로
@@ -1474,7 +1492,7 @@ function vcApplyRemoteCamHint(userId) {
             if (getComputedStyle(box).position === 'static') box.style.position = 'relative';
             box.appendChild(el);
         }
-        var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+        var en = miIsEn();
         el.innerHTML = (why === 'aao')
             ? '📶<span>' + (en ? 'Weak connection — audio only for now.<br>The class continues.'
                                : '연결이 약해 지금은 <b>음성만</b> 전송 중이에요.<br>수업은 계속됩니다.') + '</span>'
@@ -1879,7 +1897,7 @@ function lobbyAudioApplyState() {
     audio.muted  = muted;
     if (icon)  icon.textContent  = muted ? '🔇' : '🔊';
     if (label) {
-        const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+        const isEn = miIsEn();
         label.textContent = muted ? (isEn ? 'Audio OFF' : '음성 OFF') : (isEn ? 'Audio ON' : '음성 ON');
         label.setAttribute('data-ko', muted ? '음성 OFF' : '음성 ON');
         label.setAttribute('data-en', muted ? 'Audio OFF' : 'Audio ON');
@@ -3368,7 +3386,7 @@ async function vcJoinRoom(skipUI) {
         document.body.appendChild(chip);
       }
       const en = (typeof getLang === 'function') ? (getLang() === 'en')
-               : (typeof currentLang !== 'undefined' && currentLang === 'en');
+               : miIsEn();
       chip.innerHTML = '<span class="fr-face">🙂</span><span class="fr-x">✕</span>';
       /* 🌐 툴팁도 언어를 따라오게 두 벌로 남긴다 (얼굴을 숨긴 동안 계속 떠 있는 칩이라 굳으면 눈에 띈다) */
       chip.setAttribute('data-ko-title', '얼굴 화면 꺼짐 — 누르면 다시 보여요');
@@ -3435,7 +3453,7 @@ async function vcJoinRoom(skipUI) {
     try {
         vcLocalStream = await acquireLocalMedia({ video: true, audio: true });
         document.getElementById('vc-local-video').srcObject = vcLocalStream;
-        document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
+        document.getElementById('vc-local-label').textContent = vcUsername + (miIsEn() ? ' (Me)' : ' (나)');
         attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
         vcAddDetachButton(document.getElementById('vc-local-box'));
         try { vcRefreshPraiseUI(); } catch(e){}
@@ -3461,7 +3479,7 @@ async function vcJoinRoom(skipUI) {
         try {
             vcLocalStream = await acquireLocalMedia({ video: false, audio: true });
             document.getElementById('vc-local-video').srcObject = vcLocalStream;
-            document.getElementById('vc-local-label').textContent = vcUsername + (currentLang==='ko'?' (나)':' (Me)');
+            document.getElementById('vc-local-label').textContent = vcUsername + (miIsEn() ? ' (Me)' : ' (나)');
             attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
             vcAddDetachButton(document.getElementById('vc-local-box'));
             try { vcRefreshPraiseUI(); } catch(e){}
@@ -6153,7 +6171,7 @@ window.vcShowLocalPlaceholder = function(kind, errMsg) {
     const ph = document.createElement('div');
     ph.className = 'vc-local-placeholder';
     ph.style.cssText = 'position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#1e293b,#0f172a);color:#fff;padding:14px;text-align:center;z-index:4;border-radius:inherit;gap:8px;font-size:12px;line-height:1.5;';
-    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const isEn = miIsEn();
     const heads = {
         'camera-off':  isEn ? '📷 Camera is off'           : '📷 카메라가 꺼져 있어요',
         'camera-fail': isEn ? '⚠️ Camera access failed'    : '⚠️ 카메라를 사용할 수 없어요',
@@ -6307,7 +6325,7 @@ function attachStreamMonitor(box, stream) {
             const hideEl = document.createElement('span');
             hideEl.className = 'vs-icon vs-hide';
             hideEl.textContent = '🙈';
-            hideEl.title = (typeof currentLang !== 'undefined' && currentLang === 'en')
+            hideEl.title = miIsEn()
                 ? 'Hide faces (still in class)' : '얼굴 화면 숨기기 (수업은 계속 참여)';
             hideEl.addEventListener('click', function(e){
                 e.stopPropagation();
@@ -6349,7 +6367,7 @@ function attachStreamMonitor(box, stream) {
                     box.insertBefore(cov, status);
                 }
                 const txt = cov.querySelector('.cc-txt');
-                if (txt) txt.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? 'Camera off' : '카메라 꺼짐';
+                if (txt) txt.textContent = miIsEn() ? 'Camera off' : '카메라 꺼짐';
             }
         }
     }
@@ -6715,7 +6733,7 @@ function vcMarkPeerReconnecting(box) {
             + 'background:rgba(15,23,42,.86);color:#93c5fd;font-size:13px;font-weight:700;text-align:center;line-height:1.4;padding:8px;z-index:5;pointer-events:none;';
         box.appendChild(ov);
     }
-    const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const en = miIsEn();
     ov.innerHTML = '🔄<span>' + (en ? 'Reconnecting…<br>(please wait a moment)' : '재연결 중…<br>(잠시만 기다려 주세요)') + '</span>';
     clearTimeout(box.__ghostTimer);
     box.__ghostTimer = setTimeout(function(){
@@ -9102,7 +9120,7 @@ var GAME_SPEED_LEVELS = [
   { lvl:6, ico:'⚡', ko:'초고속',     en:'Super Fast' },
   { lvl:7, ico:'🔥', ko:'극한',       en:'Extreme' }
 ];
-function _gameSpeedName(s){ return (window.currentLang === 'en') ? s.en : s.ko; }
+function _gameSpeedName(s){ return miIsEn() ? s.en : s.ko; }
 function gameSpeedLabelSync(){
   var cur = GAME_SPEED_LEVELS[(GAME_STAGE || 1) - 1] || GAME_SPEED_LEVELS[2];
   var el = document.getElementById('game-speed-cur');
@@ -9231,7 +9249,7 @@ function _gameRenderSuite(which) {
   const v = (_gameState.current && _gameState.current.sentence)
             || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
   _gameState.current = { sentence: v, picked: [] };
-  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const lang = miIsEn() ? 'en' : 'ko';
   const src = '/english-mastery-suite.html?game=' + which
             + '&sentence=' + encodeURIComponent(v.en)
             + (v.ko ? '&ko=' + encodeURIComponent(v.ko) : '')
@@ -9338,7 +9356,7 @@ function _gameRenderShooter() {
   const v = (_gameState.current && _gameState.current.sentence)
             || _GAME_VOCAB[Math.floor(Math.random() * _GAME_VOCAB.length)];
   _gameState.current = { sentence: v, picked: [] };
-  const lang = (window.currentLang === 'en') ? 'en' : 'ko';
+  const lang = miIsEn() ? 'en' : 'ko';
   const src = '/student-game-shooter.html?sentence=' + encodeURIComponent(v.en) + '&lang=' + lang;
   const area = document.getElementById('game-area');
   if (!area) return;
@@ -10158,7 +10176,7 @@ function vcTogglePip(btn) {
       btn.classList.add('vc-pip-nudge');
       var tip = document.createElement('div');
       tip.className = 'vc-pip-tip';
-      var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+      var en = miIsEn();
       tip.textContent = en
         ? '📌 Try PIP! Keep the other person\'s face in a small floating window while you view the textbook.'
         : '📌 PIP를 눌러보세요! 교재를 보면서도 상대방 얼굴을 작은 창으로 계속 띄워둘 수 있어요.';
@@ -10189,7 +10207,7 @@ function vcSyncPipVideos() {
   }
   if (sources.length === 0) {
     body.innerHTML = '<div class="vc-pip-empty">'
-      + (typeof currentLang !== 'undefined' && currentLang === 'en'
+      + (miIsEn()
           ? 'Other participants appear here'
           : '다른 참가자가 들어오면 여기에 표시됩니다')
       + '</div>';
@@ -10230,7 +10248,7 @@ function vcSyncPipVideos() {
   // 모두 사라졌으면 empty
   if (body.children.length === 0) {
     body.innerHTML = '<div class="vc-pip-empty">'
-      + (typeof currentLang !== 'undefined' && currentLang === 'en'
+      + (miIsEn()
           ? 'Other participants appear here'
           : '다른 참가자가 들어오면 여기에 표시됩니다')
       + '</div>';
@@ -12662,10 +12680,34 @@ function pdfClosePageList(){
     var p = document.getElementById('pdf-pagelist');
     if (p) p.remove();
 }
+/* 📄 (2026-08-14 마이마이 8/13 남은 요청) 「쪽 번호가 파일 이름에 안 보인다 — BODA 처럼 되게」
+   ═════════════════════════════════════════════════════════════════════════════
+   [무엇이 문제였나] 자료실 파일의 이름은 «[BTS 6 Korea (Bedroom, living room)] 미분류 레슨 / Slide12.JPG»
+      처럼 **앞부분이 전부 같다.** 목록은 한 줄짜리(말줄임)라 화면에는 어느 줄이나
+      「1. [BTS 6 Korea (Bedroom, li…」 만 보였다 — 정작 몇 쪽인지는 잘려 나갔다.
+      마이마이가 스크린샷에 파랗게 동그라미 친 것이 이 «똑같이 잘린 줄» 이다.
+   [고침] 줄에는 **끝의 쪽 이름만** 남긴다(Slide12.JPG). 책 이름은 어차피 모든 줄이 같아서
+      알려 주는 것이 없다. 전체 이름은 title(마우스를 올리면 뜨는 풍선)에 그대로 둔다.
+   ⚠️ 파일 이름을 못 알아볼 때만 「12쪽 / Page 12」로 대신한다 — 빈 줄을 만들지 않는다. */
+function _pdfShortPageName(full, idx, en){
+    var s = String(full || '').trim();
+    // 「… / 파일이름」 — 마지막 슬래시 뒤가 진짜 쪽 이름이다
+    var slash = s.lastIndexOf('/');
+    if (slash >= 0) s = s.slice(slash + 1).trim();
+    // 앞에 [교재명] 이 남아 있으면(슬래시가 없던 경우) 그것도 뗀다
+    s = s.replace(/^\[[^\]]*\]\s*/, '').trim();
+    if (!s) s = (en ? 'Page ' : '') + (idx + 1) + (en ? '' : '쪽');
+    return s;
+}
+function _pdfEscAttr(s){
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+}
 async function pdfTogglePageList(){
     var exist = document.getElementById('pdf-pagelist');
     if (exist){ exist.remove(); return; }
-    var en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    var en = miIsEn();
     var panel = document.createElement('div');
     panel.id = 'pdf-pagelist';
     /* 📐 (2026-08-13 마이마이 8/13 ②) 「고르면 창이 바로 닫힌다 · 크기를 못 늘린다」
@@ -12735,9 +12777,10 @@ async function pdfTogglePageList(){
     var rowCssFlex = rowCss.replace('margin-bottom:3px;', '').replace('display:block;width:100%;', 'display:block;');
     if (seq.length > 1){
         for (var i = 0; i < seq.length; i++){
-            var nm = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            var nmFull = String(seq[i].name || ((en ? 'Page ' : '페이지 ') + (i + 1)));
+            var nm = _pdfShortPageName(nmFull, i, en);
             html += '<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">'
-                 + '<button type="button" data-seq="' + i + '" style="flex:1;min-width:0;' + rowCssFlex + (i === curIdx ? ';' + onCss : '') + '">'
+                 + '<button type="button" data-seq="' + i + '" title="' + _pdfEscAttr(nmFull) + '" style="flex:1;min-width:0;' + rowCssFlex + (i === curIdx ? ';' + onCss : '') + '">'
                  + (i + 1) + '. ' + nm.replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]); })
                  + '</button>'
                  + '<button type="button" data-del="' + i + '" title="'
@@ -12905,7 +12948,7 @@ function vpOpenYouTube() {
         : document.getElementById('vp-stage');
     if (!stage) return;
 
-    const isEn = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const isEn = miIsEn();
 
     // 추천 영상 (embed 친화적 · 영어교육/동요/명강연 위주, 평생 안정된 인기 영상으로 선정)
     const featured = [
@@ -13231,7 +13274,7 @@ function vpAddSoundOverlay(stage, kind) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'vp-sound-overlay';
-    btn.textContent = (typeof currentLang !== 'undefined' && currentLang === 'en') ? '🔊 Tap for sound' : '🔊 소리 켜기';
+    btn.textContent = miIsEn() ? '🔊 Tap for sound' : '🔊 소리 켜기';
     btn.style.cssText = 'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;'
         + 'padding:10px 22px;border:none;border-radius:999px;background:rgba(37,99,235,.95);color:#fff;'
         + 'font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.45);';
@@ -13281,7 +13324,7 @@ function vpClearRemote() {
     window.__vcVideoSharing = false;
     try { window.__vcPheroReeval && window.__vcPheroReeval(); } catch(_){}
     const stage = document.getElementById('vp-stage');
-    stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
+    stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
     if (body) body.innerHTML = '';
     const floating = document.getElementById('vp-floating');
@@ -13295,7 +13338,7 @@ async function vpUploadFile(input) {
     if (!f) return;
     input.value = '';   // 같은 파일을 다시 선택해도 change 가 뜨도록 초기화
     const stage = vpIsFloating ? document.getElementById('vp-floating-body') : document.getElementById('vp-stage');
-    const en = (typeof currentLang !== 'undefined' && currentLang === 'en');
+    const en = miIsEn();
     // 🩹 (2026-07-13) 옛 코드는 URL.createObjectURL(로컬 blob)을 붙여 '올린 사람만 보이는' 재생이었다.
     //   blob: 주소는 다른 참가자가 접근할 수 없다. 이제 서버(R2)에 올린 뒤 그 URL 을
     //   video-share 로 방 전체에 전파 → 학생·강사 누구든 파일 자료를 진짜로 공유할 수 있다.
@@ -13354,7 +13397,7 @@ function vpClear() {
     window._vcShownVideoUrl = '';
     if (vcConn) vcConn.send({ type: 'video-stop-share', data: {} });
     const stage = document.getElementById('vp-stage');
-    stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
+    stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'🎬 Paste a YouTube URL or upload a video file.':'🎬 YouTube 주소를 붙여넣거나 동영상 파일을 업로드하세요.')+'</div>';
     const body = document.getElementById('vp-floating-body');
     if (body) body.innerHTML = '';
     const floating = document.getElementById('vp-floating');
@@ -13532,12 +13575,12 @@ function vpTogglePiP() {
     const body = document.getElementById('vp-floating-body');
     if (!vpIsFloating) {
         const media = stage.querySelector('iframe, video');
-        if (!media) { alert(currentLang==='en'?'Load a video first.':'먼저 영상을 불러오세요.'); return; }
+        if (!media) { alert(miIsEn()?'Load a video first.':'먼저 영상을 불러오세요.'); return; }
         body.innerHTML = '';
         body.appendChild(media);
         floating.style.display = 'flex';
         vpIsFloating = true;
-        stage.innerHTML = '<div class="vp-empty">'+(currentLang==='en'?'📌 Moved to mini player.<br><span style="font-size:0.8rem;color:#475569;">Press ✕ or 📌 again to return.</span>':'📌 미니 플레이어로 이동했습니다.<br><span style="font-size:0.8rem;color:#475569;">✕를 누르거나 다시 📌를 누르면 되돌아옵니다.</span>')+'</div>';
+        stage.innerHTML = '<div class="vp-empty">'+(miIsEn()?'📌 Moved to mini player.<br><span style="font-size:0.8rem;color:#475569;">Press ✕ or 📌 again to return.</span>':'📌 미니 플레이어로 이동했습니다.<br><span style="font-size:0.8rem;color:#475569;">✕를 누르거나 다시 📌를 누르면 되돌아옵니다.</span>')+'</div>';
         vpMakeDraggable();
     } else {
         vpFloatingClose();
@@ -13835,7 +13878,7 @@ function vcSetChatTarget(userId, username) {
     if (input) {
         input.placeholder = window.vcChatTarget
             ? ('🔒 ' + window.vcChatTarget.username + ' 에게만 보내기…')
-            : (input.getAttribute((typeof currentLang !== 'undefined' && currentLang === 'en') ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
+            : (input.getAttribute(miIsEn() ? 'data-en-ph' : 'data-ko-ph') || '메시지 입력...');
         try { input.focus(); } catch(_) {}
     }
 }

@@ -24,7 +24,7 @@
     { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
     { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
     { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
-    { key: 'miniquiz', emoji: '⚡', label: '미니퀴즈',     again: '미니퀴즈 다시' },
+    { key: 'miniquiz', emoji: '⚡', label: 'AI 단어 퀴즈', again: 'AI 단어 퀴즈 다시' },   // 화면 제목과 같은 이름으로 통일(2026-08-14)
     { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
   ];
 
@@ -81,7 +81,7 @@
         case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
         case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
         case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
-        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ 미니퀴즈
+        case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ AI 단어 퀴즈
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');

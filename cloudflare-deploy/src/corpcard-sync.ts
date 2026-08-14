@@ -85,16 +85,16 @@ export function codefBase(env: any): { base: string; sandbox: boolean } {
 export const isSandboxTokenError = (msg: any): boolean =>
   /CF-00017/.test(String(msg || '')) || /샌드박스/.test(String(msg || ''));
 
-async function ensureTables(env: any): Promise<void> {
+export async function ensureTables(env: any): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS corpcard_transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, approval_no TEXT UNIQUE, used_at TEXT NOT NULL, card_no TEXT, merchant TEXT, category TEXT, amount INTEGER NOT NULL DEFAULT 0, cancelled INTEGER NOT NULL DEFAULT 0, memo TEXT, raw TEXT, created_at INTEGER NOT NULL);`);
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_corpcard_used ON corpcard_transactions(used_at)`); } catch {}
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS corpcard_meta (k TEXT PRIMARY KEY, v TEXT);`);
 }
 
-async function metaSet(env: any, k: string, v: string): Promise<void> {
+export async function metaSet(env: any, k: string, v: string): Promise<void> {
   await env.DB.prepare(`INSERT INTO corpcard_meta (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v`).bind(k, v).run().catch(() => {});
 }
-async function metaGet(env: any, k: string): Promise<string | null> {
+export async function metaGet(env: any, k: string): Promise<string | null> {
   const r: any = await env.DB.prepare(`SELECT v FROM corpcard_meta WHERE k = ?`).bind(k).first().catch(() => null);
   return r ? String(r.v) : null;
 }
@@ -152,7 +152,7 @@ const CAT_RULES: Array<[RegExp, string]> = [
   [/기프티콘|상품권|선물|경조|화환|회식|복지|복리/i, '복리후생'],
   [/문구|오피스|사무|서적|책|교보문고|영풍문고|다이소|프린트|인쇄|복사/i, '사무용품'],
 ];
-function categorize(merchant: string, storeType: string): string {
+export function categorize(merchant: string, storeType: string): string {
   const s = `${storeType || ''} ${merchant || ''}`;
   for (const [re, cat] of CAT_RULES) if (re.test(s)) return cat;
   return '기타';
@@ -163,7 +163,7 @@ const pick = (row: any, keys: string[]): string => {
   return '';
 };
 
-function kstToday(): Date { return new Date(Date.now() + 9 * 3600 * 1000); }
+export function kstToday(): Date { return new Date(Date.now() + 9 * 3600 * 1000); }
 const ymd = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '');
 
 /* ── 동기화 본체 — 승인내역을 월 단위로 끊어 당겨서 approval_no 로 중복 없이 적재.
@@ -291,10 +291,27 @@ export async function runCorpCardSync(env: any, opts: { base?: string; dryRun?: 
    하는 헛수고만 반복됐다. 그래서 상태를 코드로 구분해 그대로 내보낸다. ───────────── */
 export type CorpcardState = 'ok' | 'not_configured' | 'sandbox_account' | 'sync_error' | 'never_synced' | 'no_data';
 
+/* 🔀 지금 어느 카드사 연동을 쓰는가 (2026-08-14).
+   ⚠️ barobill-sync 를 import 하지 않는다 — 그쪽이 이 파일을 import 하므로 순환이 된다.
+      값 판정은 네 개가 다 찼는지만 보면 되므로 여기서 직접 읽는다. */
+export function corpcardProvider(env: any): 'barobill' | 'codef' | 'none' {
+  const has = (v: any) => !!cleanSecret(v);
+  if (has(env.BAROBILL_CERTKEY) && has(env.BAROBILL_CORPNUM) && has(env.BAROBILL_ID) && has(env.BAROBILL_CARDNUM)) return 'barobill';
+  if (corpcardConfigured(env)) return 'codef';
+  return 'none';
+}
+const BARO_MISSING = (env: any): string[] => {
+  const m: string[] = [];
+  for (const k of ['BAROBILL_CERTKEY', 'BAROBILL_CORPNUM', 'BAROBILL_ID', 'BAROBILL_CARDNUM'])
+    if (!cleanSecret(env[k])) m.push(k);
+  return m;
+};
+
 export async function corpcardStatus(env: any, data?: any): Promise<any> {
   await ensureTables(env);
   const { base, sandbox } = codefBase(env);
-  const configured = corpcardConfigured(env);
+  const provider = corpcardProvider(env);
+  const configured = provider !== 'none';
   const lastAtRaw = await metaGet(env, 'last_sync_at');
   const lastResRaw = await metaGet(env, 'last_sync_result');
   let last: any = null; try { last = lastResRaw ? JSON.parse(lastResRaw) : null; } catch {}
@@ -304,7 +321,9 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
   const monthRows = data && Array.isArray(data.current) ? data.current.length : null;
 
   const errText = String((last?.errors || []).join(' | '));
-  const sandboxAcct = sandbox || !!last?.sandbox_token || isSandboxTokenError(errText);
+  // 샌드박스 개념은 CODEF 에만 있다. 바로빌로 옮기면 이 판정이 끼어들면 안 된다.
+  const sandboxAcct = provider === 'codef'
+    && (sandbox || !!last?.sandbox_token || isSandboxTokenError(errText));
 
   let state: CorpcardState;
   if (!configured) state = 'not_configured';
@@ -318,8 +337,10 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
     ok: ['카드사 연동 정상. 아래는 실제 결제 내역입니다.',
          'Card sync is healthy — the rows below are real transactions.'],
     not_configured: [
-      'CODEF 키가 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록이 필요합니다.',
-      'CODEF keys are not registered yet (CODEF_CLIENT_ID / SECRET / CONNECTED_ID).'],
+      '카드사 연동 키가 등록되지 않았습니다. 바로빌 시크릿 4개를 등록하면 바로 동작합니다 — 빠진 것: '
+      + (BARO_MISSING(env).join(' · ') || '(없음)')
+      + '  (값은 Cloudflare 대시보드 → 변수 및 비밀에서 넣고 «배포» 를 눌러야 반영됩니다)',
+      'Card provider keys are not registered. Missing BaroBill secrets: ' + (BARO_MISSING(env).join(', ') || '(none)')],
     sandbox_account: [
       '키는 정상 등록됐고 CODEF 로그인도 성공합니다. 다만 지금 키가 «정식(운영) 등급이 아니라» 실제 카드내역 조회가 거부됩니다(CF-00017). '
       + 'CODEF 정식 서비스 신청·승인 후 발급되는 «정식 클라이언트 키» 로 바꾸면 이 화면에 실제 결제가 바로 채워집니다. '
@@ -334,7 +355,10 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
   };
 
   return {
-    state, configured, sandbox_account: sandboxAcct, base,
+    state, configured, sandbox_account: sandboxAcct,
+    provider,                                   // 'barobill' | 'codef' | 'none'
+    base: provider === 'barobill' ? (last?.ws || '바로빌') : base,
+    missing: provider === 'none' ? BARO_MISSING(env) : [],
     message_ko: MSG[state][0], message_en: MSG[state][1],
     last_sync_at: lastAtRaw ? Number(lastAtRaw) : null,
     last_error: errText.slice(0, 400) || null,
