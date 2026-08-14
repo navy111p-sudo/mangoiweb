@@ -1,13 +1,3 @@
-
-Welcome to Gradle 8.9!
-
-Here are the highlights of this release:
- - Enhanced Error and Warning Messages
- - IDE Integration Improvements
- - Daemon JVM Information
-
-For more details see https://docs.gradle.org/8.9/release-notes.html
-
 To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.9/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
 Daemon will be stopped at the end of the build 
 > Task :app:preBuild UP-TO-DATE
@@ -19,16 +9,16 @@ Daemon will be stopped at the end of the build
 > Task :app:mapReleaseSourceSetPaths
 > Task :app:generateReleaseResources
 > Task :app:packageReleaseResources
+> Task :app:parseReleaseLocalResources
 > Task :app:mergeReleaseResources
 > Task :app:createReleaseCompatibleScreenManifests
 > Task :app:extractDeepLinksRelease
-> Task :app:parseReleaseLocalResources
 > Task :app:processReleaseMainManifest
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
+> Task :app:processReleaseManifestForPackage
 > Task :app:mergeReleaseJniLibFolders
 > Task :app:mergeReleaseNativeLibs NO-SOURCE
-> Task :app:processReleaseManifestForPackage
 > Task :app:stripReleaseDebugSymbols NO-SOURCE
 > Task :app:extractReleaseNativeSymbolTables NO-SOURCE
 > Task :app:mergeReleaseNativeDebugMetadata NO-SOURCE
@@ -36,8 +26,8 @@ Daemon will be stopped at the end of the build
 > Task :app:desugarReleaseFileDependencies
 > Task :app:mergeReleaseStartupProfile
 > Task :app:processReleaseResources
-> Task :app:mergeExtDexRelease
 > Task :app:compileReleaseJavaWithJavac
+> Task :app:mergeExtDexRelease
 > Task :app:generateReleaseLintVitalReportModel
 > Task :app:dexBuilderRelease
 > Task :app:mergeDexRelease
@@ -64,11 +54,11 @@ Daemon will be stopped at the end of the build
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1786725227566.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1786727799574.json
 
-BUILD SUCCESSFUL in 2m 7s
+BUILD SUCCESSFUL in 42s
 44 actionable tasks: 44 executed
 
 BUILD_OUTCOME=success
 APK committed to dist/mangoi-test-signed.apk
-app-version.json 생성: versionCode=11 versionName=2.0
+app-version.json 생성: versionCode=12 versionName=2.1

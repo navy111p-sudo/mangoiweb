@@ -142,6 +142,11 @@ public class MainActivity extends AppCompatActivity {
         //   Content-Disposition: attachment 응답을 **에러도 없이 그냥 버린다** — 사장님이
         //   겪은 «저장을 눌러도 아무 반응이 없다»(2026-08-14)의 뿌리가 이것이다.
         //   시스템 DownloadManager 로 넘겨 공용 다운로드 폴더에 저장하고 알림을 띄운다.
+        // 🔎 (v2.1) 완료·실패를 눈에 보이게 — v2.0 실사용에서 «시작 토스트는 떴는데 파일이
+        //   없다»가 나왔다. DownloadManager 실패는 기본으로 아무 표시가 없고(13+는 알림
+        //   권한도 없으면 알림조차 안 뜸), 그래서 원인을 알 수 없었다. 건별로 완료 방송을
+        //   받아 성공은 «저장 완료», 실패는 **사유 코드와 함께 대화상자**로 알리고
+        //   [브라우저로 받기] 폴백을 제공한다.
         webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
             try {
                 DownloadManager.Request req = new DownloadManager.Request(Uri.parse(url));
@@ -158,9 +163,10 @@ public class MainActivity extends AppCompatActivity {
                 } catch (Exception ignored) {}
                 try { if (userAgent != null) req.addRequestHeader("User-Agent", userAgent); } catch (Exception ignored) {}
                 DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-                dm.enqueue(req);
+                long id = dm.enqueue(req);
+                watchFileDownload(id, name, url);
                 Toast.makeText(MainActivity.this,
-                        "다운로드를 시작했어요 — 알림창·다운로드 폴더에서 확인하세요", Toast.LENGTH_LONG).show();
+                        "다운로드를 시작했어요: " + name, Toast.LENGTH_LONG).show();
             } catch (Exception e) {
                 // 최후 폴백: 외부 브라우저로 (URL 에 서명이 있어 로그인 없이도 받아진다)
                 try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) {}
@@ -403,6 +409,67 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {}
     }
 
+    // ====================== 📥 파일 다운로드 완료/실패 감시 (v2.1) ======================
+    //   왜: 실패가 «무표시»면 사용자는 파일이 어디에도 없는 이유를 알 길이 없다(2026-08-14 실사용).
+    //   APK 업데이트용 downloadReceiver 와 별개 — 그쪽은 자기 id 만 보고, 여기는 이 맵의 id 만 본다.
+    private final java.util.HashMap<Long, String[]> fileDownloads = new java.util.HashMap<>();
+    private BroadcastReceiver fileDownloadReceiver;
+
+    private void watchFileDownload(long id, String name, String url) {
+        fileDownloads.put(id, new String[]{name, url});
+        if (fileDownloadReceiver != null) return;
+        fileDownloadReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context ctx, Intent it) {
+                long got = it.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                String[] info = fileDownloads.remove(got);
+                if (info == null) return;   // 다른 다운로드(APK 업데이트 등)는 각자 리시버가 처리
+                int status = -1, reason = -1;
+                try {
+                    DownloadManager dm = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+                    android.database.Cursor c = dm.query(new DownloadManager.Query().setFilterById(got));
+                    if (c != null) {
+                        if (c.moveToFirst()) {
+                            status = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                            reason = c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON));
+                        }
+                        c.close();
+                    }
+                } catch (Exception ignored) {}
+                if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                    Toast.makeText(MainActivity.this, "저장 완료: " + info[0] + " (다운로드 폴더)", Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // 실패 — 사유를 사람이 읽을 수 있게. reason 이 4xx/5xx 면 서버 HTTP 응답 코드다.
+                final String u = info[1];
+                String why;
+                if (reason >= 400 && reason < 600) why = "서버 응답 " + reason;
+                else if (reason == DownloadManager.ERROR_INSUFFICIENT_SPACE) why = "저장 공간 부족";
+                else if (reason == DownloadManager.ERROR_HTTP_DATA_ERROR
+                        || reason == DownloadManager.ERROR_CANNOT_RESUME) why = "네트워크 전송 오류";
+                else if (reason == DownloadManager.ERROR_FILE_ERROR
+                        || reason == DownloadManager.ERROR_FILE_ALREADY_EXISTS) why = "파일 저장 오류";
+                else why = "사유 코드 " + reason;
+                try {
+                    new AlertDialog.Builder(MainActivity.this)
+                            .setTitle("저장 실패")
+                            .setMessage(info[0] + "\n\n원인: " + why
+                                    + "\n\n[브라우저로 받기]를 누르면 크롬에서 바로 받아집니다(로그인 불필요).")
+                            .setPositiveButton("브라우저로 받기", (d, w) -> {
+                                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) {}
+                            })
+                            .setNegativeButton("닫기", null)
+                            .show();
+                } catch (Exception ignored) {}
+            }
+        };
+        IntentFilter f = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(fileDownloadReceiver, f, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(fileDownloadReceiver, f);
+        }
+    }
+
     /**
      * 새 창(target="_blank"/window.open) 으로 요청된 URL 을 처리한다.
      * http/https 는 메인 WebView 에서 그대로 열어 앱 안에 머물게 하고,
@@ -511,9 +578,12 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestRuntimePermissions() {
-        String[] perms = {Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.MODIFY_AUDIO_SETTINGS};
-        ActivityCompat.requestPermissions(this, perms, REQ_PERMISSIONS);
+        java.util.ArrayList<String> perms = new java.util.ArrayList<>(java.util.Arrays.asList(
+                Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO,
+                Manifest.permission.MODIFY_AUDIO_SETTINGS));
+        // 안드로이드 13+ 는 알림 권한이 없으면 DownloadManager 진행/완료 알림이 안 보인다 (v2.1)
+        if (Build.VERSION.SDK_INT >= 33) perms.add("android.permission.POST_NOTIFICATIONS");
+        ActivityCompat.requestPermissions(this, perms.toArray(new String[0]), REQ_PERMISSIONS);
     }
 
     @Override
@@ -564,6 +634,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         unregisterDownloadReceiver();
+        if (fileDownloadReceiver != null) {
+            try { unregisterReceiver(fileDownloadReceiver); } catch (Exception ignored) {}
+            fileDownloadReceiver = null;
+        }
         try { if (tts != null) { tts.stop(); tts.shutdown(); tts = null; } } catch (Exception ignored) {}
         if (webView != null) {
             webView.destroy();
