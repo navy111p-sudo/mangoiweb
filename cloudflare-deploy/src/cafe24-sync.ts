@@ -34,13 +34,34 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS centers (id INTEGER PRIMARY KEY AUTOINCREMENT, franchise_id INTEGER, name TEXT NOT NULL, country TEXT, address TEXT, manager TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
   const nowMs = Date.now();
   const br = await runCypher(env, `MATCH (b:Branch) RETURN b.branch_id AS id, b.name AS name, b.address AS address, b.phone AS phone, b.manager AS manager, b.active AS active ORDER BY b.branch_id`, {}, 'READ');
-  const insF = env.DB.prepare(`INSERT OR REPLACE INTO franchises (id, name, address, phone, owner_name, active, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+  // ⚠️ INSERT OR REPLACE 를 쓰면 안 된다 — SQLite 의 REPLACE 는 «기존 행을 지우고 새로 넣는» 것이라
+  //    아래 컬럼 목록에 없는 값(franchises.opened_at)이 매일 밤 NULL 로 날아간다.
+  //    카페24가 주는 컬럼만 덮어쓰고 «우리가 D1 에서만 관리하는 값»은 보존하도록 UPSERT 로 바꿨다(2026-08-14).
+  const insF = env.DB.prepare(
+    `INSERT INTO franchises (id, name, address, phone, owner_name, active, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       name = excluded.name, address = excluded.address, phone = excluded.phone,
+       owner_name = excluded.owner_name, active = excluded.active, notes = excluded.notes,
+       updated_at = excluded.updated_at`
+  );
   for (let i = 0; i < br.values.length; i += 200) {
     const rows = rowsToObjects(br.fields, br.values.slice(i, i + 200));
     await env.DB.batch(rows.map(r => insF.bind(Number(r.id), r.name || '(무명지사)', r.address || null, r.phone || null, r.manager || null, Number(r.active) ? 1 : 0, '[cafe24]', nowMs, nowMs)));
   }
   const ce = await runCypher(env, `MATCH (c:Center) RETURN c.center_id AS id, c.branch_id AS branch_id, c.name AS name, c.address AS address, c.manager AS manager, c.active AS active ORDER BY c.center_id`, {}, 'READ');
-  const insC = env.DB.prepare(`INSERT OR REPLACE INTO centers (id, franchise_id, name, address, manager, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+  // ⚠️ 여기가 «대리점 B2B/B2C 지정이 매일 밤 사라지던» 자리다(2026-08-14 발견).
+  //    centers.payment_type 은 카페24에 없는, D1 에서만 사람이 지정하는 값인데
+  //    INSERT OR REPLACE 가 행을 통째로 갈아치우면서 매일 03:00 KST 에 전부 NULL 로 되돌렸다.
+  //    (PATCH /api/admin/centers 로 지정해도 그날 밤이면 없어졌다는 뜻이다.)
+  //    → UPSERT 로 바꿔 카페24가 주는 컬럼만 덮어쓴다. payment_type · country 는 건드리지 않는다.
+  const insC = env.DB.prepare(
+    `INSERT INTO centers (id, franchise_id, name, address, manager, active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       franchise_id = excluded.franchise_id, name = excluded.name, address = excluded.address,
+       manager = excluded.manager, active = excluded.active, updated_at = excluded.updated_at`
+  );
   for (let i = 0; i < ce.values.length; i += 200) {
     const rows = rowsToObjects(ce.fields, ce.values.slice(i, i + 200));
     await env.DB.batch(rows.map(r => insC.bind(Number(r.id), Number(r.branch_id) || null, r.name || '(무명센터)', r.address || null, r.manager || null, Number(r.active) ? 1 : 0, nowMs, nowMs)));

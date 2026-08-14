@@ -106,22 +106,34 @@ async function generateSignature(
 //  일반 SMS/LMS 발송 (템플릿 불필요) — 운영자 장애 알림 등 내부용
 //    카카오 알림톡(ATA)은 사전 승인 템플릿이 필요하지만, 문자(SMS/LMS)는 불필요.
 //    UptimeRobot 장애 웹훅 → 이 함수로 관리자 폰에 즉시 문자.
+//
+//  🌏 (2026-08-13) opts.country — 해외문자(필리핀 강사 등).
+//     SOLAPI 는 국내번호면 country 를 안 보내고, 해외면 국가번호(PH=63)를 따로 실어야 한다.
+//     이때 to 는 «앞의 0 을 뗀» 로컬번호다(0935-844-4527 → country 63 + to 9358444527).
+//     0 을 안 떼면 SOLAPI 가 형식오류로 반려한다. 그래서 여기서 한 번만 처리한다.
+//     ⚠️ 해외문자는 SOLAPI 계정에서 «해외 발송» 이 열려 있어야 하고 단가가 국내와 다르다.
+//        안 열려 있으면 errorCode 가 그대로 올라오니, 부르는 쪽에서 사람에게 그대로 보여줄 것.
 // ─────────────────────────────────────────────────────────────
 export async function sendPlainSms(
-  env: SolapiEnv, toPhone: string, text: string
+  env: SolapiEnv, toPhone: string, text: string,
+  opts?: { country?: string; subject?: string }
 ): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string }> {
   const mode = getSolapiMode(env);
-  const phone = normalizePhone(toPhone);
+  const country = String(opts?.country || '').replace(/[^0-9]/g, '');
+  const isIntl = !!country && country !== '82';
+  let phone = normalizePhone(toPhone);
+  if (isIntl) phone = phone.replace(/^0+/, '');   // 해외문자는 국가번호 뒤에 로컬번호(앞 0 제거)
   const from = normalizePhone(env.SOLAPI_FROM_PHONE || '');
   const bodyText = String(text || '').slice(0, 1000);
 
   if (mode === 'disabled') return { ok: false, mode, message: 'SOLAPI_API_KEY 미설정' };
-  if (!phone || phone.length < 10) return { ok: false, mode, error: 'invalid_phone' };
+  // 해외 로컬번호는 앞 0 을 떼면 10자리 미만인 나라도 있어 하한을 낮춘다(국내는 종전대로 10)
+  if (!phone || phone.length < (isIntl ? 7 : 10)) return { ok: false, mode, error: 'invalid_phone' };
   if (!from || from.length < 8) return { ok: false, mode, error: 'invalid_from' };
   if (!bodyText) return { ok: false, mode, error: 'empty_text' };
 
   if (mode === 'mock') {
-    console.log('[solapi SMS MOCK]', { to: maskPhone(phone), textLen: bodyText.length });
+    console.log('[solapi SMS MOCK]', { to: maskPhone(phone), country: country || 'KR', textLen: bodyText.length });
     return { ok: true, mode, messageId: 'mock_' + Date.now().toString(36), message: '[TEST MODE] 실제 발송 안 함' };
   }
 
@@ -132,7 +144,8 @@ export async function sendPlainSms(
   const byteLen = new TextEncoder().encode(bodyText).length;
   const type = byteLen > 88 ? 'LMS' : 'SMS';
   const message: any = { to: phone, from, type, text: bodyText };
-  if (type === 'LMS') message.subject = '망고아이 알림';
+  if (isIntl) message.country = country;
+  if (type === 'LMS') message.subject = opts?.subject || '망고아이 알림';
 
   try {
     const resp = await fetch('https://api.solapi.com/messages/v4/send', {

@@ -134,6 +134,48 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 매일 밤: 카페24 MySQL → Neo4j → D1 자동 동기화 (cron)
 ```
 
+### 🔑 로그인 세션이 «두 갈래»다 — 가장 자주 밟는 함정
+
+> 2026-08-13, 필리핀 IT매니저 Karl 「Double Login Issue」 로 드러남.
+> 이미 «Teacher Win» 으로 로그인한 강사가 메뉴 → 「녹화 보기」를 누르면 로그인 창이 한 번 더 떴다.
+
+같은 «로그인» 이라도 **누가 로그인했느냐에 따라 저장되는 것이 전혀 다릅니다.**
+
+| 로그인한 사람 | 브라우저(localStorage) | 서버 인증 수단 |
+|---|---|---|
+| **학생·학부모** | `mangoi_logged_user` (+ 미러 `mango_user`, `mangoi_uid`) | `mango_token` (uid 서명토큰) |
+| **교사·본사·지사·대리점** | `mangoi_admin_session` | `admin_sessions` **쿠키** — 토큰은 **안 만듦** |
+
+즉 **교사에게는 `mango_token` 이 아예 없습니다.** 그래서 이런 일이 생깁니다.
+
+- 화면 코드가 `mangoi_logged_user` 만 보고 로그인 여부를 판단하면 → 교사는 «로그인 안 한 사람» 이 됩니다.
+- 서버 API 가 `mango_token` 만 받으면 → 교사 요청은 **401** 로 떨어집니다.
+- 증상은 늘 같습니다: **「분명히 로그인했는데 또 로그인하라고 한다」.**
+  (2026-07-30 강사 Kaye 17번 「홈을 눌렀더니 갑자기 로그아웃됐다」도 같은 뿌리입니다)
+
+**⛔ 이렇게 고치면 안 됩니다** — 교사 로그인 때 `mangoi_logged_user` 를 같이 만들어 주는 방식.
+편해 보이지만 **교사 계정으로 학생 전용 기능이 통째로 열립니다.** 일부러 안 만드는 것입니다.
+필요한 화면·API 에서 **«교사 세션도 인정»** 하는 쪽으로 고치세요.
+
+**새 화면·새 API 를 만들 때 확인할 것**
+
+1. 이 기능을 **교사·본사도 쓰는가?** 쓴다면 학생 키만 보면 안 됩니다.
+2. 서버 쪽은 토큰이 없을 때 `checkAdminSession()`(`src/auth-admin.ts`)도 봐야 합니다.
+   개인정보 API 는 `resolveOwnerScope()` 를 쓰면 이 판정이 한 번에 됩니다.
+3. **짝이 되는 API 끼리 판정이 어긋나지 않았는지** 보세요. Karl 건이 딱 이 경우로,
+   녹화 «재생»(`/api/recording/play`)은 관리자 세션을 받는데 «목록»(`/api/student/recordings`)만
+   안 받는 한쪽짜리 게이트였습니다.
+
+**역할 판정 로직이 복제된 곳 (하나 고치면 나머지도 반드시 함께 볼 것)**
+
+- `public/index.html` — 학생홈 통합 로그인 폴백(`tryAdminLoginFallback`)
+- `public/admin/login.html` — 관리자 로그인 화면
+- `public/js/idx-user-session.js` — 상단바 표시·이동 분기
+- 접두사 규칙 자체의 정본은 `src/auth-admin.ts` 의 `resolveUiIdentity()`
+
+회귀 방지 하니스: `test-harness/teacher_recording_login_harness.mjs`
+(가짜 브라우저에서 실제 `flow.js` 를 돌려 Karl 이 본 화면을 재현합니다)
+
 ## 6. 알려진 미해결 사항 (2026-07-09 기준)
 
 | 항목 | 내용 | 위험도 |

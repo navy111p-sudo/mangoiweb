@@ -333,6 +333,10 @@ const worker = {
             // ── 강사 연락처 (2026-08-07) — 동료의 전화·이메일·카톡ID 가 한 화면에 모인다.
             //    수업 배정과 달리 «남의 개인 연락처» 라 교사에게는 열지 않는다. 본사/매니저만.
             '/api/admin/teacher-contacts',
+            // ── 💬 강사 카카오ID 명부 + 단체 전달 (2026-08-13) — 동료 전원의 카톡ID·전화번호가
+            //    한 화면에 모이고, 여기서 전체에게 문자·카톡을 뿌릴 수 있다. 본사/매니저만.
+            //    (핸들러 첫머리에서도 한 번 더 막지만, URL 직접 호출까지 여기서 끊는다)
+            '/api/admin/teachers/kakao',
             // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
             '/api/admin/corpcard/',
             // ── 🙈 교재 라이브러리 숨김 (2026-08-13) — 한 강사가 체크하면 **전 강사의 교재가 사라진다.**
@@ -989,6 +993,8 @@ const worker = {
         // 🔗 (2026-08-08) 강사 ↔ 로그인 아이디 연결. 근태 계산의 전제라 화면 하나가 통째로 여기 걸린다.
         //   api-mango 게이트는 startsWith('/api/admin/teachers') 라 이미 통과 — 여기만 등록하면 된다.
         path === '/api/admin/teachers/links' ||
+        // 💬 (2026-08-13) 강사 카카오ID 명부 + 강사에게 메시지 전달(문자 자동발송 + 카톡 붙여넣기 전달)
+        path.startsWith('/api/admin/teachers/kakao') ||
         path === '/api/admin/teacher-hours' ||
         path === '/api/admin/teacher-classes' ||
         path === '/api/admin/teacher-evaluation' ||
@@ -4880,6 +4886,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/students/merge-duplicates') return true;
   // 💼 강사 급여·평가 (Phase 8) — 관리자 전용
   if (path === '/api/admin/teachers' || /^\/api\/admin\/teachers\/\d+$/.test(path)) return true;
+  // 💬 강사 카카오ID 명부 + 전달 — 강사 연락처가 나가는 경로라 반드시 인증 뒤 (2026-08-13)
+  if (path.startsWith('/api/admin/teachers/kakao')) return true;
   // 🥭 Phase 34 — 강사 정보 (Teacher Profiles)
   if (path === '/api/admin/teacher-profiles' || path === '/api/admin/teacher-profiles/import' || /^\/api\/admin\/teacher-profiles\/\d+$/.test(path)) return true;
   if (path === '/api/admin/teacher-hours') return true;          // (deprecated, 호환성)

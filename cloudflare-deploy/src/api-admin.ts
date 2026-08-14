@@ -29,9 +29,10 @@ import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결�
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
-import { corpcardConfigured, runCorpCardSync, corpcardData, secretFp8 } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
+import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
+import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -349,6 +350,17 @@ export async function handleAdminApi(
 ): Promise<Response | null> {
   const path = url.pathname;
   const method = request.method;
+
+    // ════════════════════════════════════════════════════════════
+    // 💬 강사 카카오ID 명부 + 강사에게 메시지 전달 (2026-08-13)
+    //   ⚠️ 이 위임은 «/api/admin/teachers/:id» PATCH 보다 먼저 와야 한다 —
+    //      아래 라우팅은 숫자 id 만 받으므로 'kakao' 와는 겹치지 않지만,
+    //      순서를 바꾸면 나중에 와일드카드가 생겼을 때 조용히 가려진다.
+    // ════════════════════════════════════════════════════════════
+    if (path.startsWith('/api/admin/teachers/kakao')) {
+      const r = await handleTeacherKakaoApi(request, url, env as any);
+      if (r) return r;
+    }
 
     // ════════════════════════════════════════════════════════════
     // 📶 화상수업 회선품질 — 강사/학생별 손실·RTT 집계 (어느 강사 인터넷이 나쁜지 파악)
@@ -6915,6 +6927,10 @@ LIMIT $limit`;
       }
       if (method === 'GET') {
         const q = (url.searchParams.get('q') || '').trim();
+        // 💳 (2026-08-14) 결제유형 필터 — 'B2B' | 'B2C' | 'NONE'(미지정). 그 밖의 값은 «전체».
+        //    921건을 50개씩 넘겨 보는 구조라, 이게 없으면 미지정 대리점을 눈으로 찾아야 했다.
+        const _ptRaw = (url.searchParams.get('payment_type') || '').trim().toUpperCase();
+        const pt = (_ptRaw === 'B2B' || _ptRaw === 'B2C' || _ptRaw === 'NONE') ? _ptRaw : '';
         const rawLimit = url.searchParams.get('limit');
         const limit = rawLimit === '0' ? 0 : Math.max(1, Math.min(500, parseInt(rawLimit || '50', 10) || 50));
         const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
@@ -6927,16 +6943,34 @@ LIMIT $limit`;
           binds.push(like, like, like, like);
         }
         const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
+        // 미지정 = NULL 뿐 아니라 '' 같은 쓰레기값도 포함해야 «전체 = B2B+B2C+미지정» 이 맞는다.
+        const IS_NONE = `(c.payment_type IS NULL OR c.payment_type NOT IN ('B2B','B2C'))`;
+        // 유형별 건수 — 검색어(q)까지만 반영하고 «결제유형 필터는 일부러 빼서», 버튼마다 몇 건인지 보이게 한다.
+        // COUNT 쿼리 하나로 전체·B2B·B2C·미지정을 다 구하므로 왕복이 늘지 않는다.
         const cnt: any = await env.DB.prepare(
-          `SELECT COUNT(*) AS n FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
+          `SELECT COUNT(*) AS n,
+                  SUM(CASE WHEN c.payment_type = 'B2B' THEN 1 ELSE 0 END) AS b2b,
+                  SUM(CASE WHEN c.payment_type = 'B2C' THEN 1 ELSE 0 END) AS b2c,
+                  SUM(CASE WHEN ${IS_NONE} THEN 1 ELSE 0 END) AS none_ct
+             FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql}`
         ).bind(...binds).first();
+        const counts: Record<string, number> = {
+          all: Number(cnt?.n || 0), B2B: Number(cnt?.b2b || 0),
+          B2C: Number(cnt?.b2c || 0), NONE: Number(cnt?.none_ct || 0),
+        };
+        // 목록에만 결제유형 조건을 더한다(건수 요약은 위에서 이미 계산됨).
+        const listWhere = [...where];
+        const listBinds = [...binds];
+        if (pt === 'NONE') listWhere.push(IS_NONE);
+        else if (pt) { listWhere.push(`c.payment_type = ?`); listBinds.push(pt); }
+        const listWhereSql = listWhere.length ? ` WHERE ${listWhere.join(' AND ')}` : '';
         const cols = min ? 'c.id, c.name' : 'c.*, f.name AS franchise_name';
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
-        const pageBinds = limit === 0 ? binds : [...binds, limit, offset];
+        const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
-          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${whereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
+          `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: Number(cnt?.n || 0), limit, offset });
+        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
@@ -10181,7 +10215,21 @@ LIMIT $limit`;
       }
       const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
-      return json({ ok: true, sync, data });
+      const status = await corpcardStatus(env, data).catch(() => null);
+      return json({ ok: true, sync, data, status });
+    }
+
+    /* 🧪 연동 자가진단  POST /api/admin/corpcard/selftest
+       «키가 맞나 / CODEF 가 응답하나 / 파싱이 되나» 를 샌드박스 호스트로 확인한다.
+       ⛔ 돌아오는 건 CODEF 의 데모 거래다. 그래서 dryRun 고정 — D1 에 한 줄도 안 쓰고,
+          «마지막 동기화» 기록도 안 덮는다. 화면에서도 회계 표가 아니라 진단 상자에만 뜬다. */
+    if (method === 'POST' && path === '/api/admin/corpcard/selftest') {
+      if (!corpcardConfigured(env)) {
+        return json({ ok: false, error: 'codef_not_configured' });
+      }
+      const result = await runCorpCardSync(env, { base: CODEF_SANDBOX_BASE, dryRun: true })
+        .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+      return json({ ok: true, demo: true, result });
     }
     if (method === 'GET' && path === '/api/admin/corpcard/transactions') {
       const configured = corpcardConfigured(env);
@@ -10202,11 +10250,12 @@ LIMIT $limit`;
         secret_fp: await secretFp8((env as any).CODEF_CLIENT_SECRET),
       };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
-      // 키가 없어도 과거 적재분이 있으면 보여 준다(연동 해지 후에도 기록은 남게).
-      if (!configured && !data.current.length && !Object.values(data.history).some((v: any) => v > 0)) {
-        return json({ ok: false, error: 'codef_not_configured', have });
-      }
-      return json({ ok: true, configured, have, data });
+      const status = await corpcardStatus(env, data).catch(() => null);
+      /* ⚠️ (2026-08-13) 예전엔 여기서 «적재분이 없으면 codef_not_configured» 로 답했다.
+         그래서 키가 멀쩡한데도(=샌드박스 계정이라 조회만 막힌 상태) 화면은 «연동 안 됨» 이라고
+         말했고, 진짜 원인(CF-00017)은 아무 데도 안 보였다. 이제는 항상 ok:true 로 답하고
+         «무엇이 왜 비었는지» 는 status 가 설명한다. */
+      return json({ ok: true, configured, have, data, status });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════

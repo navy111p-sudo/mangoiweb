@@ -2359,6 +2359,9 @@ const _TP_IC = {
   edit: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
   // 제거 (휴지통)
   trash: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
+  // 💬 카카오·문자 전달 (말풍선) — 버튼 바탕이 카카오 노랑(#fee500)이라 선 색만 검정.
+  //    다른 아이콘은 stroke="#fff" 인데 이것만 다르다. 노랑 위 흰 선은 안 보인다.
+  chat: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#191919" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
   // 스케줄 (달력)
   calendar: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   // 삭제 무장(2차 확인 대기) — 경고 삼각형
@@ -2514,7 +2517,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="13" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -2539,7 +2542,7 @@ async function loadTeacherProfiles() {
   }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="13" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -2563,7 +2566,17 @@ async function loadTeacherProfiles() {
       '</span>';
     const fee = t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') : '—';
     const join = t.join_date || '—';
-    const phone = t.phone || t.kakao_id || '—';
+    // 💬 (2026-08-13) 연락처와 카카오ID 를 갈라 놓는다. 전엔 `t.phone || t.kakao_id` 라
+    //    전화번호가 있는 강사는 카카오ID 가 화면 어디에도 안 나왔다(있는데 없는 것처럼 보임).
+    const phone = t.phone || '—';
+    const kakaoCell = t.kakao_id
+      ? '<span style="font-family:MangoiHanSC,ui-monospace,monospace;font-size:11px">' + _aiEsc(t.kakao_id) + '</span>' +
+        // 값을 onclick 문자열에 끼워 넣지 않는다 — 카카오ID 에 따옴표·역슬래시가 섞이면
+        // 따옴표 이스케이프가 두 겹(HTML+JS)이라 조용히 깨진다. 옆 <span> 의 글자를 그대로 읽는다.
+        '<button type="button" onclick="window.tkCopy && window.tkCopy(this.previousElementSibling.textContent,this)" ' +
+        'title="카카오ID 복사" aria-label="카카오ID 복사" ' +
+        'style="margin-left:5px;padding:0 5px;font-size:10px;line-height:17px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer">📋</button>'
+      : '<span style="color:#9ca3af">—</span>';
     return '<tr>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
@@ -2574,6 +2587,7 @@ async function loadTeacherProfiles() {
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:right">' + fee + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(phone) + '</td>' +
+      '<td style="padding:6px;border:1px solid #e5e7eb;white-space:nowrap">' + kakaoCell + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + join + '</td>' +
       // 📊 인사평가 — 클릭하면 "왜 이 점수인가" 분석 모달 (점수는 서버가 채움)
       '<td class="hr-eval-col" id="hrv-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;cursor:pointer" ' +
@@ -2589,6 +2603,8 @@ async function loadTeacherProfiles() {
       '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap">' +
         '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
+        // 💬 (2026-08-13) 이 강사에게 바로 메시지 — 카카오톡(원클릭 붙여넣기) + 문자(자동발송)
+        '<button class="tp-act-btn tp-act--kakao" onclick="window.tkOpenSend && window.tkOpenSend(' + t.id + ')" title="카카오·문자로 메시지 보내기" data-en-title="Message by KakaoTalk / SMS" style="' + _TP_ACT_BTN + 'background:#fee500;color:#191919" aria-label="카카오·문자 전달">' + _TP_IC.chat + '</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
@@ -3317,25 +3333,35 @@ async function addFranchise() {
 //      «교육센터»는 홈페이지에서 «필리핀 직영 센터»를 가리키는 다른 말이라 라벨을 바꿨다.
 //   🐢 예전엔 921행을 한 번에 받아(약 130KB) 카드가 닫혀 있어도 DOM 에 다 그렸다.
 //      → 서버 페이징 50건 + 서버 검색. 검색은 '이 페이지 50행'이 아니라 921건 전체 대상.
-var _ctState = { q: '', offset: 0, limit: 50, total: 0 };
+//   💳 pt = 결제유형 필터('' | 'B2B' | 'B2C' | 'NONE'). counts 는 서버가 준 유형별 건수.
+var _ctState = { q: '', offset: 0, limit: 50, total: 0, pt: '', counts: null };
 async function loadCenters(opts) {
   opts = opts || {};
   if (opts.q !== undefined) { _ctState.q = String(opts.q || '').trim(); _ctState.offset = 0; }
+  if (opts.pt !== undefined) { _ctState.pt = String(opts.pt || ''); _ctState.offset = 0; }
   if (opts.offset !== undefined) _ctState.offset = Math.max(0, opts.offset);
   const tb = document.getElementById('centers-table');
   if (!tb) return;
   _ensureFranchiseSelect();
   const qs = '?limit=' + _ctState.limit + '&offset=' + _ctState.offset
-           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '');
+           + (_ctState.q ? '&q=' + encodeURIComponent(_ctState.q) : '')
+           + (_ctState.pt ? '&payment_type=' + encodeURIComponent(_ctState.pt) : '');
   let d = {};
   try {
     const r = await fetch('/api/admin/centers' + qs, { cache:'no-store', credentials:'include' });
     d = await r.json().catch(()=>({}));
   } catch (e) { d = {}; }
   _ctState.total = Number(d.total || 0);
+  if (d && d.counts) _ctState.counts = d.counts;
+  _ctRenderPtFilter();
+  // 유형을 바꿔 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
+  // (total 0 이면 offset 0 이 되고, 그때는 이 조건이 거짓이라 무한 반복이 없다)
+  if (_ctState.offset > 0 && _ctState.offset >= _ctState.total) {
+    return loadCenters({ offset: Math.max(0, _ctState.total - _ctState.limit) });
+  }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
     tb.innerHTML = '<tr><td colspan="7" class="empty">'
-      + (_ctState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+      + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
   }
@@ -3372,9 +3398,42 @@ async function ctSetPayType(id, sel) {
   } catch (e) {
     sel.value = prev;
     alert((adminLang==='en' ? 'Failed to save payment type: ' : '결제유형 저장 실패: ') + e.message);
+    return;
   }
+  // 저장됐으면 건수 요약이 이미 틀렸다. 유형으로 거르는 중이면 그 행은 목록에서 빠져야 하고,
+  // 아니면 숫자만 갱신하면 된다 → 어느 쪽이든 다시 불러오는 게 맞다(50행 한 번).
+  loadCenters();
 }
 window.ctSetPayType = ctSetPayType;
+
+// 💳 (2026-08-14) 결제유형 필터 버튼 + 유형별 건수.
+//    ⚠️ hover 강조는 «색만» — 크기·위치를 움직이면 안 된다(CLAUDE.md 1-3 «정신없다»고 제거된 것).
+//    ⚠️ 라벨은 <span data-ko/data-en> 안에 두고 건수는 바깥 <b> 로 뺀다.
+//       i18n 사전이 «전체 문자열 일치»라, 숫자가 섞인 문자열은 번역이 안 걸린다.
+function _ctRenderPtFilter() {
+  const el = document.getElementById('ct-ptfilter');
+  if (!el) return;
+  const c = _ctState.counts || { all: 0, B2B: 0, B2C: 0, NONE: 0 };
+  const defs = [
+    ['',     '전체',   'All',   c.all],
+    ['B2B',  'B2B',    'B2B',   c.B2B],
+    ['B2C',  'B2C',    'B2C',   c.B2C],
+    ['NONE', '미지정', 'Unset', c.NONE],
+  ];
+  el.innerHTML = defs.map(function (d) {
+    const on = _ctState.pt === d[0];
+    return '<button type="button" onclick="ctFilterPayType(\'' + d[0] + '\')"'
+      + ' style="padding:4px 10px;font-size:12px;border-radius:8px;cursor:pointer;'
+      +   'border:1px solid ' + (on ? '#1d4ed8' : '#d1d5db') + ';'
+      +   'background:' + (on ? '#1d4ed8' : '#fff') + ';'
+      +   'color:' + (on ? '#fff' : '#374151') + ';'
+      +   'font-weight:' + (on ? '700' : '400') + '">'
+      + '<span data-ko="' + d[1] + '" data-en="' + d[2] + '">'
+      + (adminLang === 'en' ? d[2] : d[1]) + '</span> <b>' + Number(d[3] || 0) + '</b></button>';
+  }).join('');
+}
+function ctFilterPayType(v) { loadCenters({ pt: v }); }
+window.ctFilterPayType = ctFilterPayType;
 function _ctRenderPager() {
   const el = document.getElementById('ct-pager');
   if (!el) return;
@@ -10782,6 +10841,8 @@ window.rebuildGlobalSearchIndex = function() {
   let _cardData = null;
   // false = 카드사 동기화가 안 된 상태(= 화면 숫자가 예시 데이터). 화면에 반드시 표시한다.
   let _cardSynced = false;
+  // 서버가 준 연동 상태(state / message_ko / last_error …) — «왜 비었는지»의 유일한 근거
+  let _cardStatus = null;
   function _cardSampleBanner() {
     if (_cardSynced) return '';
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid #f59e0b;background:rgba(245,158,11,0.10);'
@@ -10806,11 +10867,14 @@ window.rebuildGlobalSearchIndex = function() {
     const btn = document.getElementById('acc-card-sync-btn');
     if (btn) { btn.disabled = true; btn.textContent = '⏳ 동기화 중…'; }
     try {
-      const r = await fetch('/api/admin/corpcard/sync', { method: 'POST', credentials: 'include' });
+      const monthEl0 = document.getElementById('acc-card-month');
+      const q0 = monthEl0 && monthEl0.value ? ('?month=' + encodeURIComponent(monthEl0.value)) : '';
+      const r = await fetch('/api/admin/corpcard/sync' + q0, { method: 'POST', credentials: 'include' });
       let d = null;
       try { d = await r.json(); } catch {}
-      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
-      else { _cardData = null; _cardSynced = false; }
+      _cardStatus = (d && d.status) || null;
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = _cardHasReal(); }
+      else { _cardData = null; _cardSynced = false; if (!_cardStatus && d && d.error) _cardStatus = { state: d.error, message_ko: d.message || '', message_en: d.message_en || '' }; }
     } catch (e) {
       _cardData = null; _cardSynced = false;
     }
@@ -10818,7 +10882,8 @@ window.rebuildGlobalSearchIndex = function() {
      * 예전엔 여기서 generateCardSampleData() 로 가짜 지출내역을 채웠다. 경고 배너를 붙여도
      * 표에 숫자가 떠 있으면 사람은 그 숫자를 읽는다 — 회계 판단이 오도된다.
      * 없는 건 없다고 말하는 편이 낫다. */
-    if (_cardData) { renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback(); }
+    renderCardStatus();
+    if (_cardSynced && _cardData) { renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback(); }
     else { renderCardNotConnected(); }
     // ⚠️ (2026-08-03) 예전엔 실패했을 때도 무조건 '✅ 동기화 완료' 라고 찍었다.
     //   '/api/admin/corpcard/sync' 는 서버에 없고(라이브 404), 카드사 연동 자체가 없다.
@@ -10829,12 +10894,99 @@ window.rebuildGlobalSearchIndex = function() {
       btn.textContent = _cardSynced ? '✅ 동기화 완료' : '⚠️ 미연동 (예시 데이터)';
       setTimeout(() => btn.textContent = '🔄 신한 동기화', _cardSynced ? 1500 : 3000);
     }
+    /* ⚠️ (2026-08-13) 예전엔 실패하면 무조건 «키가 등록되지 않았습니다» 라고 띄웠다.
+       실제로는 키가 멀쩡한데 계정이 «데모(샌드박스)» 라 CODEF 가 조회를 거부(CF-00017)하는
+       경우가 있었고, 그때 이 문구는 사실이 아니었다 — 키를 몇 번을 다시 넣어도 해결되지 않는다.
+       이제 사유는 서버(status)가 판정하고, 여기서는 그 문장을 그대로 보여 준다. */
     if (!_cardSynced) {
-      // (2026-08-13) 서버 연동(CODEF)은 준비 완료 — 키 3개만 등록하면 이 버튼이 실데이터를 당겨온다.
-      alert('⚠️ 카드사 연동 키(CODEF)가 아직 등록되지 않았습니다.\n\n'
-        + '연동 코드는 서버에 준비돼 있습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급)\n'
-        + '→ 시크릿 3개(CODEF_CLIENT_ID/SECRET/CONNECTED_ID) 등록만 하면 자동으로 불러옵니다.\n\n'
-        + 'Card sync (CODEF) keys are not registered yet. Once the 3 secrets are set, this button pulls real transactions.');
+      var en0 = !!(window.adminLang && window.adminLang !== 'ko');
+      var msg = _cardStatus && (en0 ? _cardStatus.message_en : _cardStatus.message_ko);
+      alert('⚠️ ' + (msg || '카드사 동기화에 실패했습니다. 화면의 연동 상태를 확인하세요.')
+        + (_cardStatus && _cardStatus.last_error ? '\n\n[서버 원문]\n' + _cardStatus.last_error : ''));
+    }
+  };
+
+  // 실데이터로 볼 수 있는 상태인가 — 연동 정상(ok)이거나 그 달만 비었을 때(no_data)만 true
+  function _cardHasReal() {
+    if (!_cardData) return false;
+    if (_cardData.current && _cardData.current.length) return true;
+    return !!(_cardStatus && (_cardStatus.state === 'ok' || _cardStatus.state === 'no_data'));
+  }
+
+  /* 📣 연동 상태 한 줄 — «연동 안 됨» 한 마디로 뭉개지 않고 상태별로 다르게 말한다.
+     회계 담당이 필리핀 스태프라 한/영 두 벌([[accounting-staff-english]]). */
+  function renderCardStatus() {
+    var box = document.getElementById('acc-card-status');
+    if (!box) return;
+    var s = _cardStatus;
+    if (!s) { box.innerHTML = ''; return; }
+    var en = !!(window.adminLang && window.adminLang !== 'ko');
+    var TONE = {
+      ok:              ['#059669', 'rgba(5,150,105,0.08)',  '✅'],
+      no_data:         ['#0f4c81', 'rgba(15,76,129,0.08)',  'ℹ️'],
+      never_synced:    ['#b45309', 'rgba(245,158,11,0.10)', '⏳'],
+      not_configured:  ['#b45309', 'rgba(245,158,11,0.10)', '🔑'],
+      sandbox_account: ['#b45309', 'rgba(245,158,11,0.12)', '🧪'],
+      sync_error:      ['#b91c1c', 'rgba(220,38,38,0.08)',  '⚠️'],
+    };
+    var t = TONE[s.state] || TONE.sync_error;
+    var when = s.last_sync_at
+      ? new Date(s.last_sync_at + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16) + ' KST'
+      : (en ? 'never' : '없음');
+    var html = '<div style="border:1px solid ' + t[0] + ';background:' + t[1] + ';border-radius:8px;padding:10px 12px">'
+      + '<div style="font-size:13px;font-weight:800;color:' + t[0] + ';line-height:1.6">' + t[2] + ' '
+      + _esc(en ? (s.message_en || s.message_ko || '') : (s.message_ko || '')) + '</div>'
+      + '<div style="margin-top:5px;font-size:11px;color:#6b7280">'
+      + (en ? 'Last sync: ' : '마지막 동기화: ') + when
+      + ' · ' + (en ? 'stored rows: ' : '적재 건수: ') + (s.rows_total || 0)
+      + (s.base ? ' · ' + _esc(s.base) : '') + '</div>';
+    if (s.last_error) {
+      html += '<details style="margin-top:6px"><summary style="font-size:11px;color:#6b7280;cursor:pointer">'
+        + (en ? 'Raw error from CODEF' : '카드사(CODEF) 오류 원문') + '</summary>'
+        + '<div style="margin-top:4px;font-size:11px;color:#6b7280;word-break:break-all;line-height:1.6">'
+        + _esc(s.last_error) + '</div></details>';
+    }
+    box.innerHTML = html + '</div>';
+  }
+  /* 🧪 연동 자가진단 — 샌드박스 호스트로 «키·응답·파싱» 만 확인한다.
+     ⛔ 서버가 dryRun 으로 돌려 D1 에 한 줄도 안 쓴다. 결과도 회계 표가 아니라
+        이 진단 상자에만 띄운다(데모 숫자가 실제 지출로 오인되면 안 되므로). */
+  window.cardSelfTest = async function () {
+    var btn = document.getElementById('acc-card-selftest-btn');
+    var en = !!(window.adminLang && window.adminLang !== 'ko');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 진단 중…'; }
+    var d = null;
+    try {
+      var r = await fetch('/api/admin/corpcard/selftest', { method: 'POST', credentials: 'include' });
+      try { d = await r.json(); } catch (e) {}
+    } catch (e) {}
+    if (btn) { btn.disabled = false; btn.textContent = '🧪 연동 자가진단'; }
+
+    var box = document.getElementById('acc-card-status');
+    var res = d && d.result;
+    var lines = [];
+    if (!d || !d.ok) {
+      lines.push(en ? 'Self-test could not run (keys missing or request blocked).'
+                    : '자가진단을 실행하지 못했습니다(키 미등록이거나 요청이 막혔습니다).');
+    } else {
+      var okToken = !(res && (res.errors || []).some(function (e) { return /codef_token_failed/.test(e); }));
+      var got = res ? (res.seen || 0) : 0;
+      lines.push((okToken ? '✅ ' : '❌ ') + (en ? 'CODEF login (OAuth token)' : 'CODEF 로그인(토큰 발급)'));
+      lines.push((got > 0 ? '✅ ' : '❌ ') + (en ? 'Transaction query & parsing' : '거래내역 조회·파싱')
+        + ' — ' + got + (en ? ' demo rows' : '건(데모)'));
+      if (res && res.errors && res.errors.length) {
+        lines.push('⚠️ ' + _esc(String(res.errors[0]).slice(0, 220)));
+      }
+      lines.push(en
+        ? 'Demo rows are NOT stored — this only proves the pipeline works. Real data needs production CODEF keys.'
+        : '데모 데이터는 <b>저장하지 않습니다.</b> 배선이 살아 있다는 것만 확인한 것이며, 실제 내역은 CODEF 정식 키가 있어야 나옵니다.');
+    }
+    if (box) {
+      box.insertAdjacentHTML('beforeend',
+        '<div style="margin-top:8px;border:1px dashed #6b7280;border-radius:8px;padding:10px 12px;background:#f9fafb">'
+        + '<div style="font-size:12px;font-weight:800;color:#374151;margin-bottom:4px">🧪 '
+        + (en ? 'Connection self-test' : '연동 자가진단') + '</div>'
+        + '<div style="font-size:12px;color:#4b5563;line-height:1.8">' + lines.join('<br>') + '</div></div>');
     }
   };
 
@@ -10846,10 +10998,16 @@ window.rebuildGlobalSearchIndex = function() {
     try {
       var r = await fetch('/api/admin/corpcard/transactions' + q, { credentials: 'include' });
       var d = null; try { d = await r.json(); } catch (e) {}
-      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = true; }
-      else { _cardData = null; _cardSynced = false; }
+      _cardStatus = (d && d.status) || null;
+      if (r.ok && d && d.ok && d.data) { _cardData = d.data; _cardSynced = _cardHasReal(); }
+      else {
+        _cardData = null; _cardSynced = false;
+        if (!_cardStatus) _cardStatus = { state: (d && d.error) || 'sync_error', message_ko: '', message_en: '' };
+      }
     } catch (e) { _cardData = null; _cardSynced = false; }
-    if (!_cardData) { renderCardNotConnected(); return; }
+    renderCardStatus();
+    // 실데이터가 아니면 숫자를 한 칸도 채우지 않는다 — ₩0 도 «실제 0원 지출» 로 읽힌다
+    if (!_cardSynced) { renderCardNotConnected(); return; }
     renderCardKpis(); renderCardCharts(); renderCardTable(); renderCardFeedback();
   };
 
@@ -10857,14 +11015,25 @@ window.rebuildGlobalSearchIndex = function() {
      회계 담당이 필리핀 스태프라 한/영 두 벌로 쓴다([[accounting-staff-english]]). */
   function renderCardNotConnected() {
     var en = !!(window.adminLang && window.adminLang !== 'ko');
+    // 상태별 사유를 그대로 쓴다. «연동 안 됨» 은 사유를 모를 때만(2026-08-13)
+    var why = _cardStatus && (en ? (_cardStatus.message_en || _cardStatus.message_ko) : _cardStatus.message_ko);
     var tbody = document.getElementById('acc-card-rows');
     if (tbody) {
       tbody.innerHTML = '<tr><td colspan="9" style="padding:22px;text-align:center;color:#6b7280;font-size:13px;line-height:1.8">'
         + (en
-          ? '<b>Card company sync is not connected yet.</b><br>No real transactions to show. Nothing is displayed on purpose — sample figures could be mistaken for real spending.'
-          : '<b>카드사 연동이 아직 되어 있지 않습니다.</b><br>보여드릴 실제 지출내역이 없습니다. 예시 숫자를 띄우면 실제 지출로 오인될 수 있어 일부러 비워 둡니다.')
+          ? '<b>No real transactions to show.</b><br>Nothing is displayed on purpose — sample figures could be mistaken for real spending.'
+          : '<b>보여드릴 실제 지출내역이 없습니다.</b><br>예시 숫자를 띄우면 실제 지출로 오인될 수 있어 일부러 비워 둡니다.')
+        + (why ? '<br><span style="color:#b45309">' + _esc(why) + '</span>' : '')
         + '</td></tr>';
     }
+    // KPI 타일도 «—» 로 되돌린다 — 이전 조회의 숫자가 남아 있으면 그 달 값으로 오인된다
+    [['kpi-cur-month', '₩—'], ['kpi-prev-month', '₩—'], ['kpi-3m-avg', '₩—'], ['kpi-alerts', '—건'],
+     ['kpi-cur-month-sub', '건수 —'], ['kpi-prev-vs-cur', '전월 대비 —%'], ['kpi-3m-vs-cur', '평균 대비 —%']]
+      .forEach(function (p) { var el = document.getElementById(p[0]); if (el) el.textContent = p[1]; });
+    // 색은 renderCardKpis 가 칠한 두 칸만 원래 회색으로 (나머지는 HTML 인라인 색을 지키기 위해 안 건드림)
+    ['kpi-prev-vs-cur', 'kpi-3m-vs-cur'].forEach(function (id) {
+      var el = document.getElementById(id); if (el) el.style.color = '#9ca3af';
+    });
     ['acc-card-pie', 'acc-card-line'].forEach(function (id) {
       var c = document.getElementById(id);
       if (c && c.getContext) { try { c.getContext('2d').clearRect(0, 0, c.width, c.height); } catch (e) {} }

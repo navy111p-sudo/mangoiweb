@@ -233,13 +233,16 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     const timers = []; let scored = [];
     const sandbox = {
       $, GLANG: 'en', speakCount: 0, listening: false, recognition: new SR(),
+      /* 💯 (2026-08-13) 원샷 통과 도입으로 이 블록이 쓰는 전역이 늘었다.
+         PERFECT_SC = 즉시 통과 기준 정확도, speakAttempts = 이 문장 말하기 시도 횟수. */
+      PERFECT_SC: 0.98, speakAttempts: 0,
       sentenceText: () => 'I like blue cars',
       matchScore: (said, t) => {
         const a = String(said).toLowerCase().split(/\s+/), b = String(t).toLowerCase().split(/\s+/);
         return b.filter(w => a.includes(w)).length / b.length;
       },
       speak: () => {}, toast: () => {},
-      speakSuccess: () => scored.push('success'),
+      speakSuccess: (sc) => scored.push(sc >= 0.98 ? 'perfect' : 'success'),
       setTimeout: (cb, ms) => { timers.push({ cb, ms }); return timers.length; },
       clearTimeout: (id) => { if (timers[id - 1]) timers[id - 1] = { cb(){}, ms: 0 }; },
       console,
@@ -263,10 +266,13 @@ console.log('\n▶ student-game-grammar-pizza.html — 말이 끝나야 채점�
     check('끊겨도 계속 듣는 중', rec.running === true);
     rec.emit('blue cars', true);                       // 새 세션에서 이어 말함(앞부분은 브라우저가 안 준다)
     check('세션이 끊겨도 앞에서 말한 것과 합쳐져 정답 처리',
-          scored.length === 1 && scored[0] === 'success', JSON.stringify(scored));
+          scored.length === 1 && scored[0] === 'perfect', JSON.stringify(scored));
+    /* 💯 완전히 일치했으니 원샷 통과 경로여야 한다 — 시도 횟수가 1회로 잡혀야
+       missionComplete(perfect=true) 로 퍼펙트 보너스가 붙는다 */
+    check('첫 시도 100점이면 원샷 통과로 집계', sandbox.speakAttempts === 1, String(sandbox.speakAttempts));
 
     // 틀린 문장을 말하고 조용해지면(=stop) 그때 오답 안내
-    scored = []; sandbox.listening = false;
+    scored = []; sandbox.listening = false; sandbox.speakAttempts = 0;
     $('btn-speak').onclick();
     const rec2 = sandbox.recognition;
     rec2.emit('I like red bikes', true);
