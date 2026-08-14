@@ -11,7 +11,7 @@
     'contact',       // 고객센터
     'notice',        // 공지사항
     'introducing',   // 망고아이 특장점
-    'trial',         // 무료체험 (신규상담)
+    'trial',         // 무료체험 (→ 카카오 상담)
     'callcenter',    // 현지 콜센터
     'event',         // 이벤트
     'reviews',       // 수업 후기
@@ -21,7 +21,7 @@
     'diagnosis',     // 자가진단
     'kakao',         // 카톡상담
     'remote',        // PC 원격지원
-    'inquiry',       // 신규상담
+    'inquiry',       // 상담 (→ 카카오 채널)
     'homepage',      // 홈페이지
     'lessons',       // 학습 영상 (공개)
     'mbti',          // MBTI 매칭 (공개)

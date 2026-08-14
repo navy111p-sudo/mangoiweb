@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
      ⚠️ adm-lang-boot 는 defer 를 붙이지 말 것(첫 페인트 전에 lang 이 정해져야 함). -->
 <script src="/js/adm-lang-boot.js?v=6"></script>
 <script defer src="/js/i18n-sweep.js?v=22"></script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>만고아이 강사 교육 매뉴얼 - 글로벌 오피스 킷</title>
     <!-- Tailwind CSS -->
     <link rel="stylesheet" href="/css/tailwind-build.css?v=1"><!-- ph163: cdn.tailwindcss.com(런타임 컴파일러) → 정적 빌드 -->
@@ -43,7 +44,7 @@
     <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
             <div class="flex items-center space-x-3">
-                <span class="text-3xl"><img src="/img/mango-char.png" alt="망고아이" style="height:1em;width:auto;vertical-align:-0.18em"></span>
+                <span class="text-3xl"><img src="/img/mango-char.png" alt="망고아이" style="height:1em;width:auto;vertical-align:-0.18em" loading="lazy" decoding="async"></span>
                 <div>
                     <h1 class="font-bold text-lg text-slate-900 leading-tight" id="nav-title">만고아이 강사 교육 매뉴얼</h1>
                     <p class="text-xs text-orange-500 font-medium">Teacher Success Hub v2.0</p>
@@ -576,8 +577,8 @@
             const sheet = document.getElementById('sheet-0');
             sheet.innerHTML = `
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <img src="${imgUrl('stt')}" alt="Student Talk Time" class="w-full h-auto rounded-xl border border-slate-100">
-                    <img src="${imgUrl('age')}" alt="Attention Span by Age" class="w-full h-auto rounded-xl border border-slate-100">
+                    <img src="${imgUrl('stt')}" alt="Student Talk Time" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
+                    <img src="${imgUrl('age')}" alt="Attention Span by Age" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                 </div>
                 <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden min-w-[800px]">
                     <thead>
@@ -608,7 +609,7 @@
             const sheet = document.getElementById('sheet-1');
             sheet.innerHTML = `
                 <div class="flex justify-center mb-6">
-                    <img src="${imgUrl('cycle')}" alt="Engagement Cycle" class="max-w-md w-full h-auto rounded-xl border border-slate-100">
+                    <img src="${imgUrl('cycle')}" alt="Engagement Cycle" class="max-w-md w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                 </div>
                 <table class="w-full text-left border-collapse border border-slate-200 rounded-lg overflow-hidden min-w-[800px]">
                     <thead>
@@ -670,8 +671,8 @@
                     </tbody>
                 </table>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                    <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100">
-                    <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100">
+                    <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
+                    <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                 </div>
             `;
         }
@@ -701,7 +702,7 @@
 
             sheet.innerHTML = `
                 <div class="flex justify-center mb-6">
-                    <img src="${imgUrl('radar')}" alt="6-Competency Radar" class="max-w-sm w-full h-auto rounded-xl border border-slate-100">
+                    <img src="${imgUrl('radar')}" alt="6-Competency Radar" class="max-w-sm w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div class="lg:col-span-2">
@@ -757,7 +758,7 @@
             pdfContainer.innerHTML = `
                 <!-- Cover Section -->
                 <div class="text-center pb-10 border-b-4 border-orange-500">
-                    <img src="${imgUrl('cover')}" alt="${doc.mainTitle}" class="w-full h-auto rounded-2xl">
+                    <img src="${imgUrl('cover')}" alt="${doc.mainTitle}" class="w-full h-auto rounded-2xl" loading="lazy" decoding="async">
                     <div class="mt-8 flex justify-center space-x-8 text-sm font-semibold text-slate-600">
                         <div>
                             <span class="block text-xs text-slate-400">${doc.metaDept}</span>
@@ -778,7 +779,7 @@
 
                 <!-- Motivational manifesto -->
                 <div class="pt-10">
-                    <img src="${imgUrl('manifesto')}" alt="Manifesto" class="w-full h-auto rounded-2xl">
+                    <img src="${imgUrl('manifesto')}" alt="Manifesto" class="w-full h-auto rounded-2xl" loading="lazy" decoding="async">
                 </div>
 
                 <!-- Section 1 -->
@@ -793,7 +794,7 @@
                         <p class="text-slate-800 font-bold leading-relaxed italic">${doc.sec1Quote}</p>
                     </div>
                     <div class="mt-6">
-                        <img src="${imgUrl('growth')}" alt="Engagement drives achievement" class="max-w-lg mx-auto w-full h-auto rounded-xl border border-slate-100">
+                        <img src="${imgUrl('growth')}" alt="Engagement drives achievement" class="max-w-lg mx-auto w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                     </div>
                 </div>
 
@@ -806,7 +807,7 @@
                     </h2>
                     <p class="text-sm text-slate-500 mt-1">${doc.sec2Subtitle}</p>
                     <div class="mt-6">
-                        <img src="${imgUrl('stats')}" alt="4 numbers to remember" class="w-full h-auto rounded-xl border border-slate-100">
+                        <img src="${imgUrl('stats')}" alt="4 numbers to remember" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                     </div>
 
                     <div class="mt-8 space-y-6">
@@ -828,8 +829,8 @@
                     </h2>
                     <p class="text-sm text-slate-500 mt-1">${doc.sec3Subtitle}</p>
                     <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <img src="${imgUrl('stt')}" alt="Student talk time" class="w-full h-auto rounded-xl border border-slate-100">
-                        <img src="${imgUrl('age')}" alt="Attention span by age" class="w-full h-auto rounded-xl border border-slate-100">
+                        <img src="${imgUrl('stt')}" alt="Student talk time" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
+                        <img src="${imgUrl('age')}" alt="Attention span by age" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                     </div>
 
                     <div class="mt-6 border border-slate-200 rounded-xl overflow-hidden">
@@ -861,8 +862,8 @@
                 <!-- Appendix: Engagement Cycle + Rubric Radar -->
                 <div class="py-10">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
-                        <img src="${imgUrl('cycle')}" alt="Engagement cycle" class="w-full h-auto rounded-xl border border-slate-100">
-                        <img src="${imgUrl('radar')}" alt="6-competency radar" class="w-full h-auto rounded-xl border border-slate-100">
+                        <img src="${imgUrl('cycle')}" alt="Engagement cycle" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
+                        <img src="${imgUrl('radar')}" alt="6-competency radar" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                     </div>
                 </div>
 
@@ -871,8 +872,8 @@
                 <!-- Appendix: Class photo frames -->
                 <div class="py-10">
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100">
-                        <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100">
+                        <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
+                        <img src="${imgUrl('photo')}" alt="Class photo placeholder" class="w-full h-auto rounded-xl border border-slate-100" loading="lazy" decoding="async">
                     </div>
                 </div>
 
@@ -907,7 +908,7 @@
                     </div>
 
                     <div class="mt-10">
-                        <img src="${imgUrl('closing')}" alt="Closing message" class="w-full h-auto rounded-2xl">
+                        <img src="${imgUrl('closing')}" alt="Closing message" class="w-full h-auto rounded-2xl" loading="lazy" decoding="async">
                     </div>
 
                     <div class="mt-8 text-center text-xs text-slate-400">

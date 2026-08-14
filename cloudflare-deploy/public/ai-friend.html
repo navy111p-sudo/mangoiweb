@@ -7,7 +7,8 @@
 
   <meta charset="utf-8" />
 <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5,user-scalable=yes" />
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>💬 AI 영어 친구 Mango — Mangoi</title>
   <link rel="icon" href="/mangoi-favicon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#0a1530" />
@@ -287,7 +288,7 @@
 <body>
   <div class="top">
     <a href="/">←</a>
-    <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" /></div>
+    <div class="mango-icon"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>
     <!-- 🧑 (2026-08-07) 이름을 누르면 친구를 다시 고를 수 있다.
          고른 친구가 누구인지 늘 여기 떠 있어야 «내가 골랐다» 는 느낌이 남는다. -->
     <div class="info" onclick="showFriendPicker()" style="cursor:pointer"
@@ -836,7 +837,7 @@
         row.className = 'ai-row';
         /* 👁 본문을 .ai-text 로 감싼다 — 자막 단계(전체/가림/끄기)가 이 span 하나만 건드리면 되고,
            말풍선·아바타·버튼은 늘 그 자리에 남는다. .sub-veil 은 「완전 끄기」일 때만 보이는 안내다. */
-        row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div>'
+        row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
           + '<div class="msg ai">'
           + '<span class="ai-text">' + escapeHtml(body).replace(/\n/g, '<br>') + '</span>'
           + '<span class="sub-veil" data-ko="🔊 듣고 맞혀 보세요 (탭하면 보여요)" data-en="🔊 Listen and guess (tap to see)">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
@@ -1009,7 +1010,7 @@
       const chat = document.getElementById('chat');
       const row = document.createElement('div');
       row.id = 'typingRow'; row.className = 'ai-row';
-      row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" /></div><div class="msg ai typing"><span></span><span></span><span></span></div>';
+      row.innerHTML = '<div class="ai-avatar"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div><div class="msg ai typing"><span></span><span></span><span></span></div>';
       chat.appendChild(row);
       chat.scrollTop = chat.scrollHeight;
     }
@@ -1082,7 +1083,7 @@
         '<div class="topic-card" onclick="topicSend(' + i + ')"><span class="t-emoji">' + t.e + '</span><span class="t-name">' + escapeHtml(en ? t.en : t.ko) + '</span></div>'
       ).join('');
       chat.innerHTML = '<div class="empty-state">'
-        + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" /></div>'
+        + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
         + "<h2>👋 Hi! I'm Mango</h2>"
         + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
         /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.

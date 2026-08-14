@@ -198,6 +198,24 @@ const worker = {
       });
     }
 
+    // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
+    //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
+    //   돌던 옛 링크도 살아 있다. 그냥 지우면 그 사람들이 404 를 본다 — 상담하러 온 사람이다.
+    //   그래서 워커가 여기서 카카오 채널로 넘긴다. 301(영구)이라 색인도 함께 정리된다.
+    //   ⚠️ `/chat` 을 붙이지 말 것 — pf.kakao.com/<id>/chat 은 비로그인 PC 를 카카오 로그인
+    //      화면으로 튕긴다. 채널 «홈» 은 로그인 없이 열리고 그 안에 채팅·챗봇·전화가 다 있다.
+    //   ⚠️ 관리자 「💌 신규상담 관리」와 /api/student/inquiry 는 그대로다 — 이미 들어와 있는
+    //      문의를 계속 봐야 한다. 없앤 것은 «새로 접수받는 창구» 뿐이다.
+    if (path === '/contact.html' || path === '/contact' || path === '/inquiry' || path === '/inquiry.html') {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          Location: 'https://pf.kakao.com/_xlqnSxd',
+          'Cache-Control': 'public, max-age=3600'
+        }
+      });
+    }
+
     // 🔗 Digital Asset Links — /.well-known/assetlinks.json (TWA 전체화면 검증)
     //   안드로이드 TWA(Trusted Web Activity)가 주소창 없이 전체화면으로 실행되려면
     //   이 도메인에서 앱 패키지명 + 서명키 SHA-256 지문을 공개 검증 파일로 노출해야 함.
@@ -1976,6 +1994,27 @@ const worker = {
         const notMod = htmlEtag304(request, path, env, assetHeaders);
         if (notMod) return notMod;
         return new Response(assetResp.body, { status: assetResp.status, headers: assetHeaders });
+      }
+      // 🖼️ (2026-08-14 피드백 ②) 이미지·폰트·소리·영상에는 캐시 지시가 «아예 없었다».
+      //   js/css 는 위에서 immutable 로 챙겼는데 그림은 빠져 있어서, CF Assets 기본값
+      //   (max-age=0, must-revalidate)이 그대로 나갔다 — 즉 페이지를 옮길 때마다 그림
+      //   한 장 한 장을 서버에 다시 물어본다. 홈 한 화면에만 그림이 수십 장이고,
+      //   필리핀·지방 저속 회선에서는 이 왕복이 그대로 «버퍼링» 으로 보인다.
+      //   · 파일명에 해시·버전이 있거나 ?v= 가 붙은 요청 → 1년 immutable (재검증 0회)
+      //   · 그 외 → 7일 캐시 + stale-while-revalidate (다음 요청은 즉시 그리고 뒤에서 갱신)
+      //   ⚠️ 그림을 «같은 이름으로» 교체하면 최대 7일간 옛 그림이 남는다. 내용이 바뀌면
+      //      파일명을 바꾸거나 ?v= 를 올릴 것(js/css 와 같은 규칙).
+      if (/\.(png|jpe?g|gif|webp|avif|svg|ico|woff2?|ttf|otf|mp3|m4a|ogg|wav|mp4|webm|glb|gltf)$/i.test(path)) {
+        const mediaHeaders = new Headers(assetResp.headers);
+        //   폰트는 언제나 1년 — 글자 모양이 «같은 이름으로» 바뀌는 일은 없다.
+        //   (css/mangoi-han.css 주석이 이미 «한 번 받으면 1년간 캐시된다» 고 약속하고 있는데,
+        //    정작 그 헤더를 아무도 안 붙이고 있었다. 983KB 짜리 한자 폰트다.)
+        const _isFont = /\.(woff2?|ttf|otf)$/i.test(path);
+        const _mVersioned = /(^|&)v=/.test(url.search.replace(/^\?/, '')) || /[.-][0-9a-f]{8,}\./i.test(path);
+        mediaHeaders.set('Cache-Control', (_isFont || _mVersioned)
+          ? 'public, max-age=31536000, immutable'
+          : 'public, max-age=604800, stale-while-revalidate=86400');
+        return new Response(assetResp.body, { status: assetResp.status, headers: mediaHeaders });
       }
       return assetResp;
     }

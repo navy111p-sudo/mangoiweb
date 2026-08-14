@@ -57,8 +57,8 @@
     { kws: ['홈페이지', '홈페', 'homepage', 'home', '메인', '처음'], action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); }, label: '🏠 홈페이지 (전체 메뉴)' },
     // 관리자
     { kws: ['관리자', '대시보드', 'admin', 'dashboard'], action: () => location.href = '/admin.html', label: '📊 관리자 대시보드' },
-    // 신규상담
-    { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅'], action: () => window.openInquiryModal(), label: '💬 신규상담' },
+    // 상담 — 창구는 카카오 채널 하나 (2026-08-14 피드백 ⑤). openInquiryModal 이 카카오를 연다.
+    { kws: ['신규상담', '신규 상담', '상담', '상담신청', '상담 신청', '문의', '문의하기', '가입 문의', '가입문의', '첫 방문', '전화상담', '연락', 'inquiry', 'consult', '컨설팅', '카카오', '카톡', 'kakao'], action: () => window.openInquiryModal(), label: '💬 카카오 상담' },
     // 발음연습 (영어)
     { kws: ['발음', '발음연습', '발음 연습', '발음교정', '발음 교정', '발음테스트', '발음 체크', '영어발음', 'pronunciation', '스피치', 'speech', '스피킹', '말하기', '말하기 연습'], action: () => window.gridActions && window.gridActions.speech(), label: '🎤 영어 발음 코치 (AI 발음 평가)' },
     // ph157: 중국어 발음 코치
@@ -333,7 +333,7 @@
       { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
       { label: '📊 성적표·리포트', action: () => location.href = '/report.html' },
       { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
-      { label: '💬 신규상담·체험', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
+      { label: '💬 카카오 상담', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
       { label: '🥭 전체 메뉴', action: () => { if (window.openAllMenuOverlay) window.openAllMenuOverlay(); } }
     ];
   }

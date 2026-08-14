@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
   <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>판단력 훈련 · 망고아이</title>
@@ -289,7 +290,7 @@
     <button type="button" class="top-nav-btn" id="backBtn"
             onclick="if(history.length>1){history.back()}else{location.href='/'}">←</button>
     <a href="/" class="top-nav-btn" id="homeBtn">🏠</a>
-    <img src="/img/mango-char.png" alt="Mangoi" onerror="this.style.display='none'">
+    <img src="/img/mango-char.png" alt="Mangoi" onerror="this.style.display='none'" loading="lazy" decoding="async">
     <div style="flex:1;min-width:200px">
       <h1 id="hTitle">판단력 훈련</h1>
       <div class="sub" id="hSub"></div>
