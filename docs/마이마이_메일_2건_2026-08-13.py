@@ -122,30 +122,42 @@ p('회색 이탤릭 줄(📌)은 사장님께 드리는 메모입니다 — 메�
 DOC.add_page_break()
 
 # ═══════════════════════ ① 마이마이 확인 요청 ═══════════════════════
-h_mail(1, 'To: Maimai', "Teacher's Page — today's fixes are now live, please check 3 things")
+h_mail(1, 'To: Maimai', "You were right about the duplicated pages — fixed, please check")
 
 p('Hi Maimai,', after=8)
 p('Thank you for going through all the questions — your answers were genuinely useful. '
   'Two of them changed what we did, so I want to tell you exactly what happened.', after=8)
 
-rich([('First, an apology. ', True),
-      ('When you tested the textbooks and told us they were still slow, ', False),
-      ('the fixes were not actually live yet.', True),
-      (' They were finished but not yet released, so you were still using the old version. '
-       'That was our mistake, not yours — and your answer sheet actually showed it: everything '
-       'from Aug 12 and earlier was ticked, and only the four Aug 13 items were blank.', False)], after=8)
+rich([('First, an apology — twice over. ', True),
+      ('When you first told us the textbooks were still slow, the fixes were not actually live yet, '
+       'so you were testing the old version. And then it turned out we had been chasing the wrong '
+       'problem entirely: ', False),
+      ('the books were never slow. They were duplicated.', True),
+      (' You told us exactly that, with exact numbers, and you were right. Thank you for pushing '
+       'back instead of letting it go.', False)], after=8)
 
-rich([('Everything is now live', True),
-      (' (released today). Could you please check these three things when you get a chance?', False)], after=10)
+rich([('Everything below is now live.', True),
+      (' Could you please check these three things when you get a chance?', False)], after=10)
 
-p('1.  Are the textbooks faster now?', size=11.5, bold=True, color='1F3864', after=3)
-p('This is the first real test of the fix. We found the true cause: each page is a separate file, '
-  'so every time you pressed ▶ your computer downloaded a brand-new file. We now load 3 pages ahead '
-  'instead of 1, and we also keep the textbooks on a server closer to you, so the second teacher who '
-  'opens the same book does not have to fetch it from Korea again.', after=3, indent=0.5)
-rich([('👉 It gets faster the more a book is used, so please try it for a day before judging. '
-       'If it is still slow, please tell me ', False), ('which book', True), (' and roughly ', False),
-      ('what time', True), (' — we can find it in the logs.', False)],
+p('1.  Do the books now have the correct number of pages?', size=11.5, bold=True, color='1F3864', after=3)
+rich([('You were right, and we were wrong. ', True),
+      ('We had assumed the books were slow to load, and we spent yesterday making them load faster. '
+       'Then you wrote ', False),
+      ('"THE BOOK IS NOT SLOW ONLY THAT THE PAGES AT THE LIBRARY TRIPLED OR DOUBLED"', True),
+      (' — and that was the real problem all along.', False)], after=4, indent=0.5)
+rich([('We checked the database and your numbers were exact. ', False),
+      ('BTS 1 001 had 115 pages in the library, but only 23 of them were real', True),
+      (' — the rest were the same pages uploaded over and over. Across the whole library, '
+       '38,922 pages were really only 17,170. Some books were duplicated 5 times.', False)],
+     after=4, indent=0.5)
+rich([('We have now removed the duplicates. ', True),
+      ('BTS 1 001 is 23 pages. BTS 2 went from 762 pages down to 246. ', False),
+      ('Nothing was deleted — every file is still stored, and we can put any of it back instantly. '
+       'We also fixed the uploader so that uploading the same book twice can no longer double it.', False)],
+     after=4, indent=0.5)
+rich([('👉 Please open a few books and tell me whether the page counts look right now. '
+       'If any book still looks doubled, just tell me ', False), ('the book name', True),
+      (' — I can check it directly.', False)],
      size=10, after=9, indent=0.5, fill='FFF9E6')
 
 p('2.  Are the MES books gone from the library?', size=11.5, bold=True, color='1F3864', after=3)
