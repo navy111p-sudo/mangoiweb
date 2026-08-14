@@ -41,6 +41,9 @@
      5. 이모지는 Unicode 13 미만만 — 매니저 단말·Win10 에서 두부(□)로 뜬다.
      6. 한/영은 사전 파일이 아니라 data-ko/data-en 속성으로 한다.
         (i18n-sweep.js 는 204KB 다. 이 화면 전체보다 4배 무겁다.)
+     7. (2026-08-14) 어두운 화면은 버튼(#mode)으로만 전환한다. 낮/밤 자동전환은
+        admin.html 에서 2026-07-18 사장님 요청으로 뺀 것 — 여기서 되살리지 말 것.
+        언어 버튼은 약자(KO/EN) 표기 — 사장님 요청. KO=누르면 한국어, EN=누르면 영어.
 
   화면에 넣은 것 = 서버가 허용하는 25개 주소가 정한 것뿐이다. 추측으로 넣은 메뉴는 없다.
   세션: 기존 관리자와 동일한 HttpOnly 쿠키. 별도 로그인 없음.
@@ -145,9 +148,54 @@ body.is-off .card{opacity:.82}
 .qbar button{flex:0 0 auto;border:1px solid #c9d2dc;background:#fff;color:#2c3a48;border-radius:999px;
   padding:9px 14px;font-size:14px;font-weight:700;font-family:inherit;min-height:44px;cursor:pointer;white-space:nowrap}
 .qbar button:active{background:#eef1f5}
+
+/* 🌗 어두운 화면 (2026-08-14) — 버튼(#mode)으로만 전환. 시간대 자동전환 없음
+   (admin.html 의 낮/밤 자동전환은 2026-07-18 사장님 요청으로 뺀 것 — 여기서 되살리지 않는다).
+   기본은 밝게. 선택은 mangoi_manager_theme 에 저장. transition 없음(설계 계약 3).
+   color-scheme 은 CSS 가 head 의 meta(light)보다 우선한다 — 다크일 때만 폼 위젯도 어둡게. */
+html.dark{color-scheme:dark}
+html.dark body{color:#dbe3ea;background:#141a21}
+html.dark .top h1 span{color:#8b98a6}
+html.dark .tbtn{background:#1d2530;border-color:#39434f;color:#d3dbe4}
+html.dark .tbtn:active{background:#28313d}
+html.dark .tbtn-out{color:#f1a49e;border-color:#6e3531}
+html.dark .tbtn-out:active{background:#3a201e}
+html.dark .card{background:#1a2129;border-color:#2b343e}
+html.dark .card > h2{color:#d3dbe4}
+html.dark .card > h2 small{color:#8b98a6}
+html.dark details.card > summary{color:#d3dbe4}
+html.dark details.card > summary::after{color:#8b98a6}
+html.dark .kpi{background:#20272f;border-color:#2f3944}
+html.dark .kpi b{color:#e8eef4}
+html.dark .kpi span{color:#95a2b0}
+html.dark .kpi .sub{color:#8b98a6}
+html.dark .kpi.warn b{color:#f87171}
+html.dark .kpi.good b{color:#34d399}
+html.dark .row{border-top-color:#242d37}
+html.dark .muted{color:#8b98a6}
+html.dark .empty{color:#7f8c9a}
+html.dark input[type="search"],html.dark input[type="text"]{background:#20272f;border-color:#39434f;color:#dbe3ea}
+html.dark .btn-gray{background:#28313d;color:#d3dbe4;border-color:#39434f}
+html.dark #off{background:#3a2c12;border-color:#6e5423;color:#f0c893}
+html.dark .hqhead{color:#95a2b0;border-top-color:#2b343e}
+html.dark .tag{background:#28313d;color:#aeb9c5}
+html.dark .tag.hot{background:#3a201e;color:#f1a49e}
+html.dark .tag.ok{background:#123527;color:#57cf94}
+html.dark .qlbl{color:#95a2b0}
+html.dark .qbar button{background:#1d2530;border-color:#39434f;color:#d3dbe4}
+html.dark .qbar button:active{background:#28313d}
+html.dark .spark-x{color:#8b98a6}
+html.dark .legend{color:#95a2b0}
+.footlink{color:#5d6b7a}
+html.dark .footlink{color:#8b98a6}
 </style>
 </head>
 <body>
+<script>
+/* 🌗 저장된 화면 모드를 첫 그리기 전에 적용 — 밝았다 어두워지는 깜빡임 방지.
+   전환 자체는 아래 본문 스크립트의 toggleMode() 가 담당한다. */
+try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
+</script>
 <div class="wrap">
 
   <div class="top">
@@ -162,7 +210,8 @@ body.is-off .card{opacity:.82}
       <a class="tbtn" id="toTeacher" href="/teacher" hidden
          data-en="My classes" data-ko="내 수업">My classes</a>
       <a class="tbtn" href="/"><span data-en="Home" data-ko="홈">Home</span></a>
-      <button class="tbtn" id="lang" onclick="toggleLang()">한국어</button>
+      <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
+      <button class="tbtn" id="mode" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
       <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
       <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
     </div>
@@ -315,7 +364,7 @@ body.is-off .card{opacity:.82}
   </details>
 
   <div class="muted" style="text-align:center;padding:6px 0 0">
-    <a href="/admin.html?full=1" style="color:#5d6b7a" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
+    <a href="/admin.html?full=1" class="footlink" data-en="Full management dashboard" data-ko="전체 경영 대시보드">Full management dashboard</a>
   </div>
 
 </div>
@@ -342,13 +391,39 @@ body.is-off .card{opacity:.82}
     for (var i = 0; i < n.length; i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
     var p = document.querySelectorAll('[data-en-ph]');
     for (var k = 0; k < p.length; k++) p[k].placeholder = EN() ? p[k].getAttribute('data-en-ph') : p[k].getAttribute('data-ko-ph');
-    document.getElementById('lang').textContent = EN() ? '한국어' : 'English';
+    // 약자 표기(2026-08-14 사장님 요청): KO = 누르면 한국어, EN = 누르면 영어.
+    document.getElementById('lang').textContent = EN() ? 'KO' : 'EN';
     repaintAll();   // 숫자·목록은 data-en 으로 못 다룬다 — 다시 그린다
   }
   window.toggleLang = function(){
     LANG = EN() ? 'ko' : 'en';
     try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by', 'user'); } catch (e) {}
     applyLang();
+  };
+
+  // ── 🌗 화면 모드 (2026-08-14) ─────────────────────────────────────────────
+  //   밝게/어둡게는 버튼으로만 바꾼다 — 낮/밤 자동전환은 admin.html 에서
+  //   2026-07-18 사장님 요청으로 뺀 것이라 여기서도 하지 않는다. 기본은 밝게.
+  //   저장 키: mangoi_manager_theme ('light' | 'dark'). <body> 첫 스크립트가
+  //   저장값을 첫 그리기 전에 html.dark 로 미리 적용한다(깜빡임 방지).
+  var MODE = 'light';
+  try { if (localStorage.getItem('mangoi_manager_theme') === 'dark') MODE = 'dark'; } catch (e) {}
+  function applyMode(){
+    document.documentElement.classList.toggle('dark', MODE === 'dark');
+    // 라벨은 «누르면 될 모드» 를 보여 준다(언어 버튼과 같은 규칙).
+    // ⚠️ JS 로 그리는 라벨은 data-en/data-ko 도 같이 갱신해야 언어 전환이 안 깨진다(CLAUDE.md 함정).
+    var s = document.getElementById('modeLbl');
+    if (s) {
+      var en = MODE === 'dark' ? 'Light' : 'Dark';
+      var ko = MODE === 'dark' ? '밝게' : '어둡게';
+      s.setAttribute('data-en', en); s.setAttribute('data-ko', ko);
+      s.textContent = EN() ? en : ko;
+    }
+  }
+  window.toggleMode = function(){
+    MODE = (MODE === 'dark') ? 'light' : 'dark';
+    try { localStorage.setItem('mangoi_manager_theme', MODE); } catch (e) {}
+    applyMode();
   };
 
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
@@ -894,6 +969,7 @@ body.is-off .card{opacity:.82}
   window.addEventListener('online', function(){ offline(false); window.reloadAll(); });
   window.addEventListener('offline', function(){ offline(true); });
 
+  applyMode();
   applyLang();
   boot();
 })();
