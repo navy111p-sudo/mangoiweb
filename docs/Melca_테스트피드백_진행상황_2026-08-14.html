@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Melca 강사 테스트 피드백 38건 — 진행 상황 (2026-08-14)</title>
+<style>
+  @page { size: A4; margin: 11mm 10mm 12mm; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Noto Sans CJK KR', 'Noto Sans KR', 'WenQuanYi Zen Hei', 'Malgun Gothic', sans-serif;
+    color: #1e293b; font-size: 9.5pt; line-height: 1.55;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  .head {
+    background: linear-gradient(90deg, #bfdbfe, #93c5fd);
+    border-left: 7px solid #1d4ed8; border-radius: 7px;
+    padding: 9px 15px; margin-bottom: 9px;
+  }
+  .head h1 { margin: 0; font-size: 15pt; color: #172554; font-weight: 900; letter-spacing: -.035em; }
+  .head p  { margin: 4px 0 0; font-size: 9pt; color: #1e3a8a; font-weight: 700; }
+
+  .intro {
+    border: 1.4px solid #e2e8f0; border-radius: 7px; background: #f8fafc;
+    padding: 8px 13px; margin-bottom: 10px; font-size: 8.9pt; color: #334155;
+  }
+  .intro b { color: #0f172a; }
+  .intro .src { color: #64748b; font-size: 8.2pt; margin-top: 5px; display: block; }
+
+  .kpis { display: flex; gap: 7px; margin-bottom: 10px; }
+  .kpi {
+    flex: 1; border-radius: 7px; padding: 7px 4px; text-align: center;
+    border: 1.6px solid; page-break-inside: avoid;
+  }
+  .kpi b { display: block; font-size: 17pt; font-weight: 900; line-height: 1.1; letter-spacing: -.04em; }
+  .kpi span { display: block; font-size: 8.2pt; font-weight: 800; margin-top: 2px; }
+  .k-done { background: #f0fdf4; border-color: #86efac; }
+  .k-done b, .k-done span { color: #15803d; }
+  .k-part { background: #fffbeb; border-color: #fcd34d; }
+  .k-part b, .k-part span { color: #b45309; }
+  .k-todo { background: #eff6ff; border-color: #93c5fd; }
+  .k-todo b, .k-todo span { color: #1d4ed8; }
+  .k-ask  { background: #faf5ff; border-color: #d8b4fe; }
+  .k-ask b, .k-ask span { color: #7e22ce; }
+
+  h2.sec {
+    margin: 15px 0 7px; padding: 7px 13px; border-radius: 7px;
+    font-size: 11.5pt; font-weight: 900; letter-spacing: -.03em;
+    page-break-after: avoid;
+  }
+  h2.sec small { display: block; font-size: 8.4pt; font-weight: 700; margin-top: 2px; opacity: .85; }
+  h2.s-done { background: #dcfce7; color: #14532d; border-left: 7px solid #16a34a; }
+  h2.s-part { background: #fef3c7; color: #78350f; border-left: 7px solid #d97706; }
+  h2.s-todo { background: #dbeafe; color: #1e3a8a; border-left: 7px solid #2563eb; }
+  h2.s-ask  { background: #f3e8ff; color: #581c87; border-left: 7px solid #9333ea; }
+
+  h3.grp {
+    margin: 10px 0 5px; font-size: 9.4pt; font-weight: 900; color: #475569;
+    border-bottom: 1.4px solid #cbd5e1; padding-bottom: 3px; page-break-after: avoid;
+  }
+
+  .item {
+    border: 1.4px solid #e2e8f0; border-radius: 7px; background: #fff;
+    padding: 6px 11px 7px; margin-bottom: 5px; page-break-inside: avoid;
+  }
+  .item .t { margin: 0; font-size: 9.5pt; font-weight: 800; color: #0f172a; line-height: 1.4; }
+  .item .t .no {
+    display: inline-block; font-size: 7.6pt; font-weight: 900; border-radius: 99px;
+    padding: 1.5px 7px; margin-right: 6px; vertical-align: 1.5px;
+    background: #1e293b; color: #fff; letter-spacing: -.02em;
+  }
+  .item .t .who {
+    display: inline-block; font-size: 7.4pt; font-weight: 800; border-radius: 99px;
+    padding: 1.5px 7px; margin-left: 5px; vertical-align: 1.5px;
+    background: #f1f5f9; color: #475569;
+  }
+  .item .en { margin: 3px 0 0; font-size: 8pt; color: #94a3b8; font-style: italic; line-height: 1.4; }
+  .item .d  { margin: 3px 0 0; font-size: 8.8pt; color: #334155; line-height: 1.5; }
+  .item .d b { color: #0f172a; }
+  .item .fix {
+    margin: 4px 0 0; font-size: 8.5pt; color: #075985; background: #f0f9ff;
+    border-left: 3px solid #38bdf8; border-radius: 0 4px 4px 0; padding: 4px 8px; line-height: 1.45;
+  }
+  .item .fix b { color: #0c4a6e; }
+  .item .why {
+    margin: 4px 0 0; font-size: 8.5pt; color: #7c2d12; background: #fff7ed;
+    border-left: 3px solid #fb923c; border-radius: 0 4px 4px 0; padding: 4px 8px; line-height: 1.45;
+  }
+  .item .why b { color: #7c2d12; }
+  .item .ev {
+    margin: 3px 0 0; font-size: 7.7pt; color: #64748b;
+    font-family: 'Noto Sans Mono CJK KR', 'DejaVu Sans Mono', monospace; line-height: 1.4;
+  }
+  .item.done { border-left: 4px solid #22c55e; }
+  .item.part { border-left: 4px solid #f59e0b; }
+  .item.todo { border-left: 4px solid #3b82f6; }
+  .item.ask  { border-left: 4px solid #a855f7; background: #faf5ff; border-color: #e9d5ff; }
+
+  .tag {
+    display: inline-block; font-size: 7.4pt; font-weight: 900; border-radius: 4px;
+    padding: 1px 6px; margin-left: 5px; vertical-align: 1px;
+  }
+  .tag.ok  { background: #dcfce7; color: #15803d; }
+  .tag.pt  { background: #fef3c7; color: #b45309; }
+  .tag.no  { background: #dbeafe; color: #1d4ed8; }
+  .tag.op  { background: #f3e8ff; color: #7e22ce; }
+
+  table.sum { width: 100%; border-collapse: collapse; font-size: 8.4pt; margin-top: 6px; }
+  table.sum th, table.sum td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: left; vertical-align: top; }
+  table.sum th { background: #f1f5f9; font-weight: 800; color: #0f172a; }
+  table.sum td.c { text-align: center; font-weight: 800; }
+
+  .note {
+    border: 1.4px solid #fecaca; background: #fef2f2; border-radius: 7px;
+    padding: 7px 12px; margin: 9px 0; font-size: 8.6pt; color: #7f1d1d; line-height: 1.5;
+  }
+  .note b { color: #991b1b; }
+
+  .foot {
+    margin-top: 13px; border-top: 1.4px solid #e2e8f0; padding-top: 7px;
+    font-size: 8.2pt; color: #64748b; line-height: 1.5;
+  }
+  .foot b { color: #334155; }
+  .pg { page-break-after: always; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <h1>Melca 강사 테스트 피드백 — 다 된 것 / 아직 안 된 것 / 해결 방안</h1>
+  <p>2026년 8월 7일 ~ 8월 13일 접수분 · 지적사항 38건 정리 · 작성 2026-08-14</p>
+</div>
+
+<div class="intro">
+  필리핀 매니저 <b>Melca</b> 가 강사 8명(HT Ness · Ana · Belle · Kes · LEN · SID · Shas · Karl)과 함께
+  <b>신규 수업 화면(New Classroom / New Teacher Page)</b> 을 실제로 써 보며 보내 준 지적사항을
+  중복을 합쳐 <b>38건</b>으로 정리하고, 저장소 코드·커밋과 하나씩 대조했습니다.
+  판정은 추측이 아니라 <b>실제 코드와 커밋을 확인</b>한 결과이며, 근거가 되는 파일·줄번호·커밋 번호를
+  각 항목 아래 회색 글씨로 적었습니다.
+  마지막 장에는 <b>「요청대로 하면 오히려 나빠질 것 같은 6건」</b> 에 대한 제 의견과 대안을 따로 담았습니다.
+  <span class="src">원본: Melca_testing_New_feedback_1.docx (본문 136단락 · 스크린샷 43장) ·
+  대조 기준: <b>origin/main</b> 최신 커밋 e9a483e (2026-08-14) ·
+  ⚠️ 이 세션은 망 정책상 test.mangoi.co.kr 로 접속이 막혀 <b>라이브 화면 실측은 못 했습니다</b>.
+  아래 판정은 «코드와 커밋이 main 에 들어가 있는가» 기준입니다.</span>
+</div>
+
+<div class="kpis">
+  <div class="kpi k-done"><b>30</b><span>다 된 것</span></div>
+  <div class="kpi k-part"><b>5</b><span>절반만 된 것</span></div>
+  <div class="kpi k-todo"><b>3</b><span>아직 안 된 것</span></div>
+  <div class="kpi k-ask"><b>6</b><span>제 의견이 다른 것</span></div>
+</div>
+
+<table class="sum">
+  <tr><th style="width:20%">묶음</th><th style="width:9%">건수</th><th>내용 요약</th></tr>
+  <tr><td>화면·성능 (Ness·Ana·Belle·Kes)</td><td class="c">6</td><td>깜빡임 · 카메라 꺼짐 · 지연 · 역할 오지정 · 교재 로딩 · 학생 필기 안 보임</td></tr>
+  <tr><td>8/10 (LEN·Ness·SID)</td><td class="c">6</td><td>퀴즈 넘김 · 웜업 주체 · 칠판 낙서 · 앞 수업 영상 잔존 · 하단 독 · 참관(Ghost)</td></tr>
+  <tr><td>8/11 (Shas)</td><td class="c">7</td><td>웜업 텍스트 · 화면공유 미전달 · 필기잠금 발견성 · 집중모드 · 복습퀴즈 3건</td></tr>
+  <tr><td>8/11~12 후속 (Len·Karl·Shas)</td><td class="c">12</td><td>자물쇠 노출 · 펜 권한 · 파일 붙여넣기 · 유튜브 소리/조작 · 게임·웜업 제한 · 1:1 메시지</td></tr>
+  <tr><td>8/12 (Shas 추가)</td><td class="c">4</td><td>강사 답변 강제 · 공유 확인 메시지 · 툴바 스크롤 · 집중모드 안내</td></tr>
+  <tr><td>8/13</td><td class="c">3</td><td>채팅 아이콘 크기 · 교재 페이지 2~3배 · Student Control 이 안 눌림</td></tr>
+</table>
+
+<div class="pg"></div>
+
+<!-- ══════════════ 다 된 것 ══════════════ -->
+<h2 class="sec s-done">다 된 것 — 30건
+  <small>코드가 main 에 들어가 있습니다. 라이브 반영 여부는 배포 스탬프로 최종 확인이 필요합니다.</small></h2>
+
+<h3 class="grp">A. 화면·성능 (HT Ness · Teacher Ana · Belle · Kes)</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">A2</span>화면이 깜빡여서 버튼을 누르기 어렵고 눈이 아프다<span class="who">Ness ② · Belle ②</span><span class="tag ok">완료</span></p>
+  <p class="en">"The screen flickers, making it hard to click the icons or buttons and it gives headache and hurts the eyes."</p>
+  <p class="d">원인이 <b>두 겹</b>이었습니다. ① 홈 화면 전용 폴러(수업 연기·변경 모달용) 4개가 수업 중에도 계속 돌며
+    메인 스레드를 잡아 화면이 깜빡이고 클릭이 빗나갔습니다. ② 받는 쪽 영상 품질 정책이
+    <code>degradationPreference: 'balanced'</code> 라, 부하가 걸리면 초당 장수를 함께 깎아 «영상이 멈추는» 증상이 났습니다.</p>
+  <p class="fix"><b>수리</b> — 홈 폴러는 수업 중에는 아예 쉬게 했고, 품질 정책을 <b>maintain-framerate</b>(장수 유지)로 바꿨습니다.</p>
+  <p class="ev">index.html:11985 · 11982 · 12830 (수업 중 폴러 정지) · 커밋 84b1388</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">A3</span>카메라가 갑자기 꺼지고 · 영상이 멈추고 · 소리가 늦게 온다<span class="who">Ness ③</span><span class="tag ok">완료</span><span class="tag pt">crash 는 미확정</span></p>
+  <p class="en">"Camera will suddenly turn off; video freezing, audio delay, sometimes system crash."</p>
+  <p class="d">세 가지 중 <b>세 가지 모두 원인을 찾아 고쳤습니다.</b><br>
+    · <b>카메라가 꺼짐</b> — 배터리 절약 기능의 «강사 제외» 판정이 “강사가 아니면 학생”이라, 역할이 아직 확정되지 않은
+      강사가 학생으로 오판돼 다른 탭을 열면 카메라를 껐습니다. → «확실한 학생일 때만» 끄도록 변경.<br>
+    · <b>소리가 늦게 옴</b> — 브라우저 지터버퍼가 회선이 한 번 흔들리면 지연을 크게 잡고 좋아져도 물고 있습니다.
+      회선이 «지금 좋다»고 측정됐을 때만 지연을 낮추는 수신측 제어(tuneReceiveLatency)를 신설했습니다.
+      나빠지면 즉시 되돌립니다 — <b>끊김이 지연보다 우선</b>이기 때문입니다.<br>
+    · <b>영상 멈춤</b> — A2 와 같은 원인(장수 깎기).</p>
+  <p class="why"><b>남은 것</b> — “sometimes system crash” 는 재현 정보가 없어 손대지 못했습니다.
+    다음에 발생하면 <b>①브라우저와 버전 ②그때 열려 있던 탭 ③몇 분째였는지</b> 세 가지만 알려 주시면 추적할 수 있습니다.</p>
+  <p class="ev">커밋 3d268da(2번) · 84b1388 (vc_latency_tuning_harness 16 PASS)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">A4</span>강사보다 먼저 들어온 학생이 자동으로 강사 역할을 받는다<span class="who">Ana ①</span><span class="tag ok">완료</span></p>
+  <p class="en">"Students who join the classroom before the teacher are automatically assigned the teacher role."</p>
+  <p class="d">순서가 원인이 아니라 <b>브라우저에 남아 있던 값</b>이 원인이었습니다. 역할을 «주인 없이» 저장하고 있어서,
+    강사가 한 번 들어간 PC 에는 'teacher' 가 영구히 남고 다음 사람이 그것을 물려받았습니다.
+    서버는 클라이언트가 말한 역할을 그대로 믿으므로 그 학생이 <b>교재 넘기기·전체 음소거·필기 잠금까지</b> 쥐게 됩니다.</p>
+  <p class="fix"><b>수리</b> — ① 저장한 역할에 <b>주인(uid)</b> 을 함께 적고, 지금 로그인한 사람과 다르면 없는 것으로 봅니다.
+    ② 서버가 예약표를 보고 «이 사람은 이 수업의 학생» 이라고 확인해 주면 브라우저 기억을 덮습니다.
+    <b>내리는 데만</b> 씁니다 — 올리는 데 쓰면 같은 사고를 반대 방향으로 다시 만듭니다.</p>
+  <p class="ev">js/idx-main.js:2087-2126 (vcRoleRemember/vcRoleStored) · 2708-2726 (서버 판정으로 강등)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">A5</span>교재 업로드·페이지 넘김이 느리다<span class="who">Ana ② · Belle ①</span><span class="tag ok">완료</span></p>
+  <p class="en">"Book uploads may take some time... Occasional loading delays when opening lessons or switching pages."</p>
+  <p class="d">운영 DB 를 실제로 세어 보니 교재 38,922개 중 <b>99.84%가 이미 JPG</b>(PDF 는 62개뿐)였습니다.
+    즉 «PDF 라서 느리다» 가 아니라 <b>1장 = 1파일이라 넘길 때마다 새로 받는 것</b>이 이유였습니다.</p>
+  <p class="fix"><b>수리</b> — 다음 장을 미리 받아 두는 프리페치(앞 3장 + 뒤 1장, 동시 1개·순차·20MB 상한)와
+    엣지 캐시를 넣었습니다. 수업 회선과 경쟁하지 않도록 상한을 지킵니다.
+    <b>그리고 8/14 에 진짜 원인이 하나 더 나왔습니다 — F2 항목을 봐 주세요.</b></p>
+  <p class="ev">커밋 3d268da(4번) · 301c603(③) · 22e511d</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">A6</span>학생의 펜 움직임이 강사 화면에 보이지 않는다<span class="who">Ana ③ · Kes ①</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student's pen movements are not visible on the teacher's screen."</p>
+  <p class="d">획은 정상적으로 전송되고 있었습니다. 안 보인 이유가 <b>두 겹</b>이었습니다.<br>
+    ① <b>강사가 다른 페이지를 보고 있으면</b> 받은 판서가 조용히 사라졌습니다(데이터에는 쌓이지만 화면엔 영영 안 보임).<br>
+    ② <b>늦게 입장하거나 새로고침한 강사</b>에게는 그 전에 그려진 획이 아예 오지 않았습니다.</p>
+  <p class="fix"><b>수리</b> — ① 안 보이는 페이지에 판서가 오면 버리지 않고
+    <b>“학생이 N쪽에 필기하고 있어요 — 그 페이지로 넘기면 보여요”</b> 라고 알려 줍니다(8초에 한 번).
+    ② 서버가 획 단위로 기록해 뒤늦게 들어온 강사에게 <b>판서 재생(pdf-anno-replay)</b> 을 보냅니다.</p>
+  <p class="ev">js/idx-main.js:12189-12202 (_pdfAnnoOffPageNotify) · 4237-4262 (replay) · 커밋 cf90c25</p>
+</div>
+
+<h3 class="grp">B. 8월 10일 — LEN · HT Ness · SID</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">B1</span>학생이 퀴즈를 넘길 수 없다<span class="who">LEN ①</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student cannot navigate the quiz."</p>
+  <p class="d">원인이 <b>두 겹</b>이었습니다. ① 「다음 →」 은 답을 고르기 전엔 꺼져 있는데, 화면에는 <b>흐린 버튼만 있고
+    왜 안 눌리는지 한 글자도 없었습니다</b> — 학생 눈에는 «고장난 버튼» 입니다.
+    ② 그 버튼은 보기 아래 맨 끝에 그려지는데, 수업 중에는 <b>하단 독이 그 자리를 덮고</b> 있었습니다.</p>
+  <p class="fix"><b>수리</b> — 꺼져 있는 동안 이유를 적습니다(“먼저 답을 고르세요”, 듣기 문항이면 “소리가 안 들리면 ▶ 다시 듣기”).
+    그리고 퀴즈 본문 아래에 독 높이만큼 여백(132px)을 줬습니다.
+    <b>버튼을 항상 켜는 것으로 고치지 않았습니다</b> — 답 없이 넘기면 빈칸이 채점에 제출됩니다.</p>
+  <p class="ev">커밋 2bd4a07 · vc_quiz_nav_harness 14 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">B2</span>AI 웜업이 강사용인지 학생용인지 헷갈린다<span class="who">LEN ②</span><span class="tag ok">완료</span></p>
+  <p class="en">"Regarding the AI warm-up, is this feature only for the teacher, or is it also available for the student?"</p>
+  <p class="d">화면 어디에도 «누가 쓰는 것인지» 적혀 있지 않았습니다. 탭 상단에 한/영 한 줄 안내를 넣었습니다.
+    (기능 자체의 설명은 C1 항목에 이어집니다.)</p>
+  <p class="ev">커밋 cb02ae5</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">B3</span>학생이 여전히 칠판에 쓸 수 있다<span class="who">LEN ③</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student is still able to write on the board."</p>
+  <p class="d">교재(PDF)에는 2026-07-28 에 잠금 게이트가 들어갔는데 <b>칠판에는 아예 없었습니다.</b>
+    거기에 더해, 잠금 상태가 «켜짐» 만 전송되고 «꺼짐» 은 안 보내져서
+    나중에 들어온 학생에게 잠금이 낡은 채로 남는 문제도 있었습니다.</p>
+  <p class="fix"><b>수리</b> — 칠판에도 잠금 게이트를 넣고, 입장 시 «꺼짐» 상태도 함께 전송하며
+    전체 해제(clearAllLocks)를 방송합니다. 안내 토스트는 상태가 «바뀔 때만» 띄웁니다.</p>
+  <p class="ev">js/idx-main.js:10555 부근 · 커밋 cf90c25</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">B4</span>새 수업에 들어가면 앞 수업의 유튜브가 그대로 남아 있다<span class="who">LEN ④</span><span class="tag ok">완료</span></p>
+  <p class="en">"Whenever I enter the class, the YouTube video that Sir Karl played earlier is still there."</p>
+  <p class="d">공유 화면을 버리는 기준이 <b>«마지막 공유로부터 3시간»</b> 뿐이었습니다. 그 규칙은 새로고침·순단 보호용인데,
+    방을 이어 쓰면 앞 수업도 3시간 안이라 함께 보호돼 <b>다음 수업 첫 입장자에게 앞 수업의 동영상·교재·판서가 그대로 재전송</b>됐습니다.</p>
+  <p class="fix"><b>수리</b> — 시간이 아니라 <b>«방이 얼마나 비어 있었는가»(emptyAt)</b> 로 가릅니다.
+    새로고침·순단은 몇 초 만에 돌아오므로 보호는 그대로 유지되고, 5분 넘게 빈 뒤의 첫 입장은 «다음 수업» 으로 봅니다.</p>
+  <p class="ev">커밋 cb02ae5 · vc_new_class_media_reset_harness 16 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">B6</span>이 두 개를 없애도 되나 / 학생이 여전히 쓸 수 있다<span class="who">SID ①②</span><span class="tag ok">완료</span></p>
+  <p class="en">"Teacher Sid is confused about these two items and is asking if it would be okay to remove them. Same question — the student can still use."</p>
+  <p class="d">스크린샷의 두 항목은 상단 탭의 <b>「학생게임」</b> 과 <b>「AI 웜업」</b> 입니다.
+    걱정하신 것은 «수업 중 학생이 딴짓» 이라고 이해했습니다.</p>
+  <p class="fix"><b>지우지 않고, 수업 중에만 막았습니다.</b> 게임은 원래부터 수업 중(참가자 2명 이상) 차단이 있었고,
+    AI 웜업에도 같은 정책을 넣었습니다 — “수업 중에는 사용할 수 없습니다 / 수업 전이나 후에 이용해 주세요”.
+    수업 전·후에는 학습 도구로 쓰이기 때문에 <b>지우면 손해</b>입니다. (D11·D12 와 같은 건입니다.)</p>
+  <p class="ev">js/idx-main.js:9012-9060 (_gameIsClassActive · _warmupStudentBlocked)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">B7</span>부산 지사 페이지에서 Ghost(참관) 아이콘이 안 눌리고 로딩도 안 된다<span class="who">SID ③ · Karl</span><span class="tag ok">완료 · 본인 확인</span></p>
+  <p class="en">"He created a class, but we couldn't click the ghost icon, and it didn't load either." → (8/12) "I tried using the Busan account and checked the ghost feature, and it is working properly."</p>
+  <p class="d">참관이 «성공했는지 실패했는지» 화면이 아무 말도 하지 않아, 강사는 로딩 중인지 고장인지 알 수 없었습니다.</p>
+  <p class="fix"><b>수리</b> — 참관 결과를 글자로 말해 줍니다(붙는 중 / 붙었음 / 8초가 지나도 응답 없음 = 다시 시도).
+    영상이 안 오면 <b>한 번은 스스로 다시 연결</b>합니다. 배너는 참관 모드에서만 띄웁니다 — 일반 수업 화면에 뜨면 학생이 겁먹습니다.</p>
+  <p class="ev">js/idx-main.js:3787-3915 · 8월 12일 Melca 본인이 “정상 작동” 확인 (문서 rId36)</p>
+</div>
+
+<div class="pg"></div>
+
+<h3 class="grp">C. 8월 11일 — Teacher Shas</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">C1</span>AI 웜업의 텍스트가 서로에게 보이지 않는다<span class="who">Shas ①</span><span class="tag ok">완료 · 설명 포함</span></p>
+  <p class="en">"When I typed a message and clicked Send, the message did not appear on the student's screen either... we suggest making the responses visible on both sides."</p>
+  <p class="d"><b>먼저 오해를 풀어야 합니다.</b> AI 웜업의 대화 상대는 <b>AI</b> 입니다.
+    강사와 학생이 서로 주고받는 채팅이 아니며, 서로에게 안 가는 것이 <b>설계</b>입니다.
+    다만 화면이 그 말을 하지 않아 «고장» 으로 읽혔고, <b>진짜로 비어 있던 것은 «학생이 뭘 하는지 볼 길이 없음»</b> 이었습니다.</p>
+  <p class="fix"><b>수리</b> — ① 학생의 웜업 대화를 <b>강사 화면 아래에 읽기 전용으로 비춰</b> 줍니다(warmup-echo).
+    ② 안내 띠에 “강사가 쓴 글은 학생에게 가지 않습니다” 를 못박았습니다.
+    <b>양방향 채팅을 새로 만들지 않은 이유</b> — 수업 채팅이 이미 그 일을 하고 있고, 같은 일을 하는 입구가 둘이면
+    어느 쪽으로 보냈는지 아무도 추적하지 못합니다.</p>
+  <p class="ev">js/idx-main.js:5512-5560 · index.html:8719 · 커밋 7c92da1</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C2</span>화면 공유가 강사에게만 보이고 학생에게는 안 나타난다<span class="who">Shas ②</span><span class="tag ok">완료</span></p>
+  <p class="en">"After selecting and starting the screen share, the shared content was only visible on my screen as the teacher."</p>
+  <p class="d"><b>원인은 재협상 누락이었습니다.</b> 카메라가 꺼져 있거나 없는 강사에게는 보낼 영상 자리가 없어
+    <code>addTrack()</code> 으로 새로 붙이는데, 이 앱에는 <code>onnegotiationneeded</code> 핸들러가 없어
+    <b>«그런 트랙이 생겼다»는 사실조차 상대에게 전달되지 않았습니다.</b>
+    내 미리보기는 로컬 스트림을 직접 붙이므로 «나만 보이는» 증상이 정확히 만들어집니다.
+    거기에 <code>replaceTrack(...).catch(function(){})</code> 로 실패를 삼키고 있어 강사는 알 방법조차 없었습니다.</p>
+  <p class="fix"><b>수리</b> — 트랙을 «새로» 붙인 연결만 골라 offer 를 다시 보냅니다(replaceTrack 경로는 그대로 —
+    재협상 없이 즉시 교체되는 것이 그 방식의 장점이고, 거기에 붙이면 수업이 잠깐 끊깁니다).
+    성공·실패를 세어 아무에게도 못 갔으면 강사에게 알립니다.</p>
+  <p class="ev">js/idx-main.js:986-1050 · 커밋 f0340ea · vc_screenshare_delivery_harness 15 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C3</span>「Lock Student Drawing」 을 찾기까지 여러 번 시도해야 했다<span class="who">Shas ③</span><span class="tag ok">완료 (제안 5개 중 4개 반영)</span></p>
+  <p class="en">"Make the button more visible... place it together with other student permission settings... a clearer label... adding a tooltip... access directly from the main toolbar."</p>
+  <p class="d">버튼은 원래부터 상단 툴바에 있었지만, <b>옆 칩들과 생김새가 똑같아</b> «학생을 제어하는 것» 이라는 신호가 없었고
+    툴팁이 하나도 없었습니다.</p>
+  <p class="fix"><b>수리</b> — 「👥 학생 제어」 이름표 아래 <b>전체 음소거 · 학생 필기 잠그기 · 집중 모드</b> 를 한 묶음으로 모으고,
+    세 칩에 «무엇을 막는지·목적이 무엇인지» 를 적은 한/영 툴팁을 달았습니다.
+    화면 공유는 학생 제어가 아니므로 묶음 밖으로 옮겼습니다.
+    제안하신 「메인 툴바에서 바로 접근」 은 원래부터 상단 툴바이므로 이미 충족됩니다.</p>
+  <p class="ev">index.html:8249-8259 · js/idx-main.js:8152 · 커밋 7c92da1 · vc_teacher_controls_visible 39 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C4</span>Focus Mode 를 눌렀는데 아무 변화가 없다<span class="who">Shas ④ · Shas 후속 ④</span><span class="tag ok">완료</span></p>
+  <p class="en">"I tried using the Focus Mode feature, but nothing noticeable happened after clicking it."</p>
+  <p class="d">기능은 <b>학생의 탭 이탈을 멀쩡히 막고 있었습니다.</b> 다만 그 사실이 화면에 남지 않았습니다 —
+    토스트는 몇 초 뒤 사라지고, 켠 <b>뒤</b> 들어온 학생은 그마저 못 봅니다.</p>
+  <p class="fix"><b>수리</b> — 켜져 있는 동안 <b>계속 떠 있는 띠</b>를 넣었습니다.
+    강사에게는 “학생은 화면을 바꿀 수 없어요”, 학생에게는 “선생님 화면을 따라가요”.
+    클릭은 통과하도록 <code>pointer-events:none</code> 입니다. 칩 툴팁에도 목적을 적었습니다.</p>
+  <p class="ev">js/idx-main.js:8271 · 8326 · 커밋 7c92da1</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C5-a</span>복습퀴즈의 듣기 소리가 강사에게만 들리고 학생에게는 안 들린다<span class="who">Shas ⑤-a</span><span class="tag ok">완료</span></p>
+  <p class="en">"I was able to hear the audio on the teacher's side, but the student could not hear it."</p>
+  <p class="d"><b>강사와 학생의 «차이» 가 아니라 «누가 페이지를 눌렀는가» 의 차이였습니다.</b>
+    듣기 문항은 그려진 뒤 350ms 에 자동 재생하는데, 브라우저는 사용자가 그 페이지를 한 번도 누르지 않았으면 소리를 막습니다.
+    강사는 퀴즈를 고르며 이미 눌렀고, 학생은 강사가 탭을 바꿔 «따라 넘어온» 것이라 누른 적이 없습니다.
+    게다가 코드가 <code>a.play().catch(function(){})</code> 로 <b>재생 거부를 아무 말 없이 버려</b> 흔적조차 없었습니다.</p>
+  <p class="fix"><b>수리</b> — 거부를 잡아 상태로 남기고, 막혔으면 버튼을 <b>「🔊 눌러서 문제 듣기」</b> 로 바꿔
+    “브라우저가 소리를 막았어요. 버튼을 한 번만 눌러 주세요 — 그 뒤로는 저절로 들립니다” 라고 알려 줍니다.
+    <b>버튼을 disabled 로 두지 않았습니다</b> — 그러면 학생이 소리를 켤 방법이 아예 없어집니다.</p>
+  <p class="ev">js/idx-x8.js:279-370 · 커밋 43dc663 (이것이 B1 「학생이 퀴즈를 못 넘긴다」의 뿌리이기도 했습니다)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C5-b</span>학생이 고른 답이 강사 화면에 보이지 않는다<span class="who">Shas ⑤-b</span><span class="tag ok">완료</span></p>
+  <p class="en">"On my (teacher) side, I could not see the student's selection... it would be helpful if the teacher could see the student's selected answer in real time."</p>
+  <p class="d"><b>뿌리가 깊었습니다 — 강사와 학생이 «각자 다른 퀴즈» 를 풀고 있었습니다.</b>
+    양쪽 다 자기 교재·레벨로 따로 문제를 받아왔고(AI 출제라 같은 조건이어도 다를 수 있습니다),
+    서로를 잇는 메시지가 한 줄도 없었습니다. «동기화가 깨졌다» 가 아니라 <b>애초에 없었습니다.</b></p>
+  <p class="fix"><b>수리</b> — 강사가 퀴즈를 열면 학생도 <b>같은 퀴즈</b>를 엽니다(quiz-share, 서버에서 강사 전용으로 잠금).
+    학생이 고른 답은 사람이 읽을 글자로 강사에게 갑니다(quiz-pick). 제출·점수도 실시간으로 보입니다(quiz-done).
+    학생 화면에는 남의 답을 보여주지 않습니다(베끼기 방지).</p>
+  <p class="ev">js/idx-x8.js:21-400 · 커밋 4c8a3e9 · vc_quiz_sync_harness 27 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">C5-c</span>「다음」 후 학생 화면에서만 퀴즈가 사라져 화면이 어긋난다<span class="who">Shas ⑤-c</span><span class="tag ok">완료</span></p>
+  <p class="en">"The Review Quiz disappeared from the student's screen, but it remained visible on my teacher's screen."</p>
+  <p class="d">C5-b 와 같은 뿌리입니다 — <b>문항 수가 서로 달라</b> 학생이 먼저 제출하고 끝난 것이었습니다.</p>
+  <p class="fix"><b>수리</b> — 같은 퀴즈를 열되 <b>진도는 각자</b> 갑니다(학생을 강사와 같은 문항에 묶으면 학생이 스스로 못 넘겨
+    B1 을 반대 방향으로 재현합니다). 대신 학생이 제출하거나 그만두면 강사 화면의 현황 띠가 그 순간을 알려 줍니다.</p>
+  <p class="ev">js/idx-x8.js:167 · 383 · 커밋 4c8a3e9</p>
+</div>
+
+<h3 class="grp">D. 8월 11~12일 후속 (Len · Karl · Shas)</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">D2</span>교재를 고를 때 자물쇠 아이콘이 학생 계정에도 보인다<span class="who">Len · Karl</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student can see the lock icon when choosing a textbook. This icon is supposed to be visible only on the teacher's account."</p>
+  <p class="d"><b>이름 휴리스틱이 «이미 정해진 역할» 을 덮어썼습니다.</b>
+    <code>?vc_role=student</code> 로 들어와도 아이디에 teacher 가 들어 있으면 강사로 승격됐고,
+    서버가 「이 예약의 학생」이라 내린 판정까지 조용히 뒤집혔습니다.</p>
+  <p class="fix"><b>수리</b> — 이름 추측은 역할이 «아무것도 없을 때» 만 쓰는 마지막 수단으로 되돌렸습니다.</p>
+  <p class="ev">js/idx-main.js:2523 · 2568 · 5468-5477 · 커밋 545029c(⑥)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D3</span>학생에게 펜을 주면 강사가 펜도 페이지 이동도 못 하게 된다<span class="who">Len</span><span class="tag ok">완료</span></p>
+  <p class="en">"If the teacher gives me the pen, the teacher can no longer use the pen or navigate the page."</p>
+  <p class="d"><b>권한을 «준» 결과가 아니었습니다.</b> 페이지 이동 메시지(pdf-page-change)에 <b>보내는 쪽 검사가 없어서</b>,
+    학생이 페이지를 누르면 강사 화면도 함께 끌려간 것입니다.
+    키보드(←→)와 휠은 이미 강사 전용이었는데 <b>버튼만 뚫려</b> 있었습니다 —
+    「버튼은 강사 UI 안에만 있다」는 옛 가정이 교재도구 바가 공용이 되며 깨졌습니다.</p>
+  <p class="fix"><b>수리</b> — <code>vcCanControlTextbook()</code> 정본을 만들고 페이지 방송을 그 뒤로 넣었습니다.
+    거절되면 이유를 한/영으로 알려 줍니다(4초에 한 번). 학생의 «내 화면에서만» 보기(확대·페이지 넘겨보기)는 그대로 둡니다.</p>
+  <p class="ev">커밋 545029c(⑦) · vc_textbook_permission_harness 31 PASS</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D4</span>학생이 파일을 칠판에 바로 붙여넣을 수 있다<span class="who">Len</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student can paste as a file directly onto the board... students may be able to add or upload files without permission."</p>
+  <p class="d"><b>지적이 정확했고, 실제로는 더 심각했습니다.</b> 붙여넣기는 업로드로 끝나지 않고 공유(pdf-share)까지 쏘고 있어
+    <b>학생이 허가 없이 반 전체 화면을 자기 그림으로 바꿀 수 있었습니다.</b> 끌어다 놓기도 같은 입구였습니다.
+    상단 탭바의 강사 전용 칩은 잘 숨겨져 있었는데 <b>교재도구 바는 학생에게 통째로 열려</b> 있었습니다.</p>
+  <p class="fix"><b>수리</b> — 업로드·파일공유·붙여넣기·드래그·라이브러리·공유중지·파일이동·페이지방송 <b>8개 입구를 전부</b> 게이트로 막고,
+    버튼 자체도 숨깁니다(이중 방어).</p>
+  <p class="ev">커밋 545029c(⑧)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D5</span>퀴즈에서 학생이 오디오 버튼을 먼저 눌러야만 소리가 들린다<span class="who">Shas · 8/12</span><span class="tag ok">설계대로 · 그것이 답입니다</span></p>
+  <p class="en">"The student needs to click the audio button first before they can hear it."</p>
+  <p class="d">이것은 <b>남은 버그가 아니라 C5-a 수리의 결과</b>입니다.
+    브라우저(크롬·엣지·사파리 전부)는 사용자가 그 페이지를 한 번도 누르지 않았으면 소리를 막습니다 — <b>우리가 끌 수 없는 정책</b>입니다.
+    그래서 «자동으로 나게» 만드는 길은 없고, <b>«한 번만 누르게 하고 이유를 말해 주는»</b> 것이 최선입니다.
+    한 번 누르면 그 페이지는 소리가 허용되므로 <b>다음 문항부터는 저절로</b> 납니다.</p>
+  <p class="fix"><b>운영 제안</b> — 학생 입장 안내에 “퀴즈 첫 소리는 한 번 눌러 주세요” 한 줄을 넣으면 문의가 줄어듭니다.</p>
+  <p class="ev">js/idx-x8.js:279-370 · 커밋 43dc663</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D9</span>유튜브 소리가 강사에게만 들리고 학생에게 안 간다<span class="who">Melca · 8/12</span><span class="tag ok">완료</span></p>
+  <p class="en">"We also tried playing a YouTube video, but the student still cannot hear the audio while the teacher can hear it."</p>
+  <p class="d">화면 공유가 <b>마이크 소리만</b> 보내고 있었습니다. 컴퓨터에서 나는 소리(시스템 오디오)는 전송 대상이 아니었습니다.</p>
+  <p class="fix"><b>수리</b> — 공유 시작 시 <b>마이크 + 화면 소리를 믹스</b>해서 보내고, 공유를 멈추면 마이크 단독으로 되돌립니다.
+    공유 도중에 들어온 학생에게도 화면 트랙을 붙여 줍니다.</p>
+  <p class="ev">js/idx-main.js:1070-1095 (__vcScreenAudio) · 커밋 cf90c25</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D10</span>학생이 영상을 앞뒤로 돌릴 수 있다 — BODA 처럼 강사만 조작하게<span class="who">Melca · 8/12</span><span class="tag ok">완료</span></p>
+  <p class="en">"The student can navigate the video, so they can fast-forward or rewind while the teacher is playing it."</p>
+  <p class="d">화면·서버 <b>양쪽 모두</b> 학생 조작을 허용하고 있었습니다.</p>
+  <p class="fix"><b>수리</b> — ① 학생 화면에서는 iframe 클릭 차단(<code>pointer-events</code>) + <code>controls=0</code> + 시크바 역할 게이트,
+    ② 서버에서도 <code>video</code>·<code>pdf-share</code> 메시지를 <b>강사·관리자 전용</b>으로 막았습니다.
+    화면만 막으면 개발자도구로 뚫리므로 <b>서버까지 막는 것이 필수</b>입니다.</p>
+  <p class="ev">커밋 cf90c25</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D11</span>게임은 수업 전·후에만 쓰게 해 달라<span class="who">Melca · 8/12</span><span class="tag ok">이미 되어 있었음</span></p>
+  <p class="en">"Is it possible to allow students to use this feature only before and after the scheduled class?"</p>
+  <p class="d">요청하신 그대로 <b>이미 동작하고 있었습니다.</b> 참가자가 2명 이상(= 수업 중)이면
+    “수업시간에는 할 수 없습니다 / 수업 전이나 후에 해주세요” 화면이 뜹니다.
+    수업 전 15~30분 대기 시간에는 그대로 쓸 수 있고, 강사가 들어오면 자동으로 잠깁니다 — 정확히 요청하신 동작입니다.</p>
+  <p class="ev">js/idx-main.js:9012-9018 (_gameIsClassActive) · 9060 이후 (_gameRenderBlocked)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D12</span>AI 웜업에도 게임과 같은 제한을 걸어 달라<span class="who">Melca · 8/12</span><span class="tag ok">완료</span></p>
+  <p class="en">"For the AI Warm-up, is it possible to apply the same restriction as the Games? ... Cannot use during class. Please use before or after class."</p>
+  <p class="d">요청하신 문구 그대로 넣었습니다 — “수업 중에는 사용할 수 없습니다 / 수업 전이나 후에 이용해 주세요”.</p>
+  <p class="fix"><b>한 가지만 다르게 했습니다</b> — <b>강사가 열어 준 웜업은 허용</b>합니다.
+    웜업은 수업 중 강사가 학생 입 풀기용으로 쓰는 도구이기도 해서, 강사 주도까지 막으면 도구 하나를 잃습니다.
+    막는 것은 «학생이 혼자 여는 것» 뿐입니다.</p>
+  <p class="ev">js/idx-main.js:9020-9060 (_warmupStudentBlocked · _warmupRenderBlocked) · 커밋 cf90c25</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">D13</span>강사에게 보낸 메시지가 안 보인다 — BODA 같은 1:1 비공개 메시지를 원한다<span class="who">Melca · 8/12</span><span class="tag ok">완료 · 기능은 이미 있음</span></p>
+  <p class="en">"I noticed that when I tried to send a message to the teacher, the message was not visible... would it be possible to have a private message option between the student and teacher, similar to BODA?"</p>
+  <p class="d"><b>두 가지가 겹쳐 있었습니다.</b><br>
+    ① <b>안 보인 이유</b> — 라이트 테마에서 학생 말풍선의 글자색이 배경색과 같아 <b>빈 회색 박스</b>로 보였습니다. 글자는 있었습니다.<br>
+    ② <b>1:1 비공개 메시지는 이미 있습니다</b> — 2026-07-14 부터 동작 중입니다.
+    얼굴 타일 우상단의 <b>💬 버튼</b>을 누르거나 채팅창 위의 <b>🔒 이름 칩</b>을 고르면 그 사람에게만 갑니다.
+    보낸 말풍선에는 “○○ 에게만”, 받는 쪽에는 “나에게만(개별)” 표시가 붙습니다.</p>
+  <p class="fix"><b>수리</b> — 말풍선 글자색을 명시했습니다. 기능을 새로 만들지 않았습니다 — 이미 있는 것을 <b>못 찾은 것</b>이 문제였고,
+    그 발견성은 F1(채팅 아이콘 키우기)에서 이어서 다룹니다.</p>
+  <p class="ev">index.html:2267 (말풍선 색) · 2318-2326 (.vc-dm-btn) · js/idx-main.js:13658 · 13807-13890 · 커밋 3d268da(1번)</p>
+</div>
+
+<h3 class="grp">E. 8월 12일 — Teacher Shas 추가</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">E2</span>공유가 되고 있는지 몰라 학생에게 매번 물어봐야 한다<span class="who">Shas 후속 ②</span><span class="tag ok">완료</span></p>
+  <p class="en">"Display a small status message or preview saying 'Student can now see your shared screen.'"</p>
+  <p class="d">요청하신 문구를 거의 그대로 넣었습니다.</p>
+  <p class="fix"><b>세 가지 경우를 구분해서 말합니다</b> — ① 성공: “✅ 학생이 지금 선생님의 공유 화면을 보고 있어요 (N명)”
+    ② 아직 아무도 없는 방: “아직 수업에 아무도 없어요 — 들어오면 보이게 됩니다”
+    ③ 전달 실패: “학생에게 화면이 전달되지 않았어요. 공유를 멈췄다가 다시 눌러 주세요”.
+    <b>②와 ③을 구분한 이유</b> — 둘을 같은 말로 하면 헛수고를 시키게 됩니다.
+    학생 쪽에도 공유 시작·종료를 알립니다(예전엔 예고 없이 얼굴 타일이 화면으로 바뀌었습니다).</p>
+  <p class="ev">js/idx-main.js:1026-1050 · 커밋 f0340ea · cf90c25</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">E3</span>화면 크기에 따라 Mute All·필기잠금·집중모드가 안 보인다 — 툴바에 스크롤을<span class="who">Shas 후속 ③</span><span class="tag ok">완료</span></p>
+  <p class="en">"Could the toolbar have a horizontal scroll bar or left/right navigation arrows so teachers can easily scroll through all available classroom controls?"</p>
+  <p class="d">기본 규칙에 <code>overflow</code> 가 없어서, <b>901px 이상</b>에서는 칩 15개가 찌그러지거나 잘렸습니다
+    (가로 스크롤은 920px 이하 미디어쿼리에만 있었습니다). 그래서 “Free 를 누르거나 창을 늘려야” 했던 것입니다.</p>
+  <p class="fix"><b>수리</b> — <b>모든 화면 폭에서</b> 한 줄 가로 스크롤이 되고, 칩은 줄어들지 않게 고정했습니다(<code>flex:0 0 auto</code>).
+    레이아웃을 바꾸지 않고도 모든 컨트롤에 닿을 수 있습니다.</p>
+  <p class="ev">index.html:1271-1290 (.tab-bar)</p>
+</div>
+
+<div class="item done">
+  <p class="t"><span class="no">E4</span>Focus Mode 를 학생에게도 알려 주고 툴팁으로 설명해 달라<span class="who">Shas 후속 ④</span><span class="tag ok">완료</span></p>
+  <p class="en">"The teacher could receive a clear confirmation... while the student could see a small notification explaining that tab switching is currently restricted."</p>
+  <p class="d">요청하신 세 가지(강사 확인 · 학생 알림 · 툴팁)를 모두 넣었습니다 — C4 와 같은 수리입니다.
+    툴팁 문구: “학생이 다른 탭(칠판·동영상·게임 등)으로 옮기지 못하게 묶어 둡니다 — 선생님이 보여 주는 화면만 봅니다.”</p>
+  <p class="ev">index.html:8259 (title / data-en-title) · js/idx-main.js:8271 · 8326</p>
+</div>
+
+<h3 class="grp">F. 8월 13일</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">F2</span>교재 페이지가 2~3배로 늘어나 있다 — 중복 업로드인지 확인해 달라<span class="who">Melca · 8/13</span><span class="tag ok">완료 · 8/14 처리</span></p>
+  <p class="en">"The books have a lot of pages. Maybe we could double-check if the files were uploaded twice or if there are duplicate pages."</p>
+  <p class="d"><b>지적이 정확했습니다. 그리고 이 지적이 앞선 진단을 뒤집었습니다.</b>
+    저희는 A5 에서 «느리다» 로 보고 프리페치를 넣었는데, 실제 문제는 속도가 아니라
+    <b>같은 페이지가 2~5배로 불어나 책이 끝없이 넘어가는 것</b>이었습니다. 운영 DB 실측 결과:<br>
+    · 전체 38,922행 / 고유 17,170 → <b>평균 2.3배</b><br>
+    · BTS 1 001: 115행 → 실제 23장 (<b>5배</b>) — 말씀하신 “115 vs 23” 과 정확히 일치<br>
+    · BTS 2: 762행 → 246 (3.1배), 게다가 762장이 전부 «미분류» 하나에 뭉쳐 있었음<br>
+    · 약 <b>3.0GB</b> 가 같은 그림의 사본이었음</p>
+  <p class="fix"><b>수리 (원인까지)</b> — ① 업로드 API 가 <b>같은 파일을 또 올려도 그냥 새 행을 만들고</b> 있었습니다.
+    이제 이름+크기가 같은 활성 행이 있으면 저장 전에 건너뛰고, 업로더가 <b>“새로 N개 · 이미 있어 건너뜀 M개”</b> 로 나눠 말합니다.
+    ② 「001」·「002」 처럼 <b>숫자만 있는 폴더</b>를 유닛으로 인식하지 못해 전부 미분류로 떨어지던 것을 고쳤습니다 —
+    요청하신 「BTS 1 001, BTS 1 002 …」 형태로 유닛마다 카드가 나뉩니다.
+    ③ 이미 쌓인 중복 <b>21,752행을 비활성화</b>했습니다(지우지 않았습니다. R2 파일도 그대로 — 되돌릴 수 있습니다).
+    38,922 → 17,170, BTS 1 001 은 115 → <b>23장</b>이 되었습니다.</p>
+  <p class="ev">커밋 22e511d · teacher_page_problem_260813_harness 64/64</p>
+</div>
+
+<div class="pg"></div>
+
+<!-- ══════════════ 절반만 된 것 ══════════════ -->
+<h2 class="sec s-part">절반만 된 것 — 5건
+  <small>원인은 고쳤지만 요청하신 형태와는 다르거나, 남은 부분이 있는 항목입니다.</small></h2>
+
+<div class="item part">
+  <p class="t"><span class="no">A1</span>하단 아이콘을 없앨 수 없다 / 위쪽 아이콘들과 함께 놓아 달라<span class="who">Ness ①·추가</span><span class="tag pt">절반</span></p>
+  <p class="en">"The icons at the bottom part of the screen can't be removed. I hope it will be reduced or closed or moved to the upper part... it is prone to accidental clicks, especially when we are entering the class."</p>
+  <p class="d"><b>된 것</b> — 위로 올리는 기능은 <b>이 버튼에 이미 있었습니다</b>(아래 → 작게 → 위).
+    그런데 라벨이 «⇕ 기본» 처럼 <b>지금 상태만</b> 말해서 눌렀을 때 무엇이 되는지 알 수 없었고,
+    그 정보는 hover 툴팁에만 있었습니다(노트북에서 강사가 툴팁을 띄울 일은 없습니다).
+    → 라벨을 <b>«⇕ 아래 → 작게»</b> 처럼 «다음에 무엇이 되는지» 로 바꿨습니다.
+    보내 주신 8/13 스크린샷에 「⇕ Bottom → Small」·「▼ Hide menu」 가 찍혀 있어 <b>라이브에 반영된 것이 확인됩니다.</b></p>
+  <p class="why"><b>안 한 것 · 그리고 하지 않는 편이 낫다고 보는 것</b> — 「상단 아이콘들과 한 줄로 합치기」는 하지 않았습니다.
+    이유는 뒤쪽 <b>「제 의견」 ①번</b>에 적었습니다. 대신 실행 가능한 대안 3가지를 함께 제안드립니다.</p>
+  <p class="ev">js/vc-dock.js · 커밋 cb02ae5</p>
+</div>
+
+<div class="item part">
+  <p class="t"><span class="no">D8</span>강사가 학생의 클릭·이동을 실시간으로 볼 수 없다 / 「Follow Teacher」 기능<span class="who">Melca · 8/12</span><span class="tag pt">절반</span></p>
+  <p class="en">"The teacher could not see what the student was doing or clicking on the screen... A 'Follow Teacher' or controlled navigation feature could also be useful."</p>
+  <p class="d"><b>된 것 (요청의 대부분)</b><br>
+    · 학생의 <b>필기</b>는 이제 보입니다 — 다른 페이지면 “학생이 N쪽에 필기 중” 으로 알려 줍니다 (A6)<br>
+    · 학생이 <b>반 전체 페이지를 넘기는 것</b>은 막았습니다 (D3)<br>
+    · <b>집중 모드</b>가 탭 이탈을 막습니다 — 사실상의 「Follow Teacher」 입니다 (C4)<br>
+    · 「Lock Student Drawing」 으로 필기·타이핑을 잠글 수 있습니다 (C3)</p>
+  <p class="why"><b>안 한 것</b> — 「학생의 마우스 커서·클릭을 강사 화면에 실시간 중계」 는 만들지 않았습니다.
+    이유는 <b>「제 의견」 ③번</b>에 적었습니다.</p>
+  <p class="ev">js/idx-main.js:12189 · 8326 · 커밋 545029c · cf90c25</p>
+</div>
+
+<div class="item part">
+  <p class="t"><span class="no">E1</span>복습퀴즈에서 강사도 답을 골라야 다음으로 넘어간다<span class="who">Shas 후속 ①</span><span class="tag pt">절반</span></p>
+  <p class="en">"It may be more convenient if the teacher can proceed to the next question without having to answer it themselves."</p>
+  <p class="d"><b>된 것</b> — 사장님 방침으로 정리되었습니다. <b>복습퀴즈는 «학생 전용»</b> 이며 수업이 끝난 뒤 학생이 혼자 푸는 것입니다.
+    탭 이름을 「🧠 복습퀴즈 (학생 전용)」 로 바꾸고, 퀴즈 화면 위에도
+    「학생 전용 · 수업 후 혼자 풀기 — 선생님은 참여하지 않아도 됩니다」 배지를 달았습니다.
+    수업 중에 강사가 확인용으로 열면, 이제는 <b>강사가 «푸는» 것이 아니라 학생의 답과 제출을 «보는»</b> 쪽이 됩니다 (C5-b).</p>
+  <p class="why"><b>남은 것 (사실대로 적습니다)</b> — 그럼에도 <b>강사 화면의 「다음 →」 버튼은 여전히 답을 골라야 켜집니다.</b>
+    코드가 역할을 보지 않고 «답이 비었는가» 만 보기 때문입니다(idx-x8.js:247).
+    → <b>해결 방안</b>: 강사·관리자일 때는 「다음 →」 을 항상 켜고 라벨을 <b>「다음 문항 보기 →」</b> 로 바꿉니다.
+    이때 강사의 답은 채점에 넣지 않습니다. 학생 쪽 규칙(답 없이 못 넘김)은 그대로 둡니다 — 빈칸 제출을 막기 위해서입니다.
+    작업량은 작습니다(약 반나절).</p>
+  <p class="ev">js/idx-x8.js:247-248 (rqv-next disabled) · index.html:8235 · 8736</p>
+</div>
+
+<div class="item part">
+  <p class="t"><span class="no">F3</span>Student Control 이 무엇인지 모르겠고, 눌러도 아무 반응이 없다<span class="who">Melca · 8/13</span><span class="tag pt">답변 가능 · UI 수정 필요</span></p>
+  <p class="en">"What is the purpose of the Student Control feature? I also noticed that I cannot click or access it."</p>
+  <p class="d"><b>고장이 아닙니다. 그것은 버튼이 아니라 «묶음 이름표» 입니다.</b>
+    바로 오른쪽에 있는 세 개 — <b>🎤 Mute all · ✋ Lock student drawing · 🎯 Focus mode</b> —
+    가 «학생을 제어하는 도구» 라는 것을 알려 주려고 8월 12일에 붙인 <b>제목</b>입니다(C3 의 수리 결과입니다).
+    누를 것이 없으니 눌러도 아무 일이 없는 것이 맞습니다.</p>
+  <p class="why"><b>그런데 이건 저희 잘못입니다.</b> 이름표에 옆 버튼들과 <b>같은 CSS 클래스</b>(<code>vc-classlock-chip</code>)를 붙여
+    버튼처럼 보이게 만들어 놨습니다. 게다가 <b>툴팁도 없습니다</b>. 매니저가 누른 것이 당연합니다.<br>
+    → <b>해결 방안</b>: ① 이름표에서 칩 모양을 떼고 <b>작은 대문자 회색 제목</b>으로 바꿉니다(<code>cursor:default</code>).
+    ② 툴팁을 답니다 — “아래 세 버튼은 학생을 제어합니다 / These three buttons control the students.”
+    ③ 세로 구분선을 왼쪽뿐 아니라 <b>묶음 오른쪽 끝에도</b> 넣어 «어디까지가 이 묶음인지» 를 눈으로 보이게 합니다.
+    작업량은 작습니다(약 1시간).</p>
+  <p class="ev">index.html:8254 (span#vc-studentctl-label, title 속성 없음) · js/idx-main.js:8152</p>
+</div>
+
+<div class="item part">
+  <p class="t"><span class="no">A3-b</span>“가끔 시스템이 멈춘다(system crash)”<span class="who">Ness ③</span><span class="tag pt">정보 필요</span></p>
+  <p class="en">"...sometimes system crash."</p>
+  <p class="d">A3 의 카메라·지연·멈춤은 원인을 찾아 고쳤지만, <b>«crash» 만은 재현 정보가 없어 손대지 못했습니다.</b>
+    브라우저가 죽은 것인지, 탭이 죽은 것인지, PC 가 멈춘 것인지에 따라 원인이 완전히 다릅니다.</p>
+  <p class="fix"><b>필요한 것 3가지만</b> — ① 브라우저 이름과 버전 ② 그때 함께 열려 있던 탭 수 ③ 수업 시작 후 몇 분째였는지.
+    이 셋만 있으면 메모리 누수인지 GPU 드라이버인지 가릴 수 있습니다.</p>
+</div>
+
+<!-- ══════════════ 아직 안 된 것 ══════════════ -->
+<h2 class="sec s-todo">아직 안 된 것 — 3건
+  <small>손대지 않았습니다. 아래에 «어떻게 할 것인가» 를 적었습니다.</small></h2>
+
+<div class="item todo">
+  <p class="t"><span class="no">F1</span>채팅 아이콘을 조금 더 크게, 강사 이름 위쪽에 놓아 달라<span class="who">Melca · 8/13</span><span class="tag no">미착수</span></p>
+  <p class="en">"Would it be possible to make it slightly bigger and place it above the teacher's name? The current icon is too small."</p>
+  <p class="d"><b>지적이 맞습니다.</b> 현재 아이콘은 <b>글자 13px · 여백 4×9px</b> 로, 손가락은 물론 마우스로도 작습니다
+    (권장 터치 영역은 최소 40×40px 입니다). 위치는 얼굴 타일의 <b>오른쪽 위</b>이고, 이름표는 <b>왼쪽 아래</b>에 있습니다.
+    보내 주신 스크린샷에서도 그 둘이 대각선으로 멀리 떨어져 있습니다.</p>
+  <p class="fix"><b>해결 방안</b> — ① 글자 13px → <b>17px</b>, 최소 영역 <b>34×34px</b>, 배경 대비를 올려 어두운 영상 위에서도 보이게 합니다.
+    ② 이름표 <b>바로 옆(같은 줄 오른쪽)</b> 에 붙입니다.
+    ③ 개별 채팅이 켜져 있으면 아이콘 색을 바꿔 «지금 이 사람과 1:1 중» 을 보이게 합니다.<br>
+    <b>「이름 위」 대신 「이름 옆」 을 제안드리는 이유</b> — 이름표 «위» 는 영상 한가운데라 얼굴을 가립니다.
+    같은 줄에 두면 «이 사람에게 보낸다» 는 뜻이 더 분명하고 얼굴도 가리지 않습니다. 원하시면 요청하신 대로 위쪽에 두겠습니다.
+    작업량은 작습니다(약 2시간).</p>
+  <p class="ev">index.html:2318-2326 (.vc-dm-btn) · js/idx-main.js:13871-13890 (vcAddDmButton)</p>
+</div>
+
+<div class="item todo">
+  <p class="t"><span class="no">D7</span>공유 화면을 카메라 자리 말고 «메인 보드» 에 띄워 달라<span class="who">Melca · 8/12</span><span class="tag no">미착수 · 구조 변경</span></p>
+  <p class="en">"When Teacher Shas shares her screen, is it possible for the shared screen content to be displayed on the main board instead of her camera feed? ...her camera can remain as a smaller preview."</p>
+  <p class="d"><b>요청이 타당합니다.</b> 말씀하신 대로 “공유 화면은 크게, 발표자 얼굴은 작게” 가 화상회의의 표준 배치입니다.
+    현재 구조는 그렇지 않습니다 — 화면 공유가 <b>카메라 영상 트랙을 «바꿔치기»</b> 하는 방식이라,
+    공유 화면이 강사의 <b>얼굴 타일 안</b>에 들어갑니다. 그래서 학생에게는 작게 보이고 얼굴은 사라집니다.</p>
+  <p class="fix"><b>해결 방안 (두 갈래 · 저는 A 를 권합니다)</b><br>
+    <b>A. 공유 전용 탭 신설</b> — 상단에 「🖥 공유 화면」 탭을 만들고, 공유가 시작되면 강사·학생을 <b>자동으로 그 탭으로 이동</b>시킵니다
+    (탭 동기화는 이미 있는 구조라 그대로 씁니다). 얼굴은 지금처럼 오른쪽 사이드바에 남습니다 = 요청하신 “카메라는 작은 미리보기” 가 그대로 충족됩니다.
+    공유를 멈추면 원래 탭으로 되돌립니다. <b>기존 구조를 건드리지 않아 위험이 작습니다.</b><br>
+    <b>B. 두 번째 영상 트랙 추가</b> — 카메라와 화면을 <b>동시에</b> 보냅니다. 화상회의 앱들이 하는 방식이지만,
+    연결 협상·대역폭·녹화·저대역 모드까지 전부 영향을 받습니다. 학생 29,000명이 쓰는 라이브 서비스에서 <b>사고 반경이 큽니다.</b><br>
+    작업량: A 는 2~3일, B 는 1~2주 + 회귀 테스트.</p>
+  <p class="ev">js/idx-main.js:986-1060 (vcShareMyScreen — replaceTrack 방식)</p>
+</div>
+
+<div class="item todo">
+  <p class="t"><span class="no">D6</span>복습퀴즈를 볼 때 학생·강사 카메라가 둘 다 보이게 해 달라<span class="who">Melca · 8/12</span><span class="tag no">미착수</span></p>
+  <p class="en">"Is it possible to display both the student's and teacher's cameras during the quiz review?"</p>
+  <p class="d"><b>먼저 확인이 필요합니다.</b> 복습퀴즈는 «탭 내용» 이라 얼굴 타일은 원래 오른쪽 사이드바에 <b>그대로 남습니다.</b>
+    안 보였다면 <b>「› 얼굴 접기」 가 눌려 있었을</b> 가능성이 큽니다(교재를 넓게 보려고 접어 두면 계속 접힌 채로 남습니다).</p>
+  <p class="fix"><b>해결 방안</b> — 원인이 무엇이든 다음 한 가지로 막을 수 있습니다:
+    <b>복습퀴즈 탭을 열 때 얼굴 사이드바가 접혀 있으면 자동으로 펴 준다</b>(그리고 “퀴즈 중에는 얼굴을 보이게 했어요” 안내 한 줄).
+    사람이 매번 기억하지 않아도 되게 만드는 쪽이 옳습니다. 작업량은 작습니다(약 반나절).<br>
+    ⚠️ 다만 «녹화된 퀴즈 세션을 다시 볼 때» 를 말씀하신 것이라면 이야기가 달라집니다 —
+    녹화는 수업 화면 전체를 담으므로 퀴즈만 따로 카메라를 얹을 수 없습니다.
+    <b>어느 쪽을 말씀하신 것인지 알려 주시면</b> 그에 맞춰 처리하겠습니다.</p>
+  <p class="ev">index.html:8232-8235 (탭) · #vc-side-collapse-btn (얼굴 접기)</p>
+</div>
+
+<div class="pg"></div>
+
+<!-- ══════════════ 제 의견 ══════════════ -->
+<h2 class="sec s-ask">제 의견 — 요청대로 하면 오히려 나빠질 것 같은 6건
+  <small>요청을 거절하는 것이 아니라, «왜 그렇게 보는지» 와 «대신 이렇게 하면 어떨지» 를 함께 적었습니다. 결정은 운영진 몫입니다.</small></h2>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ①</span>하단 아이콘을 상단 아이콘들과 한 줄로 합치기 — <b>권하지 않습니다</b><span class="who">Ness</span></p>
+  <p class="d"><b>왜 반대하는가 — 세 가지</b><br>
+    <b>1. 상단 툴바는 이미 포화 상태입니다.</b> 칩이 15개라 가로 스크롤이 필요할 정도이고,
+    그것이 바로 Shas 선생님이 “Free 를 누르거나 창을 늘려야 컨트롤이 보인다”고 신고한 그 문제(E3)입니다.
+    여기에 마이크·카메라·화면공유·채팅·상담·설정·나가기 7개를 더 넣으면 <b>Shas 의 문제를 되살립니다.</b><br>
+    <b>2. 「나가기」 오클릭 위험이 커집니다.</b> 상단 툴바는 수업 중 가장 자주 누르는 곳(탭 전환·교재·필기)입니다.
+    그 옆에 빨간 [나가기] 를 두면 <b>수업 도중 실수로 나가는 사고</b>가 납니다. 지금 아래에 떨어져 있는 것은 안전 장치입니다.<br>
+    <b>3. 요청의 진짜 이유는 «입장할 때 실수로 눌린다» 였습니다.</b> 위치를 옮기는 것으로는 그 문제가 안 풀립니다 —
+    상단으로 옮기면 상단에서 실수로 눌립니다.</p>
+  <p class="fix"><b>대신 이렇게 하면 어떨까요 (셋 다 작업량이 작습니다)</b><br>
+    <b>ⓐ 입장 직후 3초 동안 독을 잠급니다</b> — “실수로 눌린다” 를 정확히 겨냥합니다. 3초 뒤 스르르 켜집니다.<br>
+    <b>ⓑ 강사별로 «작게» 를 기본값으로</b> — 이미 자리를 기억하는 구조가 있으니, 처음 들어오는 강사에게 «작게» 로 시작하게 합니다.<br>
+    <b>ⓒ 5초간 안 움직이면 반투명(40%)</b> — 마우스를 대면 즉시 진해집니다. 화면을 가리지 않으면서 필요할 때 있습니다.<br>
+    <b>ⓓ [나가기] 만 확인 한 겹</b> — “정말 수업에서 나가시겠어요?” 를 [나가기] 에만 답니다.</p>
+</div>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ②</span>「이 두 개(학생게임·AI 웜업)를 없애 달라」 — <b>지우지 말고 잠그는 쪽을 권합니다</b><span class="who">SID</span></p>
+  <p class="d">걱정하신 것은 «수업 중 학생이 딴짓» 이고, 그건 정당합니다. 다만 <b>지우면 수업 전·후에도 못 씁니다.</b>
+    학생은 수업 15~30분 전에 들어와 기다리는 경우가 많고, 그 시간이 게임·웜업이 실제로 쓰이는 시간입니다.
+    Melca 매니저도 8/12 에 <b>같은 결론</b>을 제안해 주셨습니다 — “수업 전후에만 쓰게 해 달라”.</p>
+  <p class="fix"><b>이미 그렇게 되어 있습니다</b>(D11·D12). 수업이 시작되면 잠기고, 끝나면 다시 열립니다.
+    <b>지우는 것은 되돌리기 어렵고, 잠그는 것은 언제든 되돌릴 수 있습니다.</b></p>
+</div>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ③</span>학생의 마우스·클릭을 강사 화면에 실시간 중계 — <b>지금은 권하지 않습니다</b><span class="who">Melca</span></p>
+  <p class="d"><b>목적에는 100% 동의합니다</b> — “학생이 딴짓하는지 알고 싶다”. 다만 «학생 화면을 그대로 들여다보는» 방식은 문제가 있습니다.<br>
+    <b>1. 회선이 감당하지 못합니다.</b> 커서 좌표는 초당 30~60회 발생합니다.
+    지금 저희가 씨름하고 있는 것이 바로 <b>지연·끊김·깜빡임</b>(A2·A3)인데, 여기에 상시 데이터를 더 얹는 것은 방향이 반대입니다.
+    필리핀 회선 경량화는 별도 과제로 진행 중입니다.<br>
+    <b>2. 사생활 문제가 생깁니다.</b> 학생 대부분이 미성년자입니다. «화면을 계속 들여다보는» 기능은
+    학부모 동의·개인정보 고지 범위를 다시 봐야 합니다. 코드가 조용히 정할 일이 아닙니다.<br>
+    <b>3. 목적의 대부분은 이미 달성되었습니다</b> — 집중 모드(탭 이탈 차단) · 필기 잠금 · 페이지 이동 강사 전용 · 영상 조작 차단.</p>
+  <p class="fix"><b>대신 이렇게 하면 어떨까요</b> — 화면을 중계하는 대신 <b>«사건» 만</b> 강사에게 알립니다:
+    “학생이 다른 탭으로 나갔어요(집중 모드 꺼짐 상태에서)”, “학생이 3분째 아무 조작이 없어요”.
+    데이터는 거의 안 들고, 강사가 필요로 하는 정보는 사실상 이 두 가지입니다.</p>
+</div>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ④</span>AI 웜업을 강사↔학생 양방향 채팅으로 — <b>만들지 않는 쪽을 권합니다</b><span class="who">Shas</span></p>
+  <p class="d">웜업의 대화 상대는 <b>AI</b> 입니다(C1). 여기에 사람끼리의 채팅을 얹으면
+    <b>같은 일을 하는 입구가 둘</b>이 됩니다 — 수업 채팅과 웜업 채팅.
+    그러면 “보냈는데 왜 안 갔지”가 생겼을 때 <b>어느 쪽으로 보냈는지 아무도 추적하지 못합니다.</b>
+    게다가 학생 화면에서는 AI 답변과 선생님 말이 같은 상자에 섞여 나옵니다.</p>
+  <p class="fix"><b>대신 한 것</b> — 학생의 웜업 대화를 <b>강사 화면에 읽기 전용으로 비춰</b> 줍니다.
+    강사가 필요로 한 것(“학생이 뭘 하고 있나”)은 그것으로 충족되고, 말을 걸어야 하면 <b>수업 채팅</b>을 씁니다(1:1 도 됩니다 — D13).</p>
+</div>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ⑤</span>“BODA 처럼 1:1 비공개 메시지를 만들어 달라” — <b>이미 있습니다. 새로 만들지 마세요</b><span class="who">Melca</span></p>
+  <p class="d">2026-07-14 부터 동작 중입니다. 안 보였던 것은 <b>글자색 버그</b>였고 이미 고쳤습니다(D13).
+    <b>여기서 새 기능을 만들면 같은 기능이 두 개가 되어 나중에 반드시 사고가 납니다.</b></p>
+  <p class="fix"><b>진짜 문제는 «있는데 못 찾은 것»</b> 입니다 — 얼굴 타일의 💬 버튼이 13px 로 너무 작습니다(F1).
+    <b>새 기능 대신 그 버튼을 키우는 것</b>으로 풀겠습니다. 그리고 강사용 1장짜리 안내(“개별 채팅 쓰는 법”)를 만들어 배포하겠습니다.
+    <b>참고로 저희 것이 BODA 보다 나은 점</b> — 보낸 쪽 말풍선에 “○○ 에게만” 이 붙어, 전체에 보낸 줄 알고 비밀을 흘리는 사고를 막습니다.</p>
+</div>
+
+<div class="item ask">
+  <p class="t"><span class="no">의견 ⑥</span>복습퀴즈 화면에 카메라를 얹기 — <b>먼저 «접혀 있었는지» 부터 확인해 주세요</b><span class="who">Melca</span></p>
+  <p class="d">복습퀴즈는 «탭 내용» 이라 얼굴은 원래 오른쪽에 그대로 남습니다.
+    <b>없던 기능이 아니라 접혀 있었을 가능성이 큽니다</b>(D6). 여기에 카메라 표시를 새로 얹으면
+    <b>같은 얼굴이 두 군데</b>에 나오게 됩니다 — 저희가 8월 10일에 «음량 미터가 두 군데» 라서 하나를 걷어낸 것과 정확히 같은 상황입니다.</p>
+  <p class="fix"><b>제안</b> — 새로 얹는 대신 <b>퀴즈 탭을 열면 얼굴 사이드바를 자동으로 펴 줍니다.</b>
+    다음 수업에서 「› 얼굴 접기」 상태를 한 번만 확인해 주시면, 그것으로 원인이 확정됩니다.</p>
+</div>
+
+<!-- ══════════════ 다음 할 일 ══════════════ -->
+<h2 class="sec s-todo">이제 할 일 — 우선순위 순
+  <small>운영진 승인이 필요한 것과 바로 착수할 수 있는 것을 나눴습니다.</small></h2>
+
+<table class="sum">
+  <tr>
+    <th style="width:5%">순</th><th style="width:31%">할 일</th><th style="width:9%">항목</th>
+    <th style="width:11%">작업량</th><th>비고</th>
+  </tr>
+  <tr>
+    <td class="c">1</td>
+    <td><b>Student Control 이름표를 «버튼처럼» 안 보이게 + 툴팁</b></td>
+    <td class="c">F3</td><td class="c">1시간</td>
+    <td>바로 착수 가능. 매니저가 실제로 눌러 본 건이라 재발 가능성이 높습니다</td>
+  </tr>
+  <tr>
+    <td class="c">2</td>
+    <td><b>채팅 💬 버튼 키우기 + 이름표 옆으로</b></td>
+    <td class="c">F1</td><td class="c">2시간</td>
+    <td>위치를 «이름 위» 로 할지 «이름 옆» 으로 할지만 정해 주세요</td>
+  </tr>
+  <tr>
+    <td class="c">3</td>
+    <td><b>강사는 답 없이 다음 문항으로 넘기기</b></td>
+    <td class="c">E1</td><td class="c">반나절</td>
+    <td>학생 규칙은 그대로 둡니다(빈칸 제출 방지)</td>
+  </tr>
+  <tr>
+    <td class="c">4</td>
+    <td><b>복습퀴즈 탭을 열면 얼굴 사이드바 자동 펴기</b></td>
+    <td class="c">D6</td><td class="c">반나절</td>
+    <td>「녹화 재생」을 말씀하신 것인지 먼저 확인 필요</td>
+  </tr>
+  <tr>
+    <td class="c">5</td>
+    <td><b>하단 독 — 입장 후 3초 잠금 + 유휴 시 반투명</b></td>
+    <td class="c">A1</td><td class="c">1일</td>
+    <td>「상단 합치기」 대신 제안드리는 대안입니다 — <b>운영진 결정 필요</b></td>
+  </tr>
+  <tr>
+    <td class="c">6</td>
+    <td><b>공유 화면 전용 탭 신설 (A안)</b></td>
+    <td class="c">D7</td><td class="c">2~3일</td>
+    <td><b>운영진 결정 필요.</b> B안(트랙 2개)은 사고 반경이 커서 권하지 않습니다</td>
+  </tr>
+  <tr>
+    <td class="c">7</td>
+    <td><b>“system crash” 재현 정보 수집</b></td>
+    <td class="c">A3-b</td><td class="c">—</td>
+    <td>Ness 선생님께 3가지만 요청 (브라우저·탭 수·경과 시간)</td>
+  </tr>
+  <tr>
+    <td class="c">8</td>
+    <td><b>강사용 1장 안내문 — 「개별 채팅 · 학생 제어 · 집중 모드」</b></td>
+    <td class="c">공통</td><td class="c">1일</td>
+    <td>38건 중 <b>9건이 «기능이 없다» 가 아니라 «못 찾았다»</b> 였습니다</td>
+  </tr>
+</table>
+
+<div class="note">
+  <b>이 보고서에서 가장 중요한 사실 한 가지</b> —
+  지적 38건 중 <b>9건은 기능이 없어서가 아니라 «있는데 못 찾아서»</b> 신고된 것이었습니다
+  (하단 독 위치 이동 · Lock Student Drawing · Focus Mode · 1:1 채팅 · 게임 수업중 차단 · 교재 라이브러리 · Student Control · 웜업 주체 · 툴바 컨트롤).
+  <b>기능을 더 만드는 것보다 «있는 것을 보이게 하는 것» 이 지금 이 서비스에 더 필요합니다.</b>
+  그래서 8번(강사용 안내문)을 목록에 넣었습니다.
+</div>
+
+<div class="foot">
+  <b>판정 기준</b> — «다 된 것» 은 해당 코드가 <b>origin/main 에 병합되어 있음</b>을 커밋으로 확인한 것입니다.
+  각 항목의 회색 줄이 그 근거(파일:줄번호 · 커밋 해시)입니다.<br>
+  <b>확인하지 못한 것</b> — 이 세션은 망 정책상 <b>test.mangoi.co.kr 접속이 차단</b>되어 라이브 화면 실측을 하지 못했습니다.
+  실제 반영 여부는 배포 스탬프(BUILD_STAMP)로 확인해야 하며, 강사 화면은 로그인이 필요해 사람의 확인이 필요합니다.<br>
+  <b>강사분들께</b> — 이미 고쳐진 항목이 다시 신고되는 경우, 브라우저가 옛 파일을 물고 있을 수 있습니다.
+  <b>Ctrl+Shift+R</b>(맥은 ⌘+Shift+R)로 한 번 새로고침한 뒤에도 같으면 알려 주세요.<br>
+  작성 2026-08-14 · 대조 기준 origin/main e9a483e · 원본 Melca_testing_New_feedback_1.docx
+</div>
+
+</body>
+</html>
