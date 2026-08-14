@@ -183,6 +183,33 @@ check('🌐 Q5: 안내가 한/영 둘 다다 (강사가 필리핀 사람이다)'
 check('🔴 Q5: 무엇을 하면 되는지 말해 준다 (막다른 안내 금지)',
   /관리자 계정으로 로그인/.test(uploader) && /본사에 파일을 보내/.test(uploader));
 
+console.log('\n[ ⑦  8/14 신고 — 「느린 게 아니라 페이지가 2~3배」 ]');
+/* 마이마이 8/14: "THE BOOK IS NOT SLOW ONLY THAT THE PAGES AT THE LIBRARY TRIPLED OR DOUBLED."
+   실측으로 확인됨: 38,922행 중 고유 17,170 (평균 2.3배). BTS 1 001 은 115행 → 실제 23장(5배).
+   ⚠️ 어제의 «느림» 진단이 틀렸다는 뜻이다. 프리페치·엣지캐시는 그대로 두되(로딩엔 이득),
+      진짜 원인인 «중복 업로드» 를 서버에서 막는다. */
+check('🔴 같은 파일(이름+크기)이 이미 있으면 올리지 않고 건너뛴다',
+  /SELECT id FROM textbook_files WHERE active = 1 AND name = \? AND size_bytes = \?/.test(aapi));
+check('🔴 건너뜀은 «실패» 가 아니다 (ok:true + skipped) — 화면이 오류로 오해하면 안 된다',
+  /skipped: true, reason: 'duplicate'/.test(aapi));
+check('🔴 건너뛸 때는 R2 에도 안 쓴다 (중복 판정이 r2.put 앞에 있다)',
+  aapi.indexOf("reason: 'duplicate'") < aapi.indexOf('const key = `textbook-files/'));
+check('업로더가 «새로 올린 것» 과 «이미 있어 건너뛴 것» 을 나눠 센다',
+  /srvDup/.test(uploader) && /if \(j && j\.skipped\) srvDup\+\+/.test(uploader));
+check('🔴 건너뛴 것을 «올렸다» 고 말하지 않는다 (완료 문구에 건너뜀 개수가 나온다)',
+  /이미 있어 건너뜀/.test(uploader));
+check('🌐 «이미 있다» 안내가 한/영 둘 다다', /already in the library/.test(uploader));
+
+/* 유닛 뭉개짐 — BTS 2 가 762장 한 덩어리가 된 원인 */
+check('숫자만으로 된 폴더(001·002)를 유닛으로 인식한다',
+  /\^\(\\d\{1,3\}\)\(\?:\\s\*\[\.\\-_\)\]\\s\*\.\+\)\?\$/.test(uploader));
+check('🔴 파일 이름은 유닛 판정에 쓰지 않는다 (Slide3.JPG 의 3 을 유닛으로 읽으면 안 된다)',
+  /for \(let i = dirParts\.length - 1; i >= 1; i--\)/.test(uploader));
+check('유닛을 교재 이름에 붙여 «유닛마다 별도 카드» 가 되게 한다 (마이마이 요청 형태)',
+  /textbook = textbook \+ ' ' \+ unitLabel/.test(uploader));
+check('🔴 이미 이름이 붙은 폴더(제1과·Unit 1)는 기존 규칙이 먼저 잡는다 (기존 분류 불변)',
+  /if \(!lesson\) \{[\s\S]{0,400}dirParts\.length - 1/.test(uploader));
+
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

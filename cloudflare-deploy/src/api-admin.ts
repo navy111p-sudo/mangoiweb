@@ -9723,6 +9723,26 @@ LIMIT $limit`;
         const r2 = (env as any).RECORDINGS;
         if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
 
+        /* 🔁 (2026-08-14 마이마이) 「같은 책이 여러 번 올라가 페이지가 2~3배가 됐다」
+           ═══════════════════════════════════════════════════════════════════════
+           [실측] 운영 DB 38,922행 중 고유 페이지는 17,170개 — **평균 2.3배**,
+              BTS 1 은 5배였다(115장짜리 책의 실제 내용은 23장). R2 오브젝트도 38,922개라
+              약 3.3GB 가 같은 그림의 사본이었다.
+           [원인] 이 API 는 **같은 파일을 또 올려도 그냥 새 행 + 새 R2 오브젝트를 만들었다.**
+              업로드를 두 번 하면 책이 두 배가 된다 — 사람이 조심하는 것으로 막을 수 없다.
+           [고침] 이름과 크기가 똑같은 파일이 이미 있으면 **올리지 않고 건너뛴다.**
+              R2 에도 쓰지 않으므로 저장공간도 안 늘어난다.
+           ⚠️ 실패가 아니라 «건너뜀» 이다 — 화면이 오류로 오해하지 않게 ok:true 로 답하고
+              skipped 를 함께 준다(업로더가 이 값을 세어 «N개는 이미 있어 건너뜀» 이라고 알린다).
+           ⚠️ 이름+크기가 같아도 내용이 다를 가능성은 남는다. 그래도 «같은 책을 두 번 올리는»
+              실제 사고를 막는 편이 이득이 훨씬 크다(교재는 덮어쓸 일이 거의 없다). */
+        const dupRow: any = await env.DB.prepare(
+          `SELECT id FROM textbook_files WHERE active = 1 AND name = ? AND size_bytes = ? LIMIT 1`
+        ).bind(rawName, file.size).first().catch(() => null);
+        if (dupRow && dupRow.id) {
+          return json({ ok: true, skipped: true, reason: 'duplicate', id: dupRow.id, name: rawName });
+        }
+
         const key = `textbook-files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
         const buf = await file.arrayBuffer();
         await r2.put(key, buf, {
