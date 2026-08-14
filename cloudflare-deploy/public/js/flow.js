@@ -716,13 +716,19 @@
      카톡·문자앱 인앱 브라우저(WebView)와 홈 화면 설치형(standalone)은 파일 다운로드
      기능 자체가 없어서, <a download> 를 눌러도 **에러조차 없이 조용히 무시**된다
      (window.open null 함정과 같은 계열 — CLAUDE.md 2절). 일반 크롬·사파리는 이 코드가
-     개입하지 않고 기본 다운로드 그대로 둔다.
+     개입하지 않고 기본 <a download> 그대로 둔다.
        ① 안드로이드 카톡 인앱 → 외부 브라우저(크롬)로 다운로드 URL 을 바로 연다
           (inapp-escape.js 의 kakaotalk://web/openExternal 방식). 열린 크롬엔 로그인
           쿠키가 없지만, 서버가 URL 에 동봉한 &sig=/&token= 만으로 인증된다(2026-08-13).
-       ② 그 외 인앱·설치형 → 새 창을 시도하고, 막히면 같은 창 이동(서버가 첨부 응답이라
-          지원되는 환경에선 화면 유지 + 다운로드). 그리고 «다른 브라우저로 열기» 안내
-          토스트를 띄운다 — 무슨 일이 일어나는지 최소한 보이게 하는 것이 핵심. */
+       ② 그 외 인앱·설치형 → 안내 시트를 띄워 버튼으로 잇는다(아래 recDlGuide).
+     🪤 1차 시도(같은 날)는 window.open 자동 시도 + «다른 브라우저로 열기» 토스트였는데,
+        갤럭시 설치형(PWA)에서 새 창이 조용히 안 열렸고, 설치형 앱엔 «다른 브라우저로
+        열기» 메뉴 자체가 없어 사용자가 «이게 무슨 뜻이냐»고 했다(원장님 실사용 피드백).
+        그래서 자동 시도 대신 **눌러서 실행하는 큰 버튼 2개**로 바꿨다 —
+        · «크롬(브라우저)으로 저장» = 안드로이드는 intent:// 로 기본 브라우저 앱을 직접
+          호출(설치형·인앱 모두에서 외부 브라우저가 뜬다), 그 외는 window.open→location.
+        · «저장 주소 복사» = 어떤 환경에서도 통하는 최후 수단. 주소만 있으면 아무
+          브라우저에서나 받아진다(&sig=/&token= 이 인증을 대신하므로 로그인 불필요). */
   function recDlEnv() {
     var ua = '';
     try { ua = String(navigator.userAgent || '').toLowerCase(); } catch (_) {}
@@ -739,18 +745,68 @@
       kakaoAndroid: ua.indexOf('kakaotalk') !== -1 && ua.indexOf('android') !== -1
     };
   }
-  function recDlToast(msg) {
-    try {
-      var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
-      if (!ov) return;
-      var t = doc.createElement('div');
-      t.style.cssText = 'position:absolute;left:50%;bottom:26px;transform:translateX(-50%);max-width:88%;' +
-        'background:#1e293b;color:#e2e8f0;border:1px solid #475569;border-radius:12px;' +
-        'padding:12px 16px;font-size:13px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.5)';
-      t.textContent = msg;
-      ov.appendChild(t);
-      setTimeout(function () { try { t.parentNode && t.parentNode.removeChild(t); } catch (_) {} }, 8000);
-    } catch (_) {}
+  // 다운로드가 막힌 환경용 안내 시트 — 설명 + 실행 버튼. (토스트 한 줄은 «뭘 하라는
+  // 거냐»는 반응만 남겼다. 사용자가 직접 누르는 버튼이어야 팝업 차단에도 안 걸린다)
+  function recDlGuide(abs) {
+    var doc = recDoc(), ov = doc.getElementById('mango-rec-overlay');
+    if (!ov) return;
+    var old = ov.querySelector('[data-rec-dl-guide]');
+    if (old) { old.parentNode.removeChild(old); }
+    var isAndroid = /android/i.test(navigator.userAgent || '');
+    var sheet = doc.createElement('div');
+    sheet.setAttribute('data-rec-dl-guide', '1');
+    sheet.style.cssText = 'position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:min(92%,420px);' +
+      'background:#0f172a;color:#e2e8f0;border:1px solid #475569;border-radius:16px;' +
+      'padding:18px 16px;font-size:14px;line-height:1.65;box-shadow:0 16px 50px rgba(0,0,0,.65)';
+    sheet.innerHTML =
+      '<div style="font-weight:800;font-size:15px;margin-bottom:6px">' + T('📥 파일 저장 안내', '📥 How to save the file') + '</div>' +
+      '<div style="color:#94a3b8;font-size:13px;margin-bottom:12px">' +
+        T('지금 보시는 화면(설치한 앱·카톡 등)은 파일 다운로드를 지원하지 않아요. 아래 버튼으로 브라우저에서 저장해 주세요.',
+          'This screen (installed app / in-app viewer) cannot download files. Use a button below to save via your browser.') + '</div>' +
+      '<button data-dlg-open style="display:block;width:100%;background:linear-gradient(135deg,#22c55e,#16a34a);color:#052e16;border:0;border-radius:12px;padding:13px;font-size:15px;font-weight:800;cursor:pointer;margin-bottom:8px">' +
+        T('🌐 크롬(브라우저)으로 저장', '🌐 Save via Chrome/browser') + '</button>' +
+      '<button data-dlg-copy style="display:block;width:100%;background:rgba(148,163,184,.16);color:#e2e8f0;border:0;border-radius:12px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:8px">' +
+        T('🔗 저장 주소 복사 (브라우저에 붙여넣기)', '🔗 Copy download link (paste in a browser)') + '</button>' +
+      '<button data-dlg-close style="display:block;width:100%;background:transparent;color:#94a3b8;border:0;padding:8px;font-size:13px;font-weight:700;cursor:pointer">' + T('닫기', 'Close') + '</button>';
+    ov.appendChild(sheet);
+    var bOpen = sheet.querySelector('[data-dlg-open]');
+    bOpen.addEventListener('click', function () {
+      if (isAndroid) {
+        // intent:// = 안드로이드가 «기본 브라우저 앱»을 직접 띄우는 공식 통로.
+        //   설치형(PWA)·대부분의 인앱에서 window.open 이 조용히 죽는 것과 달리 앱 전환이
+        //   눈에 보이고, 열린 브라우저가 첨부 응답을 받아 바로 다운로드한다.
+        try {
+          var u = new URL(abs);
+          topWin().location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=https;action=android.intent.action.VIEW;end';
+          return;
+        } catch (_) {}
+      }
+      var wn = null;
+      try { wn = w.open(abs, '_blank'); } catch (_) { wn = null; }
+      if (!wn) { try { topWin().location.href = abs; } catch (_) {} }   // 새 창이 막히면 같은 창(첨부 응답이라 화면 유지)
+    });
+    sheet.querySelector('[data-dlg-copy]').addEventListener('click', function (ev) {
+      var btn = ev.currentTarget;
+      var done = function (ok) {
+        btn.textContent = ok
+          ? T('✅ 복사됐어요! 크롬 주소창에 붙여넣으면 저장돼요', '✅ Copied! Paste it into the Chrome address bar to save')
+          : T('복사가 막혔어요 — 아래 주소를 길게 눌러 복사해 주세요', 'Copy blocked — long-press the address below');
+        if (!ok) {
+          var box = doc.createElement('div');
+          box.style.cssText = 'margin-top:8px;padding:8px;background:#1e293b;border-radius:8px;font-size:11px;word-break:break-all;user-select:all;-webkit-user-select:all';
+          box.textContent = abs;
+          btn.parentNode.insertBefore(box, btn.nextSibling);
+        }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(abs).then(function () { done(true); }, function () { done(false); });
+        } else { done(false); }
+      } catch (_) { done(false); }
+    });
+    sheet.querySelector('[data-dlg-close]').addEventListener('click', function () {
+      try { sheet.parentNode.removeChild(sheet); } catch (_) {}
+    });
   }
   function recDlClick(e, a) {
     var env = recDlEnv();
@@ -762,11 +818,7 @@
       // 카톡 안드로이드: 외부 크롬으로 직접 — 열리면서 바로 저장이 시작된다
       try { topWin().location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(abs); return; } catch (_) {}
     }
-    var wn = null;
-    try { wn = w.open(abs, '_blank'); } catch (_) { wn = null; }
-    if (!wn) { try { topWin().location.href = abs; } catch (_) {} }   // 인앱은 새 창 불가 → 같은 창(첨부 응답)
-    recDlToast(T('저장이 시작되지 않으면: 우측 상단 메뉴에서 «다른 브라우저로 열기»(크롬/사파리)를 누른 뒤 다시 시도해 주세요.',
-      'If the download does not start, open this page in Chrome/Safari via the in-app menu and try again.'));
+    recDlGuide(abs);
   }
 
   function bindRecButtons() {
