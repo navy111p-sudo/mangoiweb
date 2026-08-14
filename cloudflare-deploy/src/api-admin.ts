@@ -30,6 +30,7 @@ import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버�
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
 import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
+import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
@@ -10186,11 +10187,21 @@ LIMIT $limit`;
        ⚠️ 새 API 등록 3종 세트를 잊지 말 것: index.ts 게이트 + api-mango 위임 가드
           + (재무 데이터라) index.ts TEACHER_BLOCKED_PREFIXES — 셋 다 했다(2026-08-13). */
     if (method === 'POST' && path === '/api/admin/corpcard/sync') {
+      /* 🔀 프로바이더 선택 (2026-08-14) — 바로빌 키가 있으면 바로빌, 없으면 기존 CODEF.
+         CODEF 정식 견적이 월 80만원이라 바로빌(월 3,300원)로 옮기는 중이다. 두 경로를
+         함께 두는 이유: 시크릿만 넣으면 전환되고, 문제가 생겨도 되돌릴 자리가 남는다. */
+      if (barobillConfigured(env)) {
+        const sync = await runBarobillSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+        const data = await corpcardData(env, url.searchParams.get('month') || undefined);
+        const status = await corpcardStatus(env, data).catch(() => null);
+        return json({ ok: true, provider: 'barobill', sync, data, status });
+      }
       if (!corpcardConfigured(env)) {
         return json({
-          ok: false, error: 'codef_not_configured',
-          message: 'CODEF 키가 아직 등록되지 않았습니다. CODEF 가입 → 신한카드 기업회원 등록(connectedId 발급) → wrangler secret 3개 등록 후 사용할 수 있습니다.',
-          message_en: 'CODEF keys are not configured yet.',
+          ok: false, error: 'not_configured',
+          missing_barobill: baroMissing(env),
+          message: '카드사 연동 키가 등록되지 않았습니다. 바로빌 시크릿 4개(BAROBILL_CERTKEY/CORPNUM/ID/CARDNUM)를 등록하면 바로 동작합니다.',
+          message_en: 'No card provider keys configured. Set the four BAROBILL_* secrets.',
         });
       }
       const sync = await runCorpCardSync(env).catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
@@ -10204,8 +10215,15 @@ LIMIT $limit`;
        ⛔ 돌아오는 건 CODEF 의 데모 거래다. 그래서 dryRun 고정 — D1 에 한 줄도 안 쓰고,
           «마지막 동기화» 기록도 안 덮는다. 화면에서도 회계 표가 아니라 진단 상자에만 뜬다. */
     if (method === 'POST' && path === '/api/admin/corpcard/selftest') {
+      /* 바로빌은 «연습용 응답» 이라는 개념이 없다(실계정 = 실데이터). 그래서 자가진단도
+         실제 조회를 하되 dryRun 으로 **적재만 안 한다** — 접속·인증·파싱까지 확인된다. */
+      if (barobillConfigured(env)) {
+        const result = await runBarobillSync(env, { dryRun: true })
+          .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
+        return json({ ok: true, provider: 'barobill', demo: false, result });
+      }
       if (!corpcardConfigured(env)) {
-        return json({ ok: false, error: 'codef_not_configured' });
+        return json({ ok: false, error: 'not_configured', missing_barobill: baroMissing(env) });
       }
       const result = await runCorpCardSync(env, { base: CODEF_SANDBOX_BASE, dryRun: true })
         .catch((e: any) => ({ ok: false, errors: [String(e?.message || e)] }));
@@ -10229,13 +10247,19 @@ LIMIT $limit`;
         id_fp: await secretFp8((env as any).CODEF_CLIENT_ID),
         secret_fp: await secretFp8((env as any).CODEF_CLIENT_SECRET),
       };
+      // 💳 바로빌 진단 — 값은 절대 노출하지 않고 «어느 항목이 비었는지» 이름만 (2026-08-14)
+      const barobill = {
+        configured: barobillConfigured(env),
+        missing: baroMissing(env),
+        ws: baroCreds(env).ws,          // 접속 주소는 값이 아니라 설정이라 그대로 보여 준다
+      };
       const data = await corpcardData(env, url.searchParams.get('month') || undefined);
       const status = await corpcardStatus(env, data).catch(() => null);
       /* ⚠️ (2026-08-13) 예전엔 여기서 «적재분이 없으면 codef_not_configured» 로 답했다.
          그래서 키가 멀쩡한데도(=샌드박스 계정이라 조회만 막힌 상태) 화면은 «연동 안 됨» 이라고
          말했고, 진짜 원인(CF-00017)은 아무 데도 안 보였다. 이제는 항상 ok:true 로 답하고
          «무엇이 왜 비었는지» 는 status 가 설명한다. */
-      return json({ ok: true, configured, have, data, status });
+      return json({ ok: true, configured, have, barobill, data, status });
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
