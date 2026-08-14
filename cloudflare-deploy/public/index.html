@@ -2315,14 +2315,35 @@
         .chat-target-chip.dm.active { background: rgba(245,158,11,0.22); border-color: #f59e0b; color: #fde68a; }
         .chat-msg.dm .msg-bubble { border: 1.5px solid #f59e0b; }
         .msg-dm-tag { font-size: 0.65rem; color: #fbbf24; font-weight: 800; margin-bottom: 2px; }
-        /* 비디오 박스의 💬 개별채팅 버튼 (우상단) */
+        /* 비디오 박스의 💬 개별채팅 버튼
+           💬 (2026-08-14 Melca 8/13) "아이콘이 너무 작다 — 조금 더 크게, 강사 이름 위쪽에 놓아 달라"
+             [옛 상태] 글자 13px · 여백 4×9px = 실제 누를 수 있는 면적이 약 21px. 권장(40px)의 절반이고,
+               위치도 «우상단» 이라 이름표(좌하단)와 대각선으로 멀어 «이 사람에게 보낸다» 는 뜻이 약했다.
+               이것이 Melca 의 「강사에게 메시지를 보냈는데 안 보인다 → BODA 같은 1:1 을 만들어 달라」
+               요청의 실제 뿌리다 — 기능은 2026-07-14 부터 있었고 입구를 못 찾은 것이다.
+             [수리] 요청대로 «이름표 바로 위» 로 옮기고 34×34px 로 키운다. 좌하단 모서리라
+               얼굴을 가리지 않는다(가운데로 올리면 얼굴을 덮는다).
+             ⚠️ bottom 값은 이름표(.video-strip .video-label — bottom:6px, 높이 약 22px)와 «붙어 보이도록»
+               맞춘 값이다. 이름표 위치를 바꾸면 여기도 함께 바꿔야 한다. */
         .vc-dm-btn {
-            position: absolute; top: 8px; right: 8px; z-index: 8;
-            background: rgba(15,23,42,0.72); color: #fff;
-            border: 1px solid rgba(148,163,184,0.35); border-radius: 999px;
-            padding: 4px 9px; font-size: 13px; line-height: 1; cursor: pointer;
+            position: absolute; left: 8px; bottom: 32px; z-index: 8;
+            display: flex; align-items: center; justify-content: center;
+            min-width: 34px; min-height: 34px;
+            background: rgba(15,23,42,0.82); color: #fff;
+            border: 1px solid rgba(148,163,184,0.5); border-radius: 999px;
+            padding: 0 6px; font-size: 17px; line-height: 1; cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,.45);
         }
         .vc-dm-btn:hover { background: rgba(37,99,235,0.85); }
+        /* 🔒 지금 이 사람과 개별 채팅 중이면 색으로 말해 준다 — 예전엔 어디로 보내는지
+           채팅 패널 칩을 봐야만 알 수 있었다(전체에 보낸 줄 알고 비밀을 흘리는 사고 방지). */
+        .vc-dm-btn.on {
+            background: rgba(245,158,11,0.92); border-color: #fbbf24; color: #1a1a1a;
+        }
+        /* 📱 좁은 화면 — 타일과 이름표가 함께 작아지므로 버튼도 같이 줄인다(안 줄이면 얼굴을 덮는다) */
+        @media (max-width: 920px) {
+            .vc-dm-btn { left: 4px; bottom: 24px; min-width: 28px; min-height: 28px; font-size: 14px; }
+        }
 
         /* 채팅 알림 배지 */
         .chat-badge {
@@ -8251,12 +8272,24 @@ window.mgIsSlowNet = function(){
                      버튼은 원래 이 상단 툴바에 있었지만, 옆 칩들과 생김새가 똑같아 «학생을 제어하는 것» 이라는
                      신호가 없었다. 기능은 그대로 두고 ① 한 묶음으로 모으고 ② 앞에 이름표를 달고
                      ③ 마우스를 올리면 설명이 뜨게 한다. 라벨은 vcClassLockChipsRender 가 상태에 맞춰 다시 쓴다. -->
-                <span id="vc-studentctl-label" class="vc-classlock-chip" style="display:none;align-items:center;padding:5px 4px 5px 10px;margin-left:4px;border-left:1px solid rgba(148,163,184,0.35);font-size:11.5px;font-weight:800;color:#94a3b8;white-space:nowrap" data-ko="👥 학생 제어" data-en="👥 Student controls">👥 학생 제어</span>
+                <!-- 🏷 (2026-08-14 Melca 8/13) "Student Control 이 무엇인가? 눌러도 아무 반응이 없다"
+                       고장이 아니라 «묶음 이름표» 인데, 옆 버튼들과 «같은 클래스(vc-classlock-chip)» 를 달아
+                       버튼처럼 보이게 해 놓고 툴팁도 안 달았다. 누른 쪽이 아니라 만든 쪽 잘못이다.
+                     → ① 대문자·자간 넓힌 «제목» 글꼴로 바꾸고 cursor:default + user-select:none
+                        ② 무엇을 뜻하는지 한/영 툴팁을 단다
+                        ③ 오른쪽 끝에도 구분선을 넣어 «어디까지가 이 묶음인지» 를 눈으로 보이게 한다
+                          (오른쪽 선은 vc-studentctl-end 가 담당 — 집중 모드 칩 뒤에 있다)
+                     ⚠️ class 는 그대로 둔다 — vcClassLockChipsRender 가 칩들과 «같은 조건» 으로
+                        켜고 끈다. 따로 떼면 학생 화면에 이름표만 남는다. -->
+                <span id="vc-studentctl-label" class="vc-classlock-chip" title="아래 세 버튼은 학생을 제어합니다 — 전체 음소거 · 학생 필기 잠그기 · 집중 모드. 이 글자 자체는 누르는 버튼이 아니라 묶음 이름입니다." data-ko-title="아래 세 버튼은 학생을 제어합니다 — 전체 음소거 · 학생 필기 잠그기 · 집중 모드. 이 글자 자체는 누르는 버튼이 아니라 묶음 이름입니다." data-en-title="The three buttons to the right control the students — Mute all, Lock student drawing, Focus mode. This text is a group label, not a button." style="display:none;align-items:center;padding:5px 6px 5px 10px;margin-left:4px;border-left:1px solid rgba(148,163,184,0.35);font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;white-space:nowrap;cursor:default;-webkit-user-select:none;user-select:none;background:none" data-ko="👥 학생 제어" data-en="👥 Student controls">👥 학생 제어</span>
                 <!-- 🔒 강사 전용 수업 통제 칩: 전체 음소거 / 집중 모드 (vcClassLockChipsRender 가 노출·라벨·색 관리) -->
                 <button id="vc-miclock-btn" type="button" class="vc-classlock-chip" onclick="vcMicLockToggle()" title="학생 전체의 마이크를 한 번에 끕니다. 다시 누르면 풀립니다." data-ko-title="학생 전체의 마이크를 한 번에 끕니다. 다시 누르면 풀립니다." data-en-title="Mute every student at once. Press again to unmute." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎤 전체 음소거</button>
                 <!-- ✋ (2026-07-28 Kaye 9번) 학생이 교재·칠판에 낙서하는 것을 교사가 막는 버튼 — 교사·관리자에게만 보임 -->
                 <button id="vc-drawlock-btn" type="button" class="vc-classlock-chip" onclick="vcDrawLockToggle()" title="학생이 교재·칠판에 펜·텍스트로 쓰거나 「전체 지우기」를 누르는 것을 막습니다. 선생님은 그대로 쓸 수 있어요." data-ko-title="학생이 교재·칠판에 펜·텍스트로 쓰거나 「전체 지우기」를 누르는 것을 막습니다. 선생님은 그대로 쓸 수 있어요." data-en-title="Stops students writing on the textbook or whiteboard with the pen or text tool, and from pressing Clear. You are not affected." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">✋ 학생 필기 잠그기</button>
                 <button id="vc-focuslock-btn" type="button" class="vc-classlock-chip" onclick="vcFocusLockToggle()" title="학생이 다른 탭(칠판·동영상·게임 등)으로 옮기지 못하게 묶어 둡니다 — 선생님이 보여 주는 화면만 봅니다." data-ko-title="학생이 다른 탭(칠판·동영상·게임 등)으로 옮기지 못하게 묶어 둡니다 — 선생님이 보여 주는 화면만 봅니다." data-en-title="Keeps students on your screen — they cannot switch to other tabs (whiteboard, video, games)." style="display:none;border:none;border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#fff;cursor:pointer;background:#16a34a">🎯 집중 모드</button>
+                <!-- 🏷 학생 제어 묶음의 «끝» 표시 — 이름표(왼쪽 선)와 짝. 이게 없으면 어디까지가
+                     한 묶음인지 눈으로 알 수 없어 Melca 가 이름표를 버튼으로 읽은 그 상황이 남는다. -->
+                <span id="vc-studentctl-end" class="vc-classlock-chip" aria-hidden="true" style="display:none;align-self:stretch;width:1px;margin:4px 2px 4px 6px;background:rgba(148,163,184,0.35)"></span>
                 <!-- 🗂 (2026-07-28) 우측 얼굴·도구 사이드바 접기/펼치기 — 교재를 전체 폭으로.
                      라벨·툴팁은 mg-vc-right-sidebar 블록의 JS가 상태·언어에 맞춰 다시 씀. -->
                 <button id="vc-side-collapse-btn" type="button" onclick="vcToggleVideoSidebar()" title="얼굴·도구 사이드바 접기 (교재를 전체 폭으로)" style="margin-left:auto;border:1px solid rgba(148,163,184,0.35);border-radius:8px;padding:5px 10px;font-size:12px;font-weight:800;color:#e2e8f0;cursor:pointer;background:rgba(148,163,184,0.18);white-space:nowrap">› 얼굴 접기</button>
@@ -8729,7 +8762,9 @@ window.mgIsSlowNet = function(){
 
         <!-- 🧠 복습퀴즈 탭 (학생 사이드바와 동일한 퀴즈 + AI 자동 출제) -->
         <div class="tab-panel" id="tab-review-quiz" style="flex-direction:column;background:#0a1530;color:#e6ecff">
-          <div style="padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.18);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
+          <!-- 🚫 id="rqv-tools" — 수업 중 차단(_rqvRenderBlocked)이 이 도구 바를 통째로 감춘다.
+               남겨 두면 「🤖 이 수업 맞춤 퀴즈」 버튼이 차단 화면 위에 살아 있어 그대로 눌린다. -->
+          <div id="rqv-tools" style="padding:12px 16px;border-bottom:1px solid rgba(251,191,36,0.18);display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex-shrink:0">
             <button onclick="vcReviewQuizBackToClass()" title="수업 화면으로 돌아가기" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid rgba(148,163,184,0.4);border-radius:8px;background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;font-weight:800;cursor:pointer" data-ko="← 수업으로" data-en="← Back to class">← <span data-ko="수업으로" data-en="Back to class">수업으로</span></button>
             <span style="font-size:14px;font-weight:800;color:#fbbf24">🧠 <span data-ko="복습퀴즈" data-en="Review Quiz">복습퀴즈</span></span>
             <!-- 🧑‍🎓 (2026-08-12 사장님) 학생 전용임을 화면에 명시 — 강사 혼란 방지 -->
@@ -8898,7 +8933,7 @@ window.mgIsSlowNet = function(){
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=23"></script>
+<script src="/js/idx-main.js?v=24"></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -12942,6 +12977,15 @@ window.mgIsSlowNet = function(){
       font-size: 9px !important;
       opacity: 0.85;
     }
+    /* 💬 (2026-08-14 Melca) 개별채팅 버튼은 «이름표 바로 위» 다 — 이름표가 여기서 작아지므로
+       버튼도 그 위로 따라 내려와야 한다. 이 규칙이 없으면 좁은 화면에서 이름표와 버튼 사이가
+       한참 벌어져 «이 사람에게 보낸다» 는 뜻이 다시 흐려진다(위 .vc-dm-btn 주석과 짝). */
+    #vc-video-grid .vc-dm-btn {
+      bottom: 20px !important;
+      left: 3px !important;
+      min-width: 28px !important; min-height: 28px !important;
+      font-size: 14px !important;
+    }
   }
 
   body.vc-in-call .wb-toolbar.ph49-collapsed > *:not(.ph49-tool-toggle),
@@ -15050,7 +15094,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
      ============================================================ -->
 <link rel="stylesheet" href="/css/vc-refresh.css?v=10"><!-- 수업 중 화면 비주얼 리프레시 Phase9: +휴대폰 세로 하단 플로팅 컨트롤 독 (추가형 / 빼면 즉시 원복) -->
 <script src="/js/vc-spotlight.js?v=3" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
-<script src="/js/vc-dock.js?v=19" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
+<script src="/js/vc-dock.js?v=20" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
 <script src="/js/mango-rec.js?v=46" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
@@ -16829,7 +16873,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=5"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=6"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=7"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->

@@ -30,6 +30,17 @@
     '  -webkit-backdrop-filter:blur(16px) saturate(1.2);backdrop-filter:blur(16px) saturate(1.2);',
     '  border:1px solid rgba(255,255,255,.18);box-shadow:0 18px 48px rgba(0,0,0,.55);max-width:96vw;flex-wrap:nowrap;}',
     'body.vc-in-call #vc-dock{display:inline-flex;}',
+    /* 🛡 (2026-08-14 HT Ness ①) "하단 아이콘이 «수업에 들어갈 때» 실수로 눌린다 — 없애거나 위로 옮겨 달라"
+       위로 옮기는 길은 이미 있다(⇕ 아래 → 작게 → 위). 그런데 «위로 옮기는 것» 으로는 이 문제가 안 풀린다 —
+       상단으로 가면 상단에서 실수로 눌린다. 실제로 겨냥해야 할 것은 «입장 직후» 와 «가릴 때» 두 가지다.
+         ① 입장 직후 3초는 눌리지 않는다(vc-dock-arming). 그 사이 무엇을 기다리는지 글로 말해 준다.
+         ② 5초간 아무 조작이 없으면 옅어진다(vc-dock-idle). 마우스를 대면 바로 진해진다.
+       ⚠️ opacity 를 0 으로 두지 않는다 — 백그라운드 탭·저전력에서 transition 이 멈추면 영영 안 보인다.
+          그래서 «기본이 보이는 상태» 이고, 클래스가 붙을 때만 옅어진다(클래스가 못 붙으면 그냥 잘 보인다). */
+    '#vc-dock{transition:opacity .22s ease;}',
+    'body.vc-dock-arming #vc-dock{pointer-events:none;opacity:.5;}',
+    'body.vc-dock-idle:not(.vc-dock-arming) #vc-dock{opacity:.42;}',
+    '#vc-dock:hover{opacity:1 !important;}',
     '#vc-dock button{background:rgba(255,255,255,.12);border:none;color:#eef2f8;border-radius:13px;',
     /* 데스크톱 크기 확대 (2026-07-22, 강사 피드백 #7) — 58×52/9px 은 라벨을 읽기 어렵다는 지적.
        560px 이하 모바일·가로모드는 아래 미디어쿼리가 따로 잡으므로 영향 없음. */
@@ -808,11 +819,67 @@
     syncTopOffset();   // 📏 상단 바 높이가 바뀌면(가로/세로·접힘) 「위로」 자리도 따라간다
   }
 
+  /* 🛡 (2026-08-14 HT Ness ①) 입장 직후 잠금 + 유휴 시 옅어짐 — 위 STYLE 주석과 짝 */
+  var ARM_MS = 3000, IDLE_MS = 5000;
+  var armUntil = 0, idleT = null;
+  function armDock(){
+    if (!document.body) return;
+    armUntil = Date.now() + ARM_MS;
+    document.body.classList.add('vc-dock-arming');
+    try { showHint(isEn() ? 'Menu unlocks in a moment' : '잠시 후 메뉴를 쓸 수 있어요'); } catch(_){}
+    /* setTimeout 하나에만 기대지 않는다 — 백그라운드 탭에서 늦게 깨면 독이 잠긴 채로 남는다.
+       1.5초 틱이 armUntil 을 같이 보므로, 어느 쪽이 먼저 오든 풀린다. */
+    setTimeout(disarmIfDue, ARM_MS + 40);
+  }
+  function disarmIfDue(){
+    if (!document.body) return;
+    if (armUntil && Date.now() >= armUntil) {
+      armUntil = 0;
+      document.body.classList.remove('vc-dock-arming');
+    }
+  }
+  var lastWake = 0;
+  function wakeDock(){
+    if (!document.body) return;
+    document.body.classList.remove('vc-dock-idle');
+    clearTimeout(idleT);
+    idleT = setTimeout(function(){
+      /* 설정 팝업이 열려 있는 동안에는 옅게 만들지 않는다 — 읽는 중에 흐려지면 그게 더 불편하다 */
+      if (setPop && setPop.classList.contains('open')) return wakeDock();
+      if (document.body && document.body.classList.contains('vc-in-call')) document.body.classList.add('vc-dock-idle');
+    }, IDLE_MS);
+  }
+  /* ⚡ mousemove 는 초당 수십 번 온다. 그때마다 classList 를 만지면 수업 중 메인 스레드에
+     쓸데없는 일이 쌓인다 — 우리가 지금 고치고 있는 «깜빡임»(Ness ②·Belle ②)과 같은 뿌리다.
+     → ① 수업 중이 아니면 아무것도 안 한다  ② 옅어져 있으면 «즉시» 깨우고(반응성),
+       그 외에는 400ms 에 한 번만 타이머를 다시 건다(정확도는 초 단위면 충분하다). */
+  function onActivity(){
+    if (!document.body || !document.body.classList.contains('vc-in-call')) return;
+    var now = Date.now();
+    if (!document.body.classList.contains('vc-dock-idle') && now - lastWake < 400) return;
+    lastWake = now;
+    wakeDock();
+  }
+  ['mousemove','mousedown','touchstart','keydown','wheel'].forEach(function(ev){
+    try { document.addEventListener(ev, onActivity, { passive: true, capture: true }); } catch(_){}
+  });
+
   var wasInCall = false;
   function tick(){
     var inCall = !!(document.body && document.body.classList.contains('vc-in-call'));
-    if (inCall) { build(); if (!wasInCall) restoreCollapsed(); document.body.classList.add('vc-dock-on'); sync(); }
-    else if (document.body) { document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed'); document.body.classList.remove('vc-dock-open'); closeSettings(); }
+    if (inCall) {
+      build();
+      if (!wasInCall) { restoreCollapsed(); armDock(); wakeDock(); }
+      disarmIfDue();
+      document.body.classList.add('vc-dock-on'); sync();
+    }
+    else if (document.body) {
+      document.body.classList.remove('vc-dock-on'); document.body.classList.remove('vc-dock-collapsed');
+      document.body.classList.remove('vc-dock-open');
+      document.body.classList.remove('vc-dock-arming'); document.body.classList.remove('vc-dock-idle');
+      armUntil = 0; clearTimeout(idleT);
+      closeSettings();
+    }
     wasInCall = inCall;
   }
   if (document.readyState !== 'loading') { tick(); } else { document.addEventListener('DOMContentLoaded', tick); }

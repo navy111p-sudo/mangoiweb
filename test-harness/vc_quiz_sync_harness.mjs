@@ -111,9 +111,19 @@ check('수업 밖 혼자 풀기는 예전과 똑같다 (아무것도 안 보냄)
       /if \(!rqvInClass\(\)\) return;/.test(x8),
       '학생 사이드바 단독 퀴즈에 수업 코드가 끼어들면 안 된다');
 check('수신한 남의 답은 강사만 그린다', /if \(!rqvIsStaff\(\) \|\| !d\.uid\) return;/.test(onMsg));
+/* ⛔ LEN ① 회귀 방지 — 「학생은 답 없이 못 넘어간다」.
+   2026-08-14 에 강사 예외(사장님 방침: 복습퀴즈는 학생이 혼자 · 강사 화면은 미리보기)가
+   들어오면서 판정이 _navOff 로 옮겨졌다. 글자 그대로 찾던 옛 검사는 «옳게 고쳐도» 깨진다
+   → 규칙 자체(«답이 비었고 + 강사가 아니면 끈다»)를 본다.
+   ⚠️ 실제 실행 검증은 vc_quiz_nav_harness ①-b 가 값으로 한다. 여기선 규칙만 지킨다. */
 check('⛔ 학생의 「다음」 가드는 그대로다 (답 없이 못 넘어감)',
-      /st\.answers\[i\]==null\|\|st\.answers\[i\]===''\?'disabled':''/.test(x8.replace(/\s/g, '')),
+      /var_need=\(st\.answers\[i\]==null\|\|st\.answers\[i\]===''\)/.test(x8.replace(/\s/g, '')) &&
+      /var_navOff=_need&&!_staff/.test(x8.replace(/\s/g, '')) &&
+      /'\+\(_navOff\?'disabled':''\)\+'/.test(x8.replace(/\s/g, '')),
       '잇기를 만들다 LEN ① 수정을 되돌리면 안 된다');
+check('⛔ 강사 예외는 «강사일 때만» 열린다 (학생에게 새는 길이 없다)',
+      /_need&&!_staff/.test(x8.replace(/\s/g, '')) && /var_staff=rqvIsStaff\(\)/.test(x8.replace(/\s/g, '')),
+      '_staff 를 다른 값으로 바꾸면 학생도 빈칸으로 넘어간다');
 
 console.log('\n──────────────────────────────────────────');
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);

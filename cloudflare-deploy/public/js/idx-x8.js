@@ -243,17 +243,38 @@
       inner += '<div style="text-align:center"><button id="rqv-mic" onclick="rqvMic('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 '+(isEn()?'Record':'녹음하고 말하기')+'</button>'
         + '<div id="rqv-mic-status" style="font-size:12px;color:#a3b3d1;margin-top:10px">'+(st.answers[i]?('🗣 '+esc(st.answers[i])):(isEn()?'Tap to record your voice':'버튼을 누르고 또박또박 말해보세요'))+'</div></div>';
     }
+    /* 🧑‍🏫 (2026-08-14 강사 Shas 후속 ①) "복습퀴즈는 학생을 평가하는 것인데, 강사도 매번 답을
+       골라야 다음 문항으로 넘어간다 — 답 없이 넘길 수 있게 해 달라."
+       [원인] 이 버튼은 «누가 보고 있는가» 를 안 보고 «답이 비었는가» 만 봤다. 학생을 위해 만든
+         규칙(빈칸 제출 금지 — LEN ①)이 강사에게도 그대로 걸린 것이다.
+       [수리] 강사·관리자는 답 없이 문항을 넘긴다. 학생 규칙은 한 글자도 바꾸지 않는다.
+       ⛔ 강사에게 «제출» 은 열지 않는다 — 강사 계정으로 채점이 저장되면 학생 기록에 섞이고,
+          그 행은 사람이 지우기 전까지 남는다(rqvSubmit 은 uid 로 그대로 저장한다).
+          마지막 문항에서는 제출 버튼 대신 «학생의 제출을 기다립니다» 라고 말한다 —
+          그 순간은 현황 띠(#rqv-live)가 «✅ 제출 완료 + 점수» 로 보여 준다(Shas 5-c). */
+    var _staff = rqvIsStaff();
+    var _need = (st.answers[i] == null || st.answers[i] === '');
+    var _navOff = _need && !_staff;
     var navNext = (i<total-1)
-      ? '<button id="rqv-next" '+(st.answers[i]==null||st.answers[i]===''?'disabled':'')+' onclick="rqvMove(1)" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(st.answers[i]==null||st.answers[i]===''?'0.45':'1')+'">'+(isEn()?'Next →':'다음 →')+'</button>'
-      : '<button id="rqv-next" '+(st.answers[i]==null||st.answers[i]===''?'disabled':'')+' onclick="rqvSubmit()" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(st.answers[i]==null||st.answers[i]===''?'0.45':'1')+'">✅ '+(isEn()?'Submit':'제출하기')+'</button>';
+      ? '<button id="rqv-next" '+(_navOff?'disabled':'')+' onclick="rqvMove(1)" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(_navOff?'0.45':'1')+'">'+(_staff?(isEn()?'Next question →':'다음 문항 보기 →'):(isEn()?'Next →':'다음 →'))+'</button>'
+      : (_staff
+          ? '<div style="flex:1;padding:12px;border-radius:10px;background:rgba(96,165,250,0.14);border:1px solid rgba(96,165,250,0.38);color:#93c5fd;font-weight:800;font-size:12.5px;text-align:center;line-height:1.45">'
+            + (isEn() ? 'Last question — this is a preview only' : '마지막 문항이에요 — 여기까지가 미리보기입니다') + '</div>'
+          : '<button id="rqv-next" '+(_navOff?'disabled':'')+' onclick="rqvSubmit()" style="flex:1;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:800;cursor:pointer;font-size:13px;opacity:'+(_navOff?'0.45':'1')+'">✅ '+(isEn()?'Submit':'제출하기')+'</button>');
     /* 💡 (2026-08-11 강사 LEN ①) "학생이 퀴즈를 넘길 수가 없다"
        「다음 →」 은 답을 고르기 전에는 disabled 다(위 navNext). 그런데 화면에는 «흐린 버튼» 만
        보이고 왜 안 눌리는지 한 글자도 없었다 — 학생 눈에는 «고장난 버튼» 이다.
        특히 듣기 문항은 소리를 못 들으면 답을 고를 수 없어 영영 흐린 채로 남는다
        (자동재생이 막히면 소리가 안 난다) → 그때는 「다시 듣기」 를 함께 안내한다.
-       ⚠️ 버튼을 «항상 켜는» 것으로 고치면 안 된다. 답 없이 넘어가면 채점이 빈칸으로 제출된다. */
-    var _need = (st.answers[i] == null || st.answers[i] === '');
-    var _needMsg = _need
+       ⚠️ 버튼을 «항상 켜는» 것으로 고치면 안 된다. 답 없이 넘어가면 채점이 빈칸으로 제출된다.
+          (강사만은 예외다 — 위 _staff 주석 참고. 강사에게는 제출 자체가 없다.) */
+    var _needMsg = _staff
+      ? '<div style="margin-top:14px;padding:9px 12px;border-radius:10px;background:rgba(96,165,250,0.12);'
+        + 'border:1px solid rgba(96,165,250,0.32);color:#93c5fd;font-size:12.5px;line-height:1.5;text-align:center">'
+        + (isEn() ? 'Preview only — the Review Quiz is for the student to do alone after class. You do not have to answer.'
+                  : '미리보기입니다 — 복습퀴즈는 수업이 끝난 뒤 학생이 혼자 푸는 것이에요. 선생님은 답하지 않아도 됩니다.')
+        + '</div>'
+      : (_need
       ? '<div style="margin-top:14px;padding:9px 12px;border-radius:10px;background:rgba(251,191,36,0.12);'
         + 'border:1px solid rgba(251,191,36,0.35);color:#fcd34d;font-size:12.5px;line-height:1.5;text-align:center">'
         + (isEn() ? 'Pick an answer first — then “Next” turns on.' : '먼저 답을 고르세요 — 그래야 「다음」이 켜집니다.')
@@ -261,7 +282,7 @@
             ? '<br>' + (isEn() ? 'Can’t hear it? Tap ▶ Play again above.' : '소리가 안 들리면 위의 ▶ 다시 듣기를 눌러 주세요.')
             : '')
         + '</div>'
-      : '';
+      : '');
     var nav = _needMsg + '<div style="display:flex;gap:10px;margin-top:16px">'
       + (i>0?'<button onclick="rqvMove(-1)" style="flex:1;padding:13px;background:rgba(255,255,255,0.06);color:#e6ecff;border:1px solid rgba(251,191,36,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px">← '+(isEn()?'Prev':'이전')+'</button>':'')
       + navNext + '</div>'
@@ -271,7 +292,9 @@
        막히는 것은 정상이므로 실패로 취급하지 않고 «눌러 주세요» 안내로만 바꾼다(rqvSoundState). */
     if (typ==='listen') setTimeout(function(){ rqvPlay(i, true); }, 350);
   }
-  window.st_setText = function(v){ st.answers[st.idx]=v; var n=$('rqv-next'); if(n){ n.disabled=!v.trim(); n.style.opacity=v.trim()?'1':'0.45'; } rqvReportPick(); };
+  /* ⌨️ 글쓰기 문항 — 글자를 지우면 다시 꺼진다. 단 «강사» 는 renderQ 와 같은 이유로 계속 켜 둔다
+     (여기서 안 막으면, 강사가 글을 썼다 지우는 순간 버튼만 다시 꺼져 renderQ 와 어긋난다). */
+  window.st_setText = function(v){ st.answers[st.idx]=v; var n=$('rqv-next'); if(n && !rqvIsStaff()){ n.disabled=!v.trim(); n.style.opacity=v.trim()?'1':'0.45'; } rqvReportPick(); };
   window.rqvPick = function(k){ st.answers[st.idx]=k; renderQ(); rqvReportPick(); };
   /* 문항을 옮길 때도 알린다 — 강사가 «어디까지 갔는지» 를 봐야 5-c 의 어긋남을 눈치챈다 */
   window.rqvMove = function(d){ st.idx+=d; renderQ(); $('rqv-body').scrollTop=0; rqvReportPick(); };

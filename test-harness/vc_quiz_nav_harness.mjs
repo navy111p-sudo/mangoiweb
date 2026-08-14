@@ -37,17 +37,29 @@ console.log('\n════════ 학생이 퀴즈를 넘길 수 있는가
 /* ── ① 왜 안 눌리는지 말해 주는가 ───────────────────────── */
 console.log('▶ ① 「다음」이 꺼져 있는 이유를 알려 주는가');
 
-const s = js.indexOf('var _need = (st.answers[i]');
+/* 🧑‍🏫 (2026-08-14) 슬라이스 시작점이 `var _need` → `var _staff` 로 바뀌었다.
+   강사 예외(사장님 방침: 복습퀴즈는 학생이 혼자 푸는 것 · 강사 화면은 미리보기)가
+   _need «앞» 에서 정해지기 때문이다. 시작점을 안 옮기면 _staff 가 슬라이스 밖으로 나가
+   ReferenceError 로 죽는다 — «규칙이 바뀌면 검사도 바꾼다». */
+const s = js.indexOf('var _staff = rqvIsStaff();');
 const e = js.indexOf('var nav =', s);
 const block = s >= 0 && e > s ? js.slice(s, e) : '';
 check('안내문 생성 코드를 찾았다', block.length > 200);
 
 if (block.length > 200) {
-  const run = (answer, typ, en) => {
-    const sandbox = { st: { answers: { 0: answer } }, i: 0, typ, isEn: () => en };
+  const run = (answer, typ, en, staff) => {
+    const sandbox = { st: { answers: { 0: answer } }, i: 0, total: 3, typ,
+                      isEn: () => en, rqvIsStaff: () => !!staff };
     vm.createContext(sandbox);
-    vm.runInContext(block + '\nthis.__out = _needMsg;', sandbox, { timeout: 2000 });
+    vm.runInContext(block + '\nthis.__out = _needMsg; this.__nav = navNext;', sandbox, { timeout: 2000 });
     return sandbox.__out;
+  };
+  const runNav = (answer, en, staff, last) => {
+    const sandbox = { st: { answers: { 0: answer } }, i: last ? 2 : 0, total: 3, typ: 'mcq',
+                      isEn: () => en, rqvIsStaff: () => !!staff };
+    vm.createContext(sandbox);
+    vm.runInContext(block + '\nthis.__nav = navNext;', sandbox, { timeout: 2000 });
+    return sandbox.__nav;
   };
   const unanswered = run(null, 'mcq', false);
   const answered   = run('A',  'mcq', false);
@@ -63,11 +75,30 @@ if (block.length > 200) {
   check('듣기가 아닌 문항엔 그 안내를 붙이지 않는다', !unanswered.includes('다시 듣기'));
   const listenEn = run(null, 'listen', true);
   check('듣기 안내도 한/영 둘 다', listenEn.includes('Play again'));
-}
 
-check('⛔ 버튼을 «항상 켜는» 것으로 바꾸지 않았다 (빈칸 제출 방지)',
-      /st\.answers\[i\]==null\|\|st\.answers\[i\]===''\?'disabled':''/.test(js.replace(/\s/g, '')),
-      '답 없이 넘어가면 채점이 빈칸으로 들어간다');
+  /* ── 🧑‍🏫 (2026-08-14 사장님 방침 + 강사 Shas 후속 ①) 강사는 답 없이 넘긴다 ──
+     「복습퀴즈는 학생이 혼자 하는 것 · 수업시간에 하는 게 아니다」 →
+     강사 화면은 «미리보기» 다. 답을 강요하지 않고, 제출도 주지 않는다. */
+  console.log('\n▶ ①-b 강사 화면은 «미리보기» 인가 (답 강요 없음 · 제출 없음)');
+  const staffMsg = run(null, 'mcq', false, true);
+  check('강사에겐 «먼저 답을 고르세요» 를 띄우지 않는다', !staffMsg.includes('먼저 답을 고르세요'), staffMsg.slice(0, 60));
+  check('강사에겐 «미리보기» 라고 말해 준다', staffMsg.includes('미리보기'), staffMsg.slice(0, 80));
+  check('강사 안내도 한/영 둘 다', run(null, 'mcq', true, true).includes('Preview only'));
+
+  const staffNav = runNav(null, false, true, false);
+  check('강사는 답이 없어도 「다음」이 켜져 있다', !/disabled/.test(staffNav), staffNav.slice(0, 90));
+  check('강사 버튼은 «다음 문항 보기» 로 읽힌다', /다음 문항 보기/.test(staffNav));
+  const staffLast = runNav(null, false, true, true);
+  check('⛔ 강사에게 «제출하기» 를 주지 않는다 (학생 기록에 강사 점수가 섞인다)',
+        !/rqvSubmit\(\)/.test(staffLast), staffLast.slice(0, 90));
+  check('강사 마지막 문항은 «미리보기 끝» 이라고 말한다', /미리보기/.test(staffLast));
+
+  /* 학생 규칙은 한 글자도 바뀌면 안 된다 — LEN ① 회귀 방지 */
+  const stuNav = runNav(null, false, false, false);
+  check('⛔ 학생은 여전히 답 없이 못 넘긴다 (빈칸 제출 방지)', /disabled/.test(stuNav), stuNav.slice(0, 90));
+  check('학생은 답을 고르면 켜진다', !/disabled/.test(runNav('A', false, false, false)));
+  check('학생 마지막 문항은 여전히 «제출하기» 다', /rqvSubmit\(\)/.test(runNav('A', false, false, true)));
+}
 
 /* ── ② 하단 독이 덮지 않는가 ────────────────────────────── */
 console.log('\n▶ ② 하단 독이 「다음」 버튼을 덮지 않는가');

@@ -129,13 +129,13 @@
 
 <div class="head">
   <h1>Melca 강사 테스트 피드백 — 다 된 것 / 아직 안 된 것 / 해결 방안</h1>
-  <p>2026년 8월 7일 ~ 8월 13일 접수분 · 지적사항 38건 정리 · 작성 2026-08-14</p>
+  <p>2026년 8월 7일 ~ 8월 13일 접수분 · 지적사항 38건 + 사장님 지시 1건 · 8월 14일 작업 반영판</p>
 </div>
 
 <div class="intro">
   필리핀 매니저 <b>Melca</b> 가 강사 8명(HT Ness · Ana · Belle · Kes · LEN · SID · Shas · Karl)과 함께
   <b>신규 수업 화면(New Classroom / New Teacher Page)</b> 을 실제로 써 보며 보내 준 지적사항을
-  중복을 합쳐 <b>38건</b>으로 정리하고, 저장소 코드·커밋과 하나씩 대조했습니다.
+  중복을 합쳐 <b>38건</b>으로 정리하고(+ 8/14 사장님 지시 1건), 저장소 코드·커밋과 하나씩 대조했습니다.
   판정은 추측이 아니라 <b>실제 코드와 커밋을 확인</b>한 결과이며, 근거가 되는 파일·줄번호·커밋 번호를
   각 항목 아래 회색 글씨로 적었습니다.
   마지막 장에는 <b>「요청대로 하면 오히려 나빠질 것 같은 6건」</b> 에 대한 제 의견과 대안을 따로 담았습니다.
@@ -146,10 +146,24 @@
 </div>
 
 <div class="kpis">
-  <div class="kpi k-done"><b>30</b><span>다 된 것</span></div>
-  <div class="kpi k-part"><b>5</b><span>절반만 된 것</span></div>
-  <div class="kpi k-todo"><b>3</b><span>아직 안 된 것</span></div>
+  <div class="kpi k-done"><b>35</b><span>다 된 것</span></div>
+  <div class="kpi k-part"><b>1</b><span>절반만 된 것</span></div>
+  <div class="kpi k-todo"><b>1</b><span>아직 안 된 것</span></div>
   <div class="kpi k-ask"><b>6</b><span>제 의견이 다른 것</span></div>
+</div>
+
+<div class="item done" style="border-left-width:5px;margin-bottom:12px">
+  <p class="t">📌 8월 14일 — <b>보고서의 「이제 할 일」 을 실제로 작업했습니다</b> · 사장님 지시 1건 추가 반영</p>
+  <p class="d"><b>사장님 지시 (8/14)</b> — 「복습퀴즈는 학생이 <b>혼자</b> 하는 거야. 수업시간에 하는 게 아니야.
+    수업시간에 복습퀴즈 켜면 <b>“수업시간에는 안 됩니다”</b> 를 영어와 한국어로 적절한 곳에 표시해 줘.」
+    → 게임·AI 웜업과 <b>똑같은 방식</b>으로 막았습니다(아래 G1). 이 지시로 <b>D6 은 하지 않는 것으로 확정</b>됐습니다 —
+    수업 중에 복습퀴즈가 아예 안 열리므로 «퀴즈 중 카메라» 문제 자체가 성립하지 않습니다.</p>
+  <p class="fix"><b>이번에 끝낸 것 5건</b> — G1 복습퀴즈 수업 중 차단(신규 지시) · F3 Student Control 이름표 ·
+    F1 채팅 아이콘 · E1 강사는 답 없이 넘기기 · A1 하단 독 오클릭 방지.
+    <b>남은 것 1건</b> — D7 공유 화면 전용 탭(2~3일, 사고 반경이 커서 따로 진행).</p>
+  <p class="ev">검증: 회귀 하니스 <b>PASS 143 / FAIL 6</b>(6건은 전부 내 변경 이전부터 실패 — 아래 꼬리말 참고) ·
+    신규 vc_review_quiz_class_block_harness <b>30/30</b> · vc_quiz_nav 33/33 · vc_quiz_sync 28/28 ·
+    node --check 4개 파일 통과 · 브라우저에서 화면 실측</p>
 </div>
 
 <table class="sum">
@@ -165,8 +179,8 @@
 <div class="pg"></div>
 
 <!-- ══════════════ 다 된 것 ══════════════ -->
-<h2 class="sec s-done">다 된 것 — 30건
-  <small>코드가 main 에 들어가 있습니다. 라이브 반영 여부는 배포 스탬프로 최종 확인이 필요합니다.</small></h2>
+<h2 class="sec s-done">다 된 것 — 35건
+  <small>8월 13일까지 끝난 30건 + 8월 14일에 끝낸 5건(A1 · E1 · F1 · F3 · G1). 라이브 반영 여부는 배포 스탬프로 최종 확인이 필요합니다.</small></h2>
 
 <h3 class="grp">A. 화면·성능 (HT Ness · Teacher Ana · Belle · Kes)</h3>
 
@@ -533,21 +547,53 @@
 
 <div class="pg"></div>
 
+<h3 class="grp">G. 8월 14일 — 사장님 지시</h3>
+
+<div class="item done">
+  <p class="t"><span class="no">G1</span>수업시간에는 복습퀴즈를 열 수 없게 — 「수업시간에는 안 됩니다」 한/영 표시<span class="who">사장님 · 8/14</span><span class="tag ok">완료</span></p>
+  <p class="d"><b>방침</b> — 복습퀴즈는 <b>학생이 수업이 끝난 뒤 혼자</b> 푸는 것입니다. 수업 중에 하는 활동이 아닙니다.
+    그래서 이미 있던 <b>게임·AI 웜업과 똑같은 판정</b>(수업 화면 안 + 참가자 2명 이상 = 수업 중)을 그대로 씁니다 —
+    규칙이 세 군데로 갈라지지 않게 «같은 기준» 을 쓰는 것이 중요합니다.</p>
+  <p class="fix"><b>넣은 것</b><br>
+    · 차단 화면(한/영): <b>「수업시간에는 안 됩니다.」 / “Not available during class.”</b> +
+      「복습퀴즈는 수업이 끝난 뒤 학생이 혼자 푸는 것이에요」 + <b>어디서 열면 되는지</b>까지 함께 안내<br>
+    · <b>강사도 막습니다</b> — 이 방침은 «누가 푸느냐» 가 아니라 «언제 푸느냐» 의 문제입니다.
+      강사만 열리게 두면 강사가 수업 중에 열어 학생을 끌어들이는 길(quiz-share)이 그대로 남습니다.<br>
+    · <b>이미 열어 둔 학생</b>도 강사가 들어오는 순간 잠깁니다(수업 전 15~30분 대기 중에는 그대로 사용 가능).<br>
+    · <b>받는 쪽에서도 한 번 더</b> 막습니다 — 옛 파일을 캐시로 물고 있는 강사 화면에서 날아온 신호로
+      학생이 끌려 들어가지 않도록 두 겹으로 막았습니다.<br>
+    · 도구 바(「🤖 이 수업 맞춤 퀴즈」 버튼)까지 함께 감춥니다 — 남겨 두면 차단 화면 위에서 그대로 눌립니다.</p>
+  <p class="why"><b>⛔ 수업 «밖» 은 한 글자도 바꾸지 않았습니다</b> — 학생 사이드바에서 혼자 푸는 길이 복습퀴즈의 정본입니다.
+    하니스가 그 사실을 매번 확인합니다(«수업 화면 밖은 절대 안 막는다» 검사).</p>
+  <p class="ev">js/idx-main.js (_rqvClassBlocked · _rqvRenderBlocked · _rqvClearBlocked · updateUserCount · quiz-share 가드) ·
+    index.html (#rqv-tools) · 신규 하니스 vc_review_quiz_class_block_harness <b>30/30</b></p>
+</div>
+
 <!-- ══════════════ 절반만 된 것 ══════════════ -->
-<h2 class="sec s-part">절반만 된 것 — 5건
+<h2 class="sec s-part">절반만 된 것 — 1건
   <small>원인은 고쳤지만 요청하신 형태와는 다르거나, 남은 부분이 있는 항목입니다.</small></h2>
 
-<div class="item part">
-  <p class="t"><span class="no">A1</span>하단 아이콘을 없앨 수 없다 / 위쪽 아이콘들과 함께 놓아 달라<span class="who">Ness ①·추가</span><span class="tag pt">절반</span></p>
+<div class="item done">
+  <p class="t"><span class="no">A1</span>하단 아이콘을 없앨 수 없다 / 위쪽 아이콘들과 함께 놓아 달라<span class="who">Ness ①·추가</span><span class="tag ok">완료 (대안으로)</span></p>
   <p class="en">"The icons at the bottom part of the screen can't be removed. I hope it will be reduced or closed or moved to the upper part... it is prone to accidental clicks, especially when we are entering the class."</p>
   <p class="d"><b>된 것</b> — 위로 올리는 기능은 <b>이 버튼에 이미 있었습니다</b>(아래 → 작게 → 위).
     그런데 라벨이 «⇕ 기본» 처럼 <b>지금 상태만</b> 말해서 눌렀을 때 무엇이 되는지 알 수 없었고,
     그 정보는 hover 툴팁에만 있었습니다(노트북에서 강사가 툴팁을 띄울 일은 없습니다).
     → 라벨을 <b>«⇕ 아래 → 작게»</b> 처럼 «다음에 무엇이 되는지» 로 바꿨습니다.
     보내 주신 8/13 스크린샷에 「⇕ Bottom → Small」·「▼ Hide menu」 가 찍혀 있어 <b>라이브에 반영된 것이 확인됩니다.</b></p>
-  <p class="why"><b>안 한 것 · 그리고 하지 않는 편이 낫다고 보는 것</b> — 「상단 아이콘들과 한 줄로 합치기」는 하지 않았습니다.
-    이유는 뒤쪽 <b>「제 의견」 ①번</b>에 적었습니다. 대신 실행 가능한 대안 3가지를 함께 제안드립니다.</p>
-  <p class="ev">js/vc-dock.js · 커밋 cb02ae5</p>
+  <p class="fix"><b>8월 14일 추가 — 요청의 «진짜 이유» 를 겨냥해 두 가지를 넣었습니다</b><br>
+    Ness 선생님이 든 이유는 <b>“수업에 들어갈 때 실수로 눌린다”</b> 였습니다. 위치를 옮기는 것으로는 그 문제가 안 풀립니다
+    — 상단으로 옮기면 상단에서 실수로 눌립니다. 그래서 실제 상황 두 가지를 직접 막았습니다:<br>
+    <b>ⓐ 입장 직후 3초 동안 독이 눌리지 않습니다</b> — 그 사이 「잠시 후 메뉴를 쓸 수 있어요 / Menu unlocks in a moment」
+      라고 이유를 말해 줍니다. 3초 뒤 저절로 풀립니다.<br>
+    <b>ⓒ 5초간 아무 조작이 없으면 옅어집니다</b>(42%) — 마우스를 대면 바로 진해집니다. 화면을 덜 가리면서 필요할 때 있습니다.<br>
+    ⚠️ <b>투명도를 0 으로 만들지 않았습니다</b> — 백그라운드 탭·저전력에서는 CSS 전환이 멈춰
+      «영영 안 보이는» 사고가 납니다. 그래서 <b>기본이 «잘 보이는» 상태</b>이고, 신호가 붙을 때만 옅어집니다.<br>
+    ⚠️ 마우스 움직임마다 계산하지 않도록 400ms 로 눌러 두었습니다 — 지금 고치고 있는 <b>깜빡임(A2)</b> 과 같은 뿌리를 만들지 않기 위해서입니다.</p>
+  <p class="why"><b>여전히 안 한 것</b> — 「상단 아이콘들과 한 줄로 합치기」는 하지 않았습니다.
+    이유는 뒤쪽 <b>「제 의견」 ①번</b>에 적었습니다(나가기 오클릭 · 상단 툴바 포화).
+    제안했던 ⓑ(작게를 기본값으로)·ⓓ(나가기 확인 한 겹)는 <b>운영진 결정이 필요해 보류</b>했습니다.</p>
+  <p class="ev">js/vc-dock.js (armDock · wakeDock · vc-dock-arming / vc-dock-idle) · 커밋 cb02ae5</p>
 </div>
 
 <div class="item part">
@@ -563,23 +609,27 @@
   <p class="ev">js/idx-main.js:12189 · 8326 · 커밋 545029c · cf90c25</p>
 </div>
 
-<div class="item part">
-  <p class="t"><span class="no">E1</span>복습퀴즈에서 강사도 답을 골라야 다음으로 넘어간다<span class="who">Shas 후속 ①</span><span class="tag pt">절반</span></p>
+<div class="item done">
+  <p class="t"><span class="no">E1</span>복습퀴즈에서 강사도 답을 골라야 다음으로 넘어간다<span class="who">Shas 후속 ①</span><span class="tag ok">완료</span></p>
   <p class="en">"It may be more convenient if the teacher can proceed to the next question without having to answer it themselves."</p>
   <p class="d"><b>된 것</b> — 사장님 방침으로 정리되었습니다. <b>복습퀴즈는 «학생 전용»</b> 이며 수업이 끝난 뒤 학생이 혼자 푸는 것입니다.
     탭 이름을 「🧠 복습퀴즈 (학생 전용)」 로 바꾸고, 퀴즈 화면 위에도
     「학생 전용 · 수업 후 혼자 풀기 — 선생님은 참여하지 않아도 됩니다」 배지를 달았습니다.
     수업 중에 강사가 확인용으로 열면, 이제는 <b>강사가 «푸는» 것이 아니라 학생의 답과 제출을 «보는»</b> 쪽이 됩니다 (C5-b).</p>
-  <p class="why"><b>남은 것 (사실대로 적습니다)</b> — 그럼에도 <b>강사 화면의 「다음 →」 버튼은 여전히 답을 골라야 켜집니다.</b>
-    코드가 역할을 보지 않고 «답이 비었는가» 만 보기 때문입니다(idx-x8.js:247).
-    → <b>해결 방안</b>: 강사·관리자일 때는 「다음 →」 을 항상 켜고 라벨을 <b>「다음 문항 보기 →」</b> 로 바꿉니다.
-    이때 강사의 답은 채점에 넣지 않습니다. 학생 쪽 규칙(답 없이 못 넘김)은 그대로 둡니다 — 빈칸 제출을 막기 위해서입니다.
-    작업량은 작습니다(약 반나절).</p>
-  <p class="ev">js/idx-x8.js:247-248 (rqv-next disabled) · index.html:8235 · 8736</p>
+  <p class="fix"><b>8월 14일 수리 완료</b> — 원인은 버튼이 «누가 보고 있는가» 를 안 보고 <b>«답이 비었는가» 만</b> 본 것이었습니다.
+    학생을 위해 만든 규칙(빈칸 제출 금지 — LEN ①)이 강사에게도 그대로 걸렸습니다.<br>
+    · 강사·관리자는 <b>답 없이 문항을 넘깁니다.</b> 버튼도 <b>「다음 문항 보기 → / Next question →」</b> 로 바꿔
+      «푸는 것이 아니라 보는 것» 임을 글로 말합니다.<br>
+    · 안내문도 바꿨습니다 — <b>「미리보기입니다 — 복습퀴즈는 수업이 끝난 뒤 학생이 혼자 푸는 것이에요.
+      선생님은 답하지 않아도 됩니다.」</b>(한/영)<br>
+    · <b>⛔ 강사에게 「제출하기」 는 주지 않았습니다</b> — 강사 계정으로 채점이 저장되면 학생 기록에 섞이고,
+      그 행은 사람이 지우기 전까지 남습니다. 마지막 문항에서는 <b>「여기까지가 미리보기입니다」</b> 로 끝납니다.<br>
+    · <b>학생 규칙은 한 글자도 안 바꿨습니다</b> — 하니스가 「학생은 여전히 답 없이 못 넘긴다」 를 매번 확인합니다.</p>
+  <p class="ev">js/idx-x8.js (_staff · _navOff) · vc_quiz_nav_harness ①-b 신설 (33/33) · vc_quiz_sync_harness 계약 갱신 (28/28)</p>
 </div>
 
-<div class="item part">
-  <p class="t"><span class="no">F3</span>Student Control 이 무엇인지 모르겠고, 눌러도 아무 반응이 없다<span class="who">Melca · 8/13</span><span class="tag pt">답변 가능 · UI 수정 필요</span></p>
+<div class="item done">
+  <p class="t"><span class="no">F3</span>Student Control 이 무엇인지 모르겠고, 눌러도 아무 반응이 없다<span class="who">Melca · 8/13</span><span class="tag ok">완료</span></p>
   <p class="en">"What is the purpose of the Student Control feature? I also noticed that I cannot click or access it."</p>
   <p class="d"><b>고장이 아닙니다. 그것은 버튼이 아니라 «묶음 이름표» 입니다.</b>
     바로 오른쪽에 있는 세 개 — <b>🎤 Mute all · ✋ Lock student drawing · 🎯 Focus mode</b> —
@@ -587,11 +637,14 @@
     누를 것이 없으니 눌러도 아무 일이 없는 것이 맞습니다.</p>
   <p class="why"><b>그런데 이건 저희 잘못입니다.</b> 이름표에 옆 버튼들과 <b>같은 CSS 클래스</b>(<code>vc-classlock-chip</code>)를 붙여
     버튼처럼 보이게 만들어 놨습니다. 게다가 <b>툴팁도 없습니다</b>. 매니저가 누른 것이 당연합니다.<br>
-    → <b>해결 방안</b>: ① 이름표에서 칩 모양을 떼고 <b>작은 대문자 회색 제목</b>으로 바꿉니다(<code>cursor:default</code>).
-    ② 툴팁을 답니다 — “아래 세 버튼은 학생을 제어합니다 / These three buttons control the students.”
-    ③ 세로 구분선을 왼쪽뿐 아니라 <b>묶음 오른쪽 끝에도</b> 넣어 «어디까지가 이 묶음인지» 를 눈으로 보이게 합니다.
-    작업량은 작습니다(약 1시간).</p>
-  <p class="ev">index.html:8254 (span#vc-studentctl-label, title 속성 없음) · js/idx-main.js:8152</p>
+  <p class="fix"><b>8월 14일 수리 완료</b> — 세 가지를 넣었습니다.<br>
+    ① 이름표에서 <b>버튼 모양을 뗐습니다</b> — 작은 대문자 회색 제목 + <code>cursor:default</code> + 글자 선택 방지.
+      이제 눈으로 봐도 «누르는 것» 이 아닙니다.<br>
+    ② <b>툴팁을 달았습니다</b>(한/영) — “아래 세 버튼은 학생을 제어합니다 — 전체 음소거 · 학생 필기 잠그기 · 집중 모드.
+      <b>이 글자 자체는 누르는 버튼이 아니라 묶음 이름입니다.</b>”<br>
+    ③ 세로 구분선을 <b>묶음 오른쪽 끝에도</b> 넣어 «어디까지가 학생 제어인지» 가 눈에 보이게 했습니다
+      (그 선이 없으면 옆의 「얼굴 접기」 까지 이 묶음처럼 읽힙니다).</p>
+  <p class="ev">index.html (span#vc-studentctl-label · span#vc-studentctl-end) · js/idx-main.js (vcClassLockChipsRender) · 브라우저 실측</p>
 </div>
 
 <div class="item part">
@@ -604,22 +657,25 @@
 </div>
 
 <!-- ══════════════ 아직 안 된 것 ══════════════ -->
-<h2 class="sec s-todo">아직 안 된 것 — 3건
-  <small>손대지 않았습니다. 아래에 «어떻게 할 것인가» 를 적었습니다.</small></h2>
+<h2 class="sec s-todo">아직 안 된 것 — 1건
+  <small>D7 하나만 남았습니다. 사고 반경이 커서 따로 진행합니다.</small></h2>
 
-<div class="item todo">
-  <p class="t"><span class="no">F1</span>채팅 아이콘을 조금 더 크게, 강사 이름 위쪽에 놓아 달라<span class="who">Melca · 8/13</span><span class="tag no">미착수</span></p>
+<div class="item done">
+  <p class="t"><span class="no">F1</span>채팅 아이콘을 조금 더 크게, 강사 이름 위쪽에 놓아 달라<span class="who">Melca · 8/13</span><span class="tag ok">완료 · 요청대로</span></p>
   <p class="en">"Would it be possible to make it slightly bigger and place it above the teacher's name? The current icon is too small."</p>
   <p class="d"><b>지적이 맞습니다.</b> 현재 아이콘은 <b>글자 13px · 여백 4×9px</b> 로, 손가락은 물론 마우스로도 작습니다
     (권장 터치 영역은 최소 40×40px 입니다). 위치는 얼굴 타일의 <b>오른쪽 위</b>이고, 이름표는 <b>왼쪽 아래</b>에 있습니다.
     보내 주신 스크린샷에서도 그 둘이 대각선으로 멀리 떨어져 있습니다.</p>
-  <p class="fix"><b>해결 방안</b> — ① 글자 13px → <b>17px</b>, 최소 영역 <b>34×34px</b>, 배경 대비를 올려 어두운 영상 위에서도 보이게 합니다.
-    ② 이름표 <b>바로 옆(같은 줄 오른쪽)</b> 에 붙입니다.
-    ③ 개별 채팅이 켜져 있으면 아이콘 색을 바꿔 «지금 이 사람과 1:1 중» 을 보이게 합니다.<br>
-    <b>「이름 위」 대신 「이름 옆」 을 제안드리는 이유</b> — 이름표 «위» 는 영상 한가운데라 얼굴을 가립니다.
-    같은 줄에 두면 «이 사람에게 보낸다» 는 뜻이 더 분명하고 얼굴도 가리지 않습니다. 원하시면 요청하신 대로 위쪽에 두겠습니다.
-    작업량은 작습니다(약 2시간).</p>
-  <p class="ev">index.html:2318-2326 (.vc-dm-btn) · js/idx-main.js:13871-13890 (vcAddDmButton)</p>
+  <p class="fix"><b>8월 14일 수리 완료 — 요청하신 그대로 「이름 위」 에 놓았습니다.</b><br>
+    ① 글자 13px → <b>17px</b>, 누를 수 있는 영역 <b>34×34px</b>(권장 크기), 테두리·그림자를 올려 어두운 영상 위에서도 보입니다.<br>
+    ② <b>이름표 바로 위</b>(좌하단 모서리)로 옮겼습니다. 화면 구석이라 얼굴을 가리지 않습니다.<br>
+    ③ 지금 그 사람과 1:1 중이면 아이콘이 <b>주황색</b>으로 바뀝니다 — 예전엔 채팅 패널의 칩을 봐야만
+      어디로 보내는지 알 수 있어서, <b>개별로 보낸 줄 알고 전체에 보내는</b> 사고가 가능했습니다.<br>
+    ④ 툴팁도 한/영으로 달았습니다 — “이 사람에게만 보내는 개별 채팅 — 다른 참가자에게는 보이지 않습니다.”<br>
+    ⑤ 좁은 화면에서는 타일·이름표와 함께 작아집니다(28×28px) — 안 줄이면 작은 타일에서 얼굴을 덮습니다.<br>
+    <b>처음에 제안드렸던 「이름 옆」 은 쓰지 않았습니다</b> — 실제로 그려 보니 이름 «위» 가
+    얼굴을 가리지 않으면서 이름과도 붙어 있어, 요청하신 배치가 그대로 가장 좋았습니다.</p>
+  <p class="ev">index.html (.vc-dm-btn · .vc-dm-btn.on · 920px 이하 축소) · js/idx-main.js (vcAddDmButton · vcRefreshChatTargets) · 브라우저 실측</p>
 </div>
 
 <div class="item todo">
@@ -638,18 +694,16 @@
   <p class="ev">js/idx-main.js:986-1060 (vcShareMyScreen — replaceTrack 방식)</p>
 </div>
 
-<div class="item todo">
-  <p class="t"><span class="no">D6</span>복습퀴즈를 볼 때 학생·강사 카메라가 둘 다 보이게 해 달라<span class="who">Melca · 8/12</span><span class="tag no">미착수</span></p>
+<div class="item ask">
+  <p class="t"><span class="no">D6</span>복습퀴즈를 볼 때 학생·강사 카메라가 둘 다 보이게 해 달라<span class="who">Melca · 8/12</span><span class="tag op">하지 않음 — 사장님 방침으로 확정</span></p>
   <p class="en">"Is it possible to display both the student's and teacher's cameras during the quiz review?"</p>
-  <p class="d"><b>먼저 확인이 필요합니다.</b> 복습퀴즈는 «탭 내용» 이라 얼굴 타일은 원래 오른쪽 사이드바에 <b>그대로 남습니다.</b>
-    안 보였다면 <b>「› 얼굴 접기」 가 눌려 있었을</b> 가능성이 큽니다(교재를 넓게 보려고 접어 두면 계속 접힌 채로 남습니다).</p>
-  <p class="fix"><b>해결 방안</b> — 원인이 무엇이든 다음 한 가지로 막을 수 있습니다:
-    <b>복습퀴즈 탭을 열 때 얼굴 사이드바가 접혀 있으면 자동으로 펴 준다</b>(그리고 “퀴즈 중에는 얼굴을 보이게 했어요” 안내 한 줄).
-    사람이 매번 기억하지 않아도 되게 만드는 쪽이 옳습니다. 작업량은 작습니다(약 반나절).<br>
-    ⚠️ 다만 «녹화된 퀴즈 세션을 다시 볼 때» 를 말씀하신 것이라면 이야기가 달라집니다 —
-    녹화는 수업 화면 전체를 담으므로 퀴즈만 따로 카메라를 얹을 수 없습니다.
-    <b>어느 쪽을 말씀하신 것인지 알려 주시면</b> 그에 맞춰 처리하겠습니다.</p>
-  <p class="ev">index.html:8232-8235 (탭) · #vc-side-collapse-btn (얼굴 접기)</p>
+  <p class="d"><b>8월 14일 사장님 방침으로 이 건은 «하지 않는 것» 으로 확정됐습니다.</b>
+    「복습퀴즈는 학생이 <b>혼자</b> 하는 것 — 수업시간에 하는 게 아니다」 이므로,
+    이제 <b>수업 중에는 복습퀴즈가 아예 열리지 않습니다</b>(G1).
+    수업 중에 퀴즈 화면이 없으니 «퀴즈 중에 카메라를 어떻게 보일까» 라는 문제 자체가 성립하지 않습니다.</p>
+  <p class="fix"><b>대신 이렇게 됩니다</b> — 학생은 수업이 끝난 뒤 자기 화면에서 혼자 풉니다(카메라와 무관).
+    강사가 내용을 확인하고 싶으면 수업 밖에서 <b>미리보기</b>로 볼 수 있습니다(E1).
+    처음에 「같은 얼굴이 두 군데 나온다」는 이유로 권하지 않았는데(의견 ⑥), 방침이 그보다 앞서 정리해 주었습니다.</p>
 </div>
 
 <div class="pg"></div>
@@ -727,61 +781,67 @@
 </div>
 
 <!-- ══════════════ 다음 할 일 ══════════════ -->
-<h2 class="sec s-todo">이제 할 일 — 우선순위 순
-  <small>운영진 승인이 필요한 것과 바로 착수할 수 있는 것을 나눴습니다.</small></h2>
+<h2 class="sec s-done">이제 할 일 — 8월 14일 현재
+  <small>보고서에 적었던 할 일 8건 중 5건을 끝냈습니다. 아래 표의 «상태» 칸을 봐 주세요.</small></h2>
 
 <table class="sum">
   <tr>
-    <th style="width:5%">순</th><th style="width:31%">할 일</th><th style="width:9%">항목</th>
-    <th style="width:11%">작업량</th><th>비고</th>
+    <th style="width:5%">순</th><th style="width:29%">할 일</th><th style="width:8%">항목</th>
+    <th style="width:13%">상태</th><th>비고</th>
+  </tr>
+  <tr>
+    <td class="c">0</td>
+    <td><b>수업 중 복습퀴즈 차단 (한/영 안내)</b></td>
+    <td class="c">G1</td><td class="c" style="color:#15803d">✅ 완료</td>
+    <td>8/14 사장님 지시. 게임·웜업과 같은 방식 · 신규 하니스 30/30</td>
   </tr>
   <tr>
     <td class="c">1</td>
     <td><b>Student Control 이름표를 «버튼처럼» 안 보이게 + 툴팁</b></td>
-    <td class="c">F3</td><td class="c">1시간</td>
-    <td>바로 착수 가능. 매니저가 실제로 눌러 본 건이라 재발 가능성이 높습니다</td>
+    <td class="c">F3</td><td class="c" style="color:#15803d">✅ 완료</td>
+    <td>제목 글꼴 + 한/영 툴팁 + 오른쪽 끝 구분선</td>
   </tr>
   <tr>
     <td class="c">2</td>
-    <td><b>채팅 💬 버튼 키우기 + 이름표 옆으로</b></td>
-    <td class="c">F1</td><td class="c">2시간</td>
-    <td>위치를 «이름 위» 로 할지 «이름 옆» 으로 할지만 정해 주세요</td>
+    <td><b>채팅 💬 버튼 키우기 + 이름 위로</b></td>
+    <td class="c">F1</td><td class="c" style="color:#15803d">✅ 완료</td>
+    <td>17px·34×34px · 요청하신 «이름 위» 그대로 · 1:1 중이면 주황색</td>
   </tr>
   <tr>
     <td class="c">3</td>
     <td><b>강사는 답 없이 다음 문항으로 넘기기</b></td>
-    <td class="c">E1</td><td class="c">반나절</td>
-    <td>학생 규칙은 그대로 둡니다(빈칸 제출 방지)</td>
+    <td class="c">E1</td><td class="c" style="color:#15803d">✅ 완료</td>
+    <td>강사에게 «제출» 은 주지 않음 · 학생 규칙은 그대로</td>
   </tr>
   <tr>
     <td class="c">4</td>
     <td><b>복습퀴즈 탭을 열면 얼굴 사이드바 자동 펴기</b></td>
-    <td class="c">D6</td><td class="c">반나절</td>
-    <td>「녹화 재생」을 말씀하신 것인지 먼저 확인 필요</td>
+    <td class="c">D6</td><td class="c" style="color:#7e22ce">— 하지 않음</td>
+    <td>사장님 방침(G1)으로 문제 자체가 없어졌습니다</td>
   </tr>
   <tr>
     <td class="c">5</td>
-    <td><b>하단 독 — 입장 후 3초 잠금 + 유휴 시 반투명</b></td>
-    <td class="c">A1</td><td class="c">1일</td>
-    <td>「상단 합치기」 대신 제안드리는 대안입니다 — <b>운영진 결정 필요</b></td>
+    <td><b>하단 독 — 입장 후 3초 잠금 + 유휴 시 옅어짐</b></td>
+    <td class="c">A1</td><td class="c" style="color:#15803d">✅ 완료</td>
+    <td>ⓐ·ⓒ 시행. ⓑ(작게 기본값)·ⓓ(나가기 확인)는 <b>운영진 결정 대기</b></td>
   </tr>
   <tr>
     <td class="c">6</td>
     <td><b>공유 화면 전용 탭 신설 (A안)</b></td>
-    <td class="c">D7</td><td class="c">2~3일</td>
-    <td><b>운영진 결정 필요.</b> B안(트랙 2개)은 사고 반경이 커서 권하지 않습니다</td>
+    <td class="c">D7</td><td class="c" style="color:#1d4ed8">📋 남음 (2~3일)</td>
+    <td><b>유일하게 남은 개발 건.</b> B안(트랙 2개)은 사고 반경이 커서 권하지 않습니다</td>
   </tr>
   <tr>
     <td class="c">7</td>
     <td><b>“system crash” 재현 정보 수집</b></td>
-    <td class="c">A3-b</td><td class="c">—</td>
+    <td class="c">A3-b</td><td class="c" style="color:#b45309">사람 필요</td>
     <td>Ness 선생님께 3가지만 요청 (브라우저·탭 수·경과 시간)</td>
   </tr>
   <tr>
     <td class="c">8</td>
     <td><b>강사용 1장 안내문 — 「개별 채팅 · 학생 제어 · 집중 모드」</b></td>
-    <td class="c">공통</td><td class="c">1일</td>
-    <td>38건 중 <b>9건이 «기능이 없다» 가 아니라 «못 찾았다»</b> 였습니다</td>
+    <td class="c">공통</td><td class="c" style="color:#1d4ed8">📋 남음 (1일)</td>
+    <td>39건 중 <b>9건이 «기능이 없다» 가 아니라 «못 찾았다»</b> 였습니다</td>
   </tr>
 </table>
 
@@ -796,8 +856,16 @@
 <div class="foot">
   <b>판정 기준</b> — «다 된 것» 은 해당 코드가 <b>origin/main 에 병합되어 있음</b>을 커밋으로 확인한 것입니다.
   각 항목의 회색 줄이 그 근거(파일:줄번호 · 커밋 해시)입니다.<br>
+  <b>8월 14일 작업분의 검증</b> — 회귀 하니스 <b>PASS 143 / FAIL 6</b>(기준선 140).
+  FAIL 6건은 <b>제 변경 이전부터 실패하던 것</b>으로, 작업 전 저장소에서 그대로 재현해 확인했습니다
+  (admin_404_apis · ai_report_korean_only · ingest_key_rotation · report_ai_radar ·
+  teacher_page_problem_260807_runtime · watchdog_layer2 — 대부분 라이브 접속이 필요한 검사입니다).
+  ⚠️ <b>tsc 는 돌리지 못했습니다</b> — 이 저장소의 node_modules 가 설치되어 있지 않고,
+  npm install 이 기존 의존성 충돌(wrangler ↔ @cloudflare/workers-types)로 실패합니다. 제 변경 이전부터의 상태이며,
+  이번 변경에는 <b>.ts 파일이 하나도 없어</b> tsc 가 볼 대상이 없습니다. 대신 바뀐 JS 4개를 <code>node --check</code> 로 검사했습니다.<br>
   <b>확인하지 못한 것</b> — 이 세션은 망 정책상 <b>test.mangoi.co.kr 접속이 차단</b>되어 라이브 화면 실측을 하지 못했습니다.
-  실제 반영 여부는 배포 스탬프(BUILD_STAMP)로 확인해야 하며, 강사 화면은 로그인이 필요해 사람의 확인이 필요합니다.<br>
+  실제 반영 여부는 배포 스탬프(BUILD_STAMP)로 확인해야 하며, 강사 화면은 로그인이 필요해 사람의 확인이 필요합니다.
+  UI 변경 2건(F1·F3)은 <b>같은 CSS 를 떼어내 브라우저에서 실제로 그려 확인</b>했습니다.<br>
   <b>강사분들께</b> — 이미 고쳐진 항목이 다시 신고되는 경우, 브라우저가 옛 파일을 물고 있을 수 있습니다.
   <b>Ctrl+Shift+R</b>(맥은 ⌘+Shift+R)로 한 번 새로고침한 뒤에도 같으면 알려 주세요.<br>
   작성 2026-08-14 · 대조 기준 origin/main e9a483e · 원본 Melca_testing_New_feedback_1.docx

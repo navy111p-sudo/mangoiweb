@@ -4178,6 +4178,12 @@ function vcHandleMessage(msg) {
         case 'quiz-share':
         case 'quiz-pick':
         case 'quiz-done':
+            /* 🚫 (2026-08-14 사장님 방침) 「복습퀴즈는 수업시간에 하는 게 아니다」 — 두 번째 방어선.
+               탭 입구(_rqvClassBlocked)만 막으면, 옛 버전을 캐시로 물고 있는 강사 화면에서
+               quiz-share 가 날아와 학생을 수업 중 퀴즈로 끌어들일 수 있다. 받는 쪽에서도 막는다. */
+            try {
+                if (typeof _rqvClassBlocked === 'function' && _rqvClassBlocked()) break;
+            } catch(_){}
             try { if (typeof window.rqvOnClassMsg === 'function') window.rqvOnClassMsg(msg.type, msg.data); } catch(_){}
             break;
 
@@ -7444,8 +7450,19 @@ function vcSwitchTab(tabName, evt) {
         else _vp.style.removeProperty('display');
       }
     } catch(e){}
-    // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
-    if (tabName === 'review-quiz' && typeof rqvOnEnter === 'function') rqvOnEnter();
+    /* 🧠 복습퀴즈 — 사장님 방침 (2026-08-14)
+       「복습퀴즈는 학생이 «혼자» 하는 거야. 수업시간에 하는 게 아니야.」
+       → 수업 중에 열면 게임·웜업과 «똑같이» 막고, 한/영으로 이유를 말한다.
+       ⚠️ 강사도 막는다 — 이 방침은 «누가 푸느냐» 가 아니라 «언제 푸느냐» 의 문제다.
+          강사만 열리게 두면 강사가 수업 중에 열어 학생을 끌어들이는 길(quiz-share)이 남는다.
+       ⚠️ 수업 «밖» 은 한 글자도 안 바뀐다 — 학생 사이드바에서 혼자 푸는 길이 정본이다. */
+    if (tabName === 'review-quiz' && typeof _rqvClassBlocked === 'function' && _rqvClassBlocked()) {
+        if (typeof _rqvRenderBlocked === 'function') _rqvRenderBlocked();
+    } else if (tabName === 'review-quiz') {
+        if (typeof _rqvClearBlocked === 'function') _rqvClearBlocked();
+        // 🧠 복습퀴즈 탭 진입 시 자동 로드 (이 수업 교재/레벨/레슨 매칭)
+        if (typeof rqvOnEnter === 'function') rqvOnEnter();
+    }
     // 🗣️ AI 웜업 탭 — 첫 진입 시에만 iframe 로드 (수업방 room id + 오늘 교재/레벨/레슨 연동)
     // 🧑‍🎓 (2026-08-12 Melca 피드백) 수업 중 «학생 단독» 웜업은 게임과 같은 정책으로 차단.
     //   강사가 tab-sync 로 열어 준 «강사 주도 웜업» 은 허용(웜업은 수업 중 강사 도구이기도 하다).
@@ -8153,6 +8170,10 @@ window.vcClassLockChipsRender = function(){
      칩들과 «똑같은 조건» 으로 켜고 끈다. 따로 두면 학생 화면에 이름표만 남는다. */
   var sctl = document.getElementById('vc-studentctl-label');
   if (sctl) sctl.style.display = staff ? 'inline-flex' : 'none';
+  /* 🏷 (2026-08-14 Melca) 묶음의 «끝» 구분선도 이름표와 같은 조건으로 — 짝이 어긋나면
+     학생 제어가 아닌 칩까지 이 묶음 안에 든 것처럼 보인다. */
+  var sctlEnd = document.getElementById('vc-studentctl-end');
+  if (sctlEnd) sctlEnd.style.display = staff ? 'inline-block' : 'none';
   var mic = document.getElementById('vc-miclock-btn');
   if (mic) {
     mic.style.display = staff ? 'inline-flex' : 'none';
@@ -9056,6 +9077,59 @@ function _warmupClearBlocked() {
   if (bl) bl.style.display = 'none';
   const wf = document.getElementById('vc-warmup-frame');
   if (wf) wf.style.display = '';
+}
+
+/* 🧠 (2026-08-14 사장님 방침) 「복습퀴즈는 학생이 혼자 하는 것 — 수업시간에 하는 게 아니다」
+   게임(Phase 48)·웜업과 «같은 판정» 을 쓴다: 수업 화면 안 + 참가자 2명 이상 = 수업 중.
+   ⚠️ 강사·학생을 가리지 않는다. 시간의 문제이지 사람의 문제가 아니다.
+   ⚠️ 수업 화면 «밖»(학생 사이드바에서 혼자 풀기)은 이 함수가 false 를 돌려주므로
+      예전과 100% 똑같이 동작한다 — 그것이 복습퀴즈의 정본 경로다. */
+function _rqvClassBlocked() {
+  if (!document.body.classList.contains('vc-in-call')) return false;
+  return _gameIsClassActive();
+}
+
+function _rqvRenderBlocked() {
+  const panel = document.getElementById('tab-review-quiz');
+  if (!panel) return;
+  /* 퀴즈 본문·현황 띠·상단 도구를 감춘다 — 남겨 두면 차단 화면 뒤로 문제가 비쳐 보인다 */
+  ['rqv-body', 'rqv-live', 'rqv-tools'].forEach(function(id){
+    const el = document.getElementById(id);
+    if (el) { el.dataset.rqvHidden = '1'; el.style.display = 'none'; }
+  });
+  let bl = document.getElementById('vc-rqv-blocked');
+  if (!bl) {
+    bl = document.createElement('div');
+    bl.id = 'vc-rqv-blocked';
+    bl.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px';
+    bl.innerHTML =
+      '<div style="font-size:72px;margin-bottom:16px">🚫</div>' +
+      '<div style="font-size:21px;font-weight:800;color:#ef4444;margin-bottom:12px" data-ko="수업시간에는 안 됩니다." data-en="Not available during class.">수업시간에는 안 됩니다.</div>' +
+      '<div style="font-size:15px;color:#cbd5e1;line-height:1.6" data-ko="복습퀴즈는 수업이 끝난 뒤 학생이 혼자 푸는 것이에요." data-en="The Review Quiz is for the student to do alone after class.">복습퀴즈는 수업이 끝난 뒤 학생이 혼자 푸는 것이에요.</div>' +
+      '<div style="margin-top:20px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:12px 18px;font-size:12.5px;color:#fca5a5;max-width:440px">' +
+        '💡 <span data-ko="수업이 끝나면 학생 화면의 [🧠 복습퀴즈] 에서 열 수 있어요." data-en="After class ends, open it from [🧠 Review Quiz] on the student’s own screen.">수업이 끝나면 학생 화면의 [🧠 복습퀴즈] 에서 열 수 있어요.</span>' +
+      '</div>';
+    panel.appendChild(bl);
+  }
+  bl.style.display = 'flex';
+  /* 🌐 이 판때기는 «지금» 만들어지므로, 이미 지나간 i18n 스윕을 못 탄다 — 직접 한 번 맞춘다 */
+  try {
+    const en = (typeof getLang === 'function') && getLang() === 'en';
+    bl.querySelectorAll('[data-ko][data-en]').forEach(function(n){
+      n.textContent = en ? n.getAttribute('data-en') : n.getAttribute('data-ko');
+    });
+  } catch(_) {}
+}
+
+function _rqvClearBlocked() {
+  const bl = document.getElementById('vc-rqv-blocked');
+  if (bl) bl.style.display = 'none';
+  ['rqv-body', 'rqv-live', 'rqv-tools'].forEach(function(id){
+    const el = document.getElementById(id);
+    /* ⚠️ 우리가 감춘 것만 되돌린다. rqv-live 는 «학생 현황이 있을 때만» 뜨는 띠라
+       무조건 display:'' 로 열면 빈 초록 띠가 남는다(그 규칙은 rqvLiveRender 가 갖는다). */
+    if (el && el.dataset.rqvHidden === '1') { delete el.dataset.rqvHidden; el.style.display = (id === 'rqv-live') ? 'none' : ''; }
+  });
 }
 
 function _gameRenderBlocked() {
@@ -10314,6 +10388,16 @@ function updateUserCount(count) {
       if (wuTab && wuTab.classList.contains('active') && typeof _warmupStudentBlocked === 'function') {
         if (_warmupStudentBlocked()) _warmupRenderBlocked();
         else _warmupClearBlocked();
+      }
+    } catch(e){}
+    /* 🧠 (2026-08-14 사장님 방침) 복습퀴즈도 같은 규칙 — 학생이 수업 전에 열어 두고 있어도
+       강사가 들어오면(참가자 ≥2) 즉시 잠그고, 수업이 끝나 혼자 남으면 다시 푼다.
+       탭을 «여는 순간» 만 보면, 이미 열어 둔 학생은 수업이 시작돼도 계속 풀 수 있다. */
+    try {
+      const rqTab = document.getElementById('tab-review-quiz');
+      if (rqTab && rqTab.classList.contains('active') && typeof _rqvClassBlocked === 'function') {
+        if (_rqvClassBlocked()) _rqvRenderBlocked();
+        else _rqvClearBlocked();
       }
     } catch(e){}
 }
@@ -13866,9 +13950,18 @@ function vcRefreshChatTargets() {
         c.onclick = function(){ vcSetChatTarget(p.userId, p.username); };
         bar.appendChild(c);
     });
+    /* 💬 (2026-08-14 Melca) 얼굴 타일의 💬 버튼에도 «지금 이 사람과 1:1 중» 을 색으로 표시한다.
+       예전엔 채팅 패널의 칩을 봐야만 알 수 있어, 개별로 보낸 줄 알고 전체에 보내는(또는 그 반대)
+       사고가 가능했다. 칩과 버튼은 같은 상태를 보여줘야 한다. */
+    try {
+        document.querySelectorAll('#vc-video-grid .vc-dm-btn').forEach(function(b){
+            var owner = b.getAttribute('data-uid') || '';
+            b.classList.toggle('on', !!(cur && owner && cur.userId === owner));
+        });
+    } catch(_) {}
 }
 
-/* 비디오 박스 우상단 💬 버튼 — 누르면 그 사람과 개별 채팅 */
+/* 얼굴 타일의 💬 버튼 — 누르면 그 사람과 개별 채팅 (2026-08-14 이름표 바로 위로 이동·확대) */
 function vcAddDmButton(box, userId) {
     try {
         if (!box || !userId || userId === 'demoteacher') return;
@@ -13876,7 +13969,11 @@ function vcAddDmButton(box, userId) {
         const btn = document.createElement('button');
         btn.className = 'vc-dm-btn';
         btn.type = 'button';
-        btn.title = '이 참가자에게만 채팅 (개별 채팅)';
+        btn.setAttribute('data-uid', userId);   // 💬 vcRefreshChatTargets 가 «지금 1:1 중» 색을 입힐 때 쓴다
+        btn.title = '이 사람에게만 보내는 개별 채팅 — 다른 참가자에게는 보이지 않습니다.';
+        btn.setAttribute('data-ko-title', '이 사람에게만 보내는 개별 채팅 — 다른 참가자에게는 보이지 않습니다.');
+        btn.setAttribute('data-en-title', 'Private chat with this person only — nobody else can see it.');
+        btn.setAttribute('aria-label', '개별 채팅');
         btn.textContent = '💬';
         btn.addEventListener('click', function(e){
             e.stopPropagation();
