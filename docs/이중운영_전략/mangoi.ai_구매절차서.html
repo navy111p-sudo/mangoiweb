@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>mangoi.ai 도메인 구매 절차서</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+  :root{
+    --mango:#F59E0B; --mango-d:#B45309; --mango-l:#FEF3C7;
+    --ink:#111827; --ink2:#374151; --ink3:#6B7280; --line:#E5E7EB;
+    --good:#059669; --good-l:#ECFDF5; --bad:#DC2626; --bad-l:#FEF2F2;
+    --blue:#2563EB; --blue-l:#EFF6FF;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    font-family:"NanumSquareRound","NanumGothic","Noto Sans CJK KR",sans-serif;
+    color:var(--ink); font-size:10.5pt; line-height:1.62;
+    -webkit-print-color-adjust:exact; print-color-adjust:exact;
+  }
+  .page{ page-break-after:always; }
+  .page:last-child{ page-break-after:auto; }
+  .nobreak{ page-break-inside:avoid; break-inside:avoid; }
+  h1,h2,h3{ margin:0; line-height:1.35; }
+
+  .cover{
+    height:262mm; display:flex; flex-direction:column; justify-content:center;
+    text-align:center; background:linear-gradient(160deg,#FFFBEB 0%,#FEF3C7 55%,#FDE68A 100%);
+    border-radius:6mm; padding:0 16mm;
+  }
+  .cover .badge{
+    display:inline-block; margin:0 auto 9mm; background:var(--mango-d); color:#fff;
+    padding:2.5mm 7mm; border-radius:99px; font-size:11pt; font-weight:700;
+  }
+  .cover h1{ font-size:30pt; font-weight:800; color:#7C2D12; letter-spacing:-1px; }
+  .cover .sub{ font-size:14pt; color:var(--mango-d); margin-top:5mm; font-weight:700; }
+  .cover .desc{
+    margin:11mm auto 0; max-width:135mm; font-size:11.5pt; color:#78350F; line-height:1.9;
+    background:rgba(255,255,255,.66); border-radius:4mm; padding:7mm 9mm;
+  }
+  .cover .meta{ margin-top:12mm; font-size:10pt; color:#92400E; }
+
+  .sec{ margin:0 0 8mm; }
+  .sec-title{
+    display:flex; align-items:center; gap:4mm;
+    border-bottom:3px solid var(--mango); padding-bottom:2.2mm; margin-bottom:4mm;
+  }
+  .sec-title .num{
+    flex:none; width:11mm; height:11mm; border-radius:50%; background:var(--mango); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:14pt; font-weight:800;
+  }
+  .sec-title h2{ font-size:16pt; font-weight:800; color:#7C2D12; }
+  h3{ font-size:12pt; font-weight:800; color:var(--mango-d); margin:5mm 0 2.2mm; }
+  p{ margin:0 0 2.6mm; }
+  .lead{ font-size:11.2pt; color:var(--ink2); }
+
+  .story{
+    background:var(--mango-l); border-left:5px solid var(--mango);
+    border-radius:0 3mm 3mm 0; padding:4mm 5.5mm; margin:3mm 0 4.5mm;
+    font-size:10.8pt; color:#78350F; line-height:1.78;
+  }
+
+  /* 단계 */
+  .steps{ display:flex; flex-direction:column; gap:2.6mm; }
+  .stp{ display:flex; gap:4mm; }
+  .stp .n{
+    flex:none; width:11mm; height:11mm; border-radius:50%; background:var(--mango); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-size:12pt; font-weight:800;
+  }
+  .stp .bd{ flex:1; border:1px solid var(--line); border-radius:3mm; padding:3mm 4mm; background:#fff; }
+  .stp .t{ font-weight:800; font-size:11pt; color:#7C2D12; margin-bottom:1mm; }
+  .stp .d{ font-size:9.9pt; color:var(--ink2); line-height:1.7; }
+
+  .click{
+    display:inline-block; background:#1F2937; color:#fff; border-radius:1.5mm;
+    padding:.5mm 2.2mm; font-size:9pt; font-weight:700; margin:0 .4mm;
+    font-family:"NanumGothic",sans-serif;
+  }
+  .arrow{ color:var(--ink3); font-weight:800; margin:0 1mm; }
+
+  code{ font-family:"NanumGothicCoding",monospace; font-size:9.6pt; color:var(--blue); word-break:break-all; }
+
+  table{ width:100%; border-collapse:collapse; margin:2.5mm 0 4mm; font-size:9.8pt; }
+  th{ background:#7C2D12; color:#fff; font-weight:800; padding:2.3mm 2.8mm; text-align:left; border:1px solid #7C2D12; }
+  td{ padding:2.3mm 2.8mm; border:1px solid var(--line); vertical-align:top; line-height:1.58; }
+  tbody tr:nth-child(even) td{ background:#FFFDF7; }
+  td.c,th.c{ text-align:center; }
+
+  .pill{ display:inline-block; padding:.8mm 2.6mm; border-radius:99px; font-size:9pt; font-weight:800; white-space:nowrap; }
+  .pill.ok{ background:#D1FAE5; color:#065F46; }
+  .pill.no{ background:#FEE2E2; color:#991B1B; }
+  .pill.hm{ background:#FEF3C7; color:#92400E; }
+
+  .note{ background:var(--blue-l); border:1px solid #BFDBFE; border-radius:3mm; padding:3.4mm 4.5mm; font-size:9.9pt; color:#1E3A8A; line-height:1.65; margin:3.2mm 0; }
+  .warn{ background:var(--bad-l); border:1px solid #FECACA; border-radius:3mm; padding:3.4mm 4.5mm; font-size:9.9pt; color:#991B1B; line-height:1.65; margin:3.2mm 0; }
+  .okbox{ background:var(--good-l); border:1px solid #A7F3D0; border-radius:3mm; padding:3.4mm 4.5mm; font-size:9.9pt; color:#065F46; line-height:1.65; margin:3.2mm 0; }
+
+  .todo{ display:flex; flex-direction:column; gap:2mm; }
+  .todo .it{ display:flex; gap:3.5mm; align-items:flex-start; border:1px solid var(--line); border-radius:3mm; padding:2.9mm 4mm; background:#fff; }
+  .todo .it .box{ flex:none; width:5.5mm; height:5.5mm; border:2px solid var(--mango); border-radius:1.5mm; margin-top:.8mm; }
+  .todo .it .t{ font-weight:800; font-size:10.6pt; color:var(--ink); }
+  .todo .it .d{ font-size:9.8pt; color:var(--ink2); margin-top:.6mm; line-height:1.62; }
+
+  .foot{ margin-top:8mm; border-top:1px solid var(--line); padding-top:3mm; font-size:9pt; color:var(--ink3); text-align:center; }
+  ul{ margin:0 0 3mm; padding-left:6mm; }
+  li{ margin-bottom:1.2mm; line-height:1.7; }
+</style>
+</head>
+<body>
+
+<!-- 표지 -->
+<div class="page">
+  <div class="cover">
+    <div><span class="badge">망고아이 도메인 구매 절차서</span></div>
+    <h1>mangoi.ai<br>사는 방법</h1>
+    <div class="sub">Cloudflare에서 사기 — 그대로 따라 하면 돼요</div>
+    <div class="desc">
+      <b>mangoi.ai</b> 주소는 지금 <b>비어 있어요.</b><br>
+      살 수 있다는 뜻이에요.<br><br>
+      이 종이에 적힌 순서대로만 하면<br>
+      <b>20분</b>이면 끝나요.<br><br>
+      컴퓨터를 잘 몰라도 괜찮아요.<br>
+      누르는 곳을 하나하나 다 적어 놨어요.
+    </div>
+    <div class="meta">2026년 8월 15일 · 망고아이 운영팀</div>
+  </div>
+</div>
+
+<!-- 1. 사기 전에 -->
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">1</div><h2>사기 전에 꼭 알아야 할 세 가지</h2></div>
+
+    <div class="story">
+      도메인(인터넷 주소)은 <b>사는 게 아니라 세 들어 사는 것</b>에 가까워요.<br>
+      한 번 사면 영원히 내 것이 아니고, <b>해마다 돈을 내야</b> 계속 쓸 수 있어요.<br>
+      돈 내는 걸 깜빡하면 <b>남이 가져갈 수 있어요.</b>
+    </div>
+
+    <div class="steps">
+      <div class="stp nobreak">
+        <div class="n">1</div>
+        <div class="bd">
+          <div class="t">최소 2년치를 한 번에 사야 해요</div>
+          <div class="d">
+            <code>.ai</code> 주소를 만든 나라(앵귈라라는 작은 섬나라)의 규칙이에요.
+            <b>1년만 사는 건 안 돼요.</b> 그래서 처음에 돈이 좀 많이 나가요.
+          </div>
+        </div>
+      </div>
+      <div class="stp nobreak">
+        <div class="n">2</div>
+        <div class="bd">
+          <div class="t">2년 뒤에 또 돈을 내야 해요</div>
+          <div class="d">
+            안 내면 주소가 <b>남에게 넘어가요.</b> 그래서 <b>자동으로 돈이 나가게(자동 갱신)</b>
+            꼭 켜 두어야 해요. 이게 이 종이에서 <b>제일 중요한 부분</b>이에요.
+          </div>
+        </div>
+      </div>
+      <div class="stp nobreak">
+        <div class="n">3</div>
+        <div class="bd">
+          <div class="t">주소를 샀다고 사이트가 열리는 건 아니에요</div>
+          <div class="d">
+            <b>빈 땅에 문패만 붙인 것</b>과 같아요. 그 주소로 들어가도 아직 아무것도 안 나와요.
+            <b>집(망고아이 사이트)이랑 연결</b>하는 일을 한 번 더 해야 해요. (4번에 나와요)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>왜 Cloudflare에서 사나요?</h3>
+    <p class="lead">
+      다른 데서도 살 수 있는데, <b>Cloudflare가 제일 편해요.</b> 이유는 두 가지예요.
+    </p>
+    <table class="nobreak">
+      <thead><tr><th style="width:30%">이유</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>이미 쓰는 곳이라서</b></td>
+          <td>망고아이 사이트는 <b>이미 Cloudflare 안에 살고 있어요.</b>
+              여기서 주소를 사면 <b>연결이 훨씬 쉬워요.</b> 다른 데서 사면
+              «네임서버 바꾸기»라는 귀찮은 단계가 하나 더 늘어나요.</td>
+        </tr>
+        <tr>
+          <td><b>남기는 돈이 없어서</b></td>
+          <td>Cloudflare는 도메인을 <b>원가 그대로</b> 팔아요. 이익을 안 남겨요.
+              그래서 <b>2년 뒤 갱신할 때도 값이 안 올라요.</b>
+              다른 곳은 처음엔 싸게 주고 <b>나중에 값을 올리는</b> 경우가 많아요.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note nobreak">
+      <b>값은 얼마인가요?</b><br>
+      <b>2년에 약 22만원</b>(약 $160)쯤이에요. 1년에 11만원 꼴이에요.<br>
+      환율과 원가에 따라 조금씩 달라지니, <b>정확한 값은 결제 화면에서 확인</b>하세요.
+      참고로 가비아(한국 회사)는 <b>2년에 약 20만원</b>이에요. 비슷해요.
+    </div>
+  </div>
+</div>
+
+<!-- 2. 구매 -->
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">2</div><h2>사는 순서 — 5단계</h2></div>
+    <p class="lead">화면에서 <b>까만 상자</b>로 적힌 곳을 순서대로 누르면 돼요.</p>
+
+    <div class="steps">
+      <div class="stp nobreak">
+        <div class="n">1</div>
+        <div class="bd">
+          <div class="t">Cloudflare에 로그인해요</div>
+          <div class="d">
+            인터넷 주소창에 <code>dash.cloudflare.com</code> 을 쳐요.<br>
+            <b>망고아이 계정이 이미 있어요.</b> 새로 만들 필요 없어요.<br>
+            <span style="color:#B45309;font-weight:700;">확인:</span> 로그인한 뒤,
+            지금 들어간 계정이 망고아이 사이트가 들어 있는 <b>그 계정이 맞는지</b> 꼭 보세요.
+            (<code>wrangler.toml</code> 파일의 <code>account_id</code> 와 같은 계정이어야 해요.)
+          </div>
+        </div>
+      </div>
+
+      <div class="stp nobreak">
+        <div class="n">2</div>
+        <div class="bd">
+          <div class="t">도메인 사는 곳으로 가요</div>
+          <div class="d">
+            왼쪽 메뉴에서
+            <span class="click">Domain Registration</span><span class="arrow">▶</span><span class="click">Register Domains</span>
+            를 눌러요.<br>
+            («Domain Registration»은 «도메인 등록», «Register»는 «사기»라는 뜻이에요.)
+          </div>
+        </div>
+      </div>
+
+      <div class="stp nobreak">
+        <div class="n">3</div>
+        <div class="bd">
+          <div class="t">mangoi 라고 검색해요</div>
+          <div class="d">
+            검색창에 <code>mangoi</code> 라고 쳐요. (<b>.ai 는 빼고</b> 쳐도 돼요)<br>
+            목록이 쭉 나오는데, 그중에서 <code>mangoi.ai</code> 를 찾으세요.<br>
+            옆에 <b>«Available»</b>(살 수 있음)이라고 적혀 있으면 성공이에요.
+          </div>
+        </div>
+      </div>
+
+      <div class="stp nobreak">
+        <div class="n">4</div>
+        <div class="bd">
+          <div class="t">2년을 고르고 결제해요</div>
+          <div class="d">
+            <span class="click">Purchase</span> 를 눌러요.<br>
+            기간에서 <b>2 years(2년)</b> 를 골라요. <b>1년은 아예 안 골라져요.</b> 정상이에요.<br>
+            회사 카드 번호를 넣고 결제해요.
+          </div>
+        </div>
+      </div>
+
+      <div class="stp nobreak">
+        <div class="n">5</div>
+        <div class="bd">
+          <div class="t">자동 갱신이 켜져 있는지 봐요 (제일 중요!)</div>
+          <div class="d">
+            결제가 끝나면 도메인 목록으로 가서
+            <span class="click">Auto-renew</span> 가 <b>켜짐(ON)</b> 인지 확인해요.<br>
+            꺼져 있으면 <b>반드시 켜세요.</b> 이게 꺼져 있으면 2년 뒤에 주소를 잃어버려요.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="okbox nobreak">
+      <b>여기까지 하면 «주소 사기»는 끝이에요.</b> 보통 5~10분 걸려요.<br>
+      Cloudflare에서 산 주소는 <b>자동으로 Cloudflare 안에 들어와요.</b>
+      네임서버를 따로 바꿀 필요가 없어요. 이게 Cloudflare에서 사는 가장 큰 장점이에요.
+    </div>
+  </div>
+</div>
+
+<!-- 3. 연결 -->
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">3</div><h2>사이트랑 연결하기</h2></div>
+
+    <div class="warn nobreak">
+      <b>이 부분은 배포 권한이 있는 담당자가 해야 해요.</b><br>
+      망고아이 규칙상 도메인·라우팅·<code>wrangler.toml</code> 은
+      <b>배포 담당자(A)만 만지는 구역</b>이에요.
+      결제까지만 하시고, <b>이 페이지를 담당자에게 보여 주세요.</b>
+    </div>
+
+    <p class="lead">주소를 샀으면, 이제 <b>망고아이 사이트와 이어 주는</b> 일이 남았어요.</p>
+
+    <div class="steps">
+      <div class="stp nobreak">
+        <div class="n">1</div>
+        <div class="bd">
+          <div class="t">Worker 를 찾아요</div>
+          <div class="d">
+            Cloudflare 왼쪽 메뉴에서 <span class="click">Workers &amp; Pages</span> 를 누르고,
+            목록에서 <code>webrtc-unified-platform-prod</code> 를 찾아 눌러요.<br>
+            <span style="color:#B45309;font-weight:700;">이게 진짜 망고아이 사이트예요.</span>
+            (2026-08-15 실제로 있는 것을 확인했어요.)
+          </div>
+        </div>
+      </div>
+      <div class="stp nobreak">
+        <div class="n">2</div>
+        <div class="bd">
+          <div class="t">주소를 붙여요</div>
+          <div class="d">
+            <span class="click">Settings</span><span class="arrow">▶</span><span class="click">Domains &amp; Routes</span><span class="arrow">▶</span><span class="click">Add</span><span class="arrow">▶</span><span class="click">Custom domain</span><br>
+            칸에 <code>mangoi.ai</code> 를 넣고 저장해요.<br>
+            <code>www.mangoi.ai</code> 도 쓰고 싶으면 <b>같은 방법으로 하나 더</b> 넣어요.
+          </div>
+        </div>
+      </div>
+      <div class="stp nobreak">
+        <div class="n">3</div>
+        <div class="bd">
+          <div class="t">조금 기다려요</div>
+          <div class="d">
+            <b>몇 분~한 시간쯤</b> 걸려요. 자물쇠 표시(https)도 저절로 생겨요.<br>
+            바로 안 열려도 <b>당황하지 말고 기다리세요.</b> 원래 그래요.
+          </div>
+        </div>
+      </div>
+      <div class="stp nobreak">
+        <div class="n">4</div>
+        <div class="bd">
+          <div class="t">진짜 열리는지 확인해요</div>
+          <div class="d">
+            휴대폰과 PC에서 <code>https://mangoi.ai</code> 를 열어 봐요.<br>
+            망고아이 화면이 나오고 <b>자물쇠 표시가 있으면 성공</b>이에요.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note nobreak">
+      <b>담당자에게 한 가지 더.</b><br>
+      새 주소를 붙여도 <b>기존 주소들은 그대로 둬야 해요.</b>
+      <code>test.mangoi.co.kr</code> 을 갑자기 떼면 지금 수업 중인 학생들이 못 들어와요.
+      <b>새 주소를 먼저 붙여 두고</b>, 옛 주소는 나중에 천천히 정리하세요.
+      한 Worker 에 <b>커스텀 도메인을 여러 개 붙이는 건 아무 문제 없어요.</b>
+    </div>
+
+  </div>
+</div>
+
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">3</div><h2>연결하기 — 담당자 확인 사항</h2></div>
+
+    <div class="warn nobreak">
+      <b>⚠ <code>mangoi.co.kr</code> 존에 와일드카드가 걸려 있어요</b><br><br>
+      2026-08-15 확인 결과, <code>*.mangoi.co.kr</code> 이
+      <b>구 서버(<code>118.219.234.180</code>)로 통째로 향하고</b> 있습니다.
+      실제로 존재하지 않는 이름(<code>zzqq9x7.mangoi.co.kr</code> 등)도 전부 구 서버로 응답합니다.<br><br>
+      <b>그래서 이런 일이 생겨요.</b> DNS 레코드를 <b>명시적으로 만들지 않은 서브도메인은
+      전부 조용히 옛 사이트로 갑니다.</b> 오타를 쳐도 404 가 아니라 «옛 사이트»가 떠요.
+      전환 막바지에 이게 사고로 이어질 수 있습니다.<br><br>
+      또 <code>new.mangoi.co.kr</code> 은 와일드카드가 아니라
+      <b>별도 IP <code>101.79.28.176</code></b> 에 물려 있습니다. 구 서버도, Worker 도 아닙니다.
+      <b>무엇인지 먼저 확인</b>하고, 새 사이트 주소로 쓰려면 그다음에 정하세요.<br><br>
+      전환 마지막 날 할 일 = <b>와일드카드 목적지를 새 Worker 로 바꾸기</b> +
+      구 서버는 <code>old.mangoi.co.kr</code> 처럼 <b>명시적 레코드</b>로 옮기기.
+    </div>
+  </div>
+</div>
+
+<!-- 4. 조심할 것 -->
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">4</div><h2>조심할 것 네 가지</h2></div>
+
+    <div class="todo">
+      <div class="it nobreak" style="background:#FEF2F2;border-color:#FECACA;border-width:2px;">
+        <div class="box" style="border-color:#DC2626;"></div>
+        <div class="bd">
+          <div class="t">하나 — 자동 갱신을 꼭 켜세요</div>
+          <div class="d">
+            제일 중요해요. 2년 뒤에 깜빡하고 돈을 안 내면 <b>주소가 남에게 넘어가요.</b>
+            한 번 뺏기면 되찾는 데 <b>수백만 원</b>이 들 수도 있어요.
+          </div>
+        </div>
+      </div>
+      <div class="it nobreak">
+        <div class="box"></div>
+        <div class="bd">
+          <div class="t">둘 — 결제 카드가 죽지 않게 하세요</div>
+          <div class="d">
+            자동 갱신을 켜 놨어도 <b>카드가 만료되면</b> 돈이 안 나가요.
+            회사 법인카드를 바꾸면 <b>Cloudflare에 등록된 카드도 같이 바꿔 주세요.</b>
+          </div>
+        </div>
+      </div>
+      <div class="it nobreak">
+        <div class="box"></div>
+        <div class="bd">
+          <div class="t">셋 — 회사 계정으로 사세요</div>
+          <div class="d">
+            직원 개인 이메일로 사면, 그분이 회사를 그만뒀을 때 <b>주소를 못 찾아요.</b>
+            <b>회사 공용 이메일</b>로 된 계정으로 사세요.
+          </div>
+        </div>
+      </div>
+      <div class="it nobreak">
+        <div class="box"></div>
+        <div class="bd">
+          <div class="t">넷 — 살 마음이 있으면 그날 사세요</div>
+          <div class="d">
+            검색만 여러 번 하고 오래 고민하면, 아주 가끔 <b>남이 먼저 채 가는</b> 일이 있어요.
+            <code>mangoi.ai</code> 는 <b>2026년 8월 15일 기준 비어 있어요.</b>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>이럴 땐 어떻게 해요?</h3>
+    <table class="nobreak">
+      <thead><tr><th style="width:38%">이런 일이 생기면</th><th>이렇게 하세요</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>검색했는데 <b>«Unavailable»</b><br>(살 수 없음)이라고 나와요</td>
+          <td>누가 먼저 샀다는 뜻이에요. <b>그럼 <code>mangoai.ai</code> 나 <code>mangoedu.ai</code></b> 를
+              대신 보세요. 둘 다 비어 있어요.</td>
+        </tr>
+        <tr>
+          <td>해외 결제가 안 돼요</td>
+          <td>카드사에 <b>«해외 결제 막아 놓은 것»</b>을 풀어 달라고 하세요.
+              그래도 안 되면 <b>가비아</b>(한국 회사)에서 사세요.</td>
+        </tr>
+        <tr>
+          <td>1년만 사고 싶어요</td>
+          <td><b>안 돼요.</b> <code>.ai</code> 는 나라 규칙상 최소 2년이에요.</td>
+        </tr>
+        <tr>
+          <td>샀는데 사이트가 안 열려요</td>
+          <td><b>정상이에요.</b> 3번(연결하기)을 아직 안 한 거예요.
+              담당자에게 이 종이 3번 쪽을 보여 주세요.</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </div>
+</div>
+
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">5</div><h2>가비아에서 사는 방법 (예비 경로)</h2></div>
+
+    <div class="nobreak">
+    <p class="lead">
+      Cloudflare 해외 결제가 막히거나 한국어가 편하시면 <b>가비아</b>도 괜찮아요.
+      값도 비슷해요(2년 약 20만원). 다만 <b>단계가 하나 더 많아요</b> —
+      네임서버를 직접 Cloudflare 로 바꿔 줘야 하거든요.
+    </p>
+    <table>
+      <thead><tr><th style="width:14%" class="c">순서</th><th>할 일</th></tr></thead>
+      <tbody>
+        <tr><td class="c"><b>1</b></td><td><code>domain.gabia.com</code> 접속 → <code>mangoi.ai</code> 검색</td></tr>
+        <tr><td class="c"><b>2</b></td><td>«등록 가능»이면 장바구니에 담고, <b>2년</b>으로 결제 (카드·계좌이체 다 돼요)</td></tr>
+        <tr><td class="c"><b>3</b></td><td><b>여기가 추가 단계.</b> My가비아 → 도메인 관리 → <b>네임서버</b>를 Cloudflare 것으로 변경</td></tr>
+        <tr><td class="c"><b>4</b></td><td>Cloudflare에 <code>mangoi.ai</code> 를 사이트로 추가</td></tr>
+        <tr><td class="c"><b>5</b></td><td>그다음은 이 종이 <b>3번(연결하기)</b> 과 똑같아요</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- 5. 요약 -->
+<div class="page">
+  <div class="sec">
+    <div class="sec-title"><div class="num">6</div><h2>한 장 요약</h2></div>
+
+    <h3>오늘 할 일</h3>
+    <table class="nobreak">
+      <thead><tr><th style="width:12%" class="c">순서</th><th style="width:52%">할 일</th><th style="width:16%" class="c">돈</th><th class="c">누가</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="c"><b>1</b></td>
+          <td><code>dash.cloudflare.com</code> 로그인</td>
+          <td class="c">0원</td><td class="c">운영팀</td>
+        </tr>
+        <tr>
+          <td class="c"><b>2</b></td>
+          <td><span class="click">Domain Registration</span> <span class="arrow">▶</span> <span class="click">Register Domains</span> → <code>mangoi</code> 검색</td>
+          <td class="c">0원</td><td class="c">운영팀</td>
+        </tr>
+        <tr>
+          <td class="c"><b>3</b></td>
+          <td><code>mangoi.ai</code> <b>2년</b> 구매 + <b>자동 갱신 켜기</b></td>
+          <td class="c"><b>약 22만원</b></td><td class="c">운영팀</td>
+        </tr>
+        <tr>
+          <td class="c"><b>4</b></td>
+          <td>Worker <code>webrtc-unified-platform-prod</code> 에 커스텀 도메인 붙이기</td>
+          <td class="c">0원</td><td class="c"><b>배포 담당자</b></td>
+        </tr>
+        <tr>
+          <td class="c"><b>5</b></td>
+          <td>휴대폰·PC 에서 <code>https://mangoi.ai</code> 열리는지 확인</td>
+          <td class="c">0원</td><td class="c">둘 다</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="okbox nobreak">
+      <b>전부 합쳐서 약 20분, 약 22만원(2년치)이에요.</b><br>
+      결제는 5분이면 끝나고, 나머지는 연결되기를 기다리는 시간이에요.
+    </div>
+
+    <h3>이 주소를 사면 «test» 문제가 같이 풀려요</h3>
+    <div class="okbox nobreak">
+      <b>지금 망고아이 진짜 주소는 <code>test.mangoi.co.kr</code> 이에요.</b><br>
+      «test»는 영어로 <b>«연습, 시험»</b>이라는 뜻이에요. 진짜 서비스인데 주소가 연습용처럼
+      보이면 학부모님이 <b>«이거 진짜 맞나요?»</b> 하고 안 믿어요.<br><br>
+      <b><code>mangoi.ai</code> 를 사면 이게 한 번에 풀려요.</b>
+      새 사이트를 <code>mangoi.ai</code> 에 올리면
+      «test» 글자도 없어지고, <b>옛 사이트를 하나도 안 건드려도 돼요.</b>
+    </div>
+
+    <div class="warn nobreak">
+      <b>⚠ 절대 이렇게 하면 안 돼요 — <code>www.mangoi.co.kr</code> 을 새 사이트로 바꾸기</b><br><br>
+      <b>지금 <code>www.mangoi.co.kr</code> 에는 옛 사이트가 살고 있어요.</b>
+      (실제 IP <code>118.219.234.180</code> — 2026-08-15 확인)<br><br>
+      주소 하나는 <b>한 곳만 가리킬 수 있어요.</b> 두 곳을 동시에는 못 가리켜요.
+      그래서 <code>www.mangoi.co.kr</code> 을 새 사이트로 바꾸면
+      <b>옛 사이트가 그 주소에서 사라져요.</b><br><br>
+      그러면 «두 사이트를 함께 쓰자»는 계획이 <b>그 순간 깨져요.</b>
+      옛 사이트를 쓰던 학생·대리점이 <b>갑자기 못 들어와요.</b><br><br>
+      <b>바꾸는 건 맨 마지막 날에 해요.</b> 그때까지는 그대로 두세요.
+    </div>
+
+    <div class="note nobreak">
+      <b>헷갈리기 쉬운 부분 — 이건 괜찮아요.</b><br>
+      «주소 여러 개 → 사이트 한 개»는 <b>아무 문제 없어요.</b>
+      <code>mangoi.ai</code> 와 <code>test.mangoi.co.kr</code> 이
+      <b>둘 다 새 사이트를 가리켜도 괜찮아요.</b> 오히려 그렇게 해야 해요.<br>
+      이미 <code>test</code> 주소를 즐겨찾기 해 둔 학생이 있으니까요.<br><br>
+      안 되는 건 그 반대예요. <b>«주소 한 개 → 사이트 두 개»</b>는 불가능해요.
+    </div>
+
+    <h3>혹시 못 사게 되면 (예비 후보)</h3>
+    <table class="nobreak">
+      <thead><tr><th style="width:34%">주소</th><th style="width:18%" class="c">2년 값</th><th>메모</th></tr></thead>
+      <tbody>
+        <tr><td><code>mangoai.ai</code></td><td class="c">약 22만원</td><td>철자가 바뀌고 이름 겹침. 차선책</td></tr>
+        <tr><td><code>mangoedu.ai</code></td><td class="c">약 22만원</td><td>«망고 교육 AI». 업종이 바로 보임</td></tr>
+        <tr><td><code>mangokids.ai</code></td><td class="c">약 22만원</td><td>어린이 대상이 확실히 보임</td></tr>
+        <tr><td><code>mangoai.co.kr</code> + <code>mangoai.kr</code></td><td class="c">약 4만원</td><td><b>싸요.</b> 오타 방어용으로 같이 사 두면 좋아요</td></tr>
+      </tbody>
+    </table>
+
+    <div class="foot">
+      망고아이 · mangoi.ai 도메인 구매 절차서 · 2026년 8월 15일 작성<br>
+      도메인 상태·가격은 작성 시점 기준입니다. 결제 화면에서 최종 확인하세요.
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
