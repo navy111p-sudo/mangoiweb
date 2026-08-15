@@ -357,6 +357,11 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
   return {
     state, configured, sandbox_account: sandboxAcct,
     provider,                                   // 'barobill' | 'codef' | 'none'
+    /* 화면 상단의 카드번호를 실제 설정값으로 맞추기 위한 **끝 4자리만**.
+       하드코딩된 «8842» 가 낡아 실제 카드(…3575)와 어긋나 있었다(2026-08-14).
+       전체 번호는 절대 내보내지 않는다 — 끝 4자리는 영수증에도 찍히는 수준이다. */
+    card_last4: (cleanSecret(env.BAROBILL_CARDNUM) || cleanSecret(env.CODEF_CARD_NO))
+      .replace(/\D/g, '').slice(-4) || null,
     base: provider === 'barobill' ? (last?.ws || '바로빌') : base,
     missing: provider === 'none' ? BARO_MISSING(env) : [],
     message_ko: MSG[state][0], message_en: MSG[state][1],
