@@ -1080,23 +1080,29 @@ export async function handleMangoApi(
       const days = parseInt(url.searchParams.get('days') || '7', 10);
       const since = Date.now() - days * 24 * 3600 * 1000;
 
+      /* 🗓️ (2026-08-15) 예약 행 제외 — attendance 에는 아직 안 한 «예약» 수업이
+         status='scheduled' + 미래 joined_at 으로 미리 들어 있다(2030년까지!).
+         joined_at >= since 는 미래 방향으로도 통과라, 출석 차트 x축이 2030 까지
+         늘어지고(현장 제보) 총 세션·평균 접속률(active 0%가 평균을 깎음)도 오염됐다.
+         실제로 일어난 출석만 센다 — 예약이 실제 출석으로 바뀌면 status 가 바뀌어 포함된다. */
+      const NOT_SCHEDULED = `COALESCE(status,'') <> 'scheduled'`;
       const [attTotal, attByDay, disconnectStats, emergencyCount, rewardCount, topSpeakers] = await Promise.all([
-        env.DB.prepare(`SELECT COUNT(*) AS c FROM attendance WHERE joined_at >= ?`).bind(since).first(),
+        env.DB.prepare(`SELECT COUNT(*) AS c FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED}`).bind(since).first(),
         env.DB.prepare(
           `SELECT date, COUNT(DISTINCT user_id) AS unique_users, COUNT(*) AS sessions
-           FROM attendance WHERE joined_at >= ? GROUP BY date ORDER BY date DESC`
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED} GROUP BY date ORDER BY date DESC`
         ).bind(since).all(),
         env.DB.prepare(
           `SELECT COUNT(*) AS total_sessions,
                   SUM(disconnect_count) AS total_disconnects,
                   AVG(CASE WHEN total_session_ms > 0 THEN (total_active_ms*100.0/total_session_ms) ELSE 0 END) AS avg_active_pct
-           FROM attendance WHERE joined_at >= ?`
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED}`
         ).bind(since).first(),
         env.DB.prepare(`SELECT COUNT(*) AS c, event_type FROM emergency_events WHERE triggered_at >= ? GROUP BY event_type`).bind(since).all(),
         env.DB.prepare(`SELECT COUNT(*) AS c, type FROM rewards WHERE issued_at >= ? GROUP BY type`).bind(since).all(),
         env.DB.prepare(
           `SELECT user_id, username, SUM(total_active_ms) AS active_ms, SUM(total_session_ms) AS session_ms
-           FROM attendance WHERE joined_at >= ? AND total_session_ms > 0
+           FROM attendance WHERE joined_at >= ? AND ${NOT_SCHEDULED} AND total_session_ms > 0
            GROUP BY user_id ORDER BY active_ms DESC LIMIT 10`
         ).bind(since).all()
       ]);
