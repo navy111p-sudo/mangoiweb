@@ -1376,8 +1376,18 @@
      - 캐릭터 작은 원형 아이콘 + 그라데이션 텍스트
   ════════════════════════════════════════════════════════════ */
   .top-header {
-    /* 🔒 스크롤 시에도 항상 화면 상단에 고정 — 페이지 전환에도 잔존 */
-    position: sticky;
+    /* 📌 (2026-08-15 사장님 요청 「C안」) sticky → static.
+       [문제] 헤더가 sticky 라 세로 약 90px(실측 56px × zoom 1.3 + 여백)을 «항상» 점유했다.
+              그래서 ⓐ KPI 두 번째 줄이 화면 밖으로 밀리고, ⓑ 사이드바 메뉴 88개가 전부
+              scrollIntoView({block:'start'}) 로 뛰는데 그 자리가 헤더 밑이라 카드 제목이 덮였다.
+       [조치] static 으로 바꿔 본문과 함께 흘러가게 한다. 스크롤을 내리면 헤더가 위로 사라진다.
+       [자동으로 따라오는 것] admin.html 의 --adm-jump-offset 계산은
+              getComputedStyle(.top-header).position 이 'sticky'/'fixed' 일 때만 값을 넣는다.
+              static 이면 0px 이 되어 «덜 스크롤하는» 보정이 저절로 꺼진다. 별도 수정 불필요.
+       [건드리지 않은 것] 좁은 화면(≤900px)은 admin-inline-c.css 에서 이미 position:relative
+              !important 라 원래부터 흘러갔다. th-auto-hide 는 js/adm-core.js 에서 꺼져 있다.
+       ⏪ 원복하려면 아래 한 줄을 sticky 로 되돌리면 된다(top/z-index 는 그대로 두었다). */
+    position: static;
     top: 0;
     z-index: 1000;
     /* 더 투명한 흰색 + 흐림 — 콘텐츠가 비치게 (2026-06-24 더 투명하게 0.42→0.18→0.10→0.04) */
