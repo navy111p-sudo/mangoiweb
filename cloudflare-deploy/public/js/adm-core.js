@@ -8294,6 +8294,15 @@ async function seedDemoTeachers() {
       if (key) onPayrollHeaderClick(key, ev.shiftKey);
     });
   }
+  // 💳 법인카드 표도 같은 방식 (2026-08-16)
+  if (e('acc-card-thead')) {
+    e('acc-card-thead').addEventListener('click', (ev) => {
+      const th = ev.target.closest('.pr-th');
+      if (!th) return;
+      const key = th.getAttribute('data-sort-key');
+      if (key && typeof window.onCardHeaderClick === 'function') window.onCardHeaderClick(key, ev.shiftKey);
+    });
+  }
   // 모달 배경 클릭으로 닫기
   if (e('eval-modal-bg')) e('eval-modal-bg').addEventListener('click', (ev) => {
     if (ev.target.id === 'eval-modal-bg') closeEvalModal();
@@ -11109,6 +11118,10 @@ window.rebuildGlobalSearchIndex = function() {
     '사무용품':   { icon: '📎', color: '#3b82f6', avg: 80000,  threshold: 130000 },
     '통신':       { icon: '📞', color: '#8b5cf6', avg: 50000,  threshold: 80000 },
     '마케팅':     { icon: '📣', color: '#ec4899', avg: 200000, threshold: 350000 },
+    /* ☁️ SW구독 — 장비에서 떼어냄(2026-08-15). 기준은 «끊으면 못 쓰나».
+       임계값을 장비(₩250,000)보다 높게 잡는다 — AI·클라우드는 원래 매달 나가는 고정비라
+       장비 기준으로 재면 매달 빨간불이 켜져서 경고가 무의미해진다. */
+    '구독':       { icon: '☁️', color: '#0ea5e9', avg: 300000, threshold: 500000 },
     '장비':       { icon: '💻', color: '#06b6d4', avg: 120000, threshold: 250000 },
     '복리후생':   { icon: '🎁', color: '#a855f7', avg: 100000, threshold: 200000 },
     '기타':       { icon: '❓', color: '#6b7280', avg: 50000,  threshold: 100000 },
@@ -11322,7 +11335,12 @@ window.rebuildGlobalSearchIndex = function() {
       d.__cardAutoBound = true;
       // 월 선택 기본값 = 이번 달(KST) — admin.html 의 하드코딩(2026-04)을 덮는다
       var mEl = document.getElementById('acc-card-month');
-      if (mEl) mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+      if (mEl) {
+        mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        // 🆕 (2026-08-15) 월을 바꾸면 바로 조회한다. 예전엔 [조회]를 눌러야 반영돼서
+        //   달만 바꾸고 「안 바뀐다」로 읽혔다. (월은 서버 조회라 renderCardTable 로는 안 된다)
+        mEl.addEventListener('change', function () { window.cardLoad(); });
+      }
       d.addEventListener('toggle', function(){ if (d.open) window.cardLoad(); });
       if (d.open) window.cardLoad();
     }
@@ -11334,9 +11352,9 @@ window.rebuildGlobalSearchIndex = function() {
       { name: '스타벅스 강남R점',   cat: '식대',     range: [4500, 18000] },
       { name: '카카오T 택시',       cat: '교통',     range: [6000, 22000] },
       { name: '배민 한식주문',      cat: '식대',     range: [9000, 32000] },
-      { name: 'AWS 클라우드',       cat: '장비',     range: [25000, 80000] },
+      { name: 'AWS 클라우드',       cat: '구독',     range: [25000, 80000] },
       { name: 'Google Ads 광고',    cat: '마케팅',   range: [30000, 120000] },
-      { name: 'Cloudflare Workers', cat: '장비',     range: [8000, 25000] },
+      { name: 'Cloudflare Workers', cat: '구독',     range: [8000, 25000] },
       { name: '오피스디포',         cat: '사무용품', range: [8000, 45000] },
       { name: 'SKT 통신요금',       cat: '통신',     range: [38000, 65000] },
       { name: '교보문고 영등포',    cat: '사무용품', range: [12000, 35000] },
@@ -11344,8 +11362,8 @@ window.rebuildGlobalSearchIndex = function() {
       { name: 'GS칼텍스 주유',      cat: '교통',     range: [30000, 60000] },
       { name: '쿠팡 사무용품',      cat: '사무용품', range: [8000, 38000] },
       { name: '회식 — 강남고기집',  cat: '복리후생', range: [55000, 120000] },
-      { name: 'Figma Pro',          cat: '장비',     range: [22000, 38000] },
-      { name: '마이크로소프트 365', cat: '장비',     range: [12000, 28000] },
+      { name: 'Figma Pro',          cat: '구독',     range: [22000, 38000] },
+      { name: '마이크로소프트 365', cat: '구독',     range: [12000, 28000] },
       { name: '카카오톡 비즈채널',  cat: '마케팅',   range: [20000, 80000] },
       { name: '직원 선물 (기프티콘)', cat: '복리후생', range: [10000, 50000] },
       { name: '문구점 — 모나미',    cat: '사무용품', range: [3000, 15000] },
@@ -11480,6 +11498,69 @@ window.rebuildGlobalSearchIndex = function() {
     }
   }
 
+  /* 🔃 법인카드 표 정렬 (2026-08-16) — 급여표(.pr-th)와 같은 방식·같은 CSS 를 쓴다.
+     헤더 클릭 = 내림→오름→해제 토글, Shift+클릭 = 2차·3차 키 추가.
+     비어 있으면 기본값(일시 최신순) — 예전 동작 그대로다. */
+  let _cardSort = [];
+  const _CARD_SORT_LABELS_KO = { datetime: '일시', merchant: '가맹점', category: '카테고리', amount: '금액', vs: '평균 대비' };
+  const _CARD_SORT_LABELS_EN = { datetime: 'Date', merchant: 'Merchant', category: 'Category', amount: 'Amount', vs: 'vs Avg' };
+
+  function _compareCardRows(a, b) {
+    for (const s of _cardSort) {
+      const va = a['_s_' + s.key], vb = b['_s_' + s.key];
+      let cmp;
+      if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+      else cmp = String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'ko');
+      if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp;
+    }
+    return 0;
+  }
+
+  window.onCardHeaderClick = function(key, shiftKey) {
+    const idx = _cardSort.findIndex(s => s.key === key);
+    if (shiftKey) {
+      if (idx === -1) _cardSort.push({ key, dir: 'desc' });
+      else if (_cardSort[idx].dir === 'desc') _cardSort[idx].dir = 'asc';
+      else _cardSort.splice(idx, 1);
+    } else {
+      if (_cardSort.length === 1 && _cardSort[0].key === key) {
+        if (_cardSort[0].dir === 'desc') _cardSort[0].dir = 'asc';
+        else _cardSort = [];
+      } else _cardSort = [{ key, dir: 'desc' }];
+    }
+    renderCardTable();
+  };
+
+  window.clearCardSort = function() { _cardSort = []; renderCardTable(); };
+
+  function _updateCardSortArrows() {
+    const L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    document.querySelectorAll('#acc-card-thead .pr-th').forEach(th => {
+      const arrow = th.querySelector('.pr-arrow');
+      th.classList.remove('pr-active');
+      if (arrow) arrow.textContent = '↕';
+      const idx = _cardSort.findIndex(s => s.key === th.getAttribute('data-sort-key'));
+      if (idx !== -1) {
+        th.classList.add('pr-active');
+        if (arrow) arrow.textContent = (_cardSort[idx].dir === 'asc' ? '▲' : '▼') + (_cardSort.length > 1 ? String(idx + 1) : '');
+      }
+    });
+    const statusEl = document.getElementById('acc-card-sort-status');
+    if (!statusEl) return;
+    if (_cardSort.length === 0) {
+      // 정렬을 안 걸었을 때도 «지금 무슨 순서인지» 는 말해 준다(빈칸이면 사용자가 모른다)
+      statusEl.innerHTML = '<span style="color:#9ca3af">' + (L ? 'Sort: Date (newest) · click a header to sort, Shift+click to add' : '정렬: 일시 최신순 · 헤더를 누르면 정렬, Shift+클릭으로 2차 정렬') + '</span>';
+      return;
+    }
+    const labels = L ? _CARD_SORT_LABELS_EN : _CARD_SORT_LABELS_KO;
+    const chips = _cardSort.map((s, i) =>
+      `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-weight:600">${i + 1}. ${labels[s.key] || s.key} ${s.dir === 'asc' ? '▲' : '▼'}</span>`
+    ).join('');
+    statusEl.innerHTML = '<span style="color:#6b7280">' + (L ? 'Sort:' : '정렬:') + '</span>' + chips
+      + '<button onclick="clearCardSort()" style="background:#fff;border:1px solid #d1d5db;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:#6b7280;margin-left:4px">'
+      + (L ? '✕ Clear' : '✕ 해제') + '</button>';
+  }
+
   window.renderCardTable = function() {
     if (!_cardData) return;
     const tbody = document.getElementById('acc-card-rows');
@@ -11499,27 +11580,63 @@ window.rebuildGlobalSearchIndex = function() {
     } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
+    // 🆕 (2026-08-15) 「평균 대비」 필터 — 고액/평균↑ 건만 골라 보려는 요청.
+    //   표에 찍는 판정과 «같은 함수»를 써야 한다. 여기서 따로 계산하면 필터와 배지가 어긋난다.
+    const vsFilter = (document.getElementById('acc-card-vs') && document.getElementById('acc-card-vs').value) || '';
+    // 🌐 부가세 신고용 필터 — 해외/국내/접대비확인. 카테고리와 «다른 축»이라 셀렉트를 따로 뒀다
+    const flagFilter = (document.getElementById('acc-card-flag') && document.getElementById('acc-card-flag').value) || '';
+    const catCounts = {};
+    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+    const vsOf = (t) => {
+      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
+      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
+      return t.amount > meta.threshold ? 'high' : t.amount > catAvg * 1.5 ? 'over' : 'normal';
+    };
+    const _VS_RANK = { high: 2, over: 1, normal: 0 };
+
+    /* 🔃 (2026-08-16) 정렬용 값(_s_*)을 «먼저» 붙인 뒤 정렬한다 — 평균 대비는 화면 라벨
+       (고액/평균↑/정상)로 문자 정렬하면 이모지 코드포인트 순이 되어 순서가 엉킨다.
+       등급*1e12 + 금액 → 한 번 클릭으로 «고액 먼저, 그 안에서 큰 금액순».
+       ⚠️ 등급 판정은 위 vsOf 하나만 쓴다 — 필터·배지·정렬이 어긋나면 안 된다.
+       값은 사본에만 붙이고 원본(_cardData.current)은 그대로 둔다(메모 편집이 원본을 본다). */
     const rows = _cardData.current.filter(t => {
       if (catFilter && t.category !== catFilter) return false;
       if (search && !(t.merchant.toLowerCase().includes(search))) return false;
+      if (vsFilter && vsOf(t) !== vsFilter) return false;
+      if (flagFilter === 'overseas'  && !t.overseas)  return false;
+      if (flagFilter === 'domestic'  &&  t.overseas)  return false;
+      if (flagFilter === 'entertain' && !t.entertain) return false;
       return true;
-    }).sort((a, b) => b.datetime.localeCompare(a.datetime));
+    }).map(t => {
+      const st = vsOf(t);
+      return Object.assign({}, t, {
+        _meta: CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'], _st: st,
+        _s_datetime: String(t.datetime || ''), _s_merchant: String(t.merchant || ''),
+        _s_category: String(t.category || ''), _s_amount: Number(t.amount) || 0,
+        _s_vs: _VS_RANK[st] * 1e12 + (Number(t.amount) || 0),
+      });
+    });
+    if (_cardSort.length > 0) rows.sort(_compareCardRows);
+    else rows.sort((a, b) => b.datetime.localeCompare(a.datetime));   // 기본 = 일시 최신순(예전 동작)
+    _updateCardSortArrows();
 
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;color:#9ca3af">조건에 맞는 거래가 없습니다.</td></tr>';
       return;
     }
-    const catCounts = {};
-    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
     tbody.innerHTML = rows.map(t => {
-      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
-      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
-      const vs = t.amount > meta.threshold ? '🔴 고액' : t.amount > catAvg * 1.5 ? '🟡 평균↑' : '🟢 정상';
-      const color = t.amount > meta.threshold ? '#dc2626' : t.amount > catAvg * 1.5 ? '#d97706' : '#059669';
+      const meta = t._meta;
+      const st = t._st;                       // 위 map 에서 vsOf 로 이미 판정 — 재계산 금지
+      const vs = st === 'high' ? '🔴 고액' : st === 'over' ? '🟡 평균↑' : '🟢 정상';
+      const color = st === 'high' ? '#dc2626' : st === 'over' ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
+      /* 🌐 해외 = 부가세 매입세액 «불공제» 가능성. ⚠️ = 기업업무추진비(접대비) 확인 필요.
+         둘 다 서버(corpcard-sync.ts)가 판정해서 내려준다 — 화면에서 다시 계산하지 않는다. */
+      const flags = (t.overseas ? '<span title="해외 결제 — 세금계산서 없음, 부가세 매입세액 불공제 가능" style="margin-left:6px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">🌐 해외</span>' : '')
+        + (t.entertain ? '<span title="건당 3만원 초과 식대 — 외부인 동석이면 기업업무추진비(접대비)입니다. 확인해 주세요" style="margin-left:4px;background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">⚠️ 접대비?</span>' : '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
-        <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}</td>
+        <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}${flags}</td>
         <td style="padding:8px 10px"><span style="background:${meta.color}22;color:${meta.color};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${meta.icon} ${t.category}</span></td>
         <td style="padding:8px 10px;text-align:right;font-weight:800;color:${color};font-family:MangoiHanSC,Consolas,monospace">₩${t.amount.toLocaleString('ko-KR')}</td>
         <td style="padding:8px 10px;color:${color};font-size:11px;font-weight:700">${vs}</td>
@@ -11600,8 +11717,12 @@ window.rebuildGlobalSearchIndex = function() {
   window.cardExportExcel = function() {
     if (!_cardData) { alert('먼저 거래내역을 동기화해 주세요.'); return; }
     const rows = _cardData.current;
-    const csv = ['일시,가맹점,카테고리,금액(KRW),메모'].concat(
-      rows.map(t => [t.datetime, '"' + t.merchant.replace(/"/g,'""') + '"', t.category, t.amount, '"' + (t.memo||'').replace(/"/g,'""') + '"'].join(','))
+    /* 🌐/⚠️ 열을 함께 내보낸다 — 회계담당이 분기 부가세 신고 때 엑셀에서 바로 걸러 쓴다.
+       (화면 필터는 적용하지 않는다. 전체를 주고 엑셀에서 거르는 편이 실수가 적다) */
+    const csv = ['일시,가맹점,카테고리,금액(KRW),국내/해외,접대비확인,메모'].concat(
+      rows.map(t => [t.datetime, '"' + t.merchant.replace(/"/g,'""') + '"', t.category, t.amount,
+        (t.overseas ? '해외' : '국내'), (t.entertain ? '확인필요' : ''),
+        '"' + (t.memo||'').replace(/"/g,'""') + '"'].join(','))
     ).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);

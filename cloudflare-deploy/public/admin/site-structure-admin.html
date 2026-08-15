@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="망고아이 관리자 메뉴 구성표">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<title>관리자 메뉴 구성표</title>
+<style>
+:root{
+  --paper:#FDFBF6;
+  --card:#FFFFFF;
+  --ink:#1B1712;
+  --ink2:#4E463A;
+  --ink3:#786E5E;
+  --muted:#9B9081;
+  --rule:#E6DFD1;
+  --rule2:#F1EBDE;
+  --accent:#A96500;
+  --accent-soft:#FBF1DF;
+  --flag:#A83A22;
+  --flag-soft:#FBEDE9;
+  --new:#1F7A52;
+  --new-soft:#E7F4ED;
+  --shadow:0 1px 2px rgba(27,23,18,.045), 0 10px 26px -20px rgba(27,23,18,.4);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121010;
+    --card:#1C1917;
+    --ink:#F5F0E6;
+    --ink2:#C3B9A8;
+    --ink3:#9A9082;
+    --muted:#7E756A;
+    --rule:#332E28;
+    --rule2:#272320;
+    --accent:#F0B24A;
+    --accent-soft:#2A2116;
+    --flag:#F0977C;
+    --flag-soft:#2C1B15;
+    --new:#5FCB96;
+    --new-soft:#152A20;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121010;
+  --card:#1C1917;
+  --ink:#F5F0E6;
+  --ink2:#C3B9A8;
+  --ink3:#9A9082;
+  --muted:#7E756A;
+  --rule:#332E28;
+  --rule2:#272320;
+  --accent:#F0B24A;
+  --accent-soft:#2A2116;
+  --flag:#F0977C;
+  --flag-soft:#2C1B15;
+  --new:#5FCB96;
+  --new-soft:#152A20;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+.num{
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+}
+.wrap{max-width:1360px;margin:0 auto;padding:44px 24px 80px}
+
+/* ---- masthead ---- */
+.mast{
+  border-bottom:2px solid var(--ink);padding-bottom:22px;
+}
+.kicker{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;
+  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+  margin:0 0 14px;
+}
+.kicker .src{
+  color:var(--accent);letter-spacing:.06em;text-transform:none;font-size:11.5px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+h1{margin:0;font-size:clamp(28px,4.4vw,46px);line-height:1.1;letter-spacing:-.04em;font-weight:900;text-wrap:balance}
+.sub{margin:12px 0 0;max-width:64ch;color:var(--ink2);font-size:clamp(14.5px,1.4vw,17px);text-wrap:pretty}
+
+.tally{display:flex;flex-wrap:wrap;gap:0;margin:24px 0 0;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+.tally div{flex:1 1 130px;padding:13px 16px;border-right:1px solid var(--rule)}
+.tally div:last-child{border-right:0}
+.tally b{display:block;font-size:24px;font-weight:900;letter-spacing:-.03em}
+.tally span{display:block;font-size:11.5px;color:var(--muted);font-weight:700;margin-top:1px}
+
+/* ---- depth legend ---- */
+.legend{
+  margin:22px 0 0;display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;
+  font-size:12.5px;color:var(--ink3);
+}
+.legend i{font-style:normal;display:inline-flex;align-items:center;gap:8px}
+.legend .k{
+  font-size:11px;font-weight:800;color:var(--accent);background:var(--accent-soft);
+  border-radius:5px;padding:2px 7px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.legend b{color:var(--ink);font-weight:800}
+
+/* ---- toolbar ---- */
+.bar{
+  position:sticky;top:0;z-index:9;background:var(--paper);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:14px 0 12px;margin:26px 0 0;border-bottom:1px solid var(--rule);
+}
+.search{
+  flex:1 1 240px;max-width:340px;font:inherit;font-size:14px;
+  background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:9px;
+  padding:9px 13px;
+}
+.search::placeholder{color:var(--muted)}
+.search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.btn{
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink2);
+  background:var(--card);border:1px solid var(--rule);border-radius:9px;padding:9px 14px;
+  transition:color .15s ease,border-color .15s ease,background .15s ease;
+}
+.btn:hover{color:var(--ink);border-color:var(--ink3)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.hits{font-size:12.5px;color:var(--muted);margin-left:auto;font-weight:700}
+
+/* ---- flags ---- */
+.flags{
+  margin:24px 0 0;border:1px solid var(--rule);border-left:3px solid var(--flag);
+  border-radius:0 12px 12px 0;background:var(--card);padding:14px 16px;box-shadow:var(--shadow);
+}
+.flags h2{margin:0 0 9px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--flag)}
+.flags ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:7px}
+.flags li{font-size:13.5px;color:var(--ink2);line-height:1.55}
+.flags code{
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;
+  background:var(--rule2);border-radius:4px;padding:1px 5px;color:var(--ink2);
+}
+.flags b{color:var(--ink);font-weight:800}
+
+/* ---- outline ---- */
+.outline{margin-top:26px;columns:2;column-gap:22px}
+@media (max-width:1080px){.outline{columns:1}}
+
+.sec{
+  break-inside:avoid;-webkit-column-break-inside:avoid;
+  background:var(--card);border:1px solid var(--rule);border-radius:14px;
+  margin:0 0 22px;box-shadow:var(--shadow);overflow:hidden;
+}
+.sec.hidden{display:none}
+
+.sec-h{display:flex;gap:12px;align-items:baseline;padding:15px 16px 13px;border-bottom:1px solid var(--rule)}
+.sec-h .n{font-size:26px;font-weight:900;color:var(--accent);line-height:1;letter-spacing:-.05em}
+.sec-h .tt{flex:1 1 auto;min-width:0}
+.sec-h .t{display:block;font-size:18px;font-weight:900;letter-spacing:-.025em;line-height:1.25}
+.sec-h .d{display:block;margin-top:3px;font-size:12.5px;color:var(--ink3);line-height:1.5}
+.sec-h .c{
+  flex:none;font-size:11px;font-weight:800;color:var(--ink3);background:var(--rule2);
+  border-radius:999px;padding:3px 9px;white-space:nowrap;
+}
+
+.kid{border-bottom:1px solid var(--rule2)}
+.kid:last-child{border-bottom:0}
+.kid.hidden{display:none}
+.kid-r{display:flex;gap:10px;align-items:baseline;padding:9px 16px}
+.kid-r .n{flex:none;width:34px;font-size:11.5px;color:var(--muted);font-weight:700;padding-top:1px}
+.kid-r .t{flex:1 1 auto;font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em;line-height:1.45}
+.kid-r .id{
+  display:none;font-size:10.5px;color:var(--muted);font-weight:500;margin-top:2px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;
+}
+.outline.show-ids .kid-r .id{display:block}
+.badge{
+  display:inline-block;font-size:9.5px;font-weight:800;vertical-align:2px;margin-left:6px;
+  border-radius:4px;padding:1px 5px;letter-spacing:.02em;
+}
+.badge.new{color:var(--new);background:var(--new-soft)}
+.badge.dup{color:var(--flag);background:var(--flag-soft)}
+.badge.page{color:var(--accent);background:var(--accent-soft)}
+.kid-r .gc{
+  flex:none;font-size:10.5px;font-weight:800;color:var(--accent);background:var(--accent-soft);
+  border-radius:999px;padding:2px 7px;white-space:nowrap;
+}
+
+.gkids{margin:0 16px 12px 60px;padding:0;list-style:none;position:relative}
+.gkids::before{content:"";position:absolute;left:-14px;top:3px;bottom:9px;width:1px;background:var(--rule)}
+.gkids li{position:relative;padding:3px 0 3px 0;display:flex;gap:9px;align-items:baseline}
+.gkids li::before{content:"";position:absolute;left:-14px;top:14px;width:9px;height:1px;background:var(--rule)}
+.gkids li.hidden{display:none}
+.gkids .n{flex:none;font-size:10.5px;color:var(--muted);font-weight:600}
+.gkids .t{flex:1 1 auto;font-size:12.5px;color:var(--ink2);line-height:1.5}
+.outline.collapsed .gkids{display:none}
+
+mark{background:var(--accent-soft);color:var(--ink);border-radius:3px;padding:0 2px;font-weight:800}
+
+.empty{
+  display:none;margin:26px 0 0;padding:26px;text-align:center;
+  border:1px dashed var(--rule);border-radius:14px;color:var(--muted);font-size:14px;
+}
+.empty.on{display:block}
+
+footer{
+  margin-top:44px;padding-top:18px;border-top:1px solid var(--rule);
+  display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12px;color:var(--muted);
+}
+footer b{color:var(--ink3);font-weight:700}
+footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+@media (max-width:640px){
+  .wrap{padding:28px 15px 60px}
+  .gkids{margin-left:40px}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">망고아이 관리자 · 메뉴 구성표 <span class="src">public/admin.html › #ph85-sidebar</span></p>
+    <h1>관리자 메뉴 구성표</h1>
+    <p class="sub">
+      관리자 화면 왼쪽 사이드바를 그대로 펼친 표입니다. 사이드바에 접혀 있어 한 번에 보이지 않던
+      <b>대분류 → 중분류 → 소분류</b> 세 단계를 번호를 붙여 한 장에 담았습니다.
+      번호는 실제 메뉴 순서 그대로입니다.
+    </p>
+
+    <div class="tally">
+      <div><b class="num">9</b><span>대분류 (사이드바 그룹)</span></div>
+      <div><b class="num">85</b><span>중분류 (메뉴)</span></div>
+      <div><b class="num">84</b><span>소분류 (카드 안 탭)</span></div>
+      <div><b class="num">16</b><span>소분류를 가진 메뉴</span></div>
+      <div><b class="num">3</b><span>확인 필요</span></div>
+    </div>
+
+    <div class="legend">
+      <i><span class="k">1</span> <b>대분류</b> — 사이드바를 눌러서 펼치는 큰 묶음</i>
+      <i><span class="k">1.1</span> <b>중분류</b> — 누르면 그 카드로 이동</i>
+      <i><span class="k">1.1.1</span> <b>소분류</b> — 카드 안에서 다시 접혀 있는 탭</i>
+    </div>
+  </header>
+
+  <div class="bar">
+    <input class="search" id="q" type="search" placeholder="메뉴 이름으로 찾기 (예: 급여, 출결)" aria-label="메뉴 검색">
+    <button class="btn" type="button" id="tCollapse" aria-pressed="false">소분류 접기</button>
+    <button class="btn" type="button" id="tIds" aria-pressed="false">카드 ID 보기</button>
+    <span class="hits" id="hits"></span>
+  </div>
+
+  <section class="flags">
+    <h2>구조를 그리다 나온 것 3건</h2>
+    <ul>
+      <li>
+        <b>메뉴 85개가 모두 카드로 가는 것은 아닙니다.</b> 82개는 이 페이지 안의 카드로 스크롤하지만,
+        3개(<b>3.10 연기 수업 현황</b> · <b>5.7 캐피타운 정산</b> · <b>9.14 사이트 구조도</b>)는
+        <code>location.href</code> 로 <b>다른 페이지</b>를 엽니다(<span class="badge page">별도 페이지</span> 표시).
+        그중 <b>5.7 캐피타운 정산</b>은 <code>style="display:none"</code> 이라 <b>조건이 맞는 계정에만</b> 보입니다 —
+        메뉴를 세다가 «없는데요?» 소리가 나오는 자리입니다.
+      </li>
+      <li>
+        <b>3.5 «🌙 근무·휴식·휴가 관리»</b> 와 <b>9.1 «📅 캘린더 관리»</b> 는 이름은 다르지만
+        같은 카드 <code>card-calendar</code> 를 가리킵니다. 메뉴는 두 개, 도착지는 하나입니다.
+      </li>
+      <li>
+        <b>6.4 문의 관리</b> 안의 «🪑 대기자 명단» 탭이 <b>두 번</b> 들어 있고, 두 칸 모두 id 가
+        <code>sub-waitlist</code> 로 같습니다. HTML 에서 같은 id 는 첫 번째만 잡히므로
+        <b>두 번째 칸은 눌러도 첫 번째가 동작</b>합니다.
+      </li>
+    </ul>
+  </section>
+
+  <div class="outline" id="outline"></div>
+  <p class="empty" id="empty">찾는 메뉴가 없습니다. 다른 낱말로 찾아 보세요.</p>
+
+  <footer>
+    <span><b>기준</b> 2026-08-15 · <code>cloudflare-deploy/public/admin.html</code> 8953–9221행</span>
+    <span><b>추출</b> <code>.ph85-group</code> → <code>.ph85-sub[data-card]</code> → <code>details.sub-item</code></span>
+    <span><b>참고</b> 라벨은 화면에 뜨는 글자 그대로 옮겼습니다</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+var DATA = [
+ {t:"평가서 통합", d:"수업이 끝난 뒤 학생 성적표를 쓰고 보내는 곳",
+  k:[
+   {t:"평가서 작성", id:"card-eval-mgmt", g:["➕ 빠른 평가서 작성","📋 평가서 목록 + 통계"]},
+   {t:"일괄 평가", id:"card-bulk-eval"},
+   {t:"AI 수업 리포트", id:"card-ai-lesson-report"},
+   {t:"AI 초안", id:"card-ai-eval-draft"},
+   {t:"월별 리포트", id:"card-monthly-report"}
+  ]},
+
+ {t:"알림 센터", d:"학생·학부모에게 소식과 공지를 보내는 곳",
+  k:[
+   {t:"웹 푸시", id:"card-webpush-mgmt", g:["📡 푸시 상태 + VAPID","👥 구독자 목록","📤 푸시 발송","📜 발송 이력"]},
+   {t:"카카오 알림", id:"card-kakao-mgmt", g:["🔌 API 연동 상태","📨 학부모 답장 수신 (양방향)","📖 SOLAPI 가입 가이드"]},
+   {t:"📢 공지 스튜디오", id:"card-poster-maker", g:["📋 팝업 목록","📖 사용법 가이드","🖼 내 포스터 (저장 목록)","📖 사용 안내"]},
+   {t:"📢 팝업 게시", id:"card-popups-mgmt"},
+   {t:"이벤트 알림", id:"card-notifications"},
+   {t:"📌 공지사항", id:"card-notice-board", n:1}
+  ]},
+
+ {t:"강사 통합", d:"선생님에 관한 모든 것 — 시간표·급여·평가",
+  k:[
+   {t:"강사 관리", id:"card-teacher-mgmt", g:["📊 강사 가동률 (열어둔 시간 대비 수업)","⭐ 강사 평가·품질 (학생평가·후기)","👩‍🏫 강사 명부 (실데이터)","🧑‍💼 직원 명부 (실데이터)","📚 교재 명부 (실데이터)","🔄 결석 강사 자동 대체 (AI 매칭)","📋 강사 정보 (등록·수정·제거)"]},
+   {t:"MBTI", id:"card-mbti-mgmt"},
+   {t:"자동 급여", id:"card-payroll-auto"},
+   {t:"급여 관리", id:"card-payroll"},
+   {t:"🌙 근무·휴식·휴가 관리", id:"card-calendar", dup:"9.1 과 같은 카드"},
+   {t:"🗓 시간표", id:"card-timetable", n:1},
+   {t:"📝 수업 일지", id:"card-lesson-log", n:1},
+   {t:"🔗 강사 계정 연결", id:"card-teacher-link", n:1},
+   {t:"📅 연기·변경 요청", id:"card-schedule-requests", n:1},
+   {t:"⏸ 연기 수업 현황", id:"/admin/postponed-classes", n:1, page:1},
+   {t:"📨 방 초대 관리", id:"card-room-invite"},
+   {t:"📶 강사 회선품질", id:"card-vc-quality", n:1},
+   {t:"⭐ 학생 수업 평가", id:"card-class-ratings"},
+   {t:"칭찬 통계", id:"card-praise-stats"},
+   {t:"👁 강사 슈퍼바이저", id:"card-supervisor", g:["🔗 멘토 배정","📋 활성 배정 목록","📝 노트 보내기","📥 수신 노트 (junior 입장)","👀 수업 관찰 — 라이브 참관"]},
+   {t:"📜 수업 변경 이력", id:"card-class-audit", n:1},
+   {t:"📋 보고서 양식", id:"card-report-forms"}
+  ]},
+
+ {t:"통계 / KPI", d:"숫자로 학원이 잘 돌아가는지 보는 곳",
+  k:[
+   {t:"KPI 대시보드", id:"card-kpi-dashboard"},
+   {t:"일별 차트", id:"card-daily-charts"},
+   {t:"랭킹", id:"card-rankings"},
+   {t:"이탈 위험", id:"card-retention-risk"},
+   {t:"🗑 보관기간 파기", id:"card-retention"},
+   {t:"🔴 실시간 수업 (활성 룸)", id:"card-active-rooms"},
+   {t:"📈 월별 NPS", id:"card-nps-monthly"},
+   {t:"🔮 AI 예측", id:"card-ai-forecast"},
+   {t:"🎙 음성 통계", id:"card-voice-stats"}
+  ]},
+
+ {t:"회계 / 포인트", d:"돈이 들어오고 나가는 것을 다루는 곳",
+  k:[
+   {t:"회계 관리", id:"card-accounting-mgmt", g:["🔔 수강료 미납 자동 알림","💳 학생 결제 내역","🧾 강사 급여 / 정산","🌍 국가별 강사료 환전","🏢 지점/가맹점 정산 (한눈에)","↩️ 환불 / 취소 관리","🎁 쿠폰 · 할인 · 포인트","🧮 세무 (부가세 · 세금계산서 · 현금영수증)","🧾 카페24 회계 실데이터","📒 회계 전표 / 분개장","📊 매출 대시보드 (일·주·월·연)","💼 미수금 / 미지급금","📈 손익 / 재무제표","💳 법인카드 사용내역","📥 회계 리포트 다운로드"]},
+   {t:"🏢 BtoB 결제관리", id:"card-payments-b2b"},
+   {t:"👨‍👩‍👧 BtoC 결제관리", id:"card-payments-b2c"},
+   {t:"🔄 정기 결제", id:"card-recurring-billing"},
+   {t:"💸 자동 수금", id:"card-auto-dunning"},
+   {t:"포인트 관리", id:"card-points-mgmt", g:["🔌 자동발송 API 연동 상태","💰 학생 포인트 잔액","🛍️ 기프티콘 카탈로그","📦 교환 신청 내역","⚙ 자동 적립 규칙"]},
+   {t:"🏢 캐피타운 정산", id:"/admin/capitown-settlement.html", n:1, page:1, cond:"조건부 숨김"}
+  ]},
+
+ {t:"학생 / 학부모", d:"학생과 부모님을 관리하고 이야기 나누는 곳",
+  k:[
+   {t:"학생 관리", id:"card-students-mgmt", g:["학생 목록","⏰ 만료 임박 학생","🚪 오늘 수업 (바로 입장)","📅 오늘 출결 한눈에","📅 학원 전체 스케줄","🏆 연속 출석 랭킹","📞 최근 상담 통합","💭 단체 톡짹톡 (벌크 메시지)"]},
+   {t:"📊 학원별 학생 수업현황", id:"card-school-attendance-stats"},
+   {t:"👨‍👩‍👧‍👦 가족 관리", id:"card-family-mgmt"},
+   {t:"문의 관리", id:"card-inquiry-mgmt", g:["🪑 대기자 명단 (자리 나면 연락)","🪑 대기자 명단 (자리 나면 연락)","📈 전환률 통계","📋 상담 목록"], dupg:1},
+   {t:"등록 관리", id:"card-enrollments"},
+   {t:"뱃지 관리", id:"card-badges-mgmt", g:["🏆 배지 카탈로그 + 통계","🕹️ 3D 배틀 & 입체 배지 보상","🧪 학생 배지 자동 검사 (수동 실행)"]},
+   {t:"커뮤니티", id:"card-community"},
+   {t:"📅 상담 예약", id:"card-counseling-booking"},
+   {t:"📰 학부모 요약", id:"card-parent-digest"},
+   {t:"🤖 학부모 FAQ봇", id:"card-parent-faq-bot"},
+   {t:"🎁 친구 추천", id:"card-referral"},
+   {t:"🎓 졸업생 커뮤니티", id:"card-alumni", g:["➕ 졸업생 등록","📋 졸업생 목록 + 필터","📝 동문 게시판"]},
+   {t:"📷 사진/영상 갤러리", id:"card-gallery", n:1}
+  ]},
+
+ {t:"교육 / 콘텐츠", d:"무엇을 가르칠지 — 교재·시험·숙제를 준비하는 곳",
+  k:[
+   {t:"🧠 복습퀴즈 출제", id:"card-review-quiz"},
+   {t:"교재 콘텐츠", id:"card-textbooks", g:["📚 컨텐츠 교재 관리","📂 컨텐츠 교재그룹 관리","📂 교재 파일 라이브러리 (개별 파일)","🎬 망고아이 비디오 관리 (YouTube)","🛒 판매 교재 관리","📦 판매 교재 그룹 관리","🏷️ 판매 구분 관리"]},
+   {t:"📖 마이크로러닝", id:"card-microlearn"},
+   {t:"🎯 미니 토익", id:"card-mini-toeic"},
+   {t:"🗣 발음 교정", id:"card-pronunciation"},
+   {t:"🎙 음성 일기", id:"card-voice-diary"},
+   {t:"📊 레벨테스트", id:"card-level-tests"},
+   {t:"💾 녹화 보관", id:"card-recording-storage"},
+   {t:"📚 숙제 관리", id:"card-homework", n:1}
+  ]},
+
+ {t:"자료실", d:"역할마다 다른 사용 설명서와 교육 자료 창고",
+  k:[
+   {t:"📕 관리자 자료실", id:"card-lib-admin"},
+   {t:"👨‍🏫 강사 자료실", id:"card-lib-teacher"},
+   {t:"🏢 지사 자료실", id:"card-lib-branch"},
+   {t:"🏬 대리점 자료실", id:"card-lib-agency"},
+   {t:"🎒 학생·학부모 자료실", id:"card-lib-student"}
+  ]},
+
+ {t:"시스템", d:"조직·권한·출결 같은 밑바탕 설정",
+  k:[
+   {t:"📅 캘린더 관리", id:"card-calendar", dup:"3.5 와 같은 카드"},
+   {t:"권한 관리", id:"card-permissions", g:["👥 역할별 권한 매트릭스","➕ 본사 직원 등록","👤 역할별 사용자 관리","📜 권한 변경 이력 (감사 로그)"]},
+   {t:"🏢 조직 (본사·지사)", id:"card-franchises", g:["🏢 지사","🏪 대리점(학원)","🏢 지사 (구)","🏛️ 대표지사","🎯 영입본부","🏯 본사 관리","🌐 독립 사이트","💵 종전금 내역","💎 포인트 내역"]},
+   {t:"🏪 대리점(학원)", id:"card-centers"},
+   {t:"🗂 카페24 명부", id:"card-cafe24-lists", n:1},
+   {t:"데이터 추출", id:"card-data-export"},
+   {t:"🔔 관리자 알림", id:"card-admin-alerts"},
+   {t:"👀 수업 관찰", id:"card-admin-ghost"},
+   {t:"💬 귓속말", id:"card-admin-whisper"},
+   {t:"📋 출결 상태", id:"card-attendance-status"},
+   {t:"📷 QR 출결", id:"card-auto-attendance"},
+   {t:"📝 수업 출결", id:"card-class-attendance"},
+   {t:"🐞 버그·피드백 접수함", id:"card-bug-reports", n:1, g:["📋 신고 목록"]},
+   {t:"🗺 사이트 구조도", id:"/admin/site-structure.html", n:1, page:1}
+  ]}
+];
+
+var esc = function(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
+
+var root = document.getElementById("outline");
+var html = "";
+
+DATA.forEach(function(sec, si){
+  var sn = si + 1;
+  var gcount = sec.k.reduce(function(a,x){ return a + (x.g ? x.g.length : 0); }, 0);
+
+  html += '<section class="sec" data-sec="'+sn+'">';
+  html += '<div class="sec-h"><span class="n num">'+sn+'</span>'
+        + '<span class="tt"><span class="t">'+esc(sec.t)+'</span>'
+        + '<span class="d">'+esc(sec.d)+'</span></span>'
+        + '<span class="c num">'+sec.k.length+' · '+gcount+'</span></div>';
+
+  sec.k.forEach(function(kid, ki){
+    var kn = sn + "." + (ki + 1);
+    html += '<div class="kid"><div class="kid-r">';
+    html += '<span class="n num">'+kn+'</span>';
+    html += '<span class="t"><span class="lbl">'+esc(kid.t)+'</span>';
+    if (kid.n)    html += '<span class="badge new">신규</span>';
+    if (kid.page) html += '<span class="badge page">별도 페이지</span>';
+    if (kid.cond) html += '<span class="badge dup">'+esc(kid.cond)+'</span>';
+    if (kid.dup)  html += '<span class="badge dup">'+esc(kid.dup)+'</span>';
+    html += '<span class="id">'+esc(kid.id)+'</span></span>';
+    if (kid.g) html += '<span class="gc num">'+kid.g.length+'</span>';
+    html += '</div>';
+
+    if (kid.g){
+      html += '<ul class="gkids">';
+      kid.g.forEach(function(g, gi){
+        var dupMark = (kid.dupg != null && gi === kid.dupg);
+        html += '<li><span class="n num">'+kn+'.'+(gi+1)+'</span>'
+              + '<span class="t"><span class="lbl">'+esc(g)+'</span>'
+              + (dupMark ? '<span class="badge dup">중복 id</span>' : '')
+              + '</span></li>';
+      });
+      html += '</ul>';
+    }
+    html += '</div>';
+  });
+
+  html += '</section>';
+});
+root.innerHTML = html;
+
+/* ---- search ---- */
+var q = document.getElementById("q");
+var hits = document.getElementById("hits");
+var empty = document.getElementById("empty");
+var secs = Array.prototype.slice.call(root.querySelectorAll(".sec"));
+var lbls = Array.prototype.slice.call(root.querySelectorAll(".lbl"));
+lbls.forEach(function(el){ el.dataset.raw = el.textContent; });
+
+function reset(){
+  lbls.forEach(function(el){ el.textContent = el.dataset.raw; });
+}
+
+function filter(){
+  var term = q.value.trim();
+  reset();
+  if (!term){
+    secs.forEach(function(s){
+      s.classList.remove("hidden");
+      s.querySelectorAll(".kid, .gkids li").forEach(function(n){ n.classList.remove("hidden"); });
+    });
+    hits.textContent = "";
+    empty.classList.remove("on");
+    return;
+  }
+  var lower = term.toLowerCase();
+  var found = 0;
+
+  secs.forEach(function(s){
+    var anyKid = false;
+    s.querySelectorAll(".kid").forEach(function(kid){
+      var kidLbl = kid.querySelector(".kid-r .lbl");
+      var kidHit = kidLbl.dataset.raw.toLowerCase().indexOf(lower) !== -1;
+      var gHit = false;
+
+      kid.querySelectorAll(".gkids li").forEach(function(li){
+        var gl = li.querySelector(".lbl");
+        var hit = gl.dataset.raw.toLowerCase().indexOf(lower) !== -1;
+        li.classList.toggle("hidden", !(hit || kidHit));
+        if (hit){ gHit = true; found++; mark(gl, term); }
+      });
+
+      var show = kidHit || gHit;
+      kid.classList.toggle("hidden", !show);
+      if (kidHit){ found++; mark(kidLbl, term); }
+      if (show) anyKid = true;
+    });
+    s.classList.toggle("hidden", !anyKid);
+  });
+
+  hits.textContent = found + "건";
+  empty.classList.toggle("on", found === 0);
+}
+
+function mark(el, term){
+  var raw = el.dataset.raw;
+  var i = raw.toLowerCase().indexOf(term.toLowerCase());
+  if (i === -1) return;
+  el.innerHTML = esc(raw.slice(0, i)) + "<mark>" + esc(raw.slice(i, i + term.length))
+               + "</mark>" + esc(raw.slice(i + term.length));
+}
+
+q.addEventListener("input", filter);
+
+/* ---- toggles ---- */
+var tc = document.getElementById("tCollapse");
+tc.addEventListener("click", function(){
+  var on = tc.getAttribute("aria-pressed") !== "true";
+  tc.setAttribute("aria-pressed", String(on));
+  root.classList.toggle("collapsed", on);
+  tc.textContent = on ? "소분류 펼치기" : "소분류 접기";
+});
+
+var ti = document.getElementById("tIds");
+ti.addEventListener("click", function(){
+  var on = ti.getAttribute("aria-pressed") !== "true";
+  ti.setAttribute("aria-pressed", String(on));
+  root.classList.toggle("show-ids", on);
+  ti.textContent = on ? "카드 ID 숨기기" : "카드 ID 보기";
+});
+})();
+</script>
+</body>
+</html>

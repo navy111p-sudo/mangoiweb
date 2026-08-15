@@ -2369,26 +2369,43 @@
               <option value="교통">🚕 교통</option>
               <option value="숙박">🏨 숙박</option>
               <option value="사무용품">📎 사무용품</option>
-              <option value="통신">📞 통신·구독</option>
+              <option value="통신">📞 통신(회선)</option>
               <option value="마케팅">📣 마케팅·광고</option>
-              <option value="장비">💻 장비·소프트웨어</option>
+              <option value="구독">☁️ SW구독</option>
+              <option value="장비">💻 장비·비품</option>
               <option value="복리후생">🎁 복리후생</option>
               <option value="기타">❓ 기타</option>
             </select>
             <input id="acc-card-search" type="text" placeholder="🔍 가맹점 검색" oninput="renderCardTable()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db;flex:1;min-width:140px" />
+            <select id="acc-card-vs" onchange="renderCardTable()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="">전체 상태</option>
+              <option value="high">🔴 고액</option>
+              <option value="over">🟡 평균↑</option>
+              <option value="normal">🟢 정상</option>
+            </select>
+            <!-- 🌐 부가세 신고용 — 해외 결제는 세금계산서가 없어 매입세액 불공제인 경우가 많다 -->
+            <select id="acc-card-flag" onchange="renderCardTable()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="">전체 표시</option>
+              <option value="overseas">🌐 해외만</option>
+              <option value="domestic">🇰🇷 국내만</option>
+              <option value="entertain">⚠️ 접대비 확인</option>
+            </select>
             <button onclick="cardLoad()" class="primary" style="padding:5px 12px;font-size:12px">🔍 조회</button>
             <button onclick="cardExportExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer">📥 Excel</button>
           </div>
+          <!-- 🔃 (2026-08-16) 정렬 상태 칩 — 지금 무엇으로 정렬 중인지 + 해제 버튼. 급여표와 같은 방식 -->
+          <div id="acc-card-sort-status" style="font-size:12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:4px;align-items:center"></div>
           <div id="acc-card-table-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:400px">
             <table id="acc-card-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
-              <thead style="background:#f9fafb;position:sticky;top:0">
+              <!-- 헤더 클릭 = 오름/내림 토글, Shift+클릭 = 2차 정렬키 추가 (.pr-th CSS 공용) -->
+              <thead id="acc-card-thead" style="background:#f9fafb;position:sticky;top:0">
                 <tr>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">일시</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">가맹점</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">카테고리</th>
-                  <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #e5e7eb">금액</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">평균 대비</th>
-                  <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e5e7eb">메모</th>
+                  <th class="pr-th" data-sort-key="datetime" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="일시" data-en="Date">일시</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="merchant" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="가맹점" data-en="Merchant">가맹점</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="category" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="카테고리" data-en="Category">카테고리</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="amount" style="padding:8px 10px;text-align:right;border-bottom:2px solid #e5e7eb"><span data-ko="금액" data-en="Amount">금액</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="vs" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="평균 대비" data-en="vs Avg">평균 대비</span><span class="pr-arrow">↕</span></th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e5e7eb"><span data-ko="메모" data-en="Memo">메모</span></th>
                 </tr>
               </thead>
               <tbody id="acc-card-rows">
@@ -8704,7 +8721,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=84" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=87" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -9107,6 +9124,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="📷 QR 출결" data-en="📷 QR Attendance" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-ko="📝 수업 출결" data-en="📝 Class Attendance" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
       <div class="ph85-sub" data-ko="🐞 버그·피드백 접수함 ⭐신규" data-en="🐞 Bug &amp; Feedback Inbox ⭐NEW" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
+      <!-- 🗺 사이트 구조도 (2026-08-15) — 카드로 넣지 않고 «다른 페이지»로 뺀 이유:
+           admin.html 은 이미 1.0MB 다. 읽기만 하는 문서를 카드로 얹으면 모든 관리자가 그 무게를
+           함께 진다. 그래서 data-card 가 아니라 location.href 로 보낸다(연기 수업 현황·캐피타운
+           정산과 같은 방식).
+           경로가 /admin/ 로 시작하므로 src/index.ts 의 isAdminPath 기본차단 + 미인증 리다이렉트
+           목록에 **이미 걸린다** — 라우팅을 새로 등록할 필요가 없고, 로그인 없이는 열리지 않는다.
+           ⚠️ public/admin/ 아래에는 js·css 를 두지 말 것(로그인 화면 리소스가 함께 막힌다).
+              그래서 문서 5장은 전부 스타일·스크립트를 파일 안에 담은 한 장짜리다. -->
+      <div class="ph85-sub" data-ko="🗺 사이트 구조도 ⭐신규" data-en="🗺 Site Structure ⭐NEW"
+           data-tip-ko="망고아이 화면이 어떤 순서로 이어지는지 그린 문서예요. 지도 1장 + 구성표 3장."
+           data-tip-en="Documents mapping how Mangoi screens connect. 1 map + 3 outlines."
+           onclick="event.stopPropagation();location.href='/admin/site-structure.html';">🗺 사이트 구조도 ⭐신규</div>
     </div>
   </div>
   
