@@ -18,7 +18,7 @@
 //      → 대표 카드를 `scrollIntoView` 로 올린다.
 //   🪤 그 스크롤을 **rAF 로 하면 안 된다** — 백그라운드/숨은 탭에서 rAF 는 아예 안 돈다(실측 0회).
 //      타이머는 돈다. (CLAUDE.md 의 «백그라운드 탭에서 rAF 가 멈춘다» 와 같은 함정)
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -110,6 +110,81 @@ check('RENAMED 이사표가 있다', /var RENAMED = \{/.test(ia6));
 check('옛 「문의·버그」 키를 잇는다', /'today:문의·버그'\s*:\s*'today:신규상담'/.test(ia6));
 check('옮긴 값을 localStorage 에 다시 적는다 (다음 접속에도 유지)',
   /RENAMED\[want\][\s\S]{0,220}?localStorage\.setItem\(LS_KEY, want\)/.test(ia6));
+
+/* 🔝 (2026-08-15 사장님) 「사이드바 메뉴를 눌러도 그 화면이 맨 위에 안 오고 경영지표 KPI 가 위에 남는다」
+   원인은 «문서가 짧아서 더 못 내려가는» 것이었다(브라우저 실측: 스크롤 끝까지 갔는데 카드 top 380px).
+   ⚠️ 여기서 막는 되돌림 세 가지 —
+      ① 「머리(KPI)를 감추면 되지」 → 안 된다. 위쪽 X px 을 감추면 문서 높이도 X 만큼 줄어 차이가 그대로다.
+      ② 꼬리 여백을 #legacy-cards «안»에 붙이기 → 그 컨테이너 밖 카드(결제·시간표·수업일지·숙제)에는 소용없다.
+      ③ 시한·손떼기 없이 계속 맨 위로 되돌리기 → 「읽고 있는데 화면이 되돌아간다」가 된다. */
+console.log('\n[ ⑨ 고른 화면이 «맨 위»에 오게 — 꼬리 여백 (2026-08-15) ]');
+check('꼬리 여백 요소를 만든다 (ia6-tail)', /TAIL_ID\s*=\s*'ia6-tail'/.test(ia6));
+check('🔴 body 맨 끝에 붙인다 — 컨테이너 안에 붙이면 그 밖의 카드엔 소용없다',
+  /document\.body\.appendChild\(t\)/.test(ia6) && !/root\(\)\.appendChild\(t\)/.test(ia6));
+check('여백은 «모자란 만큼만» 계산한다 (문서높이·화면높이로)',
+  /scrollHeight/.test(ia6) && /window\.innerHeight/.test(ia6));
+check('한 화면을 넘게는 넣지 않는다 (끝없는 빈 화면 방지)',
+  /gap\s*>\s*window\.innerHeight\)\s*gap\s*=\s*window\.innerHeight/.test(ia6));
+{
+  // 주석에는 «실측 1.3배» 처럼 설명으로 나오므로 «실행되는 줄» 만 골라서 본다.
+  const code = ia6.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  check('zoom 배율을 «재서» 맞춘다 — 배율을 코드에 박아 넣지 않는다',
+    /ratio\s*=\s*css\s*\/\s*shown/.test(ia6) && !/[*/]\s*1\.\d/.test(code));
+}
+check('전체 보기에서는 여백을 0 으로 되돌린다', /showAll[\s\S]{0,400}?style\.height\s*=\s*'0px'/.test(ia6));
+check('스크롤을 올리기 «전»에 여백부터 만든다 (순서가 바뀌면 올라갈 자리가 없다)',
+  /fitTail\(\)[\s\S]{0,220}?lead\.scrollIntoView/.test(ia6));
+check('자리가 잡힐 때까지 잠깐 따라간다 (한 번 보정으로는 부족 — 늦게 그려지는 표가 밀어낸다)',
+  /alignTop/.test(ia6) && /setTimeout\(toLeadAgain/.test(ia6));
+check('🔴 시한이 있다 — 없으면 영영 스크롤을 못 하게 된다', /Date\.now\(\)\s*\+\s*\d{3,}/.test(ia6));
+check('🔴 사람이 스크롤하면 즉시 손을 뗀다 (wheel·touch·key)',
+  /addEventListener\('wheel', release/.test(ia6) &&
+  /addEventListener\('touchstart', release/.test(ia6) &&
+  /addEventListener\('keydown', release/.test(ia6));
+check('다른 곳으로 가려는 점프에는 양보한다 (⚡자주 쓰는 기능의 하위 항목 이동이 취소되지 않게)',
+  /this\s*!==\s*alignLead\)\s*alignRelease\(\)/.test(ia6));
+check('🪤 여기서도 rAF 를 쓰지 않는다', !/requestAnimationFrame/.test(ia6));
+
+/* 📐 (2026-08-15 사장님) 「사이드바에서 시스템(=경영·설정)이 안 보인다」
+   원인 셋: ⓐ 메뉴 6그룹 위에 «메뉴가 아닌 것»이 636px 쌓여 있어 첫 화면(441px)에 한 줄도 안 들어왔다,
+           ⓑ 옛 「시스템」은 2026-08-08 개편에서 「경영·설정」으로 이름이 바뀌어 맨 아래 있었다,
+           ⓒ 옛 메뉴 전체로 가는 「전체 보기」가 adm-q10(ph118)의 «빈 그룹 숨김»에 걸려 아예 안 보였다.
+   ⚠️ 되돌림 방지 — 순서를 되돌리거나(메뉴가 다시 아래로), 이름을 지우거나, ph118 예외를 빼면 여기서 걸린다. */
+console.log('\n[ ⑩ 메뉴가 사이드바 첫 화면에 · 🗺 메뉴 지도 (2026-08-15) ]');
+check('메뉴 위에 있던 것들을 메뉴 «아래»로 내린다 (liftGroupsUp)', /function liftGroupsUp/.test(ia6));
+check('내리는 대상이 그대로다 (음성 안내·AI 운영비서·사용법 안내·⚡자주 쓰는 기능)',
+  /'ph85-voice-toggle', 'ph85-ai-asst', 'ph85-howto', 'ph161-quick'/.test(ia6));
+check('🔴 지우지 않고 «옮기기»만 한다 (있던 것이 없어지면 그것도 신고다)',
+  !/removeChild|\.remove\(\)/.test(ia6) && /insertBefore|appendChild/.test(ia6));
+check('사이드바를 세울 때 자동으로 부른다', /liftGroupsUp\(bar\);/.test(ia6));
+check('그룹 줄 높이를 낮춰 6그룹이 첫 화면에 들어오게 한다',
+  /ph85-group\[data-ia6\][^']*margin-bottom:4px/.test(ia6) &&
+  /ph85-head\{padding-top:5px !important;padding-bottom:5px !important\}/.test(ia6));
+check('🔴 글자 크기는 건드리지 않는다 (「글씨가 작아졌다」 방지)', !/font-size/.test(ia6));
+check('「전체 보기」를 「메뉴 지도」로 부른다', /data-ko="메뉴 지도" data-en="Menu map"/.test(ia6));
+/* 🏷 사람들이 찾는 이름은 「시스템」이다(같은 신고 두 번). 「경영·설정」으로 되돌리면 여기서 걸린다.
+   ⚠️ 그룹 이름은 localStorage 키가 아니다(키는 key='ops'). 그래서 이사표 없이 바꿔도 안전하다. */
+check('여섯 번째 그룹 이름이 「시스템 / System」이다', /key: 'ops', ko: '시스템', en: 'System'/.test(ia6));
+check('그룹 이름을 바꿔도 «마지막으로 보던 항목» 키는 그대로다 (키는 group.key 로 만든다)',
+  /g\.key \+ ':' \+ it\.ko/.test(ia6) && !/g\.ko \+ ':'/.test(ia6));
+check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞다',
+  /"시스템": "경영 지표·공지 발송·자료실·직원 권한·데이터 보관/.test(html));
+/* 🗺 「사이트 구조도」(2026-08-15 추가)는 카드가 아니라 다른 페이지다. 옛 사이드바의 「시스템」
+   그룹에만 있었는데 그 그룹은 ia6 가 감추므로 **아무도 볼 수 없었다**. 새 사이드바에도 있어야 한다. */
+check('시스템 그룹에 「사이트 구조도」가 있다 (옛 사이드바에만 있으면 아무도 못 본다)',
+  /ko: '사이트 구조도'[\s\S]{0,120}?href: '\/admin\/site-structure\.html'/.test(ia6));
+check('그 문서 페이지가 실제로 있다', existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
+check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
+  !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
+{
+  const q10 = rd('../cloudflare-deploy/public/js/adm-q10.js');
+  check('adm-q10(ph118): 하위 항목이 «원래 없는» 그룹은 빈 그룹으로 보지 않는다',
+    /if \(!subs\.length\) \{ g\.classList\.remove\('ph118-empty'\); return; \}/.test(q10));
+  check('그 규칙 자체는 살아 있다 (권한으로 다 감춰진 그룹은 여전히 숨김)',
+    /if \(visible === 0\) g\.classList\.add\('ph118-empty'\)/.test(q10));
+  const mq = html.match(/adm-q10\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-q10.js 버전이 8 이상 (?v=${mq ? mq[1] : '없음'})`, !!mq && Number(mq[1]) >= 8);
+}
 
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
