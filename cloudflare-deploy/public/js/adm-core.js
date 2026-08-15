@@ -13,79 +13,11 @@ try { window.getLang = function(){ return adminLang; }; } catch(e){}
 var currentLang = adminLang;
 try { window.currentLang = currentLang; } catch{}
 
-// 🎚 상단 헤더 접기/펼치기 — localStorage 에 상태 저장
-window.toggleTopHeader = function() {
-  document.body.classList.toggle('th-collapsed');
-  try {
-    localStorage.setItem('mangoi_admin_topheader_collapsed',
-      document.body.classList.contains('th-collapsed') ? '1' : '0');
-  } catch(e){}
-};
-// 페이지 로드 시 이전 상태 복원
-try {
-  if (localStorage.getItem('mangoi_admin_topheader_collapsed') === '1') {
-    document.addEventListener('DOMContentLoaded', () => document.body.classList.add('th-collapsed'));
-  }
-} catch(e){}
-
-// ════════════════════════════════════════════════
-// 🎚 상단 툴바 — 자동 숨김 + 마우스 hover 시 표시
-//   1) 페이지 로드 후 3초 노출
-//   2) 마우스가 헤더 위에서 떠나면 살짝 기다렸다가 숨김
-//   3) 화면 맨 위(8px 띠) 또는 헤더에 마우스 올리면 다시 표시
-//   4) 클릭/포커스 안에 있으면 숨기지 않음 (드롭다운 사용 중 보호)
-// ════════════════════════════════════════════════
-(function thAutoHide() {
-  // 🩹 자동 숨김 비활성화 (2026-06-23): 헤더 위아래 들썩임 제거. sticky 라 항상 고정됨.
-  var AUTO_HIDE_ENABLED = false;
-  if (!AUTO_HIDE_ENABLED) return;
-  document.addEventListener('DOMContentLoaded', () => {
-    document.body.classList.add('th-auto-hide');
-    const trigger = document.getElementById('th-hover-trigger');
-    const header  = document.querySelector('.top-header');
-    if (!header) return;
-
-    let hideTimer = null;
-    const HIDE_DELAY = 1200;       // 마우스 떠난 후 숨김까지 대기
-    const FIRST_HIDE = 3500;       // 첫 노출 후 자동 숨김
-
-    function show() {
-      clearTimeout(hideTimer);
-      document.body.classList.remove('th-hidden');
-    }
-    function scheduleHide(delay) {
-      clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        // 헤더 내부 input/select 가 포커스 중이면 숨기지 않음
-        if (header.contains(document.activeElement)) { scheduleHide(800); return; }
-        document.body.classList.add('th-hidden');
-      }, delay);
-    }
-
-    // 처음엔 노출 후 자동 숨김
-    show();
-    scheduleHide(FIRST_HIDE);
-
-    // 헤더 hover — 들어오면 표시, 떠나면 숨김 예약
-    header.addEventListener('mouseenter', show);
-    header.addEventListener('mouseleave', () => scheduleHide(HIDE_DELAY));
-
-    // 화면 맨 위 트리거 띠 — 들어오면 표시
-    if (trigger) {
-      trigger.addEventListener('mouseenter', show);
-    }
-
-    // 키보드 포커스가 헤더 내부로 들어오면 표시 유지
-    header.addEventListener('focusin', show);
-    header.addEventListener('focusout', () => scheduleHide(HIDE_DELAY));
-
-    // 터치 디바이스 — 화면 상단 탭 시 표시 토글
-    document.addEventListener('touchstart', (e) => {
-      const t = e.touches[0];
-      if (t && t.clientY < 20) show();
-    }, { passive: true });
-  });
-})();
+// 🗑 (2026-08-15 「A안」) 상단 헤더 접기 토글(toggleTopHeader)·자동숨김(thAutoHide) 제거.
+//   접거나 숨길 .top-header 자체가 없어졌다(admin.html 에서 제거, 컨트롤은 #ph162-dock 으로 이관).
+//   · 자동숨김은 이미 2026-06-23 에 AUTO_HIDE_ENABLED=false 로 꺼져 있던 죽은 코드였다.
+//   · window.toggleTopHeader 는 admin.html 의 ph81 블록이 여전히 빈 함수로 정의하므로,
+//     혹시 남아 있는 옛 onclick 이 있어도 ReferenceError 는 나지 않는다.
 
 // 🌐 (2026-07-22) 정적 마크업(data-ko/data-en)만 즉시 바꾸는 부분 — 부팅 시에도 재사용.
 //   toggleAdminLang 은 여기에 더해 동적 카드 재조회(load 등)까지 수행한다.
