@@ -77,6 +77,38 @@ function quarterRange(year: number, q: number) {
   return { months, label: `${year}년 ${q}분기` };
 }
 
+/* 🏦💳 신한 실지출 (2026-08-15) — 그 달의 법인카드 승인 + 계좌 출금(중복 제외) 합.
+   손익계산서(statement)·월간·분기·연간·KPI 가 전부 이걸 쓴다. 규칙은 여기 한 곳에만:
+     · 카드: corpcard_transactions (cancelled=0, 부분취소는 음수라 자동 차감)
+     · 계좌: bankacct_transactions (kind='out'), 단 «급여이체»(payslips 강사급여와 중복)
+       ·«카드대금»(카드 지출과 중복 — 카드값이 계좌에서 빠져나가는 돈)은 제외
+   테이블이 아직 없거나 그 달 실데이터가 0이면 hasActual=false → 부르는 쪽이
+   기존 «매출 10% 추정» 으로 폴백한다(새 환경에서도 리포트가 죽지 않게). */
+const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];
+async function monthActualOpex(env: Env, period: string) {
+  const cardSpend = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount),0) AS t FROM corpcard_transactions
+      WHERE cancelled=0 AND substr(used_at,1,7)=?
+    `).bind(period).first<{ t: number }>();
+    return Number(r?.t) || 0;
+  }, 0);
+  const bankAll = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(category,'기타출금') AS category, COALESCE(SUM(amount),0) AS total
+      FROM bankacct_transactions WHERE kind='out' AND substr(trans_at,1,7)=?
+      GROUP BY category ORDER BY total DESC
+    `).bind(period).all();
+    return (r.results || []) as Array<{ category: string; total: number }>;
+  }, [] as Array<{ category: string; total: number }>);
+  const bankRows = bankAll.filter(b => !OPEX_DUP_CATEGORIES.includes(b.category));
+  const bankOpex = bankRows.reduce((a, b) => a + (Number(b.total) || 0), 0);
+  const bankDup = bankAll.filter(b => OPEX_DUP_CATEGORIES.includes(b.category))
+    .reduce((a, b) => a + (Number(b.total) || 0), 0);
+  const actual = cardSpend + bankOpex;
+  return { cardSpend, bankRows, bankOpex, bankDup, actual, hasActual: actual > 0 };
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 메인 라우터
 // ────────────────────────────────────────────────────────────────────
@@ -170,9 +202,10 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     return r || { total_min: 0, sessions: 0 };
   }, { total_min: 0, sessions: 0 });
 
-  // 추정 비용
+  // PG 수수료는 요율이라 추정식 유지. 운영비는 신한 실지출(카드+계좌)이 있으면 그걸 쓴다
   const pgFee = Math.round(rev.revenue * 0.033);  // PG 수수료 약 3.3%
-  const opCost = Math.round(rev.revenue * 0.10);  // 운영비 추정 10% (서버·인건비·임대료)
+  const ax = await monthActualOpex(env, period);
+  const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
   const totalCost = payroll.total + pgFee + opCost;
   const netIncome = rev.revenue - totalCost;
   const margin = rev.revenue > 0 ? (netIncome / rev.revenue) * 100 : 0;
@@ -197,6 +230,12 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       teacher_count: payroll.teachers,
       pg_fee: pgFee,
       op_cost: opCost,
+      // 🏦💳 운영비 출처 — 화면(adm-core.js renderMonthly)이 라벨·내역을 이걸로 그린다
+      op_cost_source: ax.hasActual ? 'actual' : 'estimated',
+      op_card: ax.cardSpend,               // 법인카드 지출 합
+      op_bank: ax.bankOpex,                // 계좌 출금 합(중복 제외 후)
+      op_bank_rows: ax.bankRows,           // 계좌 출금 분류별 [{category,total}]
+      bank_dup_excluded: ax.bankDup,       // 급여이체·카드대금 — 중복이라 뺀 금액
       total: totalCost,
     },
     pl: {
@@ -225,7 +264,11 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       ['[비용]'],
       ['강사 급여', payroll.total],
       ['PG 수수료(추정 3.3%)', pgFee],
-      ['운영비(추정 10%)', opCost],
+      ...(ax.hasActual
+        ? [['법인카드 지출(신한 실데이터)', ax.cardSpend] as (string | number)[],
+           ...ax.bankRows.map(b => [`계좌 출금 — ${b.category}(신한 실데이터)`, Number(b.total) || 0] as (string | number)[]),
+           ...(ax.bankDup > 0 ? [[`(제외) 계좌 출금 급여이체·카드대금 — 강사급여·카드와 중복`, ax.bankDup] as (string | number)[]] : [])]
+        : [['운영비(추정 10%)', opCost] as (string | number)[]]),
       ['비용 합계', totalCost],
       [],
       ['[손익]'],
@@ -265,7 +308,9 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
         .bind(period).first<{ p: number }>();
       return x?.p || 0;
     }, 0);
-    const cost = payroll + Math.round(r.revenue * 0.133); // PG 3.3% + 운영 10%
+    // PG 3.3% + 운영비(신한 실지출 있으면 실데이터, 없으면 추정 10%)
+    const ax = await monthActualOpex(env, period);
+    const cost = payroll + Math.round(r.revenue * 0.033) + (ax.hasActual ? ax.actual : Math.round(r.revenue * 0.10));
     return { period, revenue: r.revenue, pays: r.pays, payroll, cost, net: r.revenue - cost };
   }));
 
@@ -314,7 +359,9 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
         .bind(period).first<{ p: number }>();
       return x?.p || 0;
     }, 0);
-    const cost = payroll + Math.round(r.revenue * 0.133);
+    // 분기 보고서와 같은 규칙 — PG 3.3% + 운영비(실데이터 우선, 폴백 추정 10%)
+    const ax = await monthActualOpex(env, period);
+    const cost = payroll + Math.round(r.revenue * 0.033) + (ax.hasActual ? ax.actual : Math.round(r.revenue * 0.10));
     return { period, revenue: r.revenue, pays: r.pays, payroll, cost, net: r.revenue - cost };
   }));
 
@@ -534,7 +581,9 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   }, { total_min: 0, uniq: 0 });
 
   const arpu = active > 0 ? Math.round(rev.revenue / active) : 0;
-  const cost = payroll + Math.round(rev.revenue * 0.133);
+  // 이익률·ROI 도 실지출 기준으로 — 규칙은 monthActualOpex 한 곳(2026-08-15)
+  const axK = await monthActualOpex(env, period);
+  const cost = payroll + Math.round(rev.revenue * 0.033) + (axK.hasActual ? axK.actual : Math.round(rev.revenue * 0.10));
   const net = rev.revenue - cost;
   const margin = rev.revenue > 0 ? (net / rev.revenue) * 100 : 0;
   const roi = cost > 0 ? (net / cost) * 100 : 0;
@@ -601,37 +650,12 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const pgFee = Math.round(rev.revenue * 0.033);   // PG 3.3%
   const tax = Math.round(rev.revenue * 0.03);      // 부가세 등 3% 추정
 
-  /* 🏦💳 신한 실지출 (2026-08-14) — 법인카드 승인내역(corpcard_transactions) +
-     계좌 출금(bankacct_transactions)이 그 달에 적재돼 있으면, 운영비는 «추정 10%»
-     대신 실데이터를 쓴다. 적재는 관리자 «신한 동기화» 버튼 또는 일일 cron(09:00 KST).
-     이중계상 제외 규칙 (분류는 bankacct-sync.bankCategorize 가 적요로 붙인다):
-       · 계좌 출금 «급여이체» → II 매출원가의 강사 급여(payslips)와 겹침 → 판관비 제외
-       · 계좌 출금 «카드대금» → 법인카드 지출 합계와 겹침(카드값 계좌 인출) → 판관비 제외
-     제외해도 화면에 안내 줄로 «얼마를 왜 뺐는지» 를 보여 준다(조용히 빼지 않는다).
-     테이블이 아직 없어도 safe() 가 0 으로 감쇄한다(이 파일의 공통 원칙). */
-  const cardSpend = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(amount),0) AS total FROM corpcard_transactions
-      WHERE cancelled=0 AND substr(used_at,1,7)=?
-    `).bind(period).first<{ total: number }>();
-    return r?.total || 0;
-  }, 0);
-  const bankOut = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(category,'기타출금') AS category, COALESCE(SUM(amount),0) AS total
-      FROM bankacct_transactions WHERE kind='out' AND substr(trans_at,1,7)=?
-      GROUP BY category ORDER BY total DESC
-    `).bind(period).all();
-    return (r.results || []) as Array<{ category: string; total: number }>;
-  }, []);
-  const BANK_DUP = ['급여이체', '카드대금'];
-  const bankOpexRows = bankOut.filter(b => !BANK_DUP.includes(b.category));
-  const bankOpex = bankOpexRows.reduce((a, b) => a + (Number(b.total) || 0), 0);
-  const bankDup = bankOut.filter(b => BANK_DUP.includes(b.category))
-    .reduce((a, b) => a + (Number(b.total) || 0), 0);
-  const actualOpex = cardSpend + bankOpex;
-  const hasActual = actualOpex > 0;                       // 실데이터가 있는 달만 교체
-  const opCost = hasActual ? actualOpex : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
+  /* 🏦💳 신한 실지출 — 규칙·쿼리는 monthActualOpex() 한 곳에만 있다(2026-08-15 통합).
+     실데이터가 있으면 운영비를 «추정 10%» 대신 실지출로. 제외분(급여이체·카드대금)은
+     화면에 안내 줄로 «얼마를 왜 뺐는지» 보여 준다(조용히 빼지 않는다). */
+  const ax = await monthActualOpex(env, period);
+  const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
+  const opCost = hasActual ? ax.actual : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
 
   const totalCost = payroll + pgFee + opCost + tax;
   const netIncome = rev.revenue - totalCost;
