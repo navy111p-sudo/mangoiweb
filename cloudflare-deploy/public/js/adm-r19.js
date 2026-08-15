@@ -25,7 +25,7 @@
       var user = null;
       try { user = JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){}
       if (!user) {
-        user = { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사' };
+        user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거
         localStorage.setItem('admin_session', JSON.stringify(user));
       }
       popup.innerHTML =
@@ -119,7 +119,7 @@
     if (label && (!label.textContent || label.textContent === '👤 관리자' || label.textContent.trim() === '')) {
       var user = null;
       try { user = JSON.parse(localStorage.getItem('admin_session') || 'null'); } catch(e){}
-      if (!user) user = { uid: 'hq_mgr', name: '정우영' };
+      if (!user) user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거
       label.innerHTML = '<span style="width:24px;height:24px;background:rgba(255,255,255,0.25);border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;margin-right:6px">' + (user.name||'U').charAt(0) + '</span>' +
         '<span>' + (user.name || user.uid) + '</span>' +
         '<span style="background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:99px;font-size:10.5px;margin-left:6px">관리자</span>';
