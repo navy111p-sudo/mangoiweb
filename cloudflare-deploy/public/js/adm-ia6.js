@@ -130,6 +130,12 @@
         { ko: '이탈·예측',   en: 'Retention',     cards: ['card-retention-risk', 'card-ai-forecast'] },
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
+        /* 🗺 (2026-08-15) 사이트 구조도 — 카드가 아니라 «다른 페이지» 라 href 로 보낸다.
+           cards 가 없어도 안전하다: 카드 색인은 전부 (it.cards || []) 로 감싸 있고,
+           select() 는 href 를 만나면 showOnly 전에 빠져나간다.
+           ⚠️ admin.html 옛 9그룹([시스템] 맨 끝)에도 같은 항목을 넣어 뒀다. 이 파일을 빼서
+              옛 사이드바로 되돌려도 메뉴가 사라지지 않게 하려는 것이다. 이름을 바꾸면 둘 다 바꿀 것. */
+        { ko: '사이트 구조도', en: 'Site structure', href: '/admin/site-structure.html' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
         { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
       ]
