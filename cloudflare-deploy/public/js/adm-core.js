@@ -11153,6 +11153,8 @@ window.rebuildGlobalSearchIndex = function() {
   const CARD_CATEGORIES = {
     '식대':       { icon: '🍱', color: '#f59e0b', avg: 250000, threshold: 350000 },
     '교통':       { icon: '🚕', color: '#10b981', avg: 100000, threshold: 150000 },
+    // 🏨 숙박 — 출장 숙소(2026-08-15 신설). 이모지는 Unicode 6.0 이라 Win10 에서도 안 깨진다
+    '숙박':       { icon: '🏨', color: '#f43f5e', avg: 150000, threshold: 300000 },
     '사무용품':   { icon: '📎', color: '#3b82f6', avg: 80000,  threshold: 130000 },
     '통신':       { icon: '📞', color: '#8b5cf6', avg: 50000,  threshold: 80000 },
     '마케팅':     { icon: '📣', color: '#ec4899', avg: 200000, threshold: 350000 },
