@@ -111,6 +111,40 @@ check('옛 「문의·버그」 키를 잇는다', /'today:문의·버그'\s*:\s
 check('옮긴 값을 localStorage 에 다시 적는다 (다음 접속에도 유지)',
   /RENAMED\[want\][\s\S]{0,220}?localStorage\.setItem\(LS_KEY, want\)/.test(ia6));
 
+/* 🔝 (2026-08-15 사장님) 「사이드바 메뉴를 눌러도 그 화면이 맨 위에 안 오고 경영지표 KPI 가 위에 남는다」
+   원인은 «문서가 짧아서 더 못 내려가는» 것이었다(브라우저 실측: 스크롤 끝까지 갔는데 카드 top 380px).
+   ⚠️ 여기서 막는 되돌림 세 가지 —
+      ① 「머리(KPI)를 감추면 되지」 → 안 된다. 위쪽 X px 을 감추면 문서 높이도 X 만큼 줄어 차이가 그대로다.
+      ② 꼬리 여백을 #legacy-cards «안»에 붙이기 → 그 컨테이너 밖 카드(결제·시간표·수업일지·숙제)에는 소용없다.
+      ③ 시한·손떼기 없이 계속 맨 위로 되돌리기 → 「읽고 있는데 화면이 되돌아간다」가 된다. */
+console.log('\n[ ⑨ 고른 화면이 «맨 위»에 오게 — 꼬리 여백 (2026-08-15) ]');
+check('꼬리 여백 요소를 만든다 (ia6-tail)', /TAIL_ID\s*=\s*'ia6-tail'/.test(ia6));
+check('🔴 body 맨 끝에 붙인다 — 컨테이너 안에 붙이면 그 밖의 카드엔 소용없다',
+  /document\.body\.appendChild\(t\)/.test(ia6) && !/root\(\)\.appendChild\(t\)/.test(ia6));
+check('여백은 «모자란 만큼만» 계산한다 (문서높이·화면높이로)',
+  /scrollHeight/.test(ia6) && /window\.innerHeight/.test(ia6));
+check('한 화면을 넘게는 넣지 않는다 (끝없는 빈 화면 방지)',
+  /gap\s*>\s*window\.innerHeight\)\s*gap\s*=\s*window\.innerHeight/.test(ia6));
+{
+  // 주석에는 «실측 1.3배» 처럼 설명으로 나오므로 «실행되는 줄» 만 골라서 본다.
+  const code = ia6.split('\n').filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join('\n');
+  check('zoom 배율을 «재서» 맞춘다 — 배율을 코드에 박아 넣지 않는다',
+    /ratio\s*=\s*css\s*\/\s*shown/.test(ia6) && !/[*/]\s*1\.\d/.test(code));
+}
+check('전체 보기에서는 여백을 0 으로 되돌린다', /showAll[\s\S]{0,400}?style\.height\s*=\s*'0px'/.test(ia6));
+check('스크롤을 올리기 «전»에 여백부터 만든다 (순서가 바뀌면 올라갈 자리가 없다)',
+  /fitTail\(\)[\s\S]{0,220}?lead\.scrollIntoView/.test(ia6));
+check('자리가 잡힐 때까지 잠깐 따라간다 (한 번 보정으로는 부족 — 늦게 그려지는 표가 밀어낸다)',
+  /alignTop/.test(ia6) && /setTimeout\(toLeadAgain/.test(ia6));
+check('🔴 시한이 있다 — 없으면 영영 스크롤을 못 하게 된다', /Date\.now\(\)\s*\+\s*\d{3,}/.test(ia6));
+check('🔴 사람이 스크롤하면 즉시 손을 뗀다 (wheel·touch·key)',
+  /addEventListener\('wheel', release/.test(ia6) &&
+  /addEventListener\('touchstart', release/.test(ia6) &&
+  /addEventListener\('keydown', release/.test(ia6));
+check('다른 곳으로 가려는 점프에는 양보한다 (⚡자주 쓰는 기능의 하위 항목 이동이 취소되지 않게)',
+  /this\s*!==\s*alignLead\)\s*alignRelease\(\)/.test(ia6));
+check('🪤 여기서도 rAF 를 쓰지 않는다', !/requestAnimationFrame/.test(ia6));
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach(f => console.log('   · ' + f)); }

@@ -230,6 +230,69 @@
     });
   }
 
+  /* ── 🔝 (2026-08-15 사장님) 「사이드바 메뉴를 눌러도 그 화면이 «정확히» 맨 위에 안 온다 —
+        위에 경영지표(KPI) 카드가 그대로 남는다」 ────────────────────────────────────
+     [원인] 여기서 감출 수 있는 것은 카드뿐이다. 대시보드 머리(hero·KPI 8타일·빠른메뉴)는
+       카드가 아니라 그대로 남는다. 그런데 **머리를 감추는 것으로는 못 고친다** —
+       위쪽 X px 을 감추면 카드 위치도 X 만큼 올라가지만 문서 높이도 X 만큼 줄어서
+       (= 내려갈 수 있는 거리도 X 만큼 줄어서) 차이가 **그대로 남는다**.
+       진짜 원인은 «문서가 짧아서 더 내려갈 수가 없는» 것이다. 카드 한 장만 남기면 문서가
+       화면보다 조금 큰 정도라, scrollIntoView 를 세 번 불러도 브라우저가 갈 수 있는 끝까지만 간다.
+       실측(1600×900 · zoom 1.3): 「오늘의 수업」 → 스크롤 끝(270px)까지 갔는데도 카드 top 380px.
+                                 「방 초대」 430px · 「버그·피드백」 380px.
+     [해결] 마지막 카드 아래에 «모자란 만큼만» 빈 자리를 둔다. 그러면 실제로 더 내려갈 수
+       있어서 고른 카드가 화면 맨 위에 온다. 아무것도 감추지 않으므로 위로 올리면 KPI 는 그대로 있다.
+     ⚠️ body{zoom} 때문에 «내가 적는 CSS px» 와 «화면 px» 이 다르다(1.3배, 게다가 폭에 따라 유동).
+        배율을 읽어서 나누지 않는다 — 재고·늘리기를 두어 번 반복해 수렴시킨다(배율이 바뀌어도 안 깨짐).
+     ⚠️ 한 화면(innerHeight)을 넘게는 절대 넣지 않는다. 끝없는 빈 화면이 생기면 그게 또 신고다.
+     ⚠️ rAF 금지(숨은 탭에서 안 돈다) · smooth 금지 — 이 파일의 기존 규칙 그대로. */
+  var TAIL_ID = 'ia6-tail';
+
+  /* 🔻 여백은 **body 맨 끝**에 붙인다. #legacy-cards 안이 아니다 —
+        카드가 전부 그 안에 있지 않다(card-payments-b2b·card-timetable·card-lesson-log·
+        card-homework 등은 «밖»에 있다). 컨테이너 안에 붙이면 그 뒤의 카드들에게는
+        여백이 «위»가 돼 아무 소용이 없다. 실측으로 밟은 함정이다(수업 일지 326px 남음). */
+  function tailEl() {
+    var t = document.getElementById(TAIL_ID);
+    if (!t) {
+      if (!document.body) return null;
+      t = document.createElement('div');
+      t.id = TAIL_ID;
+      t.setAttribute('aria-hidden', 'true');
+      t.style.cssText = 'height:0;pointer-events:none';
+      document.body.appendChild(t);
+    }
+    return t;
+  }
+
+  /** 지금 보이는 카드 중 가장 아래 것이 화면 맨 위까지 올라올 수 있도록 꼬리 여백을 맞춘다. */
+  function fitTail() {
+    var t = tailEl();
+    if (!t) return;
+    t.style.height = '0px';
+    var cards = document.querySelectorAll('details.menu-card'), i, lowest = null, lowTop = -1e9;
+    for (i = 0; i < cards.length; i++) {
+      var c = cards[i];
+      if (!c.offsetWidth && !c.offsetHeight) continue;          // 감춰진 것은 세지 않는다
+      var top = c.getBoundingClientRect().top;
+      if (top > lowTop) { lowTop = top; lowest = c; }
+    }
+    if (!lowest) return;
+    /* 화면·스크롤·getBoundingClientRect 는 모두 «화면 px» 로 같은 자다(zoom 이 이미 반영됨).
+       모자란 양 = (그 카드의 문서상 위치 + 화면 하나) − 문서 전체 높이 */
+    var css = 0, ratio = 1;
+    for (i = 0; i < 4; i++) {
+      var docH = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
+      var gap = lowest.getBoundingClientRect().top + (window.pageYOffset || 0) + window.innerHeight - docH;
+      if (gap > window.innerHeight) gap = window.innerHeight;   // 한 화면 넘게는 안 넣는다
+      if (Math.abs(gap) <= 2 || (gap < 0 && css <= 0)) break;
+      var shown = t.getBoundingClientRect().height;             // 지금 css px 이 화면에서 몇 px 인가
+      if (css > 0 && shown > 0) ratio = css / shown;            // 배율의 역수 — 재서 알아낸다
+      css = Math.max(0, css + gap * ratio);
+      t.style.height = Math.ceil(css) + 'px';
+    }
+  }
+
   function showOnly(item, key) {
     if (!managed) collect();
     var keep = unitsByItem[key] || [];
@@ -261,20 +324,66 @@
        ⚠️ behavior:'auto' — smooth 금지(「오른쪽이 왔다갔다 해서 정신없다」로 이미 제거된 규칙.
           숨은 탭에서는 smooth 가 애니메이션을 못 돌려 «움직이지 않는» 결과가 되기도 한다). */
     if (lead) {
-      var toLead = function () {
-        try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }
-      };
-      toLead();                    // 우선 한 번
-      setTimeout(toLead, 60);      // 배치가 끝난 뒤 보정
-      setTimeout(toLead, 260);     // 늦게 그려지는 카드(표·차트)까지 감안한 마지막 보정
+      alignTop(lead);
     } else {
       try { window.scrollTo(0, 0); } catch (e) { /* 무시 */ }
     }
   }
 
+  /* ── 🔝 «자리가 잡힐 때까지» 잠깐 따라가며 맨 위에 맞춘다 ──────────────────────────
+     한 번·두 번 보정으로는 부족했다(실측). 화면을 바꾼 뒤 1초 안에 이런 일들이 더 일어난다 —
+       · content-visibility:auto 로 «180px 자리표시자» 였던 카드가 진짜 높이로 펴진다
+       · 표·차트가 늦게 그려져 위쪽 형제 카드의 높이가 바뀐다(실측: 출결 화면에서 816px 밀림)
+       · 본문 폭이 바뀌어 admin.html 의 자동 body{zoom} 이 배율을 다시 잡는다(1.229 ↔ 1.3)
+     그래서 «지금 맨 위인가» 만 싸게 확인하면서(rect 한 번) 어긋났을 때만 다시 맞춘다.
+     ⚠️ 사람이 스크롤을 시작하면 **즉시 손을 뗀다.** 안 그러면 「읽고 있는데 화면이 되돌아간다」가 된다.
+     ⚠️ 시한(1.8초)이 반드시 있어야 한다. 시한 없이 붙잡으면 영영 스크롤을 못 하게 된다.
+     ⚠️ rAF 금지 — 숨은 탭에서는 아예 안 돈다(그러면 «눌러도 안 움직인다»). 타이머는 돈다. */
+  var alignRelease = null;   // 진행 중인 따라가기는 하나뿐 — 메뉴를 연달아 눌러도 겹치지 않는다
+  var alignLead = null;      // 지금 맞추는 중인 카드 (다른 곳으로 가는 스크롤을 구분하려고)
+  var alignSelf = false;     // 우리가 스스로 부른 scrollIntoView 인가
+
+  function alignTop(lead) {
+    if (alignRelease) alignRelease();
+    alignLead = lead;
+    var toLead = function () {
+      /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다. */
+      try { fitTail(); } catch (e) { /* 무시 */ }
+      alignSelf = true;
+      try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }
+      alignSelf = false;
+    };
+    var until = Date.now() + 1800, timer = 0;
+    var release = function () {
+      if (timer) clearTimeout(timer);
+      timer = 0;
+      window.removeEventListener('wheel', release);
+      window.removeEventListener('touchstart', release);
+      window.removeEventListener('keydown', release);
+      if (alignRelease === release) { alignRelease = null; alignLead = null; }
+    };
+    var toLeadAgain = function () {
+      timer = 0;
+      // 싼 확인 먼저 — 이미 맨 위면 1.3MB DOM 을 다시 재지 않는다.
+      var off = 0;
+      try { off = lead.getBoundingClientRect().top; } catch (e) { /* 무시 */ }
+      if (off < -2 || off > 2) toLead();
+      if (Date.now() < until) timer = setTimeout(toLeadAgain, 140);
+      else release();
+    };
+    toLead();                          // 누른 즉시 한 번
+    timer = setTimeout(toLeadAgain, 60);
+    window.addEventListener('wheel', release, { passive: true });
+    window.addEventListener('touchstart', release, { passive: true });
+    window.addEventListener('keydown', release);
+    alignRelease = release;
+  }
+
   function showAll() {
     if (!managed) collect();
     managed.forEach(function (el) { el.classList.remove(HIDE); });
+    // 전체 보기에서는 카드가 다 있으니 꼬리 여백이 필요 없다 — 빈 화면이 남지 않게 되돌린다.
+    try { var t = tailEl(); if (t) t.style.height = '0px'; } catch (e) { /* 무시 */ }
   }
 
   // ── 사이드바 만들기 ──────────────────────────────────────────────────────
@@ -526,6 +635,14 @@
           }
         } catch (e) { /* 무시 — 점프는 어떤 경우에도 막지 않는다 */ }
       }
+      /* 🔝 (2026-08-15) 우리가 «맨 위 맞추기»를 하는 동안 **다른 곳으로 가려는 스크롤**이
+         들어오면 그쪽에 양보하고 손을 뗀다. 예: ⚡자주 쓰는 기능의 「오늘 수업 (바로 입장)」은
+         카드 안의 하위 항목(sm-today-classes)까지 내려가야 하는데, 우리가 계속 카드 맨 위로
+         되돌리면 그 이동이 매번 취소된다. 대표 카드 자신으로 오는 스크롤(jumpToMenu 등)은
+         우리와 목적지가 같으므로 그대로 둔다. */
+      try {
+        if (!alignSelf && alignRelease && alignLead && this !== alignLead) alignRelease();
+      } catch (e) { /* 무시 */ }
       return orig.apply(this, arguments);
     };
   }
