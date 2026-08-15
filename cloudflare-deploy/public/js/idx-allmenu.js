@@ -23,11 +23,14 @@
     {emoji:'📝', img:'/img/menu/eval.webp', name:'평가서', url:'/eval.html'},
     {emoji:'📊', img:'/img/menu/report.webp', name:'리포트', url:'/report.html'},
     {emoji:'🤖', img:'/img/menu/ai-friend.webp', name:'AI 친구', url:'/ai-friend.html'},
-    {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
-    {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
+    {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 영작', url:'/ai-write.html'},          // 인트로 카드와 통일(2026-08-15, 구명 «AI 작문»)
+    {emoji:'🗣', img:'/img/menu/speech.webp', name:'AI 음성코치', url:'/speech-coach.html'},   // 인트로 카드와 통일(2026-08-15, 8/14 통일 때 이 파일만 빠져 «영어 발음 코치» 로 남아 있었다)
     {emoji:'🇨🇳', img:'/img/menu/speech-cn.webp', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
     {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html'},
     {emoji:'📖', img:'/img/menu/vocab.webp', name:'단어장', url:'/vocab.html'},
+    // 💡 판단력 훈련 — 인트로 카드·사이드바엔 있는데 전체메뉴에만 빠져 있던 것을 추가(2026-08-15).
+    //    전용 사진이 아직 없어 img 를 비운다 → 위 폴백 배선대로 emoji 가 그대로 아이콘이 된다.
+    {emoji:'💡', img:'', name:'판단력 훈련', url:'/judgment.html'},
     {emoji:'🎯', img:'/img/menu/quiz.webp', name:'AI 단어 퀴즈', url:'/micro-quiz.html'},
     {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
     {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},

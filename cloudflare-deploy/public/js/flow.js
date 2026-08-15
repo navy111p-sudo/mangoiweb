@@ -13,30 +13,36 @@
 (function (w, d) {
   if (w.MangoFlow) return;
 
-  // 고정 메뉴 (순서·번호 고정). again = 이 항목이 '현재 기능'일 때 "다시"로 표시할 라벨
+  /* 고정 메뉴 (순서·번호 고정).
+     ⛔ 라벨은 «인트로 카드(index.html 의 AI와 친구하기 오버레이)»와 글자까지 똑같아야 한다.
+        같은 기능이 화면마다 다른 이름으로 불리면 학생이 다른 기능인 줄 안다 —
+        실제로 사장님 제보로 «AI 영작 / AI 글쓰기 / AI 작문 / AI 영작 첨삭» 네 이름이 발견됐다(2026-08-15).
+     ⛔ 예전에 있던 again(«… 다시») 표기는 제거했다(2026-08-15, 사장님 결정).
+        방금 끝낸 기능 한 항목에만 붙던 표기였는데, 인트로와 이름이 달라 보여 혼동을 낳았다.
+        «방금 한 것»은 카드 위의 «✅ … 완료» 줄과 다른 항목의 «추천» 배지로 이미 구분된다. */
   var MENU = [
-    { key: 'class',  emoji: '🎥', label: '수업 입장',    again: '수업 다시 입장' },
-    { key: 'warmup', emoji: '🗣️', label: 'AI 웜업',      again: 'AI 웜업 다시' },
-    { key: 'quiz',   emoji: '🧠', label: '복습퀴즈',      again: '복습퀴즈 다시' },
-    { key: 'game',   emoji: '🎮', label: '학생게임',      again: '학생게임 다시' },
-    { key: 'rec',    emoji: '📼', label: '녹화 다시보기', again: '녹화 다시보기' },
-    { key: 'speech', emoji: '🎤', label: 'AI 음성코치',   again: 'AI 음성코치 다시' },   // 인트로 카드와 같은 이름으로 통일(2026-08-14, 구명 «단계별 발음»)
-    { key: 'vocab',  emoji: '📖', label: '단어장',        again: '단어장 다시' },
-    { key: 'aifriend', emoji: '🤖', label: 'AI 친구',     again: 'AI 친구 다시' },
-    { key: 'aiwrite', emoji: '✍️', label: 'AI 글쓰기',    again: 'AI 글쓰기 다시' },
-    { key: 'miniquiz', emoji: '⚡', label: 'AI 단어 퀴즈', again: 'AI 단어 퀴즈 다시' },   // 화면 제목과 같은 이름으로 통일(2026-08-14)
-    { key: 'exit',   emoji: '🚪', label: '나가기',        again: '나가기' }
+    { key: 'class',  emoji: '🎥', label: '수업 입장' },
+    { key: 'warmup', emoji: '🗣️', label: 'AI 웜업' },
+    { key: 'quiz',   emoji: '🧠', label: '복습퀴즈' },
+    { key: 'game',   emoji: '🎮', label: '학생게임' },
+    { key: 'rec',    emoji: '📼', label: '녹화 다시보기' },
+    { key: 'speech', emoji: '🎤', label: 'AI 음성코치' },   // 인트로 카드와 같은 이름으로 통일(2026-08-14, 구명 «단계별 발음»)
+    { key: 'vocab',  emoji: '📖', label: '단어장' },
+    { key: 'aifriend', emoji: '🤖', label: 'AI 친구' },
+    { key: 'aiwrite', emoji: '✍️', label: 'AI 영작' },      // 인트로 카드와 같은 이름으로 통일(2026-08-15, 구명 «AI 글쓰기»)
+    { key: 'miniquiz', emoji: '⚡', label: 'AI 단어 퀴즈' },   // 화면 제목과 같은 이름으로 통일(2026-08-14)
+    { key: 'judge',  emoji: '💡', label: '판단력 훈련' },      // 인트로 카드에만 있고 여기 빠져 있던 것을 추가(2026-08-15)
+    { key: 'exit',   emoji: '🚪', label: '나가기' }
   ];
 
   // 방금 끝낸 기능 → 추천 항목
   //   웜업→게임→수업→복습→발음→게임 …  (복습 뒤 발음, 발음 뒤 게임 = 이해→발화→강화 흐름)
-  //   AI 친구·AI 글쓰기는 자유대화/작문형이라 뒤에 게임으로 강화 추천
+  //   AI 친구·AI 영작은 자유대화/작문형이라 뒤에 게임으로 강화 추천
   var REC = { warmup: 'game', game: 'class', class: 'quiz', quiz: 'speech', speech: 'game', aifriend: 'game', aiwrite: 'game' };
 
-  // 방금 끝낸 기능 → 메뉴에서 '나 자신'에 해당하는 항목(있으면 "다시"로 표기)
-  var SELF = { warmup: 'warmup', class: 'class', game: 'game', quiz: 'quiz', speech: 'speech', aifriend: 'aifriend', aiwrite: 'aiwrite' };
-
-  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 글쓰기' };
+  /* 방금 끝낸 기능의 이름 — 카드 맨 위 «✅ … 완료» 줄에 쓴다.
+     ⛔ 여기 이름도 MENU 라벨과 반드시 같아야 한다(«AI 영작 완료» 뒤에 «AI 글쓰기» 항목이 있으면 안 된다). */
+  var FROM_LABEL = { warmup: 'AI 웜업', game: '학생게임', class: '화상수업', quiz: '복습퀴즈', speech: 'AI 음성코치', aifriend: 'AI 친구', aiwrite: 'AI 영작' };
 
   // 최상위 창(아이프레임 안에서 실행 시 상위창을 대상으로 이동) — 교차출처면 자기 자신
   function topWin() {
@@ -79,9 +85,10 @@
         case 'game': nav('/student-games.html'); break;
         case 'speech': nav('/speech-coach.html'); break;   // 🎤 AI 음성코치
         case 'vocab': nav('/vocab.html'); break;           // 📖 단어장
-        case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구 대화
-        case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 글쓰기
+        case 'aifriend': nav('/ai-friend.html'); break;    // 🤖 AI 친구
+        case 'aiwrite': nav('/ai-write.html'); break;      // ✍️ AI 영작
         case 'miniquiz': nav('/micro-quiz.html'); break;   // ⚡ AI 단어 퀴즈
+        case 'judge': nav('/judgment.html'); break;        // 💡 판단력 훈련
         case 'rec':  openLatestRecording(); break;   // 직전 수업 녹화 바로 재생
         case 'exit':
           if (typeof t.showView === 'function' && t.document.getElementById('view-home')) t.showView('view-home');
@@ -113,7 +120,6 @@
     } catch (_) { /* 교차출처 → 아래에서 자기 창에 렌더 */ }
     close();
     var recKey = REC[fromKey] || null;
-    var selfKey = SELF[fromKey] || null;
     var fromTxt = FROM_LABEL[fromKey] || '';
 
     var ov = d.createElement('div');
@@ -128,7 +134,7 @@
 
     var rows = MENU.map(function (m, i) {
       var isRec = m.key === recKey;
-      var label = (m.key === selfKey) ? m.again : m.label;
+      var label = m.label;   // 화면마다 이름이 달라지지 않게 항상 정본 라벨 그대로(2026-08-15)
       var base = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;cursor:pointer;' +
         'border-radius:14px;padding:14px 16px;margin:0;font-family:inherit;transition:transform .08s;';
       var style = isRec

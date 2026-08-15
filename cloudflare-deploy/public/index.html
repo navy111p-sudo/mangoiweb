@@ -4546,8 +4546,8 @@ window.mgIsSlowNet = function(){
         <button class="mg-hl mg-s3" onclick="mgDrawerClose();location.href='/warmup.html';" data-ko="🗣️ 수업 전 AI 웜업" data-en="🗣️ Pre-class AI Warm-up">🗣️ 수업 전 AI 웜업</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/judgment.html';" data-ko="🧠 판단력 훈련" data-en="🧠 Decision Training">🧠 판단력 훈련</button>
         <button onclick="mgGo('speech')" data-ko="🎤 AI 음성코치" data-en="🎤 AI Voice Coach">🎤 AI 음성코치</button>
-        <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구 대화" data-en="🤖 AI Friend Chat">🤖 AI 친구 대화</button>
-        <button onclick="mgDrawerClose();location.href='/ai-write.html';" data-ko="✍️ AI 글쓰기" data-en="✍️ AI Writing">✍️ AI 글쓰기</button>
+        <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구" data-en="🤖 AI Friend">🤖 AI 친구</button>
+        <button onclick="mgDrawerClose();location.href='/ai-write.html';" data-ko="✍️ AI 영작" data-en="✍️ AI Writing">✍️ AI 영작</button>
         <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz">🧠 복습퀴즈</button>
         <button onclick="mgDrawerClose();location.href='/micro-quiz.html';" data-ko="⚡ AI 단어 퀴즈" data-en="⚡ AI Vocab Quiz">⚡ AI 단어 퀴즈</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/student-games.html';" data-ko="🎮 학생게임" data-en="🎮 Student Game">🎮 학생게임</button>
@@ -6006,13 +6006,18 @@ window.mgIsSlowNet = function(){
           {ic:aifSvg('<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="8.5" y1="21" x2="15.5" y2="21"/>'),
            ko:'AI 음성코치', en:'AI Voice Coach', dko:'단계별 발음 교정 연습', den:'Step-by-step pronunciation', url:'/speech-coach.html'},
           {ic:'<img src="/img/mango-char.png" alt="" class="aif-icimg" loading="lazy" decoding="async">',
-           ko:'AI 친구 (망고아이)', en:'AI Friend (Mangoi)', dko:'망고아이와 영어로 수다', den:'Chat in English with Mangoi', url:'/ai-friend.html'},
+           ko:'AI 친구', en:'AI Friend', dko:'망고아이와 영어로 수다', den:'Chat in English with Mangoi', url:'/ai-friend.html'},
           {ic:aifSvg('<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>'),
            ko:'AI 영작', en:'AI Writing', dko:'영어 글쓰기 자동 첨삭', den:'Auto English-writing feedback', url:'/ai-write.html'},
+          /* ⛔ 위 ko: 라벨들은 다음 활동 고르기(js/flow.js MENU)·사이드바·전체메뉴와 글자까지 같아야 한다.
+               이 목록이 정본이다 — 한 곳만 고치면 같은 기능이 또 두 이름으로 갈라진다(2026-08-15). */
           {ic:aifSvg('<polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>'),
            ko:'AI 단어 퀴즈', en:'AI Vocab Quiz', dko:'AI가 내 레벨 단어로 출제', den:'AI-made vocab quiz at your level', url:'/micro-quiz.html'},
+          /* 📖 단어장 — 다음 활동 고르기(flow.js)에는 있는데 이 인트로에만 빠져 있던 것을 추가(2026-08-15, 사장님 제보) */
+          {ic:aifSvg('<path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v16H6.5A2.5 2.5 0 0 0 4 20.5z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="14" y2="11"/>'),
+           ko:'단어장', en:'Vocabulary', dko:'배운 단어를 모아 반복 암기', den:'Collect and review your words', url:'/vocab.html'},
           {ic:aifSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 5.36A9 9 0 0 0 20.49 15"/>'),
-           ko:'복습 퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'},
+           ko:'복습퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'},   // 띄어쓰기 통일(2026-08-15) — 화면 제목·다음 활동 고르기·사이드바가 모두 «복습퀴즈»
           {ic:aifSvg('<path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/><path d="M9.5 19h5"/><path d="M10.5 22h3"/>'),
            ko:'판단력 훈련', en:'Decision Training', dko:'상황 판단 + 이유 설명으로 AI 판단력 UP', den:'Judge situations & explain why', url:'/judgment.html'},
           {ic:aifSvg('<rect x="2" y="6" width="20" height="13" rx="3"/><circle cx="8" cy="12.5" r="1" fill="#fbbf24" stroke="none"/><circle cx="8" cy="12.5" r="3" stroke-dasharray="0 6.3" stroke-linecap="round"/><line x1="6" y1="12.5" x2="10" y2="12.5"/><line x1="8" y1="10.5" x2="8" y2="14.5"/><circle cx="16" cy="11.5" r="1.1" fill="#fbbf24" stroke="none"/><circle cx="18.5" cy="14" r="1.1" fill="#fbbf24" stroke="none"/>'),
@@ -7060,7 +7065,7 @@ window.mgIsSlowNet = function(){
       <!-- 🆕 단어장 (AI 자동 한국어/예문 + 간격 반복) -->
       <button class="gm-card" data-go="vocab" data-en-key="vocab notebook" onclick="location.href='/vocab.html'">
         <span class="gm-icon">📚</span>
-        <span class="gm-label" data-ko="내 단어장" data-en="My Vocab">내 단어장</span>
+        <span class="gm-label" data-ko="단어장" data-en="Vocabulary">단어장</span>
         <span class="gm-sub" data-ko="AI 자동 뜻·예문·복습" data-en="AI Korean & Examples">AI 자동 뜻·예문·복습</span>
       </button>
       <!-- 🆕 MBTI 매칭 (학생-강사 호환성) -->
@@ -7091,13 +7096,13 @@ window.mgIsSlowNet = function(){
       <!-- ✍️ Phase AW — AI 영작 첨삭 -->
       <button class="gm-card" data-go="write" data-en-key="ai writing" onclick="location.href='/ai-write.html'">
         <span class="gm-icon">✍️</span>
-        <span class="gm-label" data-ko="AI 영작 첨삭" data-en="AI Writing">AI 영작 첨삭</span>
+        <span class="gm-label" data-ko="AI 영작" data-en="AI Writing">AI 영작</span>
         <span class="gm-sub" data-ko="문법 · 표현 자동 교정" data-en="Grammar & phrasing fix">문법 · 표현 자동 교정</span>
       </button>
       <!-- 💬 Phase CF — AI 영어 친구 -->
       <button class="gm-card" data-go="chat" data-en-key="ai friend" onclick="location.href='/ai-friend.html'">
         <span class="gm-icon">💬</span>
-        <span class="gm-label" data-ko="AI 영어 친구" data-en="AI Friend">AI 영어 친구</span>
+        <span class="gm-label" data-ko="AI 친구" data-en="AI Friend">AI 친구</span>
         <span class="gm-sub" data-ko="24시간 영어 대화" data-en="24/7 English chat">24시간 영어 대화</span>
       </button>
       <!-- ⚡ Phase ML — 마이크로러닝 (1분 단어 퀴즈) -->
@@ -8925,7 +8930,7 @@ window.mgIsSlowNet = function(){
 -->
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
-<script defer src="/js/idx-ai-home.js?v=9"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
+<script defer src="/js/idx-ai-home.js?v=10"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
 
 
 <!-- 💬 신규상담 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
@@ -14514,7 +14519,7 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=3"></script>
+<script defer src="/js/idx-allmenu.js?v=4"></script>
 
 
 <!-- ============================================================
@@ -17386,7 +17391,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 </script>
 
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
-<script defer src="/js/flow.js?v=21"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
+<script defer src="/js/flow.js?v=23"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
 <script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
