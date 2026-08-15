@@ -3678,7 +3678,7 @@ function _ltRenderApps() {
     const msg = __ltApps.length
       ? (adminLang==='en' ? 'No match — clear the search/filter' : '검색·필터에 걸리는 것이 없습니다 (조건을 지워 보세요)')
       : (adminLang==='en' ? 'No applications yet' : '아직 신청이 없습니다');
-    tb.innerHTML = '<tr><td colspan="10" class="empty">' + msg + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="11" class="empty">' + msg + '</td></tr>';
     return;
   }
   _ltPaint(tb, items);
@@ -3738,8 +3738,15 @@ function _ltPaint(tb, items) {
        화면에는 아무 표시가 없어서 관리자도 그 사실을 몰랐다 → 여기서 말한다.
        ⚠️ 이 블록을 clsCell~actions 사이로 옮기지 말 것 — leveltest_calendar_jump_harness 가
           그 구간을 2500자로 잘라 「📅 #N ✓」 배지를 검사한다(넣었다가 실제로 깨졌다). */
+    /* 🆔 (2026-08-15) 이름과 아이디를 «다른 칸» 으로 나눴다. 예전엔 한 칸에 이름+아이디를
+       나란히 붙여 그렸는데, 신청자가 이름 칸에 아이디처럼 생긴 값을 적으면(실제 예: 이름
+       "paul7038" · 아이디 "jeong") 둘 중 어느 쪽이 이름인지 화면만 봐서는 구분이 안 됐다.
+       동명이인도 이름만으로는 못 가른다 → 두 값을 항상 각자의 칸에 둔다. */
     const uidTrial = _ltIsTrialUid(a.student_uid);
-    const uidCell = a.student_uid ? ` <code style="font-size:10px;color:${uidTrial ? '#b45309' : '#64748b'}">${_esc(a.student_uid)}</code>` : '';
+    const nameCell = a.student_name ? `<b>${_esc(a.student_name)}</b>` : '<span style="color:#9ca3af">—</span>';
+    const uidCell = a.student_uid
+      ? `<code style="font-size:10px;color:${uidTrial ? '#b45309' : '#64748b'}">${_esc(a.student_uid)}</code>`
+      : `<span title="${adminLang==='en'?'Not linked to any account':'어느 계정에도 안 붙어 있습니다'}" style="font-size:10.5px;color:#b91c1c;font-weight:700">${adminLang==='en'?'— none —':'— 미연결 —'}</span>`;
     const linkBtn = (!a.student_uid || uidTrial)
       ? `<button onclick="ltLinkStudent(${a.id})" title="${!a.student_uid
           ? (adminLang==='en'?'Not linked to any account — the student cannot see this anywhere':'어느 계정에도 안 붙어 있습니다 — 학생이 아무 데서도 못 봅니다')
@@ -3764,7 +3771,7 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td><b>${_esc(a.student_name)}</b>${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
