@@ -433,20 +433,57 @@
       frag.appendChild(grp);
     });
 
-    // 전체 보기 — 아무도 갇히지 않게. 옛 화면(카드 전부)이 필요하면 여기로.
+    /* 🗺 메뉴 지도 — 모든 메뉴를 한 화면에. 아무도 «못 찾겠다»에 갇히지 않게.
+       (2026-08-15 사장님) 옛 이름은 「전체 보기」였다. 무엇이 보이는지가 이름에 없어서
+       «시스템 메뉴가 없어졌다»고 찾을 때 아무도 여기를 누르지 않았다.
+       ⚠️ 「사이트 지도」가 아니라 「메뉴 지도」다 — 관리자 화면은 admin.html «한 장» 안에
+          메뉴 카드가 들어 있는 구조라, 다른 페이지로 가는 것이 아니다. */
     var all = document.createElement('div');
     all.className = 'ph85-group';
     all.setAttribute('data-ia6', 'all');
+    /* ⚠️ 라벨에 이모지를 넣지 않는다 — 왼쪽에 SVG 아이콘을 따로 그리므로 «아이콘 두 개»로 보인다
+          (2026-08-08 사장님 지적으로 ⚡자주 쓰는 기능에서 이미 걷어낸 규칙). 아이콘을 지도 모양으로 바꾼다. */
     all.innerHTML = '<div class="ph85-head" data-ia6-head="__all" style="opacity:.75"><div class="ph85-ico">' +
-      svg('<path d="M3 6h18M3 12h18M3 18h18"/>') + '</div>' +
-      '<div class="ph85-title" data-ko="전체 보기" data-en="Show all">전체 보기</div></div>';
+      svg('<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>' +
+          '<line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>') + '</div>' +
+      '<div class="ph85-title" data-ko="메뉴 지도" data-en="Menu map">메뉴 지도</div></div>';
     frag.appendChild(all);
 
     anchor.parentNode.insertBefore(frag, anchor);
 
     // 옛 9그룹은 지우지 않고 감춘다 — 되돌리기와, 혹시 남은 참조를 위해.
     olds.forEach(function (g) { g.style.display = 'none'; g.setAttribute('data-ia6-legacy', '1'); });
+    liftGroupsUp(bar);
     return true;
+  }
+
+  /* ── 📐 (2026-08-15 사장님) 「사이드바에서 시스템(=경영·설정)이 안 보인다」 ──────────────
+     [원인] 메뉴 6그룹 위에 «메뉴가 아닌 것»이 잔뜩 쌓여 있었다. 실측(1919×740 · zoom 1.3,
+       CSS px 환산): 접기 30 + 검색 72 + 음성 안내 37 + AI 운영비서 52 + 사용법 안내 58 +
+       ⚡자주 쓰는 기능 387 = 636px. 사이드바에서 실제로 보이는 높이는 569px 이고 바닥에
+       계정 도크(128px)가 늘 붙어 있어 «첫 화면»은 441px 뿐이다. 그래서 6그룹은 처음에
+       **한 줄도 안 보였고**, 아래 3그룹(수업·콘텐츠·정산·매출·경영·설정)은 더더욱 못 봤다.
+       «시스템»은 2026-08-08 개편에서 「경영·설정」으로 이름이 바뀐 채 그 맨 아래에 있었다.
+     [해결] 메뉴를 맨 위로 올린다 — 검색 바로 밑에 6그룹. 접기 30 + 검색 72 + 6그룹 332 = 434px
+       로 첫 화면(441px)에 **여섯 그룹이 다 들어온다**(실측으로 맞춘 값).
+     ⚠️ 아무것도 지우지 않는다. 음성 안내·AI 운영비서·사용법 안내·⚡자주 쓰는 기능은
+        그대로 두고 메뉴 «아래»로 옮길 뿐이다(있던 것이 없어지면 그게 또 신고가 된다).
+     ⚠️ 순서만 바꾼다. 각 요소의 id·class·리스너를 건드리지 않는다 — 그것들에 걸린
+        다른 스크립트(ph161 자주쓰는기능·ph160 레일·음성안내)가 그대로 동작해야 한다. */
+  function liftGroupsUp(bar) {
+    try {
+      var firstGroup = bar.querySelector('.ph85-group[data-ia6]');
+      if (!firstGroup) return;
+      ['ph85-voice-toggle', 'ph85-ai-asst', 'ph85-howto', 'ph161-quick'].forEach(function (id) {
+        var el = document.getElementById(id);
+        // 메뉴보다 «위»에 있는 것만 내린다. 이미 아래면 그대로 둔다(다시 부를 때 순서가 흔들리지 않게).
+        if (!el || el.parentNode !== bar) return;
+        if (!(firstGroup.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_PRECEDING)) return;
+        var back = document.getElementById('ph85-backtop');
+        if (back && back.parentNode === bar) bar.insertBefore(el, back);
+        else bar.appendChild(el);
+      });
+    } catch (e) { /* 순서 조정 실패가 메뉴 자체를 막지 않게 */ }
   }
 
   // ── 클릭 위임 ────────────────────────────────────────────────────────────
@@ -550,7 +587,15 @@
       // 옛 9그룹을 인라인 style 로 감추면 admin.html 의 검색 핸들러가
       // g.style.display='' 로 되돌려 놓는다(실측으로 잡힘). 그래서 CSS 로 못박는다.
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
-      '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}';
+      '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}' +
+      /* 📐 (2026-08-15) 그룹 줄을 조금 낮춰 «6그룹 + 메뉴 지도»가 첫 화면에 다 들어오게 한다.
+         실측(1919×740 · zoom 1.3 · CSS px): 메뉴가 시작되는 자리 134.6, 도크가 시작되는 자리 440.8
+         → 쓸 수 있는 높이 306px. 줄 하나가 62px(머리 54 + 사이 6)이라 6개면 366px 로 넘쳤다.
+         머리 위아래 여백 13→5, 사이 6→4 로 줄 하나를 44px 로 만들면 7줄이 304px 에 들어온다.
+         ⚠️ 글자 크기(16px)는 그대로다. 줄만 낮춘다 — 「글씨가 작아졌다」가 되면 안 된다.
+         ⚠️ 누르는 높이는 화면 기준 52px(40 × zoom 1.3)로 손가락·마우스 모두 충분하다. */
+      '#ph85-sidebar .ph85-group[data-ia6]{margin-bottom:4px !important}' +
+      '#ph85-sidebar .ph85-group[data-ia6] > .ph85-head{padding-top:5px !important;padding-bottom:5px !important}';
     document.head.appendChild(st);
   }
 
