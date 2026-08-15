@@ -38,8 +38,9 @@
     }
     if (existing) existing.remove();
 
-    var user = getUser() || { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사' };
-    saveUser(user);
+    // 🪪 (2026-08-15) 실명 fallback 제거 — 모르면 «계정 확인 중…». saveUser 도 뺐다:
+    //    지어낸 값을 localStorage 에 써 버리면 다음 방문부터 진짜 세션처럼 보였다.
+    var user = getUser() || window.admIdentityOrPending();
 
     var btn = document.createElement('button');
     btn.id = 'ph115-user';
@@ -61,7 +62,7 @@
   }
 
   function updateUserButton(btn){
-    var user = getUser() || { uid: 'hq_mgr', name: '정우영' };
+    var user = getUser() || window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거
     var role = ROLE_INFO[user.uid] || { short: '사용자' };
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     btn.innerHTML =
@@ -72,8 +73,7 @@
 
   window.ph115OpenModal = function(e){
     if (e) e.stopPropagation();
-    var user = getUser() || { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사' };
-    saveUser(user);
+    var user = getUser() || window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     var role = ROLE_INFO[user.uid] || { label: '👤 ' + user.uid, color: 'rgba(59,130,246,0.4)', text: '#93C5FD', desc: '' };
     var modal = document.getElementById('ph115-modal');

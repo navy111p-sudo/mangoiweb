@@ -294,75 +294,21 @@
 })();
 </script>
 
-<script>
-/* 🎚 상단 헤더 = 첫 렌더부터 '펼침'(툴바 버튼 = 셀프진단·색상·EN·계정 모두 보임)으로 시작 (2026-06-21).
-   · 옛 메뉴바(모두 펼치기/접기) 깜빡임은 head 의 legacy-bars-instant-hide 로 따로 제거됨.
-   · 여기서는 헤더가 '접힘(th-collapsed)'으로 시작해 버튼이 사라지지 않도록, 저장된 접힘상태를
-     무시하고 항상 펼침으로 시작(접힘은 사용자가 ▼ 버튼으로 그 자리에서만 토글). */
-(function(){
-  try{ localStorage.removeItem('mangoi_admin_topheader_collapsed'); }catch(e){}
-  try{ document.body.classList.remove('th-collapsed'); }catch(e){}
-})();
-</script>
+<!-- 🗑 (2026-08-15 「A안」) '헤더를 펼친 상태로 시작' 스크립트 제거 — 펼칠 헤더가 없다. -->
 
 <!-- (2026-06-01) 관리자 페이지 수업입장 배너 제거 — 교사 마이페이지에서만 입장 -->
 
-<!-- 🎚 hover 트리거 띠 — 헤더가 숨겨졌을 때 마우스를 여기에 올리면 다시 표시 -->
-<div id="th-hover-trigger" aria-hidden="true"></div>
-
-<!-- 상단 로고 헤더 — 글래스모피즘 (Phase 14e) -->
-<div class="top-header">
-  <!-- 🥭 Phase 42 — 로고 클릭 시 학생 홈페이지로 이동 -->
-  <a href="https://webrtc-unified-platform.navy111p.workers.dev/" target="_blank" rel="noopener"
-     class="th-brand" style="cursor:pointer;text-decoration:none;color:inherit"
-     title="학생 홈페이지로 이동" data-ko-title="학생 홈페이지로 이동" data-en-title="Go to student homepage">
-    <img src="/img/Mangoi_Character.jpg" alt="Mangoi" class="th-logo" />
-    <span class="th-title">망고아이</span>
-    <span class="th-divider"></span>
-    <span class="th-subtitle" data-ko="화상수업 대시보드" data-en="Class Dashboard">화상수업 대시보드</span>
-  </a>
-  <!-- 📱 모바일 전용: 탭하면 컨트롤(최근7일·셀프진단·색상·EN·계정) 펼침/접힘 -->
-  <button id="th-m-toggle" type="button" aria-label="툴바 펼치기/접기"
-          title="툴바 펼치기/접기" data-ko-title="툴바 펼치기/접기" data-en-title="Show / hide toolbar"
-          onclick="document.body.classList.toggle('th-m-open')">▾</button>
-  <div class="th-controls">
-    <!-- 🗑️ (2026-06-23) 기간 셀렉트(#period) 제거 — 헤더 중앙 빈 박스 원인. 기본 7일 보기는 JS에서 상수로 유지 -->
-    <a class="th-btn th-btn-amber" href="/admin/health" title="셀프 진단" data-ko="🩺 셀프 진단" data-en="🩺 Health">🩺 셀프 진단</a>
-    <!-- 🎨 (2026-07-18) 화면 색상 토글 제거 — 관리자 페이지는 '어둡게' 단일 테마로 고정(사장님 요청) -->
-    <button class="th-btn th-btn-ghost" onclick="toggleAdminLang()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-      <span id="admin-lang-label">EN</span>
-    </button>
-    <button id="th-collapse-btn" type="button"
-            title="툴바 접기/펼치기" data-ko-title="툴바 접기/펼치기" data-en-title="Collapse / Expand toolbar"
-            onclick="toggleTopHeader()" aria-label="Toggle toolbar">▲</button>
-
-    <!-- 👤 사용자 메뉴 -->
-    <div id="topUserBtn" class="th-user" data-ko="👤 관리자" data-en="👤 Admin">
-      <span id="topUserLabel">👤 관리자</span>
-      <div id="topUserPopup" class="th-user-popup">
-        <div id="topUserHeader" class="th-user-popup-head">로딩 중…</div>
-        <a href="/admin/mypage">👤 마이페이지</a>
-        <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
-        <div class="th-user-popup-divider"></div>
-        <a href="/admin/finance-realtime" data-ko="💸 실시간 재무" data-en="💸 Live Finance">💸 실시간 재무</a>
-        <a href="/admin/learning-insights" data-ko="🎓 학습 인사이트" data-en="🎓 Learning Insights">🎓 학습 인사이트</a>
-        <a href="/admin/marketing-studio" data-ko="📣 마케팅 스튜디오" data-en="📣 Marketing Studio">📣 마케팅 스튜디오</a>
-        <a href="/admin/teacher-match" data-ko="🤝 강사 매칭" data-en="🤝 Teacher Match">🤝 강사 매칭</a>
-        <a href="/admin/postponed-classes" data-ko="⏸ 연기 수업 현황" data-en="⏸ Postponed Classes">⏸ 연기 수업 현황</a>
-        <div class="th-user-popup-divider"></div>
-        <a href="/admin/teacher-payroll" data-ko="🧾 강사 급여(자동)" data-en="🧾 Teacher Payroll">🧾 강사 급여(자동)</a>
-        <a href="/admin/retention" data-ko="🔁 수강권 만료·재활성" data-en="🔁 Retention">🔁 수강권 만료·재활성</a>
-        <a href="/admin/duplicate-payments" data-ko="💸 이중결제 감사" data-en="💸 Duplicate Audit">💸 이중결제 감사</a>
-        <a href="/admin/send-pay-link.html" data-ko="💳 결제 센터" data-en="💳 Payment Center">💳 결제 센터</a>
-        <div class="th-user-popup-divider"></div>
-        <a href="#" onclick="event.preventDefault();var c=document.getElementById('card-lib-admin');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}">📘 <span data-ko="사용 안내서(자료실)" data-en="User Manuals (Library)">사용 안내서(자료실)</span></a>
-        <div class="th-user-popup-divider"></div>
-        <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
-      </div>
-    </div>
-  </div>
-</div>
+<!-- 🗑 (2026-08-15 「A안」) 상단 로고 헤더(.top-header) 제거 — 컨트롤은 사이드바 하단 «계정 도크»(#ph162-dock) 로 이관.
+     [왜] 헤더가 세로 약 90px(실측 56px × body zoom 1.3 + 아래 여백)을 «항상» 점유했다. 그래서
+          ⓐ KPI 두 번째 줄이 화면 밖으로 밀리고, ⓑ 사이드바 메뉴 88개가 전부 scrollIntoView({block:'start'})
+          로 뛰는데 그 착지점이 헤더 밑이라 카드 제목이 덮였다. 2026-08-15 「C안」(sticky→static)은
+          «스크롤하면 사라지는» 응급조치였고, 이번에 자리 자체를 없앴다.
+     [중복이라 그냥 버린 것] 🥭 로고·「망고아이」·「화상수업 대시보드」 — 사이드바 브랜드(.ph85-brand)와 겹친다.
+          ▲ 툴바 접기 버튼(#th-collapse-btn) — 접을 헤더가 없다. 이미 ph81 이 런타임에 지우고 있었다.
+          #th-hover-trigger(자동숨김 복귀 띠) — 자동숨김은 js/adm-core.js 에서 꺼진 지 오래다(2026-06-23).
+          #th-m-toggle(모바일 툴바 펼침) — 펼칠 툴바가 없다.
+     [살려서 옮긴 것] 🩺 셀프 진단 · 🌐 EN · #topUserBtn — 모두 #ph162-dock 안으로. 아래 사이드바 참조.
+     ⏪ 원복하려면 git show 4c8b1c8:cloudflare-deploy/public/admin.html 의 이 자리를 되돌리면 된다. -->
 
 <!-- ↻ 새로고침 동작(window.admRefresh) 정의만 유지 — 버튼/스타일은 아래 통합 Speed Dial(#mi-speed-dial) 안으로 이동됨 (2026-06-18) -->
 <script>
@@ -558,7 +504,7 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=15"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=16"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -4067,80 +4013,15 @@ window.__admSettleRun = function(fn){
   window.__admSnapLeft = snapAllLeft;
 })();
 </script>
-<script>
-/* 📌 (2026-08-04 사장님 피드백) "사이드바에서 메뉴를 열면 그 화면의 제목이 상단
-      «망고아이 | 화상수업 대시보드» 바에 가려져, 내가 어디에 왔는지 알 수가 없다"
-   ⚠️ (2026-08-15 갱신) 아래 [원인] 은 «그때» 의 상태다. 지금 .top-header 는 position:static 으로
-      바뀌어(「C안」, css/admin-inline-a.css) 본문과 함께 흘러간다. 그래서 measure() 는 항상 0px 을
-      돌려주고 이 보정은 사실상 꺼져 있다. 코드는 그대로 둔다 — sticky 로 원복하면 저절로 다시 켜진다.
-   [원인] .top-header 는 position:sticky; top:0 (css/admin-inline-a.css) 로 화면 맨 위에 붙어 있다.
-          그런데 메뉴 클릭 83곳이 전부 scrollIntoView({block:'start'}) — '카드의 맨 위'를
-          '화면의 맨 위'에 붙이라는 뜻이고, 그 자리가 바로 sticky 헤더 «밑»이다.
-          그래서 카드 제목 줄이 정확히 헤더에 덮인다. 특정 메뉴가 아니라 88개 메뉴 전부의 구조 문제.
-   [해결] 호출 83곳을 각각 고치지 않는다(새 메뉴 추가할 때마다 또 빠진다). 카드 쪽에
-          scroll-margin-top = 헤더 실제 높이 + 여백 을 주면 브라우저가 그만큼 덜 스크롤해
-          제목이 헤더 «바로 아래»에 온다. 바로 위 블록(가로 스크롤 복귀)과 같은 '한 곳에서 처리' 방식.
-   [주의] ① 높이를 숫자로 박지 말 것 — 헤더는 접힘(th-collapsed)·자동숨김·창 폭·언어에 따라 달라진다.
-          ② 좁은 화면에서는 헤더가 sticky 가 아니라 같이 흘러간다(css/admin-inline-c.css 의 position:relative).
-             그때 여백을 주면 쓸데없이 화면이 비므로 0 으로 둔다.
-          ③ 이 화면은 body{zoom:1.3} 이라 getBoundingClientRect().height 는 1.3 이 곱해진 값이다.
-             scroll-margin-top 은 zoom 안쪽 좌표계이므로 반드시 offsetHeight(=배율 전 px)로 재야 맞는다.
-   [실측] 1440x900: 헤더 56px → 여백 66px. 점프 후 «제목상단 − 헤더하단» 이
-          −48px(가려짐) → +38px(보임). 카드 5종 동일. 헤더 접으면 42px → 52px 로 따라 줄고,
-          좁은 화면(헤더 relative)에서는 0px 로 빠져 불필요한 여백이 안 생긴다. */
-(function(){
-  'use strict';
-  if (window.__admStickyJumpOffset) return; window.__admStickyJumpOffset = true;
+<!-- 🗑 (2026-08-15 「A안」) sticky 헤더 점프 보정(--adm-jump-offset) 블록 제거.
+     [원래 무슨 문제였나] 2026-08-04 「메뉴를 열면 그 화면 제목이 상단 «망고아이 | 화상수업 대시보드»
+       바에 가려 내가 어디 왔는지 알 수가 없다」. 사이드바 메뉴 88개가 전부
+       scrollIntoView({block:'start'}) 로 뛰는데, 그 착지점이 sticky 헤더 «밑» 이었다.
+       그래서 카드에 scroll-margin-top = 헤더 높이 를 줘서 그만큼 덜 스크롤하게 보정했다.
+     [왜 지웠나] 가리던 헤더 자체가 없어졌다. measure() 는 getComputedStyle().position 이
+       sticky/fixed 일 때만 값을 넣으므로 이미 항상 0px 을 돌려주는 죽은 코드였다(실측 확인).
+     ⏪ 헤더를 되살릴 일이 생기면 git show 4c8b1c8:cloudflare-deploy/public/admin.html 에서 통째로 되찾을 것. -->
 
-  var GAP = 0;    // 헤더와 제목 사이 숨 쉴 틈. 카드 자체 margin-top(≈19px)이 이미 있어 0 이어도 붙지 않는다
-                  // (2026-08-04 사장님 "여백 좀 줄여줘" — 10 → 0. 실측 화면상 38px → 25px)
-  try {
-    var st = document.createElement('style');
-    st.id = 'adm-jump-offset';
-    // details.sub-item 도 포함 — 사이드바 「전체 시간표」(#sm-all-schedules)처럼 카드가 아니라
-    // 하위 항목으로 바로 뛰는 메뉴가 있다. 뛰는 대상이 아니면 여백은 아무 영향이 없다.
-    st.textContent = '[id^="card-"],.menu-card,details.sub-item{scroll-margin-top:var(--adm-jump-offset,0px)}';
-    (document.head || document.documentElement).appendChild(st);
-  } catch(e){ return; }
-
-  function measure(){
-    var h = 0;
-    try {
-      var el = document.querySelector('.top-header');
-      if (el) {
-        var pos = getComputedStyle(el).position;
-        if (pos === 'sticky' || pos === 'fixed') h = el.offsetHeight || 0;  // ③ zoom 전 px
-      }
-    } catch(e){}
-    var v = h ? (h + GAP) + 'px' : '0px';
-    var root = document.documentElement;
-    if (root.style.getPropertyValue('--adm-jump-offset') !== v)
-      root.style.setProperty('--adm-jump-offset', v);
-  }
-  /* 🪤 rAF 만 쓰면 안 된다 — 백그라운드 탭(새 탭으로 열어두기)에서는 rAF 가 «한 번도» 안 돈다.
-        실측: document.hidden 상태에서 400ms 동안 콜백 0회 → 여백이 영영 0 으로 남는다.
-        rAF(보이는 탭에서 가장 정확한 시점)와 타이머(안 보이는 탭 보강) 중 먼저 오는 쪽을 쓴다. */
-  var pending = 0;
-  function schedule(){
-    if (pending) return;
-    pending = 1;
-    var done = function(){ if (!pending) return; pending = 0; measure(); };
-    try { requestAnimationFrame(done); } catch(e){}
-    setTimeout(done, 60);
-  }
-
-  schedule();
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', schedule);
-  window.addEventListener('load', schedule);
-  window.addEventListener('resize', schedule, { passive:true });
-  document.addEventListener('visibilitychange', schedule);   // 숨은 탭 → 보이는 탭 전환 시 재측정
-  // 헤더 높이가 바뀌는 모든 경우(접힘·언어전환·줄바꿈)를 한 번에 — 헤더 자체 크기만 관찰
-  try {
-    var hdr = document.querySelector('.top-header');
-    if (hdr && window.ResizeObserver) new ResizeObserver(schedule).observe(hdr);
-  } catch(e){}
-})();
-</script>
 
 <script>
 (function(){
@@ -8824,7 +8705,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=83" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<!-- 🪪 (2026-08-15) 관리자 신원 단일 출처 — /api/admin/me 를 읽어 localStorage.admin_session 을 «진짜» 값으로 채운다.
+     adm-q9/r19/r20/r21 의 계정 버튼들보다 «먼저» 실행돼야 하므로 adm-core 앞에 둔다(defer 는 순서 보장).
+     이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
+     다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
+<script src="/js/adm-identity.js?v=1" defer></script>
+<script src="/js/adm-core.js?v=84" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -9233,6 +9119,52 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <button type="button" id="ph85-backtop" title="맨 위로" onclick="(function(){try{var s=document.getElementById('ph85-sidebar');if(s&&s.scrollTo)s.scrollTo({top:0,behavior:'smooth'});window.scrollTo({top:0,behavior:'smooth'});}catch(e){try{window.scrollTo(0,0);}catch(_){}}})()">
     <span style="font-size:14px">⬆</span><span data-ko="맨 위로" data-en="Back to top">맨 위로</span>
   </button>
+
+  <!-- 🧭 (2026-08-15 「A안」) 계정 도크 — 옛 상단바(.top-header)의 컨트롤이 여기로 내려왔다.
+       사이드바가 스크롤돼도 바닥에 붙어 있도록 position:sticky (CSS 는 admin-inline-c.css 맨 끝).
+       ⚠️ EN 버튼의 onclick="toggleAdminLang()" 를 «절대» 바꾸지 말 것 —
+          js/adm-r21.js 의 ph115Mount() 가 querySelector('button[onclick="toggleAdminLang()"]') 로
+          이 버튼을 찾아 그 «다음 형제»로 사용자 버튼(#ph115-user)을 붙인다.
+          이 버튼이 없어지면 화면에 실제로 보이는 계정 버튼이 통째로 사라진다(1.5초마다 재시도만 반복).
+       ⚠️ #topUserBtn 은 화면에 안 보인다(admin-inline-c.css 의 #ph115-user-unified 블록이 display:none).
+          그래도 지우지 않고 옮겨 왔다 — js/adm-core.js 의 initTopUserMenu() 가 /api/admin/me 를 부르는
+          이 페이지의 «유일한» 서버 신원 조회 자리라, 지우면 그 호출까지 같이 사라진다. -->
+  <div id="ph162-dock">
+    <a class="ph162-pill" id="ph162-diag" href="/admin/health" target="_blank" rel="noopener"
+       title="셀프 진단" data-ko-title="셀프 진단" data-en-title="Health check"
+       data-ko="🩺 진단" data-en="🩺 Health">🩺 진단</a>
+    <button class="ph162-pill" id="ph162-lang" type="button" onclick="toggleAdminLang()"
+            title="한국어 / English" data-ko-title="한국어 / English" data-en-title="한국어 / English">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span id="admin-lang-label">EN</span>
+    </button>
+    <!-- ↑ 이 버튼 바로 다음에 #ph115-user 가 런타임 mount 된다(도크 전체 폭 차지) -->
+      <!-- 👤 사용자 메뉴 -->
+      <div id="topUserBtn" class="th-user" data-ko="👤 관리자" data-en="👤 Admin">
+        <span id="topUserLabel">👤 관리자</span>
+        <div id="topUserPopup" class="th-user-popup">
+          <div id="topUserHeader" class="th-user-popup-head">로딩 중…</div>
+          <a href="/admin/mypage">👤 마이페이지</a>
+          <a href="/admin/health" target="_blank">🩺 셀프 진단</a>
+          <div class="th-user-popup-divider"></div>
+          <a href="/admin/finance-realtime" data-ko="💸 실시간 재무" data-en="💸 Live Finance">💸 실시간 재무</a>
+          <a href="/admin/learning-insights" data-ko="🎓 학습 인사이트" data-en="🎓 Learning Insights">🎓 학습 인사이트</a>
+          <a href="/admin/marketing-studio" data-ko="📣 마케팅 스튜디오" data-en="📣 Marketing Studio">📣 마케팅 스튜디오</a>
+          <a href="/admin/teacher-match" data-ko="🤝 강사 매칭" data-en="🤝 Teacher Match">🤝 강사 매칭</a>
+          <a href="/admin/postponed-classes" data-ko="⏸ 연기 수업 현황" data-en="⏸ Postponed Classes">⏸ 연기 수업 현황</a>
+          <div class="th-user-popup-divider"></div>
+          <a href="/admin/teacher-payroll" data-ko="🧾 강사 급여(자동)" data-en="🧾 Teacher Payroll">🧾 강사 급여(자동)</a>
+          <a href="/admin/retention" data-ko="🔁 수강권 만료·재활성" data-en="🔁 Retention">🔁 수강권 만료·재활성</a>
+          <a href="/admin/duplicate-payments" data-ko="💸 이중결제 감사" data-en="💸 Duplicate Audit">💸 이중결제 감사</a>
+          <a href="/admin/send-pay-link.html" data-ko="💳 결제 센터" data-en="💳 Payment Center">💳 결제 센터</a>
+          <div class="th-user-popup-divider"></div>
+          <a href="#" onclick="event.preventDefault();var c=document.getElementById('card-lib-admin');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}">📘 <span data-ko="사용 안내서(자료실)" data-en="User Manuals (Library)">사용 안내서(자료실)</span></a>
+          <div class="th-user-popup-divider"></div>
+          <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
+        </div>
+      </div>
+  </div>
 </aside>
 
 <!-- 🔊 (2026-07-04) 사이드바 음성 안내 — 부모/자식 클릭·터치 시 '무엇인지' + '안에 든 항목'을 한국어 음성으로 설명.
@@ -10724,7 +10656,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 111 admin (2026-05-25) — 사용자 드롭다운 강화: 역할 뱃지 + 로그인/로그아웃 + 다크 테마 -->
 
 
-<script src="/js/adm-q9.js?v=1" defer></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q9.js?v=2" defer></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 112 admin (2026-05-25) — 강사 정보 최상단 재배치 + 학원별 학생 수업현황 (출결 통합) -->
@@ -10893,19 +10825,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 113 admin (2026-05-25) — 사용자 메뉴 클릭 inline onclick 강제 + 자료실/도움말 -->
 
 
-<script src="/js/adm-r19.js?v=4" defer></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=5" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
 
 
-<script src="/js/adm-r20.js?v=1" defer></script><!-- 분할추출:adm-r20 -->
+<script src="/js/adm-r20.js?v=2" defer></script><!-- 분할추출:adm-r20 -->
 
 
 <!-- Phase 115 admin (2026-05-25) — 사용자 버튼 통합: 중복 제거 + EN 옆 inline 배치 -->
 
 
-<script src="/js/adm-r21.js?v=3" defer></script><!-- 분할추출:adm-r21 -->
+<script src="/js/adm-r21.js?v=4" defer></script><!-- 분할추출:adm-r21 -->
 
 
 <!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
@@ -12308,10 +12240,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     el.addEventListener('mouseleave', function(){ paint(el, BASE); });
   }
   function apply(){
-    tone(document.querySelector('.top-header .th-btn-amber'));
-    tone(document.querySelector('.top-header .th-btn-ghost'));
-    var svg = document.querySelector('.top-header .th-btn-ghost svg');
-    if (svg) svg.style.setProperty('stroke', '#334155', 'important');
+    /* 🗑 (2026-08-15 「A안」) .top-header .th-btn-amber / .th-btn-ghost 페인트 제거 —
+       그 버튼들은 사이드바 계정 도크(#ph162-dock)로 옮겨졌고, 도크 색은
+       admin-inline-c.css 맨 끝 #ph162-dock 블록이 담당한다(여기서 덧칠하면 서로 싸운다).
+       #admin-lang-label 은 도크 안으로 따라갔으므로 아래 한 줄만 남긴다. */
     var lbl = document.getElementById('admin-lang-label');
     if (lbl) lbl.style.setProperty('color', '#1e293b', 'important');
   }
