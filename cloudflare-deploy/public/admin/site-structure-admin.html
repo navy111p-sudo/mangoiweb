@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="망고아이 관리자 메뉴 구성표 — admin.html 사이드바 대분류 9 / 중분류 81 / 소분류 84">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="망고아이 관리자 메뉴 구성표">
 <title>관리자 메뉴 구성표</title>
 <style>
 :root{
@@ -183,6 +184,7 @@ h1{margin:0;font-size:clamp(28px,4.4vw,46px);line-height:1.1;letter-spacing:-.04
 }
 .badge.new{color:var(--new);background:var(--new-soft)}
 .badge.dup{color:var(--flag);background:var(--flag-soft)}
+.badge.page{color:var(--accent);background:var(--accent-soft)}
 .kid-r .gc{
   flex:none;font-size:10.5px;font-weight:800;color:var(--accent);background:var(--accent-soft);
   border-radius:999px;padding:2px 7px;white-space:nowrap;
@@ -233,10 +235,10 @@ footer code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 
     <div class="tally">
       <div><b class="num">9</b><span>대분류 (사이드바 그룹)</span></div>
-      <div><b class="num">81</b><span>중분류 (메뉴 = 카드)</span></div>
+      <div><b class="num">85</b><span>중분류 (메뉴)</span></div>
       <div><b class="num">84</b><span>소분류 (카드 안 탭)</span></div>
       <div><b class="num">16</b><span>소분류를 가진 메뉴</span></div>
-      <div><b class="num">2</b><span>확인 필요</span></div>
+      <div><b class="num">3</b><span>확인 필요</span></div>
     </div>
 
     <div class="legend">
@@ -254,8 +256,15 @@ footer code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
   </div>
 
   <section class="flags">
-    <h2>구조를 그리다 나온 것 2건</h2>
+    <h2>구조를 그리다 나온 것 3건</h2>
     <ul>
+      <li>
+        <b>메뉴 85개가 모두 카드로 가는 것은 아닙니다.</b> 82개는 이 페이지 안의 카드로 스크롤하지만,
+        3개(<b>3.10 연기 수업 현황</b> · <b>5.7 캐피타운 정산</b> · <b>9.14 사이트 구조도</b>)는
+        <code>location.href</code> 로 <b>다른 페이지</b>를 엽니다(<span class="badge page">별도 페이지</span> 표시).
+        그중 <b>5.7 캐피타운 정산</b>은 <code>style="display:none"</code> 이라 <b>조건이 맞는 계정에만</b> 보입니다 —
+        메뉴를 세다가 「없는데요?」 소리가 나오는 자리입니다.
+      </li>
       <li>
         <b>3.5 「🌙 근무·휴식·휴가 관리」</b> 와 <b>9.1 「📅 캘린더 관리」</b> 는 이름은 다르지만
         같은 카드 <code>card-calendar</code> 를 가리킵니다. 메뉴는 두 개, 도착지는 하나입니다.
@@ -311,6 +320,7 @@ var DATA = [
    {t:"📝 수업 일지", id:"card-lesson-log", n:1},
    {t:"🔗 강사 계정 연결", id:"card-teacher-link", n:1},
    {t:"📅 연기·변경 요청", id:"card-schedule-requests", n:1},
+   {t:"⏸ 연기 수업 현황", id:"/admin/postponed-classes", n:1, page:1},
    {t:"📨 방 초대 관리", id:"card-room-invite"},
    {t:"📶 강사 회선품질", id:"card-vc-quality", n:1},
    {t:"⭐ 학생 수업 평가", id:"card-class-ratings"},
@@ -340,7 +350,8 @@ var DATA = [
    {t:"👨‍👩‍👧 BtoC 결제관리", id:"card-payments-b2c"},
    {t:"🔄 정기 결제", id:"card-recurring-billing"},
    {t:"💸 자동 수금", id:"card-auto-dunning"},
-   {t:"포인트 관리", id:"card-points-mgmt", g:["🔌 자동발송 API 연동 상태","💰 학생 포인트 잔액","🛍️ 기프티콘 카탈로그","📦 교환 신청 내역","⚙ 자동 적립 규칙"]}
+   {t:"포인트 관리", id:"card-points-mgmt", g:["🔌 자동발송 API 연동 상태","💰 학생 포인트 잔액","🛍️ 기프티콘 카탈로그","📦 교환 신청 내역","⚙ 자동 적립 규칙"]},
+   {t:"🏢 캐피타운 정산", id:"/admin/capitown-settlement.html", n:1, page:1, cond:"조건부 숨김"}
   ]},
 
  {t:"학생 / 학부모", d:"학생과 부모님을 관리하고 이야기 나누는 곳",
@@ -362,6 +373,7 @@ var DATA = [
 
  {t:"교육 / 콘텐츠", d:"무엇을 가르칠지 — 교재·시험·숙제를 준비하는 곳",
   k:[
+   {t:"🧠 복습퀴즈 출제", id:"card-review-quiz"},
    {t:"교재 콘텐츠", id:"card-textbooks", g:["📚 컨텐츠 교재 관리","📂 컨텐츠 교재그룹 관리","📂 교재 파일 라이브러리 (개별 파일)","🎬 망고아이 비디오 관리 (YouTube)","🛒 판매 교재 관리","📦 판매 교재 그룹 관리","🏷️ 판매 구분 관리"]},
    {t:"📖 마이크로러닝", id:"card-microlearn"},
    {t:"🎯 미니 토익", id:"card-mini-toeic"},
@@ -395,7 +407,8 @@ var DATA = [
    {t:"📋 출결 상태", id:"card-attendance-status"},
    {t:"📷 QR 출결", id:"card-auto-attendance"},
    {t:"📝 수업 출결", id:"card-class-attendance"},
-   {t:"🐞 버그·피드백 접수함", id:"card-bug-reports", n:1, g:["📋 신고 목록"]}
+   {t:"🐞 버그·피드백 접수함", id:"card-bug-reports", n:1, g:["📋 신고 목록"]},
+   {t:"🗺 사이트 구조도", id:"/admin/site-structure.html", n:1, page:1}
   ]}
 ];
 
@@ -420,8 +433,10 @@ DATA.forEach(function(sec, si){
     html += '<div class="kid"><div class="kid-r">';
     html += '<span class="n num">'+kn+'</span>';
     html += '<span class="t"><span class="lbl">'+esc(kid.t)+'</span>';
-    if (kid.n)   html += '<span class="badge new">신규</span>';
-    if (kid.dup) html += '<span class="badge dup">'+esc(kid.dup)+'</span>';
+    if (kid.n)    html += '<span class="badge new">신규</span>';
+    if (kid.page) html += '<span class="badge page">별도 페이지</span>';
+    if (kid.cond) html += '<span class="badge dup">'+esc(kid.cond)+'</span>';
+    if (kid.dup)  html += '<span class="badge dup">'+esc(kid.dup)+'</span>';
     html += '<span class="id">'+esc(kid.id)+'</span></span>';
     if (kid.g) html += '<span class="gc num">'+kid.g.length+'</span>';
     html += '</div>';
