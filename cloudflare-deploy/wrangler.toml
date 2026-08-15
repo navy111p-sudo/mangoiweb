@@ -50,6 +50,11 @@ bucket_name = "webrtc-class-recordings"
 binding = "AI"
 
 [vars]
+# 🏦 (2026-08-15) 신한은행 계좌조회(바로빌) 계좌번호 — 시크릿이 아니라 vars 로 둔 이유:
+#   대시보드 비밀 추가·wrangler secret put 둘 다 실행본 env 에 안 실리는 문제가 있어
+#   (스테이징 버전에만 붙고 배포 버전에 승격이 안 되는 증상) 확실한 경로로 우회함.
+#   계좌번호는 인증정보가 아니며(조회 권한은 BAROBILL_CERTKEY 가 쥔다) 리포는 private.
+BAROBILL_BANK_ACCTNUM = "100027577892"
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # 🔧 (2026-07-14) 관리자 테스트 기간 2FA(인증번호) 임시 중단. 아이디+비번만으로 로그인.
@@ -168,6 +173,11 @@ bucket_name = "webrtc-class-recordings"
 binding = "AI"
 
 [env.production.vars]
+# 🏦 (2026-08-15) 신한은행 계좌조회(바로빌) 계좌번호 — 시크릿이 아니라 vars 로 둔 이유:
+#   대시보드 비밀 추가·wrangler secret put 둘 다 실행본 env 에 안 실리는 문제가 있어
+#   (스테이징 버전에만 붙고 배포 버전에 승격이 안 되는 증상) 확실한 경로로 우회함.
+#   계좌번호는 인증정보가 아니며(조회 권한은 BAROBILL_CERTKEY 가 쥔다) 리포는 private.
+BAROBILL_BANK_ACCTNUM = "100027577892"
 MAX_RECORDING_MB = "500"
 ALLOWED_RECORDING_MIME = "video/webm,video/mp4,audio/webm,audio/mp4"
 # 🔧 (2026-07-14) 관리자 테스트 기간 2FA 임시 중단 — 종료 후 "false" 로 원복

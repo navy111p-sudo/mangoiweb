@@ -187,8 +187,32 @@ export async function runBarobillSync(env: any, opts: { dryRun?: boolean } = {})
     } while (page <= maxPage && page <= 200);   // 200 = 폭주 방지 상한
   }
 
+  /* 🏷 이미 적재된 행의 분류 다시 매기기 (2026-08-15)
+     분류 규칙(CAT_RULES)을 고쳐도 예전에 넣은 행은 옛 분류를 그대로 달고 있다.
+     실제로 실데이터를 받고 나서야 「편의점·정비」 같은 업태가 규칙에 없다는 걸 알았고,
+     그때 이미 236건이 «기타» 로 들어가 있었다. raw 에 업태·가맹점명이 그대로 남아 있으니
+     다시 계산해 **달라진 것만** 고친다.
+     ⚠️ 손대는 컬럼은 category 하나뿐이다 — 금액·일시·중복키는 건드리지 않는다.
+        (category 는 우리가 계산해 넣는 파생값이라, 규칙이 바뀌면 따라오는 게 맞다) */
+  let recategorized = 0;
+  if (!dryRun) {
+    const all: any = await env.DB.prepare(
+      `SELECT id, merchant, category, raw FROM corpcard_transactions WHERE raw IS NOT NULL`
+    ).all().catch(() => ({ results: [] }));
+    for (const r of (all.results || [])) {
+      let biz = '';
+      try { biz = (JSON.parse(String(r.raw)) || {}).StoreBizType || ''; } catch {}
+      const want = categorize(String(r.merchant || ''), biz);
+      if (want !== r.category) {
+        const u: any = await env.DB.prepare(`UPDATE corpcard_transactions SET category = ? WHERE id = ?`)
+          .bind(want, r.id).run().catch(() => null);
+        if (u && u.meta?.changes > 0) recategorized++;
+      }
+    }
+  }
+
   const summary: any = {
-    ok: errors.length < spans.length, provider: 'barobill',
+    ok: errors.length < spans.length, provider: 'barobill', recategorized,
     spans: spans.length, pages, seen, inserted, cancelled: cancelledCnt, errors,
     kinds: kindCount,                    // 승인/취소/부분취소/거절 건수 — 취소 처리 방식 확정용
     ws: baroCreds(env).ws, dry_run: dryRun,

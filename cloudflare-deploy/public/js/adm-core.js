@@ -11229,6 +11229,13 @@ window.rebuildGlobalSearchIndex = function() {
     if (!box) return;
     var s = _cardStatus;
     if (!s) { box.innerHTML = ''; return; }
+    /* 상단 카드번호를 **실제 설정된 카드**로 맞춘다. 예전엔 HTML 에 «8842» 가 박혀 있었는데
+       실제 등록 카드가 바뀌면서 어긋났다(2026-08-14: 화면 8842 / 바로빌 4819 / 실카드 3575).
+       시크릿(BAROBILL_CARDNUM)을 바꾸면 화면도 따라오게 한다. */
+    if (s.card_last4) {
+      var numEl = document.getElementById('acc-card-num');
+      if (numEl) numEl.textContent = '**** **** **** ' + s.card_last4;
+    }
     var en = !!(window.adminLang && window.adminLang !== 'ko');
     var TONE = {
       ok:              ['#059669', 'rgba(5,150,105,0.08)',  '✅'],
@@ -11458,8 +11465,40 @@ window.rebuildGlobalSearchIndex = function() {
     $el('kpi-alerts').style.color = alerts > 2 ? '#dc2626' : alerts > 0 ? '#d97706' : '#059669';
   }
 
+  /* 📊 Chart.js 지연 로드 (2026-08-15)
+     [무슨 일이 있었나] 법인카드 화면의 차트 두 개가 **영영 안 그려졌다.** KPI 숫자는
+     채워지는데 차트만 빈칸이라 «데이터가 없나?» 싶은 상태였다(라이브 실측).
+     원인: Chart.js 로더가 **대시보드 위젯 안에만** 있다. 법인카드를 먼저 열면
+     Chart 가 undefined 라 renderCardCharts 가 조용히 return 하고 **다시 시도하지 않는다.**
+     (파일은 이미 저장소에 있다 — /vendor/chartjs/chart.umd.min.js 205KB)
+     → 여기서도 같은 방식으로 한 번 받아 두고 다시 그린다. 우리 서버 우선, 실패 시 CDN. */
+  var _chartWait = 0;
+  function ensureChartJs(after) {
+    if (typeof Chart !== 'undefined') { after(); return; }
+    if (window._admChartLoading) {            // 다른 위젯이 이미 받는 중이면 기다렸다 그린다
+      if (_chartWait++ > 20) return;          // 6초까지만 — 무한 재시도 방지
+      setTimeout(function () { ensureChartJs(after); }, 300);
+      return;
+    }
+    window._admChartLoading = true;
+    var s = document.createElement('script');
+    s.src = '/vendor/chartjs/chart.umd.min.js';
+    s.onload = function () { window._admChartLoading = false; try { after(); } catch (e) {} };
+    s.onerror = function () {
+      window._admChartLoading = false;
+      if (window._admChartCdnTried) return;
+      window._admChartCdnTried = true;        // 우리 서버에서 못 받으면 CDN 으로 한 번만 물러선다
+      var c = document.createElement('script');
+      c.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';
+      c.onload = function () { try { after(); } catch (e) {} };
+      document.head.appendChild(c);
+    };
+    document.head.appendChild(s);
+  }
+
   function renderCardCharts() {
-    if (!_cardData || typeof Chart === 'undefined') return;
+    if (!_cardData) return;
+    if (typeof Chart === 'undefined') { ensureChartJs(renderCardCharts); return; }
     const catSums = {};
     _cardData.current.forEach(t => { catSums[t.category] = (catSums[t.category] || 0) + t.amount; });
     const labels = Object.keys(catSums);

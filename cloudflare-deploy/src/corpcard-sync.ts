@@ -143,9 +143,16 @@ async function codefRequest(env: any, path: string, body: any, baseOverride?: st
 }
 
 // ── 업종/가맹점명 → 화면 8분류 (adm-core.js CARD_CATEGORIES 와 같은 키) ──
+/* ⚠️ 업태(StoreBizType)가 함께 들어온다 — 바로빌/신한 실데이터로 확인(2026-08-15).
+   가맹점명만 보면 놓치는 것들이 업태로는 잡힌다. 실측에서 「기타」 69% 중 상당수가
+   업태만 보면 분류되는 것들이었다:
+     편의점 26건 · 식품잡화 8건 · 할인점/슈퍼마켓 2건  → 식대
+     정비,세차장,자동차SVC 3건(₩695,000)             → 교통
+   ⛔ 「모텔,여관,기타숙박」(8건 ₩440,000)은 일부러 «기타» 로 둔다. 출장 숙박인지
+      다른 용도인지 코드가 판단할 수 없다 — 사람이 메모로 정하는 편이 정확하다. */
 const CAT_RULES: Array<[RegExp, string]> = [
-  [/스타벅스|커피|카페|배달|배민|요기요|쿠팡이츠|맥도날|버거|치킨|피자|김밥|분식|식당|한식|중식|일식|양식|주점|베이커리|제과|음식|외식|레스토랑/i, '식대'],
-  [/택시|카카오\s*T|모빌리티|주유|칼텍스|에너지|오일|버스|철도|코레일|SRT|항공|주차|톨게이트|하이패스|렌터카|교통/i, '교통'],
+  [/스타벅스|커피|카페|배달|배민|요기요|쿠팡이츠|맥도날|버거|치킨|피자|김밥|분식|식당|한식|중식|일식|양식|주점|베이커리|제과|음식|외식|레스토랑|편의점|식품잡화|할인점|슈퍼마켓|마트/i, '식대'],
+  [/택시|카카오\s*T|모빌리티|주유|칼텍스|에너지|오일|버스|철도|코레일|SRT|항공|주차|톨게이트|하이패스|렌터카|교통|정비|세차|자동차/i, '교통'],
   [/SKT|SK텔레콤|\bKT\b|LG\s*U|유플러스|텔레콤|통신/i, '통신'],
   [/광고|Ads|애드|마케팅|페이스북|메타|인스타|틱톡|네이버\s*광고|카카오모먼트|홍보/i, '마케팅'],
   [/AWS|아마존웹|클라우드|Cloudflare|호스팅|소프트웨어|Figma|Adobe|어도비|Microsoft|마이크로소프트|구글\s*클라우드|GitHub|전산|컴퓨터|노트북|전자/i, '장비'],
@@ -357,6 +364,11 @@ export async function corpcardStatus(env: any, data?: any): Promise<any> {
   return {
     state, configured, sandbox_account: sandboxAcct,
     provider,                                   // 'barobill' | 'codef' | 'none'
+    /* 화면 상단의 카드번호를 실제 설정값으로 맞추기 위한 **끝 4자리만**.
+       하드코딩된 «8842» 가 낡아 실제 카드(…3575)와 어긋나 있었다(2026-08-14).
+       전체 번호는 절대 내보내지 않는다 — 끝 4자리는 영수증에도 찍히는 수준이다. */
+    card_last4: (cleanSecret(env.BAROBILL_CARDNUM) || cleanSecret(env.CODEF_CARD_NO))
+      .replace(/\D/g, '').slice(-4) || null,
     base: provider === 'barobill' ? (last?.ws || '바로빌') : base,
     missing: provider === 'none' ? BARO_MISSING(env) : [],
     message_ko: MSG[state][0], message_en: MSG[state][1],
