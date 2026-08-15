@@ -11331,7 +11331,12 @@ window.rebuildGlobalSearchIndex = function() {
       d.__cardAutoBound = true;
       // 월 선택 기본값 = 이번 달(KST) — admin.html 의 하드코딩(2026-04)을 덮는다
       var mEl = document.getElementById('acc-card-month');
-      if (mEl) mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+      if (mEl) {
+        mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        // 🆕 (2026-08-15) 월을 바꾸면 바로 조회한다. 예전엔 [조회]를 눌러야 반영돼서
+        //   달만 바꾸고 「안 바뀐다」로 읽혔다. (월은 서버 조회라 renderCardTable 로는 안 된다)
+        mEl.addEventListener('change', function () { window.cardLoad(); });
+      }
       d.addEventListener('toggle', function(){ if (d.open) window.cardLoad(); });
       if (d.open) window.cardLoad();
     }
@@ -11571,25 +11576,35 @@ window.rebuildGlobalSearchIndex = function() {
     } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
+    // 🆕 (2026-08-15) 「평균 대비」 필터 — 고액/평균↑ 건만 골라 보려는 요청.
+    //   표에 찍는 판정과 «같은 함수»를 써야 한다. 여기서 따로 계산하면 필터와 배지가 어긋난다.
+    const vsFilter = (document.getElementById('acc-card-vs') && document.getElementById('acc-card-vs').value) || '';
     const catCounts = {};
     _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+    const vsOf = (t) => {
+      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
+      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
+      return t.amount > meta.threshold ? 'high' : t.amount > catAvg * 1.5 ? 'over' : 'normal';
+    };
+    const _VS_RANK = { high: 2, over: 1, normal: 0 };
 
-    /* 정렬용 값(_s_*)을 «먼저» 붙인 뒤 정렬한다 — 평균 대비는 화면 라벨(고액/평균↑/정상)이
-       아니라 등급으로 비교해야 순서가 맞다(문자 정렬하면 이모지 코드포인트 순이 된다).
-       등급*1e12 + 금액 → 한 번 클릭으로 «고액 먼저, 그 안에서 큰 금액순». 원본은 안 건드린다. */
+    /* 🔃 (2026-08-16) 정렬용 값(_s_*)을 «먼저» 붙인 뒤 정렬한다 — 평균 대비는 화면 라벨
+       (고액/평균↑/정상)로 문자 정렬하면 이모지 코드포인트 순이 되어 순서가 엉킨다.
+       등급*1e12 + 금액 → 한 번 클릭으로 «고액 먼저, 그 안에서 큰 금액순».
+       ⚠️ 등급 판정은 위 vsOf 하나만 쓴다 — 필터·배지·정렬이 어긋나면 안 된다.
+       값은 사본에만 붙이고 원본(_cardData.current)은 그대로 둔다(메모 편집이 원본을 본다). */
     const rows = _cardData.current.filter(t => {
       if (catFilter && t.category !== catFilter) return false;
       if (search && !(t.merchant.toLowerCase().includes(search))) return false;
+      if (vsFilter && vsOf(t) !== vsFilter) return false;
       return true;
     }).map(t => {
-      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
-      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
-      const rank = t.amount > meta.threshold ? 2 : t.amount > catAvg * 1.5 ? 1 : 0;
+      const st = vsOf(t);
       return Object.assign({}, t, {
-        _meta: meta, _rank: rank,
+        _meta: CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'], _st: st,
         _s_datetime: String(t.datetime || ''), _s_merchant: String(t.merchant || ''),
         _s_category: String(t.category || ''), _s_amount: Number(t.amount) || 0,
-        _s_vs: rank * 1e12 + (Number(t.amount) || 0),
+        _s_vs: _VS_RANK[st] * 1e12 + (Number(t.amount) || 0),
       });
     });
     if (_cardSort.length > 0) rows.sort(_compareCardRows);
@@ -11602,8 +11617,9 @@ window.rebuildGlobalSearchIndex = function() {
     }
     tbody.innerHTML = rows.map(t => {
       const meta = t._meta;
-      const vs = t._rank === 2 ? '🔴 고액' : t._rank === 1 ? '🟡 평균↑' : '🟢 정상';
-      const color = t._rank === 2 ? '#dc2626' : t._rank === 1 ? '#d97706' : '#059669';
+      const st = t._st;                       // 위 map 에서 vsOf 로 이미 판정 — 재계산 금지
+      const vs = st === 'high' ? '🔴 고액' : st === 'over' ? '🟡 평균↑' : '🟢 정상';
+      const color = st === 'high' ? '#dc2626' : st === 'over' ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
