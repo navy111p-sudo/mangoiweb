@@ -2379,16 +2379,19 @@
             <button onclick="cardLoad()" class="primary" style="padding:5px 12px;font-size:12px">🔍 조회</button>
             <button onclick="cardExportExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer">📥 Excel</button>
           </div>
+          <!-- 🔃 (2026-08-16) 정렬 상태 칩 — 지금 무엇으로 정렬 중인지 + 해제 버튼. 급여표와 같은 방식 -->
+          <div id="acc-card-sort-status" style="font-size:12px;margin:6px 0;display:flex;flex-wrap:wrap;gap:4px;align-items:center"></div>
           <div id="acc-card-table-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;overflow:auto;max-height:400px">
             <table id="acc-card-table" style="width:100%;border-collapse:collapse;font-size:12px;min-width:780px">
-              <thead style="background:#f9fafb;position:sticky;top:0">
+              <!-- 헤더 클릭 = 오름/내림 토글, Shift+클릭 = 2차 정렬키 추가 (.pr-th CSS 공용) -->
+              <thead id="acc-card-thead" style="background:#f9fafb;position:sticky;top:0">
                 <tr>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">일시</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">가맹점</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">카테고리</th>
-                  <th style="padding:8px 10px;text-align:right;border-bottom:2px solid #e5e7eb">금액</th>
-                  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb">평균 대비</th>
-                  <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e5e7eb">메모</th>
+                  <th class="pr-th" data-sort-key="datetime" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="일시" data-en="Date">일시</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="merchant" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="가맹점" data-en="Merchant">가맹점</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="category" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="카테고리" data-en="Category">카테고리</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="amount" style="padding:8px 10px;text-align:right;border-bottom:2px solid #e5e7eb"><span data-ko="금액" data-en="Amount">금액</span><span class="pr-arrow">↕</span></th>
+                  <th class="pr-th" data-sort-key="vs" style="padding:8px 10px;text-align:left;border-bottom:2px solid #e5e7eb"><span data-ko="평균 대비" data-en="vs Avg">평균 대비</span><span class="pr-arrow">↕</span></th>
+                  <th style="padding:8px 10px;text-align:center;border-bottom:2px solid #e5e7eb"><span data-ko="메모" data-en="Memo">메모</span></th>
                 </tr>
               </thead>
               <tbody id="acc-card-rows">
@@ -8704,7 +8707,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=84" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=85" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->

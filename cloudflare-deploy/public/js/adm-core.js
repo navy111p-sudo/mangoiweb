@@ -8294,6 +8294,15 @@ async function seedDemoTeachers() {
       if (key) onPayrollHeaderClick(key, ev.shiftKey);
     });
   }
+  // 💳 법인카드 표도 같은 방식 (2026-08-16)
+  if (e('acc-card-thead')) {
+    e('acc-card-thead').addEventListener('click', (ev) => {
+      const th = ev.target.closest('.pr-th');
+      if (!th) return;
+      const key = th.getAttribute('data-sort-key');
+      if (key && typeof window.onCardHeaderClick === 'function') window.onCardHeaderClick(key, ev.shiftKey);
+    });
+  }
   // 모달 배경 클릭으로 닫기
   if (e('eval-modal-bg')) e('eval-modal-bg').addEventListener('click', (ev) => {
     if (ev.target.id === 'eval-modal-bg') closeEvalModal();
@@ -11480,6 +11489,69 @@ window.rebuildGlobalSearchIndex = function() {
     }
   }
 
+  /* 🔃 법인카드 표 정렬 (2026-08-16) — 급여표(.pr-th)와 같은 방식·같은 CSS 를 쓴다.
+     헤더 클릭 = 내림→오름→해제 토글, Shift+클릭 = 2차·3차 키 추가.
+     비어 있으면 기본값(일시 최신순) — 예전 동작 그대로다. */
+  let _cardSort = [];
+  const _CARD_SORT_LABELS_KO = { datetime: '일시', merchant: '가맹점', category: '카테고리', amount: '금액', vs: '평균 대비' };
+  const _CARD_SORT_LABELS_EN = { datetime: 'Date', merchant: 'Merchant', category: 'Category', amount: 'Amount', vs: 'vs Avg' };
+
+  function _compareCardRows(a, b) {
+    for (const s of _cardSort) {
+      const va = a['_s_' + s.key], vb = b['_s_' + s.key];
+      let cmp;
+      if (typeof va === 'number' && typeof vb === 'number') cmp = va - vb;
+      else cmp = String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'ko');
+      if (cmp !== 0) return s.dir === 'asc' ? cmp : -cmp;
+    }
+    return 0;
+  }
+
+  window.onCardHeaderClick = function(key, shiftKey) {
+    const idx = _cardSort.findIndex(s => s.key === key);
+    if (shiftKey) {
+      if (idx === -1) _cardSort.push({ key, dir: 'desc' });
+      else if (_cardSort[idx].dir === 'desc') _cardSort[idx].dir = 'asc';
+      else _cardSort.splice(idx, 1);
+    } else {
+      if (_cardSort.length === 1 && _cardSort[0].key === key) {
+        if (_cardSort[0].dir === 'desc') _cardSort[0].dir = 'asc';
+        else _cardSort = [];
+      } else _cardSort = [{ key, dir: 'desc' }];
+    }
+    renderCardTable();
+  };
+
+  window.clearCardSort = function() { _cardSort = []; renderCardTable(); };
+
+  function _updateCardSortArrows() {
+    const L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    document.querySelectorAll('#acc-card-thead .pr-th').forEach(th => {
+      const arrow = th.querySelector('.pr-arrow');
+      th.classList.remove('pr-active');
+      if (arrow) arrow.textContent = '↕';
+      const idx = _cardSort.findIndex(s => s.key === th.getAttribute('data-sort-key'));
+      if (idx !== -1) {
+        th.classList.add('pr-active');
+        if (arrow) arrow.textContent = (_cardSort[idx].dir === 'asc' ? '▲' : '▼') + (_cardSort.length > 1 ? String(idx + 1) : '');
+      }
+    });
+    const statusEl = document.getElementById('acc-card-sort-status');
+    if (!statusEl) return;
+    if (_cardSort.length === 0) {
+      // 정렬을 안 걸었을 때도 «지금 무슨 순서인지» 는 말해 준다(빈칸이면 사용자가 모른다)
+      statusEl.innerHTML = '<span style="color:#9ca3af">' + (L ? 'Sort: Date (newest) · click a header to sort, Shift+click to add' : '정렬: 일시 최신순 · 헤더를 누르면 정렬, Shift+클릭으로 2차 정렬') + '</span>';
+      return;
+    }
+    const labels = L ? _CARD_SORT_LABELS_EN : _CARD_SORT_LABELS_KO;
+    const chips = _cardSort.map((s, i) =>
+      `<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:4px;font-weight:600">${i + 1}. ${labels[s.key] || s.key} ${s.dir === 'asc' ? '▲' : '▼'}</span>`
+    ).join('');
+    statusEl.innerHTML = '<span style="color:#6b7280">' + (L ? 'Sort:' : '정렬:') + '</span>' + chips
+      + '<button onclick="clearCardSort()" style="background:#fff;border:1px solid #d1d5db;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;color:#6b7280;margin-left:4px">'
+      + (L ? '✕ Clear' : '✕ 해제') + '</button>';
+  }
+
   window.renderCardTable = function() {
     if (!_cardData) return;
     const tbody = document.getElementById('acc-card-rows');
@@ -11499,23 +11571,39 @@ window.rebuildGlobalSearchIndex = function() {
     } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
+    const catCounts = {};
+    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+
+    /* 정렬용 값(_s_*)을 «먼저» 붙인 뒤 정렬한다 — 평균 대비는 화면 라벨(고액/평균↑/정상)이
+       아니라 등급으로 비교해야 순서가 맞다(문자 정렬하면 이모지 코드포인트 순이 된다).
+       등급*1e12 + 금액 → 한 번 클릭으로 «고액 먼저, 그 안에서 큰 금액순». 원본은 안 건드린다. */
     const rows = _cardData.current.filter(t => {
       if (catFilter && t.category !== catFilter) return false;
       if (search && !(t.merchant.toLowerCase().includes(search))) return false;
       return true;
-    }).sort((a, b) => b.datetime.localeCompare(a.datetime));
+    }).map(t => {
+      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
+      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
+      const rank = t.amount > meta.threshold ? 2 : t.amount > catAvg * 1.5 ? 1 : 0;
+      return Object.assign({}, t, {
+        _meta: meta, _rank: rank,
+        _s_datetime: String(t.datetime || ''), _s_merchant: String(t.merchant || ''),
+        _s_category: String(t.category || ''), _s_amount: Number(t.amount) || 0,
+        _s_vs: rank * 1e12 + (Number(t.amount) || 0),
+      });
+    });
+    if (_cardSort.length > 0) rows.sort(_compareCardRows);
+    else rows.sort((a, b) => b.datetime.localeCompare(a.datetime));   // 기본 = 일시 최신순(예전 동작)
+    _updateCardSortArrows();
 
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;color:#9ca3af">조건에 맞는 거래가 없습니다.</td></tr>';
       return;
     }
-    const catCounts = {};
-    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
     tbody.innerHTML = rows.map(t => {
-      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
-      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
-      const vs = t.amount > meta.threshold ? '🔴 고액' : t.amount > catAvg * 1.5 ? '🟡 평균↑' : '🟢 정상';
-      const color = t.amount > meta.threshold ? '#dc2626' : t.amount > catAvg * 1.5 ? '#d97706' : '#059669';
+      const meta = t._meta;
+      const vs = t._rank === 2 ? '🔴 고액' : t._rank === 1 ? '🟡 평균↑' : '🟢 정상';
+      const color = t._rank === 2 ? '#dc2626' : t._rank === 1 ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
