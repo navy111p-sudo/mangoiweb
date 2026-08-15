@@ -10484,9 +10484,17 @@ window.rebuildGlobalSearchIndex = function() {
       </table>
       <h2>비용 내역</h2>
       <table>
-        <tr><th>강사 급여</th><td class="num">${fmtKRW(c.teacher_payroll)}</td><td class="num">${c.teacher_count} 명</td></tr>
+        <tr><th>${c.teacher_payroll_source === 'bank' ? '강사 급여 (신한 송금·실데이터)' : '강사 급여'}</th><td class="num">${fmtKRW(c.teacher_payroll)}</td><td class="num">${c.teacher_count} 명</td></tr>
+        ${(c.teacher_dup_excluded||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 계좌의 강사급여 송금 ${fmtKRW(c.teacher_dup_excluded)} 은 급여명세와 중복이라 제외</td></tr>` : ''}
         <tr><th>PG 수수료 (추정 3.3%)</th><td class="num">${fmtKRW(c.pg_fee)}</td><td></td></tr>
+        ${c.op_cost_source === 'actual' ? `
+        <tr><th>법인카드 지출 (신한·실데이터)</th><td class="num">${fmtKRW(c.op_card||0)}</td><td></td></tr>
+        ${(c.op_bank_rows||[]).map(b => `<tr><th>계좌 출금 — ${b.category} (신한·실데이터)</th><td class="num">${fmtKRW(b.total)}</td><td></td></tr>`).join('')}
+        ${(c.bank_dup_excluded||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 계좌 출금 중 급여이체·카드대금 ${fmtKRW(c.bank_dup_excluded)} 은 강사급여·법인카드 항목과 중복이라 제외</td></tr>` : ''}
+        ` : `
         <tr><th>운영비 (추정 10%)</th><td class="num">${fmtKRW(c.op_cost)}</td><td></td></tr>
+        `}
+        ${(c.refunds||0) > 0 ? `<tr><th>학생 환불 (신한·실데이터)</th><td class="num">${fmtKRW(c.refunds)}</td><td></td></tr>` : ''}
         <tr class="total"><td>합계</td><td class="num">${fmtKRW(c.total)}</td><td></td></tr>
       </table>
       <h2>결제 수단별 분포</h2>

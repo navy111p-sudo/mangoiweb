@@ -72,6 +72,14 @@ export async function ensureBankTables(env: any): Promise<void> {
      · 급여이체 → 강사급여(payslips)와 겹침  · 카드대금 → 법인카드 지출과 겹침
    둘 다 화면에는 보여 주되 판관비 합계에서는 뺀다. ⚠️ 순서 중요 — 급여가 카드보다 먼저. */
 const BANK_CAT_RULES: Array<[RegExp, string]> = [
+  /* 🧑‍🏫 (2026-08-15 사장님 확인) 은행 적요에 «급여» 글자가 없어 이름으로 판별한다:
+       · 메트로은행(필리핀) 송금 = 필리핀 강사 급여 → 손익계산서 II 강사급여 줄로
+       · 이병엽·남궁국화·장지웅 = 직원 급여·정산 → 판관비 «직원급여» 줄로
+       · «…환불» = 학생 환불 → 비용이 아니라 매출 차감으로
+     직원이 바뀌면 이 목록도 갱신할 것. */
+  [/메트로은행|METRO\s*BANK|METROBANK/i, '강사급여송금'],
+  [/이병엽|남궁국화|장지웅/, '직원급여'],
+  [/환불/, '학생환불'],
   [/급여|월급|급료|봉급|상여|수당|퇴직|PAYROLL|SALARY/i, '급여이체'],
   [/카드대금|카드결제|신한카드|비씨카드|BC카드|국민카드|삼성카드|현대카드|롯데카드|하나카드|우리카드/, '카드대금'],
   [/임대|월세|관리비|보증금/, '임대·관리비'],
@@ -184,6 +192,24 @@ export async function runBankSync(env: any, opts: { dryRun?: boolean } = {}): Pr
   };
   if (dryRun) summary.preview = preview;
   if (!dryRun) {
+    /* 🏷️ 소급 재분류 — 분류(category)는 적요에서 «파생되는 값»이라, 규칙이 좋아지면
+       이미 적재된 행에도 다시 적용하는 것이 맞다(2026-08-15: 강사송금·직원급여·환불
+       규칙 추가로 기존 «기타출금» 뭉치를 쪼갬). 원본(적요·금액)은 절대 안 건드린다. */
+    try {
+      const all: any = await env.DB.prepare(`SELECT id, kind, remark, category FROM bankacct_transactions`).all();
+      let recategorized = 0;
+      for (const r of (all.results || [])) {
+        const want = bankCategorize(r.kind === 'in' ? 'in' : 'out', r.remark || '');
+        if (want !== r.category) {
+          await env.DB.prepare(`UPDATE bankacct_transactions SET category = ? WHERE id = ?`).bind(want, r.id).run().catch(() => {});
+          recategorized++;
+        }
+      }
+      summary.recategorized = recategorized;
+    } catch (e: any) {
+      console.warn('[bankacct-sync] 재분류 실패(적재는 정상):', e?.message);
+      summary.recategorize_error = String(e?.message || e).slice(0, 200);
+    }
     await metaSet(env, 'bank_last_sync_at', String(Date.now()));
     await metaSet(env, 'bank_last_sync_result', JSON.stringify(summary).slice(0, 1500));
   }
