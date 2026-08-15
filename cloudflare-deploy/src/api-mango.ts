@@ -1416,6 +1416,12 @@ export async function handleMangoApi(
         || path.startsWith('/api/referral/') || path.startsWith('/api/counseling/')
         || path === '/api/admin/attendance/qr-gen' || path === '/api/attendance/check-in'
         // 🎮 (2026-08-11 삭제) /api/battle/leaderboard·history 위임 가드 제거 — 영어 배틀 기능째 삭제.
+        // 💰 (2026-08-15) 카페24 회계 실데이터(장부·급여·지출·세금·예치금·손익요약)
+        //    핸들러(api-admin.ts)와 index.ts 인증게이트에는 있었는데 이 위임 가드에만 빠져 있어서
+        //    /api/admin/finance-cafe24/{summary,ledger,payroll,expenses,tax,deposits} 가
+        //    전부 index.ts 끝단 404({error:'Not Found'}) 로 떨어졌다 → 화면에 «집계 실패: Not Found»,
+        //    «불러오기 실패: Not Found». teacher-contacts(8/13)·teacher-hr-analysis 와 같은 원인.
+        || path.startsWith('/api/admin/finance-cafe24/')
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
