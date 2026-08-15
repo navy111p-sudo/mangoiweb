@@ -11390,7 +11390,12 @@ window.rebuildGlobalSearchIndex = function() {
       d.__cardAutoBound = true;
       // 월 선택 기본값 = 이번 달(KST) — admin.html 의 하드코딩(2026-04)을 덮는다
       var mEl = document.getElementById('acc-card-month');
-      if (mEl) mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+      if (mEl) {
+        mEl.value = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 7);
+        // 🆕 (2026-08-15) 월을 바꾸면 바로 조회한다. 예전엔 [조회]를 눌러야 반영돼서
+        //   달만 바꾸고 「안 바뀐다」로 읽혔다. (월은 서버 조회라 renderCardTable 로는 안 된다)
+        mEl.addEventListener('change', function () { window.cardLoad(); });
+      }
       d.addEventListener('toggle', function(){ if (d.open) window.cardLoad(); });
       if (d.open) window.cardLoad();
     }
@@ -11567,9 +11572,20 @@ window.rebuildGlobalSearchIndex = function() {
     } catch (e) {}
     const catFilter = document.getElementById('acc-card-cat') ? document.getElementById('acc-card-cat').value : '';
     const search = ((document.getElementById('acc-card-search') && document.getElementById('acc-card-search').value) || '').toLowerCase();
+    // 🆕 (2026-08-15) 「평균 대비」 필터 — 고액/평균↑ 건만 골라 보려는 요청.
+    //   표에 찍는 판정과 «같은 함수»를 써야 한다. 여기서 따로 계산하면 필터와 배지가 어긋난다.
+    const vsFilter = (document.getElementById('acc-card-vs') && document.getElementById('acc-card-vs').value) || '';
+    const catCounts = {};
+    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
+    const vsOf = (t) => {
+      const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
+      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
+      return t.amount > meta.threshold ? 'high' : t.amount > catAvg * 1.5 ? 'over' : 'normal';
+    };
     const rows = _cardData.current.filter(t => {
       if (catFilter && t.category !== catFilter) return false;
       if (search && !(t.merchant.toLowerCase().includes(search))) return false;
+      if (vsFilter && vsOf(t) !== vsFilter) return false;
       return true;
     }).sort((a, b) => b.datetime.localeCompare(a.datetime));
 
@@ -11577,13 +11593,11 @@ window.rebuildGlobalSearchIndex = function() {
       tbody.innerHTML = '<tr><td colspan="6" style="padding:30px;text-align:center;color:#9ca3af">조건에 맞는 거래가 없습니다.</td></tr>';
       return;
     }
-    const catCounts = {};
-    _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
     tbody.innerHTML = rows.map(t => {
       const meta = CARD_CATEGORIES[t.category] || CARD_CATEGORIES['기타'];
-      const catAvg = (meta.avg / Math.max(catCounts[t.category] || 1, 1));
-      const vs = t.amount > meta.threshold ? '🔴 고액' : t.amount > catAvg * 1.5 ? '🟡 평균↑' : '🟢 정상';
-      const color = t.amount > meta.threshold ? '#dc2626' : t.amount > catAvg * 1.5 ? '#d97706' : '#059669';
+      const st = vsOf(t);
+      const vs = st === 'high' ? '🔴 고액' : st === 'over' ? '🟡 평균↑' : '🟢 정상';
+      const color = st === 'high' ? '#dc2626' : st === 'over' ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>

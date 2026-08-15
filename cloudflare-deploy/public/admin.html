@@ -2430,6 +2430,12 @@
               <option value="기타">❓ 기타</option>
             </select>
             <input id="acc-card-search" type="text" placeholder="🔍 가맹점 검색" oninput="renderCardTable()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db;flex:1;min-width:140px" />
+            <select id="acc-card-vs" onchange="renderCardTable()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="">전체 상태</option>
+              <option value="high">🔴 고액</option>
+              <option value="over">🟡 평균↑</option>
+              <option value="normal">🟢 정상</option>
+            </select>
             <button onclick="cardLoad()" class="primary" style="padding:5px 12px;font-size:12px">🔍 조회</button>
             <button onclick="cardExportExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer">📥 Excel</button>
           </div>
