@@ -11218,6 +11218,13 @@ window.rebuildGlobalSearchIndex = function() {
     if (!box) return;
     var s = _cardStatus;
     if (!s) { box.innerHTML = ''; return; }
+    /* 상단 카드번호를 **실제 설정된 카드**로 맞춘다. 예전엔 HTML 에 «8842» 가 박혀 있었는데
+       실제 등록 카드가 바뀌면서 어긋났다(2026-08-14: 화면 8842 / 바로빌 4819 / 실카드 3575).
+       시크릿(BAROBILL_CARDNUM)을 바꾸면 화면도 따라오게 한다. */
+    if (s.card_last4) {
+      var numEl = document.getElementById('acc-card-num');
+      if (numEl) numEl.textContent = '**** **** **** ' + s.card_last4;
+    }
     var en = !!(window.adminLang && window.adminLang !== 'ko');
     var TONE = {
       ok:              ['#059669', 'rgba(5,150,105,0.08)',  '✅'],
