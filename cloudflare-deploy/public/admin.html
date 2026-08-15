@@ -9113,6 +9113,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="📷 QR 출결" data-en="📷 QR Attendance" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-ko="📝 수업 출결" data-en="📝 Class Attendance" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
       <div class="ph85-sub" data-ko="🐞 버그·피드백 접수함 ⭐신규" data-en="🐞 Bug &amp; Feedback Inbox ⭐NEW" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
+      <!-- 🗺 사이트 구조도 (2026-08-15) — 카드로 넣지 않고 «다른 페이지»로 뺀 이유:
+           admin.html 은 이미 1.0MB 다. 읽기만 하는 문서를 카드로 얹으면 모든 관리자가 그 무게를
+           함께 진다. 그래서 data-card 가 아니라 location.href 로 보낸다(연기 수업 현황·캐피타운
+           정산과 같은 방식).
+           경로가 /admin/ 로 시작하므로 src/index.ts 의 isAdminPath 기본차단 + 미인증 리다이렉트
+           목록에 **이미 걸린다** — 라우팅을 새로 등록할 필요가 없고, 로그인 없이는 열리지 않는다.
+           ⚠️ public/admin/ 아래에는 js·css 를 두지 말 것(로그인 화면 리소스가 함께 막힌다).
+              그래서 문서 5장은 전부 스타일·스크립트를 파일 안에 담은 한 장짜리다. -->
+      <div class="ph85-sub" data-ko="🗺 사이트 구조도 ⭐신규" data-en="🗺 Site Structure ⭐NEW"
+           data-tip-ko="망고아이 화면이 어떤 순서로 이어지는지 그린 문서예요. 지도 1장 + 구성표 3장."
+           data-tip-en="Documents mapping how Mangoi screens connect. 1 map + 3 outlines."
+           onclick="event.stopPropagation();location.href='/admin/site-structure.html';">🗺 사이트 구조도 ⭐신규</div>
     </div>
   </div>
   
