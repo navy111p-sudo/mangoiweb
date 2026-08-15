@@ -197,17 +197,13 @@
           role: _real.role || '',
           lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
         }));
-      } else {
-        var defaultSession = {
-          uid: 'hq_mgr',
-          name: '정우영',
-          phone: '010-1234-5678',
-          email: 'navy111p@gmail.com',
-          branch: '본사',
-          lastLogin: new Date().toLocaleString('ko-KR').slice(5, 17)
-        };
-        localStorage.setItem('admin_session', JSON.stringify(defaultSession));
       }
+      /* 🪪 (2026-08-15) 여기 있던 «기본 세션» 생성 제거.
+         admin_session 이 비었을 때 { name:'정우영', email:'navy111p@gmail.com' } 를
+         만들어 localStorage 에 저장하고 있었다. 한 번 저장되면 그 뒤로는 진짜 세션과
+         구별이 안 돼서, 다른 계정으로 로그인해도 「정우영」이 남았다.
+         이제 비어 있으면 비어 있는 채로 두고, js/adm-identity.js 가 /api/admin/me 로
+         진짜 값을 채운다. 못 채우면 화면은 «계정 확인 중…» 으로 남는다. */
     }
     renderUserPopup();
   }

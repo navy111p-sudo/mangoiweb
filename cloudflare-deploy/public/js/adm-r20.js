@@ -32,8 +32,7 @@
     if (document.getElementById('ph114-user-fab')) return;
     var user = getUser();
     if (!user) {
-      user = { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사', phone: '010-1234-5678' };
-      saveUser(user);
+      user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거 + saveUser 제거
     }
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     var role = ROLE_INFO[user.uid] || { label: '👤 ' + user.uid, color: 'rgba(59,130,246,0.4)', text: '#93C5FD', desc: '' };
@@ -68,8 +67,7 @@
   window.ph114OpenModal = function(){
     var user = getUser();
     if (!user) {
-      user = { uid: 'hq_mgr', name: '정우영', email: 'navy111p@gmail.com', branch: '본사' };
-      saveUser(user);
+      user = window.admIdentityOrPending();   // 🪪 (2026-08-15) 실명 fallback 제거 + saveUser 제거
     }
     var initial = (user.name || user.uid || 'U').charAt(0).toUpperCase();
     var role = ROLE_INFO[user.uid] || { label: '👤 ' + user.uid, color: 'rgba(59,130,246,0.4)', text: '#93C5FD', desc: '' };
