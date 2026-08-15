@@ -162,6 +162,13 @@ check('그룹 줄 높이를 낮춰 6그룹이 첫 화면에 들어오게 한다'
   /ph85-head\{padding-top:5px !important;padding-bottom:5px !important\}/.test(ia6));
 check('🔴 글자 크기는 건드리지 않는다 (「글씨가 작아졌다」 방지)', !/font-size/.test(ia6));
 check('「전체 보기」를 「메뉴 지도」로 부른다', /data-ko="메뉴 지도" data-en="Menu map"/.test(ia6));
+/* 🏷 사람들이 찾는 이름은 「시스템」이다(같은 신고 두 번). 「경영·설정」으로 되돌리면 여기서 걸린다.
+   ⚠️ 그룹 이름은 localStorage 키가 아니다(키는 key='ops'). 그래서 이사표 없이 바꿔도 안전하다. */
+check('여섯 번째 그룹 이름이 「시스템 / System」이다', /key: 'ops', ko: '시스템', en: 'System'/.test(ia6));
+check('그룹 이름을 바꿔도 «마지막으로 보던 항목» 키는 그대로다 (키는 group.key 로 만든다)',
+  /g\.key \+ ':' \+ it\.ko/.test(ia6) && !/g\.ko \+ ':'/.test(ia6));
+check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞다',
+  /"시스템": "경영 지표·공지 발송·자료실·직원 권한·데이터 보관/.test(html));
 check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
   !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
 {
