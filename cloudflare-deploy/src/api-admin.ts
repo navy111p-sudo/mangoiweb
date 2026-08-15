@@ -2799,13 +2799,29 @@ export async function handleAdminApi(
         l.date === dateStr && l.status === 'finish' &&
         ((prof && String(l.profile_id ?? '') === String(prof.id)) || sameTeacherName(l.teacher_name, teacherName)));
 
-      // 이미 초안 있는 방 제외
-      const roomIds = done.map((l: any) => l.room_id);
-      const existing: any = roomIds.length
-        ? await env.DB.prepare(`SELECT room_id FROM feedback_drafts WHERE room_id IN (${roomIds.map(() => '?').join(',')})`).bind(...roomIds).all().catch(() => ({ results: [] }))
-        : { results: [] };
-      const have = new Set((existing.results || []).map((r: any) => r.room_id));
-      const targets = done.filter((l: any) => !have.has(l.room_id));
+      /* 🔁 이미 «학부모에게 나간» 수업은 초안을 만들지 않는다 (2026-08-15)
+         왜 — 학부모에게 문자가 나가는 길이 두 갈래인데 여기서는 한 갈래만 보고 있었다.
+           ① 강사가 수업일지를 쓰면 → /api/eval/create → student_evaluations + 학부모 문자
+           ② 이 초안을 승인하면     → approve          → teacher_feedbacks   + 학부모 문자
+         예전 코드는 feedback_drafts 만 확인해서, ①을 이미 쓴 수업도 «초안 없음» 으로 보고
+         초안을 다시 만들었다. 강사가 그걸 승인하면 같은 수업으로 학부모에게 문자가 두 번 간다.
+         ⚠️ 드물게 나는 사고가 아니다 — 경고 카드는 «이번 달 미작성» 이 한 건만 있어도 뜨고,
+            「AI 초안 만들기」는 그날 완료 수업 **전체** 를 대상으로 돌기 때문에,
+            오늘 일지를 이미 쓴 수업까지 한꺼번에 걸린다.
+         그래서 세 테이블을 다 보고 하나라도 있으면 건너뛴다. */
+      const roomIds = done.map((l: any) => String(l.room_id || '')).filter(Boolean);
+      //   바인드 100개 한도 분할은 공용 selectInChunks 에 맡긴다(직접 자르지 않는다).
+      //   swallowErrors — 표가 아직 없는 DB 도 있다. 그 경우는 «없음» 으로 치고 넘어간다.
+      const have = new Set<string>();
+      for (const table of ['feedback_drafts', 'student_evaluations', 'teacher_feedbacks']) {
+        const rows = await selectInChunks<any>(
+          env.DB, roomIds,
+          (ph) => `SELECT room_id FROM ${table} WHERE room_id IN (${ph})`,
+          { swallowErrors: true },
+        );
+        for (const r of rows) have.add(String(r.room_id));
+      }
+      const targets = done.filter((l: any) => !have.has(String(l.room_id || '')));
 
       const CAP = 5;
       const batch = targets.slice(0, CAP);
