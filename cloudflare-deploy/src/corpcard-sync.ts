@@ -168,13 +168,16 @@ const CAT_RULES: Array<[RegExp, string]> = [
   [/택시|카카오\s*T|모빌리티|주유|칼텍스|에너지|오일|버스|철도|코레일|SRT|항공|주차|톨게이트|하이패스|하이플러스|통행료|렌터카|교통|정비|세차|자동차/i, '교통'],
   /* 📣 마케팅은 반드시 장비보다 **위** — 아니면 「네이버 광고」가 장비로 샌다 */
   [/광고|Ads|애드|마케팅|페이스북|메타|인스타|틱톡|네이버\s*광고|카카오모먼트|홍보/i, '마케팅'],
-  /* 💻 장비·소프트웨어 — 클라우드/SaaS/AI 구독을 여기로 잡는다(2026-08-15 원장님 지시로
-     통신 → 장비로 옮김). 실측 대상:
-       GOOGLE*GOOGLE DIGITAL ₩192,693 · ANTHROPIC* CLAUDE TEAM ₩107,085 · 네이버 ₩36,300
-     ⚠️ 통신보다 **위**여야 한다. 아래 통신 규칙이 네이버/구글을 통째로 잡기 때문
+  /* ☁️ SW구독(SaaS) — «결제를 멈추면 못 쓰는 것». 회계상 자산이 아니라 서비스(지급수수료).
+     IFRIC 2021 결론과 같은 선긋기다. 2026-08-15 오후엔 통신 → 장비로 옮겼다가,
+     같은 날 「장비랑 구독이 헷갈린다」는 지적을 받아 장비에서 다시 떼어냈다.
+     ⚠️ 장비·통신보다 **위**여야 한다. 아래 규칙들이 구글/네이버를 통째로 잡기 때문
+     실측 대상: GOOGLE*GOOGLE DIGITAL ₩397,108 · ANTHROPIC* CLAUDE TEAM ₩107,085 · 네이버 ₩108,900 */
+  [/AWS|아마존웹|클라우드|Cloudflare|호스팅|Figma|Adobe|어도비|GitHub|Notion|노션|Slack|슬랙|Zoom|Canva|Vercel|Netlify|Linode|DigitalOcean|Midjourney|ElevenLabs|Perplexity|네이버|NAVER|구글|GOOGLE|ANTHROPIC|CLAUDE|OPENAI|CHATGPT|MS\s*365|Microsoft\s*365|오피스\s*365|구독|정기결제|SaaS/i, '구독'],
+  /* 💻 장비·비품 — «돈을 안 내도 물건이 남는 것». 하드웨어 + 영구 라이선스.
      ⚠️ 「전자」 단독으로 잡지 않는다 — 업태 「전자상거래(다품목취급)」 가 통째로 걸려서
         법원행정처 등기수수료(₩1,000×3)까지 장비로 샜다. 「전자제품/전자기기」만 잡는다. */
-  [/AWS|아마존웹|클라우드|Cloudflare|호스팅|소프트웨어|Figma|Adobe|어도비|Microsoft|마이크로소프트|GitHub|전산|컴퓨터|노트북|전자제품|전자기기|가전|네이버|NAVER|구글|GOOGLE|ANTHROPIC|CLAUDE|OPENAI|CHATGPT|MS\s*365/i, '장비'],
+  [/소프트웨어|Microsoft|마이크로소프트|전산|컴퓨터|노트북|모니터|프린터|전자제품|전자기기|가전/i, '장비'],
   /* 📞 통신 — 통신사 회선요금만 남긴다 */
   [/SKT|SK텔레콤|\bKT\b|LG\s*U|유플러스|텔레콤|통신|카카오/i, '통신'],
   [/기프티콘|상품권|선물|경조|화환|회식|복지|복리/i, '복리후생'],
@@ -184,6 +187,32 @@ export function categorize(merchant: string, storeType: string): string {
   const s = `${storeType || ''} ${merchant || ''}`;
   for (const [re, cat] of CAT_RULES) if (re.test(s)) return cat;
   return '기타';
+}
+
+/* 🌐 해외 가맹점 판정 — 카테고리가 아니라 «표시»다.
+   [왜 필요한가] 해외 SaaS 는 세금계산서가 없고 카드전표만 남아 **부가세 매입세액 공제가
+   안 되는 경우가 대부분**이다. 국내(네이버 등)는 세금계산서를 받으면 공제된다.
+   회계담당이 분기 부가세 신고 때 이 표만 보고 공제분/불공제분을 가를 수 있어야 한다.
+
+   ⛔ 「영문이면 해외」로 판정하지 않는다 — 국내 가맹점도 영문 상호가 흔하다
+      (「Microsoft*Store」 는 영문이지만 국내 결제일 수 있고, 「GS25」·「CU」 도 영문이다).
+      카드사 데이터에 국가 필드가 없으므로 **아는 것만 켠다.** 모르면 끈다(false).
+      새 해외 벤더를 쓰기 시작하면 여기에 한 줄 추가하면 된다. */
+const OVERSEAS_RE =
+  /GOOGLE|구글|ANTHROPIC|CLAUDE|OPENAI|CHATGPT|\bAWS\b|아마존웹|AMAZON|MICROSOFT|마이크로소프트|ADOBE|어도비|FIGMA|GITHUB|NOTION|SLACK|ZOOM|CANVA|CLOUDFLARE|APPLE|애플|META\s|FACEBOOK|LINODE|VERCEL|NETLIFY|DIGITALOCEAN|MIDJOURNEY|ELEVENLABS|PERPLEXITY|PADDLE|\bSTRIPE\b/i;
+export function isOverseas(merchant: string): boolean {
+  return OVERSEAS_RE.test(String(merchant || ''));
+}
+
+/* ⚠️ 기업업무추진비(구 접대비) 확인 표시 — 세무상 식대는 두 갈래로 갈린다.
+     · 직원끼리      → 복리후생비 (전액 손금)
+     · 외부인 동석   → 기업업무추진비 (한도 있음, 넘으면 손금불산입)
+   가맹점명으로는 구분이 불가능하다. 그래서 «자동 분류하지 않고» 사람이 확인할 건만
+   골라 표시한다. 기준은 건당 3만원 초과 — 직원 몇 명 식사로는 잘 안 넘는 선.
+   ⛔ 이걸로 카테고리를 바꾸지 않는다. 표시만 한다. 판단은 사람이 한다. */
+export const ENTERTAIN_THRESHOLD = 30000;
+export function needsEntertainCheck(category: string, amount: number): boolean {
+  return category === '식대' && (Number(amount) || 0) > ENTERTAIN_THRESHOLD;
 }
 
 const pick = (row: any, keys: string[]): string => {
@@ -410,10 +439,17 @@ export async function corpcardData(env: any, month?: string): Promise<any> {
     `SELECT id, used_at, merchant, category, amount, memo FROM corpcard_transactions
       WHERE cancelled = 0 AND substr(used_at, 1, 7) = ? ORDER BY used_at`
   ).bind(m).all().catch(() => ({ results: [] }));
-  const current = (rs.results || []).map((r: any) => ({
-    id: r.id, datetime: r.used_at, merchant: r.merchant || '', category: r.category || '기타',
-    amount: Number(r.amount) || 0, memo: r.memo || '',
-  }));
+  const current = (rs.results || []).map((r: any) => {
+    const merchant = r.merchant || '';
+    const category = r.category || '기타';
+    const amount = Number(r.amount) || 0;
+    // 🌐/⚠️ 는 DB 에 저장하지 않는다 — 가맹점명에서 그때그때 계산한다.
+    //   규칙이 바뀌어도 재동기화 없이 바로 반영되고, 컬럼 추가(마이그레이션)도 필요 없다.
+    return {
+      id: r.id, datetime: r.used_at, merchant, category, amount, memo: r.memo || '',
+      overseas: isOverseas(merchant), entertain: needsEntertainCheck(category, amount),
+    };
+  });
 
   // 조회 월 포함 최근 6개월 — 값이 없는 달도 0 으로 채운다(전월/3개월 평균 계산이 흔들리지 않게)
   const history: Record<string, number> = {};

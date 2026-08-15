@@ -32,19 +32,44 @@ console.log('════════ 💳 법인카드 자동 분류 가드 ═
 /* ── ① 우선순위 — 넓은 규칙이 좁은 규칙을 잡아먹으면 안 된다 ─────────────── */
 console.log('  ── 우선순위(순서가 뒤집히면 여기서 걸린다)');
 eq('네이버 광고', cat('네이버 광고', ''), '마케팅');
-eq('네이버(구독)', cat('네이버', ''), '장비');
-eq('구글 클라우드', cat('구글 클라우드', ''), '장비');
-eq('GOOGLE*GOOGLE DIGITAL', cat('GOOGLE*GOOGLE DIGITAL', ''), '장비');
+eq('네이버(구독)', cat('네이버', ''), '구독');
+eq('구글 클라우드', cat('구글 클라우드', ''), '구독');
+eq('GOOGLE*GOOGLE DIGITAL', cat('GOOGLE*GOOGLE DIGITAL', ''), '구독');
 eq('카카오모먼트(광고)', cat('카카오모먼트', ''), '마케팅');
 
-/* ── ② 원장님 지시(2026-08-15, 오후 수정) — 온라인 구독은 «장비·소프트웨어» ──
-      같은 날 오전엔 통신비였다가 뒤집혔다. 통신은 통신사 회선요금만 남긴다. */
-console.log('  ── 온라인 구독/AI → 장비');
-eq('ANTHROPIC* CLAUDE TEAM', cat('ANTHROPIC* CLAUDE TEAM', ''), '장비');
-eq('Google Digital Inc.', cat('Google Digital Inc.', ''), '장비');
-eq('OPENAI CHATGPT', cat('OPENAI CHATGPT', ''), '장비');
+/* ── ② 구독 vs 장비 — «결제를 멈추면 못 쓰나» 로 가른다 (2026-08-15 원장님 확정) ──
+      오전: 통신 → 오후: 장비 → 최종: 구독을 장비에서 분리.
+      통신에는 통신사 회선요금만 남는다. */
+console.log('  ── ☁️ 구독(끊으면 못 씀) vs 💻 장비(물건이 남음) vs 📞 통신(회선)');
+eq('ANTHROPIC* CLAUDE TEAM', cat('ANTHROPIC* CLAUDE TEAM', ''), '구독');
+eq('Google Digital Inc.', cat('Google Digital Inc.', ''), '구독');
+eq('OPENAI CHATGPT', cat('OPENAI CHATGPT', ''), '구독');
+eq('Adobe 구독', cat('ADOBE CREATIVE CLOUD', ''), '구독');
+eq('MS 365(구독)', cat('MS 365', ''), '구독');
+eq('Microsoft*Store(구매)', cat('Microsoft*Store', ''), '장비');
+eq('노트북 구매', cat('OO컴퓨터 노트북', ''), '장비');
 eq('SKT 통신요금', cat('SKT 통신요금', ''), '통신');
 eq('LG U+ 인터넷', cat('LG U+ 인터넷', ''), '통신');
+
+/* ── ②-b 🌐 해외 판정 — 카테고리가 아니라 «표시». 부가세 매입세액 공제 판단용 ──
+      ⛔ 모르면 끈다(false). 「영문이면 해외」로 넘겨짚지 않는다 — GS25·CU 도 영문이다. */
+console.log('  ── 🌐 해외 판정 (부가세 불공제 표시)');
+const ov = (m) => M.isOverseas(m);
+eq('GOOGLE*GOOGLE DIGITAL', ov('GOOGLE*GOOGLE DIGITAL'), true);
+eq('ANTHROPIC* CLAUDE TEAM', ov('ANTHROPIC* CLAUDE TEAM'), true);
+eq('네이버(국내)', ov('네이버'), false);
+eq('빽다방(국내)', ov('빽다방 청주복대대농점'), false);
+eq('GS25(영문이지만 국내)', ov('GS25 어딘가'), false);
+eq('빈 값', ov(''), false);
+
+/* ── ②-c ⚠️ 기업업무추진비(접대비) 확인 표시 — 3만원 초과 식대만 ──────────
+      ⛔ 카테고리를 바꾸지 않는다. 표시만 하고 판단은 사람이 한다. */
+console.log('  ── ⚠️ 접대비 확인 표시 (건당 3만원 초과 식대)');
+const ent = (c, a) => M.needsEntertainCheck(c, a);
+eq('식대 ₩50,000', ent('식대', 50000), true);
+eq('식대 ₩30,000(경계 — 초과 아님)', ent('식대', 30000), false);
+eq('식대 ₩8,000', ent('식대', 8000), false);
+eq('교통 ₩50,000(식대 아님)', ent('교통', 50000), false);
 
 /* ── ③ 숙박 신설 — 식대·교통에 먹히지 않아야 한다 ──────────────────────── */
 console.log('  ── 숙박');
