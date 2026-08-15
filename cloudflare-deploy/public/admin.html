@@ -1836,11 +1836,12 @@
             <thead><tr>
               <th>#</th>
               <th data-ko="이름" data-en="Name">이름</th>
+              <th data-ko="아이디" data-en="ID">아이디</th>
               <th data-ko="현재 streak" data-en="Current">현재 streak</th>
               <th data-ko="최장 기록" data-en="Longest">최장 기록</th>
               <th data-ko="액션" data-en="Action">액션</th>
             </tr></thead>
-            <tbody id="sm-streak-tbody"><tr><td colspan="5" class="empty">—</td></tr></tbody>
+            <tbody id="sm-streak-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody>
           </table>
         </div>
       </details>
@@ -7441,9 +7442,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <span id="lt-apps-count" style="font-size:11px;color:#64748b;white-space:nowrap"></span>
       </div>
       <div style="overflow-x:auto">
-        <table style="min-width:640px"><thead><tr>
+        <table style="min-width:700px"><thead><tr>
           <th data-ko="신청시각" data-en="Applied">신청시각</th>
-          <th data-ko="학생" data-en="Student">학생</th>
+          <th data-ko="이름" data-en="Name">이름</th>
+          <th data-ko="아이디" data-en="ID">아이디</th>
           <th data-ko="희망 일시" data-en="Preferred">희망 일시</th>
           <th data-ko="담당 강사" data-en="Teacher">담당 강사</th>
           <th data-ko="AI점수" data-en="AI">AI점수</th>
@@ -7453,7 +7455,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th data-ko="수업" data-en="Class">수업</th>
           <th></th>
         </tr></thead>
-        <tbody id="leveltest-apps-table"><tr><td colspan="10" class="empty">—</td></tr></tbody></table>
+        <tbody id="leveltest-apps-table"><tr><td colspan="11" class="empty">—</td></tr></tbody></table>
       </div>
     </div>
     <details id="lt-sec-add">
@@ -8816,7 +8818,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-core.js?v=82" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=83" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->

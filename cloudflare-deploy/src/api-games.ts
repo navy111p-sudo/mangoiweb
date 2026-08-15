@@ -2033,11 +2033,37 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       });
     }
 
+    // 🏷 리더보드 SQL — 아이디(student_uid)에 «학생 이름» 을 붙여서 돌려준다.
+    //   student_streaks 에는 아이디만 있다(출결 attendance.user_id 를 그대로 씀).
+    //   관리자 화면이 예전엔 erp-list 를 받아 클라에서 이름을 맞췄는데,
+    //   실데이터는 students_erp 에 없는 아이디가 많아 이름 칸에 아이디가 그대로 찍혔다.
+    //   → 이름의 출처를 서버 한 곳으로 모은다:
+    //      ① students_erp (PK user_id 로 join — 인덱스 있음)
+    //      ② 없으면 attendance.username (출결에 남은 이름. idx_attendance_user_date 사용)
+    //      ③ 둘 다 없으면 null → 화면이 아이디로 대체 표기
+    //   상위 20명만 CTE 로 먼저 자르고 join 하므로 비용은 종전 스캔 + α (실측 0.8ms).
+    const STREAK_LEADERBOARD_SQL = `
+      WITH top AS (
+        SELECT student_uid, current_streak, longest_streak, gems
+        FROM student_streaks
+        ORDER BY current_streak DESC, gems DESC
+        LIMIT 20
+      )
+      SELECT t.student_uid, t.current_streak, t.longest_streak, t.gems,
+             COALESCE(
+               NULLIF(TRIM(COALESCE(e.korean_name, e.student_name, e.username, '')), ''),
+               (SELECT a.username FROM attendance a
+                 WHERE a.user_id = t.student_uid
+                   AND a.username IS NOT NULL AND TRIM(a.username) <> ''
+                 ORDER BY a.id DESC LIMIT 1)
+             ) AS student_name
+      FROM top t
+      LEFT JOIN students_erp e ON e.user_id = t.student_uid
+      ORDER BY t.current_streak DESC, t.gems DESC`;
+
     if (method === 'GET' && path === '/api/streak/leaderboard') {
       await ensureStreakSchema();
-      const rs = await env.DB.prepare(
-        `SELECT student_uid, current_streak, longest_streak, gems FROM student_streaks ORDER BY current_streak DESC, gems DESC LIMIT 20`
-      ).all();
+      const rs = await env.DB.prepare(STREAK_LEADERBOARD_SQL).all();
       return json({ ok: true, items: rs.results || [] });
     }
 
@@ -2047,9 +2073,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     //   POST = 실행, 실행 후 갱신된 리더보드 상위 20명을 함께 반환해 효과 확인.
     if (method === 'POST' && path === '/api/admin/streak/reconcile') {
       const rc = await reconcileAllStreaks(env);
-      const rs = await env.DB.prepare(
-        `SELECT student_uid, current_streak, longest_streak, gems FROM student_streaks ORDER BY current_streak DESC, gems DESC LIMIT 20`
-      ).all();
+      const rs = await env.DB.prepare(STREAK_LEADERBOARD_SQL).all();
       return json({ ok: true, reconciled: rc, leaderboard: rs.results || [] });
     }
     // ═══════════════════════════════════════════════════════════════
