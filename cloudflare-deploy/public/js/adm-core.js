@@ -8112,16 +8112,20 @@ async function _streakNameMap() {
 function _renderStreakRows(items, nameMap) {
   const tb = document.getElementById('sm-streak-tbody');
   if (!items || !items.length) {
-    tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'No data — run 🔁 Recompute all first':'데이터 없음 — 🔁 일괄 재계산을 먼저 실행하세요')+'</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="empty">'+(currentLang==='en'?'No data — run 🔁 Recompute all first':'데이터 없음 — 🔁 일괄 재계산을 먼저 실행하세요')+'</td></tr>';
     return;
   }
   tb.innerHTML = items.map((r, i) => {
     const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i+1)+'.';
     const uid = r.student_uid || r.uid;
-    const name = (nameMap && nameMap[uid]) || uid;
+    // 이름과 아이디는 «따로» 보여준다 — 동명이인이 있어서 이름만으로는 식별이 안 된다.
+    //   이름 출처 우선순위: 서버가 붙여 준 student_name → erp-list 대조표 → (둘 다 없으면 '—')
+    //   예전엔 이름 칸에 아이디를 대신 넣어서, 이름 칸에 아이디만 줄줄이 찍혔다.
+    const name = r.student_name || (nameMap && nameMap[uid]) || '';
     return `<tr>
       <td>${medal}</td>
-      <td>${escSm(name)}</td>
+      <td>${name ? escSm(name) : '<span style="color:#9ca3af">—</span>'}</td>
+      <td><code style="font-size:11px;color:#6b7280">${escSm(uid)}</code></td>
       <td><strong style="color:#f59e0b">${r.current_streak||0}</strong>${currentLang==='en'?'d':'일'}</td>
       <td>${r.longest_streak||0}${currentLang==='en'?'d':'일'}</td>
       <td>${drillBtn(uid, 'streak')}</td>
@@ -8131,7 +8135,7 @@ function _renderStreakRows(items, nameMap) {
 async function loadStreakRanking() {
   const tb = document.getElementById('sm-streak-tbody');
   const cnt = document.getElementById('sm-streak-count');
-  tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Loading…':'불러오는 중…')+'</td></tr>';
+  tb.innerHTML = '<tr><td colspan="6" class="empty">'+(currentLang==='en'?'Loading…':'불러오는 중…')+'</td></tr>';
   try {
     const [lb, nameMap] = await Promise.all([
       fetch('/api/streak/leaderboard', { credentials:'include' }).then(x=>x.json()).catch(()=>({ ok:false })),
@@ -8141,7 +8145,7 @@ async function loadStreakRanking() {
     cnt.textContent = (currentLang==='en'?'Top ':'상위 ') + items.length + (currentLang==='en'?'':'명');
     _renderStreakRows(items, nameMap);
   } catch {
-    tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Load failed':'불러오기 실패')+'</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="empty">'+(currentLang==='en'?'Load failed':'불러오기 실패')+'</td></tr>';
   }
 }
 async function reconcileStreaks() {
@@ -8150,14 +8154,14 @@ async function reconcileStreaks() {
   const btn = document.getElementById('sm-streak-reconcile');
   const label = currentLang==='en' ? '🔁 Recompute all' : '🔁 일괄 재계산';
   if (btn) { btn.disabled = true; btn.textContent = currentLang==='en'?'Recomputing…':'재계산 중…'; }
-  tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Recomputing all students…':'전 학생 재계산 중…')+'</td></tr>';
+  tb.innerHTML = '<tr><td colspan="6" class="empty">'+(currentLang==='en'?'Recomputing all students…':'전 학생 재계산 중…')+'</td></tr>';
   try {
     const [rc, nameMap] = await Promise.all([
       fetch('/api/admin/streak/reconcile', { method:'POST', credentials:'include' }).then(x=>x.json()).catch(()=>({ ok:false })),
       _streakNameMap(),
     ]);
     if (!rc || !rc.ok) {
-      tb.innerHTML = '<tr><td colspan="5" class="empty">'+(currentLang==='en'?'Reconcile failed (admin only)':'재계산 실패 (관리자 전용)')+'</td></tr>';
+      tb.innerHTML = '<tr><td colspan="6" class="empty">'+(currentLang==='en'?'Reconcile failed (admin only)':'재계산 실패 (관리자 전용)')+'</td></tr>';
       return;
     }
     const items = rc.leaderboard || [];
