@@ -135,7 +135,14 @@
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
+        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
+        /* 🗺 (2026-08-15) 「사이트 구조도」는 카드가 아니라 **다른 페이지**다(/admin/site-structure.html,
+           같은 날 추가됨). 그런데 옛 사이드바의 「시스템」 그룹 안에만 들어 있었고, 그 그룹은
+           ia6 가 통째로 감추고 있어서 **아무도 볼 수 없었다** — 「시스템이 안 보인다」 신고의
+           실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
+           ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
+              (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
+        { ko: '사이트 구조도', en: 'Site structure', cards: [], href: '/admin/site-structure.html' }
       ]
     }
   ];

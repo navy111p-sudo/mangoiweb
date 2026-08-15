@@ -18,7 +18,7 @@
 //      → 대표 카드를 `scrollIntoView` 로 올린다.
 //   🪤 그 스크롤을 **rAF 로 하면 안 된다** — 백그라운드/숨은 탭에서 rAF 는 아예 안 돈다(실측 0회).
 //      타이머는 돈다. (CLAUDE.md 의 «백그라운드 탭에서 rAF 가 멈춘다» 와 같은 함정)
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -169,6 +169,11 @@ check('그룹 이름을 바꿔도 «마지막으로 보던 항목» 키는 그�
   /g\.key \+ ':' \+ it\.ko/.test(ia6) && !/g\.ko \+ ':'/.test(ia6));
 check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞다',
   /"시스템": "경영 지표·공지 발송·자료실·직원 권한·데이터 보관/.test(html));
+/* 🗺 「사이트 구조도」(2026-08-15 추가)는 카드가 아니라 다른 페이지다. 옛 사이드바의 「시스템」
+   그룹에만 있었는데 그 그룹은 ia6 가 감추므로 **아무도 볼 수 없었다**. 새 사이드바에도 있어야 한다. */
+check('시스템 그룹에 「사이트 구조도」가 있다 (옛 사이드바에만 있으면 아무도 못 본다)',
+  /ko: '사이트 구조도'[\s\S]{0,120}?href: '\/admin\/site-structure\.html'/.test(ia6));
+check('그 문서 페이지가 실제로 있다', existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
 check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
   !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
 {
