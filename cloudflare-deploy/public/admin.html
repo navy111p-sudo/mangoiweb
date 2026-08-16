@@ -27,11 +27,6 @@
 <script id="ph160-nav-boot">
 (function(){
   "use strict";
-  try {
-    if (localStorage.getItem('mangoi_admin_nav_collapsed') === '1') {
-      document.documentElement.setAttribute('data-adm-nav', 'rail');
-    }
-  } catch(e) { /* 시크릿 모드 등 localStorage 차단 — 기본(펼침)으로 둔다 */ }
   // 🌐 <html lang> 을 실제 선택 언어에 맞춘다 (기본 ko). 첫 페인트 전에 끝내야
   //    브라우저가 "번역할까요?" 배너를 띄우지 않는다.
   try {
@@ -504,7 +499,7 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=16"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=17"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -2284,6 +2279,28 @@
           </div>
           <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
             <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 11-2. 🔍 매출–입금 대사 (장부 vs 통장) — 2026-08-16
+           장부 매출이 통장 입금보다 8,100만 많던 사고(시연용 시드 결제 혼입)를
+           숫자로 바로 잡아내려고 만든 카드. 월별 어긋남은 PG 정산 시차라 정상이므로
+           «누적 합계» 로 판정한다. -->
+      <details class="sub-item">
+        <summary data-ko="🔍 매출–입금 대사 (장부 vs 통장)" data-en="🔍 Revenue vs Deposits">🔍 매출–입금 대사 (장부 vs 통장)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <select id="acc-rc-months" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="3" data-ko="최근 3개월" data-en="Last 3 months">최근 3개월</option>
+              <option value="6" selected data-ko="최근 6개월" data-en="Last 6 months">최근 6개월</option>
+              <option value="12" data-ko="최근 12개월" data-en="Last 12 months">최근 12개월</option>
+            </select>
+            <button class="primary" onclick="accLoadReconcile()" style="padding:5px 12px;font-size:12px" data-ko="🔍 대사 실행" data-en="🔍 Reconcile">🔍 대사 실행</button>
+            <button onclick="accReconcileExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
+          </div>
+          <div id="acc-rc-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
+            <div style="text-align:center;color:#6b7280" data-ko="[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다." data-en="Click [Reconcile] to compare recorded revenue against actual bank deposits.">[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다.</div>
           </div>
         </div>
       </details>
@@ -5727,7 +5744,9 @@ window.__admSettleRun = function(fn){
         정의하므로 영향 없다(오히려 여기 있던 동명 죽은 정의와의 충돌이 해소된다).
         음성일기는 /api/diary/list 로 살아 있다(라이브 400=핸들러 도달 확인). -->
 
-<!-- 👨‍👩‍👧 Phase FAM — 가족 계정 통합 -->
+<!-- 👨‍👩‍👧 Phase FAM — 가족 계정 통합 (2026-08-16 리디자인: parent_uid/student_uid 직접입력·prompt() 팝업 제거,
+     이름·전화 검색으로 교체. 데이터 소스는 학생관리와 동일한 /api/admin/students/erp-list — 새 서버
+     엔드포인트·DB 변경 없음, 지사/대리점 PII 스코프도 서버가 이미 걸러서 준다. -->
 <details class="table-card menu-card" id="card-family-mgmt">
   <summary><span data-ko="👨‍👩‍👧 가족 계정 통합" data-en="👨‍👩‍👧 Family Accounts">👨‍👩‍👧 가족 계정 통합</span></summary>
   <div class="menu-body">
@@ -5737,15 +5756,22 @@ window.__admSettleRun = function(fn){
       💡 학부모 1명 → 가족 그룹 → 자녀 ≥ 2명 자동 할인
     </div>
     <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
-      <div style="font-size:13px;color:#fdba74;font-weight:700;margin-bottom:10px" data-ko="➕ 가족 등록" data-en="➕ Register Family">➕ 가족 등록</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px">
-        <input id="fm-puid" placeholder="parent_uid" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="fm-fname" placeholder="가족명 (홍길동가족)" data-ko-ph="가족명" data-en-ph="Family Name" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <input id="fm-disc" type="number" value="10" placeholder="할인%" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
-        <button onclick="fmCreate()" style="background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer">
+      <div style="font-size:13px;color:#fdba74;font-weight:700;margin-bottom:10px" data-ko="➕ 가족 등록 — 이름·전화번호로 찾기" data-en="➕ Register Family — search by name/phone">➕ 가족 등록 — 이름·전화번호로 찾기</div>
+      <div style="position:relative;margin-bottom:8px">
+        <input id="fm-parent-search" autocomplete="off" oninput="famParentSearch(this)" onfocus="famParentSearch(this)"
+               placeholder="학부모(또는 자녀) 이름·전화번호 검색" data-ko-ph="학부모(또는 자녀) 이름·전화번호 검색" data-en-ph="Search parent/child name or phone"
+               style="width:100%;background:#1e293b;border:1px solid #fb923c;color:#e2e8f0;border-radius:8px;padding:9px 11px;font-size:12.5px;outline:none">
+        <div id="fm-parent-dropdown" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#0f172a;border:1px solid #475569;border-radius:8px;max-height:220px;overflow:auto;z-index:20"></div>
+      </div>
+      <div id="fm-parent-picked" style="display:none;align-items:center;gap:6px;background:rgba(251,146,60,0.12);border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:12px;color:#fdba74"></div>
+      <div style="display:grid;grid-template-columns:1fr 90px auto;gap:8px">
+        <input id="fm-fname" placeholder="가족명 (비우면 자동)" data-ko-ph="가족명 (비우면 자동)" data-en-ph="Family name (auto if empty)" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+        <input id="fm-disc" type="number" value="10" title="할인%" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
+        <button onclick="fmCreate()" style="background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer">
           <span data-ko="등록" data-en="Create">등록</span>
         </button>
       </div>
+      <div id="fm-create-msg" style="font-size:11.5px;margin-top:8px"></div>
     </div>
     <button onclick="fmLoad()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
       <span data-ko="🔄 가족 목록 새로고침" data-en="🔄 Reload Families">🔄 가족 목록 새로고침</span>
@@ -5757,55 +5783,158 @@ window.__admSettleRun = function(fn){
 (function(){
   const esc = s => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
   function isEn(){ return window.adminLang === 'en'; }
+
+  let _famStudents = null;   // null=아직 안 불러옴, [] = 불러왔지만 없음
+  let _famSelectedParent = null;
+
+  async function famEnsureStudents(){
+    if (_famStudents) return _famStudents;
+    try {
+      const r = await fetch('/api/admin/students/erp-list?limit=2000', { credentials:'include' }).then(x=>x.json());
+      _famStudents = (r.items||[]).map(s => ({
+        uid: s.user_id || s.login_id || s.username || '',
+        name: s.korean_name || s.username || s.login_id || s.user_id || '',
+        phone: s.parent_phone || s.student_phone || '',
+        shop: s.shop_name || ''
+      })).filter(s => s.uid);
+    } catch(e) { _famStudents = []; }
+    return _famStudents;
+  }
+  function famMatch(list, q){
+    const nq = q.trim().toLowerCase();
+    if (!nq) return list.slice(0, 8);
+    const nqDigits = nq.replace(/\D/g,'');
+    return list.filter(s => {
+      if (s.name.toLowerCase().includes(nq)) return true;
+      if (nqDigits && s.phone.replace(/\D/g,'').includes(nqDigits)) return true;
+      if (s.shop.toLowerCase().includes(nq)) return true;
+      return false;
+    }).slice(0, 8);
+  }
+  function famPhoneFmt(p){
+    const s = String(p||'').trim();
+    if (!s || s.indexOf('*') > -1) return s;   // 이미 서버가 마스킹함 — 그대로 표시
+    const d = s.replace(/\D/g,'');
+    if (d.length === 11) return `${d.slice(0,3)}-${d.slice(3,7)}-${d.slice(7)}`;
+    if (d.length === 10) { const h = d.startsWith('02')?2:3; return `${d.slice(0,h)}-${d.slice(h,d.length-4)}-${d.slice(-4)}`; }
+    return s;
+  }
+  function famAvatar(name, bg){
+    return `<span style="width:22px;height:22px;border-radius:99px;background:${bg};color:#fff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0">${esc((name||'?').slice(0,1))}</span>`;
+  }
+  function famRenderDropdown(box, matches, onPick){
+    if (!matches.length) { box.style.display='none'; box.innerHTML=''; return; }
+    box.innerHTML = matches.map((s,i) => `<div data-i="${i}"
+        style="display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px;color:#e2e8f0;border-bottom:1px solid #334155;cursor:pointer">
+        ${famAvatar(s.name, '#f97316')}
+        <span>${esc(s.name)} <span style="color:#94a3b8;font-size:10.5px">${esc(famPhoneFmt(s.phone))}${s.shop?(' · '+esc(s.shop)):''}</span></span>
+      </div>`).join('');
+    box.querySelectorAll('[data-i]').forEach(function(row){ row.onclick = function(){ onPick(matches[Number(row.dataset.i)]); }; });
+    box.style.display = 'block';
+  }
+
+  window.famParentSearch = async function(input){
+    const box = document.getElementById('fm-parent-dropdown');
+    // 검색칸을 지우거나 다른 이름을 다시 치면 앞서 고른 학부모는 무효다. 안 지우면
+    //   "칸은 비었는데 등록을 누르니 엉뚱한 학부모에게 가족이 생기는" 사고가 난다.
+    if (_famSelectedParent && input.value.trim() !== _famSelectedParent.name) {
+      _famSelectedParent = null;
+      document.getElementById('fm-parent-picked').style.display = 'none';
+    }
+    const list = await famEnsureStudents();
+    famRenderDropdown(box, famMatch(list, input.value), function(s){
+      _famSelectedParent = s;
+      box.style.display = 'none';
+      input.value = s.name;
+      const picked = document.getElementById('fm-parent-picked');
+      picked.style.display = 'flex';
+      picked.innerHTML = `✅ ${isEn()?'Selected':'선택됨'}: <b>${esc(s.name)}</b> <span style="color:#94a3b8">${esc(famPhoneFmt(s.phone))}</span>`;
+    });
+  };
+  document.addEventListener('click', function(e){
+    document.querySelectorAll('[id^="fm-parent-dropdown"], [id^="fm-addkid-drop-"]').forEach(function(box){
+      if (box.style.display === 'none') return;
+      const inputId = box.id === 'fm-parent-dropdown' ? 'fm-parent-search' : ('fm-addkid-' + box.id.slice('fm-addkid-drop-'.length));
+      const input = document.getElementById(inputId);
+      if (!box.contains(e.target) && (!input || !input.contains(e.target))) box.style.display = 'none';
+    });
+  });
+
   window.fmCreate = async function(){
     const en = isEn();
-    const parent_uid = (document.getElementById('fm-puid')||{}).value;
-    const family_name = (document.getElementById('fm-fname')||{}).value;
+    const msg = document.getElementById('fm-create-msg');
+    if (!_famSelectedParent) { msg.style.color='#fca5a5'; msg.textContent = en?'Search and pick a parent first.':'먼저 검색해서 학부모를 선택하세요.'; return; }
+    const parent_uid = _famSelectedParent.uid;
+    const family_name = (document.getElementById('fm-fname')||{}).value.trim() || (en?`${_famSelectedParent.name}'s family`:`${_famSelectedParent.name}가족`);
     const discount_percent = Number((document.getElementById('fm-disc')||{}).value || 10);
-    if (!parent_uid || !family_name) { alert(en?'Fill parent_uid & family name':'parent_uid 와 가족명 입력'); return; }
     const r = await fetch('/api/admin/family/create', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({parent_uid, family_name, discount_percent}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    alert(r.ok ? (en?`Created family #${r.family_id}.`:`가족 #${r.family_id} 등록 완료.`) : '❌ '+(r.error||''));
-    if (r.ok) { document.getElementById('fm-fname').value=''; fmLoad(); }
+    if (r.ok) {
+      msg.style.color = '#86efac';
+      msg.textContent = en ? `Created family #${r.id}.` : `가족 #${r.id} 등록 완료.`;
+      document.getElementById('fm-fname').value = '';
+      document.getElementById('fm-parent-search').value = '';
+      document.getElementById('fm-parent-picked').style.display = 'none';
+      _famSelectedParent = null;
+      fmLoad();
+    } else {
+      msg.style.color = '#fca5a5';
+      msg.textContent = '❌ ' + (r.error === 'family_already_exists_for_parent' ? (en?'This parent already has a family.':'이미 가족이 등록된 학부모입니다.') : (r.error||''));
+    }
   };
-  window.fmAddChild = async function(family_id){
+  window.famChildSearch = async function(familyId, input){
+    const box = document.getElementById('fm-addkid-drop-'+familyId);
+    const list = await famEnsureStudents();
+    famRenderDropdown(box, famMatch(list, input.value), function(s){ famPickChild(familyId, s); });
+  };
+  window.famPickChild = async function(familyId, s){
     const en = isEn();
-    const student_uid = prompt(en?'Student UID:':'자녀 UID 입력:');
-    if (!student_uid) return;
-    const relationship = prompt(en?'Relationship (default: sibling):':'관계 (기본: 형제자매):') || '형제자매';
-    const r = await fetch('/api/admin/family/add-child', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({family_id, student_uid, relationship}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    alert(r.ok ? (en?'Child added.':'자녀 추가 완료.') : '❌ '+(r.error||''));
+    document.getElementById('fm-addkid-drop-'+familyId).style.display = 'none';
+    const input = document.getElementById('fm-addkid-'+familyId);
+    if (input) input.value = '';
+    const msg = document.getElementById('fm-addkid-msg-'+familyId);
+    const r = await fetch('/api/admin/family/add-child', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({family_id:familyId, student_uid:s.uid, relationship:'자녀'}) }).then(x=>x.json()).catch(()=>({ok:false}));
     if (r.ok) fmLoad();
+    else if (msg) { msg.style.color='#fca5a5'; msg.textContent = '❌ ' + (r.error==='already_member' ? (en?'Already in this family.':'이미 가족에 있는 자녀입니다.') : (r.error||'')); }
   };
   window.fmRemoveChild = async function(member_id){
-    if (!confirm(isEn()?'Remove this child?':'자녀를 가족에서 제거?')) return;
+    if (!confirm(isEn()?'Remove this child from the family?':'자녀를 가족에서 제거할까요?')) return;
     const r = await fetch('/api/admin/family/remove-child', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({member_id}) }).then(x=>x.json()).catch(()=>({ok:false}));
-    alert(r.ok ? (isEn()?'Removed.':'제거 완료.') : '❌');
-    if (r.ok) fmLoad();
+    if (r.ok) fmLoad(); else alert(isEn()?'Failed to remove.':'제거 실패.');
   };
   window.fmLoad = async function(){
     const en = isEn();
     const box = document.getElementById('fm-list');
+    // 자녀를 추가하면 목록을 다시 그리는데, 그때 펼쳐둔 가족이 접히면 두 번째 자녀를 넣으려고
+    //   매번 다시 펼쳐야 한다. 펼침 상태를 family_id 로 기억했다가 그린 뒤 되돌린다.
+    const wasOpen = new Set([...box.querySelectorAll('details[data-fid]')].filter(d => d.open).map(d => d.dataset.fid));
     box.innerHTML = `<div style="color:#fdba74;padding:10px">⏳ ${en?'Loading...':'불러오는 중...'}</div>`;
     try {
       const r = await fetch('/api/admin/families').then(x=>x.json());
       if (!r.ok) throw new Error(r.error||'failed');
       const list = r.list || [];
       if (!list.length) { box.innerHTML = `<div style="color:#64748b;padding:20px;text-align:center">${en?'No families yet':'등록된 가족 없음'}</div>`; return; }
+      const NEED = 2;
+      const byUid = {};
+      (await famEnsureStudents()).forEach(s => { byUid[s.uid] = s; });
+      const nameOf = uid => (byUid[uid] && byUid[uid].name) || uid;
       box.innerHTML = list.map(f => {
-        const eligible = (f.member_count||0) >= 2;
+        const cnt = f.member_count||0;
+        const eligible = cnt >= NEED;
+        const pct = Math.min(100, Math.round(cnt/NEED*100));
+        const remain = Math.max(0, NEED-cnt);
         const members = (f.members||[]).map(m => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#0f172a;border-radius:6px;margin:4px 0">
-          <span style="color:#e2e8f0;font-size:12px">👶 ${esc(m.student_uid)} <span style="color:#94a3b8;font-size:11px">(${esc(m.relationship||'-')})</span></span>
+          <span style="color:#e2e8f0;font-size:12px">👶 ${esc(nameOf(m.student_uid))} <span style="color:#94a3b8;font-size:11px">${nameOf(m.student_uid)!==m.student_uid?esc(m.student_uid)+' · ':''}${esc(m.relationship||'-')}</span></span>
           <button onclick="fmRemoveChild(${m.id})" style="background:#dc2626;color:#fff;border:0;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer" data-ko="제거" data-en="Remove">제거</button>
         </div>`).join('') || `<div style="color:#64748b;font-size:11px;padding:6px 10px">${en?'No children':'자녀 없음'}</div>`;
-        return `<details style="background:#1e293b;border:1px solid #475569;border-radius:10px;margin-bottom:8px;padding:0">
+        return `<details data-fid="${f.id}" style="background:#1e293b;border:1px solid #475569;border-radius:10px;margin-bottom:8px;padding:0">
           <summary style="padding:12px;cursor:pointer;list-style:none">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
               <div>
                 <b style="color:#fdba74;font-size:13px">${esc(f.family_name)}</b>
-                <span style="color:#94a3b8;font-size:11px;margin-left:8px">${esc(f.parent_uid)}</span>
+                <span style="color:#94a3b8;font-size:11px;margin-left:8px">${esc(nameOf(f.parent_uid))}${nameOf(f.parent_uid)!==f.parent_uid?' · '+esc(f.parent_uid):''}</span>
               </div>
               <div style="display:flex;gap:8px;align-items:center">
-                <span style="background:${eligible?'#16a34a':'#475569'};color:#fff;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700">${f.member_count||0}${en?' kids':'명'}</span>
+                <span style="background:${eligible?'#16a34a':'#475569'};color:#fff;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700">${cnt}${en?' kids':'명'}</span>
                 <span style="color:#fbbf24;font-size:11px;font-weight:700">${f.discount_percent||0}% ${en?'OFF':'할인'}</span>
                 ${eligible?`<span style="color:#86efac;font-size:11px">✅ ${en?'Active':'적용중'}</span>`:''}
               </div>
@@ -5813,15 +5942,29 @@ window.__admSettleRun = function(fn){
           </summary>
           <div style="padding:0 12px 12px">
             ${members}
-            <button onclick="fmAddChild(${f.id})" style="background:linear-gradient(135deg,#fb923c,#f97316);color:#fff;border:0;border-radius:6px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;margin-top:6px">
-              <span data-ko="➕ 자녀 추가" data-en="➕ Add Child">➕ 자녀 추가</span>
-            </button>
+            ${!eligible ? `<div style="margin:8px 0 4px">
+              <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;margin-bottom:4px">
+                <span>${cnt}/${NEED}${en?' kids':'명'}</span>
+                <span style="color:#fdba74">${en?`${remain} more → auto discount`:`${remain}명 더 등록하면 자동 할인`}</span>
+              </div>
+              <div style="height:6px;border-radius:99px;background:#0f172a;border:1px solid #475569;overflow:hidden">
+                <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#fb923c,#fbbf24);border-radius:99px"></div>
+              </div>
+            </div>` : ''}
+            <div style="position:relative;margin-top:8px">
+              <input id="fm-addkid-${f.id}" autocomplete="off" oninput="famChildSearch(${f.id}, this)" onfocus="famChildSearch(${f.id}, this)"
+                     placeholder="${en?'Search child by name/phone…':'이름·전화번호로 자녀 검색…'}"
+                     style="width:100%;background:#0f172a;border:1px dashed #475569;color:#e2e8f0;border-radius:8px;padding:7px 10px;font-size:11.5px;outline:none">
+              <div id="fm-addkid-drop-${f.id}" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);background:#0f172a;border:1px solid #475569;border-radius:8px;max-height:200px;overflow:auto;z-index:20"></div>
+            </div>
+            <div id="fm-addkid-msg-${f.id}" style="font-size:11px;margin-top:6px"></div>
           </div>
         </details>`;
       }).join('');
+      box.querySelectorAll('details[data-fid]').forEach(d => { if (wasOpen.has(d.dataset.fid)) d.open = true; });
     } catch(e) { box.innerHTML = `<div style="color:#fca5a5">❌ ${esc(e.message)}</div>`; }
   };
-  document.getElementById('card-family-mgmt')?.addEventListener('toggle', function(){ if (this.open) fmLoad(); });
+  document.getElementById('card-family-mgmt')?.addEventListener('toggle', function(){ if (this.open) { fmLoad(); famEnsureStudents(); } });
 })();
 </script>
 
@@ -8686,7 +8829,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=87" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=90" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
@@ -8828,12 +8971,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <aside id="ph85-sidebar">
-  <!-- ph160 (2026-07-23) — 사이드바 접기/펼치기. 옛 #ph85-toggle(모바일 햄버거, 전역 숨김)과 무관한 별개 컨트롤 -->
-  <button type="button" id="ph160-rail-toggle"
-          title="사이드바 접기" aria-label="사이드바 접기" aria-expanded="true">
-    <span class="ph160-chev" aria-hidden="true">‹</span>
-    <span class="ph160-lab" data-ko="접기" data-en="Collapse">접기</span>
-  </button>
   <div class="ph85-brand">
     <span class="ph85-brand-ico"><img src="/img/mango-ufo.png" alt="Mangoi" style="width:40px;height:auto;object-fit:contain;vertical-align:middle;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.35))" loading="lazy" decoding="async"></span>
     <span class="ph85-brand-text">망고아이 관리</span>
@@ -12202,7 +12339,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<script src="/js/adm-ia6.js?v=17" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가) -->
+<script src="/js/adm-ia6.js?v=21" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
@@ -12266,83 +12403,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           반드시 파일 맨 끝에 둔다. 위로 옮기지 말 것.
      ═══════════════════════════════════════════════════════════════════════ -->
 
-<!-- ═══════════════════════════════════════════════════════════════════════
-     ph160 (2026-07-23) — 사이드바 접기(아이콘 레일)
-     · 312px 펼침 ⇄ 76px 아이콘 레일. 상태는 localStorage 에 유지
-     · PC(≥1024px) 전용. 모바일/태블릿은 기존 mga 드로어가 담당하므로 손대지 않음
-     · ⛔ 접힌 상태에서 hover 플라이아웃 금지 — 과거에 지운 #mi-menu-fly / #ph123-flyout 재발 방지.
-          아이콘을 "클릭"하면 사이드바가 펼쳐지면서 그 그룹이 열린다.
-     · 라벨은 기본이 '보임'. opacity:0 에서 출발시키지 않는다
-          (애니메이션이 안 도는 저사양·저전력 기기에서 영영 안 보이는 사고 방지)
-     · 이 블록은 파일 맨 끝 — ivory/slate 페인터보다 뒤여야 색이 안 밀린다
-     ═══════════════════════════════════════════════════════════════════════ -->
+<!-- 🗑 ph160 «사이드바 접기(아이콘 레일)» 제거 (2026-08-16 사장님: «접기 기능은 의미가 없어 보인다»)
+     312px ⇄ 76px 아이콘 레일이었다. 접으면 글자가 사라져 아이콘만 남는데, 그 아이콘이
+     무슨 메뉴인지 알려면 다시 펼쳐야 했다 — 접어서 얻는 것이 없었다.
+     [함께 지운 것] <head> 부팅의 data-adm-nav 복원 · #ph160-rail-toggle 버튼 ·
+       admin-inline-c.css 의 #ph160-rail-toggle / html[data-adm-nav="rail"] 규칙 전부.
+     ⚠️ localStorage 의 mangoi_admin_nav_collapsed 는 남을 수 있으나 이제 읽는 곳이 없다. -->
 
-<script id="ph160-nav-rail-js">
-(function(){
-  'use strict';
-  var KEY = 'mangoi_admin_nav_collapsed';
-  var root = document.documentElement;
-
-  function isEN(){
-    try {
-      if (window.adminLang === 'en') return true;
-      return localStorage.getItem('mangoi_lang') === 'en';   // 공통 키 = mangoi_lang
-    } catch(e){ return false; }
-  }
-  function railed(){ return root.getAttribute('data-adm-nav') === 'rail'; }
-
-  function syncBtn(){
-    var b = document.getElementById('ph160-rail-toggle');
-    if (!b) return;
-    var r = railed(), en = isEN();
-    var txt = r ? (en ? 'Expand sidebar' : '사이드바 펼치기')
-                : (en ? 'Collapse sidebar' : '사이드바 접기');
-    b.title = txt;
-    b.setAttribute('aria-label', txt);
-    b.setAttribute('aria-expanded', r ? 'false' : 'true');
-    var lab = b.querySelector('.ph160-lab');
-    if (lab) lab.textContent = en ? 'Collapse' : '접기';
-  }
-
-  function setRail(on){
-    if (on) root.setAttribute('data-adm-nav', 'rail');
-    else    root.removeAttribute('data-adm-nav');
-    try { localStorage.setItem(KEY, on ? '1' : '0'); } catch(e){}
-    syncBtn();
-  }
-
-  function init(){
-    var b = document.getElementById('ph160-rail-toggle');
-    if (!b || b.__ph160) return;
-    b.__ph160 = true;
-    b.addEventListener('click', function(e){
-      e.preventDefault(); e.stopPropagation();
-      setRail(!railed());
-    });
-    syncBtn();
-
-    // 접힌 상태에서 그룹 아이콘을 누르면 → 먼저 펼치고, 그 다음 인라인 아코디언이 그룹을 연다.
-    // capture 단계라 .ph85-head 의 인라인 onclick 보다 먼저 실행된다.
-    var bar = document.getElementById('ph85-sidebar');
-    if (bar && !bar.__ph160) {
-      bar.__ph160 = true;
-      bar.addEventListener('click', function(e){
-        if (!railed()) return;
-        if (e.target.closest('#ph160-rail-toggle')) return;
-        if (e.target.closest('.ph85-head')) setRail(false);
-      }, true);
-    }
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 800);
-  setTimeout(init, 2000);
-  // 언어 전환(i18n sweep) 후 버튼 문구 재동기화
-  setTimeout(syncBtn, 1500);
-  setTimeout(syncBtn, 3000);
-})();
-</script>
 <!-- ════════════════════════════════════════════════════════════════════════════
      🧾 결재 대기 알림 (2026-08-16)
 

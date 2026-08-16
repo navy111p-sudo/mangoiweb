@@ -142,7 +142,13 @@
            실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
            ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
               (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
-        { ko: '사이트 구조도', en: 'Site structure', cards: [], href: '/admin/site-structure.html' }
+        /* 🗺 (2026-08-16) 목차(/admin/site-structure.html)를 거치지 않고 «지도» 로 바로 간다.
+           목차가 하던 일은 표 3장을 고르게 해 주는 것뿐이었고, 그건 이제 지도 맨 아래
+           «더 자세히» 선반에 들어가 있다. 화면 하나를 통째로 쓸 일이 아니었다.
+           ⚠️ 맨 위 「메뉴 지도」와 목적지가 같다 — 일부러 그렇게 뒀다. 이름으로 찾는 사람과
+              위치로 찾는 사람이 갈리므로 문을 두 개 열어 둔다. */
+        { ko: '사이트 구조도', en: 'Site structure', cards: [],
+          href: '/admin/site-structure-map.html' }
       ]
     }
   ];
@@ -407,11 +413,19 @@
       : '메뉴 지도입니다. 망고아이의 모든 화면을 쓰는 사람에 따라 손님, 학생, 부모님, 선생님, 운영자 다섯 갈래로 나눠 그린 그림입니다. 지금 지도를 엽니다.';
   }
 
+  /* 📍 지도에 «지금 여기» 를 찍어 주기 위해 지금 페이지 주소를 넘긴다.
+     지도는 referrer 로도 알아내지만, referrer 는 브라우저 설정·앱 내장 브라우저에서
+     빈 값이 되는 일이 있다. 확실한 쪽을 같이 보낸다. */
+  function mapUrl() {
+    try { return MAP_HREF + '?here=' + encodeURIComponent(location.pathname); }
+    catch (e) { return MAP_HREF; }
+  }
+
   function openMenuMap() {
     var went = false;
     var go = function () {
       if (went) return; went = true;
-      try { location.href = MAP_HREF; } catch (e) { /* 무시 */ }
+      try { location.href = mapUrl(); } catch (e) { /* 무시 */ }
     };
     var speaking = false;
     try { speaking = !!(window.admVoiceSay && window.admVoiceSay(menuMapSpeech(), go)); }
@@ -492,7 +506,19 @@
       svg('<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>' +
           '<line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>') + '</div>' +
       '<div class="ph85-title" data-ko="메뉴 지도" data-en="Menu map">메뉴 지도</div></div>';
-    frag.appendChild(all);
+    /* 🔝 (2026-08-16 사장님) 메뉴 지도를 사이드바 **맨 위** 로 올린다.
+       [왜] 지도는 «어디 있는지 모를 때» 쓰는 물건이다. 맨 아래에 있으면 끝까지 스크롤한
+         사람만 발견하는데, 그건 이미 사이드바를 다 아는 사람 — 정작 지도가 필요 없는 사람이다.
+         다른 메뉴(오늘·학생·강사…)는 «내 일이 어느 칸인지 이미 알 때» 누르지만
+         지도는 그걸 모를 때 누른다. 그래서 카테고리들과 같은 줄이 아니라 그 위가 맞다.
+       [높이] 줄을 «추가» 하는 게 아니라 순서만 바꾼 것이라, 6그룹+지도가 첫 화면에 들어오는
+         기존 계산(줄당 44px × 7 = 304px)이 그대로 유지된다.
+       ⚠️ 카테고리처럼 보이면 안 된다 — 아래에 가는 구분선을 둬서 «여기부터 진짜 메뉴» 임을
+          눈으로 구분해 준다. 머리 자체는 이미 opacity:.75 로 죽여 놨다. */
+    var sep = document.createElement('div');
+    sep.className = 'ia6-sep';
+    frag.insertBefore(sep, frag.firstChild);
+    frag.insertBefore(all, frag.firstChild);
 
     anchor.parentNode.insertBefore(frag, anchor);
 
@@ -555,7 +581,12 @@
     var it = itemByKey(key);
     if (!it) return false;
     if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
-    if (it.href) { location.href = it.href; return true; }
+    /* 📱 좁은 화면 전용 목적지가 있으면 그쪽으로. 폭으로만 판정한다 —
+       기기 종류(userAgent)가 아니라 «지금 화면이 좁은가» 가 실제 문제이기 때문이다. */
+    if (it.href) {
+      location.href = (it.href === MAP_HREF) ? mapUrl() : it.href;
+      return true;
+    }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
@@ -601,6 +632,62 @@
     }, true);   // ← 반드시 캡처. 버블로 두면 ph97 의 stopPropagation 에 막힌다.
   }
 
+  /* ── 🧷 그룹을 펼치면 «계정 도크» 밑에 깔리지 않게 스크롤한다 ─────────────────
+     [무슨 일이 있었나] 2026-08-15 상단바를 없애고 🩺 진단·🌐 EN·계정 버튼을
+       사이드바 바닥 도크(#ph162-dock)로 내렸다. 그 도크는 position:sticky·z-index:3 라
+       스크롤과 무관하게 바닥 167px 를 늘 덮고 있다.
+       그래서 그룹을 펼쳤을 때 **아래쪽 항목 서너 개가 도크 밑에 들어가 눌리지 않았다.**
+       보이기는 하는데 클릭이 도크로 먹히니, 쓰는 사람에게는 «눌러도 아무 일이 없다» 였다.
+       실측(1440×900, [시스템] 그룹): 직원·권한 · 데이터·보관 · 사이트 구조도 세 개가 먹통.
+       조금만 스크롤을 내리면 멀쩡히 눌렸다 — 즉 링크가 아니라 «놓인 자리» 문제였다.
+
+     [고치는 법] 펼친 그룹의 마지막 항목이 도크 윗변보다 아래면, 그만큼 사이드바를 내린다.
+       도크를 건드리지 않는다(그 쪽은 다른 작업의 영역이고, 높이도 계정·언어에 따라 변한다).
+       도크가 없거나 sticky 가 아니면 아무 일도 하지 않는다.
+
+     ⚠️ 그룹 헤더뿐 아니라 «항목을 누른 뒤» 에도 다시 재야 한다. 항목을 누르면 카드가 바뀌며
+        사이드바 높이·스크롤이 달라져, 방금 확보한 여유가 도로 사라진다(실측: 직원·권한을
+        누르고 나면 사이트 구조도가 다시 도크 밑으로 들어갔다).
+     ⚠️ «덮였을 때만, 덮인 만큼만» 내린다. 그래서 이미 잘 보이는 상태에서는 아무 일도
+        일어나지 않는다 — 보던 자리가 제멋대로 튀지 않는다. */
+  function wireDockClearance(bar) {
+    if (bar.__ia6Dock) return;
+    bar.__ia6Dock = true;
+
+    function clear(group) {
+      if (!group || !group.classList.contains('open')) return;
+      var dock = document.getElementById('ph162-dock');
+      if (!dock) return;
+      var subs = group.querySelector('.ph85-subs');
+      if (!subs) return;
+      var last = subs.lastElementChild;
+      if (!last) return;
+
+      var lastBottom = last.getBoundingClientRect().bottom;
+      var dockTop = dock.getBoundingClientRect().top;
+      var over = lastBottom - dockTop + 8;                 // 8px 는 숨 쉴 틈
+      if (over <= 0) return;                               // 이미 도크 위 — 건드리지 않는다
+
+      var max = bar.scrollHeight - bar.clientHeight;
+      bar.scrollTop = Math.min(bar.scrollTop + over, max);
+    }
+
+    // 아코디언은 ph97 이 연다 → 클래스가 붙은 «뒤에» 재야 한다. 두 번 재는 것은
+    // 펼침 애니메이션(transition)이 끝난 뒤 높이가 달라지기 때문이다.
+    // ⚠️ 반드시 window 캡처. 사이드바에 버블로 걸면 ph97 의 stopPropagation 에 막혀
+    //    아예 호출되지 않는다(wireDelegate 와 같은 이유 — 실측으로 확인함).
+    window.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var hit = t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph85-sub');
+      if (!hit) return;
+      // 헤더면 그 그룹, 항목이면 그 항목이 속한 그룹 — 어느 쪽이든 «지금 열려 있는 그룹»
+      var group = hit.closest('.ph85-group');
+      setTimeout(function () { clear(group); }, 60);
+      setTimeout(function () { clear(group); }, 380);
+    }, true);
+  }
+
   // ── 검색을 쓰면 필터를 푼다 ──────────────────────────────────────────────
   //   검색 결과가 «감춰진 카드» 를 가리키면 눌러도 아무 일이 없는 것처럼 보인다.
   function wireSearch() {
@@ -637,7 +724,10 @@
          ⚠️ 글자 크기(16px)는 그대로다. 줄만 낮춘다 — 「글씨가 작아졌다」가 되면 안 된다.
          ⚠️ 누르는 높이는 화면 기준 52px(40 × zoom 1.3)로 손가락·마우스 모두 충분하다. */
       '#ph85-sidebar .ph85-group[data-ia6]{margin-bottom:4px !important}' +
-      '#ph85-sidebar .ph85-group[data-ia6] > .ph85-head{padding-top:5px !important;padding-bottom:5px !important}';
+      '#ph85-sidebar .ph85-group[data-ia6] > .ph85-head{padding-top:5px !important;padding-bottom:5px !important}' +
+      /* 🔝 메뉴 지도(맨 위)와 진짜 메뉴 사이의 경계. 지도가 «7번째 카테고리» 로
+         보이지 않게 하는 장치다 — 선 하나로 «안내판 / 메뉴» 를 갈라 준다. */
+      '#ph85-sidebar .ia6-sep{height:1px;margin:2px 4px 8px;background:rgba(148,163,184,.28)}';
     document.head.appendChild(st);
   }
 
@@ -651,6 +741,7 @@
     collect();
     wireDelegate(bar);
     wireSearch();
+    wireDockClearance(bar);
 
     // 마지막으로 보던 항목으로 복귀. 처음이면 「오늘」의 첫 항목.
     var want = null;
