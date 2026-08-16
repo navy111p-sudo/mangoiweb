@@ -7488,6 +7488,83 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     ⚡ '자주 쓰는 기능' — 첫 화면판 (2026-08-16 사장님)
+     ═══════════════════════════════════════════════════════════════════════
+     사이드바 안에 있던 상자를 admin.html 의 .hero 바로 밑으로 옮겼다.
+     사이드바에서는 «세로 목록»이 맞았지만, 첫 화면에서는 «타일 격자»가 맞다 —
+     10개를 세로로 세우면 그것만 500px 라 경영지표가 화면 밖으로 밀린다.
+     휴대폰 2열 · 태블릿 3열 · PC 5열로 접는다.
+
+     ⚠️ 항목의 배치·색은 adm-quick-access.js 가 **인라인 style 로** 박는다
+        (display:flex, padding:7px 12px, color:#fde68a, border-top …).
+        인라인을 이기려면 !important 가 반드시 있어야 한다. 빼면 조용히
+        사이드바 시절 세로 목록 + 옅은 노란 글씨로 돌아간다.
+        (그 파일은 다른 사람 영역이라 손대지 않고 CSS 로만 덮는다.)
+     ⚠️ 글자색을 밝은 배경 기준으로 잡는다. 옛 아이보리 규칙은
+        `#ph85-sidebar #ph161-quick` 이라 여기에는 안 걸린다 — 그대로 두면
+        크림색 위 옅은 금색이 되어 2026-08-04 멜카 매니저 신고가 재발한다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #ph161-quick {
+    /* 첫 화면 맨 위 — 줄3개 버튼(모바일, 좌상단 고정 46px)과 겹치지 않게 위 여백을 준다 */
+    margin: 8px 0 12px;
+    border: 1px solid rgba(180,83,9,0.28);
+    border-radius: 14px;
+    background: rgba(251,191,36,0.10);
+    overflow: hidden;
+  }
+  @media (max-width: 1023px) { #ph161-quick { margin-top: calc(62px + env(safe-area-inset-top, 0px)); } }
+  #ph161-quick .ph161-head {
+    padding: 9px 14px;
+    font-size: 11.5px; font-weight: 900; letter-spacing: .3px;
+    color: #92400e;
+    border-bottom: 1px solid rgba(180,83,9,0.18);
+  }
+  #ph161-quick-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: rgba(180,83,9,0.16);          /* 칸 사이 실선을 배경으로 그린다 */
+  }
+  @media (min-width: 640px)  { #ph161-quick-items { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { #ph161-quick-items { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+  #ph161-quick .ph161-q {
+    /* 인라인 세로목록 스타일을 전부 타일로 덮는다 */
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 52px !important;              /* 손가락 최소 48px */
+    padding: 10px 12px !important;
+    border-top: 0 !important;
+    background: rgba(255,255,255,0.72);
+    color: #2b2620 !important;                /* 밝은 배경 — 사실상 검정(멜카 매니저 요청) */
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    word-break: keep-all;
+  }
+  #ph161-quick .ph161-q svg { stroke: #b45309 !important; }
+  #ph161-quick .ph161-q:active { background: rgba(245,158,11,0.22); }
+  /* hover 는 «색만» — 크기·위치는 고정(관리자 규칙: hover 확대 금지) */
+  #ph161-quick .ph161-q:hover { background: rgba(245,158,11,0.16); color: #7c2d12 !important; }
+  #ph161-quick .ph161-mode {
+    grid-column: 1 / -1;
+    background: rgba(255,255,255,0.72);
+    color: #92400e !important;
+    border-top: 0 !important;
+  }
+
+  /* 🚫 다크 테마용 «어두운 타일» 을 따로 만들지 않는다 — 만들었다가 되돌린 이유를 남긴다.
+     처음엔 data-admin-theme="dark" 에서 타일을 남색(#16213a) + 옅은 노란 글자로 잡았다.
+     그런데 실측해 보니 다크 테마에서도 타일 배경이 **rgb(244,246,251) 흰색**으로 나왔다.
+     범인은 js/adm-light-surfaces.js — 본문의 «너무 진한» 면을 런타임에 밝게 덧칠하는데,
+     그 파일의 제외 목록에 `#ph85-sidebar *` 는 있어도 이 상자는 (사이드바를 나왔으니) 없다.
+     결과: 흰 배경 + 옅은 노란 글자 = 안 읽힘. 2026-08-04 멜카 매니저 신고와 같은 그림이다.
+     → 테마와 무관하게 «밝은 타일 + 진한 글자» 한 벌로 간다. 어느 테마에서도 읽힌다.
+     ⚠️ 다시 어두운 타일을 넣고 싶다면 adm-light-surfaces.js 의 SKIP_SEL 에
+        '#ph161-quick', '#ph161-quick *' 를 먼저 넣어야 한다. 안 넣으면 조용히 흰색이 된다. */
+
   /* ⚡ '자주 쓰는 기능'(#ph161-quick) — 아이보리 테마 가독성
      ─────────────────────────────────────────────────────────────
      🐞 멜카(본사 매니저) 2026-08-04 신고: "글자를 검정으로 바꿔 주세요. 눈이 덜 피로합니다."
