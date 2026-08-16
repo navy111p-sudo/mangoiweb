@@ -40,9 +40,11 @@
 
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
+import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
+  sniffKind, normExt, contentTypeFor,
   type Stage, type Flag, type ActorLike,
 } from './approval-policy';
 
@@ -68,6 +70,9 @@ const MAX_AUDIO_BYTES = 8_000_000;                                  // 음성 �
 function isPhManager(actor: ActorLike): boolean {
   return PH_MANAGERS.indexOf(String(actor?.username || '').toLowerCase()) >= 0;
 }
+
+/* 첨부 형식 판정(sniffKind·normExt)은 approval-policy.ts 에 있다 —
+   순수 함수라 회귀 하니스가 가짜 바이트로 직접 돌려볼 수 있게 하려고 그쪽에 뒀다. */
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * 스키마 — 새 표는 만들고, 기존 표에는 «칸만 더한다». 지우거나 바꾸지 않는다.
@@ -104,10 +109,22 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     `ALTER TABLE approval_requests ADD COLUMN flags TEXT`,
     `ALTER TABLE approval_requests ADD COLUMN warned_at INTEGER`,
     `ALTER TABLE approval_requests ADD COLUMN escalated_at INTEGER`,
+    // 🔁 재전송이 «같은 기안을 두 번» 만들지 않게 하는 열쇠. 화면이 만들어 보낸다.
+    //    회선이 끊기면 «저장은 됐는데 응답만 못 받은» 경우가 실제로 생긴다 —
+    //    그때 다시 보내면 예전에는 지출 결재가 두 건이 됐다. 이제는 같은 건으로 합쳐진다.
+    `ALTER TABLE approval_requests ADD COLUMN client_key TEXT`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
   }
+  // ⚠️ UNIQUE 인덱스로 «같은 사람 + 같은 열쇠» 를 DB 차원에서 막는다.
+  //    화면 쪽 검사만 믿으면, 두 기기에서 동시에 재전송할 때 뚫린다.
+  //    부분 인덱스(WHERE client_key IS NOT NULL)라 옛 행(전부 NULL)은 걸리지 않는다.
+  try {
+    await env.DB.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_appr_ckey ON approval_requests(requester_username, client_key) WHERE client_key IS NOT NULL`
+    );
+  } catch { /* 있으면 그만 */ }
 
   // 결재 단계 — «누가 몇 번째로 무엇을 했는가». 전 이력이 여기 남는다.
   await env.DB.exec(
@@ -380,16 +397,27 @@ async function gatherCheckFacts(
  * 한 줄 만들기 — 첨부의 R2 키는 절대 내보내지 않는다(내려받기는 전용 엔드포인트로만).
  * ═════════════════════════════════════════════════════════════════════════ */
 
-function rowOf(r: any, steps?: any[]) {
+/**
+ * brief = 목록용. 본문을 잘라 보낸다.
+ *   왜 — 화면은 «요약 한 줄, 없으면 본문 앞부분»만 그린다. 그런데 본문은 최대 4,000자다.
+ *   목록 45건이면 그것만으로 180KB — 정작 화면은 그중 거의 다 버린다.
+ *   느린 회선에서는 «안 쓰는 바이트»가 곧 대기 시간이다.
+ *
+ * ⚠️ 시간에 따라 변하는 값(예: 지금 지연인가)은 여기 넣지 않는다.
+ *    그 값이 섞이면 내용이 안 바뀌어도 응답이 매번 달라져 «바뀐 것 없음(304)» 을 줄 수 없다.
+ *    지연 판정은 stage_due_at 을 받아 화면이 한다.
+ */
+function rowOf(r: any, steps?: any[], brief = false) {
   const spec = typeSpec(r.req_type);
   const total = Number(r.stage_total || 1);
   const seq = Number(r.stage_seq || 1);
   let flags: Flag[] = [];
   try { if (r.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
+  const body = (brief && r.body) ? String(r.body).slice(0, 300) : r.body;
   return {
     id: r.id, req_type: r.req_type,
     type_ko: spec.ko, type_en: spec.en,
-    title: r.title, body: r.body, category: r.category,
+    title: r.title, body, category: r.category,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
@@ -397,7 +425,6 @@ function rowOf(r: any, steps?: any[]) {
     decide_memo: r.decide_memo, created_at: r.created_at,
     stage_seq: seq, stage_total: total,
     deadline_at: r.deadline_at || null, stage_due_at: r.stage_due_at || null,
-    overdue: !!(r.status === 'pending' && r.stage_due_at && Date.now() > Number(r.stage_due_at)),
     escalated: !!r.escalated_at,
     summary_ko: r.summary_ko || null, summary_en: r.summary_en || null,
     flags,
@@ -417,6 +444,37 @@ async function chainOf(env: ApprovalEnv, reqId: number): Promise<{ steps: any[];
   const usernames: string[] = [];
   for (const s of steps) if (s.decided_by) usernames.push(String(s.decided_by));
   return { steps, usernames };
+}
+
+/**
+ * 여러 건의 단계를 **한 번에** 받아 온다.
+ *
+ *   왜 — 예전엔 목록의 행마다 단계를 따로 조회했다(chainOf). 결재함 한 번 여는 데
+ *   D1 쿼리가 40건 넘게 나갔다. 필리핀 회선에서 이건 그대로 대기 시간이 된다.
+ *   ⚠️ IN 목록을 손으로 만들지 않는다 — D1 은 바인드 100개가 한도이고, 손으로 자른 코드는
+ *      회귀 하니스가 잡는다(CLAUDE.md). 공용 selectInChunks 를 쓴다.
+ */
+async function stepsByRequest(env: ApprovalEnv, ids: number[]): Promise<Record<number, any[]>> {
+  const out: Record<number, any[]> = {};
+  if (!ids.length) return out;
+  const rows = await selectInChunks<any>(
+    env.DB, ids,
+    (ph) => `SELECT * FROM approval_steps WHERE request_id IN (${ph}) ORDER BY request_id, seq`,
+    { swallowErrors: true }      // 단계를 못 읽었다고 결재함이 안 뜨면 안 된다
+  );
+  for (const r of rows) {
+    const k = Number(r.request_id);
+    if (!out[k]) out[k] = [];
+    out[k].push(r);
+  }
+  return out;
+}
+
+/** 위에서 받은 단계 묶음에서 «결재선에 이름이 오른 사람» 을 뽑는다. */
+function chainUsers(steps: any[] | undefined): string[] {
+  const out: string[] = [];
+  for (const s of (steps || [])) if (s.decided_by) out.push(String(s.decided_by));
+  return out;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -454,50 +512,84 @@ export async function handleApprovalApi(
   if (method === 'GET' && path === '/api/approval/home') {
     const me = String(actor.username);
 
+    /* ── 바뀐 게 없으면 본문을 아예 안 보낸다 ────────────────────────────────
+     *   필리핀에서 가장 크게 아끼는 지점이다. 결재함을 하루에 열 번 열어도
+     *   내용이 그대로면 열 번 다 «변경 없음(304)» 으로 끝난다 — 본문 0바이트.
+     *   서명은 «내가 누구인가 + 결재 표가 어디까지 움직였는가» 로 만든다.
+     *   ⚠️ 시각(now)을 넣지 않는다. 넣으면 매번 달라져서 304 가 영영 안 나온다.
+     *      그래서 rowOf 도 «지금 지연인가» 를 담지 않는다(화면이 계산한다).
+     *   ⚠️ 계정명을 서명에 넣는 이유 — 같은 브라우저를 다른 사람이 쓰면 서명이 어긋나
+     *      304 가 아니라 자기 데이터를 새로 받는다. */
+    const sig: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c, IFNULL(MAX(created_at),0) AS mc, IFNULL(MAX(decided_at),0) AS md,
+              IFNULL(MAX(IFNULL(escalated_at,0)),0) AS me2
+         FROM approval_requests`
+    ).first(), null);
+    // 긴급 목록은 «최근 7일» 이라 시간이 지나면 저절로 빠진다. 표가 안 바뀌어도 목록은 바뀌므로
+    // 한 시간 단위의 눈금을 하나 섞는다(1시간마다 한 번은 전체를 다시 받는다).
+    const hourBucket = Math.floor(Date.now() / 3600_000);
+    const etag = `W/"a1-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}-${hourBucket}"`;
+    const headers = {
+      'Content-Type': 'application/json; charset=utf-8',
+      // no-store 가 아니라 no-cache — «저장은 하되 쓰기 전에 반드시 확인» 이라는 뜻이다.
+      // private 라 중간 캐시(CDN·회사 프록시)에는 절대 안 남는다.
+      'Cache-Control': 'private, no-cache, must-revalidate',
+      'Vary': 'Cookie',
+      'ETag': etag,
+    };
+    if (request.headers.get('If-None-Match') === etag) {
+      return new Response(null, { status: 304, headers });
+    }
+
     // ① 내가 결재할 것 — 내 단계이고, 내가 올린 건이 아닌 것
+    //    정렬은 «마감이 급한 순 → 오래된 순». 시각에 기대지 않으므로 내용이 같으면 순서도 같다.
     const pendRs = await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests
         WHERE status = 'pending' AND requester_username != ?
-        ORDER BY (stage_due_at IS NOT NULL AND stage_due_at < ?) DESC, created_at ASC LIMIT 40`
-    ).bind(me, Date.now()).all<any>(), { results: [] as any[] } as any);
+        ORDER BY (stage_due_at IS NULL) ASC, stage_due_at ASC, created_at ASC LIMIT 40`
+    ).bind(me).all<any>(), { results: [] as any[] } as any);
 
-    const inbox: any[] = [];
-    for (const r of (pendRs.results || [])) {
-      const seq = Number(r.stage_seq || 1);
-      const st = await safe(async () => await env.DB.prepare(
-        `SELECT role FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
-      ).bind(r.id, seq).first<{ role: string }>(), null as any);
-      // 단계 기록이 없는 옛 건은 «staff 1단계»로 본다.
-      const role = (st?.role || 'staff') as any;
-      if (!canDecideStage(actor, role, ph)) continue;
-      const ch = await chainOf(env, r.id);
-      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
-      inbox.push(rowOf(r, ch.steps));
-      if (inbox.length >= 20) break;
-    }
-
-    // ② 내가 올린 것
     const mineRs = await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
     ).bind(me).all<any>(), { results: [] as any[] } as any);
-    const mine: any[] = [];
-    for (const r of (mineRs.results || [])) {
-      const ch = await chainOf(env, r.id);
-      mine.push(rowOf(r, ch.steps));
-    }
 
     // ③ 🚨 긴급 소통 — 조직 전원이 본다(강사 포함). 결재 권한과 무관하게 «보이는» 것이 목적이다.
     //    이게 없으면 강사·필리핀 매니저는 긴급 공지를 올릴 수는 있어도 남이 올린 것은 못 본다.
     const urgRs = await safe(async () => await env.DB.prepare(
       `SELECT * FROM approval_requests WHERE req_type = 'urgent' AND created_at >= ?
         ORDER BY created_at DESC LIMIT 10`
-    ).bind(Date.now() - 7 * 86400_000).all<any>(), { results: [] as any[] } as any);
+    ).bind((hourBucket * 3600_000) - 7 * 86400_000).all<any>(), { results: [] as any[] } as any);
+
+    // 단계는 **한 번에** 받는다 — 예전엔 행마다 따로 조회해서 쿼리가 40건 넘게 나갔다.
+    const pend = (pendRs.results || []), mineRows = (mineRs.results || []), urgRows = (urgRs.results || []);
+    const allIds: number[] = [];
+    for (const r of pend) allIds.push(Number(r.id));
+    for (const r of mineRows) if (allIds.indexOf(Number(r.id)) < 0) allIds.push(Number(r.id));
+    for (const r of urgRows) if (allIds.indexOf(Number(r.id)) < 0) allIds.push(Number(r.id));
+    const stepMap = await stepsByRequest(env, allIds);
+
+    const inbox: any[] = [];
+    for (const r of pend) {
+      const steps = stepMap[Number(r.id)] || [];
+      const seq = Number(r.stage_seq || 1);
+      // 단계 기록이 없는 옛 건은 «staff 1단계»로 본다.
+      const cur = steps.find((s: any) => Number(s.seq) === seq);
+      const role = (cur?.role || 'staff') as any;
+      if (!canDecideStage(actor, role, ph)) continue;
+      if (!canView(actor, r.req_type, r.requester_username, chainUsers(steps), ph)) continue;
+      inbox.push(rowOf(r, steps, true));
+      if (inbox.length >= 20) break;
+    }
+
+    // ② 내가 올린 것
+    const mine: any[] = mineRows.map((r: any) => rowOf(r, stepMap[Number(r.id)] || [], true));
+
     const urgent: any[] = [];
-    for (const r of (urgRs.results || [])) {
+    for (const r of urgRows) {
       if (String(r.requester_username) === me) continue;         // 내가 올린 건은 ② 에 이미 있다
-      const ch = await chainOf(env, r.id);
-      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
-      urgent.push(rowOf(r, ch.steps));
+      const steps = stepMap[Number(r.id)] || [];
+      if (!canView(actor, r.req_type, r.requester_username, chainUsers(steps), ph)) continue;
+      urgent.push(rowOf(r, steps, true));
     }
 
     // ④ 「지난번과 같이」 — 내가 최근에 올린 서로 다른 제목 3건
@@ -511,7 +603,7 @@ export async function handleApprovalApi(
       if (reuse.length >= 3) break;
     }
 
-    return json({
+    return new Response(JSON.stringify({
       ok: true,
       me: {
         username: actor.username, name: actor.name || null,
@@ -519,16 +611,17 @@ export async function handleApprovalApi(
       },
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
-      overdue: inbox.filter((x: any) => x.overdue).length,
       types: TYPES.filter(t => canSubmit(actor, t.key))
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount, wants_file: t.wantsFile })),
       inbox, mine, reuse, urgent,
-    });
+    }), { status: 200, headers });
   }
 
   // ── 올리기 (기안) ─────────────────────────────────────────────────────────
   //   multipart/form-data. 첨부는 없어도 된다(영수증 없는 기안이 실제로 더 많다).
   if (method === 'POST' && path === '/api/approval/requests') {
+    // ⚠️ try 밖에 둔다 — 아래 catch 에서 «이미 저장된 건» 을 찾을 때 이 값이 필요하다.
+    let clientKey: string | null = null;
     try {
       const form = await request.formData();
       const reqType = String(form.get('req_type') || 'expense');
@@ -539,6 +632,31 @@ export async function handleApprovalApi(
           message: '이 분류는 올릴 수 없습니다.',
           message_en: 'You cannot submit this category.',
         }, 403);
+      }
+
+      /* 🔁 멱등성 — «저장은 됐는데 응답을 못 받은» 경우를 구제한다.
+       *   필리핀 회선에서 이건 드문 일이 아니다. 화면은 실패로 보고 다시 보내는데,
+       *   그때 예전에는 **지출 결재가 두 건**이 됐다. 이제는 같은 열쇠면 원래 건을 돌려준다.
+       *   ⚠️ 새로 저장하기 «전»에 확인한다. 뒤에서 하면 첨부가 R2 에 두 번 올라간다. */
+      clientKey = String(form.get('client_key') || '').trim().slice(0, 64) || null;
+      if (clientKey) {
+        const dup: any = await safe(async () => await env.DB.prepare(
+          `SELECT id, status FROM approval_requests WHERE requester_username = ? AND client_key = ? LIMIT 1`
+        ).bind(actor.username, clientKey).first(), null);
+        if (dup) return json({ ok: true, id: dup.id, duplicate: true, status: dup.status });
+      }
+
+      /* 🛡️ 도배 제한 — 한 사람이 1분에 10건 넘게 올릴 일은 없다.
+       *   실수로 반복 전송되는 경우(버튼 연타·큐 폭주)를 막는 안전장치이지, 사람을 막는 규칙이 아니다. */
+      const burst: any = await safe(async () => await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM approval_requests WHERE requester_username = ? AND created_at > ?`
+      ).bind(actor.username, Date.now() - 60_000).first(), null);
+      if (Number(burst?.c || 0) >= 10) {
+        return json({
+          ok: false, error: 'too_many',
+          message: '잠시 후 다시 시도해 주세요. 짧은 시간에 너무 많이 올렸습니다.',
+          message_en: 'Please wait a moment — too many requests were submitted in a short time.',
+        }, 429);
       }
 
       const title = String(form.get('title') || '').trim().slice(0, 200);
@@ -571,15 +689,29 @@ export async function handleApprovalApi(
       const file = form.get('file') as File | null;
       if (file && file.size > 0) {
         if (file.size > MAX_FILE) return json({ ok: false, error: 'file_too_large', max: MAX_FILE }, 413);
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        const ext = normExt((file.name.split('.').pop() || '').toLowerCase());
         if (ALLOWED_EXT.indexOf(ext) < 0) return json({ ok: false, error: 'invalid_type', allowed: ALLOWED_EXT }, 400);
+
+        // 🛡️ 이름이 아니라 **내용**으로 확인한다. 이름표는 누구나 바꿀 수 있다.
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const kind = sniffKind(bytes);
+        if (!kind) {
+          return json({
+            ok: false, error: 'unreadable_file',
+            message: '사진이나 PDF 로 보이지 않는 파일입니다. 다시 골라 주세요.',
+            message_en: 'That file does not look like a photo or PDF. Please pick another.',
+          }, 400);
+        }
+        // 이름은 .jpg 인데 내용은 PDF 인 경우 — 막지 않고 **실제 형식으로 고쳐서** 저장한다.
+        // (휴대폰이 확장자를 엉뚱하게 붙이는 일이 실제로 있다. 사람을 막을 이유는 없다.)
+        const realExt = kind;
+        const ctype = contentTypeFor(realExt);
+
         const r2 = env.RECORDINGS;
         if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
-        const key = `approval/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        await r2.put(key, await file.arrayBuffer(), {
-          httpMetadata: { contentType: file.type || (ext === 'pdf' ? 'application/pdf' : 'image/jpeg') },
-        });
-        fileKey = key; fileName = String(file.name || '').slice(0, 200); fileExt = ext; fileSize = file.size;
+        const key = `approval/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${realExt}`;
+        await r2.put(key, bytes, { httpMetadata: { contentType: ctype } });
+        fileKey = key; fileName = String(file.name || '').slice(0, 200); fileExt = realExt; fileSize = file.size;
       }
 
       // 결재선·마감 — 사람이 고르지 않는다(approval-policy.stagesFor).
@@ -599,11 +731,12 @@ export async function handleApprovalApi(
         `INSERT INTO approval_requests
            (req_type, requester_username, requester_name, title, body, category,
             amount, currency, spent_at, file_key, file_name, file_ext, file_size,
-            status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?)`
+            status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags,
+            client_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?)`
       ).bind(reqType, actor.username, actor.name || null, title, body || null, category,
              amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, now,
-             stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags)).run();
+             stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags), clientKey).run();
 
       const reqId = Number(ins.meta.last_row_id);
 
@@ -645,7 +778,17 @@ export async function handleApprovalApi(
 
       return json({ ok: true, id: reqId, stages: stages.length, flags, summary: sum || null });
     } catch (e: any) {
-      return json({ ok: false, error: 'submit_failed', detail: String(e?.message || e) }, 500);
+      /* 두 기기가 «동시에» 재전송하면 위쪽 중복 확인을 둘 다 통과한 뒤 UNIQUE 인덱스에서 갈린다.
+         그건 실패가 아니라 «이미 저장됨» 이다 — 원래 건을 찾아서 성공으로 돌려준다.
+         (여기서 500 을 주면 화면이 또 재전송하고, 영영 반복된다.) */
+      const msg = String(e?.message || e);
+      if (clientKey && /UNIQUE|constraint/i.test(msg)) {
+        const dup: any = await safe(async () => await env.DB.prepare(
+          `SELECT id, status FROM approval_requests WHERE requester_username = ? AND client_key = ? LIMIT 1`
+        ).bind(actor.username, clientKey).first(), null);
+        if (dup) return json({ ok: true, id: dup.id, duplicate: true, status: dup.status });
+      }
+      return json({ ok: false, error: 'submit_failed', detail: msg }, 500);
     }
   }
 
@@ -820,6 +963,9 @@ export async function handleApprovalApi(
         // 파일명에 한글·공백이 들어가므로 filename* 로 준다. 인라인이 아니라 내려받기.
         'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(r.file_name || 'file')}`,
         'Cache-Control': 'private, no-store',
+        // 🛡️ 브라우저가 내용을 보고 형식을 «추측» 하지 못하게 한다.
+        //    올릴 때 실제 바이트를 확인하지만, 내려받는 쪽에도 한 겹 더 둔다.
+        'X-Content-Type-Options': 'nosniff',
       },
     });
   }

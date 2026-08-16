@@ -91,7 +91,11 @@ a.tbtn{text-decoration:none;display:inline-block;line-height:22px}
 .offbar{display:none;background:#fbeed2;color:#6b4a08;padding:8px 14px;font-size:13.5px;border-bottom:1px solid #e6d3a4}
 body.is-off .offbar{display:block}
 html.dark .offbar{background:#3a2c10;color:#f0cf8a;border-bottom-color:#5a4620}
-.outbox{display:none;background:#dcece9;color:#0b5147;padding:8px 14px;font-size:13.5px;border-bottom:1px solid #b6d5cf}
+/* ⚠️ 여기에 display:none 을 쓰지 말 것. 이 띠는 hidden 속성으로 켜고 끈다.
+   작성자 CSS 가 display 를 정하면 [hidden] 을 이겨서, hidden=false 로 바꿔도 영영 안 보인다
+   (CLAUDE.md 함정 — teacher.html 에서 같은 사고가 있었다. 2026-08-16 실측으로 여기서도 확인).
+   실제로 이 줄 때문에 «보내지 못한 결재가 저장됐다» 는 안내가 한 번도 뜨지 않았다. */
+.outbox{background:#dcece9;color:#0b5147;padding:8px 14px;font-size:13.5px;border-bottom:1px solid #b6d5cf}
 html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
 
 /* ── 본문 ───────────────────────────────────────────────── */
@@ -218,6 +222,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
 <div class="offbar" data-en="Offline — showing the last information received. Press Refresh when you reconnect."
      data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결되면 새로고침을 눌러 주세요.">Offline</div>
 <div class="outbox" id="outboxNote" hidden></div>
+<div class="outbox" id="queueNote" hidden></div>
 
 <div class="wrap">
 
@@ -375,6 +380,7 @@ function repaint(){
 
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
+  paintForm();          // 언어를 바꿔도 폼 라벨이 따라오게. 값은 paintForm 이 챙겨서 되돌린다.
   paintOutbox();
   paintPushBtn();
   // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
@@ -391,7 +397,7 @@ function repaint(){
 function paintBadge(){
   var b = document.getElementById('badge');
   var n = (D.inbox || []).length;
-  var late = D.overdue || 0;
+  var late = (D.inbox || []).filter(isOverdue).length;
   b.textContent = late ? (n + ' / ' + late) : String(n);
   b.className = 'badge' + (late ? ' late' : (n ? '' : ' zero'));
   b.title = late ? T(late + ' overdue', '지연 ' + late + '건') : '';
@@ -412,15 +418,23 @@ function paintList(id, arr, decidable){
   host.innerHTML = h;
 }
 
+/* 지연 판정은 **화면이 한다**. 서버가 «지금 지연인가»를 담아 보내면 내용이 그대로여도
+   응답이 매초 달라져서, 「바뀐 것 없음(304)」으로 끝낼 수가 없다 — 느린 회선에서 그게 제일 아깝다.
+   서버는 «언제까지» 만 보내고, 지금 시각과 비교하는 일은 여기서 한다. */
+function isOverdue(r){
+  return !!(r.status === 'pending' && r.stage_due_at && Date.now() > Number(r.stage_due_at));
+}
+
 function itemHtml(r, decidable){
-  var h = '<div class="item' + (r.overdue ? ' hot' : '') + '" id="req-' + r.id + '">';
+  var late = isOverdue(r);
+  var h = '<div class="item' + (late ? ' hot' : '') + '" id="req-' + r.id + '">';
 
   h += '<div class="ihead">';
   h += '<span class="chip">' + esc(typeLabel(r)) + '</span>';
   if (r.stage_total > 1) {
     h += '<span class="chip">' + esc(T('Step ', '단계 ') + r.stage_seq + '/' + r.stage_total) + '</span>';
   }
-  if (r.overdue) h += '<span class="chip late">' + esc(T('Overdue', '지연')) + '</span>';
+  if (late) h += '<span class="chip late">' + esc(T('Overdue', '지연')) + '</span>';
   if (r.escalated) h += '<span class="chip late">' + esc(T('Escalated', '승격됨')) + '</span>';
   h += '<span class="ititle">' + esc(r.title) + '</span>';
   if (r.amount != null) h += '<span class="iamt">' + esc(money(r.amount, r.currency)) + '</span>';
@@ -625,10 +639,14 @@ window.pick = function(key){
   var types = (D && D.types) || [];
   var found = null;
   for (var i = 0; i < types.length; i++) if (types[i].key === key) found = types[i];
-  if (PICK && found && PICK.key === found.key) { PICK = null; }    // 한 번 더 누르면 닫기
-  else { PICK = found; OCR = null; FILE = null; }
+  if (PICK && found && PICK.key === found.key) {
+    closeForm(); return;                                          // 한 번 더 누르면 닫기(초안도 지운다)
+  }
+  PICK = found; OCR = null; FILE = null;
+  CKEY = newKey();                    // 이 기안의 «같은 건» 열쇠 — 재전송에도 그대로 쓴다
   paintKinds();
   paintForm();
+  paintReuse();
 };
 
 function paintReuse(){
@@ -663,6 +681,16 @@ function paintForm(){
   var host = document.getElementById('form');
   if (!PICK) { host.hidden = true; host.innerHTML = ''; return; }
   host.hidden = false;
+
+  /* ⚠️ 다시 그리기 전에 **쓰던 값을 반드시 챙긴다.**
+     이 화면은 언어를 바꾸거나 목록을 새로 받을 때 다시 그려지는데, 그때마다 폼을 비우면
+     필리핀에서 타이핑하던 내용이 날아간다 — 이 파일이 막으려는 바로 그 사고다. */
+  var keep = {
+    t: getVal('f_title'), a: getVal('f_amount'),
+    b: getVal('f_body'), s: getVal('f_spent'), n: (function(){
+      var e = document.getElementById('autoNote'); return e ? e.textContent : '';
+    })()
+  };
 
   var h = '';
 
@@ -703,10 +731,14 @@ function paintForm(){
        esc(T('Cancel', '취소')) + '</button></div>';
 
   host.innerHTML = h;
+  // 챙겨 둔 값을 그대로 돌려놓는다.
+  setVal('f_title', keep.t); setVal('f_amount', keep.a);
+  setVal('f_body', keep.b); setVal('f_spent', keep.s);
+  if (keep.n) note(keep.n);
   paintCur();
 }
 
-window.setCur = function(c){ CUR = c; paintCur(); };
+window.setCur = function(c){ CUR = c; paintCur(); draftSave(); };
 function paintCur(){
   var a = document.getElementById('cur_PHP'), b = document.getElementById('cur_KRW');
   if (a) a.className = (CUR === 'PHP') ? 'on' : '';
@@ -834,48 +866,207 @@ window.voice = function(){
   });
 };
 
-/* ── 올리기 ───────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════
+   올리기 — «쓴 것이 사라지지 않는다» 가 이 부분의 전부다.
+
+   왜 이렇게까지 하나 —
+     승인·반려는 버튼 한 번이라 실패해도 다시 누르면 그만이다. 그런데 **기안**은 다르다.
+     필리핀 매니저가 영수증을 찍고, 판독을 기다리고, 내용을 확인한 뒤 「올리기」를 눌렀는데
+     그 순간 회선이 끊기면 — 예전 방식으로는 **그 전부가 통째로 사라진다.**
+     정전·태풍이 잦은 곳에서 이건 «가끔»이 아니다.
+
+   그래서 세 겹으로 막는다:
+     ① 초안 자동저장 — 글자를 칠 때마다 기기에 적어 둔다. 앱이 죽어도 다시 열면 그대로 있다.
+     ② 전송 큐 — 보내다 끊기면 **사진까지 통째로** 기기에 담아 두고, 연결되면 자동으로 보낸다.
+        (사진은 용량이 커서 localStorage 에 못 넣는다 → IndexedDB 를 쓴다)
+     ③ 같은 열쇠(client_key) — 재전송이 **같은 기안을 두 건으로 만들지 않게** 서버가 합쳐 준다.
+        "저장은 됐는데 응답만 못 받은" 경우가 실제로 있어서, 이게 없으면 지출 결재가 두 번 잡힌다.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 기기 저장소(IndexedDB) — 사진이 들어가야 해서 localStorage 로는 부족하다 ── */
+var DB_NAME = 'mangoi_work', STORE = 'outbox';
+function idbOpen(){
+  return new Promise(function(res){
+    try {
+      if (!window.indexedDB) return res(null);
+      var rq = indexedDB.open(DB_NAME, 1);
+      rq.onupgradeneeded = function(){
+        try { rq.result.createObjectStore(STORE, { keyPath: 'key' }); } catch (e) {}
+      };
+      rq.onsuccess = function(){ res(rq.result); };
+      rq.onerror = function(){ res(null); };
+    } catch (e) { res(null); }
+  });
+}
+function idbDo(mode, fn){
+  return idbOpen().then(function(db){
+    if (!db) return null;
+    return new Promise(function(res){
+      try {
+        var tx = db.transaction(STORE, mode);
+        var out = fn(tx.objectStore(STORE));
+        tx.oncomplete = function(){ res(out && out.result !== undefined ? out.result : out); };
+        tx.onerror = function(){ res(null); };
+        tx.onabort = function(){ res(null); };
+      } catch (e) { res(null); }
+    });
+  }).catch(function(){ return null; });
+}
+function subQueueAdd(rec){ return idbDo('readwrite', function(s){ return s.put(rec); }); }
+function subQueueAll(){ return idbDo('readonly', function(s){ return s.getAll(); }); }
+function subQueueDel(key){ return idbDo('readwrite', function(s){ return s.delete(key); }); }
+
+/* ── ① 초안 자동저장 — 글자를 칠 때마다. 사진은 제외(용량) ── */
+var DRAFT_KEY = 'mangoi_work_draft_v1';
+function draftSave(){
+  if (!PICK) return;
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      key: CKEY, type: PICK.key, cur: CUR,
+      title: getVal('f_title'), amount: getVal('f_amount'),
+      body: getVal('f_body'), spent: getVal('f_spent'),
+      ocr: OCR ? OCR.amount : null, at: Date.now()
+    }));
+  } catch (e) {}
+}
+function draftClear(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+function draftLoad(){
+  try {
+    var d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+    // 하루가 지난 초안은 되살리지 않는다 — 오래된 내용이 뜬금없이 나오면 더 헷갈린다.
+    if (!d || !d.type || (Date.now() - Number(d.at || 0)) > 86400000) return null;
+    return d;
+  } catch (e) { return null; }
+}
+
+/* 같은 기안임을 서버에 알려 주는 열쇠. 폼을 열 때 한 번 만들고, 재전송에도 그대로 쓴다. */
+var CKEY = null;
+function newKey(){
+  try {
+    if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  } catch (e) {}
+  return 'k' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+function buildFD(rec){
+  var fd = new FormData();
+  fd.append('client_key', rec.key);
+  fd.append('req_type', rec.type);
+  fd.append('title', rec.title);
+  fd.append('body', rec.body || '');
+  fd.append('currency', rec.cur || 'PHP');
+  if (rec.amount) fd.append('amount', String(rec.amount));
+  if (rec.spent) fd.append('spent_at', rec.spent);
+  if (rec.ocr != null) fd.append('ocr_amount', String(rec.ocr));
+  if (rec.file) fd.append('file', rec.file, (rec.fileName || 'receipt.jpg'));
+  return fd;
+}
+
+/** 한 건 보내기. done=끝남(성공이든 서버가 거절했든), retry=회선 문제라 다시 보내야 함. */
+function postOne(rec){
+  return fetch('/api/approval/requests', { method: 'POST', credentials: 'same-origin', body: buildFD(rec) })
+    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; },
+                                            function(){ return { status: r.status, j: {} }; }); })
+    .then(function(res){
+      if (res.j && res.j.ok) return { done: true, duplicate: !!res.j.duplicate };
+      // 서버가 «판단해서» 거절한 것(4xx)은 다시 보내도 소용없다 — 큐에서 빼고 사람에게 알린다.
+      // 5xx 는 서버가 잠깐 아픈 것일 수 있으니 다시 보낸다.
+      if (res.status >= 400 && res.status < 500 && res.status !== 429) {
+        return { done: true, refused: true,
+                 message: (EN() ? res.j.message_en : res.j.message) || null };
+      }
+      return { retry: true };
+    })
+    .catch(function(){ return { retry: true }; });     // 회선 문제
+}
+
 window.submitReq = function(){
   if (!PICK) return;
   var title = String(getVal('f_title') || '').trim();
   if (!title) { toast(T('Please enter a title.', '제목을 넣어 주세요.')); return; }
-  var amount = getVal('f_amount');
-  if (PICK.needs_amount && !String(amount).trim()) {
+  var amount = String(getVal('f_amount') || '').trim();
+  if (PICK.needs_amount && !amount) {
     toast(T('Please enter the amount.', '금액을 넣어 주세요.')); return;
   }
   var btn = document.getElementById('b_submit');
   if (btn) btn.disabled = true;
 
-  var fd = new FormData();
-  fd.append('req_type', PICK.key);
-  fd.append('title', title);
-  fd.append('body', getVal('f_body') || '');
-  fd.append('currency', CUR);
-  if (String(amount).trim()) fd.append('amount', String(amount).trim());
-  if (getVal('f_spent')) fd.append('spent_at', getVal('f_spent'));
-  if (OCR && OCR.amount != null) fd.append('ocr_amount', String(OCR.amount));
-  if (FILE) fd.append('file', FILE, (FILE.name || 'receipt.jpg'));
+  if (!CKEY) CKEY = newKey();
+  var rec = {
+    key: CKEY, type: PICK.key, title: title, body: getVal('f_body') || '',
+    cur: CUR, amount: amount, spent: getVal('f_spent') || '',
+    ocr: (OCR && OCR.amount != null) ? OCR.amount : null,
+    file: FILE || null, fileName: (FILE && FILE.name) || 'receipt.jpg', at: Date.now()
+  };
 
-  fetch('/api/approval/requests', { method: 'POST', credentials: 'same-origin', body: fd })
-    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
-    .then(function(res){
-      if (btn) btn.disabled = false;
-      if (res.j && res.j.ok) {
-        toast(T('Submitted. Head office will review it.', '결재를 올렸습니다. 본사가 확인합니다.'));
-        PICK = null; OCR = null; FILE = null;
-        paintKinds(); paintForm();
-        load().catch(function(){});
-      } else {
-        toast((res.j && (EN() ? res.j.message_en : res.j.message)) ||
-              T('Could not submit.', '올리지 못했습니다.') + ' (' + ((res.j && res.j.error) || res.status) + ')');
-      }
-    })
-    .catch(function(){
-      if (btn) btn.disabled = false;
-      toast(T('Could not send — check your connection and try again.',
-              '보내지 못했습니다 — 연결을 확인하고 다시 시도해 주세요.'));
+  postOne(rec).then(function(res){
+    if (btn) btn.disabled = false;
+
+    if (res.done) {
+      if (res.refused) { toast(res.message || T('Could not submit.', '올리지 못했습니다.')); return; }
+      toast(res.duplicate
+        ? T('Already submitted — this was the same request.', '이미 올라간 기안입니다. 같은 건으로 처리했습니다.')
+        : T('Submitted. Head office will review it.', '결재를 올렸습니다. 본사가 확인합니다.'));
+      closeForm();
+      load().catch(function(){});
+      return;
+    }
+
+    // 회선 문제 — 사진까지 통째로 담아 두고 연결되면 자동으로 보낸다.
+    subQueueAdd(rec).then(function(){
+      closeForm();
+      paintQueue();
+      toast(T('Saved on this phone — it will be sent automatically when you are back online.',
+              '이 기기에 저장했습니다 — 연결되면 자동으로 보냅니다.'));
+    }, function(){
+      // IndexedDB 조차 못 쓰는 기기 — 폼을 지우지 않는다. 쓴 것을 없애는 것이 최악이다.
+      toast(T('Could not send. Your text is still here — please try again when you reconnect.',
+              '보내지 못했습니다. 쓰신 내용은 그대로 있습니다 — 연결되면 다시 눌러 주세요.'));
     });
+  });
 };
+
+function closeForm(){
+  PICK = null; OCR = null; FILE = null; CKEY = null;
+  draftClear();
+  paintKinds(); paintForm(); paintReuse();
+}
+
+/* ── ② 큐 비우기 — 연결되면 자동으로 ── */
+var subBusy = false;
+function subFlush(){
+  if (subBusy) return;
+  subBusy = true;
+  subQueueAll().then(function(list){
+    if (!list || !list.length) { subBusy = false; paintQueue(); return; }
+    var rec = list[0];
+    return postOne(rec).then(function(res){
+      if (res.done) {
+        return subQueueDel(rec.key).then(function(){
+          subBusy = false;
+          paintQueue();
+          if (!res.refused) toast(T('A saved request has been sent.', '저장해 둔 기안을 보냈습니다.'));
+          // 남은 것이 있으면 이어서, 없으면 목록 최신화
+          subQueueAll().then(function(rest){
+            if (rest && rest.length) subFlush(); else load().catch(function(){});
+          });
+        });
+      }
+      subBusy = false;                 // 아직 끊겨 있다 — 다음 기회에
+    });
+  }).catch(function(){ subBusy = false; });
+}
+
+function paintQueue(){
+  subQueueAll().then(function(list){
+    var n = (list || []).length;
+    var el = document.getElementById('queueNote');
+    if (!el) return;
+    el.hidden = !n;
+    if (n) el.textContent = T(n + ' request(s) saved on this phone — they will be sent automatically when you are back online.',
+                              '보내지 못한 기안 ' + n + '건을 이 기기에 저장했습니다 — 연결되면 자동으로 보냅니다.');
+  });
+}
 
 /* ── 알림 받기 (웹푸시) ────────────────────────────────────────────────────
    기존 인프라를 그대로 쓴다 — VAPID 키·구독 표·sw.js 의 push 핸들러가 이미 있다.
@@ -954,14 +1145,39 @@ try {
   if (c0) { D = JSON.parse(c0); repaint(); }
 } catch (e) {}
 
-load().catch(function(){});
-outboxFlush();
+// 초안 자동저장 — 폼은 다시 그려지지만 이 리스너는 바깥 상자에 붙어 있어 살아남는다.
+document.getElementById('form').addEventListener('input', draftSave);
 
-window.addEventListener('online', function(){ offline(false); outboxFlush(); load().catch(function(){}); });
+load().then(restoreDraft).catch(function(){ restoreDraft(); });
+outboxFlush();
+subFlush();
+paintQueue();
+
+/* 쓰다 만 기안 되살리기 — 앱이 죽거나 브라우저가 닫혀도 쓴 것이 남아 있어야 한다. */
+function restoreDraft(){
+  var d = draftLoad();
+  if (!d || PICK) return;
+  var types = (D && D.types) || [];
+  var found = null;
+  for (var i = 0; i < types.length; i++) if (types[i].key === d.type) found = types[i];
+  if (!found) return;
+  PICK = found; CKEY = d.key || newKey(); CUR = d.cur || 'PHP';
+  OCR = (d.ocr != null) ? { amount: d.ocr } : null;
+  paintKinds(); paintForm(); paintReuse();
+  setVal('f_title', d.title || ''); setVal('f_amount', d.amount || '');
+  setVal('f_body', d.body || ''); setVal('f_spent', d.spent || '');
+  // ⚠️ 사진은 되살리지 못한다(기기 저장소에 담기엔 크고, 다시 찍는 편이 확실하다).
+  note(T('Restored what you were writing. The photo needs to be taken again.',
+         '쓰시던 내용을 되살렸습니다. 사진은 다시 찍어 주세요.'));
+}
+
+window.addEventListener('online', function(){
+  offline(false); outboxFlush(); subFlush(); load().catch(function(){});
+});
 window.addEventListener('offline', function(){ offline(true); });
 // 화면으로 돌아왔을 때 최신화 — 푸시를 눌러 들어온 경우가 많다.
 document.addEventListener('visibilitychange', function(){
-  if (!document.hidden) { outboxFlush(); load().catch(function(){}); }
+  if (!document.hidden) { outboxFlush(); subFlush(); load().catch(function(){}); }
 });
 
 })();

@@ -312,6 +312,44 @@ export function runChecks(inp: CheckInput): Flag[] {
   return out;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⑥ 첨부 형식 — 이름표가 아니라 «내용» 으로 본다
+ *
+ *   왜 — 예전에는 파일 이름의 확장자만 봤다. 이름은 누구나 바꿀 수 있으므로 실행 파일을
+ *   receipt.jpg 로 바꿔 올리면 그대로 통과했고, 그게 R2 에 저장돼 결재자가 내려받았다.
+ *   (내려받기는 attachment + nosniff 라 브라우저가 실행하진 않지만, 애초에 안 받는 게 낫다.)
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 첨부 앞부분 바이트로 실제 형식을 판정한다. 'jpg'|'png'|'webp'|'pdf' 또는 null(알 수 없음). */
+export function sniffKind(b: Uint8Array | number[]): string | null {
+  if (!b || b.length < 12) return null;
+  const at = (i: number) => Number((b as any)[i]);
+  // JPEG: FF D8 FF
+  if (at(0) === 0xFF && at(1) === 0xD8 && at(2) === 0xFF) return 'jpg';
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (at(0) === 0x89 && at(1) === 0x50 && at(2) === 0x4E && at(3) === 0x47 &&
+      at(4) === 0x0D && at(5) === 0x0A && at(6) === 0x1A && at(7) === 0x0A) return 'png';
+  // PDF: %PDF
+  if (at(0) === 0x25 && at(1) === 0x50 && at(2) === 0x44 && at(3) === 0x46) return 'pdf';
+  // WEBP: 'RIFF' .... 'WEBP'
+  if (at(0) === 0x52 && at(1) === 0x49 && at(2) === 0x46 && at(3) === 0x46 &&
+      at(8) === 0x57 && at(9) === 0x45 && at(10) === 0x42 && at(11) === 0x50) return 'webp';
+  return null;
+}
+
+/** jpeg/jpg 처럼 같은 형식의 다른 이름을 한 이름으로 모은다. */
+export function normExt(ext: string): string {
+  return String(ext || '').toLowerCase() === 'jpeg' ? 'jpg' : String(ext || '').toLowerCase();
+}
+
+/** 판정된 형식에 맞는 Content-Type. 저장할 때 이 값을 쓴다(이름표가 아니라 내용 기준). */
+export function contentTypeFor(kind: string): string {
+  if (kind === 'pdf') return 'application/pdf';
+  if (kind === 'png') return 'image/png';
+  if (kind === 'webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
 /** 금액 표기. 화면과 점검 문구가 같은 형식을 쓰도록 여기 하나만 둔다. */
 export function fmt(v: number, currency: string): string {
   const cur = normCurrency(currency);

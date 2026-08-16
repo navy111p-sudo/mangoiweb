@@ -28,7 +28,13 @@ const {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks,
   TWO_STEP_THRESHOLD, MONTHLY_BUDGET, AUTO_APPROVE_ENABLED,
+  sniffKind, normExt, contentTypeFor,
 } = P;
+
+// 한국 ↔ 필리핀 교환 경로를 지키는 코드가 실제로 파일에 있는지도 함께 본다.
+import { readFileSync } from 'node:fs';
+const API_SRC  = readFileSync(join(SRC, 'api-approval.ts'), 'utf8');
+const WORK_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/work.html'), 'utf8');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function check(name, cond, extra) {
@@ -239,6 +245,110 @@ check('열람등급은 정의된 세 가지 중 하나만 쓴다',
 
 check('인사·급여만 경영진 전용이다',
   TYPES.filter(t => t.visibility === 'exec').map(t => t.key).join(',') === 'hr');
+
+// ══ F. 첨부 — 이름표가 아니라 내용으로 본다 ═══════════════════════════════
+console.log('\n[F] 첨부 형식을 «내용» 으로 판정하는가');
+
+const bytesOf = (arr, pad = 16) => {
+  const b = new Uint8Array(pad);
+  arr.forEach((v, i) => { b[i] = v; });
+  return b;
+};
+const JPG  = bytesOf([0xFF,0xD8,0xFF,0xE0]);
+const PNG  = bytesOf([0x89,0x50,0x4E,0x47,0x0D,0x0A,0x1A,0x0A]);
+const PDF  = bytesOf([0x25,0x50,0x44,0x46,0x2D,0x31]);
+const WEBP = bytesOf([0x52,0x49,0x46,0x46,0,0,0,0,0x57,0x45,0x42,0x50]);
+const EXE  = bytesOf([0x4D,0x5A,0x90,0x00]);            // 윈도 실행 파일
+const ELF  = bytesOf([0x7F,0x45,0x4C,0x46]);            // 리눅스 실행 파일
+const HTML = bytesOf([0x3C,0x21,0x44,0x4F,0x43,0x54,0x59,0x50,0x45]);
+
+check('JPEG 를 알아본다',  sniffKind(JPG) === 'jpg');
+check('PNG 를 알아본다',   sniffKind(PNG) === 'png');
+check('PDF 를 알아본다',   sniffKind(PDF) === 'pdf');
+check('WEBP 를 알아본다',  sniffKind(WEBP) === 'webp');
+
+check('이름을 receipt.jpg 로 바꾼 실행 파일은 통과하지 못한다 (윈도)', sniffKind(EXE) === null);
+check('이름을 바꾼 실행 파일은 통과하지 못한다 (리눅스)',              sniffKind(ELF) === null);
+check('HTML 을 사진인 척 올릴 수 없다',                                sniffKind(HTML) === null);
+check('빈 파일·너무 짧은 파일은 통과하지 못한다',                      sniffKind(bytesOf([0xFF,0xD8], 4)) === null);
+
+check('jpeg 와 jpg 를 같은 것으로 본다', normExt('JPEG') === 'jpg' && normExt('jpg') === 'jpg');
+check('저장할 형식은 판정 결과를 따른다 (이름표가 아니라)',
+  contentTypeFor('pdf') === 'application/pdf' && contentTypeFor('png') === 'image/png');
+
+// ══ G. 한국 ↔ 필리핀 교환 — 끊겨도 잃지 않는가 ════════════════════════════
+console.log('\n[G] 교환 경로 — 끊겨도 잃지 않고, 두 번 처리되지 않는가');
+
+check('재전송이 기안을 두 건으로 만들지 않는다 — 같은 열쇠는 DB 가 막는다',
+  /CREATE UNIQUE INDEX[\s\S]{0,120}client_key/.test(API_SRC),
+  'approval_requests(requester_username, client_key) UNIQUE 인덱스가 없음');
+
+check('올리기 전에 «이미 올라간 건» 인지 먼저 확인한다',
+  /WHERE requester_username = \? AND client_key = \?/.test(API_SRC));
+
+check('동시에 재전송해 UNIQUE 에 걸려도 실패로 처리하지 않는다',
+  /UNIQUE\|constraint/i.test(API_SRC) && /duplicate: true/.test(API_SRC));
+
+check('짧은 시간에 대량으로 올리는 것을 막는다',
+  /too_many/.test(API_SRC) && /429/.test(API_SRC));
+
+check('첨부는 실제 바이트로 확인한 뒤 저장한다',
+  /sniffKind\(/.test(API_SRC) && /unreadable_file/.test(API_SRC));
+
+check('내려받는 첨부에 형식 추측 금지(nosniff)를 붙인다',
+  /X-Content-Type-Options/.test(API_SRC));
+
+check('바뀐 게 없으면 본문을 안 보낸다 (304)',
+  /If-None-Match/.test(API_SRC) && /\b304\b/.test(API_SRC));
+
+check('결재함 응답에 시각을 섞지 않는다 — 섞으면 304 가 영영 안 나온다',
+  !/overdue: !!\(/.test(API_SRC),
+  'rowOf 가 «지금 지연인가» 를 담고 있으면 응답이 매초 달라진다');
+
+check('단계는 한 번에 묶어 받는다 (행마다 따로 조회하지 않는다)',
+  /stepsByRequest/.test(API_SRC) && /selectInChunks/.test(API_SRC));
+
+check('IN 목록을 손으로 만들지 않는다 (D1 바인드 100 한도)',
+  !/map\(\(\) => '\?'\)/.test(API_SRC));
+
+check('화면 — 쓰다 만 기안을 기기에 저장한다',
+  /DRAFT_KEY/.test(WORK_SRC) && /draftSave/.test(WORK_SRC));
+
+check('화면 — 보내지 못한 기안을 사진까지 담아 둔다 (IndexedDB)',
+  /indexedDB/.test(WORK_SRC) && /subQueueAdd/.test(WORK_SRC));
+
+check('화면 — 연결되면 저장해 둔 기안을 자동으로 보낸다',
+  /addEventListener\('online'/.test(WORK_SRC) && /subFlush/.test(WORK_SRC));
+
+check('화면 — 재전송에 같은 열쇠를 쓴다',
+  /client_key/.test(WORK_SRC) && /CKEY/.test(WORK_SRC));
+
+check('화면 — 서버가 «판단해서» 거절한 것은 다시 보내지 않는다',
+  /refused/.test(WORK_SRC),
+  '4xx 를 계속 재시도하면 영영 안 되는 것을 영원히 반복한다');
+
+check('화면 — 다시 그릴 때 쓰던 값을 지우지 않는다',
+  /var keep = \{/.test(WORK_SRC),
+  'paintForm 이 값을 챙기지 않으면 타이핑하던 내용이 날아간다');
+
+check('화면 — 지연 판정을 화면이 한다 (서버 응답을 시각과 무관하게 유지)',
+  /function isOverdue/.test(WORK_SRC));
+
+check('화면 — 외부 파일을 부르지 않는다 (설계 계약 1번)',
+  !/<script[^>]+src=/i.test(WORK_SRC) && !/<link[^>]+stylesheet/i.test(WORK_SRC),
+  '외부 리소스를 하나라도 부르면 느린 회선에서 첫 화면이 그만큼 늦어진다');
+
+/* 🪤 CLAUDE.md 의 «hidden 인데 그대로 보임» 함정의 반대쪽.
+   hidden 으로 켜고 끄는 요소에 작성자 CSS 가 display 를 정해 두면, 그 CSS 가 [hidden] 을 이겨서
+   hidden=false 로 바꿔도 **영영 안 보인다.** 2026-08-16 실제로 이것 때문에
+   «보내지 못한 결재를 저장했습니다» 안내가 한 번도 뜨지 않았다(브라우저로 눌러 보고 발견). */
+check('화면 — hidden 으로 켜고 끄는 띠에 display 를 박아 두지 않았다',
+  !/^\.outbox\s*\{[^}]*display\s*:/m.test(WORK_SRC),
+  '.outbox 에 display 가 있으면 [hidden] 을 이겨서 안내가 영영 안 뜬다');
+
+check('화면 — [hidden] 을 !important 로 못박아 두었다',
+  /\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/.test(WORK_SRC),
+  '작성자 CSS 가 UA 기본값을 이기는 것을 막는 안전선');
 
 // ── 결과 ────────────────────────────────────────────────────────────────────
 console.log('──────────────────────────────────────');
