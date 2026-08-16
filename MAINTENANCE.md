@@ -1,7 +1,7 @@
 # 망고아이 유지보수 매뉴얼 (오너용)
 
 > 이 문서는 "개발자 없이 혼자 관리해야 하는 사람"을 위한 최상위 안내서입니다.
-> 상세 문서: [환경변수·시크릿 목록](docs/ENVIRONMENT.md) · [문제 해결 가이드](docs/TROUBLESHOOTING.md) · [코드 분리 계획](docs/REFACTOR_PLAN.md)
+> 상세 문서: [환경변수·시크릿 목록](docs/ENVIRONMENT.md) · [문제 해결 가이드](docs/TROUBLESHOOTING.md) · [코드 분리 계획](docs/REFACTOR_PLAN.md) · [팀 협업 가이드(쉬운 버전)](docs/망고아이_팀_협업_가이드_260816.pdf)
 
 최종 갱신: 2026-07-14 (대규모 코드분리 36차 반영)
 
