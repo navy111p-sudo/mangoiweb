@@ -138,6 +138,26 @@ function realPayslipSql(a = ''): string {
   return `EXISTS (SELECT 1 FROM teachers t_rp WHERE t_rp.id = ${q}teacher_id)`;
 }
 
+/* 💵 그 달의 «통장 기준» 사실 — 장부(결제기록)가 불완전해도 이건 사실이다.
+   월간 회계 리포트와 손익계산서가 둘 다 쓴다(규칙이 갈라지면 화면마다 달라진다). */
+async function monthCash(env: Env, period: string) {
+  return await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(CASE WHEN kind='in' THEN amount ELSE 0 END),0) AS cin,
+             COALESCE(SUM(CASE WHEN kind='out' THEN amount ELSE 0 END),0) AS cout,
+             COALESCE(SUM(CASE WHEN kind='in' AND remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
+             COUNT(*) AS n
+      FROM bankacct_transactions WHERE substr(trans_at,1,7)=?
+    `).bind(period).first<{ cin: number; cout: number; pg: number; n: number }>();
+    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, pg: Number(r?.pg) || 0, n: Number(r?.n) || 0 };
+  }, { cin: 0, cout: 0, pg: 0, n: 0 });
+}
+/* 통장 PG 입금이 장부 매출보다 10% 이상(그리고 50만원 이상) 많으면 «매출 누락 의심».
+   ⚠️ 처음엔 25% 로 잡았다가 4월(23%)이 안 걸려 «설명 없는 적자» 로 보였다 → 10% 로 낮춤. */
+function revenueGapOf(pgIn: number, revenue: number): number {
+  return pgIn > 0 && pgIn > revenue * 1.10 && (pgIn - revenue) > 500000 ? pgIn - revenue : 0;
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -273,20 +293,9 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
      실제로 겪은 일 — 7월 장부 매출 950만인데 통장 PG 입금은 2,141만이라 리포트가
      이익률 −168% 로 나왔다. 회사가 망한 게 아니라 **매출이 장부에 덜 잡힌 것**이다.
      숫자만 보고 «적자» 로 오해하면 안 되므로, 리포트가 스스로 사실을 밝히게 한다. */
-  const cash = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(CASE WHEN kind='in' THEN amount ELSE 0 END),0) AS cin,
-             COALESCE(SUM(CASE WHEN kind='out' THEN amount ELSE 0 END),0) AS cout,
-             COALESCE(SUM(CASE WHEN kind='in' AND remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
-             COUNT(*) AS n
-      FROM bankacct_transactions WHERE substr(trans_at,1,7)=?
-    `).bind(period).first<{ cin: number; cout: number; pg: number; n: number }>();
-    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, pg: Number(r?.pg) || 0, n: Number(r?.n) || 0 };
-  }, { cin: 0, cout: 0, pg: 0, n: 0 });
+  const cash = await monthCash(env, period);
   const pgIn = cash.pg;
-  /* 통장 입금이 장부 매출보다 10% 이상(그리고 50만원 이상) 많으면 «누락 의심».
-     ⚠️ 처음엔 25% 로 잡았는데 4월(23%)이 안 걸려 «설명 없는 적자» 로 보였다 → 10% 로 낮춤. */
-  const revenueGap = pgIn > 0 && pgIn > rev.revenue * 1.10 && (pgIn - rev.revenue) > 500000 ? pgIn - rev.revenue : 0;
+  const revenueGap = revenueGapOf(pgIn, rev.revenue);
   const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
   // 🧑‍🏫 강사 급여 — 급여명세(payslips)가 비어 있으면 신한 계좌의 강사 송금(실데이터)으로 대신
   const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
@@ -762,6 +771,10 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
      화면에 안내 줄로 «얼마를 왜 뺐는지» 보여 준다(조용히 빼지 않는다). */
   const ax = await monthActualOpex(env, period);
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
+  /* 💵 통장 기준 사실 — 손익계산서도 월간 리포트와 똑같이 «매출 누락» 을 밝히고
+     실제 현금흐름을 함께 보여 준다. 화면마다 말이 다르면 안 된다(2026-08-16 제보). */
+  const plCash = await monthCash(env, period);
+  const plGap = revenueGapOf(plCash.pg, rev.revenue);
   const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
   const opCost = hasActual ? ax.actual : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
 
@@ -788,6 +801,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '수업료 매출', amount: rev.revenue },
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
+          ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
         ]},
         { title: 'II. 매출원가 (COGS)', items: [
@@ -819,11 +833,21 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         { title: 'VII. 당기순이익 (Net Income)', items: [
           { name: '최종 순이익', amount: netIncome, highlight: true, big: true },
         ]},
+        /* 💵 장부 손익 «옆에» 통장 사실을 둔다 — 위 순이익은 장부 기준이라 매출
+           누락분만큼 나쁘게 나온다. 회사가 실제로 번 돈은 아래 순증감에 가깝다. */
+        ...(plCash.n > 0 ? [{ title: '※ 참고 — 통장 기준 실제 현금흐름 (신한 계좌)', items: [
+          { name: '실제 입금', amount: plCash.cin },
+          { name: '실제 출금', amount: -plCash.cout },
+          { name: '순증감 (통장이 실제로 늘거나 준 돈)', amount: plCash.cin - plCash.cout, highlight: true },
+          { name: '※ 위 손익은 장부(결제기록) 기준이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 실제로 번 돈은 이 순증감에 가깝습니다.', sub: true },
+        ]}] : []),
       ],
       summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
         // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정
         opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup,
-        seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count },
+        seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count,
+        deposit_pg_krw: plCash.pg, revenue_gap_krw: plGap,
+        cash_in_krw: plCash.cin, cash_out_krw: plCash.cout, cash_net_krw: plCash.cin - plCash.cout },
     };
   }
   else if (type === 'bs') {
