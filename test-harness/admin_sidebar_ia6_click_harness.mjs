@@ -170,10 +170,17 @@ check('그룹 이름을 바꿔도 «마지막으로 보던 항목» 키는 그�
 check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞다',
   /"시스템": "경영 지표·공지 발송·자료실·직원 권한·데이터 보관/.test(html));
 /* 🗺 「사이트 구조도」(2026-08-15 추가)는 카드가 아니라 다른 페이지다. 옛 사이드바의 「시스템」
-   그룹에만 있었는데 그 그룹은 ia6 가 감추므로 **아무도 볼 수 없었다**. 새 사이드바에도 있어야 한다. */
+   그룹에만 있었는데 그 그룹은 ia6 가 감추므로 **아무도 볼 수 없었다**. 새 사이드바에도 있어야 한다.
+   ⚠️ (2026-08-16) 목적지가 목차(site-structure.html) → «지도»(site-structure-map.html) 로 바뀌었다.
+      목차가 하던 일(표 3장 고르기)은 지도 맨 아래 «더 자세히» 선반으로 옮겼고, 목차 자체는
+      지도로 넘기는 문만 남겼다(사장님 승인). 이 검사가 지키려던 것 — «항목이 새 사이드바에
+      있고, 그 목적지가 실제로 존재한다» — 는 그대로다. 목차 파일도 계속 있어야 한다:
+      옛 링크·즐겨찾기가 404 가 되면 안 되고, 넘기는 코드가 거기 들어 있다. */
 check('시스템 그룹에 「사이트 구조도」가 있다 (옛 사이드바에만 있으면 아무도 못 본다)',
-  /ko: '사이트 구조도'[\s\S]{0,120}?href: '\/admin\/site-structure\.html'/.test(ia6));
-check('그 문서 페이지가 실제로 있다', existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
+  /ko: '사이트 구조도'[\s\S]{0,200}?href: '\/admin\/site-structure-map\.html'/.test(ia6));
+check('그 지도 페이지가 실제로 있다', existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure-map.html')));
+check('옛 목차 파일도 남아 있다 (지도로 넘기는 문 — 옛 링크가 404 가 되면 안 된다)',
+  existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
 
 /* 🗺 (2026-08-15 사장님) 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
    옛 동작(showAll)은 감춘 카드를 다시 보이게 할 뿐이라 **화면에 아무 변화가 없었다** —
