@@ -174,6 +174,37 @@ check('쉬운말 툴팁(GRP)의 「시스템」 설명이 지금 내용과 맞�
 check('시스템 그룹에 「사이트 구조도」가 있다 (옛 사이드바에만 있으면 아무도 못 본다)',
   /ko: '사이트 구조도'[\s\S]{0,120}?href: '\/admin\/site-structure\.html'/.test(ia6));
 check('그 문서 페이지가 실제로 있다', existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure.html')));
+
+/* 🗺 (2026-08-15 사장님) 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
+   옛 동작(showAll)은 감춘 카드를 다시 보이게 할 뿐이라 **화면에 아무 변화가 없었다** —
+   지금 보는 자리는 그대로고 카드는 화면 «아래»에 늘어날 뿐이다. 그래서 진짜 지도를 연다.
+   그리고 「무엇이 들어 있는지 음성이 안 나온다」 → 읽어 주고 «다 읽은 뒤에» 연다(먼저 옮기면 소리가 끊긴다). */
+console.log('\n[ ⑪ 「메뉴 지도」는 진짜 지도를 연다 + 내용을 읽어 준다 (2026-08-15) ]');
+{
+  const r15 = rd('../cloudflare-deploy/public/js/adm-r15.js');
+  check('🔴 눌러도 티가 안 나던 showAll 이 아니라 지도 페이지로 간다',
+    /MAP_HREF = '\/admin\/site-structure-map\.html'/.test(ia6) &&
+    /function openMenuMap/.test(ia6) && !/'__all'[\s\S]{0,120}?showAll\(\)/.test(ia6));
+  check('그 지도 문서가 실제로 있다',
+    existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure-map.html')));
+  check('무엇이 들어 있는지 읽어 준다 (한국어·영어 둘 다)',
+    /function menuMapSpeech/.test(ia6) && /손님, 학생, 부모님, 선생님, 운영자/.test(ia6) &&
+    /guests, students, parents, teachers and operators/.test(ia6));
+  check('🔴 다 읽은 «뒤에» 연다 — 먼저 옮기면 그 순간 소리가 끊긴다',
+    /admVoiceSay\(menuMapSpeech\(\), go\)/.test(ia6));
+  check('🔴 음성이 꺼져 있거나 소리가 안 나도 반드시 열린다 (안 그러면 또 «눌러도 안 열린다»)',
+    /if \(!speaking\) go\(\);/.test(ia6));
+  check('adm-r15: 다 읽으면 알려 주는 창구를 연다 (admVoiceSay)',
+    /window\.admVoiceSay = function\(text, onDone\)/.test(r15));
+  check('🔴 onDone 은 어떤 경우에도 한 번은 불린다 (안전장치 타이머)',
+    /if \(onDone\) setTimeout\(done, \d{4}\)/.test(r15) && /if \(!text \|\| !isOn\(\)\)\{ done\(\); return false; \}/.test(r15));
+  check('오디오·브라우저음성 어느 쪽으로 나가도 끝을 잡는다',
+    /a\.onended = function\(\)\{[^}]*done\(\)/.test(r15) && /u\.onend = onDone; u\.onerror = onDone;/.test(r15));
+  check('음성 안내가 「메뉴 지도」를 두 번 읽지 않는다 (ia6 가 읽으므로 r15 는 건너뛴다)',
+    /data-ia6-head'\) === '__all'\) return;/.test(r15));
+  const mv = html.match(/adm-r15\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-r15.js 버전이 4 이상 (?v=${mv ? mv[1] : '없음'})`, !!mv && Number(mv[1]) >= 4);
+}
 check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
   !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
 {

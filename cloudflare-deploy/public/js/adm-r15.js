@@ -42,38 +42,56 @@
   }
 
   var _lastU = null;   // 발화 중 GC 로 utterance 가 수거돼 소리가 끊기는 브라우저 버그 방지(참조 유지)
-  function _browserSpeak(text){    // 폴백: 브라우저 내장 음성(OS 에 해당 언어 음성 있을 때만 소리남)
+  function _browserSpeak(text, onDone){    // 폴백: 브라우저 내장 음성(OS 에 해당 언어 음성 있을 때만 소리남)
     try {
       var u = new SpeechSynthesisUtterance(text);
       if (isEnUI()){ u.lang = 'en-US'; if (enVoice) u.voice = enVoice; }
       else { u.lang = 'ko-KR'; if (koVoice) u.voice = koVoice; }
       u.rate = 1.05; u.pitch = 1;
+      if (onDone){ u.onend = onDone; u.onerror = onDone; }
       _lastU = u;
       try { synth.resume(); } catch(_){}
       synth.speak(u);
-    } catch(e){}
+    } catch(e){ if (onDone) onDone(); }
   }
-  function speak(text){
-    if (!text || !isOn()) return;
+  /* 🗺 (2026-08-15 사장님) 「메뉴 지도에 무엇이 들어 있는지 음성이 안 나온다」
+     이 함수는 지금까지 «말하고 끝» 이었다. 그런데 메뉴 지도는 누르면 **다른 페이지로 옮겨 간다** —
+     말을 시작해 놓고 페이지를 옮기면 그 순간 소리가 끊긴다(오디오 재생도, 브라우저 음성도).
+     → «다 읽으면 알려 주는» 창구(onDone)를 연다. 부르는 쪽(adm-ia6)이 다 읽은 뒤에 페이지를 옮긴다.
+     ⚠️ onDone 은 어떤 경우에도 «한 번은» 불려야 한다 — 소리가 안 나와도, 서버가 죽어도, 음성이
+        꺼져 있어도 부른다. 안 그러면 「눌렀는데 아무 데도 안 가는」 화면이 된다(그게 더 나쁘다).
+     ⚠️ 그래서 9초 안전장치를 둔다. 말이 길거나 브라우저가 onend 를 안 주는 경우가 실제로 있다. */
+  function speak(text, onDone){
+    var fired = false;
+    var done = function(){ if (fired) return; fired = true; if (onDone){ try { onDone(); } catch(e){} } };
+    if (!text || !isOn()){ done(); return false; }
     var mySeq = ++_seq, served = false;   // 연타 시 이전 안내 무효화
     try { synth.cancel(); } catch(_){}    // 진행 중이던 브라우저 폴백음성 중단
     try { if (audioEl) audioEl.pause(); } catch(_){}
     var a = ensureAudio();
+    if (onDone) setTimeout(done, 9000);   // 안전장치 — 무슨 일이 있어도 여기서 넘어간다
     // 1순위: 무료 서버 기계음 — fetch→blob→play (AI 운영비서와 동일한 방식).
     //   ※ audio.src 에 URL 직접 스트리밍은 SW/Range 상호작용으로 일부 환경서 재생이 stall(무음) 됨.
     //     blob(URL.createObjectURL)로 재생하면 그 문제를 완전히 회피 → 확실히 소리남. 실브라우저 검증완료.
     try {
       fetch(FREE_TTS + '?q=' + encodeURIComponent(text.slice(0, 600)) + '&lang=' + (isEnUI() ? 'en' : 'ko'))
         .then(function(r){ if(!r.ok) throw new Error('tts '+r.status); return r.blob(); })
-        .then(function(b){ if(mySeq!==_seq) return; if(!b || b.size<200) throw new Error('empty'); served = true;
-          if(!a){ _browserSpeak(text); return; }
+        .then(function(b){ if(mySeq!==_seq){ done(); return; } if(!b || b.size<200) throw new Error('empty'); served = true;
+          if(!a){ _browserSpeak(text, done); return; }
           try { if(a.src && a.src.indexOf('blob:')===0) URL.revokeObjectURL(a.src); } catch(_){}
           a.src = URL.createObjectURL(b);
-          var p = a.play(); if(p && p.catch) p.catch(function(){ if(mySeq===_seq) _browserSpeak(text); });
+          a.onended = function(){ if (mySeq === _seq) done(); };
+          a.onerror  = function(){ if (mySeq === _seq) done(); };
+          var p = a.play(); if(p && p.catch) p.catch(function(){ if(mySeq===_seq) _browserSpeak(text, done); else done(); });
         })
-        .catch(function(){ if(mySeq===_seq && !served) _browserSpeak(text); });   // 서버 실패 → 브라우저음성 폴백
-    } catch(e){ _browserSpeak(text); }
+        .catch(function(){ if(mySeq===_seq && !served) _browserSpeak(text, done); else done(); });   // 서버 실패 → 브라우저음성 폴백
+    } catch(e){ _browserSpeak(text, done); }
+    return true;
   }
+  /* 다른 스크립트가 «읽고 나서 무언가 하기» 를 할 수 있게 최소한만 연다.
+     반환값 true = 읽기 시작함(끝나면 onDone). false = 음성이 꺼져 있거나 읽을 말이 없음(onDone 은 이미 불렸다). */
+  window.admVoiceSay = function(text, onDone){ prime(); return speak(text, onDone); };
+  window.admVoiceIsOn = isOn;
 
   // 이모지/⭐신규 등 제거 → 자연스러운 낭독
   function clean(t){
@@ -182,7 +200,13 @@
     }
 
     var sub = t.closest('.ph85-sub');   if (sub){ describeSub(sub); return; }
-    var head = t.closest('.ph85-head'); if (head){ describeHead(head); return; }
+    var head = t.closest('.ph85-head');
+    if (head){
+      /* 🗺 「메뉴 지도」는 adm-ia6 가 «설명을 읽고 → 다 읽으면 지도를 여는» 순서로 직접 처리한다.
+         여기서도 읽으면 두 번 말하게 되고, 나중 것이 앞의 것을 취소해 «말하다 끊기는» 소리가 난다. */
+      if (head.getAttribute('data-ia6-head') === '__all') return;
+      describeHead(head); return;
+    }
   }, true);
 
   // 🔊 켜기/끄기 토글 버튼 (검색창/브랜드 아래에 삽입)
