@@ -390,6 +390,35 @@
     alignRelease = release;
   }
 
+  /* ── 🗺 메뉴 지도 열기 — «읽어 주고 → 그다음 연다» ────────────────────────────────
+     (2026-08-15 사장님) ① 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
+                        ② 「메뉴 지도에 무엇이 들어 있는지 음성이 안 나와. 이것도 추가해줘」
+     ①은 옛 동작이 «감춘 카드를 다시 보이게» 하는 것뿐이라 화면에 아무 변화가 없어서였다.
+       이제 진짜 지도 문서를 연다(/admin/site-structure-map.html — 사람 다섯 갈래로 그린 그림).
+     ②는 순서가 중요하다 — 말을 시작해 놓고 페이지를 옮기면 그 순간 소리가 끊긴다.
+       그래서 **다 읽은 뒤에** 옮긴다(adm-r15 의 admVoiceSay 가 다 읽으면 알려 준다).
+     ⚠️ 음성이 꺼져 있거나 소리가 안 나와도 **반드시 지도로 간다**. 안 그러면 또 «눌러도 안 열린다» 다.
+     ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 지도로 바로 간다. */
+  var MAP_HREF = '/admin/site-structure-map.html';
+
+  function menuMapSpeech() {
+    return isEn()
+      ? 'Menu map. A picture of every Mangoi screen, grouped by who uses it: guests, students, parents, teachers and operators. Opening the map now.'
+      : '메뉴 지도입니다. 망고아이의 모든 화면을 쓰는 사람에 따라 손님, 학생, 부모님, 선생님, 운영자 다섯 갈래로 나눠 그린 그림입니다. 지금 지도를 엽니다.';
+  }
+
+  function openMenuMap() {
+    var went = false;
+    var go = function () {
+      if (went) return; went = true;
+      try { location.href = MAP_HREF; } catch (e) { /* 무시 */ }
+    };
+    var speaking = false;
+    try { speaking = !!(window.admVoiceSay && window.admVoiceSay(menuMapSpeech(), go)); }
+    catch (e) { speaking = false; }
+    if (!speaking) go();          // 음성이 꺼져 있으면 곧바로 연다
+  }
+
   function showAll() {
     if (!managed) collect();
     managed.forEach(function (el) { el.classList.remove(HIDE); });
@@ -444,11 +473,16 @@
       frag.appendChild(grp);
     });
 
-    /* 🗺 메뉴 지도 — 모든 메뉴를 한 화면에. 아무도 «못 찾겠다»에 갇히지 않게.
-       (2026-08-15 사장님) 옛 이름은 「전체 보기」였다. 무엇이 보이는지가 이름에 없어서
-       «시스템 메뉴가 없어졌다»고 찾을 때 아무도 여기를 누르지 않았다.
-       ⚠️ 「사이트 지도」가 아니라 「메뉴 지도」다 — 관리자 화면은 admin.html «한 장» 안에
-          메뉴 카드가 들어 있는 구조라, 다른 페이지로 가는 것이 아니다. */
+    /* 🗺 메뉴 지도 — 「망고아이 사이트 지도」 문서로 간다(/admin/site-structure-map.html).
+       [옛 동작] 원래 이 자리는 「전체 보기」였고, 하는 일은 감춰 둔 카드를 전부 다시 보이게 하는
+         것뿐이었다. 그런데 그건 **화면에 아무 변화가 없다** — 지금 보고 있는 자리는 그대로고
+         카드는 화면 «아래»에 늘어날 뿐이라, 누른 사람 눈에는 아무 일도 안 일어난다.
+         2026-08-15 사장님: 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」 — 그 말 그대로다.
+       [지금] 실제로 «지도»를 연다. 같은 날 만들어진 그림 문서가 이미 있다(사람 5덩어리 · 화면 93개).
+       ⚠️ 카드 감춤을 푸는 기능(showAll)은 남아 있다 — 사이드바 검색창에 뭐든 입력하면 자동으로 풀린다
+          (wireSearch). 눌러도 티가 안 나는 버튼으로 사이드바 한 칸을 쓰지 않는 것뿐이다.
+       ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 «지도»로 바로 간다 —
+          이름이 「메뉴 지도」이므로 한 번에 지도가 나와야 한다. */
     var all = document.createElement('div');
     all.className = 'ph85-group';
     all.setAttribute('data-ia6', 'all');
@@ -561,10 +595,7 @@
       }
       var head = t.closest('[data-ia6-head]');
       if (head && head.getAttribute('data-ia6-head') === '__all') {
-        showAll();
-        try { localStorage.removeItem(LS_KEY); } catch (er) { /* 무시 */ }
-        document.querySelectorAll('#ph85-sidebar .ph85-sub.ia6-on')
-          .forEach(function (x) { x.classList.remove('ia6-on'); });
+        openMenuMap();
       }
       // 그 밖의 그룹 헤더 = 아코디언 → ph97 이 처리한다. 여기서 손대면 상쇄된다.
     }, true);   // ← 반드시 캡처. 버블로 두면 ph97 의 stopPropagation 에 막힌다.
