@@ -10,30 +10,46 @@
 //     · 기안·지출 / 결재 파일 → **없음** ← 이 파일
 //   그래서 그룹웨어를 «모듈째» 옮기지 않았다. 옮기면 이중이 되고 화면만 무거워진다.
 //
+// 🆕 2026-08-16 — 다단계 결재 · 자동화 · 열람등급
+//   경위: 결재함이 강사 화면(teacher.html 192KB) 안에 있었고, 정작 결재를 가장 많이 올리는
+//        필리핀 매니저 전용 화면(manager.html)에는 **결재가 한 줄도 없었다**. 매니저는 결재
+//        한 건 올리려고 자기 화면을 나가 10배 무거운 페이지를 받아야 했다.
+//        → 초경량 전용 화면 /work 를 신설하고, 이 API 가 그 화면 하나를 채운다.
+//   더한 것:
+//     ① 다단계 — approval_steps 표. 기존 1단계 건은 «단계가 1개인 결재»로 그대로 산다.
+//     ② 자동 점검 — 중복·예산·첨부누락·금액불일치. **계산만 한다. AI 안 쓴다.**
+//     ③ 자동 채움 — 영수증 판독(무료 비전 모델만) · 영어 음성 기안 · 한 줄 요약.
+//        전부 «초안»이다. 실패해도 직접 입력 경로가 그대로 남아 결재가 멈추지 않는다.
+//     ④ 열람등급 — 인사·급여는 경영진만. 예전엔 본사 계정이면 전원이 급여까지 봤다.
+//     ⑤ 마감·승격 — 시한을 넘기면 재알림 → 상급자 승격. cron 한도(5/5)가 꽉 차서
+//        기존 15분 트리거에 얹는다(index.ts scheduled).
+//
 // 왜 별도 파일인가:
 //   api-admin.ts 는 8,400줄이라 공동작업 충돌 반경이 크다(CLAUDE.md 4-2). 건드리지 않는다.
+//   기준값(금액·시한·경영진)은 한 번 더 떼어 approval-policy.ts 에 뒀다 — 운영하다 보면
+//   반드시 바뀌는 값이라, 바꿀 때 로직을 읽지 않아도 되게.
 //
 // 설계 판단:
 //   · 표 모양은 이미 운영 중인 schedule_change_requests(연기·변경 요청)를 그대로 따랐다.
 //     «올린다 → 대기 → 승인/반려 + 누가 언제 무슨 메모로» 는 검증된 형태다.
-//     다만 컬럼(schedule_id·orig_date…)이 수업 전용이라 표는 새로 판다. 재사용은 «모양»만.
 //   · 첨부는 textbook-files 와 같은 방식(R2 put + D1 행 + /raw 로 서빙). 새 버킷 안 만든다.
-//   · 화면은 admin.html(1MB)이 아니라 **/teacher(27KB)** 에 붙는다. 무거워지지 않게.
-//
-// 권한:
-//   · 올리기  = 본사 계정(hq/staff) 누구나.
-//   · 승인    = 본사 계정 중 **필리핀 매니저가 아닌 사람**, 그리고 **본인 요청이 아닐 것**.
-//     (필리핀 매니저가 올리고 한국 본사가 결재하는 실제 흐름 그대로.
-//      더 좁히려면 canApprove() 한 곳만 고치면 된다.)
-//   · 강사는 접근 불가 — 회사 지출 내역이 담긴다.
+//   · AI 초안 구조는 강사 수업일지(feedback_drafts)의 «초안 → 승인/수정» 을 그대로 따랐다.
+//   · ⚠️ D1 은 개발·운영이 **같은 DB** 다(CLAUDE.md 1-1). 그래서 여기서 하는 스키마 작업은
+//     CREATE TABLE IF NOT EXISTS 와 ALTER TABLE ADD COLUMN 뿐이다. 지우거나 바꾸지 않는다.
 // ────────────────────────────────────────────────────────────────────────────
 
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
+import {
+  REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
+  isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
+  type Stage, type Flag, type ActorLike,
+} from './approval-policy';
 
 interface ApprovalEnv {
   DB: D1Database;
   RECORDINGS?: R2Bucket;
+  AI?: any;
   [k: string]: any;
 }
 
@@ -43,9 +59,19 @@ const json = (data: any, status = 200): Response =>
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
   });
 
-const REQ_TYPES = ['expense', 'doc', 'leave'];
 const MAX_FILE = 10 * 1024 * 1024;                                  // 10MB — 결재 첨부는 영수증·문서 한 장
 const ALLOWED_EXT = ['pdf', 'jpg', 'jpeg', 'png', 'webp'];
+const MAX_OCR_BYTES = 3_000_000;                                    // 비전 모델 입력 상한 (wb-ocr 과 동일)
+const MAX_AUDIO_BYTES = 8_000_000;                                  // 음성 기안 — 30초 남짓
+
+/** 필리핀 매니저인가. 결재선 판정에 쓴다(정본은 auth-admin.PH_MANAGERS). */
+function isPhManager(actor: ActorLike): boolean {
+  return PH_MANAGERS.indexOf(String(actor?.username || '').toLowerCase()) >= 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 스키마 — 새 표는 만들고, 기존 표에는 «칸만 더한다». 지우거나 바꾸지 않는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
 
 let tableReady = false;
 const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
@@ -64,37 +90,338 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
   );
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_status ON approval_requests(status, created_at)`); } catch { /* 있으면 그만 */ }
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_appr_user ON approval_requests(requester_username, created_at)`); } catch { /* 있으면 그만 */ }
+
+  // 🆕 다단계·자동화용 칸. 이미 있으면 ALTER 가 에러를 내므로 하나씩 삼킨다.
+  //    (기존 행은 전부 NULL 로 들어오고, 아래 rowOf() 가 «1단계짜리»로 해석한다.)
+  const addCols = [
+    `ALTER TABLE approval_requests ADD COLUMN stage_seq INTEGER DEFAULT 1`,
+    `ALTER TABLE approval_requests ADD COLUMN stage_total INTEGER DEFAULT 1`,
+    `ALTER TABLE approval_requests ADD COLUMN deadline_at INTEGER`,
+    `ALTER TABLE approval_requests ADD COLUMN stage_due_at INTEGER`,
+    `ALTER TABLE approval_requests ADD COLUMN summary_ko TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN summary_en TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN ocr_amount REAL`,
+    `ALTER TABLE approval_requests ADD COLUMN flags TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN warned_at INTEGER`,
+    `ALTER TABLE approval_requests ADD COLUMN escalated_at INTEGER`,
+  ];
+  for (const sql of addCols) {
+    try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
+  }
+
+  // 결재 단계 — «누가 몇 번째로 무엇을 했는가». 전 이력이 여기 남는다.
+  await env.DB.exec(
+    `CREATE TABLE IF NOT EXISTS approval_steps (` +
+    `id INTEGER PRIMARY KEY AUTOINCREMENT, ` +
+    `request_id INTEGER NOT NULL, seq INTEGER NOT NULL, role TEXT NOT NULL, ` +
+    `status TEXT NOT NULL DEFAULT 'waiting', ` +
+    `decided_by TEXT, decided_at INTEGER, memo TEXT, started_at INTEGER)`
+  );
+  try { await env.DB.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_appr_step_uni ON approval_steps(request_id, seq)`); } catch { /* 있으면 그만 */ }
+
+  // 대결(위임) — 결재자가 부재일 때 그 기간 동안 대신 결재할 사람.
+  await env.DB.exec(
+    `CREATE TABLE IF NOT EXISTS approval_delegates (` +
+    `username TEXT PRIMARY KEY, delegate_to TEXT NOT NULL, ` +
+    `until_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`
+  );
+
   tableReady = true;
 });
 
-/** 본사 계정인가 — 올리기의 최소 조건. 강사·외부 조직은 여기서 걸러진다. */
-function isHqStaff(actor: any): boolean {
-  return !!actor?.ok && !actor.isTeacher && (actor.role === 'hq' || actor.role === 'staff');
+async function safe<T>(fn: () => Promise<T>, fb: T): Promise<T> {
+  try { return await fn(); } catch { return fb; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 결재자 찾기 — «이 단계를 처리할 수 있는 사람이 누구인가»
+ *
+ *   ⚠️ IN (...) 목록을 손으로 만들지 않는다(CLAUDE.md D1 바인드 한도 함정).
+ *      본사 계정은 많아야 수십 명이라, 한 번에 받아서 JS 로 거른다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+interface AccountRow { username: string; name: string | null }
+
+async function hqAccounts(env: ApprovalEnv): Promise<AccountRow[]> {
+  const rs = await safe(async () => await env.DB.prepare(
+    `SELECT a.username AS username, a.name AS name
+       FROM admin_scope s JOIN admin_account a ON a.username = s.username
+      WHERE s.scope_type = 'hq' LIMIT 200`
+  ).all<AccountRow>(), { results: [] as AccountRow[] } as any);
+  return (rs.results || []) as AccountRow[];
 }
 
 /**
- * 승인할 수 있는가.
- *   ① 본사 계정이고 ② 필리핀 매니저가 아니고 ③ 본인이 올린 건이 아닐 것.
- *   ③ 이 핵심이다 — 자기 지출을 자기가 승인하면 결재가 아니다.
+ * 이 역할 단계를 결재할 수 있는 사람들의 계정명.
+ *   exceptUser = 기안자. 자기 건은 자기가 결재할 수 없으므로 알림도 보내지 않는다.
  */
-function canApprove(actor: any, requesterUsername?: string | null): boolean {
-  if (!isHqStaff(actor)) return false;
-  if (PH_MANAGERS.indexOf(String(actor.username || '').toLowerCase()) >= 0) return false;
-  if (requesterUsername && String(requesterUsername) === String(actor.username)) return false;
-  return true;
+async function approversFor(env: ApprovalEnv, role: string, exceptUser?: string | null): Promise<string[]> {
+  const rows = await hqAccounts(env);
+  const out: string[] = [];
+  for (const r of rows) {
+    const u = String(r.username || '');
+    if (!u) continue;
+    if (exceptUser && u === String(exceptUser)) continue;
+    const actor: ActorLike = { ok: true, username: u, name: r.name, role: 'hq', isTeacher: false };
+    if (canDecideStage(actor, role as any, isPhManager(actor))) out.push(u);
+  }
+  return out;
 }
 
-/** 목록 한 줄 — 첨부의 R2 키는 절대 내보내지 않는다(내려받기는 전용 엔드포인트로만). */
-function row(r: any) {
+/** 지금 이 사람 대신 결재하도록 위임받은 사람이 있는가(대결). 없으면 빈 배열. */
+async function delegatesOf(env: ApprovalEnv, usernames: string[]): Promise<string[]> {
+  if (!usernames.length) return [];
+  const now = Date.now();
+  const rs = await safe(async () => await env.DB.prepare(
+    `SELECT username, delegate_to FROM approval_delegates WHERE until_at > ? LIMIT 100`
+  ).bind(now).all<{ username: string; delegate_to: string }>(), { results: [] as any[] } as any);
+  const out: string[] = [];
+  for (const r of (rs.results || [])) {
+    if (usernames.indexOf(String(r.username)) >= 0) out.push(String(r.delegate_to));
+  }
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 알림 — 기존 push_queue 를 그대로 쓴다. 새 채널을 만들지 않는다.
+ *   (sw.js 는 push 이벤트에서 /api/push/pending 으로 내용을 가져간다 — 이미 그렇게 동작 중)
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+async function notify(
+  env: ApprovalEnv, usernames: string[], title: string, body: string, reqId: number, tag: string
+): Promise<number> {
+  if (!usernames.length) return 0;
+  let sent = 0;
+  const url = '/work?id=' + reqId;
+  for (const u of usernames) {
+    const rs = await safe(async () => await env.DB.prepare(
+      `SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1 LIMIT 10`
+    ).bind(u).all<{ endpoint: string }>(), { results: [] as any[] } as any);
+    for (const s of (rs.results || [])) {
+      const ok = await safe(async () => {
+        await env.DB.prepare(
+          `INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at)
+           VALUES (?,?,?,?,?,?,?,?)`
+        ).bind(s.endpoint, title, body, url, null, null, tag + ':' + reqId, Date.now()).run();
+        return true;
+      }, false);
+      if (ok) sent++;
+    }
+  }
+  return sent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 자동화 — 무료 모델만 쓴다(2026-08-16 사장님 결정: 유료 판독 엔진 미사용).
+ *
+ *   ⚠️ 전부 «있으면 좋은 것»이다. 실패해도 결재는 정상 진행되어야 한다.
+ *      그래서 모든 호출이 try/catch 로 감싸여 있고, 실패는 null 을 돌려준다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 영수증 사진 → 금액·날짜·상점. 무료 비전 모델 2단(llama vision → llava). */
+async function readReceipt(env: ApprovalEnv, bytes: Uint8Array): Promise<{ amount: number | null; spent_at: string | null; vendor: string | null; text: string } | null> {
+  const AI = env.AI;
+  if (!AI) return null;
+  const prompt =
+    'This is a receipt photo. Reply with ONLY a JSON object, no prose: ' +
+    '{"amount": <total amount as a number, no currency symbol or commas>, ' +
+    '"date": "<YYYY-MM-DD or empty string>", "vendor": "<shop name or empty string>"}. ' +
+    'If you cannot read a field, use null for amount and "" for the others.';
+  const models = ['@cf/meta/llama-3.2-11b-vision-instruct', '@cf/llava-hf/llava-1.5-7b-hf'];
+  for (const m of models) {
+    const raw = await safe(async () => {
+      const r: any = await AI.run(m, { image: Array.from(bytes), prompt, max_tokens: 160 });
+      return String(r?.description || r?.response || '').trim();
+    }, '');
+    if (!raw) continue;
+    const obj = parseLooseJson(raw);
+    if (!obj) continue;
+    const amt = Number(String(obj.amount ?? '').toString().replace(/[^\d.]/g, ''));
+    const d = String(obj.date || '').trim();
+    return {
+      amount: isFinite(amt) && amt > 0 ? amt : null,
+      spent_at: /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : null,
+      vendor: String(obj.vendor || '').trim().slice(0, 60) || null,
+      text: raw.slice(0, 500),
+    };
+  }
+  return null;
+}
+
+/** 음성(영어) → 글자. 사장님 결정에 따라 영어 기준으로 안내한다. */
+async function transcribe(env: ApprovalEnv, bytes: Uint8Array): Promise<string | null> {
+  const AI = env.AI;
+  if (!AI) return null;
+  // 정확도가 높은 turbo 를 먼저, 실패하면 기본 whisper.
+  for (const m of ['@cf/openai/whisper-large-v3-turbo', '@cf/openai/whisper']) {
+    const t = await safe(async () => {
+      const r: any = await AI.run(m, { audio: Array.from(bytes) });
+      return String(r?.text || r?.transcript || '').trim();
+    }, '');
+    if (t) return t;
+  }
+  return null;
+}
+
+/** 받아쓴 문장 → 결재 초안(제목·분류·금액). 사람이 고칠 수 있는 «초안»일 뿐이다. */
+async function draftFromText(env: ApprovalEnv, text: string): Promise<any | null> {
+  const AI = env.AI;
+  if (!AI || !text) return null;
+  const kinds = TYPES.map(t => t.key).join('|');
+  const prompt =
+    'You turn a spoken note from an academy manager into an approval request draft.\n' +
+    'Note: "' + text.slice(0, 800) + '"\n' +
+    'Reply with ONLY JSON: {"req_type":"<' + kinds + '>","title":"<short title, max 60 chars>",' +
+    '"body":"<1-2 sentences of detail>","amount":<number or null>}\n' +
+    'Use "purchase" for buying things, "expense" for reimbursing money already spent, ' +
+    '"complaint" for parent/student complaints, "urgent" for emergencies, "doc" otherwise.';
+  return await safe(async () => {
+    const r: any = await AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'You reply with valid JSON only. No markdown, no code fences.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 300, temperature: 0.2,
+      response_format: { type: 'json_object' },
+    });
+    return parseLooseJson(r?.response ?? r?.result?.response ?? '');
+  }, null);
+}
+
+/**
+ * 결재자가 읽을 한 줄 요약. 결재당 **1회만** 부르고 저장한다(볼 때마다 다시 만들지 않는다).
+ *   ⚠️ 금액은 AI 가 만들지 않는다 — 화면이 쓰는 숫자는 전부 DB 값이다. 여기선 문장만.
+ */
+async function summarize(env: ApprovalEnv, r: any): Promise<{ ko: string; en: string } | null> {
+  const AI = env.AI;
+  if (!AI) return null;
+  const spec = typeSpec(r.req_type);
+  const facts =
+    'Category: ' + spec.en + '\n' +
+    'Requester: ' + (r.requester_name || r.requester_username) + '\n' +
+    (r.amount != null ? ('Amount: ' + normCurrency(r.currency) + ' ' + r.amount + '\n') : '') +
+    'Title: ' + String(r.title || '') + '\n' +
+    'Detail: ' + String(r.body || '(none)').slice(0, 600);
+  const prompt =
+    'Summarize this approval request in ONE short sentence, twice — once in English, once in Korean. ' +
+    'State what it is for and why, factually. Do not recommend approving or rejecting. ' +
+    'Do not invent numbers.\n\n' + facts + '\n\n' +
+    'Reply with ONLY JSON: {"en":"...","ko":"..."}';
+  return await safe(async () => {
+    const res: any = await AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        { role: 'system', content: 'You reply with valid JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 220, temperature: 0.2,
+      response_format: { type: 'json_object' },
+    });
+    const o = parseLooseJson(res?.response ?? res?.result?.response ?? '');
+    if (!o) return null;
+    const ko = String(o.ko || '').trim().slice(0, 300);
+    const en = String(o.en || '').trim().slice(0, 300);
+    return (ko || en) ? { ko, en } : null;
+  }, null);
+}
+
+/** Workers AI 응답은 객체일 때도, JSON 문자열일 때도, 앞뒤에 말이 붙을 때도 있다. 셋 다 받는다. */
+function parseLooseJson(raw: any): any | null {
+  if (raw && typeof raw === 'object') return raw;
+  const text = String(raw || '');
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { /* 아래에서 한 번 더 */ }
+  const m = text.match(/\{[\s\S]*\}/);
+  if (m) { try { return JSON.parse(m[0]); } catch { /* 포기 */ } }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 자동 점검용 조회 — 전부 계산이다. AI 를 부르지 않는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+async function gatherCheckFacts(
+  env: ApprovalEnv, requester: string, reqType: string, amount: number | null, currency: string
+): Promise<{ duplicateCount: number; monthTotal: number | null; medianAmount: number | null }> {
+  const now = Date.now();
+  const since30 = now - 30 * 86400_000;
+
+  // ① 같은 사람이 최근 30일 안에 올린 «같은 분류 · 같은 금액»
+  let duplicateCount = 0;
+  if (amount != null) {
+    const d: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_requests
+        WHERE requester_username = ? AND req_type = ? AND currency = ?
+          AND amount = ? AND created_at >= ? AND status != 'rejected'`
+    ).bind(requester, reqType, currency, amount, since30).first(), null);
+    duplicateCount = Number(d?.c || 0);
+  }
+
+  // ② 이번 달 같은 분류 승인 합계
+  const mStart = (() => { const t = new Date(now); return Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), 1); })();
+  const s: any = await safe(async () => await env.DB.prepare(
+    `SELECT IFNULL(SUM(amount), 0) AS s FROM approval_requests
+      WHERE req_type = ? AND currency = ? AND status = 'approved' AND created_at >= ?`
+  ).bind(reqType, currency, mStart).first(), null);
+  const monthTotal = s ? Number(s.s || 0) : null;
+
+  // ③ 평소 금액대 — 최근 같은 분류 20건의 중앙값
+  const rs = await safe(async () => await env.DB.prepare(
+    `SELECT amount FROM approval_requests
+      WHERE req_type = ? AND currency = ? AND amount IS NOT NULL AND status = 'approved'
+      ORDER BY created_at DESC LIMIT 20`
+  ).bind(reqType, currency).all<{ amount: number }>(), { results: [] as any[] } as any);
+  const nums = (rs.results || []).map((x: any) => Number(x.amount)).filter((n: number) => isFinite(n) && n > 0).sort((a: number, b: number) => a - b);
+  const medianAmount = nums.length ? nums[Math.floor(nums.length / 2)] : null;
+
+  return { duplicateCount, monthTotal, medianAmount };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 한 줄 만들기 — 첨부의 R2 키는 절대 내보내지 않는다(내려받기는 전용 엔드포인트로만).
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+function rowOf(r: any, steps?: any[]) {
+  const spec = typeSpec(r.req_type);
+  const total = Number(r.stage_total || 1);
+  const seq = Number(r.stage_seq || 1);
+  let flags: Flag[] = [];
+  try { if (r.flags) flags = JSON.parse(r.flags); } catch { flags = []; }
   return {
-    id: r.id, req_type: r.req_type, title: r.title, body: r.body, category: r.category,
+    id: r.id, req_type: r.req_type,
+    type_ko: spec.ko, type_en: spec.en,
+    title: r.title, body: r.body, category: r.category,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
     status: r.status, decided_by: r.decided_by, decided_at: r.decided_at,
     decide_memo: r.decide_memo, created_at: r.created_at,
+    stage_seq: seq, stage_total: total,
+    deadline_at: r.deadline_at || null, stage_due_at: r.stage_due_at || null,
+    overdue: !!(r.status === 'pending' && r.stage_due_at && Date.now() > Number(r.stage_due_at)),
+    escalated: !!r.escalated_at,
+    summary_ko: r.summary_ko || null, summary_en: r.summary_en || null,
+    flags,
+    steps: (steps || []).map((s: any) => ({
+      seq: s.seq, role: s.role, status: s.status,
+      decided_by: s.decided_by, decided_at: s.decided_at, memo: s.memo,
+    })),
   };
 }
+
+/** 이 건의 결재선에 이름이 오른 사람들 — 열람 판정에 쓴다. */
+async function chainOf(env: ApprovalEnv, reqId: number): Promise<{ steps: any[]; usernames: string[] }> {
+  const rs = await safe(async () => await env.DB.prepare(
+    `SELECT * FROM approval_steps WHERE request_id = ? ORDER BY seq LIMIT 20`
+  ).bind(reqId).all<any>(), { results: [] as any[] } as any);
+  const steps = rs.results || [];
+  const usernames: string[] = [];
+  for (const s of steps) if (s.decided_by) usernames.push(String(s.decided_by));
+  return { steps, usernames };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 라우터
+ * ═════════════════════════════════════════════════════════════════════════ */
 
 export async function handleApprovalApi(
   request: Request, url: URL, env: ApprovalEnv
@@ -105,7 +432,12 @@ export async function handleApprovalApi(
 
   const actor: any = await getAdminActor(request, env as any);
   if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
-  if (!isHqStaff(actor)) {
+
+  // 강사도 긴급·고객불만은 올릴 수 있어야 하므로, 여기서 통째로 막지 않는다.
+  //   대신 아래 각 엔드포인트가 분류별로 판정한다(canSubmit · canView).
+  //   ⚠️ index.ts 의 TEACHER_BLOCKED_PREFIXES 는 여전히 /api/approval 을 막고 있다.
+  //      강사에게 열어 준 경로만 거기서 예외로 빼 두었다.
+  if (!isHqStaff(actor) && !actor.isTeacher) {
     return json({
       ok: false, error: 'forbidden',
       message: '본사 계정만 사용할 수 있습니다.',
@@ -114,6 +446,86 @@ export async function handleApprovalApi(
   }
   await ensureTable(env);
 
+  const ph = isPhManager(actor);
+  const iAmExec = isExec(actor);
+
+  // ── 화면 한 번에 채우기 ───────────────────────────────────────────────────
+  //   /work 는 이 응답 하나로 첫 화면을 그린다. 회선이 느린 곳에서 왕복 횟수가 곧 체감 속도다.
+  if (method === 'GET' && path === '/api/approval/home') {
+    const me = String(actor.username);
+
+    // ① 내가 결재할 것 — 내 단계이고, 내가 올린 건이 아닌 것
+    const pendRs = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests
+        WHERE status = 'pending' AND requester_username != ?
+        ORDER BY (stage_due_at IS NOT NULL AND stage_due_at < ?) DESC, created_at ASC LIMIT 40`
+    ).bind(me, Date.now()).all<any>(), { results: [] as any[] } as any);
+
+    const inbox: any[] = [];
+    for (const r of (pendRs.results || [])) {
+      const seq = Number(r.stage_seq || 1);
+      const st = await safe(async () => await env.DB.prepare(
+        `SELECT role FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
+      ).bind(r.id, seq).first<{ role: string }>(), null as any);
+      // 단계 기록이 없는 옛 건은 «staff 1단계»로 본다.
+      const role = (st?.role || 'staff') as any;
+      if (!canDecideStage(actor, role, ph)) continue;
+      const ch = await chainOf(env, r.id);
+      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
+      inbox.push(rowOf(r, ch.steps));
+      if (inbox.length >= 20) break;
+    }
+
+    // ② 내가 올린 것
+    const mineRs = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT 15`
+    ).bind(me).all<any>(), { results: [] as any[] } as any);
+    const mine: any[] = [];
+    for (const r of (mineRs.results || [])) {
+      const ch = await chainOf(env, r.id);
+      mine.push(rowOf(r, ch.steps));
+    }
+
+    // ③ 🚨 긴급 소통 — 조직 전원이 본다(강사 포함). 결재 권한과 무관하게 «보이는» 것이 목적이다.
+    //    이게 없으면 강사·필리핀 매니저는 긴급 공지를 올릴 수는 있어도 남이 올린 것은 못 본다.
+    const urgRs = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests WHERE req_type = 'urgent' AND created_at >= ?
+        ORDER BY created_at DESC LIMIT 10`
+    ).bind(Date.now() - 7 * 86400_000).all<any>(), { results: [] as any[] } as any);
+    const urgent: any[] = [];
+    for (const r of (urgRs.results || [])) {
+      if (String(r.requester_username) === me) continue;         // 내가 올린 건은 ② 에 이미 있다
+      const ch = await chainOf(env, r.id);
+      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
+      urgent.push(rowOf(r, ch.steps));
+    }
+
+    // ④ 「지난번과 같이」 — 내가 최근에 올린 서로 다른 제목 3건
+    const seen: string[] = [];
+    const reuse: any[] = [];
+    for (const r of mine) {
+      const k = r.req_type + '|' + r.title;
+      if (seen.indexOf(k) >= 0) continue;
+      seen.push(k);
+      reuse.push({ req_type: r.req_type, title: r.title, body: r.body, amount: r.amount, currency: r.currency });
+      if (reuse.length >= 3) break;
+    }
+
+    return json({
+      ok: true,
+      me: {
+        username: actor.username, name: actor.name || null,
+        is_exec: iAmExec, is_ph_manager: ph, is_teacher: !!actor.isTeacher,
+      },
+      can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
+      pending: inbox.length,
+      overdue: inbox.filter((x: any) => x.overdue).length,
+      types: TYPES.filter(t => canSubmit(actor, t.key))
+                  .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount, wants_file: t.wantsFile })),
+      inbox, mine, reuse, urgent,
+    });
+  }
+
   // ── 올리기 (기안) ─────────────────────────────────────────────────────────
   //   multipart/form-data. 첨부는 없어도 된다(영수증 없는 기안이 실제로 더 많다).
   if (method === 'POST' && path === '/api/approval/requests') {
@@ -121,6 +533,13 @@ export async function handleApprovalApi(
       const form = await request.formData();
       const reqType = String(form.get('req_type') || 'expense');
       if (REQ_TYPES.indexOf(reqType) < 0) return json({ ok: false, error: 'bad_req_type', allowed: REQ_TYPES }, 400);
+      if (!canSubmit(actor, reqType)) {
+        return json({
+          ok: false, error: 'forbidden_type',
+          message: '이 분류는 올릴 수 없습니다.',
+          message_en: 'You cannot submit this category.',
+        }, 403);
+      }
 
       const title = String(form.get('title') || '').trim().slice(0, 200);
       if (!title) return json({ ok: false, error: 'title_required' }, 400);
@@ -128,9 +547,9 @@ export async function handleApprovalApi(
       const body = String(form.get('body') || '').trim().slice(0, 4000);
       const category = String(form.get('category') || '').trim().slice(0, 60) || null;
       const spentAt = String(form.get('spent_at') || '').trim().slice(0, 10) || null;
-      const currency = (String(form.get('currency') || 'PHP').toUpperCase() === 'KRW') ? 'KRW' : 'PHP';
+      const currency = normCurrency(String(form.get('currency') || 'PHP'));
 
-      // 금액: 지출 기안일 때만 의미가 있다. 숫자가 아니면 **0 으로 때우지 않고 거절**한다 —
+      // 금액: 지출·물품일 때만 의미가 있다. 숫자가 아니면 **0 으로 때우지 않고 거절**한다 —
       //   금액이 0 으로 들어간 지출 결재는 승인자가 눈치채기 어렵다.
       let amount: number | null = null;
       const rawAmount = String(form.get('amount') || '').replace(/[,\s]/g, '');
@@ -139,7 +558,13 @@ export async function handleApprovalApi(
         if (!isFinite(n) || n < 0) return json({ ok: false, error: 'bad_amount' }, 400);
         amount = n;
       }
-      if (reqType === 'expense' && amount == null) return json({ ok: false, error: 'amount_required' }, 400);
+      const spec = typeSpec(reqType);
+      if (spec.needsAmount && amount == null) return json({ ok: false, error: 'amount_required' }, 400);
+
+      // 화면이 영수증을 미리 읽어 뒀다면 그 값을 함께 받는다(금액 대조용).
+      let ocrAmount: number | null = null;
+      const rawOcr = String(form.get('ocr_amount') || '').replace(/[,\s]/g, '');
+      if (rawOcr) { const n = Number(rawOcr); if (isFinite(n) && n > 0) ocrAmount = n; }
 
       let fileKey: string | null = null, fileName: string | null = null;
       let fileExt: string | null = null, fileSize: number | null = null;
@@ -157,29 +582,81 @@ export async function handleApprovalApi(
         fileKey = key; fileName = String(file.name || '').slice(0, 200); fileExt = ext; fileSize = file.size;
       }
 
+      // 결재선·마감 — 사람이 고르지 않는다(approval-policy.stagesFor).
+      const stages: Stage[] = stagesFor(reqType, amount, currency);
+      const now = Date.now();
+      const deadline = deadlineMs(reqType, now, stages.length);
+      const stageDue = stageDeadlineMs(reqType, now);
+
+      // 자동 점검 — 계산만. 여기서 나온 표시가 결재자의 판단 재료가 된다.
+      const facts = await gatherCheckFacts(env, actor.username, reqType, amount, currency);
+      const flags = runChecks({
+        reqType, amount, currency, hasFile: !!fileKey, ocrAmount,
+        duplicateCount: facts.duplicateCount, monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
+      });
+
       const ins = await env.DB.prepare(
         `INSERT INTO approval_requests
            (req_type, requester_username, requester_name, title, body, category,
             amount, currency, spent_at, file_key, file_name, file_ext, file_size,
-            status, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`
+            status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?)`
       ).bind(reqType, actor.username, actor.name || null, title, body || null, category,
-             amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, Date.now()).run();
+             amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, now,
+             stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags)).run();
 
-      return json({ ok: true, id: ins.meta.last_row_id });
+      const reqId = Number(ins.meta.last_row_id);
+
+      // 단계 기록 — 1단계는 바로 열리고, 나머지는 대기.
+      for (const st of stages) {
+        await safe(async () => {
+          await env.DB.prepare(
+            `INSERT INTO approval_steps (request_id, seq, role, status, started_at)
+             VALUES (?, ?, ?, ?, ?)`
+          ).bind(reqId, st.seq, st.role, st.seq === 1 ? 'active' : 'waiting', st.seq === 1 ? now : null).run();
+          return true;
+        }, false);
+      }
+
+      // 한 줄 요약 — 결재당 1회. 실패해도 기안은 이미 저장된 뒤다.
+      const sum = await summarize(env, {
+        req_type: reqType, requester_name: actor.name, requester_username: actor.username,
+        amount, currency, title, body,
+      });
+      if (sum) {
+        await safe(async () => {
+          await env.DB.prepare(`UPDATE approval_requests SET summary_ko = ?, summary_en = ? WHERE id = ?`)
+            .bind(sum.ko || null, sum.en || null, reqId).run();
+          return true;
+        }, false);
+      }
+
+      // 1단계 결재자에게 알림(대결 포함).
+      const targets = await approversFor(env, stages[0].role, actor.username);
+      const deleg = await delegatesOf(env, targets);
+      for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
+      const spec2 = typeSpec(reqType);
+      await notify(
+        env, targets,
+        (spec2.en) + ' · ' + (actor.name || actor.username),
+        title.slice(0, 80),
+        reqId, 'approval'
+      );
+
+      return json({ ok: true, id: reqId, stages: stages.length, flags, summary: sum || null });
     } catch (e: any) {
       return json({ ok: false, error: 'submit_failed', detail: String(e?.message || e) }, 500);
     }
   }
 
-  // ── 목록 ──────────────────────────────────────────────────────────────────
-  //   scope=mine   내가 올린 것 (누구나)
-  //   scope=pending 결재 대기 (승인 권한자만)
-  //   scope=all    전체 (승인 권한자만)
+  // ── 목록 (구 화면 호환) ───────────────────────────────────────────────────
+  //   teacher.html 이 scope=mine · scope=pending 을 쓴다. 응답 모양을 바꾸지 않는다.
   if (method === 'GET' && path === '/api/approval/requests') {
+    if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
     const scope = url.searchParams.get('scope') || 'mine';
     const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 20));
-    const approver = canApprove(actor, null);
+    const me = String(actor.username);
+    const approver = !ph && isHqStaff(actor);
 
     if ((scope === 'pending' || scope === 'all') && !approver) {
       return json({ ok: false, error: 'forbidden_scope' }, 403);
@@ -187,27 +664,34 @@ export async function handleApprovalApi(
     let sql: string, binds: any[];
     if (scope === 'mine') {
       sql = `SELECT * FROM approval_requests WHERE requester_username = ? ORDER BY created_at DESC LIMIT ?`;
-      binds = [actor.username, limit];
+      binds = [me, limit];
     } else if (scope === 'pending') {
-      // 본인 요청은 결재함에서 뺀다 — 눌러도 거절될 버튼을 보여줄 이유가 없다.
+      // 본인 요청은 결재함에서 뺀다 — 눌러도 거절될 버튼을 보여 줄 이유가 없다.
       sql = `SELECT * FROM approval_requests WHERE status = 'pending' AND requester_username != ?
               ORDER BY created_at ASC LIMIT ?`;
-      binds = [actor.username, limit];
+      binds = [me, limit];
     } else {
       sql = `SELECT * FROM approval_requests ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`;
       binds = [limit];
     }
     const rs = await env.DB.prepare(sql).bind(...binds).all<any>().catch(() => ({ results: [] as any[] }));
 
-    // 결재함 배지용 대기 건수 — 승인 권한자에게만.
+    // 열람등급으로 한 번 더 거른다 — 인사·급여가 목록에 섞여 나가지 않게.
+    const items: any[] = [];
+    for (const r of (rs.results || [])) {
+      const ch = await chainOf(env, r.id);
+      if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) continue;
+      items.push(rowOf(r, ch.steps));
+    }
+
     let pending = 0;
     if (approver) {
-      const c: any = await env.DB.prepare(
+      const c: any = await safe(async () => await env.DB.prepare(
         `SELECT COUNT(*) AS c FROM approval_requests WHERE status='pending' AND requester_username != ?`
-      ).bind(actor.username).first().catch(() => null);
+      ).bind(me).first(), null);
       pending = Number(c?.c || 0);
     }
-    return json({ ok: true, can_approve: approver, pending, items: (rs.results || []).map(row) });
+    return json({ ok: true, can_approve: approver, pending, items });
   }
 
   // ── 승인 / 반려 ───────────────────────────────────────────────────────────
@@ -217,42 +701,115 @@ export async function handleApprovalApi(
     const cur: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
       .bind(id).first().catch(() => null);
     if (!cur) return json({ ok: false, error: 'not_found' }, 404);
-    if (!canApprove(actor, cur.requester_username)) {
+
+    // 이미 결재된 건을 덮어쓰지 않는다 — 두 사람이 동시에 눌렀을 때 나중 것이 먼저 것을 지운다.
+    if (cur.status !== 'pending') {
+      return json({ ok: false, error: 'already_decided', status: cur.status, decided_by: cur.decided_by }, 409);
+    }
+    if (String(cur.requester_username) === String(actor.username)) {
       return json({
         ok: false, error: 'forbidden',
         message: '본인이 올린 결재는 본인이 승인할 수 없습니다.',
         message_en: 'You cannot approve your own request.',
       }, 403);
     }
-    // 이미 결재된 건을 덮어쓰지 않는다 — 두 사람이 동시에 눌렀을 때 나중 것이 먼저 것을 지운다.
-    if (cur.status !== 'pending') {
-      return json({ ok: false, error: 'already_decided', status: cur.status, decided_by: cur.decided_by }, 409);
+
+    const seq = Number(cur.stage_seq || 1);
+    const total = Number(cur.stage_total || 1);
+    const stepRow: any = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
+    ).bind(id, seq).first(), null);
+    const role = (stepRow?.role || 'staff') as any;
+
+    // 전결 — 경영진은 중간 단계를 건너뛰고 바로 최종 결재할 수 있다.
+    const straightThrough = iAmExec && role !== 'exec';
+    if (!canDecideStage(actor, role, ph) && !straightThrough) {
+      return json({
+        ok: false, error: 'forbidden',
+        message: '이 단계를 결재할 권한이 없습니다.',
+        message_en: 'You cannot decide this stage.',
+      }, 403);
     }
+
     let payload: any = {};
     try { payload = await request.json(); } catch { /* 빈 본문 허용 */ }
     const decision = String(payload?.decision || '');
     if (decision !== 'approved' && decision !== 'rejected') return json({ ok: false, error: 'bad_decision' }, 400);
     const memo = String(payload?.memo || '').slice(0, 1000) || null;
 
-    // 조건부 UPDATE — status='pending' 일 때만 바뀐다(동시 클릭 방어를 DB 에서 한 번 더).
+    const now = Date.now();
+    const lastStage = (seq >= total) || straightThrough;
+    const finalStatus = (decision === 'rejected') ? 'rejected' : (lastStage ? 'approved' : 'pending');
+
+    // 조건부 UPDATE — status='pending' 이고 단계가 그대로일 때만 바뀐다(동시 클릭 방어를 DB 에서 한 번 더).
+    const nextSeq = (finalStatus === 'pending') ? seq + 1 : seq;
+    const nextDue = (finalStatus === 'pending') ? stageDeadlineMs(cur.req_type, now) : cur.stage_due_at;
     const up = await env.DB.prepare(
-      `UPDATE approval_requests SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ?
-        WHERE id = ? AND status = 'pending'`
-    ).bind(decision, actor.username, Date.now(), memo, id).run();
+      `UPDATE approval_requests
+          SET status = ?, decided_by = ?, decided_at = ?, decide_memo = ?,
+              stage_seq = ?, stage_due_at = ?
+        WHERE id = ? AND status = 'pending' AND IFNULL(stage_seq, 1) = ?`
+    ).bind(finalStatus, actor.username, now, memo, nextSeq, nextDue, id, seq).run();
     if (!up.meta.changes) return json({ ok: false, error: 'already_decided' }, 409);
-    return json({ ok: true, id, status: decision });
+
+    // 단계 기록
+    await safe(async () => {
+      await env.DB.prepare(
+        `UPDATE approval_steps SET status = ?, decided_by = ?, decided_at = ?, memo = ?
+          WHERE request_id = ? AND seq = ?`
+      ).bind(decision, actor.username, now, memo, id, seq).run();
+      return true;
+    }, false);
+
+    if (straightThrough && seq < total) {
+      // 전결이면 남은 단계를 «건너뜀»으로 닫는다 — 이력에 사실대로 남긴다.
+      await safe(async () => {
+        await env.DB.prepare(
+          `UPDATE approval_steps SET status = 'skipped', decided_by = ?, decided_at = ?, memo = ?
+            WHERE request_id = ? AND seq > ? AND status IN ('waiting','active')`
+        ).bind(actor.username, now, '전결', id, seq).run();
+        return true;
+      }, false);
+    }
+
+    if (finalStatus === 'pending') {
+      // 다음 단계 열기 + 그 단계 결재자에게 즉시 알림. 사람이 «전달»을 누르지 않는다.
+      await safe(async () => {
+        await env.DB.prepare(
+          `UPDATE approval_steps SET status = 'active', started_at = ? WHERE request_id = ? AND seq = ?`
+        ).bind(now, id, nextSeq).run();
+        return true;
+      }, false);
+      const nextStep: any = await safe(async () => await env.DB.prepare(
+        `SELECT role FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
+      ).bind(id, nextSeq).first(), null);
+      const targets = await approversFor(env, String(nextStep?.role || 'exec'), cur.requester_username);
+      const deleg = await delegatesOf(env, targets);
+      for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
+      await notify(env, targets, typeSpec(cur.req_type).en + ' · stage ' + nextSeq,
+                   String(cur.title || '').slice(0, 80), id, 'approval');
+    } else {
+      // 끝났으면 올린 사람에게 결과를 알린다.
+      await notify(env, [String(cur.requester_username)],
+                   decision === 'approved' ? 'Approved' : 'Rejected',
+                   String(cur.title || '').slice(0, 80), id, 'approval-result');
+    }
+
+    return json({ ok: true, id, status: finalStatus, stage_seq: nextSeq, stage_total: total, straight_through: straightThrough });
   }
 
   // ── 첨부 내려받기 ─────────────────────────────────────────────────────────
-  //   본인 요청이거나 승인 권한자만. 영수증에는 계좌·금액이 찍혀 있다.
+  //   본인 요청이거나 열람 권한자만. 영수증에는 계좌·금액이 찍혀 있다.
   const mFile = path.match(/^\/api\/approval\/requests\/(\d+)\/file$/);
   if (method === 'GET' && mFile) {
     const id = Number(mFile[1]);
     const r: any = await env.DB.prepare(`SELECT * FROM approval_requests WHERE id = ? LIMIT 1`)
       .bind(id).first().catch(() => null);
     if (!r || !r.file_key) return json({ ok: false, error: 'not_found' }, 404);
-    const mine = String(r.requester_username) === String(actor.username);
-    if (!mine && !canApprove(actor, r.requester_username)) return json({ ok: false, error: 'forbidden' }, 403);
+    const ch = await chainOf(env, id);
+    if (!canView(actor, r.req_type, r.requester_username, ch.usernames, ph)) {
+      return json({ ok: false, error: 'forbidden' }, 403);
+    }
     const r2 = env.RECORDINGS;
     if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
     const obj = await r2.get(r.file_key);
@@ -267,5 +824,141 @@ export async function handleApprovalApi(
     });
   }
 
+  // ── 영수증 판독 ───────────────────────────────────────────────────────────
+  //   무료 비전 모델만 쓴다(2026-08-16 결정). 실패해도 200 을 주고 ok:false 로 알린다 —
+  //   화면은 «직접 입력»으로 조용히 넘어가면 되고, 여기서 500 을 내면 오류로 보인다.
+  if (method === 'POST' && path === '/api/approval/ocr') {
+    const buf = await request.arrayBuffer().catch(() => null);
+    if (!buf || buf.byteLength === 0) return json({ ok: false, error: 'empty' }, 400);
+    if (buf.byteLength > MAX_OCR_BYTES) return json({ ok: false, error: 'too_large', max: MAX_OCR_BYTES }, 413);
+    const got = await readReceipt(env, new Uint8Array(buf));
+    if (!got) return json({ ok: false, error: 'unreadable' });
+    return json({ ok: true, ...got });
+  }
+
+  // ── 음성 기안 (영어) ──────────────────────────────────────────────────────
+  if (method === 'POST' && path === '/api/approval/voice') {
+    const buf = await request.arrayBuffer().catch(() => null);
+    if (!buf || buf.byteLength === 0) return json({ ok: false, error: 'empty' }, 400);
+    if (buf.byteLength > MAX_AUDIO_BYTES) return json({ ok: false, error: 'too_large', max: MAX_AUDIO_BYTES }, 413);
+    const text = await transcribe(env, new Uint8Array(buf));
+    if (!text) return json({ ok: false, error: 'unrecognized' });
+    const draft = await draftFromText(env, text);
+    return json({
+      ok: true, transcript: text,
+      draft: draft ? {
+        req_type: REQ_TYPES.indexOf(String(draft.req_type)) >= 0 ? String(draft.req_type) : 'doc',
+        title: String(draft.title || '').slice(0, 200),
+        body: String(draft.body || '').slice(0, 4000),
+        amount: (draft.amount != null && isFinite(Number(draft.amount))) ? Number(draft.amount) : null,
+      } : null,
+    });
+  }
+
+  // ── 대결(위임) 설정 ───────────────────────────────────────────────────────
+  if (method === 'POST' && path === '/api/approval/delegate') {
+    if (!isHqStaff(actor)) return json({ ok: false, error: 'forbidden' }, 403);
+    let b: any = {};
+    try { b = await request.json(); } catch { /* 빈 본문 = 해제 */ }
+    const to = String(b?.delegate_to || '').trim();
+    if (!to) {
+      await safe(async () => { await env.DB.prepare(`DELETE FROM approval_delegates WHERE username = ?`).bind(actor.username).run(); return true; }, false);
+      return json({ ok: true, cleared: true });
+    }
+    const days = Math.min(60, Math.max(1, Number(b?.days) || 7));
+    // 위임 대상이 실재하는 본사 계정인지 확인 — 오타로 결재가 사라지지 않게.
+    const rows = await hqAccounts(env);
+    if (!rows.some(r => String(r.username) === to)) return json({ ok: false, error: 'unknown_user' }, 400);
+    const until = Date.now() + days * 86400_000;
+    await env.DB.prepare(
+      `INSERT INTO approval_delegates (username, delegate_to, until_at, updated_at) VALUES (?,?,?,?)
+       ON CONFLICT(username) DO UPDATE SET delegate_to = excluded.delegate_to,
+         until_at = excluded.until_at, updated_at = excluded.updated_at`
+    ).bind(actor.username, to, until, Date.now()).run();
+    return json({ ok: true, delegate_to: to, until_at: until });
+  }
+
   return json({ ok: false, error: 'not_found' }, 404);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⏰ 마감 관리 — 시한을 넘긴 건을 재알림하고, 더 넘기면 경영진으로 승격한다.
+ *
+ *   cron 은 계정 한도 5/5 로 꽉 차서 새로 못 만든다(wrangler.toml 주석).
+ *   그래서 index.ts 의 기존 15분 트리거에 얹는다. 다른 작업과 격리되어 실패해도 번지지 않는다.
+ *
+ *   페널티는 «벌점»이 아니라 «가시성»이다 — 지연 건은 목록 맨 위에 표시되고,
+ *   승격되면 경영진 결재함에 올라간다. 숨겨진 지연이 없어지는 것이 목적이다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boolean; warned: number; escalated: number }> {
+  let warned = 0, escalated = 0;
+  try {
+    await ensureTable(env);
+    const now = Date.now();
+
+    // ① 단계 마감을 넘긴 건 — 하루에 한 번만 다시 알린다(warned_at 로 도배 방지).
+    const dueRs = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests
+        WHERE status = 'pending' AND stage_due_at IS NOT NULL AND stage_due_at < ?
+          AND (warned_at IS NULL OR warned_at < ?)
+        ORDER BY stage_due_at ASC LIMIT 30`
+    ).bind(now, now - 86400_000).all<any>(), { results: [] as any[] } as any);
+
+    for (const r of (dueRs.results || [])) {
+      const seq = Number(r.stage_seq || 1);
+      const st: any = await safe(async () => await env.DB.prepare(
+        `SELECT role FROM approval_steps WHERE request_id = ? AND seq = ? LIMIT 1`
+      ).bind(r.id, seq).first(), null);
+      const targets = await approversFor(env, String(st?.role || 'staff'), r.requester_username);
+      const deleg = await delegatesOf(env, targets);
+      for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
+      await notify(env, targets, 'Overdue approval',
+                   String(r.title || '').slice(0, 80), r.id, 'approval-late');
+      await safe(async () => {
+        await env.DB.prepare(`UPDATE approval_requests SET warned_at = ? WHERE id = ?`).bind(now, r.id).run();
+        return true;
+      }, false);
+      warned++;
+    }
+
+    // ② 마감 이틀을 넘긴 건 — 경영진 결재함으로 승격. 원 결재자에게도 알린다.
+    const escRs = await safe(async () => await env.DB.prepare(
+      `SELECT * FROM approval_requests
+        WHERE status = 'pending' AND stage_due_at IS NOT NULL AND stage_due_at < ?
+          AND escalated_at IS NULL
+        ORDER BY stage_due_at ASC LIMIT 20`
+    ).bind(now - 2 * 86400_000).all<any>(), { results: [] as any[] } as any);
+
+    // ⚠️ 승격 대상(경영진)이 한 명도 없으면 승격하지 않는다.
+    //    바꿔 버리면 «아무도 결재할 수 없는 단계»가 되어 결재가 영영 멈춘다.
+    //    (EXEC_USERNAMES 설정이 비어 있거나 계정명이 바뀐 경우 — approval-policy.ts 참고)
+    const execPool = await approversFor(env, 'exec', null);
+    if (!execPool.length && (escRs.results || []).length) {
+      console.warn('[approval-sla] 경영진 계정이 없어 승격을 건너뜀 — approval-policy.EXEC_USERNAMES 확인 필요');
+    }
+
+    for (const r of (execPool.length ? (escRs.results || []) : [])) {
+      const seq = Number(r.stage_seq || 1);
+      // 지금 단계를 경영진 단계로 바꾼다 — 새 단계를 만들지 않는다(이력이 헝클어지지 않게).
+      await safe(async () => {
+        await env.DB.prepare(`UPDATE approval_steps SET role = 'exec' WHERE request_id = ? AND seq = ? AND status = 'active'`)
+          .bind(r.id, seq).run();
+        return true;
+      }, false);
+      await safe(async () => {
+        await env.DB.prepare(`UPDATE approval_requests SET escalated_at = ? WHERE id = ?`).bind(now, r.id).run();
+        return true;
+      }, false);
+      const execs = await approversFor(env, 'exec', r.requester_username);
+      await notify(env, execs, 'Escalated — overdue',
+                   String(r.title || '').slice(0, 80), r.id, 'approval-esc');
+      escalated++;
+    }
+
+    return { ok: true, warned, escalated };
+  } catch (e) {
+    console.warn('[approval-sla] sweep failed:', (e as any)?.message || e);
+    return { ok: false, warned, escalated };
+  }
 }

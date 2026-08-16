@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light">
+<!-- 한자 글꼴 통일 — 화면마다 한자가 다른 모양으로 뜨는 것을 막는다(test-harness/hanzi_font_harness).
+     unicode-range 가 한자 대역으로 제한돼 있어, 한자가 실제로 나올 때만 내려받는다.
+     즉 한국어·영어만 쓰는 이 화면에서는 요청이 0건이라 «외부 리소스 0개» 계약과 충돌하지 않는다. -->
+<style>@font-face{font-family:'MangoiHanSC';src:url('/fonts/mangoi-han-sc.woff2') format('woff2');font-weight:100 900;font-display:swap;unicode-range:U+2E80-2EFF,U+3000-303F,U+3400-4DBF,U+4E00-9FFF,U+F900-FAFF,U+FF00-FFEF,U+0100-017F,U+01CD-01DC;}</style>
+<title>Approvals · Mangoi</title>
+<!--
+  ══════════════════════════════════════════════════════════════════════════════
+  🧾 결재함 — 초경량 전용 화면  (2026-08-16)
+
+  왜 만들었나 — 실측 근거
+    결재 API(src/api-approval.ts)는 2026-08-05 부터 있었다. 그런데 결재함 UI 가
+    **강사 화면 teacher.html(192KB) 안**에 들어 있었고, 강사는 정작 403 이라 못 본다.
+    그리고 결재를 가장 많이 올리는 필리핀 매니저 전용 화면 manager.html(72KB)에는
+    **결재 코드가 0줄**이었다(grep approval = 0).
+      → 매니저는 결재 한 건 올리려고 자기 경량 화면을 나가서 10배 무거운 강사 화면을
+        받아야 했다. 「경로가 복잡하다」는 지적의 실체가 이것이다.
+    이 화면은 그 경로를 «로그인 → 여기» 한 걸음으로 만든다.
+
+  ⚠️ 설계 계약 — manager.html · teacher.html 과 동일하다. 깨는 순간 존재 이유가 사라진다.
+     1. 외부 리소스 0개. link·script src·웹폰트·CDN·아이콘팩 전부 금지.
+     2. 애니메이션·transition 금지. 저사양 기기에서 렉이고, 백그라운드 탭에서 멈춰
+        요소가 영영 안 보이는 사고가 난다(과거 실사고).
+     3. 첫 화면은 API **1회**로 끝낸다(/api/approval/home 이 결재함 전체를 한 번에 준다).
+        회선이 느린 필리핀에서 왕복 횟수가 곧 체감 속도다.
+     4. 이모지 금지 — Win10·매니저 단말에서 두부(□)로 뜬다. 표시는 글자와 CSS 로만.
+     5. 한/영은 사전 파일이 아니라 data-en/data-ko 속성으로. 기본은 영어(필리핀 다수).
+        ⚠️ JS 로 그리는 라벨은 data-en/data-ko 도 같이 갱신해야 언어 전환이 안 깨진다
+           (CLAUDE.md 함정 — textContent 대입은 i18n 루프가 못 고친다).
+     6. 어두운 화면은 버튼으로만. 낮/밤 자동전환 금지(2026-07-18 사장님 요청).
+
+  자동화 — 「사람은 판단만, 손가락은 클릭만」
+     · 영수증 사진 → 서버가 금액·날짜·상점을 읽어 칸을 채운다. 사람은 «맞나» 보고 누른다.
+     · 음성(영어) → 받아쓰기 → 제목·분류·금액 초안. 역시 고칠 수 있는 «초안»이다.
+     · 반려 사유도 버튼 3개. 타이핑은 필요할 때만.
+     ⚠️ 전부 실패해도 직접 입력 경로가 그대로 남는다 — 자동화는 «빠른 길»이지 «유일한 길»이 아니다.
+
+  끊김 대응(필리핀 — 아픈 건 «느린 것»이 아니라 «끊기는 것»: 정전·태풍)
+     · 마지막 목록을 기기에 저장해 두고 열자마자 먼저 그린다.
+     · 승인·반려가 전송에 실패하면 큐에 담아 두고 연결되면 자동으로 다시 보낸다.
+       서버가 «이미 결재됨(409)»을 주면 성공으로 친다 — 두 번 처리되지 않는다.
+       (teacher.html 의 검증된 outbox 패턴을 그대로 가져왔다)
+
+  세션: 기존 관리자와 동일한 HttpOnly 쿠키. 별도 로그인 없음.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+<script>
+/* 저장된 어두운 화면을 첫 그리기 «전»에 적용 — 깜빡임 방지. manager.html 과 같은 키를 쓴다. */
+try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentElement.classList.add('dark');}catch(e){}
+</script>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:rgba(0,0,0,.06)}
+html,body{margin:0;padding:0}
+body{
+  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","Malgun Gothic",Arial,sans-serif;
+  font-size:16px;line-height:1.5;color:#16202c;background:#f4f6f8;
+  -webkit-text-size-adjust:100%;
+}
+html.dark body{color:#e6edf3;background:#0f1620}
+
+/* ── 머리말 ─────────────────────────────────────────────── */
+.top{background:#fff;border-bottom:1px solid #dde3ea;padding:10px 14px}
+html.dark .top{background:#16202c;border-bottom-color:#26313f}
+.top h1{margin:0 0 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tbar{display:flex;gap:6px;flex-wrap:wrap}
+.tbtn{
+  font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
+  border-radius:7px;cursor:pointer;min-height:36px
+}
+html.dark .tbtn{background:#1d2836;border-color:#33404f;color:#e6edf3}
+.tbtn:hover{background:#eef2f6}
+html.dark .tbtn:hover{background:#26313f}
+.tbtn-out{color:#a4341f;border-color:#e0b6ad}
+html.dark .tbtn-out{color:#f0907c;border-color:#5a3129}
+a.tbtn{text-decoration:none;display:inline-block;line-height:22px}
+
+.badge{
+  display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:20px;
+  background:#0b6e63;color:#fff;vertical-align:middle
+}
+.badge.zero{background:#8894a4}
+.badge.late{background:#a4341f}
+
+/* ── 끊김 표시 ──────────────────────────────────────────── */
+.offbar{display:none;background:#fbeed2;color:#6b4a08;padding:8px 14px;font-size:13.5px;border-bottom:1px solid #e6d3a4}
+body.is-off .offbar{display:block}
+html.dark .offbar{background:#3a2c10;color:#f0cf8a;border-bottom-color:#5a4620}
+.outbox{display:none;background:#dcece9;color:#0b5147;padding:8px 14px;font-size:13.5px;border-bottom:1px solid #b6d5cf}
+html.dark .outbox{background:#12332f;color:#7fd6c8;border-bottom-color:#215048}
+
+/* ── 본문 ───────────────────────────────────────────────── */
+.wrap{max-width:820px;margin:0 auto;padding:12px 12px 60px}
+h2{margin:20px 0 8px;font-size:15px;font-weight:700;color:#4a5765;display:flex;align-items:center;gap:8px}
+html.dark h2{color:#9fb0c2}
+.empty{color:#7b8794;font-size:14px;padding:14px 2px}
+html.dark .empty{color:#8b98a8}
+
+/* ── 결재 한 줄 ─────────────────────────────────────────── */
+.item{background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:12px 14px;margin-bottom:9px}
+html.dark .item{background:#16202c;border-color:#26313f}
+.item.hot{border-left:4px solid #a4341f}
+.item.busy{opacity:.5}
+.ihead{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px}
+.chip{
+  font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:5px;
+  background:#e8eef4;color:#42536a;white-space:nowrap
+}
+html.dark .chip{background:#233043;color:#a8bcd2}
+.chip.warn{background:#fbeed2;color:#7a5406}
+html.dark .chip.warn{background:#3a2c10;color:#f0cf8a}
+.chip.late{background:#f7dfdc;color:#8e2b20}
+html.dark .chip.late{background:#3a1a16;color:#f0907c}
+.ititle{font-weight:650;font-size:15.5px;flex:1;min-width:140px;word-break:break-word}
+.iamt{font-weight:700;font-size:16px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.imeta{font-size:13px;color:#6b7785;margin-bottom:5px}
+html.dark .imeta{color:#8b98a8}
+.isum{font-size:14px;color:#2f3d4d;margin:5px 0;line-height:1.55}
+html.dark .isum{color:#c3cfdb}
+.flags{display:flex;flex-direction:column;gap:3px;margin:6px 0}
+.flag{font-size:13px;padding:5px 9px;border-radius:6px;background:#fbeed2;color:#6b4a08}
+html.dark .flag{background:#3a2c10;color:#f0cf8a}
+.flag.info{background:#e8eef4;color:#42536a}
+html.dark .flag.info{background:#233043;color:#a8bcd2}
+.steps{font-size:12.5px;color:#7b8794;margin-top:4px}
+html.dark .steps{color:#8b98a8}
+
+/* ── 결정 버튼 — 크게, 둘만 ─────────────────────────────── */
+.acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.big{
+  font:inherit;font-size:15px;font-weight:700;padding:12px 18px;border-radius:8px;border:1px solid transparent;
+  cursor:pointer;min-height:48px;flex:1;min-width:120px
+}
+.ok{background:#0b6e63;color:#fff}
+.ok:hover{background:#095b52}
+.no{background:#fff;color:#a4341f;border-color:#e0b6ad}
+html.dark .no{background:#1d2836;border-color:#5a3129;color:#f0907c}
+.no:hover{background:#f9ecea}
+html.dark .no:hover{background:#3a1a16}
+.lnk{font-size:13.5px;color:#0b6e63;text-decoration:underline;text-underline-offset:2px}
+html.dark .lnk{color:#4fc0b0}
+
+/* 반려 사유 — 버튼으로. 타이핑은 필요할 때만 */
+.why{margin-top:9px;padding:10px;border:1px dashed #ccd4de;border-radius:8px}
+html.dark .why{border-color:#33404f}
+.why b{display:block;font-size:13px;margin-bottom:7px;color:#4a5765}
+html.dark .why b{color:#9fb0c2}
+.whybtns{display:flex;gap:6px;flex-wrap:wrap}
+.whybtns button{font:inherit;font-size:13.5px;padding:9px 12px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:42px;color:#16202c}
+html.dark .whybtns button{background:#1d2836;border-color:#33404f;color:#e6edf3}
+
+/* ── 올리기 ─────────────────────────────────────────────── */
+.kinds{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px}
+.kind{
+  font:inherit;font-size:15px;font-weight:650;padding:16px 10px;border-radius:9px;
+  border:1px solid #ccd4de;background:#fff;cursor:pointer;min-height:58px;color:#16202c
+}
+html.dark .kind{background:#16202c;border-color:#33404f;color:#e6edf3}
+.kind:hover{background:#eef2f6}
+html.dark .kind:hover{background:#26313f}
+.kind.on{background:#0b6e63;color:#fff;border-color:#0b6e63}
+
+.form{background:#fff;border:1px solid #dde3ea;border-radius:9px;padding:14px;margin-bottom:10px}
+html.dark .form{background:#16202c;border-color:#26313f}
+.row{margin-bottom:11px}
+.row label{display:block;font-size:13px;font-weight:650;margin-bottom:4px;color:#4a5765}
+html.dark .row label{color:#9fb0c2}
+input[type=text],input[type=number],input[type=date],textarea{
+  width:100%;font:inherit;font-size:16px;padding:11px;border:1px solid #ccd4de;border-radius:7px;
+  background:#fff;color:#16202c;min-height:46px
+}
+html.dark input,html.dark textarea{background:#1d2836;border-color:#33404f;color:#e6edf3}
+textarea{min-height:78px;resize:vertical}
+.help{font-size:12.5px;color:#7b8794;margin-top:3px}
+html.dark .help{color:#8b98a8}
+.auto{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.auto button{font:inherit;font-size:14px;font-weight:650;padding:12px 14px;border:1px solid #0b6e63;background:#dcece9;color:#0b5147;border-radius:8px;cursor:pointer;min-height:48px;flex:1;min-width:150px}
+html.dark .auto button{background:#12332f;color:#7fd6c8;border-color:#2f6c62}
+.auto button[disabled]{opacity:.55;cursor:default}
+.cur{display:flex;gap:6px}
+.cur button{font:inherit;font-size:14px;padding:10px 16px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:44px;color:#16202c}
+html.dark .cur button{background:#1d2836;border-color:#33404f;color:#e6edf3}
+.cur button.on{background:#0b6e63;color:#fff;border-color:#0b6e63}
+.reuse{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.reuse button{font:inherit;font-size:14px;text-align:left;padding:11px 13px;border:1px solid #ccd4de;background:#fff;border-radius:7px;cursor:pointer;min-height:46px;color:#16202c}
+html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
+
+.toast{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);max-width:92%;
+  background:#16202c;color:#fff;padding:11px 16px;border-radius:8px;font-size:14px;display:none;z-index:50
+}
+.toast.show{display:block}
+[hidden]{display:none !important}   /* 작성자 CSS 가 display 를 정하면 [hidden] 이 진다 — CLAUDE.md 함정 */
+</style>
+</head>
+<body>
+
+<div class="top">
+  <h1>
+    <span data-en="Approvals" data-ko="결재함">Approvals</span>
+    <span id="badge" class="badge zero">0</span>
+  </h1>
+  <div class="tbar">
+    <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
+    <button class="tbtn" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
+    <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
+    <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
+    <a class="tbtn" href="/manager"><span data-en="Dashboard" data-ko="대시보드">Dashboard</span></a>
+    <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
+  </div>
+</div>
+
+<div class="offbar" data-en="Offline — showing the last information received. Press Refresh when you reconnect."
+     data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결되면 새로고침을 눌러 주세요.">Offline</div>
+<div class="outbox" id="outboxNote" hidden></div>
+
+<div class="wrap">
+
+  <h2 id="urgentHead" hidden><span data-en="Urgent" data-ko="긴급 소통">Urgent</span></h2>
+  <div id="urgent"></div>
+
+  <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
+  <div id="inbox"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+
+  <h2><span data-en="Submit a request" data-ko="결재 올리기">Submit a request</span></h2>
+  <div id="kinds" class="kinds"></div>
+  <div id="reuse" class="reuse"></div>
+  <div id="form" class="form" hidden></div>
+
+  <h2><span data-en="My requests" data-ko="내가 올린 것">My requests</span></h2>
+  <div id="mine"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ── 언어 — 기본 영어(필리핀 매니저가 다수). 공통 키는 mangoi_lang. ─────────── */
+var LANG = 'en';
+try {
+  var saved = localStorage.getItem('mangoi_lang');
+  if (saved === 'ko' || saved === 'en') LANG = saved;
+  else if ((navigator.language || '').indexOf('ko') === 0) LANG = 'ko';
+} catch (e) {}
+function EN(){ return LANG === 'en'; }
+function T(en, ko){ return EN() ? en : ko; }
+
+function applyLang(){
+  document.documentElement.lang = LANG;
+  var n = document.querySelectorAll('[data-en]');
+  for (var i = 0; i < n.length; i++) n[i].textContent = EN() ? n[i].getAttribute('data-en') : n[i].getAttribute('data-ko');
+  document.getElementById('lang').textContent = EN() ? 'KO' : 'EN';
+  repaint();
+}
+window.toggleLang = function(){
+  LANG = EN() ? 'ko' : 'en';
+  try { localStorage.setItem('mangoi_lang', LANG); localStorage.setItem('mangoi_lang_by', 'user'); } catch (e) {}
+  applyLang();
+};
+
+/* ── 어두운 화면 — 버튼으로만. 자동전환 금지. ──────────────────────────────── */
+var MODE = 'light';
+try { if (localStorage.getItem('mangoi_manager_theme') === 'dark') MODE = 'dark'; } catch (e) {}
+function applyMode(){
+  document.documentElement.classList.toggle('dark', MODE === 'dark');
+  var s = document.getElementById('modeLbl');
+  if (s) {
+    var en = MODE === 'dark' ? 'Light' : 'Dark';
+    var ko = MODE === 'dark' ? '밝게' : '어둡게';
+    // ⚠️ data-en/data-ko 도 같이 갱신 — 안 하면 언어 전환 때 라벨이 되돌아간다(CLAUDE.md 함정)
+    s.setAttribute('data-en', en); s.setAttribute('data-ko', ko);
+    s.textContent = EN() ? en : ko;
+  }
+}
+window.toggleMode = function(){
+  MODE = (MODE === 'dark') ? 'light' : 'dark';
+  try { localStorage.setItem('mangoi_manager_theme', MODE); } catch (e) {}
+  applyMode();
+};
+
+/* ── 잡동사니 ─────────────────────────────────────────────────────────────── */
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function money(v, cur){
+  if (v == null || v === '') return '';
+  var n = Math.round(Number(v) || 0).toLocaleString('en-US');
+  return (String(cur).toUpperCase() === 'KRW' ? '₩' : '₱') + n;
+}
+function when(ms){
+  if (!ms) return '';
+  var d = new Date(Number(ms));
+  var p = function(x){ return (x < 10 ? '0' : '') + x; };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+function offline(on){ document.body.classList.toggle('is-off', !!on); }
+var toastT = null;
+function toast(msg){
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  if (toastT) clearTimeout(toastT);
+  toastT = setTimeout(function(){ t.className = 'toast'; }, 3200);
+}
+
+/* ── 상태 ─────────────────────────────────────────────────────────────────── */
+var CACHE_KEY = 'mangoi_work_home_v1';
+var D = null;                       // 마지막으로 받은 /api/approval/home
+var PICK = null;                    // 고른 분류
+var CUR = 'PHP';
+var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
+var FILE = null;                    // 첨부할 파일 (사진 축소본)
+var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
+try {
+  var q = location.search.match(/[?&]id=(\d+)/);
+  if (q) FOCUS_ID = Number(q[1]);
+} catch (e) {}
+
+/* ── 첫 화면 — API 1회 ────────────────────────────────────────────────────── */
+function load(){
+  return fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function(r){
+      if (r.status === 401 || r.status === 403) { location.href = '/admin/login?next=%2Fwork'; throw new Error('auth'); }
+      return r.json();
+    })
+    .then(function(j){
+      if (!j || j.ok === false) throw new Error((j && j.error) || 'load_failed');
+      D = j; offline(false);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(j)); } catch (e) {}
+      repaint();
+      return j;
+    })
+    .catch(function(err){
+      if (String(err && err.message) === 'auth') throw err;
+      offline(true);
+      if (!D) {
+        // 마지막으로 성공했던 값이라도 그린다 — 흰 화면보다 낫다
+        try {
+          var c = localStorage.getItem(CACHE_KEY);
+          if (c) { D = JSON.parse(c); repaint(); return D; }
+        } catch (e) {}
+        document.getElementById('inbox').innerHTML =
+          '<div class="empty">' + esc(T('Could not load. Check your connection and press Refresh.',
+                                        '불러오지 못했습니다. 연결을 확인하고 새로고침을 눌러 주세요.')) + '</div>';
+      }
+      throw err;
+    });
+}
+window.reloadAll = function(){ load().catch(function(){}); };
+
+/* ── 그리기 ───────────────────────────────────────────────────────────────── */
+function repaint(){
+  if (!D) return;
+  paintBadge();
+  paintKinds();
+  paintReuse();
+  // 🚨 긴급 소통 — 남이 올린 것 중 내가 볼 수 있는 것. 결재 권한과 무관하게 «보이는» 것이 목적이다.
+  //    (내가 이미 결재할 수 있는 긴급 건은 아래 결재함에 뜨므로 여기서는 뺀다 — 같은 줄이 두 번 나오지 않게)
+  var urg = (D.urgent || []).filter(function(u){
+    return !(D.inbox || []).some(function(x){ return x.id === u.id; });
+  });
+  document.getElementById('urgentHead').hidden = !urg.length;
+  document.getElementById('urgent').innerHTML = urg.length
+    ? urg.map(function(r){ return itemHtml(r, false); }).join('')
+    : '';
+
+  paintList('inbox', D.inbox || [], true);
+  paintList('mine', D.mine || [], false);
+  paintOutbox();
+  paintPushBtn();
+  // 이미 권한을 준 사람은 조용히 구독을 되살린다(기기를 바꾸거나 캐시가 지워졌을 수 있다).
+  if (!pushOn && pushReady() && Notification.permission === 'granted' && D.me && D.me.username) {
+    pushOn = true;                       // 중복 호출 방지 — 실패하면 아래에서 되돌린다
+    subscribePush().then(function(ok){ if (!ok) pushOn = false; paintPushBtn(); });
+  }
+  if (FOCUS_ID) {
+    var el = document.getElementById('req-' + FOCUS_ID);
+    if (el) { try { el.scrollIntoView({ block: 'center' }); } catch (e) { el.scrollIntoView(); } }
+  }
+}
+
+function paintBadge(){
+  var b = document.getElementById('badge');
+  var n = (D.inbox || []).length;
+  var late = D.overdue || 0;
+  b.textContent = late ? (n + ' / ' + late) : String(n);
+  b.className = 'badge' + (late ? ' late' : (n ? '' : ' zero'));
+  b.title = late ? T(late + ' overdue', '지연 ' + late + '건') : '';
+}
+
+function typeLabel(r){ return EN() ? (r.type_en || r.req_type) : (r.type_ko || r.req_type); }
+
+function paintList(id, arr, decidable){
+  var host = document.getElementById(id);
+  if (!arr.length) {
+    host.innerHTML = '<div class="empty">' +
+      esc(decidable ? T('Nothing waiting for you.', '결재할 것이 없습니다.')
+                    : T('You have not submitted anything yet.', '올린 결재가 없습니다.')) + '</div>';
+    return;
+  }
+  var h = '';
+  for (var i = 0; i < arr.length; i++) h += itemHtml(arr[i], decidable);
+  host.innerHTML = h;
+}
+
+function itemHtml(r, decidable){
+  var h = '<div class="item' + (r.overdue ? ' hot' : '') + '" id="req-' + r.id + '">';
+
+  h += '<div class="ihead">';
+  h += '<span class="chip">' + esc(typeLabel(r)) + '</span>';
+  if (r.stage_total > 1) {
+    h += '<span class="chip">' + esc(T('Step ', '단계 ') + r.stage_seq + '/' + r.stage_total) + '</span>';
+  }
+  if (r.overdue) h += '<span class="chip late">' + esc(T('Overdue', '지연')) + '</span>';
+  if (r.escalated) h += '<span class="chip late">' + esc(T('Escalated', '승격됨')) + '</span>';
+  h += '<span class="ititle">' + esc(r.title) + '</span>';
+  if (r.amount != null) h += '<span class="iamt">' + esc(money(r.amount, r.currency)) + '</span>';
+  h += '</div>';
+
+  h += '<div class="imeta">' + esc(r.requester_name || r.requester_username) +
+       ' &middot; ' + esc(when(r.created_at));
+  if (!decidable) {
+    var st = r.status === 'approved' ? T('Approved', '승인됨')
+           : r.status === 'rejected' ? T('Rejected', '반려됨')
+           : T('Waiting', '대기 중');
+    h += ' &middot; ' + esc(st);
+  }
+  h += '</div>';
+
+  var sum = EN() ? r.summary_en : r.summary_ko;
+  if (sum) h += '<div class="isum">' + esc(sum) + '</div>';
+  else if (r.body) h += '<div class="isum">' + esc(String(r.body).slice(0, 240)) + '</div>';
+
+  if (r.flags && r.flags.length) {
+    h += '<div class="flags">';
+    for (var i = 0; i < r.flags.length; i++) {
+      var f = r.flags[i];
+      h += '<div class="flag' + (f.level === 'info' ? ' info' : '') + '">' + esc(EN() ? f.en : f.ko) + '</div>';
+    }
+    h += '</div>';
+  }
+
+  if (r.has_file) {
+    h += '<div><a class="lnk" href="/api/approval/requests/' + r.id + '/file">' +
+         esc(T('Receipt', '첨부 보기')) + (r.file_name ? ' (' + esc(r.file_name) + ')' : '') + '</a></div>';
+  }
+
+  if (r.steps && r.steps.length > 1) {
+    var parts = [];
+    for (var k = 0; k < r.steps.length; k++) {
+      var s = r.steps[k];
+      var lbl = s.role === 'exec' ? T('Exec', '경영진') : T('Office', '본사');
+      var mark = s.status === 'approved' ? 'OK' : s.status === 'rejected' ? 'X'
+               : s.status === 'skipped' ? T('skipped', '전결') : s.status === 'active' ? '...' : '-';
+      parts.push(lbl + ' ' + mark);
+    }
+    h += '<div class="steps">' + esc(parts.join('  >  ')) + '</div>';
+  }
+
+  if (r.decide_memo) {
+    h += '<div class="steps">' + esc(T('Note: ', '메모: ') + r.decide_memo) + '</div>';
+  }
+
+  if (decidable) {
+    h += '<div class="acts">' +
+         '<button class="big ok" onclick="decide(' + r.id + ',\'approved\')">' + esc(T('Approve', '승인')) + '</button>' +
+         '<button class="big no" onclick="askWhy(' + r.id + ')">' + esc(T('Reject', '반려')) + '</button>' +
+         '</div><div id="why-' + r.id + '"></div>';
+  }
+
+  h += '</div>';
+  return h;
+}
+
+/* ── 반려 사유 — 버튼 3개. 타이핑은 필요할 때만. ──────────────────────────── */
+var WHYS = [
+  { en: 'Receipt needed', ko: '영수증 첨부 필요' },
+  { en: 'Check the amount', ko: '금액 확인 필요' },
+  { en: 'Over budget', ko: '예산 초과' }
+];
+window.askWhy = function(id){
+  var host = document.getElementById('why-' + id);
+  if (!host) return;
+  if (host.innerHTML) { host.innerHTML = ''; return; }     // 한 번 더 누르면 닫기
+  var h = '<div class="why"><b>' + esc(T('Why are you rejecting this?', '반려 사유를 골라 주세요')) + '</b><div class="whybtns">';
+  for (var i = 0; i < WHYS.length; i++) {
+    var w = EN() ? WHYS[i].en : WHYS[i].ko;
+    h += '<button onclick="decide(' + id + ',\'rejected\',' + JSON.stringify(w).replace(/"/g, '&quot;') + ')">' + esc(w) + '</button>';
+  }
+  h += '<button onclick="whyOther(' + id + ')">' + esc(T('Other reason', '직접 입력')) + '</button>';
+  h += '</div></div>';
+  host.innerHTML = h;
+};
+window.whyOther = function(id){
+  var t = prompt(T('Reason for rejecting', '반려 사유'));
+  if (t == null) return;
+  decide(id, 'rejected', String(t).slice(0, 300));
+};
+
+/* ── 결정 — 누르는 즉시 화면에 반영하고, 실패하면 되돌린다. ──────────────── */
+window.decide = function(id, decision, memo){
+  var el = document.getElementById('req-' + id);
+  if (el) el.className += ' busy';
+  var body = { decision: decision, memo: memo || null };
+
+  send(id, body)
+    .then(function(res){
+      if (res.done) {
+        removeLocal(id);
+        toast(decision === 'approved' ? T('Approved.', '승인했습니다.') : T('Rejected.', '반려했습니다.'));
+        repaint();
+        load().catch(function(){});           // 조용히 최신화 (다음 단계가 열렸을 수 있다)
+      } else if (res.queued) {
+        removeLocal(id);
+        toast(T('Saved on this phone — it will be sent when you are back online.',
+                '이 기기에 저장했습니다 — 연결되면 자동으로 보냅니다.'));
+        repaint();
+      } else {
+        if (el) el.className = el.className.replace(' busy', '');
+        toast(res.message || T('Could not send.', '보내지 못했습니다.'));
+        load().catch(function(){});
+      }
+    });
+};
+
+/** 서버로 보내기. 네트워크 실패만 큐에 남긴다 — 서버가 «판단해서» 거절한 것은 다시 보내도 소용없다. */
+function send(id, body){
+  return fetch('/api/approval/requests/' + id + '/decide', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+  .then(function(res){
+    // 409 = 그 사이 다른 사람이 이미 결재함. 이미 처리된 것이므로 «성공»으로 친다.
+    if (res.status === 409 || (res.j && res.j.error === 'already_decided')) {
+      toast(T('Someone already decided this one.', '이미 다른 분이 결재한 건입니다.'));
+      return { done: true };
+    }
+    if (res.j && res.j.ok) return { done: true };
+    return { done: false, message: (res.j && (EN() ? res.j.message_en : res.j.message)) || null };
+  })
+  .catch(function(){
+    outboxAdd({ id: id, body: body });
+    return { queued: true };
+  });
+}
+
+function removeLocal(id){
+  if (!D) return;
+  var f = function(a){ return (a || []).filter(function(x){ return x.id !== id; }); };
+  D.inbox = f(D.inbox);
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(D)); } catch (e) {}
+}
+
+/* ── 못 보낸 결재 큐 — teacher.html 의 검증된 패턴 ────────────────────────── */
+var OUTBOX_KEY = 'mangoi_work_outbox_v1';
+function outboxRead(){
+  try { var a = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(a) ? a : []; }
+  catch (e) { return []; }
+}
+function outboxWrite(a){
+  try { localStorage.setItem(OUTBOX_KEY, JSON.stringify(a.slice(-50))); } catch (e) {}
+  paintOutbox();
+}
+function outboxAdd(entry){
+  var a = outboxRead().filter(function(x){ return x.id !== entry.id; });   // 마지막 것이 이긴다
+  a.push(entry);
+  outboxWrite(a);
+}
+function paintOutbox(){
+  var el = document.getElementById('outboxNote');
+  var n = outboxRead().length;
+  el.hidden = !n;
+  if (n) el.textContent = T(n + ' decision(s) saved on this phone — they will be sent automatically when you are back online.',
+                            '보내지 못한 결재 ' + n + '건을 이 기기에 저장했습니다 — 연결되면 자동으로 보냅니다.');
+}
+var flushing = false;
+function outboxFlush(){
+  if (flushing) return;
+  var a = outboxRead();
+  if (!a.length) return;
+  flushing = true;
+  var e0 = a[0];
+  fetch('/api/approval/requests/' + e0.id + '/decide', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(e0.body)
+  })
+  .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+  .then(function(res){
+    // 성공이거나, 이미 처리됐거나(409), 서버가 판단해서 거절한 것 → 큐에서 뺀다.
+    // 네트워크 실패만 남긴다. 안 그러면 영영 안 되는 것을 영원히 재시도한다.
+    var drop = (res.j && res.j.ok) || res.status === 409 || (res.status >= 400 && res.status < 500);
+    if (drop) outboxWrite(outboxRead().slice(1));
+    flushing = false;
+    if (outboxRead().length) outboxFlush(); else load().catch(function(){});
+  })
+  .catch(function(){ flushing = false; });     // 아직 끊겨 있다 — 다음 기회에
+}
+
+/* ── 올리기 — 분류 큰 버튼 ────────────────────────────────────────────────── */
+function paintKinds(){
+  var host = document.getElementById('kinds');
+  var types = D.types || [];
+  var h = '';
+  for (var i = 0; i < types.length; i++) {
+    var t = types[i];
+    h += '<button class="kind' + (PICK && PICK.key === t.key ? ' on' : '') + '" onclick="pick(' +
+         JSON.stringify(t.key).replace(/"/g, '&quot;') + ')">' + esc(EN() ? t.en : t.ko) + '</button>';
+  }
+  host.innerHTML = h;
+}
+
+window.pick = function(key){
+  var types = (D && D.types) || [];
+  var found = null;
+  for (var i = 0; i < types.length; i++) if (types[i].key === key) found = types[i];
+  if (PICK && found && PICK.key === found.key) { PICK = null; }    // 한 번 더 누르면 닫기
+  else { PICK = found; OCR = null; FILE = null; }
+  paintKinds();
+  paintForm();
+};
+
+function paintReuse(){
+  var host = document.getElementById('reuse');
+  var arr = D.reuse || [];
+  if (!arr.length || PICK) { host.innerHTML = ''; return; }
+  var h = '';
+  for (var i = 0; i < arr.length; i++) {
+    var r = arr[i];
+    var lbl = T('Same as last time: ', '지난번과 같이: ') + r.title + (r.amount != null ? ' (' + money(r.amount, r.currency) + ')' : '');
+    h += '<button onclick="reuse(' + i + ')">' + esc(lbl) + '</button>';
+  }
+  host.innerHTML = h;
+}
+window.reuse = function(i){
+  var r = (D.reuse || [])[i];
+  if (!r) return;
+  window.pick(r.req_type);
+  if (!PICK) return;
+  setVal('f_title', r.title || '');
+  setVal('f_body', r.body || '');
+  if (r.amount != null) setVal('f_amount', r.amount);
+  CUR = r.currency || 'PHP';
+  paintCur();
+  toast(T('Filled from your last request. Check it and submit.', '지난 기안으로 채웠습니다. 확인하고 올려 주세요.'));
+};
+
+function setVal(id, v){ var e = document.getElementById(id); if (e) e.value = v; }
+function getVal(id){ var e = document.getElementById(id); return e ? e.value : ''; }
+
+function paintForm(){
+  var host = document.getElementById('form');
+  if (!PICK) { host.hidden = true; host.innerHTML = ''; return; }
+  host.hidden = false;
+
+  var h = '';
+
+  // 자동 채움 버튼 — 사진과 음성. 이 화면의 핵심.
+  h += '<div class="auto">';
+  if (PICK.wants_file) {
+    h += '<button type="button" id="b_shot" onclick="shoot()">' +
+         esc(T('Photograph receipt', '영수증 사진 찍기')) + '</button>';
+  }
+  h += '<button type="button" id="b_voice" onclick="voice()">' +
+       esc(T('Speak it (English)', '말로 입력 (영어)')) + '</button>';
+  h += '</div>';
+  // ⚠️ capture 속성을 쓰지 않는다 — 붙이면 휴대폰이 카메라만 열고 **앨범을 못 고르게** 막는다.
+  //    영수증을 미리 찍어 둔 경우가 실제로 더 많다. 카메라는 파일 선택창에서 그대로 고를 수 있다.
+  h += '<input type="file" id="f_file" accept="image/*,application/pdf" hidden onchange="gotFile(this)">';
+  h += '<div class="help" id="autoNote"></div>';
+
+  h += '<div class="row"><label>' + esc(T('Title', '제목')) + '</label>' +
+       '<input type="text" id="f_title" maxlength="200"></div>';
+
+  if (PICK.needs_amount) {
+    h += '<div class="row"><label>' + esc(T('Amount', '금액')) + '</label>' +
+         '<input type="number" id="f_amount" inputmode="decimal" step="0.01" min="0">' +
+         '<div class="cur" style="margin-top:6px">' +
+         '<button type="button" id="cur_PHP" onclick="setCur(\'PHP\')">PHP</button>' +
+         '<button type="button" id="cur_KRW" onclick="setCur(\'KRW\')">KRW</button>' +
+         '</div></div>';
+    h += '<div class="row"><label>' + esc(T('Date spent', '지출일')) + '</label>' +
+         '<input type="date" id="f_spent"></div>';
+  }
+
+  h += '<div class="row"><label>' + esc(T('Detail', '내용')) + '</label>' +
+       '<textarea id="f_body" maxlength="4000"></textarea></div>';
+
+  h += '<div class="acts">' +
+       '<button class="big ok" type="button" id="b_submit" onclick="submitReq()">' + esc(T('Submit', '올리기')) + '</button>' +
+       '<button class="big no" type="button" onclick="pick(' + JSON.stringify(PICK.key).replace(/"/g, '&quot;') + ')">' +
+       esc(T('Cancel', '취소')) + '</button></div>';
+
+  host.innerHTML = h;
+  paintCur();
+}
+
+window.setCur = function(c){ CUR = c; paintCur(); };
+function paintCur(){
+  var a = document.getElementById('cur_PHP'), b = document.getElementById('cur_KRW');
+  if (a) a.className = (CUR === 'PHP') ? 'on' : '';
+  if (b) b.className = (CUR === 'KRW') ? 'on' : '';
+}
+function note(msg){ var e = document.getElementById('autoNote'); if (e) e.textContent = msg || ''; }
+
+/* ── 사진 → 축소 → 판독 ───────────────────────────────────────────────────
+   휴대폰 사진은 4MB 를 넘는다. 그대로 보내면 느린 회선에서 대부분 실패한다.
+   기기에서 먼저 줄여서 보낸다 — 업로드 실패의 대부분이 여기서 사라진다.        */
+window.shoot = function(){ var e = document.getElementById('f_file'); if (e) e.click(); };
+
+window.gotFile = function(input){
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (f.type === 'application/pdf') { FILE = f; note(T('Attached: ', '첨부: ') + f.name); return; }
+  note(T('Preparing the photo...', '사진을 준비하는 중...'));
+  shrink(f).then(function(blob){
+    FILE = blob || f;
+    note(T('Reading the receipt...', '영수증을 읽는 중...'));
+    return fetch('/api/approval/ocr', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: FILE
+    }).then(function(r){ return r.json(); });
+  })
+  .then(function(j){
+    if (!j || !j.ok) {
+      // 못 읽어도 첨부는 남는다. 사람이 직접 넣으면 된다 — 자동화는 «유일한 길»이 아니다.
+      note(T('Could not read it — please type the amount. The photo is still attached.',
+             '읽지 못했습니다 — 금액을 직접 넣어 주세요. 사진은 첨부되어 있습니다.'));
+      return;
+    }
+    OCR = j;
+    if (j.amount != null && !getVal('f_amount')) setVal('f_amount', j.amount);
+    if (j.spent_at && !getVal('f_spent')) setVal('f_spent', j.spent_at);
+    if (j.vendor && !getVal('f_title')) setVal('f_title', j.vendor);
+    note(T('Filled from the receipt. Check it before submitting.',
+           '영수증에서 채웠습니다. 올리기 전에 확인해 주세요.'));
+  })
+  .catch(function(){
+    note(T('Could not read it — please type the amount. The photo is still attached.',
+           '읽지 못했습니다 — 금액을 직접 넣어 주세요. 사진은 첨부되어 있습니다.'));
+  });
+};
+
+function shrink(file){
+  return new Promise(function(resolve){
+    try {
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        try {
+          var max = 1600;
+          var w = img.width, h = img.height;
+          if (w > max || h > max) { var s = Math.min(max / w, max / h); w = Math.round(w * s); h = Math.round(h * s); }
+          var c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          c.toBlob(function(b){ URL.revokeObjectURL(url); resolve(b || file); }, 'image/jpeg', 0.82);
+        } catch (e) { URL.revokeObjectURL(url); resolve(file); }
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    } catch (e) { resolve(file); }
+  });
+}
+
+/* ── 음성(영어) → 받아쓰기 → 초안 ─────────────────────────────────────────── */
+var REC = null, CHUNKS = [];
+window.voice = function(){
+  var btn = document.getElementById('b_voice');
+  if (REC) { try { REC.stop(); } catch (e) {} return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) {
+    note(T('Voice input is not available on this device — please type.',
+           '이 기기에서는 음성 입력을 쓸 수 없습니다 — 직접 입력해 주세요.'));
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+    CHUNKS = [];
+    REC = new MediaRecorder(stream);
+    REC.ondataavailable = function(e){ if (e.data && e.data.size) CHUNKS.push(e.data); };
+    REC.onstop = function(){
+      try { stream.getTracks().forEach(function(t){ t.stop(); }); } catch (e) {}
+      REC = null;
+      if (btn) { btn.textContent = T('Speak it (English)', '말로 입력 (영어)'); btn.disabled = true; }
+      note(T('Listening finished — writing it down...', '받아쓰는 중...'));
+      var blob = new Blob(CHUNKS, { type: 'audio/webm' });
+      fetch('/api/approval/voice', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: blob
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        if (btn) btn.disabled = false;
+        if (!j || !j.ok) {
+          note(T('Could not hear it clearly — please type.', '알아듣지 못했습니다 — 직접 입력해 주세요.'));
+          return;
+        }
+        var d = j.draft;
+        if (d) {
+          if (d.title && !getVal('f_title')) setVal('f_title', d.title);
+          if (d.body && !getVal('f_body')) setVal('f_body', d.body);
+          if (d.amount != null && !getVal('f_amount')) setVal('f_amount', d.amount);
+        } else if (j.transcript && !getVal('f_body')) {
+          setVal('f_body', j.transcript);
+        }
+        note(T('Filled from what you said. Check it before submitting.',
+               '말씀하신 내용으로 채웠습니다. 올리기 전에 확인해 주세요.'));
+      })
+      .catch(function(){
+        if (btn) btn.disabled = false;
+        note(T('Could not send the recording — please type.', '녹음을 보내지 못했습니다 — 직접 입력해 주세요.'));
+      });
+    };
+    REC.start();
+    if (btn) btn.textContent = T('Stop and use it', '그만 말하고 사용');
+    note(T('Speak in English, then press the button again.', '영어로 말한 뒤 버튼을 다시 눌러 주세요.'));
+    // 안전장치 — 30초가 넘으면 저절로 멈춘다(파일이 커지면 느린 회선에서 못 보낸다)
+    setTimeout(function(){ if (REC) { try { REC.stop(); } catch (e) {} } }, 30000);
+  })
+  .catch(function(){
+    note(T('Microphone permission is needed for voice input.', '음성 입력에는 마이크 권한이 필요합니다.'));
+  });
+};
+
+/* ── 올리기 ───────────────────────────────────────────────────────────────── */
+window.submitReq = function(){
+  if (!PICK) return;
+  var title = String(getVal('f_title') || '').trim();
+  if (!title) { toast(T('Please enter a title.', '제목을 넣어 주세요.')); return; }
+  var amount = getVal('f_amount');
+  if (PICK.needs_amount && !String(amount).trim()) {
+    toast(T('Please enter the amount.', '금액을 넣어 주세요.')); return;
+  }
+  var btn = document.getElementById('b_submit');
+  if (btn) btn.disabled = true;
+
+  var fd = new FormData();
+  fd.append('req_type', PICK.key);
+  fd.append('title', title);
+  fd.append('body', getVal('f_body') || '');
+  fd.append('currency', CUR);
+  if (String(amount).trim()) fd.append('amount', String(amount).trim());
+  if (getVal('f_spent')) fd.append('spent_at', getVal('f_spent'));
+  if (OCR && OCR.amount != null) fd.append('ocr_amount', String(OCR.amount));
+  if (FILE) fd.append('file', FILE, (FILE.name || 'receipt.jpg'));
+
+  fetch('/api/approval/requests', { method: 'POST', credentials: 'same-origin', body: fd })
+    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+    .then(function(res){
+      if (btn) btn.disabled = false;
+      if (res.j && res.j.ok) {
+        toast(T('Submitted. Head office will review it.', '결재를 올렸습니다. 본사가 확인합니다.'));
+        PICK = null; OCR = null; FILE = null;
+        paintKinds(); paintForm();
+        load().catch(function(){});
+      } else {
+        toast((res.j && (EN() ? res.j.message_en : res.j.message)) ||
+              T('Could not submit.', '올리지 못했습니다.') + ' (' + ((res.j && res.j.error) || res.status) + ')');
+      }
+    })
+    .catch(function(){
+      if (btn) btn.disabled = false;
+      toast(T('Could not send — check your connection and try again.',
+              '보내지 못했습니다 — 연결을 확인하고 다시 시도해 주세요.'));
+    });
+};
+
+/* ── 알림 받기 (웹푸시) ────────────────────────────────────────────────────
+   기존 인프라를 그대로 쓴다 — VAPID 키·구독 표·sw.js 의 push 핸들러가 이미 있다.
+   여기서 하는 일은 «직원 계정으로 구독을 하나 붙이는 것»뿐이다.
+
+   ⚠️ 자동 등록하지 않는다. 사용자가 버튼을 눌렀을 때만 권한을 묻는다 —
+      묻지도 않고 뜨는 권한 창은 대부분 거절당하고, 그러면 되돌리기 어렵다.
+   ⚠️ controllerchange 자동 reload 는 붙이지 않는다 — 과거에 의도적으로 제거한 것이다
+      (CLAUDE.md 1-3). 여기서 되살리지 말 것.
+   ※ 아이폰은 «홈 화면에 추가» 한 뒤에만 푸시를 받을 수 있다. 그래서 실패해도 조용히 안내만 한다. */
+function pushReady(){
+  return ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+}
+function b64ToU8(b64){
+  var pad = '='.repeat((4 - b64.length % 4) % 4);
+  var raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+  var out = new Uint8Array(raw.length);
+  for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+  return out;
+}
+function paintPushBtn(){
+  var b = document.getElementById('pushBtn');
+  if (!b) return;
+  if (!pushReady() || !D || !D.me || !D.me.username) { b.hidden = true; return; }
+  b.hidden = (Notification.permission === 'granted' && pushOn);
+}
+var pushOn = false;
+window.askPush = function(){
+  if (!pushReady()) {
+    toast(T('This device cannot receive notifications. On iPhone, add this page to the Home Screen first.',
+            '이 기기에서는 알림을 받을 수 없습니다. 아이폰은 «홈 화면에 추가» 후에 가능합니다.'));
+    return;
+  }
+  Notification.requestPermission().then(function(p){
+    if (p !== 'granted') { toast(T('Notifications are turned off.', '알림이 꺼져 있습니다.')); return; }
+    return subscribePush().then(function(ok){
+      toast(ok ? T('You will be notified when an approval needs you.', '결재가 오면 알려 드립니다.')
+               : T('Could not turn on notifications.', '알림을 켜지 못했습니다.'));
+    });
+  }).catch(function(){});
+};
+function subscribePush(){
+  return fetch('/api/push/vapid-public-key', { credentials: 'same-origin' })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.key) throw new Error('no_key');
+      return navigator.serviceWorker.register('/sw.js').then(function(reg){
+        return navigator.serviceWorker.ready.then(function(){
+          return reg.pushManager.getSubscription().then(function(sub){
+            if (sub) return sub;
+            return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(j.key) });
+          });
+        });
+      });
+    })
+    .then(function(sub){
+      var s = sub.toJSON ? sub.toJSON() : sub;
+      return fetch('/api/push/subscribe', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        // ⚠️ user_id 에 **관리자 계정명**을 넣는다. 서버(api-approval notify)가 이 값으로 찾는다.
+        body: JSON.stringify({ subscription: s, user_id: (D && D.me && D.me.username) || null, ua: navigator.userAgent })
+      }).then(function(r){ return r.json(); });
+    })
+    .then(function(j){ pushOn = !!(j && j.ok); paintPushBtn(); return pushOn; })
+    .catch(function(){ return false; });
+}
+
+/* ── 시작 ─────────────────────────────────────────────────────────────────── */
+applyMode();
+applyLang();
+
+// 캐시가 있으면 먼저 그린다 — 끊겨 있어도 흰 화면을 보지 않는다.
+try {
+  var c0 = localStorage.getItem(CACHE_KEY);
+  if (c0) { D = JSON.parse(c0); repaint(); }
+} catch (e) {}
+
+load().catch(function(){});
+outboxFlush();
+
+window.addEventListener('online', function(){ offline(false); outboxFlush(); load().catch(function(){}); });
+window.addEventListener('offline', function(){ offline(true); });
+// 화면으로 돌아왔을 때 최신화 — 푸시를 눌러 들어온 경우가 많다.
+document.addEventListener('visibilitychange', function(){
+  if (!document.hidden) { outboxFlush(); load().catch(function(){}); }
+});
+
+})();
+</script>
+</body>
+</html>
