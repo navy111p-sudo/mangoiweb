@@ -1,0 +1,931 @@
+<title>회계 리포트 대수술</title>
+<style>
+  /* ── 토큰: 밝은 테마가 기본 ───────────────────────────── */
+  :root{
+    --paper:#FCFCFB;
+    --surface:#FFFFFF;
+    --surface-2:#F4F5F3;
+    --ink:#17202A;
+    --ink-2:#3B4653;
+    --muted:#5D6A78;
+    --rule:#E1E5EA;
+    --rule-strong:#C6CDD6;
+    --amber:#B4610D;      /* 망고 잉크 — 장부 계열 */
+    --blue:#1D6A9C;       /* 통장 계열 */
+    --red:#B3312A;        /* 문제 */
+    --green:#1E7A5B;      /* 정상 */
+    --amber-wash:#F7EDE1;
+    --blue-wash:#E6EFF5;
+    --red-wash:#F7E8E6;
+    --green-wash:#E4F0EB;
+    --shadow:0 1px 2px rgba(23,32,42,.06), 0 8px 24px rgba(23,32,42,.05);
+    --sans:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"D2Coding",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#14181D;
+      --surface:#1B2027;
+      --surface-2:#222932;
+      --ink:#E6EBF1;
+      --ink-2:#C3CCD6;
+      --muted:#93A0AE;
+      --rule:#2B333C;
+      --rule-strong:#3D4753;
+      --amber:#E29A4E;
+      --blue:#5BA7D8;
+      --red:#E28179;
+      --green:#4CA98A;
+      --amber-wash:#2B2318;
+      --blue-wash:#17242E;
+      --red-wash:#2C1D1B;
+      --green-wash:#16261F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14181D;
+    --surface:#1B2027;
+    --surface-2:#222932;
+    --ink:#E6EBF1;
+    --ink-2:#C3CCD6;
+    --muted:#93A0AE;
+    --rule:#2B333C;
+    --rule-strong:#3D4753;
+    --amber:#E29A4E;
+    --blue:#5BA7D8;
+    --red:#E28179;
+    --green:#4CA98A;
+    --amber-wash:#2B2318;
+    --blue-wash:#17242E;
+    --red-wash:#2C1D1B;
+    --green-wash:#16261F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.75;
+    margin:0;
+    padding:0 20px 96px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px;margin:0 auto}
+  .col{max-width:720px}
+
+  /* ── 타이포 ───────────────────────────────────────────── */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11.5px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin:0 0 10px;
+  }
+  h1{
+    font-size:clamp(34px,5.4vw,52px);
+    line-height:1.14;
+    letter-spacing:-.025em;
+    font-weight:800;
+    text-wrap:balance;
+    margin:0 0 18px;
+  }
+  h2{
+    font-size:clamp(23px,3vw,29px);
+    line-height:1.3;
+    letter-spacing:-.02em;
+    font-weight:800;
+    text-wrap:balance;
+    margin:0 0 6px;
+  }
+  h3{
+    font-size:18.5px;
+    line-height:1.45;
+    letter-spacing:-.01em;
+    font-weight:700;
+    margin:0 0 8px;
+    text-wrap:balance;
+  }
+  h4{font-size:15px;font-weight:700;margin:0 0 6px;letter-spacing:-.005em}
+  p{margin:0 0 16px}
+  strong{font-weight:700}
+  .lead{font-size:18.5px;line-height:1.7;color:var(--ink-2)}
+  .note{font-size:14px;color:var(--muted);line-height:1.7}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+
+  /* ── 섹션 ─────────────────────────────────────────────── */
+  section{padding:56px 0 8px;border-top:1px solid var(--rule)}
+  section:first-of-type{border-top:0}
+  .sec-head{display:flex;gap:18px;align-items:baseline;margin-bottom:26px}
+  .sec-no{
+    font-family:var(--mono);font-size:13px;font-weight:600;
+    color:var(--amber);letter-spacing:.06em;flex:0 0 auto;padding-top:4px;
+  }
+  .stack{display:flex;flex-direction:column;gap:18px}
+  .stack-lg{display:flex;flex-direction:column;gap:34px}
+
+  /* ── 표지 ─────────────────────────────────────────────── */
+  header.cover{padding:64px 0 8px}
+  .cover .rule-set{display:flex;flex-direction:column;gap:3px;margin-bottom:34px}
+  .cover .rule-set i{display:block;height:1px;background:var(--rule-strong)}
+  .cover .rule-set i:first-child{height:3px;background:var(--amber)}
+  .byline{
+    display:flex;flex-wrap:wrap;gap:8px 22px;
+    font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    padding-top:20px;margin-top:26px;border-top:1px solid var(--rule);
+  }
+
+  /* ── 숫자 타일 ────────────────────────────────────────── */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:30px 0 6px}
+  .tile{
+    background:var(--surface);border:1px solid var(--rule);border-radius:10px;
+    padding:18px 18px 16px;display:flex;flex-direction:column;gap:6px;
+  }
+  .tile .t-label{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .tile .t-value{font-family:var(--mono);font-size:27px;font-weight:700;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+  .tile .t-sub{font-size:12px;color:var(--muted)}
+  .tile.bad .t-value{color:var(--red)}
+  .tile.warn .t-value{color:var(--amber)}
+
+  /* ── 카드 ─────────────────────────────────────────────── */
+  .card{
+    background:var(--surface);border:1px solid var(--rule);border-radius:12px;
+    padding:22px 24px;box-shadow:var(--shadow);
+  }
+  .cause{
+    background:var(--surface);border:1px solid var(--rule);border-left:3px solid var(--red);
+    border-radius:0 12px 12px 0;padding:20px 24px;
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .cause .c-tag{
+    font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--red);
+  }
+  .evidence{
+    background:var(--surface-2);border-radius:8px;padding:13px 16px;
+    font-size:13.5px;line-height:1.7;color:var(--ink-2);
+  }
+  .evidence b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+  .evidence .src{display:block;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+
+  .grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+  .grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+
+  .learn{
+    background:var(--surface);border:1px solid var(--rule);border-radius:12px;
+    padding:20px 22px;display:flex;flex-direction:column;gap:9px;
+  }
+  .learn .who{
+    font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);
+  }
+  .learn .take{
+    margin-top:2px;padding-top:11px;border-top:1px dashed var(--rule-strong);
+    font-size:14px;line-height:1.65;color:var(--ink-2);
+  }
+  .learn .take b{color:var(--ink)}
+
+  /* ── 표 ───────────────────────────────────────────────── */
+  .tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--surface)}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+  caption{
+    text-align:left;padding:15px 18px 0;font-size:13px;color:var(--muted);
+    font-family:var(--mono);letter-spacing:.04em;
+  }
+  th,td{padding:11px 16px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+  thead th{
+    font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.05em;
+    background:var(--surface-2);border-bottom:1px solid var(--rule-strong);white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.name{font-weight:600;white-space:nowrap}
+
+  .pill{
+    display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;
+    padding:2px 9px;border-radius:99px;white-space:nowrap;letter-spacing:.03em;
+  }
+  .pill.bad{background:var(--red-wash);color:var(--red)}
+  .pill.warn{background:var(--amber-wash);color:var(--amber)}
+  .pill.ok{background:var(--green-wash);color:var(--green)}
+  .pill.info{background:var(--blue-wash);color:var(--blue)}
+
+  /* ── 그래프 ───────────────────────────────────────────── */
+  figure{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:22px 24px 18px}
+  figcaption{font-size:13.5px;color:var(--muted);line-height:1.65;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:18px;font-size:13px}
+  .legend span{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2)}
+  .swatch{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+  .sw-book{background:var(--amber)}
+  .sw-bank{background:var(--blue)}
+  .chart{display:flex;flex-direction:column;gap:14px}
+  .row{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:center}
+  .row .rlabel{font-family:var(--mono);font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .bars{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .bar{display:flex;align-items:center;gap:8px;min-width:0}
+  .bar i{display:block;height:13px;border-radius:0 3px 3px 0;flex:0 0 auto}
+  .bar.book i{background:var(--amber)}
+  .bar.bank i{background:var(--blue)}
+  .bar em{font-family:var(--mono);font-size:12px;font-style:normal;color:var(--ink-2);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  /* ── 로드맵 ───────────────────────────────────────────── */
+  .phase{
+    display:grid;grid-template-columns:88px 1fr;gap:22px;
+    background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:22px 24px;
+  }
+  .phase .p-no{display:flex;flex-direction:column;gap:2px}
+  .phase .p-no .big{font-family:var(--mono);font-size:30px;font-weight:800;line-height:1;color:var(--amber);letter-spacing:-.03em}
+  .phase .p-no .small{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.08em}
+  ul.check{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:9px}
+  ul.check li{padding-left:22px;position:relative;font-size:14.5px;line-height:1.65}
+  ul.check li::before{
+    content:"";position:absolute;left:2px;top:9px;width:7px;height:7px;border-radius:2px;
+    background:var(--amber);
+  }
+  ul.plain{margin:0 0 16px;padding-left:20px}
+  ul.plain li{margin-bottom:7px}
+
+  .callout{
+    background:var(--amber-wash);border:1px solid var(--rule);border-radius:12px;
+    padding:20px 24px;
+  }
+  .callout h3{color:var(--amber)}
+  .quote{
+    font-size:19px;line-height:1.6;font-weight:600;letter-spacing:-.01em;
+    color:var(--ink);border-left:3px solid var(--amber);padding-left:18px;margin:0;
+    text-wrap:balance;
+  }
+  .decide{
+    background:var(--surface);border:1px solid var(--rule-strong);border-radius:12px;padding:20px 24px;
+    display:flex;flex-direction:column;gap:8px;
+  }
+  .decide .q{font-weight:700;font-size:15.5px}
+  .decide .a{font-size:14px;color:var(--ink-2);line-height:1.65}
+  footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--rule);font-size:13px;color:var(--muted);line-height:1.8}
+  a{color:var(--blue)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:4px}
+  code{font-family:var(--mono);font-size:.9em;background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:560px){
+    .phase{grid-template-columns:1fr;gap:12px}
+    .sec-head{gap:12px}
+    .row{grid-template-columns:52px 1fr}
+  }
+</style>
+
+<div class="wrap">
+
+<header class="cover">
+  <div class="col">
+    <p class="eyebrow">망고아이 · 관리자 회계 리포트 진단</p>
+    <div class="rule-set"><i></i><i></i><i></i></div>
+    <h1>회계 리포트,<br>왜 숫자가 안 맞을까</h1>
+    <p class="lead">
+      「📥 회계 리포트 다운로드」 6개 버튼을 하나씩 열어서 코드와 실제 데이터베이스를 같이 확인했습니다.
+      결론부터 말하면 <strong>리포트가 고장 난 게 아니라, 리포트에 넣을 재료가 절반만 들어오고 있습니다.</strong>
+      이 문서는 무엇이 왜 틀렸는지, 잘하는 회사들은 어떻게 하는지, 그리고 무엇부터 고칠지를 정리한 제안서입니다.
+    </p>
+  </div>
+  <div class="byline">
+    <span>작성일 2026-08-16</span>
+    <span>대상 회계 리포트 6종 + 재무제표·세무·대사</span>
+    <span>근거 운영 D1 <span class="num">읽기 전용</span> 조회</span>
+  </div>
+</header>
+
+<div class="tiles">
+  <div class="tile bad">
+    <span class="t-label">5개월(3~7월) 동안 통장에는 들어왔는데<br>장부에는 안 잡힌 돈</span>
+    <span class="t-value">약 4,010만 원</span>
+    <span class="t-sub">장부 6,152만 vs PG 입금 9,960만</span>
+  </div>
+  <div class="tile warn">
+    <span class="t-label">리포트에서 빼내야 했던<br>가짜(시연용) 결제</span>
+    <span class="t-value">1억 3,106만 원</span>
+    <span class="t-sub">323건 · 지금은 코드로 걸러내는 중</span>
+  </div>
+  <div class="tile bad">
+    <span class="t-label">데이터베이스에 실제로 들어 있는<br>진짜 강사 급여명세</span>
+    <span class="t-value">0 건</span>
+    <span class="t-sub">있는 24건은 전부 없는 강사(101~104번)</span>
+  </div>
+  <div class="tile warn">
+    <span class="t-label">근거 없이 「대충 이 정도」로<br>지어낸 숫자</span>
+    <span class="t-value">11 군데</span>
+    <span class="t-sub">운영비·현금·미수금·자산·CAC 등</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">01</span>
+    <div class="col">
+      <h2>지금 무슨 일이 벌어지고 있나</h2>
+      <p class="note">2026년 7월 월간 회계 리포트를 예로 들면 이해가 빠릅니다.</p>
+    </div>
+  </div>
+
+  <div class="stack-lg">
+    <div class="tablewrap">
+      <table>
+        <caption>2026년 7월 — 리포트가 보여주는 숫자 vs 통장에 실제로 찍힌 숫자</caption>
+        <thead>
+          <tr><th>항목</th><th class="n">리포트 숫자</th><th>어디서 가져오나</th><th>맞나?</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">매출</td>
+            <td class="n">9,500,750</td>
+            <td>카페24 결제만</td>
+            <td><span class="pill bad">절반만</span></td>
+          </tr>
+          <tr>
+            <td class="name">강사 급여</td>
+            <td class="n">9,465,570</td>
+            <td>신한 통장 송금</td>
+            <td><span class="pill ok">정확</span></td>
+          </tr>
+          <tr>
+            <td class="name">운영비</td>
+            <td class="n">15,717,838</td>
+            <td>법인카드 + 통장 출금</td>
+            <td><span class="pill ok">정확</span></td>
+          </tr>
+          <tr>
+            <td class="name">PG 수수료</td>
+            <td class="n">313,525</td>
+            <td>매출 × 3.3% 추정</td>
+            <td><span class="pill warn">추정</span></td>
+          </tr>
+          <tr>
+            <td class="name">비용 합계</td>
+            <td class="n">25,496,933</td>
+            <td>—</td>
+            <td><span class="pill ok">거의 정확</span></td>
+          </tr>
+          <tr>
+            <td class="name">순이익</td>
+            <td class="n">−15,996,183</td>
+            <td>매출 − 비용</td>
+            <td><span class="pill bad">가짜 적자</span></td>
+          </tr>
+          <tr>
+            <td class="name">이익률</td>
+            <td class="n">−168.4%</td>
+            <td>순이익 ÷ 매출</td>
+            <td><span class="pill bad">읽으면 안 됨</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p class="quote">
+        비용은 통장에서 <b>전부</b> 가져오는데, 매출은 카페24에서 <b>일부만</b> 가져옵니다.
+        그래서 멀쩡한 회사가 리포트에서만 크게 망한 것처럼 보입니다.
+      </p>
+    </div>
+
+    <figure>
+      <div class="legend">
+        <span><i class="swatch sw-book"></i> 장부에 잡힌 매출</span>
+        <span><i class="swatch sw-bank"></i> 통장에 들어온 카드 정산금(PG)</span>
+      </div>
+      <div class="chart">
+        <div class="row">
+          <span class="rlabel">2026-03</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:38.4%"></i><em>1,040만</em></span>
+            <span class="bar bank"><i style="width:100%"></i><em>2,708만</em></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="rlabel">2026-04</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:55.7%"></i><em>1,508만</em></span>
+            <span class="bar bank"><i style="width:68.3%"></i><em>1,850만</em></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="rlabel">2026-05</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:55.2%"></i><em>1,495만</em></span>
+            <span class="bar bank"><i style="width:50.5%"></i><em>1,368만</em></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="rlabel">2026-06</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:42.8%"></i><em>1,158만</em></span>
+            <span class="bar bank"><i style="width:69.9%"></i><em>1,892만</em></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="rlabel">2026-07</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:35.1%"></i><em>950만</em></span>
+            <span class="bar bank"><i style="width:79.0%"></i><em>2,141만</em></span>
+          </div>
+        </div>
+        <div class="row">
+          <span class="rlabel">2026-08</span>
+          <div class="bars">
+            <span class="bar book"><i style="width:21.5%"></i><em>583만</em></span>
+            <span class="bar bank"><i style="width:38.5%"></i><em>1,042만</em></span>
+          </div>
+        </div>
+      </div>
+      <figcaption>
+        시연용 가짜 결제를 뺀 «진짜 장부 매출»과, 신한 통장에 케이씨피(KCP)가 넣어 준 카드 정산금을 나란히 놓은 것입니다.
+        카드값은 며칠 뒤에 들어오므로 한 달만 보면 어긋나는 게 정상입니다. 그런데 <strong>5개월을 합쳐도 통장이 장부보다 4,010만 원 더 많습니다.</strong>
+        시차로는 설명이 안 되는 크기입니다. 2026-08은 15일까지의 값이고, 통장 연동은 2026년 2월부터라 그 전 달은 비교할 수 없습니다.
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">02</span>
+    <div class="col">
+      <h2>숫자가 안 맞는 여섯 가지 이유</h2>
+      <p class="note">하나씩 보면 전부 «고칠 수 있는» 이유입니다. 원인 불명은 하나도 없습니다.</p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <div class="cause">
+      <span class="c-tag">이유 1 — 재료 부족</span>
+      <h3>매출을 한 군데(카페24)에서만 가져옵니다</h3>
+      <p style="margin:0">
+        학원비가 들어오는 길은 여러 갈래인데, 리포트는 카페24 쇼핑몰을 거친 결제만 매출로 셉니다.
+        학원·기업이 <strong>통장으로 직접 보내는 B2B 입금</strong>은 매출에 아예 안 들어갑니다.
+        지금은 「기타 입금(참고)」라는 이름으로 옆에 놓여만 있습니다.
+      </p>
+      <div class="evidence">
+        2026년 7월 통장으로 직접 들어온 돈: JW학원 <b>2,224,100</b> + <b>908,372</b>, (주)드림키오 <b>342,000</b>,
+        어센틱영어 <b>120,000</b>, SYP어학원 <b>150,000</b> … 합계 <b>3,816,474원</b>. 이 중 매출로 잡힌 건 <b>0원</b>입니다.
+        <span class="src">bankacct_transactions · kind='in' · 케이씨피 아님</span>
+      </div>
+    </div>
+
+    <div class="cause">
+      <span class="c-tag">이유 2 — 가짜 데이터가 섞였다</span>
+      <h3>시연용으로 만든 가짜 결제·가짜 급여가 진짜 행세를 했습니다</h3>
+      <p style="margin:0">
+        시연하려고 만든 가짜 학생 50명의 결제 <strong>323건 1억 3,106만 원</strong>이 매출로 잡혔습니다.
+        그래서 한동안 이익률이 86% 같은 말이 안 되는 숫자로 나왔습니다.
+        지금은 리포트가 이것들을 걸러냅니다 — 다만 <strong>«메모에 이런 글자가 있으면 가짜»라는 방식</strong>이라,
+        나중에 진짜 정기결제가 같은 메모를 쓰면 진짜 매출이 조용히 사라집니다.
+      </p>
+      <div class="evidence">
+        가짜 판별 기준이 코드 안 문자열 두 개뿐입니다: <b>'[TESTSEED]…'</b>, <b>'정기결제 자동청구(cron)'</b>.
+        데이터에 «테스트용» 표시 칸이 따로 없어서 생긴 임시방편입니다.
+        <span class="src">src/accounting-reports.ts · SEED_MEMOS</span>
+      </div>
+    </div>
+
+    <div class="cause">
+      <span class="c-tag">이유 3 — 근거 없는 숫자</span>
+      <h3>없는 자료는 「매출의 몇 %」로 지어냅니다 — 11군데</h3>
+      <p style="margin:0">
+        가장 위험한 부분입니다. 지어낸 숫자와 진짜 숫자가 <strong>같은 표에 같은 글씨로</strong> 섞여 있어서,
+        보는 사람은 어느 게 진짜인지 알 수 없습니다.
+      </p>
+      <div class="tablewrap" style="border-radius:8px">
+        <table>
+          <thead><tr><th>지어내는 숫자</th><th>지금 계산식</th><th>왜 위험한가</th></tr></thead>
+          <tbody>
+            <tr><td class="name">운영비</td><td class="n">매출 × 10%</td><td>통장 실지출이 없는 달은 매출이 오르면 비용도 같이 올라 이익률이 항상 비슷하게 나옵니다</td></tr>
+            <tr><td class="name">PG 수수료</td><td class="n">매출 × 3.3%</td><td>카드·카카오페이·계좌이체 요율이 다 다릅니다</td></tr>
+            <tr><td class="name">부가세</td><td class="n">매출 × 3%</td><td>실제 신고액과 아무 관계가 없습니다</td></tr>
+            <tr><td class="name">현금 잔액</td><td class="n">매출 × 70%</td><td>통장 잔액을 볼 수 있는데도 안 봅니다</td></tr>
+            <tr><td class="name">미수금</td><td class="n">매출 × 15%</td><td>실제 미납 학생 명단과 무관합니다</td></tr>
+            <tr><td class="name">고정자산</td><td class="n">5,000만 원 고정</td><td>코드에 그냥 적혀 있는 숫자입니다</td></tr>
+            <tr><td class="name">장비 구매</td><td class="n">매출 × 2%</td><td>근거가 없습니다</td></tr>
+            <tr><td class="name">CAC(학생 한 명 데려오는 비용)</td><td class="n">매출 × 5% ÷ 신규</td><td>실제 광고비를 한 푼도 안 봅니다</td></tr>
+            <tr><td class="name">본사 수수료</td><td class="n">15% 고정</td><td>가맹점마다 계약이 다릅니다</td></tr>
+            <tr><td class="name">가맹점별 매출</td><td class="n">총매출 ÷ 235</td><td>아래 이유 5 참고</td></tr>
+            <tr><td class="name">원천세</td><td class="n">급여명세 × 3.3%</td><td>급여명세가 0건이라 항상 0원입니다</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="evidence">
+        그 결과 <strong>시산표(차변·대변이 반드시 같아야 하는 표)의 좌우가 안 맞습니다.</strong>
+        2026년 7월 기준 차변 <b>83,857,594</b> vs 대변 <b>19,251,343</b> — <b>6,461만 원</b> 어긋납니다.
+        회계에서 이건 «표가 틀렸다»는 뜻입니다.
+        <span class="src">statementReport · type=tb</span>
+      </div>
+    </div>
+
+    <div class="cause">
+      <span class="c-tag">이유 4 — 기준 데이터가 망가짐</span>
+      <h3>학생 수·수업 시간이 실제와 너무 다릅니다</h3>
+      <p style="margin:0">
+        회계 리포트는 학생 수와 수업 시간을 그대로 가져다 나눗셈을 합니다.
+        그 재료가 망가져 있으면 ARPU·LTV 같은 지표가 전부 엉뚱해집니다.
+      </p>
+      <div class="evidence">
+        · <b>활성 학생 28,672명</b> — 전체 29,398명 중 거의 전부가 'active'로 표시돼 있습니다.
+        실제 7월에 수업에 들어온 학생은 <b>805명</b>, 결제한 학생은 <b>75명</b>입니다.<br>
+        · 그래서 <b>ARPU = 950만 ÷ 28,672 = 331원</b> 이라는 숫자가 나옵니다.<br>
+        · <b>총 수업 시간 1,193분</b> — 같은 달 수업 기록은 4,679건인데, 그중 <b>4,029건(86%)</b>의 수업 시간이 0으로 저장돼 있습니다.
+        <span class="src">students_erp · attendance.total_active_ms</span>
+      </div>
+    </div>
+
+    <div class="cause">
+      <span class="c-tag">이유 5 — 정답이 있는데 안 씀</span>
+      <h3>가맹점 정산서는 「총매출 ÷ 가맹점 수」입니다</h3>
+      <p style="margin:0">
+        가맹점 정산서 버튼은 그 달 총매출을 활성 가맹점 수로 <strong>똑같이 나눠서</strong> 보여 줍니다.
+        학생 한 명 없는 지사와 수백 명 있는 지사가 같은 금액을 받습니다. 이대로 가맹점에 보내면 사고입니다.
+      </p>
+      <div class="evidence">
+        활성 가맹점 <b>235개</b> → 2026년 7월이면 한 곳당 <b>40,428원</b>, 본사 수수료 <b>6,064원</b>.<br>
+        그런데 <strong>정확히 계산하는 엔진이 이미 만들어져 있습니다</strong> — <code>org-settlement.ts</code>의
+        <code>/api/admin/settlement/rollup</code>이 조직 트리를 따라 학생별 매출을 실제로 굴려 올립니다.
+        <strong>다운로드 버튼만 옛날 API를 부르고 있습니다.</strong>
+        <span class="src">franchiseReport() vs org-settlement.ts</span>
+      </div>
+    </div>
+
+    <div class="cause">
+      <span class="c-tag">이유 6 — 마감이 없다</span>
+      <h3>같은 달 리포트를 내일 다시 뽑으면 숫자가 달라집니다</h3>
+      <p style="margin:0">
+        지금 리포트는 버튼을 누르는 순간 데이터베이스를 새로 훑어서 계산합니다.
+        뒤늦게 결제가 동기화되거나 카드 내역이 들어오면 <strong>이미 세무사에게 보낸 7월 숫자가 조용히 바뀝니다.</strong>
+        회계에서 이걸 막는 장치가 «마감(closing)»인데, 지금은 없습니다.
+      </p>
+      <div class="evidence">
+        마감 원장 테이블은 만들어져 있지만 <b>settlement_ledger 0행</b>, <b>org_settlement_ledger 0행</b> — 한 번도 마감한 적이 없습니다.
+        <span class="src">D1 테이블 행 수 조회</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">03</span>
+    <div class="col">
+      <h2>버튼 6개 성적표</h2>
+      <p class="note">지금 이 버튼을 눌렀을 때 나오는 결과를 그대로 평가했습니다.</p>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>리포트</th><th>지금 상태</th><th>가장 큰 문제</th><th>바깥에 내보내도 되나</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name">📅 월간 회계 리포트</td>
+          <td>돌아감</td>
+          <td>매출이 절반만 → 이익률 −168%</td>
+          <td><span class="pill bad">불가</span></td>
+        </tr>
+        <tr>
+          <td class="name">📊 분기 보고서</td>
+          <td>돌아감</td>
+          <td>월간의 문제를 3배로 합산할 뿐, 트렌드 그래프도 없음</td>
+          <td><span class="pill bad">불가</span></td>
+        </tr>
+        <tr>
+          <td class="name">📈 연간 결산</td>
+          <td>돌아감</td>
+          <td>「세무사 제출용」이라 쓰여 있지만 세무사가 필요한 계정과목·증빙이 없음</td>
+          <td><span class="pill bad">불가</span></td>
+        </tr>
+        <tr>
+          <td class="name">🏢 가맹점별 정산서</td>
+          <td>돌아감</td>
+          <td>총매출 ÷ 235 균등분배. 정확한 엔진이 있는데 안 씀</td>
+          <td><span class="pill bad">절대 불가</span></td>
+        </tr>
+        <tr>
+          <td class="name">👨‍🏫 강사별 급여명세서</td>
+          <td><span class="pill warn">빈 표</span></td>
+          <td>진짜 급여명세가 0건이라 아무것도 안 나옴. 설명문의 «PDF 일괄 발송» 기능도 없음</td>
+          <td><span class="pill bad">불가</span></td>
+        </tr>
+        <tr>
+          <td class="name">⭐ 경영지표 (KPI)</td>
+          <td>돌아감</td>
+          <td>ARPU 331원, CAC는 광고비를 안 봄, 결제 성공률은 항상 99%대(실패 기록이 저장되지 않음)</td>
+          <td><span class="pill bad">불가</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col" style="margin-top:22px">
+    <p class="note">
+      화면 안쪽 「💰 회계관리」 메뉴에는 손익계산서·재무상태표·현금흐름표·시산표·세무·분개장·매출–입금 대사까지 이미 들어 있습니다.
+      <strong>기능이 없는 게 아니라, 다운로드 버튼 6개가 그 좋은 것들과 연결돼 있지 않습니다.</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">04</span>
+    <div class="col">
+      <h2>잘하는 곳들은 어떻게 하나</h2>
+      <p class="note">여섯 곳에서 하나씩만 배워 오면 충분합니다.</p>
+    </div>
+  </div>
+
+  <div class="grid-2">
+
+    <div class="learn">
+      <span class="who">Stripe — 결제 대시보드</span>
+      <h4>「이 돈이 통장 어디로 갔는지」를 한 줄까지 따라갈 수 있다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        스트라이프는 통장 입금 한 건을 클릭하면 그 안에 묶인 결제 건들이 전부 펼쳐집니다.
+        「입금액 = 결제 합계 − 수수료 − 환불」이 항상 딱 떨어지게 설계돼 있습니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> 대사(對査)를 «사람이 확인하는 기능»이 아니라 <b>«안 맞으면 리포트가 스스로 경고하는 기본값»</b>으로 만들 것.</p>
+    </div>
+
+    <div class="learn">
+      <span class="who">QuickBooks · Xero — 중소기업 회계</span>
+      <h4>통장 거래 한 줄 한 줄에 계정과목을 붙이고, 안 붙은 건 「미분류」로 쌓아 둔다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        은행 내역을 자동으로 가져온 뒤, 사람이 «이건 임대료», «이건 광고비» 하고 분류합니다.
+        한 번 분류하면 다음부터는 같은 거래처를 자동으로 같은 과목에 넣습니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> 지금 7월 통장 출금 <b>642만 원(49건)</b>이 「기타출금」 한 줄입니다. <b>계정과목표(Chart of Accounts)</b>와 «미분류 개수» 표시가 필요합니다.</p>
+    </div>
+
+    <div class="learn">
+      <span class="who">더존 · 경리나라 — 국내 세무</span>
+      <h4>부가세 신고서 서식 그대로 뽑아 준다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        「매출의 3%」 같은 추정이 아니라, 세금계산서·현금영수증 발행 내역을 근거로
+        국세청 신고 서식에 바로 넣을 수 있는 형태로 만들어 줍니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> 「세무사 제출용」이라고 쓸 거면 <b>세무사가 그대로 쓸 수 있는 형식</b>이어야 합니다. 지금은 이름만 그렇습니다.</p>
+    </div>
+
+    <div class="learn">
+      <span class="who">캐시노트 — 사장님용 요약</span>
+      <h4>어려운 회계 용어 없이 「이번 달 얼마 벌었나」를 먼저 보여 준다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        첫 화면은 딱 세 줄입니다. 어제 얼마, 이번 달 얼마, 지난달보다 얼마 늘었나.
+        자세한 건 눌러야 나옵니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> 리포트 맨 위에 <b>「한 문장 요약」</b>을 넣을 것. “7월은 매출 X, 비용 Y, 남은 돈 Z입니다. 단, 매출 A만큼이 아직 안 잡혔습니다.”</p>
+    </div>
+
+    <div class="learn">
+      <span class="who">토스페이먼츠 — 정산 관리</span>
+      <h4>「정산 예정」과 「정산 완료」를 확실히 나눠 보여 준다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        아직 안 들어온 돈과 이미 들어온 돈을 절대 한 숫자로 합치지 않습니다.
+        입금 예정일이 항상 같이 표시됩니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> 가맹점 정산서에 <b>«확정 / 예정 / 지급완료»</b> 상태를 붙일 것. 지금은 전부 'pending'이라는 영어 한 단어입니다.</p>
+    </div>
+
+    <div class="learn">
+      <span class="who">NetSuite · SAP — 대기업 ERP</span>
+      <h4>월 마감을 하면 그 달 숫자가 잠긴다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        마감 버튼을 누르면 그 달 장부가 스냅샷으로 굳고, 이후 수정은 «수정 전표»로만 가능합니다.
+        누가 언제 무엇을 바꿨는지도 전부 남습니다.
+      </p>
+      <p class="take"><b>배울 것 →</b> <b>마감(close)</b>과 <b>감사추적(누가 언제 무엇을)</b>. 세무사에게 보낸 숫자가 나중에 바뀌면 안 됩니다.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">05</span>
+    <div class="col">
+      <h2>그래서 이렇게 고치자 — 3단계</h2>
+      <p class="note">순서가 중요합니다. 「믿을 수 있게」가 안 된 상태에서 「예쁘게」를 하면 예쁜 거짓말이 됩니다.</p>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <div class="phase">
+      <div class="p-no">
+        <span class="big">1</span>
+        <span class="small">약 2주</span>
+      </div>
+      <div>
+        <h3>믿을 수 있게 만든다</h3>
+        <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+          숫자를 더 만들지 않습니다. <strong>«이 숫자는 믿어도 되는가»를 화면이 스스로 말하게</strong> 합니다.
+        </p>
+        <ul class="check">
+          <li><strong>신뢰도 배지</strong> — 모든 금액 옆에 <span class="pill ok">실데이터</span> <span class="pill warn">추정</span> <span class="pill bad">자료없음</span> 중 하나를 붙입니다. 추정치는 회색으로 흐리게. 지금 11군데가 전부 대상입니다.</li>
+          <li><strong>매출을 세 갈래 다 모읍니다</strong> — 카페24 결제 + 통장 B2B 직접입금 + 정기결제. 통장 입금에 「매출인가 아닌가」를 표시하는 칸을 만들고, 미분류는 리포트 위에 «확인 필요 N건»으로 띄웁니다.</li>
+          <li><strong>대사 결과를 리포트 맨 위에 고정</strong> — 이미 만들어진 「매출–입금 대사」 판정을 월간·분기·연간 리포트 첫 줄에 항상 표시합니다. 지금은 따로 들어가야 보입니다.</li>
+          <li><strong>테스트 데이터 표시 칸 신설</strong> — 메모 글자로 가짜를 가려내는 방식을 버리고, 결제 테이블에 <code>is_test</code> 칸을 둡니다. 진짜 매출이 사라질 위험을 없앱니다.</li>
+          <li><strong>월 마감 버튼</strong> — 마감하면 그 달 숫자를 원장에 스냅샷으로 저장하고, 이후 리포트는 마감본을 보여 줍니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-no">
+        <span class="big">2</span>
+        <span class="small">약 4주</span>
+      </div>
+      <div>
+        <h3>안을 자세하게 만든다</h3>
+        <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+          사장님이 지적하신 «안에 들어가서 볼 게 없다»를 푸는 단계입니다.
+        </p>
+        <ul class="check">
+          <li><strong>모든 숫자를 클릭 가능하게</strong> — 매출 950만 원을 누르면 75명의 결제 목록이, 운영비를 누르면 카드 91건 목록이 펼쳐집니다. 합계 → 내역 → 원본 거래 3단계.</li>
+          <li><strong>계정과목표를 만듭니다</strong> — 「기타출금 642만 원」을 임대료·광고비·서버비·소모품 등으로 나눕니다. 거래처 이름으로 자동 분류 규칙을 학습시킵니다.</li>
+          <li><strong>가맹점 정산서를 정확한 엔진으로 교체</strong> — 버튼이 <code>/api/admin/settlement/rollup</code>을 부르도록 바꾸고, 가맹점별 수수료율을 따로 저장합니다. (개발 하루짜리, 효과는 가장 큼)</li>
+          <li><strong>강사 급여명세를 실데이터로</strong> — 수업 기록에서 자동 계산된 급여를 급여명세로 확정하는 절차를 만들고, 강사 개인별 PDF를 실제로 만들어 보냅니다.</li>
+          <li><strong>월 대비 증감·3개월 추세</strong> — 표만 있고 그래프가 없습니다. 분기·연간 리포트에 막대·선 그래프를 넣습니다.</li>
+          <li><strong>엑셀(.xlsx)과 PDF</strong> — 지금은 CSV와 «인쇄»뿐입니다. 세무사·은행에 그대로 보낼 수 있는 파일이 필요합니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="phase">
+      <div class="p-no">
+        <span class="big">3</span>
+        <span class="small">약 6주</span>
+      </div>
+      <div>
+        <h3>알아서 돌아가게 만든다</h3>
+        <ul class="check">
+          <li><strong>부가세·원천세 신고 자료</strong> — 추정이 아니라 발행 내역 기반으로. 세무사 서식에 맞춥니다.</li>
+          <li><strong>감사추적</strong> — 누가 언제 어떤 숫자를 바꿨는지 기록합니다.</li>
+          <li><strong>매월 자동 발송</strong> — 마감이 끝나면 월간 리포트를 사장님·세무사에게 자동으로 보냅니다.</li>
+          <li><strong>이상 감지 알림</strong> — 장부와 통장이 10% 이상 벌어지면 그날 바로 알립니다. 다음 달에 발견하면 이미 늦습니다.</li>
+          <li><strong>데이터 건강검진 화면</strong> — 활성 학생 수, 수업시간 0인 기록 비율, 미분류 거래 수를 매일 점검해 보여 줍니다.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">06</span>
+    <div class="col">
+      <h2>지금 «자료 자체»가 없는 것들</h2>
+      <p class="note">개발로 못 만듭니다. 어딘가에서 데이터를 받아오거나, 사람이 입력해야 하는 것들입니다.</p>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>없는 자료</th><th>지금 어떻게 때우고 있나</th><th>어디서 받아와야 하나</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">광고·마케팅비</td><td>매출의 5%로 가정</td><td>네이버·구글·메타 광고 계정, 또는 법인카드 내역 분류</td></tr>
+        <tr><td class="name">강사 급여명세 확정본</td><td>통장 송금액으로 대체</td><td>수업 기록 기반 자동 계산 → 사람이 확정</td></tr>
+        <tr><td class="name">가맹점별 수수료율</td><td>전부 15%로 가정</td><td>가맹 계약서 (가맹점마다 다름)</td></tr>
+        <tr><td class="name">자산 목록 (장비·집기)</td><td>5,000만 원 고정값</td><td>자산 대장을 한 번 만들어 등록</td></tr>
+        <tr><td class="name">통장 잔액</td><td>매출의 70%로 가정</td><td>이미 연동돼 있음 — 코드가 안 쓰고 있을 뿐</td></tr>
+        <tr><td class="name">세금계산서·현금영수증 발행 내역</td><td>매출의 3%로 가정</td><td>바로빌 연동 확장 (모듈은 이미 있음)</td></tr>
+        <tr><td class="name">결제 실패 기록</td><td>저장 안 됨 → 성공률 항상 99%</td><td>결제 실패도 기록하도록 저장 방식 변경</td></tr>
+        <tr><td class="name">2026년 1월 이전 통장 내역</td><td>없음 → 대사 불가</td><td>신한은행 과거 내역 일괄 등록</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">07</span>
+    <div class="col">
+      <h2>덤으로 발견한 것</h2>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div class="card">
+      <h4>결제 내역 화면의 날짜가 깨져 있습니다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        「💳 학생 결제 내역」 표의 시각이 서기 <span class="num">58,000</span>년대로 표시됩니다.
+        시간 단위를 한 번 더 곱하는 한 글자짜리 실수입니다. 다운로드되는 CSV는 정상이라 눈에 잘 안 띕니다.
+      </p>
+      <p class="note" style="margin:10px 0 0;font-family:var(--mono);font-size:11.5px">js/adm-core.js · accLoadPayments</p>
+    </div>
+    <div class="card">
+      <h4>결제수단 이름이 제각각입니다</h4>
+      <p style="margin:0;font-size:14.5px;color:var(--ink-2)">
+        같은 카드 결제인데 <code>card</code>와 <code>카드</code>가 따로 저장돼 있어서,
+        「결제수단별 분포」 표에서 두 줄로 쪼개집니다. 표기를 하나로 통일해야 합니다.
+      </p>
+      <p class="note" style="margin:10px 0 0;font-family:var(--mono);font-size:11.5px">student_payments.method</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">08</span>
+    <div class="col">
+      <h2>사장님이 정해 주셔야 할 것</h2>
+      <p class="note">이 셋만 정해 주시면 1단계는 바로 시작할 수 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="stack">
+    <div class="decide">
+      <span class="q">1. 통장으로 직접 들어오는 B2B 입금을 매출로 잡을까요?</span>
+      <span class="a">
+        JW학원·드림키오·어센틱영어처럼 통장으로 바로 보내는 돈이 매달 250~380만 원 있습니다.
+        이걸 매출로 넣으면 이익률이 정상으로 돌아옵니다. 다만 «어느 학원이 보낸 돈인지»를 사람이 한 번 확인해 줘야 합니다.
+        <br><strong>제 의견: 넣어야 합니다.</strong> 안 넣으면 리포트는 계속 적자로 나옵니다.
+      </span>
+    </div>
+    <div class="decide">
+      <span class="q">2. 카페24 매출이 통장의 절반인 이유를 같이 파 봐도 될까요?</span>
+      <span class="a">
+        B2B 입금을 다 더해도 통장 카드정산금이 장부보다 훨씬 많습니다. 세 가지 중 하나입니다 —
+        ① 카페24에서 D1로 오는 동기화가 일부만 오고 있다 ② 교재·레벨테스트 같은 다른 상품 매출이 빠져 있다 ③ 카드사 정산 주기가 겹쳐 있다.
+        카페24 원본 주문 합계와 한 번만 대조하면 바로 답이 나옵니다.
+        <br><strong>제 의견: 이게 1순위입니다.</strong> 이걸 모르면 나머지를 다 고쳐도 숫자가 안 맞습니다.
+      </span>
+    </div>
+    <div class="decide">
+      <span class="q">3. 가맹점 정산서를 정확한 계산으로 바꿔도 될까요?</span>
+      <span class="a">
+        엔진은 이미 있고 버튼 연결만 바꾸면 됩니다(하루). 다만 바꾸는 순간 가맹점별 금액이 «균등»에서 «실제»로 확 달라집니다.
+        가맹점에 이미 균등 금액으로 안내한 이력이 있다면 먼저 정리가 필요합니다.
+        <br><strong>제 의견: 바꿔야 합니다.</strong> 지금 숫자로 정산서를 내보내면 분쟁이 납니다.
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ -->
+<section>
+  <div class="sec-head">
+    <span class="sec-no">09</span>
+    <div class="col"><h2>한 장 요약</h2></div>
+  </div>
+
+  <div class="col" style="margin-bottom:22px">
+    <div class="card">
+      <h4>📄 고친 화면이 어떤 모습인지 따로 그려 두었습니다</h4>
+      <p style="margin:8px 0 0;font-size:14.5px;color:var(--ink-2)">
+        2026년 7월 <strong>실제 데이터</strong>로 채운 「월간 회계 리포트 개선 시안」입니다.
+        신뢰도 배지·미분류 경고·눌러서 펼치는 상세 내역·마감 잠금이 실제로 어떻게 보이는지 확인하실 수 있습니다.
+        <br><a href="https://claude.ai/code/artifact/f9995329-9730-41db-aa80-60aee797064d">→ 회계 리포트 개선 시안 열기</a>
+      </p>
+    </div>
+  </div>
+
+  <div class="callout col">
+    <h3>결론</h3>
+    <p style="margin:0 0 12px">
+      회계 리포트의 <strong>계산은 대체로 맞습니다.</strong> 틀린 건 «넣는 재료»입니다.
+      비용은 통장에서 100% 가져오는데 매출은 카페24에서 절반만 가져오니, 리포트가 회사를 적자로 그립니다.
+    </p>
+    <p style="margin:0 0 12px">
+      그리고 없는 자료를 <strong>«매출의 몇 %»로 지어내는 자리가 11군데</strong> 있는데,
+      지어낸 숫자와 진짜 숫자가 같은 표에 섞여 있어 구분이 안 됩니다.
+    </p>
+    <p style="margin:0">
+      그래서 순서는 이렇습니다 — <strong>① 매출을 다 모으고 ② 지어낸 숫자에 표시를 달고 ③ 마감으로 숫자를 잠근 다음,</strong>
+      그 위에 자세한 화면과 예쁜 그래프를 얹습니다. 반대 순서로 하면 예쁜 거짓말이 됩니다.
+    </p>
+  </div>
+</section>
+
+<footer>
+  <p style="margin:0 0 8px">
+    <strong>이 문서의 숫자는 어디서 왔나</strong><br>
+    모두 운영 데이터베이스(D1 <span class="num">mango-db</span>)를 <strong>읽기 전용(SELECT)으로만</strong> 조회해 확인한 실제 값입니다.
+    데이터를 고치거나 지운 것은 없습니다. 코드 인용은 <span class="num">cloudflare-deploy/src/accounting-reports.ts</span>,
+    <span class="num">org-settlement.ts</span>, <span class="num">public/js/adm-core.js</span> 기준입니다.
+  </p>
+  <p style="margin:0">
+    조회 기준일 2026-08-16 · 2026년 8월 수치는 15일까지의 부분값 · 통장 연동 시작은 2026년 2월, 법인카드 연동은 2026년 5월입니다.
+  </p>
+</footer>
+
+</div>

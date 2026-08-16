@@ -1,0 +1,512 @@
+<title>회계 리포트 개선 시안</title>
+<style>
+  :root{
+    --paper:#FCFCFB; --surface:#FFFFFF; --surface-2:#F4F5F3;
+    --ink:#17202A; --ink-2:#3B4653; --muted:#5D6A78;
+    --rule:#E1E5EA; --rule-strong:#C6CDD6;
+    --amber:#B4610D; --blue:#1D6A9C; --red:#B3312A; --green:#1E7A5B;
+    --amber-wash:#F7EDE1; --blue-wash:#E6EFF5; --red-wash:#F7E8E6; --green-wash:#E4F0EB;
+    --shadow:0 1px 2px rgba(23,32,42,.06), 0 8px 24px rgba(23,32,42,.05);
+    --sans:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,-apple-system,sans-serif;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,"D2Coding",monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#14181D; --surface:#1B2027; --surface-2:#222932;
+      --ink:#E6EBF1; --ink-2:#C3CCD6; --muted:#93A0AE;
+      --rule:#2B333C; --rule-strong:#3D4753;
+      --amber:#E29A4E; --blue:#5BA7D8; --red:#E28179; --green:#4CA98A;
+      --amber-wash:#2B2318; --blue-wash:#17242E; --red-wash:#2C1D1B; --green-wash:#16261F;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14181D; --surface:#1B2027; --surface-2:#222932;
+    --ink:#E6EBF1; --ink-2:#C3CCD6; --muted:#93A0AE;
+    --rule:#2B333C; --rule-strong:#3D4753;
+    --amber:#E29A4E; --blue:#5BA7D8; --red:#E28179; --green:#4CA98A;
+    --amber-wash:#2B2318; --blue-wash:#17242E; --red-wash:#2C1D1B; --green-wash:#16261F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.3);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.7;margin:0;padding:0 20px 88px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  p{margin:0 0 14px}
+
+  /* 시안 안내 배너 */
+  .mock{
+    max-width:940px;margin:22px auto 0;background:var(--blue-wash);
+    border:1px dashed var(--blue);border-radius:10px;padding:14px 18px;
+    font-size:13.5px;line-height:1.7;color:var(--ink-2);
+  }
+  .mock b{color:var(--blue)}
+
+  /* 리포트 문서 */
+  .doc{
+    background:var(--surface);border:1px solid var(--rule);border-radius:14px;
+    box-shadow:var(--shadow);margin-top:22px;overflow:hidden;
+  }
+  .doc-head{padding:28px 32px 24px;border-bottom:1px solid var(--rule)}
+  .doc-head .top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start;justify-content:space-between}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  h1{font-size:29px;line-height:1.2;letter-spacing:-.025em;font-weight:800;margin:0}
+  .doc-head .sub{font-family:var(--mono);font-size:12.5px;color:var(--muted);margin-top:8px}
+  .body{padding:26px 32px 32px;display:flex;flex-direction:column;gap:30px}
+
+  h2{font-size:16px;font-weight:800;letter-spacing:-.01em;margin:0 0 12px;display:flex;align-items:center;gap:9px}
+  h2::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+  /* 한 문장 요약 */
+  .headline{
+    background:var(--amber-wash);border-radius:10px;padding:18px 22px;
+    font-size:17px;line-height:1.65;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+    text-wrap:pretty;
+  }
+  .headline .hl{color:var(--amber)}
+
+  /* 경고 */
+  .alert{
+    border:1px solid var(--red);background:var(--red-wash);border-radius:10px;
+    padding:16px 20px;display:flex;flex-direction:column;gap:8px;
+  }
+  .alert .a-title{font-weight:800;font-size:14.5px;color:var(--red);display:flex;align-items:center;gap:8px}
+  .alert .a-body{font-size:14px;line-height:1.7;color:var(--ink-2)}
+  .alert .a-body b{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink)}
+
+  /* 배지 */
+  .pill{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;white-space:nowrap;letter-spacing:.03em;vertical-align:1px}
+  .pill.real{background:var(--green-wash);color:var(--green)}
+  .pill.est{background:var(--amber-wash);color:var(--amber)}
+  .pill.none{background:var(--red-wash);color:var(--red)}
+  .pill.chk{background:var(--blue-wash);color:var(--blue)}
+
+  /* 손익 타일 */
+  .plbox{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+  .pl{border:1px solid var(--rule);border-radius:10px;padding:15px 16px;display:flex;flex-direction:column;gap:5px;background:var(--surface-2)}
+  .pl .l{font-size:12px;color:var(--muted)}
+  .pl .v{font-family:var(--mono);font-size:22px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+  .pl .s{font-size:11.5px;color:var(--muted);line-height:1.5}
+  .pl.rev .v{color:var(--blue)}
+  .pl.cost .v{color:var(--ink)}
+  .pl.hold .v{color:var(--red);font-size:17px}
+
+  /* 표 */
+  .tablewrap{overflow-x:auto;border:1px solid var(--rule);border-radius:10px}
+  table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+  th,td{padding:10px 15px;text-align:left;border-bottom:1px solid var(--rule)}
+  thead th{font-size:11.5px;font-weight:700;color:var(--muted);letter-spacing:.05em;background:var(--surface-2);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:0}
+  td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.name{font-weight:600}
+  tr.sum td{background:var(--surface-2);font-weight:800;border-top:1px solid var(--rule-strong)}
+  tr.warn-row td{background:var(--red-wash)}
+  tr.new-row td{background:var(--blue-wash)}
+  .src{font-size:11.5px;color:var(--muted);font-family:var(--mono)}
+
+  /* 드릴다운 */
+  details.drill{border:1px solid var(--rule);border-radius:10px;background:var(--surface-2);overflow:hidden}
+  details.drill+details.drill{margin-top:8px}
+  details.drill>summary{
+    cursor:pointer;list-style:none;padding:11px 16px;font-size:13.5px;font-weight:600;
+    display:flex;align-items:center;gap:9px;color:var(--ink-2);
+  }
+  details.drill>summary::-webkit-details-marker{display:none}
+  details.drill>summary::before{content:"▸";font-family:var(--mono);color:var(--amber);font-size:12px}
+  details.drill[open]>summary::before{content:"▾"}
+  details.drill>summary:hover{color:var(--ink)}
+  .drill-body{padding:0 16px 14px;background:var(--surface)}
+  .drill-body .tablewrap{border-radius:8px;margin-top:4px}
+  .drill-body table{font-size:13px;min-width:420px}
+  .drill-body th,.drill-body td{padding:7px 13px}
+
+  /* 건강검진 */
+  .health{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+  .hitem{border:1px solid var(--rule);border-left:3px solid var(--green);border-radius:0 9px 9px 0;padding:12px 15px;background:var(--surface-2);display:flex;flex-direction:column;gap:4px}
+  .hitem.bad{border-left-color:var(--red)}
+  .hitem.warnk{border-left-color:var(--amber)}
+  .hitem .h-l{font-size:12px;color:var(--muted)}
+  .hitem .h-v{font-size:14px;font-weight:700;letter-spacing:-.01em}
+  .hitem.bad .h-v{color:var(--red)}
+  .hitem.warnk .h-v{color:var(--amber)}
+  .hitem.ok .h-v{color:var(--green)}
+
+  /* 시나리오 */
+  .scen{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .sc{border:1px solid var(--rule);border-radius:10px;padding:17px 19px;display:flex;flex-direction:column;gap:9px;background:var(--surface-2)}
+  .sc.b{border-color:var(--blue);background:var(--blue-wash)}
+  .sc .sc-t{font-size:13px;font-weight:800;letter-spacing:-.01em}
+  .sc .sc-n{font-family:var(--mono);font-size:24px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  .sc.a .sc-n{color:var(--red)}
+  .sc.b .sc-n{color:var(--green)}
+  .sc .sc-d{font-size:13px;color:var(--ink-2);line-height:1.6}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;padding:18px 32px;border-top:1px solid var(--rule);background:var(--surface-2)}
+  .btn{
+    font-family:var(--sans);font-size:13px;font-weight:700;padding:8px 15px;border-radius:8px;
+    border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-2);cursor:default;
+  }
+  .btn.primary{background:var(--amber);border-color:var(--amber);color:#fff}
+  .btn.lock{background:var(--surface);border-style:dashed;color:var(--muted)}
+
+  .legend-row{display:flex;flex-wrap:wrap;gap:8px 16px;font-size:12.5px;color:var(--muted);align-items:center}
+
+  .after{margin-top:34px}
+  h3.cmp{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:0 0 14px}
+  .cmp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+  .cmp-card{border:1px solid var(--rule);border-radius:11px;padding:18px 20px;background:var(--surface)}
+  .cmp-card.old{border-left:3px solid var(--red)}
+  .cmp-card.new{border-left:3px solid var(--green)}
+  .cmp-card h4{margin:0 0 10px;font-size:14px;font-weight:800}
+  .cmp-card.old h4{color:var(--red)}
+  .cmp-card.new h4{color:var(--green)}
+  .cmp-card ul{margin:0;padding-left:18px;font-size:13.5px;line-height:1.75;color:var(--ink-2)}
+  .cmp-card li{margin-bottom:5px}
+
+  footer{max-width:940px;margin:38px auto 0;padding-top:20px;border-top:1px solid var(--rule);font-size:12.5px;color:var(--muted);line-height:1.8}
+  a{color:var(--blue)}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--amber);outline-offset:2px;border-radius:4px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  @media (max-width:620px){
+    .doc-head,.body,.toolbar{padding-left:18px;padding-right:18px}
+    h1{font-size:23px}
+  }
+</style>
+
+<div class="mock">
+  <b>◆ 시안입니다.</b> 아래는 「📥 월간 회계 리포트」를 제안서 1·2단계대로 고쳤을 때 나올 화면을 그린 것입니다.
+  숫자는 <b>2026년 7월 실제 운영 데이터</b>를 그대로 넣었습니다(개인 이름만 가렸습니다). 버튼은 모양만 있고 눌러도 동작하지 않습니다.
+  <b>▸ 표시가 붙은 줄은 실제로 눌러서 펼쳐 볼 수 있습니다</b> — 제안서에서 말한 «안에 들어가서 보는» 부분입니다.
+</div>
+
+<div class="wrap">
+<div class="doc">
+
+  <div class="doc-head">
+    <div class="top">
+      <div>
+        <p class="eyebrow">망고아이 · 월간 회계 리포트</p>
+        <h1>2026년 7월</h1>
+        <div class="sub">생성 2026-08-16 · 마감 전(숫자가 바뀔 수 있음) · 통장 연동 2026-02~ · 카드 연동 2026-05~</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <span class="pill none">리포트 신뢰도 : 낮음</span>
+        <span class="src">매출 확인 필요</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- ① 한 문장 요약 -->
+    <div class="headline">
+      7월에 <span class="hl">확인된 매출은 1,331만 원</span>, <span class="hl">쓴 돈은 2,549만 원</span>입니다.
+      다만 통장에 들어온 카드 정산금이 장부보다 <span class="hl">1,264만 원 많아서</span>,
+      <strong>순이익은 아직 확정할 수 없습니다.</strong> 아래 ⚠ 항목을 먼저 확인해 주세요.
+    </div>
+
+    <!-- ② 대사 경고 -->
+    <div class="alert">
+      <div class="a-title">⚠ 장부에 안 잡힌 매출이 있습니다</div>
+      <div class="a-body">
+        신한 통장에 케이씨피(KCP)가 넣어 준 카드 정산금은 <b>21,406,866원</b>입니다.
+        수수료 3.3%를 되돌리면 원래 결제액은 <b>약 22,137,401원</b>이어야 하는데,
+        장부에 잡힌 카페24 매출은 <b>9,500,750원</b>뿐입니다. 차이 <b>12,636,651원</b>.<br>
+        <strong>카드사 정산 시차로 보기엔 너무 큽니다.</strong> 카페24 원본 주문 합계와 대조가 필요합니다.
+        <span class="pill chk">확인 담당 지정 필요</span>
+      </div>
+    </div>
+
+    <!-- ③ 손익 -->
+    <section>
+      <h2>손익 한눈에</h2>
+      <div class="plbox">
+        <div class="pl rev">
+          <span class="l">확인된 매출</span>
+          <span class="v">13,317,222</span>
+          <span class="s">카페24 950만 + 통장 B2B 382만</span>
+        </div>
+        <div class="pl cost">
+          <span class="l">쓴 돈</span>
+          <span class="v">25,496,933</span>
+          <span class="s">98.8%가 통장·카드 실데이터</span>
+        </div>
+        <div class="pl hold">
+          <span class="l">순이익</span>
+          <span class="v">판정 보류</span>
+          <span class="s">매출 1,264만 원 미확인 → 아래 시나리오 참고</span>
+        </div>
+        <div class="pl hold">
+          <span class="l">이익률</span>
+          <span class="v">판정 보류</span>
+          <span class="s">매출이 확정돼야 계산합니다</span>
+        </div>
+      </div>
+      <p class="src" style="margin:11px 0 0">
+        ※ 예전 리포트는 이 자리에 <span style="text-decoration:line-through">순이익 −15,996,183원 · 이익률 −168.4%</span>를 그냥 찍었습니다.
+        틀린 숫자를 찍느니 «아직 모른다»고 말하는 편이 낫습니다.
+      </p>
+    </section>
+
+    <!-- ④ 시나리오 -->
+    <section>
+      <h2>그래서 7월은 적자인가요?</h2>
+      <div class="scen">
+        <div class="sc a">
+          <span class="sc-t">A. 장부에 있는 것만 세면</span>
+          <span class="sc-n">−12,179,711</span>
+          <span class="sc-d">매출 1,331만 − 비용 2,549만.<br>매출이 덜 잡힌 상태라 <strong>실제보다 나쁘게</strong> 보입니다.</span>
+        </div>
+        <div class="sc b">
+          <span class="sc-t">B. 통장에 들어온 돈을 다 세면 <span class="pill est">추정</span></span>
+          <span class="sc-n">+39,931</span>
+          <span class="sc-d">매출 2,595만(카드정산 환산 2,214만 + B2B 382만) − 비용 2,591만.<br><strong>사실상 본전</strong>입니다.</span>
+        </div>
+      </div>
+      <p class="src" style="margin:11px 0 0">
+        A와 B의 차이 <span class="num">1,222만 원</span>이 곧 «장부에 안 들어온 매출»의 크기입니다. 이걸 찾는 게 이번 달 1순위 과제입니다.
+      </p>
+    </section>
+
+    <!-- ⑤ 매출 -->
+    <section>
+      <h2>매출 — 어디서 들어왔나</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>출처</th><th class="n">금액</th><th class="n">건수</th><th>근거</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="name">카페24 결제</td>
+              <td class="n">9,500,750</td>
+              <td class="n">75명</td>
+              <td><span class="pill real">실데이터</span> <span class="src">student_payments</span></td>
+            </tr>
+            <tr class="new-row">
+              <td class="name">통장 직접입금 (B2B)</td>
+              <td class="n">3,816,472</td>
+              <td class="n">7건</td>
+              <td><span class="pill real">실데이터</span> <span class="src">신규 반영 — 예전엔 0원</span></td>
+            </tr>
+            <tr>
+              <td class="name">정기결제</td>
+              <td class="n">0</td>
+              <td class="n">0건</td>
+              <td><span class="pill none">자료없음</span> <span class="src">빌링키 결제가 장부에 안 쌓임</span></td>
+            </tr>
+            <tr class="warn-row">
+              <td class="name">⚠ 미확인 (통장에만 있음)</td>
+              <td class="n">12,636,651</td>
+              <td class="n">—</td>
+              <td><span class="pill chk">확인 필요</span> <span class="src">카드정산금 − 장부매출</span></td>
+            </tr>
+            <tr class="sum"><td>확인된 매출 합계</td><td class="n">13,317,222</td><td class="n"></td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <details class="drill">
+          <summary>통장 직접입금 7건 자세히 보기 — 예전 리포트에서는 「기타 입금(참고)」로만 흘려보내던 돈</summary>
+          <div class="drill-body">
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>날짜</th><th>보낸 곳</th><th class="n">금액</th><th>처리</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">07-31</td><td>JW학원</td><td class="n">2,224,100</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-15</td><td>JW학원</td><td class="n">908,372</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-10</td><td>(주)드림키오</td><td class="n">342,000</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-31</td><td>SYP어학원 (8월분)</td><td class="n">150,000</td><td><span class="pill est">선수금</span></td></tr>
+                  <tr><td class="num">07-05</td><td>박영선 어센틱영어</td><td class="n">120,000</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-22</td><td>JW학원</td><td class="n">50,000</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-08</td><td>김○숙</td><td class="n">22,000</td><td><span class="pill real">매출</span></td></tr>
+                  <tr><td class="num">07-02</td><td>메트로은행서울지점</td><td class="n">1</td><td><span class="pill none">매출 아님</span></td></tr>
+                  <tr class="sum"><td colspan="2">매출로 잡은 금액</td><td class="n">3,816,472</td><td></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="src" style="margin:10px 0 0">
+              ※ 「8월분」이라고 적힌 SYP어학원 15만 원은 원칙적으로 8월 매출(선수금)입니다.
+              이런 구분을 사람이 한 번 눌러 주면, 다음부터 같은 거래처는 자동으로 같은 처리를 합니다.
+            </p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ⑥ 비용 -->
+    <section>
+      <h2>쓴 돈 — 어디에 썼나</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>항목</th><th class="n">금액</th><th class="n">건수</th><th>근거</th></tr></thead>
+          <tbody>
+            <tr><td class="name">강사 급여 (해외 송금)</td><td class="n">9,465,570</td><td class="n">4건</td><td><span class="pill real">실데이터</span> <span class="src">신한 → 메트로은행</span></td></tr>
+            <tr><td class="name">직원 급여</td><td class="n">7,366,650</td><td class="n">7건</td><td><span class="pill real">실데이터</span></td></tr>
+            <tr class="warn-row"><td class="name">⚠ 미분류 출금</td><td class="n">6,421,142</td><td class="n">49건</td><td><span class="pill chk">분류 필요</span> <span class="src">전체 비용의 25%</span></td></tr>
+            <tr><td class="name">법인카드</td><td class="n">1,650,755</td><td class="n">91건</td><td><span class="pill real">실데이터</span></td></tr>
+            <tr><td class="name">PG 수수료</td><td class="n">313,525</td><td class="n">—</td><td><span class="pill est">추정 3.3%</span> <span class="src">실제 정산서 필요</span></td></tr>
+            <tr><td class="name">공과금 · 통신</td><td class="n">258,230</td><td class="n">6건</td><td><span class="pill real">실데이터</span></td></tr>
+            <tr><td class="name">금융비용</td><td class="n">21,061</td><td class="n">1건</td><td><span class="pill real">실데이터</span></td></tr>
+            <tr class="sum"><td>합계</td><td class="n">25,496,933</td><td class="n">158건</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:10px">
+        <details class="drill">
+          <summary>⚠ 미분류 출금 49건 · 642만 원 — 계정과목을 정해 주세요 (상위 10건)</summary>
+          <div class="drill-body">
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>날짜</th><th>받는 사람</th><th class="n">금액</th><th>추정</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">07-31</td><td>이○영</td><td class="n">763,463</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>윤○아</td><td class="n">475,764</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-31</td><td>안○우</td><td class="n">441,452</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>오○석</td><td class="n">417,099</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>안○우</td><td class="n">360,224</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-31</td><td>오○석</td><td class="n">289,971</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>이○호</td><td class="n">278,996</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>김○효</td><td class="n">252,887</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-01</td><td>박○옥</td><td class="n">240,316</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr><td class="num">07-31</td><td>이○호</td><td class="n">235,481</td><td><span class="pill est">수당?</span></td></tr>
+                  <tr class="sum"><td colspan="2">나머지 39건 포함 합계</td><td class="n">6,421,142</td><td></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="src" style="margin:10px 0 0">
+              ※ 매월 1일과 말일에 같은 사람들에게 나가는 돈입니다. 「지사 수수료」인지 「강사 수당」인지 한 번만 정해 주시면,
+              다음 달부터 같은 이름은 자동으로 그 과목에 들어갑니다. 이게 QuickBooks·Xero가 하는 방식입니다.
+            </p>
+          </div>
+        </details>
+
+        <details class="drill">
+          <summary>법인카드 91건 · 165만 원 자세히 보기 (상위 10건)</summary>
+          <div class="drill-body">
+            <div class="tablewrap">
+              <table>
+                <thead><tr><th>날짜</th><th>가맹점</th><th class="n">금액</th><th>제안 과목</th></tr></thead>
+                <tbody>
+                  <tr><td class="num">07-06</td><td>GOOGLE*GOOGLE DIGITAL</td><td class="n">204,415</td><td><span class="pill chk">광고선전비</span></td></tr>
+                  <tr><td class="num">07-06</td><td>토리카서비스</td><td class="n">115,000</td><td><span class="pill chk">지급수수료</span></td></tr>
+                  <tr><td class="num">07-24</td><td>토리카서비스</td><td class="n">95,000</td><td><span class="pill chk">지급수수료</span></td></tr>
+                  <tr><td class="num">07-28</td><td>자동결제_4</td><td class="n">90,000</td><td><span class="pill none">확인 필요</span></td></tr>
+                  <tr><td class="num">07-01</td><td>만월호텔 유성점</td><td class="n">70,000</td><td><span class="pill chk">출장여비</span></td></tr>
+                  <tr><td class="num">07-15</td><td>반디호텔</td><td class="n">50,000</td><td><span class="pill chk">출장여비</span></td></tr>
+                  <tr><td class="num">07-21</td><td>엑스와이엠(XYM)</td><td class="n">50,000</td><td><span class="pill none">확인 필요</span></td></tr>
+                  <tr><td class="num">07-24</td><td>시흥버스터미널(주)</td><td class="n">47,000</td><td><span class="pill chk">여비교통비</span></td></tr>
+                  <tr><td class="num">07-16</td><td>지에스칼텍스 고속주유소</td><td class="n">44,000</td><td><span class="pill chk">차량유지비</span></td></tr>
+                  <tr><td class="num">07-09</td><td>서창산업 용인주유소</td><td class="n">42,000</td><td><span class="pill chk">차량유지비</span></td></tr>
+                  <tr class="sum"><td colspan="2">나머지 81건 포함 합계</td><td class="n">1,650,755</td><td></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="src" style="margin:10px 0 0">
+              ※ 「제안 과목」은 가맹점 이름으로 자동으로 붙인 것입니다. 사람은 틀린 것만 고치면 됩니다.
+              구글 광고비 20만 원이 잡히면 <strong>CAC(학생 한 명 데려오는 비용)를 «매출의 5%» 같은 추정이 아니라 진짜로 계산</strong>할 수 있습니다.
+            </p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ⑦ 건강검진 -->
+    <section>
+      <h2>이 리포트를 믿어도 될까요 — 자동 점검 6가지</h2>
+      <div class="health">
+        <div class="hitem bad">
+          <span class="h-l">매출–입금 대사</span>
+          <span class="h-v">✕ 1,264만 원 안 맞음</span>
+          <span class="src">누적 기준으로도 벌어짐</span>
+        </div>
+        <div class="hitem bad">
+          <span class="h-l">미분류 출금</span>
+          <span class="h-v">✕ 49건 · 642만 원</span>
+          <span class="src">전체 비용의 25%</span>
+        </div>
+        <div class="hitem warnk">
+          <span class="h-l">강사 급여명세</span>
+          <span class="h-v">△ 0건 (통장 송금으로 대체)</span>
+          <span class="src">원천세 계산 불가</span>
+        </div>
+        <div class="hitem warnk">
+          <span class="h-l">활성 학생 수</span>
+          <span class="h-v">△ 28,672명 (실제 수업 805명)</span>
+          <span class="src">ARPU 계산이 왜곡됨</span>
+        </div>
+        <div class="hitem warnk">
+          <span class="h-l">수업시간 기록</span>
+          <span class="h-v">△ 4,679건 중 4,029건이 0분</span>
+          <span class="src">86%가 비어 있음</span>
+        </div>
+        <div class="hitem ok">
+          <span class="h-l">비용 실데이터 비율</span>
+          <span class="h-v">✓ 98.8% (추정은 PG 수수료뿐)</span>
+          <span class="src">통장·카드 연동 정상</span>
+        </div>
+      </div>
+      <div class="legend-row" style="margin-top:12px">
+        <span><span class="pill real">실데이터</span> 통장·카드·결제 기록에서 그대로 가져온 값</span>
+        <span><span class="pill est">추정</span> 계산식으로 만든 값 — 참고만</span>
+        <span><span class="pill none">자료없음</span> 아직 못 가져오는 값</span>
+        <span><span class="pill chk">확인 필요</span> 사람이 한 번 봐 줘야 하는 값</span>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="toolbar">
+    <button class="btn primary" type="button">🖨 인쇄 / PDF</button>
+    <button class="btn" type="button">📥 엑셀(.xlsx)</button>
+    <button class="btn" type="button">📄 세무사 제출본</button>
+    <button class="btn" type="button">✉ 사장님·세무사에게 보내기</button>
+    <button class="btn lock" type="button">🔒 7월 마감하기 — 확인 필요 2건을 처리한 뒤에 열립니다</button>
+  </div>
+
+</div>
+
+<!-- 비교 -->
+<div class="after">
+  <h3 class="cmp">지금 화면과 무엇이 달라졌나</h3>
+  <div class="cmp-grid">
+    <div class="cmp-card old">
+      <h4>지금</h4>
+      <ul>
+        <li>매출 950만 · 순이익 −1,599만 · 이익률 −168%를 그냥 찍음</li>
+        <li>통장 B2B 입금 382만 원은 매출에서 빠짐</li>
+        <li>비용은 「계좌 출금 — 기타출금 642만」 한 줄</li>
+        <li>어느 숫자가 진짜이고 어느 게 추정인지 구분 불가</li>
+        <li>숫자를 눌러도 아무 일도 안 일어남</li>
+        <li>내일 다시 뽑으면 숫자가 달라질 수 있음</li>
+        <li>내보내기는 CSV와 인쇄뿐</li>
+      </ul>
+    </div>
+    <div class="cmp-card new">
+      <h4>시안</h4>
+      <ul>
+        <li>맨 위에 <strong>한 문장 요약</strong>과 <strong>리포트 신뢰도</strong>가 먼저 나옴</li>
+        <li>틀릴 수 있는 순이익은 «판정 보류»로 두고, 두 시나리오를 나란히 보여 줌</li>
+        <li>B2B 통장 입금을 매출로 반영 + 어느 학원이 보냈는지 펼쳐 봄</li>
+        <li>모든 금액에 <strong>실데이터 / 추정 / 자료없음 / 확인 필요</strong> 배지</li>
+        <li>미분류 642만 원을 «분류해 주세요»라고 대놓고 요구</li>
+        <li>합계 → 내역 → 원본 거래까지 눌러서 내려감</li>
+        <li>마감 버튼으로 숫자를 잠금 (확인 필요가 남으면 잠기지 않음)</li>
+        <li>엑셀 · 세무사 제출본 · 자동 발송</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<footer>
+  <p style="margin:0 0 8px">
+    <strong>시안에 쓰인 숫자의 출처</strong> — 운영 D1(<span class="num">mango-db</span>)을 읽기 전용으로 조회한 2026년 7월 실제 값입니다.
+    개인 이름은 가운데 글자를 가렸습니다. 「제안 과목」과 「선수금」 판정은 시안을 보여 주기 위해 붙인 예시이며, 실제로는 사람이 정합니다.
+  </p>
+  <p style="margin:0">
+    시나리오 B의 매출 환산은 <span class="num">PG 입금 ÷ (1 − 0.033)</span> 이며, PG 수수료율이 결제수단마다 다르므로 추정입니다.
+  </p>
+</footer>
