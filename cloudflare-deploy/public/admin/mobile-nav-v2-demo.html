@@ -3,6 +3,10 @@
 <title>망고아이 · 모바일 관리자 사이드바 v2 (샘플)</title>
 <meta name="theme-color" content="#0f172a">
 <meta name="robots" content="noindex">
+<!-- 한자 글꼴 정의 — 이름만 적고 정의가 없으면 브라우저가 조용히 무시한다
+     (hanzi_font_harness 가 감시하는 «3차 재발» 경로). 이 화면엔 한자가 없어
+     unicode-range 때문에 파일은 안 받는다. -->
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
 <!--
   ═══════════════════════════════════════════════════════════════════════════
   모바일 관리자 사이드바 v2 — 제안 샘플 (2026-08-16)
@@ -44,7 +48,10 @@
   html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--paper); color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    /* MangoiHanSC 를 맨 앞에 — 한자 글꼴 통일 규칙(2026-08-04 사장님 지시,
+       test-harness/hanzi_font_harness.mjs 가 감시). 이 화면에는 한자가 없으므로
+       unicode-range 덕분에 폰트 파일은 실제로 내려받지 않는다(비용 0). */
+    font-family: MangoiHanSC, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
     font-size: 15px; line-height: 1.5;
     /* 주소창이 접혔다 폈다 해도 100% 가 흔들리지 않게 */
     min-height: 100dvh;

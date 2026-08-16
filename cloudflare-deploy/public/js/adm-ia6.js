@@ -381,12 +381,16 @@
   function alignTop(lead) {
     if (alignRelease) alignRelease();
     alignLead = lead;
+    /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다.
+       📱 모바일은 줄3개 버튼(#mgv2-burger) 아래에 세운다. scroll-margin-top 은
+          scrollIntoView 가 그대로 지켜 주는 «표준» 속성이라, 검증된 scrollIntoView
+          호출부를 손대지 않고도 도착 지점만 내릴 수 있다. 값은 매번 재서 넣는다
+          (버튼 크기·노치가 기기마다 다르다). 데스크톱은 topGap()==0 이라 예전 그대로.
+       ⚠️ 설명은 여기 «위» 에 적는다. fitTail() 과 scrollIntoView 사이에 길게 적으면
+          admin_sidebar_ia6_click_harness 의 «여백부터 만든다» 검사(둘 사이 220자 이내)에
+          걸린다 — 순서는 맞는데 주석 길이 때문에 실패한다(2026-08-16 실제로 밟음). */
     var toLead = function () {
-      /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다. */
       try { fitTail(); } catch (e) { /* 무시 */ }
-      /* 📱 모바일은 줄3개 버튼 아래에 세운다. scroll-margin-top 은 scrollIntoView 가
-         그대로 지켜 주는 표준 속성이라, 검증된 scrollIntoView 호출을 손대지 않아도 된다.
-         값은 매번 재서 넣는다(버튼 크기·노치가 기기마다 다르다). 데스크톱은 0. */
       try { lead.style.scrollMarginTop = topGap() + 'px'; } catch (e) { /* 무시 */ }
       alignSelf = true;
       try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }

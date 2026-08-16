@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=7"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=8"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -234,7 +234,7 @@
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=3" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=2" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
-<link rel="stylesheet" href="/css/admin-readability.css?v=3"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
      head 에서 전역 즉시 숨김 → 어떤 화면폭/속도에서도 처음부터 안 보임. -->
@@ -579,7 +579,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=20"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=21"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -11953,7 +11953,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
 <!-- v=22 — 양쪽이 각자 올린 것(main v=21 · 이 브랜치 v=20)을 합치면서 둘보다 위로 올린다.
      낮은 쪽을 그대로 쓰면 한쪽 브라우저에 옛 파일이 캐시된 채 남는다. 파일 내용은 자동 병합됐다. -->
-<script src="/js/adm-ia6.js?v=22" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
+<script src="/js/adm-ia6.js?v=23" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
