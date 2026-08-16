@@ -10429,6 +10429,14 @@ window.rebuildGlobalSearchIndex = function() {
         <div class="b net"><div class="l">순이익</div><div class="v">${fmtKRW(p.net_income)}</div></div>
         <div class="b margin"><div class="l">이익률</div><div class="v">${p.margin_pct}%</div></div>
       </div>
+      ${s.cash_has_data ? `<h2>💵 통장 기준 실제 현금흐름 <span style="font-weight:400;font-size:12px;color:#6b7280">(신한 계좌 — 장부와 무관한 «사실»)</span></h2>
+      <table>
+        <tr><th>실제 입금</th><td class="num" style="color:#059669;font-weight:700">${fmtKRW(s.cash_in_krw)}</td>
+            <th>실제 출금</th><td class="num" style="color:#dc2626;font-weight:700">${fmtKRW(s.cash_out_krw)}</td></tr>
+        <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
+            <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
+      </table>
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 아래 손익은 <b>장부(결제기록) 기준</b>이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 회사가 실제로 번 돈은 위 «순증감»에 가깝습니다.</p>` : ''}
       <h2>매출 요약</h2>
       <table>
         <tr><th>결제 건수</th><td class="num">${s.pay_count.toLocaleString()} 건</td>
