@@ -381,6 +381,21 @@
       <div id="ph161-quick-items"></div>
     </div>
 
+    <!-- 🕘 (2026-08-16 사장님) 최근 본 메뉴 5개 — 자기 화면이 스스로 최적화된다.
+         위 「자주 쓰는 기능」 10개는 **모두에게 같은 목록**이다. 그런데 사람마다 그날 하는 일이
+         다르다 — 급여 정산하는 날은 급여만, 신학기에는 수강신청만 하루 종일 오간다.
+         그런 «지금 내가 오가는 메뉴» 를 스스로 기억한다. 새로 배울 것이 없다.
+         ⚠️ 기록이 없으면(처음 쓰는 사람) 이 상자는 **아예 안 보인다** — js 가 .ph164-empty 를 붙인다.
+            빈 상자를 보여 주면 «이건 뭐지» 가 하나 더 생긴다.
+         ⚠️ [hidden] 속성을 쓰지 않는다. 작성자 CSS 가 display 를 정하면 브라우저 기본
+            [hidden]{display:none} 을 이겨서 계속 보인다(CLAUDE.md 의 teacher.html 사례).
+            그래서 클래스 + display:none 으로 확실히 감춘다.
+         내용·동작은 js/adm-recent-menus.js 담당. -->
+    <div id="ph164-recent" class="ph164-empty">
+      <div class="ph164-head" data-ko="🕘 최근 본 메뉴" data-en="🕘 Recent menus">🕘 최근 본 메뉴</div>
+      <div id="ph164-recent-items"></div>
+    </div>
+
     <!-- 🥭 히어로 랜딩 (망고 캐릭터 + 거대 검색창) — 2026-06-24 중앙 AI 검색창 복구(다시 표시) -->
     <section class="hero">
       <div class="hero-text">
@@ -564,7 +579,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=19"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=20"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -8875,7 +8890,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-core.js?v=87" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
+<script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
+<script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
