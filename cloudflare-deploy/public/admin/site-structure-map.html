@@ -782,17 +782,17 @@ footer b{color:var(--ink2);font-weight:700}
       <p>지도는 «어디에 무엇이» 고, 이 표들은 «메뉴 하나하나»입니다</p>
     </div>
     <div class="docs-grid">
-      <a class="doc-card" href="/admin/site-structure-admin.html">
+      <a class="doc-card" target="_blank" rel="noopener" href="/admin/site-structure-admin.html">
         <div class="dt">관리자 구성표</div>
         <div class="dd">사이드바 6묶음을 자식 · 손자까지 펼친 표. 메뉴 코드에서 자동으로 뽑습니다.</div>
         <div class="dn">6묶음 · 39메뉴 · 93항목</div>
       </a>
-      <a class="doc-card" href="/admin/site-structure-student.html">
+      <a class="doc-card" target="_blank" rel="noopener" href="/admin/site-structure-student.html">
         <div class="dt">학생 · 강사 구성표</div>
         <div class="dd">학생 홈과 강사 화면의 메뉴를 펼친 표.</div>
         <div class="dn">3화면 · 14묶음 · 96항목</div>
       </a>
-      <a class="doc-card" href="/admin/site-structure-more.html">
+      <a class="doc-card" target="_blank" rel="noopener" href="/admin/site-structure-more.html">
         <div class="dt">학부모 · 매니저 · 게임</div>
         <div class="dd">학부모 대시보드, 매니저 화면, 학습 게임 목록.</div>
         <div class="dn">3화면 · 11묶음 · 54항목</div>
@@ -845,8 +845,7 @@ footer b{color:var(--ink2);font-weight:700}
       lane: laneEl ? laneEl.dataset.lane : null,
       labelEl: a,
       label: label,
-      hay: (label + ' ' + (pathEl ? pathEl.textContent : '')).toLowerCase().replace(/\s+/g, ''),
-      html: null                                   // 밑줄 친 원본 복구용 (처음 칠 때 채운다)
+      hay: (label + ' ' + (pathEl ? pathEl.textContent : '')).toLowerCase().replace(/\s+/g, '')
     };
   });
   var groups = Array.prototype.slice.call(document.querySelectorAll('.group'));
@@ -863,13 +862,8 @@ footer b{color:var(--ink2);font-weight:700}
      ⚠️ innerHTML 로 <a> 를 통째로 다시 쓰면 뱃지(.tag)와 주소(.p)까지 날아간다. */
   function mark(item, t){
     var el = item.labelEl;
-    if (item.html === null) {                      // 원래 모습을 한 번 저장
-      item.html = [];
-      Array.prototype.forEach.call(el.childNodes, function(n){
-        if (n.nodeType === 3) item.html.push(n);
-      });
-    }
-    // 이전 밑줄 걷어내기
+    /* 이전 밑줄 걷어내기 — <mark> 를 원래 글자로 되돌리고 쪼개진 텍스트 노드를 다시 합친다.
+       normalize() 를 빼면 「급여」→「급」+「여」로 쪼개진 채 남아 다음 검색이 못 찾는다. */
     Array.prototype.slice.call(el.querySelectorAll('mark')).forEach(function(m){
       m.replaceWith(document.createTextNode(m.textContent));
     });
