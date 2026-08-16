@@ -1,5 +1,27 @@
 # 이중운영 전략 — 새 사이트 / 옛 사이트 동시 운영
 
+> ## ✅ 2026-08-16 진행상황 — `mangoi.ai` 도입 완료
+>
+> | 항목 | 값 |
+> |---|---|
+> | 도메인 | `mangoi.ai` (Cloudflare Registrar, $160 / 2년) |
+> | 만료일 | **2028-08-16** · 자동 갱신 **ON** · 상태 **활성** |
+> | 연결 | Worker **`webrtc-unified-platform-prod`** 커스텀 도메인 |
+> | 호스트 | `mangoi.ai`, `www.mangoi.ai` 둘 다 연결·DNS 확인 완료 (13:52) |
+>
+> **다른 담당자 주의**
+> - `test.mangoi.co.kr` **유지 중** — 즐겨찾기 보호 목적. 떼지 마세요
+> - `www.mangoi.co.kr` **미변경** — 구 사이트 서비스 중. 전환 종료일 작업
+> - 신규 대외 안내물·명함·문자에는 **`mangoi.ai`** 사용 가능
+>
+> **미해결 숙제**
+> - `test.mangoi.co.kr` 이 어느 설정으로 Worker 에 걸려 있는지 불명.
+>   `webrtc-unified-platform-prod` 의 커스텀 도메인 목록에는 없었음(추가 전 기준).
+>   종료일 정리 전에 반드시 위치를 특정할 것
+> - 유사 이름 Worker 3개 존재: `webrtc-unified-platform`,
+>   `webrtc-unified-platform-prod`, `webrtc-unified-platform-prod-production`.
+>   작업 시 대상 혼동 주의
+
 새 망고아이 사이트와 기존 사이트를 당분간 **함께 운영**하는 계획을 정리한 작업 폴더입니다.
 학생·대리점이 새 사이트에 익숙해질 때까지의 전환 기간을 다룹니다.
 
