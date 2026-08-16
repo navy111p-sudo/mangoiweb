@@ -1419,7 +1419,13 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
           //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
           //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
-          +    esc(T('Class log','일지 쓰기')) + '</button>';
+          +    esc(T('Class log','일지 쓰기')) + '</button>'
+          /* 🎙 (2026-08-15) AI 리포트는 «요청» 만 한다 — 강사가 직접 돌리지 않는다.
+             녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
+             필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
+             실제 생성은 회선 좋은 사무실이 관리자 화면에서 한다. */
+          +  '<button class="btn btn-gray btn-sm" type="button" data-rep="' + i + '">'
+          +    esc(T('Ask for AI report','AI 리포트 요청')) + '</button>';
       } else if (open){
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
@@ -1452,6 +1458,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    var rq = box.querySelectorAll('[data-rep]');
+    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(list[+this.getAttribute('data-rep')], this); };
     // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
     var pp = box.querySelectorAll('[data-post]');
     for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
@@ -2806,6 +2814,36 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       if (rest.length) qFlush();
     })
     .catch(function(){ /* 아직 회선이 없다 — 다음 기회에 */ });
+  }
+
+  /* 🎙 AI 리포트 요청 — 보내는 것은 방 번호와 이름뿐(200바이트 안쪽).
+     녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
+     ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
+        (회선이 끊긴 줄 알고 다시 누르는 일이 잦다). 그래서 낙관적으로 처리해도 안전하다. */
+  function askReport(c, btn){
+    if (!c || !c.room_id) return;
+    btn.disabled = true;
+    setBtnLabel(btn, 'Sending…', '보내는 중…');
+    fetch('/api/admin/feedback-drafts/report-request', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        room_id: c.room_id,
+        student_uid: c.student_uid || '',
+        student_name: c.student_name || '',
+        lesson_date: c.date || DATA.today,
+        start_time: c.start_time || ''
+      })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+      if (j.already) setBtnLabel(btn, 'Already asked', '이미 요청됨');
+      else           setBtnLabel(btn, 'Asked — office will make it', '요청됨 — 사무실이 만들어요');
+    })
+    .catch(function(){
+      btn.disabled = false;
+      setBtnLabel(btn, 'Could not send — tap again', '못 보냈어요 — 다시 누르기');
+    });
   }
 
   function openEval(c){
