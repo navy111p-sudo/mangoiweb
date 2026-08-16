@@ -209,6 +209,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
            평소엔 숨겨 두고 scope 가 hq 일 때만 켠다(지사·대리점은 강사 화면을 쓰지 않는다). -->
       <a class="tbtn" id="toTeacher" href="/teacher" hidden
          data-en="My classes" data-ko="내 수업">My classes</a>
+      <!-- 🧾 (2026-08-16) 결재함 — 이 화면에는 결재가 **한 줄도 없었다**(grep approval = 0).
+           그래서 매니저는 결재 한 건 올리려고 여기를 나가 강사 화면(192KB)을 받아야 했다.
+           이제 한 번 눌러 전용 경량 화면 /work 로 간다. 대기 건수는 첫 페인트 «뒤»에 채운다
+           (아래 loadApprovalBadge — 첫 화면 API 2회 계약을 깨지 않는다). -->
+      <a class="tbtn" id="toWork" href="/work"><span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN"></span></a>
       <a class="tbtn" href="/"><span data-en="Home" data-ko="홈">Home</span></a>
       <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
       <button class="tbtn" id="mode" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
@@ -963,6 +968,22 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     once('month', function(){ return get('/api/admin/exec/summary', 'month'); }).then(function(j){ D.month = j; paintMonth(); }).catch(function(){});
   }
 
+  /* 🧾 결재 대기 건수 (2026-08-16)
+     첫 화면 API 2회 계약을 지키려고, 두 요청이 «끝난 뒤»에 한 번 더 부른다.
+     수업 유도 배너(아래 인라인 스크립트)가 쓰는 것과 같은 예외 방식이다 —
+     첫 페인트와 대역폭을 다투지 않는다. 실패하면 조용히 숫자만 안 뜬다(링크는 그대로 동작). */
+  function loadApprovalBadge(){
+    fetch('/api/approval/home', { credentials: 'include', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.ok) return;
+        var n = Number(j.pending || 0);
+        var el = document.getElementById('apprN');
+        if (el && n > 0) el.textContent = ' (' + n + ')';
+      })
+      .catch(function(){});
+  }
+
   // ── 회선이 돌아오면 자동으로 다시 받는다 ──────────────────────────────────
   //   ⚠️ 타이머로 계속 두드리지 않는다. 좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다.
   //      브라우저가 «온라인» 이라고 알려줄 때만 한 번 받는다.
@@ -972,6 +993,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   applyMode();
   applyLang();
   boot();
+  // 첫 화면 두 요청이 자리를 잡은 뒤에 결재 배지를 채운다(계약 4번 — 첫 화면 API 2회).
+  setTimeout(loadApprovalBadge, 1200);
 })();
 </script>
 
