@@ -492,7 +492,19 @@
       svg('<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>' +
           '<line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>') + '</div>' +
       '<div class="ph85-title" data-ko="메뉴 지도" data-en="Menu map">메뉴 지도</div></div>';
-    frag.appendChild(all);
+    /* 🔝 (2026-08-16 사장님) 메뉴 지도를 사이드바 **맨 위** 로 올린다.
+       [왜] 지도는 «어디 있는지 모를 때» 쓰는 물건이다. 맨 아래에 있으면 끝까지 스크롤한
+         사람만 발견하는데, 그건 이미 사이드바를 다 아는 사람 — 정작 지도가 필요 없는 사람이다.
+         다른 메뉴(오늘·학생·강사…)는 «내 일이 어느 칸인지 이미 알 때» 누르지만
+         지도는 그걸 모를 때 누른다. 그래서 카테고리들과 같은 줄이 아니라 그 위가 맞다.
+       [높이] 줄을 «추가» 하는 게 아니라 순서만 바꾼 것이라, 6그룹+지도가 첫 화면에 들어오는
+         기존 계산(줄당 44px × 7 = 304px)이 그대로 유지된다.
+       ⚠️ 카테고리처럼 보이면 안 된다 — 아래에 가는 구분선을 둬서 «여기부터 진짜 메뉴» 임을
+          눈으로 구분해 준다. 머리 자체는 이미 opacity:.75 로 죽여 놨다. */
+    var sep = document.createElement('div');
+    sep.className = 'ia6-sep';
+    frag.insertBefore(sep, frag.firstChild);
+    frag.insertBefore(all, frag.firstChild);
 
     anchor.parentNode.insertBefore(frag, anchor);
 
@@ -693,7 +705,10 @@
          ⚠️ 글자 크기(16px)는 그대로다. 줄만 낮춘다 — 「글씨가 작아졌다」가 되면 안 된다.
          ⚠️ 누르는 높이는 화면 기준 52px(40 × zoom 1.3)로 손가락·마우스 모두 충분하다. */
       '#ph85-sidebar .ph85-group[data-ia6]{margin-bottom:4px !important}' +
-      '#ph85-sidebar .ph85-group[data-ia6] > .ph85-head{padding-top:5px !important;padding-bottom:5px !important}';
+      '#ph85-sidebar .ph85-group[data-ia6] > .ph85-head{padding-top:5px !important;padding-bottom:5px !important}' +
+      /* 🔝 메뉴 지도(맨 위)와 진짜 메뉴 사이의 경계. 지도가 «7번째 카테고리» 로
+         보이지 않게 하는 장치다 — 선 하나로 «안내판 / 메뉴» 를 갈라 준다. */
+      '#ph85-sidebar .ia6-sep{height:1px;margin:2px 4px 8px;background:rgba(148,163,184,.28)}';
     document.head.appendChild(st);
   }
 
