@@ -77,6 +77,24 @@ body{
 }
 .page{max-width:1560px;margin:0 auto;padding:30px 24px 72px}
 
+
+/* ---------- 좌측 상단 이동 버튼 ---------- */
+/*  이 문서는 관리자 사이드바에서 «다른 페이지»로 빠져나온 자리라, 돌아갈 길이 화면에
+    없으면 브라우저 뒤로가기밖에 방법이 없다(2026-08-16 사장님 요청).
+    ⚠️ 크기·위치는 hover 로 움직이지 않는다 — 관리자 화면의 hover 확대 금지 규칙. */
+.topnav{display:flex;gap:8px;margin:0 0 16px}
+.tn-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;font-size:17px;line-height:1;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  color:var(--ink2);text-decoration:none;font-family:MangoiHanSC,inherit;
+  box-shadow:var(--shadow);
+  transition:border-color .15s ease,background .15s ease,color .15s ease;
+}
+.tn-btn:hover{border-color:var(--root);color:var(--ink);
+  background:color-mix(in oklab, var(--root) 8%, var(--card))}
+.tn-btn:focus-visible{outline:2px solid var(--root);outline-offset:2px}
+
 /* ---------- header ---------- */
 .eyebrow{
   font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
@@ -278,6 +296,12 @@ footer b{color:var(--ink2);font-weight:700}
 </head>
 <body>
 <div class="page">
+
+  <nav class="topnav" aria-label="이동">
+    <button type="button" class="tn-btn" id="tn-back" title="뒤로 가기" aria-label="뒤로 가기">←</button>
+    <a class="tn-btn" href="/admin.html" title="관리자 홈" aria-label="관리자 홈">🏠</a>
+    <a class="tn-btn" href="/" target="_blank" rel="noopener" title="학생 화면 (새 탭)" aria-label="학생 화면">🎒</a>
+  </nav>
 
   <p class="eyebrow">MangoI · Information Architecture</p>
   <h1>망고아이 <em>사이트 지도</em></h1>
@@ -670,6 +694,17 @@ footer b{color:var(--ink2);font-weight:700}
     pt.setAttribute('aria-pressed', String(on));
     map.classList.toggle('show-paths', on);
     pt.textContent = on ? '주소 숨기기' : '개발자용 주소 보기';
+  });
+})();
+
+/* ← 뒤로 가기 — 새 탭으로 열린 경우엔 히스토리가 없다. 그때는 관리자 홈으로 보낸다
+   (아무 반응 없는 버튼이 되면 «눌러도 안 된다» 신고가 된다). */
+(function(){
+  var b = document.getElementById('tn-back');
+  if (!b) return;
+  b.addEventListener('click', function(){
+    if (history.length > 1) history.back();
+    else location.href = '/admin.html';
   });
 })();
 </script>

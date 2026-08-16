@@ -8180,27 +8180,8 @@ button.chip:hover,
 /* ── [style#ph160-nav-rail] ── */
 
   /* 접기 버튼 — 펼침 상태 기본 모양 */
-  #ph160-rail-toggle {
-    display: none;               /* PC 미디어쿼리에서만 켠다 */
-    align-items: center; justify-content: center; gap: 6px;
-    width: 100%; height: 30px; margin: 0 0 8px;
-    background: rgba(148,163,184,0.10);
-    border: 1px solid rgba(148,163,184,0.22);
-    border-radius: 8px;
-    color: #cbd5e1; font-size: 12px; font-weight: 700;
-    cursor: pointer;
-    transition: background .16s, color .16s, border-color .16s;
-  }
-  #ph160-rail-toggle:hover {
-    background: rgba(251,191,36,0.16);
-    border-color: rgba(251,191,36,0.45);
-    color: #fde68a;
-  }
-  #ph160-rail-toggle:focus-visible { outline: 2px solid #fbbf24; outline-offset: 2px; }
-  #ph160-rail-toggle .ph160-chev { font-size: 15px; line-height: 1; transition: transform .22s ease; }
 
   @media (min-width: 1024px) {
-    #ph160-rail-toggle { display: flex; }
 
     /* ⛔ width / padding-left 에 transition 을 걸지 않는다.
        두 속성은 애니메이션 매 프레임마다 '전체 레이아웃 재계산'을 일으킨다.
@@ -8210,63 +8191,17 @@ button.chip:hover,
     /* ── 접힌 상태 ───────────────────────────────────────────── */
     /* body 의 padding-left 는 여러 스크립트가 인라인으로 312px 를 박는다.
        인라인을 이기려면 스타일시트 쪽에 !important 가 필요하다. */
-    html[data-adm-nav="rail"] body { padding-left: 76px !important; }
-    html[data-adm-nav="rail"] #ph85-sidebar {
-      /* box-sizing 필수 — 기본 content-box 로 두면 padding 12px + border 1px 만큼
-         레일이 본문을 덮는다(실측 13px). 76px 안에 전부 포함시켜 body padding 과 정확히 맞춘다. */
-      box-sizing: border-box !important;
-      width: 76px !important;
-      padding-left: 6px !important; padding-right: 6px !important;
-      overflow-x: hidden !important;
-    }
 
     /* 글자 요소는 접힐 때만 숨긴다 (기본값은 '보임') */
-    html[data-adm-nav="rail"] .ph85-brand-text,
-    html[data-adm-nav="rail"] .ph85-search-wrap,
-    html[data-adm-nav="rail"] #ph86-actions,
-    html[data-adm-nav="rail"] #ph85-howto,
-    html[data-adm-nav="rail"] #ph85-ai-asst span,
-    html[data-adm-nav="rail"] .ph85-title,
-    html[data-adm-nav="rail"] .ph85-arrow,
-    html[data-adm-nav="rail"] .ph85-live,
-    html[data-adm-nav="rail"] #ph160-rail-toggle .ph160-lab { display: none !important; }
 
-    html[data-adm-nav="rail"] #ph160-rail-toggle { width: 100%; height: 34px; }
-    html[data-adm-nav="rail"] #ph160-rail-toggle .ph160-chev { transform: rotate(180deg); }
 
-    html[data-adm-nav="rail"] .ph85-brand {
-      justify-content: center; padding: 6px 0 10px; margin-bottom: 8px;
-    }
-    html[data-adm-nav="rail"] #ph85-ai-asst,
-    html[data-adm-nav="rail"] .ph85-classroom {
-      justify-content: center; padding: 11px 0 !important; gap: 0 !important;
-    }
 
-    html[data-adm-nav="rail"] .ph85-head {
-      justify-content: center; padding: 9px 0 !important; position: relative;
-    }
-    html[data-adm-nav="rail"] .ph85-group { margin-bottom: 5px; }
 
     /* 개수 배지 → 아이콘 우상단 코너로. 알림 6건이 몇 건인지는 접어도 보여야 한다 */
-    html[data-adm-nav="rail"] .ph85-count-badge {
-      position: absolute !important;
-      /* 아이콘(28px, 가운데 정렬)의 우상단에 붙인다. right 기준으로 잡으면
-         레일 오른쪽 끝에 붙어 아이콘과 떨어져 보인다(실측 12px 이격). */
-      top: 3px; left: calc(50% + 6px); right: auto;
-      margin: 0 !important; padding: 0 4px !important;
-      min-width: 15px; text-align: center;
-      font-size: 9.5px !important; line-height: 15px !important;
-      border-radius: 99px !important;
-      background: rgba(251,191,36,0.92) !important;
-      color: #422006 !important;
-      pointer-events: none;
-    }
 
     /* 접힌 동안에는 하위 메뉴가 절대 펼쳐지지 않는다 (레일 폭에 글자가 낄 자리가 없음) */
-    html[data-adm-nav="rail"] .ph85-group.open .ph85-subs { max-height: 0 !important; }
 
     /* ⛔ hover 로 라벨/서브메뉴를 띄우지 않는다. 강조는 배경색까지만 */
-    html[data-adm-nav="rail"] .ph85-head:hover { background: rgba(251,191,36,0.14); }
   }
 
 /* ═══════════════════════════════════════════════════════════════════════════
