@@ -285,22 +285,36 @@
     <h1>회계 리포트,<br>왜 숫자가 안 맞을까</h1>
     <p class="lead">
       「📥 회계 리포트 다운로드」 6개 버튼을 하나씩 열어서 코드와 실제 데이터베이스를 같이 확인했습니다.
-      결론부터 말하면 <strong>리포트가 고장 난 게 아니라, 리포트에 넣을 재료가 절반만 들어오고 있습니다.</strong>
-      이 문서는 무엇이 왜 틀렸는지, 잘하는 회사들은 어떻게 하는지, 그리고 무엇부터 고칠지를 정리한 제안서입니다.
+      <strong>가장 큰 원인은 통장 적요 두 글자였습니다.</strong> 그리고 그것을 포함해 이 문서에 적은 것들을
+      실제로 고쳤습니다. 아래는 무엇이 왜 틀렸는지, 무엇을 고쳤는지, 무엇이 아직 남았는지입니다.
     </p>
   </div>
   <div class="byline">
-    <span>작성일 2026-08-16</span>
+    <span>작성 2026-08-16 · 수정 반영본</span>
     <span>대상 회계 리포트 6종 + 재무제표·세무·대사</span>
     <span>근거 운영 D1 <span class="num">읽기 전용</span> 조회</span>
   </div>
 </header>
 
+<div class="col" style="margin-top:26px">
+  <div class="cause" style="border-left-color:var(--blue)">
+    <span class="c-tag" style="color:var(--blue)">먼저 — 처음 진단을 정정합니다</span>
+    <h3>「매출이 절반만 잡힌다」는 제 첫 진단은 틀렸습니다</h3>
+    <p style="margin:0">
+      처음에는 «통장 카드정산금이 장부의 2배 = 매출 누락 4,010만 원»이라고 보고드렸습니다.
+      더 파 보니 <strong>통장 입금 적요에 「케이씨피」와 「케이씨피M」 두 가지가 있었고,</strong>
+      리포트가 «케이씨피가 들어간 것 전부»를 카드 정산금으로 세고 있었습니다.
+      진짜 정산금(「케이씨피」)만 놓고 보면 장부와 통장은 <strong>누적 −9.9%로 정상 범위</strong>입니다.
+      매출이 사라진 게 아니라 <strong>대사(對査) 계산이 틀렸던 것</strong>입니다. 아래 본문은 이 사실에 맞춰 고쳐 썼습니다.
+    </p>
+  </div>
+</div>
+
 <div class="tiles">
   <div class="tile bad">
-    <span class="t-label">5개월(3~7월) 동안 통장에는 들어왔는데<br>장부에는 안 잡힌 돈</span>
-    <span class="t-value">약 4,010만 원</span>
-    <span class="t-sub">장부 6,152만 vs PG 입금 9,960만</span>
+    <span class="t-label">PG 정산금이 아닌데 정산금으로<br>잘못 세고 있던 입금 (3~7월)</span>
+    <span class="t-value">4,632만 원</span>
+    <span class="t-sub">「케이씨피M」 17건 · 정체 확인 필요</span>
   </div>
   <div class="tile warn">
     <span class="t-label">리포트에서 빼내야 했던<br>가짜(시연용) 결제</span>
@@ -324,60 +338,34 @@
   <div class="sec-head">
     <span class="sec-no">01</span>
     <div class="col">
-      <h2>지금 무슨 일이 벌어지고 있나</h2>
-      <p class="note">2026년 7월 월간 회계 리포트를 예로 들면 이해가 빠릅니다.</p>
+      <h2>가장 큰 원인 — 통장 적요 두 글자</h2>
+      <p class="note">신한 통장에 들어오는 돈 중 「케이씨피」로 시작하는 것이 두 종류였습니다. 바로빌이 준 원본 자료로 확인했습니다.</p>
     </div>
   </div>
 
   <div class="stack-lg">
     <div class="tablewrap">
       <table>
-        <caption>2026년 7월 — 리포트가 보여주는 숫자 vs 통장에 실제로 찍힌 숫자</caption>
+        <caption>「케이씨피」와 「케이씨피M」 — 이름만 비슷하고 성격이 전혀 다릅니다</caption>
         <thead>
-          <tr><th>항목</th><th class="n">리포트 숫자</th><th>어디서 가져오나</th><th>맞나?</th></tr>
+          <tr><th>적요</th><th>거래 종류</th><th>보낸 은행</th><th>들어오는 방식</th><th>정체</th><th class="n">3~7월 합계</th></tr>
         </thead>
         <tbody>
           <tr>
-            <td class="name">매출</td>
-            <td class="n">9,500,750</td>
-            <td>카페24 결제만</td>
-            <td><span class="pill bad">절반만</span></td>
+            <td class="name">케이씨피</td>
+            <td><span class="num">타행PC</span></td>
+            <td>기업은행</td>
+            <td>매주 월요일 자동</td>
+            <td><span class="pill ok">진짜 카드 정산금</span></td>
+            <td class="n">53,280,336</td>
           </tr>
           <tr>
-            <td class="name">강사 급여</td>
-            <td class="n">9,465,570</td>
-            <td>신한 통장 송금</td>
-            <td><span class="pill ok">정확</span></td>
-          </tr>
-          <tr>
-            <td class="name">운영비</td>
-            <td class="n">15,717,838</td>
-            <td>법인카드 + 통장 출금</td>
-            <td><span class="pill ok">정확</span></td>
-          </tr>
-          <tr>
-            <td class="name">PG 수수료</td>
-            <td class="n">313,525</td>
-            <td>매출 × 3.3% 추정</td>
-            <td><span class="pill warn">추정</span></td>
-          </tr>
-          <tr>
-            <td class="name">비용 합계</td>
-            <td class="n">25,496,933</td>
-            <td>—</td>
-            <td><span class="pill ok">거의 정확</span></td>
-          </tr>
-          <tr>
-            <td class="name">순이익</td>
-            <td class="n">−15,996,183</td>
-            <td>매출 − 비용</td>
-            <td><span class="pill bad">가짜 적자</span></td>
-          </tr>
-          <tr>
-            <td class="name">이익률</td>
-            <td class="n">−168.4%</td>
-            <td>순이익 ÷ 매출</td>
-            <td><span class="pill bad">읽으면 안 됨</span></td>
+            <td class="name">케이씨피M</td>
+            <td><span class="num">타행IB</span></td>
+            <td>하나은행</td>
+            <td>사람이 인터넷뱅킹으로</td>
+            <td><span class="pill bad">정산금 아님</span></td>
+            <td class="n">46,316,575</td>
           </tr>
         </tbody>
       </table>
@@ -385,64 +373,87 @@
 
     <div class="col">
       <p class="quote">
-        비용은 통장에서 <b>전부</b> 가져오는데, 매출은 카페24에서 <b>일부만</b> 가져옵니다.
-        그래서 멀쩡한 회사가 리포트에서만 크게 망한 것처럼 보입니다.
+        리포트는 <b>「케이씨피」가 들어간 것을 전부</b> 카드 정산금으로 셌습니다.
+        그래서 회사가 다른 계좌에서 옮겨 온 돈까지 «카드로 번 돈»이 되었고,
+        «장부에 4,000만 원이 빠졌다»는 잘못된 경고가 나왔습니다.
       </p>
+    </div>
+
+    <div class="col">
+      <p>
+        「케이씨피M」은 금액도 <span class="num">5,000,000</span>·<span class="num">4,352,000</span>처럼 딱 떨어지고,
+        이체 한도 때문인지 <strong>같은 시각에 두 건으로 쪼개져</strong> 들어옵니다. 자동 정산이라면 절대 나오지 않는 모양입니다.
+        진짜 정산금(「케이씨피」)만 놓고 3~7월을 맞춰 보면 이렇습니다.
+      </p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <caption>2026년 3~7월 누적 — 장부와 통장이 맞는가</caption>
+        <thead><tr><th>항목</th><th class="n">금액</th><th>설명</th></tr></thead>
+        <tbody>
+          <tr><td class="name">장부 매출</td><td class="n">61,517,600</td><td>결제 기록 (시연용 가짜 결제 제외)</td></tr>
+          <tr><td class="name">예상 입금</td><td class="n">59,487,521</td><td>장부 매출에서 PG 수수료 3.3% 차감</td></tr>
+          <tr><td class="name">실제 정산 입금</td><td class="n">53,280,336</td><td>「케이씨피」만</td></tr>
+          <tr><td class="name">차이</td><td class="n">−6,207,185</td><td><span class="pill ok">−10.4% · 정산 시차로 설명되는 범위</span></td></tr>
+        </tbody>
+      </table>
     </div>
 
     <figure>
       <div class="legend">
         <span><i class="swatch sw-book"></i> 장부에 잡힌 매출</span>
-        <span><i class="swatch sw-bank"></i> 통장에 들어온 카드 정산금(PG)</span>
+        <span><i class="swatch sw-bank"></i> 진짜 카드 정산금 「케이씨피」만</span>
       </div>
       <div class="chart">
         <div class="row">
           <span class="rlabel">2026-03</span>
           <div class="bars">
-            <span class="bar book"><i style="width:38.4%"></i><em>1,040만</em></span>
-            <span class="bar bank"><i style="width:100%"></i><em>2,708만</em></span>
+            <span class="bar book"><i style="width:69.0%"></i><em>1,040만</em></span>
+            <span class="bar bank"><i style="width:55.3%"></i><em>833만</em></span>
           </div>
         </div>
         <div class="row">
           <span class="rlabel">2026-04</span>
           <div class="bars">
-            <span class="bar book"><i style="width:55.7%"></i><em>1,508만</em></span>
-            <span class="bar bank"><i style="width:68.3%"></i><em>1,850만</em></span>
+            <span class="bar book"><i style="width:100%"></i><em>1,508만</em></span>
+            <span class="bar bank"><i style="width:79.8%"></i><em>1,204만</em></span>
           </div>
         </div>
         <div class="row">
           <span class="rlabel">2026-05</span>
           <div class="bars">
-            <span class="bar book"><i style="width:55.2%"></i><em>1,495만</em></span>
-            <span class="bar bank"><i style="width:50.5%"></i><em>1,368만</em></span>
+            <span class="bar book"><i style="width:99.2%"></i><em>1,495만</em></span>
+            <span class="bar bank"><i style="width:78.7%"></i><em>1,187만</em></span>
           </div>
         </div>
         <div class="row">
           <span class="rlabel">2026-06</span>
           <div class="bars">
-            <span class="bar book"><i style="width:42.8%"></i><em>1,158만</em></span>
-            <span class="bar bank"><i style="width:69.9%"></i><em>1,892만</em></span>
+            <span class="bar book"><i style="width:76.8%"></i><em>1,158만</em></span>
+            <span class="bar bank"><i style="width:71.3%"></i><em>1,075만</em></span>
           </div>
         </div>
         <div class="row">
           <span class="rlabel">2026-07</span>
           <div class="bars">
-            <span class="bar book"><i style="width:35.1%"></i><em>950만</em></span>
-            <span class="bar bank"><i style="width:79.0%"></i><em>2,141만</em></span>
+            <span class="bar book"><i style="width:63.0%"></i><em>950만</em></span>
+            <span class="bar bank"><i style="width:68.3%"></i><em>1,029만</em></span>
           </div>
         </div>
         <div class="row">
           <span class="rlabel">2026-08</span>
           <div class="bars">
-            <span class="bar book"><i style="width:21.5%"></i><em>583만</em></span>
-            <span class="bar bank"><i style="width:38.5%"></i><em>1,042만</em></span>
+            <span class="bar book"><i style="width:38.7%"></i><em>583만</em></span>
+            <span class="bar bank"><i style="width:35.9%"></i><em>542만</em></span>
           </div>
         </div>
       </div>
       <figcaption>
-        시연용 가짜 결제를 뺀 «진짜 장부 매출»과, 신한 통장에 케이씨피(KCP)가 넣어 준 카드 정산금을 나란히 놓은 것입니다.
-        카드값은 며칠 뒤에 들어오므로 한 달만 보면 어긋나는 게 정상입니다. 그런데 <strong>5개월을 합쳐도 통장이 장부보다 4,010만 원 더 많습니다.</strong>
-        시차로는 설명이 안 되는 크기입니다. 2026-08은 15일까지의 값이고, 통장 연동은 2026년 2월부터라 그 전 달은 비교할 수 없습니다.
+        「케이씨피M」을 걷어내고 다시 그린 그림입니다. 두 막대가 <strong>거의 나란히</strong> 갑니다 —
+        카드값은 며칠 뒤에 들어오므로 이만큼의 어긋남은 정상입니다.
+        처음 그림에서 통장 막대가 2배로 솟았던 것은 매출이 사라져서가 아니라, 정산금이 아닌 돈을 같이 세었기 때문입니다.
+        2026-08은 15일까지의 값이고, 통장 연동은 2026년 2월부터라 그 전 달은 비교할 수 없습니다.
       </figcaption>
     </figure>
   </div>
@@ -461,17 +472,19 @@
   <div class="stack">
 
     <div class="cause">
-      <span class="c-tag">이유 1 — 재료 부족</span>
-      <h3>매출을 한 군데(카페24)에서만 가져옵니다</h3>
+      <span class="c-tag" style="color:var(--green)">이유 1 — 재료 부족 <span class="pill ok">고쳤습니다</span></span>
+      <h3>매출을 한 군데(카페24)에서만 가져왔습니다</h3>
       <p style="margin:0">
-        학원비가 들어오는 길은 여러 갈래인데, 리포트는 카페24 쇼핑몰을 거친 결제만 매출로 셉니다.
-        학원·기업이 <strong>통장으로 직접 보내는 B2B 입금</strong>은 매출에 아예 안 들어갑니다.
-        지금은 「기타 입금(참고)」라는 이름으로 옆에 놓여만 있습니다.
+        학원비가 들어오는 길은 여러 갈래인데, 리포트는 카페24 쇼핑몰을 거친 결제만 매출로 셌습니다.
+        학원·기업이 <strong>통장으로 직접 보내는 B2B 입금</strong>은 매출에 아예 안 들어갔습니다.
+        「기타 입금(참고)」라는 이름으로 옆에 놓여만 있었습니다.
       </p>
       <div class="evidence">
-        2026년 7월 통장으로 직접 들어온 돈: JW학원 <b>2,224,100</b> + <b>908,372</b>, (주)드림키오 <b>342,000</b>,
-        어센틱영어 <b>120,000</b>, SYP어학원 <b>150,000</b> … 합계 <b>3,816,474원</b>. 이 중 매출로 잡힌 건 <b>0원</b>입니다.
-        <span class="src">bankacct_transactions · kind='in' · 케이씨피 아님</span>
+        2026년 7월 통장으로 직접 들어온 돈: JW학원 <b>2,224,100</b> + <b>908,372</b> + <b>50,000</b>, (주)드림키오 <b>342,000</b>,
+        어센틱영어 <b>120,000</b>, SYP어학원 <b>150,000</b>, 김○숙 <b>22,000</b> — 합계 <b>3,816,472원</b>.
+        <b style="color:var(--green)">→ 이제 매출로 잡습니다.</b> 결제 기록과 겹치지 않는 것을 먼저 확인했습니다(그 기간
+        「계좌이체」 결제행은 전부 시연용 가짜였고 통장 입금과 한 건도 겹치지 않았습니다).
+        <span class="src">accounting-reports.ts · monthRevenue() · classifyDeposit()</span>
       </div>
     </div>
 
@@ -541,18 +554,20 @@
     </div>
 
     <div class="cause">
-      <span class="c-tag">이유 5 — 정답이 있는데 안 씀</span>
-      <h3>가맹점 정산서는 「총매출 ÷ 가맹점 수」입니다</h3>
+      <span class="c-tag" style="color:var(--green)">이유 5 — 균등분배 <span class="pill ok">고쳤습니다</span></span>
+      <h3>가맹점 정산서가 「총매출 ÷ 가맹점 수」였습니다</h3>
       <p style="margin:0">
-        가맹점 정산서 버튼은 그 달 총매출을 활성 가맹점 수로 <strong>똑같이 나눠서</strong> 보여 줍니다.
-        학생 한 명 없는 지사와 수백 명 있는 지사가 같은 금액을 받습니다. 이대로 가맹점에 보내면 사고입니다.
+        가맹점 정산서 버튼은 그 달 총매출을 활성 가맹점 수로 <strong>똑같이 나눠서</strong> 보여 줬습니다.
+        학생 한 명 없는 지사와 수백 명 있는 지사가 같은 금액을 받았습니다. 이대로 보내면 분쟁이 납니다.
       </p>
       <div class="evidence">
-        활성 가맹점 <b>235개</b> → 2026년 7월이면 한 곳당 <b>40,428원</b>, 본사 수수료 <b>6,064원</b>.<br>
-        그런데 <strong>정확히 계산하는 엔진이 이미 만들어져 있습니다</strong> — <code>org-settlement.ts</code>의
-        <code>/api/admin/settlement/rollup</code>이 조직 트리를 따라 학생별 매출을 실제로 굴려 올립니다.
-        <strong>다운로드 버튼만 옛날 API를 부르고 있습니다.</strong>
-        <span class="src">franchiseReport() vs org-settlement.ts</span>
+        예전: 활성 가맹점 <b>235개</b> → 2026년 7월이면 한 곳당 <b>40,428원</b>씩.<br>
+        <b style="color:var(--green)">→ 이제 학생 한 명씩 실제 소속을 따라가 붙입니다</b>
+        (학생 원부 → 대리점 → 지사). 7월이면 망고아이 지사 <b>1,137,600</b>, 본사직영지사 <b>1,040,000</b>,
+        SLP <b>660,000</b> … 처럼 실제 금액이 나옵니다.<br>
+        ⚠️ 대리점 이름이 여러 지사에 중복되는 경우가 있어 <strong>7월 매출의 57%는 소속을 확정하지 못했습니다.</strong>
+        아무 데나 몰아주지 않고 «배정 불가»로 따로 표시합니다 — 그래야 무엇을 고쳐야 할지 보입니다.
+        <span class="src">franchiseReport() — centers.name 이 유일하지 않음</span>
       </div>
     </div>
 
@@ -578,52 +593,52 @@
   <div class="sec-head">
     <span class="sec-no">03</span>
     <div class="col">
-      <h2>버튼 6개 성적표</h2>
-      <p class="note">지금 이 버튼을 눌렀을 때 나오는 결과를 그대로 평가했습니다.</p>
+      <h2>버튼 6개 — 고치기 전과 후</h2>
+      <p class="note">각 버튼을 눌렀을 때 나오는 결과를 그대로 평가했습니다.</p>
     </div>
   </div>
 
   <div class="tablewrap">
     <table>
       <thead>
-        <tr><th>리포트</th><th>지금 상태</th><th>가장 큰 문제</th><th>바깥에 내보내도 되나</th></tr>
+        <tr><th>리포트</th><th>고치기 전 문제</th><th>지금</th><th>남은 것</th></tr>
       </thead>
       <tbody>
         <tr>
           <td class="name">📅 월간 회계 리포트</td>
-          <td>돌아감</td>
-          <td>매출이 절반만 → 이익률 −168%</td>
-          <td><span class="pill bad">불가</span></td>
+          <td>B2B 매출 누락 · 지어낸 숫자와 실제 숫자가 뒤섞임 · 눌러도 안 펼쳐짐</td>
+          <td><span class="pill ok">한 문장 요약 + 대사 배너 + 신뢰도 배지 + 4종 상세 펼치기</span></td>
+          <td>마감·엑셀</td>
         </tr>
         <tr>
           <td class="name">📊 분기 보고서</td>
-          <td>돌아감</td>
-          <td>월간의 문제를 3배로 합산할 뿐, 트렌드 그래프도 없음</td>
-          <td><span class="pill bad">불가</span></td>
+          <td>표만 있고 추세를 눈으로 못 읽음</td>
+          <td><span class="pill ok">매출·순이익 막대 + 장부/B2B 분리 + 추정 달 표시</span></td>
+          <td>—</td>
         </tr>
         <tr>
           <td class="name">📈 연간 결산</td>
-          <td>돌아감</td>
-          <td>「세무사 제출용」이라 쓰여 있지만 세무사가 필요한 계정과목·증빙이 없음</td>
-          <td><span class="pill bad">불가</span></td>
+          <td>「세무사 제출용」이라 쓰였지만 세무사가 쓸 형식이 아님</td>
+          <td><span class="pill ok">과장된 이름 삭제 · 12개월 추세로 정직하게</span></td>
+          <td>세무 서식 연계</td>
         </tr>
         <tr>
           <td class="name">🏢 가맹점별 정산서</td>
-          <td>돌아감</td>
-          <td>총매출 ÷ 235 균등분배. 정확한 엔진이 있는데 안 씀</td>
-          <td><span class="pill bad">절대 불가</span></td>
+          <td>총매출 ÷ 235 균등분배</td>
+          <td><span class="pill ok">학생 단위 실제 귀속 + 배정 불가분 공개</span></td>
+          <td>계약 수수료율 등록</td>
         </tr>
         <tr>
           <td class="name">👨‍🏫 강사별 급여명세서</td>
-          <td><span class="pill warn">빈 표</span></td>
-          <td>진짜 급여명세가 0건이라 아무것도 안 나옴. 설명문의 «PDF 일괄 발송» 기능도 없음</td>
-          <td><span class="pill bad">불가</span></td>
+          <td>빈 표만 나오고 이유를 안 알려 줌</td>
+          <td><span class="pill ok">왜 비었는지 + 실제 송금액 + 자동계산 실적 안내</span></td>
+          <td>급여명세 확정 절차</td>
         </tr>
         <tr>
           <td class="name">⭐ 경영지표 (KPI)</td>
-          <td>돌아감</td>
-          <td>ARPU 331원, CAC는 광고비를 안 봄, 결제 성공률은 항상 99%대(실패 기록이 저장되지 않음)</td>
-          <td><span class="pill bad">불가</span></td>
+          <td>ARPU 331원 · CAC를 매출의 5%로 지어냄 · 성공률 항상 99%</td>
+          <td><span class="pill ok">분모를 활동 학생으로 · CAC는 실제 광고비 · 근거 없으면 «자료없음»</span></td>
+          <td>광고 계정 연동</td>
         </tr>
       </tbody>
     </table>
@@ -631,8 +646,9 @@
 
   <div class="col" style="margin-top:22px">
     <p class="note">
-      화면 안쪽 「💰 회계관리」 메뉴에는 손익계산서·재무상태표·현금흐름표·시산표·세무·분개장·매출–입금 대사까지 이미 들어 있습니다.
-      <strong>기능이 없는 게 아니라, 다운로드 버튼 6개가 그 좋은 것들과 연결돼 있지 않습니다.</strong>
+      재무제표도 같이 손봤습니다. <strong>재무상태표</strong>의 «현금 = 매출×70%»를 <strong>통장 실제 잔액</strong>으로 바꾸고,
+      근거 없던 미수금·고정자산은 지어내는 대신 «자료없음»으로 비웠습니다.
+      <strong>시산표</strong>는 차변·대변이 6,461만 원 어긋나던 것을, 실제 분개에서 만들어 <strong>항상 일치하도록</strong> 다시 짰습니다.
     </p>
   </div>
 </section>
@@ -853,29 +869,38 @@
   </div>
 
   <div class="stack">
-    <div class="decide">
-      <span class="q">1. 통장으로 직접 들어오는 B2B 입금을 매출로 잡을까요?</span>
+    <div class="decide" style="border-color:var(--red)">
+      <span class="q" style="color:var(--red)">1. 「케이씨피M」으로 들어오는 돈은 무엇입니까? — 가장 급합니다</span>
       <span class="a">
-        JW학원·드림키오·어센틱영어처럼 통장으로 바로 보내는 돈이 매달 250~380만 원 있습니다.
-        이걸 매출로 넣으면 이익률이 정상으로 돌아옵니다. 다만 «어느 학원이 보낸 돈인지»를 사람이 한 번 확인해 줘야 합니다.
-        <br><strong>제 의견: 넣어야 합니다.</strong> 안 넣으면 리포트는 계속 적자로 나옵니다.
+        하나은행에서 인터넷뱅킹으로 매달 <span class="num">180만 ~ 1,870만 원</span>이 들어오고 있습니다(3~7월 합계 4,632만).
+        사장님만 아실 수 있는 것이라 지금은 매출로 잡지 않고 «확인 필요»로 따로 세워 두었습니다.
+        <br>· <strong>회사의 다른 계좌에서 옮긴 운영자금이라면</strong> → 7월은 <span class="num">−1,218만 원</span> 적자입니다. 인건비 구조를 봐야 합니다.
+        <br>· <strong>어딘가에서 받은 매출이라면</strong> → 7월은 <span class="num">−106만 원</span>, 사실상 본전입니다.
+        <br>답에 따라 회사 상태 판단이 완전히 달라집니다. <strong>알려 주시면 그에 맞게 자동 분류하도록 넣겠습니다.</strong>
       </span>
     </div>
     <div class="decide">
-      <span class="q">2. 카페24 매출이 통장의 절반인 이유를 같이 파 봐도 될까요?</span>
+      <span class="q">2. 「기타출금」 642만 원(49건)은 무슨 돈입니까?</span>
       <span class="a">
-        B2B 입금을 다 더해도 통장 카드정산금이 장부보다 훨씬 많습니다. 세 가지 중 하나입니다 —
-        ① 카페24에서 D1로 오는 동기화가 일부만 오고 있다 ② 교재·레벨테스트 같은 다른 상품 매출이 빠져 있다 ③ 카드사 정산 주기가 겹쳐 있다.
-        카페24 원본 주문 합계와 한 번만 대조하면 바로 답이 나옵니다.
-        <br><strong>제 의견: 이게 1순위입니다.</strong> 이걸 모르면 나머지를 다 고쳐도 숫자가 안 맞습니다.
+        매달 1일과 말일에 같은 분들(이○영·윤○아·안○우·오○석 등)에게 나갑니다. 7월 기준 <strong>비용의 25%</strong>인데
+        계정과목이 없어 «기타»로 뭉쳐 있습니다. 「지사 수수료」인지 「강사 수당」인지 한 번만 정해 주시면,
+        다음 달부터 같은 이름은 자동으로 그 과목에 들어갑니다.
       </span>
     </div>
     <div class="decide">
-      <span class="q">3. 가맹점 정산서를 정확한 계산으로 바꿔도 될까요?</span>
+      <span class="q">3. 가맹점 정산서를 실제 금액으로 내보내도 될까요?</span>
       <span class="a">
-        엔진은 이미 있고 버튼 연결만 바꾸면 됩니다(하루). 다만 바꾸는 순간 가맹점별 금액이 «균등»에서 «실제»로 확 달라집니다.
-        가맹점에 이미 균등 금액으로 안내한 이력이 있다면 먼저 정리가 필요합니다.
-        <br><strong>제 의견: 바꿔야 합니다.</strong> 지금 숫자로 정산서를 내보내면 분쟁이 납니다.
+        계산은 이미 학생 단위 실제 귀속으로 바꿨습니다. 다만 <strong>7월 매출의 57%가 아직 «소속 미확정»</strong>입니다 —
+        대리점 이름이 여러 지사에 중복돼 있어서입니다. 이걸 정리하지 않으면 가맹점에 보낼 수 없습니다.
+        <br><strong>제 의견: 중복 대리점 이름부터 정리해 주셔야 합니다.</strong> 목록을 뽑아 드릴 수 있습니다.
+      </span>
+    </div>
+    <div class="decide">
+      <span class="q">4. 아직 손대지 않은 것 — 허락이 필요합니다</span>
+      <span class="a">
+        · <strong>월 마감(숫자 잠그기)</strong> — 데이터베이스에 표를 새로 만들어야 해서 손대지 않았습니다.
+        <br>· <strong>테스트 결제 구분 칸</strong> — 지금은 «메모에 이런 글자가 있으면 가짜»로 걸러냅니다. 결제 표에 칸을 하나 추가하면 안전해집니다.
+        <br>둘 다 <strong>실서비스 데이터베이스 구조를 바꾸는 일</strong>이라 사장님 확인 없이 진행하지 않았습니다.
       </span>
     </div>
   </div>
@@ -902,16 +927,17 @@
   <div class="callout col">
     <h3>결론</h3>
     <p style="margin:0 0 12px">
-      회계 리포트의 <strong>계산은 대체로 맞습니다.</strong> 틀린 건 «넣는 재료»입니다.
-      비용은 통장에서 100% 가져오는데 매출은 카페24에서 절반만 가져오니, 리포트가 회사를 적자로 그립니다.
+      <strong>매출이 사라진 게 아니었습니다.</strong> 통장 적요 「케이씨피」와 「케이씨피M」을 같은 것으로 세는 바람에
+      리포트가 스스로를 오진했습니다. 진짜 정산금만 보면 장부와 통장은 <strong>−10.4%로 맞습니다.</strong>
     </p>
     <p style="margin:0 0 12px">
-      그리고 없는 자료를 <strong>«매출의 몇 %»로 지어내는 자리가 11군데</strong> 있는데,
-      지어낸 숫자와 진짜 숫자가 같은 표에 섞여 있어 구분이 안 됩니다.
+      대신 진짜 문제는 <strong>«없는 숫자를 지어내던 자리 11군데»</strong>였습니다. 이제 지어내지 않습니다 —
+      근거가 있으면 <span class="pill ok">실데이터</span>, 없으면 <span class="pill bad">자료없음</span>이라고 말합니다.
+      틀린 숫자를 찍느니 «모른다»고 하는 편이 낫습니다.
     </p>
     <p style="margin:0">
-      그래서 순서는 이렇습니다 — <strong>① 매출을 다 모으고 ② 지어낸 숫자에 표시를 달고 ③ 마감으로 숫자를 잠근 다음,</strong>
-      그 위에 자세한 화면과 예쁜 그래프를 얹습니다. 반대 순서로 하면 예쁜 거짓말이 됩니다.
+      남은 것은 <strong>코드가 아니라 사람이 정해 줘야 하는 것들</strong>입니다 —
+      「케이씨피M」의 정체, 「기타출금」의 계정과목, 중복 대리점 이름 정리. 이 셋이 풀리면 리포트는 완성됩니다.
     </p>
   </div>
 </section>

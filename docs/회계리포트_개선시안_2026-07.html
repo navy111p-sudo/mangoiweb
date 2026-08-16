@@ -175,9 +175,9 @@
 </style>
 
 <div class="mock">
-  <b>◆ 시안입니다.</b> 아래는 「📥 월간 회계 리포트」를 제안서 1·2단계대로 고쳤을 때 나올 화면을 그린 것입니다.
-  숫자는 <b>2026년 7월 실제 운영 데이터</b>를 그대로 넣었습니다(개인 이름만 가렸습니다). 버튼은 모양만 있고 눌러도 동작하지 않습니다.
-  <b>▸ 표시가 붙은 줄은 실제로 눌러서 펼쳐 볼 수 있습니다</b> — 제안서에서 말한 «안에 들어가서 보는» 부분입니다.
+  <b>◆ 고친 결과입니다.</b> 아래는 실제로 코드를 수정한 뒤 「📥 월간 회계 리포트」가 보여 주게 될 화면입니다.
+  숫자는 <b>2026년 7월 실제 운영 데이터</b>를 그대로 넣었습니다(개인 이름만 가렸습니다). 이 문서의 버튼은 모양만 있습니다.
+  <b>▸ 표시가 붙은 줄은 눌러서 펼쳐 볼 수 있습니다</b> — 실제 리포트에서도 똑같이 펼쳐집니다.
 </div>
 
 <div class="wrap">
@@ -191,8 +191,8 @@
         <div class="sub">생성 2026-08-16 · 마감 전(숫자가 바뀔 수 있음) · 통장 연동 2026-02~ · 카드 연동 2026-05~</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <span class="pill none">리포트 신뢰도 : 낮음</span>
-        <span class="src">매출 확인 필요</span>
+        <span class="pill est">리포트 신뢰도 : 보통</span>
+        <span class="src">확인 필요 2건</span>
       </div>
     </div>
   </div>
@@ -201,20 +201,32 @@
 
     <!-- ① 한 문장 요약 -->
     <div class="headline">
-      7월에 <span class="hl">확인된 매출은 1,331만 원</span>, <span class="hl">쓴 돈은 2,549만 원</span>입니다.
-      다만 통장에 들어온 카드 정산금이 장부보다 <span class="hl">1,264만 원 많아서</span>,
-      <strong>순이익은 아직 확정할 수 없습니다.</strong> 아래 ⚠ 항목을 먼저 확인해 주세요.
+      7월 매출은 <span class="hl">1,331만 원</span>, 쓴 돈은 <span class="hl">2,549만 원</span>,
+      <span class="hl">1,218만 원 적자</span>입니다.
+      장부와 통장은 맞습니다. 다만 성격이 확인 안 된 입금 <strong>1,111만 원</strong>이 있어,
+      그것이 매출이라면 사실상 본전입니다.
     </div>
 
-    <!-- ② 대사 경고 -->
-    <div class="alert">
-      <div class="a-title">⚠ 장부에 안 잡힌 매출이 있습니다</div>
+    <!-- ② 대사 결과 (정상) -->
+    <div class="alert" style="border-color:#1E7A5B;background:var(--green-wash)">
+      <div class="a-title" style="color:var(--green)">✅ 장부와 통장이 맞습니다</div>
       <div class="a-body">
-        신한 통장에 케이씨피(KCP)가 넣어 준 카드 정산금은 <b>21,406,866원</b>입니다.
-        수수료 3.3%를 되돌리면 원래 결제액은 <b>약 22,137,401원</b>이어야 하는데,
-        장부에 잡힌 카페24 매출은 <b>9,500,750원</b>뿐입니다. 차이 <b>12,636,651원</b>.<br>
-        <strong>카드사 정산 시차로 보기엔 너무 큽니다.</strong> 카페24 원본 주문 합계와 대조가 필요합니다.
-        <span class="pill chk">확인 담당 지정 필요</span>
+        장부 매출 <b>9,500,750원</b>에서 PG 수수료 3.3%를 뺀 예상 입금은 <b>9,187,225원</b>,
+        실제 케이씨피 정산 입금은 <b>10,290,716원</b>입니다(차이 +12.0% — 지난달 정산분이 넘어온 정상 범위).<br>
+        <span class="src">※ 예전에는 「케이씨피M」까지 정산금으로 세어 «1,264만 원 매출 누락»이라는 잘못된 경고가 떴습니다.</span>
+      </div>
+    </div>
+
+    <!-- ③ 확인 필요 -->
+    <div class="alert">
+      <div class="a-title">⚠ 성격이 확인 안 된 입금이 1,111만 원 있습니다</div>
+      <div class="a-body">
+        <b>「케이씨피M」</b> 3건 <b>11,116,150원</b> — 하나은행에서 인터넷뱅킹으로 들어온 돈입니다
+        (<b>2,912,150</b> · <b>4,352,000</b> · <b>3,852,000</b>).
+        카드 정산금이 아니고, 금액이 딱 떨어지며 같은 시각에 쪼개져 들어옵니다.<br>
+        <strong>회사의 다른 계좌에서 옮긴 운영자금이면</strong> 7월은 1,218만 적자,
+        <strong>받은 매출이면</strong> 106만 적자(사실상 본전)입니다.
+        <span class="pill chk">사장님 확인 필요</span>
       </div>
     </div>
 
@@ -234,18 +246,18 @@
         </div>
         <div class="pl hold">
           <span class="l">순이익</span>
-          <span class="v">판정 보류</span>
-          <span class="s">매출 1,264만 원 미확인 → 아래 시나리오 참고</span>
+          <span class="v" style="font-size:22px">−12,179,711</span>
+          <span class="s">「케이씨피M」의 성격에 따라 달라집니다</span>
         </div>
         <div class="pl hold">
           <span class="l">이익률</span>
-          <span class="v">판정 보류</span>
-          <span class="s">매출이 확정돼야 계산합니다</span>
+          <span class="v" style="font-size:22px">−91.5%</span>
+          <span class="s">확인된 매출 기준</span>
         </div>
       </div>
       <p class="src" style="margin:11px 0 0">
-        ※ 예전 리포트는 이 자리에 <span style="text-decoration:line-through">순이익 −15,996,183원 · 이익률 −168.4%</span>를 그냥 찍었습니다.
-        틀린 숫자를 찍느니 «아직 모른다»고 말하는 편이 낫습니다.
+        ※ 예전 리포트는 이 자리에 <span style="text-decoration:line-through">순이익 −15,996,183원 · 이익률 −168.4%</span>를 찍었습니다.
+        B2B 매출 382만 원이 빠져 있었기 때문입니다.
       </p>
     </section>
 
@@ -254,18 +266,18 @@
       <h2>그래서 7월은 적자인가요?</h2>
       <div class="scen">
         <div class="sc a">
-          <span class="sc-t">A. 장부에 있는 것만 세면</span>
+          <span class="sc-t">A. 「케이씨피M」이 회사 다른 계좌에서 옮긴 돈이라면</span>
           <span class="sc-n">−12,179,711</span>
-          <span class="sc-d">매출 1,331만 − 비용 2,549만.<br>매출이 덜 잡힌 상태라 <strong>실제보다 나쁘게</strong> 보입니다.</span>
+          <span class="sc-d">매출 1,331만 − 비용 2,549만.<br><strong>진짜 적자입니다.</strong> 인건비 2,325만(강사 947만 + 직원 737만 + 미분류 642만)이 매출의 1.7배입니다.</span>
         </div>
         <div class="sc b">
-          <span class="sc-t">B. 통장에 들어온 돈을 다 세면 <span class="pill est">추정</span></span>
-          <span class="sc-n">+39,931</span>
-          <span class="sc-d">매출 2,595만(카드정산 환산 2,214만 + B2B 382만) − 비용 2,591만.<br><strong>사실상 본전</strong>입니다.</span>
+          <span class="sc-t">B. 「케이씨피M」이 받은 매출이라면 <span class="pill chk">확인 필요</span></span>
+          <span class="sc-n">−1,063,561</span>
+          <span class="sc-d">매출 2,443만(1,331만 + 1,111만) − 비용 2,549만.<br><strong>사실상 본전</strong>입니다.</span>
         </div>
       </div>
       <p class="src" style="margin:11px 0 0">
-        A와 B의 차이 <span class="num">1,222만 원</span>이 곧 «장부에 안 들어온 매출»의 크기입니다. 이걸 찾는 게 이번 달 1순위 과제입니다.
+        A와 B의 차이 <span class="num">1,111만 원</span>이 「케이씨피M」입니다. 이 한 가지만 알면 7월 성적이 확정됩니다.
       </p>
     </section>
 
@@ -295,10 +307,10 @@
               <td><span class="pill none">자료없음</span> <span class="src">빌링키 결제가 장부에 안 쌓임</span></td>
             </tr>
             <tr class="warn-row">
-              <td class="name">⚠ 미확인 (통장에만 있음)</td>
-              <td class="n">12,636,651</td>
-              <td class="n">—</td>
-              <td><span class="pill chk">확인 필요</span> <span class="src">카드정산금 − 장부매출</span></td>
+              <td class="name">⚠ 「케이씨피M」 (성격 미확인)</td>
+              <td class="n">11,116,150</td>
+              <td class="n">3건</td>
+              <td><span class="pill chk">확인 필요</span> <span class="src">하나은행 수동송금 — 매출로 잡지 않음</span></td>
             </tr>
             <tr class="sum"><td>확인된 매출 합계</td><td class="n">13,317,222</td><td class="n"></td><td></td></tr>
           </tbody>
@@ -416,10 +428,15 @@
     <section>
       <h2>이 리포트를 믿어도 될까요 — 자동 점검 6가지</h2>
       <div class="health">
-        <div class="hitem bad">
+        <div class="hitem ok">
           <span class="h-l">매출–입금 대사</span>
-          <span class="h-v">✕ 1,264만 원 안 맞음</span>
-          <span class="src">누적 기준으로도 벌어짐</span>
+          <span class="h-v">✓ 맞음 (+12.0%, 정산 시차)</span>
+          <span class="src">「케이씨피」 정산분 기준</span>
+        </div>
+        <div class="hitem bad">
+          <span class="h-l">성격 미확인 입금</span>
+          <span class="h-v">✕ 「케이씨피M」 1,111만 원</span>
+          <span class="src">매출인지 자금이동인지 확인 필요</span>
         </div>
         <div class="hitem bad">
           <span class="h-l">미분류 출금</span>
@@ -459,10 +476,10 @@
 
   <div class="toolbar">
     <button class="btn primary" type="button">🖨 인쇄 / PDF</button>
-    <button class="btn" type="button">📥 엑셀(.xlsx)</button>
-    <button class="btn" type="button">📄 세무사 제출본</button>
-    <button class="btn" type="button">✉ 사장님·세무사에게 보내기</button>
-    <button class="btn lock" type="button">🔒 7월 마감하기 — 확인 필요 2건을 처리한 뒤에 열립니다</button>
+    <button class="btn primary" type="button">📥 CSV</button>
+    <button class="btn lock" type="button">📥 엑셀(.xlsx) — 아직</button>
+    <button class="btn lock" type="button">📄 세무사 제출본 — 아직</button>
+    <button class="btn lock" type="button">🔒 7월 마감하기 — 아직</button>
   </div>
 
 </div>
@@ -472,29 +489,31 @@
   <h3 class="cmp">지금 화면과 무엇이 달라졌나</h3>
   <div class="cmp-grid">
     <div class="cmp-card old">
-      <h4>지금</h4>
+      <h4>고치기 전</h4>
       <ul>
         <li>매출 950만 · 순이익 −1,599만 · 이익률 −168%를 그냥 찍음</li>
         <li>통장 B2B 입금 382만 원은 매출에서 빠짐</li>
+        <li>「케이씨피M」을 카드 정산금으로 잘못 세어 «매출 1,264만 누락» 오경보</li>
         <li>비용은 「계좌 출금 — 기타출금 642만」 한 줄</li>
         <li>어느 숫자가 진짜이고 어느 게 추정인지 구분 불가</li>
         <li>숫자를 눌러도 아무 일도 안 일어남</li>
-        <li>내일 다시 뽑으면 숫자가 달라질 수 있음</li>
         <li>내보내기는 CSV와 인쇄뿐</li>
       </ul>
     </div>
     <div class="cmp-card new">
-      <h4>시안</h4>
+      <h4>고친 뒤</h4>
       <ul>
-        <li>맨 위에 <strong>한 문장 요약</strong>과 <strong>리포트 신뢰도</strong>가 먼저 나옴</li>
-        <li>틀릴 수 있는 순이익은 «판정 보류»로 두고, 두 시나리오를 나란히 보여 줌</li>
-        <li>B2B 통장 입금을 매출로 반영 + 어느 학원이 보냈는지 펼쳐 봄</li>
+        <li>맨 위에 <strong>한 문장 요약</strong>과 <strong>대사 결과</strong>가 먼저 나옴</li>
+        <li>B2B 통장 입금 382만 원을 매출로 반영 + 어느 학원이 보냈는지 펼쳐 봄</li>
+        <li>「케이씨피」와 「케이씨피M」을 <strong>구분</strong> — 오경보가 사라지고 진짜 확인거리만 남음</li>
         <li>모든 금액에 <strong>실데이터 / 추정 / 자료없음 / 확인 필요</strong> 배지</li>
         <li>미분류 642만 원을 «분류해 주세요»라고 대놓고 요구</li>
-        <li>합계 → 내역 → 원본 거래까지 눌러서 내려감</li>
-        <li>마감 버튼으로 숫자를 잠금 (확인 필요가 남으면 잠기지 않음)</li>
-        <li>엑셀 · 세무사 제출본 · 자동 발송</li>
+        <li>합계 → 내역 → 원본 거래까지 눌러서 내려감 (B2B·확인필요·미분류·카드 4종)</li>
+        <li>KPI는 근거 없으면 지어내지 않고 «자료없음»</li>
       </ul>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--muted);line-height:1.6">
+        아직 안 한 것: 월 마감(숫자 잠그기), 엑셀 내보내기, 세무 서식 — 데이터베이스 구조 변경이 필요해 확인 후 진행합니다.
+      </p>
     </div>
   </div>
 </div>

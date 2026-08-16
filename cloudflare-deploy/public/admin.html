@@ -2459,15 +2459,15 @@
             </button>
             <button onclick="openReport('annual')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📈 연간 결산" data-en="📈 Annual Report">📈 연간 결산</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="세무사 제출용 종합 리포트" data-en="For tax accountant submission">세무사 제출용 종합 리포트</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="12개월 매출·비용·손익 추세" data-en="12-month revenue·cost·P&L trend">12개월 매출·비용·손익 추세</div>
             </button>
             <button onclick="openReport('franchise')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="🏢 가맹점별 정산서" data-en="🏢 Per-franchise Statement">🏢 가맹점별 정산서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="가맹점에 보낼 정산 명세" data-en="To send to franchise">가맹점에 보낼 정산 명세</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="학생 단위 실제 귀속으로 계산" data-en="Attributed per student, not split evenly">학생 단위 실제 귀속으로 계산</div>
             </button>
             <button onclick="openReport('payslips')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="👨‍🏫 강사별 급여명세서" data-en="👨‍🏫 Per-teacher Payslip">👨‍🏫 강사별 급여명세서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사 개인별 PDF 일괄 발송" data-en="Bulk PDF send to teachers">강사 개인별 PDF 일괄 발송</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사별 수업분·급여·공제 명세" data-en="Per-teacher minutes·pay·deductions">강사별 수업분·급여·공제 명세</div>
             </button>
             <button onclick="openReport('kpi')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="⭐ 경영지표 (KPI)" data-en="⭐ Management KPIs">⭐ 경영지표 (KPI)</div>
@@ -8829,7 +8829,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=90" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=91" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
