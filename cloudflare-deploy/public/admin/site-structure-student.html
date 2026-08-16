@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="망고아이 학생 홈·강사 화면 구성표">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<title>학생·강사 화면 구성표</title>
+<style>
+:root{
+  --paper:#FDFBF6;--card:#FFFFFF;--ink:#1B1712;--ink2:#4E463A;--ink3:#786E5E;--muted:#9B9081;
+  --rule:#E6DFD1;--rule2:#F1EBDE;
+  --accent:#A96500;--accent-soft:#FBF1DF;
+  --flag:#A83A22;--flag-soft:#FBEDE9;
+  --ok:#1F7A52;--ok-soft:#E7F4ED;
+  --shadow:0 1px 2px rgba(27,23,18,.045), 0 10px 26px -20px rgba(27,23,18,.4);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121010;--card:#1C1917;--ink:#F5F0E6;--ink2:#C3B9A8;--ink3:#9A9082;--muted:#7E756A;
+    --rule:#332E28;--rule2:#272320;
+    --accent:#F0B24A;--accent-soft:#2A2116;
+    --flag:#F0977C;--flag-soft:#2C1B15;
+    --ok:#5FCB96;--ok-soft:#152A20;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -20px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121010;--card:#1C1917;--ink:#F5F0E6;--ink2:#C3B9A8;--ink3:#9A9082;--muted:#7E756A;
+  --rule:#332E28;--rule2:#272320;
+  --accent:#F0B24A;--accent-soft:#2A2116;
+  --flag:#F0977C;--flag-soft:#2C1B15;
+  --ok:#5FCB96;--ok-soft:#152A20;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 26px -20px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+}
+.num{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.wrap{max-width:1360px;margin:0 auto;padding:44px 24px 80px}
+
+.mast{border-bottom:2px solid var(--ink);padding-bottom:22px}
+.kicker{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin:0 0 14px;
+  font-size:11px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);
+}
+.kicker .src{
+  color:var(--accent);letter-spacing:.06em;text-transform:none;font-size:11.5px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+h1{margin:0;font-size:clamp(28px,4.4vw,46px);line-height:1.1;letter-spacing:-.04em;font-weight:900;text-wrap:balance}
+.sub{margin:12px 0 0;max-width:64ch;color:var(--ink2);font-size:clamp(14.5px,1.4vw,17px);text-wrap:pretty}
+.sub b{font-weight:800;color:var(--ink)}
+
+.tally{display:flex;flex-wrap:wrap;gap:0;margin:24px 0 0;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--card);box-shadow:var(--shadow)}
+.tally div{flex:1 1 128px;padding:13px 16px;border-right:1px solid var(--rule)}
+.tally div:last-child{border-right:0}
+.tally b{display:block;font-size:24px;font-weight:900;letter-spacing:-.03em}
+.tally span{display:block;font-size:11.5px;color:var(--muted);font-weight:700;margin-top:1px}
+
+.legend{margin:22px 0 0;display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:12.5px;color:var(--ink3)}
+.legend i{font-style:normal;display:inline-flex;align-items:center;gap:8px}
+.legend .k{
+  font-size:11px;font-weight:800;color:var(--accent);background:var(--accent-soft);border-radius:5px;padding:2px 7px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.legend b{color:var(--ink);font-weight:800}
+
+.bar{
+  position:sticky;top:0;z-index:9;background:var(--paper);
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:14px 0 12px;margin:26px 0 0;border-bottom:1px solid var(--rule);
+}
+.search{
+  flex:1 1 240px;max-width:340px;font:inherit;font-size:14px;
+  background:var(--card);color:var(--ink);border:1px solid var(--rule);border-radius:9px;padding:9px 13px;
+}
+.search::placeholder{color:var(--muted)}
+.search:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.btn{
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink2);
+  background:var(--card);border:1px solid var(--rule);border-radius:9px;padding:9px 14px;
+  transition:color .15s ease,border-color .15s ease,background .15s ease;
+}
+.btn:hover{color:var(--ink);border-color:var(--ink3)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.hits{font-size:12.5px;color:var(--muted);margin-left:auto;font-weight:700}
+
+.flags{
+  margin:24px 0 0;border:1px solid var(--rule);border-left:3px solid var(--flag);
+  border-radius:0 12px 12px 0;background:var(--card);padding:14px 16px;box-shadow:var(--shadow);
+}
+.flags h2{margin:0 0 9px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--flag)}
+.flags ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px}
+.flags li{font-size:13.5px;color:var(--ink2);line-height:1.6}
+.flags code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:var(--rule2);border-radius:4px;padding:1px 5px;color:var(--ink2)}
+.flags b{color:var(--ink);font-weight:800}
+.flags .ok{color:var(--ok);font-weight:800}
+
+/* surface band */
+.surface{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 14px;
+  margin:38px 0 16px;padding:0 0 10px;border-bottom:2px solid var(--ink);
+}
+.surface .sc{
+  font-size:12px;font-weight:900;color:var(--paper);background:var(--ink);
+  border-radius:6px;padding:3px 9px;letter-spacing:.06em;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.surface h2{margin:0;font-size:23px;font-weight:900;letter-spacing:-.03em}
+.surface .f{
+  font-size:12px;color:var(--accent);
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+.surface p{flex:1 1 100%;margin:2px 0 0;font-size:13.5px;color:var(--ink3);line-height:1.55}
+
+.outline{columns:2;column-gap:22px}
+@media (max-width:1080px){.outline{columns:1}}
+
+.sec{
+  break-inside:avoid;-webkit-column-break-inside:avoid;
+  background:var(--card);border:1px solid var(--rule);border-radius:14px;
+  margin:0 0 22px;box-shadow:var(--shadow);overflow:hidden;
+}
+.sec.hidden{display:none}
+.sec-h{display:flex;gap:12px;align-items:baseline;padding:15px 16px 13px;border-bottom:1px solid var(--rule)}
+.sec-h .n{font-size:19px;font-weight:900;color:var(--accent);line-height:1;letter-spacing:-.04em;white-space:nowrap}
+.sec-h .tt{flex:1 1 auto;min-width:0}
+.sec-h .t{display:block;font-size:17.5px;font-weight:900;letter-spacing:-.025em;line-height:1.25}
+.sec-h .d{display:block;margin-top:3px;font-size:12.5px;color:var(--ink3);line-height:1.5}
+.sec-h .c{flex:none;font-size:11px;font-weight:800;color:var(--ink3);background:var(--rule2);border-radius:999px;padding:3px 9px;white-space:nowrap}
+
+.kid{border-bottom:1px solid var(--rule2)}
+.kid:last-child{border-bottom:0}
+.kid.hidden{display:none}
+.kid-r{display:flex;gap:10px;align-items:baseline;padding:9px 16px}
+.kid-r .n{flex:none;width:44px;font-size:11.5px;color:var(--muted);font-weight:700;padding-top:1px}
+.kid-r .t{flex:1 1 auto;font-size:14px;font-weight:700;color:var(--ink);letter-spacing:-.01em;line-height:1.45}
+.kid-r .id{
+  display:none;font-size:10.5px;color:var(--muted);font-weight:500;margin-top:2px;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;
+}
+.outline.show-ids .id{display:block}
+.kid-r .gc{flex:none;font-size:10.5px;font-weight:800;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:2px 7px;white-space:nowrap}
+
+.gkids{margin:0 16px 12px 70px;padding:0;list-style:none;position:relative}
+.gkids::before{content:"";position:absolute;left:-14px;top:3px;bottom:9px;width:1px;background:var(--rule)}
+.gkids li{position:relative;padding:3px 0;display:flex;gap:9px;align-items:baseline}
+.gkids li::before{content:"";position:absolute;left:-14px;top:14px;width:9px;height:1px;background:var(--rule)}
+.gkids li.hidden{display:none}
+.gkids .n{flex:none;font-size:10.5px;color:var(--muted);font-weight:600}
+.gkids .t{flex:1 1 auto;font-size:12.5px;color:var(--ink2);line-height:1.5}
+.gkids .why{color:var(--muted);font-weight:500}
+.gkids .id{display:none;font-size:10px;color:var(--muted);font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;margin-top:1px}
+.outline.collapsed .gkids{display:none}
+
+.badge{display:inline-block;font-size:9.5px;font-weight:800;vertical-align:2px;margin-left:6px;border-radius:4px;padding:1px 5px;letter-spacing:.02em}
+.badge.dup{color:var(--flag);background:var(--flag-soft)}
+.badge.guess{color:var(--accent);background:var(--accent-soft)}
+.badge.cond{color:var(--ok);background:var(--ok-soft)}
+
+mark{background:var(--accent-soft);color:var(--ink);border-radius:3px;padding:0 2px;font-weight:800}
+.empty{display:none;margin:26px 0 0;padding:26px;text-align:center;border:1px dashed var(--rule);border-radius:14px;color:var(--muted);font-size:14px}
+.empty.on{display:block}
+
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12px;color:var(--muted)}
+footer b{color:var(--ink3);font-weight:700}
+footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+
+@media (max-width:640px){.wrap{padding:28px 15px 60px}.gkids{margin-left:48px}}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="mast">
+    <p class="kicker">망고아이 · 메뉴 구성표 ②
+      <span class="src">public/index.html · public/teacher.html</span></p>
+    <h1>학생·강사 화면 구성표</h1>
+    <p class="sub">
+      관리자 구성표와 같은 방식으로, 이번엔 <b>학생이 보는 홈</b>과 <b>선생님이 보는 화면</b>을 펼쳤습니다.
+      학생 홈은 메뉴가 <b>두 벌</b>입니다 — 왼쪽에서 밀려 나오는 사이드바와, «전체메뉴»를 누르면 뜨는 카드 판.
+      둘은 서로 다른 목록이라 따로 적었습니다.
+    </p>
+
+    <div class="tally">
+      <div><b class="num">2</b><span>화면 (파일)</span></div>
+      <div><b class="num">3</b><span>큰 묶음</span></div>
+      <div><b class="num">14</b><span>중분류</span></div>
+      <div><b class="num">96</b><span>항목</span></div>
+      <div><b class="num">4</b><span>확인 필요</span></div>
+    </div>
+
+    <div class="legend">
+      <i><span class="k">S1</span> <b>큰 묶음</b> — 메뉴 한 벌</i>
+      <i><span class="k">S1.1</span> <b>중분류</b> — 눌러서 펼치는 그룹</i>
+      <i><span class="k">S1.1.1</span> <b>항목</b> — 실제로 눌리는 버튼</i>
+    </div>
+  </header>
+
+  <div class="bar">
+    <input class="search" id="q" type="search" placeholder="메뉴 이름으로 찾기 (예: 퀴즈, 급여)" aria-label="메뉴 검색">
+    <button class="btn" type="button" id="tCollapse" aria-pressed="false">항목 접기</button>
+    <button class="btn" type="button" id="tIds" aria-pressed="false">이동 대상 보기</button>
+    <span class="hits" id="hits"></span>
+  </div>
+
+  <section class="flags">
+    <h2>구조를 그리다 나온 것 4건</h2>
+    <ul>
+      <li>
+        <b>«🎮 학생게임»이 사이드바에 두 번</b> 들어 있습니다 — <b>S1.2.8</b>(학습 공간)과
+        <b>S1.3.8</b>(AI 학습 도구). 둘 다 <code>/student-games.html</code> 로 같은 곳입니다.
+      </li>
+      <li>
+        <b>«🎯 레벨테스트»도 두 번</b>입니다 — <b>S1.2.1</b>(학습 공간)과 <b>S1.4.3</b>(계정 및 결제).
+        다만 이건 <span class="ok">의도된 중복</span>입니다. 소스 주석(2026-08-07 QA 2차 #2)에
+        «결제할 생각이 없는 사람이 체험 입구를 못 찾아서 <b>대체가 아니라 추가</b>»라고 적혀 있습니다.
+      </li>
+      <li>
+        <b>«전체메뉴»가 전체가 아닙니다.</b> 사이드바 26개와 전체메뉴 44개는 서로 다른 목록입니다.
+        사이드바에만 있는 것 — 판단력 훈련 · 복습퀴즈 · 연기/변경 · 학생게임 · 환불규정.
+        전체메뉴에만 있는 것 — 학원 랭킹 · PC원격지원 · 가맹점 문의 · 교재 업로더.
+      </li>
+      <li>
+        <b>전체메뉴의 카테고리는 HTML 에 없습니다.</b> <code>js/idx-x2.js</code> 가 화면이 뜬 뒤
+        <code>data-go</code> 값을 보고 붙입니다. 44개 중 <b>35개는 표에 적힌 대로</b>, <b>9개는 한글 라벨
+        정규식으로 추측</b>해서 분류됩니다(<span class="badge guess">추측</span> 표시).
+        표에 없고 정규식에도 안 걸리면 조용히 «도움말·기타»로 갑니다 —
+        <b>카드를 새로 넣을 때 표를 같이 안 고치면 엉뚱한 칸에 들어갑니다.</b>
+        반대로 표에는 있는데 카드가 없는 죽은 키도 13개 있습니다(<code>lessons, attend, ai-coach, aispeech,
+        voice, eval, evaluation, points, ranking, inquiry, introducing, admin, homepage</code>).
+      </li>
+    </ul>
+  </section>
+
+  <div id="body"></div>
+  <p class="empty" id="empty">찾는 메뉴가 없습니다. 다른 낱말로 찾아 보세요.</p>
+
+  <footer>
+    <span><b>기준</b> 2026-08-15 · <code>index.html</code> 4515–4590행, <code>teacher.html</code> 375–420행</span>
+    <span><b>추출</b> <code>#mg-drawer details.mg-acc</code> · <code>#gm-cards .gm-card</code> · <code>teacher.html details[id^=c-]</code></span>
+    <span><b>참고</b> 라벨은 화면에 뜨는 글자 그대로입니다</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+
+var SURFACES = [
+{
+  code:"S", title:"학생 홈", file:"public/index.html",
+  note:"학생·학부모·처음 온 손님이 모두 이 한 파일을 봅니다. 화상수업도 여기서 열립니다. (공동 금지구역 — 배포 권한자만 수정)",
+  secs:[
+    { code:"S1", t:"슬라이드 사이드바", d:"왼쪽 «메뉴» 탭을 당기면 밀려 나오는 서랍",
+      k:[
+        {t:"고정 메뉴 (그룹 밖, 항상 보임)", id:"#mg-drawer > nav 직속", g:[
+          {t:"망고아이란?", id:"mgGo('about')"},
+          {t:"🏠 전체메뉴", id:"mgGo('all-menu') → S2 로 이어짐"}
+        ]},
+        {t:"🎓 학습 공간", id:"details.mg-acc (1)", g:[
+          {t:"🎯 레벨테스트", id:"mgGo('leveltest')", dup:"S1.4.3 과 중복"},
+          {t:"🎥 수업 진단", id:"mgGo('precheck')"},
+          {t:"📝 수업 신청", id:"mgGo('booking')"},
+          {t:"📅 연기/변경", id:"mgGo('lesson-change')"},
+          {t:"👨‍🏫 교사 소개", id:"gridActions.teachers()"},
+          {t:"📋 평가표(성적표)", id:"mgGo('report')"},
+          {t:"📼 녹화 보기", id:"MangoFlow.playRecording()"},
+          {t:"🎮 학생게임", id:"/student-games.html", dup:"S1.3.8 과 중복"},
+          {t:"📖 단어장", id:"/vocab.html"}
+        ]},
+        {t:"🤖 AI 학습 도구", id:"details.mg-acc (2)", g:[
+          {t:"🗣️ 수업 전 AI 웜업", id:"/warmup.html"},
+          {t:"🧠 판단력 훈련", id:"/judgment.html"},
+          {t:"🎤 AI 음성코치", id:"mgGo('speech')"},
+          {t:"🤖 AI 친구 대화", id:"/ai-friend.html"},
+          {t:"✍️ AI 글쓰기", id:"/ai-write.html"},
+          {t:"🧠 복습퀴즈", id:"/review-quiz.html"},
+          {t:"⚡ AI 단어 퀴즈", id:"/micro-quiz.html"},
+          {t:"🎮 학생게임", id:"/student-games.html", dup:"S1.2.8 과 중복"}
+        ]},
+        {t:"💳 계정 및 결제", id:"details.mg-acc (3)", g:[
+          {t:"👤 마이페이지", id:"mgGo('mypage')"},
+          {t:"💳 결제하기", id:"gridActions.payment()"},
+          {t:"🎯 레벨테스트", id:"mgGo('leveltest')", dup:"S1.2.1 과 중복 (의도)"},
+          {t:"🎁 체험수업", id:"openTrialSignup()"},
+          {t:"🎁 포인트상점", id:"mgGo('points-shop')"},
+          {t:"💬 카카오 상담", id:"openInquiryModal()"},
+          {t:"💰 환불규정", id:"/refund.html"},
+          {t:"❓ 자주 묻는 질문", id:"openFaqOverlay()"},
+          {t:"📊 관리자", id:"mgGo('admin')"}
+        ]}
+      ]},
+
+    { code:"S2", t:"전체메뉴 카드 판", d:"«🏠 전체메뉴»를 누르면 뜨는 44칸. 위쪽 카테고리 칩으로 걸러 봅니다",
+      k:[
+        {t:"🚀 학습 시작", id:"data-cat=\"learn\"", g:[
+          {t:"레벨테스트", w:"신청·입장 안내", id:"leveltest"},
+          {t:"AI 음성코치", w:"Phonics · BTS · SIU 커리큘럼", id:"speech"},
+          {t:"비디오 레슨", w:"레벨별 학습 영상 · 원어민 강의", id:"videolesson"},
+          {t:"학습 가이드", w:"효과적인 학습법", id:"learnguide"},
+          {t:"출석체크", w:"매일 +10P · 연속 보너스", id:"checkin", guess:1},
+          {t:"학습목표", w:"30일 챌린지", id:"goals"},
+          {t:"데일리 스트릭", w:"매일 출석 · 보석 모으기", id:"streak"}
+        ]},
+        {t:"🤖 AI 도구", id:"data-cat=\"ai\"", g:[
+          {t:"영어 발음 코치", w:"자유 문장 · 즉석 AI 점수", id:"speech-coach", guess:1},
+          {t:"중국어 발음 코치", w:"중국어 마스터 · Lv 1~20", id:"speech-coach-cn", guess:1},
+          {t:"AI 음성 일기", w:"매일 녹음 · AI 첨삭·점수", id:"voice-diary", guess:1},
+          {t:"내 단어장", w:"AI 자동 뜻·예문·복습", id:"vocab"},
+          {t:"MBTI 매칭", w:"잘 맞는 강사 찾기", id:"mbti"},
+          {t:"AI 영작 첨삭", w:"문법 · 표현 자동 교정", id:"write"},
+          {t:"AI 영어 친구", w:"24시간 영어 대화", id:"chat"},
+          {t:"AI 단어 퀴즈", w:"자투리 시간에 5문항", id:"microquiz"}
+        ]},
+        {t:"📝 수업·평가", id:"data-cat=\"class\"", g:[
+          {t:"강사 소개", w:"원어민·전문가", id:"teachers"},
+          {t:"교육과정", w:"레벨·테마·시험", id:"curriculum"},
+          {t:"녹화본 복습", w:"지난수업 녹화 보기", id:"recordings"},
+          {t:"수업 피드백", w:"선생님 피드백 보기", id:"feedbacks", guess:1},
+          {t:"수강신청", w:"지금 시작하기", id:"enroll"},
+          {t:"수업 후기", w:"학생·학부모", id:"reviews"},
+          {t:"평가표", w:"로그인 후 보기", id:"report", guess:1},
+          {t:"교사 칭찬하기", w:"익명 7점 별점 + 메시지", id:"teacher-praise"}
+        ]},
+        {t:"💎 포인트·이벤트", id:"data-cat=\"reward\"", g:[
+          {t:"이벤트·혜택", w:"진행 중 프로모션", id:"event"},
+          {t:"내 포인트", w:"잔액·기프티콘 교환", id:"mypoints", guess:1},
+          {t:"학원 랭킹", w:"이번 달 TOP 10", id:"leaderboard"}
+        ]},
+        {t:"👨‍👩‍👧 학부모·소통", id:"data-cat=\"parent\"", g:[
+          {t:"고객센터", w:"전화·이메일", id:"contact"},
+          {t:"공지사항", w:"최신 알림·이벤트", id:"notice"},
+          {t:"무료체험", w:"1회 무료 수업", id:"trial"},
+          {t:"자주 묻는 질문", w:"FAQ", id:"faq"},
+          {t:"현지 콜센터", w:"PH·US·KR 연락처", id:"callcenter"},
+          {t:"1:1 카톡상담", w:"실시간 문의", id:"kakao"},
+          {t:"자녀 보기", w:"학부모 대시보드", id:"parent-dashboard"},
+          {t:"알림 받기", w:"수업·평가서·결제 푸시", id:"push-subscribe"}
+        ]},
+        {t:"🛠 도움말·기타", id:"data-cat=\"tools\" (분류 실패 시 기본값)", g:[
+          {t:"가맹점 문의", w:"B2B 제휴", id:"franchise"},
+          {t:"결제하기", w:"수강료·1:1·그룹", id:"payment"},
+          {t:"관리자", w:"대시보드 / ERP", id:"adminmgr"},
+          {t:"망고아이 특장점", w:"왜 망고아이?", id:"features", guess:1},
+          {t:"자가진단", w:"카메라·마이크·네트워크", id:"diagnosis"},
+          {t:"자료실", w:"교재·다운로드", id:"library"},
+          {t:"집중도 측정", w:"발화와 시선을 통한 집중도", id:"focus"},
+          {t:"프로그램 설치", w:"단계별 가이드", id:"installguide"},
+          {t:"PC원격지원", w:"설치·접속 도움", id:"remote"},
+          {t:"교재 업로더", w:"폴더 드래그 → AI 자동 분류", id:"textbook-uploader", guess:1}
+        ]}
+      ]}
+  ]},
+
+{
+  code:"T", title:"강사 화면", file:"public/teacher.html",
+  note:"선생님이 수업 전후에 여는 화면. 사이드바가 없고, 위에서 아래로 읽는 한 장짜리입니다.",
+  secs:[
+    { code:"T1", t:"강사 화면 한 장", d:"상단 바 → 바로가기 → 오늘 수업 → 카드 7장 순서로 놓여 있습니다",
+      k:[
+        {t:"상단 바", id:"nav.tnav", g:[
+          {t:"← 뒤로", id:"#back"},
+          {t:"매니저 화면", id:"#to-manager → /manager", cond:"계정에 매니저 권한이 있을 때만 보임"},
+          {t:"🏠 홈", id:"#home → /"},
+          {t:"한국어 / English", id:"#lang"},
+          {t:"🌙 다크 · ☀ 라이트", id:"#theme"},
+          {t:"↻ 새로고침", id:"#reload"},
+          {t:"로그아웃", id:"#logout"}
+        ]},
+        {t:"자주 쓰는 기능 (바로가기 바)", id:"nav.qbar — 아래 카드로 스크롤만 합니다", g:[
+          {t:"수업 연기·변경", id:"openCard('c-postpone') → T1.4.1"},
+          {t:"급여", id:"openCard('c-pay') → T1.4.2"},
+          {t:"내 평점", id:"openCard('c-rate') → T1.4.3"},
+          {t:"수업 리포트", id:"openCard('c-report') → T1.4.5"}
+        ]},
+        {t:"오늘 수업 목록 (수업 한 줄마다 붙는 동작)", id:"#boot — 서버에서 받아 그립니다", g:[
+          {t:"수업 입장", w:"진행중 · 입장가능 상태일 때", id:"화상수업 방 열기"},
+          {t:"다시 입장", w:"이미 다녀온 수업", id:"재입장"},
+          {t:"일지 쓰기", w:"수업 끝난 뒤", id:"수업 일지"},
+          {t:"연기 · 변경 요청", w:"사유는 매니저에게 전달", id:"요청 보내기"},
+          {t:"문제 신고", w:"오류 · 개선 의견 · 기타", id:"내 PC 정보 자동 첨부"},
+          {t:"장애 신고", w:"정전 · 인터넷 끊김 · 기타", id:"복구 예상 시간까지 함께"}
+        ]},
+        {t:"카드 7장", id:"details[id^=\"c-\"]", g:[
+          {t:"수업 연기 · 변경 요청", id:"c-postpone"},
+          {t:"수업료 정산 (이번 달)", id:"c-pay"},
+          {t:"학생이 준 내 평가", id:"c-rate"},
+          {t:"수업 리포트", id:"c-insight"},
+          {t:"내 승인이 필요한 성적표", id:"c-report"},
+          {t:"레벨테스트 신청자", id:"c-lt"},
+          {t:"비밀번호 변경", id:"c-pw"}
+        ]}
+      ]}
+  ]}
+];
+
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+
+var host=document.getElementById("body");
+var html="";
+
+SURFACES.forEach(function(sf){
+  html += '<div class="surface"><span class="sc">'+esc(sf.code)+'</span>'
+        + '<h2>'+esc(sf.title)+'</h2><span class="f">'+esc(sf.file)+'</span>'
+        + '<p>'+esc(sf.note)+'</p></div>';
+  html += '<div class="outline-part">';
+
+  sf.secs.forEach(function(sec){
+    var total = sec.k.reduce(function(a,x){ return a + (x.g?x.g.length:0); },0);
+    html += '<section class="sec">';
+    html += '<div class="sec-h"><span class="n num">'+esc(sec.code)+'</span>'
+          + '<span class="tt"><span class="t">'+esc(sec.t)+'</span>'
+          + '<span class="d">'+esc(sec.d)+'</span></span>'
+          + '<span class="c num">'+sec.k.length+' · '+total+'</span></div>';
+
+    sec.k.forEach(function(kid,ki){
+      var kn = sec.code+"."+(ki+1);
+      html += '<div class="kid"><div class="kid-r">'
+            + '<span class="n num">'+kn+'</span>'
+            + '<span class="t"><span class="lbl">'+esc(kid.t)+'</span>'
+            + '<span class="id">'+esc(kid.id||"")+'</span></span>'
+            + (kid.g ? '<span class="gc num">'+kid.g.length+'</span>' : '')
+            + '</div>';
+      if (kid.g){
+        html += '<ul class="gkids">';
+        kid.g.forEach(function(g,gi){
+          html += '<li><span class="n num">'+kn+'.'+(gi+1)+'</span><span class="t">'
+                + '<span class="lbl">'+esc(g.t)+'</span>'
+                + (g.w ? ' <span class="why">'+esc(g.w)+'</span>' : '')
+                + (g.dup ? '<span class="badge dup">'+esc(g.dup)+'</span>' : '')
+                + (g.guess ? '<span class="badge guess">추측 분류</span>' : '')
+                + (g.cond ? '<span class="badge cond">'+esc(g.cond)+'</span>' : '')
+                + '<span class="id">'+esc(g.id||"")+'</span>'
+                + '</span></li>';
+        });
+        html += '</ul>';
+      }
+      html += '</div>';
+    });
+    html += '</section>';
+  });
+  html += '</div>';
+});
+host.innerHTML = html;
+
+/* 두 칼럼 배치는 각 파트 안에서만 */
+Array.prototype.forEach.call(host.querySelectorAll(".outline-part"), function(p){
+  p.classList.add("outline");
+});
+
+/* ---- search ---- */
+var parts = Array.prototype.slice.call(host.querySelectorAll(".outline-part"));
+var q=document.getElementById("q"), hits=document.getElementById("hits"), empty=document.getElementById("empty");
+var secs=Array.prototype.slice.call(host.querySelectorAll(".sec"));
+var lbls=Array.prototype.slice.call(host.querySelectorAll(".lbl"));
+lbls.forEach(function(el){ el.dataset.raw = el.textContent; });
+
+function markEl(el, term){
+  var raw=el.dataset.raw, i=raw.toLowerCase().indexOf(term.toLowerCase());
+  if(i===-1) return;
+  el.innerHTML = esc(raw.slice(0,i))+"<mark>"+esc(raw.slice(i,i+term.length))+"</mark>"+esc(raw.slice(i+term.length));
+}
+
+function filter(){
+  var term=q.value.trim();
+  lbls.forEach(function(el){ el.textContent = el.dataset.raw; });
+
+  if(!term){
+    secs.forEach(function(s){
+      s.classList.remove("hidden");
+      s.querySelectorAll(".kid, .gkids li").forEach(function(n){ n.classList.remove("hidden"); });
+    });
+    host.querySelectorAll(".surface").forEach(function(n){ n.style.display=""; });
+    hits.textContent=""; empty.classList.remove("on");
+    return;
+  }
+
+  var lower=term.toLowerCase(), found=0;
+  secs.forEach(function(s){
+    var any=false;
+    s.querySelectorAll(".kid").forEach(function(kid){
+      var kl=kid.querySelector(".kid-r .lbl");
+      var kHit=kl.dataset.raw.toLowerCase().indexOf(lower)!==-1;
+      var gHit=false;
+      kid.querySelectorAll(".gkids li").forEach(function(li){
+        var gl=li.querySelector(".lbl");
+        var hit=gl.dataset.raw.toLowerCase().indexOf(lower)!==-1;
+        li.classList.toggle("hidden", !(hit||kHit));
+        if(hit){ gHit=true; found++; markEl(gl,term); }
+      });
+      var show=kHit||gHit;
+      kid.classList.toggle("hidden", !show);
+      if(kHit){ found++; markEl(kl,term); }
+      if(show) any=true;
+    });
+    s.classList.toggle("hidden", !any);
+  });
+
+  parts.forEach(function(p,i){
+    var alive = p.querySelectorAll(".sec:not(.hidden)").length > 0;
+    var band = host.querySelectorAll(".surface")[i];
+    if(band) band.style.display = alive ? "" : "none";
+  });
+
+  hits.textContent = found+"건";
+  empty.classList.toggle("on", found===0);
+}
+q.addEventListener("input", filter);
+
+/* ---- toggles ---- */
+var tc=document.getElementById("tCollapse");
+tc.addEventListener("click", function(){
+  var on = tc.getAttribute("aria-pressed")!=="true";
+  tc.setAttribute("aria-pressed", String(on));
+  parts.forEach(function(p){ p.classList.toggle("collapsed", on); });
+  tc.textContent = on ? "항목 펼치기" : "항목 접기";
+});
+var ti=document.getElementById("tIds");
+ti.addEventListener("click", function(){
+  var on = ti.getAttribute("aria-pressed")!=="true";
+  ti.setAttribute("aria-pressed", String(on));
+  parts.forEach(function(p){ p.classList.toggle("show-ids", on); });
+  ti.textContent = on ? "이동 대상 숨기기" : "이동 대상 보기";
+});
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="망고아이 역할별 사이트 지도">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<title>망고아이 사이트 지도</title>
+<style>
+:root{
+  --paper:#FFFDF9;
+  --card:#FFFFFF;
+  --ink:#211C15;
+  --ink2:#5C5347;
+  --muted:#8E8474;
+  --line:#E8E1D5;
+  --line2:#F2ECE1;
+  --on-lane:#FFFFFF;
+  --root:#B26A00;
+  --root-glow:rgba(233,155,26,.20);
+  --c1:#A96A00;
+  --c2:#157A4D;
+  --c3:#A83A63;
+  --c4:#2261A8;
+  --c5:#5847B5;
+  --shadow:0 1px 2px rgba(33,28,21,.05), 0 6px 18px -12px rgba(33,28,21,.22);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131110;
+    --card:#1D1A16;
+    --ink:#F4EFE6;
+    --ink2:#BCB2A2;
+    --muted:#8B8172;
+    --line:#332E27;
+    --line2:#282320;
+    --on-lane:#161310;
+    --root:#F0B24A;
+    --root-glow:rgba(240,178,74,.16);
+    --c1:#F0B24A;
+    --c2:#4FC98C;
+    --c3:#F284AB;
+    --c4:#74B0F0;
+    --c5:#AC9EF6;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 6px 18px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131110;
+  --card:#1D1A16;
+  --ink:#F4EFE6;
+  --ink2:#BCB2A2;
+  --muted:#8B8172;
+  --line:#332E27;
+  --line2:#282320;
+  --on-lane:#161310;
+  --root:#F0B24A;
+  --root-glow:rgba(240,178,74,.16);
+  --c1:#F0B24A;
+  --c2:#4FC98C;
+  --c3:#F284AB;
+  --c4:#74B0F0;
+  --c5:#AC9EF6;
+  --shadow:0 1px 2px rgba(0,0,0,.35), 0 6px 18px -12px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic","맑은 고딕",system-ui,sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:1560px;margin:0 auto;padding:30px 24px 72px}
+
+
+/* ---------- 좌측 상단 이동 버튼 ---------- */
+/*  이 문서는 관리자 사이드바에서 «다른 페이지»로 빠져나온 자리라, 돌아갈 길이 화면에
+    없으면 브라우저 뒤로가기밖에 방법이 없다(2026-08-16 사장님 요청).
+    ⚠️ 크기·위치는 hover 로 움직이지 않는다 — 관리자 화면의 hover 확대 금지 규칙. */
+.topnav{display:flex;gap:8px;margin:0 0 16px}
+.tn-btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;font-size:17px;line-height:1;cursor:pointer;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  color:var(--ink2);text-decoration:none;font-family:MangoiHanSC,inherit;
+  box-shadow:var(--shadow);
+  transition:border-color .15s ease,background .15s ease,color .15s ease;
+}
+.tn-btn:hover{border-color:var(--root);color:var(--ink);
+  background:color-mix(in oklab, var(--root) 8%, var(--card))}
+.tn-btn:focus-visible{outline:2px solid var(--root);outline-offset:2px}
+
+/* ---------- header ---------- */
+.eyebrow{
+  font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px;
+}
+h1{
+  margin:0;font-size:clamp(30px,4.6vw,50px);line-height:1.12;letter-spacing:-.035em;
+  font-weight:900;text-wrap:balance;
+}
+h1 em{font-style:normal;color:var(--root)}
+.lede{
+  margin:14px 0 0;max-width:60ch;font-size:clamp(15px,1.5vw,18px);color:var(--ink2);
+  text-wrap:pretty;
+}
+
+
+/* ---------- 한 줄 범례 ---------- */
+/*  지도가 주인공이다. 통계 알약과 «지도 읽는 법» 상자를 걷어내고 한 줄로 줄였다
+    (2026-08-16 사장님: «굳이 필요 없으니 빼줘. 안내도 최소화해서 지도에 집중하게»). */
+.legend{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+  margin:22px 0 0;font-size:13px;color:var(--ink2);
+}
+.legend > span{display:inline-flex;align-items:center;gap:7px}
+.legend .arrow{color:var(--muted);font-size:14px;padding:0 2px;user-select:none}
+.legend-tip{
+  margin-left:6px;padding:5px 12px;border-radius:999px;
+  background:color-mix(in oklab, var(--root) 12%, var(--card));
+  border:1px solid color-mix(in oklab, var(--root) 34%, transparent);
+  font-size:12.5px;color:var(--ink2);
+}
+.legend-tip b{color:var(--root);font-weight:900}
+.demo-l1{
+  background:var(--c1);color:var(--on-lane);border-radius:9px;padding:5px 11px;
+  font-weight:900;font-size:12.5px;letter-spacing:-.01em;
+}
+.demo-l2{
+  background:color-mix(in oklab, var(--c1) 13%, var(--card));
+  color:var(--c1);border-radius:8px;padding:4px 10px;font-weight:800;font-size:12px;
+}
+.demo-l3{
+  background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px 9px;
+  font-size:11.5px;color:var(--ink2);font-weight:600;
+}
+
+/* ---------- controls ---------- */
+.controls{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  margin:20px 0 8px;
+}
+.chipbtn{
+  font:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  background:var(--card);color:var(--ink2);
+  border:1px solid var(--line);border-radius:999px;padding:8px 15px;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.chipbtn:hover{border-color:var(--muted);color:var(--ink)}
+.chipbtn:focus-visible{outline:2px solid var(--root);outline-offset:2px}
+.chipbtn .dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9}
+.chipbtn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.spacer{flex:1 1 40px}
+
+/* ---------- map ---------- */
+.canvas{overflow-x:auto;padding:10px 2px 4px;margin:0 -2px}
+.map{min-width:1240px}
+
+.root-wrap{display:flex;flex-direction:column;align-items:center}
+.root-node{
+  position:relative;text-align:center;
+  background:var(--card);border:2px solid var(--root);border-radius:18px;
+  padding:16px 30px 15px;box-shadow:0 0 0 8px var(--root-glow), var(--shadow);
+}
+.root-node .k{display:block;font-size:22px;font-weight:900;letter-spacing:-.03em}
+.root-node .u{
+  display:block;margin-top:3px;font-size:12px;color:var(--muted);font-weight:700;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;letter-spacing:-.01em;
+}
+.stem{width:2px;height:26px;background:var(--line)}
+.bus{height:2px;background:var(--line);width:80%;border-radius:2px}
+
+.lanes{
+  display:grid;grid-template-columns:repeat(5,minmax(232px,1fr));gap:0 18px;
+  align-items:start;
+}
+.lane{display:flex;flex-direction:column;transition:opacity .2s ease}
+.lane.dim{opacity:.22}
+.lane-drop{width:2px;height:26px;background:var(--line);align-self:center}
+
+.lane-head{
+  background:var(--lane);color:var(--on-lane);border-radius:14px;
+  padding:14px 16px 13px;display:flex;gap:11px;align-items:flex-start;
+  box-shadow:var(--shadow);
+}
+.lane-head svg{flex:none;width:22px;height:22px;margin-top:1px;opacity:.95}
+.lane-head .t{font-size:17px;font-weight:900;letter-spacing:-.02em;line-height:1.25}
+.lane-head .n{
+  margin-left:auto;flex:none;font-size:11.5px;font-weight:800;
+  background:color-mix(in oklab, var(--on-lane) 22%, transparent);
+  border-radius:999px;padding:2px 8px;font-variant-numeric:tabular-nums;
+}
+.lane-why{
+  margin:9px 2px 0;font-size:13px;line-height:1.5;color:var(--ink2);
+}
+.lane-why b{color:var(--lane);font-weight:800}
+
+.groups{margin-top:16px;display:flex;flex-direction:column;gap:14px}
+.group{
+  border:1px solid var(--line);border-radius:14px;background:var(--card);
+  padding:12px 12px 13px;box-shadow:var(--shadow);
+}
+.group-t{
+  display:flex;align-items:center;gap:8px;
+  background:color-mix(in oklab, var(--lane) 13%, var(--card));
+  color:var(--lane);border-radius:9px;padding:7px 11px;
+  font-size:13px;font-weight:800;letter-spacing:-.01em;
+}
+.group-t .gn{
+  margin-left:auto;font-size:11px;font-weight:800;opacity:.72;font-variant-numeric:tabular-nums;
+}
+.leaves{
+  list-style:none;margin:0;padding:9px 0 0 12px;
+  display:flex;flex-direction:column;gap:5px;position:relative;
+}
+.leaves::before{
+  content:"";position:absolute;left:2px;top:2px;bottom:13px;width:1px;background:var(--line);
+}
+.leaf{position:relative;padding-left:11px}
+.leaf::before{
+  content:"";position:absolute;left:-10px;top:14px;width:9px;height:1px;background:var(--line);
+}
+.leaf a, .leaf > span{
+  display:block;background:var(--card);border:1px solid var(--line);border-radius:8px;
+  padding:6px 10px;font-size:12.5px;font-weight:600;color:var(--ink2);
+  text-decoration:none;transition:border-color .15s ease,background .15s ease,color .15s ease;
+}
+.leaf a:hover{
+  border-color:var(--lane);color:var(--ink);
+  background:color-mix(in oklab, var(--lane) 7%, var(--card));
+}
+.leaf a:focus-visible{outline:2px solid var(--lane);outline-offset:2px}
+.leaf .p{
+  display:none;margin-top:3px;font-size:10.5px;color:var(--muted);font-weight:500;
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;word-break:break-all;
+}
+.map.show-paths .leaf .p{display:block}
+.leaf .tag{
+  float:right;margin-left:6px;font-size:10px;font-weight:800;color:var(--lane);
+  background:color-mix(in oklab, var(--lane) 14%, var(--card));
+  border-radius:5px;padding:1px 5px;
+}
+
+/* ---------- foundation ---------- */
+.base{margin-top:44px}
+.base-h{
+  display:flex;align-items:center;gap:12px;margin-bottom:14px;
+}
+.base-h h2{margin:0;font-size:16px;font-weight:900;letter-spacing:-.02em}
+.base-h p{margin:0;font-size:13px;color:var(--muted)}
+.base-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(184px,1fr));gap:12px;
+}
+.base-card{
+  border:1px dashed var(--line);border-radius:14px;background:var(--card);
+  padding:13px 14px;box-shadow:var(--shadow);
+}
+.base-card .bt{font-size:13.5px;font-weight:800;letter-spacing:-.01em}
+.base-card .bd{margin-top:4px;font-size:12px;color:var(--ink2);line-height:1.5}
+.base-card .bp{
+  margin-top:7px;font-size:10.5px;color:var(--muted);
+  font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+
+footer{
+  margin-top:48px;padding-top:20px;border-top:1px solid var(--line);
+  display:flex;flex-wrap:wrap;gap:6px 18px;
+  font-size:12px;color:var(--muted);
+}
+footer b{color:var(--ink2);font-weight:700}
+
+@media (max-width:900px){
+  .page{padding:28px 16px 56px}
+  .canvas{overflow-x:visible}
+  .map{min-width:0}
+  .lanes{grid-template-columns:1fr;gap:26px}
+  .stem,.bus,.lane-drop{display:none}
+  .root-wrap{margin-bottom:26px}
+  .root-node{width:100%}
+}
+@media (prefers-reduced-motion: reduce){
+  *{transition:none !important;animation:none !important}
+}
+
+
+.leaf a{cursor:pointer}
+.leaf a::after{content:"↗";float:right;margin-left:8px;color:var(--muted);font-size:11px;font-weight:800}
+.leaf a:hover::after{color:var(--lane)}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <nav class="topnav" aria-label="이동">
+    <button type="button" class="tn-btn" id="tn-back" title="뒤로 가기" aria-label="뒤로 가기">←</button>
+    <a class="tn-btn" href="/admin.html" title="관리자 홈" aria-label="관리자 홈">🏠</a>
+    <a class="tn-btn" href="/" target="_blank" rel="noopener" title="학생 화면 (새 탭)" aria-label="학생 화면">🎒</a>
+  </nav>
+
+  <p class="eyebrow">MangoI · Information Architecture</p>
+  <h1>망고아이 <em>사이트 지도</em></h1>
+  <p class="lede">
+    화면을 <b>“누가 쓰는가”</b>로 나눈 그림입니다 — 손님 · 학생 · 부모님 · 선생님 · 운영자.
+  </p>
+
+  <p class="legend">
+    <span><span class="demo-l1">큰 칸</span> 사람</span>
+    <span class="arrow">→</span>
+    <span><span class="demo-l2">중간 칸</span> 묶음</span>
+    <span class="arrow">→</span>
+    <span><span class="demo-l3">작은 칸</span> 화면</span>
+    <span class="legend-tip"><b>↗</b> 붙은 칸을 누르면 새 탭에서 열려요</span>
+  </p>
+
+  <div class="controls" role="group" aria-label="지도 보기 설정">
+    <button class="chipbtn" type="button" data-lane="all" aria-pressed="true">전체 보기</button>
+    <button class="chipbtn" type="button" data-lane="0" aria-pressed="false"><span class="dot" style="color:var(--c1)"></span>손님</button>
+    <button class="chipbtn" type="button" data-lane="1" aria-pressed="false"><span class="dot" style="color:var(--c2)"></span>학생</button>
+    <button class="chipbtn" type="button" data-lane="2" aria-pressed="false"><span class="dot" style="color:var(--c3)"></span>부모님</button>
+    <button class="chipbtn" type="button" data-lane="3" aria-pressed="false"><span class="dot" style="color:var(--c4)"></span>선생님</button>
+    <button class="chipbtn" type="button" data-lane="4" aria-pressed="false"><span class="dot" style="color:var(--c5)"></span>운영자</button>
+    <span class="spacer"></span>
+    <button class="chipbtn" type="button" id="pathToggle" aria-pressed="false">개발자용 주소 보기</button>
+  </div>
+
+  <div class="canvas">
+  <div class="map" id="map">
+
+    <div class="root-wrap">
+      <div class="root-node">
+        <span class="k">망고아이 첫 화면</span>
+        <span class="u">test.mangoi.co.kr</span>
+      </div>
+      <div class="stem"></div>
+      <div class="bus"></div>
+    </div>
+
+    <div class="lanes">
+
+      <!-- ============ 1. 손님 ============ -->
+      <div class="lane" data-lane="0" style="--lane:var(--c1)">
+        <div class="lane-drop"></div>
+        <div class="lane-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.7-3.7"/>
+          </svg>
+          <span class="t">손님<br>처음 온 사람</span>
+          <span class="n">11</span>
+        </div>
+        <p class="lane-why">아직 <b>회원이 아닌</b> 사람이 구경하고, 마음에 들면 신청하는 곳이에요.</p>
+
+        <div class="groups">
+          <div class="group">
+            <div class="group-t">둘러보기 <span class="gn">3</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/index.html" target="_blank" rel="noopener">망고아이 소개<span class="p">/index.html</span></a></li>
+              <li class="leaf"><a href="/curriculum.html" target="_blank" rel="noopener">교육과정<span class="p">/curriculum.html</span></a></li>
+              <li class="leaf"><span>선생님 소개<span class="p">/index.html #teachers</span></span></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">시작하기 <span class="gn">4</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/level-test.html" target="_blank" rel="noopener">레벨테스트<span class="p">/level-test.html</span></a></li>
+              <li class="leaf"><a href="/level-test-ai.html" target="_blank" rel="noopener">AI 레벨테스트<span class="p">/level-test-ai.html</span></a></li>
+              <li class="leaf"><a href="/enroll.html" target="_blank" rel="noopener">무료 체험 신청<span class="p">/enroll.html</span></a></li>
+              <li class="leaf"><a href="/enroll-pricing.html" target="_blank" rel="noopener">수강료 안내<span class="p">/enroll-pricing.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">물어보기 <span class="gn">4</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/faq.html" target="_blank" rel="noopener">자주 묻는 질문<span class="p">/faq.html</span></a></li>
+              <li class="leaf"><a href="/refund.html" target="_blank" rel="noopener">환불 규정<span class="p">/refund.html</span></a></li>
+              <li class="leaf"><span>카카오 상담<span class="p">pf.kakao.com/_xlqnSxd</span></span></li>
+              <li class="leaf"><a href="/enroll-ops.html" target="_blank" rel="noopener">가맹 · 제휴 문의<span class="p">/enroll-ops.html</span></a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 2. 학생 ============ -->
+      <div class="lane" data-lane="1" style="--lane:var(--c2)">
+        <div class="lane-drop"></div>
+        <div class="lane-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 7.5 12 4l9 3.5-9 3.5z"/><path d="M7 10v4.5c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V10"/><path d="M21 8v5"/>
+          </svg>
+          <span class="t">학생<br>영어 배우는 친구</span>
+          <span class="n">35</span>
+        </div>
+        <p class="lane-why">가장 <b>큰 덩어리</b>예요. 수업 듣고, 혼자 공부하고, 게임으로 복습해요.</p>
+
+        <div class="groups">
+          <div class="group">
+            <div class="group-t">수업 듣기 <span class="gn">6</span></div>
+            <ul class="leaves">
+              <li class="leaf"><span>수업 입장 (화상)<span class="tag">핵심</span><span class="p">/index.html + /video-call/</span></span></li>
+              <li class="leaf"><a href="/lesson-booking-demo.html" target="_blank" rel="noopener">수업 신청<span class="p">/lesson-booking-demo.html</span></a></li>
+              <li class="leaf"><a href="/lesson-postpone-demo.html" target="_blank" rel="noopener">연기 · 변경<span class="p">/lesson-postpone-demo.html</span></a></li>
+              <li class="leaf"><a href="/precheck.html" target="_blank" rel="noopener">접속 진단<span class="p">/precheck.html</span></a></li>
+              <li class="leaf"><a href="/eval.html" target="_blank" rel="noopener">평가표 (성적표)<span class="p">/eval.html</span></a></li>
+              <li class="leaf"><a href="/lessons.html" target="_blank" rel="noopener">지난 수업 · 녹화<span class="p">/lessons.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">AI 도구 <span class="gn">4</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/speech-coach.html" target="_blank" rel="noopener">AI 음성코치<span class="p">/speech-coach.html</span></a></li>
+              <li class="leaf"><a href="/ai-friend.html" target="_blank" rel="noopener">AI 친구 대화<span class="p">/ai-friend.html</span></a></li>
+              <li class="leaf"><a href="/ai-write.html" target="_blank" rel="noopener">AI 글쓰기 첨삭<span class="p">/ai-write.html</span></a></li>
+              <li class="leaf"><a href="/judgment.html" target="_blank" rel="noopener">판단력 훈련<span class="p">/judgment.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">혼자 공부 <span class="gn">6</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/vocab.html" target="_blank" rel="noopener">단어장<span class="p">/vocab.html</span></a></li>
+              <li class="leaf"><a href="/review-quiz.html" target="_blank" rel="noopener">복습 퀴즈<span class="p">/review-quiz.html</span></a></li>
+              <li class="leaf"><a href="/micro-quiz.html" target="_blank" rel="noopener">AI 단어 퀴즈<span class="p">/micro-quiz.html</span></a></li>
+              <li class="leaf"><a href="/speaking-quiz.html" target="_blank" rel="noopener">말하기 퀴즈<span class="p">/speaking-quiz.html</span></a></li>
+              <li class="leaf"><a href="/warmup.html" target="_blank" rel="noopener">수업 전 워밍업<span class="p">/warmup.html</span></a></li>
+              <li class="leaf"><a href="/streak.html" target="_blank" rel="noopener">연속 출석<span class="p">/streak.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">게임으로 복습 <span class="gn">14</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/student-games.html" target="_blank" rel="noopener">게임 모아보기<span class="tag">입구</span><span class="p">/student-games.html</span></a></li>
+              <li class="leaf"><a href="/student-game-wordfighter.html" target="_blank" rel="noopener">워드파이터<span class="p">/student-game-wordfighter.html</span></a></li>
+              <li class="leaf"><a href="/student-game-tank-battle.html" target="_blank" rel="noopener">탱크 배틀<span class="p">/student-game-tank-battle.html</span></a></li>
+              <li class="leaf"><a href="/student-game-tetris.html" target="_blank" rel="noopener">영어 테트리스<span class="p">/student-game-tetris.html</span></a></li>
+              <li class="leaf"><a href="/student-game-shooter.html" target="_blank" rel="noopener">슈터<span class="p">/student-game-shooter.html</span></a></li>
+              <li class="leaf"><a href="/student-game-escape-zombie.html" target="_blank" rel="noopener">좀비 탈출<span class="p">/student-game-escape-zombie.html</span></a></li>
+              <li class="leaf"><a href="/student-game-escape-school.html" target="_blank" rel="noopener">학교 탈출<span class="p">/student-game-escape-school.html</span></a></li>
+              <li class="leaf"><a href="/student-game-escape-voice.html" target="_blank" rel="noopener">목소리 탈출<span class="p">/student-game-escape-voice.html</span></a></li>
+              <li class="leaf"><a href="/student-game-grammar-pizza.html" target="_blank" rel="noopener">문법 피자<span class="p">/student-game-grammar-pizza.html</span></a></li>
+              <li class="leaf"><a href="/student-game-language-ace.html" target="_blank" rel="noopener">랭귀지 에이스<span class="p">/student-game-language-ace.html</span></a></li>
+              <li class="leaf"><a href="/student-game-space-monster.html" target="_blank" rel="noopener">우주 몬스터<span class="p">/student-game-space-monster.html</span></a></li>
+              <li class="leaf"><a href="/student-game-rescue-voyage.html" target="_blank" rel="noopener">구조 항해<span class="p">/student-game-rescue-voyage.html</span></a></li>
+              <li class="leaf"><a href="/student-game-p38-3d.html" target="_blank" rel="noopener">P-38 3D<span class="p">/student-game-p38-3d.html</span></a></li>
+              <li class="leaf"><a href="/student-game-avatar.html" target="_blank" rel="noopener">아바타 꾸미기<span class="p">/student-game-avatar.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">내 정보 <span class="gn">5</span></div>
+            <ul class="leaves">
+              <li class="leaf"><span>마이페이지<span class="p">/index.html #mypage</span></span></li>
+              <li class="leaf"><span>포인트 상점<span class="p">/index.html #points</span></span></li>
+              <li class="leaf"><a href="/pay-link.html" target="_blank" rel="noopener">결제하기<span class="p">/pay-link.html</span></a></li>
+              <li class="leaf"><a href="/mbti.html" target="_blank" rel="noopener">성향 검사 (MBTI)<span class="p">/mbti.html</span></a></li>
+              <li class="leaf"><a href="/game-report.html" target="_blank" rel="noopener">성취 카드<span class="p">/game-report.html</span></a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 3. 부모님 ============ -->
+      <div class="lane" data-lane="2" style="--lane:var(--c3)">
+        <div class="lane-drop"></div>
+        <div class="lane-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 10.5 12 4l9 6.5"/><path d="M5.5 12v7.5h13V12"/><path d="M12 19.5v-4.5"/>
+          </svg>
+          <span class="t">부모님<br>학부모</span>
+          <span class="n">13</span>
+        </div>
+        <p class="lane-why">우리 아이가 <b>얼마나 늘었는지</b> 보고, 수업료를 내는 곳이에요.</p>
+
+        <div class="groups">
+          <div class="group">
+            <div class="group-t">우리 아이 보기 <span class="gn">5</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/parent.html" target="_blank" rel="noopener">학부모 홈<span class="p">/parent.html</span></a></li>
+              <li class="leaf"><a href="/parent-report.html" target="_blank" rel="noopener">학습 리포트<span class="p">/parent-report.html</span></a></li>
+              <li class="leaf"><a href="/monthly-report.html" target="_blank" rel="noopener">월간 리포트<span class="p">/monthly-report.html</span></a></li>
+              <li class="leaf"><a href="/eval.html" target="_blank" rel="noopener">평가표 보기<span class="p">/eval.html</span></a></li>
+              <li class="leaf"><a href="/lessons.html" target="_blank" rel="noopener">수업 녹화 보기<span class="p">/lessons.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">수업료 내기 <span class="gn">4</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/pay-link.html" target="_blank" rel="noopener">결제 링크<span class="p">/pay-link.html</span></a></li>
+              <li class="leaf"><a href="/payment-success.html" target="_blank" rel="noopener">결제 완료<span class="p">/payment-success.html</span></a></li>
+              <li class="leaf"><a href="/payment-fail.html" target="_blank" rel="noopener">결제 실패<span class="p">/payment-fail.html</span></a></li>
+              <li class="leaf"><a href="/refund.html" target="_blank" rel="noopener">환불 신청<span class="p">/refund.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">이야기 나누기 <span class="gn">4</span></div>
+            <ul class="leaves">
+              <li class="leaf"><span>카카오 알림톡<span class="p">src/api-notify.ts</span></span></li>
+              <li class="leaf"><span>상담 예약<span class="p">/admin.html #consult</span></span></li>
+              <li class="leaf"><span>학부모 FAQ 봇<span class="p">src/api-ai.ts</span></span></li>
+              <li class="leaf"><span>친구 추천<span class="p">/index.html #referral</span></span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 4. 선생님 ============ -->
+      <div class="lane" data-lane="3" style="--lane:var(--c4)">
+        <div class="lane-drop"></div>
+        <div class="lane-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4"/><path d="M8 20h8"/><path d="M7 8.5h7"/><path d="M7 11.5h4"/>
+          </svg>
+          <span class="t">선생님<br>강사</span>
+          <span class="n">14</span>
+        </div>
+        <p class="lane-why">수업을 <b>하고, 기록하고</b>, 일한 만큼 급여를 확인하는 곳이에요.</p>
+
+        <div class="groups">
+          <div class="group">
+            <div class="group-t">수업하기 <span class="gn">5</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/teacher.html" target="_blank" rel="noopener">강사 홈<span class="p">/teacher.html</span></a></li>
+              <li class="leaf"><span>오늘 수업 입장<span class="p">/video-call/</span></span></li>
+              <li class="leaf"><a href="/admin/weekly-schedule.html" target="_blank" rel="noopener">주간 시간표<span class="p">/admin/weekly-schedule.html</span></a></li>
+              <li class="leaf"><a href="/admin/postponed-classes.html" target="_blank" rel="noopener">연기 · 변경 요청<span class="p">/admin/postponed-classes.html</span></a></li>
+              <li class="leaf"><a href="/precheck.html" target="_blank" rel="noopener">회선 품질 진단<span class="p">/precheck.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">기록하기 <span class="gn">6</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/eval.html" target="_blank" rel="noopener">평가서 작성<span class="p">/eval.html</span></a></li>
+              <li class="leaf"><span>AI 수업 리포트<span class="p">src/api-lessons.ts</span></span></li>
+              <li class="leaf"><a href="/teacher-report.html" target="_blank" rel="noopener">월별 리포트<span class="p">/teacher-report.html</span></a></li>
+              <li class="leaf"><a href="/teacher-praise.html" target="_blank" rel="noopener">칭찬 보내기<span class="p">/teacher-praise.html</span></a></li>
+              <li class="leaf"><a href="/textbook-uploader.html" target="_blank" rel="noopener">교재 업로드<span class="p">/textbook-uploader.html</span></a></li>
+              <li class="leaf"><a href="/textbook-viewer.html" target="_blank" rel="noopener">교재 보기<span class="p">/textbook-viewer.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">내 것 챙기기 <span class="gn">3</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/admin/teacher-payroll.html" target="_blank" rel="noopener">급여 · 정산<span class="p">/admin/teacher-payroll.html</span></a></li>
+              <li class="leaf"><span>학생이 준 별점<span class="p">/teacher.html #rating</span></span></li>
+              <li class="leaf"><a href="/teacher-training.html" target="_blank" rel="noopener">강사 교육<span class="p">/teacher-training.html</span></a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 5. 운영자 ============ -->
+      <div class="lane" data-lane="4" style="--lane:var(--c5)">
+        <div class="lane-drop"></div>
+        <div class="lane-head">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 20V7l7-3v16"/><path d="M11 10h6a2 2 0 0 1 2 2v8"/><path d="M2.5 20h19"/><path d="M7 9v0M7 13v0M15 14v0"/>
+          </svg>
+          <span class="t">운영자<br>본사 · 지사 · 대리점</span>
+          <span class="n">20</span>
+        </div>
+        <p class="lane-why">학원을 <b>굴리는 사람</b>만 들어가요. 로그인해야 문이 열립니다.</p>
+
+        <div class="groups">
+          <div class="group">
+            <div class="group-t">들어가기 <span class="gn">3</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/admin/login.html" target="_blank" rel="noopener">관리자 로그인<span class="tag">잠금</span><span class="p">/admin/login.html</span></a></li>
+              <li class="leaf"><a href="/admin.html" target="_blank" rel="noopener">관리자 홈<span class="p">/admin.html</span></a></li>
+              <li class="leaf"><a href="/admin/mypage.html" target="_blank" rel="noopener">내 정보 · 권한<span class="p">/admin/mypage.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">사람 관리 <span class="gn">5</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/admin/students.html" target="_blank" rel="noopener">학생 관리<span class="p">/admin/students.html</span></a></li>
+              <li class="leaf"><a href="/admin/students-unified.html" target="_blank" rel="noopener">학생 통합 보기<span class="p">/admin/students-unified.html</span></a></li>
+              <li class="leaf"><a href="/admin/teacher-match.html" target="_blank" rel="noopener">강사 매칭<span class="p">/admin/teacher-match.html</span></a></li>
+              <li class="leaf"><a href="/admin/all-schedules.html" target="_blank" rel="noopener">전체 스케줄<span class="p">/admin/all-schedules.html</span></a></li>
+              <li class="leaf"><a href="/admin/ghost-view.html" target="_blank" rel="noopener">학생 화면 대신 보기<span class="p">/admin/ghost-view.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">돈 관리 <span class="gn">5</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/admin/finance-realtime.html" target="_blank" rel="noopener">실시간 재무<span class="p">/admin/finance-realtime.html</span></a></li>
+              <li class="leaf"><a href="/admin/salary.html" target="_blank" rel="noopener">강사 급여<span class="p">/admin/salary.html</span></a></li>
+              <li class="leaf"><a href="/admin/capitown-settlement.html" target="_blank" rel="noopener">캐피타운 정산<span class="p">/admin/capitown-settlement.html</span></a></li>
+              <li class="leaf"><a href="/admin/duplicate-payments.html" target="_blank" rel="noopener">중복 결제 점검<span class="p">/admin/duplicate-payments.html</span></a></li>
+              <li class="leaf"><a href="/admin/send-pay-link.html" target="_blank" rel="noopener">결제 링크 발송<span class="p">/admin/send-pay-link.html</span></a></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <div class="group-t">살펴보기 <span class="gn">7</span></div>
+            <ul class="leaves">
+              <li class="leaf"><a href="/admin/exec.html" target="_blank" rel="noopener">경영 대시보드<span class="p">/admin/exec.html</span></a></li>
+              <li class="leaf"><a href="/admin/learning-insights.html" target="_blank" rel="noopener">학습 인사이트<span class="p">/admin/learning-insights.html</span></a></li>
+              <li class="leaf"><a href="/admin/game-insights.html" target="_blank" rel="noopener">게임 인사이트<span class="p">/admin/game-insights.html</span></a></li>
+              <li class="leaf"><a href="/admin/retention.html" target="_blank" rel="noopener">이탈 위험 학생<span class="p">/admin/retention.html</span></a></li>
+              <li class="leaf"><a href="/admin/health.html" target="_blank" rel="noopener">서비스 상태<span class="p">/admin/health.html</span></a></li>
+              <li class="leaf"><a href="/admin/marketing-studio.html" target="_blank" rel="noopener">마케팅 스튜디오<span class="p">/admin/marketing-studio.html</span></a></li>
+              <li class="leaf"><a href="/poster-maker.html" target="_blank" rel="noopener">포스터 만들기<span class="p">/poster-maker.html</span></a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /lanes -->
+  </div><!-- /map -->
+  </div><!-- /canvas -->
+
+  <section class="base">
+    <div class="base-h">
+      <h2>다섯 덩어리가 같이 밟고 선 바닥</h2>
+      <p>어느 칸에 들어가든 뒤에서 늘 돌아가는 것들</p>
+    </div>
+    <div class="base-grid">
+      <div class="base-card">
+        <div class="bt">화상수업 엔진</div>
+        <div class="bd">얼굴 보고 말하는 그 화면. 사람이 몰려도 안 끊기게 붙잡아 주는 부분.</div>
+        <div class="bp">src/video-call-room.ts</div>
+      </div>
+      <div class="base-card">
+        <div class="bt">로그인 · 계정</div>
+        <div class="bd">학생·학부모 문과 선생님·운영자 문이 <b>서로 다릅니다</b>. 열쇠가 두 종류예요.</div>
+        <div class="bp">src/auth-admin.ts · src/index.ts</div>
+      </div>
+      <div class="base-card">
+        <div class="bt">알림 보내기</div>
+        <div class="bd">카카오 알림톡, 웹 푸시, 채팅 저장.</div>
+        <div class="bp">src/api-notify.ts</div>
+      </div>
+      <div class="base-card">
+        <div class="bt">3개 언어</div>
+        <div class="bd">🌐 버튼 하나로 한국어 · 영어 · 중국어가 바뀝니다.</div>
+        <div class="bp">public/js/mango-i18n.js</div>
+      </div>
+      <div class="base-card">
+        <div class="bt">모바일 앱</div>
+        <div class="bd">안드로이드 APK. 사이트를 앱으로 감싼 형태.</div>
+        <div class="bp">mobile-app/ → downloads/mangoi.apk</div>
+      </div>
+      <div class="base-card">
+        <div class="bt">자료실</div>
+        <div class="bd">사용 설명 영상과 교육 문서(PDF·PPT)를 모아 둔 창고.</div>
+        <div class="bp">public/library/</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span><b>기준</b> 2026-08-15 · <code>cloudflare-deploy/public</code> 실제 파일</span>
+    <span><b>운영 주소</b> test.mangoi.co.kr</span>
+    <span><b>샘플</b> 구조를 보여주기 위한 초안이며, 묶는 방식은 얼마든지 바꿀 수 있습니다</span>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  var map = document.getElementById('map');
+  var lanes = Array.prototype.slice.call(document.querySelectorAll('.lane'));
+  var laneBtns = Array.prototype.slice.call(document.querySelectorAll('.chipbtn[data-lane]'));
+
+  function selectLane(key){
+    laneBtns.forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.lane === key));
+    });
+    lanes.forEach(function(l){
+      l.classList.toggle('dim', key !== 'all' && l.dataset.lane !== key);
+    });
+  }
+  laneBtns.forEach(function(b){
+    b.addEventListener('click', function(){ selectLane(b.dataset.lane); });
+  });
+
+  var pt = document.getElementById('pathToggle');
+  pt.addEventListener('click', function(){
+    var on = pt.getAttribute('aria-pressed') !== 'true';
+    pt.setAttribute('aria-pressed', String(on));
+    map.classList.toggle('show-paths', on);
+    pt.textContent = on ? '주소 숨기기' : '개발자용 주소 보기';
+  });
+})();
+
+/* ← 뒤로 가기 — 새 탭으로 열린 경우엔 히스토리가 없다. 그때는 관리자 홈으로 보낸다
+   (아무 반응 없는 버튼이 되면 «눌러도 안 된다» 신고가 된다). */
+(function(){
+  var b = document.getElementById('tn-back');
+  if (!b) return;
+  b.addEventListener('click', function(){
+    if (history.length > 1) history.back();
+    else location.href = '/admin.html';
+  });
+})();
+</script>
+</body>
+</html>

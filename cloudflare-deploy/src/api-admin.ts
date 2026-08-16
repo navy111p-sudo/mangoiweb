@@ -2799,13 +2799,29 @@ export async function handleAdminApi(
         l.date === dateStr && l.status === 'finish' &&
         ((prof && String(l.profile_id ?? '') === String(prof.id)) || sameTeacherName(l.teacher_name, teacherName)));
 
-      // 이미 초안 있는 방 제외
-      const roomIds = done.map((l: any) => l.room_id);
-      const existing: any = roomIds.length
-        ? await env.DB.prepare(`SELECT room_id FROM feedback_drafts WHERE room_id IN (${roomIds.map(() => '?').join(',')})`).bind(...roomIds).all().catch(() => ({ results: [] }))
-        : { results: [] };
-      const have = new Set((existing.results || []).map((r: any) => r.room_id));
-      const targets = done.filter((l: any) => !have.has(l.room_id));
+      /* 🔁 이미 «학부모에게 나간» 수업은 초안을 만들지 않는다 (2026-08-15)
+         왜 — 학부모에게 문자가 나가는 길이 두 갈래인데 여기서는 한 갈래만 보고 있었다.
+           ① 강사가 수업일지를 쓰면 → /api/eval/create → student_evaluations + 학부모 문자
+           ② 이 초안을 승인하면     → approve          → teacher_feedbacks   + 학부모 문자
+         예전 코드는 feedback_drafts 만 확인해서, ①을 이미 쓴 수업도 «초안 없음» 으로 보고
+         초안을 다시 만들었다. 강사가 그걸 승인하면 같은 수업으로 학부모에게 문자가 두 번 간다.
+         ⚠️ 드물게 나는 사고가 아니다 — 경고 카드는 «이번 달 미작성» 이 한 건만 있어도 뜨고,
+            「AI 초안 만들기」는 그날 완료 수업 **전체** 를 대상으로 돌기 때문에,
+            오늘 일지를 이미 쓴 수업까지 한꺼번에 걸린다.
+         그래서 세 테이블을 다 보고 하나라도 있으면 건너뛴다. */
+      const roomIds = done.map((l: any) => String(l.room_id || '')).filter(Boolean);
+      //   바인드 100개 한도 분할은 공용 selectInChunks 에 맡긴다(직접 자르지 않는다).
+      //   swallowErrors — 표가 아직 없는 DB 도 있다. 그 경우는 «없음» 으로 치고 넘어간다.
+      const have = new Set<string>();
+      for (const table of ['feedback_drafts', 'student_evaluations', 'teacher_feedbacks']) {
+        const rows = await selectInChunks<any>(
+          env.DB, roomIds,
+          (ph) => `SELECT room_id FROM ${table} WHERE room_id IN (${ph})`,
+          { swallowErrors: true },
+        );
+        for (const r of rows) have.add(String(r.room_id));
+      }
+      const targets = done.filter((l: any) => !have.has(String(l.room_id || '')));
 
       const CAP = 5;
       const batch = targets.slice(0, CAP);
@@ -8442,6 +8458,97 @@ LIMIT $limit`;
         `INSERT INTO room_alerts (room_id, alert_type, severity, detail, triggered_at) VALUES (?,?,?,?,?)`
       ).bind(roomId, alertType, severity, JSON.stringify(detail), Date.now()).run();
       return json({ ok: true, alert_id: r.meta?.last_row_id, room_id: roomId, alert_type: alertType });
+    }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       🎙 강사가 «이 수업 AI 리포트 만들어 주세요» 하고 요청하는 창구 (2026-08-15)
+
+       왜 이렇게 만들었나 —
+         AI 학습 리포트는 녹음을 60초 조각으로 잘라 전사해야 하는데, 그 일은 **브라우저**
+         가 한다(adm-r4.js). 45분 수업이면 업로드가 약 86MB 라 강사 회선(필리핀·정전·태풍)
+         에서는 사실상 못 돌린다. 서버가 대신 하는 길도 지금은 막혀 있다:
+           · 녹화본은 R2 에 video/webm 으로 있고 Whisper 는 webm 영상을 못 받는다
+           · Worker 에는 오디오 디코더가 없다(브라우저의 OfflineAudioContext 에 해당하는 것이 없다)
+         그래서 «강사는 요청만, 실행은 회선 좋은 사무실» 로 나눴다. 요청 본문은 200바이트 안쪽이라
+         회선이 나빠도 나간다. 사무실은 관리자 화면의 기존 [🚀 AI 리포트 자동 생성] 을 그대로 쓴다
+         (그 카드는 이미 R2 녹음ID 를 받아 브라우저에서 조각내 전사한다).
+
+       ⚠️ 왜 새 표를 안 만들었나 — 요청을 보여 줄 화면이 필요한데, admin.html 은 공동작업 충돌
+          반경이 커서 손대지 않기로 했다. 대신 **이미 있는 room_alerts + 실시간 알림 센터**에 얹는다.
+          알림 목록은 모르는 alert_type 도 그대로 렌더하고, 「✓ 확인」 처리도 이미 있다.
+       ⚠️ severity 는 반드시 'low' — adm-core.js 의 「진행 중인 수업」 표가 **미확인 알림**을
+          room_id 로 매핑해 «이상감지» 표시에 쓴다. 끝난 수업은 그 목록에 없어 보통은 안 걸리지만,
+          수업 직후 방이 남아 있으면 잠깐 뜰 수 있다. 색이라도 낮춰 둔다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    // ── POST /api/admin/feedback-drafts/report-request — 강사가 리포트 요청 ──
+    //   ℹ️ 경로를 /api/admin/feedback-drafts/ 아래에 둔 것은 우연이 아니다. index.ts 인증게이트와
+    //      api-mango 위임가드가 **둘 다 startsWith('/api/admin/feedback-drafts')** 라,
+    //      여기 붙이면 금지구역(src/index.ts)을 한 줄도 안 고치고 새 API 가 산다.
+    if (method === 'POST' && path === '/api/admin/feedback-drafts/report-request') {
+      await ensureAdminControlSchema();
+      const b: any = await request.json().catch(() => ({}));
+      const roomId = String(b.room_id || '').trim();
+      if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
+
+      // 🔐 강사 로그인이면 남의 이름으로 요청하지 못하게 본인 것으로 강제(초안 생성과 같은 규칙)
+      const _rrActor = await getAdminActor(request, env as any);
+      let teacherName = String(b.teacher_name || '').trim();
+      if (_rrActor.isTeacher) {
+        if (!_rrActor.name) return json({ ok: false, error: 'teacher_identity_missing' }, 403);
+        teacherName = _rrActor.name;
+      }
+
+      // 같은 수업을 두 번 요청해도 알림이 두 줄 쌓이지 않게 — 아직 «확인» 안 된 요청이 있으면 그걸 돌려준다.
+      //   (강사가 회선이 끊긴 줄 알고 다시 누르는 일이 실제로 잦다)
+      const dup: any = await env.DB.prepare(
+        `SELECT id FROM room_alerts WHERE room_id = ? AND alert_type = 'report_request' AND acknowledged_at IS NULL ORDER BY triggered_at DESC LIMIT 1`
+      ).bind(roomId).first().catch(() => null);
+      if (dup) return json({ ok: true, already: true, alert_id: dup.id, room_id: roomId });
+
+      const detail = {
+        kind: 'AI 학습 리포트 요청',
+        teacher: teacherName || null,
+        student: String(b.student_name || '').trim() || null,
+        student_uid: String(b.student_uid || '').trim() || null,
+        lesson_date: String(b.lesson_date || '').trim() || null,
+        start_time: String(b.start_time || '').trim() || null,
+        recording_id: String(b.recording_id || '').trim() || null,
+        note: String(b.note || '').trim().slice(0, 300) || null,
+      };
+      const r: any = await env.DB.prepare(
+        `INSERT INTO room_alerts (room_id, alert_type, severity, detail, triggered_at) VALUES (?,?,?,?,?)`
+      ).bind(roomId, 'report_request', 'low', JSON.stringify(detail), Date.now()).run();
+      return json({ ok: true, already: false, alert_id: r.meta?.last_row_id, room_id: roomId });
+    }
+
+    // ── GET /api/admin/feedback-drafts/report-requests — 요청 목록 ──
+    //   강사는 «자기 것만», 본사·매니저는 전부 본다(강사가 자기 요청 상태를 확인할 수 있어야 한다).
+    if (method === 'GET' && path === '/api/admin/feedback-drafts/report-requests') {
+      await ensureAdminControlSchema();
+      const rs: any = await env.DB.prepare(
+        `SELECT id, room_id, severity, detail, triggered_at, acknowledged_by, acknowledged_at
+           FROM room_alerts WHERE alert_type = 'report_request'
+          ORDER BY triggered_at DESC LIMIT 100`
+      ).all().catch(() => ({ results: [] }));
+
+      const _rlActor = await getAdminActor(request, env as any);
+      const rows = ((rs.results || []) as any[]).map((row) => {
+        let d: any = {};
+        try { d = JSON.parse(String(row.detail || '{}')) || {}; } catch { d = {}; }
+        return {
+          id: row.id, room_id: row.room_id,
+          teacher: d.teacher || null, student: d.student || null,
+          lesson_date: d.lesson_date || null, start_time: d.start_time || null,
+          recording_id: d.recording_id || null, note: d.note || null,
+          requested_at: row.triggered_at,
+          done_at: row.acknowledged_at || null, done_by: row.acknowledged_by || null,
+          status: row.acknowledged_at ? 'done' : 'pending',
+        };
+      });
+      const mine = _rlActor.isTeacher
+        ? rows.filter((x) => x.teacher && sameTeacherName(String(x.teacher), String(_rlActor.name || '')))
+        : rows;
+      return json({ ok: true, rows: mine });
     }
 
     // ── ⑨ GET /api/admin/forbidden-words — 금지 단어 목록 ──

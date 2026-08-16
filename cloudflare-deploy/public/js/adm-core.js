@@ -11119,6 +11119,10 @@ window.rebuildGlobalSearchIndex = function() {
     '사무용품':   { icon: '📎', color: '#3b82f6', avg: 80000,  threshold: 130000 },
     '통신':       { icon: '📞', color: '#8b5cf6', avg: 50000,  threshold: 80000 },
     '마케팅':     { icon: '📣', color: '#ec4899', avg: 200000, threshold: 350000 },
+    /* ☁️ SW구독 — 장비에서 떼어냄(2026-08-15). 기준은 «끊으면 못 쓰나».
+       임계값을 장비(₩250,000)보다 높게 잡는다 — AI·클라우드는 원래 매달 나가는 고정비라
+       장비 기준으로 재면 매달 빨간불이 켜져서 경고가 무의미해진다. */
+    '구독':       { icon: '☁️', color: '#0ea5e9', avg: 300000, threshold: 500000 },
     '장비':       { icon: '💻', color: '#06b6d4', avg: 120000, threshold: 250000 },
     '복리후생':   { icon: '🎁', color: '#a855f7', avg: 100000, threshold: 200000 },
     '기타':       { icon: '❓', color: '#6b7280', avg: 50000,  threshold: 100000 },
@@ -11349,9 +11353,9 @@ window.rebuildGlobalSearchIndex = function() {
       { name: '스타벅스 강남R점',   cat: '식대',     range: [4500, 18000] },
       { name: '카카오T 택시',       cat: '교통',     range: [6000, 22000] },
       { name: '배민 한식주문',      cat: '식대',     range: [9000, 32000] },
-      { name: 'AWS 클라우드',       cat: '장비',     range: [25000, 80000] },
+      { name: 'AWS 클라우드',       cat: '구독',     range: [25000, 80000] },
       { name: 'Google Ads 광고',    cat: '마케팅',   range: [30000, 120000] },
-      { name: 'Cloudflare Workers', cat: '장비',     range: [8000, 25000] },
+      { name: 'Cloudflare Workers', cat: '구독',     range: [8000, 25000] },
       { name: '오피스디포',         cat: '사무용품', range: [8000, 45000] },
       { name: 'SKT 통신요금',       cat: '통신',     range: [38000, 65000] },
       { name: '교보문고 영등포',    cat: '사무용품', range: [12000, 35000] },
@@ -11359,8 +11363,8 @@ window.rebuildGlobalSearchIndex = function() {
       { name: 'GS칼텍스 주유',      cat: '교통',     range: [30000, 60000] },
       { name: '쿠팡 사무용품',      cat: '사무용품', range: [8000, 38000] },
       { name: '회식 — 강남고기집',  cat: '복리후생', range: [55000, 120000] },
-      { name: 'Figma Pro',          cat: '장비',     range: [22000, 38000] },
-      { name: '마이크로소프트 365', cat: '장비',     range: [12000, 28000] },
+      { name: 'Figma Pro',          cat: '구독',     range: [22000, 38000] },
+      { name: '마이크로소프트 365', cat: '구독',     range: [12000, 28000] },
       { name: '카카오톡 비즈채널',  cat: '마케팅',   range: [20000, 80000] },
       { name: '직원 선물 (기프티콘)', cat: '복리후생', range: [10000, 50000] },
       { name: '문구점 — 모나미',    cat: '사무용품', range: [3000, 15000] },
@@ -11580,6 +11584,8 @@ window.rebuildGlobalSearchIndex = function() {
     // 🆕 (2026-08-15) 「평균 대비」 필터 — 고액/평균↑ 건만 골라 보려는 요청.
     //   표에 찍는 판정과 «같은 함수»를 써야 한다. 여기서 따로 계산하면 필터와 배지가 어긋난다.
     const vsFilter = (document.getElementById('acc-card-vs') && document.getElementById('acc-card-vs').value) || '';
+    // 🌐 부가세 신고용 필터 — 해외/국내/접대비확인. 카테고리와 «다른 축»이라 셀렉트를 따로 뒀다
+    const flagFilter = (document.getElementById('acc-card-flag') && document.getElementById('acc-card-flag').value) || '';
     const catCounts = {};
     _cardData.current.forEach(t => { catCounts[t.category] = (catCounts[t.category] || 0) + 1; });
     const vsOf = (t) => {
@@ -11598,6 +11604,9 @@ window.rebuildGlobalSearchIndex = function() {
       if (catFilter && t.category !== catFilter) return false;
       if (search && !(t.merchant.toLowerCase().includes(search))) return false;
       if (vsFilter && vsOf(t) !== vsFilter) return false;
+      if (flagFilter === 'overseas'  && !t.overseas)  return false;
+      if (flagFilter === 'domestic'  &&  t.overseas)  return false;
+      if (flagFilter === 'entertain' && !t.entertain) return false;
       return true;
     }).map(t => {
       const st = vsOf(t);
@@ -11622,9 +11631,13 @@ window.rebuildGlobalSearchIndex = function() {
       const vs = st === 'high' ? '🔴 고액' : st === 'over' ? '🟡 평균↑' : '🟢 정상';
       const color = st === 'high' ? '#dc2626' : st === 'over' ? '#d97706' : '#059669';
       const safeM = String(t.merchant).replace(/[<>]/g, '');
+      /* 🌐 해외 = 부가세 매입세액 «불공제» 가능성. ⚠️ = 기업업무추진비(접대비) 확인 필요.
+         둘 다 서버(corpcard-sync.ts)가 판정해서 내려준다 — 화면에서 다시 계산하지 않는다. */
+      const flags = (t.overseas ? '<span title="해외 결제 — 세금계산서 없음, 부가세 매입세액 불공제 가능" style="margin-left:6px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">🌐 해외</span>' : '')
+        + (t.entertain ? '<span title="건당 3만원 초과 식대 — 외부인 동석이면 기업업무추진비(접대비)입니다. 확인해 주세요" style="margin-left:4px;background:#fffbeb;color:#b45309;border:1px solid #fde68a;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:700">⚠️ 접대비?</span>' : '');
       return `<tr style="border-bottom:1px solid #f3f4f6">
         <td style="padding:8px 10px;color:#6b7280;font-family:MangoiHanSC,Consolas,monospace;font-size:11px">${t.datetime}</td>
-        <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}</td>
+        <td style="padding:8px 10px;color:#111;font-weight:600">${safeM}${flags}</td>
         <td style="padding:8px 10px"><span style="background:${meta.color}22;color:${meta.color};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700">${meta.icon} ${t.category}</span></td>
         <td style="padding:8px 10px;text-align:right;font-weight:800;color:${color};font-family:MangoiHanSC,Consolas,monospace">₩${t.amount.toLocaleString('ko-KR')}</td>
         <td style="padding:8px 10px;color:${color};font-size:11px;font-weight:700">${vs}</td>
@@ -11705,8 +11718,12 @@ window.rebuildGlobalSearchIndex = function() {
   window.cardExportExcel = function() {
     if (!_cardData) { alert('먼저 거래내역을 동기화해 주세요.'); return; }
     const rows = _cardData.current;
-    const csv = ['일시,가맹점,카테고리,금액(KRW),메모'].concat(
-      rows.map(t => [t.datetime, '"' + t.merchant.replace(/"/g,'""') + '"', t.category, t.amount, '"' + (t.memo||'').replace(/"/g,'""') + '"'].join(','))
+    /* 🌐/⚠️ 열을 함께 내보낸다 — 회계담당이 분기 부가세 신고 때 엑셀에서 바로 걸러 쓴다.
+       (화면 필터는 적용하지 않는다. 전체를 주고 엑셀에서 거르는 편이 실수가 적다) */
+    const csv = ['일시,가맹점,카테고리,금액(KRW),국내/해외,접대비확인,메모'].concat(
+      rows.map(t => [t.datetime, '"' + t.merchant.replace(/"/g,'""') + '"', t.category, t.amount,
+        (t.overseas ? '해외' : '국내'), (t.entertain ? '확인필요' : ''),
+        '"' + (t.memo||'').replace(/"/g,'""') + '"'].join(','))
     ).join('\n');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
