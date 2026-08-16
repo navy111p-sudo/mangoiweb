@@ -176,6 +176,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'receivables') return await receivablesReport(env, url, fmt);
     if (p === 'payments-list') return await paymentsList(env, url, fmt);
     if (p === 'refunds-list')  return await refundsList(env, url, fmt);
+    if (p === 'reconcile')     return await reconcileReport(env, url, fmt);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -1227,6 +1228,128 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
         new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
         r.id, r.user_id, r.amount_krw, r.status, r.memo || '',
       ]),
+    ]);
+  }
+  return json(data);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   13) 🔍 매출–입금 대사 (장부 vs 통장)   GET /api/admin/reports/reconcile
+
+   [왜 만들었나] 2026-08 실제로 겪은 일 — 장부 매출이 통장 입금보다 8,100만 많았고
+   (시연용 시드 결제가 섞여 있었다) 아무도 몰랐다. 「매출이 잡히는데 이상하다」는
+   감을 숫자로 바로 확인할 수 있어야 재발을 막는다.
+
+   [읽는 법]
+     · 예상 입금 = 장부 매출 × (1 − PG 수수료 3.3%)
+     · 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 **월 단위로는 어긋나는
+       것이 정상**이다. 그래서 «누적 합계» 줄을 함께 준다 — 시차는 누적에서 상쇄된다.
+       판정도 누적을 기준으로 본다.
+     · 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라서 «참고» 로만 보여 준다.
+   ⚠️ 계좌 연동(바로빌) 이전 달은 입금 데이터 자체가 없다 → 판정하지 않고
+      «입금자료 없음» 으로 표시한다(0원을 «미입금» 으로 오해하면 안 된다). */
+const PG_FEE_RATE = 0.033;
+async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Response> {
+  const months = Math.max(1, Math.min(24, parseInt(url.searchParams.get('months') || '6', 10)));
+  const endMonth = /^\d{4}-\d{2}$/.test(String(url.searchParams.get('end') || '')) ? String(url.searchParams.get('end')) : currentMonth();
+  const [ey, em] = endMonth.split('-').map(Number);
+
+  // 조회 구간 = endMonth 포함 최근 months 개월
+  const list: string[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(ey, em - 1 - i, 1));
+    list.push(d.toISOString().slice(0, 7));
+  }
+  const startMs = monthRange(list[0]).startMs;
+  const endMs = monthRange(list[list.length - 1]).endMs;
+
+  // 장부 매출(시드 제외) — KST 월로 묶는다
+  const revRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT substr(date(paid_at/1000,'unixepoch','+9 hours'),1,7) AS ym,
+             COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS cnt
+      FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+      GROUP BY ym
+    `).bind(startMs, endMs).all();
+    return (r.results || []) as Array<{ ym: string; revenue: number; cnt: number }>;
+  }, []);
+
+  // 통장 입금 — PG(케이씨피)와 그 외를 나눈다
+  const depRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT substr(trans_at,1,7) AS ym,
+             COALESCE(SUM(CASE WHEN remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
+             COALESCE(SUM(CASE WHEN remark NOT LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS other
+      FROM bankacct_transactions WHERE kind='in' GROUP BY ym
+    `).all();
+    return (r.results || []) as Array<{ ym: string; pg: number; other: number }>;
+  }, []);
+  // 계좌 데이터가 언제부터 있는지 — 그 전 달은 «판정 불가»
+  const bankFrom = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT MIN(substr(trans_at,1,7)) AS m FROM bankacct_transactions`).first<{ m: string }>();
+    return r?.m || '';
+  }, '');
+
+  const revMap = new Map(revRows.map(r => [r.ym, r]));
+  const depMap = new Map(depRows.map(r => [r.ym, r]));
+
+  let cumRev = 0, cumPg = 0;
+  const rows = list.map(ym => {
+    const rv = revMap.get(ym);
+    const dp = depMap.get(ym);
+    const revenue = Number(rv?.revenue) || 0;
+    const pg = Number(dp?.pg) || 0;
+    const other = Number(dp?.other) || 0;
+    const expected = Math.round(revenue * (1 - PG_FEE_RATE));
+    const hasBank = !!bankFrom && ym >= bankFrom;
+    cumRev += revenue; cumPg += pg;
+    return {
+      period: ym, revenue, pay_count: Number(rv?.cnt) || 0,
+      expected, deposit_pg: pg, deposit_other: other,
+      diff: hasBank ? pg - expected : null,
+      has_bank: hasBank,
+    };
+  });
+
+  // 판정은 «누적» 기준 — 월별 어긋남은 PG 정산 시차라 정상이다
+  const cumExpected = Math.round(cumRev * (1 - PG_FEE_RATE));
+  const cumDiff = cumPg - cumExpected;
+  const cumPct = cumExpected > 0 ? (cumDiff / cumExpected) * 100 : 0;
+  const bankMonths = rows.filter(r => r.has_bank).length;
+  let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
+  if (!bankFrom || bankMonths === 0) verdict = 'no_data';
+  else if (Math.abs(cumPct) <= 10) verdict = 'ok';
+  else if (Math.abs(cumPct) <= 25) verdict = 'warn';
+  else verdict = 'alert';
+
+  const MSG: Record<typeof verdict, string> = {
+    ok: '장부와 통장이 맞습니다(누적 오차 10% 이내 — PG 정산 시차 범위).',
+    warn: '누적 차이가 10%를 넘습니다. 정산 시차인지, 실제로 안 들어온 돈인지 KCP 정산내역을 확인하세요.',
+    alert: '누적 차이가 25%를 넘습니다. 장부에만 있는 매출이거나 미수금일 수 있습니다 — 확인이 필요합니다.',
+    no_data: '계좌 연동 이전 기간이라 입금 자료가 없습니다. 「신한 동기화」 후 다시 보세요.',
+  };
+
+  const data = {
+    ok: true, type: 'reconcile', months, end: endMonth,
+    label: `매출–입금 대사 — ${list[0]} ~ ${list[list.length - 1]}`,
+    pg_fee_rate: PG_FEE_RATE, bank_data_from: bankFrom || null,
+    rows,
+    totals: { revenue: cumRev, expected: cumExpected, deposit_pg: cumPg, diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)) },
+    verdict, message: MSG[verdict],
+  };
+
+  if (fmt === 'csv') {
+    return csv(`reconcile-${endMonth}.csv`, [
+      ['망고아이 매출–입금 대사', data.label],
+      [`PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(1)}%`],
+      [],
+      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 입금', '차이', '기타 입금(참고)'],
+      ...rows.map(r => [r.period, r.revenue, r.pay_count, r.expected, r.has_bank ? r.deposit_pg : '(자료없음)',
+        r.diff == null ? '-' : r.diff, r.deposit_other]),
+      ['누적 합계', cumRev, '', cumExpected, cumPg, cumDiff, ''],
+      [],
+      ['판정', data.message],
     ]);
   }
   return json(data);

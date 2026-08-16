@@ -11049,6 +11049,67 @@ window.rebuildGlobalSearchIndex = function() {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
     }
   };
+  /* 🔍 매출–입금 대사 (2026-08-16) — 장부 매출 vs 통장 입금.
+     월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
+  function _rcUrl(format){
+    const m = (document.getElementById('acc-rc-months') || {}).value || '6';
+    const qs = new URLSearchParams({ months: m });
+    if (format) qs.set('format', format);
+    return '/api/admin/reports/reconcile?' + qs.toString();
+  }
+  window.accLoadReconcile = async function(){
+    const wrap = document.getElementById('acc-rc-result');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280">대사 중…</div>';
+    try {
+      const r = await fetch(_rcUrl(), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      const V = { ok:['#059669','#ecfdf5','🟢 정상'], warn:['#d97706','#fffbeb','🟡 주의'],
+                  alert:['#dc2626','#fef2f2','🔴 확인 필요'], no_data:['#6b7280','#f9fafb','⚪ 자료 없음'] };
+      const v = V[d.verdict] || V.no_data;
+      const t = d.totals || {};
+      let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
+      html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}%)</div>
+        <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead style="background:#f3f4f6"><tr>'
+        + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 3.3% 차감</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">실제 PG 입금</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">차이</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">기타 입금<br><span style="font-weight:400;color:#6b7280">참고</span></th>'
+        + '</tr></thead><tbody>';
+      (d.rows || []).forEach(row => {
+        const dc = row.diff == null ? '#9ca3af' : (row.diff < 0 ? '#dc2626' : '#059669');
+        html += `<tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:6px 8px;font-weight:600">${_esc(row.period)}</td>
+          <td style="padding:6px 8px;text-align:right">${_fmt(row.revenue)}</td>
+          <td style="padding:6px 8px;text-align:right;color:#6b7280">${_fmt(row.expected)}</td>
+          <td style="padding:6px 8px;text-align:right">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:700;color:${dc}">${row.diff == null ? '—' : _fmt(row.diff)}</td>
+          <td style="padding:6px 8px;text-align:right;color:#9ca3af">${row.has_bank ? _fmt(row.deposit_other) : '—'}</td></tr>`;
+      });
+      html += `<tr style="background:#fef3c7;font-weight:800">
+        <td style="padding:7px 8px">누적 합계</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.revenue)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.expected)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
+        <td style="padding:7px 8px;text-align:right;color:${t.diff < 0 ? '#dc2626' : '#059669'}">${_fmt(t.diff)}</td>
+        <td></td></tr></tbody></table>`;
+      html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
+        ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
+        ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
+        ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
+      wrap.innerHTML = html;
+    } catch(e) {
+      wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
+    }
+  };
+  window.accReconcileExcel = function(){ window.open(_rcUrl('csv'), '_blank'); };
+
   window.accStatementPdf = async function(){
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');
