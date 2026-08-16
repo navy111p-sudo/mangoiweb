@@ -205,6 +205,41 @@ console.log('\n[ ⑪ 「메뉴 지도」는 진짜 지도를 연다 + 내용을 
   const mv = html.match(/adm-r15\.js\?v=(\d+)/);
   check(`admin.html 의 adm-r15.js 버전이 4 이상 (?v=${mv ? mv[1] : '없음'})`, !!mv && Number(mv[1]) >= 4);
 }
+
+/* 🔊 (2026-08-15 사장님) 「음성 켜짐과 꺼짐이 사이드바에서 이렇게 큰 자리를 차지하지 않아도 될 것 같아」
+   메뉴 한 줄(48px)을 통째로 쓰던 토글을 아래 도크의 세 번째 칸(🩺진단 · 🌐EN 옆)으로 옮겼다.
+   업계 관행도 «켜기/끄기 스위치는 도구 줄의 작은 자리»다(구글 접근성·워드·엣지·유튜브 자막).
+   ⚠️ 여기서 막는 되돌림 —
+      ① 계정 카드(#ph115-user)는 런타임에 #ph162-lang 뒤로 끼어든다. «한 번 붙이고 끝»으로 두면
+         버튼이 셋째 줄로 밀려 도크가 12px 높아지고 「메뉴 지도」가 가려진다(실측으로 밟음).
+      ② className 통째 대입 → 도크에서 얻은 .ph162-pill 이 지워져 한 번 누르면 모양이 무너진다.
+      ③ 아이콘만 남기기 → 컴퓨터가 익숙하지 않은 직원이 지금 상태를 알 수 없다. 글자를 함께 둔다. */
+console.log('\n[ ⑫ 음성 안내 토글을 아래 도크로 (2026-08-15) ]');
+{
+  const r15 = rd('../cloudflare-deploy/public/js/adm-r15.js');
+  check('도크에 자리를 잡는 함수가 있다 (placeToggle)', /function placeToggle\(btn\)/.test(r15));
+  check('🔴 계정 카드 «앞»에 넣는다 — 뒤에 넣으면 셋째 줄로 밀린다',
+    /var ref = \(user && user\.parentNode === dock\) \? user : lang\.nextSibling;/.test(r15));
+  check('🔴 재시도마다 자리를 다시 잡는다 (계정 카드가 나중에 끼어들기 때문)',
+    /if \(made\) \{ placeToggle\(made\); return; \}/.test(r15));
+  check('도크를 2칸 → 3칸으로 (줄 수는 그대로)',
+    /has-voice\{grid-template-columns:1fr 1fr 1fr !important\}/.test(r15) &&
+    /dock\.classList\.add\('has-voice'\)/.test(r15));
+  check('🔴 className 을 통째로 대입하지 않는다 (.ph162-pill 이 지워진다)',
+    /classList\.toggle\('off', !on\)/.test(r15) && !/btn\.className = on \? '' : 'off'/.test(r15));
+  check('상태를 «글자»로 보여 준다 (아이콘만 두지 않는다)',
+    /'음성 ' \+ \(on \? '켜짐' : '꺼짐'\)/.test(r15) && /'Voice ' \+ \(on \? 'on' : 'off'\)/.test(r15));
+  check('마우스를 올리면 «누르면 어떻게 되는지» 를 알려 준다',
+    /누르면 끕니다/.test(r15) && /누르면 켭니다/.test(r15) && /btn\.title =/.test(r15));
+  check('스크린리더용 상태도 준다 (aria-pressed)', /setAttribute\('aria-pressed'/.test(r15));
+  check('🪤 이모지 대신 SVG 를 쓴다 (Win10 두부 방지 · 도크 톤 일치)',
+    /var SPK_ON  = '<svg/.test(r15) && !/\(on \? '🔊' : '🔇'\)/.test(r15));
+  check('도크가 없는 옛 화면에서는 예전 자리로 되돌아간다 (버튼이 사라지지 않게)',
+    /if \(placeToggle\(btn\)\) return;[\s\S]{0,220}?ph85-search-wrap/.test(r15));
+  check('id 는 그대로 둔다 — 이 id 를 보는 곳이 셋 있다', /btn\.id = 'ph85-voice-toggle'/.test(r15));
+  const mv2 = html.match(/adm-r15\.js\?v=(\d+)/);
+  check(`admin.html 의 adm-r15.js 버전이 5 이상 (?v=${mv2 ? mv2[1] : '없음'})`, !!mv2 && Number(mv2[1]) >= 5);
+}
 check('🔴 라벨에 이모지를 넣지 않는다 — 왼쪽 SVG 와 «아이콘 두 개»가 된다',
   !/data-ko="[^"]*[\u{1F300}-\u{1FAFF}]/u.test(ia6));
 {
