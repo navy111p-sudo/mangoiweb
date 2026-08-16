@@ -601,6 +601,62 @@
     }, true);   // ← 반드시 캡처. 버블로 두면 ph97 의 stopPropagation 에 막힌다.
   }
 
+  /* ── 🧷 그룹을 펼치면 «계정 도크» 밑에 깔리지 않게 스크롤한다 ─────────────────
+     [무슨 일이 있었나] 2026-08-15 상단바를 없애고 🩺 진단·🌐 EN·계정 버튼을
+       사이드바 바닥 도크(#ph162-dock)로 내렸다. 그 도크는 position:sticky·z-index:3 라
+       스크롤과 무관하게 바닥 167px 를 늘 덮고 있다.
+       그래서 그룹을 펼쳤을 때 **아래쪽 항목 서너 개가 도크 밑에 들어가 눌리지 않았다.**
+       보이기는 하는데 클릭이 도크로 먹히니, 쓰는 사람에게는 «눌러도 아무 일이 없다» 였다.
+       실측(1440×900, [시스템] 그룹): 직원·권한 · 데이터·보관 · 사이트 구조도 세 개가 먹통.
+       조금만 스크롤을 내리면 멀쩡히 눌렸다 — 즉 링크가 아니라 «놓인 자리» 문제였다.
+
+     [고치는 법] 펼친 그룹의 마지막 항목이 도크 윗변보다 아래면, 그만큼 사이드바를 내린다.
+       도크를 건드리지 않는다(그 쪽은 다른 작업의 영역이고, 높이도 계정·언어에 따라 변한다).
+       도크가 없거나 sticky 가 아니면 아무 일도 하지 않는다.
+
+     ⚠️ 그룹 헤더뿐 아니라 «항목을 누른 뒤» 에도 다시 재야 한다. 항목을 누르면 카드가 바뀌며
+        사이드바 높이·스크롤이 달라져, 방금 확보한 여유가 도로 사라진다(실측: 직원·권한을
+        누르고 나면 사이트 구조도가 다시 도크 밑으로 들어갔다).
+     ⚠️ «덮였을 때만, 덮인 만큼만» 내린다. 그래서 이미 잘 보이는 상태에서는 아무 일도
+        일어나지 않는다 — 보던 자리가 제멋대로 튀지 않는다. */
+  function wireDockClearance(bar) {
+    if (bar.__ia6Dock) return;
+    bar.__ia6Dock = true;
+
+    function clear(group) {
+      if (!group || !group.classList.contains('open')) return;
+      var dock = document.getElementById('ph162-dock');
+      if (!dock) return;
+      var subs = group.querySelector('.ph85-subs');
+      if (!subs) return;
+      var last = subs.lastElementChild;
+      if (!last) return;
+
+      var lastBottom = last.getBoundingClientRect().bottom;
+      var dockTop = dock.getBoundingClientRect().top;
+      var over = lastBottom - dockTop + 8;                 // 8px 는 숨 쉴 틈
+      if (over <= 0) return;                               // 이미 도크 위 — 건드리지 않는다
+
+      var max = bar.scrollHeight - bar.clientHeight;
+      bar.scrollTop = Math.min(bar.scrollTop + over, max);
+    }
+
+    // 아코디언은 ph97 이 연다 → 클래스가 붙은 «뒤에» 재야 한다. 두 번 재는 것은
+    // 펼침 애니메이션(transition)이 끝난 뒤 높이가 달라지기 때문이다.
+    // ⚠️ 반드시 window 캡처. 사이드바에 버블로 걸면 ph97 의 stopPropagation 에 막혀
+    //    아예 호출되지 않는다(wireDelegate 와 같은 이유 — 실측으로 확인함).
+    window.addEventListener('click', function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var hit = t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph85-sub');
+      if (!hit) return;
+      // 헤더면 그 그룹, 항목이면 그 항목이 속한 그룹 — 어느 쪽이든 «지금 열려 있는 그룹»
+      var group = hit.closest('.ph85-group');
+      setTimeout(function () { clear(group); }, 60);
+      setTimeout(function () { clear(group); }, 380);
+    }, true);
+  }
+
   // ── 검색을 쓰면 필터를 푼다 ──────────────────────────────────────────────
   //   검색 결과가 «감춰진 카드» 를 가리키면 눌러도 아무 일이 없는 것처럼 보인다.
   function wireSearch() {
@@ -651,6 +707,7 @@
     collect();
     wireDelegate(bar);
     wireSearch();
+    wireDockClearance(bar);
 
     // 마지막으로 보던 항목으로 복귀. 처음이면 「오늘」의 첫 항목.
     var want = null;
