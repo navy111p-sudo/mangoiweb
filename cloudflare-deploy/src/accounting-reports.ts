@@ -84,6 +84,44 @@ function quarterRange(year: number, q: number) {
        ·«카드대금»(카드 지출과 중복 — 카드값이 계좌에서 빠져나가는 돈)은 제외
    테이블이 아직 없거나 그 달 실데이터가 0이면 hasActual=false → 부르는 쪽이
    기존 «매출 10% 추정» 으로 폴백한다(새 환경에서도 리포트가 죽지 않게). */
+/* 🌱 테스트 시드 결제 제외 (2026-08-16) ─────────────────────────────────────
+   [무슨 일이 있었나] 시연용으로 만든 가짜 학생 50명(구독 50건이 2026-06-04 하루에
+   한꺼번에 생성, 빌링키 없음, 대부분 students_erp 원부에도 없음)의 «결제» 가
+   student_payments 에 그대로 쌓여 실매출로 잡혔다. 매달 1,100만~3,000만 규모라
+   이익률이 86% 같은 비현실적 숫자로 나왔다(2026-08-15 사장님 제보 → 추적).
+
+   [판별 근거 — 실데이터로 확인] 시드 결제는 메모가 둘 중 하나다:
+     · '[TESTSEED] …'            323건 1억 3,106만 — 시드 생성기가 찍은 표식
+     · '정기결제 자동청구(cron)'  109건 4,174만    — 같은 배치가 만든 가짜 정기결제
+   두 부류 **전부**가 위 시드 계정 소유였고, 진짜 결제([cafe24] 동기화 11,090건
+   10억 6,396만)와는 **한 건도 겹치지 않는다.**
+
+   [검산] 2026-03~07 5개월 — 시드 제외 후 실매출 1억 222만 vs 실제 KCP 입금
+   9,960만. PG 수수료 3.3% 를 감안하면 사실상 일치한다(제외 전에는 1억 8,088만
+   으로 입금보다 8,100만이 많았다).
+
+   ⛔ 데이터는 «지우지 않는다» — 리포트에서만 뺀다(사장님 지시, 되돌리기 쉬워야 함).
+   ⚠️ 진짜 정기결제 청구는 payment_orders 에 기록되고 빌링키가 반드시 있다
+      (api-pay.ts chargeSubscriptionOnce). 즉 지금 이 두 메모를 쓰는 «진짜» 결제는
+      없다. 나중에 정기결제를 student_payments 에도 적게 만든다면 **메모 문구를
+      반드시 다르게** 쓸 것 — 같게 쓰면 진짜 매출이 조용히 빠진다. */
+const SEED_MEMOS = ["'[TESTSEED]%'", "'정기결제 자동청구(cron)'"];
+/** 시드 결제를 걸러내는 SQL 조건. a = 테이블 별칭(조인 쿼리에서 컬럼 모호성 방지). */
+function notSeedSql(a = ''): string {
+  const q = a ? a + '.' : '';
+  return `NOT (COALESCE(${q}memo,'') LIKE ${SEED_MEMOS[0]} OR COALESCE(${q}memo,'') = ${SEED_MEMOS[1]})`;
+}
+/** 그 달에 «리포트에서 뺀» 시드 매출 — 화면에 «얼마를 왜 뺐는지» 밝히기 위한 값. */
+async function seedRevenueExcluded(env: Env, startMs: number, endMs: number): Promise<{ amount: number; count: number }> {
+  return await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount_krw),0) AS amount, COUNT(*) AS cnt FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND NOT (${notSeedSql()})
+    `).bind(startMs, endMs).first<{ amount: number; cnt: number }>();
+    return { amount: Number(r?.amount) || 0, count: Number(r?.cnt) || 0 };
+  }, { amount: 0, count: 0 });
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -159,7 +197,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
         COUNT(*) AS pay_count,
         COUNT(DISTINCT user_id) AS paying_users
       FROM student_payments
-      WHERE status='paid' AND paid_at >= ? AND paid_at < ?
+      WHERE status='paid' AND paid_at >= ? AND paid_at < ? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ revenue: number; pay_count: number; paying_users: number }>();
     return r || { revenue: 0, pay_count: 0, paying_users: 0 };
   }, { revenue: 0, pay_count: 0, paying_users: 0 });
@@ -171,7 +209,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
              COUNT(*) AS cnt,
              COALESCE(SUM(amount_krw),0) AS total
       FROM student_payments
-      WHERE status='paid' AND paid_at >= ? AND paid_at < ?
+      WHERE status='paid' AND paid_at >= ? AND paid_at < ? AND ${notSeedSql()}
       GROUP BY method ORDER BY total DESC
     `).bind(startMs, endMs).all();
     return (r.results || []) as Array<{ method: string; cnt: number; total: number }>;
@@ -213,6 +251,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
   // PG 수수료는 요율이라 추정식 유지. 운영비는 신한 실지출(카드+계좌)이 있으면 그걸 쓴다
   const pgFee = Math.round(rev.revenue * 0.033);  // PG 수수료 약 3.3%
   const ax = await monthActualOpex(env, period);
+  const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
   const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
   // 🧑‍🏫 강사 급여 — 급여명세(payslips)가 비어 있으면 신한 계좌의 강사 송금(실데이터)으로 대신
   const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
@@ -235,6 +274,9 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       active_students: stuMv.active_total,
       class_minutes: classMin.total_min,
       class_sessions: classMin.sessions,
+      // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
+      seed_excluded_krw: seedEx.amount,
+      seed_excluded_count: seedEx.count,
     },
     cost: {
       teacher_payroll: payrollEff,
@@ -315,7 +357,7 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
     const r = await safe(async () => {
       const x = await env.DB.prepare(`
         SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
-        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
       `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
@@ -368,7 +410,7 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
     const r = await safe(async () => {
       const x = await env.DB.prepare(`
         SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
-        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
       `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
@@ -426,7 +468,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   const totalRev = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS revenue
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ revenue: number }>();
     return r?.revenue || 0;
   }, 0);
@@ -541,7 +583,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS revenue,
              COUNT(DISTINCT user_id) AS paying_users
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ revenue: number; paying_users: number }>();
     return r || { revenue: 0, paying_users: 0 };
   }, { revenue: 0, paying_users: 0 });
@@ -564,7 +606,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
     const r = await env.DB.prepare(`
       SELECT AVG(total) AS avg_total FROM (
         SELECT user_id, SUM(amount_krw) AS total
-        FROM student_payments WHERE status='paid' GROUP BY user_id
+        FROM student_payments WHERE status='paid' AND ${notSeedSql()} GROUP BY user_id
       )
     `).first<{ avg_total: number }>();
     return Math.round(r?.avg_total || 0);
@@ -583,7 +625,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
       SELECT
         SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) AS ok_cnt,
         COUNT(*) AS all_cnt
-      FROM student_payments WHERE paid_at>=? AND paid_at<?
+      FROM student_payments WHERE paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ ok_cnt: number; all_cnt: number }>();
     if (!r || !r.all_cnt) return 0;
     return Number(((r.ok_cnt / r.all_cnt) * 100).toFixed(1));
@@ -653,7 +695,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS revenue,
              COUNT(*) AS pay_count
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ revenue: number; pay_count: number }>();
     return r || { revenue: 0, pay_count: 0 };
   }, { revenue: 0, pay_count: 0 });
@@ -674,6 +716,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
      실데이터가 있으면 운영비를 «추정 10%» 대신 실지출로. 제외분(급여이체·카드대금)은
      화면에 안내 줄로 «얼마를 왜 뺐는지» 보여 준다(조용히 빼지 않는다). */
   const ax = await monthActualOpex(env, period);
+  const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
   const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
   const opCost = hasActual ? ax.actual : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
 
@@ -699,6 +742,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         { title: 'I. 매출액 (Revenue)', items: [
           { name: '수업료 매출', amount: rev.revenue },
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
+          ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
         ]},
         { title: 'II. 매출원가 (COGS)', items: [
@@ -733,7 +777,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       ],
       summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
         // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정
-        opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup },
+        opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup,
+        seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count },
     };
   }
   else if (type === 'bs') {
@@ -873,7 +918,7 @@ async function taxReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const rev = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(amount_krw),0) AS total, COUNT(*) AS cnt
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ total: number; cnt: number }>();
     return r || { total: 0, cnt: 0 };
   }, { total: 0, cnt: 0 });
@@ -933,7 +978,7 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const pays = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, paid_at, user_id, amount_krw, method, memo
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<?
+      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
       ORDER BY paid_at DESC LIMIT 200
     `).bind(startMs, endMs).all();
     return (r.results || []) as Array<any>;
@@ -1092,7 +1137,8 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   const channel = String(url.searchParams.get('channel') || '').trim().toUpperCase();
   const limit = Math.min(Number(url.searchParams.get('limit')) || 200, 500);
 
-  const where: string[] = ['1=1'];
+  // 🌱 시드 결제는 목록에서도 뺀다 — 합계(리포트)와 목록이 다르면 대사(對査)가 안 된다
+  const where: string[] = ['1=1', notSeedSql('p')];
   const args: unknown[] = [];
   if (from) { where.push('p.paid_at >= ?'); args.push(new Date(from + 'T00:00:00+09:00').getTime()); }
   if (to)   { where.push('p.paid_at < ?');  args.push(new Date(to   + 'T23:59:59+09:00').getTime()); }
@@ -1159,7 +1205,7 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
   // student_payments 에서 status != 'paid' 인 것을 환불/취소로 간주
   const status = url.searchParams.get('status') || '';
 
-  const where: string[] = ["status IN ('refunded','cancelled','failed','pending')"];
+  const where: string[] = ["status IN ('refunded','cancelled','failed','pending')", notSeedSql()];
   if (status) { where.push('status = ?'); }
   const stmt = env.DB.prepare(`
     SELECT id, paid_at, user_id, amount_krw, method, memo, status

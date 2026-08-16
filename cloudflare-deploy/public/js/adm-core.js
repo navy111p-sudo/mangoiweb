@@ -10433,6 +10433,7 @@ window.rebuildGlobalSearchIndex = function() {
             <th>만료</th><td class="num">${s.expirations.toLocaleString()} 명</td></tr>
         <tr><th>총 수업 분</th><td class="num">${s.class_minutes.toLocaleString()} 분</td>
             <th>세션 수</th><td class="num">${s.class_sessions.toLocaleString()} 건</td></tr>
+        ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="4" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       <h2>비용 내역</h2>
       <table>
