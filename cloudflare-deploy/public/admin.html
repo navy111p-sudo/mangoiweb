@@ -499,7 +499,7 @@
       </div>
     </div>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=17"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=18"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -11320,28 +11320,158 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
 </style>
 
-<!-- 🍔 (2026-06) 관리자 모바일 사이드바 — 학생홈처럼 왼쪽 끝 중앙 ☰ 탭으로 여닫기. 옛 ph134/ph135/ph150/ph152 등 충돌 시스템 정리 -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     🍔 (2026-08-16 사장님 요청 ①②③) 모바일 관리자 사이드바 v2
+     ═══════════════════════════════════════════════════════════════════
+     ① 손잡이(왼쪽 가운데 세로 탭)를 없애고 **왼쪽 맨 위 «줄 3개»** 하나로.
+        옛 #mga-tab 은 본문 위에 떠서 글자를 가리고, 스크롤하다 잘못 눌렸다.
+        ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다 — 글꼴에 따라 굵기가
+           제멋대로 달라지고 Win10 에서는 두부(□)로 나온다.
+     ② 사이드바가 화면을 **100% 덮는다**(가로 100% · 세로 100dvh). CSS 쪽 담당.
+        옛 값은 282px / 82vw 라 오른쪽에 본문이 18% 남아 눈에 걸렸다.
+     ③ 시계(한국·필리핀)를 **사이드바 맨 위 붙박이**로. 옛 떠다니는 캡슐은
+        사이드바 하단의 «진단 / EN / 계정» 도크를 정확히 덮고 있었다.
+        → 모바일에서는 mango-worldclock.js 를 아예 재우고(자체 중복가드 이용)
+          여기서 사이드바 안에 직접 그린다. 타이머 1개, 화면 가려지면 멈춤.
 
-<button id="mga-tab" type="button" aria-label="메뉴 열기/닫기" onclick="window.mgaToggle&&window.mgaToggle()"><span id="mga-tab-ico">☰</span></button>
+     [호환] window.mgaOpen / mgaClose / mgaToggle 이름은 그대로 둔다 —
+       adm-s11.js(ph97) · adm-ia6.js · 사이드바 안 여러 onclick 이 이 이름을 부른다.
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<button id="mgv2-burger" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="ph85-sidebar"
+        onclick="window.mgaToggle&&window.mgaToggle()"><i aria-hidden="true"></i></button>
 <div id="mga-overlay" onclick="window.mgaClose&&window.mgaClose()" aria-hidden="true"></div>
+
 <script id="mga-drawer-js">
 (function(){
-  function ico(){ var s=document.getElementById('mga-tab-ico'); if(s) s.textContent = document.body.classList.contains('mga-open') ? '✕' : '☰'; }
-  window.mgaOpen = function(){ document.body.classList.add('mga-open'); ico(); };
-  // 🛠 (fix 2026-06-10) 닫기 = mga-open + 옛 드로어 시스템(ph134/ph150/ph142/ph152) open 클래스까지 모두 제거.
-  //   어떤 ✕/오버레이/ESC 로도 확실히 닫히도록 (시스템 충돌로 사이드바가 안 닫히던 버그 수정)
-  window.mgaClose = function(){
-    document.body.classList.remove('mga-open','ph134-sidebar-open','ph150-open','ph142-open','ph152-open');
-    var sb = document.getElementById('ph85-sidebar');
-    if (sb) sb.classList.remove('open','is-open','ph134-sidebar-open');
-    ico();
+  'use strict';
+  var BP = '(max-width: 1023px)';
+  function isMobile(){ return window.matchMedia(BP).matches; }
+  function burger(){ return document.getElementById('mgv2-burger'); }
+
+  function paint(){
+    var open = document.body.classList.contains('mga-open');
+    var b = burger();
+    if (b) {
+      b.classList.toggle('is-open', open);
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      b.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+    }
+  }
+
+  window.mgaOpen = function(){
+    document.body.classList.add('mga-open');
+    paint();
+    // 열 때마다 시계를 즉시 맞춘다 — 닫혀 있는 동안은 멈춰 있으므로
+    if (window.__mgv2ClockSync) window.__mgv2ClockSync();
   };
-  window.mgaToggle = function(){ if (document.body.classList.contains('mga-open')) { window.mgaClose(); } else { window.mgaOpen(); } };
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.mgaClose(); });
-  document.addEventListener('click', function(e){
-    if(!document.body.classList.contains('mga-open')) return;
-    if(e.target.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar a[href]')) setTimeout(window.mgaClose, 80);
+  window.mgaClose = function(){
+    document.body.classList.remove('mga-open');
+    var sb = document.getElementById('ph85-sidebar');
+    if (sb) sb.classList.remove('open','is-open');
+    paint();
+  };
+  window.mgaToggle = function(){
+    document.body.classList.contains('mga-open') ? window.mgaClose() : window.mgaOpen();
+  };
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.body.classList.contains('mga-open')) window.mgaClose();
+  });
+
+  /* 🔒 안전망 — 메뉴 항목을 눌렀는데 어떤 이유로든 안 닫히면 화면이 통째로 막힌다.
+     정상 경로는 adm-s11.js(ph97) 가 이동과 함께 닫는 것이다. 여기는 «그게 안 왔을 때» 만
+     동작한다(120ms 뒤에도 열려 있으면 닫는다).
+     ⚠️ 반드시 pointerdown 이다. click 으로 걸면 ph97 이 window 캡처에서
+        stopPropagation 을 하기 때문에 document 까지 내려오지 못한다 — 2026-06 부터
+        이 자리의 자동닫기가 한 번도 실행되지 않은 이유가 바로 그것이었다(실측 확인). */
+  document.addEventListener('pointerdown', function(e){
+    if (!isMobile() || !document.body.classList.contains('mga-open')) return;
+    var t = e.target;
+    if (!t || !t.closest) return;
+    // 아코디언 헤더·검색창·계정 도크는 «펼치려고» 누르는 것이라 닫지 않는다
+    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph162-dock, #mgv2-clock')) return;
+    if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
+    setTimeout(function(){
+      if (document.body.classList.contains('mga-open')) window.mgaClose();
+    }, 120);
   }, true);
+
+  // 가로로 눕히거나 태블릿 폭이 되면 드로어 상태를 남기지 않는다
+  window.addEventListener('resize', function(){
+    if (!isMobile() && document.body.classList.contains('mga-open')) window.mgaClose();
+  });
+
+  paint();
+})();
+</script>
+
+<!-- ③ 시계 — 사이드바 맨 위. #ph85-sidebar 의 첫 자식으로 옮겨 붙인다.
+     사이드바 마크업(ph85)은 이 파일 위쪽에 있어 손대면 데스크톱까지 흔들린다.
+     그래서 «만들어서 맨 앞에 끼우는» 방식으로 데스크톱 마크업을 건드리지 않는다. -->
+<script id="mgv2-clock-js">
+(function(){
+  'use strict';
+  if (!window.matchMedia('(max-width: 1023px)').matches) return;   // 데스크톱은 기존 플로팅 시계 그대로
+
+  /* 떠다니는 시계(mango-worldclock.js)를 «로드되기 전에» 재운다.
+     그 파일의 맨 첫 줄이 `if (window.__mangoWorldClock) return;` 이라
+     이 한 줄이면 스크립트가 통째로 아무 일도 안 한다 — 타이머도 안 생긴다.
+     ⚠️ mango-worldclock.js 자체는 건드리지 않는다. index.html·parent.html 이 함께 쓴다. */
+  window.__mangoWorldClock = true;
+
+  var KR = 'Asia/Seoul', PH = 'Asia/Manila', timer = 0, el = null;
+
+  function build(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar || document.getElementById('mgv2-clock')) return false;
+    el = document.createElement('div');
+    el.id = 'mgv2-clock';
+    el.setAttribute('aria-label', '한국 시간 · 필리핀 시간');
+    el.innerHTML =
+      '<div class="mgv2-c"><div class="mgv2-l">한국 KR</div><div class="mgv2-t" id="mgv2-kr">--:--:--</div><div class="mgv2-d" id="mgv2-krd">&nbsp;</div></div>' +
+      '<div class="mgv2-c"><div class="mgv2-l">필리핀 PH</div><div class="mgv2-t" id="mgv2-ph">--:--:--</div><div class="mgv2-d" id="mgv2-phd">&nbsp;</div></div>';
+    bar.insertBefore(el, bar.firstChild);
+    return true;
+  }
+
+  function two(n){ return n < 10 ? '0' + n : '' + n; }
+  function parts(tz, now){
+    var o = {};
+    try {
+      new Intl.DateTimeFormat('ko-KR', { timeZone: tz, hour12: false,
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        month: 'numeric', day: 'numeric', weekday: 'short' })
+        .formatToParts(now).forEach(function(p){ o[p.type] = p.value; });
+    } catch (e) { return { t: '--:--:--', d: '' }; }
+    return { t: two(+o.hour % 24) + ':' + o.minute + ':' + o.second,
+             d: o.month + '/' + o.day + ' (' + o.weekday + ')' };
+  }
+  function set(id, v){ var n = document.getElementById(id); if (n) n.textContent = v; }
+  function tick(){
+    var now = new Date(), kr = parts(KR, now), ph = parts(PH, now);
+    set('mgv2-kr', kr.t); set('mgv2-krd', kr.d);
+    set('mgv2-ph', ph.t); set('mgv2-phd', ph.d);
+  }
+
+  /* ⚠️ 이 페이지에서 우리가 만드는 유일한 반복 타이머다.
+     ①닫혀 있을 때 ②다른 앱·탭으로 넘어갔을 때는 멈춘다 — 안 보이는 시계를
+     1초마다 다시 그리는 것은 배터리와 발열만 먹는다. 열거나 돌아오면 즉시 맞춘다. */
+  function shouldRun(){ return !document.hidden && document.body.classList.contains('mga-open'); }
+  function sync(){
+    tick();
+    if (timer) { clearInterval(timer); timer = 0; }
+    if (shouldRun()) timer = setInterval(tick, 1000);
+  }
+  window.__mgv2ClockSync = sync;
+
+  function start(){
+    if (!build()) { setTimeout(start, 300); return; }
+    sync();
+    document.addEventListener('visibilitychange', sync);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
 </script>
 <!-- 🔒 (2026-06) 대시보드 — 무조건 경영진(exec)·관리자(mgr) 전용 강제 숨김 (매트릭스/PERMS 무관) -->
@@ -11703,7 +11833,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<script src="/js/adm-ia6.js?v=19" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가) -->
+<script src="/js/adm-ia6.js?v=20" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동») -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

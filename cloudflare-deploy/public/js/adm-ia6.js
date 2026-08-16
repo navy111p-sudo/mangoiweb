@@ -277,6 +277,22 @@
   }
 
   /** 지금 보이는 카드 중 가장 아래 것이 화면 맨 위까지 올라올 수 있도록 꼬리 여백을 맞춘다. */
+  /* ── 📱 (2026-08-16 사장님 요청 ①) 모바일의 «맨 위» 는 0 이 아니다 ────────────────
+     왼쪽 맨 위에 «줄 3개»(#mgv2-burger) 가 떠 있다. 카드를 top:0 에 딱 붙이면
+     그 버튼이 카드 제목을 덮는다(실측: 「실시간 수업 현황」 글자가 절반 가림).
+     그래서 모바일에서만 버튼 아래까지를 «맨 위» 로 본다.
+     ⚠️ 버튼 크기를 코드에 박지 않고 **실제로 재서** 쓴다 — 안전영역(노치) 때문에
+        기기마다 다르고, CSS 를 고쳤을 때 이 값만 옛것으로 남는 일을 막는다.
+     ⚠️ 데스크톱은 0 그대로다(버튼이 없다). 기존 동작을 하나도 바꾸지 않는다. */
+  function topGap() {
+    if (!window.matchMedia('(max-width: 1023px)').matches) return 0;
+    var b = document.getElementById('mgv2-burger');
+    if (!b) return 0;
+    var r = b.getBoundingClientRect();
+    if (!r.height) return 0;
+    return Math.round(r.bottom + 8);
+  }
+
   function fitTail() {
     var t = tailEl();
     if (!t) return;
@@ -294,7 +310,9 @@
     var css = 0, ratio = 1;
     for (i = 0; i < 4; i++) {
       var docH = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
-      var gap = lowest.getBoundingClientRect().top + (window.pageYOffset || 0) + window.innerHeight - docH;
+      /* + topGap() — 모바일은 카드를 «줄 3개 버튼 아래» 까지 올려야 하므로
+         그만큼 더 내려갈 수 있어야 한다. 데스크톱은 0 이라 계산이 예전 그대로다. */
+      var gap = lowest.getBoundingClientRect().top + (window.pageYOffset || 0) + window.innerHeight - docH + topGap();
       if (gap > window.innerHeight) gap = window.innerHeight;   // 한 화면 넘게는 안 넣는다
       if (Math.abs(gap) <= 2 || (gap < 0 && css <= 0)) break;
       var shown = t.getBoundingClientRect().height;             // 지금 css px 이 화면에서 몇 px 인가
@@ -360,6 +378,10 @@
     var toLead = function () {
       /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다. */
       try { fitTail(); } catch (e) { /* 무시 */ }
+      /* 📱 모바일은 줄3개 버튼 아래에 세운다. scroll-margin-top 은 scrollIntoView 가
+         그대로 지켜 주는 표준 속성이라, 검증된 scrollIntoView 호출을 손대지 않아도 된다.
+         값은 매번 재서 넣는다(버튼 크기·노치가 기기마다 다르다). 데스크톱은 0. */
+      try { lead.style.scrollMarginTop = topGap() + 'px'; } catch (e) { /* 무시 */ }
       alignSelf = true;
       try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }
       alignSelf = false;
@@ -376,9 +398,10 @@
     var toLeadAgain = function () {
       timer = 0;
       // 싼 확인 먼저 — 이미 맨 위면 1.3MB DOM 을 다시 재지 않는다.
-      var off = 0;
+      // 모바일의 «맨 위» 는 0 이 아니라 줄3개 버튼 아래(topGap)다.
+      var off = 0, g = topGap();
       try { off = lead.getBoundingClientRect().top; } catch (e) { /* 무시 */ }
-      if (off < -2 || off > 2) toLead();
+      if (off < g - 2 || off > g + 2) toLead();
       if (Date.now() < until) timer = setTimeout(toLeadAgain, 140);
       else release();
     };
@@ -600,9 +623,24 @@
       if (!t || !t.closest) return;
       var sub = t.closest('[data-ia6-item]');
       if (sub) {
+        /* 📱 (2026-08-16 사장님 요청 ④) 모바일은 «닫고 나서» 고른다 — 순서가 핵심이다.
+           [옛 코드] select() 를 먼저 부르고 그 다음에 sb.classList.remove('open') 이었다.
+             ① 지우는 클래스가 틀렸다. 드로어를 여는 것은 사이드바의 'open' 이 아니라
+                **body.mga-open** 이다(2026-06 mga 교체 때 이 줄이 안 따라왔다).
+                → 항목을 눌러도 드로어가 화면을 그대로 덮고 있었다. adm-s11.js(ph97) 에도
+                  똑같은 줄이 있었고 같은 날 함께 고쳤다. 여기가 그 두 번째 자리다.
+             ② 순서도 틀렸다. 드로어가 열려 있는 동안 body 는 overflow:hidden 이라
+                그 상태에서 select() 안의 scrollIntoView 는 **브라우저가 통째로 무시한다.**
+                닫기를 먼저 해야 스크롤이 먹는다.
+           실측(390×844): 「강사 ▸ 시간표·근무」 클릭 2.6초 뒤에도 드로어=열림,
+                          고른 카드가 화면 위(-258px)로 벗어나 있었다. */
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+          var sb = document.getElementById('ph85-sidebar');
+          if (sb) sb.classList.remove('open');
+          try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) { /* 무시 */ }
+          document.body.classList.remove('mga-open');
+        }
         select(sub.getAttribute('data-ia6-item'));
-        var sb = document.getElementById('ph85-sidebar');
-        if (sb && window.matchMedia('(max-width: 1023px)').matches) sb.classList.remove('open');
         return;
       }
       var head = t.closest('[data-ia6-head]');
