@@ -10417,12 +10417,26 @@ window.rebuildGlobalSearchIndex = function() {
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
+      ${(s.revenue_gap_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #f59e0b;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.7">
+        <b style="color:#b45309">⚠️ 이 달 매출이 장부에 덜 잡혀 있습니다 — 아래 순이익을 «적자»로 읽지 마세요.</b><br>
+        통장에 들어온 카드 정산금(PG)은 <b>${fmtKRW(s.deposit_pg_krw)}</b> 인데 장부 매출은 <b>${fmtKRW(d.pl.revenue)}</b> 뿐입니다(차이 ${fmtKRW(s.revenue_gap_krw)}).
+        비용은 통장 실지출이라 정확한데 매출만 일부 빠져서, 순이익이 실제보다 나쁘게 보입니다.
+        「🔍 매출–입금 대사」 카드에서 확인하세요.
+      </div>` : ''}
       <div class="pl-box">
         <div class="b rev"><div class="l">매출</div><div class="v">${fmtKRW(p.revenue)}</div></div>
         <div class="b cost"><div class="l">비용</div><div class="v">${fmtKRW(p.cost)}</div></div>
         <div class="b net"><div class="l">순이익</div><div class="v">${fmtKRW(p.net_income)}</div></div>
         <div class="b margin"><div class="l">이익률</div><div class="v">${p.margin_pct}%</div></div>
       </div>
+      ${s.cash_has_data ? `<h2>💵 통장 기준 실제 현금흐름 <span style="font-weight:400;font-size:12px;color:#6b7280">(신한 계좌 — 장부와 무관한 «사실»)</span></h2>
+      <table>
+        <tr><th>실제 입금</th><td class="num" style="color:#059669;font-weight:700">${fmtKRW(s.cash_in_krw)}</td>
+            <th>실제 출금</th><td class="num" style="color:#dc2626;font-weight:700">${fmtKRW(s.cash_out_krw)}</td></tr>
+        <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
+            <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
+      </table>
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 아래 손익은 <b>장부(결제기록) 기준</b>이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 회사가 실제로 번 돈은 위 «순증감»에 가깝습니다.</p>` : ''}
       <h2>매출 요약</h2>
       <table>
         <tr><th>결제 건수</th><td class="num">${s.pay_count.toLocaleString()} 건</td>
@@ -10433,6 +10447,7 @@ window.rebuildGlobalSearchIndex = function() {
             <th>만료</th><td class="num">${s.expirations.toLocaleString()} 명</td></tr>
         <tr><th>총 수업 분</th><td class="num">${s.class_minutes.toLocaleString()} 분</td>
             <th>세션 수</th><td class="num">${s.class_sessions.toLocaleString()} 건</td></tr>
+        ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="4" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       <h2>비용 내역</h2>
       <table>
@@ -11048,6 +11063,67 @@ window.rebuildGlobalSearchIndex = function() {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
     }
   };
+  /* 🔍 매출–입금 대사 (2026-08-16) — 장부 매출 vs 통장 입금.
+     월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
+  function _rcUrl(format){
+    const m = (document.getElementById('acc-rc-months') || {}).value || '6';
+    const qs = new URLSearchParams({ months: m });
+    if (format) qs.set('format', format);
+    return '/api/admin/reports/reconcile?' + qs.toString();
+  }
+  window.accLoadReconcile = async function(){
+    const wrap = document.getElementById('acc-rc-result');
+    if (!wrap) return;
+    wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280">대사 중…</div>';
+    try {
+      const r = await fetch(_rcUrl(), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      const V = { ok:['#059669','#ecfdf5','🟢 정상'], warn:['#d97706','#fffbeb','🟡 주의'],
+                  alert:['#dc2626','#fef2f2','🔴 확인 필요'], no_data:['#6b7280','#f9fafb','⚪ 자료 없음'] };
+      const v = V[d.verdict] || V.no_data;
+      const t = d.totals || {};
+      let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
+      html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}%)</div>
+        <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
+      html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        + '<thead style="background:#f3f4f6"><tr>'
+        + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 3.3% 차감</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">실제 PG 입금</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">차이</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">기타 입금<br><span style="font-weight:400;color:#6b7280">참고</span></th>'
+        + '</tr></thead><tbody>';
+      (d.rows || []).forEach(row => {
+        const dc = row.diff == null ? '#9ca3af' : (row.diff < 0 ? '#dc2626' : '#059669');
+        html += `<tr style="border-bottom:1px solid #f3f4f6">
+          <td style="padding:6px 8px;font-weight:600">${_esc(row.period)}</td>
+          <td style="padding:6px 8px;text-align:right">${_fmt(row.revenue)}</td>
+          <td style="padding:6px 8px;text-align:right;color:#6b7280">${_fmt(row.expected)}</td>
+          <td style="padding:6px 8px;text-align:right">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:700;color:${dc}">${row.diff == null ? '—' : _fmt(row.diff)}</td>
+          <td style="padding:6px 8px;text-align:right;color:#9ca3af">${row.has_bank ? _fmt(row.deposit_other) : '—'}</td></tr>`;
+      });
+      html += `<tr style="background:#fef3c7;font-weight:800">
+        <td style="padding:7px 8px">누적 합계</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.revenue)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.expected)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
+        <td style="padding:7px 8px;text-align:right;color:${t.diff < 0 ? '#dc2626' : '#059669'}">${_fmt(t.diff)}</td>
+        <td></td></tr></tbody></table>`;
+      html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
+        ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
+        ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
+        ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
+      wrap.innerHTML = html;
+    } catch(e) {
+      wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
+    }
+  };
+  window.accReconcileExcel = function(){ window.open(_rcUrl('csv'), '_blank'); };
+
   window.accStatementPdf = async function(){
     // 새 창에 인쇄 가능한 형태로 출력
     const w = window.open('', '_blank', 'width=1000,height=900,scrollbars=yes');

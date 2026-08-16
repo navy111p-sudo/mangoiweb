@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=6"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=7"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -234,7 +234,7 @@
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=3" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=2" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
-<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=3"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
      head 에서 전역 즉시 숨김 → 어떤 화면폭/속도에서도 처음부터 안 보임. -->
@@ -2359,6 +2359,28 @@
           </div>
           <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
             <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 11-2. 🔍 매출–입금 대사 (장부 vs 통장) — 2026-08-16
+           장부 매출이 통장 입금보다 8,100만 많던 사고(시연용 시드 결제 혼입)를
+           숫자로 바로 잡아내려고 만든 카드. 월별 어긋남은 PG 정산 시차라 정상이므로
+           «누적 합계» 로 판정한다. -->
+      <details class="sub-item">
+        <summary data-ko="🔍 매출–입금 대사 (장부 vs 통장)" data-en="🔍 Revenue vs Deposits">🔍 매출–입금 대사 (장부 vs 통장)</summary>
+        <div class="sub-body">
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+            <select id="acc-rc-months" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="3" data-ko="최근 3개월" data-en="Last 3 months">최근 3개월</option>
+              <option value="6" selected data-ko="최근 6개월" data-en="Last 6 months">최근 6개월</option>
+              <option value="12" data-ko="최근 12개월" data-en="Last 12 months">최근 12개월</option>
+            </select>
+            <button class="primary" onclick="accLoadReconcile()" style="padding:5px 12px;font-size:12px" data-ko="🔍 대사 실행" data-en="🔍 Reconcile">🔍 대사 실행</button>
+            <button onclick="accReconcileExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
+          </div>
+          <div id="acc-rc-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
+            <div style="text-align:center;color:#6b7280" data-ko="[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다." data-en="Click [Reconcile] to compare recorded revenue against actual bank deposits.">[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다.</div>
           </div>
         </div>
       </details>
@@ -6741,7 +6763,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 🎨 포스터 관리 — 목록/저장/불러오기 로직 -->
-<script src="/js/adm-s7.js?v=1" defer></script><!-- 분할추출:adm-s7 -->
+<script src="/js/adm-s7.js?v=2" defer></script><!-- 분할추출:adm-s7 · v=2: 2026-08-16 전각 ＋ → + -->
 
 <!-- 📢 팝업 에디터 모달 -->
 <div id="pop-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:11500;padding:20px;overflow-y:auto" onclick="if(event.target===this)popCloseEditor()">
@@ -6763,7 +6785,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 📢 팝업 관리 — 관리자 편집기 로직 (신규 구현) -->
-<script src="/js/adm-r10.js?v=1" defer></script><!-- 분할추출:adm-r10 -->
+<script src="/js/adm-r10.js?v=2" defer></script><!-- 분할추출:adm-r10 · v=2: 2026-08-16 전각 ＋ → + -->
 
 <!-- 💼 Phase G2 — 신규: 강사 급여 자동 정산 (기존 평가 대시보드 위) -->
 <details class="table-card menu-card" id="card-payroll-auto">
@@ -8887,7 +8909,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=87" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=92" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=92: 2026-08-16 전각 ＋ → + -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
@@ -11242,7 +11264,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=7" defer></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=8" defer></script><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -11368,7 +11390,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ═══════════════════════════════════════════════════════════════════
      [지운 것] ph134·135·136·138·139·140·141·142·144·145·146·147·150·151 의
        인라인 스크립트·버튼·오버레이 전부 + 그 셋만 담고 있던 외부 파일 3개의
-       <script src> (adm-r29 = ph135, adm-r30 = ph141, adm-s16 = ph142).
+       불러오는 줄 (adm-r29 = ph135, adm-r30 = ph141, adm-s16 = ph142).
+       ⚠️ 이 주석에 «스크립트 여는 태그» 를 글자 그대로 쓰지 말 것 —
+          test-harness/inline_js_syntax_harness.mjs 가 주석 안이라도 그것을 태그로 보고
+          뒤따르는 한글을 JS 로 읽어 SyntaxError 를 낸다(2026-08-16 실제로 게이트 실패).
        650줄이 사라졌고, 남은 모바일 드로어는 아래 mga 하나뿐이다.
 
      [지워도 되는 이유 — 실측]
@@ -11389,7 +11414,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
      [되돌리기] 이 커밋 하나를 revert 하면 그대로 돌아온다.
      ⚠️ js/adm-r29.js · adm-r30.js · adm-s16.js 파일 자체는 지우지 않았다.
-        <script src> 만 뺐다 — 되돌릴 때 파일까지 복원할 필요가 없도록.
+        불러오는 줄만 뺐다 — 되돌릴 때 파일까지 복원할 필요가 없도록.
      ═══════════════════════════════════════════════════════════════════ -->
 
 <style id="ph163-legacy-sweep">
@@ -11634,7 +11659,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=5" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=6" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) · v=6: 2026-08-16 AI 비서 얼굴 영상 preload=none (첫 로딩 750KB 절약) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 
@@ -11926,7 +11951,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-welcome.js?v=5" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<script src="/js/adm-ia6.js?v=20" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동») -->
+<!-- v=22 — 양쪽이 각자 올린 것(main v=21 · 이 브랜치 v=20)을 합치면서 둘보다 위로 올린다.
+     낮은 쪽을 그대로 쓰면 한쪽 브라우저에 옛 파일이 캐시된 채 남는다. 파일 내용은 자동 병합됐다. -->
+<script src="/js/adm-ia6.js?v=22" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

@@ -142,7 +142,13 @@
            실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
            ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
               (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
-        { ko: '사이트 구조도', en: 'Site structure', cards: [], href: '/admin/site-structure.html' }
+        /* 🗺 (2026-08-16) 목차(/admin/site-structure.html)를 거치지 않고 «지도» 로 바로 간다.
+           목차가 하던 일은 표 3장을 고르게 해 주는 것뿐이었고, 그건 이제 지도 맨 아래
+           «더 자세히» 선반에 들어가 있다. 화면 하나를 통째로 쓸 일이 아니었다.
+           ⚠️ 맨 위 「메뉴 지도」와 목적지가 같다 — 일부러 그렇게 뒀다. 이름으로 찾는 사람과
+              위치로 찾는 사람이 갈리므로 문을 두 개 열어 둔다. */
+        { ko: '사이트 구조도', en: 'Site structure', cards: [],
+          href: '/admin/site-structure-map.html' }
       ]
     }
   ];
@@ -430,11 +436,19 @@
       : '메뉴 지도입니다. 망고아이의 모든 화면을 쓰는 사람에 따라 손님, 학생, 부모님, 선생님, 운영자 다섯 갈래로 나눠 그린 그림입니다. 지금 지도를 엽니다.';
   }
 
+  /* 📍 지도에 «지금 여기» 를 찍어 주기 위해 지금 페이지 주소를 넘긴다.
+     지도는 referrer 로도 알아내지만, referrer 는 브라우저 설정·앱 내장 브라우저에서
+     빈 값이 되는 일이 있다. 확실한 쪽을 같이 보낸다. */
+  function mapUrl() {
+    try { return MAP_HREF + '?here=' + encodeURIComponent(location.pathname); }
+    catch (e) { return MAP_HREF; }
+  }
+
   function openMenuMap() {
     var went = false;
     var go = function () {
       if (went) return; went = true;
-      try { location.href = MAP_HREF; } catch (e) { /* 무시 */ }
+      try { location.href = mapUrl(); } catch (e) { /* 무시 */ }
     };
     var speaking = false;
     try { speaking = !!(window.admVoiceSay && window.admVoiceSay(menuMapSpeech(), go)); }
@@ -590,7 +604,12 @@
     var it = itemByKey(key);
     if (!it) return false;
     if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
-    if (it.href) { location.href = it.href; return true; }
+    /* 📱 좁은 화면 전용 목적지가 있으면 그쪽으로. 폭으로만 판정한다 —
+       기기 종류(userAgent)가 아니라 «지금 화면이 좁은가» 가 실제 문제이기 때문이다. */
+    if (it.href) {
+      location.href = (it.href === MAP_HREF) ? mapUrl() : it.href;
+      return true;
+    }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
