@@ -2724,6 +2724,26 @@ button.chip:hover,
   /* 데스크톱(hover 말풍선이 따로 있음)에서는 모바일 말풍선 숨김 */
   @media (min-width:1024px){ #sb-mtip{ display:none !important; } }
 
+  /* ── 📝 (2026-08-16) 메뉴 설명을 «가로채는 말풍선» 대신 «이름 밑 한 줄» 로 ──────
+     옛 방식은 모바일에서 첫 탭을 삼켜 말풍선을 띄웠다(= 두 번 눌러야 이동).
+     이제 한 번 탭이면 바로 이동하고, 설명은 처음부터 그냥 보인다(adm-s10.js paintDescriptions).
+     ⚠️ .ph85-sub 는 flex 라 이 줄을 그냥 넣으면 이름 옆에 붙는다 → flex-basis:100% 로 줄을 바꾼다.
+     ⚠️ 별점(data-mi-stars)의 ::after 와 같은 줄을 다투지 않도록 order 를 뒤로 민다. */
+  @media (max-width:1023px){
+    #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc{ flex-wrap:wrap; align-items:center; }
+    #ph85-sidebar .sb-mtip-inline{
+      flex:0 0 100%; order:9;
+      margin-top:2px; padding-right:6px;
+      font-size:11.5px; font-weight:500; line-height:1.4;
+      color:rgba(226,232,240,0.62); word-break:keep-all;
+      /* 두 줄까지만 — 설명이 길어도 메뉴가 밀리지 않게 */
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    html[data-admin-theme="ivory"] #ph85-sidebar .sb-mtip-inline{ color:rgba(74,56,38,0.66); }
+  }
+  /* 데스크톱은 hover 말풍선을 그대로 쓴다 — 줄이 늘어나면 메뉴가 길어지기만 한다 */
+  @media (min-width:1024px){ .sb-mtip-inline{ display:none !important; } }
+
 
 /* ── [style#ph86-sidebar-enhance] ── */
 
