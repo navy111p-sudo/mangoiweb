@@ -237,19 +237,19 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
     <div class="tally">
       <div><b class="num">4</b><span>문서</span></div>
       <div><b class="num">6</b><span>훑은 화면 (파일)</span></div>
-      <div><b class="num">344</b><span>표로 옮긴 메뉴·항목</span></div>
-      <div><b class="num">9</b><span>확인 필요</span></div>
+      <div><b class="num">298</b><span>표로 옮긴 메뉴·항목</span></div>
+      <div><b class="num">8</b><span>확인 필요</span></div>
     </div>
   </header>
 
   <div class="docs" id="docs"></div>
 
   <section class="flags">
-    <h2>지금까지 나온 «확인 필요» 9건</h2>
+    <h2>지금까지 나온 «확인 필요» 8건</h2>
     <ul>
-      <li><b>관리자</b> — 메뉴 85개 중 3개(연기 수업 현황 · 캐피타운 정산 · 사이트 구조도)는 카드가 아니라 <b>다른 페이지</b>로 이동. 그중 캐피타운 정산은 <code>display:none</code> 이라 조건이 맞는 계정에만 보임.</li>
-      <li><b>관리자</b> — <code>card-calendar</code> 가 사이드바에 두 번 (3.5 근무·휴식·휴가 / 9.1 캘린더 관리). 이름은 둘, 도착지는 하나.</li>
-      <li><b>관리자</b> — 문의 관리 안 «대기자 명단» 탭이 두 번이고 둘 다 id 가 <code>sub-waitlist</code>. 같은 id 는 첫 번째만 잡히므로 두 번째 칸은 눌러도 첫 번째가 동작.</li>
+      <li><b>관리자</b> — 사이드바가 <b>두 벌</b>이다. <code>js/adm-ia6.js</code> 가 6그룹 39항목으로 다시 세우고 옛 9그룹 87항목은 감춰 둔다(2026-08-08 개편, 되돌리기용). <code>admin.html</code> 만 읽으면 아무도 안 보는 메뉴를 그리게 된다.</li>
+      <li><b>관리자</b> — <code>adm-ia6.js</code> 가 <b>없는 카드 2개</b>를 가리킨다: <code>card-comparison-report</code>(주석상 «API 404 라 전부 제거»), <code>card-video-dict</code>. 그 자리에는 아무것도 안 뜬다.</li>
+      <li><b>관리자</b> — 문의 관리의 «대기자 명단» 이 <b>두 벌</b>이었다(같은 id <code>sub-waitlist</code>, 한쪽은 함수 정의가 없는 죽은 껍데기). <span class="ok">2026-08-15 제거함.</span></li>
       <li><b>학생 홈</b> — «🎮 학생게임»이 사이드바 두 그룹에 중복 (학습 공간 / AI 학습 도구).</li>
       <li><b>학생 홈</b> — «🎯 레벨테스트»도 두 그룹에 있으나 <b>의도된 추가</b>(소스 주석 2026-08-07 QA 2차 #2).</li>
       <li><b>학생 홈</b> — 사이드바 26개와 전체메뉴 44개가 서로 다른 목록. «전체메뉴»가 전체가 아님.</li>
@@ -294,7 +294,7 @@ var DOCS = [
     stat:"5 덩어리 · 93 화면", who:"처음 보는 사람 · 회의 자료" },
   { key:"admin", n:"구성표 ①", t:"관리자 메뉴 구성표",
     d:"관리자 왼쪽 사이드바를 그대로 펼친 표. 사이드바에 접혀 있어 한 번에 안 보이던 세 단계를 번호로.",
-    stat:"9 · 85 · 84", who:"운영·본사" },
+    stat:"6 · 39 · 93", who:"운영·본사" },
   { key:"student", n:"구성표 ②", t:"학생·강사 화면 구성표",
     d:"학생 홈은 메뉴가 두 벌(슬라이드 사이드바 + 전체메뉴). 강사 화면은 한 장짜리라 놓인 순서대로.",
     stat:"3 · 14 · 96", who:"학생·강사 담당" },
