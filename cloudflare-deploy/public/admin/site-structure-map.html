@@ -75,7 +75,7 @@ body{
   line-height:1.6;
   -webkit-font-smoothing:antialiased;
 }
-.page{max-width:1560px;margin:0 auto;padding:40px 24px 72px}
+.page{max-width:1560px;margin:0 auto;padding:30px 24px 72px}
 
 /* ---------- header ---------- */
 .eyebrow{
@@ -91,48 +91,41 @@ h1 em{font-style:normal;color:var(--root)}
   margin:14px 0 0;max-width:60ch;font-size:clamp(15px,1.5vw,18px);color:var(--ink2);
   text-wrap:pretty;
 }
-.stats{
-  display:flex;flex-wrap:wrap;gap:8px 10px;margin:26px 0 0;padding:0;list-style:none;
-}
-.stats li{
-  display:flex;align-items:baseline;gap:7px;
-  background:var(--card);border:1px solid var(--line);border-radius:999px;
-  padding:7px 15px 7px 13px;box-shadow:var(--shadow);
-}
-.stats b{font-size:17px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.stats span{font-size:12.5px;color:var(--muted);font-weight:600}
 
-/* ---------- how to read ---------- */
-.howto{
-  margin:34px 0 0;border:1px solid var(--line);border-radius:16px;background:var(--card);
-  padding:18px 20px;box-shadow:var(--shadow);
+
+/* ---------- 한 줄 범례 ---------- */
+/*  지도가 주인공이다. 통계 알약과 «지도 읽는 법» 상자를 걷어내고 한 줄로 줄였다
+    (2026-08-16 사장님: «굳이 필요 없으니 빼줘. 안내도 최소화해서 지도에 집중하게»). */
+.legend{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
+  margin:22px 0 0;font-size:13px;color:var(--ink2);
 }
-.howto h2{
-  margin:0 0 14px;font-size:12px;font-weight:800;letter-spacing:.16em;color:var(--muted);
-  text-transform:uppercase;
+.legend > span{display:inline-flex;align-items:center;gap:7px}
+.legend .arrow{color:var(--muted);font-size:14px;padding:0 2px;user-select:none}
+.legend-tip{
+  margin-left:6px;padding:5px 12px;border-radius:999px;
+  background:color-mix(in oklab, var(--root) 12%, var(--card));
+  border:1px solid color-mix(in oklab, var(--root) 34%, transparent);
+  font-size:12.5px;color:var(--ink2);
 }
-.howto-row{display:flex;flex-wrap:wrap;gap:10px 8px;align-items:center}
-.howto-item{display:flex;align-items:center;gap:10px}
-.howto-item p{margin:0;font-size:13px;color:var(--ink2)}
-.howto-item p b{color:var(--ink);font-weight:800}
-.arrow{color:var(--muted);font-size:15px;padding:0 4px;user-select:none}
+.legend-tip b{color:var(--root);font-weight:900}
 .demo-l1{
-  background:var(--c1);color:var(--on-lane);border-radius:11px;padding:8px 14px;
-  font-weight:900;font-size:13.5px;letter-spacing:-.01em;
+  background:var(--c1);color:var(--on-lane);border-radius:9px;padding:5px 11px;
+  font-weight:900;font-size:12.5px;letter-spacing:-.01em;
 }
 .demo-l2{
   background:color-mix(in oklab, var(--c1) 13%, var(--card));
-  color:var(--c1);border-radius:9px;padding:6px 12px;font-weight:800;font-size:12.5px;
+  color:var(--c1);border-radius:8px;padding:4px 10px;font-weight:800;font-size:12px;
 }
 .demo-l3{
-  background:var(--card);border:1px solid var(--line);border-radius:8px;padding:5px 11px;
-  font-size:12px;color:var(--ink2);font-weight:600;
+  background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px 9px;
+  font-size:11.5px;color:var(--ink2);font-weight:600;
 }
 
 /* ---------- controls ---------- */
 .controls{
   display:flex;flex-wrap:wrap;gap:8px;align-items:center;
-  margin:28px 0 8px;
+  margin:20px 0 8px;
 }
 .chipbtn{
   font:inherit;font-size:13px;font-weight:700;cursor:pointer;
@@ -277,21 +270,7 @@ footer b{color:var(--ink2);font-weight:700}
   *{transition:none !important;animation:none !important}
 }
 
-.clicknote{
-  /* ⚠️ 이 화면의 강조색은 --root 다(--accent 는 구성표 쪽 팔레트라 여기엔 없다).
-     없는 변수를 쓰면 배경·글자색이 통째로 비어 «안 보이는 배지» 가 된다 — 실제로 한 번 겪음. */
-  display:flex;gap:11px;align-items:flex-start;
-  margin:14px 0 0;padding:12px 14px;border-radius:11px;
-  background:color-mix(in oklab, var(--root) 12%, var(--card));
-  border:1px solid color-mix(in oklab, var(--root) 38%, transparent);
-  font-size:13.5px;line-height:1.6;color:var(--ink2);
-}
-.clicknote b{color:var(--ink);font-weight:800}
-.clicknote .cn-badge{
-  flex:none;font-size:11.5px;font-weight:900;letter-spacing:-.01em;
-  color:var(--on-lane);background:var(--root);
-  border-radius:999px;padding:3px 10px;margin-top:1px;white-space:nowrap;
-}
+
 .leaf a{cursor:pointer}
 .leaf a::after{content:"↗";float:right;margin-left:8px;color:var(--muted);font-size:11px;font-weight:800}
 .leaf a:hover::after{color:var(--lane)}
@@ -303,44 +282,17 @@ footer b{color:var(--ink2);font-weight:700}
   <p class="eyebrow">MangoI · Information Architecture</p>
   <h1>망고아이 <em>사이트 지도</em></h1>
   <p class="lede">
-    망고아이 안에는 화면이 아주 많아요. 그런데 <b>“누가 쓰는가”</b>로 나누면 딱 다섯 덩어리예요.
-    손님 · 학생 · 부모님 · 선생님 · 운영자. 이 지도는 그 다섯 덩어리를 위에서 내려다본 그림입니다.
+    화면을 <b>“누가 쓰는가”</b>로 나눈 그림입니다 — 손님 · 학생 · 부모님 · 선생님 · 운영자.
   </p>
 
-  <ul class="stats">
-    <li><b>5</b><span>쓰는 사람</span></li>
-    <li><b>18</b><span>묶음</span></li>
-    <li><b>93</b><span>화면</span></li>
-    <li><b>3</b><span>언어 (한·영·중)</span></li>
-    <li><b>29,000</b><span>실제 학생</span></li>
-  </ul>
-
-
-  <section class="howto">
-    <h2>지도 읽는 법</h2>
-    <div class="howto-row">
-      <div class="howto-item">
-        <span class="demo-l1">큰 칸</span>
-        <p><b>사람</b> — 누가 쓰는 곳인지</p>
-      </div>
-      <span class="arrow">→</span>
-      <div class="howto-item">
-        <span class="demo-l2">중간 칸</span>
-        <p><b>묶음</b> — 비슷한 일끼리</p>
-      </div>
-      <span class="arrow">→</span>
-      <div class="howto-item">
-        <span class="demo-l3">작은 칸</span>
-        <p><b>화면</b> — 실제로 열리는 페이지 하나</p>
-      </div>
-    </div>
-    <p class="clicknote">
-      <span class="cn-badge">눌러 보세요</span>
-      <span><b>작은 칸을 누르면 그 화면이 새 탭에서 열립니다.</b>
-      오른쪽에 <b>↗</b> 가 붙은 칸이 열리는 칸이에요.
-      표시가 없는 칸은 다른 화면 안에 들어 있어 따로 열 주소가 없습니다.</span>
-    </p>
-  </section>
+  <p class="legend">
+    <span><span class="demo-l1">큰 칸</span> 사람</span>
+    <span class="arrow">→</span>
+    <span><span class="demo-l2">중간 칸</span> 묶음</span>
+    <span class="arrow">→</span>
+    <span><span class="demo-l3">작은 칸</span> 화면</span>
+    <span class="legend-tip"><b>↗</b> 붙은 칸을 누르면 새 탭에서 열려요</span>
+  </p>
 
   <div class="controls" role="group" aria-label="지도 보기 설정">
     <button class="chipbtn" type="button" data-lane="all" aria-pressed="true">전체 보기</button>
