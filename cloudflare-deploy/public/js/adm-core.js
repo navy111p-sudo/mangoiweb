@@ -10417,6 +10417,12 @@ window.rebuildGlobalSearchIndex = function() {
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
+      ${(s.revenue_gap_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #f59e0b;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.7">
+        <b style="color:#b45309">⚠️ 이 달 매출이 장부에 덜 잡혀 있습니다 — 아래 순이익을 «적자»로 읽지 마세요.</b><br>
+        통장에 들어온 카드 정산금(PG)은 <b>${fmtKRW(s.deposit_pg_krw)}</b> 인데 장부 매출은 <b>${fmtKRW(d.pl.revenue)}</b> 뿐입니다(차이 ${fmtKRW(s.revenue_gap_krw)}).
+        비용은 통장 실지출이라 정확한데 매출만 일부 빠져서, 순이익이 실제보다 나쁘게 보입니다.
+        「🔍 매출–입금 대사」 카드에서 확인하세요.
+      </div>` : ''}
       <div class="pl-box">
         <div class="b rev"><div class="l">매출</div><div class="v">${fmtKRW(p.revenue)}</div></div>
         <div class="b cost"><div class="l">비용</div><div class="v">${fmtKRW(p.cost)}</div></div>

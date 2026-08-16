@@ -122,6 +122,22 @@ async function seedRevenueExcluded(env: Env, startMs: number, endMs: number): Pr
   }, { amount: 0, count: 0 });
 }
 
+/* 🧑‍🏫 시연용 더미 급여명세 제외 (2026-08-16) ────────────────────────────────
+   [무슨 일이 있었나] 분기 보고서에서 4·5월 강사 급여가 750만으로 «똑같이» 찍히는데
+   6월만 1,019만이라 이상하다는 제보. 파 보니 payslips 의 period 있는 24행이
+   **전부** teacher_id 101~104 — 강사 원부(teachers, 29명 id 1~29)에 없는 번호이고,
+   2025-12~2026-05 여섯 달 내내 금액도 수업분(1,650분)도 완전히 동일했다.
+   = 시연용 더미. 즉 **진짜 급여명세는 한 건도 없다.**
+
+   [그래서] 원부에 없는 강사의 급여명세는 회계에서 뺀다. 그러면 강사 급여는
+   신한 계좌의 실제 송금(메트로은행 → 강사급여송금)으로 자동 대체된다
+   (monthActualOpex.teacherPayout → payrollEff). 진짜 급여명세가 입력되면
+   그때부터 그것이 정본이 된다(코드 수정 불필요). */
+function realPayslipSql(a = ''): string {
+  const q = a ? a + '.' : '';
+  return `EXISTS (SELECT 1 FROM teachers t_rp WHERE t_rp.id = ${q}teacher_id)`;
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -233,7 +249,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(payment_krw),0) AS total,
              COUNT(*) AS teachers
-      FROM payslips WHERE period = ?
+      FROM payslips WHERE period = ? AND ${realPayslipSql()}
     `).bind(period).first<{ total: number; teachers: number }>();
     return r || { total: 0, teachers: 0 };
   }, { total: 0, teachers: 0 });
@@ -253,6 +269,19 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
   const pgFee = Math.round(rev.revenue * 0.033);  // PG 수수료 약 3.3%
   const ax = await monthActualOpex(env, period);
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
+  /* 🚨 «장부 매출이 통장보다 적을 때» 경고 (2026-08-16)
+     실제로 겪은 일 — 7월 장부 매출 950만인데 통장 PG 입금은 2,141만이라 리포트가
+     이익률 −168% 로 나왔다. 회사가 망한 게 아니라 **매출이 장부에 덜 잡힌 것**이다.
+     숫자만 보고 «적자» 로 오해하면 안 되므로, 리포트가 스스로 사실을 밝히게 한다. */
+  const pgIn = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount),0) AS t FROM bankacct_transactions
+      WHERE kind='in' AND remark LIKE '%케이씨피%' AND substr(trans_at,1,7)=?
+    `).bind(period).first<{ t: number }>();
+    return Number(r?.t) || 0;
+  }, 0);
+  // 통장 입금이 장부 매출보다 25% 이상 많으면 «누락 의심» (PG 수수료·정산 시차 감안한 여유)
+  const revenueGap = pgIn > 0 && pgIn > rev.revenue * 1.25 ? pgIn - rev.revenue : 0;
   const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
   // 🧑‍🏫 강사 급여 — 급여명세(payslips)가 비어 있으면 신한 계좌의 강사 송금(실데이터)으로 대신
   const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
@@ -278,6 +307,9 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
       seed_excluded_krw: seedEx.amount,
       seed_excluded_count: seedEx.count,
+      // 🚨 장부 매출 < 통장 입금 → 매출 누락 의심(순이익이 실제보다 나쁘게 보인다)
+      deposit_pg_krw: pgIn,
+      revenue_gap_krw: revenueGap,
     },
     cost: {
       teacher_payroll: payrollEff,
@@ -363,7 +395,7 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
     const payroll = await safe(async () => {
-      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=?`)
+      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
         .bind(period).first<{ p: number }>();
       return x?.p || 0;
     }, 0);
@@ -416,7 +448,7 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
       return x || { revenue: 0, pays: 0 };
     }, { revenue: 0, pays: 0 });
     const payroll = await safe(async () => {
-      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=?`)
+      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
         .bind(period).first<{ p: number }>();
       return x?.p || 0;
     }, 0);
@@ -540,7 +572,7 @@ async function payslipsReport(env: Env, url: URL, fmt: string): Promise<Response
              COALESCE(p.payment_krw,0) + COALESCE(p.bonus_krw,0) - COALESCE(p.deduction_krw,0) AS net
       FROM payslips p
       LEFT JOIN teachers t ON t.id = p.teacher_id
-      WHERE p.period = ?
+      WHERE p.period = ? AND ${realPayslipSql('p')}
       ORDER BY net DESC
     `).bind(period).all();
     return (r.results || []) as Array<any>;
@@ -615,7 +647,7 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
 
   // 강사 급여
   const payroll = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=?`)
+    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
       .bind(period).first<{ p: number }>();
     return r?.p || 0;
   }, 0);
@@ -704,7 +736,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const payroll = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(payment_krw),0) AS total
-      FROM payslips WHERE period=?
+      FROM payslips WHERE period=? AND ${realPayslipSql()}
     `).bind(period).first<{ total: number }>();
     return r?.total || 0;
   }, 0);
@@ -929,7 +961,7 @@ async function taxReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const supply = rev.total - vat;
 
   const payroll = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p, COUNT(*) AS cnt FROM payslips WHERE period=?`)
+    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p, COUNT(*) AS cnt FROM payslips WHERE period=? AND ${realPayslipSql()}`)
       .bind(period).first<{ p: number; cnt: number }>();
     return r || { p: 0, cnt: 0 };
   }, { p: 0, cnt: 0 });
@@ -988,10 +1020,10 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
   const slips = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? ORDER BY payment_krw DESC LIMIT 200
+      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
     `).bind(period).first ? await env.DB.prepare(`
       SELECT id, teacher_id, period, payment_krw FROM payslips
-      WHERE period=? ORDER BY payment_krw DESC LIMIT 200
+      WHERE period=? AND ${realPayslipSql()} ORDER BY payment_krw DESC LIMIT 200
     `).bind(period).all() : { results: [] };
     return (r.results || []) as Array<any>;
   }, []);
@@ -1076,7 +1108,7 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
       const r = await env.DB.prepare(`
         SELECT p.teacher_id, COALESCE(t.name, p.teacher_id) AS name, p.period, p.payment_krw
         FROM payslips p LEFT JOIN teachers t ON t.id = p.teacher_id
-        WHERE COALESCE(p.paid, 0) = 0
+        WHERE COALESCE(p.paid, 0) = 0 AND ${realPayslipSql('p')}
         ORDER BY p.period DESC, p.payment_krw DESC LIMIT 200
       `).all();
       return ((r.results || []) as Array<any>).map(s => {
@@ -1323,10 +1355,18 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   else if (Math.abs(cumPct) <= 25) verdict = 'warn';
   else verdict = 'alert';
 
+  /* 차이의 «방향» 에 따라 원인이 정반대다. 한 문구로 뭉뚱그리면 오진한다(2026-08-16):
+       · 입금 < 예상 → 장부에만 있는 매출(가짜·미수금) 의심
+       · 입금 > 예상 → 통장에 들어왔는데 장부에 안 잡힌 매출(동기화 누락) 의심 */
+  const short = cumDiff < 0;
   const MSG: Record<typeof verdict, string> = {
     ok: '장부와 통장이 맞습니다(누적 오차 10% 이내 — PG 정산 시차 범위).',
-    warn: '누적 차이가 10%를 넘습니다. 정산 시차인지, 실제로 안 들어온 돈인지 KCP 정산내역을 확인하세요.',
-    alert: '누적 차이가 25%를 넘습니다. 장부에만 있는 매출이거나 미수금일 수 있습니다 — 확인이 필요합니다.',
+    warn: short
+      ? '통장에 들어온 돈이 장부보다 10% 이상 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
+      : '통장에 들어온 돈이 장부보다 10% 이상 많습니다. 장부에 안 잡힌 매출이 있는지(결제 동기화 누락) 확인하세요.',
+    alert: short
+      ? '통장 입금이 장부보다 25% 이상 적습니다. 장부에만 있는 매출이거나 미수금일 수 있습니다 — 확인이 필요합니다.'
+      : '통장 입금이 장부보다 25% 이상 많습니다. **매출이 장부에 덜 잡히고 있습니다**(결제 동기화 누락 의심) — 확인이 필요합니다.',
     no_data: '계좌 연동 이전 기간이라 입금 자료가 없습니다. 「신한 동기화」 후 다시 보세요.',
   };
 
