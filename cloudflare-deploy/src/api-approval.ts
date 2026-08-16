@@ -206,15 +206,18 @@ async function delegatesOf(env: ApprovalEnv, usernames: string[]): Promise<strin
 
 async function notify(
   env: ApprovalEnv, usernames: string[], title: string, body: string, reqId: number, tag: string
-): Promise<number> {
-  if (!usernames.length) return 0;
+): Promise<{ push: number; missed: string[] }> {
+  const missed: string[] = [];
+  if (!usernames.length) return { push: 0, missed };
   let sent = 0;
   const url = '/work?id=' + reqId;
   for (const u of usernames) {
     const rs = await safe(async () => await env.DB.prepare(
       `SELECT endpoint FROM push_subscriptions WHERE user_id = ? AND enabled = 1 LIMIT 10`
     ).bind(u).all<{ endpoint: string }>(), { results: [] as any[] } as any);
-    for (const s of (rs.results || [])) {
+    const eps = rs.results || [];
+    if (!eps.length) { missed.push(u); continue; }   // 이 사람은 푸시로 닿지 않는다
+    for (const s of eps) {
       const ok = await safe(async () => {
         await env.DB.prepare(
           `INSERT INTO push_queue (endpoint, title, body, url, icon, badge, tag, queued_at)
@@ -224,6 +227,43 @@ async function notify(
       }, false);
       if (ok) sent++;
     }
+  }
+  return { push: sent, missed };
+}
+
+/**
+ * 📱 푸시로 닿지 않는 사람에게 문자로 보낸다.
+ *
+ *   왜 필요한가 — 「안 열어봐도 바로 알게」가 요구사항인데, 웹푸시는 **켠 사람에게만** 간다.
+ *   아이폰은 «홈 화면에 추가» 를 해야 하고, 안드로이드도 알림 권한을 눌러 줘야 한다.
+ *   처음에는 아무도 안 켜 놓은 상태라, 푸시만 믿으면 **긴급 건이 아무에게도 안 간다.**
+ *
+ *   ⚠️ 문자는 돈이 든다. 그래서 아무 결재에나 보내지 않는다 —
+ *      긴급 접수 · 마감 초과 · 경영진 승격, 이 셋만이다(호출하는 쪽에서 정한다).
+ *   ⚠️ 끄는 스위치: KV SESSION_STATE 의 'approval_sms' 를 'off' 로 두면 안 보낸다.
+ *      (다른 발송 기능들과 같은 방식 — lesson_reminder_send 참고)
+ */
+async function smsFallback(env: ApprovalEnv, usernames: string[], text: string): Promise<number> {
+  if (!usernames.length) return 0;
+  try {
+    const kill = await safe(async () => await (env as any).SESSION_STATE?.get('approval_sms'), null);
+    if (String(kill || '') === 'off') return 0;
+  } catch { /* KV 를 못 읽으면 그냥 보낸다 — 알림이 안 가는 쪽이 더 나쁘다 */ }
+
+  const { sendPlainSms } = await import('./solapi-client');
+  let sent = 0;
+  for (const u of usernames) {
+    const acc: any = await safe(async () => await env.DB.prepare(
+      `SELECT phone FROM admin_account WHERE username = ? LIMIT 1`
+    ).bind(u).first(), null);
+    const phone = String(acc?.phone || '').trim();
+    if (!phone) continue;
+    // 필리핀 매니저는 현지 번호다 — 국가번호를 붙여야 도착한다(63). 그 외는 국내(82).
+    const country = PH_MANAGERS.indexOf(String(u).toLowerCase()) >= 0 ? '63' : '82';
+    const r = await safe(async () => await sendPlainSms(env as any, phone, text, {
+      country, subject: '망고아이 결재',
+    }), { ok: false } as any);
+    if (r?.ok) sent++;
   }
   return sent;
 }
@@ -525,10 +565,15 @@ export async function handleApprovalApi(
               IFNULL(MAX(IFNULL(escalated_at,0)),0) AS me2
          FROM approval_requests`
     ).first(), null);
+    // 대결(위임)이 바뀌어도 화면이 달라진다 — 서명에 함께 넣는다.
+    const dsig: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c, IFNULL(MAX(updated_at),0) AS mu FROM approval_delegates`
+    ).first(), null);
     // 긴급 목록은 «최근 7일» 이라 시간이 지나면 저절로 빠진다. 표가 안 바뀌어도 목록은 바뀌므로
     // 한 시간 단위의 눈금을 하나 섞는다(1시간마다 한 번은 전체를 다시 받는다).
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a1-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}-${hourBucket}"`;
+    const etag = `W/"a2-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+                 `-${dsig?.c || 0}-${dsig?.mu || 0}-${hourBucket}"`;
     const headers = {
       'Content-Type': 'application/json; charset=utf-8',
       // no-store 가 아니라 no-cache — «저장은 하되 쓰기 전에 반드시 확인» 이라는 뜻이다.
@@ -603,12 +648,30 @@ export async function handleApprovalApi(
       if (reuse.length >= 3) break;
     }
 
+    /* 🏖️ 대결(위임) — 결재자가 휴가·출장이면 결재가 그대로 멈춘다. 그걸 넘길 사람 목록.
+       ⚠️ 결재할 수 있는 사람에게만 내려보낸다. 다른 사람에게는 직원 명부가 될 뿐이다. */
+    let colleagues: any[] = [];
+    let myDelegate: any = null;
+    if (!actor.isTeacher && isHqStaff(actor) && !ph) {
+      const accs = await hqAccounts(env);
+      colleagues = accs
+        .filter(a => String(a.username) !== me)
+        .filter(a => PH_MANAGERS.indexOf(String(a.username).toLowerCase()) < 0)   // 필리핀 매니저는 결재 대상이 아니다
+        .slice(0, 30)
+        .map(a => ({ username: a.username, name: a.name || a.username }));
+      const d: any = await safe(async () => await env.DB.prepare(
+        `SELECT delegate_to, until_at FROM approval_delegates WHERE username = ? AND until_at > ? LIMIT 1`
+      ).bind(me, Date.now()).first(), null);
+      if (d) myDelegate = { delegate_to: d.delegate_to, until_at: d.until_at };
+    }
+
     return new Response(JSON.stringify({
       ok: true,
       me: {
         username: actor.username, name: actor.name || null,
         is_exec: iAmExec, is_ph_manager: ph, is_teacher: !!actor.isTeacher,
       },
+      colleagues, my_delegate: myDelegate,
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
       types: TYPES.filter(t => canSubmit(actor, t.key))
@@ -769,12 +832,18 @@ export async function handleApprovalApi(
       const deleg = await delegatesOf(env, targets);
       for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
       const spec2 = typeSpec(reqType);
-      await notify(
+      const n1 = await notify(
         env, targets,
         (spec2.en) + ' · ' + (actor.name || actor.username),
         title.slice(0, 80),
         reqId, 'approval'
       );
+      // 🚨 긴급만 문자로도 보낸다. 사고·정전·학부모 항의는 «나중에 열어 보면» 늦다.
+      //    나머지 분류는 푸시와 배지로 충분하다(문자는 돈이 든다).
+      if (reqType === 'urgent' && n1.missed.length) {
+        await smsFallback(env, n1.missed,
+          '[망고아이 긴급] ' + title.slice(0, 60) + '\n' + (actor.name || actor.username) + '\nhttps://test.mangoi.co.kr/work?id=' + reqId);
+      }
 
       return json({ ok: true, id: reqId, stages: stages.length, flags, summary: sum || null });
     } catch (e: any) {
@@ -1059,8 +1128,14 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       const targets = await approversFor(env, String(st?.role || 'staff'), r.requester_username);
       const deleg = await delegatesOf(env, targets);
       for (const d of deleg) if (targets.indexOf(d) < 0) targets.push(d);
-      await notify(env, targets, 'Overdue approval',
-                   String(r.title || '').slice(0, 80), r.id, 'approval-late');
+      const nl = await notify(env, targets, 'Overdue approval',
+                              String(r.title || '').slice(0, 80), r.id, 'approval-late');
+      // 마감을 넘긴 건은 «못 봤다» 가 이유인 경우가 대부분이다. 푸시가 안 닿으면 문자로.
+      if (nl.missed.length) {
+        await smsFallback(env, nl.missed,
+          '[망고아이] 결재 마감이 지났습니다\n' + String(r.title || '').slice(0, 60) +
+          '\nhttps://test.mangoi.co.kr/work?id=' + r.id);
+      }
       await safe(async () => {
         await env.DB.prepare(`UPDATE approval_requests SET warned_at = ? WHERE id = ?`).bind(now, r.id).run();
         return true;
@@ -1097,8 +1172,13 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
         return true;
       }, false);
       const execs = await approversFor(env, 'exec', r.requester_username);
-      await notify(env, execs, 'Escalated — overdue',
-                   String(r.title || '').slice(0, 80), r.id, 'approval-esc');
+      const ne = await notify(env, execs, 'Escalated — overdue',
+                              String(r.title || '').slice(0, 80), r.id, 'approval-esc');
+      if (ne.missed.length) {
+        await smsFallback(env, ne.missed,
+          '[망고아이] 지연 결재가 경영진으로 넘어왔습니다\n' + String(r.title || '').slice(0, 60) +
+          '\nhttps://test.mangoi.co.kr/work?id=' + r.id);
+      }
       escalated++;
     }
 
@@ -1106,5 +1186,80 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
   } catch (e) {
     console.warn('[approval-sla] sweep failed:', (e as any)?.message || e);
     return { ok: false, warned, escalated };
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📊 주간 결재 리포트 — 페널티는 «벌점» 이 아니라 «가시성» 이다
+ *
+ *   숨겨진 지연은 아무도 고치지 않지만, 드러난 지연은 대부분 스스로 해결된다.
+ *   그래서 점수를 매기는 대신 **사실을 주간으로 보여 준다** —
+ *   몇 건이 오갔고, 평균 몇 시간 걸렸고, 누가 몇 건을 늦게 처리했는가.
+ *
+ *   ⚠️ 이 숫자는 전부 코드가 계산한다. AI 는 관여하지 않는다(급여 기능과 같은 선).
+ *   ⚠️ 경영진에게만 보낸다 — 사람별 지연 건수는 인사 정보에 가깝다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: boolean; sent: number; total: number }> {
+  try {
+    await ensureTable(env);
+    const now = Date.now();
+    const from = now - 7 * 86400_000;
+
+    const tot: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c,
+              SUM(CASE WHEN status='approved' THEN 1 ELSE 0 END) AS ok_n,
+              SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS no_n,
+              SUM(CASE WHEN status='pending'  THEN 1 ELSE 0 END) AS wait_n
+         FROM approval_requests WHERE created_at >= ?`
+    ).bind(from).first(), null);
+    const total = Number(tot?.c || 0);
+
+    // 평균 처리 시간(시간 단위) — 끝난 건만 센다.
+    const avg: any = await safe(async () => await env.DB.prepare(
+      `SELECT AVG(decided_at - created_at) AS ms FROM approval_requests
+        WHERE created_at >= ? AND decided_at IS NOT NULL`
+    ).bind(from).first(), null);
+    const avgH = avg?.ms ? Math.round(Number(avg.ms) / 3600_000 * 10) / 10 : null;
+
+    // 지금 마감을 넘긴 채 남아 있는 건
+    const late: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM approval_requests
+        WHERE status='pending' AND stage_due_at IS NOT NULL AND stage_due_at < ?`
+    ).bind(now).first(), null);
+    const lateN = Number(late?.c || 0);
+
+    // 이번 주에 마감을 넘겨 알림이 나간 건 (사람별) — «누가» 가 아니라 «어디서» 막히는지 본다.
+    const slow = await safe(async () => (await env.DB.prepare(
+      `SELECT requester_username AS u, COUNT(*) AS c FROM approval_requests
+        WHERE created_at >= ? AND warned_at IS NOT NULL
+        GROUP BY requester_username ORDER BY c DESC LIMIT 5`
+    ).bind(from).all<any>()).results || [], [] as any[]);
+
+    if (!total) return { ok: true, sent: 0, total: 0 };
+
+    const lines = [
+      '[망고아이] 주간 결재 요약',
+      '올라온 결재 ' + total + '건 (승인 ' + Number(tot?.ok_n || 0) +
+        ' · 반려 ' + Number(tot?.no_n || 0) + ' · 대기 ' + Number(tot?.wait_n || 0) + ')',
+      avgH != null ? ('평균 처리 ' + avgH + '시간') : '평균 처리 — (끝난 건 없음)',
+      lateN ? ('지금 마감을 넘긴 건 ' + lateN + '건') : '마감을 넘긴 건 없음',
+    ];
+    if (slow.length) {
+      lines.push('알림이 나간 건: ' + slow.map((s: any) => s.u + ' ' + s.c).join(', '));
+    }
+    lines.push('https://test.mangoi.co.kr/work');
+    const text = lines.join('\n');
+
+    // 경영진에게만. 푸시로 닿지 않으면 문자로.
+    const execs = await approversFor(env, 'exec', null);
+    const n = await notify(env, execs, '주간 결재 요약', lines[1], 0, 'approval-weekly');
+    if (n.missed.length) await smsFallback(env, n.missed, text);
+
+    console.log('[approval-weekly]', JSON.stringify({ total, avgH, lateN, execs: execs.length }));
+    return { ok: true, sent: execs.length, total };
+  } catch (e) {
+    console.warn('[approval-weekly] failed:', (e as any)?.message || e);
+    return { ok: false, sent: 0, total: 0 };
   }
 }

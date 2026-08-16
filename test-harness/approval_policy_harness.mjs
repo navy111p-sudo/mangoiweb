@@ -350,6 +350,64 @@ check('화면 — [hidden] 을 !important 로 못박아 두었다',
   /\[hidden\]\s*\{\s*display\s*:\s*none\s*!important/.test(WORK_SRC),
   '작성자 CSS 가 UA 기본값을 이기는 것을 막는 안전선');
 
+// ══ H. 알림이 «닿는가» — 푸시를 안 켠 사람에게도 ═══════════════════════════
+console.log('\n[H] 알림이 실제로 닿는가 · 지연이 드러나는가');
+
+check('푸시로 닿지 않은 사람을 골라낸다',
+  /missed/.test(API_SRC),
+  '푸시는 «켠 사람» 에게만 간다 — 처음에는 아무도 안 켜 놓은 상태다');
+
+check('닿지 않으면 문자로 보낸다',
+  /smsFallback/.test(API_SRC) && /sendPlainSms/.test(API_SRC));
+
+check('필리핀 번호에 국가번호를 붙인다',
+  /'63'/.test(API_SRC),
+  "국가번호 없이 보내면 필리핀 현지 번호에 도착하지 않는다");
+
+check('문자는 긴급·지연·승격에만 (돈이 든다)',
+  /reqType === 'urgent' && n1\.missed/.test(API_SRC) &&
+  !/smsFallback\(env, targets/.test(API_SRC),
+  '모든 결재에 문자를 보내면 비용이 새어 나간다');
+
+check('문자를 끄는 스위치가 있다',
+  /approval_sms/.test(API_SRC),
+  "KV 'approval_sms'='off' 로 즉시 끌 수 있어야 한다");
+
+check('주간 결재 요약이 있다 (페널티 = 가시성)',
+  /runApprovalWeeklyReport/.test(API_SRC));
+
+check('주간 요약은 경영진에게만 간다',
+  /approversFor\(env, 'exec', null\)[\s\S]{0,400}approval-weekly/.test(API_SRC),
+  '사람별 지연 건수는 인사 정보에 가깝다');
+
+check('주간 요약의 숫자는 코드가 계산한다 (AI 아님)',
+  /AVG\(decided_at - created_at\)/.test(API_SRC));
+
+// ══ I. 묶어서 승인 — 점검을 무력화하지 않는가 ═════════════════════════════
+console.log('\n[I] 묶어서 승인이 자동 점검을 무력화하지 않는가');
+
+check('화면 — 경고가 붙은 건은 묶음에서 뺀다',
+  /function cleanOnes\(\)[\s\S]{0,400}level === 'warn'/.test(WORK_SRC),
+  '경고까지 쓸어 승인하면 자동 점검이 있으나 마나가 된다');
+
+check('화면 — 마감을 넘긴 건도 묶음에서 뺀다',
+  /function cleanOnes\(\)[\s\S]{0,200}isOverdue\(r\)/.test(WORK_SRC));
+
+check('화면 — 두 건 이상일 때만 묶음 버튼을 보여 준다',
+  /list\.length < 2/.test(WORK_SRC));
+
+check('화면 — 묶음 승인도 한 건씩 순서대로 보낸다',
+  /step\(\);\s*\/\/ 하나씩/.test(WORK_SRC),
+  '좁은 회선에서 한꺼번에 던지면 서로 대역폭을 다툰다');
+
+check('화면 — 부재중(대결) 설정을 쓸 수 있다',
+  /openAway|setAway/.test(WORK_SRC) && /api\/approval\/delegate/.test(WORK_SRC),
+  '결재자가 휴가면 결재가 그대로 멈춘다');
+
+check('동료 목록은 결재할 수 있는 사람에게만 내려보낸다',
+  /colleagues[\s\S]{0,200}isHqStaff\(actor\) && !ph/.test(API_SRC),
+  '아무에게나 내려보내면 그냥 직원 명부가 된다');
+
 // ── 결과 ────────────────────────────────────────────────────────────────────
 console.log('──────────────────────────────────────');
 if (FAIL) {

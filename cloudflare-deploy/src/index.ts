@@ -2136,6 +2136,19 @@ const worker = {
         } catch (err) {
           console.error('[corpcard-sync] error', err);
         }
+        // 📊 주간 결재 요약 — 월요일 아침(09:00 KST)에 경영진에게 한 번.
+        //   페널티를 «벌점»이 아니라 «가시성»으로 두기로 한 설계의 마지막 조각이다.
+        //   숨겨진 지연은 아무도 고치지 않지만, 드러난 지연은 대부분 스스로 해결된다.
+        if (kstDay === 1) {
+          try {
+            const { runApprovalWeeklyReport } = await import('./api-approval');
+            const wr = await runApprovalWeeklyReport(env as any);
+            if (wr && wr.total > 0) console.log('[approval-weekly]', JSON.stringify(wr));
+          } catch (err) {
+            console.error('[approval-weekly] error', err);
+          }
+        }
+
         // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
         try {
           const { bankConfigured, runBankSync } = await import('./bankacct-sync');

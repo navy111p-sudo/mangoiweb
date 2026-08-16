@@ -3,22 +3,14 @@
  * 「끊겼을 때 쓴 것이 사라지지 않는가」를 실제로 눌러 확인한다.
  * (문법 검사로는 못 잡는 실행 시점 버그를 잡으려는 것)
  */
-const { chromium } = require("playwright-core");
-const fs = require("fs");
-const path = require("path");
+
+import { requireBrowser } from './_pw.mjs';
+
+const { chromium, exe } = requireBrowser();
+
 
 const FILE = "file:///home/user/mangoiweb/cloudflare-deploy/public/work.html";
 
-function findChromium() {
-  const base = "/opt/pw-browsers";
-  for (const d of fs.readdirSync(base)) {
-    for (const rel of ["chrome-linux/chrome", "chrome-linux/headless_shell"]) {
-      const p = path.join(base, d, rel);
-      if (fs.existsSync(p)) return p;
-    }
-  }
-  return null;
-}
 
 const HOME = {
   ok: true,
@@ -38,7 +30,7 @@ function check(name, cond, extra) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ executablePath: findChromium(), args: ["--no-sandbox"] });
+  const browser = await chromium.launch({ executablePath: exe, args: ["--no-sandbox"] });
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
   const page = await ctx.newPage();
 

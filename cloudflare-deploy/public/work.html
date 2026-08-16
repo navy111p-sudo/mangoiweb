@@ -214,6 +214,7 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <button class="tbtn" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
     <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
+    <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
     <a class="tbtn" href="/manager"><span data-en="Dashboard" data-ko="대시보드">Dashboard</span></a>
     <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
   </div>
@@ -230,6 +231,8 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
   <div id="urgent"></div>
 
   <h2><span data-en="Waiting for your decision" data-ko="내가 결재할 것">Waiting for your decision</span></h2>
+  <div id="awayBox"></div>
+  <div id="bulkBox"></div>
   <div id="inbox"><div class="empty" data-en="Loading..." data-ko="불러오는 중...">Loading...</div></div>
 
   <h2><span data-en="Submit a request" data-ko="결재 올리기">Submit a request</span></h2>
@@ -378,6 +381,8 @@ function repaint(){
     ? urg.map(function(r){ return itemHtml(r, false); }).join('')
     : '';
 
+  paintAway();
+  paintBulk();
   paintList('inbox', D.inbox || [], true);
   paintList('mine', D.mine || [], false);
   paintForm();          // 언어를 바꿔도 폼 라벨이 따라오게. 값은 paintForm 이 챙겨서 되돌린다.
@@ -494,6 +499,121 @@ function itemHtml(r, decidable){
   h += '</div>';
   return h;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   묶어서 승인 — 점검을 모두 통과한 건만.
+
+   왜 «모두» 가 아닌가 — 자동 점검(중복청구·예산초과·첨부누락·금액불일치)에 걸린 건은
+   **사람이 봐야 하는 건**이다. 그걸 함께 쓸어 승인해 버리면 점검이 있으나 마나가 된다.
+   그래서 경고가 하나도 없는 건만 묶는다. 경고가 붙은 건은 목록에 그대로 남는다.
+   ══════════════════════════════════════════════════════════════════════════ */
+function cleanOnes(){
+  return (D.inbox || []).filter(function(r){
+    if (isOverdue(r)) return false;                       // 늦은 건은 눈으로 한 번 보게 한다
+    var f = r.flags || [];
+    for (var i = 0; i < f.length; i++) if (f[i].level === 'warn') return false;
+    return true;
+  });
+}
+function paintBulk(){
+  var host = document.getElementById('bulkBox');
+  if (!host) return;
+  var list = cleanOnes();
+  if (list.length < 2) { host.innerHTML = ''; return; }
+  host.innerHTML =
+    '<div class="why"><b>' +
+    esc(T(list.length + ' requests passed every check.', '점검을 모두 통과한 ' + list.length + '건이 있습니다.')) +
+    '</b><div class="whybtns"><button onclick="bulkApprove()">' +
+    esc(T('Approve all ' + list.length, list.length + '건 한 번에 승인')) +
+    '</button></div></div>';
+}
+var bulkBusy = false;
+window.bulkApprove = function(){
+  if (bulkBusy) return;
+  var list = cleanOnes();
+  if (!list.length) return;
+  if (!confirm(T('Approve these ' + list.length + ' requests?', '이 ' + list.length + '건을 모두 승인할까요?'))) return;
+  bulkBusy = true;
+  var i = 0, ok = 0;
+  (function step(){
+    if (i >= list.length) {
+      bulkBusy = false;
+      toast(T(ok + ' approved.', ok + '건을 승인했습니다.'));
+      repaint();
+      load().catch(function(){});
+      return;
+    }
+    var r = list[i++];
+    send(r.id, { decision: 'approved', memo: null }).then(function(res){
+      if (res.done || res.queued) { ok++; removeLocal(r.id); }
+      step();                        // 하나씩 순서대로 — 좁은 회선에서 한꺼번에 던지지 않는다
+    });
+  })();
+};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   부재중(대결) — 결재자가 휴가·출장이면 결재가 그대로 멈춘다.
+   켜 두면 그 기간 동안 지정한 사람에게 알림이 함께 가고, 그 사람이 대신 결재할 수 있다.
+   ══════════════════════════════════════════════════════════════════════════ */
+function paintAway(){
+  var btn = document.getElementById('awayBtn');
+  var box = document.getElementById('awayBox');
+  var can = D && D.colleagues && D.colleagues.length;
+  if (btn) btn.hidden = !can;
+  if (!box) return;
+  if (D && D.my_delegate) {
+    var who = D.my_delegate.delegate_to;
+    var until = new Date(Number(D.my_delegate.until_at));
+    box.innerHTML = '<div class="why"><b>' +
+      esc(T('While you are away, ' + who + ' can decide for you (until ' + until.toLocaleDateString() + ').',
+            '부재중입니다 — ' + until.toLocaleDateString() + '까지 ' + who + ' 님이 대신 결재합니다.')) +
+      '</b><div class="whybtns"><button onclick="clearAway()">' +
+      esc(T('I am back', '복귀 — 해제')) + '</button></div></div>';
+  } else {
+    box.innerHTML = '';
+  }
+}
+window.openAway = function(){
+  var box = document.getElementById('awayBox');
+  if (!box || !D || !D.colleagues) return;
+  if (box.getAttribute('data-open') === '1') { box.removeAttribute('data-open'); paintAway(); return; }
+  var h = '<div class="why"><b>' +
+    esc(T('Who should decide while you are away? (7 days)', '부재중에 누가 대신 결재할까요? (7일)')) +
+    '</b><div class="whybtns">';
+  for (var i = 0; i < D.colleagues.length; i++) {
+    var c = D.colleagues[i];
+    h += '<button onclick="setAway(' + JSON.stringify(c.username).replace(/"/g, '&quot;') + ')">' +
+         esc(c.name) + '</button>';
+  }
+  h += '<button onclick="openAway()">' + esc(T('Cancel', '취소')) + '</button></div></div>';
+  box.innerHTML = h;
+  box.setAttribute('data-open', '1');
+};
+window.setAway = function(u){
+  fetch('/api/approval/delegate', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ delegate_to: u, days: 7 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(j){
+    if (j && j.ok) {
+      toast(T('Set. ' + u + ' will decide while you are away.', u + ' 님이 대신 결재합니다.'));
+      document.getElementById('awayBox').removeAttribute('data-open');
+      load().catch(function(){});
+    } else {
+      toast(T('Could not set it.', '설정하지 못했습니다.'));
+    }
+  })
+  .catch(function(){ toast(T('Could not set it — check your connection.', '설정하지 못했습니다 — 연결을 확인해 주세요.')); });
+};
+window.clearAway = function(){
+  fetch('/api/approval/delegate', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  })
+  .then(function(){ toast(T('Welcome back.', '복귀 처리했습니다.')); load().catch(function(){}); })
+  .catch(function(){ toast(T('Could not clear it.', '해제하지 못했습니다.')); });
+};
 
 /* ── 반려 사유 — 버튼 3개. 타이핑은 필요할 때만. ──────────────────────────── */
 var WHYS = [
