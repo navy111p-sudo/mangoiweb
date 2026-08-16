@@ -257,18 +257,28 @@ async function smsFallback(env: ApprovalEnv, usernames: string[], text: string):
 
   const { sendPlainSms } = await import('./solapi-client');
   let sent = 0;
+  const noPhone: string[] = [];
   for (const u of usernames) {
     const acc: any = await safe(async () => await env.DB.prepare(
       `SELECT phone FROM admin_account WHERE username = ? LIMIT 1`
     ).bind(u).first(), null);
     const phone = String(acc?.phone || '').trim();
-    if (!phone) continue;
+    if (!phone) { noPhone.push(u); continue; }
     // 필리핀 매니저는 현지 번호다 — 국가번호를 붙여야 도착한다(63). 그 외는 국내(82).
     const country = PH_MANAGERS.indexOf(String(u).toLowerCase()) >= 0 ? '63' : '82';
     const r = await safe(async () => await sendPlainSms(env as any, phone, text, {
       country, subject: '망고아이 결재',
     }), { ok: false } as any);
     if (r?.ok) sent++;
+  }
+  /* ⚠️ 조용히 아무것도 안 하는 상태를 만들지 않는다.
+     푸시도 못 받고 전화번호도 없으면 그 사람에게는 **긴급 알림이 아예 닿지 않는다.**
+     코드는 정상 동작(건너뛰기)이라 오류가 안 나서, 로그가 없으면 아무도 모른다.
+     (2026-08-16 실측 — 관리자 계정 6개 전부 phone 이 비어 있었다.
+      admin_account.phone 을 채우기 전까지 문자 폴백은 «있지만 안 나가는» 상태다.) */
+  if (noPhone.length) {
+    console.warn('[approval-sms] 전화번호가 없어 문자를 못 보낸 사람: ' + noPhone.join(', ') +
+                 ' — admin_account.phone 을 채워야 긴급·지연 알림이 닿습니다');
   }
   return sent;
 }
