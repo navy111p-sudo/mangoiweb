@@ -2910,7 +2910,7 @@ async function addTeacherProfile() {
         (e('tp-mbti-type')?.value ? '\n🧠 MBTI 매칭 프로필도 저장됨 — 학생 매칭에 즉시 반영됩니다.' : ''));
   // 수정 모드 해제
   if (btn) {
-    btn.textContent = '＋ 강사 등록';
+    btn.textContent = '+ 강사 등록';
     delete btn.dataset.editId;
   }
   clearTeacherForm();
@@ -8215,7 +8215,7 @@ window.bulkCopyContacts = function() {
   if (e('tp-clear-btn'))        e('tp-clear-btn').addEventListener('click', () => {
     clearTeacherForm();
     const btn = e('tp-add-btn');
-    if (btn) { btn.textContent = '＋ 강사 등록'; delete btn.dataset.editId; }
+    if (btn) { btn.textContent = '+ 강사 등록'; delete btn.dataset.editId; }
   });
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);

@@ -492,12 +492,45 @@
            onclick="if(window.miSdToggle)window.miSdToggle();"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
+        <!-- 🪶 (2026-08-16) 첫 화면에서 750KB 영상을 자동으로 받지 않는다.
+             [실측] 4G·저사양 흉내로 재 보니 이 64×64 동그란 아바타 하나가
+               ai-ops-greeting.mp4 750KB 를 **두 번**(1.5MB) 받아가고 있었다.
+               관리자 첫 로딩 6.2MB 중 24% 다. 64픽셀짜리 장식에 그 값은 안 맞는다.
+             [바꾼 것] autoplay·preload="auto" 를 빼고 poster(정지 그림)로 시작한다.
+               poster 는 이미 다른 곳에서도 쓰는 캐릭터 그림이라 새로 받는 게 없다.
+               PC(≥1024px)에서는 아래 스크립트가 잠깐 뒤 영상으로 바꿔 준다 —
+               회선이 넉넉한 쪽은 예전과 똑같이 움직인다.
+             ⚠️ muted·playsinline 은 남긴다. 빼면 iOS 가 전체화면으로 띄운다. -->
         <span id="mi-ops-fab-btn" aria-hidden="true">
-          <video id="mi-ops-fab-vid" src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto"></video>
+          <video id="mi-ops-fab-vid" muted loop playsinline preload="none"
+                 poster="/img/Mangoi_Character.png" data-src="/video/ai-ops-greeting.mp4"></video>
           <span class="mi-ops-fab-close" aria-hidden="true">✕</span>
         </span>
       </div>
     </div>
+    <script id="mi-ops-fab-vid-defer">
+    (function(){
+      'use strict';
+      /* PC 에서만, 그것도 «화면이 다 그려지고 한가해진 뒤에» 영상을 붙인다.
+         휴대폰은 poster 그림 그대로 둔다 — 첫 로딩에서 1.5MB 를 아낀다.
+         ⚠️ 데이터 절약 모드(Save-Data)를 켠 사람은 PC 라도 받지 않는다. */
+      var v = document.getElementById('mi-ops-fab-vid');
+      if (!v || !v.dataset.src) return;
+      try {
+        var c = navigator.connection || {};
+        if (c.saveData) return;
+        if (!window.matchMedia('(min-width: 1024px)').matches) return;
+      } catch (e) { return; }
+      var go = function(){
+        v.src = v.dataset.src;
+        v.preload = 'auto';
+        var pr = v.play();
+        if (pr && pr.catch) pr.catch(function(){ /* 자동재생 차단 — poster 그대로 */ });
+      };
+      if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 6000 });
+      else setTimeout(go, 3000);
+    })();
+    </script>
 
     <link rel="stylesheet" href="/css/admin-inline-c.css?v=18"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
@@ -2095,7 +2128,7 @@
               <option data-ko="회원 포인트" data-en="Member points">회원 포인트</option>
               <option data-ko="추천인 보상" data-en="Referral rewards">추천인 보상</option>
             </select>
-            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰 발급하러 가기" data-en="＋ Go to issue coupon">＋ 새 쿠폰 발급하러 가기</button>
+            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="+ 새 쿠폰 발급하러 가기" data-en="+ Go to issue coupon">+ 새 쿠폰 발급하러 가기</button>
           </div>
           <table>
             <thead><tr>
@@ -2190,7 +2223,7 @@
             <span style="font-size:11px;color:#6b7280">~</span>
             <input id="acc-jrn-to" type="date" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
             <button class="primary" onclick="accLoadJournal()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button onclick="accNewJournalEntry()" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="＋ 전표 입력" data-en="＋ New Entry">＋ 전표 입력</button>
+            <button onclick="accNewJournalEntry()" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="+ 전표 입력" data-en="+ New Entry">+ 전표 입력</button>
             <span style="font-size:11px;color:#92400e" data-ko="(대차 자동 검증)" data-en="(auto debit/credit balance)">(대차 자동 검증)</span>
           </div>
           <table>
@@ -2926,7 +2959,7 @@
           <!-- 신규 등록 폼 — 🥭 Phase 40: 영문 번역 추가, Phase 21: 다크 톤 통일 -->
           <details class="tp-new-form">
             <summary style="cursor:pointer;font-size:13px;color:#10b981;font-weight:600"
-                     data-ko="＋ 신규 강사 등록" data-en="＋ Add New Teacher">＋ 신규 강사 등록</summary>
+                     data-ko="+ 신규 강사 등록" data-en="+ Add New Teacher">+ 신규 강사 등록</summary>
             <div style="background:rgba(99,102,241,0.06);border:1px dashed rgba(99,102,241,0.35);border-radius:10px;padding:14px;margin-top:8px">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
                 <div style="grid-column:1/-1;padding:7px 12px;background:rgba(99,102,241,0.14);border-radius:6px;font-size:12.5px;font-weight:800;color:#a5b4fc" data-ko="👤 기본 정보 · 연락처" data-en="👤 Basic Info · Contact">👤 기본 정보 · 연락처</div>
@@ -3110,7 +3143,7 @@
                 </div>
               </div>
               <div style="margin-top:12px">
-                <button id="tp-add-btn" class="primary" type="button" style="padding:7px 18px;font-size:13px;font-weight:700" data-ko="＋ 강사 등록" data-en="＋ Add Teacher">＋ 강사 등록</button>
+                <button id="tp-add-btn" class="primary" type="button" style="padding:7px 18px;font-size:13px;font-weight:700" data-ko="+ 강사 등록" data-en="+ Add Teacher">+ 강사 등록</button>
                 <button id="tp-clear-btn" type="button" style="padding:7px 14px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="초기화" data-en="Reset">초기화</button>
               </div>
             </div>
@@ -3340,7 +3373,7 @@
               💸 1) 실시간 정산 분개 <span style="font-weight:400;color:#6366f1;font-size:11px">PG 2.86% 차감 · 본사 15~18% · B2B/B2C</span>
               <span style="flex:1"></span>
               <input id="modx-settle-period" type="month" style="padding:4px 8px;border:1px solid #c7d2fe;border-radius:6px;font-size:12px">
-              <button onclick="modxSettleSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#6366f1;border:1px solid #6366f1;border-radius:6px;cursor:pointer;font-weight:600">＋ 샘플 분개</button>
+              <button onclick="modxSettleSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#6366f1;border:1px solid #6366f1;border-radius:6px;cursor:pointer;font-weight:600">+ 샘플 분개</button>
               <button onclick="modxSettleLoad()" style="padding:5px 10px;font-size:11.5px;background:#6366f1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">불러오기</button>
               <button onclick="modxSettlePayAll()" style="padding:5px 10px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">💸 일괄 송금</button>
             </div>
@@ -3382,7 +3415,7 @@
             <div style="background:#f0fdf4;padding:10px 14px;font-weight:700;color:#166534;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               📚 4) 교재-비디오 매핑 <span style="font-weight:400;color:#16a34a;font-size:11px">textbook_id ↔ video_id + 복습퀴즈</span>
               <span style="flex:1"></span>
-              <button onclick="modxTbvSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#16a34a;border:1px solid #16a34a;border-radius:6px;cursor:pointer;font-weight:600">＋ 샘플 교재·영상 매핑</button>
+              <button onclick="modxTbvSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#16a34a;border:1px solid #16a34a;border-radius:6px;cursor:pointer;font-weight:600">+ 샘플 교재·영상 매핑</button>
               <button onclick="modxTbvLoad()" style="padding:5px 10px;font-size:11.5px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">교재 리소스 보기</button>
             </div>
             <div id="modx-tbv-body" style="padding:10px 14px;font-size:12px;color:#64748b">‘샘플 매핑’ 후 ‘교재 리소스 보기’를 누르면 관련 유튜브 영상+퀴즈가 로딩됩니다.</div>
@@ -3482,7 +3515,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <button class="primary" onclick="ptLoadCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
-            <button onclick="ptOpenCatalogModal()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">＋ 새 상품 추가</button>
+            <button onclick="ptOpenCatalogModal()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">+ 새 상품 추가</button>
             <button onclick="ptSeedCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;cursor:pointer">🌱 기본 6개 시드</button>
           </div>
           <div id="pt-catalog-table" style="overflow-x:auto"></div>
@@ -3613,7 +3646,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         </div>
       </details>
       <div>
-        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer" data-ko="＋ 학생 추가" data-en="＋ Add Student">＋ 학생 추가</button>
+        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer" data-ko="+ 학생 추가" data-en="+ Add Student">+ 학생 추가</button>
         <button onclick="beBulkSubmit()" style="padding:7px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px" data-ko="📤 일괄 작성 완료" data-en="📤 Submit All">📤 일괄 작성 완료</button>
       </div>
       <div id="be-students" style="display:grid;gap:8px;margin-top:8px"></div>
@@ -6175,7 +6208,7 @@ window.__admSettleRun = function(fn){
             <input id="wl-time" placeholder="19:20" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:72px">
             <input id="wl-teacher" placeholder="희망 강사 / Teacher" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
             <input id="wl-note" placeholder="메모 / Note" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
-            <button type="button" onclick="window.wlAdd&&wlAdd()" style="padding:7px 13px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 대기자 추가" data-en="＋ Add">＋ 대기자 추가</button>
+            <button type="button" onclick="window.wlAdd&&wlAdd()" style="padding:7px 13px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="+ 대기자 추가" data-en="+ Add">+ 대기자 추가</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <select id="wl-status" onchange="window.wlLoad&&wlLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
@@ -6546,7 +6579,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <button class="primary" onclick="popLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700"
                     data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</button>
             <button onclick="popOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer"
-                    data-ko="＋ 새 팝업 만들기" data-en="＋ New Popup">＋ 새 팝업 만들기</button>
+                    data-ko="+ 새 팝업 만들기" data-en="+ New Popup">+ 새 팝업 만들기</button>
             <div id="pop-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
           </div>
           <div id="pop-list-table" style="overflow-x:auto"></div>
@@ -6607,7 +6640,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <button onclick="posterOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#ec4899;color:#fff;border:0;border-radius:6px;cursor:pointer"
-                    data-ko="＋ 새 포스터 만들기" data-en="＋ New Poster">＋ 새 포스터 만들기</button>
+                    data-ko="+ 새 포스터 만들기" data-en="+ New Poster">+ 새 포스터 만들기</button>
             <button class="primary" onclick="posterLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700"
                     data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</button>
             <div id="poster-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
@@ -6962,7 +6995,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   <!-- 신규 강사 등록 -->
   <details style="margin-bottom:12px;">
-    <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 강사 신규 등록" data-en="＋ Add New Teacher">＋ 강사 신규 등록</summary>
+    <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 강사 신규 등록" data-en="+ Add New Teacher">+ 강사 신규 등록</summary>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
       <input id="t-new-name"   placeholder="이름 (필수)" data-ko-placeholder="이름 (필수)" data-en-placeholder="Name (required)" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
       <select id="t-new-status" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
@@ -7083,7 +7116,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 신규 등록" data-en="＋ Add Branch">＋ 지사 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 신규 등록" data-en="+ Add Branch">+ 지사 신규 등록</summary>
             <div class="menu-form">
               <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
               <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
@@ -7109,7 +7142,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대리점(학원) 신규 등록" data-en="+ Add Agency">+ 대리점(학원) 신규 등록</summary>
             <div class="menu-form">
               <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
               <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
@@ -7151,7 +7184,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏢 지사 (구)" data-en="🏢 Branch (old)">🏢 지사 (구)</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 등록" data-en="＋ Register Branch">＋ 지사 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 등록" data-en="+ Register Branch">+ 지사 등록</summary>
             <div class="menu-form">
               <input id="br-name" placeholder="지사 이름 (필수)" data-ko-ph="지사 이름 (필수)" data-en-ph="Branch name (required)" style="width:200px;" />
               <input id="br-region" placeholder="담당 지역 (예: 수도권)" data-ko-ph="담당 지역 (예: 수도권)" data-en-ph="Region (e.g. Seoul Metro)" style="width:160px;" />
@@ -7171,7 +7204,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대표지사 등록" data-en="＋ Register Master Branch">＋ 대표지사 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
             <div class="menu-form">
               <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-ph="대표지사 이름 (필수)" data-en-ph="Master branch name (required)" style="width:220px;" />
               <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-ph="담당 권역 (예: 영남)" data-en-ph="Region (e.g. Yeongnam)" style="width:160px;" />
@@ -7194,7 +7227,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🎯 영입본부" data-en="🎯 Recruitment HQ">🎯 영입본부</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 영입본부 등록" data-en="＋ Register Recruitment HQ">＋ 영입본부 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 영입본부 등록" data-en="+ Register Recruitment HQ">+ 영입본부 등록</summary>
             <div class="menu-form">
               <input id="rec-name" placeholder="영입본부 이름 (필수)" data-ko-ph="영입본부 이름 (필수)" data-en-ph="Recruitment HQ name (required)" style="width:220px;" />
               <input id="rec-leader" placeholder="본부장" data-ko-ph="본부장" data-en-ph="HQ Manager" style="width:120px;" />
@@ -7218,7 +7251,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏯 본사 관리" data-en="🏯 HQ Management">🏯 본사 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 본사 정보 등록" data-en="＋ Register HQ Info">＋ 본사 정보 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 본사 정보 등록" data-en="+ Register HQ Info">+ 본사 정보 등록</summary>
             <div class="menu-form">
               <input id="hq-name" placeholder="본사 이름 (예: 망고아이 본사)" data-ko-ph="본사 이름 (예: 망고아이 본사)" data-en-ph="HQ name (e.g. Mangoi HQ)" style="width:220px;" />
               <input id="hq-ceo" placeholder="대표이사" data-ko-ph="대표이사" data-en-ph="CEO" style="width:120px;" />
@@ -7238,7 +7271,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🌐 독립 사이트" data-en="🌐 Standalone Site">🌐 독립 사이트</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 독립 사이트 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 독립 사이트 등록</summary>
             <div class="menu-form">
               <input id="ind-name" placeholder="사이트 이름 (필수)" style="width:200px;" />
               <input id="ind-url" type="url" placeholder="https://..." style="width:240px;" />
@@ -7297,7 +7330,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <option value="adjust" data-ko="⚙️ 조정" data-en="⚙️ Adjust">⚙️ 조정</option>
             </select>
             <button id="pt-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔄 조회" data-en="🔄 Search">🔄 조회</button>
-            <button id="pt-add-btn" style="padding:5px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 수동 적립/차감" data-en="＋ Manual Add/Deduct">＋ 수동 적립/차감</button>
+            <button id="pt-add-btn" style="padding:5px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="+ 수동 적립/차감" data-en="+ Manual Add/Deduct">+ 수동 적립/차감</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px">
             <div style="background:rgba(34,197,94,0.08);padding:10px 14px;border-radius:6px;font-size:12px">
@@ -7326,7 +7359,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script id="ph-frn-filter-js">
 (function(){
-  // ① 등록 폼(＋ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
+  // ① 등록 폼(+ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
   //    (summary 를 건드리는 다른 전역 클릭/툴팁 스크립트와 무관하게 동작 보장)
   function bindToggles(){
     document.querySelectorAll('#card-franchises .sub-body > details > summary').forEach(function(sm){
@@ -7443,7 +7476,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       </div>
     </div>
     <details id="lt-sec-add">
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 결과 입력" data-en="＋ Add Result">＋ 결과 입력</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 결과 입력" data-en="+ Add Result">+ 결과 입력</summary>
       <div class="menu-form">
         <input id="lt-name"   placeholder="학생 이름 (필수)" data-ko-placeholder="학생 이름 (필수)" data-en-placeholder="Student name (required)" style="width:160px;" />
         <input id="lt-uid"    placeholder="user_id (선택)"   data-ko-placeholder="user_id (선택)"   data-en-placeholder="user_id (optional)" style="width:160px;" />
@@ -7537,8 +7570,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div class="menu-body">
     <details>
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
-               data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
-               data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
+               data-ko="+ 수강신청 등록 (1명 또는 여러 명 동시)"
+               data-en="+ Add Enrollment (single or multiple at once)">+ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
       <!-- 🥭 Phase 24 — 다중 학생 동시 등록 표
            🧑‍🏫 (2026-08-12) 요구사항 정리 — 등록 시 사람이 «입력·선택» 하는 것은 아래 6가지뿐이다.
              ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 배정 우선순위(요일·시간 우선 / 강사 우선)
@@ -7579,7 +7612,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button id="en-add-row-btn" type="button"
                   style="padding:6px 14px;font-size:12px;background:#fff;border:1px dashed #3b82f6;color:#3b82f6;border-radius:6px;cursor:pointer;font-weight:600"
-                  data-ko="＋ 행 추가" data-en="＋ Add row">＋ 행 추가</button>
+                  data-ko="+ 행 추가" data-en="+ Add row">+ 행 추가</button>
           <button id="en-add-btn" class="primary" type="button"
                   style="padding:6px 18px;font-size:13px;font-weight:700"
                   data-ko="✅ 일괄 등록" data-en="✅ Register all">✅ 일괄 등록</button>
@@ -7678,7 +7711,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span data-ko="📋 학원 게시판 (소식·FAQ)" data-en="📋 Notice Board (News·FAQ)">📋 학원 게시판 (소식·FAQ)</span></summary>
   <div class="menu-body">
     <details>
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 새 글 작성" data-en="＋ New Post">＋ 새 글 작성</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 새 글 작성" data-en="+ New Post">+ 새 글 작성</summary>
       <div class="menu-form" style="flex-direction:column;align-items:stretch;">
         <input id="cm-title" placeholder="제목 (필수)" data-ko-placeholder="제목 (필수)" data-en-placeholder="Title (required)" style="width:100%;" />
         <textarea id="cm-body" rows="3" placeholder="본문" data-ko-placeholder="본문" data-en-placeholder="Body" style="width:100%;"></textarea>
@@ -7729,7 +7762,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </a>
 
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 교재 등록 (수동 메타데이터)" data-en="＋ Add Textbook (manual metadata)">＋ 교재 등록 (수동 메타데이터)</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 교재 등록 (수동 메타데이터)" data-en="+ Add Textbook (manual metadata)">+ 교재 등록 (수동 메타데이터)</summary>
             <div class="menu-form">
               <input id="tb-title"     list="tb-title-list" placeholder="교재명 (클릭하면 기존 교재 표시)" data-ko-placeholder="교재명 (클릭하면 기존 교재 표시)" data-en-placeholder="Title (click to see existing)" style="width:230px;" />
               <datalist id="tb-title-list"></datalist>
@@ -7761,7 +7794,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="📂 컨텐츠 교재그룹 관리" data-en="📂 Content Textbook Group Management">📂 컨텐츠 교재그룹 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 교재 그룹 등록" data-en="＋ Add Textbook Group">＋ 교재 그룹 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 교재 그룹 등록" data-en="+ Add Textbook Group">+ 교재 그룹 등록</summary>
             <div class="menu-form">
               <input id="tcg-name" placeholder="그룹 이름 (필수, 예: 초등 정규반)" style="width:240px;" />
               <input id="tcg-level-range" placeholder="레벨 범위 (예: A1~B1)" style="width:140px;" />
@@ -7837,7 +7870,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </script>
 
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 비디오 등록" data-en="+ Add Video">+ 비디오 등록</summary>
             <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
               <input id="mv-title"      placeholder="제목 (한글)"  data-ko-placeholder="제목 (한글)"  data-en-placeholder="Title (Korean)"  style="width:220px;" />
               <input id="mv-title-en"   placeholder="Title (EN)"   data-ko-placeholder="제목 (영문)"  data-en-placeholder="Title (English)" style="width:220px;" />
@@ -7872,7 +7905,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="mv-duration" type="number" placeholder="길이(초)" data-ko-placeholder="길이(초)" data-en-placeholder="Duration (sec)" style="width:100px;" />
               <input id="mv-sort" type="number" placeholder="정렬 순서" data-ko-placeholder="정렬 순서" data-en-placeholder="Sort order" style="width:100px;" value="0" />
               <textarea id="mv-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description (optional)" style="width:100%;min-height:48px;resize:vertical;"></textarea>
-              <button id="mv-add-btn" class="primary" style="padding:6px 14px;font-size:13px;" data-ko="＋ 등록" data-en="＋ Register">＋ 등록</button>
+              <button id="mv-add-btn" class="primary" style="padding:6px 14px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
               <div id="mv-preview" style="display:none;margin-top:8px;padding:8px;background:#f1f5f9;border-radius:8px;font-size:12px;color:#475569;"></div>
             </div>
           </details>
@@ -7906,7 +7939,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🛒 판매 교재 관리" data-en="🛒 Sales Textbook Management">🛒 판매 교재 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 판매 교재 등록" data-en="＋ Add Sales Textbook">＋ 판매 교재 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 판매 교재 등록" data-en="+ Add Sales Textbook">+ 판매 교재 등록</summary>
             <div class="menu-form">
               <input id="ts-title" placeholder="교재명 (필수)" style="width:200px;" />
               <select id="ts-category" style="width:120px;">
@@ -7933,7 +7966,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="📦 판매 교재 그룹 관리" data-en="📦 Sales Textbook Group">📦 판매 교재 그룹 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 판매 그룹 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 판매 그룹 등록</summary>
             <div class="menu-form">
               <input id="tsg-name" placeholder="그룹 이름 (예: 초등 풀패키지)" style="width:240px;" />
               <input id="tsg-bundle-price" type="number" placeholder="패키지 가격 (KRW)" style="width:160px;" />
@@ -7952,7 +7985,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏷️ 판매 구분 관리" data-en="🏷️ Sales Category Management">🏷️ 판매 구분 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 판매 구분 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 판매 구분 등록</summary>
             <div class="menu-form">
               <input id="tsc-name" placeholder="구분 이름 (예: 학년별)" style="width:200px;" />
               <input id="tsc-code" placeholder="코드 (영문, 예: GRADE)" style="width:140px;" />

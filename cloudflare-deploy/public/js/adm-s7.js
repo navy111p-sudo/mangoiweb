@@ -29,7 +29,7 @@
   function renderList(){
     var box=$('poster-list'); if(!box)return;
     var line=$('poster-stats-line'); if(line)line.textContent='전체 '+cache.length+'개';
-    if(!cache.length){ box.innerHTML='<div style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">아직 저장한 포스터가 없어요.<br><b style="color:#ec4899">＋ 새 포스터 만들기</b>로 시작해 보세요.</div>'; return; }
+    if(!cache.length){ box.innerHTML='<div style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">아직 저장한 포스터가 없어요.<br><b style="color:#ec4899">+ 새 포스터 만들기</b>로 시작해 보세요.</div>'; return; }
     var bs='padding:5px 9px;font-size:11.5px;font-weight:700;border:0;border-radius:6px;cursor:pointer;margin-right:4px';
     var h='<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:660px"><thead><tr style="background:#f3f4f6;text-align:left;color:#374151">'
       +'<th style="padding:9px 10px">미리보기</th><th style="padding:9px 10px">이름</th><th style="padding:9px 10px">크기</th><th style="padding:9px 10px">만든 날짜</th><th style="padding:9px 10px">수정 날짜</th><th style="padding:9px 10px">관리</th></tr></thead><tbody>';

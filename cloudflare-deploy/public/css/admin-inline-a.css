@@ -13,8 +13,20 @@
 /* ── [style#no-id-2] ── */
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* 🪶 (2026-08-16) MangoiHanSC 를 body 에서 뺐다 — 관리자 첫 로딩 983KB 절약.
+     [왜] MangoiHanSC 는 중국어(간체) 전용 폰트 파일 983KB 다. unicode-range 로
+       «한자가 화면에 나올 때만» 받게 돼 있는데, 그 범위에 U+3000-303F(CJK 문장부호
+       「」『』、。) 가 들어 있다. 관리자 도움말 글이 「 」 를 곳곳에 쓰기 때문에
+       (마크업 안에만 26곳) 한자가 한 글자도 없어도 983KB 를 매번 받아 왔다.
+       실측: 페이지 열고 1.8초에 요청됨.
+     [대신] 진짜 중국어가 있는 곳(자료실의 중국인 강사 안내)에만 되돌려 준다 —
+       admin-inline-c.css 의 «.lib-doc-t / .lib-chip / .lib-note» 규칙 참조.
+     ⚠️ css/mangoi-han.css(공용)는 건드리지 않았다. 학생 게임·다른 화면의 중국어는
+        그대로다. 이 파일은 admin.html 전용이라 반경이 관리자에서 끝난다.
+     ⚠️ 「」 를 보통 따옴표로 바꾸는 방법도 있었지만, i18n 사전이 «문자열 전체 일치»
+        방식이라 라벨 한 글자만 바뀌어도 번역이 깨진다(CLAUDE.md). 그래서 폰트 쪽을 고쳤다. */
   body {
-    font-family: MangoiHanSC,'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
+    font-family: 'Noto Sans KR', -apple-system, "맑은 고딕", "Malgun Gothic", sans-serif;
     color: #1c1917;
     padding: 24px;
     letter-spacing: -0.5px;

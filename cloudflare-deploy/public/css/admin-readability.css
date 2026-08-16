@@ -27,10 +27,19 @@
 
 /* ── 타이포 토큰 ───────────────────────────────────────────── */
 :root {
-  /* MangoiHanSC 가 «맨 앞» 이어야 한다. 뒤에 두면 한글 글꼴(Pretendard·맑은 고딕)에
-     한자 정자체가 들어 있어서 공통 한자(我·的)를 먼저 그려 한 단어에 두 글꼴이 섞인다.
-     unicode-range 로 한자 영역만 잡으므로 한글·영문·숫자는 아래 목록 그대로다. */
-  --mg-font-sans: MangoiHanSC, 'Pretendard Variable', Pretendard, 'Noto Sans KR',
+  /* 🪶 (2026-08-16) MangoiHanSC 를 이 «모든 요소용» 목록에서 뺐다 — 983KB 절약.
+     [옛 주석] "MangoiHanSC 가 맨 앞이어야 한다. 뒤에 두면 한글 글꼴에 한자 정자체가
+       들어 있어서 공통 한자(我·的)를 먼저 그려 한 단어에 두 글꼴이 섞인다.
+       unicode-range 로 한자 영역만 잡으므로 한글·영문·숫자는 아래 목록 그대로다."
+     [무엇이 틀렸나] 마지막 문장이 사실과 달랐다. mangoi-han.css 의 unicode-range 에는
+       한자뿐 아니라 **U+3000-303F(CJK 문장부호 「」『』、。)** 와 **U+FF00-FFEF(전각)** 도
+       들어 있다. 관리자 도움말이 「 」 를 즐겨 쓰므로, 한자가 한 글자도 없는 화면에서도
+       983KB 짜리 중국어 폰트를 매번 받았다(실측: 열고 1.8초에 요청).
+     [지금] 진짜 중국어가 나오는 곳에만 붙인다 — admin-inline-c.css 의
+       «.lib-doc-t / .lib-chip / .lib-note» 규칙. 거기서는 옛 주석의 «두 글꼴 섞임»
+       걱정도 그대로 지켜진다(맨 앞에 둔다).
+     ⚠️ 공용 css/mangoi-han.css 는 손대지 않았다. 학생 게임 쪽 중국어는 그대로다. */
+  --mg-font-sans: 'Pretendard Variable', Pretendard, 'Noto Sans KR',
     -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Malgun Gothic', '맑은 고딕', 'Segoe UI', sans-serif;
   --mg-line: 1.65;          /* 본문 줄간격 — 빽빽함 해소 */

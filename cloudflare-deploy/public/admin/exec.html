@@ -508,7 +508,7 @@ async function openDetail(date){
     let xt = d.expenses.length ? '<table class="list"><tr><th>분류</th><th>메모</th><th class="num">금액</th></tr>' +
       d.expenses.map(x=>`<tr><td>${x.category||'기타'}</td><td>${x.memo||'-'}</td><td class="num">${won(x.amount_krw)}</td></tr>`).join('')+'</table>'
       : '<p class="empty">수동 지출 없음</p>';
-    if(d.payroll_total>0) xt += `<p class="empty">＋ 급여 정산 ${won(d.payroll_total)} (${d.payroll_count}건)</p>`;
+    if(d.payroll_total>0) xt += `<p class="empty">+ 급여 정산 ${won(d.payroll_total)} (${d.payroll_count}건)</p>`;
     h += xt + '</div>';
     $('#dBody').innerHTML = h;
   }catch(e){ $('#dBody').innerHTML = '<p class="empty">불러오기 실패: '+e.message+'</p>'; }
