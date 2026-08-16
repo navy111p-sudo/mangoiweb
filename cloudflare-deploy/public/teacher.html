@@ -152,6 +152,13 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
 /* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
+/* 🪤 hidden 이 «안 먹는» 자리 — 이 화면은 보이기/숨기기를 전부 hidden 속성으로 한다.
+   그런데 아래 .btn 처럼 **작성자 CSS 가 display 를 정하면** 브라우저 기본 [hidden]{display:none}
+   을 이겨 버린다(작성자 스타일이 UA 스타일보다 세다 — 선택자 특정성 문제가 아니다).
+   그래서 el.hidden = true 로 감춘 버튼이 그대로 보였다(2026-08-15 실측).
+   이 한 줄로 화면 전체에서 hidden 이 약속대로 동작하게 못 박는다. */
+[hidden]{display:none !important}
+
 .btn{
   display:inline-block;border:0;border-radius:8px;padding:13px 18px;
   font-size:16px;font-weight:700;cursor:pointer;text-align:center;
@@ -438,7 +445,16 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <h2 data-en="⚠ Feedback not written yet" data-ko="⚠ 피드백 미작성">⚠ Feedback not written yet</h2>
     <div id="alert-sum"></div>
     <div id="alert-list"></div>
+  </div>
+
+  <!-- 🤖 AI 초안 — 예전에는 위 «피드백 미작성» 경고 상자 **안** 에 들어 있었다.
+       그래서 경고가 없는(=성실히 쓴) 강사는 이 기능이 있는 줄도 몰랐다.
+       독립 카드로 빼되, **누를 때만** 불러온다 — 첫 화면의 요청 수는 그대로 0 이다. -->
+  <div class="card" id="c-drafts">
+    <h2 data-en="🤖 AI drafts" data-ko="🤖 AI 초안">🤖 AI drafts</h2>
     <div id="drafts"></div>
+    <button class="btn btn-eval btn-wide btn-sm" type="button" id="drafts-open"
+            data-en="Show AI drafts" data-ko="AI 초안 보기">Show AI drafts</button>
   </div>
 
   <div class="card" id="c-classes" hidden>
@@ -701,6 +717,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     // 📁 내 기록 카드들 — 서버에서 받아 그린 표라 data-en 으로는 못 바꾼다. 캐시로 다시 그린다.
     //   (applyLang 이 이 스크립트보다 먼저 정의되므로 존재 확인 후 호출)
     if (typeof window.__repaintMy === 'function') window.__repaintMy();
+    if (typeof window.__repaintDrafts === 'function') window.__repaintDrafts();
     if (typeof paintOutbox === 'function') paintOutbox();
   }
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
@@ -1402,7 +1419,13 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
           //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
           //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
-          +    esc(T('Class log','일지 쓰기')) + '</button>';
+          +    esc(T('Class log','일지 쓰기')) + '</button>'
+          /* 🎙 (2026-08-15) AI 리포트는 «요청» 만 한다 — 강사가 직접 돌리지 않는다.
+             녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
+             필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
+             실제 생성은 회선 좋은 사무실이 관리자 화면에서 한다. */
+          +  '<button class="btn btn-gray btn-sm" type="button" data-rep="' + i + '">'
+          +    esc(T('Ask for AI report','AI 리포트 요청')) + '</button>';
       } else if (open){
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
@@ -1435,6 +1458,8 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    var rq = box.querySelectorAll('[data-rep]');
+    for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(list[+this.getAttribute('data-rep')], this); };
     // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
     var pp = box.querySelectorAll('[data-post]');
     for (var m=0;m<pp.length;m++) pp[m].onclick = function(){ openPostpone(list[+this.getAttribute('data-post')]); };
@@ -2246,12 +2271,42 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
 
   // ── 🤖 AI 피드백 초안 승인 ─────────────────────────────────────────────
   //   서버가 강사 로그인이면 teacher_name 을 본인 것으로 강제하므로 파라미터를 보내지 않는다.
+  /* 🌐 상태에 따라 글자가 바뀌는 버튼은 textContent 만 고치면 안 된다 —
+     applyLang 이 data-en/data-ko 로 되돌려 놓는다. 둘을 항상 같이 갱신한다. */
+  function setBtnLabel(el, en, ko){
+    if (!el) return;
+    el.setAttribute('data-en', en);
+    el.setAttribute('data-ko', ko);
+    el.textContent = EN() ? en : ko;
+  }
+
+  var DRAFT_ROWS = null;   // 마지막으로 받은 초안 — 언어를 바꾸면 이걸로 다시 그린다
+
   function loadDrafts(){
+    var ob = document.getElementById('drafts-open');
+    if (ob){ ob.disabled = true; setBtnLabel(ob, 'Loading…', '불러오는 중…'); }
     fetch('/api/admin/feedback-drafts?days=3', { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
       .then(function(r){ return r.json(); })
-      .then(function(j){ renderDrafts((j && j.rows) || []); })
-      .catch(function(){ /* 초안은 부가기능 — 실패해도 경고 자체는 남는다 */ });
+      .then(function(j){
+        DRAFT_ROWS = (j && j.rows) || [];
+        if (ob) ob.hidden = true;          // 목록이 자리를 대신한다
+        renderDrafts(DRAFT_ROWS);
+      })
+      .catch(function(){
+        /* 초안은 부가기능 — 실패해도 경고 자체는 남는다. 다만 다시 눌러볼 수는 있어야 한다. */
+        draftsLoaded = false;
+        if (ob){ ob.disabled = false; setBtnLabel(ob, 'Show AI drafts', 'AI 초안 보기'); }
+      });
   }
+
+  // 언어를 바꿔도 초안 목록이 영어/한국어 그대로 남지 않게 (JS 로 그린 표는 applyLang 이 못 고친다)
+  window.__repaintDrafts = function(){ if (DRAFT_ROWS) renderDrafts(DRAFT_ROWS); };
+
+  document.getElementById('drafts-open').onclick = function(){
+    if (draftsLoaded && DRAFT_ROWS){ renderDrafts(DRAFT_ROWS); this.hidden = true; return; }
+    draftsLoaded = true;
+    loadDrafts();
+  };
 
   function renderDrafts(rows){
     var pend = rows.filter(function(r){ return r.status === 'draft'; });
@@ -2761,6 +2816,36 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     .catch(function(){ /* 아직 회선이 없다 — 다음 기회에 */ });
   }
 
+  /* 🎙 AI 리포트 요청 — 보내는 것은 방 번호와 이름뿐(200바이트 안쪽).
+     녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
+     ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
+        (회선이 끊긴 줄 알고 다시 누르는 일이 잦다). 그래서 낙관적으로 처리해도 안전하다. */
+  function askReport(c, btn){
+    if (!c || !c.room_id) return;
+    btn.disabled = true;
+    setBtnLabel(btn, 'Sending…', '보내는 중…');
+    fetch('/api/admin/feedback-drafts/report-request', {
+      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        room_id: c.room_id,
+        student_uid: c.student_uid || '',
+        student_name: c.student_name || '',
+        lesson_date: c.date || DATA.today,
+        start_time: c.start_time || ''
+      })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+      if (j.already) setBtnLabel(btn, 'Already asked', '이미 요청됨');
+      else           setBtnLabel(btn, 'Asked — office will make it', '요청됨 — 사무실이 만들어요');
+    })
+    .catch(function(){
+      btn.disabled = false;
+      setBtnLabel(btn, 'Could not send — tap again', '못 보냈어요 — 다시 누르기');
+    });
+  }
+
   function openEval(c){
     var mask = document.createElement('div');
     mask.className = 'mask';
@@ -2768,15 +2853,15 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '</p>'
-      + '<div class="fld"><label>' + esc(T('Write in English. Grammar does not matter.','영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다.')) + '</label>'
+      + '<div class="fld"><label>' + esc(T('Write in English. Grammar does not matter. You can leave this empty.','영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다. 비워 두셔도 됩니다.')) + '</label>'
       +   '<textarea id="ev-raw" rows="4"></textarea></div>'
-      + '<div class="fld"><label>' + esc(T('Tap what happened','수업에서 있었던 것을 눌러 주세요')) + '</label><div id="ev-chips">'
+      + '<div class="fld"><label>' + esc(T('Tap what happened — this alone is enough','수업에서 있었던 것을 눌러 주세요 — 이것만으로도 됩니다')) + '</label><div id="ev-chips">'
       +   chip('spoke_well',  T('Spoke well','잘 말했어요'))
       +   chip('praised',     T('Praised a lot','칭찬 많이'))
       +   chip('pronounce',   T('Needs pronunciation','발음 연습 필요'))
       +   chip('homework',    T('Homework not done','숙제 미제출'))
       + '</div></div>'
-      + '<button class="btn btn-eval btn-wide" type="button" id="ev-tr">' + esc(T('Polish & translate','다듬어서 한국어로')) + '</button>'
+      + '<button class="btn btn-eval btn-wide" type="button" id="ev-tr">' + esc(T('Make the Korean','한국어로 만들기')) + '</button>'
       + '<div id="ev-out" hidden>'
       +   '<div class="fld"><label>' + esc(T('Polished English (your own check)','다듬은 영어 (강사 확인용)')) + '</label>'
       +     '<textarea id="ev-en" rows="3"></textarea></div>'
@@ -2809,16 +2894,45 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       return out;
     }
 
+    /* ── 🤖 한 줄도 안 썼을 때 — 누른 칩과 별점으로 영어 뼈대를 «화면에서» 만든다 (2026-08-15)
+       왜 이 방식인가 — 초안 전용 API(/api/eval/ai-draft)를 부르는 길도 있지만 둘이 걸린다.
+         ① 그 API 는 한국어 4영역만 돌려준다 → 필리핀 강사가 «자기가 무엇을 승인하는지»
+            영어로 확인할 수 없다. 이 화면이 지켜 온 규칙(한국어·영어 두 벌)을 깬다.
+         ② 요청이 한 번 더 는다 — 이 화면에서 아낄 것은 CPU 가 아니라 **요청 수** 다.
+       그래서 영어 뼈대만 여기서 만들고, 다듬기·번역은 이미 도는 /api/translate **한 번**에 맡긴다.
+       → 추가 요청 0회, 서버 수정 0줄, 강사는 영어·한국어 두 벌을 그대로 받는다. */
+    var CHIP_EN = {
+      spoke_well: 'spoke a lot and expressed ideas well',
+      praised:    'did several things worth praising',
+      pronounce:  'needs more pronunciation practice',
+      homework:   'did not finish the homework'
+    };
+    function composeFromChips(){
+      var picked = chosenChips(), parts = [], i;
+      for (i = 0; i < picked.length; i++) if (CHIP_EN[picked[i]]) parts.push(CHIP_EN[picked[i]]);
+      if (!parts.length) return '';
+      var sp = pick(mask, 'participation'), sc = pick(mask, 'comprehension');
+      return (c.student_name || 'The student') + ' ' + parts.join(', and ') + '.'
+           + (sp ? ' Participation ' + sp + ' out of 5.'  : '')
+           + (sc ? ' Comprehension ' + sc + ' out of 5.' : '');
+    }
+
     // ── 다듬어서 한국어로 (서버 1회) ──
     mask.querySelector('#ev-tr').onclick = function(){
       var raw = mask.querySelector('#ev-raw').value.trim();
-      if (!raw){ say('err', T('Please write a few lines in English first.','먼저 영어로 몇 줄 써 주세요.')); return; }
+      //   비어 있으면 «못 한다» 고 막지 않는다 — 누른 칩으로 대신 만들어 준다.
+      var text = raw || composeFromChips();
+      if (!text){
+        say('err', T('Write a few lines in English, or tap what happened above.',
+                     '영어로 몇 줄 쓰시거나, 위에서 있었던 일을 눌러 주세요.'));
+        return;
+      }
       var b = this;
       b.disabled = true; b.textContent = T('Polishing…','다듬는 중…');
       say('', '');
       fetch('/api/translate', {
         method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ mode:'note', text: raw, student_name: c.student_name || '' })
+        body: JSON.stringify({ mode:'note', text: text, student_name: c.student_name || '' })
       })
       .then(function(r){ return r.json(); })
       .then(function(j){
@@ -2827,12 +2941,12 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
           say('err', T('Could not make the Korean. Please try again.','한국어를 만들지 못했습니다. 다시 시도해 주세요.'));
           return;
         }
-        mask.querySelector('#ev-en').value = j.en || raw;
+        mask.querySelector('#ev-en').value = j.en || text;
         mask.querySelector('#ev-ko').value = j.ko;
         mask.querySelector('#ev-out').hidden = false;
       })
       .catch(function(){
-        b.disabled = false; b.textContent = T('Polish & translate','다듬어서 한국어로');
+        b.disabled = false; b.textContent = T('Make the Korean','한국어로 만들기');
         say('err', T('Network error. Please try again.','네트워크 오류입니다. 다시 시도해 주세요.'));
       });
     };
@@ -2862,9 +2976,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var ko  = (mask.querySelector('#ev-ko').value || '').trim();
       var en  = (mask.querySelector('#ev-en').value || '').trim();
       var raw = mask.querySelector('#ev-raw').value.trim();
-      if (!ko && raw){
-        say('err', T('Tap “Polish & translate” first — the parent receives the Korean.',
-                     '「다듬어서 한국어로」를 먼저 눌러 주세요 — 학부모가 받는 것은 한국어입니다.'));
+      //   칩만 누르고 곧장 보내기를 눌러도 여기서 붙잡는다(예전엔 raw 가 있을 때만 붙잡아서,
+      //   칩만 누른 강사는 «한국어가 비어 있습니다» 라는 엉뚱한 말을 들었다).
+      if (!ko && (raw || chosenChips().length)){
+        say('err', T('Tap “Make the Korean” first — the parent receives the Korean.',
+                     '「한국어로 만들기」를 먼저 눌러 주세요 — 학부모가 받는 것은 한국어입니다.'));
         return;
       }
       var chk = preflight(ko);
