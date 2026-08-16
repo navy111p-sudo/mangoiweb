@@ -273,15 +273,20 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
      실제로 겪은 일 — 7월 장부 매출 950만인데 통장 PG 입금은 2,141만이라 리포트가
      이익률 −168% 로 나왔다. 회사가 망한 게 아니라 **매출이 장부에 덜 잡힌 것**이다.
      숫자만 보고 «적자» 로 오해하면 안 되므로, 리포트가 스스로 사실을 밝히게 한다. */
-  const pgIn = await safe(async () => {
+  const cash = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(amount),0) AS t FROM bankacct_transactions
-      WHERE kind='in' AND remark LIKE '%케이씨피%' AND substr(trans_at,1,7)=?
-    `).bind(period).first<{ t: number }>();
-    return Number(r?.t) || 0;
-  }, 0);
-  // 통장 입금이 장부 매출보다 25% 이상 많으면 «누락 의심» (PG 수수료·정산 시차 감안한 여유)
-  const revenueGap = pgIn > 0 && pgIn > rev.revenue * 1.25 ? pgIn - rev.revenue : 0;
+      SELECT COALESCE(SUM(CASE WHEN kind='in' THEN amount ELSE 0 END),0) AS cin,
+             COALESCE(SUM(CASE WHEN kind='out' THEN amount ELSE 0 END),0) AS cout,
+             COALESCE(SUM(CASE WHEN kind='in' AND remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
+             COUNT(*) AS n
+      FROM bankacct_transactions WHERE substr(trans_at,1,7)=?
+    `).bind(period).first<{ cin: number; cout: number; pg: number; n: number }>();
+    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, pg: Number(r?.pg) || 0, n: Number(r?.n) || 0 };
+  }, { cin: 0, cout: 0, pg: 0, n: 0 });
+  const pgIn = cash.pg;
+  /* 통장 입금이 장부 매출보다 10% 이상(그리고 50만원 이상) 많으면 «누락 의심».
+     ⚠️ 처음엔 25% 로 잡았는데 4월(23%)이 안 걸려 «설명 없는 적자» 로 보였다 → 10% 로 낮춤. */
+  const revenueGap = pgIn > 0 && pgIn > rev.revenue * 1.10 && (pgIn - rev.revenue) > 500000 ? pgIn - rev.revenue : 0;
   const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
   // 🧑‍🏫 강사 급여 — 급여명세(payslips)가 비어 있으면 신한 계좌의 강사 송금(실데이터)으로 대신
   const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
@@ -310,6 +315,13 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       // 🚨 장부 매출 < 통장 입금 → 매출 누락 의심(순이익이 실제보다 나쁘게 보인다)
       deposit_pg_krw: pgIn,
       revenue_gap_krw: revenueGap,
+      /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
+         위 손익은 장부 기준이라 매출 누락분만큼 나쁘게 나온다. 둘을 나란히 보여
+         주어 «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없앤다(2026-08-16). */
+      cash_in_krw: cash.cin,
+      cash_out_krw: cash.cout,
+      cash_net_krw: cash.cin - cash.cout,
+      cash_has_data: cash.n > 0,
     },
     cost: {
       teacher_payroll: payrollEff,
