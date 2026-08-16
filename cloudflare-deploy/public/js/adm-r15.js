@@ -209,17 +209,63 @@
     }
   }, true);
 
-  // 🔊 켜기/끄기 토글 버튼 (검색창/브랜드 아래에 삽입)
+  /* 🔊 켜기/끄기 토글 — 사이드바 «아래 도크»(🩺진단 · 🌐EN 옆)로 (2026-08-15 사장님)
+     [왜 옮겼나] 「음성 켜짐과 꺼짐이 사이드바에서 이렇게 큰 자리를 차지 하지 않아도 될 것 같아」
+       옛 자리는 메뉴 한 줄을 통째로 썼다(높이 48px). 실측: 사이드바 세로 1203 → 1157px 회수.
+     [왜 도크인가] 조사해 보니 업계 관행이 둘로 갈린다 —
+       «무엇을 어떻게 읽을지»는 설정 메뉴 깊숙이, «켜기/끄기 스위치»는 도구 줄의 작은 자리.
+       (구글 접근성·안드로이드 Select to Speak·워드/엣지 «소리내어 읽기»·유튜브 자막 모두 이 형태)
+       우리 도크에는 이미 🩺진단·🌐EN 이라는 «개인 설정» 무리가 있고, 스크롤과 무관하게 늘 바닥에
+       붙어 있어 어디서든 한 번에 닿는다. 그래서 세 번째 칸으로 넣는다(도크 높이는 그대로).
+     ⚠️ 아이콘만 두지 않는다. 「음성 켜짐/꺼짐」을 글자로 적는다 —
+        컴퓨터가 익숙하지 않은 직원이 «지금 켜져 있나»를 한눈에 알아야 한다.
+     ⚠️ 이모지(🔊/🔇) 대신 SVG 를 쓴다. 도크의 다른 칸(진단·EN)이 SVG 라 톤이 맞고,
+        Win10 에서 이모지가 두부로 깨지는 함정(CLAUDE.md)도 피한다.
+     ⚠️ id 는 ph85-voice-toggle 그대로 둔다 — 이 id 를 보는 곳이 셋 있다(위 클릭 핸들러의 제외 조건,
+        adm-ia6 의 사이드바 순서 조정, admin-inline-c.css 의 옛 스타일). 이름을 바꾸면 그 셋이 조용히 끊긴다. */
+  var SPK_ON  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+              + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+              + '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>'
+              + '<path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+  var SPK_OFF = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
+              + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+              + '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>'
+              + '<line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>';
+
+  /* 도크에 들어가면 옛 «가로 한 줄» 스타일(admin-inline-c.css)을 벗겨야 한다.
+     그리고 칸을 2 → 3 으로 늘린다. 토글이 못 붙는 환경(음성 미지원 브라우저)에서는
+     클래스가 안 붙으므로 도크는 예전처럼 2칸으로 남는다 — 빈 칸이 생기지 않는다. */
+  function dockCss(){
+    if (document.getElementById('ph162-voice-css')) return;
+    var st = document.createElement('style');
+    st.id = 'ph162-voice-css';
+    st.textContent =
+      '#ph162-dock.has-voice{grid-template-columns:1fr 1fr 1fr !important}' +
+      '#ph162-dock #ph85-voice-toggle{width:auto !important;margin:0 !important;padding:8px 6px !important;' +
+      '  font-size:11.5px !important;border-radius:9px !important;gap:5px !important;white-space:nowrap !important}' +
+      '#ph162-dock #ph85-voice-toggle.off{opacity:.55}';
+    document.head.appendChild(st);
+  }
+
   function insertToggle(){
     var sb = document.getElementById('ph85-sidebar');
-    if (!sb || document.getElementById('ph85-voice-toggle')) return;
+    if (!sb) return;
+    var made = document.getElementById('ph85-voice-toggle');
+    if (made) { placeToggle(made); return; }   // 이미 있으면 «자리만» 다시 잡는다(위 함정 참조)
+    dockCss();
     var btn = document.createElement('button');
     btn.type = 'button'; btn.id = 'ph85-voice-toggle';
     function paint(){
       var on = isOn(), en = isEnUI();
-      btn.className = on ? '' : 'off';
-      var label = en ? ('Voice guide ' + (on ? 'ON' : 'OFF')) : ('음성 안내 ' + (on ? '켜짐' : '꺼짐'));
-      btn.innerHTML = (on ? '🔊' : '🔇') + ' <span>' + label + '</span>';
+      /* ⚠️ className 을 통째로 대입하지 않는다 — 도크에 붙을 때 얻은 .ph162-pill 이 지워져
+         언어를 바꾸거나 한 번 누르는 순간 버튼 모양이 무너진다(옛 코드가 그랬다). */
+      btn.classList.toggle('off', !on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      // 마우스를 올리면 «누르면 어떻게 되는지» 를 알려 준다(상태만으로는 다음 동작을 모른다)
+      btn.title = en ? (on ? 'Voice guide is on — click to turn off' : 'Voice guide is off — click to turn on')
+                     : (on ? '음성 안내 켜짐 — 누르면 끕니다' : '음성 안내 꺼짐 — 누르면 켭니다');
+      var label = en ? ('Voice ' + (on ? 'on' : 'off')) : ('음성 ' + (on ? '켜짐' : '꺼짐'));
+      btn.innerHTML = (on ? SPK_ON : SPK_OFF) + '<span>' + label + '</span>';
     }
     paint();
     btn.addEventListener('click', function(ev){
@@ -231,9 +277,30 @@
     });
     // 🌐 언어 토글(문서 lang 속성 변경) 시 버튼 라벨을 즉시 영어/한국어로 다시 그림
     try { new MutationObserver(paint).observe(document.documentElement, { attributes:true, attributeFilter:['lang'] }); } catch(e){}
+    if (placeToggle(btn)) return;
     var anchor = sb.querySelector('.ph85-search-wrap') || sb.querySelector('.ph85-brand');
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(btn, anchor.nextSibling);
     else sb.insertBefore(btn, sb.firstChild);
+  }
+
+  /* 자리: 아래 도크의 «🩺진단 · 🌐EN» 다음, 계정 카드 «앞» = 첫 줄 세 번째 칸.
+     🔴 (2026-08-15 실측으로 잡은 함정) 계정 카드(#ph115-user)는 **런타임에 #ph162-lang 바로 뒤로**
+        끼어든다(admin.html 주석 참조). 그래서 «lang 다음»에 한 번 붙여 두면, 나중에 그 카드가
+        우리 앞으로 들어와 버튼이 **셋째 줄로 밀린다** — 도크가 12px 높아지고 그만큼
+        「메뉴 지도」가 도크에 가려졌다(실측: 지도 바닥 566 vs 도크 위 561).
+     → 자리를 «한 번 붙이고 끝»이 아니라 **재시도마다 다시 잡는다.** 계정 카드가 이미 있으면 그 앞,
+       아직 없으면 lang 다음. 어느 쪽이든 결과는 같은 자리(첫 줄 세 번째 칸)다.
+     ⚠️ 도크가 없는 옛 화면에서는 false 를 돌려 옛 자리(검색줄 아래)로 되돌아간다. */
+  function placeToggle(btn){
+    var dock = document.getElementById('ph162-dock');
+    var lang = document.getElementById('ph162-lang');
+    if (!dock || !lang || lang.parentNode !== dock) return false;
+    var user = document.getElementById('ph115-user');
+    var ref = (user && user.parentNode === dock) ? user : lang.nextSibling;
+    if (btn.parentNode !== dock || btn.nextSibling !== ref) dock.insertBefore(btn, ref);
+    btn.classList.add('ph162-pill');          // 진단·EN 과 같은 모양으로
+    dock.classList.add('has-voice');          // 도크를 2칸 → 3칸으로 (위 CSS)
+    return true;
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', insertToggle);
   else insertToggle();
