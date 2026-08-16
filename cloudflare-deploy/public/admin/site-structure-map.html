@@ -278,11 +278,20 @@ footer b{color:var(--ink2);font-weight:700}
 }
 
 .clicknote{
-  margin:22px 0 0;padding:12px 15px;border-radius:12px;
-  background:var(--accent-soft);border:1px solid color-mix(in oklab, var(--accent) 30%, transparent);
+  /* ⚠️ 이 화면의 강조색은 --root 다(--accent 는 구성표 쪽 팔레트라 여기엔 없다).
+     없는 변수를 쓰면 배경·글자색이 통째로 비어 «안 보이는 배지» 가 된다 — 실제로 한 번 겪음. */
+  display:flex;gap:11px;align-items:flex-start;
+  margin:14px 0 0;padding:12px 14px;border-radius:11px;
+  background:color-mix(in oklab, var(--root) 12%, var(--card));
+  border:1px solid color-mix(in oklab, var(--root) 38%, transparent);
   font-size:13.5px;line-height:1.6;color:var(--ink2);
 }
 .clicknote b{color:var(--ink);font-weight:800}
+.clicknote .cn-badge{
+  flex:none;font-size:11.5px;font-weight:900;letter-spacing:-.01em;
+  color:var(--on-lane);background:var(--root);
+  border-radius:999px;padding:3px 10px;margin-top:1px;white-space:nowrap;
+}
 .leaf a{cursor:pointer}
 .leaf a::after{content:"↗";float:right;margin-left:8px;color:var(--muted);font-size:11px;font-weight:800}
 .leaf a:hover::after{color:var(--lane)}
@@ -307,10 +316,6 @@ footer b{color:var(--ink2);font-weight:700}
   </ul>
 
 
-  <p class="clicknote">
-    <b>칸을 누르면 그 화면이 새 탭에서 열립니다.</b>
-    파일이 따로 있는 칸만 눌립니다 — 회색으로 보이는 칸은 다른 화면 안에 들어 있어 따로 열 주소가 없습니다.
-  </p>
   <section class="howto">
     <h2>지도 읽는 법</h2>
     <div class="howto-row">
@@ -329,6 +334,12 @@ footer b{color:var(--ink2);font-weight:700}
         <p><b>화면</b> — 실제로 열리는 페이지 하나</p>
       </div>
     </div>
+    <p class="clicknote">
+      <span class="cn-badge">눌러 보세요</span>
+      <span><b>작은 칸을 누르면 그 화면이 새 탭에서 열립니다.</b>
+      오른쪽에 <b>↗</b> 가 붙은 칸이 열리는 칸이에요.
+      표시가 없는 칸은 다른 화면 안에 들어 있어 따로 열 주소가 없습니다.</span>
+    </p>
   </section>
 
   <div class="controls" role="group" aria-label="지도 보기 설정">
