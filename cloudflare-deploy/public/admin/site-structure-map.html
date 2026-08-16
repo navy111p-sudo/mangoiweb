@@ -1063,6 +1063,17 @@ footer b{color:var(--ink2);font-weight:700}
     else location.href = '/admin.html';
   });
 })();
+
+/* ← 뒤로 가기 — 새 탭으로 열린 경우엔 히스토리가 없다. 그때는 관리자 홈으로 보낸다
+   (아무 반응 없는 버튼이 되면 «눌러도 안 된다» 신고가 된다). */
+(function(){
+  var b = document.getElementById('tn-back');
+  if (!b) return;
+  b.addEventListener('click', function(){
+    if (history.length > 1) history.back();
+    else location.href = '/admin.html';
+  });
+})();
 </script>
 </body>
 </html>

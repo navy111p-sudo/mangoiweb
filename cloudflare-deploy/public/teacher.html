@@ -231,6 +231,10 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .btn-appr{background:#0b7a3d;color:#fff;flex:1}
 .btn-skip{background:#e7ebef;color:#2c3a48;flex:0 0 auto}
 .btn-sm{min-height:44px;padding:11px 14px;font-size:14px}
+/* 🪤 (2026-08-16) 수업 줄에 버튼이 셋이면 좁은 폰(430px)에서 글자가 «AI 리포트 요/청» 으로
+   쪼개진다 — .cls-act 가 flex-wrap 이고 셋이 폭을 1:1:1 로 나눠 갖기 때문이다.
+   라벨을 짧게 줄이고, 그래도 넘치면 줄을 쪼개는 대신 «…» 로 자른다(글자가 깨져 보이지 않게). */
+.btn-ask{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .btn-post{background:#fff;color:#1355a8;border:1px solid #9db8dc;flex:0 0 auto}
 .fld input,.fld select{
   width:100%;border:1px solid #c9d2dc;border-radius:8px;padding:10px;font-size:16px;
@@ -1424,8 +1428,16 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
              녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
              필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
              실제 생성은 회선 좋은 사무실이 관리자 화면에서 한다. */
-          +  '<button class="btn btn-gray btn-sm" type="button" data-rep="' + i + '">'
-          +    esc(T('Ask for AI report','AI 리포트 요청')) + '</button>';
+          //  이미 요청한 수업이면 그렇게 그린다(60초 자동 갱신·언어 전환에도 안 풀리게)
+          +  (ASKED[c.room_id]
+              ? '<button class="btn btn-gray btn-sm btn-ask" type="button" disabled title="'
+                +  esc(T('The office will make the report from the class recording',
+                         '사무실에서 수업 녹음으로 리포트를 만들어 드려요')) + '">'
+                +  esc(T('Requested ✓','요청됨 ✓')) + '</button>'
+              : '<button class="btn btn-gray btn-sm btn-ask" type="button" data-rep="' + i + '" title="'
+                +  esc(T('Ask the office to make the AI report for this class',
+                         '이 수업 AI 리포트를 사무실에 요청합니다')) + '">'
+                +  esc(T('AI report','AI 리포트')) + '</button>');
       } else if (open){
         h += '<button class="btn btn-join" type="button" data-join="' + i + '">'
           +    esc(T('Join Class','수업 입장')) + '</button>';
@@ -2816,6 +2828,23 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     .catch(function(){ /* 아직 회선이 없다 — 다음 기회에 */ });
   }
 
+  /* 📌 «이 수업은 이미 요청했다» 를 기억한다 (2026-08-16)
+     안 그러면 수업 목록을 다시 그릴 때마다 버튼이 처음 상태로 돌아간다. 그런데 이 화면은
+     **60초마다 자동으로 다시 그리고**, 🌐 를 눌러도 다시 그린다. 그래서 강사가 요청해 놓고
+     1분만 지나면 «안 보냈나?» 싶은 화면을 보게 된다(실측으로 확인).
+     서버가 중복을 합쳐 주므로 사고는 안 나지만, 강사에게는 «눌렀는데 소용없었다» 로 보인다. */
+  var ASKED_KEY = 'mangoi_teacher_asked_v1';
+  var ASKED = {};
+  (function(){
+    try { ASKED = JSON.parse(localStorage.getItem(ASKED_KEY) || '{}') || {}; } catch (e) { ASKED = {}; }
+    // 오래된 것은 버린다 — 지난 수업까지 계속 «요청됨» 으로 남을 이유가 없다(7일)
+    var cut = Date.now() - 7 * 24 * 3600e3, k;
+    for (k in ASKED) if (ASKED.hasOwnProperty(k) && !(ASKED[k] > cut)) delete ASKED[k];
+  })();
+  function askedSave(){
+    try { localStorage.setItem(ASKED_KEY, JSON.stringify(ASKED)); } catch (e) { /* 용량 초과는 무시 */ }
+  }
+
   /* 🎙 AI 리포트 요청 — 보내는 것은 방 번호와 이름뿐(200바이트 안쪽).
      녹음은 사무실이 관리자 화면에서 돌린다. 여기서 무거운 일을 하지 않는 것이 요점이다.
      ⚠️ 같은 수업을 두 번 눌러도 서버가 «아직 확인 안 된 요청» 을 찾아 하나로 합친다
@@ -2837,12 +2866,17 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     .then(function(r){ return r.json(); })
     .then(function(j){
       if (!j || !j.ok) throw new Error((j && j.error) || 'failed');
+      //  라벨은 짧게 — 좁은 폰에서 줄이 쪼개진다. 자세한 설명은 title 로 남긴다.
+      btn.title = EN() ? 'The office will make the report from the class recording'
+                       : '사무실에서 수업 녹음으로 리포트를 만들어 드려요';
+      ASKED[c.room_id] = Date.now();   // 다시 그려도 «요청됨» 이 남게
+      askedSave();
       if (j.already) setBtnLabel(btn, 'Already asked', '이미 요청됨');
-      else           setBtnLabel(btn, 'Asked — office will make it', '요청됨 — 사무실이 만들어요');
+      else           setBtnLabel(btn, 'Requested ✓', '요청됨 ✓');
     })
     .catch(function(){
       btn.disabled = false;
-      setBtnLabel(btn, 'Could not send — tap again', '못 보냈어요 — 다시 누르기');
+      setBtnLabel(btn, 'Try again', '다시 누르기');
     });
   }
 
