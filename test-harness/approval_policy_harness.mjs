@@ -408,6 +408,60 @@ check('동료 목록은 결재할 수 있는 사람에게만 내려보낸다',
   /colleagues[\s\S]{0,200}isHqStaff\(actor\) && !ph/.test(API_SRC),
   '아무에게나 내려보내면 그냥 직원 명부가 된다');
 
+// ══ J. 기존 기능과 겹치지 않는가 — 중복 방지의 핵심 ═══════════════════════
+console.log('\n[J] 기존 기능을 «가져오기» 만 하는가 (표를 두 벌 만들지 않는가)');
+
+check('휴가는 강사도 올릴 수 있다 (쉬는 사람이 본인이다)',
+  canSubmit(teacher, 'leave') === true);
+
+check('휴가는 기간을 받는다',
+  typeSpec('leave').wantsDates === true);
+
+check('기간을 받는 분류는 휴가뿐이다',
+  TYPES.filter(t => t.wantsDates).map(t => t.key).join(',') === 'leave');
+
+check('휴가가 승인되면 기존 «강사 근무불가» 에 반영한다',
+  /applyLeaveToCalendar/.test(API_SRC) && /teacher_unavailability/.test(API_SRC),
+  '결재함에 휴가 표를 따로 만들면 캘린더와 반드시 어긋난다');
+
+check('휴가 반영은 최종 승인일 때만 한다',
+  /finalStatus === 'approved'[\s\S]{0,120}applyLeaveToCalendar/.test(API_SRC),
+  '중간 단계 승인만으로 예약을 막으면 안 된다');
+
+check('같은 휴가로 근무불가를 두 번 만들지 않는다',
+  /linked_id/.test(API_SRC));
+
+check('반영에 실패해도 결재는 살리되, 사실을 로그로 남긴다',
+  /근무불가 등록 실패/.test(API_SRC),
+  '조용히 사라지면 «승인은 됐는데 예약은 안 막힌» 상태를 아무도 모른다');
+
+check('날짜가 거꾸로면 올릴 때 거절한다',
+  /date_range_invalid/.test(API_SRC),
+  '승인 시점에 실패하면 되돌리기 어렵다 — 입구에서 막는다');
+
+check('수업 변경 요청은 건수만 비춘다 (표를 옮기지 않는다)',
+  /schedule_pending/.test(API_SRC) &&
+  !/INSERT INTO schedule_change_requests/.test(API_SRC),
+  '같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다');
+
+check('화면 — 수업 변경은 원래 화면으로 보낸다',
+  /paintSchedule/.test(WORK_SRC) && /schedule_pending/.test(WORK_SRC));
+
+// 관리자 화면(1MB)은 배지 한 줄만 — 결재 목록을 그리로 옮기면 /work 를 만든 이유가 사라진다.
+const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+check('관리자 화면에는 배지와 링크만 넣었다',
+  /mi-appr-badge/.test(ADMIN_SRC) &&
+  !/api\/approval\/requests\/[^/]*\/decide/.test(ADMIN_SRC),
+  '관리자 화면에 결재 목록·승인 버튼을 만들면 화면이 두 벌이 된다');
+
+check('관리자 화면의 배지는 대기가 있을 때만 그린다',
+  /if \(!n\) return;/.test(ADMIN_SRC),
+  '늘 떠 있는 배지는 곧 배경이 된다');
+
+check('관리자 화면의 배지는 반복 폴링하지 않는다',
+  /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
+  '좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다');
+
 // ── 결과 ────────────────────────────────────────────────────────────────────
 console.log('──────────────────────────────────────');
 if (FAIL) {

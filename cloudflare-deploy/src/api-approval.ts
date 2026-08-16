@@ -113,6 +113,11 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     //    회선이 끊기면 «저장은 됐는데 응답만 못 받은» 경우가 실제로 생긴다 —
     //    그때 다시 보내면 예전에는 지출 결재가 두 건이 됐다. 이제는 같은 건으로 합쳐진다.
     `ALTER TABLE approval_requests ADD COLUMN client_key TEXT`,
+    // 🏖️ 휴가 기간. 승인되는 순간 이 값으로 «강사 근무불가» 를 만들어 예약을 막는다.
+    `ALTER TABLE approval_requests ADD COLUMN date_from TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN date_to TEXT`,
+    // 같은 휴가로 근무불가를 두 번 만들지 않게 하는 표식(연결된 teacher_unavailability.id)
+    `ALTER TABLE approval_requests ADD COLUMN linked_id INTEGER`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -459,6 +464,7 @@ function rowOf(r: any, steps?: any[], brief = false) {
     type_ko: spec.ko, type_en: spec.en,
     title: r.title, body, category: r.category,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
+    date_from: r.date_from || null, date_to: r.date_to || null,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
     status: r.status, decided_by: r.decided_by, decided_at: r.decided_at,
@@ -515,6 +521,67 @@ function chainUsers(steps: any[] | undefined): string[] {
   const out: string[] = [];
   for (const s of (steps || [])) if (s.decided_by) out.push(String(s.decided_by));
   return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🏖️ 휴가 승인 → 기존 «강사 근무불가» 에 반영
+ *
+ *   왜 이렇게 하나 — 휴가는 이미 캘린더(teacher_unavailability)에 있던 기능이다.
+ *   결재함에 또 만들면 **두 곳에 같은 정보**가 생기고 반드시 어긋난다.
+ *   그래서 신청 창구만 결재함으로 모으고, 저장은 원래 자리에 그대로 둔다.
+ *   결재함은 «올린다 → 승인된다» 까지만 하고, 그 결과를 원래 표에 적어 준다.
+ *
+ *   ⚠️ 실패해도 결재 자체는 이미 승인된 상태다(여기서 예외를 던지지 않는다).
+ *      대신 못 붙였다는 사실을 로그로 남긴다 — 조용히 사라지면 «승인은 됐는데
+ *      예약은 안 막힌» 상태를 아무도 모른다.
+ *   ⚠️ 같은 결재로 두 번 만들지 않는다(linked_id). 재시도·중복 클릭 방어.
+ * ═════════════════════════════════════════════════════════════════════════ */
+async function applyLeaveToCalendar(env: ApprovalEnv, req: any, reqId: number): Promise<void> {
+  try {
+    if (req.linked_id) return;                       // 이미 반영됨
+
+    // 강사 명단에서 이 사람을 찾는다. 이름이 정본이다(teacher_unavailability 가 그렇게 쓴다).
+    const nm = String(req.requester_name || '').replace(/(선생님?|쌤)$/, '').trim();
+    if (!nm) { console.warn('[approval-leave] 이름이 없어 근무불가를 못 만듦', reqId); return; }
+    const t: any = await safe(async () => await env.DB.prepare(
+      `SELECT id, name FROM teachers WHERE name = ? OR name LIKE ? LIMIT 1`
+    ).bind(String(req.requester_name), '%' + nm + '%').first(), null);
+
+    if (!t?.id) {
+      // 강사가 아닌 본사 직원의 휴가 — 막을 수업이 없으므로 근무불가를 만들지 않는다. 정상이다.
+      console.log('[approval-leave] 강사 명단에 없음(본사 직원 휴가로 봄)', reqId, nm);
+      return;
+    }
+
+    /* ⚠️ teacher_unavailability 를 여기서 **만들지 않는다.**
+       이 표의 주인은 api-admin.ts 다. CREATE TABLE IF NOT EXISTS 는 «먼저 실행된 것이 이기므로»,
+       여기서 한 벌 더 만들면 컬럼이 모자란 표가 먼저 생겨 주인 쪽 코드가 깨질 수 있다
+       (test-harness/schema_drift_harness 가 정확히 이걸 잡는다 — 2026-08-16 실제로 걸렸다).
+       표가 없으면 아래 INSERT 가 실패하고, catch 가 «손으로 넣어야 한다» 고 남긴다. */
+    const ins = await env.DB.prepare(
+      `INSERT INTO teacher_unavailability
+         (teacher_id, teacher_name, kind, start_date, end_date, day_of_week, start_time, end_time,
+          reason, created_by, created_at)
+       VALUES (?, ?, 'date_range', ?, ?, NULL, NULL, NULL, ?, ?, ?)`
+    ).bind(
+      String(t.id), String(t.name),
+      String(req.date_from), String(req.date_to || req.date_from),
+      ('휴가 결재 #' + reqId + (req.title ? (' · ' + String(req.title).slice(0, 60)) : '')).slice(0, 300),
+      '결재 자동반영', Date.now()
+    ).run();
+
+    const newId = Number(ins?.meta?.last_row_id || 0);
+    if (newId) {
+      await safe(async () => {
+        await env.DB.prepare(`UPDATE approval_requests SET linked_id = ? WHERE id = ?`).bind(newId, reqId).run();
+        return true;
+      }, false);
+    }
+    console.log('[approval-leave] 근무불가 등록', JSON.stringify({ reqId, unavailId: newId, teacher: t.name }));
+  } catch (e) {
+    // ⚠️ 삼키되 반드시 남긴다 — 결재는 승인됐는데 예약이 안 막힌 상태를 사람이 알아야 한다.
+    console.error('[approval-leave] 근무불가 등록 실패 — 손으로 넣어야 합니다. reqId=' + reqId, (e as any)?.message || e);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -648,6 +715,16 @@ export async function handleApprovalApi(
       if (reuse.length >= 3) break;
     }
 
+    /* 🔗 수업 연기·변경 요청 대기 건수 — 결재할 수 있는 사람에게만.
+       표를 옮기지 않는다. «저기에 N건 밀려 있다» 만 알려 주고 누르면 원래 화면으로 간다. */
+    let scheduleWaiting = 0;
+    if (!actor.isTeacher && isHqStaff(actor)) {
+      const sc: any = await safe(async () => await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status = 'pending'`
+      ).first(), null);
+      scheduleWaiting = Number(sc?.c || 0);
+    }
+
     /* 🏖️ 대결(위임) — 결재자가 휴가·출장이면 결재가 그대로 멈춘다. 그걸 넘길 사람 목록.
        ⚠️ 결재할 수 있는 사람에게만 내려보낸다. 다른 사람에게는 직원 명부가 될 뿐이다. */
     let colleagues: any[] = [];
@@ -675,8 +752,12 @@ export async function handleApprovalApi(
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
       types: TYPES.filter(t => canSubmit(actor, t.key))
-                  .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount, wants_file: t.wantsFile })),
+                  .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
+                               wants_file: t.wantsFile, wants_dates: !!t.wantsDates })),
       inbox, mine, reuse, urgent,
+      /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
+         (같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다 — 데이터는 원래 자리에 둔다) */
+      schedule_pending: scheduleWaiting,
     }), { status: 200, headers });
   }
 
@@ -729,6 +810,29 @@ export async function handleApprovalApi(
       const category = String(form.get('category') || '').trim().slice(0, 60) || null;
       const spentAt = String(form.get('spent_at') || '').trim().slice(0, 10) || null;
       const currency = normCurrency(String(form.get('currency') || 'PHP'));
+
+      // 🏖️ 휴가 기간 — 승인되면 이 값으로 예약을 막는다. 형식이 어긋나면 여기서 거절한다
+      //    (승인 시점에 조용히 실패하면 «승인은 됐는데 예약은 안 막힌» 상태가 된다).
+      const dRe = /^\d{4}-\d{2}-\d{2}$/;
+      let dateFrom: string | null = null, dateTo: string | null = null;
+      if (typeSpec(reqType).wantsDates) {
+        dateFrom = String(form.get('date_from') || '').trim();
+        dateTo = String(form.get('date_to') || '').trim() || dateFrom;
+        if (!dRe.test(dateFrom)) {
+          return json({
+            ok: false, error: 'date_required',
+            message: '휴가 시작 날짜를 골라 주세요.',
+            message_en: 'Please pick a start date.',
+          }, 400);
+        }
+        if (!dRe.test(dateTo) || dateTo < dateFrom) {
+          return json({
+            ok: false, error: 'date_range_invalid',
+            message: '종료 날짜가 시작 날짜보다 빠릅니다.',
+            message_en: 'The end date is before the start date.',
+          }, 400);
+        }
+      }
 
       // 금액: 지출·물품일 때만 의미가 있다. 숫자가 아니면 **0 으로 때우지 않고 거절**한다 —
       //   금액이 0 으로 들어간 지출 결재는 승인자가 눈치채기 어렵다.
@@ -795,11 +899,12 @@ export async function handleApprovalApi(
            (req_type, requester_username, requester_name, title, body, category,
             amount, currency, spent_at, file_key, file_name, file_ext, file_size,
             status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags,
-            client_key)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?)`
+            client_key, date_from, date_to)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(reqType, actor.username, actor.name || null, title, body || null, category,
              amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, now,
-             stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags), clientKey).run();
+             stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags), clientKey,
+             dateFrom, dateTo).run();
 
       const reqId = Number(ins.meta.last_row_id);
 
@@ -1001,6 +1106,11 @@ export async function handleApprovalApi(
       await notify(env, targets, typeSpec(cur.req_type).en + ' · stage ' + nextSeq,
                    String(cur.title || '').slice(0, 80), id, 'approval');
     } else {
+      // 🏖️ 휴가가 최종 승인되면 «강사 근무불가» 에 그대로 반영한다 —
+      //   그래야 그 기간 예약이 실제로 막힌다. 결재함과 캘린더에 따로 적지 않는다(이중 입력 방지).
+      if (finalStatus === 'approved' && typeSpec(cur.req_type).wantsDates && cur.date_from) {
+        await applyLeaveToCalendar(env, cur, id);
+      }
       // 끝났으면 올린 사람에게 결과를 알린다.
       await notify(env, [String(cur.requester_username)],
                    decision === 'approved' ? 'Approved' : 'Rejected',

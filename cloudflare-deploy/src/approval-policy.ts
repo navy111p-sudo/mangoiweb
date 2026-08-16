@@ -64,6 +64,12 @@ export interface TypeSpec {
   slaHours: number;
   /** 첨부(영수증)가 없으면 점검 표시를 띄울 것인가 */
   wantsFile: boolean;
+  /**
+   * 기간(시작일·종료일)을 받는가 — 휴가 전용.
+   * 승인되는 순간 기존 «강사 근무불가» 에 그대로 반영되어 **그 시간 예약이 실제로 막힌다.**
+   * (신청 창구는 결재함 하나로 모으고, 캘린더는 결과만 보여 준다 — 두 곳에 따로 적지 않는다)
+   */
+  wantsDates?: boolean;
 }
 
 /**
@@ -78,7 +84,9 @@ export const TYPES: TypeSpec[] = [
   { key: 'complaint', ko: '고객 불만', en: 'Complaint',   needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false },
   { key: 'urgent',    ko: '긴급 소통', en: 'Urgent',      needsAmount: false, teacherMaySubmit: true,  visibility: 'broadcast', slaHours: 2,  wantsFile: false },
   { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: false },
-  { key: 'leave',     ko: '휴가 신청', en: 'Time off',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: false },
+  // 🏖️ 휴가는 강사도 올린다 — 쉬는 사람이 본인이므로 당연하다.
+  //    승인되면 teacher_unavailability 에 그대로 들어가 그 기간 예약이 실제로 막힌다.
+  { key: 'leave',     ko: '휴가 신청', en: 'Time off',    needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false, wantsDates: true },
 ];
 
 export const REQ_TYPES: string[] = TYPES.map(t => t.key);
