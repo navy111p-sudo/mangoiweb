@@ -12410,6 +12410,58 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
        admin-inline-c.css 의 #ph160-rail-toggle / html[data-adm-nav="rail"] 규칙 전부.
      ⚠️ localStorage 의 mangoi_admin_nav_collapsed 는 남을 수 있으나 이제 읽는 곳이 없다. -->
 
+<!-- ════════════════════════════════════════════════════════════════════════════
+     🧾 결재 대기 알림 (2026-08-16)
+
+     왜 여기(맨 끝 · 자체 완결) 인가
+       이 파일은 1MB 다. 기존 레이아웃·메뉴 체계를 건드리면 사고 반경이 서비스 전체가 된다.
+       그래서 **아무것도 참조하지 않는 블록 하나**로 끝냈다 —
+       admin.html 의 CSS·JS·i18n·메뉴 어느 것에도 의존하지 않는다.
+
+     하는 일은 딱 하나: «결재 N건» 을 보여 주고 누르면 /work 로 보낸다.
+       ⚠️ 결재 목록·승인 버튼을 여기에 만들지 말 것. 그러면 화면이 두 벌이 되고,
+          전용 경량 화면(/work)을 만든 이유가 사라진다.
+       ⚠️ 대기가 0건이면 아예 그리지 않는다. 늘 떠 있는 배지는 곧 배경이 된다.
+       ⚠️ 첫 화면과 경쟁하지 않게 3초 뒤에 한 번만 부른다. 반복 폴링하지 않는다.
+       ⚠️ hover 확대·애니메이션 없음(CLAUDE.md 1-3 — 과거에 의도적으로 제거한 것).
+     ════════════════════════════════════════════════════════════════════════════ -->
+<script>
+(function(){
+  "use strict";
+  function draw(n, late){
+    if (!n) return;
+    if (document.getElementById('mi-appr-badge')) return;
+    var ko = (localStorage.getItem('mangoi_lang') !== 'en');
+    var a = document.createElement('a');
+    a.id = 'mi-appr-badge';
+    a.href = '/work';
+    a.textContent = ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late) : ''))
+                       : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : ''));
+    a.style.cssText =
+      'position:fixed;right:16px;bottom:16px;z-index:9999;' +
+      'background:' + (late ? '#a4341f' : '#0b6e63') + ';color:#fff;' +
+      'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;' +
+      'padding:12px 16px;border-radius:22px;text-decoration:none;' +
+      'box-shadow:0 2px 10px rgba(0,0,0,.25)';
+    document.body.appendChild(a);
+  }
+  function load(){
+    fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.ok || !j.inbox) return;
+        var late = 0, now = Date.now();
+        for (var i = 0; i < j.inbox.length; i++) {
+          var x = j.inbox[i];
+          if (x.stage_due_at && now > Number(x.stage_due_at)) late++;
+        }
+        draw(j.inbox.length, late);
+      })
+      .catch(function(){ /* 결재를 못 불러온 것이 관리자 화면을 망치지 않는다 */ });
+  }
+  setTimeout(load, 3000);
+})();
+</script>
 <!-- BUILD:20260813015745 -->
 </body>
 </html>

@@ -280,7 +280,8 @@ const worker = {
         if (path === '/admin' || path === '/admin/' || path === '/admin.html'
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
-            || path === '/manager' || path === '/manager/' || path === '/manager.html') {
+            || path === '/manager' || path === '/manager/' || path === '/manager.html'
+            || path === '/work' || path === '/work/' || path === '/work.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -380,9 +381,25 @@ const worker = {
             // ── 가족·리퍼럴 (card-family-mgmt · card-referral) ──
             '/api/admin/family', '/api/admin/families', '/api/admin/referrals',
             // ── 결재(기안·지출) — 회사 지출 내역. 핸들러도 막지만 여기에도 이중으로 둔다 ──
+            //    ⚠️ 아래 _TEACHER_APPROVAL_OK 로 «긴급·고객불만» 경로만 예외로 연다.
             '/api/approval',
           ];
-          const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p));
+          /* 🧾 (2026-08-16) 강사에게 열어 주는 결재 경로 — 여기 적힌 것만 통과한다.
+           *   왜 여는가: 사고·학부모 항의는 **현장의 강사가 가장 먼저 안다.** 그걸 매니저에게
+           *   따로 연락해서 대신 올리게 하면 그 시간만큼 늦는다.
+           *   ⚠️ 여는 것은 «올리기»와 «내 결재함»뿐이다. 분류 제한(긴급·고객불만만)과
+           *      열람 제한은 approval-policy 의 canSubmit()·canView() 가 판정한다 —
+           *      즉 강사가 /home 을 불러도 남의 지출 결재는 응답에 담기지 않는다.
+           *   ⛔ 결재(decide)·위임(delegate)·목록(requests GET)은 여전히 막힌다. */
+          const _TEACHER_APPROVAL_OK = (p: string, m: string): boolean => {
+            if (p === '/api/approval/home' && m === 'GET') return true;
+            if (p === '/api/approval/requests' && m === 'POST') return true;   // 올리기(분류는 핸들러가 제한)
+            if (p === '/api/approval/voice' && m === 'POST') return true;      // 말로 올리기
+            if (/^\/api\/approval\/requests\/\d+\/file$/.test(p) && m === 'GET') return true;  // 본인 첨부(핸들러가 재확인)
+            return false;
+          };
+          const _teacherBlocked = TEACHER_BLOCKED_PREFIXES.some(p => path.startsWith(p))
+                               && !_TEACHER_APPROVAL_OK(path, request.method);
           if (_teacherBlocked) {
             const _actor = await getAdminActor(request, env as any);
             if (_actor.isTeacher) {
@@ -1973,6 +1990,29 @@ const worker = {
       return new Response(mResp.body, { status: mResp.status, headers: mHeaders });
     }
 
+    /* 🧾 /work — 결재 전용 초경량 화면 (2026-08-16 신설)
+     *
+     * 왜 — 결재 API 는 2026-08-05 부터 있었는데, 화면이 **강사 포털(192KB) 안**에 있었다.
+     *      강사는 그 카드가 403 이라 못 보고, 정작 결재를 가장 많이 올리는 필리핀 매니저의
+     *      전용 화면(manager.html)에는 결재가 **한 줄도 없었다**. 매니저는 결재 한 건 올리려고
+     *      자기 경량 화면을 나가 10배 무거운 페이지를 받아야 했다 — 「경로가 복잡하다」의 실체.
+     *
+     * ⚠️ /teacher · /manager 와 같은 이유로 ETag/304 를 직접 붙인다.
+     *    확장자가 없는 경로라 아래 «정적자산» 블록에 들어가지 못해, 안 붙이면 열 때마다
+     *    통째로 다시 내려간다(필리핀 회선에서 이게 체감 지연이 된다).
+     * ⚠️ 이 한 쌍(/teacher·/manager)을 놓쳐서 2026-08-09 에 매니저가 홈으로 튕긴 사고가 있었다.
+     *    새 경량 화면을 추가할 땐 반드시 여기에도 블록을 만들 것.
+     */
+    if (path === '/work' || path === '/work/') {
+      const r = new Request(new URL('/work.html' + url.search, request.url).toString(), request);
+      const wResp = await env.ASSETS.fetch(r);
+      const wHeaders = new Headers(wResp.headers);
+      wHeaders.set('Cache-Control', 'no-cache');   // 캐시 금지가 아니라 '쓰기 전 재검증'
+      const wNotMod = htmlEtag304(request, '/work.html', env, wHeaders);
+      if (wNotMod) return wNotMod;
+      return new Response(wResp.body, { status: wResp.status, headers: wHeaders });
+    }
+
     // Static assets (실제 파일 확장자가 있는 요청)
     if (path.match(/\.\w+$/)) {
       const assetResp = await env.ASSETS.fetch(request);
@@ -2096,6 +2136,19 @@ const worker = {
         } catch (err) {
           console.error('[corpcard-sync] error', err);
         }
+        // 📊 주간 결재 요약 — 월요일 아침(09:00 KST)에 경영진에게 한 번.
+        //   페널티를 «벌점»이 아니라 «가시성»으로 두기로 한 설계의 마지막 조각이다.
+        //   숨겨진 지연은 아무도 고치지 않지만, 드러난 지연은 대부분 스스로 해결된다.
+        if (kstDay === 1) {
+          try {
+            const { runApprovalWeeklyReport } = await import('./api-approval');
+            const wr = await runApprovalWeeklyReport(env as any);
+            if (wr && wr.total > 0) console.log('[approval-weekly]', JSON.stringify(wr));
+          } catch (err) {
+            console.error('[approval-weekly] error', err);
+          }
+        }
+
         // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
         try {
           const { bankConfigured, runBankSync } = await import('./bankacct-sync');
@@ -2117,6 +2170,18 @@ const worker = {
         if (rf && (rf.finalized > 0 || rf.failed > 0)) console.log('[rec-finalize]', JSON.stringify(rf));
       } catch (err) {
         console.error('[rec-finalize] error', err);
+      }
+
+      // 🧾 결재 마감 관리 — 매 15분: 시한을 넘긴 결재를 재알림하고, 이틀을 더 넘기면
+      //   경영진 결재함으로 승격한다(원 결재자에게도 알린다).
+      //   ⚠️ cron 은 계정 한도 5/5 로 꽉 차서 새로 못 만든다(wrangler.toml 주석) — 기존 15분에 얹는다.
+      //   재알림은 건당 하루 1회로 제한된다(approval_requests.warned_at) — 도배 방지.
+      try {
+        const { runApprovalSlaSweep } = await import('./api-approval');
+        const ap = await runApprovalSlaSweep(env as any);
+        if (ap && (ap.warned > 0 || ap.escalated > 0)) console.log('[approval-sla]', JSON.stringify(ap));
+      } catch (err) {
+        console.error('[approval-sla] error', err);
       }
 
       // 📣 수업 전 리마인더 — 매 15분: 시작 15~45분 전 수업을 찾아 학부모+학생에게 문자.
@@ -4848,6 +4913,11 @@ function isAdminPath(path: string, method: string): boolean {
   //      여기(isAdminPath)와, 미인증 시 로그인으로 보내는 리다이렉트 목록.
   //      한쪽만 하면 인증은 걸리는데 'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
   if (path === '/manager' || path === '/manager/' || path === '/manager.html') return true;
+
+  // 🧾 결재 전용 초경량 화면 (2026-08-16) — 회사 지출 내역이 담긴다. 로그인 필수.
+  //   위 두 포털과 같은 규칙이다. 역할 분기는 하지 않는다 —
+  //   강사는 긴급·고객불만만 올릴 수 있고, 그 판정은 /api/approval/* 핸들러가 분류별로 한다.
+  if (path === '/work' || path === '/work/' || path === '/work.html') return true;
 
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
