@@ -75,14 +75,28 @@ body{
   line-height:1.6;
   -webkit-font-smoothing:antialiased;
 }
-.page{max-width:1560px;margin:0 auto;padding:30px 24px 72px}
+.page{max-width:1560px;margin:0 auto;padding:0 24px 72px}
 
 
-/* ---------- 좌측 상단 이동 버튼 ---------- */
-/*  이 문서는 관리자 사이드바에서 «다른 페이지»로 빠져나온 자리라, 돌아갈 길이 화면에
-    없으면 브라우저 뒤로가기밖에 방법이 없다(2026-08-16 사장님 요청).
-    ⚠️ 크기·위치는 hover 로 움직이지 않는다 — 관리자 화면의 hover 확대 금지 규칙. */
-.topnav{display:flex;gap:8px;margin:0 0 16px}
+/* ---------- 상단 바 — 이 페이지의 «전부» ---------- */
+/*  2026-08-16 사장님: «위에 있는 글자들 다 지우고 보기 쉽게 직관적이고 깨끗하고 심플하게».
+    지운 것 — .eyebrow(MangoI · Information Architecture) · 큰 제목 밑 설명문(.lede) ·
+      «큰 칸→중간 칸→작은 칸» 범례 줄(.legend, .demo-l1~l3).
+    남긴 것 — 돌아가는 버튼 3개 · 이름표 한 줄 · 사람 고르는 칩.
+    범례를 지운 대신 «칸 크기 = 계층» 을 글로 설명하지 않고 눈으로 알게 했다:
+      고른 칩이 그 갈래의 색으로 켜져서 아래 색띠와 짝이 맞는다.
+    ⚠️ 바는 sticky 다. 지도가 길어서 아래로 내려가도 사람 고르기가 손에 남아 있어야 한다.
+    ⚠️ hover 로 크기·위치가 변하지 않는다(관리자 화면 hover 확대 금지 규칙). */
+.bar{
+  position:sticky;top:0;z-index:20;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  margin:0 -24px;padding:12px 24px;
+  background:color-mix(in oklab, var(--paper) 88%, transparent);
+  backdrop-filter:saturate(1.4) blur(10px);
+  -webkit-backdrop-filter:saturate(1.4) blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.bar-nav{display:flex;gap:6px;flex:none}
 .tn-btn{
   display:inline-flex;align-items:center;justify-content:center;
   width:38px;height:38px;font-size:17px;line-height:1;cursor:pointer;
@@ -95,71 +109,44 @@ body{
   background:color-mix(in oklab, var(--root) 8%, var(--card))}
 .tn-btn:focus-visible{outline:2px solid var(--root);outline-offset:2px}
 
-/* ---------- header ---------- */
-.eyebrow{
-  font-size:11px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--muted);margin:0 0 12px;
-}
+/*  ⚠️ 이름표에 🗺 를 붙였다가 뺐다 — 🗺(U+1F5FA)는 Win10 기본 글꼴에서 깨져 나온다.
+    글자 «사이트 지도» 만으로 충분하다. */
 h1{
-  margin:0;font-size:clamp(30px,4.6vw,50px);line-height:1.12;letter-spacing:-.035em;
-  font-weight:900;text-wrap:balance;
-}
-h1 em{font-style:normal;color:var(--root)}
-.lede{
-  margin:14px 0 0;max-width:60ch;font-size:clamp(15px,1.5vw,18px);color:var(--ink2);
-  text-wrap:pretty;
+  margin:0;flex:none;font-size:17px;font-weight:900;letter-spacing:-.03em;
+  white-space:nowrap;padding:0 6px 0 2px;color:var(--ink);
 }
 
-
-/* ---------- 한 줄 범례 ---------- */
-/*  지도가 주인공이다. 통계 알약과 «지도 읽는 법» 상자를 걷어내고 한 줄로 줄였다
-    (2026-08-16 사장님: «굳이 필요 없으니 빼줘. 안내도 최소화해서 지도에 집중하게»). */
-.legend{
-  display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;
-  margin:22px 0 0;font-size:13px;color:var(--ink2);
-}
-.legend > span{display:inline-flex;align-items:center;gap:7px}
-.legend .arrow{color:var(--muted);font-size:14px;padding:0 2px;user-select:none}
-.legend-tip{
-  margin-left:6px;padding:5px 12px;border-radius:999px;
-  background:color-mix(in oklab, var(--root) 12%, var(--card));
-  border:1px solid color-mix(in oklab, var(--root) 34%, transparent);
-  font-size:12.5px;color:var(--ink2);
-}
-.legend-tip b{color:var(--root);font-weight:900}
-.demo-l1{
-  background:var(--c1);color:var(--on-lane);border-radius:9px;padding:5px 11px;
-  font-weight:900;font-size:12.5px;letter-spacing:-.01em;
-}
-.demo-l2{
-  background:color-mix(in oklab, var(--c1) 13%, var(--card));
-  color:var(--c1);border-radius:8px;padding:4px 10px;font-weight:800;font-size:12px;
-}
-.demo-l3{
-  background:var(--card);border:1px solid var(--line);border-radius:7px;padding:3px 9px;
-  font-size:11.5px;color:var(--ink2);font-weight:600;
-}
-
-/* ---------- controls ---------- */
+/* ---------- 사람 고르기 칩 ---------- */
 .controls{
-  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
-  margin:20px 0 8px;
+  display:flex;gap:7px;align-items:center;flex:1 1 320px;min-width:0;
+  overflow-x:auto;scrollbar-width:none;padding:2px 0;
 }
+.controls::-webkit-scrollbar{display:none}
 .chipbtn{
-  font:inherit;font-size:13px;font-weight:700;cursor:pointer;
+  font:inherit;font-size:13.5px;font-weight:800;cursor:pointer;white-space:nowrap;flex:none;
   background:var(--card);color:var(--ink2);
-  border:1px solid var(--line);border-radius:999px;padding:8px 15px;
-  display:inline-flex;align-items:center;gap:8px;
+  border:1px solid var(--line);border-radius:999px;padding:8px 14px;
+  display:inline-flex;align-items:center;gap:6px;
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.chipbtn:hover{border-color:var(--muted);color:var(--ink)}
-.chipbtn:focus-visible{outline:2px solid var(--root);outline-offset:2px}
-.chipbtn .dot{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.9}
-.chipbtn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-.spacer{flex:1 1 40px}
+.chipbtn:hover{border-color:var(--chip,var(--muted));color:var(--ink)}
+.chipbtn:focus-visible{outline:2px solid var(--chip,var(--root));outline-offset:2px}
+/* 켜진 칩은 그 사람의 색으로 찬다 — 아래 색띠와 짝이 맞아 범례가 필요 없다 */
+.chipbtn[aria-pressed="true"]{
+  background:var(--chip,var(--ink));color:var(--on-lane);
+  border-color:var(--chip,var(--ink));
+}
+.chipbtn.ghost{
+  margin-left:auto;flex:none;font-size:12px;font-weight:700;color:var(--muted);
+  background:transparent;border-color:transparent;padding:8px 10px;
+}
+.chipbtn.ghost:hover{color:var(--ink2);border-color:var(--line)}
+.chipbtn.ghost[aria-pressed="true"]{
+  background:var(--card);color:var(--ink);border-color:var(--line);
+}
 
 /* ---------- map ---------- */
-.canvas{overflow-x:auto;padding:10px 2px 4px;margin:0 -2px}
+.canvas{overflow-x:auto;padding:24px 2px 4px;margin:0 -2px}
 .map{min-width:1240px}
 
 .root-wrap{display:flex;flex-direction:column;align-items:center}
@@ -275,19 +262,39 @@ footer{
 }
 footer b{color:var(--ink2);font-weight:700}
 
+/* ---------- 휴대폰 ---------- */
+/*  세로 화면에서는 5갈래를 나란히 못 놓는다. 한 줄로 쌓되, 그러면 81칸이 한 기둥으로
+    길어지므로 «사람 고르기» 가 진짜 필터가 되어야 한다 —
+    PC 의 흐리게(.dim) 대신 아예 감춘다(display:none). 골라야 짧아진다. */
 @media (max-width:900px){
-  .page{padding:28px 16px 56px}
-  .canvas{overflow-x:visible}
+  .page{padding:0 14px 56px}
+  .bar{margin:0 -14px;padding:10px 14px;gap:8px}
+  .canvas{overflow-x:visible;padding:18px 0 4px}
   .map{min-width:0}
-  .lanes{grid-template-columns:1fr;gap:26px}
+  .lanes{grid-template-columns:1fr;gap:24px}
   .stem,.bus,.lane-drop{display:none}
-  .root-wrap{margin-bottom:26px}
+  .root-wrap{margin-bottom:22px}
   .root-node{width:100%}
+  .lane.dim{display:none}
+  /* 손가락으로 누르는 칸은 커야 한다 */
+  .leaf a, .leaf > span{padding:11px 12px;font-size:14px}
+  .chipbtn{padding:9px 14px;font-size:14px}
+  .base{margin-top:34px}
+}
+/*  아주 좁은 화면(≤430px): 이름표와 «주소 보기» 를 접고 칩만 남긴다.
+    남는 자리는 전부 지도로 간다. */
+@media (max-width:430px){
+  h1{display:none}            /* 자리를 통째로 지도에 준다 */
+  .tn-btn{width:36px;height:36px}
+  .controls{flex-basis:100%;order:3}
+  .chipbtn.ghost{display:none}
+  /*  칩이 오른쪽으로 더 있다는 것을 흐려지는 끝으로 알린다 — 화살표를 그리지 않아도 안다 */
+  .controls{-webkit-mask-image:linear-gradient(to right,#000 88%,transparent);
+            mask-image:linear-gradient(to right,#000 88%,transparent)}
 }
 @media (prefers-reduced-motion: reduce){
   *{transition:none !important;animation:none !important}
 }
-
 
 .leaf a{cursor:pointer}
 .leaf a::after{content:"↗";float:right;margin-left:8px;color:var(--muted);font-size:11px;font-weight:800}
@@ -297,37 +304,25 @@ footer b{color:var(--ink2);font-weight:700}
 <body>
 <div class="page">
 
-  <nav class="topnav" aria-label="이동">
-    <button type="button" class="tn-btn" id="tn-back" title="뒤로 가기" aria-label="뒤로 가기">←</button>
-    <a class="tn-btn" href="/admin.html" title="관리자 홈" aria-label="관리자 홈">🏠</a>
-    <a class="tn-btn" href="/" target="_blank" rel="noopener" title="학생 화면 (새 탭)" aria-label="학생 화면">🎒</a>
-  </nav>
+  <header class="bar">
+    <nav class="bar-nav" aria-label="이동">
+      <button type="button" class="tn-btn" id="tn-back" title="뒤로 가기" aria-label="뒤로 가기">&#8592;</button>
+      <a class="tn-btn" href="/admin.html" title="관리자 홈" aria-label="관리자 홈">&#127968;</a>
+      <a class="tn-btn" href="/" target="_blank" rel="noopener" title="학생 화면 (새 탭)" aria-label="학생 화면">&#127890;</a>
+    </nav>
 
-  <p class="eyebrow">MangoI · Information Architecture</p>
-  <h1>망고아이 <em>사이트 지도</em></h1>
-  <p class="lede">
-    화면을 <b>“누가 쓰는가”</b>로 나눈 그림입니다 — 손님 · 학생 · 부모님 · 선생님 · 운영자.
-  </p>
+    <h1>사이트 지도</h1>
 
-  <p class="legend">
-    <span><span class="demo-l1">큰 칸</span> 사람</span>
-    <span class="arrow">→</span>
-    <span><span class="demo-l2">중간 칸</span> 묶음</span>
-    <span class="arrow">→</span>
-    <span><span class="demo-l3">작은 칸</span> 화면</span>
-    <span class="legend-tip"><b>↗</b> 붙은 칸을 누르면 새 탭에서 열려요</span>
-  </p>
-
-  <div class="controls" role="group" aria-label="지도 보기 설정">
-    <button class="chipbtn" type="button" data-lane="all" aria-pressed="true">전체 보기</button>
-    <button class="chipbtn" type="button" data-lane="0" aria-pressed="false"><span class="dot" style="color:var(--c1)"></span>손님</button>
-    <button class="chipbtn" type="button" data-lane="1" aria-pressed="false"><span class="dot" style="color:var(--c2)"></span>학생</button>
-    <button class="chipbtn" type="button" data-lane="2" aria-pressed="false"><span class="dot" style="color:var(--c3)"></span>부모님</button>
-    <button class="chipbtn" type="button" data-lane="3" aria-pressed="false"><span class="dot" style="color:var(--c4)"></span>선생님</button>
-    <button class="chipbtn" type="button" data-lane="4" aria-pressed="false"><span class="dot" style="color:var(--c5)"></span>운영자</button>
-    <span class="spacer"></span>
-    <button class="chipbtn" type="button" id="pathToggle" aria-pressed="false">개발자용 주소 보기</button>
-  </div>
+    <div class="controls" role="group" aria-label="누구의 화면인지 골라 보기">
+      <button class="chipbtn" type="button" data-lane="all" aria-pressed="true">전체</button>
+      <button class="chipbtn" type="button" data-lane="0" aria-pressed="false" style="--chip:var(--c1)">&#128587; 손님</button>
+      <button class="chipbtn" type="button" data-lane="1" aria-pressed="false" style="--chip:var(--c2)">&#127890; 학생</button>
+      <button class="chipbtn" type="button" data-lane="2" aria-pressed="false" style="--chip:var(--c3)">&#128106; 부모님</button>
+      <button class="chipbtn" type="button" data-lane="3" aria-pressed="false" style="--chip:var(--c4)">&#127979; 선생님</button>
+      <button class="chipbtn" type="button" data-lane="4" aria-pressed="false" style="--chip:var(--c5)">&#9881;&#65039; 운영자</button>
+      <button class="chipbtn ghost" type="button" id="pathToggle" aria-pressed="false">주소 보기</button>
+    </div>
+  </header>
 
   <div class="canvas">
   <div class="map" id="map">
@@ -693,7 +688,7 @@ footer b{color:var(--ink2);font-weight:700}
     var on = pt.getAttribute('aria-pressed') !== 'true';
     pt.setAttribute('aria-pressed', String(on));
     map.classList.toggle('show-paths', on);
-    pt.textContent = on ? '주소 숨기기' : '개발자용 주소 보기';
+    pt.textContent = on ? '주소 숨기기' : '주소 보기';
   });
 })();
 

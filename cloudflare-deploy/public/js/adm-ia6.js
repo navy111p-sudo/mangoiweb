@@ -142,7 +142,11 @@
            실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
            ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
               (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
-        { ko: '사이트 구조도', en: 'Site structure', cards: [], href: '/admin/site-structure.html' }
+        /* 📱 휴대폰에서는 목차(허브)를 건너뛰고 지도로 바로 간다 — mobileHref.
+           site-structure.html 자체도 좁은 화면이면 지도로 넘기지만, 여기서 먼저 갈라 두면
+           그 «넘어가는 한 박자»(흰 화면 깜빡임 + 왕복 한 번)가 아예 없다. */
+        { ko: '사이트 구조도', en: 'Site structure', cards: [],
+          href: '/admin/site-structure.html', mobileHref: '/admin/site-structure-map.html' }
       ]
     }
   ];
@@ -563,10 +567,19 @@
     } catch (e) { return false; }
   }
 
+  // 📱 휴대폰·좁은 창인가 — mobileHref 분기 전용. site-structure.html 의 자체 넘김과 같은 기준(820px).
+  function isNarrow() {
+    try { return !!(window.matchMedia && window.matchMedia('(max-width:820px)').matches); }
+    catch (e) { return false; }
+  }
+
   function select(key) {
     var it = itemByKey(key);
     if (!it) return false;
     if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
+    /* 📱 좁은 화면 전용 목적지가 있으면 그쪽으로. 폭으로만 판정한다 —
+       기기 종류(userAgent)가 아니라 «지금 화면이 좁은가» 가 실제 문제이기 때문이다. */
+    if (it.mobileHref && isNarrow()) { location.href = it.mobileHref; return true; }
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
