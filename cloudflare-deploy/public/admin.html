@@ -11840,7 +11840,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ═══════════════════════════════════════════════════════════════════════ -->
 
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복.
+     🪶 (2026-08-16) 모바일에서는 **아예 내려받지 않는다.** 시계는 사이드바 맨 위로
+       옮겼고(요청 ③), 이 파일은 로드돼 봐야 위쪽 mgv2-clock-js 가 세워 둔
+       중복가드에 걸려 아무 일도 안 한다 — 받을 이유가 없다. 요청 하나·파싱 하나가 준다.
+     ⚠️ 파일 자체는 그대로다. PC 는 예전처럼 떠다니는 시계를 쓴다. -->
+<script>
+(function(){
+  if (window.matchMedia('(max-width: 1023px)').matches) return;   // 모바일 = 안 받음
+  var s = document.createElement('script');
+  s.src = '/js/mango-worldclock.js?v=7';
+  s.defer = true;
+  s.setAttribute('data-clock-go', '/');
+  document.head.appendChild(s);
+})();
+</script>
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 
 
