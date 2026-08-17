@@ -8260,8 +8260,9 @@ button.chip:hover,
     margin-bottom: 16px !important;
   }
   /* 🥭 왼쪽 = Mr. Mango 미니 아바타 / 오른쪽 = 돋보기 · 마이크 · ✕지우기 (2026-08-17 재배치) */
-  .hero .hero-search input { padding: 14px 152px 14px 60px !important; font-size: 17px !important; }
-  .hero .hero-search-mango { width: 40px !important; height: 40px !important; left: 12px !important; }
+  .hero .hero-search input { padding: 14px 152px 14px 66px !important; font-size: 17px !important; }
+  /* 📏 (2026-08-17 2차 «조금만 더 키워줘») 40 → 48px. a.css 의 짝과 값이 같아야 한다 */
+  .hero .hero-search-mango { width: 48px !important; height: 48px !important; left: 10px !important; }
   .hero .hero-search-icon { width: 40px !important; height: 40px !important; right: 12px !important; left: auto !important; }
   .hero .hero-search-mic { width: 40px !important; height: 40px !important; right: 58px !important; }
   .hero .hero-search-mic .mic-icon { width: 20px !important; height: 20px !important; }
