@@ -60,6 +60,7 @@ const ADD_COLS = [
   'summary_ko TEXT', 'summary_en TEXT', 'ocr_amount REAL', 'flags TEXT',
   'warned_at INTEGER', 'escalated_at INTEGER', 'client_key TEXT',
   'date_from TEXT', 'date_to TEXT', 'linked_id INTEGER',
+  'hr_kind TEXT', 'period TEXT',
 ].map((c) => `ALTER TABLE approval_requests ADD COLUMN ${c}`);
 
 console.log('\n[1] 표 만들기 — 옛 스키마부터');
@@ -122,6 +123,36 @@ t('delegates ON CONFLICT 업서트', () => {
                until_at = excluded.until_at, updated_at = excluded.updated_at`;
   db.exec(q); db.exec(q);
 });
+
+console.log('\n[5-2] 인사·급여 달 잠금');
+t('approval_period_locks', () => db.exec(
+  `CREATE TABLE IF NOT EXISTS approval_period_locks (` +
+  `kind TEXT NOT NULL, period TEXT NOT NULL, ` +
+  `request_id INTEGER, approved_by TEXT, approved_at INTEGER, ` +
+  `snapshot TEXT, ` +
+  `PRIMARY KEY (kind, period))`
+));
+t('같은 달을 두 번 잠그면 두 번째는 조용히 무시된다 (먼저 승인한 기록이 정본)', () => {
+  const q = `INSERT INTO approval_period_locks (kind, period, request_id, approved_by, approved_at, snapshot)
+             VALUES ('payroll','2026-08',1,'admin',1,'{}') ON CONFLICT(kind, period) DO NOTHING`;
+  db.exec(q);
+  db.exec(q);   // 두 번째 — 에러 없이 지나가야 한다
+  const n = db.prepare(`SELECT COUNT(*) AS c FROM approval_period_locks WHERE kind='payroll' AND period='2026-08'`).get();
+  if (Number(n.c) !== 1) throw new Error('행이 ' + n.c + '개 — 달이 두 번 확정됐다');
+});
+t('종류가 다르면 같은 달도 따로 잠근다 (급여·평가는 별개)', () => {
+  db.exec(`INSERT INTO approval_period_locks (kind, period, request_id, approved_by, approved_at)
+           VALUES ('evaluation','2026-08',2,'admin',1) ON CONFLICT(kind, period) DO NOTHING`);
+  const n = db.prepare(`SELECT COUNT(*) AS c FROM approval_period_locks WHERE period='2026-08'`).get();
+  if (Number(n.c) !== 2) throw new Error('급여와 평가가 서로를 막고 있다');
+});
+t('이미 확정된 달인지 조회', () => db.prepare(
+  `SELECT kind, period, request_id, approved_by, approved_at FROM approval_period_locks
+    WHERE kind = ? AND period = ? LIMIT 1`
+).get('payroll', '2026-08'));
+t('결재함 목록 서명용 집계', () => db.prepare(
+  `SELECT COUNT(*) AS c, IFNULL(MAX(approved_at),0) AS ma FROM approval_period_locks`
+).get());
 
 console.log('\n[6] 실제로 도는 쿼리들이 문법에 맞나');
 t('결재함 목록 정렬 (시각에 기대지 않는 순서)', () => db.prepare(

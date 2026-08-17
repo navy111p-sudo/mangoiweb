@@ -635,6 +635,7 @@
   "/js/adm-r20.js?v=3": "ae725122a1ea2d59",
   "/js/adm-r21.js?v=5": "c6b6814402a5693f",
   "/js/adm-welcome.js?v=7": "3e3f56b9beec3929",
+  "/js/adm-welcome.js?v=8": "e5206e961c59aa3a",
   "/css/admin-inline-c.css?v=20": "7d6e852720993cdd",
   "/js/adm-recent-menus.js?v=1": "7b5c39283165fc07",
   "/js/adm-s10.js?v=2": "8657cb204cf5b674",
@@ -653,5 +654,6 @@
   "/css/mangoi-han.css?v=2": "09d3a63ecb2f1e55",
   "/js/adm-ia6.js?v=24": "41357490c49e17b0",
   "/css/admin-inline-a.css?v=9": "9c8c054343c28398",
-  "/css/admin-inline-c.css?v=22": "49be907389826074"
+  "/js/adm-cdo-weather.js?v=1": "65a2896c4e057b81",
+  "/css/admin-inline-c.css?v=22": "d5725768c891ece6"
 }

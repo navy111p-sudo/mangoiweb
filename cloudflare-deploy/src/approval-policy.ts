@@ -70,6 +70,12 @@ export interface TypeSpec {
    * (신청 창구는 결재함 하나로 모으고, 캘린더는 결과만 보여 준다 — 두 곳에 따로 적지 않는다)
    */
   wantsDates?: boolean;
+  /**
+   * 필리핀 매니저는 올릴 수 없는 분류.
+   * 인사·급여가 그렇다 — 한국 본사가 집계하고 대표가 확정하는 일이라,
+   * 현지 매니저의 결재함에는 아예 뜨지 않는 것이 맞다(있으면 눌러 보게 된다).
+   */
+  koreaOnly?: boolean;
 }
 
 /**
@@ -80,7 +86,7 @@ export interface TypeSpec {
 export const TYPES: TypeSpec[] = [
   { key: 'purchase',  ko: '물품 구입', en: 'Purchase',    needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
   { key: 'expense',   ko: '지출 정산', en: 'Expense',     needsAmount: true,  teacherMaySubmit: false, visibility: 'chain',     slaHours: 24, wantsFile: true  },
-  { key: 'hr',        ko: '인사 · 급여', en: 'HR & Pay',  needsAmount: false, teacherMaySubmit: false, visibility: 'exec',      slaHours: 48, wantsFile: false },
+  { key: 'hr',        ko: '인사 · 급여', en: 'HR & Pay',  needsAmount: false, teacherMaySubmit: false, visibility: 'exec',      slaHours: 48, wantsFile: false, koreaOnly: true },
   { key: 'complaint', ko: '고객 불만', en: 'Complaint',   needsAmount: false, teacherMaySubmit: true,  visibility: 'chain',     slaHours: 24, wantsFile: false },
   { key: 'urgent',    ko: '긴급 소통', en: 'Urgent',      needsAmount: false, teacherMaySubmit: true,  visibility: 'broadcast', slaHours: 2,  wantsFile: false },
   { key: 'doc',       ko: '일반 문서', en: 'Document',    needsAmount: false, teacherMaySubmit: false, visibility: 'chain',     slaHours: 48, wantsFile: false },
@@ -197,12 +203,18 @@ export function canDecideStage(actor: ActorLike, role: StageRole, phManager: boo
   return true;
 }
 
-/** 이 분류를 올릴 수 있는가. 긴급·고객불만은 강사에게도 열려 있다. */
-export function canSubmit(actor: ActorLike, reqType: string): boolean {
+/**
+ * 이 분류를 올릴 수 있는가. 긴급·고객불만·휴가는 강사에게도 열려 있다.
+ *   phManager — 필리핀 매니저 여부. koreaOnly 분류(인사·급여)를 가리는 데 쓴다.
+ *   ⚠️ 기본값 false 라 예전 호출부는 그대로 동작한다.
+ */
+export function canSubmit(actor: ActorLike, reqType: string, phManager = false): boolean {
   if (!actor?.ok) return false;
   const spec = typeSpec(reqType);
   if (actor.isTeacher) return spec.teacherMaySubmit;
-  return isHqStaff(actor);
+  if (!isHqStaff(actor)) return false;
+  if (spec.koreaOnly && phManager) return false;
+  return true;
 }
 
 /**

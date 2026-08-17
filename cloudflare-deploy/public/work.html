@@ -820,10 +820,101 @@ window.reuse = function(i){
 function setVal(id, v){ var e = document.getElementById(id); if (e) e.value = v; }
 function getVal(id){ var e = document.getElementById(id); return e ? e.value : ''; }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   💼 인사·급여 «월 확정» — 여기서는 **아무것도 타이핑하지 않는다.**
+
+   달과 종류(급여/평가)만 고르면, 금액·인원은 **서버가 급여·평가 표를 읽어서** 채운다.
+   그래서 «올릴 때 숫자를 잘못 적는» 사고가 구조적으로 일어날 수 없다.
+   이미 확정된 달은 눌리지 않게 막고, 누가 언제 확정했는지 함께 보여 준다.
+   ══════════════════════════════════════════════════════════════════════════ */
+function paintHrForm(host){
+  var P = (D && D.hr_periods) || null;
+  var h = '<div class="help">' +
+    esc(T('Pick what to confirm and which month. The figures are read from the payroll and evaluation screens — you type nothing.',
+          '무엇을, 어느 달을 확정할지 고르세요. 금액·인원은 급여·평가 화면에서 그대로 읽어 옵니다 — 직접 적지 않습니다.')) +
+    '</div>';
+
+  if (!P || ((!P.payroll || !P.payroll.length) && (!P.evaluation || !P.evaluation.length))) {
+    h += '<div class="empty">' + esc(T('No month has payroll or evaluation data yet.',
+                                       '급여·평가 자료가 있는 달이 아직 없습니다.')) + '</div>';
+    h += '<div class="acts"><button class="big no" type="button" onclick="pick(\'hr\')">' +
+         esc(T('Close', '닫기')) + '</button></div>';
+    host.innerHTML = h;
+    return;
+  }
+
+  var block = function(kind, label, list){
+    if (!list || !list.length) return '';
+    var s = '<div class="row"><label>' + esc(label) + '</label><div class="reuse">';
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      if (m.approved) {
+        // 이미 확정된 달 — 누르지 못하게 하고, 누가 확정했는지 보여 준다.
+        s += '<button type="button" disabled style="opacity:.55">' +
+             esc(m.label + ' · ' + m.hint + ' — ' +
+                 T('confirmed by ' + (m.approved_by || ''), '확정됨 (' + (m.approved_by || '') + ')')) +
+             '</button>';
+      } else {
+        s += '<button type="button" onclick="submitHr(' +
+             JSON.stringify(kind).replace(/"/g, '&quot;') + ',' +
+             JSON.stringify(m.period).replace(/"/g, '&quot;') + ')">' +
+             esc(m.label + ' · ' + m.hint) + '</button>';
+      }
+    }
+    return s + '</div></div>';
+  };
+
+  h += block('payroll', T('Payroll', '급여 확정'), P.payroll);
+  h += block('evaluation', T('Teacher evaluations', '인사평가 확정'), P.evaluation);
+  h += '<div class="help" id="autoNote"></div>';
+  h += '<div class="acts"><button class="big no" type="button" onclick="pick(\'hr\')">' +
+       esc(T('Cancel', '취소')) + '</button></div>';
+  host.innerHTML = h;
+}
+
+/** 달 버튼을 누르면 그대로 올라간다 — 확인 한 번만 받는다. */
+window.submitHr = function(kind, period){
+  var what = (kind === 'payroll') ? T('payroll', '급여') : T('evaluations', '인사평가');
+  if (!confirm(T('Submit ' + period + ' ' + what + ' for approval?',
+                 period + ' ' + what + ' 확정을 결재로 올릴까요?'))) return;
+  note(T('Reading the figures...', '숫자를 읽는 중...'));
+
+  var fd = new FormData();
+  fd.append('client_key', CKEY || (CKEY = newKey()));
+  fd.append('req_type', 'hr');
+  fd.append('hr_kind', kind);
+  fd.append('period', period);
+
+  fetch('/api/approval/requests', { method: 'POST', credentials: 'same-origin', body: fd })
+    .then(function(r){ return r.json().then(function(j){ return { status: r.status, j: j || {} }; }); })
+    .then(function(res){
+      if (res.j && res.j.ok) {
+        toast(res.j.duplicate
+          ? T('Already submitted.', '이미 올라간 건입니다.')
+          : T('Submitted. The figures were filled in by the server.', '올렸습니다. 숫자는 서버가 채웠습니다.'));
+        closeForm();
+        load().catch(function(){});
+      } else {
+        // 409 = 그 사이 다른 사람이 이미 확정한 달
+        toast((res.j && (EN() ? res.j.message_en : res.j.message)) ||
+              T('Could not submit.', '올리지 못했습니다.'));
+        load().catch(function(){});
+      }
+    })
+    .catch(function(){
+      note('');
+      toast(T('Could not send — check your connection and try again.',
+              '보내지 못했습니다 — 연결을 확인하고 다시 시도해 주세요.'));
+    });
+};
+
 function paintForm(){
   var host = document.getElementById('form');
   if (!PICK) { host.hidden = true; host.innerHTML = ''; return; }
   host.hidden = false;
+
+  // 💼 인사·급여는 폼이 아니라 «달 고르기» 다. 타이핑 칸이 아예 없다.
+  if (PICK.picks_period) { paintHrForm(host); return; }
 
   /* ⚠️ 다시 그리기 전에 **쓰던 값을 반드시 챙긴다.**
      이 화면은 언어를 바꾸거나 목록을 새로 받을 때 다시 그려지는데, 그때마다 폼을 비우면
