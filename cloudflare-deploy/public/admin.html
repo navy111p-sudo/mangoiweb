@@ -7190,7 +7190,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th class="pr-th" data-sort-key="score_contribution"><span data-ko="조직(10%)" data-en="Contrib (10%)">조직(10%)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="weighted_total"><span data-ko="가중점수" data-en="Weighted">가중점수</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="grade"><span data-ko="등급" data-en="Grade">등급</span><span class="pr-arrow">↕</span></th>
-          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(20분)" data-en-html="Classes<br>(20-min)">총 수업수<br>(20분)</span><span class="pr-arrow">↕</span></th>
+          <!-- 🕐 (2026-08-17) 30분 수업 도입 — «(20분)» 이라는 표기 자체가 틀린 말이 됐다.
+               총 수업시간 열을 옆에 붙여 급여 근거(= 10분 토막 × 단가)를 표에서 바로 보이게 한다. -->
+          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(회)" data-en-html="Classes<br>(count)">총 수업수<br>(회)</span><span class="pr-arrow">↕</span></th>
+          <th class="pr-th" data-sort-key="total_minutes"><span data-ko-html="총 수업시간<br>(분)" data-en-html="Total<br>minutes">총 수업시간<br>(분)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="rate_per_10min_php"><span data-ko="10분 단가" data-en="Rate/10m">10분 단가</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_php"><span data-ko="월급(PHP)" data-en="Salary (PHP)">월급(PHP)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_krw"><span data-ko="≈ KRW" data-en="≈ KRW">≈ KRW</span><span class="pr-arrow">↕</span></th>
@@ -8176,10 +8179,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       &nbsp;&nbsp;<span data-ko="예상 등급:" data-en="Expected grade:">예상 등급:</span> <strong id="ev-grade-preview" style="color:#1e40af;">—</strong>
     </div>
 
+    <!-- 급여 근거를 입력하는 그 자리에서 보여 준다 — 안 보이면 «전부 20분» 으로 잘못 저장돼도 아무도 모른다 -->
+    <div id="ev-minutes-hint" style="margin-top:10px;padding:8px 10px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;">—</div>
+
     <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;">
       <button id="ev-cancel-btn" style="padding:8px 16px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;" data-ko="취소" data-en="Cancel">취소</button>
-      <div style="display:flex;gap:8px;">
-        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (20분)" data-ko-placeholder="총 수업수 (20분)" data-en-placeholder="Total classes (20-min)" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:160px;" />
+      <div style="display:flex;gap:8px;align-items:center;">
+        <!-- 🕐 (2026-08-17) 30분 수업 도입 — «수업 횟수» 만으로는 급여를 못 낸다.
+             총 수업시간(분)을 넣으면 그것으로 계산하고, 비우면 예전대로 전부 20분으로 본다.
+             (서버: PUT /api/admin/teacher-classes 의 total_minutes) -->
+        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (회)" data-ko-placeholder="총 수업수 (회)" data-en-placeholder="Total classes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:130px;" />
+        <input id="ev-total-minutes" type="number" min="0" step="10" placeholder="총 수업시간 (분)" data-ko-placeholder="총 수업시간 (분)" data-en-placeholder="Total minutes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
         <button id="ev-save-btn" class="primary" style="padding:8px 16px;" data-ko="💾 평가·수업수 저장" data-en="💾 Save Eval & Classes">💾 평가·수업수 저장</button>
       </div>
     </div>
@@ -8956,7 +8966,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=98" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=94: 2026-08-16 회계 리포트 개편 + 전각 ＋ → + 병합 -->
+<script src="/js/adm-core.js?v=99" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=99: 2026-08-17 급여 목록 «총 수업시간(분)» 열 + main 의 회계 리포트 개편 병합 (양쪽이 v=97·98 을 각각 다른 내용에 써서 번호를 새로 딴다) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
@@ -11426,7 +11436,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 비밀번호 찾기 모달 (전화 SMS / 카톡 / 이메일 / 운영자 문의)
      ============================================================ -->
 
-<script src="/js/adm-q12.js?v=2" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q12.js?v=3" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
 
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
