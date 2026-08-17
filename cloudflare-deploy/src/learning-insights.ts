@@ -1,12 +1,22 @@
 /**
- * learning-insights.ts — 학습 패턴 분석: 위험도 세그먼트 & 장기 트렌드 (2026-06-03 추가)
+ * learning-insights.ts — 화상수업 학습 패턴 분석: 위험도 세그먼트 & 장기 트렌드 (2026-06-03 추가)
+ *
+ * ⚠️ 분석 대상은 «전교생» 이 아니라 «화상수업 코호트» 다 (2026-08-17 정정).
+ *    이 모듈이 보는 신호(출석·집중도·조기이탈·끊김)는 전부 화상수업 접속 기록에서만 나온다.
+ *    그래서 대상도 «최근 N일 화상수업 이력 ∪ 활성 수업 스케줄» 이 있는 학생으로 한정한다.
+ *    ⛔ students_erp 전체(28,672명)를 대상으로 되돌리지 말 것 — 화상수업을 쓰지 않는 학생이
+ *       전부 «출석 0회» 로 잡혀 «주의 28,309명 · 안정 0명» 이 됐던 것이 2026-08-17 수리 건이다.
+ *    자세한 근거는 cohortStudents() 위 주석에 있다.
  *
  * 기존 기능과 중복 회피:
  *   - ai_student_analysis(=api-mango.ts /api/admin/ai-analyze): 학생 1명을 Workers AI 로
  *     심층 분석(온디맨드·비용 발생). 본 모듈은 이를 호출하지 않는다.
- *   - 본 모듈은 출석/평가/음성 원자료를 SQL 집계해 **전체 학생을 룰 기반(무비용·결정적)으로
- *     자동 세그먼트**하고, 학생별 **장기 월별 트렌드**를 제공한다. 저장된 AI risk_level 이
+ *   - 본 모듈은 출석/평가/음성 원자료를 SQL 집계해 **화상수업 코호트를 룰 기반(무비용·결정적)
+ *     으로 자동 세그먼트**하고, 학생별 **장기 월별 트렌드**를 제공한다. 저장된 AI risk_level 이
  *     있으면 참고용으로 함께 노출한다.
+ *   - 「오늘의 케어 대상」(care-today)은 2026-08-17 에 **제거**했다. /admin/retention 과
+ *     같은 일을 두 번 하고 있었고, retention 쪽이 카페24 본 DB 의 실제 만료·휴면일수를 쓰고
+ *     학부모 연락 기능까지 갖춘 정본이다. 「이탈 위험 학생 연락」은 그쪽 한 곳에서만 한다.
  *
  *   GET  /api/admin/learning/overview?days=30      코호트 요약(세그먼트 분포·평균 지표)
  *   GET  /api/admin/learning/segments?days=30      학생별 위험도 자동 분류 + 사유
@@ -21,7 +31,7 @@
  * 모든 핸들러 try/catch + safe() 격리 → 기존 라우트에 영향 없음(독립 오류 처리).
  */
 
-import { computeChainRiskMap, analyzeStudentPath, buildCareList, type ChainRisk } from './churn-graph';
+import { computeChainRiskMap, analyzeStudentPath, type ChainRisk } from './churn-graph';
 
 interface Env {
   DB: D1Database;
@@ -84,31 +94,83 @@ async function ensureTables(env: Env): Promise<void> {
   await safe(async () => { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_lts_period ON learning_trend_snapshots(period);`); return true; }, false);
 }
 
-// ── 활성 학생 목록 ────────────────────────────────────────────────────────
-async function activeStudents(env: Env): Promise<{ user_id: string; name: string }[]> {
-  return safe(async () => {
+/** 데모/자리표시 계정 — api-admin.ts·api-teacher.ts 와 같은 목록을 쓴다 */
+const DEMO_UIDS = ['lms', 'type_seed'];
+
+// ── 분석 대상(코호트) ─────────────────────────────────────────────────────
+/* 🔴 (2026-08-17) 여기가 이 화면이 «숫자가 통째로 틀렸던» 자리다.
+      원래는 students_erp 의 활성 학생 **28,672명 전부**를 대상으로 잡았다.
+      그런데 이 모듈이 보는 신호(출석·집중도·조기이탈·끊김)는 전부
+      **화상수업 접속 기록(attendance)** 에서만 나온다. 화상수업을 쓰지 않는
+      학생 28,000여 명은 «기간 내 출석 0회» 로 자동 +3점을 받아 통째로 '주의' 가 됐다.
+      실측(2026-08-17): 주의 28,309명 · 안정 0명 — 분류가 아무것도 구분하지 못했다.
+      학원에 안 나온 게 아니라 **애초에 이 표에 잡히지 않는 학생**이었다.
+
+      → 코호트를 «최근 N일 화상수업 이력이 있는 학생 ∪ 활성 수업 스케줄이 있는 학생» 로
+        좁힌다. 이 화면의 이름이 「화상수업 학습 인사이트」인 이유이기도 하다.
+
+   🪤 이름을 students_erp 에서만 찾으면 안 된다. 화상수업 출석 행의 user_id 는 두 종류다.
+      LMS 아이디(gng01·talk14…)와 계정 uid(u_prf59yuu9l…)가 섞여 있는데,
+      **집중도(gaze) 가 기록된 행은 대부분 u_ 쪽**이라 ERP 조인으로만 이름을 찾으면
+      그 학생들이 통째로 빠지고 평균 집중도가 영영 '-' 로 나온다(실측: 조인 결과 0건).
+      그래서 attendance.username 을 이름 대체값으로 함께 받는다. */
+async function cohortStudents(env: Env, sinceMs: number): Promise<{ user_id: string; name: string }[]> {
+  const ph = DEMO_UIDS.map(() => '?').join(',');
+  const map = new Map<string, string>();
+
+  // ① 기간 내 화상수업 출석 이력이 있는 학생(계정 uid 포함)
+  await safe(async () => {
     const rs = await env.DB.prepare(
-      `SELECT user_id, COALESCE(korean_name, english_name, user_id) AS name
-       FROM students_erp
-       WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')   /* 🪤 '정상' 은 운영 DB 에 0건 — 'active' 를 반드시 함께 (2026-08-09) */`
-    ).all<{ user_id: string; name: string }>();
-    return rs.results || [];
-  }, [] as { user_id: string; name: string }[]);
+      `SELECT a.user_id,
+              COALESCE(s.korean_name, s.english_name, MAX(a.username), a.user_id) AS name
+         FROM attendance a
+         LEFT JOIN students_erp s ON s.user_id = a.user_id
+        WHERE a.joined_at >= ?
+          AND COALESCE(a.role,'student') = 'student'
+          AND LOWER(COALESCE(a.user_id,'')) NOT IN (${ph})
+          AND COALESCE(s.status,'active') <> 'inactive'
+        GROUP BY a.user_id`
+    ).bind(sinceMs, ...DEMO_UIDS).all<{ user_id: string; name: string }>();
+    for (const r of (rs.results || [])) map.set(r.user_id, r.name || r.user_id);
+    return true;
+  }, false);
+
+  // ② 출석이 한 번도 없어도 «활성 수업 스케줄» 이 있으면 대상(= 예정 수업 전무결석)
+  await safe(async () => {
+    const rs = await env.DB.prepare(
+      `SELECT c.user_id,
+              COALESCE(s.korean_name, s.english_name, MAX(c.student_name), c.user_id) AS name
+         FROM class_schedules c
+         LEFT JOIN students_erp s ON s.user_id = c.user_id
+        WHERE COALESCE(c.status,'active') = 'active'
+          AND LOWER(COALESCE(c.user_id,'')) NOT IN (${ph})
+          AND COALESCE(s.status,'active') <> 'inactive'
+        GROUP BY c.user_id`
+    ).bind(...DEMO_UIDS).all<{ user_id: string; name: string }>();
+    for (const r of (rs.results || [])) if (!map.has(r.user_id)) map.set(r.user_id, r.name || r.user_id);
+    return true;
+  }, false);
+
+  return [...map.entries()].map(([user_id, name]) => ({ user_id, name }));
 }
 
 // ── 집계 맵: 출석(기간 내) ────────────────────────────────────────────────
-async function attendanceAgg(env: Env, sinceMs: number): Promise<Record<string, { days: number; last: string | null; gaze: number | null; active_ms: number }>> {
+/* 🪤 (2026-08-17) ① role 필터가 없어 **강사 접속 행**까지 학생 출석으로 세고 있었다.
+      ② attendance 에는 미래 날짜 행이 있다(시드/예약 — 실측 최대 2030-02-20).
+         MAX(date) 를 그대로 쓰면 «마지막 출석 -1,200일 전» 같은 값이 나온다.
+         → 오늘까지의 날짜만 «마지막 출석» 후보로 본다. */
+async function attendanceAgg(env: Env, sinceMs: number, today: string): Promise<Record<string, { days: number; last: string | null; gaze: number | null; active_ms: number }>> {
   return safe(async () => {
     const rs = await env.DB.prepare(
       `SELECT user_id,
               COUNT(DISTINCT date) AS days,
-              MAX(date) AS last_date,
+              MAX(CASE WHEN date <= ? THEN date END) AS last_date,
               AVG(CASE WHEN gaze_samples > 0 THEN gaze_score END) AS gaze,
               COALESCE(SUM(total_active_ms),0) AS active_ms
        FROM attendance
-       WHERE joined_at >= ?
+       WHERE joined_at >= ? AND COALESCE(role,'student') = 'student'
        GROUP BY user_id`
-    ).bind(sinceMs).all<{ user_id: string; days: number; last_date: string; gaze: number; active_ms: number }>();
+    ).bind(today, sinceMs).all<{ user_id: string; days: number; last_date: string; gaze: number; active_ms: number }>();
     const map: Record<string, any> = {};
     for (const r of (rs.results || [])) map[r.user_id] = { days: r.days || 0, last: r.last_date || null, gaze: r.gaze != null ? Math.round(r.gaze * 10) / 10 : null, active_ms: r.active_ms || 0 };
     return map;
@@ -195,6 +257,9 @@ function computeSegment(s: {
   let score = 0; // 높을수록 위험
 
   // 1) 출석 신호
+  //    ⚠️ 코호트가 «화상수업 이력 또는 활성 스케줄이 있는 학생» 으로 좁혀졌기 때문에
+  //       여기서의 «출석 0회» 는 «수업이 예정돼 있는데 한 번도 안 왔다» 는 뜻이다.
+  //       (예전처럼 «화상수업을 애초에 안 쓰는 학생» 이 섞여 들어오지 않는다)
   if (attendance_days === 0) { score += 3; reasons.push('기간 내 출석 0회'); }
   else if (attendance_days <= Math.max(1, Math.round(s.days / 14))) { score += 2; reasons.push(`출석 저조(${attendance_days}일)`); }
   if (days_since_last != null && days_since_last >= 14) { score += 2; reasons.push(`마지막 출석 ${days_since_last}일 전`); }
@@ -244,7 +309,7 @@ async function buildSegments(env: Env, days: number): Promise<Seg[]> {
   const midMs = Date.now() - Math.floor(days / 2) * DAY_MS;
 
   const [students, att, ev, voice, ai, chain] = await Promise.all([
-    activeStudents(env), attendanceAgg(env, sinceMs), evalAgg(env, sinceMs, midMs), voiceAgg(env, sinceMs), aiRiskAgg(env),
+    cohortStudents(env, sinceMs), attendanceAgg(env, sinceMs, today), evalAgg(env, sinceMs, midMs), voiceAgg(env, sinceMs), aiRiskAgg(env),
     safe(() => computeChainRiskMap(env, days), new Map<string, ChainRisk>()),
   ]);
 
@@ -271,7 +336,10 @@ export async function learningRouter(request: Request, env: Env): Promise<Respon
     if (p === 'segments' && method === 'GET') return await segments(env, url, fmt);
     if (p === 'churn' && method === 'GET') return await churnScan(env, url);
     if (p === 'churn-path' && method === 'GET') return await churnPath(env, url);
-    if (p === 'care-today' && method === 'GET') return await careToday(env, url);
+    /* ⛔ care-today 제거 (2026-08-17, 사장님 승인) — 「오늘의 케어 대상」은
+          /admin/retention(재등록·리텐션)과 같은 일을 두 번 하고 있었다.
+          retention 쪽이 카페24 본 DB 의 실제 만료·휴면일수를 쓰고 학부모 연락까지 붙어 있어
+          정본이다. 이쪽은 화상수업 로그만 보는 불완전한 사본이었으므로 화면과 함께 내렸다. */
     if (p === 'trends' && method === 'GET') return await trends(env, url);
     if (p === 'risk-history' && method === 'GET') return await riskHistory(env, url);
     if (p === 'snapshots' && method === 'GET') return await listSnapshots(env, url);
@@ -301,12 +369,18 @@ async function overview(env: Env, url: URL): Promise<Response> {
   const total = segs.length;
   return json({
     ok: true, range_days: days, total_students: total,
+    /* 이 화면이 «전교생» 이 아니라 «화상수업 코호트» 를 본다는 사실을 응답에 박아 둔다.
+       화면·CSV·외부 호출자가 숫자를 전교생으로 오해하지 않도록. (2026-08-17) */
+    cohort: 'video_class',
     segments: dist,
     averages: {
       attendance_days: total ? Math.round((attSum / total) * 10) / 10 : 0,
       eval_avg: evalN ? Math.round((evalSum / evalN) * 10) / 10 : null,
       gaze_avg: gazeN ? Math.round((gazeSum / gazeN) * 10) / 10 : null,
     },
+    /* 평균이 '-' 로 나올 때 «0점» 인지 «데이터가 아예 없음» 인지 화면이 구분해 말할 수 있게
+       각 지표의 표본 수를 함께 준다. 실측(2026-08-17) 최근 30일 평가 0건 → eval:0 */
+    coverage: { eval: evalN, gaze: gazeN, total },
     watchlist: segs.filter(s => s.risk === 'high').slice(0, 10)
       .map(s => ({ user_id: s.user_id, name: s.name, score: s.score, reasons: s.reasons })),
   });
@@ -354,27 +428,6 @@ async function churnPath(env: Env, url: URL): Promise<Response> {
   const days = clampInt(url.searchParams.get('days'), 60, 7, 180);
   const detail = await analyzeStudentPath(env, uid, days);
   return json({ ok: true, ...detail });
-}
-
-// ── 2d) 오늘의 케어 대상(어제 결석 + 고위험 사슬) — 감지 전용, 발송 안 함 ──
-async function careToday(env: Env, url: URL): Promise<Response> {
-  const days = clampInt(url.searchParams.get('days'), 60, 7, 180);
-  const list = await buildCareList(env, days);
-  const absentees = list.filter(c => c.absent_yesterday);
-  return json({
-    ok: true,
-    absent_count: absentees.length,
-    care_count: list.length,
-    // 어제 결석자 우선, 그다음 고위험 사슬. 개인정보(parent_phone)는 노출 안 함.
-    items: list.slice(0, 100).map(c => ({
-      user_id: c.uid, name: c.name,
-      absent_yesterday: c.absent_yesterday,
-      consecutive_misses: c.consecutive_misses,
-      dormant: c.dormant, chain_score: c.chain_score,
-      has_parent_contact: !!c.parent_phone,
-      reasons: c.reasons,
-    })),
-  });
 }
 
 // ── 3) 학생 장기 트렌드 ──────────────────────────────────────────────────
