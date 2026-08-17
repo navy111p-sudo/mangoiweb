@@ -10450,6 +10450,56 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { alert('해제 실패: ' + (e.message||e)); }
   };
 
+  /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
+     지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
+     그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
+  let _payeeCats = [];
+  window.accPayeeLoad = async function(){
+    const st = document.getElementById('acc-payee-state');
+    const tb = document.getElementById('acc-payee-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="5" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/payees?months=6', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _payeeCats = d.categories || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">아직 정하지 않은 거래처 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b> (최근 6개월)`
+        : `<span style="color:#166534">최근 6개월 「기타출금」이 모두 분류돼 있습니다.</span>`;
+      if (!(d.items||[]).length) { tb.innerHTML = '<tr><td colspan="5" class="empty">분류할 출금이 없습니다.</td></tr>'; return; }
+      tb.innerHTML = d.items.map(it => {
+        const cur = it.category || '';
+        const opts = ['<option value="">— 정해 주세요 —</option>']
+          .concat(_payeeCats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+        const auto = it.source && it.source.indexOf('auto') === 0
+          ? '<span style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 6px;border-radius:99px;margin-left:5px">자동</span>' : '';
+        return `<tr${it.category ? '' : ' style="background:#fffbeb"'}>
+          <td><b>${esc(it.payee)}</b>${auto}${it.corporate ? '<span style="font-size:10px;color:#6b7280;margin-left:5px">법인</span>' : ''}
+              ${it.remark !== it.payee ? `<div style="font-size:10.5px;color:#9ca3af">적요: ${esc(it.remark)}</div>` : ''}</td>
+          <td style="text-align:right">${it.count}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td><select onchange="accPayeeSet('${esc(it.payee).replace(/'/g,'&#39;')}', this.value, this)"
+                     style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${opts}</select></td>
+        </tr>`;
+      }).join('');
+    } catch(e) { tb.innerHTML = `<tr><td colspan="5" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accPayeeSet = async function(payee, category, sel){
+    if (!category) return;
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/payees?payee=' + encodeURIComponent(payee) + '&category=' + encodeURIComponent(category),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      if (sel) { sel.disabled = false; const tr = sel.closest('tr'); if (tr) tr.style.background = ''; }
+      accPayeeLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
   // 기간을 바꾸면 마감 현황도 따라오게
   document.addEventListener('DOMContentLoaded', () => {
     const p = document.getElementById('acc-rep-period');
