@@ -10779,6 +10779,10 @@ window.rebuildGlobalSearchIndex = function() {
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
+      ${d.coverage && d.coverage.level !== 'full' ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 14px;margin:12px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#92400e">⚠️ 이 달은 비용 자료가 온전하지 않습니다 — 아래 순이익은 참고값입니다.</b><br>
+        ${esc(d.coverage.note || '')}
+      </div>` : ''}
       ${d.closed && d.closed.is_closed ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-left:4px solid #166534;border-radius:8px;padding:11px 14px;margin:12px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#166534">🔒 마감된 달입니다 — 아래 숫자는 «마감본»입니다.</b>
         마감 ${esc(new Date((d.closed.closed_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${esc(d.closed.closed_by||'')}
@@ -10860,50 +10864,91 @@ window.rebuildGlobalSearchIndex = function() {
 
   /* 📊 분기·연간 공통 추세표 — 막대로 매출·순이익 흐름을 같이 보여 준다(2026-08-16).
      예전에는 숫자 표만 있어서 «오르는지 내리는지» 를 눈으로 못 읽었다. */
+  /* 📅 자료 상태 배지 — 통장·카드 연동 이전 달은 비용이 없어 «가짜 흑자» 가 된다.
+     그 달의 순이익을 그냥 보여 주면 회사 상태를 완전히 잘못 읽는다(2026-08-17). */
+  const COV = {
+    full:    ['온전',      '#166534', '#dcfce7'],
+    partial: ['자료부족',  '#b45309', '#fef3c7'],
+    none:    ['자료없음',  '#991b1b', '#fee2e2'],
+    future:  ['아직 안 옴','#6b7280', '#f3f4f6'],
+  };
+  function covBadge(lv){
+    const c = COV[lv]; if (!c) return '';
+    return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:${c[2]};color:${c[1]};margin-left:6px">${c[0]}</span>`;
+  }
+
   function trendTable(d, headLabel){
-    const ms = d.monthlies || [], t = d.totals || {};
+    // 아직 오지 않은 달은 표에서 뺀다 — 0원 줄이 합계에 섞이면 안 된다
+    const ms = (d.monthlies || []).filter(m => !m.coverage || m.coverage.level !== 'future');
+    const t = d.totals || {}, tf = d.totals_full || null;
     const max = Math.max(1, ...ms.map(m => Math.abs(m.revenue||0)), ...ms.map(m => Math.abs(m.net||0)));
     const bar = (v, color) => {
       const w = Math.min(100, Math.round((Math.abs(v||0) / max) * 100));
       return `<span style="display:inline-block;vertical-align:middle;width:70px;height:8px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${color};border-radius:0 3px 3px 0"></span></span>`;
     };
-    const anyEstimated = ms.some(m => m.op_cost_source === 'estimated');
+    const st = d.sync_starts || {};
+    const bad = ms.filter(m => m.coverage && m.coverage.level !== 'full');
     return `
+      ${bad.length ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 15px;margin:12px 0;font-size:12.5px;line-height:1.75">
+        <b style="color:#92400e">⚠️ 자료가 온전하지 않은 달이 ${bad.length}개 있습니다 — 그 달의 순이익을 그대로 믿으면 안 됩니다.</b><br>
+        통장 연동은 <b>${esc(st.bankFrom || '미연동')}</b>, 법인카드 연동은 <b>${esc(st.cardFrom || '미연동')}</b> 부터입니다.
+        그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>
+        해당 달: ${bad.map(m => `<b>${esc(m.period)}</b>`).join(' · ')}
+      </div>` : ''}
       <table>
         <thead><tr><th>${headLabel}</th><th class="num">매출</th><th></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th></th></tr></thead>
         <tbody>
-          ${ms.map(m => `<tr>
-            <td>${esc(m.period)}${m.op_cost_source === 'estimated' ? badge('estimated') : ''}</td>
+          ${ms.map(m => {
+            const lv = (m.coverage && m.coverage.level) || 'full';
+            const dim = lv !== 'full';
+            return `<tr${dim ? ' style="background:#fffbeb"' : ''}>
+            <td>${esc(m.period)}${covBadge(lv)}</td>
             <td class="num">${fmtKRW(m.revenue)}</td><td>${bar(m.revenue, '#3b82f6')}</td>
             <td class="num">${fmtKRW(m.revenue_book)}</td>
             <td class="num">${fmtKRW(m.revenue_b2b)}</td>
             <td class="num">${m.pays}</td>
             <td class="num">${fmtKRW(m.payroll)}</td>
             <td class="num">${fmtKRW(m.cost)}</td>
-            <td class="num"><b style="color:${(m.net||0) < 0 ? '#dc2626' : '#166534'}">${fmtKRW(m.net)}</b></td>
-            <td>${bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
-          </tr>`).join('')}
-          <tr class="total"><td>합계</td><td class="num">${fmtKRW(t.revenue)}</td><td></td><td class="num">${fmtKRW(t.revenue_book)}</td><td class="num">${fmtKRW(t.revenue_b2b)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td><td></td></tr>
+            <td class="num"><b style="color:${dim ? '#9ca3af' : ((m.net||0) < 0 ? '#dc2626' : '#166534')}">${fmtKRW(m.net)}</b>${dim ? '<div style="font-size:10px;color:#b45309">참고값</div>' : ''}</td>
+            <td>${dim ? '' : bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
+          </tr>`; }).join('')}
+          <tr class="total"><td>합계 (전체)</td><td class="num">${fmtKRW(t.revenue)}</td><td></td><td class="num">${fmtKRW(t.revenue_book)}</td><td class="num">${fmtKRW(t.revenue_b2b)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td><td></td></tr>
+          ${tf ? `<tr class="total" style="background:#dcfce7"><td>합계 (자료 온전한 달만)<div style="font-size:10.5px;font-weight:400;color:#166534">${(d.full_months||[]).join(' · ') || '없음'}</div></td>
+            <td class="num">${fmtKRW(tf.revenue)}</td><td></td><td class="num">${fmtKRW(tf.revenue_book)}</td><td class="num">${fmtKRW(tf.revenue_b2b)}</td><td class="num">${tf.pays}</td><td class="num">${fmtKRW(tf.payroll)}</td><td class="num">${fmtKRW(tf.cost)}</td>
+            <td class="num"><b style="color:${(tf.net||0) < 0 ? '#dc2626' : '#166534'}">${fmtKRW(tf.net)}</b></td><td></td></tr>` : ''}
         </tbody>
       </table>
       <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0;line-height:1.7">
-        ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B). 통장 직접입금은 2026-08-16부터 반영합니다.<br>
-        ${anyEstimated ? `※ ${badge('estimated')} 가 붙은 달은 통장·카드 실지출 자료가 없어 운영비를 «매출의 10%»로 추정한 달입니다 — 그 달의 순이익은 참고값입니다.` : ''}
+        ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B).<br>
+        ※ <b>회사 상태는 「자료 온전한 달만」 합계로 보세요.</b> 전체 합계에는 비용이 덜 잡힌 달이 섞여 있어 실제보다 좋게 나옵니다.<br>
+        ※ 아직 오지 않은 달은 표에서 뺐습니다.
       </p>
-      ${BADGE_LEGEND}`;
+      <div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:#6b7280;margin-top:8px">
+        <span>${covBadge('full')} 통장·카드 자료가 그 달 전체에 있음</span>
+        <span>${covBadge('partial')} 자료가 일부만 있어 비용이 덜 잡힘</span>
+        <span>${covBadge('none')} 비용 자료가 아예 없음 — 순이익 무의미</span>
+      </div>`;
+  }
+
+  // 이익률은 «자료 온전한 달» 기준을 앞세운다 — 전체 기준은 비용이 덜 잡혀 부풀려진다
+  function trendMeta(d){
+    const hasFull = d.totals_full && (d.full_months||[]).length;
+    return hasFull
+      ? `${d.label} · 이익률 <b>${d.margin_pct_full}%</b> <span style="font-size:11px">(자료 온전한 ${d.full_months.length}개월 기준)</span>`
+      : `${d.label} · <span style="color:#b45309">자료가 온전한 달이 없어 이익률을 내지 않았습니다</span>`;
   }
 
   function renderQuarterly(d){
     return `
       <h1>📊 분기 보고서</h1>
-      <div class="meta">${d.label} · 이익률 ${d.margin_pct}%</div>
+      <div class="meta">${trendMeta(d)}</div>
       ${trendTable(d, '월')}`;
   }
 
   function renderAnnual(d){
     return `
       <h1>📈 연간 결산</h1>
-      <div class="meta">${d.label} · 이익률 ${d.margin_pct}%</div>
+      <div class="meta">${trendMeta(d)}</div>
       ${trendTable(d, '월')}`;
   }
 

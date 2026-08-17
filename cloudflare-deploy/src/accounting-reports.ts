@@ -535,6 +535,7 @@ async function buildMonthly(env: Env, period: string) {
   }, { total_min: 0, sessions: 0, zero_sessions: 0 });
 
   const { ax, payroll, payrollEff, pgFee, opCost } = pl;
+  const coverage = coverageOf(period, await syncStarts(env));      // 📅 이 달 자료가 온전한가
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
   const rec = reconcileMonth(pl.rev.book, pl.rev.dep);             // 🔍 장부 vs 통장 (한 달치)
 
@@ -628,13 +629,16 @@ async function buildMonthly(env: Env, period: string) {
       unclassified_pct: pl.cost > 0 ? Number(((unclassifiedTotal / pl.cost) * 100).toFixed(1)) : 0,
       total: pl.cost,
     },
+    // 📅 이 달 자료가 온전한가 — 연동 이전 달은 비용이 없어 «가짜 흑자» 가 된다
+    coverage,
     pl: {
       revenue: pl.rev.total,
       cost: pl.cost,
       net_income: pl.net,
       margin_pct: pl.margin,
-      // ⚠️ 대사가 안 맞는 달은 순이익을 «확정» 이라고 말하면 안 된다
-      confident: rec.verdict === 'ok' || rec.verdict === 'no_data',
+      /* ⚠️ 순이익을 «확정» 이라고 말할 수 있는 조건 두 가지 —
+         ① 장부와 통장이 맞고 ② 그 달 비용 자료가 온전할 것. 둘 중 하나라도 아니면 참고값이다. */
+      confident: (rec.verdict === 'ok' || rec.verdict === 'no_data') && coverage.level === 'full',
     },
     // 🏷️ 숫자별 출처 — 화면이 신뢰도 배지를 이걸로 그린다
     sources: {
@@ -662,6 +666,7 @@ async function buildMonthly(env: Env, period: string) {
   const csvRows: (string | number)[][] = [
       ['망고아이 월간 회계 리포트', label],
       ['대사 판정', rec.message],
+      ['자료 상태', COVERAGE_LABEL[coverage.level] + ' — ' + coverage.note],
       [],
       ['[매출]'],
       ['장부 결제(카페24 등)', pl.rev.book],
@@ -1212,19 +1217,108 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
   if (q < 1 || q > 4) return err('q must be 1-4');
   const { months, label } = quarterRange(year, q);
 
-  const monthlies = await Promise.all(months.map(period => periodRow(env, period)));
-  const totals = sumRows(monthlies);
+  const starts = await syncStarts(env);
+  const monthlies = await Promise.all(months.map(period => periodRow(env, period, starts)));
+  const past = pastRows(monthlies);
+  const totals = sumRows(past);
+  const full = fullRows(monthlies);
+  const totalsFull = sumRows(full);
 
   const data = { ok: true, type: 'quarterly', year, quarter: q, label, monthlies, totals,
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
+    /* 📅 자료가 온전한 달만의 합계 — 연동 이전 달은 비용이 없어 «가짜 흑자» 가 되므로
+       전체 합계만 보면 회사 상태를 잘못 읽는다(2026-08-17). */
+    totals_full: totalsFull, full_months: full.map(r => r.period),
+    margin_pct_full: totalsFull.revenue > 0 ? Number(((totalsFull.net / totalsFull.revenue) * 100).toFixed(2)) : 0,
+    sync_starts: starts,
   };
 
-  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `quarterly-${year}-Q${q}.csv`, trendCsv('망고아이 분기 보고서', label, monthlies, totals));
+  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `quarterly-${year}-Q${q}.csv`, trendCsv('망고아이 분기 보고서', label, monthlies, totals, totalsFull, starts));
   return json(data);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   📅 «그 달 자료가 온전한가» 판정 (2026-08-17 신설)
+
+   [무엇이 잘못이었나] 연간 결산에서 2026-01 이 순이익 +1,100만(이익률 87%),
+   2026-02 가 +914만 으로 나왔다. 회사가 그때 잘 벌었던 게 아니라 **비용 자료가
+   없었을 뿐**이다. 연동 시작일이 이렇다:
+     · 신한 통장  2026-02-19 부터  → 1월은 아예 없고, 2월은 11일치뿐
+     · 법인카드   2026-05-15 부터  → 3·4월은 카드 지출이 통째로 빠지고 5월은 절반
+   그런데 monthActualOpex 의 hasActual 이 «그 달에 데이터가 한 건이라도 있으면 true»
+   였다. 그래서 2월은 11일치 비용만 반영하고 추정 폴백도 안 해 **가짜 흑자**가 됐다.
+   1월은 «추정» 배지가 붙긴 했지만 강사급여 0 + 운영비 10% 라 역시 가짜 흑자였다.
+
+   [그래서] 달마다 자료 범위를 셋으로 판정하고, 온전치 않은 달은 순이익을 «참고값»
+   으로 못박는다. 연간·분기 합계도 «자료가 온전한 달만» 을 따로 낸다.
+   ⛔ 숫자를 지어내 메우지 않는다. 모르는 건 모른다고 하는 것이 이 리포트의 원칙이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+export type CoverageLevel = 'full' | 'partial' | 'none' | 'future';
+export interface Coverage {
+  level: CoverageLevel;
+  bank: 'full' | 'partial' | 'none';
+  card: 'full' | 'partial' | 'none';
+  note: string;
+}
+
+/** 통장·카드 연동이 «언제부터» 인지. 리포트당 한 번만 조회해 달마다 돌려 쓴다. */
+async function syncStarts(env: Env): Promise<{ bankFrom: string | null; cardFrom: string | null }> {
+  const bankFrom = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT MIN(substr(trans_at,1,10)) AS d FROM bankacct_transactions`).first<{ d: string }>();
+    return r?.d || null;
+  }, null as string | null);
+  const cardFrom = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT MIN(substr(used_at,1,10)) AS d FROM corpcard_transactions WHERE cancelled=0`).first<{ d: string }>();
+    return r?.d || null;
+  }, null as string | null);
+  return { bankFrom, cardFrom };
+}
+
+function sourceCoverage(period: string, from: string | null): 'full' | 'partial' | 'none' {
+  if (!from) return 'none';
+  const fromMonth = from.slice(0, 7);
+  if (period < fromMonth) return 'none';
+  if (period > fromMonth) return 'full';
+  // 연동이 시작된 바로 그 달 — 1일부터가 아니면 부분이다
+  return from.slice(8, 10) === '01' ? 'full' : 'partial';
+}
+
+function coverageOf(period: string, starts: { bankFrom: string | null; cardFrom: string | null }): Coverage {
+  if (period > currentMonth()) {
+    return { level: 'future', bank: 'none', card: 'none', note: '아직 오지 않은 달입니다.' };
+  }
+  const bank = sourceCoverage(period, starts.bankFrom);
+  const card = sourceCoverage(period, starts.cardFrom);
+  const parts: string[] = [];
+  /* 진행 중인 달은 «온전» 이라고 할 수 없다 — 아직 절반만 지났는데 한 달치로 읽으면
+     매출도 비용도 실제보다 작다. 자료 연동과 무관한 이유라 따로 먼저 판정한다. */
+  if (period === currentMonth()) {
+    return { level: 'partial', bank, card,
+      note: '아직 진행 중인 달입니다 — 매출도 비용도 한 달치가 아니라 오늘까지의 값입니다.' };
+  }
+  if (bank === 'none') parts.push(`통장 자료가 없습니다(연동 ${starts.bankFrom || '미연동'}부터)`);
+  else if (bank === 'partial') parts.push(`통장 자료가 ${starts.bankFrom}부터라 이 달은 일부만 있습니다`);
+  if (card === 'none') parts.push(`법인카드 자료가 없습니다(연동 ${starts.cardFrom || '미연동'}부터)`);
+  else if (card === 'partial') parts.push(`법인카드 자료가 ${starts.cardFrom}부터라 이 달은 일부만 있습니다`);
+  const level: CoverageLevel = bank === 'none' ? 'none' : (bank === 'partial' || card !== 'full' ? 'partial' : 'full');
+  return {
+    level, bank, card,
+    note: parts.length
+      ? parts.join(' · ') + ' → 비용이 실제보다 적게 잡혀 순이익이 좋게 보입니다. 참고값으로만 보세요.'
+      : '통장·카드 자료가 이 달 전체에 있습니다.',
+  };
+}
+
 /* 분기·연간이 같이 쓰는 한 달치 줄. 계산 규칙은 monthPL() 한 곳에만 있다. */
-async function periodRow(env: Env, period: string) {
+async function periodRow(env: Env, period: string, starts: { bankFrom: string | null; cardFrom: string | null }) {
+  const coverage = coverageOf(period, starts);
+  // 아직 오지 않은 달은 계산하지 않는다 — 0원 줄을 만들어 합계에 섞으면 안 된다
+  if (coverage.level === 'future') {
+    return {
+      period, revenue: 0, revenue_book: 0, revenue_b2b: 0, pays: 0, payroll: 0, cost: 0, net: 0,
+      op_cost_source: 'none' as const, coverage,
+    };
+  }
   const pl = await monthPL(env, period);
   return {
     period,
@@ -1235,7 +1329,8 @@ async function periodRow(env: Env, period: string) {
     payroll: pl.payrollEff,
     cost: pl.cost,
     net: pl.net,
-    op_cost_source: pl.opCostSource,
+    op_cost_source: pl.opCostSource as 'actual' | 'estimated' | 'none',
+    coverage,
   };
 }
 type PeriodRow = Awaited<ReturnType<typeof periodRow>>;
@@ -1252,15 +1347,33 @@ function sumRows(rows: PeriodRow[]) {
   }), { revenue: 0, revenue_book: 0, revenue_b2b: 0, pays: 0, payroll: 0, cost: 0, net: 0 });
 }
 
-function trendCsv(title: string, label: string, rows: PeriodRow[], totals: ReturnType<typeof sumRows>): (string | number)[][] {
+/** 자료가 온전한 달만 — 「진짜 손익」은 이쪽으로 봐야 한다. */
+const fullRows = (rows: PeriodRow[]) => rows.filter(r => r.coverage.level === 'full');
+const pastRows = (rows: PeriodRow[]) => rows.filter(r => r.coverage.level !== 'future');
+
+const COVERAGE_LABEL: Record<CoverageLevel, string> = {
+  full: '온전', partial: '자료부족', none: '자료없음', future: '아직 안 옴',
+};
+
+function trendCsv(title: string, label: string, rows: PeriodRow[],
+                  totals: ReturnType<typeof sumRows>, totalsFull: ReturnType<typeof sumRows>,
+                  starts: { bankFrom: string | null; cardFrom: string | null }): (string | number)[][] {
+  const past = pastRows(rows);
+  const full = fullRows(rows);
   return [
     [title, label],
-    ['※ 매출 = 장부 결제 + 통장 직접입금(B2B). 운영비 출처가 «추정» 인 달은 실지출 자료가 없는 달입니다.'],
+    ['※ 매출 = 장부 결제 + 통장 직접입금(B2B).'],
+    [`※ 자료 연동 시작 — 통장 ${starts.bankFrom || '미연동'} · 법인카드 ${starts.cardFrom || '미연동'}. 그 전 달은 비용이 없거나 일부라 순이익이 실제보다 좋게 나옵니다.`],
     [],
-    ['월', '매출', '  장부 결제', '  통장 B2B', '결제건수', '강사급여', '비용 합계', '순이익', '운영비 출처'],
-    ...rows.map(m => [m.period, m.revenue, m.revenue_book, m.revenue_b2b, m.pays, m.payroll, m.cost, m.net,
-      m.op_cost_source === 'actual' ? '실데이터' : '추정']),
-    ['합계', totals.revenue, totals.revenue_book, totals.revenue_b2b, totals.pays, totals.payroll, totals.cost, totals.net, ''],
+    ['월', '매출', '  장부 결제', '  통장 B2B', '결제건수', '강사급여', '비용 합계', '순이익', '자료 상태'],
+    ...past.map(m => [m.period, m.revenue, m.revenue_book, m.revenue_b2b, m.pays, m.payroll, m.cost, m.net,
+      COVERAGE_LABEL[m.coverage.level]]),
+    ['합계(전체)', totals.revenue, totals.revenue_book, totals.revenue_b2b, totals.pays, totals.payroll, totals.cost, totals.net, ''],
+    [`합계(자료 온전한 달만 — ${full.map(r => r.period).join(' ') || '없음'})`,
+      totalsFull.revenue, totalsFull.revenue_book, totalsFull.revenue_b2b, totalsFull.pays, totalsFull.payroll, totalsFull.cost, totalsFull.net, ''],
+    [],
+    ['※ 「자료부족」·「자료없음」 달의 순이익은 참고값입니다 — 비용이 덜 잡혀 흑자로 보일 수 있습니다.'],
+    ['※ 회사 상태는 «자료 온전한 달만» 합계로 보세요.'],
   ];
 }
 
@@ -1271,16 +1384,23 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
   const year = Number(url.searchParams.get('year')) || new Date().getUTCFullYear();
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
 
-  const monthlies = await Promise.all(months.map(period => periodRow(env, period)));
-  const totals = sumRows(monthlies);
+  const starts = await syncStarts(env);
+  const monthlies = await Promise.all(months.map(period => periodRow(env, period, starts)));
+  const past = pastRows(monthlies);
+  const totals = sumRows(past);
+  const full = fullRows(monthlies);
+  const totalsFull = sumRows(full);
 
   const data = {
     ok: true, type: 'annual', year, label: `${year}년 결산`,
     monthlies, totals,
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
+    totals_full: totalsFull, full_months: full.map(r => r.period),
+    margin_pct_full: totalsFull.revenue > 0 ? Number(((totalsFull.net / totalsFull.revenue) * 100).toFixed(2)) : 0,
+    sync_starts: starts,
   };
 
-  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `annual-${year}.csv`, trendCsv('망고아이 연간 결산', `${year}년`, monthlies, totals));
+  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `annual-${year}.csv`, trendCsv('망고아이 연간 결산', `${year}년`, monthlies, totals, totalsFull, starts));
   return json(data);
 }
 
