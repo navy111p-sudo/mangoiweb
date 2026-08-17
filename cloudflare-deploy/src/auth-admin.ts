@@ -572,7 +572,13 @@ export async function handleAdminAuthApi(
         try {
           const since = Date.now() - LOCK_WINDOW_MS;
           const cnt = await env.DB.prepare(
-            `SELECT COUNT(*) AS n FROM admin_login_history WHERE ip = ? AND success = 0 AND login_at > ?`
+            // ⚠️ (2026-08-17) `reason NOT LIKE 'pwreset%'` 를 빼면 안 된다.
+            //   비밀번호 찾기도 감사용으로 success=0 행을 남기는데, 그것까지 세면
+            //   **코드를 몇 번 받아 본 사람이 로그인 자체를 15분 잠기는** 자충수가 된다
+            //   (비번을 잊어서 온 사람에게 정확히 최악). 비번찾기는 자기 카운터로 따로 조인다.
+            `SELECT COUNT(*) AS n FROM admin_login_history
+              WHERE ip = ? AND success = 0 AND login_at > ?
+                AND (reason IS NULL OR reason NOT LIKE 'pwreset%')`
           ).bind(ip, since).first<{ n: number }>();
           if ((cnt?.n || 0) >= LOCK_THRESHOLD) {
             await recordLogin(env, username, ip, ua, false, 'locked_bruteforce');
