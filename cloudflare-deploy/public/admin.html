@@ -589,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=25"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=26"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -8971,7 +8971,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
-<script src="/js/adm-cdo-weather.js?v=1" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
+<script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -11580,7 +11580,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script id="mgv2-clock-js">
 (function(){
   'use strict';
-  if (!window.matchMedia('(max-width: 1023px)').matches) return;   // 데스크톱은 기존 플로팅 시계 그대로
+  /* 🖥 (2026-08-17) 여기 «데스크톱은 기존 플로팅 시계 그대로» 라는 조기 return 이 있었다.
+     사장님이 「왜 아직도 시간과 날씨가 사이드바 위에 안 뜨나」 하신 원인이다 —
+     PC 에서는 시계 요소를 아예 만들지 않았다. 그런데 그 «기존 플로팅 시계» 는
+     position:fixed 로 y≈896 에 박혀 있어서 창 높이 900px 이면 화면 밖이었다(실측).
+     즉 PC 사용자는 사실상 시계를 못 보고 있었다. 이제 모바일·PC 둘 다 사이드바에 넣는다. */
+  function isNarrow(){ return window.matchMedia('(max-width: 1023px)').matches; }
 
   /* 떠다니는 시계(mango-worldclock.js)를 «로드되기 전에» 재운다.
      그 파일의 맨 첫 줄이 `if (window.__mangoWorldClock) return;` 이라
@@ -11623,9 +11628,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   }
 
   /* ⚠️ 이 페이지에서 우리가 만드는 유일한 반복 타이머다.
-     ①닫혀 있을 때 ②다른 앱·탭으로 넘어갔을 때는 멈춘다 — 안 보이는 시계를
-     1초마다 다시 그리는 것은 배터리와 발열만 먹는다. 열거나 돌아오면 즉시 맞춘다. */
-  function shouldRun(){ return !document.hidden && document.body.classList.contains('mga-open'); }
+     ①안 보일 때 ②다른 앱·탭으로 넘어갔을 때는 멈춘다 — 안 보이는 시계를
+     1초마다 다시 그리는 것은 배터리와 발열만 먹는다. 보이게 되면 즉시 맞춘다.
+     «안 보일 때» 의 뜻이 화면 폭마다 다르다 —
+       좁은 화면: 시계가 드로어 «안» 에 있으니 드로어가 닫히면 안 보인다.
+       PC       : 사이드바가 늘 펼쳐져 있으니 탭이 살아 있으면 늘 보인다. */
+  function shouldRun(){
+    if (document.hidden) return false;
+    return isNarrow() ? document.body.classList.contains('mga-open') : true;
+  }
   function sync(){
     tick();
     if (timer) { clearInterval(timer); timer = 0; }
@@ -11637,6 +11648,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     if (!build()) { setTimeout(start, 300); return; }
     sync();
     document.addEventListener('visibilitychange', sync);
+    /* 폭이 1024px 경계를 넘나들면 «보이는 조건» 이 달라진다(위 shouldRun 주석).
+       창 크기 조절·기기 회전 때 타이머가 어긋나지 않게 다시 판정한다.
+       ⚠️ resize 는 드래그 중 초당 수십 번 온다 — 반드시 묶어서 한 번만 돈다. */
+    var rz = 0;
+    window.addEventListener('resize', function(){
+      if (rz) return;
+      rz = setTimeout(function(){ rz = 0; sync(); }, 300);
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
   else start();
