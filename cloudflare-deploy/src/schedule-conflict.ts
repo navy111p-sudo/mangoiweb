@@ -1,5 +1,10 @@
+import {
+  DEFAULT_CLASS_MINUTES, isLongClass,
+  DEFAULT_LONG_CLASS_DAILY_CAP, longClassCapReached,
+} from './class-policy';
+
 /**
- * schedule-conflict.ts — 수업 시간 «겹침» 판정 한 곳 (2026-08-04)
+ * schedule-conflict.ts — 수업 «겹침» + «긴 수업 하루 정원» 판정 한 곳 (2026-08-04 / 08-17)
  *
  * 왜 따로 뺐나 —
  *   일정을 만들거나 옮기는 경로가 여러 곳인데, 겹침 검사는 «예약 신규 등록» 한 곳에만 있었다.
@@ -40,6 +45,8 @@ export interface ScheduleConflictResult {
   /** 화면에 그대로 보여줄 수 있는 사유 (한/영) */
   ko: string;
   en: string;
+  /** 🪑 긴 수업(20분 초과) 하루 정원에 걸렸을 때만 채워진다. 겹침과 성격이 달라 따로 둔다 */
+  cap?: { day: string; count: number; cap: number } | null;
 }
 
 const DOW_IN: Record<string, number> = {
@@ -66,6 +73,83 @@ export function rowOverlaps(newStart: number, newEnd: number, rowStart: any, row
   return newStart < e && s < newEnd;
 }
 
+/* ═══════════ 🪑 긴 수업 하루 정원 (2026-08-17) ═══════════
+ *   왜 겹침과 따로 두나 —
+ *     겹침은 «물리적으로 불가능»(강사가 동시에 두 수업에 못 들어간다)이고,
+ *     정원은 «회사가 정한 규칙»이다. 그래서 관리자 force 로는 넘길 수 있게 두고,
+ *     사유 문구도 따로 낸다(무엇을 넘기는지 모르고 누르면 안 되니까).
+ *   왜 30분이 아니라 «20분 초과» 를 세나 —
+ *     40분도 강사 시간을 똑같이 먹는다. 30분만 세면 40분으로 그대로 빠져나간다.
+ */
+
+/** 강사 1인의 긴 수업 하루 정원 — teacher_pricing 에 값이 있으면 그것, 없으면 기본값 */
+export async function longClassCapFor(env: any, teacherId: string): Promise<number> {
+  if (!teacherId) return DEFAULT_LONG_CLASS_DAILY_CAP;
+  try {
+    const r: any = await env.DB.prepare(
+      `SELECT long_class_daily_cap AS cap FROM teacher_pricing WHERE teacher_id = ? LIMIT 1`
+    ).bind(String(teacherId)).first();
+    const v = Number(r?.cap);
+    return Number.isFinite(v) && v > 0 ? v : DEFAULT_LONG_CLASS_DAILY_CAP;
+  } catch { return DEFAULT_LONG_CLASS_DAILY_CAP; }
+}
+
+/** 그 강사가 이미 잡아 둔 긴 수업 수 — 요일(정기) 또는 날짜(1회) 기준 */
+async function longClassCountsByDay(env: any, teacherId: string, q: ScheduleSlotQuery): Promise<Record<string, number>> {
+  const out: Record<string, number> = {};
+  if (!teacherId) return out;
+  const exclude = q.excludeId == null ? null : String(q.excludeId);
+  try {
+    const rs = await env.DB.prepare(
+      q.kind === 'recurring'
+        ? `SELECT id, day_of_week, duration_min FROM class_schedules
+             WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring'`
+        : `SELECT id, scheduled_date, duration_min FROM class_schedules
+             WHERE teacher_id = ? AND status = 'active' AND scheduled_date = ?`
+    ).bind(...(q.kind === 'recurring' ? [teacherId] : [teacherId, q.schedDate])).all();
+    for (const row of ((rs as any)?.results || []) as any[]) {
+      if (exclude != null && String(row.id) === exclude) continue;      // 자기 자신은 안 센다(옮길 때)
+      // duration_min 이 비면 «옛 20분 수업» 으로 본다 — 긴 수업이 아니므로 세지 않는다
+      if (!isLongClass(Number(row.duration_min) || DEFAULT_CLASS_MINUTES)) continue;
+      if (q.kind === 'recurring') {
+        for (const p of String(row.day_of_week ?? '').split(/[,\s]+/)) {
+          const n = toDow(p);
+          if (n != null) out[String(n)] = (out[String(n)] || 0) + 1;
+        }
+      } else {
+        const d = String(row.scheduled_date || '');
+        if (d) out[d] = (out[d] || 0) + 1;
+      }
+    }
+  } catch { /* 조회 실패는 «정원 여유» 로 본다 — 등록을 막지 않는다 */ }
+  return out;
+}
+
+/**
+ * 이 수업을 넣으면 그 강사의 하루 긴 수업 정원을 넘는가.
+ *   넘으면 { day, count, cap }, 아니면 null.
+ *   ⚠️ 실패해도 예외를 던지지 않는다 — 조회가 안 되면 «여유 있음» 으로 보고 흐름을 막지 않는다.
+ */
+export async function findLongClassCapBlock(
+  env: any, q: ScheduleSlotQuery
+): Promise<{ day: string; count: number; cap: number } | null> {
+  const teacherId = String(q?.teacherId || '');
+  if (!teacherId || !isLongClass(q?.durationMin)) return null;   // 20분 수업은 정원과 무관
+  const cap = await longClassCapFor(env, teacherId);
+  if (!(cap > 0)) return null;                                    // 0 = 무제한
+  const counts = await longClassCountsByDay(env, teacherId, q);
+  const targets = q.kind === 'recurring'
+    ? (Array.isArray(q.days) ? q.days.map(String) : [])
+    : [String(q.schedDate || '')];
+  for (const d of targets) {
+    const n = counts[d] || 0;
+    if (longClassCapReached(n, cap)) return { day: d, count: n, cap };
+  }
+  return null;
+}
+
+const DOW_KO = ['일', '월', '화', '수', '목', '금', '토'];
+
 async function activeRowsBy(env: any, col: 'user_id' | 'teacher_id', val: string, q: ScheduleSlotQuery): Promise<any[]> {
   if (!val) return [];
   try {
@@ -91,7 +175,7 @@ async function activeRowsBy(env: any, col: 'user_id' | 'teacher_id', val: string
  * 실패해도 예외를 던지지 않는다 — 조회가 안 되면 «겹침 없음» 으로 보고 원래 흐름을 막지 않는다.
  */
 export async function findScheduleConflicts(env: any, q: ScheduleSlotQuery): Promise<ScheduleConflictResult> {
-  const empty: ScheduleConflictResult = { has: false, student: [], teacher: [], ko: '', en: '' };
+  const empty: ScheduleConflictResult = { has: false, student: [], teacher: [], ko: '', en: '', cap: null };
   if (!q || !q.startTime) return empty;
 
   const newStart = toMinutes(q.startTime);
@@ -129,7 +213,22 @@ export async function findScheduleConflicts(env: any, q: ScheduleSlotQuery): Pro
     teacher.push(row);
   }
 
-  if (!student.length && !teacher.length) return empty;
+  // 🪑 겹치지 않아도 «긴 수업 하루 정원» 에 걸릴 수 있다. 겹침이 없을 때만 본다 —
+  //   겹침이 이미 있으면 그쪽이 더 근본적인 사유라 문구가 섞이면 헷갈린다.
+  if (!student.length && !teacher.length) {
+    const capBlock = await findLongClassCapBlock(env, q);
+    if (!capBlock) return empty;
+    const dayKo = q.kind === 'recurring'
+      ? `${DOW_KO[Number(capBlock.day)] ?? capBlock.day}요일`
+      : capBlock.day;
+    return {
+      has: true, student: [], teacher: [], cap: capBlock,
+      ko: `이 강사는 ${dayKo}에 긴 수업(${DEFAULT_CLASS_MINUTES}분 초과)이 이미 정원만큼 있습니다 `
+        + `(${capBlock.count}/${capBlock.cap}건). 짧은 수업으로 바꾸거나 다른 강사·다른 요일을 골라 주세요.`,
+      en: `This teacher already has the maximum number of long classes (over ${DEFAULT_CLASS_MINUTES} min) on ${capBlock.day} `
+        + `(${capBlock.count}/${capBlock.cap}). Choose a shorter class, another teacher, or another day.`,
+    };
+  }
 
   const ko = student.length
     ? '이 학생에게 시간이 겹치는 예약이 이미 있습니다.'
@@ -138,5 +237,5 @@ export async function findScheduleConflicts(env: any, q: ScheduleSlotQuery): Pro
     ? 'This student already has a class overlapping this time.'
     : 'This teacher already has another class overlapping this time — not a same-slot group class, so the teacher cannot attend both.';
 
-  return { has: true, student, teacher, ko, en };
+  return { has: true, student, teacher, ko, en, cap: null };
 }
