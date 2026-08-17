@@ -301,6 +301,7 @@
     '📊 이번달 거래액': '📊 This Month',
     '🧾 거래 건수': '🧾 Transactions',
     '💸 수수료 합계': '💸 Fees Total',
+    '⚠️ 데모 데이터': '⚠️ Demo Data',
     '📅 오늘 매출': '📅 Today Sales',
     '📊 이번달 매출': '📊 Monthly Sales',
     '🧾 주문 건수': '🧾 Orders',
