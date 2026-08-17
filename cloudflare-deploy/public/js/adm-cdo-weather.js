@@ -33,8 +33,11 @@
   if (window.__admCdoWeather) return;
   window.__admCdoWeather = 1;
 
-  // 이 화면(모바일 사이드바)에만 붙는다. PC 는 사이드바가 늘 펼쳐져 있어 자리가 다르다.
-  if (!window.matchMedia('(max-width: 1023px)').matches) return;
+  /* 🖥 (2026-08-17) 여기 「모바일에만 붙는다」는 조기 return 이 있었다. 그래서 PC 에서는
+     날씨가 아예 안 만들어졌고, 사장님이 「왜 안 뜨나」 하신 원인이었다.
+     이제 모바일·PC 둘 다 사이드바 맨 위(시계 바로 밑)에 붙는다.
+     달라지는 건 «언제 확인하나» 뿐이다 — 아래 hook() 참고. */
+  function isNarrow() { return window.matchMedia('(max-width: 1023px)').matches; }
 
   var LS = 'mangoi_cdo_weather';
   var TTL = 30 * 60 * 1000;                 // 30분
@@ -172,17 +175,38 @@
       .then(function () { if (timer) clearTimeout(timer); busy = false; });
   }
 
-  /** 메뉴를 열 때 부른다. 캐시가 싱싱하면 그리기만 하고 네트워크는 안 쓴다. */
+  /* 🕐 시계(#mgv2-clock)가 세워진 뒤에야 붙을 자리가 생긴다.
+     ⚠️ 이 파일은 defer 라서 **인라인 시계 스크립트보다 먼저** 실행이 끝난다
+        (defer 는 DOMContentLoaded «전» 에 돌고, 시계는 DOMContentLoaded 에서 세워진다).
+        그래서 곧바로 그리려 하면 box() 가 null 이라 아무 일도 안 일어난다.
+        모바일은 사람이 메뉴를 여는 시점이 한참 뒤라 우연히 문제가 안 났지만,
+        PC 는 열림 동작이 없어서 이 대기가 없으면 영영 안 그려진다. */
+  function whenClockReady(cb, tries) {
+    if (document.getElementById('mgv2-clock')) { cb(); return; }
+    if ((tries || 0) > 40) return;                 // 10초까지만 기다린다(0.25초 × 40)
+    setTimeout(function () { whenClockReady(cb, (tries || 0) + 1); }, 250);
+  }
+
+  /** 캐시가 싱싱하면 그리기만 하고 네트워크는 안 쓴다. */
   function sync() {
-    var c = load();
-    if (c) paint(c.d);                       // 있으면 먼저 보여 준다(빈 칸 방지)
-    if (!c || (Date.now() - c.t) > TTL) fetchNow();
+    whenClockReady(function () {
+      var c = load();
+      if (c) paint(c.d);                     // 있으면 먼저 보여 준다(빈 칸 방지)
+      if (!c || (Date.now() - c.t) > TTL) fetchNow();
+    });
   }
   window.__mgv2WeatherSync = sync;
 
-  /* 메뉴 열림에 얹는다. 이 파일은 defer 라 인라인 mgaOpen 이 이미 정의된 뒤에 돈다.
-     ⚠️ mgaToggle 도 window.mgaOpen 을 부르므로 여기 한 곳만 감싸면 둘 다 걸린다. */
+  /* «언제 확인하나» 가 화면 폭에 따라 다르다.
+       좁은 화면: 시계·날씨가 드로어 «안» 에 있으니 **열 때만** 확인한다.
+                  닫혀 있는 동안 네트워크를 쓰는 것은 낭비다.
+       PC       : 사이드바가 늘 펼쳐져 있으니 **한 번** 확인한다.
+                  (그것도 캐시가 30분 지났을 때만 실제로 부른다 — sync 안에서 판정) */
   function hook() {
+    if (!isNarrow()) { sync(); return; }
+
+    /* 메뉴 열림에 얹는다.
+       ⚠️ mgaToggle 도 window.mgaOpen 을 부르므로 여기 한 곳만 감싸면 둘 다 걸린다. */
     if (typeof window.mgaOpen !== 'function') { setTimeout(hook, 400); return; }
     if (window.mgaOpen.__wxWrapped) return;
     var orig = window.mgaOpen;
@@ -195,7 +219,7 @@
     window.mgaOpen = wrapped;
     // 이미 열려 있는 상태로 시작했다면(새로고침 등) 한 번 그려 둔다
     if (document.body && document.body.classList.contains('mga-open')) sync();
-    else { var c = load(); if (c) paint(c.d); }      // 네트워크 없이 캐시만 미리 그려 둔다
+    else whenClockReady(function () { var c = load(); if (c) paint(c.d); });   // 네트워크 없이 캐시만
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);

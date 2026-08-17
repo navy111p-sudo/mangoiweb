@@ -474,6 +474,8 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'close' || p === 'reopen') return await closeRouter(env, request, url, p);
     // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
     if (p === 'payees') return await payeesRouter(env, request, url);
+    // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
+    if (p === 'payers') return await payersRouter(env, request, url);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -974,6 +976,85 @@ async function payeesRouter(env: Env, request: Request, url: URL): Promise<Respo
   });
 }
 
+/* 🧾 GET  /api/admin/reports/payers[?months=12]  아직 소속이 안 붙은 결제 아이디 + 지사 목록
+   POST /api/admin/reports/payers?payer=..&franchise_id=..  그 아이디를 지사에 직접 붙인다
+        (franchise_id=0 이면 지정 해제)
+   대리점이 원생 수강료를 자기 계정으로 결제하면 그 아이디는 학생 원부에 없어 소속을
+   알 수 없다. 캐피타운 대리점 표에 등록하는 것이 근본이지만, 급하면 여기서 바로 붙인다. */
+async function payersRouter(env: Env, request: Request, url: URL): Promise<Response> {
+  try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payer_franchise_override (payer_user_id TEXT PRIMARY KEY, franchise_id INTEGER NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`); } catch {}
+  const method = request.method.toUpperCase();
+
+  if (method === 'POST') {
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (scope.type !== 'hq') return err('결제 아이디 지정은 본사 계정만 할 수 있습니다.', 403);
+    const payer = (url.searchParams.get('payer') || '').trim();
+    const fid = Number(url.searchParams.get('franchise_id'));
+    if (!payer) return err('결제 아이디를 지정해 주세요.');
+    const okSet = await safe(async () => {
+      if (!fid) {
+        await env.DB.prepare(`DELETE FROM payer_franchise_override WHERE payer_user_id=?`).bind(payer).run();
+      } else {
+        const f = await env.DB.prepare(`SELECT id, name FROM franchises WHERE id=?`).bind(fid).first<{ id: number; name: string }>();
+        if (!f) throw new Error('그런 지사가 없습니다: ' + fid);
+        await env.DB.prepare(
+          `INSERT INTO payer_franchise_override (payer_user_id, franchise_id, note, updated_at) VALUES (?,?,?,?)
+           ON CONFLICT(payer_user_id) DO UPDATE SET franchise_id=excluded.franchise_id, note=excluded.note, updated_at=excluded.updated_at`
+        ).bind(payer, fid, `${scope.label || 'admin'} 지정`, Date.now()).run();
+      }
+      return true;
+    }, false);
+    if (!okSet) return err('저장에 실패했습니다.', 500);
+    return json({ ok: true, payer, franchise_id: fid || null });
+  }
+
+  // GET — 최근 N개월 중 아직 소속이 안 붙은 결제 아이디
+  const months = Math.max(1, Math.min(36, parseInt(url.searchParams.get('months') || '12', 10)));
+  const [cy, cm] = currentMonth().split('-').map(Number);
+  const sinceMs = monthRange(new Date(Date.UTC(cy, cm - 1 - (months - 1), 1)).toISOString().slice(0, 7)).startMs;
+
+  const rows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      WITH fmap AS (SELECT name, MIN(id) AS fid, COUNT(*) AS nf FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name),
+      cmap AS (SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
+                 FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> '' GROUP BY name)
+      SELECT p.user_id, COUNT(*) AS pays, COALESCE(SUM(p.amount_krw),0) AS amount,
+             COUNT(DISTINCT substr(date(p.paid_at/1000,'unixepoch','+9 hours'),1,7)) AS months,
+             MIN(date(p.paid_at/1000,'unixepoch','+9 hours')) AS first_at,
+             MAX(date(p.paid_at/1000,'unixepoch','+9 hours')) AS last_at,
+             CASE WHEN MAX(st.user_id) IS NULL THEN '학생 원부에 없는 아이디' ELSE '소속 라벨 없음' END AS reason
+        FROM student_payments p
+        LEFT JOIN students_erp st ON st.user_id = p.user_id
+       WHERE p.status='paid' AND p.paid_at >= ? AND ${notSeedSql('p')}
+         AND (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id) IS NULL
+         AND (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1) IS NULL
+         AND (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1) IS NULL
+         AND (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1) IS NULL
+       GROUP BY p.user_id ORDER BY amount DESC LIMIT 200
+    `).bind(sinceMs).all();
+    return (r.results || []) as Array<any>;
+  }, []);
+
+  const franchises = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT id, name, active FROM franchises ORDER BY (active=1) DESC, name`).all();
+    return (r.results || []) as Array<{ id: number; name: string; active: number }>;
+  }, []);
+  const assigned = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT o.payer_user_id, o.franchise_id, COALESCE(f.name,'?') AS franchise_name, o.note, o.updated_at
+        FROM payer_franchise_override o LEFT JOIN franchises f ON f.id = o.franchise_id ORDER BY o.updated_at DESC`).all();
+    return (r.results || []) as Array<any>;
+  }, []);
+
+  return json({
+    ok: true, type: 'payers', months,
+    rows, franchises, assigned,
+    unresolved_count: rows.length,
+    unresolved_krw: rows.reduce((a, r) => a + (Number(r.amount) || 0), 0),
+    note: '대리점이 원생 수강료를 자기 계정으로 결제하면 그 아이디는 학생 원부에 없어 소속을 알 수 없습니다. 캐피타운 대리점으로 등록하는 것이 근본 해결이고, 급하면 여기서 지사를 직접 지정할 수 있습니다.',
+  });
+}
+
 async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const built = await buildMonthly(env, period);
@@ -1264,9 +1345,11 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
                COALESCE(
                  -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
                  (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id),
-                 -- ② 학생 원부의 지사 라벨
+                 -- ② 캐피타운 대리점 로그인 아이디 → 그 대리점이 속한 지사
+                 (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1),
+                 -- ③ 학생 원부의 지사 라벨
                  (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
-                 -- ③ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
+                 -- ④ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
                  (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
                ) AS fid
           FROM student_payments p
@@ -1329,6 +1412,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
         LEFT JOIN students_erp st ON st.user_id = p.user_id
        WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
          AND (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id) IS NULL
+         AND (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1) IS NULL
          AND (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1) IS NULL
          AND (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1) IS NULL
        GROUP BY p.user_id, reason
@@ -1394,6 +1478,17 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   }
   return json(data);
 }
+
+/* 🏪 캐피타운 대리점 계정 → 그 대리점이 속한 지사 (2026-08-17).
+   학원(대리점)이 원생 수강료를 자기 계정으로 한꺼번에 결제하면, 그 아이디는 학생이
+   아니라서 students_erp 에 없다 → 소속을 몰라 매출이 통째로 «배정 불가» 였다.
+   그런데 capitown_agencies 에 **login_id 와 branch(지사) 가 이미 들어 있었다.**
+   추측할 필요 없이 그대로 이으면 된다(2026-08-17 사장님이 ubckt00·lnct00 을
+   «대리점 계정» 이라고 확인해 주면서 찾음).
+   ⚠️ branch 이름이 여러 지사와 겹치면 배정하지 않는다 — 여기서도 «모르면 안 넣는다». */
+const CAPITOWN_FID = `(SELECT MIN(f.id) FROM franchises f
+        WHERE f.name = ca.branch
+          AND (SELECT COUNT(*) FROM franchises f2 WHERE f2.name = ca.branch) = 1)`;
 
 /** 0 나눗셈을 피한 퍼센트 문자열 */
 function data0Pct(part: number, whole: number): string {
