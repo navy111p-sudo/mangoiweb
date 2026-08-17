@@ -589,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=27"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=28"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=28: 2026-08-17 ph106 결제관리 데모 표식 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -10107,8 +10107,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- === Card: BtoB 결제관리 (1번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2b">
-  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span></summary>
+  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
   <div class="menu-body">
+    <!-- ⚠️ (2026-08-17) 데모 표식 — adm-q7.js 가 서버 호출 없이 고정 숫자를 찍는다.
+         실데이터(/api/admin/payments/b2b)를 붙이는 날 이 띠와 summary 배지, 그리고
+         admin-inline-c.css 의 .pm-kpi::before / .pm-demo-* 블록을 함께 지운다.
+         배지 span 은 반드시 제목 span «뒤» 에 둔다 — adm-quickmenu.js 의 labelOf() 가
+         summary 안 첫 [data-ko] 를 카드 이름으로 읽는다. -->
+    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 거래액</div><div class="pm-kpi-value" id="b2b-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
@@ -10183,8 +10189,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
-  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span></summary>
+  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
   <div class="menu-body">
+    <!-- ⚠️ (2026-08-17) BtoB 카드와 같은 이유 — adm-q7.js 가 2,380,000 / 45,200,000 / 156건 /
+         12건 을 고정으로 찍는다. 실데이터를 붙이는 날 BtoB 쪽과 함께 지운다. -->
+    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 매출</div><div class="pm-kpi-value" id="b2c-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
@@ -11444,7 +11453,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
-<script src="/js/adm-p3.js?v=1" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p3.js?v=2" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) · v=2: ph106 데모 배지 사전 -->
 
 
 <!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->
