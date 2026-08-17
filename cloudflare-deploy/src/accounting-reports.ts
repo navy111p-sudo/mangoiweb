@@ -105,6 +105,26 @@ function quarterRange(year: number, q: number) {
       (api-pay.ts chargeSubscriptionOnce). 즉 지금 이 두 메모를 쓰는 «진짜» 결제는
       없다. 나중에 정기결제를 student_payments 에도 적게 만든다면 **메모 문구를
       반드시 다르게** 쓸 것 — 같게 쓰면 진짜 매출이 조용히 빠진다. */
+/** PG(케이씨피) 수수료율 — 대사·손익이 공유한다. 결제수단별로 실제 요율이 달라 추정치다. */
+const PG_FEE_RATE = 0.033;
+
+/* 💳 결제수단 표기 통일 (2026-08-16) — 같은 카드 결제인데 'card' 와 '카드' 가 같이 저장돼
+   있어 「결제수단별 분포」 표가 두 줄로 쪼개졌다. 원본은 그대로 두고 «보여 줄 때만» 합친다. */
+const METHOD_NORM_SQL = `CASE
+  WHEN LOWER(COALESCE(method,'')) IN ('card','카드','신용카드','creditcard') THEN '카드'
+  WHEN LOWER(COALESCE(method,'')) IN ('kakaopay','카카오페이') THEN '카카오페이'
+  WHEN LOWER(COALESCE(method,'')) IN ('bank','transfer','계좌이체','무통장입금') THEN '계좌이체'
+  WHEN LOWER(COALESCE(method,'')) IN ('vbank','가상계좌') THEN '가상계좌'
+  WHEN COALESCE(method,'')='' THEN '기타'
+  ELSE method END`;
+
+/* 🏷️ 숫자의 «출처» — 화면이 이걸로 신뢰도 배지를 그린다(2026-08-16).
+     actual    통장·카드·결제 기록에서 그대로 가져온 값
+     estimated 계산식으로 만든 값 (참고용)
+     none      아직 가져올 데이터가 없는 값
+     review    사람이 한 번 확인해 줘야 하는 값 */
+export type FigureSource = 'actual' | 'estimated' | 'none' | 'review';
+
 const SEED_MEMOS = ["'[TESTSEED]%'", "'정기결제 자동청구(cron)'"];
 /** 시드 결제를 걸러내는 SQL 조건. a = 테이블 별칭(조인 쿼리에서 컬럼 모호성 방지). */
 function notSeedSql(a = ''): string {
@@ -141,16 +161,20 @@ function realPayslipSql(a = ''): string {
 /* 💵 그 달의 «통장 기준» 사실 — 장부(결제기록)가 불완전해도 이건 사실이다.
    월간 회계 리포트와 손익계산서가 둘 다 쓴다(규칙이 갈라지면 화면마다 달라진다). */
 async function monthCash(env: Env, period: string) {
-  return await safe(async () => {
+  const t = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(CASE WHEN kind='in' THEN amount ELSE 0 END),0) AS cin,
              COALESCE(SUM(CASE WHEN kind='out' THEN amount ELSE 0 END),0) AS cout,
-             COALESCE(SUM(CASE WHEN kind='in' AND remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
              COUNT(*) AS n
       FROM bankacct_transactions WHERE substr(trans_at,1,7)=?
-    `).bind(period).first<{ cin: number; cout: number; pg: number; n: number }>();
-    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, pg: Number(r?.pg) || 0, n: Number(r?.n) || 0 };
-  }, { cin: 0, cout: 0, pg: 0, n: 0 });
+    `).bind(period).first<{ cin: number; cout: number; n: number }>();
+    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, n: Number(r?.n) || 0 };
+  }, { cin: 0, cout: 0, n: 0 });
+  /* ⚠️ PG 입금은 `remark LIKE '%케이씨피%'` 로 세면 안 된다 — 「케이씨피M」(하나은행에서
+     사람이 보낸 돈)까지 잡혀 «매출 누락» 오경보가 난다. 판정은 classifyDeposit() 한 곳에서
+     (2026-08-16 병합: 이 함수의 cin/cout 은 그대로 두고 pg 만 정확한 규칙으로 교체). */
+  const dep = await monthDeposits(env, period);
+  return { ...t, pg: dep.pg, b2b: dep.b2b, transfer: dep.transfer };
 }
 /* 통장 PG 입금이 장부 매출보다 10% 이상(그리고 50만원 이상) 많으면 «매출 누락 의심».
    ⚠️ 처음엔 25% 로 잡았다가 4월(23%)이 안 걸려 «설명 없는 적자» 로 보였다 → 10% 로 낮춤. */
@@ -191,6 +215,123 @@ async function monthActualOpex(env: Env, period: string) {
   return { cardSpend, bankRows, bankOpex, bankDup, teacherPayout, refunds, actual, hasActual };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 통장 «입금» 의 성격 판정 (2026-08-16 신설)
+
+   [무엇이 틀렸었나] 대사(reconcile)와 월간 리포트가 PG 정산 입금을
+   `remark LIKE '%케이씨피%'` 로 찾고 있었다. 그런데 신한 계좌의 입금 적요에는
+   비슷하게 생긴 **두 가지**가 있다(바로빌 원본 raw 로 확인):
+     · 「케이씨피」   TransType=타행PC · TransOffice=(기업) · 매주 월요일 자동
+                    → 이것이 진짜 KCP 카드 정산금이다.
+     · 「케이씨피M」  TransType=타행IB · TransOffice=(하나) · 사람이 인터넷뱅킹으로 송금
+                    → 금액이 5,000,000 처럼 딱 떨어지고, 이체한도 때문에 같은 시각에
+                      두 건으로 쪼개 들어온다. **PG 정산금이 아니다.**
+   LIKE 가 둘 다 잡는 바람에 2026-03~07 누적 4,632만원이 «PG 입금» 으로 잡혔고,
+   대사가 «장부 매출이 통장보다 4,000만 적다 = 매출 누락» 이라고 오진했다.
+   케이씨피(정산분)만 보면 같은 기간 누적 −9.9% 로 **정상 범위**다.
+   ⚠️ 「케이씨피M」의 정체(다른 계좌에서 옮긴 운영자금인지, 제휴사 정산금인지)는
+      사람만 알 수 있다. 그래서 지우지도 매출로 잡지도 않고 «확인 필요» 로 따로 센다.
+
+   [B2B 직접입금] JW학원·(주)드림키오·어센틱영어처럼 학원이 통장으로 바로 보내는
+   수업료는 카페24를 안 거쳐 student_payments 에 없다 — 실제로 확인했다(그 기간
+   method='계좌이체' 결제행은 전부 시연용 시드였고 통장 입금과 한 건도 겹치지 않는다).
+   이것을 매출로 잡는다(2026-08-16 사장님 지시). 중복 계상 위험 없음.
+   ═══════════════════════════════════════════════════════════════════════════ */
+export type DepositKind = 'pg' | 'b2b' | 'transfer' | 'other';
+
+/** 계좌 확인용 «1원 입금»(메트로은행) 처럼 매출로 볼 수 없는 소액의 기준 */
+const DEPOSIT_MIN_KRW = 1000;
+
+/** 입금 한 건의 성격. ⚠️ 저장된 category 를 쓰지 않고 적요에서 매번 판정한다 —
+    바로빌 동기화(배포 권한자만 실행)를 기다리지 않고 규칙 개선이 바로 반영되게. */
+export function classifyDeposit(remark: string, amount: number): DepositKind {
+  const s = String(remark || '').trim();
+  if (s === '케이씨피' || s === 'KCP' || s === '케이씨피(주)') return 'pg';
+  if (/케이씨피|KCP/i.test(s)) return 'transfer';            // 「케이씨피M」 등 변형 → 사람 확인
+  if (!amount || amount < DEPOSIT_MIN_KRW) return 'other';   // 계좌확인용 1원
+  if (/국세|지방세|환급|이자|보험금|정부지원|고용노동부|공단/.test(s)) return 'other';
+  if (/^[\d.]+~[\d.]+$/.test(s)) return 'other';             // 기간 표기만 있는 행
+  return 'b2b';                                              // 상호·실명 입금 = 수업료로 본다
+}
+
+export interface MonthDeposits {
+  pg: number; b2b: number; transfer: number; other: number;
+  b2bRows: Array<{ date: string; remark: string; amount: number }>;
+  transferRows: Array<{ date: string; remark: string; amount: number }>;
+  hasBank: boolean;
+}
+
+/** 그 달 통장 입금을 성격별로 나눈 것. 리포트의 매출·대사가 모두 이 하나를 쓴다. */
+async function monthDeposits(env: Env, period: string): Promise<MonthDeposits> {
+  const rows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT trans_at, COALESCE(remark,'') AS remark, amount
+      FROM bankacct_transactions WHERE kind='in' AND substr(trans_at,1,7)=?
+      ORDER BY trans_at
+    `).bind(period).all();
+    return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
+  }, []);
+  const out: MonthDeposits = { pg: 0, b2b: 0, transfer: 0, other: 0, b2bRows: [], transferRows: [], hasBank: rows.length > 0 };
+  for (const r of rows) {
+    const amount = Number(r.amount) || 0;
+    const kind = classifyDeposit(r.remark, amount);
+    out[kind] += amount;
+    const item = { date: String(r.trans_at || '').slice(0, 10), remark: r.remark, amount };
+    if (kind === 'b2b') out.b2bRows.push(item);
+    else if (kind === 'transfer') out.transferRows.push(item);
+  }
+  out.b2bRows.sort((a, b) => b.amount - a.amount);
+  out.transferRows.sort((a, b) => b.amount - a.amount);
+  return out;
+}
+
+/* 💰 그 달 «매출» 의 정본 — 장부 결제 + 통장 B2B 직접입금.
+   모든 리포트(월간·분기·연간·KPI·손익계산서)가 이 함수 하나만 쓴다.
+   여기를 고치면 전부 같이 고쳐진다(예전엔 6곳에 같은 식이 복사돼 있었다). */
+async function monthRevenue(env: Env, period: string) {
+  const { startMs, endMs } = monthRange(period);
+  const book = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pay_count,
+             COUNT(DISTINCT user_id) AS paying_users
+      FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+    `).bind(startMs, endMs).first<{ revenue: number; pay_count: number; paying_users: number }>();
+    return r || { revenue: 0, pay_count: 0, paying_users: 0 };
+  }, { revenue: 0, pay_count: 0, paying_users: 0 });
+  const dep = await monthDeposits(env, period);
+  return {
+    book: Number(book.revenue) || 0,          // 카페24 등 결제 장부
+    b2b: dep.b2b,                              // 통장 직접입금 (신규 반영)
+    total: (Number(book.revenue) || 0) + dep.b2b,
+    payCount: Number(book.pay_count) || 0,
+    payingUsers: Number(book.paying_users) || 0,
+    dep,
+  };
+}
+
+/* 📊 한 달치 손익을 한 곳에서 계산한다. 분기·연간·KPI 가 각자 복사해 쓰던 식을 합쳤다.
+   PG 수수료는 «카드로 들어온 장부 매출» 에만 붙인다 — B2B 계좌이체엔 PG 수수료가 없다. */
+async function monthPL(env: Env, period: string) {
+  const rev = await monthRevenue(env, period);
+  const ax = await monthActualOpex(env, period);
+  const payroll = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p, COUNT(*) AS c FROM payslips WHERE period=? AND ${realPayslipSql()}`)
+      .bind(period).first<{ p: number; c: number }>();
+    return { total: Number(r?.p) || 0, teachers: Number(r?.c) || 0 };
+  }, { total: 0, teachers: 0 });
+  const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
+  const pgFee = Math.round(rev.book * PG_FEE_RATE);
+  const opCost = ax.hasActual ? ax.actual : Math.round(rev.total * 0.10);
+  const cost = payrollEff + pgFee + opCost + ax.refunds;
+  return {
+    period, rev, ax, payroll, payrollEff, pgFee, opCost, cost,
+    net: rev.total - cost,
+    margin: rev.total > 0 ? Number((((rev.total - cost) / rev.total) * 100).toFixed(2)) : 0,
+    opCostSource: (ax.hasActual ? 'actual' : 'estimated') as 'actual' | 'estimated',
+  };
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 메인 라우터
 // ────────────────────────────────────────────────────────────────────
@@ -226,23 +367,14 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
 
-  // 매출 + 결제 건수
-  const rev = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT
-        COALESCE(SUM(amount_krw), 0) AS revenue,
-        COUNT(*) AS pay_count,
-        COUNT(DISTINCT user_id) AS paying_users
-      FROM student_payments
-      WHERE status='paid' AND paid_at >= ? AND paid_at < ? AND ${notSeedSql()}
-    `).bind(startMs, endMs).first<{ revenue: number; pay_count: number; paying_users: number }>();
-    return r || { revenue: 0, pay_count: 0, paying_users: 0 };
-  }, { revenue: 0, pay_count: 0, paying_users: 0 });
+  // 💰 매출·비용·손익은 monthPL() 한 곳에서 (분기·연간·KPI 와 같은 규칙을 씀)
+  const pl = await monthPL(env, period);
+  const rev = { revenue: pl.rev.book, pay_count: pl.rev.payCount, paying_users: pl.rev.payingUsers };
 
-  // 결제수단별 분포
+  // 결제수단별 분포 — 'card' 와 '카드' 처럼 같은 수단의 표기 흔들림을 한 줄로 합친다(2026-08-16)
   const byMethod = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT COALESCE(method,'기타') AS method,
+      SELECT ${METHOD_NORM_SQL} AS method,
              COUNT(*) AS cnt,
              COALESCE(SUM(amount_krw),0) AS total
       FROM student_payments
@@ -252,81 +384,98 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     return (r.results || []) as Array<{ method: string; cnt: number; total: number }>;
   }, []);
 
-  // 신규 학생 / 만료 학생
+  /* 👥 학생 수 — «활성 학생» 은 students_erp 의 status 만 보면 29,398명 중 28,672명이
+     active 로 나온다(퇴원 처리가 안 된 옛 학생까지 포함). 그 숫자로 ARPU 를 나누면
+     학생 1인당 331원 같은 값이 나온다. 그래서 «그 달에 실제로 움직인 학생»
+     (수업에 들어왔거나 결제한 학생)을 따로 세어 지표의 분모로 쓴다(2026-08-16). */
   const stuMv = await safe(async () => {
-    const yyyymm = period;
     const r = await env.DB.prepare(`
       SELECT
         (SELECT COUNT(*) FROM students_erp WHERE substr(COALESCE(signup_date,''),1,7) = ?) AS new_signups,
         (SELECT COUNT(*) FROM students_erp WHERE substr(COALESCE(end_date,''),1,7) = ?) AS expirations,
         (SELECT COUNT(*) FROM students_erp WHERE status IN ('정상','활동','active')) AS active_total
-    `).bind(yyyymm, yyyymm).first<{ new_signups: number; expirations: number; active_total: number }>();
+    `).bind(period, period).first<{ new_signups: number; expirations: number; active_total: number }>();
     return r || { new_signups: 0, expirations: 0, active_total: 0 };
   }, { new_signups: 0, expirations: 0, active_total: 0 });
+  const activeReal = await monthActiveStudents(env, period);
 
-  // 강사 급여 합계 (Phase 8 payslips)
-  const payroll = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(payment_krw),0) AS total,
-             COUNT(*) AS teachers
-      FROM payslips WHERE period = ? AND ${realPayslipSql()}
-    `).bind(period).first<{ total: number; teachers: number }>();
-    return r || { total: 0, teachers: 0 };
-  }, { total: 0, teachers: 0 });
-
-  // 수업 시간 (분 단위 합계)
+  // 수업 시간 — total_active_ms 가 비어 있는 기록이 많아 «빈 기록 수» 를 같이 알린다
   const classMin = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
-             COUNT(*) AS sessions
+             COUNT(*) AS sessions,
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance
       WHERE date BETWEEN ? AND ?
-    `).bind(period + '-01', period + '-31').first<{ total_min: number; sessions: number }>();
-    return r || { total_min: 0, sessions: 0 };
-  }, { total_min: 0, sessions: 0 });
+    `).bind(period + '-01', period + '-31').first<{ total_min: number; sessions: number; zero_sessions: number }>();
+    return r || { total_min: 0, sessions: 0, zero_sessions: 0 };
+  }, { total_min: 0, sessions: 0, zero_sessions: 0 });
 
-  // PG 수수료는 요율이라 추정식 유지. 운영비는 신한 실지출(카드+계좌)이 있으면 그걸 쓴다
-  const pgFee = Math.round(rev.revenue * 0.033);  // PG 수수료 약 3.3%
-  const ax = await monthActualOpex(env, period);
+  const { ax, payroll, payrollEff, pgFee, opCost } = pl;
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
-  /* 🚨 «장부 매출이 통장보다 적을 때» 경고 (2026-08-16)
-     실제로 겪은 일 — 7월 장부 매출 950만인데 통장 PG 입금은 2,141만이라 리포트가
-     이익률 −168% 로 나왔다. 회사가 망한 게 아니라 **매출이 장부에 덜 잡힌 것**이다.
-     숫자만 보고 «적자» 로 오해하면 안 되므로, 리포트가 스스로 사실을 밝히게 한다. */
+  const rec = reconcileMonth(pl.rev.book, pl.rev.dep);             // 🔍 장부 vs 통장 (한 달치)
+
+  /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
+     «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
+     매출 누락 경고(revenueGapOf)는 **진짜 PG 정산분(케이씨피)만** 과 **장부 결제 매출**을
+     비교한다 — 통장 B2B 직접입금은 PG 를 안 거치므로 이 비교에서 빼야 한다(2026-08-16). */
   const cash = await monthCash(env, period);
-  const pgIn = cash.pg;
-  const revenueGap = revenueGapOf(pgIn, rev.revenue);
-  const opCost = ax.hasActual ? ax.actual : Math.round(rev.revenue * 0.10);  // 폴백 = 추정 10%
-  // 🧑‍🏫 강사 급여 — 급여명세(payslips)가 비어 있으면 신한 계좌의 강사 송금(실데이터)으로 대신
-  const payrollEff = payroll.total > 0 ? payroll.total : ax.teacherPayout;
-  // 💸 학생 환불 — 손익계산서는 매출 차감으로 두지만 여기서는 나간 돈 줄로 표시(순이익은 동일)
-  const totalCost = payrollEff + pgFee + opCost + ax.refunds;
-  const netIncome = rev.revenue - totalCost;
-  const margin = rev.revenue > 0 ? (netIncome / rev.revenue) * 100 : 0;
+  const revenueGap = revenueGapOf(pl.rev.dep.pg, pl.rev.book);
+
+  // 🔎 드릴다운용 상세 — «합계 → 내역 → 원본 거래» 로 내려갈 수 있게(2026-08-16)
+  const cardRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT used_at, COALESCE(merchant,'') AS merchant, amount FROM corpcard_transactions
+      WHERE cancelled=0 AND substr(used_at,1,7)=? ORDER BY amount DESC LIMIT 30
+    `).bind(period).all();
+    return (r.results || []) as Array<{ used_at: string; merchant: string; amount: number }>;
+  }, []);
+  const unclassifiedRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT trans_at, COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
+      WHERE kind='out' AND COALESCE(category,'기타출금')='기타출금' AND substr(trans_at,1,7)=?
+      ORDER BY amount DESC LIMIT 30
+    `).bind(period).all();
+    return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
+  }, []);
+  const unclassified = ax.bankRows.find(b => b.category === '기타출금');
+  const unclassifiedTotal = Number(unclassified?.total) || 0;
 
   const data = {
     ok: true,
     type: 'monthly',
     period, label,
+    // 🔍 대사 판정 — 화면 맨 위 배너가 이걸 그린다(따로 안 들어가도 보이게)
+    reconcile: rec,
     summary: {
-      revenue: rev.revenue,
+      // 💰 매출 = 장부 결제 + 통장 B2B 직접입금 (2026-08-16 사장님 지시로 B2B 반영)
+      revenue: pl.rev.total,
+      revenue_book: pl.rev.book,
+      revenue_b2b: pl.rev.b2b,
+      b2b_count: pl.rev.dep.b2bRows.length,
       pay_count: rev.pay_count,
       paying_users: rev.paying_users,
-      avg_per_user: rev.paying_users > 0 ? Math.round(rev.revenue / rev.paying_users) : 0,
+      avg_per_user: rev.paying_users > 0 ? Math.round(pl.rev.total / rev.paying_users) : 0,
       new_signups: stuMv.new_signups,
       expirations: stuMv.expirations,
+      // «status=active» 원본값과 «그 달 실제로 움직인 학생» 을 둘 다 준다
       active_students: stuMv.active_total,
+      active_real: activeReal.total,
+      active_attended: activeReal.attended,
+      active_paid: activeReal.paid,
       class_minutes: classMin.total_min,
       class_sessions: classMin.sessions,
+      class_zero_sessions: classMin.zero_sessions,
       // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
       seed_excluded_krw: seedEx.amount,
       seed_excluded_count: seedEx.count,
-      // 🚨 장부 매출 < 통장 입금 → 매출 누락 의심(순이익이 실제보다 나쁘게 보인다)
-      deposit_pg_krw: pgIn,
+      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 타계좌 이체)
+      deposit_pg_krw: pl.rev.dep.pg,
+      deposit_transfer_krw: pl.rev.dep.transfer,
+      deposit_transfer_count: pl.rev.dep.transferRows.length,
+      // 🚨 장부 결제 매출 < PG 정산 입금 → 매출 누락 의심
       revenue_gap_krw: revenueGap,
-      /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
-         위 손익은 장부 기준이라 매출 누락분만큼 나쁘게 나온다. 둘을 나란히 보여
-         주어 «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없앤다(2026-08-16). */
+      // 💵 통장 기준 «실제» 현금흐름 — 장부가 불완전해도 이건 사실이다
       cash_in_krw: cash.cin,
       cash_out_krw: cash.cout,
       cash_net_krw: cash.cin - cash.cout,
@@ -341,19 +490,42 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       pg_fee: pgFee,
       op_cost: opCost,
       // 🏦💳 운영비 출처 — 화면(adm-core.js renderMonthly)이 라벨·내역을 이걸로 그린다
-      op_cost_source: ax.hasActual ? 'actual' : 'estimated',
+      op_cost_source: pl.opCostSource,
       op_card: ax.cardSpend,               // 법인카드 지출 합
       op_bank: ax.bankOpex,                // 계좌 출금 합(중복 제외 후)
       op_bank_rows: ax.bankRows,           // 계좌 출금 분류별 [{category,total}]
       bank_dup_excluded: ax.bankDup,       // 급여이체·카드대금 — 중복이라 뺀 금액
       refunds: ax.refunds,                 // 학생 환불 (신한 실데이터)
-      total: totalCost,
+      unclassified_krw: unclassifiedTotal, // ⚠️ 계정과목이 안 붙은 출금 — 분류가 필요하다
+      unclassified_pct: pl.cost > 0 ? Number(((unclassifiedTotal / pl.cost) * 100).toFixed(1)) : 0,
+      total: pl.cost,
     },
     pl: {
-      revenue: rev.revenue,
-      cost: totalCost,
-      net_income: netIncome,
-      margin_pct: Number(margin.toFixed(2)),
+      revenue: pl.rev.total,
+      cost: pl.cost,
+      net_income: pl.net,
+      margin_pct: pl.margin,
+      // ⚠️ 대사가 안 맞는 달은 순이익을 «확정» 이라고 말하면 안 된다
+      confident: rec.verdict === 'ok' || rec.verdict === 'no_data',
+    },
+    // 🏷️ 숫자별 출처 — 화면이 신뢰도 배지를 이걸로 그린다
+    sources: {
+      revenue_book: 'actual' as FigureSource,
+      revenue_b2b: (pl.rev.b2b > 0 ? 'actual' : 'none') as FigureSource,
+      teacher_payroll: (payroll.total > 0 || ax.teacherPayout > 0 ? 'actual' : 'none') as FigureSource,
+      pg_fee: 'estimated' as FigureSource,
+      op_cost: pl.opCostSource,
+      unclassified: (unclassifiedTotal > 0 ? 'review' : 'actual') as FigureSource,
+      deposit_transfer: (pl.rev.dep.transfer > 0 ? 'review' : 'actual') as FigureSource,
+      active_students: 'review' as FigureSource,
+      class_minutes: (classMin.zero_sessions > 0 ? 'review' : 'actual') as FigureSource,
+    },
+    // 🔎 눌러서 펼쳐 볼 내역
+    detail: {
+      b2b_rows: pl.rev.dep.b2bRows,
+      transfer_rows: pl.rev.dep.transferRows,
+      card_rows: cardRows.map(c => ({ date: String(c.used_at || '').slice(0, 10), name: c.merchant, amount: Number(c.amount) || 0 })),
+      unclassified_rows: unclassifiedRows.map(u => ({ date: String(u.trans_at || '').slice(0, 10), name: u.remark, amount: Number(u.amount) || 0 })),
     },
     by_method: byMethod,
   };
@@ -361,16 +533,22 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
   if (fmt === 'csv') {
     return csv(`monthly-${period}.csv`, [
       ['망고아이 월간 회계 리포트', label],
+      ['대사 판정', rec.message],
       [],
-      ['매출 합계', rev.revenue],
+      ['[매출]'],
+      ['장부 결제(카페24 등)', pl.rev.book],
+      ['통장 직접입금(B2B)', pl.rev.b2b],
+      ['매출 합계', pl.rev.total],
       ['결제 건수', rev.pay_count],
       ['결제 학생수', rev.paying_users],
       ['평균 결제액', data.summary.avg_per_user],
       ['신규 가입', stuMv.new_signups],
       ['만료', stuMv.expirations],
-      ['활성 학생수', stuMv.active_total],
+      ['그 달 실제 활동 학생수', activeReal.total],
+      ['(참고) status=active 학생수', stuMv.active_total],
       ['수업 분', classMin.total_min],
       ['세션 수', classMin.sessions],
+      ...(classMin.zero_sessions > 0 ? [[`(주의) 수업시간이 0으로 저장된 기록`, classMin.zero_sessions] as (string | number)[]] : []),
       [],
       ['[비용]'],
       [payroll.total > 0 ? '강사 급여' : '강사 급여(신한 송금 실데이터)', payrollEff],
@@ -381,13 +559,26 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
            ...(ax.bankDup > 0 ? [[`(제외) 계좌 출금 급여이체·카드대금 — 강사급여·카드와 중복`, ax.bankDup] as (string | number)[]] : [])]
         : [['운영비(추정 10%)', opCost] as (string | number)[]]),
       ...(ax.refunds > 0 ? [['학생 환불(신한 실데이터)', ax.refunds] as (string | number)[]] : []),
-      ['비용 합계', totalCost],
+      ...(unclassifiedTotal > 0 ? [[`(확인 필요) 계정과목 미분류 출금 — 비용의 ${data.cost.unclassified_pct}%`, unclassifiedTotal] as (string | number)[]] : []),
+      ['비용 합계', pl.cost],
       [],
       ['[손익]'],
-      ['매출', rev.revenue],
-      ['비용', totalCost],
-      ['순이익', netIncome],
-      ['이익률(%)', data.pl.margin_pct],
+      ['매출', pl.rev.total],
+      ['비용', pl.cost],
+      ['순이익', pl.net],
+      ['이익률(%)', pl.margin],
+      ...(data.pl.confident ? [] : [['(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
+      [],
+      ['[장부 vs 통장]'],
+      ['장부 매출', rec.revenue],
+      ['예상 입금(수수료 차감)', rec.expected],
+      ['실제 PG 정산 입금', rec.deposit_pg],
+      ['차이', rec.diff == null ? '(자료없음)' : rec.diff],
+      ...(pl.rev.dep.transfer > 0 ? [[`(확인 필요) PG 정산이 아닌 「케이씨피M」 등 타계좌 입금`, pl.rev.dep.transfer] as (string | number)[]] : []),
+      [],
+      ['[통장 직접입금 상세]'],
+      ['일자', '보낸 곳', '금액'],
+      ...pl.rev.dep.b2bRows.map(b => [b.date, b.remark, b.amount]),
       [],
       ['[결제수단별]'],
       ['수단', '건수', '금액'],
@@ -395,6 +586,71 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     ]);
   }
   return json(data);
+}
+
+/* 👥 그 달에 «실제로 움직인» 학생 수 — 수업에 들어왔거나(attendance) 결제한(student_payments)
+   학생의 합집합. students_erp.status='active' 는 퇴원 처리가 안 된 옛 학생까지 포함해
+   지표의 분모로 쓸 수 없다(2026-08-16: active 28,672명 vs 실제 활동 805명). */
+async function monthActiveStudents(env: Env, period: string) {
+  const { startMs, endMs } = monthRange(period);
+  const attended = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COUNT(DISTINCT user_id) AS c FROM attendance WHERE date BETWEEN ? AND ?
+    `).bind(period + '-01', period + '-31').first<{ c: number }>();
+    return Number(r?.c) || 0;
+  }, 0);
+  const paid = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COUNT(DISTINCT user_id) AS c FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+    `).bind(startMs, endMs).first<{ c: number }>();
+    return Number(r?.c) || 0;
+  }, 0);
+  const total = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COUNT(*) AS c FROM (
+        SELECT DISTINCT user_id FROM attendance WHERE date BETWEEN ? AND ?
+        UNION
+        SELECT DISTINCT user_id FROM student_payments
+         WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+      )
+    `).bind(period + '-01', period + '-31', startMs, endMs).first<{ c: number }>();
+    return Number(r?.c) || 0;
+  }, 0);
+  return { attended, paid, total: total || Math.max(attended, paid) };
+}
+
+/* 🔍 한 달치 장부 vs 통장 판정 — reconcileReport() 와 같은 규칙을 한 달에 적용한 것.
+   판정 문구도 같은 곳에서 만들어, 월간 리포트 배너와 대사 화면이 어긋나지 않게 한다. */
+function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
+  const expected = Math.round(revenueBook * (1 - PG_FEE_RATE));
+  const hasBank = dep.hasBank;
+  const diff = hasBank ? dep.pg - expected : null;
+  const pct = expected > 0 && diff != null ? (diff / expected) * 100 : 0;
+  let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
+  if (!hasBank) verdict = 'no_data';
+  else if (Math.abs(pct) <= 15) verdict = 'ok';           // 월 단위는 PG 정산 시차가 커서 여유를 둔다
+  else if (Math.abs(pct) <= 30) verdict = 'warn';
+  else verdict = 'alert';
+  const short = (diff ?? 0) < 0;
+  const MSG: Record<typeof verdict, string> = {
+    ok: '장부와 통장이 맞습니다(월 단위 오차는 PG 정산 시차 범위).',
+    warn: short
+      ? 'PG 정산 입금이 장부보다 적습니다. 다음 달 정산으로 넘어간 것인지 확인하세요.'
+      : 'PG 정산 입금이 장부보다 많습니다. 지난달 정산분이 이달에 들어왔는지 확인하세요.',
+    alert: short
+      ? 'PG 정산 입금이 장부보다 크게 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
+      : 'PG 정산 입금이 장부보다 크게 많습니다. 장부에 안 잡힌 결제가 있는지 확인하세요.',
+    no_data: '이 달은 계좌 입금 자료가 없어 대사를 할 수 없습니다.',
+  };
+  return {
+    revenue: revenueBook, expected, deposit_pg: dep.pg,
+    deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
+    diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
+    transfer_note: dep.transfer > 0
+      ? `PG 정산이 아닌 타계좌 입금 ₩${dep.transfer.toLocaleString('ko-KR')} (${dep.transferRows.length}건)이 있습니다 — 「케이씨피M」처럼 사람이 인터넷뱅킹으로 보낸 돈입니다. 운영자금 이체인지 매출인지 확인해 주세요.`
+      : '',
+  };
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -406,50 +662,56 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
   if (q < 1 || q > 4) return err('q must be 1-4');
   const { months, label } = quarterRange(year, q);
 
-  const monthlies = await Promise.all(months.map(async (period) => {
-    const { startMs, endMs } = monthRange(period);
-    const r = await safe(async () => {
-      const x = await env.DB.prepare(`
-        SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
-        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-      `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
-      return x || { revenue: 0, pays: 0 };
-    }, { revenue: 0, pays: 0 });
-    const payroll = await safe(async () => {
-      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
-        .bind(period).first<{ p: number }>();
-      return x?.p || 0;
-    }, 0);
-    // PG 3.3% + 운영비(신한 실지출 있으면 실데이터, 없으면 추정 10%)
-    // 강사급여는 급여명세 우선, 없으면 신한 계좌 강사송금. 환불도 나간 돈으로 합산.
-    const ax = await monthActualOpex(env, period);
-    const effPay = payroll > 0 ? payroll : ax.teacherPayout;
-    const cost = effPay + Math.round(r.revenue * 0.033) + (ax.hasActual ? ax.actual : Math.round(r.revenue * 0.10)) + ax.refunds;
-    return { period, revenue: r.revenue, pays: r.pays, payroll: effPay, cost, net: r.revenue - cost };
-  }));
-
-  const totals = monthlies.reduce((a, m) => ({
-    revenue: a.revenue + m.revenue,
-    pays: a.pays + m.pays,
-    payroll: a.payroll + m.payroll,
-    cost: a.cost + m.cost,
-    net: a.net + m.net,
-  }), { revenue: 0, pays: 0, payroll: 0, cost: 0, net: 0 });
+  const monthlies = await Promise.all(months.map(period => periodRow(env, period)));
+  const totals = sumRows(monthlies);
 
   const data = { ok: true, type: 'quarterly', year, quarter: q, label, monthlies, totals,
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
   };
 
-  if (fmt === 'csv') {
-    return csv(`quarterly-${year}-Q${q}.csv`, [
-      ['망고아이 분기 보고서', label],
-      [],
-      ['월', '매출', '결제건수', '강사급여', '비용 합계', '순이익'],
-      ...monthlies.map(m => [m.period, m.revenue, m.pays, m.payroll, m.cost, m.net]),
-      ['합계', totals.revenue, totals.pays, totals.payroll, totals.cost, totals.net],
-    ]);
-  }
+  if (fmt === 'csv') return csv(`quarterly-${year}-Q${q}.csv`, trendCsv('망고아이 분기 보고서', label, monthlies, totals));
   return json(data);
+}
+
+/* 분기·연간이 같이 쓰는 한 달치 줄. 계산 규칙은 monthPL() 한 곳에만 있다. */
+async function periodRow(env: Env, period: string) {
+  const pl = await monthPL(env, period);
+  return {
+    period,
+    revenue: pl.rev.total,
+    revenue_book: pl.rev.book,
+    revenue_b2b: pl.rev.b2b,
+    pays: pl.rev.payCount,
+    payroll: pl.payrollEff,
+    cost: pl.cost,
+    net: pl.net,
+    op_cost_source: pl.opCostSource,
+  };
+}
+type PeriodRow = Awaited<ReturnType<typeof periodRow>>;
+
+function sumRows(rows: PeriodRow[]) {
+  return rows.reduce((a, m) => ({
+    revenue: a.revenue + m.revenue,
+    revenue_book: a.revenue_book + m.revenue_book,
+    revenue_b2b: a.revenue_b2b + m.revenue_b2b,
+    pays: a.pays + m.pays,
+    payroll: a.payroll + m.payroll,
+    cost: a.cost + m.cost,
+    net: a.net + m.net,
+  }), { revenue: 0, revenue_book: 0, revenue_b2b: 0, pays: 0, payroll: 0, cost: 0, net: 0 });
+}
+
+function trendCsv(title: string, label: string, rows: PeriodRow[], totals: ReturnType<typeof sumRows>): (string | number)[][] {
+  return [
+    [title, label],
+    ['※ 매출 = 장부 결제 + 통장 직접입금(B2B). 운영비 출처가 «추정» 인 달은 실지출 자료가 없는 달입니다.'],
+    [],
+    ['월', '매출', '  장부 결제', '  통장 B2B', '결제건수', '강사급여', '비용 합계', '순이익', '운영비 출처'],
+    ...rows.map(m => [m.period, m.revenue, m.revenue_book, m.revenue_b2b, m.pays, m.payroll, m.cost, m.net,
+      m.op_cost_source === 'actual' ? '실데이터' : '추정']),
+    ['합계', totals.revenue, totals.revenue_book, totals.revenue_b2b, totals.pays, totals.payroll, totals.cost, totals.net, ''],
+  ];
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -459,31 +721,8 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
   const year = Number(url.searchParams.get('year')) || new Date().getUTCFullYear();
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
 
-  const monthlies = await Promise.all(months.map(async (period) => {
-    const { startMs, endMs } = monthRange(period);
-    const r = await safe(async () => {
-      const x = await env.DB.prepare(`
-        SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS pays
-        FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-      `).bind(startMs, endMs).first<{ revenue: number; pays: number }>();
-      return x || { revenue: 0, pays: 0 };
-    }, { revenue: 0, pays: 0 });
-    const payroll = await safe(async () => {
-      const x = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
-        .bind(period).first<{ p: number }>();
-      return x?.p || 0;
-    }, 0);
-    // 분기 보고서와 같은 규칙 — PG 3.3% + 운영비(실데이터 우선) + 강사급여 폴백 + 환불
-    const ax = await monthActualOpex(env, period);
-    const effPay = payroll > 0 ? payroll : ax.teacherPayout;
-    const cost = effPay + Math.round(r.revenue * 0.033) + (ax.hasActual ? ax.actual : Math.round(r.revenue * 0.10)) + ax.refunds;
-    return { period, revenue: r.revenue, pays: r.pays, payroll: effPay, cost, net: r.revenue - cost };
-  }));
-
-  const totals = monthlies.reduce((a, m) => ({
-    revenue: a.revenue + m.revenue, pays: a.pays + m.pays,
-    payroll: a.payroll + m.payroll, cost: a.cost + m.cost, net: a.net + m.net,
-  }), { revenue: 0, pays: 0, payroll: 0, cost: 0, net: 0 });
+  const monthlies = await Promise.all(months.map(period => periodRow(env, period)));
+  const totals = sumRows(monthlies);
 
   const data = {
     ok: true, type: 'annual', year, label: `${year}년 결산`,
@@ -491,86 +730,195 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
   };
 
-  if (fmt === 'csv') {
-    return csv(`annual-${year}.csv`, [
-      ['망고아이 연간 결산', `${year}년`],
-      [],
-      ['월', '매출', '결제건수', '강사급여', '비용 합계', '순이익'],
-      ...monthlies.map(m => [m.period, m.revenue, m.pays, m.payroll, m.cost, m.net]),
-      ['합계', totals.revenue, totals.pays, totals.payroll, totals.cost, totals.net],
-    ]);
-  }
+  if (fmt === 'csv') return csv(`annual-${year}.csv`, trendCsv('망고아이 연간 결산', `${year}년`, monthlies, totals));
   return json(data);
 }
 
 // ────────────────────────────────────────────────────────────────────
 // 4) 가맹점별 정산서
 // ────────────────────────────────────────────────────────────────────
+/* 🏢 가맹점별 정산서 — 「총매출 ÷ 가맹점 수」 균등분배를 버렸다 (2026-08-16).
+
+   [무엇이 문제였나] 활성 가맹점 235개로 그 달 총매출을 똑같이 나눠 줬다.
+   학생 한 명 없는 지사와 수백 명 있는 지사가 같은 금액을 받는 표였다.
+   이대로 가맹점에 보내면 분쟁이 난다.
+
+   [어떻게 고쳤나] 학생 한 명 한 명을 실제 소속으로 따라가 붙인다:
+     students_erp.shop_name → centers.name → centers.franchise_id → franchises
+   ⚠️ centers.name 이 유일하지 않다(2026-08-16 기준 5개 이름이 두 지사 이상으로 갈린다 —
+      안산SLP·강서SLP·미사용·뮤엠영어학원·진주외국어고등학교, 학생 2,603명).
+      이름 하나가 두 지사 이상이면 **아무 데도 배정하지 않고 «배정 불가» 로 따로 센다** —
+      아무 쪽에나 몰아주면 그게 또 다른 균등분배다.
+   ⚠️ 배정 불가의 **주된 원인은 중복 이름이 아니다**(2026-07 기준 12만원, 1.3%).
+      **학생 원부에 아예 없는 아이디로 들어오는 결제**가 진짜 원인이다
+      (2026-07 539만원 · 56.8%, 2026년 누계 5,242만원). 대리점·직원이 학생 몫을
+      한꺼번에 대신 결제하는 것으로 보인다(예: 「장지웅1」이 3분 동안 13건).
+      → 해결은 코드가 아니라 데이터다. student_org_override 에 아이디↔대리점을
+        넣으면 그대로 붙는다. 목록은 docs/가맹점_매출배정_미확정_목록_2026-08-16.md.
+   ⚠️ 수수료율은 가맹 계약서에 있는 값인데 시스템에 없다. 그래서 화면·CSV 에
+      «추정» 이라고 밝히고, ?hq_fee= 로 바꿔 볼 수 있게만 한다. */
 async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
-  const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15; // 본사 수수료 15%
+  const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15;
 
-  // 가맹점 목록
-  const franchises = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT id, name FROM franchises WHERE active=1 ORDER BY name`).all();
-    return (r.results || []) as Array<{ id: number; name: string }>;
+  /* 🧾 대리 결제자 → 지사 지정표 (2026-08-16 신설).
+     학생이 아니라 **대리점·직원 계정이 여러 학생 몫을 한꺼번에 결제**하는 경우가 있다
+     (사장님 확인: 「장지웅1」 = 직원 대리결제). 그 아이디는 students_erp 에 없으니
+     소속을 알 수 없어 매출이 통째로 «배정 불가» 가 된다 — 2026년 누계 5,242만원.
+     여기에 «이 아이디는 이 지사» 를 한 줄 적어 두면 그 뒤부터 자동으로 붙는다.
+     ⛔ 추측해서 채우지 말 것. 사람이 확인해 준 것만 넣는다. */
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS payer_franchise_override (payer_user_id TEXT PRIMARY KEY, franchise_id INTEGER NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`);
+  } catch { /* 이미 있으면 그만 */ }
+
+  /* 🔑 소속 판정은 «학생 원부의 지사 라벨» 이 1순위다 (2026-08-16).
+     students_erp.franchise 는 카페24가 학생마다 직접 찍어 준 지사 이름이라
+     대리점 이름을 거쳐 추론하는 것보다 훨씬 정확하다 — 실측: 학생 29,398명 중
+     28,974명(98.6%)이 라벨을 갖고 있고 **전부** franchises.name 과 정확히 일치한다.
+     이 방식으로 바꾸면 「같은 대리점 이름이 두 지사에 있어 배정 불가」 문제가
+     통째로 사라진다(예: 「미사용」 대리점 학생 229명은 라벨이 이미 셋으로 나뉘어 있다).
+     라벨이 없는 학생만 예전처럼 shop_name → centers → 지사 로 폴백한다. */
+  const attributed = await safe(async () => {
+    const r = await env.DB.prepare(`
+      WITH fmap AS (
+        SELECT name, MIN(id) AS fid, COUNT(*) AS nf
+          FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name
+      ),
+      cmap AS (
+        SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
+          FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> ''
+         GROUP BY name
+      ),
+      att AS (
+        SELECT p.id AS pay_id, p.amount_krw, p.user_id,
+               COALESCE(
+                 -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
+                 (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id),
+                 -- ② 학생 원부의 지사 라벨
+                 (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
+                 -- ③ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
+                 (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
+               ) AS fid
+          FROM student_payments p
+          LEFT JOIN students_erp st ON st.user_id = p.user_id
+         WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
+      )
+      SELECT f.id AS franchise_id, f.name AS franchise_name, f.active AS active,
+             COALESCE(SUM(a.amount_krw),0) AS gross,
+             COUNT(a.pay_id) AS pays,
+             COUNT(DISTINCT a.user_id) AS students
+        FROM att a JOIN franchises f ON f.id = a.fid
+       GROUP BY f.id, f.name, f.active
+       HAVING gross > 0
+       ORDER BY gross DESC
+    `).bind(startMs, endMs).all();
+    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number }>;
   }, []);
 
-  // 가맹점별 매출 — students_erp 에 franchise_id 가 있다면 좋지만 없을 수 있음
-  // → 대신 가맹점별 결제 분배가 안되어 있으면 전체 매출로 대체
-  const totalRev = await safe(async () => {
+  // 장부 총 매출 — 배정된 합과 비교해 «배정 못 한 돈» 을 정직하게 드러낸다
+  const bookTotal = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(amount_krw),0) AS revenue
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+      SELECT COALESCE(SUM(amount_krw),0) AS revenue FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
     `).bind(startMs, endMs).first<{ revenue: number }>();
-    return r?.revenue || 0;
+    return Number(r?.revenue) || 0;
   }, 0);
 
-  // 가맹점이 없으면 본사 단독으로 표시
-  const rows = franchises.length > 0
-    ? franchises.map((f, i) => {
-        // 균등 분배 추정 (실제 환경에선 students_erp.franchise_id 로 정확 계산)
-        const share = Math.round(totalRev / franchises.length);
-        const fee = Math.round(share * hqFeeRate);
-        return {
-          franchise_id: f.id,
-          franchise_name: f.name,
-          gross_revenue: share,
-          hq_fee: fee,
-          net_settlement: share - fee,
-          due_date: nextSettlementDate(period),
-          status: 'pending',
-        };
-      })
-    : [{
-        franchise_id: 0, franchise_name: '본사 직영',
-        gross_revenue: totalRev,
-        hq_fee: 0,
-        net_settlement: totalRev,
-        due_date: nextSettlementDate(period),
-        status: 'self',
-      }];
+  const rows = attributed.map(f => {
+    const fee = Math.round(f.gross * hqFeeRate);
+    return {
+      franchise_id: f.franchise_id,
+      franchise_name: f.franchise_name + (Number(f.active) === 1 ? '' : ' (비활성 지사)'),
+      students: f.students,
+      pay_count: f.pays,
+      gross_revenue: f.gross,
+      hq_fee: fee,
+      net_settlement: f.gross - fee,
+      due_date: nextSettlementDate(period),
+      status: '정산예정',
+    };
+  });
 
+  const assigned = rows.reduce((a, r) => a + r.gross_revenue, 0);
+  const unassigned = Math.max(0, bookTotal - assigned);
+
+  /* 🔎 «어느 아이디 때문에 못 붙었는지» 를 이름까지 보여 준다 (2026-08-16).
+     숫자만 «미배정 539만» 이라고 하면 무엇을 해야 할지 알 수 없다. 목록이 있어야
+     사장님이 «아, 이건 어디 대리점» 하고 알려 줄 수 있고, 그러면 바로 붙는다. */
+  const unassignedPayers = await safe(async () => {
+    const r = await env.DB.prepare(`
+      WITH fmap AS (SELECT name, MIN(id) AS fid, COUNT(*) AS nf FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name),
+      cmap AS (SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
+                 FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> '' GROUP BY name)
+      SELECT p.user_id,
+             COUNT(*) AS pays, COALESCE(SUM(p.amount_krw),0) AS amount,
+             CASE WHEN st.user_id IS NULL THEN '학생 원부에 없는 아이디'
+                  WHEN COALESCE(st.franchise,'') = '' THEN '지사 라벨 없음'
+                  ELSE '지사 이름이 중복' END AS reason
+        FROM student_payments p
+        LEFT JOIN students_erp st ON st.user_id = p.user_id
+       WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
+         AND (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id) IS NULL
+         AND (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1) IS NULL
+         AND (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1) IS NULL
+       GROUP BY p.user_id, reason
+       ORDER BY amount DESC LIMIT 50
+    `).bind(startMs, endMs).all();
+    return (r.results || []) as Array<{ user_id: string; pays: number; amount: number; reason: string }>;
+  }, []);
   const totals = rows.reduce((a, r) => ({
-    gross: a.gross + r.gross_revenue,
-    fee: a.fee + r.hq_fee,
-    net: a.net + r.net_settlement,
+    gross: a.gross + r.gross_revenue, fee: a.fee + r.hq_fee, net: a.net + r.net_settlement,
   }), { gross: 0, fee: 0, net: 0 });
 
-  const data = { ok: true, type: 'franchise', period, label, hq_fee_rate: hqFeeRate, rows, totals };
+  const data = {
+    ok: true, type: 'franchise', period, label,
+    hq_fee_rate: hqFeeRate,
+    method: 'attributed',                       // 균등분배(equal)가 아니라 학생 단위 귀속
+    rows, totals,
+    book_total: bookTotal,
+    unassigned_krw: unassigned,
+    unassigned_pct: bookTotal > 0 ? Number(((unassigned / bookTotal) * 100).toFixed(1)) : 0,
+    unassigned_payers: unassignedPayers,
+    sources: {
+      gross_revenue: 'actual' as FigureSource,
+      hq_fee: 'estimated' as FigureSource,      // 계약서 수수료율이 시스템에 없다
+      unassigned: (unassigned > 0 ? 'review' : 'actual') as FigureSource,
+    },
+    notes: [
+      '가맹점별 매출은 학생 한 명씩 실제 소속을 따라가 합산한 값입니다. 균등분배가 아닙니다. 소속은 학생 원부의 지사 라벨을 먼저 쓰고, 라벨이 없으면 대리점 이름으로 찾습니다.',
+      `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
+      ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, bookTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
+    ],
+  };
 
   if (fmt === 'csv') {
     return csv(`franchise-settlement-${period}.csv`, [
       ['망고아이 가맹점 정산서', label],
-      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}%`],
+      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요)`],
+      ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님)'],
       [],
-      ['가맹점', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'],
-      ...rows.map(r => [r.franchise_name, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]),
-      ['합계', totals.gross, totals.fee, totals.net, '', ''],
+      ['가맹점', '학생수', '결제건수', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'],
+      ...rows.map(r => [r.franchise_name, r.students, r.pay_count, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]),
+      ['합계', '', '', totals.gross, totals.fee, totals.net, '', ''],
+      [],
+      ['장부 총 매출', bookTotal],
+      ['가맹점에 배정된 매출', assigned],
+      ['배정하지 못한 매출(확인 필요)', unassigned],
+      ...(unassignedPayers.length ? [
+        [] as (string | number)[],
+        ['[배정 못 한 결제자 — 어느 지사인지 알려 주시면 바로 붙습니다]'] as (string | number)[],
+        ['결제 아이디', '건수', '금액', '사유'] as (string | number)[],
+        ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason] as (string | number)[]),
+      ] : []),
     ]);
   }
   return json(data);
+}
+
+/** 0 나눗셈을 피한 퍼센트 문자열 */
+function data0Pct(part: number, whole: number): string {
+  return whole > 0 ? ((part / whole) * 100).toFixed(1) : '0.0';
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -607,12 +955,36 @@ async function payslipsReport(env: Env, url: URL, fmt: string): Promise<Response
     net: a.net + (r.net || 0),
   }), { minutes: 0, payment: 0, bonus: 0, deduction: 0, net: 0 });
 
+  /* 🧑‍🏫 급여명세가 0건일 때 «빈 표» 만 보여 주고 끝내지 않는다 (2026-08-16).
+     실제로 그 달 강사에게 나간 돈(신한 → 메트로은행 송금)과 자동 계산된 수업 실적이
+     있으면 그것을 «아직 확정되지 않은 값» 으로 함께 알려 준다. */
+  const ax = await monthActualOpex(env, period);
+  const [y, mo] = period.split('-').map(Number);
+  const autoPayroll = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COUNT(*) AS teachers, COALESCE(SUM(completed_classes),0) AS classes, COALESCE(SUM(pay_php),0) AS php
+      FROM teacher_payroll_auto WHERE year=? AND month=?
+    `).bind(y, mo).first<{ teachers: number; classes: number; php: number }>();
+    return { teachers: Number(r?.teachers) || 0, classes: Number(r?.classes) || 0, php: Number(r?.php) || 0 };
+  }, { teachers: 0, classes: 0, php: 0 });
+
+  const notes: string[] = [];
+  if (rows.length === 0) {
+    notes.push('이 달에 확정된 강사 급여명세가 한 건도 없습니다. 아래는 «대신 알 수 있는 것» 입니다.');
+    if (ax.teacherPayout > 0) notes.push(`신한 계좌에서 강사에게 실제로 나간 송금은 ₩${ax.teacherPayout.toLocaleString('ko-KR')} 입니다(메트로은행, 실데이터).`);
+    if (autoPayroll.teachers > 0) notes.push(`수업 실적으로 자동 계산된 강사는 ${autoPayroll.teachers}명 · 완료 수업 ${autoPayroll.classes}건입니다 — 확정(급여명세 생성)만 하면 이 표가 채워집니다.`);
+    notes.push('급여명세가 없으면 원천세(3.3%)도 계산되지 않습니다.');
+  }
+
   const data = { ok: true, type: 'payslips', period, label: `${period} 강사 급여명세서`,
-    rows, totals, teacher_count: rows.length };
+    rows, totals, teacher_count: rows.length,
+    fallback: rows.length === 0 ? { bank_payout: ax.teacherPayout, auto: autoPayroll } : null,
+    notes };
 
   if (fmt === 'csv') {
     return csv(`payslips-${period}.csv`, [
       ['망고아이 강사 급여명세서', period],
+      ...notes.map(n => [n] as (string | number)[]),
       [],
       ['강사ID', '이름', '국가', '수업분', '기본급여(KRW)', '상여', '공제', '실지급'],
       ...rows.map((r: any) => [
@@ -628,31 +1000,31 @@ async function payslipsReport(env: Env, url: URL, fmt: string): Promise<Response
 // ────────────────────────────────────────────────────────────────────
 // 6) 경영지표 (KPI)
 // ────────────────────────────────────────────────────────────────────
+/* ⭐ 경영지표 — 「분모가 틀린 지표」를 걷어냈다 (2026-08-16).
+     · ARPU 분모를 students_erp.status='active'(28,672명)에서 «그 달 실제 활동 학생»
+       으로 바꿨다. 예전엔 학생 1인당 331원 같은 값이 나왔다.
+     · CAC 는 «매출의 5%를 마케팅비로 친다» 는 근거 없는 식이었다 → 법인카드의
+       실제 광고비로 계산하고, 광고비 자료가 없으면 값을 만들지 않고 «자료없음».
+     · 결제 성공률은 실패 결제가 저장되지 않아 늘 100%에 가깝게 나왔다 → «자료없음».
+   ⛔ 새 규칙: 근거가 없으면 숫자를 지어내지 않고 available:false 로 내려보낸다. */
+const AD_MERCHANT_RE = /GOOGLE|META|FACEBOOK|INSTAGRAM|NAVER|네이버|카카오|당근|유튜브|YOUTUBE|광고|ADS?\b/i;
+
 async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
 
-  // 매출
-  const rev = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(amount_krw),0) AS revenue,
-             COUNT(DISTINCT user_id) AS paying_users
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-    `).bind(startMs, endMs).first<{ revenue: number; paying_users: number }>();
-    return r || { revenue: 0, paying_users: 0 };
-  }, { revenue: 0, paying_users: 0 });
+  const pl = await monthPL(env, period);
+  const activeReal = await monthActiveStudents(env, period);
 
-  // 활성 학생
   const active = await safe(async () => {
     const r = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE status IN ('정상','활동','active')`).first<{ c: number }>();
-    return r?.c || 0;
+    return Number(r?.c) || 0;
   }, 0);
 
-  // 신규 학생
   const newSignups = await safe(async () => {
     const r = await env.DB.prepare(`SELECT COUNT(*) AS c FROM students_erp WHERE substr(COALESCE(signup_date,''),1,7)=?`)
       .bind(period).first<{ c: number }>();
-    return r?.c || 0;
+    return Number(r?.c) || 0;
   }, 0);
 
   // 평균 누적 결제액 (LTV proxy) — 학생당 지금까지 결제 합계의 평균
@@ -663,73 +1035,75 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
         FROM student_payments WHERE status='paid' AND ${notSeedSql()} GROUP BY user_id
       )
     `).first<{ avg_total: number }>();
-    return Math.round(r?.avg_total || 0);
+    return Math.round(Number(r?.avg_total) || 0);
   }, 0);
 
-  // 강사 급여
-  const payroll = await safe(async () => {
-    const r = await env.DB.prepare(`SELECT COALESCE(SUM(payment_krw),0) AS p FROM payslips WHERE period=? AND ${realPayslipSql()}`)
-      .bind(period).first<{ p: number }>();
-    return r?.p || 0;
-  }, 0);
-
-  // 결제 성공률 (paid / 전체)
-  const successRate = await safe(async () => {
+  // 📣 실제 광고비 — 법인카드에서 광고 가맹점만. 없으면 CAC 를 계산하지 않는다.
+  const adSpend = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT
-        SUM(CASE WHEN status='paid' THEN 1 ELSE 0 END) AS ok_cnt,
-        COUNT(*) AS all_cnt
-      FROM student_payments WHERE paid_at>=? AND paid_at<? AND ${notSeedSql()}
-    `).bind(startMs, endMs).first<{ ok_cnt: number; all_cnt: number }>();
-    if (!r || !r.all_cnt) return 0;
-    return Number(((r.ok_cnt / r.all_cnt) * 100).toFixed(1));
+      SELECT COALESCE(merchant,'') AS merchant, COALESCE(SUM(amount),0) AS total
+      FROM corpcard_transactions WHERE cancelled=0 AND substr(used_at,1,7)=?
+      GROUP BY merchant
+    `).bind(period).all();
+    return ((r.results || []) as Array<{ merchant: string; total: number }>)
+      .filter(m => AD_MERCHANT_RE.test(m.merchant))
+      .reduce((a, m) => a + (Number(m.total) || 0), 0);
   }, 0);
 
-  // 수업 시간 / 학생
   const classMin = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(total_active_ms),0)/60000 AS total_min,
-             COUNT(DISTINCT user_id) AS uniq
+             SUM(CASE WHEN COALESCE(total_active_ms,0)=0 THEN 1 ELSE 0 END) AS zero_sessions
       FROM attendance WHERE date BETWEEN ? AND ?
-    `).bind(period + '-01', period + '-31').first<{ total_min: number; uniq: number }>();
-    return r || { total_min: 0, uniq: 0 };
-  }, { total_min: 0, uniq: 0 });
+    `).bind(period + '-01', period + '-31').first<{ total_min: number; zero_sessions: number }>();
+    return r || { total_min: 0, zero_sessions: 0 };
+  }, { total_min: 0, zero_sessions: 0 });
 
-  const arpu = active > 0 ? Math.round(rev.revenue / active) : 0;
-  // 이익률·ROI 도 실지출 기준으로 — 규칙은 monthActualOpex 한 곳(2026-08-15)
-  const axK = await monthActualOpex(env, period);
-  const effPayK = payroll > 0 ? payroll : axK.teacherPayout;
-  const cost = effPayK + Math.round(rev.revenue * 0.033) + (axK.hasActual ? axK.actual : Math.round(rev.revenue * 0.10)) + axK.refunds;
-  const net = rev.revenue - cost;
-  const margin = rev.revenue > 0 ? (net / rev.revenue) * 100 : 0;
+  const revenue = pl.rev.total;
+  const cost = pl.cost;
+  const net = pl.net;
   const roi = cost > 0 ? (net / cost) * 100 : 0;
-  // CAC: 마케팅비를 알 수 없으므로 순이익의 30% 추정
-  const cacEst = Math.round((rev.revenue * 0.05) / Math.max(newSignups, 1));
+  const arpuBase = activeReal.total;
+  const arpu = arpuBase > 0 ? Math.round(revenue / arpuBase) : 0;
+  const cac = adSpend > 0 && newSignups > 0 ? Math.round(adSpend / newSignups) : 0;
 
-  const kpis = [
-    { key: 'revenue',         label: '월 매출',                 value: rev.revenue,      unit: 'KRW' },
-    { key: 'active_students', label: '활성 학생',               value: active,           unit: '명' },
-    { key: 'paying_users',    label: '결제 학생',               value: rev.paying_users, unit: '명' },
-    { key: 'new_signups',     label: '신규 가입',               value: newSignups,       unit: '명' },
-    { key: 'arpu',            label: 'ARPU (학생 1인 평균 매출)', value: arpu,             unit: 'KRW' },
-    { key: 'ltv',             label: 'LTV (평균 누적결제)',     value: ltvProxy,         unit: 'KRW' },
-    { key: 'cac_est',         label: 'CAC 추정 (마케팅비÷신규)', value: cacEst,           unit: 'KRW' },
-    { key: 'ltv_cac',         label: 'LTV/CAC',                value: cacEst > 0 ? Number((ltvProxy / cacEst).toFixed(2)) : 0, unit: '배' },
-    { key: 'margin_pct',      label: '이익률',                  value: Number(margin.toFixed(2)), unit: '%' },
-    { key: 'roi_pct',         label: 'ROI',                    value: Number(roi.toFixed(2)),    unit: '%' },
-    { key: 'success_rate',    label: '결제 성공률',             value: successRate,      unit: '%' },
-    { key: 'class_min',       label: '총 수업 시간',            value: classMin.total_min, unit: '분' },
+  type Kpi = { key: string; label: string; value: number; unit: string; source: FigureSource; available: boolean; note?: string };
+  const kpis: Kpi[] = [
+    { key: 'revenue', label: '월 매출 (장부+통장 B2B)', value: revenue, unit: 'KRW', source: 'actual', available: true },
+    { key: 'revenue_b2b', label: '  └ 통장 직접입금(B2B)', value: pl.rev.b2b, unit: 'KRW', source: pl.rev.b2b > 0 ? 'actual' : 'none', available: true },
+    { key: 'active_real', label: '활동 학생 (수업·결제한 학생)', value: activeReal.total, unit: '명', source: 'actual', available: true },
+    { key: 'active_students', label: '재적 학생 (원부 status=active)', value: active, unit: '명', source: 'review', available: true,
+      note: '퇴원 처리가 안 된 옛 학생까지 포함돼 있어 지표의 분모로는 쓰지 않습니다.' },
+    { key: 'paying_users', label: '결제 학생', value: pl.rev.payingUsers, unit: '명', source: 'actual', available: true },
+    { key: 'new_signups', label: '신규 가입', value: newSignups, unit: '명', source: 'actual', available: true },
+    { key: 'arpu', label: 'ARPU (활동 학생 1인 평균 매출)', value: arpu, unit: 'KRW', source: 'actual', available: arpuBase > 0 },
+    { key: 'ltv', label: 'LTV (평균 누적결제)', value: ltvProxy, unit: 'KRW', source: 'actual', available: ltvProxy > 0 },
+    { key: 'ad_spend', label: '광고비 (법인카드 실지출)', value: adSpend, unit: 'KRW', source: adSpend > 0 ? 'actual' : 'none', available: adSpend > 0,
+      note: adSpend > 0 ? '' : '법인카드에서 광고 가맹점을 찾지 못했습니다. 광고 계정을 연동하거나 카드 내역을 분류해 주세요.' },
+    { key: 'cac', label: 'CAC (광고비 ÷ 신규 학생)', value: cac, unit: 'KRW', source: adSpend > 0 ? 'actual' : 'none', available: cac > 0,
+      note: cac > 0 ? '' : '광고비 자료가 없어 계산하지 않았습니다(예전에는 매출의 5%로 지어냈습니다).' },
+    { key: 'ltv_cac', label: 'LTV/CAC', value: cac > 0 ? Number((ltvProxy / cac).toFixed(2)) : 0, unit: '배',
+      source: cac > 0 ? 'actual' : 'none', available: cac > 0 },
+    { key: 'margin_pct', label: '이익률', value: pl.margin, unit: '%', source: pl.opCostSource, available: revenue > 0 },
+    { key: 'roi_pct', label: 'ROI', value: Number(roi.toFixed(2)), unit: '%', source: pl.opCostSource, available: cost > 0 },
+    { key: 'success_rate', label: '결제 성공률', value: 0, unit: '%', source: 'none', available: false,
+      note: '실패한 결제가 저장되지 않아 계산할 수 없습니다. 저장하면 바로 나옵니다.' },
+    { key: 'class_min', label: '총 수업 시간', value: classMin.total_min, unit: '분',
+      source: classMin.zero_sessions > 0 ? 'review' : 'actual', available: true,
+      note: classMin.zero_sessions > 0 ? `수업 기록 ${classMin.zero_sessions}건의 수업시간이 0으로 저장돼 있어 실제보다 적게 나옵니다.` : '' },
   ];
 
   const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis,
-    revenue: rev.revenue, cost, net, payroll };
+    revenue, cost, net, payroll: pl.payroll.total, margin_pct: pl.margin };
 
   if (fmt === 'csv') {
     return csv(`kpi-${period}.csv`, [
       ['망고아이 경영지표 (KPI)', label],
       [],
-      ['지표', '값', '단위'],
-      ...kpis.map(k => [k.label, k.value, k.unit]),
+      ['지표', '값', '단위', '출처', '비고'],
+      ...kpis.map(k => [k.label, k.available ? k.value : '(자료없음)', k.unit,
+        k.source === 'actual' ? '실데이터' : k.source === 'estimated' ? '추정' : k.source === 'review' ? '확인필요' : '자료없음',
+        k.note || '']),
     ]);
   }
   return json(data);
@@ -744,44 +1118,32 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
 
-  // 공통: 매출, 강사급여 (모든 재무제표의 핵심 입력)
-  const rev = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(amount_krw),0) AS revenue,
-             COUNT(*) AS pay_count
-      FROM student_payments WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
-    `).bind(startMs, endMs).first<{ revenue: number; pay_count: number }>();
-    return r || { revenue: 0, pay_count: 0 };
-  }, { revenue: 0, pay_count: 0 });
-
-  const payroll = await safe(async () => {
-    const r = await env.DB.prepare(`
-      SELECT COALESCE(SUM(payment_krw),0) AS total
-      FROM payslips WHERE period=? AND ${realPayslipSql()}
-    `).bind(period).first<{ total: number }>();
-    return r?.total || 0;
-  }, 0);
-
-  // 추정 비용 — PG 수수료·세금은 요율이라 계속 추정식
-  const pgFee = Math.round(rev.revenue * 0.033);   // PG 3.3%
-  const tax = Math.round(rev.revenue * 0.03);      // 부가세 등 3% 추정
-
-  /* 🏦💳 신한 실지출 — 규칙·쿼리는 monthActualOpex() 한 곳에만 있다(2026-08-15 통합).
-     실데이터가 있으면 운영비를 «추정 10%» 대신 실지출로. 제외분(급여이체·카드대금)은
-     화면에 안내 줄로 «얼마를 왜 뺐는지» 보여 준다(조용히 빼지 않는다). */
-  const ax = await monthActualOpex(env, period);
-  const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
+  /* 💰 매출·비용은 monthPL() 한 곳에서 — 월간 리포트와 숫자가 어긋나지 않게(2026-08-16).
+     매출에는 통장 B2B 직접입금이 포함된다. */
+  const plM = await monthPL(env, period);
+  const rev = { revenue: plM.rev.total, pay_count: plM.rev.payCount };
+  const payroll = plM.payroll.total;
+  const ax = plM.ax;
   /* 💵 통장 기준 사실 — 손익계산서도 월간 리포트와 똑같이 «매출 누락» 을 밝히고
-     실제 현금흐름을 함께 보여 준다. 화면마다 말이 다르면 안 된다(2026-08-16 제보). */
+     실제 현금흐름을 함께 보여 준다. 화면마다 말이 다르면 안 된다(2026-08-16 제보).
+     비교 대상은 «진짜 PG 정산분 vs 장부 결제 매출» 이다(B2B 직접입금은 PG 를 안 거친다). */
   const plCash = await monthCash(env, period);
-  const plGap = revenueGapOf(plCash.pg, rev.revenue);
+  const plGap = revenueGapOf(plM.rev.dep.pg, plM.rev.book);
   const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
-  const opCost = hasActual ? ax.actual : Math.round(rev.revenue * 0.10);   // 폴백 = 기존 추정 10%
+  const opCost = plM.opCost;
+  const pgFee = plM.pgFee;
+
+  /* 🧾 부가세 — 예전엔 «매출 × 3%» 라는 근거 없는 식이었다. 우리 매출은 부가세 포함
+     금액이므로 예수 부가세 = 매출 ÷ 11 이 정본이다. 매입세액 공제는 세금계산서 자료가
+     없어 반영하지 못한다 → 여전히 «추정» 이라고 밝힌다(2026-08-16). */
+  const tax = Math.round(rev.revenue / 11);
+
+  const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
 
   /* 🧑‍🏫 강사 급여 — 급여명세(payslips)가 있으면 그것이 정본. 비어 있으면 신한 계좌의
      강사 송금(메트로은행, 실데이터)으로 대신한다. 둘 다 있으면 급여명세를 쓰고 송금분은
      중복이라 제외(안내 줄 표시). 💸 학생 환불은 비용이 아니라 매출 차감(2026-08-15 확인). */
-  const payrollEff = payroll > 0 ? payroll : ax.teacherPayout;
+  const payrollEff = plM.payrollEff;
   const payrollFromBank = payroll <= 0 && ax.teacherPayout > 0;
   const revNet = rev.revenue - ax.refunds;
 
@@ -789,6 +1151,26 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const netIncome = revNet - totalCost;
   const grossProfit = revNet - payrollEff - pgFee;
   const operatingProfit = grossProfit - opCost;
+
+  /* 🏦 통장 실제 잔액 — 재무상태표의 «현금» 을 «매출 × 70%» 로 지어내던 것을 대체한다.
+     그 달 마지막 거래의 balance 가 월말 잔액이다. 마이너스면 마이너스 그대로 쓴다. */
+  const cashActual = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT balance FROM bankacct_transactions WHERE substr(trans_at,1,7)<=?
+      ORDER BY trans_at DESC, id DESC LIMIT 1
+    `).bind(period).first<{ balance: number }>();
+    return r ? Number(r.balance) : null;
+  }, null as number | null);
+
+  /* 💼 미지급 강사급여 — payslips.paid=0 인 실제 행. 예전엔 «그 달 급여 전액» 을
+     미지급금으로 잡아 이미 지급한 돈까지 부채로 세었다. */
+  const unpaidPayroll = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(payment_krw),0) AS t FROM payslips
+      WHERE COALESCE(paid,0)=0 AND period<=? AND ${realPayslipSql()}
+    `).bind(period).first<{ t: number }>();
+    return Number(r?.t) || 0;
+  }, 0);
 
   let data: any;
 
@@ -798,8 +1180,14 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       ok: true, type: 'pl', period, label: `손익계산서 (P&L) — ${label}`,
       sections: [
         { title: 'I. 매출액 (Revenue)', items: [
-          { name: '수업료 매출', amount: rev.revenue },
+          { name: '수업료 매출 (카페24 등 결제)', amount: plM.rev.book },
+          ...(plM.rev.b2b > 0
+            ? [{ name: `통장 직접입금 (B2B ${plM.rev.dep.b2bRows.length}건 · 신한 실데이터)`, amount: plM.rev.b2b }]
+            : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
+          ...(plM.rev.dep.transfer > 0
+            ? [{ name: `※ PG 정산이 아닌 타계좌 입금 ₩${plM.rev.dep.transfer.toLocaleString('ko-KR')}(「케이씨피M」 등 ${plM.rev.dep.transferRows.length}건)은 성격이 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
+            : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
           ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
@@ -828,7 +1216,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '매출총이익 - 판관비', amount: operatingProfit, highlight: true },
         ]},
         { title: 'VI. 세금 등 (Taxes)', items: [
-          { name: '부가세 등 (추정)', amount: -tax },
+          { name: '예수 부가세 (매출 ÷ 11 — 매입세액 공제 전, 추정)', amount: -tax },
         ]},
         { title: 'VII. 당기순이익 (Net Income)', items: [
           { name: '최종 순이익', amount: netIncome, highlight: true, big: true },
@@ -851,40 +1239,42 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     };
   }
   else if (type === 'bs') {
-    // 재무상태표 (Balance Sheet) — 단순화된 추정
-    const cash = Math.round(rev.revenue * 0.7);             // 현금성 자산 (매출의 70%)
-    const receivable = Math.round(rev.revenue * 0.15);      // 미수금 (학생 미납)
-    const fixed = 50000000;                                 // 고정자산 (장비·집기) 추정
-    const totalAssets = cash + receivable + fixed;
-    const payable = payrollEff;                             // 미지급 (강사급여 — 급여명세 없으면 계좌 송금)
-    const taxPayable = tax;                                 // 미지급 세금
+    /* 재무상태표 — 예전에는 현금 = 매출×70%, 미수금 = 매출×15%, 고정자산 = 5,000만
+       고정값이었다. 셋 다 근거가 없어 «매출이 오르면 자산도 오르는» 표였다.
+       이제 있는 것만 넣고, 없는 것은 0 으로 두되 «자료없음» 이라고 밝힌다(2026-08-16). */
+    const cash = cashActual ?? 0;
+    const totalAssets = cash;
+    const payable = unpaidPayroll;
+    const taxPayable = tax;
     const totalLiabilities = payable + taxPayable;
     const equity = totalAssets - totalLiabilities;
+    const missing = ['미수금(학생 미납)', '유형자산(장비·집기)', '기타 예금·보증금'];
     data = {
       ok: true, type: 'bs', period, label: `재무상태표 (BS) — ${label} 말 기준`,
+      partial: true,
       sections: [
         { title: 'I. 자산 (Assets)', items: [
           { name: '1. 유동자산', sub: true },
-          { name: '  현금 및 현금성자산', amount: cash },
-          { name: '  미수금 (학생 미납)', amount: receivable },
+          { name: cashActual == null ? '  현금 및 현금성자산 (계좌 자료 없음)' : '  현금 및 현금성자산 (신한 계좌 월말 잔액·실데이터)', amount: cash },
+          { name: '  미수금 (학생 미납) — 자료없음', amount: 0 },
           { name: '2. 비유동자산', sub: true },
-          { name: '  유형자산 (장비·집기 추정)', amount: fixed },
-          { name: '자산 총계', amount: totalAssets, total: true, highlight: true },
+          { name: '  유형자산 (장비·집기) — 자산대장 없음', amount: 0 },
+          { name: '자산 총계 (확인된 것만)', amount: totalAssets, total: true, highlight: true },
         ]},
         { title: 'II. 부채 (Liabilities)', items: [
           { name: '1. 유동부채', sub: true },
-          { name: '  미지급금 (강사급여)', amount: payable },
-          { name: '  미지급 세금', amount: taxPayable },
-          { name: '부채 총계', amount: totalLiabilities, total: true, highlight: true },
+          { name: '  미지급금 (미지급 강사급여·실데이터)', amount: payable },
+          { name: '  예수 부가세 (매출 ÷ 11, 추정)', amount: taxPayable },
+          { name: '부채 총계 (확인된 것만)', amount: totalLiabilities, total: true, highlight: true },
         ]},
         { title: 'III. 자본 (Equity)', items: [
-          { name: '자본금 + 이익잉여금', amount: equity, highlight: true, big: true },
+          { name: '자산 − 부채', amount: equity, highlight: true, big: true },
         ]},
-        { title: 'IV. 부채 + 자본', items: [
-          { name: '합계 (= 자산 총계와 일치)', amount: totalLiabilities + equity, total: true },
-        ]},
+        { title: '⚠ 아직 담지 못한 항목', items: missing.map(m => ({ name: `  ${m}`, sub: true })) },
       ],
-      summary: { assets: totalAssets, liabilities: totalLiabilities, equity },
+      summary: { assets: totalAssets, liabilities: totalLiabilities, equity,
+        cash_source: (cashActual == null ? 'none' : 'actual') as FigureSource, missing },
+      notes: ['이 표는 «완전한 재무상태표가 아닙니다». 통장 잔액과 미지급 급여처럼 시스템이 실제로 아는 것만 담았습니다. 자산대장·미수금 명세를 등록하면 그때 완성됩니다.'],
     };
   }
   else if (type === 'cf') {
@@ -923,31 +1313,43 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     };
   }
   else if (type === 'tb') {
-    // 시산표 (Trial Balance) — 간소화 버전
-    const cash = Math.round(rev.revenue * 0.7);
-    const receivable = Math.round(rev.revenue * 0.15);
-    const fixed = 50000000;
+    /* 시산표 — 차변 합계와 대변 합계는 «반드시» 같아야 하는 표인데, 예전에는
+       서로 상관없는 숫자를 양쪽에 늘어놓아 2026년 7월 기준 6,461만원이나 어긋났다.
+       회계에서 이건 «표가 틀렸다» 는 뜻이다.
+
+       이제 그 달의 거래를 실제 분개(전표)로 세우고, 그 잔액을 모아 만든다:
+         매출 발생   차) 현금        대) 매출
+         강사 급여   차) 인건비      대) 현금
+         PG 수수료   차) 지급수수료  대) 현금
+         운영비      차) 운영비      대) 현금
+         환불        차) 매출환입    대) 현금
+         부가세      차) 세금과공과  대) 현금
+       이렇게 하면 차변 합 = 대변 합 이 «구조적으로» 보장된다. */
+    const cashDelta = rev.revenue - payrollEff - pgFee - opCost - tax - ax.refunds;
+    const lines = [
+      { name: '현금 (당월 증감)', amount: Math.abs(cashDelta), debit: cashDelta >= 0, credit: cashDelta < 0 },
+      { name: '인건비 (강사 급여)', amount: payrollEff, debit: true },
+      { name: '지급수수료 (PG)', amount: pgFee, debit: true },
+      { name: '운영비 (판관비)', amount: opCost, debit: true },
+      { name: '세금과공과 (예수 부가세)', amount: tax, debit: true },
+      ...(ax.refunds > 0 ? [{ name: '매출환입 (학생 환불)', amount: ax.refunds, debit: true }] : []),
+      { name: '매출', amount: rev.revenue, credit: true },
+    ].filter(l => l.amount !== 0);
+    const debitTotal = lines.filter(l => l.debit).reduce((a, l) => a + l.amount, 0);
+    const creditTotal = lines.filter(l => l.credit).reduce((a, l) => a + l.amount, 0);
     data = {
       ok: true, type: 'tb', period, label: `시산표 (Trial Balance) — ${label}`,
-      sections: [{
-        title: '계정과목별 잔액',
-        items: [
-          { name: '현금', amount: cash, debit: true },
-          { name: '매출채권', amount: receivable, debit: true },
-          { name: '유형자산', amount: fixed, debit: true },
-          { name: '미지급금', amount: payrollEff, credit: true },
-          { name: '미지급세금', amount: tax, credit: true },
-          { name: '매출', amount: rev.revenue, credit: true },
-          { name: '인건비', amount: payrollEff, debit: true },
-          { name: '지급수수료', amount: pgFee, debit: true },
-          { name: '운영비', amount: opCost, debit: true },
-          { name: '세금과공과', amount: tax, debit: true },
-        ],
-      }],
+      sections: [{ title: '계정과목별 잔액 (당월 발생분)', items: lines }],
       summary: {
-        debit_total: cash + receivable + fixed + payrollEff + pgFee + opCost + tax,
-        credit_total: payrollEff + tax + rev.revenue,
+        debit_total: debitTotal,
+        credit_total: creditTotal,
+        balanced: debitTotal === creditTotal,
+        difference: debitTotal - creditTotal,
       },
+      notes: [
+        '당월에 «발생한» 거래만 담은 시산표입니다(이월 잔액은 포함하지 않습니다).',
+        debitTotal === creditTotal ? '차변 합계와 대변 합계가 일치합니다.' : '⚠ 차변과 대변이 어긋납니다 — 개발자에게 알려 주세요.',
+      ],
     };
   }
   else {
@@ -1178,11 +1580,34 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   }
 
   const totals = rows.reduce((a, r) => ({ count: a.count + 1, amount: a.amount + (r.amount || 0) }), { count: 0, amount: 0 });
-  const data = { ok: true, type: 'receivables', kind, label, rows, totals };
+
+  /* 🧾 «200명만 0원으로» 보여 주던 표를 고쳤다 (2026-08-16).
+     학생 미수금은 전체 대상 인원이 2만 명이 넘는데 200명만 잘라 보여 주고 금액은 전부
+     0원이었다(수강료 단가 자료가 없다). 잘랐다는 사실과 금액을 못 구한 이유를 밝힌다. */
+  const rNotes: string[] = [];
+  let candidates = totals.count;
+  if (kind === 'receivable') {
+    candidates = await safe(async () => {
+      const r = await env.DB.prepare(`
+        SELECT COUNT(*) AS c FROM students_erp
+        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+      `).bind(todayKst).first<{ c: number }>();
+      return Number(r?.c) || 0;
+    }, totals.count);
+    if (candidates > rows.length) rNotes.push(`대상 ${candidates.toLocaleString('ko-KR')}명 중 경과일이 긴 ${rows.length}명만 표시했습니다.`);
+    rNotes.push('금액이 모두 0원인 이유: 학생별 수강료 단가가 시스템에 없어 미납액을 계산할 수 없습니다. 수강료 정보를 등록하면 금액이 채워집니다.');
+    rNotes.push('원부에 퇴원 처리가 안 된 옛 학생이 섞여 있을 수 있습니다 — 실제 미수금과 다를 수 있습니다.');
+  } else if (kind === 'pending') {
+    rNotes.push('가맹점 정산 금액은 「🏢 가맹점별 정산서」에서 학생 단위로 정확히 계산합니다.');
+  }
+
+  const data = { ok: true, type: 'receivables', kind, label, rows, totals, candidates, notes: rNotes,
+    amount_source: (kind === 'receivable' ? 'none' : 'actual') as FigureSource };
 
   if (fmt === 'csv') {
     return csv(`receivables-${kind}.csv`, [
       [label],
+      ...rNotes.map(n => [n] as (string | number)[]),
       [],
       ['대상', '발생일', '금액', '경과일', '사유'],
       ...rows.map(r => [r.target, r.issued, r.amount, r.days, r.note]),
@@ -1316,7 +1741,6 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
      · 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라서 «참고» 로만 보여 준다.
    ⚠️ 계좌 연동(바로빌) 이전 달은 입금 데이터 자체가 없다 → 판정하지 않고
       «입금자료 없음» 으로 표시한다(0원을 «미입금» 으로 오해하면 안 된다). */
-const PG_FEE_RATE = 0.033;
 async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const months = Math.max(1, Math.min(24, parseInt(url.searchParams.get('months') || '6', 10)));
   const endMonth = /^\d{4}-\d{2}$/.test(String(url.searchParams.get('end') || '')) ? String(url.searchParams.get('end')) : currentMonth();
@@ -1343,16 +1767,25 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     return (r.results || []) as Array<{ ym: string; revenue: number; cnt: number }>;
   }, []);
 
-  // 통장 입금 — PG(케이씨피)와 그 외를 나눈다
+  /* 🏦 통장 입금을 성격별로 나눈다 (2026-08-16 전면 수정).
+     ⛔ 예전: `remark LIKE '%케이씨피%'` → 「케이씨피M」(하나은행에서 사람이 보낸 돈)까지
+        PG 정산으로 세어, 2026-03~07 누적 4,632만원이 «장부에 없는 매출» 로 오진됐다.
+     ✅ 지금: classifyDeposit() 로 pg / b2b(수업료 직접입금) / transfer(확인 필요) / other. */
   const depRows = await safe(async () => {
     const r = await env.DB.prepare(`
-      SELECT substr(trans_at,1,7) AS ym,
-             COALESCE(SUM(CASE WHEN remark LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS pg,
-             COALESCE(SUM(CASE WHEN remark NOT LIKE '%케이씨피%' THEN amount ELSE 0 END),0) AS other
-      FROM bankacct_transactions WHERE kind='in' GROUP BY ym
+      SELECT substr(trans_at,1,7) AS ym, COALESCE(remark,'') AS remark, amount
+      FROM bankacct_transactions WHERE kind='in'
     `).all();
-    return (r.results || []) as Array<{ ym: string; pg: number; other: number }>;
-  }, []);
+    const rows = (r.results || []) as Array<{ ym: string; remark: string; amount: number }>;
+    const agg = new Map<string, { ym: string; pg: number; b2b: number; transfer: number; other: number }>();
+    for (const row of rows) {
+      const amount = Number(row.amount) || 0;
+      const cur = agg.get(row.ym) || { ym: row.ym, pg: 0, b2b: 0, transfer: 0, other: 0 };
+      cur[classifyDeposit(row.remark, amount)] += amount;
+      agg.set(row.ym, cur);
+    }
+    return [...agg.values()];
+  }, [] as Array<{ ym: string; pg: number; b2b: number; transfer: number; other: number }>);
   // 계좌 데이터가 언제부터 있는지 — 그 전 달은 «판정 불가»
   const bankFrom = await safe(async () => {
     const r = await env.DB.prepare(`SELECT MIN(substr(trans_at,1,7)) AS m FROM bankacct_transactions`).first<{ m: string }>();
@@ -1362,19 +1795,21 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   const revMap = new Map(revRows.map(r => [r.ym, r]));
   const depMap = new Map(depRows.map(r => [r.ym, r]));
 
-  let cumRev = 0, cumPg = 0;
+  let cumRev = 0, cumPg = 0, cumB2b = 0, cumTransfer = 0;
   const rows = list.map(ym => {
     const rv = revMap.get(ym);
     const dp = depMap.get(ym);
     const revenue = Number(rv?.revenue) || 0;
     const pg = Number(dp?.pg) || 0;
+    const b2b = Number(dp?.b2b) || 0;
+    const transfer = Number(dp?.transfer) || 0;
     const other = Number(dp?.other) || 0;
     const expected = Math.round(revenue * (1 - PG_FEE_RATE));
     const hasBank = !!bankFrom && ym >= bankFrom;
-    cumRev += revenue; cumPg += pg;
+    cumRev += revenue; cumPg += pg; cumB2b += b2b; cumTransfer += transfer;
     return {
       period: ym, revenue, pay_count: Number(rv?.cnt) || 0,
-      expected, deposit_pg: pg, deposit_other: other,
+      expected, deposit_pg: pg, deposit_b2b: b2b, deposit_transfer: transfer, deposit_other: other,
       diff: hasBank ? pg - expected : null,
       has_bank: hasBank,
     };
@@ -1411,21 +1846,35 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     label: `매출–입금 대사 — ${list[0]} ~ ${list[list.length - 1]}`,
     pg_fee_rate: PG_FEE_RATE, bank_data_from: bankFrom || null,
     rows,
-    totals: { revenue: cumRev, expected: cumExpected, deposit_pg: cumPg, diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)) },
+    totals: {
+      revenue: cumRev, expected: cumExpected, deposit_pg: cumPg,
+      deposit_b2b: cumB2b, deposit_transfer: cumTransfer,
+      diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)),
+    },
     verdict, message: MSG[verdict],
+    /* 🔎 «PG 정산이 아닌 타계좌 입금» 은 판정에서 뺐다. 대신 얼마인지 밝혀 사람이 확인하게 한다. */
+    transfer_note: cumTransfer > 0
+      ? `이 기간 「케이씨피M」처럼 PG 정산이 아닌 타계좌 입금이 ₩${cumTransfer.toLocaleString('ko-KR')} 있습니다(하나은행에서 인터넷뱅킹으로 보낸 돈). 운영자금 이체인지 매출인지 확인이 필요해 대사에서는 제외했습니다.`
+      : '',
+    b2b_note: cumB2b > 0
+      ? `통장으로 직접 들어온 수업료 ₩${cumB2b.toLocaleString('ko-KR')} 는 카페24를 거치지 않아 장부에 없습니다. 월간 리포트에서는 매출로 반영했습니다.`
+      : '',
   };
 
   if (fmt === 'csv') {
     return csv(`reconcile-${endMonth}.csv`, [
       ['망고아이 매출–입금 대사', data.label],
       [`PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(1)}%`],
+      ['※ 「케이씨피」(기업은행 자동정산)만 PG 입금으로 셉니다. 「케이씨피M」(하나은행 수동송금)은 PG 정산이 아니라 제외했습니다.'],
       [],
-      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 입금', '차이', '기타 입금(참고)'],
+      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 정산 입금', '차이', '통장 직접입금(B2B)', '타계좌 입금(확인 필요)', '기타 입금'],
       ...rows.map(r => [r.period, r.revenue, r.pay_count, r.expected, r.has_bank ? r.deposit_pg : '(자료없음)',
-        r.diff == null ? '-' : r.diff, r.deposit_other]),
-      ['누적 합계', cumRev, '', cumExpected, cumPg, cumDiff, ''],
+        r.diff == null ? '-' : r.diff, r.deposit_b2b, r.deposit_transfer, r.deposit_other]),
+      ['누적 합계', cumRev, '', cumExpected, cumPg, cumDiff, cumB2b, cumTransfer, ''],
       [],
       ['판정', data.message],
+      ...(data.transfer_note ? [['참고', data.transfer_note]] : []),
+      ...(data.b2b_note ? [['참고', data.b2b_note]] : []),
     ]);
   }
   return json(data);
