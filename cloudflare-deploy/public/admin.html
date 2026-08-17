@@ -4907,7 +4907,9 @@ window.__admSettleRun = function(fn){
     lBox.innerHTML = `<div style="color:#fbbf24;padding:14px">⏳ ${isEn()?'Running...':'실행 중...'}</div>`;
     try {
       const r = await fetch('/api/admin/dunning/run', { method:'POST' }).then(x=>x.json());
-      if (!r.ok) throw new Error(r.error||'run_failed');
+      // 서버가 사람이 읽을 message 를 주면 그것을 보여준다 — 옛 코드는 error 코드(dunning_disabled)만
+      // 띄워서 «무슨 소린지 모를 영어»가 나왔다. 자동 독촉을 끈 뒤 실제로 그렇게 보였다.
+      if (!r.ok) throw new Error(r.message || r.error || 'run_failed');
       alert((isEn()?'✅ Sent ':'✅ 발송 ')+r.total+(isEn()?' messages':'건')+` (D-1: ${r.sent?.d1||0}, D-7: ${r.sent?.d7||0}, D-14: ${r.sent?.d14||0})`);
       dnLoad();
     } catch(e){
