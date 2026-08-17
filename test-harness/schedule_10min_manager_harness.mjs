@@ -3,6 +3,9 @@
 //   사장님 수정요청 3건(프롬프트 블럭 #2·#3·#4)이 전부 admin/weekly-schedule.html 한 파일에 있다.
 //
 //   #2 수업 시간 옵션: 60분을 없애고 20/40분만. 20분이 맨 왼쪽 + 화면 열자마자 선택돼 있을 것.
+//       🕐 (2026-08-17) 30분 추가 — «A안: 10분 격자 · 20/30/40분» 확정(사장님).
+//       20·30·40 은 전부 SLOT_STEP(10) 의 배수라 격자·슬롯 로직은 그대로 둔다.
+//       25분을 켜려면 SLOT_STEP 을 5 로 내려야 하고, 그때 아래 2부 기대값(10분·6칸)도 함께 바뀐다.
 //   #3 매니저 권한:    수업까지 «남은 시간»(연기 30분 전 / 변경 24시간 전) 컷오프를 매니저는 안 받는다.
 //   #4 10분 단위:      슬롯 키가 «시(hour)» 였다. 실데이터의 분은 getHours() 로 잘려 나갔고
 //                      (19:20 수업이 19:00 으로 보였다), 20분 수업 세 건이 한 칸에 겹쳐도 하나만 보였다.
@@ -37,12 +40,13 @@ const durBtns = toggle ? [...toggle[1].matchAll(/data-dur="(\d+)"/g)].map(m => m
 const activeDur = toggle ? (/<button class="active" data-dur="(\d+)"/.exec(toggle[1]) || [])[1] : null;
 check('수업 길이 토글을 찾았다', durBtns.length > 0, durBtns);
 check('⛔ 60분 옵션이 없다', !durBtns.includes('60'), durBtns);
-check('20분 / 40분 두 개뿐', durBtns.join(',') === '20,40', durBtns);
+check('20 / 30 / 40분 세 개', durBtns.join(',') === '20,30,40', durBtns);
+check('⛔ 25분은 아직 꺼져 있다 (켜려면 SLOT_STEP=5 로 함께 내려야 함)', !durBtns.includes('25'), durBtns);
 check('20분이 맨 왼쪽', durBtns[0] === '20', durBtns);
 check('화면 진입 시 기본 선택 = 20분 (버튼)', activeDur === '20', activeDur);
 check('화면 진입 시 기본 선택 = 20분 (변수)', /var defaultDuration=20;/.test(src),
   (src.match(/var defaultDuration=\d+/) || [])[0]);
-check('새 수업 모달의 길이 카드도 20/40 두 개', /\[20,40\]\.map\(function\(d\)\{/.test(src));
+check('새 수업 모달의 길이 카드도 20/30/40 세 개', /\[20,30,40\]\.map\(function\(d\)\{/.test(src));
 check('폴백값도 60이 아니다', !/defaultDuration!=='undefined'\)\?defaultDuration:60/.test(src) &&
   !/defaultDuration!=='undefined'\?defaultDuration:60/.test(src));
 
@@ -88,6 +92,20 @@ if (api) {
   check('hourHasSlot: 19:40+40분이 20시에 걸치는 것을 잡는다', api.hourHasSlot('t1', '2026-08-12', 20) === true);
   check('hourHasSlot: 아무것도 없는 21시는 false', api.hourHasSlot('t1', '2026-08-12', 21) === false);
   check('minLabel 은 0 을 채운다', api.minLabel(9 * 60 + 5) === '09:05', api.minLabel(9 * 60 + 5));
+
+  /* 🕐 (2026-08-17) 빈틈 0 의 근거 — 고를 수 있는 «모든» 길이가 격자의 배수여야 한다.
+     하나라도 배수가 아니면(예: 10분 격자에 25분) 수업마다 자투리가 남아 강사 시간이 샌다. */
+  check('고를 수 있는 길이가 전부 SLOT_STEP 의 배수다 (= 이어 붙이면 빈틈 0)',
+    durBtns.every(d => Number(d) % api.SLOT_STEP === 0), { durBtns, step: api.SLOT_STEP });
+
+  // 20 → 30 → 40 을 이어 붙이면 자투리 없이 딱 맞아떨어지는가
+  api.addSlot('t2', '2026-08-13', 14, { type: '1on1', duration_min: 20 }, 0);
+  api.addSlot('t2', '2026-08-13', 14, { type: '1on1', duration_min: 30 }, 20);
+  api.addSlot('t2', '2026-08-13', 15, { type: '1on1', duration_min: 40 }, 20);
+  const mixed = api.slotsOfDay('t2', '2026-08-13');
+  check('길이를 섞어 이어 붙여도 시작 시각이 14:00 / 14:20 / 15:20 으로 격자에 맞는다',
+    mixed.map(x => api.minLabel(x.startMin)).join(' ') === '14:00 14:20 15:20',
+    mixed.map(x => api.minLabel(x.startMin)));
 }
 
 /* 격자·렌더링 계약 — 문자열로 확인할 수밖에 없는 것들 */
