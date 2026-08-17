@@ -19,6 +19,7 @@ import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { sendPlainSms } from './solapi-client';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
@@ -514,7 +515,7 @@ export async function runEnrollExpirySweep(env: any, opts?: { dry?: boolean }): 
       await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?,?,?,?)`).bind(uid, kind, today, Date.now()).run();
       if (phone.length < 10) { out.skipped++; continue; }
 
-      const txt = `[망고아이] ${name ? name + ' 학생 ' : ''}수업이 ${left}일 후(${lastDate}) 종료됩니다.\n같은 요일·시간·선생님으로 이어서 수강하시려면 아래에서 연장해 주세요 🥭\nhttps://test.mangoi.co.kr/enroll.html`;
+      const txt = `[망고아이] ${name ? name + ' 학생 ' : ''}수업이 ${left}일 후(${lastDate}) 종료됩니다.\n같은 요일·시간·선생님으로 이어서 수강하시려면 아래에서 연장해 주세요 🥭\n${siteUrl('/enroll.html')}`;
       const sr = await sendPlainSms(env, phone, txt);
       if (sr?.ok) out.sent++; else out.skipped++;
     }
