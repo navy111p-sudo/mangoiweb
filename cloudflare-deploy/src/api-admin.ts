@@ -5672,14 +5672,42 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       return json({ ...r, push: pushResult });
     }
 
-    // ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
-    //   body: { user_ids: ["uid1","uid2"], grace_days?, default_fee? }
-    //   user_ids 미지정 시 자동으로 모든 미납 학생 일괄 발송
+    /* ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
+         body: { user_ids?: ["uid1",...], grace_days?, default_fee?, dry_run?, confirm_send_over? }
+
+       🚨 (2026-08-17) 이 자리는 **눌리면 되돌릴 수 없는 버튼**이다. 실제 학부모에게 돈 얘기
+          문자가 나간다. 확인해 보니 지금 조건이 위험해서 세 가지를 막았다.
+
+       ① «결제 이력이 없음» 을 «미납» 으로 보지 않는다  ← 가장 중요
+          원래는 last_paid_at 이 비면 미납으로 치고 daysOverdue=999 로 보냈다.
+          그런데 운영 자료가 이렇다(2026-08-17 실측):
+            활동 학생 28,672명 · student_payments 에 결제 이력이 있는 학생 1,345명
+          나머지 약 27,300명은 «안 낸 사람» 이 아니라 **결제가 이 표에 안 들어오는 사람**
+          이다(카페24·대리점 수납). 그들에게 「999일 미납」 문자를 보내면 안 된다.
+          지금 사고가 안 난 유일한 이유는 전화번호가 비어 있어서다 —
+          students_erp 29,398행 중 parent_phone 3개 · phone 9개.
+          **누군가 카페24에서 번호를 채워 넣는 순간 이 버튼은 2만 7천 명짜리 오발송이 된다.**
+          그래서 «이력이 없으면 보내지 않고 건너뛴다»(reason: no_payment_record).
+
+       ② dry_run — 기본이 «미리보기» 다.
+          실제로 보내려면 dry_run:false 를 **명시**해야 한다. 누가 실수로 눌러도
+          누구에게 무슨 문구가 갈지 목록만 돌려주고 끝난다.
+
+       ③ 인원 상한 — 한 번에 CAP 명을 넘으면 보내지 않고 막는다.
+          정말 그만큼 보내려면 confirm_send_over 에 그 수를 적어야 한다.
+          «전체 일괄» 이 조용히 수천 건이 되는 것을 막는 마지막 빗장이다.
+
+       ⚠️ 문구는 solapi 템플릿(SOLAPI_TEMPLATE_PAYMENT_OVERDUE)이 정본이다. 여기서 안 만든다.
+       ⚠️ 이 경로는 지사·대리점에게 열려 있지 않다(index.ts isAgencyAllowedApi 에 없음).
+          여는 것은 공동 금지구역 수정이라 사람이 결정할 일이다. */
     if (method === 'POST' && path === '/api/admin/payments/notify-all-overdue') {
       await ensurePaymentTables();
       const body: any = await request.json().catch(() => ({}));
       const graceDays = Math.max(1, parseInt(body.grace_days, 10) || 35);
       const defaultFee = Math.max(0, parseInt(body.default_fee, 10) || 200000);
+      // 기본이 미리보기 — «보낸다» 고 적어야만 보낸다
+      const dryRun = body.dry_run !== false;
+      const SEND_CAP = 50;
       const onlyUids: string[] | null = Array.isArray(body.user_ids) && body.user_ids.length > 0 ? body.user_ids : null;
       const now = Date.now();
       const cutoff = now - graceDays * 86400 * 1000;
@@ -5694,18 +5722,51 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
       const results: any[] = [];
       let sent = 0, failed = 0, skipped = 0;
+      // ① 먼저 «누구에게 갈지» 를 전부 확정한다. 세어 보기 전에는 한 통도 안 보낸다.
+      const targets: any[] = [];
       for (const r of (rs.results || [])) {
         const row: any = r;
         if (onlyUids && !onlyUids.includes(row.user_id)) continue;
-        // 미납 조건
-        const isOverdue = !row.last_paid_at || row.last_paid_at < cutoff;
-        if (!isOverdue) continue;
+        /* ⛔ 결제 이력이 아예 없으면 «미납» 이 아니라 «모름» 이다 — 보내지 않는다.
+              카페24·대리점 수납은 이 표에 안 들어온다. 여기를 !last_paid_at → 미납 으로
+              되돌리면 2만 7천 명에게 「999일 미납」 문자가 나간다(위 주석 ① 참고). */
+        if (!row.last_paid_at) {
+          skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_payment_record' });
+          continue;
+        }
+        if (row.last_paid_at >= cutoff) continue;   // 유예 안이면 미납 아님
         const phone = row.parent_phone || row.student_phone;
         if (!phone) { skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_phone' }); continue; }
-        const daysOverdue = row.last_paid_at
-          ? (Math.floor((now - row.last_paid_at) / (86400*1000)) - graceDays)
-          : 999;
-        const amount = row.last_amount || defaultFee;
+        const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
+        targets.push({ row, phone, daysOverdue, amount: row.last_amount || defaultFee });
+      }
+
+      // ③ 상한 — 정말 이만큼 보낼 것인지 사람이 그 수를 적어 확인해야 한다
+      if (!dryRun && targets.length > SEND_CAP && Number(body.confirm_send_over) !== targets.length) {
+        return json({
+          ok: false, error: 'too_many_recipients',
+          message: `${targets.length}명에게 발송하려고 합니다. 정말 보내려면 confirm_send_over 에 ${targets.length} 을 넣어 다시 요청하세요.`,
+          message_en: `About to message ${targets.length} people. Pass confirm_send_over=${targets.length} to proceed.`,
+          would_send: targets.length, cap: SEND_CAP,
+          preview: targets.slice(0, 20).map(t => ({ user_id: t.row.user_id, student_name: t.row.student_name, days_overdue: t.daysOverdue, amount_krw: t.amount })),
+        }, 409);
+      }
+
+      // ② 미리보기가 기본 — 누구에게 무엇이 갈지만 돌려준다
+      if (dryRun) {
+        return json({
+          ok: true, dry_run: true,
+          summary: { would_send: targets.length, skipped, sent: 0, failed: 0 },
+          skipped_reasons: results.reduce((m: any, x: any) => { m[x.reason] = (m[x.reason] || 0) + 1; return m; }, {}),
+          note: '미리보기입니다. 실제로 보내려면 dry_run:false 를 넣어 다시 요청하세요.',
+          note_en: 'Preview only. Pass dry_run:false to actually send.',
+          would_send_to: targets.map(t => ({ user_id: t.row.user_id, student_name: t.row.student_name,
+                                             days_overdue: t.daysOverdue, amount_krw: t.amount })),
+        });
+      }
+
+      for (const t of targets) {
+        const row = t.row, phone = t.phone, daysOverdue = t.daysOverdue, amount = t.amount;
         const r2 = await sendPaymentOverdueAlert(env, phone, {
           studentName: row.student_name || '학생',
           daysOverdue, amountKrw: amount,
