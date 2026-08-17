@@ -1888,6 +1888,11 @@ function openEvalModal(teacherId, teacherName, year, month) {
   document.getElementById('ev-tch-strengths').value    = e.strengths    ?? '';
   document.getElementById('ev-tch-improvements').value = e.improvements ?? '';
   document.getElementById('ev-class-count').value  = row.class_count ?? 0;
+  // 🕐 (2026-08-17) 총 수업시간(분) — 서버는 10분 토막(total_10min_units)으로 갖고 있다.
+  //   비어 있으면 «길이 정보 없음(=전부 20분)» 이라는 뜻이라 칸도 비워 둔다.
+  const _tmEl = document.getElementById('ev-total-minutes');
+  if (_tmEl) _tmEl.value = (row.total_10min_units > 0) ? Math.round(row.total_10min_units * 10) : '';
+  updateMinutesHint();
   // 모달에 컨텍스트 보관
   const bg = document.getElementById('eval-modal-bg');
   bg.dataset.teacherId = teacherId;
@@ -1898,6 +1903,34 @@ function openEvalModal(teacherId, teacherName, year, month) {
 }
 function closeEvalModal() {
   document.getElementById('eval-modal-bg').classList.remove('show');
+}
+/* 🕐 (2026-08-17) 급여 근거 안내 — 입력한 «회수/분» 이 급여에 어떻게 들어가는지 그 자리에서 보여 준다.
+   총 수업시간을 비워 두면 서버가 «전부 20분» 으로 계산한다. 30분 수업이 섞인 달에 이걸 모르고
+   비워 두면 강사가 30분을 가르치고 20분 값을 받는다 — 그래서 화면에 반드시 적어 둔다. */
+function updateMinutesHint() {
+  const box = document.getElementById('ev-minutes-hint');
+  if (!box) return;
+  const L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const cnt = parseInt((document.getElementById('ev-class-count') || {}).value, 10);
+  const min = parseInt((document.getElementById('ev-total-minutes') || {}).value, 10);
+  if (min > 0) {
+    const units = min / 10;
+    const avg = (cnt > 0) ? (min / cnt) : null;
+    box.textContent = L
+      ? `Payroll basis: ${min} min = ${units} ten-minute units × rate`
+        + (avg ? ` (avg ${avg.toFixed(1)} min/class)` : '')
+      : `급여 기준: ${min}분 = 10분 토막 ${units}개 × 단가`
+        + (avg ? ` (수업당 평균 ${avg.toFixed(1)}분)` : '');
+    box.style.backgroundColor = '#f0fdf4';
+  } else if (cnt > 0) {
+    box.textContent = L
+      ? `Total minutes empty → counted as 20 min each: ${cnt} × 20 = ${cnt * 20} min. Enter it if 30-min classes are included.`
+      : `총 수업시간을 비우면 전부 20분으로 계산합니다: ${cnt}회 × 20분 = ${cnt * 20}분. 30분 수업이 섞인 달이면 반드시 입력하세요.`;
+    box.style.backgroundColor = '#fffbeb';
+  } else {
+    box.textContent = '—';
+    box.style.backgroundColor = '#f8fafc';
+  }
 }
 function updateEvalPreview() {
   const v = id => parseFloat(document.getElementById(id).value);
@@ -1936,6 +1969,9 @@ async function saveEvalAndClasses() {
     evaluator:          'admin',
   };
   const classCount = parseInt(document.getElementById('ev-class-count').value, 10);
+  // 🕐 (2026-08-17) 총 수업시간(분). 비우면 안 보내고, 서버는 예전대로 «전부 20분» 으로 본다.
+  const _tmRaw = (document.getElementById('ev-total-minutes') || {}).value;
+  const totalMinutes = (_tmRaw === '' || _tmRaw == null) ? null : parseInt(_tmRaw, 10);
   try {
     const r1 = await fetch('/api/admin/teacher-evaluation', {
       method: 'PUT',
@@ -1950,7 +1986,10 @@ async function saveEvalAndClasses() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ teacher_id: teacherId, year, month, class_count: classCount })
+        body: JSON.stringify(Object.assign(
+          { teacher_id: teacherId, year, month, class_count: classCount },
+          (totalMinutes != null && !isNaN(totalMinutes) && totalMinutes > 0) ? { total_minutes: totalMinutes } : {}
+        ))
       });
       const d2 = await r2.json().catch(() => ({}));
       if (!r2.ok || d2.ok === false) { alert((_L ? 'Class count save failed: ' : '수업수 저장 실패: ') + (d2.error || ('HTTP ' + r2.status))); return; }
@@ -8310,6 +8349,10 @@ async function seedDemoTeachers() {
   // 평가 점수 입력 시 미리보기 갱신
   ['ev-instruction', 'ev-retention', 'ev-punctuality', 'ev-admin', 'ev-contribution'].forEach(id => {
     if (e(id)) e(id).addEventListener('input', updateEvalPreview);
+  });
+  // 🕐 (2026-08-17) 수업수·총 수업시간 입력 시 급여 근거 안내 갱신
+  ['ev-class-count', 'ev-total-minutes'].forEach(id => {
+    if (e(id)) e(id).addEventListener('input', updateMinutesHint);
   });
   // 🔐 강사 급여·평가 카드가 열릴 때: 교사 보기면 관리 컨트롤 숨김 + 본인 급여 자동 로드
   const _pcard = e('card-payroll');
