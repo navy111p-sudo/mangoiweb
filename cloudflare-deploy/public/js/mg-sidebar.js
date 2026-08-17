@@ -32,7 +32,8 @@
     'faq':'/faq.html',
     'warmup':'/warmup.html',
     'student-game':'/student-games.html',
-    'review-quiz':'/review-quiz.html'
+    'review-quiz':'/review-quiz.html',
+    'review-quiz-cn':'/review-quiz-cn.html'   // 🇨🇳 중국어 복습퀴즈 (2026-08-17 연결)
   };
 
   // 🗂 [2026-07-27] 대분류 묶음 (직원 피드백 #5)

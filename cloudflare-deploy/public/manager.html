@@ -190,6 +190,59 @@ html.dark #todo .todo-row .t2{color:#95a2b0}
 html.dark #todo .todo-n{color:#fca5a5;background:#3b2020}
 html.dark #todo .todo-clear{color:#5fce96}
 
+/* ⭐ 연기·변경 요청을 보는 자리에서 바로 승인·거절 (2026-08-17 ③)
+   ⚠️ 버튼 높이 44px 는 장식이 아니다 — 원장님들이 수업 중에 한 손 엄지로 누른다.
+      이보다 작으면 «승인» 옆의 «거절» 을 잘못 누른다. gap 도 그래서 10px 이다. */
+/* ⭐ 아래쪽 고정 바 — 폰에서만. 설계 계약대로 transition·애니메이션 0.
+   ⚠️ 아이폰은 화면 맨 아래에 홈 인디케이터가 있다. safe-area 를 안 더하면
+      「새로고침」이 그 막대에 깔려 안 눌린다. */
+#tabbar{display:none}
+@media (max-width:700px){
+  #tabbar{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:#fff;border-top:1px solid #e3e8ee;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -1px 8px rgba(16,24,40,.06);
+  }
+  .tb{
+    flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;gap:4px;
+    background:transparent;border:0;border-radius:10px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:800;color:#16202c;
+    letter-spacing:-.02em;text-decoration:none;text-align:center;padding:0 2px;
+  }
+  .tb:active{background:#eef2f6}
+  .tb-n{font-size:11.5px;font-weight:800;color:#9f1239;background:#fdeaee;
+        border-radius:999px;padding:1px 6px;min-width:18px}
+  .tb-n:empty{display:none}
+  /* 마지막 카드가 바에 가리지 않게. 바 높이(≈60px) + 홈 인디케이터 + 여유. */
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+  html.dark #tabbar{background:#1d2530;border-top-color:#39434f;box-shadow:0 -1px 8px rgba(0,0,0,.35)}
+  html.dark .tb{color:#e7edf3}
+  html.dark .tb:active{background:#28313d}
+  html.dark .tb-n{color:#fca5a5;background:#3b2020}
+}
+.rq-to{font-size:13.5px;font-weight:800;color:#16202c;padding:0 0 6px;letter-spacing:-.01em}
+html.dark .rq-to{color:#e7edf3}
+.rq-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 0 10px}
+.rq-btn{min-height:44px;padding:0 18px;border-radius:10px;font-size:14.5px;font-weight:800;
+        font-family:inherit;letter-spacing:-.01em;cursor:pointer;border:1px solid transparent}
+.rq-btn.ok{background:#065f46;color:#fff}
+.rq-btn.no{background:#fff;color:#9f1239;border-color:#e6ccd3}
+.rq-btn:active{opacity:.85}
+.rq-btn:disabled{opacity:.45;cursor:default}
+.rq-msg{font-size:12.5px;font-weight:700;color:#5d6b7a}
+.rq-msg.good{color:#047857}
+.rq-msg.bad{color:#9f1239}
+/* 「승인은 됐지만 수업은 못 옮겼다」 — 성공도 실패도 아닌 상태라 색을 따로 준다.
+   이걸 초록으로 칠하면 원장님이 옮겨진 줄 알고 넘어간다. */
+.rq-msg.warn{color:#92400e}
+html.dark .rq-btn.ok{background:#0f7a5c}
+html.dark .rq-btn.no{background:#2a3340;color:#fda4af;border-color:#4a3742}
+html.dark .rq-msg{color:#95a2b0}
+html.dark .rq-msg.good{color:#5fce96}
+html.dark .rq-msg.bad{color:#fda4af}
+html.dark .rq-msg.warn{color:#fbbf24}
+
 /* ⭐ 자주 쓰는 기능 바로가기 — 새 API 0, 아래 카드를 펼치고 이동만 한다.
    설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. */
 .qlbl{font-size:12.5px;font-weight:800;color:#5d6b7a;padding:2px 2px 4px}
@@ -454,6 +507,33 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
 </div>
+
+<!-- ⭐ 아래쪽 고정 바 — 엄지가 닿는 자리 (2026-08-17 사장님 ⑤)
+     왜 — 이 화면은 카드가 9장이라 아래로 길다. 지금은 «할 일 보기 · 검색 · 결재함 ·
+     새로고침» 이 전부 **맨 위에만** 있어서, 아래까지 내려간 원장님은 쓰려면 도로 올라와야 했다.
+     수업 사이 짬에 한 손으로 보는 화면이라 그 왕복이 그대로 시간이다.
+
+     ⚠️ 새 API 0 · 새 기능 0 — 전부 이미 있는 것을 아래에서 부를 뿐이다.
+        검색·결재함은 위 버튼과 «같은» 동작(openCard / /work)을 부른다.
+     ⚠️ 결재 건수는 위 배지와 **같은 한 번의 호출**을 나눠 쓴다(loadApprovalBadge 가 둘 다 채운다).
+        여기서 또 부르면 첫 화면 API 계약이 깨진다.
+     ⚠️ 폰에서만 뜬다(≤700px). PC 는 스크롤이 짧고 위 버튼이 늘 보이므로 가릴 이유가 없다.
+        ⛔ 다만 «폰 전용» 은 CLAUDE.md 4-1-1 이 지목한 사고 유형이다 — PC 에서 이 바가
+           안 뜨는 것이 **의도**이며, PC 화면이 그대로인지 폭 4종으로 확인했다. -->
+<nav id="tabbar" aria-label="빠른 이동">
+  <button type="button" class="tb" data-go="top">
+    <span data-en="To-do" data-ko="할 일">To-do</span>
+  </button>
+  <button type="button" class="tb" data-go="search">
+    <span data-en="Search" data-ko="검색">Search</span>
+  </button>
+  <a class="tb" href="/work">
+    <span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN2" class="tb-n"></span>
+  </a>
+  <button type="button" class="tb" data-go="reload">
+    <span data-en="Refresh" data-ko="새로고침">Refresh</span>
+  </button>
+</nav>
 
 <script>
 (function(){
@@ -907,12 +987,143 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var pend = String(r.status || '') === 'pending';
       var kind = r.request_type === 'cancel' ? T('Cancel', '취소')
                : r.request_type === 'change' ? T('Change', '변경') : T('Postpone', '연기');
+      var to = (r.new_date || r.new_time) ? ((r.new_date || '') + ' ' + (r.new_time || '')).trim() : '';
       return '<div class="row"><b>' + esc(r.teacher_name || '-') + ' &middot; ' + esc(r.student_name || '') + '</b>'
            + '<span class="muted">' + esc((r.orig_date || '') + ' ' + (r.orig_time || '')) + '</span>'
            + '<span class="tag' + (pend ? ' hot' : ' ok') + '">' + esc(kind + ' · ' + (r.status || '')) + '</span></div>'
-           + (r.reason ? '<div class="muted" style="padding:0 0 6px">' + esc(r.reason) + '</div>' : '');
+           /* ⚠️ «옮길 시각» 을 위 .row 안에 넣지 말 것 — .row b 가 flex:1;min-width:0 이라
+                 줄이 넘치기 전에 **이름부터 찌그러진다.** 「박도윤」이 한 글자씩 세 줄로 쪼개졌다.
+                 .row 는 다른 카드도 함께 쓰므로 공용 CSS 를 고치는 대신 줄을 따로 뺀다.
+                 승인 판단에 가장 중요한 값이라 눈에 띄는 자리가 오히려 낫다. */
+           + (to ? '<div class="rq-to">→ ' + esc(T('move to ', '옮길 시각 ')) + esc(to) + '</div>' : '')
+           + (r.reason ? '<div class="muted" style="padding:0 0 6px">' + esc(r.reason) + '</div>' : '')
+           /* ⭐ 보는 자리에서 바로 승인·거절. 예전엔 여기까지 보고 admin.html 로 옮겨 가야 했다.
+                대기 중인 것에만 붙인다 — 이미 처리된 요청은 서버가 409 로 막으므로 버튼도 안 준다. */
+           + (pend ? '<div class="rq-act" data-id="' + esc(r.id) + '">'
+                   + '<button type="button" class="rq-btn ok"  data-act="approve" data-id="' + esc(r.id) + '"'
+                   + ' data-who="' + esc(r.student_name || '') + '" data-to="' + esc(to) + '">'
+                   + esc(T('Approve', '승인')) + '</button>'
+                   + '<button type="button" class="rq-btn no" data-act="reject"  data-id="' + esc(r.id) + '"'
+                   + ' data-who="' + esc(r.student_name || '') + '" data-to="' + esc(to) + '">'
+                   + esc(T('Reject', '거절')) + '</button>'
+                   + '<span class="rq-msg"></span></div>'
+                 : '');
     }, T('No requests.', '요청이 없습니다.'));
   }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     ⭐ 보는 자리에서 바로 실행 — 연기·변경 요청 승인·거절 (2026-08-17 사장님 ③)
+       원장님이 이 화면에서 요청을 «보기» 만 하고, 처리하려면 admin.html(934KB)로
+       옮겨 가야 했다. 여기서 끝낸다.
+
+     ⚠️ 이 동작은 **문자를 보내지 않는다.** /decide 를 읽어 확인했다 — 수업을 옮기고
+        변경이력(writeClassAudit)만 남긴다. 학부모 알림 경로가 아니므로
+        「학부모에게 문자가 두 번 감」 함정에 걸리지 않는다.
+     ⚠️ 새 API 를 만들지 않았다. 기존 /api/admin/schedule-requests/decide 를 그대로 부른다.
+        그 API 는 이미 (가) 강사 차단 (나) 지사·대리점 스코프 재확인 (다) 중복 승인 409 를
+        서버에서 한다 — 화면이 판정을 흉내 내면 두 벌이 되어 어긋난다.
+     ⚠️ 되돌릴 수 없다(다시 누르면 409). 그래서 확인을 한 번 받는다. 클릭 한 번을 아끼려다
+        엉뚱한 학생 수업을 옮기면 «빠른» 것이 아니다.
+     ══════════════════════════════════════════════════════════════════════════ */
+  function reqMsgOf(j, act){
+    /* ⚠️ 거절에는 applied 가 없다(서버는 승인일 때만 수업을 건드린다).
+          그런데 applied 만 보고 문장을 고르면, 응답에 값이 섞여 들어올 때
+          «거절» 을 눌렀는데 「수업을 옮겼습니다」 가 뜬다. 동작부터 가른다. */
+    if (act === 'reject') return { ok: true, s: T('Rejected.', '거절했습니다.') };
+    /* 승인했다고 다 옮겨진 게 아니다 — 서버가 applied 로 «실제로 무엇을 했는지» 알려 준다.
+       이걸 안 보여 주면 원장님은 옮겨진 줄 알고 넘어간다(반복수업·시간겹침이 그렇다). */
+    var a = j && j.applied;
+    if (a === 'moved')     return { ok: true,  s: T('Moved.', '수업을 옮겼습니다.') };
+    if (a === 'postponed') return { ok: true,  s: T('Postponed.', '연기 처리했습니다.') };
+    if (a === 'recorded')  return { ok: false, s: T('Weekly class — move it by hand in the timetable.',
+                                                    '반복 수업이라 자동으로 못 옮깁니다 — 시간표에서 직접 옮겨 주세요.') };
+    if (a === 'conflict')  return { ok: false, s: T('That slot is taken — move it by hand.',
+                                                    '그 시간에 다른 수업이 있어 못 옮겼습니다 — 직접 옮겨 주세요.') };
+    return { ok: true, s: T('Done.', '처리했습니다.') };
+  }
+  function reqErrOf(st, j){
+    var e = (j && j.error) || '';
+    if (st === 403 || e === 'forbidden_scope')  return T('Not your branch’s request.', '다른 지사·대리점 요청입니다.');
+    if (st === 409 || e === 'already_decided')  return T('Already handled.', '이미 처리된 요청입니다.');
+    if (st === 404 || e === 'request_not_found')return T('Request not found.', '요청을 찾을 수 없습니다.');
+    if (e === 'forbidden_teacher')              return T('Teachers cannot decide.', '강사는 승인·거절할 수 없습니다.');
+    return T('Failed. Try again.', '처리하지 못했습니다. 다시 눌러 주세요.');
+  }
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#reqBody .rq-btn');
+    if (!b || b.disabled) return;
+    var id = b.getAttribute('data-id');
+    var act = b.getAttribute('data-act');
+    var who = b.getAttribute('data-who') || '';
+    var to  = b.getAttribute('data-to') || '';
+    var ask = act === 'approve'
+      ? T('Approve ' + (who || 'this request') + (to ? ' → ' + to : '') + '?',
+          (who || '이 요청') + (to ? ' → ' + to : '') + ' 승인할까요?')
+      : T('Reject ' + (who || 'this request') + '?', (who || '이 요청') + ' 거절할까요?');
+    if (!window.confirm(ask)) return;
+
+    var wrap = b.parentNode;
+    var msg = wrap.querySelector('.rq-msg');
+    var btns = wrap.querySelectorAll('.rq-btn');
+    for (var i = 0; i < btns.length; i++) btns[i].disabled = true;
+    msg.className = 'rq-msg';
+    msg.textContent = T('Sending...', '처리 중...');
+
+    // 누가 처리했는지 기록에 남긴다. 이름을 아직 모르면 그때만 한 번 받아 온다(대개 안 부른다).
+    var whoAmI = (D.me && (D.me.name || (D.me.user && D.me.user.name))) || '';
+    var pre = whoAmI ? Promise.resolve(whoAmI)
+                     : quietGet('/api/admin/me', 'me').then(function (j) {
+                         if (j) D.me = j;
+                         return (j && (j.name || (j.user && j.user.name))) || '';
+                       });
+
+    pre.then(function (nm) {
+      return fetch('/api/admin/schedule-requests/decide', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ id: Number(id), action: act, decided_by: nm || undefined })
+      }).then(function (r) { return r.json().catch(function () { return null; })
+                                    .then(function (j) { return { st: r.status, j: j }; }); });
+    }).then(function (res) {
+      if (!res.j || res.j.ok !== true) {
+        msg.className = 'rq-msg bad';
+        msg.textContent = reqErrOf(res.st, res.j);
+        /* 403(남의 것)·409(이미 처리됨)는 **다시 눌러도 안 된다.** 버튼을 되살리면
+           원장님이 되는 줄 알고 반복해서 누른다 — 잠근 채로 둔다.
+           ⚠️ 409 일 때 목록을 곧바로 다시 그리지 않는다. 다시 그리면 방금 쓴 이 안내가
+              통째로 지워져 «눌렀는데 아무 일도 안 났다» 로 보인다. 캐시만 비워
+              카드를 접었다 펴면 최신 상태가 오게 한다. */
+        if (res.st === 409) {
+          D.reqs = null;
+          try { localStorage.removeItem(CACHE_PREFIX + 'reqs'); } catch (err) {}
+        } else if (res.st !== 403) {
+          for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+        }
+        return;
+      }
+      var m = reqMsgOf(res.j, act);
+      msg.className = 'rq-msg ' + (m.ok ? 'good' : 'warn');
+      msg.textContent = m.s;
+      // 손에 든 자료를 서버 결과와 맞춘다 — 새로고침해도 되돌아가지 않게 캐시까지
+      var rows = (D.reqs && (D.reqs.items || D.reqs.rows || D.reqs.requests)) || [];
+      for (var k = 0; k < rows.length; k++) {
+        if (String(rows[k].id) === String(id)) { rows[k].status = res.j.status || act; break; }
+      }
+      if (D.reqs && typeof D.reqs.pending_count === 'number') {
+        D.reqs.pending_count = Math.max(0, D.reqs.pending_count - 1);
+      }
+      try { localStorage.setItem(CACHE_PREFIX + 'reqs', JSON.stringify(D.reqs)); } catch (err) {}
+      paintTodo();   // 맨 위 「오늘 봐야 할 것」 숫자도 같이 줄인다
+      /* 목록을 곧바로 다시 그리지 않는다 — 방금 누른 줄이 눈앞에서 사라지면
+         «옮겼는지 못 옮겼는지» 안내(reqMsgOf)를 읽을 새가 없다. 카드를 접었다 펴면 갱신된다. */
+    }).catch(function () {
+      msg.className = 'rq-msg bad';
+      msg.textContent = T('Network error. Try again.', '연결이 끊겼습니다. 다시 눌러 주세요.');
+      for (var i = 0; i < btns.length; i++) btns[i].disabled = false;
+    });
+  });
+
 
   // ④ 지금 진행 중인 수업 → 관찰(고스트) 열기
   //    ⚠️ 관찰 자체는 실시간 영상이라 경량화 대상이 아니다. 여기서는 «어느 방이 열려 있는지»
@@ -1189,9 +1400,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         var n = Number(j.pending || 0);
         var el = document.getElementById('apprN');
         if (el && n > 0) el.textContent = ' (' + n + ')';
+        /* 아래쪽 고정 바의 결재 배지도 **이 한 번의 호출**로 함께 채운다.
+           따로 부르면 첫 화면 API 계약이 깨지고, 두 숫자가 서로 어긋날 수도 있다.
+           ⚠️ 괄호 없이 숫자만 — 좁은 칸이라 «(3)» 은 알약 배지 안에서 넘친다.
+              :empty 로 숨기므로 0 일 때는 아무것도 안 쓴다. */
+        var el2 = document.getElementById('apprN2');
+        if (el2 && n > 0) el2.textContent = String(n);
       })
       .catch(function(){});
   }
+
+  /* ⭐ 아래쪽 고정 바 — 전부 이미 있는 동작을 부른다(새 기능 0).
+       결재함만 <a href="/work"> 라 여기서 안 다룬다 — 링크는 브라우저가 하는 게 맞다. */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#tabbar .tb[data-go]');
+    if (!b) return;
+    var go = b.getAttribute('data-go');
+    if (go === 'search') { window.openCard('c-search'); return; }
+    if (go === 'reload') { window.reloadAll(); return; }
+    if (go === 'top') {
+      /* 「할 일」 = 맨 위 「오늘 봐야 할 것」. 아직 못 받았거나 볼 게 없어 숨어 있으면
+         그 자리가 없으므로 화면 맨 위로 보낸다 — 눌렀는데 아무 일도 안 나는 것이 제일 나쁘다. */
+      var todo = document.getElementById('todo');
+      if (todo && !todo.hidden) { try { todo.scrollIntoView({ block: 'start' }); } catch (err) { todo.scrollIntoView(); } }
+      else window.scrollTo(0, 0);
+    }
+  });
 
   // ── 회선이 돌아오면 자동으로 다시 받는다 ──────────────────────────────────
   //   ⚠️ 타이머로 계속 두드리지 않는다. 좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다.

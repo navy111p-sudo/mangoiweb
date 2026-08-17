@@ -139,6 +139,7 @@
         "precheck":      function(){ if(window.mgGo) window.mgGo("precheck"); },
         "teachers":      function(){ if(window.gridActions&&window.gridActions.teachers) window.gridActions.teachers(); },
         "review-quiz":   function(){ location.href="/review-quiz.html"; },
+        "review-quiz-cn":function(){ location.href="/review-quiz-cn.html"; },   // 🇨🇳 (2026-08-17 연결)
         "refund":        function(){ try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){} location.href="/refund.html"; },
         "all-menu":      function(){ if(window.openAllMenuOverlay) window.openAllMenuOverlay(); },
         // 🥭 (2026-07-07) 상담직원 라우팅 확장 — 사이드바 직접링크 메뉴(게임·웜업·AI친구 등)는

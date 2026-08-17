@@ -13,6 +13,7 @@
 //   · attestation='none' 정책 — attStmt 는 검증하지 않음(대부분 서비스 표준).
 //   · 챌린지는 KV(SESSION_STATE) 5분 TTL, verify 시 소비(delete) → 재사용 공격 차단.
 //   · rpId = 요청 호스트명 동적 사용 → test.mangoi.co.kr / workers.dev 모두 동작.
+//     단 `*.mangoi.ai` 는 apex(`mangoi.ai`)로 묶는다 — resolveRpId() 주석 참조.
 //   · ES256(-7) 서명은 ASN.1 DER → WebCrypto 는 raw r||s 요구 → 변환 필수.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
@@ -29,6 +30,23 @@ const MAX_CREDS_PER_USER = 8;     // 계정당 패스키 상한(온가족 기기
 const ANDROID_APP_ORIGINS = [
   'android:apk-key-hash:1QIpo1vhGmV0PAazPhrJDBi_wHCWLkb9H2uaofE-7DA',
 ];
+
+// ── rpId: 같은 사이트인데 «다른 사이트» 로 갈리지 않게 ───────────────────
+// WebAuthn 은 rpId 가 한 글자만 달라도 **다른 사이트**로 보고 자격증명을 안 내준다.
+// 2026-08-17 에 `www.mangoi.ai` 를 추가로 붙였는데(기존 `mangoi.ai` 도 그대로 산다),
+// rpId 로 요청 호스트명을 그대로 쓰면 한쪽에서 등록한 지문이 다른 쪽에서
+// `rp_mismatch` 로 거절된다 — 사용자에겐 「어제까진 지문으로 됐는데 오늘 안 돼요」로 보인다.
+//
+// 표준상 rpId 는 «오리진 호스트의 등록가능 상위 도메인» 이면 되므로 apex 로 통일한다.
+//   mangoi.ai → mangoi.ai · www.mangoi.ai → mangoi.ai
+// ⛔ test.mangoi.co.kr·workers.dev·localhost 는 상위 도메인이 **다르므로** 묶으면 안 된다.
+//    (실측 2026-08-17: 등록된 패스키 7개 = test.mangoi.co.kr 6 · mangoi.ai 1 · www 0
+//     → apex 로 묶어도 기존 등록분은 rpId 가 그대로라 재등록이 필요 없다)
+const PASSKEY_RP_APEX = 'mangoi.ai';
+function resolveRpId(hostname: string): string {
+  const h = String(hostname || '').toLowerCase();
+  return (h === PASSKEY_RP_APEX || h.endsWith('.' + PASSKEY_RP_APEX)) ? PASSKEY_RP_APEX : h;
+}
 
 // ── base64url ──
 function b64uFromBytes(bytes: Uint8Array): string {
@@ -177,7 +195,7 @@ export async function handlePasskeyApi(
   if (method !== 'POST') return json({ ok: false, error: 'method_not_allowed' }, 405);
 
   const body: any = await request.json().catch(() => ({}));
-  const rpId = url.hostname;
+  const rpId = resolveRpId(url.hostname);
 
   // ═══ POST /api/passkey/register/options — 등록 옵션 (로그인 상태 필수) ═══
   if (path === '/api/passkey/register/options') {

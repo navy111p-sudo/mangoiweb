@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
+import { handleDurationQueue } from './duration-change-queue';   // 📅 수업 길이 변경 신청함(월 1회 일괄 반영)
 import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
@@ -196,6 +197,34 @@ const worker = {
           'Access-Control-Allow-Headers': 'Content-Type, X-Room-Id, X-Filename, X-Recording-Id, X-Duration-Ms, X-Size-Bytes, Authorization'
         }
       });
+    }
+
+    /* 🔗 정본 호스트로 모은다 — www.mangoi.ai → mangoi.ai (2026-08-17)
+     *
+     * [왜]
+     *   www 를 추가로 붙이면서 «같은 사이트» 가 브라우저에겐 **두 사이트**가 됐다.
+     *   오리진이 갈리면 아래가 전부 따로 논다:
+     *     · 교사·본사·지사 세션 쿠키 — Domain= 이 없는 호스트 전용 쿠키(auth-admin.ts)
+     *     · 학생·학부모 로그인 — localStorage 의 mangoi_logged_user·mango_token
+     *     · 언어 설정 mangoi_lang, 패스키 rpId, 뒤로가기의 «같은 사이트» 판정
+     *   쿠키는 Domain 을 넓히면 되지만 **localStorage 는 오리진별로 갈리는 게 웹 표준이라
+     *   공유할 방법이 아예 없다.** 그래서 «주소를 하나로 모으는» 것이 유일한 완전 해결책이다.
+     *   이걸 안 하면 CLAUDE.md 의 「로그인했는데 또 로그인하래요」가 그대로 재현된다.
+     *
+     * [주의]
+     *   ⛔ test.mangoi.co.kr 은 절대 건드리지 않는다 — 앱 시작 URL·스모크 테스트·워치독이
+     *      그 주소를 붙박이로 쓴다. workers.dev·localhost 도 그대로 둔다(개발·진단용).
+     *   ⛔ WebSocket 업그레이드는 리다이렉트하지 않는다 — 화상수업이 끊긴다.
+     *   · OPTIONS(프리플라이트)는 위에서 이미 답했으므로 여기까지 오지 않는다.
+     *   · GET/HEAD 는 301, 나머지는 308 을 쓴다. POST 를 301 로 보내면 클라이언트가
+     *     GET 으로 바꾸면서 **본문을 버린다**(308 은 메서드와 본문을 지킨다).
+     */
+    if (url.hostname === 'www.mangoi.ai'
+        && (request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
+      const canonical = new URL(url.toString());
+      canonical.hostname = 'mangoi.ai';
+      const permanent = request.method === 'GET' || request.method === 'HEAD';
+      return Response.redirect(canonical.toString(), permanent ? 301 : 308);
     }
 
     // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
@@ -1048,6 +1077,8 @@ const worker = {
         path.startsWith('/api/admin/schedule-requests') ||
         // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
         path === '/api/admin/class-audit' ||
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회
+        path.startsWith('/api/admin/duration-requests') ||
         // ⏸ 연기 수업 통합 조회(매니저 화면) — 요청+감사로그를 합쳐 유료/무료·연기시각까지 (2026-07-23)
         path === '/api/admin/postponed-classes' ||
         // 📅 오늘 수업 전체(매니저용) — 강사 미입장 시 매니저가 바로 대신 입장 (2026-07-23)
@@ -1523,6 +1554,13 @@ const worker = {
           const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
           const res = await handleSpaceMonsterApi(request.method, path, url, body, env as any);
           if (res) return res;
+        }
+
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회.
+        //   ⚠️ 여기 등록하지 않으면 라우팅이 안 붙어 404 다(CLAUDE.md 의 «새 API 추가» 함정).
+        {
+          const dq = await handleDurationQueue(request, env as any, path, request.method);
+          if (dq) return dq;
         }
 
         const res = await handleMangoApi(request, url, env, ctx);

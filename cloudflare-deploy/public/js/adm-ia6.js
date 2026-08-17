@@ -415,41 +415,43 @@
     alignRelease = release;
   }
 
-  /* ── 🗺 메뉴 지도 열기 — «읽어 주고 → 그다음 연다» ────────────────────────────────
+  /* ── 🗺 메뉴 지도 열기 — «지도가 먼저, 안내 음성은 도착해서» ──────────────────────
      (2026-08-15 사장님) ① 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
                         ② 「메뉴 지도에 무엇이 들어 있는지 음성이 안 나와. 이것도 추가해줘」
      ①은 옛 동작이 «감춘 카드를 다시 보이게» 하는 것뿐이라 화면에 아무 변화가 없어서였다.
        이제 진짜 지도 문서를 연다(/admin/site-structure-map.html — 사람 다섯 갈래로 그린 그림).
-     ②는 순서가 중요하다 — 말을 시작해 놓고 페이지를 옮기면 그 순간 소리가 끊긴다.
-       그래서 **다 읽은 뒤에** 옮긴다(adm-r15 의 admVoiceSay 가 다 읽으면 알려 준다).
+     ②를 넣을 때는 «다 읽고 나서 옮기는» 순서로 했다. 말을 시작해 놓고 페이지를 옮기면
+       그 순간 소리가 끊기기 때문이다. 그런데 그 대가가 너무 컸다 —
+     🐢 (2026-08-17 사장님) 「메뉴 지도 누르면 지도가 빨리 나오지 않아」 — 그 순서가 원인이었다.
+       안내문이 95자라 구글 TTS 로 12~14초짜리 소리가 되고, 그러면 adm-r15 의 9초 안전장치
+       (setTimeout(done, 9000))가 먼저 터진다. 즉 **누르면 정확히 9초 뒤에** 이동이 시작됐다.
+       그 9초 동안 화면에는 스피너도 「여는 중」도 없으니, 쓰는 사람에게는 «먹통» 으로 보인다.
+     [지금] 누르면 **곧바로** 지도로 간다. 안내 음성은 «도착한 지도 페이지가» 읽는다
+       (site-structure-map.html 맨 아래 「🔊 도착해서 읽어 준다」 블록이 ?speak=1 을 보고 읽는다).
+       지도는 즉시 뜨고, 음성은 페이지 이동에 끊기지 않는다 — 두 요청이 다 살아 있다.
+     ⛔ 다시 admVoiceSay(…, go) 로 «읽고 나서 옮기는» 형태로 되돌리지 말 것. 그게 9초 먹통의 정체다.
+        읽는 자리는 «떠나는 쪽» 이 아니라 «도착한 쪽» 이다.
      ⚠️ 음성이 꺼져 있거나 소리가 안 나와도 **반드시 지도로 간다**. 안 그러면 또 «눌러도 안 열린다» 다.
      ⚠️ 지도로 들어가는 문은 이제 여기 하나다(2026-08-16 「시스템 ▸ 사이트 구조도」 제거). */
   var MAP_HREF = '/admin/site-structure-map.html';
 
-  function menuMapSpeech() {
-    return isEn()
-      ? 'Menu map. A picture of every Mangoi screen, grouped by who uses it: guests, students, parents, teachers and operators. Opening the map now.'
-      : '메뉴 지도입니다. 망고아이의 모든 화면을 쓰는 사람에 따라 손님, 학생, 부모님, 선생님, 운영자 다섯 갈래로 나눠 그린 그림입니다. 지금 지도를 엽니다.';
-  }
-
   /* 📍 지도에 «지금 여기» 를 찍어 주기 위해 지금 페이지 주소를 넘긴다.
      지도는 referrer 로도 알아내지만, referrer 는 브라우저 설정·앱 내장 브라우저에서
-     빈 값이 되는 일이 있다. 확실한 쪽을 같이 보낸다. */
+     빈 값이 되는 일이 있다. 확실한 쪽을 같이 보낸다.
+     🔊 speak=1 = «사람이 「메뉴 지도」를 눌러서 온 이동» 이라는 표시. 지도 페이지는 이 표시가
+        있을 때만 안내를 읽는다 — 링크·북마크로 그냥 열어 본 사람에게 갑자기 소리가 나면 안 된다. */
   function mapUrl() {
-    try { return MAP_HREF + '?here=' + encodeURIComponent(location.pathname); }
-    catch (e) { return MAP_HREF; }
+    try { return MAP_HREF + '?here=' + encodeURIComponent(location.pathname) + '&speak=1'; }
+    catch (e) { return MAP_HREF + '?speak=1'; }
   }
 
   function openMenuMap() {
-    var went = false;
-    var go = function () {
-      if (went) return; went = true;
-      try { location.href = mapUrl(); } catch (e) { /* 무시 */ }
-    };
-    var speaking = false;
-    try { speaking = !!(window.admVoiceSay && window.admVoiceSay(menuMapSpeech(), go)); }
-    catch (e) { speaking = false; }
-    if (!speaking) go();          // 음성이 꺼져 있으면 곧바로 연다
+    /* 🔇 이 화면에서 진행 중인 안내가 있으면 끊는다. 어차피 이동하면 끊기지만,
+          떠나는 순간 반 마디만 튀어나오는 소리를 남기지 않는다.
+          (adm-r15 는 「메뉴 지도」 머리를 읽지 않으므로 보통은 아무것도 없다 — 앞서 누른
+           다른 항목의 안내가 아직 남아 있는 경우를 위한 것이다.) */
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) { /* 무시 */ }
+    try { location.href = mapUrl(); } catch (e) { /* 무시 */ }
   }
 
   function showAll() {

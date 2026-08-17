@@ -41,6 +41,11 @@
     { kws:['ai 작문','ai작문','영작','영작문','작문 첨삭','글쓰기','ai write','writing'], action: () => location.href='/ai-write.html', label:'✍ AI 작문' },
     { kws:['영어 발음 코치','영어발음코치','영어 발음 연습'], action: () => location.href='/speech-coach.html', label:'🗣 영어 발음 코치' },
     { kws:['단어장','단어 장','내 단어장','어휘장','어휘','vocab','vocabulary','word list'], action: () => location.href='/vocab.html', label:'📖 단어장' },
+    /* 2026-08-17 — 중국어 복습퀴즈. 페이지는 진작 있었는데 부르는 곳이 한 군데도 없었다.
+     * ⚠️ 반드시 아래 '복습퀴즈' 보다 **위**에 둔다. findRule() 은 부분일치로 «첫 매칭» 을 돌려주므로,
+     *    아래에 두면 「중국어 복습퀴즈」 가 '복습퀴즈' 에 먼저 걸려 한국어 화면으로 가 버린다.
+     * ⚠️ kws 에 맨 '중국어' 는 넣지 않는다 — 그건 중국어 발음 코치(ph157)의 몫이다. */
+    { kws:['중국어 복습퀴즈','중국어복습퀴즈','중국어 복습','중국어복습','중국어 퀴즈','중국어퀴즈','중문 퀴즈','chinese quiz','chinese review quiz'], action: () => location.href='/review-quiz-cn.html', label:'🇨🇳 중국어 복습퀴즈' },
     { kws:['복습퀴즈','복습 퀴즈','선생님 퀴즈','리뷰 퀴즈','review quiz'], action: () => location.href='/review-quiz.html', label:'🧠 복습퀴즈' },
     { kws:['미니 퀴즈','미니퀴즈','퀴즈','단어 퀴즈','쪽지시험','quiz'], action: () => location.href='/micro-quiz.html', label:'🎯 AI 단어 퀴즈' },
     { kws:['mbti 매칭','mbti매칭','엠비티아이 매칭','강사 매칭','성향 매칭','mbti match'], action: () => location.href='/mbti.html', label:'🧠 MBTI 매칭' },
@@ -331,6 +336,7 @@
       { label: '📖 단어장', action: () => location.href = '/vocab.html' },
       { label: '🗣 발음연습', action: () => location.href = '/speech-coach.html' },
       { label: '🧠 복습퀴즈', action: () => location.href = '/review-quiz.html' },
+      { label: '🇨🇳 중국어 복습퀴즈', action: () => location.href = '/review-quiz-cn.html' },
       { label: '📊 성적표·리포트', action: () => location.href = '/report.html' },
       { label: '🎁 포인트 상점', action: () => { if (window.showPointsShop) window.showPointsShop(); } },
       { label: '💬 카카오 상담', action: () => { if (window.openInquiryModal) window.openInquiryModal(); } },
