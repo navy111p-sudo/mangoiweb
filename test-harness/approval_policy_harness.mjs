@@ -462,6 +462,76 @@ check('관리자 화면의 배지는 반복 폴링하지 않는다',
   /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
   '좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다');
 
+// ══ K. 인사·급여 «월 확정» — 숫자를 손으로 적지 않는가 ════════════════════
+console.log('\n[K] 인사·급여 월 확정 — 급여를 다시 계산하지 않는가');
+
+const HR_SRC = readFileSync(join(SRC, 'approval-hr.ts'), 'utf8');
+
+check('급여를 다시 계산하지 않고 기존 함수를 그대로 부른다',
+  /import \{ getPayrollAuto \} from '\.\/api-payroll-auto'/.test(HR_SRC),
+  '결재함이 급여를 따로 계산하면 관리자 화면의 숫자와 어긋나는 날이 온다');
+
+check('급여 표에 쓰지 않는다 (읽기 전용)',
+  !/INSERT INTO teacher_payroll_auto|UPDATE teacher_payroll_auto|INSERT INTO payslips|UPDATE payslips/.test(HR_SRC),
+  'payslips.finalized_at 은 api-admin 의 마감 흐름이 쓰는 칸이다 — 건드리면 이중이 된다');
+
+check('승인 사실은 결재함 자기 표에만 적는다',
+  /approval_period_locks/.test(HR_SRC));
+
+check('승인 시점의 숫자를 얼려 둔다 (감사 기록)',
+  /snapshot/.test(HR_SRC),
+  '나중에 원본이 바뀌어도 «그때 무엇을 승인했는지» 가 남아야 한다');
+
+check('같은 달을 두 번 확정하지 않는다',
+  /ON CONFLICT\(kind, period\) DO NOTHING/.test(HR_SRC) && /period_locked/.test(API_SRC));
+
+check('달 형식을 입구에서 검사한다 (YYYY-MM)',
+  /\^\\d\{4\}-\(0\[1-9\]\|1\[0-2\]\)\$/.test(HR_SRC),
+  '형식이 어긋나면 달 잠금이 헛돈다');
+
+check('자료가 없는 달은 아예 고를 수 없다',
+  /HAVING SUM\(completed_classes\) > 0/.test(HR_SRC),
+  '운영 DB 에 수업 0회짜리 미래 달(2027·2028·2030) 행이 실제로 있다');
+
+check('필리핀 매니저에게는 인사·급여가 보이지 않는다',
+  typeSpec('hr').koreaOnly === true &&
+  canSubmit(phMgr, 'hr', true) === false &&
+  canSubmit(office, 'hr', false) === true);
+
+check('koreaOnly 는 인사·급여에만 붙어 있다',
+  TYPES.filter(t => t.koreaOnly).map(t => t.key).join(',') === 'hr');
+
+check('서버도 막는다 (화면에서 안 보여도 주소로 부르면 뚫리므로)',
+  /canSubmit\(actor, reqType, ph\)/.test(API_SRC));
+
+check('제목·본문을 서버가 만든다 (올리는 사람이 숫자를 적지 않는다)',
+  /hrSnap \? String\(hrSnap\.title_ko\)/.test(API_SRC) &&
+  /hrSnap \? String\(hrSnap\.body_ko\)/.test(API_SRC));
+
+check('인사·급여에는 AI 요약을 부르지 않는다',
+  /const sum = hrSnap \? null :/.test(API_SRC),
+  'AI 가 금액을 바꿔 쓸 여지를 아예 남기지 않는다');
+
+check('최종 승인일 때만 달을 잠근다',
+  /finalStatus === 'approved' && cur\.req_type === 'hr'/.test(API_SRC));
+
+check('잠금 실패해도 결재는 살리되 사실을 남긴다',
+  /달 확정 기록 실패/.test(API_SRC));
+
+check('달 잠금 표를 두 번 만들지 않는다 (주인 모듈 함수를 부른다)',
+  /await ensureHrTable\(env\);/.test(API_SRC) &&
+  !/CREATE TABLE IF NOT EXISTS approval_period_locks/.test(API_SRC),
+  '같은 표를 두 곳에서 만들면 먼저 실행된 것이 이겨 컬럼이 어긋난다');
+
+check('달을 확정하면 결재함 목록도 새로 받는다 (304 로 옛 목록이 남지 않게)',
+  /approval_period_locks[\s\S]{0,200}etag|lsig/.test(API_SRC));
+
+check('화면 — 인사·급여는 폼 대신 달 버튼을 그린다',
+  /picks_period/.test(WORK_SRC) && /paintHrForm/.test(WORK_SRC));
+
+check('화면 — 이미 확정된 달은 눌리지 않게 한다',
+  /m\.approved[\s\S]{0,200}disabled/.test(WORK_SRC));
+
 // ── 결과 ────────────────────────────────────────────────────────────────────
 console.log('──────────────────────────────────────');
 if (FAIL) {
