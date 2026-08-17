@@ -25,8 +25,13 @@ catch {
   process.exit(0);
 }
 import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const SRC = readFileSync('/home/user/mangoiweb/cloudflare-deploy/src/api-approval.ts', 'utf8');
+// ⚠️ 절대 경로를 박지 말 것 — 내 컴퓨터에서만 통하고 CI 러너에서는 파일이 없어 죽는다.
+//    (2026-08-17 실제로 이렇게 배포 게이트에서 걸렸다. 다른 하니스와 같은 방식으로 맞춘다.)
+const __dir = dirname(fileURLToPath(import.meta.url));
+const SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-approval.ts'), 'utf8');
 
 let PASS = 0, FAIL = 0;
 const t = (name, fn) => {

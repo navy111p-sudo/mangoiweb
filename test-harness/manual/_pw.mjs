@@ -7,9 +7,21 @@
 //      PW_DIR=/tmp/pw node test-harness/manual/<파일>.mjs
 import { createRequire } from 'node:module';
 import { existsSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { join, dirname } from 'node:path';
 
 const require = createRequire(import.meta.url);
+
+/**
+ * 저장소 안의 파일을 file:// 주소로 만든다.
+ *   ⚠️ 절대 경로를 박지 말 것 — 내 컴퓨터에서만 통하고 남이 받으면 파일을 못 찾는다.
+ *      (2026-08-17 실제로 그렇게 배포 게이트에서 걸렸다)
+ *   rel 은 저장소 루트 기준. 예: fileUrl('cloudflare-deploy/public/work.html')
+ */
+export function fileUrl(rel) {
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+  return pathToFileURL(join(root, rel)).href;
+}
 
 /** playwright-core 를 찾는다. 없으면 null(호출한 쪽이 «건너뜀» 으로 끝낸다). */
 export function loadPlaywright() {
