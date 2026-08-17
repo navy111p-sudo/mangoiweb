@@ -2538,6 +2538,20 @@
             </select>
             <span style="font-size:11px;color:#6b7280" data-ko="기간을 선택하고 아래 리포트 버튼을 누르세요" data-en="Pick a period then click a report below">기간을 선택하고 아래 리포트 버튼을 누르세요</span>
           </div>
+
+          <!-- 🔒 월 마감 (2026-08-17) — 마감하면 그 달 숫자가 스냅샷으로 굳는다.
+               나중에 자료가 더 들어와도 «이미 세무사에게 보낸 숫자» 가 조용히 바뀌지 않는다. -->
+          <div id="acc-close-box" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;margin-bottom:12px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <b style="font-size:13px;color:#111827" data-ko="🔒 월 마감" data-en="🔒 Month close">🔒 월 마감</b>
+              <span id="acc-close-state" style="font-size:12px;color:#6b7280">—</span>
+              <span style="flex:1"></span>
+              <button id="acc-close-btn" onclick="accCloseMonth()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="이 달 마감하기" data-en="Close this month">이 달 마감하기</button>
+              <button id="acc-reopen-btn" onclick="accReopenMonth()" style="padding:5px 12px;font-size:12px;display:none" data-ko="마감 해제" data-en="Reopen">마감 해제</button>
+              <button onclick="accCloseRefresh()" style="padding:5px 10px;font-size:12px" data-ko="🔄 현황" data-en="🔄 Status">🔄 현황</button>
+            </div>
+            <div id="acc-close-detail" style="font-size:12px;color:#374151;line-height:1.7;margin-top:8px"></div>
+          </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
             <button onclick="openReport('monthly')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📅 월간 회계 리포트" data-en="📅 Monthly Report">📅 월간 회계 리포트</div>
@@ -8919,7 +8933,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=94" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=94: 2026-08-16 회계 리포트 개편 + 전각 ＋ → + 병합 -->
+<script src="/js/adm-core.js?v=95" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=94: 2026-08-16 회계 리포트 개편 + 전각 ＋ → + 병합 -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
