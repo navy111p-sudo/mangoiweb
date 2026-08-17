@@ -193,6 +193,34 @@ html.dark #todo .todo-clear{color:#5fce96}
 /* ⭐ 연기·변경 요청을 보는 자리에서 바로 승인·거절 (2026-08-17 ③)
    ⚠️ 버튼 높이 44px 는 장식이 아니다 — 원장님들이 수업 중에 한 손 엄지로 누른다.
       이보다 작으면 «승인» 옆의 «거절» 을 잘못 누른다. gap 도 그래서 10px 이다. */
+/* ⭐ 아래쪽 고정 바 — 폰에서만. 설계 계약대로 transition·애니메이션 0.
+   ⚠️ 아이폰은 화면 맨 아래에 홈 인디케이터가 있다. safe-area 를 안 더하면
+      「새로고침」이 그 막대에 깔려 안 눌린다. */
+#tabbar{display:none}
+@media (max-width:700px){
+  #tabbar{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:#fff;border-top:1px solid #e3e8ee;
+    padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -1px 8px rgba(16,24,40,.06);
+  }
+  .tb{
+    flex:1;min-height:48px;display:flex;align-items:center;justify-content:center;gap:4px;
+    background:transparent;border:0;border-radius:10px;cursor:pointer;
+    font-family:inherit;font-size:13px;font-weight:800;color:#16202c;
+    letter-spacing:-.02em;text-decoration:none;text-align:center;padding:0 2px;
+  }
+  .tb:active{background:#eef2f6}
+  .tb-n{font-size:11.5px;font-weight:800;color:#9f1239;background:#fdeaee;
+        border-radius:999px;padding:1px 6px;min-width:18px}
+  .tb-n:empty{display:none}
+  /* 마지막 카드가 바에 가리지 않게. 바 높이(≈60px) + 홈 인디케이터 + 여유. */
+  body{padding-bottom:calc(78px + env(safe-area-inset-bottom,0px))}
+  html.dark #tabbar{background:#1d2530;border-top-color:#39434f;box-shadow:0 -1px 8px rgba(0,0,0,.35)}
+  html.dark .tb{color:#e7edf3}
+  html.dark .tb:active{background:#28313d}
+  html.dark .tb-n{color:#fca5a5;background:#3b2020}
+}
 .rq-to{font-size:13.5px;font-weight:800;color:#16202c;padding:0 0 6px;letter-spacing:-.01em}
 html.dark .rq-to{color:#e7edf3}
 .rq-act{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 0 10px}
@@ -479,6 +507,33 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   </div>
 
 </div>
+
+<!-- ⭐ 아래쪽 고정 바 — 엄지가 닿는 자리 (2026-08-17 사장님 ⑤)
+     왜 — 이 화면은 카드가 9장이라 아래로 길다. 지금은 «할 일 보기 · 검색 · 결재함 ·
+     새로고침» 이 전부 **맨 위에만** 있어서, 아래까지 내려간 원장님은 쓰려면 도로 올라와야 했다.
+     수업 사이 짬에 한 손으로 보는 화면이라 그 왕복이 그대로 시간이다.
+
+     ⚠️ 새 API 0 · 새 기능 0 — 전부 이미 있는 것을 아래에서 부를 뿐이다.
+        검색·결재함은 위 버튼과 «같은» 동작(openCard / /work)을 부른다.
+     ⚠️ 결재 건수는 위 배지와 **같은 한 번의 호출**을 나눠 쓴다(loadApprovalBadge 가 둘 다 채운다).
+        여기서 또 부르면 첫 화면 API 계약이 깨진다.
+     ⚠️ 폰에서만 뜬다(≤700px). PC 는 스크롤이 짧고 위 버튼이 늘 보이므로 가릴 이유가 없다.
+        ⛔ 다만 «폰 전용» 은 CLAUDE.md 4-1-1 이 지목한 사고 유형이다 — PC 에서 이 바가
+           안 뜨는 것이 **의도**이며, PC 화면이 그대로인지 폭 4종으로 확인했다. -->
+<nav id="tabbar" aria-label="빠른 이동">
+  <button type="button" class="tb" data-go="top">
+    <span data-en="To-do" data-ko="할 일">To-do</span>
+  </button>
+  <button type="button" class="tb" data-go="search">
+    <span data-en="Search" data-ko="검색">Search</span>
+  </button>
+  <a class="tb" href="/work">
+    <span data-en="Approvals" data-ko="결재함">Approvals</span><span id="apprN2" class="tb-n"></span>
+  </a>
+  <button type="button" class="tb" data-go="reload">
+    <span data-en="Refresh" data-ko="새로고침">Refresh</span>
+  </button>
+</nav>
 
 <script>
 (function(){
@@ -1345,9 +1400,32 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
         var n = Number(j.pending || 0);
         var el = document.getElementById('apprN');
         if (el && n > 0) el.textContent = ' (' + n + ')';
+        /* 아래쪽 고정 바의 결재 배지도 **이 한 번의 호출**로 함께 채운다.
+           따로 부르면 첫 화면 API 계약이 깨지고, 두 숫자가 서로 어긋날 수도 있다.
+           ⚠️ 괄호 없이 숫자만 — 좁은 칸이라 «(3)» 은 알약 배지 안에서 넘친다.
+              :empty 로 숨기므로 0 일 때는 아무것도 안 쓴다. */
+        var el2 = document.getElementById('apprN2');
+        if (el2 && n > 0) el2.textContent = String(n);
       })
       .catch(function(){});
   }
+
+  /* ⭐ 아래쪽 고정 바 — 전부 이미 있는 동작을 부른다(새 기능 0).
+       결재함만 <a href="/work"> 라 여기서 안 다룬다 — 링크는 브라우저가 하는 게 맞다. */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#tabbar .tb[data-go]');
+    if (!b) return;
+    var go = b.getAttribute('data-go');
+    if (go === 'search') { window.openCard('c-search'); return; }
+    if (go === 'reload') { window.reloadAll(); return; }
+    if (go === 'top') {
+      /* 「할 일」 = 맨 위 「오늘 봐야 할 것」. 아직 못 받았거나 볼 게 없어 숨어 있으면
+         그 자리가 없으므로 화면 맨 위로 보낸다 — 눌렀는데 아무 일도 안 나는 것이 제일 나쁘다. */
+      var todo = document.getElementById('todo');
+      if (todo && !todo.hidden) { try { todo.scrollIntoView({ block: 'start' }); } catch (err) { todo.scrollIntoView(); } }
+      else window.scrollTo(0, 0);
+    }
+  });
 
   // ── 회선이 돌아오면 자동으로 다시 받는다 ──────────────────────────────────
   //   ⚠️ 타이머로 계속 두드리지 않는다. 좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다.
