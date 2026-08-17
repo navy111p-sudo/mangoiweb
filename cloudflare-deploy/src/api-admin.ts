@@ -594,6 +594,47 @@ export async function handleAdminApi(
         status TEXT NOT NULL DEFAULT 'waiting', created_at INTEGER NOT NULL,
         created_by TEXT, resolved_at INTEGER, resolved_by TEXT)`;
       try { await env.DB.exec(WL_DDL.replace(/\s+/g, ' ')); } catch { }
+      /* ⚠️ shop_name·franchise 를 위 CREATE 에 **일부러 안 넣었다.**
+           CREATE TABLE IF NOT EXISTS 는 표가 이미 있으면 아무것도 안 한다 —
+           운영 표에는 그 칸이 안 생기는데 코드만 «있다» 고 적히면 서로 어긋난다
+           (schema_drift_harness 가 바로 이걸 잡는다). 이 파일의 teachers·payslips 도
+           나중에 생긴 칸은 전부 아래 ALTER 쪽에만 있다. 같은 방식을 따른다. */
+      /* 🔒 (2026-08-17 사장님) 대기자도 지사·대리점끼리 격리한다.
+           연기·변경 요청을 막고 나서 보니 **대기자만 안 막혀 있었다** — 강남점 원장님이
+           서초점·부산지사 대기자 이름과 전화번호까지 그대로 봤다(2026-08-04 신설 이래).
+
+         ⚠️ class_waitlist 에는 소속 칸이 아예 없었다. 그래서 칸을 두 개 새로 만든다.
+            이미 있으면 ALTER 가 던지고, 그건 정상이라 삼킨다(이 파일의 기존 방식과 같다).
+            **칸을 더하기만 한다 — 기존 행의 값은 건드리지 않는다.**
+
+         ⚠️ 칸 이름을 students_erp 와 **똑같이** shop_name · franchise 로 맞췄다.
+            그래야 공용 scopeStudentCond() 가 만든 조건을 이 표에 **그대로** 쓸 수 있다.
+            이름을 다르게 지으면 격리 로직을 한 벌 더 쓰게 되고, 한쪽만 고쳐 어긋난다. */
+      for (const sql of [`ALTER TABLE class_waitlist ADD COLUMN shop_name TEXT`,
+                         `ALTER TABLE class_waitlist ADD COLUMN franchise TEXT`]) {
+        try { await env.DB.exec(sql); } catch { }
+      }
+
+      /* 누가 어디까지 보는가 —
+           본사(hq)·내부직원(none) : 조건이 빈 문자열 → **동작이 하나도 안 바뀐다.**
+           대리점(agency)          : shop_name 이 자기 대리점인 것
+           지사(branch)            : franchise 가 자기 지역으로 시작하는 것
+           지사본사(franchise)     : 자기 소유 지사들
+
+         ⚠️ 옛 행에는 이 칸이 비어 있다(이 변경 이전에 넣은 것). 비었으면 **안 보인다** —
+            연기·변경 요청과 같은 «막는 쪽으로 실패» 원칙이다. 다만 그러면 원장님이
+            직접 넣어 둔 대기자까지 사라지므로, **created_by 가 나인 행은 계속 보인다.**
+            내가 넣은 것을 내가 보는 것이라 새는 것이 없고, 옛 자료도 안 잃는다.
+         ⚠️ uid → students_erp 로 잇는 길은 **일부러 안 썼다.** 대기자는 아직 등록 전
+            학생이라 uid 가 거의 비어 있어 얻는 것이 적은데, 조건이 두 벌이 되면
+            지사본사(지사 80개)에서 바인드가 100개를 넘어 조용히 빈 결과가 된다. */
+      const _wlScope = await getScope(env as any, request);
+      const _wlC = scopeStudentCond(_wlScope);
+      const _wlActor = await getAdminActor(request, env as any);
+      const _wlOwn = String(_wlActor?.name || '');
+      // 조건 + 바인드를 한 번에 만든다 — 목록·개수·수정이 **같은 것**을 쓰게 하기 위해서다
+      const _wlCond = _wlC.cond ? `(${_wlC.cond} OR created_by = ?)` : '';
+      const _wlBinds = _wlC.cond ? [..._wlC.binds, _wlOwn] : [];
 
       if (method === 'POST') {
         const body: any = await parseJsonBody(request) ?? {};
@@ -604,14 +645,28 @@ export async function handleAdminApi(
         if (action === 'add') {
           const name = String(body.student_name || '').trim();
           if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.', message_en: 'Student name is required.' }, 400);
+          /* 넣을 때 소속을 찍는다 — 안 찍으면 아무에게도 안 보이는 행이 된다.
+               대리점이 넣으면 그 대리점 + **그 대리점이 속한 지사**까지 찍는다.
+               지사 칸을 같이 안 찍으면 지사 원장님은 산하 대리점이 넣은 대기자를 못 본다.
+             ⚠️ 본사(hq)가 넣은 것은 비워 둔다 — 본사는 전체를 보므로 막힐 일이 없고,
+                엉뚱한 대리점 이름을 찍으면 그 대리점 자료로 굳어 버린다. */
+          let wShop: string | null = null, wFran: string | null = null;
+          if (_wlScope.type === 'agency' && _wlScope.value) {
+            wShop = _wlScope.value;
+            const f = await env.DB.prepare(`SELECT franchise FROM students_erp WHERE shop_name = ? AND franchise IS NOT NULL AND franchise <> '' LIMIT 1`)
+              .bind(wShop).first<{ franchise: string }>().catch(() => null);
+            wFran = f?.franchise || null;
+          } else if (_wlScope.type === 'branch' && _wlScope.value) {
+            wFran = _wlScope.value;
+          }
           try {
             const ins = await env.DB.prepare(
-              `INSERT INTO class_waitlist (student_name, phone, uid, teacher_pref, day_pref, time_pref, note, status, created_at, created_by)
-               VALUES (?,?,?,?,?,?,?,'waiting',?,?)`
+              `INSERT INTO class_waitlist (student_name, phone, uid, teacher_pref, day_pref, time_pref, note, status, created_at, created_by, shop_name, franchise)
+               VALUES (?,?,?,?,?,?,?,'waiting',?,?,?,?)`
             ).bind(name, String(body.phone || '').trim() || null, String(body.uid || '').trim() || null,
               String(body.teacher_pref || '').trim() || null, String(body.day_pref ?? '').trim() || null,
               String(body.time_pref || '').trim() || null, String(body.note || '').trim() || null,
-              Date.now(), actor).run();
+              Date.now(), actor, wShop, wFran).run();
             return json({ ok: true, id: (ins?.meta?.last_row_id as number) ?? null });
           } catch (e: any) {
             return json({ ok: false, error: 'insert_failed', message: String(e?.message || e).slice(0, 200) }, 500);
@@ -621,9 +676,18 @@ export async function handleAdminApi(
         if (action === 'resolve' || action === 'cancel') {
           const id = Number(body.id);
           if (!Number.isFinite(id)) return json({ ok: false, error: 'id_required' }, 400);
+          /* 🔒 처리(등록완료·취소)도 **자기 대기자만.** 목록을 막아도 여기를 안 막으면
+                id 만 바꿔 넣어 남의 대리점 대기자를 취소할 수 있다(연기·변경 /decide 와 같은 구멍).
+                목록과 **똑같은 조건**을 쓴다 — 한쪽만 고쳐서 어긋나는 것을 막으려고 위에서 한 번만 만들었다. */
           try {
-            await env.DB.prepare(`UPDATE class_waitlist SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?`)
-              .bind(action === 'resolve' ? 'enrolled' : 'cancelled', Date.now(), actor, id).run();
+            const upd: any = await env.DB.prepare(
+              `UPDATE class_waitlist SET status = ?, resolved_at = ?, resolved_by = ? WHERE id = ?`
+              + (_wlCond ? ` AND ${_wlCond}` : '')
+            ).bind(action === 'resolve' ? 'enrolled' : 'cancelled', Date.now(), actor, id, ..._wlBinds).run();
+            // 한 줄도 안 바뀌었다 = 내 대기자가 아니거나 없는 id. «없다» 와 «남의 것» 을 구분해 알려주지 않는다.
+            if (_wlCond && !(upd?.meta?.changes > 0)) {
+              return json({ ok: false, error: 'forbidden_scope', message: '이 대기자를 처리할 권한이 없습니다.', message_en: 'Not allowed for this waitlist entry.' }, 403);
+            }
             return json({ ok: true });
           } catch (e: any) {
             return json({ ok: false, error: 'update_failed', message: String(e?.message || e).slice(0, 200) }, 500);
@@ -635,10 +699,13 @@ export async function handleAdminApi(
       // ── GET: 목록 + «희망 시간에 여유 있는 강사» 자동 매칭 ──
       try {
         const status = String(url.searchParams.get('status') || 'waiting');
-        const rs = await env.DB.prepare(
-          `SELECT * FROM class_waitlist ${status === 'all' ? '' : 'WHERE status = ?'} ORDER BY created_at DESC LIMIT 300`
-        );
-        const list = status === 'all' ? (await rs.all<any>()).results || [] : (await rs.bind(status).all<any>()).results || [];
+        const wConds: string[] = []; const wBinds: any[] = [];
+        if (status !== 'all') { wConds.push('status = ?'); wBinds.push(status); }
+        if (_wlCond) { wConds.push(_wlCond); wBinds.push(..._wlBinds); }
+        const wWhere = wConds.length ? ('WHERE ' + wConds.join(' AND ')) : '';
+        const list = (await env.DB.prepare(
+          `SELECT * FROM class_waitlist ${wWhere} ORDER BY created_at DESC LIMIT 300`
+        ).bind(...wBinds).all<any>()).results || [];
 
         const toMin2 = (hhmm: any) => { const [h, m] = String(hhmm || '').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
         const dow1 = (v: any): number | null => {
@@ -683,7 +750,10 @@ export async function handleAdminApi(
 
         let counts: any = {};
         try {
-          const c = await env.DB.prepare(`SELECT status, COUNT(*) AS n FROM class_waitlist GROUP BY status`).all<any>();
+          // 개수도 같은 조건으로 — 목록은 3명인데 «대기 40명» 이 뜨면 그게 곧 남의 자료를 알려 주는 것이다
+          const c = await env.DB.prepare(
+            `SELECT status, COUNT(*) AS n FROM class_waitlist ${_wlCond ? 'WHERE ' + _wlCond : ''} GROUP BY status`
+          ).bind(..._wlBinds).all<any>();
           for (const r of (c.results || [])) counts[String(r.status)] = Number(r.n) || 0;
         } catch { }
 
