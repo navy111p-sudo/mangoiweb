@@ -724,29 +724,44 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   const { startMs, endMs, label } = monthRange(period);
   const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15;
 
+  /* 🔑 소속 판정은 «학생 원부의 지사 라벨» 이 1순위다 (2026-08-16).
+     students_erp.franchise 는 카페24가 학생마다 직접 찍어 준 지사 이름이라
+     대리점 이름을 거쳐 추론하는 것보다 훨씬 정확하다 — 실측: 학생 29,398명 중
+     28,974명(98.6%)이 라벨을 갖고 있고 **전부** franchises.name 과 정확히 일치한다.
+     이 방식으로 바꾸면 「같은 대리점 이름이 두 지사에 있어 배정 불가」 문제가
+     통째로 사라진다(예: 「미사용」 대리점 학생 229명은 라벨이 이미 셋으로 나뉘어 있다).
+     라벨이 없는 학생만 예전처럼 shop_name → centers → 지사 로 폴백한다. */
   const attributed = await safe(async () => {
     const r = await env.DB.prepare(`
-      WITH cmap AS (
+      WITH fmap AS (
+        SELECT name, MIN(id) AS fid, COUNT(*) AS nf
+          FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name
+      ),
+      cmap AS (
         SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
           FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> ''
          GROUP BY name
+      ),
+      att AS (
+        SELECT p.id AS pay_id, p.amount_krw, st.user_id,
+               COALESCE(
+                 (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
+                 (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
+               ) AS fid
+          FROM student_payments p
+          JOIN students_erp st ON st.user_id = p.user_id
+         WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
       )
-      SELECT f.id AS franchise_id, f.name AS franchise_name,
-             COALESCE(SUM(p.amount_krw),0) AS gross,
-             COUNT(p.id) AS pays,
-             COUNT(DISTINCT st.user_id) AS students
-        FROM franchises f
-        JOIN cmap m        ON m.fid = f.id AND m.nf = 1
-        JOIN students_erp st ON st.shop_name = m.name
-        JOIN student_payments p
-             ON p.user_id = st.user_id AND p.status='paid'
-            AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
-       WHERE f.active = 1
-       GROUP BY f.id, f.name
+      SELECT f.id AS franchise_id, f.name AS franchise_name, f.active AS active,
+             COALESCE(SUM(a.amount_krw),0) AS gross,
+             COUNT(a.pay_id) AS pays,
+             COUNT(DISTINCT a.user_id) AS students
+        FROM att a JOIN franchises f ON f.id = a.fid
+       GROUP BY f.id, f.name, f.active
        HAVING gross > 0
        ORDER BY gross DESC
     `).bind(startMs, endMs).all();
-    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; gross: number; pays: number; students: number }>;
+    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number }>;
   }, []);
 
   // 장부 총 매출 — 배정된 합과 비교해 «배정 못 한 돈» 을 정직하게 드러낸다
@@ -762,7 +777,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     const fee = Math.round(f.gross * hqFeeRate);
     return {
       franchise_id: f.franchise_id,
-      franchise_name: f.franchise_name,
+      franchise_name: f.franchise_name + (Number(f.active) === 1 ? '' : ' (비활성 지사)'),
       students: f.students,
       pay_count: f.pays,
       gross_revenue: f.gross,
@@ -793,7 +808,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       unassigned: (unassigned > 0 ? 'review' : 'actual') as FigureSource,
     },
     notes: [
-      '가맹점별 매출은 학생 한 명씩 실제 소속(대리점 → 지사)을 따라가 합산한 값입니다. 균등분배가 아닙니다.',
+      '가맹점별 매출은 학생 한 명씩 실제 소속을 따라가 합산한 값입니다. 균등분배가 아닙니다. 소속은 학생 원부의 지사 라벨을 먼저 쓰고, 라벨이 없으면 대리점 이름으로 찾습니다.',
       `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
       ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, bookTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
     ],
