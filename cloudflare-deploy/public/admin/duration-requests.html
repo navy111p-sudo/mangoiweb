@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수업 길이 변경 신청함 — 망고아이 관리자</title>
+<!-- 🈶 이 화면에는 한자가 없어 mangoi-han.css(983KB)를 부르지 않는다.
+     한자를 쓰게 되면 그때 링크를 넣고 body font-family 맨 앞을 MangoiHanSC 로 둘 것
+     (hanzi_font_harness · admin_lazyload_harness 가 양쪽을 함께 감시한다). -->
+<style>
+  /* 관리자 PC 확대는 각 페이지에서 zoom (공용 CSS 로 묶지 말 것 — CLAUDE.md) */
+  body { zoom:1.3; font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:#f1f5f9; color:#0f172a; margin:0; padding:18px; }
+  h1 { font-size:19px; margin:0 0 4px; }
+  .sub { font-size:12px; color:#64748b; margin-bottom:12px; }
+  .card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
+  .rule { background-color:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:9px 12px; font-size:12.5px; line-height:1.55; margin-bottom:12px; }
+  .rule b { color:#92400e; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  button { padding:7px 14px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-size:13px; }
+  button.primary { background:#2563eb; color:#fff; border-color:#2563eb; font-weight:bold; }
+  button.go { background:#16a34a; color:#fff; border-color:#16a34a; font-weight:bold; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th,td { border:1px solid #e2e8f0; padding:6px 8px; text-align:left; }
+  th { background:#f8fafc; color:#475569; font-size:12px; }
+  td.num { text-align:right; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:20px; font-size:11.5px; font-weight:bold; }
+  .ok { background:#dcfce7; color:#15803d; }
+  .no { background:#fee2e2; color:#b91c1c; }
+  .wait { background:#e0e7ff; color:#3730a3; }
+  .empty { color:#94a3b8; text-align:center; padding:18px; }
+  .msg { font-size:12.5px; padding:8px 11px; border-radius:7px; margin-bottom:10px; }
+  .msg.good { background:#ecfdf5; border:1px solid #86efac; color:#166534; }
+  .msg.bad { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
+  /* hover 는 색만 — 크기·위치 고정 (CLAUDE.md: hover 확대 금지) */
+  tbody tr:hover td { background:#f8fafc; }
+</style>
+</head>
+<body>
+
+<h1>📅 수업 길이 변경 신청함</h1>
+<div class="sub">신청은 <b>언제나</b> 받고, 실제 반영은 <b>한 달에 한 번</b>만 합니다.</div>
+
+<div class="rule">
+  <b>왜 모아서 반영하나요?</b> 수업 길이를 바꾸면 <b>그 뒤 학생들 시작 시각이 줄줄이 밀립니다.</b>
+  아무 때나 바꾸면 시간표가 매일 흔들리고 학부모 항의로 돌아옵니다.
+  그래서 신청을 모아 두었다가 <b>매달 1일에 한꺼번에</b> 반영합니다.<br>
+  ⚠️ 반영은 <b>"미리보기 → 실행" 두 걸음</b>입니다. 미리보기에서 <b>몇 건이 되고 몇 건이 왜 안 되는지</b> 먼저 확인하세요.
+</div>
+
+<div id="msg"></div>
+
+<div class="card">
+  <div class="bar">
+    <b id="monthLabel">이번 달 —</b>
+    <span id="applyState"></span>
+    <span style="flex:1"></span>
+    <button id="btnReload">🔄 새로고침</button>
+    <button id="btnPreview" class="primary">🔍 미리보기</button>
+    <button id="btnApply" class="go" disabled>✅ 이번 달 반영</button>
+  </div>
+  <div id="preview"></div>
+</div>
+
+<div class="card">
+  <h2 style="font-size:14px;margin:0 0 8px">대기 중인 신청</h2>
+  <table>
+    <thead><tr><th>학생</th><th>수업</th><th class="num">지금</th><th class="num">바꿀 길이</th><th>신청자</th><th>사유</th><th></th></tr></thead>
+    <tbody id="tb"><tr><td colspan="7" class="empty">불러오는 중…</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+var $ = function(id){ return document.getElementById(id); };
+function esc(v){ return String(v==null?'':v).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function say(kind, text){ $('msg').innerHTML = '<div class="msg '+kind+'">'+esc(text)+'</div>'; }
+
+async function api(url, opts){
+  var r = await fetch(url, Object.assign({ credentials:'include' }, opts||{}));
+  return await r.json().catch(function(){ return { ok:false, message:'응답을 읽지 못했습니다 (HTTP '+r.status+')' }; });
+}
+
+var DOW = ['일','월','화','수','목','금','토'];
+function whenText(r){
+  if (r.scheduled_date) return esc(r.scheduled_date) + ' ' + esc(r.start_time||'');
+  var d = String(r.day_of_week==null?'':r.day_of_week);
+  var n = parseInt(d,10);
+  var label = isNaN(n) ? d : (DOW[n]||d)+'요일';
+  return esc(label) + ' ' + esc(r.start_time||'');
+}
+
+async function load(){
+  var j = await api('/api/admin/duration-requests?status=pending');
+  if (!j.ok) { say('bad', j.message||'목록을 불러오지 못했습니다.'); return; }
+  $('monthLabel').textContent = '이번 달 ' + (j.this_month||'—');
+  $('applyState').innerHTML = j.can_apply_this_month
+    ? '<span class="pill wait">아직 반영 안 함</span>'
+    : '<span class="pill ok">이미 반영함 ('+esc(j.last_applied_month||'')+')</span>';
+  // 이번 달에 이미 반영했으면 「반영」 버튼은 잠근다 — 월 1회 규칙을 화면에서도 지킨다
+  $('btnApply').disabled = true;
+  window.__canApply = !!j.can_apply_this_month;
+
+  var rows = j.requests || [];
+  $('tb').innerHTML = rows.length ? rows.map(function(r){
+    return '<tr data-id="'+esc(r.id)+'">'
+      + '<td><b>'+esc(r.student_name||'—')+'</b></td>'
+      + '<td>'+whenText(r)+'</td>'
+      + '<td class="num">'+esc(r.cur_minutes||r.from_minutes||'—')+'분</td>'
+      + '<td class="num"><b>'+esc(r.to_minutes)+'분</b></td>'
+      + '<td>'+esc(r.requested_by||'—')+'</td>'
+      + '<td>'+esc(r.reason||'')+'</td>'
+      + '<td><button class="cancel">취소</button></td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">대기 중인 신청이 없습니다.</td></tr>';
+}
+
+async function preview(){
+  say('good', '미리보기를 부르는 중…');
+  var j = await api('/api/admin/duration-requests/apply', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ dry_run: true })
+  });
+  if (!j.ok) { say('bad', j.message||'미리보기에 실패했습니다.'); return; }
+  var okN = (j.applied||[]).length, noN = (j.blocked||[]).length;
+  $('msg').innerHTML = '';
+  $('preview').innerHTML =
+    '<div style="font-size:13px;margin-bottom:6px"><b>미리보기 결과</b> — 반영 가능 <b style="color:#15803d">'+okN+'건</b> · 막힘 <b style="color:#b91c1c">'+noN+'건</b> (아직 <b>아무것도 바뀌지 않았습니다</b>)</div>'
+    + (noN ? '<table><thead><tr><th>학생</th><th class="num">→</th><th>막힌 이유</th></tr></thead><tbody>'
+        + j.blocked.map(function(b){
+            return '<tr><td>'+esc(b.student_name||'—')+'</td><td class="num">'+esc(b.from_minutes)+'→'+esc(b.to_minutes)+'분</td>'
+                 + '<td>'+esc(b.reason||'')+'</td></tr>'; }).join('')
+        + '</tbody></table>' : '');
+  // 반영할 것이 있고, 이번 달에 아직 안 했을 때만 실행 버튼을 연다
+  $('btnApply').disabled = !(okN > 0 && window.__canApply);
+}
+
+async function applyNow(){
+  if (!confirm('대기 중인 신청을 실제로 반영합니다.\n\n반영하면 학생들의 수업 길이가 바뀌고, 뒤 학생들 시각이 밀릴 수 있습니다.\n이번 달에는 다시 누를 수 없습니다.\n\n진행할까요?')) return;
+  say('good', '반영하는 중…');
+  var j = await api('/api/admin/duration-requests/apply', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ dry_run: false })
+  });
+  if (!j.ok) { say('bad', j.message||'반영에 실패했습니다.'); return; }
+  say('good', (j.month||'') + ' 반영 완료 — 성공 ' + (j.applied||[]).length + '건 · 막힘 ' + (j.blocked||[]).length + '건');
+  $('preview').innerHTML = '';
+  await load();
+}
+
+document.addEventListener('click', async function(ev){
+  var c = ev.target.closest && ev.target.closest('button.cancel');
+  if (!c) return;
+  var id = c.closest('tr').getAttribute('data-id');
+  if (!confirm('이 신청을 취소할까요?')) return;
+  var j = await api('/api/admin/duration-requests/cancel', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: Number(id) })
+  });
+  if (j.ok) load(); else say('bad', j.message||'취소에 실패했습니다.');
+});
+
+$('btnReload').addEventListener('click', load);
+$('btnPreview').addEventListener('click', preview);
+$('btnApply').addEventListener('click', applyNow);
+load();
+</script>
+</body>
+</html>
