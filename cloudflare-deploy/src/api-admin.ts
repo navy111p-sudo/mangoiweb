@@ -305,7 +305,8 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   ).bind(teacherId, year, month).first();
   const classCount = cl ? Number(cl.class_count) : 0;
   // 실제 길이 합계가 들어와 있으면 그것이 정본. 없으면 «전부 20분» 이던 예전 규칙(×2).
-  const tenMinUnits = (cl && Number(cl.total_10min_units) > 0)
+  const lengthRecorded = !!(cl && Number(cl.total_10min_units) > 0);
+  const tenMinUnits = lengthRecorded
     ? Number(cl.total_10min_units)
     : classCount * classTenMinUnits(DEFAULT_CLASS_MINUTES);
 
@@ -330,6 +331,10 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
     year, month,
     class_count: classCount,
     total_10min_units: tenMinUnits,      // 급여 근거 — 20분만이면 class_count×2 와 같다
+    total_minutes: Math.round(tenMinUnits * 10),
+    // false = 그 달의 실제 길이가 입력된 적이 없어 «전부 20분» 으로 계산했다는 뜻.
+    // 화면이 이걸 구분해 보여 줘야 30분 수업을 20분 값으로 지급하는 사고를 눈치챌 수 있다.
+    length_recorded: lengthRecorded,
     monthly_salary_php: monthlySalary,
     monthly_salary_krw: Math.round(monthlySalary * PAYROLL_PHP_TO_KRW),
     php_to_krw: PAYROLL_PHP_TO_KRW,
@@ -4177,6 +4182,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           year:               r.year,
           month:              r.month,
           class_count:        r.class_count,
+          total_minutes:      r.total_minutes,        // 🕐 급여 근거 — 30분 수업이 섞이면 회수만으론 못 맞춘다
+          length_recorded:    r.length_recorded ? 1 : 0,   // 0 = 길이 미입력(전부 20분으로 계산)
           rate_per_10min_php: r.rate_per_10min_php,
           monthly_salary_php: r.monthly_salary_php,
           monthly_salary_krw: r.monthly_salary_krw,
@@ -4198,7 +4205,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         { key: 'years',              label: 'years' },
         { key: 'year',               label: 'year' },
         { key: 'month',              label: 'month' },
-        { key: 'class_count',        label: 'class_count_20min' },
+        { key: 'class_count',        label: 'class_count' },
+        { key: 'total_minutes',      label: 'total_minutes' },
+        { key: 'length_recorded',    label: 'length_recorded' },
         { key: 'rate_per_10min_php', label: 'rate_per_10min_php' },
         { key: 'monthly_salary_php', label: 'monthly_salary_php' },
         { key: 'monthly_salary_krw', label: 'monthly_salary_krw' },

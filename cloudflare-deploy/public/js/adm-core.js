@@ -1626,7 +1626,7 @@ const _SORT_LABELS_KO = {
   score_instruction: '수업', score_retention: '유지', score_punctuality: '근태',
   score_admin: '행정', score_contribution: '조직',
   weighted_total: '가중점수', grade: '등급',
-  class_count: '수업수', rate_per_10min_php: '10분단가',
+  class_count: '수업수', total_minutes: '총 수업시간', rate_per_10min_php: '10분단가',
   monthly_salary_php: '월급(PHP)', monthly_salary_krw: 'KRW',
 };
 const _SORT_LABELS_EN = {
@@ -1634,7 +1634,7 @@ const _SORT_LABELS_EN = {
   score_instruction: 'Inst', score_retention: 'Ret', score_punctuality: 'Punct',
   score_admin: 'Admin', score_contribution: 'Contrib',
   weighted_total: 'Weighted', grade: 'Grade',
-  class_count: 'Classes', rate_per_10min_php: 'Rate/10m',
+  class_count: 'Classes', total_minutes: 'Total min', rate_per_10min_php: 'Rate/10m',
   monthly_salary_php: 'Salary(PHP)', monthly_salary_krw: 'KRW',
 };
 
@@ -1642,12 +1642,31 @@ const _SORT_LABELS_EN = {
 const _GRADE_EN = { '최우수': 'Outstanding', '매우 우수': 'V.Satisfactory', '우수': 'Satisfactory', '개선 요망': 'Needs Improvement', '미평가': 'Unrated' };
 function _gradeText(g) { return adminLang === 'en' ? (_GRADE_EN[g] || g || 'Unrated') : (g || '미평가'); }
 
+/* 🕐 (2026-08-17) 총 수업시간 칸.
+   서버의 length_recorded 가 false 면 그 달은 «길이가 입력된 적이 없어 전부 20분으로 계산» 한 것이다.
+   그냥 숫자만 찍으면 30분 수업을 20분 값으로 지급하고 있어도 표에서 알 길이 없으므로,
+   추정치는 «~» 를 붙이고 흐리게 찍어 실제 입력값과 눈으로 구분되게 한다. */
+function _payrollMinutesCell(p) {
+  const mins = (p.total_minutes != null)
+    ? p.total_minutes
+    : Math.round((p.total_10min_units || 0) * 10);
+  if (!mins) return '—';
+  if (p.length_recorded) return fmtNum(mins);
+  const _L = adminLang === 'en';
+  const tip = _L ? 'No length recorded — counted as 20 min each' : '길이 미입력 — 전부 20분으로 계산';
+  return `<span style="color:#9ca3af;" title="${tip}">~${fmtNum(mins)}</span>`;
+}
+
 function _payrollFieldValue(row, key) {
   if (!row) return null;
   if (['score_instruction','score_retention','score_punctuality','score_admin','score_contribution'].includes(key)) {
     return row.evaluation ? row.evaluation[key] : null;
   }
   if (key === 'grade') return _GRADE_RANK[row.grade] != null ? _GRADE_RANK[row.grade] : -1;
+  if (key === 'total_minutes') {
+    return (row.total_minutes != null) ? row.total_minutes
+         : (row.total_10min_units != null ? Math.round(row.total_10min_units * 10) : null);
+  }
   return row[key];
 }
 
@@ -1724,7 +1743,7 @@ function renderPayrollTable() {
   const _preview = (typeof window._isRolePreview === 'function') && window._isRolePreview();
   // 지사·대리점·학부모·학생 = 급여 열람 불가 → 표를 비우고 안내(미리보기에서도 동일)
   if (_effRole === 'branch' || _effRole === 'agency' || _effRole === 'parent' || _effRole === 'student') {
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.') + '</td></tr>';
     _updateSortArrows();
     return;
   }
@@ -1745,12 +1764,12 @@ function renderPayrollTable() {
         ? (_L ? 'Teacher Mode preview: a teacher only sees their OWN payslip — other teachers\' salaries are hidden. (This demo persona has no payroll data.)'
               : '👨‍🏫 강사 모드 미리보기: 강사는 <b>본인 급여만</b> 보이고 다른 강사 급여는 가려집니다. (이 데모 계정은 급여 데이터가 없어 비어 있어요. 실제 확인은 강사 계정으로 로그인.)')
         : (_L ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.');
-      tb.innerHTML = '<tr><td colspan="14" class="empty" style="line-height:1.7">' + note + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="15" class="empty" style="line-height:1.7">' + note + '</td></tr>';
       _updateSortArrows();
       return;
     }
     const empty = _L ? 'No active teachers. Add one above or click 🌱 Seed.' : '활성 강사가 없습니다. 위에서 강사를 먼저 등록하거나 🌱 시드 버튼을 사용하세요.';
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + empty + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + empty + '</td></tr>';
     _updateSortArrows();
     return;
   }
@@ -1775,6 +1794,7 @@ function renderPayrollTable() {
       <td style="text-align:right;font-weight:700;">${p.weighted_total != null ? p.weighted_total.toFixed(2) : '—'}</td>
       <td><span class="${gClass}">${_gradeText(p.grade)}</span></td>
       <td style="text-align:right;">${fmtNum(p.class_count)}</td>
+      <td style="text-align:right;">${_payrollMinutesCell(p)}</td>
       <td style="text-align:right;">${(p.rate_per_10min_php || 0).toFixed(2)}</td>
       <td style="text-align:right;font-weight:700;color:#10b981;">${fmtNum(Math.round(p.monthly_salary_php))}</td>
       <td style="text-align:right;color:#6b7280;">₩${fmtNum(krw)}</td>
@@ -1849,12 +1869,12 @@ async function calcPayrollAll() {
   const month = parseInt(document.getElementById('payroll-month').value, 10);
   if (!year || !month) { alert(_L ? 'Enter year/month' : '연도/월을 입력하세요'); return; }
   const tb = document.getElementById('payroll-table');
-  tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Loading...' : '불러오는 중...') + '</td></tr>';
+  tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Loading...' : '불러오는 중...') + '</td></tr>';
   try {
     const r = await fetch(`/api/admin/payroll/all?year=${year}&month=${month}`, { cache: 'no-store', credentials: 'include' });
     const d = await r.json();
     if (!d.ok) {
-      tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status)) + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status)) + '</td></tr>';
       return;
     }
     _lastPayrollRows = d.items || [];
@@ -1866,7 +1886,7 @@ async function calcPayrollAll() {
     const cw = document.getElementById('payroll-charts-wrap');
     if (cw && cw.style.display === 'block') renderPayrollCharts();
   } catch (e) {
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Error: ' : '에러: ') + e.message + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Error: ' : '에러: ') + e.message + '</td></tr>';
   }
 }
 

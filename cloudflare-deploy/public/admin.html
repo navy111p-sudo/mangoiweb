@@ -7168,7 +7168,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th class="pr-th" data-sort-key="score_contribution"><span data-ko="조직(10%)" data-en="Contrib (10%)">조직(10%)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="weighted_total"><span data-ko="가중점수" data-en="Weighted">가중점수</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="grade"><span data-ko="등급" data-en="Grade">등급</span><span class="pr-arrow">↕</span></th>
-          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(20분)" data-en-html="Classes<br>(20-min)">총 수업수<br>(20분)</span><span class="pr-arrow">↕</span></th>
+          <!-- 🕐 (2026-08-17) 30분 수업 도입 — «(20분)» 이라는 표기 자체가 틀린 말이 됐다.
+               총 수업시간 열을 옆에 붙여 급여 근거(= 10분 토막 × 단가)를 표에서 바로 보이게 한다. -->
+          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(회)" data-en-html="Classes<br>(count)">총 수업수<br>(회)</span><span class="pr-arrow">↕</span></th>
+          <th class="pr-th" data-sort-key="total_minutes"><span data-ko-html="총 수업시간<br>(분)" data-en-html="Total<br>minutes">총 수업시간<br>(분)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="rate_per_10min_php"><span data-ko="10분 단가" data-en="Rate/10m">10분 단가</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_php"><span data-ko="월급(PHP)" data-en="Salary (PHP)">월급(PHP)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_krw"><span data-ko="≈ KRW" data-en="≈ KRW">≈ KRW</span><span class="pr-arrow">↕</span></th>
@@ -8941,7 +8944,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=97" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=97: 2026-08-17 급여 입력에 «총 수업시간(분)» 칸 추가(30분 수업 대응) -->
+<script src="/js/adm-core.js?v=98" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=98: 2026-08-17 급여 목록에 «총 수업시간(분)» 열 추가 + 20분 가정치는 흐리게 -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
