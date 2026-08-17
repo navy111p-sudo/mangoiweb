@@ -13,8 +13,6 @@
   h1 { font-size:19px; margin:0 0 4px; }
   .sub { font-size:12px; color:#64748b; margin-bottom:12px; }
   .card { background:#fff; border:1px solid #e2e8f0; border-radius:10px; padding:14px 16px; margin-bottom:12px; }
-  .rule { background-color:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:9px 12px; font-size:12.5px; line-height:1.55; margin-bottom:12px; }
-  .rule b { color:#92400e; }
   .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
   button { padding:7px 14px; border-radius:7px; border:1px solid #cbd5e1; background:#fff; cursor:pointer; font-size:13px; }
   button.primary { background:#2563eb; color:#fff; border-color:#2563eb; font-weight:bold; }
@@ -34,6 +32,39 @@
   .msg.bad { background:#fef2f2; border:1px solid #fecaca; color:#b91c1c; }
   /* hover 는 색만 — 크기·위치 고정 (CLAUDE.md: hover 확대 금지) */
   tbody tr:hover td { background:#f8fafc; }
+
+  /* ── 처음 보는 사람을 위한 Q&A. 접었다 폈다 되지만 기본은 «펼침» ── */
+  .qa { background:#fff; border:1px solid #e2e8f0; border-radius:10px; margin-bottom:12px; overflow:hidden; }
+  .qa > summary { list-style:none; cursor:pointer; padding:10px 16px; background-color:#fffbeb;
+                  border-bottom:1px solid #fde68a; font-size:13.5px; font-weight:bold; color:#92400e; }
+  .qa > summary::-webkit-details-marker { display:none; }
+  .qa > summary .hint { font-weight:normal; color:#a16207; font-size:12px; margin-left:6px; }
+  .qbody { padding:13px 16px 15px; }
+  .q { margin-top:13px; }
+  .q:first-child { margin-top:0; }
+  .qt { font-size:13px; font-weight:bold; color:#1d4ed8; background-color:#eff6ff;
+        border-left:4px solid #2563eb; border-radius:0 6px 6px 0; padding:5px 11px; }
+  .at { font-size:12.5px; line-height:1.62; color:#334155; padding:7px 2px 0 13px; }
+  .at b { color:#0f172a; }
+  .ex { background-color:#f8fafc; border:1px dashed #cbd5e1; border-radius:7px;
+        padding:7px 11px; margin-top:6px; font-size:12.2px; color:#475569; line-height:1.55; }
+  .ex .exl { font-weight:bold; color:#0f766e; display:block; margin-bottom:2px; }
+  .gain { width:100%; border-collapse:collapse; font-size:12.2px; margin-top:6px; }
+  .gain th { width:88px; background:#f8fafc; color:#475569; font-size:12px; text-align:center; }
+  .gain td { color:#334155; }
+  /* 시간표가 밀리는 모습을 그림으로 — 글로만 쓰면 «줄줄이 밀린다»가 안 와닿는다 */
+  .tl { display:flex; gap:3px; margin-top:5px; }
+  .tl > span { border-radius:5px; padding:4px 0; text-align:center; font-size:11.5px;
+               font-weight:bold; color:#fff; background:#60a5fa; }
+  .tl > span.b2 { background:#38bdf8; } .tl > span.b3 { background:#818cf8; }
+  .tl > span.long { background:#2563eb; } .tl > span.push { background:#ef4444; }
+  .tll { font-size:11.8px; color:#64748b; margin-top:7px; }
+  .steps { display:flex; gap:7px; margin-top:6px; flex-wrap:wrap; }
+  .step { flex:1; min-width:150px; background-color:#f8fafc; border:1px solid #e2e8f0;
+          border-radius:8px; padding:7px 10px; font-size:12.2px; color:#475569; line-height:1.5; }
+  /* 제목만 줄바꿈 — 안쪽 강조 <b> 까지 block 이 되면 문장이 토막난다 */
+  .step > b:first-child { display:block; color:#0f172a; margin-bottom:2px; }
+  .step b { color:#0f172a; }
 </style>
 </head>
 <body>
@@ -41,12 +72,110 @@
 <h1>📅 수업 길이 변경 신청함</h1>
 <div class="sub">신청은 <b>언제나</b> 받고, 실제 반영은 <b>한 달에 한 번</b>만 합니다.</div>
 
-<div class="rule">
-  <b>왜 모아서 반영하나요?</b> 수업 길이를 바꾸면 <b>그 뒤 학생들 시작 시각이 줄줄이 밀립니다.</b>
-  아무 때나 바꾸면 시간표가 매일 흔들리고 학부모 항의로 돌아옵니다.
-  그래서 신청을 모아 두었다가 <b>매달 1일에 한꺼번에</b> 반영합니다.<br>
-  ⚠️ 반영은 <b>"미리보기 → 실행" 두 걸음</b>입니다. 미리보기에서 <b>몇 건이 되고 몇 건이 왜 안 되는지</b> 먼저 확인하세요.
+<details class="qa" open>
+<summary>❓ 이 화면이 뭔가요? — 처음이시면 여기부터 읽어 주세요<span class="hint">(눌러서 접을 수 있습니다)</span></summary>
+<div class="qbody">
+
+  <div class="q">
+    <div class="qt">Q1. 여기는 뭘 하는 곳인가요?</div>
+    <div class="at">
+      수업 길이를 <b>바꿔 달라는 신청서</b>를 모아 두는 곳입니다.
+      망고아이 수업은 <b>20분 · 30분 · 40분</b> 세 가지가 있어요.
+      지금 20분을 듣는 학생이 30분으로 바꾸고 싶으면, 그 신청이 이 화면으로 옵니다.
+      <div class="ex"><span class="exl">예시</span>
+        민수 어머니 → «20분은 너무 짧아요, 30분으로 해 주세요» → 상담 선생님이 신청 →
+        이 화면에 <b>«민수 · 20분 → 30분»</b> 한 줄이 뜹니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q2. 왜 길이를 바꿀 수 있게 했나요? <span style="font-weight:normal">(취지·목적)</span></div>
+    <div class="at">
+      <b>«20분은 짧다»는 말</b> 때문입니다. 인사하고 오늘 뭐 했는지 물어보면 벌써 끝날 시간이에요.
+      아이가 이제 막 입이 트이려는데 수업이 끝나 버립니다.<br>
+      그렇다고 <b>모두를 30분으로 바꿀 수는 없습니다</b> — 20분이 딱 좋은 아이도 많고, 값도 올라가니까요.
+      그래서 <b>«더 하고 싶은 사람만 길게»</b> 고를 수 있게 열어 둔 것입니다.
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q3. 그냥 20분만 하면 안 되나요? <span style="font-weight:normal">(안 하면 생기는 문제)</span></div>
+    <div class="at">
+      짧다고 느낀 학생이 <b>말없이 그만둡니다.</b> 더 하고 싶어도 방법이 없으니 다른 곳을 알아봅니다.
+      더 나쁜 건, 회사는 <b>왜 그만뒀는지도 모른 채</b> 학생을 잃는다는 점입니다.
+      <div class="ex"><span class="exl">예시</span>
+        «우리 애는 20분이 좀 아쉬워요» → 바꿔 줄 방법이 없음 → 석 달 뒤 조용히 퇴원 →
+        기록에는 그냥 <b>«퇴원»</b> 두 글자만 남습니다.
+      </div>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q4. 바꾸면 뭐가 좋아지나요? <span style="font-weight:normal">(이익)</span></div>
+    <div class="at">
+      <table class="gain">
+        <tr><th>학생</th><td>말할 시간이 늘어납니다. 20분에 두세 마디 하던 아이가 30분에는 열 마디를 합니다.</td></tr>
+        <tr><th>학부모</th><td><b>돈을 더 안 내고도</b> 길게 할 수 있습니다 — <b>주3회 20분 → 주2회 30분</b>은
+          한 주에 배우는 시간(60분)도, 내는 돈도 <b>똑같습니다.</b></td></tr>
+        <tr><th>선생님</th><td>한 시간에 버는 돈은 <b>그대로</b>인데(20분 3명 = 30분 2명),
+          학생 수가 줄어 <b>수업일지가 3장 → 2장</b>으로 가벼워집니다.</td></tr>
+        <tr><th>회사</th><td>«짧아서» 그만두는 학생이 줄고, 더 길게 원하는 학생에게서는
+          <b>1.5배</b>(30분) 매출이 생깁니다.</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q5. 왜 하필 «한 달에 한 번»만 하나요? <span style="font-weight:normal">(가장 중요)</span></div>
+    <div class="at">
+      한 명의 길이를 늘리면 <b>그 뒤 학생들이 전부 뒤로 밀리기</b> 때문입니다. 그림으로 보면 이렇습니다.
+      <div class="ex">
+        <span class="exl">지금 (모두 20분)</span>
+        <div class="tl">
+          <span style="flex:20">5:00 민수</span>
+          <span class="b2" style="flex:20">5:20 지혜</span>
+          <span class="b3" style="flex:20">5:40 서준</span>
+        </div>
+        <span class="exl" style="margin-top:9px">민수만 30분으로 바꾸면</span>
+        <div class="tl">
+          <span class="long" style="flex:30">5:00 민수 (30분)</span>
+          <span class="push" style="flex:20">5:30 지혜</span>
+          <span class="push" style="flex:20">5:50 서준</span>
+        </div>
+        <div class="tll">→ 민수 한 명 때문에 <b style="color:#b91c1c">지혜와 서준의 수업 시각이 10분씩 밀렸습니다.</b>
+          두 집에 전화해서 «시간이 바뀌었어요»라고 말해야 합니다.</div>
+      </div>
+      아무 때나 바꾸면 이 일이 <b>매일</b> 벌어집니다. 시간표가 흔들리고, 학부모 항의로 돌아옵니다.<br>
+      <b>한 달에 한 번 모아서 하면</b> — 밀리는 일도 한 번, 학부모 안내도 한 번, 선생님이 새 시간표를 외우는 것도 한 번이면 끝납니다.
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q6. 그럼 신청은 언제 받나요?</div>
+    <div class="at">
+      <b>신청은 아무 때나</b> 받으셔도 됩니다. 여기 쌓여 있다가 <b>매달 1일에 한꺼번에</b> 반영됩니다.
+      학부모께는 <b>«다음 달 1일부터 바뀝니다»</b>라고 안내해 주세요.
+    </div>
+  </div>
+
+  <div class="q">
+    <div class="qt">Q7. 어떻게 쓰나요? <span style="font-weight:normal">(순서만 지키면 됩니다)</span></div>
+    <div class="at">
+      <div class="steps">
+        <div class="step"><b>① 🔍 미리보기</b>아직 <b>아무것도 바뀌지 않습니다.</b>
+          몇 건이 되고, 몇 건이 왜 안 되는지만 보여 줍니다.</div>
+        <div class="step"><b>② 내용 확인</b>막힌 건은 이유가 함께 나옵니다
+          (시간이 겹침 · 그 선생님의 30분 정원이 참 등).</div>
+        <div class="step"><b>③ ✅ 이번 달 반영</b>이때 <b>진짜로 바뀝니다.</b>
+          이번 달에는 다시 누를 수 없으니 ①②를 먼저 하세요.</div>
+      </div>
+      ⚠️ 이상하다 싶으면 <b>고치지 마시고 먼저 알려 주세요.</b> 수업료·시간표가 함께 걸려 있어 되돌리기 어렵습니다.
+    </div>
+  </div>
+
 </div>
+</details>
 
 <div id="msg"></div>
 
@@ -97,7 +226,7 @@ async function load(){
   $('applyState').innerHTML = j.can_apply_this_month
     ? '<span class="pill wait">아직 반영 안 함</span>'
     : '<span class="pill ok">이미 반영함 ('+esc(j.last_applied_month||'')+')</span>';
-  // 이번 달에 이미 반영했으면 「반영」 버튼은 잠근다 — 월 1회 규칙을 화면에서도 지킨다
+  // 이번 달에 이미 반영했으면 «반영» 버튼은 잠근다 — 월 1회 규칙을 화면에서도 지킨다
   $('btnApply').disabled = true;
   window.__canApply = !!j.can_apply_this_month;
 
