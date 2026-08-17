@@ -21,6 +21,8 @@ import {
   ALLOWED_CLASS_MINUTES,      // 고를 수 있는 길이 [20,30,40] (25분은 스위치로 꺼 둠)
   CLASS_TIME_STEP_MIN,        // 예약 시작 시각 격자 10분
   classLengthMultiplier,      // 요금 배수 = 길이÷20 (분 정비례)
+  DEFAULT_LONG_CLASS_DAILY_CAP,  // 🪑 긴 수업 하루 정원 기본값 (0 = 무제한)
+  isLongClass, longClassCapReached,
 } from './class-policy';
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
@@ -107,6 +109,9 @@ export async function ensureEnrollTables(env: any): Promise<void> {
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS agency_pricing (shop_name TEXT PRIMARY KEY, weekly1_price INTEGER NOT NULL, updated_by TEXT, updated_at INTEGER)`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_pricing (teacher_id TEXT PRIMARY KEY, rate_pct INTEGER NOT NULL DEFAULT 100, note TEXT, updated_by TEXT, updated_at INTEGER)`);
+    // 🪑 (2026-08-17) 강사 1인당 «하루에 받을 긴 수업(20분 초과)» 정원. 0/NULL = 무제한(기존 동작).
+    //   이미 만들어진 테이블에도 붙여야 하므로 ALTER 를 따로 돌린다(중복이면 무시).
+    try { await env.DB.exec(`ALTER TABLE teacher_pricing ADD COLUMN long_class_daily_cap INTEGER DEFAULT 0`); } catch { /* duplicate column — 정상 */ }
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_holidays (day TEXT PRIMARY KEY, name TEXT, created_by TEXT, created_at INTEGER)`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_notify_log (uid TEXT NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, sent_at INTEGER, PRIMARY KEY (uid, kind, day))`);
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
@@ -301,6 +306,40 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
       if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
     }
   } catch (e) { console.warn('[enroll] teachersFreeAt:', (e as any)?.message); }
+
+  // 🪑 (2026-08-17) 긴 수업(20분 초과)이면 «하루 정원» 이 찬 강사도 뺀다.
+  //   여기서 안 빼면 학생이 그 강사를 고른 뒤 결제 직전에 거절당한다 — 고르기 전에 지운다.
+  if (isLongClass(minutes)) {
+    try {
+      const capRows: any = await env.DB.prepare(
+        `SELECT teacher_id, COALESCE(long_class_daily_cap, 0) AS cap FROM teacher_pricing
+          WHERE COALESCE(long_class_daily_cap, 0) > 0`
+      ).all();
+      const caps = new Map<string, number>();
+      for (const r of ((capRows?.results as any[]) || [])) caps.set(String(r.teacher_id), Number(r.cap));
+      if (DEFAULT_LONG_CLASS_DAILY_CAP > 0 || caps.size) {
+        // 요일별 긴 수업 수 — 정원이 걸린 강사만 세면 되므로 한 번에 훑는다
+        const rsL: any = await env.DB.prepare(
+          `SELECT teacher_id, day_of_week, COALESCE(duration_min, 20) AS dm FROM class_schedules
+            WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+        ).all();
+        const DOW2: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
+        const perTeacherDay = new Map<string, number>();
+        for (const r of ((rsL?.results as any[]) || [])) {
+          if (!isLongClass(Number(r.dm) || DEFAULT_CLASS_MINUTES)) continue;
+          const dw = DOW2[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
+          if (dw === undefined || !days.includes(dw)) continue;
+          const k = String(r.teacher_id) + '|' + dw;
+          perTeacherDay.set(k, (perTeacherDay.get(k) || 0) + 1);
+        }
+        for (const [k, n] of perTeacherDay) {
+          const tid = k.split('|')[0];
+          const cap = caps.get(tid) ?? DEFAULT_LONG_CLASS_DAILY_CAP;
+          if (longClassCapReached(n, cap)) busyTeacherIds.add(tid);   // 하루라도 꽉 차면 뺀다
+        }
+      }
+    } catch (e) { console.warn('[enroll] teachersFreeAt long-class cap:', (e as any)?.message); }
+  }
 
   let allTeacherIds: string[] = [];
   try {
@@ -840,11 +879,17 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
     try {
       const rs: any = await env.DB.prepare(
-        `SELECT t.id, t.name, COALESCE(p.rate_pct, 100) AS rate_pct, p.note, p.updated_at
+        `SELECT t.id, t.name, COALESCE(p.rate_pct, 100) AS rate_pct,
+                COALESCE(p.long_class_daily_cap, ?) AS long_class_daily_cap,
+                p.note, p.updated_at
          FROM teachers t LEFT JOIN teacher_pricing p ON p.teacher_id = CAST(t.id AS TEXT)
          WHERE t.active = 1 ORDER BY rate_pct DESC, t.name ASC LIMIT 300`
-      ).all();
-      return json({ ok: true, teachers: (rs?.results as any[]) || [], note: '정책 미확정 — 기본 100%. 변경 시 새 결제부터 적용됩니다.' });
+      ).bind(DEFAULT_LONG_CLASS_DAILY_CAP).all();
+      return json({
+        ok: true, teachers: (rs?.results as any[]) || [],
+        default_long_class_daily_cap: DEFAULT_LONG_CLASS_DAILY_CAP,
+        note: '정책 미확정 — 기본 100%. 변경 시 새 결제부터 적용됩니다. 긴 수업 정원 0 = 무제한.',
+      });
     } catch (e) { return json({ ok: false, error: String((e as any)?.message || e) }, 500); }
   }
   if (path === '/api/pay/enroll/admin/teacher-rates' && method === 'POST') {
@@ -854,11 +899,24 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const tid = String(body.teacher_id || '').trim().slice(0, 40);
     const pct = Math.round(Number(body.rate_pct || 100));
     if (!tid || !(pct >= 50 && pct <= 300)) return json({ ok: false, error: 'bad_params', message: '배율은 50~300% 사이여야 합니다.' }, 400);
+    // 🪑 긴 수업 하루 정원 — 0 = 무제한. 안 보내면 null 로 넣고 COALESCE 가 기존 값을 지킨다
+    //   (요율만 고치러 온 호출이 정원을 지워 버리면 안 된다)
+    let capIn: number | null = null;
+    if (body.long_class_daily_cap !== undefined && body.long_class_daily_cap !== null && body.long_class_daily_cap !== '') {
+      const c = Math.round(Number(body.long_class_daily_cap));
+      if (!(Number.isFinite(c) && c >= 0 && c <= 50)) {
+        return json({ ok: false, error: 'bad_cap', message: '긴 수업 정원은 0~50 사이여야 합니다. (0 = 무제한)' }, 400);
+      }
+      capIn = c;
+    }
     await env.DB.prepare(
-      `INSERT INTO teacher_pricing (teacher_id, rate_pct, note, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(teacher_id) DO UPDATE SET rate_pct=excluded.rate_pct, note=excluded.note, updated_by=excluded.updated_by, updated_at=excluded.updated_at`
-    ).bind(tid, pct, String(body.note || '').slice(0, 200) || null, String((sess as any).username || 'admin'), Date.now()).run();
-    return json({ ok: true, teacher_id: tid, rate_pct: pct });
+      `INSERT INTO teacher_pricing (teacher_id, rate_pct, long_class_daily_cap, note, updated_by, updated_at) VALUES (?, ?, COALESCE(?, ?), ?, ?, ?)
+       ON CONFLICT(teacher_id) DO UPDATE SET rate_pct=excluded.rate_pct,
+         long_class_daily_cap=COALESCE(?, teacher_pricing.long_class_daily_cap),
+         note=excluded.note, updated_by=excluded.updated_by, updated_at=excluded.updated_at`
+    ).bind(tid, pct, capIn, DEFAULT_LONG_CLASS_DAILY_CAP, String(body.note || '').slice(0, 200) || null,
+           String((sess as any).username || 'admin'), Date.now(), capIn).run();
+    return json({ ok: true, teacher_id: tid, rate_pct: pct, long_class_daily_cap: capIn });
   }
 
   /* ── (i) 공휴일 관리 (본사 관리자, 3단계) ── */

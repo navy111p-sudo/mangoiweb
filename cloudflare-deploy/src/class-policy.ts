@@ -72,3 +72,33 @@ export function classTenMinUnits(minutes: number): number {
 export function isAllowedClassMinutes(minutes: any): boolean {
   return ALLOWED_CLASS_MINUTES.includes(Number(minutes));
 }
+
+/**
+ * 「긴 수업」 = 기본 길이(20분)를 넘는 수업. 30분·40분이 여기 해당한다.
+ *   ⚠️ 정원제가 30분만 세면 40분이 그대로 빠져나간다 — 강사 시간을 먹는 건 똑같으므로
+ *      «기본보다 긴 수업» 을 하나로 묶어 센다.
+ */
+export function isLongClass(minutes: any): boolean {
+  return Number(minutes) > DEFAULT_CLASS_MINUTES;
+}
+
+/**
+ * 🪑 강사 1인당 «하루에 받을 수 있는 긴 수업» 기본 정원.
+ *   0 = 무제한(=지금까지의 동작). 강사별 값은 teacher_pricing.long_class_daily_cap 이
+ *   정본이고, 거기에 값이 없을 때 이 기본값을 쓴다.
+ *
+ *   왜 필요한가 — 강사가 적은데 30분을 무제한으로 열면 한 강사의 하루가 긴 수업으로
+ *   차서 20분 학생이 들어갈 자리가 사라진다. 「빈틈」이 아니라 「자리 부족」 문제라
+ *   격자로는 못 막고 정원으로 막아야 한다.
+ *
+ *   ⛔ 기본값을 0 이 아닌 수로 바꾸면 «설정한 적 없는 모든 강사» 에게 일제히 적용된다.
+ *      운영 중에 바꾸려면 강사별 값으로 넣을 것.
+ */
+export const DEFAULT_LONG_CLASS_DAILY_CAP = 0;
+
+/** 정원 판정 — cap 이 0 이하이면 무제한 */
+export function longClassCapReached(currentCount: number, cap: number): boolean {
+  const c = Number(cap);
+  if (!(c > 0)) return false;
+  return Number(currentCount) >= c;
+}
