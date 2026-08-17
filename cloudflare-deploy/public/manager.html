@@ -86,7 +86,11 @@ body{
 /* 펼치는 카드 — details 는 브라우저가 공짜로 주는 접기다. JS 도 애니메이션도 안 쓴다. */
 details.card > summary{
   font-size:15px;font-weight:700;color:#2c3a48;cursor:pointer;list-style:none;
-  display:flex;align-items:center;gap:8px;min-height:32px;
+  display:flex;align-items:center;gap:8px;
+  /* 👆 (2026-08-17 사장님) 32px → 48px. 손가락 과녁 권장치는 애플 44 · 구글 48 인데
+     32px 이라 수업 사이에 급히 누르면 빗나갔다. 카드 안쪽 여백(padding)을 그대로 쓰려고
+     min-height 로만 올린다 — 글자 크기·색·배치는 건드리지 않았다. */
+  min-height:48px;
 }
 details.card > summary::-webkit-details-marker{display:none}
 details.card > summary::after{content:'+';margin-left:auto;font-size:19px;color:#8b97a4;font-weight:700}
@@ -98,6 +102,18 @@ details.card > summary + *{margin-top:12px}
 .kpi{background:#f7f9fb;border:1px solid #e6ecf2;border-radius:8px;padding:10px 12px}
 .kpi b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
 .kpi span{display:block;font-size:12.5px;color:#5d6b7a;margin-top:2px}
+/* 👆 (2026-08-17) 누를 수 있게 된 타일. <button> 이라 브라우저 기본값이 붙으므로
+   «원래 <div> 와 똑같이» 보이도록 되돌린다 — 모양을 바꾸면 이번 변경의 뜻이 흐려진다.
+   달라지는 것은 오른쪽 › 하나와, 누를 때 살짝 눌리는 느낌뿐이다. */
+.kpi-go{
+  width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+  position:relative;-webkit-appearance:none;appearance:none;
+}
+.kpi-go:active{background:#eef2f7}
+.kpi-go:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.kpi-arrow{position:absolute;top:9px;right:10px;font-size:13px;color:#9aa6b3;font-weight:700;line-height:1}
+html.dark .kpi-go:active{background:#252d38}
+html.dark .kpi-arrow{color:#7c8899}
 .kpi.warn b{color:#b91c1c}
 .kpi.good b{color:#047857}
 .kpi .sub{font-size:11.5px;color:#7a8794;margin-top:3px}
@@ -186,7 +202,11 @@ html.dark .qbar button{background:#1d2530;border-color:#39434f;color:#d3dbe4}
 html.dark .qbar button:active{background:#28313d}
 html.dark .spark-x{color:#8b98a6}
 html.dark .legend{color:#95a2b0}
-.footlink{color:#5d6b7a}
+/* 👆 (2026-08-17) 15px 글자 링크였다. 문서 맨 아래 «본사 전체 화면으로» 나가는 유일한 문인데
+   가장 누르기 어려웠다. 눈에 띄게 만들지는 않는다 — 자주 쓰는 길이 아니라 «있는 줄 알면 되는» 길이다. */
+.footlink{
+  color:#5d6b7a;display:inline-flex;align-items:center;min-height:44px;padding:0 4px;
+}
 html.dark .footlink{color:#8b98a6}
 </style>
 </head>
@@ -293,6 +313,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 🗓 수업 연기 · 변경 요청 — #hqCards 밖으로 옮겼다 (2026-08-17 사장님)
+       «학부모·학생도 하고 학원장님도 한다» 는 확인을 받았다. 그동안 본사 전용 칸 안에 있어
+       지사·대리점 학원장은 **볼 수도 처리할 수도 없었다.**
+       ⚠️ 화면만 옮긴 게 아니다 — 서버(api-admin.ts)가 자기 학생 요청만 돌려주도록 먼저 고쳤고,
+          승인·거절도 같은 조건으로 다시 확인한다. 그 격리를 빼면 남의 대리점 학생이 보인다.
+       ⚠️ 본사(hq)는 예전처럼 전부 본다 — 달라진 것은 «지사·대리점에게도 보인다» 뿐이다. -->
+<details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
+      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
+      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        🏢 본사 매니저 전용 (Maimai · Melca · Karl)
          세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
@@ -321,10 +352,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
-    <details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
-      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
-      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
+    
 
     <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
       <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
@@ -543,17 +571,40 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     else                         _absSub = _dLabel(_ab.prev_date) + T(' missed ', ' 미실시 ') + _prevRate.toFixed(1) + '%';
     document.getElementById('kToday').innerHTML =
       tile(won(d.revenue && d.revenue.amount_krw), T('Revenue today', '오늘 매출'),
-           T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건')) +
+           T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건'),
+           '', 'c-trend') +
       tile(n0(d.students && d.students.attended), T('Attended', '출석'),
            T('of ' + n0(d.students && d.students.active) + ' active', '재원 ' + n0(d.students && d.students.active) + '명 중')) +
       tile(_booked ? (n0(_done) + ' / ' + n0(_booked)) : T('No class', '수업 없음'),
            T("Today's classes", '오늘 수업 진행'), _absSub, '') +
-      tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
+      tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '',
+           (d.signups && d.signups.count) > 0 ? 'good' : '', 'c-flow');
   }
-  function tile(big, label, sub, cls){
-    return '<div class="kpi ' + (cls || '') + '"><b>' + esc(big) + '</b><span>' + esc(label) + '</span>'
-         + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>';
+  /* 👆 (2026-08-17 사장님) 숫자를 누르면 그 명단으로 간다.
+     그동안 타일 8개가 전부 «못 누르는 글자» 였다(cursor:auto). 「결석 3」 을 보고 누가 결석인지
+     알려면 아래로 스크롤해 다른 칸을 손으로 펼쳐야 했다 — 보는 것과 그 뒤가 끊겨 있었다.
+     ⚠️ 새로 만든 화면은 없다. **이미 이 페이지에 있는 접는 칸**을 열고 그리로 데려갈 뿐이다.
+     ⚠️ 갈 곳이 마땅치 않은 타일(출석·결석률)은 **일부러 안 걸었다.** 엉뚱한 데로 보내느니
+        안 눌리는 편이 낫다. 출결 명단 화면이 이 포털에 생기면 그때 연결한다.
+     ⚠️ go 가 없으면 예전과 똑같은 <div> 다 — 눌리는 것처럼 보이지 않는다. */
+  function tile(big, label, sub, cls, go){
+    var inner = '<b>' + esc(big) + '</b><span>' + esc(label) + '</span>'
+              + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '');
+    if (!go) return '<div class="kpi ' + (cls || '') + '">' + inner + '</div>';
+    return '<button type="button" class="kpi kpi-go ' + (cls || '') + '" data-go="' + esc(go) + '">'
+         + inner + '<span class="kpi-arrow" aria-hidden="true">\u203A</span></button>';
   }
+
+  /* 타일 → 이 페이지의 접는 칸. 클릭은 한 곳에서 받는다(타일이 다시 그려져도 유지된다). */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.kpi-go');
+    if (!b) return;
+    var sec = document.getElementById(b.getAttribute('data-go'));
+    if (!sec) return;
+    sec.open = true;                                  // ontoggle 이 알아서 불러온다
+    try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    catch (err) { sec.scrollIntoView(); }
+  });
 
   // ── ② 이번 달 ─────────────────────────────────────────────────────────────
   function paintMonth(){
@@ -581,11 +632,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       try { window.__crbWanted = true; if (window.__crbStart) window.__crbStart(); } catch (e) {}
     }
     document.getElementById('kMonth').innerHTML =
-      tile(n0(st.active), T('Active students', '재원 학생'), '') +
-      tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건')) +
-      tile(won(m.settle), T('Your settlement', '정산액'), '') +
+      tile(n0(st.active), T('Active students', '재원 학생'), '', '', 'c-students') +
+      tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건'),
+           '', 'c-trend') +
+      tile(won(m.settle), T('Your settlement', '정산액'), '', '', 'c-trend') +
       tile(n0(st.new_this_month), T('New this month', '이번 달 신규'), T('today ' + n0(st.new_today), '오늘 ' + n0(st.new_today) + '명'),
-           st.new_this_month > 0 ? 'good' : '');
+           st.new_this_month > 0 ? 'good' : '', 'c-flow');
     // 비용은 본사 통합 관리라 매니저에게 0 으로 온다. «0 원» 으로 오해하지 않게 밝힌다.
     document.getElementById('feeNote').innerHTML = d.cost_hq_only
       ? esc(T('Costs are managed by HQ and are not shown here. Settlement = income minus the HQ fee ('
