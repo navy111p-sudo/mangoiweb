@@ -589,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=27"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=28"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=28: 2026-08-17 ph106 결제관리 데모 표식 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -10107,8 +10107,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- === Card: BtoB 결제관리 (1번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2b">
-  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span></summary>
+  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
   <div class="menu-body">
+    <!-- ⚠️ (2026-08-17) 데모 표식 — adm-q7.js 가 서버 호출 없이 고정 숫자를 찍는다.
+         실데이터(/api/admin/payments/b2b)를 붙이는 날 이 띠와 summary 배지, 그리고
+         admin-inline-c.css 의 .pm-kpi::before / .pm-demo-* 블록을 함께 지운다.
+         배지 span 은 반드시 제목 span «뒤» 에 둔다 — adm-quickmenu.js 의 labelOf() 가
+         summary 안 첫 [data-ko] 를 카드 이름으로 읽는다. -->
+    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 거래액</div><div class="pm-kpi-value" id="b2b-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
@@ -10121,7 +10127,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="pm-filter-row">
       <select id="b2b-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
       <select id="b2b-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option><option>대구지사</option></select>
-      <select id="b2b-f-agency"><option value="">전체 대리점</option><option>강남SLP</option><option>분당SLP</option><option>해운대SLP</option></select>
+      <select id="b2b-f-agency"><option value="">전체 대리점</option><option>데모대리점A</option><option>데모대리점B</option><option>데모대리점C</option></select>
       <input type="text" id="b2b-f-q" placeholder="🔍 학생명·아이디·주문번호">
     </div>
     <div class="pm-filter-row">
@@ -10160,12 +10166,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th><th>액션</th>
       </tr></thead>
       <tbody id="b2b-tbody">
-        <tr><td>9188</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260525145021...</td><td>2026-05-25 14:51</td><td>동영SLP</td><td>이시청 (kihappy2)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,960</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,200</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9187</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260525144859...</td><td>2026-05-25 14:49</td><td>동영SLP</td><td>이시후 (kihappy1)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">42,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,201</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9186</td><td><span class="pm-badge ok">결제완료</span></td><td>MH20260523140729...</td><td>2026-05-23 14:08</td><td>동탄SLP</td><td>신하율 (hayul0610)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">44,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,258</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9185</td><td><span class="pm-badge ok">결제완료</span></td><td>MA20260523131725...</td><td>2026-05-23 13:18</td><td>친구소개 3만원</td><td>김가온 (go3439)</td><td>카드</td><td>정상처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9184</td><td><span class="pm-badge cancel">취소</span></td><td>MA20260523131359...</td><td>2026-05-23 13:16</td><td>친구소개 3만원</td><td>김한울 (hw3439)</td><td>카드</td><td>취소처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td>-</td></tr>
-        <tr><td>9183</td><td><span class="pm-badge ok">결제완료</span></td><td>MA20260522153946...</td><td>2026-05-22 15:40</td><td>오산SLP</td><td>이아현 (katie2012)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,880</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,198</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9188</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0001...</td><td>2026-05-25 14:51</td><td>데모대리점A</td><td>데모학생21 (demo21)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,960</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,200</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9187</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0002...</td><td>2026-05-25 14:49</td><td>데모대리점A</td><td>데모학생22 (demo22)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">42,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,201</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9186</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0003...</td><td>2026-05-23 14:08</td><td>데모대리점B</td><td>데모학생23 (demo23)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">44,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,258</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9185</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0004...</td><td>2026-05-23 13:18</td><td>친구소개 3만원</td><td>데모학생24 (demo24)</td><td>카드</td><td>정상처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td>9184</td><td><span class="pm-badge cancel">취소</span></td><td>DEMO0005...</td><td>2026-05-23 13:16</td><td>친구소개 3만원</td><td>데모학생25 (demo25)</td><td>카드</td><td>취소처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td>-</td></tr>
+        <tr><td>9183</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0006...</td><td>2026-05-22 15:40</td><td>데모대리점C</td><td>데모학생26 (demo26)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,880</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,198</td><td><button class="pm-row-btn">취소</button></td></tr>
       </tbody>
     </table>
     </div>
@@ -10183,8 +10189,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
-  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span></summary>
+  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
   <div class="menu-body">
+    <!-- ⚠️ (2026-08-17) BtoB 카드와 같은 이유 — adm-q7.js 가 2,380,000 / 45,200,000 / 156건 /
+         12건 을 고정으로 찍는다. 실데이터를 붙이는 날 BtoB 쪽과 함께 지운다. -->
+    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 매출</div><div class="pm-kpi-value" id="b2c-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
@@ -10197,7 +10206,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="pm-filter-row">
       <select id="b2c-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
       <select id="b2c-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option></select>
-      <select id="b2c-f-agency"><option value="">전체 대리점</option><option>강남SLP</option><option>분당SLP</option></select>
+      <select id="b2c-f-agency"><option value="">전체 대리점</option><option>데모대리점A</option><option>데모대리점B</option></select>
       <input type="text" id="b2c-f-q" placeholder="🔍 대리점명·원장명·주문번호">
     </div>
     <div class="pm-filter-row">
@@ -10245,12 +10254,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th>
       </tr></thead>
       <tbody id="b2c-tbody">
-        <tr><td>1625</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260519140329...</td><td>2026년 4월 망고아이 연장 수강신청</td><td>2026-05-19 14:04</td><td>제니 영어학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">30,000</td><td style="text-align:right">0</td><td style="text-align:right">30,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">858</td></tr>
-        <tr><td>1624</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260519133601...</td><td>수업료충전</td><td>2026-05-19 13:40</td><td>UBCK어학원</td><td>카드</td><td><button class="pm-row-btn tax">재발행</button></td><td style="text-align:right">1,000,000</td><td style="text-align:right">0</td><td style="text-align:right">1,000,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">28,600</td></tr>
-        <tr><td>1623</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260517183406...</td><td>2026년 3월 망고아이 연장 수강신청</td><td>2026-05-17 18:35</td><td>라바씽글리시 학원</td><td>카드</td><td>외부발행처리</td><td style="text-align:right">232,500</td><td style="text-align:right">0</td><td style="text-align:right">232,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">6,650</td></tr>
-        <tr><td>1622</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260515160924...</td><td>2026년 5월 망고아이 연장 수강신청</td><td>2026-05-15 16:10</td><td>탑키즈영어학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">37,500</td><td style="text-align:right">0</td><td style="text-align:right">37,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,073</td></tr>
-        <tr><td>1621</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260513143715...</td><td>2026년 05월 망고아이 연장 수강신청</td><td>2026-05-13 14:38</td><td>이루다잉글리쉬</td><td>카드</td><td>외부발행처리됨</td><td style="text-align:right">150,000</td><td style="text-align:right">0</td><td style="text-align:right">150,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">4,290</td></tr>
-        <tr><td>1620</td><td><span class="pm-badge ok">정상처리</span></td><td>ML20260512175601...</td><td>수업료충전</td><td>2026-05-12 17:56</td><td>강남캐피타운학원</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">870,000</td><td style="text-align:right">0</td><td style="text-align:right">870,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">24,882</td></tr>
+        <tr><td>1625</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0007...</td><td>2026년 4월 망고아이 연장 수강신청</td><td>2026-05-19 14:04</td><td>데모학원A</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">30,000</td><td style="text-align:right">0</td><td style="text-align:right">30,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">858</td></tr>
+        <tr><td>1624</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0008...</td><td>수업료충전</td><td>2026-05-19 13:40</td><td>데모학원B</td><td>카드</td><td><button class="pm-row-btn tax">재발행</button></td><td style="text-align:right">1,000,000</td><td style="text-align:right">0</td><td style="text-align:right">1,000,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">28,600</td></tr>
+        <tr><td>1623</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0009...</td><td>2026년 3월 망고아이 연장 수강신청</td><td>2026-05-17 18:35</td><td>데모학원C</td><td>카드</td><td>외부발행처리</td><td style="text-align:right">232,500</td><td style="text-align:right">0</td><td style="text-align:right">232,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">6,650</td></tr>
+        <tr><td>1622</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0010...</td><td>2026년 5월 망고아이 연장 수강신청</td><td>2026-05-15 16:10</td><td>데모학원D</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">37,500</td><td style="text-align:right">0</td><td style="text-align:right">37,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,073</td></tr>
+        <tr><td>1621</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0011...</td><td>2026년 05월 망고아이 연장 수강신청</td><td>2026-05-13 14:38</td><td>데모학원E</td><td>카드</td><td>외부발행처리됨</td><td style="text-align:right">150,000</td><td style="text-align:right">0</td><td style="text-align:right">150,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">4,290</td></tr>
+        <tr><td>1620</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0012...</td><td>수업료충전</td><td>2026-05-12 17:56</td><td>데모학원F</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">870,000</td><td style="text-align:right">0</td><td style="text-align:right">870,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">24,882</td></tr>
       </tbody>
     </table>
     </div>
@@ -10982,7 +10991,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- KPI 4카드 -->
     <div class="sa-kpi-row">
       <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">96.4%</div><div class="sa-kpi-sub">▲ 전월 대비 +1.2%</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">SLP 24 · 직영 4</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">데모지사1 24 · 직영 4</div></div>
       <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">1,247명</div><div class="sa-kpi-sub">전월 1,189명</div></div>
       <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">23명</div><div class="sa-kpi-sub">상담 필요</div></div>
     </div>
@@ -10991,8 +11000,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div class="sa-filter-row">
       <select id="sa-year"><option value="2026">2026년</option><option value="2025">2025년</option></select>
       <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5" selected>5월</option><option value="6">6월</option><option value="7">7월</option><option value="8">8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
-      <select id="sa-branch"><option value="">전체 지사</option><option>SLP</option><option>SDP</option><option>본사 직영</option></select>
-      <select id="sa-academy"><option value="">전체 학당</option><option>동탄SLP</option><option>망고아이 SSO직영</option><option>부천SLP</option><option>북인천SLP</option><option>오산SLP</option><option>인천청라SLP</option></select>
+      <select id="sa-branch"><option value="">전체 지사</option><option>데모지사1</option><option>데모지사2</option><option>본사 직영</option></select>
+      <select id="sa-academy"><option value="">전체 학당</option><option>데모학당A</option><option>데모학당B</option><option>데모학당C</option><option>데모학당D</option><option>데모학당E</option><option>데모학당F</option></select>
       <input type="text" id="sa-student" placeholder="🔍 학생명·아이디">
       <select id="sa-result"><option value="">전체 결과</option><option value="excellent">Excellent (90% ↑)</option><option value="warning">Warning (70-89%)</option><option value="fail">Fail (70% ↓)</option></select>
     </div>
@@ -11022,22 +11031,22 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="min-width:140px">출석률 그래프</th>
       </tr></thead>
       <tbody id="sa-tbody">
-        <tr><td>21</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>이인영</td><td>sally</td><td>SLPSSO_skyiy15</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>20</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>김태이</td><td>Taei</td><td>SLPSSO_taeikim</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>19</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>강다은</td><td>jenna</td><td>kkangdada</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>18</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>박서윤</td><td>David</td><td>SLPSSO_David0922</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>17</td><td>SLP<span class="sa-sub">(slp)</span></td><td>동탄SLP<span class="sa-sub">(slp_026)</span></td><td>신하율</td><td>kevin</td><td>SLPSSO_hayul0610</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>16</td><td>SLP<span class="sa-sub">(slp)</span></td><td>망고아이 SSO직영<span class="sa-sub">(slp_sso)</span></td><td>신휘서</td><td>henry</td><td>SLPSSO_hwiseo</td><td>0</td><td>1/1</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>15</td><td>SLP<span class="sa-sub">(slp)</span></td><td>망고아이 SSO직영<span class="sa-sub">(slp_sso)</span></td><td>김도경</td><td>Timothy</td><td>SLPSSO_gaglin17</td><td>0</td><td>4/4</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>14</td><td>SLP<span class="sa-sub">(slp)</span></td><td>부천SLP<span class="sa-sub">(slp_029)</span></td><td>오애린</td><td>OH ERIN</td><td>SLPSSO_erin0709</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>13</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>이유찬</td><td>yuchan</td><td>SLPSSO_lyc070304</td><td>1</td><td>0/1</td><td>0%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:1%"></span></span></td></tr>
-        <tr><td>12</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>황유준</td><td>YOOJUN</td><td>SLPSSO_yoojun</td><td>3</td><td>3/6</td><td>50%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:50%"></span></span></td></tr>
-        <tr><td>11</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>김형준</td><td>KIM, HYEONGJUN</td><td>zienyh</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>10</td><td>SLP<span class="sa-sub">(slp)</span></td><td>북인천SLP<span class="sa-sub">(slp_030)</span></td><td>이서윤</td><td>LeeSeoYun</td><td>SLPSSO_leeseoyun415</td><td>0</td><td>5/5</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>9</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>이규연</td><td>Kenny</td><td>SLPSSO_kenny2012</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>8</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>이아현</td><td>Katie</td><td>SLPSSO_katie2012</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>7</td><td>SLP<span class="sa-sub">(slp)</span></td><td>오산SLP<span class="sa-sub">(slp_047)</span></td><td>김지한</td><td>David</td><td>SLPSSO_david124</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>6</td><td>SLP<span class="sa-sub">(slp)</span></td><td>인천청라slp<span class="sa-sub">(slp_070)</span></td><td>이서유</td><td>dina0905</td><td>SLPSSO_dina0905</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>21</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생01</td><td>Demo01</td><td>DEMOID_01</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>20</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생02</td><td>Demo02</td><td>DEMOID_02</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>19</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생03</td><td>Demo03</td><td>DEMOID_03</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>18</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생04</td><td>Demo04</td><td>DEMOID_04</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>17</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생05</td><td>Demo05</td><td>DEMOID_05</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>16</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생06</td><td>Demo06</td><td>DEMOID_06</td><td>0</td><td>1/1</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>15</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생07</td><td>Demo07</td><td>DEMOID_07</td><td>0</td><td>4/4</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>14</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당C<span class="sa-sub">(demo_c)</span></td><td>데모학생08</td><td>Demo08</td><td>DEMOID_08</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>13</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생09</td><td>Demo09</td><td>DEMOID_09</td><td>1</td><td>0/1</td><td>0%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:1%"></span></span></td></tr>
+        <tr><td>12</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생10</td><td>Demo10</td><td>DEMOID_10</td><td>3</td><td>3/6</td><td>50%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:50%"></span></span></td></tr>
+        <tr><td>11</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생11</td><td>Demo11</td><td>DEMOID_11</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>10</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생12</td><td>Demo12</td><td>DEMOID_12</td><td>0</td><td>5/5</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>9</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생13</td><td>Demo13</td><td>DEMOID_13</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>8</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생14</td><td>Demo14</td><td>DEMOID_14</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>7</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생15</td><td>Demo15</td><td>DEMOID_15</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td>6</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당F<span class="sa-sub">(demo_f)</span></td><td>데모학생16</td><td>Demo16</td><td>DEMOID_16</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
       </tbody>
     </table>
     </div>
@@ -11456,7 +11465,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
-<script src="/js/adm-p3.js?v=1" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p3.js?v=2" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) · v=2: ph106 데모 배지 사전 -->
 
 
 <!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->
