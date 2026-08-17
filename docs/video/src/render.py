@@ -173,7 +173,7 @@ def caption(frame, text, g, y=902, color=WHITE, size=42):
 COLS, ROWS, PITCH = 360, 120, 4           # 360 × 120 = 43,200
 FX, FY = (W - COLS * PITCH) // 2, 400      # 1440 × 480
 LIT = np.zeros((ROWS, COLS), dtype=bool)
-LIT[55:65, 170:190] = True                 # 20 × 10 = 200개
+LIT[55:65, 172:188] = True                 # 16 × 10 = 160개
 def dotfield(frame, lit_g, sweep=0.0, base_g=1.0):
     """lit_g: 200개 점의 금색 강도 / sweep: 0→1 전체가 금색으로 켜지는 진행률."""
     dark = np.array([88, 105, 162], dtype=np.float32)
@@ -211,12 +211,12 @@ def c2(f, t):                     # 00:09–00:24  문제
     f[:] = (BGC.astype(np.float32) * 0.55).astype(np.uint8)
     dotfield(f, lit_g=ease((t - 3.4) / 1.6), base_g=ease(t / 2.0))
     draw_ov(f, text_ov("한 달 43,200분", "b", 30, MUT, cx=W // 2, y=62), fade(t, 0.6, 15.0, 0.8))
-    v = 0.5 * eout(min(max((t - 4.2) / 2.4, 0), 1))
+    v = 0.4 * eout(min(max((t - 4.2) / 2.4, 0), 1))
     ov = text_ov(f"{v:.1f}%", "xb", 116, GOLD, cx=W // 2, y=110, key=("pct", round(v, 2)))
     draw_ov(f, ov, fade(t, 4.2, 15.0, 0.5))
-    draw_ov(f, text_ov("영어를 쓰는 시간은 200분", "b", 32, TXT, cx=W // 2, y=254),
+    draw_ov(f, text_ov("영어를 쓰는 시간은 160분", "b", 32, TXT, cx=W // 2, y=254),
             fade(t, 5.6, 15.0, 0.6))
-    caption(f, "한 달 중 영어를 쓰는 시간 0.5%", fade(t, 7.4, 15.0, 0.7))
+    caption(f, "한 달 중 영어를 쓰는 시간 0.4%", fade(t, 7.4, 15.0, 0.7))
 
 def c3(f, t):                     # 00:24–00:38  해답
     f[:] = (BGC.astype(np.float32) * 0.55).astype(np.uint8)

@@ -4,11 +4,14 @@ from render import (W, H, FPS, IMG, GOLD, SKY, PUR, GRN, WHITE, TXT, MUT, DIM,
                     font, load, card, card_fit, blit, Ov, text_ov, draw_ov, rect,
                     ease, eout, fade, BGC, BGT, BGL, BGF, put_mascot, caption,
                     dotfield, G21, G21N, C4, C7)
-import timing as T
+import importlib
+T = importlib.import_module(os.environ.get('TIMING','timing_m'))
 
 DUR, START, TOTAL, LEAD = T.DUR, T.START, T.TOTAL, T.LEAD
 NF = int(round(TOTAL * FPS))
 D0 = [9.0, 15.0, 14.0, 22.0, 18.0, 16.0, 14.0, 12.0]   # 무음 가편 때의 컷 길이
+PCT = float(os.environ.get("PCT", "0.5"))              # 화면에 띄울 퍼센트
+MIN_TXT = os.environ.get("MIN_TXT", "160분")           # 화면에 띄울 월 수업시간
 
 
 def c1(f, t, D):
@@ -25,12 +28,12 @@ def c2(f, t, D):
     f[:] = (BGC.astype(np.float32) * 0.55).astype(np.uint8)
     dotfield(f, lit_g=ease((t - 3.2 * s) / 1.6), base_g=ease(t / 2.0))
     draw_ov(f, text_ov("한 달 43,200분", "b", 30, MUT, cx=W // 2, y=62), fade(t, 0.6, D - 0.3, 0.8))
-    v = 0.5 * eout(min(max((t - 4.2 * s) / 2.6, 0), 1))
+    v = PCT * eout(min(max((t - 4.2 * s) / 2.6, 0), 1))
     draw_ov(f, text_ov(f"{v:.1f}%", "xb", 116, GOLD, cx=W // 2, y=110, key=("pct", round(v, 2))),
             fade(t, 4.2 * s, D - 0.3, 0.5))
-    draw_ov(f, text_ov("영어를 쓰는 시간은 200분", "b", 32, TXT, cx=W // 2, y=254),
+    draw_ov(f, text_ov(f"영어를 쓰는 시간은 {MIN_TXT}", "b", 32, TXT, cx=W // 2, y=254),
             fade(t, 5.6 * s, D - 0.3, 0.6))
-    caption(f, "한 달 중 영어를 쓰는 시간 0.5%", fade(t, 7.4 * s, D - 0.35, 0.7))
+    caption(f, f"한 달 중 영어를 쓰는 시간 {PCT:.1f}%", fade(t, 7.4 * s, D - 0.35, 0.7))
 
 
 def c3(f, t, D):

@@ -3,7 +3,8 @@
 import numpy as np, subprocess, sys, os
 from PIL import Image, ImageDraw
 import render as R
-import timing_v as T
+import importlib
+T = importlib.import_module(os.environ.get('TIMING_V','timing_vm'))
 
 W, H, FPS = 1080, 1920, 30
 DUR, START, TOTAL, LEAD = T.DUR, T.START, T.TOTAL, T.LEAD

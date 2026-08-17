@@ -98,7 +98,7 @@ def thumb_b():
     cols, rows, pitch = 240, 62, 4
     fx, fy = (TW - cols * pitch) // 2, 470
     col = np.repeat(dark[None, :], rows * cols, 0).reshape(rows, cols, 3)
-    col[24:34, 112:132] = np.array(GOLD, np.uint8)
+    col[24:34, 114:130] = np.array(GOLD, np.uint8)
     tile = np.zeros((rows * pitch, cols * pitch, 3), np.uint8)
     for dy in range(3):
         for dx in range(3):
