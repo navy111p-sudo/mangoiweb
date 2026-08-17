@@ -158,6 +158,30 @@ function realPayslipSql(a = ''): string {
   return `EXISTS (SELECT 1 FROM teachers t_rp WHERE t_rp.id = ${q}teacher_id)`;
 }
 
+/* 💵 그 달의 «통장 기준» 사실 — 장부(결제기록)가 불완전해도 이건 사실이다.
+   월간 회계 리포트와 손익계산서가 둘 다 쓴다(규칙이 갈라지면 화면마다 달라진다). */
+async function monthCash(env: Env, period: string) {
+  const t = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(CASE WHEN kind='in' THEN amount ELSE 0 END),0) AS cin,
+             COALESCE(SUM(CASE WHEN kind='out' THEN amount ELSE 0 END),0) AS cout,
+             COUNT(*) AS n
+      FROM bankacct_transactions WHERE substr(trans_at,1,7)=?
+    `).bind(period).first<{ cin: number; cout: number; n: number }>();
+    return { cin: Number(r?.cin) || 0, cout: Number(r?.cout) || 0, n: Number(r?.n) || 0 };
+  }, { cin: 0, cout: 0, n: 0 });
+  /* ⚠️ PG 입금은 `remark LIKE '%케이씨피%'` 로 세면 안 된다 — 「케이씨피M」(하나은행에서
+     사람이 보낸 돈)까지 잡혀 «매출 누락» 오경보가 난다. 판정은 classifyDeposit() 한 곳에서
+     (2026-08-16 병합: 이 함수의 cin/cout 은 그대로 두고 pg 만 정확한 규칙으로 교체). */
+  const dep = await monthDeposits(env, period);
+  return { ...t, pg: dep.pg, b2b: dep.b2b, transfer: dep.transfer };
+}
+/* 통장 PG 입금이 장부 매출보다 10% 이상(그리고 50만원 이상) 많으면 «매출 누락 의심».
+   ⚠️ 처음엔 25% 로 잡았다가 4월(23%)이 안 걸려 «설명 없는 적자» 로 보였다 → 10% 로 낮춤. */
+function revenueGapOf(pgIn: number, revenue: number): number {
+  return pgIn > 0 && pgIn > revenue * 1.10 && (pgIn - revenue) > 500000 ? pgIn - revenue : 0;
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -391,6 +415,13 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
   const rec = reconcileMonth(pl.rev.book, pl.rev.dep);             // 🔍 장부 vs 통장 (한 달치)
 
+  /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
+     «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
+     매출 누락 경고(revenueGapOf)는 **진짜 PG 정산분(케이씨피)만** 과 **장부 결제 매출**을
+     비교한다 — 통장 B2B 직접입금은 PG 를 안 거치므로 이 비교에서 빼야 한다(2026-08-16). */
+  const cash = await monthCash(env, period);
+  const revenueGap = revenueGapOf(pl.rev.dep.pg, pl.rev.book);
+
   // 🔎 드릴다운용 상세 — «합계 → 내역 → 원본 거래» 로 내려갈 수 있게(2026-08-16)
   const cardRows = await safe(async () => {
     const r = await env.DB.prepare(`
@@ -438,10 +469,17 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
       seed_excluded_krw: seedEx.amount,
       seed_excluded_count: seedEx.count,
-      // 🏦 통장 입금 성격별
+      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 타계좌 이체)
       deposit_pg_krw: pl.rev.dep.pg,
       deposit_transfer_krw: pl.rev.dep.transfer,
       deposit_transfer_count: pl.rev.dep.transferRows.length,
+      // 🚨 장부 결제 매출 < PG 정산 입금 → 매출 누락 의심
+      revenue_gap_krw: revenueGap,
+      // 💵 통장 기준 «실제» 현금흐름 — 장부가 불완전해도 이건 사실이다
+      cash_in_krw: cash.cin,
+      cash_out_krw: cash.cout,
+      cash_net_krw: cash.cin - cash.cout,
+      cash_has_data: cash.n > 0,
     },
     cost: {
       teacher_payroll: payrollEff,
@@ -1086,6 +1124,11 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const rev = { revenue: plM.rev.total, pay_count: plM.rev.payCount };
   const payroll = plM.payroll.total;
   const ax = plM.ax;
+  /* 💵 통장 기준 사실 — 손익계산서도 월간 리포트와 똑같이 «매출 누락» 을 밝히고
+     실제 현금흐름을 함께 보여 준다. 화면마다 말이 다르면 안 된다(2026-08-16 제보).
+     비교 대상은 «진짜 PG 정산분 vs 장부 결제 매출» 이다(B2B 직접입금은 PG 를 안 거친다). */
+  const plCash = await monthCash(env, period);
+  const plGap = revenueGapOf(plM.rev.dep.pg, plM.rev.book);
   const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
   const opCost = plM.opCost;
   const pgFee = plM.pgFee;
@@ -1146,6 +1189,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
             ? [{ name: `※ PG 정산이 아닌 타계좌 입금 ₩${plM.rev.dep.transfer.toLocaleString('ko-KR')}(「케이씨피M」 등 ${plM.rev.dep.transferRows.length}건)은 성격이 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
+          ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
         ]},
         { title: 'II. 매출원가 (COGS)', items: [
@@ -1177,11 +1221,21 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         { title: 'VII. 당기순이익 (Net Income)', items: [
           { name: '최종 순이익', amount: netIncome, highlight: true, big: true },
         ]},
+        /* 💵 장부 손익 «옆에» 통장 사실을 둔다 — 위 순이익은 장부 기준이라 매출
+           누락분만큼 나쁘게 나온다. 회사가 실제로 번 돈은 아래 순증감에 가깝다. */
+        ...(plCash.n > 0 ? [{ title: '※ 참고 — 통장 기준 실제 현금흐름 (신한 계좌)', items: [
+          { name: '실제 입금', amount: plCash.cin },
+          { name: '실제 출금', amount: -plCash.cout },
+          { name: '순증감 (통장이 실제로 늘거나 준 돈)', amount: plCash.cin - plCash.cout, highlight: true },
+          { name: '※ 위 손익은 장부(결제기록) 기준이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 실제로 번 돈은 이 순증감에 가깝습니다.', sub: true },
+        ]}] : []),
       ],
       summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
         // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정
         opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup,
-        seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count },
+        seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count,
+        deposit_pg_krw: plCash.pg, revenue_gap_krw: plGap,
+        cash_in_krw: plCash.cin, cash_out_krw: plCash.cout, cash_net_krw: plCash.cin - plCash.cout },
     };
   }
   else if (type === 'bs') {

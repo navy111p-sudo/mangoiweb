@@ -40,7 +40,11 @@
    +'  <div style="display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid rgba(99,102,241,.18);background:linear-gradient(180deg,rgba(99,102,241,.14),rgba(15,23,42,0))">'
    +'    <div id="mi-asst-ava" style="width:60px;height:60px;flex:none">'
    +'      <div class="mi-ring"></div>'
-   +'      <video id="mi-asst-face" src="/video/ai-ops-greeting.mp4" muted loop playsinline preload="auto" style="width:60px;height:60px;border-radius:50%;object-fit:cover;object-position:center 20%;border:2.5px solid #fbbf24;background:#0b1220;display:block"></video>'
+   /* 🪶 (2026-08-16) preload="auto" → "none". 이 패널은 display:none 으로 시작하는데
+        preload 는 display 와 무관해서, **아무도 열지 않아도** 750KB 영상을 첫 로딩에
+        받고 있었다(실측: 관리자 첫 로딩 6.2MB 중 이 영상이 두 벌 1.5MB).
+        정지 그림(poster)으로 시작하고, 패널을 실제로 열 때 load() 한다(아래 open()). */
+   +'      <video id="mi-asst-face" src="/video/ai-ops-greeting.mp4" muted loop playsinline preload="none" poster="/img/Mangoi_Character.png" style="width:60px;height:60px;border-radius:50%;object-fit:cover;object-position:center 20%;border:2.5px solid #fbbf24;background:#0b1220;display:block"></video>'
    +'    </div>'
    +'    <div style="line-height:1.25;min-width:0;flex:1">'
    +'      <div id="mi-asst-title" style="font-weight:800;color:#e6ecff;font-size:15px"></div>'
@@ -555,6 +559,10 @@
   function open(){
     try{ primeVoice(); }catch(e){}
     boot(); panel.style.display='flex'; back.style.display='block';
+    /* 🪶 (2026-08-16) 영상은 «열 때» 받는다. 위 <video> 를 preload="none" 으로 바꿨으므로
+       여기서 한 번 깨워 줘야 loadeddata → pause(0.05초) 로 정지 얼굴이 잡힌다.
+       두 번째부터는 이미 받아 놨으니 아무 일도 안 한다. */
+    try{ if(face && face.preload!=='auto'){ face.preload='auto'; face.load(); } }catch(e){}
     if(!_greeted){ _greeted=true; setTimeout(function(){ try{ speak(L('안녕하세요 매니저님! 무엇이든 물어보세요.','Hello manager! Ask me anything.')); }catch(e){} }, 450); }
   }
   function close(){ stopSpeak(); panel.style.display='none'; back.style.display='none'; }

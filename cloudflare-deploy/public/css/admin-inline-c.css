@@ -2724,6 +2724,26 @@ button.chip:hover,
   /* 데스크톱(hover 말풍선이 따로 있음)에서는 모바일 말풍선 숨김 */
   @media (min-width:1024px){ #sb-mtip{ display:none !important; } }
 
+  /* ── 📝 (2026-08-16) 메뉴 설명을 «가로채는 말풍선» 대신 «이름 밑 한 줄» 로 ──────
+     옛 방식은 모바일에서 첫 탭을 삼켜 말풍선을 띄웠다(= 두 번 눌러야 이동).
+     이제 한 번 탭이면 바로 이동하고, 설명은 처음부터 그냥 보인다(adm-s10.js paintDescriptions).
+     ⚠️ .ph85-sub 는 flex 라 이 줄을 그냥 넣으면 이름 옆에 붙는다 → flex-basis:100% 로 줄을 바꾼다.
+     ⚠️ 별점(data-mi-stars)의 ::after 와 같은 줄을 다투지 않도록 order 를 뒤로 민다. */
+  @media (max-width:1023px){
+    #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc{ flex-wrap:wrap; align-items:center; }
+    #ph85-sidebar .sb-mtip-inline{
+      flex:0 0 100%; order:9;
+      margin-top:2px; padding-right:6px;
+      font-size:11.5px; font-weight:500; line-height:1.4;
+      color:rgba(226,232,240,0.62); word-break:keep-all;
+      /* 두 줄까지만 — 설명이 길어도 메뉴가 밀리지 않게 */
+      display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+    }
+    html[data-admin-theme="ivory"] #ph85-sidebar .sb-mtip-inline{ color:rgba(74,56,38,0.66); }
+  }
+  /* 데스크톱은 hover 말풍선을 그대로 쓴다 — 줄이 늘어나면 메뉴가 길어지기만 한다 */
+  @media (min-width:1024px){ .sb-mtip-inline{ display:none !important; } }
+
 
 /* ── [style#ph86-sidebar-enhance] ── */
 
@@ -4608,6 +4628,11 @@ button.chip:hover,
   details.menu-card .lib-files a.lib-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;font-size:12px;font-weight:700;text-decoration:none !important;border-radius:99px;border:1px solid rgba(148,163,184,.4);color:#e2e8f0 !important;background:rgba(255,255,255,.06)}
   details.menu-card .lib-files a.lib-chip:hover{border-color:#f59e0b;color:#fde68a !important;background:rgba(245,158,11,.16)}
   .lib-note{font-size:11px;color:#94a3b8;margin-top:6px;display:flex;align-items:center;gap:5px}
+  /* 🗑 (2026-08-16) 여기 있던 «자료실에만 중국어 폰트» 규칙은 지웠다.
+     body 전체에서 MangoiHanSC 를 빼고 이곳에만 되돌리려던 시도였는데,
+     hanzi_font_harness(2026-08-04 사장님 지시로 만든 통일 가드)에 걸려 전부 되돌렸다.
+     지금은 admin-readability.css 의 --mg-font-sans 와 admin-inline-a.css 의 body 가
+     예전처럼 MangoiHanSC 를 맨 앞에 두므로, 자료실만 따로 지정할 이유가 없다. */
   /* 🎨 밝은(ivory) 테마 — 위 다크 네이티브 색을 밝은 배경용으로 반전 (ph103은 ivory에서 중지되므로 안전) */
   html[data-admin-theme="ivory"] .lib-gate{background:#fffbeb;border-color:rgba(245,158,11,.45)}
   html[data-admin-theme="ivory"] .lib-lock{color:#475569}
@@ -6878,40 +6903,170 @@ button.chip:hover,
     /* 본문 좌측 패딩 제거 (드로어 방식) */
     html body { padding-left: 0 !important; }
 
-    /* 진짜 메뉴 사이드바 = 왼쪽 슬라이드 드로어 */
+    /* ② (2026-08-16 사장님) 진짜 메뉴 사이드바 = 화면을 **100% 덮는** 드로어.
+       옛 값은 width:282px / max-width:82vw 라 오른쪽에 본문이 18% 남아 계속 눈에 걸렸고,
+       긴 메뉴 이름이 두 줄로 접혔다. 이제 왼쪽 끝 ~ 오른쪽 끝 전부 쓴다.
+       ⚠️ 높이는 100vh 가 아니라 **100dvh**. 휴대폰은 스크롤할 때 주소창이 접혔다 펴지는데
+          100vh 는 «주소창이 펴진 상태의 높이» 로 고정돼, 바닥의 계정 도크(#ph162-dock)가
+          화면 밖으로 밀려나 안 눌린다. dvh 는 «지금 실제로 보이는 높이» 다.
+          (dvh 를 모르는 옛 브라우저를 위해 100vh 를 먼저 적어 둔다 — 뒤에 오는 것이 이긴다) */
     html body #ph85-sidebar, html body aside#ph85-sidebar {
       display: block !important; visibility: visible !important; opacity: 1 !important;
       position: fixed !important; top: 0 !important; left: 0 !important; bottom: 0 !important;
-      width: 282px !important; max-width: 82vw !important; height: 100vh !important;
+      width: 100% !important; max-width: none !important;
+      height: 100vh !important; height: 100dvh !important;
       z-index: 100001 !important;
       background: linear-gradient(180deg,#1e293b 0%,#0f172a 100%) !important;
-      border-right: 1px solid rgba(99,102,241,0.3) !important;
-      box-shadow: 6px 0 30px rgba(0,0,0,.55) !important;
-      overflow-y: auto !important; padding-top: 16px !important;
-      transition: transform .32s cubic-bezier(.32,.72,0,1) !important;
+      border-right: 0 !important;
+      box-shadow: none !important;
+      overflow-y: auto !important;
+      /* 시계 블록이 맨 위에 오므로 옛 상단 여백은 뺀다 */
+      padding-top: 0 !important;
+      /* 아이폰 홈바·노치에 가리지 않게 */
+      padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+      /* 드로어 안에서 스크롤이 끝나도 뒤 본문이 따라 밀리지 않게 */
+      overscroll-behavior: contain !important;
+      transition: transform .28s cubic-bezier(.32,.72,0,1) !important;
+      will-change: transform;
     }
     /* 닫힘(기본) — :not 으로 옛 *-open 클래스보다 우선 */
     html body:not(.mga-open) #ph85-sidebar { transform: translateX(-100%) !important; }
     /* 열림 */
     html body.mga-open #ph85-sidebar { transform: translateX(0) !important; }
 
-    #mga-tab { display: flex !important; }
+    /* ① 옛 손잡이(왼쪽 가운데 세로 탭)는 완전히 없앤다 */
+    #mga-tab { display: none !important; }
+    #mgv2-burger { display: grid !important; }
     body.mga-open #mga-overlay { display: block !important; }
     body.mga-open { overflow: hidden !important; }
-  }
-  @media (min-width: 1024px) { #mga-tab, #mga-overlay { display: none !important; } }
 
-  #mga-tab {
-    display: none; position: fixed; left: 0; top: 50%; transform: translateY(-50%);
-    width: 40px; height: 78px; border: 1px solid rgba(245,158,11,0.30); border-left: 0; border-radius: 0 14px 14px 0;
-    background: rgba(245,158,11,0.10); color: #f59e0b;
-    font-size: 25px; font-weight: 900; cursor: pointer; z-index: 100002;
-    box-shadow: 2px 1px 8px rgba(0,0,0,.18); align-items: center; justify-content: center;
-    -webkit-tap-highlight-color: transparent; padding: 0;
-    transition: left .32s cubic-bezier(.32,.72,0,1), background .2s;
+    /* ③ 시계 — 사이드바 맨 위 붙박이 (JS 가 #ph85-sidebar 첫 자식으로 끼운다)
+       ⚠️ 색을 직접 박지 않는다. 이 화면은 다크·아이보리 두 테마에 더해
+          js/adm-light-surfaces.js 가 런타임에 표면을 다시 칠한다. 특정 색을 박으면
+          «흰 바탕에 흰 글자» 가 나는 자리가 여기다. 그래서 글자색은 부모에서 물려받고
+          (color:inherit) 배경·테두리는 반투명으로만 얹는다 — 어느 바탕에서도 읽힌다.
+       ⚠️ 오른쪽 여백은 ✕ 버튼 자리를 비워 둔다(56px). 안 그러면 «필리핀» 칸을 덮는다. */
+    #mgv2-clock {
+      display: flex; gap: 8px; color: inherit;
+      padding: calc(10px + env(safe-area-inset-top, 0px)) 60px 10px 12px;
+      border-bottom: 1px solid currentColor;
+      border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
+    }
+    #mgv2-clock .mgv2-c {
+      flex: 1; min-width: 0;
+      background: rgba(128,145,180,.13);
+      border: 1px solid rgba(128,145,180,.22);
+      border-radius: 11px; padding: 7px 10px;
+    }
+    #mgv2-clock .mgv2-l { font-size: 10.5px; font-weight: 700; opacity: .68; letter-spacing: .2px; }
+    #mgv2-clock .mgv2-t {
+      font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: .4px;
+      font-variant-numeric: tabular-nums;
+    }
+    #mgv2-clock .mgv2-d { font-size: 10px; opacity: .55; }
+
+    /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
+       js/adm-cdo-weather.js 가 #mgv2-clock 다음 형제로 끼워 넣는다.
+       ⚠️ 시계와 같은 이유로 색을 박지 않는다 — 이 화면은 다크·아이보리에 더해
+          adm-light-surfaces.js 가 런타임에 표면을 덧칠한다. 글자색은 물려받고
+          배경·테두리만 반투명으로 얹으면 어느 바탕에서도 읽힌다.
+       ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
+          «날씨: —» 같은 빈 껍데기를 남기지 않는다. */
+    #mgv2-weather {
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px;
+      margin: 8px 12px 0; padding: 7px 10px;
+      border: 1px solid rgba(128,145,180,.22); border-radius: 11px;
+      background: rgba(128,145,180,.13);
+      color: inherit; font-size: 12px; line-height: 1.3; word-break: keep-all;
+    }
+    #mgv2-weather.mgv2-w-empty { display: none; }
+    /* 아이콘은 SVG 다(글자가 아니다). 글자와 baseline 을 맞추면 위로 떠 보이므로
+       이 칸만 세로 가운데로 맞추고, 좁아져도 찌그러지지 않게 flex:none 을 준다. */
+    #mgv2-weather .mgv2-w-ico  { display: inline-flex; flex: none; align-self: center; line-height: 0; opacity: .9; }
+    #mgv2-weather .mgv2-w-ico svg { display: block; }
+    #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
+    #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+    #mgv2-weather .mgv2-w-sub  { opacity: .62; font-size: 11px; }
+    /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
+    #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
+
+    /* 메뉴가 넓어진 만큼 손가락 칸도 넓힌다 (안드로이드·애플 공통 권장 최소 48px) */
+    #ph85-sidebar .ph85-head { min-height: 52px; }
+    #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc { min-height: 46px; }
+    /* iOS 는 글자 16px 미만 입력칸에 자동으로 화면을 확대해 버린다 */
+    #ph85-sidebar .ph85-search { font-size: 16px !important; }
   }
-  body.mga-open #mga-tab { left: min(282px, 82vw); background: rgba(239,68,68,0.14); color: #ef4444; border-color: rgba(239,68,68,0.30); }
-  #mga-overlay { display: none; position: fixed; inset: 0; background: rgba(2,6,18,.55); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px); z-index: 100000; }
+  /* 📐 태블릿(720~1023px)은 100% 로 덮지 않는다 — 화면이 넓어 본문을 보면서 고르는 편이 낫고,
+     한 줄에 글자가 60자 넘게 늘어나면 오히려 읽기 나쁘다. 휴대폰만 100% 다. */
+  @media (min-width: 720px) and (max-width: 1023px) {
+    html body #ph85-sidebar, html body aside#ph85-sidebar {
+      width: 400px !important;
+      box-shadow: 8px 0 40px rgba(0,0,0,.5) !important;
+      border-right: 1px solid rgba(99,102,241,0.3) !important;
+    }
+  }
+  @media (min-width: 1024px) { #mga-tab, #mga-overlay, #mgv2-burger, #mgv2-clock { display: none !important; } }
+
+  /* ① 왼쪽 맨 위 «줄 3개» — 이것 하나로 열고 닫는다.
+     ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다. 글자로 그리면 기종마다 굵기·크기가
+        달라지고, Win10 등 글꼴이 없는 곳에서는 두부(□)로 나온다. */
+  #mgv2-burger {
+    display: none; position: fixed;
+    top: calc(8px + env(safe-area-inset-top, 0px)); left: 8px;
+    width: 46px; height: 46px; padding: 0;
+    place-items: center;
+    border: 1px solid rgba(148,163,184,.34); border-radius: 14px;
+    background: rgba(255,255,255,.94);
+    -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
+    box-shadow: 0 3px 12px rgba(2,6,18,.18);
+    cursor: pointer; z-index: 100002;
+    -webkit-tap-highlight-color: transparent;
+    transition: background .18s, border-color .18s;
+  }
+  #mgv2-burger i, #mgv2-burger i::before, #mgv2-burger i::after {
+    display: block; width: 21px; height: 2.2px; border-radius: 2px;
+    background: #0f172a; transition: transform .2s, opacity .15s;
+  }
+  #mgv2-burger i { position: relative; }
+  #mgv2-burger i::before, #mgv2-burger i::after { content: ""; position: absolute; left: 0; }
+  #mgv2-burger i::before { top: -7px; }
+  #mgv2-burger i::after  { top:  7px; }
+  #mgv2-burger:active { background: rgba(241,245,249,.98); }
+  /* 열리면 ✕ 로 바뀌면서 **오른쪽 위** 로 간다.
+     처음엔 «같은 자리에서 다시 누르면 닫힘» 으로 뒀는데, 실제로 그려 보니
+     왼쪽 위는 시계 「한국 KR」 칸 자리라 버튼이 시각을 가렸다(실측: 05:01:17 → :01:17).
+     화면을 100% 덮는 시트에서 ✕ 를 오른쪽 위에 두는 것은 흔한 방식이라 헷갈리지도 않고,
+     닫는 길은 그 밖에도 세 개 더 있다 — 바깥 어두운 곳 · 뒤로가기 · ESC. */
+  #mgv2-burger.is-open {
+    left: auto; right: 8px;
+    background: rgba(15,23,42,.92); border-color: rgba(148,163,184,.28);
+  }
+  #mgv2-burger.is-open i { background: transparent; }
+  #mgv2-burger.is-open i::before { top: 0; transform: rotate(45deg);  background: #fff; }
+  #mgv2-burger.is-open i::after  { top: 0; transform: rotate(-45deg); background: #fff; }
+  /* ⚠️ 반드시 :not(.is-open) 로 «닫힘일 때만» 걸어야 한다.
+     처음엔 그냥 `html[…ivory] #mgv2-burger i` 로 썼는데, 그 선택자가
+     `#mgv2-burger.is-open i` 보다 특정성이 높아서(요소 3개 vs 1개) 열림 상태의
+     «가운데 막대 숨기기»를 덮어 버렸다 — ✕ 가 아니라 별표(✻)로 보였다.
+     버튼 배경도 마찬가지로 아이보리가 다시 이겨서 열려도 밝은 색 그대로였다. (실측 2026-08-16) */
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) { background: rgba(255,250,240,.95); border-color: #e0b050; }
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i,
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i::before,
+  html[data-admin-theme="ivory"] #mgv2-burger:not(.is-open) i::after { background: #4a3826; }
+  /* 저전력·손떨림 설정에서는 애니메이션을 끈다 */
+  @media (prefers-reduced-motion: reduce) {
+    html body #ph85-sidebar, #mgv2-burger i, #mgv2-burger i::before, #mgv2-burger i::after { transition: none !important; }
+  }
+
+  /* 🗑 (2026-08-16) 옛 손잡이 #mga-tab 규칙 삭제 — 요청 ① 로 «줄 3개»(#mgv2-burger) 가 대신한다.
+     버튼 자체도 admin.html 에서 지웠다. 여기 규칙을 남겨 두면 나중에 누가 다시 살릴 빌미가 된다. */
+  #mga-overlay {
+    display: none; position: fixed; inset: 0; z-index: 100000;
+    /* ⚠️ backdrop-filter(배경 흐림) 제거 — 휴대폰에서 가장 비싼 효과이고,
+       드로어가 화면을 100% 덮는 지금은 뒤가 아예 안 보여서 흐릴 대상도 없다.
+       불투명도만 조금 올려 대체한다. */
+    background: rgba(2,6,18,.62);
+  }
 
 
 /* ── [style#ph-hero-mobile-hide] ── */
@@ -7348,6 +7503,121 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc:hover { background: rgba(245,158,11,0.18) !important; color: #7c2d12 !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph125-gc .ph125-num { background: rgba(217,119,6,0.22) !important; color: #92400e !important; }
   html[data-admin-theme="ivory"] #ph85-sidebar .ph85-sub .ph125-toggle { color: #b45309 !important; }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     ⚡ '자주 쓰는 기능' — 첫 화면판 (2026-08-16 사장님)
+     ═══════════════════════════════════════════════════════════════════════
+     사이드바 안에 있던 상자를 admin.html 의 .hero 바로 밑으로 옮겼다.
+     사이드바에서는 «세로 목록»이 맞았지만, 첫 화면에서는 «타일 격자»가 맞다 —
+     10개를 세로로 세우면 그것만 500px 라 경영지표가 화면 밖으로 밀린다.
+     휴대폰 2열 · 태블릿 3열 · PC 5열로 접는다.
+
+     ⚠️ 항목의 배치·색은 adm-quick-access.js 가 **인라인 style 로** 박는다
+        (display:flex, padding:7px 12px, color:#fde68a, border-top …).
+        인라인을 이기려면 !important 가 반드시 있어야 한다. 빼면 조용히
+        사이드바 시절 세로 목록 + 옅은 노란 글씨로 돌아간다.
+        (그 파일은 다른 사람 영역이라 손대지 않고 CSS 로만 덮는다.)
+     ⚠️ 글자색을 밝은 배경 기준으로 잡는다. 옛 아이보리 규칙은
+        `#ph85-sidebar #ph161-quick` 이라 여기에는 안 걸린다 — 그대로 두면
+        크림색 위 옅은 금색이 되어 2026-08-04 멜카 매니저 신고가 재발한다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  #ph161-quick {
+    /* 첫 화면 맨 위 — 줄3개 버튼(모바일, 좌상단 고정 46px)과 겹치지 않게 위 여백을 준다 */
+    margin: 8px 0 12px;
+    border: 1px solid rgba(180,83,9,0.28);
+    border-radius: 14px;
+    background: rgba(251,191,36,0.10);
+    overflow: hidden;
+  }
+  @media (max-width: 1023px) { #ph161-quick { margin-top: calc(62px + env(safe-area-inset-top, 0px)); } }
+  #ph161-quick .ph161-head {
+    padding: 9px 14px;
+    font-size: 11.5px; font-weight: 900; letter-spacing: .3px;
+    color: #92400e;
+    border-bottom: 1px solid rgba(180,83,9,0.18);
+  }
+  #ph161-quick-items {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: rgba(180,83,9,0.16);          /* 칸 사이 실선을 배경으로 그린다 */
+  }
+  @media (min-width: 640px)  { #ph161-quick-items { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1024px) { #ph161-quick-items { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+  #ph161-quick .ph161-q {
+    /* 인라인 세로목록 스타일을 전부 타일로 덮는다 */
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    min-height: 52px !important;              /* 손가락 최소 48px */
+    padding: 10px 12px !important;
+    border-top: 0 !important;
+    background: rgba(255,255,255,0.72);
+    color: #2b2620 !important;                /* 밝은 배경 — 사실상 검정(멜카 매니저 요청) */
+    font-size: 12.5px !important;
+    line-height: 1.3 !important;
+    font-weight: 700 !important;
+    word-break: keep-all;
+  }
+  #ph161-quick .ph161-q svg { stroke: #b45309 !important; }
+  #ph161-quick .ph161-q:active { background: rgba(245,158,11,0.22); }
+  /* hover 는 «색만» — 크기·위치는 고정(관리자 규칙: hover 확대 금지) */
+  #ph161-quick .ph161-q:hover { background: rgba(245,158,11,0.16); color: #7c2d12 !important; }
+  #ph161-quick .ph161-mode {
+    grid-column: 1 / -1;
+    background: rgba(255,255,255,0.72);
+    color: #92400e !important;
+    border-top: 0 !important;
+  }
+
+  /* ── 🕘 최근 본 메뉴 5개 (2026-08-16) ──────────────────────────────────
+     위 「자주 쓰는 기능」과 한 덩어리로 보이도록 같은 테두리·같은 앰버 계열을 쓰되,
+     «타일»이 아니라 «칩»으로 만들어 성격이 다르다는 것을 형태로 알린다 —
+     자주 쓰는 기능 = 고정된 도구함, 최근 본 메뉴 = 내가 지나온 자취.
+     ⚠️ 색은 위 타일과 같은 이유로 테마와 무관하게 «밝은 바탕 + 진한 글자» 한 벌이다
+        (adm-light-surfaces.js 가 본문을 밝게 덧칠하므로 어두운 판을 만들면 흰 위 노랑이 된다). */
+  #ph164-recent {
+    margin: 0 0 12px;
+    border: 1px solid rgba(180,83,9,0.22);
+    border-radius: 14px;
+    /* 위 「자주 쓰는 기능」(0.10)과 같은 계열로. 더 옅게 잡았더니 본문의 푸른 배경 위에서
+       앰버가 아니라 회색으로 보여 두 상자가 남남처럼 떨어져 보였다(실측 화면 확인). */
+    background: rgba(251,191,36,0.10);
+    padding: 9px 12px 11px;
+  }
+  #ph164-recent.ph164-empty { display: none !important; }   /* 기록 없으면 아예 안 보인다 */
+  #ph164-recent .ph164-head {
+    font-size: 11.5px; font-weight: 900; letter-spacing: .3px;
+    color: #92400e; margin-bottom: 7px;
+  }
+  #ph164-recent-items { display: flex; flex-wrap: wrap; gap: 6px; }
+  #ph164-recent .ph164-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    min-height: 38px; padding: 6px 12px;
+    border: 1px solid rgba(180,83,9,0.28); border-radius: 999px;
+    background: rgba(255,255,255,0.78);
+    color: #2b2620; font-size: 12.5px; font-weight: 700; line-height: 1.25;
+    font-family: inherit; cursor: pointer; max-width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    word-break: keep-all;
+  }
+  #ph164-recent .ph164-chip svg { color: #b45309; }
+  /* hover 는 «색만» — 크기·위치 고정(관리자 규칙: hover 확대 금지) */
+  #ph164-recent .ph164-chip:hover { background: rgba(245,158,11,0.16); color: #7c2d12; }
+  #ph164-recent .ph164-chip:active { background: rgba(245,158,11,0.24); }
+  /* 첫 화면 맨 위에서는 자주 쓰는 기능 바로 밑에 붙는다 */
+  #ph161-quick + #ph164-recent { margin-top: -4px; }
+
+  /* 🚫 다크 테마용 «어두운 타일» 을 따로 만들지 않는다 — 만들었다가 되돌린 이유를 남긴다.
+     처음엔 data-admin-theme="dark" 에서 타일을 남색(#16213a) + 옅은 노란 글자로 잡았다.
+     그런데 실측해 보니 다크 테마에서도 타일 배경이 **rgb(244,246,251) 흰색**으로 나왔다.
+     범인은 js/adm-light-surfaces.js — 본문의 «너무 진한» 면을 런타임에 밝게 덧칠하는데,
+     그 파일의 제외 목록에 `#ph85-sidebar *` 는 있어도 이 상자는 (사이드바를 나왔으니) 없다.
+     결과: 흰 배경 + 옅은 노란 글자 = 안 읽힘. 2026-08-04 멜카 매니저 신고와 같은 그림이다.
+     → 테마와 무관하게 «밝은 타일 + 진한 글자» 한 벌로 간다. 어느 테마에서도 읽힌다.
+     ⚠️ 다시 어두운 타일을 넣고 싶다면 adm-light-surfaces.js 의 SKIP_SEL 에
+        '#ph161-quick', '#ph161-quick *' 를 먼저 넣어야 한다. 안 넣으면 조용히 흰색이 된다. */
 
   /* ⚡ '자주 쓰는 기능'(#ph161-quick) — 아이보리 테마 가독성
      ─────────────────────────────────────────────────────────────

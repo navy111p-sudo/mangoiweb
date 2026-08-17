@@ -31,7 +31,7 @@
   }
   function renderList(){
     var box=$('pop-list-table'); if(!box) return;
-    if(!cache.length){ box.innerHTML='<div style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">아직 팝업이 없어요.<br><b style="color:#10b981">＋ 새 팝업 만들기</b> 버튼으로 시작해 보세요.</div>'; setStats(); return; }
+    if(!cache.length){ box.innerHTML='<div style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">아직 팝업이 없어요.<br><b style="color:#10b981">+ 새 팝업 만들기</b> 버튼으로 시작해 보세요.</div>'; setStats(); return; }
     var now=Date.now();
     var bs='padding:5px 9px;font-size:11.5px;font-weight:700;border:0;border-radius:6px;cursor:pointer;margin-right:4px';
     var h='<table style="width:100%;border-collapse:collapse;font-size:12.5px;min-width:640px"><thead><tr style="background:#f3f4f6;text-align:left;color:#374151">'

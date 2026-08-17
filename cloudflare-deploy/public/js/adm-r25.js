@@ -82,7 +82,7 @@
       { ko:'📊 응시 결과',      en:'📊 Test Results',  anchor:'lt-sec-results' },
       { ko:'🏅 배치 현황',      en:'🏅 Placement',     card:'card-leveltest' },
       { ko:'📅 캘린더에서 보기', en:'📅 On Calendar',   fn:'ltGotoCalendar' },
-      { ko:'＋ 결과 수동 등록',  en:'＋ Add Result',    anchor:'lt-sec-add' }
+      { ko:'+ 결과 수동 등록',  en:'+ Add Result',    anchor:'lt-sec-add' }
     ],
     'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
     'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],

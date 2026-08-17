@@ -2910,7 +2910,7 @@ async function addTeacherProfile() {
         (e('tp-mbti-type')?.value ? '\n🧠 MBTI 매칭 프로필도 저장됨 — 학생 매칭에 즉시 반영됩니다.' : ''));
   // 수정 모드 해제
   if (btn) {
-    btn.textContent = '＋ 강사 등록';
+    btn.textContent = '+ 강사 등록';
     delete btn.dataset.editId;
   }
   clearTeacherForm();
@@ -8215,7 +8215,7 @@ window.bulkCopyContacts = function() {
   if (e('tp-clear-btn'))        e('tp-clear-btn').addEventListener('click', () => {
     clearTeacherForm();
     const btn = e('tp-add-btn');
-    if (btn) { btn.textContent = '＋ 강사 등록'; delete btn.dataset.editId; }
+    if (btn) { btn.textContent = '+ 강사 등록'; delete btn.dataset.editId; }
   });
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
@@ -10497,6 +10497,14 @@ window.rebuildGlobalSearchIndex = function() {
         <div class="b net"><div class="l">순이익${p.confident ? '' : ' (미확정)'}</div><div class="v">${fmtKRW(p.net_income)}</div></div>
         <div class="b margin"><div class="l">이익률</div><div class="v">${p.margin_pct}%</div></div>
       </div>
+      ${s.cash_has_data ? `<h2>💵 통장 기준 실제 현금흐름 <span style="font-weight:400;font-size:12px;color:#6b7280">(신한 계좌 — 장부와 무관한 «사실»)</span></h2>
+      <table>
+        <tr><th>실제 입금</th><td class="num" style="color:#059669;font-weight:700">${fmtKRW(s.cash_in_krw)}</td>
+            <th>실제 출금</th><td class="num" style="color:#dc2626;font-weight:700">${fmtKRW(s.cash_out_krw)}</td></tr>
+        <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
+            <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
+      </table>
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장에는 <b>매출이 아닌 돈</b>(다른 계좌에서 옮긴 운영자금 등)도 섞여 들어옵니다. 아래 손익과 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
       <h2>매출 — 어디서 들어왔나</h2>
       <table>
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>

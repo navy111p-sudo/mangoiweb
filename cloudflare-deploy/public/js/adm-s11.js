@@ -102,12 +102,23 @@
       }
       // 하위 항목 선택 시 모든 그룹 자동 접기 (보기 편하게)
       document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){ x.classList.remove('open'); });
-      // 모바일 드로어 자동 닫기
+      /* 🩹 (2026-08-16 사장님) 「눌러도 그 화면으로 안 간다」 두 번째 원인 —
+         여기 «모바일 드로어 자동 닫기» 가 **지금 쓰는 드로어를 안 닫고 있었다.**
+         지우는 클래스가 ph134-sidebar-open · ph150-open 인데, 그 두 세대는 이미 없어졌고
+         실제로 열려 있는 것은 body.mga-open 이다(2026-06 교체 때 이 줄이 안 따라왔다).
+         결과: 항목을 눌러 카드가 제자리로 가긴 갔는데 **드로어가 화면을 그대로 덮고 있어서**
+         쓰는 사람에게는 «아무 일도 안 일어났다» 로 보였다.
+         실측(390×844): 항목 클릭 3초 뒤에도 드로어=열림, overflow=hidden 이었다.
+
+         ⚠️ 닫기를 «스크롤보다 먼저» 해야 한다. 드로어가 열린 동안 body 는 overflow:hidden 이라
+            그 상태에서 scrollIntoView 를 부르면 브라우저가 통째로 무시한다.
+            그래서 아래 스크롤은 닫은 «뒤» 로 미룬다(setTimeout 50ms 안).
+         ⚠️ mgaClose 가 아직 정의되기 전일 수 있으니(defer 순서) 클래스 제거도 함께 한다. */
       if (window.matchMedia('(max-width: 1023px)').matches) {
         var sb = document.getElementById('ph85-sidebar');
         if (sb) sb.classList.remove('open');
-        document.body.classList.remove('ph134-sidebar-open');
-        document.body.classList.remove('ph150-open');
+        try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) {}
+        document.body.classList.remove('mga-open');
       }
       e.stopPropagation();
       return;

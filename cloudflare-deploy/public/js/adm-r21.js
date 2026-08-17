@@ -128,11 +128,28 @@
     saveUser({ uid: uid, name: name, email: uid+'@mangoi.com', branch: ROLE_INFO[uid]?ROLE_INFO[uid].label:'-', phone: '010-0000-0000', lastLogin: new Date().toLocaleString('ko-KR').slice(5,17) });
     alert('✅ 로그인 완료'); window.location.reload();
   };
-  window.ph115ChangePw = function(){
+  /* 🔑 비밀번호 변경 — 2026-08-17 수리.
+     예전에는 프롬프트 3개를 받아 놓고 "실서비스에서 백엔드 API" 라는 alert 만 띄웠다(= 아무것도 안 바뀜).
+     사장님이 여기서 admin 비번을 바꾼 뒤 로그아웃했다가 새 비번으로 못 들어왔다 —
+     admin_account.updated_at 이 그대로였고 로그인 이력엔 wrong_password 만 남았다.
+     ⚠️ 같은 껍데기가 adm-q9(ph111)·adm-r19(ph113)·adm-r20(ph114)에도 복제돼 있다. 넷 다 같이 고칠 것.
+     길이 하한은 서버(/api/admin/change-password)·마이페이지와 같은 6자로 맞춘다. */
+  window.ph115ChangePw = async function(){
     var c=prompt('🔑 현재 비밀번호:'); if(!c)return;
-    var n=prompt('🔑 새 비밀번호 (8자 이상):'); if(!n||n.length<8){alert('비밀번호는 8자 이상');return;}
+    var n=prompt('🔑 새 비밀번호 (6자 이상):'); if(!n||n.length<6){alert('비밀번호는 6자 이상');return;}
     var c2=prompt('🔑 새 비밀번호 확인:'); if(n!==c2){alert('비밀번호 불일치');return;}
-    alert('🔑 비밀번호 변경 요청 — 실서비스에서 백엔드 API');
+    try{
+      var r = await fetch('/api/admin/change-password', {
+        method:'POST', credentials:'include',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ current_password: c, new_password: n })
+      });
+      var j = await r.json().catch(function(){ return {}; });
+      if (j && j.ok) alert('🔐 비밀번호가 변경됐습니다. 다른 기기는 자동 로그아웃됩니다.');
+      else if (j && j.error === 'wrong_current_password') alert('⚠️ 현재 비밀번호가 올바르지 않습니다.');
+      else if (j && j.error === 'too_short') alert('⚠️ 새 비밀번호는 6자 이상이어야 합니다.');
+      else alert('⚠️ 변경에 실패했습니다 — ' + ((j && (j.message || j.error)) || ('HTTP ' + r.status)));
+    }catch(e){ alert('⚠️ 네트워크 오류 — ' + ((e && e.message) || e)); }
   };
   window.ph115Help = function(){
     alert('❓ 망고아이 관리자 도움말\n\n▸ 좌측 사이드바 — 8개 그룹 73개 메뉴\n▸ 그룹 클릭 → 펼침/접힘\n▸ 하위 메뉴 클릭 → 해당 카드 자동 스크롤\n▸ 우측 상단 사용자 버튼 → 로그인/로그아웃/자료실\n\n문의: navy111p@gmail.com');

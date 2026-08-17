@@ -135,20 +135,12 @@
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
-        /* 🗺 (2026-08-15) 「사이트 구조도」는 카드가 아니라 **다른 페이지**다(/admin/site-structure.html,
-           같은 날 추가됨). 그런데 옛 사이드바의 「시스템」 그룹 안에만 들어 있었고, 그 그룹은
-           ia6 가 통째로 감추고 있어서 **아무도 볼 수 없었다** — 「시스템이 안 보인다」 신고의
-           실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
-           ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
-              (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
-        /* 🗺 (2026-08-16) 목차(/admin/site-structure.html)를 거치지 않고 «지도» 로 바로 간다.
-           목차가 하던 일은 표 3장을 고르게 해 주는 것뿐이었고, 그건 이제 지도 맨 아래
-           «더 자세히» 선반에 들어가 있다. 화면 하나를 통째로 쓸 일이 아니었다.
-           ⚠️ 맨 위 「메뉴 지도」와 목적지가 같다 — 일부러 그렇게 뒀다. 이름으로 찾는 사람과
-              위치로 찾는 사람이 갈리므로 문을 두 개 열어 둔다. */
-        { ko: '사이트 구조도', en: 'Site structure', cards: [],
-          href: '/admin/site-structure-map.html' }
+        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
+        /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
+           «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 것». 실제로 같은 페이지로 갔다.
+           같은 곳으로 가는 문을 둘 두면 «둘이 다른 건가?» 를 매번 생각하게 만든다.
+           ⛔ 되살리지 말 것. 지도로 가는 길은 맨 위 「메뉴 지도」 하나면 충분하다
+              (그 배선은 openMenuMap() — 읽어 주고 나서 연다). */
       ]
     }
   ];
@@ -283,6 +275,22 @@
   }
 
   /** 지금 보이는 카드 중 가장 아래 것이 화면 맨 위까지 올라올 수 있도록 꼬리 여백을 맞춘다. */
+  /* ── 📱 (2026-08-16 사장님 요청 ①) 모바일의 «맨 위» 는 0 이 아니다 ────────────────
+     왼쪽 맨 위에 «줄 3개»(#mgv2-burger) 가 떠 있다. 카드를 top:0 에 딱 붙이면
+     그 버튼이 카드 제목을 덮는다(실측: 「실시간 수업 현황」 글자가 절반 가림).
+     그래서 모바일에서만 버튼 아래까지를 «맨 위» 로 본다.
+     ⚠️ 버튼 크기를 코드에 박지 않고 **실제로 재서** 쓴다 — 안전영역(노치) 때문에
+        기기마다 다르고, CSS 를 고쳤을 때 이 값만 옛것으로 남는 일을 막는다.
+     ⚠️ 데스크톱은 0 그대로다(버튼이 없다). 기존 동작을 하나도 바꾸지 않는다. */
+  function topGap() {
+    if (!window.matchMedia('(max-width: 1023px)').matches) return 0;
+    var b = document.getElementById('mgv2-burger');
+    if (!b) return 0;
+    var r = b.getBoundingClientRect();
+    if (!r.height) return 0;
+    return Math.round(r.bottom + 8);
+  }
+
   function fitTail() {
     var t = tailEl();
     if (!t) return;
@@ -300,7 +308,9 @@
     var css = 0, ratio = 1;
     for (i = 0; i < 4; i++) {
       var docH = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
-      var gap = lowest.getBoundingClientRect().top + (window.pageYOffset || 0) + window.innerHeight - docH;
+      /* + topGap() — 모바일은 카드를 «줄 3개 버튼 아래» 까지 올려야 하므로
+         그만큼 더 내려갈 수 있어야 한다. 데스크톱은 0 이라 계산이 예전 그대로다. */
+      var gap = lowest.getBoundingClientRect().top + (window.pageYOffset || 0) + window.innerHeight - docH + topGap();
       if (gap > window.innerHeight) gap = window.innerHeight;   // 한 화면 넘게는 안 넣는다
       if (Math.abs(gap) <= 2 || (gap < 0 && css <= 0)) break;
       var shown = t.getBoundingClientRect().height;             // 지금 css px 이 화면에서 몇 px 인가
@@ -363,9 +373,17 @@
   function alignTop(lead) {
     if (alignRelease) alignRelease();
     alignLead = lead;
+    /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다.
+       📱 모바일은 줄3개 버튼(#mgv2-burger) 아래에 세운다. scroll-margin-top 은
+          scrollIntoView 가 그대로 지켜 주는 «표준» 속성이라, 검증된 scrollIntoView
+          호출부를 손대지 않고도 도착 지점만 내릴 수 있다. 값은 매번 재서 넣는다
+          (버튼 크기·노치가 기기마다 다르다). 데스크톱은 topGap()==0 이라 예전 그대로.
+       ⚠️ 설명은 여기 «위» 에 적는다. fitTail() 과 scrollIntoView 사이에 길게 적으면
+          admin_sidebar_ia6_click_harness 의 «여백부터 만든다» 검사(둘 사이 220자 이내)에
+          걸린다 — 순서는 맞는데 주석 길이 때문에 실패한다(2026-08-16 실제로 밟음). */
     var toLead = function () {
-      /* 🔝 먼저 «내려갈 자리» 를 만들고 나서 올린다. 순서를 바꾸면 자리가 없어서 못 올라간다. */
       try { fitTail(); } catch (e) { /* 무시 */ }
+      try { lead.style.scrollMarginTop = topGap() + 'px'; } catch (e) { /* 무시 */ }
       alignSelf = true;
       try { lead.scrollIntoView({ behavior: 'auto', block: 'start' }); } catch (e) { /* 무시 */ }
       alignSelf = false;
@@ -382,9 +400,10 @@
     var toLeadAgain = function () {
       timer = 0;
       // 싼 확인 먼저 — 이미 맨 위면 1.3MB DOM 을 다시 재지 않는다.
-      var off = 0;
+      // 모바일의 «맨 위» 는 0 이 아니라 줄3개 버튼 아래(topGap)다.
+      var off = 0, g = topGap();
       try { off = lead.getBoundingClientRect().top; } catch (e) { /* 무시 */ }
-      if (off < -2 || off > 2) toLead();
+      if (off < g - 2 || off > g + 2) toLead();
       if (Date.now() < until) timer = setTimeout(toLeadAgain, 140);
       else release();
     };
@@ -404,7 +423,7 @@
      ②는 순서가 중요하다 — 말을 시작해 놓고 페이지를 옮기면 그 순간 소리가 끊긴다.
        그래서 **다 읽은 뒤에** 옮긴다(adm-r15 의 admVoiceSay 가 다 읽으면 알려 준다).
      ⚠️ 음성이 꺼져 있거나 소리가 안 나와도 **반드시 지도로 간다**. 안 그러면 또 «눌러도 안 열린다» 다.
-     ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 지도로 바로 간다. */
+     ⚠️ 지도로 들어가는 문은 이제 여기 하나다(2026-08-16 「시스템 ▸ 사이트 구조도」 제거). */
   var MAP_HREF = '/admin/site-structure-map.html';
 
   function menuMapSpeech() {
@@ -495,7 +514,7 @@
        [지금] 실제로 «지도»를 연다. 같은 날 만들어진 그림 문서가 이미 있다(사람 5덩어리 · 화면 93개).
        ⚠️ 카드 감춤을 푸는 기능(showAll)은 남아 있다 — 사이드바 검색창에 뭐든 입력하면 자동으로 풀린다
           (wireSearch). 눌러도 티가 안 나는 버튼으로 사이드바 한 칸을 쓰지 않는 것뿐이다.
-       ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 «지도»로 바로 간다 —
+       ⚠️ 지도로 들어가는 문은 이제 여기 하나다 — 「시스템 ▸ 사이트 구조도」는 뺐다(중복). 여기는 «지도»로 바로 간다 —
           이름이 「메뉴 지도」이므로 한 번에 지도가 나와야 한다. */
     var all = document.createElement('div');
     all.className = 'ph85-group';
@@ -581,12 +600,12 @@
     var it = itemByKey(key);
     if (!it) return false;
     if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
-    /* 📱 좁은 화면 전용 목적지가 있으면 그쪽으로. 폭으로만 판정한다 —
-       기기 종류(userAgent)가 아니라 «지금 화면이 좁은가» 가 실제 문제이기 때문이다. */
-    if (it.href) {
-      location.href = (it.href === MAP_HREF) ? mapUrl() : it.href;
-      return true;
-    }
+    /* 카드가 아니라 «다른 페이지» 로 가는 항목은 여기서 빠진다.
+       지금은 쓰는 항목이 없다(「사이트 구조도」를 뺀 뒤로 — 2026-08-16). 배선은 남겨 둔다:
+       capiHref 와 같은 계약이고, 나중에 문서 항목을 붙일 때 이 한 줄이면 된다.
+       ⚠️ 지도로 보내는 항목을 다시 만든다면 mapUrl() 을 써서 ?here= 를 붙일 것 —
+          그래야 지도가 «지금 여기» 를 찍을 수 있다. */
+    if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
@@ -619,9 +638,24 @@
       if (!t || !t.closest) return;
       var sub = t.closest('[data-ia6-item]');
       if (sub) {
+        /* 📱 (2026-08-16 사장님 요청 ④) 모바일은 «닫고 나서» 고른다 — 순서가 핵심이다.
+           [옛 코드] select() 를 먼저 부르고 그 다음에 sb.classList.remove('open') 이었다.
+             ① 지우는 클래스가 틀렸다. 드로어를 여는 것은 사이드바의 'open' 이 아니라
+                **body.mga-open** 이다(2026-06 mga 교체 때 이 줄이 안 따라왔다).
+                → 항목을 눌러도 드로어가 화면을 그대로 덮고 있었다. adm-s11.js(ph97) 에도
+                  똑같은 줄이 있었고 같은 날 함께 고쳤다. 여기가 그 두 번째 자리다.
+             ② 순서도 틀렸다. 드로어가 열려 있는 동안 body 는 overflow:hidden 이라
+                그 상태에서 select() 안의 scrollIntoView 는 **브라우저가 통째로 무시한다.**
+                닫기를 먼저 해야 스크롤이 먹는다.
+           실측(390×844): 「강사 ▸ 시간표·근무」 클릭 2.6초 뒤에도 드로어=열림,
+                          고른 카드가 화면 위(-258px)로 벗어나 있었다. */
+        if (window.matchMedia('(max-width: 1023px)').matches) {
+          var sb = document.getElementById('ph85-sidebar');
+          if (sb) sb.classList.remove('open');
+          try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) { /* 무시 */ }
+          document.body.classList.remove('mga-open');
+        }
         select(sub.getAttribute('data-ia6-item'));
-        var sb = document.getElementById('ph85-sidebar');
-        if (sb && window.matchMedia('(max-width: 1023px)').matches) sb.classList.remove('open');
         return;
       }
       var head = t.closest('[data-ia6-head]');

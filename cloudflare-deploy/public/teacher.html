@@ -539,15 +539,15 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <div id="outage-mgr-list"></div>
   </div>
 
-  <!-- 🧾 결재 — 구 그룹웨어의 «기안·지출 / 결재 파일» 을 대신한다.
-       본사 계정에만 뜬다(강사에게는 서버가 403). 첫 화면을 막지 않도록 뒤늦게 불러온다. -->
+  <!-- 🧾 결재 — 2026-08-16 부터 **전용 화면 /work** 로 옮겼다.
+       왜: 결재함이 이 강사 화면(192KB) 안에 있었는데 강사는 서버가 403 이라 못 보고,
+           정작 결재를 가장 많이 올리는 필리핀 매니저 화면(manager.html)에는 결재가
+           한 줄도 없었다. 두 곳에 같은 기능을 두면 이중이 되므로 여기서는 «링크만» 둔다.
+       ⚠️ 이 카드에 결재 목록을 되살리지 말 것 — 옮긴 이유가 사라진다. -->
   <div class="card" id="c-appr" hidden>
     <h2><span data-en="Approvals" data-ko="결재">Approvals</span> <span id="appr-badge"></span></h2>
-    <button class="btn btn-gray btn-wide" type="button" id="appr-new"
-            data-en="Submit a request (expense / document)"
-            data-ko="결재 올리기 (지출 · 문서)">Submit a request</button>
-    <div id="appr-inbox"></div>
-    <div id="appr-mine"></div>
+    <a class="btn btn-gray btn-wide" href="/work" style="display:block;text-align:center;text-decoration:none"
+       data-en="Open approvals" data-ko="결재함 열기">Open approvals</a>
   </div>
 
   <div class="card" id="c-dash" hidden>
@@ -1909,227 +1909,29 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     if (OUTAGE_MINE) outageResolve(OUTAGE_MINE.id, this);
   };
 
-  // ══ 🧾 결재 (기안 · 지출 · 문서) ═════════════════════════════════════════
-  //   구 그룹웨어 5개 메뉴 중 신규 사이트에 정말로 없던 것은 이것 하나다.
-  //   나머지(휴가·병가, 관리 메시지, 즐겨찾기)는 이미 있어서 옮기지 않았다 — 옮기면 이중이 된다.
-  //
-  //   ⚠️ 첫 화면을 막지 않는다. 오늘 수업이 다 그려진 뒤에 따로 부른다(강사에게는 403 → 카드 숨김).
-  var APPR = { can: false, pending: 0 };
-
-  function apprFmtMoney(a, cur){
-    if (a == null) return '';
-    var n = Number(a) || 0;
-    return (cur === 'KRW' ? '₩' : '₱') + n.toLocaleString();
-  }
-  function apprTypeLabel(t){
-    return t === 'expense' ? T('Expense', '지출')
-         : t === 'leave'   ? T('Leave',   '휴가')
-         :                   T('Document','문서');
-  }
-  function apprStatusPill(s){
-    var cls = s === 'approved' ? 'p-live' : (s === 'rejected' ? 'p-done' : 'p-soon');
-    var txt = s === 'approved' ? T('Approved','승인') : (s === 'rejected' ? T('Rejected','반려') : T('Waiting','대기'));
-    return '<span class="pill ' + cls + '">' + esc(txt) + '</span>';
-  }
-
+  // ══ 🧾 결재 — 전용 화면 /work 로 옮김 (2026-08-16) ═══════════════════════
+  //   예전엔 이 화면 안에 결재함이 통째로 들어 있었다(목록·승인·기안 폼 약 220줄).
+  //   그런데 강사는 서버가 403 이라 그 카드를 못 보고, 결재를 가장 많이 올리는
+  //   필리핀 매니저 화면(manager.html)에는 결재가 한 줄도 없었다 — 그래서 전용 경량
+  //   화면 /work 로 옮겼다. 여기 남은 일은 «대기 건수 표시 + 링크» 뿐이다.
+  //   ⚠️ 결재 목록·승인 버튼을 여기에 되살리지 말 것. 옮긴 이유가 사라지고 이중이 된다.
   function loadApprovals(){
-    var card = document.getElementById('c-appr');
-    // 대기함(승인자)과 내가 올린 것을 한 번씩. 강사면 403 이 와서 카드가 숨은 채로 끝난다.
-    fetch('/api/approval/requests?scope=mine&limit=8', { credentials:'same-origin' })
-      .then(function(r){ return r.status === 403 ? null : r.json(); })
+    fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
-        // 강사에게는 서버가 403 을 준다 → 카드가 안 뜬다.
-        //   ⚠️ ok 만 보고 열지 않는다. can_approve 가 실린 «결재 응답» 일 때만 연다 —
-        //      다른 응답이 잘못 흘러들어와 회사 지출 카드가 강사 화면에 뜨는 일이 없게.
-        if (!j || !j.ok || typeof j.can_approve !== 'boolean') { card.hidden = true; return; }
-        card.hidden = false;
-        APPR.can = !!j.can_approve; APPR.pending = Number(j.pending) || 0;
-        renderApprMine(j.items || []);
-        paintApprBadge();
-        if (APPR.can) loadApprInbox();
+        // ⚠️ ok 만 보고 열지 않는다. me 가 실린 «결재 응답» 일 때만 연다 —
+        //    강사에게는 403 이 오므로 카드는 숨긴 채로 둔다.
+        if (!j || !j.ok || !j.me) return;
+        var card = document.getElementById('c-appr');
+        if (card) card.hidden = false;
+        var n = Number(j.pending || 0);
+        var b = document.getElementById('appr-badge');
+        if (b) b.innerHTML = n
+          ? ('<span class="newbadge">' + esc(T(n + ' waiting', '결재 대기 ' + n + '건')) + '</span>')
+          : '';
       })
       .catch(function(){ /* 결재를 못 불러온 것이 오늘 수업 화면을 망치지 않는다 */ });
   }
-
-  function paintApprBadge(){
-    var b = document.getElementById('appr-badge');
-    if (!b) return;
-    b.innerHTML = (APPR.can && APPR.pending)
-      ? '<span class="newbadge">' + esc(T(APPR.pending + ' waiting', '결재 대기 ' + APPR.pending + '건')) + '</span>'
-      : '';
-  }
-
-  function loadApprInbox(){
-    fetch('/api/approval/requests?scope=pending&limit=20', { credentials:'same-origin' })
-      .then(function(r){ return r.json(); })
-      .then(function(j){
-        if (!j || !j.ok) return;
-        var box = document.getElementById('appr-inbox');
-        var list = j.items || [];
-        if (!list.length){ box.innerHTML = ''; return; }
-        var h = '<div class="mini" style="font-weight:700;margin-top:10px">'
-              + esc(T('Waiting for your decision', '내가 결재할 것')) + '</div>';
-        for (var i=0;i<list.length;i++){
-          var r = list[i];
-          h += '<div class="cls">'
-            +   '<div class="cls-main">'
-            +     '<div class="cls-name">' + esc(r.title) + ' ' + apprStatusPill(r.status) + '</div>'
-            +     '<div class="cls-meta">' + esc(apprTypeLabel(r.req_type))
-            +       (r.amount != null ? ' &middot; <b>' + esc(apprFmtMoney(r.amount, r.currency)) + '</b>' : '')
-            +       ' &middot; ' + esc(r.requester_name || r.requester_username)
-            +       (r.has_file ? ' &middot; <a href="/api/approval/requests/' + r.id + '/file">'
-                                + esc(T('attachment','첨부')) + '</a>' : '')
-            +     '</div>'
-            +   '</div>'
-            +   '<div class="cls-act">'
-            +     '<button class="btn btn-eval btn-sm" type="button" data-appr-ok="' + r.id + '">' + esc(T('Approve','승인')) + '</button>'
-            +     '<button class="btn btn-gray btn-sm" type="button" data-appr-no="' + r.id + '">' + esc(T('Reject','반려')) + '</button>'
-            +   '</div>'
-            + '</div>';
-        }
-        box.innerHTML = h;
-        var ok = box.querySelectorAll('[data-appr-ok]');
-        for (var a=0;a<ok.length;a++) ok[a].onclick = function(){ apprDecide(this.getAttribute('data-appr-ok'), 'approved', this); };
-        var no = box.querySelectorAll('[data-appr-no]');
-        for (var b2=0;b2<no.length;b2++) no[b2].onclick = function(){ apprDecide(this.getAttribute('data-appr-no'), 'rejected', this); };
-      })
-      .catch(function(){ /* 무시 */ });
-  }
-
-  function renderApprMine(list){
-    var box = document.getElementById('appr-mine');
-    if (!list.length){ box.innerHTML = ''; return; }
-    var h = '<div class="mini" style="font-weight:700;margin-top:10px">'
-          + esc(T('My requests', '내가 올린 결재')) + '</div>';
-    for (var i=0;i<list.length;i++){
-      var r = list[i];
-      h += '<div class="mini nsrow">'
-        +   '<b>' + esc(r.title) + '</b> ' + apprStatusPill(r.status)
-        +   '<br>' + esc(apprTypeLabel(r.req_type))
-        +   (r.amount != null ? ' &middot; ' + esc(apprFmtMoney(r.amount, r.currency)) : '')
-        +   (r.decide_memo ? ' &middot; ' + esc(r.decide_memo) : '')
-        + '</div>';
-    }
-    box.innerHTML = h;
-  }
-
-  function apprDecide(id, decision, btn){
-    // 반려는 이유가 없으면 올린 사람이 무엇을 고쳐야 할지 모른다 → 반려일 때만 사유를 받는다.
-    var memo = '';
-    if (decision === 'rejected'){
-      memo = prompt(T('Reason for rejection (the requester will see this)',
-                      '반려 사유를 적어 주세요 (올린 사람에게 그대로 보입니다)')) || '';
-      if (!memo.trim()) return;                 // 취소하거나 비우면 아무 일도 하지 않는다
-    }
-    btn.disabled = true;
-    fetch('/api/approval/requests/' + id + '/decide', {
-      method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ decision: decision, memo: memo })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      if (!j || !j.ok){
-        // 409 = 그 사이 다른 사람이 이미 결재함. 화면을 새로 그려 사실을 보여준다.
-        toast(j && j.error === 'already_decided'
-          ? T('Someone already decided this one.', '이미 다른 분이 결재한 건입니다.')
-          : T('Could not save. Please try again.', '저장하지 못했습니다. 다시 시도해 주세요.'));
-      } else {
-        toast(decision === 'approved' ? T('Approved.', '승인했습니다.') : T('Rejected.', '반려했습니다.'));
-      }
-      loadApprovals();
-    })
-    .catch(function(){ btn.disabled = false; toast(T('Network error.', '통신 오류입니다.')); });
-  }
-
-  function openApproval(){
-    var mask = document.createElement('div');
-    mask.className = 'mask';
-    mask.innerHTML =
-      '<div class="modal" role="dialog" aria-modal="true">'
-      + '<h3>' + esc(T('Submit for approval','결재 올리기')) + '</h3>'
-      + '<p class="sub">' + esc(T('Head office reviews it. You will see the result on this screen.',
-                                  '본사가 확인합니다. 결과는 이 화면에서 보입니다.')) + '</p>'
-      + '<div class="fld"><label>' + esc(T('Type','종류')) + '</label>'
-      +   '<select id="ap-type">'
-      +     '<option value="expense">' + esc(T('Expense (with amount)','지출 (금액 있음)')) + '</option>'
-      +     '<option value="doc">'     + esc(T('Document','문서 결재')) + '</option>'
-      +     '<option value="leave">'   + esc(T('Leave request','휴가 신청')) + '</option>'
-      +   '</select></div>'
-      + '<div class="fld"><label>' + esc(T('Title','제목')) + '</label>'
-      +   '<input id="ap-title" type="text" maxlength="200" placeholder="' +
-            esc(T('e.g. Office internet — August','예: 사무실 인터넷 요금 8월')) + '"></div>'
-      + '<div class="fld" id="ap-money"><label>' + esc(T('Amount','금액')) + '</label>'
-      +   '<div class="mrow">'
-      +     '<input id="ap-amount" type="text" inputmode="decimal" placeholder="0" style="flex:1">'
-      +     '<select id="ap-cur" style="flex:0 0 90px"><option value="PHP">PHP ₱</option><option value="KRW">KRW ₩</option></select>'
-      +   '</div></div>'
-      + '<div class="fld" id="ap-datewrap"><label>' + esc(T('Date spent','지출일')) + '</label>'
-      +   '<input id="ap-date" type="date"></div>'
-      + '<div class="fld"><label>' + esc(T('Details','내용')) + '</label>'
-      +   '<textarea id="ap-body" placeholder="' + esc(T('Why is this needed?','왜 필요한지 적어 주세요.')) + '"></textarea></div>'
-      + '<div class="fld"><label>' + esc(T('Attachment (receipt / document, optional)','첨부 (영수증·문서, 선택)')) + '</label>'
-      +   '<input id="ap-file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"></div>'
-      + '<div id="ap-res"></div>'
-      + '<div class="mrow">'
-      +   '<button class="btn btn-gray" type="button" id="ap-x">' + esc(T('Close','닫기')) + '</button>'
-      +   '<button class="btn btn-eval" type="button" id="ap-ok">' + esc(T('Submit','올리기')) + '</button>'
-      + '</div></div>';
-    document.body.appendChild(mask);
-
-    function close(){ if (mask.parentNode) mask.parentNode.removeChild(mask); }
-    mask.querySelector('#ap-x').onclick = close;
-    mask.onclick = function(ev){ if (ev.target === mask) close(); };
-
-    // 지출이 아니면 금액·지출일 칸을 감춘다 — 안 쓰는 칸이 보이면 안 채워도 되는지 헷갈린다.
-    function syncType(){
-      var isExp = mask.querySelector('#ap-type').value === 'expense';
-      mask.querySelector('#ap-money').style.display = isExp ? '' : 'none';
-      mask.querySelector('#ap-datewrap').style.display = isExp ? '' : 'none';
-    }
-    mask.querySelector('#ap-type').onchange = syncType;
-    syncType();
-
-    mask.querySelector('#ap-ok').onclick = function(){
-      var btn = this;
-      var type = mask.querySelector('#ap-type').value;
-      var title = (mask.querySelector('#ap-title').value || '').trim();
-      var amount = (mask.querySelector('#ap-amount').value || '').trim();
-      function err(m){ mask.querySelector('#ap-res').innerHTML = '<div class="err">' + esc(m) + '</div>'; }
-      if (!title) return err(T('Please enter a title.','제목을 입력해 주세요.'));
-      if (type === 'expense'){
-        if (!amount) return err(T('Please enter the amount.','금액을 입력해 주세요.'));
-        if (!isFinite(Number(amount.replace(/,/g,'')))) return err(T('Amount must be a number.','금액은 숫자로 입력해 주세요.'));
-      }
-      var fd = new FormData();
-      fd.append('req_type', type);
-      fd.append('title', title);
-      fd.append('body', (mask.querySelector('#ap-body').value || '').slice(0, 4000));
-      if (type === 'expense'){
-        fd.append('amount', amount);
-        fd.append('currency', mask.querySelector('#ap-cur').value || 'PHP');
-        fd.append('spent_at', mask.querySelector('#ap-date').value || '');
-      }
-      var f = mask.querySelector('#ap-file').files[0];
-      if (f) fd.append('file', f);
-
-      btn.disabled = true; btn.textContent = T('Sending…','올리는 중…');
-      fetch('/api/approval/requests', { method:'POST', credentials:'same-origin', body: fd })
-        .then(function(r){ return r.json(); })
-        .then(function(j){
-          if (!j || !j.ok) throw new Error(j && j.error || 'failed');
-          close();
-          toast(T('Submitted. Head office will review it.','결재를 올렸습니다. 본사가 확인합니다.'));
-          loadApprovals();
-        })
-        .catch(function(e){
-          btn.disabled = false; btn.textContent = T('Submit','올리기');
-          err(String(e && e.message) === 'file_too_large'
-            ? T('The attachment is too large (max 10MB).','첨부가 너무 큽니다 (최대 10MB).')
-            : T('Could not submit. Please try again.','올리지 못했습니다. 다시 시도해 주세요.'));
-        });
-    };
-  }
-  document.getElementById('appr-new').onclick = openApproval;
 
   // 아주 단순한 안내 띠 — 애니메이션 없이 3초 뒤 사라진다.
   function toast(msg){

@@ -7,8 +7,18 @@
 // ═══════════════════════════════════════════════════════════════
 (function () {
   'use strict';
-  var HIDE_KEY = 'mangoi_admin_welcome_v1_hide';   // 영구 숨김(다시 보지 않기)
+  var HIDE_KEY = 'mangoi_admin_welcome_v1_hide';   // 옛 「다시 보지 않기」 체크박스 (읽기만 — 아래 참고)
   var SEEN_KEY = 'mangoi_admin_welcome_v1_seen';    // 세션당 1회 (세션스토리지)
+  /* 📱 (2026-08-17 사장님) «한 번 닫았으면 다시 띄우지 않는다».
+     그동안 SEEN 이 sessionStorage 라 «탭 하나» 안에서만 기억했다. PC 는 탭을 오래 두니
+     문제가 없었지만, **휴대폰은 홈 화면 아이콘·링크로 열 때마다 새 탭**이라 매번 다시 떴다.
+     실측(iPhone 12): 같은 탭 새로고침 ✅ 안 뜸 / 지도 갔다 오기 ✅ 안 뜸 / **새 탭 ❗ 또 뜸**.
+     닫는 행동(✕ · 시작하기 · 바깥 탭 · Esc)을 localStorage 에 남겨 기기 단위로 기억한다.
+     ⚠️ 키에 v1 이 들어 있는 것이 요점이다 — 안내 내용을 새로 만들면 v2 로 올려라.
+        그러면 모든 사람에게 «한 번» 다시 보인다. 영영 못 보게 만드는 장치가 아니다.
+     ⚠️ 내용을 다시 보고 싶으면 사이드바의 «관리자 페이지에서 사용 방법이 궁금하신가요?»
+        (openAdminGuide) 가 있다. 그래서 닫기를 기억해도 길이 막히지 않는다. */
+  var DONE_KEY = 'mangoi_admin_welcome_v1_done';
 
   function L() { try { return (window.getLang && window.getLang() === 'en') ? 'en' : 'ko'; } catch (e) { return 'ko'; } }
 
@@ -61,47 +71,58 @@
     var s = document.createElement('style');
     s.id = 'aw-style';
     s.textContent = [
-      '#aw-overlay{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;',
-      '  padding:16px;background:rgba(10,14,25,.66);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);',
+      // 📐 (2026-08-16) 화면 한가운데 대형 팝업 → **오른쪽 위 작은 패널**로.
+      //   요청: "지금보다 3분의 1 크기로 오른쪽 위에". 카드 폭 640px → 360px.
+      //   구석의 작은 패널에 전면 블러를 깔면 어색해서, 뒷배경 어둡기도 낮추고 blur 는 뺐다.
+      // 📐 (2026-08-16, 같은 날 2차) "조금 더 크게" → 360px → **440px**(1.22배).
+      //   원래(640px) 대비 넓이는 여전히 절반 이하(약 47%)라 오른쪽 위 패널 성격은 그대로다.
+      //   ⚠️ 폰트·여백·버튼·화살표·점을 **전부 같은 비율로** 올려야 비례가 유지된다.
+      //      폭만 키우면 글자가 작아 보이고 여백만 뜬다. 다시 조절할 땐 아래 값을 한 벌로 볼 것.
+      '#aw-overlay{position:fixed;inset:0;z-index:2147483000;display:none;align-items:flex-start;justify-content:flex-end;',
+      '  padding:14px;background:rgba(10,14,25,.42);',
       "  font-family:MangoiHanSC,'Malgun Gothic','Apple SD Gothic Neo',sans-serif}",
       '#aw-overlay.aw-on{display:flex;animation:awFade .22s ease}',
       '@keyframes awFade{from{opacity:0}to{opacity:1}}',
-      '#aw-card{position:relative;width:100%;max-width:640px;max-height:92vh;overflow:hidden auto;border-radius:22px;',
+      '#aw-card{position:relative;width:100%;max-width:440px;max-height:92vh;overflow:hidden auto;border-radius:16px;',
       '  background:linear-gradient(160deg,#38bdf8 0%,#2563eb 60%,#1d4ed8 100%);color:#fff;',
-      '  box-shadow:0 30px 80px -20px rgba(0,0,0,.7);animation:awPop .28s cubic-bezier(.32,.72,0,1)}',
-      '@keyframes awPop{from{transform:translateY(18px) scale(.97);opacity:0}to{transform:none;opacity:1}}',
-      '#aw-top{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 4px}',
-      '#aw-detail{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:none;',
-      '  background:rgba(255,255,255,.22);color:#fff;font-weight:800;font-size:13px;padding:8px 14px;border-radius:99px}',
+      '  box-shadow:0 20px 54px -16px rgba(0,0,0,.7);animation:awPop .28s cubic-bezier(.32,.72,0,1)}',
+      '@keyframes awPop{from{transform:translateY(-12px) scale(.97);opacity:0}to{transform:none;opacity:1}}',
+      '#aw-top{display:flex;align-items:center;justify-content:space-between;padding:11px 12px 3px}',
+      '#aw-detail{display:inline-flex;align-items:center;gap:5px;cursor:pointer;border:none;',
+      '  background:rgba(255,255,255,.22);color:#fff;font-weight:800;font-size:12.5px;padding:6px 11px;border-radius:99px}',
       '#aw-detail:hover{background:rgba(255,255,255,.32)}',
-      '#aw-x{cursor:pointer;border:none;background:rgba(255,255,255,.22);color:#fff;width:34px;height:34px;',
-      '  border-radius:50%;font-size:17px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center}',
+      '#aw-x{cursor:pointer;border:none;background:rgba(255,255,255,.22);color:#fff;width:29px;height:29px;',
+      '  border-radius:50%;font-size:15px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center}',
       '#aw-x:hover{background:rgba(255,255,255,.34)}',
-      '#aw-hero{padding:6px 26px 2px}',
-      '#aw-hello{font-size:30px;font-weight:900;letter-spacing:-.5px;line-height:1.15;margin:6px 0 4px}',
-      '#aw-sub{font-size:13.5px;font-weight:600;color:#e6f0ff;opacity:.95;line-height:1.5}',
-      '#aw-stage{position:relative;margin:14px 18px 0;border-radius:14px;overflow:hidden;background:#0b1220;',
-      '  box-shadow:0 10px 30px rgba(0,0,0,.35)}',
+      '#aw-hero{padding:4px 18px 2px}',
+      '#aw-hello{font-size:22px;font-weight:900;letter-spacing:-.5px;line-height:1.15;margin:4px 0 3px}',
+      '#aw-sub{font-size:12.5px;font-weight:600;color:#e6f0ff;opacity:.95;line-height:1.45}',
+      '#aw-stage{position:relative;margin:10px 12px 0;border-radius:11px;overflow:hidden;background:#0b1220;',
+      '  box-shadow:0 8px 22px rgba(0,0,0,.35)}',
       '#aw-img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top center;transition:opacity .15s}',
-      '.aw-nav{position:absolute;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;border:none;',
-      '  cursor:pointer;background:rgba(255,255,255,.92);color:#0f172a;font-size:22px;font-weight:900;display:flex;',
-      '  align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.35);z-index:2;line-height:1}',
+      '.aw-nav{position:absolute;top:50%;transform:translateY(-50%);width:29px;height:29px;border-radius:50%;border:none;',
+      '  cursor:pointer;background:rgba(255,255,255,.92);color:#0f172a;font-size:17px;font-weight:900;display:flex;',
+      '  align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,.35);z-index:2;line-height:1}',
       '.aw-nav:active{transform:translateY(-50%) scale(.9)}.aw-nav[disabled]{opacity:0;pointer-events:none}',
-      '#aw-prev{left:10px}#aw-next{right:10px}',
-      '#aw-caption{margin:12px 20px 0;background:rgba(255,255,255,.14);border-radius:12px;padding:12px 14px}',
-      '#aw-ctitle{font-size:15px;font-weight:800;margin-bottom:4px}',
-      '#aw-cdesc{font-size:13px;font-weight:600;line-height:1.6;color:#eaf2ff}',
-      '#aw-dots{display:flex;gap:7px;justify-content:center;margin:14px 0 4px}',
-      '.aw-dot{width:8px;height:8px;border-radius:99px;background:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}',
-      '.aw-dot.on{width:22px;background:#fff}',
-      '#aw-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 20px 20px}',
-      '#aw-again{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;color:#dbeafe;cursor:pointer;user-select:none;margin-right:auto}',
-      '#aw-again input{width:16px;height:16px;accent-color:#fff;cursor:pointer}',
-      '.aw-btn{cursor:pointer;border:none;font-weight:800;font-size:13.5px;padding:11px 20px;border-radius:12px;line-height:1}',
+      '#aw-prev{left:8px}#aw-next{right:8px}',
+      '#aw-caption{margin:9px 13px 0;background:rgba(255,255,255,.14);border-radius:10px;padding:10px 11px}',
+      '#aw-ctitle{font-size:14px;font-weight:800;margin-bottom:3px}',
+      '#aw-cdesc{font-size:12px;font-weight:600;line-height:1.55;color:#eaf2ff}',
+      '#aw-dots{display:flex;gap:6px;justify-content:center;margin:10px 0 3px}',
+      '.aw-dot{width:7px;height:7px;border-radius:99px;background:rgba(255,255,255,.4);cursor:pointer;transition:all .2s}',
+      '.aw-dot.on{width:18px;background:#fff}',
+      '#aw-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 13px 15px}',
+      /* 🗑 (2026-08-17) 「다시 보지 않기」 체크박스를 뺐다 — 이제 닫기만 해도 기억하므로
+         눌러도 달라지는 것이 없는 컨트롤이 된다. 폰에서 15×15px 짜리 과녁이기도 했다.
+         버튼을 오른쪽으로 밀던 역할은 margin-left:auto 로 대신한다. */
+      '#aw-more{margin-left:auto}',
+      '.aw-btn{cursor:pointer;border:none;font-weight:800;font-size:12.5px;padding:9px 15px;border-radius:10px;line-height:1}',
       '#aw-more{background:rgba(255,255,255,.2);color:#fff}#aw-more:hover{background:rgba(255,255,255,.3)}',
-      '#aw-start{background:#fff;color:#1d4ed8;box-shadow:0 6px 16px -6px rgba(0,0,0,.5)}#aw-start:hover{background:#f1f5ff}',
-      '@media(max-width:540px){#aw-hello{font-size:24px}#aw-hero{padding:6px 20px 2px}',
-      '  #aw-foot{padding:12px 16px 18px}#aw-again{width:100%;margin:0 0 4px}.aw-btn{flex:1}}'
+      '#aw-start{background:#fff;color:#1d4ed8;box-shadow:0 5px 12px -5px rgba(0,0,0,.5)}#aw-start:hover{background:#f1f5ff}',
+      '@media(max-width:540px){#aw-overlay{padding:10px}#aw-hello{font-size:19px}#aw-hero{padding:4px 14px 2px}',
+      /* 손가락 과녁은 44px 이상 — padding 만 키우면 글자 크기에 따라 오락가락하므로 min-height 로 못 박는다 */
+      '  #aw-foot{padding:10px 12px 13px}#aw-more{margin-left:0}',
+      '  .aw-btn{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center}}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -135,7 +156,6 @@
       '  </div>',
       '  <div id="aw-dots"></div>',
       '  <div id="aw-foot">',
-      '    <label id="aw-again"><input type="checkbox" id="aw-again-cb"><span data-ko="다시 보지 않기" data-en="Don\'t show again">다시 보지 않기</span></label>',
       '    <button class="aw-btn" id="aw-more" type="button" data-ko="📖 전체 사용법" data-en="📖 Full guide">📖 전체 사용법</button>',
       '    <button class="aw-btn" id="aw-start" type="button" data-ko="시작하기" data-en="Get started">시작하기</button>',
       '  </div>',
@@ -164,9 +184,6 @@
     root.querySelector('#aw-start').addEventListener('click', close);
     root.querySelector('#aw-detail').addEventListener('click', openDetail);
     root.querySelector('#aw-more').addEventListener('click', openDetail);
-    root.querySelector('#aw-again-cb').addEventListener('change', function () {
-      try { localStorage.setItem(HIDE_KEY, this.checked ? '1' : '0'); } catch (e) {}
-    });
     // 배경 클릭으로 닫기
     root.addEventListener('click', function (e) { if (e.target === root) close(); });
     // 키보드
@@ -219,12 +236,13 @@
     if (L() === 'en') {
       root.querySelectorAll('[data-en]').forEach(function (el) { var t = el.getAttribute('data-en'); if (t != null) el.textContent = t; });
     }
-    try { var cb = root.querySelector('#aw-again-cb'); if (cb) cb.checked = false; } catch (e) {}
   }
   function close() {
     if (!root) return;
     root.classList.remove('aw-on');
     document.documentElement.style.overflow = '';
+    // 닫았다는 사실을 기기에 남긴다 — 다음에 새 탭으로 열어도 다시 뜨지 않는다
+    try { localStorage.setItem(DONE_KEY, '1'); } catch (e) { /* 시크릿 모드 등 — 세션 기억만으로 둔다 */ }
   }
   function openDetail() {
     close();
@@ -237,10 +255,12 @@
 
   // ── 최초 접속 자동 표시 ──
   function maybeAutoShow() {
-    var hide = false, seen = false;
+    var hide = false, seen = false, done = false;
+    // HIDE_KEY 는 옛 「다시 보지 않기」 체크박스가 남긴 값 — 이미 끈 사람을 다시 괴롭히지 않는다
     try { hide = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) {}
+    try { done = localStorage.getItem(DONE_KEY) === '1'; } catch (e) {}
     try { seen = sessionStorage.getItem(SEEN_KEY) === '1'; } catch (e) {}
-    if (hide || seen) return;
+    if (hide || done || seen) return;
     try { sessionStorage.setItem(SEEN_KEY, '1'); } catch (e) {}
     // 다른 인트로/팝업과 겹치지 않게 살짝 지연
     setTimeout(open, 900);
