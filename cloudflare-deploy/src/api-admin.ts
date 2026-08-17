@@ -17,7 +17,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
+import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
@@ -2403,18 +2403,42 @@ export async function handleAdminApi(
         if (!_srActor.name) return json({ ok: true, pending_count: 0, rows: [] });
         teacher = _srActor.name;
       }
+      /* 🔒 (2026-08-17 사장님) 지사·대리점도 연기·변경 요청을 처리한다 —
+           «학부모·학생도 하고 학원장님도 한다» 는 확인을 받고 화면을 열었다.
+         그런데 이 목록에는 **스코프 필터가 없었다.** 관리자면 전부 돌려줬으므로,
+         화면만 켰다면 강남점 원장님이 서초점·부산지사 요청까지 보게 된다(학생 이름 포함).
+         그래서 화면보다 **여기를 먼저** 고친다.
+
+         잇는 길 — 요청 → class_schedules.user_id → students_erp → shop_name/franchise.
+         schedule_change_requests 에는 지사·대리점 칸이 아예 없어서 이 경로뿐이다.
+
+         ⚠️ **막는 쪽으로 실패한다(fail-closed).** schedule_id 가 비었거나 그 수업이
+            students_erp 로 이어지지 않는 요청은 지사·대리점에게 **안 보인다.**
+            학생 이름으로 맞추는 방법도 있지만, 동명이인이면 다른 대리점 학생이 새어 나간다 —
+            덜 보이는 쪽이 잘못 보이는 쪽보다 낫다. 본사(hq)는 예전처럼 전부 본다.
+         ⚠️ hq · none(내부직원) 은 cond 가 빈 문자열이라 **동작이 하나도 안 바뀐다.** */
+      const _srScope = await getScope(env as any, request);
+      const _srC = scopeStudentCond(_srScope);
+      const _srScopeCond = _srC.cond
+        ? `schedule_id IN (SELECT id FROM class_schedules WHERE user_id IN (SELECT user_id FROM students_erp WHERE ${_srC.cond}))`
+        : '';
+
       const conds: string[] = []; const binds: any[] = [];
       if (status && status !== 'all') { conds.push('status = ?'); binds.push(status); }
       if (teacher) { conds.push('teacher_name = ?'); binds.push(teacher); }
+      if (_srScopeCond) { conds.push(_srScopeCond); binds.push(..._srC.binds); }
       const where = conds.length ? ('WHERE ' + conds.join(' AND ')) : '';
       const rs: any = await env.DB.prepare(
         `SELECT * FROM schedule_change_requests ${where} ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`
       ).bind(...binds, limit).all().catch(() => ({ results: [] }));
-      // pending 카운트: 강사는 본인 것만, 관리자는 전체
-      const pending: any = _srActor.isTeacher
-        ? await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending' AND teacher_name = ?`).bind(teacher).first().catch(() => null)
-        : await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending'`).first().catch(() => null);
-      return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [] });
+      // pending 카운트: 강사는 본인 것만, 지사·대리점은 자기 학생만, 본사는 전체
+      const _pendConds: string[] = ["status='pending'"]; const _pendBinds: any[] = [];
+      if (_srActor.isTeacher) { _pendConds.push('teacher_name = ?'); _pendBinds.push(teacher); }
+      else if (_srScopeCond) { _pendConds.push(_srScopeCond); _pendBinds.push(..._srC.binds); }
+      const pending: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM schedule_change_requests WHERE ${_pendConds.join(' AND ')}`
+      ).bind(..._pendBinds).first().catch(() => null);
+      return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [], scope: _srScope.type });
     }
 
     // ── POST /api/admin/schedule-requests/decide — 승인/거절 (관리자) ──
@@ -2430,6 +2454,22 @@ export async function handleAdminApi(
       if (!id || !action) return json({ ok: false, error: 'id_and_action_required' }, 400);
       const row: any = await env.DB.prepare(`SELECT * FROM schedule_change_requests WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
       if (!row) return json({ ok: false, error: 'request_not_found' }, 404);
+      /* 🔒 (2026-08-17) 남의 지사·대리점 요청은 승인·거절할 수 없다.
+           목록만 걸러 두면 **id 만 알면 남의 요청도 승인**된다(id 는 1,2,3… 순번이다).
+           목록과 «같은 조건» 으로 다시 확인한다 — 한쪽만 막으면 어긋난다
+           (CLAUDE.md 의 «짝이 되는 API 끼리 판정이 어긋나지 않았는지» 함정). */
+      const _sdScope = await getScope(env as any, request);
+      const _sdC = scopeStudentCond(_sdScope);
+      if (_sdC.cond) {
+        const _own: any = await env.DB.prepare(
+          `SELECT 1 AS ok FROM schedule_change_requests
+            WHERE id = ?
+              AND schedule_id IN (SELECT id FROM class_schedules WHERE user_id IN (SELECT user_id FROM students_erp WHERE ${_sdC.cond}))
+            LIMIT 1`
+        ).bind(id, ..._sdC.binds).first().catch(() => null);
+        if (!_own) return json({ ok: false, error: 'forbidden_scope', scope: _sdScope.type,
+          message: '이 요청은 다른 지사·대리점 것입니다.' }, 403);
+      }
       if (row.status !== 'pending') return json({ ok: false, error: 'already_decided', status: row.status }, 409);
 
       const now = Date.now();

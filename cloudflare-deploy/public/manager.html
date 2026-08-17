@@ -313,6 +313,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 🗓 수업 연기 · 변경 요청 — #hqCards 밖으로 옮겼다 (2026-08-17 사장님)
+       «학부모·학생도 하고 학원장님도 한다» 는 확인을 받았다. 그동안 본사 전용 칸 안에 있어
+       지사·대리점 학원장은 **볼 수도 처리할 수도 없었다.**
+       ⚠️ 화면만 옮긴 게 아니다 — 서버(api-admin.ts)가 자기 학생 요청만 돌려주도록 먼저 고쳤고,
+          승인·거절도 같은 조건으로 다시 확인한다. 그 격리를 빼면 남의 대리점 학생이 보인다.
+       ⚠️ 본사(hq)는 예전처럼 전부 본다 — 달라진 것은 «지사·대리점에게도 보인다» 뿐이다. -->
+<details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
+      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
+      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        🏢 본사 매니저 전용 (Maimai · Melca · Karl)
          세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
@@ -341,10 +352,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
-    <details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
-      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
-      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
+    
 
     <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
       <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
