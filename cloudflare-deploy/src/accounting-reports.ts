@@ -1264,9 +1264,11 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
                COALESCE(
                  -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
                  (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id),
-                 -- ② 학생 원부의 지사 라벨
+                 -- ② 캐피타운 대리점 로그인 아이디 → 그 대리점이 속한 지사
+                 (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1),
+                 -- ③ 학생 원부의 지사 라벨
                  (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
-                 -- ③ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
+                 -- ④ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
                  (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
                ) AS fid
           FROM student_payments p
@@ -1329,6 +1331,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
         LEFT JOIN students_erp st ON st.user_id = p.user_id
        WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
          AND (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id) IS NULL
+         AND (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1) IS NULL
          AND (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1) IS NULL
          AND (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1) IS NULL
        GROUP BY p.user_id, reason
@@ -1394,6 +1397,17 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   }
   return json(data);
 }
+
+/* 🏪 캐피타운 대리점 계정 → 그 대리점이 속한 지사 (2026-08-17).
+   학원(대리점)이 원생 수강료를 자기 계정으로 한꺼번에 결제하면, 그 아이디는 학생이
+   아니라서 students_erp 에 없다 → 소속을 몰라 매출이 통째로 «배정 불가» 였다.
+   그런데 capitown_agencies 에 **login_id 와 branch(지사) 가 이미 들어 있었다.**
+   추측할 필요 없이 그대로 이으면 된다(2026-08-17 사장님이 ubckt00·lnct00 을
+   «대리점 계정» 이라고 확인해 주면서 찾음).
+   ⚠️ branch 이름이 여러 지사와 겹치면 배정하지 않는다 — 여기서도 «모르면 안 넣는다». */
+const CAPITOWN_FID = `(SELECT MIN(f.id) FROM franchises f
+        WHERE f.name = ca.branch
+          AND (SELECT COUNT(*) FROM franchises f2 WHERE f2.name = ca.branch) = 1)`;
 
 /** 0 나눗셈을 피한 퍼센트 문자열 */
 function data0Pct(part: number, whole: number): string {
