@@ -107,8 +107,31 @@ for (const [key, users] of [...refs.entries()].sort()) {
   }
 }
 
+/* 🔀 (2026-08-17) 원장은 **주소 순으로 정렬해서** 저장한다.
+   왜 —
+     JSON.stringify 는 «넣은 순서» 를 그대로 유지한다. 그래서 새 항목이 누가 무엇을
+     올리든 **언제나 파일의 마지막 줄에** 붙었다. 병렬 PR 이 둘 있으면 git 이 보기에는
+     «둘이 같은 마지막 줄을 서로 다르게 고쳤다» 가 되어, 내용은 아무 관계도 없는
+     css 항목과 js 항목이 자리만 겹쳐서 충돌했다.
+     2026-08-17 에 PR 하나 병합하는 동안 이 파일 때문에 **네 번** 충돌했다
+     (/js/adm-core.js v94~97 대 /css/admin-inline-c.css v23~24).
+   정렬하면 —
+     /css/… 와 /js/… 가 파일에서 100행 넘게 떨어진 자리에 각각 들어가서
+     git 의 평범한 3-way 병합이 그냥 성공한다(실측: 충돌 0). 내 컴퓨터·GitHub·CI
+     어디서나 똑같이 동작한다.
+   ⛔ .gitattributes 의 merge=union 으로 풀지 말 것.
+     union 은 양쪽 줄을 «글자 그대로» 이어 붙이는데 마지막 줄에는 쉼표가 없어서
+     **깨진 JSON** 이 된다. 게다가 git 이 충돌이라고 말하지 않고 «병합 성공» 으로
+     조용히 넘어가므로 그대로 커밋된다(실측으로 확인 — 구조상 매번 반드시 그렇다).
+   ⚠️ 순서는 의미를 갖지 않는다 — 원장은 «주소로 찾아보는 목록» 이다.
+      정렬 전후로 항목 663개·해시 변경 0건을 확인했다.
+   ⚠️ 여전히 충돌하는 경우가 하나 있고, 그건 **없애면 안 되는** 충돌이다 —
+      두 사람이 «같은 파일» 의 버전을 동시에 올리면 두 줄이 나란히 붙어 충돌한다.
+      그때는 정말로 사람이 봐야 한다(자동으로 합치면 한쪽 수정이 조용히 묻힌다). */
 if (added > 0 || UPDATE) {
-  writeFileSync(MANIFEST, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  const sorted = {};
+  for (const k of Object.keys(manifest).sort()) sorted[k] = manifest[k];
+  writeFileSync(MANIFEST, JSON.stringify(sorted, null, 2) + '\n', 'utf8');
 }
 
 console.log('\n════════ 정적자산 버전 가드 (?v= 누락 방지) ════════');

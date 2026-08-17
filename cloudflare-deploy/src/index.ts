@@ -5169,6 +5169,13 @@ function isAgencyAllowedApi(path: string): boolean {
     // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
     //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
     '/api/admin/menu-hit',
+    /* 🗓 수업 연기·변경 요청 (2026-08-17 사장님) — «학부모·학생도 하고 학원장님도 한다».
+         그동안 이 경로가 막혀 있어 지사·대리점은 매니저 화면에서 처리할 수 없었다.
+       ⚠️ 여는 조건이 하나 있다 — **핸들러가 스코프로 격리한 뒤에만** 연다.
+          api-admin.ts 의 GET 목록은 class_schedules → students_erp 로 자기 학생 요청만 돌려주고,
+          POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
+          이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
+    '/api/admin/schedule-requests',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
