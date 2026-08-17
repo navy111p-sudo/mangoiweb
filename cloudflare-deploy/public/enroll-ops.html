@@ -137,12 +137,22 @@ async function viewRates(){
   var j = await api('/api/pay/enroll/admin/teacher-rates');
   var ts = (j.teachers||[]);
   $('body').innerHTML =
-    '<div class="card"><h2>🧑‍🏫 강사 등급 배율 <span class="pill warn">정책 미확정</span></h2>'
-    + '<div class="hint" style="margin-bottom:8px">인기 강사에게 수업료를 더 받는 기능입니다(부장님 요청 ③). <b>정책이 확정될 때까지 전원 100%로 두세요.</b> 변경 시 <b>새 결제부터</b> 적용되고 기존 수업에는 영향이 없습니다.</div>'
-    + '<table><thead><tr><th>강사</th><th class="num">배율(%)</th><th></th><th>메모</th></tr></thead><tbody>'
+    '<div class="card"><h2>🧑‍🏫 강사 등급 배율 · 긴 수업 정원</h2>'
+    + '<div class="hint" style="margin-bottom:8px">인기 강사에게 수업료를 더 받는 기능입니다(부장님 요청 ③). <b>배율 정책이 확정될 때까지 전원 100%로 두세요.</b> 변경 시 <b>새 결제부터</b> 적용되고 기존 수업에는 영향이 없습니다.</div>'
+    /* 🪑 (2026-08-17) 긴 수업 하루 정원 — 강사가 적은데 30·40분을 무제한으로 열면
+       한 강사의 하루가 긴 수업으로 차서 20분 학생 자리가 사라진다. 0 = 무제한(기존 동작). */
+    + '<div class="hint" style="margin-bottom:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px 10px">'
+    + '<b>🪑 긴 수업 정원</b> — 그 강사가 <b>하루에 받을 수 있는 «20분 초과» 수업(30·40분) 건수</b>입니다. '
+    + '요일마다 따로 셉니다. <b>0 = 무제한</b>(지금까지의 동작). '
+    + '정원이 차면 그 강사는 학생 예약 화면의 강사 목록에서 <b>빠지고</b>, 관리자 등록에서는 확인창이 뜹니다. '
+    + '⚠️ 30분만 세면 40분으로 그대로 빠져나가므로 <b>둘을 합쳐</b> 셉니다.</div>'
+    + '<table><thead><tr><th>강사</th><th class="num">배율(%)</th><th class="num">긴 수업 정원(하루)</th><th></th><th>메모</th></tr></thead><tbody>'
     + ts.map(function(t){
+        var cap = Number(t.long_class_daily_cap||0);
         return '<tr data-tid="'+esc(t.id)+'"><td><b>'+esc(t.name)+'</b></td>'
-          + '<td class="num"><input type="number" step="5" min="50" max="300" value="'+(t.rate_pct||100)+'"></td>'
+          + '<td class="num"><input class="pct" type="number" step="5" min="50" max="300" value="'+(t.rate_pct||100)+'"></td>'
+          + '<td class="num"><input class="cap" type="number" step="1" min="0" max="50" value="'+cap+'">'
+          + ' <span class="hint">'+(cap>0?('하루 '+cap+'건'):'무제한')+'</span></td>'
           + '<td><button class="go">저장</button> <span class="st"></span></td>'
           + '<td class="hint">'+esc(t.note||'')+'</td></tr>';
       }).join('')
@@ -150,9 +160,11 @@ async function viewRates(){
   $('body').addEventListener('click', async function(ev){
     var b = ev.target.closest('button.go'); if (!b) return;
     var tr = b.closest('tr'), tid = tr.getAttribute('data-tid');
-    var pct = Number(tr.querySelector('input').value||100);
-    var r = await api('/api/pay/enroll/admin/teacher-rates', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_id: tid, rate_pct: pct }) });
+    var pct = Number(tr.querySelector('input.pct').value||100);
+    var cap = Number(tr.querySelector('input.cap').value||0);
+    var r = await api('/api/pay/enroll/admin/teacher-rates', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ teacher_id: tid, rate_pct: pct, long_class_daily_cap: cap }) });
     tr.querySelector('.st').innerHTML = r.ok ? '<span class="ok">✅</span>' : '<span class="no">'+esc(r.message||'실패')+'</span>';
+    if (r.ok) { var h = tr.querySelector('td.num .hint'); if (h) h.textContent = cap>0 ? ('하루 '+cap+'건') : '무제한'; }
   });
 }
 
