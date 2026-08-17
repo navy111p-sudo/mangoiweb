@@ -194,29 +194,50 @@ check('옛 사이드바에도 중복 항목이 없다 (ia6 가 못 뜨는 날 �
 /* 🗺 (2026-08-15 사장님) 「메뉴 지도 아무리 눌러도 안 보여, 조직도와 페이지가」
    옛 동작(showAll)은 감춘 카드를 다시 보이게 할 뿐이라 **화면에 아무 변화가 없었다** —
    지금 보는 자리는 그대로고 카드는 화면 «아래»에 늘어날 뿐이다. 그래서 진짜 지도를 연다.
-   그리고 「무엇이 들어 있는지 음성이 안 나온다」 → 읽어 주고 «다 읽은 뒤에» 연다(먼저 옮기면 소리가 끊긴다). */
-console.log('\n[ ⑪ 「메뉴 지도」는 진짜 지도를 연다 + 내용을 읽어 준다 (2026-08-15) ]');
+   그리고 「무엇이 들어 있는지 음성이 안 나온다」 → 안내 음성도 넣었다.
+   🐢 (2026-08-17 사장님) 「메뉴 지도 누르면 지도가 빨리 나오지 않아」
+     그 음성을 «다 읽고 나서 이동» 으로 붙인 것이 원인이었다. 안내문이 95자라 구글 TTS 로
+     12~14초가 되고, adm-r15 의 9초 안전장치가 먼저 터져 **누르면 9초 뒤에야** 이동이 시작됐다.
+     그 9초 동안 화면에 아무 표시도 없어 «먹통» 으로 보였다.
+     → 순서를 뒤집었다. 지도는 곧바로 열고, 안내는 «도착한 지도 페이지» 가 읽는다.
+   ⛔ 아래 검사는 그 되돌림(=9초 먹통)을 막는다. openMenuMap 이 다시 낭독을 기다리면 FAIL 이다. */
+console.log('\n[ ⑪ 「메뉴 지도」는 곧바로 열리고, 안내는 도착한 쪽이 읽는다 (2026-08-15 · 08-17 즉시 이동) ]');
 {
   const r15 = rd('../cloudflare-deploy/public/js/adm-r15.js');
+  const smap = rd('../cloudflare-deploy/public/admin/site-structure-map.html');
+  const openBody = (ia6.match(/function openMenuMap\(\)\s*\{[\s\S]*?\n  \}/) || [''])[0];
   check('🔴 눌러도 티가 안 나던 showAll 이 아니라 지도 페이지로 간다',
     /MAP_HREF = '\/admin\/site-structure-map\.html'/.test(ia6) &&
     /function openMenuMap/.test(ia6) && !/'__all'[\s\S]{0,120}?showAll\(\)/.test(ia6));
   check('그 지도 문서가 실제로 있다',
     existsSync(resolve(__dir, '../cloudflare-deploy/public/admin/site-structure-map.html')));
-  check('무엇이 들어 있는지 읽어 준다 (한국어·영어 둘 다)',
-    /function menuMapSpeech/.test(ia6) && /손님, 학생, 부모님, 선생님, 운영자/.test(ia6) &&
-    /guests, students, parents, teachers and operators/.test(ia6));
-  check('🔴 다 읽은 «뒤에» 연다 — 먼저 옮기면 그 순간 소리가 끊긴다',
-    /admVoiceSay\(menuMapSpeech\(\), go\)/.test(ia6));
-  check('🔴 음성이 꺼져 있거나 소리가 안 나도 반드시 열린다 (안 그러면 또 «눌러도 안 열린다»)',
-    /if \(!speaking\) go\(\);/.test(ia6));
-  check('adm-r15: 다 읽으면 알려 주는 창구를 연다 (admVoiceSay)',
+  check('🐢 누르면 곧바로 연다 — 낭독이 끝날 때까지 기다리지 않는다 (9초 먹통 재발 방지)',
+    !!openBody && /location\.href = mapUrl\(\)/.test(openBody) && !/admVoiceSay/.test(openBody));
+  check('🔴 음성이 꺼져 있든 켜져 있든, 소리가 안 나도 반드시 열린다 (조건 없이 이동)',
+    !!openBody && !/if \(!speaking\)/.test(openBody) && !/onDone|go\(\)/.test(openBody));
+  check('지도 주소에 ?speak=1 을 실어 보낸다 (도착한 쪽이 «읽어도 되는 이동» 임을 아는 표시)',
+    /'\?here=' \+ encodeURIComponent\(location\.pathname\) \+ '&speak=1'/.test(ia6));
+  check('무엇이 들어 있는지 읽어 준다 — 문장은 도착한 지도 페이지가 갖는다 (한국어·영어 둘 다)',
+    /손님, 학생, 부모님, 선생님, 운영자/.test(smap) &&
+    /guests, students, parents, teachers and operators/.test(smap) &&
+    !/menuMapSpeech/.test(ia6));
+  check('🔴 지도 페이지는 speak=1 일 때만 읽는다 (링크·북마크로 그냥 열어 본 사람에게 소리가 나면 안 된다)',
+    /\[\?&\]speak=1/.test(smap) && /\.test\(location\.search\)\) return;/.test(smap));
+  check('🔴 지도 페이지도 «같은» 음성 스위치를 본다 (ph85VoiceOn — 별도 설정을 만들면 안 된다)',
+    /ph85VoiceOn/.test(smap) && /if \(!voiceOn\(\)\) return;/.test(smap));
+  check('자동재생이 막히면 조용히 삼키지 않고 「안내 듣기」 버튼을 띄운다',
+    /offerButton/.test(smap) && /안내 듣기/.test(smap));
+  check('🪤 재생은 fetch→blob→play (audio.src 직접 스트리밍은 일부 환경서 무음 stall)',
+    /createObjectURL/.test(smap) && /api\/tts-free/.test(smap));
+  check('다 읽었으면 주소에서 speak 를 지운다 (새로고침마다 다시 읽지 않게)',
+    /history\.replaceState/.test(smap));
+  check('adm-r15: 다 읽으면 알려 주는 창구는 그대로 열려 있다 (admVoiceSay 공용 API)',
     /window\.admVoiceSay = function\(text, onDone\)/.test(r15));
   check('🔴 onDone 은 어떤 경우에도 한 번은 불린다 (안전장치 타이머)',
     /if \(onDone\) setTimeout\(done, \d{4}\)/.test(r15) && /if \(!text \|\| !isOn\(\)\)\{ done\(\); return false; \}/.test(r15));
   check('오디오·브라우저음성 어느 쪽으로 나가도 끝을 잡는다',
     /a\.onended = function\(\)\{[^}]*done\(\)/.test(r15) && /u\.onend = onDone; u\.onerror = onDone;/.test(r15));
-  check('음성 안내가 「메뉴 지도」를 두 번 읽지 않는다 (ia6 가 읽으므로 r15 는 건너뛴다)',
+  check('음성 안내가 「메뉴 지도」를 두 번 읽지 않는다 (도착한 지도 페이지가 읽으므로 r15 는 건너뛴다)',
     /data-ia6-head'\) === '__all'\) return;/.test(r15));
   const mv = html.match(/adm-r15\.js\?v=(\d+)/);
   check(`admin.html 의 adm-r15.js 버전이 4 이상 (?v=${mv ? mv[1] : '없음'})`, !!mv && Number(mv[1]) >= 4);

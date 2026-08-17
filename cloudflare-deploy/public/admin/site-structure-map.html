@@ -1064,15 +1064,102 @@ footer b{color:var(--ink2);font-weight:700}
   });
 })();
 
-/* ← 뒤로 가기 — 새 탭으로 열린 경우엔 히스토리가 없다. 그때는 관리자 홈으로 보낸다
-   (아무 반응 없는 버튼이 되면 «눌러도 안 된다» 신고가 된다). */
+/* ══ 🔊 도착해서 읽어 준다 — 「메뉴 지도」 안내 음성 ═══════════════════════════════
+   [왜 «도착한 쪽» 이 읽나] 2026-08-15~16 에는 관리자 사이드바(adm-ia6.js)가 안내를
+     **다 읽고 나서** 이 페이지로 옮겨 왔다. 말하다가 페이지를 옮기면 소리가 끊기니까.
+     그런데 안내문이 95자라 구글 TTS 로 12~14초가 되고, adm-r15 의 9초 안전장치가 먼저 터져
+     «누르면 9초 뒤에야 지도가 뜨는» 화면이 됐다(2026-08-17 사장님 「지도가 빨리 나오지 않아」).
+     → 순서를 뒤집었다. 지도는 즉시 뜨고, 읽는 일은 도착한 이 페이지가 맡는다.
+   ⚠️ ?speak=1 이 있을 때만 읽는다 — 링크·북마크로 그냥 열어 본 사람에게 갑자기 소리가 나면 안 된다.
+   ⚠️ 켜기/끄기는 관리자 화면과 «같은 스위치» 를 본다(localStorage ph85VoiceOn — 사이드바 도크의
+      「음성 켜짐/꺼짐」). 여기에 별도 설정을 만들지 말 것. 도크에서 끈 사람에게 여기서만 소리가
+      나면 그게 사고다.
+   ⚠️ 새 페이지는 «사람이 누른 직후» 가 아니라서 브라우저가 자동재생을 막을 수 있다. 막히면 조용히
+      삼키지 않고 「🔊 안내 듣기」 버튼을 띄운다 — 그 버튼을 누르면 제스처가 생겨 확실히 소리난다.
+   ⚠️ 재생은 fetch→blob→play 로 한다. audio.src 에 URL 을 직접 물리면 SW/Range 상호작용으로
+      일부 환경에서 무음 stall 이 된다(adm-r15 에서 이미 밟고 blob 으로 회피한 함정).
+   ⚠️ 다 읽었으면 주소에서 speak 를 지운다 — 새로고침·뒤로가기 때마다 다시 읽으면 시끄럽다.
+      here 를 읽는 위쪽 블록은 이 스크립트보다 먼저 끝나므로 지워도 「지금 여기」 표시는 안 깨진다. */
 (function(){
-  var b = document.getElementById('tn-back');
-  if (!b) return;
-  b.addEventListener('click', function(){
-    if (history.length > 1) history.back();
-    else location.href = '/admin.html';
-  });
+  if (!/[?&]speak=1(?:&|$)/.test(location.search)) return;
+
+  function isEn(){ try { return localStorage.getItem('adminLang') === 'en'; } catch(e){ return false; } }
+  function voiceOn(){ try { return localStorage.getItem('ph85VoiceOn') !== '0'; } catch(e){ return true; } }
+
+  /* 주소 청소는 음성이 꺼져 있어도 한다 — 남겨 두면 다음에 켤 때 엉뚱한 시점에 읽는다. */
+  function dropSpeakParam(){
+    try {
+      // 지운 자리에 «?» 나 «&&» 가 남지 않게: 뒤에 다른 값이 있으면 구분자를 살리고, 없으면 통째로 뗀다.
+      var s = location.search.replace(/([?&])speak=1(&|$)/, function(m, sep, tail){ return tail ? sep : ''; });
+      if (s === '?') s = '';
+      history.replaceState(null, '', location.pathname + s + location.hash);
+    } catch(e){ /* 무시 — 못 지워도 소리만 한 번 더 나는 정도다 */ }
+  }
+  dropSpeakParam();
+
+  if (!voiceOn()) return;
+
+  /* 끝의 「지금 지도를 엽니다」 는 뺐다 — 지도는 이미 열려 있다. */
+  var TEXT = isEn()
+    ? 'Menu map. A picture of every Mangoi screen, grouped by who uses it: guests, students, parents, teachers and operators.'
+    : '메뉴 지도입니다. 망고아이의 모든 화면을 쓰는 사람에 따라 손님, 학생, 부모님, 선생님, 운영자 다섯 갈래로 나눠 그린 그림입니다.';
+
+  var audioEl = null;
+  function ensureAudio(){
+    if (!audioEl){ try { audioEl = new Audio(); audioEl.preload = 'auto'; } catch(e){ audioEl = null; } }
+    return audioEl;
+  }
+
+  var _u = null;   // 발화 중 GC 로 utterance 가 수거돼 소리가 끊기는 브라우저 버그 방지(참조 유지)
+  function browserSpeak(){
+    try {
+      if (!('speechSynthesis' in window)) return;
+      var u = new SpeechSynthesisUtterance(TEXT);
+      u.lang = isEn() ? 'en-US' : 'ko-KR';
+      u.rate = 1.05;
+      _u = u;
+      window.speechSynthesis.speak(u);
+    } catch(e){ /* 무시 */ }
+  }
+
+  var btn = null;
+  function offerButton(){
+    if (btn || !document.body) return;
+    btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = isEn() ? '🔊 Play guide' : '🔊 안내 듣기';
+    btn.setAttribute('style',
+      'position:fixed;left:16px;bottom:16px;z-index:60;padding:10px 15px;cursor:pointer;' +
+      'border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);' +
+      'font:600 14px/1.2 inherit;box-shadow:var(--shadow)');
+    btn.addEventListener('click', function(){
+      try { btn.remove(); } catch(e){ /* 무시 */ }
+      btn = null;
+      play(true);          // 이제 제스처가 있다 — 자동재생 차단에 걸리지 않는다
+    });
+    document.body.appendChild(btn);
+  }
+
+  function play(gesture){
+    var a = ensureAudio();
+    if (!a){ browserSpeak(); return; }
+    fetch('/api/tts-free?q=' + encodeURIComponent(TEXT) + '&lang=' + (isEn() ? 'en' : 'ko'))
+      .then(function(r){ if (!r.ok) throw new Error('tts ' + r.status); return r.blob(); })
+      .then(function(b){
+        if (!b || b.size < 200) throw new Error('empty');
+        try { if (a.src && a.src.indexOf('blob:') === 0) URL.revokeObjectURL(a.src); } catch(e){ /* 무시 */ }
+        a.src = URL.createObjectURL(b);
+        var p = a.play();
+        if (p && p['catch']) p['catch'](function(){
+          /* 자동재생 차단 — 사람이 누른 직후가 아니라서 막힌 것이다. 버튼으로 넘긴다.
+             버튼을 누른 재생(gesture)이 또 막히는 일은 없지만, 만약이면 브라우저 음성으로. */
+          if (gesture) browserSpeak(); else offerButton();
+        });
+      })
+      ['catch'](function(){ browserSpeak(); });   // 서버·네트워크 실패 → 브라우저 내장 음성
+  }
+
+  play(false);
 })();
 </script>
 </body>
