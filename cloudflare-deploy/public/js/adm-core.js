@@ -10345,7 +10345,7 @@ window.rebuildGlobalSearchIndex = function() {
       <summary style="cursor:pointer;padding:9px 14px;font-size:12.5px;font-weight:600;color:#374151">${esc(title)}</summary>
       <div style="padding:0 14px 12px;background:#fff">
         <table style="font-size:12.5px">
-          <thead><tr><th>일자</th><th>${esc(o.nameLabel || '내용')}</th><th class="num">금액</th></tr></thead>
+          <thead><tr><th>${esc(o.dateLabel || '일자')}</th><th>${esc(o.nameLabel || '내용')}</th><th class="num">금액</th></tr></thead>
           <tbody>${rows.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(r.name != null ? r.name : r.remark)}</td><td class="num">${fmtKRW(r.amount)}</td></tr>`).join('')}</tbody>
         </table>
         ${o.note ? `<p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">${esc(o.note)}</p>` : ''}
@@ -10611,7 +10611,11 @@ window.rebuildGlobalSearchIndex = function() {
         <b style="color:#92400e">⚠️ 소속을 확정하지 못한 매출이 ${fmtKRW(d.unassigned_krw)} (${d.unassigned_pct}%) 있습니다.</b><br>
         대부분은 <b>학생 원부에 없는 아이디로 들어온 결제</b>입니다 — 대리점·직원이 학생 몫을 대신 결제하면
         그 아이디가 학생 원부에 없어 어느 지사인지 알 수 없습니다. 아무 가맹점에도 넣지 않았습니다.
-      </div>` : ''}
+        <br><b>아래 아이디가 어느 지사인지 알려 주시면 그 뒤부터 자동으로 붙습니다.</b>
+      </div>
+      ${drill(`배정 못 한 결제 아이디 ${(d.unassigned_payers||[]).length}개 — 어느 지사인지 알려 주세요`,
+        (d.unassigned_payers||[]).map(u => ({ date: u.user_id, name: u.reason + ' · ' + u.pays + '건', amount: u.amount })),
+        { dateLabel: '결제 아이디', nameLabel: '사유' })}` : ''}
       <table>
         <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
         <tbody>

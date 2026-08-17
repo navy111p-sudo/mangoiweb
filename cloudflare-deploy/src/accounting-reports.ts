@@ -724,6 +724,16 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   const { startMs, endMs, label } = monthRange(period);
   const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15;
 
+  /* 🧾 대리 결제자 → 지사 지정표 (2026-08-16 신설).
+     학생이 아니라 **대리점·직원 계정이 여러 학생 몫을 한꺼번에 결제**하는 경우가 있다
+     (사장님 확인: 「장지웅1」 = 직원 대리결제). 그 아이디는 students_erp 에 없으니
+     소속을 알 수 없어 매출이 통째로 «배정 불가» 가 된다 — 2026년 누계 5,242만원.
+     여기에 «이 아이디는 이 지사» 를 한 줄 적어 두면 그 뒤부터 자동으로 붙는다.
+     ⛔ 추측해서 채우지 말 것. 사람이 확인해 준 것만 넣는다. */
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS payer_franchise_override (payer_user_id TEXT PRIMARY KEY, franchise_id INTEGER NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`);
+  } catch { /* 이미 있으면 그만 */ }
+
   /* 🔑 소속 판정은 «학생 원부의 지사 라벨» 이 1순위다 (2026-08-16).
      students_erp.franchise 는 카페24가 학생마다 직접 찍어 준 지사 이름이라
      대리점 이름을 거쳐 추론하는 것보다 훨씬 정확하다 — 실측: 학생 29,398명 중
@@ -743,13 +753,17 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
          GROUP BY name
       ),
       att AS (
-        SELECT p.id AS pay_id, p.amount_krw, st.user_id,
+        SELECT p.id AS pay_id, p.amount_krw, p.user_id,
                COALESCE(
+                 -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
+                 (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id),
+                 -- ② 학생 원부의 지사 라벨
                  (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
+                 -- ③ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
                  (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
                ) AS fid
           FROM student_payments p
-          JOIN students_erp st ON st.user_id = p.user_id
+          LEFT JOIN students_erp st ON st.user_id = p.user_id
          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
       )
       SELECT f.id AS franchise_id, f.name AS franchise_name, f.active AS active,
@@ -790,6 +804,31 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
 
   const assigned = rows.reduce((a, r) => a + r.gross_revenue, 0);
   const unassigned = Math.max(0, bookTotal - assigned);
+
+  /* 🔎 «어느 아이디 때문에 못 붙었는지» 를 이름까지 보여 준다 (2026-08-16).
+     숫자만 «미배정 539만» 이라고 하면 무엇을 해야 할지 알 수 없다. 목록이 있어야
+     사장님이 «아, 이건 어디 대리점» 하고 알려 줄 수 있고, 그러면 바로 붙는다. */
+  const unassignedPayers = await safe(async () => {
+    const r = await env.DB.prepare(`
+      WITH fmap AS (SELECT name, MIN(id) AS fid, COUNT(*) AS nf FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name),
+      cmap AS (SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
+                 FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> '' GROUP BY name)
+      SELECT p.user_id,
+             COUNT(*) AS pays, COALESCE(SUM(p.amount_krw),0) AS amount,
+             CASE WHEN st.user_id IS NULL THEN '학생 원부에 없는 아이디'
+                  WHEN COALESCE(st.franchise,'') = '' THEN '지사 라벨 없음'
+                  ELSE '지사 이름이 중복' END AS reason
+        FROM student_payments p
+        LEFT JOIN students_erp st ON st.user_id = p.user_id
+       WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
+         AND (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id) IS NULL
+         AND (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1) IS NULL
+         AND (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1) IS NULL
+       GROUP BY p.user_id, reason
+       ORDER BY amount DESC LIMIT 50
+    `).bind(startMs, endMs).all();
+    return (r.results || []) as Array<{ user_id: string; pays: number; amount: number; reason: string }>;
+  }, []);
   const totals = rows.reduce((a, r) => ({
     gross: a.gross + r.gross_revenue, fee: a.fee + r.hq_fee, net: a.net + r.net_settlement,
   }), { gross: 0, fee: 0, net: 0 });
@@ -802,6 +841,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     book_total: bookTotal,
     unassigned_krw: unassigned,
     unassigned_pct: bookTotal > 0 ? Number(((unassigned / bookTotal) * 100).toFixed(1)) : 0,
+    unassigned_payers: unassignedPayers,
     sources: {
       gross_revenue: 'actual' as FigureSource,
       hq_fee: 'estimated' as FigureSource,      // 계약서 수수료율이 시스템에 없다
@@ -827,6 +867,12 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       ['장부 총 매출', bookTotal],
       ['가맹점에 배정된 매출', assigned],
       ['배정하지 못한 매출(확인 필요)', unassigned],
+      ...(unassignedPayers.length ? [
+        [] as (string | number)[],
+        ['[배정 못 한 결제자 — 어느 지사인지 알려 주시면 바로 붙습니다]'] as (string | number)[],
+        ['결제 아이디', '건수', '금액', '사유'] as (string | number)[],
+        ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason] as (string | number)[]),
+      ] : []),
     ]);
   }
   return json(data);
