@@ -10513,6 +10513,79 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { alert('해제 실패: ' + (e.message||e)); }
   };
 
+  /* 🏪 배정 못 한 결제 아이디 → 대리점/지사 붙이기 (2026-08-17)
+     대리점이 원생 수강료를 자기 계정으로 결제하면 그 아이디는 학생 원부에 없다.
+     ① 캐피타운 대리점으로 등록(근본) ② 지사 직접 지정(즉시) — 둘 다 여기서. */
+  let _payerFr = [];
+  window.accPayerLoad = async function(){
+    const st = document.getElementById('acc-payer-state');
+    const tb = document.getElementById('acc-payer-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/payers?months=12', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _payerFr = d.franchises || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">소속을 못 붙인 결제 아이디 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b> (최근 12개월)`
+        : `<span style="color:#166534">최근 12개월 결제가 모두 소속에 붙어 있습니다.</span>`;
+      if (!(d.rows||[]).length) { tb.innerHTML = '<tr><td colspan="6" class="empty">배정 못 한 결제가 없습니다.</td></tr>'; return; }
+      const frOpts = ['<option value="">— 지사 선택 —</option>']
+        .concat(_payerFr.map(f => `<option value="${f.id}">${esc(f.name)}${f.active ? '' : ' (비활성)'}</option>`)).join('');
+      const brOpts = ['<option value="">— 지사 선택 —</option>']
+        .concat(_payerFr.map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`)).join('');
+      tb.innerHTML = d.rows.map(it => {
+        const id = esc(it.user_id).replace(/'/g,'&#39;');
+        return `<tr style="background:#fffbeb">
+          <td><b>${esc(it.user_id)}</b><div style="font-size:10.5px;color:#9ca3af">${esc(it.reason||'')} · ${it.months}개월</div></td>
+          <td style="text-align:right">${it.pays}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td><select onchange="accPayerAssign('${id}', this.value, this)" style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${frOpts}</select></td>
+          <td><input id="cap-nm-${id}" placeholder="대리점 이름" style="padding:3px 6px;font-size:12px;width:110px;border-radius:6px;border:1px solid #d1d5db">
+              <select id="cap-br-${id}" style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${brOpts}</select>
+              <button onclick="accPayerRegister('${id}')" style="padding:3px 9px;font-size:12px">등록</button></td>
+        </tr>`;
+      }).join('');
+      if ((d.assigned||[]).length) {
+        tb.innerHTML += `<tr><td colspan="6" style="padding-top:10px"><details><summary style="cursor:pointer;font-size:11.5px;color:#6b7280">이미 지정한 아이디 ${d.assigned.length}곳 보기</summary>`
+          + d.assigned.map(a => `<div style="font-size:11.5px;color:#374151">${esc(a.payer_user_id)} → <b>${esc(a.franchise_name)}</b>
+              <button onclick="accPayerAssign('${esc(a.payer_user_id).replace(/'/g,'&#39;')}', '', null)" style="padding:1px 7px;font-size:11px;margin-left:6px">해제</button></div>`).join('')
+          + '</details></td></tr>';
+      }
+    } catch(e) { tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accPayerAssign = async function(payer, fid, sel){
+    if (sel && !fid) return;
+    if (!fid && !confirm(`${payer} 의 지사 지정을 해제할까요?`)) return;
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/payers?payer=' + encodeURIComponent(payer) + '&franchise_id=' + encodeURIComponent(fid || 0),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      accPayerLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
+  window.accPayerRegister = async function(payer){
+    const nm = (document.getElementById('cap-nm-' + payer)||{}).value || '';
+    const br = (document.getElementById('cap-br-' + payer)||{}).value || '';
+    if (!nm.trim()) { alert('대리점 이름을 적어 주세요.'); return; }
+    if (!br) { alert('소속 지사를 골라 주세요.'); return; }
+    if (!confirm(`「${nm.trim()}」 을(를) ${br} 소속 캐피타운 대리점으로 등록할까요?\n\n로그인 아이디: ${payer}\n등록하면 이 아이디의 결제가 전부 ${br} 매출로 잡힙니다.`)) return;
+    try {
+      const qs = new URLSearchParams({ name: nm.trim(), branch: br, login_id: payer });
+      const r = await fetch('/api/admin/capitown/agencies?' + qs.toString(), { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || d.error || '등록 실패');
+      alert(d.message ? d.message : `등록했습니다 (${d.action === 'created' ? '신규' : '수정'}).`);
+      accPayerLoad();
+    } catch(e) { alert('등록 실패: ' + (e.message||e)); }
+  };
+
   /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
      지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
      그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
