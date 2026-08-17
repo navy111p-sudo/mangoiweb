@@ -4549,6 +4549,8 @@ window.mgIsSlowNet = function(){
         <button onclick="mgDrawerClose();location.href='/ai-friend.html';" data-ko="🤖 AI 친구 대화" data-en="🤖 AI Friend Chat">🤖 AI 친구 대화</button>
         <button onclick="mgDrawerClose();location.href='/ai-write.html';" data-ko="✍️ AI 글쓰기" data-en="✍️ AI Writing">✍️ AI 글쓰기</button>
         <button onclick="mgDrawerClose();location.href='/review-quiz.html';" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz">🧠 복습퀴즈</button>
+        <!-- 🇨🇳 2026-08-17 — 중국어 복습퀴즈. 바로 위 한국어판 옆자리. -->
+        <button onclick="mgDrawerClose();location.href='/review-quiz-cn.html';" data-ko="🇨🇳 중국어 복습퀴즈" data-en="🇨🇳 Chinese Review Quiz">🇨🇳 중국어 복습퀴즈</button>
         <button onclick="mgDrawerClose();location.href='/micro-quiz.html';" data-ko="⚡ AI 단어 퀴즈" data-en="⚡ AI Vocab Quiz">⚡ AI 단어 퀴즈</button>
         <button class="mg-hl mg-s2" onclick="mgDrawerClose();location.href='/student-games.html';" data-ko="🎮 학생게임" data-en="🎮 Student Game">🎮 학생게임</button>
       </div>
@@ -5982,6 +5984,9 @@ window.mgIsSlowNet = function(){
         <button class="ai-quick-btn" data-go="lesson-change" data-ko="📅 연기/변경" data-en="📅 Postpone/Change">📅 연기/변경</button>
         <button class="ai-quick-btn" data-go="inquiry" data-ko="💬 카카오 상담" data-en="💬 KakaoTalk Chat">💬 카카오 상담</button>
         <button class="ai-quick-btn" data-go="review-quiz" data-ko="🧠 복습퀴즈" data-en="🧠 Review Quiz" onclick="event.preventDefault();location.href='/review-quiz.html';return false;">🧠 복습퀴즈</button>
+        <!-- 🇨🇳 2026-08-17 — 중국어 복습퀴즈. data-go 는 mg-sidebar.js 의 라우트표에 이미 등록돼 있고,
+             onclick 은 위 형제 버튼들과 같은 «확실한 이동» 이중장치다(라우트표가 못 뜨는 화면 대비). -->
+        <button class="ai-quick-btn" data-go="review-quiz-cn" data-ko="🇨🇳 중국어 복습퀴즈" data-en="🇨🇳 Chinese Review Quiz" onclick="event.preventDefault();location.href='/review-quiz-cn.html';return false;">🇨🇳 중국어 복습퀴즈</button>
         <button class="ai-quick-btn" data-go="all-menu" data-ko="🏠 전체메뉴" data-en="🏠 All Menu" onclick="event.preventDefault();if(window.openAllMenuOverlay)window.openAllMenuOverlay();return false;">🏠 전체메뉴</button>
         <!-- ph170 (2026-05-29) — 수업 진단 카드 (FAB 대체) -->
         <button class="ai-quick-btn" data-go="precheck" data-ko="🎥 수업 진단" data-en="🎥 PreCheck" onclick="event.preventDefault();location.href='/precheck.html';return false;">🎥 수업 진단</button>
