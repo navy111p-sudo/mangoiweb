@@ -1,6 +1,8 @@
 # 망고아이 테스트 APK (WebView 래퍼)
 
-`https://test.mangoi.co.kr/` 를 로드하는 안드로이드 WebView 앱입니다.
+`https://mangoi.ai/` 를 로드하는 안드로이드 WebView 앱입니다.
+(2026-08-17 이전 빌드는 `https://test.mangoi.co.kr/` 를 봅니다 — **이미 깔린 앱은 그 주소를 계속 보므로
+새 APK 가 퍼질 때까지 옛 도메인을 죽이면 안 됩니다.**)
 화상통화(WebRTC)를 위해 카메라·마이크 권한 자동 처리, 파일 업로드, 자동재생을 지원합니다.
 
 ## APK 받는 방법 (권장: GitHub Actions)
