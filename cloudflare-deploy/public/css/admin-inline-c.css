@@ -6990,6 +6990,39 @@ button.chip:hover,
     /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
     #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
 
+    /* 「모두 펼치기 / 모두 접기」를 한 줄에 (2026-08-17 사장님 — 공간 낭비 지적)
+       무엇이 문제였나 — 위쪽 «≤920px» 규칙이 #ph86-actions 를 flex-direction:column
+       으로 눕혀 놨다. 그건 **옛 PC 좁은 사이드바**(30vw · 최대 280px)에 버튼 3개를
+       넣으려고 만든 것인데, 이 드로어는 화면 전체 너비라 그 제약이 없다.
+       실측: 버튼 하나가 369px 폭에 글자 12px → 두 줄 76px 를 거의 빈 칸으로 썼다.
+       한 줄로 되돌리면 40px 로 끝나고 36px 을 메뉴에 돌려준다.
+       ⚠️ 위 규칙이 !important 라 이쪽도 !important 가 필요하다. 다만 순서로 이기려
+          하지 말고 **ID 2개**(#ph85-sidebar #ph86-actions)로 특정성을 올려서 이긴다
+          — 그래야 나중에 파일 어디에 무엇이 추가돼도 순서에 안 흔들린다.
+       ⚠️ 「🙈 숨기기」는 이 화면에서 이미 display:none 이다(실측). 그래서 한 줄에
+          들어가는 건 두 개뿐이고, 폭이 반씩(약 181px) 나뉘어도 라벨이 안 접힌다.
+       ⚠️ 라벨 글자는 건드리지 않는다 — i18n 사전이 전체 문자열 일치라서
+          «↧ 모두 펼치기» 를 한 글자만 바꿔도 영어 번역이 깨진다(CLAUDE.md). */
+    #ph85-sidebar #ph86-actions {
+      flex-direction: row !important;
+      flex-wrap: nowrap !important;
+      gap: 6px !important;
+      margin: 8px 0 !important;
+    }
+    #ph85-sidebar #ph86-actions .ph86-action-btn {
+      flex: 1 1 0 !important;      /* 둘이 폭을 정확히 반씩 나눈다 */
+      min-width: 0 !important;     /* flex 항목 기본 min-width:auto 를 풀어야 안 넘친다 */
+      /* 세로로 아낀 36px 중 5px 만 돌려 써서 손가락 칸을 40px 로 키운다(35px → 40px) */
+      min-height: 40px !important;
+      padding: 8px 6px !important;
+      font-size: 12.5px !important;
+      white-space: nowrap !important;
+      /* ⛔ 여기에 display 를 쓰면 안 된다. 「🙈 숨기기」를 이 화면에서 감추는 규칙이
+            display:none 인데, ID 2개짜리 이 선택자가 그걸 이겨서 숨은 버튼이 되살아나고
+            셋이 폭을 나눠 가진다(119px씩 — 실제로 밟았다). <button> 은 원래 내용을
+            세로 가운데로 놓으므로 min-height 만 주면 충분하다. */
+    }
+
     /* 메뉴가 넓어진 만큼 손가락 칸도 넓힌다 (안드로이드·애플 공통 권장 최소 48px) */
     #ph85-sidebar .ph85-head { min-height: 52px; }
     #ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc { min-height: 46px; }
