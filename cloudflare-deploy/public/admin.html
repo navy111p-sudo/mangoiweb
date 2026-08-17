@@ -10312,34 +10312,46 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script>
 (function(){
   'use strict';
+  /* ⚠️ 2026-08-17 정리 — 이 카드의 버튼들이 서버에 아무것도 안 보내 놓고
+   *   「상태 변경됨」·「등록 페이지로 이동」 을 띄우고 있었다(= 안 바뀌는데 바뀐 줄 앎).
+   *   양식 템플릿 CRUD 백엔드는 **아직 없다**(src/ 에 /api/…/forms 가 없음).
+   *   그래서 «있는 척» 을 걷어내고, 실제로 할 수 있는 것만 남긴다.
+   *   ⛔ 서버에 보내는 코드가 생기기 전까지 「완료」·「변경됨」 을 다시 넣지 말 것.
+   *   ※ rfOpen 은 여기서 정의하지 않는다 — 진짜 미리보기 모달이 adm-r17.js(ph108)에 있고,
+   *     defer 로 이 인라인 뒤에 실행돼 어차피 덮어썼다(= 여기 있던 것은 죽은 코드였다). */
+
+  var RF_CAT_LABEL = { hr: '인사/총무', finance: '회계', ops: '운영', etc: '기타' };
+
+  // 실제로 표를 걸러 준다 — 알림창만 띄우던 것을 진짜 동작으로.
   window.rfSearch = function(){
-    var q = document.getElementById('rf-q').value;
-    var s = document.getElementById('rf-status').value;
-    var c = document.getElementById('rf-category').value;
-    console.log('[ph107] 양식 검색', { q, s, c });
-    alert('검색: ' + (q || '(전체)') + ' / 상태: ' + (s || '전체') + ' / 분류: ' + (c || '전체'));
+    var q = ((document.getElementById('rf-q') || {}).value || '').toLowerCase().trim();
+    var s = (document.getElementById('rf-status') || {}).value || '';
+    var c = (document.getElementById('rf-category') || {}).value || '';
+    var rows = document.querySelectorAll('#rf-tbody tr');
+    var shown = 0;
+    rows.forEach(function(row){
+      var cells = row.querySelectorAll('td');
+      if (cells.length < 4) return;
+      var name = cells[1].textContent.toLowerCase();
+      var cat  = cells[2].textContent;
+      var stat = cells[3].textContent;
+      var ok = true;
+      if (q && name.indexOf(q) < 0) ok = false;
+      if (s && stat.indexOf(s === 'active' ? '사용중' : '보관') < 0) ok = false;
+      if (c && cat.indexOf(RF_CAT_LABEL[c] || c) < 0) ok = false;
+      row.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    console.log('[ph107] 양식 검색 —', shown, '/', rows.length);
   };
-  window.rfOpen = function(id){
-    console.log('[ph107] 양식 열기 #' + id);
-    alert('양식 #' + id + ' 미리보기 (데모)');
-  };
-  window.rfEdit = function(id){
-    console.log('[ph107] 양식 편집 #' + id);
-    alert('양식 #' + id + ' 편집 페이지로 이동 (데모)');
-  };
-  window.rfToggle = function(id){
-    console.log('[ph107] 양식 토글 #' + id);
-    if (confirm('양식 #' + id + ' 의 사용중↔보관 상태를 변경할까요?')) {
-      alert('상태 변경됨 (데모 — 실서비스에서는 API 호출)');
-    }
-  };
-  window.rfNew = function(){
-    console.log('[ph107] 신규 양식 등록');
-    var name = prompt('새 양식의 이름을 입력하세요 (예: 출장 보고서)');
-    if (name && name.trim()) {
-      alert('신규 양식 "' + name + '" 등록 페이지로 이동 (데모)');
-    }
-  };
+
+  // 양식 편집·보관·신규등록 — 저장할 서버가 없다. 있는 척하지 않는다.
+  function rfNotReady(what){
+    alert(what + ' 기능은 아직 준비 중입니다.\n\n지금은 양식 이름을 눌러 미리보기만 가능합니다.\n결재를 올리시려면 전자결재 화면을 이용해 주세요.');
+  }
+  window.rfEdit   = function(id){ console.log('[ph107] 양식 편집 요청 #' + id + ' (준비 중)'); rfNotReady('양식 편집'); };
+  window.rfToggle = function(id){ console.log('[ph107] 양식 보관 요청 #' + id + ' (준비 중)'); rfNotReady('양식 보관/사용중 전환'); };
+  window.rfNew    = function(){   console.log('[ph107] 신규 양식 등록 요청 (준비 중)');       rfNotReady('신규 양식 등록'); };
   console.log('[ph107] 보고서 양식 카드 초기화 완료');
 })();
 </script>
@@ -10369,7 +10381,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-r17.js?v=1" defer></script><!-- 분할추출:adm-r17 -->
+<script src="/js/adm-r17.js?v=2" defer></script><!-- 분할추출:adm-r17 -->
 
 
 <!-- Phase 109 admin (2026-05-25) — 양식 모달 인쇄/PDF/Excel/Word 다운로드 -->
