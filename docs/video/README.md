@@ -7,8 +7,8 @@
 
 | 파일 | 사양 | 내레이션 | 비고 |
 |---|---|---|---|
-| `mangoi_main_여성.mp4` | 1920×1080 / 30fps / **1:34.2** | 여성 | **바로 사용 가능** |
-| `mangoi_shorts_여성.mp4` | 1080×1920 / 30fps / **0:42.6** | 여성 | 바로 사용 가능 |
+| `mangoi_main_여성.mp4` | 1920×1080 / 30fps / **1:35.4** | 여성 | **바로 사용 가능** · 앞 1.2초 썸네일 |
+| `mangoi_shorts_여성.mp4` | 1080×1920 / 30fps / **0:43.8** | 여성 | 바로 사용 가능 · 앞 1.2초 썸네일 |
 | `mangoi_shorts_남성.mp4` | 1080×1920 / 30fps / **0:44.4** | 남성 | 바로 사용 가능 |
 | `mangoi_main_남성.mp4` | 1920×1080 / 30fps / **1:37.2** | 남성 | ⚠️ 아래 참고 |
 
@@ -21,8 +21,9 @@
 > 대사는 `망고아이_2분_성우녹음_대본.txt` 의 [컷 2] 항목입니다.
 > 숏폼은 본편의 1·3·5·8컷만 쓰기 때문에 남성 숏폼에는 이 문제가 없습니다.
 
-> ⚠️ 업로드할 때 썸네일은 반드시 «맞춤 미리보기»로 PNG 를 직접 올리세요.
-> 영상이 검은 화면에서 시작해서 자동 추출 썸네일은 비어 보입니다.
+> 여성 2종은 **영상 맨 앞에 썸네일이 1.2초 붙어** 있습니다(0.4초 디졸브로 본편 진입,
+> 오디오는 1.2초 밀어 싱크 유지). `src/prepend_thumb.sh` 로 붙였고, 빼려면 그 단계만 건너뛰면 됩니다.
+> 그래도 유튜브에는 «맞춤 미리보기»로 PNG 를 직접 올리는 쪽이 압축 손실이 없어 선명합니다.
 > 쇼츠는 제목이나 설명에 `#shorts` 가 있어야 쇼츠 피드로 갑니다.
 
 ## 수업시간 표기
@@ -62,7 +63,7 @@
 
 ```bash
 cd src
-python3 align2.py vo_f.wav align_f.json            # 내레이션을 8구간으로 분할
+python3 align3.py vo_f.wav align_f.json            # 내레이션을 8구간으로 분할 (겹침 없음)
 python3 music3.py bgm_f.wav timing_f quiet,empty,enter,build,peak,break,return,finale
 python3 mixsmooth.py timing_f bgm_f.wav audio_f.wav
 PCT=0.5 MIN_TXT=160분 TIMING=timing_f python3 render2.py v_main_f.mp4
@@ -73,6 +74,15 @@ ffmpeg -i v_main_f.mp4 -i audio_f.wav -i cover.jpg \
 
 숏폼은 `timing_vf` / `vert.py` 로 같은 순서 (`TIMING_V=timing_vf`).
 썸네일은 `thumb.py`(가로) · `thumb_v.py`(세로).
+영상 맨 앞에 썸네일을 붙이려면 `./prepend_thumb.sh <영상> <오디오> <썸네일png> <cover.jpg> <출력> <폭> <높이>`.
+
+### ⚠️ 구간을 자를 때 반드시 `align3.py` 를 쓸 것
+
+옛 `align.py`/`align2.py` 는 쉬는 지점의 **가운데**를 경계로 삼고 잘라낼 때 앞뒤로
+0.10~0.32초를 더 붙였습니다. 그래서 경계 앞뒤 0.42초가 앞 구간 끝과 뒤 구간 앞에
+모두 들어가, **다음 문장의 첫 단어가 두 번 들렸습니다.**
+`align3.py` 는 쉬는 구간 «안쪽»에서 잘라 겹침이 생기지 않습니다.
+`mixsmooth.py` 에도 겹치면 멈추는 안전장치를 넣어 두었습니다.
 
 ### 컷 길이 조정
 

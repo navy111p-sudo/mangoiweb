@@ -16,13 +16,18 @@ T = importlib.import_module(sys.argv[1] if len(sys.argv) > 1 else "timing_f")
 BGM = sys.argv[2] if len(sys.argv) > 2 else "bgm_f.wav"
 OUT = sys.argv[3] if len(sys.argv) > 3 else "audio_smooth.wav"
 SR = 48000
-PRE, POST = 0.10, 0.32
+PRE, POST = 0.0, 0.0   # align3.py 가 이미 무음 안쪽에서 잘라 줌 (겹치면 말이 두 번 들림)
 FADE = 0.030                       # 구간 앞뒤 페이드
 DUCK_DB = -6.0                     # 말할 때 음악이 내려가는 최대치
 ATK, REL = 0.12, 1.10              # 덕킹 반응 속도 (내릴 때 / 올릴 때)
 
 TMP = "_voice_tmp.wav"
 seg = T.SEG
+# 안전장치 — 구간이 겹치면 다음 문장 첫 단어가 두 번 들린다
+for k in range(len(seg) - 1):
+    ov = (seg[k][1] + POST) - (seg[k + 1][0] - PRE)
+    if ov > 0.001:
+        raise SystemExit(f"구간 {k+1}과 {k+2}가 {ov:.3f}s 겹칩니다. align3.py 로 다시 정렬하세요.")
 cmd = ["ffmpeg", "-y", "-loglevel", "error"]
 for a, b in seg:
     cmd += ["-ss", f"{max(0, a - PRE):.3f}", "-to", f"{b + POST:.3f}", "-i", T.VO]
