@@ -6964,6 +6964,29 @@ button.chip:hover,
       font-variant-numeric: tabular-nums;
     }
     #mgv2-clock .mgv2-d { font-size: 10px; opacity: .55; }
+
+    /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
+       js/adm-cdo-weather.js 가 #mgv2-clock 다음 형제로 끼워 넣는다.
+       ⚠️ 시계와 같은 이유로 색을 박지 않는다 — 이 화면은 다크·아이보리에 더해
+          adm-light-surfaces.js 가 런타임에 표면을 덧칠한다. 글자색은 물려받고
+          배경·테두리만 반투명으로 얹으면 어느 바탕에서도 읽힌다.
+       ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
+          «날씨: —» 같은 빈 껍데기를 남기지 않는다. */
+    #mgv2-weather {
+      display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px;
+      margin: 8px 12px 0; padding: 7px 10px;
+      border: 1px solid rgba(128,145,180,.22); border-radius: 11px;
+      background: rgba(128,145,180,.13);
+      color: inherit; font-size: 12px; line-height: 1.3; word-break: keep-all;
+    }
+    #mgv2-weather.mgv2-w-empty { display: none; }
+    /* 아이콘은 SVG 다(글자가 아니다). 글자와 baseline 을 맞추면 위로 떠 보이므로
+       이 칸만 세로 가운데로 맞추고, 좁아져도 찌그러지지 않게 flex:none 을 준다. */
+    #mgv2-weather .mgv2-w-ico  { display: inline-flex; flex: none; align-self: center; line-height: 0; opacity: .9; }
+    #mgv2-weather .mgv2-w-ico svg { display: block; }
+    #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
+    #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+    #mgv2-weather .mgv2-w-sub  { opacity: .62; font-size: 11px; }
     /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
     #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
 
