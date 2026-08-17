@@ -1137,6 +1137,16 @@
 
     <!-- ───── 프로필 ───── -->
     <section class="panel active" data-panel="profile">
+      <!-- 🔑 (2026-08-17) 복구 연락처 안내 — 비밀번호 찾기는 «등록된 연락처» 로만 돈다.
+           2026-08-17 기준 관리자 계정 47개 중 45개에 쓸 수 있는 연락처가 없었다(이메일 칸에
+           아이디가 그대로 들어간 행 포함). 연락처가 없으면 비번을 잊었을 때 본인이 못 푼다.
+           ⚠️ 이 배너는 «없을 때만» 뜬다(js/adm-mypage 쪽 loadProfile 에서 토글). 늘 떠 있으면 아무도 안 읽는다. -->
+      <div id="pwRecoveryBanner" style="display:none;margin:0 0 16px;padding:13px 15px;border-radius:12px;
+           background:#fffbeb;border:1px solid #fde68a;color:#78350f;font-size:13px;line-height:1.65">
+        <b>🔑 비밀번호 찾기를 쓰려면 연락처가 필요합니다.</b><br>
+        지금 이 계정에는 인증번호를 보낼 <b>휴대폰·이메일이 등록돼 있지 않습니다.</b>
+        아래 칸을 채워 저장해 두면, 비밀번호를 잊었을 때 로그인 화면의 «비밀번호 찾기» 로 본인이 직접 풀 수 있습니다.
+      </div>
       <div class="form-grid">
         <div class="field">
           <label><span data-ko="👤 아이디" data-en="👤 Username">👤 아이디</span></label>
@@ -2901,6 +2911,15 @@
         if (el('profName'))     el('profName').value = (ov && ov.name) ? ov.name : (u.name || '');
         if (el('profEmail'))    el('profEmail').value = (ov && ov.email) ? ov.email : (u.email || '');
         if (el('profPhone'))    el('profPhone').value = (ov && ov.phone) ? ov.phone : (u.phone || '');
+        // 🔑 복구 연락처 배너 — 서버 `pickResetContact()` 와 **같은 기준**으로 판정한다.
+        //   («값이 있으면 있는 것» 으로 세면 안 된다 — 이메일 칸에 아이디가 든 계정이 실제로 있다.)
+        try {
+          var _ph = String(u.phone || '').replace(/[^0-9]/g, '');
+          var _em = String(u.email || '').trim();
+          var _hasContact = _ph.length >= 8 || /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(_em);
+          var _bn = el('pwRecoveryBanner');
+          if (_bn && !ov) _bn.style.display = _hasContact ? 'none' : 'block';
+        } catch(_e){}
         applyRole(role, roleLabel, scope);
         window.__myRole = role; window.__myRoleLabel = roleLabel; window.__myScope = scope;
         window.__myName = name;

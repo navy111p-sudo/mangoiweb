@@ -70,8 +70,14 @@
         '<div style="text-align:center;margin-bottom:14px">' +
           '<div style="font-size:32px;margin-bottom:4px">🔑</div>' +
           '<h2 style="margin:0;font-size:18px;color:#0f172a">비밀번호 찾기</h2>' +
-          '<p style="margin:4px 0 0;font-size:12px;color:#64748b">본인이 직접 재설정하는 기능은 아직 없습니다. 아래로 요청해 주세요.</p>' +
+          '<p style="margin:4px 0 0;font-size:12px;color:#64748b">등록된 연락처로 인증번호를 받아 직접 재설정할 수 있습니다.</p>' +
         '</div>' +
+        /* 🔑 (2026-08-17) 셀프 재설정 추가. 로직은 /js/adm-pw-reset.js 한 곳에만 둔다 —
+           여기에 복사하지 말 것(그렇게 네 벌이 됐다가 사고를 냈다, PR #173). */
+        '<button type="button" class="ph132-submit" id="ph132-self-reset">📨 인증번호로 직접 재설정</button>' +
+        '<p style="font-size:11px;color:#94a3b8;margin:9px 0 14px;line-height:1.5">' +
+          '※ 계정에 연락처(휴대폰·이메일)가 등록돼 있어야 받을 수 있습니다.<br>' +
+          '※ 연락처가 없으면 아래 운영자 문의로 요청해 주세요.</p>' +
         '<div style="padding:14px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;margin-bottom:12px">' +
           '<div style="font-size:13px;color:#0c4a6e;font-weight:700;margin-bottom:4px">📧 운영자 이메일</div>' +
           '<div style="font-size:14px;color:#0369a1;font-family:MangoiHanSC,Consolas,monospace">' + PH132_MAIL + '</div>' +
@@ -88,6 +94,15 @@
     document.body.appendChild(m);
 
     m.querySelector('#ph132-modal-close').onclick = ph132CloseForgot;
+    m.querySelector('#ph132-self-reset').onclick = function(){
+      if (!window.mangoiPwReset){
+        alert('비밀번호 찾기 화면을 불러오지 못했습니다.\n새로고침 후 다시 시도해 주세요.');
+        return;
+      }
+      var uidEl = document.getElementById('admin-login-uid') || document.getElementById('admin-login-id');
+      ph132CloseForgot();
+      window.mangoiPwReset.open((uidEl && uidEl.value || '').trim());
+    };
     m.querySelector('#ph132-mail-btn').onclick = function(){
       var subject = encodeURIComponent('[망고아이 관리자] 비밀번호 재설정 문의');
       var body = encodeURIComponent('안녕하세요,\n\n관리자 페이지 비밀번호를 잊어버려 문의드립니다.\n\n· 아이디: \n· 소속: \n· 연락처: \n· 사유: \n\n감사합니다.');
