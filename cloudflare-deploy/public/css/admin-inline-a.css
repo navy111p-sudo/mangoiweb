@@ -884,8 +884,10 @@
   .hero .hero-search input {
     width: 100%;
     /* 좌: 🥭 Mr. Mango 미니 아바타 / 우: ✕지우기 + 🎤마이크 + 🔎돋보기 (2026-08-17 재배치)
-       ⚠️ 오른쪽 여백 152px = 돋보기(12+40) + 마이크(58+40) + 지우기(104+40) 중 가장 바깥값 144 + 여유 8 */
-    padding: 14px 152px 14px 60px;
+       ⚠️ 오른쪽 여백 152px = 돋보기(12+40) + 마이크(58+40) + 지우기(104+40) 중 가장 바깥값 144 + 여유 8
+       ⚠️ 왼쪽 66px = 아바타(10+48=58) + 여유 8. 아바타를 키우면 여기도 같이 올려야
+          글자가 캐릭터 위로 파고든다 (2026-08-17 2차 48px 확대). */
+    padding: 14px 152px 14px 66px;
     background: transparent;
     border: 0;
     font-size: 17px;
@@ -905,10 +907,14 @@
   /* 🥭 Mr. Mango 미니 아바타 — 검색창 왼쪽 (2026-08-17 사장님 지시로 «최대한 축소»)
      장식이라 pointer-events:none — 클릭이 입력창 포커스를 가로채지 않는다.
      ⚠️ 투명 배경 컷아웃이므로 배경/보더 없이 그림자만 준다. 원형 크롭(object-fit:cover)을 하면
-        캐릭터 팔·헤드폰이 잘린다 — contain 유지. */
+        캐릭터 팔·헤드폰이 잘린다 — contain 유지.
+     📏 (2026-08-17 2차 «조금만 더 키워줘») 40 → 48px.
+        검색창 실측 높이가 64.4px 이라 48px 이면 위아래 8px 씩 남는다. 이보다 키우면
+        캐릭터가 검색창 테두리에 닿는다. object-fit:contain 이라 보이는 망고는
+        상자보다 작으니, 상자를 키운 만큼 캐릭터가 그대로 커진다. */
   .hero .hero-search-mango {
-    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-    width: 40px; height: 40px;
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 48px; height: 48px;
     object-fit: contain;
     filter: drop-shadow(0 2px 5px rgba(154, 52, 18, 0.30));
     pointer-events: none;
@@ -1291,7 +1297,7 @@
     .hero .hero-sub { text-align: center; font-size: 17px; margin-bottom: 24px; }
     /* 📱 (2026-08-17) 좁은 화면은 오른쪽에 버튼 3개(돋보기·마이크·✕)가 몰리므로 한 치수씩 줄인다.
        그래도 글자 자리가 좁아, 여기서 더 키우면 placeholder 가 통째로 잘린다. */
-    .hero .hero-search input { padding: 18px 128px 18px 52px; font-size: 18px; }
+    .hero .hero-search input { padding: 18px 128px 18px 58px; font-size: 18px; }
     /* 비어 있을 때는 ✕지우기가 숨어 있으므로(아래 :not(:placeholder-shown) 규칙) 그 자리 34px 를
        안내문구에 돌려준다. 안 그러면 좁은 폰에서 "통합 검색 — 학" 에서 잘린다.
        ⚠️ 안내문구를 짧게 줄이는 방식으로 풀지 말 것 — i18n 사전이 «전체 문자열 일치» 라
@@ -1302,7 +1308,11 @@
     .hero .hero-search-icon svg { width: 19px; height: 19px; }
     .hero .hero-search-mic { width: 36px; height: 36px; right: 50px; }
     .hero .hero-search-mic .mic-icon { width: 20px; height: 20px; }
-    .hero .hero-search-mango { width: 34px; height: 34px; left: 9px; }
+    /* (2026-08-17 2차) 34 → 44px. 모바일 검색창은 59px 로 PC(49.5px)보다 높아서
+       같은 40px 를 써도 «상대적으로 작아» 보인다. 그래서 PC(48)보다 살짝 더 키운다.
+       ⚠️ 이미지가 가로:세로 = 320:259 이고 object-fit:contain 이라, 세로 제약은
+          상자 높이가 아니라 «그려지는 그림 높이 = 폭/1.235» 다. 44 → 그림 44x36. */
+    .hero .hero-search-mango { width: 44px; height: 44px; left: 8px; }
     .voice-hint { font-size: 13px; padding: 7px 14px; }
     /* 모바일에서 힌트 칩 숨김 — 화면 공간 절약 */
     .hero-tips { display: none; }
