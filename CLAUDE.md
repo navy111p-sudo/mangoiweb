@@ -12,6 +12,11 @@
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
 - 운영 주소: **https://mangoi.ai** → Cloudflare Worker `webrtc-unified-platform-prod`
   (사장님·직원이 실제로 여는 주소입니다. 사람에게 안내할 링크는 **이 주소**를 쓰세요)
+  - **`www.mangoi.ai` 도 같은 사이트입니다** (2026-08-17 추가, 기존 `mangoi.ai` 도 그대로 삽니다).
+    안내 링크는 계속 **www 없는 `mangoi.ai`** 로 통일합니다 — 정본은 `src/site-url.ts` 의 `SITE_ORIGIN` 한 줄.
+    ⚠️ 호스트명을 그대로 쓰는 코드는 **두 주소를 다른 사이트로 취급**합니다. 패스키가 정확히 그랬고
+    (`rpId` 가 달라져 «어제까진 지문으로 됐는데» 가 됩니다), `src/api-passkey.ts` 의 `resolveRpId()` 로 apex 에 묶었습니다.
+    비슷한 코드를 새로 쓸 때 같은 함정을 확인하세요
   - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
     아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
     안드로이드/iOS 앱의 시작 URL, `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —

@@ -12,10 +12,19 @@
  *   · `test.mangoi.co.kr` 은 같은 Worker 의 **먼저 붙인 커스텀 도메인**이라 아직 살아 있다.
  *     앱 시작 URL·스모크 테스트·워치독이 그 주소를 붙박이로 쓰므로 **죽이면 안 된다**.
  *     다만 «사람에게 보여 줄 주소» 는 아래 SITE_ORIGIN 하나로 통일한다.
+ *   · `www.mangoi.ai` 는 2026-08-17 에 **추가로 붙인** 주소다(기존 `mangoi.ai` 도 그대로 산다).
+ *     둘은 같은 Worker 이므로 «우리 사이트인가» 판정에는 포함하되,
+ *     새로 만드는 링크는 SITE_ORIGIN(www 없는 쪽) 하나로 통일한다.
  */
 
 /** 문자·알림톡·안내문에 넣는 주소. 도메인이 바뀌면 **여기만** 고친다. */
 export const SITE_ORIGIN = 'https://mangoi.ai';
+
+/**
+ * 같은 Worker 를 가리키는 **별칭 주소**. 사람이 주소창에 직접 칠 수 있으므로 인정은 하되,
+ * 새 링크를 만들 때는 쓰지 않는다 — 그건 SITE_ORIGIN 의 몫이다.
+ */
+export const ALIAS_ORIGINS = ['https://www.mangoi.ai'] as const;
 
 /**
  * 같은 Worker 를 가리키는 예전 주소. 아직 살아 있으므로 «우리 사이트인가» 판정에는 포함한다.
@@ -24,7 +33,7 @@ export const SITE_ORIGIN = 'https://mangoi.ai';
 export const LEGACY_ORIGINS = ['https://test.mangoi.co.kr'] as const;
 
 /** 우리 사이트로 인정하는 호스트명 목록 (외부 URL 화이트리스트 검증용). */
-export const SITE_HOSTS: string[] = [SITE_ORIGIN, ...LEGACY_ORIGINS].map((o) => o.replace(/^https:\/\//, ''));
+export const SITE_HOSTS: string[] = [SITE_ORIGIN, ...ALIAS_ORIGINS, ...LEGACY_ORIGINS].map((o) => o.replace(/^https:\/\//, ''));
 
 /**
  * 절대 URL 을 만든다. `siteUrl('/eval.html?id=' + id)` 처럼 쓴다.
