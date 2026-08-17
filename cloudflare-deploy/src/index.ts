@@ -7,6 +7,7 @@ import { SignalingRoom } from './signaling-room';
 import { VideoCallRoom } from './video-call-room';
 import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
+import { handleDurationQueue } from './duration-change-queue';   // 📅 수업 길이 변경 신청함(월 1회 일괄 반영)
 import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
@@ -1048,6 +1049,8 @@ const worker = {
         path.startsWith('/api/admin/schedule-requests') ||
         // 📜 수업 변경 이력(연기/삭제/종료) 조회·기록
         path === '/api/admin/class-audit' ||
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회
+        path.startsWith('/api/admin/duration-requests') ||
         // ⏸ 연기 수업 통합 조회(매니저 화면) — 요청+감사로그를 합쳐 유료/무료·연기시각까지 (2026-07-23)
         path === '/api/admin/postponed-classes' ||
         // 📅 오늘 수업 전체(매니저용) — 강사 미입장 시 매니저가 바로 대신 입장 (2026-07-23)
@@ -1523,6 +1526,13 @@ const worker = {
           const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
           const res = await handleSpaceMonsterApi(request.method, path, url, body, env as any);
           if (res) return res;
+        }
+
+        // 📅 (2026-08-17) 수업 «길이 변경» 신청함 — 신청은 상시, 반영은 월 1회.
+        //   ⚠️ 여기 등록하지 않으면 라우팅이 안 붙어 404 다(CLAUDE.md 의 «새 API 추가» 함정).
+        {
+          const dq = await handleDurationQueue(request, env as any, path, request.method);
+          if (dq) return dq;
         }
 
         const res = await handleMangoApi(request, url, env, ctx);
