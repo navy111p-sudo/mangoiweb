@@ -954,6 +954,12 @@ const worker = {
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
         path === '/api/admin/staff-password-reset' ||
+        // 🔑 비밀번호 찾기(셀프 재설정) — 로그인 전에 부르는 API 라 isAuthPublicPath 에도 등록돼 있다.
+        path === '/api/admin/password-reset/request' ||
+        path === '/api/admin/password-reset/confirm' ||
+        // 📇 복구 연락처 채우기(본사가 대신) — 인증 필요. 게이트는 handleAdminAuthApi 안에서 hq·staff 로 한 번 더.
+        path === '/api/admin/contacts-missing' ||
+        path === '/api/admin/staff-contact' ||
         path === '/api/admin/login-history' ||
         path === '/api/admin/sessions' ||
         path === '/api/admin/sessions/revoke' ||
@@ -5277,6 +5283,11 @@ function isAuthPublicPath(path: string): boolean {
   if (path === '/admin/login' || path === '/admin/login/' || path === '/admin/login.html') return true;
   if (path === '/api/admin/login') return true;
   if (path === '/api/admin/logout') return true;
+  // 🔑 비밀번호 찾기 — 비번을 잊은 사람은 당연히 로그인 상태가 아니다. 인증 게이트를 우회해야 한다.
+  //   ⚠️ 우회 = 무방비가 아니다. handleAdminAuthApi 안에서 계정당 1시간 3회·IP 1시간 10회·
+  //      코드 10분·검증 5회로 조이고, 응답은 아이디 존재 여부를 흘리지 않는다.
+  if (path === '/api/admin/password-reset/request') return true;
+  if (path === '/api/admin/password-reset/confirm') return true;
   return false;
 }
 
