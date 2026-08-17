@@ -139,8 +139,10 @@ const METHOD_NORM_SQL = `CASE
 export type FigureSource = 'actual' | 'estimated' | 'none' | 'review';
 
 const SEED_MEMOS = ["'[TESTSEED]%'", "'정기결제 자동청구(cron)'"];
-/** 시드 결제를 걸러내는 SQL 조건. a = 테이블 별칭(조인 쿼리에서 컬럼 모호성 방지). */
-function notSeedSql(a = ''): string {
+/** 시드 결제를 걸러내는 SQL 조건. a = 테이블 별칭(조인 쿼리에서 컬럼 모호성 방지).
+    ⚠️ export 다 — 결제관리 화면(payments-board.ts)도 같은 조건을 써야 «리포트에서는
+    뺐는데 결제관리에서는 잡히는» 어긋남이 안 생긴다. 복사하지 말고 이걸 부를 것. */
+export function notSeedSql(a = ''): string {
   const q = a ? a + '.' : '';
   return `NOT (COALESCE(${q}memo,'') LIKE ${SEED_MEMOS[0]} OR COALESCE(${q}memo,'') = ${SEED_MEMOS[1]})`;
 }

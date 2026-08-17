@@ -589,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=28"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=28: 2026-08-17 ph106 결제관리 데모 표식 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=30"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -10107,176 +10107,130 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <!-- === Card: BtoB 결제관리 (1번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2b">
-  <summary><span data-ko="🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
+  <summary><span data-ko="🏢 BtoB 결제관리 (학원 → 본사 통장입금)" data-en="🏢 B2B Payments">🏢 BtoB 결제관리 (학원 → 본사 통장입금)</span></summary>
   <div class="menu-body">
-    <!-- ⚠️ (2026-08-17) 데모 표식 — adm-q7.js 가 서버 호출 없이 고정 숫자를 찍는다.
-         실데이터(/api/admin/payments/b2b)를 붙이는 날 이 띠와 summary 배지, 그리고
-         admin-inline-c.css 의 .pm-kpi::before / .pm-demo-* 블록을 함께 지운다.
-         배지 span 은 반드시 제목 span «뒤» 에 둔다 — adm-quickmenu.js 의 labelOf() 가
-         summary 안 첫 [data-ko] 를 카드 이름으로 읽는다. -->
-    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
+    <!-- 💳 (2026-08-17) 실데이터 = /api/admin/payments/b2b (payments-board.ts)
+         ⚠️ B2B 돈은 student_payments 에 없다 — 학원이 통장으로 바로 보낸다. 그래서
+            이 카드만 bankacct_transactions 를 본다(왜 그런지는 payments-board.ts 머리말).
+         ⚠️ PG 수수료 칸을 되살리지 말 것. 통장 이체는 PG 를 안 거쳐 항상 0원이다.
+            네 번째 타일은 「입금처 수」로 바꿨다. -->
+    <div class="pm-src-note" id="b2b-src-note" hidden></div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
-      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 거래액</div><div class="pm-kpi-value" id="b2b-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 거래액</div><div class="pm-kpi-value" id="b2b-kpi-month">₩0</div><div class="pm-kpi-trend">▲ 전월 대비 +0%</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">🧾 거래 건수</div><div class="pm-kpi-value" id="b2b-kpi-count">0건</div><div class="pm-kpi-trend">평균 ₩0/건</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">💸 수수료 합계</div><div class="pm-kpi-value" id="b2b-kpi-fee">₩0</div><div class="pm-kpi-trend">평균율 2.86%</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 입금액</div><div class="pm-kpi-value" id="b2b-kpi-today">—</div><div class="pm-kpi-trend" id="b2b-kpi-today-t">전일 대비 —</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 입금액</div><div class="pm-kpi-value" id="b2b-kpi-month">—</div><div class="pm-kpi-trend" id="b2b-kpi-month-t">전월 대비 —</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">🧾 입금 건수</div><div class="pm-kpi-value" id="b2b-kpi-count">—</div><div class="pm-kpi-trend" id="b2b-kpi-count-t">평균 —/건</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">🏫 입금처 수</div><div class="pm-kpi-value" id="b2b-kpi-payers">—</div><div class="pm-kpi-trend">이번달 기준</div></div>
     </div>
 
-    <!-- 필터 -->
-    <div class="pm-filter-row">
-      <select id="b2b-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
-      <select id="b2b-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option><option>대구지사</option></select>
-      <select id="b2b-f-agency"><option value="">전체 대리점</option><option>데모대리점A</option><option>데모대리점B</option><option>데모대리점C</option></select>
-      <input type="text" id="b2b-f-q" placeholder="🔍 학생명·아이디·주문번호">
-    </div>
+    <!-- 필터
+         ⚠️ 결제수단·상태·대리점 칸을 되살리지 말 것. 통장 입금에는 그런 항목이 아예
+            없다(적요·금액·날짜가 전부다). 옛 데모에는 있었지만 고를 것이 없는 칸이라
+            지웠다 — 남겨 두면 «걸었는데 아무것도 안 걸러진다» 가 된다. -->
     <div class="pm-filter-row">
       <input type="date" id="b2b-f-from">
       <input type="date" id="b2b-f-to">
-      <select id="b2b-f-method"><option value="">전체 결제수단</option><option>카드</option><option>계좌이체</option><option>카카오페이</option><option>토스페이</option></select>
-      <select id="b2b-f-status"><option value="">전체 상태</option><option>결제완료</option><option>취소</option><option>환불</option><option>대기</option></select>
+      <input type="text" id="b2b-f-q" placeholder="🔍 입금처(적요) 검색">
     </div>
 
     <div class="pm-actions">
       <button class="pm-btn-search" onclick="b2bSearch()">🔍 검색</button>
       <button class="pm-btn-csv" onclick="b2bDownloadCsv()">📥 CSV 다운로드</button>
-      <button class="pm-btn-csv" onclick="b2bDownloadExcel()" style="background:linear-gradient(135deg,#3B82F6,#1E40AF) !important">📊 Excel 다운로드</button>
     </div>
 
     <!-- 차트 -->
     <div class="pm-chart">
-      <div class="pm-chart-title">📈 최근 30일 일별 거래액</div>
+      <div class="pm-chart-title">📈 최근 30일 일별 입금액</div>
       <canvas id="b2b-chart" height="100"></canvas>
     </div>
 
-    <!-- 🔵🔴 3년 평균 vs 현재 비교 차트 (BtoB) -->
-    <div class="pm-chart" style="margin-top:14px">
-      <div class="pm-chart-title">📊 같은 기간 비교 — <span style="color:#60a5fa">■ 지난 3년 평균</span> vs <span style="color:#f87171">■ 올해 현재</span></div>
-      <canvas id="b2b-compare-chart" height="120"></canvas>
-      <div id="b2b-compare-summary" style="margin-top:8px;font-size:12px;color:#cbd5e1;text-align:center"></div>
-    </div>
+    <!-- ⛔ 「지난 3년 평균 vs 올해」 비교 차트를 되살리지 말 것 (2026-08-17 제거).
+         Math.random() 으로 그리던 가짜였고, 되살리려 해도 통장 데이터가 2026-03 부터라
+         «지난 3년» 을 만들 원본이 아예 없다. 데이터가 3년 쌓이면 그때 진짜로 만들 것. -->
 
-    <!-- 표 (1번 양식 베이스) -->
+    <!-- 표 — 통장 입금이라 «적요·금액·날짜» 가 전부다 -->
     <div style="overflow-x:auto">
     <table class="pm-table" id="b2b-table">
       <thead><tr>
-        <th>No</th><th>상태</th><th>결제번호</th><th>결제일</th><th>대리점</th><th>학생명</th>
-        <th>결제수단</th><th>상태메시지</th><th style="text-align:right">판매금액</th>
-        <th style="text-align:right">할인금액</th><th style="text-align:right">결제금액</th>
-        <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th><th>액션</th>
+        <th>No</th><th>입금일</th><th>입금처 (통장 적요)</th><th style="text-align:right">입금액</th>
       </tr></thead>
       <tbody id="b2b-tbody">
-        <tr><td>9188</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0001...</td><td>2026-05-25 14:51</td><td>데모대리점A</td><td>데모학생21 (demo21)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,960</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,200</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9187</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0002...</td><td>2026-05-25 14:49</td><td>데모대리점A</td><td>데모학생22 (demo22)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">42,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,201</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9186</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0003...</td><td>2026-05-23 14:08</td><td>데모대리점B</td><td>데모학생23 (demo23)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">44,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,258</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9185</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0004...</td><td>2026-05-23 13:18</td><td>친구소개 3만원</td><td>데모학생24 (demo24)</td><td>카드</td><td>정상처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td><button class="pm-row-btn">취소</button></td></tr>
-        <tr><td>9184</td><td><span class="pm-badge cancel">취소</span></td><td>DEMO0005...</td><td>2026-05-23 13:16</td><td>친구소개 3만원</td><td>데모학생25 (demo25)</td><td>카드</td><td>취소처리</td><td style="text-align:right">360,000</td><td style="text-align:right">18,000</td><td style="text-align:right">342,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">9,781</td><td>-</td></tr>
-        <tr><td>9183</td><td><span class="pm-badge ok">결제완료</span></td><td>DEMO0006...</td><td>2026-05-22 15:40</td><td>데모대리점C</td><td>데모학생26 (demo26)</td><td>카드</td><td>정상처리</td><td style="text-align:right">44,000</td><td style="text-align:right">0</td><td style="text-align:right">41,880</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,198</td><td><button class="pm-row-btn">취소</button></td></tr>
+        <tr><td colspan="4" style="text-align:center;padding:18px">불러오는 중…</td></tr>
       </tbody>
     </table>
     </div>
 
-    <div class="pm-pagination">
-      <button class="pm-page-btn">‹</button>
-      <button class="pm-page-btn active">1</button>
-      <button class="pm-page-btn">2</button>
-      <button class="pm-page-btn">3</button>
-      <button class="pm-page-btn">…</button>
-      <button class="pm-page-btn">›</button>
-    </div>
+    <div class="pm-pagination" id="b2b-pager"></div>
   </div>
 </details>
 
 <!-- === Card: BtoC 결제관리 (2번 양식 베이스) === -->
 <details class="table-card menu-card" id="card-payments-b2c">
-  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)</span><span class="pm-demo-badge" data-ko="⚠️ 데모 데이터" data-en="⚠️ Demo Data">⚠️ 데모 데이터</span></summary>
+  <summary><span data-ko="👨‍👩‍👧 BtoC 결제관리 (학부모 카드결제)" data-en="👨‍👩‍👧 B2C Payments">👨‍👩‍👧 BtoC 결제관리 (학부모 카드결제)</span></summary>
   <div class="menu-body">
-    <!-- ⚠️ (2026-08-17) BtoB 카드와 같은 이유 — adm-q7.js 가 2,380,000 / 45,200,000 / 156건 /
-         12건 을 고정으로 찍는다. 실데이터를 붙이는 날 BtoB 쪽과 함께 지운다. -->
-    <div class="pm-demo-note" data-ko="⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요." data-en="⚠️ Demo data — the figures, table and charts below are fixed placeholder values, not real payment records. Search and downloads are not connected to the server yet. Do not use for revenue decisions.">⚠️ 데모 데이터입니다 — 아래 숫자·표·차트는 실제 결제 내역이 아니라 화면 확인용 고정 예시값입니다. 검색·다운로드도 아직 서버에 연결돼 있지 않습니다. 매출 판단에 사용하지 마세요.</div>
+    <!-- 💳 (2026-08-17) 실데이터 = /api/admin/payments/b2c (payments-board.ts)
+         · student_payments 기준. 리포트와 같은 notSeedSql() 로 시연용 시드를 뺀다
+           — 안 그러면 「회계 리포트와 결제관리 숫자가 다르다」 가 된다.
+         · PG 수수료 2.86% 는 여기(카드결제)에만 붙는다. BtoB 통장입금엔 안 붙는다.
+         ⛔ 「세금계산서」 칸·버튼·일괄발행을 되살리지 말 것 — 발행 상태를 담는 표가
+            D1 에 아예 없다(2026-08-17 확인). 팝빌 연동을 붙이는 날 같이 만들 것. -->
+    <div class="pm-src-note" id="b2c-src-note" hidden></div>
     <!-- KPI 4카드 -->
     <div class="pm-kpi-row">
-      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 매출</div><div class="pm-kpi-value" id="b2c-kpi-today">₩0</div><div class="pm-kpi-trend">▲ 전일 대비 +0%</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 매출</div><div class="pm-kpi-value" id="b2c-kpi-month">₩0</div><div class="pm-kpi-trend">▲ 전월 대비 +0%</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">🧾 주문 건수</div><div class="pm-kpi-value" id="b2c-kpi-count">0건</div><div class="pm-kpi-trend">평균 ₩0/주문</div></div>
-      <div class="pm-kpi"><div class="pm-kpi-label">📄 세금계산서 미발행</div><div class="pm-kpi-value" id="b2c-kpi-tax">0건</div><div class="pm-kpi-trend">발행 필요</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 결제액</div><div class="pm-kpi-value" id="b2c-kpi-today">—</div><div class="pm-kpi-trend" id="b2c-kpi-today-t">전일 대비 —</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 결제액</div><div class="pm-kpi-value" id="b2c-kpi-month">—</div><div class="pm-kpi-trend" id="b2c-kpi-month-t">전월 대비 —</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">🧾 결제 건수</div><div class="pm-kpi-value" id="b2c-kpi-count">—</div><div class="pm-kpi-trend" id="b2c-kpi-count-t">평균 —/건</div></div>
+      <div class="pm-kpi"><div class="pm-kpi-label">💸 PG 수수료</div><div class="pm-kpi-value" id="b2c-kpi-fee">—</div><div class="pm-kpi-trend" id="b2c-kpi-fee-t">이번달 · 요율 —</div></div>
     </div>
 
-    <!-- 필터 -->
+    <!-- 필터
+         ⛔ 본사·지사·세금계산서 칸을 되살리지 말 것 — 고를 원본이 없다. 대리점은
+            «결제가 실제로 있는 곳» 만 API 가 채운다. -->
     <div class="pm-filter-row">
-      <select id="b2c-f-hq"><option value="">전체 본사</option><option>망고아이 본사</option></select>
-      <select id="b2c-f-branch"><option value="">전체 지사</option><option>서울지사</option><option>부산지사</option></select>
-      <select id="b2c-f-agency"><option value="">전체 대리점</option><option>데모대리점A</option><option>데모대리점B</option></select>
-      <input type="text" id="b2c-f-q" placeholder="🔍 대리점명·원장명·주문번호">
-    </div>
-    <div class="pm-filter-row">
+      <select id="b2c-f-agency"><option value="">전체 대리점</option></select>
       <input type="date" id="b2c-f-from">
       <input type="date" id="b2c-f-to">
-      <select id="b2c-f-method"><option value="">전체 결제수단</option><option>카드</option><option>계좌이체</option><option>카카오페이</option></select>
-      <select id="b2c-f-tax"><option value="">전체 세금계산서</option><option>발행</option><option>미발행</option></select>
+      <input type="text" id="b2c-f-q" placeholder="🔍 학생명·아이디">
     </div>
 
     <div class="pm-actions">
       <button class="pm-btn-search" onclick="b2cSearch()">🔍 검색</button>
       <button class="pm-btn-csv" onclick="b2cDownloadCsv()">📥 CSV 다운로드</button>
-      <button class="pm-btn-csv" onclick="b2cBulkTaxInvoice()" style="background:linear-gradient(135deg,#F59E0B,#D97706) !important">📄 세금계산서 일괄발행</button>
     </div>
+
+    <!-- ⚠️ 대리점을 못 붙인 몫 — 숨기지 않고 드러낸다(2026-08-17 사장님 지시).
+         결제 금액의 대부분은 학부모가 «자기 아이디» 로 결제해 학생 원부에 없다.
+         그래서 대리점으로 거르면 그 돈이 통째로 빠진다. -->
+    <div class="pm-unattr-note" id="b2c-unattr" hidden></div>
 
     <!-- 차트 -->
     <div class="pm-chart">
-      <div class="pm-chart-title">📈 최근 12개월 월별 매출</div>
+      <div class="pm-chart-title">📈 최근 30일 일별 결제액</div>
       <canvas id="b2c-chart" height="100"></canvas>
     </div>
 
-    <!-- 🔵🔴 3년 평균 vs 현재 비교 차트 (BtoC) -->
-    <div class="pm-chart" style="margin-top:14px">
-      <div class="pm-chart-title">📊 같은 기간 비교 — <span style="color:#60a5fa">■ 지난 3년 평균</span> vs <span style="color:#f87171">■ 올해 현재</span></div>
-      <canvas id="b2c-compare-chart" height="120"></canvas>
-      <div id="b2c-compare-summary" style="margin-top:8px;font-size:12px;color:#cbd5e1;text-align:center"></div>
-    </div>
+    <!-- ⛔ 「지난 3년 평균 vs 올해」 비교 차트를 되살리지 말 것 (2026-08-17 제거).
+         Math.random() 으로 그리던 가짜였다. -->
 
-    <!-- 안내 박스 -->
-    <div style="background:rgba(37,99,235,0.15) !important; color:#F8FAFC; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:12.5px; line-height:1.7">
-      <b style="color:#93C5FD">💡 발행 안내:</b><br>
-      ▸ <b>발행하기</b>: 팝빌 시스템을 통해 수동 발행 &nbsp;
-      ▸ <b>재발행하기</b>: 팝빌 시스템을 통해 자동 또는 수동 발행, 실패한 건은 재발행 하기<br>
-      ▸ <b>외부발행처리</b>: 팝빌이 아닌 다른 시스템으로 발행 완료된 경우 처리 &nbsp;
-      ▸ <b>외부발행처리됨</b>: 외부발행으로 처리된 건
-    </div>
-
-    <!-- 표 (2번 양식 베이스) -->
+    <!-- 표 -->
     <div style="overflow-x:auto">
     <table class="pm-table" id="b2c-table">
       <thead><tr>
-        <th>No</th><th>상태</th><th>결제번호</th><th>결제명</th><th>결제일</th><th>대리점</th>
-        <th>결제수단</th><th>세금계산서</th><th style="text-align:right">판매금액</th>
-        <th style="text-align:right">할인금액</th><th style="text-align:right">결제금액</th>
-        <th style="text-align:right">수수료율</th><th style="text-align:right">수수료</th>
+        <th>No</th><th>결제일</th><th>학생명</th><th>결제 아이디</th><th>대리점</th>
+        <th>결제수단</th><th style="text-align:right">결제금액</th><th style="text-align:right">PG 수수료</th>
       </tr></thead>
       <tbody id="b2c-tbody">
-        <tr><td>1625</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0007...</td><td>2026년 4월 망고아이 연장 수강신청</td><td>2026-05-19 14:04</td><td>데모학원A</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">30,000</td><td style="text-align:right">0</td><td style="text-align:right">30,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">858</td></tr>
-        <tr><td>1624</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0008...</td><td>수업료충전</td><td>2026-05-19 13:40</td><td>데모학원B</td><td>카드</td><td><button class="pm-row-btn tax">재발행</button></td><td style="text-align:right">1,000,000</td><td style="text-align:right">0</td><td style="text-align:right">1,000,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">28,600</td></tr>
-        <tr><td>1623</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0009...</td><td>2026년 3월 망고아이 연장 수강신청</td><td>2026-05-17 18:35</td><td>데모학원C</td><td>카드</td><td>외부발행처리</td><td style="text-align:right">232,500</td><td style="text-align:right">0</td><td style="text-align:right">232,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">6,650</td></tr>
-        <tr><td>1622</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0010...</td><td>2026년 5월 망고아이 연장 수강신청</td><td>2026-05-15 16:10</td><td>데모학원D</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">37,500</td><td style="text-align:right">0</td><td style="text-align:right">37,500</td><td style="text-align:right">2.86%</td><td style="text-align:right">1,073</td></tr>
-        <tr><td>1621</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0011...</td><td>2026년 05월 망고아이 연장 수강신청</td><td>2026-05-13 14:38</td><td>데모학원E</td><td>카드</td><td>외부발행처리됨</td><td style="text-align:right">150,000</td><td style="text-align:right">0</td><td style="text-align:right">150,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">4,290</td></tr>
-        <tr><td>1620</td><td><span class="pm-badge ok">정상처리</span></td><td>DEMO0012...</td><td>수업료충전</td><td>2026-05-12 17:56</td><td>데모학원F</td><td>카드</td><td><button class="pm-row-btn tax">발행하기</button></td><td style="text-align:right">870,000</td><td style="text-align:right">0</td><td style="text-align:right">870,000</td><td style="text-align:right">2.86%</td><td style="text-align:right">24,882</td></tr>
+        <tr><td colspan="8" style="text-align:center;padding:18px">불러오는 중…</td></tr>
       </tbody>
     </table>
     </div>
 
-    <div class="pm-pagination">
-      <button class="pm-page-btn">‹</button>
-      <button class="pm-page-btn active">1</button>
-      <button class="pm-page-btn">2</button>
-      <button class="pm-page-btn">3</button>
-      <button class="pm-page-btn">…</button>
-      <button class="pm-page-btn">›</button>
-    </div>
+    <div class="pm-pagination" id="b2c-pager"></div>
   </div>
 </details>
 
-<!-- ph106 JS — Chart.js + 데모 데이터 (실서비스 시 fetch API 로 교체) -->
-<script src="/js/adm-q7.js?v=2" defer></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) -->
+<!-- ph106 JS — 결제관리 실데이터 (2026-08-17: 데모 상수 → /api/admin/payments/*) -->
+<script src="/js/adm-q7.js?v=3" defer></script><!-- 분할추출:adm-q7 (원복: 이 위치에 인라인) · v=3: 실데이터 연결 -->
 
 
 <!-- Phase 107 admin (2026-05-25) — 보고서 양식 관리 카드 (강사+시스템 양쪽 사이드바 노출) -->
@@ -11461,11 +11415,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 128 admin (2026-05-25) — 결제·결제 표 컬럼별 다중 동시 필터링 -->
 
 
-<script src="/js/adm-r26.js?v=1" defer></script><!-- 분할추출:adm-r26 -->
+<script src="/js/adm-r26.js?v=2" defer></script><!-- 분할추출:adm-r26 · v=2: 필터 통계 띠 hidden 수정 -->
 
 
 <!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
-<script src="/js/adm-p3.js?v=2" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) · v=2: ph106 데모 배지 사전 -->
+<script src="/js/adm-p3.js?v=3" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->

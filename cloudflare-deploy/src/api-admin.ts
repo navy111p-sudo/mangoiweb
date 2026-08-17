@@ -35,6 +35,7 @@ import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus 
 import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수강신청 확정 → 계정·강사·시간표·구독·안내
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
+import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -5561,6 +5562,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS payment_overdue_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, days_overdue INTEGER, amount_krw INTEGER, parent_phone TEXT, status TEXT, error_message TEXT, sent_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_overdue_user ON payment_overdue_log(user_id, sent_at DESC);`); } catch {}
     };
+
+    /* ── 💳 결제관리 화면(ph106) — /api/admin/payments/b2b · /b2c ──
+       B2B 는 통장 직접입금, B2C 는 카드결제로 «보는 표가 서로 다르다». 왜 그런지는
+       payments-board.ts 머리말에 적어 뒀다. 인증은 index.ts 의 default-deny 게이트가
+       '/api/admin/payments' 접두사로 이미 덮고 있어 별도 등록이 필요 없다. */
+    {
+      const pb = await handlePaymentsBoardApi(request, url, env as any);
+      if (pb) return pb;
+    }
 
     // ── GET /api/admin/payments/overdue?grace_days=35&monthly_fee=200000 ──
     //   학생별 마지막 결제일 조회 → grace_days 초과면 미납으로 분류
