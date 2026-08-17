@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=8"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=9"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -406,18 +406,13 @@
         <!-- 🗑️ (2026-07-22) 음성+자막 인사 버블(#ai-greeting-bubble) 마크업도 물리 삭제 — adm-core setupAiGreeting 비활성과 세트. 재추가 금지 -->
 
         <div class="hero-search">
-          <button class="hero-search-icon" id="menu-search-go" type="button"
-                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
-                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
-            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7"></circle>
-              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-            </svg>
-            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="13 6 19 12 13 18"></polyline>
-            </svg>
-          </button>
+          <!-- 🥭 (2026-08-17 사장님 지시) Mr. Mango 는 «최대한 줄여서» 검색창 왼쪽에만 둔다.
+               오른쪽에 크게 떠 있던 우주 액자(.hero-character)는 물리 삭제 — 재추가 금지.
+               장식이므로 aria-hidden + pointer-events:none (탭 순서·스크린리더에 안 끼어든다).
+               ⚠️ /img/mango-char.png = 투명 배경 컷아웃. Mangoi_Character.jpg 를 쓰면
+                  흰 사각 배경이 검색창 위에 그대로 얹힌다. -->
+          <img class="hero-search-mango" src="/img/mango-char.png" alt="" aria-hidden="true"
+               loading="lazy" decoding="async" onerror="this.style.display='none'">
           <input id="menu-search" type="search" autocomplete="off"
                  placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
                  data-ko-placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
@@ -435,6 +430,23 @@
               <path d="M5 11a7 7 0 0 0 14 0"></path>
               <line x1="12" y1="18" x2="12" y2="22"></line>
               <line x1="8" y1="22" x2="16" y2="22"></line>
+            </svg>
+          </button>
+          <!-- 🔎 돋보기(=검색어 있으면 ➡️ 이동) 버튼 — 왼쪽에서 오른쪽 끝으로 옮김(2026-08-17).
+               왼쪽 자리는 Mr. Mango 가 쓴다. 오른쪽 배치 순서(바깥→안쪽): 돋보기 · 마이크 · ✕지우기.
+               ⚠️ DOM 순서를 바꿀 때 input 뒤로만 옮길 것 —
+                  `.hero-search input:not(:placeholder-shown) ~ .hero-search-clear` 가
+                  «input 다음 형제» 를 전제로 ✕ 를 띄운다. -->
+          <button class="hero-search-icon" id="menu-search-go" type="button"
+                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
+                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
+            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+            </svg>
+            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="13 6 19 12 13 18"></polyline>
             </svg>
           </button>
           <div class="hero-search-dropdown menu-search-dropdown" id="menu-search-dropdown"></div>
@@ -473,12 +485,10 @@
           </div>
         </div>
       </div>
-      <div class="hero-character">
-        <div class="hero-character-frame">
-          <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
-               onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';" loading="lazy" decoding="async"/>
-        </div>
-      </div>
+      <!-- 🗑️ (2026-08-17 사장님 지시) 오른쪽 «우주 액자 + 큰 Mr. Mango»(.hero-character) 물리 삭제.
+           캐릭터는 검색창 왼쪽 미니 아바타(.hero-search-mango) 하나로 축소했다. 재추가 금지.
+           ⚠️ .hero 의 grid-template-columns 를 `1fr` 로 함께 고쳤다(a.css·c.css 두 곳).
+              안 고치면 빈 160px 트랙이 남아 검색창이 오른쪽에서 잘려 보인다. -->
     </section>
 
     <!-- ============================================================
@@ -579,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=21"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=22"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —

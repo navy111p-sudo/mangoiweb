@@ -8192,22 +8192,24 @@ button.chip:hover,
 /* ── [style#no-id-115] ── */
 
 @media (min-width: 901px) {
-  /* (26-07-22 2차 절반 축소) 기본값과 동일 — 옛 캐시 CSS 를 이기는 백스톱 역할만 */
+  /* (26-07-22 2차 절반 축소) 기본값과 동일 — 옛 캐시 CSS 를 이기는 백스톱 역할만.
+     ⚠️ (2026-08-17) 여기 값이 admin-inline-a.css 의 짝과 **반드시 같아야** 한다.
+        옛 `1fr 160px` 이 !important 로 남아 있으면 a.css 를 1fr 로 고쳐도 안 먹는다. */
   .hero {
-    grid-template-columns: 1fr 160px !important;
+    grid-template-columns: 1fr !important;   /* 오른쪽 캐릭터 액자 삭제 → 1컬럼 */
     gap: 24px !important;
     padding: 16px 32px !important;
     min-height: 0 !important;
     border-radius: 22px !important;
     margin-bottom: 16px !important;
   }
-  .hero .hero-search input { padding: 14px 96px 14px 54px !important; font-size: 17px !important; }
-  .hero .hero-search-icon { width: 36px !important; height: 36px !important; left: 10px !important; }
-  .hero .hero-search-mic { width: 40px !important; height: 40px !important; right: 12px !important; }
+  /* 🥭 왼쪽 = Mr. Mango 미니 아바타 / 오른쪽 = 돋보기 · 마이크 · ✕지우기 (2026-08-17 재배치) */
+  .hero .hero-search input { padding: 14px 152px 14px 60px !important; font-size: 17px !important; }
+  .hero .hero-search-mango { width: 40px !important; height: 40px !important; left: 12px !important; }
+  .hero .hero-search-icon { width: 40px !important; height: 40px !important; right: 12px !important; left: auto !important; }
+  .hero .hero-search-mic { width: 40px !important; height: 40px !important; right: 58px !important; }
   .hero .hero-search-mic .mic-icon { width: 20px !important; height: 20px !important; }
-  .hero-character-frame { padding: 5px !important; border-radius: 18px !important; }
-  .hero-character-frame img { max-width: 130px !important; min-width: 100px !important; border-radius: 14px !important; }
-  .hero-character-frame::after { font-size: 14px !important; }  /* 🛸 UFO */
+  .hero .hero-search-clear { right: 104px !important; }
 }
 
 
