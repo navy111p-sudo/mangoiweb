@@ -589,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=23"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=24"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -9703,7 +9703,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         '<button class="ph86-action-btn expand"   type="button" data-act="expand">↧ 모두 펼치기</button>' +
         '<button class="ph86-action-btn collapse" type="button" data-act="collapse">↥ 모두 접기</button>' +
         '<button class="ph86-action-btn hide"     type="button" data-act="hide">🙈 숨기기</button>';
-      search.parentNode.insertBefore(actions, search.nextSibling);
+      /* 🔴 검색 wrap 「밖」에 붙인다 (2026-08-17 실측으로 잡은 함정).
+         wrap 안에 넣으면 .ph85-search-wrap 높이가 «입력칸 42px + 버튼줄» 을 합친
+         90px 이 되는데, 검색창의 «↑ 나가기» 버튼(.ph85-search-exit)이 그 wrap 기준
+         top:50% 로 놓여 있어 **입력칸을 벗어나 버튼 위로 내려앉는다.**
+         실측(390px): ↑ 가 y=204~232, 「모두 접기」가 y=223~263 → 접기의 오른쪽 위
+         모서리를 가로막아 그 자리를 누르면 접기가 아니라 ↑ 가 눌렸다.
+         밖으로 빼면 wrap 이 다시 입력칸 높이만 갖고 ↑ 가 입력칸 안으로 돌아온다.
+         PC·모바일 둘 다 같은 버그였고, 이 한 줄로 둘 다 낫는다.
+         (숫자를 박아 고치지 않는 이유 — 입력칸 높이가 화면 폭마다 달라서다.) */
+      var swrap = search.closest('.ph85-search-wrap') || search;
+      swrap.parentNode.insertBefore(actions, swrap.nextSibling);
 
       actions.addEventListener('click', function(e){
         var btn = e.target.closest('.ph86-action-btn');
@@ -11498,7 +11508,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var t = e.target;
     if (!t || !t.closest) return;
     // 아코디언 헤더·검색창·계정 도크는 «펼치려고» 누르는 것이라 닫지 않는다
-    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph162-dock, #mgv2-clock')) return;
+    /* ⚠️ #ph86-actions(모두 펼치기/접기)를 따로 적어 둔다 — 2026-08-17 부터 이 버튼줄은
+          .ph85-search-wrap «밖» 에 붙는다(위 3) 주석 참조). 예전엔 wrap 안이라 이 목록에
+          자동으로 걸렸는데, 이제는 이름을 명시해야 «펼치기를 눌렀는데 메뉴가 닫히는» 일이 없다. */
+    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
     if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
     setTimeout(function(){
       if (document.body.classList.contains('mga-open')) window.mgaClose();
