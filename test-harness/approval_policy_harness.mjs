@@ -464,11 +464,23 @@ check('관리자 화면의 입구는 대기 0건이어도 늘 보인다',
   '입구가 없으면 결재를 올리러 들어갈 방법이 없다');
 
 check('대기가 없을 때는 숫자 없이 «결재함» 으로만 보인다 (알림이 아니라 메뉴)',
-  /: \(ko \? '결재함' : 'Approvals'\)/.test(ADMIN_SRC));
+  /ko \? '결재함[^']*' : '[^']*'/.test(ADMIN_SRC),
+  '0건일 때 숫자를 붙이면 «0건» 이 알림처럼 보인다');
 
 check('대기가 없을 때는 조용한 색으로 둔다',
-  /n \? '#0b6e63' : '#5a6873'/.test(ADMIN_SRC),
+  /n \? '#0b6e63' : '#(e8eef4|5a6873)'/.test(ADMIN_SRC),
   '늘 떠 있는 «빨간 배지» 는 곧 배경이 된다');
+
+/* 🪤 2026-08-17 사장님 화면에서 «어디에도 안 보인다» — 오른쪽 아래는 이미
+   「AI 운영비서」 버튼과 상담원 아바타가 쓰고 있어서 떠 있는 배지가 그 뒤에 가려졌다.
+   그래서 본문 맨 위(자주 쓰는 기능 바로 위)에 흐름 안 요소로 넣는다. */
+check('입구를 본문 맨 위에 끼워 넣는다 (떠 있게 두지 않는다)',
+  /getElementById\('ph161-quick'\)/.test(ADMIN_SRC) && /insertBefore\(a, anchor\)/.test(ADMIN_SRC),
+  '오른쪽 아래는 AI 운영비서·아바타가 이미 쓰고 있어 가려진다');
+
+check('앵커를 못 찾으면 떠 있는 버튼으로라도 보여 준다',
+  /position:fixed;right:16px;bottom:150px/.test(ADMIN_SRC),
+  '아주 안 보이는 것보다는 낫다');
 
 check('관리자 화면의 배지는 반복 폴링하지 않는다',
   /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
