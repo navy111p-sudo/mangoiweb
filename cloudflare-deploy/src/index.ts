@@ -199,6 +199,34 @@ const worker = {
       });
     }
 
+    /* 🔗 정본 호스트로 모은다 — www.mangoi.ai → mangoi.ai (2026-08-17)
+     *
+     * [왜]
+     *   www 를 추가로 붙이면서 «같은 사이트» 가 브라우저에겐 **두 사이트**가 됐다.
+     *   오리진이 갈리면 아래가 전부 따로 논다:
+     *     · 교사·본사·지사 세션 쿠키 — Domain= 이 없는 호스트 전용 쿠키(auth-admin.ts)
+     *     · 학생·학부모 로그인 — localStorage 의 mangoi_logged_user·mango_token
+     *     · 언어 설정 mangoi_lang, 패스키 rpId, 뒤로가기의 «같은 사이트» 판정
+     *   쿠키는 Domain 을 넓히면 되지만 **localStorage 는 오리진별로 갈리는 게 웹 표준이라
+     *   공유할 방법이 아예 없다.** 그래서 «주소를 하나로 모으는» 것이 유일한 완전 해결책이다.
+     *   이걸 안 하면 CLAUDE.md 의 「로그인했는데 또 로그인하래요」가 그대로 재현된다.
+     *
+     * [주의]
+     *   ⛔ test.mangoi.co.kr 은 절대 건드리지 않는다 — 앱 시작 URL·스모크 테스트·워치독이
+     *      그 주소를 붙박이로 쓴다. workers.dev·localhost 도 그대로 둔다(개발·진단용).
+     *   ⛔ WebSocket 업그레이드는 리다이렉트하지 않는다 — 화상수업이 끊긴다.
+     *   · OPTIONS(프리플라이트)는 위에서 이미 답했으므로 여기까지 오지 않는다.
+     *   · GET/HEAD 는 301, 나머지는 308 을 쓴다. POST 를 301 로 보내면 클라이언트가
+     *     GET 으로 바꾸면서 **본문을 버린다**(308 은 메서드와 본문을 지킨다).
+     */
+    if (url.hostname === 'www.mangoi.ai'
+        && (request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
+      const canonical = new URL(url.toString());
+      canonical.hostname = 'mangoi.ai';
+      const permanent = request.method === 'GET' || request.method === 'HEAD';
+      return Response.redirect(canonical.toString(), permanent ? 301 : 308);
+    }
+
     // 💬 문의·신규상담 페이지 폐지 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
     //   public/contact.html 을 지웠다. 그런데 이 주소는 검색엔진에 색인돼 있고, 카톡·문자로
     //   돌던 옛 링크도 살아 있다. 그냥 지우면 그 사람들이 404 를 본다 — 상담하러 온 사람이다.

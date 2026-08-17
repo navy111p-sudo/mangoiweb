@@ -12,6 +12,16 @@
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
 - 운영 주소: **https://mangoi.ai** → Cloudflare Worker `webrtc-unified-platform-prod`
   (사장님·직원이 실제로 여는 주소입니다. 사람에게 안내할 링크는 **이 주소**를 쓰세요)
+  - **`www.mangoi.ai` 는 `mangoi.ai` 로 넘어갑니다** (2026-08-17 추가 → 같은 날 정본으로 합침).
+    `src/index.ts` 진입부가 www 요청을 apex 로 돌립니다(GET/HEAD 는 301, 나머지는 308 — POST 본문 보존).
+    **WebSocket 업그레이드는 제외**합니다(화상수업이 끊깁니다). 안내 링크의 정본은 `src/site-url.ts` 의 `SITE_ORIGIN` 한 줄.
+    ⚠️ **왜 굳이 합쳤나** — 오리진이 갈리면 브라우저가 두 사이트로 봅니다. 교사 세션 쿠키는 `Domain=` 이 없는
+    호스트 전용이고, 학생 로그인(`mangoi_logged_user`·`mango_token`)과 언어(`mangoi_lang`)는 `localStorage` 라
+    **오리진별로 갈리는 게 웹 표준이라 공유가 불가능**합니다. 쿠키만 넓혀선 절반만 고쳐집니다.
+    안 합치면 「로그인했는데 또 로그인하래요」가 그대로 재현됩니다.
+    ⚠️ 호스트명을 그대로 쓰는 코드는 여전히 조심하세요. 패스키가 정확히 그랬고
+    (`rpId` 가 달라져 «어제까진 지문으로 됐는데» 가 됩니다), `src/api-passkey.ts` 의 `resolveRpId()` 로 apex 에 묶어
+    리다이렉트가 없어도 버티게 해 뒀습니다. 비슷한 코드를 새로 쓸 때 같은 함정을 확인하세요
   - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
     아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
     안드로이드/iOS 앱의 시작 URL, `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —

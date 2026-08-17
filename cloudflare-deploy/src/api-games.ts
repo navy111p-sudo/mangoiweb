@@ -1412,7 +1412,20 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const rqAuth = await authUidGlobal(request, url, env);
         if (!rqAuth || rqAuth !== userId) userId = '';   // 통계만 익명화
       }
-      const rs = await env.DB.prepare(`SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, lang, created_at FROM review_quizzes WHERE active = 1 ORDER BY id DESC`).all();
+      /* 🈶 언어 필터 (2026-08-17) — review-quiz-cn.html 이 `&lang=zh` 를 보내는데 여기서
+       *   **읽지 않아** 중국어 화면에 한국어·영어 퀴즈까지 다 나오고 있었다(실측: 활성 15건 중 zh 는 1건).
+       *   규칙은 아래 자동생성부(langCond)와 똑같이 맞춘다:
+       *     · zh → lang='zh' 인 행만
+       *     · en → lang='en' + **예전에 만들어져 lang 이 NULL 인 행**(하위호환)
+       *   ⚠️ lang 을 안 보내면 예전 그대로 «전부» 돌려준다 — 이 API 를 쓰는 다른 화면을 깨지 않기 위함. */
+      const listLang = String(url.searchParams.get('lang') || '').trim().toLowerCase();
+      let listSql = `SELECT id, title, description, questions, level, textbook, lesson_no, source, draw, lang, created_at FROM review_quizzes WHERE active = 1`;
+      const listBinds: any[] = [];
+      if (listLang === 'zh') { listSql += ` AND lang = ?`; listBinds.push('zh'); }
+      else if (listLang) { listSql += ` AND (lang = ? OR lang IS NULL)`; listBinds.push(listLang); }
+      listSql += ` ORDER BY id DESC`;
+      const listStmt = env.DB.prepare(listSql);
+      const rs = await (listBinds.length ? listStmt.bind(...listBinds) : listStmt).all();
       const quizzes: any[] = [];
       for (const row of (((rs.results as any[]) || []))) {
         let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}

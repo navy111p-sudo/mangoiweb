@@ -146,20 +146,36 @@
     if (sec) sec.style.display = (type === 'expense') ? '' : 'none';
   };
 
-  // 임시 저장
+  /* ⚠️ 2026-08-17 정리 — 이 모달은 «양식 미리보기» 다. 결재를 실제로 올리는 곳이 아니다.
+   *   예전에는 두 버튼이 서버에 아무것도 안 보내 놓고 「임시 저장 완료」·「결재 상신 완료」 를
+   *   띄웠다. 사장님·직원은 결재가 올라간 줄 알고 창을 닫았다(= 결재가 영영 사라짐).
+   *   진짜 전자결재는 이미 `/work.html` 에 다 있다 — POST /api/approval/requests,
+   *   첨부·OCR·음성·전결·멱등성까지. 그러니 여기서 흉내내지 말고 그쪽으로 보낸다.
+   *   ⛔ 「완료」 라는 말을 다시 넣지 말 것. 서버에 보내는 코드가 생기기 전까지는 거짓말이다. */
+  var APPROVAL_URL = '/work.html';
+
+  // 진짜 결재 화면으로 이동. 카톡·문자 인앱 브라우저는 새 창을 못 열고
+  // 예외 없이 null 만 돌려주므로, 비면 같은 창에서 연다.
+  function gotoApproval(){
+    var w = null;
+    try { w = window.open(APPROVAL_URL, '_blank'); } catch (e) { w = null; }
+    if (!w) location.href = APPROVAL_URL;
+  }
+
+  // 임시 저장 — 저장할 서버가 없다. 있는 척하지 않는다.
   window.rfSaveDraft = function(){
     if (!currentFormId) return;
-    console.log('[ph108] 임시 저장 — 양식 #' + currentFormId);
-    alert('💾 임시 저장 완료\n\n나중에 "내 작성 중 문서" 에서 이어서 작성하실 수 있습니다.');
+    console.log('[ph108] 임시 저장 요청 — 양식 #' + currentFormId + ' (미리보기라 저장하지 않음)');
+    alert('이 창은 양식 미리보기라 저장되지 않습니다.\n\n작성 중인 내용을 남기려면 전자결재 화면에서 작성해 주세요.');
   };
 
-  // 결재 상신
+  // 결재 상신 — 실제 상신은 전자결재 화면에서만 이뤄진다.
   window.rfSubmit = function(){
     if (!currentFormId) return;
-    if (!confirm('결재를 상신하시겠습니까?\n\n상신 후에는 결재자가 승인/반려할 수 있습니다.')) return;
-    console.log('[ph108] 결재 상신 — 양식 #' + currentFormId);
-    alert('📤 결재 상신 완료\n\n결재자에게 알림이 발송됩니다.\n(실서비스에서는 백엔드 API 호출 + 알림톡 발송)');
+    console.log('[ph108] 결재 상신 요청 — 양식 #' + currentFormId + ' (미리보기라 상신하지 않음)');
+    if (!confirm('이 창은 양식 미리보기라 결재가 올라가지 않습니다.\n\n전자결재 화면으로 이동할까요?')) return;
     rfCloseModal();
+    gotoApproval();
   };
 
   console.log('[ph108] 양식 미리보기 모달 초기화 완료 — rfOpen(id) 로 양식 ID 1, 2 호출 가능');

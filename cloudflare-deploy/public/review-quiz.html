@@ -180,6 +180,15 @@
       </div>
       <div id="quizList"><div class="empty-box" data-ko="⏳ 퀴즈를 불러오는 중…" data-en="⏳ Loading quizzes…">⏳ 퀴즈를 불러오는 중…</div></div>
 
+      <!-- 🇨🇳 중국어판으로 건너가기 (2026-08-17) — speech-coach.html 이 중국어 코치로 보내는 방식과 같다.
+           이 목록은 lang=en 으로 걸러 오므로 중국어 퀴즈는 여기 안 나온다. 갈 길을 만들어 둔다. -->
+      <div style="text-align:center;margin-top:16px">
+        <a href="/review-quiz-cn.html"
+           style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border-radius:12px;text-decoration:none;font-weight:700;font-size:14px;font-family:inherit;color:var(--text);background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));border:1px solid rgba(220,38,38,.55)">
+          🇨🇳 <span data-ko="중국어 복습퀴즈" data-en="Chinese Review Quiz">중국어 복습퀴즈</span>
+        </a>
+      </div>
+
       <!-- 🚀 퀴즈를 안 풀고도 바로 다른 곳으로 이동 (수업입장·AI 웜업·학생게임·녹화·나가기) -->
       <div style="text-align:center;margin-top:22px">
         <div style="font-size:13px;color:var(--text2);margin-bottom:10px" data-ko="다른 활동으로 이동할까요?" data-en="Move to another activity?">다른 활동으로 이동할까요?</div>
@@ -281,7 +290,9 @@
     async function loadList() {
       var box = document.getElementById('quizList');
       try {
-        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })())).then(function(x){ return x.json(); });
+        // 🈶 lang=en — 중국어 퀴즈는 /review-quiz-cn.html 쪽 몫이다. 안 붙이면 여기에 섞여 나온다.
+        //    서버는 en 을 「lang='en' 또는 예전 NULL 행」으로 읽는다(하위호환).
+        var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()) + '&lang=en').then(function(x){ return x.json(); });
         if (!r.ok) throw new Error(r.error||'load_fail');
         if (!r.quizzes.length) {
           box.innerHTML = '<div class="empty-box">📭 ' + (isEn() ? 'No quizzes yet. Your teacher will add some soon!' : '아직 등록된 퀴즈가 없어요.<br>선생님이 곧 퀴즈를 올려주실 거예요!') + '</div>';
