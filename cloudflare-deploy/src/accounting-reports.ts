@@ -335,6 +335,17 @@ export type DepositKind = 'pg' | 'b2b' | 'transfer' | 'other';
 /** 계좌 확인용 «1원 입금»(메트로은행) 처럼 매출로 볼 수 없는 소액의 기준 */
 const DEPOSIT_MIN_KRW = 1000;
 
+/* 🏦 정체가 «확인된» 내부 자금이체 (2026-08-17 사장님 확인).
+   「케이씨피M」 = 회사의 하나은행 계좌에서 신한으로 옮긴 **운영자금** 이다.
+   매출이 아니고, 확인이 끝났으므로 더 이상 «확인 필요» 로 묻지 않는다.
+   ⚠️ 다만 «매출이 아닌 돈으로 통장을 메우고 있다» 는 사실 자체는 중요하므로
+      숨기지 않고 «운영자금 보충» 이라는 이름으로 금액을 그대로 보여 준다.
+   ⚠️ 「케이씨피」 로 시작하는 **다른** 변형이 새로 나타나면 그건 여전히 확인 대상이다. */
+const KNOWN_TRANSFER_RE = /^케이씨피M$/;
+export function isKnownTransfer(remark: string): boolean {
+  return KNOWN_TRANSFER_RE.test(String(remark || '').trim());
+}
+
 /** 입금 한 건의 성격. ⚠️ 저장된 category 를 쓰지 않고 적요에서 매번 판정한다 —
     바로빌 동기화(배포 권한자만 실행)를 기다리지 않고 규칙 개선이 바로 반영되게. */
 export function classifyDeposit(remark: string, amount: number): DepositKind {
@@ -349,8 +360,12 @@ export function classifyDeposit(remark: string, amount: number): DepositKind {
 
 export interface MonthDeposits {
   pg: number; b2b: number; transfer: number; other: number;
+  /** transfer 중 정체가 확인된 내부 자금이체(운영자금 보충) */
+  transferKnown: number;
+  /** transfer 중 아직 확인 안 된 것 — 이것만 «확인 필요» 로 묻는다 */
+  transferUnknown: number;
   b2bRows: Array<{ date: string; remark: string; amount: number }>;
-  transferRows: Array<{ date: string; remark: string; amount: number }>;
+  transferRows: Array<{ date: string; remark: string; amount: number; known: boolean }>;
   hasBank: boolean;
 }
 
@@ -364,14 +379,21 @@ async function monthDeposits(env: Env, period: string): Promise<MonthDeposits> {
     `).bind(period).all();
     return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
   }, []);
-  const out: MonthDeposits = { pg: 0, b2b: 0, transfer: 0, other: 0, b2bRows: [], transferRows: [], hasBank: rows.length > 0 };
+  const out: MonthDeposits = {
+    pg: 0, b2b: 0, transfer: 0, other: 0, transferKnown: 0, transferUnknown: 0,
+    b2bRows: [], transferRows: [], hasBank: rows.length > 0,
+  };
   for (const r of rows) {
     const amount = Number(r.amount) || 0;
     const kind = classifyDeposit(r.remark, amount);
     out[kind] += amount;
     const item = { date: String(r.trans_at || '').slice(0, 10), remark: r.remark, amount };
     if (kind === 'b2b') out.b2bRows.push(item);
-    else if (kind === 'transfer') out.transferRows.push(item);
+    else if (kind === 'transfer') {
+      const known = isKnownTransfer(r.remark);
+      if (known) out.transferKnown += amount; else out.transferUnknown += amount;
+      out.transferRows.push({ ...item, known });
+    }
   }
   out.b2bRows.sort((a, b) => b.amount - a.amount);
   out.transferRows.sort((a, b) => b.amount - a.amount);
@@ -568,10 +590,15 @@ async function buildMonthly(env: Env, period: string) {
       // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
       seed_excluded_krw: seedEx.amount,
       seed_excluded_count: seedEx.count,
-      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 타계좌 이체)
+      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 하나은행에서 옮긴 운영자금)
       deposit_pg_krw: pl.rev.dep.pg,
       deposit_transfer_krw: pl.rev.dep.transfer,
       deposit_transfer_count: pl.rev.dep.transferRows.length,
+      /* 💵 운영자금 보충 — 매출이 아닌 돈으로 통장을 메운 금액(2026-08-17 사장님 확인:
+         「케이씨피M」 = 하나은행 계좌에서 옮겨 온 운영자금). 매출로 잡으면 안 되지만
+         «얼마나 메우고 있는지» 는 회사 상태를 보는 데 가장 중요한 숫자라 그대로 보여 준다. */
+      funding_in_krw: pl.rev.dep.transferKnown,
+      deposit_transfer_unknown_krw: pl.rev.dep.transferUnknown,
       // 🚨 장부 결제 매출 < PG 정산 입금 → 매출 누락 의심
       revenue_gap_krw: revenueGap,
       // 💵 통장 기준 «실제» 현금흐름 — 장부가 불완전해도 이건 사실이다
@@ -615,7 +642,8 @@ async function buildMonthly(env: Env, period: string) {
       pg_fee: 'estimated' as FigureSource,
       op_cost: pl.opCostSource,
       unclassified: (unclassifiedTotal > 0 ? 'review' : 'actual') as FigureSource,
-      deposit_transfer: (pl.rev.dep.transfer > 0 ? 'review' : 'actual') as FigureSource,
+      // 확인된 자금이체는 실데이터, 아직 모르는 것만 «확인 필요»
+      deposit_transfer: (pl.rev.dep.transferUnknown > 0 ? 'review' : 'actual') as FigureSource,
       active_students: 'review' as FigureSource,
       class_minutes: (classMin.zero_sessions > 0 ? 'review' : 'actual') as FigureSource,
     },
@@ -731,7 +759,8 @@ function closeWarnings(data: any): string[] {
   const w: string[] = [];
   const rec = data?.reconcile, s = data?.summary, c = data?.cost;
   if (rec && (rec.verdict === 'warn' || rec.verdict === 'alert')) w.push(`장부와 통장이 어긋납니다 — ${rec.message}`);
-  if ((s?.deposit_transfer_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_krw).toLocaleString('ko-KR')} 있습니다(「케이씨피M」 등 ${s.deposit_transfer_count}건).`);
+  // ✅ 정체가 확인된 내부 자금이체(「케이씨피M」)는 더 이상 묻지 않는다. 모르는 것만 묻는다.
+  if ((s?.deposit_transfer_unknown_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_unknown_krw).toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`);
   if ((c?.unclassified_krw || 0) > 0) w.push(`계정과목이 안 붙은 출금이 ₩${Number(c.unclassified_krw).toLocaleString('ko-KR')} 있습니다(비용의 ${c.unclassified_pct}%).`);
   if (c?.op_cost_source === 'estimated') w.push('운영비가 실지출이 아니라 «매출의 10%» 추정입니다.');
   return w;
@@ -1082,9 +1111,14 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
     revenue: revenueBook, expected, deposit_pg: dep.pg,
     deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
-    transfer_note: dep.transfer > 0
-      ? `PG 정산이 아닌 타계좌 입금 ₩${dep.transfer.toLocaleString('ko-KR')} (${dep.transferRows.length}건)이 있습니다 — 「케이씨피M」처럼 사람이 인터넷뱅킹으로 보낸 돈입니다. 운영자금 이체인지 매출인지 확인해 주세요.`
-      : '',
+    transfer_note: [
+      dep.transferKnown > 0
+        ? `이 달 하나은행 계좌에서 옮겨 온 운영자금이 ₩${dep.transferKnown.toLocaleString('ko-KR')} 있습니다(「케이씨피M」). 매출이 아니라 자금 이동이라 매출·대사에서 뺐습니다.`
+        : '',
+      dep.transferUnknown > 0
+        ? `아직 성격이 확인되지 않은 입금이 ₩${dep.transferUnknown.toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`
+        : '',
+    ].filter(Boolean).join(' '),
   };
 }
 
@@ -1630,8 +1664,11 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
             ? [{ name: `통장 직접입금 (B2B ${plM.rev.dep.b2bRows.length}건 · 신한 실데이터)`, amount: plM.rev.b2b }]
             : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
-          ...(plM.rev.dep.transfer > 0
-            ? [{ name: `※ PG 정산이 아닌 타계좌 입금 ₩${plM.rev.dep.transfer.toLocaleString('ko-KR')}(「케이씨피M」 등 ${plM.rev.dep.transferRows.length}건)은 성격이 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
+          ...(plM.rev.dep.transferKnown > 0
+            ? [{ name: `※ 하나은행에서 옮겨 온 운영자금 ₩${plM.rev.dep.transferKnown.toLocaleString('ko-KR')}(「케이씨피M」)은 매출이 아니라 자금 이동이라 제외했습니다`, sub: true }]
+            : []),
+          ...(plM.rev.dep.transferUnknown > 0
+            ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${plM.rev.dep.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
           ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
