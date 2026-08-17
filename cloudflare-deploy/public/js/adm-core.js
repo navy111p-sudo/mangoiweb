@@ -10551,13 +10551,17 @@ window.rebuildGlobalSearchIndex = function() {
         .toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:1000}
         .toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}
         .toolbar .print{background:#fb923c;color:#fff}
+        .toolbar .xlsx{background:#217346;color:#fff}
         .toolbar .csv{background:#10b981;color:#fff}
         .toolbar .close{background:#6b7280;color:#fff}
         @media print{.toolbar{display:none}body{padding:0}}
         .footer{margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center}
       </style>`;
+    // 📊 엑셀 — 숫자가 «숫자» 로 들어가고 상세 내역이 시트로 나뉜다(CSV 는 한 장뿐)
+    const xlsxUrl = csvUrl.replace('format=csv', 'format=xlsx');
     const toolbar = `<div class="toolbar">
         <button class="print" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
+        <button class="xlsx" onclick="location.href='${xlsxUrl}'">📊 엑셀</button>
         <button class="csv" onclick="location.href='${csvUrl}'">📥 CSV</button>
         <button class="close" onclick="window.close()">✕ 닫기</button>
       </div>`;
@@ -10835,16 +10839,17 @@ window.rebuildGlobalSearchIndex = function() {
       }).join('');
     } catch(e) { _showErr(tbody, e, 9); }
   };
-  window.accDownloadPaymentsCsv = function(){
+  window.accDownloadPaymentsCsv = function(fmt){
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
-    const qs = new URLSearchParams({ format:'csv' });
+    const qs = new URLSearchParams({ format: (fmt === 'xlsx' ? 'xlsx' : 'csv') });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
     if (channel) qs.set('channel', channel);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
+  window.accDownloadPaymentsXlsx = function(){ window.accDownloadPaymentsCsv('xlsx'); };
 
   // ──────────────────────────────────────────────────────────
   // 2. 국가별 강사료 환전
