@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// adm-ia6.js — 관리자 메뉴를 «6그룹 38항목» 으로 (2026-08-08)
+// adm-ia6.js — 관리자 메뉴를 «6그룹 38항목» 으로 (2026-08-08, 지금은 39항목)
 //
 //   왜 —
 //     사이드바가 9그룹 87항목이었다. 「강사 통합」 혼자 17개다.
@@ -34,7 +34,7 @@
   var LS_KEY = 'mangoi_admin_ia6';       // 마지막으로 보던 항목
   var HIDE = 'ia6-hide';
 
-  // ── 6그룹 38항목 ─────────────────────────────────────────────────────────
+  // ── 6그룹 39항목 (2026-08-17 「수업 길이 변경」 +1) ──────────────────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
   //   cards[0] 이 그 항목의 «대표 카드» — 누르면 이것부터 펼친다.
   var GROUPS = [
@@ -85,6 +85,13 @@
       items: [
         { ko: '강사 명부',   en: 'Teachers',        cards: ['card-teacher-mgmt', 'card-mbti-mgmt', 'card-teacher-link', 'card-teacher-contact'] },
         { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule'] },
+        /* 📅 수업 길이 변경 신청함 (2026-08-17 사장님) — 카드가 아니라 별도 페이지다.
+           href 배선은 capiHref 와 같은 계약으로 이미 있었다(select() 참고). 여기가 첫 사용처다.
+           ⚠️ href 항목은 select() 가 localStorage 에 «마지막으로 보던 항목» 으로 저장하지 않는다
+              (저장 전에 location.href 로 빠진다). 저장되면 admin.html 을 열 때마다 여기로
+              튕겨 나가므로, 그 순서를 바꾸지 말 것.
+           자리 — 「시간표·근무」 바로 아래. 길이를 바꾸면 뒤 학생 시각이 밀리므로 시간표 일이다. */
+        { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html' },
         { ko: '수업 일지',   en: 'Lesson log',      cards: ['card-lesson-log'] },
         { ko: '급여',        en: 'Payroll',         cards: ['card-payroll-auto', 'card-payroll'] },
         { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'] },
