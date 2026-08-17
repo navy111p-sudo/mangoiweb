@@ -132,7 +132,14 @@ function fileFor(p) {
 /* ── ⑤ adm-ia6.js 가 여는 관리자 페이지 ─────────────────────────────────── */
 if (existsSync(IA6)) {
   const ia6 = readFileSync(IA6, 'utf8');
+  /* 항목의 href/capiHref + 「메뉴 지도」가 여는 MAP_HREF.
+     ⚠️ MAP_HREF 를 꼭 넣어야 한다 — 2026-08-16 에 「시스템 ▸ 사이트 구조도」를 빼면서
+        지도를 가리키는 «항목» 이 없어졌다. 이제 지도로 가는 유일한 길이 MAP_HREF 이므로,
+        이것이 죽으면 지도를 여는 방법이 아예 사라진다. */
   const targets = [...ia6.matchAll(/(?:href|capiHref):\s*'(\/[^']+)'/g)].map((m) => m[1]);
+  const mapHref = (/var MAP_HREF = '([^']+)'/.exec(ia6) || [])[1];
+  if (!mapHref) bad('adm-ia6.js 에서 MAP_HREF 를 못 찾았다 — 「메뉴 지도」가 무엇을 여는지 확인 불가');
+  else targets.push(mapHref);
   const uniq = [...new Set(targets)];
   const dead = uniq.filter((p) => {
     const f = fileFor(p);
