@@ -44,6 +44,22 @@ body{
 }
 .num{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .wrap{max-width:1360px;margin:0 auto;padding:44px 24px 80px}
+/* 🔙 좌측 상단 이동 단추 3개 (2026-08-17 사장님) —
+   이 표들은 지도에서 «새 탭»으로 열린다(target=_blank). 그래서 브라우저 뒤로가기가
+   눌리지 않는 탭이 생긴다. 그때 «뒤로»는 지도로 보낸다(아래 tnBack()).
+   ⚠️ 이모지는 Unicode 13 이하만 — Win10 에서 두부가 된다 (CLAUDE.md). */
+.topnav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px}
+.topnav a{
+  display:inline-flex;align-items:center;gap:7px;
+  padding:8px 14px;border:1px solid var(--rule);border-radius:999px;
+  background:var(--card);color:var(--ink2);box-shadow:var(--shadow);
+  font-size:13.5px;font-weight:800;text-decoration:none;cursor:pointer;
+}
+/* hover 는 색만 — 크기·위치 고정 (CLAUDE.md: hover 확대 금지) */
+.topnav a:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.topnav a .e{font-size:15px;line-height:1}
+@media print{.topnav{display:none}}
+
 
 .mast{border-bottom:2px solid var(--ink);padding-bottom:22px}
 .kicker{
@@ -180,6 +196,12 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
 </head>
 <body>
 <div class="wrap">
+
+  <nav class="topnav" aria-label="이동">
+    <a href="#" onclick="return tnBack(event)"><span class="e">⬅️</span>뒤로</a>
+    <a href="/"><span class="e">🏠</span>학생 화면</a>
+    <a href="/admin.html"><span class="e">🛠️</span>관리자 홈</a>
+  </nav>
 
   <header class="mast">
     <p class="kicker">망고아이 · 메뉴 구성표 ②
@@ -533,6 +555,16 @@ ti.addEventListener("click", function(){
   ti.textContent = on ? "이동 대상 숨기기" : "이동 대상 보기";
 });
 })();
+</script>
+<script>
+/* 「뒤로」 — 새 탭으로 열렸으면 브라우저 기록이 없다. 그때는 지도로 보낸다.
+   (지도에서 이 표들을 target="_blank" 로 열기 때문에 실제로 자주 생기는 경우다) */
+function tnBack(ev){
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (history.length > 1) history.back();
+  else location.href = '/admin/site-structure-map.html';
+  return false;
+}
 </script>
 </body>
 </html>
