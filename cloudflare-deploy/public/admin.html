@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=8"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=10"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -406,18 +406,13 @@
         <!-- 🗑️ (2026-07-22) 음성+자막 인사 버블(#ai-greeting-bubble) 마크업도 물리 삭제 — adm-core setupAiGreeting 비활성과 세트. 재추가 금지 -->
 
         <div class="hero-search">
-          <button class="hero-search-icon" id="menu-search-go" type="button"
-                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
-                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
-            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7"></circle>
-              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-            </svg>
-            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="13 6 19 12 13 18"></polyline>
-            </svg>
-          </button>
+          <!-- 🥭 (2026-08-17 사장님 지시) Mr. Mango 는 «최대한 줄여서» 검색창 왼쪽에만 둔다.
+               오른쪽에 크게 떠 있던 우주 액자(.hero-character)는 물리 삭제 — 재추가 금지.
+               장식이므로 aria-hidden + pointer-events:none (탭 순서·스크린리더에 안 끼어든다).
+               ⚠️ /img/mango-char.png = 투명 배경 컷아웃. Mangoi_Character.jpg 를 쓰면
+                  흰 사각 배경이 검색창 위에 그대로 얹힌다. -->
+          <img class="hero-search-mango" src="/img/mango-char.png" alt="" aria-hidden="true"
+               loading="lazy" decoding="async" onerror="this.style.display='none'">
           <input id="menu-search" type="search" autocomplete="off"
                  placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
                  data-ko-placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
@@ -435,6 +430,23 @@
               <path d="M5 11a7 7 0 0 0 14 0"></path>
               <line x1="12" y1="18" x2="12" y2="22"></line>
               <line x1="8" y1="22" x2="16" y2="22"></line>
+            </svg>
+          </button>
+          <!-- 🔎 돋보기(=검색어 있으면 ➡️ 이동) 버튼 — 왼쪽에서 오른쪽 끝으로 옮김(2026-08-17).
+               왼쪽 자리는 Mr. Mango 가 쓴다. 오른쪽 배치 순서(바깥→안쪽): 돋보기 · 마이크 · ✕지우기.
+               ⚠️ DOM 순서를 바꿀 때 input 뒤로만 옮길 것 —
+                  `.hero-search input:not(:placeholder-shown) ~ .hero-search-clear` 가
+                  «input 다음 형제» 를 전제로 ✕ 를 띄운다. -->
+          <button class="hero-search-icon" id="menu-search-go" type="button"
+                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
+                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
+            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+            </svg>
+            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="13 6 19 12 13 18"></polyline>
             </svg>
           </button>
           <div class="hero-search-dropdown menu-search-dropdown" id="menu-search-dropdown"></div>
@@ -473,12 +485,10 @@
           </div>
         </div>
       </div>
-      <div class="hero-character">
-        <div class="hero-character-frame">
-          <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
-               onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';" loading="lazy" decoding="async"/>
-        </div>
-      </div>
+      <!-- 🗑️ (2026-08-17 사장님 지시) 오른쪽 «우주 액자 + 큰 Mr. Mango»(.hero-character) 물리 삭제.
+           캐릭터는 검색창 왼쪽 미니 아바타(.hero-search-mango) 하나로 축소했다. 재추가 금지.
+           ⚠️ .hero 의 grid-template-columns 를 `1fr` 로 함께 고쳤다(a.css·c.css 두 곳).
+              안 고치면 빈 160px 트랙이 남아 검색창이 오른쪽에서 잘려 보인다. -->
     </section>
 
     <!-- ============================================================
@@ -579,7 +589,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=21"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=25"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -2004,6 +2014,7 @@
               <option value="B2C" data-ko="👪 B2C 결제만" data-en="👪 B2C only">👪 B2C 결제만</option>
             </select>
             <button id="acc-pay-load" class="primary" onclick="accLoadPayments()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
+            <button id="acc-pay-xlsx" onclick="accDownloadPaymentsXlsx()" style="padding:5px 12px;font-size:12px;background:#217346;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📊 엑셀" data-en="📊 Excel">📊 엑셀</button>
             <button id="acc-pay-csv" onclick="accDownloadPaymentsCsv()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 CSV" data-en="📥 CSV">📥 CSV</button>
           </div>
           <table>
@@ -2528,6 +2539,42 @@
             </select>
             <span style="font-size:11px;color:#6b7280" data-ko="기간을 선택하고 아래 리포트 버튼을 누르세요" data-en="Pick a period then click a report below">기간을 선택하고 아래 리포트 버튼을 누르세요</span>
           </div>
+
+          <!-- 🔒 월 마감 (2026-08-17) — 마감하면 그 달 숫자가 스냅샷으로 굳는다.
+               나중에 자료가 더 들어와도 «이미 세무사에게 보낸 숫자» 가 조용히 바뀌지 않는다. -->
+          <div id="acc-close-box" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;margin-bottom:12px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <b style="font-size:13px;color:#111827" data-ko="🔒 월 마감" data-en="🔒 Month close">🔒 월 마감</b>
+              <span id="acc-close-state" style="font-size:12px;color:#6b7280">—</span>
+              <span style="flex:1"></span>
+              <button id="acc-close-btn" onclick="accCloseMonth()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="이 달 마감하기" data-en="Close this month">이 달 마감하기</button>
+              <button id="acc-reopen-btn" onclick="accReopenMonth()" style="padding:5px 12px;font-size:12px;display:none" data-ko="마감 해제" data-en="Reopen">마감 해제</button>
+              <button onclick="accCloseRefresh()" style="padding:5px 10px;font-size:12px" data-ko="🔄 현황" data-en="🔄 Status">🔄 현황</button>
+            </div>
+            <div id="acc-close-detail" style="font-size:12px;color:#374151;line-height:1.7;margin-top:8px"></div>
+          </div>
+
+          <!-- 🏷️ 지출 계정과목 분류 (2026-08-17) — 「기타출금」 덩어리를 과목으로 쪼갠다.
+               지사 대표자명과 일치하면 자동으로 「지사수수료」, 나머지는 여기서 한 번 정하면
+               그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다. -->
+          <details id="acc-payee-box" class="sub-item" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:0;margin-bottom:12px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;color:#111827" data-ko="🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기" data-en="🏷️ Expense categories">🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기</summary>
+            <div style="padding:0 14px 12px">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <span id="acc-payee-state" style="font-size:12px;color:#6b7280">「불러오기」를 눌러 주세요</span>
+                <span style="flex:1"></span>
+                <button onclick="accPayeeLoad()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
+              </div>
+              <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr>
+                <th style="text-align:left">거래처</th><th style="text-align:right">건수</th><th style="text-align:right">금액</th>
+                <th style="text-align:left">기간</th><th style="text-align:left">계정과목</th></tr></thead>
+                <tbody id="acc-payee-tbody"><tr><td colspan="5" class="empty">—</td></tr></tbody></table></div>
+              <p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">
+                한 번 정하면 그 거래처의 <b>지난 출금과 앞으로의 출금이 전부</b> 그 과목으로 들어갑니다.
+                「기타출금」을 다시 고르면 지정이 지워집니다. <b>«자동»</b> 표시는 지사 대표자명이 일치해 자동으로 붙은 것입니다.
+              </p>
+            </div>
+          </details>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
             <button onclick="openReport('monthly')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📅 월간 회계 리포트" data-en="📅 Monthly Report">📅 월간 회계 리포트</div>
@@ -2539,15 +2586,15 @@
             </button>
             <button onclick="openReport('annual')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📈 연간 결산" data-en="📈 Annual Report">📈 연간 결산</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="세무사 제출용 종합 리포트" data-en="For tax accountant submission">세무사 제출용 종합 리포트</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="12개월 매출·비용·손익 추세" data-en="12-month revenue·cost·P&L trend">12개월 매출·비용·손익 추세</div>
             </button>
             <button onclick="openReport('franchise')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="🏢 가맹점별 정산서" data-en="🏢 Per-franchise Statement">🏢 가맹점별 정산서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="가맹점에 보낼 정산 명세" data-en="To send to franchise">가맹점에 보낼 정산 명세</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="학생 단위 실제 귀속으로 계산" data-en="Attributed per student, not split evenly">학생 단위 실제 귀속으로 계산</div>
             </button>
             <button onclick="openReport('payslips')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="👨‍🏫 강사별 급여명세서" data-en="👨‍🏫 Per-teacher Payslip">👨‍🏫 강사별 급여명세서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사 개인별 PDF 일괄 발송" data-en="Bulk PDF send to teachers">강사 개인별 PDF 일괄 발송</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사별 수업분·급여·공제 명세" data-en="Per-teacher minutes·pay·deductions">강사별 수업분·급여·공제 명세</div>
             </button>
             <button onclick="openReport('kpi')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="⭐ 경영지표 (KPI)" data-en="⭐ Management KPIs">⭐ 경영지표 (KPI)</div>
@@ -7143,7 +7190,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th class="pr-th" data-sort-key="score_contribution"><span data-ko="조직(10%)" data-en="Contrib (10%)">조직(10%)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="weighted_total"><span data-ko="가중점수" data-en="Weighted">가중점수</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="grade"><span data-ko="등급" data-en="Grade">등급</span><span class="pr-arrow">↕</span></th>
-          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(20분)" data-en-html="Classes<br>(20-min)">총 수업수<br>(20분)</span><span class="pr-arrow">↕</span></th>
+          <!-- 🕐 (2026-08-17) 30분 수업 도입 — «(20분)» 이라는 표기 자체가 틀린 말이 됐다.
+               총 수업시간 열을 옆에 붙여 급여 근거(= 10분 토막 × 단가)를 표에서 바로 보이게 한다. -->
+          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(회)" data-en-html="Classes<br>(count)">총 수업수<br>(회)</span><span class="pr-arrow">↕</span></th>
+          <th class="pr-th" data-sort-key="total_minutes"><span data-ko-html="총 수업시간<br>(분)" data-en-html="Total<br>minutes">총 수업시간<br>(분)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="rate_per_10min_php"><span data-ko="10분 단가" data-en="Rate/10m">10분 단가</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_php"><span data-ko="월급(PHP)" data-en="Salary (PHP)">월급(PHP)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_krw"><span data-ko="≈ KRW" data-en="≈ KRW">≈ KRW</span><span class="pr-arrow">↕</span></th>
@@ -8129,10 +8179,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       &nbsp;&nbsp;<span data-ko="예상 등급:" data-en="Expected grade:">예상 등급:</span> <strong id="ev-grade-preview" style="color:#1e40af;">—</strong>
     </div>
 
+    <!-- 급여 근거를 입력하는 그 자리에서 보여 준다 — 안 보이면 «전부 20분» 으로 잘못 저장돼도 아무도 모른다 -->
+    <div id="ev-minutes-hint" style="margin-top:10px;padding:8px 10px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;">—</div>
+
     <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;">
       <button id="ev-cancel-btn" style="padding:8px 16px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;" data-ko="취소" data-en="Cancel">취소</button>
-      <div style="display:flex;gap:8px;">
-        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (20분)" data-ko-placeholder="총 수업수 (20분)" data-en-placeholder="Total classes (20-min)" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:160px;" />
+      <div style="display:flex;gap:8px;align-items:center;">
+        <!-- 🕐 (2026-08-17) 30분 수업 도입 — «수업 횟수» 만으로는 급여를 못 낸다.
+             총 수업시간(분)을 넣으면 그것으로 계산하고, 비우면 예전대로 전부 20분으로 본다.
+             (서버: PUT /api/admin/teacher-classes 의 total_minutes) -->
+        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (회)" data-ko-placeholder="총 수업수 (회)" data-en-placeholder="Total classes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:130px;" />
+        <input id="ev-total-minutes" type="number" min="0" step="10" placeholder="총 수업시간 (분)" data-ko-placeholder="총 수업시간 (분)" data-en-placeholder="Total minutes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
         <button id="ev-save-btn" class="primary" style="padding:8px 16px;" data-ko="💾 평가·수업수 저장" data-en="💾 Save Eval & Classes">💾 평가·수업수 저장</button>
       </div>
     </div>
@@ -8909,11 +8966,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=92" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=92: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-core.js?v=99" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=99: 2026-08-17 급여 목록 «총 수업시간(분)» 열 + main 의 회계 리포트 개편 병합 (양쪽이 v=97·98 을 각각 다른 내용에 써서 번호를 새로 딴다) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
+<script src="/js/adm-cdo-weather.js?v=1" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -9692,7 +9750,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         '<button class="ph86-action-btn expand"   type="button" data-act="expand">↧ 모두 펼치기</button>' +
         '<button class="ph86-action-btn collapse" type="button" data-act="collapse">↥ 모두 접기</button>' +
         '<button class="ph86-action-btn hide"     type="button" data-act="hide">🙈 숨기기</button>';
-      search.parentNode.insertBefore(actions, search.nextSibling);
+      /* 🔴 검색 wrap 「밖」에 붙인다 (2026-08-17 실측으로 잡은 함정).
+         wrap 안에 넣으면 .ph85-search-wrap 높이가 «입력칸 42px + 버튼줄» 을 합친
+         90px 이 되는데, 검색창의 «↑ 나가기» 버튼(.ph85-search-exit)이 그 wrap 기준
+         top:50% 로 놓여 있어 **입력칸을 벗어나 버튼 위로 내려앉는다.**
+         실측(390px): ↑ 가 y=204~232, 「모두 접기」가 y=223~263 → 접기의 오른쪽 위
+         모서리를 가로막아 그 자리를 누르면 접기가 아니라 ↑ 가 눌렸다.
+         밖으로 빼면 wrap 이 다시 입력칸 높이만 갖고 ↑ 가 입력칸 안으로 돌아온다.
+         PC·모바일 둘 다 같은 버그였고, 이 한 줄로 둘 다 낫는다.
+         (숫자를 박아 고치지 않는 이유 — 입력칸 높이가 화면 폭마다 달라서다.) */
+      var swrap = search.closest('.ph85-search-wrap') || search;
+      swrap.parentNode.insertBefore(actions, swrap.nextSibling);
 
       actions.addEventListener('click', function(e){
         var btn = e.target.closest('.ph86-action-btn');
@@ -11368,7 +11436,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 비밀번호 찾기 모달 (전화 SMS / 카톡 / 이메일 / 운영자 문의)
      ============================================================ -->
 
-<script src="/js/adm-q12.js?v=2" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q12.js?v=3" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
 
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
@@ -11487,7 +11555,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     var t = e.target;
     if (!t || !t.closest) return;
     // 아코디언 헤더·검색창·계정 도크는 «펼치려고» 누르는 것이라 닫지 않는다
-    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph162-dock, #mgv2-clock')) return;
+    /* ⚠️ #ph86-actions(모두 펼치기/접기)를 따로 적어 둔다 — 2026-08-17 부터 이 버튼줄은
+          .ph85-search-wrap «밖» 에 붙는다(위 3) 주석 참조). 예전엔 wrap 안이라 이 목록에
+          자동으로 걸렸는데, 이제는 이름을 명시해야 «펼치기를 눌렀는데 메뉴가 닫히는» 일이 없다. */
+    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
     if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
     setTimeout(function(){
       if (document.body.classList.contains('mga-open')) window.mgaClose();
@@ -12037,18 +12108,43 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script>
 (function(){
   "use strict";
+  /* ⚠️ 대기가 0건이어도 **입구는 늘 보여 준다.**
+     처음엔 «0건이면 그리지 않는다» 였는데, 그러면 한국 본사(대표·담당)가 결재를
+     **올리러** 들어갈 방법이 화면에 없다 — 주소를 외워야 한다.
+     이 프로젝트가 없애려던 «찾아 들어가야 한다» 가 그대로 되살아난다.
+     대신 0건일 때는 조용한 회색으로 두어 «알림» 이 아니라 «메뉴» 로 읽히게 한다. */
+  /* ⚠️ 오른쪽 아래에 «떠 있게» 두지 않는다 — 그 자리는 이미 「AI 운영비서」 버튼과
+     상담원 아바타가 차지하고 있어서 그 뒤에 가려진다(2026-08-17 사장님 화면에서 확인).
+     대신 본문 **맨 위**(자주 쓰는 기능 바로 위)에 한 줄로 끼워 넣는다.
+     흐름 안에 있으므로 무엇에도 가려지지 않고, 눈이 처음 닿는 자리다. */
   function draw(n, late){
-    if (!n) return;
     if (document.getElementById('mi-appr-badge')) return;
     var ko = (localStorage.getItem('mangoi_lang') !== 'en');
+    var label = n
+      ? (ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late + '건') : '') + ' — 지금 처리하기')
+            : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : '') + ' — open'))
+      : (ko ? '결재함 열기 — 올리기 · 지난 결재 보기' : 'Open approvals — submit or review');
+
     var a = document.createElement('a');
     a.id = 'mi-appr-badge';
     a.href = '/work';
-    a.textContent = ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late) : ''))
-                       : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : ''));
+    a.textContent = label;
+
+    var anchor = document.getElementById('ph161-quick');   // 「자주 쓰는 기능」 = 본문 맨 위 블록
+    if (anchor && anchor.parentNode) {
+      a.style.cssText =
+        'display:block;margin:0 0 12px;padding:14px 18px;border-radius:12px;text-decoration:none;' +
+        'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#e8eef4')) + ';' +
+        'color:' + (n || late ? '#fff' : '#2f3d4d') + ';' +
+        'border:1px solid ' + (n || late ? 'transparent' : '#ccd7e2') + ';' +
+        'font:700 15px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;';
+      anchor.parentNode.insertBefore(a, anchor);
+      return;
+    }
+    // 앵커를 못 찾으면(레이아웃이 바뀐 경우) 예전처럼 떠 있는 버튼으로 — 아주 안 보이는 것보다는 낫다.
     a.style.cssText =
-      'position:fixed;right:16px;bottom:16px;z-index:9999;' +
-      'background:' + (late ? '#a4341f' : '#0b6e63') + ';color:#fff;' +
+      'position:fixed;right:16px;bottom:150px;z-index:9999;' +
+      'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#5a6873')) + ';color:#fff;' +
       'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;' +
       'padding:12px 16px;border-radius:22px;text-decoration:none;' +
       'box-shadow:0 2px 10px rgba(0,0,0,.25)';

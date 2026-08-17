@@ -13,10 +13,16 @@
  *   - 추후 Anthropic Claude 등으로 교체 시 callLLM() 함수 한 곳만 수정
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { siteUrl, SITE_HOSTS } from './site-url';  // 🔗 사람에게 나가는 링크는 한 곳에서
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';  // 기본 20분 · 고를 수 있는 길이
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+
+/* 🔗 발음 코치는 «새 탭 외부 URL» 로 나가므로 절대 주소가 필요하다(adm-core.js 가
+      new URL(external_url).hostname 을 그린다). 주소는 site-url.ts 한 곳에서 온다 —
+      프롬프트 예시와 아래 화이트리스트가 **서로 어긋나면 링크가 통째로 버려진다**. */
+const SPEECH_COACH_URL = siteUrl('/speech-coach.html');
 
 // ──────────────────────────────────────────────────────────
 // 시스템 프롬프트 — Few-shot 예시 중심으로 재작성 (Phase 21e)
@@ -37,7 +43,7 @@ Schema (one of these exactly):
 
 Allowed navigate URLs (same-tab): /admin.html, /admin/students.html, /admin/student.html?uid=ID, /admin/health.html, /admin/mypage.html, /admin/weekly-schedule.html (전체/주간/강사 스케줄·시간표 — 강사명 있으면 /admin/weekly-schedule.html?q=이름), /admin/all-schedules.html
 
-Allowed external_url (new tab): https://test.mangoi.co.kr/speech-coach.html (발음교정·발음 연습)
+Allowed external_url (new tab): ${SPEECH_COACH_URL} (발음교정·발음 연습)
 
 Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keywords:
 - card-daily-charts    (일자별 차트·매출·학생수·탈락·증가 | daily charts, revenue chart, growth)
@@ -166,10 +172,10 @@ User: "시스템 상태"
 Output: {"intent":"navigate","url":"/admin/health.html","answer":"시스템 상태 페이지로 이동합니다."}
 
 User: "발음 교정 열어줘"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 교정 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"발음 교정 도구를 새 탭에서 엽니다."}
 
 User: "발음 연습"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"발음 연습 도구를 새 탭에서 엽니다."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"발음 연습 도구를 새 탭에서 엽니다."}
 
 User: "성적표 보여줘"
 Output: {"intent":"navigate","menu_id":"card-eval-mgmt","answer":"학생 평가서(성적표) 카드로 이동합니다."}
@@ -283,7 +289,7 @@ User: "open overdue payment alerts"
 Output: {"intent":"navigate","menu_id":"card-auto-dunning","answer":"Opening the overdue payment auto-alert card."}
 
 User: "open pronunciation practice"
-Output: {"intent":"navigate","external_url":"https://test.mangoi.co.kr/speech-coach.html","answer":"Opening the pronunciation practice tool in a new tab."}
+Output: {"intent":"navigate","external_url":"${SPEECH_COACH_URL}","answer":"Opening the pronunciation practice tool in a new tab."}
 
 User: "what is the review quiz?"
 Output: {"intent":"answer","answer":"The Review Quiz lets you create quizzes that students solve and get auto-graded for revision."}
@@ -421,7 +427,7 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(레벨\s*테스트|레벨테스트|level\s*test)/i, menu_id: 'card-level-tests', ko: '레벨 테스트 카드로 이동합니다.', en: 'Opening the level test card.' },
   { re: /(복습\s*퀴즈|퀴즈|review\s*quiz|ai\s*quiz)/i, menu_id: 'card-review-quiz', ko: '복습퀴즈 카드로 이동합니다.', en: 'Opening the review quiz card.' },
   { re: /(교재\s*콘텐츠|교재|textbook)/i, menu_id: 'card-textbooks', ko: '교재 콘텐츠 카드로 이동합니다.', en: 'Opening the textbook content card.' },
-  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: 'https://test.mangoi.co.kr/speech-coach.html', ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
+  { re: /(발음\s*교정|발음\s*연습|pronunciation)/i, external_url: SPEECH_COACH_URL, ko: '발음 교정 도구를 새 탭에서 엽니다.', en: 'Opening the pronunciation practice tool in a new tab.' },
   // ── 조직/상담/기타 ──
   // 🏢 조직 = 본사 › 지사 › 대리점(학원). 아래 두 줄의 «순서»가 중요하다:
   //    «대리점 자료실»처럼 자료실이 붙은 말이 조직 카드로 새지 않도록 자료실을 먼저 잡는다.
@@ -746,7 +752,7 @@ export async function processAiCommand(
       const eu = String(aiResponse.external_url);
       // (2026-08-10) 발음 연습이 /speech-coach.html 로 통합 — 정본 도메인만 허용
       //   (adm-core.js 가 new URL(external_url).hostname 을 그리므로 절대 URL 이어야 한다)
-      const allowedHosts = ['test.mangoi.co.kr'];
+      const allowedHosts = SITE_HOSTS;   // 정본 + 아직 살아 있는 옛 커스텀 도메인
       try {
         const u = new URL(eu);
         if (u.protocol === 'https:' && allowedHosts.includes(u.hostname)) {
@@ -1210,7 +1216,8 @@ export async function executeAction(
       const startTime = String(hh).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
       const startMin = hh * 60 + mi;
 
-      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
+      // ⚠️ 길이 목록을 여기 복사해 두면 class-policy 와 어긋난다 — 반드시 import 로
+      const durationMin = ALLOWED_CLASS_MINUTES.includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
       const classType = ['regular','trial','level_test'].includes(String(args?.class_type)) ? String(args.class_type) : 'regular';
       const teacherNameIn = String(args?.teacher_name || '').trim().slice(0, 50);
 

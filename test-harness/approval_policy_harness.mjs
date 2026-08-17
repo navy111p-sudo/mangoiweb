@@ -454,13 +454,107 @@ check('관리자 화면에는 배지와 링크만 넣었다',
   !/api\/approval\/requests\/[^/]*\/decide/.test(ADMIN_SRC),
   '관리자 화면에 결재 목록·승인 버튼을 만들면 화면이 두 벌이 된다');
 
-check('관리자 화면의 배지는 대기가 있을 때만 그린다',
-  /if \(!n\) return;/.test(ADMIN_SRC),
-  '늘 떠 있는 배지는 곧 배경이 된다');
+/* 🔁 2026-08-17 규칙 뒤집음 — 원래는 «0건이면 그리지 않는다» 였다.
+   그런데 한국 본사(대표·담당)는 전부 admin.html 로 착지하는데, 대기 0건이면
+   결재를 **올리러** 들어갈 입구가 화면에 하나도 없었다 — 주소를 외워야 했다.
+   이 프로젝트가 없애려던 «찾아 들어가야 한다» 가 그대로 되살아나는 셈이라 뒤집었다.
+   대신 «알림» 이 아니라 «메뉴» 로 읽히게 한다 — 0건이면 숫자 없이 조용한 회색. */
+check('관리자 화면의 입구는 대기 0건이어도 늘 보인다',
+  !/if \(!n\) return;/.test(ADMIN_SRC),
+  '입구가 없으면 결재를 올리러 들어갈 방법이 없다');
+
+check('대기가 없을 때는 숫자 없이 «결재함» 으로만 보인다 (알림이 아니라 메뉴)',
+  /ko \? '결재함[^']*' : '[^']*'/.test(ADMIN_SRC),
+  '0건일 때 숫자를 붙이면 «0건» 이 알림처럼 보인다');
+
+check('대기가 없을 때는 조용한 색으로 둔다',
+  /n \? '#0b6e63' : '#(e8eef4|5a6873)'/.test(ADMIN_SRC),
+  '늘 떠 있는 «빨간 배지» 는 곧 배경이 된다');
+
+/* 🪤 2026-08-17 사장님 화면에서 «어디에도 안 보인다» — 오른쪽 아래는 이미
+   「AI 운영비서」 버튼과 상담원 아바타가 쓰고 있어서 떠 있는 배지가 그 뒤에 가려졌다.
+   그래서 본문 맨 위(자주 쓰는 기능 바로 위)에 흐름 안 요소로 넣는다. */
+check('입구를 본문 맨 위에 끼워 넣는다 (떠 있게 두지 않는다)',
+  /getElementById\('ph161-quick'\)/.test(ADMIN_SRC) && /insertBefore\(a, anchor\)/.test(ADMIN_SRC),
+  '오른쪽 아래는 AI 운영비서·아바타가 이미 쓰고 있어 가려진다');
+
+check('앵커를 못 찾으면 떠 있는 버튼으로라도 보여 준다',
+  /position:fixed;right:16px;bottom:150px/.test(ADMIN_SRC),
+  '아주 안 보이는 것보다는 낫다');
 
 check('관리자 화면의 배지는 반복 폴링하지 않는다',
   /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),
   '좁은 회선에서 폴링은 정작 필요한 요청과 대역폭을 다툰다');
+
+// ══ K. 인사·급여 «월 확정» — 숫자를 손으로 적지 않는가 ════════════════════
+console.log('\n[K] 인사·급여 월 확정 — 급여를 다시 계산하지 않는가');
+
+const HR_SRC = readFileSync(join(SRC, 'approval-hr.ts'), 'utf8');
+
+check('급여를 다시 계산하지 않고 기존 함수를 그대로 부른다',
+  /import \{ getPayrollAuto \} from '\.\/api-payroll-auto'/.test(HR_SRC),
+  '결재함이 급여를 따로 계산하면 관리자 화면의 숫자와 어긋나는 날이 온다');
+
+check('급여 표에 쓰지 않는다 (읽기 전용)',
+  !/INSERT INTO teacher_payroll_auto|UPDATE teacher_payroll_auto|INSERT INTO payslips|UPDATE payslips/.test(HR_SRC),
+  'payslips.finalized_at 은 api-admin 의 마감 흐름이 쓰는 칸이다 — 건드리면 이중이 된다');
+
+check('승인 사실은 결재함 자기 표에만 적는다',
+  /approval_period_locks/.test(HR_SRC));
+
+check('승인 시점의 숫자를 얼려 둔다 (감사 기록)',
+  /snapshot/.test(HR_SRC),
+  '나중에 원본이 바뀌어도 «그때 무엇을 승인했는지» 가 남아야 한다');
+
+check('같은 달을 두 번 확정하지 않는다',
+  /ON CONFLICT\(kind, period\) DO NOTHING/.test(HR_SRC) && /period_locked/.test(API_SRC));
+
+check('달 형식을 입구에서 검사한다 (YYYY-MM)',
+  /\^\\d\{4\}-\(0\[1-9\]\|1\[0-2\]\)\$/.test(HR_SRC),
+  '형식이 어긋나면 달 잠금이 헛돈다');
+
+check('자료가 없는 달은 아예 고를 수 없다',
+  /HAVING SUM\(completed_classes\) > 0/.test(HR_SRC),
+  '운영 DB 에 수업 0회짜리 미래 달(2027·2028·2030) 행이 실제로 있다');
+
+check('필리핀 매니저에게는 인사·급여가 보이지 않는다',
+  typeSpec('hr').koreaOnly === true &&
+  canSubmit(phMgr, 'hr', true) === false &&
+  canSubmit(office, 'hr', false) === true);
+
+check('koreaOnly 는 인사·급여에만 붙어 있다',
+  TYPES.filter(t => t.koreaOnly).map(t => t.key).join(',') === 'hr');
+
+check('서버도 막는다 (화면에서 안 보여도 주소로 부르면 뚫리므로)',
+  /canSubmit\(actor, reqType, ph\)/.test(API_SRC));
+
+check('제목·본문을 서버가 만든다 (올리는 사람이 숫자를 적지 않는다)',
+  /hrSnap \? String\(hrSnap\.title_ko\)/.test(API_SRC) &&
+  /hrSnap \? String\(hrSnap\.body_ko\)/.test(API_SRC));
+
+check('인사·급여에는 AI 요약을 부르지 않는다',
+  /const sum = hrSnap \? null :/.test(API_SRC),
+  'AI 가 금액을 바꿔 쓸 여지를 아예 남기지 않는다');
+
+check('최종 승인일 때만 달을 잠근다',
+  /finalStatus === 'approved' && cur\.req_type === 'hr'/.test(API_SRC));
+
+check('잠금 실패해도 결재는 살리되 사실을 남긴다',
+  /달 확정 기록 실패/.test(API_SRC));
+
+check('달 잠금 표를 두 번 만들지 않는다 (주인 모듈 함수를 부른다)',
+  /await ensureHrTable\(env\);/.test(API_SRC) &&
+  !/CREATE TABLE IF NOT EXISTS approval_period_locks/.test(API_SRC),
+  '같은 표를 두 곳에서 만들면 먼저 실행된 것이 이겨 컬럼이 어긋난다');
+
+check('달을 확정하면 결재함 목록도 새로 받는다 (304 로 옛 목록이 남지 않게)',
+  /approval_period_locks[\s\S]{0,200}etag|lsig/.test(API_SRC));
+
+check('화면 — 인사·급여는 폼 대신 달 버튼을 그린다',
+  /picks_period/.test(WORK_SRC) && /paintHrForm/.test(WORK_SRC));
+
+check('화면 — 이미 확정된 달은 눌리지 않게 한다',
+  /m\.approved[\s\S]{0,200}disabled/.test(WORK_SRC));
 
 // ── 결과 ────────────────────────────────────────────────────────────────────
 console.log('──────────────────────────────────────');

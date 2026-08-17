@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
@@ -248,6 +248,11 @@ async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
     `ALTER TABLE payslips ADD COLUMN bonus_krw INTEGER DEFAULT 0;`,
     `ALTER TABLE payslips ADD COLUMN deduction_krw INTEGER DEFAULT 0;`,
     `ALTER TABLE payslips ADD COLUMN paid INTEGER DEFAULT 0;`,
+    // 🕐 (2026-08-17) 30분 수업 도입 — 급여식이 «class_count × 2» 로 모든 수업을 20분으로
+    //   가정하고 있었다. 길이가 섞이면 강사가 30분을 가르치고 20분 값을 받는다.
+    //   실제 «10분 토막» 합계를 담는 칸. 비어 있으면 예전대로 class_count×2 로 계산한다
+    //   (= 전부 20분이던 과거 달의 값이 바뀌지 않는다).
+    `ALTER TABLE teacher_monthly_classes ADD COLUMN total_10min_units INTEGER;`,
   ]) {
     try { await env.DB.exec(ddl); } catch { /* duplicate column — 정상 */ }
   }
@@ -279,8 +284,13 @@ function calcWeightedTotal(e: {
 
 /**
  * 한 강사의 월 급여·평가 통합 계산.
- *   월급 = class_count × 2 × rate_per_10min_php
+ *   월급 = «10분 토막 수» × rate_per_10min_php
  *   평가 = teacher_evaluations 의 5개 점수 → 가중 합계 → 등급
+ *
+ *   🕐 (2026-08-17) 예전 식은 «class_count × 2» 였다. 그 «2» 는 10분 토막 개수인데
+ *      모든 수업이 20분이라는 가정이 박혀 있었다. 30분 수업이 생기면 강사가
+ *      30분을 가르치고 20분 값을 받는다(임금 삭감 → 강사 이탈).
+ *      이제 total_10min_units 가 있으면 그것을 쓰고, 없으면(=과거 달) 예전 식 그대로.
  */
 async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: number, month: number): Promise<any> {
   const t: any = await env.DB.prepare(
@@ -290,10 +300,15 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   if (!t) return { ok: false, error: 'teacher_not_found', teacher_id: teacherId };
 
   const cl: any = await env.DB.prepare(
-    `SELECT class_count, notes FROM teacher_monthly_classes
+    `SELECT class_count, total_10min_units, notes FROM teacher_monthly_classes
      WHERE teacher_id = ? AND year = ? AND month = ?`
   ).bind(teacherId, year, month).first();
   const classCount = cl ? Number(cl.class_count) : 0;
+  // 실제 길이 합계가 들어와 있으면 그것이 정본. 없으면 «전부 20분» 이던 예전 규칙(×2).
+  const lengthRecorded = !!(cl && Number(cl.total_10min_units) > 0);
+  const tenMinUnits = lengthRecorded
+    ? Number(cl.total_10min_units)
+    : classCount * classTenMinUnits(DEFAULT_CLASS_MINUTES);
 
   const ev: any = await env.DB.prepare(
     `SELECT score_instruction, score_retention, score_punctuality, score_admin, score_contribution,
@@ -302,7 +317,7 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   ).bind(teacherId, year, month).first();
 
   const rate = Number(t.rate_per_10min_php || 0);
-  const monthlySalary = Math.round(classCount * 2 * rate * 100) / 100;
+  const monthlySalary = Math.round(tenMinUnits * rate * 100) / 100;
   const weighted = ev ? (ev.weighted_total != null ? Number(ev.weighted_total) : calcWeightedTotal(ev)) : null;
   const grade = weighted != null ? classifyEvalGrade(weighted) : '미평가';
 
@@ -315,6 +330,11 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
     rate_per_10min_php: rate,
     year, month,
     class_count: classCount,
+    total_10min_units: tenMinUnits,      // 급여 근거 — 20분만이면 class_count×2 와 같다
+    total_minutes: Math.round(tenMinUnits * 10),
+    // false = 그 달의 실제 길이가 입력된 적이 없어 «전부 20분» 으로 계산했다는 뜻.
+    // 화면이 이걸 구분해 보여 줘야 30분 수업을 20분 값으로 지급하는 사고를 눈치챌 수 있다.
+    length_recorded: lengthRecorded,
     monthly_salary_php: monthlySalary,
     monthly_salary_krw: Math.round(monthlySalary * PAYROLL_PHP_TO_KRW),
     php_to_krw: PAYROLL_PHP_TO_KRW,
@@ -3995,13 +4015,25 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return invalidBody(['teacher_id', 'year', 'month', 'class_count']);
       }
       const now = Date.now();
+      // 🕐 (2026-08-17) 길이가 섞이면 «수업 횟수» 만으로는 급여를 못 낸다.
+      //   total_minutes(그 달에 실제로 가르친 분 합계)를 함께 받으면 그것으로 계산한다.
+      //   안 보내면 예전대로 «전부 20분» 으로 본다 — 기존 호출부가 그대로 돌아간다.
+      const _tcCount = Math.max(0, parseInt(b.class_count, 10) || 0);
+      const _tcMinutes = Number(b.total_minutes);
+      const _tcUnits = _tcMinutes > 0
+        ? Math.round(classTenMinUnits(_tcMinutes) * 100) / 100    // 분 → 10분 토막
+        : null;
       await env.DB.prepare(
-        `INSERT INTO teacher_monthly_classes (teacher_id, year, month, class_count, notes, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO teacher_monthly_classes (teacher_id, year, month, class_count, total_10min_units, notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(teacher_id, year, month) DO UPDATE SET
-           class_count = excluded.class_count, notes = excluded.notes, updated_at = excluded.updated_at`
-      ).bind(b.teacher_id, b.year, b.month, Math.max(0, parseInt(b.class_count, 10) || 0), b.notes || null, now).run();
-      return json({ ok: true });
+           class_count = excluded.class_count,
+           -- ⚠️ COALESCE 필수 — total_minutes 없이 «수업 수만» 다시 저장하는 호출이
+           --   기존 길이 합계를 NULL 로 지우면, 급여가 조용히 «전부 20분» 으로 되돌아간다
+           total_10min_units = COALESCE(excluded.total_10min_units, teacher_monthly_classes.total_10min_units),
+           notes = excluded.notes, updated_at = excluded.updated_at`
+      ).bind(b.teacher_id, b.year, b.month, _tcCount, _tcUnits, b.notes || null, now).run();
+      return json({ ok: true, class_count: _tcCount, total_10min_units: _tcUnits });
     }
 
     // 월별 평가 입력 (5개 카테고리 점수 + 코멘트)
@@ -4260,6 +4292,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           year:               r.year,
           month:              r.month,
           class_count:        r.class_count,
+          total_minutes:      r.total_minutes,        // 🕐 급여 근거 — 30분 수업이 섞이면 회수만으론 못 맞춘다
+          length_recorded:    r.length_recorded ? 1 : 0,   // 0 = 길이 미입력(전부 20분으로 계산)
           rate_per_10min_php: r.rate_per_10min_php,
           monthly_salary_php: r.monthly_salary_php,
           monthly_salary_krw: r.monthly_salary_krw,
@@ -4281,7 +4315,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         { key: 'years',              label: 'years' },
         { key: 'year',               label: 'year' },
         { key: 'month',              label: 'month' },
-        { key: 'class_count',        label: 'class_count_20min' },
+        { key: 'class_count',        label: 'class_count' },
+        { key: 'total_minutes',      label: 'total_minutes' },
+        { key: 'length_recorded',    label: 'length_recorded' },
         { key: 'rate_per_10min_php', label: 'rate_per_10min_php' },
         { key: 'monthly_salary_php', label: 'monthly_salary_php' },
         { key: 'monthly_salary_krw', label: 'monthly_salary_krw' },

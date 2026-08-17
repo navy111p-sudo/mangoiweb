@@ -673,7 +673,9 @@
     display: grid;
     /* 🎨 (2026-07-22) 컴팩트 기본값 — 끝부분 오버라이드에만 의존하면 로딩 중 처음엔 크게
        보였다가 나중에 줄어드는 깜빡임이 생겨, 원본 값 자체를 축소(사장님 지시: 처음부터 작게) */
-    grid-template-columns: 1fr 160px;
+    /* (2026-08-17) 오른쪽 캐릭터 액자를 없애고 1컬럼으로 — 옛 `1fr 160px` 을 남겨 두면
+       빈 트랙 160px + gap 24px 만큼 검색창이 왼쪽으로 눌린다 */
+    grid-template-columns: 1fr;
     gap: 24px;
     align-items: center;
     /* 🎨 Phase 19m — 배너 픽셀 톤과 거의 동일하게 핑크 농도 최강화
@@ -881,7 +883,11 @@
   }
   .hero .hero-search input {
     width: 100%;
-    padding: 14px 96px 14px 54px;   /* 좌: 검색 아이콘 / 우: 클리어+마이크 자리 (26-07-22 컴팩트 2차) */
+    /* 좌: 🥭 Mr. Mango 미니 아바타 / 우: ✕지우기 + 🎤마이크 + 🔎돋보기 (2026-08-17 재배치)
+       ⚠️ 오른쪽 여백 152px = 돋보기(12+40) + 마이크(58+40) + 지우기(104+40) 중 가장 바깥값 144 + 여유 8
+       ⚠️ 왼쪽 66px = 아바타(10+48=58) + 여유 8. 아바타를 키우면 여기도 같이 올려야
+          글자가 캐릭터 위로 파고든다 (2026-08-17 2차 48px 확대). */
+    padding: 14px 152px 14px 66px;
     background: transparent;
     border: 0;
     font-size: 17px;
@@ -898,9 +904,26 @@
     opacity: 1;
   }
 
-  /* 🎤 음성 검색 마이크 버튼 — 입력창 우측에 위치 */
+  /* 🥭 Mr. Mango 미니 아바타 — 검색창 왼쪽 (2026-08-17 사장님 지시로 «최대한 축소»)
+     장식이라 pointer-events:none — 클릭이 입력창 포커스를 가로채지 않는다.
+     ⚠️ 투명 배경 컷아웃이므로 배경/보더 없이 그림자만 준다. 원형 크롭(object-fit:cover)을 하면
+        캐릭터 팔·헤드폰이 잘린다 — contain 유지.
+     📏 (2026-08-17 2차 «조금만 더 키워줘») 40 → 48px.
+        검색창 실측 높이가 64.4px 이라 48px 이면 위아래 8px 씩 남는다. 이보다 키우면
+        캐릭터가 검색창 테두리에 닿는다. object-fit:contain 이라 보이는 망고는
+        상자보다 작으니, 상자를 키운 만큼 캐릭터가 그대로 커진다. */
+  .hero .hero-search-mango {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    width: 48px; height: 48px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 5px rgba(154, 52, 18, 0.30));
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* 🎤 음성 검색 마이크 버튼 — 오른쪽 돋보기 버튼 안쪽에 위치 (2026-08-17) */
   .hero .hero-search-mic {
-    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 58px; top: 50%; transform: translateY(-50%);
     width: 40px; height: 40px;
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: 50%;
@@ -998,21 +1021,26 @@
   #menu-mic-tip.show { opacity: 1; transform: translateY(0) scale(1); }
   #menu-mic-tip .hot { color: #b91c1c; font-weight: 800; }
   #menu-mic-tip b { color: #b45309; }
+  /* 🔺 말풍선 꼬리는 🎤 마이크 버튼 한가운데를 가리켜야 한다.
+     (2026-08-17) 마이크가 오른쪽 끝에서 돋보기 안쪽으로 밀리면서 꼬리도 같이 옮겼다 —
+     마이크 중심 = right 58 + 40/2 = 78px, 말풍선 자체가 right:8px 이므로 78-8 = 70px. */
   #menu-mic-tip::after {
-    content: ""; position: absolute; right: 30px; bottom: -9px;
+    content: ""; position: absolute; right: 70px; bottom: -9px;
     border: 9px solid transparent; border-top-color: #ffffff; border-bottom: 0;
   }
   @media (max-width: 640px) {
     #menu-mic-tip { max-width: 220px; font-size: 12.5px; padding: 10px 12px; right: 4px; }
-    #menu-mic-tip::after { right: 24px; }
+    /* 모바일 마이크 중심 = 50 + 36/2 = 68px, 말풍선 right:4px → 68-4 = 64px */
+    #menu-mic-tip::after { right: 64px; }
   }
 
-  /* 🔎 SVG 검색 아이콘 — 망고 그라데이션 + 글래스 배경 + 펄스 (이모지 대신) */
+  /* 🔎 SVG 검색 아이콘 — 망고 그라데이션 + 글래스 배경 + 펄스 (이모지 대신)
+     (2026-08-17) 왼쪽 → 오른쪽 끝으로 이동. 왼쪽 자리는 🥭 Mr. Mango 가 쓴다. */
   .hero .hero-search-icon {
     position: absolute;
-    left: 18px; top: 50%;
+    right: 12px; top: 50%;
     transform: translateY(-50%);
-    width: 44px; height: 44px;
+    width: 40px; height: 40px;
     display: flex; align-items: center; justify-content: center;
     padding: 0;
     cursor: pointer;           /* 클릭 가능한 '이동' 버튼 */
@@ -1067,7 +1095,7 @@
     50%      { box-shadow: 0 8px 28px -2px rgba(245, 158, 11, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.95); }
   }
   .hero .hero-search-clear {
-    position: absolute; right: 86px; top: 50%; transform: translateY(-50%);  /* 마이크 버튼 좌측에 배치 */
+    position: absolute; right: 104px; top: 50%; transform: translateY(-50%);  /* 마이크 버튼 좌측에 배치 */
     background: linear-gradient(135deg, rgba(251, 113, 133, 0.18), rgba(245, 158, 11, 0.18));
     border: 1px solid rgba(255, 255, 255, 0.6);
     border-radius: 50%;
@@ -1207,110 +1235,10 @@
       inset 0 1px 0 rgba(255, 255, 255, 1);
   }
 
-  /* ━━ 캐릭터 + 멀티 컬러 후광 + 그라데이션 프레임 ━━ */
-  .hero-character {
-    display: flex; align-items: center; justify-content: center;
-    position: relative; z-index: 2;
-  }
-  /* 🌌 Phase 19k — 폴라로이드 안쪽 우주 공간 (별·행성·UFO)
-     - 그라데이션 링 외곽 (앰버→코랄)
-     - 안쪽: 딥 퍼플 우주 + 별·행성·UFO ::before/::after
-     - 캐릭터 이미지는 mix-blend-mode 로 흰 배경 우주에 녹여듦 */
-  .hero-character-frame {
-    position: relative;
-    padding: 7px;
-    background: linear-gradient(135deg, #fbbf24 0%, #fb923c 45%, #fb7185 100%);
-    border-radius: 24px;
-    box-shadow:
-      0 28px 56px -16px rgba(251, 146, 60, 0.35),
-      0 0 80px rgba(254, 215, 170, 0.5);
-    animation: heroBob 4s ease-in-out infinite;
-    overflow: hidden;
-  }
-  /* 우주 배경 — 별 + 그라데이션 (다중 radial-gradient 로 별 산포) */
-  .hero-character-frame::before {
-    content: '';
-    position: absolute; inset: 6px;
-    border-radius: 26px;
-    background:
-      /* 큰 별 5개 (밝은 흰색 점) */
-      radial-gradient(circle 1.5px at 12% 18%, #fff 100%, transparent 100%),
-      radial-gradient(circle 2px at 78% 14%, #fff 100%, transparent 100%),
-      radial-gradient(circle 1.5px at 22% 78%, #fef9c3 100%, transparent 100%),
-      radial-gradient(circle 2px at 88% 75%, #fff 100%, transparent 100%),
-      radial-gradient(circle 1.2px at 50% 88%, #fef9c3 100%, transparent 100%),
-      /* 중간 별 6개 */
-      radial-gradient(circle 1px at 35% 22%, #fff 100%, transparent 100%),
-      radial-gradient(circle 0.8px at 62% 30%, #fff 100%, transparent 100%),
-      radial-gradient(circle 1px at 18% 50%, #fff 100%, transparent 100%),
-      radial-gradient(circle 0.8px at 92% 45%, #fed7aa 100%, transparent 100%),
-      radial-gradient(circle 1px at 45% 65%, #fff 100%, transparent 100%),
-      radial-gradient(circle 0.8px at 70% 88%, #fff 100%, transparent 100%),
-      /* 작은 별 8개 (ambient sparkle) */
-      radial-gradient(circle 0.5px at 8% 35%, rgba(255,255,255,.7) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 26% 38%, rgba(255,255,255,.6) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 55% 12%, rgba(255,255,255,.7) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 82% 30%, rgba(255,255,255,.5) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 38% 50%, rgba(255,255,255,.6) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 64% 60%, rgba(255,255,255,.5) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 80% 90%, rgba(255,255,255,.7) 100%, transparent 100%),
-      radial-gradient(circle 0.5px at 5% 92%, rgba(255,255,255,.5) 100%, transparent 100%),
-      /* 행성 1: 좌상단 큰 보라 행성 (링 효과) */
-      radial-gradient(circle 28px at 16% 25%, #c084fc 0%, #9333ea 60%, transparent 65%),
-      /* 행성 2: 우하단 작은 청록 행성 */
-      radial-gradient(circle 18px at 86% 82%, #06b6d4 0%, #0891b2 60%, transparent 65%),
-      /* 메인 우주 그라데이션 (딥 퍼플 → 네이비 → 블랙) */
-      radial-gradient(ellipse at 30% 30%, #4c1d95 0%, transparent 50%),
-      radial-gradient(ellipse at 70% 70%, #831843 0%, transparent 60%),
-      linear-gradient(135deg, #1e1b4b 0%, #0f0a26 60%, #000000 100%);
-    z-index: 0;
-    animation: starsTwinkle 3s ease-in-out infinite alternate;
-  }
-  /* UFO 우주선 — 떠다니는 애니메이션 */
-  .hero-character-frame::after {
-    content: '🛸';
-    position: absolute;
-    top: 12%; right: 18%;
-    font-size: 28px;
-    z-index: 1;
-    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.7))
-            drop-shadow(0 0 16px rgba(99, 102, 241, 0.4));
-    animation: ufoFloat 6s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes starsTwinkle {
-    0%   { opacity: 0.85; }
-    100% { opacity: 1; }
-  }
-  @keyframes ufoFloat {
-    0%, 100% { transform: translate(0, 0) rotate(-5deg); }
-    25%      { transform: translate(-12px, -8px) rotate(8deg); }
-    50%      { transform: translate(-25px, 4px) rotate(-3deg); }
-    75%      { transform: translate(-10px, 10px) rotate(6deg); }
-  }
-  /* 캐릭터 이미지 — 원래 색상 그대로 보존 (필터 제거)
-     흰 배경은 그대로 두되, 부드러운 라디얼 mask 로 가장자리 페이드해서
-     우주 배경과 자연스럽게 섞이게 함 (사각 박스 흔적 사라짐) */
-  .hero-character-frame img {
-    position: relative; z-index: 2;
-    width: 100%;
-    max-width: 130px;   /* (26-07-22 2차) 240→130 — 절반 축소 */
-    min-width: 100px;
-    height: auto;
-    object-fit: contain;
-    border-radius: 24px;
-    /* 원형 마스크 — 흰 배경의 사각 모서리만 페이드, 캐릭터는 솔리드 */
-    -webkit-mask-image: radial-gradient(ellipse 75% 80% at center,
-                                        #000 60%, rgba(0,0,0,0.7) 78%, transparent 100%);
-            mask-image: radial-gradient(ellipse 75% 80% at center,
-                                        #000 60%, rgba(0,0,0,0.7) 78%, transparent 100%);
-    filter: drop-shadow(0 0 16px rgba(251, 191, 36, 0.45));
-    display: block;
-  }
-  @keyframes heroBob {
-    0%, 100% { transform: translateY(0) rotate(-2deg); }
-    50%      { transform: translateY(-14px) rotate(2deg); }
-  }
+  /* 🗑️ (2026-08-17 사장님 지시) 히어로 오른쪽 «우주 액자 + 큰 Mr. Mango» 스타일 삭제.
+     .hero-character / .hero-character-frame(별·행성·🛸UFO) 과 전용 @keyframes
+     heroBob·starsTwinkle·ufoFloat 가 여기 있었다. 마크업(admin.html)도 함께 지웠다.
+     캐릭터는 이제 검색창 왼쪽의 .hero-search-mango 미니 아바타 하나뿐이다. 재추가 금지. */
 
   /* 기존 카드 영역 — 기본 숨김. legacy-show 클래스 토글로 보이기 */
   .legacy-cards { display: none; }
@@ -1367,19 +1295,27 @@
     .hero h1 { font-size: clamp(28px, 8vw, 48px); text-align: center; -webkit-text-stroke-width: 4px; letter-spacing: 1px; white-space: nowrap; text-shadow:
       0 1px 0 #d97706, 0 2px 0 #b45309, 0 3px 0 #a16207, 0 4px 0 #854d0e, 0 5px 0 #78350f, 0 6px 0 #5c2d09, 0 8px 12px rgba(92,45,9,0.45), 0 0 28px rgba(255,217,61,0.4); }
     .hero .hero-sub { text-align: center; font-size: 17px; margin-bottom: 24px; }
-    .hero .hero-search input { padding: 20px 110px 20px 64px; font-size: 18px; }
-    .hero .hero-search-clear { width: 32px; height: 32px; right: 60px; font-size: 14px; }
-    .hero .hero-search-icon { width: 38px; height: 38px; left: 12px; }
+    /* 📱 (2026-08-17) 좁은 화면은 오른쪽에 버튼 3개(돋보기·마이크·✕)가 몰리므로 한 치수씩 줄인다.
+       그래도 글자 자리가 좁아, 여기서 더 키우면 placeholder 가 통째로 잘린다. */
+    .hero .hero-search input { padding: 18px 128px 18px 58px; font-size: 18px; }
+    /* 비어 있을 때는 ✕지우기가 숨어 있으므로(아래 :not(:placeholder-shown) 규칙) 그 자리 34px 를
+       안내문구에 돌려준다. 안 그러면 좁은 폰에서 "통합 검색 — 학" 에서 잘린다.
+       ⚠️ 안내문구를 짧게 줄이는 방식으로 풀지 말 것 — i18n 사전이 «전체 문자열 일치» 라
+          한 글자만 바꿔도 영어 번역이 통째로 깨진다(CLAUDE.md §2). */
+    .hero .hero-search input:placeholder-shown { padding-right: 94px; }
+    .hero .hero-search-clear { width: 30px; height: 30px; right: 92px; font-size: 14px; }
+    .hero .hero-search-icon { width: 36px; height: 36px; right: 8px; }
     .hero .hero-search-icon svg { width: 19px; height: 19px; }
-    .hero .hero-search-mic { width: 42px; height: 42px; right: 12px; }
+    .hero .hero-search-mic { width: 36px; height: 36px; right: 50px; }
     .hero .hero-search-mic .mic-icon { width: 20px; height: 20px; }
+    /* (2026-08-17 2차) 34 → 44px. 모바일 검색창은 59px 로 PC(49.5px)보다 높아서
+       같은 40px 를 써도 «상대적으로 작아» 보인다. 그래서 PC(48)보다 살짝 더 키운다.
+       ⚠️ 이미지가 가로:세로 = 320:259 이고 object-fit:contain 이라, 세로 제약은
+          상자 높이가 아니라 «그려지는 그림 높이 = 폭/1.235» 다. 44 → 그림 44x36. */
+    .hero .hero-search-mango { width: 44px; height: 44px; left: 8px; }
     .voice-hint { font-size: 13px; padding: 7px 14px; }
     /* 모바일에서 힌트 칩 숨김 — 화면 공간 절약 */
     .hero-tips { display: none; }
-    .hero-character-frame img { max-width: 280px; min-width: 200px; }
-    .hero-character-frame { padding: 6px; border-radius: 28px; }
-    .hero-character-frame img { border-radius: 22px; }
-    .hero-character { order: -1; }
   }
 
   /* ════════════════════════════════════════════════════════════
