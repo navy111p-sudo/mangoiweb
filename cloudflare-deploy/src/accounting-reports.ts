@@ -22,7 +22,8 @@
  * try/catch 로 0 으로 graceful degradation (api-mango.ts 패턴 동일).
  */
 
-import { getScope, type Scope } from './scope';   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
+import { getScope, type Scope } from './scope';
+import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 
 interface Env {
   DB: D1Database;
@@ -54,6 +55,16 @@ const csv = (filename: string, rows: (string | number)[][]): Response => {
 };
 
 const err = (msg: string, status = 400) => json({ ok: false, error: msg }, status);
+
+/* 📊 내보내기 한 곳 — format=csv 면 CSV, format=xlsx 면 진짜 엑셀 파일(2026-08-17).
+   같은 rows 를 쓰므로 두 형식의 내용이 어긋날 수 없다. 엑셀은 숫자가 «숫자» 로 들어가
+   합계·정렬이 되고, 상세 내역을 시트로 나눠 담을 수 있다(extra). */
+const out = (fmt: string, filename: string, rows: (string | number)[][], extra: XlsxSheet[] = []): Response =>
+  fmt === 'xlsx'
+    ? xlsxResponse(filename.replace(/\.csv$/, '') + '.xlsx', [{ name: '요약', rows }, ...extra])
+    : csv(filename, rows);
+
+
 
 const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
   try { return await fn(); } catch { return fallback; }
@@ -784,8 +795,8 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
         forced: !!row.forced, warnings: JSON.parse(row.warnings || '[]'),
         drift: closeDrift(snap, built.data),
       };
-      if (fmt === 'csv') {
-        return csv(`monthly-${period}-마감본.csv`, [
+      if (fmt === 'csv' || fmt === 'xlsx') {
+        return out(fmt, `monthly-${period}-마감본.csv`, [
           ['※ 이 파일은 마감본입니다', `마감 ${new Date(row.closed_at + 9 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')} · ${row.closed_by || ''}`],
           ...(snap.closed.drift.changed ? [['※ ' + snap.closed.drift.message] as (string | number)[]] : []),
           [],
@@ -797,8 +808,26 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     }
   }
 
-  if (fmt === 'csv') return csv(`monthly-${period}.csv`, built.csvRows);
+  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `monthly-${period}.csv`, built.csvRows, monthlyDetailSheets(built.data));
   return json({ ...built.data, closed: { is_closed: false } });
+}
+
+/* 📊 엑셀 전용 — 상세 내역을 시트로 나눠 담는다. CSV 는 한 장이라 못 하던 것이다.
+   숫자가 진짜 숫자로 들어가므로 받은 쪽에서 바로 정렬·합계·피벗을 할 수 있다. */
+function monthlyDetailSheets(data: any): XlsxSheet[] {
+  const d = data?.detail || {};
+  const money = (rows: any[], nameLabel: string) =>
+    [[ '일자', nameLabel, '금액' ], ...rows.map((r: any) => [r.date || '', r.name ?? r.remark ?? '', Number(r.amount) || 0])];
+  const sheets: XlsxSheet[] = [];
+  if ((d.b2b_rows || []).length) sheets.push({ name: '통장 직접입금(B2B)', headerRows: 1, rows: money(d.b2b_rows, '보낸 곳') });
+  if ((d.transfer_rows || []).length) sheets.push({ name: '확인필요 입금', headerRows: 1, rows: money(d.transfer_rows, '적요') });
+  if ((d.unclassified_rows || []).length) sheets.push({ name: '미분류 출금', headerRows: 1, rows: money(d.unclassified_rows, '받는 곳') });
+  if ((d.card_rows || []).length) sheets.push({ name: '법인카드', headerRows: 1, rows: money(d.card_rows, '가맹점') });
+  if ((data?.by_method || []).length) {
+    sheets.push({ name: '결제수단별', headerRows: 1,
+      rows: [['결제수단', '건수', '금액'], ...data.by_method.map((m: any) => [m.method || '기타', Number(m.cnt) || 0, Number(m.total) || 0])] });
+  }
+  return sheets;
 }
 
 /** 마감본 CSV — 스냅샷 JSON 에서 핵심만 뽑는다(그때의 숫자를 그대로 보여 주는 것이 목적). */
@@ -909,7 +938,7 @@ async function quarterlyReport(env: Env, url: URL, fmt: string): Promise<Respons
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
   };
 
-  if (fmt === 'csv') return csv(`quarterly-${year}-Q${q}.csv`, trendCsv('망고아이 분기 보고서', label, monthlies, totals));
+  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `quarterly-${year}-Q${q}.csv`, trendCsv('망고아이 분기 보고서', label, monthlies, totals));
   return json(data);
 }
 
@@ -970,7 +999,7 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
     margin_pct: totals.revenue > 0 ? Number(((totals.net / totals.revenue) * 100).toFixed(2)) : 0,
   };
 
-  if (fmt === 'csv') return csv(`annual-${year}.csv`, trendCsv('망고아이 연간 결산', `${year}년`, monthlies, totals));
+  if (fmt === 'csv' || fmt === 'xlsx') return out(fmt, `annual-${year}.csv`, trendCsv('망고아이 연간 결산', `${year}년`, monthlies, totals));
   return json(data);
 }
 
@@ -1132,8 +1161,8 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     ],
   };
 
-  if (fmt === 'csv') {
-    return csv(`franchise-settlement-${period}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `franchise-settlement-${period}.csv`, [
       ['망고아이 가맹점 정산서', label],
       [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요)`],
       ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님)'],
@@ -1151,6 +1180,16 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
         ['결제 아이디', '건수', '금액', '사유'] as (string | number)[],
         ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason] as (string | number)[]),
       ] : []),
+    ], [
+      // 📊 엑셀에서는 가맹점 표와 «배정 못 한 결제자» 를 시트로 나눈다 — 그대로 정렬·필터할 수 있게
+      { name: '가맹점별', headerRows: 1, rows: [
+        ['가맹점', '학생수', '결제건수', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'],
+        ...rows.map(r => [r.franchise_name, r.students, r.pay_count, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]),
+      ] },
+      ...(unassignedPayers.length ? [{ name: '배정 못 한 결제자', headerRows: 1, rows: [
+        ['결제 아이디', '건수', '금액', '사유', '지사(적어주세요)'],
+        ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason, '']),
+      ] } as XlsxSheet] : []),
     ]);
   }
   return json(data);
@@ -1221,8 +1260,8 @@ async function payslipsReport(env: Env, url: URL, fmt: string): Promise<Response
     fallback: rows.length === 0 ? { bank_payout: ax.teacherPayout, auto: autoPayroll } : null,
     notes };
 
-  if (fmt === 'csv') {
-    return csv(`payslips-${period}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `payslips-${period}.csv`, [
       ['망고아이 강사 급여명세서', period],
       ...notes.map(n => [n] as (string | number)[]),
       [],
@@ -1336,8 +1375,8 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const data = { ok: true, type: 'kpi', period, label: `${label} 경영지표 (KPI)`, kpis,
     revenue, cost, net, payroll: pl.payroll.total, margin_pct: pl.margin };
 
-  if (fmt === 'csv') {
-    return csv(`kpi-${period}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `kpi-${period}.csv`, [
       ['망고아이 경영지표 (KPI)', label],
       [],
       ['지표', '값', '단위', '출처', '비고'],
@@ -1596,7 +1635,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     return err('unknown type: ' + type + ' (use pl|bs|cf|tb)');
   }
 
-  if (fmt === 'csv') {
+  if (fmt === 'csv' || fmt === 'xlsx') {
     const rows: (string | number)[][] = [
       [data.label],
       [],
@@ -1612,7 +1651,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       }
       rows.push([]);
     }
-    return csv(`statement-${type}-${period}.csv`, rows);
+    return out(fmt, `statement-${type}-${period}.csv`, rows);
   }
   return json(data);
 }
@@ -1658,8 +1697,8 @@ async function taxReport(env: Env, url: URL, fmt: string): Promise<Response> {
     summary: { revenue: rev.total, supply, vat, withholding, net_vat_payable: vat },
     rows,
   };
-  if (fmt === 'csv') {
-    return csv(`tax-${period}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `tax-${period}.csv`, [
       ['망고아이 세무 자료', label],
       [],
       ['구분', '공급가액', '부가세', '합계', '건수'],
@@ -1738,8 +1777,8 @@ async function journalReport(env: Env, url: URL, fmt: string): Promise<Response>
 
   const data = { ok: true, type: 'journal', period, label: `회계 전표 / 분개장 — ${period}`, entries, totals };
 
-  if (fmt === 'csv') {
-    return csv(`journal-${period}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `journal-${period}.csv`, [
       ['망고아이 회계 전표 / 분개장', period],
       [],
       ['전표번호', '일자', '적요', '차변', '대변', '금액', '참조'],
@@ -1844,8 +1883,8 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   const data = { ok: true, type: 'receivables', kind, label, rows, totals, candidates, notes: rNotes,
     amount_source: (kind === 'receivable' ? 'none' : 'actual') as FigureSource };
 
-  if (fmt === 'csv') {
-    return csv(`receivables-${kind}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `receivables-${kind}.csv`, [
       [label],
       ...rNotes.map(n => [n] as (string | number)[]),
       [],
@@ -1917,8 +1956,8 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   }), { count: 0, paid: 0 });
 
   const data = { ok: true, type: 'payments-list', rows, totals };
-  if (fmt === 'csv') {
-    return csv('payments.csv', [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, 'payments.csv', [
       ['망고아이 학생 결제 내역' + (channel === 'B2B' || channel === 'B2C' ? ` (${channel})` : '')],
       [],
       ['시각(KST)', '주문ID', '학생ID', '구분', '가맹점', '금액', '결제수단', '메모', '상태'],
@@ -1952,8 +1991,8 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
   }, []);
 
   const data = { ok: true, type: 'refunds-list', rows, count: rows.length };
-  if (fmt === 'csv') {
-    return csv('refunds.csv', [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, 'refunds.csv', [
       ['망고아이 환불/취소 내역'],
       [],
       ['시각', '주문ID', '학생ID', '금액', '상태', '메모'],
@@ -2101,8 +2140,8 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
       : '',
   };
 
-  if (fmt === 'csv') {
-    return csv(`reconcile-${endMonth}.csv`, [
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    return out(fmt, `reconcile-${endMonth}.csv`, [
       ['망고아이 매출–입금 대사', data.label],
       [`PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(1)}%`],
       ['※ 「케이씨피」(기업은행 자동정산)만 PG 입금으로 셉니다. 「케이씨피M」(하나은행 수동송금)은 PG 정산이 아니라 제외했습니다.'],
