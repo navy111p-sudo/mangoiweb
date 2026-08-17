@@ -6,6 +6,7 @@
 //   ⚠️ 신규 /api 경로이므로 index.ts 라우팅 게이트에도 등록해야 함(SRS 함정 #1).
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
+import { SITE_HOSTS } from './site-url';        // 🔗 사람에게 나가는 링크는 한 곳에서
 import { sendPlainSms, getSolapiMode } from './solapi-client';
 import type { MangoEnv } from './api-mango';
 
@@ -195,7 +196,7 @@ export async function handleUptimeApi(
   }
 
   const isUp = alertType === '2' || statusHint.includes('up') || statusHint.includes('정상');
-  const site = monitorName || 'test.mangoi.co.kr';
+  const site = monitorName || SITE_HOSTS[0];
 
   // 3) 중복방지 — 같은 상태 알림을 90초 내 반복 발송하지 않음(KV)
   const kv: any = (env as any).SESSION_STATE;
