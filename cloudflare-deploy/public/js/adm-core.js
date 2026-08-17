@@ -1626,7 +1626,7 @@ const _SORT_LABELS_KO = {
   score_instruction: '수업', score_retention: '유지', score_punctuality: '근태',
   score_admin: '행정', score_contribution: '조직',
   weighted_total: '가중점수', grade: '등급',
-  class_count: '수업수', rate_per_10min_php: '10분단가',
+  class_count: '수업수', total_minutes: '총 수업시간', rate_per_10min_php: '10분단가',
   monthly_salary_php: '월급(PHP)', monthly_salary_krw: 'KRW',
 };
 const _SORT_LABELS_EN = {
@@ -1634,7 +1634,7 @@ const _SORT_LABELS_EN = {
   score_instruction: 'Inst', score_retention: 'Ret', score_punctuality: 'Punct',
   score_admin: 'Admin', score_contribution: 'Contrib',
   weighted_total: 'Weighted', grade: 'Grade',
-  class_count: 'Classes', rate_per_10min_php: 'Rate/10m',
+  class_count: 'Classes', total_minutes: 'Total min', rate_per_10min_php: 'Rate/10m',
   monthly_salary_php: 'Salary(PHP)', monthly_salary_krw: 'KRW',
 };
 
@@ -1642,12 +1642,31 @@ const _SORT_LABELS_EN = {
 const _GRADE_EN = { '최우수': 'Outstanding', '매우 우수': 'V.Satisfactory', '우수': 'Satisfactory', '개선 요망': 'Needs Improvement', '미평가': 'Unrated' };
 function _gradeText(g) { return adminLang === 'en' ? (_GRADE_EN[g] || g || 'Unrated') : (g || '미평가'); }
 
+/* 🕐 (2026-08-17) 총 수업시간 칸.
+   서버의 length_recorded 가 false 면 그 달은 «길이가 입력된 적이 없어 전부 20분으로 계산» 한 것이다.
+   그냥 숫자만 찍으면 30분 수업을 20분 값으로 지급하고 있어도 표에서 알 길이 없으므로,
+   추정치는 «~» 를 붙이고 흐리게 찍어 실제 입력값과 눈으로 구분되게 한다. */
+function _payrollMinutesCell(p) {
+  const mins = (p.total_minutes != null)
+    ? p.total_minutes
+    : Math.round((p.total_10min_units || 0) * 10);
+  if (!mins) return '—';
+  if (p.length_recorded) return fmtNum(mins);
+  const _L = adminLang === 'en';
+  const tip = _L ? 'No length recorded — counted as 20 min each' : '길이 미입력 — 전부 20분으로 계산';
+  return `<span style="color:#9ca3af;" title="${tip}">~${fmtNum(mins)}</span>`;
+}
+
 function _payrollFieldValue(row, key) {
   if (!row) return null;
   if (['score_instruction','score_retention','score_punctuality','score_admin','score_contribution'].includes(key)) {
     return row.evaluation ? row.evaluation[key] : null;
   }
   if (key === 'grade') return _GRADE_RANK[row.grade] != null ? _GRADE_RANK[row.grade] : -1;
+  if (key === 'total_minutes') {
+    return (row.total_minutes != null) ? row.total_minutes
+         : (row.total_10min_units != null ? Math.round(row.total_10min_units * 10) : null);
+  }
   return row[key];
 }
 
@@ -1724,7 +1743,7 @@ function renderPayrollTable() {
   const _preview = (typeof window._isRolePreview === 'function') && window._isRolePreview();
   // 지사·대리점·학부모·학생 = 급여 열람 불가 → 표를 비우고 안내(미리보기에서도 동일)
   if (_effRole === 'branch' || _effRole === 'agency' || _effRole === 'parent' || _effRole === 'student') {
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.') + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Payroll is visible only to HQ managers/executives and each teacher (own payslip).' : '급여는 본사 관리자·경영진(전체)과 교사 본인(본인 급여)만 볼 수 있습니다.') + '</td></tr>';
     _updateSortArrows();
     return;
   }
@@ -1745,12 +1764,12 @@ function renderPayrollTable() {
         ? (_L ? 'Teacher Mode preview: a teacher only sees their OWN payslip — other teachers\' salaries are hidden. (This demo persona has no payroll data.)'
               : '👨‍🏫 강사 모드 미리보기: 강사는 <b>본인 급여만</b> 보이고 다른 강사 급여는 가려집니다. (이 데모 계정은 급여 데이터가 없어 비어 있어요. 실제 확인은 강사 계정으로 로그인.)')
         : (_L ? 'No payslip found for your account this month.' : '이번 달 본인 급여명세서를 찾을 수 없습니다.');
-      tb.innerHTML = '<tr><td colspan="14" class="empty" style="line-height:1.7">' + note + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="15" class="empty" style="line-height:1.7">' + note + '</td></tr>';
       _updateSortArrows();
       return;
     }
     const empty = _L ? 'No active teachers. Add one above or click 🌱 Seed.' : '활성 강사가 없습니다. 위에서 강사를 먼저 등록하거나 🌱 시드 버튼을 사용하세요.';
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + empty + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + empty + '</td></tr>';
     _updateSortArrows();
     return;
   }
@@ -1775,6 +1794,7 @@ function renderPayrollTable() {
       <td style="text-align:right;font-weight:700;">${p.weighted_total != null ? p.weighted_total.toFixed(2) : '—'}</td>
       <td><span class="${gClass}">${_gradeText(p.grade)}</span></td>
       <td style="text-align:right;">${fmtNum(p.class_count)}</td>
+      <td style="text-align:right;">${_payrollMinutesCell(p)}</td>
       <td style="text-align:right;">${(p.rate_per_10min_php || 0).toFixed(2)}</td>
       <td style="text-align:right;font-weight:700;color:#10b981;">${fmtNum(Math.round(p.monthly_salary_php))}</td>
       <td style="text-align:right;color:#6b7280;">₩${fmtNum(krw)}</td>
@@ -1849,12 +1869,12 @@ async function calcPayrollAll() {
   const month = parseInt(document.getElementById('payroll-month').value, 10);
   if (!year || !month) { alert(_L ? 'Enter year/month' : '연도/월을 입력하세요'); return; }
   const tb = document.getElementById('payroll-table');
-  tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Loading...' : '불러오는 중...') + '</td></tr>';
+  tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Loading...' : '불러오는 중...') + '</td></tr>';
   try {
     const r = await fetch(`/api/admin/payroll/all?year=${year}&month=${month}`, { cache: 'no-store', credentials: 'include' });
     const d = await r.json();
     if (!d.ok) {
-      tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status)) + '</td></tr>';
+      tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status)) + '</td></tr>';
       return;
     }
     _lastPayrollRows = d.items || [];
@@ -1866,7 +1886,7 @@ async function calcPayrollAll() {
     const cw = document.getElementById('payroll-charts-wrap');
     if (cw && cw.style.display === 'block') renderPayrollCharts();
   } catch (e) {
-    tb.innerHTML = '<tr><td colspan="14" class="empty">' + (_L ? 'Error: ' : '에러: ') + e.message + '</td></tr>';
+    tb.innerHTML = '<tr><td colspan="15" class="empty">' + (_L ? 'Error: ' : '에러: ') + e.message + '</td></tr>';
   }
 }
 
@@ -1888,6 +1908,11 @@ function openEvalModal(teacherId, teacherName, year, month) {
   document.getElementById('ev-tch-strengths').value    = e.strengths    ?? '';
   document.getElementById('ev-tch-improvements').value = e.improvements ?? '';
   document.getElementById('ev-class-count').value  = row.class_count ?? 0;
+  // 🕐 (2026-08-17) 총 수업시간(분) — 서버는 10분 토막(total_10min_units)으로 갖고 있다.
+  //   비어 있으면 «길이 정보 없음(=전부 20분)» 이라는 뜻이라 칸도 비워 둔다.
+  const _tmEl = document.getElementById('ev-total-minutes');
+  if (_tmEl) _tmEl.value = (row.total_10min_units > 0) ? Math.round(row.total_10min_units * 10) : '';
+  updateMinutesHint();
   // 모달에 컨텍스트 보관
   const bg = document.getElementById('eval-modal-bg');
   bg.dataset.teacherId = teacherId;
@@ -1898,6 +1923,34 @@ function openEvalModal(teacherId, teacherName, year, month) {
 }
 function closeEvalModal() {
   document.getElementById('eval-modal-bg').classList.remove('show');
+}
+/* 🕐 (2026-08-17) 급여 근거 안내 — 입력한 «회수/분» 이 급여에 어떻게 들어가는지 그 자리에서 보여 준다.
+   총 수업시간을 비워 두면 서버가 «전부 20분» 으로 계산한다. 30분 수업이 섞인 달에 이걸 모르고
+   비워 두면 강사가 30분을 가르치고 20분 값을 받는다 — 그래서 화면에 반드시 적어 둔다. */
+function updateMinutesHint() {
+  const box = document.getElementById('ev-minutes-hint');
+  if (!box) return;
+  const L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const cnt = parseInt((document.getElementById('ev-class-count') || {}).value, 10);
+  const min = parseInt((document.getElementById('ev-total-minutes') || {}).value, 10);
+  if (min > 0) {
+    const units = min / 10;
+    const avg = (cnt > 0) ? (min / cnt) : null;
+    box.textContent = L
+      ? `Payroll basis: ${min} min = ${units} ten-minute units × rate`
+        + (avg ? ` (avg ${avg.toFixed(1)} min/class)` : '')
+      : `급여 기준: ${min}분 = 10분 토막 ${units}개 × 단가`
+        + (avg ? ` (수업당 평균 ${avg.toFixed(1)}분)` : '');
+    box.style.backgroundColor = '#f0fdf4';
+  } else if (cnt > 0) {
+    box.textContent = L
+      ? `Total minutes empty → counted as 20 min each: ${cnt} × 20 = ${cnt * 20} min. Enter it if 30-min classes are included.`
+      : `총 수업시간을 비우면 전부 20분으로 계산합니다: ${cnt}회 × 20분 = ${cnt * 20}분. 30분 수업이 섞인 달이면 반드시 입력하세요.`;
+    box.style.backgroundColor = '#fffbeb';
+  } else {
+    box.textContent = '—';
+    box.style.backgroundColor = '#f8fafc';
+  }
 }
 function updateEvalPreview() {
   const v = id => parseFloat(document.getElementById(id).value);
@@ -1936,6 +1989,9 @@ async function saveEvalAndClasses() {
     evaluator:          'admin',
   };
   const classCount = parseInt(document.getElementById('ev-class-count').value, 10);
+  // 🕐 (2026-08-17) 총 수업시간(분). 비우면 안 보내고, 서버는 예전대로 «전부 20분» 으로 본다.
+  const _tmRaw = (document.getElementById('ev-total-minutes') || {}).value;
+  const totalMinutes = (_tmRaw === '' || _tmRaw == null) ? null : parseInt(_tmRaw, 10);
   try {
     const r1 = await fetch('/api/admin/teacher-evaluation', {
       method: 'PUT',
@@ -1950,7 +2006,10 @@ async function saveEvalAndClasses() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ teacher_id: teacherId, year, month, class_count: classCount })
+        body: JSON.stringify(Object.assign(
+          { teacher_id: teacherId, year, month, class_count: classCount },
+          (totalMinutes != null && !isNaN(totalMinutes) && totalMinutes > 0) ? { total_minutes: totalMinutes } : {}
+        ))
       });
       const d2 = await r2.json().catch(() => ({}));
       if (!r2.ok || d2.ok === false) { alert((_L ? 'Class count save failed: ' : '수업수 저장 실패: ') + (d2.error || ('HTTP ' + r2.status))); return; }
@@ -2910,7 +2969,7 @@ async function addTeacherProfile() {
         (e('tp-mbti-type')?.value ? '\n🧠 MBTI 매칭 프로필도 저장됨 — 학생 매칭에 즉시 반영됩니다.' : ''));
   // 수정 모드 해제
   if (btn) {
-    btn.textContent = '＋ 강사 등록';
+    btn.textContent = '+ 강사 등록';
     delete btn.dataset.editId;
   }
   clearTeacherForm();
@@ -8215,7 +8274,7 @@ window.bulkCopyContacts = function() {
   if (e('tp-clear-btn'))        e('tp-clear-btn').addEventListener('click', () => {
     clearTeacherForm();
     const btn = e('tp-add-btn');
-    if (btn) { btn.textContent = '＋ 강사 등록'; delete btn.dataset.editId; }
+    if (btn) { btn.textContent = '+ 강사 등록'; delete btn.dataset.editId; }
   });
   if (e('tp-refresh-btn'))      e('tp-refresh-btn').addEventListener('click', loadTeacherProfiles);
   if (e('tp-filter-status'))    e('tp-filter-status').addEventListener('change', loadTeacherProfiles);
@@ -8310,6 +8369,10 @@ async function seedDemoTeachers() {
   // 평가 점수 입력 시 미리보기 갱신
   ['ev-instruction', 'ev-retention', 'ev-punctuality', 'ev-admin', 'ev-contribution'].forEach(id => {
     if (e(id)) e(id).addEventListener('input', updateEvalPreview);
+  });
+  // 🕐 (2026-08-17) 수업수·총 수업시간 입력 시 급여 근거 안내 갱신
+  ['ev-class-count', 'ev-total-minutes'].forEach(id => {
+    if (e(id)) e(id).addEventListener('input', updateMinutesHint);
   });
   // 🔐 강사 급여·평가 카드가 열릴 때: 교사 보기면 관리 컨트롤 숨김 + 본인 급여 자동 로드
   const _pcard = e('card-payroll');
@@ -10292,6 +10355,292 @@ window.rebuildGlobalSearchIndex = function() {
     if (unit === '배')   return Number(n).toFixed(2) + '배';
     return Number(n).toLocaleString('ko-KR') + (unit?' '+unit:'');
   }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  /* 🏷️ 신뢰도 배지 (2026-08-16) — 서버가 내려준 출처(sources)를 그대로 보여 준다.
+     지어낸 숫자와 실제 숫자가 같은 표에 섞여 있어 구분이 안 되던 문제를 푼다. */
+  const BADGE = {
+    actual:    ['실데이터', '#166534', '#dcfce7'],
+    estimated: ['추정',     '#92400e', '#fef3c7'],
+    none:      ['자료없음', '#991b1b', '#fee2e2'],
+    review:    ['확인필요', '#1e40af', '#dbeafe'],
+  };
+  function badge(src){
+    const b = BADGE[src]; if (!b) return '';
+    return `<span style="display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:99px;background:${b[2]};color:${b[1]};margin-left:6px;vertical-align:1px">${b[0]}</span>`;
+  }
+  const BADGE_LEGEND = `<div style="display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11px;color:#6b7280;margin:10px 0 0">
+      <span>${badge('actual')} 통장·카드·결제 기록에서 그대로 가져온 값</span>
+      <span>${badge('estimated')} 계산식으로 만든 값 — 참고만</span>
+      <span>${badge('review')} 사람이 한 번 봐 줘야 하는 값</span>
+      <span>${badge('none')} 아직 가져올 자료가 없는 값</span>
+    </div>`;
+
+  /* 🔍 대사 배너 — 「매출–입금 대사」에 따로 들어가지 않아도 리포트 첫 줄에서 보이게. */
+  function reconcileBanner(rec){
+    if (!rec) return '';
+    const V = {
+      ok:      ['#166534', '#f0fdf4', '#86efac', '✅ 장부와 통장이 맞습니다'],
+      warn:    ['#92400e', '#fffbeb', '#fcd34d', '⚠️ 장부와 통장이 조금 어긋납니다'],
+      alert:   ['#991b1b', '#fef2f2', '#fca5a5', '🚨 장부와 통장이 크게 어긋납니다'],
+      no_data: ['#374151', '#f9fafb', '#d1d5db', 'ℹ️ 이 달은 통장 자료가 없습니다'],
+    }[rec.verdict] || null;
+    if (!V) return '';
+    const detail = rec.verdict === 'no_data' ? '' :
+      `<div style="margin-top:6px;font-size:12px;color:#374151">
+        장부 매출 <b>${fmtKRW(rec.revenue)}</b> → 수수료 3.3%를 뺀 예상 입금 <b>${fmtKRW(rec.expected)}</b> ·
+        실제 PG 정산 입금 <b>${fmtKRW(rec.deposit_pg)}</b> (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, ${rec.diff_pct}%)
+      </div>`;
+    const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
+      .map(t => `<div style="margin-top:6px;font-size:12px;color:#374151">· ${esc(t)}</div>`).join('');
+    return `<div style="background:${V[1]};border:1px solid ${V[2]};border-left:4px solid ${V[0]};border-radius:8px;padding:11px 14px;margin:12px 0;line-height:1.65">
+        <b style="color:${V[0]};font-size:13px">${V[3]}</b>
+        <div style="margin-top:4px;font-size:12.5px;color:#374151">${esc(rec.message || '')}</div>
+        ${detail}${extra}
+      </div>`;
+  }
+
+  /* 🔎 눌러서 펼치는 상세 내역 — 「합계 → 내역 → 원본 거래」 */
+  function drill(title, rows, opts){
+    if (!rows || !rows.length) return '';
+    const o = opts || {};
+    return `<details style="border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;margin:8px 0">
+      <summary style="cursor:pointer;padding:9px 14px;font-size:12.5px;font-weight:600;color:#374151">${esc(title)}</summary>
+      <div style="padding:0 14px 12px;background:#fff">
+        <table style="font-size:12.5px">
+          <thead><tr><th>${esc(o.dateLabel || '일자')}</th><th>${esc(o.nameLabel || '내용')}</th><th class="num">금액</th></tr></thead>
+          <tbody>${rows.map(r => `<tr><td>${esc(r.date)}</td><td>${esc(r.name != null ? r.name : r.remark)}</td><td class="num">${fmtKRW(r.amount)}</td></tr>`).join('')}</tbody>
+        </table>
+        ${o.note ? `<p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">${esc(o.note)}</p>` : ''}
+      </div>
+    </details>`;
+  }
+
+  function noteList(notes){
+    if (!notes || !notes.length) return '';
+    return `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.75;color:#374151">
+      ${notes.map(n => `<div>· ${esc(n)}</div>`).join('')}
+    </div>`;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     🔒 월 마감 (2026-08-17)
+     마감하면 그 달 리포트가 스냅샷으로 굳는다. 그 뒤 자료가 더 들어와도
+     «이미 내보낸 숫자» 는 안 바뀌고, 대신 «달라졌다» 고 알려 준다.
+     ═══════════════════════════════════════════════════════════════════ */
+  const closeApi = (qs) => '/api/admin/reports/close?' + qs;
+
+  window.accCloseRefresh = async function(){
+    const el = document.getElementById('acc-close-state');
+    const det = document.getElementById('acc-close-detail');
+    const cbtn = document.getElementById('acc-close-btn');
+    const rbtn = document.getElementById('acc-reopen-btn');
+    if (!el) return;
+    const period = getInputs().period;
+    el.textContent = period + ' 확인 중…'; if (det) det.innerHTML = '';
+    try {
+      const r = await fetch(closeApi('period=' + encodeURIComponent(period)), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      if (d.closed) {
+        const when = new Date((d.closed_at||0) + 9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+        el.innerHTML = `<b style="color:#166534">${esc(period)} 마감됨</b> · ${esc(when)} · ${esc(d.closed_by||'')}`;
+        if (cbtn) cbtn.style.display = 'none';
+        if (rbtn) rbtn.style.display = '';
+        const parts = [];
+        if (d.forced) parts.push(`<span style="color:#b45309">⚠️ 확인 필요 항목을 알고도 마감했습니다.</span>`);
+        (d.warnings||[]).forEach(w => parts.push('· ' + esc(w)));
+        if (d.drift) parts.push(d.drift.changed
+          ? `<b style="color:#b45309">⚠️ ${esc(d.drift.message)}</b>`
+          : `<span style="color:#166534">✅ ${esc(d.drift.message)}</span>`);
+        if (d.snapshot_pl) parts.push(`마감본 — 매출 ${fmtKRW(d.snapshot_pl.revenue)} · 비용 ${fmtKRW(d.snapshot_pl.cost)} · 순이익 ${fmtKRW(d.snapshot_pl.net_income)} (${d.snapshot_pl.margin_pct}%)`);
+        if (det) det.innerHTML = parts.join('<br>');
+      } else {
+        el.innerHTML = `<b style="color:#6b7280">${esc(period)} 미마감</b>`;
+        if (cbtn) { cbtn.style.display = ''; cbtn.disabled = !d.closable; cbtn.style.opacity = d.closable ? '1' : '.5'; }
+        if (rbtn) rbtn.style.display = 'none';
+        const parts = [];
+        if (!d.closable) parts.push(`<span style="color:#6b7280">${esc(d.closable_reason||'')}</span>`);
+        if ((d.warnings||[]).length) {
+          parts.push(`<b style="color:#b45309">마감 전에 확인해 주세요 (${d.warnings.length}건)</b>`);
+          d.warnings.forEach(w => parts.push('· ' + esc(w)));
+        } else if (d.closable) {
+          parts.push('<span style="color:#166534">확인이 필요한 항목이 없습니다 — 바로 마감할 수 있습니다.</span>');
+        }
+        if (d.preview) parts.push(`지금 숫자 — 매출 ${fmtKRW(d.preview.revenue)} · 비용 ${fmtKRW(d.preview.cost)} · 순이익 ${fmtKRW(d.preview.net_income)} (${d.preview.margin_pct}%)`);
+        if (det) det.innerHTML = parts.join('<br>');
+      }
+      if (det && (d.log||[]).length) {
+        det.innerHTML += `<details style="margin-top:7px"><summary style="cursor:pointer;font-size:11.5px;color:#6b7280">기록 ${d.log.length}건 보기</summary>`
+          + d.log.map(l => `<div style="font-size:11.5px;color:#6b7280">${esc(new Date((l.at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${l.action==='close'?'마감':'해제'} · ${esc(l.actor||'')}${l.reason?' · '+esc(l.reason):''}</div>`).join('')
+          + '</details>';
+      }
+    } catch(e) {
+      el.textContent = '오류: ' + (e.message||e);
+    }
+  };
+
+  window.accCloseMonth = async function(){
+    const period = getInputs().period;
+    if (!confirm(`${period} 를 마감할까요?\n\n마감하면 그 달 숫자가 그대로 굳습니다.\n나중에 자료가 더 들어와도 리포트 숫자는 안 바뀌고, «달라졌다»고 알려 줍니다.\n(마감 해제는 사유를 적으면 언제든 가능합니다)`)) return;
+    try {
+      let r = await fetch(closeApi('period=' + encodeURIComponent(period)), { method:'POST', credentials:'include' });
+      let d = await r.json();
+      if (!d.ok && d.needs_force) {
+        const list = (d.warnings||[]).map(w => '· ' + w).join('\n');
+        if (!confirm(`확인이 필요한 항목이 ${d.warnings.length}건 있습니다.\n\n${list}\n\n그래도 이대로 마감할까요?\n(«확인하고도 마감함»으로 기록에 남습니다)`)) return;
+        r = await fetch(closeApi('period=' + encodeURIComponent(period) + '&force=1'), { method:'POST', credentials:'include' });
+        d = await r.json();
+      }
+      if (!d.ok) throw new Error(d.error || '마감 실패');
+      alert(`${period} 마감했습니다.`);
+      accCloseRefresh();
+    } catch(e) { alert('마감 실패: ' + (e.message||e)); }
+  };
+
+  window.accReopenMonth = async function(){
+    const period = getInputs().period;
+    const reason = prompt(`${period} 마감을 해제합니다.\n\n사유를 적어 주세요 (기록에 남습니다):`, '');
+    if (reason === null) return;
+    if (!reason.trim()) { alert('사유를 적어 주세요.'); return; }
+    try {
+      const r = await fetch('/api/admin/reports/reopen?period=' + encodeURIComponent(period) + '&reason=' + encodeURIComponent(reason.trim()),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '해제 실패');
+      alert(`${period} 마감을 해제했습니다.`);
+      accCloseRefresh();
+    } catch(e) { alert('해제 실패: ' + (e.message||e)); }
+  };
+
+  /* 🏪 배정 못 한 결제 아이디 → 대리점/지사 붙이기 (2026-08-17)
+     대리점이 원생 수강료를 자기 계정으로 결제하면 그 아이디는 학생 원부에 없다.
+     ① 캐피타운 대리점으로 등록(근본) ② 지사 직접 지정(즉시) — 둘 다 여기서. */
+  let _payerFr = [];
+  window.accPayerLoad = async function(){
+    const st = document.getElementById('acc-payer-state');
+    const tb = document.getElementById('acc-payer-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/payers?months=12', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _payerFr = d.franchises || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">소속을 못 붙인 결제 아이디 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b> (최근 12개월)`
+        : `<span style="color:#166534">최근 12개월 결제가 모두 소속에 붙어 있습니다.</span>`;
+      if (!(d.rows||[]).length) { tb.innerHTML = '<tr><td colspan="6" class="empty">배정 못 한 결제가 없습니다.</td></tr>'; return; }
+      const frOpts = ['<option value="">— 지사 선택 —</option>']
+        .concat(_payerFr.map(f => `<option value="${f.id}">${esc(f.name)}${f.active ? '' : ' (비활성)'}</option>`)).join('');
+      const brOpts = ['<option value="">— 지사 선택 —</option>']
+        .concat(_payerFr.map(f => `<option value="${esc(f.name)}">${esc(f.name)}</option>`)).join('');
+      tb.innerHTML = d.rows.map(it => {
+        const id = esc(it.user_id).replace(/'/g,'&#39;');
+        return `<tr style="background:#fffbeb">
+          <td><b>${esc(it.user_id)}</b><div style="font-size:10.5px;color:#9ca3af">${esc(it.reason||'')} · ${it.months}개월</div></td>
+          <td style="text-align:right">${it.pays}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td><select onchange="accPayerAssign('${id}', this.value, this)" style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${frOpts}</select></td>
+          <td><input id="cap-nm-${id}" placeholder="대리점 이름" style="padding:3px 6px;font-size:12px;width:110px;border-radius:6px;border:1px solid #d1d5db">
+              <select id="cap-br-${id}" style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${brOpts}</select>
+              <button onclick="accPayerRegister('${id}')" style="padding:3px 9px;font-size:12px">등록</button></td>
+        </tr>`;
+      }).join('');
+      if ((d.assigned||[]).length) {
+        tb.innerHTML += `<tr><td colspan="6" style="padding-top:10px"><details><summary style="cursor:pointer;font-size:11.5px;color:#6b7280">이미 지정한 아이디 ${d.assigned.length}곳 보기</summary>`
+          + d.assigned.map(a => `<div style="font-size:11.5px;color:#374151">${esc(a.payer_user_id)} → <b>${esc(a.franchise_name)}</b>
+              <button onclick="accPayerAssign('${esc(a.payer_user_id).replace(/'/g,'&#39;')}', '', null)" style="padding:1px 7px;font-size:11px;margin-left:6px">해제</button></div>`).join('')
+          + '</details></td></tr>';
+      }
+    } catch(e) { tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accPayerAssign = async function(payer, fid, sel){
+    if (sel && !fid) return;
+    if (!fid && !confirm(`${payer} 의 지사 지정을 해제할까요?`)) return;
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/payers?payer=' + encodeURIComponent(payer) + '&franchise_id=' + encodeURIComponent(fid || 0),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      accPayerLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
+  window.accPayerRegister = async function(payer){
+    const nm = (document.getElementById('cap-nm-' + payer)||{}).value || '';
+    const br = (document.getElementById('cap-br-' + payer)||{}).value || '';
+    if (!nm.trim()) { alert('대리점 이름을 적어 주세요.'); return; }
+    if (!br) { alert('소속 지사를 골라 주세요.'); return; }
+    if (!confirm(`「${nm.trim()}」 을(를) ${br} 소속 캐피타운 대리점으로 등록할까요?\n\n로그인 아이디: ${payer}\n등록하면 이 아이디의 결제가 전부 ${br} 매출로 잡힙니다.`)) return;
+    try {
+      const qs = new URLSearchParams({ name: nm.trim(), branch: br, login_id: payer });
+      const r = await fetch('/api/admin/capitown/agencies?' + qs.toString(), { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.message || d.error || '등록 실패');
+      alert(d.message ? d.message : `등록했습니다 (${d.action === 'created' ? '신규' : '수정'}).`);
+      accPayerLoad();
+    } catch(e) { alert('등록 실패: ' + (e.message||e)); }
+  };
+
+  /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
+     지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
+     그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
+  let _payeeCats = [];
+  window.accPayeeLoad = async function(){
+    const st = document.getElementById('acc-payee-state');
+    const tb = document.getElementById('acc-payee-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="5" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/payees?months=6', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _payeeCats = d.categories || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">아직 정하지 않은 거래처 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b> (최근 6개월)`
+        : `<span style="color:#166534">최근 6개월 「기타출금」이 모두 분류돼 있습니다.</span>`;
+      if (!(d.items||[]).length) { tb.innerHTML = '<tr><td colspan="5" class="empty">분류할 출금이 없습니다.</td></tr>'; return; }
+      tb.innerHTML = d.items.map(it => {
+        const cur = it.category || '';
+        const opts = ['<option value="">— 정해 주세요 —</option>']
+          .concat(_payeeCats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+        const auto = it.source && it.source.indexOf('auto') === 0
+          ? '<span style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 6px;border-radius:99px;margin-left:5px">자동</span>' : '';
+        return `<tr${it.category ? '' : ' style="background:#fffbeb"'}>
+          <td><b>${esc(it.payee)}</b>${auto}${it.corporate ? '<span style="font-size:10px;color:#6b7280;margin-left:5px">법인</span>' : ''}
+              ${it.remark !== it.payee ? `<div style="font-size:10.5px;color:#9ca3af">적요: ${esc(it.remark)}</div>` : ''}</td>
+          <td style="text-align:right">${it.count}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td><select onchange="accPayeeSet('${esc(it.payee).replace(/'/g,'&#39;')}', this.value, this)"
+                     style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${opts}</select></td>
+        </tr>`;
+      }).join('');
+    } catch(e) { tb.innerHTML = `<tr><td colspan="5" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accPayeeSet = async function(payee, category, sel){
+    if (!category) return;
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/payees?payee=' + encodeURIComponent(payee) + '&category=' + encodeURIComponent(category),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      if (sel) { sel.disabled = false; const tr = sel.closest('tr'); if (tr) tr.style.background = ''; }
+      accPayeeLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
+  // 기간을 바꾸면 마감 현황도 따라오게
+  document.addEventListener('DOMContentLoaded', () => {
+    const p = document.getElementById('acc-rep-period');
+    if (p) p.addEventListener('change', () => window.accCloseRefresh && window.accCloseRefresh());
+  });
 
   // 메인: 리포트 종류별 fetch + render
   window.openReport = async function(type){
@@ -10388,13 +10737,17 @@ window.rebuildGlobalSearchIndex = function() {
         .toolbar{position:fixed;top:10px;right:10px;background:#fff;padding:8px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:1000}
         .toolbar button{padding:8px 14px;font-size:13px;border:0;border-radius:6px;cursor:pointer;margin-left:6px;font-weight:600}
         .toolbar .print{background:#fb923c;color:#fff}
+        .toolbar .xlsx{background:#217346;color:#fff}
         .toolbar .csv{background:#10b981;color:#fff}
         .toolbar .close{background:#6b7280;color:#fff}
         @media print{.toolbar{display:none}body{padding:0}}
         .footer{margin-top:30px;padding-top:14px;border-top:1px solid #e5e7eb;font-size:11px;color:#6b7280;text-align:center}
       </style>`;
+    // 📊 엑셀 — 숫자가 «숫자» 로 들어가고 상세 내역이 시트로 나뉜다(CSV 는 한 장뿐)
+    const xlsxUrl = csvUrl.replace('format=csv', 'format=xlsx');
     const toolbar = `<div class="toolbar">
         <button class="print" onclick="window.print()">🖨️ 인쇄 / PDF 저장</button>
+        <button class="xlsx" onclick="location.href='${xlsxUrl}'">📊 엑셀</button>
         <button class="csv" onclick="location.href='${csvUrl}'">📥 CSV</button>
         <button class="close" onclick="window.close()">✕ 닫기</button>
       </div>`;
@@ -10413,20 +10766,31 @@ window.rebuildGlobalSearchIndex = function() {
   }
 
   function renderMonthly(d){
-    const s = d.summary, c = d.cost, p = d.pl;
+    const s = d.summary, c = d.cost, p = d.pl, src = d.sources || {}, det = d.detail || {};
+    // 📣 한 문장 요약 — 사장님이 첫 줄만 읽어도 이번 달이 어땠는지 알 수 있게(2026-08-16)
+    const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
+      + (p.confident
+          ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`)
+      // 💵 적자를 «자금 보충» 으로 메우고 있으면 그 사실을 첫 줄에서 말한다 — 가장 중요한 신호다
+      + ((p.net_income||0) < 0 && (s.funding_in_krw||0) > 0
+          ? `<br><span style="color:#b45309">이 달 부족한 돈을 메우려고 다른 계좌에서 <b>${fmtKRW(s.funding_in_krw)}</b>을 옮겨 왔습니다.</span>`
+          : '');
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
-      ${(s.revenue_gap_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #f59e0b;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 12px;margin:10px 0;font-size:12px;line-height:1.7">
-        <b style="color:#b45309">⚠️ 이 달 매출이 장부에 덜 잡혀 있습니다 — 아래 순이익을 «적자»로 읽지 마세요.</b><br>
-        통장에 들어온 카드 정산금(PG)은 <b>${fmtKRW(s.deposit_pg_krw)}</b> 인데 장부 매출은 <b>${fmtKRW(d.pl.revenue)}</b> 뿐입니다(차이 ${fmtKRW(s.revenue_gap_krw)}).
-        비용은 통장 실지출이라 정확한데 매출만 일부 빠져서, 순이익이 실제보다 나쁘게 보입니다.
-        「🔍 매출–입금 대사」 카드에서 확인하세요.
+      ${d.closed && d.closed.is_closed ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-left:4px solid #166534;border-radius:8px;padding:11px 14px;margin:12px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#166534">🔒 마감된 달입니다 — 아래 숫자는 «마감본»입니다.</b>
+        마감 ${esc(new Date((d.closed.closed_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${esc(d.closed.closed_by||'')}
+        ${d.closed.forced ? '<br><span style="color:#b45309">⚠️ 확인 필요 항목을 알고도 마감했습니다.</span>' : ''}
+        ${d.closed.drift && d.closed.drift.changed ? `<br><b style="color:#b45309">⚠️ ${esc(d.closed.drift.message)}</b>` : ''}
       </div>` : ''}
+      <div style="background:#fff7ed;border-radius:10px;padding:14px 18px;margin:12px 0;font-size:15px;line-height:1.65;font-weight:600;color:#111">${headline}</div>
+      ${reconcileBanner(d.reconcile)}
       <div class="pl-box">
         <div class="b rev"><div class="l">매출</div><div class="v">${fmtKRW(p.revenue)}</div></div>
         <div class="b cost"><div class="l">비용</div><div class="v">${fmtKRW(p.cost)}</div></div>
-        <div class="b net"><div class="l">순이익</div><div class="v">${fmtKRW(p.net_income)}</div></div>
+        <div class="b net"><div class="l">순이익${p.confident ? '' : ' (미확정)'}</div><div class="v">${fmtKRW(p.net_income)}</div></div>
         <div class="b margin"><div class="l">이익률</div><div class="v">${p.margin_pct}%</div></div>
       </div>
       ${s.cash_has_data ? `<h2>💵 통장 기준 실제 현금흐름 <span style="font-weight:400;font-size:12px;color:#6b7280">(신한 계좌 — 장부와 무관한 «사실»)</span></h2>
@@ -10436,88 +10800,144 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
             <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
       </table>
-      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 아래 손익은 <b>장부(결제기록) 기준</b>이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 회사가 실제로 번 돈은 위 «순증감»에 가깝습니다.</p>` : ''}
-      <h2>매출 요약</h2>
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장에는 <b>매출이 아닌 돈</b>(다른 계좌에서 옮긴 운영자금 등)도 섞여 들어옵니다. 아래 손익과 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
+      <h2>매출 — 어디서 들어왔나</h2>
       <table>
-        <tr><th>결제 건수</th><td class="num">${s.pay_count.toLocaleString()} 건</td>
-            <th>결제 학생수</th><td class="num">${s.paying_users.toLocaleString()} 명</td></tr>
-        <tr><th>평균 결제액</th><td class="num">${fmtKRW(s.avg_per_user)}</td>
-            <th>활성 학생수</th><td class="num">${s.active_students.toLocaleString()} 명</td></tr>
-        <tr><th>신규 가입</th><td class="num">${s.new_signups.toLocaleString()} 명</td>
-            <th>만료</th><td class="num">${s.expirations.toLocaleString()} 명</td></tr>
-        <tr><th>총 수업 분</th><td class="num">${s.class_minutes.toLocaleString()} 분</td>
-            <th>세션 수</th><td class="num">${s.class_sessions.toLocaleString()} 건</td></tr>
-        ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="4" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
+        <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
+        <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
+        <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
+        ${(s.funding_in_krw||0) > 0 ? `<tr><th>운영자금 보충 (하나은행 → 신한)${badge('actual')}</th><td class="num">${fmtKRW(s.funding_in_krw)}</td><td class="num"></td></tr>
+        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」 — 회사의 다른 계좌에서 옮겨 온 운영자금입니다. <b>매출이 아니라</b> 자금 이동이라 위 매출 합계에 넣지 않았습니다</td></tr>` : ''}
+        ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
+        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
+        ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
-      <h2>비용 내역</h2>
+      ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
+      ${drill(`운영자금 보충 내역 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'회사의 하나은행 계좌에서 신한으로 옮겨 온 운영자금입니다(2026-08-17 확인). 매출이 아니므로 손익에 넣지 않지만, 「매출이 아닌 돈으로 얼마를 메우고 있는지」는 회사 상태를 보는 데 중요해 그대로 보여 줍니다.' })}
+      <h2>학생 · 수업</h2>
       <table>
-        <tr><th>${c.teacher_payroll_source === 'bank' ? '강사 급여 (신한 송금·실데이터)' : '강사 급여'}</th><td class="num">${fmtKRW(c.teacher_payroll)}</td><td class="num">${c.teacher_count} 명</td></tr>
+        <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>
+            <th>평균 결제액</th><td class="num">${fmtKRW(s.avg_per_user)}</td></tr>
+        <tr><th>활동 학생수 (수업·결제)</th><td class="num">${(s.active_real||0).toLocaleString()} 명</td>
+            <th>재적 학생수 (원부)${badge(src.active_students)}</th><td class="num">${(s.active_students||0).toLocaleString()} 명</td></tr>
+        <tr><th>신규 가입</th><td class="num">${(s.new_signups||0).toLocaleString()} 명</td>
+            <th>만료</th><td class="num">${(s.expirations||0).toLocaleString()} 명</td></tr>
+        <tr><th>총 수업 분${badge(src.class_minutes)}</th><td class="num">${(s.class_minutes||0).toLocaleString()} 분</td>
+            <th>세션 수</th><td class="num">${(s.class_sessions||0).toLocaleString()} 건</td></tr>
+        ${(s.class_zero_sessions||0) > 0 ? `<tr><td colspan="4" style="font-weight:400;color:#6b7280;font-size:12px">※ 수업 기록 ${s.class_zero_sessions.toLocaleString()}건의 수업시간이 0으로 저장돼 있어 «총 수업 분»이 실제보다 적게 나옵니다</td></tr>` : ''}
+        <tr><td colspan="4" style="font-weight:400;color:#6b7280;font-size:12px">※ 재적 학생수는 퇴원 처리가 안 된 옛 학생까지 포함돼 있어 지표의 분모로 쓰지 않습니다</td></tr>
+      </table>
+      <h2>쓴 돈 — 어디에 썼나</h2>
+      <table>
+        <tr><th>${c.teacher_payroll_source === 'bank' ? '강사 급여 (신한 송금)' : '강사 급여'}${badge(src.teacher_payroll)}</th><td class="num">${fmtKRW(c.teacher_payroll)}</td><td class="num">${c.teacher_count} 명</td></tr>
         ${(c.teacher_dup_excluded||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 계좌의 강사급여 송금 ${fmtKRW(c.teacher_dup_excluded)} 은 급여명세와 중복이라 제외</td></tr>` : ''}
-        <tr><th>PG 수수료 (추정 3.3%)</th><td class="num">${fmtKRW(c.pg_fee)}</td><td></td></tr>
+        <tr><th>PG 수수료 (3.3%)${badge(src.pg_fee)}</th><td class="num">${fmtKRW(c.pg_fee)}</td><td></td></tr>
         ${c.op_cost_source === 'actual' ? `
-        <tr><th>법인카드 지출 (신한·실데이터)</th><td class="num">${fmtKRW(c.op_card||0)}</td><td></td></tr>
-        ${(c.op_bank_rows||[]).map(b => `<tr><th>계좌 출금 — ${b.category} (신한·실데이터)</th><td class="num">${fmtKRW(b.total)}</td><td></td></tr>`).join('')}
+        <tr><th>법인카드 지출${badge('actual')}</th><td class="num">${fmtKRW(c.op_card||0)}</td><td></td></tr>
+        ${(c.op_bank_rows||[]).map(b => `<tr><th>계좌 출금 — ${esc(b.category)}${badge(b.category === '기타출금' ? 'review' : 'actual')}</th><td class="num">${fmtKRW(b.total)}</td><td></td></tr>`).join('')}
         ${(c.bank_dup_excluded||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 계좌 출금 중 급여이체·카드대금 ${fmtKRW(c.bank_dup_excluded)} 은 강사급여·법인카드 항목과 중복이라 제외</td></tr>` : ''}
         ` : `
-        <tr><th>운영비 (추정 10%)</th><td class="num">${fmtKRW(c.op_cost)}</td><td></td></tr>
+        <tr><th>운영비 (매출의 10%로 추정)${badge('estimated')}</th><td class="num">${fmtKRW(c.op_cost)}</td><td></td></tr>
         `}
-        ${(c.refunds||0) > 0 ? `<tr><th>학생 환불 (신한·실데이터)</th><td class="num">${fmtKRW(c.refunds)}</td><td></td></tr>` : ''}
+        ${(c.refunds||0) > 0 ? `<tr><th>학생 환불${badge('actual')}</th><td class="num">${fmtKRW(c.refunds)}</td><td></td></tr>` : ''}
         <tr class="total"><td>합계</td><td class="num">${fmtKRW(c.total)}</td><td></td></tr>
       </table>
+      ${(c.unclassified_krw||0) > 0 ? `<div style="background:#fef2f2;border:1px solid #fca5a5;border-left:4px solid #dc2626;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#991b1b">⚠️ 계정과목이 안 붙은 출금이 ${fmtKRW(c.unclassified_krw)} 있습니다 — 이 달 비용의 ${c.unclassified_pct}%입니다.</b><br>
+        임대료·광고비·수당 중 무엇인지 정해 주시면, 다음 달부터 같은 거래처는 자동으로 그 과목에 들어갑니다.
+      </div>` : ''}
+      ${drill(`미분류 출금 자세히 보기 (금액 큰 순 ${(det.unclassified_rows||[]).length}건)`, det.unclassified_rows, { nameLabel:'받는 곳', note:'적요만으로는 무슨 돈인지 알 수 없는 출금입니다.' })}
+      ${drill(`법인카드 사용 내역 (금액 큰 순 ${(det.card_rows||[]).length}건)`, det.card_rows, { nameLabel:'가맹점' })}
       <h2>결제 수단별 분포</h2>
       <table>
         <thead><tr><th>결제수단</th><th class="num">건수</th><th class="num">금액</th></tr></thead>
         <tbody>
-          ${(d.by_method||[]).map(m => `<tr><td>${m.method||'기타'}</td><td class="num">${m.cnt}</td><td class="num">${fmtKRW(m.total)}</td></tr>`).join('')}
+          ${(d.by_method||[]).map(m => `<tr><td>${esc(m.method||'기타')}</td><td class="num">${m.cnt}</td><td class="num">${fmtKRW(m.total)}</td></tr>`).join('')}
         </tbody>
-      </table>`;
+      </table>
+      ${BADGE_LEGEND}`;
+  }
+
+  /* 📊 분기·연간 공통 추세표 — 막대로 매출·순이익 흐름을 같이 보여 준다(2026-08-16).
+     예전에는 숫자 표만 있어서 «오르는지 내리는지» 를 눈으로 못 읽었다. */
+  function trendTable(d, headLabel){
+    const ms = d.monthlies || [], t = d.totals || {};
+    const max = Math.max(1, ...ms.map(m => Math.abs(m.revenue||0)), ...ms.map(m => Math.abs(m.net||0)));
+    const bar = (v, color) => {
+      const w = Math.min(100, Math.round((Math.abs(v||0) / max) * 100));
+      return `<span style="display:inline-block;vertical-align:middle;width:70px;height:8px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${color};border-radius:0 3px 3px 0"></span></span>`;
+    };
+    const anyEstimated = ms.some(m => m.op_cost_source === 'estimated');
+    return `
+      <table>
+        <thead><tr><th>${headLabel}</th><th class="num">매출</th><th></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th></th></tr></thead>
+        <tbody>
+          ${ms.map(m => `<tr>
+            <td>${esc(m.period)}${m.op_cost_source === 'estimated' ? badge('estimated') : ''}</td>
+            <td class="num">${fmtKRW(m.revenue)}</td><td>${bar(m.revenue, '#3b82f6')}</td>
+            <td class="num">${fmtKRW(m.revenue_book)}</td>
+            <td class="num">${fmtKRW(m.revenue_b2b)}</td>
+            <td class="num">${m.pays}</td>
+            <td class="num">${fmtKRW(m.payroll)}</td>
+            <td class="num">${fmtKRW(m.cost)}</td>
+            <td class="num"><b style="color:${(m.net||0) < 0 ? '#dc2626' : '#166534'}">${fmtKRW(m.net)}</b></td>
+            <td>${bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
+          </tr>`).join('')}
+          <tr class="total"><td>합계</td><td class="num">${fmtKRW(t.revenue)}</td><td></td><td class="num">${fmtKRW(t.revenue_book)}</td><td class="num">${fmtKRW(t.revenue_b2b)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td><td></td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0;line-height:1.7">
+        ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B). 통장 직접입금은 2026-08-16부터 반영합니다.<br>
+        ${anyEstimated ? `※ ${badge('estimated')} 가 붙은 달은 통장·카드 실지출 자료가 없어 운영비를 «매출의 10%»로 추정한 달입니다 — 그 달의 순이익은 참고값입니다.` : ''}
+      </p>
+      ${BADGE_LEGEND}`;
   }
 
   function renderQuarterly(d){
-    const ms = d.monthlies, t = d.totals;
     return `
       <h1>📊 분기 보고서</h1>
       <div class="meta">${d.label} · 이익률 ${d.margin_pct}%</div>
-      <table>
-        <thead><tr><th>월</th><th class="num">매출</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th></tr></thead>
-        <tbody>
-          ${ms.map(m => `<tr><td>${m.period}</td><td class="num">${fmtKRW(m.revenue)}</td><td class="num">${m.pays}</td><td class="num">${fmtKRW(m.payroll)}</td><td class="num">${fmtKRW(m.cost)}</td><td class="num"><b>${fmtKRW(m.net)}</b></td></tr>`).join('')}
-          <tr class="total"><td>합계</td><td class="num">${fmtKRW(t.revenue)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td></tr>
-        </tbody>
-      </table>`;
+      ${trendTable(d, '월')}`;
   }
 
   function renderAnnual(d){
-    const ms = d.monthlies, t = d.totals;
     return `
       <h1>📈 연간 결산</h1>
-      <div class="meta">${d.label} · 이익률 ${d.margin_pct}% · 세무사 제출용</div>
-      <table>
-        <thead><tr><th>월</th><th class="num">매출</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th></tr></thead>
-        <tbody>
-          ${ms.map(m => `<tr><td>${m.period}</td><td class="num">${fmtKRW(m.revenue)}</td><td class="num">${m.pays}</td><td class="num">${fmtKRW(m.payroll)}</td><td class="num">${fmtKRW(m.cost)}</td><td class="num"><b>${fmtKRW(m.net)}</b></td></tr>`).join('')}
-          <tr class="total"><td>연간 합계</td><td class="num">${fmtKRW(t.revenue)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td></tr>
-        </tbody>
-      </table>`;
+      <div class="meta">${d.label} · 이익률 ${d.margin_pct}%</div>
+      ${trendTable(d, '월')}`;
   }
 
   function renderFranchise(d){
+    const src = d.sources || {};
     return `
       <h1>🏢 가맹점별 정산서</h1>
-      <div class="meta">${d.label} · 본사 수수료율 ${(d.hq_fee_rate*100).toFixed(1)}%</div>
+      <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님)</div>
+      ${noteList(d.notes)}
+      ${(d.unassigned_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#92400e">⚠️ 소속을 확정하지 못한 매출이 ${fmtKRW(d.unassigned_krw)} (${d.unassigned_pct}%) 있습니다.</b><br>
+        대부분은 <b>학생 원부에 없는 아이디로 들어온 결제</b>입니다 — 대리점·직원이 학생 몫을 대신 결제하면
+        그 아이디가 학생 원부에 없어 어느 지사인지 알 수 없습니다. 아무 가맹점에도 넣지 않았습니다.
+        <br><b>아래 아이디가 어느 지사인지 알려 주시면 그 뒤부터 자동으로 붙습니다.</b>
+      </div>
+      ${drill(`배정 못 한 결제 아이디 ${(d.unassigned_payers||[]).length}개 — 어느 지사인지 알려 주세요`,
+        (d.unassigned_payers||[]).map(u => ({ date: u.user_id, name: u.reason + ' · ' + u.pays + '건', amount: u.amount })),
+        { dateLabel: '결제 아이디', nameLabel: '사유' })}` : ''}
       <table>
-        <thead><tr><th>가맹점</th><th class="num">총 매출</th><th class="num">본사 수수료</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
         <tbody>
-          ${d.rows.map(r => `<tr><td>${r.franchise_name}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${r.due_date}</td><td>${r.status}</td></tr>`).join('')}
-          <tr class="total"><td>합계</td><td class="num">${fmtKRW(d.totals.gross)}</td><td class="num">${fmtKRW(d.totals.fee)}</td><td class="num">${fmtKRW(d.totals.net)}</td><td></td><td></td></tr>
+          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
+            : '<tr><td colspan="8" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
+          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(d.totals.gross)}</td><td class="num">${fmtKRW(d.totals.fee)}</td><td class="num">${fmtKRW(d.totals.net)}</td><td></td><td></td></tr>
         </tbody>
-      </table>`;
+      </table>
+      ${BADGE_LEGEND}`;
   }
 
   function renderPayslips(d){
     return `
       <h1>👨‍🏫 강사별 급여명세서</h1>
       <div class="meta">${d.label} · 총 ${d.teacher_count}명</div>
+      ${noteList(d.notes)}
       <table>
         <thead><tr><th>강사ID</th><th>이름</th><th>국가</th><th class="num">수업분</th><th class="num">기본급여</th><th class="num">상여</th><th class="num">공제</th><th class="num">실지급</th></tr></thead>
         <tbody>
@@ -10528,22 +10948,30 @@ window.rebuildGlobalSearchIndex = function() {
   }
 
   function renderKpi(d){
+    // 계산할 근거가 없는 지표는 숫자를 지어내지 않고 «자료없음» 으로 보여 준다(2026-08-16)
     return `
       <h1>⭐ 경영지표 (KPI)</h1>
       <div class="meta">${d.label}</div>
       <div class="kpi-grid">
-        ${d.kpis.map(k => `<div class="kpi"><div class="l">${k.label}</div><div class="v">${fmtNum(k.value, k.unit)}</div></div>`).join('')}
+        ${d.kpis.map(k => `<div class="kpi" style="${k.available === false ? 'opacity:.72' : ''}">
+          <div class="l">${esc(k.label)}${badge(k.source)}</div>
+          <div class="v" style="${k.available === false ? 'font-size:15px;color:#991b1b' : ''}">${k.available === false ? '자료없음' : fmtNum(k.value, k.unit)}</div>
+          ${k.note ? `<div style="font-size:10.5px;color:#6b7280;margin-top:5px;line-height:1.55">${esc(k.note)}</div>` : ''}
+        </div>`).join('')}
       </div>
       <h2>요약 손익</h2>
       <table>
-        <tr><th>매출</th><td class="num">${fmtKRW(d.revenue)}</td></tr>
+        <tr><th>매출 (장부 결제 + 통장 B2B)</th><td class="num">${fmtKRW(d.revenue)}</td></tr>
         <tr><th>비용 (강사급여 포함)</th><td class="num">${fmtKRW(d.cost)}</td></tr>
         <tr class="total"><td>순이익</td><td class="num">${fmtKRW(d.net)}</td></tr>
       </table>
-      <p style="font-size:11px;color:#6b7280;margin-top:14px;line-height:1.6">
-        ※ ARPU = 매출 / 활성 학생수 · LTV = 학생당 평균 누적 결제액 · CAC 추정 = 매출의 5%를 마케팅비로 가정 / 신규 학생수 ·
-        ROI = 순이익 / 비용 · LTV/CAC가 3 이상이면 건전.
-      </p>`;
+      <p style="font-size:11px;color:#6b7280;margin-top:14px;line-height:1.7">
+        ※ ARPU = 매출 ÷ <b>그 달 활동 학생수</b>(수업에 들어왔거나 결제한 학생). 재적 학생수로 나누지 않습니다 —
+        원부에 퇴원 처리가 안 된 옛 학생이 많아 값이 왜곡됩니다.<br>
+        ※ CAC = <b>법인카드의 실제 광고비</b> ÷ 신규 학생수. 광고비 자료가 없으면 계산하지 않습니다(예전에는 «매출의 5%»로 지어냈습니다).<br>
+        ※ ROI = 순이익 ÷ 비용 · LTV/CAC가 3 이상이면 건전한 편입니다.
+      </p>
+      ${BADGE_LEGEND}`;
   }
 })();
 
@@ -10589,7 +11017,9 @@ window.rebuildGlobalSearchIndex = function() {
       if (!d.ok) throw new Error(d.error||'API error');
       if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
       tbody.innerHTML = d.rows.map(p => {
-        const t = new Date((p.paid_at||0)*1000+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+        /* 🐛 (2026-08-16) paid_at 은 이미 «밀리초» 다. ×1000 을 하고 있어서 화면에
+           서기 58,000년대 날짜가 찍혔다(CSV 는 정상이라 눈에 안 띄었다). */
+        const t = new Date((p.paid_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
         const c = p.status === 'paid' ? 'ok' : p.status === 'refunded' ? 'warn' : 'bad';
         const ch = p.channel === 'B2B'
           ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700">B2B</span>'
@@ -10601,16 +11031,17 @@ window.rebuildGlobalSearchIndex = function() {
       }).join('');
     } catch(e) { _showErr(tbody, e, 9); }
   };
-  window.accDownloadPaymentsCsv = function(){
+  window.accDownloadPaymentsCsv = function(fmt){
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
-    const qs = new URLSearchParams({ format:'csv' });
+    const qs = new URLSearchParams({ format: (fmt === 'xlsx' ? 'xlsx' : 'csv') });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
     if (channel) qs.set('channel', channel);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
+  window.accDownloadPaymentsXlsx = function(){ window.accDownloadPaymentsCsv('xlsx'); };
 
   // ──────────────────────────────────────────────────────────
   // 2. 국가별 강사료 환전

@@ -96,5 +96,55 @@ export async function capitownRouter(request: Request, env: Env): Promise<Respon
     return json({ ok: true, scope: branchFilter || 'all', agencies: rows.results || [] });
   }
 
+  /* 🏪 대리점 등록·수정 (2026-08-17 신설)
+     [왜] 이 표는 처음 한 번 SEED 로 14곳만 채워졌고 **넣을 방법이 없었다.**
+     그런데 대리점이 원생 수강료를 자기 계정으로 결제하면, 이 표에 없는 대리점은
+     가맹점 정산에서 «배정 불가» 가 된다(2026-08-17: 그런 아이디가 36곳 2,890만원).
+     여기 등록하면 accounting-reports 의 소속 판정이 자동으로 이어 준다.
+     ⛔ 지사 계정은 못 쓴다 — 남의 대리점을 만들면 안 되므로 경영진·캐피타운 본사만. */
+  if (path === '/api/admin/capitown/agencies' && (request.method === 'POST' || request.method === 'PATCH')) {
+    if (branchFilter !== null) {
+      return json({ ok: false, error: 'forbidden', message: '대리점 등록·수정은 본사 경영진과 캐피타운 본사만 할 수 있습니다.' }, 403);
+    }
+    await ensureTable(env);
+    const p = url.searchParams;
+    const name = (p.get('name') || '').trim();
+    const branch = (p.get('branch') || '').trim();
+    const loginId = (p.get('login_id') || '').trim();
+    const manager = (p.get('manager') || '').trim();
+    const status = (p.get('status') || '사용').trim();
+    const type = (p.get('type') || '가맹').trim();
+    const margin = Number(p.get('margin'));
+    if (!name) return json({ ok: false, error: 'name_required', message: '대리점 이름을 적어 주세요.' }, 400);
+    if (!branch) return json({ ok: false, error: 'branch_required', message: '소속 지사를 골라 주세요.' }, 400);
+
+    /* ⚠️ 지사 이름이 franchises 와 «정확히 하나로» 이어지지 않으면 매출 자동 배정이
+       안 된다. 막지는 않되(대리점 원부 자체는 남겨야 하므로) 사실을 알려 준다. */
+    const fr = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, MIN(id) AS fid FROM franchises WHERE name = ?`
+    ).bind(branch).first<{ n: number; fid: number }>();
+    const branchLinked = Number(fr?.n) === 1;
+
+    const existing = loginId
+      ? await env.DB.prepare(`SELECT id FROM capitown_agencies WHERE login_id = ? LIMIT 1`).bind(loginId).first<{ id: number }>()
+      : null;
+    const now = Date.now();
+    if (existing?.id) {
+      await env.DB.prepare(
+        `UPDATE capitown_agencies SET name=?, manager=?, branch=?, status=?, type=?,
+                margin=COALESCE(?, margin), updated_at=? WHERE id=?`
+      ).bind(name, manager || null, branch, status, type, Number.isFinite(margin) ? margin : null, now, existing.id).run();
+      return json({ ok: true, action: 'updated', id: existing.id, name, login_id: loginId, branch, branch_linked: branchLinked, franchise_id: branchLinked ? fr?.fid : null });
+    }
+    const mx = await env.DB.prepare(`SELECT COALESCE(MAX(id),0) AS m FROM capitown_agencies`).first<{ m: number }>();
+    const id = (Number(mx?.m) || 0) + 1;
+    await env.DB.prepare(
+      `INSERT INTO capitown_agencies (id,name,login_id,manager,branch,status,type,margin,students,online,book,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,0,0,0,?)`
+    ).bind(id, name, loginId || null, manager || null, branch, status, type, Number.isFinite(margin) ? margin : 0.4, now).run();
+    return json({ ok: true, action: 'created', id, name, login_id: loginId, branch, branch_linked: branchLinked, franchise_id: branchLinked ? fr?.fid : null,
+      message: branchLinked ? '' : `⚠️ 「${branch}」 라는 이름의 지사가 정확히 하나로 확인되지 않아, 이 대리점의 매출은 아직 자동 배정되지 않습니다.` });
+  }
+
   return json({ ok: false, error: 'not_found' }, 404);
 }

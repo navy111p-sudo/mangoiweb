@@ -2781,6 +2781,38 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
   return { textbook, level, lesson_no: lessonNo, student_name: studentName, sentences: sentences.slice(0, 8) };
 }
 
+/* 🚀 (2026-08-17) 위 조회의 세션당 1회 + KV 30분 캐시 래퍼.
+ *   [왜] handleWarmupChat 은 학생이 «한 마디 할 때마다» warmupLessonContext() 를 불렀고,
+ *        그 안에서 D1 을 최대 3번(students_erp 1 + review_quizzes 2) «순차» 조회한다.
+ *        오늘 배울 교재·문장은 대화 중에 바뀌지 않는데도 매 발화마다 다시 물어본 것이라,
+ *        모델을 부르기도 전에 그 왕복 지연이 매번 그대로 얹혔다
+ *        (2026-08-17 사장님 제보 「반응이 테스트보다 느리다」의 서버 쪽 몫).
+ *   [방식] 바로 아래 getWeakSentences(Neo4j)가 이미 쓰는 것과 «똑같은» 패턴 —
+ *        SESSION_STATE 에 30분. 새 규칙을 만들지 않는다.
+ *   ⚠️ 캐시 키에 입력값(user/textbook/level/lesson)을 함께 넣는다. ?textbook 을 바꿔 다시
+ *      들어온 같은 세션에 옛 교재를 물려주면 그거야말로 «엉뚱한 말» 이 된다.
+ *   ⚠️ 결과가 비어도(교재 미배정 학생) 그대로 캐시한다 — 오히려 그 경우가 D1 3번을
+ *      «다» 도는 가장 느린 경로다. 캐시에서 빼면 제일 느린 쪽만 안 고쳐진다.
+ *   ⚠️ KV 장애·미바인딩이면 조용히 원래대로(직접 조회) 동작한다 — 웜업이 멈추면 안 된다. */
+type WarmupLessonCtx = Awaited<ReturnType<typeof warmupLessonContext>>;
+async function warmupLessonContextCached(
+  env: Env,
+  sessionId: string,
+  o: { userId?: string; textbook?: string; level?: string; lessonNo?: number | null },
+): Promise<WarmupLessonCtx> {
+  const sig = [o.userId || '', o.textbook || '', o.level || '', o.lessonNo || 0].join('|');
+  const ckey = 'warmupctx:' + String(sessionId || 'noses').slice(0, 120) + ':' + sig.slice(0, 260);
+  if (env.SESSION_STATE) {
+    try {
+      const raw = await env.SESSION_STATE.get(ckey);
+      if (raw != null) return JSON.parse(raw) as WarmupLessonCtx;
+    } catch {}
+  }
+  const lc = await warmupLessonContext(env, o);
+  try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, JSON.stringify(lc), { expirationTtl: 1800 }); } catch {}
+  return lc;
+}
+
 /* GET /api/warmup/context — 웜업 페이지가 첫 화면에서 '오늘 교재'를 표시할 때 사용 */
 async function handleWarmupContext(request: Request, env: Env): Promise<Response> {
   try {
@@ -3531,7 +3563,8 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
     if (ctxUserId || ctxTextbook || ctxLevel) {
       try {
-        const lc = await warmupLessonContext(env, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo });
+        // 세션당 1회만 D1 을 본다(30분 캐시) — 매 발화마다 재조회하던 것이 지연의 한 축이었다
+        const lc = await warmupLessonContextCached(env, sessionId, { userId: ctxUserId, textbook: ctxTextbook, level: ctxLevel, lessonNo: ctxLessonNo });
         if (lc.textbook || lc.level || lc.sentences.length) {
           if (lc.student_name) sys += ` 학생 이름은 '${lc.student_name}' 이야.`;
           sys += ` [오늘 수업 정보] 학생이 오늘 수업에서 배울 교재: '${lc.textbook || '미지정'}'${lc.level ? ` (레벨 ${lc.level})` : ''}${lc.lesson_no ? `, Lesson ${lc.lesson_no}` : ''}.`;
@@ -3684,7 +3717,8 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
 
     // ── 학생 컨텍스트 (배정 교재/레벨/오늘 문장) ──
     let lc = { textbook: reqTextbook, level: reqLevel, lesson_no: lessonNo, student_name: '', sentences: [] as string[] };
-    try { lc = await warmupLessonContext(env, { userId, textbook: reqTextbook, level: reqLevel, lessonNo }); } catch {}
+    // 채팅과 같은 캐시를 공유한다 — 같은 세션이면 추가 질문 생성 때 D1 을 다시 보지 않는다
+    try { lc = await warmupLessonContextCached(env, sessionId, { userId, textbook: reqTextbook, level: reqLevel, lessonNo }); } catch {}
 
     // ── 반복 방지: 이 세션에서 이미 생성/사용한 질문 목록 (KV, 6시간) ──
     const qkey = sessionId ? ('warmupq:' + sessionId) : '';
@@ -5169,6 +5203,13 @@ function isAgencyAllowedApi(path: string): boolean {
     // 📏 메뉴 클릭 계측 (2026-08-08) — 지사·대리점이 «무엇을 쓰는지» 가 오히려 가장 궁금하다.
     //   저장하는 것은 (날짜·카드id·역할·경로) 카운터뿐이고, 개인을 식별할 값이 응답에도 저장에도 없다.
     '/api/admin/menu-hit',
+    /* 🗓 수업 연기·변경 요청 (2026-08-17 사장님) — «학부모·학생도 하고 학원장님도 한다».
+         그동안 이 경로가 막혀 있어 지사·대리점은 매니저 화면에서 처리할 수 없었다.
+       ⚠️ 여는 조건이 하나 있다 — **핸들러가 스코프로 격리한 뒤에만** 연다.
+          api-admin.ts 의 GET 목록은 class_schedules → students_erp 로 자기 학생 요청만 돌려주고,
+          POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
+          이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
+    '/api/admin/schedule-requests',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

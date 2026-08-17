@@ -66,6 +66,34 @@ export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: numbe
     const rows = rowsToObjects(ce.fields, ce.values.slice(i, i + 200));
     await env.DB.batch(rows.map(r => insC.bind(Number(r.id), Number(r.branch_id) || null, r.name || '(무명센터)', r.address || null, r.manager || null, Number(r.active) ? 1 : 0, nowMs, nowMs)));
   }
+
+  /* 🏢 대리점 → 지사 «수동 정정» 을 다시 입힌다 (2026-08-16 신설).
+
+     [왜 필요한가] 위 UPSERT 는 `franchise_id = excluded.franchise_id` 라, 카페24가 주는
+     소속이 매일 밤 D1 을 덮어쓴다. payment_type 은 UPSERT 목록에서 빼서 지켰지만
+     (2026-08-14), franchise_id 는 카페24가 정본이라 뺄 수 없다 — 새 대리점이 생기거나
+     지사가 바뀌면 따라가야 하기 때문이다.
+
+     [그런데 실제로 이런 일이 있었다] 「강서SLP」라는 같은 이름의 센터가 7개인데
+     389번 하나만 지사 113(SLP)으로 갈려 있었다. 이름이 두 지사로 갈리면 가맹점
+     정산이 **어느 쪽에도 배정하지 못해** 학생 419명의 매출이 통째로 «배정 불가» 가
+     됐다(accounting-reports.ts franchiseReport 의 cmap.nf=1 조건).
+
+     [그래서] center_franchise_override 에 «이 센터는 이 지사» 를 적어 두면, 카페24가
+     덮어쓴 뒤 여기서 다시 입힌다. 예외는 이 표에 적힌 것만이라 사고 반경이 좁다.
+     ⚠️ 정본은 어디까지나 카페24다. 여기 적는 것은 «카페24를 고치기 전까지의 임시 정정»
+        이며, 카페24에서 고치고 나면 이 표의 행을 지우는 것이 맞다. */
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS center_franchise_override (center_id INTEGER PRIMARY KEY, franchise_id INTEGER NOT NULL, prev_franchise_id INTEGER, reason TEXT, updated_at INTEGER NOT NULL);`);
+    await env.DB.prepare(
+      `UPDATE centers SET franchise_id = (SELECT o.franchise_id FROM center_franchise_override o WHERE o.center_id = centers.id)
+        WHERE id IN (SELECT center_id FROM center_franchise_override)
+          AND franchise_id IS NOT (SELECT o.franchise_id FROM center_franchise_override o WHERE o.center_id = centers.id)`
+    ).run();
+  } catch (e: any) {
+    console.warn('[cafe24-sync] 대리점 지사 수동정정 재적용 실패(동기화 자체는 정상):', e?.message);
+  }
+
   return { franchises: br.values.length, centers: ce.values.length };
 }
 

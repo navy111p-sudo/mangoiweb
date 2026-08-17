@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko" translate="no" class="notranslate">
 <head>
-  <link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+  <link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-08-02) 브라우저 자동번역 차단 — "영어 글자들이 정렬이 안되어 있음"의 진범
@@ -137,7 +137,7 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=6"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=10"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -234,7 +234,7 @@
 <script src="/js/pii-mask.js" defer></script><!-- 🔒 PII 마스킹 유틸 -->
 <script src="/js/media-guard.js?v=3" defer></script><!-- 전역 미디어 가드: 메뉴/페이지 전환 시 음성·동영상 자동 정지 -->
 <script src="/js/admin-tip-i18n.js?v=2" defer></script><!-- 🌐 사이드바·카드 말풍선 영어 사전(EN 토글 시 자동 번역): TIP_EN/GRP_EN/GC_DESC_EN -->
-<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강: Pretendard 폰트·줄간격·자간·대비 (기존 내부 style 다음에 로드) -->
 <!-- 🧹 옛 메뉴바(모두 펼치기/접기/메뉴 보기) — 첫 렌더부터 숨겨 '잠깐 떴다 사라지는' 깜빡임 제거 (2026-06-21).
      기존에도 PC(≥1024)·모바일에서 숨기던 레거시 UI인데, 숨김 규칙이 파일 한참 아래에 있어 로드 초반 잠깐 보였음.
      head 에서 전역 즉시 숨김 → 어떤 화면폭/속도에서도 처음부터 안 보임. -->
@@ -349,6 +349,53 @@
 
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
+    <!-- ═══════════════════════════════════════════════════════════════════
+         ⚡ (2026-08-16 사장님) 「자주 쓰는 기능」을 첫 화면 **맨 위**로
+         ═══════════════════════════════════════════════════════════════════
+         [옮긴 이유] 휴대폰으로 관리자를 여는 상황은 대개 «메뉴를 둘러보려고» 가 아니라
+           «하나만 빨리 확인하려고» 다. 그런데 사이드바 안에 있으면
+           [줄3개 → 그룹 펼치기 → 항목 찾기 → 누르기] **네 번**을 눌러야 닿았다.
+           여기 두면 **한 번**이다. 매일 하는 일일수록 그 차이가 크다.
+
+         [왜 히어로 «위» 인가 — 실측으로 자리를 옮긴 이유]
+           처음엔 검색창 바로 밑(히어로 다음)에 뒀다. 그런데 재 보니 모바일에서
+           y=516px 였다 — 캐릭터 그림(241px)+검색창이 첫 화면의 3분의 2를 먹기 때문이다.
+           화면(844px)에 걸치기는 해도 «맨 아래» 였고, 더 나쁘게는 오른쪽 아래
+           「AI 운영비서」 떠 있는 버튼이 타일 두 개(레벨테스트·문의)를 **덮었다.**
+           → 히어로 위로 올린다. 열자마자 «누를 것» 이 먼저 보이고, 떠 있는 버튼과도 안 겹친다.
+           그림과 검색창은 그대로 그 밑에 있다(지우지 않았다).
+
+         [메뉴는 그대로] 사이드바의 6그룹 구조는 하나도 안 건드렸다. 여기는 바로가기다.
+         ⚠️ 이 상자는 #legacy-cards 밖에 있다. 그래서 adm-ia6.js 가 «고른 항목의 카드만»
+            남길 때도 **사라지지 않는다** — 어느 화면에 있든 늘 맨 위에 있다.
+         ⚠️ 목록 내용·순서·번역은 js/adm-quick-access.js 가 그대로 담당한다(손대지 않음).
+            그 파일은 #ph161-quick-items 를 id 로 찾으므로 자리를 옮겨도 그대로 동작한다.
+         ⚠️ 색은 admin-inline-c.css 의 «#ph161-quick(첫 화면판)» 블록이 담당한다.
+            옛 아이보리 규칙은 `#ph85-sidebar #ph161-quick` 로 **사이드바 안일 때만** 걸려 있어,
+            여기로 옮기면 js 가 인라인으로 박는 옅은 노란색(#fde68a)이 되살아나
+            밝은 배경에서 안 보인다(2026-08-04 멜카 매니저 신고와 똑같은 증상).
+            그래서 새 블록에서 !important 로 다시 잡는다.
+         ═══════════════════════════════════════════════════════════════════ -->
+    <div id="ph161-quick">
+      <div class="ph161-head" data-ko="⚡ 자주 쓰는 기능" data-en="⚡ Quick access">⚡ 자주 쓰는 기능</div>
+      <div id="ph161-quick-items"></div>
+    </div>
+
+    <!-- 🕘 (2026-08-16 사장님) 최근 본 메뉴 5개 — 자기 화면이 스스로 최적화된다.
+         위 「자주 쓰는 기능」 10개는 **모두에게 같은 목록**이다. 그런데 사람마다 그날 하는 일이
+         다르다 — 급여 정산하는 날은 급여만, 신학기에는 수강신청만 하루 종일 오간다.
+         그런 «지금 내가 오가는 메뉴» 를 스스로 기억한다. 새로 배울 것이 없다.
+         ⚠️ 기록이 없으면(처음 쓰는 사람) 이 상자는 **아예 안 보인다** — js 가 .ph164-empty 를 붙인다.
+            빈 상자를 보여 주면 «이건 뭐지» 가 하나 더 생긴다.
+         ⚠️ [hidden] 속성을 쓰지 않는다. 작성자 CSS 가 display 를 정하면 브라우저 기본
+            [hidden]{display:none} 을 이겨서 계속 보인다(CLAUDE.md 의 teacher.html 사례).
+            그래서 클래스 + display:none 으로 확실히 감춘다.
+         내용·동작은 js/adm-recent-menus.js 담당. -->
+    <div id="ph164-recent" class="ph164-empty">
+      <div class="ph164-head" data-ko="🕘 최근 본 메뉴" data-en="🕘 Recent menus">🕘 최근 본 메뉴</div>
+      <div id="ph164-recent-items"></div>
+    </div>
+
     <!-- 🥭 히어로 랜딩 (망고 캐릭터 + 거대 검색창) — 2026-06-24 중앙 AI 검색창 복구(다시 표시) -->
     <section class="hero">
       <div class="hero-text">
@@ -359,18 +406,13 @@
         <!-- 🗑️ (2026-07-22) 음성+자막 인사 버블(#ai-greeting-bubble) 마크업도 물리 삭제 — adm-core setupAiGreeting 비활성과 세트. 재추가 금지 -->
 
         <div class="hero-search">
-          <button class="hero-search-icon" id="menu-search-go" type="button"
-                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
-                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
-            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="7"></circle>
-              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
-            </svg>
-            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="13 6 19 12 13 18"></polyline>
-            </svg>
-          </button>
+          <!-- 🥭 (2026-08-17 사장님 지시) Mr. Mango 는 «최대한 줄여서» 검색창 왼쪽에만 둔다.
+               오른쪽에 크게 떠 있던 우주 액자(.hero-character)는 물리 삭제 — 재추가 금지.
+               장식이므로 aria-hidden + pointer-events:none (탭 순서·스크린리더에 안 끼어든다).
+               ⚠️ /img/mango-char.png = 투명 배경 컷아웃. Mangoi_Character.jpg 를 쓰면
+                  흰 사각 배경이 검색창 위에 그대로 얹힌다. -->
+          <img class="hero-search-mango" src="/img/mango-char.png" alt="" aria-hidden="true"
+               loading="lazy" decoding="async" onerror="this.style.display='none'">
           <input id="menu-search" type="search" autocomplete="off"
                  placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
                  data-ko-placeholder="통합 검색 — 학생·교사·가맹점·메뉴 무엇이든"
@@ -388,6 +430,23 @@
               <path d="M5 11a7 7 0 0 0 14 0"></path>
               <line x1="12" y1="18" x2="12" y2="22"></line>
               <line x1="8" y1="22" x2="16" y2="22"></line>
+            </svg>
+          </button>
+          <!-- 🔎 돋보기(=검색어 있으면 ➡️ 이동) 버튼 — 왼쪽에서 오른쪽 끝으로 옮김(2026-08-17).
+               왼쪽 자리는 Mr. Mango 가 쓴다. 오른쪽 배치 순서(바깥→안쪽): 돋보기 · 마이크 · ✕지우기.
+               ⚠️ DOM 순서를 바꿀 때 input 뒤로만 옮길 것 —
+                  `.hero-search input:not(:placeholder-shown) ~ .hero-search-clear` 가
+                  «input 다음 형제» 를 전제로 ✕ 를 띄운다. -->
+          <button class="hero-search-icon" id="menu-search-go" type="button"
+                  title="검색한 메뉴로 이동" aria-label="검색한 메뉴로 이동"
+                  data-ko-title="검색한 메뉴로 이동" data-en-title="Go to matched menu">
+            <svg class="hsi-magnify" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+            </svg>
+            <svg class="hsi-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="13 6 19 12 13 18"></polyline>
             </svg>
           </button>
           <div class="hero-search-dropdown menu-search-dropdown" id="menu-search-dropdown"></div>
@@ -426,12 +485,10 @@
           </div>
         </div>
       </div>
-      <div class="hero-character">
-        <div class="hero-character-frame">
-          <img src="/img/Mangoi_Character.jpg" alt="Mangoi"
-               onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';" loading="lazy" decoding="async"/>
-        </div>
-      </div>
+      <!-- 🗑️ (2026-08-17 사장님 지시) 오른쪽 «우주 액자 + 큰 Mr. Mango»(.hero-character) 물리 삭제.
+           캐릭터는 검색창 왼쪽 미니 아바타(.hero-search-mango) 하나로 축소했다. 재추가 금지.
+           ⚠️ .hero 의 grid-template-columns 를 `1fr` 로 함께 고쳤다(a.css·c.css 두 곳).
+              안 고치면 빈 160px 트랙이 남아 검색창이 오른쪽에서 잘려 보인다. -->
     </section>
 
     <!-- ============================================================
@@ -492,14 +549,47 @@
            onclick="if(window.miSdToggle)window.miSdToggle();"
            onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
         <span id="mi-ops-fab-label" data-ko="AI 운영비서" data-en="AI Ops Assistant">AI 운영비서</span>
+        <!-- 🪶 (2026-08-16) 첫 화면에서 750KB 영상을 자동으로 받지 않는다.
+             [실측] 4G·저사양 흉내로 재 보니 이 64×64 동그란 아바타 하나가
+               ai-ops-greeting.mp4 750KB 를 **두 번**(1.5MB) 받아가고 있었다.
+               관리자 첫 로딩 6.2MB 중 24% 다. 64픽셀짜리 장식에 그 값은 안 맞는다.
+             [바꾼 것] autoplay·preload="auto" 를 빼고 poster(정지 그림)로 시작한다.
+               poster 는 이미 다른 곳에서도 쓰는 캐릭터 그림이라 새로 받는 게 없다.
+               PC(≥1024px)에서는 아래 스크립트가 잠깐 뒤 영상으로 바꿔 준다 —
+               회선이 넉넉한 쪽은 예전과 똑같이 움직인다.
+             ⚠️ muted·playsinline 은 남긴다. 빼면 iOS 가 전체화면으로 띄운다. -->
         <span id="mi-ops-fab-btn" aria-hidden="true">
-          <video id="mi-ops-fab-vid" src="/video/ai-ops-greeting.mp4" muted loop autoplay playsinline preload="auto"></video>
+          <video id="mi-ops-fab-vid" muted loop playsinline preload="none"
+                 poster="/img/Mangoi_Character.png" data-src="/video/ai-ops-greeting.mp4"></video>
           <span class="mi-ops-fab-close" aria-hidden="true">✕</span>
         </span>
       </div>
     </div>
+    <script id="mi-ops-fab-vid-defer">
+    (function(){
+      'use strict';
+      /* PC 에서만, 그것도 «화면이 다 그려지고 한가해진 뒤에» 영상을 붙인다.
+         휴대폰은 poster 그림 그대로 둔다 — 첫 로딩에서 1.5MB 를 아낀다.
+         ⚠️ 데이터 절약 모드(Save-Data)를 켠 사람은 PC 라도 받지 않는다. */
+      var v = document.getElementById('mi-ops-fab-vid');
+      if (!v || !v.dataset.src) return;
+      try {
+        var c = navigator.connection || {};
+        if (c.saveData) return;
+        if (!window.matchMedia('(min-width: 1024px)').matches) return;
+      } catch (e) { return; }
+      var go = function(){
+        v.src = v.dataset.src;
+        v.preload = 'auto';
+        var pr = v.play();
+        if (pr && pr.catch) pr.catch(function(){ /* 자동재생 차단 — poster 그대로 */ });
+      };
+      if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 6000 });
+      else setTimeout(go, 3000);
+    })();
+    </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=17"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=27"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=18: 2026-08-16 모바일 사이드바 v2 -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -1924,6 +2014,7 @@
               <option value="B2C" data-ko="👪 B2C 결제만" data-en="👪 B2C only">👪 B2C 결제만</option>
             </select>
             <button id="acc-pay-load" class="primary" onclick="accLoadPayments()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
+            <button id="acc-pay-xlsx" onclick="accDownloadPaymentsXlsx()" style="padding:5px 12px;font-size:12px;background:#217346;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📊 엑셀" data-en="📊 Excel">📊 엑셀</button>
             <button id="acc-pay-csv" onclick="accDownloadPaymentsCsv()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 CSV" data-en="📥 CSV">📥 CSV</button>
           </div>
           <table>
@@ -2095,7 +2186,7 @@
               <option data-ko="회원 포인트" data-en="Member points">회원 포인트</option>
               <option data-ko="추천인 보상" data-en="Referral rewards">추천인 보상</option>
             </select>
-            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="＋ 새 쿠폰 발급하러 가기" data-en="＋ Go to issue coupon">＋ 새 쿠폰 발급하러 가기</button>
+            <button class="primary" onclick="var c=document.getElementById('card-enrollments');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'smooth',block:'start'});}" style="padding:5px 12px;font-size:12px;" data-ko="+ 새 쿠폰 발급하러 가기" data-en="+ Go to issue coupon">+ 새 쿠폰 발급하러 가기</button>
           </div>
           <table>
             <thead><tr>
@@ -2190,7 +2281,7 @@
             <span style="font-size:11px;color:#6b7280">~</span>
             <input id="acc-jrn-to" type="date" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
             <button class="primary" onclick="accLoadJournal()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
-            <button onclick="accNewJournalEntry()" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="＋ 전표 입력" data-en="＋ New Entry">＋ 전표 입력</button>
+            <button onclick="accNewJournalEntry()" style="padding:5px 12px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="+ 전표 입력" data-en="+ New Entry">+ 전표 입력</button>
             <span style="font-size:11px;color:#92400e" data-ko="(대차 자동 검증)" data-en="(auto debit/credit balance)">(대차 자동 검증)</span>
           </div>
           <table>
@@ -2448,6 +2539,65 @@
             </select>
             <span style="font-size:11px;color:#6b7280" data-ko="기간을 선택하고 아래 리포트 버튼을 누르세요" data-en="Pick a period then click a report below">기간을 선택하고 아래 리포트 버튼을 누르세요</span>
           </div>
+
+          <!-- 🔒 월 마감 (2026-08-17) — 마감하면 그 달 숫자가 스냅샷으로 굳는다.
+               나중에 자료가 더 들어와도 «이미 세무사에게 보낸 숫자» 가 조용히 바뀌지 않는다. -->
+          <div id="acc-close-box" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:11px 14px;margin-bottom:12px">
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+              <b style="font-size:13px;color:#111827" data-ko="🔒 월 마감" data-en="🔒 Month close">🔒 월 마감</b>
+              <span id="acc-close-state" style="font-size:12px;color:#6b7280">—</span>
+              <span style="flex:1"></span>
+              <button id="acc-close-btn" onclick="accCloseMonth()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="이 달 마감하기" data-en="Close this month">이 달 마감하기</button>
+              <button id="acc-reopen-btn" onclick="accReopenMonth()" style="padding:5px 12px;font-size:12px;display:none" data-ko="마감 해제" data-en="Reopen">마감 해제</button>
+              <button onclick="accCloseRefresh()" style="padding:5px 10px;font-size:12px" data-ko="🔄 현황" data-en="🔄 Status">🔄 현황</button>
+            </div>
+            <div id="acc-close-detail" style="font-size:12px;color:#374151;line-height:1.7;margin-top:8px"></div>
+          </div>
+
+          <!-- 🏪 배정 못 한 결제 아이디 → 대리점/지사 붙이기 (2026-08-17)
+               대리점이 원생 수강료를 자기 계정으로 결제하면 그 아이디는 학생 원부에 없어
+               소속을 알 수 없다. 캐피타운 대리점으로 등록하는 것이 근본, 급하면 지사 직접 지정. -->
+          <details id="acc-payer-box" class="sub-item" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:0;margin-bottom:12px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;color:#111827" data-ko="🏪 배정 못 한 결제 아이디 — 대리점 연결" data-en="🏪 Unassigned payer IDs">🏪 배정 못 한 결제 아이디 — 대리점 연결</summary>
+            <div style="padding:0 14px 12px">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <span id="acc-payer-state" style="font-size:12px;color:#6b7280">「불러오기」를 눌러 주세요</span>
+                <span style="flex:1"></span>
+                <button onclick="accPayerLoad()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
+              </div>
+              <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr>
+                <th style="text-align:left">결제 아이디</th><th style="text-align:right">건수</th><th style="text-align:right">금액</th>
+                <th style="text-align:left">기간</th><th style="text-align:left">지사 직접 지정</th>
+                <th style="text-align:left">캐피타운 대리점으로 등록</th></tr></thead>
+                <tbody id="acc-payer-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody></table></div>
+              <p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">
+                <b>지사 직접 지정</b>은 그 아이디의 <b>지난 결제와 앞으로의 결제가 전부</b> 그 지사로 잡힙니다(즉시 반영).<br>
+                <b>캐피타운 대리점으로 등록</b>이 근본 해결입니다 — 대리점 이름을 적고 지사를 고르면 등록되고, 그 뒤로는 표만 고쳐도 따라갑니다.
+              </p>
+            </div>
+          </details>
+
+          <!-- 🏷️ 지출 계정과목 분류 (2026-08-17) — 「기타출금」 덩어리를 과목으로 쪼갠다.
+               지사 대표자명과 일치하면 자동으로 「지사수수료」, 나머지는 여기서 한 번 정하면
+               그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다. -->
+          <details id="acc-payee-box" class="sub-item" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:0;margin-bottom:12px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;color:#111827" data-ko="🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기" data-en="🏷️ Expense categories">🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기</summary>
+            <div style="padding:0 14px 12px">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <span id="acc-payee-state" style="font-size:12px;color:#6b7280">「불러오기」를 눌러 주세요</span>
+                <span style="flex:1"></span>
+                <button onclick="accPayeeLoad()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
+              </div>
+              <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr>
+                <th style="text-align:left">거래처</th><th style="text-align:right">건수</th><th style="text-align:right">금액</th>
+                <th style="text-align:left">기간</th><th style="text-align:left">계정과목</th></tr></thead>
+                <tbody id="acc-payee-tbody"><tr><td colspan="5" class="empty">—</td></tr></tbody></table></div>
+              <p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">
+                한 번 정하면 그 거래처의 <b>지난 출금과 앞으로의 출금이 전부</b> 그 과목으로 들어갑니다.
+                「기타출금」을 다시 고르면 지정이 지워집니다. <b>«자동»</b> 표시는 지사 대표자명이 일치해 자동으로 붙은 것입니다.
+              </p>
+            </div>
+          </details>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
             <button onclick="openReport('monthly')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📅 월간 회계 리포트" data-en="📅 Monthly Report">📅 월간 회계 리포트</div>
@@ -2459,15 +2609,15 @@
             </button>
             <button onclick="openReport('annual')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="📈 연간 결산" data-en="📈 Annual Report">📈 연간 결산</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="세무사 제출용 종합 리포트" data-en="For tax accountant submission">세무사 제출용 종합 리포트</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="12개월 매출·비용·손익 추세" data-en="12-month revenue·cost·P&L trend">12개월 매출·비용·손익 추세</div>
             </button>
             <button onclick="openReport('franchise')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="🏢 가맹점별 정산서" data-en="🏢 Per-franchise Statement">🏢 가맹점별 정산서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="가맹점에 보낼 정산 명세" data-en="To send to franchise">가맹점에 보낼 정산 명세</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="학생 단위 실제 귀속으로 계산" data-en="Attributed per student, not split evenly">학생 단위 실제 귀속으로 계산</div>
             </button>
             <button onclick="openReport('payslips')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="👨‍🏫 강사별 급여명세서" data-en="👨‍🏫 Per-teacher Payslip">👨‍🏫 강사별 급여명세서</div>
-              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사 개인별 PDF 일괄 발송" data-en="Bulk PDF send to teachers">강사 개인별 PDF 일괄 발송</div>
+              <div style="font-size:11px;color:#6b7280;margin-top:4px" data-ko="강사별 수업분·급여·공제 명세" data-en="Per-teacher minutes·pay·deductions">강사별 수업분·급여·공제 명세</div>
             </button>
             <button onclick="openReport('kpi')" style="padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;text-align:left">
               <div style="font-weight:700;font-size:13px;color:#111827" data-ko="⭐ 경영지표 (KPI)" data-en="⭐ Management KPIs">⭐ 경영지표 (KPI)</div>
@@ -2948,7 +3098,7 @@
           <!-- 신규 등록 폼 — 🥭 Phase 40: 영문 번역 추가, Phase 21: 다크 톤 통일 -->
           <details class="tp-new-form">
             <summary style="cursor:pointer;font-size:13px;color:#10b981;font-weight:600"
-                     data-ko="＋ 신규 강사 등록" data-en="＋ Add New Teacher">＋ 신규 강사 등록</summary>
+                     data-ko="+ 신규 강사 등록" data-en="+ Add New Teacher">+ 신규 강사 등록</summary>
             <div style="background:rgba(99,102,241,0.06);border:1px dashed rgba(99,102,241,0.35);border-radius:10px;padding:14px;margin-top:8px">
               <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px">
                 <div style="grid-column:1/-1;padding:7px 12px;background:rgba(99,102,241,0.14);border-radius:6px;font-size:12.5px;font-weight:800;color:#a5b4fc" data-ko="👤 기본 정보 · 연락처" data-en="👤 Basic Info · Contact">👤 기본 정보 · 연락처</div>
@@ -3132,7 +3282,7 @@
                 </div>
               </div>
               <div style="margin-top:12px">
-                <button id="tp-add-btn" class="primary" type="button" style="padding:7px 18px;font-size:13px;font-weight:700" data-ko="＋ 강사 등록" data-en="＋ Add Teacher">＋ 강사 등록</button>
+                <button id="tp-add-btn" class="primary" type="button" style="padding:7px 18px;font-size:13px;font-weight:700" data-ko="+ 강사 등록" data-en="+ Add Teacher">+ 강사 등록</button>
                 <button id="tp-clear-btn" type="button" style="padding:7px 14px;font-size:12px;background:#fff;border:1px solid #d1d5db;border-radius:6px;cursor:pointer" data-ko="초기화" data-en="Reset">초기화</button>
               </div>
             </div>
@@ -3362,7 +3512,7 @@
               💸 1) 실시간 정산 분개 <span style="font-weight:400;color:#6366f1;font-size:11px">PG 2.86% 차감 · 본사 15~18% · B2B/B2C</span>
               <span style="flex:1"></span>
               <input id="modx-settle-period" type="month" style="padding:4px 8px;border:1px solid #c7d2fe;border-radius:6px;font-size:12px">
-              <button onclick="modxSettleSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#6366f1;border:1px solid #6366f1;border-radius:6px;cursor:pointer;font-weight:600">＋ 샘플 분개</button>
+              <button onclick="modxSettleSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#6366f1;border:1px solid #6366f1;border-radius:6px;cursor:pointer;font-weight:600">+ 샘플 분개</button>
               <button onclick="modxSettleLoad()" style="padding:5px 10px;font-size:11.5px;background:#6366f1;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">불러오기</button>
               <button onclick="modxSettlePayAll()" style="padding:5px 10px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">💸 일괄 송금</button>
             </div>
@@ -3404,7 +3554,7 @@
             <div style="background:#f0fdf4;padding:10px 14px;font-weight:700;color:#166534;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               📚 4) 교재-비디오 매핑 <span style="font-weight:400;color:#16a34a;font-size:11px">textbook_id ↔ video_id + 복습퀴즈</span>
               <span style="flex:1"></span>
-              <button onclick="modxTbvSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#16a34a;border:1px solid #16a34a;border-radius:6px;cursor:pointer;font-weight:600">＋ 샘플 교재·영상 매핑</button>
+              <button onclick="modxTbvSeed()" style="padding:5px 10px;font-size:11.5px;background:#fff;color:#16a34a;border:1px solid #16a34a;border-radius:6px;cursor:pointer;font-weight:600">+ 샘플 교재·영상 매핑</button>
               <button onclick="modxTbvLoad()" style="padding:5px 10px;font-size:11.5px;background:#16a34a;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700">교재 리소스 보기</button>
             </div>
             <div id="modx-tbv-body" style="padding:10px 14px;font-size:12px;color:#64748b">‘샘플 매핑’ 후 ‘교재 리소스 보기’를 누르면 관련 유튜브 영상+퀴즈가 로딩됩니다.</div>
@@ -3504,7 +3654,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <button class="primary" onclick="ptLoadCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700">🔄 새로고침</button>
-            <button onclick="ptOpenCatalogModal()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">＋ 새 상품 추가</button>
+            <button onclick="ptOpenCatalogModal()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer">+ 새 상품 추가</button>
             <button onclick="ptSeedCatalog()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#fef3c7;color:#92400e;border:1px solid #f59e0b;border-radius:6px;cursor:pointer">🌱 기본 6개 시드</button>
           </div>
           <div id="pt-catalog-table" style="overflow-x:auto"></div>
@@ -3635,7 +3785,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
         </div>
       </details>
       <div>
-        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer" data-ko="＋ 학생 추가" data-en="＋ Add Student">＋ 학생 추가</button>
+        <button onclick="beAddStudent()" style="padding:7px 14px;background:#10b981;color:#fff;border:0;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer" data-ko="+ 학생 추가" data-en="+ Add Student">+ 학생 추가</button>
         <button onclick="beBulkSubmit()" style="padding:7px 16px;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;font-weight:800;font-size:13px;cursor:pointer;margin-left:6px" data-ko="📤 일괄 작성 완료" data-en="📤 Submit All">📤 일괄 작성 완료</button>
       </div>
       <div id="be-students" style="display:grid;gap:8px;margin-top:8px"></div>
@@ -6197,7 +6347,7 @@ window.__admSettleRun = function(fn){
             <input id="wl-time" placeholder="19:20" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:72px">
             <input id="wl-teacher" placeholder="희망 강사 / Teacher" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
             <input id="wl-note" placeholder="메모 / Note" style="padding:6px 9px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;width:120px">
-            <button type="button" onclick="window.wlAdd&&wlAdd()" style="padding:7px 13px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 대기자 추가" data-en="＋ Add">＋ 대기자 추가</button>
+            <button type="button" onclick="window.wlAdd&&wlAdd()" style="padding:7px 13px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="+ 대기자 추가" data-en="+ Add">+ 대기자 추가</button>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
             <select id="wl-status" onchange="window.wlLoad&&wlLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
@@ -6568,7 +6718,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <button class="primary" onclick="popLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700"
                     data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</button>
             <button onclick="popOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer"
-                    data-ko="＋ 새 팝업 만들기" data-en="＋ New Popup">＋ 새 팝업 만들기</button>
+                    data-ko="+ 새 팝업 만들기" data-en="+ New Popup">+ 새 팝업 만들기</button>
             <div id="pop-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
           </div>
           <div id="pop-list-table" style="overflow-x:auto"></div>
@@ -6629,7 +6779,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <div class="sub-body">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
             <button onclick="posterOpenEditor()" style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#ec4899;color:#fff;border:0;border-radius:6px;cursor:pointer"
-                    data-ko="＋ 새 포스터 만들기" data-en="＋ New Poster">＋ 새 포스터 만들기</button>
+                    data-ko="+ 새 포스터 만들기" data-en="+ New Poster">+ 새 포스터 만들기</button>
             <button class="primary" onclick="posterLoadList()" style="padding:7px 14px;font-size:12.5px;font-weight:700"
                     data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</button>
             <div id="poster-stats-line" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
@@ -6683,7 +6833,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 🎨 포스터 관리 — 목록/저장/불러오기 로직 -->
-<script src="/js/adm-s7.js?v=1" defer></script><!-- 분할추출:adm-s7 -->
+<script src="/js/adm-s7.js?v=2" defer></script><!-- 분할추출:adm-s7 · v=2: 2026-08-16 전각 ＋ → + -->
 
 <!-- 📢 팝업 에디터 모달 -->
 <div id="pop-editor-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:11500;padding:20px;overflow-y:auto" onclick="if(event.target===this)popCloseEditor()">
@@ -6705,7 +6855,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 </div>
 
 <!-- 📢 팝업 관리 — 관리자 편집기 로직 (신규 구현) -->
-<script src="/js/adm-r10.js?v=1" defer></script><!-- 분할추출:adm-r10 -->
+<script src="/js/adm-r10.js?v=2" defer></script><!-- 분할추출:adm-r10 · v=2: 2026-08-16 전각 ＋ → + -->
 
 <!-- 💼 Phase G2 — 신규: 강사 급여 자동 정산 (기존 평가 대시보드 위) -->
 <details class="table-card menu-card" id="card-payroll-auto">
@@ -6984,7 +7134,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
   <!-- 신규 강사 등록 -->
   <details style="margin-bottom:12px;">
-    <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 강사 신규 등록" data-en="＋ Add New Teacher">＋ 강사 신규 등록</summary>
+    <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 강사 신규 등록" data-en="+ Add New Teacher">+ 강사 신규 등록</summary>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
       <input id="t-new-name"   placeholder="이름 (필수)" data-ko-placeholder="이름 (필수)" data-en-placeholder="Name (required)" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
       <select id="t-new-status" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
@@ -7063,7 +7213,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <th class="pr-th" data-sort-key="score_contribution"><span data-ko="조직(10%)" data-en="Contrib (10%)">조직(10%)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="weighted_total"><span data-ko="가중점수" data-en="Weighted">가중점수</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="grade"><span data-ko="등급" data-en="Grade">등급</span><span class="pr-arrow">↕</span></th>
-          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(20분)" data-en-html="Classes<br>(20-min)">총 수업수<br>(20분)</span><span class="pr-arrow">↕</span></th>
+          <!-- 🕐 (2026-08-17) 30분 수업 도입 — «(20분)» 이라는 표기 자체가 틀린 말이 됐다.
+               총 수업시간 열을 옆에 붙여 급여 근거(= 10분 토막 × 단가)를 표에서 바로 보이게 한다. -->
+          <th class="pr-th" data-sort-key="class_count"><span data-ko-html="총 수업수<br>(회)" data-en-html="Classes<br>(count)">총 수업수<br>(회)</span><span class="pr-arrow">↕</span></th>
+          <th class="pr-th" data-sort-key="total_minutes"><span data-ko-html="총 수업시간<br>(분)" data-en-html="Total<br>minutes">총 수업시간<br>(분)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="rate_per_10min_php"><span data-ko="10분 단가" data-en="Rate/10m">10분 단가</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_php"><span data-ko="월급(PHP)" data-en="Salary (PHP)">월급(PHP)</span><span class="pr-arrow">↕</span></th>
           <th class="pr-th" data-sort-key="monthly_salary_krw"><span data-ko="≈ KRW" data-en="≈ KRW">≈ KRW</span><span class="pr-arrow">↕</span></th>
@@ -7105,7 +7258,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 신규 등록" data-en="＋ Add Branch">＋ 지사 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 신규 등록" data-en="+ Add Branch">+ 지사 신규 등록</summary>
             <div class="menu-form">
               <input id="fr-name" placeholder="지사 이름 (필수)" data-ko-placeholder="지사 이름 (필수)" data-en-placeholder="Branch name (required)" style="width:200px;" />
               <input id="fr-owner" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Owner" style="width:120px;" />
@@ -7131,7 +7284,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대리점(학원) 신규 등록" data-en="＋ Add Agency">＋ 대리점(학원) 신규 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대리점(학원) 신규 등록" data-en="+ Add Agency">+ 대리점(학원) 신규 등록</summary>
             <div class="menu-form">
               <select id="ct-franchise" style="width:180px;"><option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option></select>
               <input id="ct-name"     placeholder="대리점·학원 이름 (필수)" data-ko-placeholder="대리점·학원 이름 (필수)" data-en-placeholder="Agency name (required)" style="width:200px;" />
@@ -7173,7 +7326,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏢 지사 (구)" data-en="🏢 Branch (old)">🏢 지사 (구)</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 지사 등록" data-en="＋ Register Branch">＋ 지사 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 지사 등록" data-en="+ Register Branch">+ 지사 등록</summary>
             <div class="menu-form">
               <input id="br-name" placeholder="지사 이름 (필수)" data-ko-ph="지사 이름 (필수)" data-en-ph="Branch name (required)" style="width:200px;" />
               <input id="br-region" placeholder="담당 지역 (예: 수도권)" data-ko-ph="담당 지역 (예: 수도권)" data-en-ph="Region (e.g. Seoul Metro)" style="width:160px;" />
@@ -7193,7 +7346,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 대표지사 등록" data-en="＋ Register Master Branch">＋ 대표지사 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
             <div class="menu-form">
               <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-ph="대표지사 이름 (필수)" data-en-ph="Master branch name (required)" style="width:220px;" />
               <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-ph="담당 권역 (예: 영남)" data-en-ph="Region (e.g. Yeongnam)" style="width:160px;" />
@@ -7216,7 +7369,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🎯 영입본부" data-en="🎯 Recruitment HQ">🎯 영입본부</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 영입본부 등록" data-en="＋ Register Recruitment HQ">＋ 영입본부 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 영입본부 등록" data-en="+ Register Recruitment HQ">+ 영입본부 등록</summary>
             <div class="menu-form">
               <input id="rec-name" placeholder="영입본부 이름 (필수)" data-ko-ph="영입본부 이름 (필수)" data-en-ph="Recruitment HQ name (required)" style="width:220px;" />
               <input id="rec-leader" placeholder="본부장" data-ko-ph="본부장" data-en-ph="HQ Manager" style="width:120px;" />
@@ -7240,7 +7393,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏯 본사 관리" data-en="🏯 HQ Management">🏯 본사 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 본사 정보 등록" data-en="＋ Register HQ Info">＋ 본사 정보 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 본사 정보 등록" data-en="+ Register HQ Info">+ 본사 정보 등록</summary>
             <div class="menu-form">
               <input id="hq-name" placeholder="본사 이름 (예: 망고아이 본사)" data-ko-ph="본사 이름 (예: 망고아이 본사)" data-en-ph="HQ name (e.g. Mangoi HQ)" style="width:220px;" />
               <input id="hq-ceo" placeholder="대표이사" data-ko-ph="대표이사" data-en-ph="CEO" style="width:120px;" />
@@ -7260,7 +7413,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🌐 독립 사이트" data-en="🌐 Standalone Site">🌐 독립 사이트</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 독립 사이트 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 독립 사이트 등록</summary>
             <div class="menu-form">
               <input id="ind-name" placeholder="사이트 이름 (필수)" style="width:200px;" />
               <input id="ind-url" type="url" placeholder="https://..." style="width:240px;" />
@@ -7319,7 +7472,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <option value="adjust" data-ko="⚙️ 조정" data-en="⚙️ Adjust">⚙️ 조정</option>
             </select>
             <button id="pt-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔄 조회" data-en="🔄 Search">🔄 조회</button>
-            <button id="pt-add-btn" style="padding:5px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="＋ 수동 적립/차감" data-en="＋ Manual Add/Deduct">＋ 수동 적립/차감</button>
+            <button id="pt-add-btn" style="padding:5px 12px;font-size:12px;background:#3b82f6;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="+ 수동 적립/차감" data-en="+ Manual Add/Deduct">+ 수동 적립/차감</button>
           </div>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:10px">
             <div style="background:rgba(34,197,94,0.08);padding:10px 14px;border-radius:6px;font-size:12px">
@@ -7348,7 +7501,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 <script id="ph-frn-filter-js">
 (function(){
-  // ① 등록 폼(＋ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
+  // ① 등록 폼(+ 대리점 신규 등록 등) — 클릭할 때마다 확실히 열림↔닫힘 토글
   //    (summary 를 건드리는 다른 전역 클릭/툴팁 스크립트와 무관하게 동작 보장)
   function bindToggles(){
     document.querySelectorAll('#card-franchises .sub-body > details > summary').forEach(function(sm){
@@ -7465,7 +7618,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       </div>
     </div>
     <details id="lt-sec-add">
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 결과 입력" data-en="＋ Add Result">＋ 결과 입력</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 결과 입력" data-en="+ Add Result">+ 결과 입력</summary>
       <div class="menu-form">
         <input id="lt-name"   placeholder="학생 이름 (필수)" data-ko-placeholder="학생 이름 (필수)" data-en-placeholder="Student name (required)" style="width:160px;" />
         <input id="lt-uid"    placeholder="user_id (선택)"   data-ko-placeholder="user_id (선택)"   data-en-placeholder="user_id (optional)" style="width:160px;" />
@@ -7559,8 +7712,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div class="menu-body">
     <details>
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
-               data-ko="＋ 수강신청 등록 (1명 또는 여러 명 동시)"
-               data-en="＋ Add Enrollment (single or multiple at once)">＋ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
+               data-ko="+ 수강신청 등록 (1명 또는 여러 명 동시)"
+               data-en="+ Add Enrollment (single or multiple at once)">+ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
       <!-- 🥭 Phase 24 — 다중 학생 동시 등록 표
            🧑‍🏫 (2026-08-12) 요구사항 정리 — 등록 시 사람이 «입력·선택» 하는 것은 아래 6가지뿐이다.
              ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 배정 우선순위(요일·시간 우선 / 강사 우선)
@@ -7601,7 +7754,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
           <button id="en-add-row-btn" type="button"
                   style="padding:6px 14px;font-size:12px;background:#fff;border:1px dashed #3b82f6;color:#3b82f6;border-radius:6px;cursor:pointer;font-weight:600"
-                  data-ko="＋ 행 추가" data-en="＋ Add row">＋ 행 추가</button>
+                  data-ko="+ 행 추가" data-en="+ Add row">+ 행 추가</button>
           <button id="en-add-btn" class="primary" type="button"
                   style="padding:6px 18px;font-size:13px;font-weight:700"
                   data-ko="✅ 일괄 등록" data-en="✅ Register all">✅ 일괄 등록</button>
@@ -7700,7 +7853,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span data-ko="📋 학원 게시판 (소식·FAQ)" data-en="📋 Notice Board (News·FAQ)">📋 학원 게시판 (소식·FAQ)</span></summary>
   <div class="menu-body">
     <details>
-      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 새 글 작성" data-en="＋ New Post">＋ 새 글 작성</summary>
+      <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 새 글 작성" data-en="+ New Post">+ 새 글 작성</summary>
       <div class="menu-form" style="flex-direction:column;align-items:stretch;">
         <input id="cm-title" placeholder="제목 (필수)" data-ko-placeholder="제목 (필수)" data-en-placeholder="Title (required)" style="width:100%;" />
         <textarea id="cm-body" rows="3" placeholder="본문" data-ko-placeholder="본문" data-en-placeholder="Body" style="width:100%;"></textarea>
@@ -7751,7 +7904,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </a>
 
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 교재 등록 (수동 메타데이터)" data-en="＋ Add Textbook (manual metadata)">＋ 교재 등록 (수동 메타데이터)</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 교재 등록 (수동 메타데이터)" data-en="+ Add Textbook (manual metadata)">+ 교재 등록 (수동 메타데이터)</summary>
             <div class="menu-form">
               <input id="tb-title"     list="tb-title-list" placeholder="교재명 (클릭하면 기존 교재 표시)" data-ko-placeholder="교재명 (클릭하면 기존 교재 표시)" data-en-placeholder="Title (click to see existing)" style="width:230px;" />
               <datalist id="tb-title-list"></datalist>
@@ -7783,7 +7936,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="📂 컨텐츠 교재그룹 관리" data-en="📂 Content Textbook Group Management">📂 컨텐츠 교재그룹 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 교재 그룹 등록" data-en="＋ Add Textbook Group">＋ 교재 그룹 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 교재 그룹 등록" data-en="+ Add Textbook Group">+ 교재 그룹 등록</summary>
             <div class="menu-form">
               <input id="tcg-name" placeholder="그룹 이름 (필수, 예: 초등 정규반)" style="width:240px;" />
               <input id="tcg-level-range" placeholder="레벨 범위 (예: A1~B1)" style="width:140px;" />
@@ -7859,7 +8012,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </script>
 
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 비디오 등록" data-en="＋ Add Video">＋ 비디오 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 비디오 등록" data-en="+ Add Video">+ 비디오 등록</summary>
             <div class="menu-form" style="margin-top:8px;flex-wrap:wrap;">
               <input id="mv-title"      placeholder="제목 (한글)"  data-ko-placeholder="제목 (한글)"  data-en-placeholder="Title (Korean)"  style="width:220px;" />
               <input id="mv-title-en"   placeholder="Title (EN)"   data-ko-placeholder="제목 (영문)"  data-en-placeholder="Title (English)" style="width:220px;" />
@@ -7894,7 +8047,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <input id="mv-duration" type="number" placeholder="길이(초)" data-ko-placeholder="길이(초)" data-en-placeholder="Duration (sec)" style="width:100px;" />
               <input id="mv-sort" type="number" placeholder="정렬 순서" data-ko-placeholder="정렬 순서" data-en-placeholder="Sort order" style="width:100px;" value="0" />
               <textarea id="mv-desc" placeholder="설명 (선택)" data-ko-placeholder="설명 (선택)" data-en-placeholder="Description (optional)" style="width:100%;min-height:48px;resize:vertical;"></textarea>
-              <button id="mv-add-btn" class="primary" style="padding:6px 14px;font-size:13px;" data-ko="＋ 등록" data-en="＋ Register">＋ 등록</button>
+              <button id="mv-add-btn" class="primary" style="padding:6px 14px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
               <div id="mv-preview" style="display:none;margin-top:8px;padding:8px;background:#f1f5f9;border-radius:8px;font-size:12px;color:#475569;"></div>
             </div>
           </details>
@@ -7928,7 +8081,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🛒 판매 교재 관리" data-en="🛒 Sales Textbook Management">🛒 판매 교재 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="＋ 판매 교재 등록" data-en="＋ Add Sales Textbook">＋ 판매 교재 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 판매 교재 등록" data-en="+ Add Sales Textbook">+ 판매 교재 등록</summary>
             <div class="menu-form">
               <input id="ts-title" placeholder="교재명 (필수)" style="width:200px;" />
               <select id="ts-category" style="width:120px;">
@@ -7955,7 +8108,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="📦 판매 교재 그룹 관리" data-en="📦 Sales Textbook Group">📦 판매 교재 그룹 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 판매 그룹 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 판매 그룹 등록</summary>
             <div class="menu-form">
               <input id="tsg-name" placeholder="그룹 이름 (예: 초등 풀패키지)" style="width:240px;" />
               <input id="tsg-bundle-price" type="number" placeholder="패키지 가격 (KRW)" style="width:160px;" />
@@ -7974,7 +8127,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <summary data-ko="🏷️ 판매 구분 관리" data-en="🏷️ Sales Category Management">🏷️ 판매 구분 관리</summary>
         <div class="sub-body">
           <details>
-            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">＋ 판매 구분 등록</summary>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;">+ 판매 구분 등록</summary>
             <div class="menu-form">
               <input id="tsc-name" placeholder="구분 이름 (예: 학년별)" style="width:200px;" />
               <input id="tsc-code" placeholder="코드 (영문, 예: GRADE)" style="width:140px;" />
@@ -8049,10 +8202,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       &nbsp;&nbsp;<span data-ko="예상 등급:" data-en="Expected grade:">예상 등급:</span> <strong id="ev-grade-preview" style="color:#1e40af;">—</strong>
     </div>
 
+    <!-- 급여 근거를 입력하는 그 자리에서 보여 준다 — 안 보이면 «전부 20분» 으로 잘못 저장돼도 아무도 모른다 -->
+    <div id="ev-minutes-hint" style="margin-top:10px;padding:8px 10px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:12px;color:#475569;">—</div>
+
     <div style="display:flex;gap:8px;justify-content:space-between;margin-top:16px;">
       <button id="ev-cancel-btn" style="padding:8px 16px;background:#fff;color:#374151;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;" data-ko="취소" data-en="Cancel">취소</button>
-      <div style="display:flex;gap:8px;">
-        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (20분)" data-ko-placeholder="총 수업수 (20분)" data-en-placeholder="Total classes (20-min)" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:160px;" />
+      <div style="display:flex;gap:8px;align-items:center;">
+        <!-- 🕐 (2026-08-17) 30분 수업 도입 — «수업 횟수» 만으로는 급여를 못 낸다.
+             총 수업시간(분)을 넣으면 그것으로 계산하고, 비우면 예전대로 전부 20분으로 본다.
+             (서버: PUT /api/admin/teacher-classes 의 total_minutes) -->
+        <input id="ev-class-count" type="number" min="0" placeholder="총 수업수 (회)" data-ko-placeholder="총 수업수 (회)" data-en-placeholder="Total classes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:130px;" />
+        <input id="ev-total-minutes" type="number" min="0" step="10" placeholder="총 수업시간 (분)" data-ko-placeholder="총 수업시간 (분)" data-en-placeholder="Total minutes" style="padding:8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
         <button id="ev-save-btn" class="primary" style="padding:8px 16px;" data-ko="💾 평가·수업수 저장" data-en="💾 Save Eval & Classes">💾 평가·수업수 저장</button>
       </div>
     </div>
@@ -8829,10 +8989,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=91" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) -->
+<script src="/js/adm-core.js?v=100" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=99: 2026-08-17 급여 목록 «총 수업시간(분)» 열 + main 의 회계 리포트 개편 병합 (양쪽이 v=97·98 을 각각 다른 내용에 써서 번호를 새로 딴다) -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 사이드바 고정 (매니저용, 2026-07-23 · 2026-08-08 10개+자동정렬으로 개편 → v=4) -->
+<script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
+<script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
+<script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
@@ -8999,15 +9161,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <span style="flex:1;font-weight:700;font-size:12.5px;line-height:1.3;color:#bfdbfe" data-ko="관리자 페이지에서 사용 방법이 궁금하신가요?" data-en="New to the admin page? See how it works">관리자 페이지에서 사용 방법이 궁금하신가요?</span>
   </a>
 
-  <!-- ⚡ (2026-07-23) 매니저 자주 쓰는 기능 — 메뉴 맨 위 고정.
-       매니저 피드백: "급할 때 쓰는 기능이 목록 맨 위에 있어야 한다. 일부는 아래쪽에 있다.
-       매일 하는 일들이라 찾기 쉬워야 한다." → 요청한 5가지를 순서 그대로 고정 배치.
-       기존 메뉴 구조는 건드리지 않았다(다른 담당자 화면이 바뀌지 않게). 여기는 바로가기일 뿐이다. -->
-  <div id="ph161-quick" style="margin:2px 0 12px;border:1px solid rgba(251,191,36,0.45);border-radius:12px;background:rgba(251,191,36,0.08);overflow:hidden">
-    <div style="padding:8px 12px;font-size:11px;font-weight:900;letter-spacing:.3px;color:#fbbf24;border-bottom:1px solid rgba(251,191,36,0.25)"
-         data-ko="⚡ 자주 쓰는 기능" data-en="⚡ Quick access">⚡ 자주 쓰는 기능</div>
-    <div id="ph161-quick-items"></div>
-  </div>
+  <!-- ⚡ (2026-07-23) 매니저 자주 쓰는 기능 — 원래 여기(메뉴 맨 위)에 있었다.
+       🚚 (2026-08-16 사장님) **첫 화면 맨 위로 옮겼다.** 아래 .hero 바로 다음을 보라.
+          이유: 휴대폰으로 관리자를 여는 이유는 대개 «둘러보기» 가 아니라 «하나만 빨리 확인» 인데,
+          메뉴 안에 있으면 [줄3개 → 그룹 펼치기 → 항목 찾기 → 누르기] 네 번이 걸렸다.
+          첫 화면에 두면 한 번이다. 메뉴 구조 자체는 그대로 두었다 — 여기는 바로가기일 뿐이다.
+       ⚠️ 다시 사이드바로 되돌린다면 admin-inline-c.css 의
+          «#ph161-quick(첫 화면판)» 블록도 함께 지워야 한다. 안 그러면 색이 두 벌 싸운다. -->
 
   <div class="ph85-group" data-cards="card-eval-mgmt,card-bulk-eval,card-ai-lesson-report,card-ai-eval-draft,card-monthly-report">
     <div class="ph85-head" onclick="event.stopPropagation();(function(h){var g=h.parentElement;var w=g.classList.contains('open');document.querySelectorAll('#ph85-sidebar .ph85-group').forEach(function(x){x.classList.remove('open');});if(!w)g.classList.add('open');})(this);">
@@ -9573,7 +9733,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 설명 출처: .ph85-sub = data-tip(ph127 TIPS), .ph125-gc(인라인 손자) = window.GC_DESC.
      · #ph85-sidebar 캡처 단계 클릭 가드로 인라인 onclick/네비게이션을 첫 탭에서 차단. -->
 
-<script src="/js/adm-s10.js?v=1" defer></script><!-- 분할추출:adm-s10 -->
+<script src="/js/adm-s10.js?v=2" defer></script><!-- 분할추출:adm-s10 (v=2 · 2026-08-16 모바일 «한 번 탭 = 바로 이동») -->
 
 <!-- Phase 86 admin (2026-05-24) — 사이드바 토글/갯수/펼치기버튼 강화 -->
 
@@ -9613,7 +9773,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         '<button class="ph86-action-btn expand"   type="button" data-act="expand">↧ 모두 펼치기</button>' +
         '<button class="ph86-action-btn collapse" type="button" data-act="collapse">↥ 모두 접기</button>' +
         '<button class="ph86-action-btn hide"     type="button" data-act="hide">🙈 숨기기</button>';
-      search.parentNode.insertBefore(actions, search.nextSibling);
+      /* 🔴 검색 wrap 「밖」에 붙인다 (2026-08-17 실측으로 잡은 함정).
+         wrap 안에 넣으면 .ph85-search-wrap 높이가 «입력칸 42px + 버튼줄» 을 합친
+         90px 이 되는데, 검색창의 «↑ 나가기» 버튼(.ph85-search-exit)이 그 wrap 기준
+         top:50% 로 놓여 있어 **입력칸을 벗어나 버튼 위로 내려앉는다.**
+         실측(390px): ↑ 가 y=204~232, 「모두 접기」가 y=223~263 → 접기의 오른쪽 위
+         모서리를 가로막아 그 자리를 누르면 접기가 아니라 ↑ 가 눌렸다.
+         밖으로 빼면 wrap 이 다시 입력칸 높이만 갖고 ↑ 가 입력칸 안으로 돌아온다.
+         PC·모바일 둘 다 같은 버그였고, 이 한 줄로 둘 다 낫는다.
+         (숫자를 박아 고치지 않는 이유 — 입력칸 높이가 화면 폭마다 달라서다.) */
+      var swrap = search.closest('.ph85-search-wrap') || search;
+      swrap.parentNode.insertBefore(actions, swrap.nextSibling);
 
       actions.addEventListener('click', function(e){
         var btn = e.target.closest('.ph86-action-btn');
@@ -9779,7 +9949,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
-<script src="/js/adm-s11.js?v=2" defer></script><!-- 분할추출:adm-s11 -->
+<script src="/js/adm-s11.js?v=3" defer></script><!-- 분할추출:adm-s11 (v=3 · 2026-08-16 모바일 드로어 자동닫기 대상 수정) -->
 
 <!-- Phase 100 admin (2026-05-25) — 통합 블루 디자인 시스템 (WCAG AA, ph98/99 통합) -->
 
@@ -10774,7 +10944,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 111 admin (2026-05-25) — 사용자 드롭다운 강화: 역할 뱃지 + 로그인/로그아웃 + 다크 테마 -->
 
 
-<script src="/js/adm-q9.js?v=2" defer></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q9.js?v=3" defer></script><!-- 분할추출:adm-q9 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 112 admin (2026-05-25) — 강사 정보 최상단 재배치 + 학원별 학생 수업현황 (출결 통합) -->
@@ -10943,19 +11113,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 113 admin (2026-05-25) — 사용자 메뉴 클릭 inline onclick 강제 + 자료실/도움말 -->
 
 
-<script src="/js/adm-r19.js?v=5" defer></script><!-- 분할추출:adm-r19 -->
+<script src="/js/adm-r19.js?v=6" defer></script><!-- 분할추출:adm-r19 -->
 
 
 <!-- Phase 114 admin (2026-05-25) — Floating 사용자 메뉴 (기존 #topUserBtn 의존 없음) -->
 
 
-<script src="/js/adm-r20.js?v=2" defer></script><!-- 분할추출:adm-r20 -->
+<script src="/js/adm-r20.js?v=3" defer></script><!-- 분할추출:adm-r20 -->
 
 
 <!-- Phase 115 admin (2026-05-25) — 사용자 버튼 통합: 중복 제거 + EN 옆 inline 배치 -->
 
 
-<script src="/js/adm-r21.js?v=4" defer></script><!-- 분할추출:adm-r21 -->
+<script src="/js/adm-r21.js?v=5" defer></script><!-- 분할추출:adm-r21 -->
 
 
 <!-- Phase 116 admin (2026-05-25) — 역할 무관 ph85 사이드바 항상 visible + 강사/지사/대리점 안내 -->
@@ -11178,7 +11348,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=7" defer></script><!-- 분할추출:adm-r25 -->
+<script src="/js/adm-r25.js?v=8" defer></script><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -11289,7 +11459,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      · 비밀번호 찾기 모달 (전화 SMS / 카톡 / 이메일 / 운영자 문의)
      ============================================================ -->
 
-<script src="/js/adm-q12.js?v=2" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q12.js?v=3" defer></script><!-- 분할추출:adm-q12 (원복: 이 위치에 인라인) -->
 
 <!-- ============================================================
      Phase 133 (2026-05-27) — 관리자 화면에서도 수업 진단 플로팅 버튼
@@ -11299,678 +11469,219 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- precheck-fab-admin 제거됨 -->
 
 
-<!-- ============================================================
-     Phase 134 / fix v45 (2026-05-28) — 모바일 사이드바 햄버거 토글
-     · ≤920px 화면에서 사이드바 기본 숨김
-     · 좌상단 햄버거 버튼으로 슬라이드 인/아웃
-     · 어두운 오버레이 클릭 / ESC 키 / 메뉴 선택 시 자동 닫힘
-     · 데스크탑(>920px)에서는 항상 표시 (기존 동작 유지)
-     ============================================================ -->
+<!-- ═══════════════════════════════════════════════════════════════════
+     🧹 (2026-08-16) 죽은 모바일 사이드바 14세대 삭제 — ph134 ~ ph151
+     ═══════════════════════════════════════════════════════════════════
+     [지운 것] ph134·135·136·138·139·140·141·142·144·145·146·147·150·151 의
+       인라인 스크립트·버튼·오버레이 전부 + 그 셋만 담고 있던 외부 파일 3개의
+       불러오는 줄 (adm-r29 = ph135, adm-r30 = ph141, adm-s16 = ph142).
+       ⚠️ 이 주석에 «스크립트 여는 태그» 를 글자 그대로 쓰지 말 것 —
+          test-harness/inline_js_syntax_harness.mjs 가 주석 안이라도 그것을 태그로 보고
+          뒤따르는 한글을 JS 로 읽어 SyntaxError 를 낸다(2026-08-16 실제로 게이트 실패).
+       650줄이 사라졌고, 남은 모바일 드로어는 아래 mga 하나뿐이다.
 
+     [지워도 되는 이유 — 실측]
+       이 14세대가 붙잡고 있던 대상은 전부 #admin-sidebar / .admin-sidebar 다.
+       그런데 그 요소는 이 파일에 **없다**(2026-08-16 확인: id/class 둘 다 0건).
+       진짜 메뉴는 #ph85-sidebar 이고 그것을 여닫는 것은 mga 뿐이다.
+       즉 14세대는 «없는 요소를 숨기는» 일만 하고 있었다.
+       ph146(사용자 모달)·ph151(옛 메뉴바)이 숨기던 것들은 이미 admin-inline-c.css 가
+       전역으로 숨기고 있다(#topUserBtn 5094행, #ph85-toggle 2592행, .menu-toggle-bar 2783행).
+       그래서 «효과를 옮길» 것도 사실상 없었다 — 아래 한 줄만 안전망으로 남긴다.
 
-<button type="button" id="ph134-hamburger" onclick="window.ph134Toggle && window.ph134Toggle()"
-        aria-label="메뉴 열기" title="메뉴 열기">☰</button>
-<div id="ph134-overlay" onclick="window.ph134Close && window.ph134Close()" aria-hidden="true"></div>
-<script>
-(function(){
-  document.addEventListener('click', function(e){
-    if (!document.body.classList.contains('ph134-sidebar-open')) return;
-    var t = e.target.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar a[href]');
-    if (t && window.ph134Close) setTimeout(window.ph134Close, 60);
-  }, true);
-})();
-</script>
+     [지워야 했던 이유 — 이쪽이 본론]
+       ph145·ph146·ph147 이 setInterval 로 **0.5초마다 영원히** 깨어나
+       인라인 style 을 다시 써 넣고 있었다. 화면이 꺼져 있어도 돈다.
+       손을 뗀 뒤에도 계속 굴러야 하는 모바일 스크롤이 0.5초마다 스타일
+       재기록과 부딪히면 그게 «툭 걸리는» 그 끊김이다. 기능이 많아서가 아니라
+       지운 줄 알았던 것이 아직 돌고 있어서 생긴 무게였다.
 
-<script id="ph134-sidebar-js">
-(function(){
-  'use strict';
+     [되돌리기] 이 커밋 하나를 revert 하면 그대로 돌아온다.
+     ⚠️ js/adm-r29.js · adm-r30.js · adm-s16.js 파일 자체는 지우지 않았다.
+        불러오는 줄만 뺐다 — 되돌릴 때 파일까지 복원할 필요가 없도록.
+     ═══════════════════════════════════════════════════════════════════ -->
 
-  function isOpen(){ return document.body.classList.contains('ph134-sidebar-open'); }
-  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
-
-  window.ph134Open = function(){
-    document.body.classList.add('ph134-sidebar-open');
-    var ham = document.getElementById('ph134-hamburger');
-    if (ham){ ham.classList.add('is-open'); ham.textContent = '✕'; ham.setAttribute('aria-label', '메뉴 닫기'); }
-    console.log('[ph134] 사이드바 열림');
-  };
-
-  window.ph134Close = function(){
-    document.body.classList.remove('ph134-sidebar-open');
-    var ham = document.getElementById('ph134-hamburger');
-    if (ham){ ham.classList.remove('is-open'); ham.textContent = '☰'; ham.setAttribute('aria-label', '메뉴 열기'); }
-  };
-
-  window.ph134Toggle = function(){
-    if (isOpen()) window.ph134Close();
-    else window.ph134Open();
-  };
-
-  // ESC 키로 닫기
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && isOpen()) window.ph134Close();
-  });
-
-  // 사이드바 안의 링크/버튼 클릭 시 자동 닫힘 (메뉴 선택 후 본문 보기 좋게)
-  function bindAutoClose(){
-    var sidebar = document.getElementById('admin-sidebar');
-    if (!sidebar || sidebar.__ph134bound) return;
-    sidebar.__ph134bound = true;
-    sidebar.addEventListener('click', function(e){
-      if (!isMobile() || !isOpen()) return;
-      // 링크 또는 메뉴 아이템 클릭이면 닫음
-      var link = e.target.closest('a[href], .sidebar-item, .menu-card-title, [data-menu-target]');
-      if (link) {
-        // 0.3초 후 닫음 — 메뉴 전환 애니메이션 완료 후
-        setTimeout(window.ph134Close, 250);
-      }
-    });
+<style id="ph163-legacy-sweep">
+  /* ph151 안전망 — 위 CSS 가 못 잡는 나머지 옛 토글 껍데기만. 타이머 없음. */
+  @media (max-width: 920px) {
+    .ph85-toggle-wrap, .sidebar-fixed-toggle, .ph85-brand-floating { display: none !important; }
   }
-
-  // 화면 회전/리사이즈 시 — 데스크탑으로 바뀌면 자동 닫기
-  window.addEventListener('resize', function(){
-    if (!isMobile() && isOpen()) window.ph134Close();
-  });
-
-  // 초기화
-  function init(){ bindAutoClose(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 600);
-
-  console.log('[ph134] 모바일 사이드바 햄버거 토글 활성 (≤920px)');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 135 (2026-05-28) — 사이드바 종합 UX 패턴
-     · 모바일: 좌측 엣지 스와이프(열기) + 사이드바 좌 스와이프(닫기) + 햄버거(ph134)
-     · 데스크탑: 좌측 호버 자동 펼침/접힘 (옵션) — 사이드바가 화면 차지 줄이고 싶을 때
-     · 모든 기기: 가장자리 펼침 인디케이터 (좁은 띠) 로 발견 가능성 ↑
-     ============================================================ -->
-
-
-<!-- 좌측 엣지 핫존 (보이지 않음) + 인디케이터 (보이는 노란 띠) -->
-<div id="ph135-edge-zone" aria-hidden="true"></div>
-<div id="ph135-edge-indicator" aria-hidden="true" title="좌측에서 우측으로 미세요"></div>
-
-<!-- 데스크탑 미니 모드 토글 (선택사항) -->
-<button type="button" id="ph135-pin-btn" onclick="window.ph135TogglePin && window.ph135TogglePin()"
-        title="사이드바 고정/미니" aria-label="사이드바 고정/미니">📌</button>
-
-<script src="/js/adm-r29.js?v=1" defer></script><!-- 분할추출:adm-r29 -->
-
-
-<!-- ============================================================
-     Phase 136 (2026-05-28) — 사이드바 모바일 강제 숨김 fix
-     · 기존 line 186 의 `.admin-sidebar { display:none }` 와 ph134 transform 충돌 해결
-     · 모든 모바일 CSS 에 !important 강제 + display:block 으로 통일
-     · ph134Close 가 작동 안 할 경우 강제 닫기 fallback
-     · 페이지 로드 시 사이드바 강제 닫기 (혹시 열린 상태로 시작 방지)
-     ============================================================ -->
-
-
-<script id="ph136-force-close-js">
-(function(){
-  'use strict';
-
-  // 페이지 로드 시 사이드바 무조건 닫힌 상태로 시작
-  function forceClose(){
-    document.body.classList.remove('ph134-sidebar-open');
-    var ham = document.getElementById('ph134-hamburger');
-    if (ham){ ham.classList.remove('is-open'); ham.textContent = '☰'; }
-    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
-    if (sb && window.matchMedia('(max-width: 920px)').matches) {
-      sb.style.transform = '';  // CSS 가 받게 함
-    }
-    console.log('[ph136] 사이드바 강제 닫기');
-  }
-
-  // 1) 페이지 로드 시 강제 닫힘
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', forceClose);
-  } else {
-    forceClose();
-  }
-
-  // 2) 본문 어디 클릭하든 사이드바 닫힘 (사이드바·햄버거 제외)
-  document.addEventListener('click', function(e){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    if (!document.body.classList.contains('ph134-sidebar-open')) return;
-    var inside = e.target.closest('.admin-sidebar, #admin-sidebar, #ph134-hamburger, #ph134-overlay');
-    if (inside) return;
-    forceClose();
-  }, true);
-
-  // 3) 모든 a / button 클릭 후 자동 닫힘 (이미 ph134 에 있지만 강화)
-  document.addEventListener('click', function(e){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    if (!document.body.classList.contains('ph134-sidebar-open')) return;
-    var link = e.target.closest('a[href], .sidebar-item, [data-menu-target], button.menu-toggle');
-    if (link && link.closest('.admin-sidebar, #admin-sidebar')) {
-      setTimeout(forceClose, 200);
-    }
-  }, false);
-
-  // 4) ESC 키
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && document.body.classList.contains('ph134-sidebar-open')) {
-      forceClose();
-    }
-  });
-
-  // 5) 화면 회전/리사이즈 — 데스크탑으로 바뀌면 자동 닫힘
-  window.addEventListener('resize', function(){
-    if (!window.matchMedia('(max-width: 920px)').matches) forceClose();
-  });
-
-  // 6) window.ph134Close override 강화
-  var origClose = window.ph134Close;
-  window.ph134Close = function(){
-    if (typeof origClose === 'function') { try { origClose(); } catch(e){} }
-    forceClose();
-  };
-
-  // 7) 안전망 — 5초마다 비활성 상태인데 보이고 있으면 강제 닫기
-  setInterval(function(){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    var sb = document.querySelector('.admin-sidebar');
-    var open = document.body.classList.contains('ph134-sidebar-open');
-    if (sb && !open) {
-      var rect = sb.getBoundingClientRect();
-      // 사이드바가 화면 안에 보이면 (left 가 0 이상) 강제 닫기
-      if (rect.left >= -10 && rect.right > 50) {
-        sb.style.transform = 'translateX(-100%)';
-        console.log('[ph136] 안전망 — 비활성 상태에서 사이드바 표시 감지, 강제 transform');
-      }
-    }
-  }, 5000);
-
-  console.log('[ph136] 모바일 사이드바 강제 숨김 fix 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 138 (2026-05-28) — 사이드바 큰 ✕ 닫기 버튼 + 본문 영역 즉시 닫기
-     · 사이드바 우상단에 빨간 ✕ 큰 버튼 (44x44) — 누구나 한 눈에 알아봄
-     · 사이드바 너비 280→260px (본문 영역 좀 더 보임)
-     · 본문 영역 어디든 1번 탭으로 즉시 닫힘
-     · 햄버거 자체 클릭 = toggle (열림 ↔ 닫힘)
-     ============================================================ -->
-
-
-<script id="ph138-close-js">
-(function(){
-  'use strict';
-
-  // 사이드바 안에 큰 ✕ 닫기 버튼 추가 (없으면 생성)
-  function ensureCloseBtn(){
-    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
-    if (!sb) return;
-    if (document.getElementById('ph138-close-btn')) return;
-
-    var btn = document.createElement('button');
-    btn.id = 'ph138-close-btn';
-    btn.type = 'button';
-    btn.innerHTML = '✕';
-    btn.setAttribute('aria-label', '사이드바 닫기');
-    btn.setAttribute('title', '닫기');
-    btn.addEventListener('click', function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      if (window.ph134Close) window.ph134Close();
-      console.log('[ph138] ✕ 버튼 — 사이드바 닫힘');
-    });
-    sb.style.position = sb.style.position || 'fixed';
-    sb.insertBefore(btn, sb.firstChild);
-    console.log('[ph138] ✕ 닫기 버튼 추가');
-  }
-
-  // 본문 영역 1번 탭으로 즉시 닫기 (capture phase 로 어떤 핸들러도 먼저)
-  function bindContentTap(){
-    if (window.__ph138contentBound) return;
-    window.__ph138contentBound = true;
-    document.addEventListener('click', function(e){
-      if (!window.matchMedia('(max-width: 920px)').matches) return;
-      if (!document.body.classList.contains('ph134-sidebar-open')) return;
-      var inSidebar = e.target.closest('#admin-sidebar, .admin-sidebar, #ph134-hamburger');
-      if (inSidebar) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (window.ph134Close) window.ph134Close();
-      console.log('[ph138] 본문 영역 탭 — 사이드바 즉시 닫힘');
-    }, true);
-  }
-
-  function init(){ ensureCloseBtn(); bindContentTap(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 600);
-  setTimeout(init, 1500);
-
-  console.log('[ph138] 사이드바 ✕ 닫기 + 본문 탭 즉시 닫기 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 139 (2026-05-28) — 사이드바 30% 너비 + 모두접기 세로 배치
-     · 사이드바 30vw (min 200px max 280px) — 본문 70% 보임
-     · ph86-actions (모두 펼치기/접기/숨기기) — flex-direction: column
-     · 사이드바 안 메뉴 카드도 padding 줄여서 좁은 너비에 맞춤
-     ============================================================ -->
-
-
-<script id="ph139-fix-js">
-(function(){
-  'use strict';
-  // ph86-actions 가 없을 수 있어서 DOM ready 후 한 번 더 강제로 column 적용
-  function fix(){
-    var act = document.getElementById('ph86-actions');
-    if (act && window.matchMedia('(max-width: 920px)').matches) {
-      act.style.flexDirection = 'column';
-      act.style.gap = '6px';
-      Array.prototype.forEach.call(act.querySelectorAll('button'), function(b){
-        b.style.width = '100%';
-      });
-    }
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fix);
-  else fix();
-  setTimeout(fix, 600);
-  setTimeout(fix, 1500);
-  console.log('[ph139] 사이드바 30% + 세로 버튼 배치 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 140 (2026-05-28) — 사이드바 닫혀도 본문 100% 강제
-     · admin-layout grid → block + grid-template-columns: 1fr 강제
-     · 본문 모든 자식 width: 100% + 좌측 padding/margin 강제 0
-     · hero, main, content 영역 모두 풀폭
-     ============================================================ -->
-
-
-<script id="ph140-js">
-(function(){
-  'use strict';
-  function forceFullWidth(){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    // admin-layout 의 inline style 직접 주입 (다른 모든 CSS override)
-    document.querySelectorAll('.admin-layout').forEach(function(el){
-      el.style.setProperty('display', 'block', 'important');
-      el.style.setProperty('grid-template-columns', '1fr', 'important');
-      el.style.setProperty('gap', '0', 'important');
-      el.style.setProperty('width', '100%', 'important');
-      el.style.setProperty('max-width', '100%', 'important');
-      el.style.setProperty('margin-left', '0', 'important');
-      el.style.setProperty('padding-left', '0', 'important');
-    });
-    // 본문 영역 — 사이드바 외 자식들 width 강제
-    document.querySelectorAll('.admin-layout > div').forEach(function(el){
-      if (el.classList.contains('admin-sidebar') || el.id === 'admin-sidebar') return;
-      el.style.setProperty('width', '100%', 'important');
-      el.style.setProperty('max-width', '100%', 'important');
-      el.style.setProperty('margin-left', '0', 'important');
-      el.style.setProperty('padding-left', '12px', 'important');
-      el.style.setProperty('padding-right', '12px', 'important');
-      el.style.setProperty('box-sizing', 'border-box', 'important');
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', forceFullWidth);
-  else forceFullWidth();
-  setTimeout(forceFullWidth, 600);
-  setTimeout(forceFullWidth, 1500);
-  // 사이드바 토글 시에도 본문 100% 유지
-  var origClose = window.ph134Close;
-  if (typeof origClose === 'function') {
-    window.ph134Close = function(){
-      try { origClose(); } catch(e){}
-      forceFullWidth();
-    };
-  }
-  // 화면 회전 시
-  window.addEventListener('resize', forceFullWidth);
-  console.log('[ph140] 본문 100% 강제 풀폭 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 141 (2026-05-28) — 사이드바 자동 hover/auto-hide + 20vw
-     · 햄버거 ☰ / ✕ 닫기 버튼 모두 숨김
-     · 좌측 가장자리 14px 핫존 — 탭하면 사이드바 펼침
-     · 본문 탭 / 3초 무동작 시 자동 닫힘
-     · 너비 20vw (min 160px max 240px)
-     · 메뉴 선택 시 0.2초 후 자동 닫힘
-     ============================================================ -->
-
-
-<!-- 좌측 핫존 + 시각 인디케이터 -->
-<div id="ph141-edge" aria-hidden="true"></div>
-<div id="ph141-edge-indicator" aria-hidden="true" title="여기 탭하면 메뉴 열림"></div>
-
-<script src="/js/adm-r30.js?v=1" defer></script><!-- 분할추출:adm-r30 -->
-
-
-<!-- ============================================================
-     Phase 142 (2026-05-28) — 🎯 단일 깨끗한 사이드바 토글 (FINAL)
-     · 이전 ph134~141 모든 핸들러 비활성
-     · 좌상단 단일 노란 ☰ 버튼 — 탭 = 열림, 다시 탭 = 닫힘
-     · inline style 로 transform 직접 조작 (모든 CSS override 무력화)
-     · 본문 탭 시 즉시 닫힘
-     · 사이드바 너비 20vw
-     ============================================================ -->
-
-
-<!-- 단일 토글 버튼 + 오버레이 -->
-<button type="button" id="ph142-toggle" aria-label="메뉴 열기/닫기">☰</button>
-<div id="ph142-overlay" aria-hidden="true"></div>
-
-<script src="/js/adm-s16.js?v=1" defer></script><!-- 분할추출:adm-s16 -->
-
-
-<!-- ============================================================
-     Phase 144 (2026-05-28) — 🎯 깨끗한 사이드바 토글 (FINAL FINAL)
-     · 이전 ph134/138/141/143 의 모든 버튼/핸들 비활성
-     · ph142 의 ☰ 노란 버튼만 살림 (가장 직관적)
-     · 사이드바 너비 25vw / 최대 220px
-     ============================================================ -->
-
-<script id="ph144-cleanup-js">
-(function(){
-  'use strict';
-  // 페이지 로드 시 ph143 잔여 element 강제 제거
-  function removeOld(){
-    ['ph143-handle','ph134-hamburger','ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator'].forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) { el.style.display = 'none'; el.remove && el.remove(); }
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', removeOld);
-  else removeOld();
-  setTimeout(removeOld, 500);
-  setTimeout(removeOld, 1500);
-  console.log('[ph144] 정리 완료 — ph142 노란 ☰ 버튼만 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 145 (2026-05-28) — 사이드바 완전 숨김 강제 + blur 제거
-     · 사이드바 닫힘 상태 = visibility:hidden + opacity:0 + display:none
-     · backdrop-filter 제거 (본문 흐림 방지)
-     · setInterval 로 0.5초마다 inline style 재주입
-     ============================================================ -->
-
-
-<script id="ph145-final-js">
-(function(){
-  'use strict';
-  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
-
-  function forceHide(){
-    if (!isMobile()) return;
-    var sb = document.getElementById('admin-sidebar') || document.querySelector('.admin-sidebar');
-    if (!sb) return;
-    var open = document.body.classList.contains('ph142-open');
-    if (open) {
-      sb.style.setProperty('visibility', 'visible', 'important');
-      sb.style.setProperty('opacity', '1', 'important');
-      sb.style.setProperty('pointer-events', 'auto', 'important');
-      sb.style.setProperty('display', 'block', 'important');
-      sb.style.setProperty('transform', 'translateX(0)', 'important');
-    } else {
-      sb.style.setProperty('visibility', 'hidden', 'important');
-      sb.style.setProperty('opacity', '0', 'important');
-      sb.style.setProperty('pointer-events', 'none', 'important');
-      sb.style.setProperty('display', 'none', 'important');
-      sb.style.setProperty('transform', 'translateX(-100%)', 'important');
-    }
-  }
-
-  // 페이지 로드 시
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', forceHide);
-  else forceHide();
-
-  // body class 변경 감지
-  try {
-    new MutationObserver(forceHide).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  } catch(e){}
-
-  // 0.5초마다 강제 (안전망)
-  setInterval(forceHide, 500);
-
-  // 리사이즈
-  window.addEventListener('resize', forceHide);
-
-  console.log('[ph145] 사이드바 완전 숨김 강제 + blur 제거 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 146 (2026-05-28) — 좌상단 사용자 정보 모달 강제 숨김
-     · #topUserBtn/Popup, ph114 user-fab/modal, admin-session-banner 모두 숨김
-     · 모바일에서만 적용 (데스크탑은 그대로)
-     ============================================================ -->
-
-<script id="ph146-hide-user-modal-js">
-(function(){
-  'use strict';
-  function hideUserModals(){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    var ids = [
-      'topUserBtn','topUserPopup',
-      'ph114-user-fab','ph114-modal','ph114-modal-overlay',
-      'ph111-modal','ph111-modal-overlay',
-      'admin-session-banner'
-    ];
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) {
-        el.style.setProperty('display','none','important');
-        el.style.setProperty('visibility','hidden','important');
-      }
-    });
-    document.querySelectorAll('.th-user, .th-user-popup, .user-info-modal, .user-dropdown').forEach(function(el){
-      el.style.setProperty('display','none','important');
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hideUserModals);
-  else hideUserModals();
-  setInterval(hideUserModals, 500);
-  console.log('[ph146] 좌상단 사용자 모달 모두 숨김 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 147 (2026-05-28) — 모바일 사이드바·☰ 토글 모두 영구 제거
-     · 모바일에서 사이드바 자체 완전 제거 (display:none + remove)
-     · ☰ 토글, ✕ 닫기 버튼, 모든 핸들, 오버레이 모두 제거
-     · 본문만 100% 풀폭으로 화면 가득
-     ============================================================ -->
-
-<script id="ph147-mobile-remove-js">
-(function(){
-  'use strict';
-  function nukeAll(){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    var ids = ['admin-sidebar','ph142-toggle','ph142-overlay','ph134-hamburger','ph134-overlay',
-               'ph138-close-btn','ph135-pin-btn','ph141-edge','ph141-edge-indicator','ph143-handle'];
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) {
-        el.style.setProperty('display','none','important');
-        el.style.setProperty('visibility','hidden','important');
-        // DOM 에서 완전히 제거 — 단 한 번만 안전하게
-        try { el.remove && el.remove(); } catch(e){}
-      }
-    });
-    document.querySelectorAll('.admin-sidebar, aside.admin-sidebar').forEach(function(el){
-      el.style.setProperty('display','none','important');
-      try { el.remove(); } catch(e){}
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nukeAll);
-  else nukeAll();
-  setTimeout(nukeAll, 300);
-  setTimeout(nukeAll, 1000);
-  setTimeout(nukeAll, 3000);
-  console.log('[ph147] 모바일 사이드바·☰ 토글 완전 제거 활성');
-})();
-</script>
-
-<!-- ============================================================
-     Phase 150 (2026-05-28) — 🎯 최종 깨끗한 통합 (mobile-sidebar-demo 패턴)
-     · ph134~148 모든 잔여 element 강제 숨김
-     · 반투명 사이드바 + pointer-events:none 오버레이 (본문 그대로 사용)
-     · 단일 ☰ ↔ ✕ 토글 (좌상단 파란 동그라미)
-     ============================================================ -->
-
-
-<button id="ph150-toggle" type="button" aria-label="사이드바 열기/닫기">☰</button>
-<div id="ph150-overlay" aria-hidden="true"></div>
-
-<script id="ph150-final-js">
-(function(){
-  'use strict';
-  function isMobile(){ return window.matchMedia('(max-width: 920px)').matches; }
-
-  function setOpen(open){
-    var body = document.body;
-    var btn = document.getElementById('ph150-toggle');
-    if (open && isMobile()) {
-      body.classList.add('ph150-open');
-      if (btn){ btn.textContent = '✕'; btn.setAttribute('aria-label','사이드바 닫기'); }
-      console.log('[ph150] 사이드바 열림');
-    } else {
-      body.classList.remove('ph150-open');
-      if (btn){ btn.textContent = '☰'; btn.setAttribute('aria-label','사이드바 열기'); }
-      console.log('[ph150] 사이드바 닫힘');
-    }
-  }
-  function toggle(){
-    setOpen(!document.body.classList.contains('ph150-open'));
-  }
-  window.ph150Toggle = toggle;
-  window.ph150Open = function(){ setOpen(true); };
-  window.ph150Close = function(){ setOpen(false); };
-
-  // 토글 버튼 클릭
-  function bindToggle(){
-    var btn = document.getElementById('ph150-toggle');
-    if (!btn || btn.__ph150) return;
-    btn.__ph150 = true;
-    btn.addEventListener('click', function(e){
-      e.preventDefault(); e.stopPropagation(); toggle();
-    });
-  }
-
-  // 사이드바 안 메뉴 선택 시 자동 닫힘
-  function bindAutoClose(){
-    // ph153 수정 — 실제 메뉴가 든 #ph85-sidebar 에 바인딩 (admin-sidebar 는 ph147 이 제거함)
-    var sb = document.getElementById('ph85-sidebar')
-           || document.getElementById('admin-sidebar')
-           || document.querySelector('.admin-sidebar');
-    if (!sb || sb.__ph150) return;
-    sb.__ph150 = true;
-    sb.addEventListener('click', function(e){
-      if (!isMobile() || !document.body.classList.contains('ph150-open')) return;
-      // 아코디언 헤더(.ph85-head)는 펼침용 → 닫지 않음. 실제 메뉴 항목 클릭 시에만 닫음.
-      var leaf = e.target.closest('.ph85-sub, a[href], .sidebar-item, [data-menu-target]');
-      if (leaf) setTimeout(function(){ setOpen(false); }, 220);
-    });
-  }
-
-  // ESC 키
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape' && document.body.classList.contains('ph150-open')) setOpen(false);
-  });
-
-  // 화면 리사이즈
-  window.addEventListener('resize', function(){
-    if (!isMobile()) setOpen(false);
-  });
-
-  function init(){ bindToggle(); bindAutoClose(); setOpen(false); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-  setTimeout(init, 400);
-  setTimeout(init, 1200);
-
-  console.log('[ph150] 깨끗한 통합 사이드바 활성 — 반투명 + 본문 그대로 사용 가능');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 151 (2026-05-28) — ph85-sidebar + 본문 메뉴바 모두 모바일 숨김
-     · #ph85-sidebar (두 번째 사이드바) 숨김
-     · #ph85-toggle (메뉴 숨기기 버튼) 숨김
-     · .menu-toggle-bar (본문 hero 안의 모두 펼치기/접기) 숨김
-     · 본문 hero 의 ph85 관련 모든 inline element 숨김
-     ============================================================ -->
-
-<script id="ph151-hide-secondary-js">
-(function(){
-  'use strict';
-  function hide(){
-    if (!window.matchMedia('(max-width: 920px)').matches) return;
-    var ids = ['ph85-toggle','legacy-toggle']; // ph153 — ph85-sidebar 제외 (토글 대상)
-    ids.forEach(function(id){
-      var el = document.getElementById(id);
-      if (el) {
-        el.style.setProperty('display','none','important');
-        el.style.setProperty('visibility','hidden','important');
-      }
-    });
-    document.querySelectorAll('.menu-toggle-bar, .ph85-toggle-wrap, .sidebar-fixed-toggle, .ph85-brand-floating').forEach(function(el){
-      el.style.setProperty('display','none','important');
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hide);
-  else hide();
-  setTimeout(hide, 400);
-  setTimeout(hide, 1200);
-  setTimeout(hide, 3000);
-  console.log('[ph151] ph85-sidebar + menu-toggle-bar 모바일 숨김 활성');
-})();
-</script>
-
-
-<!-- ============================================================
-     Phase 152 (2026-05-28) — ph85-sidebar 를 토글 대상으로 변경
-     · admin-sidebar 는 비어있음 → 진짜 메뉴가 든 #ph85-sidebar 활용
-     · ph150 토글 (좌상단 ☰) 이 ph85-sidebar 슬라이드 인/아웃
-     · 빈 admin-sidebar 모바일 숨김 / ph85-sidebar 표시
-     ============================================================ -->
-<!-- 🍔 (2026-06) 관리자 모바일 사이드바 — 학생홈처럼 왼쪽 끝 중앙 ☰ 탭으로 여닫기. 옛 ph134/ph135/ph150/ph152 등 충돌 시스템 정리 -->
-
-<button id="mga-tab" type="button" aria-label="메뉴 열기/닫기" onclick="window.mgaToggle&&window.mgaToggle()"><span id="mga-tab-ico">☰</span></button>
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     🍔 (2026-08-16 사장님 요청 ①②③) 모바일 관리자 사이드바 v2
+     ═══════════════════════════════════════════════════════════════════
+     ① 손잡이(왼쪽 가운데 세로 탭)를 없애고 **왼쪽 맨 위 «줄 3개»** 하나로.
+        옛 #mga-tab 은 본문 위에 떠서 글자를 가리고, 스크롤하다 잘못 눌렸다.
+        ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다 — 글꼴에 따라 굵기가
+           제멋대로 달라지고 Win10 에서는 두부(□)로 나온다.
+     ② 사이드바가 화면을 **100% 덮는다**(가로 100% · 세로 100dvh). CSS 쪽 담당.
+        옛 값은 282px / 82vw 라 오른쪽에 본문이 18% 남아 눈에 걸렸다.
+     ③ 시계(한국·필리핀)를 **사이드바 맨 위 붙박이**로. 옛 떠다니는 캡슐은
+        사이드바 하단의 «진단 / EN / 계정» 도크를 정확히 덮고 있었다.
+        → 모바일에서는 mango-worldclock.js 를 아예 재우고(자체 중복가드 이용)
+          여기서 사이드바 안에 직접 그린다. 타이머 1개, 화면 가려지면 멈춤.
+
+     [호환] window.mgaOpen / mgaClose / mgaToggle 이름은 그대로 둔다 —
+       adm-s11.js(ph97) · adm-ia6.js · 사이드바 안 여러 onclick 이 이 이름을 부른다.
+     ═══════════════════════════════════════════════════════════════════ -->
+
+<button id="mgv2-burger" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="ph85-sidebar"
+        onclick="window.mgaToggle&&window.mgaToggle()"><i aria-hidden="true"></i></button>
 <div id="mga-overlay" onclick="window.mgaClose&&window.mgaClose()" aria-hidden="true"></div>
+
 <script id="mga-drawer-js">
 (function(){
-  function ico(){ var s=document.getElementById('mga-tab-ico'); if(s) s.textContent = document.body.classList.contains('mga-open') ? '✕' : '☰'; }
-  window.mgaOpen = function(){ document.body.classList.add('mga-open'); ico(); };
-  // 🛠 (fix 2026-06-10) 닫기 = mga-open + 옛 드로어 시스템(ph134/ph150/ph142/ph152) open 클래스까지 모두 제거.
-  //   어떤 ✕/오버레이/ESC 로도 확실히 닫히도록 (시스템 충돌로 사이드바가 안 닫히던 버그 수정)
-  window.mgaClose = function(){
-    document.body.classList.remove('mga-open','ph134-sidebar-open','ph150-open','ph142-open','ph152-open');
-    var sb = document.getElementById('ph85-sidebar');
-    if (sb) sb.classList.remove('open','is-open','ph134-sidebar-open');
-    ico();
+  'use strict';
+  var BP = '(max-width: 1023px)';
+  function isMobile(){ return window.matchMedia(BP).matches; }
+  function burger(){ return document.getElementById('mgv2-burger'); }
+
+  function paint(){
+    var open = document.body.classList.contains('mga-open');
+    var b = burger();
+    if (b) {
+      b.classList.toggle('is-open', open);
+      b.setAttribute('aria-expanded', open ? 'true' : 'false');
+      b.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+    }
+  }
+
+  window.mgaOpen = function(){
+    document.body.classList.add('mga-open');
+    paint();
+    // 열 때마다 시계를 즉시 맞춘다 — 닫혀 있는 동안은 멈춰 있으므로
+    if (window.__mgv2ClockSync) window.__mgv2ClockSync();
   };
-  window.mgaToggle = function(){ if (document.body.classList.contains('mga-open')) { window.mgaClose(); } else { window.mgaOpen(); } };
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape') window.mgaClose(); });
-  document.addEventListener('click', function(e){
-    if(!document.body.classList.contains('mga-open')) return;
-    if(e.target.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar a[href]')) setTimeout(window.mgaClose, 80);
+  window.mgaClose = function(){
+    document.body.classList.remove('mga-open');
+    var sb = document.getElementById('ph85-sidebar');
+    if (sb) sb.classList.remove('open','is-open');
+    paint();
+  };
+  window.mgaToggle = function(){
+    document.body.classList.contains('mga-open') ? window.mgaClose() : window.mgaOpen();
+  };
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && document.body.classList.contains('mga-open')) window.mgaClose();
+  });
+
+  /* 🔒 안전망 — 메뉴 항목을 눌렀는데 어떤 이유로든 안 닫히면 화면이 통째로 막힌다.
+     정상 경로는 adm-s11.js(ph97) 가 이동과 함께 닫는 것이다. 여기는 «그게 안 왔을 때» 만
+     동작한다(120ms 뒤에도 열려 있으면 닫는다).
+     ⚠️ 반드시 pointerdown 이다. click 으로 걸면 ph97 이 window 캡처에서
+        stopPropagation 을 하기 때문에 document 까지 내려오지 못한다 — 2026-06 부터
+        이 자리의 자동닫기가 한 번도 실행되지 않은 이유가 바로 그것이었다(실측 확인). */
+  document.addEventListener('pointerdown', function(e){
+    if (!isMobile() || !document.body.classList.contains('mga-open')) return;
+    var t = e.target;
+    if (!t || !t.closest) return;
+    // 아코디언 헤더·검색창·계정 도크는 «펼치려고» 누르는 것이라 닫지 않는다
+    /* ⚠️ #ph86-actions(모두 펼치기/접기)를 따로 적어 둔다 — 2026-08-17 부터 이 버튼줄은
+          .ph85-search-wrap «밖» 에 붙는다(위 3) 주석 참조). 예전엔 wrap 안이라 이 목록에
+          자동으로 걸렸는데, 이제는 이름을 명시해야 «펼치기를 눌렀는데 메뉴가 닫히는» 일이 없다. */
+    if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
+    if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
+    setTimeout(function(){
+      if (document.body.classList.contains('mga-open')) window.mgaClose();
+    }, 120);
   }, true);
+
+  // 가로로 눕히거나 태블릿 폭이 되면 드로어 상태를 남기지 않는다
+  window.addEventListener('resize', function(){
+    if (!isMobile() && document.body.classList.contains('mga-open')) window.mgaClose();
+  });
+
+  paint();
+})();
+</script>
+
+<!-- ③ 시계 — 사이드바 맨 위. #ph85-sidebar 의 첫 자식으로 옮겨 붙인다.
+     사이드바 마크업(ph85)은 이 파일 위쪽에 있어 손대면 데스크톱까지 흔들린다.
+     그래서 «만들어서 맨 앞에 끼우는» 방식으로 데스크톱 마크업을 건드리지 않는다. -->
+<script id="mgv2-clock-js">
+(function(){
+  'use strict';
+  /* 🖥 (2026-08-17) 여기 «데스크톱은 기존 플로팅 시계 그대로» 라는 조기 return 이 있었다.
+     사장님이 「왜 아직도 시간과 날씨가 사이드바 위에 안 뜨나」 하신 원인이다 —
+     PC 에서는 시계 요소를 아예 만들지 않았다. 그런데 그 «기존 플로팅 시계» 는
+     position:fixed 로 y≈896 에 박혀 있어서 창 높이 900px 이면 화면 밖이었다(실측).
+     즉 PC 사용자는 사실상 시계를 못 보고 있었다. 이제 모바일·PC 둘 다 사이드바에 넣는다. */
+  function isNarrow(){ return window.matchMedia('(max-width: 1023px)').matches; }
+
+  /* 떠다니는 시계(mango-worldclock.js)를 «로드되기 전에» 재운다.
+     그 파일의 맨 첫 줄이 `if (window.__mangoWorldClock) return;` 이라
+     이 한 줄이면 스크립트가 통째로 아무 일도 안 한다 — 타이머도 안 생긴다.
+     ⚠️ mango-worldclock.js 자체는 건드리지 않는다. index.html·parent.html 이 함께 쓴다. */
+  window.__mangoWorldClock = true;
+
+  var KR = 'Asia/Seoul', PH = 'Asia/Manila', timer = 0, el = null;
+
+  function build(){
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar || document.getElementById('mgv2-clock')) return false;
+    el = document.createElement('div');
+    el.id = 'mgv2-clock';
+    el.setAttribute('aria-label', '한국 시간 · 필리핀 시간');
+    el.innerHTML =
+      '<div class="mgv2-c"><div class="mgv2-l">한국 KR</div><div class="mgv2-t" id="mgv2-kr">--:--:--</div><div class="mgv2-d" id="mgv2-krd">&nbsp;</div></div>' +
+      '<div class="mgv2-c"><div class="mgv2-l">필리핀 PH</div><div class="mgv2-t" id="mgv2-ph">--:--:--</div><div class="mgv2-d" id="mgv2-phd">&nbsp;</div></div>';
+    bar.insertBefore(el, bar.firstChild);
+    return true;
+  }
+
+  function two(n){ return n < 10 ? '0' + n : '' + n; }
+  function parts(tz, now){
+    var o = {};
+    try {
+      new Intl.DateTimeFormat('ko-KR', { timeZone: tz, hour12: false,
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        month: 'numeric', day: 'numeric', weekday: 'short' })
+        .formatToParts(now).forEach(function(p){ o[p.type] = p.value; });
+    } catch (e) { return { t: '--:--:--', d: '' }; }
+    return { t: two(+o.hour % 24) + ':' + o.minute + ':' + o.second,
+             d: o.month + '/' + o.day + ' (' + o.weekday + ')' };
+  }
+  function set(id, v){ var n = document.getElementById(id); if (n) n.textContent = v; }
+  function tick(){
+    var now = new Date(), kr = parts(KR, now), ph = parts(PH, now);
+    set('mgv2-kr', kr.t); set('mgv2-krd', kr.d);
+    set('mgv2-ph', ph.t); set('mgv2-phd', ph.d);
+  }
+
+  /* ⚠️ 이 페이지에서 우리가 만드는 유일한 반복 타이머다.
+     ①안 보일 때 ②다른 앱·탭으로 넘어갔을 때는 멈춘다 — 안 보이는 시계를
+     1초마다 다시 그리는 것은 배터리와 발열만 먹는다. 보이게 되면 즉시 맞춘다.
+     «안 보일 때» 의 뜻이 화면 폭마다 다르다 —
+       좁은 화면: 시계가 드로어 «안» 에 있으니 드로어가 닫히면 안 보인다.
+       PC       : 사이드바가 늘 펼쳐져 있으니 탭이 살아 있으면 늘 보인다. */
+  function shouldRun(){
+    if (document.hidden) return false;
+    return isNarrow() ? document.body.classList.contains('mga-open') : true;
+  }
+  function sync(){
+    tick();
+    if (timer) { clearInterval(timer); timer = 0; }
+    if (shouldRun()) timer = setInterval(tick, 1000);
+  }
+  window.__mgv2ClockSync = sync;
+
+  function start(){
+    if (!build()) { setTimeout(start, 300); return; }
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    /* 폭이 1024px 경계를 넘나들면 «보이는 조건» 이 달라진다(위 shouldRun 주석).
+       창 크기 조절·기기 회전 때 타이머가 어긋나지 않게 다시 판정한다.
+       ⚠️ resize 는 드래그 중 초당 수십 번 온다 — 반드시 묶어서 한 번만 돈다. */
+    var rz = 0;
+    window.addEventListener('resize', function(){
+      if (rz) return;
+      rz = setTimeout(function(){ rz = 0; sync(); }, 300);
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
 </script>
 <!-- 🔒 (2026-06) 대시보드 — 무조건 경영진(exec)·관리자(mgr) 전용 강제 숨김 (매트릭스/PERMS 무관) -->
@@ -12054,7 +11765,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 })();
 </script>
 <!-- 🥭 P3 — AI 운영 비서 대화 패널 (ai-command 연결 · 한/영 이중언어 · 가산적/비파괴 · mi-asst-) -->
-<script src="/js/adm-p2.js?v=5" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p2.js?v=6" defer></script><!-- 분할추출:adm-p2 (원복: 이 위치에 인라인) · v=6: 2026-08-16 AI 비서 얼굴 영상 preload=none (첫 로딩 750KB 절약) -->
 
 <!-- 🎥 AI 운영비서 영상 메시지 — 클릭 시 fade-in → 말하기 → fade-out (자동재생, 🔇 무음 / ❌ 닫기) -->
 
@@ -12306,7 +12017,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ═══════════════════════════════════════════════════════════════════════ -->
 
 <script src="/js/adm-p1.js?v=1" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
-<script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복 -->
+<!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복.
+     🪶 (2026-08-16) 모바일에서는 **아예 내려받지 않는다.** 시계는 사이드바 맨 위로
+       옮겼고(요청 ③), 이 파일은 로드돼 봐야 위쪽 mgv2-clock-js 가 세워 둔
+       중복가드에 걸려 아무 일도 안 한다 — 받을 이유가 없다. 요청 하나·파싱 하나가 준다.
+     ⚠️ 파일 자체는 그대로다. PC 는 예전처럼 떠다니는 시계를 쓴다. -->
+<script>
+(function(){
+  if (window.matchMedia('(max-width: 1023px)').matches) return;   // 모바일 = 안 받음
+  var s = document.createElement('script');
+  s.src = '/js/mango-worldclock.js?v=7';
+  s.defer = true;
+  s.setAttribute('data-clock-go', '/');
+  document.head.appendChild(s);
+})();
+</script>
 <!-- 📱 (2026-07-09) 모바일 마감 보정 — 좁은 화면에서 차트카드 삐져나감·표 잘림 방지(표는 가로 스크롤로 전환). 빼면 즉시 원복 -->
 
 
@@ -12329,10 +12054,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
-<script src="/js/adm-welcome.js?v=7" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=8" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<script src="/js/adm-ia6.js?v=22" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 — 맨 위 「메뉴 지도」와 중복) -->
+<!-- v=24 — adm-ia6.js 버전 충돌은 이번이 세 번째다(v20↔21, v22↔23, 그리고 여기).
+     양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
+     규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
+     파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
+<script src="/js/adm-ia6.js?v=24" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
@@ -12421,18 +12150,43 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script>
 (function(){
   "use strict";
+  /* ⚠️ 대기가 0건이어도 **입구는 늘 보여 준다.**
+     처음엔 «0건이면 그리지 않는다» 였는데, 그러면 한국 본사(대표·담당)가 결재를
+     **올리러** 들어갈 방법이 화면에 없다 — 주소를 외워야 한다.
+     이 프로젝트가 없애려던 «찾아 들어가야 한다» 가 그대로 되살아난다.
+     대신 0건일 때는 조용한 회색으로 두어 «알림» 이 아니라 «메뉴» 로 읽히게 한다. */
+  /* ⚠️ 오른쪽 아래에 «떠 있게» 두지 않는다 — 그 자리는 이미 「AI 운영비서」 버튼과
+     상담원 아바타가 차지하고 있어서 그 뒤에 가려진다(2026-08-17 사장님 화면에서 확인).
+     대신 본문 **맨 위**(자주 쓰는 기능 바로 위)에 한 줄로 끼워 넣는다.
+     흐름 안에 있으므로 무엇에도 가려지지 않고, 눈이 처음 닿는 자리다. */
   function draw(n, late){
-    if (!n) return;
     if (document.getElementById('mi-appr-badge')) return;
     var ko = (localStorage.getItem('mangoi_lang') !== 'en');
+    var label = n
+      ? (ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late + '건') : '') + ' — 지금 처리하기')
+            : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : '') + ' — open'))
+      : (ko ? '결재함 열기 — 올리기 · 지난 결재 보기' : 'Open approvals — submit or review');
+
     var a = document.createElement('a');
     a.id = 'mi-appr-badge';
     a.href = '/work';
-    a.textContent = ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late) : ''))
-                       : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : ''));
+    a.textContent = label;
+
+    var anchor = document.getElementById('ph161-quick');   // 「자주 쓰는 기능」 = 본문 맨 위 블록
+    if (anchor && anchor.parentNode) {
+      a.style.cssText =
+        'display:block;margin:0 0 12px;padding:14px 18px;border-radius:12px;text-decoration:none;' +
+        'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#e8eef4')) + ';' +
+        'color:' + (n || late ? '#fff' : '#2f3d4d') + ';' +
+        'border:1px solid ' + (n || late ? 'transparent' : '#ccd7e2') + ';' +
+        'font:700 15px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;';
+      anchor.parentNode.insertBefore(a, anchor);
+      return;
+    }
+    // 앵커를 못 찾으면(레이아웃이 바뀐 경우) 예전처럼 떠 있는 버튼으로 — 아주 안 보이는 것보다는 낫다.
     a.style.cssText =
-      'position:fixed;right:16px;bottom:16px;z-index:9999;' +
-      'background:' + (late ? '#a4341f' : '#0b6e63') + ';color:#fff;' +
+      'position:fixed;right:16px;bottom:150px;z-index:9999;' +
+      'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#5a6873')) + ';color:#fff;' +
       'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;' +
       'padding:12px 16px;border-radius:22px;text-decoration:none;' +
       'box-shadow:0 2px 10px rgba(0,0,0,.25)';

@@ -1,0 +1,625 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>망고아이 · 모바일 관리자 사이드바 v2 (샘플)</title>
+<meta name="theme-color" content="#0f172a">
+<meta name="robots" content="noindex">
+<!-- 한자 글꼴 정의 — 이름만 적고 정의가 없으면 브라우저가 조용히 무시한다
+     (hanzi_font_harness 가 감시하는 «3차 재발» 경로). 이 화면엔 한자가 없어
+     unicode-range 때문에 파일은 안 받는다. -->
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  모바일 관리자 사이드바 v2 — 제안 샘플 (2026-08-16)
+
+  이 파일은 «제안서에 딸린 시연용 샘플» 입니다. 실서비스 admin.html 은 건드리지
+  않았습니다. 여기서 확인하고 승인이 나면 그때 옮깁니다.
+
+  이 샘플이 증명하는 것 4가지
+    ① 손잡이(#mga-tab) 없음 → 왼쪽 맨 위 ☰ 하나로 여닫는다
+    ② 열리면 화면을 100% 덮는다 (왼쪽 끝 ~ 오른쪽 끝, 위 ~ 아래)
+    ③ 시계(한국/필리핀)가 사이드바 맨 위에 붙어 있다 (떠다니지 않는다)
+    ④ 자식·손자 메뉴를 누르면 그 화면이 «정확히 맨 위» 에 오고 «열린 채» 로 끝난다
+
+  기술적으로 지킨 것
+    · setInterval 은 시계 1개뿐. 화면이 안 보이면(탭 전환) 그것도 멈춘다.
+    · 애니메이션은 transform/opacity 만 — 레이아웃 재계산이 없어 안 끊긴다.
+    · 스크롤 이동은 «재서 → 맞추고 → 다시 재서 → 어긋나면 한 번 더» 방식이라
+      카드 높이·주소창 높이가 달라도 오차가 남지 않는다.
+    · 외부 라이브러리 0개. 이 파일 하나로 끝난다.
+  ═══════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  /* ── 기본 ─────────────────────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --appbar-h: 54px;
+    --ink: #0f172a;
+    --paper: #f4f6fb;
+    --card: #ffffff;
+    --line: #dbe2ef;
+    --muted: #5b6b7f;
+    --brand: #f59e0b;
+    --brand-ink: #92400e;
+    --drawer-bg: #101a2e;
+    --drawer-ink: #e8eefc;
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    /* MangoiHanSC 를 맨 앞에 — 한자 글꼴 통일 규칙(2026-08-04 사장님 지시,
+       test-harness/hanzi_font_harness.mjs 가 감시). 이 화면에는 한자가 없으므로
+       unicode-range 덕분에 폰트 파일은 실제로 내려받지 않는다(비용 0). */
+    font-family: MangoiHanSC, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    font-size: 15px; line-height: 1.5;
+    /* 주소창이 접혔다 폈다 해도 100% 가 흔들리지 않게 */
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
+  }
+  body.drawer-open { overflow: hidden; }
+  button { font: inherit; color: inherit; }
+
+  /* ── ① 상단바 : 왼쪽 맨 위 ☰ 하나 ───────────────────────────────────── */
+  .appbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    height: calc(var(--appbar-h) + var(--safe-t)); padding-top: var(--safe-t);
+    display: flex; align-items: center; gap: 10px; padding-left: 6px; padding-right: 12px;
+    background: rgba(255,255,255,.86);
+    -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  /* ☰ = 진짜 «줄 3개». 글꼴에 따라 모양이 달라지는 문자 대신 직접 그린다 */
+  .burger {
+    width: 44px; height: 44px; flex: none; display: grid; place-items: center;
+    background: none; border: 0; border-radius: 12px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .burger:active { background: rgba(15,23,42,.08); }
+  .burger i {
+    display: block; width: 21px; height: 2px; border-radius: 2px; background: var(--ink);
+    position: relative;
+  }
+  .burger i::before, .burger i::after {
+    content: ""; position: absolute; left: 0; width: 21px; height: 2px; border-radius: 2px; background: var(--ink);
+  }
+  .burger i::before { top: -7px; } .burger i::after { top: 7px; }
+
+  .crumb { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: var(--muted); }
+  .crumb b { color: var(--ink); }
+  .crumb span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .appbar-clock {
+    flex: none; font-size: 11px; font-weight: 700; text-align: right; color: var(--muted);
+    font-variant-numeric: tabular-nums; line-height: 1.25;
+  }
+
+  /* ── 본문 ─────────────────────────────────────────────────────────────── */
+  main { padding: calc(var(--appbar-h) + var(--safe-t) + 12px) 12px calc(24px + var(--safe-b)); }
+  .hero {
+    background: linear-gradient(135deg, #1e293b, #0f172a); color: #e8eefc;
+    border-radius: 16px; padding: 16px 16px 18px; margin-bottom: 14px;
+  }
+  .hero h1 { margin: 0 0 6px; font-size: 18px; }
+  .hero p { margin: 0; font-size: 13px; opacity: .8; line-height: 1.55; }
+  .hero .try {
+    margin-top: 12px; display: inline-flex; align-items: center; gap: 7px;
+    background: var(--brand); color: #3b2400; border: 0; border-radius: 999px;
+    padding: 9px 15px; font-size: 13px; font-weight: 800; cursor: pointer;
+  }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    margin: 0 0 10px; overflow: hidden;
+    /* 화면 밖 카드는 브라우저가 그리지 않는다 = 스크롤이 가벼워진다 */
+    content-visibility: auto; contain-intrinsic-size: auto 120px;
+    /* ④ 정확한 도착의 핵심 — 상단바에 가려지지 않게 «자기 위 여백» 을 스스로 안다 */
+    scroll-margin-top: calc(var(--appbar-h) + var(--safe-t) + 10px);
+  }
+  .card > summary {
+    list-style: none; cursor: pointer; padding: 13px 14px;
+    display: flex; align-items: center; gap: 9px; font-weight: 800; font-size: 14.5px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card > summary::-webkit-details-marker { display: none; }
+  .card > summary .chev { margin-left: auto; color: var(--muted); transition: transform .18s; }
+  .card[open] > summary .chev { transform: rotate(90deg); }
+  .card > summary .tag {
+    font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 999px;
+    background: #eef2ff; color: #3730a3;
+  }
+  .card .body { padding: 0 14px 14px; font-size: 13.5px; color: #33415c; }
+  .card .row {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding: 9px 0; border-top: 1px dashed var(--line);
+  }
+  .card .row b { font-weight: 700; }
+  .card .row span { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* 도착 표시 — 2초간 테두리만 밝아진다(크기·위치는 절대 안 움직인다) */
+  .card.landed { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(245,158,11,.28); }
+  .card.landed > summary { background: #fffbeb; }
+
+  #tail { height: 0; pointer-events: none; }
+
+  /* ── ② 사이드바 : 화면 100% ──────────────────────────────────────────── */
+  .scrim {
+    position: fixed; inset: 0; z-index: 49; background: rgba(2,6,18,.5);
+    opacity: 0; pointer-events: none; transition: opacity .22s ease;
+  }
+  body.drawer-open .scrim { opacity: 1; pointer-events: auto; }
+
+  #drawer {
+    position: fixed; top: 0; left: 0; z-index: 50;
+    width: 100%; height: 100dvh;              /* ← 왼쪽 끝 ~ 오른쪽 끝, 100% */
+    display: flex; flex-direction: column;
+    background: var(--drawer-bg); color: var(--drawer-ink);
+    transform: translateX(-100%);
+    transition: transform .26s cubic-bezier(.32,.72,0,1);
+    will-change: transform;
+    visibility: hidden;
+  }
+  body.drawer-open #drawer { transform: translateX(0); visibility: visible; }
+  /* 태블릿·PC 는 굳이 100% 로 덮지 않는다 — 옆 화면을 보면서 쓰는 게 낫다 */
+  @media (min-width: 720px) { #drawer { width: 380px; box-shadow: 8px 0 40px rgba(0,0,0,.5); } }
+
+  /* ③ 시계 — 사이드바 맨 위 고정 (떠다니지 않는다) */
+  .dr-top {
+    flex: none; padding: calc(10px + var(--safe-t)) 12px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.10);
+    background: rgba(255,255,255,.03);
+  }
+  .dr-clock {
+    display: flex; gap: 8px; margin-bottom: 10px;
+  }
+  .dr-clock .c {
+    flex: 1; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
+    border-radius: 11px; padding: 7px 10px;
+  }
+  .dr-clock .c .lbl { font-size: 10.5px; font-weight: 700; opacity: .65; letter-spacing: .2px; }
+  .dr-clock .c .t {
+    font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .4px;
+    line-height: 1.25;
+  }
+  .dr-clock .c .d { font-size: 10px; opacity: .5; }
+  .dr-head { display: flex; align-items: center; gap: 9px; }
+  .dr-head .logo {
+    width: 30px; height: 30px; flex: none; border-radius: 9px;
+    background: linear-gradient(135deg, #fbbf24, #ea8a04); display: grid; place-items: center;
+    font-size: 16px;
+  }
+  .dr-head .name { font-weight: 800; font-size: 15px; flex: 1; }
+  .dr-close {
+    width: 40px; height: 40px; flex: none; border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.06); color: inherit; border-radius: 11px;
+    font-size: 17px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .dr-close:active { background: rgba(255,255,255,.14); }
+
+  .dr-search { flex: none; padding: 10px 12px; }
+  .dr-search input {
+    width: 100%; height: 42px; padding: 0 12px; font-size: 15px;  /* 16px 미만이면 iOS 가 확대함 → 15px+높은 높이로 타협 */
+    border-radius: 11px; border: 1px solid rgba(255,255,255,.14);
+    background: rgba(255,255,255,.07); color: inherit;
+  }
+  .dr-search input::placeholder { color: rgba(232,238,252,.45); }
+
+  .dr-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 10px 14px; overscroll-behavior: contain; }
+
+  .g { margin-bottom: 6px; }
+  .g-head {
+    width: 100%; display: flex; align-items: center; gap: 10px;
+    min-height: 52px; padding: 8px 12px;                 /* 손가락 최소 48px */
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px; cursor: pointer; text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .g.open > .g-head { background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.34); color: #fde68a; }
+  .g-head .ico { width: 20px; height: 20px; flex: none; opacity: .9; }
+  .g-head .t { flex: 1; font-weight: 800; font-size: 14.5px; }
+  .g-head .n {
+    font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+    background: rgba(255,255,255,.12);
+  }
+  .g-head .ar { opacity: .55; transition: transform .18s; }
+  .g.open > .g-head .ar { transform: rotate(90deg); }
+
+  /* 아코디언은 height 애니메이션을 쓰지 않는다 — 저사양 폰에서 그게 제일 잘 끊긴다 */
+  .g-items { display: none; padding: 4px 0 6px 6px; }
+  .g.open > .g-items { display: block; }
+
+  .it-head, .leaf {
+    width: 100%; display: flex; align-items: center; gap: 9px;
+    min-height: 46px; padding: 7px 11px; margin: 2px 0;
+    background: none; border: 0; border-radius: 10px; cursor: pointer; text-align: left;
+    color: inherit; -webkit-tap-highlight-color: transparent;
+  }
+  .it-head { font-weight: 700; font-size: 14px; }
+  .it-head:active, .leaf:active { background: rgba(255,255,255,.10); }
+  .it-head .ar { margin-left: auto; opacity: .5; font-size: 13px; transition: transform .18s; }
+  .it.open > .it-head { color: #fde68a; }
+  .it.open > .it-head .ar { transform: rotate(90deg); }
+  .it-subs { display: none; padding-left: 12px; margin-left: 8px; border-left: 1px solid rgba(255,255,255,.14); }
+  .it.open > .it-subs { display: block; }
+
+  .leaf { font-size: 13.5px; opacity: .92; }
+  .leaf::before {
+    content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none;
+    background: rgba(245,158,11,.75);
+  }
+  .leaf.current { background: rgba(245,158,11,.18); color: #fde68a; font-weight: 800; }
+
+  .dr-dock {
+    flex: none; display: flex; gap: 7px; padding: 10px 12px calc(10px + var(--safe-b));
+    border-top: 1px solid rgba(255,255,255,.10); background: rgba(0,0,0,.2);
+  }
+  .dr-dock button {
+    flex: 1; min-height: 44px; border-radius: 11px; font-size: 12.5px; font-weight: 700;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); color: inherit;
+    cursor: pointer;
+  }
+
+  .empty { padding: 24px 12px; text-align: center; font-size: 13px; opacity: .55; }
+
+  /* 손 떨림·저전력에서 애니메이션이 부담이면 브라우저가 알려준다 → 즉시 전환 */
+  @media (prefers-reduced-motion: reduce) {
+    #drawer, .scrim, .card > summary .chev, .g-head .ar, .it-head .ar { transition: none !important; }
+  }
+</style>
+
+<header class="appbar">
+  <!-- ① 왼쪽 맨 위 «줄 3개» — 이것 하나로 열고 닫는다. 손잡이는 없앴다 -->
+  <button class="burger" id="btn-menu" aria-label="메뉴 열기" aria-expanded="false" aria-controls="drawer"><i></i></button>
+  <div class="crumb"><span id="crumb">망고아이 관리 <b>· 대시보드</b></span></div>
+  <div class="appbar-clock" id="bar-clock" aria-hidden="true">--:--</div>
+</header>
+
+<main>
+  <div class="hero">
+    <h1>모바일 관리자 사이드바 v2 — 시연</h1>
+    <p>왼쪽 위 <b>줄 3개</b>를 누르면 메뉴가 화면을 꽉 채워 열립니다.
+       메뉴 → 자식 → 손자 순으로 누르면, 그 화면이 <b>정확히 맨 위</b>에 <b>펼쳐진 채</b>로 도착합니다.</p>
+    <button class="try" id="btn-try">메뉴 열어 보기</button>
+  </div>
+  <div id="cards"></div>
+  <!-- 마지막 카드도 «화면 맨 위» 까지 올라올 수 있게 모자란 만큼만 채우는 자리 -->
+  <div id="tail" aria-hidden="true"></div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+
+<nav id="drawer" aria-label="관리자 메뉴" aria-hidden="true">
+  <!-- ③ 시계 = 사이드바 맨 위. 화면 위를 떠다니며 버튼을 가리던 캡슐을 여기로 들여왔다 -->
+  <div class="dr-top">
+    <div class="dr-clock">
+      <div class="c"><div class="lbl">한국 KR</div><div class="t" id="clk-kr">--:--:--</div><div class="d" id="dat-kr">&nbsp;</div></div>
+      <div class="c"><div class="lbl">필리핀 PH</div><div class="t" id="clk-ph">--:--:--</div><div class="d" id="dat-ph">&nbsp;</div></div>
+    </div>
+    <div class="dr-head">
+      <div class="logo">&#127818;</div>
+      <div class="name">망고아이 관리</div>
+      <button class="dr-close" id="btn-close" aria-label="메뉴 닫기">&#10005;</button>
+    </div>
+  </div>
+
+  <div class="dr-search">
+    <input id="q" type="search" placeholder="메뉴 검색 (예: 출결, 급여)" autocomplete="off" enterkeyhint="search">
+  </div>
+
+  <div class="dr-body" id="menu"></div>
+
+  <div class="dr-dock">
+    <button type="button">진단</button>
+    <button type="button">EN</button>
+    <button type="button">정우영</button>
+  </div>
+</nav>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── 메뉴 데이터 ─────────────────────────────────────────────────────────
+     실제 admin.html 의 adm-ia6.js 「6그룹 38항목」 구조 그대로 옮겼습니다.
+     subs 가 있으면 손자 메뉴, 없으면 그 항목이 곧 도착지입니다.               */
+  var NAV = [
+    { key: 'map', ko: '메뉴 지도', solo: true, ico: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z' },
+    { key: 'today', ko: '오늘', ico: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2', items: [
+      { ko: '오늘의 수업' },
+      { ko: '출결', subs: ['출결 현황', '자동 출결', '수업별 출결'] },
+      { ko: '장기 결석생' },
+      { ko: '수업 관찰', subs: ['몰래 참관', '귓속말 코칭'] },
+      { ko: '연기·변경' },
+      { ko: '방 초대' },
+      { ko: '신규상담' },
+      { ko: '버그·피드백' },
+      { ko: '알림함', subs: ['관리자 알림', '이벤트 알림'] }
+    ]},
+    { key: 'student', ko: '학생', ico: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 3a4 4 0 110 8 4 4 0 010-8', items: [
+      { ko: '학생 명부', subs: ['학생 명부', '학교별 출결 통계', '가족 관리'] },
+      { ko: '수강신청' },
+      { ko: '레벨테스트', subs: ['레벨테스트 신청', '레벨테스트 결과'] },
+      { ko: '상담 예약' },
+      { ko: '학부모 소통', subs: ['학부모 다이제스트', '학부모 FAQ 봇'] },
+      { ko: '커뮤니티·리워드', subs: ['커뮤니티', '졸업생', '추천인', '배지 관리'] }
+    ]},
+    { key: 'teacher', ko: '강사', ico: 'M22 10L12 5 2 10l10 5 10-5zM6 12v5c3 2 9 2 12 0v-5', items: [
+      { ko: '강사 명부', subs: ['강사 관리', 'MBTI', '강사 계정 연결', '강사 연락처'] },
+      { ko: '시간표·근무', subs: ['시간표', '근무·휴식·휴가', '자동 배정'] },
+      { ko: '수업 일지' },
+      { ko: '급여', subs: ['자동 급여', '급여 관리'] },
+      { ko: '강사 평가', subs: ['학생 수업 평가', '칭찬 통계', '강사 슈퍼바이저'] },
+      { ko: '품질·이력', subs: ['회선 품질', '수업 변경 이력', '보고서 양식', '노쇼 관리'] }
+    ]},
+    { key: 'lesson', ko: '수업·콘텐츠', ico: 'M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z', items: [
+      { ko: '평가서', subs: ['평가서 작성', '일괄 평가', 'AI 수업 리포트', 'AI 초안', '월별 리포트'] },
+      { ko: '교재', subs: ['교재 관리', '영상 사전'] },
+      { ko: '학습 콘텐츠', subs: ['복습 퀴즈', '마이크로러닝', '미니 토익', '발음 훈련', '음성 일기'] },
+      { ko: '숙제' },
+      { ko: '녹화' },
+      { ko: '학습 분석', subs: ['음성 통계', '자기평가 점수'] }
+    ]},
+    { key: 'money', ko: '정산·매출', ico: 'M2 5h20v14H2zM2 10h20', items: [
+      { ko: '회계' },
+      { ko: '결제', subs: ['B2B 결제', 'B2C 결제', '정기 결제', '자동 독촉'] },
+      { ko: '포인트' },
+      { ko: '지사 정산' },
+      { ko: '조직 (지사·대리점)' }
+    ]},
+    { key: 'ops', ko: '시스템', ico: 'M12 9a3 3 0 100 6 3 3 0 000-6zM19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-2.82 1.18V21a2 2 0 11-4 0v-.09A1.65 1.65 0 007.28 19.4l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 003.09 14H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 7.28l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 0010 3.09V3a2 2 0 114 0v.09a1.65 1.65 0 002.72 1.51l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0020.91 10H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z', items: [
+      { ko: '경영 지표', subs: ['통합 대시보드', 'KPI', '일별 차트', '랭킹', 'NPS'] },
+      { ko: '이탈·예측', subs: ['이탈 위험', 'AI 예측'] },
+      { ko: '공지 발송', subs: ['웹 푸시', '카카오 알림', '공지 스튜디오', '팝업 게시', '공지사항'] },
+      { ko: '자료실', subs: ['본사 자료실', '강사 자료실', '지사 자료실', '대리점 자료실', '학생 자료실'] },
+      { ko: '직원·권한', subs: ['권한 관리', '계정 목록'] },
+      { ko: '데이터·보관', subs: ['데이터 내보내기', '보관 정책', '갤러리', '교실 점검'] },
+      { ko: '사이트 구조도' }
+    ]}
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var body = document.body;
+
+  /* ── 도착지(카드) 를 메뉴에서 그대로 만든다 ────────────────────────────
+     메뉴 항목 하나에 카드 하나 — 그래서 «메뉴에는 있는데 갈 데가 없다» 가 구조적으로 안 생긴다. */
+  var DEST = [];   // {id, path:[그룹, 항목, 손자]}
+  NAV.forEach(function (g) {
+    if (g.solo) { DEST.push({ id: 'sec-' + g.key, path: [g.ko] }); return; }
+    g.items.forEach(function (it, i) {
+      if (it.subs && it.subs.length) {
+        it.subs.forEach(function (s, j) {
+          DEST.push({ id: 'sec-' + g.key + '-' + i + '-' + j, path: [g.ko, it.ko, s] });
+        });
+      } else {
+        DEST.push({ id: 'sec-' + g.key + '-' + i, path: [g.ko, it.ko] });
+      }
+    });
+  });
+
+  // 카드 본문 — 높이를 일부러 제각각으로 만든다(짧은 카드에서도 정확히 서는지 보려고)
+  function cardHTML(d, n) {
+    var rows = '', k = (n % 4) + 2;
+    for (var i = 0; i < k; i++) {
+      rows += '<div class="row"><b>' + ['진행 중', '대기', '완료', '보류', '검토'][i % 5] + ' 항목 ' + (i + 1) +
+              '</b><span>' + (12 + ((n * 7 + i * 13) % 180)) + '건</span></div>';
+    }
+    return '<details class="card" id="' + d.id + '">' +
+      '<summary><span class="tag">' + d.path[0] + '</span>' + d.path[d.path.length - 1] +
+      '<span class="chev">&#8250;</span></summary>' +
+      '<div class="body"><p style="margin:0 0 4px;color:#64748b">' +
+      d.path.join(' &#8250; ') + ' 화면입니다. 실제 관리자에서는 여기에 이 기능의 표와 버튼이 들어갑니다.</p>' +
+      rows + '</div></details>';
+  }
+  $('cards').innerHTML = DEST.map(cardHTML).join('');
+
+  /* ── 메뉴 그리기 ────────────────────────────────────────────────────── */
+  function svg(p) {
+    return '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ' +
+           'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + p + '"/></svg>';
+  }
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+  var html = '';
+  NAV.forEach(function (g) {
+    if (g.solo) {
+      html += '<div class="g"><button type="button" class="g-head" data-go="sec-' + g.key + '">' +
+              svg(g.ico) + '<span class="t">' + esc(g.ko) + '</span><span class="ar">&#8250;</span></button></div>';
+      return;
+    }
+    var n = 0;
+    g.items.forEach(function (it) { n += (it.subs && it.subs.length) ? it.subs.length : 1; });
+    html += '<div class="g" data-g="' + g.key + '">' +
+            '<button type="button" class="g-head" data-toggle="g">' + svg(g.ico) +
+            '<span class="t">' + esc(g.ko) + '</span><span class="n">' + n + '</span><span class="ar">&#8250;</span></button>' +
+            '<div class="g-items">';
+    g.items.forEach(function (it, i) {
+      if (it.subs && it.subs.length) {
+        html += '<div class="it"><button type="button" class="it-head" data-toggle="it">' +
+                esc(it.ko) + '<span class="ar">&#8250;</span></button><div class="it-subs">';
+        it.subs.forEach(function (s, j) {
+          html += '<button type="button" class="leaf" data-go="sec-' + g.key + '-' + i + '-' + j + '">' + esc(s) + '</button>';
+        });
+        html += '</div></div>';
+      } else {
+        html += '<button type="button" class="it-head" data-go="sec-' + g.key + '-' + i + '">' +
+                esc(it.ko) + '<span class="ar" style="opacity:.35">&#8250;</span></button>';
+      }
+    });
+    html += '</div></div>';
+  });
+  $('menu').innerHTML = html;
+
+  /* ── 여닫기 ────────────────────────────────────────────────────────────
+     닫을 때 스크롤 잠금을 «먼저» 푼다. 잠긴 채로 스크롤을 시키면
+     브라우저가 무시해 버려서 «눌렀는데 안 갔다» 가 된다 — 지금 관리자의 실제 증상. */
+  var lastY = 0;
+  function openDrawer() {
+    lastY = window.pageYOffset;
+    body.classList.add('drawer-open');
+    $('drawer').setAttribute('aria-hidden', 'false');
+    $('btn-menu').setAttribute('aria-expanded', 'true');
+  }
+  function closeDrawer() {
+    body.classList.remove('drawer-open');
+    $('drawer').setAttribute('aria-hidden', 'true');
+    $('btn-menu').setAttribute('aria-expanded', 'false');
+  }
+  function toggleDrawer() { body.classList.contains('drawer-open') ? closeDrawer() : openDrawer(); }
+
+  $('btn-menu').addEventListener('click', toggleDrawer);
+  $('btn-try').addEventListener('click', openDrawer);
+  $('btn-close').addEventListener('click', closeDrawer);
+  $('scrim').addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && body.classList.contains('drawer-open')) closeDrawer();
+  });
+
+  /* ── ④ 정확한 도착 ─────────────────────────────────────────────────────
+     ㄱ) 닫는다(스크롤 잠금 해제)
+     ㄴ) 목적지 카드를 «연다»
+     ㄷ) 마지막 카드도 맨 위까지 올라올 수 있도록 꼬리 여백을 필요한 만큼만 준다
+     ㄹ) 목표 지점을 계산해서 이동
+     ㅁ) 도착 후 다시 재서 2px 넘게 어긋났으면 한 번만 더 보정 (사진 로딩 등으로 밀렸을 때)   */
+  function appbarH() {
+    return $('cards') ? document.querySelector('.appbar').getBoundingClientRect().height : 54;
+  }
+
+  function fitTail(el) {
+    var tail = $('tail');
+    tail.style.height = '0px';
+    var want = window.pageYOffset + el.getBoundingClientRect().top - appbarH() - 10;
+    var maxY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    var lack = want - maxY;
+    tail.style.height = (lack > 0 ? Math.ceil(lack) + 8 : 0) + 'px';
+    return want;
+  }
+
+  var landedTimer = 0;
+  function go(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+
+    closeDrawer();                       // ㄱ
+
+    // ㄴ — 도착지는 «열린 채» 로 끝난다. 다른 카드는 접어 화면을 조용하게.
+    document.querySelectorAll('.card[open]').forEach(function (c) { if (c !== el) c.open = false; });
+    el.open = true;
+
+    var pass = 0;
+    function land() {
+      var want = fitTail(el);            // ㄷ + ㄹ
+      window.scrollTo({ top: Math.max(0, want), behavior: pass === 0 ? 'smooth' : 'auto' });
+      pass++;
+      if (pass < 3) {
+        setTimeout(function () {         // ㅁ — 재서 어긋나면 한 번 더
+          var off = el.getBoundingClientRect().top - appbarH() - 10;
+          if (Math.abs(off) > 2) land();
+        }, pass === 1 ? 340 : 120);
+      }
+    }
+    // 사이드바가 닫히며 body 의 overflow 가 풀리는 것을 브라우저가 반영한 «다음» 프레임부터
+    requestAnimationFrame(function () { requestAnimationFrame(land); });
+
+    // 도착 표시 + 현재 위치 + 주소창 해시(뒤로가기로 돌아올 수 있게)
+    document.querySelectorAll('.card.landed').forEach(function (c) { c.classList.remove('landed'); });
+    el.classList.add('landed');
+    clearTimeout(landedTimer);
+    landedTimer = setTimeout(function () { el.classList.remove('landed'); }, 2200);
+
+    var d = null;
+    for (var i = 0; i < DEST.length; i++) if (DEST[i].id === id) { d = DEST[i]; break; }
+    if (d) {
+      $('crumb').innerHTML = d.path.slice(0, -1).map(esc).join(' &#8250; ') +
+                             (d.path.length > 1 ? ' &#8250; ' : '') + '<b>' + esc(d.path[d.path.length - 1]) + '</b>';
+      document.title = d.path.join(' · ') + ' — 망고아이 관리';
+    }
+    try { history.replaceState(null, '', '#' + id); } catch (e) {}
+
+    document.querySelectorAll('.leaf.current, .it-head.current').forEach(function (b) { b.classList.remove('current'); });
+    var btn = $('menu').querySelector('[data-go="' + id + '"]');
+    if (btn) btn.classList.add('current');
+  }
+
+  /* ── 메뉴 클릭 (한 곳에서만 받는다 — 버튼 200개에 리스너 200개를 달지 않는다) ── */
+  $('menu').addEventListener('click', function (e) {
+    var t = e.target.closest('[data-go], [data-toggle]');
+    if (!t) return;
+    if (t.dataset.go) { go(t.dataset.go); return; }
+
+    var box = t.parentElement;                    // .g 또는 .it
+    var wasOpen = box.classList.contains('open');
+    // 형제만 닫는다(같은 단계). 부모는 건드리지 않는다.
+    Array.prototype.forEach.call(box.parentElement.children, function (sib) {
+      if (sib !== box) sib.classList.remove('open');
+    });
+    box.classList.toggle('open', !wasOpen);
+  });
+
+  /* ── 검색 ─────────────────────────────────────────────────────────────── */
+  $('q').addEventListener('input', function () {
+    var v = this.value.trim().toLowerCase();
+    var groups = $('menu').querySelectorAll('.g');
+    if (!v) {
+      groups.forEach(function (g) { g.style.display = ''; });
+      $('menu').querySelectorAll('.it, .leaf, .it-head').forEach(function (n) { n.style.display = ''; });
+      var e = $('menu').querySelector('.empty'); if (e) e.remove();
+      return;
+    }
+    var hit = 0;
+    groups.forEach(function (g) {
+      var gHit = 0;
+      g.querySelectorAll('.it').forEach(function (it) {
+        var itHit = 0;
+        it.querySelectorAll('.leaf').forEach(function (l) {
+          var m = l.textContent.toLowerCase().indexOf(v) >= 0 ||
+                  it.querySelector('.it-head').textContent.toLowerCase().indexOf(v) >= 0;
+          l.style.display = m ? '' : 'none';
+          if (m) itHit++;
+        });
+        it.style.display = itHit ? '' : 'none';
+        if (itHit) { it.classList.add('open'); gHit += itHit; }
+      });
+      g.querySelectorAll(':scope > .g-items > .it-head').forEach(function (l) {
+        var m = l.textContent.toLowerCase().indexOf(v) >= 0;
+        l.style.display = m ? '' : 'none';
+        if (m) gHit++;
+      });
+      g.style.display = gHit ? '' : 'none';
+      g.classList.toggle('open', !!gHit);
+      hit += gHit;
+    });
+    var old = $('menu').querySelector('.empty'); if (old) old.remove();
+    if (!hit) $('menu').insertAdjacentHTML('beforeend', '<div class="empty">「' + esc(this.value) + '」 에 맞는 메뉴가 없습니다.</div>');
+  });
+
+  /* ── ③ 시계 ───────────────────────────────────────────────────────────
+     타이머는 이 하나뿐. 화면이 가려지면(다른 앱·탭) 멈춘다 — 배터리·발열의 차이가 여기서 난다. */
+  var timer = 0;
+  function two(n) { return n < 10 ? '0' + n : '' + n; }
+  function tick() {
+    var now = new Date();
+    function parts(tz) {
+      var s = new Intl.DateTimeFormat('ko-KR', {
+        timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
+        month: 'numeric', day: 'numeric', weekday: 'short'
+      }).formatToParts(now), o = {};
+      s.forEach(function (p) { o[p.type] = p.value; });
+      return { t: two(+o.hour % 24) + ':' + o.minute + ':' + o.second, d: o.month + '/' + o.day + ' (' + o.weekday + ')' };
+    }
+    var kr = parts('Asia/Seoul'), ph = parts('Asia/Manila');
+    $('clk-kr').textContent = kr.t; $('dat-kr').textContent = kr.d;
+    $('clk-ph').textContent = ph.t; $('dat-ph').textContent = ph.d;
+    $('bar-clock').innerHTML = 'KR ' + kr.t.slice(0, 5) + '<br>PH ' + ph.t.slice(0, 5);
+  }
+  function startClock() { tick(); clearInterval(timer); timer = setInterval(tick, 1000); }
+  function stopClock() { clearInterval(timer); timer = 0; }
+  document.addEventListener('visibilitychange', function () {
+    document.hidden ? stopClock() : startClock();
+  });
+  startClock();
+
+  /* 주소에 #sec-... 를 달고 들어오면 거기서 시작한다 (링크 공유·새로고침 대비) */
+  if (location.hash && document.getElementById(location.hash.slice(1))) {
+    setTimeout(function () { go(location.hash.slice(1)); }, 60);
+  }
+})();
+</script>

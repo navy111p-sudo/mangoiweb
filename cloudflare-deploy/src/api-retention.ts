@@ -13,6 +13,7 @@
  */
 import { json, parseJsonBody, keyMatchesAny } from './api-util';
 import { sendPlainSms } from './solapi-client';
+import { SITE_ORIGIN } from './site-url';       // 🔗 사람에게 나가는 링크는 한 곳에서
 import { getTraits } from './api-traits';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 
@@ -58,7 +59,7 @@ const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   ).run();
 });
 
-const DEFAULT_LINK = 'https://test.mangoi.co.kr';
+const DEFAULT_LINK = SITE_ORIGIN;
 
 export async function getRetentionSettings(env: any): Promise<any> {
   await ensureTable(env);

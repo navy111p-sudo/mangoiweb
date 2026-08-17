@@ -86,7 +86,11 @@ body{
 /* 펼치는 카드 — details 는 브라우저가 공짜로 주는 접기다. JS 도 애니메이션도 안 쓴다. */
 details.card > summary{
   font-size:15px;font-weight:700;color:#2c3a48;cursor:pointer;list-style:none;
-  display:flex;align-items:center;gap:8px;min-height:32px;
+  display:flex;align-items:center;gap:8px;
+  /* 👆 (2026-08-17 사장님) 32px → 48px. 손가락 과녁 권장치는 애플 44 · 구글 48 인데
+     32px 이라 수업 사이에 급히 누르면 빗나갔다. 카드 안쪽 여백(padding)을 그대로 쓰려고
+     min-height 로만 올린다 — 글자 크기·색·배치는 건드리지 않았다. */
+  min-height:48px;
 }
 details.card > summary::-webkit-details-marker{display:none}
 details.card > summary::after{content:'+';margin-left:auto;font-size:19px;color:#8b97a4;font-weight:700}
@@ -98,6 +102,18 @@ details.card > summary + *{margin-top:12px}
 .kpi{background:#f7f9fb;border:1px solid #e6ecf2;border-radius:8px;padding:10px 12px}
 .kpi b{display:block;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;color:#16202c;line-height:1.25}
 .kpi span{display:block;font-size:12.5px;color:#5d6b7a;margin-top:2px}
+/* 👆 (2026-08-17) 누를 수 있게 된 타일. <button> 이라 브라우저 기본값이 붙으므로
+   «원래 <div> 와 똑같이» 보이도록 되돌린다 — 모양을 바꾸면 이번 변경의 뜻이 흐려진다.
+   달라지는 것은 오른쪽 › 하나와, 누를 때 살짝 눌리는 느낌뿐이다. */
+.kpi-go{
+  width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+  position:relative;-webkit-appearance:none;appearance:none;
+}
+.kpi-go:active{background:#eef2f7}
+.kpi-go:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+.kpi-arrow{position:absolute;top:9px;right:10px;font-size:13px;color:#9aa6b3;font-weight:700;line-height:1}
+html.dark .kpi-go:active{background:#252d38}
+html.dark .kpi-arrow{color:#7c8899}
 .kpi.warn b{color:#b91c1c}
 .kpi.good b{color:#047857}
 .kpi .sub{font-size:11.5px;color:#7a8794;margin-top:3px}
@@ -140,6 +156,39 @@ body.is-off .card{opacity:.82}
      background:#eef1f5;color:#4a5765;white-space:nowrap}
 .tag.hot{background:#fdecea;color:#8c1d18}
 .tag.ok{background:#e7f5ee;color:#0b7a3d}
+
+/* 🔔 오늘 봐야 할 것 — 문제가 있을 때만 뜬다. 없으면 아예 자리를 차지하지 않는다. */
+#todo{
+  background:#fff;border:1px solid #e6ecf2;border-radius:12px;
+  padding:12px 14px 6px;margin:0 0 12px;box-shadow:0 1px 2px rgba(22,32,44,.04);
+}
+#todo .todo-h{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+#todo .todo-h b{font-size:15.5px;font-weight:800;color:#16202c;letter-spacing:-.01em}
+#todo .todo-n{
+  margin-left:auto;font-size:12px;font-weight:800;color:#b91c1c;background:#fef2f2;
+  border-radius:99px;padding:2px 9px;font-variant-numeric:tabular-nums;
+}
+#todo .todo-row{
+  display:flex;align-items:center;gap:10px;width:100%;min-height:52px;
+  padding:9px 2px;border:0;border-top:1px solid #eef2f6;background:none;
+  font:inherit;color:inherit;text-align:left;cursor:pointer;
+}
+#todo .todo-row:first-of-type{border-top:0}
+#todo .todo-row:active{background:#f4f7fa}
+#todo .todo-row .dot{width:9px;height:9px;border-radius:50%;background:#d97706;flex:none}
+#todo .todo-row .tx{flex:1;min-width:0}
+#todo .todo-row .t1{display:block;font-size:14.5px;font-weight:800;color:#16202c;letter-spacing:-.01em}
+#todo .todo-row .t2{display:block;font-size:12px;color:#5d6b7a;margin-top:1px}
+#todo .todo-row .go{flex:none;color:#8b97a4;font-size:15px;font-weight:700}
+#todo .todo-clear{padding:6px 2px 12px;font-size:14px;color:#047857;font-weight:800}
+#todo .todo-clear span{display:block;font-size:12.5px;color:#5d6b7a;font-weight:600;margin-top:2px}
+html.dark #todo{background:#1d2530;border-color:#39434f}
+html.dark #todo .todo-h b, html.dark #todo .todo-row .t1{color:#e7edf3}
+html.dark #todo .todo-row{border-top-color:#2b3541}
+html.dark #todo .todo-row:active{background:#28313d}
+html.dark #todo .todo-row .t2{color:#95a2b0}
+html.dark #todo .todo-n{color:#fca5a5;background:#3b2020}
+html.dark #todo .todo-clear{color:#5fce96}
 
 /* ⭐ 자주 쓰는 기능 바로가기 — 새 API 0, 아래 카드를 펼치고 이동만 한다.
    설계 계약 준수: 외부 리소스 0 · 애니메이션/transition 0 · 한영은 data-ko/en. */
@@ -186,7 +235,11 @@ html.dark .qbar button{background:#1d2530;border-color:#39434f;color:#d3dbe4}
 html.dark .qbar button:active{background:#28313d}
 html.dark .spark-x{color:#8b98a6}
 html.dark .legend{color:#95a2b0}
-.footlink{color:#5d6b7a}
+/* 👆 (2026-08-17) 15px 글자 링크였다. 문서 맨 아래 «본사 전체 화면으로» 나가는 유일한 문인데
+   가장 누르기 어려웠다. 눈에 띄게 만들지는 않는다 — 자주 쓰는 길이 아니라 «있는 줄 알면 되는» 길이다. */
+.footlink{
+  color:#5d6b7a;display:inline-flex;align-items:center;min-height:44px;padding:0 4px;
+}
 html.dark .footlink{color:#8b98a6}
 </style>
 </head>
@@ -224,6 +277,26 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   <div id="off" data-en="Offline — showing the last information received. Press Refresh when you are back online."
        data-ko="오프라인 — 마지막으로 받은 정보입니다. 연결이 되면 새로고침을 눌러 주세요.">Offline</div>
+
+  <!-- 🔔 오늘 봐야 할 것 (2026-08-17 사장님 제안 ①)
+       왜 — 수업 사이에 폰을 꺼내는 이유의 대부분은 «무슨 일 있나?» 하나다. 그 답을 맨 위에 둔다.
+       ⚠️ **없는 숫자를 만들지 않는다.** 여기 뜨는 것은 «누군가 기다리고 있는» 두 가지뿐이다 —
+          연기·변경 요청, 대기자. 「결석 N명」·「미납 N건」 은 **일부러 넣지 않았다**:
+          · 결석 — /api/admin/stats/today 의 absence.absent 는 «오늘 아직 안 끝난 수업» 이지
+            결석이 아니다. 이름만 바꿔 붙이면 지어낸 숫자가 된다(같은 실수로 강사 급여를
+            깎을 뻔한 이력이 있고 attendance_no_fabrication_harness 가 그것을 막는다).
+          · 미납 — 이 포털이 받는 응답 어디에도 미납 건수가 없다. 만들려면 API 가 필요하다.
+       ⚠️ **새 API 를 만들지 않았다.** 이미 있는 두 호출(schedule-requests · waitlist)을
+          미리 받아 둘 뿐이고, 그 값은 아래 카드가 쓰던 캐시(D.reqs · D.wait)에 그대로 들어간다.
+          → 카드를 펼칠 때 **다시 부르지 않는다.** 한 번 쓰고 마는 요청이 아니다.
+       ⚠️ 못 받아도 화면이 깨지지 않는다 — 그 줄만 안 뜬다(조용히 실패). -->
+  <div id="todo" hidden>
+    <div class="todo-h">
+      <b data-en="To check today" data-ko="오늘 봐야 할 것">To check today</b>
+      <span id="todoN" class="todo-n"></span>
+    </div>
+    <div id="todoBody"></div>
+  </div>
 
   <!-- ⭐ 자주 쓰는 기능 — 바로가기 바. 새 API 를 부르지 않는다.
        버튼은 아래에 이미 있는 <details> 카드를 «펼치고 그 위치로 이동» 만 한다(openCard).
@@ -293,6 +366,17 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     <div id="waitBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 🗓 수업 연기 · 변경 요청 — #hqCards 밖으로 옮겼다 (2026-08-17 사장님)
+       «학부모·학생도 하고 학원장님도 한다» 는 확인을 받았다. 그동안 본사 전용 칸 안에 있어
+       지사·대리점 학원장은 **볼 수도 처리할 수도 없었다.**
+       ⚠️ 화면만 옮긴 게 아니다 — 서버(api-admin.ts)가 자기 학생 요청만 돌려주도록 먼저 고쳤고,
+          승인·거절도 같은 조건으로 다시 확인한다. 그 격리를 빼면 남의 대리점 학생이 보인다.
+       ⚠️ 본사(hq)는 예전처럼 전부 본다 — 달라진 것은 «지사·대리점에게도 보인다» 뿐이다. -->
+<details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
+      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
+      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        🏢 본사 매니저 전용 (Maimai · Melca · Karl)
          세 분은 scope_type='hq' 라 위의 지사·대리점 라우팅에 걸리지 않아, 지금까지
@@ -321,10 +405,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <div id="leaveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
     </details>
 
-    <details class="card" id="c-req" ontoggle="if(this.open)loadReqs()">
-      <summary><span data-en="Class change requests" data-ko="수업 연기 · 변경 요청">Class change requests</span></summary>
-      <div id="reqBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
-    </details>
+    
 
     <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
       <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
@@ -543,17 +624,40 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     else                         _absSub = _dLabel(_ab.prev_date) + T(' missed ', ' 미실시 ') + _prevRate.toFixed(1) + '%';
     document.getElementById('kToday').innerHTML =
       tile(won(d.revenue && d.revenue.amount_krw), T('Revenue today', '오늘 매출'),
-           T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건')) +
+           T((d.revenue && d.revenue.pay_count || 0) + ' payments', '결제 ' + (d.revenue && d.revenue.pay_count || 0) + '건'),
+           '', 'c-trend') +
       tile(n0(d.students && d.students.attended), T('Attended', '출석'),
            T('of ' + n0(d.students && d.students.active) + ' active', '재원 ' + n0(d.students && d.students.active) + '명 중')) +
       tile(_booked ? (n0(_done) + ' / ' + n0(_booked)) : T('No class', '수업 없음'),
            T("Today's classes", '오늘 수업 진행'), _absSub, '') +
-      tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '', (d.signups && d.signups.count) > 0 ? 'good' : '');
+      tile(n0(d.signups && d.signups.count), T('New sign-ups', '신규 등록'), '',
+           (d.signups && d.signups.count) > 0 ? 'good' : '', 'c-flow');
   }
-  function tile(big, label, sub, cls){
-    return '<div class="kpi ' + (cls || '') + '"><b>' + esc(big) + '</b><span>' + esc(label) + '</span>'
-         + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</div>';
+  /* 👆 (2026-08-17 사장님) 숫자를 누르면 그 명단으로 간다.
+     그동안 타일 8개가 전부 «못 누르는 글자» 였다(cursor:auto). 「결석 3」 을 보고 누가 결석인지
+     알려면 아래로 스크롤해 다른 칸을 손으로 펼쳐야 했다 — 보는 것과 그 뒤가 끊겨 있었다.
+     ⚠️ 새로 만든 화면은 없다. **이미 이 페이지에 있는 접는 칸**을 열고 그리로 데려갈 뿐이다.
+     ⚠️ 갈 곳이 마땅치 않은 타일(출석·결석률)은 **일부러 안 걸었다.** 엉뚱한 데로 보내느니
+        안 눌리는 편이 낫다. 출결 명단 화면이 이 포털에 생기면 그때 연결한다.
+     ⚠️ go 가 없으면 예전과 똑같은 <div> 다 — 눌리는 것처럼 보이지 않는다. */
+  function tile(big, label, sub, cls, go){
+    var inner = '<b>' + esc(big) + '</b><span>' + esc(label) + '</span>'
+              + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '');
+    if (!go) return '<div class="kpi ' + (cls || '') + '">' + inner + '</div>';
+    return '<button type="button" class="kpi kpi-go ' + (cls || '') + '" data-go="' + esc(go) + '">'
+         + inner + '<span class="kpi-arrow" aria-hidden="true">\u203A</span></button>';
   }
+
+  /* 타일 → 이 페이지의 접는 칸. 클릭은 한 곳에서 받는다(타일이 다시 그려져도 유지된다). */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.kpi-go');
+    if (!b) return;
+    var sec = document.getElementById(b.getAttribute('data-go'));
+    if (!sec) return;
+    sec.open = true;                                  // ontoggle 이 알아서 불러온다
+    try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+    catch (err) { sec.scrollIntoView(); }
+  });
 
   // ── ② 이번 달 ─────────────────────────────────────────────────────────────
   function paintMonth(){
@@ -581,11 +685,12 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       try { window.__crbWanted = true; if (window.__crbStart) window.__crbStart(); } catch (e) {}
     }
     document.getElementById('kMonth').innerHTML =
-      tile(n0(st.active), T('Active students', '재원 학생'), '') +
-      tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건')) +
-      tile(won(m.settle), T('Your settlement', '정산액'), '') +
+      tile(n0(st.active), T('Active students', '재원 학생'), '', '', 'c-students') +
+      tile(won(m.income), T('Income', '수입'), T(n0(m.pay_count) + ' payments', '결제 ' + n0(m.pay_count) + '건'),
+           '', 'c-trend') +
+      tile(won(m.settle), T('Your settlement', '정산액'), '', '', 'c-trend') +
       tile(n0(st.new_this_month), T('New this month', '이번 달 신규'), T('today ' + n0(st.new_today), '오늘 ' + n0(st.new_today) + '명'),
-           st.new_this_month > 0 ? 'good' : '');
+           st.new_this_month > 0 ? 'good' : '', 'c-flow');
     // 비용은 본사 통합 관리라 매니저에게 0 으로 온다. «0 원» 으로 오해하지 않게 밝힌다.
     document.getElementById('feeNote').innerHTML = d.cost_hq_only
       ? esc(T('Costs are managed by HQ and are not shown here. Settlement = income minus the HQ fee ('
@@ -972,6 +1077,110 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
      첫 화면 API 2회 계약을 지키려고, 두 요청이 «끝난 뒤»에 한 번 더 부른다.
      수업 유도 배너(아래 인라인 스크립트)가 쓰는 것과 같은 예외 방식이다 —
      첫 페인트와 대역폭을 다투지 않는다. 실패하면 조용히 숫자만 안 뜬다(링크는 그대로 동작). */
+  /* ══════════════════════════════════════════════════════════════════════════
+     🔔 오늘 봐야 할 것 (2026-08-17 사장님 제안 ①)
+        «누군가 기다리고 있는» 것만 맨 위에 모은다. 없으면 «지금은 볼 것이 없습니다» 한 줄.
+
+     ⚠️ 새 API 를 만들지 않았다. 이미 아래 카드가 쓰던 두 호출을 **미리** 받을 뿐이고,
+        받은 값을 D.reqs · D.wait 와 localStorage 캐시에 그대로 넣는다
+        → 카드를 펼칠 때 loadReqs/loadWait 가 `if (D.reqs)` 에서 되돌아가 **다시 안 부른다.**
+        한 세션에서 오가는 요청 수는 늘지 않는다(오히려 카드를 둘 다 열면 같다).
+
+     ⚠️ get() 을 쓰지 않는다 — get() 은 403 이면 **로그인 화면으로 튕긴다.**
+        배경에서 조용히 받는 것이 사람을 로그아웃시키면 안 된다. 여기서는 실패하면
+        그 줄만 안 뜬다(조용히 실패). 캐시 기록은 get() 과 같은 규칙으로 직접 한다.
+
+     ⚠️ 첫 페인트를 막지 않는다 — 결재함 배지와 같은 방식으로 뒤에 부른다(setTimeout).
+        «첫 화면 API 2회» 계약을 깨지 않는다.
+     ══════════════════════════════════════════════════════════════════════════ */
+  function quietGet(path, key){
+    return fetch(path, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || j.ok === false) return null;
+        if (key) { try { localStorage.setItem(CACHE_PREFIX + key, JSON.stringify(j)); } catch (e) {} }
+        return j;
+      })
+      .catch(function(){ return null; });
+  }
+
+  function todoRow(dot, t1, t2, cardId){
+    return '<button type="button" class="todo-row" data-card="' + esc(cardId) + '">'
+         + '<span class="dot" style="background:' + dot + '"></span>'
+         + '<span class="tx"><span class="t1">' + esc(t1) + '</span>'
+         + '<span class="t2">' + esc(t2) + '</span></span>'
+         + '<span class="go" aria-hidden="true">\u203A</span></button>';
+  }
+
+  function paintTodo(){
+    var box = document.getElementById('todo');
+    var body = document.getElementById('todoBody');
+    var nEl = document.getElementById('todoN');
+    if (!box || !body) return;
+
+    var html = '', total = 0;
+
+    // ① 연기 · 변경 요청 — 학원장이 승인·거절해야 하는 것 (지사·대리점은 자기 학생 것만)
+    if (D.reqs) {
+      // 필드 읽는 순서를 paintReqs 와 똑같이 맞춘다 — 한쪽만 고치면 숫자가 서로 어긋난다
+      var rq = (D.reqs.items || D.reqs.rows || D.reqs.requests || []).filter(function(r){ return (r.status || '') === 'pending'; });
+      var rqN = Number(D.reqs.pending_count != null ? D.reqs.pending_count : rq.length) || 0;
+      if (rqN > 0) {
+        var who = rq.length ? (rq[0].student_name || rq[0].teacher_name || '') : '';
+        html += todoRow('#b45309',
+          T('Reschedule requests: ' + rqN, '연기 · 변경 요청 ' + rqN + '건'),
+          rqN > 1 && who ? T(who + ' and ' + (rqN - 1) + ' more — waiting for you', who + ' 외 ' + (rqN - 1) + '건 — 승인 대기')
+                         : T('Waiting for your decision', '승인 · 거절을 기다리고 있어요'),
+          'c-req');
+        total += rqN;
+      }
+    }
+
+    // ② 대기자 — 상담·배정을 기다리는 학생
+    if (D.wait) {
+      var wr = D.wait.items || D.wait.rows || D.wait.waitlist || [];
+      if (wr.length > 0) {
+        var w0 = wr[0].student_name || wr[0].name || '';
+        html += todoRow('#0369a1',
+          T('Waiting list: ' + wr.length, '대기자 ' + wr.length + '명'),
+          wr.length > 1 && w0 ? T(w0 + ' and ' + (wr.length - 1) + ' more', w0 + ' 외 ' + (wr.length - 1) + '명')
+                              : T('Waiting to be placed', '배정을 기다리고 있어요'),
+          'c-wait');
+        total += wr.length;
+      }
+    }
+
+    // 받은 게 하나도 없으면 «괜찮다» 고 말하지 않는다 — 모르는 것과 없는 것은 다르다
+    if (!D.reqs && !D.wait) { box.hidden = true; return; }
+
+    if (!html) {
+      body.innerHTML = '<div class="todo-clear">' + esc(T('Nothing to check right now', '지금은 볼 것이 없습니다'))
+        + '<span>' + esc(T('No requests or waiting students', '대기 중인 요청도 대기자도 없어요')) + '</span></div>';
+      nEl.textContent = ''; nEl.hidden = true;
+    } else {
+      body.innerHTML = html;
+      nEl.textContent = String(total); nEl.hidden = false;
+    }
+    box.hidden = false;
+  }
+
+  // 줄을 누르면 그 카드를 펼치고 그 자리로 — 자료는 이미 D 에 있어 곧바로 그려진다
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('#todo .todo-row');
+    if (!b) return;
+    var sec = document.getElementById(b.getAttribute('data-card'));
+    if (!sec) return;
+    sec.open = true;
+    try { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (err) { sec.scrollIntoView(); }
+  });
+
+  function loadTodo(){
+    Promise.all([
+      quietGet('/api/admin/schedule-requests?limit=60', 'reqs').then(function(j){ if (j) D.reqs = j; }),
+      quietGet('/api/admin/stats/waitlist', 'wait').then(function(j){ if (j) D.wait = j; })
+    ]).then(paintTodo);
+  }
+
   function loadApprovalBadge(){
     fetch('/api/approval/home', { credentials: 'include', headers: { 'Accept': 'application/json' } })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -995,6 +1204,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   boot();
   // 첫 화면 두 요청이 자리를 잡은 뒤에 결재 배지를 채운다(계약 4번 — 첫 화면 API 2회).
   setTimeout(loadApprovalBadge, 1200);
+  setTimeout(loadTodo, 1400);   // 🔔 오늘 봐야 할 것 — 첫 페인트 뒤에
 })();
 </script>
 

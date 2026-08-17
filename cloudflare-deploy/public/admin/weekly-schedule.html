@@ -8,7 +8,7 @@
 
 
 <meta charset="UTF-8">
-<link rel="stylesheet" href="/css/mangoi-han.css?v=1">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
 <link rel="stylesheet" href="/css/mangoi-layout.css?v=1"><!-- 📐 화면 비율 통일 (2026-08-14 피드백 ①) -->
 <!-- 🌐 (2026-07-23) 관리자·강사 화면 언어 부팅 — 해외 스태프는 로그인 직후부터 영어.
      판정 로직·주의사항은 /js/adm-lang-boot.js 파일 머리 주석 하나에 모여 있다.
@@ -676,7 +676,7 @@ body.half-hour .slot-text{font-size:9px;line-height:18px}
 body.dragging{cursor:crosshair}
 
 </style>
-<link rel="stylesheet" href="/css/admin-readability.css?v=2"><!-- 가독성 보강 -->
+<link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
   /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
   @media (min-width: 1024px) { body { zoom: 1.3; } }
@@ -730,7 +730,7 @@ body.dragging{cursor:crosshair}
   <!-- ⏱ (2026-08-12) 수업 시간 옵션에서 60분을 없앴다. 실제 수업은 20분이 기본이고
        (서버도 class-policy.ts 의 DEFAULT_CLASS_MINUTES = 20), 60분은 LMS 쪽 값이 흘러든 것이었다.
        20분이 맨 왼쪽 + 화면 열자마자 선택돼 있어야 한다. -->
-  <div class="view-toggle"><button class="active" data-dur="20" data-ko="20분" data-en="20m">20분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button></div>
+  <div class="view-toggle"><button class="active" data-dur="20" data-ko="20분" data-en="20m">20분</button><button data-dur="30" data-ko="30분" data-en="30m">30분</button><button data-dur="40" data-ko="40분" data-en="40m">40분</button></div>
 </section>
 <div class="legend-bar" style="display:none">
   <span class="legend-label" data-ko="셀 색상:" data-en="Cell color:">셀 색상:</span>
@@ -912,7 +912,7 @@ function loadDemoData(){
           addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         }else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          var durG=[20,40][(ti+di+h)%2];
+          var durG=[20,30,40][(ti+di+h)%3];   // 🕐 30분 포함 — 길이가 섞인 화면을 눈으로 보려면 데모도 섞여야 한다
           addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }else if(r<0.56){
           var stt=(ti+di+h)%demoNames.length;
@@ -997,7 +997,7 @@ function generateDemoSlots(){
           addSlot(t.id,dateISO,h,{type:'1on1',students:[{name:demoNames[stu],uid:'test_st_'+stu}],start_date:'2026-04-01',end_date:'2026-07-31',duration_min:dur});
         } else if(r<0.50){
           var s1=(ti+di+h)%demoNames.length,s2=(s1+4)%demoNames.length,s3=(s1+8)%demoNames.length;
-          var durG=[20,40][(ti+di+h)%2];
+          var durG=[20,30,40][(ti+di+h)%3];   // 🕐 30분 포함 — 길이가 섞인 화면을 눈으로 보려면 데모도 섞여야 한다
           addSlot(t.id,dateISO,h,{type:'group',students:[{name:demoNames[s1],uid:'test_st_'+s1},{name:demoNames[s2],uid:'test_st_'+s2},{name:demoNames[s3],uid:'test_st_'+s3}],start_date:'2026-04-01',end_date:'2026-08-31',duration_min:durG});
         }
       }
@@ -2880,10 +2880,14 @@ function renderNewSlotFields(type){
   var L=currentLang==='ko';
   var box=document.getElementById('new-slot-fields');
   // ⏱ (2026-08-12) 60분 제거 · 20분이 먼저 오고 기본값이다
+  // 🕐 (2026-08-17) 30분 추가 — 20·30·40 은 전부 10분 격자(SLOT_STEP)의 배수라
+  //    이어 붙여도 강사 시간표에 빈틈이 안 생긴다. 25분을 넣으려면 SLOT_STEP 을
+  //    5 로 내려야 하고 그러면 칸이 시간당 6→12 로 촘촘해진다(src/class-policy.ts 참고).
   var dd=(typeof defaultDuration!=='undefined')?defaultDuration:20;
   var durCards='<label>'+(L?'수업 길이':'Class Duration')+'</label><div class="dur-choices" id="ns-dur-choices">'+
-    [20,40].map(function(d){
-      return '<div class="dur-choice '+(d===dd?'selected':'')+'" data-dur="'+d+'" onclick="window.__pickDur('+d+')"><div class="dc-num">'+d+'</div><div class="dc-unit">'+(L?'분':'min')+'</div><div class="dc-tag">'+(d===20?(L?'기본':'Default'):(L?'김':'Long'))+'</div></div>';
+    [20,30,40].map(function(d){
+      var tag=(d===20)?(L?'기본':'Default'):(d===40?(L?'김':'Long'):(L?'중간':'Mid'));
+      return '<div class="dur-choice '+(d===dd?'selected':'')+'" data-dur="'+d+'" onclick="window.__pickDur('+d+')"><div class="dc-num">'+d+'</div><div class="dc-unit">'+(L?'분':'min')+'</div><div class="dc-tag">'+tag+'</div></div>';
     }).join('')+'</div>';
   window.__currentDur=dd;
   window.__pickDur=function(d){

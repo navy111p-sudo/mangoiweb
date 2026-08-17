@@ -4,12 +4,12 @@
  * (문법 검사로는 못 잡는 실행 시점 버그를 잡으려는 것)
  */
 
-import { requireBrowser } from './_pw.mjs';
+import { requireBrowser, fileUrl } from './_pw.mjs';
 
 const { chromium, exe } = requireBrowser();
 
 
-const FILE = "file:///home/user/mangoiweb/cloudflare-deploy/public/work.html";
+const FILE = fileUrl('cloudflare-deploy/public/work.html');
 
 
 const HOME = {

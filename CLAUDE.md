@@ -10,8 +10,12 @@
 ## 0. 가장 먼저 알아야 할 것
 
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
-- 운영 주소: **https://test.mangoi.co.kr** → Cloudflare Worker `webrtc-unified-platform-prod`
-  (Cloudflare 존 = `mangoi.co.kr`. `deploy.ps1` 의 스모크 테스트도 이 주소를 씁니다)
+- 운영 주소: **https://mangoi.ai** → Cloudflare Worker `webrtc-unified-platform-prod`
+  (사장님·직원이 실제로 여는 주소입니다. 사람에게 안내할 링크는 **이 주소**를 쓰세요)
+  - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
+    아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
+    안드로이드/iOS 앱의 시작 URL, `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —
+    앱 서명·assetlinks·워치독까지 같이 확인해야 하는 별건 작업입니다 (도메인 정리는 사람이 결정)
   - `mangoi.co.kr` / `www.mangoi.co.kr` (118.219.234.180) 는 **구 서버**. 옛 LMS만 있고 Worker 경로(`/library/...` 등)는 404입니다
   - ~~`mango-i.com`~~ 은 **존재하지 않는 도메인**입니다(2026-07-28 확인: 등록조차 안 됨 → NXDOMAIN).
     옛 문서 표기 오류이니 이 주소로 curl 검증하지 마세요. 무조건 실패합니다
@@ -67,7 +71,8 @@
 |---|---|
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
-| 배포 후 curl 검증 | 주소는 **`https://test.mangoi.co.kr`**. `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
+| 배포 후 curl 검증 | 주소는 **`https://mangoi.ai`**(`test.mangoi.co.kr` 도 같은 Worker 라 둘 다 됩니다). `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
+| 사람에게 링크를 안내할 때 | 문자·알림톡·안내문에 넣는 주소는 **`https://mangoi.ai`**. 「어디에도 안 보인다」 류의 제보는 **엉뚱한 도메인을 안내해서** 생기는 경우가 있습니다(2026-08-17 실제로 밟음 — 문서엔 `test.mangoi.co.kr`, 사장님 화면엔 `mangoi.ai`) |
 | D1 쿼리 | 파라미터 **100개 제한**. `IN` 절은 90개 이하로 잘라서 실행 |
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |
@@ -87,7 +92,14 @@
 | `el.hidden = true` 인데 그대로 보임 | **작성자 CSS 가 `display` 를 정하면 브라우저 기본 `[hidden]{display:none}` 을 이깁니다**(특정성이 아니라 «작성자 > UA» 우선순위 문제라, 선택자를 아무리 봐도 원인이 안 보입니다). `teacher.html` 의 `.btn{display:inline-block}` 이 정확히 이랬고, 숨긴 버튼이 계속 떠 있었습니다(2026-08-15 실측). 화면이 `hidden` 으로 보이기/숨기기를 한다면 `[hidden]{display:none !important}` 를 한 줄 박아 두세요 |
 | 새 `IN (...)` 목록 | 손으로 90개씩 자르지 마세요. `test-harness/d1_bind_limit_harness.mjs` 의 회귀 감시가 `+= 90` 과 새 `map(() => '?')` 를 **잡아서 FAIL 냅니다.** 공용 `selectInChunks`(`src/d1-chunk.ts`)를 쓰거나, 상한 근거를 하니스의 `ALLOW` 에 적어야 합니다 |
 | 학부모에게 문자가 두 번 감 | **학부모 발송 경로가 두 갈래입니다** — 강사 수업일지 `/api/eval/create`(→`student_evaluations`)와 AI 초안 승인 `/api/admin/feedback-drafts/approve`(→`teacher_feedbacks`). 둘 다 문자를 보냅니다. 한쪽에서 «이미 썼는지» 판정할 때 **자기 표만 보면 안 됩니다**(초안 생성이 `feedback_drafts` 만 보다가 이미 일지를 쓴 수업까지 다시 초안을 만들던 것이 2026-08-15 수리 건) |
+| 대리점의 지사 소속을 D1에서 고쳤는데 다음날 원복됨 | `centers.franchise_id` 는 **카페24가 정본**이라 `importCafe24Org` 의 UPSERT 가 매일 밤 03:45 KST 에 덮어씁니다(`franchise_id = excluded.franchise_id`). `payment_type` 은 UPSERT 목록에서 빼서 지켰지만(2026-08-14) `franchise_id` 는 뺄 수 없습니다 — 새 대리점·지사 이동을 따라가야 하니까요. 임시 정정이 필요하면 **`center_franchise_override`** 에 적으세요(동기화 직후 다시 입혀집니다). 정본 수정은 카페24에서 해야 하고, 고친 뒤엔 override 행을 지우는 것이 맞습니다 |
+| 가맹점 정산에서 특정 지사 매출이 통째로 안 잡힘 | `centers.name` 이 **유일하지 않습니다.** 같은 이름이 두 지사 이상으로 갈리면 `franchiseReport` 가 «어느 쪽인지 모름» 으로 판정해 **아무 데도 배정하지 않습니다**(아무 쪽에 몰아주면 그게 또 균등분배라서). 2026-08-16 기준 5개 이름·학생 2,603명이 이랬습니다. 확인: `SELECT name FROM centers GROUP BY name HAVING COUNT(DISTINCT franchise_id)>1` |
+| 매출 대사가 «장부에 매출이 없다» 고 경고함 | 신한 계좌 입금 적요에 **「케이씨피」와 「케이씨피M」 두 가지**가 있습니다. 「케이씨피」(타행PC·기업)만 진짜 PG 정산금이고, **「케이씨피M」(타행IB·하나)은 회사의 하나은행 계좌에서 옮겨 온 «운영자금»** 입니다(2026-08-17 사장님 확인 — 매출 아님). `LIKE '%케이씨피%'` 로 찾으면 둘 다 잡혀 누적 4,632만원이 «장부에 없는 매출» 로 오진됩니다(2026-08-16 실측). 입금 판정은 반드시 `classifyDeposit()`(`src/accounting-reports.ts`)을 쓰세요 |
+| 「기타출금」 한 덩어리로 뭉쳐 무슨 돈인지 모름 | 통장 출금의 상당액이 적요만으로 분류가 안 돼 「기타출금」이 됩니다. 그 **대부분은 지사 수수료**입니다(2026-08-17 확인). 판정은 ① `expense_payee_category` 지정표 ② `franchises.owner_name`(241곳 전부 채워져 있음) 일치 → 「지사수수료」 순입니다. 적요는 길이가 잘려 「김영진(지성교」 처럼 오므로 `(` 앞까지로 비교합니다. ⛔ 법인 형태((주)…·센터·보험)는 자동 분류 금지 — (주)새하컴즈·호스트센터 같은 **진짜 다른 비용**이 섞여 있습니다 |
 | 「로그인했는데 또 로그인하래요」 | **로그인 세션이 두 갈래입니다.** 학생·학부모 = `mangoi_logged_user` + `mango_token`, 교사·본사·지사 = `mangoi_admin_session` + `admin_sessions` **쿠키**(토큰 없음). 학생 키나 `mango_token` 만 보는 화면·API 는 **교사를 미로그인으로 판정**합니다(2026-07-30 Kaye 17번, 2026-08-13 Karl 「Double Login」 둘 다 이 뿌리). ⛔ 교사에게 `mangoi_logged_user` 를 만들어 주는 방식으로 풀지 마세요 — 학생 전용 기능이 통째로 열립니다. 서버는 토큰이 없을 때 `checkAdminSession()` 도 보게 하고(개인정보 API 는 `resolveOwnerScope()`), **짝이 되는 API 끼리 판정이 어긋나지 않았는지** 확인하세요(Karl 건 = 녹화 «재생» 은 관리자 세션을 받는데 «목록» 만 안 받던 한쪽짜리 게이트) |
+| 「비번을 바꿨는데 새 비번으로 로그인이 안 돼요」 | **관리자 화면의 비밀번호 변경 자리가 두 종류였습니다.** 진짜 = `/admin/mypage.html`(→ `/api/admin/change-password`). 가짜 = 우상단 사용자 메뉴의 «🔑 비밀번호 변경» — 프롬프트 3개를 받아 놓고 **`alert('…실서비스에서는 백엔드 API 호출')` 만 띄우고 아무것도 안 보내던 시연 껍데기**가 `adm-q9(ph111)`·`adm-r19(ph113)`·`adm-r20(ph114)`·`adm-r21(ph115)` **네 벌** 있었습니다(2026-08-17 실제로 밟음 → 넷 다 실제 API 호출로 교체). 확인 방법: `SELECT updated_at FROM admin_account WHERE username=?` 가 안 움직였으면 **애초에 서버에 안 갔다**는 뜻입니다 |
+| `public/js/*.js` 를 고쳤는데 하니스가 FAIL | `asset_version_harness.mjs` 가 **파일 내용이 바뀌었는데 HTML 의 `?v=` 가 그대로면 FAIL** 냅니다(immutable 캐시에 옛 파일이 남는 사고 방지). 고친 js 를 부르는 HTML 의 `?v=` 를 함께 올리세요 |
+| `test-harness/asset-versions.json` 이 병합할 때마다 충돌 | **원장은 「주소 순 정렬」 상태로 유지합니다.** 정렬을 없애면 새 항목이 다시 파일 맨끝에 몰리고, 병렬 PR 끼리 «내용은 무관한데 자리만 겹쳐» 충돌합니다(2026-08-17 에 PR 하나 병합하는 동안 네 번 밟음 — `/js/adm-core.js` 대 `/css/admin-inline-c.css`). 정렬은 `asset_version_harness.mjs` 의 저장부가 합니다. ⛔ `.gitattributes` 의 `merge=union` 으로 풀지 마세요 — 마지막 줄에 쉼표가 없어서 **깨진 JSON** 이 되는데 git 이 «병합 성공» 이라고 조용히 넘어갑니다. 충돌이 나면 «추가끼리 부딪힌 것» 이므로 **양쪽 항목을 다 남기세요**(같은 파일의 버전을 둘이 동시에 올린 경우만 진짜 충돌이니 사람이 판단) |
 
 ---
 

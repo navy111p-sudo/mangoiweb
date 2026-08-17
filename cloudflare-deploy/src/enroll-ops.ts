@@ -15,10 +15,17 @@
  */
 import { json, parseJsonBody } from './api-util';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+// 수업 길이·격자·요금배수는 전부 class-policy 한 곳에서 온다 (여기 복사 금지)
+import {
+  DEFAULT_CLASS_MINUTES,      // 기본 수업 20분(영어·중국어 공통)
+  ALLOWED_CLASS_MINUTES,      // 고를 수 있는 길이 [20,30,40] (25분은 스위치로 꺼 둠)
+  CLASS_TIME_STEP_MIN,        // 예약 시작 시각 격자 10분
+  classLengthMultiplier,      // 요금 배수 = 길이÷20 (분 정비례)
+} from './class-policy';
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { sendPlainSms } from './solapi-client';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
@@ -30,11 +37,13 @@ const ENROLL_END_DAYS = 21;                  // 3주 미결제 = 종료 후보(�
 
 /* ═══════════════ 순수 계산 (하니스가 이 함수들을 추출해 검증) ═══════════════ */
 
-/** 가격 = 대리점 주1회 단가 × 주횟수 × 개월 × 기간할인 × 길이배수 × 강사배율 (10원 절사) */
+/** 가격 = 대리점 주1회 단가 × 주횟수 × 개월 × 기간할인 × 길이배수 × 강사배율 (10원 절사)
+ *  🔁 (2026-08-17) 길이배수가 «40분만 2배» 였다. 30분을 열면 20분 값에 팔리므로
+ *     class-policy 의 분 정비례 배수(20:1.0 / 30:1.5 / 40:2.0)로 바꿨다. */
 export function enrollQuoteCalc(weekly1Price: number, weekly: number, months: number, minutes: number, teacherRate = 1.0) {
   const sessions = weekly * 4 * months;
   const discountRate = months >= 12 ? 0.90 : months >= 6 ? 0.95 : 1;
-  const lenMul = minutes === 40 ? 2 : 1;
+  const lenMul = classLengthMultiplier(minutes);
   const base = weekly1Price * weekly * months * lenMul;
   const amount = Math.floor((base * discountRate * teacherRate) / 10) * 10;
   const perSession = Math.round(amount / sessions);
@@ -316,7 +325,7 @@ export function enrollParse(body: any): any {
     : [];
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'bad_weekly' };
   if (!ENROLL_MONTHS.includes(months)) return { error: 'bad_months' };
-  if (minutes !== 20 && minutes !== 40) return { error: 'bad_minutes' };
+  if (!ALLOWED_CLASS_MINUTES.includes(minutes)) return { error: 'bad_minutes' };
   if (days.length !== weekly) return { error: 'days_count_mismatch' };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return { error: 'bad_start_date' };
   if (startDate < kstToday()) return { error: 'start_date_past' };
@@ -331,7 +340,8 @@ export function enrollParse(body: any): any {
   for (const d of days) {
     const t = rawTimes ? String(rawTimes[String(d)] ?? rawTimes[d] ?? '').trim() : uniformTime;
     const m = enrollTimeToMin(t);
-    if (m < ENROLL_TIME_MIN || m > ENROLL_TIME_MAX || m % 10 !== 0) return { error: 'bad_time', day: d };
+    // 시작 시각은 격자 위에만 — 길이가 전부 격자의 배수라 이어 붙이면 빈틈이 0 이 된다
+    if (m < ENROLL_TIME_MIN || m > ENROLL_TIME_MAX || m % CLASS_TIME_STEP_MIN !== 0) return { error: 'bad_time', day: d };
     times[d] = t;
     timesMin[d] = m;
   }
@@ -514,7 +524,7 @@ export async function runEnrollExpirySweep(env: any, opts?: { dry?: boolean }): 
       await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?,?,?,?)`).bind(uid, kind, today, Date.now()).run();
       if (phone.length < 10) { out.skipped++; continue; }
 
-      const txt = `[망고아이] ${name ? name + ' 학생 ' : ''}수업이 ${left}일 후(${lastDate}) 종료됩니다.\n같은 요일·시간·선생님으로 이어서 수강하시려면 아래에서 연장해 주세요 🥭\nhttps://test.mangoi.co.kr/enroll.html`;
+      const txt = `[망고아이] ${name ? name + ' 학생 ' : ''}수업이 ${left}일 후(${lastDate}) 종료됩니다.\n같은 요일·시간·선생님으로 이어서 수강하시려면 아래에서 연장해 주세요 🥭\n${siteUrl('/enroll.html')}`;
       const sr = await sendPlainSms(env, phone, txt);
       if (sr?.ok) out.sent++; else out.skipped++;
     }
@@ -672,7 +682,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const body = await parseJsonBody(request) || {};
     const uid = String(body.uid || '').trim();
     const weekly = Number(body.weekly || 0), months = Number(body.months || 0), minutes = Number(body.minutes || 20);
-    if (!ENROLL_WEEKLY.includes(weekly) || !ENROLL_MONTHS.includes(months) || (minutes !== 20 && minutes !== 40)) {
+    if (!ENROLL_WEEKLY.includes(weekly) || !ENROLL_MONTHS.includes(months) || !ALLOWED_CLASS_MINUTES.includes(minutes)) {
       return json({ ok: false, error: 'bad_options' }, 400);
     }
     const { shopName, weekly1Price } = await priceForUid(env, uid);
@@ -680,7 +690,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const q = enrollQuoteCalc(weekly1Price, weekly, months, minutes, tRate);
     return json({
       ok: true, shop_name: shopName || null, weekly1_price: weekly1Price, teacher_rate: tRate, ...q,
-      name: `주${weekly}회 × ${months}개월 (${q.sessions}회${minutes === 40 ? '·40분' : ''})`,
+      name: `주${weekly}회 × ${months}개월 (${q.sessions}회${minutes !== DEFAULT_CLASS_MINUTES ? '·' + minutes + '분' : ''})`,
     });
   }
 
@@ -690,7 +700,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const teacherId = String(body.teacher_id || '').trim();
     const days: number[] = Array.isArray(body.days) ? ([...new Set(body.days.map((x: any) => Number(x)))] as number[]).filter((n) => n >= 0 && n <= 6) : [];
     const minutes = Number(body.minutes || 20);
-    if (!teacherId || !days.length || (minutes !== 20 && minutes !== 40)) return json({ ok: false, error: 'bad_params' }, 400);
+    if (!teacherId || !days.length || !ALLOWED_CLASS_MINUTES.includes(minutes)) return json({ ok: false, error: 'bad_params' }, 400);
     const busy = await busyTimesForTeacher(env, teacherId, days, minutes);
     return json({ ok: true, busy });
   }
@@ -702,7 +712,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const minutes = Number(body.minutes || 20);
     const uniformTime = String(body.time || '').trim();
     const rawTimes = (body && typeof body.times === 'object' && body.times) ? body.times : null;
-    if (!days.length || (minutes !== 20 && minutes !== 40)) return json({ ok: false, error: 'bad_params' }, 400);
+    if (!days.length || !ALLOWED_CLASS_MINUTES.includes(minutes)) return json({ ok: false, error: 'bad_params' }, 400);
     const timesMin: Record<number, number> = {};
     for (const d of days) {
       const t = rawTimes ? String(rawTimes[String(d)] ?? rawTimes[d] ?? '').trim() : uniformTime;
@@ -968,7 +978,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     ).bind(src, today).first();
     const remaining = Number(rem?.n || 0);
     const usedSessions = Math.max(0, sessions - remaining);
-    const lenMul = Number(ej.minutes) === 40 ? 2 : 1;
+    const lenMul = classLengthMultiplier(Number(ej.minutes));
     const basePrice = Number(ej.weekly1_price || ENROLL_BASE_WEEKLY1) * Number(ej.weekly || 1) * Number(ej.months || 1) * lenMul;
     const calc = enrollRefundCalc(Number(o.amount || 0), sessions, usedSessions, basePrice);
     return json({
@@ -1015,7 +1025,7 @@ export async function createEnrollOrder(env: any, uid: string, p: any, kind: 'ne
   let sName = '';
   try { const s: any = await env.DB.prepare(`SELECT COALESCE(korean_name, english_name, username) AS n FROM students_erp WHERE user_id = ? LIMIT 1`).bind(uid).first(); sName = String(s?.n || ''); } catch (_) {}
 
-  const orderName = `${kind === 'auto_renew' ? '[자동연장] ' : kind === 'renew' ? '[연장] ' : ''}주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes === 40 ? '·40분' : ''})`;
+  const orderName = `${kind === 'auto_renew' ? '[자동연장] ' : kind === 'renew' ? '[연장] ' : ''}주${p.weekly}회 × ${p.months}개월 수강권 (${q.sessions}회${p.minutes !== DEFAULT_CLASS_MINUTES ? '·' + p.minutes + '분' : ''})`;
   const enrollJson = JSON.stringify({
     v: 2, kind, uid, teacher_id: p.teacherId, teacher_name: tName, days: p.days, times: p.times,
     minutes: p.minutes, weekly: p.weekly, months: p.months, start_date: p.startDate,

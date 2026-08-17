@@ -23,6 +23,7 @@
 // ═══════════════════════════════════════════════════════════════════════
 
 import { sendPlainSms } from './solapi-client';
+import { siteBase } from './site-url';          // 🔗 사람에게 나가는 링크는 한 곳에서
 
 /** ⚠️ auth-token.ts 의 폴백과 반드시 같아야 한다(같은 시크릿을 쓰는 것이 의도). */
 const UID_SECRET_FALLBACK = 'mgi-fb-d0895a3a232c5ef0f0950c6128a04a5311ec69ba142cb4a86a8d334e33c56f30';
@@ -32,7 +33,7 @@ function ticketSecret(env: any): string {
 
 /** 운영 주소. ⚠️ mango-i.com 은 등록조차 안 된 도메인이다 — 여기에 쓰면 링크가 죽는다. */
 export function publicBase(env: any): string {
-  return String((env && env.PUBLIC_BASE_URL) || 'https://test.mangoi.co.kr').replace(/\/+$/, '');
+  return siteBase(env);
 }
 
 /* ⏰ 입장 시간창 — /api/class/sessions/today(api-mango.ts) 와 «반드시 같은 값».
