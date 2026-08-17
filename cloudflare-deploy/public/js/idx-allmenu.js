@@ -29,6 +29,13 @@
     {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html'},
     {emoji:'📖', img:'/img/menu/vocab.webp', name:'단어장', url:'/vocab.html'},
     {emoji:'🎯', img:'/img/menu/quiz.webp', name:'AI 단어 퀴즈', url:'/micro-quiz.html'},
+    /* 🧠 2026-08-17 — 복습퀴즈 두 종을 전체메뉴에 추가. 여기 없어서 전체메뉴로는 갈 수 없었다.
+     *   img 를 **일부러 비운다** — 전용 사진이 아직 없다. 위 렌더는 img 가 비면 emoji 로 그리므로
+     *   404 요청 없이 깔끔하게 나온다(없는 파일을 적으면 열 때마다 404 가 난다).
+     *   ⛔ quiz.webp 를 돌려쓰지 말 것 — 바로 위 「AI 단어 퀴즈」와 그림이 같아져 구분이 안 된다.
+     *   사진이 생기면 build-allmenu-icons.py 로 만들어 여기에 경로만 채우면 된다. */
+    {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html'},
+    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html'},
     {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
     {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},
     {emoji:'🔥', img:'/img/menu/streak.webp', name:'연속 출석', url:'/streak.html'},
