@@ -100,6 +100,31 @@
     t.addEventListener("mousedown",onDown);
     t.addEventListener("touchstart",onDown,{passive:false});
 
+    // 🩹 (2026-08-17) 상담사가 "열어드릴게요" 하고도 «아무 일이 없던» 버그의 뿌리.
+    //   결제창(#payment-modal z-index:9999)과 정보모달(#info-modal 9998 — 강사소개·FAQ·
+    //   커리큘럼·고객센터·공지 등 showModal 전부)은 아래 오버레이들 «밑» 에서 열린다:
+    //     #mangoi-allmenu(전체메뉴) 2147483600 / #mg-drawer(사이드바) 100000 /
+    //     #ai-friends-ov(AI와 친구하기) 99999 / #about-mangoi-ov(망고아이란?) 99999
+    //   그런데 상담사 위젯은 z-index 2147483000 이라 저 오버레이 «위» 에 떠서, 오버레이를
+    //   열어 둔 채로 상담사에게 "수업 결제창 열어줘" 를 시킬 수 있다. 그러면 결제창은
+    //   실제로 열리지만 불투명한 오버레이(rgba(4,9,20,.96))에 완전히 가려 «안 열린다» 로 보인다.
+    //   (2026-08-17 사장님 화면녹화 제보 — 「AI와 친구하기」 안에서 3회 모두 동일 재현)
+    //   ⚠️ 그래서 이동 «직전» 에 위층 오버레이를 모두 닫는다. 지금까지 refund/faq/installguide
+    //      세 곳만 mgDrawerClose() 로 개별 대응돼 있었는데, 그 땜질을 한곳으로 모은 것이다.
+    //      새 목적지를 map 에 추가할 때 이 처리를 또 빠뜨리지 않게 하려는 목적도 있다.
+    function mangoiCloseCoveringLayers(){
+      // display:none 으로 숨기는 오버레이들 (각자의 닫기 버튼과 같은 동작)
+      ["ai-friends-ov","about-mangoi-ov","mg-faq-ov","grid-menu"].forEach(function(id){
+        var el=document.getElementById(id);
+        if(el) el.style.display="none";
+      });
+      // 전체메뉴는 DOM 에서 통째로 제거하는 방식 + body 스크롤 잠금을 함께 푼다
+      var am=document.getElementById("mangoi-allmenu");
+      if(am && am.parentNode){ am.parentNode.removeChild(am); document.body.style.overflow=""; }
+      // 좌측 사이드바(+백드롭)
+      try{ if(window.mgDrawerClose) window.mgDrawerClose(); }catch(e){}
+    }
+
     // 아바타가 보내는 '페이지 열기' 요청 처리 (화이트리스트만 허용)
     function mangoiOpenPage(go){
       var map={
@@ -168,6 +193,7 @@
       }
       if(!fn) return;
       setOpen(false);
+      mangoiCloseCoveringLayers();   // ← 목적지가 모달이면 위층 오버레이에 가려 안 보인다(위 주석)
       setTimeout(function(){ try{ fn(); }catch(e){} }, 150);
     }
     window.addEventListener("message", function(e){

@@ -10,14 +10,14 @@
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { scopeFragments, studentScopeWhere, getScope, franchiseList } from './scope';   // 🔒 지사/대리점 데이터 격리
+import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
@@ -248,6 +248,11 @@ async function ensurePayrollSchema(env: { DB: D1Database }): Promise<void> {
     `ALTER TABLE payslips ADD COLUMN bonus_krw INTEGER DEFAULT 0;`,
     `ALTER TABLE payslips ADD COLUMN deduction_krw INTEGER DEFAULT 0;`,
     `ALTER TABLE payslips ADD COLUMN paid INTEGER DEFAULT 0;`,
+    // 🕐 (2026-08-17) 30분 수업 도입 — 급여식이 «class_count × 2» 로 모든 수업을 20분으로
+    //   가정하고 있었다. 길이가 섞이면 강사가 30분을 가르치고 20분 값을 받는다.
+    //   실제 «10분 토막» 합계를 담는 칸. 비어 있으면 예전대로 class_count×2 로 계산한다
+    //   (= 전부 20분이던 과거 달의 값이 바뀌지 않는다).
+    `ALTER TABLE teacher_monthly_classes ADD COLUMN total_10min_units INTEGER;`,
   ]) {
     try { await env.DB.exec(ddl); } catch { /* duplicate column — 정상 */ }
   }
@@ -279,8 +284,13 @@ function calcWeightedTotal(e: {
 
 /**
  * 한 강사의 월 급여·평가 통합 계산.
- *   월급 = class_count × 2 × rate_per_10min_php
+ *   월급 = «10분 토막 수» × rate_per_10min_php
  *   평가 = teacher_evaluations 의 5개 점수 → 가중 합계 → 등급
+ *
+ *   🕐 (2026-08-17) 예전 식은 «class_count × 2» 였다. 그 «2» 는 10분 토막 개수인데
+ *      모든 수업이 20분이라는 가정이 박혀 있었다. 30분 수업이 생기면 강사가
+ *      30분을 가르치고 20분 값을 받는다(임금 삭감 → 강사 이탈).
+ *      이제 total_10min_units 가 있으면 그것을 쓰고, 없으면(=과거 달) 예전 식 그대로.
  */
 async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: number, month: number): Promise<any> {
   const t: any = await env.DB.prepare(
@@ -290,10 +300,15 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   if (!t) return { ok: false, error: 'teacher_not_found', teacher_id: teacherId };
 
   const cl: any = await env.DB.prepare(
-    `SELECT class_count, notes FROM teacher_monthly_classes
+    `SELECT class_count, total_10min_units, notes FROM teacher_monthly_classes
      WHERE teacher_id = ? AND year = ? AND month = ?`
   ).bind(teacherId, year, month).first();
   const classCount = cl ? Number(cl.class_count) : 0;
+  // 실제 길이 합계가 들어와 있으면 그것이 정본. 없으면 «전부 20분» 이던 예전 규칙(×2).
+  const lengthRecorded = !!(cl && Number(cl.total_10min_units) > 0);
+  const tenMinUnits = lengthRecorded
+    ? Number(cl.total_10min_units)
+    : classCount * classTenMinUnits(DEFAULT_CLASS_MINUTES);
 
   const ev: any = await env.DB.prepare(
     `SELECT score_instruction, score_retention, score_punctuality, score_admin, score_contribution,
@@ -302,7 +317,7 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   ).bind(teacherId, year, month).first();
 
   const rate = Number(t.rate_per_10min_php || 0);
-  const monthlySalary = Math.round(classCount * 2 * rate * 100) / 100;
+  const monthlySalary = Math.round(tenMinUnits * rate * 100) / 100;
   const weighted = ev ? (ev.weighted_total != null ? Number(ev.weighted_total) : calcWeightedTotal(ev)) : null;
   const grade = weighted != null ? classifyEvalGrade(weighted) : '미평가';
 
@@ -315,6 +330,11 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
     rate_per_10min_php: rate,
     year, month,
     class_count: classCount,
+    total_10min_units: tenMinUnits,      // 급여 근거 — 20분만이면 class_count×2 와 같다
+    total_minutes: Math.round(tenMinUnits * 10),
+    // false = 그 달의 실제 길이가 입력된 적이 없어 «전부 20분» 으로 계산했다는 뜻.
+    // 화면이 이걸 구분해 보여 줘야 30분 수업을 20분 값으로 지급하는 사고를 눈치챌 수 있다.
+    length_recorded: lengthRecorded,
     monthly_salary_php: monthlySalary,
     monthly_salary_krw: Math.round(monthlySalary * PAYROLL_PHP_TO_KRW),
     php_to_krw: PAYROLL_PHP_TO_KRW,
@@ -2403,18 +2423,42 @@ export async function handleAdminApi(
         if (!_srActor.name) return json({ ok: true, pending_count: 0, rows: [] });
         teacher = _srActor.name;
       }
+      /* 🔒 (2026-08-17 사장님) 지사·대리점도 연기·변경 요청을 처리한다 —
+           «학부모·학생도 하고 학원장님도 한다» 는 확인을 받고 화면을 열었다.
+         그런데 이 목록에는 **스코프 필터가 없었다.** 관리자면 전부 돌려줬으므로,
+         화면만 켰다면 강남점 원장님이 서초점·부산지사 요청까지 보게 된다(학생 이름 포함).
+         그래서 화면보다 **여기를 먼저** 고친다.
+
+         잇는 길 — 요청 → class_schedules.user_id → students_erp → shop_name/franchise.
+         schedule_change_requests 에는 지사·대리점 칸이 아예 없어서 이 경로뿐이다.
+
+         ⚠️ **막는 쪽으로 실패한다(fail-closed).** schedule_id 가 비었거나 그 수업이
+            students_erp 로 이어지지 않는 요청은 지사·대리점에게 **안 보인다.**
+            학생 이름으로 맞추는 방법도 있지만, 동명이인이면 다른 대리점 학생이 새어 나간다 —
+            덜 보이는 쪽이 잘못 보이는 쪽보다 낫다. 본사(hq)는 예전처럼 전부 본다.
+         ⚠️ hq · none(내부직원) 은 cond 가 빈 문자열이라 **동작이 하나도 안 바뀐다.** */
+      const _srScope = await getScope(env as any, request);
+      const _srC = scopeStudentCond(_srScope);
+      const _srScopeCond = _srC.cond
+        ? `schedule_id IN (SELECT id FROM class_schedules WHERE user_id IN (SELECT user_id FROM students_erp WHERE ${_srC.cond}))`
+        : '';
+
       const conds: string[] = []; const binds: any[] = [];
       if (status && status !== 'all') { conds.push('status = ?'); binds.push(status); }
       if (teacher) { conds.push('teacher_name = ?'); binds.push(teacher); }
+      if (_srScopeCond) { conds.push(_srScopeCond); binds.push(..._srC.binds); }
       const where = conds.length ? ('WHERE ' + conds.join(' AND ')) : '';
       const rs: any = await env.DB.prepare(
         `SELECT * FROM schedule_change_requests ${where} ORDER BY (status='pending') DESC, created_at DESC LIMIT ?`
       ).bind(...binds, limit).all().catch(() => ({ results: [] }));
-      // pending 카운트: 강사는 본인 것만, 관리자는 전체
-      const pending: any = _srActor.isTeacher
-        ? await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending' AND teacher_name = ?`).bind(teacher).first().catch(() => null)
-        : await env.DB.prepare(`SELECT COUNT(*) AS c FROM schedule_change_requests WHERE status='pending'`).first().catch(() => null);
-      return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [] });
+      // pending 카운트: 강사는 본인 것만, 지사·대리점은 자기 학생만, 본사는 전체
+      const _pendConds: string[] = ["status='pending'"]; const _pendBinds: any[] = [];
+      if (_srActor.isTeacher) { _pendConds.push('teacher_name = ?'); _pendBinds.push(teacher); }
+      else if (_srScopeCond) { _pendConds.push(_srScopeCond); _pendBinds.push(..._srC.binds); }
+      const pending: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM schedule_change_requests WHERE ${_pendConds.join(' AND ')}`
+      ).bind(..._pendBinds).first().catch(() => null);
+      return json({ ok: true, pending_count: pending?.c || 0, rows: rs.results || [], scope: _srScope.type });
     }
 
     // ── POST /api/admin/schedule-requests/decide — 승인/거절 (관리자) ──
@@ -2430,6 +2474,22 @@ export async function handleAdminApi(
       if (!id || !action) return json({ ok: false, error: 'id_and_action_required' }, 400);
       const row: any = await env.DB.prepare(`SELECT * FROM schedule_change_requests WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
       if (!row) return json({ ok: false, error: 'request_not_found' }, 404);
+      /* 🔒 (2026-08-17) 남의 지사·대리점 요청은 승인·거절할 수 없다.
+           목록만 걸러 두면 **id 만 알면 남의 요청도 승인**된다(id 는 1,2,3… 순번이다).
+           목록과 «같은 조건» 으로 다시 확인한다 — 한쪽만 막으면 어긋난다
+           (CLAUDE.md 의 «짝이 되는 API 끼리 판정이 어긋나지 않았는지» 함정). */
+      const _sdScope = await getScope(env as any, request);
+      const _sdC = scopeStudentCond(_sdScope);
+      if (_sdC.cond) {
+        const _own: any = await env.DB.prepare(
+          `SELECT 1 AS ok FROM schedule_change_requests
+            WHERE id = ?
+              AND schedule_id IN (SELECT id FROM class_schedules WHERE user_id IN (SELECT user_id FROM students_erp WHERE ${_sdC.cond}))
+            LIMIT 1`
+        ).bind(id, ..._sdC.binds).first().catch(() => null);
+        if (!_own) return json({ ok: false, error: 'forbidden_scope', scope: _sdScope.type,
+          message: '이 요청은 다른 지사·대리점 것입니다.' }, 403);
+      }
       if (row.status !== 'pending') return json({ ok: false, error: 'already_decided', status: row.status }, 409);
 
       const now = Date.now();
@@ -3885,13 +3945,25 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return invalidBody(['teacher_id', 'year', 'month', 'class_count']);
       }
       const now = Date.now();
+      // 🕐 (2026-08-17) 길이가 섞이면 «수업 횟수» 만으로는 급여를 못 낸다.
+      //   total_minutes(그 달에 실제로 가르친 분 합계)를 함께 받으면 그것으로 계산한다.
+      //   안 보내면 예전대로 «전부 20분» 으로 본다 — 기존 호출부가 그대로 돌아간다.
+      const _tcCount = Math.max(0, parseInt(b.class_count, 10) || 0);
+      const _tcMinutes = Number(b.total_minutes);
+      const _tcUnits = _tcMinutes > 0
+        ? Math.round(classTenMinUnits(_tcMinutes) * 100) / 100    // 분 → 10분 토막
+        : null;
       await env.DB.prepare(
-        `INSERT INTO teacher_monthly_classes (teacher_id, year, month, class_count, notes, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO teacher_monthly_classes (teacher_id, year, month, class_count, total_10min_units, notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(teacher_id, year, month) DO UPDATE SET
-           class_count = excluded.class_count, notes = excluded.notes, updated_at = excluded.updated_at`
-      ).bind(b.teacher_id, b.year, b.month, Math.max(0, parseInt(b.class_count, 10) || 0), b.notes || null, now).run();
-      return json({ ok: true });
+           class_count = excluded.class_count,
+           -- ⚠️ COALESCE 필수 — total_minutes 없이 «수업 수만» 다시 저장하는 호출이
+           --   기존 길이 합계를 NULL 로 지우면, 급여가 조용히 «전부 20분» 으로 되돌아간다
+           total_10min_units = COALESCE(excluded.total_10min_units, teacher_monthly_classes.total_10min_units),
+           notes = excluded.notes, updated_at = excluded.updated_at`
+      ).bind(b.teacher_id, b.year, b.month, _tcCount, _tcUnits, b.notes || null, now).run();
+      return json({ ok: true, class_count: _tcCount, total_10min_units: _tcUnits });
     }
 
     // 월별 평가 입력 (5개 카테고리 점수 + 코멘트)
@@ -4150,6 +4222,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           year:               r.year,
           month:              r.month,
           class_count:        r.class_count,
+          total_minutes:      r.total_minutes,        // 🕐 급여 근거 — 30분 수업이 섞이면 회수만으론 못 맞춘다
+          length_recorded:    r.length_recorded ? 1 : 0,   // 0 = 길이 미입력(전부 20분으로 계산)
           rate_per_10min_php: r.rate_per_10min_php,
           monthly_salary_php: r.monthly_salary_php,
           monthly_salary_krw: r.monthly_salary_krw,
@@ -4171,7 +4245,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         { key: 'years',              label: 'years' },
         { key: 'year',               label: 'year' },
         { key: 'month',              label: 'month' },
-        { key: 'class_count',        label: 'class_count_20min' },
+        { key: 'class_count',        label: 'class_count' },
+        { key: 'total_minutes',      label: 'total_minutes' },
+        { key: 'length_recorded',    label: 'length_recorded' },
         { key: 'rate_per_10min_php', label: 'rate_per_10min_php' },
         { key: 'monthly_salary_php', label: 'monthly_salary_php' },
         { key: 'monthly_salary_krw', label: 'monthly_salary_krw' },

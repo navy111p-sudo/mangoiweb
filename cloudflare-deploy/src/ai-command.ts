@@ -14,7 +14,7 @@
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
 import { siteUrl, SITE_HOSTS } from './site-url';  // 🔗 사람에게 나가는 링크는 한 곳에서
-import { DEFAULT_CLASS_MINUTES } from './class-policy';  // 기본 수업 20분(영어·중국어 공통)
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';  // 기본 20분 · 고를 수 있는 길이
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 
 const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -1216,7 +1216,8 @@ export async function executeAction(
       const startTime = String(hh).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
       const startMin = hh * 60 + mi;
 
-      const durationMin = [20, 30, 40].includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
+      // ⚠️ 길이 목록을 여기 복사해 두면 class-policy 와 어긋난다 — 반드시 import 로
+      const durationMin = ALLOWED_CLASS_MINUTES.includes(Number(args?.duration_min)) ? Number(args.duration_min) : DEFAULT_CLASS_MINUTES;
       const classType = ['regular','trial','level_test'].includes(String(args?.class_type)) ? String(args.class_type) : 'regular';
       const teacherNameIn = String(args?.teacher_name || '').trim().slice(0, 50);
 
