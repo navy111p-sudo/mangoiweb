@@ -41,6 +41,9 @@
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
+import {                                               // 💼 인사·급여 «월 확정» — 급여 표는 읽기만 한다
+  HR_KINDS, isHrKind, isPeriod, ensureHrTable, getLock, lockPeriod, buildHrSnapshot, listHrPeriods,
+} from './approval-hr';
 import {
   REQ_TYPES, TYPES, typeSpec, stagesFor, deadlineMs, stageDeadlineMs,
   isExec, isHqStaff, canDecideStage, canSubmit, canView, runChecks, normCurrency,
@@ -118,6 +121,9 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     `ALTER TABLE approval_requests ADD COLUMN date_to TEXT`,
     // 같은 휴가로 근무불가를 두 번 만들지 않게 하는 표식(연결된 teacher_unavailability.id)
     `ALTER TABLE approval_requests ADD COLUMN linked_id INTEGER`,
+    // 💼 인사·급여 «월 확정» — 어느 달의 무엇을 확정하는 결재인가
+    `ALTER TABLE approval_requests ADD COLUMN hr_kind TEXT`,
+    `ALTER TABLE approval_requests ADD COLUMN period TEXT`,
   ];
   for (const sql of addCols) {
     try { await env.DB.exec(sql); } catch { /* 이미 있는 칸 — 정상 */ }
@@ -147,6 +153,10 @@ const ensureTable = oncePerIsolate(async (env: ApprovalEnv): Promise<void> => {
     `username TEXT PRIMARY KEY, delegate_to TEXT NOT NULL, ` +
     `until_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`
   );
+
+  // 💼 인사·급여 달 잠금. ⚠️ 여기서 CREATE 를 또 쓰지 않고 주인 모듈의 함수를 부른다 —
+  //   같은 표를 두 곳에서 만들면 «먼저 실행된 것이 이겨» 컬럼이 어긋난다(schema_drift_harness).
+  await ensureHrTable(env);
 
   tableReady = true;
 });
@@ -475,6 +485,7 @@ function rowOf(r: any, steps?: any[], brief = false) {
     title: r.title, body, category: r.category,
     amount: r.amount, currency: r.currency, spent_at: r.spent_at,
     date_from: r.date_from || null, date_to: r.date_to || null,
+    hr_kind: r.hr_kind || null, period: r.period || null,
     requester_username: r.requester_username, requester_name: r.requester_name,
     has_file: !!r.file_key, file_name: r.file_name, file_size: r.file_size,
     status: r.status, decided_by: r.decided_by, decided_at: r.decided_at,
@@ -646,11 +657,16 @@ export async function handleApprovalApi(
     const dsig: any = await safe(async () => await env.DB.prepare(
       `SELECT COUNT(*) AS c, IFNULL(MAX(updated_at),0) AS mu FROM approval_delegates`
     ).first(), null);
+    // 💼 달을 확정하면 «고를 수 있는 달» 이 달라진다 — 서명에 함께 넣는다.
+    //    (안 넣으면 304 로 옛 목록이 남아 이미 확정한 달이 계속 보인다)
+    const lsig: any = await safe(async () => await env.DB.prepare(
+      `SELECT COUNT(*) AS c, IFNULL(MAX(approved_at),0) AS ma FROM approval_period_locks`
+    ).first(), null);
     // 긴급 목록은 «최근 7일» 이라 시간이 지나면 저절로 빠진다. 표가 안 바뀌어도 목록은 바뀌므로
     // 한 시간 단위의 눈금을 하나 섞는다(1시간마다 한 번은 전체를 다시 받는다).
     const hourBucket = Math.floor(Date.now() / 3600_000);
-    const etag = `W/"a2-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
-                 `-${dsig?.c || 0}-${dsig?.mu || 0}-${hourBucket}"`;
+    const etag = `W/"a3-${me}-${sig?.c || 0}-${sig?.mc || 0}-${sig?.md || 0}-${sig?.me2 || 0}` +
+                 `-${dsig?.c || 0}-${dsig?.mu || 0}-${lsig?.c || 0}-${lsig?.ma || 0}-${hourBucket}"`;
     const headers = {
       'Content-Type': 'application/json; charset=utf-8',
       // no-store 가 아니라 no-cache — «저장은 하되 쓰기 전에 반드시 확인» 이라는 뜻이다.
@@ -725,6 +741,13 @@ export async function handleApprovalApi(
       if (reuse.length >= 3) break;
     }
 
+    /* 💼 인사·급여로 확정할 수 있는 달 — 올릴 수 있는 사람에게만 내려보낸다.
+       데이터가 있는 달만 담기므로, 화면은 그걸 버튼으로 그리기만 하면 된다(타이핑 없음). */
+    let hrPeriods: any = null;
+    if (canSubmit(actor, 'hr', ph)) {
+      hrPeriods = await safe(async () => await listHrPeriods(env), null);
+    }
+
     /* 🔗 수업 연기·변경 요청 대기 건수 — 결재할 수 있는 사람에게만.
        표를 옮기지 않는다. «저기에 N건 밀려 있다» 만 알려 주고 누르면 원래 화면으로 간다. */
     let scheduleWaiting = 0;
@@ -761,9 +784,12 @@ export async function handleApprovalApi(
       colleagues, my_delegate: myDelegate,
       can_approve: inbox.length > 0 || (!ph && isHqStaff(actor)),
       pending: inbox.length,
-      types: TYPES.filter(t => canSubmit(actor, t.key))
+      types: TYPES.filter(t => canSubmit(actor, t.key, ph))
                   .map(t => ({ key: t.key, ko: t.ko, en: t.en, needs_amount: t.needsAmount,
-                               wants_file: t.wantsFile, wants_dates: !!t.wantsDates })),
+                               wants_file: t.wantsFile, wants_dates: !!t.wantsDates,
+                               // 💼 인사·급여는 «달을 고르는» 분류다. 화면이 폼 대신 월 버튼을 그린다.
+                               picks_period: t.key === 'hr' })),
+      hr_periods: hrPeriods,
       inbox, mine, reuse, urgent,
       /* 🔗 수업 연기·변경 요청 — 결재함이 «가져오지» 않는다. 건수만 비춰 주고 원래 화면으로 보낸다.
          (같은 «요청 → 승인» 구조를 두 벌 만들면 반드시 어긋난다 — 데이터는 원래 자리에 둔다) */
@@ -780,7 +806,8 @@ export async function handleApprovalApi(
       const form = await request.formData();
       const reqType = String(form.get('req_type') || 'expense');
       if (REQ_TYPES.indexOf(reqType) < 0) return json({ ok: false, error: 'bad_req_type', allowed: REQ_TYPES }, 400);
-      if (!canSubmit(actor, reqType)) {
+      // ⚠️ ph 를 함께 넘긴다 — 화면에서 안 보여도 주소로 직접 부르면 뚫리므로 서버에서 막는다.
+      if (!canSubmit(actor, reqType, ph)) {
         return json({
           ok: false, error: 'forbidden_type',
           message: '이 분류는 올릴 수 없습니다.',
@@ -813,10 +840,36 @@ export async function handleApprovalApi(
         }, 429);
       }
 
-      const title = String(form.get('title') || '').trim().slice(0, 200);
+      /* 💼 인사·급여 «월 확정» — 올리는 사람은 **달과 종류만** 고른다.
+         금액·인원은 서버가 급여/평가 표를 읽어서 채운다.
+         ⚠️ 이게 이 기능의 핵심 성질이다 — 숫자를 손으로 적지 않으므로
+            «올릴 때 잘못 적는» 사고가 구조적으로 불가능하다. */
+      let hrKind: string | null = null, period: string | null = null, hrSnap: any = null;
+      if (reqType === 'hr') {
+        const k = String(form.get('hr_kind') || '').trim();
+        const p = String(form.get('period') || '').trim();
+        if (k || p) {
+          if (!isHrKind(k)) return json({ ok: false, error: 'bad_hr_kind', allowed: HR_KINDS }, 400);
+          if (!isPeriod(p)) return json({ ok: false, error: 'bad_period', hint: 'YYYY-MM' }, 400);
+          await ensureHrTable(env);
+          // 같은 달을 두 번 확정하지 않는다 — 먼저 승인된 기록이 정본이다.
+          const locked = await getLock(env, k, p);
+          if (locked) {
+            return json({
+              ok: false, error: 'period_locked',
+              message: p + ' 은(는) 이미 확정된 달입니다.',
+              message_en: p + ' has already been confirmed.',
+            }, 409);
+          }
+          hrKind = k; period = p;
+          hrSnap = await buildHrSnapshot(env, k, p);
+        }
+      }
+
+      const title = hrSnap ? String(hrSnap.title_ko) : String(form.get('title') || '').trim().slice(0, 200);
       if (!title) return json({ ok: false, error: 'title_required' }, 400);
 
-      const body = String(form.get('body') || '').trim().slice(0, 4000);
+      const body = hrSnap ? String(hrSnap.body_ko) : String(form.get('body') || '').trim().slice(0, 4000);
       const category = String(form.get('category') || '').trim().slice(0, 60) || null;
       const spentAt = String(form.get('spent_at') || '').trim().slice(0, 10) || null;
       const currency = normCurrency(String(form.get('currency') || 'PHP'));
@@ -903,18 +956,26 @@ export async function handleApprovalApi(
         reqType, amount, currency, hasFile: !!fileKey, ocrAmount,
         duplicateCount: facts.duplicateCount, monthTotal: facts.monthTotal, medianAmount: facts.medianAmount,
       });
+      /* 💼 급여·평가는 «그 달이 아직 안 됐다» 는 신호가 판단 재료다 —
+         강사 0명, 완료 수업 0회, 이미 지급 표시된 사람이 있음 등.
+         이것도 AI 가 아니라 조회 결과다(approval-hr.ts). */
+      if (hrSnap && Array.isArray(hrSnap.warnings)) {
+        for (const w of hrSnap.warnings) {
+          flags.push({ code: 'hr_notice', level: 'warn', ko: w.ko, en: w.en });
+        }
+      }
 
       const ins = await env.DB.prepare(
         `INSERT INTO approval_requests
            (req_type, requester_username, requester_name, title, body, category,
             amount, currency, spent_at, file_key, file_name, file_ext, file_size,
             status, created_at, stage_seq, stage_total, deadline_at, stage_due_at, ocr_amount, flags,
-            client_key, date_from, date_to)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)`
+            client_key, date_from, date_to, hr_kind, period)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(reqType, actor.username, actor.name || null, title, body || null, category,
              amount, currency, spentAt, fileKey, fileName, fileExt, fileSize, now,
              stages.length, deadline, stageDue, ocrAmount, JSON.stringify(flags), clientKey,
-             dateFrom, dateTo).run();
+             dateFrom, dateTo, hrKind, period).run();
 
       const reqId = Number(ins.meta.last_row_id);
 
@@ -929,8 +990,10 @@ export async function handleApprovalApi(
         }, false);
       }
 
-      // 한 줄 요약 — 결재당 1회. 실패해도 기안은 이미 저장된 뒤다.
-      const sum = await summarize(env, {
+      /* 한 줄 요약 — 결재당 1회. 실패해도 기안은 이미 저장된 뒤다.
+         ⚠️ 인사·급여는 부르지 않는다. 서버가 이미 정확한 문장을 만들어 뒀고,
+            **AI 가 금액을 바꿔 쓸 여지를 아예 남기지 않는 편이 낫다.** */
+      const sum = hrSnap ? null : await summarize(env, {
         req_type: reqType, requester_name: actor.name, requester_username: actor.username,
         amount, currency, title, body,
       });
@@ -1120,6 +1183,22 @@ export async function handleApprovalApi(
       //   그래야 그 기간 예약이 실제로 막힌다. 결재함과 캘린더에 따로 적지 않는다(이중 입력 방지).
       if (finalStatus === 'approved' && typeSpec(cur.req_type).wantsDates && cur.date_from) {
         await applyLeaveToCalendar(env, cur, id);
+      }
+      /* 💼 급여·평가가 최종 승인되면 그 달을 잠근다 — 「누가 언제 확정했는가」 를 남긴다.
+         ⚠️ 급여 표(teacher_payroll_auto·payslips)에는 쓰지 않는다. 그 표의 주인은 api-admin 이고,
+            여기서 손대면 이중 기록이 된다. 결재함은 «승인 사실» 만 자기 표에 적는다.
+         ⚠️ 승인 시점의 숫자를 통째로 얼려 둔다 — 나중에 원본이 바뀌어도
+            «그때 무엇을 승인했는지» 가 남아야 한다(감사 기록). */
+      if (finalStatus === 'approved' && cur.req_type === 'hr' && cur.hr_kind && cur.period) {
+        try {
+          await ensureHrTable(env);
+          const snap = await buildHrSnapshot(env, cur.hr_kind, cur.period);
+          const done = await lockPeriod(env, cur.hr_kind, cur.period, id, String(actor.username), snap);
+          console.log('[approval-hr] 달 확정', JSON.stringify({ id, kind: cur.hr_kind, period: cur.period, done }));
+        } catch (e) {
+          // 삼키되 반드시 남긴다 — 승인은 됐는데 확정 기록이 없는 상태를 사람이 알아야 한다.
+          console.error('[approval-hr] 달 확정 기록 실패 — 손으로 확인 필요. id=' + id, (e as any)?.message || e);
+        }
       }
       // 끝났으면 올린 사람에게 결과를 알린다.
       await notify(env, [String(cur.requester_username)],
