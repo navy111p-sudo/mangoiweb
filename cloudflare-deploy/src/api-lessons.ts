@@ -4,6 +4,7 @@
 //   포함: Phase HW(숙제) + E1~E4(평가서) + BE(일괄평가) + CAL(캘린더·공휴일, 13차)
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPushToUser } from './api-notify';
@@ -178,7 +179,7 @@ export async function handleLessonsApi(
         const bodyKo = String(noteKo || '').trim();
         if (bodyKo) {
           const { sendPlainSms } = await import('./solapi-client');
-          const url = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+          const url = siteUrl('/eval.html?id=' + evalId);
           const msg = `[망고아이] ${studentName || ''} 학생의 오늘 수업 일지가 도착했어요\n`
             + `"${bodyKo.slice(0, 300)}"\n${url}`;
           const r = await sendPlainSms(env as any, phone, msg);
@@ -188,7 +189,7 @@ export async function handleLessonsApi(
               CLAUDE.md 머리에 운영 주소로 적혀 있어서 그대로 썼다가 «죽은 링크가 학부모에게 나가는» 사고가 될 뻔했다.
               이 저장소에서 학부모에게 실제로 나가는 문자들(absent-sweep.ts:189, enroll-ops.ts:516,
               api-retention.ts:61)이 모두 쓰는 주소가 정본이다. */
-        const evalUrl = `https://test.mangoi.co.kr/eval.html?id=${evalId}`;
+        const evalUrl = siteUrl('/eval.html?id=' + evalId);
         const { sendKakaoAlimtalk } = await import('./solapi-client');
         const r = await sendKakaoAlimtalk(env as any, {
           templateCode: (env as any).SOLAPI_TEMPLATE_CHAT_SUMMARY || '',

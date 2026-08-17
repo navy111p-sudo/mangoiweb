@@ -16,6 +16,7 @@
  */
 
 import { sendPlainSms } from './solapi-client';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 📧 강사 대부분이 필리핀에 있어 «한국 문자» 로는 못 닿는다 — 이메일이 유일한 국제 자동 수단이다. */
 import { sendEmail, emailLayout } from './email';
 
@@ -186,7 +187,7 @@ export async function runAbsentStudentSweep(env: any, opts: { dry?: boolean } = 
         ).bind(c.user_id || '', c.user_id || '').first();
         const phone = stu && (stu.parent_phone || stu.phone);
         if (phone) {
-          const msg = `[망고아이] ${name} 학생이 오늘 ${hhmm} 수업 시작 ${c.late_min}분이 지나도록 입장하지 않았어요. 확인 부탁드립니다. 입장: https://test.mangoi.co.kr/?go=videocall`;
+          const msg = `[망고아이] ${name} 학생이 오늘 ${hhmm} 수업 시작 ${c.late_min}분이 지나도록 입장하지 않았어요. 확인 부탁드립니다. 입장: ${siteUrl('/?go=videocall')}`;
           const r = await sendPlainSms(env, phone, msg);
           detail.parent_sms = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';
           if (r && r.ok) parentBudget--;

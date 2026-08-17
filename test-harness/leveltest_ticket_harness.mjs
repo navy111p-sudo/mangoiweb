@@ -96,7 +96,7 @@ if (T) {
 
   const url = await T.ltTicketUrl(13, env);
   check('티켓 주소가 운영 도메인이다 (mango-i.com 은 등록조차 안 된 도메인)',
-    url.startsWith('https://test.mangoi.co.kr/t.html?k=') && !url.includes('mango-i.com'));
+    url.startsWith('https://mangoi.ai/t.html?k=') && !url.includes('mango-i.com'));
 
   // 캘린더 파일 — 쉼표·줄바꿈 이스케이프를 빠뜨리면 캘린더 앱이 통째로 무시한다
   const ics = T.buildLtIcs(

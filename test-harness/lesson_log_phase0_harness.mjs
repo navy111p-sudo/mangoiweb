@@ -86,9 +86,14 @@ check('⚠ 관리자 화면(adm-r6)은 notify_parent 를 보내지 않는다', A
 check('문자 본문은 한국어 고정 템플릿 + 링크 (강사가 쓴 영어를 그대로 보내지 않는다)',
   /fallbackSmsText: `\[망고아이\]/.test(SRC) && /평가서가 도착했어요/.test(SRC));
 /* 🔴 죽은 링크 방지 — `mango-i.com` 은 등록조차 안 된 도메인이다(NXDOMAIN 실측 2026-08-09).
-      CLAUDE.md 머리에 운영 주소로 적혀 있어 한 번 밟았다. 학부모에게 나가는 링크라 되돌아가면 안 된다. */
-check('🔑 평가서 링크가 살아 있는 도메인을 쓴다 (test.mangoi.co.kr)',
-  /const evalUrl = `https:\/\/test\.mangoi\.co\.kr\/eval\.html\?id=\$\{evalId\}`/.test(SRC));
+      CLAUDE.md 머리에 운영 주소로 적혀 있어 한 번 밟았다. 학부모에게 나가는 링크라 되돌아가면 안 된다.
+      (2026-08-17) 주소를 손으로 적는 것 자체를 그만뒀다 — site-url.ts 의 siteUrl() 한 곳에서 온다.
+      그래서 «어느 도메인인가» 가 아니라 «손으로 안 적었는가» 를 본다. 도메인 자체는
+      outgoing_link_domain_harness.mjs 가 지킨다. */
+check('🔑 평가서 링크를 손으로 적지 않는다 (siteUrl 한 곳에서 온다)',
+  /const evalUrl = siteUrl\('\/eval\.html\?id=' \+ evalId\)/.test(SRC));
+check('🔑 평가서 링크에 https:// 를 직접 박아 넣지 않는다',
+  !/evalUrl\s*=\s*[`'"]https:\/\//.test(SRC));
 check('⚠ 학부모 문자에 mango-i.com 이 들어가지 않는다',
   !/mango-i\.com[^`'"]*eval/.test(SRC));
 

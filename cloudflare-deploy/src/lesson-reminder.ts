@@ -18,6 +18,7 @@
  */
 
 import { sendPlainSms } from './solapi-client';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 
 const REMIND_MIN_MS = 15 * 60 * 1000;   // 시작 15분 전까지 알림 창 유지
 const REMIND_MAX_MS = 45 * 60 * 1000;   // 시작 45분 전부터 알림 창 열림 (≈30분 전 발송)
@@ -251,7 +252,7 @@ export async function runLessonReminderSweep(env: any, opts: { dry?: boolean } =
       continue;
     }
 
-    const msg = `[망고아이] ${name} 학생, 오늘 ${hhmm} 화상수업이 약 ${c.mins_left}분 후 시작됩니다.\n▶ 입장: https://test.mangoi.co.kr/?go=videocall\n▶ 장비점검(마이크·스피커): https://test.mangoi.co.kr/precheck.html\n※ 수업 연기·취소는 시작 30분 전까지 무료, 이후는 유료 처리됩니다.`;
+    const msg = `[망고아이] ${name} 학생, 오늘 ${hhmm} 화상수업이 약 ${c.mins_left}분 후 시작됩니다.\n▶ 입장: ${siteUrl('/?go=videocall')}\n▶ 장비점검(마이크·스피커): ${siteUrl('/precheck.html')}\n※ 수업 연기·취소는 시작 30분 전까지 무료, 이후는 유료 처리됩니다.`;
 
     let sentParent = 0, sentStudent = 0;
     if (!dry) {
