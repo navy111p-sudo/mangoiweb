@@ -625,6 +625,28 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <div id="ltBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- 📇 (2026-08-17) 복구 연락처 — 비밀번호를 잊었을 때 본인이 풀 수 있는 유일한 근거.
+       왜 강사 포털에 넣나: 관리자 계정 대부분이 강사(mangoi_*)인데 2026-08-17 기준 연락처가
+       등록된 계정이 47개 중 2개뿐이었다. 강사가 스스로 채울 자리가 아예 없었던 것이 원인이다.
+       ⚠️ 저장은 /api/admin/profile 로 간다. 그 API 는 **보낸 칸만** 고친다(같은 날 수정) —
+          여기서 이름을 안 보내도 이름이 지워지지 않는다. -->
+  <details class="card mycard" id="c-contact">
+    <summary data-en="My contact (for password recovery)" data-ko="내 연락처 (비밀번호 찾기용)">My contact (for password recovery)</summary>
+    <div class="pwform">
+      <div id="ct-warn" class="mini" style="display:none;padding:9px 11px;border-radius:9px;background:#fffbeb;border:1px solid #fde68a;color:#78350f;line-height:1.6"
+           data-en="No contact on file yet. Without it you cannot reset your own password if you forget it — please fill this in."
+           data-ko="아직 등록된 연락처가 없습니다. 없으면 비밀번호를 잊었을 때 본인이 풀 수 없습니다 — 채워 주세요.">
+        No contact on file yet.</div>
+      <div class="fld"><label data-en="Mobile number" data-ko="휴대폰 번호">Mobile number</label>
+        <input type="tel" id="ct-phone" autocomplete="tel" placeholder="09xx xxx xxxx"></div>
+      <div class="fld"><label data-en="Email" data-ko="이메일">Email</label>
+        <input type="email" id="ct-email" autocomplete="email" placeholder="you@example.com"></div>
+      <button class="btn btn-eval btn-wide btn-sm" type="button" id="ct-save"
+              data-en="Save contact" data-ko="연락처 저장">Save contact</button>
+      <div id="ct-msg" class="mini"></div>
+    </div>
+  </details>
+
   <details class="card mycard" id="c-pw">
     <summary data-en="Change my password" data-ko="비밀번호 변경">Change my password</summary>
     <div class="pwform">
@@ -2552,6 +2574,69 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
        + esc(T('Showing applicants assigned to you or not yet assigned.','내게 배정된 건과 아직 배정되지 않은 건만 보입니다.')) + '</div>';
     fill('ltBody', h);
   }
+
+  // ── 📇 복구 연락처 (비밀번호 찾기용) ─────────────────────────────────────
+  //   판정 기준은 서버 `pickResetContact()` 와 같아야 한다 — 「값이 있으면 등록됨」으로 세면
+  //   이메일 칸에 아이디가 든 계정이 «등록됨» 으로 보이고, 정작 비번찾기는 조용히 실패한다.
+  (function(){
+    var phoneEl = document.getElementById('ct-phone');
+    var emailEl = document.getElementById('ct-email');
+    var warnEl  = document.getElementById('ct-warn');
+    if (!phoneEl || !emailEl) return;
+    function usable(){
+      var p = String(phoneEl.value || '').replace(/[^0-9]/g, '');
+      var e = String(emailEl.value || '').trim();
+      return p.length >= 8 || /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(e);
+    }
+    function paintWarn(){ if (warnEl) warnEl.style.display = usable() ? 'none' : 'block'; }
+
+    fetch('/api/admin/me', { credentials:'same-origin' })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        var u = (j && j.user) || {};
+        phoneEl.value = u.phone || '';
+        emailEl.value = u.email || '';
+        paintWarn();
+      })
+      .catch(function(){ /* 못 읽어도 화면은 그대로 — 저장은 가능하다 */ });
+
+    document.getElementById('ct-save').onclick = function(){
+      var msg = document.getElementById('ct-msg');
+      var phone = String(phoneEl.value || '').trim();
+      var email = String(emailEl.value || '').trim();
+      msg.className = 'mini';
+      if (!phone && !email){
+        msg.textContent = T('Enter a mobile number or an email.', '휴대폰 번호나 이메일 중 하나는 입력해 주세요.');
+        return;
+      }
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)){
+        msg.textContent = T('That email address is not valid.', '이메일 형식이 올바르지 않습니다.');
+        return;
+      }
+      if (phone && phone.replace(/[^0-9]/g, '').length < 8){
+        msg.textContent = T('That phone number is not valid.', '전화번호 형식이 올바르지 않습니다.');
+        return;
+      }
+      var b = this;
+      b.disabled = true; msg.textContent = T('Saving…', '저장 중…');
+      fetch('/api/admin/profile', {
+        method:'POST', credentials:'same-origin', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ phone: phone, email: email })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        b.disabled = false;
+        if (j && j.ok){
+          msg.textContent = T('Saved. You can now use "Forgot password" on the sign-in screen.',
+                              '저장했습니다. 이제 로그인 화면의 «비밀번호 찾기» 를 쓸 수 있습니다.');
+          paintWarn();
+        } else {
+          msg.textContent = T('Could not save: ', '저장하지 못했습니다: ') + ((j && (j.message || j.error)) || '');
+        }
+      })
+      .catch(function(){ b.disabled = false; msg.textContent = T('Network error. Please try again.','네트워크 오류입니다. 다시 시도해 주세요.'); });
+    };
+  })();
 
   // ── 🔑 비밀번호 변경 ──────────────────────────────────────────────────────
   document.getElementById('pw-save').onclick = function(){

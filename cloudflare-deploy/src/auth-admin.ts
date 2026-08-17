@@ -19,6 +19,7 @@
 import { getScope } from './scope';
 import { generateSecret, otpauthURI, verifyTOTP } from './totp';
 import { sendPlainSms } from './solapi-client';
+import { sendEmail, getEmailMode, emailLayout } from './email';
 import { authUidFromRequest } from './auth-token';   // 🔐 소유자 검증(단방향 의존: auth-admin → auth-token)
 import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provisionTeacherAccount } from './legacy-teacher-auth';
 
@@ -197,6 +198,38 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 function randomToken(bytes = 32): string {
   return bytesToHex(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+/** 전체권한 계정 — 비번찾기 성공 시 사장님에게 알리고, 부트스트랩이 강한 비번을 심는 대상. */
+export const FULL_ACCESS_ACCOUNTS = new Set(['admin', 'cfo', 'ops_lead']);
+
+/**
+ * 🌏 국적(ISO2) → 국제문자 국가번호. SOLAPI 는 국내(82)가 아니면 country 를 붙여야 나간다.
+ *   강사는 사실상 전원 필리핀(63)이라 이 표가 없으면 «비번찾기가 강사에게만 안 되는» 기능이 된다.
+ */
+const DIAL_CODE: Record<string, string> = {
+  KR: '82', PH: '63', US: '1', VN: '84', TH: '66', ID: '62', JP: '81', CN: '86', MY: '60', SG: '65',
+};
+
+/**
+ * 🔑 비번찾기에 쓸 연락처를 고른다.
+ *   ⚠️ **값이 있다고 다 연락처가 아니다.** 운영 DB 에는 email 칸에 아이디가 그대로 들어간 행이
+ *      실제로 있다(`agency_gn001`, `mangoi_172` — 2026-08-17 확인). 그런 값으로 메일을 보내면
+ *      «보냈다» 고 기록만 남고 아무 데도 안 간다. 그래서 형식 검사를 통과한 것만 연락처로 인정한다.
+ */
+export function pickResetContact(acct: { phone?: string | null; email?: string | null; nationality?: string | null }):
+  { phone?: string; email?: string; country?: string } {
+  const out: { phone?: string; email?: string; country?: string } = {};
+  const digits = String(acct.phone || '').replace(/[^0-9]/g, '');
+  if (digits.length >= 8) {
+    out.phone = digits;
+    const nat = String(acct.nationality || '').toUpperCase();
+    // 국적이 있으면 그것을, 없으면 번호 모양으로 추정(010… = 국내).
+    out.country = DIAL_CODE[nat] || (digits.startsWith('010') ? '82' : undefined);
+  }
+  const email = String(acct.email || '').trim();
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) out.email = email;
+  return out;
 }
 
 // ────────────────────────────────────────────────────────────
@@ -729,6 +762,201 @@ export async function handleAdminAuthApi(
       return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookieHeader() });
     }
 
+    // ── 🔑 비밀번호 찾기(셀프 재설정) — 2026-08-17 ──
+    //   왜 만들었나: 비번을 잊으면 «운영자에게 메일» 뿐이었다. 로그인 화면의 «비밀번호 찾기» 는
+    //   보내지도 않은 임시비번을 보냈다고 말하던 시연 껍데기였고 같은 날 걷어냈다(adm-q12).
+    //   모양은 학생용 `/api/student/password-reset/*` 과 맞춘다 — 코드 10분·검증 5회·발송 1시간 3회.
+    //
+    //   ⚠️ 관리자 계정은 학생 계정보다 권한이 크다. 그래서 세 가지를 더 조인다:
+    //     ① **등록된 연락처가 있는 계정만.** 없으면 임시비번을 만들어 주지 않고 운영자 문의로 보낸다
+    //        (여기서 «없으면 대충 만들어 준다» 를 하면 비번찾기가 곧 계정탈취 경로가 된다)
+    //     ② 2FA 를 켠 계정은 코드 확인 때 **TOTP 도 함께** 요구 — 문자 한 통으로 2FA 를 우회하지 못하게
+    //     ③ 전체권한 계정(admin·cfo·ops_lead)이 이 경로로 비번을 바꾸면 **사장님 폰으로 알림**
+    //
+    //   ⚠️ 응답은 **아이디 존재 여부를 흘리지 않는다.** 모르는 아이디든, 연락처가 없든, 정상 발송이든
+    //      전부 같은 문구·같은 200 을 준다(계정 열거 방지). 대신 문구에 「안 오면 운영자 문의」를 적어
+    //      사용자가 막히지 않게 한다. 마스킹된 번호도 주지 않는다 — 그것 자체가 존재 신호다.
+    const ensureAdminPwReset = async () => {
+      await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS admin_pw_reset (
+           username TEXT PRIMARY KEY,
+           code_hash TEXT,
+           expires_at INTEGER,
+           attempts INTEGER DEFAULT 0,
+           sent_count INTEGER DEFAULT 0,
+           first_sent_at INTEGER,
+           created_at INTEGER
+         )`
+      ).run().catch(() => {});
+    };
+
+    if (path === '/api/admin/password-reset/request' && method === 'POST') {
+      await ensureAdminPwReset();
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const username = String(body?.username || '').trim();
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      const now = Date.now();
+      // 어떤 갈래로 끝나든 사용자에게는 이 문구 하나만 나간다(존재 여부 비노출).
+      const GENERIC = {
+        ok: true,
+        message: '등록된 연락처로 인증번호를 보냈습니다. (10분 유효)\n문자·메일이 오지 않으면 등록된 연락처가 없는 경우입니다 — 운영자(navy111p@gmail.com)에게 문의해 주세요.',
+        message_en: 'If that account has a registered contact, a code has been sent (valid 10 minutes).\nIf nothing arrives, no contact is on file — please contact the office (navy111p@gmail.com).',
+      };
+      if (!username) return json({ ok: false, error: 'username_required' }, 400);
+
+      // 같은 IP 에서 무차별로 긁는 것 차단 — 아이디를 바꿔 가며 두드리는 경우까지 잡는다.
+      try {
+        const ipCnt = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM admin_login_history WHERE ip = ? AND reason LIKE 'pwreset_req%' AND login_at > ?`
+        ).bind(ip, now - 3600 * 1000).first<{ n: number }>();
+        if (ip && (ipCnt?.n || 0) >= 10) {
+          return json({ ok: false, error: 'too_many_requests',
+            message: '요청이 너무 잦습니다. 1시간 후 다시 시도해 주세요.',
+            message_en: 'Too many requests. Please try again in an hour.' }, 429);
+        }
+      } catch { /* 집계 실패 시 가용성 우선 — 계속 진행 */ }
+      await recordLogin(env, username, ip, request.headers.get('user-agent') || '', false, 'pwreset_req').catch(() => {});
+
+      const acct = await env.DB.prepare(
+        `SELECT username, name, phone, email, nationality FROM admin_account WHERE username = ? LIMIT 1`
+      ).bind(username).first<{ username: string; name: string | null; phone: string | null; email: string | null; nationality: string | null }>();
+      if (!acct) return json(GENERIC);
+
+      const contact = pickResetContact(acct);
+      if (!contact.phone && !contact.email) return json(GENERIC);
+
+      // 계정당 1시간 3회
+      const prev: any = await env.DB.prepare(`SELECT * FROM admin_pw_reset WHERE username = ?`).bind(acct.username).first().catch(() => null);
+      let sentCount = 0, firstSentAt = now;
+      if (prev && prev.first_sent_at && now - Number(prev.first_sent_at) < 3600 * 1000) {
+        sentCount = Number(prev.sent_count) || 0; firstSentAt = Number(prev.first_sent_at);
+        if (sentCount >= 3) {
+          return json({ ok: false, error: 'too_many_requests',
+            message: '인증번호 요청이 너무 잦습니다. 1시간 후 다시 시도해 주세요.',
+            message_en: 'Too many code requests. Please try again in an hour.' }, 429);
+        }
+      }
+
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const codeHash = await hashPassword('adminpwreset|' + acct.username + '|' + code, 'adminpwreset');
+      await env.DB.prepare(
+        `INSERT INTO admin_pw_reset (username, code_hash, expires_at, attempts, sent_count, first_sent_at, created_at)
+         VALUES (?,?,?,0,?,?,?)
+         ON CONFLICT(username) DO UPDATE SET code_hash=excluded.code_hash, expires_at=excluded.expires_at,
+           attempts=0, sent_count=excluded.sent_count, first_sent_at=excluded.first_sent_at, created_at=excluded.created_at`
+      ).bind(acct.username, codeHash, now + 10 * 60000, sentCount + 1, firstSentAt, now).run();
+
+      // 문자를 먼저, 안 되면 메일. 둘 다 실패해도 응답 문구는 같다(존재 비노출).
+      let delivered = false;
+      if (contact.phone) {
+        const sms = await sendPlainSms(
+          env as any, contact.phone,
+          `[망고아이] 관리자 비밀번호 재설정 인증번호는 [${code}] 입니다. 10분 안에 입력해 주세요.`,
+          contact.country ? { country: contact.country } : undefined
+        ).catch(() => null);
+        if (sms && sms.ok) delivered = true;
+      }
+      if (!delivered && contact.email && getEmailMode(env as any) === 'real') {
+        const r = await sendEmail(env as any, {
+          to: contact.email,
+          subject: '[망고아이] 관리자 비밀번호 재설정 인증번호',
+          html: emailLayout({
+            title: '비밀번호 재설정 인증번호',
+            bodyHtml:
+              `<p>아래 6자리 인증번호를 재설정 화면에 입력해 주세요. <b>10분간</b> 유효합니다.</p>` +
+              `<p style="font-size:28px;font-weight:800;letter-spacing:6px;margin:18px 0">${code}</p>` +
+              `<p style="color:#64748b;font-size:13px">본인이 요청하지 않았다면 이 메일을 무시하세요. 비밀번호는 그대로 유지됩니다.</p>`,
+          }),
+        }).catch(() => null);
+        if (r && r.ok) delivered = true;
+      }
+      if (!delivered) console.warn('[auth-admin] pwreset 발송 실패:', acct.username);
+      return json(GENERIC);
+    }
+
+    if (path === '/api/admin/password-reset/confirm' && method === 'POST') {
+      await ensureAdminPwReset();
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const username = String(body?.username || '').trim();
+      const code = String(body?.code || '').trim();
+      const next = String(body?.new_password || '');
+      const otp = String(body?.code_2fa || body?.otp || '').trim();
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      const ua = request.headers.get('user-agent') || '';
+      const now = Date.now();
+
+      if (!username || !code) return json({ ok: false, error: 'missing_fields',
+        message: '아이디와 인증번호를 입력해 주세요.', message_en: 'Enter your ID and the code.' }, 400);
+      if (!next || next.length < 6) return json({ ok: false, error: 'too_short',
+        message: '새 비밀번호는 6자 이상이어야 합니다.', message_en: 'New password must be at least 6 characters.' }, 400);
+
+      // 코드 오류 문구도 한 가지로 통일 — 「아이디는 맞는데 코드가 틀림」을 구분해 주지 않는다.
+      const BAD = { ok: false, error: 'invalid_code',
+        message: '인증번호가 올바르지 않거나 만료됐습니다. 다시 요청해 주세요.',
+        message_en: 'The code is wrong or expired. Please request a new one.' };
+
+      const acct = await env.DB.prepare(
+        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
+      ).bind(username).first<{ username: string }>();
+      if (!acct) return json(BAD, 401);
+
+      const row: any = await env.DB.prepare(`SELECT * FROM admin_pw_reset WHERE username = ?`).bind(acct.username).first().catch(() => null);
+      if (!row || !row.code_hash || now > Number(row.expires_at || 0)) return json(BAD, 401);
+      if (Number(row.attempts || 0) >= 5) {
+        return json({ ok: false, error: 'too_many_attempts',
+          message: '시도 횟수를 초과했습니다. 인증번호를 다시 요청해 주세요.',
+          message_en: 'Too many attempts. Please request a new code.' }, 429);
+      }
+      const codeHash = await hashPassword('adminpwreset|' + acct.username + '|' + code, 'adminpwreset');
+      if (codeHash !== row.code_hash) {
+        await env.DB.prepare(`UPDATE admin_pw_reset SET attempts = attempts + 1 WHERE username = ?`).bind(acct.username).run().catch(() => {});
+        await recordLogin(env, acct.username, ip, ua, false, 'pwreset_bad_code').catch(() => {});
+        return json(BAD, 401);
+      }
+
+      // 2FA 를 켠 계정은 문자 코드만으로 통과시키지 않는다.
+      const twoFaDisabled = String((env as any).ADMIN_2FA_DISABLED || '').toLowerCase() === 'true';
+      const twofa = twoFaDisabled ? null : await env.DB.prepare(
+        `SELECT secret, enabled FROM admin_2fa WHERE username = ? LIMIT 1`
+      ).bind(acct.username).first<{ secret: string; enabled: number }>();
+      if (twofa && twofa.enabled) {
+        if (!otp) {
+          return json({ ok: false, need_2fa: true,
+            message: '인증 앱의 6자리 코드도 입력해 주세요.',
+            message_en: 'Also enter the 6-digit code from your authenticator app.' }, 200);
+        }
+        if (!(await verifyTOTP(twofa.secret, otp, now))) {
+          await recordLogin(env, acct.username, ip, ua, false, 'pwreset_bad_2fa').catch(() => {});
+          return json({ ok: false, error: 'invalid_2fa',
+            message: '인증 코드가 올바르지 않습니다.', message_en: 'That authenticator code is not valid.' }, 401);
+        }
+      }
+
+      await env.DB.prepare(
+        `UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`
+      ).bind(await hashPassword(next), now, acct.username).run();
+      // 분실·유출 대응의 핵심 — 이 계정의 기존 세션을 전부 끊는다.
+      await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(acct.username).run().catch(() => {});
+      await env.DB.prepare(`DELETE FROM admin_pw_reset WHERE username = ?`).bind(acct.username).run().catch(() => {});
+      await recordLogin(env, acct.username, ip, ua, true, 'pwreset_done').catch(() => {});
+
+      // 전체권한 계정이 이 경로로 바뀌면 사장님이 즉시 알아야 한다.
+      if (FULL_ACCESS_ACCOUNTS.has(acct.username)) {
+        const toPhone = (env as any).OWNER_ALERT_PHONE;
+        if (toPhone) {
+          await sendPlainSms(env as any, String(toPhone),
+            `[망고아이] 전체권한 계정 '${acct.username}' 의 비밀번호가 «비밀번호 찾기» 로 재설정됐습니다. 본인이 아니면 즉시 확인해 주세요.`
+          ).catch(() => {});
+        }
+      }
+
+      return json({ ok: true,
+        message: '비밀번호가 변경됐습니다. 새 비밀번호로 로그인해 주세요.',
+        message_en: 'Password changed. Please sign in with the new password.' });
+    }
+
     // ── 아래는 모두 인증된 세션이 있어야 함 (index.ts 미들웨어가 이미 검증) ──
     const sess = await checkAdminSession(request, env);
     if (!sess.ok || !sess.username) {
@@ -762,12 +990,18 @@ export async function handleAdminAuthApi(
       let body: any;
       try { body = await request.json(); } catch { body = null; }
       if (!body) return json({ ok: false, error: 'invalid_body' }, 400);
-      const name  = body.name  != null ? String(body.name).slice(0, 50) : null;
-      const email = body.email != null ? String(body.email).slice(0, 100) : null;
-      const phone = body.phone != null ? String(body.phone).slice(0, 30) : null;
-      await env.DB.prepare(
-        `UPDATE admin_account SET name = ?, email = ?, phone = ?, updated_at = ? WHERE username = ?`
-      ).bind(name, email, phone, Date.now(), me).run();
+      // ⚠️ (2026-08-17) 예전에는 name·email·phone 셋을 **항상 함께** 덮어썼다. 그래서 이름만
+      //   보내는 화면이 있으면 그 계정의 연락처가 조용히 NULL 로 지워졌다. 비번찾기가 연락처를
+      //   근거로 도는 지금은 그게 곧 «계정이 복구 불능이 되는» 사고다 → 보낸 칸만 고친다.
+      const sets: string[] = [];
+      const vals: any[] = [];
+      if (body.name  != null) { sets.push('name = ?');  vals.push(String(body.name).slice(0, 50)); }
+      if (body.email != null) { sets.push('email = ?'); vals.push(String(body.email).trim().slice(0, 100)); }
+      if (body.phone != null) { sets.push('phone = ?'); vals.push(String(body.phone).trim().slice(0, 30)); }
+      if (!sets.length) return json({ ok: false, error: 'nothing_to_update' }, 400);
+      sets.push('updated_at = ?'); vals.push(Date.now());
+      vals.push(me);
+      await env.DB.prepare(`UPDATE admin_account SET ${sets.join(', ')} WHERE username = ?`).bind(...vals).run();
       return json({ ok: true });
     }
 
@@ -822,6 +1056,104 @@ export async function handleAdminAuthApi(
       return json({ ok: true, username: target,
         message: '비밀번호를 재설정했습니다. 기존 로그인은 모두 해제됐습니다.',
         message_en: 'Password reset. All existing sessions for this account were signed out.' });
+    }
+
+    // ── 📇 복구 연락처 채우기 (본사가 직원·강사 대신 입력) — 2026-08-17 ──
+    //   왜 필요한가: 비번찾기를 만들어 놔도 **연락처가 없으면 아무도 못 쓴다.**
+    //   실제로 2026-08-17 기준 관리자 계정 47개 중 45개에 쓸 수 있는 연락처가 없었다
+    //   (email 칸에 아이디가 그대로 들어간 행 포함). 그래서 「채우는 절차」를 함께 넣는다.
+    //   ⚠️ 게이트는 staff-password-reset 과 같은 이유로 좁게 잡는다 — 남의 연락처를 바꾸는 것은
+    //      곧 «그 계정의 비번찾기를 내 폰으로 돌리는 것» 이라 비번 재설정과 같은 급의 권한이다.
+    //      · 경영진(hq)·본사 관리자(staff) 만
+    //      · 전체권한 계정(admin·cfo·ops_lead)은 **대상이 될 수 없다**(권한 상승 차단).
+    //        그 계정들의 연락처는 본인이 마이페이지에서 직접 넣어야 한다.
+    if (path === '/api/admin/contacts-missing' && method === 'GET') {
+      const actor = await getAdminActor(request, env);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden' }, 403);
+      }
+      const rows = await env.DB.prepare(
+        `SELECT username, name, phone, email, nationality FROM admin_account ORDER BY username`
+      ).all<{ username: string; name: string | null; phone: string | null; email: string | null; nationality: string | null }>();
+      const list = (rows.results || []).map(r => {
+        const c = pickResetContact(r);
+        return {
+          username: r.username, name: r.name, nationality: r.nationality,
+          phone: r.phone || '', email: r.email || '',
+          has_phone: !!c.phone, has_email: !!c.email,
+          recoverable: !!(c.phone || c.email),
+          // 전체권한 계정은 이 화면에서 못 고친다는 것을 목록에서부터 알려 준다.
+          self_only: FULL_ACCESS_ACCOUNTS.has(r.username),
+        };
+      });
+      return json({ ok: true, total: list.length,
+        missing: list.filter(x => !x.recoverable).length, accounts: list });
+    }
+
+    if (path === '/api/admin/staff-contact' && method === 'POST') {
+      const actor = await getAdminActor(request, env);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden',
+          message: '경영진·본사 관리자만 사용할 수 있습니다.',
+          message_en: 'Only executives and head-office admins can do this.' }, 403);
+      }
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const target = String(body?.username || '').trim();
+      if (!target) return json({ ok: false, error: 'missing_fields' }, 400);
+      if (FULL_ACCESS_ACCOUNTS.has(target)) {
+        return json({ ok: false, error: 'target_not_allowed',
+          message: '전체권한 계정의 연락처는 본인이 마이페이지에서 직접 등록해야 합니다.',
+          message_en: 'Full-access accounts must set their own contact from My Page.' }, 403);
+      }
+      const trow = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? LIMIT 1`)
+        .bind(target).first<{ username: string }>();
+      if (!trow) return json({ ok: false, error: 'unknown_user',
+        message: '그런 계정이 없습니다.', message_en: 'No such account.' }, 404);
+
+      const sets: string[] = [];
+      const vals: any[] = [];
+      if (body.phone != null) {
+        const p = String(body.phone).trim().slice(0, 30);
+        // 저장 전에 형식을 본다 — 못 쓰는 값이 «등록됨» 으로 보이면 비번찾기가 조용히 실패한다.
+        if (p && String(p).replace(/[^0-9]/g, '').length < 8) {
+          return json({ ok: false, error: 'bad_phone',
+            message: '전화번호 형식이 올바르지 않습니다.', message_en: 'That phone number is not valid.' }, 400);
+        }
+        sets.push('phone = ?'); vals.push(p);
+      }
+      if (body.email != null) {
+        const e = String(body.email).trim().slice(0, 100);
+        if (e && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(e)) {
+          return json({ ok: false, error: 'bad_email',
+            message: '이메일 형식이 올바르지 않습니다.', message_en: 'That email address is not valid.' }, 400);
+        }
+        sets.push('email = ?'); vals.push(e);
+      }
+      if (body.nationality != null) {
+        sets.push('nationality = ?'); vals.push(String(body.nationality).trim().toUpperCase().slice(0, 2) || null);
+      }
+      if (!sets.length) return json({ ok: false, error: 'nothing_to_update' }, 400);
+      sets.push('updated_at = ?'); vals.push(Date.now());
+      vals.push(target);
+      await env.DB.prepare(`UPDATE admin_account SET ${sets.join(', ')} WHERE username = ?`).bind(...vals).run();
+
+      const after = await env.DB.prepare(`SELECT phone, email, nationality FROM admin_account WHERE username = ? LIMIT 1`)
+        .bind(target).first<{ phone: string | null; email: string | null; nationality: string | null }>();
+      const c = pickResetContact(after || {});
+      const rIp = request.headers.get('cf-connecting-ip') || '';
+      const rUa = request.headers.get('user-agent') || '';
+      await recordLogin(env, target, rIp, rUa, true, 'contact_set_by:' + actor.username).catch(() => {});
+      return json({ ok: true, username: target,
+        recoverable: !!(c.phone || c.email), has_phone: !!c.phone, has_email: !!c.email,
+        message: (c.phone || c.email)
+          ? '연락처를 저장했습니다. 이제 이 계정은 «비밀번호 찾기» 를 쓸 수 있습니다.'
+          : '저장했지만 쓸 수 있는 연락처가 없습니다 — 비밀번호 찾기는 아직 안 됩니다.',
+        message_en: (c.phone || c.email)
+          ? 'Contact saved. This account can now use "Forgot password".'
+          : 'Saved, but there is still no usable contact — password recovery will not work yet.' });
     }
 
     // ── 비밀번호 변경 ──

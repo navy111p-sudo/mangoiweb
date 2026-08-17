@@ -136,9 +136,15 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
     else { pw.type = 'password'; this.textContent = '👁'; }
   });
+  // 🔑 (2026-08-17) 「운영자에게 메일 보내세요」 안내 → 실제 셀프 재설정으로 교체.
+  //   로직은 /js/adm-pw-reset.js 한 곳에만 있다(admin.html 로그인 오버레이도 같은 파일을 쓴다).
+  //   ⚠️ 여기에 재설정 로직을 복사해 넣지 말 것 — 그렇게 네 벌이 됐다가 사고를 냈다(PR #173).
   document.getElementById('pwForgot').addEventListener('click', function(e){
     e.preventDefault();
-    alert('비밀번호 재설정\n\n운영자 이메일 navy111p@gmail.com 으로\n계정 ID와 함께 요청해 주세요.\n\n또는 소셜 로그인을 이용하실 수 있습니다.');
+    var uid = (document.getElementById('username').value || '').trim();
+    if (window.mangoiPwReset) { window.mangoiPwReset.open(uid); return; }
+    // 스크립트가 아직 안 올라온 예외 상황 — 없는 기능을 있는 척하지 않고 사실대로 안내한다.
+    alert('비밀번호 찾기 화면을 불러오지 못했습니다.\n새로고침 후 다시 시도해 주세요.\n\n계속 안 되면 운영자(navy111p@gmail.com)에게 문의해 주세요.');
   });
   // 🔐 (2026-07-14) 로그인 힌트 안내 삭제 — 관련 리스너 제거됨.
   var params = new URLSearchParams(location.search);
@@ -380,6 +386,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
   });
 })();
 </script>
+<script src="/js/adm-pw-reset.js?v=1"></script><!-- 🔑 비밀번호 찾기 공용 모달 (admin.html 과 공유) -->
 <script src="/js/i18n-sweep.js?v=22"></script>
 <script defer src="/js/back-nav.js"></script>
 </body>
