@@ -22,6 +22,8 @@
  * try/catch 로 0 으로 graceful degradation (api-mango.ts 패턴 동일).
  */
 
+import { getScope, type Scope } from './scope';   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
+
 interface Env {
   DB: D1Database;
 }
@@ -354,6 +356,9 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'payments-list') return await paymentsList(env, url, fmt);
     if (p === 'refunds-list')  return await refundsList(env, url, fmt);
     if (p === 'reconcile')     return await reconcileReport(env, url, fmt);
+    // 🔒 월 마감 — GET 현황 / POST 마감·해제. index.ts 는 이 prefix 를 통째로 넘겨주므로
+    //    라우팅·인증게이트를 건드리지 않고 여기서 받는다(금지구역 회피).
+    if (p === 'close' || p === 'reopen') return await closeRouter(env, request, url, p);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -363,8 +368,9 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
 // ────────────────────────────────────────────────────────────────────
 // 1) 월간 회계 리포트
 // ────────────────────────────────────────────────────────────────────
-async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
-  const period = url.searchParams.get('period') || currentMonth();
+/* 📅 월간 리포트의 «살아 있는» 숫자를 만든다. 마감(close)이 이 결과를 그대로 스냅샷으로
+   떠서 저장하므로, 리포트와 마감본이 절대 어긋나지 않는다(2026-08-17). */
+async function buildMonthly(env: Env, period: string) {
   const { startMs, endMs, label } = monthRange(period);
 
   // 💰 매출·비용·손익은 monthPL() 한 곳에서 (분기·연간·KPI 와 같은 규칙을 씀)
@@ -530,8 +536,7 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
     by_method: byMethod,
   };
 
-  if (fmt === 'csv') {
-    return csv(`monthly-${period}.csv`, [
+  const csvRows: (string | number)[][] = [
       ['망고아이 월간 회계 리포트', label],
       ['대사 판정', rec.message],
       [],
@@ -583,9 +588,244 @@ async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response>
       ['[결제수단별]'],
       ['수단', '건수', '금액'],
       ...byMethod.map(m => [m.method, m.cnt, m.total]),
-    ]);
+  ];
+  return { data, csvRows };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔒 월 마감 (2026-08-17 신설)
+
+   [왜 필요한가] 지금까지 리포트는 버튼을 누르는 순간 데이터베이스를 새로 훑어
+   계산했다. 그래서 뒤늦게 결제가 동기화되거나 카드 내역이 들어오면 **이미 세무사에게
+   보낸 7월 숫자가 조용히 바뀌었다.** 회계에서 이걸 막는 장치가 «마감» 이다.
+
+   [어떻게 동작하나]
+     · 마감하면 그 달 월간 리포트를 **통째로 스냅샷** 으로 저장한다(JSON 전문).
+     · 그 뒤 리포트를 열면 «마감본» 이 정본이다. 살아 있는 숫자는 함께 계산해
+       **달라진 것이 있으면 알려 준다** — 조용히 바뀌지 않게 하는 것이 목적이지,
+       나중에 들어온 자료를 숨기려는 것이 아니다.
+     · 해제(reopen)하면 다시 살아 있는 숫자로 돌아간다. 누가 언제 왜 했는지 남는다.
+
+   [막는 것]
+     · 아직 끝나지 않은 달은 마감할 수 없다(다음 달 1일부터 가능).
+     · «확인 필요» 가 남아 있으면 기본적으로 거부한다 — 정말 그대로 마감하려면
+       force=1 을 줘야 하고, 그 사실이 마감 기록에 남는다.
+     · 본사(hq) 계정만 마감·해제할 수 있다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+async function ensureCloseTables(env: Env): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS accounting_close (period TEXT PRIMARY KEY, status TEXT NOT NULL DEFAULT 'closed', snapshot TEXT NOT NULL, revenue INTEGER NOT NULL DEFAULT 0, cost INTEGER NOT NULL DEFAULT 0, net INTEGER NOT NULL DEFAULT 0, margin_pct REAL NOT NULL DEFAULT 0, warnings TEXT, forced INTEGER NOT NULL DEFAULT 0, closed_at INTEGER NOT NULL, closed_by TEXT, reopened_at INTEGER, reopened_by TEXT, reopen_reason TEXT);`);
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS accounting_close_log (id INTEGER PRIMARY KEY AUTOINCREMENT, period TEXT NOT NULL, action TEXT NOT NULL, actor TEXT, reason TEXT, revenue INTEGER, cost INTEGER, net INTEGER, at INTEGER NOT NULL);`);
+}
+
+interface CloseRow {
+  period: string; status: string; snapshot: string;
+  revenue: number; cost: number; net: number; margin_pct: number;
+  warnings: string | null; forced: number;
+  closed_at: number; closed_by: string | null;
+  reopened_at: number | null; reopened_by: string | null; reopen_reason: string | null;
+}
+
+async function closeRecord(env: Env, period: string): Promise<CloseRow | null> {
+  return await safe(async () => {
+    await ensureCloseTables(env);
+    return await env.DB.prepare(`SELECT * FROM accounting_close WHERE period=? AND status='closed'`)
+      .bind(period).first<CloseRow>();
+  }, null);
+}
+
+/** 마감을 막을 만한 «확인 필요» 목록. 비어 있으면 깨끗하게 마감할 수 있다. */
+function closeWarnings(data: any): string[] {
+  const w: string[] = [];
+  const rec = data?.reconcile, s = data?.summary, c = data?.cost;
+  if (rec && (rec.verdict === 'warn' || rec.verdict === 'alert')) w.push(`장부와 통장이 어긋납니다 — ${rec.message}`);
+  if ((s?.deposit_transfer_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_krw).toLocaleString('ko-KR')} 있습니다(「케이씨피M」 등 ${s.deposit_transfer_count}건).`);
+  if ((c?.unclassified_krw || 0) > 0) w.push(`계정과목이 안 붙은 출금이 ₩${Number(c.unclassified_krw).toLocaleString('ko-KR')} 있습니다(비용의 ${c.unclassified_pct}%).`);
+  if (c?.op_cost_source === 'estimated') w.push('운영비가 실지출이 아니라 «매출의 10%» 추정입니다.');
+  return w;
+}
+
+/** 스냅샷과 지금 숫자가 달라졌는지 — 마감 후 들어온 자료를 «조용히» 넘기지 않기 위해. */
+function closeDrift(snap: any, live: any) {
+  const f = (o: any) => ({ revenue: o?.pl?.revenue || 0, cost: o?.pl?.cost || 0, net: o?.pl?.net_income || 0 });
+  const a = f(snap), b = f(live);
+  const changed = a.revenue !== b.revenue || a.cost !== b.cost || a.net !== b.net;
+  return {
+    changed,
+    revenue_diff: b.revenue - a.revenue,
+    cost_diff: b.cost - a.cost,
+    net_diff: b.net - a.net,
+    message: changed
+      ? `마감한 뒤에 자료가 더 들어왔습니다 — 지금 계산하면 매출 ${(b.revenue - a.revenue).toLocaleString('ko-KR')}원, 비용 ${(b.cost - a.cost).toLocaleString('ko-KR')}원 차이가 납니다. 아래 숫자는 «마감본» 이며, 반영하려면 마감을 해제하고 다시 마감하세요.`
+      : '마감한 뒤로 달라진 자료가 없습니다.',
+  };
+}
+
+async function closeRouter(env: Env, request: Request, url: URL, p: string): Promise<Response> {
+  await ensureCloseTables(env);
+  const method = request.method.toUpperCase();
+  const period = url.searchParams.get('period') || currentMonth();
+  if (!/^\d{4}-\d{2}$/.test(period)) return err('invalid period (YYYY-MM)');
+
+  // 📋 현황 조회 — 연도를 주면 12개월 현황, 아니면 그 달 하나
+  if (p === 'close' && method === 'GET') {
+    const year = url.searchParams.get('year');
+    if (year) {
+      const rows = await safe(async () => {
+        const r = await env.DB.prepare(
+          `SELECT period, status, revenue, cost, net, margin_pct, forced, closed_at, closed_by
+             FROM accounting_close WHERE substr(period,1,4)=? ORDER BY period`
+        ).bind(year).all();
+        return (r.results || []) as Array<any>;
+      }, []);
+      return json({ ok: true, type: 'close-list', year, rows });
+    }
+    const row = await closeRecord(env, period);
+    const log = await safe(async () => {
+      const r = await env.DB.prepare(`SELECT action, actor, reason, at FROM accounting_close_log WHERE period=? ORDER BY at DESC LIMIT 20`).bind(period).all();
+      return (r.results || []) as Array<any>;
+    }, []);
+    if (!row) {
+      const built = await buildMonthly(env, period);
+      return json({
+        ok: true, type: 'close', period, closed: false,
+        closable: period < currentMonth(),
+        closable_reason: period < currentMonth() ? '' : '아직 끝나지 않은 달이라 마감할 수 없습니다. 다음 달 1일부터 가능합니다.',
+        warnings: closeWarnings(built.data),
+        preview: built.data.pl, log,
+      });
+    }
+    const snap = JSON.parse(row.snapshot);
+    const live = (await buildMonthly(env, period)).data;
+    return json({
+      ok: true, type: 'close', period, closed: true,
+      closed_at: row.closed_at, closed_by: row.closed_by, forced: !!row.forced,
+      warnings: JSON.parse(row.warnings || '[]'),
+      snapshot_pl: snap.pl, drift: closeDrift(snap, live), log,
+    });
   }
-  return json(data);
+
+  // 🔒 마감
+  if (p === 'close' && method === 'POST') {
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (scope.type !== 'hq') return err('마감은 본사 계정만 할 수 있습니다.', 403);
+    if (period >= currentMonth()) return err('아직 끝나지 않은 달은 마감할 수 없습니다. 다음 달 1일부터 가능합니다.', 409);
+    const already = await closeRecord(env, period);
+    if (already) return err(`${period} 는 이미 마감돼 있습니다. 다시 마감하려면 먼저 마감을 해제하세요.`, 409);
+
+    const built = await buildMonthly(env, period);
+    const warnings = closeWarnings(built.data);
+    const force = url.searchParams.get('force') === '1';
+    if (warnings.length && !force) {
+      return json({ ok: false, needs_force: true, period, warnings,
+        error: '확인이 필요한 항목이 남아 있습니다. 그대로 마감하려면 «확인했습니다» 를 눌러 주세요.' }, 409);
+    }
+
+    const now = Date.now();
+    const actor = scope.label || 'admin';
+    const pl = built.data.pl;
+    const ok = await safe(async () => {
+      await env.DB.batch([
+        env.DB.prepare(`INSERT INTO accounting_close (period, status, snapshot, revenue, cost, net, margin_pct, warnings, forced, closed_at, closed_by)
+                        VALUES (?, 'closed', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(period) DO UPDATE SET status='closed', snapshot=excluded.snapshot,
+                          revenue=excluded.revenue, cost=excluded.cost, net=excluded.net, margin_pct=excluded.margin_pct,
+                          warnings=excluded.warnings, forced=excluded.forced, closed_at=excluded.closed_at, closed_by=excluded.closed_by,
+                          reopened_at=NULL, reopened_by=NULL, reopen_reason=NULL`)
+          .bind(period, JSON.stringify(built.data), pl.revenue, pl.cost, pl.net_income, pl.margin_pct,
+                JSON.stringify(warnings), force && warnings.length ? 1 : 0, now, actor),
+        env.DB.prepare(`INSERT INTO accounting_close_log (period, action, actor, reason, revenue, cost, net, at) VALUES (?, 'close', ?, ?, ?, ?, ?, ?)`)
+          .bind(period, actor, warnings.length ? `확인 필요 ${warnings.length}건을 알고도 마감` : '', pl.revenue, pl.cost, pl.net_income, now),
+      ]);
+      return true;
+    }, false);
+    if (!ok) return err('마감 저장에 실패했습니다.', 500);
+    return json({ ok: true, period, closed_at: now, closed_by: actor, warnings, forced: force && warnings.length > 0 });
+  }
+
+  // 🔓 마감 해제
+  if (p === 'reopen' && method === 'POST') {
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (scope.type !== 'hq') return err('마감 해제는 본사 계정만 할 수 있습니다.', 403);
+    const reason = (url.searchParams.get('reason') || '').trim();
+    if (!reason) return err('해제 사유를 적어 주세요. (기록에 남습니다)');
+    const row = await closeRecord(env, period);
+    if (!row) return err(`${period} 는 마감돼 있지 않습니다.`, 409);
+    const now = Date.now();
+    const actor = scope.label || 'admin';
+    const ok = await safe(async () => {
+      await env.DB.batch([
+        env.DB.prepare(`UPDATE accounting_close SET status='reopened', reopened_at=?, reopened_by=?, reopen_reason=? WHERE period=?`)
+          .bind(now, actor, reason, period),
+        env.DB.prepare(`INSERT INTO accounting_close_log (period, action, actor, reason, revenue, cost, net, at) VALUES (?, 'reopen', ?, ?, ?, ?, ?, ?)`)
+          .bind(period, actor, reason, row.revenue, row.cost, row.net, now),
+      ]);
+      return true;
+    }, false);
+    if (!ok) return err('마감 해제에 실패했습니다.', 500);
+    return json({ ok: true, period, reopened_at: now, reopened_by: actor, reason });
+  }
+
+  return err('not found: ' + p, 404);
+}
+
+async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
+  const period = url.searchParams.get('period') || currentMonth();
+  const built = await buildMonthly(env, period);
+
+  /* 🔒 마감된 달은 «마감본» 이 정본이다. 다만 지금 계산한 숫자와 달라졌으면 그 사실을
+     함께 알려 준다 — 조용히 바뀌지 않게 하는 것이 목적이지, 자료를 숨기려는 게 아니다. */
+  const row = await closeRecord(env, period);
+  if (row) {
+    let snap: any = null;
+    try { snap = JSON.parse(row.snapshot); } catch { snap = null; }
+    if (snap) {
+      snap.closed = {
+        is_closed: true, closed_at: row.closed_at, closed_by: row.closed_by,
+        forced: !!row.forced, warnings: JSON.parse(row.warnings || '[]'),
+        drift: closeDrift(snap, built.data),
+      };
+      if (fmt === 'csv') {
+        return csv(`monthly-${period}-마감본.csv`, [
+          ['※ 이 파일은 마감본입니다', `마감 ${new Date(row.closed_at + 9 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')} · ${row.closed_by || ''}`],
+          ...(snap.closed.drift.changed ? [['※ ' + snap.closed.drift.message] as (string | number)[]] : []),
+          [],
+          ...(built.csvRows.length ? [] : []),
+          ...snapshotCsvRows(snap),
+        ]);
+      }
+      return json(snap);
+    }
+  }
+
+  if (fmt === 'csv') return csv(`monthly-${period}.csv`, built.csvRows);
+  return json({ ...built.data, closed: { is_closed: false } });
+}
+
+/** 마감본 CSV — 스냅샷 JSON 에서 핵심만 뽑는다(그때의 숫자를 그대로 보여 주는 것이 목적). */
+function snapshotCsvRows(snap: any): (string | number)[][] {
+  const s = snap.summary || {}, c = snap.cost || {}, p = snap.pl || {};
+  return [
+    ['망고아이 월간 회계 리포트 (마감본)', snap.label || ''],
+    [],
+    ['[매출]'],
+    ['장부 결제(카페24 등)', s.revenue_book || 0],
+    ['통장 직접입금(B2B)', s.revenue_b2b || 0],
+    ['매출 합계', p.revenue || 0],
+    ['결제 건수', s.pay_count || 0],
+    ['결제 학생수', s.paying_users || 0],
+    [],
+    ['[비용]'],
+    ['강사 급여', c.teacher_payroll || 0],
+    ['PG 수수료', c.pg_fee || 0],
+    ['운영비', c.op_cost || 0],
+    ['비용 합계', c.total || 0],
+    [],
+    ['[손익]'],
+    ['매출', p.revenue || 0],
+    ['비용', p.cost || 0],
+    ['순이익', p.net_income || 0],
+    ['이익률(%)', p.margin_pct || 0],
+  ];
 }
 
 /* 👥 그 달에 «실제로 움직인» 학생 수 — 수업에 들어왔거나(attendance) 결제한(student_payments)
