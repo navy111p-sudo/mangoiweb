@@ -10360,6 +10360,102 @@ window.rebuildGlobalSearchIndex = function() {
     </div>`;
   }
 
+  /* ═══════════════════════════════════════════════════════════════════
+     🔒 월 마감 (2026-08-17)
+     마감하면 그 달 리포트가 스냅샷으로 굳는다. 그 뒤 자료가 더 들어와도
+     «이미 내보낸 숫자» 는 안 바뀌고, 대신 «달라졌다» 고 알려 준다.
+     ═══════════════════════════════════════════════════════════════════ */
+  const closeApi = (qs) => '/api/admin/reports/close?' + qs;
+
+  window.accCloseRefresh = async function(){
+    const el = document.getElementById('acc-close-state');
+    const det = document.getElementById('acc-close-detail');
+    const cbtn = document.getElementById('acc-close-btn');
+    const rbtn = document.getElementById('acc-reopen-btn');
+    if (!el) return;
+    const period = getInputs().period;
+    el.textContent = period + ' 확인 중…'; if (det) det.innerHTML = '';
+    try {
+      const r = await fetch(closeApi('period=' + encodeURIComponent(period)), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      if (d.closed) {
+        const when = new Date((d.closed_at||0) + 9*3600*1000).toISOString().slice(0,16).replace('T',' ');
+        el.innerHTML = `<b style="color:#166534">${esc(period)} 마감됨</b> · ${esc(when)} · ${esc(d.closed_by||'')}`;
+        if (cbtn) cbtn.style.display = 'none';
+        if (rbtn) rbtn.style.display = '';
+        const parts = [];
+        if (d.forced) parts.push(`<span style="color:#b45309">⚠️ 확인 필요 항목을 알고도 마감했습니다.</span>`);
+        (d.warnings||[]).forEach(w => parts.push('· ' + esc(w)));
+        if (d.drift) parts.push(d.drift.changed
+          ? `<b style="color:#b45309">⚠️ ${esc(d.drift.message)}</b>`
+          : `<span style="color:#166534">✅ ${esc(d.drift.message)}</span>`);
+        if (d.snapshot_pl) parts.push(`마감본 — 매출 ${fmtKRW(d.snapshot_pl.revenue)} · 비용 ${fmtKRW(d.snapshot_pl.cost)} · 순이익 ${fmtKRW(d.snapshot_pl.net_income)} (${d.snapshot_pl.margin_pct}%)`);
+        if (det) det.innerHTML = parts.join('<br>');
+      } else {
+        el.innerHTML = `<b style="color:#6b7280">${esc(period)} 미마감</b>`;
+        if (cbtn) { cbtn.style.display = ''; cbtn.disabled = !d.closable; cbtn.style.opacity = d.closable ? '1' : '.5'; }
+        if (rbtn) rbtn.style.display = 'none';
+        const parts = [];
+        if (!d.closable) parts.push(`<span style="color:#6b7280">${esc(d.closable_reason||'')}</span>`);
+        if ((d.warnings||[]).length) {
+          parts.push(`<b style="color:#b45309">마감 전에 확인해 주세요 (${d.warnings.length}건)</b>`);
+          d.warnings.forEach(w => parts.push('· ' + esc(w)));
+        } else if (d.closable) {
+          parts.push('<span style="color:#166534">확인이 필요한 항목이 없습니다 — 바로 마감할 수 있습니다.</span>');
+        }
+        if (d.preview) parts.push(`지금 숫자 — 매출 ${fmtKRW(d.preview.revenue)} · 비용 ${fmtKRW(d.preview.cost)} · 순이익 ${fmtKRW(d.preview.net_income)} (${d.preview.margin_pct}%)`);
+        if (det) det.innerHTML = parts.join('<br>');
+      }
+      if (det && (d.log||[]).length) {
+        det.innerHTML += `<details style="margin-top:7px"><summary style="cursor:pointer;font-size:11.5px;color:#6b7280">기록 ${d.log.length}건 보기</summary>`
+          + d.log.map(l => `<div style="font-size:11.5px;color:#6b7280">${esc(new Date((l.at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${l.action==='close'?'마감':'해제'} · ${esc(l.actor||'')}${l.reason?' · '+esc(l.reason):''}</div>`).join('')
+          + '</details>';
+      }
+    } catch(e) {
+      el.textContent = '오류: ' + (e.message||e);
+    }
+  };
+
+  window.accCloseMonth = async function(){
+    const period = getInputs().period;
+    if (!confirm(`${period} 를 마감할까요?\n\n마감하면 그 달 숫자가 그대로 굳습니다.\n나중에 자료가 더 들어와도 리포트 숫자는 안 바뀌고, «달라졌다»고 알려 줍니다.\n(마감 해제는 사유를 적으면 언제든 가능합니다)`)) return;
+    try {
+      let r = await fetch(closeApi('period=' + encodeURIComponent(period)), { method:'POST', credentials:'include' });
+      let d = await r.json();
+      if (!d.ok && d.needs_force) {
+        const list = (d.warnings||[]).map(w => '· ' + w).join('\n');
+        if (!confirm(`확인이 필요한 항목이 ${d.warnings.length}건 있습니다.\n\n${list}\n\n그래도 이대로 마감할까요?\n(«확인하고도 마감함»으로 기록에 남습니다)`)) return;
+        r = await fetch(closeApi('period=' + encodeURIComponent(period) + '&force=1'), { method:'POST', credentials:'include' });
+        d = await r.json();
+      }
+      if (!d.ok) throw new Error(d.error || '마감 실패');
+      alert(`${period} 마감했습니다.`);
+      accCloseRefresh();
+    } catch(e) { alert('마감 실패: ' + (e.message||e)); }
+  };
+
+  window.accReopenMonth = async function(){
+    const period = getInputs().period;
+    const reason = prompt(`${period} 마감을 해제합니다.\n\n사유를 적어 주세요 (기록에 남습니다):`, '');
+    if (reason === null) return;
+    if (!reason.trim()) { alert('사유를 적어 주세요.'); return; }
+    try {
+      const r = await fetch('/api/admin/reports/reopen?period=' + encodeURIComponent(period) + '&reason=' + encodeURIComponent(reason.trim()),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '해제 실패');
+      alert(`${period} 마감을 해제했습니다.`);
+      accCloseRefresh();
+    } catch(e) { alert('해제 실패: ' + (e.message||e)); }
+  };
+
+  // 기간을 바꾸면 마감 현황도 따라오게
+  document.addEventListener('DOMContentLoaded', () => {
+    const p = document.getElementById('acc-rep-period');
+    if (p) p.addEventListener('change', () => window.accCloseRefresh && window.accCloseRefresh());
+  });
+
   // 메인: 리포트 종류별 fetch + render
   window.openReport = async function(type){
     const inputs = getInputs();
@@ -10489,6 +10585,12 @@ window.rebuildGlobalSearchIndex = function() {
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
+      ${d.closed && d.closed.is_closed ? `<div style="background:#f0fdf4;border:1px solid #86efac;border-left:4px solid #166534;border-radius:8px;padding:11px 14px;margin:12px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#166534">🔒 마감된 달입니다 — 아래 숫자는 «마감본»입니다.</b>
+        마감 ${esc(new Date((d.closed.closed_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' '))} · ${esc(d.closed.closed_by||'')}
+        ${d.closed.forced ? '<br><span style="color:#b45309">⚠️ 확인 필요 항목을 알고도 마감했습니다.</span>' : ''}
+        ${d.closed.drift && d.closed.drift.changed ? `<br><b style="color:#b45309">⚠️ ${esc(d.closed.drift.message)}</b>` : ''}
+      </div>` : ''}
       <div style="background:#fff7ed;border-radius:10px;padding:14px 18px;margin:12px 0;font-size:15px;line-height:1.65;font-weight:600;color:#111">${headline}</div>
       ${reconcileBanner(d.reconcile)}
       <div class="pl-box">
