@@ -135,20 +135,12 @@
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
-        /* 🗺 (2026-08-15) 「사이트 구조도」는 카드가 아니라 **다른 페이지**다(/admin/site-structure.html,
-           같은 날 추가됨). 그런데 옛 사이드바의 「시스템」 그룹 안에만 들어 있었고, 그 그룹은
-           ia6 가 통째로 감추고 있어서 **아무도 볼 수 없었다** — 「시스템이 안 보인다」 신고의
-           실제 알맹이가 이것이었다. 새 사이드바에도 자리를 준다.
-           ⚠️ cards 가 비어 있어도 된다 — select() 가 href 를 먼저 보고 그 페이지로 보낸다
-              (지사 정산의 capiHref 와 같은 방식). 카드 필터는 아예 돌지 않는다. */
-        /* 🗺 (2026-08-16) 목차(/admin/site-structure.html)를 거치지 않고 «지도» 로 바로 간다.
-           목차가 하던 일은 표 3장을 고르게 해 주는 것뿐이었고, 그건 이제 지도 맨 아래
-           «더 자세히» 선반에 들어가 있다. 화면 하나를 통째로 쓸 일이 아니었다.
-           ⚠️ 맨 위 「메뉴 지도」와 목적지가 같다 — 일부러 그렇게 뒀다. 이름으로 찾는 사람과
-              위치로 찾는 사람이 갈리므로 문을 두 개 열어 둔다. */
-        { ko: '사이트 구조도', en: 'Site structure', cards: [],
-          href: '/admin/site-structure-map.html' }
+        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
+        /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
+           «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 것». 실제로 같은 페이지로 갔다.
+           같은 곳으로 가는 문을 둘 두면 «둘이 다른 건가?» 를 매번 생각하게 만든다.
+           ⛔ 되살리지 말 것. 지도로 가는 길은 맨 위 「메뉴 지도」 하나면 충분하다
+              (그 배선은 openMenuMap() — 읽어 주고 나서 연다). */
       ]
     }
   ];
@@ -431,7 +423,7 @@
      ②는 순서가 중요하다 — 말을 시작해 놓고 페이지를 옮기면 그 순간 소리가 끊긴다.
        그래서 **다 읽은 뒤에** 옮긴다(adm-r15 의 admVoiceSay 가 다 읽으면 알려 준다).
      ⚠️ 음성이 꺼져 있거나 소리가 안 나와도 **반드시 지도로 간다**. 안 그러면 또 «눌러도 안 열린다» 다.
-     ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 지도로 바로 간다. */
+     ⚠️ 지도로 들어가는 문은 이제 여기 하나다(2026-08-16 「시스템 ▸ 사이트 구조도」 제거). */
   var MAP_HREF = '/admin/site-structure-map.html';
 
   function menuMapSpeech() {
@@ -522,7 +514,7 @@
        [지금] 실제로 «지도»를 연다. 같은 날 만들어진 그림 문서가 이미 있다(사람 5덩어리 · 화면 93개).
        ⚠️ 카드 감춤을 푸는 기능(showAll)은 남아 있다 — 사이드바 검색창에 뭐든 입력하면 자동으로 풀린다
           (wireSearch). 눌러도 티가 안 나는 버튼으로 사이드바 한 칸을 쓰지 않는 것뿐이다.
-       ⚠️ 「시스템 ▸ 사이트 구조도」는 허브(지도 1장 + 구성표 3장)로 간다. 여기는 «지도»로 바로 간다 —
+       ⚠️ 지도로 들어가는 문은 이제 여기 하나다 — 「시스템 ▸ 사이트 구조도」는 뺐다(중복). 여기는 «지도»로 바로 간다 —
           이름이 「메뉴 지도」이므로 한 번에 지도가 나와야 한다. */
     var all = document.createElement('div');
     all.className = 'ph85-group';
@@ -608,12 +600,12 @@
     var it = itemByKey(key);
     if (!it) return false;
     if (it.capiHref && isCapiAccount()) { location.href = it.capiHref; return true; }
-    /* 📱 좁은 화면 전용 목적지가 있으면 그쪽으로. 폭으로만 판정한다 —
-       기기 종류(userAgent)가 아니라 «지금 화면이 좁은가» 가 실제 문제이기 때문이다. */
-    if (it.href) {
-      location.href = (it.href === MAP_HREF) ? mapUrl() : it.href;
-      return true;
-    }
+    /* 카드가 아니라 «다른 페이지» 로 가는 항목은 여기서 빠진다.
+       지금은 쓰는 항목이 없다(「사이트 구조도」를 뺀 뒤로 — 2026-08-16). 배선은 남겨 둔다:
+       capiHref 와 같은 계약이고, 나중에 문서 항목을 붙일 때 이 한 줄이면 된다.
+       ⚠️ 지도로 보내는 항목을 다시 만든다면 mapUrl() 을 써서 ?here= 를 붙일 것 —
+          그래야 지도가 «지금 여기» 를 찍을 수 있다. */
+    if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');

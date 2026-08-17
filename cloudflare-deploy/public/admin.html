@@ -9305,18 +9305,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="ph85-sub" data-ko="📷 QR 출결" data-en="📷 QR Attendance" data-card="card-auto-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-auto-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-auto-attendance');}">📷 QR 출결</div>
       <div class="ph85-sub" data-ko="📝 수업 출결" data-en="📝 Class Attendance" data-card="card-class-attendance" onclick="event.stopPropagation();var c=document.getElementById('card-class-attendance');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-class-attendance');}">📝 수업 출결</div>
       <div class="ph85-sub" data-ko="🐞 버그·피드백 접수함 ⭐신규" data-en="🐞 Bug &amp; Feedback Inbox ⭐NEW" data-card="card-bug-reports" onclick="event.stopPropagation();var c=document.getElementById('card-bug-reports');if(c){if(c.tagName==='DETAILS')c.open=true;c.scrollIntoView({behavior:'auto',block:'start'});var o=c.style.boxShadow;c.style.boxShadow='0 0 0 3px rgba(251,191,36,0.6)';setTimeout(function(){c.style.boxShadow=o;},1800);}else{alert('카드 미구현: card-bug-reports');}">🐞 버그·피드백 접수함 ⭐신규</div>
-      <!-- 🗺 사이트 구조도 (2026-08-15) — 카드로 넣지 않고 «다른 페이지»로 뺀 이유:
-           admin.html 은 이미 1.0MB 다. 읽기만 하는 문서를 카드로 얹으면 모든 관리자가 그 무게를
-           함께 진다. 그래서 data-card 가 아니라 location.href 로 보낸다(연기 수업 현황·캐피타운
-           정산과 같은 방식).
-           경로가 /admin/ 로 시작하므로 src/index.ts 의 isAdminPath 기본차단 + 미인증 리다이렉트
-           목록에 **이미 걸린다** — 라우팅을 새로 등록할 필요가 없고, 로그인 없이는 열리지 않는다.
-           ⚠️ public/admin/ 아래에는 js·css 를 두지 말 것(로그인 화면 리소스가 함께 막힌다).
-              그래서 문서 5장은 전부 스타일·스크립트를 파일 안에 담은 한 장짜리다. -->
-      <div class="ph85-sub" data-ko="🗺 사이트 구조도 ⭐신규" data-en="🗺 Site Structure ⭐NEW"
-           data-tip-ko="망고아이 화면이 어떤 순서로 이어지는지 그린 문서예요. 지도 1장 + 구성표 3장."
-           data-tip-en="Documents mapping how Mangoi screens connect. 1 map + 3 outlines."
-           onclick="event.stopPropagation();location.href='/admin/site-structure.html';">🗺 사이트 구조도 ⭐신규</div>
+      <!-- 🗺 (2026-08-16 사장님) 옛 사이드바의 「사이트 구조도」도 함께 뺐다 —
+           «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 것». 이 옛 사이드바는 adm-ia6.js 가
+           통째로 감추고 있어 평소엔 안 보이지만, ia6 가 못 뜨는 날엔 이게 드러난다.
+           그때 옛 목차 주소(/admin/site-structure.html)로 가는 중복 문이 되살아나므로 지운다.
+           지도로 가는 길 = 새 사이드바 맨 위 「메뉴 지도」 하나. -->
     </div>
   </div>
   
@@ -11948,12 +11941,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div id="ag-thumbs"></div>
 </div>
 <script src="/js/adm-s18.js?v=5" defer></script><!-- 분할추출:adm-s18 (v3: 쉬운 사용법 21장 재제작·영문판 추가) -->
-<script src="/js/adm-welcome.js?v=6" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
+<script src="/js/adm-welcome.js?v=7" defer></script><!-- 환영/사용법 안내 모달 (NCP 스타일) -->
 <script src="/js/adm-hr-analysis.js?v=1" defer></script><!-- 📊 인사평가 점수 클릭 → 근거 분석 모달 -->
 <script src="/js/adm-teacher-kakao.js?v=2" defer></script><!-- 💬 강사 카카오ID 명부 + 카카오·문자 전달 (2026-08-13) -->
-<!-- v=22 — 양쪽이 각자 올린 것(main v=21 · 이 브랜치 v=20)을 합치면서 둘보다 위로 올린다.
-     낮은 쪽을 그대로 쓰면 한쪽 브라우저에 옛 파일이 캐시된 채 남는다. 파일 내용은 자동 병합됐다. -->
-<script src="/js/adm-ia6.js?v=23" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 + 사이트 구조도 추가 · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
+<!-- v=24 — adm-ia6.js 버전 충돌은 이번이 세 번째다(v20↔21, v22↔23, 그리고 여기).
+     양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
+     규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
+     파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
+<script src="/js/adm-ia6.js?v=24" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
