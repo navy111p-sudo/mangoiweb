@@ -7018,12 +7018,19 @@ button.chip:hover,
     border: 1px solid rgba(128,145,180,.22);
     border-radius: 11px; padding: 7px 10px;
   }
-  #mgv2-clock .mgv2-l { font-size: 10.5px; font-weight: 700; opacity: .68; letter-spacing: .2px; }
+  /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
+     이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
+     라벨 3.9:1 · 날짜 2.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다
+     — 특히 날짜가 가장 나빴다. .78 로 올리면 셋 다 5.0:1 이 된다.
+     ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
+        직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
+        키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
+  #mgv2-clock .mgv2-l { font-size: 10.5px; font-weight: 700; opacity: .78; letter-spacing: .2px; }
   #mgv2-clock .mgv2-t {
     font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: .4px;
     font-variant-numeric: tabular-nums;
   }
-  #mgv2-clock .mgv2-d { font-size: 10px; opacity: .55; }
+  #mgv2-clock .mgv2-d { font-size: 10px; opacity: .78; }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
 
   /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
      ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
@@ -7042,7 +7049,7 @@ button.chip:hover,
   #mgv2-weather .mgv2-w-ico svg { display: block; }
   #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
   #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
-  #mgv2-weather .mgv2-w-sub  { opacity: .62; font-size: 11px; }
+  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 11px; }   /* .62 → .78 : 3.4:1 이었다 */
   /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
   #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
 
