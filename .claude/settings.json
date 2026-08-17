@@ -28,8 +28,8 @@
       "Bash(node test-harness/run.mjs*)",
       "Bash(npm run*)",
       "Bash(ls*)",
+      "WebFetch(domain:mangoi.ai)",
       "WebFetch(domain:test.mangoi.co.kr)",
-      "WebFetch(domain:mango-i.com)",
       "WebFetch(domain:developers.cloudflare.com)"
     ],
     "deny": [

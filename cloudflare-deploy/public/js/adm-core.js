@@ -10513,6 +10513,56 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { alert('해제 실패: ' + (e.message||e)); }
   };
 
+  /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
+     지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
+     그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
+  let _payeeCats = [];
+  window.accPayeeLoad = async function(){
+    const st = document.getElementById('acc-payee-state');
+    const tb = document.getElementById('acc-payee-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="5" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/payees?months=6', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _payeeCats = d.categories || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">아직 정하지 않은 거래처 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b> (최근 6개월)`
+        : `<span style="color:#166534">최근 6개월 「기타출금」이 모두 분류돼 있습니다.</span>`;
+      if (!(d.items||[]).length) { tb.innerHTML = '<tr><td colspan="5" class="empty">분류할 출금이 없습니다.</td></tr>'; return; }
+      tb.innerHTML = d.items.map(it => {
+        const cur = it.category || '';
+        const opts = ['<option value="">— 정해 주세요 —</option>']
+          .concat(_payeeCats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`)).join('');
+        const auto = it.source && it.source.indexOf('auto') === 0
+          ? '<span style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 6px;border-radius:99px;margin-left:5px">자동</span>' : '';
+        return `<tr${it.category ? '' : ' style="background:#fffbeb"'}>
+          <td><b>${esc(it.payee)}</b>${auto}${it.corporate ? '<span style="font-size:10px;color:#6b7280;margin-left:5px">법인</span>' : ''}
+              ${it.remark !== it.payee ? `<div style="font-size:10.5px;color:#9ca3af">적요: ${esc(it.remark)}</div>` : ''}</td>
+          <td style="text-align:right">${it.count}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td><select onchange="accPayeeSet('${esc(it.payee).replace(/'/g,'&#39;')}', this.value, this)"
+                     style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${opts}</select></td>
+        </tr>`;
+      }).join('');
+    } catch(e) { tb.innerHTML = `<tr><td colspan="5" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accPayeeSet = async function(payee, category, sel){
+    if (!category) return;
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/payees?payee=' + encodeURIComponent(payee) + '&category=' + encodeURIComponent(category),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      if (sel) { sel.disabled = false; const tr = sel.closest('tr'); if (tr) tr.style.background = ''; }
+      accPayeeLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
   // 기간을 바꾸면 마감 현황도 따라오게
   document.addEventListener('DOMContentLoaded', () => {
     const p = document.getElementById('acc-rep-period');
@@ -10648,7 +10698,11 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`)
+      // 💵 적자를 «자금 보충» 으로 메우고 있으면 그 사실을 첫 줄에서 말한다 — 가장 중요한 신호다
+      + ((p.net_income||0) < 0 && (s.funding_in_krw||0) > 0
+          ? `<br><span style="color:#b45309">이 달 부족한 돈을 메우려고 다른 계좌에서 <b>${fmtKRW(s.funding_in_krw)}</b>을 옮겨 왔습니다.</span>`
+          : '');
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
@@ -10679,12 +10733,14 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
         <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
         <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
-        ${(s.deposit_transfer_krw||0) > 0 ? `<tr><th>PG 정산이 아닌 타계좌 입금${badge(src.deposit_transfer)}</th><td class="num">${fmtKRW(s.deposit_transfer_krw)}</td><td class="num">${s.deposit_transfer_count} 건</td></tr>
-        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」처럼 사람이 인터넷뱅킹으로 보낸 돈입니다. 운영자금 이체인지 매출인지 확인될 때까지 매출로 잡지 않았습니다</td></tr>` : ''}
+        ${(s.funding_in_krw||0) > 0 ? `<tr><th>운영자금 보충 (하나은행 → 신한)${badge('actual')}</th><td class="num">${fmtKRW(s.funding_in_krw)}</td><td class="num"></td></tr>
+        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」 — 회사의 다른 계좌에서 옮겨 온 운영자금입니다. <b>매출이 아니라</b> 자금 이동이라 위 매출 합계에 넣지 않았습니다</td></tr>` : ''}
+        ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
+        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
         ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
-      ${drill(`확인 필요 — PG 정산이 아닌 입금 ${(det.transfer_rows||[]).length}건`, det.transfer_rows, { nameLabel:'적요', note:'하나은행에서 인터넷뱅킹으로 들어온 돈입니다. 다른 계좌에서 옮긴 운영자금인지, 받아야 할 매출인지 확인해 주세요.' })}
+      ${drill(`운영자금 보충 내역 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'회사의 하나은행 계좌에서 신한으로 옮겨 온 운영자금입니다(2026-08-17 확인). 매출이 아니므로 손익에 넣지 않지만, 「매출이 아닌 돈으로 얼마를 메우고 있는지」는 회사 상태를 보는 데 중요해 그대로 보여 줍니다.' })}
       <h2>학생 · 수업</h2>
       <table>
         <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>

@@ -195,6 +195,47 @@ function revenueGapOf(pgIn: number, revenue: number): number {
   return pgIn > 0 && pgIn > revenue * 1.10 && (pgIn - revenue) > 500000 ? pgIn - revenue : 0;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏷️ 「기타출금」 쪼개기 — 계정과목 붙이기 (2026-08-17 신설)
+
+   [무엇이 문제였나] 통장 출금의 상당 부분이 은행 적요만으로는 분류가 안 돼
+   「기타출금」 한 덩어리로 뭉쳐 있었다(2026-07 기준 642만원 · 비용의 25%).
+   손익계산서에 «기타출금 642만» 한 줄만 뜨면 무엇에 쓴 돈인지 알 수가 없다.
+
+   [사장님 확인 2026-08-17] 이 돈의 대부분은 **지사 수수료** 다.
+
+   [어떻게 판정하나 — 두 단계]
+     ① 사람이 지정한 표(expense_payee_category)에 있으면 그대로 쓴다.
+     ② 없으면 적요가 franchises.owner_name(지사 대표자명)과 일치하는지 본다.
+        일치하면 「지사수수료」. 241개 지사 전부 대표자명이 채워져 있어 잘 맞는다.
+        (은행 적요는 길이가 잘려 「김영진(지성교」 처럼 오므로 '(' 앞까지로 비교한다)
+     ③ 둘 다 아니면 「기타출금」 그대로 두고 **화면에서 «분류해 주세요» 라고 요구**한다.
+
+   ⛔ 법인 형태 이름((주)…·주식회사…)은 ②로 자동 분류하지 않는다 — 거래처이지 지사가 아니다.
+      실제로 (주)새하컴즈·호스트센터(주)·스파크보험료 같은 진짜 다른 비용이 섞여 있다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+export const EXPENSE_CATEGORIES = [
+  '지사수수료', '광고선전비', '지급수수료', '임대·관리비', '공과금·통신', '세금·보험',
+  '소모품비', '여비교통비', '차량유지비', '접대비', '도서인쇄비', '금융비용', '기타출금',
+];
+const UNCLASSIFIED = '기타출금';
+
+async function ensurePayeeTable(env: Env): Promise<void> {
+  await env.DB.exec(`CREATE TABLE IF NOT EXISTS expense_payee_category (payee TEXT PRIMARY KEY, category TEXT NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`);
+}
+
+/** 은행 적요에서 비교용 이름만 남긴다. 「김영진(지성교」 → 「김영진」 */
+function payeeBase(remark: string): string {
+  const s = String(remark || '').trim();
+  const i = s.indexOf('(');
+  return (i > 0 ? s.slice(0, i) : s).trim();
+}
+
+/** 법인 형태로 보이면 지사 대표자 자동판정에서 뺀다. */
+function looksCorporate(remark: string): boolean {
+  return /\(주\)|（주）|주식회사|\(유\)|유한회사|㈜|센터|보험|카페24/.test(String(remark || ''));
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -213,6 +254,45 @@ async function monthActualOpex(env: Env, period: string) {
     `).bind(period).all();
     return (r.results || []) as Array<{ category: string; total: number }>;
   }, [] as Array<{ category: string; total: number }>);
+  /* 🏷️ 「기타출금」 덩어리를 계정과목으로 쪼갠다. 판정은 위 주석의 ①②③ 순서.
+     ⚠️ 저장된 category 를 덮어쓰지 않고 «읽을 때» 다시 나눈다 — 바로빌 동기화(배포
+        권한자만 실행)를 기다리지 않고 지정한 것이 바로 반영되게. */
+  const split = await safe(async () => {
+    const misc = bankAll.find(b => b.category === UNCLASSIFIED);
+    if (!misc) return null;
+    await ensurePayeeTable(env);
+    const rows = await env.DB.prepare(`
+      SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
+      WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)=?
+    `).bind(UNCLASSIFIED, period).all();
+    const map = new Map<string, string>();
+    const mp = await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all();
+    for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) map.set(r.payee, r.category);
+    const owners = new Set<string>();
+    const ow = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
+    for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(r.owner_name.trim());
+
+    const byCat = new Map<string, number>();
+    let unresolved = 0;
+    for (const r of ((rows.results || []) as Array<{ remark: string; amount: number }>)) {
+      const amt = Number(r.amount) || 0;
+      const base = payeeBase(r.remark);
+      let cat = map.get(base) || map.get(r.remark.trim());
+      if (!cat && base && owners.has(base) && !looksCorporate(r.remark)) cat = '지사수수료';
+      if (!cat) { cat = UNCLASSIFIED; unresolved += amt; }
+      byCat.set(cat, (byCat.get(cat) || 0) + amt);
+    }
+    return { byCat, unresolved };
+  }, null);
+
+  if (split) {
+    // 기타출금 한 줄을 쪼갠 결과로 갈아 끼운다(합계는 그대로)
+    const idx = bankAll.findIndex(b => b.category === UNCLASSIFIED);
+    if (idx >= 0) bankAll.splice(idx, 1);
+    for (const [cat, total] of split.byCat) bankAll.push({ category: cat, total });
+    bankAll.sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+  }
+
   const catSum = (cats: string[]) => bankAll.filter(b => cats.includes(b.category))
     .reduce((a, b) => a + (Number(b.total) || 0), 0);
   const bankRows = bankAll.filter(b => !OPEX_DUP_CATEGORIES.includes(b.category) && !OPEX_MOVED_CATEGORIES.includes(b.category));
@@ -255,6 +335,17 @@ export type DepositKind = 'pg' | 'b2b' | 'transfer' | 'other';
 /** 계좌 확인용 «1원 입금»(메트로은행) 처럼 매출로 볼 수 없는 소액의 기준 */
 const DEPOSIT_MIN_KRW = 1000;
 
+/* 🏦 정체가 «확인된» 내부 자금이체 (2026-08-17 사장님 확인).
+   「케이씨피M」 = 회사의 하나은행 계좌에서 신한으로 옮긴 **운영자금** 이다.
+   매출이 아니고, 확인이 끝났으므로 더 이상 «확인 필요» 로 묻지 않는다.
+   ⚠️ 다만 «매출이 아닌 돈으로 통장을 메우고 있다» 는 사실 자체는 중요하므로
+      숨기지 않고 «운영자금 보충» 이라는 이름으로 금액을 그대로 보여 준다.
+   ⚠️ 「케이씨피」 로 시작하는 **다른** 변형이 새로 나타나면 그건 여전히 확인 대상이다. */
+const KNOWN_TRANSFER_RE = /^케이씨피M$/;
+export function isKnownTransfer(remark: string): boolean {
+  return KNOWN_TRANSFER_RE.test(String(remark || '').trim());
+}
+
 /** 입금 한 건의 성격. ⚠️ 저장된 category 를 쓰지 않고 적요에서 매번 판정한다 —
     바로빌 동기화(배포 권한자만 실행)를 기다리지 않고 규칙 개선이 바로 반영되게. */
 export function classifyDeposit(remark: string, amount: number): DepositKind {
@@ -269,8 +360,12 @@ export function classifyDeposit(remark: string, amount: number): DepositKind {
 
 export interface MonthDeposits {
   pg: number; b2b: number; transfer: number; other: number;
+  /** transfer 중 정체가 확인된 내부 자금이체(운영자금 보충) */
+  transferKnown: number;
+  /** transfer 중 아직 확인 안 된 것 — 이것만 «확인 필요» 로 묻는다 */
+  transferUnknown: number;
   b2bRows: Array<{ date: string; remark: string; amount: number }>;
-  transferRows: Array<{ date: string; remark: string; amount: number }>;
+  transferRows: Array<{ date: string; remark: string; amount: number; known: boolean }>;
   hasBank: boolean;
 }
 
@@ -284,14 +379,21 @@ async function monthDeposits(env: Env, period: string): Promise<MonthDeposits> {
     `).bind(period).all();
     return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
   }, []);
-  const out: MonthDeposits = { pg: 0, b2b: 0, transfer: 0, other: 0, b2bRows: [], transferRows: [], hasBank: rows.length > 0 };
+  const out: MonthDeposits = {
+    pg: 0, b2b: 0, transfer: 0, other: 0, transferKnown: 0, transferUnknown: 0,
+    b2bRows: [], transferRows: [], hasBank: rows.length > 0,
+  };
   for (const r of rows) {
     const amount = Number(r.amount) || 0;
     const kind = classifyDeposit(r.remark, amount);
     out[kind] += amount;
     const item = { date: String(r.trans_at || '').slice(0, 10), remark: r.remark, amount };
     if (kind === 'b2b') out.b2bRows.push(item);
-    else if (kind === 'transfer') out.transferRows.push(item);
+    else if (kind === 'transfer') {
+      const known = isKnownTransfer(r.remark);
+      if (known) out.transferKnown += amount; else out.transferUnknown += amount;
+      out.transferRows.push({ ...item, known });
+    }
   }
   out.b2bRows.sort((a, b) => b.amount - a.amount);
   out.transferRows.sort((a, b) => b.amount - a.amount);
@@ -370,6 +472,8 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     // 🔒 월 마감 — GET 현황 / POST 마감·해제. index.ts 는 이 prefix 를 통째로 넘겨주므로
     //    라우팅·인증게이트를 건드리지 않고 여기서 받는다(금지구역 회피).
     if (p === 'close' || p === 'reopen') return await closeRouter(env, request, url, p);
+    // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
+    if (p === 'payees') return await payeesRouter(env, request, url);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -486,10 +590,15 @@ async function buildMonthly(env: Env, period: string) {
       // 🌱 시연용 시드 결제를 뺀 사실을 «숨기지 않고» 화면에 그대로 알린다
       seed_excluded_krw: seedEx.amount,
       seed_excluded_count: seedEx.count,
-      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 타계좌 이체)
+      // 🏦 통장 입금 성격별 (「케이씨피」= 진짜 PG 정산, 「케이씨피M」= 하나은행에서 옮긴 운영자금)
       deposit_pg_krw: pl.rev.dep.pg,
       deposit_transfer_krw: pl.rev.dep.transfer,
       deposit_transfer_count: pl.rev.dep.transferRows.length,
+      /* 💵 운영자금 보충 — 매출이 아닌 돈으로 통장을 메운 금액(2026-08-17 사장님 확인:
+         「케이씨피M」 = 하나은행 계좌에서 옮겨 온 운영자금). 매출로 잡으면 안 되지만
+         «얼마나 메우고 있는지» 는 회사 상태를 보는 데 가장 중요한 숫자라 그대로 보여 준다. */
+      funding_in_krw: pl.rev.dep.transferKnown,
+      deposit_transfer_unknown_krw: pl.rev.dep.transferUnknown,
       // 🚨 장부 결제 매출 < PG 정산 입금 → 매출 누락 의심
       revenue_gap_krw: revenueGap,
       // 💵 통장 기준 «실제» 현금흐름 — 장부가 불완전해도 이건 사실이다
@@ -533,7 +642,8 @@ async function buildMonthly(env: Env, period: string) {
       pg_fee: 'estimated' as FigureSource,
       op_cost: pl.opCostSource,
       unclassified: (unclassifiedTotal > 0 ? 'review' : 'actual') as FigureSource,
-      deposit_transfer: (pl.rev.dep.transfer > 0 ? 'review' : 'actual') as FigureSource,
+      // 확인된 자금이체는 실데이터, 아직 모르는 것만 «확인 필요»
+      deposit_transfer: (pl.rev.dep.transferUnknown > 0 ? 'review' : 'actual') as FigureSource,
       active_students: 'review' as FigureSource,
       class_minutes: (classMin.zero_sessions > 0 ? 'review' : 'actual') as FigureSource,
     },
@@ -649,7 +759,8 @@ function closeWarnings(data: any): string[] {
   const w: string[] = [];
   const rec = data?.reconcile, s = data?.summary, c = data?.cost;
   if (rec && (rec.verdict === 'warn' || rec.verdict === 'alert')) w.push(`장부와 통장이 어긋납니다 — ${rec.message}`);
-  if ((s?.deposit_transfer_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_krw).toLocaleString('ko-KR')} 있습니다(「케이씨피M」 등 ${s.deposit_transfer_count}건).`);
+  // ✅ 정체가 확인된 내부 자금이체(「케이씨피M」)는 더 이상 묻지 않는다. 모르는 것만 묻는다.
+  if ((s?.deposit_transfer_unknown_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_unknown_krw).toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`);
   if ((c?.unclassified_krw || 0) > 0) w.push(`계정과목이 안 붙은 출금이 ₩${Number(c.unclassified_krw).toLocaleString('ko-KR')} 있습니다(비용의 ${c.unclassified_pct}%).`);
   if (c?.op_cost_source === 'estimated') w.push('운영비가 실지출이 아니라 «매출의 10%» 추정입니다.');
   return w;
@@ -777,6 +888,90 @@ async function closeRouter(env: Env, request: Request, url: URL, p: string): Pro
   }
 
   return err('not found: ' + p, 404);
+}
+
+/* 🏷️ GET  /api/admin/reports/payees[?months=6]  아직 분류 안 된 거래처 + 지금 지정된 규칙
+   POST /api/admin/reports/payees?payee=..&category=..  지정(«기타출금» 을 주면 지정 해제)
+   한 번 정하면 그 거래처의 과거·미래 출금이 전부 그 과목으로 들어간다. */
+async function payeesRouter(env: Env, request: Request, url: URL): Promise<Response> {
+  await ensurePayeeTable(env);
+  const method = request.method.toUpperCase();
+
+  if (method === 'POST') {
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (scope.type !== 'hq') return err('계정과목 지정은 본사 계정만 할 수 있습니다.', 403);
+    const payee = (url.searchParams.get('payee') || '').trim();
+    const category = (url.searchParams.get('category') || '').trim();
+    if (!payee) return err('거래처(payee)를 지정해 주세요.');
+    if (!EXPENSE_CATEGORIES.includes(category)) return err(`계정과목이 목록에 없습니다: ${category}`);
+    const okSet = await safe(async () => {
+      if (category === UNCLASSIFIED) {
+        await env.DB.prepare(`DELETE FROM expense_payee_category WHERE payee=?`).bind(payee).run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO expense_payee_category (payee, category, note, updated_at) VALUES (?,?,?,?)
+           ON CONFLICT(payee) DO UPDATE SET category=excluded.category, updated_at=excluded.updated_at`
+        ).bind(payee, category, scope.label || 'admin', Date.now()).run();
+      }
+      return true;
+    }, false);
+    if (!okSet) return err('저장에 실패했습니다.', 500);
+    return json({ ok: true, payee, category });
+  }
+
+  // GET — 최근 N개월의 «아직 분류 안 된» 거래처를 금액 큰 순으로
+  const months = Math.max(1, Math.min(24, parseInt(url.searchParams.get('months') || '6', 10)));
+  const since = (() => {
+    const [y, m] = currentMonth().split('-').map(Number);
+    const d = new Date(Date.UTC(y, m - 1 - (months - 1), 1));
+    return d.toISOString().slice(0, 7);
+  })();
+
+  const rules = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT payee, category, updated_at FROM expense_payee_category ORDER BY category, payee`).all();
+    return (r.results || []) as Array<{ payee: string; category: string; updated_at: number }>;
+  }, []);
+  const ruleMap = new Map(rules.map(r => [r.payee, r.category]));
+
+  const owners = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
+    return new Set(((r.results || []) as Array<{ owner_name: string }>).map(x => x.owner_name.trim()));
+  }, new Set<string>());
+
+  const rows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(remark,'') AS remark, COUNT(*) AS cnt, COALESCE(SUM(amount),0) AS total,
+             MIN(substr(trans_at,1,10)) AS first_at, MAX(substr(trans_at,1,10)) AS last_at
+      FROM bankacct_transactions
+      WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)>=?
+      GROUP BY remark ORDER BY total DESC LIMIT 200
+    `).bind(UNCLASSIFIED, since).all();
+    return (r.results || []) as Array<{ remark: string; cnt: number; total: number; first_at: string; last_at: string }>;
+  }, []);
+
+  const items = rows.map(r => {
+    const base = payeeBase(r.remark);
+    const rule = ruleMap.get(base) || ruleMap.get(r.remark.trim()) || null;
+    const auto = !rule && base && owners.has(base) && !looksCorporate(r.remark) ? '지사수수료' : null;
+    return {
+      payee: base, remark: r.remark, count: r.cnt, amount: r.total,
+      first_at: r.first_at, last_at: r.last_at,
+      category: rule || auto || null,
+      source: rule ? 'rule' : (auto ? 'auto(지사 대표자명 일치)' : null),
+      corporate: looksCorporate(r.remark),
+    };
+  });
+  const unresolved = items.filter(i => !i.category);
+
+  return json({
+    ok: true, type: 'payees', since, months,
+    categories: EXPENSE_CATEGORIES,
+    rules,
+    items,
+    unresolved_count: unresolved.length,
+    unresolved_krw: unresolved.reduce((a, i) => a + (Number(i.amount) || 0), 0),
+    note: '한 번 정하면 그 거래처의 지난 출금과 앞으로의 출금이 전부 그 과목으로 들어갑니다. 「기타출금」을 고르면 지정을 지웁니다.',
+  });
 }
 
 async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
@@ -916,9 +1111,14 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
     revenue: revenueBook, expected, deposit_pg: dep.pg,
     deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
-    transfer_note: dep.transfer > 0
-      ? `PG 정산이 아닌 타계좌 입금 ₩${dep.transfer.toLocaleString('ko-KR')} (${dep.transferRows.length}건)이 있습니다 — 「케이씨피M」처럼 사람이 인터넷뱅킹으로 보낸 돈입니다. 운영자금 이체인지 매출인지 확인해 주세요.`
-      : '',
+    transfer_note: [
+      dep.transferKnown > 0
+        ? `이 달 하나은행 계좌에서 옮겨 온 운영자금이 ₩${dep.transferKnown.toLocaleString('ko-KR')} 있습니다(「케이씨피M」). 매출이 아니라 자금 이동이라 매출·대사에서 뺐습니다.`
+        : '',
+      dep.transferUnknown > 0
+        ? `아직 성격이 확인되지 않은 입금이 ₩${dep.transferUnknown.toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`
+        : '',
+    ].filter(Boolean).join(' '),
   };
 }
 
@@ -1464,8 +1664,11 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
             ? [{ name: `통장 직접입금 (B2B ${plM.rev.dep.b2bRows.length}건 · 신한 실데이터)`, amount: plM.rev.b2b }]
             : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
-          ...(plM.rev.dep.transfer > 0
-            ? [{ name: `※ PG 정산이 아닌 타계좌 입금 ₩${plM.rev.dep.transfer.toLocaleString('ko-KR')}(「케이씨피M」 등 ${plM.rev.dep.transferRows.length}건)은 성격이 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
+          ...(plM.rev.dep.transferKnown > 0
+            ? [{ name: `※ 하나은행에서 옮겨 온 운영자금 ₩${plM.rev.dep.transferKnown.toLocaleString('ko-KR')}(「케이씨피M」)은 매출이 아니라 자금 이동이라 제외했습니다`, sub: true }]
+            : []),
+          ...(plM.rev.dep.transferUnknown > 0
+            ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${plM.rev.dep.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
           ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
