@@ -8,11 +8,11 @@
  * 서버는 띄우지 않는다 — fetch 를 가짜로 바꾼다(운영 DB 를 건드리지 않는다).
  * 돌리는 법은 같은 폴더 README 참고.
  */
-import { requireBrowser } from './_pw.mjs';
+import { requireBrowser, fileUrl } from './_pw.mjs';
 
 const { chromium, exe } = requireBrowser();
 
-const FILE = 'file:///home/user/mangoiweb/cloudflare-deploy/public/work.html';
+const FILE = fileUrl('cloudflare-deploy/public/work.html');
 
 const HOME = {
   ok: true,
