@@ -6013,6 +6013,11 @@ window.mgIsSlowNet = function(){
            ko:'AI 단어 퀴즈', en:'AI Vocab Quiz', dko:'AI가 내 레벨 단어로 출제', den:'AI-made vocab quiz at your level', url:'/micro-quiz.html'},
           {ic:aifSvg('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 5.36A9 9 0 0 0 20.49 15"/>'),
            ko:'복습 퀴즈', en:'Review Quiz', dko:'배운 내용 복습 문제', den:'Review what you learned', url:'/review-quiz.html'},
+          // 🇨🇳 2026-08-17 — 중국어 복습퀴즈. 페이지(/review-quiz-cn.html)는 진작 있었는데
+          //    메뉴·AI명령 어디에도 부르는 곳이 없어 학생이 찾아갈 방법이 없었다.
+          //    ic 는 aif-ic(60px 상자) 안에 그대로 들어가므로 이모지 한 자로 충분하다.
+          {ic:'<span style="font-size:30px;line-height:1">🇨🇳</span>',
+           ko:'중국어 복습퀴즈', en:'Chinese Review Quiz', dko:'다락원 교재 중국어 복습', den:'Review Chinese from your textbook', url:'/review-quiz-cn.html'},
           {ic:aifSvg('<path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.5 1 2.5h6c0-1 .4-1.9 1-2.5A6 6 0 0 0 12 3z"/><path d="M9.5 19h5"/><path d="M10.5 22h3"/>'),
            ko:'판단력 훈련', en:'Decision Training', dko:'상황 판단 + 이유 설명으로 AI 판단력 UP', den:'Judge situations & explain why', url:'/judgment.html'},
           {ic:aifSvg('<rect x="2" y="6" width="20" height="13" rx="3"/><circle cx="8" cy="12.5" r="1" fill="#fbbf24" stroke="none"/><circle cx="8" cy="12.5" r="3" stroke-dasharray="0 6.3" stroke-linecap="round"/><line x1="6" y1="12.5" x2="10" y2="12.5"/><line x1="8" y1="10.5" x2="8" y2="14.5"/><circle cx="16" cy="11.5" r="1.1" fill="#fbbf24" stroke="none"/><circle cx="18.5" cy="14" r="1.1" fill="#fbbf24" stroke="none"/>'),
@@ -8925,7 +8930,7 @@ window.mgIsSlowNet = function(){
 -->
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
-<script defer src="/js/idx-ai-home.js?v=9"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
+<script defer src="/js/idx-ai-home.js?v=10"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
 
 
 <!-- 💬 신규상담 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
@@ -16748,7 +16753,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     .ai-cta-row { margin-bottom:404px !important; }
   }
 </style>
-<script src="/js/idx-chatbot-frame.js?v=2"></script>
+<script src="/js/idx-chatbot-frame.js?v=3"></script>
 
 <!-- ✨ UI 폴리시 패치 (2026-06-18) — 타이틀 가독성·곡률 통일·열림탭 여백·배너 겹침 -->
 <style id="ui-polish-2026">
