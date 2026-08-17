@@ -10609,7 +10609,8 @@ window.rebuildGlobalSearchIndex = function() {
       ${noteList(d.notes)}
       ${(d.unassigned_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#92400e">⚠️ 소속을 확정하지 못한 매출이 ${fmtKRW(d.unassigned_krw)} (${d.unassigned_pct}%) 있습니다.</b><br>
-        대리점 이름이 여러 지사에 중복되거나, 학생 원부에 소속이 없는 경우입니다. 아무 가맹점에도 넣지 않았습니다.
+        대부분은 <b>학생 원부에 없는 아이디로 들어온 결제</b>입니다 — 대리점·직원이 학생 몫을 대신 결제하면
+        그 아이디가 학생 원부에 없어 어느 지사인지 알 수 없습니다. 아무 가맹점에도 넣지 않았습니다.
       </div>` : ''}
       <table>
         <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>

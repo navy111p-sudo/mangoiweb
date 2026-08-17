@@ -707,9 +707,16 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
 
    [어떻게 고쳤나] 학생 한 명 한 명을 실제 소속으로 따라가 붙인다:
      students_erp.shop_name → centers.name → centers.franchise_id → franchises
-   ⚠️ centers.name 이 유일하지 않다(같은 이름이 여러 지사에 있음). 이름 하나가
-      두 지사 이상으로 갈리면 **아무 데도 배정하지 않고 «배정 불가» 로 따로 센다** —
+   ⚠️ centers.name 이 유일하지 않다(2026-08-16 기준 5개 이름이 두 지사 이상으로 갈린다 —
+      안산SLP·강서SLP·미사용·뮤엠영어학원·진주외국어고등학교, 학생 2,603명).
+      이름 하나가 두 지사 이상이면 **아무 데도 배정하지 않고 «배정 불가» 로 따로 센다** —
       아무 쪽에나 몰아주면 그게 또 다른 균등분배다.
+   ⚠️ 배정 불가의 **주된 원인은 중복 이름이 아니다**(2026-07 기준 12만원, 1.3%).
+      **학생 원부에 아예 없는 아이디로 들어오는 결제**가 진짜 원인이다
+      (2026-07 539만원 · 56.8%, 2026년 누계 5,242만원). 대리점·직원이 학생 몫을
+      한꺼번에 대신 결제하는 것으로 보인다(예: 「장지웅1」이 3분 동안 13건).
+      → 해결은 코드가 아니라 데이터다. student_org_override 에 아이디↔대리점을
+        넣으면 그대로 붙는다. 목록은 docs/가맹점_매출배정_미확정_목록_2026-08-16.md.
    ⚠️ 수수료율은 가맹 계약서에 있는 값인데 시스템에 없다. 그래서 화면·CSV 에
       «추정» 이라고 밝히고, ?hq_fee= 로 바꿔 볼 수 있게만 한다. */
 async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Response> {
@@ -788,7 +795,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     notes: [
       '가맹점별 매출은 학생 한 명씩 실제 소속(대리점 → 지사)을 따라가 합산한 값입니다. 균등분배가 아닙니다.',
       `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
-      ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, bookTotal)}%)은 어느 가맹점에도 넣지 않았습니다 — 대리점 이름이 여러 지사에 중복되거나 학생 원부에 소속이 없는 경우입니다.`] : []),
+      ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, bookTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
     ],
   };
 
