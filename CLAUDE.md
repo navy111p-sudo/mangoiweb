@@ -10,8 +10,12 @@
 ## 0. 가장 먼저 알아야 할 것
 
 - **실서비스는 `cloudflare-deploy/` 폴더 하나.** 나머지는 보조·실험·레거시입니다.
-- 운영 주소: **https://test.mangoi.co.kr** → Cloudflare Worker `webrtc-unified-platform-prod`
-  (Cloudflare 존 = `mangoi.co.kr`. `deploy.ps1` 의 스모크 테스트도 이 주소를 씁니다)
+- 운영 주소: **https://mangoi.ai** → Cloudflare Worker `webrtc-unified-platform-prod`
+  (사장님·직원이 실제로 여는 주소입니다. 사람에게 안내할 링크는 **이 주소**를 쓰세요)
+  - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
+    아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
+    안드로이드/iOS 앱의 시작 URL, `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —
+    앱 서명·assetlinks·워치독까지 같이 확인해야 하는 별건 작업입니다 (도메인 정리는 사람이 결정)
   - `mangoi.co.kr` / `www.mangoi.co.kr` (118.219.234.180) 는 **구 서버**. 옛 LMS만 있고 Worker 경로(`/library/...` 등)는 404입니다
   - ~~`mango-i.com`~~ 은 **존재하지 않는 도메인**입니다(2026-07-28 확인: 등록조차 안 됨 → NXDOMAIN).
     옛 문서 표기 오류이니 이 주소로 curl 검증하지 마세요. 무조건 실패합니다
@@ -67,7 +71,8 @@
 |---|---|
 | wrangler 명령 | wrangler 4에는 `r2 put`, `kv` 에 **`--remote` 옵션이 없습니다** |
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
-| 배포 후 curl 검증 | 주소는 **`https://test.mangoi.co.kr`**. `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
+| 배포 후 curl 검증 | 주소는 **`https://mangoi.ai`**(`test.mangoi.co.kr` 도 같은 Worker 라 둘 다 됩니다). `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
+| 사람에게 링크를 안내할 때 | 문자·알림톡·안내문에 넣는 주소는 **`https://mangoi.ai`**. 「어디에도 안 보인다」 류의 제보는 **엉뚱한 도메인을 안내해서** 생기는 경우가 있습니다(2026-08-17 실제로 밟음 — 문서엔 `test.mangoi.co.kr`, 사장님 화면엔 `mangoi.ai`) |
 | D1 쿼리 | 파라미터 **100개 제한**. `IN` 절은 90개 이하로 잘라서 실행 |
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |

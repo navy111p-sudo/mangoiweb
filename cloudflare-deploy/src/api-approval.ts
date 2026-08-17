@@ -41,6 +41,7 @@
 import { getAdminActor, PH_MANAGERS } from './auth-admin';
 import { oncePerIsolate } from './once-per-isolate';   // ⚡ 준비 DDL 을 요청마다 반복하지 않게
 import { selectInChunks } from './d1-chunk';           // 🔢 IN 목록은 손으로 자르지 않는다(D1 바인드 100 한도)
+import { siteUrl } from './site-url';                  // 🔗 사람에게 나가는 링크는 한 곳에서
 import {                                               // 💼 인사·급여 «월 확정» — 급여 표는 읽기만 한다
   HR_KINDS, isHrKind, isPeriod, ensureHrTable, getLock, lockPeriod, buildHrSnapshot, listHrPeriods,
 } from './approval-hr';
@@ -1020,7 +1021,7 @@ export async function handleApprovalApi(
       //    나머지 분류는 푸시와 배지로 충분하다(문자는 돈이 든다).
       if (reqType === 'urgent' && n1.missed.length) {
         await smsFallback(env, n1.missed,
-          '[망고아이 긴급] ' + title.slice(0, 60) + '\n' + (actor.name || actor.username) + '\nhttps://test.mangoi.co.kr/work?id=' + reqId);
+          '[망고아이 긴급] ' + title.slice(0, 60) + '\n' + (actor.name || actor.username) + '\n' + siteUrl('/work?id=' + reqId));
       }
 
       return json({ ok: true, id: reqId, stages: stages.length, flags, summary: sum || null });
@@ -1333,7 +1334,7 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       if (nl.missed.length) {
         await smsFallback(env, nl.missed,
           '[망고아이] 결재 마감이 지났습니다\n' + String(r.title || '').slice(0, 60) +
-          '\nhttps://test.mangoi.co.kr/work?id=' + r.id);
+          '\n' + siteUrl('/work?id=' + r.id));
       }
       await safe(async () => {
         await env.DB.prepare(`UPDATE approval_requests SET warned_at = ? WHERE id = ?`).bind(now, r.id).run();
@@ -1376,7 +1377,7 @@ export async function runApprovalSlaSweep(env: ApprovalEnv): Promise<{ ok: boole
       if (ne.missed.length) {
         await smsFallback(env, ne.missed,
           '[망고아이] 지연 결재가 경영진으로 넘어왔습니다\n' + String(r.title || '').slice(0, 60) +
-          '\nhttps://test.mangoi.co.kr/work?id=' + r.id);
+          '\n' + siteUrl('/work?id=' + r.id));
       }
       escalated++;
     }
@@ -1447,7 +1448,7 @@ export async function runApprovalWeeklyReport(env: ApprovalEnv): Promise<{ ok: b
     if (slow.length) {
       lines.push('알림이 나간 건: ' + slow.map((s: any) => s.u + ' ' + s.c).join(', '));
     }
-    lines.push('https://test.mangoi.co.kr/work');
+    lines.push(siteUrl('/work'));
     const text = lines.join('\n');
 
     // 경영진에게만. 푸시로 닿지 않으면 문자로.
