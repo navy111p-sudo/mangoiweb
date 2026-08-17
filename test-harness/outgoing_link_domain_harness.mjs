@@ -134,13 +134,21 @@ check('화이트리스트에 정본 호스트가 실제로 들어간다',
   /'https:\/\/mangoi\.ai'/.test(site) && /SITE_HOSTS[^\n]*SITE_ORIGIN/.test(site));
 
 // ── ④ 규칙서가 같은 말을 하고 있는가 ──────────────────────
-console.log('\n[ ④ CLAUDE.md 가 코드와 같은 주소를 적고 있다 ]');
-let md = '';
-try { md = readFileSync(resolve(__dir, '../CLAUDE.md'), 'utf8'); } catch {}
-check('CLAUDE.md 운영 주소가 mangoi.ai 다',
-  /운영 주소:\s*\*\*https:\/\/mangoi\.ai\*\*/.test(md));
-check('CLAUDE.md 가 test.mangoi.co.kr 이 아직 살아 있다고 적어 둔다 (죽이면 앱이 멈춘다)',
-  /test\.mangoi\.co\.kr[\s\S]{0,200}같은 Worker/.test(md));
+/* 규칙서가 **두 벌**이다 — CLAUDE.md(Claude 가 매번 읽는 것)와 MAINTENANCE.md(사람이 읽는 것).
+   한쪽만 고치면 다음 사람이 옛 주소를 그대로 베낀다. 실제로 그렇게 밟았다(2026-08-17). */
+console.log('\n[ ④ 규칙서 두 벌이 코드와 같은 주소를 적고 있다 ]');
+const DOCS = [['CLAUDE.md', 'Claude 가 매번 읽는 규칙서'], ['MAINTENANCE.md', '사람이 읽는 유지보수 매뉴얼']];
+for (const [file, label] of DOCS) {
+  let md = '';
+  try { md = readFileSync(resolve(__dir, '../' + file), 'utf8'); } catch {}
+  check(`${file} (${label}) — 읽을 수 있다`, md.length > 0);
+  check(`${file} — 운영 주소가 mangoi.ai 다`,
+    /운영 주소:\s*\*\*https:\/\/mangoi\.ai\*\*/.test(md));
+  check(`${file} — test.mangoi.co.kr 이 아직 살아 있다고 적어 둔다 (죽이면 앱이 멈춘다)`,
+    /test\.mangoi\.co\.kr[\s\S]{0,300}같은 Worker/.test(md));
+  check(`${file} — mango-i.com 을 운영 주소로 적고 있지 않다`,
+    !/운영 주소[^\n]*mango-i\.com/.test(md));
+}
 
 console.log('\n────────────────────────────────');
 console.log(`총 ${PASS + FAIL}건 중 ✅ ${PASS} 통과 / ❌ ${FAIL} 실패`);

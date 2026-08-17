@@ -11,16 +11,33 @@
 
 **실서비스는 `cloudflare-deploy/` 폴더 하나입니다.** 나머지 폴더 대부분은 보조 프로젝트, 실험, 레거시, 문서 제작용입니다. 헷갈리면 `cloudflare-deploy/` 밖은 건드리지 마세요.
 
-- 운영 주소: **https://test.mangoi.co.kr** → Cloudflare Worker `webrtc-unified-platform-prod`
+- 운영 주소: **https://mangoi.ai** → Cloudflare Worker `webrtc-unified-platform-prod`
 - 배포 방법: 리포 루트에서 `deploy.ps1` 실행 (또는 `배포하기.bat` 더블클릭)
 
-> **주소 관련 주의 (2026-07-28 정정)**
-> 이 문서를 포함해 여러 곳에 운영 주소가 `mango-i.com` 으로 적혀 있었는데, **그런 도메인은 없습니다.**
-> 등록 자체가 안 되어 있어 DNS 가 아예 응답하지 않습니다(공개 DNS·.com 레지스트리 양쪽 확인).
-> - 실제 서비스 주소: **test.mangoi.co.kr** (Cloudflare 존 `mangoi.co.kr`, Worker 가 응답)
-> - `mangoi.co.kr` / `www.mangoi.co.kr` → 118.219.234.180 **구 서버**(옛 LMS). Worker 화면·API 없음
-> - 그래서 배포 후 검증을 `mango-i.com` 으로 하면 "고쳤는데 확인이 안 된다"가 아니라 **주소가 없어서** 실패합니다
-> - 나중에 `mango-i.com` 을 실제로 구입·연결하게 되면 이 항목을 다시 고쳐 주세요
+> **주소 관련 주의 (2026-08-17 갱신)**
+>
+> **사람에게 안내하는 주소는 `https://mangoi.ai` 하나입니다.** 문자·알림톡·안내문·카톡에 넣는 링크는
+> 전부 이 주소입니다. 2026-08-17 에 결재함 안내를 옛 주소로 알려 드려 「어디에도 안 보인다」는
+> 지적이 나왔습니다 — 문서엔 `test.mangoi.co.kr`, 사장님 화면엔 `mangoi.ai` 였습니다.
+>
+> 헷갈리기 쉬운 주소가 넷입니다. 정리하면:
+>
+> | 주소 | 정체 | 사람에게 안내 |
+> |---|---|---|
+> | **`mangoi.ai`** | **정본.** Worker 가 응답 | ✅ 이것만 |
+> | `test.mangoi.co.kr` | **같은 Worker 의 먼저 붙인 커스텀 도메인.** 살아 있음 | ❌ (죽이지도 말 것 — 아래 참조) |
+> | `mangoi.co.kr` / `www.mangoi.co.kr` | 118.219.234.180 **구 서버**(옛 PHP LMS). Worker 화면·API 없음 | ❌ |
+> | ~~`mango-i.com`~~ | **등록조차 안 된 도메인**(NXDOMAIN, 2026-07-28 실측) | ❌ 절대 |
+>
+> ⚠️ **`test.mangoi.co.kr` 을 일괄 치환하지 마세요.** 죽은 주소가 아니라, 아직 여러 곳이 붙박이로
+> 쓰고 있습니다 — 안드로이드/iOS 앱의 시작 URL, `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본
+> `BaseUrl`(= `deploy.ps1` 의 배포 전/후 스모크 15종), `ops/mangoi-watchdog.sh`, 하니스 여럿.
+> 정리하려면 앱 서명·`assetlinks.json`·워치독까지 같이 확인해야 하는 **별건 작업**입니다.
+>
+> 🔗 **코드에서 주소를 손으로 적지 마세요.** 학부모 문자·평가서 링크·레벨테스트 티켓 등 사람에게
+> 나가는 링크는 전부 `cloudflare-deploy/src/site-url.ts` 의 `siteUrl()` 에서 옵니다. 도메인이 바뀌면
+> 그 파일의 `SITE_ORIGIN` **한 줄**만 고치면 됩니다. 손으로 적으면
+> `test-harness/outgoing_link_domain_harness.mjs` 가 배포 게이트에서 막습니다.
 
 ## 2. 폴더 지도 — 어디가 뭐고, 건드려도 되는가
 
