@@ -11598,17 +11598,30 @@ window.rebuildGlobalSearchIndex = function() {
       setTxt('ph204-kpi-hq', _fmt(T.fee));
       setTxt('ph204-kpi-payout', _fmt(T.net));
       setTxt('ph204-kpi-pending', rows.length + (_en?'':' 개'));
+      // 실제 적용된 «가중평균» 본사 마진율 — 지사·대리점마다 요율이 다를 수 있어서
+      // 고정 문구(예전 「평균 수수료율 15%」)를 쓰면 거짓말이 된다.
+      const DEF = d.defaults || { hq_rate:0.6, branch_rate:0.4 };
+      const pct = function(x){ return (Math.round((x||0)*1000)/10) + '%'; };
+      const effHq = T.gross > 0 ? (T.fee / T.gross) : DEF.hq_rate;
+      setTxt('ph204-kpi-hq-rate', (_en ? 'Applied ' : '적용 ') + pct(effHq)
+        + (_en ? ' · default ' : ' · 기본 ') + pct(DEF.hq_rate));
       if (cards) {
         cards.innerHTML = rows.length ? rows.map(x => {
           const rate = Math.round((x.commission_rate||0)*1000)/10;
+          const brRate = Math.round((x.branch_rate!=null ? x.branch_rate : (1-(x.commission_rate||0)))*1000)/10;
+          // 요율이 어디서 왔는지 밝힌다 — 「왜 이 지사만 다르지?」를 화면에서 바로 알 수 있게.
+          const srcMap = { 'default': _en?'default':'기본값', 'branch': _en?'branch set':'지사 설정',
+                           'agency': _en?'agency set':'대리점 설정', 'mixed': _en?'mixed':'대리점별 상이' };
+          const srcTxt = srcMap[x.rate_source] || '';
+          const srcTag = srcTxt ? ' <span style="font-size:9.5px;color:#64748b">('+srcTxt+')</span>' : '';
           const typeIcon = x.type==='agency' ? '🤝' : '🏬';
           return '<div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800;font-size:14px;color:#0f172a">'+typeIcon+' '+_esc(x.franchise_name)+'</div>'
             + '<span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">'+(_en?'⏰ Pending':'⏰ 송금 대기')+'</span></div>'
             + '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+(_en?'Payments':'결제 건수')+' '+(x.pay_count||0)+'</div>'
             + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'Revenue':'매출')+'</span><b style="color:#1f2937">'+_fmt(x.gross_revenue)+'</b></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'HQ fee':'본사 수수료')+' ('+rate+'%)</span><b style="color:#b45309">- '+_fmt(x.hq_fee)+'</b></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">'+(_en?'→ Payout':'→ 지점에 송금')+'</b><b style="color:#15803d;font-size:15px">'+_fmt(x.net_settlement)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'HQ margin':'본사 마진')+' ('+rate+'%)'+srcTag+'</span><b style="color:#b45309">- '+_fmt(x.hq_fee)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">'+(_en?'→ Payout':'→ 지점에 송금')+' ('+brRate+'%)</b><b style="color:#15803d;font-size:15px">'+_fmt(x.net_settlement)+'</b></div>'
             + '</div>';
         }).join('') : '<div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8">'+(_en?'No settlement data for this month':'이번 달 정산 데이터 없음')+'</div>';
       }
@@ -11630,6 +11643,108 @@ window.rebuildGlobalSearchIndex = function() {
             <td>${_badge(x.status||'pending','warn')}</td></tr>`).join('') ||
         ('<tr><td colspan="6" class="empty">'+(_en?'No data':'가맹점 데이터 없음')+'</td></tr>');
     } catch(e) { if(tbody) _showErr(tbody, e, 6); if(cards) cards.innerHTML='<div class="empty" style="grid-column:1/-1;color:#dc2626;padding:16px">'+(_en?'Load failed':'불러오기 실패')+': '+_esc(String(e&&e.message||e))+'</div>'; }
+  };
+
+  /* ⚙️ 수수료 비율 설정 (2026-08-18) — 지사·대리점별 수동 설정
+     기본값은 「지점 40% / 본사 60%」. 여기서 저장한 곳만 그 값을 쓰고,
+     저장하지 않은 곳은 기본값으로 계산된다(서버 settlement_rate_override 가 정본).
+     ⚠️ 저장 뒤에는 반드시 accLoadFranchise() 를 다시 불러 정산 카드·표를 갱신한다 —
+        안 그러면 「저장했는데 금액이 그대로」로 보인다. */
+  window.accLoadRateConfig = async function(){
+    const _en = (window.adminLang==='en');
+    const tbody = document.getElementById('ph204-rate-tbody');
+    if (!tbody) return;
+    const month = (document.getElementById('acc-fr-month')||{}).value || _today().slice(0,7);
+    const scope = (document.getElementById('ph204-rate-scope')||{}).value || 'branch';
+    const q     = (document.getElementById('ph204-rate-q')||{}).value || '';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    try {
+      const qs = new URLSearchParams({ period: month, scope: scope });
+      if (q) qs.set('q', q);
+      const r = await fetch('/api/admin/settlement/rate-config?' + qs.toString(), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      const rows = d.rows || [];
+      const cnt = document.getElementById('ph204-rate-count');
+      if (cnt) cnt.textContent = (_en ? (rows.length+' shown · '+d.counts.overridden+' set')
+                                      : ('표시 '+rows.length+'곳 · 수동 설정 '+d.counts.overridden+'곳'))
+                                 + (d.truncated ? (_en?' (top 500)':' (상위 500곳만)') : '');
+      // 본사(hq)가 아니면 서버가 저장을 막는다 — 버튼도 미리 잠가 오해를 없앤다.
+      const ro = !d.editable;
+      tbody.innerHTML = rows.length ? rows.map(function(x){
+        const key = encodeURIComponent(x.scope_key);
+        const brPct = Math.round((x.branch_rate||0)*1000)/10;
+        const hqPct = Math.round((x.hq_rate||0)*1000)/10;
+        const tag = x.is_override
+          ? '<span style="padding:1px 6px;background-color:#dcfce7;color:#166534;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'set':'수동')+'</span>'
+          : (x.rate_source==='inherited'
+              ? '<span style="padding:1px 6px;background-color:#fef3c7;color:#92400e;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'inherited':'지사 상속')+'</span>'
+              : '<span style="padding:1px 6px;background-color:#f1f5f9;color:#64748b;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'default':'기본값')+'</span>');
+        const id = x.scope_type+'|'+x.scope_key;
+        return '<tr>'
+          + '<td>'+(x.scope_type==='agency' ? '🤝 '+(_en?'Agency':'대리점') : '🏬 '+(_en?'Branch':'지사'))+'</td>'
+          + '<td><b>'+_esc(x.scope_key)+'</b>'+(x.parent?' <span style="font-size:10px;color:#94a3b8">/ '+_esc(x.parent)+'</span>':'')+' '+tag
+            // 같은 이름의 대리점이 여러 지사에 걸쳐 있으면 «다 같이 바뀐다» 고 미리 알린다.
+            + (x.parent_count > 1 ? ' <span title="'+(_en?'This name exists under several branches — the rate applies to all of them.':'이 이름의 대리점이 여러 지사에 있습니다. 요율은 그 전부에 적용됩니다.')+'" style="padding:1px 6px;background-color:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'multi-branch':'지사 '+x.parent_count+'곳')+'</span>' : '')
+            + '</td>'
+          + '<td style="text-align:right">'+_fmt(x.gross_revenue)+'</td>'
+          + '<td style="text-align:right"><input type="number" min="0" max="100" step="0.1" value="'+brPct+'" '+(ro?'disabled':'')
+            + ' data-rate-key="'+_esc(id)+'" oninput="accRateSync(this)" style="width:72px;padding:3px 6px;font-size:12px;text-align:right;border:1px solid #d1d5db;border-radius:5px"></td>'
+          + '<td style="text-align:right"><span data-rate-hq="'+_esc(id)+'" style="font-weight:700">'+hqPct+'%</span></td>'
+          + '<td style="white-space:nowrap">'
+            + '<button '+(ro?'disabled':'')+' onclick="accSaveRate(\''+x.scope_type+'\',\''+key+'\')" style="padding:3px 8px;font-size:11px;background-color:#2563eb;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">'+(_en?'Save':'저장')+'</button> '
+            + (x.is_override ? '<button '+(ro?'disabled':'')+' onclick="accResetRate(\''+x.scope_type+'\',\''+key+'\')" style="padding:3px 8px;font-size:11px;background-color:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:5px;cursor:pointer">'+(_en?'Reset':'기본값')+'</button>' : '')
+          + '</td></tr>';
+      }).join('') : ('<tr><td colspan="6" class="empty">'+(_en?'No matching branches/agencies':'해당하는 지사·대리점 없음')+'</td></tr>');
+    } catch(e){ _showErr(tbody, e, 6); }
+  };
+
+  // 지점 수수료 % 를 치면 본사 마진 % 가 따라 움직인다(합이 100%).
+  window.accRateSync = function(el){
+    const key = el.getAttribute('data-rate-key');
+    const out = document.querySelector('[data-rate-hq="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"]');
+    if (!out) return;
+    let v = Number(el.value);
+    if (!isFinite(v)) return;
+    v = Math.min(100, Math.max(0, v));
+    out.textContent = (Math.round((100 - v)*10)/10) + '%';
+  };
+
+  window.accSaveRate = async function(scopeType, keyEnc){
+    const _en = (window.adminLang==='en');
+    const scopeKey = decodeURIComponent(keyEnc);
+    const id = scopeType+'|'+scopeKey;
+    const input = document.querySelector('[data-rate-key="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');
+    if (!input) return;
+    const br = Number(input.value);
+    if (!isFinite(br) || br < 0 || br > 100) { alert(_en?'Enter 0~100':'0~100 사이 숫자를 넣어 주세요.'); return; }
+    try {
+      const r = await fetch('/api/admin/settlement/rate-config', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ scope_type: scopeType, scope_key: scopeKey, branch_rate: br })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      await accLoadRateConfig();
+      await accLoadFranchise();   // 정산 금액에 «즉시» 반영 — 이 줄이 빠지면 화면이 안 바뀐다
+    } catch(e){ alert((_en?'Save failed: ':'저장 실패: ')+String(e&&e.message||e)); }
+  };
+
+  window.accResetRate = async function(scopeType, keyEnc){
+    const _en = (window.adminLang==='en');
+    const scopeKey = decodeURIComponent(keyEnc);
+    if (!confirm(_en ? ('Reset "'+scopeKey+'" to the default (branch 40% / HQ 60%)?')
+                     : ('「'+scopeKey+'」 를 기본값(지점 40% / 본사 60%)으로 되돌릴까요?'))) return;
+    try {
+      const r = await fetch('/api/admin/settlement/rate-config', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ scope_type: scopeType, scope_key: scopeKey, reset: true })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      await accLoadRateConfig();
+      await accLoadFranchise();
+    } catch(e){ alert((_en?'Reset failed: ':'되돌리기 실패: ')+String(e&&e.message||e)); }
   };
 
   // ──────────────────────────────────────────────────────────

@@ -41,27 +41,65 @@ function monthRange(period) {
   const end = new Date(Date.UTC(y, m, 1) - 9 * 3600 * 1000);
   return { startMs: start.getTime(), endMs: end.getTime() };
 }
-const RATE_MIN = 0.15, RATE_MAX = 0.18;
-const clampRate = r => Math.min(RATE_MAX, Math.max(RATE_MIN, Number(r) || RATE_MIN));
+// 2026-08-18 정책 변경: 15~18% 클램프 → 기본 「지점 40% / 본사 60%」 + 지사·대리점별 수동 설정
+const DEFAULT_HQ_RATE = 0.60, DEFAULT_BRANCH_RATE = 0.40;
+const RATE_MIN = 0, RATE_MAX = 1;
+const clampRate = r => {
+  const n = Number(r);
+  if (!Number.isFinite(n)) return DEFAULT_HQ_RATE;
+  return Math.min(RATE_MAX, Math.max(RATE_MIN, n));
+};
+const toRate = v => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return clampRate(n > 1 ? n / 100 : n);
+};
+const emptyOv = () => ({ branch: new Map(), agency: new Map() });
+function resolveHqRate(ov, branchName, agencyName) {
+  const a = agencyName ? ov.agency.get(String(agencyName).trim()) : undefined;
+  if (a != null) return { rate: a, source: 'agency' };
+  const b = branchName ? ov.branch.get(String(branchName).trim()) : undefined;
+  if (b != null) return { rate: b, source: 'branch' };
+  return { rate: DEFAULT_HQ_RATE, source: 'default' };
+}
 function nextSettlementDate(period) {
   const [y, m] = period.split('-').map(Number);
   const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
   return `${ny}-${String(nm).padStart(2, '0')}-15`;
 }
-function foldSubtree(rows) {
+function foldSubtree(rows, ov = emptyOv()) {
   const byId = new Map();
   for (const r of rows) byId.set(r.id, { ...r, gross: r.own_gross, pays: r.own_pays, children: [] });
+  // ① 요율 결정: 자기 수동 설정 → 상위(지사) 수동 설정 상속 → 기본 60%
+  for (const node of byId.values()) {
+    if (node.type === 'hq') { node.rate_applied = 0; node.rate_source = 'hq'; continue; }
+    const own = node.type === 'agency' ? ov.agency.get(String(node.name).trim())
+                                       : ov.branch.get(String(node.name).trim());
+    if (own != null) { node.rate_applied = own; node.rate_source = 'self'; continue; }
+    let p = node.parent_id != null ? byId.get(node.parent_id) : null;
+    let inherited;
+    while (p && inherited == null) {
+      if (p.type === 'branch') inherited = ov.branch.get(String(p.name).trim());
+      else if (p.type === 'agency') inherited = ov.agency.get(String(p.name).trim());
+      p = p.parent_id != null ? byId.get(p.parent_id) : null;
+    }
+    node.rate_applied = inherited != null ? inherited : DEFAULT_HQ_RATE;
+    node.rate_source = inherited != null ? 'inherited' : 'default';
+  }
+  // ② 자기 매출분 수수료 → 매출·건수·수수료를 함께 부모로 롤업
+  for (const node of byId.values()) node.hq_fee = Math.round(node.own_gross * (node.rate_applied || 0));
   const ordered = [...rows].sort((a, b) => b.depth - a.depth);
   for (const r of ordered) {
     const node = byId.get(r.id);
     if (r.parent_id != null && byId.has(r.parent_id)) {
       const parent = byId.get(r.parent_id);
-      parent.gross += node.gross; parent.pays += node.pays; parent.children.push(r.id);
+      parent.gross += node.gross; parent.pays += node.pays; parent.hq_fee += node.hq_fee;
+      parent.children.push(r.id);
     }
   }
   for (const node of byId.values()) {
-    node.hq_fee = Math.round(node.gross * (node.commission_rate || 0));
     node.net_settlement = node.gross - node.hq_fee;
+    node.commission_rate = node.gross > 0 ? Math.round((node.hq_fee / node.gross) * 10000) / 10000 : node.rate_applied;
   }
   return byId;
 }
@@ -125,7 +163,16 @@ check('org-settlement.ts: 상위 역추적 재귀 CTE 존재', /WITH RECURSIVE a
 check('org-settlement.ts: MANAGES 조인(shop_name=match_key) 존재', /st\.shop_name = s\.match_key/.test(srcTs));
 check('org-settlement.ts: 결제 status=paid 필터 존재', /p\.status = 'paid'/.test(srcTs));
 check('org-settlement.ts: 원장 멱등 ON CONFLICT 존재', /ON CONFLICT\(node_id, period\)/.test(srcTs));
-check('org-settlement.ts: 수수료율 클램프 0.15~0.18', /RATE_MIN = 0\.15.*RATE_MAX = 0\.18|RATE_MIN = 0\.15/.test(srcTs) && /0\.18/.test(srcTs));
+check('org-settlement.ts: 기본 본사마진 60% 상수', /DEFAULT_HQ_RATE = 0\.60/.test(srcTs));
+check('org-settlement.ts: 기본 지점수수료 40% 상수', /DEFAULT_BRANCH_RATE = 0\.40/.test(srcTs));
+check('org-settlement.ts: 수동 설정표(settlement_rate_override) 생성', /CREATE TABLE IF NOT EXISTS settlement_rate_override/.test(srcTs));
+check('org-settlement.ts: 요율 우선순위 결정 함수 존재', /function resolveHqRate\(/.test(srcTs));
+check('org-settlement.ts: rate-config 조회/저장 라우트 존재', /'rate-config' && method === 'GET'/.test(srcTs) && /'rate-config' && method === 'POST'/.test(srcTs));
+check('org-settlement.ts: 요율 저장은 HQ 전용', /'rate-config' && method === 'POST'[\s\S]{0,200}forbidden: HQ only/.test(srcTs));
+// ⛔ 되살아나면 안 되는 것 — 옛 「지사 총매출 × 지사요율」 방식과 org_nodes 기본율 읽기
+check('org-settlement.ts: branch-summary 가 org_nodes.commission_rate 를 안 읽음',
+      !/MAX\(o\.commission_rate\)/.test(srcTs));
+check('org-settlement.ts: branch-summary 가 대리점 단위로 집계', /GROUP BY franchise_name, agency_name/.test(srcTs));
 check('index.ts: settlementRouter import 배선', /import \{ settlementRouter \} from '\.\/org-settlement'/.test(idxTs));
 check('index.ts: /api/admin/settlement/ 라우트 배선', /\/api\/admin\/settlement\//.test(idxTs) && /settlementRouter\(request, env\)/.test(idxTs));
 check('migration: org_nodes 테이블', /CREATE TABLE IF NOT EXISTS org_nodes/.test(migSql));
@@ -135,10 +182,14 @@ check('migration: 정산원장 UNIQUE(node_id,period)', /UNIQUE\(node_id, period
 // [1] 순수 로직 단위 테스트
 // ════════════════════════════════════════════════════════════════════
 console.log('\n[1] 순수 로직 (수수료율 클램프 / 송금일 / 월범위)');
-eq('수수료율 하한 클램프', clampRate(0.10), 0.15);
-eq('수수료율 상한 클램프', clampRate(0.25), 0.18);
-eq('수수료율 정상값 보존', clampRate(0.16), 0.16);
-eq('빈값 → 하한', clampRate(undefined), 0.15);
+eq('요율 하한 클램프(음수→0)', clampRate(-0.5), 0);
+eq('요율 상한 클램프(>1→1)', clampRate(1.7), 1);
+eq('요율 정상값 보존', clampRate(0.55), 0.55);
+eq('빈값 → 기본 60%', clampRate(undefined), DEFAULT_HQ_RATE);
+eq('🔑 기본값 = 지점 40% / 본사 60%', [DEFAULT_BRANCH_RATE, DEFAULT_HQ_RATE], [0.40, 0.60]);
+eq('퍼센트 입력(40) → 비율 0.4', toRate(40), 0.4);
+eq('비율 입력(0.4) → 그대로', toRate(0.4), 0.4);
+eq('퍼센트 100 → 1', toRate(100), 1);
 eq('송금예정일 = 익월15일', nextSettlementDate('2026-05'), '2026-06-15');
 eq('송금예정일 연말 넘김', nextSettlementDate('2026-12'), '2027-01-15');
 check('월범위 시작<종료', (() => { const { startMs, endMs } = monthRange('2026-05'); return startMs < endMs; })());
@@ -205,13 +256,19 @@ const gn = fromHQ.get(AG_GN), sc = fromHQ.get(AG_SC), hd = fromHQ.get(AG_HD);
 const brGN = fromHQ.get(BR_GN), brBS = fromHQ.get(BR_BS), hq = fromHQ.get(HQ);
 
 eq('강남대리점 own_gross=800만', gn.gross, 8000000);
-eq('강남대리점 수수료 18% = 144만', gn.hq_fee, 1440000);
-eq('강남대리점 정산액 = 656만', gn.net_settlement, 6560000);
-eq('서초대리점 gross=100만, 15% 수수료', [sc.gross, sc.hq_fee], [1000000, 150000]);
-eq('해운대대리점 gross=50만, 16% 수수료', [hd.gross, hd.hq_fee], [500000, 80000]);
+// 🔑 2026-08-18 정책: 수동 설정이 없으면 org_nodes 에 무슨 값이 있든 «기본 60%» 다.
+//    (픽스처의 org_nodes 는 0.18/0.15/0.16 이지만 그건 rebuild 가 채운 값이라 안 쓴다)
+eq('강남대리점 본사마진 기본 60% = 480만', gn.hq_fee, 4800000);
+eq('강남대리점 지점정산액 40% = 320만', gn.net_settlement, 3200000);
+eq('서초대리점 gross=100만, 기본 60% 수수료', [sc.gross, sc.hq_fee], [1000000, 600000]);
+eq('해운대대리점 gross=50만, 기본 60% 수수료', [hd.gross, hd.hq_fee], [500000, 300000]);
+check('🔑 org_nodes.commission_rate(0.18)를 안 씀', gn.hq_fee !== Math.round(8000000 * 0.18));
 // ① 핵심 회귀: 균등분배가 아님을 증명 (옛 버그라면 950만/3≈316만으로 동일해야 함)
-check('🔑 균등분배 아님: 강남(656만)≠서초(85만)', gn.net_settlement !== sc.net_settlement);
+check('🔑 균등분배 아님: 강남(320만)≠서초(40만)', gn.net_settlement !== sc.net_settlement);
 eq('서울강남지사 누적 gross = 900만(강남800+서초100)', brGN.gross, 9000000);
+// ② 지사 수수료 = 「지사 총매출 × 지사요율」이 아니라 「대리점별 수수료의 합」
+eq('서울강남지사 수수료 = 대리점 합(480만+60만)', brGN.hq_fee, 5400000);
+eq('본사 수수료 = 전사 합(950만×60%)', hq.hq_fee, 5700000);
 eq('부산지사 누적 gross = 50만', brBS.gross, 500000);
 eq('본사 누적 gross = 950만(전사)', hq.gross, 9500000);
 // ④ 환불·전월 제외
@@ -263,7 +320,42 @@ eq('🔑 재마감해도 행 증가 없음(멱등)', cnt2, cnt1);
 const ledHQ = db.prepare(`SELECT gross_revenue, hq_fee, net_settlement FROM org_settlement_ledger WHERE node_id=? AND period='2026-05'`).get(HQ);
 eq('원장 본사 gross=1150만(override 반영 스냅샷)', ledHQ.gross_revenue, 11500000);
 const ledGN = db.prepare(`SELECT net_settlement FROM org_settlement_ledger WHERE node_id=? AND period='2026-05'`).get(AG_GN);
-eq('원장 강남대리점 정산액=656만', ledGN.net_settlement, 6560000);
+eq('원장 강남대리점 정산액=320만(기본 40%)', ledGN.net_settlement, 3200000);
+
+// ════════════════════════════════════════════════════════════════════
+// [7] 🔑 수수료 «수동 설정» 우선순위 — 요구사항 3의 회귀 감시
+//     ① 대리점 설정  ② (상위) 지사 설정  ③ 기본값 60%
+// ════════════════════════════════════════════════════════════════════
+console.log('\n[7] 수수료 수동 설정 우선순위 (대리점 → 지사 → 기본값)');
+eq('설정 없음 → 기본 60%', resolveHqRate(emptyOv(), '서울강남지사', '강남대리점').rate, 0.60);
+eq('설정 없음 → source=default', resolveHqRate(emptyOv(), '서울강남지사', '강남대리점').source, 'default');
+{
+  const ov = emptyOv();
+  ov.branch.set('서울강남지사', 0.50);
+  eq('지사 설정 50% 가 기본값을 이김', resolveHqRate(ov, '서울강남지사', '강남대리점').rate, 0.50);
+  eq('지사 설정 → source=branch', resolveHqRate(ov, '서울강남지사', '강남대리점').source, 'branch');
+  ov.agency.set('강남대리점', 0.70);
+  eq('🔑 대리점 설정 70% 가 지사 설정을 이김', resolveHqRate(ov, '서울강남지사', '강남대리점').rate, 0.70);
+  eq('대리점 설정 → source=agency', resolveHqRate(ov, '서울강남지사', '강남대리점').source, 'agency');
+  eq('설정 안 한 대리점은 지사 설정을 상속', resolveHqRate(ov, '서울강남지사', '서초대리점').rate, 0.50);
+  eq('다른 지사는 여전히 기본값', resolveHqRate(ov, '부산지사', '해운대대리점').rate, 0.60);
+}
+// 실제 롤업에 반영되는가 (요구사항 4: 정산 금액 계산에 즉시 반영)
+{
+  const ov = emptyOv();
+  ov.branch.set('서울강남지사', 0.50);   // 지사 전체 50%
+  ov.agency.set('강남대리점', 0.70);     // 그 안의 강남만 70%
+  const rows = db.prepare(SQL_SUBTREE).all(HQ, startMs, endMs);
+  const f = foldSubtree(rows, ov);
+  const g = f.get(AG_GN), c = f.get(AG_SC), h = f.get(AG_HD), bg = f.get(BR_GN);
+  eq('강남대리점 = 800만×70% = 560만', g.hq_fee, 5600000);
+  eq('서초대리점 = (override로 300만)×50% = 150만', c.hq_fee, 1500000);
+  eq('해운대(설정 없음) = 50만×60% = 30만', h.hq_fee, 300000);
+  eq('지사 수수료 = 대리점 합(560만+150만)', bg.hq_fee, 7100000);
+  // 지사에 찍히는 요율은 «실제로 떼인 비율» = 710만 / 1100만
+  eq('지사 표시요율 = 가중평균(0.6455)', bg.commission_rate, Math.round((7100000 / 11000000) * 10000) / 10000);
+  check('🔑 「지사 총매출 × 지사요율」이 아님', bg.hq_fee !== Math.round(bg.gross * 0.50));
+}
 
 db.close();
 
