@@ -2082,6 +2082,43 @@
             <button id="acc-fr-transfer" onclick="alert(window.adminLang==='en'?'💸 Bulk Transfer Guide\n\nTo transfer each branch settlement at once:\n1. 📥 Download statement → review\n2. Bulk transfer via internet/firm banking\n3. Update status after transfer is complete':'💸 일괄 송금 안내\n\n각 지점 정산액을 일괄 송금하시려면:\n1. 📥 정산서 다운로드 → 검토\n2. 은행 인터넷뱅킹 또는 펌뱅킹 일괄 이체\n3. 송금 완료 후 상태 업데이트')" style="padding:7px 14px;font-size:12.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;cursor:pointer;font-weight:700" data-ko="💸 일괄 송금 안내" data-en="💸 Bulk Transfer Guide">💸 일괄 송금 안내</button>
           </div>
 
+          <!-- ⚙️ 수수료 비율 설정 (2026-08-18) — 요구사항 2·3
+               기본값은 「지점 수수료 40% / 본사 마진 60%」이고, 수강료·대리점 마진이
+               다른 곳은 여기서 지사·대리점별로 따로 정한다. 정한 곳만 그 값을 쓰고
+               정하지 않은 곳은 기본값을 쓴다(서버 settlement_rate_override 가 정본). -->
+          <details id="ph204-rate-panel" style="margin-bottom:14px;border:1.5px solid #e5e7eb;border-radius:12px;background-color:#fbfdff">
+            <summary style="cursor:pointer;padding:10px 14px;font-weight:800;font-size:13px;color:#0f172a" data-ko="⚙️ 수수료 비율 설정 (지사·대리점별)" data-en="⚙️ Commission rate settings (per branch / agency)">⚙️ 수수료 비율 설정 (지사·대리점별)</summary>
+            <div style="padding:0 14px 14px">
+              <div style="padding:10px 12px;background-color:#eff6ff;border:1px solid #bfdbfe;border-radius:9px;margin-bottom:10px;font-size:12px;color:#1e3a8a;line-height:1.6">
+                <b data-ko="기본값 — 지점 수수료 40% / 본사 마진 60%" data-en="Default — branch 40% / HQ margin 60%">기본값 — 지점 수수료 40% / 본사 마진 60%</b><br>
+                <span data-ko="아래에서 따로 정한 지사·대리점만 그 값을 쓰고, 정하지 않은 곳은 기본값으로 계산됩니다. 대리점 설정이 지사 설정보다 우선합니다." data-en="Only the branches/agencies you set below use their own value; the rest use the default. An agency setting overrides its branch setting.">아래에서 따로 정한 지사·대리점만 그 값을 쓰고, 정하지 않은 곳은 기본값으로 계산됩니다. 대리점 설정이 지사 설정보다 우선합니다.</span>
+              </div>
+              <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+                <select id="ph204-rate-scope" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+                  <option value="branch" data-ko="지사" data-en="Branches">지사</option>
+                  <option value="agency" data-ko="대리점" data-en="Agencies">대리점</option>
+                  <option value="all" data-ko="전체" data-en="All">전체</option>
+                </select>
+                <input id="ph204-rate-q" type="search" placeholder="이름 검색" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db;min-width:150px" />
+                <button onclick="accLoadRateConfig()" style="padding:5px 12px;font-size:12px;background-color:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700" data-ko="🔎 불러오기" data-en="🔎 Load">🔎 불러오기</button>
+                <span id="ph204-rate-count" style="font-size:11px;color:#64748b"></span>
+              </div>
+              <div style="max-height:340px;overflow:auto;border:1px solid #e5e7eb;border-radius:8px">
+                <table style="margin:0">
+                  <thead><tr>
+                    <th data-ko="구분" data-en="Type">구분</th>
+                    <th data-ko="이름" data-en="Name">이름</th>
+                    <th data-ko="이번 달 매출" data-en="Revenue">이번 달 매출</th>
+                    <th data-ko="지점 수수료 %" data-en="Branch fee %">지점 수수료 %</th>
+                    <th data-ko="본사 마진 %" data-en="HQ margin %">본사 마진 %</th>
+                    <th data-ko="적용" data-en="Apply">적용</th>
+                  </tr></thead>
+                  <tbody id="ph204-rate-tbody"><tr><td colspan="6" class="empty" data-ko="🔎 불러오기를 누르면 목록이 표시됩니다." data-en="Click Load to list.">🔎 불러오기를 누르면 목록이 표시됩니다.</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
+
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
@@ -2090,9 +2127,11 @@
               <div style="font-size:10.5px;color:#3b82f6;margin-top:2px" data-ko="전월 대비 ▲ 8.2%" data-en="▲ 8.2% vs last month">전월 대비 ▲ 8.2%</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:12px;border:1px solid #fcd34d">
-              <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px" data-ko="🏦 본사 수수료" data-en="🏦 HQ Commission">🏦 본사 수수료</div>
+              <div style="font-size:11px;color:#92400e;font-weight:700;margin-bottom:4px" data-ko="🏦 본사 마진" data-en="🏦 HQ Margin">🏦 본사 마진</div>
               <div id="ph204-kpi-hq" style="font-size:22px;font-weight:900;color:#78350f">₩7,275,000</div>
-              <div style="font-size:10.5px;color:#b45309;margin-top:2px" data-ko="평균 수수료율 15%" data-en="Avg fee rate 15%">평균 수수료율 15%</div>
+              <!-- 실제 적용된 «가중평균» 요율을 accLoadFranchise 가 채운다. 지사·대리점마다
+                   요율을 다르게 정할 수 있으므로 여기에 숫자를 박아 두면 안 된다. -->
+              <div id="ph204-kpi-hq-rate" style="font-size:10.5px;color:#b45309;margin-top:2px" data-ko="기본 본사 마진 60%" data-en="Default HQ margin 60%">기본 본사 마진 60%</div>
             </div>
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
               <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px" data-ko="📤 지점에 보낼 돈" data-en="📤 Payable to Branches">📤 지점에 보낼 돈</div>
@@ -9006,7 +9045,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=106" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=106: 2026-08-18 매출–입금 대사를 «통장 기준» 으로
+<script src="/js/adm-core.js?v=107" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=107: 2026-08-18 정산 수수료 기본값 「지점 40% / 본사 60%」 + 지사·대리점별 수동 설정 UI
+   · v=106: 2026-08-18 매출–입금 대사를 «통장 기준» 으로
      (또 둘이 «각자» v=105 를 써서 번호를 새로 딴다 — 아래 v=104 때와 같은 상황이고, 파일 내용은 자동병합으로 둘 다 들어가 있다)
    · v=105: 2026-08-18 환불/취소 목록에 학생 이름·아이디·결제 일자 추가
      (+ 날짜가 ×1000 되어 서기 5만년으로 찍히던 것 수정 — paid_at 은 초가 아니라 밀리초다)
