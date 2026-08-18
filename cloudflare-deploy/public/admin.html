@@ -2435,7 +2435,12 @@
       <details class="sub-item">
         <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
         <div class="sub-body">
-          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+          <!-- 🧰 도구줄은 «두 줄» 로 고정한다 (2026-08-18).
+               조회 단위(월별/분기별)가 늘면서 한 줄에 6개가 되어, 창이 좁으면 [Excel] 만
+               혼자 아래로 밀려 내려갔다. 그때그때 달라지는 줄바꿈이 제일 지저분하므로
+               «위 = 무엇을 볼지 · 아래 = 무엇을 할지» 로 아예 나눠 둔다. -->
+          <div style="margin-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
             <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
                  («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
             <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
@@ -2450,9 +2455,12 @@
               <option value="cf" data-ko="현금흐름표 (CF)" data-en="Cash Flow">현금흐름표 (CF)</option>
               <option value="tb" data-ko="시산표" data-en="Trial Balance">시산표</option>
             </select>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
             <button class="primary" onclick="accGenStatement()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 생성" data-en="🧮 Generate">🧮 생성</button>
             <button onclick="accStatementPdf()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 PDF" data-en="📥 PDF">📥 PDF</button>
             <button onclick="accStatementExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
+          </div>
           </div>
           <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
             <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
