@@ -2206,6 +2206,19 @@ const worker = {
           }
         }
 
+        // 🔁 영업 계약의 «3개월 유지» 자동 판정 (2026-08-18)
+        //   왜 cron 인가 — 사람이 화면에서 버튼을 눌러야만 성과급 2차(50%)가 나가면,
+        //   바쁜 달에는 담당자 월급이 밀린다. 제도가 사람의 부지런함에 기대면 언젠가 깨진다.
+        //   학생 명부·수업 기록으로 기계가 판정할 수 있는 건 기계가 하고, 사람은 애매한 것만 본다.
+        //   ⚠️ cron 한도 5/5 라 새로 못 만든다 — 기존 일일(09:00 KST)에 얹는다.
+        try {
+          const { runSalesRetentionSweep } = await import('./api-sales-hr');
+          const sr = await runSalesRetentionSweep(env as any);
+          if (sr && sr.checked > 0) console.log('[sales-retention]', JSON.stringify(sr));
+        } catch (err) {
+          console.error('[sales-retention] error', err);
+        }
+
         // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
         try {
           const { bankConfigured, runBankSync } = await import('./bankacct-sync');

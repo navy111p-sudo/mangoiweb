@@ -152,6 +152,7 @@ const ensureSchema = oncePerIsolate<SalesEnv>(async (env) => {
     `  target_visits INTEGER DEFAULT 48,`,
     `  target_leads INTEGER DEFAULT 20,`,
     `  target_care INTEGER DEFAULT 8,`,
+    `  program_started_at TEXT,`,
     `  active INTEGER DEFAULT 1,`,
     `  notes TEXT,`,
     `  created_at INTEGER NOT NULL,`,
@@ -159,6 +160,14 @@ const ensureSchema = oncePerIsolate<SalesEnv>(async (env) => {
     `);`
   ].join(' '));
   await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_sales_reps_active ON sales_reps(active);`);
+  // 이미 만들어진 DB 에 칸이 없을 때(재배포 호환) — 있으면 SQLite 가 throw 하므로 흡수한다.
+  for (const ddl of [
+    `ALTER TABLE sales_reps ADD COLUMN program_started_at TEXT;`,
+    `ALTER TABLE sales_deals ADD COLUMN retention_source TEXT;`,
+    `ALTER TABLE sales_deals ADD COLUMN retention_evidence TEXT;`,
+  ]) {
+    try { await env.DB.exec(ddl); } catch { /* duplicate column — 정상 */ }
+  }
 
   // 후보 학원(파이프라인). center_id 는 계약 후 실제 학원과 연결되면 채운다.
   await env.DB.exec([
@@ -219,6 +228,8 @@ const ensureSchema = oncePerIsolate<SalesEnv>(async (env) => {
     `  students_3m INTEGER,`,
     `  retained_3m INTEGER,`,
     `  retention_checked_at TEXT,`,
+    `  retention_source TEXT,`,
+    `  retention_evidence TEXT,`,
     `  incentive_total_krw INTEGER,`,
     `  paid_first_krw INTEGER DEFAULT 0,`,
     `  paid_first_at TEXT,`,
@@ -416,7 +427,7 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
 
   // ── 실적 ──────────────────────────────────────────────────────────────
   const dealRows: any = await env.DB.prepare(
-    `SELECT id, center_name, contract_date, students_initial, students_3m, retained_3m
+    `SELECT id, center_name, contract_date, students_initial, students_3m, retained_3m, retention_source
        FROM sales_deals WHERE rep_id = ? AND contract_date >= ? AND contract_date <= ?`
   ).bind(rep.id, range.start, range.end).all().catch(() => ({ results: [] }));
   const deals: any[] = dealRows?.results || [];
@@ -426,22 +437,31 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
   const students = deals.reduce((a, d) => a + num(d.students_3m, num(d.students_initial, 0)), 0);
   items.push(scoreOf('students', students, t.students));
 
-  // 유지율 — 90일이 지난 계약만 분모. 아직 못 재는 계약을 실패로 세면 안 된다.
+  // 유지율 — 90일이 지났고 «판정이 끝난» 계약만 분모.
+  //   ⚠️ (2026-08-18 수정) 처음엔 «90일 지난 계약» 전부를 분모에 넣었다. 그러면
+  //      사람이 유지 확인 버튼을 안 눌러 둔 계약이 **자동으로 실패로 계산**돼,
+  //      담당자가 아무 잘못 없이 점수를 잃는다. 확인 전(null)은 양쪽 어디에도 넣지 않는다.
+  //      (설계 원칙 ③ — 자료가 없으면 0점이 아니라 «해당없음»)
   const matured = deals.filter(d => maturedBy(String(d.contract_date), asOf));
-  if (matured.length === 0) {
+  const decided = matured.filter(d => Number(d.retained_3m) === 1 || Number(d.retained_3m) === 0);
+  const pending = matured.length - decided.length;
+  if (decided.length === 0) {
     items.push({
       key: 'retention', label: SALES_LABELS.retention, weight: SALES_EVAL_WEIGHTS.retention,
       actual: null, target: null, rate: null, score: null,
-      reason: `3개월(${RETENTION_DAYS}일)이 지난 계약이 아직 없어 유지율을 잴 수 없습니다(해당없음).`,
+      reason: matured.length === 0
+        ? `3개월(${RETENTION_DAYS}일)이 지난 계약이 아직 없어 유지율을 잴 수 없습니다(해당없음).`
+        : `3개월이 지난 계약 ${matured.length}곳이 아직 «유지 확인 전»이라 채점하지 않았습니다(해당없음).`,
     });
   } else {
-    const kept = matured.filter(d => Number(d.retained_3m) === 1).length;
-    const rate = kept / matured.length;
+    const kept = decided.filter(d => Number(d.retained_3m) === 1).length;
+    const rate = kept / decided.length;
     items.push({
       key: 'retention', label: SALES_LABELS.retention, weight: SALES_EVAL_WEIGHTS.retention,
-      actual: kept, target: matured.length, rate: Math.round(rate * 1000) / 1000,
+      actual: kept, target: decided.length, rate: Math.round(rate * 1000) / 1000,
       score: Math.round(rate * SALES_EVAL_WEIGHTS.retention * 100) / 100,
-      reason: `3개월이 지난 계약 ${matured.length}곳 중 ${kept}곳 유지(${Math.round(rate * 100)}%)`,
+      reason: `3개월이 지난 계약 중 판정 끝난 ${decided.length}곳에서 ${kept}곳 유지(${Math.round(rate * 100)}%)`
+        + (pending > 0 ? ` · 확인 전 ${pending}곳은 채점에서 제외` : ''),
     });
   }
 
@@ -559,6 +579,326 @@ export async function computeCompensation(env: SalesEnv, rep: any, range: Period
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 📏 기준선 기간 — 「제도가 신입일 때는 평가를 돈에 연결하지 않는다」
+ *
+ * 왜 (2026-08-18 사장님과 논의):
+ *   지금 계신 담당자는 신입이 아니지만 **제도는 신입**이다. 지금까지 기록 없이
+ *   일해 왔기 때문에 「월 2곳」이 쉬운 목표인지 무리인지 아무도 모른다.
+ *   기록 0인 상태에서 정한 목표로 사람을 평가하면 그건 평가가 아니라 **추측**이다.
+ *   → 시작 후 90일은 점수를 «내되» 상여에 연결하지 않는다(참고용).
+ *
+ * 끄는 법: sales_reps.program_started_at 을 90일보다 이전 날짜로 두면 자동 해제된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export const BASELINE_DAYS = 90;
+
+/** 이 담당자의 기준선 종료일. program_started_at 이 없으면 등록일을 시작으로 본다. */
+export function baselineUntil(rep: any): string | null {
+  let start = String(rep?.program_started_at || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+    if (rep?.created_at) start = new Date(Number(rep.created_at)).toISOString().slice(0, 10);
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  return new Date(new Date(start + 'T00:00:00Z').getTime() + BASELINE_DAYS * 86400000)
+    .toISOString().slice(0, 10);
+}
+
+/** 이 기간의 평가가 «참고용» 인가 — 기간이 기준선 안에서 끝나면 참고용이다. */
+export function isAdvisoryPeriod(rep: any, range: PeriodRange): boolean {
+  const b = baselineUntil(rep);
+  if (!b) return false;
+  return range.end <= b;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🔁 유지율 «자동» 판정 — 사람이 버튼을 잊어도 담당자가 손해 보지 않게
+ *
+ * 왜 (2026-08-18):
+ *   처음엔 「유지됨/이탈」을 사람이 눌러야 성과급 2차 50% 가 나가게 만들었다.
+ *   그러면 **사장님이 바쁜 달에는 담당자 월급이 밀린다.** 제도가 사람의 부지런함에
+ *   의존하면 언젠가 반드시 깨진다.
+ *   망고아이에는 이미 학원별 학생·수업 데이터가 있다. 그걸 보면 «아직 수업 중인가»는
+ *   기계가 답할 수 있다. 사람은 **애매한 것만** 보면 된다.
+ *
+ * 판정 규칙 (students_erp.shop_name = 학원 이름, attendance = 실제 수업 참석)
+ *   · 활성 학생 ≥ 1  그리고  최근 30일 수업 기록 ≥ 1   → 유지(1)
+ *   · 활성 학생 = 0  그리고  그 학원 학생 기록은 있음   → 이탈(0)
+ *   · 학원 이름이 학생 명부에 아예 없음                 → 판정 불가 → 사람에게
+ *   · 학생은 살아 있는데 최근 수업이 0건               → 판정 불가 → 사람에게
+ *       (방학·휴원일 수 있다. 여기서 이탈로 찍으면 담당자 돈을 빼앗는 셈이다)
+ *
+ * ⚠️ 애매하면 «유지» 쪽으로 기울이지 않는다. **사람에게 넘긴다.**
+ *    돈이 걸린 판정에서 기계가 추측하면, 그 추측이 틀린 날 신뢰가 통째로 무너진다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+const RETENTION_RECENT_DAYS = 30;
+const ACTIVE_STATUSES = "('정상','활동','active')";
+
+export interface RetentionVerdict {
+  decided: number | null;          // 1 유지 · 0 이탈 · null 판정 불가
+  reason: string;                  // 사람이 읽는 근거 한 줄
+  evidence: any;                   // 숫자 근거(감사용)
+}
+
+/** 계약의 학원 이름을 학생 명부(students_erp.shop_name)에 맞춘다.
+ *  ⚠️ 학원 이름은 유일하지 않다(CLAUDE.md — centers.name 함정). 여러 곳에 걸리면
+ *     «모름» 으로 두고 사람에게 넘긴다. 아무 쪽에 붙이면 그게 더 큰 사고다. */
+async function resolveShopName(env: SalesEnv, centerName: string): Promise<{ shop: string; how: string } | null> {
+  const name = String(centerName || '').trim();
+  if (!name) return null;
+  try {
+    const exact: any = await env.DB.prepare(
+      `SELECT shop_name, COUNT(*) AS c FROM students_erp WHERE shop_name = ? GROUP BY shop_name`
+    ).bind(name).all();
+    const ex = exact?.results || [];
+    if (ex.length === 1) return { shop: String(ex[0].shop_name), how: 'exact' };
+    if (ex.length > 1) return null;   // 같은 이름이 여러 줄 — 그룹했는데 여러 개면 이상하다. 사람에게.
+
+    const like: any = await env.DB.prepare(
+      `SELECT shop_name, COUNT(*) AS c FROM students_erp WHERE shop_name LIKE ? GROUP BY shop_name LIMIT 5`
+    ).bind(name + '%').all();
+    const lk = like?.results || [];
+    if (lk.length === 1) return { shop: String(lk[0].shop_name), how: 'prefix' };
+    return null;
+  } catch {
+    return null;   // students_erp 가 없는 환경(테스트 등) — 조용히 «판정 불가»
+  }
+}
+
+export async function judgeRetention(env: SalesEnv, deal: any, asOf: string): Promise<RetentionVerdict> {
+  const matched = await resolveShopName(env, deal?.center_name);
+  if (!matched) {
+    return {
+      decided: null,
+      reason: `학생 명부에서 «${String(deal?.center_name || '')}» 학원을 찾지 못했습니다. 사람이 확인해 주세요.`,
+      evidence: { matched: false },
+    };
+  }
+
+  let total = 0, active = 0, recent = 0;
+  try {
+    const t: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM students_erp WHERE shop_name = ?`
+    ).bind(matched.shop).first();
+    total = num(t?.c, 0);
+    const a: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM students_erp WHERE shop_name = ? AND status IN ${ACTIVE_STATUSES}`
+    ).bind(matched.shop).first();
+    active = num(a?.c, 0);
+    const since = new Date(new Date(asOf + 'T00:00:00Z').getTime() - RETENTION_RECENT_DAYS * 86400000)
+      .toISOString().slice(0, 10);
+    // ⚠️ IN (서브쿼리) 로 쓴다 — 학생 uid 를 목록으로 만들면 D1 파라미터 100개 제한에 걸린다.
+    const r: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM attendance
+        WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
+    ).bind(since, matched.shop).first();
+    recent = num(r?.c, 0);
+  } catch {
+    return { decided: null, reason: '학생·수업 기록을 읽지 못했습니다. 사람이 확인해 주세요.', evidence: { matched: true, error: true } };
+  }
+
+  const ev = { matched: true, shop: matched.shop, how: matched.how, total, active, recent, recent_days: RETENTION_RECENT_DAYS };
+
+  if (active >= 1 && recent >= 1) {
+    return { decided: 1, reason: `${matched.shop} — 활성 학생 ${active}명, 최근 ${RETENTION_RECENT_DAYS}일 수업 ${recent}건 → 유지`, evidence: ev };
+  }
+  if (active === 0 && total >= 1) {
+    return { decided: 0, reason: `${matched.shop} — 등록 학생 ${total}명이 모두 비활성 → 이탈`, evidence: ev };
+  }
+  if (active >= 1 && recent === 0) {
+    return { decided: null, reason: `${matched.shop} — 학생 ${active}명은 살아 있는데 최근 ${RETENTION_RECENT_DAYS}일 수업 기록이 없습니다(방학·휴원일 수 있음). 사람이 확인해 주세요.`, evidence: ev };
+  }
+  return { decided: null, reason: `${matched.shop} — 판정 근거가 부족합니다. 사람이 확인해 주세요.`, evidence: ev };
+}
+
+/** 90일이 지났는데 아직 판정이 없는 계약을 훑어 자동으로 채운다.
+ *  cron(매일 09:00 KST)과 화면의 «지금 자동 판정» 버튼이 같은 함수를 쓴다 —
+ *  두 경로가 다른 규칙을 쓰면 어느 쪽이 맞는지 아무도 모르게 된다. */
+export async function runSalesRetentionSweep(env: SalesEnv, limit = 200): Promise<{
+  checked: number; kept: number; lost: number; needs_human: number;
+}> {
+  await ensureSchema(env);
+  const asOf = todayISO();
+  const rows: any = await env.DB.prepare(
+    `SELECT id, rep_id, center_name, contract_date FROM sales_deals
+      WHERE retained_3m IS NULL ORDER BY contract_date ASC LIMIT ?`
+  ).bind(limit).all().catch(() => ({ results: [] }));
+
+  let checked = 0, kept = 0, lost = 0, human = 0;
+  for (const d of (rows?.results || [])) {
+    if (!maturedBy(String(d.contract_date), asOf)) continue;   // 아직 90일 전 — 건드리지 않는다
+    checked++;
+    const v = await judgeRetention(env, d, asOf);
+    if (v.decided == null) {
+      human++;
+      // 판정은 못 했어도 «왜 못 했는지» 는 남긴다. 사람이 화면에서 그 이유를 보고 누른다.
+      await env.DB.prepare(
+        `UPDATE sales_deals SET retention_evidence = ?, updated_at = ? WHERE id = ?`
+      ).bind(JSON.stringify({ verdict: 'needs_human', reason: v.reason, evidence: v.evidence, at: asOf }), Date.now(), d.id)
+       .run().catch(() => null);
+      continue;
+    }
+    if (v.decided === 1) kept++; else lost++;
+    await env.DB.prepare(
+      `UPDATE sales_deals SET retained_3m = ?, retention_checked_at = ?, retention_source = 'auto',
+         retention_evidence = ?, updated_at = ? WHERE id = ? AND retained_3m IS NULL`
+    ).bind(v.decided, asOf, JSON.stringify({ reason: v.reason, evidence: v.evidence, at: asOf }), Date.now(), d.id)
+     .run().catch(() => null);
+  }
+  return { checked, kept, lost, needs_human: human };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🎤 말로 쓰는 영업일지 — 「타이핑을 요구하면 3주째부터 아무도 안 쓴다」
+ *
+ * 흐름: 브라우저 음성인식(한국어) → 이 API → 학원·종류·단계·다음 할 일 초안 →
+ *       사람이 «틀린 것만» 고치고 저장.
+ *
+ * ⚠️ 자동화는 «빠른 길» 이지 «유일한 길» 이 아니다(결재함 work.html 과 같은 원칙).
+ *    AI 가 죽어도 규칙 기반 폴백이 초안을 만들고, 그것도 실패하면 직접 입력이 그대로 남는다.
+ *    그래서 이 API 는 **절대 실패를 돌려주지 않는다** — 최소한 원문은 note 에 담아 준다.
+ *
+ * ⚠️ 학원 이름은 «지어내지» 않는다. 이 담당자의 후보 학원 목록 안에서만 고른다.
+ *    LLM 이 그럴듯한 학원 이름을 만들어 내면 그게 그대로 실적 기록이 된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+const DIARY_MODELS = [
+  '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+  '@cf/meta/llama-3.1-8b-instruct',
+];
+
+const DIARY_SYSTEM_PROMPT = [
+  '너는 한국 학원 영업담당자의 말을 받아 영업일지 초안을 만드는 도우미다.',
+  '반드시 JSON 하나만 출력한다. 설명·인사말·코드펜스 금지.',
+  '형식: {"lead_name":string|null,"kind":string,"stage_after":number|null,"outcome":string,"next_action":string}',
+  'kind 는 정확히 다음 중 하나: visit(방문상담) call(전화) meeting(미팅) demo(시연) manage(기존 학원 관리방문) other(기타).',
+  'stage_after 는 1~6 중 하나 또는 null. 1 발굴, 2 접촉, 3 방문상담, 4 제안·시연, 5 계약, 6 개원·정착.',
+  'lead_name 은 사용자가 말한 학원 이름을 그대로 적는다. 말하지 않았으면 null. 절대 지어내지 않는다.',
+  'outcome 은 오늘 있었던 일을 한 문장으로. next_action 은 다음에 할 일을 한 문장으로. 없으면 빈 문자열.',
+  '모든 값은 한국어로 쓴다.',
+].join('\n');
+
+const KIND_RULES: Array<{ k: string; re: RegExp }> = [
+  { k: 'manage',  re: /관리\s*방문|점검|사후\s*관리|기존\s*학원/ },
+  { k: 'demo',    re: /시연|데모|보여\s*드|체험\s*수업/ },
+  { k: 'call',    re: /전화|통화|콜|연락(했|드렸)/ },
+  { k: 'meeting', re: /미팅|회의|만나(서|기로)|면담/ },
+  { k: 'visit',   re: /방문|찾아가|들렀|다녀왔|상담/ },
+];
+
+const STAGE_RULES: Array<{ n: number; re: RegExp }> = [
+  { n: 6, re: /개원|첫\s*수업|정착|학생\s*등록\s*완료/ },
+  { n: 5, re: /계약|도장|사인|체결/ },
+  { n: 4, re: /제안|견적|시연|단가표|제안서/ },
+  { n: 3, re: /방문\s*상담|찾아가|들렀|원장님(과|을)\s*만/ },
+  { n: 2, re: /전화|통화|연락|첫\s*접촉/ },
+];
+
+/** 이름 비교용 정규화 — 「둔산 세종어학원」과 「둔산세종어학원」을 같게 본다. */
+function normName(s: any): string {
+  return String(s == null ? '' : s).toLowerCase().replace(/[\s()·・\-_,.]/g, '');
+}
+
+/** 말한 학원 이름을 이 담당자의 후보 학원에서 찾는다. 못 찾으면 null(=지어내지 않음). */
+function matchLead(spoken: string, leads: any[]): any | null {
+  const n = normName(spoken);
+  if (!n) return null;
+  let hit = leads.filter(l => normName(l.name) === n)[0];
+  if (hit) return hit;
+  hit = leads.filter(l => normName(l.name).indexOf(n) >= 0 || n.indexOf(normName(l.name)) >= 0)[0];
+  return hit || null;
+}
+
+/** 원문 전체에서 후보 학원 이름이 등장하는지 찾는다(AI 가 학원을 못 뽑았을 때의 그물). */
+function findLeadInText(text: string, leads: any[]): any | null {
+  const t = normName(text);
+  if (!t) return null;
+  let best: any = null;
+  for (const l of leads) {
+    const n = normName(l.name);
+    if (n.length >= 2 && t.indexOf(n) >= 0) {
+      if (!best || n.length > normName(best.name).length) best = l;
+    }
+  }
+  return best;
+}
+
+/** 규칙 기반 초안 — AI 가 없거나 실패해도 «빈 화면» 을 주지 않기 위한 바닥. */
+export function parseDiaryByRules(text: string, leads: any[]): any {
+  const t = String(text || '');
+  let kind = 'visit';
+  for (const r of KIND_RULES) { if (r.re.test(t)) { kind = r.k; break; } }
+  let stage: number | null = null;
+  for (const r of STAGE_RULES) { if (r.re.test(t)) { stage = r.n; break; } }
+
+  // 문장 나누기 — 다음 할 일은 «다음/재방문/보내/준비» 가 든 문장에 있을 확률이 높다.
+  const sentences = t.split(/(?<=[.!?。])\s+|\n+/).map(x => x.trim()).filter(Boolean);
+  const nextRe = /다음|내일|다음\s*주|재방문|보내|준비|예정|하기로|약속/;
+  const nextSent = sentences.filter(x => nextRe.test(x))[0] || '';
+  const outSent = sentences.filter(x => x !== nextSent)[0] || t.slice(0, 200);
+
+  const lead = findLeadInText(t, leads);
+  return {
+    lead_id: lead ? lead.id : null,
+    lead_name: lead ? lead.name : null,
+    kind, stage_after: stage,
+    outcome: outSent.slice(0, 300),
+    next_action: nextSent.slice(0, 300),
+    note: t.slice(0, 2000),
+    source: 'rules',
+  };
+}
+
+async function parseDiaryByAI(env: SalesEnv, text: string, leads: any[]): Promise<any | null> {
+  if (!env.AI) return null;
+  const names = leads.slice(0, 40).map(l => l.name).join(' / ');
+  const user = (names ? `이 담당자가 관리 중인 학원 목록: ${names}\n\n` : '') + `받아쓴 말:\n${text}`;
+  for (const model of DIARY_MODELS) {
+    try {
+      const res: any = await env.AI.run(model, {
+        messages: [
+          { role: 'system', content: DIARY_SYSTEM_PROMPT },
+          { role: 'user', content: user },
+        ],
+        max_tokens: 420,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      });
+      const raw = String(res?.response || res?.result?.response || '').trim();
+      let parsed: any = null;
+      try { parsed = JSON.parse(raw); }
+      catch { const m = raw.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+      if (!parsed) continue;
+
+      // ── 화이트리스트 검증. LLM 이 뭘 뱉든 여기서 걸러진다. ──
+      const kind = ACTIVITY_KINDS.indexOf(String(parsed.kind || '')) >= 0 ? String(parsed.kind) : null;
+      let stage: number | null = null;
+      const sn = Number(parsed.stage_after);
+      if (!isNaN(sn) && sn >= 1 && sn <= 6) stage = Math.round(sn);
+
+      const lead = parsed.lead_name ? matchLead(String(parsed.lead_name), leads) : null;
+      const fallbackLead = lead || findLeadInText(text, leads);
+
+      const rules = parseDiaryByRules(text, leads);
+      return {
+        lead_id: fallbackLead ? fallbackLead.id : null,
+        lead_name: fallbackLead ? fallbackLead.name : null,
+        // 학원을 말했는데 목록에 없으면 «새 학원일 수 있다» 고 알려 준다(자동 등록은 하지 않는다).
+        unknown_lead: (parsed.lead_name && !fallbackLead) ? String(parsed.lead_name).slice(0, 100) : null,
+        kind: kind || rules.kind,
+        stage_after: stage != null ? stage : rules.stage_after,
+        outcome: String(parsed.outcome || rules.outcome || '').slice(0, 300),
+        next_action: String(parsed.next_action || rules.next_action || '').slice(0, 300),
+        note: text.slice(0, 2000),
+        source: 'ai',
+        model,
+      };
+    } catch { /* 다음 모델로 */ }
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 권한 헬퍼
  * ═════════════════════════════════════════════════════════════════════════ */
 
@@ -643,6 +983,7 @@ export async function handleSalesHrApi(
       Math.max(0, num(body?.target_visits, 48)),
       Math.max(0, num(body?.target_leads, 20)),
       Math.max(0, num(body?.target_care, 8)),
+      String(body?.program_started_at || '').trim() || todayISO(),
       body?.active === 0 || body?.active === false ? 0 : 1,
       String(body?.notes || '').trim() || null,
     ];
@@ -650,7 +991,8 @@ export async function handleSalesHrApi(
       await env.DB.prepare(
         `UPDATE sales_reps SET name=?, phone=?, email=?, admin_username=?, region=?, hired_at=?,
            base_salary_krw=?, incentive_per_deal_krw=?, target_deals=?, target_students=?,
-           target_visits=?, target_leads=?, target_care=?, active=?, notes=?, updated_at=?
+           target_visits=?, target_leads=?, target_care=?,
+           program_started_at=COALESCE(program_started_at, ?), active=?, notes=?, updated_at=?
          WHERE id=?`
       ).bind(...vals, now, id).run();
       return json({ ok: true, id });
@@ -658,8 +1000,8 @@ export async function handleSalesHrApi(
     const ins: any = await env.DB.prepare(
       `INSERT INTO sales_reps (name, phone, email, admin_username, region, hired_at,
          base_salary_krw, incentive_per_deal_krw, target_deals, target_students,
-         target_visits, target_leads, target_care, active, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+         target_visits, target_leads, target_care, program_started_at, active, notes, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).bind(...vals, now, now).run();
     return json({ ok: true, id: ins?.meta?.last_row_id ?? null });
   }
@@ -841,6 +1183,13 @@ export async function handleSalesHrApi(
            incentive_total_krw=?, paid_first_krw=?, paid_first_at=?, paid_second_krw=?, paid_second_at=?,
            notes=?, updated_at=? WHERE id=?`
       ).bind(...vals, now, id).run();
+      // 사람이 직접 누른 판정은 «manual» 로 표시한다 — 자동 판정과 구분돼야
+      // 나중에 「자동이 얼마나 맞았나」를 볼 수 있다(자동 판정을 신뢰할 근거).
+      if (retained != null) {
+        await env.DB.prepare(
+          `UPDATE sales_deals SET retention_source = 'manual' WHERE id = ?`
+        ).bind(id).run().catch(() => null);
+      }
       return json({ ok: true, id });
     }
     const ins: any = await env.DB.prepare(
@@ -918,13 +1267,16 @@ export async function handleSalesHrApi(
     };
     const ft = finalTotal(auto.earned, auto.applicable_max, manual);
     const grade = salesGrade(ft.total);
-    const bonus = (range.kind === 'half' && grade)
+    // 📏 기준선 기간이면 등급은 «참고용» 이고 상여는 계산하지 않는다.
+    const advisory = isAdvisoryPeriod(rep, range);
+    const bonus = (!advisory && range.kind === 'half' && grade)
       ? Math.round(num(rep.base_salary_krw, 0) * (SALES_BONUS_MULTIPLIER[grade] ?? 0))
       : null;
 
     return json({
       ok: true,
       rep, period: periodRaw, period_label: range.label, as_of: asOf,
+      advisory, baseline_until: baselineUntil(rep), baseline_days: BASELINE_DAYS,
       weights: SALES_EVAL_WEIGHTS, manual_keys: SALES_MANUAL_KEYS, labels: SALES_LABELS,
       auto, manual, final: ft, grade, bonus_krw: bonus,
       bonus_multiplier: grade ? (SALES_BONUS_MULTIPLIER[grade] ?? 0) : null,
@@ -959,13 +1311,15 @@ export async function handleSalesHrApi(
     const auto = await computeAutoScores(env, rep, range, asOf);
     const ft = finalTotal(auto.earned, auto.applicable_max, manual);
     const grade = salesGrade(ft.total);
-    const bonus = (range.kind === 'half' && grade)
+    const advisory = isAdvisoryPeriod(rep, range);
+    const bonus = (!advisory && range.kind === 'half' && grade)
       ? Math.round(num(rep.base_salary_krw, 0) * (SALES_BONUS_MULTIPLIER[grade] ?? 0))
       : null;
 
     // 스냅샷 — 나중에 원본이 바뀌어도 «그때 무엇을 보고 이 등급을 줬는지» 가 남아야 한다.
     const snapshot = JSON.stringify({
       as_of: asOf, period: periodRaw, auto, manual, final: ft, grade, bonus_krw: bonus,
+      advisory, baseline_until: baselineUntil(rep),
       base_salary_krw: num(rep.base_salary_krw, 0),
       weights: SALES_EVAL_WEIGHTS,
     });
@@ -988,7 +1342,7 @@ export async function handleSalesHrApi(
       snapshot, actor.username || null, now
     ).run();
 
-    return json({ ok: true, final: ft, grade, bonus_krw: bonus, auto });
+    return json({ ok: true, final: ft, grade, bonus_krw: bonus, auto, advisory });
   }
 
   // ── 보상 계산 ────────────────────────────────────────────────────────
@@ -1072,6 +1426,7 @@ export async function handleSalesHrApi(
       cards.push({
         rep, auto_items: auto.items, earned: auto.earned, applicable_max: auto.applicable_max,
         auto_only_total: ft.total, targets: auto.targets,
+        advisory: isAdvisoryPeriod(rep, range), baseline_until: baselineUntil(rep),
         deal_count: auto.deal_count, student_count: auto.student_count,
         compensation: comp,
         pipeline: SALES_STAGES.map(s => ({ ...s, count: byStage[s.n] || 0 })),
@@ -1092,14 +1447,21 @@ export async function handleSalesHrApi(
 
     // 유지 확인이 밀린 계약 — 여기가 성과급 2차의 트리거다. 놓치면 담당자가 돈을 못 받는다.
     const dueRs: any = await env.DB.prepare(
-      hq ? `SELECT id, rep_id, center_name, contract_date FROM sales_deals
+      hq ? `SELECT id, rep_id, center_name, contract_date, retention_evidence FROM sales_deals
              WHERE retained_3m IS NULL ORDER BY contract_date ASC LIMIT 50`
-         : `SELECT id, rep_id, center_name, contract_date FROM sales_deals
+         : `SELECT id, rep_id, center_name, contract_date, retention_evidence FROM sales_deals
              WHERE retained_3m IS NULL AND rep_id = ? ORDER BY contract_date ASC LIMIT 50`
     ).bind(...(hq ? [] : [myRepId])).all().catch(() => ({ results: [] }));
     const dueNow = (dueRs?.results || [])
       .filter((d: any) => maturedBy(String(d.contract_date), asOf))
-      .map((d: any) => ({ ...d, retention_due: dueDate(String(d.contract_date)) }));
+      .map((d: any) => {
+        // 자동 판정이 «왜 못 했는지» 를 화면에 그대로 보여 준다.
+        //   이유 없이 「확인하세요」만 뜨면 사람은 무엇을 확인할지 모른다.
+        let why: string | null = null;
+        try { const e = JSON.parse(String(d.retention_evidence || '')); why = e?.reason || null; } catch { /* 없으면 없는 대로 */ }
+        return { id: d.id, rep_id: d.rep_id, center_name: d.center_name, contract_date: d.contract_date,
+                 retention_due: dueDate(String(d.contract_date)), why };
+      });
 
     return json({
       ok: true, period: periodRaw, period_label: range.label, as_of: asOf,
@@ -1108,6 +1470,33 @@ export async function handleSalesHrApi(
       weights: SALES_EVAL_WEIGHTS, labels: SALES_LABELS,
       grade_multiplier: SALES_BONUS_MULTIPLIER,
     });
+  }
+
+  // ── 🎤 말로 쓰는 영업일지 — 받아쓴 말 → 일지 초안 ──────────────────
+  //   저장은 하지 않는다. «초안» 만 돌려주고, 사람이 보고 고친 뒤 저장 버튼을 누른다.
+  if (path === '/api/admin/sales/parse-diary' && method === 'POST') {
+    const repId = scopedRepId(body?.rep_id);
+    const text = String(body?.text || '').trim();
+    if (repId == null) return json({ ok: false, error: 'rep_id_required' }, 400);
+    if (!text) return json({ ok: false, error: 'text_required', message: '받아쓴 내용이 비어 있습니다.' }, 400);
+
+    const leadRs: any = await env.DB.prepare(
+      `SELECT id, name FROM sales_leads WHERE rep_id = ? AND status = 'active'
+        ORDER BY COALESCE(last_contact_at,'') DESC, id DESC LIMIT 200`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+    const leads: any[] = leadRs?.results || [];
+
+    let draft = await parseDiaryByAI(env, text, leads);
+    if (!draft) draft = parseDiaryByRules(text, leads);   // AI 가 없거나 실패해도 화면은 채워진다
+    return json({ ok: true, draft, lead_count: leads.length });
+  }
+
+  // ── 🔁 유지 여부 자동 판정 지금 실행 (본사만) ─────────────────────
+  //   평소에는 매일 09:00 KST cron 이 돈다. 이 버튼은 «기다리지 않고 지금» 용이다.
+  if (path === '/api/admin/sales/retention-sweep' && method === 'POST') {
+    if (!hq) return json({ ok: false, error: 'forbidden' }, 403);
+    const r = await runSalesRetentionSweep(env);
+    return json({ ok: true, ...r });
   }
 
   return json({ ok: false, error: 'not_found', path }, 404);

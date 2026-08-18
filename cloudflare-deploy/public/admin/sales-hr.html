@@ -88,6 +88,18 @@
        border-radius:14px;padding:14px 16px;margin-top:12px;font-size:15px;line-height:1.7}
   .why{font-size:13.5px;color:#a9b7ca;line-height:1.6}
   .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .mic{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:16px;
+       border-radius:999px;padding:12px 20px;border:1px solid rgba(148,163,184,.45);
+       background:rgba(15,23,42,.6);color:#e6edf6}
+  .mic.on{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border-color:transparent}
+  .mic .dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;flex:none}
+  .mic.on .dot{background:#fff}
+  .baseline{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);border-radius:14px;
+       padding:13px 16px;margin-top:12px;font-size:15px;line-height:1.75}
+  .baseline b{color:#93c5fd}
+  .chip{display:inline-block;background:rgba(59,130,246,.16);color:#93c5fd;font-size:12.5px;
+       font-weight:800;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .chip.auto{background:rgba(16,185,129,.16);color:#6ee7b7}
   details.more{margin-top:10px}
   details.more > summary{cursor:pointer;color:#93c5fd;font-weight:700;font-size:15px}
   @media (max-width:760px){
@@ -272,6 +284,12 @@
       + kpi('자동 점수(85점 중)', (c.earned==null?'-':c.earned), '적용가능 만점 '+c.applicable_max+'점','warn')
       + kpi('이 기간 성과급', won(comp.incentive_krw), '계약 1차 + 유지 2차','money')
       + '</div>'
+      + (c.advisory
+          ? '<div class="baseline"><b>기준선 기간입니다 (' + esc(c.baseline_until||'') + '까지).</b> '
+            + '점수는 계산하지만 <b>상여에는 연결하지 않습니다.</b> '
+            + '기록이 3개월은 쌓여야 「월 목표 2곳」이 쉬운지 무리인지 알 수 있습니다 — '
+            + '그 전에 정한 목표로 사람을 평가하면 그건 평가가 아니라 추측입니다.</div>'
+          : '')
       + (c.applicable_max < 85
           ? '<div class="warnbox">아직 <b>자료가 없어 채점하지 않은 항목</b>이 있습니다. 그 항목은 0점이 아니라 «해당없음»으로 빼고, 남은 항목의 만점('
             + c.applicable_max + '점)을 기준으로 환산합니다.</div>'
@@ -300,7 +318,16 @@
 
   function retentionHtml(j){
     var due = j.retention_due || [];
-    if(!due.length) return '';
+    var head = '<div class="card"><h2>🔔 3개월 유지 확인</h2>'
+      + '<p class="hint">유지 여부는 <b>매일 밤 시스템이 학생 명부·수업 기록을 보고 자동으로 판정</b>합니다. '
+      + '여기 올라오는 것은 <b>기계가 판정하지 못한 건</b>뿐입니다 — 사람이 봐야 하는 이유가 함께 적혀 있습니다.</p>'
+      + (STATE.canEdit
+          ? '<div class="toolbar"><button class="btn" id="rt_sweep" type="button">지금 자동 판정 실행</button>'
+            + '<span class="muted" id="rt_msg"></span></div>'
+          : '');
+    if(!due.length){
+      return head + '<div class="okbox">사람이 확인할 계약이 없습니다. 자동 판정이 전부 끝났습니다.</div></div>';
+    }
     var rows = due.map(function(d){
       return '<tr><td>'+esc(d.center_name)+'</td><td>'+esc(d.contract_date)+'</td><td>'+esc(d.retention_due||'')+'</td>'
         + '<td class="row-actions">'
@@ -308,12 +335,27 @@
             ? '<button class="btn ghost ret" data-id="'+d.id+'" data-v="1" type="button">유지됨</button>'
               + '<button class="btn ghost ret" data-id="'+d.id+'" data-v="0" type="button">이탈</button>'
             : '<span class="muted">본사가 확인합니다</span>')
-        + '</td></tr>';
+        + '</td></tr>'
+        + (d.why ? '<tr><td colspan="4" class="why">'+esc(d.why)+'</td></tr>' : '');
     }).join('');
-    return '<div class="card"><h2>🔔 3개월 유지 확인이 필요한 계약</h2>'
-      + '<p class="hint">여기를 누르지 않으면 <b>담당자가 성과급 2차(50%)를 못 받습니다.</b> 계약 후 90일이 지난 건만 올라옵니다.</p>'
-      + '<div class="scroll"><table><thead><tr><th>학원</th><th>계약일</th><th>확인 예정일</th><th>확인</th></tr></thead>'
-      + '<tbody>'+rows+'</tbody></table></div></div>';
+    return head
+      + '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>학원</th><th>계약일</th><th>확인 예정일</th><th>확인</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table></div>'
+      + '<div class="warnbox">확인 전인 계약은 <b>점수에서 빠집니다</b> — 실패로 세지 않습니다. '
+      + '누르지 않았다는 이유로 담당자가 점수를 잃지 않게 만들어 둔 것입니다.</div></div>';
+  }
+
+  function runSweep(){
+    var btn=g('rt_sweep'); btn.disabled=true;
+    g('rt_msg').textContent='판정하는 중…';
+    api('/api/admin/sales/retention-sweep', { method:'POST', body:'{}' })
+      .then(function(j){
+        btn.disabled=false;
+        if(!j.ok){ g('rt_msg').textContent='실행하지 못했습니다.'; return; }
+        g('rt_msg').textContent = '검사 '+j.checked+'건 · 유지 '+j.kept+' · 이탈 '+j.lost+' · 사람 확인 필요 '+j.needs_human;
+        load();
+      })
+      .catch(function(){ btn.disabled=false; g('rt_msg').textContent='실행하지 못했습니다.'; });
   }
 
   function scoreHtml(c, j){
@@ -355,6 +397,12 @@
         var s=j.saved||{};
         var canEdit=!!j.can_edit;
         var html='';
+        if(j.advisory){
+          html += '<div class="baseline"><b>기준선 기간 — 이 평가는 참고용입니다 ('+esc(j.baseline_until||'')+'까지).</b> '
+            + '점수와 등급은 그대로 나오지만 <b>상여는 계산하지 않습니다.</b> '
+            + '첫 '+(j.baseline_days||90)+'일은 「이 사람이 잘하나」를 보는 기간이 아니라 '
+            + '「우리 목표가 현실적인가」를 보는 기간입니다.</div>';
+        }
         html += '<div class="grid g3">'
           + numField('sc_reporting','보고 마감 준수 (0~5)',5,s.score_reporting,canEdit)
           + numField('sc_vehicle','차량·비용 관리 (0~5)',5,s.score_vehicle,canEdit)
@@ -376,8 +424,11 @@
           + '<div class="kpi"><div class="k">환산 총점 (100점)</div><div class="v">'+(f.total==null?'-':f.total)+'</div>'
             + '<div class="t">'+(f.converted?'일부 항목 해당없음 → 비율 환산':'전 항목 채점')+'</div></div>'
           + '<div class="kpi money"><div class="k">등급 · 반기 상여</div>'
-            + '<div class="v"><span class="grade">'+(j.grade||'-')+'</span></div>'
-            + '<div class="t">'+(j.bonus_krw!=null?(won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')'):'반기를 골라야 계산됩니다')+'</div></div>'
+            + '<div class="v"><span class="grade">'+(j.grade||'-')+'</span>'
+            + (j.advisory?'<span class="chip">참고용</span>':'')+'</div>'
+            + '<div class="t">'+(j.bonus_krw!=null
+                ? (won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')')
+                : (j.advisory ? '기준선 기간이라 상여를 계산하지 않습니다' : '반기를 골라야 계산됩니다'))+'</div></div>'
           + '</div>';
         if(f.manual_sum==null){
           html += '<div class="warnbox">사람이 매기는 15점이 아직 비어 있습니다. 지금 총점은 <b>자동 85점만</b>으로 환산한 값입니다.</div>';
@@ -425,6 +476,17 @@
 
     return '<div class="card"><h2>영업일지</h2>'
       + '<p class="hint">필수는 <b>«학원»과 «종류» 둘뿐</b>입니다. 나머지는 비워도 저장됩니다 — 길게 쓰게 하면 3주째부터 아무도 안 씁니다.</p>'
+      // 🎤 말로 쓰기 — 이 제도 전체가 «매일 기록» 위에 서 있다. 타이핑을 요구하면 3주째부터 안 쓴다.
+      //    브라우저 음성인식이 없으면 이 블록은 «붙여넣고 정리하기» 로 그대로 쓰인다.
+      + '<div style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:16px;margin-bottom:14px">'
+      + '<div class="toolbar" style="margin-bottom:10px">'
+      + '<button class="mic" id="ac_mic" type="button" hidden><span class="dot"></span><span id="ac_mic_t">말로 쓰기</span></button>'
+      + '<button class="btn" id="ac_parse" type="button">AI로 정리하기</button>'
+      + '<span class="muted" id="ac_ai_msg"></span>'
+      + '</div>'
+      + '<textarea id="ac_voice" placeholder="차 안에서 말로 하세요. 예: 오늘 대전 둔산동 세종어학원 갔고, 원장님이 단가는 괜찮은데 시간표가 안 맞는다고 했어. 다음 주에 시간표 만들어서 다시 가기로 했음"></textarea>'
+      + '<div class="muted" style="margin-top:8px">말한 원문은 그대로 저장됩니다 — AI 정리가 틀렸을 때 원본을 볼 수 있어야 하니까요.</div>'
+      + '</div>'
       + '<div class="grid g3">'
       + '<label class="f">날짜<input type="date" id="ac_date" value="'+todayISO()+'"></label>'
       + '<label class="f">학원(후보)<select id="ac_lead"></select></label>'
@@ -472,12 +534,97 @@
       kind: g('ac_kind').value,
       stage_after: g('ac_stage').value || null,
       note: g('ac_note').value,
-      next_action: g('ac_next').value
+      next_action: g('ac_next').value,
+      raw_voice: g('ac_voice') ? g('ac_voice').value : ''
     })}).then(function(j){
       btn.disabled=false;
       g('ac_msg').textContent = j.ok ? '저장했습니다.' : ('저장 실패: '+(j.message||j.error||''));
-      if(j.ok){ g('ac_note').value=''; g('ac_next').value=''; load(); }
+      if(j.ok){ g('ac_note').value=''; g('ac_next').value=''; if(g('ac_voice')) g('ac_voice').value=''; load(); }
     }).catch(function(){ btn.disabled=false; g('ac_msg').textContent='저장 실패(통신 오류)'; });
+  }
+
+  /* ── 🎤 음성 받아쓰기 ────────────────────────────────────────────
+     브라우저 내장 음성인식(Web Speech API)을 씁니다. 서버·외부 라이브러리 0개.
+     ⚠️ 지원하지 않는 브라우저(파이어폭스 등)에서는 버튼을 숨기고,
+        «붙여넣고 AI로 정리하기» 경로가 그대로 남습니다 — 막다른 길을 만들지 않습니다. */
+  var REC = null, recOn = false;
+
+  function speechCtor(){ return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+
+  function setupMic(){
+    var btn = g('ac_mic');
+    if(!btn) return;
+    var Ctor = speechCtor();
+    if(!Ctor){
+      btn.hidden = true;                       // 지원 안 하면 조용히 숨긴다
+      var m = g('ac_ai_msg');
+      if(m) m.textContent = '이 브라우저는 음성 입력을 지원하지 않습니다. 받아쓴 내용을 붙여넣고 «AI로 정리하기»를 누르세요.';
+      return;
+    }
+    btn.hidden = false;
+    btn.addEventListener('click', function(){ recOn ? stopMic() : startMic(Ctor); });
+  }
+
+  function startMic(Ctor){
+    try{
+      REC = new Ctor();
+      REC.lang = 'ko-KR';
+      REC.continuous = true;
+      REC.interimResults = true;
+      REC.onresult = function(e){
+        var fin = '';
+        for(var i=e.resultIndex; i<e.results.length; i++){
+          if(e.results[i].isFinal) fin += e.results[i][0].transcript;
+        }
+        if(fin){
+          var ta = g('ac_voice');
+          ta.value = (ta.value ? ta.value + ' ' : '') + fin.trim();
+        }
+      };
+      REC.onerror = function(){ stopMic(); g('ac_ai_msg').textContent = '음성 인식이 중단됐습니다. 다시 눌러 주세요.'; };
+      REC.onend = function(){ if(recOn) stopMic(); };
+      REC.start();
+      recOn = true;
+      g('ac_mic').classList.add('on');
+      g('ac_mic_t').textContent = '녹음 중 — 누르면 끝';
+      g('ac_ai_msg').textContent = '듣고 있습니다. 편하게 말씀하세요.';
+    }catch(err){
+      recOn = false;
+      g('ac_ai_msg').textContent = '음성 입력을 시작하지 못했습니다. 마이크 권한을 확인해 주세요.';
+    }
+  }
+
+  function stopMic(){
+    recOn = false;
+    try{ if(REC) REC.stop(); }catch(e){}
+    var b=g('ac_mic'); if(b){ b.classList.remove('on'); }
+    var t=g('ac_mic_t'); if(t){ t.textContent='말로 쓰기'; }
+    // 말이 끝나면 바로 정리한다 — 버튼을 한 번 더 누르게 하면 그 한 번에서 사람이 떨어져 나간다.
+    if(g('ac_voice') && g('ac_voice').value.trim()) parseDiary();
+  }
+
+  function parseDiary(){
+    var text = g('ac_voice') ? g('ac_voice').value.trim() : '';
+    if(!text){ g('ac_ai_msg').textContent = '먼저 말하거나 내용을 붙여넣어 주세요.'; return; }
+    g('ac_ai_msg').textContent = '정리하는 중…';
+    api('/api/admin/sales/parse-diary', { method:'POST', body: JSON.stringify({ rep_id: STATE.repId, text: text }) })
+      .then(function(j){
+        if(!j.ok || !j.draft){ g('ac_ai_msg').textContent = '정리하지 못했습니다. 아래 칸에 직접 적어 주세요.'; return; }
+        var d = j.draft;
+        if(d.lead_id && g('ac_lead')) g('ac_lead').value = String(d.lead_id);
+        if(d.kind && g('ac_kind')) g('ac_kind').value = d.kind;
+        if(g('ac_stage')) g('ac_stage').value = (d.stage_after==null ? '' : String(d.stage_after));
+        if(g('ac_note')) g('ac_note').value = d.outcome || d.note || '';
+        if(g('ac_next')) g('ac_next').value = d.next_action || '';
+        var msg = (d.source === 'ai')
+          ? 'AI가 정리했습니다. 틀린 것만 고치고 저장하세요.'
+          : '간단히 정리했습니다(AI를 쓸 수 없는 상태). 내용을 확인해 주세요.';
+        if(d.unknown_lead){
+          msg += ' · 「' + d.unknown_lead + '」는 후보 학원 목록에 없습니다 — 아래 «후보 학원»에서 먼저 등록하세요.';
+        }
+        g('ac_ai_msg').textContent = msg;
+      })
+      .catch(function(){ g('ac_ai_msg').textContent = '정리하지 못했습니다. 아래 칸에 직접 적어 주세요.'; });
   }
 
   /* ── 후보 학원 등록 ─────────────────────────────────────────── */
@@ -571,6 +718,7 @@
       + '<label class="f">담당 지역<input id="rp_region" value="'+esc(r.region||'')+'"></label>'
       + '<label class="f">관리자 아이디(본인 로그인)<input id="rp_user" value="'+esc(r.admin_username||'')+'" placeholder="비우면 본인 조회 불가"></label>'
       + '<label class="f">입사일<input type="date" id="rp_hired" value="'+esc(r.hired_at||'')+'"></label>'
+      + '<label class="f">제도 시작일(기준선 시작)<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
       + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+(r.base_salary_krw||0)+'"></label>'
       + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+(r.incentive_per_deal_krw||0)+'"></label>'
       + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+(r.target_deals!=null?r.target_deals:2)+'"></label>'
@@ -607,6 +755,7 @@
       id: Number(btn.getAttribute('data-id'))||0,
       name: g('rp_name').value, region: g('rp_region').value,
       admin_username: g('rp_user').value, hired_at: g('rp_hired').value,
+      program_started_at: g('rp_prog') ? g('rp_prog').value : '',
       base_salary_krw: g('rp_base').value, incentive_per_deal_krw: g('rp_inc').value,
       target_deals: g('rp_td').value, target_students: g('rp_ts').value,
       target_visits: g('rp_tv').value, target_leads: g('rp_tl').value, target_care: g('rp_tc').value
@@ -638,6 +787,9 @@
   }
   function bindAll(){
     if(g('ac_save')) g('ac_save').addEventListener('click', saveActivity);
+    if(g('ac_parse')) g('ac_parse').addEventListener('click', parseDiary);
+    setupMic();
+    if(g('rt_sweep')) g('rt_sweep').addEventListener('click', runSweep);
     if(g('ld_save')) g('ld_save').addEventListener('click', saveLead);
     if(g('dl_save')) g('dl_save').addEventListener('click', saveDeal);
     bindRepForm();
