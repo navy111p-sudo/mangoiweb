@@ -28,6 +28,9 @@ import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
+/* 🔗 1회용 연장 링크 — 학부모 폰에 학생 로그인이 없어도 «이 학생의 연장» 만 되게 하는 좁은 권한.
+      ⛔ 로그인이 아니다. authUidGlobal 은 이 토큰을 모른다(개인정보 API 에 안 통한다). */
+import { resolveRenewToken, markRenewLinkUsed, type RenewTokenScope } from './renew-link';
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(공휴일 자동연기·강사 휴가대체)
 
 export const ENROLL_WEEKLY = [1, 2, 3, 5];
@@ -801,25 +804,60 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     return await createEnrollOrder(env, uid, p, 'new');
   }
 
-  /* ── (e) 내 수강 현황 (본인 인증) — 연장 화면용 ── */
+  /* ── (e) 내 수강 현황 (본인 인증) — 연장 화면용 ──
+       🔗 (2026-08-18) 문자로 받은 1회용 링크(?rt=)도 받는다. 그 경우 uid 는 클라이언트가
+          보낸 값이 아니라 **토큰이 가리키는 학생**이다 — 토큰만 있으면 아무 uid나 적어
+          남의 현황을 볼 수 있으면 안 되므로, 토큰 쪽 uid 를 정본으로 쓴다. */
   if (path === '/api/pay/enroll/my-current' && method === 'GET') {
-    const uid = String(url.searchParams.get('uid') || '').trim();
+    const scope = await resolveRenewToken(env, url, null, request);
+    const uid = scope ? scope.uid : String(url.searchParams.get('uid') || '').trim();
     if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-    const authUid = await authUidGlobal(request, url, env, {});
-    if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
-    if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+    if (!scope) {
+      const authUid = await authUidGlobal(request, url, env, {});
+      if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+    }
     const cur = await currentEnrollment(env, uid);
-    return json({ ok: true, current: cur });
+    return json({ ok: true, current: cur, via: scope ? 'renew_link' : 'login' });
+  }
+
+  /* ── (e-2) 1회용 연장 링크 확인 — 화면 머리말용 ──
+       문자를 누르면 enroll.html 이 제일 먼저 이걸 부른다. 돌려주는 것은 «누구의 링크인지»와
+       «아직 쓸 수 있는지» 뿐이다. 전화번호·주소 같은 개인정보는 싣지 않는다(문자 링크는
+       가족·지인에게 전달될 수 있다고 보고, 이름 외에는 주지 않는다). */
+  if (path === '/api/pay/enroll/renew-link' && method === 'GET') {
+    const scope = await resolveRenewToken(env, url, null, request);
+    if (!scope) return json({ ok: false, error: 'invalid_or_expired', message: '링크가 만료되었거나 사용할 수 없습니다. 문자를 다시 받아 주세요.' }, 401);
+    let name = '';
+    try {
+      const r: any = await env.DB.prepare(
+        `SELECT COALESCE(korean_name, english_name, username, user_id) AS nm FROM students_erp WHERE user_id = ? LIMIT 1`
+      ).bind(scope.uid).first();
+      name = String(r?.nm || '');
+    } catch {}
+    const cur = await currentEnrollment(env, scope.uid);
+    return json({ ok: true, uid: scope.uid, name, expires_at: scope.expires_at, used: scope.used, current: cur });
   }
 
   /* ── (f) 연장 주문 (본인 인증) — 요일·시간·강사 승계, 마지막 수업 다음 회차부터 ── */
   if (path === '/api/pay/enroll/renew-order' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const uid = String(body.uid || '').trim();
+    /* 🔗 (2026-08-18) 문자로 받은 1회용 링크로도 연장할 수 있다.
+          ⚠️ uid 는 **토큰이 가리키는 학생**으로 강제한다. 본문의 uid 는 쳐다보지 않는다 —
+             남의 uid 를 적어 보내는 위조를 원천 차단하기 위함이다(로그인 경로의
+             authUid !== uid 검사와 같은 뜻).
+          ⚠️ 이미 주문에 쓴 링크는 다시 못 쓴다. «두 번 결제됐다» 를 막는 마지막 빗장이다. */
+    let renewScope: RenewTokenScope | null = await resolveRenewToken(env, url, body, request);
+    if (renewScope?.used) {
+      return json({ ok: false, error: 'link_already_used', message: '이미 결제에 사용된 링크입니다. 로그인 후 이용해 주세요.' }, 409);
+    }
+    const uid = renewScope ? renewScope.uid : String(body.uid || '').trim();
     if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-    const authUid = await authUidGlobal(request, url, env, body);
-    if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
-    if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+    if (!renewScope) {
+      const authUid = await authUidGlobal(request, url, env, body);
+      if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+      if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
+    }
 
     const cur = await currentEnrollment(env, uid);
     if (!cur.active) return json({ ok: false, error: 'no_active_enrollment', message: '연장할 수업이 없습니다. 새로 신청해 주세요.' }, 400);
@@ -842,7 +880,14 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       startDate: addDays(cur.last_date, 1),        // 마지막 수업 다음 회차부터 이어짐(부장님 답변 12번)
       teacherId: cur.teacher_id, days: cur.days,
     };
-    return await createEnrollOrder(env, uid, p, 'renew');
+    const res = await createEnrollOrder(env, uid, p, 'renew');
+    // 주문이 실제로 만들어졌을 때만 링크를 소진시킨다(견적 실패로 링크가 죽으면 안 된다)
+    if (renewScope && res && res.status >= 200 && res.status < 300) {
+      let orderId = '';
+      try { orderId = String(((await res.clone().json()) as any)?.orderId || ''); } catch {}
+      await markRenewLinkUsed(env, renewScope.token, orderId || undefined);
+    }
+    return res;
   }
 
   /* ── (g) 대리점 단가 (본사 관리자) ── */
