@@ -12098,12 +12098,19 @@ window.rebuildGlobalSearchIndex = function() {
       if (!d.ok) throw new Error(d.error||'API error');
       // 차트 캔버스 + 표
       wrap.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;width:100%;max-width:100%;box-sizing:border-box">
+          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;min-width:0;overflow:hidden;box-sizing:border-box">
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">${year}년 월별 매출 (KRW)</div>
-            <canvas id="acc-sales-canvas" height="180"></canvas>
+            <!-- ⚠️ 캔버스는 «높이가 정해진 position:relative 래퍼» 안에 넣는다.
+                 responsive + maintainAspectRatio:false 는 부모의 크기를 그대로 따라가는데,
+                 높이가 없는 부모에 넣으면 캔버스가 자기 높이로 부모를 늘리고
+                 그걸 다시 읽어 창 크기가 바뀔 때마다 그래프가 컨테이너를 벗어난다(2026-08-18 수리).
+                 그리드도 1fr 1fr 이면 내용보다 작게 줄지 못해 넘친다 → minmax(min(100%,300px),1fr) + min-width:0. -->
+            <div style="position:relative;width:100%;height:min(240px,55vh)">
+              <canvas id="acc-sales-canvas"></canvas>
+            </div>
           </div>
-          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;overflow:auto;max-height:300px">
+          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;overflow:auto;max-height:300px;min-width:0;box-sizing:border-box">
             <table style="width:100%;font-size:11px;border-collapse:collapse">
               <thead><tr style="background:#f3f4f6"><th style="padding:6px;text-align:left">월</th><th style="padding:6px;text-align:right">매출</th><th style="padding:6px;text-align:right">순이익</th></tr></thead>
               <tbody>${d.monthlies.map(m=>`<tr><td style="padding:5px;border-bottom:1px solid #f3f4f6">${m.period}</td><td style="padding:5px;text-align:right;border-bottom:1px solid #f3f4f6">${_fmt(m.revenue)}</td><td style="padding:5px;text-align:right;border-bottom:1px solid #f3f4f6;color:${m.net>=0?'#16a34a':'#dc2626'}">${_fmt(m.net)}</td></tr>`).join('')}
@@ -12114,7 +12121,10 @@ window.rebuildGlobalSearchIndex = function() {
       // Chart.js 그리기 (전역 Chart 사용 — 페이지 상단에 이미 로드됨)
       if (typeof Chart !== 'undefined') {
         const ctx = document.getElementById('acc-sales-canvas');
-        new Chart(ctx, {
+        // 이전 차트는 반드시 버린다 — innerHTML 로 캔버스를 갈아끼워도
+        // 옛 인스턴스의 리사이즈 감시가 남아 크기 계산을 흔든다.
+        if (window._accSalesChart) { try { window._accSalesChart.destroy(); } catch(_e) {} }
+        window._accSalesChart = new Chart(ctx, {
           type: 'bar',
           data: {
             labels: d.monthlies.map(m=>m.period.slice(5)+'월'),
@@ -12123,7 +12133,17 @@ window.rebuildGlobalSearchIndex = function() {
               { label:'순이익', data: d.monthlies.map(m=>m.net), backgroundColor:'rgba(34,197,94,0.7)', type:'line', borderColor:'rgba(34,197,94,1)', tension:0.3 },
             ],
           },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } },
+          options: {
+            responsive:true, maintainAspectRatio:false, resizeDelay:120,
+            layout:{ padding:{ top:2, right:2, bottom:0, left:2 } },
+            plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
+            scales:{
+              // 넓은 화면에서는 12개 라벨이 다 들어가고, 좁아지면 자동으로 건너뛴다.
+              // 글자를 기울이지 않아야(maxRotation:0) 아래로 밀려나지 않는다.
+              x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, maxRotation:0, autoSkip:true } },
+              y:{ beginAtZero:true, ticks:{ font:{ size:10 }, maxTicksLimit:6 } },
+            },
+          },
         });
       }
     } catch(e) {

@@ -11,9 +11,9 @@ Daemon will be stopped at the end of the build
 > Task :app:packageReleaseResources
 > Task :app:parseReleaseLocalResources
 > Task :app:createReleaseCompatibleScreenManifests
+> Task :app:mergeReleaseResources
 > Task :app:extractDeepLinksRelease
 > Task :app:processReleaseMainManifest
-> Task :app:mergeReleaseResources
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
 > Task :app:processReleaseManifestForPackage
@@ -54,11 +54,11 @@ Daemon will be stopped at the end of the build
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1787046291895.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1787059040696.json
 
-BUILD SUCCESSFUL in 38s
+BUILD SUCCESSFUL in 31s
 44 actionable tasks: 44 executed
 
 BUILD_OUTCOME=success
 APK committed to dist/mangoi-test-signed.apk
-app-version.json 생성: versionCode=14 versionName=2.3
+app-version.json 생성: versionCode=15 versionName=2.4
