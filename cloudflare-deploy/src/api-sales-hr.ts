@@ -899,6 +899,433 @@ async function parseDiaryByAI(env: SalesEnv, text: string, leads: any[]): Promis
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 🗺 오늘 어디부터 갈까 — 방문 우선순위
+ *
+ * 왜: 전국에 학원은 수만 곳이다. 어디를 먼저 갈지 매일 아침 사람이 고민하면
+ *     그 고민 시간만큼 방문이 준다. 하루 동선이 짧아지면 방문 건수는 그냥 올라간다.
+ *
+ * ⚠️ AI 를 쓰지 않는다. 규칙으로 점수를 매긴다.
+ *    「왜 이 학원을 추천했는지」를 한 줄로 설명할 수 있어야 사람이 따른다.
+ *    LLM 이 「느낌상 여기」라고 하면 아무도 그 순서를 신뢰하지 않는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 단계별 기본 점수 — 계약에 가까울수록 한 번의 방문이 비싸다. */
+const STAGE_WEIGHT: Record<number, number> = { 1: 8, 2: 14, 3: 24, 4: 30, 5: 20, 6: 6 };
+
+/** 이 날짜로부터 며칠 지났나. 날짜가 없으면 null. */
+function daysSince(dateStr: any, asOf: string): number | null {
+  const d = String(dateStr || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return null;
+  const t = new Date(d + 'T00:00:00Z').getTime();
+  const a = new Date(asOf + 'T00:00:00Z').getTime();
+  if (isNaN(t) || isNaN(a)) return null;
+  return Math.round((a - t) / 86400000);
+}
+
+export async function computeNextVisits(env: SalesEnv, repId: number, asOf: string, limit = 10) {
+  const rs: any = await env.DB.prepare(
+    `SELECT id, name, region, stage, contact_name, contact_phone, next_action, next_action_at, last_contact_at
+       FROM sales_leads WHERE rep_id = ? AND status = 'active' LIMIT 500`
+  ).bind(repId).all().catch(() => ({ results: [] }));
+  const leads: any[] = rs?.results || [];
+
+  // 지역별 활성 후보 수 — 같은 지역에 여러 곳이 있으면 하루에 묶어서 돌 수 있다.
+  const byRegion: Record<string, number> = {};
+  for (const l of leads) {
+    const r = String(l.region || '').trim();
+    if (r) byRegion[r] = (byRegion[r] || 0) + 1;
+  }
+
+  // 이미 계약한 학원의 지역 — 근처에 «잘 되는 곳» 이 있으면 그게 가장 강한 영업 자료다.
+  const dealRs: any = await env.DB.prepare(
+    `SELECT region, COUNT(*) AS c FROM sales_deals WHERE rep_id = ? AND COALESCE(region,'') <> '' GROUP BY region`
+  ).bind(repId).all().catch(() => ({ results: [] }));
+  const wonRegion: Record<string, number> = {};
+  for (const d of (dealRs?.results || [])) wonRegion[String(d.region)] = num(d.c, 0);
+
+  const scored = leads.map(l => {
+    const reasons: string[] = [];
+    let score = STAGE_WEIGHT[Number(l.stage)] ?? 8;
+    reasons.push(`${SALES_STAGES[Math.max(0, Math.min(5, Number(l.stage) - 1))].ko} 단계`);
+
+    // 방치 일수 — 오래 안 만나면 식는다. 21일에서 상한을 둔다(무한정 올라가면 죽은 리드가 1위가 된다).
+    const idle = daysSince(l.last_contact_at, asOf);
+    if (idle == null) {
+      score += 14;
+      reasons.push('아직 한 번도 접촉 기록 없음');
+    } else if (idle >= 7) {
+      score += Math.min(21, idle);
+      reasons.push(`${idle}일째 연락 없음`);
+    }
+
+    // 스스로 적어 둔 «다음 할 일» 의 예정일 — 이걸 넘기면 약속을 어긴 것이다.
+    const due = daysSince(l.next_action_at, asOf);
+    if (due != null) {
+      if (due > 0) { score += 25; reasons.push(`예정일 ${due}일 지남`); }
+      else if (due >= -1) { score += 18; reasons.push('오늘·내일 예정'); }
+      else if (due >= -3) { score += 10; reasons.push('사흘 안 예정'); }
+    }
+
+    const region = String(l.region || '').trim();
+    if (region && (byRegion[region] || 0) > 1) {
+      score += Math.min(10, ((byRegion[region] || 1) - 1) * 3);
+      reasons.push(`같은 지역에 ${byRegion[region]}곳 — 묶어서 방문 가능`);
+    }
+    if (region && (wonRegion[region] || 0) > 0) {
+      score += 8;
+      reasons.push(`근처에 이미 계약한 학원 ${wonRegion[region]}곳 — 사례로 쓸 수 있음`);
+    }
+
+    return {
+      lead_id: l.id, name: l.name, region: l.region, stage: l.stage,
+      stage_ko: SALES_STAGES[Math.max(0, Math.min(5, Number(l.stage) - 1))].ko,
+      contact_name: l.contact_name, contact_phone: l.contact_phone,
+      next_action: l.next_action, next_action_at: l.next_action_at,
+      last_contact_at: l.last_contact_at, idle_days: idle,
+      score: Math.round(score), reasons,
+    };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
+}
+
+/** 관리방문이 오래 끊긴 계약 학원 — 유지율(15점·성과급 2차)의 실제 원인이다. */
+export async function computeCareDue(env: SalesEnv, repId: number, asOf: string, gapDays = 45, limit = 10) {
+  const rs: any = await env.DB.prepare(
+    `SELECT d.id, d.center_name, d.region, d.contract_date, d.lead_id,
+            (SELECT MAX(a.activity_date) FROM sales_activities a
+              WHERE a.rep_id = d.rep_id AND a.kind = 'manage'
+                AND (a.lead_id = d.lead_id OR a.title = d.center_name)) AS last_care
+       FROM sales_deals d
+      WHERE d.rep_id = ? AND COALESCE(d.retained_3m, 1) = 1
+      ORDER BY d.contract_date DESC LIMIT 200`
+  ).bind(repId).all().catch(() => ({ results: [] }));
+
+  const out: any[] = [];
+  for (const d of (rs?.results || [])) {
+    const since = daysSince(d.last_care, asOf);
+    const sinceContract = daysSince(d.contract_date, asOf);
+    const gap = since != null ? since : sinceContract;
+    if (gap == null || gap < gapDays) continue;
+    out.push({
+      deal_id: d.id, center_name: d.center_name, region: d.region,
+      last_care: d.last_care || null, gap_days: gap,
+      reason: d.last_care
+        ? `관리방문한 지 ${gap}일 지났습니다`
+        : `계약 후 ${gap}일 동안 관리방문 기록이 없습니다`,
+    });
+  }
+  out.sort((a, b) => b.gap_days - a.gap_days);
+  return out.slice(0, limit);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⚠️ 위험한 학원 — 「빠져나가기 전에」 알려 준다
+ *
+ * 왜: 유지율은 평가 15점이자 성과급 2차 50% 의 조건이다. 그래서 이 알림은
+ *     영업담당자에게 **직접 돈이 걸린 알림**이 된다 — 그래서 무시하지 않는다.
+ *
+ * 판정 재료 (유지율 자동 판정과 같은 원천을 쓴다 — 두 화면의 숫자가 어긋나면 안 된다)
+ *   · 최근 30일 수업 건수 vs 그 앞 30일  → 줄었나
+ *   · 활성 학생 수                        → 남아 있나
+ *   · 30일 안에 수강 만료되는 학생 수      → 곧 빠지나
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface AtRiskItem {
+  deal_id: number; rep_id: number; center_name: string; shop: string | null;
+  level: 'high' | 'medium' | 'low' | 'unknown';
+  active: number; recent30: number; prev30: number; drop: number | null; expiring: number;
+  reason: string;
+}
+
+export async function computeAtRisk(env: SalesEnv, repId: number | null, asOf: string, limit = 40): Promise<AtRiskItem[]> {
+  const rs: any = await env.DB.prepare(
+    repId == null
+      ? `SELECT id, rep_id, center_name FROM sales_deals WHERE COALESCE(retained_3m,1) = 1 ORDER BY contract_date DESC LIMIT ?`
+      : `SELECT id, rep_id, center_name FROM sales_deals WHERE rep_id = ? AND COALESCE(retained_3m,1) = 1 ORDER BY contract_date DESC LIMIT ?`
+  ).bind(...(repId == null ? [limit] : [repId, limit])).all().catch(() => ({ results: [] }));
+
+  const d30 = (n: number) => new Date(new Date(asOf + 'T00:00:00Z').getTime() - n * 86400000).toISOString().slice(0, 10);
+  const since30 = d30(30), since60 = d30(60);
+  const until30 = new Date(new Date(asOf + 'T00:00:00Z').getTime() + 30 * 86400000).toISOString().slice(0, 10);
+
+  const out: AtRiskItem[] = [];
+  for (const d of (rs?.results || [])) {
+    const matched = await resolveShopName(env, d.center_name);
+    if (!matched) {
+      out.push({
+        deal_id: d.id, rep_id: d.rep_id, center_name: d.center_name, shop: null,
+        level: 'unknown', active: 0, recent30: 0, prev30: 0, drop: null, expiring: 0,
+        reason: '학생 명부에서 이 학원을 찾지 못해 상태를 알 수 없습니다.',
+      });
+      continue;
+    }
+    let active = 0, recent30 = 0, prev30 = 0, expiring = 0;
+    try {
+      const a: any = await env.DB.prepare(
+        `SELECT
+           SUM(CASE WHEN status IN ('정상','활동','active') THEN 1 ELSE 0 END) AS active,
+           SUM(CASE WHEN COALESCE(end_date,'') <> '' AND end_date >= ? AND end_date <= ? THEN 1 ELSE 0 END) AS expiring
+         FROM students_erp WHERE shop_name = ?`
+      ).bind(asOf, until30, matched.shop).first();
+      active = num(a?.active, 0);
+      expiring = num(a?.expiring, 0);
+      const c: any = await env.DB.prepare(
+        `SELECT
+           SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS recent30,
+           SUM(CASE WHEN date >= ? AND date < ? THEN 1 ELSE 0 END) AS prev30
+         FROM attendance
+        WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
+      ).bind(since30, since60, since30, since60, matched.shop).first();
+      recent30 = num(c?.recent30, 0);
+      prev30 = num(c?.prev30, 0);
+    } catch {
+      continue;   // 명부·출석 표가 없는 환경 — 조용히 건너뛴다
+    }
+
+    const drop = prev30 > 0 ? Math.round((1 - recent30 / prev30) * 100) / 100 : null;
+    let level: AtRiskItem['level'] = 'low';
+    let reason = `활성 학생 ${active}명 · 최근 30일 수업 ${recent30}건 — 특이 신호 없음`;
+
+    if (active === 0) {
+      level = 'high';
+      reason = '활성 학생이 0명입니다. 이미 빠져나갔을 수 있습니다.';
+    } else if (recent30 === 0 && prev30 > 0) {
+      level = 'high';
+      reason = `최근 30일 수업이 0건입니다(그 전 30일에는 ${prev30}건). 지금 들르세요.`;
+    } else if (drop != null && drop >= 0.4) {
+      level = 'high';
+      reason = `수업이 ${Math.round(drop * 100)}% 줄었습니다 (${prev30}건 → ${recent30}건).`;
+    } else if (drop != null && drop >= 0.2) {
+      level = 'medium';
+      reason = `수업이 ${Math.round(drop * 100)}% 줄었습니다 (${prev30}건 → ${recent30}건).`;
+    } else if (expiring >= 3) {
+      level = 'medium';
+      reason = `30일 안에 ${expiring}명이 수강 만료됩니다. 재등록 상담이 필요합니다.`;
+    }
+
+    out.push({ deal_id: d.id, rep_id: d.rep_id, center_name: d.center_name, shop: matched.shop,
+               level, active, recent30, prev30, drop, expiring, reason });
+  }
+
+  const rank: Record<string, number> = { high: 0, medium: 1, unknown: 2, low: 3 };
+  out.sort((a, b) => rank[a.level] - rank[b.level]);
+  return out;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 📰 주간·월간 보고서 — 사람이 보고서를 쓰지 않는다
+ *
+ * ⚠️ 사실(숫자)은 전부 서버가 «세어서» 만든다. AI 는 «총평 두 문장» 만 쓴다.
+ *    숫자까지 AI 에게 맡기면 보고서가 그럴듯하게 틀린다. 그건 없는 것보다 나쁘다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 지난주(월~일) 구간. offset 0 = 이번 주, 1 = 지난주. */
+export function weekRange(asOf: string, offset = 1): { start: string; end: string; label: string } {
+  const t = new Date(asOf + 'T00:00:00Z').getTime();
+  const dow = new Date(t).getUTCDay();                 // 0=일
+  const backToMon = (dow === 0 ? 6 : dow - 1);         // 이번 주 월요일까지
+  const monThis = t - backToMon * 86400000;
+  const mon = monThis - offset * 7 * 86400000;
+  const sun = mon + 6 * 86400000;
+  const iso = (x: number) => new Date(x).toISOString().slice(0, 10);
+  return { start: iso(mon), end: iso(sun), label: offset === 0 ? '이번 주' : `${iso(mon)} ~ ${iso(sun)}` };
+}
+
+export async function buildSalesReport(env: SalesEnv, rep: any, start: string, end: string, asOf: string) {
+  const act: any = await env.DB.prepare(
+    `SELECT
+       SUM(CASE WHEN kind IN ('visit','meeting','demo') THEN 1 ELSE 0 END) AS new_sales,
+       SUM(CASE WHEN kind = 'manage' THEN 1 ELSE 0 END) AS care,
+       SUM(CASE WHEN kind = 'call' THEN 1 ELSE 0 END) AS calls,
+       COUNT(DISTINCT activity_date) AS days
+     FROM sales_activities WHERE rep_id = ? AND activity_date >= ? AND activity_date <= ?`
+  ).bind(rep.id, start, end).first().catch(() => null);
+
+  const newLeads: any = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM sales_leads
+      WHERE rep_id = ? AND date(created_at/1000,'unixepoch') >= ? AND date(created_at/1000,'unixepoch') <= ?`
+  ).bind(rep.id, start, end).first().catch(() => null);
+
+  const deals: any = await env.DB.prepare(
+    `SELECT center_name, students_initial FROM sales_deals
+      WHERE rep_id = ? AND contract_date >= ? AND contract_date <= ? ORDER BY contract_date ASC`
+  ).bind(rep.id, start, end).all().catch(() => ({ results: [] }));
+
+  const pipe: any = await env.DB.prepare(
+    `SELECT stage, COUNT(*) AS c FROM sales_leads WHERE rep_id = ? AND status = 'active' GROUP BY stage`
+  ).bind(rep.id).all().catch(() => ({ results: [] }));
+  const byStage: Record<number, number> = {};
+  for (const r of (pipe?.results || [])) byStage[Number(r.stage)] = num(r.c, 0);
+
+  const nextVisits = await computeNextVisits(env, rep.id, asOf, 5);
+  const careDue = await computeCareDue(env, rep.id, asOf, 45, 5);
+  const atRisk = (await computeAtRisk(env, rep.id, asOf, 20)).filter(x => x.level === 'high' || x.level === 'medium').slice(0, 3);
+
+  const dealRows: any[] = deals?.results || [];
+  const facts = {
+    period: { start, end },
+    visits: num(act?.new_sales, 0),
+    care: num(act?.care, 0),
+    calls: num(act?.calls, 0),
+    diary_days: num(act?.days, 0),
+    new_leads: num(newLeads?.c, 0),
+    deals: dealRows.map(d => ({ center_name: d.center_name, students: num(d.students_initial, 0) })),
+    pipeline: SALES_STAGES.map(s => ({ ...s, count: byStage[s.n] || 0 })),
+    next_visits: nextVisits,
+    care_due: careDue,
+    at_risk: atRisk,
+    bottleneck: findBottleneck(byStage),
+  };
+
+  // ── 사람이 읽는 글 — 규칙으로 조립한다(숫자는 위에서 이미 확정됐다) ──
+  const lines: string[] = [];
+  lines.push(`[${rep.name}] ${start} ~ ${end}`);
+  lines.push(`방문·상담 ${facts.visits}건 · 관리방문 ${facts.care}건 · 전화 ${facts.calls}건 · 일지 ${facts.diary_days}일 · 신규 발굴 ${facts.new_leads}곳`);
+  if (facts.deals.length) {
+    lines.push(`신규 계약 ${facts.deals.length}곳 — ${facts.deals.map(d => d.center_name).join(', ')}`);
+  } else {
+    lines.push('신규 계약 없음');
+  }
+  const p4 = byStage[4] || 0, p5 = byStage[5] || 0;
+  lines.push(`진행 중: 제안·시연 ${p4}곳 · 계약 단계 ${p5}곳`);
+  if (facts.bottleneck) lines.push(`막힌 곳: ${facts.bottleneck.label}`);
+  if (facts.at_risk.length) {
+    lines.push('위험 학원: ' + facts.at_risk.map(r => `${r.center_name}(${r.reason})`).join(' / '));
+  }
+  if (facts.next_visits.length) {
+    lines.push('다음 주 우선 방문: ' + facts.next_visits.slice(0, 3).map(v => `${v.name}(${v.reasons[0]})`).join(', '));
+  }
+  if (facts.care_due.length) {
+    lines.push('관리방문 필요: ' + facts.care_due.slice(0, 3).map(c => `${c.center_name}(${c.gap_days}일)`).join(', '));
+  }
+
+  return { facts, text: lines.join('\n') };
+}
+
+/** 월요일 아침 주간 보고 — 활성 담당자마다 한 건씩 알림큐에 넣는다. */
+export async function runSalesWeeklyReport(env: SalesEnv): Promise<{ sent: number }> {
+  await ensureSchema(env);
+  const asOf = todayISO();
+  const wk = weekRange(asOf, 1);
+  const reps: any = await env.DB.prepare(`SELECT * FROM sales_reps WHERE active = 1`).all().catch(() => ({ results: [] }));
+  let sent = 0;
+  for (const rep of (reps?.results || [])) {
+    const r = await buildSalesReport(env, rep, wk.start, wk.end, asOf);
+    // 아무 활동도 없던 주는 보내지 않는다 — 빈 보고서가 매주 오면 아무도 안 읽는다.
+    if (r.facts.visits === 0 && r.facts.calls === 0 && r.facts.care === 0 && r.facts.deals.length === 0) continue;
+    const { enqueueNotification } = await import('./api-notify');
+    await enqueueNotification(env as any, {
+      type: 'sales_weekly',
+      title: `영업 주간 보고 — ${rep.name} (${wk.start}~${wk.end})`,
+      body: r.text,
+      meta: { rep_id: rep.id, period: wk },
+    });
+    sent++;
+  }
+  return { sent };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * ⚖️ 공정성 감시 — AI 가 사장님 편이 아니라 «사실» 편에 선다
+ *
+ * 평가 제도가 무너지는 이유는 대부분 「부정확해서」가 아니라 「불공정하다고 느껴서」다.
+ * 그래서 사람이 놓치기 쉬운 «운·환경 요인» 을 시스템이 먼저 짚어 올린다.
+ *
+ * ⚠️ 여기서 점수를 고치지 않는다. **사장님께 이의를 제기할 뿐**이다.
+ *    자동으로 점수를 올려 주면 그 순간 이 기능은 «점수 부풀리기» 가 된다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+export interface FairnessFlag { level: 'warn' | 'info'; title: string; detail: string }
+
+export async function computeFairness(env: SalesEnv, rep: any, range: PeriodRange, asOf: string): Promise<FairnessFlag[]> {
+  const flags: FairnessFlag[] = [];
+  const auto = await computeAutoScores(env, rep, range, asOf);
+  const t = auto.targets;
+
+  // ① 근무일이 적은 기간인가 — 명절·공휴일이 낀 달에 같은 목표는 불리하다.
+  //    (공휴일 표를 두지 않기로 했으므로, 평일 수 자체가 적은 달을 잡아낸다)
+  const perMonth = range.months.length > 0 ? t.workdays / range.months.length : 0;
+  if (perMonth > 0 && perMonth < 20) {
+    flags.push({
+      level: 'warn',
+      title: '근무일이 평소보다 적은 기간입니다',
+      detail: `월평균 근무일이 ${perMonth.toFixed(1)}일입니다(보통 21~22일). 목표는 그대로였다면 그만큼 불리했습니다.`,
+    });
+  }
+
+  // ② 유지율 표본이 너무 작다 — 한 곳만 이탈해도 점수가 크게 흔들린다.
+  const retItem = auto.items.filter(i => i.key === 'retention')[0];
+  if (retItem && retItem.target != null && retItem.target > 0 && retItem.target < 3) {
+    flags.push({
+      level: 'warn',
+      title: `유지율 표본이 ${retItem.target}곳뿐입니다`,
+      detail: `한 곳만 이탈해도 유지율이 크게 떨어집니다(15점 항목). 표본이 3곳 미만인 기간의 유지율 점수는 참고로만 보시길 권합니다.`,
+    });
+  }
+
+  // ③ «방문을 안 한 것» 과 «기록을 안 한 것» 은 다르다.
+  const diary = auto.items.filter(i => i.key === 'diary')[0];
+  const visits = auto.items.filter(i => i.key === 'visits')[0];
+  if (diary && visits && diary.rate != null && visits.rate != null && diary.rate < 0.6 && visits.rate < 0.8) {
+    flags.push({
+      level: 'warn',
+      title: '방문 점수가 낮은 원인이 «기록 누락» 일 수 있습니다',
+      detail: `일지를 남긴 날이 근무일의 ${Math.round(diary.rate * 100)}%뿐입니다. 방문 건수는 일지에서만 세므로, 실제로 다녀왔어도 기록이 없으면 0건으로 잡힙니다. 점수를 확정하기 전에 본인에게 확인해 보세요.`,
+    });
+  }
+
+  // ④ 시장 전체가 나빴는가 — 회사 전체 신규 등록 추세와 비교한다.
+  //    개인 실적만 보면 «이 사람이 못한 것» 처럼 보이지만, 전사가 같이 줄었다면 개인 문제가 아니다.
+  try {
+    const prevP = previousPeriod(range.months.length === 1 ? range.months[0] : `${range.start.slice(0, 4)}-H${Number(range.start.slice(5, 7)) <= 6 ? 1 : 2}`);
+    const prevRange = prevP ? parsePeriod(prevP) : null;
+    if (prevRange) {
+      const cur: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM students_erp WHERE signup_date >= ? AND signup_date <= ?`
+      ).bind(range.start, range.end).first();
+      const prv: any = await env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM students_erp WHERE signup_date >= ? AND signup_date <= ?`
+      ).bind(prevRange.start, prevRange.end).first();
+      const c = num(cur?.c, 0), p = num(prv?.c, 0);
+      if (p >= 20 && c < p * 0.8) {
+        flags.push({
+          level: 'info',
+          title: '회사 전체 신규 등록도 함께 줄었습니다',
+          detail: `전사 신규 등록이 지난 기간 ${p}명 → 이번 기간 ${c}명(${Math.round((1 - c / p) * 100)}% 감소)입니다. 이번 기간의 부진은 개인 문제가 아닐 수 있습니다.`,
+        });
+      }
+    }
+  } catch { /* 명부가 없으면 이 검사만 건너뛴다 */ }
+
+  // ⑤ 목표가 과거 실적보다 지나치게 높은가 — 근거 없이 올린 목표는 평가가 아니라 벌칙이다.
+  const prevP2 = previousPeriod(range.months.length === 1 ? range.months[0] : `${range.start.slice(0, 4)}-H${Number(range.start.slice(5, 7)) <= 6 ? 1 : 2}`);
+  const prevRange2 = prevP2 ? parsePeriod(prevP2) : null;
+  if (prevRange2) {
+    const prevAuto = await computeAutoScores(env, rep, prevRange2, asOf);
+    if (prevAuto.deal_count > 0 && t.deals > prevAuto.deal_count * 2) {
+      flags.push({
+        level: 'warn',
+        title: '목표가 지난 기간 실적의 2배를 넘습니다',
+        detail: `지난 기간 실적 ${prevAuto.deal_count}곳인데 이번 목표는 ${t.deals}곳입니다. 근거 없이 올린 목표라면 낮은 점수는 사람이 아니라 목표의 문제입니다.`,
+      });
+    }
+  }
+
+  // ⑥ 기준선 기간인가 — 이 기간의 낮은 점수로 사람을 판단하면 안 된다.
+  if (isAdvisoryPeriod(rep, range)) {
+    flags.push({
+      level: 'info',
+      title: '기준선 기간입니다',
+      detail: `제도 시작 ${BASELINE_DAYS}일 안의 기간입니다(${baselineUntil(rep)}까지). 점수는 나오지만 상여에 연결되지 않습니다 — 이 기간 숫자로 사람을 판단하지 마세요.`,
+    });
+  }
+
+  return flags;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 권한 헬퍼
  * ═════════════════════════════════════════════════════════════════════════ */
 
@@ -1489,6 +1916,69 @@ export async function handleSalesHrApi(
     let draft = await parseDiaryByAI(env, text, leads);
     if (!draft) draft = parseDiaryByRules(text, leads);   // AI 가 없거나 실패해도 화면은 채워진다
     return json({ ok: true, draft, lead_count: leads.length });
+  }
+
+  // ── 🗺 오늘 어디부터 갈까 — 방문 우선순위 + 관리방문 필요 ─────────
+  if (path === '/api/admin/sales/next-visits' && method === 'GET') {
+    const repId = scopedRepId(url.searchParams.get('rep_id'));
+    if (repId == null) return json({ ok: false, error: 'rep_id_required' }, 400);
+    const asOf = todayISO();
+    const limit = Math.min(30, Math.max(1, num(url.searchParams.get('limit'), 10)));
+    const visits = await computeNextVisits(env, repId, asOf, limit);
+    const care = await computeCareDue(env, repId, asOf, 45, 10);
+    return json({ ok: true, as_of: asOf, visits, care_due: care });
+  }
+
+  // ── ⚠️ 위험한 학원 — 빠져나가기 «전» 에 ───────────────────────────
+  if (path === '/api/admin/sales/at-risk' && method === 'GET') {
+    const repId = scopedRepId(url.searchParams.get('rep_id'));
+    const asOf = todayISO();
+    const limit = Math.min(60, Math.max(1, num(url.searchParams.get('limit'), 40)));
+    const items = await computeAtRisk(env, hq && repId == null ? null : repId, asOf, limit);
+    return json({
+      ok: true, as_of: asOf, items,
+      counts: {
+        high: items.filter(i => i.level === 'high').length,
+        medium: items.filter(i => i.level === 'medium').length,
+        unknown: items.filter(i => i.level === 'unknown').length,
+      },
+    });
+  }
+
+  // ── 📰 주간·월간 보고서 ──────────────────────────────────────────
+  //   period=week / week-N / YYYY-MM / YYYY-H1
+  if (path === '/api/admin/sales/report' && method === 'GET') {
+    const repId = scopedRepId(url.searchParams.get('rep_id'));
+    if (repId == null) return json({ ok: false, error: 'rep_id_required' }, 400);
+    const rep0 = await getRep(env, repId);
+    if (!rep0) return json({ ok: false, error: 'rep_not_found' }, 404);
+
+    const asOf = todayISO();
+    const raw = String(url.searchParams.get('period') || 'week').trim();
+    let start = '', end = '', label = '';
+    const wm = /^week(?:-(\d+))?$/.exec(raw);
+    if (wm) {
+      const wk = weekRange(asOf, wm[1] ? Number(wm[1]) : 1);
+      start = wk.start; end = wk.end; label = `주간 (${wk.label})`;
+    } else {
+      const r = parsePeriod(raw);
+      if (!r) return json({ ok: false, error: 'bad_period' }, 400);
+      start = r.start; end = r.end; label = r.label;
+    }
+    const built = await buildSalesReport(env, rep0, start, end, asOf);
+    return json({ ok: true, rep_id: repId, rep_name: rep0.name, period_label: label, as_of: asOf, ...built });
+  }
+
+  // ── ⚖️ 공정성 감시 ───────────────────────────────────────────────
+  if (path === '/api/admin/sales/fairness' && method === 'GET') {
+    const repId = scopedRepId(url.searchParams.get('rep_id'));
+    const range = parsePeriod(String(url.searchParams.get('period') || ''));
+    if (repId == null || !range) return json({ ok: false, error: 'invalid' }, 400);
+    const rep0 = await getRep(env, repId);
+    if (!rep0) return json({ ok: false, error: 'rep_not_found' }, 404);
+    const asOf = todayISO();
+    const flags = await computeFairness(env, rep0, range, asOf);
+    return json({ ok: true, rep_id: repId, period_label: range.label, as_of: asOf, flags });
   }
 
   // ── 🔁 유지 여부 자동 판정 지금 실행 (본사만) ─────────────────────
