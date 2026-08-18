@@ -7358,14 +7358,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         원인: cafe24-sync 가 Neo4j (:Branch)→franchises, (:Center)→centers 로 넣는데
               한국어 라벨을 «가맹점/교육센터»로 붙여서 한 단계씩 어긋났다.
         테이블명은 정산·회계가 물려 있어 그대로 두고 «화면 라벨만» 고쳤다. -->
-<details class="table-card menu-card" id="card-franchises" data-menu-label-ko="조직 관리 (본사·지사)" data-menu-label-en="Organization (HQ · Branch)"
+<details class="table-card menu-card" id="card-franchises" data-menu-label-ko="조직 관리 (대표지사·지사·대리점)" data-menu-label-en="Organization (Master · Branch · Agency)"
          ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('franchises')">
-  <summary><span data-ko="🏢 조직 관리 (본사 › 지사)" data-en="🏢 Organization (HQ › Branch)">🏢 조직 관리 (본사 › 지사)</span></summary>
+  <summary><span data-ko="🏢 조직 관리 (대표지사 › 지사 › 대리점)" data-en="🏢 Organization (Master › Branch › Agency)">🏢 조직 관리 (대표지사 › 지사 › 대리점)</span></summary>
   <div class="menu-body">
 
     <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
-         data-ko="조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다."
-         data-en="Hierarchy: 🏯 HQ › 🏢 Branch › 🏪 Agency (Academy). The agency list lives in the “🏪 Agency (Academy)” card below.">조직 순서: 🏯 본사 › 🏢 지사 › 🏪 대리점(학원). 대리점(학원) 목록은 아래 «🏪 대리점(학원)» 카드에 있습니다.</div>
+         data-ko="조직 순서: 🏯 본사 › 🏛️ 대표지사 › 🏢 지사 › 🏪 대리점(학원). 아래 세 칸이 그 순서대로 있습니다."
+         data-en="Hierarchy: 🏯 HQ › 🏛️ Master Branch › 🏢 Branch › 🏪 Agency (Academy). The three sections below follow that order.">조직 순서: 🏯 본사 › 🏛️ 대표지사 › 🏢 지사 › 🏪 대리점(학원). 아래 세 칸이 그 순서대로 있습니다.</div>
 
     <!-- 🥭 Phase 44 — 하위 메뉴. 3)~8) 은 «표를 채우는 JS 가 저장소에 0곳»이라 영원히
          "데이터 없음" 만 뜨던 껍데기였다(2026-08-08 실측). 지워버리면 되살리기 어려워
@@ -7374,8 +7374,41 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             나머지 2)·3)·4)·6)·7)·8) 은 아직 껍데기라 그대로 감춰 둔다. -->
     <div class="sub-menu">
 
-      <!-- 1) 지사 — franchises 테이블(실데이터 241건) -->
-      <details class="sub-item">
+      <!-- 1) 🏛️ 대표지사 — 여러 지사를 묶는 «권역» 단위. (2026-08-18 사장님 수정요청 #03)
+           ⚠️ 2026-07 부터 칸은 있었지만 #mbranches-table 을 채우는 JS 가 저장소에 0곳이라
+              열면 «데이터 없음» 만 뜨는 껍데기였고, 그래서 display:none 으로 감춰 뒀었다.
+              이번에 서버(/api/admin/franchises?view=master)와 adm-core.js 배선을 붙여 되살린다.
+           ⚠️ 대표지사↔지사 매핑은 franchise_master_map 이라는 **별도 표**다.
+              franchises 에 컬럼을 붙이면 카페24 야간 동기화 UPSERT 가 덮어써서 하룻밤 만에 사라진다. -->
+      <details class="sub-item" id="card-master-branches"
+               ontoggle="if(this.open&&typeof loadMasterBranches==='function')loadMasterBranches()">
+        <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
+        <div class="sub-body">
+          <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+               data-ko="대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요."
+               data-en="A master branch groups several branches. Assign one per branch in the “🏢 Branch” table below.">대표지사는 여러 «지사» 를 묶는 권역 단위입니다. 아래 «🏢 지사» 표에서 지사마다 대표지사를 지정하세요.</div>
+          <details>
+            <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
+            <div class="menu-form">
+              <input id="mbr-name" placeholder="대표지사 이름 (필수)" data-ko-placeholder="대표지사 이름 (필수)" data-en-placeholder="Master branch name (required)" style="width:220px;" />
+              <input id="mbr-region" placeholder="담당 권역 (예: 영남)" data-ko-placeholder="담당 권역 (예: 영남)" data-en-placeholder="Region (e.g. Yeongnam)" style="width:160px;" />
+              <select id="mbr-tier" style="width:140px;">
+                <option value="" data-ko="등급…" data-en="Tier…">등급…</option>
+                <option data-ko="플래티넘" data-en="Platinum">플래티넘</option><option data-ko="골드" data-en="Gold">골드</option><option data-ko="실버" data-en="Silver">실버</option><option data-ko="일반" data-en="Standard">일반</option>
+              </select>
+              <input id="mbr-manager" placeholder="대표자" data-ko-placeholder="대표자" data-en-placeholder="Representative" style="width:120px;" />
+              <input id="mbr-phone" placeholder="전화번호" data-ko-placeholder="전화번호" data-en-placeholder="Phone" style="width:140px;" />
+              <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
+            </div>
+          </details>
+          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
+            <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
+        </div>
+      </details>
+
+      <!-- 2) 🏢 지사 — franchises 테이블(실데이터 241건)
+           ⚠️ id 는 사이드바 「운영자 ▸ 지사」 항목이 openSub 로 이 칸을 펼치는 데 쓴다(adm-ia6.js). -->
+      <details class="sub-item" id="sub-branches">
         <summary data-ko="🏢 지사" data-en="🏢 Branch">🏢 지사</summary>
         <div class="sub-body">
           <details>
@@ -7389,12 +7422,38 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
-            <tbody id="franchises-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
+          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
+            <tbody id="franchises-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
+
+          <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
+               지사를 고르면 그 지사 «소속» 대리점만 나온다. 이름으로 찾던 예전 방식은
+               centers.name / franchises.name 이 유일하지 않아 엉뚱한 지사 것이 섞여 나왔다
+               (CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로 안 잡힘」과 같은 뿌리).
+               서버는 franchise_id 로 거른다 — 이름이 겹쳐도 안 섞인다. -->
+          <div style="margin-top:16px;border-top:1px dashed #e5e7eb;padding-top:12px">
+            <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px"
+                 data-ko="🔎 지사 소속 대리점 찾기" data-en="🔎 Find agencies under a branch">🔎 지사 소속 대리점 찾기</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <select id="fba-branch" onchange="fbaSearch()" style="min-width:200px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px">
+                <option value="" data-ko="지사 선택…" data-en="Select branch…">지사 선택…</option>
+              </select>
+              <input id="fba-q" type="search" autocomplete="off" oninput="fbaSearch()"
+                     placeholder="대리점명을 입력하세요 (선택)"
+                     data-ko-placeholder="대리점명을 입력하세요 (선택)"
+                     data-en-placeholder="Type an agency name (optional)"
+                     style="flex:1;min-width:200px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
+              <span id="fba-count" style="font-size:12px;color:#6b7280"></span>
+            </div>
+            <div style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+                 data-ko="※ 지사를 고르지 않고 대리점명만 입력하면 «전체 지사» 에서 찾아 소속 지사를 알려 줍니다."
+                 data-en="※ Type a name without picking a branch to search all branches and see which branch it belongs to.">※ 지사를 고르지 않고 대리점명만 입력하면 «전체 지사» 에서 찾아 소속 지사를 알려 줍니다.</div>
+            <table style="margin-top:8px;"><thead><tr><th>ID</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="소속 지사" data-en="Branch">소속 지사</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+              <tbody id="fba-table"><tr><td colspan="5" class="empty" data-ko="지사를 고르거나 대리점명을 입력하세요." data-en="Pick a branch or type an agency name.">지사를 고르거나 대리점명을 입력하세요.</td></tr></tbody></table>
+          </div>
         </div>
       </details>
 
-      <!-- 1b) 🏪 대리점(학원) — centers 테이블(실데이터 921건).
+      <!-- 3) 🏪 대리점(학원) — centers 테이블(실데이터 921건).
            «교육센터»라는 옛 이름은 홈페이지에서 «필리핀 직영 센터»를 가리키는 말이라 두 뜻이었다.
            원래 별도 카드였는데, 조직이 본사 › 지사 › 대리점 한 흐름이라 여기로 합쳤다.
            ⚠️ id 를 «card-centers» 그대로 둔 것은 실수가 아니다 — 이 id 를 getElementById 로 찾는
@@ -9017,7 +9076,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=120" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=121" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=121: 2026-08-18 🏛️ 대표지사 배선(목록·등록·지사 배정) + 지사 소속 대리점 찾기
+     (이 브랜치는 v=107 → v=119 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
+      아래 v=104 때와 같은 상황이라 같은 방식으로 번호만 새로 딴다. adm-core.js 내용은
+      자동병합으로 양쪽이 다 들어가 있어 어느 쪽도 묻히지 않는다)
    · v=120: 2026-08-18 월간 회계 리포트의 «성격 미확인 입금» 줄·내역 펼치기 제거
      — main 이 그 사이 v=119 까지 가져가서 번호를 새로 딴다. 파일 내용은 자동병합으로 양쪽이 다 들어가 있다
    · v=119: 2026-08-18 분기 보고서·연간 결산 추이 표도 PC·인쇄에서 가로로 넘치던 것 수정
@@ -12106,7 +12169,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=27" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거) -->
+<script src="/js/adm-ia6.js?v=29" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

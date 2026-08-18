@@ -7454,14 +7454,91 @@ LIMIT $limit`;
     //   📦 fields=min → 드롭다운용 {id,name} 만(241건 25KB → 6KB)
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/franchises') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+
+      /* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03) — 조직을 «대표지사 › 지사 › 대리점» 으로 세운다.
+         화면(조직 관리 카드)에는 2026-07 부터 «🏛️ 대표지사» 칸이 있었지만 **배선이 하나도 없어서**
+         열면 «데이터 없음» 만 뜨는 껍데기였고, 그래서 display:none 으로 감춰 둔 상태였다.
+
+         ⚠️ 왜 franchises 에 컬럼을 안 붙이고 별도 표를 쓰나 —
+            franchises·centers 는 **카페24가 정본**이라 매일 밤 03:45 KST 동기화가 UPSERT 로 덮는다
+            (CLAUDE.md 「대리점의 지사 소속을 D1에서 고쳤는데 다음날 원복됨」). 대표지사는 카페24에
+            없는 «우리만의 묶음» 이라, 같은 표에 넣으면 하룻밤 만에 사라진다.
+            그래서 매핑을 franchise_master_map 에 따로 둔다 — center_franchise_override 와 같은 방식.
+
+         ⚠️ 왜 새 경로(/api/admin/master-branches)를 안 만들었나 —
+            새 /api 경로는 src/index.ts 의 라우팅 게이트·인증 게이트를 둘 다 통과해야 하는데
+            index.ts 는 공동 금지구역이다. 이미 세 관문이 다 열려 있는 이 경로에 붙인다. */
+      const ensureMaster = async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branches (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, region TEXT, tier TEXT, owner_name TEXT, phone TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      };
+
       if (method === 'GET') {
+        // 🏛️ view=master → 대표지사 목록 (+ 산하 지사 수)
+        if (url.searchParams.get('view') === 'master') {
+          await ensureMaster();
+          const rs = await env.DB.prepare(
+            `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
+               FROM master_branches m ORDER BY m.active DESC, m.name ASC`
+          ).all();
+          return json({ ok: true, items: rs.results || [] });
+        }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
-        const rs = await env.DB.prepare(`SELECT ${cols} FROM franchises ORDER BY active DESC, name ASC`).all();
+        if (cols === 'id, name') {
+          const rs = await env.DB.prepare(`SELECT id, name FROM franchises ORDER BY active DESC, name ASC`).all();
+          return json({ ok: true, items: rs.results || [] });
+        }
+        // 전체 목록에는 «어느 대표지사 소속인지» 를 함께 실어 준다(표에 컬럼 하나가 는다).
+        await ensureMaster();
+        const rs = await env.DB.prepare(
+          `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name
+             FROM franchises f
+             LEFT JOIN franchise_master_map mm ON mm.franchise_id = f.id
+             LEFT JOIN master_branches m ON m.id = mm.master_id
+            ORDER BY f.active DESC, f.name ASC`
+        ).all();
         return json({ ok: true, items: rs.results || [] });
       }
+
       const b = await parseJsonBody(request);
-      if (!b || !b.name) return invalidBody(['name']);
       const now = Date.now();
+
+      // 🏛️ 대표지사 등록
+      if (b && b.kind === 'master') {
+        if (!b.name) return invalidBody(['name']);
+        await ensureMaster();
+        const r = await env.DB.prepare(
+          `INSERT INTO master_branches (name, region, tier, owner_name, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(String(b.name).trim(), b.region || null, b.tier || null, b.owner_name || null, b.phone || null, now, now).run();
+        return json({ ok: true, id: r.meta.last_row_id });
+      }
+      // 🏛️ 지사 → 대표지사 배정 (master_id 가 비면 배정 해제)
+      if (b && b.kind === 'master_assign') {
+        const fid = parseInt(String(b.franchise_id || ''), 10);
+        if (!fid) return invalidBody(['franchise_id']);
+        await ensureMaster();
+        const mid = parseInt(String(b.master_id || ''), 10);
+        if (mid) {
+          await env.DB.prepare(
+            `INSERT INTO franchise_master_map (franchise_id, master_id, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(franchise_id) DO UPDATE SET master_id = excluded.master_id, updated_at = excluded.updated_at`
+          ).bind(fid, mid, now).run();
+        } else {
+          await env.DB.prepare(`DELETE FROM franchise_master_map WHERE franchise_id = ?`).bind(fid).run();
+        }
+        return json({ ok: true, franchise_id: fid, master_id: mid || null });
+      }
+      // 🏛️ 대표지사 «비활성» — 지우지 않는다. 산하 지사 매핑이 통째로 끊기면 되돌릴 길이 없다.
+      if (b && b.kind === 'master_active') {
+        const mid = parseInt(String(b.id || ''), 10);
+        if (!mid) return invalidBody(['id']);
+        await ensureMaster();
+        await env.DB.prepare(`UPDATE master_branches SET active = ?, updated_at = ? WHERE id = ?`)
+          .bind(b.active ? 1 : 0, now, mid).run();
+        return json({ ok: true, id: mid, active: b.active ? 1 : 0 });
+      }
+
+      if (!b || !b.name) return invalidBody(['name']);
       const r = await env.DB.prepare(
         `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
@@ -7598,6 +7675,13 @@ LIMIT $limit`;
           const like = `%${q}%`;
           binds.push(like, like, like, like);
         }
+        /* 🏢 (2026-08-18 사장님 수정요청 #05) 「지사에 소속된 대리점 찾기」 —
+           지금까지는 q 로 지사 «이름» 을 흉내내 찾는 수밖에 없었는데, 이름이 유일하지 않아서
+           (CLAUDE.md 「centers.name 이 유일하지 않습니다」) 엉뚱한 지사 것이 섞여 나왔다.
+           id 로 거르면 그 사고가 없다. */
+        const fidRaw = url.searchParams.get('franchise_id');
+        const fid = fidRaw ? parseInt(fidRaw, 10) : 0;
+        if (fid) { where.push(`c.franchise_id = ?`); binds.push(fid); }
         const whereSql = where.length ? ` WHERE ${where.join(' AND ')}` : '';
         // 미지정 = NULL 뿐 아니라 '' 같은 쓰레기값도 포함해야 «전체 = B2B+B2C+미지정» 이 맞는다.
         const IS_NONE = `(c.payment_type IS NULL OR c.payment_type NOT IN ('B2B','B2C'))`;
