@@ -7,7 +7,7 @@
  *   GET /api/admin/reports/franchise?period=YYYY-MM      가맹점별 정산서
  *   GET /api/admin/reports/payslips?period=YYYY-MM       강사별 급여명세서 (전체)
  *   GET /api/admin/reports/kpi?period=YYYY-MM            경영지표 (LTV·CAC·ROI·이익률)
- *   GET /api/admin/reports/statement?type=pl|bs|cf|tb&period=YYYY-MM  재무제표
+ *   GET /api/admin/reports/statement?type=pl|bs|cf|tb&period=YYYY-MM|YYYY-Qn  재무제표(월·분기)
  *   GET /api/admin/reports/tax?period=YYYY-MM            세무 자료 (부가세·원천세)
  *   GET /api/admin/reports/journal?period=YYYY-MM        회계 전표 / 분개장
  *   GET /api/admin/reports/receivables?kind=receivable|payable|pending  미수금/미지급금
@@ -1907,37 +1907,118 @@ async function kpiReport(env: Env, url: URL, fmt: string): Promise<Response> {
 // ────────────────────────────────────────────────────────────────────
 // 7) 재무제표 (손익계산서·재무상태표·현금흐름표·시산표)
 // ────────────────────────────────────────────────────────────────────
+/* 📅 재무제표 조회 기간 — 월(YYYY-MM) 과 분기(YYYY-Qn) 를 둘 다 받는다 (2026-08-18 신설).
+   분기는 «그 분기 3개월치를 합산» 한다. 합산은 월별 계산(monthPL·monthCash)을 그대로
+   3번 돌려 더하는 방식이다 — 그래야 월 화면과 분기 화면의 숫자가 구조적으로 어긋날 수 없다.
+   ⚠️ 잔액성 항목(통장 잔액·미지급 급여)은 «더하면 안 되는» 값이라 분기 마지막 달 기준으로 본다.
+   표기는 사장님 요청대로 «2026 1분기» 형태(20XX N분기). */
+const STATEMENT_QUARTER_RE = /^(\d{4})-?[Qq]([1-4])$/;
+
+function statementPeriod(period: string):
+  { months: string[]; label: string; endLabel: string; isQuarter: boolean } {
+  const q = STATEMENT_QUARTER_RE.exec(String(period).trim());
+  if (q) {
+    const y = Number(q[1]), n = Number(q[2]);
+    const { months } = quarterRange(y, n);
+    const sm = (n - 1) * 3 + 1;
+    return {
+      months,
+      label: `${y} ${n}분기 (${sm}~${sm + 2}월 합산)`,
+      endLabel: `${y} ${n}분기 말`,
+      isQuarter: true,
+    };
+  }
+  let label: string;
+  try { label = monthRange(period).label; }
+  catch { throw new Error('invalid period (YYYY-MM 또는 YYYY-Qn)'); }
+  return { months: [period], label, endLabel: `${label} 말`, isQuarter: false };
+}
+
+/* 📊 재무제표가 쓰는 «기간 합계». 달이 하나면 그 달, 분기면 3개월 합.
+   숫자의 출처는 여전히 monthPL()/monthCash() 하나뿐이다(규칙이 갈라지지 않게). */
+async function statementBasis(env: Env, months: string[]) {
+  const parts = await Promise.all(months.map(async m => ({
+    pl: await monthPL(env, m),
+    cash: await monthCash(env, m),
+  })));
+  const sum = (f: (p: typeof parts[number]) => number) => parts.reduce((a, p) => a + f(p), 0);
+  /* 🏷️ 계좌 출금은 계정과목 이름으로 합친다 — 3개월치가 «임대료» 세 줄로 늘어서면 못 읽는다. */
+  const bankMap = new Map<string, number>();
+  for (const p of parts) {
+    for (const b of p.pl.ax.bankRows) {
+      bankMap.set(b.category, (bankMap.get(b.category) || 0) + (Number(b.total) || 0));
+    }
+  }
+  const bankRows = [...bankMap].map(([category, total]) => ({ category, total }))
+    .sort((a, b) => b.total - a.total);
+  return {
+    revBook: sum(p => p.pl.rev.book),
+    revB2b: sum(p => p.pl.rev.b2b),
+    revTotal: sum(p => p.pl.rev.total),
+    payCount: sum(p => p.pl.rev.payCount),
+    b2bCount: sum(p => p.pl.rev.dep.b2bRows.length),
+    depPg: sum(p => p.pl.rev.dep.pg),
+    /* 「케이씨피M」(운영자금 이체)은 손익계산서가 한 줄도 쓰지 않으므로 여기서도 세지 않는다.
+       그 사실은 월간 회계 리포트의 «운영자금 보충» 줄이 그대로 보여 준다(#235). */
+    transferUnknown: sum(p => p.pl.rev.dep.transferUnknown),
+    payroll: sum(p => p.pl.payroll.total),
+    payrollEff: sum(p => p.pl.payrollEff),
+    pgFee: sum(p => p.pl.pgFee),
+    opCost: sum(p => p.pl.opCost),
+    /* 🧾 부가세는 달마다 «그 달 매출 ÷ 11» 로 계산해 더한다(월 화면 합과 1원도 안 어긋나게) */
+    tax: sum(p => Math.round(p.pl.rev.total / 11)),
+    ax: {
+      cardSpend: sum(p => p.pl.ax.cardSpend),
+      bankRows,
+      bankOpex: sum(p => p.pl.ax.bankOpex),
+      bankDup: sum(p => p.pl.ax.bankDup),
+      teacherPayout: sum(p => p.pl.ax.teacherPayout),
+      refunds: sum(p => p.pl.ax.refunds),
+      // 한 달이라도 신한 실데이터가 있으면 «추정» 이 아니라 실데이터 기준으로 그린다
+      hasActual: parts.some(p => p.pl.ax.hasActual),
+    },
+    cash: {
+      cin: sum(p => p.cash.cin), cout: sum(p => p.cash.cout),
+      n: sum(p => p.cash.n), pg: sum(p => p.cash.pg),
+    },
+  };
+}
+
 async function statementReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const type = (url.searchParams.get('type') || 'pl').toLowerCase();
   const period = url.searchParams.get('period') || currentMonth();
-  const { startMs, endMs, label } = monthRange(period);
+  const { months, label, endLabel, isQuarter } = statementPeriod(period);
+  const lastMonth = months[months.length - 1];
+  const startMs = monthRange(months[0]).startMs;
+  const endMs = monthRange(lastMonth).endMs;
+  const periodWord = isQuarter ? '당분기' : '당월';
 
   /* 💰 매출·비용은 monthPL() 한 곳에서 — 월간 리포트와 숫자가 어긋나지 않게(2026-08-16).
-     매출에는 통장 B2B 직접입금이 포함된다. */
-  const plM = await monthPL(env, period);
-  const rev = { revenue: plM.rev.total, pay_count: plM.rev.payCount };
-  const payroll = plM.payroll.total;
-  const ax = plM.ax;
+     매출에는 통장 B2B 직접입금이 포함된다. 분기면 3개월치를 합산한 값이다(2026-08-18). */
+  const B = await statementBasis(env, months);
+  const rev = { revenue: B.revTotal, pay_count: B.payCount };
+  const payroll = B.payroll;
+  const ax = B.ax;
   /* 💵 통장 기준 사실 — 손익계산서도 월간 리포트와 똑같이 «매출 누락» 을 밝히고
      실제 현금흐름을 함께 보여 준다. 화면마다 말이 다르면 안 된다(2026-08-16 제보).
      비교 대상은 «진짜 PG 정산분 vs 장부 결제 매출» 이다(B2B 직접입금은 PG 를 안 거친다). */
-  const plCash = await monthCash(env, period);
-  const plGap = revenueGapOf(plM.rev.dep.pg, plM.rev.book);
+  const plCash = B.cash;
+  const plGap = revenueGapOf(B.depPg, B.revBook);
   const { cardSpend, bankRows: bankOpexRows, bankOpex, bankDup, hasActual } = ax;
-  const opCost = plM.opCost;
-  const pgFee = plM.pgFee;
+  const opCost = B.opCost;
+  const pgFee = B.pgFee;
 
   /* 🧾 부가세 — 예전엔 «매출 × 3%» 라는 근거 없는 식이었다. 우리 매출은 부가세 포함
      금액이므로 예수 부가세 = 매출 ÷ 11 이 정본이다. 매입세액 공제는 세금계산서 자료가
      없어 반영하지 못한다 → 여전히 «추정» 이라고 밝힌다(2026-08-16). */
-  const tax = Math.round(rev.revenue / 11);
+  const tax = B.tax;
 
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
 
   /* 🧑‍🏫 강사 급여 — 급여명세(payslips)가 있으면 그것이 정본. 비어 있으면 신한 계좌의
      강사 송금(메트로은행, 실데이터)으로 대신한다. 둘 다 있으면 급여명세를 쓰고 송금분은
      중복이라 제외(안내 줄 표시). 💸 학생 환불은 비용이 아니라 매출 차감(2026-08-15 확인). */
-  const payrollEff = plM.payrollEff;
+  const payrollEff = B.payrollEff;
   const payrollFromBank = payroll <= 0 && ax.teacherPayout > 0;
   const revNet = rev.revenue - ax.refunds;
 
@@ -1947,12 +2028,13 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   const operatingProfit = grossProfit - opCost;
 
   /* 🏦 통장 실제 잔액 — 재무상태표의 «현금» 을 «매출 × 70%» 로 지어내던 것을 대체한다.
-     그 달 마지막 거래의 balance 가 월말 잔액이다. 마이너스면 마이너스 그대로 쓴다. */
+     그 달 마지막 거래의 balance 가 월말 잔액이다. 마이너스면 마이너스 그대로 쓴다.
+     분기 조회면 «분기 마지막 달» 의 잔액이다 — 잔액은 더하는 값이 아니다(2026-08-18). */
   const cashActual = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT balance FROM bankacct_transactions WHERE substr(trans_at,1,7)<=?
       ORDER BY trans_at DESC, id DESC LIMIT 1
-    `).bind(period).first<{ balance: number }>();
+    `).bind(lastMonth).first<{ balance: number }>();
     return r ? Number(r.balance) : null;
   }, null as number | null);
 
@@ -1962,7 +2044,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const r = await env.DB.prepare(`
       SELECT COALESCE(SUM(payment_krw),0) AS t FROM payslips
       WHERE COALESCE(paid,0)=0 AND period<=? AND ${realPayslipSql()}
-    `).bind(period).first<{ t: number }>();
+    `).bind(lastMonth).first<{ t: number }>();
     return Number(r?.t) || 0;
   }, 0);
 
@@ -1971,12 +2053,15 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
   if (type === 'pl') {
     // 손익계산서 (Income Statement / Profit & Loss)
     data = {
-      ok: true, type: 'pl', period, label: `손익계산서 (P&L) — ${label}`,
+      ok: true, type: 'pl', period, months, is_quarter: isQuarter,
+      label: `손익계산서 (P&L) — ${label}`,
       sections: [
         { title: 'I. 매출액 (Revenue)', items: [
-          { name: '수업료 매출 (카페24 등 결제)', amount: plM.rev.book },
-          ...(plM.rev.b2b > 0
-            ? [{ name: `통장 직접입금 (B2B ${plM.rev.dep.b2bRows.length}건 · 신한 실데이터)`, amount: plM.rev.b2b }]
+          /* 📅 분기 조회는 «3개월치를 더한 값» 이다. 표만 보고 한 달치로 오해하지 않도록 밝힌다. */
+          ...(isQuarter ? [{ name: `※ ${label} — ${months.join(' · ')} 3개월치를 합산한 금액입니다.`, sub: true }] : []),
+          { name: '수업료 매출 (카페24 등 결제)', amount: B.revBook },
+          ...(B.revB2b > 0
+            ? [{ name: `통장 직접입금 (B2B ${B.b2bCount}건 · 신한 실데이터)`, amount: B.revB2b }]
             : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
           /* ⛔ 확인이 끝난 자기 계좌 간 자금 이동은 손익계산서에서 **한 줄도 쓰지 않는다**
@@ -1985,12 +2070,13 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
              ℹ️ 같은 날 추가 지시로 **월간 회계 리포트에서도** 그 줄과 내역 펼치기를 걷어냈다
                 (구 «운영자금 보충» 줄). 세 화면(월간·손익·대사)이 같은 기준이다.
              ⚠️ transferUnknown(정체가 아직 확인 안 된 「케이씨피」 변형)은 다른 얘기라 남긴다 —
-                «매출인지 아닌지 사람이 판단해야 하는 돈» 이라 손익에서 숨기면 안 된다. */
-          ...(plM.rev.dep.transferUnknown > 0
-            ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${plM.rev.dep.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
+                «매출인지 아닌지 사람이 판단해야 하는 돈» 이라 손익에서 숨기면 안 된다.
+                (분기 조회면 그 분기 3개월치를 합한 금액이다 — 2026-08-18) */
+          ...(B.transferUnknown > 0
+            ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${B.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
-          ...(plGap > 0 ? [{ name: `⚠️ 이 달 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
+          ...(plGap > 0 ? [{ name: `⚠️ ${isQuarter ? '이 분기' : '이 달'} 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
         ]},
         { title: 'II. 매출원가 (COGS)', items: [
@@ -2056,7 +2142,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const equity = totalAssets - totalLiabilities;
     const missing = ['미수금(학생 미납)', '유형자산(장비·집기)', '기타 예금·보증금'];
     data = {
-      ok: true, type: 'bs', period, label: `재무상태표 (BS) — ${label} 말 기준`,
+      ok: true, type: 'bs', period, months, is_quarter: isQuarter,
+      label: `재무상태표 (BS) — ${endLabel} 기준`,
       partial: true,
       sections: [
         { title: 'I. 자산 (Assets)', items: [
@@ -2080,7 +2167,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
       ],
       summary: { assets: totalAssets, liabilities: totalLiabilities, equity,
         cash_source: (cashActual == null ? 'none' : 'actual') as FigureSource, missing },
-      notes: ['이 표는 «완전한 재무상태표가 아닙니다». 통장 잔액과 미지급 급여처럼 시스템이 실제로 아는 것만 담았습니다. 자산대장·미수금 명세를 등록하면 그때 완성됩니다.'],
+      notes: [...(isQuarter ? ['잔액(통장 잔액·미지급 급여)은 더하는 값이 아니라서 «분기 마지막 달» 기준으로 보여 줍니다. 부가세는 3개월치 합계입니다.'] : []),
+        '이 표는 «완전한 재무상태표가 아닙니다». 통장 잔액과 미지급 급여처럼 시스템이 실제로 아는 것만 담았습니다. 자산대장·미수금 명세를 등록하면 그때 완성됩니다.'],
     };
   }
   else if (type === 'cf') {
@@ -2092,7 +2180,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const financingNet = 0;                                 // 차입/상환 추정
     const netCashChange = operatingNet + investingNet + financingNet;
     data = {
-      ok: true, type: 'cf', period, label: `현금흐름표 (CF) — ${label}`,
+      ok: true, type: 'cf', period, months, is_quarter: isQuarter,
+      label: `현금흐름표 (CF) — ${label}`,
       sections: [
         { title: 'I. 영업활동 현금흐름 (Operating)', items: [
           { name: '학생 결제 수금', amount: operatingIn },
@@ -2133,7 +2222,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
        이렇게 하면 차변 합 = 대변 합 이 «구조적으로» 보장된다. */
     const cashDelta = rev.revenue - payrollEff - pgFee - opCost - tax - ax.refunds;
     const lines = [
-      { name: '현금 (당월 증감)', amount: Math.abs(cashDelta), debit: cashDelta >= 0, credit: cashDelta < 0 },
+      { name: `현금 (${periodWord} 증감)`, amount: Math.abs(cashDelta), debit: cashDelta >= 0, credit: cashDelta < 0 },
       { name: '인건비 (강사 급여)', amount: payrollEff, debit: true },
       { name: '지급수수료 (PG)', amount: pgFee, debit: true },
       { name: '운영비 (판관비)', amount: opCost, debit: true },
@@ -2144,8 +2233,9 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
     const debitTotal = lines.filter(l => l.debit).reduce((a, l) => a + l.amount, 0);
     const creditTotal = lines.filter(l => l.credit).reduce((a, l) => a + l.amount, 0);
     data = {
-      ok: true, type: 'tb', period, label: `시산표 (Trial Balance) — ${label}`,
-      sections: [{ title: '계정과목별 잔액 (당월 발생분)', items: lines }],
+      ok: true, type: 'tb', period, months, is_quarter: isQuarter,
+      label: `시산표 (Trial Balance) — ${label}`,
+      sections: [{ title: `계정과목별 잔액 (${periodWord} 발생분)`, items: lines }],
       summary: {
         debit_total: debitTotal,
         credit_total: creditTotal,
@@ -2153,7 +2243,7 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         difference: debitTotal - creditTotal,
       },
       notes: [
-        '당월에 «발생한» 거래만 담은 시산표입니다(이월 잔액은 포함하지 않습니다).',
+        `${periodWord}에 «발생한» 거래만 담은 시산표입니다(이월 잔액은 포함하지 않습니다).`,
         debitTotal === creditTotal ? '차변 합계와 대변 합계가 일치합니다.' : '⚠ 차변과 대변이 어긋납니다 — 개발자에게 알려 주세요.',
       ],
     };
@@ -2326,14 +2416,30 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
 
   let rows: any[] = [];
   let label = '';
+  let b2cExcluded = 0;   // B2C(선불)라서 미수금에서 뺀 학생 수 — 화면 각주용
   if (kind === 'receivable') {
-    // 학생 만료 임박 + 미납 (status IN ('정상','활동','active') 인데 end_date 가 지났거나, pending 결제)
+    /* 학생 미수금 — status 는 활동인데 end_date 가 지난 학생.
+
+       🔁 (2026-08-18 사장님 지시) **B2C 학생은 미수금이 아니다.**
+          B2C(개인 결제)는 선불이다 — 결제한 만큼만 수업이 나가고 끝난다. 그러니
+          수업이 끝나 있는 것은 «못 받은 돈» 이 아니라 «아직 연장을 안 한 것» 이다.
+          받을 돈이 없는 사람을 미수금 표에 올려 두면 장부가 거짓말을 한다.
+          → 여기서 통째로 뺀다. 그들의 «미연장» 은 회계관리 ▸ 수강료 미연장 자동 알림에서 본다.
+
+          판정 정본은 대리점 지정값 centers.payment_type 이고, 학생 → 대리점 연결은
+          students_erp.shop_name = centers.name 이다(결제 목록 paymentsList 와 같은 규칙).
+          ⚠️ 상관 서브쿼리(EXISTS)로 쓰면 같은 판정에 1,900만 행을 읽는다(실측).
+             NOT IN (SELECT …) 은 부질의를 한 번만 만들어 4만 행이면 끝난다. 이 형태를 유지할 것.
+          ⚠️ centers.name 이 유일하지 않아도 «이름 집합에 있나» 만 보므로 행 뻥튀기가 없다. */
+    const B2C_EXCLUDE_SQL = `(s.shop_name IS NULL OR s.shop_name NOT IN
+        (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))`;
     rows = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT user_id, korean_name, end_date,
-               (julianday(?) - julianday(end_date)) AS days_overdue
-        FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT s.user_id, s.korean_name, s.end_date,
+               (julianday(?) - julianday(s.end_date)) AS days_overdue
+        FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND ${B2C_EXCLUDE_SQL}
         ORDER BY days_overdue DESC LIMIT 200
       `).bind(todayKst, todayKst).all();
       return ((r.results || []) as Array<any>).map(s => ({
@@ -2342,10 +2448,19 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
         issued: s.end_date,
         amount: 0, // 실제 미납 금액은 enrollments.monthly_fee_krw 또는 별도 테이블 필요
         days: Math.floor(s.days_overdue || 0),
-        note: '수강 만료 후 미연장',
+        note: '수강 만료 후 미납 (B2B)',
       }));
     }, []);
-    label = '학생 미수금 (수강 만료 후 미연장)';
+    // 몇 명을 B2C 라서 뺐는지 — 화면에 근거로 적어 준다("갑자기 줄었다"는 오해 방지)
+    b2cExcluded = await safe(async () => {
+      const r = await env.DB.prepare(`
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND NOT ${B2C_EXCLUDE_SQL}
+      `).bind(todayKst).first<{ c: number }>();
+      return Number(r?.c) || 0;
+    }, 0);
+    label = '학생 미수금 (B2B 수강 만료 후 미납 · B2C 제외)';
   } else if (kind === 'payable') {
     // 강사 미지급 (payslips 에서 paid=0 인 것)
     rows = await safe(async () => {
@@ -2395,12 +2510,15 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   if (kind === 'receivable') {
     candidates = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT COUNT(*) AS c FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND (s.shop_name IS NULL OR s.shop_name NOT IN
+               (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))
       `).bind(todayKst).first<{ c: number }>();
       return Number(r?.c) || 0;
     }, totals.count);
     if (candidates > rows.length) rNotes.push(`대상 ${candidates.toLocaleString('ko-KR')}명 중 경과일이 긴 ${rows.length}명만 표시했습니다.`);
+    if (b2cExcluded > 0) rNotes.push(`B2C(개인 결제) ${b2cExcluded.toLocaleString('ko-KR')}명은 제외했습니다 — 결제한 만큼만 수업이 나가는 선불 구조라 미수금이 아니라 «미연장»입니다. 「회계관리 ▸ 수강료 미연장 자동 알림」에서 확인하세요.`);
     rNotes.push('금액이 모두 0원인 이유: 학생별 수강료 단가가 시스템에 없어 미납액을 계산할 수 없습니다. 수강료 정보를 등록하면 금액이 채워집니다.');
     rNotes.push('원부에 퇴원 처리가 안 된 옛 학생이 섞여 있을 수 있습니다 — 실제 미수금과 다를 수 있습니다.');
   } else if (kind === 'pending') {
@@ -2408,6 +2526,7 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   }
 
   const data = { ok: true, type: 'receivables', kind, label, rows, totals, candidates, notes: rNotes,
+    b2c_excluded: b2cExcluded,
     amount_source: (kind === 'receivable' ? 'none' : 'actual') as FigureSource };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
