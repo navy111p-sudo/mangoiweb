@@ -2384,7 +2384,12 @@
       <!-- 11-2. 🔍 매출–입금 대사 (장부 vs 통장) — 2026-08-16
            장부 매출이 통장 입금보다 8,100만 많던 사고(시연용 시드 결제 혼입)를
            숫자로 바로 잡아내려고 만든 카드. 월별 어긋남은 PG 정산 시차라 정상이므로
-           «누적 합계» 로 판정한다. -->
+           «누적 합계» 로 판정한다.
+           ⚠️ 2026-08-18 기준 전환(사장님 지시): **통장이 기준**이다 —
+              신한 통장에 실제로 들어온 「케이씨피」 정산금만 대사 대상이고,
+              「케이씨피M」(하나은행 운영자금)·B2B 직접입금·기타 입금은 제외한다.
+              장부 쪽도 KCP 정산 대상 결제만 센다. 계산은 src/accounting-reports.ts
+              의 reconcileReport()/reconcileMonth() 한 곳에서 나온다. -->
       <details class="sub-item">
         <summary data-ko="🔍 매출–입금 대사 (장부 vs 통장)" data-en="🔍 Revenue vs Deposits">🔍 매출–입금 대사 (장부 vs 통장)</summary>
         <div class="sub-body">
@@ -2398,7 +2403,7 @@
             <button onclick="accReconcileExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
           </div>
           <div id="acc-rc-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
-            <div style="text-align:center;color:#6b7280" data-ko="[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다." data-en="Click [Reconcile] to compare recorded revenue against actual bank deposits.">[대사 실행]을 누르면 장부 매출과 통장 입금을 월별로 맞춰 봅니다.</div>
+            <div style="text-align:center;color:#6b7280" data-ko="[대사 실행]을 누르면 통장에 들어온 「케이씨피」 정산금을 기준으로 장부 매출을 월별로 맞춰 봅니다." data-en="Click [Reconcile] to reconcile the ledger against KCP settlements actually deposited in the bank account.">[대사 실행]을 누르면 통장에 들어온 「케이씨피」 정산금을 기준으로 장부 매출을 월별로 맞춰 봅니다.</div>
           </div>
         </div>
       </details>
@@ -9001,7 +9006,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=105" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=105: 2026-08-18 환불/취소 목록에 학생 이름·아이디·결제 일자 추가
+<script src="/js/adm-core.js?v=106" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=106: 2026-08-18 매출–입금 대사를 «통장 기준» 으로
+     (또 둘이 «각자» v=105 를 써서 번호를 새로 딴다 — 아래 v=104 때와 같은 상황이고, 파일 내용은 자동병합으로 둘 다 들어가 있다)
+   · v=105: 2026-08-18 환불/취소 목록에 학생 이름·아이디·결제 일자 추가
      (+ 날짜가 ×1000 되어 서기 5만년으로 찍히던 것 수정 — paid_at 은 초가 아니라 밀리초다)
    · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
      ① main: PG 수수료율을 서버 값(pg_fee_rate)에서 받아 쓰기(화면 3곳에 3.3% 가 박혀 있었다)

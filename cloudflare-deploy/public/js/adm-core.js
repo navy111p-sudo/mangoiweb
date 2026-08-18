@@ -10530,10 +10530,13 @@ window.rebuildGlobalSearchIndex = function() {
       no_data: ['#374151', '#f9fafb', '#d1d5db', 'ℹ️ 이 달은 통장 자료가 없습니다'],
     }[rec.verdict] || null;
     if (!V) return '';
+    /* 기준은 통장이다(2026-08-18) — 실제로 들어온 「케이씨피」 정산금을 먼저 말하고,
+       장부는 그 옆에 붙인다. 차이(%)의 분모도 통장이다. */
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        장부 매출 <b>${fmtKRW(rec.revenue)}</b> → 수수료 ${window.pgFeeRateLabel()}를 뺀 예상 입금 <b>${fmtKRW(rec.expected)}</b> ·
-        실제 PG 정산 입금 <b>${fmtKRW(rec.deposit_pg)}</b> (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, ${rec.diff_pct}%)
+        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b> → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
+        장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
+        (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
       </div>`;
     const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
       .map(t => `<div style="margin-top:6px;font-size:12px;color:#374151">· ${esc(t)}</div>`).join('');
@@ -11698,7 +11701,10 @@ window.rebuildGlobalSearchIndex = function() {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
     }
   };
-  /* 🔍 매출–입금 대사 (2026-08-16) — 장부 매출 vs 통장 입금.
+  /* 🔍 매출–입금 대사 (2026-08-16, 2026-08-18 기준 전환) — 통장 「케이씨피」 입금이 기준.
+     · 기준 = 신한 통장에 실제로 들어온 「케이씨피」 정산금 → 수수료 역산 = «통장 기준 매출»
+     · 장부 매출·예상 입금은 그 옆에 놓는 비교값이다(장부는 KCP 정산 대상 결제만 센다)
+     · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에서 제외 — 금액만 아래 «참고» 로 밝힌다
      월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
   function _rcUrl(format){
     const m = (document.getElementById('acc-rc-months') || {}).value || '6';
@@ -11721,14 +11727,15 @@ window.rebuildGlobalSearchIndex = function() {
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
       html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}%)</div>
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}% · 통장 기준)</div>
         <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
-        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb;background:#fff7ed">실제 PG 입금<br><span style="font-weight:400;color:#c2410c">기준 · 통장</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb;background:#fff7ed">통장 기준 매출<br><span style="font-weight:400;color:#c2410c">수수료 역산</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출<br><span style="font-weight:400;color:#6b7280">KCP 정산 대상</span></th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 ' + window.pgFeeRateLabel() + ' 차감</span></th>'
-        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">실제 PG 입금</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">차이</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">기타 입금<br><span style="font-weight:400;color:#6b7280">참고</span></th>'
         + '</tr></thead><tbody>';
@@ -11736,23 +11743,33 @@ window.rebuildGlobalSearchIndex = function() {
         const dc = row.diff == null ? '#9ca3af' : (row.diff < 0 ? '#dc2626' : '#059669');
         html += `<tr style="border-bottom:1px solid #f3f4f6">
           <td style="padding:6px 8px;font-weight:600">${_esc(row.period)}</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:700;background:#fffbf5">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
+          <td style="padding:6px 8px;text-align:right;background:#fffbf5">${row.bank_revenue == null ? '<span style="color:#9ca3af">—</span>' : _fmt(row.bank_revenue)}</td>
           <td style="padding:6px 8px;text-align:right">${_fmt(row.revenue)}</td>
           <td style="padding:6px 8px;text-align:right;color:#6b7280">${_fmt(row.expected)}</td>
-          <td style="padding:6px 8px;text-align:right">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
           <td style="padding:6px 8px;text-align:right;font-weight:700;color:${dc}">${row.diff == null ? '—' : _fmt(row.diff)}</td>
           <td style="padding:6px 8px;text-align:right;color:#9ca3af">${row.has_bank ? _fmt(row.deposit_other) : '—'}</td></tr>`;
       });
       html += `<tr style="background:#fef3c7;font-weight:800">
-        <td style="padding:7px 8px">누적 합계</td>
+        <td style="padding:7px 8px">누적 합계${d.reconciled_months ? `<br><span style="font-weight:400;font-size:10px;color:#92400e">통장 자료 있는 ${d.reconciled_months}개월</span>` : ''}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.bank_revenue)}</td>
         <td style="padding:7px 8px;text-align:right">${_fmt(t.revenue)}</td>
         <td style="padding:7px 8px;text-align:right">${_fmt(t.expected)}</td>
-        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
         <td style="padding:7px 8px;text-align:right;color:${t.diff < 0 ? '#dc2626' : '#059669'}">${_fmt(t.diff)}</td>
         <td></td></tr></tbody></table>`;
+      const notes = [d.transfer_note, d.b2b_note, d.non_kcp_note, d.no_bank_note].filter(Boolean);
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
+        ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
+        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 「케이씨피M」(하나은행 운영자금)·통장 직접입금(B2B)·기타 입금은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
         ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
+      if (notes.length) {
+        html += '<div style="margin-top:8px;background:#f9fafb;border:1px solid #e5e7eb;border-left:4px solid #94a3b8;border-radius:8px;padding:8px 10px;font-size:11px;color:#475569;line-height:1.7">'
+          + '<b style="color:#334155">대사에서 뺀 금액</b><br>'
+          + notes.map(n => '· ' + _esc(n)).join('<br>') + '</div>';
+      }
       wrap.innerHTML = html;
     } catch(e) {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
