@@ -1,42 +1,56 @@
 // ═══════════════════════════════════════════════════════════════
-// adm-r25.js — admin.html 인라인 추출 (2단계 33차, 2026-07-14)
-//   외부 classic script, 전역 스코프 공유. 원복=이 위치에 인라인.
+// adm-r25.js — 사이드바 3단계 «손자 메뉴»(ph125)
+//   외부 classic script, 전역 스코프 공유. 원복=admin.html 의 이 위치에 인라인.
+//
+// 🔑 (2026-08-18 전면 교체) 손자 이름을 «손으로 적지 않는다».
+//   예전엔 카드마다 이름 4개씩을 손으로 적어 둔 MAP 이 있었는데, 그 머리말이 스스로
+//   «데모 매핑» 이라고 밝히고 있었다 — 카드에 그런 칸이 없어도 메뉴가 비어 보이지 않게
+//   **이름만 지어 넣은 것**이다. 누르면 「카드 안 N번째 details」로 가는 방식이라,
+//   그런 칸이 0개인 카드(63개)에서는 무엇을 눌러도 카드 전체가 한 번 반짝이고 끝났다.
+//   에러가 안 나서 죽은 줄도 몰랐고, 실제로 「학생 명부 ▸ 2 학생 상세 프로필」을 누르면
+//   엉뚱하게 「⏰ 만료 임박 학생」이 열렸다(사장님 지적).
+//
+//   → 이제 손자는 **카드 안에 진짜로 있는 접이칸(details)을 화면에서 그대로 읽어** 만든다.
+//      · 이름   = 그 칸의 summary 글자 그대로 → 어긋날 수가 없다
+//      · 목적지 = 그 칸 자체(DOM 참조) → id 가 없어도, 같은 id 가 두 벌 있어도 정확하다
+//      · 용량   = 목록을 안 들고 다니므로 **다운로드가 늘지 않는다**(오히려 6KB 줄었다)
+//   ⛔ 없는 칸을 이름으로 지어 넣지 말 것. 그러면 위 사고가 그대로 재현된다.
+//      카드에 손자를 만들고 싶으면 **카드 안에 진짜 칸(details.sub-item)을 만드세요.**
 // ═══════════════════════════════════════════════════════════════
 (function(){
   'use strict';
 
-  // ph124 의 GRANDCHILDREN_MAP 재사용 — global 로 노출
-  if (!window.GRANDCHILDREN_MAP) {
-    // ph124 에서 정의했지만 클로저 안일 경우 대비 — 기본 빈 매핑
-    window.GRANDCHILDREN_MAP = {};
-  }
-
-  // 데모 매핑 (ph124와 동일 — fallback)
+  /* MAP — «수기 anchor 목록». 하니스(admin_grandchild_menu_harness ②-2)가
+     이 16+1개 카드는 객체({ko,en,anchor}) 형태를 유지하라고 못 박고 있다(2026-08-18 main).
+     여기 없는 카드는 아래 scan() 이 카드 안 실제 칸(details.sub-item / [data-gc])을 읽어 그린다.
+     ⚠️ 문자열 목록으로 되돌리지 말 것 — 문자열은 «카드 안 N번째로 점프» 라 카드 구조가
+        바뀌면 아무 소리 없이 엉뚱한 칸이 열린다(옛 «데모 매핑» 사고).
+     ⚠️ anchor id 는 admin.html 의 그 <details> 에 달려 있고 문서 안에서 유일해야 한다
+        (sm-bulk-msg 가 안의 textarea id 와 겹쳐 발송이 깨졌던 실사고 — 하니스가 감시). */
   var MAP = {
     'card-eval-mgmt':           [
       { ko:'➕ 빠른 평가서 작성',                en:'➕ Quick Evaluation', anchor:'sub-eval-create' },
       { ko:'📋 평가서 목록 + 통계',              en:'📋 List & Stats', anchor:'sub-eval-list' }
     ],
-    'card-bulk-eval':           ['일괄 평가 폼','학생 그룹 선택','일괄 발송','진행 상황'],
-    'card-ai-lesson-report':    ['AI 리포트 생성','음성 STT 검토','자동 요약 편집','학부모 발송'],
-    'card-ai-eval-draft':       ['초안 생성','수정·다듬기','승인·확정','발송'],
-    'card-monthly-report':      ['이번달 리포트','지난달 비교','커리큘럼 진도','출석 통계'],
-    'card-comparison-report':   ['학생 간 비교','기간별 추이','학원 평균 대비','학년별 분포'],
+
     'card-webpush-mgmt':        [
       { ko:'📡 푸시 상태 + VAPID',  en:'📡 Push Status + VAPID', anchor:'sub-webpush-1' },
       { ko:'👥 구독자 목록',                   en:'👥 Subscribers', anchor:'sub-webpush-2' },
       { ko:'📤 푸시 발송',                    en:'📤 Send Push', anchor:'sub-webpush-3' },
       { ko:'📜 발송 이력',                    en:'📜 Send History', anchor:'sub-webpush-4' }
     ],
+
     'card-kakao-mgmt':          [
       { ko:'🔌 API 연동 상태',                en:'🔌 API Status', anchor:'sub-kakao-status' },
       { ko:'📨 K5: 학부모 답장 수신',            en:'📨 K5: Parent Replies', anchor:'sub-kakao-inbound' },
       { ko:'📖 SOLAPI 가입 가이드',            en:'📖 SOLAPI Setup Guide', anchor:'sub-kakao-guide' }
     ],
+
     'card-popups-mgmt':         [
       { ko:'📋 팝업 목록',          en:'📋 Popup List',    anchor:'sub-popup-list' },
       { ko:'📖 사용법 가이드',      en:'📖 Usage Guide',   anchor:'sub-popup-guide' }
     ],
+
     /* 📢 공지 스튜디오 = 카드 하나에 탭 두 개다.
          card-poster-maker  = ① 만들기 탭(data-nspanel="make")
          card-popups-mgmt   = ② 게시·팝업 탭(data-nspanel="publish", div 라 details 가 아니다)
@@ -46,8 +60,7 @@
       { ko:'🖼 내 포스터',          en:'🖼 Saved Posters', anchor:'sub-poster-3' },
       { ko:'📖 사용 안내',          en:'📖 Guide',         anchor:'sub-poster-guide' }
     ],
-    'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
-    'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
+
     'card-teacher-mgmt':        [
       { ko:'📊 강사 가동률',                   en:'📊 Teacher Utilization', anchor:'sub-teacher-util' },
       { ko:'⭐ 강사 평가·품질',                 en:'⭐ Teacher Quality', anchor:'sub-teacher-quality' },
@@ -57,10 +70,7 @@
       { ko:'🔄 결석 강사 자동 대체',              en:'🔄 Auto Substitute Teacher', anchor:'sub-auto-sub' },
       { ko:'📋 강사 정보',                    en:'📋 Teacher Profile', anchor:'sub-teacher-7' }
     ],
-    'card-payroll-auto':        ['자동 정산 설정','결산 미리보기','지급 일정','지급 이력'],
-    'card-payroll':             ['이번달 급여','지급 내역','수정·조정','정산서 PDF'],
-    'card-mbti-mgmt':           ['MBTI 등록','강사 매칭','학생 추천','분석 리포트'],
-    'card-praise-stats':        ['이번주 칭찬','강사별 통계','학생별 받은 칭찬','월별 추이'],
+
     'card-supervisor':          [
       { ko:'🔗 멘토 배정',                    en:'🔗 Assign Mentor', anchor:'sub-sup-1' },
       { ko:'📋 활성 배정 목록',                 en:'📋 Active Assignments', anchor:'sub-sup-2' },
@@ -68,19 +78,7 @@
       { ko:'📥 수신 노트',                    en:'📥 Incoming Notes', anchor:'sub-sup-4' },
       { ko:'👀 수업 관찰 — 라이브 참관',           en:'👀 Class Observation — Live', anchor:'sub-sup-5' }
     ],
-    'card-room-invite':         ['방 초대 발송','초대 링크','참여 현황','만료 관리'],
-    'card-timetable':           ['주간 시간표','월간 시간표','강사별 보기','강의실 충돌'],
-    'card-lesson-log':          ['오늘 일지 작성','AI 초안','학부모 발송','일지 타임라인'],
-    'card-report-forms':        ['🌴 휴가 계획서','📄 기안 및 지출서','신규 양식 등록','발송 이력'],
-    'card-kpi-dashboard':       ['오늘 KPI','이번달 추이','매출 추세','학생 변동'],
-    'card-daily-charts':        ['오늘 차트','일별 비교','시간대별','지역별'],
-    'card-rankings':            ['학생 랭킹','강사 랭킹','학원 랭킹','월별 변동'],
-    'card-retention-risk':      ['위험군 알림','상담 우선순위','이탈 원인 분석','조치 이력'],
-    'card-retention':           ['파기 일정 설정','오늘 파기 실행','파기 이력','파기 로그'],
-    'card-active-rooms':        ['활성 룸 목록','참여자 수','강제 입장','녹화 시작'],
-    'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
-    'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
-    'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
+
     /* 💰 회계관리 (2026-08-18 사장님 제보 «손익/재무제표가 메뉴에서 안 보인다») —
        이름 넷이 문자열이라 옛 방식(«카드 안 N번째 details»)으로 점프했고 그 순서가 실제와 달랐다:
          3 법인카드   → 실제로는 «🧾 강사 급여 / 정산» 이 열렸고
@@ -113,11 +111,7 @@
       { ko:'🏦 배정 못 한 B2B 입금 — 가맹점 연결',   en:'🏦 Unassigned B2B deposits', anchor:'acc-b2b-box' },
       { ko:'🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기',  en:'🏷️ Expense categories', anchor:'acc-payee-box' }
     ],
-    'card-payments-b2b':        ['거래 내역','거래 통계','수수료 정산','CSV 다운로드'],
-    'card-payments-b2c':        ['주문 내역','매출 통계','세금계산서','환불 처리'],
-    'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
-    'card-auto-dunning':        ['미납 자동 알림','독촉 일정','연체율','회수 이력'],
-    'card-settlement-stats':    ['일별 정산','대리점별','상품별','수수료별'],
+
     'card-points-mgmt':         [
       { ko:'🔌 자동발송 API 연동 상태',           en:'🔌 Auto-send API Status', anchor:'sub-points-api' },
       { ko:'💰 학생 포인트 잔액',                en:'💰 Student Balances', anchor:'sub-points-balances' },
@@ -125,6 +119,7 @@
       { ko:'📦 교환 신청 내역',                 en:'📦 Redemptions', anchor:'sub-points-redemptions' },
       { ko:'⚙ 자동 적립 규칙',                 en:'⚙ Auto-earn Rules', anchor:'sub-points-rules' }
     ],
+
     /* 👨‍🎓 학생 명부 (2026-08-18 사장님 지적 «여기서 어디로 가?») —
        여기 있던 다섯 줄('학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생')은
        위 머리말이 말하는 «데모 매핑» 이었다. 카드 안에 그런 칸이 없는데 이름만 지어 넣은 것이라,
@@ -144,30 +139,25 @@
       { ko:'📞 최근 상담 통합',     en:'📞 Recent Consults',  anchor:'sm-recent-consult' },
       { ko:'💭 단체 메시지',        en:'💭 Bulk Message',     anchor:'sm-bulk-section' }
     ],
-    'card-family-mgmt':         ['가족 그룹','형제자매 묶기','가족 할인','연락처 통합'],
+
     'card-inquiry-mgmt':        [
       { ko:'🪑 대기자 명단',                   en:'🪑 Waitlist', anchor:'sub-waitlist' },
       { ko:'📈 전환률 통계',                   en:'📈 Conversion Stats', anchor:'sub-inquiry-stats' },
       { ko:'📋 상담 목록',                    en:'📋 Inquiries', anchor:'sub-inquiry-list' }
     ],
-    'card-enrollments':         ['이번달 등록','대기자','휴학 처리','재등록'],
+
     'card-badges-mgmt':         [
       { ko:'🏆 배지 카탈로그 + 통계',             en:'🏆 Badge Catalog + Stats', anchor:'sub-badge-1' },
       { ko:'🕹️ 3D 배틀 & 입체 배지 보상',        en:'🕹️ 3D Battle & Reward Badges', anchor:'sub-badge-2' },
       { ko:'🧪 학생 배지 자동 검사',              en:'🧪 Manual Award Check', anchor:'sub-badge-3' }
     ],
-    'card-community':           ['게시판','댓글 관리','신고 처리','공지'],
-    'card-counseling-booking':  ['상담 예약','상담 일정','상담 이력','후속 조치'],
-    'card-parent-digest':       ['주간 요약','월간 요약','이메일 발송','학부모 반응'],
-    'card-parent-faq-bot':      ['FAQ 등록','자주 묻는 질문','학부모 답변','챗봇 학습'],
-    'card-referral':            ['추천 코드 발급','추천 통계','보상 지급','이벤트'],
+
     'card-alumni':              [
       { ko:'➕ 졸업생 등록',                   en:'➕ Register Alumnus', anchor:'sub-alumni-1' },
       { ko:'📋 졸업생 목록 + 필터',              en:'📋 Alumni List + Filter', anchor:'sub-alumni-2' },
       { ko:'📝 동문 게시판',                   en:'📝 Alumni Board', anchor:'sub-alumni-3' }
     ],
-    'card-gallery':             ['사진 업로드','자녀별 앨범','월별 하이라이트','졸업 앨범'],
-    'card-school-attendance-stats': ['전체 출석률','학원별 통계','위험군 알림','월별 비교'],
+
     'card-textbooks':           [
       { ko:'📚 컨텐츠 교재 관리',                en:'📚 Content Textbook Management', anchor:'sub-book-1' },
       { ko:'📂 컨텐츠 교재그룹 관리',              en:'📂 Content Textbook Group Management', anchor:'sub-book-2' },
@@ -177,12 +167,7 @@
       { ko:'📦 판매 교재 그룹 관리',              en:'📦 Sales Textbook Group', anchor:'sub-book-6' },
       { ko:'🏷️ 판매 구분 관리',                en:'🏷️ Sales Category Management', anchor:'sub-book-7' }
     ],
-    'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
-    'card-review-quiz':         ['퀴즈 출제','문항 작성','응시 결과','복습퀴즈'],
-    'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
-    'card-pronunciation':       ['발음 평가','녹음 보관','AI 채점','학습 가이드'],
-    'card-video-dict':          ['영상 사전','단어 검색','자막 학습','즐겨찾기'],
-    'card-voice-diary':         ['오늘 일기','녹음 보관','AI 첨삭','월간 모음'],
+
     /* 🎯 (2026-08-06) 레벨테스트 손자 — 여기만 «진짜 목적지» 방식이다.
        예전 4개(레벨 테스트/결과 조회/레벨 변경/히스토리)는 이름만 다르고 동작이 전부 같았다.
        아래 ph125Jump 가 «카드 안 N번째 details» 로 찾아가는데 이 카드엔 그런 게 0개라
@@ -196,34 +181,79 @@
       { ko:'📅 캘린더에서 보기', en:'📅 On Calendar',   fn:'ltGotoCalendar' },
       { ko:'+ 결과 수동 등록',  en:'+ Add Result',    anchor:'lt-sec-add' }
     ],
-    'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
-    'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
+
     'card-permissions':         [
       { ko:'👥 역할별 권한 매트릭스',              en:'👥 Role Permission Matrix', anchor:'sub-perm-1' },
       { ko:'➕ 본사 직원 등록',                 en:'➕ Register HQ Employee', anchor:'sub-perm-2' },
       { ko:'👤 역할별 사용자 관리',               en:'👤 Users by Role', anchor:'sub-perm-3' },
       { ko:'📜 권한 변경 이력',                 en:'📜 Audit Log', anchor:'sub-perm-4' }
     ],
+
     'card-franchises':          [
       { ko:'🏛️ 대표지사',                    en:'🏛️ Master Branch', anchor:'card-master-branches' },
       { ko:'🏢 지사',                       en:'🏢 Branch', anchor:'sub-branches' },
       { ko:'🏪 대리점',                      en:'🏪 Agency', anchor:'card-centers' },
       { ko:'🏯 본사 관리',                    en:'🏯 HQ Management', anchor:'card-hq-orgs' }
-    ],
-    'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
-    'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
-    'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],
-    'card-admin-ghost':         ['활성 룸 참관','녹화 확인','강제 입장','참관 이력'],
-    'card-admin-whisper':       ['귓속말 발송','이력','강사 알림','학생 알림'],
-    'card-attendance-status':   ['오늘 출결','월별 통계','학생별 이력','자동 알림'],
-    'card-auto-attendance':     ['QR 생성','스캔 이력','출결 자동','부정 출결'],
-    'card-class-attendance':    ['수업별 출결','강사 체크인','지각·결석','학부모 알림']
+    ],   /* ← 끝 쉼표 유지: 하니스가 「'],'」 로 각 목록의 끝을 찾는다 */
   };
 
-  var hoverTimer = null;
-  var lastOpened = null;
 
-  // === sub 옆에 토글 화살표 + 손자 메뉴 컨테이너 추가 ===
+  /* 카드 안 «진짜 칸» 선택자 — 여기 걸리는 것만 손자가 된다.
+     · details.sub-item / .sub-menu > details — 접이칸. 이름은 summary 글자 그대로.
+     · [data-gc="이름"]                        — 접이칸이 아닌 구역에 사람이 붙인 «이름표».
+       접이식이 아닌 화면(필터+표 한 벌 같은 것)에도 손자를 만들고 싶을 때 쓴다.
+       ⚠️ 이름표는 «그 구역 자체» 에 단다. 목록을 딴 파일에 적으면 화면이 바뀔 때 또 어긋난다.
+       영어 이름은 data-gc-en 에 함께 적는다(없으면 한국어가 그대로 나온다). */
+  var SEL = 'details.sub-item, .sub-menu > details, [data-gc]';
+  var EN  = function(){ return !!(window.adminLang && window.adminLang !== 'ko'); };
+
+  /* summary 글자에서 메뉴 이름만 뽑는다.
+     summary 안에는 ℹ️ 도움말·건수 배지가 같이 들어 있는 경우가 많아서 그대로 쓰면 한 줄이 길어진다. */
+  function labelOf(sum, attr){
+    var sp = sum.querySelector('[' + attr + ']');
+    var t  = sp ? sp.getAttribute(attr) : '';
+    if (!t) t = sum.textContent || '';
+    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
+    if (t.length > 26) t = t.slice(0, 25) + '…';
+    return t;
+  }
+
+  /* 카드에서 손자 목록을 읽는다. 목적지는 DOM 참조(el)라 id 가 없어도 정확하다. */
+  function scan(card){
+    var list = [], seen = [];
+    var nodes = card.querySelectorAll(SEL);
+    for (var i = 0; i < nodes.length; i++){
+      var d = nodes[i];
+      if (seen.indexOf(d) >= 0) continue;   // 두 선택자에 겹쳐 걸린 것 제거
+      seen.push(d);
+      var ko, en;
+      if (d.hasAttribute('data-gc')){
+        ko = (d.getAttribute('data-gc') || '').trim();
+        en = (d.getAttribute('data-gc-en') || '').trim() || ko;
+      } else {
+        var sum = d.querySelector('summary');
+        if (!sum || sum.parentElement !== d) continue;
+        ko = labelOf(sum, 'data-ko');
+        en = labelOf(sum, 'data-en') || ko;
+      }
+      if (!ko) continue;
+      list.push({ ko: ko, en: en, el: d });
+      if (list.length >= 20) break;         // 한 메뉴가 화면을 다 먹지 않게
+    }
+    return list;
+  }
+
+  function itemsFor(cardId, card){
+    var m = MAP[cardId];
+    if (m) return m;
+    return scan(card);
+  }
+
+  var esc = function(s){
+    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  };
+
+  // ── ▸ 토글 + 손자 컨테이너 만들기 ───────────────────────────────
   function ph125Build(){
     var bar = document.getElementById('ph85-sidebar');
     if (!bar) return;
@@ -231,162 +261,189 @@
       if (sub.__ph125) return;
       var cardId = sub.dataset.card;
       if (!cardId) return;
-      var children = MAP[cardId];
-      if (!children || children.length === 0) return;
+      var card = document.getElementById(cardId);
+      if (!card){
+        /* 카드가 아직 안 그려졌을 수 있다 — 몇 번만 다시 본다.
+           무한 재시도는 느린 PC(필리핀 가정 회선 포함)에서 그냥 낭비다. */
+        sub.__ph125try = (sub.__ph125try || 0) + 1;
+        if (sub.__ph125try > 5) sub.__ph125 = true;
+        return;
+      }
+      var items = itemsFor(cardId, card);
+      if (!items.length){
+        sub.__ph125try = (sub.__ph125try || 0) + 1;
+        if (sub.__ph125try > 5) sub.__ph125 = true;   // 칸이 없는 카드 = «화면 하나». ▸ 를 안 붙인다
+        return;
+      }
       sub.__ph125 = true;
 
-      // ▸ 토글 추가
-      if (!sub.querySelector('.ph125-toggle')) {
+      if (!sub.querySelector('.ph125-toggle')){
         var toggle = document.createElement('span');
         toggle.className = 'ph125-toggle';
         toggle.textContent = '▸';
         sub.appendChild(toggle);
       }
 
-      // 다음 sibling 으로 손자 메뉴 컨테이너 추가
-      var existing = sub.nextElementSibling;
-      if (!existing || !existing.classList.contains('ph125-grandchildren')) {
-        var gcContainer = document.createElement('div');
-        gcContainer.className = 'ph125-grandchildren';
-        gcContainer.dataset.parent = cardId;
-        gcContainer.innerHTML = children.map(function(raw, i){
-          /* 항목은 두 가지 — 문자열(옛 방식: 카드 안 N번째로) 또는 객체(새 방식: 진짜 목적지).
-             🌐 라벨은 화면 언어를 따른다. 손자 이름만 한국어로 남으면 필리핀 강사·매니저가
-                무엇을 여는 메뉴인지 못 읽는다. */
-          var isObj = raw && typeof raw === 'object';
-          var en = !!(window.adminLang && window.adminLang !== 'ko');
-          var t = isObj ? ((en && raw.en) ? raw.en : raw.ko) : raw;
-          var safe = String(t).replace(/'/g, "\\'");
-          // 🌐 원본 한국어 이름을 data-gc-name 으로 보존(i18n 영어 스윕은 보이는 텍스트만 바꾸므로 설명 사전 조회 키가 안 깨짐)
-          //    ⚠️ 여기는 «항상» 한국어여야 한다 — 위 t 는 화면 언어를 타므로 t 를 쓰면 영어 모드에서 키가 깨진다.
-          var koName = isObj ? raw.ko : raw;
-          var attr = String(koName).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-          /* 🌐 (2026-08-18) data-ko/data-en 을 «그릴 때 함께» 박는다.
-             CLAUDE.md 2장 「JS 로 그린 라벨」 — textContent 로 직접 쓴 글자는 언어 토글의
-             data-ko/data-en 루프도, i18n-sweep 의 restore() 도 못 고친다.
-             toggleAdminLang() 은 새로고침 없이 DOM 만 갈아서, 이게 없으면 🌐 를 눌러도
-             손자 메뉴만 옛 언어로 남는다(필리핀 강사·매니저가 보는 화면이다).
-             ⚠️ 문자열 항목(옛 데모 매핑)은 번역이 없으므로 ko/en 둘 다 같은 값을 넣는다 —
-                빈 data-en 을 넣으면 영어로 바꿀 때 라벨이 «사라진다». */
-          var koT = isObj ? raw.ko : raw;
-          var enT = (isObj && raw.en) ? raw.en : koT;
-          var esc = function (x) { return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
-          return '<div class="ph125-gc" data-gc-name="' + attr + '" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
-            '<span class="ph125-num">' + (i + 1) + '</span>' +
-            '<span class="ph125-text" data-ko="' + esc(koT) + '" data-en="' + esc(enT) + '">' + t + '</span>' +
-          '</div>';
+      var next = sub.nextElementSibling;
+      if (!next || !next.classList.contains('ph125-grandchildren')){
+        var box = document.createElement('div');
+        box.className = 'ph125-grandchildren';
+        box.dataset.parent = cardId;
+        var en = EN();
+        box.innerHTML = items.map(function(it, i){
+          /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 한국어. */
+          return '<div class="ph125-gc" data-gc-name="' + esc(it.ko) + '">' +
+                   '<span class="ph125-num">' + (i + 1) + '</span>' +
+                   '<span class="ph125-text">' + esc((en && it.en) ? it.en : it.ko) + '</span>' +
+                 '</div>';
         }).join('');
-        sub.parentNode.insertBefore(gcContainer, sub.nextSibling);
+        // 목적지를 DOM 참조로 직접 물려 준다 — 문자열 id 를 안 거치므로
+        // 같은 id 가 문서에 두 벌 있어도(예: sub-popup-list) 엉뚱한 곳으로 안 간다.
+        var gcs = box.children;
+        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = cardId; }
+        sub.parentNode.insertBefore(box, sub.nextSibling);
       }
 
-      // 🗑️ (2026-07-27 사장님 지시 "메뉴가 자기 멋대로 나왔다 들어갔다") 호버 자동 펼침 제거.
-      //   마우스를 올리기만 해도 손자 메뉴가 열리고(mouseenter) 벗어나면 타이머로 닫혀서(mouseleave)
-      //   사이드바 위에서 마우스를 움직일 때마다 메뉴가 저절로 열렸다 닫혔다 했다.
-      //   → 아래 ▸ 토글 '클릭'으로만 열고 닫는다. 재추가 금지.
-
-      // === 토글 화살표 클릭 → 명시적 토글 (호버 없이도 작동) ===
-      var toggleBtn = sub.querySelector('.ph125-toggle');
-      if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(e){
-          e.stopPropagation();
-          e.preventDefault();
-          // 다른 sub 닫기
-          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
-            if (s !== sub) s.classList.remove('ph125-open');
-          });
+      // 🗑️ (2026-07-27 사장님 «메뉴가 자기 멋대로 나왔다 들어갔다») 호버 자동 펼침 제거. 재추가 금지.
+      var t = sub.querySelector('.ph125-toggle');
+      if (t && !t.__bound){
+        t.__bound = true;
+        t.addEventListener('click', function(e){
+          e.stopPropagation(); e.preventDefault();
+          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){ if (s !== sub) s.classList.remove('ph125-open'); });
           sub.classList.toggle('ph125-open');
         });
       }
     });
-
-    // (2026-07-27) 손자 컨테이너 호버 유지/닫기 리스너도 제거 — 호버 자동 펼침 폐지에 맞춤.
-    //   열림/닫힘은 ▸ 클릭 토글만 담당하므로 마우스 위치로 상태가 바뀔 일이 없다.
   }
 
-  /* 노란 테두리로 «여기다» 표시 — 어디로 왔는지 모르면 점프한 의미가 없다 */
-  function ph125Flash(el, strong){
-    el.style.boxShadow = strong
-      ? '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)'
-      : '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
-    setTimeout(function(){ el.style.boxShadow = ''; }, 2500);
+  function flash(el){
+    el.classList.remove('ph96-highlight');
+    void el.offsetWidth;
+    el.classList.add('ph96-highlight');
+    setTimeout(function(){ el.classList.remove('ph96-highlight'); }, 1600);
   }
 
-  window.ph125Jump = function(cardId, idx, title){
+  /* 「눌렀는데 그 화면이 안 보인다」를 없애는 곳 —
+     ① 모바일 드로어를 «스크롤보다 먼저» 닫는다. 드로어가 열린 동안 body 는 overflow:hidden 이라
+        그 상태에서 scrollIntoView 를 부르면 브라우저가 통째로 무시한다(adm-s11 에서 밟은 함정).
+     ② 목적지 칸을 펴고, 같은 줄의 형제 칸은 접는다 — 그래야 그 칸이 «맨 위» 로 온다.
+     ③ 카드 이동은 jumpToMenu 에 맡긴다(급여 접근제어·legacy-cards 표시·공지 탭 전환이 거기 있다). */
+  function closeDrawer(){
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    var sb = document.getElementById('ph85-sidebar');
+    if (sb) sb.classList.remove('open');
+    try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch(e){}
+    document.body.classList.remove('mga-open');
+  }
+
+  function reveal(card, target){
+    var p = target;
+    while (p && p !== card){ if (p.tagName === 'DETAILS') p.open = true; p = p.parentElement; }
+    if (card.tagName === 'DETAILS') card.open = true;
+    if (target.tagName === 'DETAILS'){
+      target.open = true;
+      var par = target.parentElement;
+      if (par) [].forEach.call(par.children, function(x){
+        if (x !== target && x.tagName === 'DETAILS' && x.classList.contains('sub-item')) x.open = false;
+      });
+    }
+    /* 🪤 (2026-08-18 main) <details> 조상만 펴는 것으로는 모자란다.
+       「공지 스튜디오」는 탭 두 개(div.ns-panel[data-nspanel])이고 안 고른 쪽은 display:none 이다.
+       숨은 상자에 scrollIntoView 를 해도 화면은 꿈쩍도 안 한다 — 에러도 안 난다.
+       그래서 목적지가 어느 탭 안인지 보고, 그 탭을 먼저 켠다. */
+    var panel = target.closest ? target.closest('[data-nspanel]') : null;
+    if (panel && typeof window.noticeStudioTab === 'function') {
+      try { window.noticeStudioTab(panel.getAttribute('data-nspanel')); } catch(e) { /* 무시 */ }
+    }
+    target.scrollIntoView({ behavior:'auto', block:'start' });
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      target.scrollIntoView({ behavior:'auto', block:'start' });   // 카드가 펴지며 높이가 변한 뒤 재보정
+      flash(target);
+    }); });
+  }
+
+  function go(cardId, desc){
+    closeDrawer();                                   // ① 먼저 닫는다
+    var hostId = desc.card || cardId;
+    if (typeof window.jumpToMenu === 'function') window.jumpToMenu(hostId);
+    var card = document.getElementById(hostId);
+    if (!card) { alert('카드 미구현: ' + hostId); return; }
+    setTimeout(function(){
+      if (desc.fn && typeof window[desc.fn] === 'function'){ window[desc.fn](); return; }
+      var t = desc.el || (desc.anchor ? document.getElementById(desc.anchor) : null);
+      reveal(card, t || card);
+    }, 120);                                          // jumpToMenu 의 rAF 재보정(≈32ms) 뒤에 온다
+  }
+
+  // 손자 클릭 — 위임 한 곳에서 받는다(항목마다 onclick 문자열을 안 만들어 그만큼 가볍다)
+  document.addEventListener('click', function(e){
+    var gcEl = e.target.closest && e.target.closest('#ph85-sidebar .ph125-gc');
+    if (!gcEl || !gcEl.__gc) return;
+    e.stopPropagation(); e.preventDefault();
+    go(gcEl.__card, gcEl.__gc);
+  }, true);
+
+  /* 옛 이름 유지 — 다른 화면(퀵메뉴·안내)이 부를 수 있다. 이제 «위치로 찾아감» 은 하지 않는다. */
+  window.ph125Jump = function(cardId, idx){
     var card = document.getElementById(cardId);
     if (!card) { alert('카드 미구현: ' + cardId); return; }
-
-    /* ── 새 방식: 항목이 «진짜 목적지» 를 들고 있으면 그대로 간다 ──────────────
-       옛 방식(아래)은 «카드 안 N번째 details» 라, 그런 게 없는 카드에서는 항목이 몇 개든
-       전부 같은 동작(카드 전체 반짝임)이 됐다. 에러가 안 나서 죽은 줄도 몰랐다. */
-    var descList = MAP[cardId];
-    var desc = (descList && typeof descList[idx] === 'object') ? descList[idx] : null;
-    if (desc) {
-      var host = desc.card ? document.getElementById(desc.card) : card;
-      if (!host) { alert('카드 미구현: ' + desc.card); return; }
-      if (host.tagName === 'DETAILS') host.open = true;
-      var anc = desc.anchor ? document.getElementById(desc.anchor) : null;
-      // 앵커가 접힌 details 안에 있으면 펼쳐 준다 — 안 그러면 스크롤만 하고 아무것도 안 보인다
-      if (anc) { var p = anc; while (p && p !== host) { if (p.tagName === 'DETAILS') p.open = true; p = p.parentElement; } }
-      /* 🪤 (2026-08-18) <details> 조상만 펴는 것으로는 모자란다.
-         「공지 스튜디오」는 탭 두 개(div.ns-panel[data-nspanel])이고 안 고른 쪽은 display:none 이다.
-         숨은 상자에 scrollIntoView 를 해도 화면은 꿈쩍도 안 한다 — 에러도 안 난다.
-         그래서 앵커가 어느 탭 안인지 보고, 그 탭을 먼저 켠다. */
-      if (anc) {
-        var panel = anc.closest ? anc.closest('[data-nspanel]') : null;
-        if (panel && typeof window.noticeStudioTab === 'function') {
-          try { window.noticeStudioTab(panel.getAttribute('data-nspanel')); } catch (e) { /* 무시 */ }
-        }
-      }
-      host.scrollIntoView({ behavior:'auto', block:'start' });
-      setTimeout(function(){
-        if (desc.fn && typeof window[desc.fn] === 'function') { window[desc.fn](); return; }
-        var t = anc || host;
-        t.scrollIntoView({ behavior:'auto', block: anc ? 'center' : 'start' });
-        ph125Flash(t, !anc);
-      }, 300);
-      console.log('[ph125] 손자 점프(앵커):', desc.card || cardId, desc.anchor || desc.fn || '(카드)');
-      return;
-    }
-
-    if (card.tagName === 'DETAILS') card.open = true;
-    card.scrollIntoView({ behavior:'auto', block:'start' });
-    var items = card.querySelectorAll('details.sub-item, .sub-menu > details');
-    var target = items[idx];
-    if (target) {
-      target.open = true;
-      setTimeout(function(){
-        target.scrollIntoView({ behavior:'auto', block:'center' });
-        target.style.boxShadow = '0 0 0 3px rgba(251,191,36,0.6), 0 12px 40px rgba(251,191,36,0.3)';
-        setTimeout(function(){ target.style.boxShadow = ''; }, 2500);
-      }, 300);
-    } else {
-      card.style.boxShadow = '0 0 0 4px rgba(251,191,36,0.7), 0 12px 40px rgba(251,191,36,0.3)';
-      setTimeout(function(){ card.style.boxShadow = ''; }, 2500);
-    }
-    console.log('[ph125] 손자 점프:', cardId, '[' + idx + ']', title);
+    var items = itemsFor(cardId, card);
+    if (items[idx]) go(cardId, items[idx]);
+    else { closeDrawer(); if (typeof window.jumpToMenu === 'function') window.jumpToMenu(cardId); }
   };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph125Build);
-  else ph125Build();
-
-  /* 🌐 언어를 바꾸면 손자 메뉴를 다시 그린다.
-     ph125Build 는 sub.__ph125 와 «컨테이너가 이미 있는가» 로 두 번 그리지 않게 막혀 있어서,
-     그 표시를 지워 주지 않으면 다시 불러도 아무 일이 안 일어난다.
-     ⚠️ 펼쳐 둔 상태(.ph125-open)는 sub 에 붙어 있으므로 다시 그려도 그대로 남는다. */
-  window.addEventListener('mangoi:lang-changed', function () {
+  /* ── 🔍 손자를 통합 검색에 색인 ─────────────────────────────────────
+     「출결」이라 치면 카드가 아니라 «그 안의 출결 칸» 이 바로 뜨게 한다.
+     _globalSearchIndex 는 adm-core.js 의 최상위 let — classic script 끼리는
+     전역 렉시컬 스코프를 공유하므로 여기서 그대로 읽고 쓸 수 있다(window 에는 없다).
+     buildMenuIndex 가 색인을 통째로 다시 만들므로(RBAC 갱신 때마다), 우리 항목은
+     _gc 표식을 달아 두고 매번 «지우고 다시 넣는» 방식으로 어긋남을 막는다. */
+  function indexGc(){
     try {
+      if (typeof _globalSearchIndex === 'undefined' || !Array.isArray(_globalSearchIndex)) return;
       var bar = document.getElementById('ph85-sidebar');
       if (!bar) return;
-      bar.querySelectorAll('.ph125-grandchildren').forEach(function (g) { g.remove(); });
-      bar.querySelectorAll('.ph85-sub').forEach(function (sub) {
-        sub.__ph125 = false;
-        var tg = sub.querySelector('.ph125-toggle');
-        if (tg) tg.remove();          // ph125Build 가 다시 달아 준다(리스너 중복 방지)
+      var fresh = [];
+      bar.querySelectorAll('.ph125-grandchildren').forEach(function(box){
+        var sub = box.previousElementSibling;
+        if (!sub || !sub.classList.contains('ph85-sub')) return;
+        if (sub.classList.contains('rbac-hide')) return;        // 역할로 감춘 메뉴는 검색에도 안 띄움
+        var pKo = (sub.getAttribute('data-ko') || sub.textContent || '').replace(/\s+/g,' ').trim();
+        var pEn = (sub.getAttribute('data-en') || pKo).replace(/\s+/g,' ').trim();
+        [].forEach.call(box.children, function(gcEl){
+          var d = gcEl.__gc, cid = gcEl.__card;
+          if (!d) return;
+          fresh.push({
+            _gc: true, kind: 'menu',
+            kindLabelKo: '📂 하위 메뉴', kindLabelEn: '📂 Sub-menu',
+            label: d.ko, labelEn: d.en || d.ko,
+            sub: pKo, subEn: pEn,
+            action: (function(c, item){ return function(){ go(c, item); }; })(cid, d)
+          });
+        });
       });
-      ph125Build();
-    } catch (e) { /* 언어 전환이 이것 때문에 죽지 않게 */ }
-  });
-  (window.__admSettleRun ? window.__admSettleRun(ph125Build) : setInterval(ph125Build, 1500));
+      _globalSearchIndex = _globalSearchIndex.filter(function(x){ return !x._gc; }).concat(fresh);
+    } catch(e) { /* 검색 색인은 부가 기능 — 실패해도 손자 메뉴 자체는 동작해야 한다 */ }
+  }
 
-  console.log('[ph125] 인라인 아코디언 손자 메뉴 활성 — 호버 자동 펼침 + ▸ 클릭 토글');
+  function buildAndIndex(){ ph125Build(); indexGc(); }
+
+  // buildMenuIndex(RBAC 갱신·언어 전환 뒤 재실행됨)가 색인을 갈아엎은 «뒤» 우리 것을 다시 얹는다
+  (function wrapBMI(){
+    var tries = 0;
+    var t = setInterval(function(){
+      if (typeof window.buildMenuIndex === 'function'){
+        clearInterval(t);
+        var orig = window.buildMenuIndex;
+        window.buildMenuIndex = function(){ var r = orig.apply(this, arguments); indexGc(); return r; };
+      } else if (++tries > 40) clearInterval(t);
+    }, 250);
+  })();
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildAndIndex);
+  else buildAndIndex();
+  (window.__admSettleRun ? window.__admSettleRun(buildAndIndex) : setInterval(buildAndIndex, 1500));
+
+  console.log('[ph125] 손자 메뉴 — 카드 안 실제 칸을 읽어 그림(▸ 클릭 토글)');
 })();
