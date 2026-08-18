@@ -781,7 +781,8 @@ async function buildMonthly(env: Env, period: string) {
       ['장부 매출(KCP 정산 대상만)', rec.revenue],
       ['예상 입금(수수료 차감)', rec.expected],
       ['차이', rec.diff == null ? '(자료없음)' : rec.diff],
-      ...(pl.rev.dep.transferUnknown > 0 ? [[`(확인 필요) 성격이 확인되지 않은 입금`, pl.rev.dep.transferUnknown] as (string | number)[]] : []),
+      /* ⛔ «성격 미확인 입금» 줄 제거(2026-08-18 사장님 지시 — 「케이씨피M」 표기 정리의 마지막 단계).
+         금액은 payload 의 deposit_transfer_unknown_krw 로 계속 나가지만 화면·CSV 에는 그리지 않는다. */
       [],
       ['[통장 직접입금 상세]'],
       ['일자', '보낸 곳', '금액'],
@@ -840,8 +841,8 @@ function closeWarnings(data: any): string[] {
   const w: string[] = [];
   const rec = data?.reconcile, s = data?.summary, c = data?.cost;
   if (rec && (rec.verdict === 'warn' || rec.verdict === 'alert')) w.push(`장부와 통장이 어긋납니다 — ${rec.message}`);
-  // ✅ 정체가 확인된 자기 계좌 간 자금 이동은 묻지 않는다. 모르는 것만 묻는다.
-  if ((s?.deposit_transfer_unknown_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_unknown_krw).toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`);
+  /* ⛔ «성격이 확인되지 않은 입금» 경고 제거(2026-08-18 지시). 통장 입금 중 성격이 안 잡힌
+     돈은 여전히 매출에서 빠져 있고 금액도 payload 에 남지만, 화면 경고로는 띄우지 않는다. */
   if ((c?.unclassified_krw || 0) > 0) w.push(`계정과목이 안 붙은 출금이 ₩${Number(c.unclassified_krw).toLocaleString('ko-KR')} 있습니다(비용의 ${c.unclassified_pct}%).`);
   if (c?.op_cost_source === 'estimated') w.push('운영비가 실지출이 아니라 «매출의 10%» 추정입니다.');
   return w;
@@ -1263,7 +1264,7 @@ function monthlyDetailSheets(data: any): XlsxSheet[] {
     [[ '일자', nameLabel, '금액' ], ...rows.map((r: any) => [r.date || '', r.name ?? r.remark ?? '', Number(r.amount) || 0])];
   const sheets: XlsxSheet[] = [];
   if ((d.b2b_rows || []).length) sheets.push({ name: '통장 직접입금(B2B)', headerRows: 1, rows: money(d.b2b_rows, '보낸 곳') });
-  if ((d.transfer_rows || []).length) sheets.push({ name: '확인필요 입금', headerRows: 1, rows: money(d.transfer_rows, '적요') });
+  /* ⛔ «확인필요 입금» 시트 제거(2026-08-18 지시) — 화면에서 뺀 줄이 엑셀로 다시 나가면 같은 것이 보인다. */
   if ((d.unclassified_rows || []).length) sheets.push({ name: '미분류 출금', headerRows: 1, rows: money(d.unclassified_rows, '받는 곳') });
   if ((d.card_rows || []).length) sheets.push({ name: '법인카드', headerRows: 1, rows: money(d.card_rows, '가맹점') });
   if ((data?.by_method || []).length) {
@@ -1369,9 +1370,10 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
     /* ⚠️ 확인이 끝난 내부 자금이체는 안내하지 않는다(2026-08-18 사장님 지시 — 설명이
        오히려 혼동을 준다). 아직 «모르는» 입금만 묻는다. */
-    transfer_note: dep.transferUnknown > 0
-      ? `아직 성격이 확인되지 않은 입금이 ₩${dep.transferUnknown.toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`
-      : '',
+    /* ⛔ 대사 배너는 타계좌 입금을 더 이상 안내하지 않는다 — 확인된 자금이체도(2026-08-18),
+       아직 성격을 모르는 입금도(같은 날 추가 지시) 화면에 띄우지 않는다.
+       판정·집계에서 빼는 계산은 그대로다. */
+    transfer_note: '',
   };
 }
 
@@ -2424,12 +2426,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
              ₩ 금액이 적힌 안내줄이 있으니 «매출에 섞인 돈» 으로 읽혔다.
              ℹ️ 같은 날 추가 지시로 **월간 회계 리포트에서도** 그 줄과 내역 펼치기를 걷어냈다
                 (구 «운영자금 보충» 줄). 세 화면(월간·손익·대사)이 같은 기준이다.
-             ⚠️ transferUnknown(정체가 아직 확인 안 된 「케이씨피」 변형)은 다른 얘기라 남긴다 —
-                «매출인지 아닌지 사람이 판단해야 하는 돈» 이라 손익에서 숨기면 안 된다.
-                (분기 조회면 그 분기 3개월치를 합한 금액이다 — 2026-08-18) */
-          ...(B.transferUnknown > 0
-            ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${B.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
-            : []),
+             ⛔ transferUnknown(아직 성격을 모르는 입금)도 같은 날 추가 지시로 **화면에서 뺐다.**
+                매출로 잡지 않는 계산은 그대로다 — 금액을 손익계산서에 적지 않을 뿐이다. */
           ...(seedEx.amount > 0 ? [{ name: `※ 시연용 테스트 결제 ₩${seedEx.amount.toLocaleString('ko-KR')} (${seedEx.count}건)은 실매출이 아니라 제외했습니다`, sub: true }] : []),
           ...(plGap > 0 ? [{ name: `⚠️ ${isQuarter ? '이 분기' : '이 달'} 통장에 들어온 카드 정산금은 ₩${plCash.pg.toLocaleString('ko-KR')} 인데 장부 매출은 위 금액뿐입니다(차이 ₩${plGap.toLocaleString('ko-KR')}). 매출이 장부에 덜 잡혀 아래 순이익이 실제보다 나쁘게 나옵니다 — 「매출–입금 대사」 카드를 확인하세요.`, sub: true }] : []),
           { name: '매출 합계', amount: revNet, total: true },
@@ -3242,9 +3240,9 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     /* 🔎 대사에서 «뺀» 것들 — 숨기지 않고 얼마인지 밝혀 사람이 확인하게 한다.
        단, 성격이 «확인된» 내부 자금이체는 애초에 위 집계에 들어오지 않아 여기서도 안 센다.
        남는 것은 «사람이 판단해야 하는 돈» 뿐이다(2026-08-18 사장님 지시). */
-    transfer_note: cumTransfer > 0
-      ? `성격이 확인되지 않은 입금 ₩${cumTransfer.toLocaleString('ko-KR')} 는 대사에서 제외했습니다. 매출인지 자금 이동인지 확인해 주세요.`
-      : '',
+    /* ⛔ 타계좌 입금(성격 미확인 포함)은 대사 화면에 한 줄도 쓰지 않는다(2026-08-18 지시).
+       집계에서 빼는 계산은 그대로다 — 금액을 적어 주지 않을 뿐이다. */
+    transfer_note: '',
     b2b_note: cumB2b > 0
       ? `통장으로 직접 들어온 수업료 ₩${cumB2b.toLocaleString('ko-KR')} 도 「케이씨피」 정산금이 아니라 대사에서 제외했습니다(월간 리포트에서는 매출로 반영합니다).`
       : '',
