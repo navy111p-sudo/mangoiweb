@@ -82,6 +82,7 @@ const CONVERTED = [
   'card-students-mgmt', 'card-eval-mgmt', 'card-kakao-mgmt', 'card-webpush-mgmt',
   'card-teacher-mgmt', 'card-supervisor', 'card-points-mgmt', 'card-inquiry-mgmt',
   'card-badges-mgmt', 'card-alumni', 'card-textbooks', 'card-permissions', 'card-franchises',
+  'card-accounting-mgmt', 'card-poster-maker', 'card-popups-mgmt',
 ];
 for (const cid of CONVERTED) {
   const blk = (r25.match(new RegExp(`'${cid}':\\s*\\[([\\s\\S]*?)\\n\\s*\\],`)) || [])[1] || '';

@@ -33,8 +33,18 @@
       { ko:'📨 K5: 학부모 답장 수신',            en:'📨 K5: Parent Replies', anchor:'sub-kakao-inbound' },
       { ko:'📖 SOLAPI 가입 가이드',            en:'📖 SOLAPI Setup Guide', anchor:'sub-kakao-guide' }
     ],
-    'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
-    'card-poster-maker':        ['새 포스터','크기·동영상','저장 목록','다시 사용'],
+    'card-popups-mgmt':         [
+      { ko:'📋 팝업 목록',                    en:'📋 Popup List', anchor:'sub-popup-list' },
+      { ko:'📖 사용법 가이드',                  en:'📖 Usage Guide', anchor:'sub-popup-guide' },
+      { ko:'🖼 내 포스터',                    en:'🖼 Saved Posters', anchor:'sub-poster-3' },
+      { ko:'📖 사용 안내',                    en:'📖 Guide', anchor:'sub-poster-guide' }
+    ],
+    'card-poster-maker':        [
+      { ko:'📋 팝업 목록',                    en:'📋 Popup List', anchor:'sub-popup-list' },
+      { ko:'📖 사용법 가이드',                  en:'📖 Usage Guide', anchor:'sub-popup-guide' },
+      { ko:'🖼 내 포스터',                    en:'🖼 Saved Posters', anchor:'sub-poster-3' },
+      { ko:'📖 사용 안내',                    en:'📖 Guide', anchor:'sub-poster-guide' }
+    ],
     'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
     'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
     'card-teacher-mgmt':        [
@@ -70,7 +80,27 @@
     'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
     'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
     'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
-    'card-accounting-mgmt':     ['수강료 미납','학생 결제','법인카드','손익·재무'],
+    'card-accounting-mgmt':     [
+      { ko:'🔔 수강료 미연장 자동 알림',            en:'🔔 Non-renewal Auto-Notify', anchor:'sub-overdue' },
+      { ko:'💳 학생 결제 내역',                 en:'💳 Student Payments', anchor:'sub-acc-2' },
+      { ko:'🧾 강사 급여 / 정산',               en:'🧾 Teacher Payroll', anchor:'sub-acc-3' },
+      { ko:'🌍 국가별 강사료 환전',               en:'🌍 Multi-currency Payout', anchor:'sub-acc-4' },
+      { ko:'🏢 지점/가맹점 정산',                en:'🏢 Branch Settlement Dashboard', anchor:'sub-acc-5' },
+      { ko:'↩️ 환불 / 취소 관리',              en:'↩️ Refund / Cancel', anchor:'sub-acc-6' },
+      { ko:'🎁 쿠폰 · 할인 · 포인트',            en:'🎁 Coupons · Discount · Points', anchor:'sub-acc-7' },
+      { ko:'🧮 세무',                       en:'🧮 Tax', anchor:'sub-acc-8' },
+      { ko:'🧾 카페24 회계 실데이터',             en:'🧾 Cafe24 Finance', anchor:'sub-c24-finance' },
+      { ko:'📒 회계 전표 / 분개장',              en:'📒 Journal Entries', anchor:'sub-acc-10' },
+      { ko:'📊 매출 대시보드',                  en:'📊 Sales Dashboard', anchor:'sub-acc-11' },
+      { ko:'💼 미수금 / 미지급금',               en:'💼 Receivables / Payables', anchor:'sub-receivables' },
+      { ko:'📈 손익 / 재무제표',                en:'📈 P&L / Financials', anchor:'acc-financials' },
+      { ko:'🔍 매출–입금 대사',                 en:'🔍 Revenue vs Deposits', anchor:'sub-acc-14' },
+      { ko:'💳 법인카드 사용내역',                en:'💳 Corporate Card', anchor:'acc-corpcard' },
+      { ko:'📥 회계 리포트 다운로드',              en:'📥 Accounting Reports', anchor:'sub-acc-16' },
+      { ko:'🏪 배정 못 한 결제 아이디 — 대리점 연결',   en:'🏪 Unassigned payer IDs', anchor:'acc-payer-box' },
+      { ko:'🏦 배정 못 한 B2B 입금 — 가맹점 연결',   en:'🏦 Unassigned B2B deposits', anchor:'acc-b2b-box' },
+      { ko:'🏷️ 지출 계정과목 분류 — 「기타출금」 쪼개기',  en:'🏷️ Expense categories', anchor:'acc-payee-box' }
+    ],
     'card-payments-b2b':        ['거래 내역','거래 통계','수수료 정산','CSV 다운로드'],
     'card-payments-b2c':        ['주문 내역','매출 통계','세금계산서','환불 처리'],
     'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
