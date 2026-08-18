@@ -6994,9 +6994,7 @@ ${chatSampleText}
               WHERE ym >= '2019-01'
               RETURN ym,
                      sum(CASE WHEN t = 1 AND NOT isKcpm THEN money ELSE 0 END) AS income,
-                     sum(CASE WHEN t = 2 AND NOT isKcpm THEN money ELSE 0 END) AS expense,
-                     sum(CASE WHEN isKcpm THEN money ELSE 0 END)               AS excluded_transfer,
-                     sum(CASE WHEN isKcpm THEN 1 ELSE 0 END)                   AS excluded_count
+                     sum(CASE WHEN t = 2 AND NOT isKcpm THEN money ELSE 0 END) AS expense
               ORDER BY ym DESC LIMIT 36`, { kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
             const rows = values.map(row => {
               const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
@@ -7006,14 +7004,18 @@ ${chatSampleText}
             const totals = rows.reduce((a: any, r: any) => ({
               income: a.income + (Number(r.income) || 0),
               expense: a.expense + (Number(r.expense) || 0),
-              excludedTransfer: a.excludedTransfer + (Number(r.excluded_transfer) || 0),
-              excludedCount: a.excludedCount + (Number(r.excluded_count) || 0),
-            }), { income: 0, expense: 0, excludedTransfer: 0, excludedCount: 0 });
+            }), { income: 0, expense: 0 });
+            /* 🧾 ⛔ 「케이씨피M」의 이름·사유·금액을 응답에 담지 않는다 (2026-08-18 사장님 지시).
+             *   예전에는 «왜 숫자가 줄었나» 를 설명하려고 excluded: { rule:'케이씨피M', reason, amount, count }
+             *   와 월별 excluded_transfer/excluded_count 를 함께 내려줬다. 화면은 그리지 않았지만
+             *   API 주소를 열면 그 이름과 금액이 그대로 보였다(사장님이 직접 확인).
+             *   「제외했습니다」라고 적어 주는 것 자체가 「아직 남아 있다」로 읽힌다는 것이 지시의 요지다.
+             *   ⚠️ 매출·지출에서 빼는 계산(위 Cypher 의 isKcpm + NOT isKcpm)은 그대로다 — 그건 정확성 문제다.
+             *   ⚠️ 이 값으로 화면 줄을 다시 만들지 말 것. 되살리려면 사람에게 먼저 물을 것
+             *      (회귀 감시: test-harness/c24_finance_kcpm_harness.mjs ③). */
             return admCachePut(env, _finKey, {
               ok: true, source: 'neo4j', kind: 'summary', months: rows,
               totals: { ...totals, net: totals.income - totals.expense },
-              // 🧾 화면이 «왜 숫자가 줄었나» 를 설명할 수 있게, 뺀 금액을 숨기지 않고 같이 내려준다.
-              excluded: { rule: '케이씨피M', reason: '하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동', amount: totals.excludedTransfer, count: totals.excludedCount },
             });
           } catch (e: any) {
             if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
