@@ -11119,6 +11119,23 @@ window.rebuildGlobalSearchIndex = function() {
         td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
         td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         tr.total td{background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b}
+        /* 📐 컬럼이 많은 표 — 「가맹점별 정산서」가 「장부 결제」·「B2B 직접입금」 두 칸이 늘어
+           10칸이 되면서 PC 에서 가로로 넘친다는 제보를 받고 넣었다(2026-08-18).
+           ⚠️ 처음엔 숫자 칸에 white-space:nowrap 을 줬다가 표의 «최소 폭» 이 693 → 746px 로
+              오히려 넓어졌다(측정으로 확인). 넘치는 표에 nowrap 은 반대 방향이다.
+              지금은 글자·여백만 줄이고 아무것도 nowrap 하지 않는다 — 어느 폭에서든 예전보다 좁다.
+           .tblwrap 은 «표 안에서만» 스크롤되게 하는 안전망이다. 페이지 본문이 통째로 옆으로
+           밀리는 것(진짜 문제)과 달리, 표 하나만 밀리는 건 읽는 데 지장이 없다. */
+        .tblwrap{overflow-x:auto}
+        table.compact{font-size:11.5px}
+        table.compact th,table.compact td{padding:6px 7px}
+        table.compact th{white-space:normal;line-height:1.35;vertical-align:bottom}
+        /* 배지는 헤더 «아래 줄» 로 내린다 — 옆에 붙으면 그 칸이 배지 폭만큼 넓어진다 */
+        table.compact th > span{display:block !important;margin:3px 0 0 !important;margin-left:0 !important}
+        @media print{
+          table.compact{font-size:9.5px}
+          table.compact th,table.compact td{padding:4px 5px}
+        }
         .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
         .kpi{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px}
         .kpi .l{font-size:11px;color:#6b7280;margin-bottom:4px}
@@ -11374,14 +11391,14 @@ window.rebuildGlobalSearchIndex = function() {
       ${drill(`배정 못 한 B2B 입금 ${(d.b2b_unassigned||[]).length}곳 — 어느 대리점·지사인지 알려 주세요`,
         (d.b2b_unassigned||[]).map(u => ({ date: u.payee, name: u.reason + ' · ' + u.count + '건', amount: u.amount })),
         { dateLabel: '입금 적요', nameLabel: '사유' })}` : ''}
-      <table>
-        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 직접입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
+      <div class="tblwrap"><table class="compact">
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
         <tbody>
           ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
             : '<tr><td colspan="10" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
           <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
         </tbody>
-      </table>
+      </table></div>
       <p style="font-size:11px;color:#6b7280;margin:6px 0 0;line-height:1.7">
         ※ <b>장부 결제</b> = 카페24 등 결제 기록(student_payments) · <b>B2B 직접입금</b> = 학원이 신한 통장으로 바로 보낸 수업료.
         결제건에는 B2B 입금 건수도 포함됩니다. <b>학생수</b>는 결제 장부에서만 셀 수 있어 B2B 입금은 반영되지 않습니다
