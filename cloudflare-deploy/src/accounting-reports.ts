@@ -12,7 +12,7 @@
  *   GET /api/admin/reports/journal?period=YYYY-MM        회계 전표 / 분개장
  *   GET /api/admin/reports/receivables?kind=receivable|payable|pending  미수금/미지급금
  *   GET /api/admin/reports/payments-list?from=&to=&method=&status=  학생 결제 내역
- *   GET /api/admin/reports/refunds-list?status=          환불/취소 내역
+ *   GET /api/admin/reports/refunds-list?status=          환불/취소 내역 (학생이름·아이디·결제일자 포함)
  *
  *   format=json  (기본)  → JSON
  *   format=csv          → text/csv 다운로드
@@ -158,6 +158,22 @@ export function notSeedSql(a = ''): string {
   const q = a ? a + '.' : '';
   return `NOT (COALESCE(${q}memo,'') LIKE ${SEED_MEMOS[0]} OR COALESCE(${q}memo,'') = ${SEED_MEMOS[1]})`;
 }
+/* 💳 «KCP 정산 대상 결제» 만 고르는 조건 (2026-08-18 사장님 지시로 신설)
+
+   [왜] 매출–입금 대사의 기준이 **통장의 「케이씨피」 입금** 으로 바뀌었다. 통장에는
+   KCP 가 정산해 준 카드 결제분만 「케이씨피」로 찍힌다. 그런데 장부(student_payments)
+   에는 계좌이체·가상계좌처럼 **KCP 를 아예 안 거치는 결제**도 섞여 있다. 그걸 함께
+   세면 «장부에는 있는데 통장에 안 들어온 돈» 이 구조적으로 생겨 대사가 늘 어긋난다.
+   ⚠️ 대사·PG 판정 전용이다. 회사 «매출» 자체(monthRevenue.total, 손익·월간 리포트)는
+      여전히 결제수단을 가리지 않는다 — 계좌이체도 매출은 매출이다. 여기를 매출 계산에
+      끌어다 쓰면 매출이 통째로 줄어 보인다.
+   📌 2026-08-18 실데이터: 시드를 뺀 결제는 method 가 'card'(11,091건)·'카드'(2건)뿐이라
+      이 조건으로 빠지는 실매출은 현재 0원이다. 규칙을 명시해 두는 쪽이 안전하다. */
+export function kcpSettledSql(a = ''): string {
+  const q = a ? a + '.' : '';
+  return `LOWER(COALESCE(${q}method,'')) IN ('card','카드','신용카드','creditcard','credit','kcp','케이씨피','정기결제','자동결제')`;
+}
+
 /** 그 달에 «리포트에서 뺀» 시드 매출 — 화면에 «얼마를 왜 뺐는지» 밝히기 위한 값. */
 async function seedRevenueExcluded(env: Env, startMs: number, endMs: number): Promise<{ amount: number; count: number }> {
   return await safe(async () => {
@@ -428,9 +444,19 @@ async function monthRevenue(env: Env, period: string) {
     `).bind(startMs, endMs).first<{ revenue: number; pay_count: number; paying_users: number }>();
     return r || { revenue: 0, pay_count: 0, paying_users: 0 };
   }, { revenue: 0, pay_count: 0, paying_users: 0 });
+  /* 💳 그중 «KCP 정산 대상» 만 따로 — 대사(장부 vs 통장) 전용 수치다(2026-08-18).
+     매출 합계(total)는 건드리지 않는다. 대사만 통장의 「케이씨피」와 짝이 맞아야 한다. */
+  const bookPg = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount_krw),0) AS revenue FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()} AND ${kcpSettledSql()}
+    `).bind(startMs, endMs).first<{ revenue: number }>();
+    return Number(r?.revenue) || 0;
+  }, 0);
   const dep = await monthDeposits(env, period);
   return {
     book: Number(book.revenue) || 0,          // 카페24 등 결제 장부
+    bookPg,                                    // 그중 KCP 정산 대상만 (대사 전용)
     b2b: dep.b2b,                              // 통장 직접입금 (신규 반영)
     total: (Number(book.revenue) || 0) + dep.b2b,
     payCount: Number(book.pay_count) || 0,
@@ -551,7 +577,9 @@ async function buildMonthly(env: Env, period: string) {
   const { ax, payroll, payrollEff, pgFee, opCost } = pl;
   const coverage = coverageOf(period, await syncStarts(env));      // 📅 이 달 자료가 온전한가
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
-  const rec = reconcileMonth(pl.rev.book, pl.rev.dep);             // 🔍 장부 vs 통장 (한 달치)
+  /* 🔍 장부 vs 통장 (한 달치) — 기준은 통장의 「케이씨피」 입금이다(2026-08-18).
+     장부 쪽도 KCP 정산 대상(bookPg)만 넣는다 — 대사 화면과 규칙이 갈라지면 안 된다. */
+  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep);
 
   /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
      «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
@@ -716,10 +744,11 @@ async function buildMonthly(env: Env, period: string) {
       ['이익률(%)', pl.margin],
       ...(data.pl.confident ? [] : [['(주의) 장부와 통장이 어긋나 순이익이 확정치가 아닙니다'] as (string | number)[]]),
       [],
-      ['[장부 vs 통장]'],
-      ['장부 매출', rec.revenue],
+      ['[장부 vs 통장] — 기준: 통장 「케이씨피」 입금'],
+      ['실제 PG 정산 입금(기준)', rec.deposit_pg],
+      ['통장 기준 매출(수수료 역산)', rec.bank_revenue == null ? '(자료없음)' : rec.bank_revenue],
+      ['장부 매출(KCP 정산 대상만)', rec.revenue],
       ['예상 입금(수수료 차감)', rec.expected],
-      ['실제 PG 정산 입금', rec.deposit_pg],
       ['차이', rec.diff == null ? '(자료없음)' : rec.diff],
       ...(pl.rev.dep.transfer > 0 ? [[`(확인 필요) PG 정산이 아닌 「케이씨피M」 등 타계좌 입금`, pl.rev.dep.transfer] as (string | number)[]] : []),
       [],
@@ -1185,12 +1214,18 @@ async function monthActiveStudents(env: Env, period: string) {
 }
 
 /* 🔍 한 달치 장부 vs 통장 판정 — reconcileReport() 와 같은 규칙을 한 달에 적용한 것.
-   판정 문구도 같은 곳에서 만들어, 월간 리포트 배너와 대사 화면이 어긋나지 않게 한다. */
+   판정 문구도 같은 곳에서 만들어, 월간 리포트 배너와 대사 화면이 어긋나지 않게 한다.
+   ⚠️ 2026-08-18 기준 전환: **통장의 「케이씨피」 입금이 기준**이다.
+      · revenueBook 에는 KCP 정산 대상 결제만 들어온다(monthRevenue.bookPg)
+      · 오차율(pct)의 분모도 장부(expected)가 아니라 통장(dep.pg) 이다
+      · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에 넣지 않는다(금액만 따로 밝힌다) */
 function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
   const expected = Math.round(revenueBook * (1 - PG_FEE_RATE));
   const hasBank = dep.hasBank;
   const diff = hasBank ? dep.pg - expected : null;
-  const pct = expected > 0 && diff != null ? (diff / expected) * 100 : 0;
+  // 통장이 기준 — 들어온 돈을 100 으로 놓고 장부가 얼마나 벌어졌는지 본다.
+  // 통장에 정산금이 한 푼도 없는데 장부엔 매출이 있으면 −100%(= 확인 필요)로 본다.
+  const pct = diff == null ? 0 : (dep.pg > 0 ? (diff / dep.pg) * 100 : (expected > 0 ? -100 : 0));
   let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
   if (!hasBank) verdict = 'no_data';
   else if (Math.abs(pct) <= 15) verdict = 'ok';           // 월 단위는 PG 정산 시차가 커서 여유를 둔다
@@ -1209,6 +1244,8 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
   };
   return {
     revenue: revenueBook, expected, deposit_pg: dep.pg,
+    // 통장 기준 매출 = 실제 들어온 정산금을 수수료만큼 되돌린 값
+    bank_revenue: hasBank ? Math.round(dep.pg / (1 - PG_FEE_RATE)) : null,
     deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
     transfer_note: [
@@ -2498,12 +2535,25 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
   // student_payments 에서 status != 'paid' 인 것을 환불/취소로 간주
   const status = url.searchParams.get('status') || '';
 
-  const where: string[] = ["status IN ('refunded','cancelled','failed','pending')", notSeedSql()];
-  if (status) { where.push('status = ?'); }
+  /* 🧑‍🎓 학생 이름·아이디 (2026-08-18 추가)
+     예전에는 user_id 하나만 내려줘서 화면에 「imom0553b」 같은 로그인 아이디만 떴다.
+     누구 환불인지 알 수 없어 사장님이 매번 다른 화면에서 아이디를 찾아 대조해야 했다.
+     students_erp 를 LEFT JOIN 해 이름을 붙인다 — **LEFT** 인 이유는 퇴원 등으로
+     원부에서 빠진 결제가 실제로 있기 때문(실측: 취소 119건 중 이름이 없는 건이 있다).
+     INNER JOIN 으로 바꾸면 그 행들이 목록에서 통째로 사라진다.
+     이름 컬럼도 원부마다 채워진 자리가 달라(korean_name / student_name / english_name)
+     COALESCE 로 차례로 본다. */
+  const where: string[] = ["p.status IN ('refunded','cancelled','failed','pending')", notSeedSql('p')];
+  if (status) { where.push('p.status = ?'); }
   const stmt = env.DB.prepare(`
-    SELECT id, paid_at, user_id, amount_krw, method, memo, status
-    FROM student_payments WHERE ${where.join(' AND ')}
-    ORDER BY paid_at DESC LIMIT 200
+    SELECT p.id, p.paid_at, p.created_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
+           COALESCE(NULLIF(TRIM(s.korean_name),''), NULLIF(TRIM(s.student_name),''),
+                    NULLIF(TRIM(s.english_name),'')) AS student_name,
+           COALESCE(NULLIF(TRIM(s.login_id),''), p.user_id) AS login_id
+    FROM student_payments p
+    LEFT JOIN students_erp s ON s.user_id = p.user_id
+    WHERE ${where.join(' AND ')}
+    ORDER BY p.paid_at DESC LIMIT 200
   `);
   const rows = await safe(async () => {
     const r = status ? await stmt.bind(status).all() : await stmt.all();
@@ -2512,13 +2562,14 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
 
   const data = { ok: true, type: 'refunds-list', rows, count: rows.length };
   if (fmt === 'csv' || fmt === 'xlsx') {
+    const kst = (ms: number) => ms ? new Date(ms + 9*3600*1000).toISOString().slice(0,19).replace('T',' ') : '';
     return out(fmt, 'refunds.csv', [
       ['망고아이 환불/취소 내역'],
       [],
-      ['시각', '주문ID', '학생ID', '금액', '상태', '메모'],
+      ['등록일', '결제일자', '주문ID', '학생이름', '아이디', '금액', '상태', '메모'],
       ...rows.map(r => [
-        new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
-        r.id, r.user_id, r.amount_krw, r.status, r.memo || '',
+        kst(r.created_at || 0), kst(r.paid_at || 0),
+        r.id, r.student_name || '', r.login_id || r.user_id, r.amount_krw, r.status, r.memo || '',
       ]),
     ]);
   }
@@ -2526,18 +2577,35 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   13) 🔍 매출–입금 대사 (장부 vs 통장)   GET /api/admin/reports/reconcile
+   13) 🔍 매출–입금 대사 (통장 기준)   GET /api/admin/reports/reconcile
 
    [왜 만들었나] 2026-08 실제로 겪은 일 — 장부 매출이 통장 입금보다 8,100만 많았고
    (시연용 시드 결제가 섞여 있었다) 아무도 몰랐다. 「매출이 잡히는데 이상하다」는
    감을 숫자로 바로 확인할 수 있어야 재발을 막는다.
 
+   [2026-08-18 기준 전환 — 사장님 지시] 예전엔 **장부(카페24·KCP 결제기록)** 가 기준이고
+   통장이 «맞는지 보는 쪽» 이었다. 이제 **통장이 기준**이다.
+     · 기준 = 신한 통장에 실제로 들어온 「케이씨피」 정산금 (deposit_pg)
+     · 통장 기준 매출 = 그 입금 ÷ (1 − PG 수수료)  ← «통장이 말하는 매출»
+     · 장부 매출·예상 입금은 그 옆에 놓고 비교하는 참고 수치가 된다
+     · 판정(%)의 분모도 장부(예상 입금)가 아니라 **통장 입금**이다
+   왜 바꿨나 — 장부는 동기화가 밀리거나 시드가 섞이면 틀리지만, 통장에 찍힌 돈은
+   틀릴 수가 없다. 「무엇이 사실인가」를 통장 쪽에 두는 것이 대사의 원래 목적에 맞다.
+
+   [대사 대상에서 빼는 것] «케이씨피 이외의 매출은 모두 제외» (같은 지시)
+     · 통장 쪽: 「케이씨피」(기업은행 자동정산) 입금만 센다.
+       「케이씨피M」(하나은행에서 사람이 보낸 운영자금)·B2B 직접입금·기타 입금은
+       **대사에서 완전히 제외**하고 금액만 «참고» 로 밝힌다.
+     · 장부 쪽: KCP 정산 대상 결제(카드·정기결제)만 센다 — kcpSettledSql().
+       계좌이체·가상계좌처럼 KCP 를 안 거치는 결제는 통장의 「케이씨피」로 들어올 수가
+       없으므로, 함께 세면 차이가 나는 게 당연해져 대사가 의미를 잃는다.
+
    [읽는 법]
-     · 예상 입금 = 장부 매출 × (1 − PG 수수료). 요율은 PG_FEE_RATE 한 곳에서 온다
      · 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 **월 단위로는 어긋나는
        것이 정상**이다. 그래서 «누적 합계» 줄을 함께 준다 — 시차는 누적에서 상쇄된다.
        판정도 누적을 기준으로 본다.
-     · 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라서 «참고» 로만 보여 준다.
+     · 누적은 **통장 자료가 있는 달만** 합산한다. 계좌 연동 이전 달의 장부 매출까지
+       더하면 «입금이 통째로 비는» 달이 섞여 판정이 무조건 «매출 누락» 으로 기운다.
    ⚠️ 계좌 연동(바로빌) 이전 달은 입금 데이터 자체가 없다 → 판정하지 않고
       «입금자료 없음» 으로 표시한다(0원을 «미입금» 으로 오해하면 안 된다). */
 async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Response> {
@@ -2554,22 +2622,37 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   const startMs = monthRange(list[0]).startMs;
   const endMs = monthRange(list[list.length - 1]).endMs;
 
-  // 장부 매출(시드 제외) — KST 월로 묶는다
+  /* 장부 매출(시드 제외) — KST 월로 묶는다.
+     ⚠️ kcpSettledSql() 로 «KCP 정산 대상 결제» 만 센다(2026-08-18). 통장 기준이 된 이상
+        KCP 를 안 거치는 결제(계좌이체 등)를 장부에 함께 세면 대사가 성립하지 않는다. */
   const revRows = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT substr(date(paid_at/1000,'unixepoch','+9 hours'),1,7) AS ym,
              COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS cnt
       FROM student_payments
-      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()}
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()} AND ${kcpSettledSql()}
       GROUP BY ym
     `).bind(startMs, endMs).all();
     return (r.results || []) as Array<{ ym: string; revenue: number; cnt: number }>;
+  }, []);
+  /* 장부에는 있지만 KCP 정산 대상이 아니라 대사에서 뺀 매출 — «얼마를 왜 뺐는지» 밝힌다.
+     숫자를 조용히 줄이면 다른 화면(월간 리포트)의 매출과 어긋나 보여 또 오해가 생긴다. */
+  const nonKcpRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT substr(date(paid_at/1000,'unixepoch','+9 hours'),1,7) AS ym,
+             COALESCE(SUM(amount_krw),0) AS revenue
+      FROM student_payments
+      WHERE status='paid' AND paid_at>=? AND paid_at<? AND ${notSeedSql()} AND NOT (${kcpSettledSql()})
+      GROUP BY ym
+    `).bind(startMs, endMs).all();
+    return (r.results || []) as Array<{ ym: string; revenue: number }>;
   }, []);
 
   /* 🏦 통장 입금을 성격별로 나눈다 (2026-08-16 전면 수정).
      ⛔ 예전: `remark LIKE '%케이씨피%'` → 「케이씨피M」(하나은행에서 사람이 보낸 돈)까지
         PG 정산으로 세어, 2026-03~07 누적 4,632만원이 «장부에 없는 매출» 로 오진됐다.
-     ✅ 지금: classifyDeposit() 로 pg / b2b(수업료 직접입금) / transfer(확인 필요) / other. */
+     ✅ 지금: classifyDeposit() 로 pg / b2b(수업료 직접입금) / transfer(확인 필요) / other.
+        이 중 **대사에 쓰는 것은 pg(「케이씨피」) 하나뿐**이다. */
   const depRows = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT substr(trans_at,1,7) AS ym, COALESCE(remark,'') AS remark, amount
@@ -2592,9 +2675,11 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   }, '');
 
   const revMap = new Map(revRows.map(r => [r.ym, r]));
+  const nonKcpMap = new Map(nonKcpRows.map(r => [r.ym, Number(r.revenue) || 0]));
   const depMap = new Map(depRows.map(r => [r.ym, r]));
 
-  let cumRev = 0, cumPg = 0, cumB2b = 0, cumTransfer = 0;
+  // 누적은 «통장 자료가 있는 달» 만 — 기준이 통장이므로 통장이 없는 달은 대사 자체가 안 된다
+  let cumRev = 0, cumPg = 0, cumB2b = 0, cumTransfer = 0, cumNonKcp = 0, cumRevNoBank = 0;
   const rows = list.map(ym => {
     const rv = revMap.get(ym);
     const dp = depMap.get(ym);
@@ -2605,19 +2690,30 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     const other = Number(dp?.other) || 0;
     const expected = Math.round(revenue * (1 - PG_FEE_RATE));
     const hasBank = !!bankFrom && ym >= bankFrom;
-    cumRev += revenue; cumPg += pg; cumB2b += b2b; cumTransfer += transfer;
+    // 💡 기준이 통장 — 통장에 들어온 정산금을 매출로 되돌린 값(수수료 역산)
+    const bankRevenue = Math.round(pg / (1 - PG_FEE_RATE));
+    if (hasBank) {
+      cumRev += revenue; cumPg += pg; cumB2b += b2b; cumTransfer += transfer;
+      cumNonKcp += nonKcpMap.get(ym) || 0;
+    } else {
+      cumRevNoBank += revenue;
+    }
     return {
       period: ym, revenue, pay_count: Number(rv?.cnt) || 0,
       expected, deposit_pg: pg, deposit_b2b: b2b, deposit_transfer: transfer, deposit_other: other,
+      bank_revenue: hasBank ? bankRevenue : null,   // 통장 기준 매출(수수료 역산)
       diff: hasBank ? pg - expected : null,
       has_bank: hasBank,
     };
   });
 
-  // 판정은 «누적» 기준 — 월별 어긋남은 PG 정산 시차라 정상이다
+  /* 판정은 «누적» 기준 — 월별 어긋남은 PG 정산 시차라 정상이다.
+     ⚠️ 분모가 통장(cumPg)이다(2026-08-18 기준 전환). 통장에 들어온 돈을 100 으로 놓고
+        장부(예상 입금)가 얼마나 벌어졌는지를 본다. */
   const cumExpected = Math.round(cumRev * (1 - PG_FEE_RATE));
+  const cumBankRevenue = Math.round(cumPg / (1 - PG_FEE_RATE));
   const cumDiff = cumPg - cumExpected;
-  const cumPct = cumExpected > 0 ? (cumDiff / cumExpected) * 100 : 0;
+  const cumPct = cumPg > 0 ? (cumDiff / cumPg) * 100 : (cumExpected > 0 ? -100 : 0);
   const bankMonths = rows.filter(r => r.has_bank).length;
   let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
   if (!bankFrom || bankMonths === 0) verdict = 'no_data';
@@ -2630,10 +2726,10 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
        · 입금 > 예상 → 통장에 들어왔는데 장부에 안 잡힌 매출(동기화 누락) 의심 */
   const short = cumDiff < 0;
   const MSG: Record<typeof verdict, string> = {
-    ok: '장부와 통장이 맞습니다(누적 오차 10% 이내 — PG 정산 시차 범위).',
+    ok: '통장에 들어온 「케이씨피」 정산금과 장부가 맞습니다(누적 오차 10% 이내 — PG 정산 시차 범위).',
     warn: short
-      ? '통장에 들어온 돈이 장부보다 10% 이상 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
-      : '통장에 들어온 돈이 장부보다 10% 이상 많습니다. 장부에 안 잡힌 매출이 있는지(결제 동기화 누락) 확인하세요.',
+      ? '통장에 들어온 「케이씨피」 정산금이 장부보다 10% 이상 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
+      : '통장에 들어온 「케이씨피」 정산금이 장부보다 10% 이상 많습니다. 장부에 안 잡힌 매출이 있는지(결제 동기화 누락) 확인하세요.',
     alert: short
       ? '통장 입금이 장부보다 25% 이상 적습니다. 장부에만 있는 매출이거나 미수금일 수 있습니다 — 확인이 필요합니다.'
       : '통장 입금이 장부보다 25% 이상 많습니다. **매출이 장부에 덜 잡히고 있습니다**(결제 동기화 누락 의심) — 확인이 필요합니다.',
@@ -2642,38 +2738,52 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
 
   const data = {
     ok: true, type: 'reconcile', months, end: endMonth,
-    label: `매출–입금 대사 — ${list[0]} ~ ${list[list.length - 1]}`,
+    label: `매출–입금 대사(통장 기준) — ${list[0]} ~ ${list[list.length - 1]}`,
+    basis: 'bank' as const,          // 🔑 기준 데이터 = 통장 「케이씨피」 입금
+    basis_label: '통장 「케이씨피」 입금',
     pg_fee_rate: PG_FEE_RATE, bank_data_from: bankFrom || null,
+    reconciled_months: bankMonths,
     rows,
     totals: {
       revenue: cumRev, expected: cumExpected, deposit_pg: cumPg,
+      bank_revenue: cumBankRevenue,
       deposit_b2b: cumB2b, deposit_transfer: cumTransfer,
       diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)),
     },
     verdict, message: MSG[verdict],
-    /* 🔎 «PG 정산이 아닌 타계좌 입금» 은 판정에서 뺐다. 대신 얼마인지 밝혀 사람이 확인하게 한다. */
+    /* 🔎 대사에서 «뺀» 것들 — 숨기지 않고 얼마인지 밝혀 사람이 확인하게 한다. */
     transfer_note: cumTransfer > 0
-      ? `이 기간 「케이씨피M」처럼 PG 정산이 아닌 타계좌 입금이 ₩${cumTransfer.toLocaleString('ko-KR')} 있습니다(하나은행에서 인터넷뱅킹으로 보낸 돈). 운영자금 이체인지 매출인지 확인이 필요해 대사에서는 제외했습니다.`
+      ? `「케이씨피M」처럼 PG 정산이 아닌 타계좌 입금 ₩${cumTransfer.toLocaleString('ko-KR')} 는 대사에서 제외했습니다(하나은행에서 옮겨 온 운영자금 — 매출이 아닙니다).`
       : '',
     b2b_note: cumB2b > 0
-      ? `통장으로 직접 들어온 수업료 ₩${cumB2b.toLocaleString('ko-KR')} 는 카페24를 거치지 않아 장부에 없습니다. 월간 리포트에서는 매출로 반영했습니다.`
+      ? `통장으로 직접 들어온 수업료 ₩${cumB2b.toLocaleString('ko-KR')} 도 「케이씨피」 정산금이 아니라 대사에서 제외했습니다(월간 리포트에서는 매출로 반영합니다).`
+      : '',
+    non_kcp_note: cumNonKcp > 0
+      ? `장부 결제 중 KCP 정산 대상이 아닌 매출 ₩${cumNonKcp.toLocaleString('ko-KR')} 는 대사에서 제외했습니다(계좌이체 등 — 통장의 「케이씨피」로 들어오지 않습니다).`
+      : '',
+    no_bank_note: cumRevNoBank > 0
+      ? `통장 자료가 없는 달의 장부 매출 ₩${cumRevNoBank.toLocaleString('ko-KR')} 는 누적 합계에서 뺐습니다(대사할 상대가 없는 달입니다).`
       : '',
   };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
     return out(fmt, `reconcile-${endMonth}.csv`, [
-      ['망고아이 매출–입금 대사', data.label],
-      [`PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(2)}%`],
-      ['※ 「케이씨피」(기업은행 자동정산)만 PG 입금으로 셉니다. 「케이씨피M」(하나은행 수동송금)은 PG 정산이 아니라 제외했습니다.'],
+      ['망고아이 매출–입금 대사(통장 기준)', data.label],
+      [`기준 = 통장에 들어온 「케이씨피」 정산금 · PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(2)}%`],
+      ['※ 「케이씨피」(기업은행 자동정산)만 대사 대상입니다. 「케이씨피M」(하나은행 수동송금)·B2B 직접입금·기타 입금은 제외했습니다.'],
+      ['※ 장부 매출도 KCP 정산 대상 결제(카드·정기결제)만 셉니다.'],
       [],
-      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 정산 입금', '차이', '통장 직접입금(B2B)', '타계좌 입금(확인 필요)', '기타 입금'],
-      ...rows.map(r => [r.period, r.revenue, r.pay_count, r.expected, r.has_bank ? r.deposit_pg : '(자료없음)',
-        r.diff == null ? '-' : r.diff, r.deposit_b2b, r.deposit_transfer, r.deposit_other]),
-      ['누적 합계', cumRev, '', cumExpected, cumPg, cumDiff, cumB2b, cumTransfer, ''],
+      ['월', '실제 PG 입금(기준)', '통장 기준 매출(수수료 역산)', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '차이', '통장 직접입금(B2B·참고)', '타계좌 입금(참고)', '기타 입금(참고)'],
+      ...rows.map(r => [r.period, r.has_bank ? r.deposit_pg : '(자료없음)', r.bank_revenue == null ? '-' : r.bank_revenue,
+        r.revenue, r.pay_count, r.expected, r.diff == null ? '-' : r.diff,
+        r.deposit_b2b, r.deposit_transfer, r.deposit_other]),
+      ['누적 합계(통장 자료 있는 달만)', cumPg, cumBankRevenue, cumRev, '', cumExpected, cumDiff, cumB2b, cumTransfer, ''],
       [],
       ['판정', data.message],
       ...(data.transfer_note ? [['참고', data.transfer_note]] : []),
       ...(data.b2b_note ? [['참고', data.b2b_note]] : []),
+      ...(data.non_kcp_note ? [['참고', data.non_kcp_note]] : []),
+      ...(data.no_bank_note ? [['참고', data.no_bank_note]] : []),
     ]);
   }
   return json(data);
