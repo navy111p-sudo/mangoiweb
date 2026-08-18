@@ -12,8 +12,8 @@ Daemon will be stopped at the end of the build
 > Task :app:parseReleaseLocalResources
 > Task :app:createReleaseCompatibleScreenManifests
 > Task :app:extractDeepLinksRelease
-> Task :app:mergeReleaseResources
 > Task :app:processReleaseMainManifest
+> Task :app:mergeReleaseResources
 > Task :app:processReleaseManifest
 > Task :app:extractProguardFiles
 > Task :app:processReleaseManifestForPackage
@@ -54,9 +54,9 @@ Daemon will be stopped at the end of the build
 > Task :app:lintVitalReportRelease
 > Task :app:lintVitalRelease
 > Task :app:assembleRelease
-gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1786732995962.json
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/build-1787046291895.json
 
-BUILD SUCCESSFUL in 39s
+BUILD SUCCESSFUL in 38s
 44 actionable tasks: 44 executed
 
 BUILD_OUTCOME=success
