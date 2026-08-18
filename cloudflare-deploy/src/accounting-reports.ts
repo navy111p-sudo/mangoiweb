@@ -12,7 +12,7 @@
  *   GET /api/admin/reports/journal?period=YYYY-MM        회계 전표 / 분개장
  *   GET /api/admin/reports/receivables?kind=receivable|payable|pending  미수금/미지급금
  *   GET /api/admin/reports/payments-list?from=&to=&method=&status=  학생 결제 내역
- *   GET /api/admin/reports/refunds-list?status=          환불/취소 내역
+ *   GET /api/admin/reports/refunds-list?status=          환불/취소 내역 (학생이름·아이디·결제일자 포함)
  *
  *   format=json  (기본)  → JSON
  *   format=csv          → text/csv 다운로드
@@ -2410,12 +2410,25 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
   // student_payments 에서 status != 'paid' 인 것을 환불/취소로 간주
   const status = url.searchParams.get('status') || '';
 
-  const where: string[] = ["status IN ('refunded','cancelled','failed','pending')", notSeedSql()];
-  if (status) { where.push('status = ?'); }
+  /* 🧑‍🎓 학생 이름·아이디 (2026-08-18 추가)
+     예전에는 user_id 하나만 내려줘서 화면에 「imom0553b」 같은 로그인 아이디만 떴다.
+     누구 환불인지 알 수 없어 사장님이 매번 다른 화면에서 아이디를 찾아 대조해야 했다.
+     students_erp 를 LEFT JOIN 해 이름을 붙인다 — **LEFT** 인 이유는 퇴원 등으로
+     원부에서 빠진 결제가 실제로 있기 때문(실측: 취소 119건 중 이름이 없는 건이 있다).
+     INNER JOIN 으로 바꾸면 그 행들이 목록에서 통째로 사라진다.
+     이름 컬럼도 원부마다 채워진 자리가 달라(korean_name / student_name / english_name)
+     COALESCE 로 차례로 본다. */
+  const where: string[] = ["p.status IN ('refunded','cancelled','failed','pending')", notSeedSql('p')];
+  if (status) { where.push('p.status = ?'); }
   const stmt = env.DB.prepare(`
-    SELECT id, paid_at, user_id, amount_krw, method, memo, status
-    FROM student_payments WHERE ${where.join(' AND ')}
-    ORDER BY paid_at DESC LIMIT 200
+    SELECT p.id, p.paid_at, p.created_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
+           COALESCE(NULLIF(TRIM(s.korean_name),''), NULLIF(TRIM(s.student_name),''),
+                    NULLIF(TRIM(s.english_name),'')) AS student_name,
+           COALESCE(NULLIF(TRIM(s.login_id),''), p.user_id) AS login_id
+    FROM student_payments p
+    LEFT JOIN students_erp s ON s.user_id = p.user_id
+    WHERE ${where.join(' AND ')}
+    ORDER BY p.paid_at DESC LIMIT 200
   `);
   const rows = await safe(async () => {
     const r = status ? await stmt.bind(status).all() : await stmt.all();
@@ -2424,13 +2437,14 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
 
   const data = { ok: true, type: 'refunds-list', rows, count: rows.length };
   if (fmt === 'csv' || fmt === 'xlsx') {
+    const kst = (ms: number) => ms ? new Date(ms + 9*3600*1000).toISOString().slice(0,19).replace('T',' ') : '';
     return out(fmt, 'refunds.csv', [
       ['망고아이 환불/취소 내역'],
       [],
-      ['시각', '주문ID', '학생ID', '금액', '상태', '메모'],
+      ['등록일', '결제일자', '주문ID', '학생이름', '아이디', '금액', '상태', '메모'],
       ...rows.map(r => [
-        new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
-        r.id, r.user_id, r.amount_krw, r.status, r.memo || '',
+        kst(r.created_at || 0), kst(r.paid_at || 0),
+        r.id, r.student_name || '', r.login_id || r.user_id, r.amount_krw, r.status, r.memo || '',
       ]),
     ]);
   }

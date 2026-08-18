@@ -11481,7 +11481,14 @@ window.rebuildGlobalSearchIndex = function() {
   window.accLoadRefunds = async function(){
     const status = document.getElementById('acc-rf-status').value;
     const tbody = document.getElementById('acc-rf-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중…</td></tr>';
+    const _en = (window.adminLang==='en');
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    // ⚠️ paid_at·created_at 은 **밀리초**다(실측: 1756430065000). 예전 코드가 ×1000 을 한 번 더
+    //    해서 서기 5만년대 날짜(+051907-…)를 찍고 있었다. 초로 착각하지 말 것.
+    const _day = function(ms){
+      var n = Number(ms||0); if (!n) return '-';
+      try { return new Date(n + 9*3600*1000).toISOString().slice(0,10); } catch(e){ return '-'; }
+    };
     try {
       const qs = new URLSearchParams();
       if (status) qs.set('status', status);
@@ -11489,15 +11496,23 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       tbody.innerHTML = (d.rows||[]).map(r => {
-        const t = new Date((r.paid_at||0)*1000+9*3600*1000).toISOString().slice(0,10);
-        return `<tr><td>${_esc(t)}</td><td>${_esc(r.user_id||'')}</td>
+        // 원부에서 빠진 학생(퇴원 등)은 이름이 없다. 지어내지 말고 «(원부 없음)» 이라고 밝힌다.
+        const nm = r.student_name || (_en?'(not in roster)':'(원부 없음)');
+        const nmStyle = r.student_name ? '' : 'color:#94a3b8';
+        const uid = r.login_id || r.user_id || '';
+        // 환불금액은 실제로 되돌린 건(refunded/cancelled)만 금액을 적는다.
+        const refunded = (r.status==='refunded' || r.status==='cancelled');
+        return `<tr><td>${_esc(_day(r.created_at))}</td>
+                <td style="${nmStyle}"><b>${_esc(nm)}</b></td>
+                <td><code style="font-size:11px">${_esc(uid)}</code></td>
+                <td>${_esc(_day(r.paid_at))}</td>
                 <td style="text-align:right">${_fmt(r.amount_krw)}</td>
-                <td style="text-align:right">${_fmt(r.amount_krw)}</td>
+                <td style="text-align:right">${refunded ? _fmt(r.amount_krw) : '-'}</td>
                 <td>${_esc(r.memo||'-')}</td>
                 <td>${_badge(r.status, r.status==='refunded'?'warn':'bad')}</td>
                 <td><button class="primary" style="padding:3px 8px;font-size:11px" onclick="alert('상세 처리는 별도 페이지에서')">처리</button></td></tr>`;
-      }).join('') || '<tr><td colspan="7" class="empty">환불/취소 내역 없음</td></tr>';
-    } catch(e) { _showErr(tbody, e, 7); }
+      }).join('') || ('<tr><td colspan="9" class="empty">'+(_en?'No refund/cancel records':'환불/취소 내역 없음')+'</td></tr>');
+    } catch(e) { _showErr(tbody, e, 9); }
   };
 
   // ──────────────────────────────────────────────────────────
