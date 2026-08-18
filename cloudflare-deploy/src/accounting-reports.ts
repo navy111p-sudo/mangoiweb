@@ -340,8 +340,9 @@ async function monthActualOpex(env: Env, period: string) {
    LIKE 가 둘 다 잡는 바람에 2026-03~07 누적 4,632만원이 «PG 입금» 으로 잡혔고,
    대사가 «장부 매출이 통장보다 4,000만 적다 = 매출 누락» 이라고 오진했다.
    케이씨피(정산분)만 보면 같은 기간 누적 −9.9% 로 **정상 범위**다.
-   ⚠️ 「케이씨피M」의 정체(다른 계좌에서 옮긴 운영자금인지, 제휴사 정산금인지)는
-      사람만 알 수 있다. 그래서 지우지도 매출로 잡지도 않고 «확인 필요» 로 따로 센다.
+   ⚠️ 「케이씨피M」의 정체는 2026-08-17 에 사장님이 확인해 줬다 — 자기 계좌 간 자금 이동이다.
+      2026-08-18 지시로 리포트 어디에도 표시하지 않는다(아래 KNOWN_TRANSFER_RE 참고).
+      정체를 모르는 다른 변형이 새로 나타나면 그건 여전히 «확인 필요» 로 따로 센다.
 
    [B2B 직접입금] JW학원·(주)드림키오·어센틱영어처럼 학원이 통장으로 바로 보내는
    수업료는 카페24를 안 거쳐 student_payments 에 없다 — 실제로 확인했다(그 기간
@@ -378,7 +379,7 @@ export function classifyDeposit(remark: string, amount: number): DepositKind {
 
 export interface MonthDeposits {
   pg: number; b2b: number; transfer: number; other: number;
-  /** transfer 중 정체가 확인된 내부 자금이체(운영자금 보충) */
+  /** transfer 중 정체가 확인된 자기 계좌 간 자금 이동 — 리포트에는 표시하지 않는다 */
   transferKnown: number;
   /** transfer 중 아직 확인 안 된 것 — 이것만 «확인 필요» 로 묻는다 */
   transferUnknown: number;
@@ -785,7 +786,7 @@ function closeWarnings(data: any): string[] {
   const w: string[] = [];
   const rec = data?.reconcile, s = data?.summary, c = data?.cost;
   if (rec && (rec.verdict === 'warn' || rec.verdict === 'alert')) w.push(`장부와 통장이 어긋납니다 — ${rec.message}`);
-  // ✅ 정체가 확인된 내부 자금이체(「케이씨피M」)는 더 이상 묻지 않는다. 모르는 것만 묻는다.
+  // ✅ 정체가 확인된 자기 계좌 간 자금 이동은 묻지 않는다. 모르는 것만 묻는다.
   if ((s?.deposit_transfer_unknown_krw || 0) > 0) w.push(`성격이 확인되지 않은 입금이 ₩${Number(s.deposit_transfer_unknown_krw).toLocaleString('ko-KR')} 있습니다 — 매출인지 자금이동인지 확인해 주세요.`);
   if ((c?.unclassified_krw || 0) > 0) w.push(`계정과목이 안 붙은 출금이 ₩${Number(c.unclassified_krw).toLocaleString('ko-KR')} 있습니다(비용의 ${c.unclassified_pct}%).`);
   if (c?.op_cost_source === 'estimated') w.push('운영비가 실지출이 아니라 «매출의 10%» 추정입니다.');
@@ -1895,9 +1896,8 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
             ? [{ name: `통장 직접입금 (B2B ${plM.rev.dep.b2bRows.length}건 · 신한 실데이터)`, amount: plM.rev.b2b }]
             : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
-          ...(plM.rev.dep.transferKnown > 0
-            ? [{ name: `※ 하나은행에서 옮겨 온 운영자금 ₩${plM.rev.dep.transferKnown.toLocaleString('ko-KR')}(「케이씨피M」)은 매출이 아니라 자금 이동이라 제외했습니다`, sub: true }]
-            : []),
+          /* ⚠️ 확인이 끝난 자기 계좌 간 자금 이동은 각주로도 알리지 않는다(2026-08-18 사장님
+             지시 — 월간 회계 리포트와 같은 기준). 아직 «모르는» 입금만 밝힌다. */
           ...(plM.rev.dep.transferUnknown > 0
             ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${plM.rev.dep.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
@@ -2481,9 +2481,12 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   }, []);
 
   /* 🏦 통장 입금을 성격별로 나눈다 (2026-08-16 전면 수정).
-     ⛔ 예전: `remark LIKE '%케이씨피%'` → 「케이씨피M」(하나은행에서 사람이 보낸 돈)까지
+     ⛔ 예전: `remark LIKE '%케이씨피%'` → 내부 이체(자사 계좌에서 사람이 보낸 돈)까지
         PG 정산으로 세어, 2026-03~07 누적 4,632만원이 «장부에 없는 매출» 로 오진됐다.
-     ✅ 지금: classifyDeposit() 로 pg / b2b(수업료 직접입금) / transfer(확인 필요) / other. */
+     ✅ 지금: classifyDeposit() 로 pg / b2b(수업료 직접입금) / transfer(확인 필요) / other.
+     ⚠️ 2026-08-18 사장님 지시 — 성격이 «확인된» 자기 계좌 간 자금 이동은 어느 칸에도
+        넣지 않는다(표·엑셀·참고문구 전부). 매출도 아니고 설명할 것도 없는 돈이다.
+        transfer 칸에 남는 것은 아직 성격을 모르는 입금뿐이다. */
   const depRows = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT substr(trans_at,1,7) AS ym, COALESCE(remark,'') AS remark, amount
@@ -2493,8 +2496,10 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     const agg = new Map<string, { ym: string; pg: number; b2b: number; transfer: number; other: number }>();
     for (const row of rows) {
       const amount = Number(row.amount) || 0;
+      const kind = classifyDeposit(row.remark, amount);
+      if (kind === 'transfer' && isKnownTransfer(row.remark)) continue;   // 확인된 내부 이체 → 통째로 제외
       const cur = agg.get(row.ym) || { ym: row.ym, pg: 0, b2b: 0, transfer: 0, other: 0 };
-      cur[classifyDeposit(row.remark, amount)] += amount;
+      cur[kind] += amount;
       agg.set(row.ym, cur);
     }
     return [...agg.values()];
@@ -2565,9 +2570,10 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
       diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)),
     },
     verdict, message: MSG[verdict],
-    /* 🔎 «PG 정산이 아닌 타계좌 입금» 은 판정에서 뺐다. 대신 얼마인지 밝혀 사람이 확인하게 한다. */
+    /* 🔎 성격이 «아직 확인되지 않은» 입금만 밝힌다 — 판정에서는 뺐지만 모르는 돈을
+       숨기면 안 된다. 확인이 끝난 내부 이체는 애초에 여기 들어오지 않는다(위 집계에서 제외). */
     transfer_note: cumTransfer > 0
-      ? `이 기간 「케이씨피M」처럼 PG 정산이 아닌 타계좌 입금이 ₩${cumTransfer.toLocaleString('ko-KR')} 있습니다(하나은행에서 인터넷뱅킹으로 보낸 돈). 운영자금 이체인지 매출인지 확인이 필요해 대사에서는 제외했습니다.`
+      ? `이 기간 성격이 확인되지 않은 입금이 ₩${cumTransfer.toLocaleString('ko-KR')} 있습니다. 매출인지 자금 이동인지 확인이 필요해 대사에서는 제외했습니다.`
       : '',
     b2b_note: cumB2b > 0
       ? `통장으로 직접 들어온 수업료 ₩${cumB2b.toLocaleString('ko-KR')} 는 카페24를 거치지 않아 장부에 없습니다. 월간 리포트에서는 매출로 반영했습니다.`
@@ -2578,9 +2584,9 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
     return out(fmt, `reconcile-${endMonth}.csv`, [
       ['망고아이 매출–입금 대사', data.label],
       [`PG 수수료 가정 ${(PG_FEE_RATE * 100).toFixed(2)}%`],
-      ['※ 「케이씨피」(기업은행 자동정산)만 PG 입금으로 셉니다. 「케이씨피M」(하나은행 수동송금)은 PG 정산이 아니라 제외했습니다.'],
+      ['※ PG 입금은 「케이씨피」(기업은행 자동정산)만 셉니다. 자기 계좌 간 자금 이동은 대사에서 제외했습니다.'],
       [],
-      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 정산 입금', '차이', '통장 직접입금(B2B)', '타계좌 입금(확인 필요)', '기타 입금'],
+      ['월', '장부 매출', '결제건수', '예상 입금(수수료 차감)', '실제 PG 정산 입금', '차이', '통장 직접입금(B2B)', '성격 미확인 입금', '기타 입금'],
       ...rows.map(r => [r.period, r.revenue, r.pay_count, r.expected, r.has_bank ? r.deposit_pg : '(자료없음)',
         r.diff == null ? '-' : r.diff, r.deposit_b2b, r.deposit_transfer, r.deposit_other]),
       ['누적 합계', cumRev, '', cumExpected, cumPg, cumDiff, cumB2b, cumTransfer, ''],

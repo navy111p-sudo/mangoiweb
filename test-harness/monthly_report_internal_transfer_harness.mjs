@@ -5,13 +5,15 @@
 //     매출이 아니라서 손익에는 넣지 않았지만, 화면에는 「운영자금 보충」이라는 줄과
 //     그것을 설명하는 각주가 남아 있었다. 사장님 판단 — **설명이 오히려 혼동을 준다.**
 //     2026-08-18 지시로 월간 회계 리포트에서는 금액도 각주도 아예 보여 주지 않는다.
+//     같은 날 추가 지시로 **손익계산서(P&L)·매출–입금 대사 리포트도 같은 기준**으로 맞췄다.
 //
 //   이 하니스가 못 박는 것:
 //     ① 화면(renderMonthly)에 「케이씨피M」·「운영자금」·funding_in_krw 가 되살아나면 안 된다
 //     ② 리포트 payload(buildMonthly)에도 그 금액이 나가면 안 된다
 //     ③ 「실제 현금흐름」의 입금액은 내부 이체를 뺀 금액이어야 한다 (순증감까지 같이 바뀐다)
 //     ④ 상세 목록·CSV 에는 «아직 성격을 모르는» 입금만 남는다
-//     ⑤ ⛔ 그래도 classifyDeposit 의 판정 자체는 지우면 안 된다 —
+//     ⑤ 손익계산서·대사 리포트에도 그 설명이 남아 있으면 안 된다 (화면마다 말이 갈리면 안 된다)
+//     ⑥ ⛔ 그래도 classifyDeposit 의 판정 자체는 지우면 안 된다 —
 //        이 규칙이 없으면 대사(reconcile)가 다시 «매출 누락» 오진을 한다(2026-08-16 사고)
 //
 //   실행: node test-harness/monthly_report_internal_transfer_harness.mjs
@@ -90,8 +92,25 @@ console.log('\n④ 대사 배너가 내부 이체를 설명하지 않는다');
   ok(/transferUnknown/.test(rec), '성격을 «모르는» 입금은 계속 안내한다');
 }
 
-/* ── ⑤ ⛔ 판정 규칙 자체는 살아 있어야 한다 ───────────────────── */
-console.log('\n⑤ 매출 제외 규칙(classifyDeposit)은 그대로다');
+/* ── ⑤ 손익계산서·대사 리포트도 같은 기준 ─────────────────────── */
+console.log('\n⑤ 손익계산서·대사 리포트에도 설명이 남아 있지 않다');
+{
+  const stmt = slice(acct, 'async function statementReport(', '\nasync function taxReport(');
+  ok(stmt.length > 500, 'statementReport() 를 찾았다');
+  ok(!/transferKnown/.test(stmt), '손익계산서 매출 각주에서 내부 이체 안내가 빠졌다');
+  ok(/transferUnknown/.test(stmt), '성격을 «모르는» 입금은 손익계산서에서도 계속 밝힌다');
+
+  const rec = slice(acct, 'async function reconcileReport(', '\n// ─');
+  ok(rec.length > 500, 'reconcileReport() 를 찾았다');
+  ok(!/케이씨피M/.test(rec), '대사 리포트 문구·엑셀 머리말에 「케이씨피M」 이 없다');
+  ok(!/운영자금/.test(rec), '대사 리포트에 「운영자금」 표현이 없다');
+  ok(/if \(kind === 'transfer' && isKnownTransfer\(row\.remark\)\) continue;/.test(rec),
+    '확인된 내부 이체는 대사 집계 어느 칸에도 넣지 않는다');
+  ok(/성격 미확인 입금/.test(rec), '남은 칸 이름은 「성격 미확인 입금」 이다');
+}
+
+/* ── ⑥ ⛔ 판정 규칙 자체는 살아 있어야 한다 ───────────────────── */
+console.log('\n⑥ 매출 제외 규칙(classifyDeposit)은 그대로다');
 {
   ok(/const KNOWN_TRANSFER_RE = \/\^케이씨피M\$\//.test(acct),
     '「케이씨피M」 판정 정규식이 살아 있다');
