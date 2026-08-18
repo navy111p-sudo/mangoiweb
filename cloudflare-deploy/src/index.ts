@@ -30,6 +30,7 @@ import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeS
 import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
+import { handleSalesHrApi } from './api-sales-hr';   // 🚗 영업담당자 실적·인사평가·보상
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
 import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
@@ -385,6 +386,9 @@ const worker = {
             //    한 화면에 모이고, 여기서 전체에게 문자·카톡을 뿌릴 수 있다. 본사/매니저만.
             //    (핸들러 첫머리에서도 한 번 더 막지만, URL 직접 호출까지 여기서 끊는다)
             '/api/admin/teachers/kakao',
+            // ── 🚗 영업담당자 인사평가·보상 (2026-08-18) — 남의 급여·성과급·평가 등급이 담긴다.
+            //    거래처 학원장 연락처도 함께 들어 있어 강사에게는 열지 않는다.
+            '/api/admin/sales/',
             // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
             '/api/admin/corpcard/',
             // ── 🏦 신한은행 계좌 입출금 (2026-08-14) — 회사 계좌 원장. 본사/매니저만.
@@ -1015,6 +1019,15 @@ const worker = {
       if (oRes) return oRes;
     }
 
+    // 🚗 영업담당자 실적·인사평가·보상 (2026-08-18)
+    //   인증은 위 미들웨어(/api/admin/* DEFAULT-DENY)가 이미 걸었고,
+    //   역할 게이트(본사 또는 담당자 본인)는 핸들러 안에서 한 번 더 본다.
+    //   ⚠️ 이 등록을 빼면 CF Assets 로 흘러가 POST 가 405 가 된다(게이트 주석 참고).
+    if (path.startsWith('/api/admin/sales/')) {
+      const sRes = await handleSalesHrApi(request, url, env as any);
+      if (sRes) return sRes;
+    }
+
     // 📏 관리자 메뉴 클릭 계측 — 메뉴를 87개에서 줄이려면 «안 눌리는 메뉴» 를 알아야 한다.
     //   지금까지 이 사실이 서버에 한 번도 기록된 적이 없어 우선순위가 전부 인터뷰와 감이었다.
     //   ⚠️ 누가 눌렀는지는 저장하지 않는다(역할만). 직원 감시 도구가 되면 켜 둘 수 없다.
@@ -1089,6 +1102,9 @@ const worker = {
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||
         path === '/api/admin/payroll/seed-demo' ||
+        // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
+        //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
+        path === '/api/admin/org/hq' ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -2191,6 +2207,32 @@ const worker = {
           } catch (err) {
             console.error('[approval-weekly] error', err);
           }
+        }
+
+        // 📰 영업 주간 보고 — 월요일 아침(09:00 KST)에 한 번.
+        //   사람이 보고서를 쓰지 않는다. 숫자는 서버가 세고, 활동이 0인 주는 아예 보내지 않는다
+        //   (빈 보고서가 매주 오면 아무도 안 읽게 되고, 그러면 진짜 보고서도 같이 묻힌다).
+        if (kstDay === 1) {
+          try {
+            const { runSalesWeeklyReport } = await import('./api-sales-hr');
+            const sw = await runSalesWeeklyReport(env as any);
+            if (sw && sw.sent > 0) console.log('[sales-weekly]', JSON.stringify(sw));
+          } catch (err) {
+            console.error('[sales-weekly] error', err);
+          }
+        }
+
+        // 🔁 영업 계약의 «3개월 유지» 자동 판정 (2026-08-18)
+        //   왜 cron 인가 — 사람이 화면에서 버튼을 눌러야만 성과급 2차(50%)가 나가면,
+        //   바쁜 달에는 담당자 월급이 밀린다. 제도가 사람의 부지런함에 기대면 언젠가 깨진다.
+        //   학생 명부·수업 기록으로 기계가 판정할 수 있는 건 기계가 하고, 사람은 애매한 것만 본다.
+        //   ⚠️ cron 한도 5/5 라 새로 못 만든다 — 기존 일일(09:00 KST)에 얹는다.
+        try {
+          const { runSalesRetentionSweep } = await import('./api-sales-hr');
+          const sr = await runSalesRetentionSweep(env as any);
+          if (sr && sr.checked > 0) console.log('[sales-retention]', JSON.stringify(sr));
+        } catch (err) {
+          console.error('[sales-retention] error', err);
         }
 
         // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
@@ -5144,6 +5186,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/payroll/')) return true;
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
+  if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;

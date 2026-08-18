@@ -1172,7 +1172,7 @@ document.addEventListener('click', function(ev) {
   const qEl        = document.getElementById('rec-q');
   const dfEl       = document.getElementById('rec-date-from');
   const dtEl       = document.getElementById('rec-date-to');
-  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영입본부 폼이라 오작동했음
+  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영업본부 폼이라 오작동했음
   const pageSizeEl = document.getElementById('rec-pagesize');
   const applyBtn   = document.getElementById('rec-apply');
   const resetBtn   = document.getElementById('rec-reset');
@@ -3590,6 +3590,196 @@ async function addFranchise() {
   });
   if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
+
+// ── 🏯 본사 관리 (hq_orgs) ────────────────────────────────────────────
+/* (2026-08-18 수정요청 #13) 「시스템 › 조직 관리 › 본사 관리」에 본사 정보가 없다.
+   원인은 «못 넣은» 것이 아니라 **표를 채우는 코드가 처음부터 없었던 것**이다 —
+   화면(#hq-table)은 2026-08-08 부터 있었지만 그리는 JS 가 저장소에 0곳이라
+   열 때마다 "데이터 없음" 만 나왔다. 여기서 목록·검색·등록·수정·삭제를 붙인다.
+   서버(/api/admin/org/hq)는 표가 비어 있으면 운영 사이트 «🏢 회사 정보» 푸터의
+   법인정보를 한 번만 심는다. 그래서 처음 열면 이미 (주)에듀비전이 들어와 있다. */
+let _hqEditId = 0;         // 0 = 등록 모드, >0 = 그 id 를 수정 중
+let _hqSearchT = null;
+let _hqRows = [];
+
+function _hqSetBtnLabel(btn, ko, en) {
+  // 🪤 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다(data-ko/en 루프가 못 본다).
+  //    상태에 따라 글자가 바뀌는 버튼은 «그릴 때 사전도 같이» 갱신해야 한다.
+  if (!btn) return;
+  btn.setAttribute('data-ko', ko);
+  btn.setAttribute('data-en', en);
+  btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
+}
+
+async function loadHqOrgs(q) {
+  const tb = document.getElementById('hq-table');
+  if (!tb) return;
+  const term = q == null ? ((document.getElementById('hq-q') || {}).value || '') : q;
+  const url = '/api/admin/org/hq' + (term.trim() ? ('?q=' + encodeURIComponent(term.trim())) : '');
+  let d = {};
+  try {
+    const r = await fetch(url, { cache: 'no-store', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) { d = {}; }
+  const cnt = document.getElementById('hq-count');
+  const EN = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  if (!d.ok) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">' + (EN ? 'Failed to load' : '불러오지 못했습니다') + '</td></tr>';
+    if (cnt) cnt.textContent = '';
+    return;
+  }
+  _hqRows = d.items || [];
+  if (cnt) {
+    cnt.textContent = term.trim()
+      ? (EN ? (_hqRows.length + ' of ' + (d.total || 0)) : (d.total || 0) + '건 중 ' + _hqRows.length + '건')
+      : (EN ? ((d.total || 0) + ' record(s)') : (d.total || 0) + '건');
+  }
+  if (!_hqRows.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">' +
+      (term.trim() ? (EN ? 'No match' : '검색 결과 없음') : (EN ? 'No data' : '데이터 없음')) + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = _hqRows.map(h => {
+    const v = k => _esc(h[k] || '') || '—';
+    return '<tr data-hq="' + h.id + '">' +
+      '<td>' + h.id + '</td>' +
+      '<td><b>' + _esc(h.name || '') + '</b> ' +
+        '<button type="button" title="상세" onclick="hqToggleDetail(' + h.id + ',this)" ' +
+        'style="margin-left:4px;padding:0 5px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">ⓘ</button></td>' +
+      '<td>' + v('ceo_name') + '</td>' +
+      '<td>' + v('business_no') + '</td>' +
+      '<td>' + v('address') + '</td>' +
+      '<td>' + v('phone') + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button type="button" onclick="hqEdit(' + h.id + ')" data-ko="✏️ 수정" data-en="✏️ Edit" ' +
+        'style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">' +
+        (EN ? '✏️ Edit' : '✏️ 수정') + '</button> ' +
+        '<button type="button" onclick="hqDelete(' + h.id + ',this)" data-ko="🗑 삭제" data-en="🗑 Delete" ' +
+        'style="padding:2px 8px;font-size:11px;border:1px solid #fecaca;color:#b91c1c;border-radius:5px;background:#fff;cursor:pointer">' +
+        (EN ? '🗑 Delete' : '🗑 삭제') + '</button>' +
+      '</td></tr>';
+  }).join('');
+}
+window.loadHqOrgs = loadHqOrgs;
+
+/* ⓘ 상세 — 사이트 푸터에는 나가지만 표의 7칸에는 자리가 없는 항목들.
+   「데이터 누락 없이 이관」이 요구사항이라 저장은 다 하고, 보기는 여기서 편다. */
+function hqToggleDetail(id, btn) {
+  const tr = document.querySelector('#hq-table tr[data-hq="' + id + '"]');
+  if (!tr) return;
+  const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains('hq-detail');
+  if (open) { tr.nextElementSibling.remove(); if (btn) btn.textContent = 'ⓘ'; return; }
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  if (!h) return;
+  const EN = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const row = (k, val) => '<div><span style="color:#64748b">' + k + '</span> · ' + (_esc(val || '') || '—') + '</div>';
+  const el = document.createElement('tr');
+  el.className = 'hq-detail';
+  el.innerHTML = '<td colspan="7" style="background-color:#f8fafc;font-size:12px;line-height:1.9">' +
+    row(EN ? 'E-commerce Reg. No.' : '통신판매업신고', h.ecommerce_no) +
+    row(EN ? 'Privacy Officer' : '개인정보 보호 책임자', h.privacy_officer) +
+    row(EN ? 'Email' : '이메일', h.email) +
+    row(EN ? 'Memo' : '메모', h.memo) +
+    row(EN ? 'Registered' : '등록', _fmtDateTime(h.created_at)) +
+    row(EN ? 'Updated' : '수정', _fmtDateTime(h.updated_at)) +
+    '</td>';
+  tr.insertAdjacentElement('afterend', el);
+  if (btn) btn.textContent = '×';
+}
+window.hqToggleDetail = hqToggleDetail;
+
+function hqSearch(v) {
+  clearTimeout(_hqSearchT);
+  _hqSearchT = setTimeout(function () { loadHqOrgs(v); }, 250);
+}
+window.hqSearch = hqSearch;
+
+const _HQ_INPUTS = { name:'hq-name', ceo_name:'hq-ceo', business_no:'hq-business-no', address:'hq-address',
+                     phone:'hq-phone', ecommerce_no:'hq-ecommerce', privacy_officer:'hq-privacy',
+                     email:'hq-email', memo:'hq-memo' };
+
+function _hqReadForm() {
+  const b = {};
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]);
+    b[k] = el ? (el.value || '').trim() : '';
+  });
+  return b;
+}
+function hqResetForm() {
+  _hqEditId = 0;
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]); if (el) el.value = '';
+  });
+  _hqSetBtnLabel(document.getElementById('hq-add-btn'), '+ 등록', '+ Add');
+  const c = document.getElementById('hq-cancel-btn'); if (c) c.style.display = 'none';
+}
+window.hqResetForm = hqResetForm;
+
+function hqEdit(id) {
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  if (!h) return;
+  _hqEditId = h.id;
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]); if (el) el.value = h[k] == null ? '' : h[k];
+  });
+  const wrap = document.getElementById('hq-form-wrap'); if (wrap) wrap.open = true;
+  _hqSetBtnLabel(document.getElementById('hq-add-btn'), '💾 수정 저장', '💾 Save');
+  const c = document.getElementById('hq-cancel-btn'); if (c) c.style.display = '';
+  const n = document.getElementById('hq-name'); if (n) { n.focus(); }
+}
+window.hqEdit = hqEdit;
+
+async function saveHqOrg() {
+  const b = _hqReadForm();
+  if (!b.name) { alert(adminLang === 'en' ? 'HQ name required' : '본사명은 필수입니다'); return; }
+  if (_hqEditId) {
+    b.id = _hqEditId;
+    const r = await fetch('/api/admin/org/hq', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', body: JSON.stringify(b)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) { alert((adminLang === 'en' ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status))); return; }
+  } else {
+    const d = await _menuPost('/api/admin/org/hq', b);
+    if (!d) return;
+  }
+  hqResetForm();
+  loadHqOrgs();
+}
+window.saveHqOrg = saveHqOrg;
+
+/* 🗑 삭제 — 한 번 누르면 «무장», 4초 안에 한 번 더 눌러야 확인창.
+   강사 프로필 제거(removeTeacherProfile)와 같은 방식이다. 실수 한 번에 법인정보가 사라지면 안 된다. */
+async function hqDelete(id, btn) {
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  const name = h ? (h.name || ('#' + id)) : ('#' + id);
+  if (btn && btn.dataset && btn.dataset.armed !== '1') {
+    btn.dataset.armed = '1';
+    btn._prevHtml = btn.innerHTML;
+    _hqSetBtnLabel(btn, '한 번 더', 'Again?');
+    clearTimeout(btn._disarmT);
+    btn._disarmT = setTimeout(function () {
+      btn.dataset.armed = '';
+      _hqSetBtnLabel(btn, '🗑 삭제', '🗑 Delete');
+    }, 4000);
+    return;
+  }
+  if (btn) clearTimeout(btn._disarmT);
+  const ok = confirm((adminLang === 'en' ? 'Delete HQ record "' : '본사 정보 "') + name +
+    (adminLang === 'en' ? '"? This cannot be undone.' : '" 을(를) 삭제할까요?\n\n⚠️ 되돌릴 수 없습니다.'));
+  if (!ok) {
+    if (btn) { btn.dataset.armed = ''; _hqSetBtnLabel(btn, '🗑 삭제', '🗑 Delete'); }
+    return;
+  }
+  const r = await fetch('/api/admin/org/hq?id=' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.ok === false) { alert((adminLang === 'en' ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status))); return; }
+  if (_hqEditId === id) hqResetForm();
+  loadHqOrgs();
+}
+window.hqDelete = hqDelete;
 
 // ── 대리점·학원 (테이블명 centers) ────────────────────────────────────
 //   ⚠️ «교육센터»가 아니다. 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이고
@@ -8542,6 +8732,9 @@ window.bulkCopyContacts = function() {
   if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', addCenter);
+  // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)
+  if (e('hq-add-btn'))      e('hq-add-btn').addEventListener('click', saveHqOrg);
+  if (e('hq-cancel-btn'))   e('hq-cancel-btn').addEventListener('click', hqResetForm);
   if (e('lt-add-btn'))      e('lt-add-btn').addEventListener('click', addLevelTest);
   // 🥭 Phase 34 — 강사 정보 CRUD 버튼
   if (e('tp-add-btn'))          e('tp-add-btn').addEventListener('click', addTeacherProfile);
@@ -8923,6 +9116,9 @@ const CARD_LOADERS = {
   'card-community':         [loadCommunity],
   'card-textbooks':         [loadTextbooks],
   'card-payroll':           [loadPayrollRates],
+  // 🏯 (2026-08-18) 본사 관리 — «조직 관리» 카드 안의 하위항목이라 카드가 아니라 이 id 로 잡는다.
+  //    위 toggle 감시가 details 면 id 로 runCardLoaders 를 부르므로 하위항목도 그대로 걸린다.
+  'card-hq-orgs':           [loadHqOrgs],
 };
 const _cardLoaded = Object.create(null);
 function runCardLoaders(cardId) {
@@ -10865,6 +11061,60 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { alert('등록 실패: ' + (e.message||e)); }
   };
 
+  /* 🏦 배정 못 한 B2B 통장 입금 → 가맹점 연결 (2026-08-18)
+     학원이 수업료를 통장으로 바로 보내면 카페24를 안 거쳐 결제 장부에 없다.
+     여기서 «이 적요는 이 지사» 를 한 번 정하면 가맹점별 정산서에 바로 합산된다. */
+  let _b2bFr = [];
+  window.accB2bLoad = async function(){
+    const st = document.getElementById('acc-b2b-state');
+    const tb = document.getElementById('acc-b2b-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/b2b-payees?months=12', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _b2bFr = d.franchises || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">아직 붙이지 못한 B2B 입금 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b>`
+          + ` <span style="color:#6b7280">(최근 12개월 B2B 합계 ${fmtKRW(d.total_krw)} 중 ${fmtKRW(d.assigned_krw)} 배정됨)</span>`
+        : `<span style="color:#166534">최근 12개월 B2B 입금 ${fmtKRW(d.total_krw)} 이 모두 가맹점에 붙어 있습니다.</span>`;
+      if (!(d.items||[]).length) { tb.innerHTML = '<tr><td colspan="6" class="empty">최근 12개월에 B2B 통장 입금이 없습니다.</td></tr>'; return; }
+      tb.innerHTML = d.items.map(it => {
+        const cur = it.franchise_id || '';
+        const opts = ['<option value="">— 지정 안 함 —</option>']
+          .concat(_b2bFr.map(f => `<option value="${f.id}"${String(f.id) === String(cur) ? ' selected' : ''}>${esc(f.name)}${f.active ? '' : ' (비활성)'}</option>`)).join('');
+        const where = it.franchise_id
+          ? `<b>${esc(it.matched_name || '')}</b>`
+            + (it.matched_by && it.matched_by !== '지정'
+                ? ` <span style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 6px;border-radius:99px">자동 · ${esc(it.matched_by)}</span>`
+                : ' <span style="font-size:10px;color:#166534;background:#dcfce7;padding:1px 6px;border-radius:99px">지정</span>')
+          : '<span style="color:#b45309">— 배정 못 함 —</span>';
+        return `<tr${it.franchise_id ? '' : ' style="background:#fffbeb"'}>
+          <td><b>${esc(it.payee)}</b></td>
+          <td style="text-align:right">${it.count}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td style="font-size:11.5px">${where}</td>
+          <td><select onchange="accB2bAssign('${esc(it.payee).replace(/'/g,'&#39;')}', this.value, this)"
+                     style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${opts}</select></td>
+        </tr>`;
+      }).join('');
+    } catch(e) { tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accB2bAssign = async function(payee, fid, sel){
+    if (!fid && !confirm(`「${payee}」 의 지사 지정을 해제할까요?`)) { if (sel) accB2bLoad(); return; }
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/b2b-payees?payee=' + encodeURIComponent(payee) + '&franchise_id=' + encodeURIComponent(fid || 0),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      accB2bLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
   /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
      지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
      그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
@@ -11001,6 +11251,23 @@ window.rebuildGlobalSearchIndex = function() {
         td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
         td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
         tr.total td{background:#fef3c7;font-weight:800;border-top:2px solid #f59e0b}
+        /* 📐 컬럼이 많은 표 — 「가맹점별 정산서」가 「장부 결제」·「B2B 직접입금」 두 칸이 늘어
+           10칸이 되면서 PC 에서 가로로 넘친다는 제보를 받고 넣었다(2026-08-18).
+           ⚠️ 처음엔 숫자 칸에 white-space:nowrap 을 줬다가 표의 «최소 폭» 이 693 → 746px 로
+              오히려 넓어졌다(측정으로 확인). 넘치는 표에 nowrap 은 반대 방향이다.
+              지금은 글자·여백만 줄이고 아무것도 nowrap 하지 않는다 — 어느 폭에서든 예전보다 좁다.
+           .tblwrap 은 «표 안에서만» 스크롤되게 하는 안전망이다. 페이지 본문이 통째로 옆으로
+           밀리는 것(진짜 문제)과 달리, 표 하나만 밀리는 건 읽는 데 지장이 없다. */
+        .tblwrap{overflow-x:auto}
+        table.compact{font-size:11.5px}
+        table.compact th,table.compact td{padding:6px 7px}
+        table.compact th{white-space:normal;line-height:1.35;vertical-align:bottom}
+        /* 배지는 헤더 «아래 줄» 로 내린다 — 옆에 붙으면 그 칸이 배지 폭만큼 넓어진다 */
+        table.compact th > span{display:block !important;margin:3px 0 0 !important;margin-left:0 !important}
+        @media print{
+          table.compact{font-size:9.5px}
+          table.compact th,table.compact td{padding:4px 5px}
+        }
         .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
         .kpi{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px}
         .kpi .l{font-size:11px;color:#6b7280;margin-bottom:4px}
@@ -11050,11 +11317,7 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`)
-      // 💵 적자를 «자금 보충» 으로 메우고 있으면 그 사실을 첫 줄에서 말한다 — 가장 중요한 신호다
-      + ((p.net_income||0) < 0 && (s.funding_in_krw||0) > 0
-          ? `<br><span style="color:#b45309">이 달 부족한 돈을 메우려고 다른 계좌에서 <b>${fmtKRW(s.funding_in_krw)}</b>을 옮겨 왔습니다.</span>`
-          : '');
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
@@ -11083,20 +11346,18 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
             <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
       </table>
-      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장에는 <b>매출이 아닌 돈</b>(다른 계좌에서 옮긴 운영자금 등)도 섞여 들어옵니다. 아래 손익과 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장 입출금과 아래 손익은 시점이 달라 서로 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
       <h2>매출 — 어디서 들어왔나</h2>
       <table>
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
         <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
         <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
-        ${(s.funding_in_krw||0) > 0 ? `<tr><th>운영자금 보충 (하나은행 → 신한)${badge('actual')}</th><td class="num">${fmtKRW(s.funding_in_krw)}</td><td class="num"></td></tr>
-        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」 — 회사의 다른 계좌에서 옮겨 온 운영자금입니다. <b>매출이 아니라</b> 자금 이동이라 위 매출 합계에 넣지 않았습니다</td></tr>` : ''}
         ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
         <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
         ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
-      ${drill(`운영자금 보충 내역 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'회사의 하나은행 계좌에서 신한으로 옮겨 온 운영자금입니다(2026-08-17 확인). 매출이 아니므로 손익에 넣지 않지만, 「매출이 아닌 돈으로 얼마를 메우고 있는지」는 회사 상태를 보는 데 중요해 그대로 보여 줍니다.' })}
+      ${drill(`성격 미확인 입금 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'매출인지 자금 이동인지 아직 확인되지 않은 입금입니다. 확인될 때까지 매출·손익에 넣지 않습니다.' })}
       <h2>학생 · 수업</h2>
       <table>
         <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>
@@ -11231,29 +11492,52 @@ window.rebuildGlobalSearchIndex = function() {
       ${trendTable(d, '월')}`;
   }
 
+  /* 🏢 가맹점별 정산서.
+     💳 총 매출 = 「장부 결제」(카페24 등) + 「B2B 직접입금」(학원이 통장으로 바로 보낸 수업료).
+        예전엔 장부 결제만 세서 B2B 로 받는 가맹점이 매출 0 으로 찍혔다(2026-08-18 수정). */
   function renderFranchise(d){
     const src = d.sources || {};
+    const t = d.totals || {};
     return `
       <h1>🏢 가맹점별 정산서</h1>
-      <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님)</div>
+      <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님) · 장부 결제 + B2B 직접입금</div>
       ${noteList(d.notes)}
+      ${(d.b2b_total||0) > 0 ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#1e40af">🏦 B2B 직접입금 ${(d.b2b_count||0).toLocaleString()}건 · ${fmtKRW(d.b2b_total)}</b> 을 이 정산서에 포함했습니다
+        (가맹점에 붙인 금액 <b>${fmtKRW(d.b2b_assigned)}</b>${(d.b2b_unassigned_krw||0) > 0 ? ` · 아직 못 붙인 금액 <b>${fmtKRW(d.b2b_unassigned_krw)}</b>` : ''}).<br>
+        학원이 수업료를 통장으로 바로 보내는 결제라 카페24 결제 장부에는 없습니다. 수수료율은 B2C 와 같은 값을 적용했습니다.
+      </div>
+      ${drill(`B2B 직접입금 ${(d.b2b_rows||[]).length}건 자세히 보기 — 어느 가맹점에 붙었는지`,
+        (d.b2b_rows||[]).map(r => ({ date: r.date, name: r.remark + ' → ' + (r.matched_name ? r.matched_name + ' (' + r.matched_by + ')' : '배정 못 함'), amount: r.amount })),
+        { nameLabel: '보낸 곳 → 붙은 가맹점', note: '「지정」은 사람이 직접 붙인 것, 「대리점」·「지사」는 입금 적요가 그 이름과 맞아 자동으로 붙은 것입니다. 후보가 둘 이상이면 붙이지 않습니다.' })}` : ''}
       ${(d.unassigned_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#92400e">⚠️ 소속을 확정하지 못한 매출이 ${fmtKRW(d.unassigned_krw)} (${d.unassigned_pct}%) 있습니다.</b><br>
         대부분은 <b>학생 원부에 없는 아이디로 들어온 결제</b>입니다 — 대리점·직원이 학생 몫을 대신 결제하면
         그 아이디가 학생 원부에 없어 어느 지사인지 알 수 없습니다. 아무 가맹점에도 넣지 않았습니다.
         <br><b>아래 아이디가 어느 지사인지 알려 주시면 그 뒤부터 자동으로 붙습니다.</b>
+        ${(d.b2b_unassigned_krw||0) > 0 ? `<br>그중 <b>${fmtKRW(d.b2b_unassigned_krw)}</b> 은 B2B 통장 입금입니다 — 관리자 화면 「회계관리 › 🏦 배정 못 한 B2B 입금」 에서 지정할 수 있습니다.` : ''}
       </div>
       ${drill(`배정 못 한 결제 아이디 ${(d.unassigned_payers||[]).length}개 — 어느 지사인지 알려 주세요`,
         (d.unassigned_payers||[]).map(u => ({ date: u.user_id, name: u.reason + ' · ' + u.pays + '건', amount: u.amount })),
-        { dateLabel: '결제 아이디', nameLabel: '사유' })}` : ''}
-      <table>
-        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
+        { dateLabel: '결제 아이디', nameLabel: '사유' })}
+      ${drill(`배정 못 한 B2B 입금 ${(d.b2b_unassigned||[]).length}곳 — 어느 대리점·지사인지 알려 주세요`,
+        (d.b2b_unassigned||[]).map(u => ({ date: u.payee, name: u.reason + ' · ' + u.count + '건', amount: u.amount })),
+        { dateLabel: '입금 적요', nameLabel: '사유' })}` : ''}
+      <div class="tblwrap"><table class="compact">
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
         <tbody>
-          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
-            : '<tr><td colspan="8" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
-          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(d.totals.gross)}</td><td class="num">${fmtKRW(d.totals.fee)}</td><td class="num">${fmtKRW(d.totals.net)}</td><td></td><td></td></tr>
+          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
+            : '<tr><td colspan="10" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
+          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
         </tbody>
-      </table>
+      </table></div>
+      <p style="font-size:11px;color:#6b7280;margin:6px 0 0;line-height:1.7">
+        ※ <b>장부 결제</b> = 카페24 등 결제 기록(student_payments) · <b>B2B 직접입금</b> = 학원이 신한 통장으로 바로 보낸 수업료.
+        결제건에는 B2B 입금 건수도 포함됩니다. <b>학생수</b>는 결제 장부에서만 셀 수 있어 B2B 입금은 반영되지 않습니다
+        (통장 입금에는 학생 정보가 없습니다).<br>
+        ※ 이 달 매출 총계 <b>${fmtKRW(d.revenue_total)}</b> = 장부 결제 ${fmtKRW(d.book_total)} + B2B 직접입금 ${fmtKRW(d.b2b_total)} ·
+        가맹점에 배정한 금액 <b>${fmtKRW(t.gross)}</b>
+      </p>
       ${BADGE_LEGEND}`;
   }
 
@@ -11320,6 +11604,36 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 1. 학생 결제 내역
   // ──────────────────────────────────────────────────────────
+  /* 🏢 (2026-08-18 수정요청 #02) 지사 드롭다운 채우기.
+     241개짜리 목록이라 fields=min 으로 {id,name} 만 받는다(25KB → 6KB).
+     한 번 받으면 캐시한다 — 「불러오기」를 누를 때마다 다시 받을 이유가 없다.
+     ⚠️ 목록을 못 받아도 화면은 살아 있어야 한다. 그 경우 이름 타이핑 검색으로 동작한다
+        (서버가 franchise=<이름조각> 도 받는다). */
+  let _payFranchises = null;
+  async function _payLoadFranchises(){
+    if (_payFranchises) return _payFranchises;
+    const dl = document.getElementById('acc-pay-franchise-list');
+    try {
+      const r = await fetch('/api/admin/franchises?fields=min', { credentials:'include' });
+      const d = await r.json();
+      _payFranchises = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+    } catch(e) { _payFranchises = []; }
+    if (dl) dl.innerHTML = _payFranchises.map(f => `<option value="${_esc(f.name)}"></option>`).join('');
+    return _payFranchises;
+  }
+  // 입력칸에 포커스가 오는 순간 목록을 채운다 — 눌렀는데 비어 있으면 «필터가 없다» 고 오해한다
+  window.accFillFranchiseList = _payLoadFranchises;
+  /* 입력칸의 글자를 서버 파라미터로 바꾼다.
+     목록의 이름과 «정확히» 같으면 그 지사 하나(franchise_id), 아니면 이름 검색(franchise). */
+  function _payFranchiseParams(qs){
+    const el = document.getElementById('acc-pay-franchise');
+    const v = (el && el.value || '').trim();
+    if (!v) return;
+    const hit = (_payFranchises || []).filter(f => String(f.name) === v);
+    if (hit.length === 1) qs.set('franchise_id', hit[0].id);
+    else qs.set('franchise', v);
+  }
+
   window.accLoadPayments = async function(){
     const from   = document.getElementById('acc-pay-from').value;
     const to     = document.getElementById('acc-pay-to').value;
@@ -11328,18 +11642,20 @@ window.rebuildGlobalSearchIndex = function() {
     // 💳 (2026-08-12 수정요청 #03) B2B/B2C 구분 — 서버가 대리점 결제유형으로 파생·필터
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const tbody  = document.getElementById('acc-pay-tbody');
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">불러오는 중…</td></tr>';
     try {
+      await _payLoadFranchises();
       const qs = new URLSearchParams();
       if (from)   qs.set('from', from);
       if (to)     qs.set('to', to);
       if (method) qs.set('method', method);
       if (status) qs.set('status', status);
       if (channel) qs.set('channel', channel);
+      _payFranchiseParams(qs);
       const r = await fetch('/api/admin/reports/payments-list?' + qs.toString(), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
       tbody.innerHTML = d.rows.map(p => {
         /* 🐛 (2026-08-16) paid_at 은 이미 «밀리초» 다. ×1000 을 하고 있어서 화면에
            서기 58,000년대 날짜가 찍혔다(CSV 는 정상이라 눈에 안 띄었다). */
@@ -11348,21 +11664,40 @@ window.rebuildGlobalSearchIndex = function() {
         const ch = p.channel === 'B2B'
           ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700">B2B</span>'
           : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#0891b2;color:#fff;font-size:11px;font-weight:700">B2C</span>';
-        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${_esc(p.user_id||'')}</td>
-                <td>${ch}</td><td>${_esc(p.shop_name||'-')}</td>
+        /* 🧑 이름이 없는 결제가 실제로 있다 — 학생 원부에 없는 아이디로 들어오는 대리결제.
+           «-» 로 얼버무리지 않고 «원부 없음» 이라고 밝힌다(가맹점 정산의 «배정 불가» 와 같은 건). */
+        const nm = p.student_name
+          ? `<b>${_esc(p.student_name)}</b>`
+          : '<span style="color:#9ca3af;font-size:11px">원부 없음</span>';
+        const fr = p.franchise_name
+          ? _esc(p.franchise_name)
+          : '<span style="color:#9ca3af;font-size:11px">미배정</span>';
+        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${nm}</td>
+                <td style="font-size:11px;color:#6b7280">${_esc(p.user_id||'')}</td>
+                <td>${ch}</td><td>${fr}</td><td>${_esc(p.shop_name||'-')}</td>
                 <td>${_esc(p.memo||'-')}</td><td style="text-align:right">${_fmt(p.amount_krw)}</td>
                 <td>${_esc(p.method||'')}</td><td>${_badge(p.status, c)}</td></tr>`;
       }).join('');
-    } catch(e) { _showErr(tbody, e, 9); }
+    } catch(e) { _showErr(tbody, e, 11); }
   };
-  window.accDownloadPaymentsCsv = function(fmt){
+  window.accDownloadPaymentsCsv = async function(fmt){
+    // 지사 목록을 먼저 확보해야 «고른 지사 하나»(franchise_id)로 정확히 내려받는다.
+    // 목록 없이 이름만 보내면 이름이 서로의 일부인 지사끼리 섞여 나올 수 있다.
+    await _payLoadFranchises();
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
+    const method = document.getElementById('acc-pay-method').value;
+    const status = document.getElementById('acc-pay-status').value;
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const qs = new URLSearchParams({ format: (fmt === 'xlsx' ? 'xlsx' : 'csv') });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    // 🧾 (2026-08-18) 화면과 «같은» 조건으로 내려받는다. 예전엔 결제수단·상태·지사를
+    //    빼고 보내서, 화면엔 걸러 놓고 파일엔 전부 담기는 어긋남이 있었다.
+    if (method) qs.set('method', method);
+    if (status) qs.set('status', status);
     if (channel) qs.set('channel', channel);
+    _payFranchiseParams(qs);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
   window.accDownloadPaymentsXlsx = function(){ window.accDownloadPaymentsCsv('xlsx'); };
@@ -11430,8 +11765,12 @@ window.rebuildGlobalSearchIndex = function() {
       const months = all.slice(-range);
       if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
       // 구간 합계 + 마진율
+      // 🧾 income/expense 는 서버(finance-cafe24/summary)가 「케이씨피M」을 이미 뺀 값이다.
+      //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
+      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
+      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
@@ -11449,6 +11788,12 @@ window.rebuildGlobalSearchIndex = function() {
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
       }
+      /* ⛔ «「케이씨피M」 N건 ₩… 제외» 안내 상자 제거(2026-08-18 사장님 지시).
+         집계에서 빼는 것은 그대로지만, 그 이름과 금액이 화면에 뜨는 것 자체를 원치 않으신다.
+         («제외했습니다» 라고 적어 주는 것도 «아직 남아 있다» 로 읽힌다 — 대사 카드·월간
+          리포트·손익계산서에서 같은 이유로 이미 뺐다.) 되살리지 말 것. */
+      var noteBox = document.getElementById('c24fin-sum-total');
+      if (noteBox) { noteBox.style.display = 'none'; noteBox.innerHTML = ''; }
       // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
       const inc = months.map(function(m){ return Number(m.income)||0; });
@@ -11542,12 +11887,34 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      if (cnt) cnt.textContent = (en? rows.length+' rows' : '총 '+rows.length+'건');
+      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
+      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      if (cnt) {
+        var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
+        if (kind === 'ledger' && rows.length) {
+          var sInc = 0, sExp = 0, sExc = 0, nExc = 0;
+          rows.forEach(function(row){
+            var m = Number(row.money)||0;
+            if (isExcl(row)) { sExc += m; nExc++; return; }
+            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+          });
+          cnt.innerHTML = esc(base)
+            + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
+            + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
+            /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
+               그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
+            + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
+        } else { cnt.textContent = base; }
+      }
       body.innerHTML = rows.length ? rows.map(function(row){
         return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
           var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+          /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
+             장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
+             합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
           return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
       }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
@@ -11576,17 +11943,30 @@ window.rebuildGlobalSearchIndex = function() {
       setTxt('ph204-kpi-hq', _fmt(T.fee));
       setTxt('ph204-kpi-payout', _fmt(T.net));
       setTxt('ph204-kpi-pending', rows.length + (_en?'':' 개'));
+      // 실제 적용된 «가중평균» 본사 마진율 — 지사·대리점마다 요율이 다를 수 있어서
+      // 고정 문구(예전 「평균 수수료율 15%」)를 쓰면 거짓말이 된다.
+      const DEF = d.defaults || { hq_rate:0.6, branch_rate:0.4 };
+      const pct = function(x){ return (Math.round((x||0)*1000)/10) + '%'; };
+      const effHq = T.gross > 0 ? (T.fee / T.gross) : DEF.hq_rate;
+      setTxt('ph204-kpi-hq-rate', (_en ? 'Applied ' : '적용 ') + pct(effHq)
+        + (_en ? ' · default ' : ' · 기본 ') + pct(DEF.hq_rate));
       if (cards) {
         cards.innerHTML = rows.length ? rows.map(x => {
           const rate = Math.round((x.commission_rate||0)*1000)/10;
+          const brRate = Math.round((x.branch_rate!=null ? x.branch_rate : (1-(x.commission_rate||0)))*1000)/10;
+          // 요율이 어디서 왔는지 밝힌다 — 「왜 이 지사만 다르지?」를 화면에서 바로 알 수 있게.
+          const srcMap = { 'default': _en?'default':'기본값', 'branch': _en?'branch set':'지사 설정',
+                           'agency': _en?'agency set':'대리점 설정', 'mixed': _en?'mixed':'대리점별 상이' };
+          const srcTxt = srcMap[x.rate_source] || '';
+          const srcTag = srcTxt ? ' <span style="font-size:9.5px;color:#64748b">('+srcTxt+')</span>' : '';
           const typeIcon = x.type==='agency' ? '🤝' : '🏬';
           return '<div style="padding:14px 16px;background:#fff;border:1.5px solid #e5e7eb;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-weight:800;font-size:14px;color:#0f172a">'+typeIcon+' '+_esc(x.franchise_name)+'</div>'
             + '<span style="padding:3px 8px;background:#fee2e2;color:#991b1b;font-size:10.5px;font-weight:700;border-radius:99px">'+(_en?'⏰ Pending':'⏰ 송금 대기')+'</span></div>'
             + '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">'+(_en?'Payments':'결제 건수')+' '+(x.pay_count||0)+'</div>'
             + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'Revenue':'매출')+'</span><b style="color:#1f2937">'+_fmt(x.gross_revenue)+'</b></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'HQ fee':'본사 수수료')+' ('+rate+'%)</span><b style="color:#b45309">- '+_fmt(x.hq_fee)+'</b></div>'
-            + '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">'+(_en?'→ Payout':'→ 지점에 송금')+'</b><b style="color:#15803d;font-size:15px">'+_fmt(x.net_settlement)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:12px;color:#374151;margin-bottom:4px"><span>'+(_en?'HQ margin':'본사 마진')+' ('+rate+'%)'+srcTag+'</span><b style="color:#b45309">- '+_fmt(x.hq_fee)+'</b></div>'
+            + '<div style="display:flex;justify-content:space-between;font-size:13.5px;padding-top:6px;border-top:1px dashed #cbd5e1;margin-top:6px"><b style="color:#166534">'+(_en?'→ Payout':'→ 지점에 송금')+' ('+brRate+'%)</b><b style="color:#15803d;font-size:15px">'+_fmt(x.net_settlement)+'</b></div>'
             + '</div>';
         }).join('') : '<div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8">'+(_en?'No settlement data for this month':'이번 달 정산 데이터 없음')+'</div>';
       }
@@ -11608,6 +11988,108 @@ window.rebuildGlobalSearchIndex = function() {
             <td>${_badge(x.status||'pending','warn')}</td></tr>`).join('') ||
         ('<tr><td colspan="6" class="empty">'+(_en?'No data':'가맹점 데이터 없음')+'</td></tr>');
     } catch(e) { if(tbody) _showErr(tbody, e, 6); if(cards) cards.innerHTML='<div class="empty" style="grid-column:1/-1;color:#dc2626;padding:16px">'+(_en?'Load failed':'불러오기 실패')+': '+_esc(String(e&&e.message||e))+'</div>'; }
+  };
+
+  /* ⚙️ 수수료 비율 설정 (2026-08-18) — 지사·대리점별 수동 설정
+     기본값은 「지점 40% / 본사 60%」. 여기서 저장한 곳만 그 값을 쓰고,
+     저장하지 않은 곳은 기본값으로 계산된다(서버 settlement_rate_override 가 정본).
+     ⚠️ 저장 뒤에는 반드시 accLoadFranchise() 를 다시 불러 정산 카드·표를 갱신한다 —
+        안 그러면 「저장했는데 금액이 그대로」로 보인다. */
+  window.accLoadRateConfig = async function(){
+    const _en = (window.adminLang==='en');
+    const tbody = document.getElementById('ph204-rate-tbody');
+    if (!tbody) return;
+    const month = (document.getElementById('acc-fr-month')||{}).value || _today().slice(0,7);
+    const scope = (document.getElementById('ph204-rate-scope')||{}).value || 'branch';
+    const q     = (document.getElementById('ph204-rate-q')||{}).value || '';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    try {
+      const qs = new URLSearchParams({ period: month, scope: scope });
+      if (q) qs.set('q', q);
+      const r = await fetch('/api/admin/settlement/rate-config?' + qs.toString(), { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      const rows = d.rows || [];
+      const cnt = document.getElementById('ph204-rate-count');
+      if (cnt) cnt.textContent = (_en ? (rows.length+' shown · '+d.counts.overridden+' set')
+                                      : ('표시 '+rows.length+'곳 · 수동 설정 '+d.counts.overridden+'곳'))
+                                 + (d.truncated ? (_en?' (top 500)':' (상위 500곳만)') : '');
+      // 본사(hq)가 아니면 서버가 저장을 막는다 — 버튼도 미리 잠가 오해를 없앤다.
+      const ro = !d.editable;
+      tbody.innerHTML = rows.length ? rows.map(function(x){
+        const key = encodeURIComponent(x.scope_key);
+        const brPct = Math.round((x.branch_rate||0)*1000)/10;
+        const hqPct = Math.round((x.hq_rate||0)*1000)/10;
+        const tag = x.is_override
+          ? '<span style="padding:1px 6px;background-color:#dcfce7;color:#166534;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'set':'수동')+'</span>'
+          : (x.rate_source==='inherited'
+              ? '<span style="padding:1px 6px;background-color:#fef3c7;color:#92400e;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'inherited':'지사 상속')+'</span>'
+              : '<span style="padding:1px 6px;background-color:#f1f5f9;color:#64748b;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'default':'기본값')+'</span>');
+        const id = x.scope_type+'|'+x.scope_key;
+        return '<tr>'
+          + '<td>'+(x.scope_type==='agency' ? '🤝 '+(_en?'Agency':'대리점') : '🏬 '+(_en?'Branch':'지사'))+'</td>'
+          + '<td><b>'+_esc(x.scope_key)+'</b>'+(x.parent?' <span style="font-size:10px;color:#94a3b8">/ '+_esc(x.parent)+'</span>':'')+' '+tag
+            // 같은 이름의 대리점이 여러 지사에 걸쳐 있으면 «다 같이 바뀐다» 고 미리 알린다.
+            + (x.parent_count > 1 ? ' <span title="'+(_en?'This name exists under several branches — the rate applies to all of them.':'이 이름의 대리점이 여러 지사에 있습니다. 요율은 그 전부에 적용됩니다.')+'" style="padding:1px 6px;background-color:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;border-radius:99px">'+(_en?'multi-branch':'지사 '+x.parent_count+'곳')+'</span>' : '')
+            + '</td>'
+          + '<td style="text-align:right">'+_fmt(x.gross_revenue)+'</td>'
+          + '<td style="text-align:right"><input type="number" min="0" max="100" step="0.1" value="'+brPct+'" '+(ro?'disabled':'')
+            + ' data-rate-key="'+_esc(id)+'" oninput="accRateSync(this)" style="width:72px;padding:3px 6px;font-size:12px;text-align:right;border:1px solid #d1d5db;border-radius:5px"></td>'
+          + '<td style="text-align:right"><span data-rate-hq="'+_esc(id)+'" style="font-weight:700">'+hqPct+'%</span></td>'
+          + '<td style="white-space:nowrap">'
+            + '<button '+(ro?'disabled':'')+' onclick="accSaveRate(\''+x.scope_type+'\',\''+key+'\')" style="padding:3px 8px;font-size:11px;background-color:#2563eb;color:#fff;border:0;border-radius:5px;cursor:pointer;font-weight:700">'+(_en?'Save':'저장')+'</button> '
+            + (x.is_override ? '<button '+(ro?'disabled':'')+' onclick="accResetRate(\''+x.scope_type+'\',\''+key+'\')" style="padding:3px 8px;font-size:11px;background-color:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:5px;cursor:pointer">'+(_en?'Reset':'기본값')+'</button>' : '')
+          + '</td></tr>';
+      }).join('') : ('<tr><td colspan="6" class="empty">'+(_en?'No matching branches/agencies':'해당하는 지사·대리점 없음')+'</td></tr>');
+    } catch(e){ _showErr(tbody, e, 6); }
+  };
+
+  // 지점 수수료 % 를 치면 본사 마진 % 가 따라 움직인다(합이 100%).
+  window.accRateSync = function(el){
+    const key = el.getAttribute('data-rate-key');
+    const out = document.querySelector('[data-rate-hq="'+(window.CSS&&CSS.escape?CSS.escape(key):key)+'"]');
+    if (!out) return;
+    let v = Number(el.value);
+    if (!isFinite(v)) return;
+    v = Math.min(100, Math.max(0, v));
+    out.textContent = (Math.round((100 - v)*10)/10) + '%';
+  };
+
+  window.accSaveRate = async function(scopeType, keyEnc){
+    const _en = (window.adminLang==='en');
+    const scopeKey = decodeURIComponent(keyEnc);
+    const id = scopeType+'|'+scopeKey;
+    const input = document.querySelector('[data-rate-key="'+(window.CSS&&CSS.escape?CSS.escape(id):id)+'"]');
+    if (!input) return;
+    const br = Number(input.value);
+    if (!isFinite(br) || br < 0 || br > 100) { alert(_en?'Enter 0~100':'0~100 사이 숫자를 넣어 주세요.'); return; }
+    try {
+      const r = await fetch('/api/admin/settlement/rate-config', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ scope_type: scopeType, scope_key: scopeKey, branch_rate: br })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      await accLoadRateConfig();
+      await accLoadFranchise();   // 정산 금액에 «즉시» 반영 — 이 줄이 빠지면 화면이 안 바뀐다
+    } catch(e){ alert((_en?'Save failed: ':'저장 실패: ')+String(e&&e.message||e)); }
+  };
+
+  window.accResetRate = async function(scopeType, keyEnc){
+    const _en = (window.adminLang==='en');
+    const scopeKey = decodeURIComponent(keyEnc);
+    if (!confirm(_en ? ('Reset "'+scopeKey+'" to the default (branch 40% / HQ 60%)?')
+                     : ('「'+scopeKey+'」 를 기본값(지점 40% / 본사 60%)으로 되돌릴까요?'))) return;
+    try {
+      const r = await fetch('/api/admin/settlement/rate-config', {
+        method:'POST', credentials:'include', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ scope_type: scopeType, scope_key: scopeKey, reset: true })
+      });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error||'API error');
+      await accLoadRateConfig();
+      await accLoadFranchise();
+    } catch(e){ alert((_en?'Reset failed: ':'되돌리기 실패: ')+String(e&&e.message||e)); }
   };
 
   // ──────────────────────────────────────────────────────────
@@ -11735,12 +12217,19 @@ window.rebuildGlobalSearchIndex = function() {
       if (!d.ok) throw new Error(d.error||'API error');
       // 차트 캔버스 + 표
       wrap.innerHTML = `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px;width:100%;max-width:100%;box-sizing:border-box">
+          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;min-width:0;overflow:hidden;box-sizing:border-box">
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:8px">${year}년 월별 매출 (KRW)</div>
-            <canvas id="acc-sales-canvas" height="180"></canvas>
+            <!-- ⚠️ 캔버스는 «높이가 정해진 position:relative 래퍼» 안에 넣는다.
+                 responsive + maintainAspectRatio:false 는 부모의 크기를 그대로 따라가는데,
+                 높이가 없는 부모에 넣으면 캔버스가 자기 높이로 부모를 늘리고
+                 그걸 다시 읽어 창 크기가 바뀔 때마다 그래프가 컨테이너를 벗어난다(2026-08-18 수리).
+                 그리드도 1fr 1fr 이면 내용보다 작게 줄지 못해 넘친다 → minmax(min(100%,300px),1fr) + min-width:0. -->
+            <div style="position:relative;width:100%;height:min(240px,55vh)">
+              <canvas id="acc-sales-canvas"></canvas>
+            </div>
           </div>
-          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;overflow:auto;max-height:300px">
+          <div style="background:#fff;padding:14px;border-radius:8px;border:1px solid #e5e7eb;overflow:auto;max-height:300px;min-width:0;box-sizing:border-box">
             <table style="width:100%;font-size:11px;border-collapse:collapse">
               <thead><tr style="background:#f3f4f6"><th style="padding:6px;text-align:left">월</th><th style="padding:6px;text-align:right">매출</th><th style="padding:6px;text-align:right">순이익</th></tr></thead>
               <tbody>${d.monthlies.map(m=>`<tr><td style="padding:5px;border-bottom:1px solid #f3f4f6">${m.period}</td><td style="padding:5px;text-align:right;border-bottom:1px solid #f3f4f6">${_fmt(m.revenue)}</td><td style="padding:5px;text-align:right;border-bottom:1px solid #f3f4f6;color:${m.net>=0?'#16a34a':'#dc2626'}">${_fmt(m.net)}</td></tr>`).join('')}
@@ -11751,7 +12240,10 @@ window.rebuildGlobalSearchIndex = function() {
       // Chart.js 그리기 (전역 Chart 사용 — 페이지 상단에 이미 로드됨)
       if (typeof Chart !== 'undefined') {
         const ctx = document.getElementById('acc-sales-canvas');
-        new Chart(ctx, {
+        // 이전 차트는 반드시 버린다 — innerHTML 로 캔버스를 갈아끼워도
+        // 옛 인스턴스의 리사이즈 감시가 남아 크기 계산을 흔든다.
+        if (window._accSalesChart) { try { window._accSalesChart.destroy(); } catch(_e) {} }
+        window._accSalesChart = new Chart(ctx, {
           type: 'bar',
           data: {
             labels: d.monthlies.map(m=>m.period.slice(5)+'월'),
@@ -11760,7 +12252,17 @@ window.rebuildGlobalSearchIndex = function() {
               { label:'순이익', data: d.monthlies.map(m=>m.net), backgroundColor:'rgba(34,197,94,0.7)', type:'line', borderColor:'rgba(34,197,94,1)', tension:0.3 },
             ],
           },
-          options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } },
+          options: {
+            responsive:true, maintainAspectRatio:false, resizeDelay:120,
+            layout:{ padding:{ top:2, right:2, bottom:0, left:2 } },
+            plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
+            scales:{
+              // 넓은 화면에서는 12개 라벨이 다 들어가고, 좁아지면 자동으로 건너뛴다.
+              // 글자를 기울이지 않아야(maxRotation:0) 아래로 밀려나지 않는다.
+              x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, maxRotation:0, autoSkip:true } },
+              y:{ beginAtZero:true, ticks:{ font:{ size:10 }, maxTicksLimit:6 } },
+            },
+          },
         });
       }
     } catch(e) {
@@ -11779,8 +12281,14 @@ window.rebuildGlobalSearchIndex = function() {
       const r = await fetch('/api/admin/reports/receivables?kind=' + kind, { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">데이터 없음</td></tr>'; return; }
-      tbody.innerHTML = d.rows.map(r => {
+      /* 🔁 (2026-08-18) 서버가 주는 각주(notes)를 반드시 같이 보여 준다.
+            B2C 학생은 선불 구조라 미수금에서 빠졌는데, 그 사실을 안 적으면
+            「어제보다 인원이 확 줄었다」로만 보인다. 왜 줄었는지가 각주에 있다. */
+      const _arNotes = (d.notes || []).length
+        ? `<tr><td colspan="6" style="background:#f9fafb;color:#4b5563;font-size:11.5px;line-height:1.7;padding:8px 10px">${
+            d.notes.map(n => '· ' + _esc(n)).join('<br>')}</td></tr>` : '';
+      if (!d.rows.length) { tbody.innerHTML = _arNotes + '<tr><td colspan="6" class="empty">데이터 없음</td></tr>'; return; }
+      tbody.innerHTML = _arNotes + d.rows.map(r => {
         const overdueColor = r.days > 30 ? 'color:#dc2626;font-weight:700' : '';
         return `<tr><td>${_esc(r.target)}</td><td>${_esc(r.issued||'')}</td>
                 <td style="text-align:right">${_fmt(r.amount)}</td>
@@ -11795,14 +12303,66 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 9. 손익 / 재무제표 — 생성 / PDF / Excel
   // ──────────────────────────────────────────────────────────
+  /* 📅 분기별 조회 (2026-08-18) — 「월별 / 분기별」 토글.
+     서버(reports/statement)는 period 를 «YYYY-MM» 과 «YYYY-Qn» 둘 다 받는다.
+     화면 표기는 «2026 1분기» 형태(20XX N분기). 생성·PDF·Excel 이 모두 _statementUrl()
+     하나만 쓰므로, 여기만 고치면 세 기능이 같이 분기를 따라간다. */
+  let _fsGenerated = false;                 // 한 번이라도 [생성] 을 눌렀나 (기간을 바꾸면 다시 그린다)
+  function _fsQuarterOf(ym){                // '2026-04' → '2026-Q2'
+    const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+    return m ? m[1] + '-Q' + (Math.floor((Number(m[2]) - 1) / 3) + 1) : '';
+  }
+  function _fsFillQuarters(){
+    const sel = document.getElementById('acc-fs-quarter');
+    if (!sel || sel.options.length) return;
+    const now = new Date();
+    const cy = now.getFullYear(), cq = Math.floor(now.getMonth() / 3) + 1;
+    for (let y = cy; y >= cy - 2; y--) {
+      for (let q = 4; q >= 1; q--) {
+        if (y === cy && q > cq) continue;    // 아직 오지 않은 분기는 넣지 않는다
+        const o = document.createElement('option');
+        o.value = y + '-Q' + q;
+        o.textContent = y + ' ' + q + '분기';
+        /* ⚠️ JS 로 그린 라벨은 i18n 사전(전체 문자열 일치)이 못 고친다 → data-ko/data-en 을 함께 넣는다 */
+        o.setAttribute('data-ko', y + ' ' + q + '분기');
+        o.setAttribute('data-en', 'Q' + q + ' ' + y);
+        sel.appendChild(o);
+      }
+    }
+    // 지금 보고 있는 «월» 이 속한 분기를 기본값으로 (사람이 보던 시점을 잃지 않게)
+    const want = _fsQuarterOf((document.getElementById('acc-fs-month') || {}).value);
+    if (want && Array.prototype.some.call(sel.options, o => o.value === want)) sel.value = want;
+  }
+  window.accFsModeChange = function(){
+    const mode = (document.getElementById('acc-fs-mode') || {}).value || 'month';
+    _fsFillQuarters();
+    const mEl = document.getElementById('acc-fs-month');
+    const qEl = document.getElementById('acc-fs-quarter');
+    /* ⚠️ hidden 속성 대신 display 를 직접 만진다 — 작성자 CSS 가 display 를 정해 두면
+       브라우저 기본 [hidden]{display:none} 이 밀려서 «숨겼는데 그대로 보이는» 일이 난다. */
+    if (mEl) mEl.style.display = mode === 'quarter' ? 'none' : '';
+    if (qEl) qEl.style.display = mode === 'quarter' ? '' : 'none';
+    if (_fsGenerated) window.accGenStatement();
+  };
+  window.accFsPeriodChange = function(){ if (_fsGenerated) window.accGenStatement(); };
   function _statementUrl(format){
-    const month = document.getElementById('acc-fs-month').value || _today().slice(0,7);
+    const mode = (document.getElementById('acc-fs-mode') || {}).value || 'month';
+    let period;
+    if (mode === 'quarter') {
+      _fsFillQuarters();
+      period = ((document.getElementById('acc-fs-quarter') || {}).value)
+            || _fsQuarterOf((document.getElementById('acc-fs-month') || {}).value)
+            || _fsQuarterOf(_today().slice(0,7));
+    } else {
+      period = (document.getElementById('acc-fs-month') || {}).value || _today().slice(0,7);
+    }
     const type  = document.getElementById('acc-fs-type').value || 'pl';
-    const qs = new URLSearchParams({ type, period: month });
+    const qs = new URLSearchParams({ type, period });
     if (format) qs.set('format', format);
     return '/api/admin/reports/statement?' + qs.toString();
   }
   window.accGenStatement = async function(){
+    _fsGenerated = true;
     const wrap = document.getElementById('acc-fs-result');
     wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280">생성 중…</div>';
     try {
@@ -11836,7 +12396,9 @@ window.rebuildGlobalSearchIndex = function() {
   /* 🔍 매출–입금 대사 (2026-08-16, 2026-08-18 기준 전환) — 통장 「케이씨피」 입금이 기준.
      · 기준 = 신한 통장에 실제로 들어온 「케이씨피」 정산금 → 수수료 역산 = «통장 기준 매출»
      · 장부 매출·예상 입금은 그 옆에 놓는 비교값이다(장부는 KCP 정산 대상 결제만 센다)
-     · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에서 제외 — 금액만 아래 «참고» 로 밝힌다
+     · B2B 직접입금·기타 입금·자기 계좌 간 자금 이동은 대사에서 제외
+       (자금 이동은 2026-08-18 사장님 지시로 «참고» 문구에서도 뺐다 — 아래 «참고» 에는
+        성격이 아직 확인되지 않은 입금만 남는다)
      월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
   function _rcUrl(format){
     const m = (document.getElementById('acc-rc-months') || {}).value || '6';
@@ -11893,7 +12455,7 @@ window.rebuildGlobalSearchIndex = function() {
       const notes = [d.transfer_note, d.b2b_note, d.non_kcp_note, d.no_bank_note].filter(Boolean);
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
         ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
-        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 「케이씨피M」(하나은행 운영자금)·통장 직접입금(B2B)·기타 입금은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
+        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 통장 직접입금(B2B)·기타 입금·자기 계좌 간 자금 이동은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
         ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
