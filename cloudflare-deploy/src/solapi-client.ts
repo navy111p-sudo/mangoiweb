@@ -31,6 +31,7 @@ export interface SolapiEnv {
   SOLAPI_TEMPLATE_CHAT_SUMMARY?: string;
   SOLAPI_TEMPLATE_MENTION?: string;
   SOLAPI_TEMPLATE_PAYMENT_OVERDUE?: string;
+  SOLAPI_TEMPLATE_CLASS_RENEWAL?: string;   // 수업 종료 → 수강 연장 안내(B2C 미연장) 템플릿
   SOLAPI_TEST_MODE?: string;
   DB?: D1Database;            // 있으면 발송을 alimtalk_log 에 기록(이탈위험 그래프 IGNORED 엣지 소스)
   PUBLIC_BASE_URL?: string;   // 클릭추적 리다이렉트 베이스(미설정 시 기본 워커 도메인)
@@ -63,6 +64,7 @@ export interface SendKakaoParams {
   variables: Record<string, string>;     // 템플릿 변수 (예: { #{학생명}: "홍길동" })
   fallbackSmsText?: string;              // 알림톡 실패 시 SMS 로 보낼 문구
   logContext?: AlimtalkLogContext;       // 있으면 발송을 alimtalk_log 에 기록(+클릭추적)
+  fromPhone?: string;                    // 이 건만 다른 발신번호로 (미지정 시 SOLAPI_FROM_PHONE)
 }
 
 export interface SendKakaoResult {
@@ -116,14 +118,14 @@ async function generateSignature(
 // ─────────────────────────────────────────────────────────────
 export async function sendPlainSms(
   env: SolapiEnv, toPhone: string, text: string,
-  opts?: { country?: string; subject?: string }
+  opts?: { country?: string; subject?: string; from?: string }
 ): Promise<{ ok: boolean; mode: SolapiMode; messageId?: string; error?: string; message?: string }> {
   const mode = getSolapiMode(env);
   const country = String(opts?.country || '').replace(/[^0-9]/g, '');
   const isIntl = !!country && country !== '82';
   let phone = normalizePhone(toPhone);
   if (isIntl) phone = phone.replace(/^0+/, '');   // 해외문자는 국가번호 뒤에 로컬번호(앞 0 제거)
-  const from = normalizePhone(env.SOLAPI_FROM_PHONE || '');
+  const from = normalizePhone(opts?.from || env.SOLAPI_FROM_PHONE || '');
   const bodyText = String(text || '').slice(0, 1000);
 
   if (mode === 'disabled') return { ok: false, mode, message: 'SOLAPI_API_KEY 미설정' };
@@ -218,7 +220,7 @@ export async function sendKakaoAlimtalk(
   const body = {
     message: {
       to: phone,
-      from: env.SOLAPI_FROM_PHONE || '',
+      from: normalizePhone(params.fromPhone || env.SOLAPI_FROM_PHONE || ''),
       type: 'ATA',         // ATA = 알림톡
       kakaoOptions: {
         pfId: env.SOLAPI_PFID || '',
@@ -430,4 +432,82 @@ export async function sendPaymentOverdueAlert(env: SolapiEnv, phone: string, var
     },
     fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원). 결제 → ${vars.paymentUrl || ''}`,
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🔁 B2C «미연장» 안내 — 수업 종료 후 수강 연장 요청 (2026-08-18)
+
+   ⚠️ 위의 sendPaymentOverdueAlert(«미납») 과 **다른 것**이다. 헷갈리면 학부모에게
+      틀린 문자가 나간다.
+        · 미납(B2B)   = 수업은 이미 했는데 돈이 안 들어온 것 → 「받아야 할 돈」
+        · 미연장(B2C) = 결제한 만큼만 수업이 나간 뒤 끝난 것 → 「받을 돈이 없다」
+      B2C 는 선불이라 «미납» 이 성립하지 않는다. 그래서 금액·미납일수를 말하지 않고
+      «수업이 언제 끝났는지» 와 «연장하려면 결제해 달라» 만 말한다.
+
+   📵 발신번호는 1644-0561 로 고정한다(2026-08-18 사장님 지시). 다른 알림톡과 발신번호가
+      달라도 되도록 이 건에만 fromPhone 을 실어 보낸다 — 전역 SOLAPI_FROM_PHONE 을 바꾸면
+      수업시작·평가서 등 다른 문자까지 같이 바뀐다.
+
+   📝 문구는 사장님이 지정한 그대로다. 임의로 다듬지 말 것.
+      「OOO 회원님의 수업이 O월 O일자로 종료되었습니다.
+        수강 연장을 희망하실 경우 수강료 결제를 부탁드립니다.」
+      (앞의 [망고아이] 는 수신자가 발신처를 알 수 있게 붙이는 공통 머리표다.)
+
+   카카오 템플릿(SOLAPI_TEMPLATE_CLASS_RENEWAL)이 등록돼 있으면 알림톡으로,
+   없으면 그냥 문자(SMS/LMS)로 보낸다. 템플릿 검수 전에도 발송이 되게 하기 위함.
+   ═══════════════════════════════════════════════════════════════ */
+
+/** 미연장 안내 문자 발신번호 — 사장님 지정(2026-08-18). */
+export const CLASS_RENEWAL_FROM_PHONE = '1644-0561';
+
+/** 「O월 O일」 — KST 기준. 타임존을 안 맞추면 자정 근처에서 하루가 틀린다. */
+export function formatKstMonthDay(at: number | string | Date): string {
+  const ms = at instanceof Date ? at.getTime()
+           : typeof at === 'number' ? at
+           : Date.parse(String(at).length === 10 ? String(at) + 'T00:00:00+09:00' : String(at));
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms + 9 * 3600 * 1000);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
+}
+
+/** 지정 문구 그대로. 화면 미리보기와 실제 발송이 같은 문장을 쓰도록 여기 하나만 둔다. */
+export function buildClassRenewalText(studentName: string, lastClassAt: number | string | Date): string {
+  const md = formatKstMonthDay(lastClassAt);
+  return `[망고아이] ${studentName || '회원'} 회원님의 수업이 ${md}자로 종료되었습니다. 수강 연장을 희망하실 경우 수강료 결제를 부탁드립니다.`;
+}
+
+export async function sendClassRenewalAlert(env: SolapiEnv, phone: string, vars: {
+  studentName: string;
+  lastClassAt: number | string | Date;   // 마지막 수업일
+  paymentUrl?: string;
+  logContext?: AlimtalkLogContext;
+}): Promise<SendKakaoResult> {
+  const text = buildClassRenewalText(vars.studentName, vars.lastClassAt);
+  const template = env.SOLAPI_TEMPLATE_CLASS_RENEWAL || '';
+
+  if (template) {
+    return sendKakaoAlimtalk(env, {
+      templateCode: template,
+      recipientPhone: phone,
+      fromPhone: CLASS_RENEWAL_FROM_PHONE,
+      variables: {
+        '#{학생명}': vars.studentName || '회원',
+        '#{종료일}': formatKstMonthDay(vars.lastClassAt),
+        '#{결제URL}': vars.paymentUrl || `${WORKER_BASE}/?go=payment`,
+      },
+      fallbackSmsText: text,
+      logContext: vars.logContext,
+    });
+  }
+
+  // 템플릿 미등록 — 문자로 보낸다. 결과 모양은 알림톡과 맞춰 부르는 쪽이 분기하지 않게 한다.
+  const r = await sendPlainSms(env, phone, text, {
+    subject: '수강 연장 안내',
+    from: CLASS_RENEWAL_FROM_PHONE,
+  });
+  return {
+    ok: r.ok, mode: r.mode, messageId: r.messageId,
+    status: r.ok ? 'sent' : 'failed',
+    message: r.message, error: r.error,
+  };
 }
