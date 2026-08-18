@@ -2400,8 +2400,11 @@
         </div>
       </details>
 
-      <!-- 10. 미수금 / 미지급금 -->
-      <details class="sub-item">
+      <!-- 10. 미수금 / 미지급금
+           🔗 id 는 «상세주소로 바로 열기» 용이다 — /admin.html#sub-receivables 로 들어오면
+              openCardFromHash(위쪽 인라인 스크립트)가 이 항목과 상위 회계관리 카드를 함께 펼친다.
+              옆칸의 sub-overdue 와 같은 방식. 이 id 를 지우면 안내 링크가 카드까지만 열린다. -->
+      <details class="sub-item" id="sub-receivables">
         <summary data-ko="💼 미수금 / 미지급금" data-en="💼 Receivables / Payables">💼 미수금 / 미지급금</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
