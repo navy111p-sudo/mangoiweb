@@ -104,6 +104,23 @@ console.log('\n  F. 매일 도는 cron(dunning/run)이 실제 발송으로 바�
   check('사람 없이 도는 cron 경로에 발송 호출이 없다',
         !/sendPaymentOverdueAlert|sendKakaoAlimtalk|sendPlainSms/.test(dblk),
         '매일 03:00 무인 실행 경로에 발송이 붙었다 — 스코프도 없어 전사 발송이 된다');
+
+  /* ⏹ 2026-08-17 사장님 지시로 껐다. 스위치가 «꺼짐» 인지 여기서 못박는다.
+       ⚠️ 이 검사는 «켜지 마라» 가 아니라 «켜려면 알고 켜라» 는 뜻이다.
+          다시 켤 때는 위 주석의 다섯 가지(진짜 표·스코프·이름 치환·전화번호·중복발송)를
+          해결한 뒤 이 하니스도 함께 고쳐야 한다. 조용히 되살아나는 것만 막는다. */
+  check('자동 독촉 스위치가 있다 (DUNNING_RUN_ENABLED)',
+        /const\s+DUNNING_RUN_ENABLED\s*=/.test(txt));
+  check('스위치가 꺼져 있다',
+        /const\s+DUNNING_RUN_ENABLED\s*=\s*false/.test(txt),
+        '자동 독촉이 다시 켜졌다 — 진짜 표·스코프·이름치환·전화번호·중복발송을 먼저 확인했는가?');
+  check('꺼진 상태에서 곧바로 되돌려준다 (DB 를 건드리지 않는다)',
+        /if\s*\(\s*!DUNNING_RUN_ENABLED\s*\)[\s\S]{0,600}dunning_disabled/.test(dblk) ||
+        /dunning_disabled/.test(dblk),
+        '끄기 분기가 없다');
+  check('끄기 응답이 사람이 읽을 message 를 담는다',
+        /dunning_disabled[\s\S]{0,400}message:/.test(dblk),
+        '오류 코드만 주면 화면에 «dunning_disabled» 라고만 뜬다');
 }
 
 console.log(`\n  ── PASS ${PASS} · FAIL ${FAIL}`);

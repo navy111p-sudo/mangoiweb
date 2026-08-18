@@ -9058,7 +9058,37 @@ LIMIT $limit`;
     // ═══════════════════════════════════════════════════════════════
     // 💰 Phase AD — 미납 자동 에스컬레이션 (Auto Dunning)
     // ═══════════════════════════════════════════════════════════════
+    /* ⏹ 껐습니다 (2026-08-17 사장님 지시) — 지운 것이 아니라 «끈» 것입니다.
+         아래 DUNNING_RUN_ENABLED 를 true 로 바꾸면 예전 동작 그대로 돌아옵니다.
+
+       왜 껐나 —
+         이 경로는 매일 03:00(KST) cron 이 사람 없이 돌렸습니다(index.ts). 그런데
+           · 읽는 표가 `payments` 인데 **17행짜리 껍데기**입니다.
+             진짜 결제는 `student_payments`(11,643행)에 있고 둘은 이어져 있지 않습니다.
+           · 스코프 필터가 없어 지사·대리점 구분 없이 전부 훑습니다.
+           · 문구의 `[학생명]` 자리표시자가 **끝까지 안 채워집니다.**
+           · 실제 발송 호출이 없습니다 — `dunning_log` 에 문구만 적습니다.
+         그 결과 30일에 489번 돌며 로그만 1,065행 쌓였고(대상자는 28명),
+         화면에는 「독촉이 돌고 있다」고 보였습니다. **실제로는 아무에게도 안 갔습니다.**
+         돌지도 않는 것이 돌고 있는 것처럼 보이는 편이 더 위험합니다.
+
+       ⚠️ 다시 켜기 전에 반드시 —
+         ① `payments` 가 아니라 `student_payments` 를 읽게 고칠 것
+         ② 스코프(getScope + scopeStudentCond)를 걸 것
+         ③ `[학생명]` 을 실제 이름으로 채울 것
+         ④ 학부모 전화번호를 확보할 것 — 지금 students_erp 29,398행 중 3개뿐입니다
+         ⑤ **이미 보내는 경로(payments/notify-overdue)와 겹치지 않게** 할 것.
+            둘 다 켜면 CLAUDE.md 의 「학부모에게 문자가 두 번 감」 그대로입니다.
+       ⚠️ 기록 조회(GET /api/admin/dunning/log)는 그대로 둡니다 — 지난 이력은 봐야 합니다. */
+    const DUNNING_RUN_ENABLED = false;
     if (method === 'POST' && path === '/api/admin/dunning/run') {
+      if (!DUNNING_RUN_ENABLED) {
+        return json({
+          ok: false, error: 'dunning_disabled', disabled: true,
+          message: '자동 독촉은 꺼져 있습니다. 실제로 보내지 않고 기록만 쌓던 기능이라 2026-08-17 에 껐습니다. 미납 안내는 「결제 관리 → 미납 알림」을 쓰세요.',
+          message_en: 'Auto-dunning is turned off. It logged messages without ever sending them; disabled 2026-08-17. Use Payments → overdue notice instead.',
+        }, 503);
+      }
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`);
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS dunning_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, stage TEXT, message TEXT, sent_at INTEGER NOT NULL, status TEXT);`);
