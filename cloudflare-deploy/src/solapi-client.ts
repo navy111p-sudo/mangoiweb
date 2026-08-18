@@ -430,11 +430,12 @@ export async function sendPaymentOverdueAlert(env: SolapiEnv, phone: string, var
       '#{학생명}': vars.studentName,
       '#{미납일수}': String(vars.daysOverdue),
       '#{금액}': vars.amountKrw.toLocaleString('ko-KR'),
-      '#{결제URL}': vars.paymentUrl || 'https://webrtc-unified-platform-prod.navy111p.workers.dev/?go=payment',
+      '#{결제URL}': vars.paymentUrl || PAYMENT_URL,
     },
-    // 🪤 링크가 없으면 «결제 → » 뒤가 빈 채로 나갔다. 없으면 그 꼬리를 아예 붙이지 않는다.
-    fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원).`
-      + (vars.paymentUrl ? ` 결제 → ${vars.paymentUrl}` : ''),
+    /* 🪤 여기가 «결제 → » 뒤가 빈 채로 나가던 자리다(vars.paymentUrl || '' 였다).
+          이제 알림톡 변수와 **같은 값**을 쓴다 — 한쪽만 고치면 카톡과 문자가 서로 다른
+          주소를 말하게 된다. */
+    fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원). 결제 → ${vars.paymentUrl || PAYMENT_URL}`,
   });
 }
 
@@ -468,10 +469,26 @@ export const CLASS_RENEWAL_FROM_PHONE = '1644-0561';
    ⚠️ 워커 기본 도메인이 아니라 **SITE_ORIGIN(mangoi.ai)** 을 쓴다 — 사람에게 나가는 주소의
       정본은 site-url.ts 한 곳이다(CLAUDE.md 2장). 여기에 주소를 손으로 적으면 도메인이
       바뀔 때 이 문자만 옛 주소로 남는다.
-   ⚠️ 경로는 /enroll.html 이다. 「수업 7일·3일 전 종료 안내」 문자(enroll-ops.ts)가 쓰는 것과
-      **같은 링크**여야 한다 — 같은 학부모가 며칠 사이에 두 문자를 받는데 서로 다른 곳으로
-      보내면 안 된다. 홈의 결제 모달(?go=payment)은 로그인 뒤에야 열려서 문자 링크로는 부적합. */
+   ⚠️ 경로가 /enroll.html 인 이유는 **「수업 7일·3일 전 종료 안내」 문자(enroll-ops.ts)와 같은
+      곳으로 보내기 위해서**다. 같은 학부모가 며칠 사이에 두 문자를 받는데 서로 다른 데로
+      보내면 안 된다. 그 이상의 근거는 없다.
+
+   🔴 알아 두어야 할 한계 — 이 링크는 **로그인 벽 뒤에 있다.**
+      enroll.html 은 localStorage 의 mangoi_uid / mangoi_logged_user 가 없으면 화면을
+      「🔒 로그인 후 이용할 수 있어요」로 갈아치운다(enroll.html 의 `if (!UID)`).
+      그런데 이 문자는 parent_phone 으로 나간다 — **학부모 휴대폰에는 학생 로그인이 없는 게
+      보통**이라, 누르면 결제창이 아니라 로그인 안내가 뜬다.
+      ⛔ 이걸 «학부모에게 학생 로그인을 만들어 주는» 방식으로 풀지 말 것 — 학생 전용 기능이
+         통째로 열린다(CLAUDE.md 2장 「로그인했는데 또 로그인하래요」).
+      → 제대로 고치려면 서명된 1회용 링크(토큰 붙은 재등록 주소)가 필요하다. 그건 인증을
+        건드리는 별건 작업이라 사람이 결정할 일이다. 지금은 enroll-ops.ts 의 기존 안내 문자와
+        **같은 한계를 공유**하는 상태다(새로 생긴 문제가 아니라 경로가 하나 늘어난 것). */
 export const CLASS_RENEWAL_URL = siteUrl('/enroll.html');
+
+/* 💳 B2B 미납 독촉의 결제 안내 주소. 미연장(B2C)과 성격이 달라 목적지도 다르다 —
+      B2B 는 학원이 본사로 보내는 후불 대금이라 «수강신청» 페이지가 아니다.
+      여기도 workers.dev 기본 도메인을 쓰지 않는다(사람에게 나가는 주소 = SITE_ORIGIN). */
+const PAYMENT_URL = siteUrl('/?go=payment');
 
 /** 「O월 O일」 — KST 기준. 타임존을 안 맞추면 자정 근처에서 하루가 틀린다. */
 export function formatKstMonthDay(at: number | string | Date): string {
