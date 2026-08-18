@@ -11764,6 +11764,7 @@ window.rebuildGlobalSearchIndex = function() {
   // 📊 카페24 매출·손익 추이 대시보드 (Chart.js 콤보차트 + KPI)
   window._c24finData = null; window._c24finChart = null;
   window.c24FinSummary = async function(range){
+    const en = (window.adminLang==='en');
     range = range || window._c24finRange || 24; window._c24finRange = range;
     const kpiBox = document.getElementById('c24fin-kpis');
     const cv = document.getElementById('c24finChart');
@@ -11782,7 +11783,17 @@ window.rebuildGlobalSearchIndex = function() {
       }
       const all = (window._c24finData.months||[]).slice().reverse(); // 오래된→최근
       const months = all.slice(-range);
-      if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
+      if (!months.length){
+        /* 🈳 (2026-08-18) «데이터 없음» 만 띄우면 고장인지 원래 빈 건지 구분이 안 된다.
+           실측: Neo4j 연결은 정상(교재 62권 등 다른 노드는 조회됨)인데 회계 노드(AccBook)만
+           0건이었다. 적재는 카페24 서버 쪽 작업이라 워커가 대신 채울 수 없다 —
+           요청서: docs/카페24_회계데이터_적재요청_2026-08-18.md */
+        if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1;line-height:1.6">'
+          +(en?'No accounting data in Neo4j yet. The connection is fine — the Cafe24 server has not loaded the ledger (AccBook) data.'
+               :'카페24 회계 데이터가 아직 Neo4j에 적재되지 않았습니다. 연결은 정상이고(교재·학생 명부는 조회됩니다), 회계장부(AccBook) 적재는 카페24 서버 쪽 작업입니다.')
+          +'</div>';
+        return;
+      }
       // 구간 합계 + 마진율
       // 🧾 income/expense 는 서버(finance-cafe24/summary)가 「케이씨피M」을 이미 뺀 값이다.
       //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
@@ -11896,6 +11907,8 @@ window.rebuildGlobalSearchIndex = function() {
       tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',won],['tax','세액',won],['total','합계',won],['tax_type','과세']],
       deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',won],['method','결제']],
     };
+    // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
+    const NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
     const cols = COLS[kind] || COLS.ledger;
     head.innerHTML = '<tr>'+cols.map(function(c){ return '<th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'+esc(c[1])+'</th>'; }).join('')+'</tr>';
     body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'Loading…':'불러오는 중…')+'</td></tr>';
@@ -11934,7 +11947,10 @@ window.rebuildGlobalSearchIndex = function() {
              합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
           return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
-      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
+      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
+        +(en?'No data — the Cafe24 server has not loaded this data ('+(NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
+             :'데이터 없음 — 카페24 서버에서 이 데이터('+(NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
+        +'</td></tr>';
     } catch(e){
       body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#dc2626">'+(en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
     }

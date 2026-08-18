@@ -1952,6 +1952,51 @@
   <div class="menu-body">
     <div class="sub-menu">
 
+      <!-- 📈 손익 / 재무제표 — 회계관리 카드의 «맨 위» (2026-08-18 사장님 지시로 올림)
+           원래는 16칸 중 13번째였다. 사장님이 「메뉴에서 안 보인다」고 하셨는데, 없는 게 아니라
+           한참 스크롤해야 나오는 자리였다. 회계에서 제일 자주 보는 표이므로 첫 칸으로 올린다.
+           ⚠️ 순서를 되돌리면 같은 제보가 다시 온다. 자리를 옮길 일이 있으면 사람에게 먼저 확인할 것.
+           ℹ️ 짝인 「🔍 매출–입금 대사」는 원래 자리에 그대로 둔다 — 이 표의 «매출 누락» 안내가
+              이름으로 가리키므로(위치가 아니라) 떨어져 있어도 깨지지 않는다. -->
+      <!-- 🔗 id 는 «바로 열리는 주소» 다 — /admin.html#acc-financials (2026-08-18 사장님 요청).
+           openCardFromHash() 가 이 id 를 찾아 자기 자신과 상위 details 를 전부 펼친다.
+           ⛔ 이 id 를 바꾸면 밖에서 안내한 주소가 조용히 죽는다(열리긴 하는데 안 펼쳐짐). -->
+      <details class="sub-item" id="acc-financials">
+        <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
+        <div class="sub-body">
+          <!-- 🧰 도구줄은 «두 줄» 로 고정한다 (2026-08-18).
+               조회 단위(월별/분기별)가 늘면서 한 줄에 6개가 되어, 창이 좁으면 [Excel] 만
+               혼자 아래로 밀려 내려갔다. 그때그때 달라지는 줄바꿈이 제일 지저분하므로
+               «위 = 무엇을 볼지 · 아래 = 무엇을 할지» 로 아예 나눠 둔다. -->
+          <div style="margin-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+            <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
+                 («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
+            <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="month" data-ko="월별" data-en="Monthly">월별</option>
+              <option value="quarter" data-ko="분기별" data-en="Quarterly">분기별</option>
+            </select>
+            <input id="acc-fs-month" type="month" value="2026-04" onchange="accFsPeriodChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
+            <select id="acc-fs-quarter" onchange="accFsPeriodChange()" style="display:none;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db"></select>
+            <select id="acc-fs-type" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="pl" data-ko="손익계산서 (P&L)" data-en="Income Statement (P&L)">손익계산서 (P&L)</option>
+              <option value="bs" data-ko="재무상태표 (BS)" data-en="Balance Sheet">재무상태표 (BS)</option>
+              <option value="cf" data-ko="현금흐름표 (CF)" data-en="Cash Flow">현금흐름표 (CF)</option>
+              <option value="tb" data-ko="시산표" data-en="Trial Balance">시산표</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="primary" onclick="accGenStatement()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 생성" data-en="🧮 Generate">🧮 생성</button>
+            <button onclick="accStatementPdf()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 PDF" data-en="📥 PDF">📥 PDF</button>
+            <button onclick="accStatementExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
+          </div>
+          </div>
+          <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
+            <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
+          </div>
+        </div>
+      </details>
+
       <!-- 🆕 0. 수강료 미연장 자동 알림 — Phase F1~F2 (파란 톤 통일)
            🔁 (2026-08-18 사장님 지시) 이름이 «미납» 이었는데 B2C 회원에겐 틀린 말이다.
               B2C 는 선불이라 결제한 만큼만 수업이 나가고 끝난다 → 못 받은 돈이 없다.
@@ -2433,45 +2478,6 @@
         </div>
       </details>
 
-      <!-- 11. 손익 / 재무제표 -->
-      <!-- 🔗 id 는 «바로 열리는 주소» 다 — /admin.html#acc-financials (2026-08-18 사장님 요청).
-           openCardFromHash() 가 이 id 를 찾아 자기 자신과 상위 details 를 전부 펼친다.
-           ⛔ 이 id 를 바꾸면 밖에서 안내한 주소가 조용히 죽는다(열리긴 하는데 안 펼쳐짐). -->
-      <details class="sub-item" id="acc-financials">
-        <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
-        <div class="sub-body">
-          <!-- 🧰 도구줄은 «두 줄» 로 고정한다 (2026-08-18).
-               조회 단위(월별/분기별)가 늘면서 한 줄에 6개가 되어, 창이 좁으면 [Excel] 만
-               혼자 아래로 밀려 내려갔다. 그때그때 달라지는 줄바꿈이 제일 지저분하므로
-               «위 = 무엇을 볼지 · 아래 = 무엇을 할지» 로 아예 나눠 둔다. -->
-          <div style="margin-bottom:8px">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-            <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
-                 («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
-            <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
-              <option value="month" data-ko="월별" data-en="Monthly">월별</option>
-              <option value="quarter" data-ko="분기별" data-en="Quarterly">분기별</option>
-            </select>
-            <input id="acc-fs-month" type="month" value="2026-04" onchange="accFsPeriodChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
-            <select id="acc-fs-quarter" onchange="accFsPeriodChange()" style="display:none;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db"></select>
-            <select id="acc-fs-type" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
-              <option value="pl" data-ko="손익계산서 (P&L)" data-en="Income Statement (P&L)">손익계산서 (P&L)</option>
-              <option value="bs" data-ko="재무상태표 (BS)" data-en="Balance Sheet">재무상태표 (BS)</option>
-              <option value="cf" data-ko="현금흐름표 (CF)" data-en="Cash Flow">현금흐름표 (CF)</option>
-              <option value="tb" data-ko="시산표" data-en="Trial Balance">시산표</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button class="primary" onclick="accGenStatement()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 생성" data-en="🧮 Generate">🧮 생성</button>
-            <button onclick="accStatementPdf()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 PDF" data-en="📥 PDF">📥 PDF</button>
-            <button onclick="accStatementExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
-          </div>
-          </div>
-          <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
-            <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
-          </div>
-        </div>
-      </details>
 
       <!-- 11-2. 🔍 매출–입금 대사 (장부 vs 통장) — 2026-08-16
            장부 매출이 통장 입금보다 8,100만 많던 사고(시연용 시드 결제 혼입)를
@@ -7016,7 +7022,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=4" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=5" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -9105,12 +9111,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=127" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
-   · v=127: 2026-08-18 병합 — 두 브랜치가 v=126 을 동시에 땄다(케이씨피M 죽은변수 제거 대
-     본사 직원 등록 실배선). 규칙대로 양쪽보다 큰 번호를 새로 딴다. 내용은 자동병합으로 둘 다 들어가 있다
-   · v=126(케이씨피M): 금액을 읽던 죽은 변수(sumExcl·cntExcl) 제거 —
+<script src="/js/adm-core.js?v=128" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=128: 2026-08-18 병합 — 두 브랜치가 v=127 을 또 동시에 땄다(케이씨피M 죽은변수 제거 대
+     카페24 빈 화면 설명). 규칙대로 양쪽보다 큰 번호를 새로 딴다. 내용은 자동병합으로 둘 다 들어가 있다
+   · v=127(카페24): 회계 실데이터 — 빈 화면일 때 «고장 아님, 카페24 쪽 적재 대기» 를 화면이 직접 설명(AccBook 0건 실측)
+   · v=127(케이씨피M): 금액을 읽던 죽은 변수(sumExcl·cntExcl) 제거 —
      서버가 그 필드를 더 이상 안 내려준다(응답에서 이름·금액을 뺐다)
-   · v=126(직원등록): 「본사 직원 등록」이 시연용 껍데기였던 것을 진짜 계정 생성으로 교체
+   · v=126: 2026-08-18 「본사 직원 등록」이 시연용 껍데기였던 것을 진짜 계정 생성으로 교체
      (localStorage 에만 넣고 「등록 완료」를 띄우던 것 → POST /api/admin/staff-create 호출)
    · v=125: 2026-08-18 조직 관리 카드를 지사장·학원장에게도 연다(CARD_POLICY branch→agency)
      + 본사 전용 칸(대표지사·본사 법인정보·등록 폼) 숨김 _applyOrgScopeUI(). 자료는 서버가 스코프로 자른다
@@ -12210,7 +12217,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=31" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동) -->
+<script src="/js/adm-ia6.js?v=32" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동 · 08-18 정산·매출에 「매출 대시보드」 직행 항목) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
