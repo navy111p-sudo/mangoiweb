@@ -1172,7 +1172,7 @@ document.addEventListener('click', function(ev) {
   const qEl        = document.getElementById('rec-q');
   const dfEl       = document.getElementById('rec-date-from');
   const dtEl       = document.getElementById('rec-date-to');
-  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영입본부 폼이라 오작동했음
+  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영업본부 폼이라 오작동했음
   const pageSizeEl = document.getElementById('rec-pagesize');
   const applyBtn   = document.getElementById('rec-apply');
   const resetBtn   = document.getElementById('rec-reset');
