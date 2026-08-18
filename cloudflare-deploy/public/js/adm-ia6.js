@@ -99,7 +99,18 @@
               (저장 전에 location.href 로 빠진다). 저장되면 admin.html 을 열 때마다 여기로
               튕겨 나가므로, 그 순서를 바꾸지 말 것.
            자리 — 「시간표·근무」 바로 아래. 길이를 바꾸면 뒤 학생 시각이 밀리므로 시간표 일이다. */
-        { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html' },
+        /* 🧭 (2026-08-19 사장님) 「메뉴 ▸ 자식 ▸ 손자」를 **모든 항목에서** 보이게 —
+           카드가 아니라 딴 페이지로 가는 항목은 손자를 만들 재료가 화면에 없다(다른 문서다).
+           그래서 그 페이지의 «구역 이름»만 여기 적고, 주소 뒤 #id 로 바로 그 구역까지 간다.
+           ⚠️ id 는 그 파일에 진짜로 있어야 한다 — 손으로 적은 목록이라 어긋나면 조용히
+              페이지 맨 위만 열린다. `sidebar_three_level_harness.mjs` 가 파일을 열어 확인한다.
+           ⛔ 없는 구역 이름을 지어 넣지 말 것(2026-08-18 「데모 매핑」 사고와 같은 함정). */
+        { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html',
+          secs: [
+            { ko: '❓ 이 화면이 뭔가요',       en: '❓ What is this page', id: 'dr-guide' },
+            { ko: '🔍 미리보기 · 이번 달 반영', en: '🔍 Preview & apply',  id: 'dr-apply' },
+            { ko: '📋 대기 중인 신청',        en: '📋 Pending requests', id: 'dr-pending' }
+          ] },
         { ko: '수업 일지',   en: 'Lesson log',      cards: ['card-lesson-log'] },
         { ko: '급여',        en: 'Payroll',         cards: ['card-payroll-auto', 'card-payroll'] },
         /* 📚 수강 운영 관리 (2026-08-17 사장님) — 이것도 메뉴에 없어 주소를 쳐야만 들어갔다.
@@ -109,7 +120,17 @@
               «/admin/ 이면 무조건 인증» 규칙이 걸리지 않는다 — 대신 안의 자료는 전부
               checkAdminSession 을 거치는 API 로 받는다(빈 표만 보인다). 새 자료를 HTML 에
               직접 박지 말 것. */
-        { ko: '수강 운영(배율·정원)', en: 'Enrollment ops', href: '/enroll-ops.html' },
+        /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
+           /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
+        { ko: '수강 운영(배율·정원)', en: 'Enrollment ops', href: '/enroll-ops.html',
+          secs: [
+            { ko: '🎌 공휴일',          en: '🎌 Holidays',        id: 'holidays' },
+            { ko: '⏰ 종료 후보 명단',   en: '⏰ Ending soon',     id: 'ending' },
+            { ko: '🧑‍🏫 강사 등급 배율', en: '🧑‍🏫 Teacher rates', id: 'rates' },
+            { ko: '💸 환불 계산기',      en: '💸 Refund calc',     id: 'refund' },
+            { ko: '🏖 강사 휴가 대체',   en: '🏖 Leave cover',     id: 'leave' },
+            { ko: '🔔 자동 작업 점검',   en: '🔔 Auto jobs',       id: 'sweeps' }
+          ] },
         { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'] },
         { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'] }
       ]
@@ -618,6 +639,13 @@
            안 실어 주면 손자 생성기가 카드 «전체» 를 읽어, 「대표지사·지사·대리점」 세 항목이
            전부 똑같은 4줄을 보여 준다(2026-08-18 실측 — 사장님 「중복」 지적의 원인). */
         if (it.openSub) d.setAttribute('data-ia6-sub', it.openSub);
+        /* 🔗 (2026-08-19) 딴 페이지로 가는 항목의 «구역 목록» 을 DOM 에 실어 둔다.
+           손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
+           그 항목만 손자가 없는 «2단짜리» 로 남는다. */
+        if (it.href) d.setAttribute('data-ia6-href', it.href);
+        if (it.href && it.secs && it.secs.length) {
+          try { d.setAttribute('data-ia6-secs', JSON.stringify(it.secs)); } catch (e) { /* 무시 */ }
+        }
         d.textContent = en ? it.en : it.ko;
         // ⚠️ 요소마다 리스너를 붙이지 않는다.
         //    사이드바 노드를 나중에 통째로 다시 그리는 스크립트가 있어서(실측: 붙인 리스너가
@@ -810,12 +838,20 @@
                 닫기를 먼저 해야 스크롤이 먹는다.
            실측(390×844): 「강사 ▸ 시간표·근무」 클릭 2.6초 뒤에도 드로어=열림,
                           고른 카드가 화면 위(-258px)로 벗어나 있었다. */
-        if (window.matchMedia('(max-width: 1023px)').matches) {
+        /* 📱 (2026-08-19) «손자를 펴는 중» 이면 닫지 않는다 — adm-s11.js 와 같은 이유·같은 표시.
+           adm-r25.js 가 우리보다 «먼저» 돌면서(문서상 위) 그 표시를 남긴다. */
+        if (window.matchMedia('(max-width: 1023px)').matches && !(window.__ph125OpenedUntil > Date.now())) {
           var sb = document.getElementById('ph85-sidebar');
           if (sb) sb.classList.remove('open');
           try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) { /* 무시 */ }
           document.body.classList.remove('mga-open');
         }
+        /* 🔗 (2026-08-19) 딴 페이지로 가는 항목은 **한 번 더 눌러야** 간다.
+           첫 누름은 손자(그 페이지의 구역들)를 펴는 누름이다 — 곧바로 이동하면
+           손자가 화면에 나타날 새가 없어 「이 메뉴만 3단이 아니다」가 된다.
+           표시는 adm-r25.js 가 남긴다(우리보다 먼저 돈다 — 문서상 위). 800ms 뒤 저절로 풀린다. */
+        if (sub.getAttribute('data-ia6-secs') && window.__ph125OpenedEl === sub &&
+            window.__ph125OpenedUntil > Date.now()) return;
         select(sub.getAttribute('data-ia6-item'));
         return;
       }

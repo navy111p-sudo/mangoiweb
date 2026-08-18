@@ -2196,7 +2196,7 @@
           </details>
 
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+          <div data-gc="💰 이번 달 요약" data-gc-en="💰 This month at a glance" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
               <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px" data-ko="💰 이번 달 총 매출" data-en="💰 This Month's Gross Revenue">💰 이번 달 총 매출</div>
               <div id="ph204-kpi-gross" style="font-size:22px;font-weight:900;color:#1e3a8a">₩48,500,000</div>
@@ -2222,12 +2222,12 @@
           </div>
 
           <!-- 지점별 카드 그리드 (동적 렌더 — accLoadFranchise) -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
+          <div data-gc="🏢 지점별 정산 카드" data-gc-en="🏢 Settlement by branch" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
             <div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8" data-ko="🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다." data-en="Click Refresh to load real settlement data.">🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다.</div>
           </div>
 
           <!-- 매출 비교 막대 그래프 (간단 CSS) -->
-          <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
+          <div data-gc="📊 지점별 매출 비교" data-gc-en="📊 Revenue by branch" style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
             <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px" data-ko="📊 지점별 매출 비교 (이번 달)" data-en="📊 Revenue by Branch (this month)">📊 지점별 매출 비교 (이번 달)</div>
             <div style="display:flex;flex-direction:column;gap:9px" id="ph204-bars"><div class="empty" style="color:#94a3b8;font-size:12px" data-ko="새로고침 대기" data-en="Awaiting refresh">새로고침 대기</div></div>
             
@@ -7431,7 +7431,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
+          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
             <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -7452,7 +7452,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
+          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
             <tbody id="franchises-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
 
           <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
@@ -7460,7 +7460,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                centers.name / franchises.name 이 유일하지 않아 엉뚱한 지사 것이 섞여 나왔다
                (CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로 안 잡힘」과 같은 뿌리).
                서버는 franchise_id 로 거른다 — 이름이 겹쳐도 안 섞인다. -->
-          <div style="margin-top:16px;border-top:1px dashed #e5e7eb;padding-top:12px">
+          <div data-gc="🔎 지사 소속 대리점 찾기" data-gc-en="🔎 Find agencies under a branch" style="margin-top:16px;border-top:1px dashed #e5e7eb;padding-top:12px">
             <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px"
                  data-ko="🔎 지사 소속 대리점 찾기" data-en="🔎 Find agencies under a branch">🔎 지사 소속 대리점 찾기</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -7512,7 +7512,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </details>
           <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
                (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+          <div data-gc="🔎 대리점 검색" data-gc-en="🔎 Search agencies" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
             <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
                    placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
                    data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
@@ -7526,7 +7526,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
             <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
           </div>
-          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
             <tbody id="centers-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -7599,7 +7599,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                    style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
             <span id="hq-count" style="font-size:12px;color:#64748b"></span>
           </div>
-          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="본사명" data-en="HQ Name">본사명</th><th data-ko="대표이사" data-en="CEO">대표이사</th><th data-ko="사업자번호" data-en="Business Number">사업자번호</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="대표전화" data-en="Main Phone">대표전화</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+          <table data-gc="🏯 본사 목록" data-gc-en="🏯 HQ list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="본사명" data-en="HQ Name">본사명</th><th data-ko="대표이사" data-en="CEO">대표이사</th><th data-ko="사업자번호" data-en="Business Number">사업자번호</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="대표전화" data-en="Main Phone">대표전화</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
             <tbody id="hq-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -10138,7 +10138,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
-<script src="/js/adm-s11.js?v=3" defer></script><!-- 분할추출:adm-s11 (v=3 · 2026-08-16 모바일 드로어 자동닫기 대상 수정) -->
+<script src="/js/adm-s11.js?v=5" defer></script><!-- 분할추출:adm-s11 (v=3 · 2026-08-16 모바일 드로어 자동닫기 대상 수정) -->
 
 <!-- Phase 100 admin (2026-05-25) — 통합 블루 디자인 시스템 (WCAG AA, ph98/99 통합) -->
 
@@ -11512,7 +11512,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=16" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=18" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -11749,6 +11749,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
     if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
     setTimeout(function(){
+      /* 📱 (2026-08-19) 자식 메뉴를 눌러 «손자를 펴는 중» 이면 닫지 않는다 —
+         닫으면 방금 편 손자를 아무도 못 본다. 표시는 adm-r25.js 가 남기고 800ms 뒤 저절로 풀린다.
+         손자를 골라 화면으로 갈 때는 그 표시를 스스로 거두므로 여기서 정상적으로 닫힌다. */
+      if (window.__ph125OpenedUntil > Date.now()) return;
       if (document.body.classList.contains('mga-open')) window.mgaClose();
     }, 120);
   }, true);
@@ -12226,7 +12230,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=37" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=39" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.
