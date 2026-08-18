@@ -20,6 +20,7 @@ import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
+import { KCP_TRANSFER_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { sendPlainSms } from './solapi-client';
@@ -6976,26 +6977,42 @@ ${chatSampleText}
           try {
             const { fields, values } = await runCypher(env, `
               MATCH (a:AccBook) WHERE a.date IS NOT NULL AND a.date <> ''
-              WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money
+              WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money,
+                   (coalesce(a.store,'')   =~ $kcpmRe
+                 OR coalesce(a.memo,'')    =~ $kcpmRe
+                 OR coalesce(a.subject,'') =~ $kcpmRe) AS isKcpm
               WHERE ym >= '2019-01'
               RETURN ym,
-                     sum(CASE WHEN t = 1 THEN money ELSE 0 END) AS income,
-                     sum(CASE WHEN t = 2 THEN money ELSE 0 END) AS expense
-              ORDER BY ym DESC LIMIT 36`, {}, 'READ');
+                     sum(CASE WHEN t = 1 AND NOT isKcpm THEN money ELSE 0 END) AS income,
+                     sum(CASE WHEN t = 2 AND NOT isKcpm THEN money ELSE 0 END) AS expense,
+                     sum(CASE WHEN isKcpm THEN money ELSE 0 END)               AS excluded_transfer,
+                     sum(CASE WHEN isKcpm THEN 1 ELSE 0 END)                   AS excluded_count
+              ORDER BY ym DESC LIMIT 36`, { kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
             const rows = values.map(row => {
               const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
               o.net = (Number(o.income) || 0) - (Number(o.expense) || 0);
               return o;
             });
-            const totals = rows.reduce((a: any, r: any) => ({ income: a.income + (Number(r.income) || 0), expense: a.expense + (Number(r.expense) || 0) }), { income: 0, expense: 0 });
-            return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
+            const totals = rows.reduce((a: any, r: any) => ({
+              income: a.income + (Number(r.income) || 0),
+              expense: a.expense + (Number(r.expense) || 0),
+              excludedTransfer: a.excludedTransfer + (Number(r.excluded_transfer) || 0),
+              excludedCount: a.excludedCount + (Number(r.excluded_count) || 0),
+            }), { income: 0, expense: 0, excludedTransfer: 0, excludedCount: 0 });
+            return admCachePut(env, _finKey, {
+              ok: true, source: 'neo4j', kind: 'summary', months: rows,
+              totals: { ...totals, net: totals.income - totals.expense },
+              // 🧾 화면이 «왜 숫자가 줄었나» 를 설명할 수 있게, 뺀 금액을 숨기지 않고 같이 내려준다.
+              excluded: { rule: '케이씨피M', reason: '하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동', amount: totals.excludedTransfer, count: totals.excludedCount },
+            });
           } catch (e: any) {
             if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
             return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
           }
         }
         const QMAP: Record<string, string> = {
-          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month ORDER BY a.date DESC LIMIT $lim`,
+          // 🧾 excluded_from_revenue = 「케이씨피M」(운영자금 이체). 매출·손익 집계에서 뺀 행이라 화면이 표시로 구분한다.
+          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
           expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
@@ -7004,7 +7021,7 @@ ${chatSampleText}
         const cy = QMAP[kind];
         if (!cy) return json({ ok: false, error: 'unknown finance kind' }, 400);
         try {
-          const { fields, values } = await runCypher(env, cy, { lim, month }, 'READ');
+          const { fields, values } = await runCypher(env, cy, { lim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
           const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
           return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows });
         } catch (e: any) {

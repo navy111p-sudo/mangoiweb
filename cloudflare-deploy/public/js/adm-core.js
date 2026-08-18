@@ -11298,8 +11298,12 @@ window.rebuildGlobalSearchIndex = function() {
       const months = all.slice(-range);
       if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
       // 구간 합계 + 마진율
+      // 🧾 income/expense 는 서버(finance-cafe24/summary)가 「케이씨피M」을 이미 뺀 값이다.
+      //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
+      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
+      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
@@ -11312,10 +11316,22 @@ window.rebuildGlobalSearchIndex = function() {
           + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
           + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
         kpiBox.innerHTML =
-          kcard('총 매출', won(sumInc), range+'개월 합계', '#60a5fa')
+          kcard('총 매출', won(sumInc), range+'개월 합계 · 「케이씨피M」 제외', '#60a5fa')
           + kcard('총 지출', won(sumExp), range+'개월 합계', '#f87171')
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
+      }
+      // 🧾 뺀 금액을 숨기지 않고 그대로 보여 준다 — 「숫자가 왜 줄었나」를 화면에서 바로 알 수 있게.
+      var noteBox = document.getElementById('c24fin-sum-total');
+      if (noteBox) {
+        if (sumExcl > 0) {
+          noteBox.style.cssText = 'display:block;margin-top:10px;padding:8px 11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:9px;font-size:11px;color:#fcd34d;line-height:1.55';
+          noteBox.innerHTML = '※ 「케이씨피M」 ' + cntExcl.toLocaleString('ko-KR') + '건 ' + wonFull(sumExcl)
+            + ' 은 <b>매출이 아니라</b> 하나은행 계좌에서 옮겨 온 운영자금이라 위 집계(총 매출·총 지출·순이익·영업이익률)에서 <b>제외</b>했습니다. '
+            + '「케이씨피」(PG 정산금)만 매출로 셉니다.';
+        } else {
+          noteBox.style.display = 'none'; noteBox.innerHTML = '';
+        }
       }
       // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
@@ -11410,13 +11426,36 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      if (cnt) cnt.textContent = (en? rows.length+' rows' : '총 '+rows.length+'건');
+      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
+      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      if (cnt) {
+        var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
+        if (kind === 'ledger' && rows.length) {
+          var sInc = 0, sExp = 0, sExc = 0, nExc = 0;
+          rows.forEach(function(row){
+            var m = Number(row.money)||0;
+            if (isExcl(row)) { sExc += m; nExc++; return; }
+            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+          });
+          cnt.innerHTML = esc(base)
+            + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
+            + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
+            + (nExc ? ' · <span style="color:#b45309">' + (en
+                ? ('excl. 「케이씨피M」 ' + nExc + ' rows ' + esc(won(sExc)))
+                : ('「케이씨피M」 ' + nExc + '건 ' + esc(won(sExc)) + ' 제외')) + '</span>' : '')
+            + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
+        } else { cnt.textContent = base; }
+      }
       body.innerHTML = rows.length ? rows.map(function(row){
-        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
+        var ex = isExcl(row);
+        return '<tr style="border-bottom:1px solid #f1f5f9'+(ex?';background:#fffbeb':'')+'">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
           var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+          if (ex && c[0]==='money') disp = '<span style="color:#b45309;text-decoration:line-through">'+disp+'</span>'
+            + '<span style="margin-left:6px;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;font-family:inherit;white-space:nowrap">'+(en?'not revenue':'매출 제외')+'</span>';
+          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(ex&&c[0]==='money'?('「케이씨피M」 — 하나은행에서 옮겨 온 운영자금이라 매출 합계에서 제외'):v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
       }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
     } catch(e){
