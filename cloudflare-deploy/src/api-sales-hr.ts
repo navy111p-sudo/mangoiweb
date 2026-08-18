@@ -108,6 +108,24 @@ export const SALES_BONUS_MULTIPLIER: Record<string, number> = {
   'A+': 1.5, 'A': 1.2, 'B+': 1.0, 'B': 0.8, 'C+': 0.5, 'C': 0.3, 'D': 0,
 };
 
+/**
+ * 제도의 «금액·목표» 기본값 — 2026-08-18 사장님 확정.
+ *   기본급 230만원(현재 실지급액) · 계약 1곳당 성과급 60만원 · 월 목표 2곳.
+ *
+ * ⚠️ 여기 값은 «새 담당자를 등록할 때 미리 채워지는 값» 일 뿐이다.
+ *    담당자마다 다르게 주려면 화면에서 그 사람 것만 고치면 되고, 그 값이 정본이 된다.
+ *    (코드를 고쳐야 금액이 바뀌는 구조로 만들면, 급여 협상 때마다 배포가 필요해진다)
+ */
+export const SALES_DEFAULTS = {
+  base_salary_krw: 2300000,
+  incentive_per_deal_krw: 600000,
+  target_deals: 2,
+  target_students: 20,
+  target_visits: 48,
+  target_leads: 20,
+  target_care: 8,
+};
+
 /** 「3개월 유지」의 기준일 수. 계약일 + 이 일수가 지나야 유지 여부를 «잴 수 있다». */
 const RETENTION_DAYS = 90;
 
@@ -145,13 +163,13 @@ const ensureSchema = oncePerIsolate<SalesEnv>(async (env) => {
     `  admin_username TEXT,`,
     `  region TEXT,`,
     `  hired_at TEXT,`,
-    `  base_salary_krw INTEGER DEFAULT 0,`,
-    `  incentive_per_deal_krw INTEGER DEFAULT 0,`,
-    `  target_deals INTEGER DEFAULT 2,`,
-    `  target_students INTEGER DEFAULT 20,`,
-    `  target_visits INTEGER DEFAULT 48,`,
-    `  target_leads INTEGER DEFAULT 20,`,
-    `  target_care INTEGER DEFAULT 8,`,
+    `  base_salary_krw INTEGER DEFAULT ${SALES_DEFAULTS.base_salary_krw},`,
+    `  incentive_per_deal_krw INTEGER DEFAULT ${SALES_DEFAULTS.incentive_per_deal_krw},`,
+    `  target_deals INTEGER DEFAULT ${SALES_DEFAULTS.target_deals},`,
+    `  target_students INTEGER DEFAULT ${SALES_DEFAULTS.target_students},`,
+    `  target_visits INTEGER DEFAULT ${SALES_DEFAULTS.target_visits},`,
+    `  target_leads INTEGER DEFAULT ${SALES_DEFAULTS.target_leads},`,
+    `  target_care INTEGER DEFAULT ${SALES_DEFAULTS.target_care},`,
     `  program_started_at TEXT,`,
     `  active INTEGER DEFAULT 1,`,
     `  notes TEXT,`,
@@ -360,11 +378,11 @@ interface Targets { deals: number; students: number; visits: number; leads: numb
 
 async function resolveTargets(env: SalesEnv, rep: any, range: PeriodRange): Promise<Targets> {
   const base = {
-    deals: Number(rep?.target_deals ?? 2),
-    students: Number(rep?.target_students ?? 20),
-    visits: Number(rep?.target_visits ?? 48),
-    leads: Number(rep?.target_leads ?? 20),
-    care: Number(rep?.target_care ?? 8),
+    deals: Number(rep?.target_deals ?? SALES_DEFAULTS.target_deals),
+    students: Number(rep?.target_students ?? SALES_DEFAULTS.target_students),
+    visits: Number(rep?.target_visits ?? SALES_DEFAULTS.target_visits),
+    leads: Number(rep?.target_leads ?? SALES_DEFAULTS.target_leads),
+    care: Number(rep?.target_care ?? SALES_DEFAULTS.target_care),
   };
   const out: Targets = { deals: 0, students: 0, visits: 0, leads: 0, care: 0, workdays: 0 };
   // 달마다 한 줄씩 읽는다. 최대 6줄이라 IN 절(파라미터 100 제한)을 쓸 이유가 없다.
@@ -1387,7 +1405,7 @@ export async function handleSalesHrApi(
       hq ? `SELECT * FROM sales_reps ORDER BY active DESC, name ASC`
          : `SELECT * FROM sales_reps WHERE id = ? ORDER BY name ASC`
     ).bind(...(hq ? [] : [myRepId])).all().catch(() => ({ results: [] }));
-    return json({ ok: true, reps: rs?.results || [], can_edit: hq });
+    return json({ ok: true, reps: rs?.results || [], can_edit: hq, defaults: SALES_DEFAULTS });
   }
 
   // ── 담당자 등록·수정 (본사만) ────────────────────────────────────────
@@ -1403,13 +1421,13 @@ export async function handleSalesHrApi(
       String(body?.admin_username || '').trim() || null,
       String(body?.region || '').trim() || null,
       String(body?.hired_at || '').trim() || null,
-      Math.max(0, num(body?.base_salary_krw, 0)),
-      Math.max(0, num(body?.incentive_per_deal_krw, 0)),
-      Math.max(0, num(body?.target_deals, 2)),
-      Math.max(0, num(body?.target_students, 20)),
-      Math.max(0, num(body?.target_visits, 48)),
-      Math.max(0, num(body?.target_leads, 20)),
-      Math.max(0, num(body?.target_care, 8)),
+      Math.max(0, num(body?.base_salary_krw, SALES_DEFAULTS.base_salary_krw)),
+      Math.max(0, num(body?.incentive_per_deal_krw, SALES_DEFAULTS.incentive_per_deal_krw)),
+      Math.max(0, num(body?.target_deals, SALES_DEFAULTS.target_deals)),
+      Math.max(0, num(body?.target_students, SALES_DEFAULTS.target_students)),
+      Math.max(0, num(body?.target_visits, SALES_DEFAULTS.target_visits)),
+      Math.max(0, num(body?.target_leads, SALES_DEFAULTS.target_leads)),
+      Math.max(0, num(body?.target_care, SALES_DEFAULTS.target_care)),
       String(body?.program_started_at || '').trim() || todayISO(),
       body?.active === 0 || body?.active === false ? 0 : 1,
       String(body?.notes || '').trim() || null,
