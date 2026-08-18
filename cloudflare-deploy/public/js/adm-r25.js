@@ -249,6 +249,59 @@
     return scan(card);
   }
 
+  /* 🍃 (2026-08-19 사장님) 「메뉴 ▸ 자식 ▸ 손자」를 **모든 항목에서**.
+     여기까지 오는 것은 카드 «안의 한 칸» 을 가리키는 항목이다(「지사」·「대리점」·「지사 정산」…).
+     예전에는 손자를 아예 만들지 않았다 — 카드 «전체» 를 읽으면 형제 항목들과 똑같은 4줄이
+     네 번 나왔기 때문이다(2026-08-18 「중복」 지적). 이제 카드가 아니라 **그 칸 안** 만 읽는다.
+     칸마다 안이 다르므로 중복이 생기지 않고, 항목마다 자기 손자를 갖는다.
+     ⚠️ 겹치는 것 중 «바깥» 은 버린다 — 이름표를 감싸는 상자(.sub-body 등)까지 세면
+        「그 칸 전체로 가는 줄」이 목록 맨 위에 하나 더 붙어 무엇을 눌러야 할지 헷갈린다. */
+  function scanLeaf(leaf){
+    var nodes = [].slice.call(leaf.querySelectorAll('[data-gc], details'));
+    var picked = nodes.filter(function(d){
+      if (d === leaf) return false;
+      for (var i = 0; i < nodes.length; i++){
+        if (nodes[i] !== d && d.contains(nodes[i])) return false;   // 남을 품은 상자는 버린다
+      }
+      return true;
+    });
+    var list = [];
+    for (var i = 0; i < picked.length && list.length < 20; i++){
+      var d = picked[i], ko, en;
+      if (d.hasAttribute('data-gc')){
+        ko = (d.getAttribute('data-gc') || '').trim();
+        en = (d.getAttribute('data-gc-en') || '').trim() || ko;
+      } else {
+        var sum = d.querySelector('summary');
+        if (!sum || sum.parentElement !== d) continue;
+        ko = labelOf(sum, 'data-ko');
+        en = labelOf(sum, 'data-en') || ko;
+      }
+      if (!ko) continue;
+      list.push({ ko: ko, en: en, el: d });
+    }
+    return list;
+  }
+
+  /* 🔗 딴 페이지로 가는 항목의 손자 — 그 페이지의 «구역 목록» 은 화면에서 읽을 수 없다(다른 문서다).
+     adm-ia6.js 가 data-ia6-secs 로 실어 준 것을 그대로 쓴다. 목적지는 주소 뒤 #id.
+     ⚠️ 이 목록은 손으로 적은 것이라 어긋날 수 있다 → sidebar_three_level_harness 가 파일을 열어 확인한다. */
+  function itemsFromSecs(sub){
+    var raw = sub.getAttribute('data-ia6-secs');
+    var page = sub.getAttribute('data-ia6-href') || '';
+    if (!raw || !page) return [];
+    var arr;
+    try { arr = JSON.parse(raw); } catch (e) { return []; }
+    if (!arr || !arr.length) return [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++){
+      var it = arr[i];
+      if (!it || !it.ko || !it.id) continue;
+      out.push({ ko: it.ko, en: it.en || it.ko, href: page + '#' + it.id });
+    }
+    return out;
+  }
+
   /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다.
      ⚠️ 제목이 붙어 있는 자리가 카드마다 다르다. 하나만 보면 대부분 빈 문자열이 나오고,
         그러면 그 항목이 «손자 0개» 로 판정돼 ▸ 가 아예 안 생긴다(2026-08-18 실측:
@@ -278,10 +331,17 @@
      이제 data-cards(맡은 카드 전부)를 읽는다. 칸이 없는 카드는 «그 카드 자체» 를 한 줄로 세운다
      — 묶음 안에 있는데 목록에 안 보이면 그 카드는 영영 못 찾는다. */
   function itemsForSub(sub){
-    /* 🍃 이 항목이 카드 «안의 한 칸» 을 이미 가리키면(=잎) 손자를 만들지 않는다.
-       「대표지사」·「지사」·「대리점」·「지사 정산」이 그렇다. 이걸 안 보면 셋 다 같은 카드를
-       읽어 **똑같은 4줄이 네 번** 나온다(2026-08-18 사장님 「중복」 지적의 원인). */
-    if (sub.getAttribute('data-ia6-sub')) return [];
+    /* 🍃 이 항목이 카드 «안의 한 칸» 을 가리키면(=잎) 손자는 **그 칸 안** 에서 읽는다.
+       「대표지사」·「지사」·「대리점」·「지사 정산」이 그렇다. 카드 «전체» 를 읽으면 넷이
+       똑같은 4줄을 보여 준다(2026-08-18 「중복」 지적) — 그래서 칸 안만 본다. */
+    var leafId = sub.getAttribute('data-ia6-sub');
+    if (leafId){
+      var leaf = document.getElementById(leafId);
+      return leaf ? scanLeaf(leaf) : [];
+    }
+
+    /* 🔗 카드가 아니라 딴 페이지로 가는 항목 — 그 페이지의 구역들이 손자가 된다. */
+    if (sub.getAttribute('data-ia6-secs')) return itemsFromSecs(sub);
 
     var attr = (sub.getAttribute('data-cards') || '').trim();
     var ids = attr ? attr.split(/\s+/) : (sub.dataset.card ? [sub.dataset.card] : []);
@@ -335,9 +395,11 @@
     bar.querySelectorAll('.ph85-sub').forEach(function(sub){
       if (sub.__ph125) return;
       var cardId = sub.dataset.card;
-      if (!cardId) return;
-      var card = document.getElementById(cardId);
-      if (!card){
+      /* 🔗 (2026-08-19) 카드가 없는 항목도 손자를 가질 수 있다 — 딴 페이지로 가는 항목이다.
+         예전엔 여기서 그냥 빠져나가서 그 항목만 «2단짜리» 로 남았다. */
+      if (!cardId && !sub.getAttribute('data-ia6-secs')) return;
+      var card = cardId ? document.getElementById(cardId) : null;
+      if (cardId && !card){
         /* 카드가 아직 안 그려졌을 수 있다 — 몇 번만 다시 본다.
            무한 재시도는 느린 PC(필리핀 가정 회선 포함)에서 그냥 낭비다. */
         sub.__ph125try = (sub.__ph125try || 0) + 1;
@@ -363,7 +425,7 @@
       if (!next || !next.classList.contains('ph125-grandchildren')){
         var box = document.createElement('div');
         box.className = 'ph125-grandchildren';
-        box.dataset.parent = cardId;
+        box.dataset.parent = cardId || '';
         var en = EN();
         box.innerHTML = items.map(function(it, i){
           /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 한국어. */
@@ -385,14 +447,42 @@
         t.__bound = true;
         t.addEventListener('click', function(e){
           e.stopPropagation(); e.preventDefault();
-          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
-            if (s !== sub) { s.classList.remove('ph125-open'); fitBox(s); }
-          });
-          sub.classList.toggle('ph125-open');
-          fitBox(sub);
+          openGc(sub, true);                 // ▸ 는 여닫이 — 접는 방법이 여기 하나뿐이다
         });
       }
     });
+  }
+
+  /* 🔀 (2026-08-19) 손자를 여는 곳은 여기 한 곳이다 — ▸ 를 눌러도, 자식 메뉴 글자를 눌러도 같다.
+     toggle=true 면 여닫이(▸ 전용), 아니면 «열기만». 자식 메뉴 클릭이 여닫이면
+     같은 메뉴를 다시 눌렀을 때 손자가 사라져 「눌렀더니 없어졌다」가 된다. */
+  function openGc(sub, toggle){
+    var bar = document.getElementById('ph85-sidebar');
+    var box = sub.nextElementSibling;
+    if (!bar || !box || !box.classList.contains('ph125-grandchildren')) return;
+    bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+      if (s !== sub) { s.classList.remove('ph125-open'); fitBox(s); }
+    });
+    if (toggle) sub.classList.toggle('ph125-open');
+    else sub.classList.add('ph125-open');
+    fitBox(sub);
+    keepGroupOpen(sub);
+  }
+
+  /* 🪤 자식 메뉴를 누르면 adm-s11.js(ph97) 가 «모든 그룹 접기» 를 한다 —
+     원래 그 클릭은 «카드로 이동» 이라 사이드바를 정리하는 것이 맞았다. 그런데 이제 같은 클릭이
+     손자를 여는 클릭이기도 해서, 그대로 두면 방금 편 손자가 그룹째 접혀 사라진다
+     — 쓰는 사람에게는 «눌러도 아무 일이 없다» 로 보인다.
+     ph97 은 window 캡처에서 우리보다 «먼저» 돌므로(문서상 adm-s11 이 위) 여기서 되돌리면 된다.
+     ⚠️ 그래도 뒤늦게 접는 코드가 있을 수 있어 다음 틱에 한 번 더 확인한다. 손자를 접어 두었으면
+        (ph125-open 이 없으면) 아무 일도 하지 않는다 — 예전 «누르면 정리» 동작 그대로다. */
+  function keepGroupOpen(sub){
+    var g = sub.closest ? sub.closest('.ph85-group') : null;
+    if (!g) return;
+    var again = function(){ if (sub.classList.contains('ph125-open')) g.classList.add('open'); };
+    again();
+    setTimeout(again, 0);
+    setTimeout(again, 120);
   }
 
   /* 📏 (2026-08-18) 「▸ 를 눌렀는데 손자가 안 보인다」의 두 번째 원인 — **잘림**.
@@ -430,6 +520,7 @@
      ② 목적지 칸을 펴고, 같은 줄의 형제 칸은 접는다 — 그래야 그 칸이 «맨 위» 로 온다.
      ③ 카드 이동은 jumpToMenu 에 맡긴다(급여 접근제어·legacy-cards 표시·공지 탭 전환이 거기 있다). */
   function closeDrawer(){
+    window.__ph125OpenedUntil = 0;        // «방금 폈다» 표시를 거둔다 — 이제는 닫고 이동할 차례다
     if (!window.matchMedia('(max-width: 1023px)').matches) return;
     var sb = document.getElementById('ph85-sidebar');
     if (sb) sb.classList.remove('open');
@@ -465,6 +556,9 @@
 
   function go(cardId, desc){
     closeDrawer();                                   // ① 먼저 닫는다
+    /* 🔗 딴 페이지의 구역 — 주소 뒤 #id 로 그 구역까지 바로 간다(브라우저가 스크롤해 준다).
+       enroll-ops.html 처럼 탭 하나만 그리는 화면은 그 파일이 해시를 보고 탭을 켠다. */
+    if (desc.href) { location.href = desc.href; return; }
     var hostId = desc.card || cardId;
     if (typeof window.jumpToMenu === 'function') window.jumpToMenu(hostId);
     var card = document.getElementById(hostId);
@@ -475,6 +569,47 @@
       reveal(card, t || card);
     }, 120);                                          // jumpToMenu 의 rAF 재보정(≈32ms) 뒤에 온다
   }
+
+  /* 👆 (2026-08-19 사장님) 「자식 메뉴를 누르면 손자 메뉴가 나오게 — 모든 메뉴를 이렇게」
+     지금까지는 **▸ 를 정확히 눌러야만** 열렸다. ▸ 는 12px 짜리 글자라 휴대폰에서는 거의 못 누르고,
+     자식 메뉴 글자를 누르면 카드로 이동만 하고 손자는 안 나왔다.
+     ⚠️ 이동을 막지 않는다 — 여기서 stopPropagation 을 부르면 ph97·adm-ia6 가 굶어
+        «눌러도 화면이 안 바뀐다» 가 된다. 우리는 «펴는 일» 만 더한다.
+     ⚠️ window 캡처여야 한다. 사이드바에 걸면 ph97 의 stopPropagation 에 막혀 영영 안 불린다
+        (CLAUDE.md 2장 「사이드바 클릭이 안 먹거나 엉뚱하게 동작」). */
+  window.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('#ph85-sidebar .ph125-toggle')) return;   // ▸ 는 자기 리스너가 «여닫이» 로 처리
+    if (t.closest('#ph85-sidebar .ph125-gc')) return;       // 손자 자신을 누른 것
+    var sub = t.closest('#ph85-sidebar .ph85-sub');
+    if (!sub) return;
+    var box = sub.nextElementSibling;
+    if (!box || !box.classList.contains('ph125-grandchildren')) return;
+
+    /* 📱 휴대폰 — 드로어를 «닫지 않는다».
+       세 곳이 자식 메뉴 클릭에 드로어를 닫는다(ph97 · adm-ia6 · admin.html 의 pointerdown 감시).
+       그건 그 클릭이 «카드로 이동» 이던 시절의 규칙이다. 이제는 같은 클릭이 손자를 여는
+       클릭이라, 닫아 버리면 **방금 편 손자를 아무도 못 본다.**
+       ⛔ 그렇다고 그 세 곳을 «항상 안 닫게» 만들면 안 된다 — 손자를 골라 화면으로 갈 때는
+          반드시 닫아야 한다(닫기 전에는 body 가 overflow:hidden 이라 스크롤이 통째로 무시된다).
+       ✅ 그래서 «지금 여는 중» 이라는 표시를 짧게 남기고, 그 셋은 그 표시가 있을 때만 건너뛴다.
+       ⚠️ 이미 펴져 있는 자식을 한 번 더 누르면 표시를 남기지 않는다 — 두 번째 누름은
+          「이 화면으로 가겠다」는 뜻이므로 예전처럼 닫히고 카드로 간다. */
+    var already = sub.classList.contains('ph125-open');
+    if (!already){
+      /* 🔖 «방금 폈다» 표시. 두 곳이 이걸 본다 —
+           📱 드로어를 닫는 세 곳(ph97 · adm-ia6 · admin.html) → 닫지 않는다
+           🔗 딴 페이지로 가는 항목(adm-ia6 의 select) → 이동을 한 박자 미룬다.
+              안 미루면 「수업 길이 변경」·「수강 운영」은 손자를 보여 줄 새도 없이 페이지가 바뀐다. */
+      window.__ph125OpenedEl = sub;
+      window.__ph125OpenedUntil = Date.now() + 800;
+      if (window.matchMedia('(max-width: 1023px)').matches){
+        try { if (typeof window.mgaOpen === 'function') window.mgaOpen(); } catch(e){}
+      }
+    }
+    openGc(sub, false);
+  }, true);
 
   // 손자 클릭 — 위임 한 곳에서 받는다(항목마다 onclick 문자열을 안 만들어 그만큼 가볍다)
   document.addEventListener('click', function(e){

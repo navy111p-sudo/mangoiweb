@@ -114,7 +114,10 @@
             그 상태에서 scrollIntoView 를 부르면 브라우저가 통째로 무시한다.
             그래서 아래 스크롤은 닫은 «뒤» 로 미룬다(setTimeout 50ms 안).
          ⚠️ mgaClose 가 아직 정의되기 전일 수 있으니(defer 순서) 클래스 제거도 함께 한다. */
-      if (window.matchMedia('(max-width: 1023px)').matches) {
+      /* 📱 (2026-08-19) «손자를 펴는 중» 이면 닫지 않는다 — 닫으면 방금 편 손자를 못 본다.
+         표시는 adm-r25.js 가 남긴다(그 파일의 「휴대폰 — 드로어를 닫지 않는다」 주석 참조).
+         같은 자식을 한 번 더 누르면 표시가 없으므로 예전처럼 닫히고 카드로 간다. */
+      if (window.matchMedia('(max-width: 1023px)').matches && !(window.__ph125OpenedUntil > Date.now())) {
         var sb = document.getElementById('ph85-sidebar');
         if (sb) sb.classList.remove('open');
         try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) {}
