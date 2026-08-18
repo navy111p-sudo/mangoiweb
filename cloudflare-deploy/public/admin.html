@@ -2000,11 +2000,16 @@
               <option value="naver" data-ko="네이버페이" data-en="NaverPay">네이버페이</option>
               <option value="recurring" data-ko="정기결제" data-en="Recurring">정기결제</option>
             </select>
+            <!-- ⚠️ (2026-08-18) 값이 DB 와 어긋나 있었다 — ok/fail/refund 로 보내는데
+                 student_payments.status 는 paid/failed/refunded/cancelled/pending 이라
+                 상태를 고르면 «항상 0건» 이었다. 실제 값으로 맞춘다. -->
             <select id="acc-pay-status" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
               <option value="" data-ko="전체 상태" data-en="All status">전체 상태</option>
-              <option value="ok" data-ko="성공" data-en="Success">성공</option>
-              <option value="fail" data-ko="실패" data-en="Failed">실패</option>
-              <option value="refund" data-ko="환불" data-en="Refunded">환불</option>
+              <option value="paid" data-ko="성공" data-en="Success">성공</option>
+              <option value="failed" data-ko="실패" data-en="Failed">실패</option>
+              <option value="refunded" data-ko="환불" data-en="Refunded">환불</option>
+              <option value="cancelled" data-ko="취소" data-en="Cancelled">취소</option>
+              <option value="pending" data-ko="대기" data-en="Pending">대기</option>
             </select>
             <!-- 💳 (2026-08-12 수정요청 #03) B2B/B2C 분리 — 대리점 관리의 결제유형 지정이 기준 -->
             <select id="acc-pay-channel" title="B2B = 학원이 본사·대리점에 결제 / B2C = 학부모 직접 결제. 대리점 관리의 «결제유형» 지정이 기준입니다"
@@ -2013,6 +2018,15 @@
               <option value="B2B" data-ko="🏢 B2B 결제만" data-en="🏢 B2B only">🏢 B2B 결제만</option>
               <option value="B2C" data-ko="👪 B2C 결제만" data-en="👪 B2C only">👪 B2C 결제만</option>
             </select>
+            <!-- 🏢 (2026-08-18 수정요청 #02) 지사 필터 — 목록에서 고르거나 이름 일부를 타이핑해 검색.
+                 목록(241개)은 /api/admin/franchises?fields=min 에서 채운다. 판정 규칙은 가맹점 정산과 동일. -->
+            <input id="acc-pay-franchise" list="acc-pay-franchise-list" placeholder="🏢 지사 (전체)"
+                   title="지사를 고르거나 이름 일부를 입력해 검색합니다. 비워 두면 전체입니다"
+                   style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #7c3aed;background:#f5f3ff;color:#5b21b6;font-weight:700;width:170px"
+                   onfocus="accFillFranchiseList&&accFillFranchiseList()"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault();accLoadPayments();}"
+                   data-ko-ph="🏢 지사 (전체)" data-en-ph="🏢 Branch (all)" />
+            <datalist id="acc-pay-franchise-list"></datalist>
             <button id="acc-pay-load" class="primary" onclick="accLoadPayments()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 불러오기" data-en="🧮 Load">🧮 불러오기</button>
             <button id="acc-pay-xlsx" onclick="accDownloadPaymentsXlsx()" style="padding:5px 12px;font-size:12px;background:#217346;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📊 엑셀" data-en="📊 Excel">📊 엑셀</button>
             <button id="acc-pay-csv" onclick="accDownloadPaymentsCsv()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 CSV" data-en="📥 CSV">📥 CSV</button>
@@ -2021,15 +2035,17 @@
             <thead><tr>
               <th data-ko="시각" data-en="Time">시각</th>
               <th data-ko="주문번호" data-en="Order #">주문번호</th>
-              <th data-ko="학생" data-en="Student">학생</th>
+              <th data-ko="학생 이름" data-en="Student name">학생 이름</th>
+              <th data-ko="학생 ID" data-en="Student ID">학생 ID</th>
               <th data-ko="구분" data-en="Type">구분</th>
+              <th data-ko="지사" data-en="Branch">지사</th>
               <th data-ko="가맹점" data-en="Agency">가맹점</th>
               <th data-ko="상품" data-en="Product">상품</th>
               <th data-ko="금액" data-en="Amount">금액</th>
               <th data-ko="결제수단" data-en="Method">결제수단</th>
               <th data-ko="상태" data-en="Status">상태</th>
             </tr></thead>
-            <tbody id="acc-pay-tbody"><tr><td colspan="9" class="empty">[🧮 불러오기]를 누르면 결제 내역이 표시됩니다.</td></tr></tbody>
+            <tbody id="acc-pay-tbody"><tr><td colspan="11" class="empty">[🧮 불러오기]를 누르면 결제 내역이 표시됩니다.</td></tr></tbody>
           </table>
         </div>
       </details>
@@ -8993,13 +9009,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=108" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
-   · v=108: 2026-08-18 조직관리 «영입본부» → «영업본부» 오타 수정(주석 1줄)
-     — main 이 그 사이 v=105~107 을 가져가서 번호를 새로 딴다
+<script src="/js/adm-core.js?v=109" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=109: 2026-08-18 조직관리 «영입본부» → «영업본부» 오타 수정(주석 1줄)
+     — main 이 그 사이 v=105~108 을 가져가서 번호를 새로 딴다
+   · v=108: 2026-08-18 학생 결제 내역에 학생 이름·지사 필터
+     (또 둘이 «각자» v=107 을 써서 번호를 새로 딴다 — 아래 v=104 때와 같은 상황이고, 파일 내용은 자동병합으로 둘 다 들어가 있다)
    · v=107: 2026-08-18 「정산·매출 > 카페24 회계 실데이터」의 매출 집계에서 「케이씨피M」
-     (하나은행에서 옮겨 온 운영자금)을 제외 — 또 둘이 «각자» 번호를 써서 새로 딴다
+     (하나은행에서 옮겨 온 운영자금)을 제외
    · v=106: 2026-08-18 매출–입금 대사를 «통장 기준» 으로
-     (또 둘이 «각자» v=105 를 써서 번호를 새로 딴다 — 아래 v=104 때와 같은 상황이고, 파일 내용은 자동병합으로 둘 다 들어가 있다)
    · v=105: 2026-08-18 환불/취소 목록에 학생 이름·아이디·결제 일자 추가
      (+ 날짜가 ×1000 되어 서기 5만년으로 찍히던 것 수정 — paid_at 은 초가 아니라 밀리초다)
    · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
@@ -9449,6 +9466,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <a href="/admin/postponed-classes" data-ko="⏸ 연기 수업 현황" data-en="⏸ Postponed Classes">⏸ 연기 수업 현황</a>
           <div class="th-user-popup-divider"></div>
           <a href="/admin/teacher-payroll" data-ko="🧾 강사 급여(자동)" data-en="🧾 Teacher Payroll">🧾 강사 급여(자동)</a>
+          <a href="/admin/sales-hr" data-ko="🚗 영업 실적·인사평가" data-en="🚗 Sales Performance">🚗 영업 실적·인사평가</a>
           <a href="/admin/retention" data-ko="🔁 수강권 만료·재활성" data-en="🔁 Retention">🔁 수강권 만료·재활성</a>
           <a href="/admin/duplicate-payments" data-ko="💸 이중결제 감사" data-en="💸 Duplicate Audit">💸 이중결제 감사</a>
           <a href="/admin/send-pay-link.html" data-ko="💳 결제 센터" data-en="💳 Payment Center">💳 결제 센터</a>
