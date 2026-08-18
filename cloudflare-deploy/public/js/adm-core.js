@@ -11629,8 +11629,14 @@ window.rebuildGlobalSearchIndex = function() {
       const r = await fetch('/api/admin/reports/receivables?kind=' + kind, { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">데이터 없음</td></tr>'; return; }
-      tbody.innerHTML = d.rows.map(r => {
+      /* 🔁 (2026-08-18) 서버가 주는 각주(notes)를 반드시 같이 보여 준다.
+            B2C 학생은 선불 구조라 미수금에서 빠졌는데, 그 사실을 안 적으면
+            「어제보다 인원이 확 줄었다」로만 보인다. 왜 줄었는지가 각주에 있다. */
+      const _arNotes = (d.notes || []).length
+        ? `<tr><td colspan="6" style="background:#f9fafb;color:#4b5563;font-size:11.5px;line-height:1.7;padding:8px 10px">${
+            d.notes.map(n => '· ' + _esc(n)).join('<br>')}</td></tr>` : '';
+      if (!d.rows.length) { tbody.innerHTML = _arNotes + '<tr><td colspan="6" class="empty">데이터 없음</td></tr>'; return; }
+      tbody.innerHTML = _arNotes + d.rows.map(r => {
         const overdueColor = r.days > 30 ? 'color:#dc2626;font-weight:700' : '';
         return `<tr><td>${_esc(r.target)}</td><td>${_esc(r.issued||'')}</td>
                 <td style="text-align:right">${_fmt(r.amount)}</td>

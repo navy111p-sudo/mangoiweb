@@ -2231,14 +2231,30 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
 
   let rows: any[] = [];
   let label = '';
+  let b2cExcluded = 0;   // B2C(선불)라서 미수금에서 뺀 학생 수 — 화면 각주용
   if (kind === 'receivable') {
-    // 학생 만료 임박 + 미납 (status IN ('정상','활동','active') 인데 end_date 가 지났거나, pending 결제)
+    /* 학생 미수금 — status 는 활동인데 end_date 가 지난 학생.
+
+       🔁 (2026-08-18 사장님 지시) **B2C 학생은 미수금이 아니다.**
+          B2C(개인 결제)는 선불이다 — 결제한 만큼만 수업이 나가고 끝난다. 그러니
+          수업이 끝나 있는 것은 «못 받은 돈» 이 아니라 «아직 연장을 안 한 것» 이다.
+          받을 돈이 없는 사람을 미수금 표에 올려 두면 장부가 거짓말을 한다.
+          → 여기서 통째로 뺀다. 그들의 «미연장» 은 회계관리 ▸ 수강료 미연장 자동 알림에서 본다.
+
+          판정 정본은 대리점 지정값 centers.payment_type 이고, 학생 → 대리점 연결은
+          students_erp.shop_name = centers.name 이다(결제 목록 paymentsList 와 같은 규칙).
+          ⚠️ 상관 서브쿼리(EXISTS)로 쓰면 같은 판정에 1,900만 행을 읽는다(실측).
+             NOT IN (SELECT …) 은 부질의를 한 번만 만들어 4만 행이면 끝난다. 이 형태를 유지할 것.
+          ⚠️ centers.name 이 유일하지 않아도 «이름 집합에 있나» 만 보므로 행 뻥튀기가 없다. */
+    const B2C_EXCLUDE_SQL = `(s.shop_name IS NULL OR s.shop_name NOT IN
+        (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))`;
     rows = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT user_id, korean_name, end_date,
-               (julianday(?) - julianday(end_date)) AS days_overdue
-        FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT s.user_id, s.korean_name, s.end_date,
+               (julianday(?) - julianday(s.end_date)) AS days_overdue
+        FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND ${B2C_EXCLUDE_SQL}
         ORDER BY days_overdue DESC LIMIT 200
       `).bind(todayKst, todayKst).all();
       return ((r.results || []) as Array<any>).map(s => ({
@@ -2247,10 +2263,19 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
         issued: s.end_date,
         amount: 0, // 실제 미납 금액은 enrollments.monthly_fee_krw 또는 별도 테이블 필요
         days: Math.floor(s.days_overdue || 0),
-        note: '수강 만료 후 미연장',
+        note: '수강 만료 후 미납 (B2B)',
       }));
     }, []);
-    label = '학생 미수금 (수강 만료 후 미연장)';
+    // 몇 명을 B2C 라서 뺐는지 — 화면에 근거로 적어 준다("갑자기 줄었다"는 오해 방지)
+    b2cExcluded = await safe(async () => {
+      const r = await env.DB.prepare(`
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND NOT ${B2C_EXCLUDE_SQL}
+      `).bind(todayKst).first<{ c: number }>();
+      return Number(r?.c) || 0;
+    }, 0);
+    label = '학생 미수금 (B2B 수강 만료 후 미납 · B2C 제외)';
   } else if (kind === 'payable') {
     // 강사 미지급 (payslips 에서 paid=0 인 것)
     rows = await safe(async () => {
@@ -2300,12 +2325,15 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   if (kind === 'receivable') {
     candidates = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT COUNT(*) AS c FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND (s.shop_name IS NULL OR s.shop_name NOT IN
+               (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))
       `).bind(todayKst).first<{ c: number }>();
       return Number(r?.c) || 0;
     }, totals.count);
     if (candidates > rows.length) rNotes.push(`대상 ${candidates.toLocaleString('ko-KR')}명 중 경과일이 긴 ${rows.length}명만 표시했습니다.`);
+    if (b2cExcluded > 0) rNotes.push(`B2C(개인 결제) ${b2cExcluded.toLocaleString('ko-KR')}명은 제외했습니다 — 결제한 만큼만 수업이 나가는 선불 구조라 미수금이 아니라 «미연장»입니다. 「회계관리 ▸ 수강료 미연장 자동 알림」에서 확인하세요.`);
     rNotes.push('금액이 모두 0원인 이유: 학생별 수강료 단가가 시스템에 없어 미납액을 계산할 수 없습니다. 수강료 정보를 등록하면 금액이 채워집니다.');
     rNotes.push('원부에 퇴원 처리가 안 된 옛 학생이 섞여 있을 수 있습니다 — 실제 미수금과 다를 수 있습니다.');
   } else if (kind === 'pending') {
@@ -2313,6 +2341,7 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   }
 
   const data = { ok: true, type: 'receivables', kind, label, rows, totals, candidates, notes: rNotes,
+    b2c_excluded: b2cExcluded,
     amount_source: (kind === 'receivable' ? 'none' : 'actual') as FigureSource };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
