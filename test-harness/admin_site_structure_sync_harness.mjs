@@ -105,6 +105,81 @@ if (Array.isArray(G) && Array.isArray(D)) {
   check(`이름 자리에 카드 id 가 없다${leaked.length ? ' — ' + leaked.join(', ') : ''}`, leaked.length === 0);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⑤~⑦ 사이트 지도(site-structure-map.html) 도 같이 감시한다.
+   구성표(위)는 «사이드바 안 메뉴», 지도는 «별도 페이지 URL» 로 서로 다른 문서인데,
+   둘 다 손으로 옮겨 적은 것이라 똑같이 낡는다.
+   2026-08-18 실측: 지도에 없는 페이지가 14개 있었다 — 그중 /admin/sales-hr(영업 실적·인사평가),
+   /sales.html(영업 현장), /work.html(결재함)은 그 며칠 사이에 새로 만든 화면이었다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+{
+  const fs = await import('node:fs');
+  const pub = resolve(__dir, '../cloudflare-deploy/public');
+  const map = rd('../cloudflare-deploy/public/admin/site-structure-map.html');
+
+  console.log('\n[ ⑤ 지도에 적힌 숫자가 실제 칸 수와 맞는가 ]');
+  const lanes = [...map.matchAll(/<div class="lane" data-lane="(\d)"[\s\S]*?<span class="t">([\s\S]*?)<\/span>\s*<span class="n">(\d+)<\/span>([\s\S]*?)(?=<div class="lane" data-lane=|<\/div><!-- \/lanes -->)/g)];
+  check(`갈래(lane) 5개를 찾았다 (${lanes.length})`, lanes.length === 5);
+  const laneBad = [], groupBad = [];
+  let leafTotal = 0;
+  for (const m of lanes) {
+    const name = m[2].replace(/<br>/g, ' ').replace(/\s+/g, ' ').trim();
+    const claimed = Number(m[3]);
+    const n = (m[4].match(/<li class="leaf"/g) || []).length;
+    leafTotal += n;
+    if (claimed !== n) laneBad.push(`${name} 적힌 ${claimed}/실제 ${n}`);
+    for (const g of m[4].matchAll(/<div class="group-t">([^<]*)<span class="gn">(\d+)<\/span><\/div>([\s\S]*?)<\/ul>/g)) {
+      const gc = Number(g[2]);
+      const gk = (g[3].match(/<li class="leaf"/g) || []).length;
+      if (gc !== gk) groupBad.push(`${name} ▸ ${g[1].trim()} 적힌 ${gc}/실제 ${gk}`);
+    }
+  }
+  check(`갈래 숫자가 맞다${laneBad.length ? ' — ' + laneBad.join(', ') : ''}`, laneBad.length === 0);
+  check(`묶음 숫자가 맞다${groupBad.length ? ' — ' + groupBad.join(', ') : ''}`, groupBad.length === 0);
+
+  console.log('\n[ ⑥ 지도가 가리키는 페이지가 실제로 있는가 ]');
+  const hrefs = [...new Set([...map.matchAll(/<li class="leaf"><a href="([^"]+)"/g)].map((m) => m[1]))]
+    .filter((h) => h.startsWith('/'));
+  const dead = hrefs.filter((h) => !fs.existsSync(pub + h.split('#')[0].split('?')[0]));
+  check(`죽은 링크가 없다 (내부 링크 ${hrefs.length}개)${dead.length ? ' — ' + dead.join(', ') : ''}`, dead.length === 0);
+
+  console.log('\n[ ⑦ 새로 만든 화면이 지도에서 빠지지 않았는가 ]');
+  /* 화면을 새로 만들고 지도에 안 넣으면 «있는데 아무도 모르는 화면» 이 된다.
+     ⛔ 여기 ALLOW 에 넣어 통과시키는 것은 «지도에 낼 화면이 아니다» 라고 판단했을 때만.
+        판단 근거를 한 줄 적어 두세요 — 다음 사람이 다시 고민하지 않게. */
+  const ALLOW = new Set([
+    'admin/mobile-nav-v2-demo.html',   // 사이드바 시안(샘플) — 실서비스 화면이 아니다
+    /* 아래 셋은 «화상 연결 진단·시제품» 이다. 어디서도 링크되지 않고 API 호출이 하나도 없다
+       (video-call 은 11KB 에 raw WebSocket 한 줄뿐). 실서비스 수업 입장은 index.html 안이다. */
+    'signaling/index.html',
+    'turn-relay/index.html',
+    'video-call/index.html',
+  ]);
+  const docs = ['map', 'admin', 'student', 'more', ''].map((k) =>
+    rd(`../cloudflare-deploy/public/admin/site-structure${k ? '-' + k : ''}.html`)).join('\n');
+  const skip = /^(site-structure|_)/;
+  const walk = (d, base = '', out = []) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.name.startsWith('.') || e.name === 'fonts' || e.name === 'img') continue;
+      const rel = base ? base + '/' + e.name : e.name;
+      if (e.isDirectory()) { if (base) continue; walk(d + '/' + e.name, e.name, out); }
+      else if (e.name.endsWith('.html') && !skip.test(e.name)) out.push(rel);
+    }
+    return out;
+  };
+  const missing = walk(pub).filter((rel) => {
+    if (ALLOW.has(rel)) return false;
+    /* 같은 화면을 가리키는 주소가 세 가지다 — 셋 다 «적혀 있다» 로 친다.
+       /docs/index.html · /docs/index · /docs/   (폴더 주소로 링크하는 것이 보통이다) */
+    const forms = ['/' + rel, '/' + rel.replace(/\.html$/, '')];
+    if (rel.endsWith('/index.html')) forms.push('/' + rel.replace(/index\.html$/, ''));
+    return !forms.some((f) => docs.includes(f));
+  });
+  check(`구성표 어디에도 없는 화면이 없다${missing.length ? ` (${missing.length}개) — ` + missing.join(', ') : ''}`,
+    missing.length === 0);
+  console.log(`     (지도 칸 ${leafTotal}개 · 화면 ${walk(pub).length}개를 대조했습니다)`);
+}
+
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
 if (FAIL) {
