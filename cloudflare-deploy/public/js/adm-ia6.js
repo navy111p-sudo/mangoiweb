@@ -18,7 +18,10 @@
 //      (역할별 숨김 _applyMenuVisibility 도 이미 같은 방식이라 검증된 길이다.)
 //
 //   ⚠️ 역할 권한을 건드리지 않는다.
-//      역할 숨김은 인라인 style.display 로 걸린다. 여기서는 class 만 쓰므로
+//      역할 숨김은 «.rbac-hide» class 로 걸린다(2026-08-18 변경 — 그 전에는 인라인
+//      style.display 였는데, #legacy-cards 의 display:block !important 에 져서 PC 에서
+//      아예 안 먹고 있었다. admin-inline-c.css 의 .rbac-hide 주석에 경위가 있다).
+//      여기서 쓰는 class 는 «.ia6-hide» 로 이름이 달라 서로 안 겹치므로,
 //      «지사에게 안 보이던 카드»가 이 기능 때문에 보이게 되는 일은 없다.
 //
 //   ⚠️ 검색은 그대로 동작한다.

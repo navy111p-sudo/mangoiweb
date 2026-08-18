@@ -87,10 +87,12 @@ check('화면에서도 본사 전용 칸을 감춘다 (_applyOrgScopeUI)',
   /function _applyOrgScopeUI/.test(core) && /'card-master-branches', 'card-hq-orgs'/.test(core) &&
   /\['fr-add-btn', 'ct-add-btn'\]/.test(core));
 check('🔴 모르는 역할은 막는 쪽으로 떨어진다', /_applyOrgScopeUI\(isHQ\)/.test(core));
-/* 🪤 #legacy-cards 안에서는 [hidden] 이 작성자 CSS 에 진다(CLAUDE.md 함정표).
-      감출 때 setProperty(...,'important') 를 쓰는지 본다. */
-check('감추기가 작성자 CSS 를 이긴다 (setProperty important)',
-  /setProperty\('display', 'none', 'important'\)/.test(core));
+/* 🪤 #legacy-cards 안에서 인라인 display 는 «카드들 보이게» 복구 규칙(!important)에 진다.
+      역할별 카드 숨김이 PC 에서 통째로 안 먹던 것이 그 때문이었다(#264). 같은 함정 위에 있는
+      이 함수도 반드시 .rbac-hide 클래스로 감춰야 한다 — 인라인으로 되돌리면 여기서 걸린다. */
+check('감추기가 .rbac-hide 클래스다 (인라인 display 는 PC 에서 진다)',
+  /classList\.toggle\('rbac-hide', !hq\)/.test(core) &&
+  !/_applyOrgScopeUI[\s\S]{0,900}style\.setProperty\('display'/.test(core));
 
 console.log('\n[ D. 조건 함수가 값마다 맞게 도나 (scope.ts 를 실제로 불러서) ]');
 {

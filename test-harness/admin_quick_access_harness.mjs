@@ -14,8 +14,11 @@
 //   ── 2차(08-08 오후) 개편으로 새로 못박는 것 ────────────────────────────
 //   ③ 기본 10개 (＋출결 현황 · 결제/미납 · 평가서 · 문의/신규상담)
 //   ④ 🐞 역할 권한으로 감춰진 카드의 바로가기는 그리지 않는다.
-//      역할 숨김(adm-core `_applyMenuVisibility`)은 **인라인** style.display='none' 이고
-//      ia6 의 카드 필터는 **class**(.ia6-hide) 다 — 둘을 구분해야 한다.
+//      역할 숨김(adm-core `_applyMenuVisibility`)은 **class**(.rbac-hide) 이고
+//      ia6 의 카드 필터도 **class**(.ia6-hide) 다 — 이름이 달라 서로 구분된다.
+//      ⚠️ 2026-08-18 이전에는 역할 숨김이 «인라인 style.display» 였다. #legacy-cards 의
+//         display:block !important 에 져서 PC 에서 안 먹어 클래스 방식으로 옮겼다.
+//         읽는 쪽 코드에는 옛 인라인 검사도 남겨 뒀으므로 아래 검사는 둘 다 인정한다.
 //      (옛 코드는 카드의 «존재»만 봐서 지사·대리점에 열 수 없는 바로가기가 보였다.)
 //   ⑤ 🐞 data-ko/data-en 은 **글자를 담은 <span>** 에만 붙인다.
 //      adm-core 의 `applyAdminLangDom()` 이 `[data-ko]` 를 훑어 el.textContent 를 갈아치우므로,
