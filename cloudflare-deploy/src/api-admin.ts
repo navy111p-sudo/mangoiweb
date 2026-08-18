@@ -12,7 +12,7 @@ import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './a
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
-import { sendPaymentOverdueAlert, sendKakaoAlimtalk } from './solapi-client';
+import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
@@ -20,8 +20,10 @@ import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
+import { KCP_TRANSFER_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
+import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
@@ -5627,6 +5629,71 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, period_start TEXT, period_end TEXT, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`);
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS payment_overdue_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, days_overdue INTEGER, amount_krw INTEGER, parent_phone TEXT, status TEXT, error_message TEXT, sent_at INTEGER NOT NULL);`);
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_overdue_user ON payment_overdue_log(user_id, sent_at DESC);`); } catch {}
+      // 🔁 (2026-08-18) B2C «미연장» 분리 — 이력에서도 미납/미연장을 구분해 보여 준다.
+      //    ALTER 는 이미 있으면 에러라 통째로 삼킨다(추가만 하므로 기존 행은 그대로).
+      try { await env.DB.exec(`ALTER TABLE payment_overdue_log ADD COLUMN channel TEXT`); } catch {}
+      try { await env.DB.exec(`ALTER TABLE payment_overdue_log ADD COLUMN last_class_at INTEGER`); } catch {}
+    };
+
+    /* ═══════════════════════════════════════════════════════════════
+       🔁 B2C «미연장» 판정 도우미 (2026-08-18 사장님 지시)
+
+       사장님 말씀: 「B2C(개인 결제) 회원은 결제한 만큼만 수업이 나가는 구조라
+                    «미납» 이 아니라 «미연장» 이 맞는 표현이다.」
+
+       그래서 이 아래 세 가지가 필요하다.
+        ① 학생이 B2C 인지 아는 법
+           결제 행에는 구분값이 없다. 정본은 «대리점 관리»의 지정값 centers.payment_type 이고,
+           학생 → 대리점 연결은 students_erp.shop_name = centers.name 이다.
+           (payments-board.ts·accounting-reports.ts 의 결제 목록이 쓰는 것과 같은 규칙.)
+           ⚠️ students_erp.payment_type 은 2026-08-18 기준 29,398행 **전부 NULL** 이라
+              혼자서는 못 쓴다. 그래도 나중에 채워질 수 있으니 보조 판정으로 남긴다.
+           ⚠️ centers.name 은 유일하지 않다(2장 함정). 그래서 JOIN 대신 «B2C 대리점 이름 집합»
+              을 한 번 받아 와 메모리에서 맞춘다 — 행 뻥튀기도 없고 D1 읽기도 싸다.
+              (상관 서브쿼리로 하면 같은 판정에 1,900만 행을 읽는다. 실측함.)
+
+        ② 마지막 수업일
+           «결제한 만큼 수업이 나간다» 니까 마지막 결제일 + 한 달이 수업 종료일이다.
+           원부의 end_date 가 그보다 뒤면 그쪽이 더 정확하므로 그걸 쓴다
+           (실측: end_date 는 2020년에 멈춘 옛 값이 많아 그냥 믿으면 안 된다).
+
+        ③ 「1개월 넘게 안 돌아온 사람은 빼기」
+           수업이 끝난 지 RENEW_WINDOW_DAYS(기본 30일)를 넘으면 연장 가능성이 낮다고 보고
+           명단에서 제외한다. 세어서 보여는 주되, 문자는 보내지 않는다.
+       ═══════════════════════════════════════════════════════════════ */
+    const CLASS_TERM_DAYS = 30;          // 1회 결제로 나가는 수업 기간(한 달)
+    const DEFAULT_RENEW_WINDOW_DAYS = 30; // 수업 종료 후 이 기간 안쪽만 연장 안내 대상
+
+    /** B2C 로 지정된 대리점 이름 집합. 실패하면 빈 집합(=아무도 B2C 로 안 봄 → 종전 동작). */
+    const loadB2cCenterNames = async (): Promise<Set<string>> => {
+      const set = new Set<string>();
+      try {
+        const rs = await env.DB.prepare(
+          `SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''`
+        ).all<any>();
+        for (const r of (rs.results || [])) set.add(String(r.name).trim());
+      } catch {}
+      return set;
+    };
+
+    /** 이 학생이 B2C(개인 결제)인가 — 대리점 지정이 정본, 없으면 학생 원부의 표기. */
+    const isB2cStudent = (row: any, b2cNames: Set<string>): boolean => {
+      const shop = String(row?.shop_name || '').trim();
+      if (shop && b2cNames.has(shop)) return true;
+      const pt = String(row?.payment_type || '').toUpperCase();
+      if (pt.startsWith('B2B')) return false;
+      return pt.startsWith('B2C');
+    };
+
+    /** 마지막 수업일(ms). end_date 가 마지막 결제일보다 뒤면 그쪽이 정확하다. */
+    const resolveLastClassAt = (lastPaidAt: number, endDate: any): number => {
+      const derived = Number(lastPaidAt) + CLASS_TERM_DAYS * 86400 * 1000;
+      const ed = String(endDate || '').trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(ed)) {
+        const ms = Date.parse(ed + 'T23:59:59+09:00');
+        if (Number.isFinite(ms) && ms > Number(lastPaidAt)) return ms;
+      }
+      return derived;
     };
 
     /* ── 💳 결제관리 화면(ph106) — /api/admin/payments/b2b · /b2c ──
@@ -5638,12 +5705,22 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       if (pb) return pb;
     }
 
-    // ── GET /api/admin/payments/overdue?grace_days=35&monthly_fee=200000 ──
-    //   학생별 마지막 결제일 조회 → grace_days 초과면 미납으로 분류
+    /* ── GET /api/admin/payments/overdue?grace_days=35&monthly_fee=200000&renew_days=30 ──
+         학생별 마지막 결제일 조회 → grace_days 초과면 «안 낸/안 늘린» 상태로 분류.
+
+       🔁 (2026-08-18) B2C 는 «미납» 이 아니라 «미연장» 이다.
+          행마다 channel(B2B/B2C)·term_label(미납/미연장)·last_class_at(마지막 수업일)·
+          lapse_days(수업 종료 후 경과일)를 함께 준다. 화면은 이 값으로만 라벨을 쓴다 —
+          화면이 자기 나름대로 다시 판정하면 두 화면 숫자가 갈린다.
+
+       🚫 그리고 수업이 끝난 지 renew_days(기본 30일)를 넘긴 학생은 «연장 가능성 낮음»
+          으로 보고 명단에서 뺀다(not_renewable 로 따로 세어서 보여만 준다).
+          그래야 「이미 마음 떠난 사람에게 계속 결제 문자」가 안 나간다. */
     if (method === 'GET' && path === '/api/admin/payments/overdue') {
       await ensurePaymentTables();
       const graceDays = Math.max(1, parseInt(url.searchParams.get('grace_days') || '35', 10));
       const defaultMonthlyFee = Math.max(0, parseInt(url.searchParams.get('monthly_fee') || '200000', 10));
+      const renewWindowDays = Math.max(1, parseInt(url.searchParams.get('renew_days') || String(DEFAULT_RENEW_WINDOW_DAYS), 10));
       const now = Date.now();
       const cutoff = now - graceDays * 86400 * 1000;
 
@@ -5669,83 +5746,152 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         `SELECT s.user_id,
                 COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS student_name,
                 s.parent_phone, s.student_phone,
+                s.shop_name, s.payment_type, s.end_date,
                 MAX(p.paid_at) AS last_paid_at
            FROM students_erp s
            JOIN student_payments p ON p.user_id = s.user_id AND p.status = 'paid'
           WHERE ${activeWhere}
           GROUP BY s.user_id`
       ).bind(..._sw.binds).all<any>().catch(() => ({ results: [] } as any));
-      const overdue: any[] = [];
+      const b2cNames = await loadB2cCenterNames();
+      const overdue: any[] = [];        // 안내 대상
+      const notRenewable: any[] = [];   // 수업 종료 후 renew_days 초과 → 안내 제외
       const upToDate: any[] = [];
-      let paidCount = 0;
+      let paidCount = 0, overdueCount = 0, notRenewableCount = 0;
+      let b2cCount = 0;
       for (const row of (paidRs.results || [])) {
         paidCount++;
-        if (row.last_paid_at < cutoff) {
-          const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
-          if (overdue.length < CAP) overdue.push({ ...row, days_overdue: daysOverdue, amount_krw: defaultMonthlyFee });
-        } else {
+        if (!(row.last_paid_at < cutoff)) {
           if (upToDate.length < CAP) upToDate.push({ ...row, days_overdue: 0 });
+          continue;
         }
+        const isB2c = isB2cStudent(row, b2cNames);
+        const lastClassAt = resolveLastClassAt(row.last_paid_at, row.end_date);
+        const lapseDays = Math.floor((now - lastClassAt) / (86400 * 1000));
+        const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
+        const enriched = {
+          ...row,
+          days_overdue: daysOverdue,
+          amount_krw: defaultMonthlyFee,
+          channel: isB2c ? 'B2C' : 'B2B',
+          // 🏷 라벨의 정본은 여기다. 화면은 이 문자열을 그대로 쓴다.
+          term_label: isB2c ? '미연장' : '미납',
+          last_class_at: lastClassAt,
+          lapse_days: lapseDays,
+        };
+        if (isB2c) b2cCount++;
+        if (lapseDays > renewWindowDays) {
+          notRenewableCount++;
+          if (notRenewable.length < CAP) notRenewable.push({ ...enriched, excluded_reason: 'renew_window_passed' });
+          continue;
+        }
+        overdueCount++;
+        if (overdue.length < CAP) overdue.push(enriched);
       }
       // 미결제 = 활동학생 - 결제이력학생. 상세는 표시하지 않음(대규모라 카운트만).
       const neverPaidCount = Math.max(0, totalActive - paidCount);
-      const overdueCount = (paidRs.results || []).filter((r: any) => r.last_paid_at < cutoff).length;
-      const upToDateCount = paidCount - overdueCount;
+      const upToDateCount = paidCount - overdueCount - notRenewableCount;
       return json({
         ok: true,
         grace_days: graceDays,
         default_fee: defaultMonthlyFee,
+        renew_days: renewWindowDays,
         overdue, never_paid: [], up_to_date: upToDate,
+        not_renewable: notRenewable,
         capped: CAP,
         summary: {
           total_active: totalActive,
           total_paid_students: paidCount,
-          total_overdue: overdueCount,
+          total_overdue: overdueCount,          // 안내 대상(미연장+미납)
+          total_b2c: b2cCount,
+          total_not_renewable: notRenewableCount, // 수업 종료 1개월 초과 → 제외
           total_never_paid: neverPaidCount,
           total_up_to_date: upToDateCount,
         }
       });
     }
 
-    // ── POST /api/admin/payments/notify-overdue — 1명 미납 알림 발송 ──
-    //   body: { user_id, student_name, parent_phone, days_overdue, amount_krw }
+    /* ── POST /api/admin/payments/notify-overdue — 1명 안내 발송 ──
+         body: { user_id, student_name, parent_phone, days_overdue, amount_krw,
+                 channel?, last_class_at? }
+
+       🔁 (2026-08-18) B2C 는 «미연장» 문구로 나간다. 금액·미납일수를 말하지 않는다 —
+          선불이라 받을 돈이 없는데 「N일 미납 20만원」 이라고 보내면 사실이 아니다.
+          channel 은 화면이 스캔 결과에서 받은 값을 그대로 실어 준다. 안 실려 오면
+          여기서 다시 원부를 보고 판정한다(화면 말만 믿지 않는다). */
     if (method === 'POST' && path === '/api/admin/payments/notify-overdue') {
       await ensurePaymentTables();
       const body: any = await request.json().catch(() => ({}));
       const phone = body.parent_phone || body.student_phone;
       if (!phone) return json({ ok: false, error: 'phone_required' }, 400);
-      const r = await sendPaymentOverdueAlert(env, phone, {
-        studentName: body.student_name || '학생',
-        daysOverdue: parseInt(body.days_overdue, 10) || 0,
-        amountKrw: parseInt(body.amount_krw, 10) || 0,
-        paymentUrl: body.payment_url,
-      });
+
+      // 채널 확정 — 화면이 준 값이 없거나 이상하면 원부에서 다시 본다
+      let channel = String(body.channel || '').toUpperCase();
+      let lastClassAt = parseInt(body.last_class_at, 10) || 0;
+      if (channel !== 'B2B' && channel !== 'B2C') {
+        const b2cNames = await loadB2cCenterNames();
+        const srow = body.user_id ? await env.DB.prepare(
+          `SELECT shop_name, payment_type, end_date,
+                  (SELECT MAX(paid_at) FROM student_payments WHERE user_id = ? AND status='paid') AS last_paid_at
+             FROM students_erp WHERE user_id = ? LIMIT 1`
+        ).bind(body.user_id, body.user_id).first<any>().catch(() => null) : null;
+        channel = srow && isB2cStudent(srow, b2cNames) ? 'B2C' : 'B2B';
+        if (!lastClassAt && srow?.last_paid_at) lastClassAt = resolveLastClassAt(srow.last_paid_at, srow.end_date);
+      }
+      if (!lastClassAt) {
+        // 마지막 수업일을 못 구했으면 경과일수로 되짚는다(= 지금 - 미납일수)
+        lastClassAt = Date.now() - (parseInt(body.days_overdue, 10) || 0) * 86400 * 1000;
+      }
+
+      const isB2c = channel === 'B2C';
+      const r = isB2c
+        ? await sendClassRenewalAlert(env, phone, {
+            studentName: body.student_name || '회원',
+            lastClassAt,
+            paymentUrl: body.payment_url,
+          })
+        : await sendPaymentOverdueAlert(env, phone, {
+            studentName: body.student_name || '학생',
+            daysOverdue: parseInt(body.days_overdue, 10) || 0,
+            amountKrw: parseInt(body.amount_krw, 10) || 0,
+            paymentUrl: body.payment_url,
+          });
       // 발송 이력 기록
       await env.DB.prepare(
-        `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+        `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at, channel, last_class_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
       ).bind(
         body.user_id || null,
         body.student_name || null,
         parseInt(body.days_overdue, 10) || 0,
-        parseInt(body.amount_krw, 10) || 0,
+        isB2c ? 0 : (parseInt(body.amount_krw, 10) || 0),   // 미연장은 청구액이 없다
         phone,
         r.ok ? 'sent' : 'failed',
         r.ok ? null : (r.message || r.error || '실패'),
-        Date.now()
+        Date.now(),
+        channel,
+        lastClassAt
       ).run();
-      // 🆕 Web Push 도 함께
+      // 🆕 Web Push 도 함께 — 문자와 같은 말을 해야 한다
       let pushResult: any = { skipped: true };
       if (body.user_id) {
         const fee = parseInt(body.amount_krw, 10) || 200000;
-        pushResult = await sendPushToUser(env, 
-          body.user_id,
-          `💸 ${body.student_name || '학생'}님 수강료 안내`,
-          `미납 ${body.days_overdue}일 / ${fee.toLocaleString('ko-KR')}원. 결제 부탁드립니다.`,
-          body.payment_url || '/?go=payment',
-          `overdue-${body.user_id}`
-        );
+        pushResult = isB2c
+          ? await sendPushToUser(env,
+              body.user_id,
+              `🔁 ${body.student_name || '회원'}님 수강 연장 안내`,
+              buildClassRenewalText(body.student_name || '회원', lastClassAt).replace('[망고아이] ', ''),
+              body.payment_url || '/?go=payment',
+              `renewal-${body.user_id}`
+            )
+          : await sendPushToUser(env,
+              body.user_id,
+              `💸 ${body.student_name || '학생'}님 수강료 안내`,
+              `미납 ${body.days_overdue}일 / ${fee.toLocaleString('ko-KR')}원. 결제 부탁드립니다.`,
+              body.payment_url || '/?go=payment',
+              `overdue-${body.user_id}`
+            );
       }
-      return json({ ...r, push: pushResult });
+      return json({ ...r, channel, term_label: isB2c ? '미연장' : '미납', last_class_at: lastClassAt, push: pushResult });
     }
 
     /* ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
@@ -5773,7 +5919,16 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           정말 그만큼 보내려면 confirm_send_over 에 그 수를 적어야 한다.
           «전체 일괄» 이 조용히 수천 건이 되는 것을 막는 마지막 빗장이다.
 
-       ⚠️ 문구는 solapi 템플릿(SOLAPI_TEMPLATE_PAYMENT_OVERDUE)이 정본이다. 여기서 안 만든다.
+       ④ (2026-08-18) B2C 는 «미납» 이 아니라 «미연장» 이다 — 문구가 갈린다.
+          B2C 는 선불이라 받을 돈이 없다. sendClassRenewalAlert 로 「수업이 O월 O일자로
+          종료되었습니다 / 연장을 원하시면 결제 부탁드립니다」만 보낸다(발신 1644-0561).
+          B2B 만 종전의 미납 독촉(금액·미납일수)이 나간다.
+
+       ⑤ (2026-08-18) 수업 종료 후 1개월(renew_days, 기본 30일)이 지난 학생은 대상에서 뺀다.
+          연장 가능성이 낮은 사람에게 계속 결제 문자를 보내지 않기 위함이다.
+          건너뛴 사유는 no_renewal_window 로 남는다.
+
+       ⚠️ B2B 문구는 solapi 템플릿(SOLAPI_TEMPLATE_PAYMENT_OVERDUE)이 정본이다. 여기서 안 만든다.
        ⚠️ 이 경로는 지사·대리점에게 열려 있지 않다(index.ts isAgencyAllowedApi 에 없음).
           여는 것은 공동 금지구역 수정이라 사람이 결정할 일이다. */
     if (method === 'POST' && path === '/api/admin/payments/notify-all-overdue') {
@@ -5781,6 +5936,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const body: any = await request.json().catch(() => ({}));
       const graceDays = Math.max(1, parseInt(body.grace_days, 10) || 35);
       const defaultFee = Math.max(0, parseInt(body.default_fee, 10) || 200000);
+      const renewWindowDays = Math.max(1, parseInt(body.renew_days, 10) || DEFAULT_RENEW_WINDOW_DAYS);
       // 기본이 미리보기 — «보낸다» 고 적어야만 보낸다
       const dryRun = body.dry_run !== false;
       const SEND_CAP = 50;
@@ -5789,13 +5945,21 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const cutoff = now - graceDays * 86400 * 1000;
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT);`); } catch {}
       const _sw = await studentScopeWhere(env, request, 's');  // 🔒 지사/대리점 격리 (본사 전체 발송 방지)
+      /* 🪤 (2026-08-18) 여기 «s.name» 이라고 적혀 있었다. students_erp 에 name 칸은 없다.
+            그래서 이 쿼리는 항상 예외 → .catch 가 빈 배열로 삼켜서, 「전체 일괄」이 조용히
+            0명이었다. 스캔 화면(GET /overdue)이 쓰는 것과 같은 COALESCE 로 맞춘다.
+            전화번호 칸도 마찬가지다 — 원부의 칸 이름은 student_phone·phone 둘 다 있다. */
       const rs = await env.DB.prepare(
-        `SELECT s.user_id, s.name AS student_name, s.parent_phone, s.phone AS student_phone,
+        `SELECT s.user_id,
+                COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS student_name,
+                s.parent_phone, COALESCE(s.student_phone, s.phone) AS student_phone,
+                s.shop_name, s.payment_type, s.end_date,
                 (SELECT MAX(paid_at) FROM student_payments WHERE user_id = s.user_id AND status='paid') AS last_paid_at,
                 (SELECT amount_krw FROM student_payments WHERE user_id = s.user_id AND status='paid' ORDER BY paid_at DESC LIMIT 1) AS last_amount
            FROM students_erp s
           WHERE (s.status IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')${_sw.cond ? ' AND ' + _sw.cond : ''}`
       ).bind(..._sw.binds).all().catch(() => ({ results: [] } as any));
+      const b2cNamesBulk = await loadB2cCenterNames();
       const results: any[] = [];
       let sent = 0, failed = 0, skipped = 0;
       // ① 먼저 «누구에게 갈지» 를 전부 확정한다. 세어 보기 전에는 한 통도 안 보낸다.
@@ -5810,11 +5974,25 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_payment_record' });
           continue;
         }
-        if (row.last_paid_at >= cutoff) continue;   // 유예 안이면 미납 아님
+        if (row.last_paid_at >= cutoff) continue;   // 유예 안이면 미납·미연장 아님
         const phone = row.parent_phone || row.student_phone;
         if (!phone) { skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_phone' }); continue; }
         const daysOverdue = Math.floor((now - row.last_paid_at) / (86400 * 1000)) - graceDays;
-        targets.push({ row, phone, daysOverdue, amount: row.last_amount || defaultFee });
+        const isB2c = isB2cStudent(row, b2cNamesBulk);
+        const lastClassAt = resolveLastClassAt(row.last_paid_at, row.end_date);
+        const lapseDays = Math.floor((now - lastClassAt) / (86400 * 1000));
+        /* ⛔ 수업 끝난 지 한 달이 넘었으면 보내지 않는다(위 주석 ⑤). 연장 가능성이 낮다. */
+        if (lapseDays > renewWindowDays) {
+          skipped++; results.push({ user_id: row.user_id, status: 'skipped', reason: 'no_renewal_window', lapse_days: lapseDays });
+          continue;
+        }
+        targets.push({
+          row, phone, daysOverdue,
+          amount: isB2c ? 0 : (row.last_amount || defaultFee),   // 미연장은 청구액이 없다
+          isB2c, channel: isB2c ? 'B2C' : 'B2B',
+          termLabel: isB2c ? '미연장' : '미납',
+          lastClassAt, lapseDays,
+        });
       }
 
       // ③ 상한 — 정말 이만큼 보낼 것인지 사람이 그 수를 적어 확인해야 한다
@@ -5824,7 +6002,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           message: `${targets.length}명에게 발송하려고 합니다. 정말 보내려면 confirm_send_over 에 ${targets.length} 을 넣어 다시 요청하세요.`,
           message_en: `About to message ${targets.length} people. Pass confirm_send_over=${targets.length} to proceed.`,
           would_send: targets.length, cap: SEND_CAP,
-          preview: targets.slice(0, 20).map(t => ({ user_id: t.row.user_id, student_name: t.row.student_name, days_overdue: t.daysOverdue, amount_krw: t.amount })),
+          preview: targets.slice(0, 20).map(t => ({ user_id: t.row.user_id, student_name: t.row.student_name, channel: t.channel, term_label: t.termLabel, days_overdue: t.daysOverdue, amount_krw: t.amount })),
         }, 409);
       }
 
@@ -5836,29 +6014,50 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           skipped_reasons: results.reduce((m: any, x: any) => { m[x.reason] = (m[x.reason] || 0) + 1; return m; }, {}),
           note: '미리보기입니다. 실제로 보내려면 dry_run:false 를 넣어 다시 요청하세요.',
           note_en: 'Preview only. Pass dry_run:false to actually send.',
+          by_channel: {
+            B2C: targets.filter(t => t.isB2c).length,   // 미연장 안내
+            B2B: targets.filter(t => !t.isB2c).length,  // 미납 독촉
+          },
           would_send_to: targets.map(t => ({ user_id: t.row.user_id, student_name: t.row.student_name,
-                                             days_overdue: t.daysOverdue, amount_krw: t.amount })),
+                                             channel: t.channel, term_label: t.termLabel,
+                                             days_overdue: t.daysOverdue, amount_krw: t.amount,
+                                             last_class_at: t.lastClassAt,
+                                             // 실제로 나갈 문장 그대로(문구는 solapi-client 가 정본)
+                                             text: t.isB2c ? buildClassRenewalText(t.row.student_name || '회원', t.lastClassAt) : null })),
         });
       }
 
       for (const t of targets) {
         const row = t.row, phone = t.phone, daysOverdue = t.daysOverdue, amount = t.amount;
-        const r2 = await sendPaymentOverdueAlert(env, phone, {
-          studentName: row.student_name || '학생',
-          daysOverdue, amountKrw: amount,
-        });
+        const r2 = t.isB2c
+          ? await sendClassRenewalAlert(env, phone, {
+              studentName: row.student_name || '회원',
+              lastClassAt: t.lastClassAt,
+            })
+          : await sendPaymentOverdueAlert(env, phone, {
+              studentName: row.student_name || '학생',
+              daysOverdue, amountKrw: amount,
+            });
         if (r2.ok) sent++; else failed++;
         await env.DB.prepare(
-          `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at) VALUES (?,?,?,?,?,?,?,?)`
+          `INSERT INTO payment_overdue_log (user_id, student_name, days_overdue, amount_krw, parent_phone, status, error_message, sent_at, channel, last_class_at) VALUES (?,?,?,?,?,?,?,?,?,?)`
         ).bind(
           row.user_id, row.student_name, daysOverdue, amount, phone,
           r2.ok ? 'sent' : 'failed',
           r2.ok ? null : (r2.message || r2.error || '실패'),
-          Date.now()
+          Date.now(), t.channel, t.lastClassAt
         ).run();
-        results.push({ user_id: row.user_id, student_name: row.student_name, phone, days_overdue: daysOverdue, ...r2 });
+        results.push({ user_id: row.user_id, student_name: row.student_name, phone,
+                       channel: t.channel, term_label: t.termLabel, days_overdue: daysOverdue, ...r2 });
       }
-      return json({ ok: true, summary: { sent, failed, skipped, total: results.length }, results });
+      return json({
+        ok: true,
+        summary: { sent, failed, skipped, total: results.length },
+        skipped_reasons: results.filter((x: any) => x.status === 'skipped')
+          .reduce((m: any, x: any) => { m[x.reason] = (m[x.reason] || 0) + 1; return m; }, {}),
+        from_phone: CLASS_RENEWAL_FROM_PHONE,
+        results,
+      });
     }
 
     // ── GET /api/admin/payments/overdue-log — 최근 미납 알림 발송 이력 ──
@@ -6779,26 +6978,42 @@ ${chatSampleText}
           try {
             const { fields, values } = await runCypher(env, `
               MATCH (a:AccBook) WHERE a.date IS NOT NULL AND a.date <> ''
-              WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money
+              WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money,
+                   (coalesce(a.store,'')   =~ $kcpmRe
+                 OR coalesce(a.memo,'')    =~ $kcpmRe
+                 OR coalesce(a.subject,'') =~ $kcpmRe) AS isKcpm
               WHERE ym >= '2019-01'
               RETURN ym,
-                     sum(CASE WHEN t = 1 THEN money ELSE 0 END) AS income,
-                     sum(CASE WHEN t = 2 THEN money ELSE 0 END) AS expense
-              ORDER BY ym DESC LIMIT 36`, {}, 'READ');
+                     sum(CASE WHEN t = 1 AND NOT isKcpm THEN money ELSE 0 END) AS income,
+                     sum(CASE WHEN t = 2 AND NOT isKcpm THEN money ELSE 0 END) AS expense,
+                     sum(CASE WHEN isKcpm THEN money ELSE 0 END)               AS excluded_transfer,
+                     sum(CASE WHEN isKcpm THEN 1 ELSE 0 END)                   AS excluded_count
+              ORDER BY ym DESC LIMIT 36`, { kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
             const rows = values.map(row => {
               const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
               o.net = (Number(o.income) || 0) - (Number(o.expense) || 0);
               return o;
             });
-            const totals = rows.reduce((a: any, r: any) => ({ income: a.income + (Number(r.income) || 0), expense: a.expense + (Number(r.expense) || 0) }), { income: 0, expense: 0 });
-            return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind: 'summary', months: rows, totals: { ...totals, net: totals.income - totals.expense } });
+            const totals = rows.reduce((a: any, r: any) => ({
+              income: a.income + (Number(r.income) || 0),
+              expense: a.expense + (Number(r.expense) || 0),
+              excludedTransfer: a.excludedTransfer + (Number(r.excluded_transfer) || 0),
+              excludedCount: a.excludedCount + (Number(r.excluded_count) || 0),
+            }), { income: 0, expense: 0, excludedTransfer: 0, excludedCount: 0 });
+            return admCachePut(env, _finKey, {
+              ok: true, source: 'neo4j', kind: 'summary', months: rows,
+              totals: { ...totals, net: totals.income - totals.expense },
+              // 🧾 화면이 «왜 숫자가 줄었나» 를 설명할 수 있게, 뺀 금액을 숨기지 않고 같이 내려준다.
+              excluded: { rule: '케이씨피M', reason: '하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동', amount: totals.excludedTransfer, count: totals.excludedCount },
+            });
           } catch (e: any) {
             if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
             return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
           }
         }
         const QMAP: Record<string, string> = {
-          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month ORDER BY a.date DESC LIMIT $lim`,
+          // 🧾 excluded_from_revenue = 「케이씨피M」(운영자금 이체). 매출·손익 집계에서 뺀 행이라 화면이 표시로 구분한다.
+          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
           expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
@@ -6807,7 +7022,7 @@ ${chatSampleText}
         const cy = QMAP[kind];
         if (!cy) return json({ ok: false, error: 'unknown finance kind' }, 400);
         try {
-          const { fields, values } = await runCypher(env, cy, { lim, month }, 'READ');
+          const { fields, values } = await runCypher(env, cy, { lim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
           const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
           return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows });
         } catch (e: any) {
@@ -7244,6 +7459,94 @@ LIMIT $limit`;
         `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
       return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    /* ─── 🏯 본사 관리 (2026-08-18 수정요청 #13) ─────────────────────────────────
+       조직 순서는 🏯 본사 › 🏢 지사 › 🏪 대리점(학원) 인데, 맨 위 «본사» 한 칸만
+       화면(껍데기)만 있고 표를 채우는 코드가 저장소에 0곳이라 늘 «데이터 없음» 이었다.
+       → hq_orgs 표 + 목록·검색·등록·수정·삭제를 여기서 실제로 붙인다.
+
+       ⚠️ 경로를 «/api/admin/org/hq» 로 잡은 것은 우연이 아니다.
+          index.ts 의 TEACHER_BLOCKED_PREFIXES 에 이미 '/api/admin/org' 가 있어서
+          **강사에게는 자동으로 닫힌다.** 사업자등록번호·대표이사 같은 법인정보라
+          열려 있는 다른 접두사(예: /api/admin/stats/) 밑에 얹으면 강사에게 그대로 열린다.
+
+       ℹ️ 첫 조회 때 표가 비어 있으면 운영 사이트 «회사 정보» 푸터의 값을 한 번만 심는다
+          (src/hq-profile.ts). 그 뒤로는 D1 이 정본이라 화면에서 고친 값을 덮어쓰지 않는다. */
+    if (path === '/api/admin/org/hq' &&
+        (method === 'GET' || method === 'POST' || method === 'PATCH' || method === 'DELETE')) {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS hq_orgs (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, ceo_name TEXT, business_no TEXT, address TEXT, phone TEXT, email TEXT, ecommerce_no TEXT, privacy_officer TEXT, memo TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+
+      const HQ_FIELDS = ['name', 'ceo_name', 'business_no', 'address', 'phone', 'email', 'ecommerce_no', 'privacy_officer', 'memo'] as const;
+      const _hqStr = (v: any): string | null => {
+        const s = (v == null ? '' : String(v)).trim();
+        return s ? s.slice(0, 200) : null;     // 화면 입력이 정본이라 길이만 자른다
+      };
+
+      if (method === 'GET') {
+        /* 🌱 이관 — «비어 있을 때만» 한 번. COUNT 로 먼저 확인하므로 두 번 심지 않는다.
+              (사장님 요청: 「기존 홈페이지에 등록된 것처럼 본사 정보를 등록해 줘」) */
+        const n0: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hq_orgs`).first();
+        if (Number(n0?.n || 0) === 0) {
+          const now0 = Date.now();
+          await env.DB.prepare(
+            `INSERT INTO hq_orgs (name, ceo_name, business_no, address, phone, email, ecommerce_no, privacy_officer, memo, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            HQ_PROFILE.name, HQ_PROFILE.ceo_name, HQ_PROFILE.business_no, HQ_PROFILE.address,
+            HQ_PROFILE.phone, HQ_PROFILE.email, HQ_PROFILE.ecommerce_no, HQ_PROFILE.privacy_officer,
+            HQ_PROFILE.memo, now0, now0
+          ).run();
+        }
+        // 🔎 검색 — 이름·대표이사·전화·주소·사업자번호. 건수가 적어(본사) 페이징은 두지 않는다.
+        const q = (url.searchParams.get('q') || '').trim();
+        let rs;
+        if (q) {
+          const like = `%${q}%`;
+          rs = await env.DB.prepare(
+            `SELECT * FROM hq_orgs
+              WHERE name LIKE ? OR ceo_name LIKE ? OR phone LIKE ? OR address LIKE ? OR business_no LIKE ?
+              ORDER BY active DESC, id ASC`
+          ).bind(like, like, like, like, like).all();
+        } else {
+          rs = await env.DB.prepare(`SELECT * FROM hq_orgs ORDER BY active DESC, id ASC`).all();
+        }
+        const items = rs.results || [];
+        const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hq_orgs`).first();
+        return json({ ok: true, items, count: items.length, total: Number(tot?.n || 0), q });
+      }
+
+      if (method === 'POST') {
+        const b = await parseJsonBody(request);
+        if (!b || !_hqStr(b.name)) return invalidBody(['name']);
+        const now = Date.now();
+        const vals = HQ_FIELDS.map(f => _hqStr((b as any)[f]));
+        const r = await env.DB.prepare(
+          `INSERT INTO hq_orgs (${HQ_FIELDS.join(', ')}, created_at, updated_at)
+           VALUES (${HQ_FIELDS.map(() => '?').join(', ')}, ?, ?)`
+        ).bind(...vals, now, now).run();
+        return json({ ok: true, id: r.meta.last_row_id });
+      }
+
+      if (method === 'PATCH') {
+        const b = await parseJsonBody(request);
+        const hid = parseInt(String((b as any)?.id || ''), 10);
+        if (!hid) return invalidBody(['id']);
+        if (!_hqStr((b as any)?.name)) return invalidBody(['name']);
+        const now = Date.now();
+        const vals = HQ_FIELDS.map(f => _hqStr((b as any)[f]));
+        await env.DB.prepare(
+          `UPDATE hq_orgs SET ${HQ_FIELDS.map(f => `${f} = ?`).join(', ')}, updated_at = ? WHERE id = ?`
+        ).bind(...vals, now, hid).run();
+        return json({ ok: true, id: hid });
+      }
+
+      /* DELETE — ?id= . 실제 행을 지운다(본사는 몇 건 안 되고, 잘못 등록한 것을 못 지우면
+         화면에 영원히 남는다). 화면 쪽에서 «두 번 눌러야 확인창» 으로 한 번 더 막는다. */
+      const delId = parseInt(url.searchParams.get('id') || '', 10);
+      if (!delId) return invalidBody(['id']);
+      await env.DB.prepare(`DELETE FROM hq_orgs WHERE id = ?`).bind(delId).run();
+      return json({ ok: true, id: delId, deleted: true });
     }
 
     // ─── 대리점·학원 (테이블명은 centers 지만 실제 내용은 «대리점/학원» 921건) ──────
@@ -9151,7 +9454,7 @@ LIMIT $limit`;
       if (!DUNNING_RUN_ENABLED) {
         return json({
           ok: false, error: 'dunning_disabled', disabled: true,
-          message: '자동 독촉은 꺼져 있습니다. 실제로 보내지 않고 기록만 쌓던 기능이라 2026-08-17 에 껐습니다. 미납 안내는 「결제 관리 → 미납 알림」을 쓰세요.',
+          message: '자동 독촉은 꺼져 있습니다. 실제로 보내지 않고 기록만 쌓던 기능이라 2026-08-17 에 껐습니다. 미납·미연장 안내는 「회계관리 → 수강료 미연장 자동 알림」을 쓰세요.',
           message_en: 'Auto-dunning is turned off. It logged messages without ever sending them; disabled 2026-08-17. Use Payments → overdue notice instead.',
         }, 503);
       }
