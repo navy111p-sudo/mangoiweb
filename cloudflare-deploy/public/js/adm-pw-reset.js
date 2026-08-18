@@ -49,6 +49,26 @@
         '<p style="margin:11px 0 0;font-size:11px;color:#94a3b8;line-height:1.6;text-align:center">' +
           '<span id="mpr-foot"></span> <a href="mailto:' + MAIL + '" style="color:#2563eb;font-weight:700">' + MAIL + '</a></p>' +
       '</div>';
+    /* 🛡️ host 페이지 CSS 차단막 — 2026-08-17 실제로 밟은 사고.
+       `/admin/login.html` 은 전역으로 `input[type=text],input[type=password]{color:#fff;
+       background:rgba(255,255,255,.07)}` 를 건다(어두운 배경 화면이라 당연한 규칙이다).
+       이 모달은 **흰 카드**인데 그 규칙이 그대로 새어 들어와, 사장님이 인증번호를 쳐도
+       흰 글씨가 흰 배경에 찍혀 **아무것도 안 친 것처럼 보였다**(입력은 되고 있었다).
+       inline style 로는 못 막는다 — 내가 지정하지 않은 속성(color·background)은 페이지 규칙이 이긴다.
+       그래서 모달 안쪽만 범위로 잡아 되돌린다. 여기서 !important 는 정당하다:
+       이 위젯은 어떤 화면에 얹힐지 모르는 채로 주입되고, 글자가 안 보이면 기능 자체가 죽는다.
+       ⚠️ 새 입력칸을 추가하면 이 규칙 범위(#mpr-modal input) 안에 있는지 확인할 것. */
+    if (!document.getElementById('mpr-style')) {
+      var st = document.createElement('style');
+      st.id = 'mpr-style';
+      st.textContent =
+        '#mpr-modal input{color:#0f172a !important;background:#fff !important;' +
+          '-webkit-text-fill-color:#0f172a !important;caret-color:#0f172a;' +
+          'font-family:inherit;opacity:1 !important}' +
+        '#mpr-modal input::placeholder{color:#94a3b8 !important;-webkit-text-fill-color:#94a3b8 !important}' +
+        '#mpr-modal input:focus{outline:none;border-color:#2563eb !important;box-shadow:0 0 0 3px rgba(37,99,235,.18)}';
+      document.head.appendChild(st);
+    }
     m.addEventListener('click', function(e){ if (e.target === m) close(); });
     document.body.appendChild(m);
     el('mpr-close').addEventListener('click', close);
