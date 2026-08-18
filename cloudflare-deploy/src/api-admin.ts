@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
@@ -970,7 +971,7 @@ export async function handleAdminApi(
         safe(() => env.DB.prepare(
           `SELECT COALESCE(SUM(amount_krw), 0) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL
+           WHERE status = 'paid' AND paid_at IS NOT NULL AND ${notSeedSql()}
              AND paid_at >= ? AND paid_at < ?${_uidScope}`
         ).bind(startMs, endMs, ..._sb).first<{ revenue: number; pay_count: number }>(),
         { revenue: 0, pay_count: 0 } as any),
@@ -1186,7 +1187,10 @@ export async function handleAdminApi(
 
       // 안전망 - 필요 테이블 모두 ensure (캐시 미스일 때만 → 요청당 왕복 절약)
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT, created_at INTEGER);`); } catch {}
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
+      /* ⚠️ memo 칸이 빠져 있으면 notSeedSql() 이 «no such column: memo» 로 죽는다.
+         (지금은 fetch1 이 삼켜서 KPI 가 조용히 0 이 될 뿐이지만, 새 환경에서 매출이
+          0 으로 보이는 게 더 나쁘다.) 다른 ensure 문들과 같은 모양으로 맞춘다. */
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
       const now = Date.now();
@@ -1230,8 +1234,8 @@ export async function handleAdminApi(
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb),
-        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
-        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd),
         fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
@@ -1245,7 +1249,7 @@ export async function handleAdminApi(
         fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`),
         fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd),
         fetchAll(`SELECT CAST((paid_at - ?) / 86400000 AS INTEGER) AS d, IFNULL(SUM(amount_krw),0) AS sum
-                   FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
+                   FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
                  revBase, revBase, revBase + 7 * 86400000, ..._sb),
       ]) as any[];
 
@@ -1383,7 +1387,7 @@ export async function handleAdminApi(
         const rows = await env.DB.prepare(
           `SELECT ${labelExpr} AS label, SUM(amount_krw) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL AND paid_at BETWEEN ? AND ?${_uidScope}
+           WHERE status = 'paid' AND paid_at IS NOT NULL AND ${notSeedSql()} AND paid_at BETWEEN ? AND ?${_uidScope}
            GROUP BY ${groupExpr}
            ORDER BY label ASC`
         ).bind(fromMs, toMs, ..._sb).all<{ label: string; revenue: number; pay_count: number }>();
