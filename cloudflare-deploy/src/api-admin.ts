@@ -2282,11 +2282,19 @@ export async function handleAdminApi(
           unpaid_count: rows.length - paidCount,
         },
         levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
-        // 📦 카페24에는 있는데 화면 명부와 이름이 안 이어진 강사 — 조용히 빠지면 «급여를 안 준»
-        //    사람이 생긴다. 화면이 몇 명인지 알려 줄 수 있게 함께 내려준다.
-        //    (실측 2026-08-18: 32명 중 「테스트 강사」·「test teacher」·「스케줄변경중」 같은
-        //     실제 강사가 아닌 이름이 섞여 있어, 0 이 아니라고 곧 사고인 것은 아니다)
-        c24_unmatched: c24.unmatched(),
+        /* 📦 카페24에는 있는데 화면 명부와 이름이 안 이어진 강사 — 조용히 빠지면 «급여를 안 준»
+           사람이 생긴다. 관리자 화면이 몇 명인지 알려 줄 수 있게 함께 내려준다.
+           (실측 2026-08-18: 32명 중 「테스트 강사」·「test teacher」·「스케줄변경중」 같은
+            실제 강사가 아닌 이름이 섞여 있어, 0 이 아니라고 곧 사고인 것은 아니다)
+
+           🔴 강사 본인 로그인에게는 **빈 배열**을 준다. 위 루프가 «본인이 아니면 continue» 로
+              건너뛰므로 matched 에 자기 이름 하나만 담기고, unmatched() 가 **나머지 31명의
+              이름·완료수업·pay_php 를 통째로** 실어 보내게 된다(2026-08-18 함정 대조에서 잡음).
+              화면(adm-q3)이 강사 뷰에서 안 그리는 것만으로는 부족하다 — CLAUDE.md 의
+              「서버 403 과 화면 감추기 둘 다」 그대로, 화면만 막으면 API 를 직접 불러 뚫린다.
+              /api/admin/payroll/ 은 강사가 «본인 급여명세» 를 보라고 일부러 열어 둔 경로라
+              더더욱 서버에서 잘라야 한다. */
+        c24_unmatched: _prOwn ? [] : c24.unmatched(),
         rows,
       });
     }

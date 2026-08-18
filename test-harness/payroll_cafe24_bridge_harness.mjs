@@ -57,7 +57,14 @@ check('분을 아직 안 보내면 «완료 수업 × 20분» 으로 환산해 �
   /Number\(cf\.completed_classes \|\| 0\) \* DEFAULT_CLASS_MINUTES/.test(adminTs));
 check('그 환산값임을 c24_minutes_real 로 구분한다', /c24_minutes_real:/.test(adminTs));
 check('카페24 줄에는 «단가 미지정» 경고를 띄우지 않는다', /rate_missing: rateMissing && !useC24/.test(adminTs));
-check('못 이은 강사 명단을 함께 내려준다', /c24_unmatched: c24\.unmatched\(\)/.test(adminTs));
+check('못 이은 강사 명단을 함께 내려준다', /c24_unmatched: _prOwn \? \[\] : c24\.unmatched\(\)/.test(adminTs));
+/* 🔴 강사 로그인에게 남의 급여(pay_php)가 새지 않는지 — 화면 감추기만으로는 부족하다.
+   본인 뷰에서는 루프가 남을 건너뛰어 matched 가 자기 하나뿐이라, 서버가 안 자르면
+   unmatched() 가 나머지 전원의 이름·완료수업·pay_php 를 통째로 실어 보낸다. */
+check('🔴 강사 본인 뷰에는 못 이은 명단을 주지 않는다 (남의 pay_php 유출 차단)',
+  /c24_unmatched: _prOwn \? \[\]/.test(adminTs));
+check('unmatched() 에 pay_php 가 들어 있다 (그래서 위 차단이 필요하다는 근거)',
+  /unmatched\(\)[\s\S]{0,400}pay_php: byName\[k\]\.pay_php/.test(adminTs));
 
 console.log('\n════════ 화면 ════════');
 check('카페24에서 온 줄에 배지를 붙인다', /amount_source !== 'cafe24'/.test(q3) && /카페24/.test(q3));
