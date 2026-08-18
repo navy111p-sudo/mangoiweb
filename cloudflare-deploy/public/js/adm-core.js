@@ -11438,23 +11438,17 @@ window.rebuildGlobalSearchIndex = function() {
           + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
           + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
         kpiBox.innerHTML =
-          kcard('총 매출', won(sumInc), range+'개월 합계 · 「케이씨피M」 제외', '#60a5fa')
+          kcard('총 매출', won(sumInc), range+'개월 합계', '#60a5fa')
           + kcard('총 지출', won(sumExp), range+'개월 합계', '#f87171')
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
       }
-      // 🧾 뺀 금액을 숨기지 않고 그대로 보여 준다 — 「숫자가 왜 줄었나」를 화면에서 바로 알 수 있게.
+      /* ⛔ «「케이씨피M」 N건 ₩… 제외» 안내 상자 제거(2026-08-18 사장님 지시).
+         집계에서 빼는 것은 그대로지만, 그 이름과 금액이 화면에 뜨는 것 자체를 원치 않으신다.
+         («제외했습니다» 라고 적어 주는 것도 «아직 남아 있다» 로 읽힌다 — 대사 카드·월간
+          리포트·손익계산서에서 같은 이유로 이미 뺐다.) 되살리지 말 것. */
       var noteBox = document.getElementById('c24fin-sum-total');
-      if (noteBox) {
-        if (sumExcl > 0) {
-          noteBox.style.cssText = 'display:block;margin-top:10px;padding:8px 11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:9px;font-size:11px;color:#fcd34d;line-height:1.55';
-          noteBox.innerHTML = '※ 「케이씨피M」 ' + cntExcl.toLocaleString('ko-KR') + '건 ' + wonFull(sumExcl)
-            + ' 은 <b>매출이 아니라</b> 하나은행 계좌에서 옮겨 온 운영자금이라 위 집계(총 매출·총 지출·순이익·영업이익률)에서 <b>제외</b>했습니다. '
-            + '「케이씨피」(PG 정산금)만 매출로 셉니다.';
-        } else {
-          noteBox.style.display = 'none'; noteBox.innerHTML = '';
-        }
-      }
+      if (noteBox) { noteBox.style.display = 'none'; noteBox.innerHTML = ''; }
       // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
       const inc = months.map(function(m){ return Number(m.income)||0; });
@@ -11563,21 +11557,20 @@ window.rebuildGlobalSearchIndex = function() {
           cnt.innerHTML = esc(base)
             + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
             + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
-            + (nExc ? ' · <span style="color:#b45309">' + (en
-                ? ('excl. 「케이씨피M」 ' + nExc + ' rows ' + esc(won(sExc)))
-                : ('「케이씨피M」 ' + nExc + '건 ' + esc(won(sExc)) + ' 제외')) + '</span>' : '')
+            /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
+               그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
             + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
         } else { cnt.textContent = base; }
       }
       body.innerHTML = rows.length ? rows.map(function(row){
-        var ex = isExcl(row);
-        return '<tr style="border-bottom:1px solid #f1f5f9'+(ex?';background:#fffbeb':'')+'">'+cols.map(function(c){
+        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
           var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          if (ex && c[0]==='money') disp = '<span style="color:#b45309;text-decoration:line-through">'+disp+'</span>'
-            + '<span style="margin-left:6px;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;font-family:inherit;white-space:nowrap">'+(en?'not revenue':'매출 제외')+'</span>';
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(ex&&c[0]==='money'?('「케이씨피M」 — 하나은행에서 옮겨 온 운영자금이라 매출 합계에서 제외'):v)+'">'+disp+'</td>';
+          /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
+             장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
+             합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
+          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
       }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
     } catch(e){
