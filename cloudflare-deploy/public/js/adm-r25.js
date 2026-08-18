@@ -13,24 +13,50 @@
 
   // 데모 매핑 (ph124와 동일 — fallback)
   var MAP = {
-    'card-eval-mgmt':           ['평가서 작성 폼','템플릿 선택','학생별 평가 이력','평가 통계','평가서 PDF 출력'],
+    'card-eval-mgmt':           [
+      { ko:'➕ 빠른 평가서 작성',                en:'➕ Quick Evaluation', anchor:'sub-eval-create' },
+      { ko:'📋 평가서 목록 + 통계',              en:'📋 List & Stats', anchor:'sub-eval-list' }
+    ],
     'card-bulk-eval':           ['일괄 평가 폼','학생 그룹 선택','일괄 발송','진행 상황'],
     'card-ai-lesson-report':    ['AI 리포트 생성','음성 STT 검토','자동 요약 편집','학부모 발송'],
     'card-ai-eval-draft':       ['초안 생성','수정·다듬기','승인·확정','발송'],
     'card-monthly-report':      ['이번달 리포트','지난달 비교','커리큘럼 진도','출석 통계'],
     'card-comparison-report':   ['학생 간 비교','기간별 추이','학원 평균 대비','학년별 분포'],
-    'card-webpush-mgmt':        ['VAPID 키 관리','구독자 목록','푸시 발송','발송 이력'],
-    'card-kakao-mgmt':          ['SOLAPI 설정','템플릿 등록','발송 이력','발송 통계'],
+    'card-webpush-mgmt':        [
+      { ko:'📡 푸시 상태 + VAPID',  en:'📡 Push Status + VAPID', anchor:'sub-webpush-1' },
+      { ko:'👥 구독자 목록',                   en:'👥 Subscribers', anchor:'sub-webpush-2' },
+      { ko:'📤 푸시 발송',                    en:'📤 Send Push', anchor:'sub-webpush-3' },
+      { ko:'📜 발송 이력',                    en:'📜 Send History', anchor:'sub-webpush-4' }
+    ],
+    'card-kakao-mgmt':          [
+      { ko:'🔌 API 연동 상태',                en:'🔌 API Status', anchor:'sub-kakao-status' },
+      { ko:'📨 K5: 학부모 답장 수신',            en:'📨 K5: Parent Replies', anchor:'sub-kakao-inbound' },
+      { ko:'📖 SOLAPI 가입 가이드',            en:'📖 SOLAPI Setup Guide', anchor:'sub-kakao-guide' }
+    ],
     'card-popups-mgmt':         ['신규 팝업','노출 일정','대상 선택','클릭률'],
     'card-poster-maker':        ['새 포스터','크기·동영상','저장 목록','다시 사용'],
     'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
     'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
-    'card-teacher-mgmt':        ['강사 정보 등록','강사 목록','평가·평점','수업 배정'],
+    'card-teacher-mgmt':        [
+      { ko:'📊 강사 가동률',                   en:'📊 Teacher Utilization', anchor:'sub-teacher-util' },
+      { ko:'⭐ 강사 평가·품질',                 en:'⭐ Teacher Quality', anchor:'sub-teacher-quality' },
+      { ko:'👩‍🏫 강사 명부',                  en:'👩‍🏫 Teacher Roster', anchor:'sub-teacher-roster' },
+      { ko:'🧑‍💼 직원 명부',                  en:'🧑‍💼 Staff Roster', anchor:'sub-staff-roster' },
+      { ko:'📚 교재 명부',                    en:'📚 Book List', anchor:'sub-book-roster' },
+      { ko:'🔄 결석 강사 자동 대체',              en:'🔄 Auto Substitute Teacher', anchor:'sub-auto-sub' },
+      { ko:'📋 강사 정보',                    en:'📋 Teacher Profile', anchor:'sub-teacher-7' }
+    ],
     'card-payroll-auto':        ['자동 정산 설정','결산 미리보기','지급 일정','지급 이력'],
     'card-payroll':             ['이번달 급여','지급 내역','수정·조정','정산서 PDF'],
     'card-mbti-mgmt':           ['MBTI 등록','강사 매칭','학생 추천','분석 리포트'],
     'card-praise-stats':        ['이번주 칭찬','강사별 통계','학생별 받은 칭찬','월별 추이'],
-    'card-supervisor':          ['멘토 배정','라이브 참관','노트 보내기','우선노트'],
+    'card-supervisor':          [
+      { ko:'🔗 멘토 배정',                    en:'🔗 Assign Mentor', anchor:'sub-sup-1' },
+      { ko:'📋 활성 배정 목록',                 en:'📋 Active Assignments', anchor:'sub-sup-2' },
+      { ko:'📝 노트 보내기',                   en:'📝 Send Note', anchor:'sub-sup-3' },
+      { ko:'📥 수신 노트',                    en:'📥 Incoming Notes', anchor:'sub-sup-4' },
+      { ko:'👀 수업 관찰 — 라이브 참관',           en:'👀 Class Observation — Live', anchor:'sub-sup-5' }
+    ],
     'card-room-invite':         ['방 초대 발송','초대 링크','참여 현황','만료 관리'],
     'card-timetable':           ['주간 시간표','월간 시간표','강사별 보기','강의실 충돌'],
     'card-lesson-log':          ['오늘 일지 작성','AI 초안','학부모 발송','일지 타임라인'],
@@ -50,7 +76,13 @@
     'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
     'card-auto-dunning':        ['미납 자동 알림','독촉 일정','연체율','회수 이력'],
     'card-settlement-stats':    ['일별 정산','대리점별','상품별','수수료별'],
-    'card-points-mgmt':         ['포인트 충전','적립 내역','사용 내역','만료 관리'],
+    'card-points-mgmt':         [
+      { ko:'🔌 자동발송 API 연동 상태',           en:'🔌 Auto-send API Status', anchor:'sub-points-api' },
+      { ko:'💰 학생 포인트 잔액',                en:'💰 Student Balances', anchor:'sub-points-balances' },
+      { ko:'🛍️ 기프티콘 카탈로그',               en:'🛍️ Gift Catalog', anchor:'sub-points-catalog' },
+      { ko:'📦 교환 신청 내역',                 en:'📦 Redemptions', anchor:'sub-points-redemptions' },
+      { ko:'⚙ 자동 적립 규칙',                 en:'⚙ Auto-earn Rules', anchor:'sub-points-rules' }
+    ],
     /* 👨‍🎓 학생 명부 (2026-08-18 사장님 지적 «여기서 어디로 가?») —
        여기 있던 다섯 줄('학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생')은
        위 머리말이 말하는 «데모 매핑» 이었다. 카드 안에 그런 칸이 없는데 이름만 지어 넣은 것이라,
@@ -68,21 +100,41 @@
       { ko:'📅 학원 전체 스케줄',   en:'📅 All Schedules',    anchor:'sm-all-schedules' },
       { ko:'🏆 연속 출석 랭킹',     en:'🏆 Streak Ranking',   anchor:'sm-streak-rank' },
       { ko:'📞 최근 상담 통합',     en:'📞 Recent Consults',  anchor:'sm-recent-consult' },
-      { ko:'💭 단체 메시지',        en:'💭 Bulk Message',     anchor:'sm-bulk-msg' }
+      { ko:'💭 단체 메시지',        en:'💭 Bulk Message',     anchor:'sm-bulk-section' }
     ],
     'card-family-mgmt':         ['가족 그룹','형제자매 묶기','가족 할인','연락처 통합'],
-    'card-inquiry-mgmt':        ['신규 문의','진행 중','종결','전환율'],
+    'card-inquiry-mgmt':        [
+      { ko:'🪑 대기자 명단',                   en:'🪑 Waitlist', anchor:'sub-waitlist' },
+      { ko:'📈 전환률 통계',                   en:'📈 Conversion Stats', anchor:'sub-inquiry-stats' },
+      { ko:'📋 상담 목록',                    en:'📋 Inquiries', anchor:'sub-inquiry-list' }
+    ],
     'card-enrollments':         ['이번달 등록','대기자','휴학 처리','재등록'],
-    'card-badges-mgmt':         ['뱃지 발급','뱃지 디자인','학생별 보유','이벤트 뱃지'],
+    'card-badges-mgmt':         [
+      { ko:'🏆 배지 카탈로그 + 통계',             en:'🏆 Badge Catalog + Stats', anchor:'sub-badge-1' },
+      { ko:'🕹️ 3D 배틀 & 입체 배지 보상',        en:'🕹️ 3D Battle & Reward Badges', anchor:'sub-badge-2' },
+      { ko:'🧪 학생 배지 자동 검사',              en:'🧪 Manual Award Check', anchor:'sub-badge-3' }
+    ],
     'card-community':           ['게시판','댓글 관리','신고 처리','공지'],
     'card-counseling-booking':  ['상담 예약','상담 일정','상담 이력','후속 조치'],
     'card-parent-digest':       ['주간 요약','월간 요약','이메일 발송','학부모 반응'],
     'card-parent-faq-bot':      ['FAQ 등록','자주 묻는 질문','학부모 답변','챗봇 학습'],
     'card-referral':            ['추천 코드 발급','추천 통계','보상 지급','이벤트'],
-    'card-alumni':              ['졸업생 등록','졸업생 목록','멘토 활동','동문 게시판'],
+    'card-alumni':              [
+      { ko:'➕ 졸업생 등록',                   en:'➕ Register Alumnus', anchor:'sub-alumni-1' },
+      { ko:'📋 졸업생 목록 + 필터',              en:'📋 Alumni List + Filter', anchor:'sub-alumni-2' },
+      { ko:'📝 동문 게시판',                   en:'📝 Alumni Board', anchor:'sub-alumni-3' }
+    ],
     'card-gallery':             ['사진 업로드','자녀별 앨범','월별 하이라이트','졸업 앨범'],
     'card-school-attendance-stats': ['전체 출석률','학원별 통계','위험군 알림','월별 비교'],
-    'card-textbooks':           ['교재 목록','단원 관리','학습 진도','과제'],
+    'card-textbooks':           [
+      { ko:'📚 컨텐츠 교재 관리',                en:'📚 Content Textbook Management', anchor:'sub-book-1' },
+      { ko:'📂 컨텐츠 교재그룹 관리',              en:'📂 Content Textbook Group Management', anchor:'sub-book-2' },
+      { ko:'📂 교재 파일 라이브러리',              en:'📂 Textbook File Library', anchor:'sub-textbook-files' },
+      { ko:'🎬 망고아이 비디오 관리',              en:'🎬 Mango-i Videos', anchor:'sub-mango-videos' },
+      { ko:'🛒 판매 교재 관리',                 en:'🛒 Sales Textbook Management', anchor:'sub-book-5' },
+      { ko:'📦 판매 교재 그룹 관리',              en:'📦 Sales Textbook Group', anchor:'sub-book-6' },
+      { ko:'🏷️ 판매 구분 관리',                en:'🏷️ Sales Category Management', anchor:'sub-book-7' }
+    ],
     'card-microlearn':          ['오늘의 학습','진도 추적','퀴즈','복습'],
     'card-review-quiz':         ['퀴즈 출제','문항 작성','응시 결과','복습퀴즈'],
     'card-mini-toeic':          ['모의고사','오답 노트','진도','등급'],
@@ -104,8 +156,18 @@
     ],
     'card-recording-storage':   ['오늘 녹화','학생별 보관','용량 관리','자동 삭제'],
     'card-homework':            ['새 숙제 출제','제출 현황','채점','피드백 발송'],
-    'card-permissions':         ['역할 관리','메뉴 권한','데이터 권한','감사 로그'],
-    'card-franchises':          ['가맹점 목록','신규 가맹','계약 관리','로열티 정산'],
+    'card-permissions':         [
+      { ko:'👥 역할별 권한 매트릭스',              en:'👥 Role Permission Matrix', anchor:'sub-perm-1' },
+      { ko:'➕ 본사 직원 등록',                 en:'➕ Register HQ Employee', anchor:'sub-perm-2' },
+      { ko:'👤 역할별 사용자 관리',               en:'👤 Users by Role', anchor:'sub-perm-3' },
+      { ko:'📜 권한 변경 이력',                 en:'📜 Audit Log', anchor:'sub-perm-4' }
+    ],
+    'card-franchises':          [
+      { ko:'🏛️ 대표지사',                    en:'🏛️ Master Branch', anchor:'card-master-branches' },
+      { ko:'🏢 지사',                       en:'🏢 Branch', anchor:'sub-branches' },
+      { ko:'🏪 대리점',                      en:'🏪 Agency', anchor:'card-centers' },
+      { ko:'🏯 본사 관리',                    en:'🏯 HQ Management', anchor:'card-hq-orgs' }
+    ],
     'card-centers':             ['센터 목록','센터 등록','강사 배정','매출 조회'],
     'card-data-export':         ['학생 CSV','강사 CSV','결제 CSV','출결 CSV'],
     'card-admin-alerts':        ['오늘 알림','중요 알림','시스템 경고','읽음 처리'],

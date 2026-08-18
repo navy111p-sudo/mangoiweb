@@ -48,6 +48,16 @@ const missingAnchor = anchors.filter((a) => !html.includes(`id="${a}"`));
 check(`anchor 가 가리키는 id 가 admin.html 에 전부 있다${missingAnchor.length ? ' — 없는 것: ' + missingAnchor.join(', ') : ''}`,
   missingAnchor.length === 0);
 
+/* 🪤 (2026-08-18) 앵커 id 가 **문서 안에서 유일한가**.
+   실제로 밟았다: 「💭 단체 메시지」 앵커로 단 sm-bulk-msg 가 그 안의 <textarea id="sm-bulk-msg"> 와
+   겹쳤다. getElementById 는 먼저 나오는 것을 주므로 메뉴 점프는 멀쩡한데,
+   adm-core.js 가 그 id 로 «보낼 메시지» 를 읽던 것이 <details> 를 집어 **발송이 깨진다.**
+   화면에도 콘솔에도 아무 표시가 안 나는 종류라 여기서 못 박는다. */
+const dupAnchor = [...new Set(anchors)].filter(
+  (a) => (html.match(new RegExp(`id="${a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g')) || []).length > 1);
+check(`앵커 id 가 문서 안에서 유일하다${dupAnchor.length ? ' — 겹친 것: ' + dupAnchor.join(', ') : ''}`,
+  dupAnchor.length === 0);
+
 const missingCard = cards.filter((c) => !html.includes(`id="${c}"`));
 check(`card 가 가리키는 id 가 admin.html 에 전부 있다${missingCard.length ? ' — 없는 것: ' + missingCard.join(', ') : ''}`,
   missingCard.length === 0);
@@ -64,6 +74,19 @@ for (const ghost of ['학생 상세 프로필', '학생 그룹 관리', '학년�
 const smAnchors = [...smBlock.matchAll(/anchor:\s*'([^']+)'/g)].map((m) => m[1]);
 check(`항목마다 갈 곳이 있다 (anchor ${smAnchors.length}개 / 항목 ${(smBlock.match(/\{\s*ko:/g) || []).length}개)`,
   smAnchors.length > 0 && smAnchors.length === (smBlock.match(/\{\s*ko:/g) || []).length);
+
+console.log('\n[ ②-2 진짜 하위칸으로 바꾼 카드들이 되돌아가지 않았다 ]');
+/* 카드 안에 실제 하위칸(details.sub-item)이 있는데 손자 메뉴가 «문자열 목록» 이면,
+   그건 옛 «데모 매핑» 으로 되돌아간 것이다 — 이름과 열리는 칸이 다시 어긋난다. */
+const CONVERTED = [
+  'card-students-mgmt', 'card-eval-mgmt', 'card-kakao-mgmt', 'card-webpush-mgmt',
+  'card-teacher-mgmt', 'card-supervisor', 'card-points-mgmt', 'card-inquiry-mgmt',
+  'card-badges-mgmt', 'card-alumni', 'card-textbooks', 'card-permissions', 'card-franchises',
+];
+for (const cid of CONVERTED) {
+  const blk = (r25.match(new RegExp(`'${cid}':\\s*\\[([\\s\\S]*?)\\n\\s*\\],`)) || [])[1] || '';
+  check(`${cid} — 객체 형태({ko,…,anchor})로 남아 있다`, /\{\s*ko:/.test(blk) && /anchor:/.test(blk));
+}
 
 console.log('\n[ ③ 실제로 그리는 파일은 adm-r25.js 하나 ]');
 check('adm-r25.js 가 손자 메뉴를 그린다 (ph125Build)', /function ph125Build\s*\(/.test(r25));
