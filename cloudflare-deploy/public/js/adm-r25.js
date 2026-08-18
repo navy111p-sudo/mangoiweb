@@ -249,10 +249,23 @@
     return scan(card);
   }
 
-  /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다. */
+  /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다.
+     ⚠️ 제목이 붙어 있는 자리가 카드마다 다르다. 하나만 보면 대부분 빈 문자열이 나오고,
+        그러면 그 항목이 «손자 0개» 로 판정돼 ▸ 가 아예 안 생긴다(2026-08-18 실측:
+        「결제」·「직원·권한」이 그렇게 통째로 사라졌다). 세 자리를 순서대로 본다. */
   function cardTitle(card, attr){
-    var sp = card.querySelector(':scope > summary [' + attr + '], :scope > summary span');
-    var t = (sp && (sp.getAttribute(attr) || sp.textContent)) || card.getAttribute('data-menu-label-' + attr.slice(-2)) || '';
+    var ko = attr.slice(-2);                                   // 'ko' | 'en'
+    var t = card.getAttribute('data-menu-label-' + ko) || '';
+    if (!t){
+      var sum = card.querySelector(':scope > summary');
+      if (sum){
+        t = sum.getAttribute(attr) || '';                      // ① summary 자신에 붙은 경우
+        if (!t){
+          var sp = sum.querySelector('[' + attr + ']');
+          t = sp ? (sp.getAttribute(attr) || sp.textContent) : sum.textContent;   // ② 안쪽 span ③ 글자 그대로
+        }
+      }
+    }
     t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
     if (t.length > 26) t = t.slice(0, 25) + '…';
     return t;
@@ -265,25 +278,48 @@
      이제 data-cards(맡은 카드 전부)를 읽는다. 칸이 없는 카드는 «그 카드 자체» 를 한 줄로 세운다
      — 묶음 안에 있는데 목록에 안 보이면 그 카드는 영영 못 찾는다. */
   function itemsForSub(sub){
+    /* 🍃 이 항목이 카드 «안의 한 칸» 을 이미 가리키면(=잎) 손자를 만들지 않는다.
+       「대표지사」·「지사」·「대리점」·「지사 정산」이 그렇다. 이걸 안 보면 셋 다 같은 카드를
+       읽어 **똑같은 4줄이 네 번** 나온다(2026-08-18 사장님 「중복」 지적의 원인). */
+    if (sub.getAttribute('data-ia6-sub')) return [];
+
     var attr = (sub.getAttribute('data-cards') || '').trim();
     var ids = attr ? attr.split(/\s+/) : (sub.dataset.card ? [sub.dataset.card] : []);
-    var multi = ids.length > 1;
     var out = [];
-    for (var i = 0; i < ids.length; i++){
-      var id = ids[i];
-      var card = document.getElementById(id);
-      if (!card) continue;
-      var list = itemsFor(id, card);
-      if (list.length){
-        for (var j = 0; j < list.length; j++){
-          var it = list[j];
-          out.push({ ko: it.ko, en: it.en, el: it.el, anchor: it.anchor, card: it.card || id, fn: it.fn, host: id });
+
+    /* 📐 (2026-08-18 사장님 «1안» 결정) 손자에는 «이름이 서로 다른 것» 만 올린다.
+       ① 항목이 카드를 여러 장 맡으면 → 손자는 그 **카드 이름들**. 카드 안 칸까지 내려가지 않는다.
+          내려가면 「결제」가 11줄이 되면서 어느 카드 것인지 알 수 없고, 「자료실」은
+          «잠금 해제 / 자료 목록» 이 다섯 번 반복된다(실측).
+       ② 항목이 카드 한 장이면 → 그 카드 안 칸들. 그게 유일하게 서로 다른 목적지다. */
+    if (ids.length > 1){
+      for (var i = 0; i < ids.length; i++){
+        var c = document.getElementById(ids[i]);
+        if (!c) continue;
+        var ko = cardTitle(c, 'data-ko');
+        if (ko){
+          out.push({ ko: ko, en: cardTitle(c, 'data-en') || ko, el: c, host: ids[i] });
+          continue;
         }
-      } else if (multi){
-        var ko = cardTitle(card, 'data-ko');
-        if (ko) out.push({ ko: ko, en: cardTitle(card, 'data-en') || ko, el: card, host: id });
+        /* 제목이 없는 카드(<div id="card-…"> 로만 된 것)는 이름을 지어낼 수 없다.
+           그 카드에 한해 «안의 칸» 으로 대신한다 — 칸에는 이름이 붙어 있다.
+           ⛔ 여기서 그냥 건너뛰면 그 카드는 사이드바에서 영영 사라진다. */
+        var inner = itemsFor(ids[i], c);
+        for (var k = 0; k < inner.length && k < 6; k++){
+          var iv = inner[k];
+          out.push({ ko: iv.ko, en: iv.en, el: iv.el, anchor: iv.anchor, card: iv.card || ids[i], fn: iv.fn, host: ids[i] });
+        }
       }
-      if (out.length >= 24) break;      // 한 항목이 사이드바를 다 먹지 않게
+      return out;
+    }
+
+    var id = ids[0];
+    var card = id && document.getElementById(id);
+    if (!card) return out;
+    var list = itemsFor(id, card);
+    for (var j = 0; j < list.length; j++){
+      var it = list[j];
+      out.push({ ko: it.ko, en: it.en, el: it.el, anchor: it.anchor, card: it.card || id, fn: it.fn, host: id });
     }
     return out;
   }
