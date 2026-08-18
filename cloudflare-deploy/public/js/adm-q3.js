@@ -360,7 +360,17 @@
         }
         const opts = `<option value=""${cur?'':' selected'}>${isEn?'— none —':'— 미지정 —'}</option>` +
           _prLevels.map(v=>`<option value="${esc(v.code)}"${v.code===cur?' selected':''}>${esc(isEn?v.label_en:v.label_ko)} (₱${fmt(v.rate_per_20min)})</option>`).join('');
-        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px">${opts}</select><br>${rateTxt}`;
+        /* 🎖 단가가 하나도 없는데(개별 단가 X · 등급 X) 이 달에 수업이 있는 강사 —
+           수업료가 전부 0 으로 계산되고 있다는 뜻이다. 셀렉트를 붉게 해 단가부터 넣게 유도.
+           수업이 0회면 조용히 둔다(전 강사를 붉게 칠하면 아무도 안 본다). */
+        const needRate = r.rate_missing && (r.lesson_count||0) > 0;
+        const selStyle = needRate
+          ? 'max-width:150px;padding:4px 6px;font-size:11.5px;border:2px solid #dc2626;border-radius:5px;background:#fef2f2'
+          : 'max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px';
+        const warn = needRate
+          ? `<br><span style="font-size:10px;color:#dc2626;font-weight:700">${isEn?'⚠ No rate — fees calc as 0':'⚠ 단가 미지정 — 수업료가 0으로 계산 중'}</span>`
+          : '';
+        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="${selStyle}">${opts}</select><br>${rateTxt}${warn}`;
       };
       tbody.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
@@ -378,6 +388,10 @@
         </tr></thead>
         <tbody>${_prRows.map((r, i) => {
           const fin = r.final_amount ?? r.calculated_amount;
+          // 단가가 없어서 0 이 된 금액은 «0원 지급» 이 아니라 «아직 계산할 수 없음» 이다
+          const finCell = (r.rate_missing && (r.lesson_count||0) > 0)
+            ? `<span style="color:#dc2626;font-size:11px;font-weight:700">${isEn?'⚠ set rate first':'⚠ 단가 미지정'}</span>`
+            : fmtP(fin);
           const subCnt = [];
           if (r.absent_count) subCnt.push(`🙅 ${r.absent_count}`);
           if (r.no_feedback_count) subCnt.push(`📝 ${r.no_feedback_count}`);
@@ -390,7 +404,7 @@
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.fee_per_10min)}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.calculated_amount)}</td>
             <td style="padding:9px 12px;text-align:right;font-weight:700;color:${(r.deduction_total||0)>0?'#dc2626':'#9ca3af'}">${(r.deduction_total||0)>0?'− '+fmtP(r.deduction_total):'—'}</td>
-            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${fmtP(fin)}</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${finCell}</td>
             <td style="padding:8px 10px;text-align:right">
               <input type="number" value="${r.adjusted_amount ?? ''}" placeholder="${fmt(fin)}"
                      onchange="prRowAdjust(${i}, this.value)"
