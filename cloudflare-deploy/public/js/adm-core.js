@@ -11508,12 +11508,20 @@ window.rebuildGlobalSearchIndex = function() {
   /* 🏢 가맹점별 정산서.
      💳 총 매출 = 「장부 결제」(카페24 등) + 「B2B 직접입금」(학원이 통장으로 바로 보낸 수업료).
         예전엔 장부 결제만 세서 B2B 로 받는 가맹점이 매출 0 으로 찍혔다(2026-08-18 수정). */
+  /* 요율 표기 — 값이 없으면 «—». 0.6 → «60.0%». 화면에 숫자를 손으로 쓰지 않는다:
+     예전에 「평균 수수료율 15%」 라고 박아 두었다가 정책이 60% 로 바뀌자 거짓말이 됐다. */
+  const pctRate = v => (v == null || isNaN(v)) ? '—' : (Number(v) * 100).toFixed(1) + '%';
+
   function renderFranchise(d){
     const src = d.sources || {};
     const t = d.totals || {};
     return `
       <h1>🏢 가맹점별 정산서</h1>
       <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님) · 장부 결제 + B2B 직접입금</div>
+      ${d.hq_fee_rate_forced != null ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#991b1b">⚠️ 수수료율을 ${pctRate(d.hq_fee_rate_forced)} 로 «강제 지정»한 «만약» 계산입니다.</b>
+        저장된 설정이 아니라 주소의 <code>?hq_fee=</code> 로 눌러 쓴 값이라 <b>이대로 가맹점에 보내면 안 됩니다.</b>
+      </div>` : ''}
       ${noteList(d.notes)}
       ${(d.b2b_total||0) > 0 ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#1e40af">🏦 B2B 직접입금 ${(d.b2b_count||0).toLocaleString()}건 · ${fmtKRW(d.b2b_total)}</b> 을 이 정산서에 포함했습니다
@@ -11537,11 +11545,11 @@ window.rebuildGlobalSearchIndex = function() {
         (d.b2b_unassigned||[]).map(u => ({ date: u.payee, name: u.reason + ' · ' + u.count + '건', amount: u.amount })),
         { dateLabel: '입금 적요', nameLabel: '사유' })}` : ''}
       <div class="tblwrap"><table class="compact">
-        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">수수료율</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
         <tbody>
-          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
-            : '<tr><td colspan="10" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
-          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
+          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${pctRate(r.hq_fee_rate)}${r.rate_mixed ? '<span title="이 가맹점 안에서 대리점마다 요율이 다릅니다 — 실제로 떼인 비율(가중평균)입니다" style="color:#b45309;font-size:10px"> 혼합</span>' : ''}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
+            : '<tr><td colspan="11" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
+          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${pctRate(d.hq_fee_rate)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
         </tbody>
       </table></div>
       <p style="font-size:11px;color:#6b7280;margin:6px 0 0;line-height:1.7">

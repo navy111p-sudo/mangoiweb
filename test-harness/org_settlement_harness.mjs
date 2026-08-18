@@ -360,6 +360,53 @@ eq('설정 없음 → source=default', resolveHqRate(emptyOv(), '서울강남지
 db.close();
 
 // ════════════════════════════════════════════════════════════════════
+// [8] 🔗 「가맹점별 정산서」가 같은 요율을 쓰는지 — 2026-08-18 실제로 갈렸던 자리
+//
+//     정산관리(org-settlement)는 본사 60% 로 바뀌었는데 가맹점별 정산서
+//     (accounting-reports.ts franchiseReport)에는 «|| 0.15» 가 그대로 남아 있었다.
+//     같은 가맹점을 두고 한 화면은 15%, 다른 화면은 60% 를 뗐다.
+//     정산서는 **가맹점에 실제로 보내는 문서**라 이대로면 분쟁이 난다.
+//     아래 검사는 그 상태로 되돌아가면 FAIL 을 낸다.
+// ════════════════════════════════════════════════════════════════════
+console.log('\n[8] 가맹점별 정산서가 정산관리와 같은 요율을 쓰는가');
+{
+  const AR = readFileSync(new URL('../cloudflare-deploy/src/accounting-reports.ts', import.meta.url), 'utf8');
+  const OS = readFileSync(new URL('../cloudflare-deploy/src/org-settlement.ts', import.meta.url), 'utf8');
+
+  check('정산서가 org-settlement 의 요율 판정기를 import 한다',
+    /import\s*\{[^}]*resolveHqRate[^}]*\}\s*from\s*'\.\/org-settlement'/.test(AR));
+  check('정산서가 resolveHqRate() 를 실제로 부른다', /resolveHqRate\s*\(/.test(AR));
+  check('정산서가 수동 설정표를 읽는다(loadRateOverrides)', /loadRateOverrides\s*\(/.test(AR));
+
+  // 🔑 핵심: 요율을 손으로 적어 두면 안 된다. «|| 0.15» 류가 되살아나면 잡는다.
+  const franchiseFn = AR.slice(AR.indexOf('async function franchiseReport('),
+                                AR.indexOf('async function payslipsReport('));
+  check('🔑 정산서에 요율 하드코딩이 없다 (예: hq_fee ... || 0.15)',
+    !/get\('hq_fee'\)\s*\)\s*\|\|\s*0?\.\d+/.test(franchiseFn));
+  check('🔑 정산서가 15~18% 옛 정책값을 다시 쓰지 않는다',
+    !/\b0\.1[5-8]\b/.test(franchiseFn));
+
+  // 기본값은 org-settlement 한 곳에서만 정의된다 (복사본 금지)
+  check('기본 요율 상수는 org-settlement 가 export 한다',
+    /export const DEFAULT_HQ_RATE\s*=\s*0\.60/.test(OS));
+  check('정산서는 기본값을 복사하지 않고 import 한 상수를 쓴다',
+    /DEFAULT_HQ_RATE/.test(franchiseFn) && !/const\s+DEFAULT_HQ_RATE/.test(AR));
+
+  // 대리점별 설정이 먹히려면 «지사 × 대리점» 으로 집계해야 한다
+  check('🔑 정산서가 대리점(shop_name)까지 쪼개 집계한다',
+    /GROUP BY f\.id, f\.name, f\.active, a\.agency/.test(franchiseFn));
+  check('정산서가 대리점별 매출을 따로 쥔다(byAgency)', /byAgency/.test(franchiseFn));
+  check('🔑 「지사 총매출 × 요율」 한 방 곱셈이 아니다',
+    !/const fee = Math\.round\(gross \* hqFeeRate\)/.test(franchiseFn));
+
+  // 화면에 고정 요율 문구를 다시 박지 않았는지 (예전 「평균 수수료율 15%」)
+  const CORE = readFileSync(new URL('../cloudflare-deploy/public/js/adm-core.js', import.meta.url), 'utf8');
+  const rf = CORE.slice(CORE.indexOf('function renderFranchise('), CORE.indexOf('function renderPayslips('));
+  check('화면이 서버가 준 요율을 그린다(pctRate)', /pctRate\(/.test(rf));
+  check('🔑 화면에 요율 숫자가 손으로 박혀 있지 않다', !/수수료율\s*1[0-9]%|평균 수수료율/.test(rf));
+}
+
+// ════════════════════════════════════════════════════════════════════
 console.log(`\n결과: ${PASS} 통과, ${FAIL} 실패`);
 if (FAIL) { console.log('실패 항목:\n - ' + FAILS.join('\n - ')); process.exit(1); }
 console.log('✅ 전부 통과\n');

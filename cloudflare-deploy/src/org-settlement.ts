@@ -88,7 +88,12 @@ const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
       그래서 사람이 정한 값만 담는 별도 표(settlement_rate_override)를 둔다.
       우선순위: 대리점 설정 → (그 대리점이 속한) 지사 설정 → 기본값 60%.
 */
-const DEFAULT_HQ_RATE = 0.60;        // 본사 마진 기본 60%
+/* ⚠️ 아래 넷은 **export 다** — 「가맹점별 정산서」(accounting-reports.ts franchiseReport)도
+   같은 요율을 써야 하기 때문이다. 두 화면 모두 «가맹점에 얼마 줄지» 를 계산하는데
+   서로 다른 값을 쓰면 한쪽 숫자로 정산서를 보내 놓고 다른 쪽 화면에선 금액이 달라진다.
+   실제로 2026-08-18 에 그런 상태였다(정산관리 60% vs 정산서 15% 하드코딩).
+   복사하지 말고 이것을 부를 것. */
+export const DEFAULT_HQ_RATE = 0.60;        // 본사 마진 기본 60%
 const DEFAULT_BRANCH_RATE = 0.40;    // 지점 수수료 기본 40% (= 1 - DEFAULT_HQ_RATE)
 const RATE_MIN = 0, RATE_MAX = 1;    // 수동 설정 허용 범위(0~100%)
 const clampRate = (r: number) => {
@@ -150,11 +155,11 @@ async function ensureSchema(env: Env): Promise<void> {
 }
 
 // ── 수수료 «수동 설정» 조회 (지사/대리점 이름 → 본사 마진율) ────────────────
-interface RateOverrides { branch: Map<string, number>; agency: Map<string, number>; }
+export interface RateOverrides { branch: Map<string, number>; agency: Map<string, number>; }
 
 const emptyOverrides = (): RateOverrides => ({ branch: new Map(), agency: new Map() });
 
-async function loadRateOverrides(env: Env): Promise<RateOverrides> {
+export async function loadRateOverrides(env: Env): Promise<RateOverrides> {
   const rows = await safe(async () =>
     (await env.DB.prepare(`SELECT scope_type, scope_key, hq_rate FROM settlement_rate_override`)
       .all<{ scope_type: string; scope_key: string; hq_rate: number }>()).results || [],
@@ -172,7 +177,7 @@ async function loadRateOverrides(env: Env): Promise<RateOverrides> {
  *   ① 대리점 수동 설정  ② (그 대리점이 속한) 지사 수동 설정  ③ 기본값 60%
  * agencyName 이 없으면 지사 단위로만 판정한다.
  */
-function resolveHqRate(ov: RateOverrides, branchName: string | null, agencyName: string | null):
+export function resolveHqRate(ov: RateOverrides, branchName: string | null, agencyName: string | null):
     { rate: number; source: 'agency' | 'branch' | 'default' } {
   const a = agencyName ? ov.agency.get(String(agencyName).trim()) : undefined;
   if (a != null) return { rate: a, source: 'agency' };

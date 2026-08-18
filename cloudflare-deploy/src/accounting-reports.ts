@@ -25,6 +25,8 @@
 
 import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
+// 🧾 수수료율 판정은 정산관리(org-settlement)와 **같은 것**을 쓴다 — 그 파일 주석 참고
+import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 
 interface Env {
@@ -1788,10 +1790,29 @@ async function attributeB2bRows(
         넣으면 그대로 붙는다. 목록은 docs/가맹점_매출배정_미확정_목록_2026-08-16.md.
    ⚠️ 수수료율은 가맹 계약서에 있는 값인데 시스템에 없다. 그래서 화면·CSV 에
       «추정» 이라고 밝히고, ?hq_fee= 로 바꿔 볼 수 있게만 한다. */
+/** ?hq_fee= 값 정규화. 「60」도 「0.6」도 60% 로 읽는다(정산관리 toRate 와 같은 규칙).
+    안 넘겼거나 숫자가 아니면 null → 그때는 수동 설정·기본값을 쓴다. */
+function toRateParam(v: string | null): number | null {
+  if (v == null || String(v).trim() === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(1, n > 1 ? n / 100 : n);
+}
+
 async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
-  const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15;
+  /* 🧾 (2026-08-18) 수수료율을 정산관리와 하나로 맞췄다.
+     예전엔 여기만 «본사 15%» 가 박혀 있어서, 같은 가맹점을 두고 정산관리 화면은
+     60% 를, 이 정산서는 15% 를 뗐다. 정산서는 **가맹점에 실제로 보내는 문서**라
+     그 상태로 두면 분쟁이 난다.
+     이제 판정은 org-settlement 의 resolveHqRate() 하나뿐이다:
+       ① 대리점 수동 설정 → ② 그 대리점이 속한 지사 수동 설정 → ③ 기본값 60%
+     ?hq_fee= 를 명시로 넘기면 그때만 전 가맹점에 그 값을 강제한다(«만약» 계산용). */
+  const hqFeeParam = toRateParam(url.searchParams.get('hq_fee'));
+  const rateOv: RateOverrides = hqFeeParam == null
+    ? await safe(async () => await loadRateOverrides(env), { branch: new Map(), agency: new Map() } as RateOverrides)
+    : { branch: new Map(), agency: new Map() };
 
   /* 🧾 대리 결제자 → 지사 지정표 (2026-08-16 신설).
      학생이 아니라 **대리점·직원 계정이 여러 학생 몫을 한꺼번에 결제**하는 경우가 있다
@@ -1810,26 +1831,32 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
      이 방식으로 바꾸면 「같은 대리점 이름이 두 지사에 있어 배정 불가」 문제가
      통째로 사라진다(예: 「미사용」 대리점 학생 229명은 라벨이 이미 셋으로 나뉘어 있다).
      라벨이 없는 학생만 예전처럼 shop_name → centers → 지사 로 폴백한다. */
+  /* 🧾 요율이 대리점마다 다를 수 있으므로 «지사 × 대리점» 으로 쪼개 집계한다 (2026-08-18).
+     지사 총매출 × 지사요율 로 계산하면 대리점별 수동 설정이 통째로 무시된다.
+     ⚠️ 학생수는 쪼개도 안전하다 — shop_name 은 «학생 원부의 칸» 이라 한 학생은 대리점
+        하나에만 속한다. 그래서 대리점별 DISTINCT 를 더해도 겹쳐 세지 않는다. */
   const attributed = await safe(async () => {
     const r = await env.DB.prepare(`
       WITH ${FRANCHISE_FID_CTE},
       att AS (
         SELECT p.id AS pay_id, p.amount_krw, p.user_id,
-               ${franchiseFidSql('p', 'st')} AS fid
+               ${franchiseFidSql('p', 'st')} AS fid,
+               COALESCE(st.shop_name,'') AS agency
           FROM student_payments p
           LEFT JOIN students_erp st ON st.user_id = p.user_id
          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
       )
       SELECT f.id AS franchise_id, f.name AS franchise_name, f.active AS active,
+             a.agency AS agency_name,
              COALESCE(SUM(a.amount_krw),0) AS gross,
              COUNT(a.pay_id) AS pays,
              COUNT(DISTINCT a.user_id) AS students
         FROM att a JOIN franchises f ON f.id = a.fid
-       GROUP BY f.id, f.name, f.active
+       GROUP BY f.id, f.name, f.active, a.agency
        HAVING gross > 0
        ORDER BY gross DESC
     `).bind(startMs, endMs).all();
-    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number }>;
+    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; agency_name: string; gross: number; pays: number; students: number }>;
   }, []);
 
   // 장부 총 매출 — 배정된 합과 비교해 «배정 못 한 돈» 을 정직하게 드러낸다
@@ -1849,10 +1876,21 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   const b2b = await attributeB2bDeposits(env, period);
 
   // 가맹점 표는 «장부 결제만 있는 지사» 와 «B2B 만 있는 지사» 를 모두 담아야 한다
-  type FrRow = { franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number; b2bGross: number; b2bCount: number };
+  type FrRow = { franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number;
+                 b2bGross: number; b2bCount: number; byAgency: Map<string, number> };
   const merged = new Map<number, FrRow>();
   for (const f of attributed) {
-    merged.set(f.franchise_id, { ...f, gross: Number(f.gross) || 0, b2bGross: 0, b2bCount: 0 });
+    const cur = merged.get(f.franchise_id) || {
+      franchise_id: f.franchise_id, franchise_name: f.franchise_name, active: f.active,
+      gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0, byAgency: new Map<string, number>(),
+    };
+    const amt = Number(f.gross) || 0;
+    cur.gross += amt;
+    cur.pays += Number(f.pays) || 0;
+    cur.students += Number(f.students) || 0;
+    // 대리점별 매출을 따로 쥔다 — 요율이 대리점마다 다를 수 있다
+    cur.byAgency.set(f.agency_name || '', (cur.byAgency.get(f.agency_name || '') || 0) + amt);
+    merged.set(f.franchise_id, cur);
   }
   if (b2b.byFranchise.size) {
     // B2B 만 있는 지사는 위 쿼리에 안 나오므로 이름을 따로 가져온다
@@ -1867,7 +1905,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       for (const f of names) {
         merged.set(Number(f.id), {
           franchise_id: Number(f.id), franchise_name: f.name, active: Number(f.active) || 0,
-          gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0,
+          gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0, byAgency: new Map<string, number>(),
         });
       }
     }
@@ -1878,9 +1916,29 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     }
   }
 
+  /* 수수료는 «지사 총매출 × 지사요율» 이 아니라 «대리점별 수수료의 합» 이다.
+     대리점마다 요율이 다를 수 있으므로 한 번에 곱하면 틀린 값이 나온다.
+     ⚠️ B2B 통장 입금은 학생·대리점 정보가 없어(적요만 있다) 지사 요율로 뗀다.
+        그 지사에 대리점별 설정이 걸려 있어도 B2B 분에는 못 쓴다 — 붙일 근거가 없다. */
+  const rateOf = (branch: string, agency: string | null) =>
+    hqFeeParam != null ? { rate: hqFeeParam, source: 'param' as const } : resolveHqRate(rateOv, branch, agency);
+
   const rows = Array.from(merged.values()).map(f => {
     const gross = f.gross + f.b2bGross;
-    const fee = Math.round(gross * hqFeeRate);
+    let fee = 0;
+    const usedRates = new Set<number>();
+    for (const [agency, amt] of f.byAgency) {
+      const { rate } = rateOf(f.franchise_name, agency || null);
+      fee += Math.round(amt * rate);
+      usedRates.add(rate);
+    }
+    if (f.b2bGross > 0) {
+      const { rate } = rateOf(f.franchise_name, null);
+      fee += Math.round(f.b2bGross * rate);
+      usedRates.add(rate);
+    }
+    // 화면에 찍는 요율은 «실제로 떼인 비율»(가중평균)이다. 고정 문구를 쓰면 거짓말이 된다
+    const effRate = gross > 0 ? fee / gross : rateOf(f.franchise_name, null).rate;
     return {
       franchise_id: f.franchise_id,
       franchise_name: f.franchise_name + (Number(f.active) === 1 ? '' : ' (비활성 지사)'),
@@ -1891,6 +1949,8 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       b2b_count: f.b2bCount,
       gross_revenue: gross,
       hq_fee: fee,
+      hq_fee_rate: effRate,                     // 실효 요율(가중평균) — 대리점마다 다르면 섞인 값
+      rate_mixed: usedRates.size > 1,           // 한 지사 안에서 요율이 갈렸는지
       net_settlement: gross - fee,
       due_date: nextSettlementDate(period),
       status: '정산예정',
@@ -1932,9 +1992,17 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     book: a.book + r.book_revenue, b2b: a.b2b + r.b2b_revenue,
   }), { gross: 0, fee: 0, net: 0, book: 0, b2b: 0 });
 
+  // 전체 실효 요율 — 대리점마다 다를 수 있으니 «실제로 뗀 합 ÷ 총매출» 로 낸다
+  const effRateAll = totals.gross > 0 ? totals.fee / totals.gross : (hqFeeParam ?? DEFAULT_HQ_RATE);
+  const anyMixed = rows.some(r => r.rate_mixed) ||
+    new Set(rows.map(r => Number(r.hq_fee_rate.toFixed(6)))).size > 1;
+
   const data = {
     ok: true, type: 'franchise', period, label,
-    hq_fee_rate: hqFeeRate,
+    hq_fee_rate: effRateAll,                    // 실효(가중평균) — 화면 표기용
+    hq_fee_rate_default: DEFAULT_HQ_RATE,       // 수동 설정이 없는 곳에 쓰인 기본값
+    hq_fee_rate_forced: hqFeeParam,             // ?hq_fee= 로 강제한 경우만 값이 있다
+    hq_fee_rate_mixed: anyMixed,                // 가맹점마다 요율이 갈렸는지
     method: 'attributed',                       // 균등분배(equal)가 아니라 학생 단위 귀속
     rows, totals,
     book_total: bookTotal,                      // 카페24 등 결제 장부만
@@ -1951,13 +2019,19 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     sources: {
       gross_revenue: 'actual' as FigureSource,
       b2b_revenue: (b2b.total > 0 ? 'actual' : 'none') as FigureSource,
-      hq_fee: 'estimated' as FigureSource,      // 계약서 수수료율이 시스템에 없다
+      // 요율은 이제 «추정» 이 아니라 정책값(본사 60%) + 사람이 지정한 수동 설정이다.
+      // 다만 ?hq_fee= 로 강제한 «만약» 계산일 때는 추정으로 표시한다.
+      hq_fee: (hqFeeParam != null ? 'estimated' : 'actual') as FigureSource,
       unassigned: (unassigned > 0 ? 'review' : 'actual') as FigureSource,
     },
     notes: [
       '가맹점별 매출은 학생 한 명씩 실제 소속을 따라가 합산한 값입니다. 균등분배가 아닙니다. 소속은 학생 원부의 지사 라벨을 먼저 쓰고, 라벨이 없으면 대리점 이름으로 찾습니다.',
       '총 매출 = 카페24 등 «장부 결제» + 학원이 통장으로 바로 보낸 «B2B 직접입금» 입니다(2026-08-18부터 B2B 포함 — 월간 리포트·KPI의 매출과 같은 정의). 본사 수수료율은 B2B·B2C 구분 없이 같은 값을 씁니다.',
-      `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
+      ...(hqFeeParam != null
+        ? [`본사 수수료율을 ${(hqFeeParam * 100).toFixed(1)}% 로 «강제 지정»해 계산한 «만약» 값입니다(주소의 ?hq_fee=). 저장된 설정이 아니므로 이대로 가맹점에 보내지 마세요.`]
+        : [`본사 수수료율은 정산관리 화면과 같은 기준입니다 — 지사·대리점별 «수수료 비율 설정»이 있으면 그 값, 없으면 기본값 ${(DEFAULT_HQ_RATE * 100).toFixed(0)}%(지점 ${((1 - DEFAULT_HQ_RATE) * 100).toFixed(0)}%). 이 달 실효 요율은 ${(effRateAll * 100).toFixed(1)}% 입니다.`,
+           ...(anyMixed ? ['가맹점마다(또는 한 지사 안 대리점마다) 요율이 다릅니다. 표의 요율 칸은 그 가맹점에서 «실제로 떼인 비율»(가중평균)입니다.'] : []),
+           'B2B 통장 직접입금은 학생·대리점 정보가 없어 지사 요율로 뗍니다 — 그 지사에 대리점별 설정이 걸려 있어도 B2B 분에는 적용할 근거가 없습니다.']),
       ...(b2b.total > 0 ? [`이 달 B2B 직접입금은 ${b2b.rows.length}건 · ₩${b2b.total.toLocaleString('ko-KR')} 이고, 그중 ₩${b2b.assigned.toLocaleString('ko-KR')} 을 가맹점에 붙였습니다. 입금 적요를 대리점·지사 이름과 맞춰 붙이며, 후보가 둘 이상이면 붙이지 않습니다.`] : []),
       ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, revenueTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
       ...(b2b.unassignedTotal > 0 ? [`그중 B2B 직접입금 ₩${b2b.unassignedTotal.toLocaleString('ko-KR')} 은 입금 적요가 어느 대리점·지사인지 확정되지 않은 것입니다 — 회계관리 화면의 「🏦 배정 못 한 B2B 입금」 에서 한 번 지정하면 그 뒤로 자동으로 붙습니다.`] : []),
@@ -1965,16 +2039,20 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
-    const HEAD = ['가맹점', '학생수', '결제건수', '장부 결제', 'B2B 직접입금', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'];
-    const BODY = rows.map(r => [r.franchise_name, r.students, r.pay_count, r.book_revenue, r.b2b_revenue, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]);
+    const HEAD = ['가맹점', '학생수', '결제건수', '장부 결제', 'B2B 직접입금', '총 매출', '수수료율', '본사 수수료', '정산액', '송금예정일', '상태'];
+    const BODY = rows.map(r => [r.franchise_name, r.students, r.pay_count, r.book_revenue, r.b2b_revenue, r.gross_revenue,
+                                `${(r.hq_fee_rate * 100).toFixed(1)}%${r.rate_mixed ? ' (혼합)' : ''}`,
+                                r.hq_fee, r.net_settlement, r.due_date, r.status]);
     return out(fmt, `franchise-settlement-${period}.csv`, [
       ['망고아이 가맹점 정산서', label],
-      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요 · B2B/B2C 동일)`],
+      [hqFeeParam != null
+        ? `본사 수수료율: ${(hqFeeParam * 100).toFixed(1)}% (?hq_fee= 로 강제 지정한 «만약» 값 — 이대로 보내지 마세요)`
+        : `본사 수수료율: 실효 ${(effRateAll * 100).toFixed(1)}% · 기본값 ${(DEFAULT_HQ_RATE * 100).toFixed(0)}%(지점 ${((1 - DEFAULT_HQ_RATE) * 100).toFixed(0)}%) · 지사·대리점별 수동 설정 우선${anyMixed ? ' · 가맹점마다 다름' : ''}`],
       ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님) · 총 매출 = 장부 결제 + B2B 직접입금'],
       [],
       HEAD,
       ...BODY,
-      ['합계', '', '', totals.book, totals.b2b, totals.gross, totals.fee, totals.net, '', ''],
+      ['합계', '', '', totals.book, totals.b2b, totals.gross, `${(effRateAll * 100).toFixed(1)}%`, totals.fee, totals.net, '', ''],
       [],
       ['매출 총계 (장부 결제 + B2B)', revenueTotal],
       ['  장부 결제 (카페24 등)', bookTotal],
