@@ -163,6 +163,18 @@ export async function importCafe24Attendance(
   env: SyncEnv, off: number, lim: number, sinceDate?: string, untilDate?: string,
 ): Promise<{ imported: number; done: boolean }> {
   try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_room ON attendance(room_id);`); } catch {}
+  /* 👩‍🏫 (2026-08-18) 강사 칸 — 「수업일지가 한 건도 안 써진다」의 뿌리.
+     옛 LMS 수업은 여기로 179,998건이 들어와 있는데 **누가 가르쳤는지가 없었다**.
+     강사 화면은 자기 수업 목록을 보고 「일지 쓰기」 버튼을 그리는데, 목록을 만들
+     방법이 없으니 버튼이 뜰 일도 없었다(실측 2026-08-18: 수업일지 누적 0건 —
+     student_evaluations 104건은 전부 데모·시드였다).
+     ⚠️ Neo4j 는 **없는 속성을 물어도 오류가 아니라 null** 을 준다. 그래서 아래 Cypher 에
+        teacher_id 를 넣어도 카페24 :Class 에 그 속성이 없으면 조용히 null 이 들어올 뿐
+        동기화가 깨지지 않는다. 즉 이 한 줄이 «속성이 오는가» 를 하룻밤에 실측해 준다.
+        (확인: SELECT COUNT(*) FROM attendance WHERE room_id LIKE 'c24-%' AND teacher_uid IS NOT NULL) */
+  try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN teacher_uid TEXT`); } catch {}
+  try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN teacher_name TEXT`); } catch {}
+  try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_teacher ON attendance(teacher_uid, date);`); } catch {}
   if (off === 0) {
     if (sinceDate) {
       // DELETE 창 = INSERT 창과 동일 (양쪽 경계). untilDate 없으면 상한 없는 삭제 금지 → until 필수화.
@@ -179,12 +191,14 @@ export async function importCafe24Attendance(
   const { fields, values } = await runCypher(env,
     `MATCH (c:Class) ${where}
      RETURN c.class_id AS class_id, c.user_id AS user_id, c.start_ms AS start_ms, c.end_ms AS end_ms,
-            c.date AS date, c.class_state AS class_state
+            c.date AS date, c.class_state AS class_state,
+            coalesce(c.teacher_id, c.teacher_no, c.t_id) AS teacher_id,
+            coalesce(c.teacher_name, c.teacher) AS teacher_name
      ORDER BY c.class_id SKIP $off LIMIT $lim`,
     params, 'READ');
   const ins = env.DB.prepare(
-    `INSERT INTO attendance (room_id, user_id, username, role, joined_at, left_at, status, date, total_session_ms)
-     VALUES (?, ?, ?, 'student', ?, ?, ?, ?, ?)`);
+    `INSERT INTO attendance (room_id, user_id, username, role, joined_at, left_at, status, date, total_session_ms, teacher_uid, teacher_name)
+     VALUES (?, ?, ?, 'student', ?, ?, ?, ?, ?, ?, ?)`);
   // 🔒 username 조회용 캐시 — nightlyCafe24Refresh 순서상 students_erp 는 attendance 보다 먼저 동기화된다.
   const nameCache = new Map<string, string | null>();
   async function nameFor(uid: string): Promise<string | null> {
@@ -199,6 +213,22 @@ export async function importCafe24Attendance(
     nameCache.set(uid, name);
     return name;
   }
+  /* 강사 이름은 카페24가 주면 그대로 쓰고, 안 주면 D1 teachers 원부에서 찾는다.
+     ⛔ 이름으로 강사를 «정하지» 않는다 — 표시용으로만 쓴다. 이름 문자열로 사람을 정하면
+        'Anna' 가 'H-ANNA-H' 에 붙던 사고(api-teacher.ts 위쪽 기록)가 여기서 재현된다.
+        담당 판정의 정본은 어디까지나 teacher_uid(=teachers.id) 다. */
+  const tNameCache = new Map<string, string | null>();
+  async function teacherNameFor(tid: string): Promise<string | null> {
+    if (tNameCache.has(tid)) return tNameCache.get(tid)!;
+    let name: string | null = null;
+    try {
+      const row = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`)
+        .bind(tid).first<{ name: string }>();
+      name = row?.name || null;
+    } catch { /* teachers 미존재 시 null 로 계속 */ }
+    tNameCache.set(tid, name);
+    return name;
+  }
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {
     const rows = rowsToObjects(fields, values.slice(i, i + 400));
@@ -210,7 +240,10 @@ export async function importCafe24Attendance(
       const status = Number(r.class_state) === 2 ? 'present' : 'scheduled';
       const uid = String(r.user_id ?? '');
       const username = await nameFor(uid);
-      stmts.push(ins.bind(`c24-${r.class_id}`, uid, username, start || null, end || null, status, r.date || null, end > start ? end - start : 0));
+      // 카페24에 강사 속성이 아직 없으면 tid 는 빈 문자열 → 두 칸 다 null 로 들어간다(동기화는 계속된다).
+      const tid = r.teacher_id == null ? '' : String(r.teacher_id);
+      const tname = tid ? (r.teacher_name ? String(r.teacher_name) : await teacherNameFor(tid)) : null;
+      stmts.push(ins.bind(`c24-${r.class_id}`, uid, username, start || null, end || null, status, r.date || null, end > start ? end - start : 0, tid || null, tname));
     }
     await env.DB.batch(stmts);
     imported += Math.min(400, values.length - i);
