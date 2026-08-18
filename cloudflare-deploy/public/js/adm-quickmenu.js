@@ -49,7 +49,11 @@
     // 🔐 (2026-08-18) 역할 숨김 표시가 «.rbac-hide» 클래스로 바뀌었다.
     //   ⚠️ getComputedStyle 만으로는 못 잡는다 — #legacy-cards 복구 규칙(display:block !important)이
     //      이겨서 감춘 카드도 'block' 으로 나온다. 클래스를 먼저 본다.
-    if (el.classList && el.classList.contains('rbac-hide')) return false;
+    // ⚠️ 이 파일은 adm-core.js 보다 «먼저» 로드된다(defer 라 실행은 core 가 먼저 끝나지만,
+    //    순서가 바뀌어도 죽지 않도록 없을 때의 대비를 남긴다).
+    if (window.mangoiCardHidden) { if (window.mangoiCardHidden(el)) return false; }
+    else if (el.classList && (el.classList.contains('rbac-hide') ||
+                              el.classList.contains('ph118-card-hidden'))) return false;
     if (el.style && el.style.display === 'none') return false;
     try { if (getComputedStyle(el).display === 'none') return false; } catch (e) { }
     return true;
