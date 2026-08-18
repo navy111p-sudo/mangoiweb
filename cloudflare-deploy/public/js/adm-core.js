@@ -1576,7 +1576,10 @@ function _applyPayrollTeacherUI() {
     });
     // 신규 강사 등록 폼 숨김
     var tnew = document.getElementById('t-new-btn');
-    if (tnew) { var d = tnew.closest('details'); if (d) d.style.display = 'none'; }
+    // 🔐 (2026-08-18) details 는 인라인 display:none 이 안 먹는다(#legacy-cards 복구 규칙).
+    //   버튼 4개는 <button> 이라 위에서 정상적으로 감춰지는데 이 폼만 남아, 강사 화면이
+    //   «버튼은 없고 등록 폼만 있는» 어중간한 모양이 됐었다. 그래서 클래스로 감춘다.
+    if (tnew) { var d = tnew.closest('details'); if (d) d.classList.add('rbac-hide'); }
     // 안내 배너 1회 삽입
     var card = document.getElementById('card-payroll');
     if (card && !document.getElementById('payroll-teacher-note')) {
@@ -9203,8 +9206,10 @@ let _globalSearchIndex = [];  // [{ kind, kindLabel, label, sub, action }]
 function buildMenuIndex() {
   _menuIndex = [];
   document.querySelectorAll('details.menu-card').forEach((d, idx) => {
-    // 🔐 RBAC: display:none 인 카드는 사이드바에 안 띄움
-    if (d.style.display === 'none') return;
+    // 🔐 RBAC: 역할로 감춘 카드는 사이드바에 안 띄움
+    //   (2026-08-18) 숨김 표시가 «인라인 display» → «.rbac-hide 클래스» 로 바뀌었다.
+    //   인라인 검사도 남겨 둔다 — 옛 방식으로 감추는 코드가 남아 있어도 계속 걸러진다.
+    if (d.classList.contains('rbac-hide') || d.style.display === 'none') return;
     // 1) 카드 자체에 data-menu-label-ko/en 이 있으면 최우선 (배지 텍스트 빨림 방지)
     let ko = d.getAttribute('data-menu-label-ko') || '';
     let en = d.getAttribute('data-menu-label-en') || '';
@@ -9283,7 +9288,8 @@ function buildMenuIndex() {
   ];
   MENU_ALIASES.forEach(function(a){
     var el = document.getElementById(a.card);
-    if (!el || el.style.display === 'none') return;  // RBAC 숨김 카드는 제외
+    // RBAC 숨김 카드는 제외 — (2026-08-18) 숨김 표시가 .rbac-hide 클래스로 바뀌었다
+    if (!el || el.classList.contains('rbac-hide') || el.style.display === 'none') return;
     _globalSearchIndex.push({
       kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
       label: a.label, labelEn: a.en || a.label,   // en 이 있으면 영문 라벨로 (강사 다수 필리핀)
@@ -13885,7 +13891,12 @@ window.rebuildGlobalSearchIndex = function() {
         const policy = CARD_POLICY[el.id];
         visible = policy ? levelOK(policy) : isHQ; // 정책 미등록 카드는 본사 전용
       }
-      el.style.display = visible ? '' : 'none';
+      // 🔐 (2026-08-18) 인라인 display 가 아니라 «.rbac-hide» 클래스로 감춘다.
+      //   인라인은 admin-inline-c.css 의 «카드들 보이게» 복구 규칙(!important)에 져서
+      //   PC(≥1024px)에서 하나도 안 감춰지고 있었다. 자세한 경위는 그 CSS 주석 참고.
+      //   ⚠️ 이 클래스를 «읽는» 쪽(buildMenuIndex·검색색인·바로가기·리텐션 허브)과 짝이다.
+      el.classList.toggle('rbac-hide', !visible);
+      el.style.display = '';   // 옛 방식이 남긴 인라인 값 청소(있으면)
     });
     // 사이드바 즉시 재인덱싱 (display:none 카드 제외됨)
     if (typeof buildMenuIndex === 'function') buildMenuIndex();

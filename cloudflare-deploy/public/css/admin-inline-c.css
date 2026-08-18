@@ -3007,6 +3007,28 @@ button.chip:hover,
     }
   }
 
+  /* ═══ 🔐 역할 숨김 전용 클래스 (2026-08-18) ═══════════════════════════════
+     위 «카드들 보이게» 복구 규칙(display:block !important)이 **인라인 display:none 을 이긴다**
+     — 작성자 !important 가 인라인 비-!important 보다 세다. 그래서 예전처럼
+     el.style.display='none' 으로 역할별 카드를 감추면 PC(≥1024px)에서 그대로 보였다.
+     (2026-08-18 실측: 메뉴 카드 85개 중 #legacy-cards 안 71개가 무력화. 경영진 전용
+      «권한 관리»·«이탈 관리» 가 본사 매니저 화면에 노출됐다.)
+
+     ⛔ 복구 규칙을 지워서 풀면 안 된다 — 그것을 넣은 이유가 따로 있다(ph87 이 #legacy-cards 를
+        숨겨 「메뉴를 눌러도 카드가 안 보인다」 사고가 났던 것의 복구책이다).
+     ✅ 그래서 숨김을 «인라인» 이 아니라 «이 클래스» 로 한다:
+        · #legacy-cards details.rbac-hide → 특정도 (0,1,1,1) > 복구 규칙 (0,1,0,1)
+        · #legacy-cards .rbac-hide        → 특정도 동률이지만 소스 순서가 뒤라 이긴다
+        · .rbac-hide                      → #legacy-cards 밖 카드 14개 + 모바일 폭 담당
+        미디어쿼리 **밖**에 두는 것이 중요하다 — 안에 두면 휴대폰에서 안 먹는다.
+     ⚠️ 이 클래스를 쓰는 곳(붙이는 쪽·읽는 쪽)이 짝이다. 한쪽만 고치면 판정이 어긋난다:
+        붙임 adm-core.js _applyMenuVisibility() · _applyPayrollTeacherUI()
+        읽음 adm-core.js buildMenuIndex()/검색색인 · adm-quickmenu.js visible()
+             adm-quick-access.js roleHidden() · adm-p1.js memberVisible()/검색색인 */
+  #legacy-cards details.rbac-hide,
+  #legacy-cards .rbac-hide,
+  .rbac-hide { display: none !important; }
+
   /* [성능 2026-06-12] legacy-cards 첫 표시 시 100+ 카드 동시 렌더 → 수십초 메인스레드 프리즈 방지.
      화면 밖 카드는 content-visibility:auto 로 렌더 생략(스크롤·scrollIntoView 시 자동 렌더). */
   #legacy-cards details, #legacy-cards .table-card {

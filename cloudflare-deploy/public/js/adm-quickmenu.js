@@ -46,6 +46,10 @@
   // 카드가 지금 이 계정에게 보이는가 (역할별 숨김 반영)
   function visible(el) {
     if (!el) return false;
+    // 🔐 (2026-08-18) 역할 숨김 표시가 «.rbac-hide» 클래스로 바뀌었다.
+    //   ⚠️ getComputedStyle 만으로는 못 잡는다 — #legacy-cards 복구 규칙(display:block !important)이
+    //      이겨서 감춘 카드도 'block' 으로 나온다. 클래스를 먼저 본다.
+    if (el.classList && el.classList.contains('rbac-hide')) return false;
     if (el.style && el.style.display === 'none') return false;
     try { if (getComputedStyle(el).display === 'none') return false; } catch (e) { }
     return true;
