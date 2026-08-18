@@ -711,16 +711,27 @@
      조직 관리 카드 하나에 대표지사·지사·대리점 세 칸이 들어 있어서, 카드만 열어 주면
      쓰는 사람이 또 한 번 그 칸을 찾아 눌러야 한다. 형제 칸은 건드리지 않는다 —
      닫아 버리면 «방금 열어 둔 게 왜 닫히지» 가 된다.
-     ⚠️ 여기서 scrollIntoView 를 하지 않는다. 바로 앞의 showOnly 가 alignTop 으로
+     ⚠️ 여기서 scrollIntoView 를 «직접» 부르지 않는다. 바로 앞의 showOnly 가 alignTop 으로
         1.8초 동안 «대표 카드를 맨 위로» 를 계속 다시 맞추기 때문에, 여기서 스크롤하면
-        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다. 카드가 맨 위에 오면 세 칸의
-        제목줄은 어차피 첫 화면 안에 들어온다(한 줄짜리 summary 세 개). */
+        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다.
+        대신 **연 칸을 돌려주고, 부르는 쪽에서 alignTop 의 «목표» 를 그 칸으로 바꾼다** —
+        같은 기계를 그대로 쓰므로 서로 싸우지 않는다(alignTop 은 진행 중인 따라가기를
+        스스로 취소한다). 스크롤 코드를 새로 만들지 않는 것이 요점이다.
+
+     🔴 (2026-08-19) 「눌러도 안 열린다」 — 원래는 카드만 맨 위로 올리고 말았다.
+        전제가 «카드가 맨 위면 그 칸 제목줄도 첫 화면 안에 들어온다» 였는데,
+        그건 조직 관리 카드처럼 **한 줄짜리 칸이 세 개뿐일 때만** 맞다.
+        회계 카드는 칸이 12개고 「📊 매출 대시보드」는 그중 9번째다.
+        실측(1440×900): 칸은 open=true 인데 제목줄이 top 1492px — 화면 아래로 592px
+        벗어나 있었다. 쓰는 사람에게는 «열리지 않았다» 로 보인다(2026-08-19 사장님 제보).
+        비교로 조직 그룹 「대리점」은 top 440px 이라 화면 안이었다 — 그래서 그동안 안 걸렸다. */
   function openSubSection(item) {
-    if (!item || !item.openSub) return;
+    if (!item || !item.openSub) return null;
     var el = document.getElementById(item.openSub);
-    if (!el) return;
+    if (!el) return null;
     var n = el;
     while (n && n.tagName === 'DETAILS') { n.open = true; n = n.parentElement ? n.parentElement.closest('details') : null; }
+    return el;
   }
 
   function select(key) {
@@ -734,7 +745,10 @@
           그래야 지도가 «지금 여기» 를 찍을 수 있다. */
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
-    openSubSection(it);
+    /* 연 칸이 있으면 «그 칸» 을 맨 위로 — showOnly 가 방금 시작한 카드 따라가기를
+       alignTop 이 스스로 취소하고 목표를 바꾼다(위 openSubSection 주석 참고). */
+    var openedSub = openSubSection(it);
+    if (openedSub) alignTop(openedSub);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
     if (bar) {
@@ -997,9 +1011,17 @@
          들어오면 그쪽에 양보하고 손을 뗀다. 예: ⚡자주 쓰는 기능의 「오늘 수업 (바로 입장)」은
          카드 안의 하위 항목(sm-today-classes)까지 내려가야 하는데, 우리가 계속 카드 맨 위로
          되돌리면 그 이동이 매번 취소된다. 대표 카드 자신으로 오는 스크롤(jumpToMenu 등)은
-         우리와 목적지가 같으므로 그대로 둔다. */
+         우리와 목적지가 같으므로 그대로 둔다.
+
+         🔴 (2026-08-19) «조상» 으로 오는 스크롤도 양보하면 안 된다 — 그게 「눌러도 안 열린다」의
+            정체였다. openSub 항목은 카드 «안의 칸» 을 목적지로 삼는데, adm-s11(ph97)이 같은
+            클릭에서 50ms 뒤 **그 칸이 든 카드** 를 따로 scrollIntoView 한다(smooth + rAF 로 두 번).
+            카드는 우리 목적지가 아니므로 이 줄이 곧바로 손을 떼 버렸고, 그래서 칸은 open=true 인데
+            화면은 카드 맨 위에 머물렀다(실측 1440×900: 칸 제목줄 top 1492px — 화면 밖 592px).
+            조상으로 오는 스크롤은 «다른 곳» 이 아니라 **같은 목적지의 거친 판** 이다. 양보하지 않는다. */
       try {
-        if (!alignSelf && alignRelease && alignLead && this !== alignLead) alignRelease();
+        if (!alignSelf && alignRelease && alignLead &&
+            this !== alignLead && !this.contains(alignLead)) alignRelease();
       } catch (e) { /* 무시 */ }
       return orig.apply(this, arguments);
     };

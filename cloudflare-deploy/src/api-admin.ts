@@ -9,6 +9,7 @@
 //   매칭 안 되면 null 반환 → handleMangoApi 가 나머지 라우팅 계속.
 // ═══════════════════════════════════════════════════════════════════════
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
@@ -298,6 +299,63 @@ function calcWeightedTotal(e: {
  *      30분을 가르치고 20분 값을 받는다(임금 삭감 → 강사 이탈).
  *      이제 total_10min_units 가 있으면 그것을 쓰고, 없으면(=과거 달) 예전 식 그대로.
  */
+/* ═══ 카페24 급여 인제스트를 «이름으로» 잇는다 (2026-08-18 사장님 요청 3안) ═══
+   teacher_payroll_auto 는 카페24 서버가 매달 밀어 넣는 표다(/api/payroll-ingest).
+   ⛔ 그 표의 teacher_id 는 **카페24 MySQL 번호**로, D1 의 teachers.id(1~29)·
+      teacher_profiles.id(4~37) 와 완전히 다른 번호 체계다. 실측(2026-08-18) 9~196 이고
+      겹치는 구간에서 서로 **다른 사람**을 가리킨다:
+        카페24 9 =「테스트 강사」 · teachers 9 = ZEE · profiles 9 = Teacher Hannah
+        카페24 24 = Teacher Mariane · teachers 24 = HANNAH · profiles 24 = Teacher JP
+      번호로 이으면 «남의 급여» 가 된다. 이 파일이 이미 profByTeacherId 다리를 두고
+      「번호 직조회는 다른 번호 체계라 남의 프로필이 나온다」고 적어 둔 것과 같은 함정이다.
+   ✅ 그래서 **이름**으로 잇는다. 정확 일치가 우선이고, 안 맞으면 «Teacher » 접두사를 뗀
+      정규화 이름으로 한 번 더 본다(카페24 «Teacher Faye» ↔ 명부 «FAYE» 같은 경우).
+      정규화 후 같은 이름이 둘 이상이면 **잇지 않는다** — 애매한 연결은 틀린 급여보다 낫다.
+      (실측: 정규화 후 중복 이름 0건, 32명 중 26명이 정확 일치로 이어진다) */
+function normTeacherName(v: any): string {
+  return String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/^teacher\s+/, '');
+}
+
+async function loadCafe24PayrollMonth(env: { DB: D1Database }, year: number, month: number) {
+  let rows: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT teacher_id, teacher_name, completed_classes, total_classes, pay_php, total_minutes
+         FROM teacher_payroll_auto WHERE year = ? AND month = ?`
+    ).bind(year, month).all();
+    rows = (rs.results || []) as any[];
+  } catch { /* 표·칸이 없는 옛 DB — 없는 것으로 본다(화면은 종전대로 D1 계산만) */ }
+
+  const byName: Record<string, any> = {};
+  const dupe = new Set<string>();
+  for (const r of rows) {
+    const k = normTeacherName(r.teacher_name);
+    if (!k) continue;
+    if (byName[k]) dupe.add(k); else byName[k] = r;
+  }
+  for (const k of dupe) delete byName[k];        // 같은 이름이 둘이면 잇지 않는다
+  const matched = new Set<string>();
+
+  return {
+    rows,
+    /** 명부 이름들(한글명·영문명) 중 하나라도 카페24 행과 이어지면 그 행을 준다. */
+    find(...names: any[]): any | null {
+      for (const n of names) {
+        const k = normTeacherName(n);
+        if (k && byName[k]) { matched.add(k); return byName[k]; }
+      }
+      return null;
+    },
+    /** 카페24에는 있는데 화면 명부와 못 이은 강사 — 화면이 «몇 명이 빠졌는지» 알려 줄 수 있게. */
+    unmatched(): any[] {
+      return Object.keys(byName).filter(k => !matched.has(k)).map(k => ({
+        teacher_id: byName[k].teacher_id, teacher_name: byName[k].teacher_name,
+        completed_classes: byName[k].completed_classes, pay_php: byName[k].pay_php,
+      }));
+    },
+  };
+}
+
 /**
  * 🪧 «이 강사는 이번 달 길이를 채워야 한다» 를 화면이 알려 주기 위한 명단 (사장님 요청 C안).
  *
@@ -365,9 +423,13 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
   } else {
     let ing: any = null;
     try {
-      ing = await env.DB.prepare(
-        `SELECT total_minutes FROM teacher_payroll_auto WHERE teacher_id = ? AND year = ? AND month = ?`
-      ).bind(teacherId, year, month).first();
+      /* ⛔ 여기서 teacher_id 로 조회하면 안 된다 — teacher_payroll_auto 의 번호는 카페24 번호라
+         우리 teachers.id 와 겹치는 구간에서 **다른 사람**을 가리킨다(위 loadCafe24PayrollMonth
+         주석의 실측 참고). 2026-08-18 에 번호 조회로 넣었다가 같은 날 바로잡았다.
+         지금까지 사고가 안 난 이유는 total_minutes 가 아직 전부 NULL 이라 결과가 없었기 때문이고,
+         카페24 가 분을 보내기 시작하는 순간 남의 분으로 급여가 나갔을 자리다. */
+      const c24 = await loadCafe24PayrollMonth(env, year, month);
+      ing = c24.find(t.name);
     } catch { /* 칸이 아직 없는 옛 DB — 종전대로 ③ */ }
     if (ing && Number(ing.total_minutes) > 0) {
       tenMinUnits = Number(ing.total_minutes) / 10;
@@ -909,7 +971,7 @@ export async function handleAdminApi(
         safe(() => env.DB.prepare(
           `SELECT COALESCE(SUM(amount_krw), 0) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL
+           WHERE status = 'paid' AND paid_at IS NOT NULL AND ${notSeedSql()}
              AND paid_at >= ? AND paid_at < ?${_uidScope}`
         ).bind(startMs, endMs, ..._sb).first<{ revenue: number; pay_count: number }>(),
         { revenue: 0, pay_count: 0 } as any),
@@ -1125,7 +1187,10 @@ export async function handleAdminApi(
 
       // 안전망 - 필요 테이블 모두 ensure (캐시 미스일 때만 → 요청당 왕복 절약)
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, username TEXT, name TEXT, phone TEXT, parent_phone TEXT, status TEXT, created_at INTEGER);`); } catch {}
-      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
+      /* ⚠️ memo 칸이 빠져 있으면 notSeedSql() 이 «no such column: memo» 로 죽는다.
+         (지금은 fetch1 이 삼켜서 KPI 가 조용히 0 이 될 뿐이지만, 새 환경에서 매출이
+          0 으로 보이는 게 더 나쁘다.) 다른 ensure 문들과 같은 모양으로 맞춘다. */
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, paid_at INTEGER, amount_krw INTEGER NOT NULL, method TEXT, memo TEXT, status TEXT DEFAULT 'paid', created_at INTEGER NOT NULL);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, scheduled_date TEXT, status TEXT, created_at INTEGER);`); } catch {}
 
       const now = Date.now();
@@ -1169,8 +1234,8 @@ export async function handleAdminApi(
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE (status IN ('정상','활동','active') OR status IS NULL OR status = '')${_erpScope}`, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ?${_erpScope}`, thisMonthStart, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM students_erp WHERE created_at >= ? AND created_at < ?${_erpScope}`, lastMonthStart, lastMonthEnd, ..._sb),
-        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
-        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, thisMonthStart, thisMonthEnd, ..._sb),
+        fetch1(`SELECT IFNULL(SUM(amount_krw),0) AS sum, COUNT(*) AS n FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope}`, lastMonthStart, lastMonthEnd, ..._sb),
         fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, thisMonthStart, thisMonthEnd),
         fetch1(`SELECT COUNT(*) AS n FROM point_rule_log WHERE rule_code='attendance' AND triggered_at >= ? AND triggered_at < ?`, lastMonthStart, lastMonthEnd),
         fetch1(`SELECT IFNULL(AVG(score_overall),0) AS avg, COUNT(*) AS n, IFNULL(SUM(parent_notified),0) AS notified FROM student_evaluations WHERE created_at >= ? AND created_at < ?`, thisMonthStart, thisMonthEnd),
@@ -1184,7 +1249,7 @@ export async function handleAdminApi(
         fetch1(`SELECT COUNT(*) AS n FROM push_subscriptions WHERE enabled = 1`),
         fetch1(`SELECT COUNT(*) AS sent, IFNULL(SUM(CASE WHEN fetched_at IS NOT NULL THEN 1 ELSE 0 END),0) AS fetched FROM push_queue WHERE queued_at >= ? AND queued_at < ?`, thisMonthStart, thisMonthEnd),
         fetchAll(`SELECT CAST((paid_at - ?) / 86400000 AS INTEGER) AS d, IFNULL(SUM(amount_krw),0) AS sum
-                   FROM student_payments WHERE status='paid' AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
+                   FROM student_payments WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?${_uidScope} GROUP BY d`,
                  revBase, revBase, revBase + 7 * 86400000, ..._sb),
       ]) as any[];
 
@@ -1322,7 +1387,7 @@ export async function handleAdminApi(
         const rows = await env.DB.prepare(
           `SELECT ${labelExpr} AS label, SUM(amount_krw) AS revenue, COUNT(*) AS pay_count
            FROM student_payments
-           WHERE status = 'paid' AND paid_at IS NOT NULL AND paid_at BETWEEN ? AND ?${_uidScope}
+           WHERE status = 'paid' AND paid_at IS NOT NULL AND ${notSeedSql()} AND paid_at BETWEEN ? AND ?${_uidScope}
            GROUP BY ${groupExpr}
            ORDER BY label ASC`
         ).bind(fromMs, toMs, ..._sb).all<{ label: string; revenue: number; pay_count: number }>();
@@ -2101,6 +2166,17 @@ export async function handleAdminApi(
       const savedMap: any = {};
       (saved.results || []).forEach((s: any) => { savedMap[s.teacher_id] = s; });
 
+      /* 📦 (2026-08-18 사장님 요청 3안) 카페24가 보낸 그 달 급여를 함께 싣는다.
+         [왜] 이 화면은 D1 class_schedules(예약표)로만 계산하는데, 실제 수업은 옛 LMS 에서
+              이뤄져 예약표에는 «자리 표시»만 들어온다. 실측(2026-08-18): 673행 중 lms·시드를
+              빼면 15행·강사 5명뿐이라, 33명 중 28명이 0회로 나왔다(사장님 캡처).
+         [무엇] D1 계산이 0회인 강사는 카페24 값으로 채운다. **0회일 때만** 채우는 이유는,
+              이 화면의 공제·상세가 전부 예약표 수업 한 건씩에서 나오기 때문이다. 둘을 섞으면
+              합계와 상세가 서로 다른 이야기를 하게 된다.
+         [공제] 카페24로 채운 줄에는 공제를 붙이지 않는다 — 그 값에는 수업별 피드백·지각
+              판정 근거가 없다. 없는 근거로 깎으면 그게 곧 잘못된 임금 삭감이다. */
+      const c24 = await loadCafe24PayrollMonth(env, year, month);
+
       const rows: any[] = [];
       let totalAmount = 0, totalLessons = 0, totalDeduction = 0, totalFinal = 0, paidCount = 0;
       for (const t of (data.teachers || [])) {
@@ -2115,10 +2191,27 @@ export async function handleAdminApi(
         //    계산된다. 화면이 «금액이 0» 과 «단가가 없어 계산 불가» 를 구분할 수 있게 표시한다.
         const rateMissing = !(rate20 > 0);
         const s = savedMap[t.id];
-        totalAmount += a.pay_amount;
-        totalLessons += a.lesson_count;
-        totalDeduction += a.deduction_total;
-        totalFinal += a.final_amount;
+
+        /* 📦 카페24 보충 — D1 예약표에 이 달 수업이 한 건도 없을 때만. 이름으로 잇는다(번호 금지). */
+        const cf = c24.find(t.korean_name, t.english_name);
+        const useC24 = !!cf && a.lesson_count === 0 && Number(cf.completed_classes) > 0;
+        const c24Minutes = cf
+          ? (Number(cf.total_minutes) > 0
+              ? Number(cf.total_minutes)
+              // 분을 아직 안 보내면 예전 규칙(전부 20분)으로 «환산해 보여 준다». 정확한 값이
+              // 아니라는 것은 c24_minutes_real: false 로 화면이 구분한다.
+              : Number(cf.completed_classes || 0) * DEFAULT_CLASS_MINUTES)
+          : 0;
+        const rowLessons  = useC24 ? Number(cf.completed_classes || 0) : a.lesson_count;
+        const rowMinutes  = useC24 ? c24Minutes : a.total_minutes;
+        const rowAmount   = useC24 ? Math.round(Number(cf.pay_php) || 0) : a.pay_amount;
+        const rowDeduct   = useC24 ? 0 : a.deduction_total;
+        const rowFinal    = useC24 ? rowAmount : a.final_amount;
+
+        totalAmount += rowAmount;
+        totalLessons += rowLessons;
+        totalDeduction += rowDeduct;
+        totalFinal += rowFinal;
         if (s && s.status === 'paid') paidCount++;
         rows.push({
           teacher_id: t.id,
@@ -2129,13 +2222,20 @@ export async function handleAdminApi(
           level_label_ko: _lvl ? _lvl.label_ko : null,
           level_label_en: _lvl ? _lvl.label_en : null,
           rate_per_20min: rate20,
-          rate_missing: rateMissing,
-          lesson_count: a.lesson_count,
-          total_minutes: a.total_minutes,
-          calculated_amount: a.pay_amount,
+          // 카페24 금액을 쓰는 줄은 «단가 미지정» 경고를 띄우지 않는다 — 금액이 이미 카페24에서 온다
+          rate_missing: rateMissing && !useC24,
+          lesson_count: rowLessons,
+          total_minutes: rowMinutes,
+          calculated_amount: rowAmount,
           // 💼 G3 — 공제 반영 필드
-          deduction_total: a.deduction_total,
-          final_amount: a.final_amount,
+          deduction_total: rowDeduct,
+          final_amount: rowFinal,
+          // 📦 이 줄의 숫자가 어디서 왔나 — 'd1'(예약표 계산) / 'cafe24'(카페24 인제스트)
+          amount_source: useC24 ? 'cafe24' : 'd1',
+          // 카페24가 «분» 을 보냈나. false 면 «완료 수업 × 20분» 으로 환산한 참고값이다.
+          c24_minutes_real: useC24 ? Number(cf.total_minutes) > 0 : null,
+          c24_pay_php: cf ? Math.round(Number(cf.pay_php) || 0) : null,
+          c24_lessons: cf ? Number(cf.completed_classes || 0) : null,
           finish_count: a.finish_count,
           absent_count: a.absent_count,
           teacher_no_show_count: a.teacher_no_show_count,
@@ -2189,6 +2289,19 @@ export async function handleAdminApi(
           unpaid_count: rows.length - paidCount,
         },
         levels: (data.levels || []).map((r: any) => ({ code: r.code, label_ko: r.label_ko, label_en: r.label_en, rate_per_20min: r.rate_per_20min })),
+        /* 📦 카페24에는 있는데 화면 명부와 이름이 안 이어진 강사 — 조용히 빠지면 «급여를 안 준»
+           사람이 생긴다. 관리자 화면이 몇 명인지 알려 줄 수 있게 함께 내려준다.
+           (실측 2026-08-18: 32명 중 「테스트 강사」·「test teacher」·「스케줄변경중」 같은
+            실제 강사가 아닌 이름이 섞여 있어, 0 이 아니라고 곧 사고인 것은 아니다)
+
+           🔴 강사 본인 로그인에게는 **빈 배열**을 준다. 위 루프가 «본인이 아니면 continue» 로
+              건너뛰므로 matched 에 자기 이름 하나만 담기고, unmatched() 가 **나머지 31명의
+              이름·완료수업·pay_php 를 통째로** 실어 보내게 된다(2026-08-18 함정 대조에서 잡음).
+              화면(adm-q3)이 강사 뷰에서 안 그리는 것만으로는 부족하다 — CLAUDE.md 의
+              「서버 403 과 화면 감추기 둘 다」 그대로, 화면만 막으면 API 를 직접 불러 뚫린다.
+              /api/admin/payroll/ 은 강사가 «본인 급여명세» 를 보라고 일부러 열어 둔 경로라
+              더더욱 서버에서 잘라야 한다. */
+        c24_unmatched: _prOwn ? [] : c24.unmatched(),
         rows,
       });
     }

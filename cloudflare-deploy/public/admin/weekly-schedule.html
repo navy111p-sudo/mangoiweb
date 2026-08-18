@@ -2082,43 +2082,117 @@ function wizPickMatch(i){
 }
 window.wizPickMatch=wizPickMatch;
 
-function wizFinalize(){
+/* 💾 (2026-08-18) 등록 완료 — **서버에 실제로 저장한다.**
+   [무엇이 문제였나] 지금까지 이 함수는 addSlot() 만 불렀다. addSlot 은 SLOTS[...]=s 로
+     **브라우저 메모리만** 바꾼다(이 파일 852줄). 그런데 화면에는 「🎉 등록 완료 /
+     성공적으로 등록되었습니다」가 떴다. 새로고침하면 사라진다 — 담당자는 학생을 배정했다고
+     믿고 넘어가는데 아무 데도 안 남는다. #276「본사 직원 등록이 시연용 껍데기였던 것」과 같은 종류.
+   [어떻게 고쳤나] 이미 배선이 다 된 POST /api/admin/class-schedules 로 보낸다
+     (학생 상세보기의 «➕ 수업 예약 등록» 이 쓰는 그 API. 겹침 검사·강사 휴가 검사까지 들어 있다).
+   ⚠️ user_id 를 **보내지 않는다.** 이 마법사는 이름만 받는데, 예전에는 st_<타임스탬프> 를
+      지어내 붙였다. 그대로 보내면 명부에 없는 유령 uid 로 저장돼 어느 화면에서도 안 보인다.
+      이름만 보내면 서버가 students_erp 에서 진짜 학생을 찾아 붙이고, 없으면 student_not_found
+      로 거절한다 — 그게 맞는 동작이다(없는 학생에게 수업을 배정할 수는 없다).
+   ⚠️ 요일 번호 체계가 다르다. 이 화면은 0=월…6=일, 서버는 0=일…6=토 → (dow+1)%7.
+      (CLAUDE.md 「요일 번호 체계를 맞춘다」와 같은 함정이다)
+   ⚠️ 성공 화면은 **실제로 저장된 개수**로 그린다. 0건이면 성공이라고 하지 않는다. */
+async function wizFinalize(){
   var L=currentLang==='ko';
   var s=wizState;
   if(!s.chosenMatch){alert(L?'추천 카드 하나를 클릭하여 선택하세요':'Click one recommended card');return;}
   var m=s.chosenMatch;
-  // 슬롯 등록 - 첫 몇 개만 자동 배정 (또는 전체)
-  var assigned=0;
   var dur=(typeof defaultDuration!=='undefined')?defaultDuration:20;
-  m.slots.slice(0,3).forEach(function(sl){
-    addSlot(m.teacher.id,sl.date,sl.hour,{
-      type:'1on1',
-      students:[{name:s.student.name,uid:s.student.uid}],
-      start_date:sl.date,
-      end_date:(function(){var d=new Date(sl.date);d.setMonth(d.getMonth()+3);return fmtISO(d);})(),
-      // 🙂 고른 성향을 메모에 함께 남긴다 — 안 그러면 위저드를 닫는 순간 사라진다
-      note:(L?'레벨 ':'Level ')+s.student.level+(s.personality.length?(L?' · 성향 ':' · ')+wizPersonalityLabel(L):''),
-      duration_min:dur
+  var note=(L?'레벨 ':'Level ')+s.student.level
+          +(s.personality.length?(L?' · 성향 ':' · ')+wizPersonalityLabel(L):'')
+          +(L?' · 주간 시간표 배정 마법사':' · assigned via weekly wizard');
+
+  // 저장 중 화면 — 누르고 나서 아무 반응이 없으면 두 번 누른다
+  modalBox.innerHTML='<div class="modal wiz-modal"><div class="modal-head">'
+    +'<div class="modal-title">💾 '+(L?'저장 중…':'Saving…')+'</div></div>'
+    +'<div class="modal-body"><div class="done-screen">'
+    +'<div class="ds-sub" id="wiz-save-msg">'+(L?'서버에 배정을 기록하고 있습니다…':'Recording the assignment…')+'</div>'
+    +'</div></div></div>';
+
+  var slots=m.slots.slice(0,3);
+  var saved=[], failed=[], forced=false;
+  // 실패 줄에 «무슨 요일이 왜 안 됐는지» 를 적기 위한 이름표(이 화면 기준 0=월…6=일)
+  var wizDowName=function(d){return (L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[d]||String(d);};
+
+  async function post(sl, force){
+    var body={
+      student_name:s.student.name,
+      teacher_id:m.teacher.id,
+      teacher_name:m.teacher.name,
+      schedule_kind:'recurring',
+      days:[(sl.dow+1)%7],                       // 0=월…6=일  →  0=일…6=토
+      start_time:pad2(sl.hour)+':00',
+      duration_min:dur,
+      class_type:'regular',
+      notes:note
+    };
+    if(force)body.force=true;
+    var r=await fetch('/api/admin/class-schedules',{
+      method:'POST',credentials:'include',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
     });
-    assigned++;
-  });
-  // 완료 화면
+    var j=await r.json().catch(function(){return {};});
+    return {ok:r.ok&&j&&j.ok,status:r.status,j:j};
+  }
+
+  for(var i=0;i<slots.length;i++){
+    var sl=slots[i];
+    var res=await post(sl,forced);
+    /* 겹치는 수업이 있으면 서버가 409 conflict 로 한 번 되묻는다. 사람에게 물어보고,
+       «그래도» 라고 하면 그 뒤 슬롯까지 force 로 보낸다(매번 묻지 않는다). */
+    if(!res.ok&&res.status===409&&res.j&&res.j.error==='conflict'&&!forced){
+      if(confirm((res.j.message||(L?'겹치는 수업이 있습니다.':'There is an overlapping class.'))+'\n\n'+(L?'그래도 등록할까요?':'Register anyway?'))){
+        forced=true; res=await post(sl,true);
+      }
+    }
+    if(res.ok){
+      saved.push(sl);
+      // 화면에도 바로 보이게 (서버 저장이 끝난 것만)
+      addSlot(m.teacher.id,sl.date,sl.hour,{
+        type:'1on1',students:[{name:s.student.name,uid:s.student.uid}],
+        start_date:sl.date,note:note,duration_min:dur
+      });
+    }else{
+      failed.push({sl:sl,msg:(res.j&&(res.j.message||res.j.error))||('HTTP '+res.status)});
+    }
+  }
+
   var nm=(currentLang==='en'&&m.teacher.name_en)?m.teacher.name_en:m.teacher.name;
+  var okAll=saved.length>0&&!failed.length;
+  var head=saved.length?(okAll?'🎉 '+(L?'등록 완료':'Enrolled'):'⚠️ '+(L?'일부만 등록됨':'Partly enrolled'))
+                       :'❌ '+(L?'등록하지 못했습니다':'Not enrolled');
+  var sub=saved.length
+    ? (L?saved.length+'개 슬롯이 저장되었습니다':saved.length+' slots saved')
+    : (L?'서버에 저장된 것이 없습니다.':'Nothing was saved.');
+  var failHtml=failed.length
+    ? '<div class="ds-row" style="align-items:flex-start"><span class="k">'+(L?'실패':'Failed')+'</span><span class="v" style="text-align:left">'
+      +failed.map(function(f){return escapeHtml(wizDowName(f.sl.dow)+' '+pad2(f.sl.hour)+':00 — '+f.msg);}).join('<br>')
+      +'</span></div>' : '';
   modalBox.innerHTML='<div class="modal wiz-modal">'+
-    '<div class="modal-head"><div class="modal-title">🎉 '+(L?'등록 완료':'Enrolled')+'</div>'+
+    '<div class="modal-head"><div class="modal-title">'+head+'</div>'+
     '<button class="modal-close" onclick="closeModal();render()">✕</button></div>'+
-    '<div class="modal-body"><div class="done-screen"><div class="big-check">✅</div>'+
-    '<h3>'+(L?'성공적으로 등록되었습니다!':'Successfully enrolled!')+'</h3>'+
-    '<div class="ds-sub">'+(L?assigned+'개 슬롯이 자동으로 배정되었습니다':assigned+' slots assigned')+'</div>'+
+    '<div class="modal-body"><div class="done-screen"><div class="big-check">'+(saved.length?(okAll?'✅':'⚠️'):'❌')+'</div>'+
+    '<h3>'+escapeHtml(sub)+'</h3>'+
     '<div class="done-summary">'+
-      '<div class="ds-row"><span class="k">'+(L?'학생':'Student')+'</span><span class="v">'+escapeHtml(s.student.name)+' ('+s.student.uid+')</span></div>'+
-      '<div class="ds-row"><span class="k">'+(L?'레벨':'Level')+'</span><span class="v">'+s.student.level+'</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'학생':'Student')+'</span><span class="v">'+escapeHtml(s.student.name)+'</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'레벨':'Level')+'</span><span class="v">'+escapeHtml(s.student.level)+'</span></div>'+
       '<div class="ds-row"><span class="k">'+(L?'담당 교사':'Teacher')+'</span><span class="v">'+escapeHtml(nm)+'</span></div>'+
       '<div class="ds-row"><span class="k">'+(L?'원하는 성향':'Personality')+'</span><span class="v">'+escapeHtml(wizPersonalityLabel(L))+'</span></div>'+
-      '<div class="ds-row"><span class="k">'+(L?'배정 슬롯':'Slots')+'</span><span class="v">'+assigned+(L?'개':'')+'</span></div>'+
-    '</div></div></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'저장된 슬롯':'Saved slots')+'</span><span class="v">'+saved.length+(L?'개':'')+'</span></div>'+
+      failHtml+
+    '</div>'+
+    /* 🙂 성향은 «기록» 이지 «매칭 기준» 이 아니다. 강사 쪽에 성향 자료가 아직 없어서
+       추천에는 반영되지 않는다 — 화면이 그렇게 보이면 안 되므로 한 줄로 밝혀 둔다. */
+    '<div class="ds-sub" style="margin-top:10px;opacity:.8">'+(L
+      ? '※ 성향은 수업 메모에 기록됩니다. 강사 성향 자료가 아직 없어 추천 순서에는 반영되지 않습니다.'
+      : '※ Personality is stored in the class note. It does not affect the recommendation order yet.')+'</div>'+
+    '</div></div>'+
     '<div class="modal-actions"><button class="modal-btn primary" onclick="closeModal();render()">'+(L?'확인':'OK')+'</button></div></div>';
-  // 스케줄 다시 그리기 (백그라운드에서)
 }
 window.wizFinalize=wizFinalize;
 

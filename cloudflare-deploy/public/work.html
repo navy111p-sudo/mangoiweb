@@ -66,8 +66,14 @@ html.dark body{color:#e6edf3;background:#0f1620}
 
 /* ── 머리말 ─────────────────────────────────────────────── */
 .top{background:#fff;border-bottom:1px solid #dde3ea;padding:10px 14px}
+/* 🖥 넓은 PC 에서 제목·버튼이 화면 왼쪽 끝에 붙고 본문만 가운데로 가서 어긋나 보였다
+      (2026-08-17 사장님 화면 1920px 에서 확인). 휴대폰에서는 둘 다 꽉 차서 티가 안 났다.
+      띠 배경은 그대로 화면 전체를 쓰고, **안쪽 내용만** 본문과 같은 폭·같은 축으로 맞춘다.
+      ⚠️ .wrap 의 max-width 를 바꾸면 여기도 같이 바꿔야 한다. 두 값은 늘 같아야 한다. */
+.top>h1,.top>.tbar{max-width:820px;margin-left:auto;margin-right:auto}
+.offbar,.outbox{padding-left:max(14px,calc((100% - 820px) / 2))}
 html.dark .top{background:#16202c;border-bottom-color:#26313f}
-.top h1{margin:0 0 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top h1{margin:0 auto 8px;font-size:19px;font-weight:700;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tbar{display:flex;gap:6px;flex-wrap:wrap}
 .tbtn{
   font:inherit;font-size:13px;padding:7px 11px;border:1px solid #ccd4de;background:#fff;color:#16202c;
