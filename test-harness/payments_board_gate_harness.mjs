@@ -6,13 +6,19 @@
 //     /api/admin/payments/b2b · b2c 는 핸들러(payments-board.ts)도 있고 화면(adm-q7.js)도
 //     붙었는데 **라우팅 게이트 두 곳에 등록이 빠져** 라이브에서 404 였다.
 //     화면에는 KPI 4칸이 전부 «—» 로 뜨고 표에는 «통장 입금을 불러오지 못했습니다 — HTTP 404».
-//     인증 게이트가 '/api/admin/payments' 접두사로 이미 덮고 있어서 «등록 끝» 으로 보였던 것이
-//     함정이었다 — 인증 게이트는 «누가 볼 수 있나» 만 정하고, 라우팅은 따로다.
+//     인증이 접두사로 자동으로 덮이니 «등록 끝» 으로 보였던 것이 함정이었다 —
+//     인증은 «누가 볼 수 있나» 만 정하고, 라우팅은 따로 경로를 하나씩 적어야 한다.
 //
 //   새 /api 경로는 세 관문을 전부 통과해야 실제로 동작한다:
 //     ① src/index.ts     라우팅 게이트   (없으면 handleMangoApi 까지 못 감 → 404)
-//     ② src/index.ts     인증 게이트     (없으면 관리자 세션 검사를 안 받음 = 보안 구멍)
+//     ② src/index.ts     인증 default-deny (/api/admin/ 로 시작하면 자동. 단 isAdminPublicApi
+//                        예외에 들어가면 무인증 공개가 된다 — 그것만 감시한다)
 //     ③ src/api-mango.ts 위임 목록       (없으면 handleAdminApi 까지 못 감 → 404)
+//
+//   ⚠️ 처음 쓸 때 ②를 «'/api/admin/payments' 문자열이 index.ts 에 있는가» 로 검사했는데,
+//      그 문자열은 인증 게이트가 아니라 TEACHER_BLOCKED_PREFIXES(강사 차단 목록)의 것이었다.
+//      인증 게이트를 통째로 지워도 초록불이 유지되는 «가짜 감시» 였다 — 지금은 default-deny
+//      블록 자체를 본다.
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -43,6 +49,18 @@ const routeGate = (() => {
   return end > at ? indexTs.slice(at, end) : '';
 })();
 
+/* isAdminPublicApi() 본문 — 여기 들어간 경로는 무인증 공개다. */
+const publicFn = (() => {
+  const at = indexTs.indexOf('function isAdminPublicApi(');
+  return at < 0 ? '' : indexTs.slice(at, indexTs.indexOf('\nfunction ', at + 10) + 1 || at + 6000);
+})();
+
+/* 강사 차단 목록 — TEACHER_BLOCKED_PREFIXES 배열 안만 본다. */
+const teacherBlocked = (() => {
+  const at = indexTs.indexOf('const TEACHER_BLOCKED_PREFIXES = [');
+  return at < 0 ? '' : indexTs.slice(at, indexTs.indexOf('];', at));
+})();
+
 /* 위임 목록은 handleAdminApi 호출 «직전» 의 if 조건이다. */
 const mangoGate = (() => {
   const end = mangoTs.indexOf('const rAdmin = await handleAdminApi(');
@@ -57,14 +75,26 @@ for (const p of PATHS) {
   check(`① index.ts 라우팅 게이트에 ${p} 가 있다`, routeGate.includes(`'${p}'`));
   check(`③ api-mango.ts 위임 목록에 ${p} 가 있다`, mangoGate.includes(`'${p}'`));
 }
-/* ② 인증 게이트 — '/api/admin/payments' 접두사로 덮인다(default-deny). */
-check("② index.ts 인증 게이트에 '/api/admin/payments' 접두사가 있다",
-  indexTs.includes("'/api/admin/payments'"));
+/* ② 인증 — /api/admin/ default-deny 가 자동으로 덮는다. 경로별 등록이 필요 없는 대신,
+      ⓐ default-deny 블록이 살아 있어야 하고 ⓑ 공개 예외로 새 나가면 안 된다. */
+const denyBlock = (() => {
+  const at = indexTs.indexOf("if (path.startsWith('/api/admin/')) {");
+  return at < 0 ? '' : indexTs.slice(at, at + 400);
+})();
+check('② index.ts 에 /api/admin/ default-deny 블록이 살아 있다',
+  denyBlock.includes('isAdminPublicApi(path, method)') && /return true;/.test(denyBlock));
+for (const p of PATHS) {
+  check(`② ${p} 가 isAdminPublicApi 공개 예외에 없다`,
+    !(publicFn.includes(`'${p}'`) || publicFn.includes(`'${p}/`)));
+}
+/* 강사 차단 — 회사 재무라 강사에게는 닫혀 있어야 한다(인증 게이트와는 별개 목록). */
+check("강사 차단 목록에 '/api/admin/payments' 접두사가 있다",
+  teacherBlocked.includes("'/api/admin/payments'"));
 
 console.log('\n[ 핸들러·화면이 같은 주소를 본다 ]');
 for (const p of PATHS) {
   check(`payments-board.ts 가 ${p} 를 처리한다`, boardTs.includes(`'${p}'`));
-  check(`adm-q7.js 가 ${p} 를 부른다`, q7Js.includes(`'${p}?'`));
+  check(`adm-q7.js 가 ${p} 를 부른다`, q7Js.includes(p));
 }
 check('api-admin.ts 가 handlePaymentsBoardApi 를 부른다',
   adminTs.includes('handlePaymentsBoardApi(request, url, env'));
