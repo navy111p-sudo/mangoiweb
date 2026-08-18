@@ -2162,15 +2162,22 @@
           </div>
           <table>
             <thead><tr>
-              <th data-ko="요청일" data-en="Date">요청일</th>
-              <th data-ko="학생" data-en="Student">학생</th>
+              <!-- ⚠️ 「요청일」 = 이 행이 시스템에 등록된 시각(created_at)이다.
+                   student_payments 에는 «환불을 언제 요청했는지» 를 담는 칸이 없다(2026-08-18 실측:
+                   취소 119건의 created_at 이 전부 같은 값 = 카페24 동기화 시각).
+                   그래서 여기 날짜가 전부 같아 보이는 것은 버그가 아니라 원장에 없는 정보다.
+                   실제 돈이 오간 날은 옆의 「결제 일자」(paid_at)가 정본. -->
+              <th data-ko="요청일" data-en="Date" title="이 행이 시스템에 등록된 시각입니다. 환불 요청 시각은 원장에 없습니다.">요청일</th>
+              <th data-ko="학생 이름" data-en="Student name">학생 이름</th>
+              <th data-ko="아이디" data-en="ID">아이디</th>
+              <th data-ko="결제 일자" data-en="Paid date">결제 일자</th>
               <th data-ko="결제금액" data-en="Paid">결제금액</th>
               <th data-ko="환불금액" data-en="Refund">환불금액</th>
               <th data-ko="사유" data-en="Reason">사유</th>
               <th data-ko="상태" data-en="Status">상태</th>
               <th data-ko="액션" data-en="Action">액션</th>
             </tr></thead>
-            <tbody id="acc-rf-tbody"><tr><td colspan="7" class="empty">—</td></tr></tbody>
+            <tbody id="acc-rf-tbody"><tr><td colspan="9" class="empty">—</td></tr></tbody>
           </table>
         </div>
       </details>
@@ -8999,7 +9006,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=105" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
+<script src="/js/adm-core.js?v=106" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=106: 2026-08-18 매출–입금 대사를 «통장 기준» 으로
+     (또 둘이 «각자» v=105 를 써서 번호를 새로 딴다 — 아래 v=104 때와 같은 상황이고, 파일 내용은 자동병합으로 둘 다 들어가 있다)
+   · v=105: 2026-08-18 환불/취소 목록에 학생 이름·아이디·결제 일자 추가
+     (+ 날짜가 ×1000 되어 서기 5만년으로 찍히던 것 수정 — paid_at 은 초가 아니라 밀리초다)
+   · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
      ① main: PG 수수료율을 서버 값(pg_fee_rate)에서 받아 쓰기(화면 3곳에 3.3% 가 박혀 있었다)
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
