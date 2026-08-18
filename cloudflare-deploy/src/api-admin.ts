@@ -17,7 +17,7 @@ import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
 import { enqueueNotification, sendPushToUser } from './api-notify';
-import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond } from './scope';   // 🔒 지사/대리점 데이터 격리
+import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 — 판정 정본
@@ -7473,19 +7473,35 @@ LIMIT $limit`;
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchise_master_map (franchise_id INTEGER PRIMARY KEY, master_id INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       };
 
+      /* 🔒 (2026-08-18) 지사·대리점 계정에게 이 API 를 열면서 «자기 것만» 으로 자른다.
+         index.ts 의 isAgencyAllowedApi 가 이 경로를 열어 주는 근거가 **바로 이 조건절**이다.
+         이 줄을 지우면 전국 지사 241건이 모든 지사장·학원장에게 통째로 나간다. */
+      const _fSc = await getScope(env as any, request);
+      const _fCond = scopeFranchiseCond(_fSc, 'f');
+      const _fWhere = _fCond.cond ? ` WHERE ${_fCond.cond}` : '';
+
       if (method === 'GET') {
         // 🏛️ view=master → 대표지사 목록 (+ 산하 지사 수)
         if (url.searchParams.get('view') === 'master') {
           await ensureMaster();
+          /* 지사·대리점에게는 «자기가 속한» 대표지사만. 전국 권역표를 그대로 주면
+             남의 권역·대표자·전화가 그대로 보인다. */
+          const mWhere = _fCond.cond
+            ? ` WHERE m.id IN (SELECT mm2.master_id FROM franchise_master_map mm2
+                                 JOIN franchises f ON f.id = mm2.franchise_id WHERE ${_fCond.cond})`
+            : '';
           const rs = await env.DB.prepare(
             `SELECT m.*, (SELECT COUNT(*) FROM franchise_master_map mm WHERE mm.master_id = m.id) AS branch_count
-               FROM master_branches m ORDER BY m.active DESC, m.name ASC`
-          ).all();
-          return json({ ok: true, items: rs.results || [] });
+               FROM master_branches m${mWhere} ORDER BY m.active DESC, m.name ASC`
+          ).bind(..._fCond.binds).all();
+          return json({ ok: true, items: rs.results || [], scoped: !!_fCond.cond });
         }
         const cols = url.searchParams.get('fields') === 'min' ? 'id, name' : '*';
         if (cols === 'id, name') {
-          const rs = await env.DB.prepare(`SELECT id, name FROM franchises ORDER BY active DESC, name ASC`).all();
+          // 드롭다운용 짧은 목록도 같이 자른다 — 여기만 빼먹으면 «선택칸» 으로 전국이 샌다
+          const rs = await env.DB.prepare(
+            `SELECT f.id, f.name FROM franchises f${_fWhere} ORDER BY f.active DESC, f.name ASC`
+          ).bind(..._fCond.binds).all();
           return json({ ok: true, items: rs.results || [] });
         }
         // 전체 목록에는 «어느 대표지사 소속인지» 를 함께 실어 준다(표에 컬럼 하나가 는다).
@@ -7494,12 +7510,17 @@ LIMIT $limit`;
           `SELECT f.*, mm.master_id AS master_branch_id, m.name AS master_branch_name
              FROM franchises f
              LEFT JOIN franchise_master_map mm ON mm.franchise_id = f.id
-             LEFT JOIN master_branches m ON m.id = mm.master_id
+             LEFT JOIN master_branches m ON m.id = mm.master_id${_fWhere}
             ORDER BY f.active DESC, f.name ASC`
-        ).all();
-        return json({ ok: true, items: rs.results || [] });
+        ).bind(..._fCond.binds).all();
+        return json({ ok: true, items: rs.results || [], scope: { type: _fSc.type, label: _fSc.label }, can_edit: canEditOrg(_fSc) });
       }
 
+      /* ✍️ 고치는 것은 본사만 — 등록·대표지사 지정·비활성 전부. 화면에서 버튼을 감추는 것만으로는
+         URL 로 그대로 뚫린다(지사장이 남의 지사를 자기 대표지사에 붙일 수 있게 된다). */
+      if (!canEditOrg(_fSc)) {
+        return json({ ok: false, error: 'forbidden_scope', scope: _fSc.type, message: '조직 정보 수정은 본사만 할 수 있습니다.' }, 403);
+      }
       const b = await parseJsonBody(request);
       const now = Date.now();
 
@@ -7648,6 +7669,19 @@ LIMIT $limit`;
         const s = String(v || '').trim().toUpperCase();
         return s === 'B2B' || s === 'B2C' ? s : null;
       };
+
+      /* 🔒 (2026-08-18) 지사·대리점 계정에게 이 API 를 열면서 «자기 것만» 으로 자른다.
+         지사 = 자기 지사 소속 대리점 전부, 대리점(학원) = 자기 한 칸.
+         index.ts 의 isAgencyAllowedApi 가 이 경로를 열어 주는 근거가 **바로 이 조건절**이다.
+         이 줄을 지우면 전국 대리점 921건이 모든 지사장·학원장에게 통째로 나간다. */
+      const _cSc = await getScope(env as any, request);
+      const _cCond = scopeCenterCond(_cSc, 'c');
+
+      // ✍️ 등록(POST)·결제유형 수정(PATCH)은 본사만. 화면에서 폼을 감추는 것만으로는 URL 로 뚫린다.
+      if ((method === 'POST' || method === 'PATCH') && !canEditOrg(_cSc)) {
+        return json({ ok: false, error: 'forbidden_scope', scope: _cSc.type, message: '대리점 정보 수정은 본사만 할 수 있습니다.' }, 403);
+      }
+
       if (method === 'PATCH') {
         // 기존 대리점의 결제유형 지정 — centers 에는 수정 API 가 없었어서 이번에 신설(경로 재사용).
         const b = await parseJsonBody(request);
@@ -7670,6 +7704,8 @@ LIMIT $limit`;
         const min = url.searchParams.get('fields') === 'min';
         const where: string[] = [];
         const binds: any[] = [];
+        // 🔒 스코프가 맨 앞 — 아래 검색어·결제유형·지사 필터가 무엇이든 이 울타리 안에서만 논다
+        if (_cCond.cond) { where.push(_cCond.cond); binds.push(..._cCond.binds); }
         if (q) {
           where.push(`(c.name LIKE ? OR c.manager LIKE ? OR c.address LIKE ? OR f.name LIKE ?)`);
           const like = `%${q}%`;
@@ -7710,7 +7746,8 @@ LIMIT $limit`;
         const rs = await env.DB.prepare(
           `SELECT ${cols} FROM centers c LEFT JOIN franchises f ON f.id = c.franchise_id${listWhereSql} ORDER BY c.active DESC, c.name ASC${pageSql}`
         ).bind(...pageBinds).all();
-        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset });
+        return json({ ok: true, items: rs.results || [], total: pt ? counts[pt] : counts.all, counts, limit, offset,
+                      scope: { type: _cSc.type, label: _cSc.label }, can_edit: canEditOrg(_cSc) });
       }
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
