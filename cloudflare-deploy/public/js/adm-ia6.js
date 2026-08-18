@@ -130,11 +130,29 @@
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
         //    지사정산 카드(card-franchises · /api/admin/settlement/branch-summary)이고,
         //    캐피타운 계열 계정(role capitown/franchise · uid capi*)만 capiHref 로 보낸다.
-        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' },
-        // 🏢 조직 = 본사 › 지사 › 대리점(학원). 카드는 이제 card-franchises 하나뿐이다 —
-        //    card-centers(대리점 목록)는 그 카드 «안의 하위항목» 으로 합쳤다(2026-08-09).
-        //    (예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
-        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] }
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' }
+        /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
+           「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
+           회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
+           ⛔ 되돌리지 말 것. 「지사 정산」(캐피타운 분기 포함)은 정산이므로 여기 그대로 둔다. */
+      ]
+    },
+    {
+      /* 🏢 (2026-08-18 사장님 수정요청 #03·#04) 「운영자 (본사·지사·대리점)」 —
+         회사 구조를 세우는 자리를 한 곳으로 모은다.
+           · #04 — 「조직 (지사·대리점)」 이 「정산·매출」 밑에 있었다. 조직을 고치러 온 사람이
+                   정산 메뉴를 뒤져야 했다. 그 항목을 이름 그대로 여기로 옮겼다.
+           · #03 — 그 아래에 「대표지사」·「지사」·「대리점」 세 칸을 새로 낸다. 셋 다 같은 카드
+                   (card-franchises) 안의 «하위 항목» 이라, openSub 로 그 칸을 바로 펼친다.
+         ⚠️ 항목 키는 `org:항목이름` 이다. 이름을 바꿀 때는 아래 RENAMED 이사표에 한 줄 적을 것 —
+            안 그러면 「어제 보던 화면이 아침에 딴 데 가 있다」 로 신고가 들어온다. */
+      key: 'org', ko: '운영자 (본사·지사·대리점)', en: 'Organization',
+      ico: '<path d="M3 21h18"/><path d="M5 21V7l7-4v18"/><path d="M12 9h7v12"/><path d="M9 9v0M9 13v0M9 17v0M16 13v0M16 17v0"/>',
+      items: [
+        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] },
+        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches' },
+        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches' },
+        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' }
       ]
     },
     {
@@ -613,6 +631,22 @@
     } catch (e) { return false; }
   }
 
+  /* 🏢 카드 «안의 하위 항목» 까지 펼친다 (openSub).
+     조직 관리 카드 하나에 대표지사·지사·대리점 세 칸이 들어 있어서, 카드만 열어 주면
+     쓰는 사람이 또 한 번 그 칸을 찾아 눌러야 한다. 형제 칸은 건드리지 않는다 —
+     닫아 버리면 «방금 열어 둔 게 왜 닫히지» 가 된다.
+     ⚠️ 여기서 scrollIntoView 를 하지 않는다. 바로 앞의 showOnly 가 alignTop 으로
+        1.8초 동안 «대표 카드를 맨 위로» 를 계속 다시 맞추기 때문에, 여기서 스크롤하면
+        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다. 카드가 맨 위에 오면 세 칸의
+        제목줄은 어차피 첫 화면 안에 들어온다(한 줄짜리 summary 세 개). */
+  function openSubSection(item) {
+    if (!item || !item.openSub) return;
+    var el = document.getElementById(item.openSub);
+    if (!el) return;
+    var n = el;
+    while (n && n.tagName === 'DETAILS') { n.open = true; n = n.parentElement ? n.parentElement.closest('details') : null; }
+  }
+
   function select(key) {
     var it = itemByKey(key);
     if (!it) return false;
@@ -624,6 +658,7 @@
           그래야 지도가 «지금 여기» 를 찍을 수 있다. */
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
+    openSubSection(it);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
     if (bar) {
@@ -802,7 +837,11 @@
        어제 보던 화면이 아침에 딴 데 가 있는 것이라 «메뉴가 없어졌다» 로 신고가 들어온다.
        그래서 옛 키를 새 키로 옮겨 준다. 옛 「문의·버그」는 신규상담 카드를 먼저 펼치던
        항목이었으므로(cards[0] = card-inquiry-mgmt) 그쪽으로 잇는다. */
-    var RENAMED = { 'today:문의·버그': 'today:신규상담' };
+    var RENAMED = {
+      'today:문의·버그': 'today:신규상담',
+      // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
+      'money:조직 (지사·대리점)': 'org:조직 (지사·대리점)'
+    };
     if (want && RENAMED[want]) {
       want = RENAMED[want];
       try { localStorage.setItem(LS_KEY, want); } catch (e) { /* 무시 */ }
@@ -817,6 +856,7 @@
     }
     if (!picked) { picked = GROUPS[0].items[0]; pickedKey = GROUPS[0].key + ':' + picked.ko; }
     showOnly(picked, pickedKey);
+    openSubSection(picked);
     var el = bar.querySelector('[data-ia6-item="' + pickedKey + '"]');
     if (el) el.classList.add('ia6-on');
   }

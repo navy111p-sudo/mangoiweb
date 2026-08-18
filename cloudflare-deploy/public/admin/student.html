@@ -2733,12 +2733,18 @@ async function loadAiSchedules() {
     if (!j.ok) throw new Error(j.error || 'load_failed');
     const items = j.items || [];
     if (countEl) countEl.textContent = '총 ' + items.length + '건';
+    // 일정변경 편집기가 원본 값(요일·날짜·길이)을 그대로 써야 해서 캐시해 둔다
+    _reschCache = {};
+    items.forEach(function (x) { _reschCache[x.id] = x; });
     if (items.length === 0) {
       listEl.innerHTML = '<div style="text-align:center;padding:14px;color:#64748b;font-size:12px">아직 AI로 등록된 스케줄이 없습니다.<br>관리자 검색창에서 자연어로 등록해 보세요.</div>';
       return;
     }
     // (2026-07-24) 저장 형식이 섞여 있다 — 'mon'(AI 명령) / 숫자 0~6(등록 폼·sessions/today 기준)
     const dayNames = { mon:'월', tue:'화', wed:'수', thu:'목', fri:'금', sat:'토', sun:'일',
+                       // 🗓 운영 D1 의 day_of_week 는 'Wed'·'Fri' 같은 영문 텍스트가 정본이다
+                       //    (api-admin.ts 머릿말 실측). 없으면 화면에 'Wed' 가 그대로 찍힌다.
+                       Mon:'월', Tue:'화', Wed:'수', Thu:'목', Fri:'금', Sat:'토', Sun:'일',
                        '0':'일', '1':'월', '2':'화', '3':'수', '4':'목', '5':'금', '6':'토' };
     const typeColor = { regular:'#3b82f6', level_test:'#f59e0b', trial:'#10b981' };
     const typeName = { regular:'정규수업', level_test:'레벨테스트', trial:'체험수업' };
@@ -2747,12 +2753,18 @@ async function loadAiSchedules() {
       const days = (it.day_of_week || '').split(',').filter(Boolean).map(d => dayNames[d] || d).join('·');
       const tColor = typeColor[it.class_type] || '#6b7280';
       const dateLabel = it.scheduled_date ? '📅 ' + it.scheduled_date : (days ? '🔁 매주 ' + days + '요일' : '');
-      return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+      /* 📅 (2026-08-18 사장님 수정요청 #01) 수업연기 — 상세보기 스케줄에서 바로 날짜·시간을 옮긴다.
+         지금까지는 «취소하고 다시 등록» 뿐이라, 연기 한 번에 수업 이력이 끊겼다. */
+      return '<div style="background:rgba(30,41,59,0.6);border:1px solid #334155;border-left:4px solid ' + tColor + ';border-radius:8px;padding:10px 14px">'
+        + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
         + '<span style="background:' + tColor + ';color:#fff;font-size:10px;padding:3px 9px;border-radius:8px;font-weight:700">' + (typeName[it.class_type] || it.class_type) + '</span>'
         + '<span style="font-weight:600;color:#f1f5f9">' + (dateLabel || '') + '</span>'
         + '<span style="color:#fbbf24;font-weight:700">' + (it.start_time || '') + '</span>'
-        + '<span style="color:#94a3b8;font-size:11px">' + (statusName[it.status] || it.status) + '</span>'
-        + '<button onclick="cancelAiSchedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
+        + '<span style="color:#94a3b8;font-size:11px">' + (it.duration_min ? it.duration_min + '분 · ' : '') + (statusName[it.status] || it.status) + '</span>'
+        + '<button onclick="openReschedule(' + it.id + ')" style="margin-left:auto;padding:3px 10px;border:1px solid #38bdf8;background:transparent;color:#38bdf8;border-radius:6px;cursor:pointer;font-size:11px">📅 일정변경</button>'
+        + '<button onclick="cancelAiSchedule(' + it.id + ')" style="padding:3px 10px;border:1px solid #ef4444;background:transparent;color:#ef4444;border-radius:6px;cursor:pointer;font-size:11px">🗑 취소</button>'
+        + '</div>'
+        + '<div id="resch-' + it.id + '" style="display:none;margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:10px"></div>'
         + '</div>';
     }).join('');
   } catch (e) {
@@ -2760,6 +2772,67 @@ async function loadAiSchedules() {
     if (countEl) countEl.textContent = '오류';
   }
 }
+/* 📅 일정변경(수업연기) — PATCH /api/admin/class-schedules/:id
+   ⚠️ 서버가 받는 필드는 day_of_week / start_time / duration_min / scheduled_date 네 개뿐이다.
+      운영 D1 의 day_of_week 는 'Wed' 같은 영문 텍스트가 정본이라(api-admin.ts 머릿말 실측),
+      여기서는 한글 요일을 보내고 서버 normDow 가 'Wed' 꼴로 맞춘다.
+      날짜가 박힌 건(one_off)은 «날짜», 매주 반복은 «요일» 을 고른다 — 둘을 섞어 보내지 않는다.
+   📜 서버가 이 PATCH 를 수업 변경 이력(action='reschedule')에 자동으로 남긴다. */
+var _RESCH_DOWS = [['일','Sun'],['월','Mon'],['화','Tue'],['수','Wed'],['목','Thu'],['금','Fri'],['토','Sat']];
+var _reschCache = {};
+function openReschedule(id) {
+  var it = _reschCache[id];
+  var box = document.getElementById('resch-' + id);
+  if (!box || !it) return;
+  if (box.style.display !== 'none') { box.style.display = 'none'; box.innerHTML = ''; return; }
+  var oneOff = !!it.scheduled_date;
+  var curDow = String(it.day_of_week || '').split(',').filter(Boolean)[0] || '';
+  var dowSel = _RESCH_DOWS.map(function (d, i) {
+    var sel = (curDow === d[0] || curDow === d[1] || curDow === d[1].toLowerCase() || curDow === String(i)) ? ' selected' : '';
+    return '<option value="' + d[0] + '"' + sel + '>' + d[0] + '</option>';
+  }).join('');
+  var inp = 'padding:5px 8px;border:1px solid #475569;background:rgba(15,23,42,0.7);color:#e2e8f0;border-radius:6px;font-size:12px';
+  var lab = 'display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8';
+  box.innerHTML =
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">'
+    + (oneOff
+        ? '<label style="' + lab + '">새 날짜 / New date<input type="date" id="rs-date-' + id + '" value="' + (it.scheduled_date || '') + '" style="' + inp + '"></label>'
+        : '<label style="' + lab + '">새 요일 / New day<select id="rs-dow-' + id + '" style="' + inp + '">' + dowSel + '</select></label>')
+    + '<label style="' + lab + '">새 시간 / New time<input type="time" id="rs-time-' + id + '" value="' + (it.start_time || '') + '" style="' + inp + '"></label>'
+    + '<label style="' + lab + '">분 / Min<input type="number" id="rs-dur-' + id + '" value="' + (it.duration_min || 20) + '" min="10" max="180" step="10" style="' + inp + ';width:66px"></label>'
+    + '<button type="button" onclick="submitReschedule(' + id + ')" style="padding:7px 16px;border:0;border-radius:7px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#04223a;font-weight:800;font-size:12px;cursor:pointer">저장 / Save</button>'
+    + '<button type="button" onclick="openReschedule(' + id + ')" style="padding:7px 12px;border:1px solid #475569;background:transparent;color:#94a3b8;border-radius:7px;font-size:12px;cursor:pointer">닫기 / Close</button>'
+    + '</div>'
+    + '<div id="rs-msg-' + id + '" style="margin-top:6px;font-size:12px;color:#94a3b8">옮기면 «수업 변경 이력» 에 연기 기록이 남습니다. / Logged in class change history.</div>';
+  box.style.display = 'block';
+}
+async function submitReschedule(id) {
+  var msg = document.getElementById('rs-msg-' + id);
+  var el = function (x) { return document.getElementById(x + '-' + id); };
+  var say = function (t, c) { if (msg) { msg.style.color = c || '#94a3b8'; msg.textContent = t; } };
+  var body = {};
+  if (el('rs-date')) { if (!el('rs-date').value) { say('날짜를 골라 주세요. / Pick a date.', '#ef4444'); return; } body.scheduled_date = el('rs-date').value; }
+  if (el('rs-dow')) body.day_of_week = el('rs-dow').value;
+  if (el('rs-time')) { if (!el('rs-time').value) { say('시간을 골라 주세요. / Pick a time.', '#ef4444'); return; } body.start_time = el('rs-time').value; }
+  if (el('rs-dur') && el('rs-dur').value) body.duration_min = Number(el('rs-dur').value);
+  say('저장 중… / Saving…');
+  try {
+    var r = await fetch('/api/admin/class-schedules/' + id, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    var j = await r.json();
+    if (!j || !j.ok) throw new Error((j && (j.detail || j.error)) || 'HTTP ' + r.status);
+    say('✅ 일정을 옮겼습니다. / Rescheduled.', '#4ade80');
+    loadAiSchedules();
+    try { if (typeof loadDStudentSchedule === 'function') loadDStudentSchedule(); } catch (_) {}
+  } catch (e) {
+    say('❌ 변경 실패 / Failed: ' + (e.message || e), '#ef4444');
+  }
+}
+window.openReschedule = openReschedule;
+window.submitReschedule = submitReschedule;
 async function cancelAiSchedule(id) {
   if (!confirm('이 스케줄을 취소(soft delete)하시겠습니까?')) return;
   try {

@@ -259,10 +259,16 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
         <code>adm-ia6.js</code> 의 목록에만 이름이 남아 있어, 그 자리에는 아무것도 안 뜹니다.
       </li>
       <li>
-        <b>«지사 정산»과 «조직 (지사·대리점)»은 같은 카드</b>(<code>card-franchises</code>)를 봅니다.
+        <b>«지사 정산»과 «운영자 ▸ 조직 (지사·대리점)»은 같은 카드</b>(<code>card-franchises</code>)를 봅니다.
         다만 «지사 정산»은 캐피타운 계열 계정(<code>role capitown/franchise</code> · <code>uid capi*</code>)일 때만
         <code>/admin/capitown-settlement.html</code> 로 빠집니다(<span class="badge cond">계정에 따라 다름</span>).
         중복이 아니라 계정별 분기입니다.
+      </li>
+      <li>
+        <b>«운영자 (본사·지사·대리점)» 그룹은 2026-08-18 에 새로 났습니다.</b> «조직 (지사·대리점)»이
+        «정산·매출» 밑에 있어서 조직을 고치러 온 사람이 정산 메뉴를 뒤져야 했습니다. 그 항목을 이름
+        그대로 옮기고, 같은 카드 안의 «대표지사 · 지사 · 대리점» 세 칸으로 바로 가는 항목을 함께 냈습니다
+        (사이드바에서는 <code>openSub</code> 로 그 칸을 펼칩니다 — 새 카드가 생긴 것이 아닙니다).
       </li>
     </ul>
   </section>
@@ -271,7 +277,7 @@ footer code{font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,m
   <p class="empty" id="empty">찾는 메뉴가 없습니다. 다른 낱말로 찾아 보세요.</p>
 
   <footer>
-    <span><b>기준</b> 2026-08-15</span>
+    <span><b>기준</b> 2026-08-18</span>
     <span><b>추출</b> <code>adm-ia6.js</code> 의 GROUPS → 카드 제목은 <code>admin.html</code> 의 <code>&lt;summary&gt;</code></span>
     <span><b>주의</b> 손으로 옮겨 적지 않고 소스에서 뽑았습니다. 메뉴를 고치면 다시 뽑아야 합니다</span>
   </footer>
@@ -323,8 +329,14 @@ var DATA = [
    {t:"회계", en:"Accounting", g:[{t:"💰 회계관리", id:"card-accounting-mgmt"}]},
    {t:"결제", en:"Payments", g:[{t:"🏢 BtoB 결제관리 (학원 ↔ 본사/대리점)", id:"card-payments-b2b"}, {t:"👨‍👩‍👧 BtoC 결제관리 (학원 → 학부모 직판매)", id:"card-payments-b2c"}, {t:"💳 정기결제 자동화", id:"card-recurring-billing"}, {t:"💰 미납 자동 추적 (에스컬레이션)", id:"card-auto-dunning"}]},
    {t:"포인트", en:"Points", g:[{t:"🎁 포인트 & 기프티콘", id:"card-points-mgmt"}]},
-   {t:"지사 정산", en:"Settlement", capi:"/admin/capitown-settlement.html", g:[{t:"🏢 조직 관리 (본사 › 지사)", id:"card-franchises"}]},
-   {t:"조직 (지사·대리점)", en:"Organization", g:[{t:"🏢 조직 관리 (본사 › 지사)", id:"card-franchises"}]}
+   {t:"지사 정산", en:"Settlement", capi:"/admin/capitown-settlement.html", g:[{t:"🏢 조직 관리 (대표지사 › 지사 › 대리점)", id:"card-franchises"}]}
+   /* 🏢 (2026-08-18) 여기 있던 「조직 (지사·대리점)」 은 아래 「운영자 (본사·지사·대리점)」 으로 옮겼다. */
+ ]},
+ {t:"운영자 (본사·지사·대리점)", en:"Organization", k:[
+   {t:"조직 (지사·대리점)", en:"Organization", g:[{t:"🏢 조직 관리 (대표지사 › 지사 › 대리점)", id:"card-franchises"}]},
+   {t:"대표지사", en:"Master branch", g:[{t:"🏛️ 대표지사 (조직 관리 카드 안)", id:"card-master-branches"}]},
+   {t:"지사", en:"Branch", g:[{t:"🏢 지사 (조직 관리 카드 안)", id:"sub-branches"}]},
+   {t:"대리점", en:"Agency", g:[{t:"🏪 대리점(학원) (조직 관리 카드 안)", id:"card-centers"}]}
  ]},
  {t:"시스템", en:"System", k:[
    {t:"경영 지표", en:"Dashboard", g:[{t:"📊 통합 대시보드", id:"card-dashboard"}, {t:"KPI 대시보드", id:"card-kpi-dashboard"}, {t:"일별 차트", id:"card-daily-charts"}, {t:"🏆 학생 랭킹 (발화·시선·집중도)", id:"card-rankings"}, {t:"📈 월별 NPS", id:"card-nps-monthly"}]},

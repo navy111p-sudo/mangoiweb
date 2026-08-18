@@ -3424,21 +3424,150 @@ function _frnPhone(v) {
   v = (v == null ? '' : String(v)).trim();
   return /^[0-9A-F]{32,}$/i.test(v) ? '' : v;
 }
+/* 🏛️ 대표지사 목록 캐시 — 지사 표의 «대표지사» 칸 드롭다운을 그리는 데 쓴다.
+   지사가 241행이라 행마다 fetch 하면 안 된다. 한 번 받아 두고 같은 목록을 재사용한다. */
+let _masterBranches = [];
+async function _ensureMasterBranches(force) {
+  if (_masterBranches.length && !force) return _masterBranches;
+  try {
+    const r = await fetch('/api/admin/franchises?view=master',{cache:'no-store',credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (d && d.ok && Array.isArray(d.items)) _masterBranches = d.items;
+  } catch (e) { /* 대표지사를 못 받아도 지사 목록은 보여야 한다 */ }
+  return _masterBranches;
+}
+function _masterOptions(cur) {
+  const none = adminLang==='en' ? '— none —' : '— 미지정 —';
+  return `<option value="">${none}</option>` + _masterBranches
+    .filter(m => m.active !== 0 || Number(m.id) === Number(cur))
+    .map(m => `<option value="${m.id}"${Number(m.id)===Number(cur)?' selected':''}>${_esc(m.name)}</option>`).join('');
+}
 async function loadFranchises() {
+  const tb = document.getElementById('franchises-table');
+  await _ensureMasterBranches();
   const r = await fetch('/api/admin/franchises',{cache:'no-store',credentials:'include'});
   const d = await r.json().catch(()=>({}));
-  const tb = document.getElementById('franchises-table');
-  if (!d.ok || !d.items || d.items.length === 0) { tb.innerHTML='<tr><td colspan="6" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
-  tb.innerHTML = d.items.map(f =>
-    `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td><td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td></tr>`
+  if (!d.ok || !d.items || d.items.length === 0) { if (tb) tb.innerHTML='<tr><td colspan="7" class="empty">—</td></tr>'; _populateFranchiseSelect([]); return; }
+  if (tb) tb.innerHTML = d.items.map(f =>
+    `<tr><td>${f.id}</td><td><b>${_esc(f.name)}</b></td>`
+    + `<td><select onchange="assignMasterBranch(${f.id}, this.value, this)" style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;max-width:150px">${_masterOptions(f.master_branch_id)}</select></td>`
+    + `<td>${_esc(f.owner_name)||'—'}</td><td>${_esc(_frnPhone(f.phone))||'—'}</td><td>${_esc(f.address)||'—'}</td><td>${_esc(f.opened_at)||'—'}</td></tr>`
   ).join('');
   _populateFranchiseSelect(d.items);
 }
+
+/* 🏛️ 대표지사 (2026-08-18 사장님 수정요청 #03)
+   서버는 /api/admin/franchises 한 경로에 kind/view 로 붙어 있다 — 새 경로를 내면
+   src/index.ts(공동 금지구역)의 라우팅·인증 게이트 두 곳을 고쳐야 하기 때문이다. */
+async function loadMasterBranches() {
+  const tb = document.getElementById('mbranches-table');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="8" class="empty">불러오는 중…</td></tr>';
+  await _ensureMasterBranches(true);
+  if (!_masterBranches.length) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty">'
+      + (adminLang==='en' ? 'No master branches yet. Add one above.' : '등록된 대표지사가 없습니다. 위에서 등록하세요.')
+      + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = _masterBranches.map(m => {
+    const on = m.active !== 0;
+    return `<tr${on?'':' style="opacity:.55"'}><td>${m.id}</td><td><b>${_esc(m.name)}</b></td><td>${_esc(m.region)||'—'}</td>`
+      + `<td>${_esc(m.tier)||'—'}</td><td>${_esc(m.owner_name)||'—'}</td><td>${_esc(_frnPhone(m.phone))||'—'}</td>`
+      + `<td>${Number(m.branch_count)||0}</td>`
+      + `<td><button onclick="setMasterBranchActive(${m.id}, ${on?0:1})" style="padding:2px 9px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer">`
+      + (on ? (adminLang==='en'?'🟢 active':'🟢 사용중') : (adminLang==='en'?'⏸ paused':'⏸ 중지')) + '</button></td></tr>';
+  }).join('');
+}
+async function addMasterBranch() {
+  const e = id => document.getElementById(id);
+  const name = ((e('mbr-name')||{}).value||'').trim();
+  if (!name) { alert(adminLang==='en'?'Name required':'대표지사 이름은 필수입니다'); return; }
+  const d = await _menuPost('/api/admin/franchises', {
+    kind: 'master', name,
+    region: (e('mbr-region')||{}).value || null,
+    tier: (e('mbr-tier')||{}).value || null,
+    owner_name: (e('mbr-manager')||{}).value || null,
+    phone: (e('mbr-phone')||{}).value || null
+  });
+  if (d) {
+    ['mbr-name','mbr-region','mbr-tier','mbr-manager','mbr-phone'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    await loadMasterBranches();
+    if (document.getElementById('franchises-table')) loadFranchises();
+  }
+}
+async function setMasterBranchActive(id, active) {
+  const d = await _menuPost('/api/admin/franchises', { kind:'master_active', id, active });
+  if (d) loadMasterBranches();
+}
+/* 지사 ↔ 대표지사 배정. 매핑은 franchise_master_map 별도 표라 카페24 야간 동기화가 안 덮는다. */
+async function assignMasterBranch(franchiseId, masterId, sel) {
+  if (sel) sel.disabled = true;
+  // _menuPost 가 실패하면 자기가 alert 를 띄우고 null 을 준다 — 여기서 또 띄우지 않는다.
+  const d = await _menuPost('/api/admin/franchises', { kind:'master_assign', franchise_id: franchiseId, master_id: masterId || 0 });
+  if (sel) sel.disabled = false;
+  if (!d) return;
+  await _ensureMasterBranches(true);
+  if (document.getElementById('mbranches-table')) loadMasterBranches();
+}
+window.loadMasterBranches = loadMasterBranches;
+window.addMasterBranch = addMasterBranch;
+window.setMasterBranchActive = setMasterBranchActive;
+window.assignMasterBranch = assignMasterBranch;
+
+/* 🔎 지사 소속 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
+   지사 id 로 거른다. 이름으로 거르면 같은 이름의 지사가 둘 이상이라 섞인다
+   (CLAUDE.md 「centers.name 이 유일하지 않습니다」). */
+let _fbaTimer = null;
+function fbaSearch() {
+  clearTimeout(_fbaTimer);
+  _fbaTimer = setTimeout(_fbaRun, 220);
+}
+async function _fbaRun() {
+  const tb = document.getElementById('fba-table');
+  const cnt = document.getElementById('fba-count');
+  if (!tb) return;
+  const fid = (document.getElementById('fba-branch')||{}).value || '';
+  const q   = (((document.getElementById('fba-q')||{}).value)||'').trim();
+  if (!fid && !q) {
+    tb.innerHTML = '<tr><td colspan="5" class="empty">'
+      + (adminLang==='en' ? 'Pick a branch or type an agency name.' : '지사를 고르거나 대리점명을 입력하세요.') + '</td></tr>';
+    if (cnt) cnt.textContent = '';
+    return;
+  }
+  tb.innerHTML = '<tr><td colspan="5" class="empty">불러오는 중…</td></tr>';
+  try {
+    const qs = new URLSearchParams({ limit: '100' });
+    if (fid) qs.set('franchise_id', fid);
+    if (q) qs.set('q', q);
+    const r = await fetch('/api/admin/centers?' + qs.toString(), {cache:'no-store',credentials:'include'});
+    const d = await r.json().catch(()=>({}));
+    if (!d.ok) throw new Error(d.error || 'API error');
+    const items = d.items || [];
+    if (cnt) cnt.textContent = (adminLang==='en' ? `${d.total||items.length} found` : `${d.total||items.length}곳`)
+      + (items.length < (d.total||0) ? (adminLang==='en' ? ' (first 100)' : ' 중 100곳 표시') : '');
+    if (!items.length) {
+      tb.innerHTML = '<tr><td colspan="5" class="empty">'
+        + (adminLang==='en' ? 'No agency matched.' : '해당하는 대리점이 없습니다.') + '</td></tr>';
+      return;
+    }
+    tb.innerHTML = items.map(c =>
+      `<tr><td>${c.id}</td><td><b>${_esc(c.name)}</b></td><td>${_esc(c.franchise_name)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
+    ).join('');
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="5" class="empty" style="color:#ef4444">에러: ${_esc(e.message||e)}</td></tr>`;
+  }
+}
+window.fbaSearch = fbaSearch;
 function _populateFranchiseSelect(items) {
-  const sel = document.getElementById('ct-franchise');
-  if (!sel) return;
   const placeholder = adminLang==='en' ? 'Select branch…' : '지사 선택…';
-  sel.innerHTML = '<option value="">' + placeholder + '</option>' + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+  const opts = '<option value="">' + placeholder + '</option>'
+    + items.map(f => `<option value="${f.id}">${_esc(f.name)}</option>`).join('');
+  const sel = document.getElementById('ct-franchise');
+  if (sel) sel.innerHTML = opts;
+  // 🔎 «지사 소속 대리점 찾기» 의 지사 드롭다운도 같은 목록을 쓴다(고른 값은 지킨다)
+  const fba = document.getElementById('fba-branch');
+  if (fba) { const keep = fba.value; fba.innerHTML = opts; if (keep) fba.value = keep; }
 }
 // 🏢 지사 드롭다운만 필요할 때 (대리점·학원 카드를 먼저 연 경우) — {id,name} 만 받는다.
 //    이게 없으면 «조직 관리» 카드를 안 열고 대리점을 등록하려 할 때 지사 목록이 빈칸이었다.
@@ -8410,6 +8539,7 @@ window.bulkCopyContacts = function() {
 // 6개 메뉴 컨트롤 일괄 바인딩
 (function bindPhase9Menus(){
   const e = id => document.getElementById(id);
+  if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', addCenter);
   if (e('lt-add-btn'))      e('lt-add-btn').addEventListener('click', addLevelTest);
@@ -8835,6 +8965,8 @@ window.adminLazyLoadCard = function(kind) {
     if (kind === 'franchises') {
       if (window.__lazyFranchises) return; window.__lazyFranchises = true;
       if (typeof loadFranchises === 'function') loadFranchises();
+      // 🏛️ 대표지사 표 — 지사 표의 «대표지사» 드롭다운과 같은 목록을 쓴다. 함께 채운다.
+      if (typeof loadMasterBranches === 'function') loadMasterBranches();
     } else if (kind === 'centers') {
       if (window.__lazyCenters) return; window.__lazyCenters = true;
       if (typeof loadCenters === 'function') loadCenters();
