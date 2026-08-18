@@ -384,11 +384,23 @@
      판정: 항목이 가리키는 카드가 «전부» 감춰졌을 때만 감춘다(하나라도 열려 있으면 남긴다).
      ⚠️ DOM 에 없는 카드 id 는 «판단 보류» 로 세지 않는다 — 오래된 id 가 목록에 남아 있을 수
         있는데, 그것 때문에 멀쩡한 항목이 사라지면 그게 더 큰 사고다. 하나도 못 찾으면 남긴다. */
+  /* 🔐 카드 숨김 판정 — **규칙 정본은 adm-core.js 의 `window.mangoiCardHidden`** 이다.
+     아래는 그것이 없을 때만 도는 안전장치다(하니스 단독 실행 · adm-core 로드 실패).
+     ⚠️ 규칙을 여기서 «늘리지» 마세요. 새 숨김 방식이 생기면 정본만 고치고,
+        정본이 있는 정상 경로에서는 이 줄이 아예 실행되지 않습니다. */
+  function _cardHidden(el) {
+    if (window.mangoiCardHidden) return window.mangoiCardHidden(el);
+    if (!el) return true;
+    if (el.classList && (el.classList.contains('rbac-hide') ||
+                         el.classList.contains('ph118-card-hidden'))) return true;
+    return !!(el.style && el.style.display === 'none');
+  }
+
   function cardRoleHidden(id) {
     var el = document.getElementById(id);
     if (!el) return null;                                  // 없는 카드 = 판단 보류
-    if (el.classList && el.classList.contains('rbac-hide')) return true;
-    return el.style && el.style.display === 'none';        // 옛 인라인 방식도 인정
+    // 판정 정본 = adm-core.js 의 window.mangoiCardHidden (역할 · 권한매트릭스 · 옛 인라인)
+    return !!_cardHidden(el);
   }
 
   function applyRoleFilter() {
