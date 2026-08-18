@@ -66,6 +66,7 @@ Allowed menu_id (scroll to card on /admin.html). Match Korean OR English keyword
 - card-admin-alerts    (실시간 이상감지·이상 알림 | real-time anomaly alerts, monitoring)
 - card-admin-ghost     (라이브 참관·고스트뷰 | live observation, ghost view)
 - card-auto-dunning    (미납 자동 알림·독촉 | overdue/unpaid auto alert, dunning)
+- card-accounting-mgmt (회계관리·정산·수강료 미연장 자동 알림·미수금 | accounting, settlement, non-renewal auto-notify, receivables)
 - card-points-mgmt     (포인트 관리 | points management)
 - card-badges-mgmt     (뱃지 관리 | badge management)
 - card-calendar        (캘린더·휴가·공휴일 | calendar, holidays, leave)
@@ -398,6 +399,10 @@ const CARD_ROUTES: Array<{ re: RegExp; menu_id?: string; url?: string; external_
   { re: /(평가서|성적표|성적\s*관리|평가\s*관리|report\s*card|evaluation|grades?)/i, menu_id: 'card-eval-mgmt', ko: '학생 평가서(성적표) 카드로 이동합니다.', en: 'Opening the student evaluations card.' },
   // ── 결제/정산/회계 (정기결제·미납 → 일반결제 순) ──
   { re: /(정기결제|자동결제|자동\s*결제|구독|recurring|subscription)/i, menu_id: 'card-recurring-billing', ko: '정기결제 자동화 카드로 이동합니다.', en: 'Opening the recurring billing card.' },
+  /* 🔁 (2026-08-18) «미연장» 은 회계관리 ▸ 수강료 미연장 자동 알림이다(B2C 선불 구조).
+        «미납» 은 종전대로 미납 자동 추적 카드. 둘은 다른 화면이라 순서를 지켜야 한다 —
+        미연장 규칙이 먼저 와야 「미연장」 이 아래 미납 규칙에 먼저 잡히지 않는다. */
+  { re: /(미연장|연장\s*안내|수강\s*연장|재등록|renewal|non-?renewal)/i, menu_id: 'card-accounting-mgmt', ko: '회계관리 ▸ 수강료 미연장 자동 알림으로 이동합니다.', en: 'Opening Accounting ▸ non-renewal auto-notify.' },
   { re: /(미납|독촉|미수금|dunning|overdue)/i, menu_id: 'card-auto-dunning', ko: '미납 자동 알림(독촉) 카드로 이동합니다.', en: 'Opening the overdue payment auto-alert card.' },
   { re: /(결제\s*관리|결제관리|수강료|학원비|납부|tuition|payment|\bfee\b)/i, menu_id: 'card-payments-b2c', ko: '결제관리 카드로 이동합니다.', en: 'Opening the payments card.' },
   { re: /(강사\s*급여|급여|payroll|salary)/i, menu_id: 'card-payroll', ko: '강사 급여 카드로 이동합니다.', en: 'Opening the teacher payroll card.' },

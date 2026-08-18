@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<link rel="stylesheet" href="/css/mangoi-layout.css?v=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>영업 실적·인사평가 · 망고아이</title>
+<!--
+  ══════════════════════════════════════════════════════════════════════════════
+  🚗 영업담당자 실적·인사평가·보상  (2026-08-18)
+
+  제안서: docs/영업담당_인사평가_제안서_260818.html
+  서버:   src/api-sales-hr.ts  (/api/admin/sales/*)
+
+  ⚠️ 설계 계약 — 깨면 제도가 죽습니다.
+    1. **본인이 자기 실적 숫자를 타이핑하지 않습니다.** 계약·유지 확인은 본사만 씁니다.
+       담당자가 쓰는 것은 «영업일지» 와 «후보 학원» 둘뿐입니다(서버에서도 403 으로 막힘).
+    2. 영업일지 입력은 **3분 안에 끝나야** 합니다. 칸을 늘리면 3주째부터 아무도 안 씁니다.
+       필수는 «학원 + 종류» 둘뿐, 나머지는 비워도 저장됩니다.
+    3. 점수는 서버가 셉니다. 화면은 그리기만 합니다 —
+       화면에서 계산하면 서버 값과 어긋나는 날이 반드시 옵니다(approval-hr.ts 와 같은 원칙).
+    4. 자료가 없는 항목은 **0점이 아니라 «해당없음»** 입니다. 회색으로 표시합니다.
+
+  📝 이 화면은 한국어 전용입니다(대상이 한국 영업담당자·본사).
+     그래서 i18n-sweep 을 일부러 넣지 않았습니다 — 넣으면 한국어 라벨을 영어로 갈아치웁니다.
+
+  admin.html(1.3MB) 은 **1줄도 건드리지 않았습니다.** 독립 화면이라 사고 반경이 여기까지입니다.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;
+       background:linear-gradient(160deg,#0f172a,#1e293b);color:#e6edf6;min-height:100vh;padding:22px;font-size:17px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .head{display:flex;align-items:center;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+  .head img{height:52px}
+  h1{font-size:29px;margin:0;font-weight:900}
+  .sub{color:#a9b7ca;font-size:16.5px;margin:4px 0 18px;line-height:1.6}
+  .card{background:rgba(30,41,59,.92);border:1px solid rgba(148,163,184,.22);border-radius:20px;padding:22px;margin-bottom:18px}
+  .card h2{font-size:20px;margin:0 0 4px;font-weight:900}
+  .card .hint{color:#a9b7ca;font-size:14.5px;margin:0 0 14px;line-height:1.65}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px}
+  input,select,textarea,button{font-size:16px;border-radius:11px;padding:11px 14px;
+       border:1px solid rgba(148,163,184,.4);font-family:inherit}
+  input,select,textarea{background:#0f172a;color:#e6edf6}
+  textarea{width:100%;resize:vertical;min-height:64px;line-height:1.6}
+  .btn{cursor:pointer;font-weight:800;background:transparent;color:#e6edf6;border:1px solid rgba(148,163,184,.45)}
+  .btn.primary{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1204;border-color:transparent}
+  .btn.ghost{font-weight:700;font-size:14.5px;padding:8px 12px}
+  .btn:disabled{opacity:.5;cursor:default}
+  label.f{display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:#a9b7ca;font-weight:700}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .kpi{background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:16px}
+  .kpi .k{font-size:13.5px;color:#a9b7ca;font-weight:700}
+  .kpi .v{font-size:27px;font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .t{font-size:13px;color:#7c8ba1;margin-top:3px}
+  .kpi.money .v{color:#6ee7b7}
+  .kpi.warn .v{color:#fbbf24}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:16px}
+  th,td{padding:11px 10px;text-align:left;border-bottom:1px solid rgba(148,163,184,.16);vertical-align:top}
+  th{color:#a9b7ca;font-size:13.5px;font-weight:700;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr:nth-child(even){background:rgba(148,163,184,.06)}
+  .scroll{overflow-x:auto}
+  .bar{height:9px;background:rgba(148,163,184,.2);border-radius:5px;overflow:hidden;min-width:70px}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:5px}
+  .na{color:#7c8ba1;font-style:normal}
+  .badge{font-size:13.5px;font-weight:800;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .b-ok{background:rgba(16,185,129,.18);color:#6ee7b7}
+  .b-warn{background:rgba(245,158,11,.18);color:#fbbf24}
+  .b-dim{background:rgba(148,163,184,.16);color:#cbd5e1}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px}
+  .pipe .st{flex:1 1 130px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.22);
+       border-radius:14px;padding:13px 14px}
+  .pipe .st .n{font-size:12.5px;color:#7c8ba1;font-weight:700}
+  .pipe .st .t{font-size:15.5px;font-weight:800;margin-top:2px}
+  .pipe .st .c{font-size:24px;font-weight:900;margin-top:3px;font-variant-numeric:tabular-nums}
+  .grade{font-size:44px;font-weight:900;line-height:1}
+  .empty{text-align:center;color:#a9b7ca;padding:26px 12px;line-height:1.7}
+  .muted{color:#7c8ba1;font-size:14.5px;line-height:1.65}
+  .warnbox{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);
+       border-radius:14px;padding:14px 16px;margin-top:12px;font-size:15px;line-height:1.7}
+  .okbox{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);
+       border-radius:14px;padding:14px 16px;margin-top:12px;font-size:15px;line-height:1.7}
+  .why{font-size:13.5px;color:#a9b7ca;line-height:1.6}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .mic{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:800;font-size:16px;
+       border-radius:999px;padding:12px 20px;border:1px solid rgba(148,163,184,.45);
+       background:rgba(15,23,42,.6);color:#e6edf6}
+  .mic.on{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border-color:transparent}
+  .mic .dot{width:10px;height:10px;border-radius:50%;background:#94a3b8;flex:none}
+  .mic.on .dot{background:#fff}
+  .baseline{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);border-radius:14px;
+       padding:13px 16px;margin-top:12px;font-size:15px;line-height:1.75}
+  .baseline b{color:#93c5fd}
+  .chip{display:inline-block;background:rgba(59,130,246,.16);color:#93c5fd;font-size:12.5px;
+       font-weight:800;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+  .chip.auto{background:rgba(16,185,129,.16);color:#6ee7b7}
+  details.more{margin-top:10px}
+  details.more > summary{cursor:pointer;color:#93c5fd;font-weight:700;font-size:15px}
+  @media (max-width:760px){
+    body{padding:14px;font-size:16px}
+    h1{font-size:23px}
+    table{font-size:14.5px}
+    th,td{padding:9px 6px}
+  }
+  /* [hidden] 이 작성자 CSS 에 지지 않게 (CLAUDE.md 함정 — teacher.html 실사고) */
+  [hidden]{display:none !important}
+</style>
+<style id="pc-scale">
+  /* PC 가독성 확대 — admin.html(body{zoom:1.3})과 동일 배율. 모바일 영향 없음 */
+  @media (min-width:1024px){ body{zoom:1.3} }
+</style>
+<link rel="stylesheet" href="/css/adm-light-theme.css?v=2">
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <img src="/img/mango-char.png" alt="Mangoi" loading="lazy" decoding="async">
+    <div>
+      <h1>영업 실적 · 인사평가</h1>
+      <div class="sub">전국 지사·학원 영업 담당자의 활동·계약·평가·성과급을 한 화면에서 봅니다.</div>
+    </div>
+    <a class="btn ghost" href="/admin.html" style="margin-left:auto;text-decoration:none">← 관리자 홈</a>
+  </div>
+
+  <!-- ── 기간·담당자 ─────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="toolbar">
+      <label class="f">담당자
+        <select id="rep"></select>
+      </label>
+      <label class="f">기간
+        <select id="period"></select>
+      </label>
+      <button class="btn primary" id="reload" type="button">불러오기</button>
+      <span class="muted" id="asOf"></span>
+    </div>
+    <div class="muted" id="repInfo"></div>
+  </div>
+
+  <div id="body"><div class="empty">불러오는 중…</div></div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+  function g(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function won(n){ if(n==null||isNaN(n)) return '-'; return Number(n).toLocaleString('ko-KR')+'원'; }
+  function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
+  function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+
+  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[] };
+
+  /* 기간 선택지 — 최근 12개월 + 최근 4개 반기.
+     평가는 반기, 성과급은 월이라 둘 다 있어야 한다. */
+  function periodOptions(){
+    var out=[], d=new Date(), y=d.getFullYear(), m=d.getMonth()+1, i;
+    for(i=0;i<12;i++){
+      var yy=y, mm=m-i;
+      while(mm<=0){ mm+=12; yy--; }
+      var p=yy+'-'+String(mm).padStart(2,'0');
+      out.push({ v:p, t:yy+'년 '+mm+'월' });
+    }
+    var h=(m<=6)?1:2, hy=y;
+    for(i=0;i<4;i++){
+      out.push({ v:hy+'-H'+h, t:hy+'년 '+(h===1?'상반기':'하반기')+' (평가)' });
+      h = (h===1)?2:1; if(h===2) hy--;
+    }
+    return out;
+  }
+
+  function api(path, opts){
+    return fetch(path, Object.assign({ credentials:'same-origin', headers:{'Content-Type':'application/json'} }, opts||{}))
+      .then(function(r){
+        if(r.status===401) throw new Error('auth');
+        if(r.status===403) throw new Error('forbidden');
+        return r.json();
+      });
+  }
+
+  /* ── 담당자 목록 ────────────────────────────────────────────── */
+  function loadReps(){
+    return api('/api/admin/sales/reps').then(function(j){
+      STATE.reps = j.reps || [];
+      STATE.canEdit = !!j.can_edit;
+      var sel=g('rep');
+      sel.innerHTML = STATE.reps.map(function(r){
+        return '<option value="'+r.id+'">'+esc(r.name)+(r.active?'':' (비활성)')+'</option>';
+      }).join('') || '<option value="">(등록된 담당자 없음)</option>';
+      if(STATE.reps.length){ STATE.repId = STATE.reps[0].id; sel.value=String(STATE.repId); }
+    });
+  }
+
+  /* ── 첫 화면 (왕복 1회) ─────────────────────────────────────── */
+  function load(){
+    g('body').innerHTML='<div class="empty">불러오는 중…</div>';
+    var p = g('period').value;
+    STATE.period = p;
+    api('/api/admin/sales/overview?period='+encodeURIComponent(p))
+      .then(function(j){
+        if(!j.ok) throw new Error(j.error||'error');
+        STATE.data = j;
+        g('asOf').textContent = '기준일 '+(j.as_of||'');
+        render();
+        return loadLeads();
+      })
+      .catch(showError);
+  }
+
+  function loadLeads(){
+    if(!STATE.repId) return;
+    return api('/api/admin/sales/leads?rep_id='+STATE.repId+'&status=active')
+      .then(function(j){ STATE.leads=j.leads||[]; STATE.stages=j.stages||[]; fillLeadSelects(); })
+      .catch(function(){ /* 목록이 없어도 화면은 살아 있어야 한다 */ });
+  }
+
+  function showError(e){
+    if(e && e.message==='auth'){
+      g('body').innerHTML='<div class="empty">로그인이 필요합니다.<br><a href="/admin/login.html" style="color:#7dd3fc">로그인하기</a></div>';
+    } else if(e && e.message==='forbidden'){
+      g('body').innerHTML='<div class="empty">이 화면은 본사 계정과 영업담당자 본인만 볼 수 있습니다.</div>';
+    } else {
+      g('body').innerHTML='<div class="empty">불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
+    }
+  }
+
+  /* ── 그리기 ─────────────────────────────────────────────────── */
+  function render(){
+    var j = STATE.data;
+    if(!j || !j.cards || !j.cards.length){
+      g('body').innerHTML = '<div class="card"><h2>아직 등록된 영업담당자가 없습니다</h2>'
+        + '<p class="hint">아래에서 담당자를 먼저 등록하세요. 기본급·건당 성과급·월 목표는 나중에 언제든 바꿀 수 있습니다.</p></div>'
+        + repFormHtml(null);
+      bindRepForm();
+      return;
+    }
+    var card = j.cards.filter(function(c){ return c.rep.id === STATE.repId; })[0] || j.cards[0];
+    STATE.repId = card.rep.id;
+    g('rep').value = String(STATE.repId);
+    g('repInfo').innerHTML = repInfoHtml(card.rep);
+
+    var html = '';
+    html += kpiHtml(card, j);
+    html += pipelineHtml(card);
+    html += retentionHtml(j);
+    html += scoreHtml(card, j);
+    html += evalHtml();
+    html += diaryHtml(j);
+    html += dealFormHtml();
+    html += leadFormHtml();
+    html += repFormHtml(card.rep);
+    g('body').innerHTML = html;
+
+    bindAll();
+    loadEvaluation();
+  }
+
+  function repInfoHtml(r){
+    return '기본급 <b>'+won(r.base_salary_krw)+'</b> · 계약 1곳당 성과급 <b>'+won(r.incentive_per_deal_krw)+'</b>'
+      + ' · 월 목표 <b>'+ (r.target_deals||0) +'곳</b>'
+      + (r.region?(' · 담당 '+esc(r.region)):'')
+      + (r.hired_at?(' · 입사 '+esc(r.hired_at)):'');
+  }
+
+  function kpiHtml(c, j){
+    var comp = c.compensation || {};
+    return '<div class="card">'
+      + '<h2>'+esc(j.period_label)+' 요약</h2>'
+      + '<p class="hint">숫자는 전부 서버가 기록에서 세어 만든 것입니다. 담당자가 직접 입력한 실적 숫자는 하나도 없습니다.</p>'
+      + '<div class="grid g3">'
+      + kpi('신규 계약 학원', c.deal_count+'곳', '목표 '+c.targets.deals+'곳','')
+      + kpi('신규 등록 학생', c.student_count+'명', '목표 '+c.targets.students+'명','')
+      + kpi('방문·상담', findItem(c,'visits')+'건', '목표 '+c.targets.visits+'건','')
+      + kpi('영업일지 기록', findItem(c,'diary')+'일', '근무일 '+c.targets.workdays+'일','')
+      + kpi('자동 점수(85점 중)', (c.earned==null?'-':c.earned), '적용가능 만점 '+c.applicable_max+'점','warn')
+      + kpi('이 기간 성과급', won(comp.incentive_krw), '계약 1차 + 유지 2차','money')
+      + '</div>'
+      + (c.advisory
+          ? '<div class="baseline"><b>기준선 기간입니다 (' + esc(c.baseline_until||'') + '까지).</b> '
+            + '점수는 계산하지만 <b>상여에는 연결하지 않습니다.</b> '
+            + '기록이 3개월은 쌓여야 「월 목표 2곳」이 쉬운지 무리인지 알 수 있습니다 — '
+            + '그 전에 정한 목표로 사람을 평가하면 그건 평가가 아니라 추측입니다.</div>'
+          : '')
+      + (c.applicable_max < 85
+          ? '<div class="warnbox">아직 <b>자료가 없어 채점하지 않은 항목</b>이 있습니다. 그 항목은 0점이 아니라 «해당없음»으로 빼고, 남은 항목의 만점('
+            + c.applicable_max + '점)을 기준으로 환산합니다.</div>'
+          : '')
+      + '</div>';
+  }
+  function kpi(k,v,t,cls){
+    return '<div class="kpi '+(cls||'')+'"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div><div class="t">'+esc(t)+'</div></div>';
+  }
+  function findItem(c,key){
+    var it=(c.auto_items||[]).filter(function(i){ return i.key===key; })[0];
+    return it && it.actual!=null ? it.actual : 0;
+  }
+
+  function pipelineHtml(c){
+    var html = '<div class="card"><h2>영업 파이프라인</h2>'
+      + '<p class="hint">지금 진행 중인 후보 학원이 어느 단계에 몇 곳 있는지입니다. '
+      + '「방문은 많은데 제안이 없다」와 「제안은 많은데 계약이 없다」는 처방이 정반대라 나눠서 봅니다.</p>'
+      + '<div class="pipe">';
+    (c.pipeline||[]).forEach(function(s){
+      html += '<div class="st"><div class="n">STEP '+s.n+'</div><div class="t">'+esc(s.ko)+'</div><div class="c">'+s.count+'</div></div>';
+    });
+    html += '</div></div>';
+    return html;
+  }
+
+  function retentionHtml(j){
+    var due = j.retention_due || [];
+    var head = '<div class="card"><h2>🔔 3개월 유지 확인</h2>'
+      + '<p class="hint">유지 여부는 <b>매일 밤 시스템이 학생 명부·수업 기록을 보고 자동으로 판정</b>합니다. '
+      + '여기 올라오는 것은 <b>기계가 판정하지 못한 건</b>뿐입니다 — 사람이 봐야 하는 이유가 함께 적혀 있습니다.</p>'
+      + (STATE.canEdit
+          ? '<div class="toolbar"><button class="btn" id="rt_sweep" type="button">지금 자동 판정 실행</button>'
+            + '<span class="muted" id="rt_msg"></span></div>'
+          : '');
+    if(!due.length){
+      return head + '<div class="okbox">사람이 확인할 계약이 없습니다. 자동 판정이 전부 끝났습니다.</div></div>';
+    }
+    var rows = due.map(function(d){
+      return '<tr><td>'+esc(d.center_name)+'</td><td>'+esc(d.contract_date)+'</td><td>'+esc(d.retention_due||'')+'</td>'
+        + '<td class="row-actions">'
+        + (STATE.canEdit
+            ? '<button class="btn ghost ret" data-id="'+d.id+'" data-v="1" type="button">유지됨</button>'
+              + '<button class="btn ghost ret" data-id="'+d.id+'" data-v="0" type="button">이탈</button>'
+            : '<span class="muted">본사가 확인합니다</span>')
+        + '</td></tr>'
+        + (d.why ? '<tr><td colspan="4" class="why">'+esc(d.why)+'</td></tr>' : '');
+    }).join('');
+    return head
+      + '<div class="scroll" style="margin-top:12px"><table><thead><tr><th>학원</th><th>계약일</th><th>확인 예정일</th><th>확인</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table></div>'
+      + '<div class="warnbox">확인 전인 계약은 <b>점수에서 빠집니다</b> — 실패로 세지 않습니다. '
+      + '누르지 않았다는 이유로 담당자가 점수를 잃지 않게 만들어 둔 것입니다.</div></div>';
+  }
+
+  function runSweep(){
+    var btn=g('rt_sweep'); btn.disabled=true;
+    g('rt_msg').textContent='판정하는 중…';
+    api('/api/admin/sales/retention-sweep', { method:'POST', body:'{}' })
+      .then(function(j){
+        btn.disabled=false;
+        if(!j.ok){ g('rt_msg').textContent='실행하지 못했습니다.'; return; }
+        g('rt_msg').textContent = '검사 '+j.checked+'건 · 유지 '+j.kept+' · 이탈 '+j.lost+' · 사람 확인 필요 '+j.needs_human;
+        load();
+      })
+      .catch(function(){ btn.disabled=false; g('rt_msg').textContent='실행하지 못했습니다.'; });
+  }
+
+  function scoreHtml(c, j){
+    var rows = (c.auto_items||[]).map(function(i){
+      var scoreCell, barPct;
+      if(i.score==null){ scoreCell='<span class="na">해당없음</span>'; barPct=0; }
+      else { scoreCell = i.score+' / '+i.weight; barPct = Math.round(Math.min(1,(i.score/i.weight))*100); }
+      return '<tr>'
+        + '<td>'+esc(i.label)+'</td>'
+        + '<td class="num">'+(i.actual==null?'-':i.actual)+'</td>'
+        + '<td class="num">'+(i.target==null?'-':i.target)+'</td>'
+        + '<td class="num">'+(i.rate==null?'-':pct(i.rate))+'</td>'
+        + '<td class="num">'+scoreCell+'</td>'
+        + '<td><span class="bar"><i style="width:'+barPct+'%"></i></span></td>'
+        + '</tr>'
+        + '<tr><td colspan="6" class="why">'+esc(i.reason)+'</td></tr>';
+    }).join('');
+    return '<div class="card"><h2>자동 채점 (85점)</h2>'
+      + '<p class="hint">실적 60 + 활동 25. 사람이 매기는 15점(보고·차량·협업)은 아래 «평가 확정»에서 넣습니다. '
+      + '점수 아래 줄이 <b>«왜 이 점수인가»</b>입니다 — 이걸 설명 못 하면 평가 제도는 무너집니다.</p>'
+      + '<div class="scroll"><table><thead><tr><th>항목</th><th class="num">실적</th><th class="num">목표</th>'
+      + '<th class="num">달성률</th><th class="num">점수</th><th>　</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+      + '</div>';
+  }
+
+  /* ── 평가 확정 (사람 15점) ─────────────────────────────────── */
+  function evalHtml(){
+    return '<div class="card" id="evalCard"><h2>평가 확정 (사람이 매기는 15점)</h2>'
+      + '<p class="hint">보고 마감 준수 5 · 차량·비용 관리 5 · 협업 5. '
+      + '반기(YYYY-H1/H2)를 고르면 등급과 반기 상여가 함께 계산됩니다.</p>'
+      + '<div id="evalBody"><div class="muted">불러오는 중…</div></div></div>';
+  }
+
+  function loadEvaluation(){
+    if(!STATE.repId) return;
+    api('/api/admin/sales/evaluation?rep_id='+STATE.repId+'&period='+encodeURIComponent(STATE.period))
+      .then(function(j){
+        if(!j.ok){ g('evalBody').innerHTML='<div class="muted">평가를 불러오지 못했습니다.</div>'; return; }
+        var s=j.saved||{};
+        var canEdit=!!j.can_edit;
+        var html='';
+        if(j.advisory){
+          html += '<div class="baseline"><b>기준선 기간 — 이 평가는 참고용입니다 ('+esc(j.baseline_until||'')+'까지).</b> '
+            + '점수와 등급은 그대로 나오지만 <b>상여는 계산하지 않습니다.</b> '
+            + '첫 '+(j.baseline_days||90)+'일은 「이 사람이 잘하나」를 보는 기간이 아니라 '
+            + '「우리 목표가 현실적인가」를 보는 기간입니다.</div>';
+        }
+        html += '<div class="grid g3">'
+          + numField('sc_reporting','보고 마감 준수 (0~5)',5,s.score_reporting,canEdit)
+          + numField('sc_vehicle','차량·비용 관리 (0~5)',5,s.score_vehicle,canEdit)
+          + numField('sc_teamwork','협업 평가 (0~5)',5,s.score_teamwork,canEdit)
+          + '</div>';
+        html += '<div class="grid g2" style="margin-top:12px">'
+          + '<label class="f">잘한 점<textarea id="ev_str" '+(canEdit?'':'disabled')+'>'+esc(s.strengths||'')+'</textarea></label>'
+          + '<label class="f">개선할 점<textarea id="ev_imp" '+(canEdit?'':'disabled')+'>'+esc(s.improvements||'')+'</textarea></label>'
+          + '</div>';
+        if(canEdit){
+          html += '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="ev_save" type="button">평가 저장·확정</button>'
+            + '<span class="muted" id="ev_msg"></span></div>';
+        }
+        // 현재 총점·등급
+        var f=j.final||{};
+        html += '<div class="grid g3" style="margin-top:14px">'
+          + '<div class="kpi"><div class="k">자동 점수</div><div class="v">'+(j.auto?j.auto.earned:'-')+'</div>'
+            + '<div class="t">적용가능 만점 '+(j.auto?j.auto.applicable_max:'-')+'점</div></div>'
+          + '<div class="kpi"><div class="k">환산 총점 (100점)</div><div class="v">'+(f.total==null?'-':f.total)+'</div>'
+            + '<div class="t">'+(f.converted?'일부 항목 해당없음 → 비율 환산':'전 항목 채점')+'</div></div>'
+          + '<div class="kpi money"><div class="k">등급 · 반기 상여</div>'
+            + '<div class="v"><span class="grade">'+(j.grade||'-')+'</span>'
+            + (j.advisory?'<span class="chip">참고용</span>':'')+'</div>'
+            + '<div class="t">'+(j.bonus_krw!=null
+                ? (won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')')
+                : (j.advisory ? '기준선 기간이라 상여를 계산하지 않습니다' : '반기를 골라야 계산됩니다'))+'</div></div>'
+          + '</div>';
+        if(f.manual_sum==null){
+          html += '<div class="warnbox">사람이 매기는 15점이 아직 비어 있습니다. 지금 총점은 <b>자동 85점만</b>으로 환산한 값입니다.</div>';
+        }
+        if(s.evaluated_at){
+          html += '<div class="muted" style="margin-top:10px">마지막 확정: '+esc(s.evaluator||'')+' · '
+            + new Date(Number(s.evaluated_at)).toLocaleString('ko-KR')+'</div>';
+        }
+        g('evalBody').innerHTML=html;
+        if(canEdit && g('ev_save')) g('ev_save').addEventListener('click', saveEvaluation);
+      })
+      .catch(function(){ g('evalBody').innerHTML='<div class="muted">평가를 불러오지 못했습니다.</div>'; });
+  }
+
+  function numField(id,label,max,val,canEdit){
+    return '<label class="f">'+esc(label)
+      + '<input type="number" id="'+id+'" min="0" max="'+max+'" step="0.5" value="'+(val==null?'':val)+'"'
+      + (canEdit?'':' disabled')+'></label>';
+  }
+
+  function saveEvaluation(){
+    var btn=g('ev_save'); btn.disabled=true;
+    api('/api/admin/sales/evaluation', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId, period: STATE.period,
+      score_reporting: g('sc_reporting').value,
+      score_vehicle: g('sc_vehicle').value,
+      score_teamwork: g('sc_teamwork').value,
+      strengths: g('ev_str').value,
+      improvements: g('ev_imp').value
+    })}).then(function(j){
+      btn.disabled=false;
+      g('ev_msg').textContent = j.ok ? '저장했습니다.' : ('저장 실패: '+(j.message||j.error||''));
+      if(j.ok) loadEvaluation();
+    }).catch(function(){ btn.disabled=false; g('ev_msg').textContent='저장 실패(통신 오류)'; });
+  }
+
+  /* ── 영업일지 ───────────────────────────────────────────────── */
+  function diaryHtml(j){
+    var rows = (j.recent_activities||[]).map(function(a){
+      return '<tr><td>'+esc(a.activity_date)+'</td><td>'+esc(kindKo(a.kind))+'</td>'
+        + '<td>'+esc(a.lead_name||a.title||'-')+'</td>'
+        + '<td>'+esc(a.outcome||a.note||'')+'</td>'
+        + '<td>'+esc(a.next_action||'')+'</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">아직 기록이 없습니다.</td></tr>';
+
+    return '<div class="card"><h2>영업일지</h2>'
+      + '<p class="hint">필수는 <b>«학원»과 «종류» 둘뿐</b>입니다. 나머지는 비워도 저장됩니다 — 길게 쓰게 하면 3주째부터 아무도 안 씁니다.</p>'
+      // 🎤 말로 쓰기 — 이 제도 전체가 «매일 기록» 위에 서 있다. 타이핑을 요구하면 3주째부터 안 쓴다.
+      //    브라우저 음성인식이 없으면 이 블록은 «붙여넣고 정리하기» 로 그대로 쓰인다.
+      + '<div style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:16px;margin-bottom:14px">'
+      + '<div class="toolbar" style="margin-bottom:10px">'
+      + '<button class="mic" id="ac_mic" type="button" hidden><span class="dot"></span><span id="ac_mic_t">말로 쓰기</span></button>'
+      + '<button class="btn" id="ac_parse" type="button">AI로 정리하기</button>'
+      + '<span class="muted" id="ac_ai_msg"></span>'
+      + '</div>'
+      + '<textarea id="ac_voice" placeholder="차 안에서 말로 하세요. 예: 오늘 대전 둔산동 세종어학원 갔고, 원장님이 단가는 괜찮은데 시간표가 안 맞는다고 했어. 다음 주에 시간표 만들어서 다시 가기로 했음"></textarea>'
+      + '<div class="muted" style="margin-top:8px">말한 원문은 그대로 저장됩니다 — AI 정리가 틀렸을 때 원본을 볼 수 있어야 하니까요.</div>'
+      + '</div>'
+      + '<div class="grid g3">'
+      + '<label class="f">날짜<input type="date" id="ac_date" value="'+todayISO()+'"></label>'
+      + '<label class="f">학원(후보)<select id="ac_lead"></select></label>'
+      + '<label class="f">종류<select id="ac_kind">'
+        + '<option value="visit">방문상담</option><option value="call">전화</option>'
+        + '<option value="meeting">미팅</option><option value="demo">시연</option>'
+        + '<option value="manage">기존 학원 관리방문</option><option value="other">기타</option>'
+        + '</select></label>'
+      + '<label class="f">단계 이동(선택)<select id="ac_stage"><option value="">그대로</option>'
+        + '<option value="1">1 발굴</option><option value="2">2 접촉</option><option value="3">3 방문상담</option>'
+        + '<option value="4">4 제안·시연</option><option value="5">5 계약</option><option value="6">6 개원·정착</option>'
+        + '</select></label>'
+      + '</div>'
+      + '<div class="grid g2" style="margin-top:12px">'
+      + '<label class="f">오늘 무슨 일이 있었나<textarea id="ac_note" placeholder="예: 원장님이 단가는 괜찮은데 시간표가 안 맞는다고 함"></textarea></label>'
+      + '<label class="f">다음 할 일<textarea id="ac_next" placeholder="예: 맞춤 시간표안 준비해서 다음 주 재방문"></textarea></label>'
+      + '</div>'
+      + '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="ac_save" type="button">일지 저장</button>'
+      + '<span class="muted" id="ac_msg"></span></div>'
+      + '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>날짜</th><th>종류</th><th>학원</th><th>내용</th><th>다음 할 일</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table></div></div>';
+  }
+  function kindKo(k){
+    return ({visit:'방문상담',call:'전화',meeting:'미팅',demo:'시연',manage:'관리방문',other:'기타'})[k]||k;
+  }
+
+  function fillLeadSelects(){
+    var opts = '<option value="">(선택 안 함)</option>' + STATE.leads.map(function(l){
+      return '<option value="'+l.id+'">'+esc(l.name)+' — '+esc(stageKo(l.stage))+'</option>';
+    }).join('');
+    if(g('ac_lead')) g('ac_lead').innerHTML = opts;
+    if(g('dl_lead')) g('dl_lead').innerHTML = opts;
+  }
+  function stageKo(n){
+    var s=(STATE.stages||[]).filter(function(x){ return x.n===Number(n); })[0];
+    return s?s.ko:('단계'+n);
+  }
+
+  function saveActivity(){
+    var btn=g('ac_save'); btn.disabled=true;
+    api('/api/admin/sales/activities', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId,
+      activity_date: g('ac_date').value,
+      lead_id: g('ac_lead').value || null,
+      kind: g('ac_kind').value,
+      stage_after: g('ac_stage').value || null,
+      note: g('ac_note').value,
+      next_action: g('ac_next').value,
+      raw_voice: g('ac_voice') ? g('ac_voice').value : ''
+    })}).then(function(j){
+      btn.disabled=false;
+      g('ac_msg').textContent = j.ok ? '저장했습니다.' : ('저장 실패: '+(j.message||j.error||''));
+      if(j.ok){ g('ac_note').value=''; g('ac_next').value=''; if(g('ac_voice')) g('ac_voice').value=''; load(); }
+    }).catch(function(){ btn.disabled=false; g('ac_msg').textContent='저장 실패(통신 오류)'; });
+  }
+
+  /* ── 🎤 음성 받아쓰기 ────────────────────────────────────────────
+     브라우저 내장 음성인식(Web Speech API)을 씁니다. 서버·외부 라이브러리 0개.
+     ⚠️ 지원하지 않는 브라우저(파이어폭스 등)에서는 버튼을 숨기고,
+        «붙여넣고 AI로 정리하기» 경로가 그대로 남습니다 — 막다른 길을 만들지 않습니다. */
+  var REC = null, recOn = false;
+
+  function speechCtor(){ return window.SpeechRecognition || window.webkitSpeechRecognition || null; }
+
+  function setupMic(){
+    var btn = g('ac_mic');
+    if(!btn) return;
+    var Ctor = speechCtor();
+    if(!Ctor){
+      btn.hidden = true;                       // 지원 안 하면 조용히 숨긴다
+      var m = g('ac_ai_msg');
+      if(m) m.textContent = '이 브라우저는 음성 입력을 지원하지 않습니다. 받아쓴 내용을 붙여넣고 «AI로 정리하기»를 누르세요.';
+      return;
+    }
+    btn.hidden = false;
+    btn.addEventListener('click', function(){ recOn ? stopMic() : startMic(Ctor); });
+  }
+
+  function startMic(Ctor){
+    try{
+      REC = new Ctor();
+      REC.lang = 'ko-KR';
+      REC.continuous = true;
+      REC.interimResults = true;
+      REC.onresult = function(e){
+        var fin = '';
+        for(var i=e.resultIndex; i<e.results.length; i++){
+          if(e.results[i].isFinal) fin += e.results[i][0].transcript;
+        }
+        if(fin){
+          var ta = g('ac_voice');
+          ta.value = (ta.value ? ta.value + ' ' : '') + fin.trim();
+        }
+      };
+      REC.onerror = function(){ stopMic(); g('ac_ai_msg').textContent = '음성 인식이 중단됐습니다. 다시 눌러 주세요.'; };
+      REC.onend = function(){ if(recOn) stopMic(); };
+      REC.start();
+      recOn = true;
+      g('ac_mic').classList.add('on');
+      g('ac_mic_t').textContent = '녹음 중 — 누르면 끝';
+      g('ac_ai_msg').textContent = '듣고 있습니다. 편하게 말씀하세요.';
+    }catch(err){
+      recOn = false;
+      g('ac_ai_msg').textContent = '음성 입력을 시작하지 못했습니다. 마이크 권한을 확인해 주세요.';
+    }
+  }
+
+  function stopMic(){
+    recOn = false;
+    try{ if(REC) REC.stop(); }catch(e){}
+    var b=g('ac_mic'); if(b){ b.classList.remove('on'); }
+    var t=g('ac_mic_t'); if(t){ t.textContent='말로 쓰기'; }
+    // 말이 끝나면 바로 정리한다 — 버튼을 한 번 더 누르게 하면 그 한 번에서 사람이 떨어져 나간다.
+    if(g('ac_voice') && g('ac_voice').value.trim()) parseDiary();
+  }
+
+  function parseDiary(){
+    var text = g('ac_voice') ? g('ac_voice').value.trim() : '';
+    if(!text){ g('ac_ai_msg').textContent = '먼저 말하거나 내용을 붙여넣어 주세요.'; return; }
+    g('ac_ai_msg').textContent = '정리하는 중…';
+    api('/api/admin/sales/parse-diary', { method:'POST', body: JSON.stringify({ rep_id: STATE.repId, text: text }) })
+      .then(function(j){
+        if(!j.ok || !j.draft){ g('ac_ai_msg').textContent = '정리하지 못했습니다. 아래 칸에 직접 적어 주세요.'; return; }
+        var d = j.draft;
+        if(d.lead_id && g('ac_lead')) g('ac_lead').value = String(d.lead_id);
+        if(d.kind && g('ac_kind')) g('ac_kind').value = d.kind;
+        if(g('ac_stage')) g('ac_stage').value = (d.stage_after==null ? '' : String(d.stage_after));
+        if(g('ac_note')) g('ac_note').value = d.outcome || d.note || '';
+        if(g('ac_next')) g('ac_next').value = d.next_action || '';
+        var msg = (d.source === 'ai')
+          ? 'AI가 정리했습니다. 틀린 것만 고치고 저장하세요.'
+          : '간단히 정리했습니다(AI를 쓸 수 없는 상태). 내용을 확인해 주세요.';
+        if(d.unknown_lead){
+          msg += ' · 「' + d.unknown_lead + '」는 후보 학원 목록에 없습니다 — 아래 «후보 학원»에서 먼저 등록하세요.';
+        }
+        g('ac_ai_msg').textContent = msg;
+      })
+      .catch(function(){ g('ac_ai_msg').textContent = '정리하지 못했습니다. 아래 칸에 직접 적어 주세요.'; });
+  }
+
+  /* ── 후보 학원 등록 ─────────────────────────────────────────── */
+  function leadFormHtml(){
+    var rows = (STATE.leads||[]).slice(0,30).map(function(l){
+      return '<tr><td>'+esc(l.name)+'</td><td>'+esc(l.region||'')+'</td><td>'+esc(stageKo(l.stage))+'</td>'
+        + '<td>'+esc(l.contact_name||'')+'</td><td>'+esc(l.next_action||'')+'</td>'
+        + '<td>'+esc(l.last_contact_at||'')+'</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="empty">아직 등록된 후보 학원이 없습니다.</td></tr>';
+    return '<div class="card"><h2>후보 학원</h2>'
+      + '<p class="hint">담당자 머릿속에 있는 거래처를 <b>회사 자산으로 옮기는</b> 곳입니다. 사람이 바뀌어도 남습니다.</p>'
+      + '<div class="grid g3">'
+      + '<label class="f">학원 이름<input id="ld_name" placeholder="예: 둔산 ○○어학원"></label>'
+      + '<label class="f">지역<input id="ld_region" placeholder="예: 대전 서구"></label>'
+      + '<label class="f">원장님 성함<input id="ld_contact"></label>'
+      + '<label class="f">연락처<input id="ld_phone" placeholder="010-0000-0000"></label>'
+      + '<label class="f">단계<select id="ld_stage">'
+        + '<option value="1">1 발굴</option><option value="2">2 접촉</option><option value="3">3 방문상담</option>'
+        + '<option value="4">4 제안·시연</option><option value="5">5 계약</option><option value="6">6 개원·정착</option>'
+        + '</select></label>'
+      + '<label class="f">다음 할 일<input id="ld_next"></label>'
+      + '</div>'
+      + '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="ld_save" type="button">후보 학원 등록</button>'
+      + '<span class="muted" id="ld_msg"></span></div>'
+      + '<div class="scroll" style="margin-top:14px"><table><thead><tr><th>학원</th><th>지역</th><th>단계</th><th>원장님</th><th>다음 할 일</th><th>마지막 접촉</th></tr></thead>'
+      + '<tbody>'+rows+'</tbody></table></div></div>';
+  }
+
+  function saveLead(){
+    var btn=g('ld_save'); btn.disabled=true;
+    api('/api/admin/sales/leads', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId, name: g('ld_name').value, region: g('ld_region').value,
+      contact_name: g('ld_contact').value, contact_phone: g('ld_phone').value,
+      stage: g('ld_stage').value, next_action: g('ld_next').value
+    })}).then(function(j){
+      btn.disabled=false;
+      g('ld_msg').textContent = j.ok ? '등록했습니다.' : ('등록 실패: '+(j.message||j.error||''));
+      if(j.ok){ g('ld_name').value=''; g('ld_next').value=''; load(); }
+    }).catch(function(){ btn.disabled=false; g('ld_msg').textContent='등록 실패(통신 오류)'; });
+  }
+
+  /* ── 계약 등록 (본사만) ─────────────────────────────────────── */
+  function dealFormHtml(){
+    if(!STATE.canEdit){
+      return '<div class="card"><h2>계약</h2><p class="hint">계약 등록·유지 확인은 <b>본사만</b> 합니다. '
+        + '성과급의 근거라서, 본인이 자기 실적을 입력하지 않도록 막아 둔 것입니다.</p></div>';
+    }
+    return '<div class="card"><h2>계약 등록 (본사)</h2>'
+      + '<p class="hint">계약을 넣으면 성과급 1차(50%)가 그 달에 잡히고, 90일 뒤 «유지 확인» 목록에 올라옵니다.</p>'
+      + '<div class="grid g3">'
+      + '<label class="f">학원 이름<input id="dl_name"></label>'
+      + '<label class="f">연결할 후보 학원<select id="dl_lead"></select></label>'
+      + '<label class="f">계약일<input type="date" id="dl_date" value="'+todayISO()+'"></label>'
+      + '<label class="f">최초 등록 학생 수<input type="number" id="dl_students" min="0" value="0"></label>'
+      + '<label class="f">지역<input id="dl_region"></label>'
+      + '<label class="f">성과급 총액(비우면 기본값)<input type="number" id="dl_inc" min="0" placeholder="담당자 기본값 사용"></label>'
+      + '</div>'
+      + '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="dl_save" type="button">계약 등록</button>'
+      + '<span class="muted" id="dl_msg"></span></div></div>';
+  }
+
+  function saveDeal(){
+    var btn=g('dl_save'); btn.disabled=true;
+    api('/api/admin/sales/deals', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId, center_name: g('dl_name').value, lead_id: g('dl_lead').value || null,
+      contract_date: g('dl_date').value, students_initial: g('dl_students').value,
+      region: g('dl_region').value,
+      incentive_total_krw: g('dl_inc').value || null
+    })}).then(function(j){
+      btn.disabled=false;
+      g('dl_msg').textContent = j.ok ? '등록했습니다.' : ('등록 실패: '+(j.message||j.error||''));
+      if(j.ok){ g('dl_name').value=''; load(); }
+    }).catch(function(){ btn.disabled=false; g('dl_msg').textContent='등록 실패(통신 오류)'; });
+  }
+
+  function markRetention(id, v){
+    api('/api/admin/sales/deals', { method:'POST', body: JSON.stringify({
+      id: Number(id), rep_id: STATE.repId, retained_3m: Number(v), retention_checked_at: todayISO()
+    })}).then(function(){ load(); }).catch(function(){});
+  }
+
+  /* ── 담당자 설정 ────────────────────────────────────────────── */
+  function repFormHtml(r){
+    if(!STATE.canEdit && r) return '';
+    r = r || {};
+    return '<div class="card"><h2>담당자 설정'+(r.id?'':' (신규 등록)')+'</h2>'
+      + '<p class="hint">기본급·건당 성과급·월 목표는 <b>제도의 숫자</b>입니다. 코드를 고치지 않고 여기서 바꿉니다. '
+      + '월별로 다르게 하려면 목표는 아래 «이 달만 목표 바꾸기»를 쓰세요.</p>'
+      + '<div class="grid g3">'
+      + '<label class="f">이름<input id="rp_name" value="'+esc(r.name||'')+'"></label>'
+      + '<label class="f">담당 지역<input id="rp_region" value="'+esc(r.region||'')+'"></label>'
+      + '<label class="f">관리자 아이디(본인 로그인)<input id="rp_user" value="'+esc(r.admin_username||'')+'" placeholder="비우면 본인 조회 불가"></label>'
+      + '<label class="f">입사일<input type="date" id="rp_hired" value="'+esc(r.hired_at||'')+'"></label>'
+      + '<label class="f">제도 시작일(기준선 시작)<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
+      + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+(r.base_salary_krw||0)+'"></label>'
+      + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+(r.incentive_per_deal_krw||0)+'"></label>'
+      + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+(r.target_deals!=null?r.target_deals:2)+'"></label>'
+      + '<label class="f">월 목표 — 학생<input type="number" id="rp_ts" min="0" value="'+(r.target_students!=null?r.target_students:20)+'"></label>'
+      + '<label class="f">월 목표 — 방문<input type="number" id="rp_tv" min="0" value="'+(r.target_visits!=null?r.target_visits:48)+'"></label>'
+      + '<label class="f">월 목표 — 신규 발굴<input type="number" id="rp_tl" min="0" value="'+(r.target_leads!=null?r.target_leads:20)+'"></label>'
+      + '<label class="f">월 목표 — 관리방문<input type="number" id="rp_tc" min="0" value="'+(r.target_care!=null?r.target_care:8)+'"></label>'
+      + '</div>'
+      + '<div class="toolbar" style="margin-top:12px">'
+      + '<button class="btn primary" id="rp_save" type="button" data-id="'+(r.id||0)+'">저장</button>'
+      + '<span class="muted" id="rp_msg"></span></div>'
+      + (r.id ? targetFormHtml(r) : '')
+      + '</div>';
+  }
+
+  function targetFormHtml(r){
+    return '<details class="more"><summary>이 달만 목표 바꾸기 (명절·시험기간 등)</summary>'
+      + '<div class="grid g3" style="margin-top:12px">'
+      + '<label class="f">대상 월<input id="tg_period" placeholder="2026-03"></label>'
+      + '<label class="f">계약<input type="number" id="tg_d" min="0"></label>'
+      + '<label class="f">학생<input type="number" id="tg_s" min="0"></label>'
+      + '<label class="f">방문<input type="number" id="tg_v" min="0"></label>'
+      + '<label class="f">신규 발굴<input type="number" id="tg_l" min="0"></label>'
+      + '<label class="f">관리방문<input type="number" id="tg_c" min="0"></label>'
+      + '<label class="f">근무일 수(비우면 평일 자동)<input type="number" id="tg_w" min="0"></label>'
+      + '</div>'
+      + '<div class="toolbar" style="margin-top:10px"><button class="btn" id="tg_save" type="button">이 달 목표 저장</button>'
+      + '<span class="muted" id="tg_msg"></span></div></details>';
+  }
+
+  function saveRep(){
+    var btn=g('rp_save'); btn.disabled=true;
+    api('/api/admin/sales/reps', { method:'POST', body: JSON.stringify({
+      id: Number(btn.getAttribute('data-id'))||0,
+      name: g('rp_name').value, region: g('rp_region').value,
+      admin_username: g('rp_user').value, hired_at: g('rp_hired').value,
+      program_started_at: g('rp_prog') ? g('rp_prog').value : '',
+      base_salary_krw: g('rp_base').value, incentive_per_deal_krw: g('rp_inc').value,
+      target_deals: g('rp_td').value, target_students: g('rp_ts').value,
+      target_visits: g('rp_tv').value, target_leads: g('rp_tl').value, target_care: g('rp_tc').value
+    })}).then(function(j){
+      btn.disabled=false;
+      g('rp_msg').textContent = j.ok ? '저장했습니다.' : ('저장 실패: '+(j.message||j.error||''));
+      if(j.ok) boot();
+    }).catch(function(){ btn.disabled=false; g('rp_msg').textContent='저장 실패(통신 오류)'; });
+  }
+
+  function saveTarget(){
+    var btn=g('tg_save'); btn.disabled=true;
+    api('/api/admin/sales/targets', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId, period: g('tg_period').value,
+      target_deals: g('tg_d').value, target_students: g('tg_s').value,
+      target_visits: g('tg_v').value, target_leads: g('tg_l').value,
+      target_care: g('tg_c').value, workdays: g('tg_w').value
+    })}).then(function(j){
+      btn.disabled=false;
+      g('tg_msg').textContent = j.ok ? '저장했습니다.' : ('저장 실패: '+(j.message||j.error||''));
+      if(j.ok) load();
+    }).catch(function(){ btn.disabled=false; g('tg_msg').textContent='저장 실패(통신 오류)'; });
+  }
+
+  /* ── 이벤트 연결 ───────────────────────────────────────────── */
+  function bindRepForm(){
+    if(g('rp_save')) g('rp_save').addEventListener('click', saveRep);
+    if(g('tg_save')) g('tg_save').addEventListener('click', saveTarget);
+  }
+  function bindAll(){
+    if(g('ac_save')) g('ac_save').addEventListener('click', saveActivity);
+    if(g('ac_parse')) g('ac_parse').addEventListener('click', parseDiary);
+    setupMic();
+    if(g('rt_sweep')) g('rt_sweep').addEventListener('click', runSweep);
+    if(g('ld_save')) g('ld_save').addEventListener('click', saveLead);
+    if(g('dl_save')) g('dl_save').addEventListener('click', saveDeal);
+    bindRepForm();
+    Array.prototype.forEach.call(document.querySelectorAll('.ret'), function(b){
+      b.addEventListener('click', function(){ markRetention(b.getAttribute('data-id'), b.getAttribute('data-v')); });
+    });
+    fillLeadSelects();
+  }
+
+  /* ── 시작 ──────────────────────────────────────────────────── */
+  function boot(){
+    var ps=periodOptions();
+    g('period').innerHTML = ps.map(function(p){ return '<option value="'+p.v+'">'+p.t+'</option>'; }).join('');
+    loadReps().then(load).catch(showError);
+  }
+
+  g('reload').addEventListener('click', load);
+  g('period').addEventListener('change', load);
+  g('rep').addEventListener('change', function(){ STATE.repId=Number(g('rep').value); load(); });
+
+  boot();
+})();
+</script>
+<script src="/js/adm-light-surfaces.js?v=12" defer></script>
+</body>
+</html>
