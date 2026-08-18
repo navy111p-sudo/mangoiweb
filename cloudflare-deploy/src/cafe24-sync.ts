@@ -249,19 +249,28 @@ export async function importCafe24Attendance(
     nameCache.set(uid, name);
     return name;
   }
-  /* 강사 이름은 카페24가 주면 그대로 쓰고, 안 주면 D1 teachers 원부에서 찾는다.
-     ⛔ 이름으로 강사를 «정하지» 않는다 — 표시용으로만 쓴다. 이름 문자열로 사람을 정하면
-        'Anna' 가 'H-ANNA-H' 에 붙던 사고(api-teacher.ts 위쪽 기록)가 여기서 재현된다.
-        담당 판정의 정본은 어디까지나 teacher_uid(=teachers.id) 다. */
+  /* 🔴 (2026-08-19) 여기서 «다른 강사 이름» 을 써 넣던 사고를 고쳤다.
+        teacher_uid 는 **카페24 강사번호**(실측 9~196)인데, 처음 판에서는 이걸
+        D1 `teachers.id`(지역 일련번호 1~29)로 조회해 이름을 붙였다. 둘은 **다른 체계**다.
+        번호가 우연히 겹치는 자리에서 정확히 남의 이름이 들어갔다(2026-08-19 실측):
+          · 카페24 24 = Teacher Mariane → `teachers` 24 = HANNAH  로 기록됨 (127건)
+          · 카페24 26 = Teacher Rica    → `teachers` 26 = MELCA   로 기록됨 (11건)
+          · 카페24  9 = 테스트 강사     → `teachers`  9 = ZEE     로 기록됨 (2건)
+        (참고: 진짜 Hannah 의 카페24 번호는 189 다.)
+     → 이름은 **같은 번호 체계를 쓰는** teacher_payroll_auto 에서만 찾는다.
+        이 표는 카페24 서버가 강사번호와 함께 직접 밀어넣은 것이라 번호↔이름이 일치한다.
+     ⛔ `teachers` 로는 절대 되돌리지 말 것. 번호가 겹치는 세 자리에서 조용히 틀린다. */
   const tNameCache = new Map<string, string | null>();
   async function teacherNameFor(tid: string): Promise<string | null> {
     if (tNameCache.has(tid)) return tNameCache.get(tid)!;
     let name: string | null = null;
     try {
-      const row = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`)
-        .bind(tid).first<{ name: string }>();
-      name = row?.name || null;
-    } catch { /* teachers 미존재 시 null 로 계속 */ }
+      const row = await env.DB.prepare(
+        `SELECT teacher_name FROM teacher_payroll_auto WHERE CAST(teacher_id AS TEXT) = ?
+          AND teacher_name IS NOT NULL ORDER BY year DESC, month DESC LIMIT 1`
+      ).bind(tid).first<{ teacher_name: string }>();
+      name = row?.teacher_name || null;
+    } catch { /* 표가 없으면 이름 없이 계속 — 번호만으로도 담당 판정은 된다 */ }
     tNameCache.set(tid, name);
     return name;
   }
