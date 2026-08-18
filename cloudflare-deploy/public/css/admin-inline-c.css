@@ -4050,44 +4050,14 @@ button.chip:hover,
   .pm-kpi-value { font-size: 22px !important; font-weight: 900 !important; color: #FFFFFF !important; }
   .pm-kpi-trend { font-size: 11px !important; color: #86EFAC !important; font-weight: 700 !important; margin-top: 4px !important; }
 
-  /* ⚠️ (2026-08-17) ph106 결제관리 «데모 데이터» 표식
-       adm-q7.js 가 서버 호출 없이 고정 숫자(890,000 / 28,500,000 / 247건 / 815,100)를 찍고
-       차트는 Math.random(), 검색·다운로드는 alert 만 띄운다. 실적으로 오해하지 않도록 표시한다.
+  /* 💳 (2026-08-17) ph106 결제관리 안내 띠 2종.
+       옛 «DEMO» 표식(.pm-kpi::before · .pm-demo-badge · .pm-demo-note)은 실데이터를
+       붙이면서 지웠다 — 이제 진짜 숫자라 데모 딱지가 붙으면 안 된다.
        · 배경은 반드시 background-color — 인라인 linear-gradient 는 위쪽 옛 다크 규칙과
          adm-s13.js 페인터에 덮인다(CLAUDE.md 함정표).
-       · ::before 는 «블록 위» 자리를 차지하게 둔다. absolute 로 겹치면 2열/1열로 접힐 때
-         라벨·금액과 부딪힌다.
-       · /api/admin/payments/b2b 를 붙여 실데이터로 바꾸는 날, 이 블록과
-         admin.html 의 .pm-demo-badge / .pm-demo-note 를 함께 지운다. */
-  .pm-kpi::before {
-    content: "DEMO";
-    display: inline-block;
-    margin-bottom: 6px !important;
-    padding: 2px 6px !important;
-    border-radius: 4px !important;
-    font-size: 9.5px !important;
-    font-weight: 900 !important;
-    letter-spacing: .08em !important;
-    line-height: 1.2 !important;
-    background-color: #B91C1C !important;
-    color: #FFFFFF !important;
-  }
-  /* 카드를 접어 놔도 보이는 헤더 배지 */
-  .pm-demo-badge {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 9px;
-    border-radius: 999px;
-    font-size: 11px !important;
-    font-weight: 800 !important;
-    line-height: 1.5;
-    vertical-align: middle;
-    background-color: #FEE2E2 !important;
-    color: #991B1B !important;
-    border: 1px solid #FCA5A5 !important;
-  }
-  /* KPI 줄 바로 위 안내 띠 */
-  .pm-demo-note {
+
+     ① .pm-src-note — 「통장 반영 ○○까지」 같은 데이터 신선도 경고 */
+  .pm-src-note {
     margin-bottom: 14px;
     padding: 10px 14px;
     border-radius: 10px;
@@ -4098,6 +4068,21 @@ button.chip:hover,
     color: #7C2D12 !important;
     border: 1px solid #FCD34D !important;
   }
+  /* ② .pm-unattr-note — 「대리점을 못 붙인 몫」 (숨기지 않는다) */
+  .pm-unattr-note {
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    line-height: 1.6 !important;
+    background-color: #E0F2FE !important;
+    color: #0C4A6E !important;
+    border: 1px solid #7DD3FC !important;
+  }
+  /* ⚠️ hidden 이 먹게 못박는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
+     [hidden]{display:none} 을 이긴다(CLAUDE.md 함정표: teacher.html .btn 건). */
+  .pm-src-note[hidden], .pm-unattr-note[hidden] { display: none !important; }
 
   /* === 가독성 보정: 밝은(흰) 배경 모달에서 다크화가 글자를 밝게 만들어 안 보이던 것 복구 === */
   /* 강사 평가 입력 모달 (흰 배경) → 카테고리 라벨·요약 라벨을 어둡게 */
@@ -5945,6 +5930,10 @@ button.chip:hover,
     justify-content: space-between !important;
     gap: 12px !important;
   }
+  /* ⚠️ 위 `display:flex !important` 가 adm-r26.js 의 숨김을 이겨서, 필터를 걸기 전에도
+     이 띠가 늘 떠 있었다(「필터 결과: 0건 표시 / 전체 0건」이 행 있는 표 위에 그대로).
+     작성자 !important 는 인라인 style 도 이긴다 — 그래서 hidden 속성으로 못박는다. */
+  .ph128-stat[hidden] { display: none !important; }
   .ph128-stat b { color: #FDE68A !important; font-size: 16px !important; }
   .ph128-stat-reset {
     background: linear-gradient(135deg, #F59E0B, #D97706) !important;
