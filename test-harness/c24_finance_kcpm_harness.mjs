@@ -12,7 +12,12 @@
 //     ② TS 정규식과 Cypher(Java) 정규식이 같은 규칙이다 (한쪽만 고치면 FAIL)
 //     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼고, 뺀 금액을 같이 내려준다
 //     ④ ledger 목록이 행마다 excluded_from_revenue 를 내려준다
-//     ⑤ 화면(adm-core.js)이 그 행을 매출 합계에서 빼고, 뺀 사실을 숨기지 않는다
+//     ⑤ 화면(adm-core.js)이 그 행을 매출 합계에서 뺀다.
+//        ⚠️ 2026-08-18 지시로 뒤집힌 부분 — 예전엔 «뺀 사실을 라벨·안내로 알린다» 였지만,
+//           지금은 반대로 **「케이씨피M」을 화면에 표시하지 않는다** 를 못 박는다
+//           (사장님: 매출·회계 화면에 그 이름·금액이 뜨는 것 자체를 원치 않으심.
+//            «제외했습니다» 라고 적어 주는 것도 «아직 남아 있다» 로 읽힌다).
+//           집계에서 빼는 계산은 그대로 검사한다 — 숫자가 틀어지면 여전히 FAIL 이다.
 //     ⑥ 판정 규칙을 화면·API 로 복사하지 않았다 (정본은 accounting-reports.ts 한 곳)
 //
 //   실행: node test-harness/c24_finance_kcpm_harness.mjs
@@ -96,19 +101,22 @@ console.log('\n④ ledger 목록이 행마다 매출 제외 여부를 내려준�
     '거래처·적요 양쪽을 본다 (카페24 입력자가 자리를 가리지 않는다)');
 }
 
-/* ── ⑤ 화면이 매출 합계에서 빼고, 뺀 사실을 보여 준다 ─────────── */
-console.log('\n⑤ 화면(adm-core.js)이 합계에서 빼고 숨기지 않는다');
+/* ── ⑤ 화면은 합계에서만 빼고 「케이씨피M」을 표시하지 않는다 ───
+   ⚠️ 2026-08-18 사장님 지시로 방향이 뒤집힌 자리다. 예전 규칙(«뺀 사실을 라벨로 알린다»)을
+      그대로 되살리면 이 하니스가 FAIL 낸다 — 되살리기 전에 사람에게 먼저 물을 것. */
+console.log('\n⑤ 화면(adm-core.js)이 합계에서 빼되 「케이씨피M」을 표시하지 않는다');
 {
-  const load = core.slice(core.indexOf('window.c24FinLoad'), core.indexOf('window.accLoadFranchise'));
+  // 주석은 «표시» 가 아니므로 검사에서 뺀다 — 왜 지웠는지 적은 주석이 되레 FAIL 을 내면 안 된다
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const load = strip(core.slice(core.indexOf('window.c24FinLoad'), core.indexOf('window.accLoadFranchise')));
   ok(/excluded_from_revenue/.test(load), '서버가 내려준 판정을 그대로 쓴다');
   ok(/if \(isExcl\(row\)\) \{ sExc \+= m; nExc\+\+; return; \}/.test(load),
     '「케이씨피M」 행은 매출·지출 합계에 더하지 않는다');
-  ok(/매출 제외/.test(load), '표에서 그 행이 «매출 제외» 로 구분된다');
-  const summ = core.slice(core.indexOf('window.c24FinSummary'), core.indexOf('window.c24FinLoad'));
-  ok(/excluded_transfer/.test(summ) && /c24fin-sum-total/.test(summ),
-    'KPI 카드 아래에 «얼마를 왜 뺐는지» 안내가 나온다');
-  ok(/「케이씨피M」 제외/.test(summ), '총 매출 카드가 제외 사실을 라벨로 알린다');
-  ok(/id="c24fin-sum-total"/.test(html), 'admin.html 에 그 안내가 들어갈 자리가 있다');
+  ok(!/매출 제외|not revenue/.test(load), '표에 «매출 제외» 배지를 그리지 않는다');
+  ok(!/케이씨피M/.test(load), '장부 표 어디에도 「케이씨피M」 글자를 쓰지 않는다');
+  const summ = strip(core.slice(core.indexOf('window.c24FinSummary'), core.indexOf('window.c24FinLoad')));
+  ok(!/케이씨피M/.test(summ), 'KPI 카드·부제에 「케이씨피M」을 쓰지 않는다');
+  ok(!/excluded_transfer[^]{0,400}innerHTML/.test(summ), '«얼마를 왜 뺐는지» 안내 상자를 그리지 않는다');
 }
 
 /* ── ⑥ 규칙을 복사하지 않았다 ───────────────────────────────── */
