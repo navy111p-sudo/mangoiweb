@@ -1799,6 +1799,17 @@ const worker = {
       return env.ASSETS.fetch(r);
     }
 
+    // 🚗 /sales — 영업 전용 휴대폰 화면 (2026-08-18)
+    //   ⚠️ 확장자 없는 주소는 **여기서 한 줄로 직접 이어 줘야** 한다.
+    //      [assets] 가 html_handling="none" 이라 /sales → /sales.html 자동 연결이 없다.
+    //      2026-08-18 실제로 밟음: 인증 게이트(isAdminPath)에만 등록하고 이 줄을 빠뜨려
+    //      /sales 가 아무 데도 안 걸리고 **홈 화면(index.html)이 떴다.**
+    //      게이트는 통과했으니 «권한 문제» 로 보이지도 않아 원인 찾기가 더 어렵다.
+    if (path === '/sales' || path === '/sales/') {
+      const r = new Request(new URL('/sales.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
     // ⏸ /admin/postponed-classes — 연기 수업 현황 페이지 (매니저 전용, 2026-07-23)
     if (path === '/admin/postponed-classes' || path === '/admin/postponed-classes/') {
       const r = new Request(new URL('/admin/postponed-classes.html' + url.search, request.url).toString(), request);
