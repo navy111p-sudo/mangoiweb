@@ -13526,7 +13526,12 @@ window.rebuildGlobalSearchIndex = function() {
     // 역할별 사용자 표 다시 렌더 (열려있을 때만)
     if (typeof renderUsersByRole === 'function') renderUsersByRole();
   }
-  window.registerHqEmployee = function() {
+  /* ➕ 본사 직원 등록 — 서버에 «진짜로» 만든다.  (2026-08-18 수리)
+     ⚠️ 예전 이 함수는 localStorage 에만 넣고 「✅ 등록 완료」 알림을 띄웠다.
+        서버로는 아무것도 안 보내서, «등록했는데 로그인이 안 되는» 계정이 만들어졌다.
+        (CLAUDE.md 「비밀번호 변경 시연 껍데기 4벌」과 같은 종류)
+     임시 비밀번호는 서버가 만들어 **이 화면에서 한 번만** 보여 준다. 어디에도 저장하지 않는다. */
+  window.registerHqEmployee = async function() {
     const $ = id => document.getElementById(id);
     const uid = ($('hqe-uid')?.value || '').trim();
     const name = ($('hqe-name')?.value || '').trim();
@@ -13535,21 +13540,59 @@ window.rebuildGlobalSearchIndex = function() {
     const phone = ($('hqe-phone')?.value || '').trim();
     const branch = ($('hqe-branch')?.value || '').trim();
     const msg = $('hqe-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
+    const btn = document.querySelector('#card-permissions button.primary');
+    function show(t, ok) {
+      if (!msg) { alert(t); return; }
+      msg.style.display = 'block';
+      msg.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+      msg.style.borderColor = ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+      msg.style.color = ok ? '#065f46' : '#b91c1c';
+      msg.innerHTML = t;
+    }
     if (msg) msg.style.display = 'none';
-    if (!uid || uid.length < 3) return showErr('⚠️ 아이디는 3자 이상 입력하세요.');
-    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return showErr('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
-    if (!name) return showErr('⚠️ 이름을 입력하세요.');
-    // 중복 체크
-    if (SAMPLE_USERS.some(u => u.uid === uid)) return showErr('⚠️ 이미 사용 중인 아이디입니다.');
-    const arr = _hqeLoad();
-    arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
-    _hqeSave(arr);
-    _hqeRefreshAll();
-    pushAuditLog((adminLang==='en'?'HQ employee registered: ':'본사 직원 등록: ') + name + ' (' + uid + ' · ' + rank + ')');
-    // 폼 초기화
-    ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
-    alert((adminLang==='en' ? '✅ Registered: ' : '✅ 등록 완료: ') + name);
+
+    // 화면에서도 한 번 거른다(서버가 정본이지만, 왕복 전에 알려주는 편이 빠르다)
+    if (!uid || uid.length < 3) return show('⚠️ 아이디는 3자 이상 입력하세요.');
+    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return show('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
+    if (!name) return show('⚠️ 이름을 입력하세요.');
+
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/staff-create', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uid, name: name, rank: rank, email: email, phone: phone })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        show('⚠️ ' + (j.message || j.error || '등록하지 못했습니다.'));
+        return;
+      }
+      // 임시 비번은 지금 한 번만 보인다 — 눈에 띄게 크게.
+      show(
+        '<b style="font-size:13.5px">✅ ' + name + '(' + uid + ') 계정을 만들었습니다.</b><br>' +
+        '<div style="margin-top:8px;padding:10px 12px;background:#fff;border:2px solid #10b981;border-radius:8px">' +
+          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">임시 비밀번호 — 이 화면에서만 보입니다</div>' +
+          '<div style="font-family:MangoiHanSC,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:1px;color:#065f46;margin-top:3px">' +
+            (j.temp_password || '') + '</div>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.7">' +
+          '본인에게 전달하시고, <b>로그인 후 마이페이지에서 비밀번호를 바꾸라고</b> 안내하세요.<br>' +
+          '잃어버리면 「강사·직원 비밀번호 재설정」으로 다시 만들 수 있습니다.' +
+        '</div>', true);
+
+      // 화면 목록용 기록(이 브라우저에만 남는 편의용 목록이다 — 계정 자체는 서버에 있다)
+      const arr = _hqeLoad();
+      arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
+      _hqeSave(arr);
+      _hqeRefreshAll();
+      pushAuditLog((adminLang==='en'?'HQ employee created: ':'본사 직원 계정 생성: ') + name + ' (' + uid + ' · ' + rank + ')');
+      ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+    } catch (e) {
+      show('⚠️ 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   };
   // 페이지 로드 시 + 권한 카드 토글 시 갱신
   document.addEventListener('DOMContentLoaded', () => {

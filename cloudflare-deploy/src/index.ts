@@ -988,6 +988,8 @@ const worker = {
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
         path === '/api/admin/staff-password-reset' ||
+        // ➕ 직원 계정 생성 (2026-08-18) — 게이트는 handleAdminAuthApi 안에서 경영진·본사로 한 번 더.
+        path === '/api/admin/staff-create' ||
         // 🔑 비밀번호 찾기(셀프 재설정) — 로그인 전에 부르는 API 라 isAuthPublicPath 에도 등록돼 있다.
         path === '/api/admin/password-reset/request' ||
         path === '/api/admin/password-reset/confirm' ||
