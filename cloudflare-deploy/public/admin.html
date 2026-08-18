@@ -2234,9 +2234,17 @@
             <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center" data-ko="💡 막대 길이는 부산 지점 (최고 매출) 기준" data-en="💡 Bar length is relative to Busan Branch (top revenue)">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
           </div>
 
-          <!-- 기존 표 (상세 보기) — 접힘 -->
+          <!-- 기존 표 (상세 보기) — 접힘
+               ⚠️ 이 표는 /api/admin/settlement/branch-summary 를 쓴다 — student_payments(카페24 장부)만
+                  집계하므로 **통장 직접입금(B2B)이 들어 있지 않다.** 「가맹점별 정산서」(reports/franchise)는
+                  B2B 를 포함하므로 두 화면의 총 매출이 다르게 보인다(2026-08-18 사장님 확인 → 1안).
+               ⛔ 여기에 B2B 를 그냥 더하지 말 것 — 이 표의 존재 이유가 «대리점마다 다른 요율»인데
+                  B2B 입금은 적요만 있어 대리점을 특정할 수 없다. 지사 기본 요율로 얹으면 아래
+                  「본사 수수료」가 실제로 떼인 비율과 어긋난다. 넣으려면 대리점 귀속을 먼저 정해야 한다.
+               ✅ 대신 «무엇만 보는 표인지» 와 «어디를 봐야 하는지» 를 화면에 밝힌다. -->
           <details style="margin-top:14px">
-            <summary style="cursor:pointer;font-size:12px;color:#64748b;font-weight:600;padding:8px 0">📋 상세 표 데이터 보기 (관리용)</summary>
+            <summary style="cursor:pointer;font-size:12px;color:#64748b;font-weight:600;padding:8px 0" data-ko="📋 상세 표 데이터 보기 (관리용 · 장부 결제만)" data-en="📋 Detail table (admin · book payments only)">📋 상세 표 데이터 보기 (관리용 · 장부 결제만)</summary>
+            <div style="margin:6px 0 2px;padding:8px 11px;background:#fffbeb;border:1px solid #fcd34d;border-left:3px solid #f59e0b;border-radius:6px;font-size:11.5px;line-height:1.65;color:#78350f" data-ko="※ 이 표는 카페24 장부 결제만 봅니다. 통장 직접입금(B2B)까지 합친 금액은 「가맹점별 정산서」에서 보세요." data-en="※ This table counts Cafe24 book payments only. For totals including direct bank deposits (B2B), see the Franchise Settlement report.">※ 이 표는 카페24 장부 결제만 봅니다. 통장 직접입금(B2B)까지 합친 금액은 「가맹점별 정산서」에서 보세요.</div>
             <table style="margin-top:8px">
               <thead><tr>
                 <th data-ko="가맹점" data-en="Franchise">가맹점</th>
