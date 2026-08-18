@@ -51,7 +51,25 @@
     'card-auto-dunning':        ['미납 자동 알림','독촉 일정','연체율','회수 이력'],
     'card-settlement-stats':    ['일별 정산','대리점별','상품별','수수료별'],
     'card-points-mgmt':         ['포인트 충전','적립 내역','사용 내역','만료 관리'],
-    'card-students-mgmt':       ['학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생'],
+    /* 👨‍🎓 학생 명부 (2026-08-18 사장님 지적 «여기서 어디로 가?») —
+       여기 있던 다섯 줄('학생 등록·검색','학생 상세 프로필','학생 그룹 관리','학년별 통계','비활성 학생')은
+       위 머리말이 말하는 «데모 매핑» 이었다. 카드 안에 그런 칸이 없는데 이름만 지어 넣은 것이라,
+       옛 방식(«카드 안 N번째 details» 로 점프)이 이름과 전혀 다른 칸을 열고 있었다 —
+         2 학생 상세 프로필 → 실제로는 «⏰ 만료 임박 학생» 이 열렸다.
+       이 카드는 진짜 하위칸이 8개 있으므로, 지어낸 이름을 버리고 **있는 것 그대로** 적는다.
+       ⚠️ 객체 형태({ko,en,anchor})는 새로 만든 길이 아니다 — 아래 card-level-tests 가 쓰던 방식이고,
+          ph125Jump 가 anchor 를 찾아 그 칸을 펴 준다. 문자열로 되돌리지 말 것(이름이 다시 어긋난다).
+       ⚠️ anchor id 는 admin.html 의 그 <details> 에 달려 있다. 한쪽만 바꾸면 조용히 카드 전체만 반짝인다. */
+    'card-students-mgmt':       [
+      { ko:'학생 목록',            en:'Student List',        anchor:'sm-student-list' },
+      { ko:'⏰ 만료 임박 학생',     en:'⏰ Expiring Soon',     anchor:'sm-expiring' },
+      { ko:'🚪 오늘 수업',          en:'🚪 Today\'s Classes',  anchor:'sm-today-classes' },
+      { ko:'📅 오늘 출결',          en:'📅 Today\'s Attendance', anchor:'sm-today-attendance' },
+      { ko:'📅 학원 전체 스케줄',   en:'📅 All Schedules',    anchor:'sm-all-schedules' },
+      { ko:'🏆 연속 출석 랭킹',     en:'🏆 Streak Ranking',   anchor:'sm-streak-rank' },
+      { ko:'📞 최근 상담 통합',     en:'📞 Recent Consults',  anchor:'sm-recent-consult' },
+      { ko:'💭 단체 메시지',        en:'💭 Bulk Message',     anchor:'sm-bulk-msg' }
+    ],
     'card-family-mgmt':         ['가족 그룹','형제자매 묶기','가족 할인','연락처 통합'],
     'card-inquiry-mgmt':        ['신규 문의','진행 중','종결','전환율'],
     'card-enrollments':         ['이번달 등록','대기자','휴학 처리','재등록'],
