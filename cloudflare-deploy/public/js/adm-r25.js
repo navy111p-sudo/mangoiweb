@@ -234,9 +234,57 @@
     else { closeDrawer(); if (typeof window.jumpToMenu === 'function') window.jumpToMenu(cardId); }
   };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph125Build);
-  else ph125Build();
-  (window.__admSettleRun ? window.__admSettleRun(ph125Build) : setInterval(ph125Build, 1500));
+  /* ── 🔍 손자를 통합 검색에 색인 ─────────────────────────────────────
+     「출결」이라 치면 카드가 아니라 «그 안의 출결 칸» 이 바로 뜨게 한다.
+     _globalSearchIndex 는 adm-core.js 의 최상위 let — classic script 끼리는
+     전역 렉시컬 스코프를 공유하므로 여기서 그대로 읽고 쓸 수 있다(window 에는 없다).
+     buildMenuIndex 가 색인을 통째로 다시 만들므로(RBAC 갱신 때마다), 우리 항목은
+     _gc 표식을 달아 두고 매번 «지우고 다시 넣는» 방식으로 어긋남을 막는다. */
+  function indexGc(){
+    try {
+      if (typeof _globalSearchIndex === 'undefined' || !Array.isArray(_globalSearchIndex)) return;
+      var bar = document.getElementById('ph85-sidebar');
+      if (!bar) return;
+      var fresh = [];
+      bar.querySelectorAll('.ph125-grandchildren').forEach(function(box){
+        var sub = box.previousElementSibling;
+        if (!sub || !sub.classList.contains('ph85-sub')) return;
+        if (sub.classList.contains('rbac-hide')) return;        // 역할로 감춘 메뉴는 검색에도 안 띄움
+        var pKo = (sub.getAttribute('data-ko') || sub.textContent || '').replace(/\s+/g,' ').trim();
+        var pEn = (sub.getAttribute('data-en') || pKo).replace(/\s+/g,' ').trim();
+        [].forEach.call(box.children, function(gcEl){
+          var d = gcEl.__gc, cid = gcEl.__card;
+          if (!d) return;
+          fresh.push({
+            _gc: true, kind: 'menu',
+            kindLabelKo: '📂 하위 메뉴', kindLabelEn: '📂 Sub-menu',
+            label: d.ko, labelEn: d.en || d.ko,
+            sub: pKo, subEn: pEn,
+            action: (function(c, item){ return function(){ go(c, item); }; })(cid, d)
+          });
+        });
+      });
+      _globalSearchIndex = _globalSearchIndex.filter(function(x){ return !x._gc; }).concat(fresh);
+    } catch(e) { /* 검색 색인은 부가 기능 — 실패해도 손자 메뉴 자체는 동작해야 한다 */ }
+  }
+
+  function buildAndIndex(){ ph125Build(); indexGc(); }
+
+  // buildMenuIndex(RBAC 갱신·언어 전환 뒤 재실행됨)가 색인을 갈아엎은 «뒤» 우리 것을 다시 얹는다
+  (function wrapBMI(){
+    var tries = 0;
+    var t = setInterval(function(){
+      if (typeof window.buildMenuIndex === 'function'){
+        clearInterval(t);
+        var orig = window.buildMenuIndex;
+        window.buildMenuIndex = function(){ var r = orig.apply(this, arguments); indexGc(); return r; };
+      } else if (++tries > 40) clearInterval(t);
+    }, 250);
+  })();
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildAndIndex);
+  else buildAndIndex();
+  (window.__admSettleRun ? window.__admSettleRun(buildAndIndex) : setInterval(buildAndIndex, 1500));
 
   console.log('[ph125] 손자 메뉴 — 카드 안 실제 칸을 읽어 그림(▸ 클릭 토글)');
 })();

@@ -1169,8 +1169,8 @@
       <span style="flex:1"></span>
       <span style="font-size:11px;color:#9ca3af">학생/매출/출석/평가/미납/포인트/채팅/상담 — 8개 핵심 지표</span>
     </div>
-    <div id="kpi-grid-wrap"><div class="kpi-grid" id="kpi-grid"><div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280" data-ko="📥 KPI 로딩 중…" data-en="📥 Loading KPIs…">📥 KPI 로딩 중…</div></div></div>
-    <div id="kpi-spark-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-top:6px">
+    <div data-gc="📊 8개 핵심 지표" data-gc-en="8 Key Metrics" id="kpi-grid-wrap"><div class="kpi-grid" id="kpi-grid"><div style="grid-column:1/-1;padding:30px;text-align:center;color:#6b7280" data-ko="📥 KPI 로딩 중…" data-en="📥 Loading KPIs…">📥 KPI 로딩 중…</div></div></div>
+    <div data-gc="📈 최근 7일 매출 추세" data-gc-en="7-Day Revenue" id="kpi-spark-wrap" style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px 18px;margin-top:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <h4 style="margin:0;font-size:13px;font-weight:800;color:#374151">최근 7일 매출 추세</h4>
         <span id="kpi-spark-total" style="font-size:12px;color:#6b7280">합계 -</span>
@@ -1187,7 +1187,7 @@
     <!-- (역할 안내 배너 제거: 사용자 요청) -->
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px" id="rev-kpis">
+    <div data-gc="💰 매출 5단계 KPI" data-gc-en="Revenue KPIs" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px" id="rev-kpis">
       <div class="card" style="text-align:center">
         <div class="card-label" data-ko="오늘 매출" data-en="Today">오늘 매출</div>
         <div class="card-value" id="rev-today">—</div>
@@ -1221,7 +1221,7 @@
     </div>
 
     <!-- 📅 기간 컨트롤 -->
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(255,255,255,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);border-radius:14px;padding:10px 14px;margin-bottom:12px">
+    <div data-gc="📅 기간 선택" data-gc-en="Period" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(255,255,255,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);border-radius:14px;padding:10px 14px;margin-bottom:12px">
       <span style="font-size:12px;font-weight:700;color:#7c2d12" data-ko="📅 기간" data-en="📅 Period">📅 기간</span>
       <select id="rev-period" style="padding:6px 12px;font-size:13px;border-radius:8px;border:1px solid #d1d5db">
         <option value="day"     data-ko="일별"   data-en="Daily">일별</option>
@@ -1240,7 +1240,7 @@
       </span>
     </div>
 
-    <div class="charts">
+    <div data-gc="📈 차트 4종" data-gc-en="Charts" class="charts">
       <div class="chart-card">
         <div class="chart-title" data-ko="📅 일자별 출석 (고유 사용자 수)" data-en="📅 Daily Attendance (Unique Users)">📅 일자별 출석 (고유 사용자 수)</div>
         <div class="chart-wrapper"><canvas id="chart-attendance"></canvas></div>
@@ -1260,7 +1260,7 @@
     </div>
 
     <!-- 📊 학생 흐름 KPI 카드 -->
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
+    <div data-gc="👥 학생 흐름" data-gc-en="Student Flow" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:14px">
       <div class="card" style="text-align:center"><div class="card-label" data-ko="활성 학생" data-en="Active">활성 학생</div><div class="card-value" id="sf-active">—</div></div>
       <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 신규" data-en="New (period)">기간 내 신규</div><div class="card-value" id="sf-new">—</div></div>
       <div class="card" style="text-align:center"><div class="card-label" data-ko="기간 내 탈락" data-en="Dropped (period)">기간 내 탈락</div><div class="card-value" id="sf-dropped">—</div></div>
@@ -1579,7 +1579,7 @@
   <div class="menu-body">
 
     <!-- 📅 기간·정렬 컨트롤 -->
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(255,255,255,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);border-radius:14px;padding:10px 14px;margin-bottom:14px">
+    <div data-gc="🔢 기간·정렬" data-gc-en="Period & Sort" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:rgba(255,255,255,.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.7);border-radius:14px;padding:10px 14px;margin-bottom:14px">
       <span style="font-size:12px;font-weight:700;color:#7c2d12" data-ko="📅 기간" data-en="📅 Period">📅 기간</span>
       <select id="rk-period" style="padding:6px 12px;font-size:13px;border-radius:8px;border:1px solid #d1d5db">
         <option value="day"     data-ko="오늘"   data-en="Today">오늘</option>
@@ -1605,7 +1605,7 @@
       <span style="margin-left:auto;font-size:11px;color:#6b7280" id="rk-summary">—</span>
     </div>
 
-    <table>
+    <table data-gc="🏆 랭킹 표" data-gc-en="Ranking Table">
       <thead>
         <tr>
           <th>#</th>
@@ -1640,7 +1640,7 @@
     <button id="retention-run" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="지금 실행" data-en="Run Now" onclick="event.stopPropagation()">지금 실행</button>
   </summary>
   <div class="menu-body">
-    <div id="retention-status" style="font-size:13px;color:#6b7280;" data-ko-loading="로딩 중..." data-en-loading="Loading...">로딩 중...</div>
+    <div data-gc="📋 파기 상태" data-gc-en="Status" id="retention-status" style="font-size:13px;color:#6b7280;" data-ko-loading="로딩 중..." data-en-loading="Loading...">로딩 중...</div>
   </div>
 </details>
 
@@ -1650,7 +1650,7 @@
     <button id="rooms-refresh" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="새로고침" data-en="Refresh" onclick="event.stopPropagation()">새로고침</button>
   </summary>
   <div class="menu-body">
-    <table>
+    <table data-gc="📋 활성 룸 목록" data-gc-en="Active Rooms">
       <thead><tr><th data-ko="방 ID" data-en="Room ID">방 ID</th><th data-ko="참가자 수" data-en="Users">참가자 수</th><th data-ko="참가자" data-en="Participants">참가자</th><th>PDF</th><th data-ko="영상" data-en="Video">영상</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="active-rooms-table"><tr><td colspan="6" class="empty" data-ko="로딩 중..." data-en="Loading...">로딩 중...</td></tr></tbody>
     </table>
@@ -1806,7 +1806,7 @@
       <!-- 📅 학원 전체 스케줄 (fix v39 — 학생 페이지에서 이동) -->
       <details class="sub-item" id="sm-all-schedules">
         <summary data-ko="📅 학원 전체 스케줄" data-en="📅 Academy Full Schedule">📅 학원 전체 스케줄</summary>
-        <div class="sub-body">
+        <div data-gc="📌 주간 전체 스케줄" data-gc-en="Weekly Schedule" class="sub-body">
           <div style="background:linear-gradient(135deg,rgba(37,99,235,0.10),rgba(59,130,246,0.05));border:1px solid rgba(59,130,246,0.25);border-radius:10px;padding:12px 14px;margin-bottom:10px">
             <div style="font-size:12.5px;color:#1e40af;font-weight:600;margin-bottom:4px"
                  data-ko="📌 주간 전체 스케줄 — 모든 교사·학생 한눈에"
@@ -3531,7 +3531,7 @@
         <summary style="padding:12px 16px;cursor:pointer;background:linear-gradient(135deg,rgba(59,130,246,0.10),rgba(99,102,241,0.06));font-weight:700;color:#1e3a8a;font-size:14px">
           <span data-ko="🕒 강사 수업 스케줄 현황" data-en="🕒 Teacher Class Schedule">🕒 강사 수업 스케줄 현황</span>
         </summary>
-        <div style="padding:14px 16px">
+        <div data-gc="🔎 조회·엑셀" data-gc-en="Query & Excel" style="padding:14px 16px">
           <!-- 컨트롤 바: 강사 + 기간 + 액션 버튼 -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
             <select id="aw-teacher" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;min-width:140px">
@@ -3580,7 +3580,7 @@
         <summary style="padding:12px 16px;cursor:pointer;background:linear-gradient(135deg,rgba(168,85,247,0.10),rgba(217,70,239,0.06));font-weight:700;color:#6b21a8;font-size:14px">
           <span data-ko="📚 출석현황 (수업당 출결)" data-en="📚 Status of Class Attendance">📚 출석현황 (수업당 출결)</span>
         </summary>
-        <div style="padding:14px 16px">
+        <div data-gc="🔎 조회·일괄 처리" data-gc-en="Query & Bulk" style="padding:14px 16px">
           <!-- 컨트롤 바 -->
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
             <select id="ca-teacher" style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff;min-width:140px">
@@ -3879,7 +3879,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </select>
       <div id="tvs-summary" style="font-size:11.5px;color:#6b7280;margin-left:auto"></div>
     </div>
-    <div id="tvs-table" style="overflow-x:auto"></div>
+    <div data-gc="📋 음성 통계 표" data-gc-en="Stats Table" id="tvs-table" style="overflow-x:auto"></div>
   </div>
 </details>
 
@@ -3890,7 +3890,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#1e40af">
       💡 <b data-ko="공통 부분은 1번만 입력!" data-en="Type common parts once!">공통 부분은 1번만 입력!</b> — <span data-ko="수업 주제/잘한점/보완점/다음목표 공통 입력 → 학생별 점수만 다르게 → 한번에 N개 평가서 생성" data-en="Common topic/strengths/improvements/goals → individual scores → bulk create N evaluations at once">수업 주제/잘한점/보완점/다음목표 공통 입력 → 학생별 점수만 다르게 → 한번에 N개 평가서 생성</span>
     </div>
-    <div style="display:grid;gap:8px;max-width:800px">
+    <div data-gc="📝 일괄 작성 폼" data-gc-en="Bulk Form" style="display:grid;gap:8px;max-width:800px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <label style="font-size:12px;font-weight:700;color:#374151"><span data-ko="수업 제목" data-en="Lesson Title">수업 제목</span>
           <input id="be-lesson-title" type="text" placeholder="예: BTS Lv3 - Day 12" data-ko-placeholder="예: BTS Lv3 - Day 12" data-en-placeholder="e.g. BTS Lv3 - Day 12" style="width:100%;padding:7px;border:1px solid #d1d5db;border-radius:5px;font-size:12.5px;margin-top:3px" />
@@ -3939,7 +3939,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
     <!-- 🔴 (2026-07-23) 진행 중인 수업 목록 — 매니저 요청.
          예전엔 강의실 ID 를 직접 알아내 타이핑해야 참관할 수 있었다(급할 때 시간이 오래 걸림).
          이제 지금 열려 있는 수업이 여기 바로 뜨고, 줄을 누르면 ID 가 자동으로 채워진다. -->
-    <div style="border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:rgba(20,41,80,0.5)">
+    <div data-gc="🔴 진행 중인 수업" data-gc-en="Live Classes" style="border:1px solid rgba(99,102,241,0.30);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:rgba(20,41,80,0.5)">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
         <b style="font-size:13px;color:#c4b5fd" data-ko="🔴 지금 진행 중인 수업" data-en="🔴 Classes in progress now">🔴 지금 진행 중인 수업</b>
         <span id="gh-live-count" style="font-size:11.5px;color:#94a3b8"></span>
@@ -3962,7 +3962,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
               data-ko-placeholder="참관 사유 (필수, 예: 신규 강사 멘토링)"
               data-en-placeholder="Reason for observation (required, e.g. mentoring a new teacher)"
               style="width:100%;max-width:760px;padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;min-height:50px;font-family:inherit;margin-bottom:10px"></textarea>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div data-gc="👁 참관 시작·기록" data-gc-en="Observe / Log" style="display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="ghStart()" style="padding:10px 18px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">👁 참관 시작</button>
       <button onclick="ghEnd()" style="padding:10px 18px;background:rgba(239,68,68,0.20);color:#fca5a5;border:1px solid rgba(239,68,68,0.45);border-radius:8px;font-weight:700;cursor:pointer">⏹ 참관 종료</button>
       <button onclick="ghLoadSessions()" style="padding:10px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer">📜 참관 기록</button>
@@ -3982,7 +3982,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       <input id="wh-room-id" type="text" placeholder="강의실 ID" data-ko-ph="강의실 ID" data-en-ph="Room ID" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
       <input id="wh-teacher-uid" type="text" placeholder="강사 UID" data-ko-ph="강사 UID" data-en-ph="Teacher UID" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:760px;margin-bottom:8px">
+    <div data-gc="💬 메시지 종류" data-gc-en="Message Type" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:760px;margin-bottom:8px">
       <select id="wh-type" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px">
         <option value="text" data-ko="💬 텍스트 메시지" data-en="💬 Text message">💬 텍스트 메시지</option>
         <option value="hint" data-ko="💡 힌트 (강사 화면에 작게)" data-en="💡 Hint (small popup on teacher screen)">💡 힌트 (강사 화면에 작게)</option>
@@ -3995,7 +3995,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </select>
     </div>
     <textarea id="wh-payload" placeholder="강사에게 전달할 메시지 (예: 학생이 어려워해요. 천천히 가세요.)" data-ko-ph="강사에게 전달할 메시지 (예: 학생이 어려워해요. 천천히 가세요.)" data-en-ph="Message for the teacher (e.g. Student is struggling. Please slow down.)" style="width:100%;max-width:760px;padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;min-height:70px;font-family:inherit;margin-bottom:10px"></textarea>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <div data-gc="📢 전송·발송 기록" data-gc-en="Send / Log" style="display:flex;gap:10px;flex-wrap:wrap">
       <button onclick="whSend()" style="padding:10px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer"><span data-ko="📢 귓속말 전송" data-en="📢 Send Whisper">📢 귓속말 전송</span></button>
       <button onclick="whLoadLogs()" style="padding:10px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer"><span data-ko="📜 발송 기록" data-en="📜 Sent Log">📜 발송 기록</span></button>
     </div>
@@ -4010,12 +4010,12 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       💡 <b>침묵 20초 이상 / 금지 단어 감지 / 네트워크 저하</b> 등 이상 징후 발생 시 자동 알림.
       GM-5(실시간 AI 감지) 활성화 전까지는 수동으로 알림을 발사하여 UI 를 검증할 수 있습니다.
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <div data-gc="🚨 알림 도구" data-gc-en="Alert Tools" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <button onclick="alLoad()" style="padding:10px 18px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">🚨 알림 새로고침</button>
       <button onclick="alTestFire()" style="padding:10px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer">🧪 테스트 알림 발사</button>
       <button onclick="fwLoad()" style="padding:10px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer">📝 금지 단어 관리</button>
     </div>
-    <div id="al-result" style="margin-top:14px"></div>
+    <div data-gc="📋 결과" data-gc-en="Result" id="al-result" style="margin-top:14px"></div>
   </div>
 </details>
 
@@ -4029,7 +4029,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       💡 <b>안전 모듈</b> — 강의실에 학생·강사를 사전 등록하면 무설치 화상수업 입장 시 5분짜리 JWT 가 자동 발급되어 시그널링 연결을 보안 인증합니다.
       기존 화상수업 시스템과 완전 분리 (호환 모드).
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;max-width:760px;margin-bottom:10px">
+    <div data-gc="📨 초대 보내기" data-gc-en="Send Invite" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;max-width:760px;margin-bottom:10px">
       <input id="rt-room-id" type="text" placeholder="강의실 ID (예: room123)" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
       <input id="rt-user-id" type="text" placeholder="학생 UID (예: hong_gd)" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px" />
       <select id="rt-role" style="padding:9px 12px;background:#142950;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px">
@@ -4039,7 +4039,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </select>
       <button onclick="rtInvite()" style="padding:10px 18px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer;font-size:13px">📨 초대</button>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+    <div data-gc="👥 멤버·토큰 관리" data-gc-en="Members / Tokens" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
       <button onclick="rtLoadMembers()" style="padding:8px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px">👥 멤버 조회</button>
       <button onclick="rtTestJoin()" style="padding:8px 14px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px">🔑 토큰 발급 테스트</button>
       <button onclick="rtKick()" style="padding:8px 14px;background:rgba(239,68,68,0.20);color:#fca5a5;border:1px solid rgba(239,68,68,0.45);border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px">🚫 강제 퇴장 (토큰 회수)</button>
@@ -4062,7 +4062,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       "Good job!" 같은 형식적 피드백이 아닌 <b>구체적이고 교육적인 리포트</b>가 30초 만에 완성돼요.
     </div>
 
-    <div style="display:grid;gap:8px;max-width:760px;margin-bottom:12px">
+    <div data-gc="📝 생성 입력" data-gc-en="Report Input" style="display:grid;gap:8px;max-width:760px;margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="학생 UID" data-en="Student UID">학생 UID</span> <span style="color:#f87171">*</span> <input id="alr-uid" type="text" placeholder="hong_gd" data-ko-placeholder="hong_gd" data-en-placeholder="hong_gd" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
         <label style="font-size:12.5px;font-weight:700;color:#fbbf24"><span data-ko="학생 이름" data-en="Student name">학생 이름</span> <input id="alr-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="e.g. Min-jun" style="width:100%;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;margin-top:3px"/></label>
@@ -4106,7 +4106,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       </div>
     </div>
 
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
+    <div data-gc="🚀 생성·최근 리포트" data-gc-en="Generate / Recent" style="display:flex;gap:10px;flex-wrap:wrap;margin:14px 0">
       <button onclick="alrGenerate()" id="alr-go-btn" style="padding:12px 22px;background:linear-gradient(135deg,#8b5cf6,#7c3aed);color:#fff;border:0;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;box-shadow:0 6px 18px rgba(139,92,246,0.45)" data-ko="🚀 AI 리포트 자동 생성" data-en="🚀 Generate AI Report">🚀 AI 리포트 자동 생성</button>
       <button onclick="alrLoadList()" style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer" data-ko="📜 최근 리포트 목록" data-en="📜 Recent Reports">📜 최근 리포트 목록</button>
       <span style="font-size:11.5px;color:#a3b3d1;align-self:center" data-ko="⏱ 10분 수업 약 30초 · 45분 수업 약 1~2분 (진행률이 표시됩니다)" data-en="⏱ ~30s for a 10-min lesson · 1–2 min for 45 min (progress is shown)">⏱ 10분 수업 약 30초 · 45분 수업 약 1~2분 (진행률이 표시됩니다)</span>
@@ -4410,7 +4410,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 Just enter 3–5 keywords — Llama 3.3 70B auto-generates complete Korean text for 4 evaluation areas (Strengths / Improvements / Next Goal / Comment). 90% faster writing.">
       💡 <b>키워드 3~5개만 입력</b> — Llama 3.3 70B 가 평가서 4영역(잘한점/보완점/다음목표/코멘트) 완성된 한국어 텍스트 자동 생성. 작성 시간 90% 단축.
     </div>
-    <div style="display:grid;gap:8px;max-width:760px">
+    <div data-gc="📝 초안 입력" data-gc-en="Draft Input" style="display:grid;gap:8px;max-width:760px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <label style="font-size:12px;font-weight:700"><span data-ko="학생 이름" data-en="Student Name">학생 이름</span> <input id="aed-student-name" type="text" placeholder="홍길동" style="width:100%;padding:8px;margin-top:3px"/></label>
         <label style="font-size:12px;font-weight:700"><span data-ko="강사 이름" data-en="Teacher Name">강사 이름</span> <input id="aed-teacher-name" type="text" placeholder="Karen" style="width:100%;padding:8px;margin-top:3px"/></label>
@@ -4435,7 +4435,7 @@ window.__admSettleRun = function(fn){
       </details>
       <button onclick="aedGenerate()" style="padding:12px 20px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer" data-ko="🤖 AI 초안 작성 (10~15초)" data-en="🤖 Generate AI Draft (10–15s)">🤖 AI 초안 작성 (10~15초)</button>
     </div>
-    <div id="aed-result" style="margin-top:14px"></div>
+    <div data-gc="📋 생성 결과" data-gc-en="Result" id="aed-result" style="margin-top:14px"></div>
   </div>
 </details>
 
@@ -4450,8 +4450,8 @@ window.__admSettleRun = function(fn){
       <span style="color:#fda4af;font-size:11.5px">분석 신호:</span> ① 마지막 입장일 · ② 30일 출석 · ③ 출석 추세 · ④ 3개월 연속 감소 · ⑤ 평가 평균 · ⑥ 평가 추세 · ⑦ 평가서 누락 · ⑧ 미납 · ⑨ 숙제 미제출 · ⑩ 학습 활동 동결<br>
       <span style="color:#fda4af;font-size:11.5px">🎁 케어 액션:</span> 카톡 · 문자 · 기프트 포인트 · 이벤트 초대 · <b style="color:#fbbf24">컴백 번들(500P + 무료 보강)</b> 즉시 발송
     </div>
-    <button onclick="arrLoad()" class="primary" style="padding:9px 18px;font-weight:800" data-ko="🔄 위험 학생 스캔" data-en="🔄 Scan At-Risk Students">🔄 위험 학생 스캔</button>
-    <div id="arr-result" style="margin-top:14px"></div>
+    <button data-gc="🔄 위험 학생 스캔" data-gc-en="Scan" onclick="arrLoad()" class="primary" style="padding:9px 18px;font-weight:800" data-ko="🔄 위험 학생 스캔" data-en="🔄 Scan At-Risk Students">🔄 위험 학생 스캔</button>
+    <div data-gc="📋 분석 결과" data-gc-en="Result" id="arr-result" style="margin-top:14px"></div>
   </div>
 </details>
 
@@ -4479,7 +4479,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 Teacher MBTI Registration — used by students on /mbti.html for matching. Enter each teacher's MBTI + hobbies + teaching style and student-teacher compatibility is calculated automatically.">
       💡 <b>강사 MBTI 등록</b> — 학생이 /mbti.html 에서 매칭 시 사용. 강사별 MBTI + 취미 + 수업 스타일 입력하면 학생-강사 호환성 자동 계산.
     </div>
-    <div style="display:grid;gap:8px;max-width:760px">
+    <div data-gc="📝 MBTI 등록" data-gc-en="Register MBTI" style="display:grid;gap:8px;max-width:760px">
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
         <label style="font-size:12px;font-weight:700"><span data-ko="강사 UID" data-en="Teacher UID">강사 UID</span> <input id="mbti-uid" type="text" placeholder="karen" style="width:100%;padding:8px;margin-top:3px"/></label>
         <label style="font-size:12px;font-weight:700"><span data-ko="강사 이름" data-en="Teacher Name">강사 이름</span> <input id="mbti-name" type="text" placeholder="Karen" style="width:100%;padding:8px;margin-top:3px"/></label>
@@ -4494,7 +4494,7 @@ window.__admSettleRun = function(fn){
     <hr style="border:0;border-top:1px solid rgba(99,102,241,0.18);margin:18px 0">
 
     <!-- 📋 등록된 강사 MBTI 목록 — 토글로 숨김/펼치기 (기본 닫힘) -->
-    <details id="mbti-list-details" style="margin-top:4px">
+    <details data-gc="📋 등록된 강사 목록" data-gc-en="Registered Teachers" id="mbti-list-details" style="margin-top:4px">
       <summary style="cursor:pointer;padding:10px 14px;background:linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.08));border:1px solid rgba(99,102,241,0.35);border-radius:8px;font-size:13px;font-weight:800;color:#c4b5fd;display:flex;align-items:center;gap:10px;list-style:none;user-select:none">
         <span style="font-size:14px">📋</span>
         <span data-ko="등록된 강사 MBTI 목록" data-en="Registered Teacher MBTI List">등록된 강사 MBTI 목록</span>
@@ -4563,11 +4563,11 @@ window.__admSettleRun = function(fn){
       🔒 <b>완전 익명</b> — 누가 보냈는지 모릅니다 (IP 만 스팸방지용 해시 저장). 학생/학부모 ID 는 시스템에 저장 X.
     </div>
     <button onclick="prLoadStats()" class="primary" style="padding:8px 18px;font-weight:800" data-ko="🔄 통계 새로고침" data-en="🔄 Refresh Stats">🔄 통계 새로고침</button>
-    <div id="pr-stats" style="margin-top:14px"></div>
+    <div data-gc="📊 칭찬 통계" data-gc-en="Praise Stats" id="pr-stats" style="margin-top:14px"></div>
     <hr style="border:0;border-top:1px solid rgba(99,102,241,0.18);margin:18px 0">
     <h4 style="font-size:13px;color:#c4b5fd;margin-bottom:8px" data-ko="받은 칭찬 (최근 100건)" data-en="Praise Received (Last 100)">받은 칭찬 (최근 100건)</h4>
     <button onclick="prLoadList()" style="padding:7px 14px;font-size:12px;font-weight:700;margin-bottom:10px" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
-    <div id="pr-list"></div>
+    <div data-gc="💌 받은 칭찬 목록" data-gc-en="Received Praise" id="pr-list"></div>
   </div>
 </details>
 
@@ -4582,7 +4582,7 @@ window.__admSettleRun = function(fn){
       <b>"오늘의 단어 + 뜻 + 예문 + 동의어 + 미니 퀴즈"</b> 형태로 카카오 알림톡 발송합니다.
       등하교·출퇴근 자투리 시간 학습에 효과적이에요.
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <div data-gc="📨 발송·기록" data-gc-en="Send / Log" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <button onclick="mlSendOne()" style="padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">📨 학생 1명 발송 (미리보기)</button>
       <button onclick="mlSendAll()" style="padding:10px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">🚀 전체 학생 일괄 발송</button>
       <button onclick="mlLoadLogs()" style="padding:10px 14px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:8px;font-weight:700;cursor:pointer">📜 발송 기록</button>
@@ -4656,7 +4656,7 @@ window.__admSettleRun = function(fn){
       💡 <b>매주 금요일 KST 19시</b> 자동으로 모든 학부모에게 자녀의 한 주 학습 요약을 카카오 알림톡으로 발송합니다.
       출석 일수·평균 평점·음성코칭 정확도·다음 목표가 포함됩니다.
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+    <div data-gc="📨 발송·미리보기" data-gc-en="Send / Preview" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
       <button onclick="wdPreviewOne()" style="padding:10px 18px;background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">👁 학생별 미리보기</button>
       <button onclick="wdSendOne()" style="padding:10px 18px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">📨 한 명에게 발송</button>
       <button onclick="wdSendAll()" style="padding:10px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">🚀 전체 학부모 일괄 발송</button>
@@ -4666,7 +4666,7 @@ window.__admSettleRun = function(fn){
       <input id="wd-uid" type="text" placeholder="학생 user_id (예: hong_gd)" style="flex:1;padding:9px 12px;background:#0c1a3a;color:#e6ecff;border:1px solid rgba(99,102,241,0.30);border-radius:8px;font-size:13px;max-width:300px" />
       <span style="font-size:12px;color:#a3b3d1">← 미리보기·단건 발송 시 입력</span>
     </div>
-    <div id="wd-result" style="margin-top:14px"></div>
+    <div data-gc="📋 결과" data-gc-en="Result" id="wd-result" style="margin-top:14px"></div>
   </div>
 </details>
 
@@ -4740,7 +4740,7 @@ window.__admSettleRun = function(fn){
     <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px;color:#166534">
       📄 <b>학생별 월별 종합 보고서</b> — 출석/평가/음성코칭/결제 한 페이지. 학부모에게 카톡 링크로 보내거나 PDF로 인쇄.
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;max-width:600px">
+    <div data-gc="📄 보고서 열기" data-gc-en="Open Report" style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;max-width:600px">
       <label style="font-size:12px;font-weight:700">학생 user_id <input id="mr-uid" type="text" placeholder="hong_gd" style="width:100%;padding:8px;margin-top:3px"/></label>
       <label style="font-size:12px;font-weight:700">월 (YYYY-MM) <input id="mr-ym" type="text" placeholder="2026-05" style="width:100%;padding:8px;margin-top:3px"/></label>
       <button onclick="mrOpen()" style="align-self:end;padding:10px 18px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:8px;font-weight:800;cursor:pointer">📄 보고서 열기</button>
@@ -4992,7 +4992,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 AI auto-generates tone-adjusted KakaoTalk messages at D-1/D-7/D-14 stages (gentle → firm → urgent). Runs daily at KST 03:00.">
       💡 D-1/D-7/D-14 단계별로 톤이 다른 카톡(부드러움→정중→긴급)을 AI가 자동 작성·발송합니다.
     </div>
-    <div id="dn-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
+    <div data-gc="📊 수금 현황" data-gc-en="Dunning Status" id="dn-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
       <button onclick="dnRun()" class="primary" style="background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer">
         <span data-ko="🚀 지금 실행" data-en="🚀 Run Now">🚀 지금 실행</span>
@@ -5001,7 +5001,7 @@ window.__admSettleRun = function(fn){
         <span data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</span>
       </button>
     </div>
-    <div id="dn-log"></div>
+    <div data-gc="📜 발송 기록" data-gc-en="Send Log" id="dn-log"></div>
   </div>
 </details>
 <script>
@@ -5059,7 +5059,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 Parents get 24/7 AI answers on 15 FAQ topics (prices, schedule, refunds, teachers, etc.). Unanswerable items auto-escalate to admin.">
       💡 학부모가 가격·수업시간·환불·강사 등 15개 FAQ에 대해 24시간 AI 챗봇으로 답변받습니다.
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div data-gc="💬 테스트·대화 로그" data-gc-en="Test & Logs" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px">
         <div style="font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="💬 직접 테스트해보기" data-en="💬 Test the Bot">💬 직접 테스트해보기</div>
         <div id="pfb-chat" style="background:#1e293b;border-radius:8px;padding:10px;min-height:200px;max-height:300px;overflow:auto;font-size:13px;color:#cbd5e1;margin-bottom:10px"></div>
@@ -5240,7 +5240,7 @@ window.__admSettleRun = function(fn){
     <button onclick="fcLoad()" class="primary" style="background:linear-gradient(135deg,#0ea5e9,#0284c7);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:14px">
       <span data-ko="🔄 예측 갱신" data-en="🔄 Refresh Forecast">🔄 예측 갱신</span>
     </button>
-    <div id="fc-result" style="display:grid;grid-template-columns:1fr 1fr;gap:14px"></div>
+    <div data-gc="🔮 예측 결과" data-gc-en="Forecast Result" id="fc-result" style="display:grid;grid-template-columns:1fr 1fr;gap:14px"></div>
   </div>
 </details>
 <script>
@@ -5320,11 +5320,11 @@ window.__admSettleRun = function(fn){
          data-en="💡 Auto charge monthly (KST 09:00 cron). Toss Payments integration is pending.">
       💡 매월 자동 청구 (KST 09:00 cron). Toss Payments 연동은 추후 작업.
     </div>
-    <div id="rb-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
+    <div data-gc="📊 구독 요약" data-gc-en="Subscription Summary" id="rb-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <button onclick="rbLoad()" class="primary" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
       <span data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</span>
     </button>
-    <div id="rb-list" style="overflow-x:auto"></div>
+    <div data-gc="📋 구독자 목록" data-gc-en="Subscribers" id="rb-list" style="overflow-x:auto"></div>
   </div>
 </details>
 <script>
@@ -5404,8 +5404,8 @@ window.__admSettleRun = function(fn){
     <button onclick="rfLoad()" class="primary" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:14px">
       <span data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</span>
     </button>
-    <div id="rf-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"></div>
-    <div id="rf-list" style="overflow-x:auto"></div>
+    <div data-gc="📊 추천 통계" data-gc-en="Referral Stats" id="rf-stats" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px"></div>
+    <div data-gc="📋 추천 내역" data-gc-en="Referral List" id="rf-list" style="overflow-x:auto"></div>
   </div>
 </details>
 <script>
@@ -5503,8 +5503,8 @@ window.__admSettleRun = function(fn){
         <span data-ko="📤 지금 발송" data-en="📤 Send Now">📤 지금 발송</span>
       </button>
     </div>
-    <div id="nps-stats"></div>
-    <div id="nps-comments" style="margin-top:14px"></div>
+    <div data-gc="📊 NPS 점수" data-gc-en="NPS Score" id="nps-stats"></div>
+    <div data-gc="💬 학부모 의견" data-gc-en="Parent Comments" id="nps-comments" style="margin-top:14px"></div>
   </div>
 </details>
 <script>
@@ -5567,7 +5567,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 Admin opens slots → parents self-book. Slot auto-disables on booking.">
       💡 슬롯 개설 → 학부모 자기예약 → 자동 슬롯 잠금
     </div>
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div data-gc="➕ 슬롯 개설" data-gc-en="Open Slot" style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;color:#93c5fd;font-weight:700;margin-bottom:10px" data-ko="➕ 슬롯 개설" data-en="➕ Open Slots">➕ 슬롯 개설</div>
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px">
         <input id="cb-staff" placeholder="staff_uid" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
@@ -5583,7 +5583,7 @@ window.__admSettleRun = function(fn){
     <button onclick="cbLoad()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
       <span data-ko="🔄 예약 새로고침" data-en="🔄 Reload Bookings">🔄 예약 새로고침</span>
     </button>
-    <div id="cb-list" style="overflow-x:auto"></div>
+    <div data-gc="📋 예약 목록" data-gc-en="Booking List" id="cb-list" style="overflow-x:auto"></div>
   </div>
 </details>
 <script>
@@ -5757,7 +5757,7 @@ window.__admSettleRun = function(fn){
       💡 학생 음성 일기 모니터 — 학생 UID 입력 후 월 선택
     </div>
 
-    <div class="vd-light" style="margin-bottom:12px">
+    <div data-gc="🔎 학생·월 조회" data-gc-en="Search" class="vd-light" style="margin-bottom:12px">
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end">
         <div><div class="vd-label" data-ko="학생 UID" data-en="Student UID">학생 UID</div>
           <input id="vd-uid" type="text" placeholder="hong_gd" data-ko-ph="hong_gd" data-en-ph="hong_gd"></div>
@@ -5767,8 +5767,8 @@ window.__admSettleRun = function(fn){
       </div>
     </div>
 
-    <div id="vd-summary" style="margin-bottom:10px"></div>
-    <div id="vd-list" style="display:grid;gap:6px"></div>
+    <div data-gc="📊 요약" data-gc-en="Summary" id="vd-summary" style="margin-bottom:10px"></div>
+    <div data-gc="📋 일기 목록" data-gc-en="Diary List" id="vd-list" style="display:grid;gap:6px"></div>
 
     <div id="vd-modal-backdrop" class="vd-modal-backdrop">
       <div class="vd-modal" id="vd-modal-body"></div>
@@ -5896,7 +5896,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 Teacher generates QR (5min valid) → student scans with phone → auto check-in.">
       💡 QR 생성 (5분 유효) → 학생 스캔 → 자동 출석
     </div>
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div data-gc="🎫 QR 생성" data-gc-en="Make QR" style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;color:#86efac;font-weight:700;margin-bottom:10px" data-ko="🎫 QR 생성" data-en="🎫 Generate QR">🎫 QR 생성</div>
       <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px">
         <input id="aa-room" placeholder="room_id" style="background:#1e293b;border:1px solid #475569;color:#e2e8f0;border-radius:6px;padding:8px;font-size:12px">
@@ -5913,7 +5913,7 @@ window.__admSettleRun = function(fn){
         <span data-ko="🔄 오늘 출석" data-en="🔄 Today">🔄 오늘 출석</span>
       </button>
     </div>
-    <div id="aa-today" style="overflow-x:auto"></div>
+    <div data-gc="📋 오늘 출석" data-gc-en="Today" id="aa-today" style="overflow-x:auto"></div>
   </div>
 </details>
 <script>
@@ -6038,7 +6038,7 @@ window.__admSettleRun = function(fn){
          data-en="💡 1 parent = 1 family. 2+ children → auto discount on subscription.">
       💡 학부모 1명 → 가족 그룹 → 자녀 ≥ 2명 자동 할인
     </div>
-    <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
+    <div data-gc="➕ 가족 등록" data-gc-en="Add Family" style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:14px">
       <div style="font-size:13px;color:#fdba74;font-weight:700;margin-bottom:10px" data-ko="➕ 가족 등록 — 이름·전화번호로 찾기" data-en="➕ Register Family — search by name/phone">➕ 가족 등록 — 이름·전화번호로 찾기</div>
       <div style="position:relative;margin-bottom:8px">
         <input id="fm-parent-search" autocomplete="off" oninput="famParentSearch(this)" onfocus="famParentSearch(this)"
@@ -6059,7 +6059,7 @@ window.__admSettleRun = function(fn){
     <button onclick="fmLoad()" style="background:#475569;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
       <span data-ko="🔄 가족 목록 새로고침" data-en="🔄 Reload Families">🔄 가족 목록 새로고침</span>
     </button>
-    <div id="fm-list"></div>
+    <div data-gc="📋 가족 목록" data-gc-en="Family List" id="fm-list"></div>
   </div>
 </details>
 <script>
@@ -6257,7 +6257,7 @@ window.__admSettleRun = function(fn){
   <div class="menu-body">
     
 
-    <div id="mt-top-grid">
+    <div data-gc="🤖 AI 시험 만들기" data-gc-en="AI Test Maker" id="mt-top-grid">
       <!-- ═══ 왼쪽: 🤖 AI 자동 출제 마법사 (메인) ═══ -->
       <div style="background:linear-gradient(160deg,#1e1b4b,#0f172a);border:2px solid #6366f1;border-radius:14px;padding:16px">
         <div style="font-size:16px;font-weight:900;color:#fcd34d;margin-bottom:4px" data-ko="🤖 AI 자동 시험 만들기" data-en="🤖 AI Exam Wizard">🤖 AI 자동 시험 만들기</div>
@@ -6331,10 +6331,10 @@ window.__admSettleRun = function(fn){
       <div style="font-size:14px;font-weight:800;color:#a5b4fc" data-ko="📋 만들어진 시험 목록" data-en="📋 My Exams">📋 만들어진 시험 목록</div>
       <button onclick="mtLoad()" style="background:#475569;color:#fff;border:0;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:700;cursor:pointer"><span data-ko="🔄 새로고침" data-en="🔄 Reload">🔄 새로고침</span></button>
     </div>
-    <div id="mt-list"></div>
+    <div data-gc="📋 만들어진 시험" data-gc-en="Test List" id="mt-list"></div>
 
     <!-- ═══ 고급: 직접 문제 입력 (접힘) ═══ -->
-    <details style="margin-top:14px;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px 14px">
+    <details data-gc="✍️ 직접 입력" data-gc-en="Manual Entry" style="margin-top:14px;background:#0f172a;border:1px solid #334155;border-radius:12px;padding:12px 14px">
       <summary style="cursor:pointer;font-size:13px;color:#86efac;font-weight:700" data-ko="✍️ 고급: 문제를 직접 타자로 입력하기 (선택사항 — AI가 다 해주니 보통은 필요 없어요)" data-en="✍️ Advanced: type a question manually (optional — AI usually does it all)">✍️ 고급: 문제를 직접 타자로 입력하기 (선택사항 — AI가 다 해주니 보통은 필요 없어요)</summary>
       <div style="margin-top:10px">
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
@@ -7009,9 +7009,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button onclick="prToggleRules()" style="padding:7px 14px;font-size:12.5px;background:#fff;border:1px solid #f59e0b;color:#b45309;font-weight:700;border-radius:6px;cursor:pointer" data-ko="⚙️ 공제 규칙" data-en="⚙️ Deduction Rules">⚙️ 공제 규칙</button>
       <span id="pr-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="pr-rules" style="display:none;margin-bottom:12px"></div>
-    <div id="pr-table" style="overflow-x:auto"></div>
-    <div id="pr-detail" style="margin-top:14px"></div>
+    <div data-gc="⚙ 공제 규칙" data-gc-en="Deduction Rules" id="pr-rules" style="display:none;margin-bottom:12px"></div>
+    <div data-gc="🧮 계산 결과표" data-gc-en="Calculation Table" id="pr-table" style="overflow-x:auto"></div>
+    <div data-gc="👤 강사별 상세" data-gc-en="Teacher Detail" id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-q3.js?v=4" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
@@ -7025,7 +7025,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Teachers' postpone/reschedule requests from My Page are recorded here with timestamps. ✅ Approve applies the change automatically (move = new date/time, postpone = put on hold). Every record (who asked when, who decided when) is kept permanently.">
       💡 강사가 마이페이지에서 보낸 수업 연기·변경 요청이 여기에 <b>시간과 함께 기록</b>됩니다. 「✅ 승인」하면 일정에 자동 반영(변경=새 일시로 이동, 연기=일정 보류)되고, 모든 기록(누가·언제 요청 → 누가·언제 처리)은 영구 보존됩니다.
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+    <div data-gc="🔎 보기 필터" data-gc-en="Filters" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
       <label style="font-size:12px;font-weight:700;color:#374151" data-ko="보기" data-en="View">보기</label>
       <select id="srq-filter" onchange="srqLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
         <option value="pending" data-ko="⏳ 대기 중만" data-en="⏳ Pending only">⏳ 대기 중만</option>
@@ -7037,7 +7037,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-ko="⏸ 연기 수업 현황 (유료/무료·시각) →" data-en="⏸ Postponed Classes (charge &amp; exact time) →">⏸ 연기 수업 현황 (유료/무료·시각) →</a>
       <span id="srq-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="srq-table" style="overflow-x:auto"></div>
+    <div data-gc="📋 요청 목록" data-gc-en="Request List" id="srq-table" style="overflow-x:auto"></div>
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-r11.js?v=2" data-card="card-schedule-requests" data-globals="srqLoad,srqDecide"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-r11 -->
@@ -7055,7 +7055,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button class="primary" onclick="tlkLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <span id="tlk-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="tlk-table" style="overflow-x:auto"></div>
+    <div data-gc="📋 계정–원부 연결표" data-gc-en="Link Table" id="tlk-table" style="overflow-x:auto"></div>
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-tlink.js?v=2" data-card="card-teacher-link" data-globals="tlkLoad,tlkSave,tlkUnlink"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
@@ -7087,7 +7087,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Every time a class is postponed, moved, removed or ended, it is logged automatically — who did it, when, and what. Changes from admin, teacher (My Page), AI commands and approved requests are all searchable here. (Records are kept permanently.)">
       💡 수업이 <b>연기·이동·삭제·종료</b>될 때마다 <b>누가·언제·무엇을</b> 했는지 자동으로 기록됩니다. 관리자·강사·AI 명령·연기요청 승인 등 모든 경로의 변경을 한곳에서 조회할 수 있어요. (영구 보존)
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+    <div data-gc="🔎 작업별 필터" data-gc-en="Filters" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
       <label style="font-size:12px;font-weight:700;color:#374151" data-ko="작업" data-en="Action">작업</label>
       <select id="cau-action" onchange="caudLoad()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px">
         <option value="all" data-ko="전체" data-en="All">전체</option>
@@ -7102,7 +7102,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-ko="⏸ 연기 수업 현황 (유료/무료·시각) →" data-en="⏸ Postponed Classes (charge &amp; exact time) →">⏸ 연기 수업 현황 (유료/무료·시각) →</a>
       <span id="cau-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="cau-table" style="overflow-x:auto"></div>
+    <div data-gc="📜 변경 이력" data-gc-en="History" id="cau-table" style="overflow-x:auto"></div>
   </div>
 </details>
 <script src="/js/adm-classaudit.js?v=1" defer></script><!-- 📜 수업 변경 이력 -->
@@ -7116,7 +7116,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Real-time packet loss / RTT of teachers & students during class, sampled every 30s. High loss = that teacher's internet is bad. AAO = times auto audio-only kicked in.">
       💡 화상수업 중 <b>손실률·지연(RTT)</b>을 30초마다 자동 수집합니다. <b>손실률 높은 강사 = 인터넷 나쁨</b> → 그 회선을 개선(유선 랜 등)하면 수업 품질↑. <b>AAO</b>=자동 음성전용 전환 횟수.
     </div>
-    <div style="margin-bottom:10px">
+    <div data-gc="🔎 기간 선택" data-gc-en="Period" style="margin-bottom:10px">
       <label style="font-size:12px;color:#475569">기간
         <select id="vcq-days" onchange="vcqLoad()" style="margin-left:6px;padding:4px 8px;border-radius:6px">
           <option value="1">1일</option><option value="7" selected>7일</option><option value="30">30일</option>
@@ -7124,7 +7124,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       </label>
       <button onclick="vcqLoad()" style="margin-left:8px;padding:5px 12px;border:0;border-radius:6px;background:#0ea5e9;color:#fff;cursor:pointer">새로고침</button>
     </div>
-    <div id="vcq-body" style="font-size:13px;color:#64748b">불러오려면 새로고침을 누르세요.</div>
+    <div data-gc="📶 회선품질 표" data-gc-en="Quality Table" id="vcq-body" style="font-size:13px;color:#64748b">불러오려면 새로고침을 누르세요.</div>
   </div>
   <script>
   async function vcqLoad(){
@@ -7179,8 +7179,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button class="primary" onclick="crLoadSummary()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:linear-gradient(135deg,#3b82f6,#1e40af);color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       <span id="cr-summary" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="cr-table" style="overflow-x:auto"></div>
-    <div id="cr-detail" style="margin-top:14px"></div>
+    <div data-gc="⭐ 강사별 평점" data-gc-en="Teacher Ratings" id="cr-table" style="overflow-x:auto"></div>
+    <div data-gc="👤 강사 상세" data-gc-en="Teacher Detail" id="cr-detail" style="margin-top:14px"></div>
   </div>
 </details>
 <script src="/js/adm-r12.js?v=1" defer></script><!-- 분할추출:adm-r12 -->
@@ -7266,7 +7266,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 
   <!-- 신규 강사 등록 -->
-  <details style="margin-bottom:12px;">
+  <details data-gc="➕ 강사 신규 등록" data-gc-en="Add Teacher" style="margin-bottom:12px;">
     <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 강사 신규 등록" data-en="+ Add New Teacher">+ 강사 신규 등록</summary>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
       <input id="t-new-name"   placeholder="이름 (필수)" data-ko-placeholder="이름 (필수)" data-en-placeholder="Name (required)" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;width:140px;" />
@@ -7305,7 +7305,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 
   <!-- 📊 그래프 영역 (기본 숨김) -->
-  <div id="payroll-charts-wrap" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:12px;">
+  <div data-gc="📊 급여·평가 그래프" data-gc-en="Payroll Charts" id="payroll-charts-wrap" style="display:none;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:12px;">
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:14px;">
       <div style="background:#fff;border:1px solid #e5e7eb;border-radius:6px;padding:10px;">
         <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px;" data-ko="💰 강사별 월급 (PHP)" data-en="💰 Salary by Teacher (PHP)">💰 강사별 월급 (PHP)</div>
@@ -7332,7 +7332,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;"
        data-ko-html='💡 헤더 클릭 = 1차 정렬 토글 · <kbd style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;padding:1px 6px;font-size:10px;">Shift</kbd> + 클릭 = 2차/3차 정렬 추가'
        data-en-html='💡 Click = primary sort · <kbd style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;padding:1px 6px;font-size:10px;">Shift</kbd> + Click = add 2nd/3rd sort'>💡 헤더 클릭 = 1차 정렬 토글 · <kbd style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;padding:1px 6px;font-size:10px;">Shift</kbd> + 클릭 = 2차/3차 정렬 추가</div>
-  <div style="overflow-x:auto;">
+  <div data-gc="📋 강사별 급여표" data-gc-en="Payroll Table" style="overflow-x:auto;">
     <table style="min-width:1100px;">
       <thead>
         <tr id="payroll-thead">
@@ -7476,7 +7476,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <details class="sub-item" id="card-centers"
                ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('centers')">
         <summary data-ko="🏪 대리점(학원)" data-en="🏪 Agency (Academy)">🏪 대리점(학원)</summary>
-        <div class="sub-body">
+        <div data-gc="➕ 등록·목록" data-gc-en="Register & List" class="sub-body">
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대리점(학원) 신규 등록" data-en="+ Add Agency">+ 대리점(학원) 신규 등록</summary>
             <div class="menu-form">
@@ -7785,7 +7785,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-pronunciation">
   <summary><span data-ko="🎯 발음교정" data-en="🎯 Pronunciation">🎯 발음교정</span></summary>
   <div class="menu-body">
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,rgba(254,243,199,0.5),rgba(254,215,170,0.4));border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px 18px;margin-bottom:12px">
+    <div data-gc="🔗 발음 코치 열기" data-gc-en="Open Coach" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:linear-gradient(135deg,rgba(254,243,199,0.5),rgba(254,215,170,0.4));border:1px solid rgba(245,158,11,0.3);border-radius:12px;padding:14px 18px;margin-bottom:12px">
       <span style="font-size:24px">🎙</span>
       <div style="flex:1;min-width:240px">
         <div style="font-size:14px;font-weight:700;color:#7c2d12" data-ko="망고아이 발음교정 연습" data-en="Mangoi Pronunciation Practice">망고아이 발음교정 연습</div>
@@ -7798,7 +7798,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button onclick="togglePronPreview()" style="padding:8px 14px;font-size:13px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-weight:600" data-ko="👁 미리보기" data-en="👁 Preview">👁 미리보기</button>
     </div>
     <!-- iframe 미리보기 (토글로 펼침) -->
-    <div id="pron-preview" style="display:none;margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;height:600px;position:relative">
+    <div data-gc="👁 미리보기" data-gc-en="Preview" id="pron-preview" style="display:none;margin-top:10px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#fff;height:600px;position:relative">
       <div style="position:absolute;top:8px;right:8px;z-index:5;display:flex;gap:6px">
         <a href="/speech-coach.html" target="_blank" rel="noopener"
            style="padding:5px 12px;font-size:11px;background:#1e293b;color:#fff;border-radius:6px;text-decoration:none;font-weight:600">🔗 새 탭</a>
@@ -7819,7 +7819,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-enrollments">
   <summary><span data-ko="📚 수강신청 관리" data-en="📚 Enrollments">📚 수강신청 관리</span></summary>
   <div class="menu-body">
-    <details>
+    <details data-gc="➕ 수강신청 등록" data-gc-en="New Enrollment">
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;font-weight:600"
                data-ko="+ 수강신청 등록 (1명 또는 여러 명 동시)"
                data-en="+ Add Enrollment (single or multiple at once)">+ 수강신청 등록 (1명 또는 여러 명 동시)</summary>
@@ -7873,7 +7873,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </details>
 
     <!-- 🥭 Phase 28 — 단순화된 2카드 레이아웃 (양식 받기 / 양식 등록) -->
-    <div class="enroll-bulk" style="margin-top:14px">
+    <div data-gc="📂 신청서 양식" data-gc-en="Forms" class="enroll-bulk" style="margin-top:14px">
       <div class="enroll-bulk-grid">
         <!-- 카드 1: 양식 받기 (다운로드) -->
         <div class="enroll-bulk-card enroll-bulk-download">
@@ -7952,7 +7952,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
              style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;min-width:200px;" />
       <button id="en-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;" data-ko="새로고침" data-en="Refresh">새로고침</button>
     </div>
-    <table><thead><tr><th data-ko="신청일" data-en="Created">신청일</th><th data-ko="학생" data-en="Student">학생</th><th data-ko="패키지" data-en="Package">패키지</th><th data-ko="월 수강료" data-en="Monthly Fee">월 수강료</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+    <table data-gc="📋 신청 목록" data-gc-en="Enrollment List"><thead><tr><th data-ko="신청일" data-en="Created">신청일</th><th data-ko="학생" data-en="Student">학생</th><th data-ko="패키지" data-en="Package">패키지</th><th data-ko="월 수강료" data-en="Monthly Fee">월 수강료</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="enrollments-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
   </div>
 </details>
@@ -7961,7 +7961,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-community">
   <summary><span data-ko="📋 학원 게시판 (소식·FAQ)" data-en="📋 Notice Board (News·FAQ)">📋 학원 게시판 (소식·FAQ)</span></summary>
   <div class="menu-body">
-    <details>
+    <details data-gc="➕ 새 글 작성" data-gc-en="New Post">
       <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 새 글 작성" data-en="+ New Post">+ 새 글 작성</summary>
       <div class="menu-form" style="flex-direction:column;align-items:stretch;">
         <input id="cm-title" placeholder="제목 (필수)" data-ko-placeholder="제목 (필수)" data-en-placeholder="Title (required)" style="width:100%;" />
@@ -7973,7 +7973,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </div>
     </details>
-    <table style="margin-top:10px;"><thead><tr><th data-ko="작성" data-en="Created">작성</th><th data-ko="제목" data-en="Title">제목</th><th data-ko="작성자" data-en="Author">작성자</th><th data-ko="고정" data-en="Pin">고정</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+    <table data-gc="📋 게시글 목록" data-gc-en="Post List" style="margin-top:10px;"><thead><tr><th data-ko="작성" data-en="Created">작성</th><th data-ko="제목" data-en="Title">제목</th><th data-ko="작성자" data-en="Author">작성자</th><th data-ko="고정" data-en="Pin">고정</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="community-table"><tr><td colspan="5" class="empty">—</td></tr></tbody></table>
   </div>
 </details>
@@ -8338,14 +8338,14 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Staff and textbook records imported from Cafe24. Teacher and student lists already had screens; these two had an API but no view. Read-only — the source is the nightly sync.">
       💡 카페24에서 넘어온 <b>직원·교재 명부</b>입니다. 강사·학생 명부는 화면이 있었지만 이 둘은 볼 곳이 없었습니다. <b>보기 전용</b>이며 원천은 매일 밤 자동 동기화입니다.
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
+    <div data-gc="👥 직원 · 📚 교재 고르기" data-gc-en="Pick List" style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px 14px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px">
       <button id="c24-tab-staff" onclick="c24Tab('staff')" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#1e40af;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="👥 직원" data-en="👥 Staff">👥 직원</button>
       <button id="c24-tab-books" onclick="c24Tab('books')" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#e5e7eb;color:#374151;border:0;border-radius:6px;cursor:pointer" data-ko="📚 교재" data-en="📚 Textbooks">📚 교재</button>
       <input id="c24-q" placeholder="이름 검색 / Search name" onkeydown="if(event.key==='Enter')c24Load()" style="padding:6px 10px;font-size:12.5px;border:1px solid #d1d5db;border-radius:6px;min-width:180px">
       <button onclick="c24Load()" style="padding:7px 14px;font-size:12.5px;font-weight:800;background:#0f172a;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="🔎 조회" data-en="🔎 Search">🔎 조회</button>
       <span id="c24-count" style="margin-left:auto;font-size:11.5px;color:#6b7280"></span>
     </div>
-    <div id="c24-table" style="overflow-x:auto"></div>
+    <div data-gc="📋 명부" data-gc-en="Roster" id="c24-table" style="overflow-x:auto"></div>
   </div>
 </details>
 <script type="text/lazy-js" data-src="/js/adm-c24.js?v=1" data-card="card-cafe24-lists" data-globals="c24Load,c24Tab"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) -->
@@ -8358,7 +8358,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="Download attendance data as CSV by date range. For recordings CSV, use the [📥 CSV] button in the recordings search bar.">
       출석 데이터를 기간 범위로 CSV 다운로드. 녹화 목록 CSV 는 위 검색 바의 [📥 CSV] 버튼을 사용하세요.
     </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <div data-gc="📥 출석 CSV 받기" data-gc-en="Attendance CSV" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <label style="font-size:13px;color:#374151;">
         <span data-ko="기간" data-en="Period">기간</span>&nbsp;
         <input id="export-att-from" type="date" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
@@ -8419,9 +8419,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
     <div id="cal-notice" style="display:none;font-size:12px;line-height:1.6;color:#92400e;background:#fffbeb;border:1px solid #fcd34d;border-radius:9px;padding:9px 13px;margin-bottom:8px"></div>
 
-    <div class="cal-grid" id="cal-grid"></div>
+    <div data-gc="📅 달력" data-gc-en="Calendar" class="cal-grid" id="cal-grid"></div>
 
-    <div class="cal-forms">
+    <div data-gc="🏖 휴가·공휴일 추가" data-gc-en="Add Leave / Holiday" class="cal-forms">
       <div class="cal-form">
         <h5 data-ko="🏖 교사 휴가 추가" data-en="🏖 Add Teacher Vacation">🏖 교사 휴가 추가</h5>
         <div class="row"><span class="lbl" data-ko="교사" data-en="Teacher">교사</span><input id="cal-v-teacher" type="text" placeholder="교사 이름" style="flex:1" /></div>
@@ -8738,7 +8738,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 작성 폼 -->
-    <div class="rq-box">
+    <div data-gc="➕ 새 퀴즈 만들기" data-gc-en="New Quiz" class="rq-box">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b id="rq-form-title" style="font-size:14px" data-ko="➕ 새 퀴즈 만들기" data-en="➕ New Quiz">➕ 새 퀴즈 만들기</b>
         <button class="rq-btn ghost" id="rq-cancel-edit" style="display:none" onclick="rqCancelEdit()" data-ko="수정 취소" data-en="Cancel edit">수정 취소</button>
@@ -8826,10 +8826,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       </div>
       <span id="rq-search-count" style="font-size:11.5px;color:#6b7280;white-space:nowrap"></span>
     </div>
-    <div id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280" data-ko="⏳ 불러오는 중…" data-en="⏳ Loading…">⏳ 불러오는 중…</div>
+    <div data-gc="📋 저장된 퀴즈" data-gc-en="Saved Quizzes" id="rq-list" style="margin-top:4px;font-size:12.5px;color:#6b7280" data-ko="⏳ 불러오는 중…" data-en="⏳ Loading…">⏳ 불러오는 중…</div>
 
     <!-- 결과 -->
-    <div id="rq-results-wrap" style="display:none;margin-top:14px">
+    <div data-gc="🏆 응시 결과" data-gc-en="Results" id="rq-results-wrap" style="display:none;margin-top:14px">
       <b style="font-size:14px"><span data-ko="🏆 응시 결과 — " data-en="🏆 Results — ">🏆 응시 결과 — </span><span id="rq-results-title"></span></b>
       <div id="rq-results" style="margin-top:4px"></div>
     </div>
@@ -8849,7 +8849,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          data-en="💡 Operational events are auto-enqueued. External tool pulls pending items, sends to KakaoTalk, then marks as 'sent'.">
       💡 수업 시작 / 비상 / 강제 종료 같은 운영 이벤트가 자동 적재됩니다. 외부 도구가 pending 항목을 가져가 카카오톡으로 전송한 뒤 'sent' 로 표시합니다.
     </div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px 0;align-items:center;">
+    <div data-gc="🔎 상태별 보기" data-gc-en="By Status" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px 0;align-items:center;">
       <select id="notif-status-filter" style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;">
         <option value="pending" selected>pending (대기)</option>
         <option value="sent">sent (발송됨)</option>
@@ -8860,7 +8860,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button id="notif-refresh"  style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;" data-ko="새로고침" data-en="Refresh">새로고침</button>
       <button id="notif-test-btn" style="padding:5px 12px;font-size:12px;border:1px solid #f59e0b;border-radius:6px;background:rgba(245,158,11,0.1);color:#92400e;cursor:pointer;" data-ko="🧪 테스트 알림" data-en="🧪 Test Notify">🧪 테스트 알림</button>
     </div>
-    <table>
+    <table data-gc="📋 알림 목록" data-gc-en="Alert List">
       <thead>
         <tr>
           <th data-ko="시각" data-en="Time">시각</th>
@@ -8953,13 +8953,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <div class="menu-body">
     
     <div style="font-size:11.5px;font-weight:700;color:#475569;margin:2px 0 8px 2px;letter-spacing:0.3px"><span data-ko="📊 저장소 상태" data-en="📊 Storage Status">📊 저장소 상태</span></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px" id="rs-kpi-grid">
+    <div data-gc="📊 저장소 상태" data-gc-en="Storage Status" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px" id="rs-kpi-grid">
       <div class="rs-kpi"><div class="icon" style="background:#fef3c7;color:#b45309">📂</div><div class="label" data-ko="R2 저장소 (Cloudflare 객체 저장소)" data-en="R2 Storage (Cloudflare Object Storage)">R2 저장소 <span style="font-weight:500;color:#94a3b8">(Cloudflare 객체 저장소)</span></div><div class="value" id="rs-r2-size">12.4</div><div class="unit"><span id="rs-r2-files">156</span> <span data-ko="파일 · GB" data-en="files · GB">파일 · GB</span></div></div>
       <div class="rs-kpi"><div class="icon" style="background:#dbeafe;color:#1d4ed8">💿</div><div class="label" data-ko="D1 데이터베이스" data-en="D1 Database">D1 데이터베이스</div><div class="value" id="rs-d1-size">248</div><div class="unit"><span id="rs-d1-tables">12</span> <span data-ko="테이블 · MB" data-en="tables · MB">테이블 · MB</span></div></div>
       <div class="rs-kpi"><div class="icon" style="background:#f3e8ff;color:#7c3aed">🗄️</div><div class="label" data-ko="KV 호출" data-en="KV Operations">KV 호출</div><div class="value" id="rs-kv-ops">1,243</div><div class="unit" data-ko="회 / 일" data-en="ops / day">회 / 일</div></div>
       <div class="rs-kpi"><div class="icon" style="background:#dcfce7;color:#15803d">💰</div><div class="label" data-ko="월 예상 비용" data-en="Monthly Estimate">월 예상 비용</div><div class="value" id="rs-cost">₩4,820</div><div class="unit" data-ko="청구액 (USD $3.2)" data-en="Billing (USD $3.2)">청구액 (USD $3.2)</div></div>
     </div>
-    <div id="rs-diag-result-wrap" style="margin-bottom:16px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#64748b;display:flex;align-items:center;gap:8px;min-height:40px">
+    <div data-gc="🔧 진단 결과" data-gc-en="Diagnostics" id="rs-diag-result-wrap" style="margin-bottom:16px;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#64748b;display:flex;align-items:center;gap:8px;min-height:40px">
       <span style="font-size:14px">📋</span>
       <span data-ko="R2 (Cloudflare 객체 저장소) 진단 결과:" data-en="R2 (Cloudflare Object Storage) Diagnostic:">R2 <span style="font-weight:500;color:#94a3b8">(Cloudflare 객체 저장소)</span> 진단 결과:</span>
       <span id="test-r2-result" style="color:#94a3b8;font-style:italic" data-ko="우측 상단 [진단] 버튼을 클릭하면 결과가 여기에 표시됩니다." data-en="Click [Diagnose] above to run R2 binding + R/W test.">우측 상단 [진단] 버튼을 클릭하면 결과가 여기에 표시됩니다.</span>
@@ -8975,7 +8975,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     💡 D1 = 녹화 메타데이터 DB (방 번호·교사·시간 등) · R2 = 녹화 파일 저장소 (동영상 .webm). 두 곳 모두 있어야 정상입니다.
   </div>
   <!-- 🔎 녹화 검색 + 페이지네이션 (Phase 3) -->
-  <div id="rec-search-bar" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 8px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
+  <div data-gc="🔍 녹화 검색" data-gc-en="Search" id="rec-search-bar" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0 8px 0;padding:10px 12px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;">
     <input id="rec-q" type="search" placeholder="방 ID / 교사 이름 또는 ID" data-ko-placeholder="방 ID / 교사 이름 또는 ID" data-en-placeholder="Room ID / Teacher name or ID" style="flex:2;min-width:200px;padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
     <input id="rec-date-from" type="date" title="시작 날짜" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
     <span style="color:#6b7280;font-size:12px;">~</span>
@@ -9033,7 +9033,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 
   <!-- 실제 녹화 테이블 — 기본 숨김. 검색 시 또는 강제 표시 시 노출 -->
-  <div id="rec-table-wrap" style="display:none">
+  <div data-gc="🎬 녹화 목록" data-gc-en="Recording List" id="rec-table-wrap" style="display:none">
   <table>
     <thead>
       <tr>
@@ -10267,7 +10267,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             네 번째 타일은 「입금처 수」로 바꿨다. -->
     <div class="pm-src-note" id="b2b-src-note" hidden></div>
     <!-- KPI 4카드 -->
-    <div class="pm-kpi-row">
+    <div data-gc="📊 입금 요약" data-gc-en="Deposit Summary" class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 입금액</div><div class="pm-kpi-value" id="b2b-kpi-today">—</div><div class="pm-kpi-trend" id="b2b-kpi-today-t">전일 대비 —</div></div>
       <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 입금액</div><div class="pm-kpi-value" id="b2b-kpi-month">—</div><div class="pm-kpi-trend" id="b2b-kpi-month-t">전월 대비 —</div></div>
       <div class="pm-kpi"><div class="pm-kpi-label">🧾 입금 건수</div><div class="pm-kpi-value" id="b2b-kpi-count">—</div><div class="pm-kpi-trend" id="b2b-kpi-count-t">평균 —/건</div></div>
@@ -10290,7 +10290,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 차트 -->
-    <div class="pm-chart">
+    <div data-gc="📈 최근 30일 그래프" data-gc-en="30-Day Chart" class="pm-chart">
       <div class="pm-chart-title">📈 최근 30일 일별 입금액</div>
       <canvas id="b2b-chart" height="100"></canvas>
     </div>
@@ -10300,7 +10300,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          «지난 3년» 을 만들 원본이 아예 없다. 데이터가 3년 쌓이면 그때 진짜로 만들 것. -->
 
     <!-- 표 — 통장 입금이라 «적요·금액·날짜» 가 전부다 -->
-    <div style="overflow-x:auto">
+    <div data-gc="📋 입금 내역" data-gc-en="Deposit List" style="overflow-x:auto">
     <table class="pm-table" id="b2b-table">
       <thead><tr>
         <th>No</th><th>입금일</th><th>입금처 (통장 적요)</th><th style="text-align:right">입금액</th>
@@ -10327,7 +10327,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             D1 에 아예 없다(2026-08-17 확인). 팝빌 연동을 붙이는 날 같이 만들 것. -->
     <div class="pm-src-note" id="b2c-src-note" hidden></div>
     <!-- KPI 4카드 -->
-    <div class="pm-kpi-row">
+    <div data-gc="📊 결제 요약" data-gc-en="Payment Summary" class="pm-kpi-row">
       <div class="pm-kpi"><div class="pm-kpi-label">📅 오늘 결제액</div><div class="pm-kpi-value" id="b2c-kpi-today">—</div><div class="pm-kpi-trend" id="b2c-kpi-today-t">전일 대비 —</div></div>
       <div class="pm-kpi"><div class="pm-kpi-label">📊 이번달 결제액</div><div class="pm-kpi-value" id="b2c-kpi-month">—</div><div class="pm-kpi-trend" id="b2c-kpi-month-t">전월 대비 —</div></div>
       <div class="pm-kpi"><div class="pm-kpi-label">🧾 결제 건수</div><div class="pm-kpi-value" id="b2c-kpi-count">—</div><div class="pm-kpi-trend" id="b2c-kpi-count-t">평균 —/건</div></div>
@@ -10352,10 +10352,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- ⚠️ 대리점을 못 붙인 몫 — 숨기지 않고 드러낸다(2026-08-17 사장님 지시).
          결제 금액의 대부분은 학부모가 «자기 아이디» 로 결제해 학생 원부에 없다.
          그래서 대리점으로 거르면 그 돈이 통째로 빠진다. -->
-    <div class="pm-unattr-note" id="b2c-unattr" hidden></div>
+    <div data-gc="🏪 미배정 결제" data-gc-en="Unassigned" class="pm-unattr-note" id="b2c-unattr" hidden></div>
 
     <!-- 차트 -->
-    <div class="pm-chart">
+    <div data-gc="📈 최근 30일 그래프" data-gc-en="30-Day Chart" class="pm-chart">
       <div class="pm-chart-title">📈 최근 30일 일별 결제액</div>
       <canvas id="b2c-chart" height="100"></canvas>
     </div>
@@ -10364,7 +10364,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
          Math.random() 으로 그리던 가짜였다. -->
 
     <!-- 표 -->
-    <div style="overflow-x:auto">
+    <div data-gc="📋 결제 내역" data-gc-en="Payment List" style="overflow-x:auto">
     <table class="pm-table" id="b2c-table">
       <thead><tr>
         <th>No</th><th>결제일</th><th>학생명</th><th>결제 아이디</th><th>대리점</th>
@@ -10399,7 +10399,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 검색 툴바 -->
-    <div class="rf-toolbar">
+    <div data-gc="🔎 검색·분류" data-gc-en="Search" class="rf-toolbar">
       <input type="text" id="rf-q" placeholder="🔍 보고서명 검색" style="flex:1;min-width:200px">
       <select id="rf-status">
         <option value="">전체 상태</option>
@@ -10417,7 +10417,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 표 -->
-    <div style="overflow-x:auto">
+    <div data-gc="📋 양식 목록" data-gc-en="Form List" style="overflow-x:auto">
     <table class="rf-table">
       <thead><tr>
         <th style="width:60px">No</th>
@@ -10444,7 +10444,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 신규등록 버튼 (중앙 강조) -->
-    <button class="rf-btn-new" onclick="rfNew()">➕ 신규 양식 등록</button>
+    <button data-gc="➕ 신규 양식 등록" data-gc-en="Add Form" class="rf-btn-new" onclick="rfNew()">➕ 신규 양식 등록</button>
 
   </div>
 </details>
@@ -10537,7 +10537,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span>📌 공지사항 게시판 ⭐신규</span></summary>
   <div class="menu-body">
     <div class="pl-info">💡 <b>학원 공식 공지</b> — 학부모/강사에게 한 번에 전달. 푸시·카카오 알림 자동 연동.</div>
-    <div class="pl-feature-list">
+    <div data-gc="🧭 기능 소개" data-gc-en="Features" class="pl-feature-list">
       <div class="pl-feature-card"><b>📝 공지 작성</b><span>제목·본문·이미지·첨부파일 + 노출 기간 설정</span></div>
       <div class="pl-feature-card"><b>🎯 대상 선택</b><span>전체/학년별/지점별/특정 학생</span></div>
       <div class="pl-feature-card"><b>📲 다채널 발송</b><span>웹 푸시 + 카카오 알림톡 + 이메일 동시</span></div>
@@ -10556,7 +10556,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <!-- 🧪 (2026-07-27 강사 피드백 3차 #6) "오늘 수업이 없어 교재·영상·퀴즈·리포트가 어떻게 보이는지 확인할 수 없다"
          → 서버에 seed-demo 엔드포인트는 이미 있었으나 화면에 실행 버튼이 없었다(연결 누락).
          🔴 실제 운영 DB에 수업이 생기므로: 확인창 + 데모 학생 계정(user_id=student) 고정으로 실학생 오염 방지. -->
-    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:11px 14px;margin:10px 0">
+    <div data-gc="🧪 샘플 수업 만들기" data-gc-en="Sample Classes" style="background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:11px 14px;margin:10px 0">
       <div style="font-size:12.5px;font-weight:800;color:#92400e;margin-bottom:6px"
            data-ko="🧪 샘플 수업 만들기 (강사 확인용)" data-en="🧪 Create sample classes (for teacher review)">🧪 샘플 수업 만들기 (강사 확인용)</div>
       <div style="font-size:11.5px;color:#78350f;line-height:1.6;margin-bottom:8px"
@@ -10612,7 +10612,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>🔄 드래그 이동</b><span>드래그&드롭으로 시간 변경</span></div>
       <div class="pl-feature-card" style="cursor:pointer" onclick="location.href='/admin/weekly-schedule.html'"><b>📲 변경 알림</b><span>이동/취소 시 학부모 자동 알림</span></div>
     </div>
-    <button class="pl-cta-btn" data-ko="📆 시간표 보기" data-en="📆 Open Timetable" onclick="location.href='/admin/weekly-schedule.html'">📆 시간표 보기</button>
+    <button data-gc="📆 시간표 보기" data-gc-en="Open Timetable" class="pl-cta-btn" data-ko="📆 시간표 보기" data-en="📆 Open Timetable" onclick="location.href='/admin/weekly-schedule.html'">📆 시간표 보기</button>
   </div>
 </details>
 
@@ -10620,7 +10620,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span>📝 수업 일지 ⭐신규</span></summary>
   <div class="menu-body">
     <div class="pl-info">💡 <b>매 수업 후 강사 노트</b> — 학부모 자동 공유. Brightwheel·ClassDojo 핵심 기능.</div>
-    <div class="pl-feature-list">
+    <div data-gc="🧭 기능 소개" data-gc-en="Features" class="pl-feature-list">
       <div class="pl-feature-card"><b>⚡ 3분 작성</b><span>학습 내용·잘한점·다음목표 템플릿</span></div>
       <div class="pl-feature-card"><b>🤖 AI 자동 초안</b><span>수업 음성 STT → AI 일지 초안</span></div>
       <div class="pl-feature-card"><b>📷 사진 첨부</b><span>학습 결과물 사진 1-3장</span></div>
@@ -10636,7 +10636,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   <summary><span>📷 사진/영상 갤러리 ⭐신규</span></summary>
   <div class="menu-body">
     <div class="pl-info">💡 <b>학원의 모든 추억</b> — 수업 사진·영상을 학부모에게 공유. ClassDojo Story 벤치마킹.</div>
-    <div class="pl-feature-list">
+    <div data-gc="🧭 기능 소개" data-gc-en="Features" class="pl-feature-list">
       <div class="pl-feature-card"><b>📤 일괄 업로드</b><span>드래그&드롭 한 번에 여러 장</span></div>
       <div class="pl-feature-card"><b>🏷 자동 태깅</b><span>AI 얼굴 인식 → 학생별 분류</span></div>
       <div class="pl-feature-card"><b>🔒 학부모 동의</b><span>업로드 전 동의 체크 + 비공개</span></div>
@@ -10660,8 +10660,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="pl-feature-card"><b>💬 1:1 피드백</b><span>강사 코멘트 + 음성</span></div>
       <div class="pl-feature-card"><b>🏆 점수/뱃지</b><span>완료 시 자동 포인트 + 뱃지</span></div>
     </div>
-    <button class="pl-cta-btn" onclick="hwOpenForm()">📝 새 숙제 출제</button>
-    <div id="hw-list-wrap" style="margin-top:14px">
+    <button data-gc="📝 새 숙제 출제" data-gc-en="New Homework" class="pl-cta-btn" onclick="hwOpenForm()">📝 새 숙제 출제</button>
+    <div data-gc="📋 출제된 숙제" data-gc-en="Homework List" id="hw-list-wrap" style="margin-top:14px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <b style="font-size:13.5px">📋 출제된 숙제</b>
         <button onclick="hwLoadList()" style="padding:4px 10px;font-size:11.5px;background:#f1f5f9;color:#334155;border:1px solid #cbd5e1;border-radius:6px;cursor:pointer;font-weight:700">↻ 새로고침</button>
@@ -10677,13 +10677,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-lib-admin" data-menu-label-ko="관리자 자료실" data-menu-label-en="Admin Library">
   <summary><span>📕 관리자 자료실</span></summary>
   <div class="menu-body">
-    <div class="lib-gate" id="lib-gate-admin">
+    <div data-gc="🔓 잠금 해제" data-gc-en="Unlock" class="lib-gate" id="lib-gate-admin">
       <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-admin" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('admin')">
       <button class="lib-btn" onclick="libUnlock('admin')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-admin"></div>
     </div>
-    <div class="lib-files" id="lib-files-admin" style="display:none">
+    <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-admin" style="display:none">
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -10730,13 +10730,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-lib-teacher" data-menu-label-ko="강사 자료실" data-menu-label-en="Teacher Library">
   <summary><span>👨‍🏫 강사 자료실</span></summary>
   <div class="menu-body">
-    <div class="lib-gate" id="lib-gate-teacher">
+    <div data-gc="🔓 잠금 해제" data-gc-en="Unlock" class="lib-gate" id="lib-gate-teacher">
       <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-teacher" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('teacher')">
       <button class="lib-btn" onclick="libUnlock('teacher')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-teacher"></div>
     </div>
-    <div class="lib-files" id="lib-files-teacher" style="display:none">
+    <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-teacher" style="display:none">
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -10802,13 +10802,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-lib-branch" data-menu-label-ko="지사 자료실" data-menu-label-en="Branch Library">
   <summary><span>🏢 지사 자료실</span></summary>
   <div class="menu-body">
-    <div class="lib-gate" id="lib-gate-branch">
+    <div data-gc="🔓 잠금 해제" data-gc-en="Unlock" class="lib-gate" id="lib-gate-branch">
       <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-branch" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('branch')">
       <button class="lib-btn" onclick="libUnlock('branch')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-branch"></div>
     </div>
-    <div class="lib-files" id="lib-files-branch" style="display:none">
+    <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-branch" style="display:none">
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -10846,13 +10846,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-lib-agency" data-menu-label-ko="대리점 자료실" data-menu-label-en="Agency Library">
   <summary><span>🏬 대리점 자료실</span></summary>
   <div class="menu-body">
-    <div class="lib-gate" id="lib-gate-agency">
+    <div data-gc="🔓 잠금 해제" data-gc-en="Unlock" class="lib-gate" id="lib-gate-agency">
       <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-agency" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('agency')">
       <button class="lib-btn" onclick="libUnlock('agency')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-agency"></div>
     </div>
-    <div class="lib-files" id="lib-files-agency" style="display:none">
+    <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-agency" style="display:none">
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -10890,13 +10890,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <details class="table-card menu-card" id="card-lib-student" data-menu-label-ko="학생·학부모 자료실" data-menu-label-en="Student & Parent Library">
   <summary><span>🎒 학생·학부모 자료실</span></summary>
   <div class="menu-body">
-    <div class="lib-gate" id="lib-gate-student">
+    <div data-gc="🔓 잠금 해제" data-gc-en="Unlock" class="lib-gate" id="lib-gate-student">
       <div class="lib-lock" data-ko-html="🔒 이 자료실은 <b>비밀번호</b>가 필요합니다." data-en-html="🔒 This library requires a <b>password</b>.">🔒 이 자료실은 <b>비밀번호</b>가 필요합니다.</div>
       <input type="password" class="lib-pw" id="lib-pw-student" placeholder="비밀번호 입력" autocomplete="off" onkeydown="if(event.key==='Enter')libUnlock('student')">
       <button class="lib-btn" onclick="libUnlock('student')">🔓 잠금 해제</button>
       <div class="lib-err" id="lib-err-student"></div>
     </div>
-    <div class="lib-files" id="lib-files-student" style="display:none">
+    <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-student" style="display:none">
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -11094,7 +11094,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- KPI 4카드 -->
-    <div class="sa-kpi-row">
+    <div data-gc="📊 출석 요약" data-gc-en="Attendance Summary" class="sa-kpi-row">
       <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">96.4%</div><div class="sa-kpi-sub">▲ 전월 대비 +1.2%</div></div>
       <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">데모지사1 24 · 직영 4</div></div>
       <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">1,247명</div><div class="sa-kpi-sub">전월 1,189명</div></div>
@@ -11102,7 +11102,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 필터 -->
-    <div class="sa-filter-row">
+    <div data-gc="🔎 조건 선택" data-gc-en="Filters" class="sa-filter-row">
       <select id="sa-year"><option value="2026">2026년</option><option value="2025">2025년</option></select>
       <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5" selected>5월</option><option value="6">6월</option><option value="7">7월</option><option value="8">8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
       <select id="sa-branch"><option value="">전체 지사</option><option>데모지사1</option><option>데모지사2</option><option>본사 직영</option></select>
@@ -11120,7 +11120,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- 표 -->
-    <div style="overflow-x:auto">
+    <div data-gc="📋 학생별 출석표" data-gc-en="Student Table" style="overflow-x:auto">
     <table class="sa-table">
       <thead><tr>
         <th style="width:50px">No</th>
@@ -11477,7 +11477,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=10" defer></script><!-- v=10: 2026-08-18 손자 목록을 손으로 적지 않고 카드 안 실제 칸에서 읽음(파일 5.7KB 감량) · v=9: 학생 명부 손자를 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=11" defer></script><!-- v=10: 2026-08-18 손자 목록을 손으로 적지 않고 카드 안 실제 칸에서 읽음(파일 5.7KB 감량) · v=9: 학생 명부 손자를 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
