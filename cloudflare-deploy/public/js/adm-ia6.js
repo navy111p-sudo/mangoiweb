@@ -749,6 +749,13 @@
     window.addEventListener('click', function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
+      /* 🔴 (2026-08-18) ▸ 손자 메뉴 토글·손자 항목은 «그냥 지나가게» 둔다.
+         이 핸들러는 항목 안의 «모든» 클릭을 「항목 선택」으로 처리하는데, ▸ 토글은
+         그 항목의 자식이라 함께 잡혔다. 그래서 ▸ 를 눌러도 손자가 펴지는 대신
+         카드 필터만 바뀌었다 — 쓰는 사람에게는 «손자 메뉴가 안 뜬다» 로 보인다.
+         adm-s11.js(ph97)가 2026-08-06 에 똑같은 사고를 냈고 같은 예외로 고쳤다.
+         ⛔ 지우지 말 것. 지우면 새 사이드바에서 3단계 메뉴를 여는 방법이 없어진다. */
+      if (t.closest('#ph85-sidebar .ph125-toggle') || t.closest('#ph85-sidebar .ph125-gc')) return;
       var sub = t.closest('[data-ia6-item]');
       if (sub) {
         /* 📱 (2026-08-16 사장님 요청 ④) 모바일은 «닫고 나서» 고른다 — 순서가 핵심이다.

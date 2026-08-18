@@ -249,6 +249,45 @@
     return scan(card);
   }
 
+  /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다. */
+  function cardTitle(card, attr){
+    var sp = card.querySelector(':scope > summary [' + attr + '], :scope > summary span');
+    var t = (sp && (sp.getAttribute(attr) || sp.textContent)) || card.getAttribute('data-menu-label-' + attr.slice(-2)) || '';
+    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
+    if (t.length > 26) t = t.slice(0, 25) + '…';
+    return t;
+  }
+
+  /* 🔑 (2026-08-18) 사이드바 한 항목이 카드를 «여러 장» 맡는다 — 새 사이드바(adm-ia6.js)가
+     그렇게 묶었다(예: 「직원·권한」 = 권한 설정 + 카페24 명부, 「출결」 = 카드 3장).
+     그런데 지금까지 손자는 data-card(=대표 카드 «첫 장») 에서만 나왔다.
+     → 사장님 화면에서 「직원·권한」을 펴도 **「카페24 명부」가 목록에 없었다.**
+     이제 data-cards(맡은 카드 전부)를 읽는다. 칸이 없는 카드는 «그 카드 자체» 를 한 줄로 세운다
+     — 묶음 안에 있는데 목록에 안 보이면 그 카드는 영영 못 찾는다. */
+  function itemsForSub(sub){
+    var attr = (sub.getAttribute('data-cards') || '').trim();
+    var ids = attr ? attr.split(/\s+/) : (sub.dataset.card ? [sub.dataset.card] : []);
+    var multi = ids.length > 1;
+    var out = [];
+    for (var i = 0; i < ids.length; i++){
+      var id = ids[i];
+      var card = document.getElementById(id);
+      if (!card) continue;
+      var list = itemsFor(id, card);
+      if (list.length){
+        for (var j = 0; j < list.length; j++){
+          var it = list[j];
+          out.push({ ko: it.ko, en: it.en, el: it.el, anchor: it.anchor, card: it.card || id, fn: it.fn, host: id });
+        }
+      } else if (multi){
+        var ko = cardTitle(card, 'data-ko');
+        if (ko) out.push({ ko: ko, en: cardTitle(card, 'data-en') || ko, el: card, host: id });
+      }
+      if (out.length >= 24) break;      // 한 항목이 사이드바를 다 먹지 않게
+    }
+    return out;
+  }
+
   var esc = function(s){
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   };
@@ -269,7 +308,7 @@
         if (sub.__ph125try > 5) sub.__ph125 = true;
         return;
       }
-      var items = itemsFor(cardId, card);
+      var items = itemsForSub(sub);
       if (!items.length){
         sub.__ph125try = (sub.__ph125try || 0) + 1;
         if (sub.__ph125try > 5) sub.__ph125 = true;   // 칸이 없는 카드 = «화면 하나». ▸ 를 안 붙인다
@@ -300,7 +339,7 @@
         // 목적지를 DOM 참조로 직접 물려 준다 — 문자열 id 를 안 거치므로
         // 같은 id 가 문서에 두 벌 있어도(예: sub-popup-list) 엉뚱한 곳으로 안 간다.
         var gcs = box.children;
-        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = cardId; }
+        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = items[i].host || cardId; }
         sub.parentNode.insertBefore(box, sub.nextSibling);
       }
 
@@ -310,11 +349,36 @@
         t.__bound = true;
         t.addEventListener('click', function(e){
           e.stopPropagation(); e.preventDefault();
-          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){ if (s !== sub) s.classList.remove('ph125-open'); });
+          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+            if (s !== sub) { s.classList.remove('ph125-open'); fitBox(s); }
+          });
           sub.classList.toggle('ph125-open');
+          fitBox(sub);
         });
       }
     });
+  }
+
+  /* 📏 (2026-08-18) 「▸ 를 눌렀는데 손자가 안 보인다」의 두 번째 원인 — **잘림**.
+       CSS 가 두 곳에서 높이를 자른다. 둘 다 `overflow:hidden` 이라 넘친 부분은 «없는 것» 이 된다.
+         · 손자 상자          `.ph125-grandchildren` … 열렸을 때 max-height 600px
+           → 회계관리 손자 19개는 713px 다. 아래 3개가 잘려 있었다(실측).
+         · 그룹 목록          `.ph85-subs`          … 열렸을 때 max-height 900px
+           → 손자를 펴면 그룹 내용이 그만큼 길어져, 아래쪽 항목이 통째로 잘린다.
+       상한 숫자를 키우는 방법은 쓰지 않는다 — 그 주석이 설명하듯 상한이 클수록 «닫는데 반응이
+       없는 시간» 이 길어지고, 언젠가 또 넘친다. 대신 **열 때만 실제 내용 높이를 넣는다.**
+       ⚠️ CSS 가 !important 라 `style.maxHeight=` 로는 못 이긴다. setProperty(...,'important') 필수. */
+  function fitBox(sub){
+    var box = sub.nextElementSibling;
+    if (!box || !box.classList.contains('ph125-grandchildren')) return;
+    var open = sub.classList.contains('ph125-open');
+    if (open) box.style.setProperty('max-height', box.scrollHeight + 'px', 'important');
+    else      box.style.removeProperty('max-height');
+
+    var subs = sub.parentElement;                       // .ph85-subs (그룹 목록)
+    if (!subs || !subs.classList.contains('ph85-subs')) return;
+    if (open) subs.style.setProperty('max-height', (subs.scrollHeight + box.scrollHeight + 24) + 'px', 'important');
+    else      subs.style.removeProperty('max-height');
   }
 
   function flash(el){
