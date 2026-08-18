@@ -10530,10 +10530,13 @@ window.rebuildGlobalSearchIndex = function() {
       no_data: ['#374151', '#f9fafb', '#d1d5db', 'ℹ️ 이 달은 통장 자료가 없습니다'],
     }[rec.verdict] || null;
     if (!V) return '';
+    /* 기준은 통장이다(2026-08-18) — 실제로 들어온 「케이씨피」 정산금을 먼저 말하고,
+       장부는 그 옆에 붙인다. 차이(%)의 분모도 통장이다. */
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        장부 매출 <b>${fmtKRW(rec.revenue)}</b> → 수수료 ${window.pgFeeRateLabel()}를 뺀 예상 입금 <b>${fmtKRW(rec.expected)}</b> ·
-        실제 PG 정산 입금 <b>${fmtKRW(rec.deposit_pg)}</b> (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, ${rec.diff_pct}%)
+        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b> → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
+        장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
+        (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
       </div>`;
     const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
       .map(t => `<div style="margin-top:6px;font-size:12px;color:#374151">· ${esc(t)}</div>`).join('');
@@ -11262,6 +11265,36 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 1. 학생 결제 내역
   // ──────────────────────────────────────────────────────────
+  /* 🏢 (2026-08-18 수정요청 #02) 지사 드롭다운 채우기.
+     241개짜리 목록이라 fields=min 으로 {id,name} 만 받는다(25KB → 6KB).
+     한 번 받으면 캐시한다 — 「불러오기」를 누를 때마다 다시 받을 이유가 없다.
+     ⚠️ 목록을 못 받아도 화면은 살아 있어야 한다. 그 경우 이름 타이핑 검색으로 동작한다
+        (서버가 franchise=<이름조각> 도 받는다). */
+  let _payFranchises = null;
+  async function _payLoadFranchises(){
+    if (_payFranchises) return _payFranchises;
+    const dl = document.getElementById('acc-pay-franchise-list');
+    try {
+      const r = await fetch('/api/admin/franchises?fields=min', { credentials:'include' });
+      const d = await r.json();
+      _payFranchises = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+    } catch(e) { _payFranchises = []; }
+    if (dl) dl.innerHTML = _payFranchises.map(f => `<option value="${_esc(f.name)}"></option>`).join('');
+    return _payFranchises;
+  }
+  // 입력칸에 포커스가 오는 순간 목록을 채운다 — 눌렀는데 비어 있으면 «필터가 없다» 고 오해한다
+  window.accFillFranchiseList = _payLoadFranchises;
+  /* 입력칸의 글자를 서버 파라미터로 바꾼다.
+     목록의 이름과 «정확히» 같으면 그 지사 하나(franchise_id), 아니면 이름 검색(franchise). */
+  function _payFranchiseParams(qs){
+    const el = document.getElementById('acc-pay-franchise');
+    const v = (el && el.value || '').trim();
+    if (!v) return;
+    const hit = (_payFranchises || []).filter(f => String(f.name) === v);
+    if (hit.length === 1) qs.set('franchise_id', hit[0].id);
+    else qs.set('franchise', v);
+  }
+
   window.accLoadPayments = async function(){
     const from   = document.getElementById('acc-pay-from').value;
     const to     = document.getElementById('acc-pay-to').value;
@@ -11270,18 +11303,20 @@ window.rebuildGlobalSearchIndex = function() {
     // 💳 (2026-08-12 수정요청 #03) B2B/B2C 구분 — 서버가 대리점 결제유형으로 파생·필터
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const tbody  = document.getElementById('acc-pay-tbody');
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">불러오는 중…</td></tr>';
     try {
+      await _payLoadFranchises();
       const qs = new URLSearchParams();
       if (from)   qs.set('from', from);
       if (to)     qs.set('to', to);
       if (method) qs.set('method', method);
       if (status) qs.set('status', status);
       if (channel) qs.set('channel', channel);
+      _payFranchiseParams(qs);
       const r = await fetch('/api/admin/reports/payments-list?' + qs.toString(), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
       tbody.innerHTML = d.rows.map(p => {
         /* 🐛 (2026-08-16) paid_at 은 이미 «밀리초» 다. ×1000 을 하고 있어서 화면에
            서기 58,000년대 날짜가 찍혔다(CSV 는 정상이라 눈에 안 띄었다). */
@@ -11290,21 +11325,40 @@ window.rebuildGlobalSearchIndex = function() {
         const ch = p.channel === 'B2B'
           ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700">B2B</span>'
           : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#0891b2;color:#fff;font-size:11px;font-weight:700">B2C</span>';
-        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${_esc(p.user_id||'')}</td>
-                <td>${ch}</td><td>${_esc(p.shop_name||'-')}</td>
+        /* 🧑 이름이 없는 결제가 실제로 있다 — 학생 원부에 없는 아이디로 들어오는 대리결제.
+           «-» 로 얼버무리지 않고 «원부 없음» 이라고 밝힌다(가맹점 정산의 «배정 불가» 와 같은 건). */
+        const nm = p.student_name
+          ? `<b>${_esc(p.student_name)}</b>`
+          : '<span style="color:#9ca3af;font-size:11px">원부 없음</span>';
+        const fr = p.franchise_name
+          ? _esc(p.franchise_name)
+          : '<span style="color:#9ca3af;font-size:11px">미배정</span>';
+        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${nm}</td>
+                <td style="font-size:11px;color:#6b7280">${_esc(p.user_id||'')}</td>
+                <td>${ch}</td><td>${fr}</td><td>${_esc(p.shop_name||'-')}</td>
                 <td>${_esc(p.memo||'-')}</td><td style="text-align:right">${_fmt(p.amount_krw)}</td>
                 <td>${_esc(p.method||'')}</td><td>${_badge(p.status, c)}</td></tr>`;
       }).join('');
-    } catch(e) { _showErr(tbody, e, 9); }
+    } catch(e) { _showErr(tbody, e, 11); }
   };
-  window.accDownloadPaymentsCsv = function(fmt){
+  window.accDownloadPaymentsCsv = async function(fmt){
+    // 지사 목록을 먼저 확보해야 «고른 지사 하나»(franchise_id)로 정확히 내려받는다.
+    // 목록 없이 이름만 보내면 이름이 서로의 일부인 지사끼리 섞여 나올 수 있다.
+    await _payLoadFranchises();
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
+    const method = document.getElementById('acc-pay-method').value;
+    const status = document.getElementById('acc-pay-status').value;
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const qs = new URLSearchParams({ format: (fmt === 'xlsx' ? 'xlsx' : 'csv') });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    // 🧾 (2026-08-18) 화면과 «같은» 조건으로 내려받는다. 예전엔 결제수단·상태·지사를
+    //    빼고 보내서, 화면엔 걸러 놓고 파일엔 전부 담기는 어긋남이 있었다.
+    if (method) qs.set('method', method);
+    if (status) qs.set('status', status);
     if (channel) qs.set('channel', channel);
+    _payFranchiseParams(qs);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
   window.accDownloadPaymentsXlsx = function(){ window.accDownloadPaymentsCsv('xlsx'); };
@@ -11372,8 +11426,12 @@ window.rebuildGlobalSearchIndex = function() {
       const months = all.slice(-range);
       if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
       // 구간 합계 + 마진율
+      // 🧾 income/expense 는 서버(finance-cafe24/summary)가 「케이씨피M」을 이미 뺀 값이다.
+      //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
+      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
+      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
@@ -11386,10 +11444,22 @@ window.rebuildGlobalSearchIndex = function() {
           + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
           + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
         kpiBox.innerHTML =
-          kcard('총 매출', won(sumInc), range+'개월 합계', '#60a5fa')
+          kcard('총 매출', won(sumInc), range+'개월 합계 · 「케이씨피M」 제외', '#60a5fa')
           + kcard('총 지출', won(sumExp), range+'개월 합계', '#f87171')
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
+      }
+      // 🧾 뺀 금액을 숨기지 않고 그대로 보여 준다 — 「숫자가 왜 줄었나」를 화면에서 바로 알 수 있게.
+      var noteBox = document.getElementById('c24fin-sum-total');
+      if (noteBox) {
+        if (sumExcl > 0) {
+          noteBox.style.cssText = 'display:block;margin-top:10px;padding:8px 11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:9px;font-size:11px;color:#fcd34d;line-height:1.55';
+          noteBox.innerHTML = '※ 「케이씨피M」 ' + cntExcl.toLocaleString('ko-KR') + '건 ' + wonFull(sumExcl)
+            + ' 은 <b>매출이 아니라</b> 하나은행 계좌에서 옮겨 온 운영자금이라 위 집계(총 매출·총 지출·순이익·영업이익률)에서 <b>제외</b>했습니다. '
+            + '「케이씨피」(PG 정산금)만 매출로 셉니다.';
+        } else {
+          noteBox.style.display = 'none'; noteBox.innerHTML = '';
+        }
       }
       // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
@@ -11484,13 +11554,36 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      if (cnt) cnt.textContent = (en? rows.length+' rows' : '총 '+rows.length+'건');
+      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
+      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      if (cnt) {
+        var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
+        if (kind === 'ledger' && rows.length) {
+          var sInc = 0, sExp = 0, sExc = 0, nExc = 0;
+          rows.forEach(function(row){
+            var m = Number(row.money)||0;
+            if (isExcl(row)) { sExc += m; nExc++; return; }
+            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+          });
+          cnt.innerHTML = esc(base)
+            + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
+            + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
+            + (nExc ? ' · <span style="color:#b45309">' + (en
+                ? ('excl. 「케이씨피M」 ' + nExc + ' rows ' + esc(won(sExc)))
+                : ('「케이씨피M」 ' + nExc + '건 ' + esc(won(sExc)) + ' 제외')) + '</span>' : '')
+            + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
+        } else { cnt.textContent = base; }
+      }
       body.innerHTML = rows.length ? rows.map(function(row){
-        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
+        var ex = isExcl(row);
+        return '<tr style="border-bottom:1px solid #f1f5f9'+(ex?';background:#fffbeb':'')+'">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
           var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+          if (ex && c[0]==='money') disp = '<span style="color:#b45309;text-decoration:line-through">'+disp+'</span>'
+            + '<span style="margin-left:6px;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;font-family:inherit;white-space:nowrap">'+(en?'not revenue':'매출 제외')+'</span>';
+          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(ex&&c[0]==='money'?('「케이씨피M」 — 하나은행에서 옮겨 온 운영자금이라 매출 합계에서 제외'):v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
       }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
     } catch(e){
@@ -11558,7 +11651,14 @@ window.rebuildGlobalSearchIndex = function() {
   window.accLoadRefunds = async function(){
     const status = document.getElementById('acc-rf-status').value;
     const tbody = document.getElementById('acc-rf-tbody');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">불러오는 중…</td></tr>';
+    const _en = (window.adminLang==='en');
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">'+(_en?'Loading…':'불러오는 중…')+'</td></tr>';
+    // ⚠️ paid_at·created_at 은 **밀리초**다(실측: 1756430065000). 예전 코드가 ×1000 을 한 번 더
+    //    해서 서기 5만년대 날짜(+051907-…)를 찍고 있었다. 초로 착각하지 말 것.
+    const _day = function(ms){
+      var n = Number(ms||0); if (!n) return '-';
+      try { return new Date(n + 9*3600*1000).toISOString().slice(0,10); } catch(e){ return '-'; }
+    };
     try {
       const qs = new URLSearchParams();
       if (status) qs.set('status', status);
@@ -11566,15 +11666,23 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
       tbody.innerHTML = (d.rows||[]).map(r => {
-        const t = new Date((r.paid_at||0)*1000+9*3600*1000).toISOString().slice(0,10);
-        return `<tr><td>${_esc(t)}</td><td>${_esc(r.user_id||'')}</td>
+        // 원부에서 빠진 학생(퇴원 등)은 이름이 없다. 지어내지 말고 «(원부 없음)» 이라고 밝힌다.
+        const nm = r.student_name || (_en?'(not in roster)':'(원부 없음)');
+        const nmStyle = r.student_name ? '' : 'color:#94a3b8';
+        const uid = r.login_id || r.user_id || '';
+        // 환불금액은 실제로 되돌린 건(refunded/cancelled)만 금액을 적는다.
+        const refunded = (r.status==='refunded' || r.status==='cancelled');
+        return `<tr><td>${_esc(_day(r.created_at))}</td>
+                <td style="${nmStyle}"><b>${_esc(nm)}</b></td>
+                <td><code style="font-size:11px">${_esc(uid)}</code></td>
+                <td>${_esc(_day(r.paid_at))}</td>
                 <td style="text-align:right">${_fmt(r.amount_krw)}</td>
-                <td style="text-align:right">${_fmt(r.amount_krw)}</td>
+                <td style="text-align:right">${refunded ? _fmt(r.amount_krw) : '-'}</td>
                 <td>${_esc(r.memo||'-')}</td>
                 <td>${_badge(r.status, r.status==='refunded'?'warn':'bad')}</td>
                 <td><button class="primary" style="padding:3px 8px;font-size:11px" onclick="alert('상세 처리는 별도 페이지에서')">처리</button></td></tr>`;
-      }).join('') || '<tr><td colspan="7" class="empty">환불/취소 내역 없음</td></tr>';
-    } catch(e) { _showErr(tbody, e, 7); }
+      }).join('') || ('<tr><td colspan="9" class="empty">'+(_en?'No refund/cancel records':'환불/취소 내역 없음')+'</td></tr>');
+    } catch(e) { _showErr(tbody, e, 9); }
   };
 
   // ──────────────────────────────────────────────────────────
@@ -11760,7 +11868,10 @@ window.rebuildGlobalSearchIndex = function() {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
     }
   };
-  /* 🔍 매출–입금 대사 (2026-08-16) — 장부 매출 vs 통장 입금.
+  /* 🔍 매출–입금 대사 (2026-08-16, 2026-08-18 기준 전환) — 통장 「케이씨피」 입금이 기준.
+     · 기준 = 신한 통장에 실제로 들어온 「케이씨피」 정산금 → 수수료 역산 = «통장 기준 매출»
+     · 장부 매출·예상 입금은 그 옆에 놓는 비교값이다(장부는 KCP 정산 대상 결제만 센다)
+     · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에서 제외 — 금액만 아래 «참고» 로 밝힌다
      월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
   function _rcUrl(format){
     const m = (document.getElementById('acc-rc-months') || {}).value || '6';
@@ -11783,14 +11894,15 @@ window.rebuildGlobalSearchIndex = function() {
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
       html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}%)</div>
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}% · 통장 기준)</div>
         <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
-        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출</th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb;background:#fff7ed">실제 PG 입금<br><span style="font-weight:400;color:#c2410c">기준 · 통장</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb;background:#fff7ed">통장 기준 매출<br><span style="font-weight:400;color:#c2410c">수수료 역산</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출<br><span style="font-weight:400;color:#6b7280">KCP 정산 대상</span></th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 ' + window.pgFeeRateLabel() + ' 차감</span></th>'
-        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">실제 PG 입금</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">차이</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">기타 입금<br><span style="font-weight:400;color:#6b7280">참고</span></th>'
         + '</tr></thead><tbody>';
@@ -11798,23 +11910,33 @@ window.rebuildGlobalSearchIndex = function() {
         const dc = row.diff == null ? '#9ca3af' : (row.diff < 0 ? '#dc2626' : '#059669');
         html += `<tr style="border-bottom:1px solid #f3f4f6">
           <td style="padding:6px 8px;font-weight:600">${_esc(row.period)}</td>
+          <td style="padding:6px 8px;text-align:right;font-weight:700;background:#fffbf5">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
+          <td style="padding:6px 8px;text-align:right;background:#fffbf5">${row.bank_revenue == null ? '<span style="color:#9ca3af">—</span>' : _fmt(row.bank_revenue)}</td>
           <td style="padding:6px 8px;text-align:right">${_fmt(row.revenue)}</td>
           <td style="padding:6px 8px;text-align:right;color:#6b7280">${_fmt(row.expected)}</td>
-          <td style="padding:6px 8px;text-align:right">${row.has_bank ? _fmt(row.deposit_pg) : '<span style="color:#9ca3af">자료없음</span>'}</td>
           <td style="padding:6px 8px;text-align:right;font-weight:700;color:${dc}">${row.diff == null ? '—' : _fmt(row.diff)}</td>
           <td style="padding:6px 8px;text-align:right;color:#9ca3af">${row.has_bank ? _fmt(row.deposit_other) : '—'}</td></tr>`;
       });
       html += `<tr style="background:#fef3c7;font-weight:800">
-        <td style="padding:7px 8px">누적 합계</td>
+        <td style="padding:7px 8px">누적 합계${d.reconciled_months ? `<br><span style="font-weight:400;font-size:10px;color:#92400e">통장 자료 있는 ${d.reconciled_months}개월</span>` : ''}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
+        <td style="padding:7px 8px;text-align:right">${_fmt(t.bank_revenue)}</td>
         <td style="padding:7px 8px;text-align:right">${_fmt(t.revenue)}</td>
         <td style="padding:7px 8px;text-align:right">${_fmt(t.expected)}</td>
-        <td style="padding:7px 8px;text-align:right">${_fmt(t.deposit_pg)}</td>
         <td style="padding:7px 8px;text-align:right;color:${t.diff < 0 ? '#dc2626' : '#059669'}">${_fmt(t.diff)}</td>
         <td></td></tr></tbody></table>`;
+      const notes = [d.transfer_note, d.b2b_note, d.non_kcp_note, d.no_bank_note].filter(Boolean);
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
+        ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
+        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 「케이씨피M」(하나은행 운영자금)·통장 직접입금(B2B)·기타 입금은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
         ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
+      if (notes.length) {
+        html += '<div style="margin-top:8px;background:#f9fafb;border:1px solid #e5e7eb;border-left:4px solid #94a3b8;border-radius:8px;padding:8px 10px;font-size:11px;color:#475569;line-height:1.7">'
+          + '<b style="color:#334155">대사에서 뺀 금액</b><br>'
+          + notes.map(n => '· ' + _esc(n)).join('<br>') + '</div>';
+      }
       wrap.innerHTML = html;
     } catch(e) {
       wrap.innerHTML = `<div style="color:#ef4444;text-align:center;padding:20px">에러: ${_esc(e.message||e)}</div>`;
