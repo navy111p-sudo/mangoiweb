@@ -142,7 +142,17 @@ check('🔴 사람이 스크롤하면 즉시 손을 뗀다 (wheel·touch·key)',
   /addEventListener\('touchstart', release/.test(ia6) &&
   /addEventListener\('keydown', release/.test(ia6));
 check('다른 곳으로 가려는 점프에는 양보한다 (⚡자주 쓰는 기능의 하위 항목 이동이 취소되지 않게)',
-  /this\s*!==\s*alignLead\)\s*alignRelease\(\)/.test(ia6));
+  /this\s*!==\s*alignLead\s*&&/.test(ia6) && /alignRelease\(\)/.test(ia6));
+/* 🔴 (2026-08-19) 「눌러도 안 열린다」 회귀 감시 —
+   openSub 항목은 카드 «안의 칸» 이 목적지인데, adm-s11(ph97)이 같은 클릭에서 50ms 뒤
+   **그 칸이 든 카드** 를 따로 scrollIntoView 한다. 조상으로 오는 그 스크롤에 양보하면
+   칸은 open 인데 화면은 카드 맨 위에 머문다(실측 1440×900: 칸 제목줄 top 1492px = 화면 밖).
+   조상은 «다른 곳» 이 아니라 «같은 목적지의 거친 판» 이므로 양보하지 않는다.
+   ⛔ 이 조건을 지우면 사이드바 「매출 대시보드」가 다시 «눌러도 안 열리는» 상태로 돌아간다. */
+check('🔴 조상으로 오는 스크롤에는 양보하지 않는다 (ph97 이 카드를 끌어당겨도 칸을 놓치지 않게)',
+  /!this\.contains\(alignLead\)/.test(ia6));
+check('openSub 항목은 «연 칸» 을 맨 위로 맞춘다 (칸이 12개인 회계 카드에서 화면 밖이었다)',
+  /var openedSub = openSubSection\(it\)/.test(ia6) && /if \(openedSub\) alignTop\(openedSub\)/.test(ia6));
 check('🪤 여기서도 rAF 를 쓰지 않는다', !/requestAnimationFrame/.test(ia6));
 
 /* 📐 (2026-08-15 사장님) 「사이드바에서 시스템(=경영·설정)이 안 보인다」
