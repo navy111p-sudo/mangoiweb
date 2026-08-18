@@ -7346,10 +7346,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </div>
       </details>
 
-      <!-- 3) 대표지사 — 🚧 배선 없음(#mbranches-table 채우는 JS 0곳) -->
-      <details class="sub-item" data-unwired="1" style="display:none">
+      <!-- 3) 🏛️ 대표지사 — 2026-08-18 배선. 그 전까지는 #mbranches-table 을 채우는 JS 가
+           저장소에 0곳이라 «데이터 없음» 만 뜨던 껍데기였고, 그래서 display:none 이었다.
+           이제 기존 망고아이 사이트(카페24)의 조직 등록부를 그대로 읽는다
+           — GET /api/admin/org/master-branches (api-admin.ts). 서버 검색·서버 페이징.
+           ⚠️ 담당권역·등급은 카페24에 «없는 항목» 이다. 지어내지 않고 비워 두며,
+              여기서 고르면 D1 전용 표(master_branch_meta)에 저장된다(야간 동기화가 못 지운다). -->
+      <details class="sub-item" id="card-master-branches"
+               ontoggle="if(this.open&&window.adminLazyLoadCard)window.adminLazyLoadCard('master-branches')">
         <summary data-ko="🏛️ 대표지사" data-en="🏛️ Master Branch">🏛️ 대표지사</summary>
         <div class="sub-body">
+          <div style="font-size:11.5px;color:#6b7280;background:#f9fafb;border-left:3px solid #9ca3af;padding:7px 10px;border-radius:6px;margin-bottom:10px"
+               data-ko="기존 망고아이 사이트(카페24)에 등록된 조직 등록부를 그대로 읽습니다 — 매일 밤 03:00 자동 동기화. 이름·대표자는 카페24가 정본이라 이 표에서 바꾸지 않습니다. 담당권역·등급·전화·주소는 카페24에 없거나 비어 있는 항목이라 표에서 바로 지정할 수 있고, 지정한 값은 동기화돼도 지워지지 않습니다."
+               data-en="Reads the organization registry from the existing Mangoi (Cafe24) site, re-synced nightly at 03:00. Name and representative are owned by Cafe24 and are not editable here. Region, tier, phone and address are missing or empty in Cafe24 — set them right in the table and they survive the sync.">기존 망고아이 사이트(카페24)에 등록된 조직 등록부를 그대로 읽습니다 — 매일 밤 03:00 자동 동기화. 이름·대표자는 카페24가 정본이라 이 표에서 바꾸지 않습니다. 담당권역·등급·전화·주소는 카페24에 없거나 비어 있는 항목이라 표에서 바로 지정할 수 있고, 지정한 값은 동기화돼도 지워지지 않습니다.</div>
           <details>
             <summary style="cursor:pointer;font-size:13px;color:#3b82f6;" data-ko="+ 대표지사 등록" data-en="+ Register Master Branch">+ 대표지사 등록</summary>
             <div class="menu-form">
@@ -7361,11 +7370,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               </select>
               <input id="mbr-manager" placeholder="대표자" data-ko-ph="대표자" data-en-ph="Representative" style="width:120px;" />
               <input id="mbr-phone" placeholder="전화번호" data-ko-ph="전화번호" data-en-ph="Phone" style="width:140px;" />
+              <input id="mbr-address" placeholder="주소" data-ko-ph="주소" data-en-ph="Address" style="width:240px;" />
               <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
-            <tbody id="mbranches-table"><tr><td colspan="7" class="empty" data-ko="데이터 없음" data-en="No data">데이터 없음</td></tr></tbody></table>
+          <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «전체»를 서버에서 찾는다(대리점 카드와 같은 방식) -->
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+            <input id="mbr-q" type="search" autocomplete="off" oninput="mbrSearch(this.value)"
+                   placeholder="🔎 대표지사명 · 대표자 · 전화 · 주소 · 권역 검색 (전체 대상)"
+                   data-ko-placeholder="🔎 대표지사명 · 대표자 · 전화 · 주소 · 권역 검색 (전체 대상)"
+                   data-en-placeholder="🔎 Search name, representative, phone, address, region (all records)"
+                   style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
+            <span id="mbr-pager" style="display:flex;gap:6px;align-items:center"></span>
+          </div>
+          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="관리 대리점(학원) 수" data-en="Agencies">관리 대리점(학원) 수</th></tr></thead>
+            <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -7522,7 +7541,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   //   🚫 (2026-08-08) 'centers-table' 을 빼냈다 — 대리점(학원) 921건은 이제 서버 페이징(50건)이라
   //      «화면에 있는 행만» 거르는 이 필터는 «921건 중 50건만 검색»하는 거짓말이 된다.
   //      그 카드는 전용 서버 검색창(#ct-q → ctSearch)을 쓴다. 다시 넣지 말 것.
-  var TABLES = ['franchises-table','branches-table','mbranches-table','recruit-table','hq-table','indep-table'];
+  //   🚫 (2026-08-18) 'mbranches-table' 도 같은 이유로 빼냈다 — 대표지사 241건이 서버 페이징(50건)이
+  //      되면서, 여기 검색창을 두면 «241건 중 50건만» 뒤지고도 다 찾은 것처럼 보인다.
+  //      그 카드는 전용 서버 검색창(#mbr-q → mbrSearch)을 쓴다. 이름·대표·전화·주소·권역 전체 대상.
+  //      (검색창이 두 개 뜨는 문제도 함께 없어진다) 다시 넣지 말 것.
+  var TABLES = ['franchises-table','branches-table','recruit-table','hq-table','indep-table'];
   function bindFilters(){
     TABLES.forEach(function(id){
       var tb = document.getElementById(id); if (!tb) return;
@@ -8994,7 +9017,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=104" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
+<script src="/js/adm-core.js?v=106" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
      ① main: PG 수수료율을 서버 값(pg_fee_rate)에서 받아 쓰기(화면 3곳에 3.3% 가 박혀 있었다)
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->

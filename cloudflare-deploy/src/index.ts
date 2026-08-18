@@ -1162,6 +1162,9 @@ const worker = {
         /^\/api\/admin\/finance-cafe24\/[a-z]+$/.test(path) ||
         path === '/api/admin/students/import-cafe24' ||
         path === '/api/admin/org/import-cafe24' ||
+        // 🏛️ 대표지사 목록·등록·항목지정 (조직 관리) — 2026-08-18
+        //    ⚠️ 여기와 api-mango.ts 위임 가드 둘 다 등록해야 handleAdminApi 까지 간다.
+        path === '/api/admin/org/master-branches' ||
         path === '/api/admin/attendance/import-cafe24' ||
         path === '/api/admin/students/erp-list' ||
         path === '/api/admin/students/erp' ||
@@ -5166,6 +5169,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (/^\/api\/admin\/finance-cafe24\/[a-z]+$/.test(path)) return true;  // 💰 Neo4j 회계(장부·급여·지출·세금·예치금)
   if (path === '/api/admin/students/import-cafe24') return true; // 👨‍🎓 카페24 학생 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/org/import-cafe24') return true;      // 🏢 카페24 조직 이관(쓰기) — 반드시 인증 뒤
+  if (path === '/api/admin/org/master-branches') return true;   // 🏛️ 대표지사(조직 등록부) — 반드시 인증 뒤
   if (path === '/api/admin/attendance/import-cafe24') return true; // 📅 카페24 출석 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/payments/import-cafe24') return true; // 💰 카페24 결제 이관(쓰기) — 반드시 인증 뒤
   if (path === '/api/admin/students/erp-list' || path === '/api/admin/students/erp' || path === '/api/admin/students/erp-seed') return true;

@@ -3605,6 +3605,145 @@ async function addCenter() {
   if (d) { ['ct-name','ct-country','ct-manager','ct-address','ct-paytype'].forEach(id=>{ if(e(id)) e(id).value=''; }); loadCenters(); }
 }
 
+// ── 🏛️ 대표지사 (조직 등록부) ─────────────────────────────────────────
+//   2026-08-18 배선. 그 전까지 #mbranches-table 을 채우는 코드가 저장소에 «0곳» 이라
+//   화면이 영원히 «데이터 없음» 이었다(카드도 display:none 이었다).
+//   ⚠️ 목록은 기존 망고아이 사이트(카페24)의 조직 등록부를 **읽기로만** 비춘다.
+//      D1 에 복사해 두면 매일 밤 동기화와 두 벌이 되어 어느 쪽이 맞는지 알 수 없게 된다.
+//   ⚠️ 담당권역·등급은 카페24에 없는 항목이라 이 화면에서 지정하고 D1 전용 표에 저장한다.
+//      region_guess 는 이름·주소에서 뽑은 «추정» 이라 회색 힌트로만 보여 주고 저장하지 않는다.
+var _mbrState = { q: '', offset: 0, limit: 50, total: 0, tiers: ['플래티넘','골드','실버','일반'] };
+async function loadMasterBranches(opts) {
+  opts = opts || {};
+  if (opts.q !== undefined) { _mbrState.q = String(opts.q || '').trim(); _mbrState.offset = 0; }
+  if (opts.offset !== undefined) _mbrState.offset = Math.max(0, opts.offset);
+  const tb = document.getElementById('mbranches-table');
+  if (!tb) return;
+  const qs = '?limit=' + _mbrState.limit + '&offset=' + _mbrState.offset
+           + (_mbrState.q ? '&q=' + encodeURIComponent(_mbrState.q) : '');
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/org/master-branches' + qs, { cache:'no-store', credentials:'include' });
+    d = await r.json().catch(()=>({}));
+  } catch (e) { d = {}; }
+  _mbrState.total = Number(d.total || 0);
+  if (d && Array.isArray(d.tiers) && d.tiers.length) _mbrState.tiers = d.tiers;
+  // 검색으로 목록이 줄면 지금 페이지가 범위를 벗어날 수 있다 → 마지막 페이지로 당긴다.
+  if (_mbrState.offset > 0 && _mbrState.offset >= _mbrState.total) {
+    return loadMasterBranches({ offset: Math.max(0, _mbrState.total - _mbrState.limit) });
+  }
+  if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
+    tb.innerHTML = '<tr><td colspan="8" class="empty">'
+      + (_mbrState.q ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
+    _mbrRenderPager();
+    return;
+  }
+  const en = adminLang === 'en';
+  /* ✏️ 담당권역·전화·주소는 «칸에 바로 쓰면 저장» 이다.
+     ⚠️ 카페24 조직 등록부에는 이 셋이 사실상 비어 있다 — 2026-08-18 운영 D1 실측으로
+        전화는 241건 **전부** 옛 LMS 의 AES 암호문(번호 아님)이고 주소는 14건만 있다.
+        그래서 «읽기 전용으로 «—» 만 늘어놓는 칸» 이 아니라 채워 넣을 수 있는 칸으로 뒀다.
+        여기 적은 값은 D1 전용 표(master_branch_meta)에 남아 야간 동기화가 지우지 못한다. */
+  const textCell = (m, field, width, phLabel) => {
+    const cur = m[field] == null ? '' : String(m[field]);
+    return '<input value="' + _esc(cur) + '" placeholder="' + _esc(phLabel) + '"'
+      + ' onchange="mbrSetField(' + Number(m.id) + ",'" + field + "',this)\""
+      + ' data-prev="' + _esc(cur) + '"'
+      + ' style="width:' + width + ';padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px" />';
+  };
+  // 담당권역 — 빈칸이면 서버가 추정한 권역을 placeholder 로만 흘려 준다(값이 아니라 힌트).
+  const regionCell = m => textCell(m, 'region', '100px',
+    m.region_guess ? ((en ? 'guess: ' : '추정: ') + m.region_guess) : (en ? 'unset' : '미지정'));
+  const tierCell = m => {
+    const cur = m.tier == null ? '' : String(m.tier);
+    const opt = v => '<option value="' + _esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + _esc(v) + '</option>';
+    return '<select onchange="mbrSetField(' + Number(m.id) + ",'tier',this)\" data-prev=\"" + _esc(cur) + '"'
+      + ' style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;'
+      +   'background:' + (cur ? '#eff6ff' : '#fff') + ';color:' + (cur ? '#1d4ed8' : '#6b7280') + ';'
+      +   'font-weight:' + (cur ? '700' : '400') + '">'
+      + '<option value="">' + (en ? 'Unset' : '미지정') + '</option>'
+      + _mbrState.tiers.map(opt).join('') + '</select>';
+  };
+  tb.innerHTML = d.items.map(m =>
+    '<tr><td>' + Number(m.id) + '</td>'
+    + '<td><b>' + _esc(m.name) + '</b>' + (Number(m.active) ? '' : ' <span style="font-size:11px;color:#9ca3af">(' + (en?'inactive':'비활성') + ')</span>') + '</td>'
+    + '<td>' + regionCell(m) + '</td>'
+    + '<td>' + tierCell(m) + '</td>'
+    + '<td>' + (_esc(m.owner_name) || '—') + '</td>'
+    + '<td>' + textCell(m, 'phone', '120px', en ? 'unset' : '미지정') + '</td>'
+    + '<td>' + textCell(m, 'address', '180px', en ? 'unset' : '미지정') + '</td>'
+    + '<td style="text-align:right">' + Number(m.agency_count || 0).toLocaleString() + '</td></tr>'
+  ).join('');
+  _mbrRenderPager();
+}
+// 담당권역·등급·전화·주소 저장 — 실패하면 화면 값을 되돌리고 알린다
+//   (조용한 반쪽 성공 금지. 대리점 카드의 ctSetPayType 과 같은 방식)
+async function mbrSetField(id, field, el) {
+  const want = (el.value || '').trim();
+  const prev = el.getAttribute('data-prev') || '';
+  if (want === prev) return;
+  const body = { id: id }; body[field] = want;
+  try {
+    const r = await fetch('/api/admin/org/master-branches', {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+    el.setAttribute('data-prev', want);
+    if (field === 'tier') {
+      el.style.background = want ? '#eff6ff' : '#fff';
+      el.style.color = want ? '#1d4ed8' : '#6b7280';
+      el.style.fontWeight = want ? '700' : '400';
+    }
+  } catch (e) {
+    el.value = prev;
+    alert((adminLang === 'en' ? 'Save failed: ' : '저장 실패: ') + e.message);
+  }
+}
+window.mbrSetField = mbrSetField;
+function _mbrRenderPager() {
+  const el = document.getElementById('mbr-pager');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const t = _mbrState.total;
+  const from = t ? _mbrState.offset + 1 : 0;
+  const to = Math.min(_mbrState.offset + _mbrState.limit, t);
+  const btn = (on, label, fn) =>
+    `<button onclick="${fn}" ${on?'':'disabled'} style="padding:4px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:${on?'pointer':'default'};opacity:${on?1:0.4}">${label}</button>`;
+  el.innerHTML =
+    `<span style="font-size:12px;color:#64748b">${en?'Showing':'표시'} <b>${from}–${to}</b> / ${t}${_mbrState.q?(en?' (search)':' (검색)'):''}</span>`
+    + btn(_mbrState.offset > 0, en?'‹ Prev':'‹ 이전', 'mbrPrevPage()')
+    + btn(to < t, en?'Next ›':'다음 ›', 'mbrNextPage()');
+}
+function mbrPrevPage() { loadMasterBranches({ offset: Math.max(0, _mbrState.offset - _mbrState.limit) }); }
+function mbrNextPage() { loadMasterBranches({ offset: _mbrState.offset + _mbrState.limit }); }
+window.mbrPrevPage = mbrPrevPage;
+window.mbrNextPage = mbrNextPage;
+var _mbrSearchTimer = null;
+function mbrSearch(v) {
+  clearTimeout(_mbrSearchTimer);
+  _mbrSearchTimer = setTimeout(() => loadMasterBranches({ q: v }), 250);
+}
+window.mbrSearch = mbrSearch;
+async function addMasterBranch() {
+  const e = id => document.getElementById(id);
+  const name = ((e('mbr-name')||{}).value || '').trim();
+  if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  const val = id => { const el = e(id); return (el && el.value.trim()) || null; };
+  const d = await _menuPost('/api/admin/org/master-branches', {
+    name, region: val('mbr-region'), tier: val('mbr-tier'),
+    owner_name: val('mbr-manager'), phone: val('mbr-phone'), address: val('mbr-address')
+  });
+  if (d) {
+    ['mbr-name','mbr-region','mbr-tier','mbr-manager','mbr-phone','mbr-address']
+      .forEach(id => { if (e(id)) e(id).value = ''; });
+    loadMasterBranches({ q: '' });
+  }
+}
+window.addMasterBranch = addMasterBranch;
+
+
 // ── 레벨테스트 ───────────────────────────────────────────────────────
 async function loadLevelTests() {
   let items = [];
@@ -8412,6 +8551,7 @@ window.bulkCopyContacts = function() {
   const e = id => document.getElementById(id);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', addCenter);
+  if (e('mbr-add-btn'))     e('mbr-add-btn').addEventListener('click', addMasterBranch);   // 🏛️ 대표지사 (2026-08-18)
   if (e('lt-add-btn'))      e('lt-add-btn').addEventListener('click', addLevelTest);
   // 🥭 Phase 34 — 강사 정보 CRUD 버튼
   if (e('tp-add-btn'))          e('tp-add-btn').addEventListener('click', addTeacherProfile);
@@ -8838,6 +8978,10 @@ window.adminLazyLoadCard = function(kind) {
     } else if (kind === 'centers') {
       if (window.__lazyCenters) return; window.__lazyCenters = true;
       if (typeof loadCenters === 'function') loadCenters();
+    } else if (kind === 'master-branches') {
+      // 🏛️ 대표지사 (2026-08-18) — 241건을 부팅 때 받지 않는다. 카드를 열 때 50건만.
+      if (window.__lazyMasterBranches) return; window.__lazyMasterBranches = true;
+      if (typeof loadMasterBranches === 'function') loadMasterBranches();
     }
   } catch (e) { console.warn('lazy load 실패:', kind, e); }
 };

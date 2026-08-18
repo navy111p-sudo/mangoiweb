@@ -7246,6 +7246,188 @@ LIMIT $limit`;
       return json({ ok: true, id: r.meta.last_row_id });
     }
 
+    /* ─── 🏛️ 대표지사 ────────────────────────────────────────────────────────
+       [무엇을 보여 주나] 기존 망고아이 사이트(카페24 LMS)의 **조직 등록부**다.
+         카페24 MySQL ─▶ Neo4j (:Branch) ─▶ cafe24-sync.importCafe24Org ─▶ D1 `franchises`
+         2026-08-18 기준 241건. 화면이 «데이터 없음» 이던 이유는 데이터가 없어서가 아니라
+         이 표를 채우는 코드가 저장소에 **0곳**이었기 때문이다(admin.html 의 data-unwired="1").
+
+       [왜 franchises 를 그대로 읽나 — 표를 따로 만들지 않은 이유]
+         ① 카페24가 정본이다. 조직을 D1 에 복사해 두면 매일 밤 03:00 KST 동기화와
+            **두 벌**이 되고, 어느 쪽이 맞는지 아무도 모르게 된다(centers.franchise_id 가
+            정확히 그 사고였다 — CLAUDE.md 2장 «대리점의 지사 소속이 다음날 원복» 참고).
+         ② 실학생 29,000명이 쓰는 운영 D1 에 조직 241행을 **새로 써 넣는 일 자체**가
+            CLAUDE.md 1-1 이 금지한 «사람 확인 없는 대량 쓰기» 다. 읽기로 끝나면 그 위험이 0 이다.
+         그래서 목록은 항상 카페24 정본을 그대로 비추고, **카페24에 없는 항목만**
+         아래 master_branch_meta 에 D1 전용으로 얹는다.
+
+       [담당권역·등급] 카페24 조직 등록부에 **없는 항목**이다(컬럼 자체가 없다).
+         지어내지 않는다 — 비워 두고 화면에서 사람이 지정하면 master_branch_meta 에 저장한다.
+         담당권역은 이름·주소에서 시·도를 뽑아 «추정» 으로 제안만 한다(회색 표시, 저장 안 됨).
+
+       [전화] 옛 PHP LMS 가 AES 로 암호화해 둔 32자리+ HEX 가 그대로 올라온다
+         (docs/대리점_전화번호_복호화_런북.md). 복호화 전까지는 빈값 취급하고,
+         meta.phone 에 사람이 적어 둔 값이 있으면 그것을 우선 쓴다.
+
+       GET    /api/admin/org/master-branches?q=&limit=&offset=   목록(서버 검색·페이징)
+       POST   /api/admin/org/master-branches                     신규 등록
+       PATCH  /api/admin/org/master-branches                     담당권역·등급·전화·주소 지정
+       ⚠️ 경로를 /api/admin/org/ 아래에 둔 것은 의도적이다 — index.ts 의
+          TEACHER_BLOCKED_PREFIXES 에 이미 '/api/admin/org' 가 있어서 강사 차단이 자동으로 걸린다. */
+    if (path === '/api/admin/org/master-branches' &&
+        (method === 'GET' || method === 'POST' || method === 'PATCH')) {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+      // 카페24에 없는 항목만 담는 곁 표. franchises 를 건드리지 않으므로 야간 동기화가 지우지 못한다.
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS master_branch_meta (franchise_id INTEGER PRIMARY KEY, region TEXT, tier TEXT, phone TEXT, address TEXT, notes TEXT, updated_at INTEGER NOT NULL);`);
+
+      // 🔤 담당권역 «추정» — 이름·주소에 나오는 지명으로 시·도를 고른다. 저장하지 않고 제안만 한다.
+      //    ⚠️ 앞에 있는 항목이 먼저 이긴다. '경기광주유앤아이' 가 '광주(전남)' 로 가지 않도록
+      //       광역시·도 이름을 시·군 이름보다 앞에 둔다.
+      const REGION_HINTS: Array<[string, string[]]> = [
+        ['서울', ['서울', '강남', '강북', '강서', '노원', '서대문', '송파', '마포', '은평', '관악']],
+        ['경기', ['경기', '수원', '성남', '용인', '고양', '파주', '김포', '화성', '안양', '부천', '남양주', '구리', '평택', '시흥', '안산', '광명', '의정부', '하남']],
+        ['인천', ['인천', '송도', '부평']],
+        ['강원', ['강원', '춘천', '원주', '강릉', '속초']],
+        ['대전', ['대전']],
+        ['세종', ['세종']],
+        ['충북', ['충북', '청주', '충주', '제천']],
+        ['충남', ['충남', '천안', '아산', '서산', '당진']],
+        ['광주', ['광주']],
+        ['전북', ['전북', '전주', '익산', '군산']],
+        ['전남', ['전남', '목포', '여수', '순천', '광양']],
+        ['대구', ['대구']],
+        ['경북', ['경북', '포항', '구미', '경주', '안동', '김천']],
+        ['부산', ['부산', '해운대', '사상']],
+        ['울산', ['울산']],
+        ['경남', ['경남', '창원', '김해', '진주', '양산', '거제', '통영']],
+        ['제주', ['제주', '서귀포']],
+        ['해외', ['中国', '中國', '总部', '總部', '内蒙古', '湖北', '太原', '银川', 'china', 'China']],
+      ];
+      const guessRegion = (name: string, address: string): string | null => {
+        const hay = `${name || ''} ${address || ''}`;
+        for (const [region, words] of REGION_HINTS) {
+          for (const w of words) if (hay.indexOf(w) >= 0) return region;
+        }
+        return null;
+      };
+      /* 📞 표시·검색에 쓰는 전화 한 벌. 사람이 적어 둔 meta.phone 이 있으면 그것,
+         없으면 카페24 값 — 단 **32자 이상은 버린다**. 옛 PHP LMS 가 AES 로 암호화해 둔
+         HEX 뭉치(8EEDBC0C…)라 번호가 아니고, 화면에 그대로 나오면 «이게 전화번호인가?» 가 된다
+         (docs/대리점_전화번호_복호화_런북.md). 실제 번호는 32자가 될 수 없다.
+         ⚠️ SELECT 와 WHERE 가 **같은 식**을 써야 «화면엔 빈칸인데 그 암호문으로 검색되는» 일이 없다. */
+      const PHONE_SQL = `COALESCE(NULLIF(TRIM(m.phone), ''), CASE WHEN LENGTH(TRIM(COALESCE(f.phone,''))) >= 32 THEN NULL ELSE TRIM(f.phone) END)`;
+      // 주소도 마찬가지 — 카페24가 주는 값의 상당수가 공백 한 칸(' ')이라 TRIM 후 빈값 취급한다.
+      const ADDR_SQL  = `COALESCE(NULLIF(TRIM(m.address), ''), NULLIF(TRIM(f.address), ''))`;
+      const TIERS = ['플래티넘', '골드', '실버', '일반'];
+
+      if (method === 'GET') {
+        const q = (url.searchParams.get('q') || '').trim();
+        const rawLimit = url.searchParams.get('limit');
+        const limit = rawLimit === '0' ? 0 : Math.max(1, Math.min(500, parseInt(rawLimit || '50', 10) || 50));
+        const offset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+        const binds: any[] = [];
+        let whereSql = '';
+        if (q) {
+          // 이름·대표자·전화·주소·담당권역·등급 — 요구사항의 «이름·대표·전화·주소» 를 모두 포함한다.
+          //   전화·주소는 사람이 지정한 meta 값이 있으면 그쪽을, 없으면 카페24 값을 본다.
+          const like = `%${q}%`;
+          whereSql = ` WHERE (f.name LIKE ? OR f.owner_name LIKE ?
+                          OR ${PHONE_SQL} LIKE ? OR ${ADDR_SQL} LIKE ?
+                          OR m.region LIKE ? OR m.tier LIKE ?)`;
+          binds.push(like, like, like, like, like, like);
+        }
+        const cnt: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM franchises f
+             LEFT JOIN master_branch_meta m ON m.franchise_id = f.id${whereSql}`
+        ).bind(...binds).first();
+        const total = Number(cnt?.n || 0);
+        const pageSql = limit === 0 ? '' : ` LIMIT ${limit} OFFSET ${offset}`;
+        const rs = await env.DB.prepare(
+          `SELECT f.id, f.name, f.owner_name, f.opened_at, f.active,
+                  ${PHONE_SQL} AS phone,
+                  ${ADDR_SQL}  AS address,
+                  m.region AS region, m.tier AS tier, m.notes AS notes,
+                  COALESCE(cc.n, 0) AS agency_count
+             FROM franchises f
+             LEFT JOIN master_branch_meta m ON m.franchise_id = f.id
+             -- 하위 대리점 수. ⚠️ 상관 서브쿼리((SELECT COUNT(*) … WHERE c.franchise_id=f.id))로
+             --    쓰면 지사 241건마다 centers 를 다시 훑어 **한 페이지에 10만 행**을 읽는다
+             --    (2026-08-18 운영 D1 실측 107,318행). 미리 묶어 두면 2,954행이고 결과는 같다.
+             LEFT JOIN (SELECT franchise_id, COUNT(*) AS n FROM centers GROUP BY franchise_id) cc
+                    ON cc.franchise_id = f.id${whereSql}
+            ORDER BY f.active DESC, f.name ASC${pageSql}`
+        ).bind(...binds).all();
+        const items = (rs.results || []).map((r: any) => ({
+          ...r,
+          // 담당권역이 비어 있을 때만 «추정» 을 얹는다. 값이 아니라 화면의 회색 힌트로만 쓰인다.
+          region_guess: r.region ? null : guessRegion(String(r.name || ''), String(r.address || '')),
+        }));
+        return json({ ok: true, total, offset, limit, count: items.length, items, tiers: TIERS });
+      }
+
+      if (method === 'POST') {
+        /* 신규 대표지사 등록 — 조직 등록부(franchises)에 한 행을 더한다.
+           ⚠️ 별도 표에 넣지 않는 이유: 그러면 조직이 두 군데로 갈려 정산(accounting-reports
+              franchiseReport)이 이 조직을 영영 못 본다. 등록부는 한 벌이어야 한다.
+           ⚠️ 카페24가 정본이므로, 여기서 만든 행은 카페24에도 같은 조직이 생기기 전까지는
+              D1 에만 있다. notes 에 [d1-only] 를 박아 나중에 구분할 수 있게 한다. */
+        const b = await parseJsonBody(request);
+        const name = String(b?.name || '').trim();
+        if (!name) return invalidBody(['name']);
+        const now = Date.now();
+        const ins = await env.DB.prepare(
+          `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(name, String(b?.address || '').trim() || null, String(b?.phone || '').trim() || null,
+               String(b?.owner_name || '').trim() || null, null, '[d1-only]', now, now).run();
+        const newId = Number(ins.meta.last_row_id);
+        const region = String(b?.region || '').trim();
+        const tier = String(b?.tier || '').trim();
+        if (region || tier) {
+          await env.DB.prepare(
+            `INSERT INTO master_branch_meta (franchise_id, region, tier, updated_at) VALUES (?, ?, ?, ?)
+             ON CONFLICT(franchise_id) DO UPDATE SET region = excluded.region, tier = excluded.tier, updated_at = excluded.updated_at`
+          ).bind(newId, region || null, TIERS.indexOf(tier) >= 0 ? tier : null, now).run();
+        }
+        return json({ ok: true, id: newId });
+      }
+
+      // PATCH — 담당권역·등급·전화·주소·메모. 카페24가 주는 값은 건드리지 않는다(meta 에만 쓴다).
+      const b = await parseJsonBody(request);
+      const fid = parseInt(String(b?.id || ''), 10);
+      if (!fid) return invalidBody(['id']);
+      const exists: any = await env.DB.prepare(`SELECT id FROM franchises WHERE id = ?`).bind(fid).first();
+      if (!exists) return json({ ok: false, error: 'not_found' }, 404);
+      const pick = (k: string) => {
+        if (!(k in (b || {}))) return undefined;             // 안 보낸 항목은 그대로 둔다
+        const s = String(b[k] == null ? '' : b[k]).trim();
+        return s === '' ? null : s;
+      };
+      const cur: any = await env.DB.prepare(
+        `SELECT region, tier, phone, address, notes FROM master_branch_meta WHERE franchise_id = ?`
+      ).bind(fid).first();
+      const nextTier = pick('tier');
+      if (nextTier !== undefined && nextTier !== null && TIERS.indexOf(nextTier) < 0) {
+        return json({ ok: false, error: 'invalid_tier', allowed: TIERS }, 400);
+      }
+      const merged = {
+        region:  pick('region')  !== undefined ? pick('region')  : (cur?.region  ?? null),
+        tier:    nextTier        !== undefined ? nextTier        : (cur?.tier    ?? null),
+        phone:   pick('phone')   !== undefined ? pick('phone')   : (cur?.phone   ?? null),
+        address: pick('address') !== undefined ? pick('address') : (cur?.address ?? null),
+        notes:   pick('notes')   !== undefined ? pick('notes')   : (cur?.notes   ?? null),
+      };
+      await env.DB.prepare(
+        `INSERT INTO master_branch_meta (franchise_id, region, tier, phone, address, notes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(franchise_id) DO UPDATE SET
+           region = excluded.region, tier = excluded.tier, phone = excluded.phone,
+           address = excluded.address, notes = excluded.notes, updated_at = excluded.updated_at`
+      ).bind(fid, merged.region, merged.tier, merged.phone, merged.address, merged.notes, Date.now()).run();
+      return json({ ok: true, id: fid, ...merged });
+    }
+
+
     // ─── 대리점·학원 (테이블명은 centers 지만 실제 내용은 «대리점/학원» 921건) ──────
     //   🔎 실측(2026-08-08): 921건 중 744건이 students_erp.shop_name 과 글자 그대로 일치.
     //      «교육센터»(=필리핀 직영 센터, 홈페이지 문구)와는 전혀 다른 것이다.
