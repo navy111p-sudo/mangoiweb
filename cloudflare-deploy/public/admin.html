@@ -1952,6 +1952,51 @@
   <div class="menu-body">
     <div class="sub-menu">
 
+      <!-- 📈 손익 / 재무제표 — 회계관리 카드의 «맨 위» (2026-08-18 사장님 지시로 올림)
+           원래는 16칸 중 13번째였다. 사장님이 「메뉴에서 안 보인다」고 하셨는데, 없는 게 아니라
+           한참 스크롤해야 나오는 자리였다. 회계에서 제일 자주 보는 표이므로 첫 칸으로 올린다.
+           ⚠️ 순서를 되돌리면 같은 제보가 다시 온다. 자리를 옮길 일이 있으면 사람에게 먼저 확인할 것.
+           ℹ️ 짝인 「🔍 매출–입금 대사」는 원래 자리에 그대로 둔다 — 이 표의 «매출 누락» 안내가
+              이름으로 가리키므로(위치가 아니라) 떨어져 있어도 깨지지 않는다. -->
+      <!-- 🔗 id 는 «바로 열리는 주소» 다 — /admin.html#acc-financials (2026-08-18 사장님 요청).
+           openCardFromHash() 가 이 id 를 찾아 자기 자신과 상위 details 를 전부 펼친다.
+           ⛔ 이 id 를 바꾸면 밖에서 안내한 주소가 조용히 죽는다(열리긴 하는데 안 펼쳐짐). -->
+      <details class="sub-item" id="acc-financials">
+        <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
+        <div class="sub-body">
+          <!-- 🧰 도구줄은 «두 줄» 로 고정한다 (2026-08-18).
+               조회 단위(월별/분기별)가 늘면서 한 줄에 6개가 되어, 창이 좁으면 [Excel] 만
+               혼자 아래로 밀려 내려갔다. 그때그때 달라지는 줄바꿈이 제일 지저분하므로
+               «위 = 무엇을 볼지 · 아래 = 무엇을 할지» 로 아예 나눠 둔다. -->
+          <div style="margin-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+            <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
+                 («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
+            <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="month" data-ko="월별" data-en="Monthly">월별</option>
+              <option value="quarter" data-ko="분기별" data-en="Quarterly">분기별</option>
+            </select>
+            <input id="acc-fs-month" type="month" value="2026-04" onchange="accFsPeriodChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
+            <select id="acc-fs-quarter" onchange="accFsPeriodChange()" style="display:none;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db"></select>
+            <select id="acc-fs-type" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="pl" data-ko="손익계산서 (P&L)" data-en="Income Statement (P&L)">손익계산서 (P&L)</option>
+              <option value="bs" data-ko="재무상태표 (BS)" data-en="Balance Sheet">재무상태표 (BS)</option>
+              <option value="cf" data-ko="현금흐름표 (CF)" data-en="Cash Flow">현금흐름표 (CF)</option>
+              <option value="tb" data-ko="시산표" data-en="Trial Balance">시산표</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="primary" onclick="accGenStatement()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 생성" data-en="🧮 Generate">🧮 생성</button>
+            <button onclick="accStatementPdf()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 PDF" data-en="📥 PDF">📥 PDF</button>
+            <button onclick="accStatementExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
+          </div>
+          </div>
+          <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
+            <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
+          </div>
+        </div>
+      </details>
+
       <!-- 🆕 0. 수강료 미연장 자동 알림 — Phase F1~F2 (파란 톤 통일)
            🔁 (2026-08-18 사장님 지시) 이름이 «미납» 이었는데 B2C 회원에겐 틀린 말이다.
               B2C 는 선불이라 결제한 만큼만 수업이 나가고 끝난다 → 못 받은 돈이 없다.
@@ -2433,45 +2478,6 @@
         </div>
       </details>
 
-      <!-- 11. 손익 / 재무제표 -->
-      <!-- 🔗 id 는 «바로 열리는 주소» 다 — /admin.html#acc-financials (2026-08-18 사장님 요청).
-           openCardFromHash() 가 이 id 를 찾아 자기 자신과 상위 details 를 전부 펼친다.
-           ⛔ 이 id 를 바꾸면 밖에서 안내한 주소가 조용히 죽는다(열리긴 하는데 안 펼쳐짐). -->
-      <details class="sub-item" id="acc-financials">
-        <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
-        <div class="sub-body">
-          <!-- 🧰 도구줄은 «두 줄» 로 고정한다 (2026-08-18).
-               조회 단위(월별/분기별)가 늘면서 한 줄에 6개가 되어, 창이 좁으면 [Excel] 만
-               혼자 아래로 밀려 내려갔다. 그때그때 달라지는 줄바꿈이 제일 지저분하므로
-               «위 = 무엇을 볼지 · 아래 = 무엇을 할지» 로 아예 나눠 둔다. -->
-          <div style="margin-bottom:8px">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
-            <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
-                 («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
-            <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
-              <option value="month" data-ko="월별" data-en="Monthly">월별</option>
-              <option value="quarter" data-ko="분기별" data-en="Quarterly">분기별</option>
-            </select>
-            <input id="acc-fs-month" type="month" value="2026-04" onchange="accFsPeriodChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
-            <select id="acc-fs-quarter" onchange="accFsPeriodChange()" style="display:none;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db"></select>
-            <select id="acc-fs-type" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
-              <option value="pl" data-ko="손익계산서 (P&L)" data-en="Income Statement (P&L)">손익계산서 (P&L)</option>
-              <option value="bs" data-ko="재무상태표 (BS)" data-en="Balance Sheet">재무상태표 (BS)</option>
-              <option value="cf" data-ko="현금흐름표 (CF)" data-en="Cash Flow">현금흐름표 (CF)</option>
-              <option value="tb" data-ko="시산표" data-en="Trial Balance">시산표</option>
-            </select>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <button class="primary" onclick="accGenStatement()" style="padding:5px 12px;font-size:12px;" data-ko="🧮 생성" data-en="🧮 Generate">🧮 생성</button>
-            <button onclick="accStatementPdf()" style="padding:5px 12px;font-size:12px;background:#10b981;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 PDF" data-en="📥 PDF">📥 PDF</button>
-            <button onclick="accStatementExcel()" style="padding:5px 12px;font-size:12px;background:#0ea5e9;color:#fff;border:0;border-radius:6px;cursor:pointer" data-ko="📥 Excel" data-en="📥 Excel">📥 Excel</button>
-          </div>
-          </div>
-          <div id="acc-fs-result" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:24px;color:#374151;font-size:13px">
-            <div style="text-align:center;color:#6b7280" data-ko="[생성]을 누르면 재무제표가 여기에 표시됩니다." data-en="Click [Generate] to render the statement.">[생성]을 누르면 재무제표가 여기에 표시됩니다.</div>
-          </div>
-        </div>
-      </details>
 
       <!-- 11-2. 🔍 매출–입금 대사 (장부 vs 통장) — 2026-08-16
            장부 매출이 통장 입금보다 8,100만 많던 사고(시연용 시드 결제 혼입)를
