@@ -83,7 +83,8 @@
   function memberVisible(id){
     if (VIRTUAL_TABS.indexOf(id) !== -1) return true;
     var el = document.getElementById(id);
-    return !!el && el.style.display !== 'none';
+    // 🔐 (2026-08-18) 역할 숨김 표시가 «.rbac-hide» 클래스로 바뀌었다(인라인도 계속 인정)
+    return !!el && !el.classList.contains('rbac-hide') && el.style.display !== 'none';
   }
   function activate(id){
     if (!panels[id] || !memberVisible(id)) return;
@@ -541,7 +542,8 @@
         MEMBERS.forEach(function(m){
           if (VIRTUAL_TABS.indexOf(m.id) !== -1) return;
           var card = document.getElementById(m.id);
-          if (!card || card.style.display === 'none') return;
+          // 🔐 (2026-08-18) 역할 숨김 = .rbac-hide 클래스 (인라인도 계속 인정)
+          if (!card || card.classList.contains('rbac-hide') || card.style.display === 'none') return;
           _globalSearchIndex.push({
             kind: 'menu', kindLabelKo: '📋 메뉴', kindLabelEn: '📋 Menu',
             label: m.ko + ' (리텐션 센터)', labelEn: m.en + ' (Retention Center)', sub: '',
