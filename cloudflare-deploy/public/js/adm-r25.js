@@ -249,6 +249,81 @@
     return scan(card);
   }
 
+  /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다.
+     ⚠️ 제목이 붙어 있는 자리가 카드마다 다르다. 하나만 보면 대부분 빈 문자열이 나오고,
+        그러면 그 항목이 «손자 0개» 로 판정돼 ▸ 가 아예 안 생긴다(2026-08-18 실측:
+        「결제」·「직원·권한」이 그렇게 통째로 사라졌다). 세 자리를 순서대로 본다. */
+  function cardTitle(card, attr){
+    var ko = attr.slice(-2);                                   // 'ko' | 'en'
+    var t = card.getAttribute('data-menu-label-' + ko) || '';
+    if (!t){
+      var sum = card.querySelector(':scope > summary');
+      if (sum){
+        t = sum.getAttribute(attr) || '';                      // ① summary 자신에 붙은 경우
+        if (!t){
+          var sp = sum.querySelector('[' + attr + ']');
+          t = sp ? (sp.getAttribute(attr) || sp.textContent) : sum.textContent;   // ② 안쪽 span ③ 글자 그대로
+        }
+      }
+    }
+    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
+    if (t.length > 26) t = t.slice(0, 25) + '…';
+    return t;
+  }
+
+  /* 🔑 (2026-08-18) 사이드바 한 항목이 카드를 «여러 장» 맡는다 — 새 사이드바(adm-ia6.js)가
+     그렇게 묶었다(예: 「직원·권한」 = 권한 설정 + 카페24 명부, 「출결」 = 카드 3장).
+     그런데 지금까지 손자는 data-card(=대표 카드 «첫 장») 에서만 나왔다.
+     → 사장님 화면에서 「직원·권한」을 펴도 **「카페24 명부」가 목록에 없었다.**
+     이제 data-cards(맡은 카드 전부)를 읽는다. 칸이 없는 카드는 «그 카드 자체» 를 한 줄로 세운다
+     — 묶음 안에 있는데 목록에 안 보이면 그 카드는 영영 못 찾는다. */
+  function itemsForSub(sub){
+    /* 🍃 이 항목이 카드 «안의 한 칸» 을 이미 가리키면(=잎) 손자를 만들지 않는다.
+       「대표지사」·「지사」·「대리점」·「지사 정산」이 그렇다. 이걸 안 보면 셋 다 같은 카드를
+       읽어 **똑같은 4줄이 네 번** 나온다(2026-08-18 사장님 「중복」 지적의 원인). */
+    if (sub.getAttribute('data-ia6-sub')) return [];
+
+    var attr = (sub.getAttribute('data-cards') || '').trim();
+    var ids = attr ? attr.split(/\s+/) : (sub.dataset.card ? [sub.dataset.card] : []);
+    var out = [];
+
+    /* 📐 (2026-08-18 사장님 «1안» 결정) 손자에는 «이름이 서로 다른 것» 만 올린다.
+       ① 항목이 카드를 여러 장 맡으면 → 손자는 그 **카드 이름들**. 카드 안 칸까지 내려가지 않는다.
+          내려가면 「결제」가 11줄이 되면서 어느 카드 것인지 알 수 없고, 「자료실」은
+          «잠금 해제 / 자료 목록» 이 다섯 번 반복된다(실측).
+       ② 항목이 카드 한 장이면 → 그 카드 안 칸들. 그게 유일하게 서로 다른 목적지다. */
+    if (ids.length > 1){
+      for (var i = 0; i < ids.length; i++){
+        var c = document.getElementById(ids[i]);
+        if (!c) continue;
+        var ko = cardTitle(c, 'data-ko');
+        if (ko){
+          out.push({ ko: ko, en: cardTitle(c, 'data-en') || ko, el: c, host: ids[i] });
+          continue;
+        }
+        /* 제목이 없는 카드(<div id="card-…"> 로만 된 것)는 이름을 지어낼 수 없다.
+           그 카드에 한해 «안의 칸» 으로 대신한다 — 칸에는 이름이 붙어 있다.
+           ⛔ 여기서 그냥 건너뛰면 그 카드는 사이드바에서 영영 사라진다. */
+        var inner = itemsFor(ids[i], c);
+        for (var k = 0; k < inner.length && k < 6; k++){
+          var iv = inner[k];
+          out.push({ ko: iv.ko, en: iv.en, el: iv.el, anchor: iv.anchor, card: iv.card || ids[i], fn: iv.fn, host: ids[i] });
+        }
+      }
+      return out;
+    }
+
+    var id = ids[0];
+    var card = id && document.getElementById(id);
+    if (!card) return out;
+    var list = itemsFor(id, card);
+    for (var j = 0; j < list.length; j++){
+      var it = list[j];
+      out.push({ ko: it.ko, en: it.en, el: it.el, anchor: it.anchor, card: it.card || id, fn: it.fn, host: id });
+    }
+    return out;
+  }
+
   var esc = function(s){
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   };
@@ -269,7 +344,7 @@
         if (sub.__ph125try > 5) sub.__ph125 = true;
         return;
       }
-      var items = itemsFor(cardId, card);
+      var items = itemsForSub(sub);
       if (!items.length){
         sub.__ph125try = (sub.__ph125try || 0) + 1;
         if (sub.__ph125try > 5) sub.__ph125 = true;   // 칸이 없는 카드 = «화면 하나». ▸ 를 안 붙인다
@@ -300,7 +375,7 @@
         // 목적지를 DOM 참조로 직접 물려 준다 — 문자열 id 를 안 거치므로
         // 같은 id 가 문서에 두 벌 있어도(예: sub-popup-list) 엉뚱한 곳으로 안 간다.
         var gcs = box.children;
-        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = cardId; }
+        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = items[i].host || cardId; }
         sub.parentNode.insertBefore(box, sub.nextSibling);
       }
 
@@ -310,11 +385,36 @@
         t.__bound = true;
         t.addEventListener('click', function(e){
           e.stopPropagation(); e.preventDefault();
-          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){ if (s !== sub) s.classList.remove('ph125-open'); });
+          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+            if (s !== sub) { s.classList.remove('ph125-open'); fitBox(s); }
+          });
           sub.classList.toggle('ph125-open');
+          fitBox(sub);
         });
       }
     });
+  }
+
+  /* 📏 (2026-08-18) 「▸ 를 눌렀는데 손자가 안 보인다」의 두 번째 원인 — **잘림**.
+       CSS 가 두 곳에서 높이를 자른다. 둘 다 `overflow:hidden` 이라 넘친 부분은 «없는 것» 이 된다.
+         · 손자 상자          `.ph125-grandchildren` … 열렸을 때 max-height 600px
+           → 회계관리 손자 19개는 713px 다. 아래 3개가 잘려 있었다(실측).
+         · 그룹 목록          `.ph85-subs`          … 열렸을 때 max-height 900px
+           → 손자를 펴면 그룹 내용이 그만큼 길어져, 아래쪽 항목이 통째로 잘린다.
+       상한 숫자를 키우는 방법은 쓰지 않는다 — 그 주석이 설명하듯 상한이 클수록 «닫는데 반응이
+       없는 시간» 이 길어지고, 언젠가 또 넘친다. 대신 **열 때만 실제 내용 높이를 넣는다.**
+       ⚠️ CSS 가 !important 라 `style.maxHeight=` 로는 못 이긴다. setProperty(...,'important') 필수. */
+  function fitBox(sub){
+    var box = sub.nextElementSibling;
+    if (!box || !box.classList.contains('ph125-grandchildren')) return;
+    var open = sub.classList.contains('ph125-open');
+    if (open) box.style.setProperty('max-height', box.scrollHeight + 'px', 'important');
+    else      box.style.removeProperty('max-height');
+
+    var subs = sub.parentElement;                       // .ph85-subs (그룹 목록)
+    if (!subs || !subs.classList.contains('ph85-subs')) return;
+    if (open) subs.style.setProperty('max-height', (subs.scrollHeight + box.scrollHeight + 24) + 'px', 'important');
+    else      subs.style.removeProperty('max-height');
   }
 
   function flash(el){

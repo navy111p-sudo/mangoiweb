@@ -1161,7 +1161,7 @@
     </div>
     <div id="db-result" style="margin-top:14px"></div>
       </div>
-      <div id="card-kpi-dashboard" style="margin-top:14px">
+      <div id="card-kpi-dashboard" data-menu-label-ko="KPI 대시보드" data-menu-label-en="KPI Dashboard" style="margin-top:14px">
     
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">↻ 새로고침</button>
@@ -1183,7 +1183,7 @@
 
     <!-- ▸ 탭 2 : 매출·학생 추세 -->
     <div class="dash-pane" id="dash-pane-chart" hidden>
-      <div id="card-daily-charts">
+      <div id="card-daily-charts" data-menu-label-ko="일자별 차트" data-menu-label-en="Daily Charts">
     <!-- (역할 안내 배너 제거: 사용자 요청) -->
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
@@ -6848,7 +6848,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- ② 게시 · 팝업 (id=card-popups-mgmt 유지 · 기본 숨김, 탭으로 표시) -->
-    <div class="ns-panel" id="card-popups-mgmt" data-nspanel="publish" style="display:none">
+    <div class="ns-panel" id="card-popups-mgmt" data-nspanel="publish" data-menu-label-ko="팝업 게시" data-menu-label-en="Popup Posting" style="display:none">
       <div class="sub-menu">
 
       <!-- 1. 활성 팝업 목록 + 통계 -->
@@ -11504,7 +11504,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=14" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=16" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -12218,7 +12218,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=33" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동 · 08-18 정산·매출에 「매출 대시보드」 직행 항목 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 — 칸이 12개인 회계 카드에서 열려도 화면 밖이었다) -->
+<script src="/js/adm-ia6.js?v=35" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

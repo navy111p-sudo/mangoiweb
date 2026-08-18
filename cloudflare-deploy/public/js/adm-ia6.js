@@ -134,7 +134,10 @@
         /* 📊 (2026-08-18 사장님 요청) 「매출 대시보드」 를 사이드바에서 바로 —
            회계 카드 «안의» 접이식 줄(sub-acc-11)이라 회계를 열고 또 찾아야 했다.
            대표지사·지사·대리점(org 그룹)과 같은 방식: 카드 열기 + openSub 로 그 칸까지 펼친다. */
-        { ko: '매출 대시보드', en: 'Sales Dashboard', cards: ['card-accounting-mgmt'], openSub: 'sub-acc-11' },
+        /* 🗑 (2026-08-18 사장님 결정) 「매출 대시보드」 항목을 뺐다 — 「회계」와 이름만 다르고
+           가리키는 카드가 같아서, 손자 19줄이 글자까지 똑같이 두 벌 나왔다.
+           ⚠️ 기능은 안 없앴다. 「회계 ▸ 📊 매출 대시보드」 손자로 한 번에 간다(검색으로도 나온다).
+              2026-08-18 «사이드바에서 바로» 요청(#283)은 그 손자 줄이 대신한다. */
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
@@ -142,7 +145,11 @@
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
         //    지사정산 카드(card-franchises · /api/admin/settlement/branch-summary)이고,
         //    캐피타운 계열 계정(role capitown/franchise · uid capi*)만 capiHref 로 보낸다.
-        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' }
+        /* 🏢 (2026-08-18) 가리키는 곳을 고쳤다. 이름은 「정산」인데 실제로는 조직 명부 카드
+           (card-franchises)를 열고 있어서, 대표지사·지사·대리점 항목과 손자가 똑같았다.
+           진짜 정산 화면은 회계 카드 안 「🏢 지점/가맹점 정산 (한눈에)」(sub-acc-5) 다.
+           ⚠️ 캐피타운 계열 계정은 그대로 전용 페이지로 보낸다(capiHref) — 그 분기는 건드리지 않았다. */
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html' }
         /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
            「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
            회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
@@ -161,10 +168,13 @@
       key: 'org', ko: '운영자 (본사·지사·대리점)', en: 'Organization',
       ico: '<path d="M3 21h18"/><path d="M5 21V7l7-4v18"/><path d="M12 9h7v12"/><path d="M9 9v0M9 13v0M9 17v0M16 13v0M16 17v0"/>',
       items: [
-        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] },
+        /* 🗑 (2026-08-18 사장님 결정) 「조직 (지사·대리점)」 을 뺐다 — 아래 세 항목과 같은 카드를
+           가리켜 손자 4줄이 네 번 반복됐다. 대신 그 카드의 네 번째 칸 「🏯 본사 관리」 를
+           항목으로 세운다. 그렇게 하지 않으면 「조직」 을 없앤 순간 본사 관리로 갈 길이 사라진다. */
         { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches' },
         { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches' },
-        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' }
+        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' },
+        { ko: '본사 관리', en: 'HQ',           cards: ['card-franchises'], openSub: 'card-hq-orgs' }
       ]
     },
     {
@@ -591,6 +601,11 @@
         // 🔐 역할 필터용 — 이 항목이 가리키는 카드 «전부». data-card 는 대표(첫) 장뿐이라
         //    「대표는 보이는데 나머지는 다 막힌」 경우를 판정할 수 없다.
         d.setAttribute('data-cards', (it.cards || []).join(' '));
+        /* 🧭 (2026-08-18) 이 항목이 카드 «안의 한 칸» 을 바로 가리키면 그 id 를 실어 둔다.
+           손자 메뉴(adm-r25.js)가 이걸 보고 «여기는 잎이다 → 손자를 만들지 않는다» 로 판단한다.
+           안 실어 주면 손자 생성기가 카드 «전체» 를 읽어, 「대표지사·지사·대리점」 세 항목이
+           전부 똑같은 4줄을 보여 준다(2026-08-18 실측 — 사장님 「중복」 지적의 원인). */
+        if (it.openSub) d.setAttribute('data-ia6-sub', it.openSub);
         d.textContent = en ? it.en : it.ko;
         // ⚠️ 요소마다 리스너를 붙이지 않는다.
         //    사이드바 노드를 나중에 통째로 다시 그리는 스크립트가 있어서(실측: 붙인 리스너가
@@ -763,6 +778,13 @@
     window.addEventListener('click', function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
+      /* 🔴 (2026-08-18) ▸ 손자 메뉴 토글·손자 항목은 «그냥 지나가게» 둔다.
+         이 핸들러는 항목 안의 «모든» 클릭을 「항목 선택」으로 처리하는데, ▸ 토글은
+         그 항목의 자식이라 함께 잡혔다. 그래서 ▸ 를 눌러도 손자가 펴지는 대신
+         카드 필터만 바뀌었다 — 쓰는 사람에게는 «손자 메뉴가 안 뜬다» 로 보인다.
+         adm-s11.js(ph97)가 2026-08-06 에 똑같은 사고를 냈고 같은 예외로 고쳤다.
+         ⛔ 지우지 말 것. 지우면 새 사이드바에서 3단계 메뉴를 여는 방법이 없어진다. */
+      if (t.closest('#ph85-sidebar .ph125-toggle') || t.closest('#ph85-sidebar .ph125-gc')) return;
       var sub = t.closest('[data-ia6-item]');
       if (sub) {
         /* 📱 (2026-08-16 사장님 요청 ④) 모바일은 «닫고 나서» 고른다 — 순서가 핵심이다.
@@ -918,7 +940,10 @@
     var RENAMED = {
       'today:문의·버그': 'today:신규상담',
       // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
-      'money:조직 (지사·대리점)': 'org:조직 (지사·대리점)'
+      'money:조직 (지사·대리점)': 'org:대표지사',
+      // 🗑 (2026-08-18) 없앤 두 항목을 잇는다. 안 이으면 어제 보던 화면이 「오늘의 수업」으로 튄다.
+      'org:조직 (지사·대리점)': 'org:대표지사',
+      'money:매출 대시보드': 'money:회계'
     };
     if (want && RENAMED[want]) {
       want = RENAMED[want];
