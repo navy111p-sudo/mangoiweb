@@ -10,7 +10,8 @@
 //   이 하니스가 못 박는 것 — 전부 «조용히 되돌아가면 매출을 잘못 읽는» 것들:
 //     ① 「케이씨피M」은 걸리고 「케이씨피」(진짜 PG 정산금)는 절대 안 걸린다
 //     ② TS 정규식과 Cypher(Java) 정규식이 같은 규칙이다 (한쪽만 고치면 FAIL)
-//     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼고, 뺀 금액을 같이 내려준다
+//     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼되, 그 이름·금액은 응답에 담지 않는다
+//        (2026-08-18 뒤집힘 — 화면이 안 그려도 API 주소를 열면 그대로 보였다)
 //     ④ ledger 목록이 「케이씨피M」 행을 아예 빼고 내려준다(2026-08-18 지시로 바뀜 —
 //        예전엔 «행은 두되 표시로 구분» 이었다). excluded_from_revenue 는 합계 안전망으로 유지
 //     ⑤ 화면(adm-core.js)이 그 행을 매출 합계에서 뺀다.
@@ -78,16 +79,28 @@ ok(/export function isKcpTransferRow/.test(acct),
   '거래처·적요·계정과목 어디에 적혀 있어도 잡는 isKcpTransferRow() 가 있다');
 
 /* ── ③ 매출·손익 집계에서 뺀다 ───────────────────────────────── */
-console.log('\n③ summary 집계가 「케이씨피M」을 빼고, 뺀 금액을 숨기지 않는다');
+console.log('\n③ summary 집계가 「케이씨피M」을 빼되, 이름·금액을 응답에 담지 않는다');
 {
   const i = admin.indexOf("if (kind === 'summary')");
-  const sum = admin.slice(i, admin.indexOf('const QMAP', i));
+  const sumRaw = admin.slice(i, admin.indexOf('const QMAP', i));
+  /* ⑤와 같은 이유로 주석을 벗겨 낸 사본도 함께 본다 — «왜 지웠는지» 적은 주석이
+     아래 부정 검사(«이름·금액을 담지 않는다»)에 걸려 되레 FAIL 을 내면 안 된다.
+     ⚠️ 긍정 검사(집계 로직이 있는가)는 주석이 섞여도 무해하므로 sumRaw 를 그대로 쓴다. */
+  const sum = sumRaw;
+  const sumCode = sumRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   ok(i > 0 && /MATCH \(a:AccBook\)/.test(sum), 'finance-cafe24/summary 가 AccBook 을 집계한다');
   ok(/AS isKcpm/.test(sum), '행마다 isKcpm(=「케이씨피M」인가)을 판정한다');
   ok(/t = 1 AND NOT isKcpm/.test(sum), '총 매출(income)에서 「케이씨피M」을 뺀다');
   ok(/t = 2 AND NOT isKcpm/.test(sum), '총 지출(expense)에서도 「케이씨피M」을 뺀다');
-  ok(/excluded_transfer/.test(sum) && /excluded_count/.test(sum),
-    '뺀 금액·건수를 excluded_transfer / excluded_count 로 같이 내려준다');
+  /* ⚠️ 2026-08-18 사장님 지시로 **방향이 뒤집힌 자리**다. ⑤와 같은 이유다.
+     예전 규칙: «뺀 금액을 숨기지 말고 excluded_transfer/excluded_count 로 같이 내려준다».
+     그런데 화면이 안 그려도 API 주소(/api/admin/finance-cafe24/summary)를 열면
+     「케이씨피M」이라는 이름과 금액이 그대로 보였다(사장님이 직접 확인).
+     이제는 **응답에 담지 않는다**. 되살리기 전에 사람에게 먼저 물을 것. */
+  ok(!/excluded_transfer/.test(sumCode) && !/excluded_count/.test(sumCode),
+    '뺀 금액·건수를 응답에 담지 않는다 (excluded_transfer/excluded_count 없음)');
+  ok(!/rule: *'케이씨피M'/.test(sumCode) && !/하나은행에서 옮겨 온 운영자금/.test(sumCode),
+    '⛔ 응답에 「케이씨피M」 이름·사유를 담지 않는다');
   ok(/\$kcpmRe/.test(sum) && /kcpmRe: KCP_TRANSFER_CYPHER_RE/.test(sum),
     '정규식을 쿼리에 박지 않고 정본 상수를 파라미터로 넘긴다');
 }

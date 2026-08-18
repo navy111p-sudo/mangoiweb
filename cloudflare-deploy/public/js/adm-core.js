@@ -11788,8 +11788,6 @@ window.rebuildGlobalSearchIndex = function() {
       //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
-      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
-      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
