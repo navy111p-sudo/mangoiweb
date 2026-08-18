@@ -1089,6 +1089,9 @@ const worker = {
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||
         path === '/api/admin/payroll/seed-demo' ||
+        // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
+        //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
+        path === '/api/admin/org/hq' ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -5144,6 +5147,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/payroll/')) return true;
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
+  if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;

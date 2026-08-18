@@ -3462,6 +3462,196 @@ async function addFranchise() {
   if (d) { ['fr-name','fr-owner','fr-phone','fr-address','fr-opened'].forEach(id=>e(id).value=''); loadFranchises(); }
 }
 
+// ── 🏯 본사 관리 (hq_orgs) ────────────────────────────────────────────
+/* (2026-08-18 수정요청 #13) 「시스템 › 조직 관리 › 본사 관리」에 본사 정보가 없다.
+   원인은 «못 넣은» 것이 아니라 **표를 채우는 코드가 처음부터 없었던 것**이다 —
+   화면(#hq-table)은 2026-08-08 부터 있었지만 그리는 JS 가 저장소에 0곳이라
+   열 때마다 "데이터 없음" 만 나왔다. 여기서 목록·검색·등록·수정·삭제를 붙인다.
+   서버(/api/admin/org/hq)는 표가 비어 있으면 운영 사이트 «🏢 회사 정보» 푸터의
+   법인정보를 한 번만 심는다. 그래서 처음 열면 이미 (주)에듀비전이 들어와 있다. */
+let _hqEditId = 0;         // 0 = 등록 모드, >0 = 그 id 를 수정 중
+let _hqSearchT = null;
+let _hqRows = [];
+
+function _hqSetBtnLabel(btn, ko, en) {
+  // 🪤 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다(data-ko/en 루프가 못 본다).
+  //    상태에 따라 글자가 바뀌는 버튼은 «그릴 때 사전도 같이» 갱신해야 한다.
+  if (!btn) return;
+  btn.setAttribute('data-ko', ko);
+  btn.setAttribute('data-en', en);
+  btn.textContent = (typeof adminLang !== 'undefined' && adminLang === 'en') ? en : ko;
+}
+
+async function loadHqOrgs(q) {
+  const tb = document.getElementById('hq-table');
+  if (!tb) return;
+  const term = q == null ? ((document.getElementById('hq-q') || {}).value || '') : q;
+  const url = '/api/admin/org/hq' + (term.trim() ? ('?q=' + encodeURIComponent(term.trim())) : '');
+  let d = {};
+  try {
+    const r = await fetch(url, { cache: 'no-store', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) { d = {}; }
+  const cnt = document.getElementById('hq-count');
+  const EN = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  if (!d.ok) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">' + (EN ? 'Failed to load' : '불러오지 못했습니다') + '</td></tr>';
+    if (cnt) cnt.textContent = '';
+    return;
+  }
+  _hqRows = d.items || [];
+  if (cnt) {
+    cnt.textContent = term.trim()
+      ? (EN ? (_hqRows.length + ' of ' + (d.total || 0)) : (d.total || 0) + '건 중 ' + _hqRows.length + '건')
+      : (EN ? ((d.total || 0) + ' record(s)') : (d.total || 0) + '건');
+  }
+  if (!_hqRows.length) {
+    tb.innerHTML = '<tr><td colspan="7" class="empty">' +
+      (term.trim() ? (EN ? 'No match' : '검색 결과 없음') : (EN ? 'No data' : '데이터 없음')) + '</td></tr>';
+    return;
+  }
+  tb.innerHTML = _hqRows.map(h => {
+    const v = k => _esc(h[k] || '') || '—';
+    return '<tr data-hq="' + h.id + '">' +
+      '<td>' + h.id + '</td>' +
+      '<td><b>' + _esc(h.name || '') + '</b> ' +
+        '<button type="button" title="상세" onclick="hqToggleDetail(' + h.id + ',this)" ' +
+        'style="margin-left:4px;padding:0 5px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">ⓘ</button></td>' +
+      '<td>' + v('ceo_name') + '</td>' +
+      '<td>' + v('business_no') + '</td>' +
+      '<td>' + v('address') + '</td>' +
+      '<td>' + v('phone') + '</td>' +
+      '<td style="white-space:nowrap">' +
+        '<button type="button" onclick="hqEdit(' + h.id + ')" data-ko="✏️ 수정" data-en="✏️ Edit" ' +
+        'style="padding:2px 8px;font-size:11px;border:1px solid #d1d5db;border-radius:5px;background:#fff;cursor:pointer">' +
+        (EN ? '✏️ Edit' : '✏️ 수정') + '</button> ' +
+        '<button type="button" onclick="hqDelete(' + h.id + ',this)" data-ko="🗑 삭제" data-en="🗑 Delete" ' +
+        'style="padding:2px 8px;font-size:11px;border:1px solid #fecaca;color:#b91c1c;border-radius:5px;background:#fff;cursor:pointer">' +
+        (EN ? '🗑 Delete' : '🗑 삭제') + '</button>' +
+      '</td></tr>';
+  }).join('');
+}
+window.loadHqOrgs = loadHqOrgs;
+
+/* ⓘ 상세 — 사이트 푸터에는 나가지만 표의 7칸에는 자리가 없는 항목들.
+   「데이터 누락 없이 이관」이 요구사항이라 저장은 다 하고, 보기는 여기서 편다. */
+function hqToggleDetail(id, btn) {
+  const tr = document.querySelector('#hq-table tr[data-hq="' + id + '"]');
+  if (!tr) return;
+  const open = tr.nextElementSibling && tr.nextElementSibling.classList.contains('hq-detail');
+  if (open) { tr.nextElementSibling.remove(); if (btn) btn.textContent = 'ⓘ'; return; }
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  if (!h) return;
+  const EN = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const row = (k, val) => '<div><span style="color:#64748b">' + k + '</span> · ' + (_esc(val || '') || '—') + '</div>';
+  const el = document.createElement('tr');
+  el.className = 'hq-detail';
+  el.innerHTML = '<td colspan="7" style="background-color:#f8fafc;font-size:12px;line-height:1.9">' +
+    row(EN ? 'E-commerce Reg. No.' : '통신판매업신고', h.ecommerce_no) +
+    row(EN ? 'Privacy Officer' : '개인정보 보호 책임자', h.privacy_officer) +
+    row(EN ? 'Email' : '이메일', h.email) +
+    row(EN ? 'Memo' : '메모', h.memo) +
+    row(EN ? 'Registered' : '등록', _fmtDateTime(h.created_at)) +
+    row(EN ? 'Updated' : '수정', _fmtDateTime(h.updated_at)) +
+    '</td>';
+  tr.insertAdjacentElement('afterend', el);
+  if (btn) btn.textContent = '×';
+}
+window.hqToggleDetail = hqToggleDetail;
+
+function hqSearch(v) {
+  clearTimeout(_hqSearchT);
+  _hqSearchT = setTimeout(function () { loadHqOrgs(v); }, 250);
+}
+window.hqSearch = hqSearch;
+
+const _HQ_INPUTS = { name:'hq-name', ceo_name:'hq-ceo', business_no:'hq-business-no', address:'hq-address',
+                     phone:'hq-phone', ecommerce_no:'hq-ecommerce', privacy_officer:'hq-privacy',
+                     email:'hq-email', memo:'hq-memo' };
+
+function _hqReadForm() {
+  const b = {};
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]);
+    b[k] = el ? (el.value || '').trim() : '';
+  });
+  return b;
+}
+function hqResetForm() {
+  _hqEditId = 0;
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]); if (el) el.value = '';
+  });
+  _hqSetBtnLabel(document.getElementById('hq-add-btn'), '+ 등록', '+ Add');
+  const c = document.getElementById('hq-cancel-btn'); if (c) c.style.display = 'none';
+}
+window.hqResetForm = hqResetForm;
+
+function hqEdit(id) {
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  if (!h) return;
+  _hqEditId = h.id;
+  Object.keys(_HQ_INPUTS).forEach(function (k) {
+    const el = document.getElementById(_HQ_INPUTS[k]); if (el) el.value = h[k] == null ? '' : h[k];
+  });
+  const wrap = document.getElementById('hq-form-wrap'); if (wrap) wrap.open = true;
+  _hqSetBtnLabel(document.getElementById('hq-add-btn'), '💾 수정 저장', '💾 Save');
+  const c = document.getElementById('hq-cancel-btn'); if (c) c.style.display = '';
+  const n = document.getElementById('hq-name'); if (n) { n.focus(); }
+}
+window.hqEdit = hqEdit;
+
+async function saveHqOrg() {
+  const b = _hqReadForm();
+  if (!b.name) { alert(adminLang === 'en' ? 'HQ name required' : '본사명은 필수입니다'); return; }
+  if (_hqEditId) {
+    b.id = _hqEditId;
+    const r = await fetch('/api/admin/org/hq', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', body: JSON.stringify(b)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) { alert((adminLang === 'en' ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status))); return; }
+  } else {
+    const d = await _menuPost('/api/admin/org/hq', b);
+    if (!d) return;
+  }
+  hqResetForm();
+  loadHqOrgs();
+}
+window.saveHqOrg = saveHqOrg;
+
+/* 🗑 삭제 — 한 번 누르면 «무장», 4초 안에 한 번 더 눌러야 확인창.
+   강사 프로필 제거(removeTeacherProfile)와 같은 방식이다. 실수 한 번에 법인정보가 사라지면 안 된다. */
+async function hqDelete(id, btn) {
+  const h = _hqRows.filter(x => String(x.id) === String(id))[0];
+  const name = h ? (h.name || ('#' + id)) : ('#' + id);
+  if (btn && btn.dataset && btn.dataset.armed !== '1') {
+    btn.dataset.armed = '1';
+    btn._prevHtml = btn.innerHTML;
+    _hqSetBtnLabel(btn, '한 번 더', 'Again?');
+    clearTimeout(btn._disarmT);
+    btn._disarmT = setTimeout(function () {
+      btn.dataset.armed = '';
+      _hqSetBtnLabel(btn, '🗑 삭제', '🗑 Delete');
+    }, 4000);
+    return;
+  }
+  if (btn) clearTimeout(btn._disarmT);
+  const ok = confirm((adminLang === 'en' ? 'Delete HQ record "' : '본사 정보 "') + name +
+    (adminLang === 'en' ? '"? This cannot be undone.' : '" 을(를) 삭제할까요?\n\n⚠️ 되돌릴 수 없습니다.'));
+  if (!ok) {
+    if (btn) { btn.dataset.armed = ''; _hqSetBtnLabel(btn, '🗑 삭제', '🗑 Delete'); }
+    return;
+  }
+  const r = await fetch('/api/admin/org/hq?id=' + encodeURIComponent(id), { method: 'DELETE', credentials: 'include' });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || d.ok === false) { alert((adminLang === 'en' ? 'Failed: ' : '실패: ') + (d.error || ('HTTP ' + r.status))); return; }
+  if (_hqEditId === id) hqResetForm();
+  loadHqOrgs();
+}
+window.hqDelete = hqDelete;
+
 // ── 대리점·학원 (테이블명 centers) ────────────────────────────────────
 //   ⚠️ «교육센터»가 아니다. 실데이터 921건이 "○○ 학원 / ○○ 대리점" 이고
 //      921건 중 744건이 학생 명부의 shop_name(대리점명)과 글자 그대로 일치한다.
@@ -8412,6 +8602,9 @@ window.bulkCopyContacts = function() {
   const e = id => document.getElementById(id);
   if (e('fr-add-btn'))      e('fr-add-btn').addEventListener('click', addFranchise);
   if (e('ct-add-btn'))      e('ct-add-btn').addEventListener('click', addCenter);
+  // 🏯 본사 관리 (2026-08-18) — 등록/수정 저장은 한 버튼이 겸한다(_hqEditId 로 분기)
+  if (e('hq-add-btn'))      e('hq-add-btn').addEventListener('click', saveHqOrg);
+  if (e('hq-cancel-btn'))   e('hq-cancel-btn').addEventListener('click', hqResetForm);
   if (e('lt-add-btn'))      e('lt-add-btn').addEventListener('click', addLevelTest);
   // 🥭 Phase 34 — 강사 정보 CRUD 버튼
   if (e('tp-add-btn'))          e('tp-add-btn').addEventListener('click', addTeacherProfile);
@@ -8793,6 +8986,9 @@ const CARD_LOADERS = {
   'card-community':         [loadCommunity],
   'card-textbooks':         [loadTextbooks],
   'card-payroll':           [loadPayrollRates],
+  // 🏯 (2026-08-18) 본사 관리 — «조직 관리» 카드 안의 하위항목이라 카드가 아니라 이 id 로 잡는다.
+  //    위 toggle 감시가 details 면 id 로 runCardLoaders 를 부르므로 하위항목도 그대로 걸린다.
+  'card-hq-orgs':           [loadHqOrgs],
 };
 const _cardLoaded = Object.create(null);
 function runCardLoaders(cardId) {
