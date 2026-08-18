@@ -1388,9 +1388,15 @@ export async function handleSalesHrApi(
 
   /** 요청한 rep_id 가 볼 수 있는 것인지. 본인 계정이면 자기 id 로 강제한다. */
   const scopedRepId = (raw: any): number | null => {
+    if (!hq) return myRepId;
+    // ⚠️ (2026-08-18 수리) 예전엔 `Number(raw)` 만 보고 isNaN 이 아니면 그대로 돌려줬다.
+    //    그런데 rep_id 가 아예 없으면 raw 는 null 이고 **Number(null) 은 0** 이다.
+    //    isNaN(0) 은 false 라 «0번 담당자» 로 해석됐고, 0번은 없으니 404 rep_not_found 가 났다.
+    //    휴대폰 화면(/sales)은 rep_id 를 안 붙이므로 **첫 화면이 통째로 안 열렸다.**
+    //    빈 값·0 이하는 «지정 안 함(null)» 으로 본다 — 그래야 부르는 쪽의 기본값 처리가 산다.
+    if (raw == null || String(raw).trim() === '') return null;
     const want = Number(raw);
-    if (hq) return isNaN(want) ? null : want;
-    return myRepId;
+    return (isNaN(want) || want <= 0) ? null : want;
   };
 
   let body: any = {};
