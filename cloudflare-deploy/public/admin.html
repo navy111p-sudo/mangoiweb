@@ -2357,7 +2357,14 @@
         <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-            <input id="acc-fs-month" type="month" value="2026-04" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
+            <!-- 📅 조회 단위 (2026-08-18) — 월별 / 분기별. 분기 목록은 adm-core.js 가 채운다
+                 («2026 1분기» 표기, 값은 서버가 받는 2026-Q1 형식). -->
+            <select id="acc-fs-mode" onchange="accFsModeChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
+              <option value="month" data-ko="월별" data-en="Monthly">월별</option>
+              <option value="quarter" data-ko="분기별" data-en="Quarterly">분기별</option>
+            </select>
+            <input id="acc-fs-month" type="month" value="2026-04" onchange="accFsPeriodChange()" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db" />
+            <select id="acc-fs-quarter" onchange="accFsPeriodChange()" style="display:none;padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db"></select>
             <select id="acc-fs-type" style="padding:5px 8px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">
               <option value="pl" data-ko="손익계산서 (P&L)" data-en="Income Statement (P&L)">손익계산서 (P&L)</option>
               <option value="bs" data-ko="재무상태표 (BS)" data-en="Balance Sheet">재무상태표 (BS)</option>
@@ -8994,10 +9001,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=104" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
+<script src="/js/adm-core.js?v=105" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
      ① main: PG 수수료율을 서버 값(pg_fee_rate)에서 받아 쓰기(화면 3곳에 3.3% 가 박혀 있었다)
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
-     파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
+     파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다.
+     · v=105: 2026-08-18 손익/재무제표 «분기별 조회» 추가 -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=8" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
