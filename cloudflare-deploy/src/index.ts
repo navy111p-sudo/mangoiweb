@@ -5337,6 +5337,17 @@ function isAgencyAllowedApi(path: string): boolean {
           POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
           이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
     '/api/admin/schedule-requests',
+    /* 🏢 조직 명부 (2026-08-18 사장님 수정요청 #03·#04) — 「영업사원·지사장·학원장이 보기 쉽게」.
+         그동안 조직 관리 화면은 지사장이 열어도 이 두 경로가 여기 없어 403 → **빈 표**만 떴고,
+         학원장에게는 카드 등급('branch')이 걸려 화면 자체가 안 보였다. 둘 다 이번에 연다.
+       ⚠️ 여는 조건은 하나 — **핸들러가 스코프로 자른 뒤에만** 연다. api-admin.ts 의
+          두 핸들러는 scopeFranchiseCond()/scopeCenterCond()(src/scope.ts)로
+          지사 = 자기 지사, 대리점(학원) = 자기 한 칸까지 잘라서 내려주고,
+          등록·수정·대표지사 지정은 canEditOrg() 로 본사만 허용한다(403).
+          그 조건절을 빼고 이 두 줄만 남기면 **전국 지사 241건·대리점 921건이 통째로 샌다.**
+          org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
+    '/api/admin/franchises',
+    '/api/admin/centers',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

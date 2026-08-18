@@ -13843,11 +13843,18 @@ window.rebuildGlobalSearchIndex = function() {
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    // 🏢 조직 관리 — 안에 지사(241) + 대리점·학원 전국 목록(921)이 함께 들어 있다.
-    //    합치기 전 두 카드 등급이 agency / branch 로 갈렸는데, 전국 목록이 더 민감하므로
-    //    엄격한 쪽('branch' = 본사+지사)으로 통일했다. (대리점 계정은 애초에 admin.html 을
-    //    못 받는다 — index.ts 가 /admin/exec 로 돌려보낸다. 그래도 화면 쪽도 맞춰 둔다.)
-    'card-franchises':        'branch',   // 🏢 조직 관리 (본사 › 지사 › 대리점)
+    /* 🏢 조직 관리 — 안에 대표지사 + 지사(241) + 대리점·학원(921)이 함께 들어 있다.
+       🔓 (2026-08-18 사장님 수정요청 #03·#04) 'branch' → 'agency'.
+          사장님이 「영업사원·지사장·학원장이 보기 쉽게」 하라고 하신 화면인데, 정작
+          **학원장에게는 카드째 안 보였고**(등급 'branch') 지사장이 열어도 API 가 403 이라
+          **빈 표**만 떴다. 셋 중 둘에게 닫힌 화면이었다.
+       ⚠️ 전국 명부를 연 것이 아니다 — 자료는 서버가 자른다:
+            · /api/admin/franchises · /api/admin/centers → scopeFranchiseCond/scopeCenterCond
+              (src/scope.ts) 로 지사 = 자기 지사, 대리점 = 자기 한 칸
+            · 등록·수정·대표지사 지정은 canEditOrg() 로 본사만 (403)
+          화면 쪽 짝은 아래 _applyOrgScopeUI() — 본사 전용 칸(대표지사·등록 폼)을 감춘다.
+          **서버와 화면 둘 다** 봐야 한다. 한쪽만 고치면 새거나, 빈 폼이 남는다. */
+    'card-franchises':        'agency',   // 🏢 조직 관리 (대표지사 › 지사 › 대리점)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정
@@ -13858,6 +13865,39 @@ window.rebuildGlobalSearchIndex = function() {
     'card-data-export':       'agency',   // 데이터 내보내기
     'card-daily-charts':      'agency',   // 일자별 차트
   };
+  /* 🏢 조직 관리 카드 — 본사 전용 칸을 지사·대리점에게 감춘다 (2026-08-18 수정요청 #03·#04)
+     카드 등급(CARD_POLICY)은 **카드 한 장 단위**라, 카드를 열면 그 안이 통째로 열린다.
+     그런데 이 카드 안에는 «보여도 되는 것»(자기 지사·자기 대리점 목록 — 서버가 잘라 준다)과
+     «보이면 안 되는 것»(대표지사 권역표, 등록·수정 폼)이 섞여 있다. 그래서 칸 단위로 한 번 더 자른다.
+     ⚠️ 서버가 이미 403 으로 막고 있다. 여기서 감추는 것은 «눌러도 안 되는 버튼» 을 안 보이게 하려는
+        것이지 보안이 아니다 — 이 함수를 지운다고 자료가 새지는 않는다(반대로, 서버 쪽
+        canEditOrg() 를 지우면 이 함수가 있어도 URL 로 뚫린다).
+     ⚠️ 감추는 방법은 «.rbac-hide 클래스» 다. 인라인 display 는 #legacy-cards 안에서
+        admin-inline-c.css 의 «카드들 보이게» 복구 규칙(!important)에 진다 — 역할별 카드 숨김이
+        PC 에서 통째로 안 먹던 것이 그 때문이었고(#264 로 수리), 여기도 같은 함정 위에 있다.
+        ⚠️ 이 클래스를 «읽는» 쪽(buildMenuIndex 등)은 `details.menu-card` 만 훑는다.
+           여기서 붙이는 대상은 카드가 아니라 카드 «안» 의 하위 칸이라 그 판정에 안 걸린다. */
+  function _applyOrgScopeUI(isHQ) {
+    var hq = !!isHQ;                 // 모르는 역할은 false — 막는 쪽으로 떨어진다
+    /* 감출 칸 —
+         · 🏛️ 대표지사(card-master-branches) = 전국 권역표. 자기 대표지사만 보이더라도
+           «등록·배정» 이 본사 일이라 칸째 감춘다.
+         · 🏯 본사 관리(card-hq-orgs) = 법인 정보(사업자등록번호·대표이사·주소). 지사·대리점이
+           볼 것도 고칠 것도 아니다. API(/api/admin/org/hq)는 지사 허용목록에 없어 이미 403 이라,
+           감추지 않으면 «열리는데 늘 비어 있는 칸» 이 된다. */
+    var ids = ['card-master-branches', 'card-hq-orgs'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('rbac-hide', !hq);
+    });
+    // 등록 폼 — «+ 지사 신규 등록», «+ 대리점(학원) 신규 등록». 서버가 403 이라 눌러도 안 된다.
+    ['fr-add-btn', 'ct-add-btn'].forEach(function (bid) {
+      var btn = document.getElementById(bid);
+      var box = btn && btn.closest ? btn.closest('details') : null;
+      if (box) box.classList.toggle('rbac-hide', !hq);
+    });
+  }
+
   function _applyMenuVisibility() {
     const s = window._adminSession;
     if (!s) return;
@@ -13898,6 +13938,7 @@ window.rebuildGlobalSearchIndex = function() {
       el.classList.toggle('rbac-hide', !visible);
       el.style.display = '';   // 옛 방식이 남긴 인라인 값 청소(있으면)
     });
+    _applyOrgScopeUI(isHQ);     // 본사(교사 포함)만 조직을 «고칠» 수 있다 — 모르는 역할은 막는 쪽으로
     // 사이드바 즉시 재인덱싱 (역할로 감춘 카드 제외됨)
     if (typeof buildMenuIndex === 'function') buildMenuIndex();
     /* 🔐 (2026-08-18) 역할 적용이 끝났다고 알린다.
