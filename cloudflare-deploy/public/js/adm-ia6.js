@@ -131,6 +131,10 @@
       ico: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
       items: [
         { ko: '회계',        en: 'Accounting',  cards: ['card-accounting-mgmt'] },
+        /* 📊 (2026-08-18 사장님 요청) 「매출 대시보드」 를 사이드바에서 바로 —
+           회계 카드 «안의» 접이식 줄(sub-acc-11)이라 회계를 열고 또 찾아야 했다.
+           대표지사·지사·대리점(org 그룹)과 같은 방식: 카드 열기 + openSub 로 그 칸까지 펼친다. */
+        { ko: '매출 대시보드', en: 'Sales Dashboard', cards: ['card-accounting-mgmt'], openSub: 'sub-acc-11' },
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
