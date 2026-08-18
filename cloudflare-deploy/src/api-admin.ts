@@ -7012,8 +7012,15 @@ ${chatSampleText}
           }
         }
         const QMAP: Record<string, string> = {
-          // 🧾 excluded_from_revenue = 「케이씨피M」(운영자금 이체). 매출·손익 집계에서 뺀 행이라 화면이 표시로 구분한다.
-          ledger: `MATCH (a:AccBook) ${month ? `WHERE a.month = $month OR a.date STARTS WITH $month` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue ORDER BY a.date DESC LIMIT $lim`,
+          /* 🧾 「케이씨피M」(하나은행 → 신한 운영자금 이체) 행은 **목록에서 아예 뺀다**
+             (2026-08-18 사장님 지시). 매출·손익 집계에서 빼는 것으로는 부족하고,
+             그 이름·금액이 화면에 남아 있는 것 자체를 원치 않으신다.
+             ⚠️ 그래서 이 목록은 «카페24 원본 그대로» 가 아니다 — 자금이체 행이 빠진 장부다.
+                원본 대조가 필요하면 카페24에서 봐야 한다.
+             excluded_from_revenue 는 계속 내려보낸다(항상 false 가 된다). 화면·하니스가
+             그 값으로 합계에서 빼는 안전망을 유지하고 있어, 이 WHERE 가 언젠가 느슨해져도
+             숫자는 틀어지지 않는다. */
+          ledger: `MATCH (a:AccBook) WHERE NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)${month ? ` AND (a.month = $month OR a.date STARTS WITH $month)` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
           expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
