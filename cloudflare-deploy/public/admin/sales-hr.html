@@ -100,6 +100,27 @@
   .chip{display:inline-block;background:rgba(59,130,246,.16);color:#93c5fd;font-size:12.5px;
        font-weight:800;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
   .chip.auto{background:rgba(16,185,129,.16);color:#6ee7b7}
+  .rank{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-bottom:1px solid rgba(148,163,184,.16)}
+  .rank:last-child{border-bottom:0}
+  .rank .no{width:30px;height:30px;border-radius:50%;background:rgba(245,158,11,.18);color:#fbbf24;
+       font-weight:900;font-size:14px;display:flex;align-items:center;justify-content:center;flex:none}
+  .rank .body{flex:1;min-width:0}
+  .rank .t{font-weight:800;font-size:16px}
+  .rank .r{font-size:13.5px;color:#a9b7ca;line-height:1.6;margin-top:3px}
+  .rank .sc{font-size:13px;color:#7c8ba1;flex:none;font-variant-numeric:tabular-nums}
+  .lvl{font-size:12.5px;font-weight:800;padding:3px 10px;border-radius:999px;white-space:nowrap}
+  .lvl.high{background:rgba(239,68,68,.18);color:#fca5a5}
+  .lvl.medium{background:rgba(245,158,11,.18);color:#fbbf24}
+  .lvl.low{background:rgba(16,185,129,.15);color:#6ee7b7}
+  .lvl.unknown{background:rgba(148,163,184,.16);color:#cbd5e1}
+  .flag{border-left:3px solid rgba(148,163,184,.5);padding:10px 0 10px 14px;margin:12px 0}
+  .flag.warn{border-left-color:#fbbf24}
+  .flag.info{border-left-color:#93c5fd}
+  .flag .t{font-weight:800;font-size:15.5px}
+  .flag .d{font-size:14px;color:#a9b7ca;line-height:1.7;margin-top:4px}
+  pre.report{white-space:pre-wrap;word-break:break-word;background:rgba(15,23,42,.6);
+       border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:16px;font-size:14.5px;
+       line-height:1.8;font-family:inherit;margin:12px 0 0}
   details.more{margin-top:10px}
   details.more > summary{cursor:pointer;color:#93c5fd;font-weight:700;font-size:15px}
   @media (max-width:760px){
@@ -158,7 +179,7 @@
   function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[] };
+  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[], reportText:'' };
 
   /* 기간 선택지 — 최근 12개월 + 최근 4개 반기.
      평가는 반기, 성과급은 월이라 둘 다 있어야 한다. */
@@ -251,7 +272,11 @@
     var html = '';
     html += kpiHtml(card, j);
     html += pipelineHtml(card);
+    html += nextVisitsHtml();
+    html += atRiskHtml();
     html += retentionHtml(j);
+    html += reportHtml();
+    html += fairnessHtml();
     html += scoreHtml(card, j);
     html += evalHtml();
     html += diaryHtml(j);
@@ -262,6 +287,9 @@
 
     bindAll();
     loadEvaluation();
+    loadNextVisits();
+    loadAtRisk();
+    loadFairness();
   }
 
   function repInfoHtml(r){
@@ -627,6 +655,160 @@
       .catch(function(){ g('ac_ai_msg').textContent = '정리하지 못했습니다. 아래 칸에 직접 적어 주세요.'; });
   }
 
+  /* ── 🗺 오늘 어디부터 갈까 ──────────────────────────────────────
+     서버가 규칙으로 점수를 매기고 «왜» 를 함께 보냅니다.
+     AI 로 순서를 정하지 않은 이유 — 이유를 설명 못 하면 아무도 그 순서를 안 따릅니다. */
+  function nextVisitsHtml(){
+    return '<div class="card"><h2>🗺 오늘 어디부터 갈까</h2>'
+      + '<p class="hint">단계·방치 일수·본인이 적어 둔 예정일·지역 묶음·근처 성공 사례로 점수를 매깁니다. '
+      + '<b>왜 이 순서인지</b>가 항상 함께 나옵니다.</p>'
+      + '<div id="nvBody"><div class="muted">불러오는 중…</div></div></div>';
+  }
+
+  function loadNextVisits(){
+    if(!STATE.repId || !g('nvBody')) return;
+    api('/api/admin/sales/next-visits?rep_id='+STATE.repId+'&limit=8')
+      .then(function(j){
+        if(!j.ok){ g('nvBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; return; }
+        var html='';
+        if(!(j.visits||[]).length){
+          html += '<div class="muted">후보 학원이 아직 없습니다. 아래 «후보 학원»에 몇 곳 넣으면 여기에 순서가 나옵니다.</div>';
+        } else {
+          html += (j.visits||[]).map(function(v,i){
+            return '<div class="rank"><div class="no">'+(i+1)+'</div><div class="body">'
+              + '<div class="t">'+esc(v.name)+(v.region?(' <span class="muted">· '+esc(v.region)+'</span>'):'')+'</div>'
+              + '<div class="r">'+esc((v.reasons||[]).join(' · '))+'</div>'
+              + (v.next_action?('<div class="r">할 일: '+esc(v.next_action)+(v.next_action_at?(' ('+esc(v.next_action_at)+')'):'')+'</div>'):'')
+              + (v.contact_phone?('<div class="r">'+esc(v.contact_name||'')+' '+esc(v.contact_phone)+'</div>'):'')
+              + '</div><div class="sc">'+v.score+'점</div></div>';
+          }).join('');
+        }
+        if((j.care_due||[]).length){
+          html += '<div class="warnbox" style="margin-top:14px"><b>관리방문이 끊긴 계약 학원</b><br>'
+            + (j.care_due||[]).slice(0,5).map(function(c){
+                return esc(c.center_name)+' — '+esc(c.reason);
+              }).join('<br>')
+            + '<br><span class="muted">관리방문은 유지율(15점 · 성과급 2차)의 실제 원인입니다.</span></div>';
+        }
+        g('nvBody').innerHTML=html;
+      })
+      .catch(function(){ g('nvBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; });
+  }
+
+  /* ── ⚠️ 위험한 학원 ───────────────────────────────────────────── */
+  function atRiskHtml(){
+    return '<div class="card"><h2>⚠️ 위험한 학원</h2>'
+      + '<p class="hint">계약한 학원의 <b>수업이 줄고 있는지</b>를 봅니다(최근 30일 vs 그 앞 30일). '
+      + '유지율은 평가 15점이자 성과급 2차 50%의 조건이라, 이 알림은 담당자에게 <b>직접 돈이 걸린 알림</b>입니다.</p>'
+      + '<div id="arBody"><div class="muted">불러오는 중…</div></div></div>';
+  }
+
+  function loadAtRisk(){
+    if(!STATE.repId || !g('arBody')) return;
+    api('/api/admin/sales/at-risk?rep_id='+STATE.repId+'&limit=40')
+      .then(function(j){
+        if(!j.ok){ g('arBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; return; }
+        var items=(j.items||[]).filter(function(x){ return x.level!=='low'; });
+        var c=j.counts||{};
+        var html='<div class="toolbar" style="margin-bottom:10px">'
+          + '<span class="lvl high">위험 '+(c.high||0)+'</span>'
+          + '<span class="lvl medium">주의 '+(c.medium||0)+'</span>'
+          + '<span class="lvl unknown">확인 불가 '+(c.unknown||0)+'</span></div>';
+        if(!items.length){
+          html += '<div class="okbox">지금 신경 쓸 학원이 없습니다. 계약한 학원들이 정상적으로 수업 중입니다.</div>';
+        } else {
+          html += '<div class="scroll"><table><thead><tr><th>학원</th><th>상태</th><th class="num">활성 학생</th>'
+            + '<th class="num">최근 30일</th><th class="num">그 전 30일</th></tr></thead><tbody>'
+            + items.map(function(x){
+                return '<tr><td>'+esc(x.center_name)+'</td>'
+                  + '<td><span class="lvl '+x.level+'">'+({high:'위험',medium:'주의',unknown:'확인 불가',low:'정상'})[x.level]+'</span></td>'
+                  + '<td class="num">'+x.active+'</td><td class="num">'+x.recent30+'</td><td class="num">'+x.prev30+'</td></tr>'
+                  + '<tr><td colspan="5" class="why">'+esc(x.reason)+'</td></tr>';
+              }).join('')
+            + '</tbody></table></div>';
+        }
+        g('arBody').innerHTML=html;
+      })
+      .catch(function(){ g('arBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; });
+  }
+
+  /* ── 📰 자동 보고서 ───────────────────────────────────────────── */
+  function reportHtml(){
+    return '<div class="card"><h2>📰 자동 보고서</h2>'
+      + '<p class="hint">사람이 보고서를 쓰지 않습니다. <b>월요일 아침에 지난주 보고가 알림으로 자동 발송</b>됩니다'
+      + '(활동이 0인 주는 보내지 않습니다 — 빈 보고서가 매주 오면 진짜 보고서도 같이 묻힙니다).</p>'
+      + '<div class="toolbar">'
+      + '<label class="f">기간<select id="rp_period">'
+        + '<option value="week">지난주</option><option value="week-0">이번 주</option>'
+        + '<option value="week-2">2주 전</option><option value="__month">이번 달</option>'
+        + '</select></label>'
+      + '<button class="btn" id="rp_load" type="button">보고서 만들기</button>'
+      + '<button class="btn ghost" id="rp_copy" type="button">복사</button>'
+      + '<span class="muted" id="rp_msg"></span></div>'
+      + '<div id="rpBody"></div></div>';
+  }
+
+  function loadReport(){
+    if(!STATE.repId) return;
+    var p=g('rp_period').value;
+    if(p==='__month') p = STATE.period.indexOf('-H')>0 ? new Date().toISOString().slice(0,7) : STATE.period;
+    g('rpBody').innerHTML='<div class="muted">만드는 중…</div>';
+    api('/api/admin/sales/report?rep_id='+STATE.repId+'&period='+encodeURIComponent(p))
+      .then(function(j){
+        if(!j.ok){ g('rpBody').innerHTML='<div class="muted">만들지 못했습니다.</div>'; return; }
+        STATE.reportText = j.text || '';
+        g('rpBody').innerHTML = '<pre class="report">'+esc(j.text||'')+'</pre>';
+        g('rp_msg').textContent = esc(j.period_label||'');
+      })
+      .catch(function(){ g('rpBody').innerHTML='<div class="muted">만들지 못했습니다.</div>'; });
+  }
+
+  function copyReport(){
+    var t = STATE.reportText || '';
+    if(!t){ g('rp_msg').textContent='먼저 보고서를 만들어 주세요.'; return; }
+    // 인앱 브라우저에서 clipboard API 가 막히는 경우가 있어 폴백을 둔다.
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){ g('rp_msg').textContent='복사했습니다.'; })
+        .catch(function(){ legacyCopy(t); });
+    } else { legacyCopy(t); }
+  }
+  function legacyCopy(t){
+    try{
+      var ta=document.createElement('textarea');
+      ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+      g('rp_msg').textContent='복사했습니다.';
+    }catch(e){ g('rp_msg').textContent='복사가 막혀 있습니다. 글을 직접 선택해 주세요.'; }
+  }
+
+  /* ── ⚖️ 공정성 감시 ───────────────────────────────────────────── */
+  function fairnessHtml(){
+    return '<div class="card"><h2>⚖️ 공정성 감시</h2>'
+      + '<p class="hint">평가 제도가 무너지는 이유는 대부분 「부정확해서」가 아니라 <b>「불공정하다고 느껴서」</b>입니다. '
+      + '그래서 사람이 놓치기 쉬운 운·환경 요인을 시스템이 먼저 짚어 올립니다. '
+      + '<b>점수를 자동으로 고치지는 않습니다</b> — 그러면 이 기능은 점수 부풀리기가 됩니다.</p>'
+      + '<div id="fnBody"><div class="muted">불러오는 중…</div></div></div>';
+  }
+
+  function loadFairness(){
+    if(!STATE.repId || !g('fnBody')) return;
+    api('/api/admin/sales/fairness?rep_id='+STATE.repId+'&period='+encodeURIComponent(STATE.period))
+      .then(function(j){
+        if(!j.ok){ g('fnBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; return; }
+        var f=j.flags||[];
+        if(!f.length){
+          g('fnBody').innerHTML='<div class="okbox">이번 기간에는 짚을 만한 불공정 신호가 없습니다. 점수를 그대로 보셔도 됩니다.</div>';
+          return;
+        }
+        g('fnBody').innerHTML = f.map(function(x){
+          return '<div class="flag '+x.level+'"><div class="t">'+esc(x.title)+'</div>'
+            + '<div class="d">'+esc(x.detail)+'</div></div>';
+        }).join('');
+      })
+      .catch(function(){ g('fnBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; });
+  }
+
   /* ── 후보 학원 등록 ─────────────────────────────────────────── */
   function leadFormHtml(){
     var rows = (STATE.leads||[]).slice(0,30).map(function(l){
@@ -790,6 +972,8 @@
     if(g('ac_parse')) g('ac_parse').addEventListener('click', parseDiary);
     setupMic();
     if(g('rt_sweep')) g('rt_sweep').addEventListener('click', runSweep);
+    if(g('rp_load')) g('rp_load').addEventListener('click', loadReport);
+    if(g('rp_copy')) g('rp_copy').addEventListener('click', copyReport);
     if(g('ld_save')) g('ld_save').addEventListener('click', saveLead);
     if(g('dl_save')) g('dl_save').addEventListener('click', saveDeal);
     bindRepForm();

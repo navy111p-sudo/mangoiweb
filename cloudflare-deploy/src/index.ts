@@ -2206,6 +2206,19 @@ const worker = {
           }
         }
 
+        // 📰 영업 주간 보고 — 월요일 아침(09:00 KST)에 한 번.
+        //   사람이 보고서를 쓰지 않는다. 숫자는 서버가 세고, 활동이 0인 주는 아예 보내지 않는다
+        //   (빈 보고서가 매주 오면 아무도 안 읽게 되고, 그러면 진짜 보고서도 같이 묻힌다).
+        if (kstDay === 1) {
+          try {
+            const { runSalesWeeklyReport } = await import('./api-sales-hr');
+            const sw = await runSalesWeeklyReport(env as any);
+            if (sw && sw.sent > 0) console.log('[sales-weekly]', JSON.stringify(sw));
+          } catch (err) {
+            console.error('[sales-weekly] error', err);
+          }
+        }
+
         // 🔁 영업 계약의 «3개월 유지» 자동 판정 (2026-08-18)
         //   왜 cron 인가 — 사람이 화면에서 버튼을 눌러야만 성과급 2차(50%)가 나가면,
         //   바쁜 달에는 담당자 월급이 밀린다. 제도가 사람의 부지런함에 기대면 언젠가 깨진다.
