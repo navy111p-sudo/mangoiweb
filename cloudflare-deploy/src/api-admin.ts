@@ -2065,7 +2065,11 @@ export async function handleAdminApi(
         agg.base_amount += base;
         agg.pay_amount += amount;
         agg.deduction_total += dSum;
-        agg.final_amount = agg.pay_amount - agg.deduction_total;
+        /* 💸 (2026-08-18 사장님 확인) 0 하한 — 단가 미지정(수업료 0) 강사에게 피드백 미작성
+           공제만 붙어 «실지급 -350» 이 화면·CSV 에 그대로 나오던 것. 수업별 순지급(net_amount)은
+           이미 Math.max(0,…) 인데 월 합계만 음수가 될 수 있었다. 공제 합계는 그대로 보여 주고
+           (얼마가 깎였는지는 사실이므로) 지급액만 음수로 내려가지 않게 한다. */
+        agg.final_amount = Math.max(0, agg.pay_amount - agg.deduction_total);
       }
 
       return { rules: ruleRows.results || [], levels: lvlRows.results || [], levelMap, absent_pay_percent: absentPct, postponed_pay_percent: postponePct, lessons, perTeacher, teachers: teachers.results || [], teacherNames: teacherNameById };
@@ -2104,6 +2108,9 @@ export async function handleAdminApi(
         const _lvl = t.level ? (data.levelMap || {})[t.level] : null;
         const rate20 = t.fee_per_10min ? Number(t.fee_per_10min) * 2 : (_lvl ? Number(_lvl.rate_per_20min) || 0 : 0);
         const fee = rate20 / 2;
+        // 🎖 단가가 하나도 없는 강사(개별 단가도, 등급도 없음) — 수업이 있어도 수업료가 0 으로
+        //    계산된다. 화면이 «금액이 0» 과 «단가가 없어 계산 불가» 를 구분할 수 있게 표시한다.
+        const rateMissing = !(rate20 > 0);
         const s = savedMap[t.id];
         totalAmount += a.pay_amount;
         totalLessons += a.lesson_count;
@@ -2119,6 +2126,7 @@ export async function handleAdminApi(
           level_label_ko: _lvl ? _lvl.label_ko : null,
           level_label_en: _lvl ? _lvl.label_en : null,
           rate_per_20min: rate20,
+          rate_missing: rateMissing,
           lesson_count: a.lesson_count,
           total_minutes: a.total_minutes,
           calculated_amount: a.pay_amount,
@@ -2256,7 +2264,8 @@ export async function handleAdminApi(
         sum.pay_amount += l.amount;
         sum.deduction_total += l.deduction_total;
       }
-      sum.final_amount = sum.pay_amount - sum.deduction_total;
+      // 💸 0 하한 — 목록(/calculate)과 같은 규칙. 상세만 음수면 두 화면이 서로 어긋난다.
+      sum.final_amount = Math.max(0, sum.pay_amount - sum.deduction_total);
 
       const _tLvl = teacher && teacher.level ? (data.levelMap || {})[teacher.level] : null;
       return json({
