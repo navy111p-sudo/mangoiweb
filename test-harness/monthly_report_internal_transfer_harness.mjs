@@ -107,6 +107,14 @@ console.log('\n⑤ 손익계산서·대사 리포트에도 설명이 남아 있�
   ok(/if \(kind === 'transfer' && isKnownTransfer\(row\.remark\)\) continue;/.test(rec),
     '확인된 내부 이체는 대사 집계 어느 칸에도 넣지 않는다');
   ok(/성격 미확인 입금/.test(rec), '남은 칸 이름은 「성격 미확인 입금」 이다');
+
+  /* 대사 «화면» 도 같이 본다 — 서버 문구만 고치고 화면 각주를 두면 그대로 보인다.
+     ⚠️ 「정산·매출 > 카페24 회계 실데이터」 탭은 별개 화면이라 이 검사 범위 밖이다
+        (2026-08-18 PR #234 에서 사장님이 «제외 표시를 보이게» 하라고 지시한 곳). */
+  const rcUi = slice(core, 'window.accLoadReconcile = async function', 'window.accReconcileExcel');
+  ok(rcUi.length > 500, 'accLoadReconcile() 을 찾았다');
+  ok(!/케이씨피M/.test(rcUi), '대사 화면 각주에 「케이씨피M」 이 없다');
+  ok(!/운영자금/.test(rcUi), '대사 화면 각주에 「운영자금」 표현이 없다');
 }
 
 /* ── ⑥ ⛔ 판정 규칙 자체는 살아 있어야 한다 ───────────────────── */
