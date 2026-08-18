@@ -1936,6 +1936,90 @@ export async function handleSalesHrApi(
     return json({ ok: true, draft, lead_count: leads.length });
   }
 
+  // ── 📱 휴대폰 화면 전용 — 첫 화면에 필요한 «전부» 를 한 번에 ──────
+  //
+  //   왜 따로 만들었나 (2026-08-18 사장님 지시):
+  //     영업이사는 하루 종일 운전한다. 화면을 볼 수 있는 순간이 짧고, 회선도 나쁘다
+  //     (터널·시골). 이 화면이 홈·우선순위·위험·실적을 각각 부르면 왕복이 4번이고,
+  //     그중 하나만 늦어도 «안 열리는 앱» 이 된다.
+  //     → /api/approval/home · /api/teacher/portal 과 같은 «한 번에» 방식을 쓴다.
+  //
+  //   ⚠️ 이 엔드포인트는 화면을 위해 «모아 주기만» 한다. 계산은 전부 기존 함수를 그대로
+  //      부른다 — 여기서 다시 계산하면 사무실 화면과 숫자가 어긋나는 날이 반드시 온다.
+  if (path === '/api/admin/sales/mobile' && method === 'GET') {
+    const asOf = todayISO();
+    const periodRaw = String(url.searchParams.get('period') || '').trim() || asOf.slice(0, 7);
+    const range = parsePeriod(periodRaw) || parsePeriod(asOf.slice(0, 7))!;
+
+    // 담당자 고르기 — 본인 계정이면 자기 것, 본사 계정이면 지정한 사람(없으면 첫 활성자).
+    let repId = scopedRepId(url.searchParams.get('rep_id'));
+    if (repId == null) {
+      const first: any = await env.DB.prepare(
+        `SELECT id FROM sales_reps WHERE active = 1 ORDER BY id ASC LIMIT 1`
+      ).first().catch(() => null);
+      repId = first ? Number(first.id) : null;
+    }
+    if (repId == null) {
+      return json({ ok: true, empty: true, message: '등록된 영업담당자가 없습니다. 관리자 화면에서 먼저 등록하세요.' });
+    }
+    const rep0 = await getRep(env, repId);
+    if (!rep0) return json({ ok: false, error: 'rep_not_found' }, 404);
+
+    const auto = await computeAutoScores(env, rep0, range, asOf);
+    const comp = await computeCompensation(env, rep0, range);
+    const visits = await computeNextVisits(env, repId, asOf, 5);
+    const care = await computeCareDue(env, repId, asOf, 45, 3);
+    const risk = (await computeAtRisk(env, repId, asOf, 25))
+      .filter(x => x.level === 'high' || x.level === 'medium');
+
+    const leadRs: any = await env.DB.prepare(
+      `SELECT id, name, region, stage, contact_name, contact_phone, next_action, last_contact_at
+         FROM sales_leads WHERE rep_id = ? AND status = 'active'
+        ORDER BY stage DESC, COALESCE(last_contact_at,'') DESC, id DESC LIMIT 200`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+
+    const pipe: any = await env.DB.prepare(
+      `SELECT stage, COUNT(*) AS c FROM sales_leads WHERE rep_id = ? AND status = 'active' GROUP BY stage`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+    const byStage: Record<number, number> = {};
+    for (const r of (pipe?.results || [])) byStage[Number(r.stage)] = num(r.c, 0);
+
+    // 오늘 이미 일지를 남겼는지 — 「오늘 기록했어요」 표시에 쓴다(잔소리 대신 확인).
+    const today: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS c FROM sales_activities WHERE rep_id = ? AND activity_date = ?`
+    ).bind(repId, asOf).first().catch(() => null);
+
+    const itemOf = (k: string) => auto.items.filter(i => i.key === k)[0] || null;
+
+    return json({
+      ok: true, as_of: asOf, period: periodRaw, period_label: range.label,
+      rep: {
+        id: rep0.id, name: rep0.name,
+        base_salary_krw: num(rep0.base_salary_krw, 0),
+        incentive_per_deal_krw: num(rep0.incentive_per_deal_krw, 0),
+      },
+      can_edit: hq,
+      advisory: isAdvisoryPeriod(rep0, range), baseline_until: baselineUntil(rep0),
+      kpi: {
+        deals: auto.deal_count, deals_target: auto.targets.deals,
+        students: auto.student_count, students_target: auto.targets.students,
+        visits: itemOf('visits')?.actual ?? 0, visits_target: auto.targets.visits,
+        diary_days: itemOf('diary')?.actual ?? 0, workdays: auto.targets.workdays,
+        logged_today: num(today?.c, 0) > 0,
+      },
+      money: {
+        incentive_krw: comp.incentive_krw,
+        base_salary_krw: comp.base_salary_krw,
+        total_krw: comp.total_krw,
+        per_deal_krw: comp.per_deal_krw,
+        lines: comp.lines,
+      },
+      pipeline: SALES_STAGES.map(s => ({ ...s, count: byStage[s.n] || 0 })),
+      next_visits: visits, care_due: care, at_risk: risk,
+      leads: leadRs?.results || [], stages: SALES_STAGES,
+    });
+  }
+
   // ── 🗺 오늘 어디부터 갈까 — 방문 우선순위 + 관리방문 필요 ─────────
   if (path === '/api/admin/sales/next-visits' && method === 'GET') {
     const repId = scopedRepId(url.searchParams.get('rep_id'));
