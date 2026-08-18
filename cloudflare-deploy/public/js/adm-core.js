@@ -13526,7 +13526,12 @@ window.rebuildGlobalSearchIndex = function() {
     // 역할별 사용자 표 다시 렌더 (열려있을 때만)
     if (typeof renderUsersByRole === 'function') renderUsersByRole();
   }
-  window.registerHqEmployee = function() {
+  /* ➕ 본사 직원 등록 — 서버에 «진짜로» 만든다.  (2026-08-18 수리)
+     ⚠️ 예전 이 함수는 localStorage 에만 넣고 「✅ 등록 완료」 알림을 띄웠다.
+        서버로는 아무것도 안 보내서, «등록했는데 로그인이 안 되는» 계정이 만들어졌다.
+        (CLAUDE.md 「비밀번호 변경 시연 껍데기 4벌」과 같은 종류)
+     임시 비밀번호는 서버가 만들어 **이 화면에서 한 번만** 보여 준다. 어디에도 저장하지 않는다. */
+  window.registerHqEmployee = async function() {
     const $ = id => document.getElementById(id);
     const uid = ($('hqe-uid')?.value || '').trim();
     const name = ($('hqe-name')?.value || '').trim();
@@ -13535,21 +13540,59 @@ window.rebuildGlobalSearchIndex = function() {
     const phone = ($('hqe-phone')?.value || '').trim();
     const branch = ($('hqe-branch')?.value || '').trim();
     const msg = $('hqe-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
+    const btn = document.querySelector('#card-permissions button.primary');
+    function show(t, ok) {
+      if (!msg) { alert(t); return; }
+      msg.style.display = 'block';
+      msg.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+      msg.style.borderColor = ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+      msg.style.color = ok ? '#065f46' : '#b91c1c';
+      msg.innerHTML = t;
+    }
     if (msg) msg.style.display = 'none';
-    if (!uid || uid.length < 3) return showErr('⚠️ 아이디는 3자 이상 입력하세요.');
-    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return showErr('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
-    if (!name) return showErr('⚠️ 이름을 입력하세요.');
-    // 중복 체크
-    if (SAMPLE_USERS.some(u => u.uid === uid)) return showErr('⚠️ 이미 사용 중인 아이디입니다.');
-    const arr = _hqeLoad();
-    arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
-    _hqeSave(arr);
-    _hqeRefreshAll();
-    pushAuditLog((adminLang==='en'?'HQ employee registered: ':'본사 직원 등록: ') + name + ' (' + uid + ' · ' + rank + ')');
-    // 폼 초기화
-    ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
-    alert((adminLang==='en' ? '✅ Registered: ' : '✅ 등록 완료: ') + name);
+
+    // 화면에서도 한 번 거른다(서버가 정본이지만, 왕복 전에 알려주는 편이 빠르다)
+    if (!uid || uid.length < 3) return show('⚠️ 아이디는 3자 이상 입력하세요.');
+    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return show('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
+    if (!name) return show('⚠️ 이름을 입력하세요.');
+
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/staff-create', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uid, name: name, rank: rank, email: email, phone: phone })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        show('⚠️ ' + (j.message || j.error || '등록하지 못했습니다.'));
+        return;
+      }
+      // 임시 비번은 지금 한 번만 보인다 — 눈에 띄게 크게.
+      show(
+        '<b style="font-size:13.5px">✅ ' + name + '(' + uid + ') 계정을 만들었습니다.</b><br>' +
+        '<div style="margin-top:8px;padding:10px 12px;background:#fff;border:2px solid #10b981;border-radius:8px">' +
+          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">임시 비밀번호 — 이 화면에서만 보입니다</div>' +
+          '<div style="font-family:MangoiHanSC,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:1px;color:#065f46;margin-top:3px">' +
+            (j.temp_password || '') + '</div>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.7">' +
+          '본인에게 전달하시고, <b>로그인 후 마이페이지에서 비밀번호를 바꾸라고</b> 안내하세요.<br>' +
+          '잃어버리면 「강사·직원 비밀번호 재설정」으로 다시 만들 수 있습니다.' +
+        '</div>', true);
+
+      // 화면 목록용 기록(이 브라우저에만 남는 편의용 목록이다 — 계정 자체는 서버에 있다)
+      const arr = _hqeLoad();
+      arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
+      _hqeSave(arr);
+      _hqeRefreshAll();
+      pushAuditLog((adminLang==='en'?'HQ employee created: ':'본사 직원 계정 생성: ') + name + ' (' + uid + ' · ' + rank + ')');
+      ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+    } catch (e) {
+      show('⚠️ 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   };
   // 페이지 로드 시 + 권한 카드 토글 시 갱신
   document.addEventListener('DOMContentLoaded', () => {
@@ -13843,11 +13886,18 @@ window.rebuildGlobalSearchIndex = function() {
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    // 🏢 조직 관리 — 안에 지사(241) + 대리점·학원 전국 목록(921)이 함께 들어 있다.
-    //    합치기 전 두 카드 등급이 agency / branch 로 갈렸는데, 전국 목록이 더 민감하므로
-    //    엄격한 쪽('branch' = 본사+지사)으로 통일했다. (대리점 계정은 애초에 admin.html 을
-    //    못 받는다 — index.ts 가 /admin/exec 로 돌려보낸다. 그래도 화면 쪽도 맞춰 둔다.)
-    'card-franchises':        'branch',   // 🏢 조직 관리 (본사 › 지사 › 대리점)
+    /* 🏢 조직 관리 — 안에 대표지사 + 지사(241) + 대리점·학원(921)이 함께 들어 있다.
+       🔓 (2026-08-18 사장님 수정요청 #03·#04) 'branch' → 'agency'.
+          사장님이 「영업사원·지사장·학원장이 보기 쉽게」 하라고 하신 화면인데, 정작
+          **학원장에게는 카드째 안 보였고**(등급 'branch') 지사장이 열어도 API 가 403 이라
+          **빈 표**만 떴다. 셋 중 둘에게 닫힌 화면이었다.
+       ⚠️ 전국 명부를 연 것이 아니다 — 자료는 서버가 자른다:
+            · /api/admin/franchises · /api/admin/centers → scopeFranchiseCond/scopeCenterCond
+              (src/scope.ts) 로 지사 = 자기 지사, 대리점 = 자기 한 칸
+            · 등록·수정·대표지사 지정은 canEditOrg() 로 본사만 (403)
+          화면 쪽 짝은 아래 _applyOrgScopeUI() — 본사 전용 칸(대표지사·등록 폼)을 감춘다.
+          **서버와 화면 둘 다** 봐야 한다. 한쪽만 고치면 새거나, 빈 폼이 남는다. */
+    'card-franchises':        'agency',   // 🏢 조직 관리 (대표지사 › 지사 › 대리점)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정
@@ -13858,6 +13908,39 @@ window.rebuildGlobalSearchIndex = function() {
     'card-data-export':       'agency',   // 데이터 내보내기
     'card-daily-charts':      'agency',   // 일자별 차트
   };
+  /* 🏢 조직 관리 카드 — 본사 전용 칸을 지사·대리점에게 감춘다 (2026-08-18 수정요청 #03·#04)
+     카드 등급(CARD_POLICY)은 **카드 한 장 단위**라, 카드를 열면 그 안이 통째로 열린다.
+     그런데 이 카드 안에는 «보여도 되는 것»(자기 지사·자기 대리점 목록 — 서버가 잘라 준다)과
+     «보이면 안 되는 것»(대표지사 권역표, 등록·수정 폼)이 섞여 있다. 그래서 칸 단위로 한 번 더 자른다.
+     ⚠️ 서버가 이미 403 으로 막고 있다. 여기서 감추는 것은 «눌러도 안 되는 버튼» 을 안 보이게 하려는
+        것이지 보안이 아니다 — 이 함수를 지운다고 자료가 새지는 않는다(반대로, 서버 쪽
+        canEditOrg() 를 지우면 이 함수가 있어도 URL 로 뚫린다).
+     ⚠️ 감추는 방법은 «.rbac-hide 클래스» 다. 인라인 display 는 #legacy-cards 안에서
+        admin-inline-c.css 의 «카드들 보이게» 복구 규칙(!important)에 진다 — 역할별 카드 숨김이
+        PC 에서 통째로 안 먹던 것이 그 때문이었고(#264 로 수리), 여기도 같은 함정 위에 있다.
+        ⚠️ 이 클래스를 «읽는» 쪽(buildMenuIndex 등)은 `details.menu-card` 만 훑는다.
+           여기서 붙이는 대상은 카드가 아니라 카드 «안» 의 하위 칸이라 그 판정에 안 걸린다. */
+  function _applyOrgScopeUI(isHQ) {
+    var hq = !!isHQ;                 // 모르는 역할은 false — 막는 쪽으로 떨어진다
+    /* 감출 칸 —
+         · 🏛️ 대표지사(card-master-branches) = 전국 권역표. 자기 대표지사만 보이더라도
+           «등록·배정» 이 본사 일이라 칸째 감춘다.
+         · 🏯 본사 관리(card-hq-orgs) = 법인 정보(사업자등록번호·대표이사·주소). 지사·대리점이
+           볼 것도 고칠 것도 아니다. API(/api/admin/org/hq)는 지사 허용목록에 없어 이미 403 이라,
+           감추지 않으면 «열리는데 늘 비어 있는 칸» 이 된다. */
+    var ids = ['card-master-branches', 'card-hq-orgs'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('rbac-hide', !hq);
+    });
+    // 등록 폼 — «+ 지사 신규 등록», «+ 대리점(학원) 신규 등록». 서버가 403 이라 눌러도 안 된다.
+    ['fr-add-btn', 'ct-add-btn'].forEach(function (bid) {
+      var btn = document.getElementById(bid);
+      var box = btn && btn.closest ? btn.closest('details') : null;
+      if (box) box.classList.toggle('rbac-hide', !hq);
+    });
+  }
+
   function _applyMenuVisibility() {
     const s = window._adminSession;
     if (!s) return;
@@ -13898,8 +13981,14 @@ window.rebuildGlobalSearchIndex = function() {
       el.classList.toggle('rbac-hide', !visible);
       el.style.display = '';   // 옛 방식이 남긴 인라인 값 청소(있으면)
     });
-    // 사이드바 즉시 재인덱싱 (display:none 카드 제외됨)
+    _applyOrgScopeUI(isHQ);     // 본사(교사 포함)만 조직을 «고칠» 수 있다 — 모르는 역할은 막는 쪽으로
+    // 사이드바 즉시 재인덱싱 (역할로 감춘 카드 제외됨)
     if (typeof buildMenuIndex === 'function') buildMenuIndex();
+    /* 🔐 (2026-08-18) 역할 적용이 끝났다고 알린다.
+       PC 사이드바(adm-ia6.js)는 정적 GROUPS 목록으로 그려 역할을 모르기 때문에, 이 신호를 받아
+       «가리키는 카드가 전부 감춰진» 항목을 감춘다. 안 그러면 눌러도 빈 화면인 메뉴가 남는다.
+       ⚠️ 이 함수는 로그인·세션 갱신 때마다 다시 도므로 신호도 그때마다 나간다. */
+    try { document.dispatchEvent(new CustomEvent('mangoi:menu-visibility')); } catch (e) { /* 무시 */ }
   }
 
   // 페이지 로드 시 세션 확인

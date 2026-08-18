@@ -81,9 +81,20 @@
     'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
     'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
     'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
+    /* 💰 회계관리 (2026-08-18 사장님 제보 «손익/재무제표가 메뉴에서 안 보인다») —
+       이름 넷이 문자열이라 옛 방식(«카드 안 N번째 details»)으로 점프했고 그 순서가 실제와 달랐다:
+         3 법인카드   → 실제로는 «🧾 강사 급여 / 정산» 이 열렸고
+         4 손익·재무  → 실제로는 «🌍 국가별 강사료 환전 / 🏢 지점·가맹점 정산» 근처가 열렸다.
+       손익/재무제표는 뒤쪽 칸이라 손으로 찾으려면 한참 스크롤해야 한다 → «메뉴에 없다» 로 보인다.
+       ⚠️ (2026-08-18 2차) 그때는 넷만 앵커로 바꿨는데, 이 카드의 하위칸은 **19개 전부**가
+          갈 만한 자리다. 넷만 두면 나머지 15칸은 여전히 스크롤로 찾아야 한다 → 전부 실었다.
+       ⚠️ anchor id 는 admin.html 의 그 <details> 에 달려 있다. 한쪽만 바꾸면 조용히 옛 방식으로
+          되돌아가 또 엉뚱한 칸이 열린다(에러가 안 나서 알아채기 어렵다).
+       ⚠️ ko 이름은 «화면에 적힌 그대로» 다. 짧게 줄이면 손자 메뉴 설명 사전(admin-tip-i18n.js)
+          조회가 어긋나므로, 줄일 때는 그 사전도 함께 볼 것. */
     'card-accounting-mgmt':     [
       { ko:'🔔 수강료 미연장 자동 알림',            en:'🔔 Non-renewal Auto-Notify', anchor:'sub-overdue' },
-      { ko:'💳 학생 결제 내역',                 en:'💳 Student Payments', anchor:'sub-acc-2' },
+      { ko:'💳 학생 결제 내역',                 en:'💳 Student Payments', anchor:'acc-student-payments' },
       { ko:'🧾 강사 급여 / 정산',               en:'🧾 Teacher Payroll', anchor:'sub-acc-3' },
       { ko:'🌍 국가별 강사료 환전',               en:'🌍 Multi-currency Payout', anchor:'sub-acc-4' },
       { ko:'🏢 지점/가맹점 정산',                en:'🏢 Branch Settlement Dashboard', anchor:'sub-acc-5' },

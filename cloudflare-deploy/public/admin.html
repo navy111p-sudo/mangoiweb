@@ -1998,7 +1998,9 @@
       </details>
 
       <!-- 1. 학생 결제 내역 -->
-      <details id="sub-acc-2" class="sub-item">
+      <!-- 🔗 id 는 사이드바 손자 메뉴(회계 › 2 학생 결제)가 찾아오는 앵커다. 지우지 말 것 — 없으면
+           옛 방식(«카드 안 N번째 details»)으로 되돌아가 엉뚱한 칸이 열린다(2026-08-18). -->
+      <details class="sub-item" id="acc-student-payments">
         <summary data-ko="💳 학생 결제 내역" data-en="💳 Student Payments">💳 학생 결제 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
@@ -2828,8 +2830,8 @@
       <details id="sub-perm-2" class="sub-item">
         <summary data-ko="➕ 본사 직원 등록" data-en="➕ Register HQ Employee">➕ 본사 직원 등록</summary>
         <div class="sub-body">
-          <p style="margin:0 0 10px;font-size:12.5px;color:#374151" data-ko="새 본사 직원을 등록합니다. 직급(경영진·관리자·교사)을 선택하면 권한 매트릭스가 즉시 적용되고, 카운트 카드·역할 필터에도 자동 반영됩니다." data-en="Register a new HQ employee. The selected rank (Executive·Manager·Teacher) is applied to the permission matrix immediately and reflected in role counters & filters.">
-            새 본사 직원을 등록합니다. 직급(경영진·관리자·교사)을 선택하면 권한 매트릭스가 즉시 적용되고, 카운트 카드·역할 필터에도 자동 반영됩니다.
+          <p style="margin:0 0 10px;font-size:12.5px;color:#374151" data-ko="새 본사 직원의 로그인 계정을 실제로 만듭니다. 등록하면 임시 비밀번호가 이 화면에 한 번만 표시됩니다 — 본인에게 전달하고 로그인 후 마이페이지에서 바꾸게 하세요." data-en="Creates a real login account for a new HQ employee. A temporary password is shown here once — pass it on and have them change it in My Page after signing in.">
+            새 본사 직원의 <b>로그인 계정을 실제로 만듭니다.</b> 등록하면 <b>임시 비밀번호가 이 화면에 한 번만</b> 표시됩니다 — 본인에게 전달하고 로그인 후 마이페이지에서 바꾸게 하세요. 직급을 선택하면 권한 매트릭스가 즉시 적용됩니다.
           </p>
           <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:10px">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
@@ -7617,7 +7619,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   //      그 카드는 전용 서버 검색창(#ct-q → ctSearch)을 쓴다. 다시 넣지 말 것.
   //   🗑️ (2026-08-18) 'branches-table' 제거 — «🏢 지사 (구)» 섹션을 통째로 지웠다(위 주석 참고).
   //   🗑️ (2026-08-18) 'indep-table' 제거 — 독립 사이트 섹션을 통째로 지웠다(위 주석 참고).
-  //      'hq-table' 은 배선이 붙어 살아 있다.
+  //   🚫 (2026-08-18) 'hq-table' 도 빼냈다 — 위 'centers-table' 과 **같은 이유**다.
+  //      «배선이 붙었으니 살려 둔다» 로 잠깐 남아 있었는데, 배선이 붙으면서 그 카드에
+  //      **전용 서버 검색창(#hq-q → hqSearch → /api/admin/org/hq?q=)** 도 같이 생겼다.
+  //      그래서 그대로 두면 검색창이 «두 개» 보인다 — 2026-08-18 실제 화면에서 확인했다
+  //      (헤드리스 렌더 캡처). 게다가 아래 MutationObserver 가 서버 검색 결과를 한 번 더
+  //      걸러서, 서버가 찾아 준 행까지 display:none 으로 숨긴다. 다시 넣지 말 것.
   //   ↩️ (2026-08-18) 'mbranches-table' 을 **다시 넣었다.** 위 🗑️ 로 지웠던 것은 «껍데기라서» 였는데
   //      그 뒤 «🏛️ 대표지사» 가 배선돼 돌아왔고(수정요청 #03), 목록 검색이 없어 요청 #11 의
   //      「목록 검색(이름·대표·전화·주소)이 정상 동작해야 함」이 비어 있었다.
@@ -7626,7 +7633,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   //         받은 것을 다 그린다. 즉 «화면에 있는 행» = «전체» 라 걸러도 새는 것이 없다.
   //      ⚠️ 나중에 대표지사에 서버 페이징을 붙이면 그 순간 이 필터는 거짓말이 된다.
   //         그때는 여기서 빼고 대리점(#ct-q)처럼 전용 서버 검색창을 달 것.
-  var TABLES = ['franchises-table','hq-table','mbranches-table'];
+  var TABLES = ['franchises-table','mbranches-table'];
   function bindFilters(){
     TABLES.forEach(function(id){
       var tb = document.getElementById(id); if (!tb) return;
@@ -9098,7 +9105,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=122" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=126" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=126: 2026-08-18 「본사 직원 등록」이 시연용 껍데기였던 것을 진짜 계정 생성으로 교체
+     (localStorage 에만 넣고 「등록 완료」를 띄우던 것 → POST /api/admin/staff-create 호출.
+      이 브랜치도 v=123 으로 땄다가 밀렸다 — main 이 123·124·125 를 먼저 가져갔다.
+      파일 맨 아래 규칙대로 **양쪽보다 큰 번호**를 새로 딴다. 내용은 자동병합으로 양쪽이 다 들어가 있다)
+   · v=125: 2026-08-18 조직 관리 카드를 지사장·학원장에게도 연다(CARD_POLICY branch→agency)
+     + 본사 전용 칸(대표지사·본사 법인정보·등록 폼) 숨김 _applyOrgScopeUI(). 자료는 서버가 스코프로 자른다
+     (이 브랜치는 v=123 → v=124 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
+      파일 맨 아래 규칙대로 **양쪽보다 큰 번호**를 새로 딴다. 내용은 자동병합으로 양쪽이 다 들어가 있다)
+   · v=123: 2026-08-18 사이드바 항목도 역할 권한을 따르게 — 「눌러도 빈 화면」인 메뉴를 감춘다
+   · v=122: 2026-08-18 역할별 메뉴 숨김이 PC 에서 안 먹던 것 수리 (.rbac-hide 클래스로 전환)
    · v=121: 2026-08-18 🏛️ 대표지사 배선(목록·등록·지사 배정) + 지사 소속 대리점 찾기
      (이 브랜치는 v=107 → v=119 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
       아래 v=104 때와 같은 상황이라 같은 방식으로 번호만 새로 딴다. adm-core.js 내용은
@@ -11477,7 +11494,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=12" defer></script><!-- v=12: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드 84항목) + 🌐 언어전환 반영 · 숨은 탭 열기 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=13" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -12191,7 +12208,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=30" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동) -->
+<script src="/js/adm-ia6.js?v=31" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

@@ -131,6 +131,57 @@ export async function getScope(env: ScopeEnv, request: Request, opts: GetScopeOp
   return base;
 }
 
+/* ══ 🏢 조직 명부(지사·대리점) 스코프 — 2026-08-18 수정요청 #03·#04 ══════════════
+   왜 여기 있나 —
+     조직 관리 화면은 그동안 «본사+지사» 등급이라 대리점(학원장)에게는 카드째 안 보였고,
+     지사장이 열어도 /api/admin/franchises·centers 가 지사 허용목록에 없어 403 → 빈 표였다.
+     사장님이 「영업사원·지사장·학원장이 보기 쉽게」 하라고 하신 화면이 정작 그 셋 중
+     둘에게 닫혀 있었던 것이다. 그래서 그 두 API 를 **스코프를 걸어서** 연다.
+
+   위의 stuCond/scopeStudentCond 는 students_erp(학생 명부) 기준이다. 조직 명부는
+   franchises.name / centers.franchise_id 를 봐야 해서 조건이 다르다 — 그래서 따로 둔다.
+
+   ⚠️ 바인드를 «목록» 으로 만들지 않는다. 지사본사(franchise)는 소유 지사가 241개까지
+      갈 수 있어 `IN (?,?,…)` 로 펴면 D1 바인드 100개 한도를 넘긴다(CLAUDE.md 함정표).
+      콤마로 이어 붙인 문자열 하나를 그대로 넘겨 SQL 안에서 맞춘다 — 바인드는 항상 1개다.
+   ⚠️ 값이 비면 **막는 쪽**으로 간다(1 = 0). LIKE '%' 로 새면 전국이 그대로 열린다. */
+export function scopeFranchiseCond(scope: Scope, alias = ''): { cond: string; binds: any[] } {
+  const a = alias ? alias + '.' : '';
+  if (scope.type === 'branch') {
+    if (!scope.value) return { cond: '1 = 0', binds: [] };
+    return { cond: `${a}name LIKE ?`, binds: [String(scope.value) + '%'] };
+  }
+  if (scope.type === 'franchise') {
+    const names = franchiseList(scope.value);
+    if (!names.length) return { cond: '1 = 0', binds: [] };
+    // ',서울지사,노원지사,' 안에 ',<이름>,' 가 들어 있는가 — 부분일치(«노원»이 «노원구지사»에
+    // 걸리는 것)를 막으려고 양쪽에 쉼표를 붙인다.
+    return { cond: `',' || ? || ',' LIKE '%,' || ${a}name || ',%'`, binds: [names.join(',')] };
+  }
+  if (scope.type === 'agency') {
+    if (!scope.value) return { cond: '1 = 0', binds: [] };
+    return { cond: `${a}id IN (SELECT franchise_id FROM centers WHERE name = ?)`, binds: [scope.value] };
+  }
+  return { cond: '', binds: [] };     // hq · none(본사 내부직원) = 제한 없음
+}
+
+/** 🏪 대리점(centers) 쪽 같은 조건. 대리점 계정은 «자기 한 칸», 지사는 «자기 지사 소속 전부». */
+export function scopeCenterCond(scope: Scope, alias = ''): { cond: string; binds: any[] } {
+  const a = alias ? alias + '.' : '';
+  if (scope.type === 'agency') {
+    if (!scope.value) return { cond: '1 = 0', binds: [] };
+    return { cond: `${a}name = ?`, binds: [scope.value] };
+  }
+  const f = scopeFranchiseCond(scope);
+  if (!f.cond) return { cond: '', binds: [] };
+  return { cond: `${a}franchise_id IN (SELECT id FROM franchises WHERE ${f.cond})`, binds: f.binds };
+}
+
+/** 조직 명부를 «고칠» 수 있는가 — 등록·수정·대표지사 지정은 본사만. */
+export function canEditOrg(scope: Scope): boolean {
+  return scope.type === 'hq' || scope.type === 'none';
+}
+
 // ── students_erp WHERE 조건(별칭 지원). hq→빈문자, none→1=0 ──
 export function scopeStudentCond(scope: Scope, alias = ''): { cond: string; binds: any[] } {
   const a = alias ? alias + '.' : '';
