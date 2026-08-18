@@ -52,10 +52,20 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
-    // 테스트 대상 망고아이 웹앱 URL
-    private static final String START_URL = "https://test.mangoi.co.kr/";
+    /* 망고아이 웹앱 URL — 정본 도메인 (2026-08-17 test.mangoi.co.kr → mangoi.ai)
+     *
+     * ⚠️ 이 값은 **APK 바이너리에 박힌다.** 이미 깔린 앱은 새 APK 가 퍼질 때까지 옛 주소를 계속 본다.
+     *    그래서 test.mangoi.co.kr 은 «설치 기반이 새 버전으로 넘어갈 때까지» 살려 둬야 한다.
+     *    (그 주소를 먼저 죽이면 앱이 흰 화면이 되고, 업데이트 확인 주소도 같이 죽어 자력 복구가 안 된다)
+     *
+     * ⚠️ 오리진이 바뀌므로 이 버전을 처음 켠 사람은 **한 번 로그아웃**된다
+     *    (학생 로그인은 localStorage, 오리진별로 갈리는 게 웹 표준이라 옮길 방법이 없다).
+     *    test.mangoi.co.kr 에 등록해 둔 패스키도 도메인이 달라 다시 등록해야 한다.
+     *    도메인 신뢰(assetlinks)는 워커가 호스트와 무관하게 내려주므로 mangoi.ai 에서도 그대로 동작한다.
+     */
+    private static final String START_URL = "https://mangoi.ai/";
     // 앱 자동 업데이트 버전 매니페스트 (웹과 같은 도메인 — 사이트 배포 시 함께 갱신)
-    private static final String VERSION_URL = "https://test.mangoi.co.kr/app-version.json";
+    private static final String VERSION_URL = "https://mangoi.ai/app-version.json";
 
     private static final int REQ_PERMISSIONS = 1001;
 
@@ -123,7 +133,8 @@ public class MainActivity extends AppCompatActivity {
 
         // 😊 패스키(WebAuthn) 얼굴/지문 로그인 — Android 14+ / 최신 WebView 에서만 동작.
         //   미지원 기기는 feature 체크로 건너뛰고, 사이트 쪽 버튼도 자동 숨김이라 안전.
-        //   도메인 신뢰는 test.mangoi.co.kr/.well-known/assetlinks.json (kr.co.mangoi.app 지문) 이 담당.
+        //   도메인 신뢰는 mangoi.ai/.well-known/assetlinks.json (kr.co.mangoi.app 지문) 이 담당.
+        //   그 파일은 워커(src/index.ts)가 호스트와 무관하게 직접 내려주므로 도메인을 옮겨도 그대로 동작한다.
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_AUTHENTICATION)) {
                 WebSettingsCompat.setWebAuthenticationSupport(s, WebSettingsCompat.WEB_AUTHENTICATION_SUPPORT_FOR_APP);

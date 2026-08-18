@@ -1,6 +1,7 @@
 # 망고아이 iOS 앱 (WKWebView 래퍼)
 
-`test.mangoi.co.kr` 을 감싸는 아이폰/아이패드 앱. 안드로이드 `mobile-app/` 과 **같은 번들 식별자
+`mangoi.ai` 를 감싸는 아이폰/아이패드 앱 (2026-08-17 `test.mangoi.co.kr` 에서 옮김).
+안드로이드 `mobile-app/` 과 **같은 번들 식별자
 `kr.co.mangoi.app`**, 같은 역할이다.
 
 > ⚠️ **이 코드는 아직 한 번도 빌드·실행된 적이 없다.** 작성 환경이 윈도우라 컴파일 검증이
