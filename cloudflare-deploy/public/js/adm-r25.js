@@ -34,16 +34,17 @@
       { ko:'📖 SOLAPI 가입 가이드',            en:'📖 SOLAPI Setup Guide', anchor:'sub-kakao-guide' }
     ],
     'card-popups-mgmt':         [
-      { ko:'📋 팝업 목록',                    en:'📋 Popup List', anchor:'sub-popup-list' },
-      { ko:'📖 사용법 가이드',                  en:'📖 Usage Guide', anchor:'sub-popup-guide' },
-      { ko:'🖼 내 포스터',                    en:'🖼 Saved Posters', anchor:'sub-poster-3' },
-      { ko:'📖 사용 안내',                    en:'📖 Guide', anchor:'sub-poster-guide' }
+      { ko:'📋 팝업 목록',          en:'📋 Popup List',    anchor:'sub-popup-list' },
+      { ko:'📖 사용법 가이드',      en:'📖 Usage Guide',   anchor:'sub-popup-guide' }
     ],
+    /* 📢 공지 스튜디오 = 카드 하나에 탭 두 개다.
+         card-poster-maker  = ① 만들기 탭(data-nspanel="make")
+         card-popups-mgmt   = ② 게시·팝업 탭(data-nspanel="publish", div 라 details 가 아니다)
+       그래서 손자도 «자기 탭 것» 만 갖는다 — 넷을 두 벌 보여 주면 같은 줄이 사이드바에 두 번 뜬다.
+       탭 전환은 ph125Jump 가 data-nspanel 을 보고 noticeStudioTab() 으로 켜 준다. */
     'card-poster-maker':        [
-      { ko:'📋 팝업 목록',                    en:'📋 Popup List', anchor:'sub-popup-list' },
-      { ko:'📖 사용법 가이드',                  en:'📖 Usage Guide', anchor:'sub-popup-guide' },
-      { ko:'🖼 내 포스터',                    en:'🖼 Saved Posters', anchor:'sub-poster-3' },
-      { ko:'📖 사용 안내',                    en:'📖 Guide', anchor:'sub-poster-guide' }
+      { ko:'🖼 내 포스터',          en:'🖼 Saved Posters', anchor:'sub-poster-3' },
+      { ko:'📖 사용 안내',          en:'📖 Guide',         anchor:'sub-poster-guide' }
     ],
     'card-notifications':       ['이벤트 등록','수신자 그룹','발송 예약','수신 확인'],
     'card-notice-board':        ['공지 작성','대상 선택','상단 고정','댓글 관리'],
@@ -249,9 +250,19 @@
           //    ⚠️ 여기는 «항상» 한국어여야 한다 — 위 t 는 화면 언어를 타므로 t 를 쓰면 영어 모드에서 키가 깨진다.
           var koName = isObj ? raw.ko : raw;
           var attr = String(koName).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          /* 🌐 (2026-08-18) data-ko/data-en 을 «그릴 때 함께» 박는다.
+             CLAUDE.md 2장 「JS 로 그린 라벨」 — textContent 로 직접 쓴 글자는 언어 토글의
+             data-ko/data-en 루프도, i18n-sweep 의 restore() 도 못 고친다.
+             toggleAdminLang() 은 새로고침 없이 DOM 만 갈아서, 이게 없으면 🌐 를 눌러도
+             손자 메뉴만 옛 언어로 남는다(필리핀 강사·매니저가 보는 화면이다).
+             ⚠️ 문자열 항목(옛 데모 매핑)은 번역이 없으므로 ko/en 둘 다 같은 값을 넣는다 —
+                빈 data-en 을 넣으면 영어로 바꿀 때 라벨이 «사라진다». */
+          var koT = isObj ? raw.ko : raw;
+          var enT = (isObj && raw.en) ? raw.en : koT;
+          var esc = function (x) { return String(x).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); };
           return '<div class="ph125-gc" data-gc-name="' + attr + '" onclick="event.stopPropagation();ph125Jump(\'' + cardId + '\',' + i + ',\'' + safe + '\')">' +
             '<span class="ph125-num">' + (i + 1) + '</span>' +
-            '<span class="ph125-text">' + t + '</span>' +
+            '<span class="ph125-text" data-ko="' + esc(koT) + '" data-en="' + esc(enT) + '">' + t + '</span>' +
           '</div>';
         }).join('');
         sub.parentNode.insertBefore(gcContainer, sub.nextSibling);
@@ -305,6 +316,16 @@
       var anc = desc.anchor ? document.getElementById(desc.anchor) : null;
       // 앵커가 접힌 details 안에 있으면 펼쳐 준다 — 안 그러면 스크롤만 하고 아무것도 안 보인다
       if (anc) { var p = anc; while (p && p !== host) { if (p.tagName === 'DETAILS') p.open = true; p = p.parentElement; } }
+      /* 🪤 (2026-08-18) <details> 조상만 펴는 것으로는 모자란다.
+         「공지 스튜디오」는 탭 두 개(div.ns-panel[data-nspanel])이고 안 고른 쪽은 display:none 이다.
+         숨은 상자에 scrollIntoView 를 해도 화면은 꿈쩍도 안 한다 — 에러도 안 난다.
+         그래서 앵커가 어느 탭 안인지 보고, 그 탭을 먼저 켠다. */
+      if (anc) {
+        var panel = anc.closest ? anc.closest('[data-nspanel]') : null;
+        if (panel && typeof window.noticeStudioTab === 'function') {
+          try { window.noticeStudioTab(panel.getAttribute('data-nspanel')); } catch (e) { /* 무시 */ }
+        }
+      }
       host.scrollIntoView({ behavior:'auto', block:'start' });
       setTimeout(function(){
         if (desc.fn && typeof window[desc.fn] === 'function') { window[desc.fn](); return; }
@@ -336,6 +357,24 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph125Build);
   else ph125Build();
+
+  /* 🌐 언어를 바꾸면 손자 메뉴를 다시 그린다.
+     ph125Build 는 sub.__ph125 와 «컨테이너가 이미 있는가» 로 두 번 그리지 않게 막혀 있어서,
+     그 표시를 지워 주지 않으면 다시 불러도 아무 일이 안 일어난다.
+     ⚠️ 펼쳐 둔 상태(.ph125-open)는 sub 에 붙어 있으므로 다시 그려도 그대로 남는다. */
+  window.addEventListener('mangoi:lang-changed', function () {
+    try {
+      var bar = document.getElementById('ph85-sidebar');
+      if (!bar) return;
+      bar.querySelectorAll('.ph125-grandchildren').forEach(function (g) { g.remove(); });
+      bar.querySelectorAll('.ph85-sub').forEach(function (sub) {
+        sub.__ph125 = false;
+        var tg = sub.querySelector('.ph125-toggle');
+        if (tg) tg.remove();          // ph125Build 가 다시 달아 준다(리스너 중복 방지)
+      });
+      ph125Build();
+    } catch (e) { /* 언어 전환이 이것 때문에 죽지 않게 */ }
+  });
   (window.__admSettleRun ? window.__admSettleRun(ph125Build) : setInterval(ph125Build, 1500));
 
   console.log('[ph125] 인라인 아코디언 손자 메뉴 활성 — 호버 자동 펼침 + ▸ 클릭 토글');
