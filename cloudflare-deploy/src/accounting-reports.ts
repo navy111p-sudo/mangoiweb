@@ -1909,7 +1909,8 @@ async function statementBasis(env: Env, months: string[]) {
     payCount: sum(p => p.pl.rev.payCount),
     b2bCount: sum(p => p.pl.rev.dep.b2bRows.length),
     depPg: sum(p => p.pl.rev.dep.pg),
-    transferKnown: sum(p => p.pl.rev.dep.transferKnown),
+    /* 「케이씨피M」(운영자금 이체)은 손익계산서가 한 줄도 쓰지 않으므로 여기서도 세지 않는다.
+       그 사실은 월간 회계 리포트의 «운영자금 보충» 줄이 그대로 보여 준다(#235). */
     transferUnknown: sum(p => p.pl.rev.dep.transferUnknown),
     payroll: sum(p => p.pl.payroll.total),
     payrollEff: sum(p => p.pl.payrollEff),
@@ -2014,9 +2015,16 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
             ? [{ name: `통장 직접입금 (B2B ${B.b2bCount}건 · 신한 실데이터)`, amount: B.revB2b }]
             : []),
           ...(ax.refunds > 0 ? [{ name: '학생 환불 (신한 계좌·실데이터)', amount: -ax.refunds }] : []),
-          ...(B.transferKnown > 0
-            ? [{ name: `※ 하나은행에서 옮겨 온 운영자금 ₩${B.transferKnown.toLocaleString('ko-KR')}(「케이씨피M」)은 매출이 아니라 자금 이동이라 제외했습니다`, sub: true }]
-            : []),
+          /* ⛔ 「케이씨피M」(하나은행 → 신한 운영자금 이체)은 손익계산서에서 **한 줄도 쓰지 않는다**
+             (2026-08-18 사장님 지시). 원래도 매출 «금액» 에는 안 들어갔지만, 매출액 칸에
+             ₩ 금액이 적힌 안내줄이 있으니 «매출에 섞인 돈» 으로 읽혔다. 손익계산서의 매출은
+             「케이씨피」(진짜 PG 정산분) 계열 결제만 본다.
+             ℹ️ 그렇다고 사실이 사라지는 건 아니다 — 「매출이 아닌 돈으로 통장을 메우고 있다」는
+                월간 회계 리포트의 «운영자금 보충» 줄과 그 내역 펼치기에 그대로 남아 있다
+                (renderMonthly / funding_in_krw · transfer_rows). 여기서 다시 지우지 말 것.
+             ⚠️ transferUnknown(정체가 아직 확인 안 된 「케이씨피」 변형)은 다른 얘기라 남긴다 —
+                «매출인지 아닌지 사람이 판단해야 하는 돈» 이라 손익에서 숨기면 안 된다.
+                (분기 조회면 그 분기 3개월치를 합한 금액이다 — 2026-08-18) */
           ...(B.transferUnknown > 0
             ? [{ name: `※ 성격이 확인되지 않은 입금 ₩${B.transferUnknown.toLocaleString('ko-KR')}은 확인될 때까지 매출로 잡지 않았습니다`, sub: true }]
             : []),
@@ -2054,12 +2062,17 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           { name: '최종 순이익', amount: netIncome, highlight: true, big: true },
         ]},
         /* 💵 장부 손익 «옆에» 통장 사실을 둔다 — 위 순이익은 장부 기준이라 매출
-           누락분만큼 나쁘게 나온다. 회사가 실제로 번 돈은 아래 순증감에 가깝다. */
+           누락분만큼 나쁘게 나온다. 다만 통장에는 매출이 아닌 돈(「케이씨피M」 운영자금
+           이체 등)도 섞여 들어오므로 «순증감 = 번 돈» 은 아니다(2026-08-18). */
         ...(plCash.n > 0 ? [{ title: '※ 참고 — 통장 기준 실제 현금흐름 (신한 계좌)', items: [
           { name: '실제 입금', amount: plCash.cin },
           { name: '실제 출금', amount: -plCash.cout },
           { name: '순증감 (통장이 실제로 늘거나 준 돈)', amount: plCash.cin - plCash.cout, highlight: true },
-          { name: '※ 위 손익은 장부(결제기록) 기준이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 실제로 번 돈은 이 순증감에 가깝습니다.', sub: true },
+          /* ⚠️ 이 줄의 «실제 입금» 은 통장에 찍힌 그대로라 「케이씨피M」 같은 자금이체도 섞여 있다.
+             위 매출액에서 「케이씨피M」을 뺐는데(2026-08-18) 여기서 «번 돈» 이라고만 하면
+             같은 돈이 뒷문으로 다시 «벌었다» 로 읽힌다. 금액은 통장 사실이라 손대지 않고,
+             섞여 있다는 사실만 밝힌다(월간 리포트의 안내와 같은 문장). */
+          { name: '※ 위 손익은 장부(결제기록) 기준이라 장부에 안 잡힌 매출만큼 나쁘게 나옵니다. 다만 이 «실제 입금» 에는 매출이 아닌 돈(다른 계좌에서 옮겨 온 운영자금 등)도 섞여 있으므로, 순증감을 그대로 «번 돈» 으로 보시면 안 됩니다.', sub: true },
         ]}] : []),
       ],
       summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
