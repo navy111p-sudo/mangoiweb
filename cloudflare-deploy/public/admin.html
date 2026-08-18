@@ -9017,7 +9017,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=118" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=119" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=119: 2026-08-18 분기 보고서·연간 결산 추이 표도 PC·인쇄에서 가로로 넘치던 것 수정
+     (막대 그래프가 인라인 width:70px 라 «줄지 않는» 폭 140px 를 표에 얹고 있었다)
    · v=118: 2026-08-18 매출 대시보드 차트가 컨테이너를 벗어나던 것 수리(캔버스에 높이 래퍼 + 그리드 반응형)
      (이 브랜치는 v=105 → v=117 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
       아래 v=104·v=108~117 과 같은 상황이라 같은 방식으로 번호만 새로 딴다.
