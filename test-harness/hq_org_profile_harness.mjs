@@ -84,6 +84,16 @@ check('요구된 7개 컬럼이 그대로다',
 check('푸터의 나머지 항목도 입력칸이 있다 (누락 없이 이관)',
   ['hq-ecommerce', 'hq-privacy', 'hq-email'].every(id => admHtml.includes(`id="${id}"`)));
 
+console.log('\n[ ⑤-b 검색창이 «하나»인가 — 자동 필터와 중복 금지 ]');
+/* admin.html 의 ph-frn-filter-js 는 TABLES 에 적힌 표마다 «목록 검색» 입력을 자동으로 끼워 넣는다.
+   본사 관리는 전용 서버 검색창(#hq-q)을 쓰므로 거기에 'hq-table' 이 들어가면
+   ① 검색창이 두 개 보이고 ② MutationObserver 가 서버 검색 결과를 한 번 더 걸러 숨긴다.
+   (2026-08-18 실제 화면에서 밟았다 — 헤드리스 렌더 캡처로 확인) */
+const tablesLine = (admHtml.match(/var TABLES = \[([^\]]*)\]/) || [])[1] || '';
+check('자동 목록필터 TABLES 에 hq-table 이 없다', !!tablesLine && !tablesLine.includes('hq-table'),
+  tablesLine ? `현재: [${tablesLine}]` : 'TABLES 를 못 찾음(구조 변경?)');
+check('전용 서버 검색창은 그대로 있다', admHtml.includes('id="hq-q"') && admHtml.includes('window.hqSearch'));
+
 console.log('\n[ ⑥ 화면 배선 — #hq-table 을 실제로 채우는 코드 ]');
 check('adm-core.js 에 loadHqOrgs 가 있다', /function loadHqOrgs\s*\(/.test(coreJs));
 check('loadHqOrgs 가 #hq-table 을 채운다', /getElementById\('hq-table'\)/.test(coreJs));
