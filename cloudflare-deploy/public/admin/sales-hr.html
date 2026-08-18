@@ -179,7 +179,10 @@
   function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[], reportText:'' };
+  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[], reportText:'',
+    // 서버(SALES_DEFAULTS)가 정본. 통신 실패로 못 받았을 때만 쓰는 예비값이다.
+    defaults:{ base_salary_krw:2300000, incentive_per_deal_krw:600000,
+               target_deals:2, target_students:20, target_visits:48, target_leads:20, target_care:8 } };
 
   /* 기간 선택지 — 최근 12개월 + 최근 4개 반기.
      평가는 반기, 성과급은 월이라 둘 다 있어야 한다. */
@@ -213,6 +216,7 @@
     return api('/api/admin/sales/reps').then(function(j){
       STATE.reps = j.reps || [];
       STATE.canEdit = !!j.can_edit;
+      STATE.defaults = j.defaults || STATE.defaults;
       var sel=g('rep');
       sel.innerHTML = STATE.reps.map(function(r){
         return '<option value="'+r.id+'">'+esc(r.name)+(r.active?'':' (비활성)')+'</option>';
@@ -889,25 +893,36 @@
   }
 
   /* ── 담당자 설정 ────────────────────────────────────────────── */
+  /* 저장된 값이 있으면 그것, 없으면 서버가 준 기본값(SALES_DEFAULTS). */
+  function dv(v, key){
+    if(v!=null && v!=='') return v;
+    var d=STATE.defaults||{};
+    return d[key]!=null ? d[key] : 0;
+  }
+
   function repFormHtml(r){
     if(!STATE.canEdit && r) return '';
     r = r || {};
     return '<div class="card"><h2>담당자 설정'+(r.id?'':' (신규 등록)')+'</h2>'
       + '<p class="hint">기본급·건당 성과급·월 목표는 <b>제도의 숫자</b>입니다. 코드를 고치지 않고 여기서 바꿉니다. '
       + '월별로 다르게 하려면 목표는 아래 «이 달만 목표 바꾸기»를 쓰세요.</p>'
+      + (r.id ? '' : '<div class="okbox" style="margin-bottom:14px">'
+          + '금액·목표는 <b>사장님이 확정하신 값</b>으로 미리 채워 두었습니다 — '
+          + '기본급 230만원 · 계약 1곳당 60만원 · 월 목표 2곳.<br>'
+          + '<b>담당자 이름만 넣고 «저장»을 누르시면 됩니다.</b> 나중에 언제든 여기서 바꿀 수 있습니다.</div>')
       + '<div class="grid g3">'
       + '<label class="f">이름<input id="rp_name" value="'+esc(r.name||'')+'"></label>'
       + '<label class="f">담당 지역<input id="rp_region" value="'+esc(r.region||'')+'"></label>'
       + '<label class="f">관리자 아이디(본인 로그인)<input id="rp_user" value="'+esc(r.admin_username||'')+'" placeholder="비우면 본인 조회 불가"></label>'
       + '<label class="f">입사일<input type="date" id="rp_hired" value="'+esc(r.hired_at||'')+'"></label>'
       + '<label class="f">제도 시작일(기준선 시작)<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
-      + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+(r.base_salary_krw||0)+'"></label>'
-      + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+(r.incentive_per_deal_krw||0)+'"></label>'
-      + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+(r.target_deals!=null?r.target_deals:2)+'"></label>'
-      + '<label class="f">월 목표 — 학생<input type="number" id="rp_ts" min="0" value="'+(r.target_students!=null?r.target_students:20)+'"></label>'
-      + '<label class="f">월 목표 — 방문<input type="number" id="rp_tv" min="0" value="'+(r.target_visits!=null?r.target_visits:48)+'"></label>'
-      + '<label class="f">월 목표 — 신규 발굴<input type="number" id="rp_tl" min="0" value="'+(r.target_leads!=null?r.target_leads:20)+'"></label>'
-      + '<label class="f">월 목표 — 관리방문<input type="number" id="rp_tc" min="0" value="'+(r.target_care!=null?r.target_care:8)+'"></label>'
+      + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+dv(r.base_salary_krw,'base_salary_krw')+'"></label>'
+      + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+dv(r.incentive_per_deal_krw,'incentive_per_deal_krw')+'"></label>'
+      + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+dv(r.target_deals,'target_deals')+'"></label>'
+      + '<label class="f">월 목표 — 학생<input type="number" id="rp_ts" min="0" value="'+dv(r.target_students,'target_students')+'"></label>'
+      + '<label class="f">월 목표 — 방문<input type="number" id="rp_tv" min="0" value="'+dv(r.target_visits,'target_visits')+'"></label>'
+      + '<label class="f">월 목표 — 신규 발굴<input type="number" id="rp_tl" min="0" value="'+dv(r.target_leads,'target_leads')+'"></label>'
+      + '<label class="f">월 목표 — 관리방문<input type="number" id="rp_tc" min="0" value="'+dv(r.target_care,'target_care')+'"></label>'
       + '</div>'
       + '<div class="toolbar" style="margin-top:12px">'
       + '<button class="btn primary" id="rp_save" type="button" data-id="'+(r.id||0)+'">저장</button>'
