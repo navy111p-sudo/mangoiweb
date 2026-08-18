@@ -27,10 +27,8 @@
 //
 // 💰 PG 수수료율 — 2.86% (2026-08-17 사장님 확인: «2.86% 는 PG 수수료율이야»)
 //   modules-ext.ts 의 PG_RATE 와 같은 값을 쓴다. 그쪽을 정본으로 삼아 들여온다.
-//   ⚠️ accounting-reports.ts 에는 PG_FEE_RATE = 0.033 (3.3%) 이 따로 있다. 그쪽은
-//      «결제수단별로 실제 요율이 달라 추정치» 라고 스스로 밝히고 있고 대사·손익이
-//      쓴다. 두 값이 다른 건 알고 있는 상태이며, 회계 리포트 숫자가 통째로 움직이는
-//      변경이라 여기서 건드리지 않았다. 정리는 사람이 판단할 일.
+//   ✅ (2026-08-18) accounting-reports.ts 의 PG_FEE_RATE 도 3.3% → 2.86% 로 맞췄다.
+//      이제 이 파일·modules-ext.ts·accounting-reports.ts 세 곳이 같은 값을 쓴다.
 // ═══════════════════════════════════════════════════════════════════════
 import { json } from './api-util';
 import { classifyDeposit, notSeedSql } from './accounting-reports';

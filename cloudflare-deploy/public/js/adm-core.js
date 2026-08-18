@@ -3,6 +3,15 @@
 //   원복: 이 파일 내용을 admin.html 의 <script src=.../adm-core.js> 위치에 인라인.
 //   외부 classic script 라 admin.html 의 다른 <script> 와 전역 스코프를 공유한다.
 // ═══════════════════════════════════════════════════════════════
+/* 💳 PG 수수료율 «표기» 정본 (2026-08-18)
+   ⚠️ 화면에 요율 숫자를 손으로 박지 말 것. 서버(accounting-reports.ts 의 PG_FEE_RATE)만
+      바뀌면 화면이 조용히 갈라진다 — 실제로 그랬다: 서버가 2.86% 로 바뀐 뒤에도
+      회계 화면 3곳이 「3.3%」 라고 쓰고 있었다.
+   대사 API 응답에 pg_fee_rate 가 오면 그 값으로 갱신하고, 못 받았을 때만 기본값을 쓴다. */
+window.__pgFeeRate = (typeof window.__pgFeeRate === 'number') ? window.__pgFeeRate : 0.0286;
+window.pgFeeRateLabel = function(){ return (window.__pgFeeRate * 100).toFixed(2) + '%'; };
+window.notePgFeeRate = function(v){ if (typeof v === 'number' && v > 0) window.__pgFeeRate = v; };
+
 let chartAtt = null, chartRwd = null;
 // 🌐 (2026-07-22) 부팅 언어 — admin.html <head> 의 adm-lang-boot 이 저장값·계정 이름으로 미리 판정.
 //   영문 이름 계정(해외 매니저·강사)은 로그인 직후부터 영어 화면으로 뜬다.
@@ -10523,7 +10532,7 @@ window.rebuildGlobalSearchIndex = function() {
     if (!V) return '';
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        장부 매출 <b>${fmtKRW(rec.revenue)}</b> → 수수료 3.3%를 뺀 예상 입금 <b>${fmtKRW(rec.expected)}</b> ·
+        장부 매출 <b>${fmtKRW(rec.revenue)}</b> → 수수료 ${window.pgFeeRateLabel()}를 뺀 예상 입금 <b>${fmtKRW(rec.expected)}</b> ·
         실제 PG 정산 입금 <b>${fmtKRW(rec.deposit_pg)}</b> (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, ${rec.diff_pct}%)
       </div>`;
     const extra = [rec.transfer_note, rec.b2b_note].filter(Boolean)
@@ -10970,7 +10979,7 @@ window.rebuildGlobalSearchIndex = function() {
       <table>
         <tr><th>${c.teacher_payroll_source === 'bank' ? '강사 급여 (신한 송금)' : '강사 급여'}${badge(src.teacher_payroll)}</th><td class="num">${fmtKRW(c.teacher_payroll)}</td><td class="num">${c.teacher_count} 명</td></tr>
         ${(c.teacher_dup_excluded||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 계좌의 강사급여 송금 ${fmtKRW(c.teacher_dup_excluded)} 은 급여명세와 중복이라 제외</td></tr>` : ''}
-        <tr><th>PG 수수료 (3.3%)${badge(src.pg_fee)}</th><td class="num">${fmtKRW(c.pg_fee)}</td><td></td></tr>
+        <tr><th>PG 수수료 (${window.pgFeeRateLabel()})${badge(src.pg_fee)}</th><td class="num">${fmtKRW(c.pg_fee)}</td><td></td></tr>
         ${c.op_cost_source === 'actual' ? `
         <tr><th>법인카드 지출${badge('actual')}</th><td class="num">${fmtKRW(c.op_card||0)}</td><td></td></tr>
         ${(c.op_bank_rows||[]).map(b => `<tr><th>계좌 출금 — ${esc(b.category)}${badge(b.category === '기타출금' ? 'review' : 'actual')}</th><td class="num">${fmtKRW(b.total)}</td><td></td></tr>`).join('')}
@@ -11692,6 +11701,7 @@ window.rebuildGlobalSearchIndex = function() {
       if (!d.ok) throw new Error(d.error || 'API error');
       const V = { ok:['#059669','#ecfdf5','🟢 정상'], warn:['#d97706','#fffbeb','🟡 주의'],
                   alert:['#dc2626','#fef2f2','🔴 확인 필요'], no_data:['#6b7280','#f9fafb','⚪ 자료 없음'] };
+      window.notePgFeeRate(d.pg_fee_rate);   // 서버가 정본 — 표기를 여기서 맞춘다
       const v = V[d.verdict] || V.no_data;
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
@@ -11702,7 +11712,7 @@ window.rebuildGlobalSearchIndex = function() {
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">장부 매출</th>'
-        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 3.3% 차감</span></th>'
+        + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">예상 입금<br><span style="font-weight:400;color:#6b7280">수수료 ' + window.pgFeeRateLabel() + ' 차감</span></th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">실제 PG 입금</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">차이</th>'
         + '<th style="padding:6px 8px;text-align:right;border-bottom:2px solid #e5e7eb">기타 입금<br><span style="font-weight:400;color:#6b7280">참고</span></th>'

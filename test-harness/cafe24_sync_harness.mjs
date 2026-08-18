@@ -263,6 +263,7 @@ console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / i
   const sync = readFileSync(resolve(CD, 'src/cafe24-sync.ts'), 'utf8');
   const api = allSrc();
   const idx = readFileSync(resolve(CD, 'src/index.ts'), 'utf8');
+  const tch = readFileSync(resolve(CD, 'src/api-teacher.ts'), 'utf8');
   check('sync: 결제 멱등 삭제', sync.includes(`DELETE FROM student_payments WHERE memo LIKE '[cafe24]%'`));
   check('sync: 학생 센티넬', sync.includes('CAFE24_STUDENT_SENTINEL') && sync.includes('1751500000000'));
   check('sync: 출석 상태매핑', sync.includes("Number(r.class_state) === 2 ? 'present' : 'scheduled'"));
@@ -272,6 +273,22 @@ console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / i
   check('sync: nightly 4종 refresh', sync.includes('importCafe24Org') && sync.includes('importCafe24Payments') && sync.includes('importCafe24Students') && sync.includes('importCafe24Attendance'));
   check('api: 회계 summary(type1/2 수입지출)', api.includes('CASE WHEN t = 1') && api.includes('CASE WHEN t = 2') && api.includes('substring(a.date,0,7)'));
   check('api: graph-list 명부(students/teachers/staff/books)', api.includes("path === '/api/admin/students/graph-list'") && api.includes("path === '/api/admin/teachers/graph-list'") && api.includes("path === '/api/admin/staff/graph-list'"));
+  /* 👩‍🏫 (2026-08-18) 강사 칸 — 「수업일지 0건」의 뿌리를 막아 둔다.
+     옛 LMS 수업은 여기로 들어오는데 «누가 가르쳤는지» 가 없어서 강사 화면이 수업 목록을
+     만들 수 없었고, 그래서 [일지 쓰기] 버튼이 한 번도 뜨지 않았다.
+     이 두 칸이 조용히 빠지면 증상이 그대로 되돌아온다 — 그때 여기서 잡는다. */
+  check('sync: 출석에 강사 칸(teacher_uid/teacher_name)',
+        sync.includes('ADD COLUMN teacher_uid') && sync.includes('ADD COLUMN teacher_name')
+        && /INSERT INTO attendance \([^)]*teacher_uid, teacher_name\)/.test(sync));
+  check('sync: :Class 에서 강사 속성 조회(없으면 null 로 degrade)',
+        sync.includes('coalesce(c.teacher_id, c.teacher_no, c.t_id) AS teacher_id'));
+  /* 강사 화면이 그 칸을 실제로 쓰는지 — 파이프만 깔고 화면이 안 읽으면 증상은 그대로다. */
+  check('teacher: 끝난 LMS 수업을 수업 목록에 실음',
+        tch.includes("a.room_id LIKE 'c24-%'") && tch.includes("status: 'done'"));
+  check('teacher: 담당 판정은 teacher_uid 로만(이름 매칭 금지)',
+        tch.includes("'a.teacher_uid = ?'") && tch.includes('linkedTeacherIds.length'));
+  check('teacher: 끝난 수업에 입장 창을 열지 않음',
+        tch.includes('enter_from_ts: start_ts, enter_until_ts: end_ts') && tch.includes('can_enter: false'));
   check('idx: nightly cron 배선', idx.includes('nightlyCafe24Refresh'));
   check('idx: 이관 라우트 게이트(import + finance 정규식)', idx.includes("path === '/api/admin/students/import-cafe24'") && idx.includes('finance-cafe24'));
 }
