@@ -1523,27 +1523,10 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
      라벨이 없는 학생만 예전처럼 shop_name → centers → 지사 로 폴백한다. */
   const attributed = await safe(async () => {
     const r = await env.DB.prepare(`
-      WITH fmap AS (
-        SELECT name, MIN(id) AS fid, COUNT(*) AS nf
-          FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name
-      ),
-      cmap AS (
-        SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
-          FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> ''
-         GROUP BY name
-      ),
+      WITH ${FRANCHISE_FID_CTE},
       att AS (
         SELECT p.id AS pay_id, p.amount_krw, p.user_id,
-               COALESCE(
-                 -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
-                 (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = p.user_id),
-                 -- ② 캐피타운 대리점 로그인 아이디 → 그 대리점이 속한 지사
-                 (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = p.user_id LIMIT 1),
-                 -- ③ 학생 원부의 지사 라벨
-                 (SELECT m.fid FROM fmap m WHERE m.name = st.franchise  AND m.nf = 1),
-                 -- ④ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
-                 (SELECT c.fid FROM cmap c WHERE c.name = st.shop_name AND c.nf = 1)
-               ) AS fid
+               ${franchiseFidSql('p', 'st')} AS fid
           FROM student_payments p
           LEFT JOIN students_erp st ON st.user_id = p.user_id
          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
@@ -1681,6 +1664,48 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
 const CAPITOWN_FID = `(SELECT MIN(f.id) FROM franchises f
         WHERE f.name = ca.branch
           AND (SELECT COUNT(*) FROM franchises f2 WHERE f2.name = ca.branch) = 1)`;
+
+/* 🏢 «이 결제는 어느 지사인가» 판정 — 가맹점 정산(franchiseReport)과 학생 결제 내역이
+   **같은 규칙**을 써야 한다. 두 화면이 서로 다른 지사를 가리키면 대사(對査)가 안 되고,
+   「정산표엔 있는데 결제 내역엔 없다」는 제보가 그대로 나온다.
+   그래서 판정식을 여기 한 곳에 두고 양쪽이 이것만 부른다. 순서·의미는 franchiseReport
+   주석에 상세히 적어 두었다(① 사람이 지정한 대리결제자 → ② 캐피타운 대리점 계정 →
+   ③ 학생 원부의 지사 라벨 → ④ 대리점 이름). 어느 것도 못 찾으면 NULL = «배정 불가».
+   ⚠️ fmap·cmap CTE(FRANCHISE_FID_CTE)가 같은 쿼리 안에 있어야 한다. */
+const FRANCHISE_FID_CTE = `
+      fmap AS (
+        SELECT name, MIN(id) AS fid, COUNT(*) AS nf
+          FROM franchises WHERE COALESCE(name,'') <> '' GROUP BY name
+      ),
+      cmap AS (
+        SELECT name, MIN(franchise_id) AS fid, COUNT(DISTINCT franchise_id) AS nf
+          FROM centers WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> ''
+         GROUP BY name
+      )`;
+/** @param p student_payments 별칭 · @param st students_erp 별칭 */
+function franchiseFidSql(p: string, st: string): string {
+  return `COALESCE(
+                 -- ① 사람이 지정해 준 대리 결제자 (학생 원부에 없는 아이디를 구제)
+                 (SELECT o.franchise_id FROM payer_franchise_override o WHERE o.payer_user_id = ${p}.user_id),
+                 -- ② 캐피타운 대리점 로그인 아이디 → 그 대리점이 속한 지사
+                 (SELECT ${CAPITOWN_FID} FROM capitown_agencies ca WHERE ca.login_id = ${p}.user_id LIMIT 1),
+                 -- ③ 학생 원부의 지사 라벨
+                 (SELECT m.fid FROM fmap m WHERE m.name = ${st}.franchise  AND m.nf = 1),
+                 -- ④ 대리점 이름 → 지사 (라벨이 없는 학생용 폴백)
+                 (SELECT c.fid FROM cmap c WHERE c.name = ${st}.shop_name AND c.nf = 1)
+               )`;
+}
+
+/* 🧑 «이 결제는 누구인가» — 원부의 이름 칸이 여러 개고 원부마다 채워진 자리가 다르다.
+   환불/취소 목록(#230)과 학생 결제 내역(#02)이 «같은 이름» 을 보여야 한다. 한쪽만 고치면
+   같은 학생이 화면마다 다른 이름(혹은 빈칸)으로 나온다 — 그래서 식을 여기 한 곳에 둔다.
+   ⚠️ 공백만 든 칸이 실제로 있어서 TRIM 이 필요하다. 이것들도 다 비면 NULL = «원부 없음».
+   ⚠️ 부르는 쪽은 students_erp 를 반드시 **LEFT** JOIN 할 것 — 퇴원 등으로 원부에서 빠진
+      결제가 실제로 있고, INNER 로 바꾸면 그 행이 목록에서 통째로 사라진다. */
+function studentNameSql(st: string): string {
+  return `COALESCE(NULLIF(TRIM(${st}.korean_name),''), NULLIF(TRIM(${st}.student_name),''),
+                    NULLIF(TRIM(${st}.english_name),''), NULLIF(TRIM(${st}.username),''))`;
+}
 
 /** 0 나눗셈을 피한 퍼센트 문자열 */
 function data0Pct(part: number, whole: number): string {
@@ -2438,6 +2463,14 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   //    학생(students_erp.shop_name) → 대리점(centers.payment_type) 으로 파생한다.
   //    대리점에 지정이 없으면 학생의 payment_type('B2B 결제'류), 그마저 없으면 B2C(기본값).
   const channel = String(url.searchParams.get('channel') || '').trim().toUpperCase();
+  /* 🏢 (2026-08-18 수정요청 #02) 지사 필터 — 결제 행에도 지사 값이 없어서 결제자 아이디로
+     지사를 파생한다. 판정은 가맹점 정산(franchiseReport)과 **같은 규칙**을 쓴다
+     (franchiseFidSql). 두 화면이 서로 다른 지사를 가리키면 대사가 안 되기 때문이다.
+       · franchise_id=<숫자>  : 지사 하나 정확히 (드롭다운에서 고른 경우)
+       · franchise=<이름조각> : 이름으로 검색 (직접 타이핑한 경우) */
+  const franchiseId = Number(url.searchParams.get('franchise_id')) || 0;
+  const franchiseQ = String(url.searchParams.get('franchise') || '').trim();
+  const wantFranchise = franchiseId > 0 || franchiseQ !== '';
   const limit = Math.min(Number(url.searchParams.get('limit')) || 200, 500);
 
   // 🌱 시드 결제는 목록에서도 뺀다 — 합계(리포트)와 목록이 다르면 대사(對査)가 안 된다
@@ -2448,28 +2481,50 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
   if (method) { where.push('p.method = ?'); args.push(method); }
   if (status) { where.push('p.status = ?'); args.push(status); }
 
+  // 지사 판정에 쓰는 «사람이 지정한 대리결제자» 표 — 없으면 만든다(franchiseReport 와 동일)
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS payer_franchise_override (payer_user_id TEXT PRIMARY KEY, franchise_id INTEGER NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`);
+  } catch { /* 이미 있으면 그만 */ }
+
+  /* 지사 파생이 실패(테이블 없음 등)했는데 «지사로 걸러 달라» 는 요청이었다면
+     걸러지지 않은 목록을 그냥 돌려주면 안 된다 — 사용자는 필터가 먹은 줄 안다. */
+  let enriched = true;
+
   const rows = await safe(async () => {
     // centers 이름이 유일하지 않을 수 있어 JOIN 대신 스칼라 서브쿼리(행 뻥튀기 방지)
     const chExpr = `CASE WHEN UPPER(COALESCE(
         (SELECT c.payment_type FROM centers c WHERE c.name = s.shop_name AND c.payment_type IS NOT NULL ORDER BY c.id LIMIT 1),
         CASE WHEN s.payment_type LIKE 'B2B%' THEN 'B2B' ELSE '' END
       )) = 'B2B' THEN 'B2B' ELSE 'B2C' END`;
-    const chFilter = (channel === 'B2B' || channel === 'B2C') ? ` AND channel = ?` : '';
-    const binds = (channel === 'B2B' || channel === 'B2C') ? [...args, channel, limit] : [...args, limit];
+    /* 🧑 (2026-08-18 수정요청 #02) 학생 «이름» — 아이디만 있으면 누구 결제인지 모른다.
+       식은 환불/취소 목록과 공유한다(studentNameSql). 화면마다 이름이 달라지면 안 된다. */
+    const nameExpr = studentNameSql('s');
+    const outWhere: string[] = ['1=1'];
+    const outArgs: unknown[] = [];
+    if (channel === 'B2B' || channel === 'B2C') { outWhere.push('channel = ?'); outArgs.push(channel); }
+    if (franchiseId > 0) { outWhere.push('franchise_id = ?'); outArgs.push(franchiseId); }
+    else if (franchiseQ) { outWhere.push('franchise_name LIKE ?'); outArgs.push('%' + franchiseQ + '%'); }
     try {
       const r = await env.DB.prepare(`
+        WITH ${FRANCHISE_FID_CTE}
         SELECT * FROM (
-          SELECT p.id, p.paid_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
-                 s.shop_name AS shop_name, ${chExpr} AS channel
-          FROM student_payments p
-          LEFT JOIN students_erp s ON s.user_id = p.user_id
-          WHERE ${where.join(' AND ')}
-        ) WHERE 1=1${chFilter}
+          SELECT b.*, (SELECT f.name FROM franchises f WHERE f.id = b.franchise_id) AS franchise_name
+          FROM (
+            SELECT p.id, p.paid_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
+                   s.shop_name AS shop_name, ${nameExpr} AS student_name,
+                   ${chExpr} AS channel,
+                   ${franchiseFidSql('p', 's')} AS franchise_id
+            FROM student_payments p
+            LEFT JOIN students_erp s ON s.user_id = p.user_id
+            WHERE ${where.join(' AND ')}
+          ) b
+        ) WHERE ${outWhere.join(' AND ')}
         ORDER BY paid_at DESC LIMIT ?
-      `).bind(...binds).all();
+      `).bind(...args, ...outArgs, limit).all();
       return (r.results || []) as Array<any>;
     } catch {
       // centers·students_erp 가 아직 없는 새 환경 — 구분 없이 예전 그대로의 목록이라도 준다
+      enriched = false;
       const r = await env.DB.prepare(`
         SELECT p.id, p.paid_at, p.user_id, p.amount_krw, p.method, p.memo, p.status
         FROM student_payments p
@@ -2480,6 +2535,11 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
     }
   }, []);
 
+  if (wantFranchise && !enriched) {
+    return json({ ok: false, type: 'payments-list',
+      error: '지사 소속 정보를 읽지 못해 지사 필터를 적용할 수 없습니다(franchises·centers·students_erp 확인 필요).' }, 500);
+  }
+
   const totals = rows.reduce((a, r) => ({
     count: a.count + 1,
     paid: a.paid + (r.status === 'paid' ? r.amount_krw : 0),
@@ -2487,15 +2547,20 @@ async function paymentsList(env: Env, url: URL, fmt: string): Promise<Response> 
 
   const data = { ok: true, type: 'payments-list', rows, totals };
   if (fmt === 'csv' || fmt === 'xlsx') {
+    const scope = [
+      (channel === 'B2B' || channel === 'B2C') ? channel : '',
+      franchiseId > 0 ? (String(rows.find(r => r.franchise_name)?.franchise_name || `지사#${franchiseId}`)) : (franchiseQ ? `지사~${franchiseQ}` : ''),
+    ].filter(Boolean).join(' · ');
     return out(fmt, 'payments.csv', [
-      ['망고아이 학생 결제 내역' + (channel === 'B2B' || channel === 'B2C' ? ` (${channel})` : '')],
+      ['망고아이 학생 결제 내역' + (scope ? ` (${scope})` : '')],
       [],
-      ['시각(KST)', '주문ID', '학생ID', '구분', '가맹점', '금액', '결제수단', '메모', '상태'],
+      ['시각(KST)', '주문ID', '학생ID', '학생이름', '구분', '지사', '가맹점', '금액', '결제수단', '메모', '상태'],
       ...rows.map(r => [
         new Date((r.paid_at || 0) + 9*3600*1000).toISOString().slice(0,19).replace('T',' '),
-        r.id, r.user_id, r.channel || '', r.shop_name || '', r.amount_krw, r.method || '', r.memo || '', r.status,
+        r.id, r.user_id, r.student_name || '', r.channel || '', r.franchise_name || '',
+        r.shop_name || '', r.amount_krw, r.method || '', r.memo || '', r.status,
       ]),
-      ['합계', '', '', '', '', totals.paid, '', '', `${totals.count}건`],
+      ['합계', '', '', '', '', '', '', totals.paid, '', '', `${totals.count}건`],
     ]);
   }
   return json(data);
@@ -2520,8 +2585,7 @@ async function refundsList(env: Env, url: URL, fmt: string): Promise<Response> {
   if (status) { where.push('p.status = ?'); }
   const stmt = env.DB.prepare(`
     SELECT p.id, p.paid_at, p.created_at, p.user_id, p.amount_krw, p.method, p.memo, p.status,
-           COALESCE(NULLIF(TRIM(s.korean_name),''), NULLIF(TRIM(s.student_name),''),
-                    NULLIF(TRIM(s.english_name),'')) AS student_name,
+           ${studentNameSql('s')} AS student_name,
            COALESCE(NULLIF(TRIM(s.login_id),''), p.user_id) AS login_id
     FROM student_payments p
     LEFT JOIN students_erp s ON s.user_id = p.user_id

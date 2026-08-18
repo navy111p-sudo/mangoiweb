@@ -11188,6 +11188,36 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 1. 학생 결제 내역
   // ──────────────────────────────────────────────────────────
+  /* 🏢 (2026-08-18 수정요청 #02) 지사 드롭다운 채우기.
+     241개짜리 목록이라 fields=min 으로 {id,name} 만 받는다(25KB → 6KB).
+     한 번 받으면 캐시한다 — 「불러오기」를 누를 때마다 다시 받을 이유가 없다.
+     ⚠️ 목록을 못 받아도 화면은 살아 있어야 한다. 그 경우 이름 타이핑 검색으로 동작한다
+        (서버가 franchise=<이름조각> 도 받는다). */
+  let _payFranchises = null;
+  async function _payLoadFranchises(){
+    if (_payFranchises) return _payFranchises;
+    const dl = document.getElementById('acc-pay-franchise-list');
+    try {
+      const r = await fetch('/api/admin/franchises?fields=min', { credentials:'include' });
+      const d = await r.json();
+      _payFranchises = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+    } catch(e) { _payFranchises = []; }
+    if (dl) dl.innerHTML = _payFranchises.map(f => `<option value="${_esc(f.name)}"></option>`).join('');
+    return _payFranchises;
+  }
+  // 입력칸에 포커스가 오는 순간 목록을 채운다 — 눌렀는데 비어 있으면 «필터가 없다» 고 오해한다
+  window.accFillFranchiseList = _payLoadFranchises;
+  /* 입력칸의 글자를 서버 파라미터로 바꾼다.
+     목록의 이름과 «정확히» 같으면 그 지사 하나(franchise_id), 아니면 이름 검색(franchise). */
+  function _payFranchiseParams(qs){
+    const el = document.getElementById('acc-pay-franchise');
+    const v = (el && el.value || '').trim();
+    if (!v) return;
+    const hit = (_payFranchises || []).filter(f => String(f.name) === v);
+    if (hit.length === 1) qs.set('franchise_id', hit[0].id);
+    else qs.set('franchise', v);
+  }
+
   window.accLoadPayments = async function(){
     const from   = document.getElementById('acc-pay-from').value;
     const to     = document.getElementById('acc-pay-to').value;
@@ -11196,18 +11226,20 @@ window.rebuildGlobalSearchIndex = function() {
     // 💳 (2026-08-12 수정요청 #03) B2B/B2C 구분 — 서버가 대리점 결제유형으로 파생·필터
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const tbody  = document.getElementById('acc-pay-tbody');
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">불러오는 중…</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">불러오는 중…</td></tr>';
     try {
+      await _payLoadFranchises();
       const qs = new URLSearchParams();
       if (from)   qs.set('from', from);
       if (to)     qs.set('to', to);
       if (method) qs.set('method', method);
       if (status) qs.set('status', status);
       if (channel) qs.set('channel', channel);
+      _payFranchiseParams(qs);
       const r = await fetch('/api/admin/reports/payments-list?' + qs.toString(), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="9" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
       tbody.innerHTML = d.rows.map(p => {
         /* 🐛 (2026-08-16) paid_at 은 이미 «밀리초» 다. ×1000 을 하고 있어서 화면에
            서기 58,000년대 날짜가 찍혔다(CSV 는 정상이라 눈에 안 띄었다). */
@@ -11216,21 +11248,40 @@ window.rebuildGlobalSearchIndex = function() {
         const ch = p.channel === 'B2B'
           ? '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#1d4ed8;color:#fff;font-size:11px;font-weight:700">B2B</span>'
           : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;background:#0891b2;color:#fff;font-size:11px;font-weight:700">B2C</span>';
-        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${_esc(p.user_id||'')}</td>
-                <td>${ch}</td><td>${_esc(p.shop_name||'-')}</td>
+        /* 🧑 이름이 없는 결제가 실제로 있다 — 학생 원부에 없는 아이디로 들어오는 대리결제.
+           «-» 로 얼버무리지 않고 «원부 없음» 이라고 밝힌다(가맹점 정산의 «배정 불가» 와 같은 건). */
+        const nm = p.student_name
+          ? `<b>${_esc(p.student_name)}</b>`
+          : '<span style="color:#9ca3af;font-size:11px">원부 없음</span>';
+        const fr = p.franchise_name
+          ? _esc(p.franchise_name)
+          : '<span style="color:#9ca3af;font-size:11px">미배정</span>';
+        return `<tr><td>${_esc(t)}</td><td>${_esc('#'+p.id)}</td><td>${nm}</td>
+                <td style="font-size:11px;color:#6b7280">${_esc(p.user_id||'')}</td>
+                <td>${ch}</td><td>${fr}</td><td>${_esc(p.shop_name||'-')}</td>
                 <td>${_esc(p.memo||'-')}</td><td style="text-align:right">${_fmt(p.amount_krw)}</td>
                 <td>${_esc(p.method||'')}</td><td>${_badge(p.status, c)}</td></tr>`;
       }).join('');
-    } catch(e) { _showErr(tbody, e, 9); }
+    } catch(e) { _showErr(tbody, e, 11); }
   };
-  window.accDownloadPaymentsCsv = function(fmt){
+  window.accDownloadPaymentsCsv = async function(fmt){
+    // 지사 목록을 먼저 확보해야 «고른 지사 하나»(franchise_id)로 정확히 내려받는다.
+    // 목록 없이 이름만 보내면 이름이 서로의 일부인 지사끼리 섞여 나올 수 있다.
+    await _payLoadFranchises();
     const from = document.getElementById('acc-pay-from').value;
     const to = document.getElementById('acc-pay-to').value;
+    const method = document.getElementById('acc-pay-method').value;
+    const status = document.getElementById('acc-pay-status').value;
     const channel = (document.getElementById('acc-pay-channel')||{}).value || '';
     const qs = new URLSearchParams({ format: (fmt === 'xlsx' ? 'xlsx' : 'csv') });
     if (from) qs.set('from', from);
     if (to) qs.set('to', to);
+    // 🧾 (2026-08-18) 화면과 «같은» 조건으로 내려받는다. 예전엔 결제수단·상태·지사를
+    //    빼고 보내서, 화면엔 걸러 놓고 파일엔 전부 담기는 어긋남이 있었다.
+    if (method) qs.set('method', method);
+    if (status) qs.set('status', status);
     if (channel) qs.set('channel', channel);
+    _payFranchiseParams(qs);
     location.href = '/api/admin/reports/payments-list?' + qs.toString();
   };
   window.accDownloadPaymentsXlsx = function(){ window.accDownloadPaymentsCsv('xlsx'); };
