@@ -2429,7 +2429,10 @@
       </details>
 
       <!-- 11. 손익 / 재무제표 -->
-      <details class="sub-item">
+      <!-- 🔗 id 는 «바로 열리는 주소» 다 — /admin.html#acc-financials (2026-08-18 사장님 요청).
+           openCardFromHash() 가 이 id 를 찾아 자기 자신과 상위 details 를 전부 펼친다.
+           ⛔ 이 id 를 바꾸면 밖에서 안내한 주소가 조용히 죽는다(열리긴 하는데 안 펼쳐짐). -->
+      <details class="sub-item" id="acc-financials">
         <summary data-ko="📈 손익 / 재무제표" data-en="📈 P&amp;L / Financials">📈 손익 / 재무제표</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
