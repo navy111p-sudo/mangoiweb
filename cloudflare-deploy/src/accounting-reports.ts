@@ -4,7 +4,8 @@
  *   GET /api/admin/reports/monthly?period=YYYY-MM        월간 회계 리포트
  *   GET /api/admin/reports/quarterly?year=YYYY&q=N       분기 보고서 (N: 1-4)
  *   GET /api/admin/reports/annual?year=YYYY              연간 결산
- *   GET /api/admin/reports/franchise?period=YYYY-MM      가맹점별 정산서
+ *   GET /api/admin/reports/franchise?period=YYYY-MM      가맹점별 정산서 (장부 결제 + B2B 직접입금)
+ *   GET/POST /api/admin/reports/b2b-payees               B2B 통장 입금 → 지사 지정
  *   GET /api/admin/reports/payslips?period=YYYY-MM       강사별 급여명세서 (전체)
  *   GET /api/admin/reports/kpi?period=YYYY-MM            경영지표 (LTV·CAC·ROI·이익률)
  *   GET /api/admin/reports/statement?type=pl|bs|cf|tb&period=YYYY-MM|YYYY-Qn  재무제표(월·분기)
@@ -23,6 +24,7 @@
  */
 
 import { getScope, type Scope } from './scope';
+import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 
 interface Env {
@@ -537,6 +539,8 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'payees') return await payeesRouter(env, request, url);
     // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
     if (p === 'payers') return await payersRouter(env, request, url);
+    // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
+    if (p === 'b2b-payees') return await b2bPayeesRouter(env, request, url);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -1124,6 +1128,94 @@ async function payersRouter(env: Env, request: Request, url: URL): Promise<Respo
   });
 }
 
+/* 🏦 GET  /api/admin/reports/b2b-payees[?months=12]  아직 지사가 안 붙은 B2B 통장 입금 + 지사 목록
+   POST /api/admin/reports/b2b-payees?payee=..&franchise_id=..  그 입금자를 지사에 직접 붙인다
+        (franchise_id=0 이면 지정 해제)
+   학원이 수업료를 통장으로 바로 보내는 B2B 결제는 카페24를 안 거쳐 student_payments 에
+   없다. 적요가 대리점·지사 이름과 정확히 맞으면 자동으로 붙지만(attributeB2bRows),
+   「박선유(에스와이피(SY」 처럼 잘리거나 사람 이름으로 오면 사람이 알려 줘야 한다.
+   한 번 지정하면 그 적요의 지난·앞으로의 입금이 전부 그 지사로 잡힌다. */
+async function b2bPayeesRouter(env: Env, request: Request, url: URL): Promise<Response> {
+  await ensureB2bOverrideTable(env);
+  const method = request.method.toUpperCase();
+
+  if (method === 'POST') {
+    const scope = await safe(async () => await getScope(env, request), { type: 'none', value: null, label: '권한 없음' } as Scope);
+    if (scope.type !== 'hq') return err('B2B 입금 지사 지정은 본사 계정만 할 수 있습니다.', 403);
+    const payee = (url.searchParams.get('payee') || '').trim();
+    const fid = Number(url.searchParams.get('franchise_id'));
+    if (!payee) return err('입금 적요를 지정해 주세요.');
+    const okSet = await safe(async () => {
+      if (!fid) {
+        await env.DB.prepare(`DELETE FROM b2b_payee_franchise_override WHERE payee=?`).bind(payee).run();
+      } else {
+        const f = await env.DB.prepare(`SELECT id FROM franchises WHERE id=?`).bind(fid).first<{ id: number }>();
+        if (!f) throw new Error('그런 지사가 없습니다: ' + fid);
+        await env.DB.prepare(
+          `INSERT INTO b2b_payee_franchise_override (payee, franchise_id, note, updated_at) VALUES (?,?,?,?)
+           ON CONFLICT(payee) DO UPDATE SET franchise_id=excluded.franchise_id, note=excluded.note, updated_at=excluded.updated_at`
+        ).bind(payee, fid, `${scope.label || 'admin'} 지정`, Date.now()).run();
+      }
+      return true;
+    }, false);
+    if (!okSet) return err('저장에 실패했습니다.', 500);
+    return json({ ok: true, payee, franchise_id: fid || null });
+  }
+
+  // GET — 최근 N개월의 B2B 입금을 적요별로 묶어, 붙은 것과 못 붙은 것을 모두 보여 준다
+  const months = Math.max(1, Math.min(36, parseInt(url.searchParams.get('months') || '12', 10)));
+  const [cy, cm] = currentMonth().split('-').map(Number);
+  const since = new Date(Date.UTC(cy, cm - 1 - (months - 1), 1)).toISOString().slice(0, 7);
+
+  const deposits = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT trans_at, COALESCE(remark,'') AS remark, amount
+        FROM bankacct_transactions
+       WHERE kind='in' AND substr(trans_at,1,7) >= ?
+       ORDER BY trans_at DESC`).bind(since).all();
+    return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
+  }, []);
+  // 정산서와 같은 판정을 쓴다 — 화면마다 «B2B 인지» 가 달라지면 안 된다
+  const b2bRows = deposits
+    .filter(d => classifyDeposit(d.remark, Number(d.amount) || 0) === 'b2b')
+    .map(d => ({ date: String(d.trans_at || '').slice(0, 10), remark: d.remark, amount: Number(d.amount) || 0 }));
+  const att = await attributeB2bRows(env, b2bRows);
+
+  // 붙은 것도 적요별로 묶어 보여 준다 — 잘못 붙은 것을 사람이 고칠 수 있어야 한다
+  const byPayee = new Map<string, { payee: string; count: number; amount: number; first_at: string; last_at: string; franchise_id: number | null; matched_by: string; matched_name: string }>();
+  for (const r of att.rows) {
+    const key = String(r.remark || '').trim();
+    const cur = byPayee.get(key) || {
+      payee: key, count: 0, amount: 0, first_at: r.date, last_at: r.date,
+      franchise_id: r.franchise_id, matched_by: r.matched_by, matched_name: r.matched_name,
+    };
+    cur.count += 1; cur.amount += r.amount;
+    if (r.date < cur.first_at) cur.first_at = r.date;
+    if (r.date > cur.last_at) cur.last_at = r.date;
+    byPayee.set(key, cur);
+  }
+  const items = Array.from(byPayee.values()).sort((a, b) => {
+    if (!a.franchise_id !== !b.franchise_id) return a.franchise_id ? 1 : -1;   // 못 붙은 것을 위로
+    return b.amount - a.amount;
+  });
+
+  const franchises = await safe(async () => {
+    const r = await env.DB.prepare(`SELECT id, name, active FROM franchises ORDER BY (active=1) DESC, name`).all();
+    return (r.results || []) as Array<{ id: number; name: string; active: number }>;
+  }, []);
+
+  const unresolved = items.filter(i => !i.franchise_id);
+  return json({
+    ok: true, type: 'b2b-payees', months, since,
+    items, franchises,
+    total_krw: att.total,
+    assigned_krw: att.assigned,
+    unresolved_count: unresolved.length,
+    unresolved_krw: att.unassignedTotal,
+    note: '학원이 통장으로 바로 보낸 수업료(B2B)입니다. 적요가 대리점·지사 이름과 맞으면 자동으로 붙고, 아니면 여기서 한 번 지정하면 그 적요의 지난·앞으로의 입금이 전부 그 지사로 잡힙니다.',
+  });
+}
+
 async function monthlyReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const built = await buildMonthly(env, period);
@@ -1476,6 +1568,198 @@ async function annualReport(env: Env, url: URL, fmt: string): Promise<Response> 
   return json(data);
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 B2B 통장 직접입금 → 가맹점 귀속 (2026-08-18 신설)
+
+   [무엇이 문제였나] 가맹점별 정산서는 student_payments(카페24 결제 장부)만 봤다.
+   그런데 JW학원·(주)드림키오·어센틱영어처럼 **학원이 수업료를 통장으로 바로 보내는
+   B2B 결제**는 카페24를 안 거쳐 student_payments 에 없다(classifyDeposit 의 'b2b').
+   그래서 월간 리포트·KPI 의 매출에는 B2B 가 들어 있는데(2026-08-16 반영) 정산서만
+   빠져 있었다 — 같은 달인데 화면마다 매출이 달랐고, B2B 로 받는 가맹점은 정산서에
+   매출이 0 으로 찍혔다.
+
+   [어떻게 붙이나 — 세 단계, «모르면 안 넣는다»]
+     ① b2b_payee_franchise_override — 사람이 «이 입금자는 이 지사» 라고 지정한 것.
+        가장 세고, 지정이 있으면 그대로 쓴다.
+     ② 대리점(centers) 이름과 정규화 일치. B2B 로 받는 대리점(payment_type='B2B')을
+        먼저 보고, 없으면 전체 대리점을 본다. 카페24 원부의 대리점 이름은 「N드림키오」
+        처럼 앞에 N 이 붙어 있는 경우가 있어 그 변형도 같은 열쇠로 만든다.
+     ③ 지사(franchises) 이름과 정규화 일치.
+   위 어느 단계든 **후보 지사가 둘 이상이면 배정하지 않는다** — 아무 쪽에 몰아주면
+   그게 또 다른 균등분배다(가맹점별 정산서 본문의 같은 원칙).
+
+   ⚠️ 은행 적요는 길이가 잘리고 사람 이름이 섞인다(「박선유(에스와이피(SY」,
+      「어센틱영어 박영선」). 그래서 ②③ 은 «정확히 같은 이름» 과 «적요 안에 대리점
+      이름이 통째로 들어 있는 경우»(4글자 이상일 때만) 두 가지만 인정한다.
+      그 이상 추측하지 않고 「배정 못 한 B2B 입금」 으로 넘겨 사람에게 묻는다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function ensureB2bOverrideTable(env: Env): Promise<void> {
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS b2b_payee_franchise_override (payee TEXT PRIMARY KEY, franchise_id INTEGER NOT NULL, note TEXT, updated_at INTEGER NOT NULL);`);
+  } catch { /* 이미 있으면 그만 */ }
+}
+
+/** 조직 이름 비교용 열쇠. 「(주)드림키오」·「드림 키오」 → 「드림키오」 */
+function orgKey(name: string): string {
+  return String(name || '')
+    .replace(/\(주\)|（주）|㈜|\(유\)|（유）|주식회사|유한회사/g, '')
+    .replace(/[\s·.,\-_'"()（）]/g, '')
+    .toLowerCase();
+}
+
+/** 대리점 이름의 「N」 접두(카페24 원부 표기)를 뗀 변형까지 열쇠로 만든다 */
+function orgKeys(name: string): string[] {
+  const k = orgKey(name);
+  const keys = [k];
+  const stripped = k.replace(/^n/, '');
+  if (stripped.length >= 2 && stripped !== k) keys.push(stripped);
+  return keys;
+}
+
+export interface B2bAttributedRow {
+  date: string; remark: string; amount: number;
+  franchise_id: number | null;
+  /** 어떻게 붙었는지 — 화면·CSV 에 그대로 밝힌다 */
+  matched_by: '지정' | '대리점' | '지사' | '';
+  matched_name: string;
+}
+
+export interface B2bAttribution {
+  /** 그 달 B2B 직접입금 전체 (붙은 것 + 못 붙은 것) */
+  rows: B2bAttributedRow[];
+  /** 지사별 합계 */
+  byFranchise: Map<number, { amount: number; count: number }>;
+  /** 못 붙인 입금을 적요별로 묶은 것 — 사람이 지사를 알려 주면 바로 붙는다 */
+  unassigned: Array<{ payee: string; count: number; amount: number; reason: string }>;
+  total: number;
+  assigned: number;
+  unassignedTotal: number;
+}
+
+/** 그 달 B2B 통장 직접입금을 지사에 귀속시킨다. 정산서와 지정 화면이 같은 함수를 쓴다. */
+async function attributeB2bDeposits(env: Env, period: string): Promise<B2bAttribution> {
+  await ensureB2bOverrideTable(env);
+  const dep = await monthDeposits(env, period);
+  return await attributeB2bRows(env, dep.b2bRows);
+}
+
+/** 입금 행 목록을 지사에 귀속시킨다(기간과 무관 — 지정 화면은 여러 달을 한 번에 본다) */
+async function attributeB2bRows(
+  env: Env,
+  b2bRows: Array<{ date: string; remark: string; amount: number }>,
+): Promise<B2bAttribution> {
+  const empty: B2bAttribution = {
+    rows: [], byFranchise: new Map(), unassigned: [], total: 0, assigned: 0, unassignedTotal: 0,
+  };
+  if (!b2bRows.length) return empty;
+
+  // ① 사람이 지정한 표
+  const overrides = await safe(async () => {
+    const r = await env.DB.prepare(
+      `SELECT o.payee, o.franchise_id FROM b2b_payee_franchise_override o
+        WHERE EXISTS (SELECT 1 FROM franchises f WHERE f.id = o.franchise_id)`).all();
+    return (r.results || []) as Array<{ payee: string; franchise_id: number }>;
+  }, []);
+  const ovMap = new Map<string, number>();
+  for (const o of overrides) ovMap.set(String(o.payee || '').trim(), Number(o.franchise_id));
+
+  /* ②③ 이름 → 지사 후보. 값이 «지사 하나» 로 좁혀질 때만 쓴다.
+     같은 열쇠가 두 지사 이상을 가리키면 null 로 만들어 «모름» 임을 남긴다. */
+  type NameEntry = { fid: number | null; label: string; tier: '대리점' | '지사' };
+  const put = (m: Map<string, NameEntry>, key: string, fid: number, label: string, tier: '대리점' | '지사') => {
+    if (key.length < 2) return;
+    const cur = m.get(key);
+    if (!cur) { m.set(key, { fid, label, tier }); return; }
+    if (cur.fid !== fid) cur.fid = null;                  // 후보가 갈렸다 → 배정 불가
+  };
+
+  const centerMap = new Map<string, NameEntry>();
+  await safe(async () => {
+    const r = await env.DB.prepare(
+      `SELECT name, franchise_id, COALESCE(payment_type,'') AS payment_type FROM centers
+        WHERE franchise_id IS NOT NULL AND COALESCE(name,'') <> ''`).all();
+    for (const c of (r.results || []) as Array<{ name: string; franchise_id: number; payment_type: string }>) {
+      for (const k of orgKeys(c.name)) put(centerMap, k, Number(c.franchise_id), c.name, '대리점');
+    }
+    return true;
+  }, false);
+
+  const franchiseMap = new Map<string, NameEntry>();
+  await safe(async () => {
+    const r = await env.DB.prepare(`SELECT id, name FROM franchises WHERE COALESCE(name,'') <> ''`).all();
+    for (const f of (r.results || []) as Array<{ id: number; name: string }>) {
+      for (const k of orgKeys(f.name)) put(franchiseMap, k, Number(f.id), f.name, '지사');
+    }
+    return true;
+  }, false);
+
+  /* 적요 안에 대리점·지사 이름이 통째로 들어 있는 경우(「SYP어학원8월분」 ⊃ 「N SYP어학원」).
+     4글자 미만 이름은 우연히 겹치기 쉬워 뺀다(예: 「pdi」 가 「상주pdi2026」 에 걸린다). */
+  const containKeys: Array<[string, NameEntry]> = [];
+  for (const m of [centerMap, franchiseMap]) {
+    for (const [k, v] of m) if (k.length >= 4 && v.fid) containKeys.push([k, v]);
+  }
+
+  const lookup = (remark: string): { fid: number | null; by: B2bAttributedRow['matched_by']; name: string; ambiguous: boolean } => {
+    const raw = String(remark || '').trim();
+    const ov = ovMap.get(raw);
+    if (ov) return { fid: ov, by: '지정', name: raw, ambiguous: false };
+
+    // 적요 전체와 「(」 앞까지 두 가지로 찾아본다 — 「박선유(에스와이피(SY」 같은 잘린 적요 때문
+    const cands = [orgKey(raw), orgKey(payeeBase(raw))].filter((v, i, a) => v && a.indexOf(v) === i);
+    let ambiguous = false;
+    for (const key of cands) {
+      for (const m of [centerMap, franchiseMap]) {
+        const hit = m.get(key);
+        if (!hit) continue;
+        if (hit.fid) return { fid: hit.fid, by: hit.tier, name: hit.label, ambiguous: false };
+        ambiguous = true;                                  // 이름이 갈렸다 — 다음 후보도 보지만 사유는 남긴다
+      }
+    }
+    // 포함 매칭 — 적중이 «하나» 일 때만 인정
+    const key0 = cands[0] || '';
+    const hits = containKeys.filter(([k]) => key0.includes(k));
+    const fids = Array.from(new Set(hits.map(([, v]) => v.fid)));
+    if (fids.length === 1 && fids[0]) {
+      const h = hits.find(([, v]) => v.fid === fids[0])!;
+      return { fid: fids[0], by: h[1].tier, name: h[1].label, ambiguous: false };
+    }
+    if (fids.length > 1) ambiguous = true;
+    return { fid: null, by: '', name: '', ambiguous };
+  };
+
+  const out: B2bAttribution = {
+    rows: [], byFranchise: new Map(), unassigned: [], total: 0, assigned: 0, unassignedTotal: 0,
+  };
+  const unmatched = new Map<string, { payee: string; count: number; amount: number; reason: string }>();
+
+  for (const r of b2bRows) {
+    const amount = Number(r.amount) || 0;
+    const hit = lookup(r.remark);
+    out.total += amount;
+    out.rows.push({
+      date: r.date, remark: r.remark, amount,
+      franchise_id: hit.fid, matched_by: hit.by, matched_name: hit.name,
+    });
+    if (hit.fid) {
+      out.assigned += amount;
+      const cur = out.byFranchise.get(hit.fid) || { amount: 0, count: 0 };
+      cur.amount += amount; cur.count += 1;
+      out.byFranchise.set(hit.fid, cur);
+    } else {
+      out.unassignedTotal += amount;
+      const key = String(r.remark || '').trim();
+      const cur = unmatched.get(key)
+        || { payee: key, count: 0, amount: 0, reason: hit.ambiguous ? '같은 이름이 두 곳 이상' : '대리점·지사 이름과 맞는 것이 없음' };
+      cur.count += 1; cur.amount += amount;
+      unmatched.set(key, cur);
+    }
+  }
+  out.unassigned = Array.from(unmatched.values()).sort((a, b) => b.amount - a.amount);
+  return out;
+}
+
 // ────────────────────────────────────────────────────────────────────
 // 4) 가맹점별 정산서
 // ────────────────────────────────────────────────────────────────────
@@ -1552,23 +1836,66 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     return Number(r?.revenue) || 0;
   }, 0);
 
-  const rows = attributed.map(f => {
-    const fee = Math.round(f.gross * hqFeeRate);
+  /* 🏦 B2B 통장 직접입금도 정산서에 넣는다 (2026-08-18).
+     학원이 수업료를 통장으로 바로 보내는 결제는 카페24를 안 거쳐 student_payments 에
+     없다. 월간 리포트·KPI 의 매출은 2026-08-16 부터 이미 이것을 포함하는데 정산서만
+     빠져 있어서, B2B 로 받는 가맹점은 매출이 0 으로 찍히고 회사 매출도 화면마다 달랐다.
+     수수료율은 B2C 와 같은 값을 쓴다(계약이 다르다는 자료가 없다). */
+  const b2b = await attributeB2bDeposits(env, period);
+
+  // 가맹점 표는 «장부 결제만 있는 지사» 와 «B2B 만 있는 지사» 를 모두 담아야 한다
+  type FrRow = { franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number; b2bGross: number; b2bCount: number };
+  const merged = new Map<number, FrRow>();
+  for (const f of attributed) {
+    merged.set(f.franchise_id, { ...f, gross: Number(f.gross) || 0, b2bGross: 0, b2bCount: 0 });
+  }
+  if (b2b.byFranchise.size) {
+    // B2B 만 있는 지사는 위 쿼리에 안 나오므로 이름을 따로 가져온다
+    const missing = Array.from(b2b.byFranchise.keys()).filter(id => !merged.has(id));
+    if (missing.length) {
+      const names = await safe(async () => {
+        const r = await selectInChunks<{ id: number; name: string; active: number }>(
+          env.DB, missing,
+          ph => `SELECT id, name, active FROM franchises WHERE id IN (${ph})`);
+        return r;
+      }, [] as Array<{ id: number; name: string; active: number }>);
+      for (const f of names) {
+        merged.set(Number(f.id), {
+          franchise_id: Number(f.id), franchise_name: f.name, active: Number(f.active) || 0,
+          gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0,
+        });
+      }
+    }
+    for (const [fid, agg] of b2b.byFranchise) {
+      const row = merged.get(fid);
+      if (!row) continue;                       // 지사 행이 사라진 경우 — 배정 못 한 쪽으로 남는다
+      row.b2bGross += agg.amount; row.b2bCount += agg.count;
+    }
+  }
+
+  const rows = Array.from(merged.values()).map(f => {
+    const gross = f.gross + f.b2bGross;
+    const fee = Math.round(gross * hqFeeRate);
     return {
       franchise_id: f.franchise_id,
       franchise_name: f.franchise_name + (Number(f.active) === 1 ? '' : ' (비활성 지사)'),
       students: f.students,
-      pay_count: f.pays,
-      gross_revenue: f.gross,
+      pay_count: f.pays + f.b2bCount,
+      book_revenue: f.gross,                    // 카페24 등 결제 장부
+      b2b_revenue: f.b2bGross,                  // 통장 직접입금(B2B)
+      b2b_count: f.b2bCount,
+      gross_revenue: gross,
       hq_fee: fee,
-      net_settlement: f.gross - fee,
+      net_settlement: gross - fee,
       due_date: nextSettlementDate(period),
       status: '정산예정',
     };
-  });
+  }).filter(r => r.gross_revenue > 0).sort((a, b) => b.gross_revenue - a.gross_revenue);
 
   const assigned = rows.reduce((a, r) => a + r.gross_revenue, 0);
-  const unassigned = Math.max(0, bookTotal - assigned);
+  // 「장부 총 매출」의 정본도 월간 리포트와 같게 맞춘다 — 장부 결제 + 통장 B2B
+  const revenueTotal = bookTotal + b2b.total;
+  const unassigned = Math.max(0, revenueTotal - assigned);
 
   /* 🔎 «어느 아이디 때문에 못 붙었는지» 를 이름까지 보여 준다 (2026-08-16).
      숫자만 «미배정 539만» 이라고 하면 무엇을 해야 할지 알 수 없다. 목록이 있어야
@@ -1597,57 +1924,85 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   }, []);
   const totals = rows.reduce((a, r) => ({
     gross: a.gross + r.gross_revenue, fee: a.fee + r.hq_fee, net: a.net + r.net_settlement,
-  }), { gross: 0, fee: 0, net: 0 });
+    book: a.book + r.book_revenue, b2b: a.b2b + r.b2b_revenue,
+  }), { gross: 0, fee: 0, net: 0, book: 0, b2b: 0 });
 
   const data = {
     ok: true, type: 'franchise', period, label,
     hq_fee_rate: hqFeeRate,
     method: 'attributed',                       // 균등분배(equal)가 아니라 학생 단위 귀속
     rows, totals,
-    book_total: bookTotal,
+    book_total: bookTotal,                      // 카페24 등 결제 장부만
+    b2b_total: b2b.total,                       // 통장 직접입금(B2B) 전체
+    b2b_assigned: b2b.assigned,
+    b2b_unassigned_krw: b2b.unassignedTotal,
+    b2b_count: b2b.rows.length,
+    b2b_rows: b2b.rows,                         // 붙은 곳까지 밝힌 원본 입금 내역
+    b2b_unassigned: b2b.unassigned,
+    revenue_total: revenueTotal,                // 장부 + B2B — 월간 리포트의 매출과 같은 정의
     unassigned_krw: unassigned,
-    unassigned_pct: bookTotal > 0 ? Number(((unassigned / bookTotal) * 100).toFixed(1)) : 0,
+    unassigned_pct: revenueTotal > 0 ? Number(((unassigned / revenueTotal) * 100).toFixed(1)) : 0,
     unassigned_payers: unassignedPayers,
     sources: {
       gross_revenue: 'actual' as FigureSource,
+      b2b_revenue: (b2b.total > 0 ? 'actual' : 'none') as FigureSource,
       hq_fee: 'estimated' as FigureSource,      // 계약서 수수료율이 시스템에 없다
       unassigned: (unassigned > 0 ? 'review' : 'actual') as FigureSource,
     },
     notes: [
       '가맹점별 매출은 학생 한 명씩 실제 소속을 따라가 합산한 값입니다. 균등분배가 아닙니다. 소속은 학생 원부의 지사 라벨을 먼저 쓰고, 라벨이 없으면 대리점 이름으로 찾습니다.',
+      '총 매출 = 카페24 등 «장부 결제» + 학원이 통장으로 바로 보낸 «B2B 직접입금» 입니다(2026-08-18부터 B2B 포함 — 월간 리포트·KPI의 매출과 같은 정의). 본사 수수료율은 B2B·B2C 구분 없이 같은 값을 씁니다.',
       `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
-      ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, bookTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
+      ...(b2b.total > 0 ? [`이 달 B2B 직접입금은 ${b2b.rows.length}건 · ₩${b2b.total.toLocaleString('ko-KR')} 이고, 그중 ₩${b2b.assigned.toLocaleString('ko-KR')} 을 가맹점에 붙였습니다. 입금 적요를 대리점·지사 이름과 맞춰 붙이며, 후보가 둘 이상이면 붙이지 않습니다.`] : []),
+      ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, revenueTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
+      ...(b2b.unassignedTotal > 0 ? [`그중 B2B 직접입금 ₩${b2b.unassignedTotal.toLocaleString('ko-KR')} 은 입금 적요가 어느 대리점·지사인지 확정되지 않은 것입니다 — 회계관리 화면의 「🏦 배정 못 한 B2B 입금」 에서 한 번 지정하면 그 뒤로 자동으로 붙습니다.`] : []),
     ],
   };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
+    const HEAD = ['가맹점', '학생수', '결제건수', '장부 결제', 'B2B 직접입금', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'];
+    const BODY = rows.map(r => [r.franchise_name, r.students, r.pay_count, r.book_revenue, r.b2b_revenue, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]);
     return out(fmt, `franchise-settlement-${period}.csv`, [
       ['망고아이 가맹점 정산서', label],
-      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요)`],
-      ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님)'],
+      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요 · B2B/B2C 동일)`],
+      ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님) · 총 매출 = 장부 결제 + B2B 직접입금'],
       [],
-      ['가맹점', '학생수', '결제건수', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'],
-      ...rows.map(r => [r.franchise_name, r.students, r.pay_count, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]),
-      ['합계', '', '', totals.gross, totals.fee, totals.net, '', ''],
+      HEAD,
+      ...BODY,
+      ['합계', '', '', totals.book, totals.b2b, totals.gross, totals.fee, totals.net, '', ''],
       [],
-      ['장부 총 매출', bookTotal],
+      ['매출 총계 (장부 결제 + B2B)', revenueTotal],
+      ['  장부 결제 (카페24 등)', bookTotal],
+      ['  B2B 직접입금 (통장)', b2b.total],
       ['가맹점에 배정된 매출', assigned],
       ['배정하지 못한 매출(확인 필요)', unassigned],
+      ['  그중 B2B 직접입금', b2b.unassignedTotal],
       ...(unassignedPayers.length ? [
         [] as (string | number)[],
         ['[배정 못 한 결제자 — 어느 지사인지 알려 주시면 바로 붙습니다]'] as (string | number)[],
         ['결제 아이디', '건수', '금액', '사유'] as (string | number)[],
         ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason] as (string | number)[]),
       ] : []),
+      ...(b2b.unassigned.length ? [
+        [] as (string | number)[],
+        ['[배정 못 한 B2B 직접입금 — 어느 대리점·지사인지 알려 주시면 바로 붙습니다]'] as (string | number)[],
+        ['입금 적요', '건수', '금액', '사유'] as (string | number)[],
+        ...b2b.unassigned.map(u => [u.payee, u.count, u.amount, u.reason] as (string | number)[]),
+      ] : []),
     ], [
-      // 📊 엑셀에서는 가맹점 표와 «배정 못 한 결제자» 를 시트로 나눈다 — 그대로 정렬·필터할 수 있게
-      { name: '가맹점별', headerRows: 1, rows: [
-        ['가맹점', '학생수', '결제건수', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'],
-        ...rows.map(r => [r.franchise_name, r.students, r.pay_count, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]),
-      ] },
+      // 📊 엑셀에서는 가맹점 표와 «배정 못 한» 목록들을 시트로 나눈다 — 그대로 정렬·필터할 수 있게
+      { name: '가맹점별', headerRows: 1, rows: [HEAD, ...BODY] },
+      ...(b2b.rows.length ? [{ name: 'B2B 직접입금', headerRows: 1, rows: [
+        ['일자', '입금 적요', '금액', '붙은 곳', '붙인 방법'],
+        ...b2b.rows.map(r => [r.date, r.remark, r.amount, r.matched_name || '(배정 못 함)', r.matched_by || '']),
+      ] } as XlsxSheet] : []),
       ...(unassignedPayers.length ? [{ name: '배정 못 한 결제자', headerRows: 1, rows: [
         ['결제 아이디', '건수', '금액', '사유', '지사(적어주세요)'],
         ...unassignedPayers.map(u => [u.user_id, u.pays, u.amount, u.reason, '']),
+      ] } as XlsxSheet] : []),
+      ...(b2b.unassigned.length ? [{ name: '배정 못 한 B2B 입금', headerRows: 1, rows: [
+        ['입금 적요', '건수', '금액', '사유', '지사(적어주세요)'],
+        ...b2b.unassigned.map(u => [u.payee, u.count, u.amount, u.reason, '']),
       ] } as XlsxSheet] : []),
     ]);
   }
@@ -2415,14 +2770,30 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
 
   let rows: any[] = [];
   let label = '';
+  let b2cExcluded = 0;   // B2C(선불)라서 미수금에서 뺀 학생 수 — 화면 각주용
   if (kind === 'receivable') {
-    // 학생 만료 임박 + 미납 (status IN ('정상','활동','active') 인데 end_date 가 지났거나, pending 결제)
+    /* 학생 미수금 — status 는 활동인데 end_date 가 지난 학생.
+
+       🔁 (2026-08-18 사장님 지시) **B2C 학생은 미수금이 아니다.**
+          B2C(개인 결제)는 선불이다 — 결제한 만큼만 수업이 나가고 끝난다. 그러니
+          수업이 끝나 있는 것은 «못 받은 돈» 이 아니라 «아직 연장을 안 한 것» 이다.
+          받을 돈이 없는 사람을 미수금 표에 올려 두면 장부가 거짓말을 한다.
+          → 여기서 통째로 뺀다. 그들의 «미연장» 은 회계관리 ▸ 수강료 미연장 자동 알림에서 본다.
+
+          판정 정본은 대리점 지정값 centers.payment_type 이고, 학생 → 대리점 연결은
+          students_erp.shop_name = centers.name 이다(결제 목록 paymentsList 와 같은 규칙).
+          ⚠️ 상관 서브쿼리(EXISTS)로 쓰면 같은 판정에 1,900만 행을 읽는다(실측).
+             NOT IN (SELECT …) 은 부질의를 한 번만 만들어 4만 행이면 끝난다. 이 형태를 유지할 것.
+          ⚠️ centers.name 이 유일하지 않아도 «이름 집합에 있나» 만 보므로 행 뻥튀기가 없다. */
+    const B2C_EXCLUDE_SQL = `(s.shop_name IS NULL OR s.shop_name NOT IN
+        (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))`;
     rows = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT user_id, korean_name, end_date,
-               (julianday(?) - julianday(end_date)) AS days_overdue
-        FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT s.user_id, s.korean_name, s.end_date,
+               (julianday(?) - julianday(s.end_date)) AS days_overdue
+        FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND ${B2C_EXCLUDE_SQL}
         ORDER BY days_overdue DESC LIMIT 200
       `).bind(todayKst, todayKst).all();
       return ((r.results || []) as Array<any>).map(s => ({
@@ -2431,10 +2802,19 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
         issued: s.end_date,
         amount: 0, // 실제 미납 금액은 enrollments.monthly_fee_krw 또는 별도 테이블 필요
         days: Math.floor(s.days_overdue || 0),
-        note: '수강 만료 후 미연장',
+        note: '수강 만료 후 미납 (B2B)',
       }));
     }, []);
-    label = '학생 미수금 (수강 만료 후 미연장)';
+    // 몇 명을 B2C 라서 뺐는지 — 화면에 근거로 적어 준다("갑자기 줄었다"는 오해 방지)
+    b2cExcluded = await safe(async () => {
+      const r = await env.DB.prepare(`
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND NOT ${B2C_EXCLUDE_SQL}
+      `).bind(todayKst).first<{ c: number }>();
+      return Number(r?.c) || 0;
+    }, 0);
+    label = '학생 미수금 (B2B 수강 만료 후 미납 · B2C 제외)';
   } else if (kind === 'payable') {
     // 강사 미지급 (payslips 에서 paid=0 인 것)
     rows = await safe(async () => {
@@ -2484,12 +2864,15 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   if (kind === 'receivable') {
     candidates = await safe(async () => {
       const r = await env.DB.prepare(`
-        SELECT COUNT(*) AS c FROM students_erp
-        WHERE status IN ('정상','활동','active') AND end_date IS NOT NULL AND end_date < ?
+        SELECT COUNT(*) AS c FROM students_erp s
+        WHERE s.status IN ('정상','활동','active') AND s.end_date IS NOT NULL AND s.end_date < ?
+          AND (s.shop_name IS NULL OR s.shop_name NOT IN
+               (SELECT name FROM centers WHERE UPPER(COALESCE(payment_type,'')) = 'B2C' AND name IS NOT NULL AND name <> ''))
       `).bind(todayKst).first<{ c: number }>();
       return Number(r?.c) || 0;
     }, totals.count);
     if (candidates > rows.length) rNotes.push(`대상 ${candidates.toLocaleString('ko-KR')}명 중 경과일이 긴 ${rows.length}명만 표시했습니다.`);
+    if (b2cExcluded > 0) rNotes.push(`B2C(개인 결제) ${b2cExcluded.toLocaleString('ko-KR')}명은 제외했습니다 — 결제한 만큼만 수업이 나가는 선불 구조라 미수금이 아니라 «미연장»입니다. 「회계관리 ▸ 수강료 미연장 자동 알림」에서 확인하세요.`);
     rNotes.push('금액이 모두 0원인 이유: 학생별 수강료 단가가 시스템에 없어 미납액을 계산할 수 없습니다. 수강료 정보를 등록하면 금액이 채워집니다.');
     rNotes.push('원부에 퇴원 처리가 안 된 옛 학생이 섞여 있을 수 있습니다 — 실제 미수금과 다를 수 있습니다.');
   } else if (kind === 'pending') {
@@ -2497,6 +2880,7 @@ async function receivablesReport(env: Env, url: URL, fmt: string): Promise<Respo
   }
 
   const data = { ok: true, type: 'receivables', kind, label, rows, totals, candidates, notes: rNotes,
+    b2c_excluded: b2cExcluded,
     amount_source: (kind === 'receivable' ? 'none' : 'actual') as FigureSource };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
