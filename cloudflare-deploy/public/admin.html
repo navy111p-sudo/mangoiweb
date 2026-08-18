@@ -1998,7 +1998,9 @@
       </details>
 
       <!-- 1. 학생 결제 내역 -->
-      <details class="sub-item">
+      <!-- 🔗 id 는 사이드바 손자 메뉴(회계 › 2 학생 결제)가 찾아오는 앵커다. 지우지 말 것 — 없으면
+           옛 방식(«카드 안 N번째 details»)으로 되돌아가 엉뚱한 칸이 열린다(2026-08-18). -->
+      <details class="sub-item" id="acc-student-payments">
         <summary data-ko="💳 학생 결제 내역" data-en="💳 Student Payments">💳 학생 결제 내역</summary>
         <div class="sub-body">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
@@ -11477,7 +11479,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=9" defer></script><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=10" defer></script><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
