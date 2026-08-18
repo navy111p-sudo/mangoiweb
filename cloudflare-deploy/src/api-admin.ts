@@ -23,6 +23,7 @@ import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸�
 import { KCP_TRANSFER_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
+import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
 import { sendPlainSms } from './solapi-client';
 import { sendEmail, emailLayout } from './email';
 import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수업 변경 이력(연기/삭제/종료)
@@ -7458,6 +7459,94 @@ LIMIT $limit`;
         `INSERT INTO franchises (name, address, phone, owner_name, opened_at, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.name, b.address || null, b.phone || null, b.owner_name || null, b.opened_at || null, b.notes || null, now, now).run();
       return json({ ok: true, id: r.meta.last_row_id });
+    }
+
+    /* ─── 🏯 본사 관리 (2026-08-18 수정요청 #13) ─────────────────────────────────
+       조직 순서는 🏯 본사 › 🏢 지사 › 🏪 대리점(학원) 인데, 맨 위 «본사» 한 칸만
+       화면(껍데기)만 있고 표를 채우는 코드가 저장소에 0곳이라 늘 «데이터 없음» 이었다.
+       → hq_orgs 표 + 목록·검색·등록·수정·삭제를 여기서 실제로 붙인다.
+
+       ⚠️ 경로를 «/api/admin/org/hq» 로 잡은 것은 우연이 아니다.
+          index.ts 의 TEACHER_BLOCKED_PREFIXES 에 이미 '/api/admin/org' 가 있어서
+          **강사에게는 자동으로 닫힌다.** 사업자등록번호·대표이사 같은 법인정보라
+          열려 있는 다른 접두사(예: /api/admin/stats/) 밑에 얹으면 강사에게 그대로 열린다.
+
+       ℹ️ 첫 조회 때 표가 비어 있으면 운영 사이트 «회사 정보» 푸터의 값을 한 번만 심는다
+          (src/hq-profile.ts). 그 뒤로는 D1 이 정본이라 화면에서 고친 값을 덮어쓰지 않는다. */
+    if (path === '/api/admin/org/hq' &&
+        (method === 'GET' || method === 'POST' || method === 'PATCH' || method === 'DELETE')) {
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS hq_orgs (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, ceo_name TEXT, business_no TEXT, address TEXT, phone TEXT, email TEXT, ecommerce_no TEXT, privacy_officer TEXT, memo TEXT, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
+
+      const HQ_FIELDS = ['name', 'ceo_name', 'business_no', 'address', 'phone', 'email', 'ecommerce_no', 'privacy_officer', 'memo'] as const;
+      const _hqStr = (v: any): string | null => {
+        const s = (v == null ? '' : String(v)).trim();
+        return s ? s.slice(0, 200) : null;     // 화면 입력이 정본이라 길이만 자른다
+      };
+
+      if (method === 'GET') {
+        /* 🌱 이관 — «비어 있을 때만» 한 번. COUNT 로 먼저 확인하므로 두 번 심지 않는다.
+              (사장님 요청: 「기존 홈페이지에 등록된 것처럼 본사 정보를 등록해 줘」) */
+        const n0: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hq_orgs`).first();
+        if (Number(n0?.n || 0) === 0) {
+          const now0 = Date.now();
+          await env.DB.prepare(
+            `INSERT INTO hq_orgs (name, ceo_name, business_no, address, phone, email, ecommerce_no, privacy_officer, memo, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          ).bind(
+            HQ_PROFILE.name, HQ_PROFILE.ceo_name, HQ_PROFILE.business_no, HQ_PROFILE.address,
+            HQ_PROFILE.phone, HQ_PROFILE.email, HQ_PROFILE.ecommerce_no, HQ_PROFILE.privacy_officer,
+            HQ_PROFILE.memo, now0, now0
+          ).run();
+        }
+        // 🔎 검색 — 이름·대표이사·전화·주소·사업자번호. 건수가 적어(본사) 페이징은 두지 않는다.
+        const q = (url.searchParams.get('q') || '').trim();
+        let rs;
+        if (q) {
+          const like = `%${q}%`;
+          rs = await env.DB.prepare(
+            `SELECT * FROM hq_orgs
+              WHERE name LIKE ? OR ceo_name LIKE ? OR phone LIKE ? OR address LIKE ? OR business_no LIKE ?
+              ORDER BY active DESC, id ASC`
+          ).bind(like, like, like, like, like).all();
+        } else {
+          rs = await env.DB.prepare(`SELECT * FROM hq_orgs ORDER BY active DESC, id ASC`).all();
+        }
+        const items = rs.results || [];
+        const tot: any = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hq_orgs`).first();
+        return json({ ok: true, items, count: items.length, total: Number(tot?.n || 0), q });
+      }
+
+      if (method === 'POST') {
+        const b = await parseJsonBody(request);
+        if (!b || !_hqStr(b.name)) return invalidBody(['name']);
+        const now = Date.now();
+        const vals = HQ_FIELDS.map(f => _hqStr((b as any)[f]));
+        const r = await env.DB.prepare(
+          `INSERT INTO hq_orgs (${HQ_FIELDS.join(', ')}, created_at, updated_at)
+           VALUES (${HQ_FIELDS.map(() => '?').join(', ')}, ?, ?)`
+        ).bind(...vals, now, now).run();
+        return json({ ok: true, id: r.meta.last_row_id });
+      }
+
+      if (method === 'PATCH') {
+        const b = await parseJsonBody(request);
+        const hid = parseInt(String((b as any)?.id || ''), 10);
+        if (!hid) return invalidBody(['id']);
+        if (!_hqStr((b as any)?.name)) return invalidBody(['name']);
+        const now = Date.now();
+        const vals = HQ_FIELDS.map(f => _hqStr((b as any)[f]));
+        await env.DB.prepare(
+          `UPDATE hq_orgs SET ${HQ_FIELDS.map(f => `${f} = ?`).join(', ')}, updated_at = ? WHERE id = ?`
+        ).bind(...vals, now, hid).run();
+        return json({ ok: true, id: hid });
+      }
+
+      /* DELETE — ?id= . 실제 행을 지운다(본사는 몇 건 안 되고, 잘못 등록한 것을 못 지우면
+         화면에 영원히 남는다). 화면 쪽에서 «두 번 눌러야 확인창» 으로 한 번 더 막는다. */
+      const delId = parseInt(url.searchParams.get('id') || '', 10);
+      if (!delId) return invalidBody(['id']);
+      await env.DB.prepare(`DELETE FROM hq_orgs WHERE id = ?`).bind(delId).run();
+      return json({ ok: true, id: delId, deleted: true });
     }
 
     // ─── 대리점·학원 (테이블명은 centers 지만 실제 내용은 «대리점/학원» 921건) ──────
