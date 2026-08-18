@@ -11830,14 +11830,66 @@ window.rebuildGlobalSearchIndex = function() {
   // ──────────────────────────────────────────────────────────
   // 9. 손익 / 재무제표 — 생성 / PDF / Excel
   // ──────────────────────────────────────────────────────────
+  /* 📅 분기별 조회 (2026-08-18) — 「월별 / 분기별」 토글.
+     서버(reports/statement)는 period 를 «YYYY-MM» 과 «YYYY-Qn» 둘 다 받는다.
+     화면 표기는 «2026 1분기» 형태(20XX N분기). 생성·PDF·Excel 이 모두 _statementUrl()
+     하나만 쓰므로, 여기만 고치면 세 기능이 같이 분기를 따라간다. */
+  let _fsGenerated = false;                 // 한 번이라도 [생성] 을 눌렀나 (기간을 바꾸면 다시 그린다)
+  function _fsQuarterOf(ym){                // '2026-04' → '2026-Q2'
+    const m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+    return m ? m[1] + '-Q' + (Math.floor((Number(m[2]) - 1) / 3) + 1) : '';
+  }
+  function _fsFillQuarters(){
+    const sel = document.getElementById('acc-fs-quarter');
+    if (!sel || sel.options.length) return;
+    const now = new Date();
+    const cy = now.getFullYear(), cq = Math.floor(now.getMonth() / 3) + 1;
+    for (let y = cy; y >= cy - 2; y--) {
+      for (let q = 4; q >= 1; q--) {
+        if (y === cy && q > cq) continue;    // 아직 오지 않은 분기는 넣지 않는다
+        const o = document.createElement('option');
+        o.value = y + '-Q' + q;
+        o.textContent = y + ' ' + q + '분기';
+        /* ⚠️ JS 로 그린 라벨은 i18n 사전(전체 문자열 일치)이 못 고친다 → data-ko/data-en 을 함께 넣는다 */
+        o.setAttribute('data-ko', y + ' ' + q + '분기');
+        o.setAttribute('data-en', 'Q' + q + ' ' + y);
+        sel.appendChild(o);
+      }
+    }
+    // 지금 보고 있는 «월» 이 속한 분기를 기본값으로 (사람이 보던 시점을 잃지 않게)
+    const want = _fsQuarterOf((document.getElementById('acc-fs-month') || {}).value);
+    if (want && Array.prototype.some.call(sel.options, o => o.value === want)) sel.value = want;
+  }
+  window.accFsModeChange = function(){
+    const mode = (document.getElementById('acc-fs-mode') || {}).value || 'month';
+    _fsFillQuarters();
+    const mEl = document.getElementById('acc-fs-month');
+    const qEl = document.getElementById('acc-fs-quarter');
+    /* ⚠️ hidden 속성 대신 display 를 직접 만진다 — 작성자 CSS 가 display 를 정해 두면
+       브라우저 기본 [hidden]{display:none} 이 밀려서 «숨겼는데 그대로 보이는» 일이 난다. */
+    if (mEl) mEl.style.display = mode === 'quarter' ? 'none' : '';
+    if (qEl) qEl.style.display = mode === 'quarter' ? '' : 'none';
+    if (_fsGenerated) window.accGenStatement();
+  };
+  window.accFsPeriodChange = function(){ if (_fsGenerated) window.accGenStatement(); };
   function _statementUrl(format){
-    const month = document.getElementById('acc-fs-month').value || _today().slice(0,7);
+    const mode = (document.getElementById('acc-fs-mode') || {}).value || 'month';
+    let period;
+    if (mode === 'quarter') {
+      _fsFillQuarters();
+      period = ((document.getElementById('acc-fs-quarter') || {}).value)
+            || _fsQuarterOf((document.getElementById('acc-fs-month') || {}).value)
+            || _fsQuarterOf(_today().slice(0,7));
+    } else {
+      period = (document.getElementById('acc-fs-month') || {}).value || _today().slice(0,7);
+    }
     const type  = document.getElementById('acc-fs-type').value || 'pl';
-    const qs = new URLSearchParams({ type, period: month });
+    const qs = new URLSearchParams({ type, period });
     if (format) qs.set('format', format);
     return '/api/admin/reports/statement?' + qs.toString();
   }
   window.accGenStatement = async function(){
+    _fsGenerated = true;
     const wrap = document.getElementById('acc-fs-result');
     wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280">생성 중…</div>';
     try {
