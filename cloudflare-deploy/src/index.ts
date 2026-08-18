@@ -1197,6 +1197,12 @@ const worker = {
         path === '/api/admin/payments/overdue' ||
         path === '/api/admin/payments/import-cafe24' ||
         path === '/api/admin/payments/cafe24-diag' ||
+        // 💳 (2026-08-18) 결제관리 화면(ph106) 실데이터 — 핸들러는 payments-board.ts.
+        //    ⚠️ 인증 게이트만 '/api/admin/payments' 접두사로 덮여 있고 이 «라우팅» 게이트에
+        //       빠져 있어서 handleMangoApi 까지 못 가고 끝단 404 로 떨어졌다.
+        //       (화면: KPI 4칸 전부 «—», 표에 «통장 입금을 불러오지 못했습니다 — HTTP 404»)
+        path === '/api/admin/payments/b2b' ||
+        path === '/api/admin/payments/b2c' ||
         // 🚨 결석 위험 자동 알림 수동 실행/진단 (dry=1 지원)
         path === '/api/admin/absent-sweep/run' ||
         // 🛟 버려진 녹화 자동 마무리 수동 실행/진단 (stale_min= 로 기준시간 조절)

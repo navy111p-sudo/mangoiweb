@@ -1430,6 +1430,8 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/teacher/mbti') || path.startsWith('/api/mbti/')
         || path === '/api/teachers/mbti-list' || path.startsWith('/api/admin/teacher/praise')
         || path === '/api/teacher/praise' || path === '/api/teachers/list-public'
+        // 💳 (2026-08-18) 결제관리 화면(ph106) — index.ts 라우팅 게이트와 «둘 다» 필요하다.
+        || path === '/api/admin/payments/b2b' || path === '/api/admin/payments/b2c'
         || path.startsWith('/api/admin/payments/overdue') || path === '/api/admin/payments/notify-overdue'
         || path === '/api/admin/payments/notify-all-overdue' || path === '/api/admin/payments/record'
         || path.startsWith('/api/admin/ai-analyze/')
