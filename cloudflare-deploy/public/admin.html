@@ -2577,6 +2577,32 @@
             </div>
           </details>
 
+          <!-- 🏦 배정 못 한 B2B 통장 입금 → 대리점/지사 붙이기 (2026-08-18)
+               학원이 수업료를 통장으로 바로 보내면 카페24를 안 거쳐 결제 장부에 없다.
+               적요가 대리점·지사 이름과 맞으면 자동으로 붙고, 아니면 여기서 한 번 지정한다.
+               지정하면 가맹점별 정산서의 그 지사 매출에 바로 합산된다. -->
+          <details id="acc-b2b-box" class="sub-item" style="background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:0;margin-bottom:12px">
+            <summary style="padding:10px 14px;cursor:pointer;font-size:13px;font-weight:700;color:#111827" data-ko="🏦 배정 못 한 B2B 입금 — 가맹점 연결" data-en="🏦 Unassigned B2B deposits">🏦 배정 못 한 B2B 입금 — 가맹점 연결</summary>
+            <div style="padding:0 14px 12px">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+                <span id="acc-b2b-state" style="font-size:12px;color:#6b7280">「불러오기」를 눌러 주세요</span>
+                <span style="flex:1"></span>
+                <button onclick="accB2bLoad()" class="primary" style="padding:5px 12px;font-size:12px" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
+              </div>
+              <div style="overflow-x:auto"><table style="width:100%;font-size:12px"><thead><tr>
+                <th style="text-align:left">입금 적요</th><th style="text-align:right">건수</th><th style="text-align:right">금액</th>
+                <th style="text-align:left">기간</th><th style="text-align:left">지금 붙은 곳</th>
+                <th style="text-align:left">지사 직접 지정</th></tr></thead>
+                <tbody id="acc-b2b-tbody"><tr><td colspan="6" class="empty">—</td></tr></tbody></table></div>
+              <p style="font-size:11px;color:#6b7280;margin:8px 0 0;line-height:1.6">
+                학원이 <b>통장으로 바로 보낸 수업료(B2B)</b>입니다. 카페24를 안 거쳐 결제 장부에 없어서
+                예전에는 가맹점별 정산서에 아예 빠져 있었습니다(2026-08-18부터 포함).<br>
+                한 번 지정하면 <b>그 적요의 지난 입금과 앞으로의 입금이 전부</b> 그 지사 매출로 잡힙니다.
+                <b>«자동»</b> 표시는 적요가 대리점·지사 이름과 맞아 저절로 붙은 것입니다.
+              </p>
+            </div>
+          </details>
+
           <!-- 🏷️ 지출 계정과목 분류 (2026-08-17) — 「기타출금」 덩어리를 과목으로 쪼갠다.
                지사 대표자명과 일치하면 자동으로 「지사수수료」, 나머지는 여기서 한 번 정하면
                그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다. -->
@@ -8994,7 +9020,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=104" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
+<script src="/js/adm-core.js?v=105" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인) · v=105: 2026-08-18 가맹점별 정산서에 B2B 통장 직접입금 반영 + 「배정 못 한 B2B 입금」 지정 패널 · v=104: 2026-08-18 두 작업이 «각자» v=103 을 써서 번호를 새로 딴다 —
      ① main: PG 수수료율을 서버 값(pg_fee_rate)에서 받아 쓰기(화면 3곳에 3.3% 가 박혀 있었다)
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
