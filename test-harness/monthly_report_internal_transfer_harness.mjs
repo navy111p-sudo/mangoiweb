@@ -39,12 +39,19 @@ const slice = (src, from, to) => {
   return b < 0 ? src.slice(a) : src.slice(a, b);
 };
 
-console.log('\n📅 월간 회계 리포트 — 내부 자금이체 표시 제거\n');
+/* 코드 주석·HTML 주석은 «화면 표시» 가 아니다. «남아 있지 않다» 를 검사할 때는 먼저 걷어낸다 —
+   지운 이유를 적어 둔 주석이 되레 FAIL 을 내면, 다음 사람이 주석을 지우게 된다. */
+const noc = (t) => String(t)
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^[ \t]*\/\/.*$/gm, '')
+  .replace(/<!--[\s\S]*?-->/g, '');
+
+console.log('\n📅 월간 회계 리포트 — 타계좌 입금 표시 제거(확인된 이체 + 성격 미확인)\n');
 
 /* ── ① 화면에 문구가 되살아나지 않았는가 ──────────────────────── */
 console.log('① 화면(renderMonthly)에 설명이 남아 있지 않다');
 {
-  const render = slice(core, 'function renderMonthly(', 'function renderQuarterly(');
+  const render = noc(slice(core, 'function renderMonthly(', 'function renderQuarterly('));
   ok(render.length > 500, 'renderMonthly() 를 찾았다', '함수명이 바뀌었으면 이 하니스부터 고칠 것');
   ok(!/케이씨피/.test(render), '「케이씨피M」 설명 각주가 없다');
   ok(!/운영자금/.test(render), '「운영자금 보충」 표현이 없다');
@@ -52,14 +59,17 @@ console.log('① 화면(renderMonthly)에 설명이 남아 있지 않다');
   ok(!/메우려고|메우고 있는지/.test(render), '«부족한 돈을 메우려고 옮겨 왔습니다» 문장이 없다');
   ok(/매출 합계/.test(render) && /통장 직접입금/.test(render),
     '매출 표 자체는 그대로다 (장부 결제 · 통장 직접입금 · 매출 합계)');
-  ok(/deposit_transfer_unknown_krw/.test(render),
-    '아직 «성격 미확인» 입금은 계속 묻는다 (모르는 돈까지 숨기면 안 된다)');
+  /* ⛔ 2026-08-18 (같은 날 추가 지시로 뒤집힘) — «성격 미확인 입금» 줄도 화면에서 뺐다.
+     예전 규칙은 «모르는 돈은 계속 묻는다» 였다. 되살리려면 사람에게 먼저 물을 것.
+     금액은 payload(deposit_transfer_unknown_krw)에 그대로 나가고, 매출에 안 넣는 계산도 그대로다. */
+  ok(!/deposit_transfer_unknown_krw/.test(render), '«성격 미확인 입금» 줄을 그리지 않는다');
+  ok(!/확인이 필요합니다/.test(render), '«매출인지 자금이동인지 확인이 필요합니다» 설명도 없다');
 }
 
 /* ── ② 서버 payload 에도 금액이 나가지 않는다 ─────────────────── */
 console.log('\n② 리포트 payload 에 내부 이체 금액이 없다');
 {
-  const build = slice(acct, 'async function buildMonthly(', '\n/* ═');
+  const build = noc(slice(acct, 'async function buildMonthly(', '\n/* ═'));
   ok(build.length > 500, 'buildMonthly() 를 찾았다');
   ok(!/funding_in_krw/.test(acct), 'accounting-reports.ts 어디에도 funding_in_krw 가 없다');
   ok(!/transferKnown/.test(build), 'buildMonthly 가 transferKnown 을 내보내지 않는다');
@@ -68,7 +78,8 @@ console.log('\n② 리포트 payload 에 내부 이체 금액이 없다');
   ok(/const unknownTransferRows = pl\.rev\.dep\.transferRows\.filter\(r => !r\.known\)/.test(build),
     '상세 목록은 known=false 행만 남긴다');
   ok(/transfer_rows:\s*unknownTransferRows/.test(build),
-    'detail.transfer_rows 가 그 목록을 쓴다 (엑셀 «확인필요 입금» 시트도 이걸 본다)');
+    'detail.transfer_rows 는 여전히 known=false 행만 담는다 (값은 남기고 화면에만 안 쓴다)');
+  ok(!/name: '확인필요 입금'/.test(acct), '엑셀에 «확인필요 입금» 시트를 만들지 않는다(2026-08-18 지시)');
   ok(!/케이씨피M/.test(build), '월간 CSV 문구에 「케이씨피M」 이 없다');
 }
 
@@ -87,31 +98,31 @@ console.log('\n③ «통장 기준 실제 현금흐름» 이 내부 이체를 �
 /* ── ④ 대사 배너 안내문 ───────────────────────────────────────── */
 console.log('\n④ 대사 배너가 내부 이체를 설명하지 않는다');
 {
-  const rec = slice(acct, 'function reconcileMonth(', '\n// ─');
+  const rec = noc(slice(acct, 'function reconcileMonth(', '\n// ─'));
   ok(!/transferKnown/.test(rec), 'transfer_note 가 확인된 내부 이체를 안내하지 않는다');
-  ok(/transferUnknown/.test(rec), '성격을 «모르는» 입금은 계속 안내한다');
+  ok(/transfer_note: ''/.test(rec), '대사 배너는 타계좌 입금을 아예 안내하지 않는다(성격 미확인 포함)');
 }
 
 /* ── ⑤ 손익계산서·대사 리포트도 같은 기준 ─────────────────────── */
 console.log('\n⑤ 손익계산서·대사 리포트에도 설명이 남아 있지 않다');
 {
-  const stmt = slice(acct, 'async function statementReport(', '\nasync function taxReport(');
+  const stmt = noc(slice(acct, 'async function statementReport(', '\nasync function taxReport('));
   ok(stmt.length > 500, 'statementReport() 를 찾았다');
   ok(!/transferKnown/.test(stmt), '손익계산서 매출 각주에서 내부 이체 안내가 빠졌다');
-  ok(/transferUnknown/.test(stmt), '성격을 «모르는» 입금은 손익계산서에서도 계속 밝힌다');
+  ok(!/transferUnknown/.test(stmt), '«성격 미확인 입금» 각주도 손익계산서에서 뺐다(2026-08-18 지시)');
 
-  const rec = slice(acct, 'async function reconcileReport(', '\n// ─');
+  const rec = noc(slice(acct, 'async function reconcileReport(', '\n// ─'));
   ok(rec.length > 500, 'reconcileReport() 를 찾았다');
   ok(!/케이씨피M/.test(rec), '대사 리포트 문구·엑셀 머리말에 「케이씨피M」 이 없다');
   ok(!/운영자금/.test(rec), '대사 리포트에 「운영자금」 표현이 없다');
   ok(/if \(kind === 'transfer' && isKnownTransfer\(row\.remark\)\) continue;/.test(rec),
     '확인된 내부 이체는 대사 집계 어느 칸에도 넣지 않는다');
-  ok(/성격 미확인 입금/.test(rec), '남은 칸 이름은 「성격 미확인 입금」 이다');
+  ok(!/성격이 확인되지 않은 입금/.test(rec), '대사 리포트 문구에 «성격이 확인되지 않은 입금» 안내가 없다');
 
   /* 대사 «화면» 도 같이 본다 — 서버 문구만 고치고 화면 각주를 두면 그대로 보인다.
      ⚠️ 「정산·매출 > 카페24 회계 실데이터」 탭은 별개 화면이라 이 검사 범위 밖이다
         (2026-08-18 PR #234 에서 사장님이 «제외 표시를 보이게» 하라고 지시한 곳). */
-  const rcUi = slice(core, 'window.accLoadReconcile = async function', 'window.accReconcileExcel');
+  const rcUi = noc(slice(core, 'window.accLoadReconcile = async function', 'window.accReconcileExcel'));
   ok(rcUi.length > 500, 'accLoadReconcile() 을 찾았다');
   ok(!/케이씨피M/.test(rcUi), '대사 화면 각주에 「케이씨피M」 이 없다');
   ok(!/운영자금/.test(rcUi), '대사 화면 각주에 「운영자금」 표현이 없다');

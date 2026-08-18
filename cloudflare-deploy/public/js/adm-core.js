@@ -11259,6 +11259,13 @@ window.rebuildGlobalSearchIndex = function() {
            .tblwrap 은 «표 안에서만» 스크롤되게 하는 안전망이다. 페이지 본문이 통째로 옆으로
            밀리는 것(진짜 문제)과 달리, 표 하나만 밀리는 건 읽는 데 지장이 없다. */
         .tblwrap{overflow-x:auto}
+        /* 📊 추이 표의 막대 — 폭을 여기서 정한다(인라인 고정폭이면 표가 못 줄어든다) */
+        .bar{display:inline-block;vertical-align:middle;width:70px;height:8px;background:#f1f5f9;border-radius:3px;overflow:hidden}
+        table.compact .bar{width:52px}
+        .barcell{width:1px}
+        /* 좁은 화면에서는 막대를 뺀다 — 인쇄와 같은 이유다(막대는 «줄지 않는» 폭이고, 장식이다).
+           1100px 팝업이 윈도 배율 150% 인 PC 에서 실효 733px 가 되는 것이 실제로 걸린 경우다. */
+        @media screen and (max-width:820px){ table.compact .barcell{display:none} }
         table.compact{font-size:11.5px}
         table.compact th,table.compact td{padding:6px 7px}
         table.compact th{white-space:normal;line-height:1.35;vertical-align:bottom}
@@ -11267,6 +11274,9 @@ window.rebuildGlobalSearchIndex = function() {
         @media print{
           table.compact{font-size:9.5px}
           table.compact th,table.compact td{padding:4px 5px}
+          /* 막대는 인쇄에서 뺀다 — A4 본문 640px 에 «줄지 않는» 폭을 얹으면 표가 넘친다.
+             한 열의 th/td 를 전부 없애는 것이라 칸이 어긋나지 않는다. */
+          table.compact .barcell{display:none}
         }
         .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
         .kpi{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px}
@@ -11352,12 +11362,12 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
         <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
         <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
-        ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
-        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
+        <!-- ⛔ «성격 미확인 입금» 줄과 그 설명은 2026-08-18 사장님 지시로 제거했다.
+             매출 합계에 안 넣는 계산은 그대로다 — 금액을 매출 표에 적지 않을 뿐이다. -->
         ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
-      ${drill(`성격 미확인 입금 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'매출인지 자금 이동인지 아직 확인되지 않은 입금입니다. 확인될 때까지 매출·손익에 넣지 않습니다.' })}
+      <!-- ⛔ «성격 미확인 입금 …건» 펼치기도 함께 제거(2026-08-18 지시) — 위 줄과 한 세트다 -->
       <h2>학생 · 수업</h2>
       <table>
         <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>
@@ -11422,9 +11432,12 @@ window.rebuildGlobalSearchIndex = function() {
     const ms = (d.monthlies || []).filter(m => !m.coverage || m.coverage.level !== 'future');
     const t = d.totals || {}, tf = d.totals_full || null;
     const max = Math.max(1, ...ms.map(m => Math.abs(m.revenue||0)), ...ms.map(m => Math.abs(m.net||0)));
+    /* 📊 막대 — 폭을 인라인이 아니라 CSS(.bar)로 준다. 인라인 width:70px 는 «줄어들지 않는»
+       고정폭이라 막대 2칸만으로 표의 최소 폭에 140px 가 얹혔다(2026-08-18 실측: 표 최소폭 898px).
+       인쇄에서는 아예 숨긴다 — A4 본문은 640px 뿐이고, 막대는 없어도 숫자로 다 읽힌다. */
     const bar = (v, color) => {
       const w = Math.min(100, Math.round((Math.abs(v||0) / max) * 100));
-      return `<span style="display:inline-block;vertical-align:middle;width:70px;height:8px;background:#f1f5f9;border-radius:3px;overflow:hidden"><span style="display:block;height:100%;width:${w}%;background:${color};border-radius:0 3px 3px 0"></span></span>`;
+      return `<span class="bar"><span style="display:block;height:100%;width:${w}%;background:${color};border-radius:0 3px 3px 0"></span></span>`;
     };
     const st = d.sync_starts || {};
     const bad = ms.filter(m => m.coverage && m.coverage.level !== 'full');
@@ -11435,29 +11448,29 @@ window.rebuildGlobalSearchIndex = function() {
         그 전 달은 <b>비용이 없거나 일부만</b> 잡혀서 순이익이 실제보다 좋게(때로는 흑자로) 나옵니다.<br>
         해당 달: ${bad.map(m => `<b>${esc(m.period)}</b>`).join(' · ')}
       </div>` : ''}
-      <table>
-        <thead><tr><th>${headLabel}</th><th class="num">매출</th><th></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th></th></tr></thead>
+      <div class="tblwrap"><table class="compact">
+        <thead><tr><th>${headLabel}</th><th class="num">매출</th><th class="barcell"></th><th class="num">장부 결제</th><th class="num">통장 B2B</th><th class="num">결제건</th><th class="num">강사 급여</th><th class="num">비용 합계</th><th class="num">순이익</th><th class="barcell"></th></tr></thead>
         <tbody>
           ${ms.map(m => {
             const lv = (m.coverage && m.coverage.level) || 'full';
             const dim = lv !== 'full';
             return `<tr${dim ? ' style="background:#fffbeb"' : ''}>
             <td>${esc(m.period)}${covBadge(lv)}</td>
-            <td class="num">${fmtKRW(m.revenue)}</td><td>${bar(m.revenue, '#3b82f6')}</td>
+            <td class="num">${fmtKRW(m.revenue)}</td><td class="barcell">${bar(m.revenue, '#3b82f6')}</td>
             <td class="num">${fmtKRW(m.revenue_book)}</td>
             <td class="num">${fmtKRW(m.revenue_b2b)}</td>
             <td class="num">${m.pays}</td>
             <td class="num">${fmtKRW(m.payroll)}</td>
             <td class="num">${fmtKRW(m.cost)}</td>
             <td class="num"><b style="color:${dim ? '#9ca3af' : ((m.net||0) < 0 ? '#dc2626' : '#166534')}">${fmtKRW(m.net)}</b>${dim ? '<div style="font-size:10px;color:#b45309">참고값</div>' : ''}</td>
-            <td>${dim ? '' : bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
+            <td class="barcell">${dim ? '' : bar(m.net, (m.net||0) < 0 ? '#ef4444' : '#22c55e')}</td>
           </tr>`; }).join('')}
-          <tr class="total"><td>합계 (전체)</td><td class="num">${fmtKRW(t.revenue)}</td><td></td><td class="num">${fmtKRW(t.revenue_book)}</td><td class="num">${fmtKRW(t.revenue_b2b)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td><td></td></tr>
+          <tr class="total"><td>합계 (전체)</td><td class="num">${fmtKRW(t.revenue)}</td><td class="barcell"></td><td class="num">${fmtKRW(t.revenue_book)}</td><td class="num">${fmtKRW(t.revenue_b2b)}</td><td class="num">${t.pays}</td><td class="num">${fmtKRW(t.payroll)}</td><td class="num">${fmtKRW(t.cost)}</td><td class="num">${fmtKRW(t.net)}</td><td class="barcell"></td></tr>
           ${tf ? `<tr class="total" style="background:#dcfce7"><td>합계 (자료 온전한 달만)<div style="font-size:10.5px;font-weight:400;color:#166534">${(d.full_months||[]).join(' · ') || '없음'}</div></td>
-            <td class="num">${fmtKRW(tf.revenue)}</td><td></td><td class="num">${fmtKRW(tf.revenue_book)}</td><td class="num">${fmtKRW(tf.revenue_b2b)}</td><td class="num">${tf.pays}</td><td class="num">${fmtKRW(tf.payroll)}</td><td class="num">${fmtKRW(tf.cost)}</td>
-            <td class="num"><b style="color:${(tf.net||0) < 0 ? '#dc2626' : '#166534'}">${fmtKRW(tf.net)}</b></td><td></td></tr>` : ''}
+            <td class="num">${fmtKRW(tf.revenue)}</td><td class="barcell"></td><td class="num">${fmtKRW(tf.revenue_book)}</td><td class="num">${fmtKRW(tf.revenue_b2b)}</td><td class="num">${tf.pays}</td><td class="num">${fmtKRW(tf.payroll)}</td><td class="num">${fmtKRW(tf.cost)}</td>
+            <td class="num"><b style="color:${(tf.net||0) < 0 ? '#dc2626' : '#166534'}">${fmtKRW(tf.net)}</b></td><td class="barcell"></td></tr>` : ''}
         </tbody>
-      </table>
+      </table></div>
       <p style="font-size:11.5px;color:#6b7280;margin:10px 0 0;line-height:1.7">
         ※ 매출 = 장부 결제(카페24 등) + 통장 직접입금(B2B).<br>
         ※ <b>회사 상태는 「자료 온전한 달만」 합계로 보세요.</b> 전체 합계에는 비용이 덜 잡힌 달이 섞여 있어 실제보다 좋게 나옵니다.<br>
