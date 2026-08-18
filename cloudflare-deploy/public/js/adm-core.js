@@ -11565,13 +11565,13 @@ window.rebuildGlobalSearchIndex = function() {
       <h1>👨‍🏫 강사별 급여명세서</h1>
       <div class="meta">${d.label} · 총 ${d.teacher_count}명</div>
       ${noteList(d.notes)}
-      <table>
+      <div class="tblwrap"><table class="compact">
         <thead><tr><th>강사ID</th><th>이름</th><th>국가</th><th class="num">수업분</th><th class="num">기본급여</th><th class="num">상여</th><th class="num">공제</th><th class="num">실지급</th></tr></thead>
         <tbody>
           ${d.rows.map(r => `<tr><td>${r.teacher_id}</td><td><b>${r.teacher_name||r.teacher_id}</b></td><td>${r.country||''}</td><td class="num">${(r.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(r.payment_krw)}</td><td class="num">${fmtKRW(r.bonus)}</td><td class="num" style="color:#dc2626">${fmtKRW(-Math.abs(r.deduction||0))}</td><td class="num"><b>${fmtKRW(r.net)}</b></td></tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#6b7280">데이터 없음</td></tr>'}
           <tr class="total"><td colspan="3">합계</td><td class="num">${(d.totals.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(d.totals.payment)}</td><td class="num">${fmtKRW(d.totals.bonus)}</td><td class="num">${fmtKRW(d.totals.deduction)}</td><td class="num">${fmtKRW(d.totals.net)}</td></tr>
         </tbody>
-      </table>`;
+      </table></div>`;
   }
 
   function renderKpi(d){
