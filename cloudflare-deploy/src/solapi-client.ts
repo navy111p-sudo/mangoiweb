@@ -21,6 +21,8 @@
 //  ▶ 가입 전(mock 모드): 콘솔에 로그 + UI 에 "mock 발송 완료" 안내
 // ═══════════════════════════════════════════════════════════════
 
+import { siteUrl } from './site-url';
+
 export interface SolapiEnv {
   SOLAPI_API_KEY?: string;
   SOLAPI_API_SECRET?: string;
@@ -430,7 +432,9 @@ export async function sendPaymentOverdueAlert(env: SolapiEnv, phone: string, var
       '#{금액}': vars.amountKrw.toLocaleString('ko-KR'),
       '#{결제URL}': vars.paymentUrl || 'https://webrtc-unified-platform-prod.navy111p.workers.dev/?go=payment',
     },
-    fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원). 결제 → ${vars.paymentUrl || ''}`,
+    // 🪤 링크가 없으면 «결제 → » 뒤가 빈 채로 나갔다. 없으면 그 꼬리를 아예 붙이지 않는다.
+    fallbackSmsText: `[망고아이] ${vars.studentName} 학생 수강료 ${vars.daysOverdue}일 미납 (${vars.amountKrw.toLocaleString('ko-KR')}원).`
+      + (vars.paymentUrl ? ` 결제 → ${vars.paymentUrl}` : ''),
   });
 }
 
@@ -460,6 +464,15 @@ export async function sendPaymentOverdueAlert(env: SolapiEnv, phone: string, var
 /** 미연장 안내 문자 발신번호 — 사장님 지정(2026-08-18). */
 export const CLASS_RENEWAL_FROM_PHONE = '1644-0561';
 
+/* 🔗 연장(결제) 링크.
+   ⚠️ 워커 기본 도메인이 아니라 **SITE_ORIGIN(mangoi.ai)** 을 쓴다 — 사람에게 나가는 주소의
+      정본은 site-url.ts 한 곳이다(CLAUDE.md 2장). 여기에 주소를 손으로 적으면 도메인이
+      바뀔 때 이 문자만 옛 주소로 남는다.
+   ⚠️ 경로는 /enroll.html 이다. 「수업 7일·3일 전 종료 안내」 문자(enroll-ops.ts)가 쓰는 것과
+      **같은 링크**여야 한다 — 같은 학부모가 며칠 사이에 두 문자를 받는데 서로 다른 곳으로
+      보내면 안 된다. 홈의 결제 모달(?go=payment)은 로그인 뒤에야 열려서 문자 링크로는 부적합. */
+export const CLASS_RENEWAL_URL = siteUrl('/enroll.html');
+
 /** 「O월 O일」 — KST 기준. 타임존을 안 맞추면 자정 근처에서 하루가 틀린다. */
 export function formatKstMonthDay(at: number | string | Date): string {
   const ms = at instanceof Date ? at.getTime()
@@ -470,10 +483,18 @@ export function formatKstMonthDay(at: number | string | Date): string {
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
 }
 
-/** 지정 문구 그대로. 화면 미리보기와 실제 발송이 같은 문장을 쓰도록 여기 하나만 둔다. */
-export function buildClassRenewalText(studentName: string, lastClassAt: number | string | Date): string {
+/** 지정 문구 그대로. 화면 미리보기와 실제 발송이 같은 문장을 쓰도록 여기 하나만 둔다.
+ *  url 을 넘기지 않으면 CLASS_RENEWAL_URL 을 붙이고, **null 을 넘기면 링크 없이** 만든다
+ *  (웹푸시는 알림 자체에 이동 주소가 붙으므로 본문에 링크를 또 넣지 않는다). */
+export function buildClassRenewalText(
+  studentName: string,
+  lastClassAt: number | string | Date,
+  url?: string | null,
+): string {
   const md = formatKstMonthDay(lastClassAt);
-  return `[망고아이] ${studentName || '회원'} 회원님의 수업이 ${md}자로 종료되었습니다. 수강 연장을 희망하실 경우 수강료 결제를 부탁드립니다.`;
+  const body = `[망고아이] ${studentName || '회원'} 회원님의 수업이 ${md}자로 종료되었습니다. 수강 연장을 희망하실 경우 수강료 결제를 부탁드립니다.`;
+  const link = url === null ? '' : (url || CLASS_RENEWAL_URL);
+  return link ? `${body}\n▶ 연장·결제: ${link}` : body;
 }
 
 export async function sendClassRenewalAlert(env: SolapiEnv, phone: string, vars: {
@@ -482,7 +503,8 @@ export async function sendClassRenewalAlert(env: SolapiEnv, phone: string, vars:
   paymentUrl?: string;
   logContext?: AlimtalkLogContext;
 }): Promise<SendKakaoResult> {
-  const text = buildClassRenewalText(vars.studentName, vars.lastClassAt);
+  const link = vars.paymentUrl || CLASS_RENEWAL_URL;
+  const text = buildClassRenewalText(vars.studentName, vars.lastClassAt, link);
   const template = env.SOLAPI_TEMPLATE_CLASS_RENEWAL || '';
 
   if (template) {
@@ -493,7 +515,7 @@ export async function sendClassRenewalAlert(env: SolapiEnv, phone: string, vars:
       variables: {
         '#{학생명}': vars.studentName || '회원',
         '#{종료일}': formatKstMonthDay(vars.lastClassAt),
-        '#{결제URL}': vars.paymentUrl || `${WORKER_BASE}/?go=payment`,
+        '#{결제URL}': link,
       },
       fallbackSmsText: text,
       logContext: vars.logContext,

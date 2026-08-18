@@ -5879,7 +5879,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           ? await sendPushToUser(env,
               body.user_id,
               `🔁 ${body.student_name || '회원'}님 수강 연장 안내`,
-              buildClassRenewalText(body.student_name || '회원', lastClassAt).replace('[망고아이] ', ''),
+              buildClassRenewalText(body.student_name || '회원', lastClassAt, null).replace('[망고아이] ', ''),
               body.payment_url || '/?go=payment',
               `renewal-${body.user_id}`
             )
