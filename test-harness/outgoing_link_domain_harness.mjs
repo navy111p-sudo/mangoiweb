@@ -100,6 +100,10 @@ const SENDERS = [
   ['api-approval.ts',    '결재 알림 → 직원',          /siteUrl\s*\(/],
   ['ai-command.ts',      'AI 명령 새 탭 링크',        /siteUrl\s*\(/],
   ['api-uptime.ts',      '장애 알림 → 관리자',        /SITE_HOSTS/],
+  /* (2026-08-18) 미연장 안내 문자에 연장·결제 링크가 들어가면서 이 파일도 «학부모에게
+     주소를 내보내는 모듈» 이 됐다. 감시 목록에 없으면 여기만 workers.dev 로 되돌아가도
+     아무도 못 잡는다 — 실제로 B2B 독촉의 #{결제URL} 이 그 상태였다. */
+  ['solapi-client.ts',   '미연장·미납 안내 → 학부모', /siteUrl\s*\(/],
 ];
 
 for (const [file, label, needs] of SENDERS) {

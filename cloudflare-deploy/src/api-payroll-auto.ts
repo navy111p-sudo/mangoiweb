@@ -36,6 +36,11 @@ const ensureTable = oncePerIsolate(async (env: any): Promise<void> => {
   // 지급완료 추적 칸 (기존 배포 테이블에 없으면 추가)
   try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid INTEGER DEFAULT 0`).run(); } catch (_) {}
   try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN paid_at INTEGER`).run(); } catch (_) {}
+  /* 🕐 (2026-08-18) 그 달에 «실제로 가르친 분(minutes) 합계».
+     30분 수업이 생기기 전에는 «수업 수 × 20» 이면 맞았으므로 이 칸이 없었다. 이제는
+     길이가 섞이므로, 수를 아무리 정확히 세도 분을 모르면 급여를 맞출 수 없다.
+     카페24가 보내 주면 사람이 손으로 넣을 일이 없어진다(보내지 않으면 NULL — 종전 동작). */
+  try { await env.DB.prepare(`ALTER TABLE teacher_payroll_auto ADD COLUMN total_minutes INTEGER`).run(); } catch (_) {}
 });
 
 /** 지급완료 토글 (관리자) */
@@ -96,16 +101,24 @@ export async function handlePayrollIngest(request: Request, url: URL, env: any):
     const m = Number(r.month) || 0;
     if (!tid || !y || m < 1 || m > 12) continue;
     try {
+      /* 🕐 total_minutes — 그 달에 실제로 가르친 분 합계. 보내지 않으면 NULL 이고
+         급여는 종전대로 «전부 20분» 으로 계산된다(뒤로 호환).
+         ⚠️ COALESCE 로 «안 보냈으면 지금 값 유지» — 옛 스크립트가 이 칸 없이 다시 밀어도
+            이미 들어온 분이 0 으로 지워지지 않게 한다. */
+      const mins = (r.total_minutes ?? r.minutes);
+      const minsVal = (mins === undefined || mins === null || mins === '' || !(Number(mins) > 0))
+        ? null : Math.round(Number(mins));
       await env.DB.prepare(
-        `INSERT INTO teacher_payroll_auto (teacher_id, teacher_name, year, month, completed_classes, total_classes, pay_php, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO teacher_payroll_auto (teacher_id, teacher_name, year, month, completed_classes, total_classes, pay_php, total_minutes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(teacher_id, year, month) DO UPDATE SET
            teacher_name=excluded.teacher_name,
            completed_classes=excluded.completed_classes,
            total_classes=excluded.total_classes,
            pay_php=excluded.pay_php,
+           total_minutes=COALESCE(excluded.total_minutes, teacher_payroll_auto.total_minutes),
            updated_at=excluded.updated_at`
-      ).bind(tid, String(r.teacher_name || ''), y, m, Number(r.completed) || 0, Number(r.total) || 0, Math.round(Number(r.pay_php) || 0), now).run();
+      ).bind(tid, String(r.teacher_name || ''), y, m, Number(r.completed) || 0, Number(r.total) || 0, Math.round(Number(r.pay_php) || 0), minsVal, now).run();
       upserted++;
     } catch (e) { /* 한 행 실패해도 나머지 계속 */ }
   }

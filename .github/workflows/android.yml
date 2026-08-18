@@ -65,7 +65,10 @@ jobs:
               printf '{\n'
               printf '  "versionCode": %s,\n' "${VC:-1}"
               printf '  "versionName": "%s",\n' "${VN:-1.0}"
-              printf '  "url": "https://test.mangoi.co.kr/downloads/mangoi.apk",\n'
+              # 2026-08-17 — 정본 도메인으로 통일(test.mangoi.co.kr → mangoi.ai).
+              #   ⚠️ 이 파일은 **옛 앱과 새 앱이 같이 읽는다**(같은 워커가 두 호스트에 다 내려준다).
+              #      APK 자체는 두 주소 모두에서 받을 수 있으므로, 옛 앱도 여기서 받아 잘 업데이트된다.
+              printf '  "url": "https://mangoi.ai/downloads/mangoi.apk",\n'
               printf '  "notes": "%s"\n' "최신 버전이 배포되었습니다. 업데이트하면 새 기능과 개선이 적용됩니다."
               printf '}\n'
             } > cloudflare-deploy/public/app-version.json

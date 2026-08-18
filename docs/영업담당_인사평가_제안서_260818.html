@@ -1,0 +1,702 @@
+<title>영업담당자 실적·평가·보상 설계</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+/* ── 팔레트: 종이 위의 잉크 + 망고 한 방울 ─────────────────────────── */
+:root{
+  --paper:#ffffff;
+  --surface:#f1f2f4;
+  --surface-2:#e8eaee;
+  --ink:#1b1d21;
+  --ink-2:#4a4f57;
+  --ink-3:#767c85;
+  --line:#dcdfe4;
+  --line-2:#c3c7cf;
+  --mango:#d97c00;
+  --mango-soft:#fdf1de;
+  --money:#0f6a55;
+  --money-soft:#e4f2ee;
+  --warn:#a93b2c;
+  --warn-soft:#fbeae7;
+  --shadow:0 1px 2px rgba(27,29,33,.06),0 8px 24px rgba(27,29,33,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#121418;
+    --surface:#1a1d22;
+    --surface-2:#232830;
+    --ink:#e7e9ed;
+    --ink-2:#b3b9c2;
+    --ink-3:#858c96;
+    --line:#2a2f37;
+    --line-2:#3a414b;
+    --mango:#f0a63f;
+    --mango-soft:#2c2216;
+    --money:#5cc2a5;
+    --money-soft:#152722;
+    --warn:#e07c6c;
+    --warn-soft:#2b1a17;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#121418;
+  --surface:#1a1d22;
+  --surface-2:#232830;
+  --ink:#e7e9ed;
+  --ink-2:#b3b9c2;
+  --ink-3:#858c96;
+  --line:#2a2f37;
+  --line-2:#3a414b;
+  --mango:#f0a63f;
+  --mango-soft:#2c2216;
+  --money:#5cc2a5;
+  --money-soft:#152722;
+  --warn:#e07c6c;
+  --warn-soft:#2b1a17;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'IBM Plex Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-weight:400;
+  font-size:17px;
+  line-height:1.85;
+  letter-spacing:-.005em;
+  word-break:keep-all;
+}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px 120px}
+
+/* ── 표지 ───────────────────────────────────────────────────────── */
+.cover{padding:88px 0 56px;border-bottom:2px solid var(--ink)}
+.eyebrow{
+  font-family:'IBM Plex Mono',monospace;
+  font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--mango);font-weight:600;margin:0 0 22px
+}
+h1{
+  font-family:'Gowun Batang',serif;
+  font-weight:700;
+  font-size:clamp(34px,6vw,52px);
+  line-height:1.28;
+  letter-spacing:-.02em;
+  margin:0 0 20px;
+  text-wrap:balance;
+}
+.lede{font-size:19px;color:var(--ink-2);margin:0 0 34px;max-width:62ch;font-weight:300}
+.meta{
+  display:flex;flex-wrap:wrap;gap:8px 28px;
+  font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--ink-3)
+}
+.meta b{color:var(--ink-2);font-weight:600}
+
+/* ── 장 ─────────────────────────────────────────────────────────── */
+section{padding-top:64px}
+.chap-head{display:flex;align-items:baseline;gap:16px;margin-bottom:8px}
+.chap-no{
+  font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;
+  color:var(--mango);flex:none;padding-top:4px
+}
+h2{
+  font-family:'Gowun Batang',serif;font-weight:700;
+  font-size:clamp(25px,3.6vw,32px);line-height:1.35;letter-spacing:-.02em;
+  margin:0;text-wrap:balance
+}
+.sub{color:var(--ink-3);font-size:15px;margin:2px 0 26px;padding-left:38px}
+@media (max-width:640px){.sub{padding-left:0}}
+h3{
+  font-family:'IBM Plex Sans KR',sans-serif;font-weight:600;
+  font-size:19px;line-height:1.5;margin:38px 0 10px;letter-spacing:-.01em
+}
+h4{font-size:16px;font-weight:600;margin:26px 0 8px;color:var(--ink-2)}
+p{margin:0 0 16px;max-width:66ch}
+strong{font-weight:600}
+mark{background:var(--mango-soft);color:var(--ink);padding:1px 4px;border-radius:3px}
+ul,ol{margin:0 0 18px;padding-left:22px;max-width:66ch}
+li{margin-bottom:8px}
+li::marker{color:var(--ink-3)}
+hr{border:0;border-top:1px solid var(--line);margin:44px 0}
+a{color:var(--mango)}
+
+/* ── 요약 카드 ──────────────────────────────────────────────────── */
+.summary{
+  background:var(--surface);border:1px solid var(--line);
+  border-radius:4px;padding:28px 30px;margin:0
+}
+.summary ol{counter-reset:s;list-style:none;padding:0;margin:0;max-width:none}
+.summary li{
+  counter-increment:s;position:relative;padding-left:38px;margin-bottom:14px
+}
+.summary li:last-child{margin-bottom:0}
+.summary li::before{
+  content:counter(s);position:absolute;left:0;top:5px;
+  width:24px;height:24px;border-radius:50%;
+  background:var(--ink);color:var(--paper);
+  font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;
+  display:flex;align-items:center;justify-content:center
+}
+
+/* ── 쉽게 말하면 / 주의 ─────────────────────────────────────────── */
+.note{
+  border-left:3px solid var(--mango);background:var(--mango-soft);
+  padding:16px 20px;margin:20px 0;border-radius:0 4px 4px 0
+}
+.note .tag,.caution .tag{
+  display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;
+  letter-spacing:.14em;text-transform:uppercase;font-weight:600;margin-bottom:6px
+}
+.note .tag{color:var(--mango)}
+.note p:last-child,.caution p:last-child{margin-bottom:0}
+.caution{
+  border-left:3px solid var(--warn);background:var(--warn-soft);
+  padding:16px 20px;margin:20px 0;border-radius:0 4px 4px 0
+}
+.caution .tag{color:var(--warn)}
+
+/* ── 표 ─────────────────────────────────────────────────────────── */
+.tbl-wrap{overflow-x:auto;margin:22px 0;border:1px solid var(--line);border-radius:4px}
+table{border-collapse:collapse;width:100%;font-size:15px;min-width:520px}
+th,td{padding:11px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+thead th{
+  background:var(--surface);font-weight:600;font-size:13px;
+  letter-spacing:.02em;color:var(--ink-2);white-space:nowrap
+}
+tbody tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+tfoot td{background:var(--surface);font-weight:600;border-top:1px solid var(--line-2)}
+.grp td{background:var(--surface-2);font-weight:600;font-size:13.5px}
+
+/* ── 배점 막대 ──────────────────────────────────────────────────── */
+.bars{display:flex;flex-direction:column;gap:14px;margin:24px 0}
+.bar-row{display:grid;grid-template-columns:140px 1fr 46px;gap:14px;align-items:center}
+.bar-row .lbl{font-size:14.5px;font-weight:500}
+.bar-track{height:10px;background:var(--surface-2);border-radius:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:5px}
+.bar-row .val{
+  font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;
+  font-variant-numeric:tabular-nums;color:var(--ink-2)
+}
+@media (max-width:560px){.bar-row{grid-template-columns:104px 1fr 40px;gap:10px}.bar-row .lbl{font-size:13px}}
+
+/* ── 파이프라인 ────────────────────────────────────────────────── */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0}
+.pipe-step{
+  flex:1 1 130px;border:1px solid var(--line);border-radius:4px;
+  padding:12px 14px;background:var(--paper)
+}
+.pipe-step .n{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--mango);
+  font-weight:600;display:block;margin-bottom:4px
+}
+.pipe-step .t{font-weight:600;font-size:15px;display:block;margin-bottom:3px}
+.pipe-step .d{font-size:13px;color:var(--ink-3);line-height:1.6}
+
+/* ── 세 기둥 ───────────────────────────────────────────────────── */
+.pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:24px 0}
+.pillar{border:1px solid var(--line);border-radius:4px;padding:20px;background:var(--paper)}
+.pillar .k{
+  font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:8px
+}
+.pillar h4{margin:0 0 8px;font-size:17px;color:var(--ink)}
+.pillar p{font-size:14px;color:var(--ink-2);margin:0;line-height:1.7}
+
+/* ── 급여 명세 예시 ────────────────────────────────────────────── */
+.payslip{
+  border:1px solid var(--line);border-radius:4px;overflow:hidden;margin:22px 0;
+  background:var(--paper)
+}
+.payslip .ps-head{
+  background:var(--money-soft);padding:14px 18px;border-bottom:1px solid var(--line);
+  font-weight:600;font-size:15px;color:var(--money)
+}
+.payslip .ps-body{padding:6px 18px}
+.ps-line{
+  display:flex;justify-content:space-between;gap:16px;padding:9px 0;
+  border-bottom:1px dashed var(--line);font-size:15px
+}
+.ps-line:last-child{border-bottom:0}
+.ps-line .r{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ps-line .why{display:block;font-size:12.5px;color:var(--ink-3);font-family:'IBM Plex Sans KR',sans-serif}
+.ps-total{
+  display:flex;justify-content:space-between;gap:16px;padding:14px 18px;
+  background:var(--surface);border-top:1px solid var(--line-2);
+  font-weight:600;font-size:16px
+}
+.ps-total .r{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;color:var(--money)}
+
+/* ── 일정 ──────────────────────────────────────────────────────── */
+.plan{border-left:2px solid var(--line);margin:24px 0;padding-left:0}
+.plan-item{position:relative;padding:0 0 26px 26px}
+.plan-item::before{
+  content:'';position:absolute;left:-5px;top:8px;width:8px;height:8px;
+  border-radius:50%;background:var(--mango)
+}
+.plan-item:last-child{padding-bottom:0}
+.plan-item .w{
+  font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.1em;
+  color:var(--ink-3);text-transform:uppercase;display:block;margin-bottom:3px
+}
+.plan-item .t{font-weight:600;display:block;margin-bottom:4px}
+.plan-item .d{font-size:14px;color:var(--ink-2);margin:0}
+
+/* ── 결정 요청 ─────────────────────────────────────────────────── */
+.decide{
+  border:2px solid var(--ink);border-radius:4px;padding:26px 28px;margin:28px 0 0
+}
+.decide h3{margin-top:0}
+.decide ol{margin-bottom:0}
+
+footer{
+  margin-top:80px;padding-top:26px;border-top:1px solid var(--line);
+  font-size:13px;color:var(--ink-3);font-family:'IBM Plex Mono',monospace
+}
+</style>
+
+<div class="wrap">
+
+<header class="cover">
+  <p class="eyebrow">망고아이 · 내부 제안서</p>
+  <h1>영업담당자, 무엇을 보고<br>어떻게 평가하고<br>얼마를 줄 것인가</h1>
+  <p class="lede">전국 지사·학원을 다니며 망고아이 화상영어를 파는 영업담당자를 위한 실적 기록·인사평가·보상 제도입니다. 잘하는 회사들이 쓰는 방식을 살펴보고, 우리 규모(현재 1명)에 맞게 줄여서 설계했습니다. 마지막에 이걸 우리 AI 시스템에 어떻게 넣을지까지 정리했습니다.</p>
+  <div class="meta">
+    <span><b>작성</b> 2026-08-18</span>
+    <span><b>대상</b> 영업담당자 1명 (현재 근무 중)</span>
+    <span><b>결정 필요</b> 6쪽 하단 3가지</span>
+  </div>
+</header>
+
+<section>
+  <div class="chap-head"><span class="chap-no">요약</span><h2>먼저 다섯 줄로</h2></div>
+  <p class="sub">바쁘시면 이것만 보셔도 됩니다.</p>
+  <div class="summary">
+    <ol>
+      <li><strong>영업은 결과만 보면 늦습니다.</strong> 계약은 3~6개월 뒤에 나오니까요. 그래서 <mark>매일의 활동</mark>도 같이 기록하고 같이 평가합니다.</li>
+      <li><strong>기록은 하루 3분.</strong> 영업담당자가 차 안에서 말로 하면 AI가 정리해서 일지로 만듭니다. 타이핑을 시키면 아무도 안 씁니다.</li>
+      <li><strong>평가는 100점 한 장.</strong> 실적 60점 + 활동 25점 + 태도·기본 15점. 점수는 대부분 시스템이 자동으로 채우고, 사람은 15점만 매깁니다.</li>
+      <li><strong>보상은 「월 성과급 + 반기 평가상여」 두 갈래를 추천합니다.</strong> 계약을 따면 그 달에 바로 돈이 나가고(동기부여), 잘 관리했는지는 반년에 한 번 등급으로 정산합니다(오래 가게).</li>
+      <li><strong>성과급은 반을 3개월 뒤에 줍니다.</strong> 계약만 따고 관리를 안 하는 걸 막는 장치입니다. 이미 준 돈을 뺏는 방식(환수)은 분쟁이 나므로 쓰지 않습니다.</li>
+      <li><strong>지금은 담당자가 한 명이라, 남과 비교하지 않습니다.</strong> 미리 정한 목표치와 <mark>지난 반기의 자기 실적</mark>하고만 비교합니다.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">01</span><h2>왜 제도가 필요한가</h2></div>
+  <p class="sub">영업은 하루 종일 밖에 있습니다. 그래서 안 보입니다.</p>
+
+  <p>강사는 수업이 시스템에 남습니다. 몇 분 가르쳤는지, 학생이 몇 점을 줬는지 다 기록됩니다. 그래서 망고아이는 이미 <strong>강사 인사평가</strong>를 자동으로 돌리고 있습니다.</p>
+
+  <p>영업담당자는 다릅니다. 차를 타고 나가면 그날 무슨 일이 있었는지 아무 데도 안 남습니다. 이러면 세 가지 문제가 생깁니다.</p>
+
+  <ul>
+    <li><strong>열심히 했는데 인정을 못 받습니다.</strong> 계약은 아직 없지만 학원 20곳을 돌았을 수도 있습니다. 기록이 없으면 "논 것"처럼 보입니다.</li>
+    <li><strong>왜 안 되는지 모릅니다.</strong> 방문은 많은데 계약이 없다면 상담 방식 문제입니다. 방문 자체가 적다면 다른 문제입니다. 원인이 다르면 처방도 다른데, 숫자가 없으면 구분이 안 됩니다.</li>
+    <li><strong>사람이 나가면 거래처가 통째로 사라집니다.</strong> 어느 학원 원장님과 어디까지 이야기했는지가 그 사람 머릿속에만 있으면, 퇴사와 함께 없어집니다.</li>
+  </ul>
+
+  <div class="note">
+    <span class="tag">쉽게 말하면</span>
+    <p>영업담당자를 감시하려고 만드는 게 아닙니다. <strong>보이게 만들어야 칭찬도 할 수 있고, 도와줄 수도 있습니다.</strong> 기록이 없으면 사장님도 그 사람을 도와줄 방법이 없습니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">02</span><h2>잘하는 회사들은 어떻게 하나</h2></div>
+  <p class="sub">네 가지 방식을 보고, 우리에게 쓸 것만 골랐습니다.</p>
+
+  <h3>㉮ 미국 소프트웨어 회사 — 「목표치와 성과급」</h3>
+  <p>세일즈포스·허브스팟 같은 회사의 영업사원은 <strong>연봉을 두 덩어리로</strong> 받습니다. 절반은 기본급, 절반은 목표를 달성해야 나오는 성과급입니다. 각자에게 "올해 얼마어치 팔아라"라는 목표치(쿼터)가 있고, 목표를 넘기면 넘긴 만큼 성과급 비율이 <strong>더 올라갑니다</strong>. 120% 달성하면 성과급도 120%가 아니라 그 이상을 받는 식입니다.</p>
+  <p><strong>배울 점:</strong> 목표 숫자를 미리 못 박아두는 것. 그리고 초과 달성에 상을 더 주는 것.<br>
+  <strong>안 쓸 점:</strong> 절반을 성과급으로 두는 건 우리에겐 너무 셉니다. 신규 채용자가 첫 몇 달 굶습니다.</p>
+
+  <h3>㉯ 한국 대기업 — 「목표관리(MBO)와 등급」</h3>
+  <p>삼성·LG 같은 곳은 연초에 상사와 함께 <strong>올해 목표를 문서로 합의</strong>하고, 연말에 그 문서를 놓고 점수를 매깁니다. 그리고 S·A·B·C 같은 등급을 주고 등급별로 상여를 곱합니다.</p>
+  <p><strong>배울 점:</strong> 목표를 <em>글로 남기고</em> 그걸로 평가한다는 것. 평가 때 딴소리가 안 나옵니다.<br>
+  <strong>안 쓸 점:</strong> 등급을 강제로 배분하는 것(예: A는 20%만). 1~2명한테 이걸 쓰면 한 명은 무조건 하위등급이 됩니다. 말이 안 됩니다.</p>
+
+  <h3>㉰ 구글 — 「목표(OKR)와 평가를 분리」</h3>
+  <p>구글은 도전적인 목표를 세우게 하되, <strong>그 달성률을 그대로 돈에 연결하지 않습니다.</strong> 목표를 크게 잡을수록 손해가 되면 아무도 크게 안 잡기 때문입니다.</p>
+  <p><strong>배울 점:</strong> 「해보고 싶은 도전」과 「반드시 해야 하는 최소치」를 나눠서 관리하는 것.</p>
+
+  <h3>㉱ 국내 교육·방문영업(학습지·교재 업계) — 「활동량 관리와 유지율」</h3>
+  <p>이 업계가 우리와 가장 비슷합니다. 이들은 오래전부터 <strong>하루 방문 건수·신규 상담 건수</strong>를 관리했습니다. 그리고 중요한 걸 하나 더 봅니다 — <strong>따온 고객이 몇 달이나 유지되는가.</strong> 계약만 따고 관리를 안 하면 몇 달 뒤 다 빠져나가서, 회사는 손해만 봅니다.</p>
+  <p><strong>배울 점:</strong> 활동량을 세는 것 + 성과급을 유지율에 묶는 것. 이 두 가지가 우리 설계의 핵심이 됩니다.</p>
+
+  <hr>
+
+  <h3>정리 — 우리가 가져올 네 가지</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>가져올 것</th><th>왜</th><th>우리 제도의 어디에</th></tr></thead>
+    <tbody>
+      <tr><td><strong>미리 정한 목표 숫자</strong></td><td>연말에 "이 정도면 잘한 거 아니냐" 싸움이 사라짐</td><td>월 목표 2곳 / 분기 6곳</td></tr>
+      <tr><td><strong>활동도 점수에 넣기</strong></td><td>계약은 3~6개월 뒤에 나옴. 그 사이를 볼 방법이 필요</td><td>활동 25점</td></tr>
+      <tr><td><strong>유지율에 성과급 묶기</strong></td><td>계약만 따고 관리 안 하는 것을 구조적으로 막음</td><td>성과급 절반을 3개월 뒤 지급</td></tr>
+      <tr><td><strong>글로 남긴 근거</strong></td><td>평가 결과에 대해 "왜 이 점수냐"에 답할 수 있어야 함</td><td>AI 자동 근거 설명</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">03</span><h2>제도의 뼈대 — 세 개의 기둥</h2></div>
+  <p class="sub">실적을 기록하고 → 점수로 바꾸고 → 돈으로 바꿉니다. 이 순서가 끊기면 제도가 아니라 서류가 됩니다.</p>
+
+  <div class="pillars">
+    <div class="pillar">
+      <span class="k">1. 실적</span>
+      <h4>업무결과 보고</h4>
+      <p>매일 3분 영업일지, 주간 요약, 월간 마감. 사람이 기억으로 적는 게 아니라 그때그때 남깁니다.</p>
+    </div>
+    <div class="pillar">
+      <span class="k">2. 평가</span>
+      <h4>인사평가 100점</h4>
+      <p>실적 60 + 활동 25 + 태도 15. 85점은 시스템이 자동 계산, 15점만 사람이 매깁니다.</p>
+    </div>
+    <div class="pillar">
+      <span class="k">3. 보상</span>
+      <h4>월 성과급 + 반기 상여</h4>
+      <p>계약하면 그 달에 절반, 3개월 유지되면 나머지 절반. 등급은 반기 상여에 곱합니다.</p>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="tag">가장 중요한 원칙</span>
+    <p><strong>영업담당자가 숫자를 직접 타이핑하게 하지 않습니다.</strong> 사람이 자기 실적 숫자를 입력하는 순간, 그 숫자는 믿을 수 없게 됩니다. 계약·학생 수·매출은 <strong>이미 우리 시스템에 있는 데이터</strong>(학원 등록, 학생 수, 결제)에서 자동으로 끌어옵니다. 영업담당자는 「어느 학원을 방문했다」만 남기면 됩니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">04</span><h2>첫째 기둥 — 업무결과 보고</h2></div>
+  <p class="sub">영업 과정을 6단계로 쪼갭니다. 그래야 "어디서 막혔는지"가 보입니다.</p>
+
+  <h3>영업 파이프라인 6단계</h3>
+  <div class="pipe">
+    <div class="pipe-step"><span class="n">STEP 1</span><span class="t">발굴</span><span class="d">후보 학원을 찾아 목록에 등록</span></div>
+    <div class="pipe-step"><span class="n">STEP 2</span><span class="t">접촉</span><span class="d">전화·문자로 첫 연결</span></div>
+    <div class="pipe-step"><span class="n">STEP 3</span><span class="t">방문상담</span><span class="d">직접 찾아가 원장님 면담</span></div>
+    <div class="pipe-step"><span class="n">STEP 4</span><span class="t">제안·시연</span><span class="d">화상수업 시연, 단가 제안</span></div>
+    <div class="pipe-step"><span class="n">STEP 5</span><span class="t">계약</span><span class="d">계약서 체결</span></div>
+    <div class="pipe-step"><span class="n">STEP 6</span><span class="t">개원·정착</span><span class="d">학생 등록, 3개월 유지 확인</span></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">이렇게 쓰면 이런 게 보입니다</span>
+    <p>방문(3단계)은 30건인데 제안(4단계)이 3건이면 → <strong>첫 상담에서 설득이 안 되는 것</strong>입니다. 자료나 화법을 고쳐야 합니다.<br>
+    제안은 20건인데 계약이 1건이면 → <strong>가격이나 조건 문제</strong>입니다. 단가표를 손봐야 합니다.<br>
+    똑같이 "실적이 없다"인데 처방이 정반대입니다.</p>
+  </div>
+
+  <h3>기록 주기 — 3분 / 10분 / 30분</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>주기</th><th>누가</th><th>무엇을</th><th class="num">걸리는 시간</th></tr></thead>
+    <tbody>
+      <tr><td><strong>매일</strong></td><td>영업담당자</td><td>오늘 방문한 학원, 만난 사람, 반응, 다음 할 일. <strong>차 안에서 말로 하면 AI가 문장으로 정리</strong></td><td class="num">3분</td></tr>
+      <tr><td><strong>매주 월요일</strong></td><td>시스템 → 사장님</td><td>지난주 방문 건수, 단계별 진행, 이번 주 갈 곳 추천. <strong>자동 생성</strong></td><td class="num">읽기 2분</td></tr>
+      <tr><td><strong>매월 마감</strong></td><td>영업담당자</td><td>월 실적 확인 + 자기평가 한 줄. 숫자는 이미 채워져 있음</td><td class="num">10분</td></tr>
+      <tr><td><strong>반기</strong></td><td>사장님</td><td>100점 채점 중 사람 몫 15점 + 등급 확정</td><td class="num">30분</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="caution">
+    <span class="tag">실패하는 이유 1위</span>
+    <p>영업일지를 <strong>길게 쓰게 하면</strong> 제도가 죽습니다. 처음 2주는 다들 씁니다. 3주째부터 안 씁니다. 그래서 「말로 3분」이 타협이 아니라 <strong>설계의 핵심</strong>입니다. 우리 결재함(work.html)에서 영수증 사진과 음성 받아쓰기로 이미 검증된 방식을 그대로 씁니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">05</span><h2>둘째 기둥 — 인사평가 100점</h2></div>
+  <p class="sub">강사 평가와 같은 등급 기준을 씁니다. 회사 안에서 A등급의 의미가 하나여야 하니까요.</p>
+
+  <div class="bars">
+    <div class="bar-row"><span class="lbl">실적 (결과)</span><span class="bar-track"><span class="bar-fill" style="width:60%;background:var(--mango)"></span></span><span class="val">60점</span></div>
+    <div class="bar-row"><span class="lbl">활동 (과정)</span><span class="bar-track"><span class="bar-fill" style="width:25%;background:var(--money)"></span></span><span class="val">25점</span></div>
+    <div class="bar-row"><span class="lbl">태도·기본</span><span class="bar-track"><span class="bar-fill" style="width:15%;background:var(--ink-3)"></span></span><span class="val">15점</span></div>
+  </div>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>항목</th><th class="num">배점</th><th>어떻게 채점하나</th><th>누가</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="4">실적 — 결과로 나온 것 (60점)</td></tr>
+      <tr><td>신규 계약 학원 수</td><td class="num">25</td><td>목표 대비 달성률. 월 2곳이 100%</td><td>자동</td></tr>
+      <tr><td>신규 등록 학생 수</td><td class="num">20</td><td>계약한 학원에서 3개월 안에 등록한 학생 수</td><td>자동</td></tr>
+      <tr><td>3개월 유지율</td><td class="num">15</td><td>계약 학원이 3개월 뒤에도 수업 중인 비율</td><td>자동</td></tr>
+      <tr class="grp"><td colspan="4">활동 — 결과가 나오기 전의 씨앗 (25점)</td></tr>
+      <tr><td>방문·상담 건수</td><td class="num">10</td><td>주 12건이 100%. 영업일지 기록 기준</td><td>자동</td></tr>
+      <tr><td>신규 발굴 등록</td><td class="num">5</td><td>새로 찾아 목록에 넣은 후보 학원 수</td><td>자동</td></tr>
+      <tr><td>기존 학원 관리방문</td><td class="num">5</td><td>이미 계약된 학원 재방문. 유지율의 원인</td><td>자동</td></tr>
+      <tr><td>영업일지 성실도</td><td class="num">5</td><td>근무일 중 일지를 남긴 날의 비율</td><td>자동</td></tr>
+      <tr class="grp"><td colspan="4">태도·기본 — 사람이 보는 것 (15점)</td></tr>
+      <tr><td>보고 마감 준수</td><td class="num">5</td><td>월 마감·주간 보고를 기한 안에 냈는가</td><td>사장님</td></tr>
+      <tr><td>차량·비용 관리</td><td class="num">5</td><td>운행기록·유류비 정산·차량 상태 관리</td><td>사장님</td></tr>
+      <tr><td>협업 평가</td><td class="num">5</td><td>지사·본사 직원이 보기에 함께 일하기 좋은가</td><td>동료</td></tr>
+    </tbody>
+    <tfoot><tr><td>합계</td><td class="num">100</td><td colspan="2">이 중 <strong>85점이 자동</strong>. 사람이 매기는 건 15점뿐입니다.</td></tr></tfoot>
+  </table>
+  </div>
+
+  <h3>등급 — 강사 평가와 같은 칸</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th class="num">총점</th><th>등급</th><th>뜻</th><th class="num">반기 상여 배율</th></tr></thead>
+    <tbody>
+      <tr><td class="num">90 이상</td><td><strong>A+</strong></td><td>기대를 크게 넘음</td><td class="num">150%</td></tr>
+      <tr><td class="num">85 ~ 89</td><td><strong>A</strong></td><td>기대를 넘음</td><td class="num">120%</td></tr>
+      <tr><td class="num">80 ~ 84</td><td><strong>B+</strong></td><td>기대대로 잘함</td><td class="num">100%</td></tr>
+      <tr><td class="num">75 ~ 79</td><td><strong>B</strong></td><td>무난함</td><td class="num">80%</td></tr>
+      <tr><td class="num">70 ~ 74</td><td><strong>C+</strong></td><td>아쉬움. 개선 계획 필요</td><td class="num">50%</td></tr>
+      <tr><td class="num">65 ~ 69</td><td><strong>C</strong></td><td>미달. 면담 필요</td><td class="num">30%</td></tr>
+      <tr><td class="num">64 이하</td><td><strong>D</strong></td><td>2회 연속 시 직무 재검토</td><td class="num">0%</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="caution">
+    <span class="tag">담당자가 한 명이라 반드시 지켜야 할 것</span>
+    <p><strong>비교할 사람이 없습니다.</strong> 그래서 등급 배분(예: A는 20%까지)은 아예 쓰지 않습니다. 대신 <strong>두 가지와만 비교</strong>합니다.</p>
+    <p>① <strong>미리 정한 목표 숫자</strong> — 월 2곳을 하기로 했으면 2곳이 100%입니다.<br>
+    ② <strong>지난 반기의 자기 자신</strong> — 방문 건수, 유지율, 계약 수가 올라갔는지 내려갔는지.</p>
+    <p>사람이 늘어나면 그때 서로 비교해도 늦지 않습니다. 지금은 <strong>"작년의 나보다 나아졌는가"</strong>가 가장 정확한 잣대입니다.</p>
+  </div>
+
+  <div class="note">
+    <span class="tag">제도 도입 첫 6개월은 예외</span>
+    <p>지금 계신 담당자는 신입이 아니지만, <strong>제도는 신입입니다.</strong> 지금까지 기록을 남기지 않고 일해 왔기 때문에, 첫 3개월은 <strong>점수를 내되 상여에는 연결하지 않습니다.</strong> "월 2곳"이 쉬운 목표인지 무리한 목표인지는 3개월치 기록이 쌓여야 알 수 있습니다.</p>
+    <p>기록 없이 정한 목표로 사람을 평가하면, 제도가 아니라 <strong>추측</strong>이 됩니다. 3개월은 기준선을 만드는 기간입니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">06</span><h2>셋째 기둥 — 보상 (추천안)</h2></div>
+  <p class="sub">사장님이 주신 5가지 조건(차량·4대보험·기본급·상여·퇴직금)을 어떻게 조립할지에 대한 제 추천입니다.</p>
+
+  <h3>추천: 월 성과급 + 반기 평가상여, 두 갈래</h3>
+  <p>앞에서 본 세 방식 중 하나만 고르면 각각 약점이 있습니다.</p>
+  <ul>
+    <li><strong>성과급만 크게 걸면</strong> → 계약만 따고 관리를 안 합니다. 그리고 신입은 첫 몇 달을 못 버팁니다.</li>
+    <li><strong>등급 상여만 주면</strong> → 계약을 따도 몇 달 뒤에나 돈이 됩니다. 영업은 오늘 뛴 게 오늘 보여야 힘이 납니다.</li>
+  </ul>
+  <p>그래서 <strong>둘을 나눠 씁니다.</strong> 눈에 보이는 성과(계약)는 월 성과급으로 빨리 주고, 눈에 안 보이는 성과(관리·유지·협업)는 반기 등급으로 정산합니다.</p>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>구성</th><th>기준</th><th>주기</th><th>왜 이렇게</th></tr></thead>
+    <tbody>
+      <tr><td><strong>① 기본급</strong></td><td>고정</td><td>매월</td><td>생활이 흔들리면 장기 영업을 못 합니다. 최저임금은 <strong>기본급만으로</strong> 넘겨야 합니다</td></tr>
+      <tr><td><strong>② 월 성과급</strong></td><td>신규 계약 학원 1곳당 정액<br><strong>계약 시 50% + 3개월 유지 시 50%</strong></td><td>매월</td><td>오늘 뛴 게 이번 달에 보임. 뒤의 50%가 「따고 방치」를 막음</td></tr>
+      <tr><td><strong>③ 반기 평가상여</strong></td><td>기본급 1개월분 × 등급 배율</td><td>1월·7월</td><td>유지·관리·협업처럼 계약 건수로 안 잡히는 걸 보상</td></tr>
+      <tr><td><strong>④ 영업차량</strong></td><td>회사 차량 + 유류비·통행료 실비</td><td>상시</td><td>급여가 아니라 <strong>업무 도구</strong>. 아래 주의사항 참고</td></tr>
+      <tr><td><strong>⑤ 4대보험</strong></td><td>법정</td><td>매월</td><td>성과급도 보수에 포함되므로 보험료 산정에 반영해야 함</td></tr>
+      <tr><td><strong>⑥ 퇴직금</strong></td><td>법정 (1년 이상 근무 시)</td><td>퇴직 시</td><td>상여 설계가 퇴직금 액수를 바꿉니다. 아래 주의사항 참고</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>숫자 예시 — 홍길동 씨의 3월</h3>
+  <p>아래 금액은 <strong>2026-08-18 사장님이 확정하신 실제 값</strong>입니다 — 기본급 230만원, 계약 1곳당 성과급 60만원. 시스템에도 이 값이 들어가 있습니다.</p>
+
+  <div class="payslip">
+    <div class="ps-head">2026년 3월 · 영업담당 홍길동 (입사 8개월차)</div>
+    <div class="ps-body">
+      <div class="ps-line"><span>기본급<span class="why">고정</span></span><span class="r">2,300,000</span></div>
+      <div class="ps-line"><span>월 성과급 — 신규 계약 3곳<span class="why">3곳 × 60만원 × 50% (나머지 50%는 6월에)</span></span><span class="r">900,000</span></div>
+      <div class="ps-line"><span>월 성과급 — 작년 12월 계약분 잔여<span class="why">2곳이 3개월 유지 확인됨 → 2곳 × 60만원 × 50%</span></span><span class="r">600,000</span></div>
+      <div class="ps-line"><span>유류비·통행료 실비<span class="why">급여가 아닌 실비 정산</span></span><span class="r">380,000</span></div>
+    </div>
+    <div class="ps-total"><span>3월 지급 합계</span><span class="r">4,180,000 원</span></div>
+  </div>
+
+  <div class="payslip">
+    <div class="ps-head">2026년 7월 · 상반기 평가상여</div>
+    <div class="ps-body">
+      <div class="ps-line"><span>상반기 평가 총점<span class="why">실적 52 / 활동 22 / 태도 13</span></span><span class="r">87점</span></div>
+      <div class="ps-line"><span>등급<span class="why">85~89 구간</span></span><span class="r">A</span></div>
+      <div class="ps-line"><span>기본급 1개월분 × 120%</span><span class="r">2,760,000</span></div>
+    </div>
+    <div class="ps-total"><span>반기 상여</span><span class="r">2,760,000 원</span></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">왜 성과급을 반으로 쪼개나</span>
+    <p>계약할 때 전액을 주면, 계약서에 도장 찍는 순간 그 학원은 남의 일이 됩니다. 3개월 뒤 학생이 다 빠져나가도 영업담당자는 손해가 없습니다. 그런데 회사는 손해입니다.<br>
+    <strong>이미 준 돈을 도로 뺏는 방식(환수)은 쓰지 않습니다.</strong> 한국에서 임금 성격의 돈을 회수하는 건 분쟁 소지가 큽니다. 대신 <strong>처음부터 절반만 지급</strong>하고 나머지는 조건이 충족될 때 줍니다. 뺏는 게 아니라 나중에 주는 것이라 감정도 법적 다툼도 훨씬 적습니다.</p>
+  </div>
+
+  <h3>꼭 확인하고 넘어가야 할 것 (법·세무)</h3>
+  <div class="caution">
+    <span class="tag">주의 — 노무사·세무사 확인 권장</span>
+    <p><strong>1. 상여가 퇴직금을 키웁니다.</strong> 매번 정해진 대로 나가는 돈은 퇴직금 계산의 기준(평균임금)에 들어갈 수 있습니다. 반대로 성과에 따라 들쭉날쭉한 돈은 빠질 수 있습니다. <strong>어느 쪽인지는 이름이 아니라 실제 지급 방식으로 판단</strong>되므로, 근로계약서와 급여규정에 지급 조건을 분명히 써두어야 나중에 다투지 않습니다.</p>
+    <p><strong>2. 최저임금은 기본급만으로 넘겨야 합니다.</strong> 성과급을 합쳐서 넘긴다는 계산은 위험합니다.</p>
+    <p><strong>3. 법인 차량은 「업무전용 자동차보험 + 운행기록부」</strong>가 원칙입니다. 기록이 없으면 비용으로 인정받는 금액이 제한됩니다. 그래서 평가표에 <strong>「차량·비용 관리 5점」</strong>을 넣었습니다 — 잔소리가 아니라 회사 돈을 지키는 항목입니다.</p>
+    <p><strong>4. 영업일지에는 학원장 이름·연락처가 들어갑니다.</strong> 개인정보이므로 아무나 보면 안 됩니다. 본인과 본사만 열람 가능하게 권한을 나눠야 합니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">07</span><h2>우리 AI에 어떻게 반영하나</h2></div>
+  <p class="sub">여섯 가지입니다. 다섯 개는 <strong>이미 망고아이에 있는 기능을 옮겨 쓰는 것</strong>이라 새로 만들 게 적습니다.</p>
+
+  <h3>① 말로 쓰는 영업일지</h3>
+  <p>차 안에서 휴대폰에 대고 <em>"오늘 대전 둔산동 ○○어학원 갔고, 원장님이 단가는 괜찮은데 시간표가 안 맞는다고 했어. 다음 주에 시간표 안 만들어서 다시 가기로 했음"</em>이라고 말하면, AI가 이렇게 정리합니다.</p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>AI가 채우는 칸</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>학원</td><td>○○어학원 (대전 둔산동)</td></tr>
+      <tr><td>단계</td><td>3. 방문상담 → 4. 제안 준비</td></tr>
+      <tr><td>반응</td><td>긍정 (가격 수용) / 걸림돌: 시간표</td></tr>
+      <tr><td>다음 할 일</td><td>맞춤 시간표안 준비 후 재방문 — 다음 주</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p><strong>이미 있는 것을 씁니다:</strong> 결재함(work.html)의 음성 받아쓰기·영수증 자동인식과 같은 구조입니다. 사람은 AI가 채운 걸 보고 틀린 것만 고칩니다.</p>
+  <div class="note">
+    <span class="tag">2026-08-18 — 만들었습니다</span>
+    <p>이 기능은 <strong>이미 화면에 들어가 있습니다.</strong> 「🎤 말로 쓰기」를 누르고 말한 뒤 손을 떼면 자동으로 정리됩니다.</p>
+    <p>막다른 길이 없도록 <strong>3중</strong>으로 만들었습니다 — ① AI 정리 → ② AI가 죽으면 규칙 기반 간단 정리 → ③ 그것도 안 되면 직접 입력. 음성인식이 없는 브라우저에서는 붙여넣기만 해도 같은 정리가 됩니다.</p>
+    <p>AI가 <strong>학원 이름을 지어내지 못하도록</strong> 막아 뒀습니다. 담당자의 후보 학원 목록 안에서만 고르고, 목록에 없는 이름을 말하면 「먼저 등록하세요」라고 알려 줍니다.</p>
+  </div>
+
+  <h3>② 오늘 어디부터 갈까 — 방문 우선순위 추천</h3>
+  <p>전국에 학원은 수만 곳입니다. 그중 어디를 먼저 갈지 AI가 점수를 매겨 추천합니다. 판단 재료는 <strong>지역·규모·이전 반응·마지막 접촉 후 지난 날짜·근처에 이미 잘 되는 학원이 있는지</strong>입니다.</p>
+  <div class="note">
+    <span class="tag">쉽게 말하면</span>
+    <p>"이 근처에서 오늘 들를 만한 곳 3군데" 같은 목록을 아침에 띄워주는 것입니다. 하루 동선이 짧아지면 방문 건수가 그냥 올라갑니다.</p>
+  </div>
+
+  <h3>③ 위험한 학원 미리 알려주기</h3>
+  <p>망고아이에는 이미 <strong>이탈 예측</strong> 기능이 있습니다(수업 참여가 줄어드는 학원·학생을 잡아냅니다). 지금은 본사만 봅니다. 이걸 <strong>담당 영업사원에게 연결</strong>합니다 — "○○학원, 지난달보다 수업이 40% 줄었습니다. 이번 주에 한 번 들르세요."</p>
+  <p>유지율이 평가 15점이자 성과급 후반 50%의 조건이므로, 이 알림은 영업담당자에게 <strong>직접 돈이 걸린 알림</strong>이 됩니다. 그래서 무시하지 않습니다.</p>
+
+  <h3>④ "왜 이 점수인가"를 AI가 설명</h3>
+  <p>강사 평가에 이미 있는 기능입니다. 점수를 누르면 <em>「신규 계약 25점 중 18점 — 목표 12곳 중 9곳 달성(75%). 지난 반기 대비 +2곳」</em>처럼 근거가 펼쳐집니다.</p>
+  <p><strong>평가 제도가 무너지는 가장 큰 이유는 「왜 그 점수인지 모르겠다」입니다.</strong> 근거가 자동으로 나오면 이 문제가 사라집니다.</p>
+  <div class="note">
+    <span class="tag">2026-08-18 — 만들었습니다</span>
+    <p>점수표의 모든 항목 아래에 「목표 12 중 11 달성(92%) → 25점 중 22.92점」 같은 <strong>근거 한 줄이 항상 붙습니다.</strong></p>
+  </div>
+
+  <h3>⑦ 3개월 유지 여부를 시스템이 스스로 판정</h3>
+  <p>처음 설계에서는 「유지됨 / 이탈」을 사람이 눌러야 성과급 2차 50%가 나가게 했습니다. 그런데 그러면 <strong>사장님이 바쁜 달에는 담당자 월급이 밀립니다.</strong> 제도가 사람의 부지런함에 기대면 언젠가 반드시 깨집니다.</p>
+  <p>망고아이에는 이미 학원별 학생 명부와 수업 기록이 있습니다. 그래서 <strong>매일 밤 시스템이 스스로 판정</strong>하게 바꿨습니다.</p>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>시스템이 본 것</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td>활성 학생 1명 이상 <b>그리고</b> 최근 30일 수업 기록 있음</td><td><strong>유지</strong> — 자동 확정</td></tr>
+      <tr><td>등록 학생은 있는데 <b>전원 비활성</b></td><td><strong>이탈</strong> — 자동 확정</td></tr>
+      <tr><td>학생은 살아 있는데 최근 30일 수업이 0건</td><td>판정 보류 → <strong>사람에게</strong> (방학·휴원일 수 있음)</td></tr>
+      <tr><td>학원 이름을 학생 명부에서 못 찾음</td><td>판정 보류 → <strong>사람에게</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="caution">
+    <span class="tag">기계에게 맡기지 않은 것</span>
+    <p><strong>애매하면 「유지」 쪽으로 기울이지 않습니다. 사람에게 넘깁니다.</strong> 돈이 걸린 판정에서 기계가 추측하면, 그 추측이 틀린 날 제도 전체의 신뢰가 무너집니다.</p>
+    <p>그리고 <strong>확인 전인 계약은 점수 계산에서 아예 빠집니다</strong> — 실패로 세지 않습니다. 버튼을 안 눌렀다는 이유로 담당자가 점수를 잃지 않게 만들어 둔 것입니다.</p>
+  </div>
+
+  <h3>⑤ 주간·월간 보고서 자동 작성</h3>
+  <p>망고아이는 이미 경영 브리핑을 알림톡으로 보내고 있습니다. 여기에 <strong>영업 한 단락</strong>을 붙입니다 — 지난주 방문 12건, 신규 발굴 4곳, 제안 단계 3곳, 이번 주 계약 예상 1곳. 사람이 보고서를 쓰지 않습니다.</p>
+
+  <h3>⑥ 공정성 감시 — AI가 사장님께 이의 제기</h3>
+  <p>이건 다른 회사가 잘 안 하는 것인데, 저는 넣기를 권합니다. AI가 평가 결과를 보고 <strong>불공정 신호</strong>를 찾아 알려줍니다.</p>
+  <ul>
+    <li>"A담당 지역은 학원 밀집도가 B담당 지역의 절반입니다. 같은 목표치는 불리할 수 있습니다."</li>
+    <li>"이번 분기 계약 감소는 이 담당자만이 아니라 전국 공통입니다. 개인 문제가 아닐 수 있습니다."</li>
+  </ul>
+  <p>사람이 놓치기 쉬운 <strong>운·환경 요인</strong>을 짚어주는 역할입니다. 결정은 사장님이 하되, 재료는 AI가 올립니다.</p>
+
+  <div class="caution">
+    <span class="tag">AI에게 맡기지 않을 것</span>
+    <p><strong>AI가 최종 등급을 정하게 하지 않습니다.</strong> AI는 숫자를 모으고 근거를 정리하고 이상한 점을 짚는 데까지입니다. 사람의 미래가 걸린 결정에 "AI가 그렇게 나왔다"는 말이 이유가 되어선 안 됩니다. 마지막 버튼은 사장님이 누릅니다.</p>
+  </div>
+</section>
+
+<section>
+  <div class="chap-head"><span class="chap-no">08</span><h2>무엇을 만들 것인가</h2></div>
+  <p class="sub">이 제안서와 함께 실제 화면·데이터도 같이 만듭니다.</p>
+
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>만들 것</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td><strong>데이터 표 6개</strong></td><td>영업담당자 / 후보 학원 / 활동기록(영업일지) / 계약 / 월 목표 / 평가</td></tr>
+      <tr><td><strong>서버 기능</strong></td><td>일지 등록, 파이프라인 집계, 평가 자동 채점, 성과급 계산, 근거 분석</td></tr>
+      <tr><td><strong>관리자 화면</strong></td><td>영업 현황판 · 파이프라인 · 영업일지 · 평가 채점표 · 보상 계산</td></tr>
+      <tr><td><strong>건드리지 않는 것</strong></td><td>기존 admin.html·급여 화면은 그대로 둡니다. 독립 화면으로 만들어 사고 반경을 줄입니다</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>지금 만들어 둔 것 / 아직 안 만든 것</h3>
+  <div class="tbl-wrap">
+  <table>
+    <thead><tr><th>기능</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>영업일지·후보 학원·계약·목표·평가 데이터</td><td><strong>완료</strong></td></tr>
+      <tr><td>자동 채점 85점 + 근거 자동 설명</td><td><strong>완료</strong></td></tr>
+      <tr><td>성과급 계산(1차 50% + 유지 2차 50%)</td><td><strong>완료</strong></td></tr>
+      <tr><td>말로 쓰는 영업일지 (AI 정리)</td><td><strong>완료</strong></td></tr>
+      <tr><td>3개월 유지 자동 판정 (매일 밤)</td><td><strong>완료</strong></td></tr>
+      <tr><td>기준선 90일 유예 (평가는 하되 상여 미연동)</td><td><strong>완료</strong></td></tr>
+      <tr><td>오늘 어디부터 갈까 — 방문 우선순위 추천</td><td>다음 단계</td></tr>
+      <tr><td>위험한 학원 알림(이탈 예측 연결)</td><td>다음 단계</td></tr>
+      <tr><td>주간·월간 보고서 자동 작성</td><td>다음 단계</td></tr>
+      <tr><td>AI 공정성 감시</td><td>다음 단계</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>도입 순서</h3>
+  <div class="plan">
+    <div class="plan-item">
+      <span class="w">1단계 · 도입 전 (1주)</span><span class="t">담당자와 먼저 이야기합니다</span>
+      <p class="d">이미 일하고 계신 분이라 <strong>통보가 아니라 합의</strong>여야 합니다. 평가표를 같이 보고 "이 항목이 내 일과 맞는가"를 듣습니다. 그다음 기본급·성과급 금액·월 목표 건수를 확정합니다.</p>
+    </div>
+    <div class="plan-item">
+      <span class="w">2단계 · 1~3개월 (기준선 기간)</span><span class="t">기록부터 시작합니다</span>
+      <p class="d">영업일지와 후보 학원 목록만 먼저 씁니다. <strong>이 90일은 시스템이 자동으로 «기준선 기간»으로 잡아, 점수는 내되 상여에는 연결하지 않습니다.</strong> 성과급(계약 건당)은 이 기간에도 정상 지급됩니다. <strong>지금 관리 중인 학원들을 시스템에 옮겨 담는 것</strong>도 이 기간에 합니다 — 담당자 머릿속에 있는 거래처가 회사 자산이 되는 첫 단계입니다.</p>
+    </div>
+    <div class="plan-item">
+      <span class="w">3단계 · 4개월차</span><span class="t">목표치를 조정합니다</span>
+      <p class="d">쌓인 데이터로 "월 2곳"이 쉬운지 어려운지 판단해 고칩니다. 처음 정한 목표를 고집하지 않습니다.</p>
+    </div>
+    <div class="plan-item">
+      <span class="w">4단계 · 7개월차</span><span class="t">첫 평가와 상여</span>
+      <p class="d">첫 반기 평가를 돌립니다. 이때 <strong>등급이 낮게 나와도 첫 회는 상여를 깎지 않는 것</strong>을 권합니다. 첫 평가는 제도를 시험하는 회차입니다.</p>
+    </div>
+  </div>
+
+  <div class="decide">
+    <h3>확정된 세 숫자 (2026-08-18)</h3>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>항목</th><th class="num">금액·수량</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td><strong>기본급</strong></td><td class="num">2,300,000원</td><td>현재 실지급액</td></tr>
+        <tr><td><strong>계약 1곳당 성과급</strong></td><td class="num">600,000원</td><td>계약 시 30만 + 3개월 유지 시 30만</td></tr>
+        <tr><td><strong>월 목표 계약</strong></td><td class="num">2곳</td><td>분기 6곳 · 반기 12곳</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p style="margin-top:8px;margin-bottom:0;color:var(--ink-2);font-size:15px">이 값은 시스템에 <strong>기본값으로 들어가 있고, 화면에서 언제든 바꿀 수 있습니다</strong> — 코드를 고치거나 다시 배포할 필요가 없습니다. 담당자마다 다르게 주는 것도 됩니다.</p>
+    <p style="margin-bottom:0;color:var(--ink-2);font-size:15px">⚠️ 기본급은 <strong>기본급만으로 최저임금을 넘어야 합니다.</strong> 성과급을 합쳐서 넘긴다는 계산은 위험합니다 — 매년 고시액이 오르므로 연초에 한 번씩 확인하세요.</p>
+  </div>
+</section>
+
+<footer>
+  망고아이 내부 문서 · 2026-08-18 작성 · 법률·세무 부분은 노무사 확인 후 확정 필요
+</footer>
+
+</div>

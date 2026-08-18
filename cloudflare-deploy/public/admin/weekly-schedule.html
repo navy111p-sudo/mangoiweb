@@ -1765,6 +1765,10 @@ function openEnrollWizard(prefill){
     step:1,
     student:{name:'',uid:'',level:''},
     teacherPrefs:[], // ['home','office','native']
+    /* 🙂 (2026-08-18 사장님 수정요청 #02) 선생님 «성향» 고르기.
+       «홈교사/오피스» 는 회사 안에서 쓰는 말이라 학원장·학생·학부모에게는 뜻이 안 통했고,
+       그래서 사실상 전부 오피스로 배정되고 있었다. 뜻이 통하는 기준을 하나 더 준다. */
+    personality:[],  // ['kind','fun','edu','serious','laugh']
     dows:[],         // [0..6] (월=0)
     hours:{},        // {dow_hour: true}
     chosenMatch:null,
@@ -1829,21 +1833,32 @@ function renderWizStep(){
       '<div style="margin-top:18px;font-size:11.5px;color:var(--tx2);font-weight:700;text-transform:uppercase;letter-spacing:.4px">'+(L?'레벨':'Level')+'</div>'+
       '<div class="opt-grid cols-3" style="margin-top:6px">'+lvlCards+'</div>';
   } else if(s.step===2){
-    // 교사 카테고리 선호 (다중 선택)
+    /* 교사 카테고리 선호 (다중 선택)
+       ⚠️ (2026-08-18) 설명글을 «회사 말» 이 아니라 «학부모가 아는 말» 로 바꿨다.
+          «홈 교사 / 오피스» 만 적혀 있으면 학원장·학생·학부모가 뜻을 몰라서
+          아무것도 못 고르고 넘어가고, 결국 전부 오피스로 배정되고 있었다.
+          아무것도 안 고르면 오피스로 배정한다는 것도 화면에 적어 둔다(숨은 규칙 금지). */
     var cats=[
-      {id:'home',ico:'🏠',ko:'홈 교사',en:'Home',descK:'재택 1대1',descE:'Remote 1-on-1'},
-      {id:'office',ico:'🏢',ko:'오피스',en:'Office',descK:'스튜디오 수업',descE:'In studio'},
-      {id:'native',ico:'🌍',ko:'원어민',en:'Native',descK:'영어권 출신',descE:'Native speaker'},
-      {id:'manager',ico:'👔',ko:'매니저',en:'Manager',descK:'반편성/상담',descE:'Counsel'}
+      {id:'home',ico:'🏠',ko:'홈 교사',en:'Home',descK:'선생님 댁에서 1:1',descE:'1-on-1 from teacher\u2019s home'},
+      {id:'office',ico:'🏢',ko:'오피스',en:'Office',descK:'회사 사무실(스튜디오)',descE:'From our studio office'},
+      {id:'native',ico:'🌍',ko:'원어민',en:'Native',descK:'영어권 출신 선생님',descE:'Native speaker'},
+      {id:'manager',ico:'👔',ko:'매니저',en:'Manager',descK:'반 편성·상담 담당',descE:'Class planning & counsel'}
     ];
     var cards=cats.map(function(c){
       return '<div class="opt-card '+(s.teacherPrefs.indexOf(c.id)>=0?'selected':'')+'" onclick="wizToggleTeacherPref(\''+c.id+'\')">'+
         '<div class="oc-ico">'+c.ico+'</div><div class="oc-name">'+(L?c.ko:c.en)+'</div><div class="oc-sub">'+(L?c.descK:c.descE)+'</div></div>';
     }).join('');
+    var perCards=WIZ_PERSONALITY.map(function(c){
+      return '<div class="opt-card '+(s.personality.indexOf(c.id)>=0?'selected':'')+'" onclick="wizTogglePersonality(\''+c.id+'\')">'+
+        '<div class="oc-ico">'+c.ico+'</div><div class="oc-name">'+(L?c.ko:c.en)+'</div><div class="oc-sub">'+(L?c.descK:c.descE)+'</div></div>';
+    }).join('');
     body.innerHTML=
       '<h2 class="wiz-h2">👥 '+(L?'원하는 교사 종류':'Teacher Type')+'</h2>'+
-      '<div class="wiz-desc">'+(L?'여러 개 선택 가능 (탭하여 토글)':'Tap to toggle multiple')+'</div>'+
-      '<div class="opt-grid cols-2">'+cards+'</div>';
+      '<div class="wiz-desc">'+(L?'여러 개 선택 가능 (탭하여 토글) · 잘 모르겠으면 그냥 넘어가세요 — 오피스 선생님으로 배정됩니다':'Tap to toggle multiple \u00b7 Not sure? Skip \u2014 we assign an Office teacher')+'</div>'+
+      '<div class="opt-grid cols-2">'+cards+'</div>'+
+      '<h2 class="wiz-h2" style="margin-top:20px">🙂 '+(L?'원하는 선생님 성향':'Teacher Personality')+'</h2>'+
+      '<div class="wiz-desc">'+(L?'어떤 선생님이면 좋겠어요? (여러 개 선택 가능 · 안 골라도 됩니다)':'What kind of teacher? (multiple, optional)')+'</div>'+
+      '<div class="opt-grid cols-2">'+perCards+'</div>';
   } else if(s.step===3){
     // 요일 + 시간 그리드
     var dowNames=L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -1884,6 +1899,28 @@ function wizSelectLevel(lv){
   wizState.student.level=lv;
   renderWizStep();
 }
+/* 🙂 선생님 성향 — 사장님이 예로 준 다섯 가지 그대로.
+   ⚠️ 이모지는 Unicode 13 미만만 쓴다(Win10 에서 두부로 보이는 사고 방지). */
+var WIZ_PERSONALITY=[
+  {id:'kind',    ico:'😊', ko:'상냥한',    en:'Warm',      descK:'다정하게 이끌어 줘요',   descE:'Gentle and caring'},
+  {id:'fun',     ico:'🎉', ko:'재미있는',  en:'Fun',       descK:'수업이 즐거워요',       descE:'Makes class fun'},
+  {id:'edu',     ico:'📚', ko:'교육적인',  en:'Academic',  descK:'차근차근 가르쳐 줘요',   descE:'Structured teaching'},
+  {id:'serious', ico:'🎯', ko:'진지한',    en:'Serious',   descK:'꼼꼼하게 짚어 줘요',     descE:'Focused and precise'},
+  {id:'laugh',   ico:'😄', ko:'웃음 많은', en:'Cheerful',  descK:'분위기가 밝아요',       descE:'Bright and cheerful'}
+];
+function wizTogglePersonality(pid){
+  var idx=wizState.personality.indexOf(pid);
+  if(idx>=0)wizState.personality.splice(idx,1);
+  else wizState.personality.push(pid);
+  renderWizStep();
+}
+function wizPersonalityLabel(L){
+  if(!wizState.personality.length) return L?'선택 안 함':'Any';
+  return wizState.personality.map(function(pid){
+    var f=WIZ_PERSONALITY.filter(function(c){return c.id===pid;})[0];
+    return f?(L?f.ko:f.en):pid;
+  }).join(', ');
+}
 function wizToggleTeacherPref(cat){
   var idx=wizState.teacherPrefs.indexOf(cat);
   if(idx>=0)wizState.teacherPrefs.splice(idx,1);
@@ -1904,7 +1941,10 @@ function wizNext(){
     if(!s.student.name){alert(L?'이름을 입력하세요':'Enter name');return;}
     if(!s.student.level){alert(L?'레벨을 선택하세요':'Select level');return;}
   } else if(s.step===2){
-    if(s.teacherPrefs.length===0){alert(L?'교사 종류 1개 이상 선택':'Pick at least 1 type');return;}
+    /* ⚠️ (2026-08-18) 여기서 «1개 이상 고르세요» 로 막지 않는다.
+       «홈교사/오피스» 가 무슨 말인지 모르는 사람이 대부분이라, 막으면 아무거나 찍게 된다.
+       안 고르고 넘어가면 오피스로 배정한다 — 화면에도 그렇게 적어 뒀다. */
+    if(s.teacherPrefs.length===0){s.teacherPrefs=['office'];}
   } else if(s.step===3){
     if(s.dows.length===0 && Object.keys(s.hours).length===0){alert(L?'요일/시간을 선택하세요':'Pick days/times');return;}
   }
@@ -1914,6 +1954,7 @@ function wizNext(){
 window.wizPrev=wizPrev;window.wizNext=wizNext;
 window.wizUpdateName=wizUpdateName;window.wizSelectLevel=wizSelectLevel;
 window.wizToggleTeacherPref=wizToggleTeacherPref;window.wizToggleDow=wizToggleDow;
+window.wizTogglePersonality=wizTogglePersonality;
 
 // 시간 그리드 드래그 선택
 function setupTimeGridDrag(){
@@ -2055,7 +2096,8 @@ function wizFinalize(){
       students:[{name:s.student.name,uid:s.student.uid}],
       start_date:sl.date,
       end_date:(function(){var d=new Date(sl.date);d.setMonth(d.getMonth()+3);return fmtISO(d);})(),
-      note:(L?'레벨 ':'Level ')+s.student.level,
+      // 🙂 고른 성향을 메모에 함께 남긴다 — 안 그러면 위저드를 닫는 순간 사라진다
+      note:(L?'레벨 ':'Level ')+s.student.level+(s.personality.length?(L?' · 성향 ':' · ')+wizPersonalityLabel(L):''),
       duration_min:dur
     });
     assigned++;
@@ -2072,6 +2114,7 @@ function wizFinalize(){
       '<div class="ds-row"><span class="k">'+(L?'학생':'Student')+'</span><span class="v">'+escapeHtml(s.student.name)+' ('+s.student.uid+')</span></div>'+
       '<div class="ds-row"><span class="k">'+(L?'레벨':'Level')+'</span><span class="v">'+s.student.level+'</span></div>'+
       '<div class="ds-row"><span class="k">'+(L?'담당 교사':'Teacher')+'</span><span class="v">'+escapeHtml(nm)+'</span></div>'+
+      '<div class="ds-row"><span class="k">'+(L?'원하는 성향':'Personality')+'</span><span class="v">'+escapeHtml(wizPersonalityLabel(L))+'</span></div>'+
       '<div class="ds-row"><span class="k">'+(L?'배정 슬롯':'Slots')+'</span><span class="v">'+assigned+(L?'개':'')+'</span></div>'+
     '</div></div></div>'+
     '<div class="modal-actions"><button class="modal-btn primary" onclick="closeModal();render()">'+(L?'확인':'OK')+'</button></div></div>';

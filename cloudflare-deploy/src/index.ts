@@ -30,6 +30,7 @@ import { handleRecordingUpload as handleR2MultipartUpload, runRecordingFinalizeS
 import { handleAdminAuthApi, checkAdminSession, getAdminActor, PH_MANAGERS } from './auth-admin';
 import { handleTeacherApi } from './api-teacher';   // 🇵🇭 강사 전용 초경량 포털 (1요청 집계)
 import { handleApprovalApi } from './api-approval'; // 🧾 결재(기안·지출·문서)
+import { handleSalesHrApi } from './api-sales-hr';   // 🚗 영업담당자 실적·인사평가·보상
 import { handleOutageApi } from './api-outage';     // ⚡ 정전·인터넷 장애 신고
 import { handleMenuHitApi } from './api-menuhit';   // 📏 관리자 메뉴 클릭 계측(«무엇이 안 눌리는가»)
 import { reportsRouter } from './accounting-reports';
@@ -310,7 +311,8 @@ const worker = {
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
             || path === '/manager' || path === '/manager/' || path === '/manager.html'
-            || path === '/work' || path === '/work/' || path === '/work.html') {
+            || path === '/work' || path === '/work/' || path === '/work.html'
+            || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -385,6 +387,9 @@ const worker = {
             //    한 화면에 모이고, 여기서 전체에게 문자·카톡을 뿌릴 수 있다. 본사/매니저만.
             //    (핸들러 첫머리에서도 한 번 더 막지만, URL 직접 호출까지 여기서 끊는다)
             '/api/admin/teachers/kakao',
+            // ── 🚗 영업담당자 인사평가·보상 (2026-08-18) — 남의 급여·성과급·평가 등급이 담긴다.
+            //    거래처 학원장 연락처도 함께 들어 있어 강사에게는 열지 않는다.
+            '/api/admin/sales/',
             // ── 💳 법인카드 사용내역 (2026-08-13) — 회사 지출 내역. 본사/매니저만.
             '/api/admin/corpcard/',
             // ── 🏦 신한은행 계좌 입출금 (2026-08-14) — 회사 계좌 원장. 본사/매니저만.
@@ -983,6 +988,8 @@ const worker = {
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
         path === '/api/admin/staff-password-reset' ||
+        // ➕ 직원 계정 생성 (2026-08-18) — 게이트는 handleAdminAuthApi 안에서 경영진·본사로 한 번 더.
+        path === '/api/admin/staff-create' ||
         // 🔑 비밀번호 찾기(셀프 재설정) — 로그인 전에 부르는 API 라 isAuthPublicPath 에도 등록돼 있다.
         path === '/api/admin/password-reset/request' ||
         path === '/api/admin/password-reset/confirm' ||
@@ -1013,6 +1020,15 @@ const worker = {
     if (path.startsWith('/api/outage/')) {
       const oRes = await handleOutageApi(request, url, env as any);
       if (oRes) return oRes;
+    }
+
+    // 🚗 영업담당자 실적·인사평가·보상 (2026-08-18)
+    //   인증은 위 미들웨어(/api/admin/* DEFAULT-DENY)가 이미 걸었고,
+    //   역할 게이트(본사 또는 담당자 본인)는 핸들러 안에서 한 번 더 본다.
+    //   ⚠️ 이 등록을 빼면 CF Assets 로 흘러가 POST 가 405 가 된다(게이트 주석 참고).
+    if (path.startsWith('/api/admin/sales/')) {
+      const sRes = await handleSalesHrApi(request, url, env as any);
+      if (sRes) return sRes;
     }
 
     // 📏 관리자 메뉴 클릭 계측 — 메뉴를 87개에서 줄이려면 «안 눌리는 메뉴» 를 알아야 한다.
@@ -1089,6 +1105,9 @@ const worker = {
         path === '/api/admin/payroll/rates' ||
         path === '/api/admin/payroll/finalize' ||
         path === '/api/admin/payroll/seed-demo' ||
+        // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
+        //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
+        path === '/api/admin/org/hq' ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -2191,6 +2210,32 @@ const worker = {
           } catch (err) {
             console.error('[approval-weekly] error', err);
           }
+        }
+
+        // 📰 영업 주간 보고 — 월요일 아침(09:00 KST)에 한 번.
+        //   사람이 보고서를 쓰지 않는다. 숫자는 서버가 세고, 활동이 0인 주는 아예 보내지 않는다
+        //   (빈 보고서가 매주 오면 아무도 안 읽게 되고, 그러면 진짜 보고서도 같이 묻힌다).
+        if (kstDay === 1) {
+          try {
+            const { runSalesWeeklyReport } = await import('./api-sales-hr');
+            const sw = await runSalesWeeklyReport(env as any);
+            if (sw && sw.sent > 0) console.log('[sales-weekly]', JSON.stringify(sw));
+          } catch (err) {
+            console.error('[sales-weekly] error', err);
+          }
+        }
+
+        // 🔁 영업 계약의 «3개월 유지» 자동 판정 (2026-08-18)
+        //   왜 cron 인가 — 사람이 화면에서 버튼을 눌러야만 성과급 2차(50%)가 나가면,
+        //   바쁜 달에는 담당자 월급이 밀린다. 제도가 사람의 부지런함에 기대면 언젠가 깨진다.
+        //   학생 명부·수업 기록으로 기계가 판정할 수 있는 건 기계가 하고, 사람은 애매한 것만 본다.
+        //   ⚠️ cron 한도 5/5 라 새로 못 만든다 — 기존 일일(09:00 KST)에 얹는다.
+        try {
+          const { runSalesRetentionSweep } = await import('./api-sales-hr');
+          const sr = await runSalesRetentionSweep(env as any);
+          if (sr && sr.checked > 0) console.log('[sales-retention]', JSON.stringify(sr));
+        } catch (err) {
+          console.error('[sales-retention] error', err);
         }
 
         // 🏦 신한은행 계좌 입출금 — 계좌번호 시크릿이 등록돼 있을 때만 (2026-08-14)
@@ -5030,6 +5075,12 @@ function isAdminPath(path: string, method: string): boolean {
   //   강사는 긴급·고객불만만 올릴 수 있고, 그 판정은 /api/approval/* 핸들러가 분류별로 한다.
   if (path === '/work' || path === '/work/' || path === '/work.html') return true;
 
+  // 🚗 영업 전용 휴대폰 화면 (2026-08-18) — 거래처 학원장 연락처와 본인 성과급이 담긴다.
+  //   로그인 필수. 역할 게이트(본사 또는 담당자 본인)는 /api/admin/sales/* 핸들러가 한 번 더 본다.
+  //   ⚠️ 위 «미인증 리다이렉트 목록» 에도 함께 등록했다 — 한쪽만 하면 인증은 걸리는데
+  //      'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/sales' || path === '/sales/' || path === '/sales.html') return true;
+
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
@@ -5144,6 +5195,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/admin/payroll/')) return true;
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
+  if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
@@ -5287,6 +5339,17 @@ function isAgencyAllowedApi(path: string): boolean {
           POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
           이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
     '/api/admin/schedule-requests',
+    /* 🏢 조직 명부 (2026-08-18 사장님 수정요청 #03·#04) — 「영업사원·지사장·학원장이 보기 쉽게」.
+         그동안 조직 관리 화면은 지사장이 열어도 이 두 경로가 여기 없어 403 → **빈 표**만 떴고,
+         학원장에게는 카드 등급('branch')이 걸려 화면 자체가 안 보였다. 둘 다 이번에 연다.
+       ⚠️ 여는 조건은 하나 — **핸들러가 스코프로 자른 뒤에만** 연다. api-admin.ts 의
+          두 핸들러는 scopeFranchiseCond()/scopeCenterCond()(src/scope.ts)로
+          지사 = 자기 지사, 대리점(학원) = 자기 한 칸까지 잘라서 내려주고,
+          등록·수정·대표지사 지정은 canEditOrg() 로 본사만 허용한다(403).
+          그 조건절을 빼고 이 두 줄만 남기면 **전국 지사 241건·대리점 921건이 통째로 샌다.**
+          org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
+    '/api/admin/franchises',
+    '/api/admin/centers',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

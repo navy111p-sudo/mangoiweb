@@ -205,6 +205,28 @@
          전체를 받으면 1.3GB라 오래 걸립니다. 이렇게 받으면 훨씬 빠릅니다.</p>
     </div>
   </div>
+
+  <div class="step">
+    <div class="n">3</div>
+    <div class="body">
+      <b>Node 는 반드시 24 이상으로</b>
+      <p class="sub">지금 몇 버전인지 확인합니다.</p>
+      <div class="cmd">node -v<button onclick="cp(this)">복사</button></div>
+      <div class="box warn">
+        <h4>&#9888; 24 미만이면 다음 단계에서 막힙니다</h4>
+        <p>설치할 때 아래 같은 오류가 납니다. <b>이 메시지는 거짓말입니다.</b>
+           라이브러리 문제가 아니라 <b>Node 버전 문제</b>입니다.</p>
+        <p><code>npm error code ERESOLVE</code><br>
+           <code>npm error peerOptional @cloudflare/workers-types…</code></p>
+        <p>Node 24 에 들어 있는 npm 11 은 이 충돌을 그냥 넘기고, Node 22 의 npm 10 은 막습니다.
+           깃허브 검사는 24 로 돌기 때문에 늘 통과라서,
+           <b>내 컴퓨터에서만 죽는 것처럼 보입니다.</b></p>
+      </div>
+      <p class="sub">저장소에 <code>.nvmrc</code> 를 넣어 두었습니다. nvm 을 쓴다면 이 한 줄이면 됩니다.</p>
+      <div class="cmd">nvm use<button onclick="cp(this)">복사</button></div>
+      <p class="sub">nvm 이 없다면 <b>nodejs.org</b> 에서 24 이상을 직접 설치하세요.</p>
+    </div>
+  </div>
 </section>
 
 <section>

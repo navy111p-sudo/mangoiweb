@@ -1,0 +1,351 @@
+<title>영업 실적·인사평가 화면</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'Malgun Gothic','맑은 고딕','Apple SD Gothic Neo','Segoe UI',sans-serif;
+       background:linear-gradient(160deg,#0f172a,#1e293b);color:#e6edf6;min-height:100vh;padding:22px;font-size:16px;
+       word-break:keep-all}
+  .wrap{max-width:1120px;margin:0 auto}
+  .demo{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);border-radius:14px;
+        padding:14px 18px;margin-bottom:20px;font-size:15px;line-height:1.75}
+  .demo b{color:#fbbf24}
+  .head{display:flex;align-items:center;gap:14px;margin-bottom:6px;flex-wrap:wrap}
+  .mango{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#d97706);
+         display:flex;align-items:center;justify-content:center;font-size:26px;flex:none}
+  h1{font-size:27px;margin:0;font-weight:900;letter-spacing:-.02em}
+  .sub{color:#a9b7ca;font-size:15.5px;margin:4px 0 18px;line-height:1.6}
+  .card{background:rgba(30,41,59,.92);border:1px solid rgba(148,163,184,.22);border-radius:20px;padding:22px;margin-bottom:18px}
+  .card h2{font-size:19px;margin:0 0 4px;font-weight:900}
+  .card .hint{color:#a9b7ca;font-size:14px;margin:0 0 14px;line-height:1.7}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#a9b7ca;font-weight:700}
+  .fake-input,.fake-select{background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,.4);
+       border-radius:11px;padding:10px 14px;font-size:15px;min-width:150px}
+  .fake-select::after{content:' ▾';color:#7c8ba1}
+  .btn{border-radius:11px;padding:10px 16px;font-weight:800;font-size:15px;
+       border:1px solid rgba(148,163,184,.45);background:transparent;color:#e6edf6;display:inline-block}
+  .btn.primary{background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1204;border-color:transparent}
+  .btn.small{font-size:13.5px;padding:7px 12px;font-weight:700}
+  .grid{display:grid;gap:12px}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+  .kpi{background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:16px}
+  .kpi .k{font-size:13px;color:#a9b7ca;font-weight:700}
+  .kpi .v{font-size:26px;font-weight:900;margin-top:4px;font-variant-numeric:tabular-nums}
+  .kpi .t{font-size:12.5px;color:#7c8ba1;margin-top:3px;line-height:1.5}
+  .kpi.money .v{color:#6ee7b7}
+  .kpi.warn .v{color:#fbbf24}
+  .scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;margin-top:6px;font-size:15px;min-width:560px}
+  th,td{padding:10px 10px;text-align:left;border-bottom:1px solid rgba(148,163,184,.16);vertical-align:top}
+  th{color:#a9b7ca;font-size:13px;font-weight:700;white-space:nowrap}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr:nth-child(even){background:rgba(148,163,184,.06)}
+  .bar{display:inline-block;height:9px;background:rgba(148,163,184,.2);border-radius:5px;overflow:hidden;width:100%;min-width:64px;vertical-align:middle}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24);border-radius:5px}
+  .why{font-size:13px;color:#a9b7ca;line-height:1.6}
+  .na{color:#7c8ba1}
+  .pipe{display:flex;flex-wrap:wrap;gap:8px}
+  .pipe .st{flex:1 1 128px;background:rgba(15,23,42,.6);border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:13px 14px}
+  .pipe .st.hot{border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.09)}
+  .pipe .st .n{font-size:12px;color:#7c8ba1;font-weight:700}
+  .pipe .st .t{font-size:15px;font-weight:800;margin-top:2px}
+  .pipe .st .c{font-size:23px;font-weight:900;margin-top:3px;font-variant-numeric:tabular-nums}
+  .grade{font-size:42px;font-weight:900;line-height:1;color:#6ee7b7}
+  .warnbox{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);border-radius:14px;
+           padding:13px 16px;margin-top:12px;font-size:14.5px;line-height:1.75}
+  .okbox{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);border-radius:14px;
+         padding:13px 16px;margin-top:12px;font-size:14.5px;line-height:1.75}
+  .muted{color:#7c8ba1;font-size:14px;line-height:1.65}
+  .fake-area{background:#0f172a;color:#e6edf6;border:1px solid rgba(148,163,184,.4);border-radius:11px;
+             padding:11px 14px;font-size:14.5px;min-height:58px;line-height:1.6}
+  .note-tag{display:inline-block;background:rgba(59,130,246,.16);color:#93c5fd;font-size:12.5px;
+            font-weight:800;padding:3px 10px;border-radius:999px;margin-bottom:8px}
+  @media (max-width:720px){ body{padding:14px;font-size:15px} h1{font-size:22px} }
+</style>
+
+<div class="wrap">
+
+<div class="demo">
+  <b>화면 샘플입니다.</b> 아래 숫자·학원 이름은 전부 <b>가짜 예시</b>입니다. 실제 화면 주소는
+  <b>관리자 → 우측 상단 👤 메뉴 → 🚗 영업 실적·인사평가</b> 입니다.
+  이 샘플에서는 버튼이 눌리지 않습니다 — 생김새와 흐름만 보시면 됩니다.
+</div>
+
+<div class="head">
+  <div class="mango">🥭</div>
+  <div>
+    <h1>영업 실적 · 인사평가</h1>
+    <div class="sub">전국 지사·학원 영업 담당자의 활동·계약·평가·성과급을 한 화면에서 봅니다.</div>
+  </div>
+</div>
+
+<!-- 기간·담당자 -->
+<div class="card">
+  <div class="toolbar">
+    <label class="f">담당자<span class="fake-select">홍길동 ▾</span></label>
+    <label class="f">기간<span class="fake-select">2026년 상반기 (평가) ▾</span></label>
+    <span class="btn primary">불러오기</span>
+    <span class="muted" style="padding-bottom:10px">기준일 2026-08-18</span>
+  </div>
+  <div class="muted" style="margin-top:12px">
+    기본급 <b style="color:#e6edf6">2,300,000원</b> · 계약 1곳당 성과급 <b style="color:#e6edf6">600,000원</b>
+    · 월 목표 <b style="color:#e6edf6">2곳</b> · 담당 충청·대전 · 입사 2024-03-04
+  </div>
+</div>
+
+<!-- 요약 -->
+<div class="card">
+  <h2>2026년 상반기 요약</h2>
+  <p class="hint">숫자는 전부 서버가 기록에서 세어 만든 것입니다. 담당자가 직접 입력한 실적 숫자는 하나도 없습니다.</p>
+  <div class="grid g3">
+    <div class="kpi"><div class="k">신규 계약 학원</div><div class="v">11곳</div><div class="t">목표 12곳</div></div>
+    <div class="kpi"><div class="k">신규 등록 학생</div><div class="v">138명</div><div class="t">목표 120명</div></div>
+    <div class="kpi"><div class="k">방문·상담</div><div class="v">251건</div><div class="t">목표 288건</div></div>
+    <div class="kpi"><div class="k">영업일지 기록</div><div class="v">103일</div><div class="t">근무일 124일</div></div>
+    <div class="kpi warn"><div class="k">자동 점수(85점 중)</div><div class="v">74.48</div><div class="t">적용가능 만점 85점</div></div>
+    <div class="kpi money"><div class="k">이 기간 성과급</div><div class="v">5,100,000원</div><div class="t">계약 1차 + 유지 2차</div></div>
+  </div>
+</div>
+
+<!-- 파이프라인 -->
+<div class="card">
+  <h2>영업 파이프라인</h2>
+  <p class="hint">지금 진행 중인 후보 학원이 어느 단계에 몇 곳 있는지입니다.
+    「방문은 많은데 제안이 없다」와 「제안은 많은데 계약이 없다」는 처방이 정반대라 나눠서 봅니다.</p>
+  <div class="pipe">
+    <div class="st"><div class="n">STEP 1</div><div class="t">발굴</div><div class="c">24</div></div>
+    <div class="st"><div class="n">STEP 2</div><div class="t">접촉</div><div class="c">15</div></div>
+    <div class="st hot"><div class="n">STEP 3</div><div class="t">방문상담</div><div class="c">9</div></div>
+    <div class="st hot"><div class="n">STEP 4</div><div class="t">제안·시연</div><div class="c">3</div></div>
+    <div class="st"><div class="n">STEP 5</div><div class="t">계약</div><div class="c">2</div></div>
+    <div class="st"><div class="n">STEP 6</div><div class="t">개원·정착</div><div class="c">1</div></div>
+  </div>
+  <div class="warnbox">
+    <b>여기서 막혀 있습니다 — 방문상담 → 제안·시연 에서 67%가 빠집니다.</b><br>
+    방문은 충분한데 제안까지 못 갑니다. 즉 <b>첫 상담에서 설득이 안 되는 것</b>이라,
+    방문을 더 시키는 게 아니라 <b>상담 자료와 화법</b>을 손봐야 하는 상황입니다.
+  </div>
+</div>
+
+<!-- 유지 확인 -->
+<div class="card">
+  <h2>🔔 3개월 유지 확인</h2>
+  <p class="hint">유지 여부는 <b>매일 밤 시스템이 학생 명부·수업 기록을 보고 자동으로 판정</b>합니다.
+    여기 올라오는 것은 <b>기계가 판정하지 못한 건</b>뿐입니다 — 사람이 봐야 하는 이유가 함께 적혀 있습니다.</p>
+  <div class="toolbar"><span class="btn">지금 자동 판정 실행</span>
+    <span class="muted" style="padding-bottom:10px">검사 9건 · 유지 6 · 이탈 1 · 사람 확인 필요 2</span></div>
+  <div class="scroll" style="margin-top:12px">
+  <table>
+    <thead><tr><th>학원</th><th>계약일</th><th>확인 예정일</th><th>확인</th></tr></thead>
+    <tbody>
+      <tr><td>둔산 세종어학원</td><td>2026-05-12</td><td>2026-08-10</td>
+          <td><span class="btn small">유지됨</span> <span class="btn small">이탈</span></td></tr>
+      <tr><td colspan="4" class="why">둔산 세종어학원 — 학생 14명은 살아 있는데 최근 30일 수업 기록이 없습니다(방학·휴원일 수 있음). 사람이 확인해 주세요.</td></tr>
+      <tr><td>노은 리더스어학원</td><td>2026-05-20</td><td>2026-08-18</td>
+          <td><span class="btn small">유지됨</span> <span class="btn small">이탈</span></td></tr>
+      <tr><td colspan="4" class="why">학생 명부에서 «노은 리더스어학원» 학원을 찾지 못했습니다. 사람이 확인해 주세요.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="okbox">
+    나머지 <b>7건은 사람 손 없이 끝났습니다</b> — 「활성 학생 22명, 최근 30일 수업 61건 → 유지」처럼
+    근거까지 함께 남습니다. 사장님이 바쁜 달에도 <b>담당자 성과급 2차가 밀리지 않습니다.</b>
+  </div>
+  <div class="warnbox">
+    확인 전인 계약은 <b>점수에서 빠집니다</b> — 실패로 세지 않습니다.
+    버튼을 안 눌렀다는 이유로 담당자가 점수를 잃지 않게 만들어 둔 것입니다.
+  </div>
+</div>
+
+<!-- 자동 채점 -->
+<div class="card">
+  <h2>자동 채점 (85점)</h2>
+  <p class="hint">실적 60 + 활동 25. 사람이 매기는 15점(보고·차량·협업)은 아래 «평가 확정»에서 넣습니다.
+    점수 아래 줄이 <b>«왜 이 점수인가»</b>입니다 — 이걸 설명 못 하면 평가 제도는 무너집니다.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>항목</th><th class="num">실적</th><th class="num">목표</th><th class="num">달성률</th><th class="num">점수</th><th style="width:110px">　</th></tr></thead>
+    <tbody>
+      <tr><td>신규 계약 학원 수</td><td class="num">11</td><td class="num">12</td><td class="num">92%</td><td class="num">22.92 / 25</td><td><span class="bar"><i style="width:92%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 12 중 11 달성(92%) → 25점 중 22.92점</td></tr>
+
+      <tr><td>신규 등록 학생 수</td><td class="num">138</td><td class="num">120</td><td class="num">115%</td><td class="num">20 / 20</td><td><span class="bar"><i style="width:100%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 120 중 138 달성(115%) → 20점 중 20점 · 초과분은 성과급으로 지급됩니다</td></tr>
+
+      <tr><td>3개월 유지율</td><td class="num">6</td><td class="num">8</td><td class="num">75%</td><td class="num">11.25 / 15</td><td><span class="bar"><i style="width:75%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">3개월이 지난 계약 8곳 중 6곳 유지(75%)</td></tr>
+
+      <tr><td>방문·상담 건수</td><td class="num">251</td><td class="num">288</td><td class="num">87%</td><td class="num">8.72 / 10</td><td><span class="bar"><i style="width:87%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 288 중 251 달성(87%) → 10점 중 8.72점</td></tr>
+
+      <tr><td>신규 발굴 등록</td><td class="num">96</td><td class="num">120</td><td class="num">80%</td><td class="num">4 / 5</td><td><span class="bar"><i style="width:80%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 120 중 96 달성(80%) → 5점 중 4점</td></tr>
+
+      <tr><td>기존 학원 관리방문</td><td class="num">33</td><td class="num">48</td><td class="num">69%</td><td class="num">3.44 / 5</td><td><span class="bar"><i style="width:69%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 48 중 33 달성(69%) → 5점 중 3.44점</td></tr>
+
+      <tr><td>영업일지 성실도</td><td class="num">103</td><td class="num">124</td><td class="num">83%</td><td class="num">4.15 / 5</td><td><span class="bar"><i style="width:83%"></i></span></td></tr>
+      <tr><td colspan="6" class="why">목표 124 중 103 달성(83%) → 5점 중 4.15점</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="okbox">
+    자료가 없어 건너뛴 항목이 없어 <b>85점 전부가 채점</b>되었습니다.
+    도입 초기처럼 유지율을 아직 못 재는 기간에는 그 항목이 <span class="na">해당없음</span>으로 표시되고,
+    <b>0점이 아니라 남은 항목의 만점으로 환산</b>합니다.
+  </div>
+</div>
+
+<!-- 평가 확정 -->
+<div class="card">
+  <h2>평가 확정 (사람이 매기는 15점)</h2>
+  <p class="hint">보고 마감 준수 5 · 차량·비용 관리 5 · 협업 5. 반기를 고르면 등급과 반기 상여가 함께 계산됩니다.</p>
+  <div class="grid g3">
+    <label class="f">보고 마감 준수 (0~5)<span class="fake-input">4</span></label>
+    <label class="f">차량·비용 관리 (0~5)<span class="fake-input">5</span></label>
+    <label class="f">협업 평가 (0~5)<span class="fake-input">4</span></label>
+  </div>
+  <div class="grid g2" style="margin-top:12px">
+    <label class="f">잘한 점<span class="fake-area">계약 학원 원장님들과 관계가 좋아 재방문 요청이 먼저 들어온다. 차량 운행기록·유류비 정산이 한 번도 밀린 적 없다.</span></label>
+    <label class="f">개선할 점<span class="fake-area">방문 대비 제안 전환이 낮다. 시연 자료를 표준화하고, 관리방문(목표 48 → 실제 33)을 월 8건으로 지킬 것.</span></label>
+  </div>
+  <div class="toolbar" style="margin-top:12px"><span class="btn primary">평가 저장·확정</span></div>
+
+  <div class="grid g3" style="margin-top:14px">
+    <div class="kpi"><div class="k">자동 점수</div><div class="v">74.48</div><div class="t">적용가능 만점 85점</div></div>
+    <div class="kpi"><div class="k">환산 총점 (100점)</div><div class="v">87.48</div><div class="t">전 항목 채점</div></div>
+    <div class="kpi money"><div class="k">등급 · 반기 상여</div><div class="v"><span class="grade">A</span></div>
+      <div class="t">2,760,000원 (배율 1.2)</div></div>
+  </div>
+  <div class="muted" style="margin-top:10px">마지막 확정: admin · 2026. 7. 3. 오후 4:12</div>
+</div>
+
+<!-- 영업일지 -->
+<div class="card">
+  <h2>영업일지</h2>
+  <p class="hint">필수는 <b>«학원»과 «종류» 둘뿐</b>입니다. 나머지는 비워도 저장됩니다 — 길게 쓰게 하면 3주째부터 아무도 안 씁니다.</p>
+  <div style="background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.22);border-radius:16px;padding:16px;margin-bottom:14px">
+    <div class="toolbar" style="margin-bottom:10px">
+      <span class="btn" style="background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;border-color:transparent">● 녹음 중 — 누르면 끝</span>
+      <span class="btn">AI로 정리하기</span>
+      <span class="muted" style="padding-bottom:10px;color:#6ee7b7">AI가 정리했습니다. 틀린 것만 고치고 저장하세요.</span>
+    </div>
+    <div class="fake-area">오늘 유성 SLP어학원 갔고요, 원장님이 단가는 괜찮은데 초등 저학년 시간표가 안 맞는다고 하셨어요. 화상수업 시연은 반응 좋았습니다. 다음 주 화요일에 저학년 맞춤 시간표안 만들어서 다시 가기로 했어요.</div>
+    <div class="muted" style="margin-top:8px">말한 원문은 그대로 저장됩니다 — AI 정리가 틀렸을 때 원본을 볼 수 있어야 하니까요.</div>
+  </div>
+  <div class="note-tag">↓ 여기부터는 AI가 채운 칸입니다</div>
+  <div class="grid g3">
+    <label class="f">날짜<span class="fake-input">2026-08-18</span></label>
+    <label class="f">학원(후보)<span class="fake-select">유성 SLP어학원 — 방문상담 ▾</span></label>
+    <label class="f">종류<span class="fake-select">방문상담 ▾</span></label>
+    <label class="f">단계 이동(선택)<span class="fake-select">4 제안·시연 ▾</span></label>
+  </div>
+  <div class="grid g2" style="margin-top:12px">
+    <label class="f">오늘 무슨 일이 있었나<span class="fake-area">원장님이 단가는 괜찮은데 초등 저학년 시간표가 안 맞는다고 하심. 화상수업 시연은 반응 좋았음.</span></label>
+    <label class="f">다음 할 일<span class="fake-area">저학년 맞춤 시간표안 만들어서 다음 주 화요일 재방문</span></label>
+  </div>
+  <div class="toolbar" style="margin-top:12px"><span class="btn primary">일지 저장</span></div>
+
+  <div class="okbox" style="margin-bottom:14px">
+    <b>타이핑은 하지 않습니다.</b> 차 안에서 말하면 AI가 학원·종류·단계·반응·다음 할 일을 채워 넣고,
+    담당자는 <b>틀린 것만 고칩니다.</b> 음성인식이 안 되는 브라우저에서는 붙여넣기만 해도 같은 정리가 됩니다.
+    AI가 죽어도 간단 정리가 대신 돌아가고, 그것도 안 되면 직접 입력이 그대로 남습니다 — <b>막다른 길이 없습니다.</b>
+  </div>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>날짜</th><th>종류</th><th>학원</th><th>내용</th><th>다음 할 일</th></tr></thead>
+    <tbody>
+      <tr><td>2026-08-18</td><td>방문상담</td><td>유성 SLP어학원</td><td>단가 수용, 저학년 시간표가 걸림돌</td><td>맞춤 시간표안 재방문</td></tr>
+      <tr><td>2026-08-17</td><td>관리방문</td><td>둔산 세종어학원</td><td>수업 만족도 확인. 학생 4명 추가 등록 예정</td><td>추가 등록 절차 안내</td></tr>
+      <tr><td>2026-08-17</td><td>전화</td><td>천안 아이비리그어학원</td><td>원장님 부재, 다음 주 통화 약속</td><td>화요일 오전 재통화</td></tr>
+      <tr><td>2026-08-14</td><td>시연</td><td>청주 온에듀학원</td><td>필리핀 강사 화상수업 15분 시연, 반응 좋음</td><td>견적서 발송</td></tr>
+      <tr><td>2026-08-13</td><td>방문상담</td><td>공주 한빛어학원</td><td>규모 작아 단가 부담. 소규모 반 제안 필요</td><td>소규모 요금안 검토</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- 후보 학원 -->
+<div class="card">
+  <h2>후보 학원</h2>
+  <p class="hint">담당자 머릿속에 있는 거래처를 <b>회사 자산으로 옮기는</b> 곳입니다. 사람이 바뀌어도 남습니다.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>학원</th><th>지역</th><th>단계</th><th>원장님</th><th>다음 할 일</th><th>마지막 접촉</th></tr></thead>
+    <tbody>
+      <tr><td>유성 SLP어학원</td><td>대전 유성구</td><td>제안·시연</td><td>김○○</td><td>맞춤 시간표안 재방문</td><td>2026-08-18</td></tr>
+      <tr><td>청주 온에듀학원</td><td>충북 청주</td><td>제안·시연</td><td>박○○</td><td>견적서 발송</td><td>2026-08-14</td></tr>
+      <tr><td>천안 아이비리그어학원</td><td>충남 천안</td><td>접촉</td><td>이○○</td><td>화요일 오전 재통화</td><td>2026-08-17</td></tr>
+      <tr><td>공주 한빛어학원</td><td>충남 공주</td><td>방문상담</td><td>최○○</td><td>소규모 요금안 검토</td><td>2026-08-13</td></tr>
+      <tr><td>세종 첫마을영어교실</td><td>세종</td><td>발굴</td><td>-</td><td>첫 전화</td><td>-</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<!-- 계약 등록 -->
+<div class="card">
+  <h2>계약 등록 (본사)</h2>
+  <p class="hint">계약을 넣으면 성과급 1차(50%)가 그 달에 잡히고, 90일 뒤 «유지 확인» 목록에 올라옵니다.
+    <b>담당자 본인은 이 칸을 쓸 수 없습니다</b> — 성과급의 근거라서 서버에서도 막아 둡니다.</p>
+  <div class="grid g3">
+    <label class="f">학원 이름<span class="fake-input">　</span></label>
+    <label class="f">연결할 후보 학원<span class="fake-select">(선택 안 함) ▾</span></label>
+    <label class="f">계약일<span class="fake-input">2026-08-18</span></label>
+    <label class="f">최초 등록 학생 수<span class="fake-input">0</span></label>
+    <label class="f">지역<span class="fake-input">　</span></label>
+    <label class="f">성과급 총액(비우면 기본값)<span class="fake-input">담당자 기본값 사용</span></label>
+  </div>
+  <div class="toolbar" style="margin-top:12px"><span class="btn primary">계약 등록</span></div>
+</div>
+
+<!-- 기준선 -->
+<div class="card">
+  <h2>제도 시작 첫 90일 — 「기준선 기간」</h2>
+  <p class="hint">아래는 제도를 막 켰을 때 요약 카드 위에 뜨는 안내입니다. 지금 샘플(시작 7개월차)에는 뜨지 않습니다.</p>
+  <div style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);border-radius:14px;padding:13px 16px;font-size:14.5px;line-height:1.75">
+    <b style="color:#93c5fd">기준선 기간입니다 (2026-11-16까지).</b>
+    점수는 계산하지만 <b>상여에는 연결하지 않습니다.</b>
+    기록이 3개월은 쌓여야 「월 목표 2곳」이 쉬운지 무리인지 알 수 있습니다 —
+    그 전에 정한 목표로 사람을 평가하면 그건 평가가 아니라 추측입니다.
+  </div>
+  <div class="muted" style="margin-top:12px">
+    이 기간에도 <b>성과급(계약 건당)은 정상 지급</b>됩니다. 멈추는 것은 «평가 등급 → 반기 상여» 연결뿐입니다.
+  </div>
+</div>
+
+<!-- 담당자 설정 -->
+<div class="card">
+  <h2>담당자 설정</h2>
+  <p class="hint">기본급·건당 성과급·월 목표는 <b>제도의 숫자</b>입니다. 코드를 고치지 않고 여기서 바꿉니다.
+    사장님이 세 숫자만 정해 주시면 나머지는 그대로 돌아갑니다.</p>
+  <div class="grid g3">
+    <label class="f">이름<span class="fake-input">홍길동</span></label>
+    <label class="f">담당 지역<span class="fake-input">충청·대전</span></label>
+    <label class="f">관리자 아이디(본인 로그인)<span class="fake-input">sales_hong</span></label>
+    <label class="f">입사일<span class="fake-input">2024-03-04</span></label>
+    <label class="f">제도 시작일(기준선 시작)<span class="fake-input">2026-01-02</span></label>
+    <label class="f">기본급(원)<span class="fake-input">2300000</span></label>
+    <label class="f">계약 1곳당 성과급(원)<span class="fake-input">600000</span></label>
+    <label class="f">월 목표 — 계약<span class="fake-input">2</span></label>
+    <label class="f">월 목표 — 학생<span class="fake-input">20</span></label>
+    <label class="f">월 목표 — 방문<span class="fake-input">48</span></label>
+    <label class="f">월 목표 — 신규 발굴<span class="fake-input">20</span></label>
+    <label class="f">월 목표 — 관리방문<span class="fake-input">8</span></label>
+  </div>
+  <div class="toolbar" style="margin-top:12px"><span class="btn primary">저장</span></div>
+  <div class="muted" style="margin-top:12px">▸ 이 달만 목표 바꾸기 (명절·시험기간 등)</div>
+</div>
+
+<div class="card" style="border-color:rgba(245,158,11,.4)">
+  <h2>이 화면에서 사장님이 하실 일은 세 가지뿐입니다</h2>
+  <p class="hint" style="margin-bottom:0">
+    ① <b>기계가 판정 못 한 것만 확인하기</b> — 대부분은 매일 밤 자동으로 끝납니다. 한 달에 한두 번입니다.<br>
+    ② <b>반기에 한 번, 15점 매기기</b> — 보고·차량·협업. 30분이면 끝납니다.<br>
+    ③ <b>「평가 저장·확정」 누르기</b> — 등급과 상여 금액은 그 순간 자동으로 계산됩니다.<br>
+    <span style="color:#7c8ba1">나머지 85점과 성과급 계산은 시스템이 알아서 합니다.</span>
+  </p>
+</div>
+
+</div>

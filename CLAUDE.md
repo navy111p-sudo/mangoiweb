@@ -24,8 +24,16 @@
     리다이렉트가 없어도 버티게 해 뒀습니다. 비슷한 코드를 새로 쓸 때 같은 함정을 확인하세요
   - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
     아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
-    안드로이드/iOS 앱의 시작 URL, `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —
-    앱 서명·assetlinks·워치독까지 같이 확인해야 하는 별건 작업입니다 (도메인 정리는 사람이 결정)
+    `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —
+    워치독·스모크까지 같이 확인해야 하는 별건 작업입니다 (도메인 정리는 사람이 결정)
+  - ⏳ **앱 시작 URL 은 `mangoi.ai` 로 옮기는 중입니다** (2026-08-17). 소스는 바꿨지만
+    **이미 깔린 앱은 APK 에 박힌 옛 주소를 계속 봅니다.** 그래서 `test.mangoi.co.kr` 은
+    **설치 기반이 새 버전으로 넘어갈 때까지 반드시 살려 둬야 합니다.**
+    ⚠️ 먼저 죽이면 앱이 흰 화면이 되고, **업데이트 확인 주소(`app-version.json`)도 같은 도메인이라
+    앱이 자기 힘으로 복구할 수 없습니다.** 지우는 건 새 APK 보급률을 확인한 뒤 맨 마지막입니다.
+    ⚠️ ⛔ `test.mangoi.co.kr` 을 `mangoi.ai` 로 **리다이렉트하는 것도 안 됩니다** — www 때와 달리
+    여기엔 잃을 게 있습니다. 그 도메인으로 등록된 **패스키 6건(계정 3개: jeong 4·Lee 1·kang 1)이 무효화**되고(재등록 필요),
+    앱 사용자의 `localStorage` 로그인도 날아갑니다.
   - `mangoi.co.kr` / `www.mangoi.co.kr` (118.219.234.180) 는 **구 서버**. 옛 LMS만 있고 Worker 경로(`/library/...` 등)는 404입니다
   - ~~`mango-i.com`~~ 은 **존재하지 않는 도메인**입니다(2026-07-28 확인: 등록조차 안 됨 → NXDOMAIN).
     옛 문서 표기 오류이니 이 주소로 curl 검증하지 마세요. 무조건 실패합니다
@@ -63,6 +71,18 @@
 - 관리자 KPI 타일의 이모지
 - 판단력 훈련 UI의 게임 요소
 - 관리자 메뉴 카드(`.menu-card`)·서브아이템·표행·칩의 **hover 확대(scale/translate)** — "정신없다"고 제거함. hover 강조는 **색만**, 크기·위치는 고정
+- 정산·매출 화면의 **「케이씨피M」·«운영자금 보충» 표시** — 매출–입금 대사 카드, 손익계산서 매출액 칸,
+  월간 회계 리포트의 «운영자금 보충» 줄·내역, 「카페24 회계 실데이터」 탭의 KPI 부제·안내 상자·장부 배지까지
+  **2026-08-18 사장님 지시로 전부 뺐습니다.** 하나은행 → 신한 자금이체는 매출이 아니라, 매출·회계 화면에
+  그 이름과 금액이 뜨는 것 자체를 원치 않으십니다. «제외했습니다» 라고 적어 주는 것도 「아직 남아 있다」로
+  읽힙니다. 분류(`classifyDeposit` → `transfer`)와 집계 제외는 그대로지만 **그 값으로 화면 줄을 다시 만들지 마세요.**
+  「카페24 회계 실데이터 > 회계장부」 목록에서는 **그 행 자체를 빼고** 내려줍니다(`api-admin.ts` 의 ledger Cypher
+  `WHERE NOT (…kcpmRe…)`). ⚠️ 그래서 그 목록은 «카페24 원본 그대로» 가 아닙니다 — 원본 대조는 카페24에서 하세요.
+  회귀 감시는 `test-harness/c24_finance_kcpm_harness.mjs` ④·⑤번이 «목록에서 뺀다»·«표시하지 않는다» 로 못 박아 두었습니다.
+  ⛔ 같은 날 «성격 미확인 입금»(`transferUnknown`) 줄도 뺐습니다 — 월간 리포트 줄·내역, 손익계산서 각주,
+  대사 안내, 경고 목록, 엑셀 「확인필요 입금」 시트까지 전부. 그 돈을 매출로 잡지 않는 계산은 그대로이고
+  금액도 payload(`deposit_transfer_unknown_krw`)에 남아 있지만 **화면에는 그리지 않습니다.**
+  ⚠️ 그래서 성격이 안 잡힌 입금이 있어도 화면이 알려 주지 않습니다 — 확인이 필요하면 D1 `bankacct_transactions` 를 직접 보세요
 - 화상수업 왼쪽 아래의 **«🎤 내 마이크» 떠 있는 음량 미터**(`#vc-mic-meter`, `startMicLevelMeter`) — 얼굴 타일의 음량 막대와 중복이라 제거함(2026-08-10). 자리를 두 번 옮겨도 결국 중복이 문제였음
 
 ### 1-4. 기타 금지
@@ -95,21 +115,34 @@
 | `window.open` 이 안 열림 | 카톡·문자앱 **인앱 브라우저는 새 창을 못 엽니다.** 예외를 던지지 않고 **null 만 돌려주므로 `try/catch` 로는 못 잡습니다.** 반환값이 비면 `location.href` 로 같은 창에서 여세요 |
 | 새 API 추가 | `src/index.ts` 의 라우팅 + 인증 게이트에 **반드시 등록**해야 동작합니다 |
 | 브라우저 애니메이션 | 백그라운드 탭·저전력 모드에서 CSS transition과 rAF가 멈춥니다. `opacity:0` 으로 시작하는 요소는 영영 안 보일 수 있습니다 |
+| 사이드바 손자 메뉴를 눌렀는데 아무 데도 안 감 | **손자 목록을 손으로 적으면 반드시 어긋납니다.** 옛 `adm-r25.js` 는 카드마다 이름 4개씩을 적어 두고 「카드 안 N번째 `details`」로 점프했는데, 그런 칸이 **0개인 카드가 63개**라 무엇을 눌러도 «카드 전체가 한 번 반짝이고» 끝났습니다. 에러가 안 나서 죽은 줄도 몰랐고, 실제로 「학생 명부 ▸ 2 학생 상세 프로필」이 「⏰ 만료 임박 학생」을 열었습니다(2026-08-18 사장님 지적). 지금은 손자를 **카드 안 실제 칸에서 화면으로 읽습니다** — 접이칸(`details.sub-item`·`.sub-menu > details`)은 summary 글자 그대로, 접이식이 아닌 구역은 **그 구역 자체에 붙인 `data-gc="이름"` 이름표**(126개)로. 목적지는 문자열 id 가 아니라 **DOM 참조**라 같은 id 가 두 벌 있어도(`sub-popup-list`) 정확히 그 칸으로 갑니다. ⛔ 새 손자를 «목록에 이름만» 추가하지 마세요 — 화면에 그 구역이 없으면 조용히 실패합니다. 이름표는 **그 구역 옆에** 답니다(딴 파일에 적으면 화면이 바뀔 때 또 어긋납니다). 감시는 `test-harness/admin_grandchild_menu_harness.mjs`(33종)가 «▸ 가 있는데 갈 곳이 없는 항목 0건» 으로 못 박습니다 |
+| 손자 메뉴를 눌렀는데 휴대폰에서 화면이 안 움직임 | **드로어를 스크롤보다 «먼저» 닫아야 합니다.** 드로어가 열린 동안 `body` 가 `overflow:hidden` 이라, 그 상태에서 `scrollIntoView` 를 부르면 브라우저가 **통째로 무시**합니다. 자식 메뉴(`.ph85-sub`)는 `adm-s11.js` 가 이미 이렇게 처리하는데, **손자(`.ph125-gc`)는 `.ph85-sub` 의 «형제» 라 그 처리를 못 받고 있었습니다** — 카드는 제자리로 갔는데 드로어가 화면을 덮고 있어 쓰는 사람에게는 «아무 일도 안 일어났다» 로 보였습니다. 목적지가 **숨은 탭 안**(공지 스튜디오 `data-nspanel`)일 때도 같습니다 — 탭을 먼저 켜야 스크롤이 먹습니다 |
 | hover 때 글자가 움직임 | `transform` 만 찾으면 못 찾습니다. 사이드바 `.ph85-sub` 는 **별점과 말풍선이 같은 `::after` 를 나눠 써서**, hover 시 별점이 `absolute` 로 흐름에서 빠지고 그 순간 `justify-content:space-between` 이 라벨을 가운데로 밀었습니다. **flex 컨테이너에서 `space-between` 금지, `flex-start` + `margin-left:auto` 로 오른쪽 정렬**할 것 |
 | 로그인 역할 판정 로직 | `public/index.html`(`tryAdminLoginFallback`, 학생홈 통합 로그인)·`public/admin/login.html`(ph239)·`public/js/idx-user-session.js`(상단바 표시·이동 분기) **세 곳에 역할판정이 복제**돼 있습니다. 역할 분기(교사/본사/지사/대리점/캐피타운)를 고치면 반드시 셋 다 고쳐야 합니다. 접두사 규칙 «자체» 의 정본은 `src/auth-admin.ts` 의 `resolveUiIdentity()` 입니다 |
 | 관리자 카드 안 박스 색이 안 먹음 | 인라인 `style="background:linear-gradient(135deg,…"` 나 `background:#f…` 는 **`admin-inline-c.css` 의 옛 다크 규칙**(`details.menu-card [style*="background:linear-gradient(135deg"]` 등)이 `!important` 남색으로 덮고, 그걸 본 `js/adm-s13.js` 페인터가 다시 흰-회청색으로 칠합니다. **`background-color:` 로 쓰면** 어느 선택자에도 안 걸려 고른 색이 그대로 나옵니다. 글자색은 `.sub-body :is(p,span,div,b,strong…)` 가 통째로 `#101828 !important` — `<a>` 만 예외 |
 | 앱(APK) 업데이트가 안 나감 | `mobile-app/**` 을 main 에 올리면 android.yml 이 APK 를 빌드해 `downloads/mangoi.apk`+`app-version.json` 을 main 에 커밋하는데, **그 커밋은 사이트 배포를 트리거하지 못합니다** — 워크플로가 기본 `GITHUB_TOKEN` 으로 푸시한 커밋은 GitHub 규칙상 다른 워크플로를 안 깨웁니다(skip ci 문구를 빼도 마찬가지 — 2026-08-14 실측). 새 APK 를 사이트로 내보내려면 **그 뒤에 사람 쪽 main 푸시(아무 PR 머지)가 한 번 더 필요**합니다. 그 «한 번 더 푸시» 의 PR 제목·커밋 메시지에 skip ci 문구를 그대로 쓰면 그것도 건너뛰어집니다(같은 날 실제로 밟음) |
 | `el.hidden = true` 인데 그대로 보임 | **작성자 CSS 가 `display` 를 정하면 브라우저 기본 `[hidden]{display:none}` 을 이깁니다**(특정성이 아니라 «작성자 > UA» 우선순위 문제라, 선택자를 아무리 봐도 원인이 안 보입니다). `teacher.html` 의 `.btn{display:inline-block}` 이 정확히 이랬고, 숨긴 버튼이 계속 떠 있었습니다(2026-08-15 실측). 화면이 `hidden` 으로 보이기/숨기기를 한다면 `[hidden]{display:none !important}` 를 한 줄 박아 두세요 |
+| 관리자 카드를 `style.display='none'` 로 숨겼는데 PC 에서 그대로 보임 | **작성자 `!important` 는 인라인 스타일도 이깁니다.** 위 「`el.hidden`」 함정의 형제인데, 이건 인라인까지 집니다. `admin-inline-c.css` 의 `@media (min-width:1024px){ #legacy-cards details{display:block!important} }` 가 `#legacy-cards` 안 **모든** `details`·`.menu-card`·`.table-card` 를 되살립니다. 그래서 역할별 메뉴 숨김(`_applyMenuVisibility`)이 **PC 에서 하나도 안 먹고 있었습니다**(2026-08-18 실측: 카드 85개 중 71개 무력화, 경영진 전용 「권한 관리」·「이탈 관리」가 본사 매니저에게 노출). ⚠️ **휴대폰(<1024px)에서는 정상 동작**해서 모바일로 확인하면 멀쩡해 보입니다 — 이래서 발견이 늦었습니다. ⛔ 그 복구 규칙을 지워서 풀지 마세요 — ph87 이 `#legacy-cards` 를 숨겨 「메뉴를 눌러도 카드가 안 보인다」 사고가 났던 것의 복구책입니다. ✅ 숨김은 **`.rbac-hide` 클래스**로 하세요(미디어쿼리 밖에 정의돼 있어 모바일도 함께 먹습니다). ⚠️ 이 클래스는 **붙이는 쪽과 읽는 쪽이 짝**입니다 — 붙임 `_applyMenuVisibility`·`_applyPayrollTeacherUI`, 읽음 `buildMenuIndex`·메뉴검색색인·`adm-quickmenu visible()`·`adm-quick-access roleHidden()`·`adm-p1 memberVisible()`. 한쪽만 고치면 「사이드바엔 없는데 본문엔 있는」 불일치가 납니다 |
 | 새 `IN (...)` 목록 | 손으로 90개씩 자르지 마세요. `test-harness/d1_bind_limit_harness.mjs` 의 회귀 감시가 `+= 90` 과 새 `map(() => '?')` 를 **잡아서 FAIL 냅니다.** 공용 `selectInChunks`(`src/d1-chunk.ts`)를 쓰거나, 상한 근거를 하니스의 `ALLOW` 에 적어야 합니다 |
 | 학부모에게 문자가 두 번 감 | **학부모 발송 경로가 두 갈래입니다** — 강사 수업일지 `/api/eval/create`(→`student_evaluations`)와 AI 초안 승인 `/api/admin/feedback-drafts/approve`(→`teacher_feedbacks`). 둘 다 문자를 보냅니다. 한쪽에서 «이미 썼는지» 판정할 때 **자기 표만 보면 안 됩니다**(초안 생성이 `feedback_drafts` 만 보다가 이미 일지를 쓴 수업까지 다시 초안을 만들던 것이 2026-08-15 수리 건) |
 | 대리점의 지사 소속을 D1에서 고쳤는데 다음날 원복됨 | `centers.franchise_id` 는 **카페24가 정본**이라 `importCafe24Org` 의 UPSERT 가 매일 밤 03:45 KST 에 덮어씁니다(`franchise_id = excluded.franchise_id`). `payment_type` 은 UPSERT 목록에서 빼서 지켰지만(2026-08-14) `franchise_id` 는 뺄 수 없습니다 — 새 대리점·지사 이동을 따라가야 하니까요. 임시 정정이 필요하면 **`center_franchise_override`** 에 적으세요(동기화 직후 다시 입혀집니다). 정본 수정은 카페24에서 해야 하고, 고친 뒤엔 override 행을 지우는 것이 맞습니다 |
 | 가맹점 정산에서 특정 지사 매출이 통째로 안 잡힘 | `centers.name` 이 **유일하지 않습니다.** 같은 이름이 두 지사 이상으로 갈리면 `franchiseReport` 가 «어느 쪽인지 모름» 으로 판정해 **아무 데도 배정하지 않습니다**(아무 쪽에 몰아주면 그게 또 균등분배라서). 2026-08-16 기준 5개 이름·학생 2,603명이 이랬습니다. 확인: `SELECT name FROM centers GROUP BY name HAVING COUNT(DISTINCT franchise_id)>1` |
 | 매출 대사가 «장부에 매출이 없다» 고 경고함 | 신한 계좌 입금 적요에 **「케이씨피」와 「케이씨피M」 두 가지**가 있습니다. 「케이씨피」(타행PC·기업)만 진짜 PG 정산금이고, **「케이씨피M」(타행IB·하나)은 회사의 하나은행 계좌에서 옮겨 온 «운영자금»** 입니다(2026-08-17 사장님 확인 — 매출 아님). `LIKE '%케이씨피%'` 로 찾으면 둘 다 잡혀 누적 4,632만원이 «장부에 없는 매출» 로 오진됩니다(2026-08-16 실측). 입금 판정은 반드시 `classifyDeposit()`(`src/accounting-reports.ts`)을 쓰세요 |
+| 「카페24 회계 실데이터」 화면 매출이 통장·리포트보다 큼 | **「케이씨피M」 함정이 여기에도 있습니다.** 이 화면은 D1 이 아니라 **Neo4j `AccBook`** 을 봅니다. `type`(1=수입/2=지출)만 보고 더하면 하나은행에서 옮겨 온 운영자금(적요·거래처 「케이씨피M」)까지 매출이 됩니다(2026-08-18 수리). 판정 정본은 `KCP_TRANSFER_CYPHER_RE`·`isKcpTransferRow()`(`src/accounting-reports.ts`) — **통장용 `classifyDeposit()` 과 같은 파일에 나란히 둔 이유가 이것**입니다. Neo4j 는 TS 정규식을 못 쓰므로 Cypher(Java)용 문자열을 따로 내보내니 **한쪽만 고치지 마세요**(`c24_finance_kcpm_harness.mjs` 가 둘이 어긋나면 FAIL 냅니다). ⚠️ **단, 2026-08-18 현재 `AccBook` 은 0건입니다** — 같은 Neo4j 의 `Book` 62건은 조회되므로 연결 문제가 아니라 **카페24 쪽이 회계 노드를 아직 적재하지 않은 것**입니다(이 저장소엔 적재 코드가 없고 읽기만 합니다). 화면이 비어 보이면 코드보다 먼저 `/api/admin/finance-cafe24/ledger?limit=20` 의 `count` 를 확인하세요. 적재 요청서: `docs/카페24_회계데이터_적재요청_2026-08-18.md` |
 | 「기타출금」 한 덩어리로 뭉쳐 무슨 돈인지 모름 | 통장 출금의 상당액이 적요만으로 분류가 안 돼 「기타출금」이 됩니다. 그 **대부분은 지사 수수료**입니다(2026-08-17 확인). 판정은 ① `expense_payee_category` 지정표 ② `franchises.owner_name`(241곳 전부 채워져 있음) 일치 → 「지사수수료」 순입니다. 적요는 길이가 잘려 「김영진(지성교」 처럼 오므로 `(` 앞까지로 비교합니다. ⛔ 법인 형태((주)…·센터·보험)는 자동 분류 금지 — (주)새하컴즈·호스트센터 같은 **진짜 다른 비용**이 섞여 있습니다 |
 | 「로그인했는데 또 로그인하래요」 | **로그인 세션이 두 갈래입니다.** 학생·학부모 = `mangoi_logged_user` + `mango_token`, 교사·본사·지사 = `mangoi_admin_session` + `admin_sessions` **쿠키**(토큰 없음). 학생 키나 `mango_token` 만 보는 화면·API 는 **교사를 미로그인으로 판정**합니다(2026-07-30 Kaye 17번, 2026-08-13 Karl 「Double Login」 둘 다 이 뿌리). ⛔ 교사에게 `mangoi_logged_user` 를 만들어 주는 방식으로 풀지 마세요 — 학생 전용 기능이 통째로 열립니다. 서버는 토큰이 없을 때 `checkAdminSession()` 도 보게 하고(개인정보 API 는 `resolveOwnerScope()`), **짝이 되는 API 끼리 판정이 어긋나지 않았는지** 확인하세요(Karl 건 = 녹화 «재생» 은 관리자 세션을 받는데 «목록» 만 안 받던 한쪽짜리 게이트) |
 | 「비번을 바꿨는데 새 비번으로 로그인이 안 돼요」 | **관리자 화면의 비밀번호 변경 자리가 두 종류였습니다.** 진짜 = `/admin/mypage.html`(→ `/api/admin/change-password`). 가짜 = 우상단 사용자 메뉴의 «🔑 비밀번호 변경» — 프롬프트 3개를 받아 놓고 **`alert('…실서비스에서는 백엔드 API 호출')` 만 띄우고 아무것도 안 보내던 시연 껍데기**가 `adm-q9(ph111)`·`adm-r19(ph113)`·`adm-r20(ph114)`·`adm-r21(ph115)` **네 벌** 있었습니다(2026-08-17 실제로 밟음 → 넷 다 실제 API 호출로 교체). 확인 방법: `SELECT updated_at FROM admin_account WHERE username=?` 가 안 움직였으면 **애초에 서버에 안 갔다**는 뜻입니다 |
+| 가맹점별 정산서 매출이 월간 리포트보다 적음 | **매출이 두 갈래로 들어옵니다.** 카페24 결제 장부(`student_payments`)와, 학원이 통장으로 바로 보내는 **B2B 직접입금**(`bankacct_transactions` → `classifyDeposit()='b2b'`)입니다. 월간·분기·연간·KPI 는 2026-08-16 부터 둘을 합쳐 쓰는데 **가맹점별 정산서만 장부 결제만 보고 있었습니다**(2026-08-18 수리 — B2B 로 받는 가맹점은 매출이 0 으로 찍혔습니다). B2B 입금은 학생 정보가 없어 **적요를 대리점·지사 이름과 맞춰** 붙입니다(`attributeB2bDeposits()`). 적요는 잘리거나 사람 이름으로 오므로(「박선유(에스와이피(SY」) 자동으로 안 붙는 것이 정상이고, 그건 `b2b_payee_franchise_override` 에 사람이 지정합니다(관리자 › 회계관리 › 🏦 배정 못 한 B2B 입금). ⛔ 비슷하게 생겼다고 추측해서 붙이지 마세요 — 정산서는 가맹점에 보내는 문서입니다 |
 | `public/js/*.js` 를 고쳤는데 하니스가 FAIL | `asset_version_harness.mjs` 가 **파일 내용이 바뀌었는데 HTML 의 `?v=` 가 그대로면 FAIL** 냅니다(immutable 캐시에 옛 파일이 남는 사고 방지). 고친 js 를 부르는 HTML 의 `?v=` 를 함께 올리세요 |
+| 지사·대리점에게 관리자 API 를 열었는데 남의 자료가 보임 | `isAgencyAllowedApi`(`src/index.ts`)에 경로를 넣는 것은 **«스코프로 자른 뒤» 에만** 하는 일입니다. 조직 명부(`/api/admin/franchises` 241건·`/api/admin/centers` 921건)는 2026-08-18 에 열었지만, 그 전에 `scopeFranchiseCond()`·`scopeCenterCond()`(`src/scope.ts`)로 지사=자기 지사, 대리점=자기 한 칸까지 자르고 등록·수정은 `canEditOrg()` 로 본사만 남겼습니다. **조건절만 지우면 전국 명부가 통째로 샙니다** — `org_scope_harness.mjs` 가 «열림»과 «잘림»을 함께 감시합니다. ⚠️ 목록을 `IN (?,?,…)` 로 펴지 마세요. 지사본사는 소유 지사가 241개까지 가서 D1 바인드 100개 한도를 넘고, 그 예외는 대개 삼켜져 «빈 표» 로 보입니다 — 콤마 문자열 한 개로 맞춥니다 |
+| 카드를 역할에 열었는데 그 안의 다른 칸까지 열림 | 카드 등급(`CARD_POLICY`, `adm-core.js`)은 **카드 한 장 단위**입니다. 조직 관리 카드처럼 한 카드 안에 «보여도 되는 것»(자기 지사·대리점)과 «본사만 볼 것»(🏛️ 대표지사 권역표·🏯 본사 법인정보·등록 폼)이 섞여 있으면, 등급만 낮추면 안 되고 칸 단위로 한 번 더 감춰야 합니다(`_applyOrgScopeUI()`). **서버 403 과 화면 감추기 둘 다** 필요합니다 — 서버만 있으면 «눌러도 안 되는 버튼»이 남고, 화면만 있으면 URL 로 뚫립니다 |
 | `test-harness/asset-versions.json` 이 병합할 때마다 충돌 | **원장은 「주소 순 정렬」 상태로 유지합니다.** 정렬을 없애면 새 항목이 다시 파일 맨끝에 몰리고, 병렬 PR 끼리 «내용은 무관한데 자리만 겹쳐» 충돌합니다(2026-08-17 에 PR 하나 병합하는 동안 네 번 밟음 — `/js/adm-core.js` 대 `/css/admin-inline-c.css`). 정렬은 `asset_version_harness.mjs` 의 저장부가 합니다. ⛔ `.gitattributes` 의 `merge=union` 으로 풀지 마세요 — 마지막 줄에 쉼표가 없어서 **깨진 JSON** 이 되는데 git 이 «병합 성공» 이라고 조용히 넘어갑니다. 충돌이 나면 «추가끼리 부딪힌 것» 이므로 **양쪽 항목을 다 남기세요**(같은 파일의 버전을 둘이 동시에 올린 경우만 진짜 충돌이니 사람이 판단) |
+| 새 PC 에서 `npm ci` 가 «ERESOLVE / peer» 로 죽음 | **Node 버전 문제입니다. 의존성 문제가 아닙니다.** `wrangler@3.114.x` 가 `@cloudflare/workers-types@^4` 를 기대하는데 이 저장소는 `^5` 를 씁니다. **npm 11(Node 24)은 이 `peerOptional` 충돌을 그냥 통과시키고, npm 10(Node 22)은 막습니다** — CI 는 `node-version: '24'` 라 늘 초록불이라서 내 PC 에서만 죽는 것처럼 보입니다(2026-08-18 실측). `.nvmrc` 가 있으니 `nvm use` 로 24 를 켜세요. ⚠️ **설치 시점에 원인을 알려 주는 방법은 없습니다** — `engines`·`.npmrc engine-strict`·`preinstall` 셋 다 시험했지만 npm 은 **항상 의존성 해석을 먼저** 해서 ERESOLVE 가 앞서 터집니다. `--legacy-peer-deps` 는 임시방편이고, 정본 해결(wrangler 4 올리기 등)은 배포 담당이 판단 |
+| 차트가 카드 밖으로 한없이 길어짐 | **Chart.js 는 `maintainAspectRatio:false` 일 때 «부모 상자» 의 크기를 그대로 따라갑니다.** 높이가 없는 부모에 캔버스를 넣으면 캔버스가 자기 높이로 부모를 늘리고, 다음 리사이즈에서 그 늘어난 높이를 다시 읽어 **창을 건드릴 때마다 누적해서 길어집니다**(2026-08-18 매출 대시보드 실측: 첫 렌더 690px → 폭 줄이니 3,070px → 세 번 흔드니 5,758px). `<canvas height="…">` 속성은 responsive 모드에서 **무시되므로 방어가 안 됩니다.** 캔버스는 반드시 **`position:relative` + 높이를 정한 래퍼** 안에 넣으세요. 같은 패턴이 `adm-core.js`·`adm-p5.js`·`adm-p7.js` 에 여러 곳 있습니다 — 대부분은 부모에 높이가 있어 멀쩡하니 **새로 만들 때 래퍼를 빠뜨리지 않는 것**이 요령입니다. 덧붙여 그리드가 `1fr 1fr` 이면 **내용보다 작아지지 않아**(=`minmax(auto,1fr)`) 좁은 폭에서 옆으로 삐져나옵니다. `repeat(auto-fit,minmax(min(100%,300px),1fr))` + 각 칸에 `min-width:0` 을 쓰세요 |
+| PR 을 열었는데 CI 체크런이 **0건** | 빨간불도 초록불도 아니고 **실행 자체가 안 만들어집니다.** 저장소 Actions 는 멀쩡하고 다른 PR 은 다 도는데 그 PR 만 조용합니다(2026-08-18 PR #233 실측). `deploy.yml` 주석의 「아무 신호 없이 실행이 안 생긴다」와 같은 종류입니다. 안 통하는 것: **빈 커밋 push**(synchronize), **PR 닫았다 다시 열기**(reopened), `workflow_dispatch` API(토큰 권한 없어 403). 통한 것: **`main` 을 브랜치에 병합한 커밋을 push**. 그동안 게이트를 직접 확인하려면 CI 가 부르는 바로 그 스크립트 **`bash test-harness/ci-gates.sh`** 를 로컬에서 돌리면 됩니다(종료코드 0 = 4종 통과). ⚠️ 그래도 **PR 화면에 초록이 안 보이는 상태로 병합할지는 사람이 결정**하세요 — ci.yml 을 만든 취지가 「머지 버튼을 누르기 전에 게이트 결과가 보여야 한다」입니다 |
+| 저장소의 A4 인쇄용 HTML 을 화면·웹으로 내보냈더니 아래가 잘림 | `docs/` 의 인쇄용 문서 중에는 **`height:297mm` + `overflow:hidden`** 으로 「A4 딱 한 장」에 맞춰 놓은 것이 있습니다(`회계리포트_점검보고_2026-08-17.html`). 인쇄할 때는 맞지만 **폰트가 원본과 조금만 달라도 몇 mm 넘치고, 넘친 부분은 경고 없이 잘려 사라집니다** — 2026-08-18 실측으로 내용 높이가 1,134~1,142px, A4 는 1,123px 이라 아래가 잘렸습니다. ⚠️ 이 문서들은 **같은 폴더의 `NotoSansKR.ttf` 를 찾는데 10MB 라 깃에 없습니다.** 그래서 다른 폰트로 그려지고, 그게 넘침의 원인입니다. 화면용으로 낼 때는 `height:auto` + `overflow:visible` 로 풀고 폰트를 명시하세요 |
+| 화면이 「모바일에서 잘린다」고 나오는데 실제로는 멀쩡함 | **헤드리스 크로미움의 최소 뷰포트가 500px 입니다.** `--window-size=390,...` 로 찍으면 **500px 로 레이아웃한 화면을 390px 폭으로 «잘라» 저장**하므로, 멀쩡한 반응형 화면도 오른쪽이 잘린 것처럼 보입니다(2026-08-18 실제로 오진). 스크린샷 눈대중 대신 **`document.documentElement.scrollWidth > innerWidth` 를 재세요.** 브라우저는 이 컨테이너에 이미 있습니다 — `/opt/pw-browsers/chromium-1194/chrome-linux/chrome --headless --dump-dom`. ⚠️ 다만 이 컨테이너에서는 구글 폰트가 프록시에 막혀 안 받아집니다. 글꼴이 걸린 문제는 여기서 재현되지 않습니다 |
+| 원본 HTML 에 내 CSS 를 덮었는데 안 먹음 | **적응층 `<style>` 은 원본 `<style>` «뒤» 에 와야 합니다.** 앞에 두면 같은 특정성일 때 뒤에 오는 원본이 이깁니다(`.artifact-shell > *{max-width:100%}` 대 `.wrap{max-width:860px}` — 2026-08-18 실제로 밟음). ⚠️ 또 하나: 부모가 `display:flex; align-items:center` 면 **자식이 «내용 폭» 으로 부풀어** `max-width` 를 걸어도 표의 `min-width` 가 문서를 밀어냅니다. `width:100%; min-width:0` 을 함께 주세요 |
 
 ---
 
@@ -227,14 +260,35 @@ git diff -I'BUILD:' main..작업브랜치
 - 건너뛴 단계가 있으면 명시할 것
 - 확인되지 않은 것을 "됐습니다"라고 하지 말 것
 
+### 4-6. 판단을 기록으로 남기기 — 대화는 상대에게 안 갑니다
+
+**클로드 코드의 대화 기록은 작업한 사람 쪽에만 남습니다.** 팀 요금제로 묶어도
+서로의 대화가 보이지 않습니다. 그래서 코드에는 「택한 것」만 남고,
+**「왜 다른 길로 안 갔는지」는 대화와 함께 사라집니다.**
+
+작업이 끝나면 `/worklog` 로 `docs/작업기록/` 에 남기세요. 특히 다음 셋:
+
+1. **왜 했나** — 어떤 제보·증상에서 출발했는지
+2. **검토했다가 버린 방법과 그 이유** ← 가장 중요합니다
+3. **확인한 방법** — 타입체크·하니스 결과, 사람이 화면에서 본 것
+
+> 🔑 **새로 발견한 함정은 작업기록 말고 이 파일 2장 표에 넣으세요.**
+> 작업기록은 사람이 찾아 읽어야 하지만, `CLAUDE.md` 는 클로드가 매번 자동으로 읽습니다.
+
+공유 슬래시 명령·서브에이전트 목록은 [.claude/README.md](.claude/README.md) 를 보세요
+(`/verify` 검증, `/worklog` 기록, `/newdoc` 목차 등록, `trap-check` 함정 대조).
+
 ---
 
 ## 5. 환경·문서 링크
 
+- **📚 문서 전체 목차: [docs/INDEX.md](docs/INDEX.md)** — 이 저장소의 모든 문서는 여기서 찾습니다
+- **🤝 팀 공유 방법: [docs/팀공유_가이드.md](docs/팀공유_가이드.md)** — 무엇을 어디에 두고 어떻게 공유하는지
 - 유지보수 매뉴얼(사람용): [MAINTENANCE.md](MAINTENANCE.md)
 - 환경변수·시크릿: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md)
 - 장애 대응: [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 - 공동작업 안내(직원용): [docs/개발_공동작업_안내_직원용.md](docs/개발_공동작업_안내_직원용.md)
+- 공유 클로드 설정 설명: [.claude/README.md](.claude/README.md) — 슬래시 명령·서브에이전트 목록
 
 `.env`, `.dev.vars` 는 깃에 없습니다. 없으면 사람에게 요청하세요. **깃에 올리지 마세요.**
 

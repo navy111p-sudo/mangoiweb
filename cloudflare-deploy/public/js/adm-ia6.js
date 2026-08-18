@@ -18,7 +18,10 @@
 //      (역할별 숨김 _applyMenuVisibility 도 이미 같은 방식이라 검증된 길이다.)
 //
 //   ⚠️ 역할 권한을 건드리지 않는다.
-//      역할 숨김은 인라인 style.display 로 걸린다. 여기서는 class 만 쓰므로
+//      역할 숨김은 «.rbac-hide» class 로 걸린다(2026-08-18 변경 — 그 전에는 인라인
+//      style.display 였는데, #legacy-cards 의 display:block !important 에 져서 PC 에서
+//      아예 안 먹고 있었다. admin-inline-c.css 의 .rbac-hide 주석에 경위가 있다).
+//      여기서 쓰는 class 는 «.ia6-hide» 로 이름이 달라 서로 안 겹치므로,
 //      «지사에게 안 보이던 카드»가 이 기능 때문에 보이게 되는 일은 없다.
 //
 //   ⚠️ 검색은 그대로 동작한다.
@@ -33,6 +36,11 @@
 
   var LS_KEY = 'mangoi_admin_ia6';       // 마지막으로 보던 항목
   var HIDE = 'ia6-hide';
+  /* 🔐 (2026-08-18) 사이드바 «항목» 을 역할 권한으로 감출 때 쓰는 class.
+     ⛔ 위 HIDE(.ia6-hide)를 재사용하면 안 된다 — 그건 «카드» 를 감추는 showOnly 전용이고,
+        showOnly 가 매번 managed 전체에서 그 class 를 벗겨 내므로(아래 showOnly 참고)
+        같은 이름을 쓰면 항목 감춤이 항목 클릭 한 번에 통째로 풀린다. */
+  var ROLE_HIDE = 'ia6-role-hide';
 
   // ── 6그룹 40항목 (2026-08-17 「수업 길이 변경」·「수강 운영」 +2) ─────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
@@ -123,6 +131,10 @@
       ico: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
       items: [
         { ko: '회계',        en: 'Accounting',  cards: ['card-accounting-mgmt'] },
+        /* 📊 (2026-08-18 사장님 요청) 「매출 대시보드」 를 사이드바에서 바로 —
+           회계 카드 «안의» 접이식 줄(sub-acc-11)이라 회계를 열고 또 찾아야 했다.
+           대표지사·지사·대리점(org 그룹)과 같은 방식: 카드 열기 + openSub 로 그 칸까지 펼친다. */
+        { ko: '매출 대시보드', en: 'Sales Dashboard', cards: ['card-accounting-mgmt'], openSub: 'sub-acc-11' },
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
@@ -130,11 +142,29 @@
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
         //    지사정산 카드(card-franchises · /api/admin/settlement/branch-summary)이고,
         //    캐피타운 계열 계정(role capitown/franchise · uid capi*)만 capiHref 로 보낸다.
-        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' },
-        // 🏢 조직 = 본사 › 지사 › 대리점(학원). 카드는 이제 card-franchises 하나뿐이다 —
-        //    card-centers(대리점 목록)는 그 카드 «안의 하위항목» 으로 합쳤다(2026-08-09).
-        //    (예전 «가맹점·센터» 는 두 단계가 한 칸씩 밀린 이름이었다)
-        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] }
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' }
+        /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
+           「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
+           회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
+           ⛔ 되돌리지 말 것. 「지사 정산」(캐피타운 분기 포함)은 정산이므로 여기 그대로 둔다. */
+      ]
+    },
+    {
+      /* 🏢 (2026-08-18 사장님 수정요청 #03·#04) 「운영자 (본사·지사·대리점)」 —
+         회사 구조를 세우는 자리를 한 곳으로 모은다.
+           · #04 — 「조직 (지사·대리점)」 이 「정산·매출」 밑에 있었다. 조직을 고치러 온 사람이
+                   정산 메뉴를 뒤져야 했다. 그 항목을 이름 그대로 여기로 옮겼다.
+           · #03 — 그 아래에 「대표지사」·「지사」·「대리점」 세 칸을 새로 낸다. 셋 다 같은 카드
+                   (card-franchises) 안의 «하위 항목» 이라, openSub 로 그 칸을 바로 펼친다.
+         ⚠️ 항목 키는 `org:항목이름` 이다. 이름을 바꿀 때는 아래 RENAMED 이사표에 한 줄 적을 것 —
+            안 그러면 「어제 보던 화면이 아침에 딴 데 가 있다」 로 신고가 들어온다. */
+      key: 'org', ko: '운영자 (본사·지사·대리점)', en: 'Organization',
+      ico: '<path d="M3 21h18"/><path d="M5 21V7l7-4v18"/><path d="M12 9h7v12"/><path d="M9 9v0M9 13v0M9 17v0M16 13v0M16 17v0"/>',
+      items: [
+        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] },
+        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches' },
+        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches' },
+        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' }
       ]
     },
     {
@@ -335,6 +365,52 @@
     }
   }
 
+  /* ═══ 🔐 역할 필터 — 「눌러도 빈 화면」인 사이드바 항목을 감춘다 (2026-08-18) ═══════
+     경위: 역할별 카드 숨김(_applyMenuVisibility)이 PC 에서 안 먹던 것을 .rbac-hide 로 고치자,
+       이번엔 «카드는 제대로 감춰졌는데 그 카드를 가리키는 사이드바 항목은 그대로» 가 되었다.
+       ia6 사이드바는 아래 GROUPS 라는 «정적 목록» 으로 그려서 역할을 전혀 안 보기 때문이다.
+       예: 본사 매니저에게 「데이터·보관」은 card-retention(경영진 전용) 하나만 가리키는데,
+           그 카드가 감춰져 눌러도 아무 일이 없었다.
+     판정: 항목이 가리키는 카드가 «전부» 감춰졌을 때만 감춘다(하나라도 열려 있으면 남긴다).
+     ⚠️ DOM 에 없는 카드 id 는 «판단 보류» 로 세지 않는다 — 오래된 id 가 목록에 남아 있을 수
+        있는데, 그것 때문에 멀쩡한 항목이 사라지면 그게 더 큰 사고다. 하나도 못 찾으면 남긴다. */
+  function cardRoleHidden(id) {
+    var el = document.getElementById(id);
+    if (!el) return null;                                  // 없는 카드 = 판단 보류
+    if (el.classList && el.classList.contains('rbac-hide')) return true;
+    return el.style && el.style.display === 'none';        // 옛 인라인 방식도 인정
+  }
+
+  function applyRoleFilter() {
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    var subs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-cards]');
+    for (var i = 0; i < subs.length; i++) {
+      var d = subs[i];
+      var ids = (d.getAttribute('data-cards') || '').split(' ');
+      var known = 0, blocked = 0;
+      for (var j = 0; j < ids.length; j++) {
+        if (!ids[j]) continue;
+        var r = cardRoleHidden(ids[j]);
+        if (r === null) continue;
+        known++; if (r) blocked++;
+      }
+      var hide = known > 0 && blocked === known;
+      if (hide) d.classList.add(ROLE_HIDE); else d.classList.remove(ROLE_HIDE);
+    }
+    // 그룹 머리 — 그 안 항목이 하나도 안 남으면 그룹째 감춘다(빈 아코디언을 남기지 않는다)
+    var grps = bar.querySelectorAll('.ph85-group[data-ia6]');
+    for (var g = 0; g < grps.length; g++) {
+      var all = grps[g].querySelectorAll('.ph85-sub');
+      var alive = 0;
+      for (var k = 0; k < all.length; k++) {
+        if (!all[k].classList.contains(ROLE_HIDE)) alive++;
+      }
+      if (all.length > 0 && alive === 0) grps[g].classList.add(ROLE_HIDE);
+      else grps[g].classList.remove(ROLE_HIDE);
+    }
+  }
+
   function showOnly(item, key) {
     if (!managed) collect();
     var keep = unitsByItem[key] || [];
@@ -512,6 +588,9 @@
         d.setAttribute('data-en', it.en);
         d.setAttribute('data-ia6-item', g.key + ':' + it.ko);
         if (it.cards && it.cards[0]) d.setAttribute('data-card', it.cards[0]);
+        // 🔐 역할 필터용 — 이 항목이 가리키는 카드 «전부». data-card 는 대표(첫) 장뿐이라
+        //    「대표는 보이는데 나머지는 다 막힌」 경우를 판정할 수 없다.
+        d.setAttribute('data-cards', (it.cards || []).join(' '));
         d.textContent = en ? it.en : it.ko;
         // ⚠️ 요소마다 리스너를 붙이지 않는다.
         //    사이드바 노드를 나중에 통째로 다시 그리는 스크립트가 있어서(실측: 붙인 리스너가
@@ -613,6 +692,22 @@
     } catch (e) { return false; }
   }
 
+  /* 🏢 카드 «안의 하위 항목» 까지 펼친다 (openSub).
+     조직 관리 카드 하나에 대표지사·지사·대리점 세 칸이 들어 있어서, 카드만 열어 주면
+     쓰는 사람이 또 한 번 그 칸을 찾아 눌러야 한다. 형제 칸은 건드리지 않는다 —
+     닫아 버리면 «방금 열어 둔 게 왜 닫히지» 가 된다.
+     ⚠️ 여기서 scrollIntoView 를 하지 않는다. 바로 앞의 showOnly 가 alignTop 으로
+        1.8초 동안 «대표 카드를 맨 위로» 를 계속 다시 맞추기 때문에, 여기서 스크롤하면
+        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다. 카드가 맨 위에 오면 세 칸의
+        제목줄은 어차피 첫 화면 안에 들어온다(한 줄짜리 summary 세 개). */
+  function openSubSection(item) {
+    if (!item || !item.openSub) return;
+    var el = document.getElementById(item.openSub);
+    if (!el) return;
+    var n = el;
+    while (n && n.tagName === 'DETAILS') { n.open = true; n = n.parentElement ? n.parentElement.closest('details') : null; }
+  }
+
   function select(key) {
     var it = itemByKey(key);
     if (!it) return false;
@@ -624,6 +719,7 @@
           그래야 지도가 «지금 여기» 를 찍을 수 있다. */
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
+    openSubSection(it);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
     if (bar) {
@@ -767,6 +863,8 @@
       // 옛 9그룹을 인라인 style 로 감추면 admin.html 의 검색 핸들러가
       // g.style.display='' 로 되돌려 놓는다(실측으로 잡힘). 그래서 CSS 로 못박는다.
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
+      // 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter). id 를 앞에 붙여 확실히 이기게 한다.
+      '#ph85-sidebar .' + ROLE_HIDE + '{display:none !important}' +
       '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}' +
       /* 📐 (2026-08-15) 그룹 줄을 조금 낮춰 «6그룹 + 메뉴 지도»가 첫 화면에 다 들어오게 한다.
          실측(1919×740 · zoom 1.3 · CSS px): 메뉴가 시작되는 자리 134.6, 도크가 시작되는 자리 440.8
@@ -789,6 +887,7 @@
     if (!build(bar)) return;
     bar.__ia6 = true;
     css();
+    applyRoleFilter();   // 🔐 역할로 못 여는 항목은 그리자마자 감춘다(깜빡임 방지)
     collect();
     wireDelegate(bar);
     wireSearch();
@@ -802,7 +901,11 @@
        어제 보던 화면이 아침에 딴 데 가 있는 것이라 «메뉴가 없어졌다» 로 신고가 들어온다.
        그래서 옛 키를 새 키로 옮겨 준다. 옛 「문의·버그」는 신규상담 카드를 먼저 펼치던
        항목이었으므로(cards[0] = card-inquiry-mgmt) 그쪽으로 잇는다. */
-    var RENAMED = { 'today:문의·버그': 'today:신규상담' };
+    var RENAMED = {
+      'today:문의·버그': 'today:신규상담',
+      // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
+      'money:조직 (지사·대리점)': 'org:조직 (지사·대리점)'
+    };
     if (want && RENAMED[want]) {
       want = RENAMED[want];
       try { localStorage.setItem(LS_KEY, want); } catch (e) { /* 무시 */ }
@@ -817,6 +920,7 @@
     }
     if (!picked) { picked = GROUPS[0].items[0]; pickedKey = GROUPS[0].key + ':' + picked.ko; }
     showOnly(picked, pickedKey);
+    openSubSection(picked);
     var el = bar.querySelector('[data-ia6-item="' + pickedKey + '"]');
     if (el) el.classList.add('ia6-on');
   }
@@ -880,8 +984,20 @@
   else init();
   // 본문·역할 적용이 늦게 끝나는 경우가 있어 한 번 더 시도한다(중복 실행은 __ia6 로 막힘).
   setTimeout(init, 900);
+
+  /* 🔐 역할 필터를 다시 거는 시점 (2026-08-18)
+     ① adm-core 가 역할을 적용한 직후 — 로그인·세션 갱신마다 온다.
+        ⚠️ 순서가 정해져 있지 않다: 역할 적용이 사이드바 그리기보다 먼저일 수도, 나중일 수도 있다.
+           그래서 «이벤트를 받았을 때» 와 «init 이 끝났을 때» 양쪽에서 건다(init 안에도 있음).
+     ② 늦게 오는 경우 대비 — init 재시도와 같은 이유로 두 번 더 훑는다.
+        ⛔ setInterval 로 계속 돌리지 않는다. 사이드바 스크롤이 끊긴 전례가 있다(위 ph85 주석). */
+  document.addEventListener('mangoi:menu-visibility', function () {
+    try { applyRoleFilter(); } catch (e) { /* 무시 — 사이드바를 못 그리게 만들지 않는다 */ }
+  });
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 1500);
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 3500);
   wireRevealOnJump();   // init 성공 여부와 무관하게 건다(감춘 게 없으면 cardOf 가 늘 null)
 
   // 다른 코드가 필요할 때 쓰도록 최소한만 노출
-  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS };
+  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS, applyRoleFilter: applyRoleFilter };
 })();

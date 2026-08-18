@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Cloudflare Workers deployment for WebRTC unified platform",
   "private": true,
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

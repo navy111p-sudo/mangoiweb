@@ -4,7 +4,8 @@
     "개인 PC에만 해당하는 설정(임시폴더 경로 등)은 여기에 넣지 말고",
     "settings.local.json 에 두세요. 그 파일은 .gitignore 되어 있습니다.",
     "배포(deploy.ps1)는 의도적으로 허용 목록에 넣지 않았습니다.",
-    "배포 권한이 있는 사람만 자신의 settings.local.json 에 추가해서 쓰세요."
+    "배포 권한이 있는 사람만 자신의 settings.local.json 에 추가해서 쓰세요.",
+    "슬래시 명령은 .claude/commands/, 서브에이전트는 .claude/agents/ 에 있습니다. 설명은 .claude/README.md 를 보세요."
   ],
   "permissions": {
     "allow": [
@@ -25,6 +26,8 @@
       "Bash(gh pr*)",
       "Bash(gh issue*)",
       "Bash(npx tsc --noEmit*)",
+      "Bash(cd cloudflare-deploy && node node_modules/typescript/bin/tsc*)",
+      "Bash(node node_modules/typescript/bin/tsc*)",
       "Bash(node test-harness/run.mjs*)",
       "Bash(npm run*)",
       "Bash(ls*)",

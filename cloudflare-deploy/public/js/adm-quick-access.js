@@ -155,6 +155,9 @@
     for (var n = el; n && n !== document.body; n = n.parentElement) {
       if (n.tagName !== 'DETAILS') continue;
       if (!n.classList || !n.classList.contains('menu-card')) continue;
+      // 🔐 (2026-08-18) 역할 숨김이 인라인 display → «.rbac-hide» 클래스로 바뀌었다.
+      //   위 주석의 «인라인에만 건다» 전제가 이때 깨졌으니 같이 읽는다(옛 인라인도 계속 인정).
+      if (n.classList && n.classList.contains('rbac-hide')) return true;
       if (n.style && n.style.display === 'none' && !n.classList.contains('ia6-hide')) return true;
     }
     return false;
