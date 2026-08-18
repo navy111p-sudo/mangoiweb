@@ -248,8 +248,14 @@ Cloudflare Worker: webrtc-unified-platform(-prod)   ← cloudflare-deploy/
 
 ## 8. 문서 인덱스
 
+> **📚 전체 목차는 [docs/INDEX.md](docs/INDEX.md) 에 있습니다.** 아래는 그중 핵심만 추린 것입니다.
+
 | 문서 | 내용 |
 |---|---|
+| [docs/INDEX.md](docs/INDEX.md) | **저장소 문서 전체 목차** — 주제별로 분류돼 있음 |
+| [docs/팀공유_가이드.md](docs/팀공유_가이드.md) | 클로드 코드 작업물을 팀에 공유하는 법 (환경·문서·기록·권한) |
+| [docs/개발_공동작업_안내_직원용.md](docs/개발_공동작업_안내_직원용.md) | 깃 사용법 (쉬운 말, 비개발자용) |
+| [.claude/README.md](.claude/README.md) | 팀이 함께 쓰는 클로드 설정·슬래시 명령·서브에이전트 |
 | [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) | 환경변수·시크릿 전체 목록 + 설정/확인 명령 |
 | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | 증상별 "어디를 봐야 하나" |
 | [docs/REFACTOR_PLAN.md](docs/REFACTOR_PLAN.md) | 초대형 파일 분리 계획 (전/후 구조) |
