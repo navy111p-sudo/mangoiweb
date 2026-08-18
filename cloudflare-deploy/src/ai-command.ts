@@ -13,6 +13,7 @@
  *   - 추후 Anthropic Claude 등으로 교체 시 callLLM() 함수 한 곳만 수정
  */
 import { writeClassAudit } from './class-audit';   // 📜 수업 변경 이력(AI 명령 취소/연기/이동)
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { siteUrl, SITE_HOSTS } from './site-url';  // 🔗 사람에게 나가는 링크는 한 곳에서
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';  // 기본 20분 · 고를 수 있는 길이
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
@@ -601,7 +602,7 @@ async function runTool(
       const [rev, att, act, sign] = await Promise.all([
         safe(() => env.DB.prepare(`SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS cnt
                         FROM student_payments
-                        WHERE status='paid' AND paid_at IS NOT NULL AND paid_at >= ? AND paid_at < ?`)
+                        WHERE status='paid' AND paid_at IS NOT NULL AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?`)
           .bind(startMs, endMs).first<any>(), { revenue: 0, cnt: 0 } as any),
         safe(() => env.DB.prepare(`SELECT COUNT(DISTINCT user_id) AS attended
                         FROM attendance WHERE date = ?`).bind(todayKst).first<any>(),
@@ -663,7 +664,7 @@ async function runTool(
       else if (period === 'year') groupExpr = `substr(${kstDate},1,4)`;
       const rows = await env.DB.prepare(
         `SELECT ${groupExpr} AS label, SUM(amount_krw) AS revenue
-         FROM student_payments WHERE status='paid' AND paid_at IS NOT NULL
+         FROM student_payments WHERE status='paid' AND paid_at IS NOT NULL AND ${notSeedSql()}
          GROUP BY ${groupExpr} ORDER BY label DESC LIMIT 12`
       ).all<any>();
       return { period, items: rows.results || [] };
