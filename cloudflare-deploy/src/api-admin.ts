@@ -13,6 +13,9 @@ import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바�
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
+/* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
+      없어도 열리게 하는 좁은 권한이다 — 로그인이 아니다(renew-link.ts 머리말 참고). */
+import { issueRenewLink } from './renew-link';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 import { verifyLtTicket, buildLtTicket, buildLtIcs, ltTicketUrl, ltTicketUrlMap, publicBase, OPEN_BEFORE_MS } from './leveltest-ticket';  // 🎟️ 확인+입장 링크 하나
 import { createLeveltestSchedule, autoScheduleOnApply } from './leveltest-schedule';  // 📅 신청 → 실제 수업(자동·수동 공용)
@@ -5844,11 +5847,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
 
       const isB2c = channel === 'B2C';
+      /* 🔗 이 학생 전용 링크를 새로 발급한다. 실패하면 null 이고, 그때는 문자에
+            공용 /enroll.html 링크가 들어간다(문자를 아예 못 보내는 것보다 낫다). */
+      const renewLink = isB2c && body.user_id ? await issueRenewLink(env, body.user_id) : null;
       const r = isB2c
         ? await sendClassRenewalAlert(env, phone, {
             studentName: body.student_name || '회원',
             lastClassAt,
-            paymentUrl: body.payment_url,
+            paymentUrl: body.payment_url || renewLink?.url,
           })
         : await sendPaymentOverdueAlert(env, phone, {
             studentName: body.student_name || '학생',
@@ -5891,7 +5897,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               `overdue-${body.user_id}`
             );
       }
-      return json({ ...r, channel, term_label: isB2c ? '미연장' : '미납', last_class_at: lastClassAt, push: pushResult });
+      return json({ ...r, channel, term_label: isB2c ? '미연장' : '미납', last_class_at: lastClassAt,
+                    renew_link: renewLink ? { expires_at: renewLink.expires_at } : null,  // 🔒 토큰 원문은 안 돌려준다
+                    push: pushResult });
     }
 
     /* ── POST /api/admin/payments/notify-all-overdue — 미납 전체 일괄 ──
@@ -6023,16 +6031,21 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                                              days_overdue: t.daysOverdue, amount_krw: t.amount,
                                              last_class_at: t.lastClassAt,
                                              // 실제로 나갈 문장 그대로(문구는 solapi-client 가 정본)
+                                             /* 미리보기에서는 토큰을 발급하지 않는다 — 보내지도 않을 링크를
+                                                미리 만들면 옛 링크가 그때마다 죽는다. 실제 발송 때
+                                                학생마다 다른 1회용 주소가 들어간다. */
                                              text: t.isB2c ? buildClassRenewalText(t.row.student_name || '회원', t.lastClassAt) : null })),
         });
       }
 
       for (const t of targets) {
         const row = t.row, phone = t.phone, daysOverdue = t.daysOverdue, amount = t.amount;
+        const link2 = t.isB2c ? await issueRenewLink(env, row.user_id) : null;
         const r2 = t.isB2c
           ? await sendClassRenewalAlert(env, phone, {
               studentName: row.student_name || '회원',
               lastClassAt: t.lastClassAt,
+              paymentUrl: link2?.url,
             })
           : await sendPaymentOverdueAlert(env, phone, {
               studentName: row.student_name || '학생',
