@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// adm-ia6.js — 관리자 메뉴를 «6그룹 38항목» 으로 (2026-08-08, 지금은 39항목)
+// adm-ia6.js — 관리자 메뉴를 «6그룹 38항목» 으로 (2026-08-08, 지금은 40항목)
 //
 //   왜 —
 //     사이드바가 9그룹 87항목이었다. 「강사 통합」 혼자 17개다.
@@ -34,7 +34,7 @@
   var LS_KEY = 'mangoi_admin_ia6';       // 마지막으로 보던 항목
   var HIDE = 'ia6-hide';
 
-  // ── 6그룹 39항목 (2026-08-17 「수업 길이 변경」 +1) ──────────────────────
+  // ── 6그룹 40항목 (2026-08-17 「수업 길이 변경」·「수강 운영」 +2) ─────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
   //   cards[0] 이 그 항목의 «대표 카드» — 누르면 이것부터 펼친다.
   var GROUPS = [
@@ -94,6 +94,14 @@
         { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html' },
         { ko: '수업 일지',   en: 'Lesson log',      cards: ['card-lesson-log'] },
         { ko: '급여',        en: 'Payroll',         cards: ['card-payroll-auto', 'card-payroll'] },
+        /* 📚 수강 운영 관리 (2026-08-17 사장님) — 이것도 메뉴에 없어 주소를 쳐야만 들어갔다.
+           안에 «강사 배율»과 «긴 수업 하루 정원»이 있다. 강사별 돈·정원을 다루므로 급여 옆이다.
+           별도 페이지라 href (위 「수업 길이 변경」과 같은 꼴).
+           ⚠️ 이 화면은 /admin/ 아래가 아니라 사이트 루트에 있다. 그래서 isAdminPath 의
+              «/admin/ 이면 무조건 인증» 규칙이 걸리지 않는다 — 대신 안의 자료는 전부
+              checkAdminSession 을 거치는 API 로 받는다(빈 표만 보인다). 새 자료를 HTML 에
+              직접 박지 말 것. */
+        { ko: '수강 운영(배율·정원)', en: 'Enrollment ops', href: '/enroll-ops.html' },
         { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'] },
         { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'] }
       ]
