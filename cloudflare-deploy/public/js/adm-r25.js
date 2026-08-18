@@ -44,7 +44,22 @@
     'card-nps-monthly':         ['이번달 NPS','전월 비교','피드백 분석','액션 아이템'],
     'card-ai-forecast':         ['매출 예측','학생 증감','이탈 예측','시나리오 비교'],
     'card-voice-stats':         ['오늘 발화량','학생별 점수','녹음 시간','발음 분석'],
-    'card-accounting-mgmt':     ['수강료 미납','학생 결제','법인카드','손익·재무'],
+    /* 💰 회계관리 (2026-08-18 사장님 제보 «손익/재무제표가 메뉴에서 안 보인다») —
+       이 카드의 하위칸은 16개다. 그런데 여기 이름 넷은 문자열이라 옛 방식(«카드 안 N번째 details»)으로
+       점프했고, 그 순서가 실제와 달랐다:
+         3 법인카드   → 실제로는 «🧾 강사 급여 / 정산» 이 열렸고
+         4 손익·재무  → 실제로는 «🌍 국가별 강사료 환전 / 🏢 지점·가맹점 정산» 근처가 열렸다.
+       손익/재무제표는 16칸 중 13번째라 손으로 찾으려면 한참 스크롤해야 한다 → «메뉴에 없다» 로 보인다.
+       card-students-mgmt 와 같은 방식(앵커 객체)으로 «진짜 목적지» 를 들려 보낸다.
+       ⚠️ anchor id 는 admin.html 의 그 <details> 에 달려 있다. 한쪽만 바꾸면 조용히 옛 방식으로
+          되돌아가 또 엉뚱한 칸이 열린다(에러가 안 나서 알아채기 어렵다).
+       ⚠️ ko 이름은 바꾸지 말 것 — 손자 메뉴 설명 사전(admin-tip-i18n.js)이 이 이름을 키로 쓴다. */
+    'card-accounting-mgmt':     [
+      { ko:'수강료 미납', en:'Unpaid Tuition',    anchor:'sub-overdue' },
+      { ko:'학생 결제',   en:'Student Payments',  anchor:'acc-student-payments' },
+      { ko:'법인카드',    en:'Corporate Card',    anchor:'acc-corpcard' },
+      { ko:'손익·재무',   en:'P&L · Financials',  anchor:'acc-financials' }
+    ],
     'card-payments-b2b':        ['거래 내역','거래 통계','수수료 정산','CSV 다운로드'],
     'card-payments-b2c':        ['주문 내역','매출 통계','세금계산서','환불 처리'],
     'card-recurring-billing':   ['정기 구독자','결제 예정','실패 처리','구독 변경'],
