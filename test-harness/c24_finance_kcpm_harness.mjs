@@ -11,7 +11,8 @@
 //     ① 「케이씨피M」은 걸리고 「케이씨피」(진짜 PG 정산금)는 절대 안 걸린다
 //     ② TS 정규식과 Cypher(Java) 정규식이 같은 규칙이다 (한쪽만 고치면 FAIL)
 //     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼고, 뺀 금액을 같이 내려준다
-//     ④ ledger 목록이 행마다 excluded_from_revenue 를 내려준다
+//     ④ ledger 목록이 「케이씨피M」 행을 아예 빼고 내려준다(2026-08-18 지시로 바뀜 —
+//        예전엔 «행은 두되 표시로 구분» 이었다). excluded_from_revenue 는 합계 안전망으로 유지
 //     ⑤ 화면(adm-core.js)이 그 행을 매출 합계에서 뺀다.
 //        ⚠️ 2026-08-18 지시로 뒤집힌 부분 — 예전엔 «뺀 사실을 라벨·안내로 알린다» 였지만,
 //           지금은 반대로 **「케이씨피M」을 화면에 표시하지 않는다** 를 못 박는다
@@ -91,12 +92,18 @@ console.log('\n③ summary 집계가 「케이씨피M」을 빼고, 뺀 금액�
     '정규식을 쿼리에 박지 않고 정본 상수를 파라미터로 넘긴다');
 }
 
-/* ── ④ 거래 내역 목록도 행마다 표시를 내려준다 ───────────────── */
-console.log('\n④ ledger 목록이 행마다 매출 제외 여부를 내려준다');
+/* ── ④ 거래 내역 목록에서 「케이씨피M」 행을 아예 뺀다 ─────────
+   ⚠️ 2026-08-18 사장님 지시로 바뀐 자리다. 예전엔 «행은 보여 주되 표시로 구분» 이었는데,
+      이제는 **목록에서 제외**한다. 그래서 이 장부 목록은 카페24 원본 그대로가 아니다. */
+console.log('\n④ ledger 목록이 「케이씨피M」 행을 아예 빼고 내려준다');
 {
   const led = admin.slice(admin.indexOf('ledger: `MATCH (a:AccBook)'));
   const line = led.slice(0, led.indexOf('\n'));
-  ok(/AS excluded_from_revenue/.test(line), '회계장부 조회가 excluded_from_revenue 를 함께 돌려준다');
+  ok(/MATCH \(a:AccBook\) WHERE NOT \(coalesce\(a\.store,''\) =~ \$kcpmRe/.test(line),
+    '「케이씨피M」 행을 WHERE NOT 으로 목록에서 뺀다');
+  ok(!/WHERE a\.month = \$month/.test(line) || /AND \(a\.month = \$month/.test(line),
+    '월 필터를 괄호로 묶어 붙인다 (OR 가 NOT 조건을 무력화하지 않게)');
+  ok(/AS excluded_from_revenue/.test(line), '회계장부 조회가 excluded_from_revenue 를 함께 돌려준다(합계 안전망)');
   ok(/coalesce\(a\.store,''\) =~ \$kcpmRe/.test(line) && /coalesce\(a\.memo,''\) =~ \$kcpmRe/.test(line),
     '거래처·적요 양쪽을 본다 (카페24 입력자가 자리를 가리지 않는다)');
 }
