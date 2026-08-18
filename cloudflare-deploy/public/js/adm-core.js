@@ -10915,11 +10915,7 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`)
-      // 💵 적자를 «자금 보충» 으로 메우고 있으면 그 사실을 첫 줄에서 말한다 — 가장 중요한 신호다
-      + ((p.net_income||0) < 0 && (s.funding_in_krw||0) > 0
-          ? `<br><span style="color:#b45309">이 달 부족한 돈을 메우려고 다른 계좌에서 <b>${fmtKRW(s.funding_in_krw)}</b>을 옮겨 왔습니다.</span>`
-          : '');
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
@@ -10948,20 +10944,18 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
             <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
       </table>
-      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장에는 <b>매출이 아닌 돈</b>(다른 계좌에서 옮긴 운영자금 등)도 섞여 들어옵니다. 아래 손익과 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장 입출금과 아래 손익은 시점이 달라 서로 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
       <h2>매출 — 어디서 들어왔나</h2>
       <table>
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
         <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
         <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
-        ${(s.funding_in_krw||0) > 0 ? `<tr><th>운영자금 보충 (하나은행 → 신한)${badge('actual')}</th><td class="num">${fmtKRW(s.funding_in_krw)}</td><td class="num"></td></tr>
-        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」 — 회사의 다른 계좌에서 옮겨 온 운영자금입니다. <b>매출이 아니라</b> 자금 이동이라 위 매출 합계에 넣지 않았습니다</td></tr>` : ''}
         ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
         <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
         ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
-      ${drill(`운영자금 보충 내역 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'회사의 하나은행 계좌에서 신한으로 옮겨 온 운영자금입니다(2026-08-17 확인). 매출이 아니므로 손익에 넣지 않지만, 「매출이 아닌 돈으로 얼마를 메우고 있는지」는 회사 상태를 보는 데 중요해 그대로 보여 줍니다.' })}
+      ${drill(`성격 미확인 입금 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'매출인지 자금 이동인지 아직 확인되지 않은 입금입니다. 확인될 때까지 매출·손익에 넣지 않습니다.' })}
       <h2>학생 · 수업</h2>
       <table>
         <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>
