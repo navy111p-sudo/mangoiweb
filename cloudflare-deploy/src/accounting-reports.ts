@@ -376,6 +376,27 @@ export function isKnownTransfer(remark: string): boolean {
   return KNOWN_TRANSFER_RE.test(String(remark || '').trim());
 }
 
+/* 🧾 카페24 회계장부(Neo4j AccBook)에서도 같은 「케이씨피M」을 걸러내기 위한 정본 (2026-08-18).
+
+   [무엇이 틀렸었나] 관리자 「정산·매출 > 카페24 회계 실데이터」 화면의 매출·손익 추이는
+   AccBook 을 type(1=수입/2=지출)만 보고 통째로 더하고 있었다. 그래서 하나은행에서 옮겨 온
+   운영자금(「케이씨피M」)이 그대로 «매출» 로 잡혀 총 매출·순이익·영업이익률이 부풀었다.
+   통장(bankacct_transactions) 쪽은 위 classifyDeposit() 이 이미 걸러내고 있었는데
+   회계장부 쪽에는 그런 판정이 없었다 — 판정을 여기 한 곳에 두고 양쪽이 같이 쓴다.
+
+   ⚠️ Neo4j 는 TS 정규식을 못 쓰므로 **Cypher(`=~`, Java 정규식) 문자열**을 함께 내보낸다.
+      둘은 같은 규칙이어야 한다. **한쪽만 고치지 말 것.**
+   ⚠️ 「케이씨피」(= 진짜 PG 정산금)는 절대 걸리면 안 된다. M 이 붙은 것만 제외 대상이다.
+      그래서 `M` 뒤에 단어경계(`\b`)를 요구한다 — 「케이씨피MONEY」 같은 엉뚱한 말은 안 걸린다. */
+export const KCP_TRANSFER_CYPHER_RE = '(?is).*(케이씨피\\s*M|KCP\\s*M)\\b.*';
+const KCP_TRANSFER_TEXT_RE = /(케이씨피\s*M|KCP\s*M)\b/i;
+
+/** 회계장부 한 줄이 「케이씨피M」(= 매출이 아닌 자금이동)인가.
+    거래처·적요·계정과목 중 어디에 적혀 있어도 잡는다(카페24 입력자가 자리를 가리지 않는다). */
+export function isKcpTransferRow(...fields: Array<string | null | undefined>): boolean {
+  return fields.some(f => KCP_TRANSFER_TEXT_RE.test(String(f || '')));
+}
+
 /** 입금 한 건의 성격. ⚠️ 저장된 category 를 쓰지 않고 적요에서 매번 판정한다 —
     바로빌 동기화(배포 권한자만 실행)를 기다리지 않고 규칙 개선이 바로 반영되게. */
 export function classifyDeposit(remark: string, amount: number): DepositKind {
