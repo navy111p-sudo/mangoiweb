@@ -480,6 +480,86 @@ export async function handleTeacherApi(
     } catch { /* 밴드 조회 실패가 오늘 수업 표시를 막지 않는다 */ }
   }
 
+  /* 🏫 옛 LMS 수업(카페24 동기화분) — 「일지 쓰기」가 붙을 자리 (2026-08-18)
+   *
+   *  [왜] 강사들은 **옛 LMS 에서 수업한다**(사장님 확인). 그 수업은 카페24→Neo4j→D1 로
+   *       이미 들어와 있다 — attendance 의 room_id='c24-{class_id}' 행이 179,998건이다.
+   *       그런데 이 화면은 class_schedules(예약표)만 보고 있었고, 거기엔 정규 수업이
+   *       **0건**이다(2026-08-18 실측: 673행 중 lms·type_seed 자리표시를 빼면 15행,
+   *       그나마 레벨테스트 신청이다). 그래서 강사 화면은 늘 비어 있었고,
+   *       「일지 쓰기」 버튼은 끝난 수업이 있어야 그려지므로 **한 번도 뜬 적이 없다**
+   *       (수업일지 누적 0건 — student_evaluations 104건은 전부 데모·시드였다).
+   *
+   *  [무엇] 끝난 LMS 수업을 «완료된 수업» 으로 함께 실어 준다. 화면은 이미 status='done'
+   *       인 수업에 [일지 쓰기] 를 그리므로 화면 쪽 수정 없이 버튼이 살아난다.
+   *
+   *  ⚠️ 담당 판정은 **teacher_uid(=teachers.id)** 로만 한다. 위 예약 조회와 같은
+   *     resolvedRows 를 쓴다 — 신원 판정을 두 벌 두면 반드시 어긋난다(이 파일 위쪽
+   *     'Anna → HANNAH' 사고가 그 이야기다). 이름 문자열로는 절대 붙이지 않는다.
+   *  ⚠️ 입장 창을 과거로 둔다 — 끝난 LMS 수업에 [입장] 을 주면 아무도 없는 방이 열린다.
+   *     화면은 enter_from/until 로 판정하므로 [완료] + [일지 쓰기] 만 남는다.
+   *  ⚠️ 카페24가 아직 강사 속성을 안 주면 teacher_uid 가 전부 NULL 이라 이 블록은
+   *     조용히 0건이 된다(화면은 예전 그대로). cafe24-sync.ts 의 같은 날짜 주석 참고.
+   */
+  if (!onlyNext && linkedTeacherIds.length) {
+    try {
+      // 바인드는 강사 1명당 보통 1~2개다(부분일치를 쓰지 않으므로). IN 목록을 손으로 만들지 않고
+      // 이 파일이 이미 쓰는 방식대로 OR 로 편다.
+      const tConds = linkedTeacherIds.map(() => 'a.teacher_uid = ?').join(' OR ');
+      const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
+      const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+      const lmsRs = await env.DB.prepare(
+        `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
+                a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook
+           FROM attendance a
+           LEFT JOIN students_erp se ON se.user_id = a.user_id
+          WHERE a.room_id LIKE 'c24-%' AND a.status = 'present'
+            AND a.date >= ? AND a.date <= ?
+            AND (${tConds})
+          ORDER BY a.joined_at DESC
+          LIMIT 200`
+      ).bind(sinceDate, todayStr, ...linkedTeacherIds).all<any>();
+
+      const seen = new Set(classes.map((c: any) => String(c.room_id)));
+      for (const r of (lmsRs.results || [])) {
+        const rid = String(r.room_id || '');
+        if (!rid || seen.has(rid)) continue;        // 예약표에서 이미 온 수업과 겹치지 않게
+        seen.add(rid);
+        const start_ts = Number(r.joined_at) || 0;
+        if (!start_ts) continue;
+        const end_ts = Number(r.left_at) > start_ts ? Number(r.left_at) : start_ts + 30 * 60000;
+        const kk = new Date(start_ts + KST);
+        classes.push({
+          kind: 'class',
+          source: 'lms',                            // 화면·로그에서 «어디서 온 수업인지» 구분용
+          schedule_id: null,
+          room_id: rid,
+          student_uid: r.user_id,
+          student_name: r.username || r.user_id,
+          student_name_en: r.student_en || null,
+          level: r.level || null,
+          textbook: r.textbook || null,
+          note: null,
+          class_kind: 'regular',
+          is_level_test: false,
+          start_time: `${pad(kk.getUTCHours())}:${pad(kk.getUTCMinutes())}`,
+          start_ts, end_ts,
+          // 이미 끝난 수업이다 — 모든 창을 과거로 닫아 [입장] 이 켜지지 않게 한다.
+          open_at_ts: start_ts, close_at_ts: end_ts,
+          enter_from_ts: start_ts, enter_until_ts: end_ts,
+          duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
+          status: 'done',
+          join_open: false,
+          can_enter: false,
+        });
+      }
+      classes.sort((a, b) => a.start_ts - b.start_ts);
+    } catch (e: any) {
+      // LMS 수업을 못 읽어도 오늘 예약 수업 표시는 살아 있어야 한다.
+      console.warn('[teacher-portal] lms classes:', e?.message);
+    }
+  }
+
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *
    *  고르는 규칙: «아직 안 끝난 것 중 가장 이른 하나». 끝난 수업은 배너로 부를 이유가 없다.
