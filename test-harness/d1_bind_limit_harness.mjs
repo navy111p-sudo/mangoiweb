@@ -177,6 +177,10 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     // 💬 강사 카카오·문자 전달 — 두 곳 모두 «핸들러 첫머리에서 90개 초과를 400 으로 거절» 한다
     //    (send: profile_ids, mark-sent: log_ids). 화면에서도 90명을 넘기면 보내기가 막힌다.
     'teacher-kakao.ts': 'send/mark-sent 가 입력 90개 초과를 400 으로 반려 — 바인드가 90을 넘을 수 없음',
+    // 🎬 DEMO_UIDS 는 코드에 박힌 상수 배열(['lms','type_seed'] 2개)이라 입력으로 늘지 않는다.
+    //    class_schedules·attendance 에서 «학생이 안 붙은 자리표시» 계정을 빼는 용도이고,
+    //    같은 목록을 api-admin.ts·api-teacher.ts 도 리터럴로 쓴다.
+    'learning-insights.ts': '데모 계정 DEMO_UIDS 코드 상수 배열(고정 2개) — 입력으로 늘지 않음',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {

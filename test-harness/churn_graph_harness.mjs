@@ -267,6 +267,7 @@ console.log('\n[8] 소스 드리프트 가드 — 핵심 규칙/배선 실재');
   const churn = read(resolve(CF, 'src/churn-graph.ts'));
   const learn = read(resolve(CF, 'src/learning-insights.ts'));
   const index = read(resolve(CF, 'src/index.ts'));
+  const careUi = read(resolve(CF, 'public/admin/learning-insights.html'));
   const solapi = read(resolve(CF, 'src/solapi-client.ts'));
   const mig = read(resolve(CF, 'migration-churn-graph.sql'));
 
@@ -282,8 +283,18 @@ console.log('\n[8] 소스 드리프트 가드 — 핵심 규칙/배선 실재');
   has('learn: churn-graph import', learn, "from './churn-graph'");
   has('learn: chainScore 가산 병합', learn, 'chain_score');
   has('learn: /churn 라우트', learn, "p === 'churn'");
-  has('learn: /care-today 라우트', learn, "p === 'care-today'");
-  has('learn: care-today 는 parent_phone 미노출', learn, 'has_parent_contact');
+  /* ⛔ (2026-08-17, 사장님 승인) care-today 는 «되살리면 안 되는 것» 이 됐다.
+        /admin/retention 과 같은 일을 두 번 하고 있었고, retention 쪽이 카페24 본 DB 의
+        실제 만료·휴면일수를 쓰고 학부모 연락까지 갖춘 정본이다.
+        그래서 «있는지» 가 아니라 «없는지» 를 감시한다 — 무심코 다시 붙는 것을 막는다. */
+  check('learn: care-today 라우트 제거 유지', !learn.includes("p === 'care-today'"));
+  check('learn: careToday 핸들러 제거 유지', !learn.includes('async function careToday'));
+  /* 화면도 함께 내려갔는지 — API 만 지우고 표가 남으면 «로드 실패» 만 뜬다 */
+  check('learn: 케어 대상 표도 화면에서 제거', !careUi.includes('id="careBody"'));
+  check('learn: 대신 retention 으로 안내', careUi.includes('/admin/retention'));
+  /* 사슬 원천 오염 방지 — class_schedules 의 lms·type_seed 는 학생이 안 붙은 자리표시라
+     예정 수업으로 세면 유령 결석(«결석 25연속»)이 만들어진다. api-admin.ts 와 같은 식. */
+  has('churn: 데모 스케줄(lms·type_seed) 제외', churn, "NOT IN ('lms','type_seed')");
 
   // index.ts — 공개 클릭추적 + 오픈리다이렉트 가드 + cron
   has('index: alimtalk read 라우트', index, "path === '/api/alimtalk/r'");
