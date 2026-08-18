@@ -311,7 +311,8 @@ const worker = {
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
             || path === '/manager' || path === '/manager/' || path === '/manager.html'
-            || path === '/work' || path === '/work/' || path === '/work.html') {
+            || path === '/work' || path === '/work/' || path === '/work.html'
+            || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -5071,6 +5072,12 @@ function isAdminPath(path: string, method: string): boolean {
   //   위 두 포털과 같은 규칙이다. 역할 분기는 하지 않는다 —
   //   강사는 긴급·고객불만만 올릴 수 있고, 그 판정은 /api/approval/* 핸들러가 분류별로 한다.
   if (path === '/work' || path === '/work/' || path === '/work.html') return true;
+
+  // 🚗 영업 전용 휴대폰 화면 (2026-08-18) — 거래처 학원장 연락처와 본인 성과급이 담긴다.
+  //   로그인 필수. 역할 게이트(본사 또는 담당자 본인)는 /api/admin/sales/* 핸들러가 한 번 더 본다.
+  //   ⚠️ 위 «미인증 리다이렉트 목록» 에도 함께 등록했다 — 한쪽만 하면 인증은 걸리는데
+  //      'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/sales' || path === '/sales/' || path === '/sales.html') return true;
 
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
