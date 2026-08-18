@@ -10972,11 +10972,7 @@ window.rebuildGlobalSearchIndex = function() {
     const headline = `이번 달 매출 <b>${fmtKRW(p.revenue)}</b>, 쓴 돈 <b>${fmtKRW(p.cost)}</b>, `
       + (p.confident
           ? `남은 돈 <b>${fmtKRW(p.net_income)}</b> (이익률 ${p.margin_pct}%) 입니다.`
-          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`)
-      // 💵 적자를 «자금 보충» 으로 메우고 있으면 그 사실을 첫 줄에서 말한다 — 가장 중요한 신호다
-      + ((p.net_income||0) < 0 && (s.funding_in_krw||0) > 0
-          ? `<br><span style="color:#b45309">이 달 부족한 돈을 메우려고 다른 계좌에서 <b>${fmtKRW(s.funding_in_krw)}</b>을 옮겨 왔습니다.</span>`
-          : '');
+          : `계산상 <b>${fmtKRW(p.net_income)}</b> 이지만 <b>장부와 통장이 어긋나 확정 숫자가 아닙니다.</b>`);
     return `
       <h1>📅 월간 회계 리포트</h1>
       <div class="meta">${d.label}</div>
@@ -11005,20 +11001,18 @@ window.rebuildGlobalSearchIndex = function() {
         <tr><th>순증감 (통장이 실제로 늘거나 준 돈)</th>
             <td class="num" colspan="3" style="font-weight:800;font-size:15px;color:${(s.cash_net_krw||0) < 0 ? '#dc2626' : '#059669'}">${fmtKRW(s.cash_net_krw)}</td></tr>
       </table>
-      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장에는 <b>매출이 아닌 돈</b>(다른 계좌에서 옮긴 운영자금 등)도 섞여 들어옵니다. 아래 손익과 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
+      <p style="font-size:11px;color:#6b7280;margin:4px 0 14px">※ 통장 입출금과 아래 손익은 시점이 달라 서로 다른 것이 정상이며, 둘의 차이는 위 대사 결과로 설명됩니다.${(s.revenue_gap_krw||0) > 0 ? ` <b style="color:#b45309">이 달은 장부에 안 잡힌 결제가 ${fmtKRW(s.revenue_gap_krw)} 있어 아래 손익이 실제보다 나쁘게 나옵니다.</b>` : ''}</p>` : ''}
       <h2>매출 — 어디서 들어왔나</h2>
       <table>
         <tr><th>장부 결제 (카페24 등)${badge(src.revenue_book)}</th><td class="num">${fmtKRW(s.revenue_book)}</td><td class="num">${(s.pay_count||0).toLocaleString()} 건</td></tr>
         <tr><th>통장 직접입금 (B2B)${badge(src.revenue_b2b)}</th><td class="num">${fmtKRW(s.revenue_b2b)}</td><td class="num">${(s.b2b_count||0).toLocaleString()} 건</td></tr>
         <tr class="total"><td>매출 합계</td><td class="num">${fmtKRW(p.revenue)}</td><td></td></tr>
-        ${(s.funding_in_krw||0) > 0 ? `<tr><th>운영자금 보충 (하나은행 → 신한)${badge('actual')}</th><td class="num">${fmtKRW(s.funding_in_krw)}</td><td class="num"></td></tr>
-        <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 「케이씨피M」 — 회사의 다른 계좌에서 옮겨 온 운영자금입니다. <b>매출이 아니라</b> 자금 이동이라 위 매출 합계에 넣지 않았습니다</td></tr>` : ''}
         ${(s.deposit_transfer_unknown_krw||0) > 0 ? `<tr><th>성격 미확인 입금${badge('review')}</th><td class="num">${fmtKRW(s.deposit_transfer_unknown_krw)}</td><td class="num"></td></tr>
         <tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 매출인지 자금이동인지 확인이 필요합니다</td></tr>` : ''}
         ${(s.seed_excluded_krw||0) > 0 ? `<tr><td colspan="3" style="font-weight:400;color:#6b7280;font-size:12px">※ 시연용 테스트 결제 ${fmtKRW(s.seed_excluded_krw)} (${s.seed_excluded_count}건)은 실매출이 아니라 위 숫자에서 제외했습니다</td></tr>` : ''}
       </table>
       ${drill(`통장 직접입금 ${(det.b2b_rows||[]).length}건 자세히 보기`, det.b2b_rows, { nameLabel:'보낸 곳', note:'카페24를 거치지 않고 통장으로 바로 들어온 수업료입니다. 2026-08-16부터 매출로 반영합니다.' })}
-      ${drill(`운영자금 보충 내역 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'회사의 하나은행 계좌에서 신한으로 옮겨 온 운영자금입니다(2026-08-17 확인). 매출이 아니므로 손익에 넣지 않지만, 「매출이 아닌 돈으로 얼마를 메우고 있는지」는 회사 상태를 보는 데 중요해 그대로 보여 줍니다.' })}
+      ${drill(`성격 미확인 입금 ${(det.transfer_rows||[]).length}건 (매출 아님)`, det.transfer_rows, { nameLabel:'적요', note:'매출인지 자금 이동인지 아직 확인되지 않은 입금입니다. 확인될 때까지 매출·손익에 넣지 않습니다.' })}
       <h2>학생 · 수업</h2>
       <table>
         <tr><th>결제 학생수</th><td class="num">${(s.paying_users||0).toLocaleString()} 명</td>
@@ -11444,23 +11438,17 @@ window.rebuildGlobalSearchIndex = function() {
           + '<div style="font-size:19px;font-weight:800;color:'+color+';margin-top:3px;letter-spacing:-0.3px">'+val+'</div>'
           + (sub?'<div style="font-size:10.5px;color:#64748b;margin-top:2px">'+sub+'</div>':'')+'</div>'; };
         kpiBox.innerHTML =
-          kcard('총 매출', won(sumInc), range+'개월 합계 · 「케이씨피M」 제외', '#60a5fa')
+          kcard('총 매출', won(sumInc), range+'개월 합계', '#60a5fa')
           + kcard('총 지출', won(sumExp), range+'개월 합계', '#f87171')
           + kcard('순이익', won(sumNet), (sumNet>=0?'▲ 흑자':'▼ 적자'), (sumNet>=0?'#34d399':'#fb7185'))
           + kcard('영업이익률', margin+'%', (momInc!=null?('최근 매출 '+(momInc>=0?'▲':'▼')+Math.abs(momInc)+'% MoM'):'—'), (margin>=0?'#fbbf24':'#fb7185'));
       }
-      // 🧾 뺀 금액을 숨기지 않고 그대로 보여 준다 — 「숫자가 왜 줄었나」를 화면에서 바로 알 수 있게.
+      /* ⛔ «「케이씨피M」 N건 ₩… 제외» 안내 상자 제거(2026-08-18 사장님 지시).
+         집계에서 빼는 것은 그대로지만, 그 이름과 금액이 화면에 뜨는 것 자체를 원치 않으신다.
+         («제외했습니다» 라고 적어 주는 것도 «아직 남아 있다» 로 읽힌다 — 대사 카드·월간
+          리포트·손익계산서에서 같은 이유로 이미 뺐다.) 되살리지 말 것. */
       var noteBox = document.getElementById('c24fin-sum-total');
-      if (noteBox) {
-        if (sumExcl > 0) {
-          noteBox.style.cssText = 'display:block;margin-top:10px;padding:8px 11px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);border-radius:9px;font-size:11px;color:#fcd34d;line-height:1.55';
-          noteBox.innerHTML = '※ 「케이씨피M」 ' + cntExcl.toLocaleString('ko-KR') + '건 ' + wonFull(sumExcl)
-            + ' 은 <b>매출이 아니라</b> 하나은행 계좌에서 옮겨 온 운영자금이라 위 집계(총 매출·총 지출·순이익·영업이익률)에서 <b>제외</b>했습니다. '
-            + '「케이씨피」(PG 정산금)만 매출로 셉니다.';
-        } else {
-          noteBox.style.display = 'none'; noteBox.innerHTML = '';
-        }
-      }
+      if (noteBox) { noteBox.style.display = 'none'; noteBox.innerHTML = ''; }
       // 데이터 시리즈
       const labels = months.map(function(m){ return m.ym.slice(2); }); // YY-MM
       const inc = months.map(function(m){ return Number(m.income)||0; });
@@ -11569,21 +11557,20 @@ window.rebuildGlobalSearchIndex = function() {
           cnt.innerHTML = esc(base)
             + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
             + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
-            + (nExc ? ' · <span style="color:#b45309">' + (en
-                ? ('excl. 「케이씨피M」 ' + nExc + ' rows ' + esc(won(sExc)))
-                : ('「케이씨피M」 ' + nExc + '건 ' + esc(won(sExc)) + ' 제외')) + '</span>' : '')
+            /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
+               그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
             + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
         } else { cnt.textContent = base; }
       }
       body.innerHTML = rows.length ? rows.map(function(row){
-        var ex = isExcl(row);
-        return '<tr style="border-bottom:1px solid #f1f5f9'+(ex?';background:#fffbeb':'')+'">'+cols.map(function(c){
+        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
           var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
           var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
           var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          if (ex && c[0]==='money') disp = '<span style="color:#b45309;text-decoration:line-through">'+disp+'</span>'
-            + '<span style="margin-left:6px;padding:1px 6px;border-radius:99px;background:#fef3c7;color:#92400e;font-size:10px;font-weight:700;font-family:inherit;white-space:nowrap">'+(en?'not revenue':'매출 제외')+'</span>';
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(ex&&c[0]==='money'?('「케이씨피M」 — 하나은행에서 옮겨 온 운영자금이라 매출 합계에서 제외'):v)+'">'+disp+'</td>';
+          /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
+             장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
+             합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
+          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
       }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
     } catch(e){
@@ -12044,7 +12031,9 @@ window.rebuildGlobalSearchIndex = function() {
   /* 🔍 매출–입금 대사 (2026-08-16, 2026-08-18 기준 전환) — 통장 「케이씨피」 입금이 기준.
      · 기준 = 신한 통장에 실제로 들어온 「케이씨피」 정산금 → 수수료 역산 = «통장 기준 매출»
      · 장부 매출·예상 입금은 그 옆에 놓는 비교값이다(장부는 KCP 정산 대상 결제만 센다)
-     · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에서 제외 — 금액만 아래 «참고» 로 밝힌다
+     · B2B 직접입금·기타 입금·자기 계좌 간 자금 이동은 대사에서 제외
+       (자금 이동은 2026-08-18 사장님 지시로 «참고» 문구에서도 뺐다 — 아래 «참고» 에는
+        성격이 아직 확인되지 않은 입금만 남는다)
      월별로는 PG 정산 시차 때문에 어긋나는 게 정상이라, 판정은 서버가 «누적» 으로 한다. */
   function _rcUrl(format){
     const m = (document.getElementById('acc-rc-months') || {}).value || '6';
@@ -12101,7 +12090,7 @@ window.rebuildGlobalSearchIndex = function() {
       const notes = [d.transfer_note, d.b2b_note, d.non_kcp_note, d.no_bank_note].filter(Boolean);
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
         ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
-        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 「케이씨피M」(하나은행 운영자금)·통장 직접입금(B2B)·기타 입금은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
+        ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 통장 직접입금(B2B)·기타 입금·자기 계좌 간 자금 이동은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
         ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
