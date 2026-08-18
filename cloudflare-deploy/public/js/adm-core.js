@@ -13898,8 +13898,13 @@ window.rebuildGlobalSearchIndex = function() {
       el.classList.toggle('rbac-hide', !visible);
       el.style.display = '';   // 옛 방식이 남긴 인라인 값 청소(있으면)
     });
-    // 사이드바 즉시 재인덱싱 (display:none 카드 제외됨)
+    // 사이드바 즉시 재인덱싱 (역할로 감춘 카드 제외됨)
     if (typeof buildMenuIndex === 'function') buildMenuIndex();
+    /* 🔐 (2026-08-18) 역할 적용이 끝났다고 알린다.
+       PC 사이드바(adm-ia6.js)는 정적 GROUPS 목록으로 그려 역할을 모르기 때문에, 이 신호를 받아
+       «가리키는 카드가 전부 감춰진» 항목을 감춘다. 안 그러면 눌러도 빈 화면인 메뉴가 남는다.
+       ⚠️ 이 함수는 로그인·세션 갱신 때마다 다시 도므로 신호도 그때마다 나간다. */
+    try { document.dispatchEvent(new CustomEvent('mangoi:menu-visibility')); } catch (e) { /* 무시 */ }
   }
 
   // 페이지 로드 시 세션 확인
