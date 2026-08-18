@@ -36,6 +36,11 @@
 
   var LS_KEY = 'mangoi_admin_ia6';       // 마지막으로 보던 항목
   var HIDE = 'ia6-hide';
+  /* 🔐 (2026-08-18) 사이드바 «항목» 을 역할 권한으로 감출 때 쓰는 class.
+     ⛔ 위 HIDE(.ia6-hide)를 재사용하면 안 된다 — 그건 «카드» 를 감추는 showOnly 전용이고,
+        showOnly 가 매번 managed 전체에서 그 class 를 벗겨 내므로(아래 showOnly 참고)
+        같은 이름을 쓰면 항목 감춤이 항목 클릭 한 번에 통째로 풀린다. */
+  var ROLE_HIDE = 'ia6-role-hide';
 
   // ── 6그룹 40항목 (2026-08-17 「수업 길이 변경」·「수강 운영」 +2) ─────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
@@ -356,6 +361,52 @@
     }
   }
 
+  /* ═══ 🔐 역할 필터 — 「눌러도 빈 화면」인 사이드바 항목을 감춘다 (2026-08-18) ═══════
+     경위: 역할별 카드 숨김(_applyMenuVisibility)이 PC 에서 안 먹던 것을 .rbac-hide 로 고치자,
+       이번엔 «카드는 제대로 감춰졌는데 그 카드를 가리키는 사이드바 항목은 그대로» 가 되었다.
+       ia6 사이드바는 아래 GROUPS 라는 «정적 목록» 으로 그려서 역할을 전혀 안 보기 때문이다.
+       예: 본사 매니저에게 「데이터·보관」은 card-retention(경영진 전용) 하나만 가리키는데,
+           그 카드가 감춰져 눌러도 아무 일이 없었다.
+     판정: 항목이 가리키는 카드가 «전부» 감춰졌을 때만 감춘다(하나라도 열려 있으면 남긴다).
+     ⚠️ DOM 에 없는 카드 id 는 «판단 보류» 로 세지 않는다 — 오래된 id 가 목록에 남아 있을 수
+        있는데, 그것 때문에 멀쩡한 항목이 사라지면 그게 더 큰 사고다. 하나도 못 찾으면 남긴다. */
+  function cardRoleHidden(id) {
+    var el = document.getElementById(id);
+    if (!el) return null;                                  // 없는 카드 = 판단 보류
+    if (el.classList && el.classList.contains('rbac-hide')) return true;
+    return el.style && el.style.display === 'none';        // 옛 인라인 방식도 인정
+  }
+
+  function applyRoleFilter() {
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    var subs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-cards]');
+    for (var i = 0; i < subs.length; i++) {
+      var d = subs[i];
+      var ids = (d.getAttribute('data-cards') || '').split(' ');
+      var known = 0, blocked = 0;
+      for (var j = 0; j < ids.length; j++) {
+        if (!ids[j]) continue;
+        var r = cardRoleHidden(ids[j]);
+        if (r === null) continue;
+        known++; if (r) blocked++;
+      }
+      var hide = known > 0 && blocked === known;
+      if (hide) d.classList.add(ROLE_HIDE); else d.classList.remove(ROLE_HIDE);
+    }
+    // 그룹 머리 — 그 안 항목이 하나도 안 남으면 그룹째 감춘다(빈 아코디언을 남기지 않는다)
+    var grps = bar.querySelectorAll('.ph85-group[data-ia6]');
+    for (var g = 0; g < grps.length; g++) {
+      var all = grps[g].querySelectorAll('.ph85-sub');
+      var alive = 0;
+      for (var k = 0; k < all.length; k++) {
+        if (!all[k].classList.contains(ROLE_HIDE)) alive++;
+      }
+      if (all.length > 0 && alive === 0) grps[g].classList.add(ROLE_HIDE);
+      else grps[g].classList.remove(ROLE_HIDE);
+    }
+  }
+
   function showOnly(item, key) {
     if (!managed) collect();
     var keep = unitsByItem[key] || [];
@@ -533,6 +584,9 @@
         d.setAttribute('data-en', it.en);
         d.setAttribute('data-ia6-item', g.key + ':' + it.ko);
         if (it.cards && it.cards[0]) d.setAttribute('data-card', it.cards[0]);
+        // 🔐 역할 필터용 — 이 항목이 가리키는 카드 «전부». data-card 는 대표(첫) 장뿐이라
+        //    「대표는 보이는데 나머지는 다 막힌」 경우를 판정할 수 없다.
+        d.setAttribute('data-cards', (it.cards || []).join(' '));
         d.textContent = en ? it.en : it.ko;
         // ⚠️ 요소마다 리스너를 붙이지 않는다.
         //    사이드바 노드를 나중에 통째로 다시 그리는 스크립트가 있어서(실측: 붙인 리스너가
@@ -805,6 +859,8 @@
       // 옛 9그룹을 인라인 style 로 감추면 admin.html 의 검색 핸들러가
       // g.style.display='' 로 되돌려 놓는다(실측으로 잡힘). 그래서 CSS 로 못박는다.
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
+      // 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter). id 를 앞에 붙여 확실히 이기게 한다.
+      '#ph85-sidebar .' + ROLE_HIDE + '{display:none !important}' +
       '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}' +
       /* 📐 (2026-08-15) 그룹 줄을 조금 낮춰 «6그룹 + 메뉴 지도»가 첫 화면에 다 들어오게 한다.
          실측(1919×740 · zoom 1.3 · CSS px): 메뉴가 시작되는 자리 134.6, 도크가 시작되는 자리 440.8
@@ -827,6 +883,7 @@
     if (!build(bar)) return;
     bar.__ia6 = true;
     css();
+    applyRoleFilter();   // 🔐 역할로 못 여는 항목은 그리자마자 감춘다(깜빡임 방지)
     collect();
     wireDelegate(bar);
     wireSearch();
@@ -923,8 +980,20 @@
   else init();
   // 본문·역할 적용이 늦게 끝나는 경우가 있어 한 번 더 시도한다(중복 실행은 __ia6 로 막힘).
   setTimeout(init, 900);
+
+  /* 🔐 역할 필터를 다시 거는 시점 (2026-08-18)
+     ① adm-core 가 역할을 적용한 직후 — 로그인·세션 갱신마다 온다.
+        ⚠️ 순서가 정해져 있지 않다: 역할 적용이 사이드바 그리기보다 먼저일 수도, 나중일 수도 있다.
+           그래서 «이벤트를 받았을 때» 와 «init 이 끝났을 때» 양쪽에서 건다(init 안에도 있음).
+     ② 늦게 오는 경우 대비 — init 재시도와 같은 이유로 두 번 더 훑는다.
+        ⛔ setInterval 로 계속 돌리지 않는다. 사이드바 스크롤이 끊긴 전례가 있다(위 ph85 주석). */
+  document.addEventListener('mangoi:menu-visibility', function () {
+    try { applyRoleFilter(); } catch (e) { /* 무시 — 사이드바를 못 그리게 만들지 않는다 */ }
+  });
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 1500);
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 3500);
   wireRevealOnJump();   // init 성공 여부와 무관하게 건다(감춘 게 없으면 cardOf 가 늘 null)
 
   // 다른 코드가 필요할 때 쓰도록 최소한만 노출
-  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS };
+  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS, applyRoleFilter: applyRoleFilter };
 })();
