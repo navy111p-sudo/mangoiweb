@@ -10733,6 +10733,60 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e) { alert('등록 실패: ' + (e.message||e)); }
   };
 
+  /* 🏦 배정 못 한 B2B 통장 입금 → 가맹점 연결 (2026-08-18)
+     학원이 수업료를 통장으로 바로 보내면 카페24를 안 거쳐 결제 장부에 없다.
+     여기서 «이 적요는 이 지사» 를 한 번 정하면 가맹점별 정산서에 바로 합산된다. */
+  let _b2bFr = [];
+  window.accB2bLoad = async function(){
+    const st = document.getElementById('acc-b2b-state');
+    const tb = document.getElementById('acc-b2b-tbody');
+    if (!tb) return;
+    tb.innerHTML = '<tr><td colspan="6" class="empty">불러오는 중…</td></tr>';
+    try {
+      const r = await fetch('/api/admin/reports/b2b-payees?months=12', { credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'API error');
+      _b2bFr = d.franchises || [];
+      if (st) st.innerHTML = d.unresolved_count
+        ? `<b style="color:#b45309">아직 붙이지 못한 B2B 입금 ${d.unresolved_count}곳 · ${fmtKRW(d.unresolved_krw)}</b>`
+          + ` <span style="color:#6b7280">(최근 12개월 B2B 합계 ${fmtKRW(d.total_krw)} 중 ${fmtKRW(d.assigned_krw)} 배정됨)</span>`
+        : `<span style="color:#166534">최근 12개월 B2B 입금 ${fmtKRW(d.total_krw)} 이 모두 가맹점에 붙어 있습니다.</span>`;
+      if (!(d.items||[]).length) { tb.innerHTML = '<tr><td colspan="6" class="empty">최근 12개월에 B2B 통장 입금이 없습니다.</td></tr>'; return; }
+      tb.innerHTML = d.items.map(it => {
+        const cur = it.franchise_id || '';
+        const opts = ['<option value="">— 지정 안 함 —</option>']
+          .concat(_b2bFr.map(f => `<option value="${f.id}"${String(f.id) === String(cur) ? ' selected' : ''}>${esc(f.name)}${f.active ? '' : ' (비활성)'}</option>`)).join('');
+        const where = it.franchise_id
+          ? `<b>${esc(it.matched_name || '')}</b>`
+            + (it.matched_by && it.matched_by !== '지정'
+                ? ` <span style="font-size:10px;color:#1e40af;background:#dbeafe;padding:1px 6px;border-radius:99px">자동 · ${esc(it.matched_by)}</span>`
+                : ' <span style="font-size:10px;color:#166534;background:#dcfce7;padding:1px 6px;border-radius:99px">지정</span>')
+          : '<span style="color:#b45309">— 배정 못 함 —</span>';
+        return `<tr${it.franchise_id ? '' : ' style="background:#fffbeb"'}>
+          <td><b>${esc(it.payee)}</b></td>
+          <td style="text-align:right">${it.count}</td>
+          <td style="text-align:right">${fmtKRW(it.amount)}</td>
+          <td style="font-size:11px;color:#6b7280">${esc(it.first_at||'')}~${esc(it.last_at||'')}</td>
+          <td style="font-size:11.5px">${where}</td>
+          <td><select onchange="accB2bAssign('${esc(it.payee).replace(/'/g,'&#39;')}', this.value, this)"
+                     style="padding:3px 6px;font-size:12px;border-radius:6px;border:1px solid #d1d5db">${opts}</select></td>
+        </tr>`;
+      }).join('');
+    } catch(e) { tb.innerHTML = `<tr><td colspan="6" class="empty" style="color:#ef4444">에러: ${esc(e.message||e)}</td></tr>`; }
+  };
+
+  window.accB2bAssign = async function(payee, fid, sel){
+    if (!fid && !confirm(`「${payee}」 의 지사 지정을 해제할까요?`)) { if (sel) accB2bLoad(); return; }
+    if (sel) sel.disabled = true;
+    try {
+      const r = await fetch('/api/admin/reports/b2b-payees?payee=' + encodeURIComponent(payee) + '&franchise_id=' + encodeURIComponent(fid || 0),
+        { method:'POST', credentials:'include' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || '저장 실패');
+      accB2bLoad();
+    } catch(e) { if (sel) sel.disabled = false; alert('저장 실패: ' + (e.message||e)); }
+  };
+
   /* 🏷️ 지출 계정과목 분류 — 「기타출금」 을 쪼갠다 (2026-08-17)
      지사 대표자명과 일치하면 자동으로 「지사수수료」. 나머지는 여기서 한 번 정하면
      그 거래처의 지난·앞으로의 출금이 전부 그 과목으로 들어간다(QuickBooks·Xero 방식). */
@@ -11099,29 +11153,52 @@ window.rebuildGlobalSearchIndex = function() {
       ${trendTable(d, '월')}`;
   }
 
+  /* 🏢 가맹점별 정산서.
+     💳 총 매출 = 「장부 결제」(카페24 등) + 「B2B 직접입금」(학원이 통장으로 바로 보낸 수업료).
+        예전엔 장부 결제만 세서 B2B 로 받는 가맹점이 매출 0 으로 찍혔다(2026-08-18 수정). */
   function renderFranchise(d){
     const src = d.sources || {};
+    const t = d.totals || {};
     return `
       <h1>🏢 가맹점별 정산서</h1>
-      <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님)</div>
+      <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님) · 장부 결제 + B2B 직접입금</div>
       ${noteList(d.notes)}
+      ${(d.b2b_total||0) > 0 ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#1e40af">🏦 B2B 직접입금 ${(d.b2b_count||0).toLocaleString()}건 · ${fmtKRW(d.b2b_total)}</b> 을 이 정산서에 포함했습니다
+        (가맹점에 붙인 금액 <b>${fmtKRW(d.b2b_assigned)}</b>${(d.b2b_unassigned_krw||0) > 0 ? ` · 아직 못 붙인 금액 <b>${fmtKRW(d.b2b_unassigned_krw)}</b>` : ''}).<br>
+        학원이 수업료를 통장으로 바로 보내는 결제라 카페24 결제 장부에는 없습니다. 수수료율은 B2C 와 같은 값을 적용했습니다.
+      </div>
+      ${drill(`B2B 직접입금 ${(d.b2b_rows||[]).length}건 자세히 보기 — 어느 가맹점에 붙었는지`,
+        (d.b2b_rows||[]).map(r => ({ date: r.date, name: r.remark + ' → ' + (r.matched_name ? r.matched_name + ' (' + r.matched_by + ')' : '배정 못 함'), amount: r.amount })),
+        { nameLabel: '보낸 곳 → 붙은 가맹점', note: '「지정」은 사람이 직접 붙인 것, 「대리점」·「지사」는 입금 적요가 그 이름과 맞아 자동으로 붙은 것입니다. 후보가 둘 이상이면 붙이지 않습니다.' })}` : ''}
       ${(d.unassigned_krw||0) > 0 ? `<div style="background:#fffbeb;border:1px solid #fcd34d;border-left:4px solid #f59e0b;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#92400e">⚠️ 소속을 확정하지 못한 매출이 ${fmtKRW(d.unassigned_krw)} (${d.unassigned_pct}%) 있습니다.</b><br>
         대부분은 <b>학생 원부에 없는 아이디로 들어온 결제</b>입니다 — 대리점·직원이 학생 몫을 대신 결제하면
         그 아이디가 학생 원부에 없어 어느 지사인지 알 수 없습니다. 아무 가맹점에도 넣지 않았습니다.
         <br><b>아래 아이디가 어느 지사인지 알려 주시면 그 뒤부터 자동으로 붙습니다.</b>
+        ${(d.b2b_unassigned_krw||0) > 0 ? `<br>그중 <b>${fmtKRW(d.b2b_unassigned_krw)}</b> 은 B2B 통장 입금입니다 — 관리자 화면 「회계관리 › 🏦 배정 못 한 B2B 입금」 에서 지정할 수 있습니다.` : ''}
       </div>
       ${drill(`배정 못 한 결제 아이디 ${(d.unassigned_payers||[]).length}개 — 어느 지사인지 알려 주세요`,
         (d.unassigned_payers||[]).map(u => ({ date: u.user_id, name: u.reason + ' · ' + u.pays + '건', amount: u.amount })),
-        { dateLabel: '결제 아이디', nameLabel: '사유' })}` : ''}
+        { dateLabel: '결제 아이디', nameLabel: '사유' })}
+      ${drill(`배정 못 한 B2B 입금 ${(d.b2b_unassigned||[]).length}곳 — 어느 대리점·지사인지 알려 주세요`,
+        (d.b2b_unassigned||[]).map(u => ({ date: u.payee, name: u.reason + ' · ' + u.count + '건', amount: u.amount })),
+        { dateLabel: '입금 적요', nameLabel: '사유' })}` : ''}
       <table>
-        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 직접입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정일</th><th>상태</th></tr></thead>
         <tbody>
-          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
-            : '<tr><td colspan="8" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
-          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(d.totals.gross)}</td><td class="num">${fmtKRW(d.totals.fee)}</td><td class="num">${fmtKRW(d.totals.net)}</td><td></td><td></td></tr>
+          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
+            : '<tr><td colspan="10" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
+          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
         </tbody>
       </table>
+      <p style="font-size:11px;color:#6b7280;margin:6px 0 0;line-height:1.7">
+        ※ <b>장부 결제</b> = 카페24 등 결제 기록(student_payments) · <b>B2B 직접입금</b> = 학원이 신한 통장으로 바로 보낸 수업료.
+        결제건에는 B2B 입금 건수도 포함됩니다. <b>학생수</b>는 결제 장부에서만 셀 수 있어 B2B 입금은 반영되지 않습니다
+        (통장 입금에는 학생 정보가 없습니다).<br>
+        ※ 이 달 매출 총계 <b>${fmtKRW(d.revenue_total)}</b> = 장부 결제 ${fmtKRW(d.book_total)} + B2B 직접입금 ${fmtKRW(d.b2b_total)} ·
+        가맹점에 배정한 금액 <b>${fmtKRW(t.gross)}</b>
+      </p>
       ${BADGE_LEGEND}`;
   }
 
