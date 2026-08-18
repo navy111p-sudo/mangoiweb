@@ -293,6 +293,45 @@ function calcWeightedTotal(e: {
  *      30분을 가르치고 20분 값을 받는다(임금 삭감 → 강사 이탈).
  *      이제 total_10min_units 가 있으면 그것을 쓰고, 없으면(=과거 달) 예전 식 그대로.
  */
+/**
+ * 🪧 «이 강사는 이번 달 길이를 채워야 한다» 를 화면이 알려 주기 위한 명단 (사장님 요청 C안).
+ *
+ *   급여 화면에서 「총 수업시간(분)」을 비워 두면 «전부 20분» 으로 계산된다. 20분만 가르친
+ *   강사에게는 그게 정답이라 비워 두는 것이 맞다. 문제는 **30·40분을 가르친 강사만** 채워야
+ *   하는데, 그걸 사람이 기억해야 한다는 점이다. 빠뜨리면 강사가 조용히 손해를 본다.
+ *   그래서 «긴 수업을 가진 강사» 를 서버가 뽑아 화면에 표시한다.
+ *
+ *   ⚠️ class_schedules 는 깨끗한 표가 아니다. 실측(2026-08-18):
+ *      · class_type='blocked' 100건 — 수업이 아니라 «근무 불가» 블록이다
+ *      · source='lms_import_w26' 518건 — 옛 LMS 를 옮기며 길이를 60 으로 일괄로 박아 둔 것
+ *      · source='type_seed_20260623' — 유형 시드 자료
+ *      이것들을 그대로 세면 «전원 긴 수업 있음» 이 되어 경고가 의미를 잃는다(늑대소년).
+ *      그래서 위 셋을 뺀다. 지금 이 조건의 결과는 0명이고, 그게 맞다 —
+ *      30분 상품이 이제 막 열려서 아직 파는 중이기 때문이다.
+ *   ⚠️ teacher_id 는 TEXT 인데 안에 숫자가 들어 있다(실측: '8','5'…). CAST 로 맞춘다.
+ *   ⚠️ 이것은 «참고 표시» 일 뿐 급여의 근거가 아니다. 근거는 total_10min_units(사람) 또는
+ *      카페24가 보낸 total_minutes 다. 여기서 나온 명단으로 금액을 계산하지 말 것.
+ */
+async function longClassTeacherIds(env: { DB: D1Database }): Promise<Set<number>> {
+  const out = new Set<number>();
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT DISTINCT CAST(teacher_id AS INTEGER) AS tid
+         FROM class_schedules
+        WHERE status = 'active'
+          AND duration_min > ?
+          AND COALESCE(class_type, '') NOT IN ('blocked', 'level_test')
+          AND COALESCE(source, '') NOT LIKE 'lms_import%'
+          AND COALESCE(source, '') NOT LIKE 'type_seed%'`
+    ).bind(DEFAULT_CLASS_MINUTES).all();
+    for (const r of (rs.results || []) as any[]) {
+      const n = Number(r.tid);
+      if (n > 0) out.add(n);
+    }
+  } catch { /* 표가 없거나 칸이 없는 환경 — 명단 없음으로 (경고만 안 뜬다) */ }
+  return out;
+}
+
 async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: number, month: number): Promise<any> {
   const t: any = await env.DB.prepare(
     `SELECT id, name, status, years, rate_per_10min_php, hourly_rate_php, rank, center_id, active
@@ -305,11 +344,33 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
      WHERE teacher_id = ? AND year = ? AND month = ?`
   ).bind(teacherId, year, month).first();
   const classCount = cl ? Number(cl.class_count) : 0;
-  // 실제 길이 합계가 들어와 있으면 그것이 정본. 없으면 «전부 20분» 이던 예전 규칙(×2).
-  const lengthRecorded = !!(cl && Number(cl.total_10min_units) > 0);
-  const tenMinUnits = lengthRecorded
-    ? Number(cl.total_10min_units)
-    : classCount * classTenMinUnits(DEFAULT_CLASS_MINUTES);
+
+  /* 🕐 (2026-08-18) 길이의 출처를 «셋 중 하나» 로 정리한다. 위에서부터 이긴다.
+       ① manual  — 사람이 급여 화면에 넣은 total_10min_units. 사람이 명시한 값이므로 가장 세다.
+       ② ingest  — 카페24가 매달 보내 주는 teacher_payroll_auto.total_minutes (사장님 요청 A안).
+                   이것이 들어오면 «급여 담당자가 손으로 넣는 일» 자체가 없어진다.
+       ③ assumed — 둘 다 없으면 예전 규칙(전부 20분 = class_count × 2).
+     ⚠️ ①이 ②를 이기는 순서를 뒤집지 말 것 — 사람이 카페24 값을 고치려고 넣었는데
+        다음 인제스트가 덮으면 «고쳤는데 원복됐다» 가 된다. */
+  let tenMinUnits = classCount * classTenMinUnits(DEFAULT_CLASS_MINUTES);
+  let lengthSource: 'manual' | 'ingest' | 'assumed_20min' = 'assumed_20min';
+  if (cl && Number(cl.total_10min_units) > 0) {
+    tenMinUnits = Number(cl.total_10min_units);
+    lengthSource = 'manual';
+  } else {
+    let ing: any = null;
+    try {
+      ing = await env.DB.prepare(
+        `SELECT total_minutes FROM teacher_payroll_auto WHERE teacher_id = ? AND year = ? AND month = ?`
+      ).bind(teacherId, year, month).first();
+    } catch { /* 칸이 아직 없는 옛 DB — 종전대로 ③ */ }
+    if (ing && Number(ing.total_minutes) > 0) {
+      tenMinUnits = Number(ing.total_minutes) / 10;
+      lengthSource = 'ingest';
+    }
+  }
+  // 화면이 «전부 20분으로 가정한 달» 을 구분해 경고할 수 있게 남긴다(①②면 true).
+  const lengthRecorded = lengthSource !== 'assumed_20min';
 
   const ev: any = await env.DB.prepare(
     `SELECT score_instruction, score_retention, score_punctuality, score_admin, score_contribution,
@@ -336,6 +397,8 @@ async function calcPayrollOne(env: { DB: D1Database }, teacherId: number, year: 
     // false = 그 달의 실제 길이가 입력된 적이 없어 «전부 20분» 으로 계산했다는 뜻.
     // 화면이 이걸 구분해 보여 줘야 30분 수업을 20분 값으로 지급하는 사고를 눈치챌 수 있다.
     length_recorded: lengthRecorded,
+    // 'manual'(사람 입력) · 'ingest'(카페24가 보낸 분) · 'assumed_20min'(전부 20분으로 가정)
+    length_source: lengthSource,
     monthly_salary_php: monthlySalary,
     monthly_salary_krw: Math.round(monthlySalary * PAYROLL_PHP_TO_KRW),
     php_to_krw: PAYROLL_PHP_TO_KRW,
@@ -4111,12 +4174,15 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const _allActor = await getAdminActor(request, env as any);
       const _allOwn = _allActor.isTeacher ? _allActor.name : '';
       const rs = await env.DB.prepare(`SELECT id FROM teachers WHERE active = 1 ORDER BY name ASC`).all();
+      const longIds = await longClassTeacherIds(env);   // 🪧 길이를 채워야 하는 강사 명단(C안)
       const items: any[] = [];
       let totalPhp = 0;
       for (const t of (rs.results || []) as any[]) {
         const r = await calcPayrollOne(env, t.id, year, month);
         if (!r.ok) continue;
         if (_allOwn && !sameTeacherName(_allOwn, r.teacher_name)) continue;  // 강사 본인 것만
+        // 참고 표시 — «긴 수업이 있는데 길이가 안 들어온» 줄을 화면이 붉게 띄운다.
+        r.has_long_class = longIds.has(Number(t.id));
         items.push(r); totalPhp += r.monthly_salary_php || 0;
       }
       const totalKrw = Math.round(totalPhp * PAYROLL_PHP_TO_KRW);

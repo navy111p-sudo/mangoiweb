@@ -1646,13 +1646,31 @@ function _gradeText(g) { return adminLang === 'en' ? (_GRADE_EN[g] || g || 'Unra
    서버의 length_recorded 가 false 면 그 달은 «길이가 입력된 적이 없어 전부 20분으로 계산» 한 것이다.
    그냥 숫자만 찍으면 30분 수업을 20분 값으로 지급하고 있어도 표에서 알 길이 없으므로,
    추정치는 «~» 를 붙이고 흐리게 찍어 실제 입력값과 눈으로 구분되게 한다. */
+/* 🕐 총 수업시간 칸. «어디서 온 숫자인가» 를 색으로 구분한다 (length_source).
+     manual  — 사람이 넣은 값        → 검은 글씨 그대로
+     ingest  — 카페24가 보낸 분      → 검은 글씨 + 「자동」 표시
+     assumed — 전부 20분으로 가정    → 회색 «~»  … 인데, 그 강사에게 «긴 수업» 이 있으면
+               그건 가정이 틀렸다는 뜻이므로 **붉은 경고**로 바꾼다(사장님 요청 C안).
+               빠뜨리면 강사가 30분을 가르치고 20분 값을 받는다. */
 function _payrollMinutesCell(p) {
   const mins = (p.total_minutes != null)
     ? p.total_minutes
     : Math.round((p.total_10min_units || 0) * 10);
   if (!mins) return '—';
-  if (p.length_recorded) return fmtNum(mins);
   const _L = adminLang === 'en';
+  if (p.length_recorded) {
+    if (p.length_source === 'ingest') {
+      const t = _L ? 'From the Cafe24 monthly sync' : '카페24가 보낸 값 (자동)';
+      return `${fmtNum(mins)} <span style="font-size:11px;color:#0f766e;" title="${t}">자동</span>`;
+    }
+    return fmtNum(mins);
+  }
+  if (p.has_long_class) {
+    const t = _L
+      ? 'This teacher has classes longer than 20 min — enter the real total or they get underpaid'
+      : '이 강사에게 20분 초과 수업이 있습니다 — 실제 합계를 넣지 않으면 적게 지급됩니다';
+    return `<span style="color:#b91c1c;font-weight:700;" title="${t}">⚠️ 입력 필요</span>`;
+  }
   const tip = _L ? 'No length recorded — counted as 20 min each' : '길이 미입력 — 전부 20분으로 계산';
   return `<span style="color:#9ca3af;" title="${tip}">~${fmtNum(mins)}</span>`;
 }
