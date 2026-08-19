@@ -94,6 +94,18 @@ if (nsMetric) {
     /present\s*===\s*true/.test(nsMetric[0]) && !/present\s*!==\s*false/.test(nsMetric[0]));
 }
 
+/* ⑧ 급여. 상태가 teacher_no_show 면 그 수업은 **수업료가 0원**이 된다(amount 는
+   finish·student_absent·postponed 에만 붙는다). 오판을 그대로 두면 «들어와서 수업한
+   강사에게 0원» 이 되므로, 여기서도 같은 함수로 대조해야 한다. */
+console.log('\n[ ⑧ 급여 계산도 같은 함수로 대조한다 ]');
+check('노쇼 조회가 teacher_name 을 함께 읽는다 (이름 대조에 필요)',
+  /SELECT room_id, schedule_id, missing_role, teacher_name, created_at FROM class_no_show/.test(admin));
+check('급여 쪽도 teacherPresenceByRoom 을 부른다', /nsPresence\s*=\s*await teacherPresenceByRoom/.test(admin));
+check("오판이면 teacher_no_show 로 보지 않는다",
+  /missing_role === 'teacher' && !nsIsFalseAlarm\(ns\)\) st = 'teacher_no_show'/.test(admin));
+check('«모름»은 되돌리지 않는다 (진짜 노쇼에 수업료가 나가지 않게)',
+  /present === true/.test(admin.slice(admin.indexOf('nsIsFalseAlarm'), admin.indexOf('nsIsFalseAlarm') + 400)));
+
 console.log('\n[ ⑥ 화면이 오판을 오판으로 그린다 ]');
 check('오판 배지를 그린다', /오판/.test(q1));
 check('강사 접속 시간을 함께 보여 준다', /teacher_seen_min/.test(q1));

@@ -1995,12 +1995,30 @@ export async function handleAdminApi(
         : Date.parse(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+09:00`);
       const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
-      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      // teacher_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치)에 필요하다.
+      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const nsByRoom: any = {}; const nsBySched: any = {};
       for (const n of (noShows.results || [])) {
         if (n.room_id) nsByRoom[n.room_id] = n;
         if (n.schedule_id != null) nsBySched[`${n.schedule_id}|${kstDay(n.created_at)}`] = n;
       }
+      /* 🔎 (2026-08-19) 「강사 미입장」이 **정말** 미입장이었나를 출석 기록과 대조한다.
+         [왜 급여에서까지] 아래 상태 판정이 teacher_no_show 면 그 수업은 **수업료가 0원**이 된다
+         (amount 는 finish·student_absent·postponed 에만 붙는다). 그런데 이 행은 학생 브라우저가
+         «내 화면에 안 보였다» 로 만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면
+         강사가 멀쩡히 들어와 있어도 쌓인다(CLAUDE.md 2장) — 실측 13건 중 11건이 오판이었다.
+         그대로 두면 «들어와서 수업한 강사에게 0원을 주는» 계산이 된다.
+         ⚠️ 판정 정본은 노쇼 리포트·강사 지표와 **같은 함수**다(src/no-show-truth.ts).
+            세 곳이 다른 답을 내면 「화면엔 오판이라는데 급여는 0원」이 된다.
+         ⚠️ «모름»(판정 불가)은 살려 주지 않는다 — 모르는 것을 «있었다» 로 단정하면
+            진짜 노쇼에 수업료가 나간다. 확실히 있었을 때만 되돌린다. */
+      let nsPresence = new Map<string, any>();
+      try { nsPresence = await teacherPresenceByRoom(env.DB, (noShows.results || []) as any[]); }
+      catch (e: any) { console.warn('[payroll] 노쇼 대조 생략:', e?.message); }
+      const nsIsFalseAlarm = (n: any): boolean => {
+        const p = n && n.room_id ? nsPresence.get(String(n.room_id)) : null;
+        return !!(p && p.present === true);
+      };
 
       const fbs: any = await env.DB.prepare(`SELECT room_id, teacher_name, created_at FROM teacher_class_feedback WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const fbByRoom: any = {}; const fbByTeacherDay: any = {};
@@ -2119,7 +2137,9 @@ export async function handleAdminApi(
         if (schedStatus === 'postponed') st = 'postponed';
         else if (upcoming) st = 'upcoming';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
-        else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
+        /* 🔎 오판이면 «미입장» 으로 보지 않는다 — 강사가 실제로 들어와 수업한 건이다.
+           그러면 아래 흐름을 그대로 타고 'finish'(정상 수업, 전액)로 남는다. 위 nsIsFalseAlarm 주석 참고. */
+        else if (ns && ns.missing_role === 'teacher' && !nsIsFalseAlarm(ns)) st = 'teacher_no_show';
 
         const base = Math.round((mins / 10) * fee);
         /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
