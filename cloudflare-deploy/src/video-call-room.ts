@@ -160,6 +160,48 @@ export class VideoCallRoom {
       );
     }
 
+    /* 📢 관리자 귓속말 전달  (2026-08-19 Melca 8/19 제보 2-③)
+       ═══════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] /api/admin/whisper/send 는 D1 에 **기록만** 하고 있었다.
+          그 자리에 `// GM-4 미구현: 실제 WebSocket push 는 추후` 라는 주석이 그대로 남아
+          있었고 응답은 영원히 delivery_status:'queued' 였다. 화면에는 보내기 버튼이 있어
+          «보냈다» 로 보이지만 **강사 화면에는 한 번도 도착하지 않았다.**
+
+       [여기서 하는 일] 방에 붙어 있는 소켓 중 **staff(교사·관리자)에게만** 한 줄 보낸다.
+       ⛔ 학생 소켓에는 절대 보내지 않는다 — 학생이 관리자 지시를 보면 안 된다.
+          판정은 소켓 attachment 의 role 로 한다(클라이언트가 보내는 값이 아니다).
+       ⚠️ 방을 깨우거나 상태를 바꾸지 않는다. 지금 붙어 있는 사람에게 전달만 하고,
+          아무도 없으면 delivered:0 으로 정직하게 답한다(«보낸 척» 하지 않는다). */
+    if (url.pathname === '/whisper' && request.method === 'POST') {
+      let body: any = {};
+      try { body = await request.json(); } catch { /* 빈 본문 — 아래에서 걸러진다 */ }
+      const text = String(body?.payload || '').trim();
+      if (!text) {
+        return new Response(JSON.stringify({ ok: false, error: 'payload_required' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+      const msg = JSON.stringify({
+        type: 'admin-whisper',
+        data: {
+          message: text.slice(0, 500),
+          message_type: String(body?.message_type || 'text'),
+          urgency: String(body?.urgency || 'normal'),
+          from: String(body?.from || '관리자').slice(0, 40),
+          at: Date.now(),
+        },
+      });
+      let delivered = 0, staff = 0;
+      for (const ws of this.state.getWebSockets()) {
+        const att = this.attOf(ws);
+        if (!att || !this.isStaffAtt(att)) continue;   // 🔒 staff 아니면 건너뛴다(학생 차단)
+        staff++;
+        if (ws.readyState !== WebSocket.OPEN) continue;
+        try { ws.send(msg); delivered++; } catch { /* 한 소켓 실패가 나머지를 막지 않는다 */ }
+      }
+      return new Response(JSON.stringify({ ok: true, roomId: this.roomId, delivered, staff }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
     return new Response('Invalid request', { status: 400 });
   }
 
@@ -181,7 +223,19 @@ export class VideoCallRoom {
           // 뒤따르는 소켓 close 가 같은 사용자를 또 'user-left' 로 방송하지 않도록 선반영
           try { ws.serializeAttachment({ ...att, joined: false } as VcAttachment); } catch {}
           break;
-        case 'chat-message':    this.handleChatMessage(userId, msg.data as any); break;
+        /* 💬 참관자가 보낸 채팅은 **버려지고 있었다** (2026-08-19 제보 2-③)
+           참관자는 «유령» 이라 joined:false 로 붙는데(handleJoinObserve),
+           handleChatMessage 첫 줄이 `usernameOf()` 로 «입장한 사람» 만 통과시킨다.
+           그래서 참관자가 무엇을 써도 에러도 응답도 없이 사라졌다.
+           → 버리지 말고 staff 전용 귓속말로 돌린다. 학생 화면에는 아무 변화가 없고
+             참관자는 계속 참가자 목록에 안 나온다(유령 설계 그대로). */
+        case 'chat-message':
+          if ((att.role || '').toLowerCase() === 'observer') {
+            this.handleObserverWhisper(userId, att, msg.data as any);
+            break;
+          }
+          this.handleChatMessage(userId, msg.data as any);
+          break;
         case 'whiteboard-draw': this.handleWhiteboardDraw(userId, msg.data as any); break;
         case 'whiteboard-clear':this.handleWhiteboardClear(userId, att); break;
         case 'pdf-share':       await this.handlePdfShare(userId, att, msg.data as any); break;
@@ -551,6 +605,34 @@ export class VideoCallRoom {
         }
       }
     }
+  }
+
+  /* 👁 참관자 → 강사 전용 귓속말  (2026-08-19 제보 2-③)
+     ⛔ 학생에게는 한 글자도 가지 않는다 — staff 소켓만 고른다.
+     ⚠️ 참관자 본인에게도 에코를 돌려준다. 안 그러면 «보냈는지 안 보냈는지» 를 알 수 없어
+        같은 말을 여러 번 쓰게 된다(원래 제보가 「보내도 안 보인다」였다).
+     ⚠️ 방에 강사가 아직 없으면 delivered:0 을 그대로 알려 준다 — «보낸 척» 하지 않는다. */
+  private handleObserverWhisper(userId: string, att: VcAttachment, data: any): void {
+    const text = String((data && data.message) || '').trim();
+    if (!text) return;
+    const payload = {
+      message: text.slice(0, 500),
+      message_type: 'text',
+      urgency: 'normal',
+      from: String(att.username || '참관자').slice(0, 40),
+      at: Date.now(),
+      observer: true,
+    };
+    const jsonMsg = JSON.stringify({ type: 'admin-whisper', data: payload });
+    let delivered = 0;
+    for (const ws of this.state.getWebSockets()) {
+      const a = this.attOf(ws);
+      if (!a || !this.isStaffAtt(a)) continue;       // 🔒 학생 차단
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      try { ws.send(jsonMsg); delivered++; } catch { /* 한 소켓 실패는 무시 */ }
+    }
+    // 참관자 본인에게 «몇 명에게 갔는지» 회신
+    this.send(userId, { type: 'admin-whisper-ack', data: { delivered, at: payload.at } });
   }
 
   private handleChatMessage(userId: string, data: any): void {

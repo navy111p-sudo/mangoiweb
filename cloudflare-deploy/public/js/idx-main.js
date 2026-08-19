@@ -4337,6 +4337,15 @@ function vcHandleMessage(msg) {
             } catch(_){ window._vcTabSyncApplying = false; }
             break;
         }
+        // 📢 귓속말 — 그리기는 /js/idx-whisper.js(defer). 아직 안 왔으면 큐에 담아 둔다.
+        case 'admin-whisper':
+        case 'admin-whisper-ack': {
+            try {
+                if (typeof window.vcWhisperOn === 'function') window.vcWhisperOn(msg.type, msg.data);
+                else { (window.__vcWhisperQ = window.__vcWhisperQ || []).push([msg.type, msg.data]); }
+            } catch(_){}
+            break;
+        }
         // 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 예전엔 학생은 예고 없이
         //   선생님 얼굴 타일이 갑자기 컴퓨터 화면으로 바뀌었다. 토스트 + 타일에 «화면 공유 중» 배지.
         case 'screen-share-state': {

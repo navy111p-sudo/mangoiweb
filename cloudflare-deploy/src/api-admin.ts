@@ -9606,11 +9606,48 @@ LIMIT $limit`;
       const whisperId = r.meta?.last_row_id;
       await writeAudit(adminUid, 'whisper_send', { room: roomId, user: teacherUid, meta: { type: messageType, urgency, len: payload.length } });
 
-      // GM-4 미구현: 실제 WebSocket push 는 추후 (SignalingRoom DO 와 통합)
+      /* 📢 실제 전달  (2026-08-19 Melca 8/19 제보 2-③)
+         ═══════════════════════════════════════════════════════════════════════
+         [전에는] 여기 `// GM-4 미구현: 실제 WebSocket push 는 추후` 라는 주석과 함께
+            D1 기록만 하고 끝났다. 응답은 늘 delivery_status:'queued' 였고 **강사 화면에는
+            한 번도 도착하지 않았다.** 화면에는 보내기 버튼이 있어 «보냈다» 로 보였다.
+            (제보 원문: "Chat is not visible as observer send message at the classroom")
+         [이제] 그 방의 VideoCallRoom DO 로 밀어 넣는다. DO 가 staff 소켓에만 보낸다.
+         ⚠️ 실패해도 **기록은 남긴다** — 위 INSERT 는 이미 끝났다. 「보내려 했다」는 사실은
+            감사 로그의 값어치가 있고, 전달 여부는 delivery_status 로 정직하게 구분한다.
+         ⚠️ 방이 비어 있으면 delivered:0 이다. 그때는 'queued' 로 답한다 —
+            «보낸 척» 하면 관리자가 강사가 받은 줄 알고 기다린다. */
+      let delivered = 0, deliverErr: string | null = null;
+      try {
+        const doId = (env as any).VIDEO_CALL_ROOM.idFromName(roomId);
+        const stub = (env as any).VIDEO_CALL_ROOM.get(doId);
+        const resp = await stub.fetch(`https://internal/whisper?roomId=${encodeURIComponent(roomId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload, message_type: messageType, urgency, from: adminUid }),
+        });
+        const d: any = await resp.json().catch(() => null);
+        delivered = Number(d?.delivered || 0);
+      } catch (e: any) {
+        deliverErr = String(e?.message || e);
+        console.warn('[whisper] DO push 실패:', deliverErr);
+      }
+
+      if (delivered > 0) {
+        try {
+          await env.DB.prepare(`UPDATE admin_whispers SET delivered_at = ? WHERE id = ?`)
+            .bind(Date.now(), whisperId).run();
+        } catch { /* 기록 갱신 실패가 «전달됐다» 를 뒤집지는 않는다 */ }
+      }
+
       return json({
         ok: true, whisper_id: whisperId,
-        delivery_status: 'queued',                               // GM-4 에서 'delivered' 로 갱신
-        learning_note: '강사 클라이언트에만 전달, 학생 누설 차단 처리는 GM-4 단계에서 활성화',
+        delivery_status: delivered > 0 ? 'delivered' : 'queued',
+        delivered,
+        ...(deliverErr ? { deliver_error: deliverErr } : {}),
+        note: delivered > 0
+          ? '강사 화면에 전달했습니다.'
+          : '지금 그 방에 강사가 접속해 있지 않아 전달되지 않았습니다(기록은 남았습니다).',
       });
     }
 
