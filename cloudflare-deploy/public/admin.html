@@ -352,6 +352,98 @@
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
     <!-- ═══════════════════════════════════════════════════════════════════
+         🧭 (2026-08-19 사장님) 경로 줄 — [← 뒤로] [🏠 홈] + 지금 어디
+         ═══════════════════════════════════════════════════════════════════
+         [왜] 관리자 화면에는 뒤로도 홈도 없었다. 다른 화면은 js/back-nav.js 가 동그란 ←
+           를 띄우지만 admin.html 만 «홈이라 갈 곳이 없다» 는 이유로 제외돼 있었다. 그런데
+           이 화면은 한 페이지 안에서 카드만 바꿔 보여 주는 구조라, 안에서 열 번을 옮겨 다녀도
+           «직전으로» 가 없고 깊이 들어가면 대시보드로 돌아올 길도 없다. 카드가 85장이라
+           「내가 어디 왔는지」 표시도 필요했다 — 이 화면에 지금까지 하나도 없던 정보다.
+         [자리] 본문 맨 위 · sticky. 사이드바를 접거나(PC) 닫아도(휴대폰) 늘 보인다.
+           ⚠️ #legacy-cards 밖이라 adm-ia6.js 가 «고른 항목의 카드만» 남길 때도 사라지지 않는다.
+         [이름] 「카드 제목」이 아니라 «사이드바에서 누른 항목» 이름을 쓴다. 항목 44개 중
+           23개가 카드를 여러 장 묶어서(data-cards), 카드 제목을 쓰면 대표 첫 장 이름만 나온다.
+         ⚠️ [hidden] 속성을 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
+            [hidden]{display:none} 을 이겨서 계속 보인다(바로 아래 #ph164-recent 와 같은 이유).
+         ⚠️ 이 줄이 카드 제목을 가리지 않게 하는 보정(--adm-jump-offset)은 js/adm-crumb.js 가
+            한다. 2026-08-04 옛 상단바에서 똑같은 신고가 있었고 그때 코드를 되살린 것이다.
+         내용·동작은 js/adm-crumb.js 담당. -->
+    <style id="mi-crumb-css">
+      #mi-crumb {
+        position: sticky; top: 0; z-index: 60;
+        display: flex; align-items: center; gap: 8px; min-width: 0;
+        margin: 0 0 10px; padding: 6px 10px;
+        background: rgba(255,255,255,.97);
+        -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
+        border: 1px solid #e2e8f0; border-radius: 12px;
+        box-shadow: 0 3px 12px -6px rgba(2,6,18,.28);
+      }
+      #mi-crumb.mi-crumb-off { display: none !important; }
+      /* 🔴 (2026-08-19 실측) 처음엔 도크와 같은 남색(#14213b)+옅은 노랑 글자로 만들었는데,
+         js/adm-light-surfaces.js 가 «어두운 배경» 을 찾아 밝게 되돌리면서 배경만
+         rgb(244,246,251) 로 인라인 !important 로 갈아치웠다. 글자는 그대로 #ffd98a 라
+         **흰 바탕에 옅은 노랑 글자(대비 1.3:1)** 가 됐다 — 사실상 안 보인다.
+         ✅ 그래서 처음부터 밝게 만든다. 그 파일이 손댈 것이 없으니 서로 싸우지 않는다.
+         ⛔ 남색으로 되돌리려면 그 파일 SKIP_SEL 에 넣어야 하는데, 「관리자 화면은 밝게」가
+            2026-07-22 사장님 지시라 예외를 늘리지 않는다. */
+      .mi-crumb-btn {
+        display: inline-flex; align-items: center; gap: 5px; flex: none;
+        padding: 6px 11px; border-radius: 999px; cursor: pointer;
+        font-size: 13px; font-weight: 800; line-height: 1;
+        background: #ffffff; color: #14213b; border: 1px solid #f0c46a;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #mi-crumb-home { background: #fff7e6; }
+      .mi-crumb-btn:hover { background: #fff3d6; border-color: #e0a020; }
+      .mi-crumb-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+      .mi-crumb-ico { font-size: 14px; line-height: 1; }
+      #mi-crumb-where {
+        display: flex; align-items: center; gap: 6px; min-width: 0;
+        margin-left: 4px; font-size: 13px; color: #667085; white-space: nowrap; overflow: hidden;
+      }
+      #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
+      #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+      .mi-crumb-sep { opacity: .5; flex: none; }
+      /* 🔴 (2026-08-19 실측) 휴대폰에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것.
+         admin-inline-c.css 의 @media(max-width:900px) 에 `html, body{overflow-x:hidden!important}`
+         이 있는데(「대시보드 가로 잘림 방지」), overflow-x 를 hidden 으로 정하면 overflow-y 가
+         auto 로 «계산돼» **body 자체가 스크롤 상자**가 된다. 그런데 실제로 굴러가는 것은
+         viewport(html) 이라 body 는 scrollTop 이 영영 0 이고, 그 안의 sticky 는 «자기 상자가
+         한 번도 안 굴렀으니 붙을 일도 없다» 로 판단해 그냥 흘러간다.
+         실측: 390·768px = 700 굴린 뒤 줄 top −636(실패) / 1023·1024px = 0(정상).
+         ✅ `clip` 은 «잘라내기만 하고 스크롤 상자를 만들지 않는» 값이라 가로 잘림 방어는
+            그대로 두면서 sticky 를 살린다. body 의 스크롤은 지금도 아무도 쓰지 않는다(실측 scrollTop 0).
+         ⚠️ 선택자를 `html body`(특정성 2)로 쓴다 — `body` 하나면 특정성이 같아서, 문서상
+            «뒤»에 오는 admin-inline-c.css 쪽 !important 가 이긴다(그 파일은 <body> 안에서 링크된다).
+         ⚠️ clip 을 모르는 옛 사파리(iOS 15 이하)는 이 줄을 통째로 버린다 → 지금과 똑같이 hidden.
+            그런 기기에서는 줄이 따라오지 않을 뿐, 잘림 방어는 그대로다. */
+      @media (max-width: 900px) {
+        html body { overflow-x: clip !important; }
+      }
+      @media (max-width: 1023px) {
+        /* ⚠️ 왼쪽 위 «줄 3개»(#mgv2-burger — fixed, 8px + 46px)가 이 줄을 덮는다. 그만큼 비워 둔다. */
+        #mi-crumb { padding-left: 62px; }
+        .mi-crumb-btn { font-size: 12px; padding: 6px 9px; }
+        #mi-crumb-where { font-size: 12px; }
+      }
+    </style>
+    <div id="mi-crumb" class="mi-crumb-off" role="navigation" aria-label="현재 위치">
+      <button type="button" id="mi-crumb-back" class="mi-crumb-btn"
+              title="직전에 보던 메뉴로" data-ko-title="직전에 보던 메뉴로" data-en-title="Previous menu">
+        <span class="mi-crumb-ico" aria-hidden="true">←</span><span data-ko="뒤로" data-en="Back">뒤로</span>
+      </button>
+      <button type="button" id="mi-crumb-home" class="mi-crumb-btn"
+              title="대시보드 첫 화면으로" data-ko-title="대시보드 첫 화면으로" data-en-title="Dashboard home">
+        <span class="mi-crumb-ico" aria-hidden="true">🏠</span><span data-ko="홈" data-en="Home">홈</span>
+      </button>
+      <div id="mi-crumb-where">
+        <span id="mi-crumb-group" data-ko="" data-en=""></span>
+        <span class="mi-crumb-sep" aria-hidden="true">›</span>
+        <b id="mi-crumb-item" data-ko="" data-en=""></b>
+      </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
          ⚡ (2026-08-16 사장님) 「자주 쓰는 기능」을 첫 화면 **맨 위**로
          ═══════════════════════════════════════════════════════════════════
          [옮긴 이유] 휴대폰으로 관리자를 여는 상황은 대개 «메뉴를 둘러보려고» 가 아니라
@@ -9257,6 +9349,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=11" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
+<script src="/js/adm-crumb.js?v=1" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->
 <script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
@@ -12331,7 +12424,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=42" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=43" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
