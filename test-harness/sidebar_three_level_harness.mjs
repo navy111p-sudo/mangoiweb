@@ -177,7 +177,7 @@ check('「수강 운영」 이름을 바꿨으니 이사표에 한 줄 적혀 �
   /'teacher:수강 운영\(배율·정원\)':\s*'teacher:수강 운영'/.test(ia6));
 
 console.log('\n[ ⑨ 캐시 번호 ]');
-for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 40], ['adm-s11', 5], ['adm-s15', 4]]) {
+for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
