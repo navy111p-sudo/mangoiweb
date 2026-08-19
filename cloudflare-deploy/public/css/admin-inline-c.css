@@ -8433,10 +8433,18 @@ button.chip:hover,
     color: #c2410c !important; border-color: rgba(234,88,12,0.45) !important;
   }
   /* 손자 메뉴 — mi-menu-icons 가 스코프 없이 박아둔 다크값(rgba(15,23,42,.55)/#cbd5e1)을 덮는다 */
+  /* 🎨 (2026-08-19 사장님 선택 «B 옅은 크림») 손자 상자 색.
+     [전] #f6f9fd — 푸른빛 흰색. 사이드바 본체는 따뜻한 크림·복숭아색이라 계열이 서로 달라,
+          목록이 열릴 때마다 «다른 화면을 오려 붙인 것»처럼 도드라졌다.
+     [후] #fffaf3 — 사이드바와 같은 따뜻한 계열. 왼쪽 선도 회색에서 사이드바 주황으로 맞춘다.
+     ⚠️ 반투명(backdrop-filter: blur)은 고르지 않았다 — 뒤 색이 비쳐 «계열이 같아지는» 것이
+        반투명의 실제 효과인데, 사이드바가 단색이라 같은 결과를 그냥 칠해서 얻을 수 있다.
+        흐림은 매 프레임 그래픽 가속을 쓰므로 필리핀 가정 PC·구형 휴대폰에서 여닫이가 끊긴다.
+        굳이 반투명이 필요하면 흐림 없는 rgba(255,255,255,.72) 가 다음 후보다(사장님께 함께 보여 드린 C안). */
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-grandchildren {
-    background: #f6f9fd !important;
-    border-left: 1px solid rgba(15,23,42,0.12) !important;
-    box-shadow: inset 0 1px 0 rgba(15,23,42,0.05) !important;
+    background: #fffaf3 !important;
+    border-left: 2px solid rgba(234,88,12,0.30) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.85) !important;
   }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc { color: #475467 !important; }
   html[data-admin-theme="ivory"][data-admin-tone="slate"] #ph85-sidebar .ph125-gc:hover { background: rgba(234,88,12,0.12) !important; color: #9a3412 !important; }

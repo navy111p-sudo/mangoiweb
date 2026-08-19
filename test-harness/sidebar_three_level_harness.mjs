@@ -124,11 +124,35 @@ check('읽는 곳 ③ admin.html 의 pointerdown 자동닫기', /__ph125OpenedUn
 check('읽는 곳 ④ adm-ia6.js — 딴 페이지 항목은 첫 누름에 이동하지 않는다',
   /data-ia6-secs'\)\s*&&\s*window\.__ph125OpenedEl === sub/.test(ia6));
 
-console.log('\n[ ⑥ 캐시 번호 ]');
-for (const [file, min] of [['adm-r25', 18], ['adm-ia6', 39], ['adm-s11', 5]]) {
+console.log('\n[ ⑥ 이름 다듬기 — 보이는 글자만 손질한다 ]');
+/* 2026-08-19 사장님 「손자 메뉴 이름들도 다 보기 좋게 정리해줘」.
+   손질은 «보이는 글자» 에만 한다 — data-gc-name(설명 말풍선 사전 키)과 검색 색인은 원본이어야
+   사전·검색이 안 어긋난다(CLAUDE.md 「ko 이름은 화면에 적힌 그대로」). 한쪽만 바꾸면 말풍선이 통째로 사라진다. */
+check('보이는 글자를 다듬는다 (pretty)', /function pretty\s*\(/.test(r25));
+check('한 목록에서 이름이 겹치면 그 줄만 원본으로 되돌린다 (prettyList)',
+  /function prettyList\s*\(/.test(r25) && /count\[x\] > 1 \? raw\[i\]/.test(r25));
+check('data-gc-name 은 «원본» 그대로다 — 사전 조회 키',
+  /data-gc-name="' \+ esc\(it\.ko\)/.test(r25));
+check('보이는 글자는 다듬은 것을 쓴다', /class="ph125-text">' \+ esc\(shown\[i\]\)/.test(r25));
+check('이름 자르기는 pretty 안에서만 한다 — labelOf·cardTitle 은 원본을 그대로 돌려준다',
+  !/slice\(0, 25\) \+ '…'/.test(r25) && /t\.slice\(0, 19\)/.test(r25));
+
+console.log('\n[ ⑦ 손자 상자 색 — 사장님이 고른 «B 옅은 크림» ]');
+/* 2026-08-19 사장님 선택. 되돌리면 사이드바(따뜻한 크림)와 계열이 어긋나 다시 겉돈다.
+   ⚠️ 이 규칙은 특정성이 높은 자리(html[data-admin-theme][data-admin-tone])에 있어야 이긴다. */
+const css = rd('../cloudflare-deploy/public/css/admin-inline-c.css');
+check('아이보리+슬레이트 테마의 손자 상자가 따뜻한 크림(#fffaf3)이다',
+  /\[data-admin-tone="slate"\][^{]*\.ph125-grandchildren\s*\{[^}]*background:\s*#fffaf3/.test(css));
+check('푸른빛 흰색(#f6f9fd)으로 되돌아가지 않았다',
+  !/\[data-admin-tone="slate"\][^{]*\.ph125-grandchildren\s*\{[^}]*background:\s*#f6f9fd/.test(css));
+
+console.log('\n[ ⑧ 캐시 번호 ]');
+for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 39], ['adm-s11', 5]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
+check('admin.html 의 admin-inline-c.css 버전이 32 이상 — 색을 바꿨으면 캐시도 갈아야 한다',
+  (() => { const m = html.match(/admin-inline-c\.css\?v=(\d+)/); return !!m && Number(m[1]) >= 32; })());
 
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
