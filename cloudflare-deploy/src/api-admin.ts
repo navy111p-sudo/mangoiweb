@@ -11598,6 +11598,144 @@ LIMIT $limit`;
       });
     }
 
+    /* ── 📊 GET /api/admin/attendance/school-stats — 학원별 학생 수업현황 (SLP 출석 통계) ──
+     *   (2026-08-19) admin.html 이 카드를 만들 때 데모 16행(데모지사1·데모학당A~F·DEMOID_01…)을
+     *   그대로 하드코딩해 둔 채 실서비스에 배포돼 있었다. 실제 지사·학당·학생으로 바꾼다.
+     *
+     *   🔑 출처는 attendance 다 — class_schedules 는 안 쓴다. 바로 위 long-absent 주석에서
+     *      이미 확인한 이유와 같다(673행뿐이고 대부분 데모 시드라 실수업과 안 이어진다).
+     *      카페24 동기화는 room_id=`c24-{class_id}` 로 «수업 1건 = 행 1개» 를 넣고
+     *      class_state 2 → 'present'(출석), 그 외 → 'scheduled'(미실시=결석)로 채운다.
+     *   🧹 ghost 학원(무료수업(지인)·망고아이 기본대리점·교육용 대리점·테스트대리점)은
+     *      명부(students_erp) 단계에서 뺀다 — 화면에 데모/테스트 지사가 다시 보이지 않게 하는 것이
+     *      이번 요청의 핵심이다.
+     *   🔒 지사·대리점 로그인은 scopeStudentCond 로 자기 범위만 본다(다른 화면과 동일 규칙).
+     *   ⏳ 아직 오지 않은 날은 «결석» 이 아니라 «미실시» 일 뿐이므로 오늘(KST)까지만 센다.
+     *
+     *   ?meta=1 이면 무거운 출결 집계 없이, 드롭다운(지사·학당)용 실제 (지사,학당) 조합만 돌려준다
+     *   — adm-core.js 의 smFillAgencyFilter() 와 같은 원칙: 서버가 스코프로 이미 자른 실데이터에서
+     *   목록을 만들어야 지사 계정에 다른 지사 학원이 섞여 나오지 않는다.
+     */
+    if (method === 'GET' && path === '/api/admin/attendance/school-stats') {
+      const _saToday = today();
+      const _saNow = new Date();
+      const _saYearIn = parseInt(url.searchParams.get('year') || '', 10);
+      const _saYear = (_saYearIn >= 2020 && _saYearIn <= 2100) ? _saYearIn : _saNow.getUTCFullYear();
+      const _saMonthIn = parseInt(url.searchParams.get('month') || '', 10);
+      const _saMonth = (_saMonthIn >= 1 && _saMonthIn <= 12) ? _saMonthIn : 0;
+      const _pad2 = (n: number) => String(n).padStart(2, '0');
+      const _saFrom = _saMonth ? `${_saYear}-${_pad2(_saMonth)}-01` : `${_saYear}-01-01`;
+      const _saToExcl = _saMonth
+        ? new Date(Date.UTC(_saYear, _saMonth, 1)).toISOString().slice(0, 10)
+        : `${_saYear + 1}-01-01`;
+      const _saToCap = _saToExcl < _saToday ? _saToExcl : _saToday; // 미래분은 안 센다
+
+      const _saScope = await getScope(env as any, request);
+      const _saCond = scopeStudentCond(_saScope, 's');
+      const GHOST_SHOPS = ['무료수업(지인)', '망고아이 기본대리점', '교육용 대리점', '테스트대리점'];
+
+      const _saMetaWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `s.franchise IS NOT NULL AND s.franchise <> ''`,
+        `s.shop_name IS NOT NULL AND s.shop_name <> ''`,
+      ];
+      const _saMetaBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saMetaWhere.push(_saCond.cond); _saMetaBinds.push(..._saCond.binds); }
+
+      if (url.searchParams.get('meta') === '1') {
+        const rs = await env.DB.prepare(
+          `SELECT DISTINCT s.franchise AS franchise, s.shop_name AS shop_name
+             FROM students_erp s WHERE ${_saMetaWhere.join(' AND ')}
+            ORDER BY s.franchise, s.shop_name LIMIT 4000`
+        ).bind(..._saMetaBinds).all<any>().catch(() => ({ results: [] }));
+        return json({ ok: true, pairs: rs.results || [], scope: { type: _saScope.type, label: _saScope.label } });
+      }
+
+      const _saFranchise = (url.searchParams.get('franchise') || '').trim();
+      const _saShop = (url.searchParams.get('shop_name') || url.searchParams.get('academy') || '').trim();
+      const _saQ = (url.searchParams.get('q') || '').trim();
+      const _saLike = '%' + _saQ.replace(/[%_]/g, '') + '%';
+      const _saResult = (url.searchParams.get('result') || '').trim();
+      const _saLimit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const _saOffset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+
+      const _saWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `(COALESCE(s.status,'정상') IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')`,
+      ];
+      const _saBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saWhere.push(_saCond.cond); _saBinds.push(..._saCond.binds); }
+      if (_saFranchise) { _saWhere.push('s.franchise = ?'); _saBinds.push(_saFranchise); }
+      if (_saShop) { _saWhere.push('s.shop_name = ?'); _saBinds.push(_saShop); }
+      if (_saQ) {
+        _saWhere.push(`(COALESCE(s.korean_name, s.student_name, s.username, '') LIKE ? OR s.english_name LIKE ? OR s.user_id LIKE ? OR s.login_id LIKE ?)`);
+        _saBinds.push(_saLike, _saLike, _saLike, _saLike);
+      }
+
+      const _saResultCond =
+        _saResult === 'excellent' ? `AND rate >= 90` :
+        _saResult === 'warning'   ? `AND rate >= 70 AND rate < 90` :
+        _saResult === 'fail'      ? `AND rate IS NOT NULL AND rate < 70` : '';
+
+      const _saCte =
+        `WITH base AS (
+           SELECT s.user_id AS user_id,
+                  COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
+                  s.english_name AS english_name, s.shop_name AS shop_name, s.franchise AS franchise
+             FROM students_erp s WHERE ${_saWhere.join(' AND ')}
+         ),
+         att AS (
+           SELECT a.user_id AS user_id,
+                  SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS attended_n,
+                  COUNT(*) AS total_n
+             FROM attendance a
+            WHERE a.room_id LIKE 'c24-%'
+              AND COALESCE(a.role,'student') = 'student'
+              AND a.date >= ? AND a.date < ?
+              AND a.user_id IN (SELECT user_id FROM base)
+            GROUP BY a.user_id
+         ),
+         merged AS (
+           SELECT b.user_id, b.name, b.english_name, b.shop_name, b.franchise,
+                  COALESCE(att.attended_n, 0) AS attended_n,
+                  COALESCE(att.total_n, 0)    AS total_n,
+                  CASE WHEN COALESCE(att.total_n, 0) = 0 THEN NULL
+                       ELSE ROUND(100.0 * COALESCE(att.attended_n, 0) / att.total_n) END AS rate
+             FROM base b LEFT JOIN att ON att.user_id = b.user_id
+         ) `;
+      const _saDateBinds = [_saFrom, _saToCap];
+
+      const _saKpiRow = await env.DB.prepare(
+        `${_saCte}
+         SELECT COUNT(*) AS n,
+                SUM(total_n) AS total_classes, SUM(attended_n) AS total_attended,
+                COUNT(DISTINCT shop_name) AS schools,
+                SUM(CASE WHEN rate IS NOT NULL AND rate <= 70 THEN 1 ELSE 0 END) AS risk
+           FROM merged WHERE 1=1 ${_saResultCond}`
+      ).bind(..._saBinds, ..._saDateBinds).first<any>().catch(() => null);
+
+      const _saRows = await env.DB.prepare(
+        `${_saCte}
+         SELECT * FROM merged WHERE 1=1 ${_saResultCond}
+          ORDER BY franchise, shop_name, name LIMIT ? OFFSET ?`
+      ).bind(..._saBinds, ..._saDateBinds, _saLimit, _saOffset).all<any>().catch(() => ({ results: [] }));
+
+      return json({
+        ok: true,
+        year: _saYear, month: _saMonth || null, from: _saFrom, to_excl: _saToExcl, counted_to: _saToCap,
+        total: Number(_saKpiRow?.n || 0),
+        limit: _saLimit, offset: _saOffset,
+        kpi: {
+          rate: _saKpiRow?.total_classes ? Math.round(100 * Number(_saKpiRow.total_attended || 0) / Number(_saKpiRow.total_classes)) : null,
+          schools: Number(_saKpiRow?.schools || 0),
+          students: Number(_saKpiRow?.n || 0),
+          risk: Number(_saKpiRow?.risk || 0),
+        },
+        items: _saRows.results || [],
+        scope: { type: _saScope.type, label: _saScope.label },
+      });
+    }
+
     // ── GET /api/admin/attendance/today?room_id= — 오늘 출석 명단 (QR 출결 카드) ──
     //   🐛 fix(2026-07-14): admin.html QR 출결 카드가 태초부터 미구현 API 를 호출해
     //   404 였음. 학생용 /api/attendance/checkin 이 남기는 attendance 행을 KST 오늘

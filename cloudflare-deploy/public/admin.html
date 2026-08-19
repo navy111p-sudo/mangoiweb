@@ -11254,18 +11254,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- KPI 4카드 -->
     <div data-gc="📊 출석 요약" data-gc-en="Attendance Summary" class="sa-kpi-row">
-      <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">96.4%</div><div class="sa-kpi-sub">▲ 전월 대비 +1.2%</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">데모지사1 24 · 직영 4</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">1,247명</div><div class="sa-kpi-sub">전월 1,189명</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">23명</div><div class="sa-kpi-sub">상담 필요</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">—</div><div class="sa-kpi-sub" id="sa-kpi-rate-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">—</div><div class="sa-kpi-sub" id="sa-kpi-schools-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">—</div><div class="sa-kpi-sub" id="sa-kpi-students-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">—</div><div class="sa-kpi-sub">상담 필요</div></div>
     </div>
 
     <!-- 필터 -->
     <div data-gc="🔎 조건 선택" data-gc-en="Filters" class="sa-filter-row">
       <select id="sa-year"><option value="2026">2026년</option><option value="2025">2025년</option></select>
-      <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5" selected>5월</option><option value="6">6월</option><option value="7">7월</option><option value="8">8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
-      <select id="sa-branch"><option value="">전체 지사</option><option>데모지사1</option><option>데모지사2</option><option>본사 직영</option></select>
-      <select id="sa-academy"><option value="">전체 학당</option><option>데모학당A</option><option>데모학당B</option><option>데모학당C</option><option>데모학당D</option><option>데모학당E</option><option>데모학당F</option></select>
+      <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5">5월</option><option value="6">6월</option><option value="7">7월</option><option value="8" selected>8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
+      <select id="sa-branch"><option value="">전체 지사</option></select>
+      <select id="sa-academy"><option value="">전체 학당</option></select>
       <input type="text" id="sa-student" placeholder="🔍 학생명·아이디">
       <select id="sa-result"><option value="">전체 결과</option><option value="excellent">Excellent (90% ↑)</option><option value="warning">Warning (70-89%)</option><option value="fail">Fail (70% ↓)</option></select>
     </div>
@@ -11283,8 +11283,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <table class="sa-table">
       <thead><tr>
         <th style="width:50px">No</th>
-        <th>지사명<br><span class="sa-sub">(지사아이디)</span></th>
-        <th>학당명<br><span class="sa-sub">(학당아이디)</span></th>
+        <th>지사명</th>
+        <th>학당명</th>
         <th>학생이름</th>
         <th>영어이름</th>
         <th>학생아이디</th>
@@ -11295,29 +11295,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="min-width:140px">출석률 그래프</th>
       </tr></thead>
       <tbody id="sa-tbody">
-        <tr><td>21</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생01</td><td>Demo01</td><td>DEMOID_01</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>20</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생02</td><td>Demo02</td><td>DEMOID_02</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>19</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생03</td><td>Demo03</td><td>DEMOID_03</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>18</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생04</td><td>Demo04</td><td>DEMOID_04</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>17</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생05</td><td>Demo05</td><td>DEMOID_05</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>16</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생06</td><td>Demo06</td><td>DEMOID_06</td><td>0</td><td>1/1</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>15</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생07</td><td>Demo07</td><td>DEMOID_07</td><td>0</td><td>4/4</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>14</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당C<span class="sa-sub">(demo_c)</span></td><td>데모학생08</td><td>Demo08</td><td>DEMOID_08</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>13</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생09</td><td>Demo09</td><td>DEMOID_09</td><td>1</td><td>0/1</td><td>0%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:1%"></span></span></td></tr>
-        <tr><td>12</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생10</td><td>Demo10</td><td>DEMOID_10</td><td>3</td><td>3/6</td><td>50%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:50%"></span></span></td></tr>
-        <tr><td>11</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생11</td><td>Demo11</td><td>DEMOID_11</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>10</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생12</td><td>Demo12</td><td>DEMOID_12</td><td>0</td><td>5/5</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>9</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생13</td><td>Demo13</td><td>DEMOID_13</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>8</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생14</td><td>Demo14</td><td>DEMOID_14</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>7</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생15</td><td>Demo15</td><td>DEMOID_15</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>6</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당F<span class="sa-sub">(demo_f)</span></td><td>데모학생16</td><td>Demo16</td><td>DEMOID_16</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px">불러오는 중...</td></tr>
       </tbody>
     </table>
     </div>
 
-    <div style="text-align:center;margin-top:14px;color:#94A3B8;font-size:12px">
-      📌 데모 데이터 16건 표시 — 실서비스에서는 페이지네이션 + 전체 1,247명 검색 가능
-    </div>
+    <div style="text-align:center;margin-top:14px;color:#94A3B8;font-size:12px" id="sa-list-note"></div>
+    <div style="text-align:center;margin-top:8px" id="sa-loadmore-wrap"></div>
   </div>
 </details>
 
@@ -11350,17 +11334,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   else ph112ReorderTeacherSubs();
   setInterval(ph112ReorderTeacherSubs, 2000);
 
-  // === 학원별 수업현황 데모 ===
-  window.saSearch = function(){
-    var y = document.getElementById('sa-year').value;
-    var m = document.getElementById('sa-month').value;
-    var b = document.getElementById('sa-branch').value;
-    var a = document.getElementById('sa-academy').value;
-    var s = document.getElementById('sa-student').value;
-    var r = document.getElementById('sa-result').value;
-    console.log('[ph112] 학원별 수업현황 검색', {y,m,b,a,s,r});
-    alert('검색 (데모): ' + y + '/' + (m||'전체') + ' · ' + (a||b||'전체학원') + ' · ' + (s||'전체학생') + ' · ' + (r||'전체결과'));
-  };
+  // === 학원별 수업현황 — 실데이터 배선은 adm-r23.js(saSearch/saReset)가 담당 ===
   window.saExcelDown = function(){
     console.log('[ph112] EXCEL DOWN');
     // 표 → Excel 생성 (ph109 의 일반 함수 재활용)
@@ -11389,8 +11363,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   };
   window.saAlertParents = function(){
-    if (!confirm('출석률 70% 이하 위험군 23명의 학부모에게 카카오 알림을 발송할까요?\n\n메시지: "자녀의 출석률이 낮습니다. 상담 부탁드립니다."')) return;
-    alert('📲 23명 학부모에게 카카오 알림 발송 완료 (데모)');
+    var risk = (window.__saLastKpi && window.__saLastKpi.risk) || 0;
+    if (!risk) { alert('⚠ 현재 조건에서 위험군(출석률 70% 이하) 학생이 없습니다. 먼저 검색해 보세요.'); return; }
+    if (!confirm('출석률 70% 이하 위험군 ' + risk + '명의 학부모에게 카카오 알림을 발송할까요?\n\n메시지: "자녀의 출석률이 낮습니다. 상담 부탁드립니다."')) return;
+    // 🚧 발송 연동 미구현 — 실제 알림톡 발송은 /api/admin/kakao/* 연동이 별도로 필요하다.
+    alert('🚧 카카오 알림 발송 기능은 아직 서버와 연결돼 있지 않습니다. 실제 발송을 원하시면 담당자에게 요청해 주세요.');
   };
 
   console.log('[ph112] 강사정보 재배치 + 학원별 수업현황 카드 초기화 완료');
@@ -11549,7 +11526,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 120 admin (2026-05-25) — 홈 버튼 관리자 상단 이동 + 학원별 수업현황 검색 실제 작동 -->
-<script src="/js/adm-r23.js?v=1" defer></script><!-- 분할추출:adm-r23 -->
+<script src="/js/adm-r23.js?v=2" defer></script><!-- 분할추출:adm-r23 -->
 
 
 <!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
