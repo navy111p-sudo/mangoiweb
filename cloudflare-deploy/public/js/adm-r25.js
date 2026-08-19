@@ -213,9 +213,11 @@
     var sp = sum.querySelector('[' + attr + ']');
     var t  = sp ? sp.getAttribute(attr) : '';
     if (!t) t = sum.textContent || '';
-    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
-    if (t.length > 26) t = t.slice(0, 25) + '…';
-    return t;
+    /* ⚠️ 여기서 길이를 자르지 않는다. 자른 이름이 그대로 `data-gc-name`(설명 사전 조회 키)이 되면
+       사전에 그런 키가 없어 말풍선이 통째로 사라진다(사전에 «…» 로 끝나는 키는 0개다).
+       또 잘린 끝이 「… (관리용 · 장부 …」 처럼 괄호 중간이면 아래 pretty 가 설명 괄호를 못 알아본다.
+       **자르기는 보이는 글자에서만** 한다 — pretty() 참고. */
+    return String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
   }
 
   /* 카드에서 손자 목록을 읽는다. 목적지는 DOM 참조(el)라 id 가 없어도 정확하다. */
@@ -319,9 +321,8 @@
         }
       }
     }
-    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
-    if (t.length > 26) t = t.slice(0, 25) + '…';
-    return t;
+    /* ⚠️ labelOf 와 같은 이유로 여기서도 자르지 않는다(자르기는 pretty 가 «보이는 글자» 에만). */
+    return String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
   }
 
   /* 🔑 (2026-08-18) 사이드바 한 항목이 카드를 «여러 장» 맡는다 — 새 사이드바(adm-ia6.js)가
@@ -384,6 +385,44 @@
     return out;
   }
 
+  /* ── ✂️ (2026-08-19 사장님 「손자 메뉴 이름들도 다 보기 좋게 정리해줘」) ─────────────
+     손자 이름은 카드 제목·칸 제목에서 «그대로» 가져온다(그게 어긋나지 않는 유일한 방법이다).
+     그런데 그 제목들은 «본문에서 읽히려고» 쓴 문장이라 사이드바 한 줄에는 군더더기가 붙는다 —
+       · 뒤에 붙은 설명 괄호  「학생 수업 평가 (수업 직후 별 7개)」
+       · 뒤에 붙은 설명 줄표  「배정 못 한 결제 아이디 — 대리점 연결」
+       · 폼을 여는 「+ 」      「+ 지사 신규 등록」
+     실측(43개 항목·146줄): 괄호 설명 24줄 · 16자 초과 14줄 · 잘려서 «…» 로 끝나던 줄 1개.
+     한 줄이 길면 사이드바 폭에서 잘리고, 잘리면 «무엇인지 모르는 줄» 이 된다.
+
+     ⚠️ **보이는 글자만** 손질한다. `data-gc-name`(설명 말풍선 사전 GC_DESC 의 조회 키)과
+        검색 색인은 «원본 그대로» 둔다 — 그래야 사전·검색이 안 어긋난다
+        (CLAUDE.md 「ko 이름은 화면에 적힌 그대로」 함정. 짧게 줄인 이름을 키로 쓰면 조용히 빗나간다).
+     ⚠️ 괄호를 뗐더니 형제와 이름이 같아지는 경우가 있다(예: 같은 카드의 «(월간)/(주간)»).
+        그때는 **원본을 그대로 쓴다** — 이름이 겹치는 것이 긴 것보다 나쁘다.
+     ⛔ 이름을 여기 표로 적어 두지 말 것. 그게 2026-08-18 에 지운 «지어낸 이름» 사고의 뿌리다. */
+  function pretty(s){
+    var t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    t = t.replace(/^\+\s*/, '');                       // 「+ 지사 신규 등록」 → 「지사 신규 등록」
+    t = t.replace(/\s+[—–]\s+.*$/, '');                // 줄표 뒤 부연 설명
+    t = t.replace(/\s+[(（][^)）]*[)）]\s*$/, '');       // 뒤에 붙은 설명 괄호(앞에 «띄어쓰기» 가 있는 것만)
+    t = t.trim();
+    /* 남은 게 너무 짧으면(「(AI)」 만 떼서 두 글자가 되는 식) 원본이 낫다 */
+    if (t.length < 2) t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    /* 그래도 긴 줄은 여기서만 자른다 — 사이드바 폭(약 20자)을 넘으면 어차피 화면에서 잘린다.
+       화면이 소리 없이 자르면 «어디까지가 이름인지» 모르지만, 「…」 가 있으면 «더 있다» 가 보인다. */
+    if (t.length > 20) t = t.slice(0, 19).replace(/[\s(（·]+$/, '') + '…';
+    return t;
+  }
+
+  /* 한 목록 안에서 «정리한 이름» 이 겹치면 그 줄만 원본으로 되돌린다. */
+  function prettyList(items, useEn){
+    var raw = items.map(function(it){ return (useEn && it.en) ? it.en : it.ko; });
+    var out = raw.map(pretty);
+    var count = {};
+    out.forEach(function(x){ count[x] = (count[x] || 0) + 1; });
+    return out.map(function(x, i){ return count[x] > 1 ? raw[i] : x; });
+  }
+
   var esc = function(s){
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   };
@@ -427,11 +466,12 @@
         box.className = 'ph125-grandchildren';
         box.dataset.parent = cardId || '';
         var en = EN();
+        var shown = prettyList(items, en);          // ✂️ 보이는 글자만 손질(위 pretty 주석 참고)
         box.innerHTML = items.map(function(it, i){
-          /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 한국어. */
+          /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 원본 한국어. */
           return '<div class="ph125-gc" data-gc-name="' + esc(it.ko) + '">' +
                    '<span class="ph125-num">' + (i + 1) + '</span>' +
-                   '<span class="ph125-text">' + esc((en && it.en) ? it.en : it.ko) + '</span>' +
+                   '<span class="ph125-text">' + esc(shown[i]) + '</span>' +
                  '</div>';
         }).join('');
         // 목적지를 DOM 참조로 직접 물려 준다 — 문자열 id 를 안 거치므로
