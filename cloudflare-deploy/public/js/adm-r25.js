@@ -605,18 +605,37 @@
     }); });
   }
 
+  /* 🔁 (2026-08-19 사장님 「손자 메뉴도 다시 누르면 접히게」) 마지막으로 연 손자와 그 칸.
+     손자는 사이드바의 마지막 단계라 «그 밑에» 접을 것이 없다 — 대신 누르면 본문의 «그 칸» 이 열린다.
+     그래서 «다시 누르면 접힌다» 는 그 칸에 적용한다. 그룹·자식과 규칙이 이어진다.
+     ⚠️ «같은 손자를 연속으로» 누른 경우만 접는다. 다른 데를 보다가 돌아와서 누른 것은
+        「보러 온 것」이므로 접으면 안 된다(스크롤이 안 맞아 한 번 더 누르는 일도 흔하다). */
+  var lastGo = null;
+
   function go(cardId, desc){
     closeDrawer();                                   // ① 먼저 닫는다
     /* 🔗 딴 페이지의 구역 — 주소 뒤 #id 로 그 구역까지 바로 간다(브라우저가 스크롤해 준다).
        enroll-ops.html 처럼 탭 하나만 그리는 화면은 그 파일이 해시를 보고 탭을 켠다. */
-    if (desc.href) { location.href = desc.href; return; }
+    if (desc.href) { lastGo = null; location.href = desc.href; return; }
+
+    /* ② 같은 손자를 다시 눌렀고 그 칸이 열려 있으면 → 접는다(이동·스크롤 없이 여기서 끝).
+       ⚠️ 접을 수 있는 것은 <details> 인 칸뿐이다. 표·구역 이름표(data-gc)처럼 접이식이 아닌
+          목적지는 접을 것이 없으므로 예전처럼 «그리로 이동» 만 한다. */
+    var prev = (lastGo && lastGo.desc === desc) ? lastGo.target : null;
+    if (prev && prev.tagName === 'DETAILS' && prev.open) {
+      prev.open = false;
+      lastGo = null;
+      return;
+    }
+
     var hostId = desc.card || cardId;
     if (typeof window.jumpToMenu === 'function') window.jumpToMenu(hostId);
     var card = document.getElementById(hostId);
     if (!card) { alert('카드 미구현: ' + hostId); return; }
     setTimeout(function(){
-      if (desc.fn && typeof window[desc.fn] === 'function'){ window[desc.fn](); return; }
+      if (desc.fn && typeof window[desc.fn] === 'function'){ lastGo = null; window[desc.fn](); return; }
       var t = desc.el || (desc.anchor ? document.getElementById(desc.anchor) : null);
+      lastGo = { desc: desc, target: t || card };     // 다음 클릭에서 «같은 곳인가» 를 본다
       reveal(card, t || card);
     }, 120);                                          // jumpToMenu 의 rAF 재보정(≈32ms) 뒤에 온다
   }
