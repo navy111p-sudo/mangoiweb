@@ -94,12 +94,28 @@ if (nsMetric) {
     /present\s*===\s*true/.test(nsMetric[0]) && !/present\s*!==\s*false/.test(nsMetric[0]));
 }
 
+/* 🔴 (2026-08-19) 필드 이름 대조 — **문자열 검사만으로는 못 잡는 사고**가 실제로 났다.
+   hr-signals 쿼리가 `SELECT teacher_name AS tn` 로 별칭만 두는 바람에, 결과 행에
+   `teacher_name` 이 없어 판정 함수가 이름을 빈 값으로 읽었다 → 전부 «모름» →
+   **오판이 한 건도 제외되지 않았다.** 에러가 안 나서 하니스도 35/35 로 통과했다.
+   그래서 「부르는가」가 아니라 「**무엇을 실어 보내는가**」를 검사한다. */
+console.log('\n[ ⑨ 판정 함수에 넘기는 행이 teacher_name 을 실제로 담고 있다 ]');
+const nsSelects = admin.match(/SELECT[^`]*?FROM class_no_show/g) || [];
+check('class_no_show 조회문을 찾을 수 있다', nsSelects.length >= 2);
+check('teacher_name 을 «별칭만» 두고 지나가는 조회가 없다',
+  nsSelects.every((s) => !/teacher_name\s+AS\s+\w+/i.test(s) || /teacher_name\s*,/i.test(s)));
+check('판정에 쓰는 조회는 student_name 도 싣는다 (학생과의 혼동 배제용)',
+  nsSelects.filter((s) => /teacher_name/i.test(s)).every((s) => /student_name/i.test(s)));
+check('판정 함수의 입력 타입이 teacher_name 을 요구한다 (이름이 계약으로 남아 있다)',
+  /interface NoShowRowLike[\s\S]{0,600}teacher_name\?/.test(truth));
+
 /* ⑧ 급여. 상태가 teacher_no_show 면 그 수업은 **수업료가 0원**이 된다(amount 는
    finish·student_absent·postponed 에만 붙는다). 오판을 그대로 두면 «들어와서 수업한
    강사에게 0원» 이 되므로, 여기서도 같은 함수로 대조해야 한다. */
 console.log('\n[ ⑧ 급여 계산도 같은 함수로 대조한다 ]');
-check('노쇼 조회가 teacher_name 을 함께 읽는다 (이름 대조에 필요)',
-  /SELECT room_id, schedule_id, missing_role, teacher_name, created_at FROM class_no_show/.test(admin));
+/* 컬럼 순서가 아니라 «무엇을 싣는가» 로 검사한다 — 순서를 못 박으면 컬럼 하나 더할 때마다 깨진다 */
+check('급여용 노쇼 조회가 teacher_name·student_name 을 함께 읽는다 (이름 대조에 필요)',
+  nsSelects.some((s) => /schedule_id/.test(s) && /\bteacher_name\b/.test(s) && /\bstudent_name\b/.test(s)));
 check('급여 쪽도 teacherPresenceByRoom 을 부른다', /nsPresence\s*=\s*await teacherPresenceByRoom/.test(admin));
 check("오판이면 teacher_no_show 로 보지 않는다",
   /missing_role === 'teacher' && !nsIsFalseAlarm\(ns\)\) st = 'teacher_no_show'/.test(admin));
@@ -130,6 +146,57 @@ check('오판 판정용 컬럼을 새로 만들지 않는다',
   !(adminCode.match(/ALTER\s+TABLE\s+class_no_show\s+ADD\s+COLUMN\s+\w+/gi) || []).some((s) => VERDICT_COL.test(s)));
 check('대신 조회 응답에서 계산해 붙인다 (읽을 때 판정)',
   /r\.false_alarm\s*=\s*r\.teacher_present\s*===\s*true/.test(admin));
+
+/* 🔴 ⑩ 여기가 이번 사고의 진짜 교훈이다 — 위 ⑨ 같은 문자열 검사도 «다음번» 모양은 못 잡는다.
+   판정 함수를 **컴파일해서 실제로 돌려**, 각 호출부가 실어 보내는 행 모양 그대로 넣어 본다.
+   ⚠️ typescript 는 cloudflare-deploy/node_modules 에 있다(ci-gates.sh 전제: npm ci 가 먼저 돈다).
+      없으면 이 묶음만 건너뛴다 — 하니스 전체가 죽는 것이 더 나쁘다. */
+console.log('\n[ ⑩ 판정 함수를 컴파일해 실제로 돌려 본다 ]');
+let mod = null, tsWhy = '';
+try {
+  const ts = (await import(pathToFileURL(resolve(__dir, '../cloudflare-deploy/node_modules/typescript/lib/typescript.js')).href)).default;
+  const src = truth.replace(/^import\s*\{[^}]*\}\s*from\s*'\.\/d1-chunk';\s*$/m, '');
+  const js = ts.transpileModule(src, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+  // selectInChunks 를 «가짜 DB» 로 대체 — db.__rows 를 그대로 돌려준다.
+  const stub = `const selectInChunks = async (db) => db.__rows;\n`;
+  mod = await import('data:text/javascript;base64,' + Buffer.from(stub + js, 'utf8').toString('base64'));
+} catch (e) { tsWhy = e.message; }
+
+if (!mod) {
+  console.log('  ⏭ typescript 를 못 찾아 건너뜀 (' + tsWhy.slice(0, 80) + ')');
+} else {
+  const ROOM = 'class-849-20260819';
+  const att = [
+    { room_id: ROOM, role: 'teacher', username: '교사 강선생님', joined_at: 1000, out_at: 781000 },
+    { room_id: ROOM, role: 'student', username: 'jeong', joined_at: 2000, out_at: 700000 },
+  ];
+  const db = { __rows: att };
+  const run = (rows) => mod.teacherPresenceByRoom(db, rows).then((m) => m.get(ROOM));
+
+  const ok = await run([{ room_id: ROOM, missing_role: 'teacher', teacher_name: '중국어 강선생님', student_name: '정우영' }]);
+  check('정상 형태 — 오판으로 판정하고 접속 시간을 계산한다',
+    !!ok && ok.present === true && ok.minutes === 13);
+
+  // 🔴 이번에 실제로 난 사고 그대로: teacher_name 대신 tn 만 실어 보낸 경우
+  const aliased = await run([{ room_id: ROOM, missing_role: 'teacher', tn: '중국어 강선생님', student_name: '정우영' }]);
+  check('⛔ 이름을 안 실으면 «오판» 이라고 단정하지 않는다 (모름으로 남는다)',
+    !!aliased && aliased.present === null);
+
+  const gone = await run([{ room_id: ROOM, missing_role: 'teacher', teacher_name: 'MAIMAI', student_name: '정우영' }]);
+  check('진짜 노쇼 — 그 방에 그 강사 흔적이 없으면 false', !!gone && gone.present === false);
+
+  // 낱말 자체가 겹치는 경우: 강사 'Len' / 학생 'Len Kim' 이 같은 방에 있으면 구분 불가
+  const db2 = { __rows: [{ room_id: ROOM, role: 'student', username: 'Len Kim', joined_at: 1000, out_at: 781000 }] };
+  const amb = (await mod.teacherPresenceByRoom(db2,
+    [{ room_id: ROOM, missing_role: 'teacher', teacher_name: 'Len', student_name: 'Len Kim' }])).get(ROOM);
+  check('⛔ 학생과 구분이 안 되는 접속은 «강사 있었음» 으로 세지 않는다 (모름)',
+    !!amb && amb.present === null);
+
+  const noAtt = await mod.teacherPresenceByRoom({ __rows: [] },
+    [{ room_id: ROOM, missing_role: 'teacher', teacher_name: '중국어 강선생님', student_name: '정우영' }]);
+  check('출석 기록이 아예 없으면 모름 (없었다고 단정하지 않는다)',
+    noAtt.get(ROOM) && noAtt.get(ROOM).present === null);
+}
 
 console.log('\n────────────────────────────────');
 console.log(`총 ${pass + fails.length}건 중 ✅ ${pass} 통과 / ❌ ${fails.length} 실패`);

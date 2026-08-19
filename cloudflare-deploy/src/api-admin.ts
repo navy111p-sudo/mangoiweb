@@ -1995,8 +1995,8 @@ export async function handleAdminApi(
         : Date.parse(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+09:00`);
       const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
-      // teacher_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치)에 필요하다.
-      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      // teacher_name·student_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치 + 학생과의 혼동 배제)에 필요하다.
+      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, student_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const nsByRoom: any = {}; const nsBySched: any = {};
       for (const n of (noShows.results || [])) {
         if (n.room_id) nsByRoom[n.room_id] = n;
@@ -3885,8 +3885,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
               SQL 로 흉내 내면 그게 바로 「이름으로 사람 정하기」 함정이라 정확히 못 한다.
            ⚠️ 판정 불가(모름)는 **빼지 않는다** — 모르는 것을 «오판» 으로 단정하면 진짜 노쇼가 감춰진다. */
         (async () => {
+          /* ⚠️ `teacher_name` 을 **별칭 없이도** 실어 보낸다. teacherPresenceByRoom 은 그 이름의
+             필드를 읽으므로, `AS tn` 만 두면 이름이 빈 값이 되어 전부 «모름» 이 되고
+             **오판이 한 건도 제외되지 않는다**(에러는 안 난다 — 조용히 예전과 같아진다).
+             2026-08-19 실제로 밟았고, 아래 GROUP BY 접기가 `tn` 을 쓰기 때문에 둘 다 필요하다. */
           const raw = await q(
-            `SELECT teacher_name AS tn, room_id, missing_role FROM class_no_show
+            `SELECT teacher_name, teacher_name AS tn, room_id, missing_role, student_name FROM class_no_show
               WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL`, since90ms);
           let pres = new Map<string, any>();
           try { pres = await teacherPresenceByRoom(env.DB, raw as any[]); }

@@ -56,7 +56,12 @@ export interface TeacherPresence {
 export interface NoShowRowLike {
   room_id?: string | null;
   missing_role?: string | null;
+  /** ⚠️ **이 이름 그대로** 실어 보낼 것. `AS tn` 같은 별칭만 두면 이름이 빈 값이 되어
+   *   전부 «모름» 이 되고 오판이 하나도 안 걸러진다 — 에러 없이 조용히 무효화된다
+   *   (2026-08-19 강사 90일 지표에서 실제로 밟음). */
   teacher_name?: string | null;
+  /** 있으면 «강사와 학생 이름이 둘 다 걸리는» 애매한 접속을 걸러내는 데 쓴다(없어도 동작). */
+  student_name?: string | null;
 }
 
 /**
@@ -72,12 +77,16 @@ export async function teacherPresenceByRoom(
 ): Promise<Map<string, TeacherPresence>> {
   const out = new Map<string, TeacherPresence>();
   const nameOf = new Map<string, string>();
+  const stuOf = new Map<string, string>();
   for (const r of rows || []) {
     if (String(r?.missing_role || '') !== 'teacher') continue;
     const room = String(r?.room_id || '').trim();
     if (!room) continue;
     // 같은 방에 노쇼 행이 두 개인 경우가 실제로 있다(중복 신고) → 이름은 처음 것만 쓴다.
-    if (!nameOf.has(room)) nameOf.set(room, String(r?.teacher_name || '').trim());
+    if (!nameOf.has(room)) {
+      nameOf.set(room, String(r?.teacher_name || '').trim());
+      stuOf.set(room, String(r?.student_name || '').trim());
+    }
   }
   if (!nameOf.size) return out;
 
@@ -110,8 +119,19 @@ export async function teacherPresenceByRoom(
     const named = list.filter((a) => String(a?.username || '').trim());
     if (!named.length) { out.set(room, { present: null, from: null, to: null, minutes: null }); continue; }
 
-    const mine = named.filter((a) => sameTeacherByWord(a.username, tname));
-    if (!mine.length) { out.set(room, { present: false, from: null, to: null, minutes: null }); continue; }
+    /* ⚠️ 낱말 경계는 «낱말 속 우연»(Anna ⊂ HANNAH)은 막지만 «낱말 자체가 겹치는» 경우는 못 막는다 —
+       강사명이 한 낱말이면(예: 'Len') 같은 방의 다른 사람 'Len Kim' 이 걸린다.
+       그 방향의 오판정은 **진짜 노쇼를 감추고 수업료를 전액 내보내므로** 가장 나쁘다.
+       → 그 방의 «학생 이름» 에도 똑같이 걸리는 접속은 강사로 세지 않는다. 그렇게 걸러 낸 뒤
+         남는 것이 없으면 «없었다» 가 아니라 **«모름»** 이다(모르는 것을 단정하지 않는다). */
+    const sname = stuOf.get(room) || '';
+    const hit = named.filter((a) => sameTeacherByWord(a.username, tname));
+    const mine = sname ? hit.filter((a) => !sameTeacherByWord(a.username, sname)) : hit;
+    if (!mine.length) {
+      const ambiguous = hit.length > 0;   // 걸리긴 했는데 학생과 구분이 안 된다
+      out.set(room, { present: ambiguous ? null : false, from: null, to: null, minutes: null });
+      continue;
+    }
 
     let from = Infinity, to = -Infinity;
     for (const a of mine) {
