@@ -5236,17 +5236,36 @@ button.chip:hover,
   }
 
   /* === 모달 (ph114 와 같은 디자인 재사용) === */
+  /* 🔴 (2026-08-19 사장님 「이거 작동이 안된다」) z-index 를 100000 → 100002 로 올렸다.
+     [무슨 일이 있었나] 이 모달을 여는 계정 버튼(#ph115-user)은 사이드바 바닥 도크
+       (#ph162-dock) 안에 있다. 그런데 휴대폰에서 그 사이드바는 화면을 100% 덮는 드로어이고
+       z-index 가 **100001** 이다(이 파일의 @media(max-width:1023px) 블록).
+       그래서 계정 버튼을 누르면 모달은 «열리는데»(overlay.show, display:flex) 드로어가
+       그 위를 통째로 덮어 **아무것도 안 보였다.** 눌러도 반응이 없는 화면이 된다.
+       실측(2026-08-19, 크로미움): 탭 직후 overlay.show=true 인데
+       elementsFromPoint(모달 중앙) = [드로어 시계, ASIDE#ph85-sidebar, …] 로 모달이 3번째였다.
+     ⚠️ «열렸다» 와 «보인다» 는 다르다 — classList 만 확인하면 이 사고를 못 본다.
+        반드시 elementsFromPoint 로 «맨 위에 무엇이 있나» 를 재라(CLAUDE.md 2장).
+     ⚠️ 드로어(100001)를 낮추는 방향으로 풀지 말 것 — 그 값은 드로어 뒷막(#mga-overlay,
+        100000) 위에 있어야 한다. 모달을 올리는 쪽이 반경이 작다.
+     📜 짧은 화면 대비 — 이 모달은 내용이 690px 가까이 된다. 세로가 짧은 폰에서는
+        align-items:center + overflow 없음이면 위아래가 잘려 맨 아래 «로그아웃» 을 못 누른다.
+        그래서 넘칠 때만 스크롤되게 overflow-y:auto 를 주고, 가운데 정렬은 flex 정렬 대신
+        모달의 margin:auto 로 한다(넘칠 때 위쪽이 잘리는 flex 정렬 함정 회피). */
   #ph115-modal-overlay {
     position: fixed !important; inset: 0 !important;
     background: rgba(0,0,0,0.75) !important;
     backdrop-filter: blur(6px) !important;
-    z-index: 100000 !important;
+    z-index: 100002 !important;
     display: none !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
     padding: 20px !important;
   }
   #ph115-modal-overlay.show { display: flex !important; }
+  #ph115-modal-overlay > #ph115-modal { margin: auto !important; }
   #ph115-modal {
     background: linear-gradient(135deg, #0F172A, #1E293B) !important;
     border: 2px solid rgba(96,165,250,0.6) !important;
@@ -9043,3 +9062,15 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
     background: rgba(150,120,70,0.16) !important;
     color: #78716c !important;
   }
+
+/* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════
+   검색은 style.display 를 쓰지 않는다 — admin.html 의 «강제 visible» 복구 루프가
+   1.5초마다 display:none 을 전부 되살려서, 검색이 «쳤다가 잠시 뒤 풀리는» 상태였다.
+   그 루프는 사이드바가 통째로 사라졌던 사고의 복구책이라 지우면 안 되고,
+   대신 검색이 **클래스로** 숨긴다. 복구 루프는 style 만 보므로 서로 안 부딪힌다.
+   ⚠️ 클래스 이름을 바꾸면 admin.html 의 runSearch(HIDE 상수)도 함께 고칠 것.
+   ⚠️ !important 가 필요하다 — 사이드바 요소들이 다른 규칙에서 display 를 지정받는다. */
+#ph85-sidebar .ph85-group.ph85-shide,
+#ph85-sidebar .ph85-sub.ph85-shide,
+#ph85-sidebar .ph125-grandchildren.ph85-shide,
+#ph85-sidebar .ph125-gc.ph85-shide { display: none !important; }
