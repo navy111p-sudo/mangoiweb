@@ -9043,3 +9043,15 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
     background: rgba(150,120,70,0.16) !important;
     color: #78716c !important;
   }
+
+/* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════
+   검색은 style.display 를 쓰지 않는다 — admin.html 의 «강제 visible» 복구 루프가
+   1.5초마다 display:none 을 전부 되살려서, 검색이 «쳤다가 잠시 뒤 풀리는» 상태였다.
+   그 루프는 사이드바가 통째로 사라졌던 사고의 복구책이라 지우면 안 되고,
+   대신 검색이 **클래스로** 숨긴다. 복구 루프는 style 만 보므로 서로 안 부딪힌다.
+   ⚠️ 클래스 이름을 바꾸면 admin.html 의 runSearch(HIDE 상수)도 함께 고칠 것.
+   ⚠️ !important 가 필요하다 — 사이드바 요소들이 다른 규칙에서 display 를 지정받는다. */
+#ph85-sidebar .ph85-group.ph85-shide,
+#ph85-sidebar .ph85-sub.ph85-shide,
+#ph85-sidebar .ph125-grandchildren.ph85-shide,
+#ph85-sidebar .ph125-gc.ph85-shide { display: none !important; }

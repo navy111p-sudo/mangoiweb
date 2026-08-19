@@ -591,7 +591,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=32"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=33"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -9946,22 +9946,71 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     });
 
     // 검색
+    /* ═══ 🔍 메뉴 검색 (2026-08-19 전면 수리) ═══════════════════════════════
+       [무엇이 고장나 있었나] 검색이 **1.5초만 살아 있었다.**
+         실측: 「급여」를 치면 즉시 43개 중 42개가 숨었다가, 1.5초 뒤 **전부 되살아났다.**
+         범인은 이 파일 아래쪽의 «강제 visible» 복구 루프다 —
+             bar.querySelectorAll('.ph85-group, .ph85-sub').forEach(el => {
+               if (el.style.display === 'none') el.style.display = '';   // ← 검색이 숨긴 것까지
+             });
+         그 루프는 «사이드바가 통째로 안 보이던» 사고의 복구책이라 **지우면 안 된다.**
+       [그래서] 검색은 style.display 를 안 쓴다. **클래스로 숨긴다**(.ph85-shide).
+         복구 루프는 style.display 만 보므로 우리 결과를 건드리지 않는다. 둘 다 살아 있다.
+       ⚠️ CSS 규칙은 admin-inline-c.css 에 있다. 클래스 이름을 바꾸면 그쪽도 함께 고칠 것.
+
+       [두 번째 고장] 손자 이름으로는 못 찾았다. 자식의 textContent 만 봤는데,
+         손자 상자(.ph125-grandchildren)는 자식의 **형제**라 그 글자가 안 들어온다.
+         「환불」로 찾으면 0건이었다(「환불 / 취소 관리」·「환불 계산기」가 손자에 있는데도).
+       → 이제 손자까지 찾고, 걸린 손자가 있으면 그 목록을 **펴서** 어디에 있는지 보여 준다.
+       ⚠️ 손자 줄은 화면 글자가 다듬어져 있으므로(pretty) 원본 이름(data-gc-name)도 함께 본다. */
     var search = document.getElementById('ph85-search');
-    search.addEventListener('input', function(){
+    var HIDE = 'ph85-shide';                       // 검색 전용 숨김 — style.display 를 쓰지 않는다
+    var OPENED = 'ph85-sopen';                     // 검색 때문에 편 것 — 지울 때 되돌린다
+
+    function runSearch(){
       var q = search.value.toLowerCase().trim();
       bar.querySelectorAll('.ph85-group').forEach(function(g){
-        var title = g.querySelector('.ph85-title').textContent.toLowerCase();
-        var subs = g.querySelectorAll('.ph85-sub');
-        var anyMatch = title.includes(q);
-        subs.forEach(function(s){
-          var m = s.textContent.toLowerCase().includes(q);
-          s.style.display = (q === '' || m) ? '' : 'none';
-          if (m) anyMatch = true;
+        var titleEl = g.querySelector('.ph85-title');
+        var title = titleEl ? titleEl.textContent.toLowerCase() : '';
+        var anyMatch = !!q && title.indexOf(q) >= 0;
+
+        g.querySelectorAll('.ph85-sub').forEach(function(s){
+          var own = s.textContent.toLowerCase();
+          var box = s.nextElementSibling;
+          var gcs = (box && box.classList.contains('ph125-grandchildren'))
+            ? [].slice.call(box.children) : [];
+          var gcHit = 0;
+          gcs.forEach(function(gc){
+            /* 보이는 글자 + 원본 이름 둘 다 본다 — 이름을 다듬어 놓았기 때문이다. */
+            var t = (gc.textContent + ' ' + (gc.getAttribute('data-gc-name') || '')).toLowerCase();
+            var m = !q || t.indexOf(q) >= 0;
+            gc.classList.toggle(HIDE, !m);
+            if (q && m) gcHit++;
+          });
+          var m = !q || own.indexOf(q) >= 0 || gcHit > 0;
+          s.classList.toggle(HIDE, !m);
+          if (box) box.classList.toggle(HIDE, !m);
+          if (m && q) anyMatch = true;
+
+          /* 손자가 걸렸으면 그 목록을 펴서 «어디에 있는지» 보여 준다. 검색을 지우면 도로 접는다. */
+          if (q && gcHit > 0 && !s.classList.contains('ph125-open')) {
+            s.classList.add('ph125-open', OPENED);
+            if (box) box.style.setProperty('max-height', box.scrollHeight + 'px', 'important');
+          } else if (!q && s.classList.contains(OPENED)) {
+            s.classList.remove('ph125-open', OPENED);
+            if (box) box.style.removeProperty('max-height');
+          }
         });
-        g.style.display = (q === '' || anyMatch) ? '' : 'none';
-        if (q && anyMatch) g.classList.add('open');
+
+        g.classList.toggle(HIDE, !!q && !anyMatch);
+        if (q && anyMatch && !g.classList.contains('open')) g.classList.add('open', OPENED);
+        else if (!q && g.classList.contains(OPENED)) g.classList.remove('open', OPENED);
       });
-    });
+    }
+    search.addEventListener('input', runSearch);
+    /* ⚠️ 사이드바를 다시 그리는 코드가 여럿이라(IA6·ph86·ph118) 그 뒤에 클래스가 사라질 수 있다.
+       검색어가 남아 있으면 다시 입힌다 — «쳤는데 잠시 뒤 풀리는» 일이 두 번 다시 없게. */
+    setInterval(function(){ if (search.value.trim()) runSearch(); }, 1200);
 
     // 기존 admin-hub 상단 카드 숨김 (사이드바로 대체)
     var hub = document.getElementById('admin-hub');
