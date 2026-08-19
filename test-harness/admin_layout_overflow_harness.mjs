@@ -40,6 +40,42 @@ check('#admin-main-scale 에 min-width:0 이 있다',
 check('그 규칙이 .admin-layout 과 같은 파일·같은 미디어 블록에 있다',
   cssA.indexOf('#admin-main-scale') > cssA.indexOf('.admin-layout { display: grid'));
 
+/* 📊 차트 4종(대시보드)도 같은 「그리드 칸이 못 줄어든다」 함정을 밟았다 (2026-08-18).
+   `.charts` 가 `1fr 1fr` 이고 `.chart-card` 의 min-width:0 은 @media(max-width:640px) 안에만
+   있어서, **641px 위** — 특히 2단인 769px 이상 — 에서 캔버스·범례가 칸을 밀어 부모를 넘쳤다.
+   관리자 PC 는 zoom:1.3 이라 1280px 화면의 실효 폭이 ~985px 로 정확히 이 구간이다. */
+console.log('\n[ 차트 4종이 창 폭에 맞춰 줄어드는가 ]');
+{
+  const chartsRule = (cssA.match(/\.charts\s*\{[^}]*\}/) || [''])[0];
+  check('.charts 그리드가 폭에 따라 접힌다 (auto-fit + minmax)',
+    /auto-fit/.test(chartsRule) && /minmax\(/.test(chartsRule),
+    '`1fr 1fr` 고정이면 768px 아래 미디어 규칙만으로는 그 사이 구간이 안 잡힌다');
+  const cardRule = (cssA.match(/\.chart-card\s*\{[^}]*\}/) || [''])[0];
+  check('.chart-card 에 min-width:0 이 «미디어 밖에서» 상시 적용된다',
+    /min-width:\s*0/.test(cardRule),
+    '이게 없으면 그리드 칸이 내용보다 작게 줄지 못해 차트가 상자를 벗어난다');
+  check('.chart-wrapper 가 높이를 정한 position:relative 다',
+    /\.chart-wrapper\s*\{[^}]*position:\s*relative[^}]*height:/.test(cssA),
+    'Chart.js maintainAspectRatio:false 는 부모 높이를 그대로 따라간다 — 높이가 없으면 무한히 자란다');
+  check('.chart-card canvas 에 max-width 안전망이 있다',
+    /\.chart-card\s+canvas\s*\{[^}]*max-width/.test(cssA));
+}
+
+/* 📊 정산·매출 > 매출 대시보드(accLoadSalesChart)도 같은 규칙을 지켜야 한다 */
+console.log('\n[ 매출 대시보드 차트도 컨테이너 안에 머무는가 ]');
+{
+  const core = rd('../cloudflare-deploy/public/js/adm-core.js');
+  const fn = (core.match(/window\.accLoadSalesChart[\s\S]*?\n  \};/) || [''])[0];
+  check('캔버스가 높이를 정한 position:relative 래퍼 안에 있다',
+    /position:relative[^"']*height:/.test(fn),
+    '높이 없는 부모에 넣으면 캔버스가 부모를 늘리고 그걸 다시 읽어 창 크기마다 넘친다');
+  check('차트가 maintainAspectRatio:false + responsive 다', /maintainAspectRatio:\s*false/.test(fn) && /responsive:\s*true/.test(fn));
+  check('감싼 그리드가 내용보다 작게 줄 수 있다 (minmax + min-width:0)',
+    /minmax\(min\(100%/.test(fn) && /min-width:0/.test(fn));
+  check('이전 Chart 인스턴스를 destroy 한다 (옛 리사이즈 감시가 크기를 흔든다)',
+    /_accSalesChart[\s\S]{0,120}destroy\(\)/.test(fn));
+}
+
 console.log('\n[ 캐시 버전 ]');
 const m = html.match(/admin-inline-a\.css\?v=(\d+)/);
 check('admin.html 이 admin-inline-a.css 를 ?v= 로 부른다', !!m);
