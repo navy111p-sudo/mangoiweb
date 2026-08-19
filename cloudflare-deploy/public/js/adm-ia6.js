@@ -385,13 +385,28 @@
      ⚠️ 버튼 크기를 코드에 박지 않고 **실제로 재서** 쓴다 — 안전영역(노치) 때문에
         기기마다 다르고, CSS 를 고쳤을 때 이 값만 옛것으로 남는 일을 막는다.
      ⚠️ 데스크톱은 0 그대로다(버튼이 없다). 기존 동작을 하나도 바꾸지 않는다. */
+  /* 🧭 (2026-08-19) 본문 맨 위 «경로 줄»(#mi-crumb) 이 sticky 로 맨 위를 덮는다.
+     그 높이만큼 더 내려가지 않으면 카드 제목이 정확히 그 줄에 가린다 — 2026-08-04 옛
+     상단바에서 이미 한 번 겪은 신고다(js/adm-crumb.js 머리말 참고).
+     ⚠️ 그 줄은 카드 쪽 CSS 규칙(scroll-margin-top:var(--adm-jump-offset))으로도 보정하는데,
+        여기서 쓰는 값은 **인라인 스타일**이라 그 규칙을 이긴다. 그래서 여기도 같이 더해야
+        한다 — 한쪽만 고치면 «사이드바로 들어간 메뉴만 가려지는» 반쪽 상태가 된다.
+     ⚠️ 높이는 adm-crumb.js 가 offsetHeight(=body{zoom:1.3} 곱해지기 «전» px)로 재서 준다.
+        getBoundingClientRect 로 재면 데스크톱에서 1.3 배 부풀어 그만큼 더 내려간다. */
   function topGap() {
-    if (!window.matchMedia('(max-width: 1023px)').matches) return 0;
-    var b = document.getElementById('mgv2-burger');
-    if (!b) return 0;
-    var r = b.getBoundingClientRect();
-    if (!r.height) return 0;
-    return Math.round(r.bottom + 8);
+    var gap = 0;
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      var b = document.getElementById('mgv2-burger');
+      if (b) {
+        var r = b.getBoundingClientRect();
+        if (r.height) gap = Math.round(r.bottom + 8);
+      }
+    }
+    try {
+      var c = window.__miCrumbGap ? window.__miCrumbGap() : 0;
+      if (c > gap) gap = c;
+    } catch (e) { /* 경로 줄이 없어도 기존 동작 그대로 */ }
+    return gap;
   }
 
   function fitTail() {
