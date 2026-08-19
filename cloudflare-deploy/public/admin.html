@@ -5172,6 +5172,53 @@ window.__admSettleRun = function(fn){
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 📅 Auto Weekly Schedule — AI 주간 시간표 자동 짜기                  -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- 🗓 지난 수업에서 «수업 일정» 만들기 (2026-08-19 사장님 A안)
+     왜 — 「📅 일정변경」 버튼도 주간 시간표도 class_schedules 를 보는데, 그 표에 진짜 학생 것은
+     6명 15건뿐이었다(2026-08-18 실측). 반면 실제 수업 기록은 attendance 에 182,612건 있다.
+     자료가 없는 게 아니라 «앞으로의 일정» 칸으로 옮겨지지 않았을 뿐이다.
+     ⚠️ 미리보기 → 사람이 고르기 → 만들기 순서다. «전부 자동» 으로 바꾸지 말 것 —
+        그만둔 학생에게 수업이 잡히면 「내 일정에 왜 이게 있냐」가 수백 건 들어온다. -->
+<details class="table-card menu-card" id="card-schedule-seed">
+  <summary><span data-ko="🗓 지난 수업에서 일정 만들기" data-en="🗓 Build schedules from past classes">🗓 지난 수업에서 일정 만들기</span></summary>
+  <div class="menu-body">
+    <div style="font-size:12px;background-color:#f8fafc;border-left:3px solid #6366f1;padding:9px 12px;border-radius:6px;margin-bottom:10px"
+         data-ko="지난 수업 기록(출결)에서 «매주 화 19:00» 같은 반복 패턴을 찾아 수업 일정으로 만듭니다. 먼저 미리보기로 확인하고, 고른 것만 만들어집니다. 이미 일정이 있거나 수강 중이 아닌 학생은 자동으로 체크가 풀립니다."
+         data-en="Finds weekly patterns (e.g. every Tue 19:00) in past attendance and turns them into class schedules. Preview first — only what you tick is created. Students who already have a schedule, or are not active, are unticked automatically.">지난 수업 기록(출결)에서 «매주 화 19:00» 같은 반복 패턴을 찾아 수업 일정으로 만듭니다. 먼저 미리보기로 확인하고, 고른 것만 만들어집니다. 이미 일정이 있거나 수강 중이 아닌 학생은 자동으로 체크가 풀립니다.</div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="시작일" data-en="From">시작일</span>
+        <input id="seed-from" type="date" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="종료일" data-en="To">종료일</span>
+        <input id="seed-to" type="date" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="최소 반복 횟수" data-en="Min repeats">최소 반복 횟수</span>
+        <input id="seed-min" type="number" value="3" min="2" max="20" style="width:80px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <button type="button" id="seed-preview-btn" class="primary" style="padding:8px 16px;font-size:13px;font-weight:800"
+              data-ko="🔍 미리보기" data-en="🔍 Preview">🔍 미리보기</button>
+    </div>
+
+    <div id="seed-summary" style="font-size:12.5px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;margin-bottom:8px;display:none"></div>
+
+    <div id="seed-actions" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button type="button" id="seed-check-rec" style="padding:6px 12px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background-color:#fff;border-radius:8px;cursor:pointer"
+              data-ko="✅ 권장만 체크" data-en="✅ Tick recommended">✅ 권장만 체크</button>
+      <button type="button" id="seed-check-none" style="padding:6px 12px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background-color:#fff;border-radius:8px;cursor:pointer"
+              data-ko="◻ 전부 해제" data-en="◻ Untick all">◻ 전부 해제</button>
+      <span id="seed-picked" style="font-size:12px;color:#475569"></span>
+      <button type="button" id="seed-apply-btn" class="primary" style="margin-left:auto;padding:8px 18px;font-size:13px;font-weight:800"
+              data-ko="💾 선택한 것만 만들기" data-en="💾 Create ticked only">💾 선택한 것만 만들기</button>
+    </div>
+
+    <div id="seed-box" style="border:1px solid #e5e7eb;border-radius:10px;overflow:auto;max-height:60vh"></div>
+    <div id="seed-msg" style="margin-top:8px;font-size:12.5px"></div>
+  </div>
+</details>
+
 <details class="table-card menu-card" id="card-auto-schedule">
   <summary><span data-ko="📅 AI 주간 시간표 자동 짜기" data-en="📅 Auto Weekly Schedule">📅 AI 주간 시간표 자동 짜기</span></summary>
   <div class="menu-body">
@@ -12255,7 +12302,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=41" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=42" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-schedule-seed.js?v=2" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

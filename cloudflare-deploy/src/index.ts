@@ -1126,6 +1126,10 @@ const worker = {
         // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
         //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
         path === '/api/admin/org/hq' ||
+        /* 🗓 (2026-08-19) 지난 수업(attendance)에서 주간 일정을 만드는 도구.
+           preview 는 읽기만, apply 는 «사람이 화면에서 고른 것» 만 만든다.
+           ⚠️ 본사 전용 — 핸들러가 canEditOrg() 로 한 번 더 막는다. */
+        path.startsWith('/api/admin/schedule-seed/') ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -5225,6 +5229,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
   if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
+  if (path.startsWith('/api/admin/schedule-seed/')) return true; // 🗓 지난 수업 → 일정 만들기 — 반드시 인증 뒤(본사 전용)
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
