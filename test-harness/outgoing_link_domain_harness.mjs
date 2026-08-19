@@ -148,8 +148,16 @@ for (const [file, label] of DOCS) {
   check(`${file} (${label}) — 읽을 수 있다`, md.length > 0);
   check(`${file} — 운영 주소가 mangoi.ai 다`,
     /운영 주소:\s*\*\*https:\/\/mangoi\.ai\*\*/.test(md));
+  /* 🔴 (2026-08-19) 판정 문구를 「같은 Worker」에서 바꿨다.
+     그 표현이 **사실이 아니었다** — test.mangoi.co.kr 은 기본 워커(webrtc-unified-platform)에,
+     mangoi.ai 는 -prod 에 붙어 있었다. 워커가 갈리면 Durable Object 도 갈려서, 같은 방 번호를
+     넣어도 서로 다른 방이 된다(중국인 강선생님이 8회 수업 동안 학생과 못 만난 원인).
+     즉 이 검사는 「죽이지 말 것」을 지키려던 것인데, 하필 **틀린 문장**을 지키고 있었다.
+     → 지키려던 뜻(살아 있음·죽이면 앱이 멈춤)으로 바꾸고, 어느 워커인지도 함께 적게 한다. */
   check(`${file} — test.mangoi.co.kr 이 아직 살아 있다고 적어 둔다 (죽이면 앱이 멈춘다)`,
-    /test\.mangoi\.co\.kr[\s\S]{0,300}같은 Worker/.test(md));
+    /test\.mangoi\.co\.kr[\s\S]{0,300}(살아 있|죽은 주소가 아니|죽이지도 말)/.test(md));
+  check(`${file} — test.mangoi.co.kr 이 «어느 워커» 에 붙어 있는지 적어 둔다`,
+    /test\.mangoi\.co\.kr[\s\S]{0,300}-prod/.test(md));
   check(`${file} — mango-i.com 을 운영 주소로 적고 있지 않다`,
     !/운영 주소[^\n]*mango-i\.com/.test(md));
 }
