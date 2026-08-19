@@ -3,21 +3,24 @@
 //   외부 classic script, 전역 스코프 공유. 원복=이 위치에 인라인.
 // ═══════════════════════════════════════════════════════════════
 (function(){
-  // 두 언어 데크: 한국어 18장 / 영어 24장. 여는 시점의 언어로 자동 선택.
+  // 두 언어 데크: 한국어·영어 각 25장(2026-08-19 재제작). 여는 시점의 언어로 자동 선택.
+  //   ⚠️ 그림·PDF·PPTX 는 tools/guide-shots/ 가 만든다. 아래 titles 는 그 원고(deck/slides.*.mjs)와 «장수·순서»가 같아야 한다.
   var DECKS={
     ko:{ dir:'/guide/admin-easy/', pdf:'/guide/admin-easy/admin-easy.pdf', pdfName:'망고아이_관리자페이지_쉬운사용법.pdf',
-      titles:["관리자 페이지 쉬운 사용법","소개","차례","🔐 ① 들어가기 (로그인)","🖥 ② 화면이 어떻게 생겼나요?","🔎 ③ 찾고 싶은 걸 바로 찾기",
-        "📋 ④ 평가서 보기","📢 ⑤ 공지 보내보기","👪 ⑥ 학생·학부모 찾기","📅 ⑦ 학부모에게 리포트 보내기","🧑‍🏫 ⑧ 강사 보기",
-        "💳 ⑨ 결제·환불 보기","📚 ⑩ 자료실에서 설명서 받기","🏠 ⑪ 우리 홈페이지가 어떻게 보이나","🚪 ⑫ 안전하게 마치기","기능 요약 · 데이터",
-        "한눈에 보는 데이터","자주 묻는 질문 (FAQ)","첫날 체크리스트","마무리","이제 준비 끝!"] },
+      titles:[
+        "관리자 페이지 쉬운 사용법","이 안내서는 이런 거예요","차례","🔐 ① 들어가기 (로그인)","🖥 ② 화면이 어떻게 생겼나요?","📂 ③ 메뉴는 세 칸까지 열려요",
+        "🔎 ④ 찾고 싶은 걸 바로 찾기","🗺 ⑤ 메뉴 지도 — 전체를 한 장으로","⚡ ⑥ 자주 쓰는 기능","📅 ⑦ 오늘 할 일 보기","👪 ⑧ 학생 찾기","🎓 ⑨ 강사 보기",
+        "💰 ⑩ 강사 급여 보기","📋 ⑪ 평가서 쓰기","📢 ⑫ 알림 보내기","🧾 ⑬ 돈 보기 — 회계","📊 ⑭ 레벨테스트 보기","📚 ⑮ 자료실에서 설명서 받기","🛡 ⑯ 직원과 권한",
+        "🚪 ⑰ 내 정보 · 비밀번호 · 로그아웃","사람마다 보이는 메뉴가 달라요","요즘 새로 바뀐 것","자주 묻는 질문","첫날 체크리스트","이제 준비 끝!"] },
     en:{ dir:'/guide/admin-easy-en/', pdf:'/guide/admin-easy-en/admin-easy-en.pdf', pdfName:'Mangoi_Admin_Page_Guide_EN.pdf',
-      titles:["Easy Admin Page Guide","Introduction","Contents","🔐 ① Getting in (signing in)",
-        "🖥 ② What the screen looks like","🔎 ③ Finding what you need, fast",
-        "📋 ④ Viewing evaluations","📢 ⑤ Sending a notice","👪 ⑥ Finding students and parents",
-        "📅 ⑦ Sending the parent report","🧑‍🏫 ⑧ Viewing teachers","💳 ⑨ Payments and refunds",
-        "📚 ⑩ Getting manuals from the Library","🏠 ⑪ How our home page looks to visitors",
-        "🚪 ⑫ Finishing safely","Summary · Data","Data at a Glance","Frequently Asked Questions",
-        "First-Day Checklist","Conclusion","You're all set!"] }
+      titles:[
+        "Easy Admin Page Guide","What this guide is","Contents","🔐 ① Getting in (signing in)",
+        "🖥 ② What the screen looks like","📂 ③ The menu opens three levels deep","🔎 ④ Finding what you need, fast",
+        "🗺 ⑤ Menu map — everything on one page","⚡ ⑥ Quick access","📅 ⑦ Today's work","👪 ⑧ Finding a student",
+        "🎓 ⑨ Looking at teachers","💰 ⑩ Teacher payroll","📋 ⑪ Writing an evaluation","📢 ⑫ Sending a notice",
+        "🧾 ⑬ Looking at the money","📊 ⑭ Level test results","📚 ⑮ Getting manuals from the Library",
+        "🛡 ⑯ Staff and permissions","🚪 ⑰ My info · password · signing out","People see different menus","What's new",
+        "Frequently asked questions","First-day checklist","You're all set!"] }
   };
   function curLang(){ try{ return (window.adminLang==='en'||window.getLang&&window.getLang()==='en')?'en':'ko'; }catch(e){ return 'ko'; } }
   var deck=DECKS.ko, TITLES=deck.titles, N=TITLES.length, builtLang=null;
