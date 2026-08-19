@@ -26,6 +26,7 @@
 | 영업 인사평가 화면 (사무실) | [열기](https://claude.ai/code/artifact/bfd873e1-1502-465d-9bcc-fdb1f3642f2d) | [영업_인사평가_화면샘플_260818.html](영업_인사평가_화면샘플_260818.html) |
 | 영업 휴대폰 화면 (운전 중용) | [열기](https://claude.ai/code/artifact/0795d08b-1f9f-4013-9416-764202f19f38) | [영업_휴대폰화면_샘플_260818.html](영업_휴대폰화면_샘플_260818.html) |
 | 아바타 키우기 안내 (직원용) | [열기](https://claude.ai/code/artifact/9c3dc189-83d9-4bae-9402-2351d3dea87a) | [아바타키우기_안내_직원용.html](아바타키우기_안내_직원용.html) |
+| 클로드 작업 세션 기록 | [열기](https://claude.ai/code/artifact/fdb5577f-bb58-463a-b2b1-38e87de21492) | [클로드_작업세션_목록_2026-08-19.md](클로드_작업세션_목록_2026-08-19.md) |
 | Avatar Quest Staff Guide (EN) | [열기](https://claude.ai/code/artifact/354199b8-2df0-4ed9-b795-f5c99016400a) | [AvatarQuest_Staff_Guide_EN.html](AvatarQuest_Staff_Guide_EN.html) |
 
 ---
