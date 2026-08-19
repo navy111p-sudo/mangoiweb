@@ -135,6 +135,23 @@ function quarterRange(year: number, q: number) {
       아래 [검산] 주석의 옛 수치와도 안 맞는다). 원인 규명은 별건이다. */
 const PG_FEE_RATE = 0.0286;
 
+/* ⏳ PG 정산 시차 (2026-08-18 실측) ─────────────────────────────────────
+   케이씨피는 **주 1회**(7~8일 간격) 정산해 넣지만, 결제일부터 입금까지는 그보다 길다.
+   그래서 월초 결제분이 그 달 정산에 안 잡히고 다음 회차로 밀린다(2026-04-01·06-01·
+   07-01 의 큰 결제가 전부 그랬다). 누적 곡선을 0~35일 시차로 맞춰 본 결과 **2~4주**
+   구간에서 가장 잘 겹쳤다. 여기서는 그 중간인 21일을 쓴다.
+
+   [왜 필요한가] 「통장 기준」 으로 바꿔도 이 문제는 안 없어진다. 같은 달끼리 빼면
+   창의 양 끝이 서로 **다른 결제**를 보고 있기 때문이다:
+     · 창 끝   — 최근 결제는 아직 정산 전이라 통장에 없다(기본값이 «이번 달» 이라 늘 걸린다)
+     · 창 시작 — 첫 입금들은 창 이전 결제분이라 장부에 없다
+   6개월 창이면 꼬리 한 달이 통째로 «미입금» 으로 잡혀, 매번 한 방향으로 «통장이 적다»
+   가 나온다. 이 상수로 양쪽 끝을 잘라 같은 결제를 보는 구간끼리 비교한다.
+
+   ⚠️ 추정치다. KCP 정산명세서를 받으면 실제 시차로 바꿀 것 — 이 한 곳만 고치면
+      대사·월간 배너·화면이 함께 따라온다. */
+const PG_SETTLE_LAG_DAYS = 21;
+
 /* 💳 결제수단 표기 통일 (2026-08-16) — 같은 카드 결제인데 'card' 와 '카드' 가 같이 저장돼
    있어 「결제수단별 분포」 표가 두 줄로 쪼개졌다. 원본은 그대로 두고 «보여 줄 때만» 합친다. */
 const METHOD_NORM_SQL = `CASE
@@ -638,7 +655,23 @@ async function buildMonthly(env: Env, period: string) {
   const seedEx = await seedRevenueExcluded(env, startMs, endMs);   // 🌱 리포트에서 뺀 시드 매출
   /* 🔍 장부 vs 통장 (한 달치) — 기준은 통장의 「케이씨피」 입금이다(2026-08-18).
      장부 쪽도 KCP 정산 대상(bookPg)만 넣는다 — 대사 화면과 규칙이 갈라지면 안 된다. */
-  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep);
+  /* ⏳ 그 달 «결제분» 이 들어온 입금 구간 = [월초+시차, 월말+시차]. classifyDeposit 으로
+     「케이씨피」 정산분만 센다. 실패하면 null → reconcileMonth 가 종전(같은 달)으로 돈다. */
+  const lagPg = await safe(async () => {
+    const { startMs, endMs } = monthRange(period);
+    const shift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000).toISOString().slice(0, 10);
+    const r = await env.DB.prepare(`
+      SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
+       WHERE kind='in' AND substr(trans_at,1,10) >= ? AND substr(trans_at,1,10) < ?
+    `).bind(shift(startMs), shift(endMs)).all();
+    let pg = 0;
+    for (const x of (r.results || []) as Array<{ remark: string; amount: number }>) {
+      const amt = Number(x.amount) || 0;
+      if (classifyDeposit(x.remark, amt) === 'pg') pg += amt;
+    }
+    return pg;
+  }, null);
+  const rec = reconcileMonth(pl.rev.bookPg, pl.rev.dep, lagPg);
 
   /* 💵 통장 기준 «실제» 현금흐름 — 장부(결제기록)가 불완전해도 이건 사실이다.
      «리포트가 적자라는데 회사는 돌아간다» 는 혼란을 없애려고 나란히 보여 준다.
@@ -1367,22 +1400,29 @@ async function monthActiveStudents(env: Env, period: string) {
    ⚠️ 2026-08-18 기준 전환: **통장의 「케이씨피」 입금이 기준**이다.
       · revenueBook 에는 KCP 정산 대상 결제만 들어온다(monthRevenue.bookPg)
       · 오차율(pct)의 분모도 장부(expected)가 아니라 통장(dep.pg) 이다
-      · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에 넣지 않는다(금액만 따로 밝힌다) */
-function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
+      · 「케이씨피M」·B2B 직접입금·기타 입금은 대사에 넣지 않는다(금액만 따로 밝힌다)
+
+   ⏳ (2026-08-18) lagPg = «그 달 결제분이 실제로 들어온» 입금액. PG 정산이 2~4주 걸려서
+      그 달 결제가 그 달 통장에 다 안 들어온다 — 같은 달끼리 빼면 매번 «통장이 적다» 가
+      나온다. 호출부가 [월초+시차, 월말+시차] 구간으로 구해 넘긴다. 못 구했으면(자료 부족)
+      null 이고, 그때만 종전처럼 같은 달 입금을 쓴다. */
+function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number | null = null) {
   const expected = Math.round(revenueBook * (1 - PG_FEE_RATE));
   const hasBank = dep.hasBank;
-  const diff = hasBank ? dep.pg - expected : null;
+  const pgUsed = lagPg == null ? dep.pg : lagPg;      // 시차를 맞춘 입금(있으면)
+  const diff = hasBank ? pgUsed - expected : null;
   // 통장이 기준 — 들어온 돈을 100 으로 놓고 장부가 얼마나 벌어졌는지 본다.
   // 통장에 정산금이 한 푼도 없는데 장부엔 매출이 있으면 −100%(= 확인 필요)로 본다.
-  const pct = diff == null ? 0 : (dep.pg > 0 ? (diff / dep.pg) * 100 : (expected > 0 ? -100 : 0));
+  const pct = diff == null ? 0 : (pgUsed > 0 ? (diff / pgUsed) * 100 : (expected > 0 ? -100 : 0));
   let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
   if (!hasBank) verdict = 'no_data';
-  else if (Math.abs(pct) <= 15) verdict = 'ok';           // 월 단위는 PG 정산 시차가 커서 여유를 둔다
-  else if (Math.abs(pct) <= 30) verdict = 'warn';
-  else verdict = 'alert';
+  /* 시차를 맞춘 뒤로는 여유를 좁힌다. 예전 ±15/30% 는 «어차피 시차로 어긋난다» 는
+     전제였는데, 맞춘 값이면 그렇게 벌어질 이유가 없다. */
+  else if (Math.abs(pct) <= (lagPg == null ? 15 : 10)) verdict = 'ok';
+  else if (Math.abs(pct) <= (lagPg == null ? 30 : 25)) verdict = 'warn';
   const short = (diff ?? 0) < 0;
   const MSG: Record<typeof verdict, string> = {
-    ok: '장부와 통장이 맞습니다(월 단위 오차는 PG 정산 시차 범위).',
+    ok: '장부와 통장이 맞습니다(정산 시차를 맞춘 비교).',
     warn: short
       ? 'PG 정산 입금이 장부보다 적습니다. 다음 달 정산으로 넘어간 것인지 확인하세요.'
       : 'PG 정산 입금이 장부보다 많습니다. 지난달 정산분이 이달에 들어왔는지 확인하세요.',
@@ -1392,9 +1432,11 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits) {
     no_data: '이 달은 계좌 입금 자료가 없어 대사를 할 수 없습니다.',
   };
   return {
-    revenue: revenueBook, expected, deposit_pg: dep.pg,
+    revenue: revenueBook, expected, deposit_pg: pgUsed,
+    deposit_pg_same_month: dep.pg,                    // 참고 — 같은 달 통장에 찍힌 값
+    lag_days: lagPg == null ? null : PG_SETTLE_LAG_DAYS,
     // 통장 기준 매출 = 실제 들어온 정산금을 수수료만큼 되돌린 값
-    bank_revenue: hasBank ? Math.round(dep.pg / (1 - PG_FEE_RATE)) : null,
+    bank_revenue: hasBank ? Math.round(pgUsed / (1 - PG_FEE_RATE)) : null,
     deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
     /* ⚠️ 확인이 끝난 내부 자금이체는 안내하지 않는다(2026-08-18 사장님 지시 — 설명이
@@ -3234,18 +3276,78 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
   const cumDiff = cumPg - cumExpected;
   const cumPct = cumPg > 0 ? (cumDiff / cumPg) * 100 : (cumExpected > 0 ? -100 : 0);
   const bankMonths = rows.filter(r => r.has_bank).length;
+
+  /* ⏳ 정산 시차를 맞춘 비교 (2026-08-18) ────────────────────────────────
+     위 누적은 «같은 달끼리» 라 창의 양 끝이 서로 다른 결제를 본다(PG_SETTLE_LAG_DAYS
+     주석 참고). 여기서 양쪽을 시차만큼 잘라 같은 결제를 보는 구간끼리 비교한다.
+       결제 구간 = [창시작, 마지막입금일 − 시차]
+       입금 구간 = [창시작 + 시차, 마지막입금일]
+     ⚠️ 기준·분모는 위와 똑같이 «통장» 이다(2026-08-18 기준 전환). 장부 쪽도 위와 같이
+        KCP 정산 대상만 센다(kcpSettledSql) — 규칙이 갈라지면 두 숫자가 어긋난다. */
+  const lagMatch = await safe(async () => {
+    const lastBank = await env.DB.prepare(
+      `SELECT MAX(substr(trans_at,1,10)) AS d FROM bankacct_transactions WHERE kind='in'`
+    ).first<{ d: string }>();
+    const lastBankDate = String(lastBank?.d || '').slice(0, 10);
+    if (!lastBankDate) return null;
+
+    const winStart = list[0] + '-01';
+    const shift = (iso: string, days: number) => {
+      const t = new Date(iso + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + days);
+      return t.toISOString().slice(0, 10);
+    };
+    const payEnd = shift(lastBankDate, -PG_SETTLE_LAG_DAYS);
+    const depStart = shift(winStart, PG_SETTLE_LAG_DAYS);
+    if (payEnd <= winStart) return null;            // 창이 시차보다 짧으면 맞출 수 없다
+
+    const rv = await env.DB.prepare(`
+      SELECT COALESCE(SUM(amount_krw),0) AS revenue, COUNT(*) AS cnt
+        FROM student_payments
+       WHERE status='paid' AND ${notSeedSql()} AND ${kcpSettledSql()}
+         AND date(paid_at/1000,'unixepoch','+9 hours') BETWEEN ? AND ?
+    `).bind(winStart, payEnd).first<{ revenue: number; cnt: number }>();
+
+    const dep = await env.DB.prepare(`
+      SELECT COALESCE(remark,'') AS remark, amount
+        FROM bankacct_transactions
+       WHERE kind='in' AND substr(trans_at,1,10) BETWEEN ? AND ?
+    `).bind(depStart, lastBankDate).all();
+    let pg = 0;
+    for (const r of (dep.results || []) as Array<{ remark: string; amount: number }>) {
+      const amt = Number(r.amount) || 0;
+      if (classifyDeposit(r.remark, amt) === 'pg') pg += amt;
+    }
+
+    const revenue = Number(rv?.revenue) || 0;
+    const expected = Math.round(revenue * (1 - PG_FEE_RATE));
+    const diff = pg - expected;
+    return {
+      lag_days: PG_SETTLE_LAG_DAYS,
+      pay_from: winStart, pay_to: payEnd,
+      deposit_from: depStart, deposit_to: lastBankDate,
+      revenue, pay_count: Number(rv?.cnt) || 0,
+      expected, deposit_pg: pg,
+      bank_revenue: Math.round(pg / (1 - PG_FEE_RATE)),   // 통장이 말하는 매출
+      diff,
+      // 분모는 통장 — 위 누적 판정과 같은 규칙
+      diff_pct: Number((pg > 0 ? (diff / pg) * 100 : (expected > 0 ? -100 : 0)).toFixed(1)),
+    };
+  }, null);
+
+  /* 판정 기준 = 시차를 맞춘 값. 못 맞추면(자료 부족) 종전대로 누적을 쓴다. */
+  const judgePct = lagMatch ? lagMatch.diff_pct : cumPct;
   let verdict: 'ok' | 'warn' | 'alert' | 'no_data';
   if (!bankFrom || bankMonths === 0) verdict = 'no_data';
-  else if (Math.abs(cumPct) <= 10) verdict = 'ok';
-  else if (Math.abs(cumPct) <= 25) verdict = 'warn';
+  else if (Math.abs(judgePct) <= 10) verdict = 'ok';
+  else if (Math.abs(judgePct) <= 25) verdict = 'warn';
   else verdict = 'alert';
 
   /* 차이의 «방향» 에 따라 원인이 정반대다. 한 문구로 뭉뚱그리면 오진한다(2026-08-16):
        · 입금 < 예상 → 장부에만 있는 매출(가짜·미수금) 의심
        · 입금 > 예상 → 통장에 들어왔는데 장부에 안 잡힌 매출(동기화 누락) 의심 */
-  const short = cumDiff < 0;
+  const short = (lagMatch ? lagMatch.diff : cumDiff) < 0;
   const MSG: Record<typeof verdict, string> = {
-    ok: '통장에 들어온 「케이씨피」 정산금과 장부가 맞습니다(누적 오차 10% 이내 — PG 정산 시차 범위).',
+    ok: '통장에 들어온 「케이씨피」 정산금과 장부가 맞습니다(정산 시차를 맞춘 오차 10% 이내).',
     warn: short
       ? '통장에 들어온 「케이씨피」 정산금이 장부보다 10% 이상 적습니다. 정산 시차인지 미수금인지 KCP 정산내역을 확인하세요.'
       : '통장에 들어온 「케이씨피」 정산금이 장부보다 10% 이상 많습니다. 장부에 안 잡힌 매출이 있는지(결제 동기화 누락) 확인하세요.',
@@ -3269,6 +3371,8 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
       deposit_b2b: cumB2b, deposit_transfer: cumTransfer,
       diff: cumDiff, diff_pct: Number(cumPct.toFixed(1)),
     },
+    settle_lag_days: PG_SETTLE_LAG_DAYS,
+    lag_matched: lagMatch,
     verdict, message: MSG[verdict],
     /* 🔎 대사에서 «뺀» 것들 — 숨기지 않고 얼마인지 밝혀 사람이 확인하게 한다.
        단, 성격이 «확인된» 내부 자금이체는 애초에 위 집계에 들어오지 않아 여기서도 안 센다.
@@ -3299,6 +3403,14 @@ async function reconcileReport(env: Env, url: URL, fmt: string): Promise<Respons
         r.revenue, r.pay_count, r.expected, r.diff == null ? '-' : r.diff,
         r.deposit_b2b, r.deposit_transfer, r.deposit_other]),
       ['누적 합계(통장 자료 있는 달만)', cumPg, cumBankRevenue, cumRev, '', cumExpected, cumDiff, cumB2b, cumTransfer, ''],
+      [],
+      /* ⏳ 월별·누적은 «구간이 어긋난» 비교다. 판정의 근거는 아래 시차 맞춘 줄이다. */
+      ...(lagMatch ? [
+        [`정산 시차 ${lagMatch.lag_days}일을 맞춘 비교 — 같은 결제를 보는 구간끼리 (판정 근거)`],
+        [`결제 ${lagMatch.pay_from} ~ ${lagMatch.pay_to}`, lagMatch.deposit_pg, lagMatch.bank_revenue,
+         lagMatch.revenue, lagMatch.pay_count, lagMatch.expected, lagMatch.diff, '', '', ''],
+        [`입금 ${lagMatch.deposit_from} ~ ${lagMatch.deposit_to} 기준 · 차이 ${lagMatch.diff_pct}% (통장 기준)`],
+      ] as (string | number)[][] : []),
       [],
       ['판정', data.message],
       ...(data.transfer_note ? [['참고', data.transfer_note]] : []),

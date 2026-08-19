@@ -10891,7 +10891,7 @@ window.rebuildGlobalSearchIndex = function() {
        장부는 그 옆에 붙인다. 차이(%)의 분모도 통장이다. */
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b> → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
+        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b>${rec.lag_days ? `<span style="color:#1e3a8a"> (이 달 결제분이 ${rec.lag_days}일 뒤 들어온 구간 기준 — 같은 달 통장에 찍힌 금액은 ${fmtKRW(rec.deposit_pg_same_month)})</span>` : ''} → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
         장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
         (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
       </div>`;
@@ -12481,9 +12481,25 @@ window.rebuildGlobalSearchIndex = function() {
       const v = V[d.verdict] || V.no_data;
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
+      /* ⏳ 판정 근거는 «시차 맞춘» 값이다 — 같은 달끼리 빼면 창의 양 끝이 서로 다른
+         결제를 보고 있어 매번 한 방향으로 «통장이 적다» 가 나온다(2026-08-18). */
+      const lm = d.lag_matched;
+      const headDiff = lm ? lm.diff : t.diff;
+      const headPct  = lm ? lm.diff_pct : t.diff_pct;
       html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}% · 통장 기준)</div>
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 차이 ${_fmt(headDiff)} (${headPct}% · 통장 기준)</div>
         <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
+      if (lm) {
+        html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1e3a8a;line-height:1.7">
+          <b>⏳ PG 정산 시차 ${lm.lag_days}일을 맞춰 비교했습니다</b><br>
+          케이씨피는 <b>주 1회</b> 정산하는데 결제일부터 입금까지 2~4주가 걸립니다. 그래서 «같은 달 장부 vs 같은 달 통장» 을 그대로 빼면
+          <b>아직 정산 안 된 최근 결제가 통째로 «미입금» 으로 잡힙니다.</b> 아래 월별 표가 들쭉날쭉한 것은 그 때문이며 정상입니다.<br>
+          · 결제 <b>${_esc(lm.pay_from)} ~ ${_esc(lm.pay_to)}</b> — 장부 ${_fmt(lm.revenue)} (${lm.pay_count}건) · 예상 입금 ${_fmt(lm.expected)}<br>
+          · 입금 <b>${_esc(lm.deposit_from)} ~ ${_esc(lm.deposit_to)}</b> — 실제 ${_fmt(lm.deposit_pg)} · 통장 기준 매출 ${_fmt(lm.bank_revenue)}<br>
+          · <b>차이 ${_fmt(lm.diff)} (${lm.diff_pct}%)</b> ← 판정은 이 값으로 합니다
+          <div style="margin-top:6px;color:#3730a3">※ 시차 ${lm.lag_days}일은 실측 추정치입니다. KCP 정산명세서를 받으면 실제 값으로 맞출 수 있습니다.</div>
+        </div>`;
+      }
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
@@ -12517,7 +12533,7 @@ window.rebuildGlobalSearchIndex = function() {
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
         ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
         ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 통장 직접입금(B2B)·기타 입금·자기 계좌 간 자금 이동은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
-        ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
+        ※ 카드 결제는 PG(케이씨피)가 <b>2~4주 뒤</b>에 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 판정은 위의 <b>시차를 맞춘 비교</b>로 합니다(누적만으로는 창의 양 끝이 서로 다른 결제를 봅니다).<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
       if (notes.length) {
