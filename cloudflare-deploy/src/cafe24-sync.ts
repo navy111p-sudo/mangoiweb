@@ -28,6 +28,14 @@ export const CAFE24_STUDENT_SENTINEL = 1751500000000;
 const rowsToObjects = (fields: string[], values: any[][]) =>
   values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
 
+/** 전화번호 정리 — 빈칸·공백만 있는 값은 NULL 로. 숫자/기호는 손대지 않는다.
+ *  ⚠️ 형식을 «고쳐» 주지 않는다. 010-1234-5678 과 01012345678 을 섞어 쓰는 곳이 있어
+ *     여기서 한쪽으로 바꾸면 기존 조회(REPLACE(parent_phone,'-','') 로 맞추는 곳)와 어긋난다. */
+const normPhone = (v: any): string | null => {
+  const t = String(v ?? '').trim();
+  return t ? t : null;
+};
+
 /** 🏢 지사(240)·센터(916) → D1 franchises/centers. cafe24 ID 를 D1 id 로 보존. */
 export async function importCafe24Org(env: SyncEnv): Promise<{ franchises: number; centers: number }> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS franchises (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, address TEXT, phone TEXT, owner_name TEXT, opened_at TEXT, active INTEGER DEFAULT 1, notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
@@ -127,25 +135,53 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN hq_name TEXT`); } catch {}
     await env.DB.prepare(`DELETE FROM students_erp WHERE created_at = ?`).bind(CAFE24_STUDENT_SENTINEL).run();
   }
+  /* 📞 (2026-08-18 사장님) 학부모·학생 전화번호를 함께 가져온다.
+       왜 필요했나 — D1 의 students_erp 29,398행 중 전화번호가 parent_phone 3개 · phone 9개뿐이라
+       미납 안내도 결석 알림도 **아무에게도 닿지 않았다.** 원인은 두 가지였고 둘 다 여기다.
+         ① 이 Cypher 가 전화번호를 아예 안 가져왔다.
+         ② 아래 문장이 INSERT OR REPLACE 인데 컬럼 목록에 전화번호가 없었다.
+            INSERT OR REPLACE 는 «행을 지우고 다시 넣는» 것이라, 목록에 없는 칸은 NULL 이 된다.
+            즉 누가 번호를 채워 넣어도 **그날 밤 동기화가 지웠다.**(실제로 재현해 확인)
+       ⚠️ 그래서 전화번호를 목록에 넣는 것은 «추가» 가 아니라 «지워지는 것을 멈추는» 일이기도 하다.
+          이 컬럼들을 목록에서 다시 빼면 그 순간 전국 전화번호가 하룻밤에 사라진다.
+          phone_sync_harness 가 그것을 막는다.
+
+     번호가 그래프 어디에 있나 — 관리자 학생목록(api-admin.ts GRAPH_STUDENT_LIST_QUERY)이
+     이미 쓰고 있는 길을 그대로 따른다. 새로 만든 방식이 아니다.
+         (par:Parent)-[]->(s) 의 par.phone  ← 학부모 번호의 정본
+         없으면 s.parent_phone 으로 대체
+     ⚠️ 부모가 여럿 붙을 수 있어 collect(...)[0] 로 하나만 취한다(위 화면과 동일).
+     ⚠️ 카페24가 정본이다. D1 에서 손으로 고친 번호는 다음 동기화 때 덮인다 —
+        centers.franchise_id 와 같은 성질이다(CLAUDE.md 참고). 임시 정정이 필요하면
+        덮어쓰기용 별도 표를 두는 방식을 써야지, 여기 값을 손으로 고치면 안 된다. */
   const { fields, values } = await runCypher(env,
     `MATCH (s:Student)
+     OPTIONAL MATCH (par:Parent)-[]->(s)
+     WITH s, collect(DISTINCT par.phone)[0] AS parent_phone_g
      RETURN coalesce(s.student_id, s.user_id) AS user_id, coalesce(s.name, s.student_id) AS korean_name,
             s.grade AS grade, s.school AS school, coalesce(s.status,'active') AS status,
             s.signup_date AS signup_date, s.end_date AS end_date, s.shop_name AS shop_name,
-            s.franchise AS franchise, s.hq_name AS hq_name, s.points AS points
+            s.franchise AS franchise, s.hq_name AS hq_name, s.points AS points,
+            coalesce(parent_phone_g, s.parent_phone) AS parent_phone,
+            s.student_phone AS student_phone
      ORDER BY user_id SKIP $off LIMIT $lim`, { off, lim }, 'READ');
   const ins = env.DB.prepare(
-    `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, parent_phone, student_phone, phone, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {
     const rows = rowsToObjects(fields, values.slice(i, i + 400));
     await env.DB.batch(rows.map(r => {
       const uid = String(r.user_id ?? '');
       const kname = r.korean_name || uid;
+      /* 번호는 «있는 그대로» 넣되 빈 문자열은 NULL 로 통일한다 —
+         ''(빈칸)이 들어가면 `parent_phone IS NOT NULL` 류 조건이 «번호 있음» 으로 오판한다.
+         phone 칸에는 학생 번호를 넣는다(기존 코드가 학생 연락처로 se.phone 을 읽는 곳이 있다). */
+      const pPhone = normPhone(r.parent_phone);
+      const sPhone = normPhone(r.student_phone);
       return ins.bind(uid, uid, uid, kname, kname, r.grade || null, r.school || null, r.status || 'active',
         r.signup_date || null, r.end_date || null, r.shop_name || null, r.franchise || null, r.hq_name || '망고아이 본사',
-        Number(r.points) || 0, CAFE24_STUDENT_SENTINEL, CAFE24_STUDENT_SENTINEL);
+        Number(r.points) || 0, pPhone, sPhone, sPhone, CAFE24_STUDENT_SENTINEL, CAFE24_STUDENT_SENTINEL);
     }));
     imported += Math.min(400, values.length - i);
   }
@@ -213,19 +249,28 @@ export async function importCafe24Attendance(
     nameCache.set(uid, name);
     return name;
   }
-  /* 강사 이름은 카페24가 주면 그대로 쓰고, 안 주면 D1 teachers 원부에서 찾는다.
-     ⛔ 이름으로 강사를 «정하지» 않는다 — 표시용으로만 쓴다. 이름 문자열로 사람을 정하면
-        'Anna' 가 'H-ANNA-H' 에 붙던 사고(api-teacher.ts 위쪽 기록)가 여기서 재현된다.
-        담당 판정의 정본은 어디까지나 teacher_uid(=teachers.id) 다. */
+  /* 🔴 (2026-08-19) 여기서 «다른 강사 이름» 을 써 넣던 사고를 고쳤다.
+        teacher_uid 는 **카페24 강사번호**(실측 9~196)인데, 처음 판에서는 이걸
+        D1 `teachers.id`(지역 일련번호 1~29)로 조회해 이름을 붙였다. 둘은 **다른 체계**다.
+        번호가 우연히 겹치는 자리에서 정확히 남의 이름이 들어갔다(2026-08-19 실측):
+          · 카페24 24 = Teacher Mariane → `teachers` 24 = HANNAH  로 기록됨 (127건)
+          · 카페24 26 = Teacher Rica    → `teachers` 26 = MELCA   로 기록됨 (11건)
+          · 카페24  9 = 테스트 강사     → `teachers`  9 = ZEE     로 기록됨 (2건)
+        (참고: 진짜 Hannah 의 카페24 번호는 189 다.)
+     → 이름은 **같은 번호 체계를 쓰는** teacher_payroll_auto 에서만 찾는다.
+        이 표는 카페24 서버가 강사번호와 함께 직접 밀어넣은 것이라 번호↔이름이 일치한다.
+     ⛔ `teachers` 로는 절대 되돌리지 말 것. 번호가 겹치는 세 자리에서 조용히 틀린다. */
   const tNameCache = new Map<string, string | null>();
   async function teacherNameFor(tid: string): Promise<string | null> {
     if (tNameCache.has(tid)) return tNameCache.get(tid)!;
     let name: string | null = null;
     try {
-      const row = await env.DB.prepare(`SELECT name FROM teachers WHERE CAST(id AS TEXT) = ? LIMIT 1`)
-        .bind(tid).first<{ name: string }>();
-      name = row?.name || null;
-    } catch { /* teachers 미존재 시 null 로 계속 */ }
+      const row = await env.DB.prepare(
+        `SELECT teacher_name FROM teacher_payroll_auto WHERE CAST(teacher_id AS TEXT) = ?
+          AND teacher_name IS NOT NULL ORDER BY year DESC, month DESC LIMIT 1`
+      ).bind(tid).first<{ teacher_name: string }>();
+      name = row?.teacher_name || null;
+    } catch { /* 표가 없으면 이름 없이 계속 — 번호만으로도 담당 판정은 된다 */ }
     tNameCache.set(tid, name);
     return name;
   }

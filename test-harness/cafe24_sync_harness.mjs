@@ -285,8 +285,22 @@ console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / i
   /* 강사 화면이 그 칸을 실제로 쓰는지 — 파이프만 깔고 화면이 안 읽으면 증상은 그대로다. */
   check('teacher: 끝난 LMS 수업을 수업 목록에 실음',
         tch.includes("a.room_id LIKE 'c24-%'") && tch.includes("status: 'done'"));
-  check('teacher: 담당 판정은 teacher_uid 로만(이름 매칭 금지)',
-        tch.includes("'a.teacher_uid = ?'") && tch.includes('linkedTeacherIds.length'));
+  /* 🔴 (2026-08-19) «남의 수업이 보이던» 사고의 회귀 감시.
+     teacher_uid 는 카페24 강사번호(9~196)이고 teachers.id 는 지역 일련번호(1~29)다.
+     둘을 곧바로 맞추면 번호가 겹치는 자리에서 남의 수업이 보인다
+     (실측: HANNAH 계정 ↔ 카페24 24 = Teacher Mariane 의 수업 127건).
+     → 카페24 번호는 teacher_payroll_auto 를 거쳐서만 해석해야 한다. */
+  check('teacher: 카페24 강사번호를 payroll 로 해석(teachers.id 직결 금지)',
+        tch.includes('teacher_payroll_auto') && tch.includes('cafe24Tids')
+        && !/tConds\s*=\s*linkedTeacherIds/.test(tch));
+  check('teacher: 완전일치만 · 후보 2개 이상이면 붙이지 않음',
+        tch.includes('COLLATE NOCASE') && tch.includes('rows.length === 1') && tch.includes('pr.length === 1'));
+  check('teacher: 번호를 못 찾으면 안 보여주는 쪽으로 실패',
+        tch.includes('no_cafe24_teacher_id'));
+  /* 이름도 같은 번호 체계에서만 가져와야 한다 — teachers 로 되돌리면 남의 이름이 박힌다. */
+  check('sync: 강사 이름은 payroll(같은 번호 체계)에서만',
+        sync.includes('SELECT teacher_name FROM teacher_payroll_auto')
+        && !/SELECT name FROM teachers WHERE CAST\(id AS TEXT\)/.test(sync));
   check('teacher: 끝난 수업에 입장 창을 열지 않음',
         tch.includes('enter_from_ts: start_ts, enter_until_ts: end_ts') && tch.includes('can_enter: false'));
   check('idx: nightly cron 배선', idx.includes('nightlyCafe24Refresh'));

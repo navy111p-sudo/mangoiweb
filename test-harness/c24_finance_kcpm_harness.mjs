@@ -10,7 +10,8 @@
 //   이 하니스가 못 박는 것 — 전부 «조용히 되돌아가면 매출을 잘못 읽는» 것들:
 //     ① 「케이씨피M」은 걸리고 「케이씨피」(진짜 PG 정산금)는 절대 안 걸린다
 //     ② TS 정규식과 Cypher(Java) 정규식이 같은 규칙이다 (한쪽만 고치면 FAIL)
-//     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼고, 뺀 금액을 같이 내려준다
+//     ③ summary 집계가 income·expense 양쪽에서 「케이씨피M」을 빼되, 그 이름·금액은 응답에 담지 않는다
+//        (2026-08-18 뒤집힘 — 화면이 안 그려도 API 주소를 열면 그대로 보였다)
 //     ④ ledger 목록이 「케이씨피M」 행을 아예 빼고 내려준다(2026-08-18 지시로 바뀜 —
 //        예전엔 «행은 두되 표시로 구분» 이었다). excluded_from_revenue 는 합계 안전망으로 유지
 //     ⑤ 화면(adm-core.js)이 그 행을 매출 합계에서 뺀다.
@@ -77,17 +78,59 @@ if (cyLit && tsRe) {
 ok(/export function isKcpTransferRow/.test(acct),
   '거래처·적요·계정과목 어디에 적혀 있어도 잡는 isKcpTransferRow() 가 있다');
 
+/* 「매출로 인정하는가」 판정도 같은 규율로 관리한다 (2026-08-18 5번 블럭) */
+const cyRev = acct.match(/export const KCP_REVENUE_CYPHER_RE = '([^']+)';/);
+const tsRevLit = acct.match(/const KCP_REVENUE_TEXT_RE = (\/.+\/[a-z]*);/);
+ok(!!cyRev, 'accounting-reports.ts 가 KCP_REVENUE_CYPHER_RE 를 export 한다');
+ok(!!tsRevLit, 'accounting-reports.ts 에 KCP_REVENUE_TEXT_RE 정규식이 있다');
+if (cyRev && tsRevLit) {
+  const body = tsRevLit[1].slice(1, tsRevLit[1].lastIndexOf('/'));
+  const flags = tsRevLit[1].slice(tsRevLit[1].lastIndexOf('/') + 1);
+  const tsRev = new RegExp(body, flags);
+  const cyR = cyRev[1].replace(/\\\\/g, '\\');
+  const coreR = cyR.replace(/^\(\?is\)\.\*/, '').replace(/\.\*$/, '');
+  ok(coreR === tsRev.source, '매출 판정도 Cypher 본문 = TS 본문 (한쪽만 고치면 FAIL)',
+    `cypher=${coreR}  ts=${tsRev.source}`);
+  ok(['케이씨피', '케이씨피(주)', 'KCP', '케이씨피 정산'].every(t => tsRev.test(t)),
+    '「케이씨피」 결제분을 매출로 인정한다');
+  ok(['수업료', '김영진', '이자수입', ''].every(t => !tsRev.test(t)),
+    '「케이씨피」가 없는 행은 매출로 인정하지 않는다 (지시: 케이씨피만 매출)');
+}
+ok(/export function isKcpRevenueRow/.test(acct), 'isKcpRevenueRow() 가 있다');
+
 /* ── ③ 매출·손익 집계에서 뺀다 ───────────────────────────────── */
-console.log('\n③ summary 집계가 「케이씨피M」을 빼고, 뺀 금액을 숨기지 않는다');
+console.log('\n③ summary 집계가 「케이씨피M」을 빼되, 이름·금액을 응답에 담지 않는다');
 {
   const i = admin.indexOf("if (kind === 'summary')");
-  const sum = admin.slice(i, admin.indexOf('const QMAP', i));
+  const sumRaw = admin.slice(i, admin.indexOf('const QMAP', i));
+  /* ⑤와 같은 이유로 주석을 벗겨 낸 사본도 함께 본다 — «왜 지웠는지» 적은 주석이
+     아래 부정 검사(«이름·금액을 담지 않는다»)에 걸려 되레 FAIL 을 내면 안 된다.
+     ⚠️ 긍정 검사(집계 로직이 있는가)는 주석이 섞여도 무해하므로 sumRaw 를 그대로 쓴다. */
+  const sum = sumRaw;
+  const sumCode = sumRaw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
   ok(i > 0 && /MATCH \(a:AccBook\)/.test(sum), 'finance-cafe24/summary 가 AccBook 을 집계한다');
   ok(/AS isKcpm/.test(sum), '행마다 isKcpm(=「케이씨피M」인가)을 판정한다');
-  ok(/t = 1 AND NOT isKcpm/.test(sum), '총 매출(income)에서 「케이씨피M」을 뺀다');
+  /* 🔁 2026-08-18 수정사항 5번 블럭으로 «매출 인식 범위» 가 바뀐 자리다.
+     예전: 「수입 전부 − 케이씨피M」  →  지금: **「케이씨피」 결제분만** 매출.
+     두 판정은 짝이다 — isKcp 만 쓰면 케이씨피M 이 매출로 되살아나고,
+     isKcpm 만 쓰면 케이씨피가 아닌 수입까지 매출이 된다. 둘 다 있어야 한다. */
+  ok(/AS isKcp\b/.test(sum), '행마다 isKcp(=「케이씨피」 결제분인가)를 판정한다');
+  ok(/t = 1 AND isKcp AND NOT isKcpm/.test(sum),
+    '총 매출(income)은 「케이씨피」 행만 잡고 「케이씨피M」은 뺀다');
+  /* ⚠️ 부정 검사는 **주석을 벗겨 낸 사본**(sumCode)으로 판정한다 — 「왜 바꿨는지」 적은
+     주석에 옛 코드를 그대로 인용하면 자기 주석을 잡아 FAIL 낸다(CLAUDE.md 2장, ③에서 실제로 밟음). */
+  ok(!/t = 1 AND NOT isKcpm THEN/.test(sumCode),
+    '⛔ 옛 규칙(수입 전부 − 케이씨피M)으로 되돌아가지 않았다');
   ok(/t = 2 AND NOT isKcpm/.test(sum), '총 지출(expense)에서도 「케이씨피M」을 뺀다');
-  ok(/excluded_transfer/.test(sum) && /excluded_count/.test(sum),
-    '뺀 금액·건수를 excluded_transfer / excluded_count 로 같이 내려준다');
+  /* ⚠️ 2026-08-18 사장님 지시로 **방향이 뒤집힌 자리**다. ⑤와 같은 이유다.
+     예전 규칙: «뺀 금액을 숨기지 말고 excluded_transfer/excluded_count 로 같이 내려준다».
+     그런데 화면이 안 그려도 API 주소(/api/admin/finance-cafe24/summary)를 열면
+     「케이씨피M」이라는 이름과 금액이 그대로 보였다(사장님이 직접 확인).
+     이제는 **응답에 담지 않는다**. 되살리기 전에 사람에게 먼저 물을 것. */
+  ok(!/excluded_transfer/.test(sumCode) && !/excluded_count/.test(sumCode),
+    '뺀 금액·건수를 응답에 담지 않는다 (excluded_transfer/excluded_count 없음)');
+  ok(!/rule: *'케이씨피M'/.test(sumCode) && !/하나은행에서 옮겨 온 운영자금/.test(sumCode),
+    '⛔ 응답에 「케이씨피M」 이름·사유를 담지 않는다');
   ok(/\$kcpmRe/.test(sum) && /kcpmRe: KCP_TRANSFER_CYPHER_RE/.test(sum),
     '정규식을 쿼리에 박지 않고 정본 상수를 파라미터로 넘긴다');
 }
@@ -126,12 +169,51 @@ console.log('\n⑤ 화면(adm-core.js)이 합계에서 빼되 「케이씨피M�
   ok(!/excluded_transfer[^]{0,400}innerHTML/.test(summ), '«얼마를 왜 뺐는지» 안내 상자를 그리지 않는다');
 }
 
+/* ── ④-2 장부 탭과 요약 KPI 가 «같은 매출 규칙» 을 쓴다 ───────────
+   한쪽만 바꾸면 같은 화면에 「매출 ₩A」(장부 탭)와 「총매출 ₩B」(요약 KPI)가 따로 찍힌다.
+   이 화면은 애초에 «화면끼리 숫자가 어긋나는 것» 을 잡으려고 만든 자리다. */
+console.log('\n④-2 장부 탭 매출 합계가 요약 KPI 와 같은 규칙이다');
+{
+  /* ⚠️ ledger 쿼리는 «중첩 백틱»(월 필터 ${month ? `…` : ''})을 품고 있어
+     `[^`]*` 로 잘라내면 중간에서 끊긴다. payroll 줄 직전까지로 자른다. */
+  const _li = admin.indexOf('ledger: `MATCH (a:AccBook)');
+  const ledgerCy = _li < 0 ? '' : admin.slice(_li, admin.indexOf('payroll:', _li));
+  ok(/AS counts_as_revenue/.test(ledgerCy), 'ledger 가 counts_as_revenue(매출로 셀 행인가)를 내려준다');
+  ok(/\$kcpRe/.test(ledgerCy) && /NOT \(/.test(ledgerCy),
+    '그 판정이 「케이씨피」 AND NOT 「케이씨피M」 이다 (요약 KPI 와 같은 짝)');
+  const strip2 = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const load2 = strip2(core.slice(core.indexOf('window.c24FinLoad'), core.indexOf('window.accLoadFranchise')));
+  ok(/counts_as_revenue/.test(load2), '화면이 서버 판정(counts_as_revenue)을 쓴다');
+  ok(!/if \(Number\(row\.type\) === 1\) sInc \+= m;/.test(load2),
+    '⛔ type===1 만 보고 더하던 옛 계산으로 되돌아가지 않았다');
+}
+
+/* ── ⑦ 손익계산서(P&L) 매출액에 「케이씨피M」이 못 들어온다 ─────
+   수정사항 7번 블럭. 이 화면은 Neo4j 가 아니라 **D1** 을 본다 —
+     매출액 = student_payments(카드 결제 장부) + 통장 입금 중 classifyDeposit()='b2b'
+   「케이씨피M」은 classifyDeposit() 이 'transfer' 로 잡아 b2b 에 들어가지 못하고,
+   카드 결제 장부에는 애초에 통장 이체가 없다 — 즉 «구조적으로» 못 들어온다.
+   ⛔ total 에 transfer/transferUnknown 을 더하면 그 순간 운영자금이 매출이 된다. */
+console.log('\n⑦ 손익계산서 매출액에 「케이씨피M」이 못 들어온다');
+{
+  const rev = (acct.match(/async function monthRevenue[\s\S]*?\n\}/) || [''])[0];
+  ok(/total:\s*\(Number\(book\.revenue\)\s*\|\|\s*0\)\s*\+\s*dep\.b2b/.test(rev),
+    '매출액 = 결제장부(book) + B2B 직접입금(b2b) 뿐이다');
+  ok(!/total:[^,]*transfer/.test(rev),
+    '⛔ total 에 transfer/transferUnknown 을 더하지 않는다 (더하면 운영자금이 매출이 된다)');
+  ok(/^const KNOWN_TRANSFER_RE = \/\^케이씨피M\$\/;$/m.test(acct),
+    'classifyDeposit() 이 「케이씨피M」을 자금이동으로 못 박는다');
+  ok(/notSeedSql\(\)/.test(rev), '시연용 시드 결제는 매출에서 뺀다');
+}
+
 /* ── ⑥ 규칙을 복사하지 않았다 ───────────────────────────────── */
 console.log('\n⑥ 판정 규칙의 정본은 accounting-reports.ts 한 곳');
 {
   ok(/import \{[^}]*KCP_TRANSFER_CYPHER_RE[^}]*\} from '\.\/accounting-reports'/.test(admin),
     "api-admin.ts 가 정본을 들여와 쓴다 (복사본 금지)");
   ok(!/케이씨피\s*M\|KCP/.test(admin), 'api-admin.ts 안에 정규식 복사본이 없다');
+  ok(/import \{[^}]*KCP_REVENUE_CYPHER_RE[^}]*\} from '\.\/accounting-reports'/.test(admin),
+    'api-admin.ts 가 매출 판정 정본도 들여와 쓴다 (복사본 금지)');
   ok(!/케이씨피\s*M\|KCP/.test(core), 'adm-core.js 안에 정규식 복사본이 없다 (서버 판정만 쓴다)');
 }
 

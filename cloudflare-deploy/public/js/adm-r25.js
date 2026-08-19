@@ -213,9 +213,11 @@
     var sp = sum.querySelector('[' + attr + ']');
     var t  = sp ? sp.getAttribute(attr) : '';
     if (!t) t = sum.textContent || '';
-    t = String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
-    if (t.length > 26) t = t.slice(0, 25) + '…';
-    return t;
+    /* ⚠️ 여기서 길이를 자르지 않는다. 자른 이름이 그대로 `data-gc-name`(설명 사전 조회 키)이 되면
+       사전에 그런 키가 없어 말풍선이 통째로 사라진다(사전에 «…» 로 끝나는 키는 0개다).
+       또 잘린 끝이 「… (관리용 · 장부 …」 처럼 괄호 중간이면 아래 pretty 가 설명 괄호를 못 알아본다.
+       **자르기는 보이는 글자에서만** 한다 — pretty() 참고. */
+    return String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
   }
 
   /* 카드에서 손자 목록을 읽는다. 목적지는 DOM 참조(el)라 id 가 없어도 정확하다. */
@@ -249,6 +251,178 @@
     return scan(card);
   }
 
+  /* 🍃 (2026-08-19 사장님) 「메뉴 ▸ 자식 ▸ 손자」를 **모든 항목에서**.
+     여기까지 오는 것은 카드 «안의 한 칸» 을 가리키는 항목이다(「지사」·「대리점」·「지사 정산」…).
+     예전에는 손자를 아예 만들지 않았다 — 카드 «전체» 를 읽으면 형제 항목들과 똑같은 4줄이
+     네 번 나왔기 때문이다(2026-08-18 「중복」 지적). 이제 카드가 아니라 **그 칸 안** 만 읽는다.
+     칸마다 안이 다르므로 중복이 생기지 않고, 항목마다 자기 손자를 갖는다.
+     ⚠️ 겹치는 것 중 «바깥» 은 버린다 — 이름표를 감싸는 상자(.sub-body 등)까지 세면
+        「그 칸 전체로 가는 줄」이 목록 맨 위에 하나 더 붙어 무엇을 눌러야 할지 헷갈린다. */
+  function scanLeaf(leaf){
+    var nodes = [].slice.call(leaf.querySelectorAll('[data-gc], details'));
+    var picked = nodes.filter(function(d){
+      if (d === leaf) return false;
+      for (var i = 0; i < nodes.length; i++){
+        if (nodes[i] !== d && d.contains(nodes[i])) return false;   // 남을 품은 상자는 버린다
+      }
+      return true;
+    });
+    var list = [];
+    for (var i = 0; i < picked.length && list.length < 20; i++){
+      var d = picked[i], ko, en;
+      if (d.hasAttribute('data-gc')){
+        ko = (d.getAttribute('data-gc') || '').trim();
+        en = (d.getAttribute('data-gc-en') || '').trim() || ko;
+      } else {
+        var sum = d.querySelector('summary');
+        if (!sum || sum.parentElement !== d) continue;
+        ko = labelOf(sum, 'data-ko');
+        en = labelOf(sum, 'data-en') || ko;
+      }
+      if (!ko) continue;
+      list.push({ ko: ko, en: en, el: d });
+    }
+    return list;
+  }
+
+  /* 🔗 딴 페이지로 가는 항목의 손자 — 그 페이지의 «구역 목록» 은 화면에서 읽을 수 없다(다른 문서다).
+     adm-ia6.js 가 data-ia6-secs 로 실어 준 것을 그대로 쓴다. 목적지는 주소 뒤 #id.
+     ⚠️ 이 목록은 손으로 적은 것이라 어긋날 수 있다 → sidebar_three_level_harness 가 파일을 열어 확인한다. */
+  function itemsFromSecs(sub){
+    var raw = sub.getAttribute('data-ia6-secs');
+    var page = sub.getAttribute('data-ia6-href') || '';
+    if (!raw || !page) return [];
+    var arr;
+    try { arr = JSON.parse(raw); } catch (e) { return []; }
+    if (!arr || !arr.length) return [];
+    var out = [];
+    for (var i = 0; i < arr.length; i++){
+      var it = arr[i];
+      if (!it || !it.ko || !it.id) continue;
+      out.push({ ko: it.ko, en: it.en || it.ko, href: page + '#' + it.id });
+    }
+    return out;
+  }
+
+  /* 카드 제목 — 묶음 항목에서 «카드 자체» 를 손자 한 줄로 세울 때 쓴다.
+     ⚠️ 제목이 붙어 있는 자리가 카드마다 다르다. 하나만 보면 대부분 빈 문자열이 나오고,
+        그러면 그 항목이 «손자 0개» 로 판정돼 ▸ 가 아예 안 생긴다(2026-08-18 실측:
+        「결제」·「직원·권한」이 그렇게 통째로 사라졌다). 세 자리를 순서대로 본다. */
+  function cardTitle(card, attr){
+    var ko = attr.slice(-2);                                   // 'ko' | 'en'
+    var t = card.getAttribute('data-menu-label-' + ko) || '';
+    if (!t){
+      var sum = card.querySelector(':scope > summary');
+      if (sum){
+        t = sum.getAttribute(attr) || '';                      // ① summary 자신에 붙은 경우
+        if (!t){
+          var sp = sum.querySelector('[' + attr + ']');
+          t = sp ? (sp.getAttribute(attr) || sp.textContent) : sum.textContent;   // ② 안쪽 span ③ 글자 그대로
+        }
+      }
+    }
+    /* ⚠️ labelOf 와 같은 이유로 여기서도 자르지 않는다(자르기는 pretty 가 «보이는 글자» 에만). */
+    return String(t).split(/ℹ️|💡|\n/)[0].replace(/\s+/g, ' ').trim();
+  }
+
+  /* 🔑 (2026-08-18) 사이드바 한 항목이 카드를 «여러 장» 맡는다 — 새 사이드바(adm-ia6.js)가
+     그렇게 묶었다(예: 「직원·권한」 = 권한 설정 + 카페24 명부, 「출결」 = 카드 3장).
+     그런데 지금까지 손자는 data-card(=대표 카드 «첫 장») 에서만 나왔다.
+     → 사장님 화면에서 「직원·권한」을 펴도 **「카페24 명부」가 목록에 없었다.**
+     이제 data-cards(맡은 카드 전부)를 읽는다. 칸이 없는 카드는 «그 카드 자체» 를 한 줄로 세운다
+     — 묶음 안에 있는데 목록에 안 보이면 그 카드는 영영 못 찾는다. */
+  function itemsForSub(sub){
+    /* 🍃 이 항목이 카드 «안의 한 칸» 을 가리키면(=잎) 손자는 **그 칸 안** 에서 읽는다.
+       「대표지사」·「지사」·「대리점」·「지사 정산」이 그렇다. 카드 «전체» 를 읽으면 넷이
+       똑같은 4줄을 보여 준다(2026-08-18 「중복」 지적) — 그래서 칸 안만 본다. */
+    var leafId = sub.getAttribute('data-ia6-sub');
+    if (leafId){
+      var leaf = document.getElementById(leafId);
+      return leaf ? scanLeaf(leaf) : [];
+    }
+
+    /* 🔗 카드가 아니라 딴 페이지로 가는 항목 — 그 페이지의 구역들이 손자가 된다. */
+    if (sub.getAttribute('data-ia6-secs')) return itemsFromSecs(sub);
+
+    var attr = (sub.getAttribute('data-cards') || '').trim();
+    var ids = attr ? attr.split(/\s+/) : (sub.dataset.card ? [sub.dataset.card] : []);
+    var out = [];
+
+    /* 📐 (2026-08-18 사장님 «1안» 결정) 손자에는 «이름이 서로 다른 것» 만 올린다.
+       ① 항목이 카드를 여러 장 맡으면 → 손자는 그 **카드 이름들**. 카드 안 칸까지 내려가지 않는다.
+          내려가면 「결제」가 11줄이 되면서 어느 카드 것인지 알 수 없고, 「자료실」은
+          «잠금 해제 / 자료 목록» 이 다섯 번 반복된다(실측).
+       ② 항목이 카드 한 장이면 → 그 카드 안 칸들. 그게 유일하게 서로 다른 목적지다. */
+    if (ids.length > 1){
+      for (var i = 0; i < ids.length; i++){
+        var c = document.getElementById(ids[i]);
+        if (!c) continue;
+        var ko = cardTitle(c, 'data-ko');
+        if (ko){
+          out.push({ ko: ko, en: cardTitle(c, 'data-en') || ko, el: c, host: ids[i] });
+          continue;
+        }
+        /* 제목이 없는 카드(<div id="card-…"> 로만 된 것)는 이름을 지어낼 수 없다.
+           그 카드에 한해 «안의 칸» 으로 대신한다 — 칸에는 이름이 붙어 있다.
+           ⛔ 여기서 그냥 건너뛰면 그 카드는 사이드바에서 영영 사라진다. */
+        var inner = itemsFor(ids[i], c);
+        for (var k = 0; k < inner.length && k < 6; k++){
+          var iv = inner[k];
+          out.push({ ko: iv.ko, en: iv.en, el: iv.el, anchor: iv.anchor, card: iv.card || ids[i], fn: iv.fn, host: ids[i] });
+        }
+      }
+      return out;
+    }
+
+    var id = ids[0];
+    var card = id && document.getElementById(id);
+    if (!card) return out;
+    var list = itemsFor(id, card);
+    for (var j = 0; j < list.length; j++){
+      var it = list[j];
+      out.push({ ko: it.ko, en: it.en, el: it.el, anchor: it.anchor, card: it.card || id, fn: it.fn, host: id });
+    }
+    return out;
+  }
+
+  /* ── ✂️ (2026-08-19 사장님 「손자 메뉴 이름들도 다 보기 좋게 정리해줘」) ─────────────
+     손자 이름은 카드 제목·칸 제목에서 «그대로» 가져온다(그게 어긋나지 않는 유일한 방법이다).
+     그런데 그 제목들은 «본문에서 읽히려고» 쓴 문장이라 사이드바 한 줄에는 군더더기가 붙는다 —
+       · 뒤에 붙은 설명 괄호  「학생 수업 평가 (수업 직후 별 7개)」
+       · 뒤에 붙은 설명 줄표  「배정 못 한 결제 아이디 — 대리점 연결」
+       · 폼을 여는 「+ 」      「+ 지사 신규 등록」
+     실측(43개 항목·146줄): 괄호 설명 24줄 · 16자 초과 14줄 · 잘려서 «…» 로 끝나던 줄 1개.
+     한 줄이 길면 사이드바 폭에서 잘리고, 잘리면 «무엇인지 모르는 줄» 이 된다.
+
+     ⚠️ **보이는 글자만** 손질한다. `data-gc-name`(설명 말풍선 사전 GC_DESC 의 조회 키)과
+        검색 색인은 «원본 그대로» 둔다 — 그래야 사전·검색이 안 어긋난다
+        (CLAUDE.md 「ko 이름은 화면에 적힌 그대로」 함정. 짧게 줄인 이름을 키로 쓰면 조용히 빗나간다).
+     ⚠️ 괄호를 뗐더니 형제와 이름이 같아지는 경우가 있다(예: 같은 카드의 «(월간)/(주간)»).
+        그때는 **원본을 그대로 쓴다** — 이름이 겹치는 것이 긴 것보다 나쁘다.
+     ⛔ 이름을 여기 표로 적어 두지 말 것. 그게 2026-08-18 에 지운 «지어낸 이름» 사고의 뿌리다. */
+  function pretty(s){
+    var t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    t = t.replace(/^\+\s*/, '');                       // 「+ 지사 신규 등록」 → 「지사 신규 등록」
+    t = t.replace(/\s+[—–]\s+.*$/, '');                // 줄표 뒤 부연 설명
+    t = t.replace(/\s+[(（][^)）]*[)）]\s*$/, '');       // 뒤에 붙은 설명 괄호(앞에 «띄어쓰기» 가 있는 것만)
+    t = t.trim();
+    /* 남은 게 너무 짧으면(「(AI)」 만 떼서 두 글자가 되는 식) 원본이 낫다 */
+    if (t.length < 2) t = String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    /* 그래도 긴 줄은 여기서만 자른다 — 사이드바 폭(약 20자)을 넘으면 어차피 화면에서 잘린다.
+       화면이 소리 없이 자르면 «어디까지가 이름인지» 모르지만, 「…」 가 있으면 «더 있다» 가 보인다. */
+    if (t.length > 20) t = t.slice(0, 19).replace(/[\s(（·]+$/, '') + '…';
+    return t;
+  }
+
+  /* 한 목록 안에서 «정리한 이름» 이 겹치면 그 줄만 원본으로 되돌린다. */
+  function prettyList(items, useEn){
+    var raw = items.map(function(it){ return (useEn && it.en) ? it.en : it.ko; });
+    var out = raw.map(pretty);
+    var count = {};
+    out.forEach(function(x){ count[x] = (count[x] || 0) + 1; });
+    return out.map(function(x, i){ return count[x] > 1 ? raw[i] : x; });
+  }
+
   var esc = function(s){
     return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   };
@@ -260,16 +434,18 @@
     bar.querySelectorAll('.ph85-sub').forEach(function(sub){
       if (sub.__ph125) return;
       var cardId = sub.dataset.card;
-      if (!cardId) return;
-      var card = document.getElementById(cardId);
-      if (!card){
+      /* 🔗 (2026-08-19) 카드가 없는 항목도 손자를 가질 수 있다 — 딴 페이지로 가는 항목이다.
+         예전엔 여기서 그냥 빠져나가서 그 항목만 «2단짜리» 로 남았다. */
+      if (!cardId && !sub.getAttribute('data-ia6-secs')) return;
+      var card = cardId ? document.getElementById(cardId) : null;
+      if (cardId && !card){
         /* 카드가 아직 안 그려졌을 수 있다 — 몇 번만 다시 본다.
            무한 재시도는 느린 PC(필리핀 가정 회선 포함)에서 그냥 낭비다. */
         sub.__ph125try = (sub.__ph125try || 0) + 1;
         if (sub.__ph125try > 5) sub.__ph125 = true;
         return;
       }
-      var items = itemsFor(cardId, card);
+      var items = itemsForSub(sub);
       if (!items.length){
         sub.__ph125try = (sub.__ph125try || 0) + 1;
         if (sub.__ph125try > 5) sub.__ph125 = true;   // 칸이 없는 카드 = «화면 하나». ▸ 를 안 붙인다
@@ -288,19 +464,20 @@
       if (!next || !next.classList.contains('ph125-grandchildren')){
         var box = document.createElement('div');
         box.className = 'ph125-grandchildren';
-        box.dataset.parent = cardId;
+        box.dataset.parent = cardId || '';
         var en = EN();
+        var shown = prettyList(items, en);          // ✂️ 보이는 글자만 손질(위 pretty 주석 참고)
         box.innerHTML = items.map(function(it, i){
-          /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 한국어. */
+          /* 🌐 보이는 글자는 화면 언어를 따르고, 설명 사전 조회 키(data-gc-name)는 «항상» 원본 한국어. */
           return '<div class="ph125-gc" data-gc-name="' + esc(it.ko) + '">' +
                    '<span class="ph125-num">' + (i + 1) + '</span>' +
-                   '<span class="ph125-text">' + esc((en && it.en) ? it.en : it.ko) + '</span>' +
+                   '<span class="ph125-text">' + esc(shown[i]) + '</span>' +
                  '</div>';
         }).join('');
         // 목적지를 DOM 참조로 직접 물려 준다 — 문자열 id 를 안 거치므로
         // 같은 id 가 문서에 두 벌 있어도(예: sub-popup-list) 엉뚱한 곳으로 안 간다.
         var gcs = box.children;
-        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = cardId; }
+        for (var i = 0; i < gcs.length; i++){ gcs[i].__gc = items[i]; gcs[i].__card = items[i].host || cardId; }
         sub.parentNode.insertBefore(box, sub.nextSibling);
       }
 
@@ -310,11 +487,75 @@
         t.__bound = true;
         t.addEventListener('click', function(e){
           e.stopPropagation(); e.preventDefault();
-          bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){ if (s !== sub) s.classList.remove('ph125-open'); });
-          sub.classList.toggle('ph125-open');
+          openGc(sub, true);                 // ▸ 는 여닫이 — 접는 방법이 여기 하나뿐이다
         });
       }
     });
+  }
+
+  /* 🔀 (2026-08-19) 손자를 여는 곳은 여기 한 곳이다 — ▸ 를 눌러도, 자식 메뉴 글자를 눌러도 같다.
+     toggle=true 면 여닫이, false 면 «열기만».
+
+     ⚠️ 처음에는 자식 클릭을 «열기만» 으로 두었다. «두 번 눌렀을 때 방금 편 손자가 사라지면
+        「눌렀더니 없어졌다」로 느껴진다» 는 판단이었는데, **실제로 써 보니 반대였다**
+        (2026-08-19 사장님 「사이드바 다시 누르면 접혀지지 않아」).
+        접는 방법이 ▸ 하나뿐인데 그 글자는 12px 라 특히 휴대폰에서 사실상 못 누른다.
+        게다가 그룹(메뉴)과 ▸ 는 여닫이인데 «자식만» 아니라서 더 헷갈렸다.
+        → 세 단계 모두 «다시 누르면 접힌다» 로 통일한다. */
+  function openGc(sub, toggle){
+    var bar = document.getElementById('ph85-sidebar');
+    var box = sub.nextElementSibling;
+    if (!bar || !box || !box.classList.contains('ph125-grandchildren')) return;
+    bar.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+      if (s !== sub) { s.classList.remove('ph125-open'); fitBox(s); }
+    });
+    if (toggle) sub.classList.toggle('ph125-open');
+    else sub.classList.add('ph125-open');
+    fitBox(sub);
+    keepGroupOpen(sub);
+  }
+
+  /* 🪤 자식 메뉴를 누르면 adm-s11.js(ph97) 가 «모든 그룹 접기» 를 한다 —
+     원래 그 클릭은 «카드로 이동» 이라 사이드바를 정리하는 것이 맞았다. 그런데 이제 같은 클릭이
+     손자를 여는 클릭이기도 해서, 그대로 두면 방금 편 손자가 그룹째 접혀 사라진다
+     — 쓰는 사람에게는 «눌러도 아무 일이 없다» 로 보인다.
+     ph97 은 window 캡처에서 우리보다 «먼저» 돌므로(문서상 adm-s11 이 위) 여기서 되돌리면 된다.
+     ⚠️ 그래도 뒤늦게 접는 코드가 있을 수 있어 다음 틱에 한 번 더 확인한다. 손자를 접어 두었으면
+        (ph125-open 이 없으면) 아무 일도 하지 않는다 — 예전 «누르면 정리» 동작 그대로다. */
+  function keepGroupOpen(sub){
+    var g = sub.closest ? sub.closest('.ph85-group') : null;
+    if (!g) return;
+    /* ⚠️ 예전에는 «손자가 펴져 있을 때만» 되살렸다. 그랬더니 손자를 «접는» 클릭에서
+       ph97 의 그룹 접기가 그대로 살아, 손자만 접으려 했는데 **그룹째 접혀** 메뉴가 통째로
+       사라졌다(2026-08-19 여닫이로 바꾸자마자 실측: 그룹열림 true → false).
+       자식을 누르는 행동은 «그 그룹 안에서 뭔가를 하는 것» 이므로, 열고 닫고와 무관하게
+       그룹은 열어 둔다. 그룹을 접는 것은 그룹 머리를 누르는 «다른 클릭» 이고 여기 안 걸린다. */
+    var again = function(){ g.classList.add('open'); };
+    again();
+    setTimeout(again, 0);
+    setTimeout(again, 120);
+  }
+
+  /* 📏 (2026-08-18) 「▸ 를 눌렀는데 손자가 안 보인다」의 두 번째 원인 — **잘림**.
+       CSS 가 두 곳에서 높이를 자른다. 둘 다 `overflow:hidden` 이라 넘친 부분은 «없는 것» 이 된다.
+         · 손자 상자          `.ph125-grandchildren` … 열렸을 때 max-height 600px
+           → 회계관리 손자 19개는 713px 다. 아래 3개가 잘려 있었다(실측).
+         · 그룹 목록          `.ph85-subs`          … 열렸을 때 max-height 900px
+           → 손자를 펴면 그룹 내용이 그만큼 길어져, 아래쪽 항목이 통째로 잘린다.
+       상한 숫자를 키우는 방법은 쓰지 않는다 — 그 주석이 설명하듯 상한이 클수록 «닫는데 반응이
+       없는 시간» 이 길어지고, 언젠가 또 넘친다. 대신 **열 때만 실제 내용 높이를 넣는다.**
+       ⚠️ CSS 가 !important 라 `style.maxHeight=` 로는 못 이긴다. setProperty(...,'important') 필수. */
+  function fitBox(sub){
+    var box = sub.nextElementSibling;
+    if (!box || !box.classList.contains('ph125-grandchildren')) return;
+    var open = sub.classList.contains('ph125-open');
+    if (open) box.style.setProperty('max-height', box.scrollHeight + 'px', 'important');
+    else      box.style.removeProperty('max-height');
+
+    var subs = sub.parentElement;                       // .ph85-subs (그룹 목록)
+    if (!subs || !subs.classList.contains('ph85-subs')) return;
+    if (open) subs.style.setProperty('max-height', (subs.scrollHeight + box.scrollHeight + 24) + 'px', 'important');
+    else      subs.style.removeProperty('max-height');
   }
 
   function flash(el){
@@ -330,6 +571,7 @@
      ② 목적지 칸을 펴고, 같은 줄의 형제 칸은 접는다 — 그래야 그 칸이 «맨 위» 로 온다.
      ③ 카드 이동은 jumpToMenu 에 맡긴다(급여 접근제어·legacy-cards 표시·공지 탭 전환이 거기 있다). */
   function closeDrawer(){
+    window.__ph125OpenedUntil = 0;        // «방금 폈다» 표시를 거둔다 — 이제는 닫고 이동할 차례다
     if (!window.matchMedia('(max-width: 1023px)').matches) return;
     var sb = document.getElementById('ph85-sidebar');
     if (sb) sb.classList.remove('open');
@@ -363,18 +605,103 @@
     }); });
   }
 
+  /* 🔁 (2026-08-19 사장님 「손자 메뉴도 다시 누르면 접히게」) 마지막으로 연 손자와 그 칸.
+     손자는 사이드바의 마지막 단계라 «그 밑에» 접을 것이 없다 — 대신 누르면 본문의 «그 칸» 이 열린다.
+     그래서 «다시 누르면 접힌다» 는 그 칸에 적용한다. 그룹·자식과 규칙이 이어진다.
+     ⚠️ «같은 손자를 연속으로» 누른 경우만 접는다. 다른 데를 보다가 돌아와서 누른 것은
+        「보러 온 것」이므로 접으면 안 된다(스크롤이 안 맞아 한 번 더 누르는 일도 흔하다). */
+  var lastGo = null;
+
   function go(cardId, desc){
     closeDrawer();                                   // ① 먼저 닫는다
+    /* 🔗 딴 페이지의 구역 — 주소 뒤 #id 로 그 구역까지 바로 간다(브라우저가 스크롤해 준다).
+       enroll-ops.html 처럼 탭 하나만 그리는 화면은 그 파일이 해시를 보고 탭을 켠다. */
+    if (desc.href) { lastGo = null; location.href = desc.href; return; }
+
+    /* ② 같은 손자를 다시 눌렀고 그 칸이 열려 있으면 → 접는다(이동·스크롤 없이 여기서 끝).
+       ⚠️ 접을 수 있는 것은 <details> 인 칸뿐이다. 표·구역 이름표(data-gc)처럼 접이식이 아닌
+          목적지는 접을 것이 없으므로 예전처럼 «그리로 이동» 만 한다. */
+    var prev = (lastGo && lastGo.desc === desc) ? lastGo.target : null;
+    if (prev && prev.tagName === 'DETAILS' && prev.open) {
+      prev.open = false;
+      lastGo = null;
+      return;
+    }
+
     var hostId = desc.card || cardId;
     if (typeof window.jumpToMenu === 'function') window.jumpToMenu(hostId);
     var card = document.getElementById(hostId);
     if (!card) { alert('카드 미구현: ' + hostId); return; }
     setTimeout(function(){
-      if (desc.fn && typeof window[desc.fn] === 'function'){ window[desc.fn](); return; }
+      if (desc.fn && typeof window[desc.fn] === 'function'){ lastGo = null; window[desc.fn](); return; }
       var t = desc.el || (desc.anchor ? document.getElementById(desc.anchor) : null);
+      lastGo = { desc: desc, target: t || card };     // 다음 클릭에서 «같은 곳인가» 를 본다
       reveal(card, t || card);
     }, 120);                                          // jumpToMenu 의 rAF 재보정(≈32ms) 뒤에 온다
   }
+
+  /* 👆 (2026-08-19 사장님) 「자식 메뉴를 누르면 손자 메뉴가 나오게 — 모든 메뉴를 이렇게」
+     지금까지는 **▸ 를 정확히 눌러야만** 열렸다. ▸ 는 12px 짜리 글자라 휴대폰에서는 거의 못 누르고,
+     자식 메뉴 글자를 누르면 카드로 이동만 하고 손자는 안 나왔다.
+     ⚠️ 이동을 막지 않는다 — 여기서 stopPropagation 을 부르면 ph97·adm-ia6 가 굶어
+        «눌러도 화면이 안 바뀐다» 가 된다. 우리는 «펴는 일» 만 더한다.
+     ⚠️ window 캡처여야 한다. 사이드바에 걸면 ph97 의 stopPropagation 에 막혀 영영 안 불린다
+        (CLAUDE.md 2장 「사이드바 클릭이 안 먹거나 엉뚱하게 동작」). */
+  window.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    if (t.closest('#ph85-sidebar .ph125-toggle')) return;   // ▸ 는 자기 리스너가 «여닫이» 로 처리
+    if (t.closest('#ph85-sidebar .ph125-gc')) return;       // 손자 자신을 누른 것
+    var sub = t.closest('#ph85-sidebar .ph85-sub');
+    if (!sub) return;
+    var box = sub.nextElementSibling;
+    if (!box || !box.classList.contains('ph125-grandchildren')) return;
+
+    /* 📱 휴대폰 — 드로어를 «닫지 않는다».
+       세 곳이 자식 메뉴 클릭에 드로어를 닫는다(ph97 · adm-ia6 · admin.html 의 pointerdown 감시).
+       그건 그 클릭이 «카드로 이동» 이던 시절의 규칙이다. 이제는 같은 클릭이 손자를 여는
+       클릭이라, 닫아 버리면 **방금 편 손자를 아무도 못 본다.**
+       ⛔ 그렇다고 그 세 곳을 «항상 안 닫게» 만들면 안 된다 — 손자를 골라 화면으로 갈 때는
+          반드시 닫아야 한다(닫기 전에는 body 가 overflow:hidden 이라 스크롤이 통째로 무시된다).
+       ✅ 그래서 «지금 여는 중» 이라는 표시를 짧게 남기고, 그 셋은 그 표시가 있을 때만 건너뛴다.
+       ⚠️ 이미 펴져 있는 자식을 한 번 더 누르면 표시를 남기지 않는다 — 두 번째 누름은
+          「이 화면으로 가겠다」는 뜻이므로 예전처럼 닫히고 카드로 간다. */
+    /* 이미 펴져 있으면 이번 누름은 «접기» 다 — 표시를 세우지 않는다.
+       그래서 휴대폰에서는 접히면서 드로어도 닫히고 카드로 이동한다(예전 두 번째 누름과 같다). */
+    var already = sub.classList.contains('ph125-open');
+    if (!already){
+      /* 🔖 «방금 폈다» 표시. 두 곳이 이걸 본다 —
+           📱 드로어를 닫는 세 곳(ph97 · adm-ia6 · admin.html) → 닫지 않는다
+           🔗 딴 페이지로 가는 항목(adm-ia6 의 select) → 이동을 한 박자 미룬다.
+              안 미루면 「수업 길이 변경」·「수강 운영」은 손자를 보여 줄 새도 없이 페이지가 바뀐다. */
+      window.__ph125OpenedEl = sub;
+      window.__ph125OpenedUntil = Date.now() + 800;
+      if (window.matchMedia('(max-width: 1023px)').matches){
+        try { if (typeof window.mgaOpen === 'function') window.mgaOpen(); } catch(e){}
+      }
+    }
+    openGc(sub, true);          // 다시 누르면 접힌다 — 그룹·▸ 와 같은 규칙(위 주석 참고)
+  }, true);
+
+  /* 🧹 (2026-08-19) 그룹(메뉴)을 접으면 그 안에 펴 둔 손자도 같이 접는다.
+     안 그러면 그룹만 접혔다가 다시 펼 때 손자가 그대로 펼쳐진 채 나와서
+     「접었는데 안 접힌다」로 보인다(사장님 제보의 두 번째 갈래).
+     ⚠️ 접기는 ph97 이 «그 다음에» 하므로 클래스를 곧바로 읽으면 아직 열려 있다.
+        다음 틱에 «정말 접혔는지» 보고 나서 손자를 접는다. */
+  window.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var head = t.closest('#ph85-sidebar .ph85-head');
+    if (!head) return;
+    var g = head.closest('.ph85-group');
+    if (!g) return;
+    setTimeout(function(){
+      if (g.classList.contains('open')) return;          // 편 것이면 건드리지 않는다
+      g.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+        s.classList.remove('ph125-open'); fitBox(s);
+      });
+    }, 30);
+  }, true);
 
   // 손자 클릭 — 위임 한 곳에서 받는다(항목마다 onclick 문자열을 안 만들어 그만큼 가볍다)
   document.addEventListener('click', function(e){

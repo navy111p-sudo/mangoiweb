@@ -32,6 +32,12 @@
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
   .lbl { font-size:12.5px; color:#94a3b8; min-width:58px; }
   .price { position:fixed; left:0; right:0; bottom:0; background:rgba(15,23,42,0.97); border-top:1px solid rgba(251,191,36,0.35); padding:12px 16px; backdrop-filter:blur(10px); }
+  /* 🔗 문자 링크(?rt=)로 들어온 «연장 전용» 모드 — 새 수강신청 UI 를 통째로 접는다.
+       학부모는 로그인이 없어 새 신청은 어차피 서버에서 막히고, 고를 게 많으면 헷갈리기만 한다.
+       ⚠️ display 를 정하는 규칙이 있으면 [hidden] 이 안 먹으므로(CLAUDE.md 2장) 클래스로 못 박는다. */
+  body.renew-only #app > .step:not(#stRenew) { display:none !important; }
+  body.renew-only .price { display:none !important; }
+  body.renew-only #autoRenewBox { display:none !important; }
   .price .in { max-width:560px; margin:0 auto; display:flex; align-items:center; gap:12px; }
   .amt { font-size:22px; font-weight:900; color:#fbbf24; }
   .amt small { font-size:11px; color:#94a3b8; font-weight:400; display:block; }
@@ -136,6 +142,17 @@
     TOKEN = localStorage.getItem('mango_token') || null;
   } catch(e){}
 
+  /* 🔗 (2026-08-18) 문자로 받은 1회용 연장 링크(?rt=…).
+       미연장 안내 문자는 **학부모 휴대폰**으로 나가는데 그 폰에는 학생 로그인이 없는 게 보통이라,
+       예전에는 이 화면이 「🔒 로그인 후 이용할 수 있어요」로 갈아쳐서 결제까지 못 갔다.
+       ⛔ 이 토큰을 localStorage 에 **저장하지 않는다.** 저장하면 그 폰이 학생 계정처럼 굳어져
+          다른 학생 기능까지 열린 것처럼 보이게 된다 — 메모리에만 들고 이 화면에서만 쓴다.
+       ⛔ 서버도 이 토큰을 «로그인» 으로 인정하지 않는다. 연장 3개 경로에서만 통한다
+          (my-current · renew-link · renew-order). 자세한 이유는 src/renew-link.ts 머리말. */
+  var RT = null;
+  try { RT = new URLSearchParams(location.search).get('rt') || null; } catch(e){}
+  var RTQ = RT ? ('rt=' + encodeURIComponent(RT)) : '';
+
   /* 🕐 (2026-07-30) st.times = { 요일: 'HH:MM' } — 제보 #2-3. st.time 은 "요일마다 다른 시간" 을
      끈 기본 상태에서 전 요일에 적용되는 공통 시각(기존 UI 그대로)이고, perDayOn=true 면 개별로 쓴다. */
   var st = { teacher:null, teacherName:'', weekly:2, months:1, minutes:20, days:[], time:'16:00', times:{}, perDayOn:false, date:'' };
@@ -153,7 +170,30 @@
   var QUOTE = null, CHECK_OK = false, checkTimer = null;
 
   var app = document.getElementById('app');
-  if (!UID) {
+
+  /* 문자 링크로 들어왔고 로그인은 없는 상태 = «연장만» 하는 화면.
+     자동연장(정기결제) 상자는 카드 등록에 진짜 로그인이 필요하므로 함께 접는다. */
+  if (RT && !UID) {
+    document.body.classList.add('renew-only');
+    var _h1 = document.querySelector('#app h1');
+    if (_h1) _h1.innerHTML = '🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span>';
+    var _sub = document.querySelector('#app .sub');
+    if (_sub) {
+      _sub.setAttribute('data-ko', '문자로 보내 드린 연장 링크입니다. 현재 요일·시간·선생님 그대로 이어집니다');
+      _sub.setAttribute('data-en', 'This is your renewal link — same days, time and teacher continue');
+      _sub.textContent = '문자로 보내 드린 연장 링크입니다. 현재 요일·시간·선생님 그대로 이어집니다';
+    }
+    /* 링크가 만료·소진됐으면 «연장 카드가 안 뜨는» 것으로만 보이지 않게, 이유를 화면에 적는다. */
+    fetch('/api/pay/enroll/renew-link?' + RTQ).then(function(r){ return r.json(); }).then(function(d){
+      if (d && d.ok) return;
+      app.innerHTML = '<h1>🔁 수업 연장하기</h1><div class="login-need">'
+        + '<div style="font-size:40px">⏰</div>'
+        + '<div style="margin:10px 0;font-weight:800">' + ((d && d.message) || '링크가 만료되었거나 사용할 수 없습니다.') + '</div>'
+        + '<a href="/">홈에서 로그인하기 →</a></div>';
+    }).catch(function(){});
+  }
+
+  if (!UID && !RT) {
     app.innerHTML = '<h1>🥭 수강신청</h1><div class="login-need">'
       + '<div style="font-size:40px">🔒</div>'
       + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
@@ -452,12 +492,12 @@
   function renewQuote(){
     if (!CUR || !CUR.active) return;
     fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ uid:UID, weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
+      body: JSON.stringify({ uid:UID||'', weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
       .then(function(r){return r.json();}).then(function(d){
         if (d && d.ok) el('renewPrice').innerHTML = '<b style="color:#fbbf24;font-size:17px">'+won(d.amount)+'</b> <span style="color:#94a3b8">· '+d.sessions+'회</span>';
       }).catch(function(){});
   }
-  fetch('/api/pay/enroll/my-current?uid='+encodeURIComponent(UID)+(TOKEN?('&token='+encodeURIComponent(TOKEN)):''))
+  fetch('/api/pay/enroll/my-current?' + (RT ? RTQ : ('uid='+encodeURIComponent(UID)+(TOKEN?('&token='+encodeURIComponent(TOKEN)):''))))
     .then(function(r){return r.json();}).then(function(d){
       if (!d || !d.ok || !d.current || !d.current.active) return;
       CUR = d.current;
@@ -546,7 +586,8 @@
     var b = el('btnRenew');
     b.disabled = true; b.textContent = '🔄 처리 중…';
     fetch('/api/pay/enroll/renew-order', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ uid:UID, token:TOKEN, months:renewMonths }) })
+      body: JSON.stringify(RT ? { renew_token:RT, months:renewMonths }
+                              : { uid:UID, token:TOKEN, months:renewMonths }) })
       .then(function(r){return r.json();}).then(function(o){
         if (!o || !o.ok) { b.disabled=false; b.textContent='연장 결제'; alert((o&&o.message)||'연장 주문 실패: '+((o&&o.error)||'')); return; }
         try {

@@ -137,7 +137,9 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=10"><!-- admin.html head 스타일 (가독성 CSS 앞) -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=12"><!-- admin.html head 스타일 (가독성 CSS 앞)
+   · v=12: 2026-08-18 차트 4종이 창 폭에 따라 상자를 벗어나던 것 — .charts 를 auto-fit 로, .chart-card 에 min-width:0 상시 적용
+   · v=11: 2026-08-18 #admin-main-scale{min-width:0} — 「학생관리」가 창 밖으로 나가던 것 -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -589,7 +591,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=31"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=34"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -1077,7 +1079,7 @@
      자주 가는 곳만 위로 끌어올린다. 내용은 adm-quickmenu.js 가 채운다. -->
 <div id="quick-menu-bar" style="display:none"></div>
 <script src="/js/adm-lazy.js?v=2" defer></script><!-- 🐢 카드 펼칠 때 그 카드 스크립트만 로딩 (2026-08-04) -->
-<script src="/js/adm-quickmenu.js?v=3" defer></script>
+<script src="/js/adm-quickmenu.js?v=4" defer></script>
 
 <!-- ═══════════════════════════════════════════════════════════════════════════
      📊 통합 대시보드 (2026-08-08)
@@ -1161,7 +1163,7 @@
     </div>
     <div id="db-result" style="margin-top:14px"></div>
       </div>
-      <div id="card-kpi-dashboard" style="margin-top:14px">
+      <div id="card-kpi-dashboard" data-menu-label-ko="KPI 대시보드" data-menu-label-en="KPI Dashboard" style="margin-top:14px">
     
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
       <button class="primary" onclick="kpiLoad()" style="padding:7px 14px;font-size:12.5px;font-weight:700">↻ 새로고침</button>
@@ -1183,7 +1185,7 @@
 
     <!-- ▸ 탭 2 : 매출·학생 추세 -->
     <div class="dash-pane" id="dash-pane-chart" hidden>
-      <div id="card-daily-charts">
+      <div id="card-daily-charts" data-menu-label-ko="일자별 차트" data-menu-label-en="Daily Charts">
     <!-- (역할 안내 배너 제거: 사용자 요청) -->
 
     <!-- 💰 매출 5단계 KPI 카드 + 미니 꺾은선 (sparkline) -->
@@ -2010,7 +2012,7 @@
           
           <div id="ov-info-box" style="border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;line-height:1.7">
             💡 <b>자동 감지 + 안내 문자 발송</b> — 마지막 결제일로부터 <b>유예기간(기본 35일)</b>이 지나면 자동 분류합니다.<br>
-            🔁 <b>B2C(개인 결제) = 미연장</b> — 결제한 만큼만 수업이 나가는 선불 구조라 «미납»이 아닙니다. 「수업이 O월 O일자로 종료되었습니다」 안내만 나갑니다(발신 <b>1644-0561</b>).<br>
+            🔁 <b>B2C(개인 결제) = 미연장</b> — 결제한 만큼만 수업이 나가는 선불 구조라 «미납»이 아닙니다. 「수업이 O월 O일자로 종료되었습니다」 안내와 <b>연장·결제 링크</b>만 나갑니다(발신 <b>1644-0561</b>).<br>
             💸 <b>B2B(학원 결제) = 미납</b> — 종전대로 금액·미납일수를 담은 독촉 알림톡이 나갑니다.<br>
             🚫 <b>마지막 수업일이 «연장안내 기간»(기본 30일)을 넘긴 학생은 명단에서 자동 제외</b>합니다 — 연장 가능성이 낮아 문자를 보내지 않습니다.<br>
             <span style="opacity:.85">SOLAPI 가입 전엔 콘솔 로그만 남습니다.</span>
@@ -2196,7 +2198,7 @@
           </details>
 
           <!-- 4개 KPI 카드 (한눈에 보이는 핵심 숫자) -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+          <div data-gc="💰 이번 달 요약" data-gc-en="💰 This month at a glance" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px">
             <div style="padding:14px 16px;background:linear-gradient(135deg,#dbeafe,#bfdbfe);border-radius:12px;border:1px solid #93c5fd">
               <div style="font-size:11px;color:#1e40af;font-weight:700;margin-bottom:4px" data-ko="💰 이번 달 총 매출" data-en="💰 This Month's Gross Revenue">💰 이번 달 총 매출</div>
               <div id="ph204-kpi-gross" style="font-size:22px;font-weight:900;color:#1e3a8a">₩48,500,000</div>
@@ -2222,21 +2224,29 @@
           </div>
 
           <!-- 지점별 카드 그리드 (동적 렌더 — accLoadFranchise) -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
+          <div data-gc="🏢 지점별 정산 카드" data-gc-en="🏢 Settlement by branch" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px" id="ph204-branch-cards">
             <div class="empty" style="grid-column:1/-1;padding:20px;text-align:center;color:#94a3b8" data-ko="🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다." data-en="Click Refresh to load real settlement data.">🧮 새로고침을 누르면 실제 정산 데이터가 표시됩니다.</div>
           </div>
 
           <!-- 매출 비교 막대 그래프 (간단 CSS) -->
-          <div style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
+          <div data-gc="📊 지점별 매출 비교" data-gc-en="📊 Revenue by branch" style="margin-top:18px;padding:14px 16px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0">
             <div style="font-weight:800;font-size:13px;color:#0f172a;margin-bottom:12px" data-ko="📊 지점별 매출 비교 (이번 달)" data-en="📊 Revenue by Branch (this month)">📊 지점별 매출 비교 (이번 달)</div>
             <div style="display:flex;flex-direction:column;gap:9px" id="ph204-bars"><div class="empty" style="color:#94a3b8;font-size:12px" data-ko="새로고침 대기" data-en="Awaiting refresh">새로고침 대기</div></div>
             
             <div style="margin-top:10px;font-size:11px;color:#64748b;text-align:center" data-ko="💡 막대 길이는 부산 지점 (최고 매출) 기준" data-en="💡 Bar length is relative to Busan Branch (top revenue)">💡 막대 길이는 부산 지점 (최고 매출) 기준</div>
           </div>
 
-          <!-- 기존 표 (상세 보기) — 접힘 -->
+          <!-- 기존 표 (상세 보기) — 접힘
+               ⚠️ 이 표는 /api/admin/settlement/branch-summary 를 쓴다 — student_payments(카페24 장부)만
+                  집계하므로 **통장 직접입금(B2B)이 들어 있지 않다.** 「가맹점별 정산서」(reports/franchise)는
+                  B2B 를 포함하므로 두 화면의 총 매출이 다르게 보인다(2026-08-18 사장님 확인 → 1안).
+               ⛔ 여기에 B2B 를 그냥 더하지 말 것 — 이 표의 존재 이유가 «대리점마다 다른 요율»인데
+                  B2B 입금은 적요만 있어 대리점을 특정할 수 없다. 지사 기본 요율로 얹으면 아래
+                  「본사 수수료」가 실제로 떼인 비율과 어긋난다. 넣으려면 대리점 귀속을 먼저 정해야 한다.
+               ✅ 대신 «무엇만 보는 표인지» 와 «어디를 봐야 하는지» 를 화면에 밝힌다. -->
           <details style="margin-top:14px">
-            <summary style="cursor:pointer;font-size:12px;color:#64748b;font-weight:600;padding:8px 0">📋 상세 표 데이터 보기 (관리용)</summary>
+            <summary style="cursor:pointer;font-size:12px;color:#64748b;font-weight:600;padding:8px 0" data-ko="📋 상세 표 데이터 보기 (관리용 · 장부 결제만)" data-en="📋 Detail table (admin · book payments only)">📋 상세 표 데이터 보기 (관리용 · 장부 결제만)</summary>
+            <div style="margin:6px 0 2px;padding:8px 11px;background:#fffbeb;border:1px solid #fcd34d;border-left:3px solid #f59e0b;border-radius:6px;font-size:11.5px;line-height:1.65;color:#78350f" data-ko="※ 이 표는 카페24 장부 결제만 봅니다. 통장 직접입금(B2B)까지 합친 금액은 「가맹점별 정산서」에서 보세요." data-en="※ This table counts Cafe24 book payments only. For totals including direct bank deposits (B2B), see the Franchise Settlement report.">※ 이 표는 카페24 장부 결제만 봅니다. 통장 직접입금(B2B)까지 합친 금액은 「가맹점별 정산서」에서 보세요.</div>
             <table style="margin-top:8px">
               <thead><tr>
                 <th data-ko="가맹점" data-en="Franchise">가맹점</th>
@@ -4479,6 +4489,13 @@ window.__admSettleRun = function(fn){
 </details>
 
 <!-- 🧠 Phase MBTI — 강사 MBTI 등록 (관리자) -->
+<style id="mbti-pers-css">
+  /* 🙂 성향 칩 — background-color 로 준다. background:linear-gradient(135deg…) 로 쓰면
+     admin-inline-c.css 의 옛 다크 규칙이 !important 남색으로 덮는다(CLAUDE.md 2장 함정표). */
+  #mbti-pers .mbti-pers-chip{border:1px solid #cbd5e1;background-color:#fff;color:#334155;border-radius:999px;
+    padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #mbti-pers .mbti-pers-chip[aria-pressed="true"]{border-color:#6366f1;background-color:#e0e7ff;color:#3730a3}
+</style>
 <details class="table-card menu-card" id="card-mbti-mgmt">
   <summary><span data-ko="🧠 강사 MBTI 등록 (매칭용)" data-en="🧠 Teacher MBTI Setup">🧠 강사 MBTI 등록 (매칭용)</span></summary>
   <div class="menu-body">
@@ -4496,6 +4513,19 @@ window.__admSettleRun = function(fn){
       <label style="font-size:12px;font-weight:700"><span data-ko="취미 / 관심사" data-en="Hobbies / Interests">취미 / 관심사</span> <input id="mbti-hobby" type="text" placeholder="예: 영화 감상, 베이킹, K-POP" data-ko-ph="예: 영화 감상, 베이킹, K-POP" data-en-ph="e.g. movies, baking, K-POP" style="width:100%;padding:8px;margin-top:3px"/></label>
       <label style="font-size:12px;font-weight:700"><span data-ko="수업 스타일" data-en="Teaching Style">수업 스타일</span> <input id="mbti-style" type="text" placeholder="예: 친절하고 반복학습 중심, 발음에 강함" data-ko-ph="예: 친절하고 반복학습 중심, 발음에 강함" data-en-ph="e.g. friendly, repetition-focused, strong on pronunciation" style="width:100%;padding:8px;margin-top:3px"/></label>
       <label style="font-size:12px;font-weight:700"><span data-ko="자기소개" data-en="Self-introduction">자기소개</span> <textarea id="mbti-intro" rows="2" placeholder="학생들에게 보일 강사 인사" data-ko-ph="학생들에게 보일 강사 인사" data-en-ph="Greeting students will see" style="width:100%;padding:8px;margin-top:3px"></textarea></label>
+      <!-- 🙂 (2026-08-18 수정요청 #02 후속) 강사 «성향» — 신규 학생 등록 마법사가 물어보는 그 다섯 개와 같은 값이다.
+           여기가 비어 있으면 마법사에서 성향을 골라도 추천 순서에 반영할 근거가 없다.
+           ⚠️ 값(kind/fun/edu/serious/laugh)은 서버 normPersonality() · 마법사 WIZ_PERSONALITY 와 «같은 다섯 개» 여야 한다. -->
+      <div style="font-size:12px;font-weight:700">
+        <span data-ko="성향 (매칭에 쓰임 · 여러 개 선택)" data-en="Personality (used for matching · multiple)">성향 (매칭에 쓰임 · 여러 개 선택)</span>
+        <div id="mbti-pers" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px">
+          <button type="button" class="mbti-pers-chip" data-pid="kind"    data-ko="😊 상냥한"   data-en="😊 Warm">😊 상냥한</button>
+          <button type="button" class="mbti-pers-chip" data-pid="fun"     data-ko="🎉 재미있는" data-en="🎉 Fun">🎉 재미있는</button>
+          <button type="button" class="mbti-pers-chip" data-pid="edu"     data-ko="📚 교육적인" data-en="📚 Educational">📚 교육적인</button>
+          <button type="button" class="mbti-pers-chip" data-pid="serious" data-ko="🎯 진지한"   data-en="🎯 Serious">🎯 진지한</button>
+          <button type="button" class="mbti-pers-chip" data-pid="laugh"   data-ko="😄 웃음많은" data-en="😄 Cheerful">😄 웃음많은</button>
+        </div>
+      </div>
       <button onclick="mbtiSave()" style="padding:10px 22px;background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;width:auto;align-self:start" data-ko="💾 등록 / 업데이트" data-en="💾 Register / Update">💾 등록 / 업데이트</button>
     </div>
     <div id="mbti-result" style="margin-top:10px"></div>
@@ -4579,7 +4609,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r5.js?v=1" defer></script><!-- 분할추출:adm-r5 -->
+<script src="/js/adm-r5.js?v=2" defer></script><!-- v=2: 2026-08-18 강사 «성향» 칩(매칭용) 입력·목록 --><!-- 분할추출:adm-r5 -->
 
 <!-- ⚡ Phase ML — 마이크로러닝 카톡 발송 (오늘의 단어 + 미니 퀴즈) -->
 <details class="table-card menu-card" id="card-microlearn">
@@ -4757,7 +4787,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-q1.js?v=2" defer></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q1.js?v=3" defer></script><!-- 분할추출:adm-q1 (원복: 이 위치에 인라인) -->
 
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 🌅 Daily Morning Briefing — 매일 아침 자동 일일 브리핑              -->
@@ -5142,6 +5172,53 @@ window.__admSettleRun = function(fn){
 <!-- ═══════════════════════════════════════════════════════════════ -->
 <!-- 📅 Auto Weekly Schedule — AI 주간 시간표 자동 짜기                  -->
 <!-- ═══════════════════════════════════════════════════════════════ -->
+<!-- 🗓 지난 수업에서 «수업 일정» 만들기 (2026-08-19 사장님 A안)
+     왜 — 「📅 일정변경」 버튼도 주간 시간표도 class_schedules 를 보는데, 그 표에 진짜 학생 것은
+     6명 15건뿐이었다(2026-08-18 실측). 반면 실제 수업 기록은 attendance 에 182,612건 있다.
+     자료가 없는 게 아니라 «앞으로의 일정» 칸으로 옮겨지지 않았을 뿐이다.
+     ⚠️ 미리보기 → 사람이 고르기 → 만들기 순서다. «전부 자동» 으로 바꾸지 말 것 —
+        그만둔 학생에게 수업이 잡히면 「내 일정에 왜 이게 있냐」가 수백 건 들어온다. -->
+<details class="table-card menu-card" id="card-schedule-seed">
+  <summary><span data-ko="🗓 지난 수업에서 일정 만들기" data-en="🗓 Build schedules from past classes">🗓 지난 수업에서 일정 만들기</span></summary>
+  <div class="menu-body">
+    <div style="font-size:12px;background-color:#f8fafc;border-left:3px solid #6366f1;padding:9px 12px;border-radius:6px;margin-bottom:10px"
+         data-ko="지난 수업 기록(출결)에서 «매주 화 19:00» 같은 반복 패턴을 찾아 수업 일정으로 만듭니다. 먼저 미리보기로 확인하고, 고른 것만 만들어집니다. 이미 일정이 있거나 수강 중이 아닌 학생은 자동으로 체크가 풀립니다."
+         data-en="Finds weekly patterns (e.g. every Tue 19:00) in past attendance and turns them into class schedules. Preview first — only what you tick is created. Students who already have a schedule, or are not active, are unticked automatically.">지난 수업 기록(출결)에서 «매주 화 19:00» 같은 반복 패턴을 찾아 수업 일정으로 만듭니다. 먼저 미리보기로 확인하고, 고른 것만 만들어집니다. 이미 일정이 있거나 수강 중이 아닌 학생은 자동으로 체크가 풀립니다.</div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="시작일" data-en="From">시작일</span>
+        <input id="seed-from" type="date" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="종료일" data-en="To">종료일</span>
+        <input id="seed-to" type="date" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <label style="font-size:12px;font-weight:700;display:flex;flex-direction:column;gap:3px">
+        <span data-ko="최소 반복 횟수" data-en="Min repeats">최소 반복 횟수</span>
+        <input id="seed-min" type="number" value="3" min="2" max="20" style="width:80px;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      </label>
+      <button type="button" id="seed-preview-btn" class="primary" style="padding:8px 16px;font-size:13px;font-weight:800"
+              data-ko="🔍 미리보기" data-en="🔍 Preview">🔍 미리보기</button>
+    </div>
+
+    <div id="seed-summary" style="font-size:12.5px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;margin-bottom:8px;display:none"></div>
+
+    <div id="seed-actions" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button type="button" id="seed-check-rec" style="padding:6px 12px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background-color:#fff;border-radius:8px;cursor:pointer"
+              data-ko="✅ 권장만 체크" data-en="✅ Tick recommended">✅ 권장만 체크</button>
+      <button type="button" id="seed-check-none" style="padding:6px 12px;font-size:12px;font-weight:700;border:1px solid #cbd5e1;background-color:#fff;border-radius:8px;cursor:pointer"
+              data-ko="◻ 전부 해제" data-en="◻ Untick all">◻ 전부 해제</button>
+      <span id="seed-picked" style="font-size:12px;color:#475569"></span>
+      <button type="button" id="seed-apply-btn" class="primary" style="margin-left:auto;padding:8px 18px;font-size:13px;font-weight:800"
+              data-ko="💾 선택한 것만 만들기" data-en="💾 Create ticked only">💾 선택한 것만 만들기</button>
+    </div>
+
+    <div id="seed-box" style="border:1px solid #e5e7eb;border-radius:10px;overflow:auto;max-height:60vh"></div>
+    <div id="seed-msg" style="margin-top:8px;font-size:12.5px"></div>
+  </div>
+</details>
+
 <details class="table-card menu-card" id="card-auto-schedule">
   <summary><span data-ko="📅 AI 주간 시간표 자동 짜기" data-en="📅 Auto Weekly Schedule">📅 AI 주간 시간표 자동 짜기</span></summary>
   <div class="menu-body">
@@ -6848,7 +6925,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     </div>
 
     <!-- ② 게시 · 팝업 (id=card-popups-mgmt 유지 · 기본 숨김, 탭으로 표시) -->
-    <div class="ns-panel" id="card-popups-mgmt" data-nspanel="publish" style="display:none">
+    <div class="ns-panel" id="card-popups-mgmt" data-nspanel="publish" data-menu-label-ko="팝업 게시" data-menu-label-en="Popup Posting" style="display:none">
       <div class="sub-menu">
 
       <!-- 1. 활성 팝업 목록 + 통계 -->
@@ -7022,7 +7099,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <div data-gc="👤 강사별 상세" data-gc-en="Teacher Detail" id="pr-detail" style="margin-top:14px"></div>
   </div>
 </details>
-<script type="text/lazy-js" data-src="/js/adm-q3.js?v=5" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
+<script type="text/lazy-js" data-src="/js/adm-q3.js?v=6" data-card="card-payroll-auto" data-globals="prToggleRules,prSaveLevels,prSaveRules,prShowDetail,prSaveLate,prCalculate,prRowAdjust,prSetLevel,prSaveAll,prMarkPaid,prMarkUnpaid,prDownloadCsv"></script><!-- 지연:카드 펼칠 때 (adm-lazy.js) --><!-- 분할추출:adm-q3 (원복: 이 위치에 인라인) -->
 
 <!-- 📅 Phase SR — 수업 연기·변경 요청 (강사 제출 → 관리자 승인/거절, 시간 기록 보존) -->
 <details class="table-card menu-card" id="card-schedule-requests">
@@ -7423,7 +7500,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="mbr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Add">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
+          <table data-gc="🏛️ 대표지사 목록" data-gc-en="🏛️ Master branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="대표지사명" data-en="Master Branch Name">대표지사명</th><th data-ko="담당권역" data-en="Region">담당권역</th><th data-ko="등급" data-en="Tier">등급</th><th data-ko="대표자" data-en="Representative">대표자</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="관리 지사 수" data-en="Branches">관리 지사 수</th><th data-ko="상태" data-en="Status">상태</th></tr></thead>
             <tbody id="mbranches-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -7444,7 +7521,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               <button id="fr-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
           </details>
-          <table style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
+          <table data-gc="🏢 지사 목록" data-gc-en="🏢 Branch list" style="margin-top:10px;"><thead><tr><th>ID</th><th data-ko="지사명" data-en="Branch">지사명</th><th data-ko="대표지사" data-en="Master Branch">대표지사</th><th data-ko="대표" data-en="Owner">대표</th><th data-ko="전화" data-en="Phone">전화</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="개설일" data-en="Opened">개설일</th></tr></thead>
             <tbody id="franchises-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
 
           <!-- 🔎 지사에 소속된 대리점 찾기 (2026-08-18 사장님 수정요청 #05)
@@ -7452,7 +7529,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                centers.name / franchises.name 이 유일하지 않아 엉뚱한 지사 것이 섞여 나왔다
                (CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로 안 잡힘」과 같은 뿌리).
                서버는 franchise_id 로 거른다 — 이름이 겹쳐도 안 섞인다. -->
-          <div style="margin-top:16px;border-top:1px dashed #e5e7eb;padding-top:12px">
+          <div data-gc="🔎 지사 소속 대리점 찾기" data-gc-en="🔎 Find agencies under a branch" style="margin-top:16px;border-top:1px dashed #e5e7eb;padding-top:12px">
             <div style="font-size:13px;font-weight:700;color:#111827;margin-bottom:6px"
                  data-ko="🔎 지사 소속 대리점 찾기" data-en="🔎 Find agencies under a branch">🔎 지사 소속 대리점 찾기</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
@@ -7504,7 +7581,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           </details>
           <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
                (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
+          <div data-gc="🔎 대리점 검색" data-gc-en="🔎 Search agencies" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:10px 0 6px">
             <input id="ct-q" type="search" autocomplete="off" oninput="ctSearch(this.value)"
                    placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
                    data-ko-placeholder="🔎 대리점·학원명 · 원장 · 주소 · 지사 검색 (전체 대상)"
@@ -7518,7 +7595,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
             <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
           </div>
-          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
             <tbody id="centers-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -7591,7 +7668,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                    style="flex:1;min-width:220px;padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px" />
             <span id="hq-count" style="font-size:12px;color:#64748b"></span>
           </div>
-          <table style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="본사명" data-en="HQ Name">본사명</th><th data-ko="대표이사" data-en="CEO">대표이사</th><th data-ko="사업자번호" data-en="Business Number">사업자번호</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="대표전화" data-en="Main Phone">대표전화</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
+          <table data-gc="🏯 본사 목록" data-gc-en="🏯 HQ list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="본사명" data-en="HQ Name">본사명</th><th data-ko="대표이사" data-en="CEO">대표이사</th><th data-ko="사업자번호" data-en="Business Number">사업자번호</th><th data-ko="주소" data-en="Address">주소</th><th data-ko="대표전화" data-en="Main Phone">대표전화</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
             <tbody id="hq-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
@@ -9111,12 +9188,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=127" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
-   · v=127: 2026-08-18 카페24 회계 실데이터 — 빈 화면일 때 «고장 아님, 카페24 쪽 적재 대기» 를 화면이 직접 설명(AccBook 0건 실측)
+<script src="/js/adm-core.js?v=133" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=132: 2026-08-18 대사 화면에 PG 정산 시차(21일) 반영 — «같은 달끼리» 빼서 생기던
+     «통장이 적다» 착시 제거. 이 작업도 v=118 을 썼는데 main 이 먼저 가져가서 번호를 새로 딴다
+     (내용은 자동병합으로 양쪽 다 들어가 있다)
+   · v=131: 2026-08-18 카페24 회계 장부 탭의 «매출» 합계를 요약 KPI 와 같은 규칙으로
+     (「케이씨피」 결제분만) — 한쪽만 바꾸면 같은 화면에 매출이 두 값으로 찍힌다.
+     이 작업도 v=130 을 썼는데 main 이 먼저 가져가서 번호를 새로 딴다(내용은 자동병합으로 양쪽 다 들어가 있다)
+   · v=129: 2026-08-18 강사별 급여명세서 표도 압축 — A4 인쇄 여유가 22px 뿐이라 이름만 길어져도 넘쳤다
+   · v=128: 2026-08-18 병합 — 두 브랜치가 v=127 을 또 동시에 땄다(케이씨피M 죽은변수 제거 대
+     카페24 빈 화면 설명). 규칙대로 양쪽보다 큰 번호를 새로 딴다. 내용은 자동병합으로 둘 다 들어가 있다
+   · v=127(카페24): 회계 실데이터 — 빈 화면일 때 «고장 아님, 카페24 쪽 적재 대기» 를 화면이 직접 설명(AccBook 0건 실측)
+   · v=127(케이씨피M): 금액을 읽던 죽은 변수(sumExcl·cntExcl) 제거 —
+     서버가 그 필드를 더 이상 안 내려준다(응답에서 이름·금액을 뺐다)
    · v=126: 2026-08-18 「본사 직원 등록」이 시연용 껍데기였던 것을 진짜 계정 생성으로 교체
-     (localStorage 에만 넣고 「등록 완료」를 띄우던 것 → POST /api/admin/staff-create 호출.
-      이 브랜치도 v=123 으로 땄다가 밀렸다 — main 이 123·124·125 를 먼저 가져갔다.
-      파일 맨 아래 규칙대로 **양쪽보다 큰 번호**를 새로 딴다. 내용은 자동병합으로 양쪽이 다 들어가 있다)
+     (localStorage 에만 넣고 「등록 완료」를 띄우던 것 → POST /api/admin/staff-create 호출)
    · v=125: 2026-08-18 조직 관리 카드를 지사장·학원장에게도 연다(CARD_POLICY branch→agency)
      + 본사 전용 칸(대표지사·본사 법인정보·등록 폼) 숨김 _applyOrgScopeUI(). 자료는 서버가 스코프로 자른다
      (이 브랜치는 v=123 → v=124 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
@@ -9169,7 +9255,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=9" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
+<script src="/js/adm-quick-access.js?v=11" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
 <script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
@@ -9863,22 +9949,71 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     });
 
     // 검색
+    /* ═══ 🔍 메뉴 검색 (2026-08-19 전면 수리) ═══════════════════════════════
+       [무엇이 고장나 있었나] 검색이 **1.5초만 살아 있었다.**
+         실측: 「급여」를 치면 즉시 43개 중 42개가 숨었다가, 1.5초 뒤 **전부 되살아났다.**
+         범인은 이 파일 아래쪽의 «강제 visible» 복구 루프다 —
+             bar.querySelectorAll('.ph85-group, .ph85-sub').forEach(el => {
+               if (el.style.display === 'none') el.style.display = '';   // ← 검색이 숨긴 것까지
+             });
+         그 루프는 «사이드바가 통째로 안 보이던» 사고의 복구책이라 **지우면 안 된다.**
+       [그래서] 검색은 style.display 를 안 쓴다. **클래스로 숨긴다**(.ph85-shide).
+         복구 루프는 style.display 만 보므로 우리 결과를 건드리지 않는다. 둘 다 살아 있다.
+       ⚠️ CSS 규칙은 admin-inline-c.css 에 있다. 클래스 이름을 바꾸면 그쪽도 함께 고칠 것.
+
+       [두 번째 고장] 손자 이름으로는 못 찾았다. 자식의 textContent 만 봤는데,
+         손자 상자(.ph125-grandchildren)는 자식의 **형제**라 그 글자가 안 들어온다.
+         「환불」로 찾으면 0건이었다(「환불 / 취소 관리」·「환불 계산기」가 손자에 있는데도).
+       → 이제 손자까지 찾고, 걸린 손자가 있으면 그 목록을 **펴서** 어디에 있는지 보여 준다.
+       ⚠️ 손자 줄은 화면 글자가 다듬어져 있으므로(pretty) 원본 이름(data-gc-name)도 함께 본다. */
     var search = document.getElementById('ph85-search');
-    search.addEventListener('input', function(){
+    var HIDE = 'ph85-shide';                       // 검색 전용 숨김 — style.display 를 쓰지 않는다
+    var OPENED = 'ph85-sopen';                     // 검색 때문에 편 것 — 지울 때 되돌린다
+
+    function runSearch(){
       var q = search.value.toLowerCase().trim();
       bar.querySelectorAll('.ph85-group').forEach(function(g){
-        var title = g.querySelector('.ph85-title').textContent.toLowerCase();
-        var subs = g.querySelectorAll('.ph85-sub');
-        var anyMatch = title.includes(q);
-        subs.forEach(function(s){
-          var m = s.textContent.toLowerCase().includes(q);
-          s.style.display = (q === '' || m) ? '' : 'none';
-          if (m) anyMatch = true;
+        var titleEl = g.querySelector('.ph85-title');
+        var title = titleEl ? titleEl.textContent.toLowerCase() : '';
+        var anyMatch = !!q && title.indexOf(q) >= 0;
+
+        g.querySelectorAll('.ph85-sub').forEach(function(s){
+          var own = s.textContent.toLowerCase();
+          var box = s.nextElementSibling;
+          var gcs = (box && box.classList.contains('ph125-grandchildren'))
+            ? [].slice.call(box.children) : [];
+          var gcHit = 0;
+          gcs.forEach(function(gc){
+            /* 보이는 글자 + 원본 이름 둘 다 본다 — 이름을 다듬어 놓았기 때문이다. */
+            var t = (gc.textContent + ' ' + (gc.getAttribute('data-gc-name') || '')).toLowerCase();
+            var m = !q || t.indexOf(q) >= 0;
+            gc.classList.toggle(HIDE, !m);
+            if (q && m) gcHit++;
+          });
+          var m = !q || own.indexOf(q) >= 0 || gcHit > 0;
+          s.classList.toggle(HIDE, !m);
+          if (box) box.classList.toggle(HIDE, !m);
+          if (m && q) anyMatch = true;
+
+          /* 손자가 걸렸으면 그 목록을 펴서 «어디에 있는지» 보여 준다. 검색을 지우면 도로 접는다. */
+          if (q && gcHit > 0 && !s.classList.contains('ph125-open')) {
+            s.classList.add('ph125-open', OPENED);
+            if (box) box.style.setProperty('max-height', box.scrollHeight + 'px', 'important');
+          } else if (!q && s.classList.contains(OPENED)) {
+            s.classList.remove('ph125-open', OPENED);
+            if (box) box.style.removeProperty('max-height');
+          }
         });
-        g.style.display = (q === '' || anyMatch) ? '' : 'none';
-        if (q && anyMatch) g.classList.add('open');
+
+        g.classList.toggle(HIDE, !!q && !anyMatch);
+        if (q && anyMatch && !g.classList.contains('open')) g.classList.add('open', OPENED);
+        else if (!q && g.classList.contains(OPENED)) g.classList.remove('open', OPENED);
       });
-    });
+    }
+    search.addEventListener('input', runSearch);
+    /* ⚠️ 사이드바를 다시 그리는 코드가 여럿이라(IA6·ph86·ph118) 그 뒤에 클래스가 사라질 수 있다.
+       검색어가 남아 있으면 다시 입힌다 — «쳤는데 잠시 뒤 풀리는» 일이 두 번 다시 없게. */
+    setInterval(function(){ if (search.value.trim()) runSearch(); }, 1200);
 
     // 기존 admin-hub 상단 카드 숨김 (사이드바로 대체)
     var hub = document.getElementById('admin-hub');
@@ -10127,7 +10262,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 97 admin (2026-05-25) — window capture phase: 어떤 핸들러도 우회 불가 -->
-<script src="/js/adm-s11.js?v=3" defer></script><!-- 분할추출:adm-s11 (v=3 · 2026-08-16 모바일 드로어 자동닫기 대상 수정) -->
+<script src="/js/adm-s11.js?v=5" defer></script><!-- 분할추출:adm-s11 (v=3 · 2026-08-16 모바일 드로어 자동닫기 대상 수정) -->
 
 <!-- Phase 100 admin (2026-05-25) — 통합 블루 디자인 시스템 (WCAG AA, ph98/99 통합) -->
 
@@ -11119,18 +11254,18 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- KPI 4카드 -->
     <div data-gc="📊 출석 요약" data-gc-en="Attendance Summary" class="sa-kpi-row">
-      <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">96.4%</div><div class="sa-kpi-sub">▲ 전월 대비 +1.2%</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">28개</div><div class="sa-kpi-sub">데모지사1 24 · 직영 4</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">1,247명</div><div class="sa-kpi-sub">전월 1,189명</div></div>
-      <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">23명</div><div class="sa-kpi-sub">상담 필요</div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">📊 전체 출석률</div><div class="sa-kpi-value" id="sa-kpi-rate">—</div><div class="sa-kpi-sub" id="sa-kpi-rate-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">🏫 학원 수</div><div class="sa-kpi-value" id="sa-kpi-schools">—</div><div class="sa-kpi-sub" id="sa-kpi-schools-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">👨‍🎓 활성 학생</div><div class="sa-kpi-value" id="sa-kpi-students">—</div><div class="sa-kpi-sub" id="sa-kpi-students-sub"></div></div>
+      <div class="sa-kpi"><div class="sa-kpi-label">⚠ 위험군 (≤70%)</div><div class="sa-kpi-value" id="sa-kpi-risk" style="color:#FCA5A5">—</div><div class="sa-kpi-sub">상담 필요</div></div>
     </div>
 
     <!-- 필터 -->
     <div data-gc="🔎 조건 선택" data-gc-en="Filters" class="sa-filter-row">
       <select id="sa-year"><option value="2026">2026년</option><option value="2025">2025년</option></select>
-      <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5" selected>5월</option><option value="6">6월</option><option value="7">7월</option><option value="8">8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
-      <select id="sa-branch"><option value="">전체 지사</option><option>데모지사1</option><option>데모지사2</option><option>본사 직영</option></select>
-      <select id="sa-academy"><option value="">전체 학당</option><option>데모학당A</option><option>데모학당B</option><option>데모학당C</option><option>데모학당D</option><option>데모학당E</option><option>데모학당F</option></select>
+      <select id="sa-month"><option value="">전체 월</option><option value="1">1월</option><option value="2">2월</option><option value="3">3월</option><option value="4">4월</option><option value="5">5월</option><option value="6">6월</option><option value="7">7월</option><option value="8" selected>8월</option><option value="9">9월</option><option value="10">10월</option><option value="11">11월</option><option value="12">12월</option></select>
+      <select id="sa-branch"><option value="">전체 지사</option></select>
+      <select id="sa-academy"><option value="">전체 학당</option></select>
       <input type="text" id="sa-student" placeholder="🔍 학생명·아이디">
       <select id="sa-result"><option value="">전체 결과</option><option value="excellent">Excellent (90% ↑)</option><option value="warning">Warning (70-89%)</option><option value="fail">Fail (70% ↓)</option></select>
     </div>
@@ -11148,8 +11283,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <table class="sa-table">
       <thead><tr>
         <th style="width:50px">No</th>
-        <th>지사명<br><span class="sa-sub">(지사아이디)</span></th>
-        <th>학당명<br><span class="sa-sub">(학당아이디)</span></th>
+        <th>지사명</th>
+        <th>학당명</th>
         <th>학생이름</th>
         <th>영어이름</th>
         <th>학생아이디</th>
@@ -11160,29 +11295,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="min-width:140px">출석률 그래프</th>
       </tr></thead>
       <tbody id="sa-tbody">
-        <tr><td>21</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생01</td><td>Demo01</td><td>DEMOID_01</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>20</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생02</td><td>Demo02</td><td>DEMOID_02</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>19</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생03</td><td>Demo03</td><td>DEMOID_03</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>18</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생04</td><td>Demo04</td><td>DEMOID_04</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>17</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당A<span class="sa-sub">(demo_a)</span></td><td>데모학생05</td><td>Demo05</td><td>DEMOID_05</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>16</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생06</td><td>Demo06</td><td>DEMOID_06</td><td>0</td><td>1/1</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>15</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당B<span class="sa-sub">(demo_b)</span></td><td>데모학생07</td><td>Demo07</td><td>DEMOID_07</td><td>0</td><td>4/4</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>14</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당C<span class="sa-sub">(demo_c)</span></td><td>데모학생08</td><td>Demo08</td><td>DEMOID_08</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>13</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생09</td><td>Demo09</td><td>DEMOID_09</td><td>1</td><td>0/1</td><td>0%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:1%"></span></span></td></tr>
-        <tr><td>12</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생10</td><td>Demo10</td><td>DEMOID_10</td><td>3</td><td>3/6</td><td>50%</td><td><span class="sa-result fail">Fail</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill fail" style="width:50%"></span></span></td></tr>
-        <tr><td>11</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생11</td><td>Demo11</td><td>DEMOID_11</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>10</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당D<span class="sa-sub">(demo_d)</span></td><td>데모학생12</td><td>Demo12</td><td>DEMOID_12</td><td>0</td><td>5/5</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>9</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생13</td><td>Demo13</td><td>DEMOID_13</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>8</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생14</td><td>Demo14</td><td>DEMOID_14</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>7</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당E<span class="sa-sub">(demo_e)</span></td><td>데모학생15</td><td>Demo15</td><td>DEMOID_15</td><td>0</td><td>3/3</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
-        <tr><td>6</td><td>데모지사1<span class="sa-sub">(demo_fr)</span></td><td>데모학당F<span class="sa-sub">(demo_f)</span></td><td>데모학생16</td><td>Demo16</td><td>DEMOID_16</td><td>0</td><td>2/2</td><td>100%</td><td><span class="sa-result excellent">Excellent</span></td><td><span class="sa-rate-bar"><span class="sa-rate-fill excellent" style="width:100%"></span></span></td></tr>
+        <tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px">불러오는 중...</td></tr>
       </tbody>
     </table>
     </div>
 
-    <div style="text-align:center;margin-top:14px;color:#94A3B8;font-size:12px">
-      📌 데모 데이터 16건 표시 — 실서비스에서는 페이지네이션 + 전체 1,247명 검색 가능
-    </div>
+    <div style="text-align:center;margin-top:14px;color:#94A3B8;font-size:12px" id="sa-list-note"></div>
+    <div style="text-align:center;margin-top:8px" id="sa-loadmore-wrap"></div>
   </div>
 </details>
 
@@ -11215,17 +11334,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   else ph112ReorderTeacherSubs();
   setInterval(ph112ReorderTeacherSubs, 2000);
 
-  // === 학원별 수업현황 데모 ===
-  window.saSearch = function(){
-    var y = document.getElementById('sa-year').value;
-    var m = document.getElementById('sa-month').value;
-    var b = document.getElementById('sa-branch').value;
-    var a = document.getElementById('sa-academy').value;
-    var s = document.getElementById('sa-student').value;
-    var r = document.getElementById('sa-result').value;
-    console.log('[ph112] 학원별 수업현황 검색', {y,m,b,a,s,r});
-    alert('검색 (데모): ' + y + '/' + (m||'전체') + ' · ' + (a||b||'전체학원') + ' · ' + (s||'전체학생') + ' · ' + (r||'전체결과'));
-  };
+  // === 학원별 수업현황 — 실데이터 배선은 adm-r23.js(saSearch/saReset)가 담당 ===
   window.saExcelDown = function(){
     console.log('[ph112] EXCEL DOWN');
     // 표 → Excel 생성 (ph109 의 일반 함수 재활용)
@@ -11254,8 +11363,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
   };
   window.saAlertParents = function(){
-    if (!confirm('출석률 70% 이하 위험군 23명의 학부모에게 카카오 알림을 발송할까요?\n\n메시지: "자녀의 출석률이 낮습니다. 상담 부탁드립니다."')) return;
-    alert('📲 23명 학부모에게 카카오 알림 발송 완료 (데모)');
+    var risk = (window.__saLastKpi && window.__saLastKpi.risk) || 0;
+    if (!risk) { alert('⚠ 현재 조건에서 위험군(출석률 70% 이하) 학생이 없습니다. 먼저 검색해 보세요.'); return; }
+    if (!confirm('출석률 70% 이하 위험군 ' + risk + '명의 학부모에게 카카오 알림을 발송할까요?\n\n메시지: "자녀의 출석률이 낮습니다. 상담 부탁드립니다."')) return;
+    // 🚧 발송 연동 미구현 — 실제 알림톡 발송은 /api/admin/kakao/* 연동이 별도로 필요하다.
+    alert('🚧 카카오 알림 발송 기능은 아직 서버와 연결돼 있지 않습니다. 실제 발송을 원하시면 담당자에게 요청해 주세요.');
   };
 
   console.log('[ph112] 강사정보 재배치 + 학원별 수업현황 카드 초기화 완료');
@@ -11334,15 +11446,24 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       bar.insertBefore(existing, bar.firstChild);
     }
     existing.className = meta.cls;
+    // 🪪 (2026-08-19) «지금 어느 계정인가» 를 배너에 적는다 — 필리핀 매니저 Karl 이 본인 계정 대신
+    //    시연용 `branch_busan` 으로 몇 주째 일하고 있던 것을 아무도 못 알아챈 게 이 줄이 없어서였다.
+    //    모드 이름(«지사 모드»)만으로는 «내 계정이 원래 그런가 보다» 로 읽힌다. 아이디를 보여 주면
+    //    본인도 «내 아이디가 아니네» 를 바로 안다.
     existing.innerHTML =
       '<div style="font-size:13px;font-weight:800;margin-bottom:4px">' + meta.label + '</div>' +
       '<div style="font-size:11px;opacity:0.9">' + meta.note + '</div>' +
-      '<a class="ph116-role-back-btn" href="javascript:void(0)" onclick="ph116BackToAdmin()">🛠 관리자로 복귀</a>';
+      '<div style="font-size:11px;opacity:0.9;margin-top:3px;font-family:MangoiHanSC,Consolas,monospace">@' +
+        String(user.uid || '').replace(/[<>&"]/g, '') + '</div>' +
+      // 🚪 (2026-08-19) 「관리자로 복귀」 → 실제 동작이 «로그아웃» 이라 이름을 동작에 맞춘다.
+      //    필리핀 매니저가 이 버튼을 «로그아웃 버튼 같다» 고 그대로 읽었다 — 읽은 쪽이 맞았다.
+      //    ⚠️ i18n 사전(js/adm-p3.js)은 전체 문자열 일치라, 이 글자를 고치면 사전도 같이 고쳐야 한다.
+      '<a class="ph116-role-back-btn" href="javascript:void(0)" onclick="ph116BackToAdmin()">🚪 로그아웃 (다른 계정으로)</a>';
   }
 
   window.ph116BackToAdmin = function(){
     // fix (2026-06-02) — 가짜 hq_mgr 세션을 만들지 않고, 실제 관리자 로그인 페이지로 이동(정직한 권한 전환)
-    if (!confirm('관리자 계정으로 다시 로그인할까요? (현재 역할에서 로그아웃)')) return;
+    if (!confirm('로그아웃하고 다른 계정으로 로그인할까요?')) return;
     try { localStorage.removeItem('admin_session'); localStorage.removeItem('mangoi_admin_session'); } catch(e){}
     window.location.href = '/admin/login';
   };
@@ -11414,7 +11535,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 120 admin (2026-05-25) — 홈 버튼 관리자 상단 이동 + 학원별 수업현황 검색 실제 작동 -->
-<script src="/js/adm-r23.js?v=1" defer></script><!-- 분할추출:adm-r23 -->
+<script src="/js/adm-r23.js?v=2" defer></script><!-- 분할추출:adm-r23 -->
 
 
 <!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
@@ -11501,7 +11622,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 125 admin (2026-05-25) — 사이드바 손자 메뉴 인라인 아코디언 토글 (호버+클릭) -->
 
 
-<script src="/js/adm-r25.js?v=14" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
+<script src="/js/adm-r25.js?v=21" defer></script><!-- v=13: 2026-08-18 손자 메뉴 진짜 하위칸(17개 카드) + 🌐 언어전환 반영 · 숨은 탭 열기 — 회계는 main 의 4항목(#275)을 19항목으로 넓혀 합침 --><!-- v=10: 2026-08-18 회계 손자 메뉴 4개를 앵커로 — 「손익·재무」가 국가별 강사료 환전으로 가던 것 수리 --><!-- v=9: 2026-08-18 학생 명부 손자 메뉴를 지어낸 이름 5개 → 실제 하위칸 8개로 --><!-- 분할추출:adm-r25 · v=8: 2026-08-16 전각 ＋ → + -->
 
 <script src="/js/adm-menu-icons.js?v=9" defer></script><!-- 자식·손자 아이콘 정돈 (CSS 는 mi-menu-icons-css, 문서 뒤쪽) -->
 
@@ -11584,7 +11705,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <!-- Phase 127 admin (2026-05-25) — 사이드바 메뉴 호버 시 투명 테두리 툴팁 -->
 
 
-<script src="/js/adm-s15.js?v=3" defer></script><!-- 분할추출:adm-s15 -->
+<script src="/js/adm-s15.js?v=4" defer></script><!-- 분할추출:adm-s15 -->
 
 
 <!-- Phase 128 admin (2026-05-25) — 결제·결제 표 컬럼별 다중 동시 필터링 -->
@@ -11594,7 +11715,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 129 admin (2026-05-25) — 한↔영 i18n 완전 보강 (사이드바·신규 카드·버튼·알림) -->
-<script src="/js/adm-p3.js?v=3" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p3.js?v=4" defer></script><!-- 분할추출:adm-p3 (원복: 이 위치에 인라인) -->
 
 
 <!-- Phase 130 admin (2026-05-25) — MBTI 강사 사진 업로드 + 다중 필터 자동완성 -->
@@ -11738,6 +11859,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     if (t.closest('#ph85-sidebar .ph85-head, #ph85-sidebar .ph125-toggle, #ph85-sidebar .ph85-search-wrap, #ph86-actions, #ph162-dock, #mgv2-clock')) return;
     if (!t.closest('#ph85-sidebar .ph85-sub, #ph85-sidebar .ph125-gc, #ph85-sidebar a[href]')) return;
     setTimeout(function(){
+      /* 📱 (2026-08-19) 자식 메뉴를 눌러 «손자를 펴는 중» 이면 닫지 않는다 —
+         닫으면 방금 편 손자를 아무도 못 본다. 표시는 adm-r25.js 가 남기고 800ms 뒤 저절로 풀린다.
+         손자를 골라 화면으로 갈 때는 그 표시를 스스로 거두므로 여기서 정상적으로 닫힌다. */
+      if (window.__ph125OpenedUntil > Date.now()) return;
       if (document.body.classList.contains('mga-open')) window.mgaClose();
     }, 120);
   }, true);
@@ -12170,7 +12295,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      사이드바/검색에는 허브 1개만 노출(멤버는 인덱스에서 필터 + 별칭으로 연결).
      ═══════════════════════════════════════════════════════════════════════ -->
 
-<script src="/js/adm-p1.js?v=2" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-p1.js?v=4" defer></script><!-- 분할추출:adm-p1 (원복: 이 위치에 인라인) -->
 <!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·비가림). 빼면 즉시 원복.
      🪶 (2026-08-16) 모바일에서는 **아예 내려받지 않는다.** 시계는 사이드바 맨 위로
        옮겼고(요청 ③), 이 파일은 로드돼 봐야 위쪽 mgv2-clock-js 가 세워 둔
@@ -12215,7 +12340,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=32" defer></script><!-- 🧭 메뉴 6그룹 39항목 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거(맨 위 「메뉴 지도」와 중복) · 08-16 모바일 «닫고 나서 이동» + 줄3개 버튼 아래로 맞춤 · 08-17 「메뉴 지도」 즉시 이동 — 9초 낭독 대기 제거 · 08-18 「운영자 (본사·지사·대리점)」 그룹 신설 + 조직 항목 이동 · 08-18 정산·매출에 「매출 대시보드」 직행 항목) -->
+<script src="/js/adm-ia6.js?v=42" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
 
 <!-- 🥭 히어로 컴팩트 (2026-07-22 사장님 지시) — 첫 화면 히어로 높이 절반 수준으로.

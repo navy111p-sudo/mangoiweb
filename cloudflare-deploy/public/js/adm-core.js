@@ -10,6 +10,29 @@
    대사 API 응답에 pg_fee_rate 가 오면 그 값으로 갱신하고, 못 받았을 때만 기본값을 쓴다. */
 window.__pgFeeRate = (typeof window.__pgFeeRate === 'number') ? window.__pgFeeRate : 0.0286;
 window.pgFeeRateLabel = function(){ return (window.__pgFeeRate * 100).toFixed(2) + '%'; };
+
+/* 🔐 «이 카드가 지금 이 계정에게 감춰져 있는가» — 판정 정본 (2026-08-18)
+
+   카드를 감추는 방법이 **세 갈래**로 늘어났는데 읽는 쪽이 각자 판단하고 있었다.
+   그래서 「사이드바엔 없는데 검색에는 나오는」 식의 불일치가 계속 생겼다.
+   판정을 여기 한 곳으로 모은다 — 새 숨김 방식이 생기면 **이 함수만** 고칠 것.
+
+     ① `.rbac-hide`         역할 등급 (CARD_POLICY → _applyMenuVisibility)
+     ② `.ph118-card-hidden` 권한 매트릭스 (adm-q10.js PERMS)
+     ③ 인라인 display:none  옛 방식. 남아 있을 수 있어 계속 인정한다
+
+   ⛔ `.ia6-hide` 는 **넣지 않는다.** 그건 «항목을 누르면 관련 카드만 보이기»(showOnly)의
+      일시적 화면 상태이지 «이 사람이 볼 수 있는가» 가 아니다. 넣으면 카드 하나를 고른
+      순간 나머지가 전부 «권한 없음» 으로 판정돼 검색·바로가기가 통째로 비워진다.
+   ⚠️ 인라인 display 로 감춘 카드는 PC(≥1024px)에서 **실제로는 화면에 보인다**
+      (#legacy-cards 복구 규칙이 이긴다 — CLAUDE.md 2장 함정 참고). 그래도 «감춤 의도» 로
+      읽는 것이 맞다. 보이는 것이 버그이지 판정이 버그가 아니다. */
+window.mangoiCardHidden = function (el) {
+  if (!el) return true;
+  if (el.classList && (el.classList.contains('rbac-hide') ||
+                       el.classList.contains('ph118-card-hidden'))) return true;
+  return !!(el.style && el.style.display === 'none');
+};
 window.notePgFeeRate = function(v){ if (typeof v === 'number' && v > 0) window.__pgFeeRate = v; };
 
 let chartAtt = null, chartRwd = null;
@@ -9209,7 +9232,7 @@ function buildMenuIndex() {
     // 🔐 RBAC: 역할로 감춘 카드는 사이드바에 안 띄움
     //   (2026-08-18) 숨김 표시가 «인라인 display» → «.rbac-hide 클래스» 로 바뀌었다.
     //   인라인 검사도 남겨 둔다 — 옛 방식으로 감추는 코드가 남아 있어도 계속 걸러진다.
-    if (d.classList.contains('rbac-hide') || d.style.display === 'none') return;
+    if (window.mangoiCardHidden(d)) return;
     // 1) 카드 자체에 data-menu-label-ko/en 이 있으면 최우선 (배지 텍스트 빨림 방지)
     let ko = d.getAttribute('data-menu-label-ko') || '';
     let en = d.getAttribute('data-menu-label-en') || '';
@@ -9289,7 +9312,7 @@ function buildMenuIndex() {
   MENU_ALIASES.forEach(function(a){
     var el = document.getElementById(a.card);
     // RBAC 숨김 카드는 제외 — (2026-08-18) 숨김 표시가 .rbac-hide 클래스로 바뀌었다
-    if (!el || el.classList.contains('rbac-hide') || el.style.display === 'none') return;
+    if (window.mangoiCardHidden(el)) return;
     _globalSearchIndex.push({
       kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
       label: a.label, labelEn: a.en || a.label,   // en 이 있으면 영문 라벨로 (강사 다수 필리핀)
@@ -10868,7 +10891,7 @@ window.rebuildGlobalSearchIndex = function() {
        장부는 그 옆에 붙인다. 차이(%)의 분모도 통장이다. */
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b> → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
+        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b>${rec.lag_days ? `<span style="color:#1e3a8a"> (이 달 결제분이 ${rec.lag_days}일 뒤 들어온 구간 기준 — 같은 달 통장에 찍힌 금액은 ${fmtKRW(rec.deposit_pg_same_month)})</span>` : ''} → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
         장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
         (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
       </div>`;
@@ -11565,13 +11588,13 @@ window.rebuildGlobalSearchIndex = function() {
       <h1>👨‍🏫 강사별 급여명세서</h1>
       <div class="meta">${d.label} · 총 ${d.teacher_count}명</div>
       ${noteList(d.notes)}
-      <table>
+      <div class="tblwrap"><table class="compact">
         <thead><tr><th>강사ID</th><th>이름</th><th>국가</th><th class="num">수업분</th><th class="num">기본급여</th><th class="num">상여</th><th class="num">공제</th><th class="num">실지급</th></tr></thead>
         <tbody>
           ${d.rows.map(r => `<tr><td>${r.teacher_id}</td><td><b>${r.teacher_name||r.teacher_id}</b></td><td>${r.country||''}</td><td class="num">${(r.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(r.payment_krw)}</td><td class="num">${fmtKRW(r.bonus)}</td><td class="num" style="color:#dc2626">${fmtKRW(-Math.abs(r.deduction||0))}</td><td class="num"><b>${fmtKRW(r.net)}</b></td></tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#6b7280">데이터 없음</td></tr>'}
           <tr class="total"><td colspan="3">합계</td><td class="num">${(d.totals.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(d.totals.payment)}</td><td class="num">${fmtKRW(d.totals.bonus)}</td><td class="num">${fmtKRW(d.totals.deduction)}</td><td class="num">${fmtKRW(d.totals.net)}</td></tr>
         </tbody>
-      </table>`;
+      </table></div>`;
   }
 
   function renderKpi(d){
@@ -11799,8 +11822,6 @@ window.rebuildGlobalSearchIndex = function() {
       //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
-      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
-      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
@@ -11919,9 +11940,13 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
-      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      // 🧾 회계장부 탭 — 매출 판정은 전부 서버가 한다(규칙 정본 = accounting-reports.ts).
+      //    · excluded_from_revenue : 자금이동 행인가 (합계에서 통째로 뺀다)
+      //    · counts_as_revenue     : 매출로 셀 행인가 (위 요약 KPI·추이와 **같은 규칙**)
+      //    ⚠️ 여기서 type===1 만 보고 더하면 요약 KPI 와 숫자가 어긋난다 —
+      //       같은 화면에 「매출 ₩A」와 「총매출 ₩B」가 따로 찍히는 사고가 난다.
       var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      var isRev  = function(row){ return !!row.counts_as_revenue; };
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
         if (kind === 'ledger' && rows.length) {
@@ -11929,7 +11954,8 @@ window.rebuildGlobalSearchIndex = function() {
           rows.forEach(function(row){
             var m = Number(row.money)||0;
             if (isExcl(row)) { sExc += m; nExc++; return; }
-            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+            if (Number(row.type) === 1) { if (isRev(row)) sInc += m; }
+            else if (Number(row.type) === 2) sExp += m;
           });
           cnt.innerHTML = esc(base)
             + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
@@ -12455,9 +12481,25 @@ window.rebuildGlobalSearchIndex = function() {
       const v = V[d.verdict] || V.no_data;
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
+      /* ⏳ 판정 근거는 «시차 맞춘» 값이다 — 같은 달끼리 빼면 창의 양 끝이 서로 다른
+         결제를 보고 있어 매번 한 방향으로 «통장이 적다» 가 나온다(2026-08-18). */
+      const lm = d.lag_matched;
+      const headDiff = lm ? lm.diff : t.diff;
+      const headPct  = lm ? lm.diff_pct : t.diff_pct;
       html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}% · 통장 기준)</div>
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 차이 ${_fmt(headDiff)} (${headPct}% · 통장 기준)</div>
         <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
+      if (lm) {
+        html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1e3a8a;line-height:1.7">
+          <b>⏳ PG 정산 시차 ${lm.lag_days}일을 맞춰 비교했습니다</b><br>
+          케이씨피는 <b>주 1회</b> 정산하는데 결제일부터 입금까지 2~4주가 걸립니다. 그래서 «같은 달 장부 vs 같은 달 통장» 을 그대로 빼면
+          <b>아직 정산 안 된 최근 결제가 통째로 «미입금» 으로 잡힙니다.</b> 아래 월별 표가 들쭉날쭉한 것은 그 때문이며 정상입니다.<br>
+          · 결제 <b>${_esc(lm.pay_from)} ~ ${_esc(lm.pay_to)}</b> — 장부 ${_fmt(lm.revenue)} (${lm.pay_count}건) · 예상 입금 ${_fmt(lm.expected)}<br>
+          · 입금 <b>${_esc(lm.deposit_from)} ~ ${_esc(lm.deposit_to)}</b> — 실제 ${_fmt(lm.deposit_pg)} · 통장 기준 매출 ${_fmt(lm.bank_revenue)}<br>
+          · <b>차이 ${_fmt(lm.diff)} (${lm.diff_pct}%)</b> ← 판정은 이 값으로 합니다
+          <div style="margin-top:6px;color:#3730a3">※ 시차 ${lm.lag_days}일은 실측 추정치입니다. KCP 정산명세서를 받으면 실제 값으로 맞출 수 있습니다.</div>
+        </div>`;
+      }
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
@@ -12491,7 +12533,7 @@ window.rebuildGlobalSearchIndex = function() {
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
         ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
         ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 통장 직접입금(B2B)·기타 입금·자기 계좌 간 자금 이동은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
-        ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
+        ※ 카드 결제는 PG(케이씨피)가 <b>2~4주 뒤</b>에 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 판정은 위의 <b>시차를 맞춘 비교</b>로 합니다(누적만으로는 창의 양 끝이 서로 다른 결제를 봅니다).<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
       if (notes.length) {
@@ -13422,17 +13464,17 @@ window.rebuildGlobalSearchIndex = function() {
 
   // 사용자 목록 (데모)
   const SAMPLE_USERS = [
-    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active', password:'admin' },
-    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active', password:'cfo' },
-    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active', password:'ops' },
-    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active', password:'teacher' },
-    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active', password:'teacher' },
-    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', password:'busan',   branch_id:'test_br_3'  /* 부산 */ },
-    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', password:'daegu',   branch_id:'test_br_8'  /* 대구 */ },
-    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', password:'incheon', branch_id:'test_br_2'  /* 인천 */ },
-    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', password:'gn001',   agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
-    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', password:'sc002',   agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
-    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', password:'pj003',  agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
+    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active' },
+    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active' },
+    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active' },
+    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active' },
+    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active' },
+    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', branch_id:'test_br_3'  /* 부산 */ },
+    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', branch_id:'test_br_8'  /* 대구 */ },
+    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', branch_id:'test_br_2'  /* 인천 */ },
+    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
+    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
+    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
     { uid:'parent_hong01',   name:'홍길순',  role:'parent', branch:'학부모 (홍길동 모)', status:'active' },
     { uid:'parent_kim02',    name:'김순영',  role:'parent', branch:'학부모 (김민수 모)', status:'active' },
     { uid:'parent_lee03',    name:'이수자',  role:'parent', branch:'학부모 (이지민 모)', status:'active' },
@@ -13624,7 +13666,7 @@ window.rebuildGlobalSearchIndex = function() {
     const dyn = (function(){ try { return JSON.parse(localStorage.getItem('mangoi_hq_employees') || '[]'); } catch(e){ return []; } })();
     return SAMPLE_USERS.concat(dyn.map(e => ({
       uid: e.uid, name: e.name, role: e.rank,
-      branch: e.branch || '', password: 'demo',  // 동적 등록 직원 데모 비번
+      branch: e.branch || '',
       _origin: 'dynamic'
     })));
   }
@@ -13775,35 +13817,17 @@ window.rebuildGlobalSearchIndex = function() {
       '<div style="margin-top:3px;font-size:10.5px;font-weight:500;opacity:0.75">📦 ' + scope + '</div>';
   }
 
+  // 🔐 (2026-08-19) 화면 안에서 비번을 대조하던 «옛 오버레이 로그인» 폐지.
+  //   admin.html 에 `#admin-login-overlay` 폼은 이미 없어 부를 곳이 없는데, SAMPLE_USERS 에
+  //   평문 비번(busan·gn001·teacher…)이 남아 있었다. 이 파일은 /js/adm-core.js 로 **누구나
+  //   받아 볼 수 있는 공개 자산**이라, 그 값이 곧 실계정(branch_busan 등) 비번 힌트였다.
+  //   → 평문 비번을 지우고, 이 함수는 서버 로그인으로만 보낸다. 화면에서 «비번이 맞나» 를
+  //     판정하는 길을 남겨 두면 언제든 같은 유출이 다시 생긴다.
   window.adminLogin = function() {
     const $ = id => document.getElementById(id);
-    const uid = ($('admin-login-uid')?.value || '').trim();
-    const pw = ($('admin-login-pw')?.value || '').trim();
     const msg = $('admin-login-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
-    if (msg) msg.style.display = 'none';
-    if (!uid || !pw) return showErr('⚠️ 아이디와 비밀번호를 입력해 주세요.');
-    const users = _allUsers();
-    const u = users.find(x => x.uid === uid);
-    if (!u) return showErr('❌ 존재하지 않는 아이디입니다.');
-    if (u.password && u.password !== pw) return showErr('❌ 비밀번호가 일치하지 않습니다.');
-    if (u.status === 'pending') return showErr('⏸ 가입 승인 대기 중인 계정입니다.');
-    const session = {
-      uid: u.uid, name: u.name, role: u.role,
-      branch: u.branch || '',
-      branch_id: u.branch_id || u.parent_branch_id || null,
-      agency_id: u.agency_id || null,
-      login_at: Date.now(),
-    };
-    _saveSession(session);
-    window._adminSession = session;
-    _renderSessionBanner();
-    pushAuditLog((adminLang==='en'?'Login: ':'로그인: ') + u.name + ' (' + u.uid + ' · ' + u.role + ')');
-    // 권한별 일부 메뉴 숨김 (본사가 아닌 경우 권한 설정 카드 등)
-    _applyMenuVisibility();
-    // 학생 목록 등 다시 로드
-    if (typeof loadStudentList === 'function') try { loadStudentList(); } catch(e){}
-    if (typeof loadFranchises === 'function') try { loadFranchises(); } catch(e){}
+    if (msg) { msg.textContent = '🔐 로그인 화면으로 이동합니다.'; msg.style.display = 'block'; }
+    location.href = '/admin/login?next=' + encodeURIComponent(location.pathname + location.search);
   };
 
   window.adminLogout = function() {

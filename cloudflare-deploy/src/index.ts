@@ -627,7 +627,25 @@ const worker = {
       try { probe.bindings.AI = !!(env as any)?.AI; } catch {}
       try { probe.bindings.SIGNALING_ROOM = !!(env as any)?.SIGNALING_ROOM; } catch {}
       try { probe.bindings.VIDEO_CALL_ROOM = !!(env as any)?.VIDEO_CALL_ROOM; } catch {}
-      const secretKeys = ['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','KAKAO_API_KEY','KAKAO_TEMPLATE_ID','SOLAPI_API_KEY','SOLAPI_API_SECRET','SOLAPI_SENDER','GIFTISHOW_AUTH_CODE','GIFTISHOW_AUTH_TOKEN'];
+      /* 🔑 여기 이름은 **코드가 실제로 읽는 env 이름과 글자 그대로 같아야 한다.**
+         2026-08-18 실측: 10개 중 5개(KAKAO_API_KEY·KAKAO_TEMPLATE_ID·SOLAPI_SENDER·
+         GIFTISHOW_AUTH_CODE·GIFTISHOW_AUTH_TOKEN)가 이 줄에만 있고 코드 어디서도 안 쓰는
+         «유령 이름» 이었다. 그래서 등록을 제대로 해 둬도 영원히 false 로 나왔다 —
+         웹푸시가 안 되는 원인을 찾다가 SOLAPI_SENDER: false 를 보고 「문자 발송도 죽었구나」로
+         읽을 뻔했다. 실제로는 그런 변수가 없었을 뿐이고, 진짜 발신번호(SOLAPI_FROM_PHONE)는
+         이 목록이 아예 묻지도 않고 있었다.
+         ⚠️ 점검 도구가 거짓을 말하면 없는 문제를 쫓게 된다. 코드 버그보다 비싸다.
+         ℹ️ 이 값(secrets_present)을 그리는 화면은 없다 — /api/admin/health-check 의 JSON 을
+            직접 열어서 본다(admin/health.html 은 이 필드를 렌더링하지 않는다).
+         감시: test-harness/secret_names_harness.mjs 가 «코드가 안 쓰는 이름» 을 FAIL 낸다. */
+      const secretKeys = [
+        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT',   // 🔔 웹푸시
+        'SOLAPI_API_KEY', 'SOLAPI_API_SECRET',                       // 💬 문자·알림톡
+        'SOLAPI_FROM_PHONE',                                         //    발신번호 (구 SOLAPI_SENDER — 그런 이름은 없었다)
+        'SOLAPI_PFID',                                               //    카카오 채널 ID
+        'KAKAO_CLIENT_ID', 'KAKAO_CLIENT_SECRET',                    // 🔑 카카오 소셜로그인
+        'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
+      ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
       try {
         if ((env as any)?.DB) {
@@ -1108,6 +1126,10 @@ const worker = {
         // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
         //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
         path === '/api/admin/org/hq' ||
+        /* 🗓 (2026-08-19) 지난 수업(attendance)에서 주간 일정을 만드는 도구.
+           preview 는 읽기만, apply 는 «사람이 화면에서 고른 것» 만 만든다.
+           ⚠️ 본사 전용 — 핸들러가 canEditOrg() 로 한 번 더 막는다. */
+        path.startsWith('/api/admin/schedule-seed/') ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -1447,6 +1469,10 @@ const worker = {
         //    ℹ️ isAgencyAllowedApi 에는 넣지 않았다 — 이 화면은 본사 전용이고
         //       지사·대리점 계정은 위쪽에서 /admin/exec 로 돌아간다.
         path === '/api/admin/attendance/long-absent' ||
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //    지사·대리점도 보는 화면이라 isAgencyAllowedApi 에도 등록했다(핸들러가 scopeStudentCond 로 자기 범위만 자름).
+        path === '/api/admin/attendance/school-stats' ||
         // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
         //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
         //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
@@ -1796,6 +1822,17 @@ const worker = {
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
       const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🚗 /sales — 영업 전용 휴대폰 화면 (2026-08-18)
+    //   ⚠️ 확장자 없는 주소는 **여기서 한 줄로 직접 이어 줘야** 한다.
+    //      [assets] 가 html_handling="none" 이라 /sales → /sales.html 자동 연결이 없다.
+    //      2026-08-18 실제로 밟음: 인증 게이트(isAdminPath)에만 등록하고 이 줄을 빠뜨려
+    //      /sales 가 아무 데도 안 걸리고 **홈 화면(index.html)이 떴다.**
+    //      게이트는 통과했으니 «권한 문제» 로 보이지도 않아 원인 찾기가 더 어렵다.
+    if (path === '/sales' || path === '/sales/') {
+      const r = new Request(new URL('/sales.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -5196,6 +5233,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
   if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
+  if (path.startsWith('/api/admin/schedule-seed/')) return true; // 🗓 지난 수업 → 일정 만들기 — 반드시 인증 뒤(본사 전용)
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
@@ -5350,6 +5388,9 @@ function isAgencyAllowedApi(path: string): boolean {
           org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
     '/api/admin/franchises',
     '/api/admin/centers',
+    /* 📊 (2026-08-19) 학원별 학생 수업현황 — 지사장·학원장도 «자기 지사·자기 학원» 출석 통계를 봐야 한다.
+       핸들러(api-admin.ts)가 scopeStudentCond() 로 이미 자기 범위만 잘라서 주므로 여기 열어도 안 샌다. */
+    '/api/admin/attendance/school-stats',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

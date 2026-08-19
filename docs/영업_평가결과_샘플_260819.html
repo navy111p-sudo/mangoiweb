@@ -1,0 +1,248 @@
+<title>영업 인사평가 결과표</title>
+<style>
+:root{
+  --page:#eef0f3; --card:#ffffff; --ink:#15181d; --dim:#6b7280; --line:#e2e5ea;
+  --mango:#d97706; --mango-d:#b45309; --teal:#0f766e; --blue:#1d4ed8;
+  --red:#dc2626; --green:#15803d; --shell:#0f172a;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --page:#0b0d10 } }
+:root[data-theme="dark"]{ --page:#0b0d10 }
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font-family:'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;
+  word-break:keep-all;padding:26px 16px 70px;line-height:1.6}
+.wrap{max-width:1000px;margin:0 auto}
+h1{font-size:clamp(21px,3.4vw,28px);margin:0 0 8px;font-weight:900;letter-spacing:-.02em}
+.lede{font-size:15px;color:var(--dim);margin:0 0 14px;line-height:1.7;max-width:72ch}
+.demo{background:#fef3c7;border:1px solid #fde68a;color:#7c4a03;border-radius:12px;
+  padding:12px 16px;margin-bottom:22px;font-size:14.5px;line-height:1.7}
+
+/* 관리자 화면 껍데기 */
+.shell{background:var(--shell);border-radius:20px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.bar{display:flex;align-items:center;gap:10px;padding:0 4px 14px;color:#94a3b8;font-size:13px}
+.bar .dot{width:11px;height:11px;border-radius:50%;background:#475569;flex:none}
+.bar .url{background:#1e293b;border-radius:8px;padding:5px 12px;color:#cbd5e1;font-size:12.5px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:14px}
+.card h2{font-size:18px;margin:0 0 3px;font-weight:900;letter-spacing:-.02em}
+.card .sub{font-size:13.5px;color:var(--dim);margin:0 0 14px;line-height:1.6}
+.who{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;color:var(--dim);
+  border-top:1px solid var(--line);margin-top:12px;padding-top:12px}
+.who b{color:var(--ink)}
+
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.n{background:#f8fafc;border:1px solid var(--line);border-radius:13px;padding:13px}
+.n .k{font-size:12.5px;color:var(--dim);font-weight:700}
+.n .v{font-size:25px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin-top:1px}
+.n .t{font-size:12px;color:#9ca3af}
+.n.warn .v{color:var(--mango)}
+.n.money .v{color:var(--teal)}
+
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px;min-width:620px}
+th,td{padding:10px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--dim);font-size:12.5px;font-weight:700;white-space:nowrap;background:#f8fafc}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.grp td{background:#f1f5f9;font-weight:800;font-size:13px}
+.why{font-size:13px;color:#64748b;line-height:1.55;padding-top:0}
+.bar2{display:inline-block;height:8px;background:#e5e7eb;border-radius:4px;width:100%;min-width:56px;vertical-align:middle;overflow:hidden}
+.bar2 > i{display:block;height:100%;background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+
+.score3{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+.f label{display:block;font-size:12.5px;font-weight:800;color:var(--dim);margin-bottom:4px}
+.fake{background:#fff;border:2px solid #d1d5db;border-radius:11px;padding:11px 13px;font-size:16px;
+  min-height:48px;display:flex;align-items:center;font-weight:700}
+.fake.area{min-height:72px;align-items:flex-start;font-size:14px;font-weight:400;line-height:1.6}
+.btn{display:inline-block;border-radius:11px;padding:12px 20px;font-weight:800;font-size:15px;
+  background:var(--mango);color:#fff;border:0;box-shadow:0 2px 0 var(--mango-d)}
+
+.res{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:14px}
+.rbox{border:1px solid var(--line);border-radius:14px;padding:15px;background:#f8fafc}
+.rbox .k{font-size:12.5px;color:var(--dim);font-weight:700}
+.rbox .v{font-size:29px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rbox .t{font-size:12.5px;color:#9ca3af;margin-top:2px;line-height:1.5}
+.rbox.grade{background:#ecfdf5;border-color:#a7f3d0}
+.rbox.grade .v{font-size:42px;color:#065f46;line-height:1.05}
+.rbox.money{background:#f0fdfa;border-color:#99f6e4}
+.rbox.money .v{color:var(--teal)}
+
+.flag{border-left:3px solid #cbd5e1;padding:11px 0 11px 14px;margin:12px 0}
+.flag.warn{border-left-color:#f59e0b;background:#fffbeb;padding-right:12px;border-radius:0 8px 8px 0}
+.flag.info{border-left-color:#60a5fa;background:#eff6ff;padding-right:12px;border-radius:0 8px 8px 0}
+.flag .t{font-weight:800;font-size:15px}
+.flag .d{font-size:13.5px;color:#475569;line-height:1.7;margin-top:3px}
+
+.pipe{display:flex;flex-wrap:wrap;gap:7px}
+.pipe .st{flex:1 1 120px;background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:11px 12px}
+.pipe .st.hot{border-color:#fbbf24;background:#fffbeb}
+.pipe .st .n2{font-size:11.5px;color:#94a3b8;font-weight:700}
+.pipe .st .t2{font-size:14px;font-weight:800;margin-top:1px}
+.pipe .st .c2{font-size:21px;font-weight:900;font-variant-numeric:tabular-nums}
+.note{border-radius:12px;padding:13px 15px;margin-top:12px;font-size:14px;line-height:1.75}
+.note.warn{background:#fffbeb;border:1px solid #fde68a;color:#78350f}
+.note.ok{background:#ecfdf5;border:1px solid #a7f3d0;color:#065f46}
+.line{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px dashed var(--line);font-size:14.5px}
+.line:last-child{border-bottom:0}
+.line .r{font-variant-numeric:tabular-nums;font-weight:800;white-space:nowrap}
+.cap{font-size:13px;color:var(--dim);margin:22px 0 8px;font-weight:800;letter-spacing:-.01em}
+</style>
+
+<div class="wrap">
+<h1>영업 인사평가 결과표 — 평가자 화면</h1>
+<p class="lede">사장님이 반기 평가를 하실 때 보시게 될 화면입니다. 관리자 → 🚗 영업 실적·인사평가 에서 기간을 「2026년 하반기」로 고르면 이 모습이 나옵니다.</p>
+<div class="demo"><b>샘플입니다.</b> 담당자·기본급·성과급·목표는 <b>실제 등록된 값</b>이고, 실적 숫자(계약·방문 등)는 <b>가상의 예시</b>입니다. 지금 실제 데이터는 전부 0입니다.</div>
+
+<div class="shell">
+  <div class="bar"><span class="dot"></span><span class="url">mangoi.ai/admin/sales-hr</span></div>
+
+  <!-- 대상자 -->
+  <div class="card">
+    <h2>김성훈 · 2026년 하반기</h2>
+    <div class="sub">본사 영업이사 · 담당 전국</div>
+    <div class="who">
+      <span>기본급 <b>2,300,000원</b></span>
+      <span>계약 1곳당 성과급 <b>600,000원</b></span>
+      <span>월 목표 <b>계약 2곳</b></span>
+      <span>제도 시작 <b>2026-08-18</b></span>
+    </div>
+  </div>
+
+  <!-- 요약 -->
+  <div class="card">
+    <h2>한눈에</h2>
+    <div class="sub">숫자는 전부 기록에서 세어 만든 것입니다. 본인이 입력한 실적 숫자는 없습니다.</div>
+    <div class="nums">
+      <div class="n"><div class="k">신규 계약 학원</div><div class="v">10곳</div><div class="t">목표 12곳</div></div>
+      <div class="n"><div class="k">신규 등록 학생</div><div class="v">118명</div><div class="t">목표 120명</div></div>
+      <div class="n"><div class="k">방문·상담</div><div class="v">243건</div><div class="t">목표 288건</div></div>
+      <div class="n"><div class="k">일지 기록</div><div class="v">105일</div><div class="t">근무일 130일</div></div>
+      <div class="n warn"><div class="k">자동 점수</div><div class="v">71.03</div><div class="t">85점 만점</div></div>
+      <div class="n money"><div class="k">하반기 성과급</div><div class="v">4,500,000원</div><div class="t">이미 지급된 금액</div></div>
+    </div>
+  </div>
+
+  <!-- 자동 채점 -->
+  <div class="card">
+    <h2>자동 채점 (85점)</h2>
+    <div class="sub">항목마다 <b>「왜 이 점수인가」</b>가 한 줄씩 붙습니다. 이걸 설명 못 하면 평가는 무너집니다.</div>
+    <div class="scroll">
+    <table>
+      <thead><tr><th>항목</th><th class="num">실적</th><th class="num">목표</th><th class="num">달성률</th><th class="num">점수</th><th style="width:96px">　</th></tr></thead>
+      <tbody>
+        <tr class="grp"><td colspan="6">실적 — 결과로 나온 것 (60점)</td></tr>
+        <tr><td>신규 계약 학원 수</td><td class="num">10</td><td class="num">12</td><td class="num">83%</td><td class="num">20.83 / 25</td><td><span class="bar2"><i style="width:83%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 12 중 10 달성(83%) → 25점 중 20.83점</td></tr>
+        <tr><td>신규 등록 학생 수</td><td class="num">118</td><td class="num">120</td><td class="num">98%</td><td class="num">19.67 / 20</td><td><span class="bar2"><i style="width:98%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 120 중 118 달성(98%) → 20점 중 19.67점</td></tr>
+        <tr><td>3개월 유지율</td><td class="num">5</td><td class="num">7</td><td class="num">71%</td><td class="num">10.71 / 15</td><td><span class="bar2"><i style="width:71%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">3개월이 지난 계약 중 판정 끝난 7곳에서 5곳 유지(71%) · 확인 전 3곳은 채점에서 제외</td></tr>
+        <tr class="grp"><td colspan="6">활동 — 결과가 나오기 전의 씨앗 (25점)</td></tr>
+        <tr><td>방문·상담 건수</td><td class="num">243</td><td class="num">288</td><td class="num">84%</td><td class="num">8.44 / 10</td><td><span class="bar2"><i style="width:84%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 288 중 243 달성(84%) → 10점 중 8.44점</td></tr>
+        <tr><td>신규 발굴 등록</td><td class="num">101</td><td class="num">120</td><td class="num">84%</td><td class="num">4.21 / 5</td><td><span class="bar2"><i style="width:84%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 120 중 101 달성(84%) → 5점 중 4.21점</td></tr>
+        <tr><td>기존 학원 관리방문</td><td class="num">30</td><td class="num">48</td><td class="num">63%</td><td class="num">3.13 / 5</td><td><span class="bar2"><i style="width:63%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 48 중 30 달성(63%) → 5점 중 3.13점</td></tr>
+        <tr><td>영업일지 성실도</td><td class="num">105</td><td class="num">130</td><td class="num">81%</td><td class="num">4.04 / 5</td><td><span class="bar2"><i style="width:81%"></i></span></td></tr>
+        <tr><td colspan="6" class="why">목표 130 중 105 달성(81%) → 5점 중 4.04점</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <div class="note warn">
+      <b>여기를 눈여겨보세요 — 관리방문 63%.</b> 유지율(71%)이 낮은 원인일 가능성이 높습니다.
+      계약은 잘 따오는데 그 뒤를 못 챙기고 있다는 신호입니다. 점수를 깎는 것보다
+      <b>「다음 반기에 관리방문을 월 8건 지키자」</b>가 더 효과적인 조치입니다.
+    </div>
+  </div>
+
+  <!-- 파이프라인 -->
+  <div class="card">
+    <h2>지금 진행 중</h2>
+    <div class="sub">막힌 구간이 어디인지 보면 처방이 갈립니다.</div>
+    <div class="pipe">
+      <div class="st"><div class="n2">STEP 1</div><div class="t2">발굴</div><div class="c2">31</div></div>
+      <div class="st"><div class="n2">STEP 2</div><div class="t2">접촉</div><div class="c2">19</div></div>
+      <div class="st hot"><div class="n2">STEP 3</div><div class="t2">방문상담</div><div class="c2">12</div></div>
+      <div class="st hot"><div class="n2">STEP 4</div><div class="t2">제안·시연</div><div class="c2">4</div></div>
+      <div class="st"><div class="n2">STEP 5</div><div class="t2">계약</div><div class="c2">2</div></div>
+      <div class="st"><div class="n2">STEP 6</div><div class="t2">개원·정착</div><div class="c2">1</div></div>
+    </div>
+    <div class="note warn"><b>방문상담 → 제안·시연 에서 67%가 빠집니다.</b>
+      방문은 충분한데 제안까지 못 갑니다. 방문을 더 시킬 게 아니라 <b>상담 자료와 화법</b>을 손봐야 합니다.</div>
+  </div>
+
+  <!-- 사람이 매기는 15점 -->
+  <div class="card">
+    <h2>평가 확정 — 사장님이 매기는 15점</h2>
+    <div class="sub">나머지 85점은 이미 계산돼 있습니다. 여기 세 칸만 채우시면 됩니다.</div>
+    <div class="score3">
+      <div class="f"><label>보고 마감 준수 (0~5)</label><div class="fake">4</div></div>
+      <div class="f"><label>차량·비용 관리 (0~5)</label><div class="fake">5</div></div>
+      <div class="f"><label>협업 평가 (0~5)</label><div class="fake">4</div></div>
+    </div>
+    <div class="score3" style="grid-template-columns:1fr 1fr">
+      <div class="f"><label>잘한 점</label><div class="fake area">계약 10곳은 목표 대비 83%지만 학생 수 118명은 목표를 거의 채웠다. 규모 있는 학원을 골라 들어간 것이 보인다. 차량 운행기록·유류비 정산이 한 번도 밀린 적 없다.</div></div>
+      <div class="f"><label>개선할 점</label><div class="fake area">관리방문이 목표의 63%에 그쳤고, 유지율 71%가 그 결과로 보인다. 다음 반기에는 월 8건을 지킬 것. 방문 대비 제안 전환도 낮아 시연 자료 표준화가 필요하다.</div></div>
+    </div>
+    <div><span class="btn">✅ 평가 저장·확정</span></div>
+
+    <div class="res">
+      <div class="rbox"><div class="k">자동 점수</div><div class="v">71.03</div><div class="t">85점 만점 · 전 항목 채점됨</div></div>
+      <div class="rbox"><div class="k">사람 점수</div><div class="v">13</div><div class="t">15점 만점</div></div>
+      <div class="rbox grade"><div class="k">최종 등급</div><div class="v">B+</div><div class="t">총점 84.03점 (80~84 구간)</div></div>
+      <div class="rbox money"><div class="k">반기 상여</div><div class="v">2,300,000원</div><div class="t">기본급 1개월분 × 배율 1.0</div></div>
+    </div>
+  </div>
+
+  <!-- 공정성 감시 -->
+  <div class="card">
+    <h2>⚖️ 공정성 감시</h2>
+    <div class="sub">사람이 놓치기 쉬운 운·환경 요인을 시스템이 먼저 짚습니다. <b>점수를 자동으로 고치지는 않습니다</b> — 그러면 점수 부풀리기가 됩니다.</div>
+
+    <div class="flag warn">
+      <div class="t">이 기간의 32%는 기록이 있을 수 없습니다</div>
+      <div class="d">제도를 2026-08-18에 시작해서 <b>2026-07-01 ~ 2026-08-18 사이는 기록할 곳 자체가 없었습니다.</b>
+        그런데 목표는 기간 전체로 잡혀 있습니다. 방문·발굴·일지 점수는 목표의 약 <b>68%를 만점으로 보고</b> 읽으시고,
+        <b>첫 평가는 상여에 연결하지 않는 것</b>을 권합니다.</div>
+    </div>
+
+    <div class="flag warn">
+      <div class="t">유지율 표본이 7곳입니다</div>
+      <div class="d">한 곳만 더 이탈했어도 유지율이 71% → 57%로 떨어졌을 것입니다(15점 항목). 표본이 적을 때의 유지율은 참고로만 보시길 권합니다.</div>
+    </div>
+
+    <div class="flag info">
+      <div class="t">기준선 기간이 이 평가 기간에 걸쳐 있습니다</div>
+      <div class="d">연습 기간은 2026-11-16까지였습니다. 하반기 6개월 중 절반가량이 「점수는 내되 상여에 연결하지 않는」 기간이었습니다.</div>
+    </div>
+
+    <div class="note ok">
+      <b>사장님 판단이 필요한 지점입니다.</b> 시스템은 B+ / 상여 230만원을 계산했지만,
+      위 세 가지를 감안하면 <b>첫 평가는 등급만 남기고 상여는 다음 반기부터</b> 적용하는 것이 합리적입니다.
+      결정은 사장님이 하시고, 시스템은 재료만 올립니다.
+    </div>
+  </div>
+
+  <!-- 성과급 내역 -->
+  <div class="card">
+    <h2>이미 나간 성과급 (참고)</h2>
+    <div class="sub">평가 등급과 별개로, 계약이 잡힐 때마다 이미 지급된 금액입니다.</div>
+    <div class="line"><span>계약 체결 1차 — 10곳 × 30만원</span><span class="r">3,000,000원</span></div>
+    <div class="line"><span>3개월 유지 확인 2차 — 5곳 × 30만원</span><span class="r">1,500,000원</span></div>
+    <div class="line" style="border-top:2px solid var(--line);padding-top:12px;margin-top:4px;font-weight:900">
+      <span>하반기 성과급 합계</span><span class="r" style="color:var(--teal)">4,500,000원</span></div>
+    <div class="note warn">유지 확인 전인 계약 3곳이 남아 있습니다. 유지로 판정되면 <b>90만원이 추가로 나갑니다.</b></div>
+  </div>
+</div>
+
+<div class="cap">이 화면에서 사장님이 실제로 하시는 일</div>
+<div class="card" style="max-width:none">
+  <div class="sub" style="margin:0;font-size:14.5px;line-height:1.85">
+    ① <b>세 칸에 점수 넣기</b> — 보고·차량·협업. 나머지 85점은 이미 계산돼 있습니다<br>
+    ② <b>잘한 점 / 개선할 점 적기</b> — 위 자동 채점표를 보고 쓰면 근거가 저절로 나옵니다<br>
+    ③ <b>「평가 저장·확정」 누르기</b> — 등급과 상여가 그 순간 계산되고, <b>그때의 숫자가 통째로 얼려 저장</b>됩니다<br>
+    <span style="color:var(--dim)">나중에 원본 데이터가 바뀌어도 「그때 무엇을 보고 이 등급을 줬는지」가 남습니다.</span><br><br>
+    걸리는 시간은 <b>30분 남짓</b>이고, 반기에 한 번입니다.
+  </div>
+</div>
+</div>

@@ -297,9 +297,61 @@ const ensureSchema = oncePerIsolate<SalesEnv>(async (env) => {
     `  snapshot TEXT,`,
     `  evaluator TEXT,`,
     `  evaluated_at INTEGER,`,
+    `  advisory INTEGER DEFAULT 0,`,
     `  UNIQUE(rep_id, period)`,
     `);`
   ].join(' '));
+
+  /* ── 성과 부진 대응 (2026-08-19) ───────────────────────────────────────
+     ⚠️ 왜 «벌» 이 아니라 «절차» 인가
+       한국에서 성과 부진은 «징계 사유» 가 아니다. 잘못이 아니라 능력이 못 미친 것이다.
+       그래서 기본급을 깎는 감봉은 쓰지 않는다(근로기준법상 감급 제재는 한도가 있고,
+       성과 부진에 적용하면 부당징계 다툼이 된다). 돈으로 가는 결과는 «반기 상여 배율» 까지다.
+       대신 남겨야 하는 것은 **기록**이다 — 공정한 평가 · 반복 확인 · 개선 기회 부여 ·
+       그럼에도 개선 없음. 이 네 가지가 남아 있어야 나중에 어떤 조치든 정당해진다.
+       즉 개선계획은 사람을 벌하는 장치가 아니라 **회사를 지키는 절차**다.
+     ─────────────────────────────────────────────────────────────────── */
+  await env.DB.exec([
+    `CREATE TABLE IF NOT EXISTS sales_improvement_plans (`,
+    `  id INTEGER PRIMARY KEY AUTOINCREMENT,`,
+    `  rep_id INTEGER NOT NULL,`,
+    `  opened_at TEXT NOT NULL,`,
+    `  period_start TEXT NOT NULL,`,
+    `  period_end TEXT NOT NULL,`,
+    `  trigger_periods TEXT,`,
+    `  trigger_grades TEXT,`,
+    `  goals TEXT,`,
+    `  support TEXT,`,
+    `  status TEXT DEFAULT 'open',`,
+    `  closed_at TEXT,`,
+    `  closed_by TEXT,`,
+    `  result_note TEXT,`,
+    `  opened_by TEXT,`,
+    `  created_at INTEGER NOT NULL,`,
+    `  updated_at INTEGER NOT NULL`,
+    `);`
+  ].join(' '));
+  await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_sales_pip_rep ON sales_improvement_plans(rep_id, status);`);
+
+  // 면담 기록 — 개선계획 중의 주간 점검도 여기에 kind='checkin' 으로 쌓인다.
+  await env.DB.exec([
+    `CREATE TABLE IF NOT EXISTS sales_meetings (`,
+    `  id INTEGER PRIMARY KEY AUTOINCREMENT,`,
+    `  rep_id INTEGER NOT NULL,`,
+    `  plan_id INTEGER,`,
+    `  meeting_date TEXT NOT NULL,`,
+    `  kind TEXT NOT NULL,`,
+    `  summary TEXT,`,
+    `  agreed TEXT,`,
+    `  created_by TEXT,`,
+    `  created_at INTEGER NOT NULL`,
+    `);`
+  ].join(' '));
+  await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_sales_meet_rep ON sales_meetings(rep_id, meeting_date);`);
+
+  for (const ddl of [`ALTER TABLE sales_evaluations ADD COLUMN advisory INTEGER DEFAULT 0;`]) {
+    try { await env.DB.exec(ddl); } catch { /* duplicate column — 정상 */ }
+  }
 });
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1331,6 +1383,27 @@ export async function computeFairness(env: SalesEnv, rep: any, range: PeriodRang
     }
   }
 
+  // ⑦ 기간의 «일부만» 기록이 있는가 — 첫 평가에서 반드시 걸린다.
+  //    목표는 기간 전체(6개월)로 잡히는데 기록은 제도 시작일부터만 있다.
+  //    예: 제도 시작 8/18 인데 하반기(7/1~12/31)를 평가하면 7/1~8/17 은 «0건» 으로 잡힌다.
+  //    사람은 그 기간에도 일했다 — 기록할 곳이 없었을 뿐이다.
+  //    ⛔ 점수를 자동으로 올려 주지 않는다. 목표를 몇 % 로 봐야 하는지만 알려 준다.
+  const startedAt = String(rep?.program_started_at || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(startedAt) && startedAt > range.start) {
+    const total = daysBetween(range.start, range.end);
+    const covered = daysBetween(startedAt, range.end);
+    if (total > 0 && covered > 0 && covered < total) {
+      const pct = Math.round((covered / total) * 100);
+      flags.push({
+        level: 'warn',
+        title: `이 기간의 ${100 - pct}% 는 기록이 있을 수 없습니다`,
+        detail: `제도를 ${startedAt} 에 시작해서 ${range.start} ~ ${startedAt} 사이는 기록할 곳 자체가 없었습니다. `
+          + `그런데 목표는 기간 전체로 잡혀 있습니다. 방문·발굴·일지 점수는 목표의 약 ${pct}% 를 만점으로 보고 읽으시고, `
+          + `첫 평가는 상여에 연결하지 않는 것을 권합니다.`,
+      });
+    }
+  }
+
   // ⑥ 기준선 기간인가 — 이 기간의 낮은 점수로 사람을 판단하면 안 된다.
   if (isAdvisoryPeriod(rep, range)) {
     flags.push({
@@ -1342,6 +1415,108 @@ export async function computeFairness(env: SalesEnv, rep: any, range: PeriodRang
 
   return flags;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 🩺 성과 부진 대응 — 「벌」이 아니라 「절차」
+ *
+ * 사장님 지시(2026-08-19): 성과가 저조할 때 무엇을 하는지 정해 달라.
+ *
+ * 설계 판단 — 왜 돈으로 벌하지 않는가
+ *   ① 한국에서 **성과 부진은 징계 사유가 아니다.** 잘못이 아니라 능력이 못 미친 것이다.
+ *      기본급을 깎는 감봉은 취업규칙상 «징계» 이고, 근로기준법상 감급 제재는 한도가 있다.
+ *      성과 부진에 갖다 쓰면 부당징계 다툼이 된다.
+ *      → 돈으로 가는 결과는 **반기 상여 배율(D=0%)** 까지가 안전선이다. 그건 이미 있다.
+ *   ② 담당자가 **1명**이다. 대체 인력이 없다. 벌의 효과보다 «나가 버리는» 부작용이 크다.
+ *      1단계에서 벌을 주면 나쁜 소식을 숨기게 되고, 그러면 기록이 죽고 제도 전체가 죽는다.
+ *   ③ 나중에 어떤 조치를 하더라도 **기록이 없으면 회사가 불리하다.**
+ *      공정한 평가 · 반복 확인 · 개선 기회 부여 · 그럼에도 개선 없음 — 이 넷이 남아야 한다.
+ *      즉 개선계획은 사람을 벌하는 장치가 아니라 **회사를 지키는 절차**다.
+ *
+ * ⚠️ 기준선(연습) 기간의 평가는 **세지 않는다.** 상여에도 연결하지 않는 기간을
+ *    부진 판정의 근거로 쓰면 앞뒤가 안 맞는다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/** 등급을 «나쁜 정도» 순서로. 숫자가 클수록 나쁘다. */
+const GRADE_RANK: Record<string, number> = { 'A+': 0, 'A': 1, 'B+': 2, 'B': 3, 'C+': 4, 'C': 5, 'D': 6 };
+const RANK_CPLUS = GRADE_RANK['C+'];   // 이 값 이상이면 «C+ 이하»
+const RANK_C     = GRADE_RANK['C'];    // 이 값 이상이면 «C 이하»
+
+export interface DisciplineStage {
+  stage: 0 | 1 | 2 | 3;
+  label: string;
+  what: string;          // 지금 무엇을 해야 하는가 (한 문장)
+  why: string;           // 왜 그 단계인가 (근거)
+  money: string;         // 돈으로 가는 결과
+}
+
+/**
+ * 확정된 평가 이력(최근 것이 앞)으로 단계를 판정한다.
+ *   0 정상 · 1 관심(면담) · 2 개선계획 · 3 재검토
+ * @param evals  [{period, grade, advisory}] — 최근 순
+ * @param failedPlan  개선계획을 «미달» 로 닫은 적이 있는가
+ */
+export function judgeDiscipline(evals: any[], failedPlan: boolean): DisciplineStage {
+  // 연습 기간 평가는 근거에서 뺀다.
+  const real = (evals || []).filter(e => !e.advisory && e.grade && GRADE_RANK[e.grade] != null);
+
+  if (real.length === 0) {
+    return {
+      stage: 0, label: '판단 보류',
+      what: '아직 상여에 연결되는 평가가 없습니다. 지금은 기록을 쌓는 기간입니다.',
+      why: '연습 기간이 아닌 확정 평가가 한 번도 없습니다.',
+      money: '없음',
+    };
+  }
+
+  const last = real[0];
+  const prev = real[1];
+  const lastRank = GRADE_RANK[last.grade];
+
+  // 3단계 — 개선계획을 «미달» 로 닫은 뒤에도 D
+  if (failedPlan && lastRank >= GRADE_RANK['D']) {
+    return {
+      stage: 3, label: '직무 재검토',
+      what: '직무 재배치 또는 조건 재협상을 검토할 단계입니다. **노무사 상담 없이 진행하지 마세요.**',
+      why: `개선계획을 미달로 마친 뒤에도 ${last.period} 평가가 ${last.grade} 입니다.`,
+      money: '반기 상여 0원 (D등급 배율 0%)',
+    };
+  }
+
+  // 2단계 — 최근 2회 연속 C 이하
+  if (prev && lastRank >= RANK_C && GRADE_RANK[prev.grade] >= RANK_C) {
+    return {
+      stage: 2, label: '개선계획',
+      what: '3개월 개선계획을 개설하세요. 목표를 낮춰 구체적으로 잡고 주 1회 점검합니다.',
+      why: `${prev.period} ${prev.grade} · ${last.period} ${last.grade} — 두 번 연속 C 이하입니다.`,
+      money: `반기 상여 ${last.grade === 'D' ? '0원' : '감액'} (${last.grade}등급 배율 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%)`,
+    };
+  }
+
+  // 1단계 — 최근 1회가 C+ 이하
+  if (lastRank >= RANK_CPLUS) {
+    return {
+      stage: 1, label: '관심 · 면담',
+      what: '면담을 한 번 하고 원인을 함께 찾으세요. **이 단계에서 벌을 주지 마세요.**',
+      why: `${last.period} 평가가 ${last.grade} 입니다. 아직 한 번뿐입니다.`,
+      money: `반기 상여 감액 (${last.grade}등급 배율 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%)`,
+    };
+  }
+
+  return {
+    stage: 0, label: '정상',
+    what: '따로 하실 일이 없습니다.',
+    why: `${last.period} 평가가 ${last.grade} 입니다.`,
+    money: `반기 상여 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 1) * 100)}%`,
+  };
+}
+
+/** 단계별로 «하지 말 것» — 화면이 매번 같이 보여 준다. 잊으면 사고가 나는 것들이다. */
+export const DISCIPLINE_GUARDRAILS = [
+  '기본급을 깎지 마세요. 성과 부진은 징계 사유가 아니라서 감봉은 부당징계 다툼이 됩니다.',
+  '영업차량을 회수하지 마세요. 특혜가 아니라 업무 도구입니다 — 뺏으면 영업을 못 합니다.',
+  '연습 기간의 낮은 점수를 근거로 쓰지 마세요. 상여에도 연결하지 않는 기간입니다.',
+  '면담·개선계획은 반드시 기록으로 남기세요. 기록이 없으면 나중에 회사가 불리해집니다.',
+];
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * 권한 헬퍼
@@ -1388,9 +1563,15 @@ export async function handleSalesHrApi(
 
   /** 요청한 rep_id 가 볼 수 있는 것인지. 본인 계정이면 자기 id 로 강제한다. */
   const scopedRepId = (raw: any): number | null => {
+    if (!hq) return myRepId;
+    // ⚠️ (2026-08-18 수리) 예전엔 `Number(raw)` 만 보고 isNaN 이 아니면 그대로 돌려줬다.
+    //    그런데 rep_id 가 아예 없으면 raw 는 null 이고 **Number(null) 은 0** 이다.
+    //    isNaN(0) 은 false 라 «0번 담당자» 로 해석됐고, 0번은 없으니 404 rep_not_found 가 났다.
+    //    휴대폰 화면(/sales)은 rep_id 를 안 붙이므로 **첫 화면이 통째로 안 열렸다.**
+    //    빈 값·0 이하는 «지정 안 함(null)» 으로 본다 — 그래야 부르는 쪽의 기본값 처리가 산다.
+    if (raw == null || String(raw).trim() === '') return null;
     const want = Number(raw);
-    if (hq) return isNaN(want) ? null : want;
-    return myRepId;
+    return (isNaN(want) || want <= 0) ? null : want;
   };
 
   let body: any = {};
@@ -1770,21 +1951,25 @@ export async function handleSalesHrApi(
     });
 
     await env.DB.prepare(
+      // ⚠️ advisory 를 «칸» 으로도 저장한다. snapshot(JSON) 안에도 있지만,
+      //    부진 판정(judgeDiscipline)이 연습 기간 평가를 걸러내려면 SQL 로 읽을 수 있어야 한다.
+      //    JSON 을 파싱해서 거르면 옛 행에 snapshot 이 없을 때 조용히 «연습 아님» 이 된다.
       `INSERT INTO sales_evaluations (rep_id, period, score_reporting, score_vehicle, score_teamwork,
-         auto_total, final_total, grade, bonus_krw, strengths, improvements, snapshot, evaluator, evaluated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         auto_total, final_total, grade, bonus_krw, strengths, improvements, snapshot, evaluator, evaluated_at, advisory)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
        ON CONFLICT(rep_id, period) DO UPDATE SET
          score_reporting=excluded.score_reporting, score_vehicle=excluded.score_vehicle,
          score_teamwork=excluded.score_teamwork, auto_total=excluded.auto_total,
          final_total=excluded.final_total, grade=excluded.grade, bonus_krw=excluded.bonus_krw,
          strengths=excluded.strengths, improvements=excluded.improvements,
-         snapshot=excluded.snapshot, evaluator=excluded.evaluator, evaluated_at=excluded.evaluated_at`
+         snapshot=excluded.snapshot, evaluator=excluded.evaluator, evaluated_at=excluded.evaluated_at,
+         advisory=excluded.advisory`
     ).bind(
       repId, periodRaw, manual.reporting, manual.vehicle, manual.teamwork,
       auto.earned, ft.total, grade, bonus,
       String(body?.strengths || '').trim().slice(0, 2000) || null,
       String(body?.improvements || '').trim().slice(0, 2000) || null,
-      snapshot, actor.username || null, now
+      snapshot, actor.username || null, now, advisory ? 1 : 0
     ).run();
 
     return json({ ok: true, final: ft, grade, bonus_krw: bonus, auto, advisory });
@@ -2091,7 +2276,165 @@ export async function handleSalesHrApi(
     return json({ ok: true, ...r });
   }
 
+  /* ── 성과 부진 대응 ────────────────────────────────────────────────
+     ⛔ 본사만 읽는다. 「직무 재검토」 같은 문구를 사람이 화면에서 먼저 보게 두면 안 된다.
+        이 자료는 **면담을 준비하는 사람** 이 보는 것이고, 당사자에게는 사람이 말로 전한다. */
+  if (path === '/api/admin/sales/discipline' && method === 'GET') {
+    if (!hq) return json({ ok: false, error: 'forbidden', message: '이 화면은 본사 계정만 볼 수 있습니다.' }, 403);
+    const repId = Number(url.searchParams.get('rep_id') || 0);
+    if (!(repId > 0)) return json({ ok: false, error: 'invalid' }, 400);
+    const rep = await getRep(env, repId);
+    if (!rep) return json({ ok: false, error: 'rep_not_found' }, 404);
+
+    // 확정 평가 이력 — 반기 평가만. 최근 것이 앞.
+    const evRs: any = await env.DB.prepare(
+      `SELECT period, grade, final_total, bonus_krw, advisory, evaluator, evaluated_at
+         FROM sales_evaluations WHERE rep_id = ? ORDER BY period DESC LIMIT 8`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+    const evals: any[] = (evRs?.results || []).map((e: any) => ({ ...e, advisory: !!Number(e.advisory) }));
+
+    const planRs: any = await env.DB.prepare(
+      `SELECT * FROM sales_improvement_plans WHERE rep_id = ? ORDER BY id DESC LIMIT 5`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+    const plans: any[] = planRs?.results || [];
+    const openPlan = plans.find((p: any) => p.status === 'open') || null;
+    const failedPlan = plans.some((p: any) => p.status === 'failed');
+
+    const meetRs: any = await env.DB.prepare(
+      `SELECT * FROM sales_meetings WHERE rep_id = ? ORDER BY meeting_date DESC, id DESC LIMIT 20`
+    ).bind(repId).all().catch(() => ({ results: [] }));
+
+    const stage = judgeDiscipline(evals, failedPlan);
+
+    // 「기록이 남아 있는가」 자가 점검 — 나중에 회사를 지키는 것은 결국 이 넷이다.
+    //   ⚠️ repeated 는 «연속» 을 보지 않는다 — 단계 판정(judgeDiscipline 2단계)과 기준이 다르다.
+    //      일부러 그렇게 뒀다. 단계는 «지금 무엇을 할까» 라서 연속이어야 의미가 있지만,
+    //      이 칸은 «한 번의 운이 아니었다는 자료가 남아 있나» 라서 사이가 떠 있어도 자료는 자료다.
+    //      그래서 「반복 ✅ 인데 아직 1단계」 조합이 생길 수 있다 — 화면 라벨에 그 뜻을 적어 두었다.
+    const record = {
+      fair_eval: evals.filter(e => !e.advisory).length > 0,
+      repeated: evals.filter(e => !e.advisory && GRADE_RANK[e.grade] >= RANK_C).length >= 2,
+      chance_given: plans.length > 0,
+      still_short: failedPlan,
+    };
+
+    return json({
+      ok: true, rep_id: repId, rep_name: rep.name,
+      stage, evals, plans, open_plan: openPlan, meetings: meetRs?.results || [],
+      guardrails: DISCIPLINE_GUARDRAILS, record,
+      bonus_multiplier: SALES_BONUS_MULTIPLIER,
+      base_salary_krw: num(rep.base_salary_krw, 0),
+    });
+  }
+
+  // ── 개선계획 개설 · 수정 · 종료 (본사만) ──────────────────────────
+  if (path === '/api/admin/sales/improvement-plan' && method === 'POST') {
+    if (!hq) return json({ ok: false, error: 'forbidden', message: '개선계획은 본사 계정만 다룰 수 있습니다.' }, 403);
+    const action = String(body?.action || 'open').trim();
+    const repId = Number(body?.rep_id || 0);
+    if (!(repId > 0)) return json({ ok: false, error: 'invalid' }, 400);
+    const rep = await getRep(env, repId);
+    if (!rep) return json({ ok: false, error: 'rep_not_found' }, 404);
+    const today = todayISO();
+
+    if (action === 'open') {
+      // 이미 진행 중이면 두 개를 만들지 않는다 — 「어느 계획이 진짜인가」 가 되면 기록이 죽는다.
+      const dup: any = await env.DB.prepare(
+        `SELECT id FROM sales_improvement_plans WHERE rep_id = ? AND status = 'open' LIMIT 1`
+      ).bind(repId).first().catch(() => null);
+      if (dup?.id) return json({ ok: false, error: 'already_open', plan_id: dup.id, message: '이미 진행 중인 개선계획이 있습니다.' }, 409);
+
+      const start = String(body?.period_start || today).slice(0, 10);
+      const months = Math.max(1, Math.min(6, Number(body?.months || 3)));
+      const endTs = new Date(start + 'T00:00:00Z');
+      endTs.setUTCMonth(endTs.getUTCMonth() + months);
+      const end = String(body?.period_end || endTs.toISOString().slice(0, 10)).slice(0, 10);
+
+      const goals = String(body?.goals || '').trim().slice(0, 2000);
+      if (!goals) return json({ ok: false, error: 'goals_required', message: '개선 목표를 적어 주세요. 목표 없는 개선계획은 나중에 근거가 되지 못합니다.' }, 400);
+
+      const r = await env.DB.prepare(
+        `INSERT INTO sales_improvement_plans
+           (rep_id, opened_at, period_start, period_end, trigger_periods, trigger_grades,
+            goals, support, status, opened_by, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,'open',?,?,?)`
+      ).bind(
+        repId, today, start, end,
+        String(body?.trigger_periods || '').trim().slice(0, 200) || null,
+        String(body?.trigger_grades || '').trim().slice(0, 200) || null,
+        goals, String(body?.support || '').trim().slice(0, 2000) || null,
+        actor.username || null, now, now
+      ).run();
+      return json({ ok: true, plan_id: r?.meta?.last_row_id ?? null, period_start: start, period_end: end });
+    }
+
+    const planId = Number(body?.plan_id || 0);
+    if (!(planId > 0)) return json({ ok: false, error: 'invalid' }, 400);
+
+    if (action === 'update') {
+      await env.DB.prepare(
+        `UPDATE sales_improvement_plans SET goals = COALESCE(?, goals), support = COALESCE(?, support),
+           period_end = COALESCE(?, period_end), updated_at = ? WHERE id = ? AND rep_id = ?`
+      ).bind(
+        String(body?.goals || '').trim().slice(0, 2000) || null,
+        String(body?.support || '').trim().slice(0, 2000) || null,
+        String(body?.period_end || '').trim().slice(0, 10) || null,
+        now, planId, repId
+      ).run();
+      return json({ ok: true, plan_id: planId });
+    }
+
+    if (action === 'close') {
+      // 'achieved'(달성) 또는 'failed'(미달) — 판정은 사람이 한다. 자동으로 닫지 않는다.
+      const result = String(body?.result || '').trim();
+      if (result !== 'achieved' && result !== 'failed') {
+        return json({ ok: false, error: 'invalid_result', message: '달성/미달 중 하나를 골라 주세요.' }, 400);
+      }
+      const note = String(body?.result_note || '').trim().slice(0, 2000);
+      if (!note) return json({ ok: false, error: 'note_required', message: '무엇을 보고 그렇게 판단했는지 한 줄이라도 적어 주세요.' }, 400);
+      await env.DB.prepare(
+        `UPDATE sales_improvement_plans SET status = ?, closed_at = ?, closed_by = ?, result_note = ?, updated_at = ?
+           WHERE id = ? AND rep_id = ? AND status = 'open'`
+      ).bind(result, today, actor.username || null, note, now, planId, repId).run();
+      return json({ ok: true, plan_id: planId, status: result });
+    }
+
+    return json({ ok: false, error: 'unknown_action' }, 400);
+  }
+
+  // ── 면담 기록 (본사만) ────────────────────────────────────────────
+  //   ⚠️ 이 표가 비어 있으면 나중에 「기회를 줬다」 를 증명할 수 없다.
+  if (path === '/api/admin/sales/meeting' && method === 'POST') {
+    if (!hq) return json({ ok: false, error: 'forbidden', message: '면담 기록은 본사 계정만 남길 수 있습니다.' }, 403);
+    const repId = Number(body?.rep_id || 0);
+    if (!(repId > 0)) return json({ ok: false, error: 'invalid' }, 400);
+    const rep = await getRep(env, repId);
+    if (!rep) return json({ ok: false, error: 'rep_not_found' }, 404);
+    const summary = String(body?.summary || '').trim().slice(0, 3000);
+    if (!summary) return json({ ok: false, error: 'summary_required', message: '무슨 이야기를 했는지 적어 주세요.' }, 400);
+    const kind = ['talk', 'checkin', 'plan_open', 'plan_close'].includes(String(body?.kind || ''))
+      ? String(body.kind) : 'talk';
+    const r = await env.DB.prepare(
+      `INSERT INTO sales_meetings (rep_id, plan_id, meeting_date, kind, summary, agreed, created_by, created_at)
+       VALUES (?,?,?,?,?,?,?,?)`
+    ).bind(
+      repId, Number(body?.plan_id) > 0 ? Number(body.plan_id) : null,
+      String(body?.meeting_date || todayISO()).slice(0, 10), kind, summary,
+      String(body?.agreed || '').trim().slice(0, 2000) || null,
+      actor.username || null, now
+    ).run();
+    return json({ ok: true, meeting_id: r?.meta?.last_row_id ?? null });
+  }
+
   return json({ ok: false, error: 'not_found', path }, 404);
+}
+
+/** 두 날짜 사이 일수(끝날 포함). 기간의 «몇 %가 기록 가능했나» 를 재는 데 쓴다. */
+function daysBetween(fromISO: string, toISO: string): number {
+  const a = new Date(fromISO + 'T00:00:00Z').getTime();
+  const b = new Date(toISO + 'T00:00:00Z').getTime();
+  if (isNaN(a) || isNaN(b) || b < a) return 0;
+  return Math.round((b - a) / 86400000) + 1;
 }
 
 /** 계약일 + 90일 = 유지 확인 예정일. 화면이 «언제 확인해야 하는지» 를 보여줄 수 있게. */

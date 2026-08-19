@@ -22,6 +22,7 @@
  */
 
 import { getScope, paymentScopeSql, expenseVisible, type Scope } from './scope';
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 
 interface Env {
   DB: D1Database;
@@ -110,7 +111,7 @@ async function incomeBetween(env: Env, startMs: number, endMs: number, scope?: S
     const r = await env.DB.prepare(
       `SELECT COALESCE(SUM(amount_krw),0) AS sum, COUNT(*) AS count
        FROM student_payments
-       WHERE status='paid' AND paid_at >= ? AND paid_at < ?` + ps.sql
+       WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?` + ps.sql
     ).bind(startMs, endMs, ...ps.binds).first<{ sum: number; count: number }>();
     return { sum: r?.sum || 0, count: r?.count || 0 };
   }, { sum: 0, count: 0 });
@@ -143,7 +144,7 @@ async function dailyIncomeMap(env: Env, startMs: number, endMs: number, scope?: 
       `SELECT strftime('%Y-%m-%d', (paid_at/1000 + ${SEC_OFFSET}), 'unixepoch') AS d,
               COALESCE(SUM(amount_krw),0) AS sum, COUNT(*) AS count
        FROM student_payments
-       WHERE status='paid' AND paid_at >= ? AND paid_at < ?` + ps.sql + `
+       WHERE status='paid' AND ${notSeedSql()} AND paid_at >= ? AND paid_at < ?` + ps.sql + `
        GROUP BY d`
     ).bind(startMs, endMs, ...ps.binds).all<{ d: string; sum: number; count: number }>();
     const map: Record<string, { sum: number; count: number }> = {};
