@@ -11940,9 +11940,13 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
-      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      // 🧾 회계장부 탭 — 매출 판정은 전부 서버가 한다(규칙 정본 = accounting-reports.ts).
+      //    · excluded_from_revenue : 자금이동 행인가 (합계에서 통째로 뺀다)
+      //    · counts_as_revenue     : 매출로 셀 행인가 (위 요약 KPI·추이와 **같은 규칙**)
+      //    ⚠️ 여기서 type===1 만 보고 더하면 요약 KPI 와 숫자가 어긋난다 —
+      //       같은 화면에 「매출 ₩A」와 「총매출 ₩B」가 따로 찍히는 사고가 난다.
       var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      var isRev  = function(row){ return !!row.counts_as_revenue; };
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
         if (kind === 'ledger' && rows.length) {
@@ -11950,7 +11954,8 @@ window.rebuildGlobalSearchIndex = function() {
           rows.forEach(function(row){
             var m = Number(row.money)||0;
             if (isExcl(row)) { sExc += m; nExc++; return; }
-            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+            if (Number(row.type) === 1) { if (isRev(row)) sInc += m; }
+            else if (Number(row.type) === 2) sExp += m;
           });
           cnt.innerHTML = esc(base)
             + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'

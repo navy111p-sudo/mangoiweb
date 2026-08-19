@@ -24,7 +24,7 @@ import { enqueueNotification, sendPushToUser } from './api-notify';
 import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStudentCond, scopeFranchiseCond, scopeCenterCond, canEditOrg } from './scope';   // 🔒 지사/대리점 데이터 격리
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
-import { KCP_TRANSFER_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 — 판정 정본
+import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -7131,18 +7131,27 @@ ${chatSampleText}
         { const _hit = await admCacheHit(env, _finKey); if (_hit) return _hit; }
         // 월별 손익 집계 (AccBookType 1=수입, 2=지출) — 최근 24개월
         if (kind === 'summary') {
+          /* 🧾 매출 인식 범위 (2026-08-18 — 수정사항 5번 블럭 사장님 지시)
+             income = 「케이씨피」 결제분만. 「케이씨피M」(하나은행 → 신한 운영자금 이체)은
+             같은 「케이씨피」로 시작하지만 매출이 아니므로 `isKcp AND NOT isKcpm` 으로 짝지어 뺀다.
+             ⚠️ 그래서 거래처·적요·계정과목 어디에도 「케이씨피」가 없는 수입 행은 매출에서 빠진다 —
+                총매출이 예전(수입 전부 − 케이씨피M)보다 줄어 보이는 것은 이 정책의 결과다.
+             ⚠️ expense 는 지시 대상이 아니므로 예전 그대로(지출 전부 − 케이씨피M)다. */
           try {
             const { fields, values } = await runCypher(env, `
               MATCH (a:AccBook) WHERE a.date IS NOT NULL AND a.date <> ''
               WITH substring(a.date,0,7) AS ym, a.type AS t, a.money AS money,
                    (coalesce(a.store,'')   =~ $kcpmRe
                  OR coalesce(a.memo,'')    =~ $kcpmRe
-                 OR coalesce(a.subject,'') =~ $kcpmRe) AS isKcpm
+                 OR coalesce(a.subject,'') =~ $kcpmRe) AS isKcpm,
+                   (coalesce(a.store,'')   =~ $kcpRe
+                 OR coalesce(a.memo,'')    =~ $kcpRe
+                 OR coalesce(a.subject,'') =~ $kcpRe) AS isKcp
               WHERE ym >= '2019-01'
               RETURN ym,
-                     sum(CASE WHEN t = 1 AND NOT isKcpm THEN money ELSE 0 END) AS income,
+                     sum(CASE WHEN t = 1 AND isKcp AND NOT isKcpm THEN money ELSE 0 END) AS income,
                      sum(CASE WHEN t = 2 AND NOT isKcpm THEN money ELSE 0 END) AS expense
-              ORDER BY ym DESC LIMIT 36`, { kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
+              ORDER BY ym DESC LIMIT 36`, { kcpmRe: KCP_TRANSFER_CYPHER_RE, kcpRe: KCP_REVENUE_CYPHER_RE }, 'READ');
             const rows = values.map(row => {
               const o: any = Object.fromEntries(fields.map((f, i) => [f, row[i]]));
               o.net = (Number(o.income) || 0) - (Number(o.expense) || 0);
@@ -7178,7 +7187,7 @@ ${chatSampleText}
              excluded_from_revenue 는 계속 내려보낸다(항상 false 가 된다). 화면·하니스가
              그 값으로 합계에서 빼는 안전망을 유지하고 있어, 이 WHERE 가 언젠가 느슨해져도
              숫자는 틀어지지 않는다. */
-          ledger: `MATCH (a:AccBook) WHERE NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)${month ? ` AND (a.month = $month OR a.date STARTS WITH $month)` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue ORDER BY a.date DESC LIMIT $lim`,
+          ledger: `MATCH (a:AccBook) WHERE NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)${month ? ` AND (a.month = $month OR a.date STARTS WITH $month)` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue, ((coalesce(a.store,'') =~ $kcpRe OR coalesce(a.memo,'') =~ $kcpRe OR coalesce(a.subject,'') =~ $kcpRe) AND NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)) AS counts_as_revenue ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
           expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
@@ -7187,7 +7196,11 @@ ${chatSampleText}
         const cy = QMAP[kind];
         if (!cy) return json({ ok: false, error: 'unknown finance kind' }, 400);
         try {
-          const { fields, values } = await runCypher(env, cy, { lim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE }, 'READ');
+          /* 🧾 counts_as_revenue = 「케이씨피」이면서 「케이씨피M」이 아닌 행.
+             장부 탭의 «매출» 합계가 위 summary(KPI·추이)와 **같은 규칙**을 쓰게 하려고 서버가
+             판정해 내려준다. ⚠️ 한쪽만 바꾸면 같은 화면에서 「매출 ₩A」와 「총매출 ₩B」가
+             서로 다르게 찍힌다 — 그 불일치를 잡으려고 만든 화면에서 그러면 안 된다. */
+          const { fields, values } = await runCypher(env, cy, { lim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE, kcpRe: KCP_REVENUE_CYPHER_RE }, 'READ');
           const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
           return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows });
         } catch (e: any) {

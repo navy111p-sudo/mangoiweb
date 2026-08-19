@@ -404,6 +404,28 @@ export function isKcpTransferRow(...fields: Array<string | null | undefined>): b
   return fields.some(f => KCP_TRANSFER_TEXT_RE.test(String(f || '')));
 }
 
+/* 🧾 «무엇을 매출로 인정하는가» 정본 (2026-08-18 — 수정사항 5번 블럭 사장님 지시).
+
+   [바뀐 정책] 예전에는 「수입(type=1) 전부 − 케이씨피M」을 매출로 잡았다. 즉 거래처가
+   무엇이든 수입이면 매출이었다. 지시는 그 반대다 — **「케이씨피」 거래 내역만 매출로 인식**한다.
+
+   ⚠️ 그래서 거래처·적요·계정과목 어디에도 「케이씨피」가 없는 수입 행은 **매출에서 빠진다.**
+      총매출이 예전보다 줄어 보이는 것은 버그가 아니라 이 정책 변경의 결과다.
+      되돌리려면 사람에게 먼저 물을 것(임의로 「수입 전부」로 넓히지 말 것).
+   ⚠️ 「케이씨피M」은 여기에도 걸리지만(둘 다 「케이씨피」로 시작), 집계에서는
+      `isKcp AND NOT isKcpm` 으로 쓴다 — M 은 자금이동이라 매출이 아니다.
+      **두 판정은 짝이다. 한쪽만 쓰면 케이씨피M 이 매출로 되살아난다.**
+   ⚠️ 위 KCP_TRANSFER 와 같은 이유로 TS·Cypher 두 벌을 내보낸다. 한쪽만 고치지 말 것. */
+export const KCP_REVENUE_CYPHER_RE = '(?is).*(케이씨피|KCP).*';
+const KCP_REVENUE_TEXT_RE = /(케이씨피|KCP)/i;
+
+/** 회계장부 한 줄이 「케이씨피」 결제분(= 매출로 인정)인가.
+    ⚠️ 「케이씨피M」도 true 가 된다 — 매출 판정은 반드시 `isKcpRevenueRow(...) &&
+    !isKcpTransferRow(...)` 로 짝지어 쓸 것. */
+export function isKcpRevenueRow(...fields: Array<string | null | undefined>): boolean {
+  return fields.some(f => KCP_REVENUE_TEXT_RE.test(String(f || '')));
+}
+
 /** 입금 한 건의 성격. ⚠️ 저장된 category 를 쓰지 않고 적요에서 매번 판정한다 —
     바로빌 동기화(배포 권한자만 실행)를 기다리지 않고 규칙 개선이 바로 반영되게. */
 export function classifyDeposit(remark: string, amount: number): DepositKind {
@@ -2316,7 +2338,10 @@ async function statementBasis(env: Env, months: string[]) {
     b2bCount: sum(p => p.pl.rev.dep.b2bRows.length),
     depPg: sum(p => p.pl.rev.dep.pg),
     /* 「케이씨피M」(운영자금 이체)은 손익계산서가 한 줄도 쓰지 않으므로 여기서도 세지 않는다.
-       그 사실은 월간 회계 리포트의 «운영자금 보충» 줄이 그대로 보여 준다(#235). */
+       ⚠️ 예전 주석은 «그 사실은 월간 회계 리포트의 «운영자금 보충» 줄이 보여 준다» 였는데,
+          그 줄은 2026-08-18 사장님 지시로 화면에서 **없앴다**. 이제 어느 화면도 알려 주지 않는다.
+       ⛔ 그러니 이 값으로 화면 줄을 다시 만들지 말 것(같은 날 지시). 확인이 필요하면
+          D1 `bankacct_transactions` 를 직접 볼 것. */
     transferUnknown: sum(p => p.pl.rev.dep.transferUnknown),
     payroll: sum(p => p.pl.payroll.total),
     payrollEff: sum(p => p.pl.payrollEff),

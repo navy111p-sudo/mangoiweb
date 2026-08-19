@@ -137,7 +137,9 @@
 <!-- 🎬 (2026-07-22 사장님 지시) 로딩 중 반쪽·구스타일 중간 렌더 차단 —
      본문(헤더+레이아웃)을 파싱 완료까지 감췄다가 문서 끝 스타일(#hero-compact-260722 옆)에서
      visibility 해제 → 완성된 화면이 한 번에 나타남. 배경은 body 색만 보임. -->
-<link rel="stylesheet" href="/css/admin-inline-a.css?v=11"><!-- admin.html head 스타일 (가독성 CSS 앞) · v=11: 2026-08-18 #admin-main-scale{min-width:0} — 「학생관리」가 창 밖으로 나가던 것 -->
+<link rel="stylesheet" href="/css/admin-inline-a.css?v=12"><!-- admin.html head 스타일 (가독성 CSS 앞)
+   · v=12: 2026-08-18 차트 4종이 창 폭에 따라 상자를 벗어나던 것 — .charts 를 auto-fit 로, .chart-card 에 min-width:0 상시 적용
+   · v=11: 2026-08-18 #admin-main-scale{min-width:0} — 「학생관리」가 창 밖으로 나가던 것 -->
 
 <!-- ═══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-22 사장님 지시 / 2026-07-23 전 화면으로 확대) 언어 부팅
@@ -9139,7 +9141,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=130" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=131" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=131: 2026-08-18 카페24 회계 장부 탭의 «매출» 합계를 요약 KPI 와 같은 규칙으로
+     (「케이씨피」 결제분만) — 한쪽만 바꾸면 같은 화면에 매출이 두 값으로 찍힌다.
+     이 작업도 v=130 을 썼는데 main 이 먼저 가져가서 번호를 새로 딴다(내용은 자동병합으로 양쪽 다 들어가 있다)
    · v=129: 2026-08-18 강사별 급여명세서 표도 압축 — A4 인쇄 여유가 22px 뿐이라 이름만 길어져도 넘쳤다
    · v=128: 2026-08-18 병합 — 두 브랜치가 v=127 을 또 동시에 땄다(케이씨피M 죽은변수 제거 대
      카페24 빈 화면 설명). 규칙대로 양쪽보다 큰 번호를 새로 딴다. 내용은 자동병합으로 둘 다 들어가 있다
