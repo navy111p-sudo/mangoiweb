@@ -6469,12 +6469,32 @@ ${chatSampleText}
     const ensureMbtiTable = async () => {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_mbti (teacher_uid TEXT PRIMARY KEY, teacher_name TEXT, mbti TEXT, hobby TEXT, teaching_style TEXT, intro TEXT, updated_at INTEGER);`);
       try { await env.DB.exec(`ALTER TABLE teacher_mbti ADD COLUMN photo_url TEXT`); } catch {}
+      /* 🙂 (2026-08-18 사장님 수정요청 #02 후속) 강사 «성향».
+         신규 학생 등록 마법사가 «원하는 선생님 성향»(상냥한·재미있는·교육적인·진지한·웃음많은)을
+         물어보게 됐는데, 정작 **강사 쪽에 성향 자료가 없어서** 추천에 못 쓰고 메모로만 남았다.
+         그 반쪽을 여기에 채운다 — 이미 매칭용으로 쓰는 표(teacher_mbti)에 칸 하나를 더 단다.
+         ⚠️ CREATE 문에 넣지 않고 멱등 ALTER 로 붙인다 — schema_drift 하니스가
+            «운영 실제에 없는 CREATE 컬럼» 을 막는다(payment_type 과 같은 방식). */
+      try { await env.DB.exec(`ALTER TABLE teacher_mbti ADD COLUMN personality TEXT`); } catch {}
+    };
+
+    /* 🙂 성향 값 정본 — 화면(마법사·MBTI 카드)과 서버가 같은 다섯 개를 쓴다.
+       모르는 값이 들어오면 조용히 버린다(오타로 «kindd» 가 저장되면 매칭에서 영영 안 걸린다). */
+    const PERSONALITY_IDS = ['kind', 'fun', 'edu', 'serious', 'laugh'];
+    const normPersonality = (v: any): string | null => {
+      const raw = Array.isArray(v) ? v : String(v ?? '').split(/[,\s]+/);
+      const out: string[] = [];
+      for (const x of raw) {
+        const k = String(x || '').trim().toLowerCase();
+        if (PERSONALITY_IDS.includes(k) && !out.includes(k)) out.push(k);
+      }
+      return out.length ? out.join(',') : null;
     };
 
     // ── GET /api/teachers/mbti-list — 강사 MBTI 목록 (공개) ──
     if (method === 'GET' && path === '/api/teachers/mbti-list') {
       await ensureMbtiTable();
-      const rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name, mbti, hobby, teaching_style, intro, photo_url FROM teacher_mbti ORDER BY teacher_name`).all();
+      const rs = await env.DB.prepare(`SELECT teacher_uid, teacher_name, mbti, hobby, teaching_style, intro, photo_url, personality FROM teacher_mbti ORDER BY teacher_name`).all();
       return json({ ok: true, count: rs.results?.length || 0, teachers: rs.results || [] });
     }
 
@@ -6487,10 +6507,11 @@ ${chatSampleText}
       const now = Date.now();
       // photo_url 미입력 시 DiceBear 자동 생성
       const photoUrl = (b.photo_url || '').trim() || `https://api.dicebear.com/7.x/lorelei/svg?seed=${encodeURIComponent(b.teacher_name || uid)}&backgroundColor=fbbf24,ffd5dc,b6e3f4,c0aede,fcd0a1`;
+      const pers = normPersonality(b.personality);
       await env.DB.prepare(
-        `INSERT INTO teacher_mbti (teacher_uid, teacher_name, mbti, hobby, teaching_style, intro, photo_url, updated_at) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(teacher_uid) DO UPDATE SET teacher_name = excluded.teacher_name, mbti = excluded.mbti, hobby = excluded.hobby, teaching_style = excluded.teaching_style, intro = excluded.intro, photo_url = excluded.photo_url, updated_at = excluded.updated_at`
-      ).bind(uid, b.teacher_name || null, String(b.mbti || '').toUpperCase().slice(0,4), b.hobby || null, b.teaching_style || null, b.intro || null, photoUrl, now).run();
-      return json({ ok: true, teacher_uid: uid });
+        `INSERT INTO teacher_mbti (teacher_uid, teacher_name, mbti, hobby, teaching_style, intro, photo_url, personality, updated_at) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(teacher_uid) DO UPDATE SET teacher_name = excluded.teacher_name, mbti = excluded.mbti, hobby = excluded.hobby, teaching_style = excluded.teaching_style, intro = excluded.intro, photo_url = excluded.photo_url, personality = excluded.personality, updated_at = excluded.updated_at`
+      ).bind(uid, b.teacher_name || null, String(b.mbti || '').toUpperCase().slice(0,4), b.hobby || null, b.teaching_style || null, b.intro || null, photoUrl, pers, now).run();
+      return json({ ok: true, teacher_uid: uid, personality: pers });
     }
 
     // ── POST /api/admin/teacher/mbti/seed-demo — 테스트용 강사 10명 일괄 등록 ──

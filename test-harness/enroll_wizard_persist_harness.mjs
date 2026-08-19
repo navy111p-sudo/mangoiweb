@@ -99,10 +99,11 @@ check('강사 근무불가는 force 로도 안 뚫린다 (서버)', /teacher_una
 console.log('\n[ F. 성향을 기록한다 ]');
 check('고른 성향이 notes 로 저장된다',
   /notes:note/.test(blk) && /wizPersonalityLabel/.test(blk));
-/* 🙂 성향은 «기록» 이지 «매칭 기준» 이 아니다. 강사 쪽에 성향 자료가 없어서 추천에 못 쓴다.
-      화면이 그렇게 보이면 안 되므로 한 줄로 밝혀 두었는지 본다 — 지우면 여기서 걸린다. */
-check('🔴 «추천에는 반영되지 않는다» 를 화면에 밝힌다',
-  /추천 순서에는 반영되지 않습니다/.test(blk));
+/* 🙂 성향은 이제 추천에도 반영된다(가산점). 다만 **성향이 등록되지 않은 강사는 그 점수를 못 받는다** —
+      그 사실을 화면에 적어 두지 않으면 「성향을 골랐는데 왜 반영이 안 되지」 가 된다. */
+check('🔴 성향이 추천에 반영된다고 화면에 밝힌다', /추천 순서에도 반영됩니다/.test(blk));
+check('🔴 «성향 미등록 강사는 가산점 없음» 을 함께 밝힌다',
+  /성향이 등록되지 않은 강사는 그 점수를 못 받으니/.test(blk));
 
 console.log(`\n  ── PASS ${PASS} · FAIL ${FAIL}`);
 if (FAIL) { console.log('\n  실패:'); for (const f of FAILS) console.log('   · ' + f); }
