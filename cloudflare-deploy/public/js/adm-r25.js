@@ -494,8 +494,14 @@
   }
 
   /* 🔀 (2026-08-19) 손자를 여는 곳은 여기 한 곳이다 — ▸ 를 눌러도, 자식 메뉴 글자를 눌러도 같다.
-     toggle=true 면 여닫이(▸ 전용), 아니면 «열기만». 자식 메뉴 클릭이 여닫이면
-     같은 메뉴를 다시 눌렀을 때 손자가 사라져 「눌렀더니 없어졌다」가 된다. */
+     toggle=true 면 여닫이, false 면 «열기만».
+
+     ⚠️ 처음에는 자식 클릭을 «열기만» 으로 두었다. «두 번 눌렀을 때 방금 편 손자가 사라지면
+        「눌렀더니 없어졌다」로 느껴진다» 는 판단이었는데, **실제로 써 보니 반대였다**
+        (2026-08-19 사장님 「사이드바 다시 누르면 접혀지지 않아」).
+        접는 방법이 ▸ 하나뿐인데 그 글자는 12px 라 특히 휴대폰에서 사실상 못 누른다.
+        게다가 그룹(메뉴)과 ▸ 는 여닫이인데 «자식만» 아니라서 더 헷갈렸다.
+        → 세 단계 모두 «다시 누르면 접힌다» 로 통일한다. */
   function openGc(sub, toggle){
     var bar = document.getElementById('ph85-sidebar');
     var box = sub.nextElementSibling;
@@ -519,7 +525,12 @@
   function keepGroupOpen(sub){
     var g = sub.closest ? sub.closest('.ph85-group') : null;
     if (!g) return;
-    var again = function(){ if (sub.classList.contains('ph125-open')) g.classList.add('open'); };
+    /* ⚠️ 예전에는 «손자가 펴져 있을 때만» 되살렸다. 그랬더니 손자를 «접는» 클릭에서
+       ph97 의 그룹 접기가 그대로 살아, 손자만 접으려 했는데 **그룹째 접혀** 메뉴가 통째로
+       사라졌다(2026-08-19 여닫이로 바꾸자마자 실측: 그룹열림 true → false).
+       자식을 누르는 행동은 «그 그룹 안에서 뭔가를 하는 것» 이므로, 열고 닫고와 무관하게
+       그룹은 열어 둔다. 그룹을 접는 것은 그룹 머리를 누르는 «다른 클릭» 이고 여기 안 걸린다. */
+    var again = function(){ g.classList.add('open'); };
     again();
     setTimeout(again, 0);
     setTimeout(again, 120);
@@ -594,18 +605,37 @@
     }); });
   }
 
+  /* 🔁 (2026-08-19 사장님 「손자 메뉴도 다시 누르면 접히게」) 마지막으로 연 손자와 그 칸.
+     손자는 사이드바의 마지막 단계라 «그 밑에» 접을 것이 없다 — 대신 누르면 본문의 «그 칸» 이 열린다.
+     그래서 «다시 누르면 접힌다» 는 그 칸에 적용한다. 그룹·자식과 규칙이 이어진다.
+     ⚠️ «같은 손자를 연속으로» 누른 경우만 접는다. 다른 데를 보다가 돌아와서 누른 것은
+        「보러 온 것」이므로 접으면 안 된다(스크롤이 안 맞아 한 번 더 누르는 일도 흔하다). */
+  var lastGo = null;
+
   function go(cardId, desc){
     closeDrawer();                                   // ① 먼저 닫는다
     /* 🔗 딴 페이지의 구역 — 주소 뒤 #id 로 그 구역까지 바로 간다(브라우저가 스크롤해 준다).
        enroll-ops.html 처럼 탭 하나만 그리는 화면은 그 파일이 해시를 보고 탭을 켠다. */
-    if (desc.href) { location.href = desc.href; return; }
+    if (desc.href) { lastGo = null; location.href = desc.href; return; }
+
+    /* ② 같은 손자를 다시 눌렀고 그 칸이 열려 있으면 → 접는다(이동·스크롤 없이 여기서 끝).
+       ⚠️ 접을 수 있는 것은 <details> 인 칸뿐이다. 표·구역 이름표(data-gc)처럼 접이식이 아닌
+          목적지는 접을 것이 없으므로 예전처럼 «그리로 이동» 만 한다. */
+    var prev = (lastGo && lastGo.desc === desc) ? lastGo.target : null;
+    if (prev && prev.tagName === 'DETAILS' && prev.open) {
+      prev.open = false;
+      lastGo = null;
+      return;
+    }
+
     var hostId = desc.card || cardId;
     if (typeof window.jumpToMenu === 'function') window.jumpToMenu(hostId);
     var card = document.getElementById(hostId);
     if (!card) { alert('카드 미구현: ' + hostId); return; }
     setTimeout(function(){
-      if (desc.fn && typeof window[desc.fn] === 'function'){ window[desc.fn](); return; }
+      if (desc.fn && typeof window[desc.fn] === 'function'){ lastGo = null; window[desc.fn](); return; }
       var t = desc.el || (desc.anchor ? document.getElementById(desc.anchor) : null);
+      lastGo = { desc: desc, target: t || card };     // 다음 클릭에서 «같은 곳인가» 를 본다
       reveal(card, t || card);
     }, 120);                                          // jumpToMenu 의 rAF 재보정(≈32ms) 뒤에 온다
   }
@@ -636,6 +666,8 @@
        ✅ 그래서 «지금 여는 중» 이라는 표시를 짧게 남기고, 그 셋은 그 표시가 있을 때만 건너뛴다.
        ⚠️ 이미 펴져 있는 자식을 한 번 더 누르면 표시를 남기지 않는다 — 두 번째 누름은
           「이 화면으로 가겠다」는 뜻이므로 예전처럼 닫히고 카드로 간다. */
+    /* 이미 펴져 있으면 이번 누름은 «접기» 다 — 표시를 세우지 않는다.
+       그래서 휴대폰에서는 접히면서 드로어도 닫히고 카드로 이동한다(예전 두 번째 누름과 같다). */
     var already = sub.classList.contains('ph125-open');
     if (!already){
       /* 🔖 «방금 폈다» 표시. 두 곳이 이걸 본다 —
@@ -648,7 +680,27 @@
         try { if (typeof window.mgaOpen === 'function') window.mgaOpen(); } catch(e){}
       }
     }
-    openGc(sub, false);
+    openGc(sub, true);          // 다시 누르면 접힌다 — 그룹·▸ 와 같은 규칙(위 주석 참고)
+  }, true);
+
+  /* 🧹 (2026-08-19) 그룹(메뉴)을 접으면 그 안에 펴 둔 손자도 같이 접는다.
+     안 그러면 그룹만 접혔다가 다시 펼 때 손자가 그대로 펼쳐진 채 나와서
+     「접었는데 안 접힌다」로 보인다(사장님 제보의 두 번째 갈래).
+     ⚠️ 접기는 ph97 이 «그 다음에» 하므로 클래스를 곧바로 읽으면 아직 열려 있다.
+        다음 틱에 «정말 접혔는지» 보고 나서 손자를 접는다. */
+  window.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var head = t.closest('#ph85-sidebar .ph85-head');
+    if (!head) return;
+    var g = head.closest('.ph85-group');
+    if (!g) return;
+    setTimeout(function(){
+      if (g.classList.contains('open')) return;          // 편 것이면 건드리지 않는다
+      g.querySelectorAll('.ph85-sub.ph125-open').forEach(function(s){
+        s.classList.remove('ph125-open'); fitBox(s);
+      });
+    }, 30);
   }, true);
 
   // 손자 클릭 — 위임 한 곳에서 받는다(항목마다 onclick 문자열을 안 만들어 그만큼 가볍다)
