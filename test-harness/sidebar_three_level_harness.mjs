@@ -146,8 +146,38 @@ check('아이보리+슬레이트 테마의 손자 상자가 따뜻한 크림(#ff
 check('푸른빛 흰색(#f6f9fd)으로 되돌아가지 않았다',
   !/\[data-admin-tone="slate"\][^{]*\.ph125-grandchildren\s*\{[^}]*background:\s*#f6f9fd/.test(css));
 
-console.log('\n[ ⑧ 캐시 번호 ]');
-for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 39], ['adm-s11', 5]]) {
+console.log('\n[ ⑧ 자식 메뉴 — 이름은 짧게, 설명은 툴팁으로 ]');
+/* 2026-08-19 사장님 「자식 메뉴 이름도 같은 방식으로 정리해줘」.
+   자식 이름은 이미 짧았고(전부 12자 이하) 진짜 문제는 **설명** 이었다 —
+   툴팁을 붙이는 adm-s15.js 는 «대표 카드» 기준이라
+     · 카드가 없는 항목(딴 페이지) → 설명이 비어 있고
+     · 같은 카드의 다른 칸을 가리키는 항목(대표지사·지사·대리점·본사 관리·지사 정산)
+       → 「🏬 가맹점·지사·대리점 관리」 한 줄이 네 번 똑같이 떴다(무엇이 다른지 알 수 없다).
+   그래서 그런 항목은 adm-ia6.js 에서 «자기» 설명을 갖는다. 한쪽만 고치면 다시 비거나 겹친다. */
+const s15 = rd('../cloudflare-deploy/public/js/adm-s15.js');
+check('자식 이름에 «설명 괄호» 가 없다 — 설명은 툴팁으로 간다',
+  itemLines.filter((it) => /\s[(（]/.test(it.ko)).length === 0);
+check('adm-ia6.js 가 항목별 설명을 DOM 에 싣는다 (data-ia6-tip)',
+  /setAttribute\('data-ia6-tip', it\.tip\)/.test(ia6) && /data-ia6-tip-en/.test(ia6));
+check('adm-s15.js 가 항목별 설명을 «카드 툴팁보다» 우선한다',
+  /data-ia6-tip-en'\)\)\s*\|\|\s*sub\.getAttribute\('data-ia6-tip'\)/.test(s15));
+/* 카드 툴팁으로는 채울 수 없는 항목 — 딴 페이지(href)와 «카드 안 한 칸»(openSub)은
+   반드시 자기 설명을 가져야 한다. 안 그러면 비거나 형제와 똑같아진다. */
+/* 항목 한 덩어리 = `{ ko: '…` 부터 다음 `{ ko: '…` 직전까지. 항목 사이에 긴 주석이 끼어 있어서
+   «닫는 괄호» 로 자르면 놓친다(처음에 7개 중 4개만 잡혔다). 시작점으로만 자른다. */
+const chunks = ia6.split(/(?=\{ ko: ')/).filter((c) => /^\{ ko: '/.test(c));
+const needTip = chunks
+  .filter((c) => /(?:href|openSub):\s*'/.test(c.split('\n').slice(0, 12).join('\n')))
+  .map((c) => ({ ko: (c.match(/^\{ ko: '((?:[^'\\]|\\.)*)'/) || [])[1] || '?', body: c }));
+check(`카드 툴팁으로 못 채우는 항목을 찾았다 (${needTip.length}개)`, needTip.length >= 7);
+const noTip = needTip.filter((it) => !/tip:\s*'/.test(it.body));
+check(`그 항목들이 전부 자기 설명을 갖는다${noTip.length ? ' — 없는 것: ' + noTip.map((x) => x.ko).join(', ') : ''}`,
+  noTip.length === 0);
+check('「수강 운영」 이름을 바꿨으니 이사표에 한 줄 적혀 있다 — 없으면 마지막 화면이 「오늘의 수업」으로 튄다',
+  /'teacher:수강 운영\(배율·정원\)':\s*'teacher:수강 운영'/.test(ia6));
+
+console.log('\n[ ⑨ 캐시 번호 ]');
+for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 40], ['adm-s11', 5], ['adm-s15', 4]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
