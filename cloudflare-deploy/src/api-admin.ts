@@ -11205,6 +11205,96 @@ LIMIT $limit`;
       }
     }
 
+    /* 👥 GET /api/admin/live-classes?rooms=a,b,c   (2026-08-19 Melca 8/19 제보 ①·2-①)
+       ═══════════════════════════════════════════════════════════════════════════
+       「지금 진행 중인 수업」 목록에 **누구 수업인지**가 없었다. 화면에 뜨는 것은
+       방 번호와 인원수뿐이라(`meet-123 · 2 participants`) 급히 참관해야 할 때
+       어느 수업인지 알 수 없었다.
+
+       [왜 별도 엔드포인트인가] 방 목록 자체는 `/api/active-rooms` 가 이미 준다.
+          그 핸들러는 index.ts 에 있고 KV 정리·반환순서 같은 미묘한 동작을 가지고 있다
+          (CLAUDE.md 4-2 공동 금지구역). **거기는 건드리지 않고**, 이미 받은 방 번호를
+          받아 «이름만 붙여» 돌려주는 창구를 따로 둔다. 화면은 두 번 부르지만 이쪽은 작다.
+
+       [방 번호 → 수업] room_id 는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이다
+          (api-mango.ts·absent-sweep.ts 와 같은 규칙). 그 규칙에 안 맞는 방
+          (임시 회의방 `meet-123` 등)은 **비워서** 돌려준다 — 추측하지 않는다.
+
+       🔴 강사 이름 — 번호가 세 벌인 함정을 여기서 다시 밟지 않는다.
+          class_schedules.teacher_id 는 **원부번호**(teachers.id, 1~29)다.
+          카페24 강사번호(9~196)를 여기 넣던 사고는 schedule-seed 쪽에서 이미 고쳐
+          (loadCafe24TeacherMap 을 거쳐 원부번호로 변환해 넣는다) 지금은 이 칸이
+          일관되게 원부번호다 → `LEFT JOIN teachers` 가 맞다.
+          ⛔ attendance.teacher_name 은 여기서도 쓰지 않는다(남의 이름이 들어 있다).
+
+       🔒 지사·대리점 격리 — 이 화면(manager.html)은 지사·대리점도 쓴다.
+          자기 범위 밖 수업의 **학생 이름을 보여 주면 개인정보가 샌다.**
+          scopeStudentCond 로 잘라, 범위 밖이면 이름 없이 «해당 없음» 으로만 답한다. */
+    if (method === 'GET' && path === '/api/admin/live-classes') {
+      const raw = String(url.searchParams.get('rooms') || '').trim();
+      if (!raw) return json({ ok: true, rooms: {} });
+      // 한 번에 200개까지 — 방이 그보다 많을 일은 없고, 넘으면 조용히 자르지 않고 자른 사실을 알린다
+      const MAX_ROOMS = 200;
+      const all = raw.split(',').map(x => x.trim()).filter(Boolean);
+      const roomIds = all.slice(0, MAX_ROOMS);
+
+      // class-{id}-{YYYYMMDD} 만 해석한다. 나머지는 «수업 방이 아님» 으로 그대로 둔다.
+      const byScheduleId = new Map<string, string[]>();   // 예약id → [roomId,...]
+      for (const rid of roomIds) {
+        const m = rid.match(/^class-(\d+)-(\d{8})$/);
+        if (!m) continue;
+        const sid = m[1];
+        if (!byScheduleId.has(sid)) byScheduleId.set(sid, []);
+        byScheduleId.get(sid)!.push(rid);
+      }
+
+      const out: Record<string, any> = {};
+      for (const rid of roomIds) out[rid] = null;         // 못 찾으면 null — 화면이 «미상» 으로 그린다
+
+      const ids = [...byScheduleId.keys()];
+      if (ids.length) {
+        const sc = await getScope(env as any, request);
+        const stuCond = scopeStudentCond(sc, 'se');
+        try {
+          const rows = await selectInChunks<any>(
+            env.DB, ids,
+            (ph) => `SELECT cs.id, cs.student_name, cs.user_id, cs.start_time, cs.duration_min,
+                            cs.class_type, cs.teacher_id,
+                            t.name  AS teacher_name,
+                            se.korean_name AS stu_ko, se.english_name AS stu_en
+                       FROM class_schedules cs
+                       LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                       LEFT JOIN students_erp se ON se.user_id = cs.user_id
+                      WHERE CAST(cs.id AS TEXT) IN (${ph})
+                        ${stuCond.cond ? `AND (${stuCond.cond})` : ''}`,
+            { tail: stuCond.binds, swallowErrors: true },
+          );
+          for (const r of rows) {
+            const rids = byScheduleId.get(String(r.id)) || [];
+            for (const rid of rids) {
+              out[rid] = {
+                schedule_id: Number(r.id),
+                // 이름은 명부(students_erp) 를 먼저 — class_schedules.student_name 은 옛 스냅샷일 수 있다
+                student_name: r.stu_ko || r.student_name || r.stu_en || null,
+                student_name_en: r.stu_en || null,
+                // 못 이었으면 **비운다.** 모르는 것보다 틀린 이름이 나쁘다.
+                teacher_name: r.teacher_name || null,
+                start_time: r.start_time || null,
+                duration_min: Number(r.duration_min) || null,
+                class_type: r.class_type || null,
+              };
+            }
+          }
+        } catch (e: any) {
+          return json({ ok: false, error: 'live_classes_failed', detail: String(e?.message || e) }, 500);
+        }
+      }
+      return json({
+        ok: true, rooms: out,
+        ...(all.length > roomIds.length ? { truncated: all.length - roomIds.length } : {}),
+      });
+    }
+
     /* 🔍 GET /api/admin/textbook-files/dup-report   (2026-08-19 Melca 8/19 제보 ⑥)
        ═══════════════════════════════════════════════════════════════════════════
        「교재가 200페이지가 넘는다 / BTS 1 은 115쪽인데 실제 내용은 23쪽」의 정체는

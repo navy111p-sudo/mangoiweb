@@ -1148,6 +1148,8 @@ const worker = {
         //     ⚠️ 위 정규식은 /\d+$/ 라 이 두 경로를 안 잡는다 — 반드시 따로 적어야 인증을 거친다.
         path === '/api/admin/textbook-files/dup-report' ||
         path === '/api/admin/textbook-files/rebook' ||
+        // 👥 (2026-08-19) 진행 중인 방 번호 → 강사·학생 이름. 핸들러가 스코프로 잘라서 준다.
+        path === '/api/admin/live-classes' ||
         // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
         path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
@@ -5247,6 +5249,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
   // 🔍✏️ (2026-08-19) 중복 진단 · 묶음 일괄 이름변경 — 위 정규식(\d+)에 안 걸리므로 따로 적는다
   if (path === '/api/admin/textbook-files/dup-report' || path === '/api/admin/textbook-files/rebook') return true;
+  // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 반드시 인증 뒤
+  if (path === '/api/admin/live-classes') return true;
   // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
   if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
