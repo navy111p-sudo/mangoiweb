@@ -1,0 +1,636 @@
+<title>사이드바 한 화면 만들기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+/* ── 팔레트 ──────────────────────────────────────────────────────────────
+   바탕은 «종이 위에 놓인 화면». 화면(사이드바) 안쪽은 실제 관리자와 같은
+   남색-호박색을 그대로 쓴다 — 사장님이 보시는 그 화면이어야 비교가 된다. */
+:root{
+  --paper:#f7f6f3;
+  --card:#ffffff;
+  --ink:#191b1f;
+  --ink-2:#4b5158;
+  --ink-3:#7c838c;
+  --line:#e0dfda;
+  --line-2:#c9c8c2;
+  --mango:#c2740b;
+  --mango-soft:#fbf0dd;
+  --over:#a83c2b;      /* 넘침 */
+  --over-soft:#fbe9e5;
+  --fit:#1e6f56;       /* 들어옴 */
+  --fit-soft:#e2f1ec;
+  --shadow:0 1px 2px rgba(25,27,31,.05),0 10px 30px rgba(25,27,31,.07);
+  /* 관리자 화면 색 (실제 값) */
+  --sb-1:#1e293b; --sb-2:#0f172a; --sb-line:rgba(99,102,241,.20);
+  --sb-text:#e2e8f0; --sb-dim:#94a3b8; --sb-amber:#fbbf24;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111317; --card:#181b20; --ink:#e8eaee; --ink-2:#b0b6be; --ink-3:#848b94;
+    --line:#282c33; --line-2:#3a4048;
+    --mango:#e9a244; --mango-soft:#2a2114;
+    --over:#e08573; --over-soft:#2c1a17;
+    --fit:#63c1a4; --fit-soft:#14261f;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111317; --card:#181b20; --ink:#e8eaee; --ink-2:#b0b6be; --ink-3:#848b94;
+  --line:#282c33; --line-2:#3a4048;
+  --mango:#e9a244; --mango-soft:#2a2114;
+  --over:#e08573; --over-soft:#2c1a17;
+  --fit:#63c1a4; --fit-soft:#14261f;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:'IBM Plex Sans KR',-apple-system,'Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:34px 22px 80px}
+h1{font-size:27px; font-weight:700; margin:0 0 6px; letter-spacing:-.5px; text-wrap:balance}
+.lede{color:var(--ink-2); margin:0 0 22px; font-size:15px; max-width:70ch}
+.mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums}
+
+/* ── 모드 탭 ───────────────────────────────────────────────────────── */
+.tabs{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px}
+.tab{
+  border:1px solid var(--line-2); background:var(--card); color:var(--ink-2);
+  border-radius:9px; padding:9px 15px; font:600 14px/1.3 inherit; cursor:pointer;
+  transition:border-color .15s, color .15s, background .15s;
+}
+.tab:hover{border-color:var(--mango); color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--mango); border-color:var(--mango); color:#fff}
+.tab:focus-visible{outline:2px solid var(--mango); outline-offset:2px}
+
+/* ── 무대: 왼쪽 «한 화면 자» + 오른쪽 설명 ───────────────────────────── */
+.stage{display:grid; grid-template-columns:minmax(0,360px) minmax(0,1fr); gap:26px; align-items:start}
+@media (max-width:880px){ .stage{grid-template-columns:1fr} }
+
+.screen{position:relative}
+.screen-cap{
+  display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+  font-size:12px; color:var(--ink-3); margin-bottom:7px; letter-spacing:.2px;
+}
+.ruler{
+  position:relative; height:626px; width:100%;
+  border:1px solid var(--line-2); border-radius:12px; overflow:hidden;
+  background:var(--sb-2); box-shadow:var(--shadow);
+}
+.ruler::after{ /* 한 화면 아래쪽 경계 */
+  content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--sb-amber),transparent); opacity:.5;
+}
+/* 사이드바 = 실제 CSS 치수 그대로(312px 폭, 12/10 패딩) */
+.sb{
+  position:absolute; inset:0; overflow-y:auto; overflow-x:hidden;
+  background:linear-gradient(180deg,var(--sb-1) 0%,var(--sb-2) 100%);
+  color:var(--sb-text); padding:12px 10px;
+  font-size:14px; scrollbar-width:thin;
+}
+.sb::-webkit-scrollbar{width:6px}
+.sb::-webkit-scrollbar-thumb{background:rgba(99,102,241,.45); border-radius:3px}
+
+/* 메뉴가 아닌 덩어리 — 회색 빗금으로 «자리만 차지하는 것»을 눈에 보이게 */
+.blk{
+  border:1px dashed rgba(148,163,184,.42); border-radius:9px; margin-bottom:8px;
+  color:var(--sb-dim); font-size:11.5px; display:flex; align-items:center; justify-content:center;
+  background:repeating-linear-gradient(135deg,rgba(148,163,184,.07) 0 7px,transparent 7px 14px);
+  text-align:center; padding:0 8px;
+}
+.sb-search{
+  display:flex; align-items:center; gap:7px; height:42px; padding:0 12px; margin-bottom:9px;
+  background:rgba(15,23,42,.6); border:1px solid rgba(148,163,184,.28); border-radius:8px;
+  color:var(--sb-dim); font-size:13.5px;
+}
+.sb-actions{display:flex; gap:5px; margin-bottom:9px}
+.sb-actions button{
+  flex:1; border:1px solid rgba(148,163,184,.3); background:rgba(148,163,184,.09);
+  color:var(--sb-dim); border-radius:7px; padding:6px 4px; font:600 11.5px/1.2 inherit; cursor:pointer;
+}
+.sb-actions button:hover{border-color:var(--sb-amber); color:#fde68a}
+
+.grp{background:rgba(255,255,255,.04); border:1px solid var(--sb-line); border-radius:10px; margin-bottom:6px; overflow:hidden}
+.grp.open{border-color:rgba(251,191,36,.5); background:rgba(99,102,241,.10)}
+.grp-h{display:flex; align-items:center; gap:10px; padding:8px 12px; cursor:pointer; user-select:none}
+.grp-h:hover{background:rgba(148,163,184,.09)}
+.ico{width:28px; height:28px; flex:none; border-radius:7px; display:flex; align-items:center; justify-content:center;
+     background:rgba(148,163,184,.10); border:1px solid rgba(148,163,184,.20); color:#a9bad8}
+.grp.open .ico{color:#dbe6fa}
+.grp-t{flex:1; font-size:15px; font-weight:700}
+.count{font:600 11px/1 'IBM Plex Mono',monospace; color:var(--sb-dim); background:rgba(148,163,184,.14);
+       border-radius:99px; padding:3px 7px}
+.arrow{color:var(--sb-dim); transition:transform .18s}
+.grp.open .arrow{transform:rotate(90deg); color:var(--sb-amber)}
+.subs{max-height:0; overflow:hidden; transition:max-height .18s cubic-bezier(.32,.72,0,1); background:rgba(0,0,0,.2)}
+.grp.open .subs{max-height:2400px}
+
+.sub{display:flex; align-items:center; gap:6px; padding:8px 10px 8px 44px; cursor:pointer;
+     color:var(--sb-text); font-size:14px; font-weight:600; letter-spacing:-.2px;
+     border-top:1px solid rgba(255,255,255,.05)}
+.sub::before{content:'›'; color:#64748b; margin-left:-14px; margin-right:4px; flex:none}
+.sub:hover{background:rgba(251,191,36,.16); color:#fde68a}
+.sub.on{background:linear-gradient(90deg,rgba(251,191,36,.30),rgba(251,191,36,.06)); color:#fde047;
+        box-shadow:inset 3px 0 0 var(--sb-amber)}
+.sub .tg{margin-left:auto; color:#94a3b8; font-size:11px; padding:2px 5px; border-radius:5px}
+.sub .tg:hover{background:rgba(251,191,36,.25); color:#fde68a}
+.sub.gopen .tg{transform:rotate(90deg); color:var(--sb-amber)}
+.gcs{max-height:0; overflow:hidden; transition:max-height .18s ease; background:rgba(0,0,0,.28)}
+.gc{display:flex; gap:8px; padding:6px 10px 6px 58px; font-size:12.5px; color:#cbd5e1; cursor:pointer}
+.gc:hover{background:rgba(251,191,36,.12); color:#fde68a}
+.gc b{color:#64748b; font:600 11px/1.5 'IBM Plex Mono',monospace; min-width:14px}
+.gc-more{padding:6px 10px 8px 58px; font-size:12px; color:var(--sb-amber); cursor:pointer}
+
+/* 컴팩트 밀도 */
+.sb.dense .grp-h{padding:5px 12px}
+.sb.dense .ico{width:22px; height:22px}
+.sb.dense .grp-t{font-size:14px}
+.sb.dense .sub{padding:5px 10px 5px 40px; font-size:13.5px}
+.sb.dense .gc{padding:4px 10px 4px 52px}
+
+/* 아이콘 레일 */
+.sb.rail{width:68px}
+.sb.rail .grp-t,.sb.rail .count,.sb.rail .arrow,.sb.rail .subs,.sb.rail .sb-search span,
+.sb.rail .blk,.sb.rail .fav,.sb.rail .crumb{display:none}
+.sb.rail .grp-h{justify-content:center; padding:9px 0}
+.sb.rail .sb-search{justify-content:center; padding:0}
+
+/* 개선안 전용 조각 */
+.top{position:sticky; top:-12px; z-index:3; padding:12px 0 9px; margin:-12px 0 0;
+     background:linear-gradient(180deg,var(--sb-1) 72%,rgba(30,41,59,0))}
+.bigbtn{display:flex; align-items:center; gap:8px; width:100%; margin-bottom:9px; cursor:pointer;
+        border:1px solid rgba(251,191,36,.45); background:rgba(251,191,36,.12); color:#fde68a;
+        border-radius:8px; padding:9px 12px; font:700 13.5px/1.2 inherit}
+.bigbtn:hover{background:rgba(251,191,36,.22)}
+.bigbtn .kbd{margin-left:auto; font:600 11px/1 'IBM Plex Mono',monospace; color:#fcd34d;
+             border:1px solid rgba(251,191,36,.4); border-radius:5px; padding:3px 5px}
+.crumb{font-size:11.5px; color:var(--sb-dim); padding:2px 4px 8px; letter-spacing:.2px}
+.crumb b{color:#fde68a; font-weight:600}
+.fav{margin-bottom:8px; border:1px solid rgba(148,163,184,.2); border-radius:9px; overflow:hidden}
+.fav-h{font:700 10.5px/1 inherit; letter-spacing:.6px; color:var(--sb-dim); padding:8px 11px 6px}
+.fav .sub{padding-left:32px}
+.fav .sub::before{content:'★'; color:#facc15; font-size:10px; margin-left:-13px; margin-right:5px}
+.tools{display:flex; gap:6px; margin-top:10px}
+.tools button{flex:1; border:1px solid rgba(148,163,184,.24); background:rgba(148,163,184,.07);
+  color:var(--sb-dim); border-radius:8px; padding:8px 0; font-size:15px; cursor:pointer}
+.tools button:hover{border-color:var(--sb-amber); color:#fde68a}
+.railbtn{position:absolute; top:8px; right:8px; z-index:4; width:26px; height:26px; border-radius:7px;
+  border:1px solid rgba(148,163,184,.3); background:rgba(15,23,42,.75); color:var(--sb-dim); cursor:pointer;
+  font-size:13px; line-height:1; display:flex; align-items:center; justify-content:center}
+.railbtn:hover{color:#fde68a; border-color:var(--sb-amber)}
+
+/* ── 오른쪽 설명 ──────────────────────────────────────────────────────── */
+.panel{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow)}
+.panel + .panel{margin-top:16px}
+.panel h2{font-size:17px; margin:0 0 4px; font-weight:700; letter-spacing:-.3px}
+.panel .lead{color:var(--ink-2); font-size:14px; margin:0 0 14px}
+.meter{display:grid; grid-template-columns:auto 1fr auto; gap:9px 12px; align-items:center; font-size:13.5px}
+.meter .bar{height:11px; border-radius:99px; background:var(--line); overflow:hidden}
+.meter .bar i{display:block; height:100%; border-radius:99px; background:var(--over)}
+.meter .bar.ok i{background:var(--fit)}
+.meter .val{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:13px; color:var(--ink-2)}
+.pill{display:inline-flex; align-items:center; gap:5px; border-radius:99px; padding:3px 10px; font-size:12px; font-weight:600}
+.pill.over{background:var(--over-soft); color:var(--over)}
+.pill.fit{background:var(--fit-soft); color:var(--fit)}
+ul.pts{margin:12px 0 0; padding-left:0; list-style:none; display:grid; gap:9px}
+ul.pts li{display:grid; grid-template-columns:22px 1fr; gap:9px; font-size:14px; color:var(--ink-2); line-height:1.6}
+ul.pts li b{color:var(--ink); font-weight:600}
+ul.pts li .n{font:600 11px/1.9 'IBM Plex Mono',monospace; color:var(--mango); background:var(--mango-soft);
+  border-radius:6px; text-align:center; height:22px}
+.opts{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--line)}
+.opt{display:inline-flex; align-items:center; gap:7px; border:1px solid var(--line-2); border-radius:8px;
+  padding:7px 11px; font-size:13px; cursor:pointer; background:var(--card); color:var(--ink-2)}
+.opt:hover{border-color:var(--mango)}
+.opt input{accent-color:var(--mango); margin:0}
+.note{font-size:12.5px; color:var(--ink-3); margin-top:14px; line-height:1.6}
+
+/* ── 전체보기 오버레이 ────────────────────────────────────────────────── */
+.ov{position:fixed; inset:0; z-index:50; display:none; background:rgba(15,23,42,.55); backdrop-filter:blur(3px)}
+.ov.on{display:block}
+.ov-box{position:absolute; inset:4vh 4vw; background:var(--card); border:1px solid var(--line-2);
+  border-radius:16px; box-shadow:0 30px 70px rgba(0,0,0,.35); display:flex; flex-direction:column; overflow:hidden}
+.ov-top{display:flex; align-items:center; gap:12px; padding:14px 18px; border-bottom:1px solid var(--line)}
+.ov-top input{flex:1; border:1px solid var(--line-2); border-radius:9px; padding:10px 13px; font:400 15px/1.3 inherit;
+  background:var(--paper); color:var(--ink)}
+.ov-top input:focus{outline:2px solid var(--mango); outline-offset:1px}
+.ov-hint{font-size:12px; color:var(--ink-3); white-space:nowrap}
+.ov-sw{display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink-2); white-space:nowrap; cursor:pointer}
+.ov-sw input{accent-color:var(--mango); margin:0}
+.ov-body{flex:1; overflow:auto; padding:14px 18px 20px;
+  column-width:206px; column-gap:24px}
+.ov-g{break-inside:avoid; margin:0 0 14px}
+.ov-g h3{font-size:12.5px; letter-spacing:.8px; color:var(--mango); margin:0 0 7px; font-weight:700}
+.ov-i{padding:4px 0 4px 3px; font-size:14.5px; font-weight:600; cursor:pointer; border-radius:6px}
+.ov-i:hover,.ov-i.cur{background:var(--mango-soft); color:var(--ink)}
+.ov-gc{padding:3px 0 3px 15px; font-size:13.5px; color:var(--ink-2); cursor:pointer; border-radius:6px}
+.ov-gc:hover,.ov-gc.cur{background:var(--mango-soft); color:var(--ink)}
+mark{background:rgba(194,116,11,.28); color:inherit; border-radius:3px; padding:0 1px}
+.ov-empty{color:var(--ink-3); font-size:14px; padding:20px 2px}
+
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+
+<div class="wrap">
+  <h1>사이드바를 한 화면에 담는 세 가지 방법</h1>
+  <p class="lede">
+    실제 관리자 메뉴 <b class="mono">7</b>그룹 · <b class="mono">43</b>항목 · <b class="mono">147</b>손자를 그대로 넣은 샘플입니다.
+    왼쪽 상자는 <b>노트북 한 화면(1440×900, 확대 130%)에서 사이드바가 보이는 만큼</b>인 626px 자입니다 — 상자 밑으로 내려가면 스크롤해야 보이는 부분입니다.
+  </p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-mode="now" aria-selected="true">① 지금 화면</button>
+    <button class="tab" role="tab" data-mode="new" aria-selected="false">② 접기·펼치기 개선안</button>
+    <button class="tab" role="tab" data-mode="map" aria-selected="false">③ 전체보기 한 판</button>
+  </div>
+
+  <div class="stage">
+    <div class="screen">
+      <div class="screen-cap"><span id="capLeft">지금 화면</span><span class="mono" id="capRight"></span></div>
+      <div class="ruler">
+        <button class="railbtn" id="railBtn" hidden title="아이콘만 남기기">⇤</button>
+        <aside class="sb" id="sb"></aside>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2 id="pTitle"></h2>
+        <p class="lead" id="pLead"></p>
+        <div class="meter">
+          <span>사이드바 전체 길이</span>
+          <span class="bar" id="barTotal"><i style="width:0"></i></span>
+          <span class="val" id="valTotal"></span>
+          <span>메뉴가 아닌 것</span>
+          <span class="bar" id="barNoise"><i style="width:0"></i></span>
+          <span class="val" id="valNoise"></span>
+        </div>
+        <div style="margin-top:12px"><span class="pill" id="verdict"></span></div>
+        <ul class="pts" id="pPoints"></ul>
+        <div class="opts" id="pOpts"></div>
+        <p class="note" id="pNote"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-label="메뉴 전체보기">
+  <div class="ov-box">
+    <div class="ov-top">
+      <input id="ovQ" type="search" placeholder="찾을 메뉴 이름을 치세요 — 예: 정산, 출결, 급여" autocomplete="off">
+      <label class="ov-sw"><input type="checkbox" id="ovAll"><span>손자까지 펼쳐 보기</span></label>
+      <span class="ov-hint">↑↓ 고르기 · Enter 열기 · Esc 닫기</span>
+    </div>
+    <div class="ov-body" id="ovBody"></div>
+  </div>
+</div>
+
+<script>
+/* 실제 화면(admin.html)에서 그대로 읽어 온 메뉴 나무 — 지어낸 이름이 하나도 없습니다. */
+var DATA = [{"k":"today","n":"오늘","e":"Today","i":"<circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M12 7v5l3 2\"></path>","it":[{"n":"오늘의 수업","e":"Today's classes","t":"","g":["활성 룸 목록"]},{"n":"출결","e":"Attendance","t":"","g":["강사 수업 스케줄 현황","QR 출결 자동 체크","출석현황"]},{"n":"장기 결석생","e":"Long absent","t":"🚨 연속 결석이 쌓인 학생 — 연락할 순서대로","g":["명단"]},{"n":"수업 관찰","e":"Observe class","t":"","g":["수업 관찰","강사 귓속말"]},{"n":"연기·변경","e":"Reschedule","t":"📅 수업 연기·시간 변경 요청 처리","g":["보기 필터","요청 목록"]},{"n":"방 초대","e":"Room invites","t":"","g":["초대 보내기","멤버·토큰 관리"]},{"n":"신규상담","e":"Inquiries","t":"","g":["대기자 명단","전환률 통계","상담 목록"]},{"n":"버그·피드백","e":"Bug reports","t":"🐞 쓰다가 신고된 오류·건의","g":["신고 목록"]},{"n":"알림함","e":"Alerts","t":"","g":["실시간 알림 센터","알림 큐"]}]},{"k":"student","n":"학생","e":"Students","i":"<path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"></path>","it":[{"n":"학생 명부","e":"Students","t":"","g":["학생관리","학원별 학생 수업현황","가족 계정 통합"]},{"n":"수강신청","e":"Enrollment","t":"","g":["수강신청 등록","신청서 양식","신청 목록"]},{"n":"레벨테스트","e":"Level test","t":"","g":["레벨 테스트","레벨테스트 배치 현황"]},{"n":"상담 예약","e":"Counseling","t":"","g":["슬롯 개설","예약 목록"]},{"n":"학부모 소통","e":"Parents","t":"","g":["학부모 위클리 카톡 다이제스트","학부모 상담 AI 봇"]},{"n":"커뮤니티·리워드","e":"Community","t":"","g":["학원 게시판","졸업생 동문 커뮤니티","추천 친구 보상","학생 배지"]}]},{"k":"teacher","n":"강사","e":"Teachers","i":"<path d=\"M22 10 12 5 2 10l10 5 10-5z\"></path><path d=\"M6 12v5c3 2 9 2 12 0v-5\"></path>","it":[{"n":"강사 명부","e":"Teachers","t":"","g":["강사관리","강사 MBTI 등록","강사 계정 연결","강사 연락처 연결"]},{"n":"시간표·근무","e":"Schedule","t":"","g":["통합 시간표","통합 캘린더","AI 주간 시간표 자동 짜기","지난 수업에서 일정 만들기"]},{"n":"수업 길이 변경","e":"Class length","t":"📅 20·30·40분 변경 신청 — 매달 1일에 한꺼번에 반영","g":["이 화면이 뭔가요","미리보기 · 이번 달 반영","대기 중인 신청"]},{"n":"수업 일지","e":"Lesson log","t":"","g":["기능 소개"]},{"n":"급여","e":"Payroll","t":"","g":["강사 급여 자동 정산","Mangoi 강사 급여·평가 대시보드"]},{"n":"수강 운영","e":"Enrollment ops","t":"📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산","g":["공휴일","종료 후보 명단","강사 등급 배율","환불 계산기","강사 휴가 대체","자동 작업 점검"]},{"n":"강사 평가","e":"Teacher review","t":"⭐ 수업 직후 학생 별점 · 칭찬 통계 · 참관","g":["학생 수업 평가","교사 칭찬 통계","강사 슈퍼바이저 모드"]},{"n":"품질·이력","e":"Quality & audit","t":"📶 화상 회선 품질 · 수업 변경 이력 · 노쇼","g":["강사 회선품질","수업 변경 이력","보고서 양식 관리","노쇼(수업 미입장) 리포트"]}]},{"k":"lesson","n":"수업·콘텐츠","e":"Lessons","i":"<path d=\"M4 19.5A2.5 2.5 0 0 1 6.5 17H20\"></path><path d=\"M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z\"></path>","it":[{"n":"평가서","e":"Evaluations","t":"","g":["학생 평가서","강사 일괄 평가서 작성","AI 학습 리포트","AI 평가서 자동 작성","월별 학습 보고서","월간 AI 학습 레포트","수업 리포트"]},{"n":"교재","e":"Textbooks","t":"","g":["교재 콘텐츠 관리"]},{"n":"학습 콘텐츠","e":"Learning content","t":"🧩 복습퀴즈 · 마이크로러닝 · 발음교정 · 음성일기","g":["복습퀴즈 출제","마이크로러닝 카톡","미니토익 시험 만들기","발음교정","AI 음성 일기"]},{"n":"숙제","e":"Homework","t":"","g":["새 숙제 출제","출제된 숙제"]},{"n":"녹화","e":"Recordings","t":"","g":["저장소 상태","진단 결과","녹화 검색","녹화 목록"]},{"n":"학습 분석","e":"Learning analytics","t":"","g":["음성 코칭 진도","학생 참여도·자가평가 추이"]}]},{"k":"money","n":"정산·매출","e":"Finance","i":"<rect x=\"2\" y=\"5\" width=\"20\" height=\"14\" rx=\"2\"></rect><path d=\"M2 10h20\"></path>","it":[{"n":"회계","e":"Accounting","t":"","g":["수강료 미연장 자동 알림","학생 결제 내역","강사 급여 / 정산","국가별 강사료 환전","지점/가맹점 정산","환불 / 취소 관리","쿠폰 · 할인 · 포인트","세무","카페24 회계 실데이터","회계 전표 / 분개장","매출 대시보드","미수금 / 미지급금","손익 / 재무제표","매출–입금 대사","법인카드 사용내역","회계 리포트 다운로드","배정 못 한 결제 아이디","배정 못 한 B2B 입금","지출 계정과목 분류"]},{"n":"결제","e":"Payments","t":"","g":["BtoB 결제관리","BtoC 결제관리","정기결제 자동화","미납 자동 추적"]},{"n":"포인트","e":"Points","t":"","g":["자동발송 API 연동 상태","학생 포인트 잔액","기프티콘 카탈로그","교환 신청 내역","자동 적립 규칙"]},{"n":"지사 정산","e":"Settlement","t":"🏢 지점·가맹점 정산 — 수수료 비율 설정","g":["수수료 비율 설정","이번 달 요약","지점별 정산 카드","지점별 매출 비교","상세 표 데이터 보기"]}]},{"k":"org","n":"본사·지사·대리점","e":"HQ · Branches · Agencies","i":"<path d=\"M3 21h18\"></path><path d=\"M5 21V7l7-4v18\"></path><path d=\"M12 9h7v12\"></path><path d=\"M9 9v0M9 13v0M9 17v0M16 13v0M16 17v0\"></path>","it":[{"n":"대표지사","e":"Master branch","t":"🏛️ 여러 지사를 묶는 권역 단위","g":["대표지사 등록","대표지사 목록"]},{"n":"지사","e":"Branch","t":"🏢 지사 명부 — 소속 대리점 찾기","g":["지사 신규 등록","지사 목록","지사 소속 대리점 찾기"]},{"n":"대리점","e":"Agency","t":"🏪 대리점(학원) 명부 — 소속 지사 · 결제유형","g":["대리점(학원) 신규 등록","대리점 검색","대리점 목록"]},{"n":"본사 관리","e":"HQ","t":"🏯 본사 법인 정보 (사업자번호 · 대표이사)","g":["본사 정보 등록","본사 목록"]}]},{"k":"ops","n":"시스템","e":"System","i":"<circle cx=\"12\" cy=\"12\" r=\"3\"></circle><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.6 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"></path>","it":[{"n":"경영 지표","e":"Dashboard","t":"📊 매출 · 학생 · 강사 핵심 지표 한눈에","g":["통합 대시보드","KPI 대시보드","일자별 차트","학생 랭킹","월간 NPS 설문"]},{"n":"이탈·예측","e":"Retention","t":"","g":["학생 이탈 위험","AI 매출·이탈 예측"]},{"n":"공지 발송","e":"Announcements","t":"","g":["Web Push 푸시 알림","카카오 알림톡","공지 스튜디오","팝업 게시","공지사항 게시판"]},{"n":"자료실","e":"Library","t":"📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실","g":["관리자 자료실","강사 자료실","지사 자료실","대리점 자료실","학생·학부모 자료실"]},{"n":"직원·권한","e":"Staff & roles","t":"","g":["권한 설정","카페24 명부"]},{"n":"데이터·보관","e":"Data","t":"","g":["데이터 내보내기","보관기간 자동 파기","사진/영상 갤러리","강의실 입장 테스트"]}]}];
+
+var SCREEN = 626;                 // 한 화면(노트북 1440×900 · 확대 130%)에서 사이드바가 보이는 높이
+var sb = document.getElementById('sb');
+var mode = 'now';
+var opt = { dense:false, foldGc:true, rail:false, fav:false };
+var cur = null;                    // 지금 고른 항목
+
+function el(tag, cls, html){ var e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+
+/* ── 그룹 한 덩어리 ─────────────────────────────────────────────────── */
+function groupEl(g, o){
+  var grp = el('div','grp');
+  var head = el('div','grp-h');
+  head.appendChild(el('div','ico','<svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" viewBox="0 0 24 24">'+g.i+'</svg>'));
+  head.appendChild(el('div','grp-t',esc(g.n)));
+  if (o.count) head.appendChild(el('span','count',g.it.length));
+  head.appendChild(el('div','arrow','›'));
+  head.onclick = function(){
+    var was = grp.classList.contains('open');
+    sb.querySelectorAll('.grp').forEach(function(x){ x.classList.remove('open'); });
+    if(!was) grp.classList.add('open');
+    measure();
+  };
+  grp.appendChild(head);
+
+  var subs = el('div','subs');
+  g.it.forEach(function(it){
+    var s = el('div','sub');
+    s.appendChild(el('span',null,esc(it.n)));
+    var box = el('div','gcs');
+    if (it.g.length){
+      var tg = el('span','tg','▸');
+      s.appendChild(tg);
+      var shown = (o.foldGc && it.g.length > 6) ? it.g.slice(0,6) : it.g;
+      shown.forEach(function(name,i){
+        var r = el('div','gc','<b>'+(i+1)+'</b><span>'+esc(name)+'</span>');
+        r.onclick = function(e){ e.stopPropagation(); pick(g,it,name); };
+        box.appendChild(r);
+      });
+      if (shown.length < it.g.length){
+        var more = el('div','gc-more','+ '+(it.g.length-shown.length)+'개 더 보기');
+        more.onclick = function(e){
+          e.stopPropagation();
+          box.innerHTML='';
+          it.g.forEach(function(name,i){
+            var r = el('div','gc','<b>'+(i+1)+'</b><span>'+esc(name)+'</span>');
+            r.onclick=function(ev){ ev.stopPropagation(); pick(g,it,name); };
+            box.appendChild(r);
+          });
+          box.style.maxHeight = box.scrollHeight+'px'; measure();
+        };
+        box.appendChild(more);
+      }
+      tg.onclick = function(e){
+        e.stopPropagation();
+        var on = s.classList.toggle('gopen');
+        /* 열 때만 «실제 내용 높이» 를 넣는다 — 상한 숫자를 키우면 닫을 때 반응이 늦다 */
+        box.style.maxHeight = on ? box.scrollHeight+'px' : '0px';
+        if (on) sb.querySelectorAll('.sub.gopen').forEach(function(x){
+          if (x!==s){ x.classList.remove('gopen'); x.nextSibling.style.maxHeight='0px'; }
+        });
+        measure();
+      };
+    }
+    s.onclick = function(){ pick(g,it,null); };
+    subs.appendChild(s); subs.appendChild(box);
+  });
+  grp.appendChild(subs);
+  return grp;
+}
+
+function pick(g,it,gc){
+  cur = { g:g.n, it:it.n, gc:gc };
+  sb.querySelectorAll('.sub').forEach(function(x){ x.classList.remove('on'); });
+  var idx = 0;
+  sb.querySelectorAll('.grp').forEach(function(grp){
+    var t = grp.querySelector('.grp-t');
+    if (t && t.textContent === g.n){
+      grp.classList.add('open');
+      grp.querySelectorAll('.sub').forEach(function(s){
+        if (s.textContent.indexOf(it.n) === 0) s.classList.add('on');
+      });
+    }
+  });
+  var c = document.querySelector('.crumb');
+  if (c) c.innerHTML = g.n + ' <b>›</b> ' + esc(it.n) + (gc ? ' <b>›</b> ' + esc(gc) : '');
+  closeOv();
+  measure();
+}
+
+/* ── ① 지금 화면 ─────────────────────────────────────────────────────── */
+function renderNow(){
+  sb.className = 'sb';
+  sb.innerHTML = '';
+  sb.appendChild(blk(92,'🕐 시계 · 날씨'));
+  var srch = el('div','sb-search','<span>🔍 메뉴 검색...</span>'); sb.appendChild(srch);
+  var acts = el('div','sb-actions');
+  acts.innerHTML = '<button data-a="expand">↧ 모두 펼치기</button><button data-a="collapse">↥ 모두 접기</button>';
+  acts.onclick = function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    sb.querySelectorAll('.grp').forEach(function(g){ g.classList.toggle('open', b.dataset.a === 'expand'); });
+    measure();
+  };
+  sb.appendChild(acts);
+  var map = el('div','grp');
+  map.innerHTML = '<div class="grp-h" style="opacity:.75"><div class="ico">🗺</div><div class="grp-t">메뉴 지도</div></div>';
+  sb.appendChild(map);
+  sb.appendChild(el('div',null,'<hr style="border:0;border-top:1px solid rgba(148,163,184,.25);margin:8px 4px">'));
+  DATA.forEach(function(g){ sb.appendChild(groupEl(g,{count:false, foldGc:false})); });
+  sb.appendChild(blk(62,'🤖 AI 운영비서'));
+  sb.appendChild(blk(68,'📖 사용법 안내'));
+  sb.appendChild(blk(53,'↑ 맨 위로'));
+  sb.appendChild(blk(127,'👤 계정 도크 (화면 바닥에 늘 붙어 있음)'));
+}
+function blk(h,label){ var b = el('div','blk',label); b.style.height = h+'px'; b.dataset.noise='1'; return b; }
+
+/* ── ② 접기·펼치기 개선안 ────────────────────────────────────────────── */
+function renderNew(){
+  sb.className = 'sb' + (opt.dense ? ' dense' : '') + (opt.rail ? ' rail' : '');
+  sb.innerHTML = '';
+  var top = el('div','top');
+  var s = el('div','sb-search','<span>🔍 메뉴 검색...</span>'); top.appendChild(s);
+  var big = el('button','bigbtn','<span>🗺</span><span>메뉴 전체보기</span><span class="kbd">Ctrl K</span>');
+  big.onclick = openOv; top.appendChild(big);
+  if (cur) top.appendChild(el('div','crumb', cur.g+' <b>›</b> '+esc(cur.it)));
+  sb.appendChild(top);
+
+  if (opt.fav){
+    var fav = el('div','fav');
+    fav.appendChild(el('div','fav-h','자주 쓰는 것'));
+    [['오늘','출결'],['정산·매출','회계'],['학생','학생 명부'],['강사','급여']].forEach(function(p){
+      var g = DATA.filter(function(x){ return x.n===p[0]; })[0];
+      var it = g.it.filter(function(x){ return x.n===p[1]; })[0];
+      var r = el('div','sub','<span>'+esc(p[1])+'</span>');
+      r.onclick = function(){ pick(g,it,null); };
+      fav.appendChild(r);
+    });
+    sb.appendChild(fav);
+  }
+
+  DATA.forEach(function(g){ sb.appendChild(groupEl(g,{count:true, foldGc:opt.foldGc})); });
+
+  var tools = el('div','tools');
+  tools.innerHTML = '<button title="시계·날씨">🕐</button><button title="AI 운영비서">🤖</button>' +
+                    '<button title="사용법 안내">📖</button><button title="내 계정">👤</button>';
+  sb.appendChild(tools);
+}
+
+/* ── ③ 전체보기 한 판 ────────────────────────────────────────────────── */
+function openOv(){
+  document.getElementById('ov').classList.add('on');
+  var q = document.getElementById('ovQ'); q.value=''; drawOv(''); setTimeout(function(){ q.focus(); },30);
+}
+function closeOv(){ document.getElementById('ov').classList.remove('on'); }
+
+function hl(text, q){
+  if (!q) return esc(text);
+  var i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(text);
+  return esc(text.slice(0,i)) + '<mark>' + esc(text.slice(i,i+q.length)) + '</mark>' + esc(text.slice(i+q.length));
+}
+function drawOv(q){
+  var body = document.getElementById('ovBody');
+  body.innerHTML = '';
+  var hits = 0;
+  DATA.forEach(function(g){
+    var box = el('div','ov-g'), any = false;
+    var inner = document.createDocumentFragment();
+    var showAllGc = document.getElementById('ovAll').checked;
+    g.it.forEach(function(it){
+      var itHit = !q || it.n.toLowerCase().indexOf(q.toLowerCase()) >= 0;
+      var gcHits = q ? it.g.filter(function(x){ return x.toLowerCase().indexOf(q.toLowerCase()) >= 0; }) : it.g;
+      if (!itHit && !gcHits.length) return;
+      any = true;
+      var r = el('div','ov-i', hl(it.n,q));
+      r.onclick = function(){ pick(g,it,null); };
+      r.dataset.k = '1'; inner.appendChild(r); hits++;
+      /* 아무것도 안 쳤을 때는 «항목만» 보여 준다 — 43줄이면 한 화면에 다 들어온다.
+         치는 순간부터는 걸린 손자를 함께 보여 준다(그게 찾는 사람이 원하는 줄이다). */
+      if (!q && !showAllGc) return;
+      (itHit ? it.g : gcHits).forEach(function(name){
+        var c = el('div','ov-gc', hl(name,q));
+        c.onclick = function(){ pick(g,it,name); };
+        c.dataset.k = '1'; inner.appendChild(c); hits++;
+      });
+    });
+    if (!any) return;
+    box.appendChild(el('h3',null,esc(g.n)));
+    box.appendChild(inner);
+    body.appendChild(box);
+  });
+  if (!hits) body.appendChild(el('div','ov-empty','「'+esc(q)+'」 에 해당하는 메뉴가 없습니다.'));
+  document.getElementById('capRight').textContent = capText();
+}
+document.getElementById('ovQ').addEventListener('input', function(){ drawOv(this.value.trim()); });
+document.getElementById('ovAll').addEventListener('change', function(){ drawOv(document.getElementById('ovQ').value.trim()); });
+document.getElementById('ov').addEventListener('click', function(e){ if (e.target === this) closeOv(); });
+document.addEventListener('keydown', function(e){
+  var open = document.getElementById('ov').classList.contains('on');
+  if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); open ? closeOv() : openOv(); return; }
+  if (!open) return;
+  if (e.key === 'Escape'){ closeOv(); return; }
+  var rows = [].slice.call(document.querySelectorAll('#ovBody [data-k]'));
+  if (!rows.length) return;
+  var i = rows.findIndex(function(r){ return r.classList.contains('cur'); });
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    if (i >= 0) rows[i].classList.remove('cur');
+    i = e.key === 'ArrowDown' ? Math.min(rows.length-1, i+1) : Math.max(0, i-1);
+    rows[i].classList.add('cur'); rows[i].scrollIntoView({block:'nearest'});
+  } else if (e.key === 'Enter' && i >= 0){ e.preventDefault(); rows[i].click(); }
+});
+
+/* ── 재기 ────────────────────────────────────────────────────────────── */
+/* 세로로 «실제로 차지하는» 길이 — scrollHeight 는 접혀서 안 보이는 칸까지 세는 일이 있어
+   맨 아래 칸의 바닥으로 잰다(사람 눈에 보이는 길이와 같다). */
+function contentH(){
+  var rb = sb.getBoundingClientRect(), max = 0;
+  [].slice.call(sb.children).forEach(function(c){
+    var r = c.getBoundingClientRect();
+    if (!r.height) return;
+    var b = r.bottom - rb.top + sb.scrollTop;
+    if (b > max) max = b;
+  });
+  return Math.round(max + 12);
+}
+var _mt = 0;
+function measure(){
+  /* 접기·펼치기는 0.18초 애니메이션이라, 누른 «직후» 재면 옛 높이가 나온다 — 끝난 뒤 한 번 더 잰다 */
+  clearTimeout(_mt); _mt = setTimeout(measureNow, 230);
+  measureNow();
+}
+function measureNow(){
+  var total = contentH();
+  var noise = 0;
+  sb.querySelectorAll('[data-noise]').forEach(function(b){ noise += b.getBoundingClientRect().height + 8; });
+  if (mode === 'now'){
+    noise += 92*0 + 0; // 시계 등은 위에서 이미 셈
+    noise += (sb.querySelector('.sb-search') ? 51 : 0) + (sb.querySelector('.sb-actions') ? 45 : 0);
+  } else {
+    noise += 51 + 47 + 42 + (cur ? 30 : 0) + (opt.fav ? 197 : 0);   // 검색 + 전체보기 + 도구줄 (+현재위치 +자주쓰는것)
+  }
+  var screens = total / SCREEN;
+  var maxT = 2800;
+  document.querySelector('#barTotal i').style.width = Math.min(100, total/maxT*100) + '%';
+  document.getElementById('barTotal').classList.toggle('ok', total <= SCREEN);
+  document.getElementById('valTotal').textContent = total + 'px · 화면 ' + screens.toFixed(1) + '개';
+  document.querySelector('#barNoise i').style.width = Math.min(100, noise/total*100) + '%';
+  document.getElementById('barNoise').classList.toggle('ok', noise/total < .25);
+  document.getElementById('valNoise').textContent = Math.round(noise) + 'px · ' + Math.round(noise/total*100) + '%';
+  var v = document.getElementById('verdict');
+  if (total <= SCREEN){ v.className = 'pill fit'; v.textContent = '✓ 한 화면에 다 들어옵니다'; }
+  else { v.className = 'pill over'; v.textContent = '✕ 한 화면 밖으로 ' + (total-SCREEN) + 'px (스크롤해야 보임)'; }
+  document.getElementById('capRight').textContent = capText();
+}
+function capText(){
+  var t = contentH();
+  return t + 'px / 한 화면 ' + SCREEN + 'px';
+}
+
+/* ── 설명 패널 ───────────────────────────────────────────────────────── */
+var COPY = {
+  now: {
+    title:'① 지금 화면 — 닫아 놔도 한 화면을 넘습니다',
+    lead:'그룹을 전부 접은 상태가 기본인데, 그 상태에서도 이미 화면 밖으로 나갑니다. 「모두 펼치기」를 누르면 4배가 됩니다.',
+    points:[
+      ['1','<b>메뉴가 아닌 것이 절반이 넘습니다.</b> 시계·AI 운영비서·사용법 안내·맨 위로·계정 도크가 사이드바 세로 길이의 59%를 씁니다(실측). 메뉴는 41%뿐입니다.'],
+      ['2','<b>「모두 펼치기」는 답이 아닙니다.</b> 이미 있는 버튼이고, 누르면 2,749px = 화면 4.4개가 됩니다. 찾기가 더 어려워집니다.'],
+      ['3','<b>손자가 19줄인 메뉴가 있습니다.</b> 「회계」를 펴면 그 하나로 713px — 화면을 통째로 덮습니다.'],
+      ['4','<b>바닥 계정 도크가 늘 167px 를 덮고 있습니다.</b> 그룹을 펴면 아래쪽 항목이 그 밑으로 들어가, 지금은 스크립트가 그때마다 스크롤을 밀어 주고 있습니다.']
+    ],
+    opts:[],
+    note:'실측 기준 — 1440×900 노트북, 관리자 화면 확대 130%. 사이드바에 보이는 높이 626px(CSS px), 전부 접은 상태 870px.'
+  },
+  new: {
+    title:'② 접기·펼치기 개선안 — 메뉴만 남기고 나머지는 한 줄로',
+    lead:'지우는 것은 없습니다. 자리를 바꾸고, 열 때만 커지게 하고, 손자가 긴 메뉴는 6줄에서 끊습니다.',
+    points:[
+      ['1','<b>메뉴가 아닌 것을 아래 한 줄(🕐 🤖 📖 👤)로 접었습니다.</b> 없앤 게 아니라 아이콘 한 줄로 모았습니다 — 490px 가 42px 가 됩니다.'],
+      ['2','<b>검색과 「전체보기」를 위에 고정했습니다.</b> 스크롤을 내려도 따라옵니다. 지금은 스크롤하면 검색창이 위로 사라집니다.'],
+      ['3','<b>그룹 오른쪽에 항목 수를 적었습니다.</b> 「열어 봐야 몇 개인지 아는」 상태를 없앱니다.'],
+      ['4','<b>손자는 6줄까지만 먼저 보이고 「+N개 더」로 폅니다.</b> 회계 19줄이 화면을 덮지 않습니다.'],
+      ['5','<b>고른 자리를 위에 남깁니다</b>(오늘 › 출결). 어디에 있는지 잊지 않습니다.'],
+      ['6','<b>⇤ 를 누르면 아이콘만 남습니다(68px).</b> 표가 넓은 화면(학생 관리 17칸)에서 본문을 244px 넓게 씁니다.']
+    ],
+    opts:[
+      ['dense','줄 간격 좁게'],
+      ['foldGc','긴 손자는 6줄에서 끊기'],
+      ['rail','아이콘만 남기기(레일)'],
+      ['fav','자주 쓰는 것 4줄 고정']
+    ],
+    note:'오른쪽 위 ⇤ 버튼으로도 레일 전환이 됩니다. 각 항목·손자를 눌러 보시면 위쪽에 「지금 여기」가 바뀝니다.'
+  },
+  map: {
+    title:'③ 전체보기 한 판 — 43항목 · 147손자를 한 화면에',
+    lead:'세로로 긴 목록을 여러 칸으로 눕히면 스크롤 없이 다 보입니다. 사이드바를 뒤지는 대신 이름을 치면 바로 갑니다.',
+    points:[
+      ['1','<b>Ctrl+K (맥은 ⌘K) 한 번이면 열립니다.</b> 사이드바를 열지 않아도, 어느 화면에서든 부를 수 있습니다.'],
+      ['2','<b>치는 즉시 걸러집니다.</b> 「정산」을 치면 그 글자가 든 항목·손자만 남고, 맞은 글자에 표시가 붙습니다.'],
+      ['3','<b>처음에는 항목 43줄만, 치는 순간 손자까지.</b> 「손자까지 펼쳐 보기」를 켜면 147줄이 다 나옵니다 — 평소에는 항목만 보여 한 화면에 들어옵니다.'],
+      ['4','<b>↑↓ 로 고르고 Enter 로 엽니다.</b> 마우스를 쓰지 않아도 됩니다.'],
+      ['5','<b>지금 있는 「메뉴 지도」와 다릅니다.</b> 지금 것은 다른 페이지로 «떠나는» 그림이라 돌아와야 하고, 이것은 지금 화면 위에 떠서 고르면 바로 그 자리로 갑니다.']
+    ],
+    opts:[],
+    note:'이 샘플에서는 ③ 탭을 고르면 자동으로 열립니다. 닫으려면 Esc 또는 바깥쪽을 누르세요.'
+  }
+};
+
+function paint(){
+  var c = COPY[mode];
+  document.getElementById('pTitle').textContent = c.title;
+  document.getElementById('pLead').textContent = c.lead;
+  var ul = document.getElementById('pPoints'); ul.innerHTML = '';
+  c.points.forEach(function(p){ ul.appendChild(el('li',null,'<span class="n">'+p[0]+'</span><span>'+p[1]+'</span>')); });
+  var od = document.getElementById('pOpts'); od.innerHTML = '';
+  c.opts.forEach(function(o){
+    var lab = el('label','opt','<input type="checkbox" '+(opt[o[0]]?'checked':'')+'><span>'+o[1]+'</span>');
+    lab.querySelector('input').onchange = function(){ opt[o[0]] = this.checked; render(); };
+    od.appendChild(lab);
+  });
+  document.getElementById('pNote').textContent = c.note;
+  document.getElementById('capLeft').textContent = mode==='now' ? '지금 화면' : (mode==='new' ? '개선안' : '개선안 + 전체보기');
+  document.getElementById('railBtn').hidden = (mode === 'now');
+}
+
+function render(){
+  if (mode === 'now') renderNow(); else renderNew();
+  paint(); measure();
+}
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){
+    document.querySelectorAll('.tab').forEach(function(x){ x.setAttribute('aria-selected','false'); });
+    t.setAttribute('aria-selected','true');
+    mode = t.dataset.mode;
+    render();
+    if (mode === 'map') openOv(); else closeOv();
+  };
+});
+document.getElementById('railBtn').onclick = function(){ opt.rail = !opt.rail; render(); };
+
+render();
+</script>

@@ -1,0 +1,348 @@
+<title>사이드바가 한 화면에 안 들어오는 이유</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+
+<style>
+:root{
+  --paper:#fcfcfb;
+  --card:#ffffff;
+  --sunk:#f3f2ee;
+  --ink:#191b1f;
+  --ink-2:#4a5058;
+  --ink-3:#7b828b;
+  --line:#e2e1dc;
+  --line-2:#c8c7c1;
+  --mango:#c2740b;          /* 계열① 메뉴 — 검증 통과(대비·색각) */
+  --teal:#0e7fa6;           /* 계열② 메뉴가 아닌 것 */
+  --mango-soft:#faf0dd;
+  --warn:#a33a29;
+  --warn-soft:#fbeae6;
+  --good:#1c6b53;
+  --good-soft:#e3f1ec;
+  --shadow:0 1px 2px rgba(25,27,31,.05),0 10px 28px rgba(25,27,31,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#111317; --card:#181b20; --sunk:#1f232a; --ink:#e8eaee; --ink-2:#b1b7bf; --ink-3:#858c95;
+    --line:#282c33; --line-2:#3b414a;
+    --mango:#c8801c; --teal:#1d93be; --mango-soft:#2a2114;
+    --warn:#dd8271; --warn-soft:#2c1a17; --good:#5fbe9f; --good-soft:#152722;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111317; --card:#181b20; --sunk:#1f232a; --ink:#e8eaee; --ink-2:#b1b7bf; --ink-3:#858c95;
+  --line:#282c33; --line-2:#3b414a;
+  --mango:#c8801c; --teal:#1d93be; --mango-soft:#2a2114;
+  --warn:#dd8271; --warn-soft:#2c1a17; --good:#5fbe9f; --good-soft:#152722;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 12px 32px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:'IBM Plex Sans KR',-apple-system,'Malgun Gothic',sans-serif;
+  font-size:16px; line-height:1.78; -webkit-font-smoothing:antialiased}
+.doc{max-width:820px; margin:0 auto; padding:46px 24px 96px}
+.mono{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums}
+
+.eyebrow{font-size:12px; letter-spacing:1.4px; color:var(--mango); font-weight:600; margin:0 0 10px}
+h1{font-family:'Gowun Batang',serif; font-size:38px; line-height:1.32; font-weight:700; margin:0 0 14px;
+   letter-spacing:-.5px; text-wrap:balance}
+.standfirst{font-size:17px; color:var(--ink-2); margin:0 0 10px; max-width:62ch}
+.byline{font-size:13px; color:var(--ink-3); border-top:1px solid var(--line); padding-top:12px; margin-top:26px}
+
+h2{font-family:'Gowun Batang',serif; font-size:25px; font-weight:700; margin:52px 0 6px; letter-spacing:-.3px; text-wrap:balance}
+h2 .no{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--mango); display:block; margin-bottom:4px; letter-spacing:1px}
+h3{font-size:17px; font-weight:600; margin:30px 0 6px}
+p{margin:0 0 14px; max-width:65ch}
+a{color:var(--mango)}
+b,strong{font-weight:600}
+hr{border:0; border-top:1px solid var(--line); margin:40px 0}
+
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 24px; box-shadow:var(--shadow); margin:22px 0}
+.card > :last-child{margin-bottom:0}
+.card h3{margin-top:0}
+
+/* ── 수치 ─────────────────────────────────────────────────────────── */
+.figure{margin:26px 0 30px}
+.figure figcaption{font-size:13px; color:var(--ink-3); margin-top:12px; line-height:1.6}
+.chart{display:grid; grid-template-columns:auto 1fr auto; gap:9px 14px; align-items:center}
+.chart .lab{font-size:14px; color:var(--ink-2); white-space:nowrap}
+.chart{--fold:22.7%}
+.chart .track{position:relative; height:16px; background:var(--sunk); border-radius:4px}
+/* 한 화면 경계 — 모든 막대에 같은 자리에 선다(막대 폭이 같으므로 한 값으로 충분) */
+.chart .track::after{content:''; position:absolute; left:var(--fold); top:-5px; bottom:-5px;
+  border-left:1px dashed var(--ink-3); opacity:.65}
+.chart .track i{position:absolute; left:0; top:0; bottom:0; background:var(--mango); border-radius:0 4px 4px 0; display:block}
+.chart .track.hot i{background:var(--warn)}
+.chart .track.cool i{background:var(--good)}
+.chart .num{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; font-size:13.5px; color:var(--ink-2); white-space:nowrap}
+.threshold{display:grid; grid-template-columns:auto 1fr auto; gap:0 14px; margin:6px 0 0}
+.threshold .spacer{visibility:hidden; font-size:14px; white-space:nowrap}
+.threshold .rail{position:relative; height:16px}
+.threshold .mark{position:absolute; left:22.7%; top:0; font-size:11.5px; color:var(--ink-3); white-space:nowrap; padding-left:6px}
+
+.stack{display:flex; gap:2px; height:30px; border-radius:5px; overflow:hidden; margin:6px 0 10px}
+.stack span{display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:600; color:#fff}
+.stack .a{background:var(--mango)}
+.stack .b{background:var(--teal)}
+.legend{display:flex; gap:18px; font-size:13px; color:var(--ink-2); flex-wrap:wrap}
+.legend i{width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:6px; vertical-align:-1px}
+
+table{width:100%; min-width:560px; border-collapse:collapse; font-size:14.5px; margin:10px 0 4px}
+.scroller{overflow-x:auto; -webkit-overflow-scrolling:touch}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-size:12.5px; letter-spacing:.4px; color:var(--ink-3); font-weight:600; white-space:nowrap}
+td.n{font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+tr:last-child td{border-bottom:0}
+
+.tag{display:inline-block; border-radius:99px; padding:2px 9px; font-size:12px; font-weight:600}
+.tag.low{background:var(--good-soft); color:var(--good)}
+.tag.mid{background:var(--mango-soft); color:var(--mango)}
+.tag.high{background:var(--warn-soft); color:var(--warn)}
+
+ul,ol{margin:0 0 16px; padding-left:22px; max-width:65ch}
+li{margin:0 0 8px}
+li::marker{color:var(--ink-3)}
+.dropped{list-style:none; padding:0}
+.dropped li{display:grid; grid-template-columns:auto 1fr; gap:12px; padding:13px 0; border-bottom:1px solid var(--line); margin:0}
+.dropped li:last-child{border-bottom:0}
+.dropped .x{color:var(--warn); font-weight:700; font-size:15px; line-height:1.7}
+.dropped b{display:block}
+.dropped small{color:var(--ink-2); font-size:14px; line-height:1.65}
+
+blockquote{margin:18px 0; padding:2px 0 2px 18px; border-left:3px solid var(--mango);
+  color:var(--ink-2); font-size:15px}
+.ask{background:var(--mango-soft); border:1px solid rgba(194,116,11,.3); border-radius:14px; padding:20px 24px; margin:24px 0}
+.ask h3{margin-top:0}
+.ask ol{margin-bottom:0}
+code{font-family:'IBM Plex Mono',monospace; font-size:13.5px; background:var(--sunk); border-radius:5px; padding:1px 5px}
+</style>
+
+<div class="doc">
+
+<p class="eyebrow">관리자 화면 · 사이드바</p>
+<h1>사이드바가 한 화면에 안 들어오는 이유</h1>
+<p class="standfirst">
+  「메뉴 지도가 너무 길어서 한눈에 안 보인다」는 말씀을 받고, 실제 관리자 화면을 재 봤습니다.
+  <b>메뉴를 전부 접어 놓은 기본 상태에서도 이미 한 화면을 넘습니다.</b>
+  그리고 사이드바 세로 길이의 <b>59%는 메뉴가 아닌 것</b>이 쓰고 있었습니다.
+  아래는 잰 값과, 그것을 어떻게 줄일지에 대한 세 가지 안입니다. 눌러 볼 수 있는 샘플을 함께 만들었습니다.
+</p>
+<p class="byline">2026-08-19 · 잰 화면 = 노트북 1440×900, 관리자 화면 확대 130% · 실제 파일(<code>admin.html</code>)을 그대로 띄워 잼</p>
+
+<h2><span class="no">01</span>지금 어떤 상태인가</h2>
+<p>
+  사이드바는 폭 312px(화면에서는 확대 때문에 406px — 노트북 가로의 28%), 세로로 보이는 부분은 <b class="mono">625px</b>입니다.
+  그 안에 들어가야 하는 것이 이만큼입니다.
+</p>
+
+<figure class="figure">
+  <div class="chart">
+    <span class="lab">그룹을 전부 접은 기본 상태</span>
+    <span class="track hot"><i style="width:31.6%"></i></span>
+    <span class="num">870px · 화면 1.4개</span>
+
+    <span class="lab">그룹 하나를 폈을 때</span>
+    <span class="track hot"><i style="width:47.4%"></i></span>
+    <span class="num">1,134 ~ 1,526px · 1.8 ~ 2.4개</span>
+
+    <span class="lab">「회계」 손자 19줄까지 폈을 때</span>
+    <span class="track hot"><i style="width:64.2%"></i></span>
+    <span class="num">1,764px · 화면 2.8개</span>
+
+    <span class="lab">「↧ 모두 펼치기」를 눌렀을 때</span>
+    <span class="track hot"><i style="width:100%"></i></span>
+    <span class="num">2,749px · 화면 4.4개</span>
+  </div>
+  <div class="threshold">
+    <span class="spacer">그룹을 전부 접은 기본 상태</span>
+    <span class="rail"><span class="mark">여기까지가 한 화면 — 625px</span></span>
+    <span class="spacer">2,749px · 화면 4.4개</span>
+  </div>
+  <figcaption>
+    가로 길이는 「모두 펼치기」 상태(2,749px)를 100으로 놓은 것입니다. 점선이 한 화면 경계입니다 —
+    <b>네 가지 상태 중 한 화면에 들어오는 것은 하나도 없습니다.</b>
+  </figcaption>
+</figure>
+
+<h3>더 눈에 띄는 것 — 사이드바의 절반 이상이 메뉴가 아닙니다</h3>
+<div class="stack" aria-label="사이드바 세로 길이의 구성">
+  <span class="a" style="flex:41">메뉴 41%</span>
+  <span class="b" style="flex:59">메뉴가 아닌 것 59%</span>
+</div>
+<p class="legend">
+  <span><i style="background:var(--mango)"></i>메뉴 (그룹 7 + 메뉴 지도) <b class="mono">341px</b></span>
+  <span><i style="background:var(--teal)"></i>그 밖의 것 <b class="mono">498px</b></span>
+</p>
+<div class="scroller">
+<table>
+  <thead><tr><th>사이드바에 있는 것</th><th>세로로 차지하는 길이</th><th>메뉴인가</th></tr></thead>
+  <tbody>
+    <tr><td>🕐 시계 · 날씨</td><td class="n">92px</td><td>아니오</td></tr>
+    <tr><td>🔍 메뉴 검색</td><td class="n">55px</td><td>메뉴를 찾는 도구</td></tr>
+    <tr><td>↧ 모두 펼치기 / ↥ 모두 접기</td><td class="n">34px</td><td>메뉴를 여는 도구</td></tr>
+    <tr><td>🗺 메뉴 지도 + 구분선</td><td class="n">50px</td><td>예</td></tr>
+    <tr><td>메뉴 7그룹 (오늘·학생·강사·수업·정산·조직·시스템)</td><td class="n">291px</td><td>예</td></tr>
+    <tr><td>🤖 AI 운영비서</td><td class="n">62px</td><td>아니오</td></tr>
+    <tr><td>📖 사용법 안내</td><td class="n">68px</td><td>아니오</td></tr>
+    <tr><td>↑ 맨 위로</td><td class="n">53px</td><td>아니오</td></tr>
+    <tr><td>👤 계정 도크 (바닥에 늘 붙어 있음)</td><td class="n">127px</td><td>아니오</td></tr>
+  </tbody>
+</table>
+</div>
+<p>
+  첫 번째 메뉴 그룹(「오늘」)이 시작되는 자리가 <b>사이드바 위에서 248px 내려간 곳</b>입니다.
+  화면의 40%를 지나야 메뉴가 시작됩니다. 로그인 상태에서는 여기에 「⚡ 자주 쓰는 기능」이 더 붙습니다.
+</p>
+
+<h3>이미 들어가 있는 기능 — 없어서 못 쓰는 게 아닙니다</h3>
+<p>
+  「메뉴 닫기·열기 같은 기능」을 물어보셨는데, 실은 이미 다 있습니다. 그래서 <b>기능을 더 넣는 것으로는 해결되지 않습니다.</b>
+</p>
+<ul>
+  <li><b>↧ 모두 펼치기 / ↥ 모두 접기</b> — 검색창 바로 아래에 있습니다. 다만 「모두 펼치기」를 누르면 화면 4.4개가 됩니다.</li>
+  <li><b>그룹은 한 번에 하나만 열립니다</b>(아코디언). 다른 그룹을 누르면 앞의 것이 접힙니다.</li>
+  <li><b>메뉴 검색</b> · <b>▸ 손자 메뉴</b> · <b>🗺 메뉴 지도</b>(별도 페이지) · <b>⚡ 자주 쓰는 기능</b>도 이미 있습니다.</li>
+  <li>「🙈 숨기기」 버튼은 만들어져 있지만 지금은 <b>CSS 로 꺼 둔 상태</b>입니다(눌러서 감추면 되돌릴 길이 마땅치 않아 막아 둔 것으로 보입니다).</li>
+</ul>
+
+<h2><span class="no">02</span>그래서 무엇이 문제인가</h2>
+<div class="card">
+  <h3>① 자리를 반 이상 다른 것이 쓰고 있다</h3>
+  <p>시계·AI 운영비서·사용법 안내·맨 위로·계정 도크 = 498px. 메뉴는 341px. <b>메뉴가 세입자입니다.</b></p>
+  <h3>② 「모두 펼치기」는 «찾기»를 더 어렵게 한다</h3>
+  <p>43항목이 한 줄로 늘어서면 2,749px입니다. 목록이 길어질수록 눈은 «훑기»를 포기하고 «스크롤»만 합니다.</p>
+  <h3>③ 손자 줄 수가 항목마다 너무 다르다</h3>
+  <p>손자는 모두 147줄인데, 「회계」 한 항목이 <b>19줄</b>입니다(5줄 이상인 항목이 9개). 「회계」를 펴는 순간 713px — 화면이 그 하나로 덮입니다.</p>
+  <h3>④ 바닥 127px 은 늘 가려져 있다</h3>
+  <p>계정 도크가 화면 바닥에 붙어 있어, 그룹을 펴면 아래쪽 항목이 그 밑으로 들어갑니다. 지금은 스크립트가 그때마다 스크롤을 밀어 주는 방식으로 버티고 있습니다.</p>
+  <h3>⑤ 「전체를 보는 길」이 화면을 떠나는 길뿐이다</h3>
+  <p>🗺 메뉴 지도는 <b>다른 페이지</b>(사이트 지도 문서)로 갑니다. 보고 나면 돌아와야 하고, 거기서 고른다고 그 자리로 가지지도 않습니다.</p>
+</div>
+
+<h2><span class="no">03</span>제안 — 세 가지, 순서대로</h2>
+<p>
+  샘플의 ①②③ 탭이 각각 아래 A·B·C 에 해당합니다. 셋은 서로 독립이라 <b>따로따로 적용할 수 있습니다.</b>
+</p>
+
+<div class="scroller">
+<table>
+  <thead><tr><th>안</th><th>하는 일</th><th>줄어드는 길이</th><th>위험</th><th>손대는 파일</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>A 자리 정리</b></td>
+      <td>시계·AI비서·사용법·맨위로를 아래 <b>아이콘 한 줄</b>로 접고, 검색을 위에 고정</td>
+      <td class="n">498px → 42px</td>
+      <td><span class="tag low">낮음</span></td>
+      <td class="n">adm-ia6.js · CSS</td>
+    </tr>
+    <tr>
+      <td><b>B 펼침 규칙</b></td>
+      <td>손자는 6줄까지만 먼저 · 그룹에 항목 수 배지 · 줄 간격 선택 · 아이콘 레일(68px)</td>
+      <td class="n">긴 손자 713px → 230px</td>
+      <td><span class="tag mid">중간</span></td>
+      <td class="n">adm-r25.js · adm-ia6.js · CSS</td>
+    </tr>
+    <tr>
+      <td><b>C 전체보기</b></td>
+      <td><code>Ctrl+K</code> 로 43항목을 한 판에 · 치면 즉시 걸러짐 · 골라서 바로 그 자리로</td>
+      <td class="n">찾는 데 걸리는 «누름 3번» → 1번</td>
+      <td><span class="tag low">낮음</span></td>
+      <td class="n">새 js 1개 + admin.html 한 줄</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h3>A — 자리 정리 (가장 먼저 할 것)</h3>
+<p>
+  아무것도 없애지 않습니다. 시계·AI 운영비서·사용법 안내·맨 위로를 <b>사이드바 맨 아래 아이콘 네 개</b>로 접습니다.
+  샘플에서 재면 <b class="mono">977px → 536px</b>, 즉 <b>메뉴 7그룹이 스크롤 없이 한 화면에 들어옵니다.</b>
+  검색창과 「전체보기」는 위에 고정해 스크롤을 내려도 따라옵니다(지금은 위로 사라집니다).
+</p>
+
+<h3>B — 펼침 규칙</h3>
+<p>
+  손자는 <b>6줄까지만</b> 먼저 보이고 「+N개 더」로 폅니다. 「회계」 19줄이 화면을 덮지 않습니다.
+  그룹 오른쪽에 항목 수를 적어 <b>열어 보기 전에 크기를 알 수 있게</b> 합니다.
+  줄 간격 «좁게»와 아이콘 레일(68px)은 켜고 끌 수 있는 선택지로 둡니다 — 표가 넓은 화면(학생 관리 17칸)에서 본문을 244px 더 씁니다.
+</p>
+<blockquote>
+  ⚠️ 손자 상자의 «최대 높이 숫자»를 키워서 푸는 방법은 쓰지 않습니다. 그건 임시방편이고,
+  상한이 클수록 닫을 때 «반응이 없는 시간»이 길어집니다(이미 <code>CLAUDE.md</code> 함정표에 적혀 있는 항목입니다).
+  열 때만 실제 내용 높이를 넣는 방식으로 갑니다.
+</blockquote>
+
+<h3>C — 전체보기 한 판 (효과가 가장 큼)</h3>
+<p>
+  세로로 긴 목록을 <b>여러 칸으로 눕히면</b> 43항목이 한 화면에 다 들어옵니다(실측: 화면 하나에 정확히 들어맞음).
+  이름을 치면 그 즉시 걸러지고, 맞은 글자에 표시가 붙습니다. ↑↓ 로 고르고 Enter 로 엽니다.
+  「손자까지 펼쳐 보기」를 켜면 147줄이 다 나옵니다.
+</p>
+<p>
+  지금의 🗺 메뉴 지도와 결정적으로 다른 점은 <b>화면을 떠나지 않는다</b>는 것입니다.
+  지금 보던 자리 위에 떠서, 고르면 바로 그 카드로 갑니다.
+</p>
+
+<h2><span class="no">04</span>검토했다가 버린 방법</h2>
+<p>왜 다른 길로 안 갔는지를 남깁니다 — 나중에 같은 고민을 다시 하지 않기 위해서입니다.</p>
+<ul class="dropped">
+  <li><span class="x">✕</span><span><b>메뉴 개수를 줄인다 (항목·카드를 합친다)</b>
+    <small>이 시스템에서는 <b>카드 한 장이 곧 권한 한 단위</b>입니다(강사는 관리자 자료실 ❌, 지사는 대리점 자료실 ❌).
+    비슷해 보인다고 합치면 역할별 접근 경계가 무너집니다. 그래서 «카드는 그대로 두고 찾는 길만 짧게» 라는 기존 방침을 유지합니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>손자 상자의 최대 높이(600·900px)를 키운다</b>
+    <small>이미 한 번 밟은 함정입니다. 닫는 데 시간이 걸리고, 손자가 늘면 또 넘칩니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>마우스를 올리면(hover) 펼쳐지게 한다</b>
+    <small>hover 로 뜨는 상세 카드·플라이아웃은 「정신없다」는 이유로 <b>일부러 제거한 것</b>입니다. 되살리지 않습니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>이모지를 되살려 항목을 구분한다</b>
+    <small>2026-07-22 에 «컬러 이모지 88개가 한 화면에 쌓여 눈이 피로하다»는 이유로 단색 선 아이콘으로 통일한 결정입니다. 파일에 이모지가 적혀 있어도 화면에서는 벗겨집니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>사이드바 폭을 넓힌다</b>
+    <small>지금도 화면 가로의 28%(406px)를 쓰고 있습니다. 넓히면 표가 넓은 화면이 옆으로 넘칩니다 — 오히려 «레일로 좁히는» 선택지를 넣었습니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>지금의 🗺 메뉴 지도 페이지를 키운다</b>
+    <small>화면을 떠나야 하고, 예전에 이 버튼이 «누르면 9초 뒤에 열리던» 사고를 낸 자리입니다. 지금은 바로 열리도록 고쳐 놨지만, 어차피 «돌아와야 하는» 구조는 그대로입니다.</small></span></li>
+  <li><span class="x">✕</span><span><b>메뉴를 스크롤 가상화(virtual list)한다</b>
+    <small>부팅 스크립트들이 <code>getElementById</code> 로 카드 안 요소를 찾는 자리가 300곳이 넘습니다. 목록을 DOM 에서 빼는 방식은 그것들을 조용히 죽입니다.</small></span></li>
+</ul>
+
+<h2><span class="no">05</span>만들 때 밟으면 안 되는 것</h2>
+<p>이 사이드바는 그동안 사고가 여러 번 났던 자리입니다. 구현할 사람이 먼저 확인해야 할 것만 추립니다.</p>
+<ul>
+  <li><b>사이드바가 두 벌입니다.</b> 옛 <code>#ph85-sidebar</code>(9그룹 87항목)는 감춰져 있고, 화면에 보이는 것은 <code>adm-ia6.js</code> 가 다시 그린 7그룹 43항목입니다. 옛 쪽만 고치면 «검증은 통과하는데 화면은 그대로»가 됩니다.</li>
+  <li><b>사이드바 클릭을 가로채는 곳이 둘</b>입니다(<code>adm-s11.js</code> ph97 · <code>adm-ia6.js</code>). 새 조작(전체보기 단축키 등)은 <b>둘 다에 예외</b>를 넣어야 합니다.</li>
+  <li><b>모바일 드로어는 스크롤보다 먼저 닫아야</b> 합니다. 열린 동안 <code>body</code> 가 <code>overflow:hidden</code> 이라 <code>scrollIntoView</code> 가 통째로 무시됩니다.</li>
+  <li><b>작성자 CSS 의 <code>!important</code> 는 인라인 스타일도 이깁니다.</b> 높이를 JS 로 줄 때는 <code>setProperty(…, 'important')</code>.</li>
+  <li><b><code>admin-inline-c.css</code> 는 <code>&lt;body&gt;</code> 안에 링크</b>돼 있습니다. <code>document.head</code> 에 넣은 규칙은 문서 순서상 앞이라 집니다.</li>
+  <li><b>손자 이름을 손으로 적지 않습니다.</b> 화면에 있는 실제 칸에서 읽습니다 — 지어낸 이름 66개가 엉뚱한 곳을 열던 사고가 이미 있었습니다.</li>
+  <li><b><code>public/js/*.js</code> 를 고치면 HTML 의 <code>?v=</code> 도 올립니다.</b> 안 올리면 하니스가 FAIL 냅니다.</li>
+  <li>회귀 감시가 이미 걸려 있는 영역입니다 — <code>sidebar_three_level_harness</code>(다섯 곳 짝 맞음) · <code>admin_grandchild_menu_harness</code>(33종) · <code>admin_sidebar_ia6_click_harness</code>.</li>
+</ul>
+
+<h2><span class="no">06</span>어떻게 쟀나</h2>
+<p>
+  이 컨테이너에서는 배포된 화면(<code>mangoi.ai</code>)에 접속할 수 없어, <b>저장소의 <code>public/</code> 폴더를 그대로 띄우고</b>
+  컨테이너에 들어 있는 크로미움으로 <code>admin.html</code> 을 실제로 렌더해서 쟀습니다. 눈대중이 아니라 값을 읽은 것입니다.
+</p>
+<ul>
+  <li>창 1440×900 · 관리자 화면은 <code>zoom:1.3</code> 이라, 화면 픽셀을 1.3 으로 나눠 <b>CSS px 로 환산</b>했습니다(둘을 섞으면 30% 틀립니다).</li>
+  <li>길이는 «맨 아래 칸의 바닥»으로 쟀습니다. <code>scrollHeight</code> 는 접혀서 안 보이는 칸까지 세는 일이 있습니다.</li>
+  <li>메뉴 나무(7그룹·43항목·147손자)는 <b>렌더된 화면에서 읽어</b> 샘플에 그대로 넣었습니다 — 손으로 적은 이름이 하나도 없습니다.</li>
+</ul>
+<p><b>아직 확인 못 한 것:</b> 실제 사장님 PC 화면(브라우저 확대·글꼴이 다를 수 있음)과 휴대폰 드로어에서의 값은 사람이 한 번 봐 주셔야 합니다.</p>
+
+<div class="ask">
+  <h3>결정을 부탁드립니다</h3>
+  <ol>
+    <li><b>A안(자리 정리)</b> — 시계·AI 운영비서·사용법 안내를 사이드바 아래 <b>아이콘 한 줄</b>로 접어도 될까요? (없애는 것이 아니라 눌러서 펴는 형태입니다)</li>
+    <li><b>C안(전체보기)</b> — 새로 넣을까요, 아니면 지금의 「🗺 메뉴 지도」 자리를 이걸로 바꿀까요? (둘 다 두면 «둘이 다른 건가»를 매번 생각하게 됩니다)</li>
+    <li><b>기본 줄 간격</b> — 지금 간격 그대로가 좋을지, 샘플의 «좁게»가 좋을지 화면에서 보시고 골라 주세요.</li>
+  </ol>
+</div>
+
+<p style="color:var(--ink-3); font-size:13.5px; margin-top:34px">
+  샘플: <b>사이드바_개선_화면샘플_260819.html</b> — 세 탭을 눌러 보시면 같은 메뉴가 세 가지 방식으로 그려집니다.
+  왼쪽 상자가 «노트북 한 화면» 자이고, 오른쪽에 그때그때 잰 길이가 나옵니다.
+</p>
+
+</div>
