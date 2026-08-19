@@ -5310,6 +5310,172 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
+
+    /* ─── 🗓 지난 수업에서 «수업 일정» 만들기 (2026-08-19 사장님 A안) ─────────────────
+       왜 —
+         학생 상세보기의 「📅 일정변경」 버튼도, 주간 시간표도 class_schedules 를 본다.
+         그런데 운영 D1 실측(2026-08-18) 결과 그 표에 **진짜 학생 것은 6명 15건뿐**이었다
+         (673행 중 658행이 user_id='lms'·'type_seed' 자리표시자). 학생 29,398명 중 6명이다.
+         반면 **실제 수업 기록은 attendance 에 182,612건** 있다. 즉 자료가 없는 게 아니라
+         «앞으로의 일정» 칸으로 옮겨지지 않았을 뿐이다.
+         → 지난 기록에서 «매주 화 19:00, 강사 KES» 같은 주간 패턴을 뽑아 일정으로 만든다.
+
+       ⚠️ 왜 «미리보기» 가 따로 있나 (사장님 A안) —
+          실서비스 학생 데이터다. 조건을 잘못 잡으면 그만둔 학생에게 수업이 잡히고,
+          「내 일정에 왜 이게 있냐」 가 수백 건 들어온다. 그래서 **읽기(preview)와
+          쓰기(apply)를 나누고, 쓰기는 사람이 화면에서 고른 것만** 받는다.
+          ⛔ apply 가 스스로 패턴을 다시 뽑아 «전부» 넣게 고치지 말 것. 그러면 A안이 B안이 된다.
+
+       ⚠️ 요일 번호 — attendance 는 strftime('%w') = 0(일)~6(토) 이고 class_schedules 도
+          같은 체계다(POST /api/admin/class-schedules 의 DOW_IN 참고). 여기서는 변환이 없다.
+          화면(주간 시간표)만 0=월 이라 거기서 바꾼다 — 헷갈리면 «월요일로 골랐는데 일요일» 사고가 난다.
+
+       ⚠️ 되돌리기 — 만든 행에 source='attendance_seed' 를 찍는다.
+          잘못 들어갔을 때 그 표시로만 골라낼 수 있다(사람이 판단해서 지운다). */
+    if (path === '/api/admin/schedule-seed/preview' && method === 'GET') {
+      const _seedSc = await getScope(env as any, request);
+      if (!canEditOrg(_seedSc)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사만 사용할 수 있습니다.' }, 403);
+      }
+      const to = (url.searchParams.get('to') || today()).slice(0, 10);
+      const fromRaw = url.searchParams.get('from');
+      const from = (fromRaw && /^\d{4}-\d{2}-\d{2}$/.test(fromRaw))
+        ? fromRaw
+        : new Date(Date.parse(to + 'T00:00:00Z') - 56 * 86400000).toISOString().slice(0, 10);  // 기본 8주
+      const minSeen = Math.max(2, Math.min(20, parseInt(url.searchParams.get('min_seen') || '3', 10) || 3));
+
+      /* 10분 격자로 스냅해서 묶는다 — 접속 시각은 19:03·19:05 처럼 흔들려서, 분까지 그대로
+         묶으면 같은 수업이 여러 패턴으로 쪼개진다(최빈값이 1이 되어 아무것도 안 걸린다). */
+      const rs = await env.DB.prepare(
+        `SELECT a.user_id                                             AS user_id,
+                CAST(strftime('%w', a.date) AS INTEGER)               AS dow,
+                printf('%02d:%02d',
+                       CAST(strftime('%H', datetime(a.joined_at/1000,'unixepoch','+9 hours')) AS INTEGER),
+                       (CAST(strftime('%M', datetime(a.joined_at/1000,'unixepoch','+9 hours')) AS INTEGER)/10)*10
+                )                                                     AS start_time,
+                COUNT(*)                                              AS seen,
+                MAX(a.date)                                           AS last_date,
+                AVG(COALESCE(a.total_session_ms, 0))                   AS avg_ms,
+                MAX(a.teacher_uid)                                    AS teacher_uid,
+                MAX(a.teacher_name)                                   AS teacher_name
+           FROM attendance a
+          WHERE a.role = 'student' AND a.joined_at IS NOT NULL
+            AND a.date BETWEEN ? AND ?
+          GROUP BY a.user_id, dow, start_time
+         HAVING COUNT(*) >= ?
+          ORDER BY seen DESC, a.user_id`
+      ).bind(from, to, minSeen).all().catch(() => ({ results: [] as any[] }));
+      const rows: any[] = (rs.results || []) as any[];
+
+      // 학생 이름·수강 상태 — 없는 학생(퇴원·명부 밖)은 화면에서 기본 해제로 보여 준다
+      const uids = Array.from(new Set(rows.map(r => String(r.user_id))));
+      const stuMap = new Map<string, any>();
+      for (const r of await selectInChunks<any>(env.DB, uids,
+        ph => `SELECT user_id, korean_name, student_name, status, shop_name FROM students_erp WHERE user_id IN (${ph})`,
+        { swallowErrors: true })) stuMap.set(String(r.user_id), r);
+
+      // 이미 같은 (학생·요일·시각) 일정이 있으면 또 만들지 않는다 — 두 번 눌러도 안 늘어난다
+      const haveKey = new Set<string>();
+      for (const r of await selectInChunks<any>(env.DB, uids,
+        ph => `SELECT user_id, day_of_week, start_time FROM class_schedules WHERE status <> 'cancelled' AND user_id IN (${ph})`,
+        { swallowErrors: true })) {
+        for (const d of String(r.day_of_week || '').split(',').filter(Boolean)) {
+          haveKey.add(`${r.user_id}|${d}|${String(r.start_time || '').slice(0, 5)}`);
+        }
+      }
+      const DOW_TXT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+      const items = rows.map(r => {
+        const uid = String(r.user_id);
+        const st = stuMap.get(uid);
+        const dow = Number(r.dow);
+        const startTime = String(r.start_time);
+        // 수업 길이 — 접속 시간 평균을 10분 단위로. 기록이 없으면 기본 20분(class-policy).
+        const mins = Math.round(Number(r.avg_ms || 0) / 60000 / 10) * 10;
+        return {
+          user_id: uid,
+          student_name: (st && (st.korean_name || st.student_name)) || null,
+          shop_name: (st && st.shop_name) || null,
+          in_roster: !!st,
+          active: !!st && String(st.status || '') === 'active',
+          dow, dow_text: DOW_TXT[dow] || '',
+          start_time: startTime,
+          duration_min: Math.max(10, Math.min(60, mins || DEFAULT_CLASS_MINUTES)),
+          teacher_uid: r.teacher_uid || null,
+          teacher_name: r.teacher_name || null,
+          seen: Number(r.seen || 0),
+          last_date: r.last_date || null,
+          already: haveKey.has(`${uid}|${DOW_TXT[dow]}|${startTime}`),
+        };
+      });
+
+      /* ✅ 기본 체크 규칙 — 명부에 있고, 수강 중이고, 아직 일정이 없는 것만.
+         화면은 이 값을 그대로 체크박스 초기값으로 쓴다(규칙을 화면에 또 적지 않는다). */
+      const recommended = items.filter(i => i.in_roster && i.active && !i.already);
+      return json({
+        ok: true, from, to, min_seen: minSeen,
+        items,
+        totals: {
+          patterns: items.length,
+          students: new Set(items.map(i => i.user_id)).size,
+          recommended: recommended.length,
+          skip_already: items.filter(i => i.already).length,
+          skip_not_active: items.filter(i => i.in_roster && !i.active).length,
+          skip_not_in_roster: items.filter(i => !i.in_roster).length,
+        },
+      });
+    }
+
+    /* ── POST /api/admin/schedule-seed/apply — 사람이 고른 것만 만든다 ──
+       body: { items:[{ user_id, dow, start_time, duration_min?, teacher_uid?, teacher_name? }, …] }
+       ⛔ 여기서 패턴을 다시 뽑지 않는다. 화면이 보여 준 것 중 «사람이 고른 것» 만 받는다. */
+    if (path === '/api/admin/schedule-seed/apply' && method === 'POST') {
+      const _seedSc = await getScope(env as any, request);
+      if (!canEditOrg(_seedSc)) {
+        return json({ ok: false, error: 'forbidden_scope', message: '본사만 사용할 수 있습니다.' }, 403);
+      }
+      const b: any = await parseJsonBody(request);
+      const list: any[] = Array.isArray(b?.items) ? b.items : [];
+      if (!list.length) return invalidBody(['items']);
+      if (list.length > 500) return json({ ok: false, error: 'too_many', message: '한 번에 500건까지만 만듭니다. 나눠서 눌러 주세요.' }, 400);
+
+      const DOW_TXT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const now = Date.now();
+      const actor = await getAdminActor(request, env as any);
+      let created = 0; const skipped: any[] = [];
+
+      for (const it of list) {
+        const uid = String(it?.user_id || '').trim();
+        const dow = Number(it?.dow);
+        const startTime = String(it?.start_time || '').slice(0, 5);
+        if (!uid || !(dow >= 0 && dow <= 6) || !/^\d{2}:\d{2}$/.test(startTime)) {
+          skipped.push({ user_id: uid, reason: 'invalid' }); continue;
+        }
+        const dowTxt = DOW_TXT[dow];
+        // 같은 것이 이미 있으면 건너뛴다 — 두 번 눌러도 안 늘어난다(멱등)
+        const dup: any = await env.DB.prepare(
+          `SELECT id FROM class_schedules WHERE user_id = ? AND day_of_week = ? AND start_time = ? AND status <> 'cancelled' LIMIT 1`
+        ).bind(uid, dowTxt, startTime).first().catch(() => null);
+        if (dup) { skipped.push({ user_id: uid, reason: 'already' }); continue; }
+
+        const stu: any = await env.DB.prepare(
+          `SELECT korean_name, student_name, status FROM students_erp WHERE user_id = ? LIMIT 1`
+        ).bind(uid).first().catch(() => null);
+        // 명부에 없거나 수강 중이 아니면 만들지 않는다 — 화면이 실수로 보내도 서버가 막는다
+        if (!stu) { skipped.push({ user_id: uid, reason: 'not_in_roster' }); continue; }
+        if (String(stu.status || '') !== 'active') { skipped.push({ user_id: uid, reason: 'not_active' }); continue; }
+
+        const dur = Math.max(10, Math.min(60, Number(it?.duration_min) || DEFAULT_CLASS_MINUTES));
+        await env.DB.prepare(
+          `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, start_time, duration_min, teacher_id, status, source, created_by, created_at, updated_at)
+           VALUES (?,?,'recurring','regular',?,?,?,?,'active','attendance_seed',?,?,?)`
+        ).bind(uid, stu.korean_name || stu.student_name || null, dowTxt, startTime, dur,
+               it?.teacher_uid ? String(it.teacher_uid) : null, actor.name || 'admin', now, now).run();
+        created++;
+      }
+      return json({ ok: true, created, skipped_count: skipped.length, skipped: skipped.slice(0, 50) });
+    }
+
     // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
     //   클릭 한 번에 정규+체험+레벨 3개 데모 스케줄 생성 (시스템 동작 즉시 확인용)
     //   (2026-07-24 강사 피드백) "오늘 수업이 없어서 교재/영상/퀴즈·레벨테스트·피드백 화면을 못 본다" →
