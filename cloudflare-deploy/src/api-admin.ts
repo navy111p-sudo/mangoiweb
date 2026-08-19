@@ -11,6 +11,7 @@
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
@@ -3854,10 +3855,31 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
              FROM lesson_late_minutes lm JOIN class_schedules cs ON cs.id = lm.schedule_id
             WHERE lm.lesson_date >= ? AND lm.minutes > 0 AND cs.teacher_name IS NOT NULL
             GROUP BY cs.teacher_name`, since90d),
-        // 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
-        q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM class_no_show
-            WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL
-            GROUP BY teacher_name`, since90ms),
+        /* 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
+           🔎 (2026-08-19) **오판을 빼고 센다.** 이 행은 학생 브라우저가 «내 화면에 안 보였다» 로
+              만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면 강사가 멀쩡히 들어와 있어도
+              쌓인다(CLAUDE.md 2장). 실측 13건 중 11건이 오판이었고, 그대로 세면 잘못이 없는
+              강사의 90일 평가가 내려간다. 판정은 노쇼 리포트와 **같은 함수**를 쓴다
+              (src/no-show-truth.ts) — 두 벌로 두면 화면마다 다른 답이 나온다.
+           ⚠️ GROUP BY 를 서버에서 하지 않고 원본 행을 받아 TS 에서 접는다. 낱말 경계 이름 비교를
+              SQL 로 흉내 내면 그게 바로 「이름으로 사람 정하기」 함정이라 정확히 못 한다.
+           ⚠️ 판정 불가(모름)는 **빼지 않는다** — 모르는 것을 «오판» 으로 단정하면 진짜 노쇼가 감춰진다. */
+        (async () => {
+          const raw = await q(
+            `SELECT teacher_name AS tn, room_id, missing_role FROM class_no_show
+              WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL`, since90ms);
+          let pres = new Map<string, any>();
+          try { pres = await teacherPresenceByRoom(env.DB, raw as any[]); }
+          catch (e: any) { console.warn('[hr-signals] 노쇼 대조 생략:', e?.message); }
+          const cnt = new Map<string, number>();
+          for (const r of raw) {
+            const p = pres.get(String(r.room_id || ''));
+            if (p && p.present === true) continue;          // 오판 — 강사는 접속해 있었다
+            const k = String(r.tn || '');
+            cnt.set(k, (cnt.get(k) || 0) + 1);
+          }
+          return Array.from(cnt, ([tn, n]) => ({ tn, n }));
+        })(),
         // 📝 강사가 작성한 학생 평가서 (행정 성실도)
         q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM student_evaluations
             WHERE created_at >= ? AND teacher_name IS NOT NULL GROUP BY teacher_name`, since90ms),
@@ -5234,16 +5256,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         try { rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>(); } catch {}
       }
       const items = rows.results || [];
+      /* 🔎 (2026-08-19) 「강사 미입장」이 정말 미입장이었나 — 출석 기록과 대조한다.
+         이 행은 **학생 브라우저가** 만든다: 5분을 기다려도 상대가 안 보이면 신고하는 구조라
+         «상대가 안 왔다» 가 아니라 «내 화면에 안 보였다» 가 기록된다. 두 사람이 서로 다른
+         워커의 방에 있던 동안(CLAUDE.md 2장) 강사는 매번 들어와 있었는데도 알림이 떴다 —
+         실측 13건 중 11건이 오판. ⛔ 기록은 지우지 않는다(학생이 못 본 것은 사실이다).
+         대신 «오판» 이라고 화면이 함께 알려 준다. 판정 정본은 src/no-show-truth.ts. */
+      let presence = new Map<string, any>();
+      try { presence = await teacherPresenceByRoom(env.DB, items); }
+      catch (e: any) { console.warn('[no-shows] 강사 출석 대조 생략:', e?.message); }
+
       const now = Date.now();
       const weekAgo = now - 7 * 86400 * 1000;
       const dayAgo = now - 86400 * 1000;
-      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0;
+      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0, teacherFalse = 0, teacherUnknown = 0;
       for (const r of items) {
         if (r.created_at >= weekAgo) week++;
         if (r.created_at >= dayAgo) today++;
-        if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
+        if (r.missing_role === 'teacher') {
+          teacherMiss++;
+          const p = presence.get(String(r.room_id || ''));
+          // present: true=있었음(오판) · false=흔적 없음(진짜) · null/미조회=모름
+          r.teacher_present = p ? p.present : null;
+          r.teacher_seen_from = p ? p.from : null;
+          r.teacher_seen_to = p ? p.to : null;
+          r.teacher_seen_min = p ? p.minutes : null;
+          r.false_alarm = r.teacher_present === true;
+          if (r.false_alarm) teacherFalse++;
+          else if (r.teacher_present === null) teacherUnknown++;
+        } else studentMiss++;
       }
-      return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+      return json({
+        ok: true, count: items.length, today, this_week: week,
+        by_missing: {
+          teacher: teacherMiss, student: studentMiss,
+          // 「강사 미입장」 중 실제로는 강사가 접속해 있던 건 / 판정할 수 없는 건
+          teacher_false_alarm: teacherFalse,
+          teacher_unknown: teacherUnknown,
+          teacher_real: Math.max(0, teacherMiss - teacherFalse - teacherUnknown),
+        },
+        no_shows: items,
+      });
     }
 
     // 🥭 Phase RM — POST /api/admin/no-shows/contact — 노쇼 대상에게 재알림(웹푸시) + 접촉 기록
