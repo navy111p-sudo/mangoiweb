@@ -4487,6 +4487,13 @@ window.__admSettleRun = function(fn){
 </details>
 
 <!-- 🧠 Phase MBTI — 강사 MBTI 등록 (관리자) -->
+<style id="mbti-pers-css">
+  /* 🙂 성향 칩 — background-color 로 준다. background:linear-gradient(135deg…) 로 쓰면
+     admin-inline-c.css 의 옛 다크 규칙이 !important 남색으로 덮는다(CLAUDE.md 2장 함정표). */
+  #mbti-pers .mbti-pers-chip{border:1px solid #cbd5e1;background-color:#fff;color:#334155;border-radius:999px;
+    padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+  #mbti-pers .mbti-pers-chip[aria-pressed="true"]{border-color:#6366f1;background-color:#e0e7ff;color:#3730a3}
+</style>
 <details class="table-card menu-card" id="card-mbti-mgmt">
   <summary><span data-ko="🧠 강사 MBTI 등록 (매칭용)" data-en="🧠 Teacher MBTI Setup">🧠 강사 MBTI 등록 (매칭용)</span></summary>
   <div class="menu-body">
@@ -4504,6 +4511,19 @@ window.__admSettleRun = function(fn){
       <label style="font-size:12px;font-weight:700"><span data-ko="취미 / 관심사" data-en="Hobbies / Interests">취미 / 관심사</span> <input id="mbti-hobby" type="text" placeholder="예: 영화 감상, 베이킹, K-POP" data-ko-ph="예: 영화 감상, 베이킹, K-POP" data-en-ph="e.g. movies, baking, K-POP" style="width:100%;padding:8px;margin-top:3px"/></label>
       <label style="font-size:12px;font-weight:700"><span data-ko="수업 스타일" data-en="Teaching Style">수업 스타일</span> <input id="mbti-style" type="text" placeholder="예: 친절하고 반복학습 중심, 발음에 강함" data-ko-ph="예: 친절하고 반복학습 중심, 발음에 강함" data-en-ph="e.g. friendly, repetition-focused, strong on pronunciation" style="width:100%;padding:8px;margin-top:3px"/></label>
       <label style="font-size:12px;font-weight:700"><span data-ko="자기소개" data-en="Self-introduction">자기소개</span> <textarea id="mbti-intro" rows="2" placeholder="학생들에게 보일 강사 인사" data-ko-ph="학생들에게 보일 강사 인사" data-en-ph="Greeting students will see" style="width:100%;padding:8px;margin-top:3px"></textarea></label>
+      <!-- 🙂 (2026-08-18 수정요청 #02 후속) 강사 «성향» — 신규 학생 등록 마법사가 물어보는 그 다섯 개와 같은 값이다.
+           여기가 비어 있으면 마법사에서 성향을 골라도 추천 순서에 반영할 근거가 없다.
+           ⚠️ 값(kind/fun/edu/serious/laugh)은 서버 normPersonality() · 마법사 WIZ_PERSONALITY 와 «같은 다섯 개» 여야 한다. -->
+      <div style="font-size:12px;font-weight:700">
+        <span data-ko="성향 (매칭에 쓰임 · 여러 개 선택)" data-en="Personality (used for matching · multiple)">성향 (매칭에 쓰임 · 여러 개 선택)</span>
+        <div id="mbti-pers" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px">
+          <button type="button" class="mbti-pers-chip" data-pid="kind"    data-ko="😊 상냥한"   data-en="😊 Warm">😊 상냥한</button>
+          <button type="button" class="mbti-pers-chip" data-pid="fun"     data-ko="🎉 재미있는" data-en="🎉 Fun">🎉 재미있는</button>
+          <button type="button" class="mbti-pers-chip" data-pid="edu"     data-ko="📚 교육적인" data-en="📚 Educational">📚 교육적인</button>
+          <button type="button" class="mbti-pers-chip" data-pid="serious" data-ko="🎯 진지한"   data-en="🎯 Serious">🎯 진지한</button>
+          <button type="button" class="mbti-pers-chip" data-pid="laugh"   data-ko="😄 웃음많은" data-en="😄 Cheerful">😄 웃음많은</button>
+        </div>
+      </div>
       <button onclick="mbtiSave()" style="padding:10px 22px;background:linear-gradient(135deg,#4f7cff,#3b82f6);color:#fff;border:0;border-radius:8px;font-weight:800;font-size:13px;cursor:pointer;width:auto;align-self:start" data-ko="💾 등록 / 업데이트" data-en="💾 Register / Update">💾 등록 / 업데이트</button>
     </div>
     <div id="mbti-result" style="margin-top:10px"></div>
@@ -4587,7 +4607,7 @@ window.__admSettleRun = function(fn){
   </div>
 </details>
 
-<script src="/js/adm-r5.js?v=1" defer></script><!-- 분할추출:adm-r5 -->
+<script src="/js/adm-r5.js?v=2" defer></script><!-- v=2: 2026-08-18 강사 «성향» 칩(매칭용) 입력·목록 --><!-- 분할추출:adm-r5 -->
 
 <!-- ⚡ Phase ML — 마이크로러닝 카톡 발송 (오늘의 단어 + 미니 퀴즈) -->
 <details class="table-card menu-card" id="card-microlearn">
