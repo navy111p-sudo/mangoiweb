@@ -7668,8 +7668,21 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                 <option value="B2B">B2B</option>
                 <option value="B2C">B2C</option>
               </select>
+              <!-- 🔑 (2026-08-19 사장님 요청) 대리점 로그인 계정 — 둘 다 채워야 계정이 만들어진다.
+                   비워 두면 등록만 되고 로그인 계정은 만들지 않는다(기존 동작 유지).
+                   서버가 admin_account + admin_scope(scope_type='agency') 를 실제로 만든다
+                   (addCenter() → POST /api/admin/centers, api-admin.ts). -->
+              <input id="ct-login-id" placeholder="대리점 로그인 아이디 (선택)" autocomplete="off"
+                     data-ko-placeholder="대리점 로그인 아이디 (선택)" data-en-placeholder="Agency login ID (optional)"
+                     style="width:150px;" />
+              <input id="ct-login-pw" type="password" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+                     data-ko-placeholder="비밀번호 (6자 이상)" data-en-placeholder="Password (6+ chars)"
+                     style="width:140px;" />
               <button id="ct-add-btn" class="primary" style="padding:5px 12px;font-size:13px;" data-ko="+ 등록" data-en="+ Register">+ 등록</button>
             </div>
+            <div style="font-size:11.5px;color:#6b7280;margin:6px 0 0"
+                 data-ko="※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다."
+                 data-en="※ Fill in both the login ID and password to also create a login account for this agency. Leave both blank to register without an account.">※ 로그인 아이디·비밀번호를 둘 다 입력하면 이 대리점 전용 로그인 계정을 함께 만듭니다. 비워 두면 계정 없이 목록에만 등록됩니다.</div>
           </details>
           <!-- 🔎 서버 검색 — 이 페이지 50행이 아니라 «921건 전체»를 서버에서 찾는다.
                (예전엔 921행을 다 받아 화면에서 걸렀다. 그래서 부팅이 무거웠다) -->
@@ -9280,7 +9293,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=133" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=134" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=134: 2026-08-19 대리점(학원) 신규 등록 폼에 로그인 아이디·비밀번호 — addCenter() 가
+     서버에 login_username/login_password 를 함께 보내고, 실패 시 서버 message 를 그대로 띄운다.
+     이 작업도 v=132 를 썼는데 main 이 먼저 v=133 을 가져가서 번호를 새로 딴다
+     (내용은 자동병합으로 양쪽 다 들어가 있다)
    · v=132: 2026-08-18 대사 화면에 PG 정산 시차(21일) 반영 — «같은 달끼리» 빼서 생기던
      «통장이 적다» 착시 제거. 이 작업도 v=118 을 썼는데 main 이 먼저 가져가서 번호를 새로 딴다
      (내용은 자동병합으로 양쪽 다 들어가 있다)
