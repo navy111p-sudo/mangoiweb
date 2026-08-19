@@ -1,0 +1,229 @@
+<title>망고아이 작업 세션 기록</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F4F6F3; --surface:#FFFFFF; --ink:#161E1A; --muted:#5D6C64; --faint:#8A968F;
+  --line:#DBE2DC; --line-soft:#E9EEEA; --accent:#0E6A4E; --accent-soft:#E2F0E9;
+  --warn:#8A5B00; --warn-soft:#F6ECD8;
+  --shadow:0 1px 2px rgba(22,30,26,.05),0 8px 24px -16px rgba(22,30,26,.25);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101413; --surface:#181D1B; --ink:#E7EDE8; --muted:#9DAAA3; --faint:#77857D;
+    --line:#293029; --line-soft:#222825; --accent:#5CC79B; --accent-soft:#163026;
+    --warn:#D9B267; --warn-soft:#332A17;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101413; --surface:#181D1B; --ink:#E7EDE8; --muted:#9DAAA3; --faint:#77857D;
+  --line:#293029; --line-soft:#222825; --accent:#5CC79B; --accent-soft:#163026;
+  --warn:#D9B267; --warn-soft:#332A17;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  font-weight:400; line-height:1.7; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:62rem;margin:0 auto;padding:clamp(2rem,5vw,4.5rem) clamp(1rem,4vw,2.5rem) 5rem;display:flex;flex-direction:column;gap:3rem}
+header{display:flex;flex-direction:column;gap:.9rem;border-bottom:1px solid var(--line);padding-bottom:2rem}
+.eyebrow{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:clamp(1.9rem,4.4vw,2.9rem);line-height:1.25;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{margin:0;color:var(--muted);max-width:44em}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;font-size:.85rem;color:var(--faint);font-family:"JetBrains Mono",ui-monospace,monospace}
+section{display:flex;flex-direction:column;gap:1.1rem}
+h2{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:1.4rem;margin:0;letter-spacing:-.01em}
+p{margin:0;max-width:42em}
+.note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:2px;padding:1.25rem 1.4rem;display:flex;flex-direction:column;gap:.8rem;box-shadow:var(--shadow)}
+.note strong{font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.stat{background:var(--surface);padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.stat b{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:1.7rem;font-weight:500;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1.1}
+.stat span{font-size:.82rem;color:var(--muted)}
+.day{display:flex;align-items:baseline;gap:.8rem;margin:2rem 0 .1rem;font-family:"Gowun Batang",Batang,serif;font-size:1.08rem;font-weight:700}
+.day:first-of-type{margin-top:.4rem}
+.day-date{white-space:nowrap}
+.day-count{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.72rem;font-weight:400;color:var(--faint);font-variant-numeric:tabular-nums}
+.day::after{content:"";flex:1;height:1px;background:var(--line)}
+.reg{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.reg li{
+  display:grid;grid-template-columns:4.2rem 1fr auto minmax(0,17rem);
+  gap:.35rem 1rem;align-items:baseline;
+  padding:.7rem .2rem;border-bottom:1px solid var(--line-soft);
+}
+.reg li:hover{background:var(--surface)}
+.t{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.8rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.ttl{min-width:0;font-weight:500;word-break:keep-all}
+.chip{font-size:.7rem;padding:.12rem .5rem;border-radius:999px;white-space:nowrap;font-weight:500;justify-self:start}
+.chip.run{background:var(--accent-soft);color:var(--accent)}
+.chip.idle{background:transparent;color:var(--faint);border:1px solid var(--line)}
+.chip.arch{background:var(--warn-soft);color:var(--warn)}
+.branch{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.74rem;color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;overflow-wrap:anywhere;min-width:0}
+.branch:hover,.branch:focus-visible{border-bottom-color:currentColor}
+.branch.none{color:var(--faint)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:2px;background:var(--surface)}
+th,td{text-align:left;padding:.65rem .9rem;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{font-size:.76rem;letter-spacing:.06em;color:var(--faint);font-weight:500;text-transform:uppercase;background:var(--line-soft)}
+tr:last-child td{border-bottom:0}
+td a{color:var(--accent)}
+ol{margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem}
+footer{border-top:1px solid var(--line);padding-top:1.5rem;color:var(--faint);font-size:.84rem;display:flex;flex-direction:column;gap:.3rem}
+footer a{color:var(--accent)}
+@media (max-width:44rem){
+  .reg li{grid-template-columns:4.2rem 1fr;}
+  .chip{grid-column:1;justify-self:start}
+  .branch{grid-column:2}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">navy111p@gmail.com · Claude Code</p>
+  <h1>망고아이 작업 세션 기록</h1>
+  <p class="sub">클로드 코드 왼쪽 사이드바에 쌓인 작업 세션 72건을 그대로 옮긴 것입니다.
+  장지웅 부장(GitHub <code>LemuelJang</code>)이 무엇을 언제 했는지 훑고, 브랜치를 눌러 그 작업의 PR 로 바로 들어가기 위한 목록입니다.</p>
+  <p class="meta"><span>2026-03-22 → 2026-08-19</span><span>세션 72건</span><span>브랜치 61개</span></p>
+</header>
+
+<section>
+  <h2>세션 «링크» 는 공유가 안 됩니다</h2>
+  <div class="note">
+    <p>클로드 코드의 세션 목록은 <strong>계정에 묶여 있습니다.</strong> <code>claude.ai/code/session_…</code> 주소를 그대로 보내도
+    다른 계정에서는 열리지 않고, 저장소 권한을 아무리 올려도 달라지지 않습니다 — 저장소 권한과 클로드 계정은 별개입니다.</p>
+    <p>그래서 목록 자체를 이렇게 옮겼습니다. 내용을 같이 보는 자리는 세션이 아니라 <strong>저장소</strong>입니다.
+    세션마다 작업 브랜치가 하나씩 있고, 무엇을 왜 고쳤는지는 그 브랜치의 PR 본문에 적혀 있습니다.</p>
+  </div>
+  <div class="tblwrap"><table>
+    <tr><th>보고 싶은 것</th><th>어디를 보나</th></tr>
+    <tr><td>어떤 작업을 했나 (목록)</td><td>이 페이지 아래 목록</td></tr>
+    <tr><td>무엇을 왜 그렇게 고쳤나</td><td>브랜치를 눌러 열리는 PR 본문</td></tr>
+    <tr><td>검토했다가 버린 방법</td><td><a href="https://github.com/navy111p-sudo/mangoiweb/tree/main/docs/작업기록" target="_blank" rel="noopener">docs/작업기록/</a></td></tr>
+    <tr><td>밟으면 안 되는 함정</td><td><a href="https://github.com/navy111p-sudo/mangoiweb/blob/main/CLAUDE.md" target="_blank" rel="noopener">CLAUDE.md</a> 2장</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>한눈에</h2>
+  <div class="stats">
+    <div class="stat"><b>72</b><span>전체 세션</span></div>
+    <div class="stat"><b>61</b><span>작업 브랜치가 있는 세션</span></div>
+    <div class="stat"><b>7</b><span>작업한 날</span></div>
+    <div class="stat"><b>11</b><span>빈 자동 세션 (목록에서 제외)</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>세션 목록 — 최근 순</h2>
+  <p>시각은 세션을 <strong>연</strong> 때입니다. 브랜치를 누르면 그 세션이 올린 PR 만 걸러서 열립니다.</p>
+  <h3 class="day"><span class="day-date">8월 19일 (수)</span><span class="day-count">2건</span></h3>
+<ul class="reg">
+<li><span class="t">00:29</span><span class="ttl">깃허브 공유 방법</span><span class="chip run">진행 중</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/github-share-method-re1j3z" target="_blank" rel="noopener">claude/github-share-method-re1j3z</a></li>
+<li><span class="t">00:01</span><span class="ttl">Claude 사용량이 적은 시간대</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/claude-low-usage-times-swvzsr" target="_blank" rel="noopener">claude/claude-low-usage-times-swvzsr</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 18일 (화)</span><span class="day-count">21건</span></h3>
+<ul class="reg">
+<li><span class="t">23:08</span><span class="ttl">관리자 페이지 사이드바 3단계 메뉴(우선해결)</span><span class="chip run">진행 중</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/admin-sidebar-three-level-menu-6oursk" target="_blank" rel="noopener">claude/admin-sidebar-three-level-menu-6oursk</a></li>
+<li><span class="t">17:32</span><span class="ttl">숫자 없는 이유</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/missing-numbers-reason-0ml1qa" target="_blank" rel="noopener">claude/missing-numbers-reason-0ml1qa</a></li>
+<li><span class="t">13:18</span><span class="ttl">계획검토(이병엽)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/code-review-3x1n0g" target="_blank" rel="noopener">claude/code-review-3x1n0g</a></li>
+<li><span class="t">13:17</span><span class="ttl">수정 요청(이병엽)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/fix-request-4z6fk9" target="_blank" rel="noopener">claude/fix-request-4z6fk9</a></li>
+<li><span class="t">13:12</span><span class="ttl">Claude 코드에서 계정 자료 팀 공유</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/share-account-resources-team-r6you1" target="_blank" rel="noopener">claude/share-account-resources-team-r6you1</a></li>
+<li><span class="t">11:27</span><span class="ttl">메뉴 화면 수정 (이병엽)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/menu-screen-fix-5r664h" target="_blank" rel="noopener">claude/menu-screen-fix-5r664h</a></li>
+<li><span class="t">10:14</span><span class="ttl">가맹점별 정산 (장지웅 가맹점)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/franchise-settlement-statement-ausr2c" target="_blank" rel="noopener">claude/franchise-settlement-statement-ausr2c</a></li>
+<li><span class="t">10:13</span><span class="ttl">회계 리포트 메뉴 개선 (장지웅)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/monthly-accounting-report-menu-iuukqc" target="_blank" rel="noopener">claude/monthly-accounting-report-menu-iuukqc</a></li>
+<li><span class="t">10:13</span><span class="ttl">시스템 조직 관리 메뉴 수정 (장지웅)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/system-org-management-menu-ufxvz7" target="_blank" rel="noopener">claude/system-org-management-menu-ufxvz7</a></li>
+<li><span class="t">10:12</span><span class="ttl">조직관리 오타 수정 (장지웅 오타)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/system-org-management-typo-09djiu" target="_blank" rel="noopener">claude/system-org-management-typo-09djiu</a></li>
+<li><span class="t">10:11</span><span class="ttl">시스템 조직 관리 수정 (장지웅 매출)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/master-branch-list-search" target="_blank" rel="noopener">claude/master-branch-list-search</a></li>
+<li><span class="t">10:11</span><span class="ttl">조직 관리 메뉴 수정 (장지웅 조직)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/organization-management-menu-kdrl28" target="_blank" rel="noopener">claude/organization-management-menu-kdrl28</a></li>
+<li><span class="t">10:10</span><span class="ttl">매출/입금 수정 (장지웅 매출)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/sales-deposit-reconciliation-j30d63" target="_blank" rel="noopener">claude/sales-deposit-reconciliation-j30d63</a></li>
+<li><span class="t">10:09</span><span class="ttl">정산 매출 수정 (장지웅 정산)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/settlement-revenue-pl-menu-6l9p8o" target="_blank" rel="noopener">claude/settlement-revenue-pl-menu-6l9p8o</a></li>
+<li><span class="t">10:08</span><span class="ttl">손익계산서 개선 (장지웅 손익)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/income-statement-menu-update-abw3rt" target="_blank" rel="noopener">claude/income-statement-menu-update-abw3rt</a></li>
+<li><span class="t">10:07</span><span class="ttl">정산 매출 대시보드 수정(장지웅 대시보드)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/settlement-revenue-dashboard-im4end" target="_blank" rel="noopener">claude/settlement-revenue-dashboard-im4end</a></li>
+<li><span class="t">10:05</span><span class="ttl">정산 화면 수정(장지웅 정산)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/cafe24-accounting-screen-iddxpg" target="_blank" rel="noopener">claude/cafe24-accounting-screen-iddxpg</a></li>
+<li><span class="t">10:00</span><span class="ttl">지점/가맹점 정산 수정(장지웅 환불)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/branch-franchise-settlement-update-f3qiel" target="_blank" rel="noopener">claude/branch-franchise-settlement-update-f3qiel</a></li>
+<li><span class="t">09:55</span><span class="ttl">학생 결제 내역 문제 해결(장지웅 결제</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/student-payment-history-issue-bq3o9c" target="_blank" rel="noopener">claude/student-payment-history-issue-bq3o9c</a></li>
+<li><span class="t">09:52</span><span class="ttl">수강료 미납 자동 알림(장지웅수강료)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/unpaid-tuition-auto-alert-rk0y7v" target="_blank" rel="noopener">claude/unpaid-tuition-auto-alert-rk0y7v</a></li>
+<li><span class="t">09:04</span><span class="ttl">한국인 영업담당자 인사평가 시스템</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/korean-sales-performance-system-1q4dqi" target="_blank" rel="noopener">claude/korean-sales-performance-system-1q4dqi</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 17일 (월)</span><span class="day-count">9건</span></h3>
+<ul class="reg">
+<li><span class="t">18:13</span><span class="ttl">코호트 요약 안내 및 검토</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/cohort-summary-guide-review-lapj0g" target="_blank" rel="noopener">claude/cohort-summary-guide-review-lapj0g</a></li>
+<li><span class="t">16:02</span><span class="ttl">숫자 오류 확인</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/number-error-check-ebdevt" target="_blank" rel="noopener">claude/number-error-check-ebdevt</a></li>
+<li><span class="t">15:58</span><span class="ttl">지도 로딩 속도 문제</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/map-loading-performance-p4w1m0" target="_blank" rel="noopener">claude/map-loading-performance-p4w1m0</a></li>
+<li><span class="t">14:14</span><span class="ttl">코드 전체 정리</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/code-cleanup-wxd5fk" target="_blank" rel="noopener">claude/code-cleanup-wxd5fk</a></li>
+<li><span class="t">11:15</span><span class="ttl">mangoi.ai 웜업 및 상담사 버그</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mangoi-warmup-counselor-bug-txvy9b" target="_blank" rel="noopener">claude/mangoi-warmup-counselor-bug-txvy9b</a></li>
+<li><span class="t">09:11</span><span class="ttl">망고아이 수업 시간 유연화</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mangoai-flexible-lesson-duration-tfej3j" target="_blank" rel="noopener">claude/mangoai-flexible-lesson-duration-tfej3j</a></li>
+<li><span class="t">04:52</span><span class="ttl">Mr. mango 캐릭터 레이아웃</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mr-mango-character-layout-fevi7a" target="_blank" rel="noopener">claude/mr-mango-character-layout-fevi7a</a></li>
+<li><span class="t">02:59</span><span class="ttl">MangoiAi 홈페이지 안내 PPT</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mangoiai-homepage-ppt-shm6dx" target="_blank" rel="noopener">claude/mangoiai-homepage-ppt-shm6dx</a></li>
+<li><span class="t">02:43</span><span class="ttl">로그인 비밀번호 변경 오류</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/login-password-change-error-z0nhyr" target="_blank" rel="noopener">claude/login-password-change-error-z0nhyr</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 16일 (일)</span><span class="day-count">5건</span></h3>
+<ul class="reg">
+<li><span class="t">20:47</span><span class="ttl">관리자 페이지 사용 버튼 크기 조정</span><span class="chip idle">멈춤</span><span class="branch none">브랜치 없음</span></li>
+<li><span class="t">20:39</span><span class="ttl">회계 정산 개선 및 수정 (장지웅 정산)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/accounting-report-download-3v72jb" target="_blank" rel="noopener">claude/accounting-report-download-3v72jb</a></li>
+<li><span class="t">19:12</span><span class="ttl">망고아이 모바일 사이드바 개선</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mango-mobile-sidebar-ynrv5n" target="_blank" rel="noopener">claude/mango-mobile-sidebar-ynrv5n</a></li>
+<li><span class="t">01:44</span><span class="ttl">경량 업무 승인 시스템 설계</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/lightweight-approval-system-174d5y" target="_blank" rel="noopener">claude/lightweight-approval-system-174d5y</a></li>
+<li><span class="t">00:21</span><span class="ttl">관리자 페이지 성능 최적화</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/admin-page-performance-vat7oi" target="_blank" rel="noopener">claude/admin-page-performance-vat7oi</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 15일 (토)</span><span class="day-count">8건</span></h3>
+<ul class="reg">
+<li><span class="t">22:19</span><span class="ttl">사이드바 메뉴 정렬 문제</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/sidebar-menu-alignment-sdto1h" target="_blank" rel="noopener">claude/sidebar-menu-alignment-sdto1h</a></li>
+<li><span class="t">21:44</span><span class="ttl">망고아이 이중 운영 전략</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mangoai-dual-operation-strategy-okz8rk" target="_blank" rel="noopener">claude/mangoai-dual-operation-strategy-okz8rk</a></li>
+<li><span class="t">21:14</span><span class="ttl">교사 대시보드 경량화 방안</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/teacher-dashboard-optimization-h3ar4u" target="_blank" rel="noopener">claude/teacher-dashboard-optimization-h3ar4u</a></li>
+<li><span class="t">21:09</span><span class="ttl">카페24 작동 안 함</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/cafe24-not-working-dsvl9l" target="_blank" rel="noopener">claude/cafe24-not-working-dsvl9l</a></li>
+<li><span class="t">07:34</span><span class="ttl">엑셀 사용자 정보 양식</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/excel-user-info-form-p6dki9" target="_blank" rel="noopener">claude/excel-user-info-form-p6dki9</a></li>
+<li><span class="t">06:13</span><span class="ttl">망고아이 사이트 구조 차트</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mangoai-site-structure-chart-n1wa7u" target="_blank" rel="noopener">claude/mangoai-site-structure-chart-n1wa7u</a></li>
+<li><span class="t">05:55</span><span class="ttl">연속 출석 랭킹 이름/아이디 분리</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/attendance-ranking-name-id-r84vek" target="_blank" rel="noopener">claude/attendance-ranking-name-id-r84vek</a></li>
+<li><span class="t">05:29</span><span class="ttl">관리자페이지 대시보드 레이아웃 개선</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/admin-dashboard-layout-88syoh" target="_blank" rel="noopener">claude/admin-dashboard-layout-88syoh</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 14일 (금)</span><span class="day-count">7건</span></h3>
+<ul class="reg">
+<li><span class="t">22:27</span><span class="ttl">일지 작성 및 PDF 추가</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/create-daily-log-pdf-nqtxfo" target="_blank" rel="noopener">claude/create-daily-log-pdf-nqtxfo</a></li>
+<li><span class="t">21:33</span><span class="ttl">음성코치 이름 통일</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/voice-coach-naming-consistency-fu1x8p" target="_blank" rel="noopener">claude/voice-coach-naming-consistency-fu1x8p</a></li>
+<li><span class="t">14:36</span><span class="ttl">매출 표시 버그 수정(장지웅 매출)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/shinhan-account-payment-issue-ej7sct" target="_blank" rel="noopener">claude/shinhan-account-payment-issue-ej7sct</a></li>
+<li><span class="t">12:54</span><span class="ttl">Melca요청사항(관리자페이지)</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/manager-dark-mode-language-6qro8a" target="_blank" rel="noopener">claude/manager-dark-mode-language-6qro8a</a></li>
+<li><span class="t">08:24</span><span class="ttl">maimai 보고서 및 제안서</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/maimai-report-proposal-2zakz9" target="_blank" rel="noopener">claude/maimai-report-proposal-2zakz9</a></li>
+<li><span class="t">08:19</span><span class="ttl">PDF 보고서 작성</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/pdf-report-generation-ika7r8" target="_blank" rel="noopener">claude/pdf-report-generation-ika7r8</a></li>
+<li><span class="t">08:03</span><span class="ttl">장지웅요청사항</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/task-processing-f4rfel" target="_blank" rel="noopener">claude/task-processing-f4rfel</a></li>
+</ul>
+<h3 class="day"><span class="day-date">8월 13일 (목)</span><span class="day-count">9건</span></h3>
+<ul class="reg">
+<li><span class="t">20:32</span><span class="ttl">휴대폰 녹화본 저장 안 됨</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/mobile-recording-save-issue-wysaau" target="_blank" rel="noopener">claude/mobile-recording-save-issue-wysaau</a></li>
+<li><span class="t">19:14</span><span class="ttl">법인카드 수정</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/corporate-card-usage-fix-nx3azw" target="_blank" rel="noopener">claude/corporate-card-usage-fix-nx3azw</a></li>
+<li><span class="t">18:34</span><span class="ttl">Karl의 문제 해결</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/karl-issue-resolution-u2jgqb" target="_blank" rel="noopener">claude/karl-issue-resolution-u2jgqb</a></li>
+<li><span class="t">18:29</span><span class="ttl">요청사항 정리 및 실행</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/organize-and-execute-requests-me4ewi" target="_blank" rel="noopener">claude/organize-and-execute-requests-me4ewi</a></li>
+<li><span class="t">17:54</span><span class="ttl">문제점과 해결방법</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/problem-and-solution-hdn2ws" target="_blank" rel="noopener">claude/problem-and-solution-hdn2ws</a></li>
+<li><span class="t">07:57</span><span class="ttl">필리핀 교사 카카오ID 관리</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/philippines-teacher-kakao-id-pb6eli" target="_blank" rel="noopener">claude/philippines-teacher-kakao-id-pb6eli</a></li>
+<li><span class="t">07:46</span><span class="ttl">좀비 구간 영상/음성 편집</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/zombie-section-video-audio-edit-0jhcxz" target="_blank" rel="noopener">claude/zombie-section-video-audio-edit-0jhcxz</a></li>
+<li><span class="t">07:05</span><span class="ttl">maimai 진행 상황 한글 PDF</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/maimai-status-korean-pdf-ev8x4w" target="_blank" rel="noopener">claude/maimai-status-korean-pdf-ev8x4w</a></li>
+<li><span class="t">06:58</span><span class="ttl">게임에 적용</span><span class="chip idle">멈춤</span><a class="branch" href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr+head%3Aclaude/apply-to-game-jr8lja" target="_blank" rel="noopener">claude/apply-to-game-jr8lja</a></li>
+</ul>
+</section>
+
+<section>
+  <h2>앞으로 같이 보려면</h2>
+  <p>세션을 공유하는 방법은 없습니다. 대신 <strong>작업이 끝날 때 저장소에 흔적을 남기는 것</strong>이 공유 수단이고,
+  이 저장소는 이미 그렇게 굴러가고 있습니다.</p>
+  <ol>
+    <li>세션마다 브랜치 하나 → PR 로 올림 (PR 본문에 «왜» 를 적음)</li>
+    <li>끝나면 <code>/worklog</code> 로 <code>docs/작업기록/</code> 에 판단 기록을 남김</li>
+    <li>새로 밟은 함정은 <code>CLAUDE.md</code> 2장 표에 추가</li>
+  </ol>
+  <div class="tblwrap"><table>
+    <tr><th>장 부장이 볼 자리</th><th>주소</th></tr>
+    <tr><td>작업 목록 (PR)</td><td><a href="https://github.com/navy111p-sudo/mangoiweb/pulls?q=is%3Apr" target="_blank" rel="noopener">https://github.com/navy111p-sudo/mangoiweb/pulls</a></td></tr>
+    <tr><td>판단 기록</td><td><a href="https://github.com/navy111p-sudo/mangoiweb/tree/main/docs/작업기록" target="_blank" rel="noopener">docs/작업기록/</a></td></tr>
+    <tr><td>문서 목차</td><td><a href="https://github.com/navy111p-sudo/mangoiweb/blob/main/docs/INDEX.md" target="_blank" rel="noopener">docs/INDEX.md</a></td></tr>
+  </table></div>
+</section>
+
+<footer>
+  <span>제목이 <code>Dispatch background conversation</code> 인 11건은 데스크톱 앱이 자동으로 만든 빈 세션이라 목록에서 뺐습니다 (2026-03-22 ~ 2026-08-05).</span>
+  <span>저장소 원본: <a href="https://github.com/navy111p-sudo/mangoiweb/blob/main/docs/클로드_작업세션_목록_2026-08-19.md" target="_blank" rel="noopener">docs/클로드_작업세션_목록_2026-08-19.md</a> · 2026-08-19 기준</span>
+</footer>
+</div>
