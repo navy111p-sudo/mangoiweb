@@ -55,9 +55,11 @@
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
            거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
-        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'] },
+        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
+          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
         { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
-        { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'] },
+        { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
+          tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
         { ko: '방 초대',    en: 'Room invites',    cards: ['card-room-invite'] },
         /* 🐞 (2026-08-13 수정요청 #04) 「문의·버그」 한 항목이 신규상담 카드와 버그 카드를
            **함께** 띄우고 있었다. 버그·문의를 보러 온 사람 화면 맨 위에 «신규상담 → 등록 전환»
@@ -71,7 +73,8 @@
               wireRevealOnJump 가 data-card 로 항목을 찾으므로, 옛 사이드바·검색·허브에서
               버그 카드로 점프할 때 지금까지 showAll() 로 새던 것이 제 항목으로 간다. */
         { ko: '신규상담',    en: 'Inquiries',      cards: ['card-inquiry-mgmt'] },
-        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'] },
+        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
+          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' },
         { ko: '알림함',     en: 'Alerts',          cards: ['card-admin-alerts', 'card-notifications'] }
       ]
     },
@@ -106,6 +109,8 @@
               페이지 맨 위만 열린다. `sidebar_three_level_harness.mjs` 가 파일을 열어 확인한다.
            ⛔ 없는 구역 이름을 지어 넣지 말 것(2026-08-18 「데모 매핑」 사고와 같은 함정). */
         { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html',
+          tip: '📅 20·30·40분 변경 신청 — 매달 1일에 한꺼번에 반영',
+          tipEn: '📅 Class-length requests — applied on the 1st of each month',
           secs: [
             { ko: '❓ 이 화면이 뭔가요',       en: '❓ What is this page', id: 'dr-guide' },
             { ko: '🔍 미리보기 · 이번 달 반영', en: '🔍 Preview & apply',  id: 'dr-apply' },
@@ -122,7 +127,9 @@
               직접 박지 말 것. */
         /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
            /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
-        { ko: '수강 운영(배율·정원)', en: 'Enrollment ops', href: '/enroll-ops.html',
+        { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
+          tip: '📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산',
+          tipEn: '📚 Teacher rates, long-class capacity, holidays, refunds',
           secs: [
             { ko: '🎌 공휴일',          en: '🎌 Holidays',        id: 'holidays' },
             { ko: '⏰ 종료 후보 명단',   en: '⏰ Ending soon',     id: 'ending' },
@@ -131,8 +138,10 @@
             { ko: '🏖 강사 휴가 대체',   en: '🏖 Leave cover',     id: 'leave' },
             { ko: '🔔 자동 작업 점검',   en: '🔔 Auto jobs',       id: 'sweeps' }
           ] },
-        { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'] },
-        { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'] }
+        { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'],
+          tip: '⭐ 수업 직후 학생 별점 · 칭찬 통계 · 참관', tipEn: '⭐ Post-class ratings, praise stats, observation' },
+        { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'],
+          tip: '📶 화상 회선 품질 · 수업 변경 이력 · 노쇼', tipEn: '📶 Call quality, class change history, no-shows' }
       ]
     },
     {
@@ -141,7 +150,8 @@
       items: [
         { ko: '평가서',      en: 'Evaluations',       cards: ['card-eval-mgmt', 'card-bulk-eval', 'card-ai-lesson-report', 'card-ai-eval-draft', 'card-monthly-report', 'card-comparison-report', 'card-monthly-ai-report', 'card-lesson-insight'] },
         { ko: '교재',        en: 'Textbooks',         cards: ['card-textbooks', 'card-video-dict'] },
-        { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'] },
+        { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'],
+          tip: '🧩 복습퀴즈 · 마이크로러닝 · 발음교정 · 음성일기', tipEn: '🧩 Review quiz, micro-learning, pronunciation, voice diary' },
         { ko: '숙제',        en: 'Homework',          cards: ['card-homework'] },
         { ko: '녹화',        en: 'Recordings',        cards: ['card-recording-storage'] },
         { ko: '학습 분석',   en: 'Learning analytics',cards: ['card-voice-stats', 'card-selfscore'] }
@@ -170,7 +180,9 @@
            (card-franchises)를 열고 있어서, 대표지사·지사·대리점 항목과 손자가 똑같았다.
            진짜 정산 화면은 회계 카드 안 「🏢 지점/가맹점 정산 (한눈에)」(sub-acc-5) 다.
            ⚠️ 캐피타운 계열 계정은 그대로 전용 페이지로 보낸다(capiHref) — 그 분기는 건드리지 않았다. */
-        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html' }
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html',
+          /* 대표 카드가 회계라, 두지 않으면 「회계」와 «똑같은 툴팁» 이 뜬다(무엇이 다른지 알 수 없다). */
+          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' }
         /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
            「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
            회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
@@ -192,10 +204,17 @@
         /* 🗑 (2026-08-18 사장님 결정) 「조직 (지사·대리점)」 을 뺐다 — 아래 세 항목과 같은 카드를
            가리켜 손자 4줄이 네 번 반복됐다. 대신 그 카드의 네 번째 칸 「🏯 본사 관리」 를
            항목으로 세운다. 그렇게 하지 않으면 「조직」 을 없앤 순간 본사 관리로 갈 길이 사라진다. */
-        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches' },
-        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches' },
-        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' },
-        { ko: '본사 관리', en: 'HQ',           cards: ['card-franchises'], openSub: 'card-hq-orgs' }
+        /* 💬 (2026-08-19) 넷은 «같은 카드의 다른 칸» 이라, 카드 기준 툴팁(adm-s15)을 그대로 받으면
+           「🏬 가맹점·지사·대리점 관리」 한 줄이 네 번 똑같이 뜬다 — 무엇이 다른지 알 수 없다.
+           그래서 항목마다 «자기» 설명을 준다(아래 tip). 카드 툴팁보다 이것이 우선한다. */
+        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches',
+          tip: '🏛️ 여러 지사를 묶는 권역 단위', tipEn: '🏛️ Regional group of several branches' },
+        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches',
+          tip: '🏢 지사 명부 — 소속 대리점 찾기', tipEn: '🏢 Branch list — find agencies under a branch' },
+        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers',
+          tip: '🏪 대리점(학원) 명부 — 소속 지사 · 결제유형', tipEn: '🏪 Agency list — branch and payment type' },
+        { ko: '본사 관리', en: 'HQ',           cards: ['card-franchises'], openSub: 'card-hq-orgs',
+          tip: '🏯 본사 법인 정보 (사업자번호 · 대표이사)', tipEn: '🏯 HQ corporate info' }
       ]
     },
     {
@@ -206,10 +225,12 @@
       key: 'ops', ko: '시스템', en: 'System',
       ico: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.6 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
       items: [
-        { ko: '경영 지표',   en: 'Dashboard',     cards: ['card-dashboard', 'card-kpi-dashboard', 'card-daily-charts', 'card-rankings', 'card-nps-monthly'] },
+        { ko: '경영 지표',   en: 'Dashboard',     cards: ['card-dashboard', 'card-kpi-dashboard', 'card-daily-charts', 'card-rankings', 'card-nps-monthly'],
+          tip: '📊 매출 · 학생 · 강사 핵심 지표 한눈에', tipEn: '📊 Revenue, students, teachers at a glance' },
         { ko: '이탈·예측',   en: 'Retention',     cards: ['card-retention-risk', 'card-ai-forecast'] },
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
-        { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
+        { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
+          tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
         { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
         /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
@@ -643,6 +664,12 @@
            손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
            그 항목만 손자가 없는 «2단짜리» 로 남는다. */
         if (it.href) d.setAttribute('data-ia6-href', it.href);
+        /* 💬 (2026-08-19) 이 항목만의 설명. 툴팁을 붙이는 곳은 adm-s15.js 한 곳인데, 거기는
+           «대표 카드» 기준이라 ① 카드를 여럿 맡거나 ② 같은 카드의 다른 칸을 가리키거나
+           ③ 카드가 아예 없는(딴 페이지) 항목에서는 엉뚱하거나 빈 설명이 된다.
+           그래서 항목이 자기 설명을 가지면 그것을 싣고, adm-s15 가 이 값을 우선한다. */
+        if (it.tip) d.setAttribute('data-ia6-tip', it.tip);
+        if (it.tipEn) d.setAttribute('data-ia6-tip-en', it.tipEn);
         if (it.href && it.secs && it.secs.length) {
           try { d.setAttribute('data-ia6-secs', JSON.stringify(it.secs)); } catch (e) { /* 무시 */ }
         }
@@ -991,7 +1018,10 @@
       'money:조직 (지사·대리점)': 'org:대표지사',
       // 🗑 (2026-08-18) 없앤 두 항목을 잇는다. 안 이으면 어제 보던 화면이 「오늘의 수업」으로 튄다.
       'org:조직 (지사·대리점)': 'org:대표지사',
-      'money:매출 대시보드': 'money:회계'
+      'money:매출 대시보드': 'money:회계',
+      /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
+         이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
+      'teacher:수강 운영(배율·정원)': 'teacher:수강 운영'
     };
     if (want && RENAMED[want]) {
       want = RENAMED[want];
