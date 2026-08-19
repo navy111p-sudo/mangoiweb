@@ -12319,6 +12319,19 @@ LIMIT $limit`;
     if (path.startsWith('/api/admin/counseling/')) {
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+      /* 🪤 위 `/api/counseling/` 블록과 같은 함정 — CREATE TABLE IF NOT EXISTS 는 표가 이미 있으면
+       *    컬럼이 모자라도 그대로 둔다. 이 블록만 ALTER 가 빠져 있어서 슬롯 생성이 항상
+       *    "no such column: staff_uid" 로 500 이었다(2026-08-19 실측). */
+      for (const ddl of [
+        `ALTER TABLE counseling_slots ADD COLUMN status TEXT DEFAULT 'open'`,
+        `ALTER TABLE counseling_slots ADD COLUMN duration_min INTEGER DEFAULT 30`,
+        `ALTER TABLE counseling_slots ADD COLUMN staff_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN status TEXT DEFAULT '예약'`,
+        `ALTER TABLE counseling_bookings ADD COLUMN slot_id INTEGER`,
+        `ALTER TABLE counseling_bookings ADD COLUMN parent_phone TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN student_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN topic TEXT`,
+      ]) { try { await env.DB.exec(ddl); } catch {} }   // 이미 있으면 에러 → 무시가 정상
     }
     if (method === 'POST' && path === '/api/admin/counseling/slot/open') {
       const b = await parseJsonBody(request);

@@ -27,6 +27,7 @@
 | 영업 휴대폰 화면 (운전 중용) | [열기](https://claude.ai/code/artifact/0795d08b-1f9f-4013-9416-764202f19f38) | [영업_휴대폰화면_샘플_260818.html](영업_휴대폰화면_샘플_260818.html) |
 | 아바타 키우기 안내 (직원용) | [열기](https://claude.ai/code/artifact/9c3dc189-83d9-4bae-9402-2351d3dea87a) | [아바타키우기_안내_직원용.html](아바타키우기_안내_직원용.html) |
 | 클로드 작업 세션 기록 | [열기](https://claude.ai/code/artifact/fdb5577f-bb58-463a-b2b1-38e87de21492) | [클로드_작업세션_목록_2026-08-19.md](클로드_작업세션_목록_2026-08-19.md) |
+| 일일업무 보고서 (누적) | [열기](https://claude.ai/code/artifact/dc51ec99-7ae7-411e-8819-e9813b75099b) | [업무보고/일일업무보고.md](업무보고/일일업무보고.md) |
 | Avatar Quest Staff Guide (EN) | [열기](https://claude.ai/code/artifact/354199b8-2df0-4ed9-b795-f5c99016400a) | [AvatarQuest_Staff_Guide_EN.html](AvatarQuest_Staff_Guide_EN.html) |
 
 ---
@@ -195,6 +196,8 @@
 | [Mangoi_Easy_Report_2026-07-21_EN.html](Mangoi_Easy_Report_2026-07-21_EN.html) | 쉬운 보고서 (영문) |
 | [MANGO_AI_안내_통합본_2026-08-17.pptx](MANGO_AI_안내_통합본_2026-08-17.pptx) | 안내 통합 슬라이드 |
 | [개발일지_소스/](개발일지_소스/) | 개발일지 원본 (한/영, 요약본 포함) |
+| [업무보고/일일업무보고.md](업무보고/일일업무보고.md) | **일일업무 보고서 (누적, 최신이 맨 위)** — 상관 보고용, 업무마다 된것·안된것·진행중·요청사항 + 깃허브 링크 + 타임라인 |
+| [업무보고/망고아이_업무보고_전문용어해설_260819.pdf](업무보고/망고아이_업무보고_전문용어해설_260819.pdf) | 위 보고서에 나오는 개발 용어 쉬운 해설 (PDF) |
 
 ## 9. 제보 · 개선 요청 처리 이력
 
