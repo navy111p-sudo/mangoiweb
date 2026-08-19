@@ -22,10 +22,19 @@
     ⚠️ 호스트명을 그대로 쓰는 코드는 여전히 조심하세요. 패스키가 정확히 그랬고
     (`rpId` 가 달라져 «어제까진 지문으로 됐는데» 가 됩니다), `src/api-passkey.ts` 의 `resolveRpId()` 로 apex 에 묶어
     리다이렉트가 없어도 버티게 해 뒀습니다. 비슷한 코드를 새로 쓸 때 같은 함정을 확인하세요
-  - **`test.mangoi.co.kr` 도 같은 Worker 입니다.** 죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라,
-    아직 여러 곳에 하드코딩돼 있습니다 — `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
+  - **`test.mangoi.co.kr` 도 `-prod` 워커입니다** — 단, **2026-08-19 에 옮긴 것입니다.**
+    죽은 주소가 아니라 **먼저 붙인 커스텀 도메인**이라 아직 여러 곳에 하드코딩돼 있습니다 —
+    `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본 `BaseUrl`(=`deploy.ps1` 의 배포 전/후 스모크 15종),
     `ops/mangoi-watchdog.sh`, 여러 하니스. **그 코드들을 무심코 `mangoi.ai` 로 바꾸지 마세요** —
     워치독·스모크까지 같이 확인해야 하는 별건 작업입니다 (도메인 정리는 사람이 결정)
+    - 🔴 **2026-08-19 이전에는 기본 워커(`webrtc-unified-platform`)에 붙어 있었습니다.**
+      이 저장소는 워커를 **두 벌** 배포합니다(`deploy.ps1` [6]·`deploy.yml` 1)2) 단계) —
+      `webrtc-unified-platform`(기본)과 `webrtc-unified-platform-prod`(운영). 그래서 이 문서에도
+      MAINTENANCE.md 에도 오래도록 「같은 Worker」라고 **틀리게** 적혀 있었습니다.
+      그 오해가 실제로 낸 사고는 아래 2장 「같은 방 번호인데 서로 안 보인다」 함정입니다.
+      ⚠️ **도메인이 어느 워커에 붙어 있는지는 코드에 없습니다** — `wrangler.toml` 에 `routes` 가
+      한 줄도 없고 전부 Cloudflare 대시보드에서 관리합니다. 추측하지 말고
+      **Workers & Pages > 해당 워커 > Settings > Domains & Routes** 에서 눈으로 확인하세요
   - ⏳ **앱 시작 URL 은 `mangoi.ai` 로 옮기는 중입니다** (2026-08-17). 소스는 바꿨지만
     **이미 깔린 앱은 APK 에 박힌 옛 주소를 계속 봅니다.** 그래서 `test.mangoi.co.kr` 은
     **설치 기반이 새 버전으로 넘어갈 때까지 반드시 살려 둬야 합니다.**
@@ -103,6 +112,8 @@
 | `deploy.ps1` 위치 | **리포 루트**입니다. `cloudflare-deploy/` 안이 아닙니다 |
 | 배포 후 curl 검증 | 주소는 **`https://mangoi.ai`**(`test.mangoi.co.kr` 도 같은 Worker 라 둘 다 됩니다). `mango-i.com` 은 없는 도메인이라 무조건 실패합니다. CDN에 구버전이 남아 있을 수 있으니 `curl --compressed` + 캐시 우회로 확인 |
 | 사람에게 링크를 안내할 때 | 문자·알림톡·안내문에 넣는 주소는 **`https://mangoi.ai`**. 「어디에도 안 보인다」 류의 제보는 **엉뚱한 도메인을 안내해서** 생기는 경우가 있습니다(2026-08-17 실제로 밟음 — 문서엔 `test.mangoi.co.kr`, 사장님 화면엔 `mangoi.ai`) |
+| 같은 방 번호를 넣었는데 **서로 안 보이고 둘 다 「참여자 1명」** | 🔴 **두 사람이 서로 다른 «워커» 의 방에 있는 것입니다.** 이 저장소는 워커를 두 벌 배포하는데(`webrtc-unified-platform` · `-prod`), `wrangler.toml` 이 **각 워커마다 `new_sqlite_classes = ["VideoCallRoom"]` 을 따로 선언**합니다 → **Durable Object 네임스페이스가 갈립니다.** 그래서 `idFromName("class-849-20260819")` 이 워커마다 **다른 방**을 만듭니다. WebSocket 주소는 `location.host` 로 만들어지므로(`js/idx-main.js` `createWebSocket`) **어느 도메인으로 열었느냐가 곧 어느 방이냐**입니다. ⚠️ **D1·KV·R2 는 두 워커가 같은 id 를 공유**합니다 — 그래서 `attendance`·`room_tokens` 에는 둘 다 «같은 방에 있었다» 고 남고, **DB 만 보면 정상으로 보입니다.** 갈리는 건 DO 하나뿐입니다. 2026-08-19 실제로 밟음: 중국인 강선생님(`test.mangoi.co.kr` = 당시 기본 워커) 과 사장님(`mangoi.ai` = `-prod`) 이 **7/31부터 8/19까지 여덟 번의 수업에서 한 번도 만나지 못했습니다.** 매번 「강사 미입장」 알림까지 떴는데 출석 기록에는 강사가 13분간 접속해 있었습니다. ✅ 확인은 **양쪽 주소창의 호스트명 비교**가 제일 빠릅니다. ⛔ 「방 번호가 다른가」부터 의심하지 마세요 — 방 번호는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이라 어긋날 일이 거의 없습니다 |
+| 도메인을 `wrangler.toml` 에 «못 박으려» 할 때 | ⛔ **`routes` 를 한 줄만 적으면 나머지 도메인이 다음 배포에 지워집니다.** Cloudflare 문서가 명시합니다 — 「대시보드에서 라우트를 바꿔도, 다음 배포에서 **wrangler 설정 파일에 적힌 라우트로 덮어씁니다**」. 즉 `routes` 는 «추가» 가 아니라 **«전체 목록»** 입니다. `[env.production]` 에 `test.mangoi.co.kr` 만 적고 배포하면 **`mangoi.ai`·`www.mangoi.ai` 가 떨어져 서비스 전체가 내려갑니다.** ⛔ 덤으로 **`routes` 를 넣는 순간 `workers_dev` 가 `false` 로 «추론»** 됩니다(문서 명시) → `webrtc-unified-platform-prod.navy111p.workers.dev` 가 죽고, 그 주소를 쓰는 `deploy.ps1`(77행 배포 확인)·`deploy-full.ps1`(130행 `_bootstrap`)·`deploy.yml`(164·174행)이 함께 깨집니다. ✅ 그래서 이 저장소는 **도메인을 대시보드에서만 관리하고 `wrangler.toml` 에는 `routes` 를 두지 않습니다.** 정말 못 박으려면 **붙어 있는 도메인을 하나도 빠뜨리지 말고 전부 적고 `workers_dev = true` 도 함께** 적으세요 |
 | D1 쿼리 | 파라미터 **100개 제한**. `IN` 절은 90개 이하로 잘라서 실행 |
 | `wrangler.toml` 값 수정 | `[vars]` 와 `[env.production.vars]` 에 **같은 값이 한 벌 더** 있습니다. 둘 다 고쳐야 함 |
 | 언어 설정 키 | 공통 키는 `mangoi_lang` 입니다. `mango_lang` 은 구버전 키 |
