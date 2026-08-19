@@ -13464,17 +13464,17 @@ window.rebuildGlobalSearchIndex = function() {
 
   // 사용자 목록 (데모)
   const SAMPLE_USERS = [
-    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active', password:'admin' },
-    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active', password:'cfo' },
-    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active', password:'ops' },
-    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active', password:'teacher' },
-    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active', password:'teacher' },
-    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', password:'busan',   branch_id:'test_br_3'  /* 부산 */ },
-    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', password:'daegu',   branch_id:'test_br_8'  /* 대구 */ },
-    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', password:'incheon', branch_id:'test_br_2'  /* 인천 */ },
-    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', password:'gn001',   agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
-    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', password:'sc002',   agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
-    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', password:'pj003',  agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
+    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active' },
+    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active' },
+    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active' },
+    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active' },
+    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active' },
+    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', branch_id:'test_br_3'  /* 부산 */ },
+    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', branch_id:'test_br_8'  /* 대구 */ },
+    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', branch_id:'test_br_2'  /* 인천 */ },
+    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
+    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
+    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
     { uid:'parent_hong01',   name:'홍길순',  role:'parent', branch:'학부모 (홍길동 모)', status:'active' },
     { uid:'parent_kim02',    name:'김순영',  role:'parent', branch:'학부모 (김민수 모)', status:'active' },
     { uid:'parent_lee03',    name:'이수자',  role:'parent', branch:'학부모 (이지민 모)', status:'active' },
@@ -13666,7 +13666,7 @@ window.rebuildGlobalSearchIndex = function() {
     const dyn = (function(){ try { return JSON.parse(localStorage.getItem('mangoi_hq_employees') || '[]'); } catch(e){ return []; } })();
     return SAMPLE_USERS.concat(dyn.map(e => ({
       uid: e.uid, name: e.name, role: e.rank,
-      branch: e.branch || '', password: 'demo',  // 동적 등록 직원 데모 비번
+      branch: e.branch || '',
       _origin: 'dynamic'
     })));
   }
@@ -13817,35 +13817,17 @@ window.rebuildGlobalSearchIndex = function() {
       '<div style="margin-top:3px;font-size:10.5px;font-weight:500;opacity:0.75">📦 ' + scope + '</div>';
   }
 
+  // 🔐 (2026-08-19) 화면 안에서 비번을 대조하던 «옛 오버레이 로그인» 폐지.
+  //   admin.html 에 `#admin-login-overlay` 폼은 이미 없어 부를 곳이 없는데, SAMPLE_USERS 에
+  //   평문 비번(busan·gn001·teacher…)이 남아 있었다. 이 파일은 /js/adm-core.js 로 **누구나
+  //   받아 볼 수 있는 공개 자산**이라, 그 값이 곧 실계정(branch_busan 등) 비번 힌트였다.
+  //   → 평문 비번을 지우고, 이 함수는 서버 로그인으로만 보낸다. 화면에서 «비번이 맞나» 를
+  //     판정하는 길을 남겨 두면 언제든 같은 유출이 다시 생긴다.
   window.adminLogin = function() {
     const $ = id => document.getElementById(id);
-    const uid = ($('admin-login-uid')?.value || '').trim();
-    const pw = ($('admin-login-pw')?.value || '').trim();
     const msg = $('admin-login-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
-    if (msg) msg.style.display = 'none';
-    if (!uid || !pw) return showErr('⚠️ 아이디와 비밀번호를 입력해 주세요.');
-    const users = _allUsers();
-    const u = users.find(x => x.uid === uid);
-    if (!u) return showErr('❌ 존재하지 않는 아이디입니다.');
-    if (u.password && u.password !== pw) return showErr('❌ 비밀번호가 일치하지 않습니다.');
-    if (u.status === 'pending') return showErr('⏸ 가입 승인 대기 중인 계정입니다.');
-    const session = {
-      uid: u.uid, name: u.name, role: u.role,
-      branch: u.branch || '',
-      branch_id: u.branch_id || u.parent_branch_id || null,
-      agency_id: u.agency_id || null,
-      login_at: Date.now(),
-    };
-    _saveSession(session);
-    window._adminSession = session;
-    _renderSessionBanner();
-    pushAuditLog((adminLang==='en'?'Login: ':'로그인: ') + u.name + ' (' + u.uid + ' · ' + u.role + ')');
-    // 권한별 일부 메뉴 숨김 (본사가 아닌 경우 권한 설정 카드 등)
-    _applyMenuVisibility();
-    // 학생 목록 등 다시 로드
-    if (typeof loadStudentList === 'function') try { loadStudentList(); } catch(e){}
-    if (typeof loadFranchises === 'function') try { loadFranchises(); } catch(e){}
+    if (msg) { msg.textContent = '🔐 로그인 화면으로 이동합니다.'; msg.style.display = 'block'; }
+    location.href = '/admin/login?next=' + encodeURIComponent(location.pathname + location.search);
   };
 
   window.adminLogout = function() {
