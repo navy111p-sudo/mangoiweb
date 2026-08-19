@@ -14487,8 +14487,14 @@ document.addEventListener('keydown', function(e){
   var N_HOL_EN={'신정':"New Year's Day",'설날':'Lunar New Year (Seollal)','설날 연휴':'Lunar New Year Holiday','삼일절':'Independence Movement Day','어린이날':"Children's Day",'부처님오신날':"Buddha's Birthday",'현충일':'Memorial Day','광복절':'Liberation Day','추석':'Chuseok','추석 연휴':'Chuseok Holiday','개천절':'National Foundation Day','한글날':'Hangeul Day','크리스마스':'Christmas'};
   function nHolEn(t){t=String(t==null?'':t).trim();if(N_HOL_EN[t])return N_HOL_EN[t];var m=t.match(/^대체공휴일\((.+)\)$/);if(m){var inner=m[1].trim();return 'Substitute Holiday ('+(N_HOL_EN[inner]||inner)+')';}return t;}   // 매핑 없으면 원문(관리자 커스텀·필리핀 영어명)
   function nTitle(e){return nIsEn()?nHolEn(e.title):e.title;}
-  window.closeClassEntryNotice=function(){var el=document.getElementById('mangoi-class-notice');if(el&&el.parentNode)el.parentNode.removeChild(el);};
+  /* ❌ 닫기(2026-08-19) — 같은 id 상자가 두 벌 쌓일 수 있어 «전부» 지운다. 이유는 CLAUDE.md 2장 */
+  var N_NOTICE_CLOSED=false, N_NOTICE_BUSY=false;
+  function nRemoveAll(){ try{var ns=document.querySelectorAll('#mangoi-class-notice');
+    for(var i=0;i<ns.length;i++){ if(ns[i].parentNode) ns[i].parentNode.removeChild(ns[i]); } }catch(e){} }
+  window.closeClassEntryNotice=function(){ N_NOTICE_CLOSED=true; nRemoveAll(); };   // 사람이 닫았으면 다시 안 만든다
   window.mangoiClassEntryNotice=async function(){
+    if(N_NOTICE_CLOSED||N_NOTICE_BUSY)return;   // 닫았거나 만드는 중(fetch 대기)이면 두 번째는 안 만든다
+    N_NOTICE_BUSY=true;
     try{
       if(document.getElementById('mangoi-class-notice'))return;
       var today=new Date();today.setHours(0,0,0,0);
@@ -14498,6 +14504,8 @@ document.addEventListener('keydown', function(e){
       var j=await res.json();
       var evs=((j&&j.events)||[]).filter(function(e){return (e.end_date||e.date)>=t0;});
       evs.sort(function(a,b){return a.date<b.date?-1:1;});
+      /* 🔁 같은 일정 중복 줄 제거 */
+      var seen={};evs=evs.filter(function(e){var k=(e.date||'')+'|'+(e.end_date||'')+'|'+(e.title||'')+'|'+(e.country||'');if(seen[k])return false;seen[k]=1;return true;});
       if(!evs.length)return;
       evs=evs.slice(0,6);
       var rows=evs.map(function(e){
@@ -14510,15 +14518,22 @@ document.addEventListener('keydown', function(e){
       }).join('');
       var box=document.createElement('div');
       box.id='mangoi-class-notice';
-      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;padding:14px 16px 12px;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
+      box.setAttribute('style','position:fixed;top:72px;right:16px;z-index:2147482000;width:300px;max-width:84vw;background:rgba(15,23,42,0.55);backdrop-filter:blur(16px) saturate(140%);-webkit-backdrop-filter:blur(16px) saturate(140%);border:1px solid rgba(255,255,255,0.18);border-radius:16px;box-shadow:0 18px 50px -16px rgba(0,0,0,0.7);color:#fff;font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",Malgun Gothic,맑은 고딕,sans-serif;padding:14px 16px 12px;cursor:pointer;animation:mgNoticeIn .35s cubic-bezier(.2,.8,.2,1)');
+      box.title=(nIsEn()?'Click to close':'눌러서 닫기');
       box.innerHTML='<style>@keyframes mgNoticeIn{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}</style>'
         +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'
         +'<div style="font-size:13.5px;font-weight:800;letter-spacing:.2px">'+(nIsEn()?'📅 Vacation · Holiday Notice':'📅 휴가·공휴일 안내')+'</div>'
-        +'<button type="button" aria-label="'+(nIsEn()?'Close':'닫기')+'" onclick="closeClassEntryNotice()" style="width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:14px;font-weight:800;cursor:pointer;line-height:1">✕</button></div>'
-        +'<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">'+(nIsEn()?'Upcoming (30 days)':'다가오는 일정 (30일)')+'</div>'
+        +'<button type="button" aria-label="'+(nIsEn()?'Close':'닫기')+'" onclick="closeClassEntryNotice()" style="width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:14px;font-weight:800;cursor:pointer;line-height:1">✕</button></div>'
+        +'<div style="font-size:11px;color:#94a3b8;margin-bottom:2px">'+(nIsEn()?'Upcoming (30 days) · tap anywhere to close':'다가오는 일정 (30일) · 아무 곳이나 누르면 닫힙니다')+'</div>'
         +rows;
+      /* 🖱 인라인 onclick 하나에 기대지 않는다 — 캡처·상자 전체·터치도 받는다 */
+      var nKill=function(ev){ try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(_){}; try{ window.closeClassEntryNotice(); }catch(_){} };
+      box.addEventListener('click',nKill,true);
+      box.addEventListener('touchend',nKill,true);
       document.body.appendChild(box);
+      setTimeout(function(){ nRemoveAll(); }, 20000);   // ⏱ 안전망 — 닫기가 안 먹어도 20초 뒤 사라진다
     }catch(e){}
+    finally{ N_NOTICE_BUSY=false; }   // 잠금은 만드는 동안만 — 실패했으면 다음 입장 때 다시 뜬다
   };
 })();
 </script>
