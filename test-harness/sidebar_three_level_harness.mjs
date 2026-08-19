@@ -104,9 +104,13 @@ check('잎에서 손자를 포기하지 않는다 — data-ia6-sub 를 보고 �
 check('딴 페이지 구역을 손자로 만든다 (itemsFromSecs · data-ia6-secs)',
   /function itemsFromSecs\s*\(/.test(r25) && /data-ia6-secs/.test(r25));
 check('adm-ia6.js 가 그 목록을 DOM 에 실어 준다 (data-ia6-secs)', /setAttribute\('data-ia6-secs'/.test(ia6));
-check('자식 메뉴를 «눌러서» 손자를 연다 (openGc)', /function openGc\s*\(/.test(r25));
-check('자식 클릭 리스너가 window 캡처다 — 사이드바에 걸면 ph97 이 삼킨다',
-  /window\.addEventListener\('click',[\s\S]{0,2600}?openGc\(sub, false\);[\s\S]{0,40}?\}, true\);/.test(r25));
+check('자식 메뉴를 «눌러서» 손자를 열고, 다시 누르면 접는다 (openGc 여닫이)', /function openGc\s*\(/.test(r25));
+/* ⚠️ «리스너 시작부터 훑는» 정규식은 쓰지 않는다 — 사이 어딘가에 window 리스너를 하나만 더
+   넣어도(2026-08-19 그룹 접기 리스너) 엉뚱한 리스너를 물어 FAIL 난다.
+   지키려는 것은 «자식 클릭이 여닫이로 열고, 그 리스너가 캡처다» 이므로 끝쪽만 본다. */
+check('자식 클릭이 손자를 여닫는다 (openGc 여닫이)', /openGc\(sub, true\);/.test(r25));
+check('그 리스너가 window 캡처다 — 사이드바에 걸면 ph97 이 삼킨다',
+  /openGc\(sub, true\);[\s\S]{0,120}?\}, true\);/.test(r25));
 check('그룹이 접혀 손자가 사라지지 않게 지킨다 (keepGroupOpen)', /function keepGroupOpen\s*\(/.test(r25));
 
 console.log('\n[ ⑤ «방금 폈다» 표시가 다섯 곳에서 짝이 맞는다 ]');
@@ -146,6 +150,11 @@ check('아이보리+슬레이트 테마의 손자 상자가 따뜻한 크림(#ff
 check('푸른빛 흰색(#f6f9fd)으로 되돌아가지 않았다',
   !/\[data-admin-tone="slate"\][^{]*\.ph125-grandchildren\s*\{[^}]*background:\s*#f6f9fd/.test(css));
 
+check('그룹을 접으면 그 안의 손자도 접는다 — 안 그러면 다시 펼 때 펼쳐진 채로 나온다',
+  /ph85-head'\)[\s\S]{0,700}?ph85-sub\.ph125-open[\s\S]{0,120}?remove\('ph125-open'\)/.test(r25));
+check('자식을 접어도 그룹은 열어 둔다 — ph97 의 «모든 그룹 접기» 를 조건 없이 되돌린다',
+  /function keepGroupOpen[\s\S]{0,900}?var again = function\(\)\{ g\.classList\.add\('open'\); \};/.test(r25));
+
 console.log('\n[ ⑧ 자식 메뉴 — 이름은 짧게, 설명은 툴팁으로 ]');
 /* 2026-08-19 사장님 「자식 메뉴 이름도 같은 방식으로 정리해줘」.
    자식 이름은 이미 짧았고(전부 12자 이하) 진짜 문제는 **설명** 이었다 —
@@ -177,7 +186,7 @@ check('「수강 운영」 이름을 바꿨으니 이사표에 한 줄 적혀 �
   /'teacher:수강 운영\(배율·정원\)':\s*'teacher:수강 운영'/.test(ia6));
 
 console.log('\n[ ⑨ 캐시 번호 ]');
-for (const [file, min] of [['adm-r25', 19], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
+for (const [file, min] of [['adm-r25', 20], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
