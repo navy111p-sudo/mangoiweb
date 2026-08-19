@@ -48,8 +48,24 @@
         return;
       }
       if (cnt) cnt.textContent = en ? ('· ' + rooms.length + ' room(s)') : ('· ' + rooms.length + '개 방');
+      /* 👥 (2026-08-19 제보 2-①) 「누구 수업인지」 — 방 번호만으로는 알 수 없다.
+         ⚠️ 참가자 칸(rm.users)은 «지금 접속해 있는 사람»이라 강사가 아직 안 들어왔으면 비어 있다.
+            그때가 바로 급히 참관해야 할 때이므로, 예약된 강사·학생을 D1 에서 따로 받아 채운다.
+         ⚠️ 실패해도 표는 그대로 뜬다(이름 칸만 «—»). 이름 때문에 목록이 안 나오면 더 나쁘다. */
+      let sched = {};
+      try {
+        const ids = rooms.map(function(rm){ return rm.roomId; }).filter(Boolean);
+        if (ids.length) {
+          const rn = await fetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')),
+                                 { credentials: 'include' });
+          const dn = await rn.json();
+          if (dn && dn.ok && dn.rooms) sched = dn.rooms;
+        }
+      } catch (e) { /* 조용히 — 표는 이름 없이 그대로 그린다 */ }
+
       box.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
         + '<thead><tr style="color:#94a3b8;text-align:left">'
+        +   '<th style="padding:6px 8px">' + (en ? 'Class' : '수업') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'Room' : '강의실') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'People' : '인원') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'Participants' : '참가자') + '</th>'
@@ -62,7 +78,19 @@
             /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시 */
             const alone = (rm.userCount === 1)
               ? ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>' : '';
+            /* 👥 예약된 강사·학생. 못 이었으면 «—» — 추측해서 채우지 않는다.
+               (강사 번호가 세 벌이라 잘못 이으면 조용히 남의 이름이 붙는다 — CLAUDE.md 2장) */
+            const sc = sched[rm.roomId];
+            const whoT = (sc && sc.teacher_name) ? esc(sc.teacher_name) : '';
+            const whoS = (sc && sc.student_name) ? esc(sc.student_name) : '';
+            const whoTxt = (whoT || whoS)
+              ? (whoT ? '<b style="color:#e9d5ff">' + whoT + '</b>' : '')
+                + (whoT && whoS ? '<span style="color:#64748b"> · </span>' : '')
+                + (whoS ? '<span style="color:#cbd5e1">' + whoS + '</span>' : '')
+                + ((sc && sc.start_time) ? '<div style="color:#94a3b8;font-size:11px">' + esc(sc.start_time) + '</div>' : '')
+              : '<span style="color:#64748b">—</span>';
             return '<tr style="border-top:1px solid rgba(255,255,255,0.06)">'
+              + '<td style="padding:6px 8px">' + whoTxt + '</td>'
               + '<td style="padding:6px 8px"><code style="color:#c4b5fd">' + rid + '</code>' + alone + '</td>'
               + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
               + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'

@@ -1429,6 +1429,9 @@ export async function handleMangoApi(
         || path === '/api/admin/org/hq'   // 🏯 본사 관리 (2026-08-18) — 여기 없으면 handleAdminApi 까지 못 가서 404
         // 🗓 (2026-08-19) 지난 수업에서 일정 만들기 — 미리보기/적용. 같은 이유로 여기에도 등록해야 한다
         || path.startsWith('/api/admin/schedule-seed/')
+        // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        //     (teacher-contacts·finance-cafe24 가 같은 이유로 통째로 먹통이던 이력이 있다)
+        || path === '/api/admin/live-classes'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')

@@ -9666,11 +9666,48 @@ LIMIT $limit`;
       const whisperId = r.meta?.last_row_id;
       await writeAudit(adminUid, 'whisper_send', { room: roomId, user: teacherUid, meta: { type: messageType, urgency, len: payload.length } });
 
-      // GM-4 미구현: 실제 WebSocket push 는 추후 (SignalingRoom DO 와 통합)
+      /* 📢 실제 전달  (2026-08-19 Melca 8/19 제보 2-③)
+         ═══════════════════════════════════════════════════════════════════════
+         [전에는] 여기 `// GM-4 미구현: 실제 WebSocket push 는 추후` 라는 주석과 함께
+            D1 기록만 하고 끝났다. 응답은 늘 delivery_status:'queued' 였고 **강사 화면에는
+            한 번도 도착하지 않았다.** 화면에는 보내기 버튼이 있어 «보냈다» 로 보였다.
+            (제보 원문: "Chat is not visible as observer send message at the classroom")
+         [이제] 그 방의 VideoCallRoom DO 로 밀어 넣는다. DO 가 staff 소켓에만 보낸다.
+         ⚠️ 실패해도 **기록은 남긴다** — 위 INSERT 는 이미 끝났다. 「보내려 했다」는 사실은
+            감사 로그의 값어치가 있고, 전달 여부는 delivery_status 로 정직하게 구분한다.
+         ⚠️ 방이 비어 있으면 delivered:0 이다. 그때는 'queued' 로 답한다 —
+            «보낸 척» 하면 관리자가 강사가 받은 줄 알고 기다린다. */
+      let delivered = 0, deliverErr: string | null = null;
+      try {
+        const doId = (env as any).VIDEO_CALL_ROOM.idFromName(roomId);
+        const stub = (env as any).VIDEO_CALL_ROOM.get(doId);
+        const resp = await stub.fetch(`https://internal/whisper?roomId=${encodeURIComponent(roomId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload, message_type: messageType, urgency, from: adminUid }),
+        });
+        const d: any = await resp.json().catch(() => null);
+        delivered = Number(d?.delivered || 0);
+      } catch (e: any) {
+        deliverErr = String(e?.message || e);
+        console.warn('[whisper] DO push 실패:', deliverErr);
+      }
+
+      if (delivered > 0) {
+        try {
+          await env.DB.prepare(`UPDATE admin_whispers SET delivered_at = ? WHERE id = ?`)
+            .bind(Date.now(), whisperId).run();
+        } catch { /* 기록 갱신 실패가 «전달됐다» 를 뒤집지는 않는다 */ }
+      }
+
       return json({
         ok: true, whisper_id: whisperId,
-        delivery_status: 'queued',                               // GM-4 에서 'delivered' 로 갱신
-        learning_note: '강사 클라이언트에만 전달, 학생 누설 차단 처리는 GM-4 단계에서 활성화',
+        delivery_status: delivered > 0 ? 'delivered' : 'queued',
+        delivered,
+        ...(deliverErr ? { deliver_error: deliverErr } : {}),
+        note: delivered > 0
+          ? '강사 화면에 전달했습니다.'
+          : '지금 그 방에 강사가 접속해 있지 않아 전달되지 않았습니다(기록은 남았습니다).',
       });
     }
 
@@ -11263,6 +11300,265 @@ LIMIT $limit`;
       } catch (e: any) {
         return json({ ok: false, error: 'upload_failed', detail: String(e?.message || e) }, 500);
       }
+    }
+
+    /* 👥 GET /api/admin/live-classes?rooms=a,b,c   (2026-08-19 Melca 8/19 제보 ①·2-①)
+       ═══════════════════════════════════════════════════════════════════════════
+       「지금 진행 중인 수업」 목록에 **누구 수업인지**가 없었다. 화면에 뜨는 것은
+       방 번호와 인원수뿐이라(`meet-123 · 2 participants`) 급히 참관해야 할 때
+       어느 수업인지 알 수 없었다.
+
+       [왜 별도 엔드포인트인가] 방 목록 자체는 `/api/active-rooms` 가 이미 준다.
+          그 핸들러는 index.ts 에 있고 KV 정리·반환순서 같은 미묘한 동작을 가지고 있다
+          (CLAUDE.md 4-2 공동 금지구역). **거기는 건드리지 않고**, 이미 받은 방 번호를
+          받아 «이름만 붙여» 돌려주는 창구를 따로 둔다. 화면은 두 번 부르지만 이쪽은 작다.
+
+       [방 번호 → 수업] room_id 는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이다
+          (api-mango.ts·absent-sweep.ts 와 같은 규칙). 그 규칙에 안 맞는 방
+          (임시 회의방 `meet-123` 등)은 **비워서** 돌려준다 — 추측하지 않는다.
+
+       🔴 강사 이름 — 번호가 세 벌인 함정을 여기서 다시 밟지 않는다.
+          class_schedules.teacher_id 는 **원부번호**(teachers.id, 1~29)다.
+          카페24 강사번호(9~196)를 여기 넣던 사고는 schedule-seed 쪽에서 이미 고쳐
+          (loadCafe24TeacherMap 을 거쳐 원부번호로 변환해 넣는다) 지금은 이 칸이
+          일관되게 원부번호다 → `LEFT JOIN teachers` 가 맞다.
+          ⛔ attendance.teacher_name 은 여기서도 쓰지 않는다(남의 이름이 들어 있다).
+
+       🔒 지사·대리점 격리 — 이 화면(manager.html)은 지사·대리점도 쓴다.
+          자기 범위 밖 수업의 **학생 이름을 보여 주면 개인정보가 샌다.**
+          scopeStudentCond 로 잘라, 범위 밖이면 이름 없이 «해당 없음» 으로만 답한다. */
+    if (method === 'GET' && path === '/api/admin/live-classes') {
+      const raw = String(url.searchParams.get('rooms') || '').trim();
+      if (!raw) return json({ ok: true, rooms: {} });
+      // 한 번에 200개까지 — 방이 그보다 많을 일은 없고, 넘으면 조용히 자르지 않고 자른 사실을 알린다
+      const MAX_ROOMS = 200;
+      const all = raw.split(',').map(x => x.trim()).filter(Boolean);
+      const roomIds = all.slice(0, MAX_ROOMS);
+
+      // class-{id}-{YYYYMMDD} 만 해석한다. 나머지는 «수업 방이 아님» 으로 그대로 둔다.
+      const byScheduleId = new Map<string, string[]>();   // 예약id → [roomId,...]
+      for (const rid of roomIds) {
+        const m = rid.match(/^class-(\d+)-(\d{8})$/);
+        if (!m) continue;
+        const sid = m[1];
+        if (!byScheduleId.has(sid)) byScheduleId.set(sid, []);
+        byScheduleId.get(sid)!.push(rid);
+      }
+
+      const out: Record<string, any> = {};
+      for (const rid of roomIds) out[rid] = null;         // 못 찾으면 null — 화면이 «미상» 으로 그린다
+
+      const ids = [...byScheduleId.keys()];
+      if (ids.length) {
+        const sc = await getScope(env as any, request);
+        const stuCond = scopeStudentCond(sc, 'se');
+        try {
+          const rows = await selectInChunks<any>(
+            env.DB, ids,
+            (ph) => `SELECT cs.id, cs.student_name, cs.user_id, cs.start_time, cs.duration_min,
+                            cs.class_type, cs.teacher_id,
+                            t.name  AS teacher_name,
+                            se.korean_name AS stu_ko, se.english_name AS stu_en
+                       FROM class_schedules cs
+                       LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                       LEFT JOIN students_erp se ON se.user_id = cs.user_id
+                      WHERE CAST(cs.id AS TEXT) IN (${ph})
+                        ${stuCond.cond ? `AND (${stuCond.cond})` : ''}`,
+            { tail: stuCond.binds, swallowErrors: true },
+          );
+          for (const r of rows) {
+            const rids = byScheduleId.get(String(r.id)) || [];
+            for (const rid of rids) {
+              out[rid] = {
+                schedule_id: Number(r.id),
+                // 이름은 명부(students_erp) 를 먼저 — class_schedules.student_name 은 옛 스냅샷일 수 있다
+                student_name: r.stu_ko || r.student_name || r.stu_en || null,
+                student_name_en: r.stu_en || null,
+                // 못 이었으면 **비운다.** 모르는 것보다 틀린 이름이 나쁘다.
+                teacher_name: r.teacher_name || null,
+                start_time: r.start_time || null,
+                duration_min: Number(r.duration_min) || null,
+                class_type: r.class_type || null,
+              };
+            }
+          }
+        } catch (e: any) {
+          return json({ ok: false, error: 'live_classes_failed', detail: String(e?.message || e) }, 500);
+        }
+      }
+      return json({
+        ok: true, rooms: out,
+        ...(all.length > roomIds.length ? { truncated: all.length - roomIds.length } : {}),
+      });
+    }
+
+    /* 🔍 GET /api/admin/textbook-files/dup-report   (2026-08-19 Melca 8/19 제보 ⑥)
+       ═══════════════════════════════════════════════════════════════════════════
+       「교재가 200페이지가 넘는다 / BTS 1 은 115쪽인데 실제 내용은 23쪽」의 정체는
+       **같은 파일이 여러 번 올라간 것**이다. 새 중복은 2026-08-14 에 막혔지만
+       (아래 POST 의 dupRow 검사) 그 전에 쌓인 것은 그대로 남아 있다.
+
+       ⛔ 이 API 는 **SELECT 만** 한다. 지우지도 고치지도 않는다.
+          D1 은 개발·운영이 같은 DB 이고 실제 학생 29,000명이 쓴다 —
+          «무엇을 지울지» 는 숫자를 눈으로 본 사람이 정한다(CLAUDE.md 1-1).
+
+       판정 기준은 업로드 차단과 **같은 기준**(name + size_bytes)이다.
+       두 기준이 어긋나면 「진단은 중복이라는데 업로드는 통과」 같은 모순이 생긴다. */
+    if (method === 'GET' && path === '/api/admin/textbook-files/dup-report') {
+      await ensureTextbookFilesTable();
+      try {
+        const rs: any = await env.DB.prepare(
+          `WITH f AS (
+             SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                    name AS nm, COALESCE(size_bytes,0) AS sz
+               FROM textbook_files WHERE active = 1
+           ), u AS (
+             SELECT book, nm, sz, COUNT(*) AS n FROM f GROUP BY book, nm, sz
+           )
+           SELECT book,
+                  SUM(n)            AS files,
+                  COUNT(*)          AS uniq_files,
+                  SUM(n) - COUNT(*) AS dup_files,
+                  SUM(n * sz)       AS bytes,
+                  SUM((n - 1) * sz) AS dup_bytes
+             FROM u GROUP BY book ORDER BY dup_files DESC, files DESC`
+        ).all();
+        const books = (rs.results || []).map((r: any) => ({
+          book: r.book,
+          files: Number(r.files) || 0,
+          uniq_files: Number(r.uniq_files) || 0,
+          dup_files: Number(r.dup_files) || 0,
+          bytes: Number(r.bytes) || 0,
+          dup_bytes: Number(r.dup_bytes) || 0,
+          // 몇 배로 부풀었는지 — 「115쪽인데 실제는 23쪽」을 한 숫자로 보여 준다
+          ratio: Number(r.uniq_files) > 0 ? Math.round((Number(r.files) / Number(r.uniq_files)) * 100) / 100 : 1,
+        }));
+        const sum = (k: string) => books.reduce((a: number, b: any) => a + (b[k] || 0), 0);
+        return json({
+          ok: true,
+          books,
+          total: {
+            books: books.length,
+            files: sum('files'), uniq_files: sum('uniq_files'), dup_files: sum('dup_files'),
+            bytes: sum('bytes'), dup_bytes: sum('dup_bytes'),
+          },
+          note: '판정 기준은 업로드 중복차단과 같다(name + size_bytes). 이 API 는 읽기 전용이다.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'dup_report_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* ✏️ POST /api/admin/textbook-files/rebook   (2026-08-19 Melca 8/19 제보 ④⑦)
+       ═══════════════════════════════════════════════════════════════════════════
+       「파닉스 A~Z 를 따로 나눠 달라 / BTS 2 는 762쪽이니 유닛별로 나눠 달라」
+
+       [왜 이름만 바꾸면 되나] 라이브러리의 «묶음» 은 파일 이름 앞의 [대괄호] 로만
+          정해진다(public/js/idx-x3.js _serverFilesToBooks). 즉 R2 파일을 다시 올릴
+          필요가 전혀 없다 — textbook_files.name 만 바꾸면 그 자리에서 갈라진다.
+       [왜 API 가 필요한가] 지금은 파일 하나씩 고치는 PATCH 뿐이다. 파닉스는 26묶음이고
+          BTS 2 는 762개 파일이다. 손으로 할 수 있는 일이 아니다.
+
+       모드 두 가지 — 둘 다 이름만 바꾼다. R2 오브젝트는 건드리지 않는다.
+         · rename       : [A] … → [B] …            (묶음 이름만 갈아 끼움)
+         · split-lesson : [A] X/f.jpg → [A X] f.jpg (레슨 칸을 묶음 이름으로 올림)
+                          파닉스(`[Mangoi Phonics] A/1.jpg`)·BTS 유닛이 정확히 이 모양이다.
+
+       ⛔ dry_run 이 **기본값**이다. 무엇이 어떻게 바뀌는지 먼저 보여 주고,
+          사람이 확인한 뒤에만 진짜로 바꾼다. dry_run 없이 바로 바꾸는 경로는 만들지 않았다.
+       ⛔ 본사(hq)만. 핸들러에서 canEditOrg() 로 막는다(화면만 감추면 URL 로 뚫린다).
+       ⚠️ 한 번에 5,000행까지. 넘으면 거절하고 몇 건인지 알려 준다 —
+          말없이 일부만 바꾸면 «반만 갈라진» 라이브러리가 남는다. */
+    if (method === 'POST' && path === '/api/admin/textbook-files/rebook') {
+      /* 🔒 강사 차단 — canEditOrg() 만으로는 **못 막는다.**
+         canEditOrg 는 type==='hq' 와 type==='none' 에 true 를 주는데,
+         그 'none' 이 «내부직원·교사» 다(src/scope.ts 주석). 즉 강사가 그대로 통과한다.
+         admin_write_guard_harness 가 이 구멍을 잡아 줬다 — 가드를 한 줄 더 둔다. */
+      const _rbActor = await getAdminActor(request, env as any);
+      if (_rbActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const _rbScope = await getScope(env as any, request);
+      if (!canEditOrg(_rbScope)) return json({ ok: false, error: 'forbidden' }, 403);
+      await ensureTextbookFilesTable();
+      const b: any = await request.json().catch(() => ({}));
+      const match = String(b?.match || '').trim();
+      const mode = String(b?.mode || 'rename').trim();
+      const replace = String(b?.replace ?? '').trim();
+      const dryRun = b?.dry_run !== false;      // 기본 true — 명시적으로 false 를 줘야 바꾼다
+      if (!match) return json({ ok: false, error: 'match_required' }, 400);
+      if (mode !== 'rename' && mode !== 'split-lesson') return json({ ok: false, error: 'invalid_mode', allowed: ['rename', 'split-lesson'] }, 400);
+      if (mode === 'rename' && !replace) return json({ ok: false, error: 'replace_required' }, 400);
+
+      const MAX_ROWS = 5000;
+      const rs: any = await env.DB.prepare(
+        `SELECT id, name FROM textbook_files WHERE active = 1 AND name LIKE ? ORDER BY id LIMIT ?`
+      ).bind(`[${match}]%`, MAX_ROWS + 1).all().catch(() => ({ results: [] }));
+      const rows: any[] = rs.results || [];
+      if (rows.length > MAX_ROWS) {
+        return json({ ok: false, error: 'too_many_rows', max: MAX_ROWS,
+          hint: `[${match}] 로 시작하는 파일이 ${MAX_ROWS}개를 넘습니다. 더 좁은 묶음 이름으로 나눠서 실행하세요.` }, 400);
+      }
+
+      /* 새 이름 계산 — 규칙이 한 곳에만 있어야 미리보기와 실제 적용이 어긋나지 않는다. */
+      const newNameOf = (nm: string): string | null => {
+        const m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!m || m[1].trim() !== match) return null;      // 정확히 그 묶음만 — 부분일치 금지
+        const rest = m[2] || '';
+        if (mode === 'rename') return `[${replace}] ${rest}`.trim();
+        // split-lesson — 레슨 칸(첫 '/' 앞)을 묶음 이름 뒤에 붙인다
+        const slash = rest.indexOf('/');
+        if (slash < 0) return null;                        // 레슨 칸이 없으면 건드리지 않는다
+        const lesson = rest.slice(0, slash).trim();
+        const file = rest.slice(slash + 1).trim();
+        if (!lesson || !file) return null;
+        const head = replace ? `${replace} ${lesson}` : `${match} ${lesson}`;
+        return `[${head}] ${file}`;
+      };
+
+      const plan: { id: number; from: string; to: string }[] = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const to = newNameOf(String(r.name || ''));
+        if (to == null || to === r.name) { skipped++; continue; }
+        plan.push({ id: Number(r.id), from: String(r.name), to });
+      }
+
+      // 바뀐 뒤 묶음이 몇 개로 갈라지는지 — 미리보기에서 이것부터 본다
+      const booksAfter: Record<string, number> = {};
+      for (const p2 of plan) {
+        const mm = p2.to.match(/^\[([^\]]+)\]/);
+        const k = mm ? mm[1] : '(기타)';
+        booksAfter[k] = (booksAfter[k] || 0) + 1;
+      }
+
+      if (dryRun) {
+        return json({
+          ok: true, dry_run: true, matched: rows.length, will_change: plan.length, skipped,
+          books_after: booksAfter,
+          sample: plan.slice(0, 20),
+          note: '아무것도 바꾸지 않았습니다. 적용하려면 dry_run:false 로 다시 호출하세요.',
+        });
+      }
+
+      if (!plan.length) return json({ ok: true, dry_run: false, changed: 0, note: '바꿀 파일이 없습니다.' });
+
+      /* D1 배치 — 한 문장에 바인드 2개(name, id)라 100개 한도에는 여유가 있지만,
+         배치 자체를 크게 만들면 한 건 실패에 전부 말린다. 200개씩 끊는다. */
+      const now = Date.now();
+      let changed = 0;
+      for (let i = 0; i < plan.length; i += 200) {
+        const chunk = plan.slice(i, i + 200);
+        const stmts = chunk.map((c) =>
+          env.DB.prepare(`UPDATE textbook_files SET name = ?, updated_at = ? WHERE id = ?`).bind(c.to, now, c.id)
+        );
+        try { await env.DB.batch(stmts); changed += chunk.length; }
+        catch (e: any) {
+          return json({ ok: false, error: 'partial_failure', changed, failed_at: i,
+            detail: String(e?.message || e) }, 500);
+        }
+      }
+      await writeAudit(String(b?.by || 'admin'), 'textbook_rebook',
+        { meta: { match, mode, replace, changed } });
+      return json({ ok: true, dry_run: false, changed, books_after: booksAfter });
     }
 
     // GET /api/admin/textbook-files — 라이브러리 목록
