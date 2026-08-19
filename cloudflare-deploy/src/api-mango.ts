@@ -2631,6 +2631,8 @@ ${numbered}`;
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN address TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN birth_date TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN notes TEXT;`); } catch {}
+      // password_hash — api-students.ts 의 ensureLoginTable() 과 동일한 안전망(이미 있으면 무시)
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT;`); } catch {}
     };
 
     // /api/admin/student/:uid/full — 한 번에 모든 탭 데이터 적재 (Promise.allSettled)
@@ -2977,6 +2979,16 @@ ${numbered}`;
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
           sets.push(`${k} = ?`); vals.push(b[k]);
         }
+        // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
+        let passwordChanged = false;
+        if (typeof b.new_password === 'string' && b.new_password.length > 0) {
+          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
+          const buf = await crypto.subtle.digest('SHA-256', enc);
+          const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
+          sets.push('password_hash = ?'); vals.push(ph);
+          passwordChanged = true;
+        }
         if (sets.length === 0) {
           return skippedMasked.length
             ? json({ ok: false, error: 'masked_values_rejected', skipped_masked: skippedMasked }, 400)
@@ -2988,7 +3000,7 @@ ${numbered}`;
         await env.DB.prepare(
           `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked });
+        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged });
       }
     }
 

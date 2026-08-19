@@ -577,6 +577,8 @@
             <div class="form-row"><label data-ko="생년월일"       data-en="Birth Date">생년월일</label><input id="cBirth" type="date"></div>
             <div class="form-row"><label data-ko="가맹점"         data-en="Franchise">가맹점</label><input id="cFranchise" type="text"></div>
             <div class="form-row"><label data-ko="지점"           data-en="Branch">지점</label><input id="cShop" type="text"></div>
+            <div class="form-row"><label data-ko="새 비밀번호"     data-en="New Password">새 비밀번호</label><input id="cPassword" type="text" autocomplete="new-password" placeholder="변경하지 않으려면 비워 두세요 (6자 이상)"></div>
+            <div class="form-row"><label data-ko="비밀번호 확인"   data-en="Confirm Password">비밀번호 확인</label><input id="cPasswordConfirm" type="text" autocomplete="new-password" placeholder="새 비밀번호를 한 번 더 입력"></div>
           </div>
           <div class="form-row"><label data-ko="주소"     data-en="Address">주소</label><input id="cAddress" type="text"></div>
           <div class="form-row"><label data-ko="특이사항" data-en="Notes">특이사항</label><textarea id="cNotes" placeholder="알레르기·관심사·학습 성향 등"></textarea></div>
@@ -824,6 +826,9 @@ const T = {
   loadFailed:{ko:'로딩 실패', en:'Load failed'},
   contactSaved:{ko:'학생 정보가 저장되었습니다', en:'Student info saved'},
   contactFields:{ko:'개 필드', en:' fields'},
+  pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
+  pwTooShort:{ko:'비밀번호는 6자 이상이어야 합니다', en:'Password must be at least 6 characters'},
+  pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1635,9 +1640,16 @@ function renderContact(){
     cAddress: erp.address, cNotes: erp.notes
   };
   Object.entries(map).forEach(([id, v]) => { if ($(id)) $(id).value = v||''; });
+  // 비밀번호는 해시만 저장돼 있어 원문을 보여줄 수 없으므로 항상 빈 칸으로 둔다
+  $('cPassword').value = ''; $('cPasswordConfirm').value = '';
 }
 
 $('cSaveBtn').addEventListener('click', async () => {
+  const pw = $('cPassword').value, pwConfirm = $('cPasswordConfirm').value;
+  if (pw || pwConfirm) {
+    if (pw !== pwConfirm) { toast(t('pwMismatch'), true); return; }
+    if (pw.length < 6) { toast(t('pwTooShort'), true); return; }
+  }
   const body = {
     student_phone: $('cStudentPhone').value || null,
     parent_phone: $('cParentPhone').value || null,
@@ -1652,6 +1664,7 @@ $('cSaveBtn').addEventListener('click', async () => {
     address: $('cAddress').value || null,
     notes: $('cNotes').value || null
   };
+  if (pw) body.new_password = pw;
   const btn = $('cSaveBtn'); btn.disabled = true;
   try {
     const r = await fetch('/api/admin/student/'+encodeURIComponent(uid)+'/contact', {
@@ -1659,7 +1672,10 @@ $('cSaveBtn').addEventListener('click', async () => {
       headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
     });
     const j = await r.json();
-    if (r.ok && j.ok) toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')');
+    if (r.ok && j.ok) {
+      toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
+      $('cPassword').value = ''; $('cPasswordConfirm').value = '';
+    }
     else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
   } catch (e) { toast(t('netError'), true); }
   finally { btn.disabled = false; }
