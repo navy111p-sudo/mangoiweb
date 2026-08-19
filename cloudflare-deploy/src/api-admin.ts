@@ -11205,6 +11205,175 @@ LIMIT $limit`;
       }
     }
 
+    /* 🔍 GET /api/admin/textbook-files/dup-report   (2026-08-19 Melca 8/19 제보 ⑥)
+       ═══════════════════════════════════════════════════════════════════════════
+       「교재가 200페이지가 넘는다 / BTS 1 은 115쪽인데 실제 내용은 23쪽」의 정체는
+       **같은 파일이 여러 번 올라간 것**이다. 새 중복은 2026-08-14 에 막혔지만
+       (아래 POST 의 dupRow 검사) 그 전에 쌓인 것은 그대로 남아 있다.
+
+       ⛔ 이 API 는 **SELECT 만** 한다. 지우지도 고치지도 않는다.
+          D1 은 개발·운영이 같은 DB 이고 실제 학생 29,000명이 쓴다 —
+          «무엇을 지울지» 는 숫자를 눈으로 본 사람이 정한다(CLAUDE.md 1-1).
+
+       판정 기준은 업로드 차단과 **같은 기준**(name + size_bytes)이다.
+       두 기준이 어긋나면 「진단은 중복이라는데 업로드는 통과」 같은 모순이 생긴다. */
+    if (method === 'GET' && path === '/api/admin/textbook-files/dup-report') {
+      await ensureTextbookFilesTable();
+      try {
+        const rs: any = await env.DB.prepare(
+          `WITH f AS (
+             SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                    name AS nm, COALESCE(size_bytes,0) AS sz
+               FROM textbook_files WHERE active = 1
+           ), u AS (
+             SELECT book, nm, sz, COUNT(*) AS n FROM f GROUP BY book, nm, sz
+           )
+           SELECT book,
+                  SUM(n)            AS files,
+                  COUNT(*)          AS uniq_files,
+                  SUM(n) - COUNT(*) AS dup_files,
+                  SUM(n * sz)       AS bytes,
+                  SUM((n - 1) * sz) AS dup_bytes
+             FROM u GROUP BY book ORDER BY dup_files DESC, files DESC`
+        ).all();
+        const books = (rs.results || []).map((r: any) => ({
+          book: r.book,
+          files: Number(r.files) || 0,
+          uniq_files: Number(r.uniq_files) || 0,
+          dup_files: Number(r.dup_files) || 0,
+          bytes: Number(r.bytes) || 0,
+          dup_bytes: Number(r.dup_bytes) || 0,
+          // 몇 배로 부풀었는지 — 「115쪽인데 실제는 23쪽」을 한 숫자로 보여 준다
+          ratio: Number(r.uniq_files) > 0 ? Math.round((Number(r.files) / Number(r.uniq_files)) * 100) / 100 : 1,
+        }));
+        const sum = (k: string) => books.reduce((a: number, b: any) => a + (b[k] || 0), 0);
+        return json({
+          ok: true,
+          books,
+          total: {
+            books: books.length,
+            files: sum('files'), uniq_files: sum('uniq_files'), dup_files: sum('dup_files'),
+            bytes: sum('bytes'), dup_bytes: sum('dup_bytes'),
+          },
+          note: '판정 기준은 업로드 중복차단과 같다(name + size_bytes). 이 API 는 읽기 전용이다.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'dup_report_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* ✏️ POST /api/admin/textbook-files/rebook   (2026-08-19 Melca 8/19 제보 ④⑦)
+       ═══════════════════════════════════════════════════════════════════════════
+       「파닉스 A~Z 를 따로 나눠 달라 / BTS 2 는 762쪽이니 유닛별로 나눠 달라」
+
+       [왜 이름만 바꾸면 되나] 라이브러리의 «묶음» 은 파일 이름 앞의 [대괄호] 로만
+          정해진다(public/js/idx-x3.js _serverFilesToBooks). 즉 R2 파일을 다시 올릴
+          필요가 전혀 없다 — textbook_files.name 만 바꾸면 그 자리에서 갈라진다.
+       [왜 API 가 필요한가] 지금은 파일 하나씩 고치는 PATCH 뿐이다. 파닉스는 26묶음이고
+          BTS 2 는 762개 파일이다. 손으로 할 수 있는 일이 아니다.
+
+       모드 두 가지 — 둘 다 이름만 바꾼다. R2 오브젝트는 건드리지 않는다.
+         · rename       : [A] … → [B] …            (묶음 이름만 갈아 끼움)
+         · split-lesson : [A] X/f.jpg → [A X] f.jpg (레슨 칸을 묶음 이름으로 올림)
+                          파닉스(`[Mangoi Phonics] A/1.jpg`)·BTS 유닛이 정확히 이 모양이다.
+
+       ⛔ dry_run 이 **기본값**이다. 무엇이 어떻게 바뀌는지 먼저 보여 주고,
+          사람이 확인한 뒤에만 진짜로 바꾼다. dry_run 없이 바로 바꾸는 경로는 만들지 않았다.
+       ⛔ 본사(hq)만. 핸들러에서 canEditOrg() 로 막는다(화면만 감추면 URL 로 뚫린다).
+       ⚠️ 한 번에 5,000행까지. 넘으면 거절하고 몇 건인지 알려 준다 —
+          말없이 일부만 바꾸면 «반만 갈라진» 라이브러리가 남는다. */
+    if (method === 'POST' && path === '/api/admin/textbook-files/rebook') {
+      /* 🔒 강사 차단 — canEditOrg() 만으로는 **못 막는다.**
+         canEditOrg 는 type==='hq' 와 type==='none' 에 true 를 주는데,
+         그 'none' 이 «내부직원·교사» 다(src/scope.ts 주석). 즉 강사가 그대로 통과한다.
+         admin_write_guard_harness 가 이 구멍을 잡아 줬다 — 가드를 한 줄 더 둔다. */
+      const _rbActor = await getAdminActor(request, env as any);
+      if (_rbActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const _rbScope = await getScope(env as any, request);
+      if (!canEditOrg(_rbScope)) return json({ ok: false, error: 'forbidden' }, 403);
+      await ensureTextbookFilesTable();
+      const b: any = await request.json().catch(() => ({}));
+      const match = String(b?.match || '').trim();
+      const mode = String(b?.mode || 'rename').trim();
+      const replace = String(b?.replace ?? '').trim();
+      const dryRun = b?.dry_run !== false;      // 기본 true — 명시적으로 false 를 줘야 바꾼다
+      if (!match) return json({ ok: false, error: 'match_required' }, 400);
+      if (mode !== 'rename' && mode !== 'split-lesson') return json({ ok: false, error: 'invalid_mode', allowed: ['rename', 'split-lesson'] }, 400);
+      if (mode === 'rename' && !replace) return json({ ok: false, error: 'replace_required' }, 400);
+
+      const MAX_ROWS = 5000;
+      const rs: any = await env.DB.prepare(
+        `SELECT id, name FROM textbook_files WHERE active = 1 AND name LIKE ? ORDER BY id LIMIT ?`
+      ).bind(`[${match}]%`, MAX_ROWS + 1).all().catch(() => ({ results: [] }));
+      const rows: any[] = rs.results || [];
+      if (rows.length > MAX_ROWS) {
+        return json({ ok: false, error: 'too_many_rows', max: MAX_ROWS,
+          hint: `[${match}] 로 시작하는 파일이 ${MAX_ROWS}개를 넘습니다. 더 좁은 묶음 이름으로 나눠서 실행하세요.` }, 400);
+      }
+
+      /* 새 이름 계산 — 규칙이 한 곳에만 있어야 미리보기와 실제 적용이 어긋나지 않는다. */
+      const newNameOf = (nm: string): string | null => {
+        const m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!m || m[1].trim() !== match) return null;      // 정확히 그 묶음만 — 부분일치 금지
+        const rest = m[2] || '';
+        if (mode === 'rename') return `[${replace}] ${rest}`.trim();
+        // split-lesson — 레슨 칸(첫 '/' 앞)을 묶음 이름 뒤에 붙인다
+        const slash = rest.indexOf('/');
+        if (slash < 0) return null;                        // 레슨 칸이 없으면 건드리지 않는다
+        const lesson = rest.slice(0, slash).trim();
+        const file = rest.slice(slash + 1).trim();
+        if (!lesson || !file) return null;
+        const head = replace ? `${replace} ${lesson}` : `${match} ${lesson}`;
+        return `[${head}] ${file}`;
+      };
+
+      const plan: { id: number; from: string; to: string }[] = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const to = newNameOf(String(r.name || ''));
+        if (to == null || to === r.name) { skipped++; continue; }
+        plan.push({ id: Number(r.id), from: String(r.name), to });
+      }
+
+      // 바뀐 뒤 묶음이 몇 개로 갈라지는지 — 미리보기에서 이것부터 본다
+      const booksAfter: Record<string, number> = {};
+      for (const p2 of plan) {
+        const mm = p2.to.match(/^\[([^\]]+)\]/);
+        const k = mm ? mm[1] : '(기타)';
+        booksAfter[k] = (booksAfter[k] || 0) + 1;
+      }
+
+      if (dryRun) {
+        return json({
+          ok: true, dry_run: true, matched: rows.length, will_change: plan.length, skipped,
+          books_after: booksAfter,
+          sample: plan.slice(0, 20),
+          note: '아무것도 바꾸지 않았습니다. 적용하려면 dry_run:false 로 다시 호출하세요.',
+        });
+      }
+
+      if (!plan.length) return json({ ok: true, dry_run: false, changed: 0, note: '바꿀 파일이 없습니다.' });
+
+      /* D1 배치 — 한 문장에 바인드 2개(name, id)라 100개 한도에는 여유가 있지만,
+         배치 자체를 크게 만들면 한 건 실패에 전부 말린다. 200개씩 끊는다. */
+      const now = Date.now();
+      let changed = 0;
+      for (let i = 0; i < plan.length; i += 200) {
+        const chunk = plan.slice(i, i + 200);
+        const stmts = chunk.map((c) =>
+          env.DB.prepare(`UPDATE textbook_files SET name = ?, updated_at = ? WHERE id = ?`).bind(c.to, now, c.id)
+        );
+        try { await env.DB.batch(stmts); changed += chunk.length; }
+        catch (e: any) {
+          return json({ ok: false, error: 'partial_failure', changed, failed_at: i,
+            detail: String(e?.message || e) }, 500);
+        }
+      }
+      await writeAudit(String(b?.by || 'admin'), 'textbook_rebook',
+        { meta: { match, mode, replace, changed } });
+      return json({ ok: true, dry_run: false, changed, books_after: booksAfter });
+    }
+
     // GET /api/admin/textbook-files — 라이브러리 목록
     if (method === 'GET' && path === '/api/admin/textbook-files') {
       await ensureTextbookFilesTable();

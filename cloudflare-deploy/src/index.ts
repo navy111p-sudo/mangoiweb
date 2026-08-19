@@ -1144,6 +1144,10 @@ const worker = {
         // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
         path === '/api/admin/textbook-files' ||
         /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
+        // 🔍✏️ (2026-08-19) 교재 중복 진단(읽기 전용) · 묶음 일괄 이름변경(본사 전용, dry_run 기본)
+        //     ⚠️ 위 정규식은 /\d+$/ 라 이 두 경로를 안 잡는다 — 반드시 따로 적어야 인증을 거친다.
+        path === '/api/admin/textbook-files/dup-report' ||
+        path === '/api/admin/textbook-files/rebook' ||
         // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
         path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
@@ -5241,6 +5245,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbooks') return true;
   // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)
   if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
+  // 🔍✏️ (2026-08-19) 중복 진단 · 묶음 일괄 이름변경 — 위 정규식(\d+)에 안 걸리므로 따로 적는다
+  if (path === '/api/admin/textbook-files/dup-report' || path === '/api/admin/textbook-files/rebook') return true;
   // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
   if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
