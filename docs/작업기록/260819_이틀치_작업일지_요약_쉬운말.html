@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>망고아이 작업일지 8/18~8/19</title>
+<style>
+@page { size: A4; margin: 14mm 13mm; }
+* { box-sizing: border-box; }
+body { font-family: "NanumGothic","Nanum Gothic","NanumBarunGothic",sans-serif;
+       color:#1c2430; line-height:1.62; font-size:10.6pt; margin:0; }
+h1 { font-size:20pt; margin:0 0 4px; letter-spacing:-0.5px; }
+.sub { color:#5b6779; font-size:9.6pt; margin-bottom:14px; }
+.hero { background:#fff7ea; border:1px solid #f0d9ae; border-radius:10px;
+        padding:14px 16px; margin-bottom:16px; }
+.hero b { color:#8a5a00; }
+.kpis { display:flex; gap:8px; margin:14px 0 18px; }
+.kpi { flex:1; background:#f4f7fb; border:1px solid #dde5ef; border-radius:9px;
+       padding:10px 8px; text-align:center; }
+.kpi .n { font-size:17pt; font-weight:700; color:#1b4f8f; display:block; line-height:1.2; }
+.kpi .l { font-size:8.6pt; color:#5b6779; }
+h2 { font-size:13pt; margin:20px 0 8px; padding:7px 11px; border-radius:7px;
+     background:#1b4f8f; color:#fff; }
+h2.d2 { background:#8a3f1f; }
+h3 { font-size:11pt; margin:14px 0 5px; color:#12365f;
+     border-left:4px solid #1b4f8f; padding-left:8px; }
+h3.d2 { color:#7a3a1c; border-left-color:#8a3f1f; }
+p { margin:4px 0 8px; }
+.what { color:#3d4a5c; }
+.why { background:#f6f8fa; border-left:3px solid #c3cedd; padding:6px 10px;
+       margin:5px 0 10px; font-size:9.9pt; color:#44515f; border-radius:0 5px 5px 0; }
+.why b { color:#1b4f8f; }
+ul { margin:4px 0 10px; padding-left:19px; }
+li { margin:3px 0; }
+.big { background:#fff0f0; border:1px solid #f2c9c9; border-radius:10px;
+       padding:13px 15px; margin:10px 0 14px; }
+.big .tag { display:inline-block; background:#c0392b; color:#fff; font-size:8.4pt;
+            padding:2px 8px; border-radius:20px; margin-bottom:6px; }
+.big h3 { margin-top:0; border:0; padding:0; color:#a5281a; font-size:11.5pt; }
+.chk { background:#f2f9f3; border:1px solid #cfe6d4; border-radius:9px;
+       padding:12px 15px; margin-top:14px; }
+.chk h3 { margin-top:0; border-left-color:#2e7d4f; color:#215c3a; }
+table { width:100%; border-collapse:collapse; font-size:9.6pt; margin:6px 0 12px; }
+th,td { border:1px solid #dde5ef; padding:5px 8px; text-align:left; vertical-align:top; }
+th { background:#eef3f9; color:#12365f; font-weight:700; }
+td.n { width:20%; font-weight:700; color:#12365f; }
+.foot { margin-top:18px; padding-top:9px; border-top:1px solid #dde5ef;
+        font-size:8.8pt; color:#7a8697; }
+.pagebreak { page-break-before: always; }
+</style></head><body>
+
+<h1>망고아이 작업일지 — 8월 18일 · 19일</h1>
+<div class="sub">이틀 동안 무엇을 고쳤고, 왜 고쳤는지 · 쉬운 말로 정리 · 작성 2026-08-20</div>
+
+<div class="hero">
+<b>한 줄 요약 —</b> 이틀 동안 「화면엔 있는데 실제로는 안 되던 것」을 대거 찾아내서 진짜로 동작하게 만들었습니다.
+그중 제일 큰 건, <b>선생님과 사장님이 같은 수업방 번호를 넣고도 서로 못 만나던 사고</b>의 원인을 찾은 것입니다.
+</div>
+
+<div class="kpis">
+<div class="kpi"><span class="n">94</span><span class="l">고친 묶음(PR)</span></div>
+<div class="kpi"><span class="n">188</span><span class="l">코드 변경 건</span></div>
+<div class="kpi"><span class="n">22</span><span class="l">남긴 기록 문서</span></div>
+<div class="kpi"><span class="n">29,000</span><span class="l">쓰고 있는 학생 수</span></div>
+</div>
+
+<h2>📅 8월 18일 (어제) — 돈 계산을 바로잡고, 가짜 화면을 진짜로</h2>
+
+<h3>1. 돈 숫자가 틀리던 것을 맞춤</h3>
+<p class="what">매출·정산 화면의 금액이 통장이나 실제와 안 맞는 문제를 여러 개 고쳤습니다.</p>
+<div class="why"><b>쉽게 말하면</b> — 통장에 「케이씨피M」이라고 찍힌 돈이 있는데, 이건 <u>매출이 아니라 회사 계좌끼리 옮긴 돈</u>이었습니다.
+그걸 매출로 세고 있어서 4,632만원이 부풀어 있었어요. 용돈 통장에서 저금통으로 옮긴 걸 「용돈 받았다」고 센 셈입니다. 이제 안 셉니다.</div>
+<ul>
+<li>카드 결제 수수료율을 3.3% → <b>2.86%</b> 로 통일 (사장님이 확인해 준 실제 값)</li>
+<li>학원이 통장으로 직접 보낸 돈(B2B)이 가맹점 정산서에서 <b>0원</b>으로 나오던 것 → 이제 합산</li>
+<li>정산 수수료 기본값을 「지점 40% / 본사 60%」로 정하고, 지사별로 따로 설정도 가능하게</li>
+</ul>
+
+<h3>2. 「버튼은 있는데 눌러도 아무 일도 안 나던 것」들</h3>
+<div class="why"><b>쉽게 말하면</b> — 자판기 버튼은 달려 있는데 안에 음료가 안 들어 있는 상태였습니다.
+겉모습만 만들어 두고 진짜 기능은 연결이 안 돼 있던 화면들을 실제로 동작하게 바꿨습니다.</div>
+<ul>
+<li>결제관리 화면이 <b>연습용 가짜 데이터</b>를 보여주고 있던 것 → 실제 데이터로 교체</li>
+<li>가짜 표에 실제 학생·거래처 정보가 섞여 있던 것 → 제거 (개인정보 문제)</li>
+<li>관리자 비밀번호 찾기 기능 신설 (원래 없었음)</li>
+</ul>
+
+<h3>3. 잘못된 독촉 문자가 나갈 뻔한 것을 막음</h3>
+<div class="why"><b>쉽게 말하면</b> — 「결제 기록이 아예 없는 사람」을 「돈을 안 낸 사람」으로 잘못 보고 있었습니다.
+가입만 하고 아직 결제 단계가 아닌 분들에게 «돈 내세요» 문자가 갈 뻔했어요. 자동 독촉 기능을 껐습니다.</div>
+
+<h3>4. 화면이 깨지던 것 수리</h3>
+<ul>
+<li>매출 그래프가 창 크기를 바꿀 때마다 <b>아래로 계속 길어지던 것</b> (690px → 3,070px → 5,758px)</li>
+<li>정산서·분기보고서 표가 PC와 인쇄에서 옆으로 삐져나오던 것</li>
+</ul>
+
+<h3>5. 새로 만든 것</h3>
+<ul>
+<li><b>영업담당자 제도</b> — 실적·인사평가·보상 체계 신설 (기본급 230만, 건당 60만, 월 목표 2곳)</li>
+<li><b>영업 AI 4종</b> — 오늘 어디 방문할지, 위험한 학원은 어디인지 자동으로 알려줌</li>
+<li>수업 길이 변경 신청함 (신청은 언제나, 반영은 월 1회)</li>
+<li>강사 한 명당 하루에 받을 수 있는 긴 수업 정원제</li>
+</ul>
+
+<div class="pagebreak"></div>
+<h2 class="d2">📅 8월 19일 (오늘) — 사람이 실제로 겪던 문제들을 뿌리부터</h2>
+
+<div class="big">
+<span class="tag">가장 큰 사고</span>
+<h3>선생님과 사장님이 같은 방 번호를 넣었는데 서로 안 보였던 이유</h3>
+<p class="what">중국인 강선생님과 사장님이 <b>7월 31일부터 8월 19일까지 여덟 번의 수업에서 한 번도 만나지 못했습니다.</b>
+둘 다 화면엔 「참여자 1명」만 떴고, 매번 「강사 미입장」 알림까지 갔습니다.</p>
+<div class="why"><b>쉽게 말하면</b> — 서버가 <u>두 대</u>로 돌아가고 있었고, 두 사람이 서로 다른 주소로 접속하고 있었습니다.
+같은 「301호」에 가긴 갔는데, <b>한 명은 A동 301호, 한 명은 B동 301호</b>였던 거예요.
+방 번호는 똑같으니 아무도 이상한 줄 몰랐고, 출석 기록(DB)은 두 서버가 같이 쓰기 때문에
+<b>기록만 보면 「둘 다 같은 방에 있었음」으로 멀쩡하게 보였습니다.</b> 그래서 20일 동안 못 찾았습니다.</div>
+<p class="what">이제 어느 주소로 들어오든 같은 곳으로 모이게 정리했고, 앞으로 같은 실수를 안 밟도록 규칙 문서에 못 박아 뒀습니다.</p>
+</div>
+
+<h3 class="d2">이 사고가 만든 2차 피해도 함께 수리</h3>
+<table>
+<tr><th>문제</th><th>내용</th></tr>
+<tr><td class="n">가짜 「강사 미입장」</td>
+<td>학생 화면에 선생님이 안 보이면 자동으로 「선생님 안 왔음」이 기록됩니다.
+그런데 위 사고 때문에 <b>선생님이 13분간 들어와 있었는데도</b> 알림이 갔어요. 13건 중 11건이 오판이었습니다.</td></tr>
+<tr><td class="n">급여가 0원</td>
+<td>「강사 미입장」으로 찍히면 그 수업은 <b>수업료가 0원</b>입니다.
+잘못 찍힌 기록 때문에 선생님 월급이 깎일 뻔했습니다 → 출석 기록과 대조해서 오판이면 급여를 정상 지급하도록 고침</td></tr>
+</table>
+<div class="why"><b>왜 기록을 그냥 지우지 않았나</b> — 「학생이 못 봤다」는 것 자체는 사실이라서요.
+지워버리면 「왜 수업이 안 됐는지」도 같이 사라집니다. 그래서 <b>지우지 않고, 읽을 때 «이건 오판입니다»라고 함께 알려주는</b> 방식을 골랐습니다.</div>
+
+<h3 class="d2">선생님한테 「남의 수업·남의 급여」가 보일 뻔한 것</h3>
+<div class="why"><b>쉽게 말하면</b> — 선생님 번호표가 <u>두 종류</u>였습니다. 학교로 치면 「학번」과 「출석부 번호」가 따로 있는데
+둘 다 그냥 숫자라 겹쳐요. <b>24번</b>이 한쪽에선 Mariane 선생님, 다른 쪽에선 HANNAH 선생님이었습니다.
+번호로 이으면 <b>에러도 안 나고 조용히 남의 정보가 붙습니다.</b> 이제 번호 대신 이름으로 잇고, 확실하지 않으면 아예 안 보여줍니다.</div>
+
+<h3 class="d2">필리핀 매니저가 몇 주째 «남의 계정»으로 일하고 있던 것</h3>
+<p class="what">매니저 Karl 이 본인 계정 대신 <b>화면 점검용 시연 계정(부산 지사)</b>으로 8월 10일부터 계속 로그인하고 있었습니다.
+그래서 「제 화면엔 그 메뉴가 없어요」라는 제보가 계속 나왔던 거예요. 계정을 되돌리고, 시연 계정 비밀번호도 강한 값으로 바꿨습니다.</p>
+
+<h3 class="d2">눌러도 안 눌리던 버튼 3종</h3>
+<ul>
+<li><b>휴대폰 계정 버튼</b> — 눌리긴 눌렸는데, 창이 메뉴 <u>밑에 깔려서</u> 안 보였습니다</li>
+<li><b>채팅 ✕ 버튼</b> — 다른 게 위에 겹쳐서 클릭을 가로채고 있었음</li>
+<li><b>수업 입장 안내창 ✕</b> — 똑같은 안내창이 <u>두 장</u> 쌓여 있어서, 한 장 닫아도 밑에 또 있었음</li>
+</ul>
+<div class="why"><b>배운 것</b> — 「열렸다」와 「보인다」는 다릅니다. 코드상으로는 다 정상이었어요.
+그래서 앞으로는 «그 자리 맨 위에 실제로 뭐가 있나»를 좌표로 재서 확인합니다.</div>
+
+<h3 class="d2">카카오톡으로 링크를 열면 로그인이 무한 반복되던 것</h3>
+<div class="why"><b>쉽게 말하면</b> — 카톡 안에서 열리는 브라우저가 <u>로그인 도장(쿠키)을 돌려주지 않습니다.</u>
+로그인은 성공하는데 다음 화면이 「누구세요?」 하고 되돌려보내요. 무한 반복입니다.
+이제 카톡에서 연 걸 알아채면 <b>「크롬으로 열기」 안내</b>를 띄웁니다.</div>
+
+<h3 class="d2">겉모습만 있던 기능 → 진짜로 저장되게</h3>
+<ul>
+<li><b>본사 직원 등록</b> — 「✅ 등록 완료」라고 떴지만 <u>서버에 아무것도 안 갔습니다.</u> 진짜 계정이 만들어지게 교체</li>
+<li><b>신규 학생 등록 마법사</b> — 같은 문제. 이제 진짜로 저장됩니다</li>
+<li><b>대리점(학원) 등록</b> — 아이디·비밀번호 입력란을 추가해 실제 로그인 계정까지 발급</li>
+</ul>
+
+<h3 class="d2">관리자 메뉴 정리 (이틀에 걸쳐)</h3>
+<ul>
+<li>메뉴 3단계(그룹 → 항목 → 세부)를 <b>43개 항목 전부</b> 완성</li>
+<li>세부 메뉴 이름이 <u>지어낸 가짜</u>였던 것 54개 제거 — 「학생 상세 프로필」을 누르면 「만료 임박 학생」이 열렸었음</li>
+<li>메뉴 검색이 <b>1.5초 뒤에 저절로 풀리던</b> 것 수리</li>
+<li>화면 위에 <b>[← 뒤로] [🏠 홈] 경로 줄</b> 추가 — 지금 어디 있는지 항상 보이게</li>
+</ul>
+
+<h3 class="d2">8월 19일 강사 제보 12건 처리</h3>
+<div class="why"><b>의외의 발견</b> — 12건 중 <b>5건은 이미 만들어져 있었습니다.</b> 다만 <u>제보한 사람이 보는 화면에만</u> 없었어요.
+이 서비스는 비슷한 관리자 화면이 4개(admin / manager / teacher / work)라서,
+「관리자 페이지」라는 말이 사람마다 다른 화면을 가리킵니다. 없다고 새로 만들면 <b>같은 기능이 두 벌</b>이 돼서 더 큰 문제가 됩니다.</div>
+
+<div class="chk">
+<h3>✅ 확인한 방법</h3>
+<ul>
+<li>모든 변경은 <b>타입 검사 + 자동 회귀 테스트(하니스)</b>를 통과한 뒤 병합했습니다</li>
+<li>화면이 바뀌는 작업은 브라우저로 실제 렌더해서 눈으로 확인했습니다</li>
+<li>새로 발견한 함정 <b>10건 이상</b>을 규칙 문서(CLAUDE.md)에 등재했습니다 — 다음에 같은 실수를 안 밟기 위해</li>
+</ul>
+<p style="margin:8px 0 0"><b>⚠️ 다만</b> — 작업 환경에서 실제 서비스 주소(mangoi.ai)에 접속이 막혀 있어서,
+<b>배포된 최종 화면은 사람이 한 번 봐 주셔야 완전히 끝난 것</b>입니다.</p>
+</div>
+
+<div class="foot">망고아이 (mangoi.ai) · 이틀간 PR 94건 / 코드 변경 188건 · 상세 기록은 저장소 docs/작업기록/ 폴더 22개 문서</div>
+</body></html>
