@@ -11,16 +11,33 @@
 //     열 번 옮겨 다녀도 «직전으로» 가 없고, 깊이 들어가면 대시보드로 돌아올 길도 없다.
 //     카드가 85장이라 「내가 어디 왔는지」 표시도 하나 필요했다.
 //
-//   [«뒤로» 는 브라우저 뒤로가기가 아니다]
-//     여기서 history.back() 을 부르면 **관리자 화면 밖(로그인 화면)으로 나가 버린다** —
-//     메뉴 이동은 주소를 바꾸지 않기 때문이다. 그래서 우리가 지나온 항목을 직접 기억한다.
-//     ⏳ 아직 안 한 것: 메뉴를 고를 때 history.pushState 로 주소에도 흔적을 남기면
-//        **휴대폰 뒤로 버튼**까지 같은 뜻이 된다. 지금은 앱에서 뒤로를 누르면 앱이 꺼진다.
+//   [🔙 뒤로는 «브라우저 뒤로가기» 와 같은 것이 되었다 — 2026-08-19 2차]
+//     처음에는 우리끼리 발자국을 기억했다. 그러면 화면의 ← 는 되지만 **휴대폰 뒤로
+//     버튼은 그대로 앱을 껐다** — 메뉴를 옮겨도 주소가 안 바뀌니 브라우저가 보기엔
+//     «이 페이지에서 아무 일도 없었다» 이기 때문이다.
+//     → 이제 메뉴를 고를 때마다 history.pushState 로 칸을 하나 쌓는다. 그래서
+//       **화면의 ← · PC 뒤로가기 · 휴대폰 뒤로 버튼 셋이 모두 같은 뜻**이 된다.
+//     ⚠️ 발자국을 «두 벌»(우리 배열 + 브라우저 history) 갖지 않는다. 둘은 반드시
+//        어긋난다(사람이 브라우저 뒤로가기를 섞어 쓰는 순간). 정본은 **브라우저 history**
+//        하나이고, 우리는 «지금 어디»(current)와 «우리가 쌓은 칸 수»(pushed)만 센다.
+//     ⚠️ 주소는 바꾸지 않는다(pushState 의 url 인자를 안 준다). 관리자 화면 주소에
+//        `#m=강사:급여` 같은 것이 붙으면 그 주소를 그대로 복사해 공유하는 사람이 생기고,
+//        권한이 다른 사람이 열면 «없는 메뉴» 가 된다. 칸만 쌓으면 뒤로가기에는 충분하다.
+//     ⚠️ 부팅 때 adm-ia6.js 가 «마지막으로 보던 메뉴» 를 자동으로 여는 것은 **누른 것이
+//        아니므로 칸을 쌓지 않는다.** 그 상태에서 ← 는 history.back() 이 아니라 홈으로
+//        간다(pushed === 0). 안 그러면 첫 화면에서 ← 한 번에 관리자 밖으로 나간다.
 //
 //   [되돌아가는 방법 — 새 이동 코드를 만들지 않는다]
 //     기억해 둔 항목의 **사이드바 원본을 그대로 click()** 한다. 드로어 닫기·카드 필터·
 //     맨 위 맞추기가 이미 그 경로에 다 들어 있고, 흉내 내면 그 셋 중 하나를 반드시 빠뜨린다.
 //     (js/adm-recent-menus.js 가 쓰는, 검증된 길을 그대로 쓴다.)
+//
+//   [🏠 홈은 새로고침해도 유지된다 — 2026-08-19 2차]
+//     adm-ia6.js 는 부팅할 때 «마지막으로 보던 항목» 을, 없으면 **「오늘」의 첫 항목**을
+//     무조건 고른다. 그래서 홈을 눌러 대시보드를 봐도 새로고침 한 번에 「오늘의 수업」으로
+//     돌아왔다. → 홈을 누르면 그 칸(localStorage `mangoi_admin_ia6`)에 **'__home' 표시**를
+//     남기고, adm-ia6.js 가 그 표시를 보면 아무 항목도 고르지 않는다(그 파일 boot 참고).
+//     ⚠️ 두 파일이 이 문자열 하나로 짝을 이룬다. 한쪽만 고치면 조용히 옛 동작으로 돌아간다.
 //
 //   [발자국을 세는 곳도 한 곳]
 //     사이드바 항목 `[data-ia6-item]` 의 클릭만 본다. ⚡자주 쓰는 기능·🕘최근 본 메뉴·
@@ -49,11 +66,12 @@
   window.__admCrumb = 1;
 
   var LS_IA6 = 'mangoi_admin_ia6';   // adm-ia6.js 가 «마지막으로 보던 항목» 을 적어 두는 칸
+  var HOME   = '__home';             // ⚠️ adm-ia6.js 의 boot() 와 짝. 한쪽만 고치지 말 것
   var GAP    = 0;                    // 줄과 제목 사이 숨 쉴 틈. 카드 자체 여백(≈19px)이 이미 있다
-  var MAX    = 30;                   // 발자국 상한 — 하루 종일 눌러도 메모리가 늘지 않게
 
-  var trail = [];      // 지나온 항목 key. **맨 뒤가 «지금»**
-  var back  = false;   // ← 로 되돌아가는 중 — 그 클릭은 발자국으로 세지 않는다
+  var current = '';      // 지금 보고 있는 항목 key. '' = 대시보드
+  var pushed  = 0;       // 우리가 history 에 쌓은 칸 수 (0 이면 뒤로 갈 «우리» 칸이 없다)
+  var quiet   = false;   // 되돌아가는 중 — 그 클릭은 새 발자국이 아니다
 
   function $(id) { return document.getElementById(id); }
   function isEn() {
@@ -61,7 +79,7 @@
   }
 
   function itemEl(key) {
-    if (!key) return null;
+    if (!key || key === HOME) return null;
     try {
       return document.querySelector('#ph85-sidebar [data-ia6-item="' + String(key).replace(/"/g, '\\"') + '"]');
     } catch (e) { return null; }
@@ -83,8 +101,7 @@
     var bar = $('mi-crumb');
     if (!bar) return;
 
-    var key = trail.length ? trail[trail.length - 1] : '';
-    var el  = itemEl(key);
+    var el = itemEl(current);
 
     /* 첫 화면(대시보드)에서는 줄 자체를 감춘다 — 뒤로 갈 곳도, 알려 줄 위치도 없다.
        ⚠️ [hidden] 속성을 쓰지 않는다. 작성자 CSS 가 display 를 정하면 브라우저 기본
@@ -105,26 +122,39 @@
     measure();
   }
 
+  /* ── 이동 ───────────────────────────────────────────────────────────────── */
+  function applyKey(key) {
+    var el = itemEl(key);
+    if (!el) return false;
+    quiet = true;                       // 이 클릭은 «되돌아가기» 다 — 칸을 새로 쌓지 않는다
+    try { el.click(); } catch (e) { /* 무시 */ }
+    quiet = false;
+    current = key;
+    render();
+    return true;
+  }
+
+  function pushStep(key) {
+    pushed += 1;
+    /* ⚠️ url 인자를 주지 않는다 — 주소는 그대로 두고 «칸» 만 쌓는다(머리말 참고). */
+    try { history.pushState({ __miCrumb: 1, key: key, depth: pushed }, ''); }
+    catch (e) { pushed -= 1; }          // 못 쌓았으면 세지도 않는다(← 가 엉뚱하게 나가지 않게)
+  }
+
   /* ── ← 뒤로 ─────────────────────────────────────────────────────────────── */
   function goBack() {
-    /* 발자국이 하나뿐이면 직전 화면은 대시보드였다 — 없는 곳을 있는 척하지 않는다. */
-    while (trail.length >= 2) {
-      trail.pop();
-      var el = itemEl(trail[trail.length - 1]);
-      if (!el) continue;                  // 권한 변경·메뉴 개편으로 사라진 항목은 조용히 건너뛴다
-      back = true;
-      try { el.click(); } catch (e) { /* 무시 */ }
-      back = false;
-      render();
-      return;
-    }
+    /* 우리가 쌓은 칸이 있으면 브라우저에게 맡긴다 — 휴대폰 뒤로 버튼과 «완전히 같은 길». */
+    if (pushed > 0) { try { history.back(); return; } catch (e) { /* 무시 */ } }
+    /* 쌓은 칸이 없다 = 부팅 때 자동으로 열린 첫 메뉴다. 직전 화면은 대시보드였다.
+       여기서 history.back() 을 부르면 관리자 밖으로 나간다. */
     goHome();
   }
 
   /* ── 🏠 홈 ──────────────────────────────────────────────────────────────── */
-  function goHome() {
-    trail = [];
-    try { localStorage.removeItem(LS_IA6); } catch (e) { /* 사파리 시크릿 등 — 무시 */ }
+  function goHome(fromPop) {
+    current = '';
+    /* 새로고침해도 대시보드로 남게 표시를 남긴다 — adm-ia6.js 의 boot() 가 이 값을 본다. */
+    try { localStorage.setItem(LS_IA6, HOME); } catch (e) { /* 사파리 시크릿 등 — 무시 */ }
     // 카드 감춤을 푼다 — 새 이동 코드를 만들지 않고 IA6 가 이미 가진 기계를 부른다
     try { if (window.mangoiIA6 && window.mangoiIA6.showAll) window.mangoiIA6.showAll(); } catch (e) { /* 무시 */ }
     // 사이드바의 «고른 표시» 도 지운다 — 대시보드인데 아직 그 메뉴라고 말하면 안 된다
@@ -136,7 +166,27 @@
     /* behavior:'smooth' 금지 — 「오른쪽이 왔다갔다 해서 정신없다」로 이미 걷어낸 규칙이고,
        숨은 탭에서는 smooth 가 애니메이션을 못 돌려 «움직이지 않는» 결과가 되기도 한다. */
     try { window.scrollTo(0, 0); } catch (e) { /* 무시 */ }
+    if (!fromPop) pushStep('');          // 홈도 «이동» 이다 — 뒤로 누르면 방금 보던 메뉴로
   }
+
+  /* ── 뒤로가기(브라우저·휴대폰 버튼) ────────────────────────────────────────
+     ⚠️ 우리가 쌓지 않은 칸(state 가 없는 칸)까지 돌아왔다면 그것은 «이 페이지에 처음
+        들어온 칸» 이다. 거기서는 대시보드를 보여 준다 — 한 번 더 누르면 그때 페이지를 뜬다. */
+  window.addEventListener('popstate', function (e) {
+    var s = e && e.state;
+    if (s && s.__miCrumb) {
+      pushed = s.depth || 0;
+      if (s.key) {
+        // 항목이 사라졌다면(권한 변경·메뉴 개편) 대시보드로 — «눌렀는데 아무 일 없음» 을 남기지 않는다
+        if (!applyKey(s.key)) goHome(true);
+      } else {
+        goHome(true);
+      }
+      return;
+    }
+    pushed = 0;
+    goHome(true);
+  });
 
   /* ── 발자국 세기 — 사이드바 항목 클릭 한 곳만 본다 ────────────────────────
      🔴 window «캡처» 로 듣는다. 사이드바에 직접 리스너를 달면 영원히 발화하지 않는다 —
@@ -149,10 +199,10 @@
     var it = t.closest('#ph85-sidebar [data-ia6-item]');
     if (!it) return;
     var key = it.getAttribute('data-ia6-item');
-    if (!key || back) return;
-    if (trail[trail.length - 1] === key) return;   // 같은 곳을 다시 눌러도 발자국은 하나
-    trail.push(key);
-    if (trail.length > MAX) trail.shift();
+    if (!key || quiet) return;
+    if (key === current) return;         // 같은 곳을 다시 눌러도 칸은 하나
+    current = key;
+    pushStep(key);
     // IA6 가 ia6-on 을 붙이고 카드를 고른 «뒤» 에 그린다
     setTimeout(render, 0);
   }, true);
@@ -210,15 +260,16 @@
   function boot() {
     bind();
     /* 사이드바는 adm-ia6.js 가 나중에 그리고, 마지막으로 보던 항목도 그때 되살아난다.
-       그래서 «항목이 생길 때까지» 잠깐 기다렸다가 한 번 맞춘다(최대 12초). */
-    if (!trail.length) {
+       그래서 «항목이 생길 때까지» 잠깐 기다렸다가 한 번 맞춘다(최대 12초).
+       ⚠️ 여기서 칸(pushStep)을 쌓지 않는다 — 사람이 누른 것이 아니다(머리말 참고). */
+    if (!current) {
       var on  = document.querySelector('#ph85-sidebar .ph85-sub.ia6-on');
       var key = on ? on.getAttribute('data-ia6-item') : '';
       if (!key) { try { key = localStorage.getItem(LS_IA6) || ''; } catch (e) { /* 무시 */ } }
-      if (key && itemEl(key)) trail = [key];
+      if (key && key !== HOME && itemEl(key)) current = key;
     }
     render();
-    if (!trail.length && tries++ < 30) setTimeout(boot, 400);
+    if (!current && tries++ < 30) setTimeout(boot, 400);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
