@@ -47,8 +47,26 @@ body{
 [hidden]{display:none !important}
 
 /* ── 맨 위 ─────────────────────────────────────────────── */
-.top{background:#fff;padding:14px 16px 12px;border-bottom:1px solid #e2e5ea;
+.top{background:#fff;padding:12px 16px 11px;border-bottom:1px solid #e2e5ea;
      position:sticky;top:0;z-index:5}
+.titlerow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.title{font-size:15px;font-weight:900;letter-spacing:-.02em;color:#b45309;flex:1;min-width:0}
+.title .brand{font-size:12px;font-weight:700;color:#9ca3af;margin-left:7px;letter-spacing:0}
+.help{flex:none;min-height:38px;padding:0 14px;border-radius:999px;
+      border:1.5px solid #d1d5db;background:#fff;font-family:inherit;
+      font-size:14px;font-weight:800;color:#4b5563;cursor:pointer}
+
+/* ── 사용 안내 (접었다 폈다) ───────────────────────────── */
+.guide{background:#fffbeb;border-bottom:1px solid #fde68a;padding:16px 16px 18px}
+.g-head{font-size:16px;font-weight:900;color:#7c4a03;margin-bottom:10px;letter-spacing:-.02em}
+.g-list{margin:0;padding-left:22px;font-size:15px;line-height:1.7;color:#3f3f46}
+.g-list li{margin-bottom:11px}
+.g-list li:last-child{margin-bottom:0}
+.g-do{font-weight:800;color:#b45309}
+.g-tip{margin-top:13px;padding-top:12px;border-top:1px dashed #fcd34d;
+       font-size:14px;line-height:1.7;color:#57534e}
+.g-close{margin-top:14px;width:100%;min-height:52px;border-radius:14px;border:0;
+         background:#d97706;color:#fff;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer}
 .hi{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .hi small{display:block;font-size:13.5px;font-weight:600;color:#6b7280;margin-top:2px}
 .note{padding:10px 16px;font-size:14.5px;line-height:1.6}
@@ -142,7 +160,32 @@ body{
 <body>
 
 <div class="top">
+  <div class="titlerow">
+    <div class="title">영업 기록<span class="brand">망고아이</span></div>
+    <button class="help" id="helpBtn" type="button">❓ 사용법</button>
+  </div>
   <div class="hi" id="hi">불러오는 중…<small id="hiSub">　</small></div>
+</div>
+
+<!-- 사용 안내 — 처음 열면 펼쳐져 있고, 한 번 닫으면 이 기기가 기억한다.
+     ⚠️ 항상 띄워 두지 않는 이유: 휴대폰 맨 위는 가장 비싼 자리다. 익숙해진 사람에게
+        안내문은 매일 스크롤해서 지나쳐야 하는 방해물이 된다. 필요할 때만 ❓ 로 연다. -->
+<div class="guide" id="guide" hidden>
+  <div class="g-head">이 화면으로 하는 일 — 세 가지뿐입니다</div>
+  <ol class="g-list">
+    <li><b>학원에 다녀오면</b><br>
+      <span class="g-do">「✅ 다녀왔어요」를 한 번 누르세요.</span> 그게 끝입니다. 타이핑 없습니다.</li>
+    <li><b>자세히 남기고 싶으면</b><br>
+      <span class="g-do">🎤 를 누르고 평소처럼 말하세요.</span> 다 말했으면 한 번 더 누르면 AI가 정리해 줍니다.
+      틀린 것만 고치고 저장하시면 됩니다.</li>
+    <li><b>새 학원을 만났으면</b><br>
+      아래 <span class="g-do">🏫 학원 → 🎤 새 학원 추가</span> — 이름만 말하면 등록됩니다.</li>
+  </ol>
+  <div class="g-tip">
+    <b>기록이 곧 점수입니다.</b> 다녀오고 기록을 안 하면 시스템은 「안 간 것」으로 봅니다.<br>
+    터널·시골에서 인터넷이 끊겨도 괜찮습니다 — 휴대폰에 저장했다가 신호가 잡히면 알아서 보냅니다.
+  </div>
+  <button class="g-close" id="guideClose" type="button">알겠습니다 · 닫기</button>
 </div>
 <div class="note warn" id="outboxNote" hidden></div>
 <div class="note info" id="baseNote" hidden></div>
@@ -251,6 +294,20 @@ function flash(t, isErr){
   el.textContent = t;
   // 애니메이션 금지 규칙 때문에 사라지는 효과는 쓰지 않는다. 다음 동작 때 갱신된다.
 }
+
+/* ── 사용 안내 여닫기 ──────────────────────────────────────
+   처음 여는 사람에게는 보여 주고, 한 번 닫은 사람에게는 두 번 다시 안 띄운다.
+   ❓ 를 누르면 언제든 다시 열린다. */
+var GUIDE_KEY = 'mangoi_sales_guide_seen_v1';
+function guideSeen(){ try{ return localStorage.getItem(GUIDE_KEY)==='1'; }catch(e){ return false; } }
+function guideShow(on){
+  var el=g('guide'); if(!el) return;
+  el.hidden = !on;
+  if(!on){ try{ localStorage.setItem(GUIDE_KEY,'1'); }catch(e){} }
+}
+if(g('helpBtn')) g('helpBtn').addEventListener('click', function(){ guideShow(g('guide').hidden); });
+if(g('guideClose')) g('guideClose').addEventListener('click', function(){ guideShow(false); window.scrollTo(0,0); });
+guideShow(!guideSeen());
 
 /* ══════════════════════════════════════════════════════════
    첫 화면 — API 1회
