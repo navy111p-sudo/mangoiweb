@@ -272,6 +272,12 @@ function looksCorporate(remark: string): boolean {
   return /\(주\)|（주）|주식회사|\(유\)|유한회사|㈜|센터|보험|카페24/.test(String(remark || ''));
 }
 
+/* 🏷️ 「남궁국화」·「남궁국화A」= 지사수수료 (2026-08-19 사장님 확인).
+   전에는 bankacct-sync.ts 의 직원급여 이름 목록에 잘못 들어가 있었다 — 거기서 뺐으니
+   이제 「기타출금」으로 내려오는데, franchises.owner_name 자동매칭이 «남궁국화A» 같은
+   변형 표기까지 잡아 준다는 보장이 없어 여기 직접 하드코딩해 둔다. */
+const KNOWN_FRANCHISE_PAYEE_RE = /^남궁국화A?$/;
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -314,6 +320,7 @@ async function monthActualOpex(env: Env, period: string) {
       const amt = Number(r.amount) || 0;
       const base = payeeBase(r.remark);
       let cat = map.get(base) || map.get(r.remark.trim());
+      if (!cat && KNOWN_FRANCHISE_PAYEE_RE.test(base)) cat = '지사수수료';
       if (!cat && base && owners.has(base) && !looksCorporate(r.remark)) cat = '지사수수료';
       if (!cat) { cat = UNCLASSIFIED; unresolved += amt; }
       byCat.set(cat, (byCat.get(cat) || 0) + amt);
