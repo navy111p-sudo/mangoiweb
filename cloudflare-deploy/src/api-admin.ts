@@ -35,7 +35,7 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
@@ -8243,10 +8243,70 @@ LIMIT $limit`;
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
       const now = Date.now();
+
+      /* 🔑 (2026-08-19 사장님 요청) 대리점 등록과 함께 로그인 계정도 만든다.
+         지금까지는 대리점(학원)을 등록해도 로그인 계정을 만드는 자리가 없어서, 필요하면
+         admin_account 에 손으로 심어야 했다 — CLAUDE.md 「직원을 등록했는데 로그인이 안 돼요」와
+         같은 뿌리(«등록» 화면이 실제 로그인 계정 생성과 분리돼 있던 문제).
+         아이디·비번을 «둘 다» 채웠을 때만 계정을 만든다. 하나만 채우면 400 — 대리점만 만들어지고
+         로그인은 없는 «반쪽» 상태를 피한다. scope_value 는 반드시 centers.name 과 똑같아야 한다
+         (scope.ts scopeCenterCond 가 id 가 아니라 «이름» 으로 대리점 계정을 가른다). */
+      const loginUsername = String(b.login_username || '').trim();
+      const loginPassword = String(b.login_password || '');
+      if (loginUsername || loginPassword) {
+        if (!loginUsername || !loginPassword) {
+          return json({ ok: false, error: 'login_fields_incomplete',
+            message: '대리점 로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
+        }
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
+          return json({ ok: false, error: 'bad_username',
+            message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.' }, 400);
+        }
+        if (loginPassword.length < 6) {
+          return json({ ok: false, error: 'too_short',
+            message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
+          return json({ ok: false, error: 'reserved_username',
+            message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.' }, 403);
+        }
+        const dup = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? LIMIT 1`)
+          .bind(loginUsername).first<{ username: string }>();
+        if (dup) {
+          return json({ ok: false, error: 'already_exists',
+            message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
+        }
+        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
+        //    안 잡힘」과 같은 뿌리). scope_value 를 이름으로 매칭하는 구조라, 이미 같은 이름의
+        //    대리점이 있으면 이 로그인이 «그 대리점 자료까지» 함께 보게 된다. 등록 자체는 막지
+        //    않고(대리점만 먼저 등록하는 기존 동작은 유지) 로그인 계정만 막는다.
+        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? LIMIT 1`)
+          .bind(b.name).first<{ id: number }>();
+        if (nameDup) {
+          return json({ ok: false, error: 'duplicate_center_name',
+            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
+                      '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
+                      '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.' }, 409);
+        }
+      }
+
       const r = await env.DB.prepare(
         `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
-      return json({ ok: true, id: r.meta.last_row_id });
+
+      let loginCreated = false;
+      if (loginUsername && loginPassword) {
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(loginUsername, await hashPassword(loginPassword), b.name, now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
+           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+        ).bind(loginUsername, b.name, now).run();
+        loginCreated = true;
+      }
+
+      return json({ ok: true, id: r.meta.last_row_id, login_created: loginCreated });
     }
 
     // ─── 레벨테스트 ───────────────────────────────────────────────────────
@@ -12615,6 +12675,19 @@ LIMIT $limit`;
     if (path.startsWith('/api/admin/counseling/')) {
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+      /* 🪤 위 `/api/counseling/` 블록과 같은 함정 — CREATE TABLE IF NOT EXISTS 는 표가 이미 있으면
+       *    컬럼이 모자라도 그대로 둔다. 이 블록만 ALTER 가 빠져 있어서 슬롯 생성이 항상
+       *    "no such column: staff_uid" 로 500 이었다(2026-08-19 실측). */
+      for (const ddl of [
+        `ALTER TABLE counseling_slots ADD COLUMN status TEXT DEFAULT 'open'`,
+        `ALTER TABLE counseling_slots ADD COLUMN duration_min INTEGER DEFAULT 30`,
+        `ALTER TABLE counseling_slots ADD COLUMN staff_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN status TEXT DEFAULT '예약'`,
+        `ALTER TABLE counseling_bookings ADD COLUMN slot_id INTEGER`,
+        `ALTER TABLE counseling_bookings ADD COLUMN parent_phone TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN student_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN topic TEXT`,
+      ]) { try { await env.DB.exec(ddl); } catch {} }   // 이미 있으면 에러 → 무시가 정상
     }
     if (method === 'POST' && path === '/api/admin/counseling/slot/open') {
       const b = await parseJsonBody(request);

@@ -1056,6 +1056,13 @@
         });
       });
     }
+    /* 🏠 (2026-08-19) 경로 줄의 «홈» 을 누르면 이 칸에 '__home' 표시가 남는다(js/adm-crumb.js).
+       그 표시가 있으면 **아무 항목도 고르지 않는다** = 카드가 전부 보이는 대시보드.
+       [왜] 이 줄이 없으면 홈을 눌러 대시보드를 봐도 **새로고침 한 번에 「오늘의 수업」으로
+         돌아온다**(바로 아래 «처음이면 「오늘」의 첫 항목» 때문). 사장님 지적.
+       ⚠️ 문자열 '__home' 은 adm-crumb.js 와 짝이다. 한쪽만 고치면 조용히 옛 동작으로 돌아간다.
+       ⚠️ 항목 key 는 `그룹키:한글이름` 꼴이라 '__home' 과 절대 겹치지 않는다. */
+    if (want === '__home') return;
     if (!picked) { picked = GROUPS[0].items[0]; pickedKey = GROUPS[0].key + ':' + picked.ko; }
     showOnly(picked, pickedKey);
     openSubSection(picked);
