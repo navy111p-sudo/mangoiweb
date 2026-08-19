@@ -2307,6 +2307,10 @@ export async function handleSalesHrApi(
     const stage = judgeDiscipline(evals, failedPlan);
 
     // 「기록이 남아 있는가」 자가 점검 — 나중에 회사를 지키는 것은 결국 이 넷이다.
+    //   ⚠️ repeated 는 «연속» 을 보지 않는다 — 단계 판정(judgeDiscipline 2단계)과 기준이 다르다.
+    //      일부러 그렇게 뒀다. 단계는 «지금 무엇을 할까» 라서 연속이어야 의미가 있지만,
+    //      이 칸은 «한 번의 운이 아니었다는 자료가 남아 있나» 라서 사이가 떠 있어도 자료는 자료다.
+    //      그래서 「반복 ✅ 인데 아직 1단계」 조합이 생길 수 있다 — 화면 라벨에 그 뜻을 적어 두었다.
     const record = {
       fair_eval: evals.filter(e => !e.advisory).length > 0,
       repeated: evals.filter(e => !e.advisory && GRADE_RANK[e.grade] >= RANK_C).length >= 2,
