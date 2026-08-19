@@ -1399,6 +1399,9 @@ export async function handleMangoApi(
         //       본사 전용이고, 지사·대리점 계정은 index.ts 가 /admin/exec 로 돌려보낸다.
         //       (그래도 쿼리 자체에는 scopeFragments 격리를 걸어 뒀다. 나중에 열어도 안 샌다.)
         || path === '/api/admin/attendance/long-absent'
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts 에 있다.
+        //    안 적으면 handleAdminApi 까지 못 가서 404 (바로 위 long-absent 와 같은 함정).
+        || path === '/api/admin/attendance/school-stats'
         || path === '/api/admin/payments/cafe24-diag'
         || path === '/api/admin/absent-sweep/run'
         || path === '/api/admin/lesson-reminder/run'
