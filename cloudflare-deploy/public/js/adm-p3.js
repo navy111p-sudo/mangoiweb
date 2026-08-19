@@ -289,6 +289,9 @@
     '👨‍🏫 강사 모드': '👨‍🏫 Teacher Mode',
     '🏬 지사 모드': '🏬 Branch Mode',
     '🤝 대리점 모드': '🤝 Agency Mode',
+    // 🚪 (2026-08-19) 「관리자로 복귀」 → 「로그아웃 (다른 계정으로)」. 옛 문구도 남겨 둔다 —
+    //    캐시에 옛 admin.html 이 남은 브라우저가 잠시 옛 글자를 그린다.
+    '🚪 로그아웃 (다른 계정으로)': '🚪 Log out (switch account)',
     '🛠 관리자로 복귀': '🛠 Back to Admin',
     '본인 수업·평가만 접근 권한': 'Access to own classes/evaluations only',
     '산하 대리점 데이터만': 'Sub-agency data only',
