@@ -194,13 +194,33 @@ check(`그 항목들이 전부 자기 설명을 갖는다${noTip.length ? ' — 
 check('「수강 운영」 이름을 바꿨으니 이사표에 한 줄 적혀 있다 — 없으면 마지막 화면이 「오늘의 수업」으로 튄다',
   /'teacher:수강 운영\(배율·정원\)':\s*'teacher:수강 운영'/.test(ia6));
 
+console.log('\n[ ⑨ 메뉴 검색 — 복구 루프와 싸우지 않는다 ]');
+/* 2026-08-19 수리. 검색이 **1.5초만 살아 있었다** — 「급여」를 치면 42개가 숨었다가 전부 되살아났다.
+   범인은 admin.html 의 «강제 visible» 복구 루프(사이드바가 통째로 사라졌던 사고의 복구책)다.
+   그 루프는 style.display 가 'none' 인 것을 되살리므로, 검색이 style 로 숨기면 반드시 진다.
+   ⛔ 복구 루프를 지워서 풀지 말 것 — 그건 다른 사고를 되살린다.
+   ✅ 검색은 «클래스» 로 숨긴다. 서로 보는 것이 달라 둘 다 살아 있다. */
+check('검색이 style.display 로 숨기지 않는다 (복구 루프에 지는 방식)',
+  !/s\.style\.display = \(q === ''/.test(html) && !/g\.style\.display = \(q === ''/.test(html));
+check('검색 전용 숨김 클래스를 쓴다 (ph85-shide)', /var HIDE = 'ph85-shide'/.test(html));
+check('그 클래스의 CSS 규칙이 있다', /\.ph85-shide[^{]*\{[^}]*display:\s*none\s*!important/.test(css));
+check('손자까지 찾는다 — 원본 이름(data-gc-name)도 본다',
+  /ph125-grandchildren'\)[\s\S]{0,400}?data-gc-name/.test(html));
+check('걸린 손자가 있으면 그 목록을 펴 준다', /gcHit > 0[\s\S]{0,120}?ph125-open/.test(html));
+check('검색을 지우면 검색 때문에 편 것을 되돌린다 (ph85-sopen)',
+  /var OPENED = 'ph85-sopen'/.test(html) && /classList\.remove\('ph125-open', OPENED\)/.test(html));
+check('다시 그려도 검색어가 남아 있으면 다시 입힌다',
+  /setInterval\(function\(\)\{ if \(search\.value\.trim\(\)\) runSearch\(\); \}/.test(html));
+check('«강제 visible» 복구 루프는 그대로 살아 있다 — 지우지 않았다',
+  /el\.style\.display === 'none'\)\s*el\.style\.display = ''/.test(html));
+
 console.log('\n[ ⑨ 캐시 번호 ]');
 for (const [file, min] of [['adm-r25', 21], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
 check('admin.html 의 admin-inline-c.css 버전이 32 이상 — 색을 바꿨으면 캐시도 갈아야 한다',
-  (() => { const m = html.match(/admin-inline-c\.css\?v=(\d+)/); return !!m && Number(m[1]) >= 32; })());
+  (() => { const m = html.match(/admin-inline-c\.css\?v=(\d+)/); return !!m && Number(m[1]) >= 33; })());
 
 console.log(`\n─────────────────────────────────────────────`);
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);
