@@ -172,6 +172,7 @@
 
 | 문서 | 내용 |
 |---|---|
+| [구서버_Neo4j_전화번호_적재요청_2026-08-20.md](구서버_Neo4j_전화번호_적재요청_2026-08-20.md) | **구 서버 담당자께** — Neo4j 에 학부모·학생 전화번호를 채워 달라는 요청서 (없어서 결석 알림·리마인더가 안 나감) |
 | [ENVIRONMENT.md](ENVIRONMENT.md) | 환경변수·시크릿 전체 |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | 장애 대응 |
 | [REFACTOR_PLAN.md](REFACTOR_PLAN.md) | 초대형 파일 분리 계획 |
