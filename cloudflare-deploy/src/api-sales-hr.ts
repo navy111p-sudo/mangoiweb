@@ -1331,6 +1331,27 @@ export async function computeFairness(env: SalesEnv, rep: any, range: PeriodRang
     }
   }
 
+  // ⑦ 기간의 «일부만» 기록이 있는가 — 첫 평가에서 반드시 걸린다.
+  //    목표는 기간 전체(6개월)로 잡히는데 기록은 제도 시작일부터만 있다.
+  //    예: 제도 시작 8/18 인데 하반기(7/1~12/31)를 평가하면 7/1~8/17 은 «0건» 으로 잡힌다.
+  //    사람은 그 기간에도 일했다 — 기록할 곳이 없었을 뿐이다.
+  //    ⛔ 점수를 자동으로 올려 주지 않는다. 목표를 몇 % 로 봐야 하는지만 알려 준다.
+  const startedAt = String(rep?.program_started_at || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(startedAt) && startedAt > range.start) {
+    const total = daysBetween(range.start, range.end);
+    const covered = daysBetween(startedAt, range.end);
+    if (total > 0 && covered > 0 && covered < total) {
+      const pct = Math.round((covered / total) * 100);
+      flags.push({
+        level: 'warn',
+        title: `이 기간의 ${100 - pct}% 는 기록이 있을 수 없습니다`,
+        detail: `제도를 ${startedAt} 에 시작해서 ${range.start} ~ ${startedAt} 사이는 기록할 곳 자체가 없었습니다. `
+          + `그런데 목표는 기간 전체로 잡혀 있습니다. 방문·발굴·일지 점수는 목표의 약 ${pct}% 를 만점으로 보고 읽으시고, `
+          + `첫 평가는 상여에 연결하지 않는 것을 권합니다.`,
+      });
+    }
+  }
+
   // ⑥ 기준선 기간인가 — 이 기간의 낮은 점수로 사람을 판단하면 안 된다.
   if (isAdvisoryPeriod(rep, range)) {
     flags.push({
@@ -2098,6 +2119,14 @@ export async function handleSalesHrApi(
   }
 
   return json({ ok: false, error: 'not_found', path }, 404);
+}
+
+/** 두 날짜 사이 일수(끝날 포함). 기간의 «몇 %가 기록 가능했나» 를 재는 데 쓴다. */
+function daysBetween(fromISO: string, toISO: string): number {
+  const a = new Date(fromISO + 'T00:00:00Z').getTime();
+  const b = new Date(toISO + 'T00:00:00Z').getTime();
+  if (isNaN(a) || isNaN(b) || b < a) return 0;
+  return Math.round((b - a) / 86400000) + 1;
 }
 
 /** 계약일 + 90일 = 유지 확인 예정일. 화면이 «언제 확인해야 하는지» 를 보여줄 수 있게. */
