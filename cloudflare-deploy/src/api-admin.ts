@@ -11,6 +11,7 @@
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
@@ -1994,12 +1995,30 @@ export async function handleAdminApi(
         : Date.parse(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+09:00`);
       const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
-      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      // teacher_name·student_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치 + 학생과의 혼동 배제)에 필요하다.
+      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, student_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const nsByRoom: any = {}; const nsBySched: any = {};
       for (const n of (noShows.results || [])) {
         if (n.room_id) nsByRoom[n.room_id] = n;
         if (n.schedule_id != null) nsBySched[`${n.schedule_id}|${kstDay(n.created_at)}`] = n;
       }
+      /* 🔎 (2026-08-19) 「강사 미입장」이 **정말** 미입장이었나를 출석 기록과 대조한다.
+         [왜 급여에서까지] 아래 상태 판정이 teacher_no_show 면 그 수업은 **수업료가 0원**이 된다
+         (amount 는 finish·student_absent·postponed 에만 붙는다). 그런데 이 행은 학생 브라우저가
+         «내 화면에 안 보였다» 로 만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면
+         강사가 멀쩡히 들어와 있어도 쌓인다(CLAUDE.md 2장) — 실측 13건 중 11건이 오판이었다.
+         그대로 두면 «들어와서 수업한 강사에게 0원을 주는» 계산이 된다.
+         ⚠️ 판정 정본은 노쇼 리포트·강사 지표와 **같은 함수**다(src/no-show-truth.ts).
+            세 곳이 다른 답을 내면 「화면엔 오판이라는데 급여는 0원」이 된다.
+         ⚠️ «모름»(판정 불가)은 살려 주지 않는다 — 모르는 것을 «있었다» 로 단정하면
+            진짜 노쇼에 수업료가 나간다. 확실히 있었을 때만 되돌린다. */
+      let nsPresence = new Map<string, any>();
+      try { nsPresence = await teacherPresenceByRoom(env.DB, (noShows.results || []) as any[]); }
+      catch (e: any) { console.warn('[payroll] 노쇼 대조 생략:', e?.message); }
+      const nsIsFalseAlarm = (n: any): boolean => {
+        const p = n && n.room_id ? nsPresence.get(String(n.room_id)) : null;
+        return !!(p && p.present === true);
+      };
 
       const fbs: any = await env.DB.prepare(`SELECT room_id, teacher_name, created_at FROM teacher_class_feedback WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const fbByRoom: any = {}; const fbByTeacherDay: any = {};
@@ -2118,7 +2137,9 @@ export async function handleAdminApi(
         if (schedStatus === 'postponed') st = 'postponed';
         else if (upcoming) st = 'upcoming';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
-        else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
+        /* 🔎 오판이면 «미입장» 으로 보지 않는다 — 강사가 실제로 들어와 수업한 건이다.
+           그러면 아래 흐름을 그대로 타고 'finish'(정상 수업, 전액)로 남는다. 위 nsIsFalseAlarm 주석 참고. */
+        else if (ns && ns.missing_role === 'teacher' && !nsIsFalseAlarm(ns)) st = 'teacher_no_show';
 
         const base = Math.round((mins / 10) * fee);
         /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
@@ -3854,10 +3875,35 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
              FROM lesson_late_minutes lm JOIN class_schedules cs ON cs.id = lm.schedule_id
             WHERE lm.lesson_date >= ? AND lm.minutes > 0 AND cs.teacher_name IS NOT NULL
             GROUP BY cs.teacher_name`, since90d),
-        // 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
-        q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM class_no_show
-            WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL
-            GROUP BY teacher_name`, since90ms),
+        /* 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
+           🔎 (2026-08-19) **오판을 빼고 센다.** 이 행은 학생 브라우저가 «내 화면에 안 보였다» 로
+              만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면 강사가 멀쩡히 들어와 있어도
+              쌓인다(CLAUDE.md 2장). 실측 13건 중 11건이 오판이었고, 그대로 세면 잘못이 없는
+              강사의 90일 평가가 내려간다. 판정은 노쇼 리포트와 **같은 함수**를 쓴다
+              (src/no-show-truth.ts) — 두 벌로 두면 화면마다 다른 답이 나온다.
+           ⚠️ GROUP BY 를 서버에서 하지 않고 원본 행을 받아 TS 에서 접는다. 낱말 경계 이름 비교를
+              SQL 로 흉내 내면 그게 바로 「이름으로 사람 정하기」 함정이라 정확히 못 한다.
+           ⚠️ 판정 불가(모름)는 **빼지 않는다** — 모르는 것을 «오판» 으로 단정하면 진짜 노쇼가 감춰진다. */
+        (async () => {
+          /* ⚠️ `teacher_name` 을 **별칭 없이도** 실어 보낸다. teacherPresenceByRoom 은 그 이름의
+             필드를 읽으므로, `AS tn` 만 두면 이름이 빈 값이 되어 전부 «모름» 이 되고
+             **오판이 한 건도 제외되지 않는다**(에러는 안 난다 — 조용히 예전과 같아진다).
+             2026-08-19 실제로 밟았고, 아래 GROUP BY 접기가 `tn` 을 쓰기 때문에 둘 다 필요하다. */
+          const raw = await q(
+            `SELECT teacher_name, teacher_name AS tn, room_id, missing_role, student_name FROM class_no_show
+              WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL`, since90ms);
+          let pres = new Map<string, any>();
+          try { pres = await teacherPresenceByRoom(env.DB, raw as any[]); }
+          catch (e: any) { console.warn('[hr-signals] 노쇼 대조 생략:', e?.message); }
+          const cnt = new Map<string, number>();
+          for (const r of raw) {
+            const p = pres.get(String(r.room_id || ''));
+            if (p && p.present === true) continue;          // 오판 — 강사는 접속해 있었다
+            const k = String(r.tn || '');
+            cnt.set(k, (cnt.get(k) || 0) + 1);
+          }
+          return Array.from(cnt, ([tn, n]) => ({ tn, n }));
+        })(),
         // 📝 강사가 작성한 학생 평가서 (행정 성실도)
         q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM student_evaluations
             WHERE created_at >= ? AND teacher_name IS NOT NULL GROUP BY teacher_name`, since90ms),
@@ -5234,16 +5280,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         try { rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>(); } catch {}
       }
       const items = rows.results || [];
+      /* 🔎 (2026-08-19) 「강사 미입장」이 정말 미입장이었나 — 출석 기록과 대조한다.
+         이 행은 **학생 브라우저가** 만든다: 5분을 기다려도 상대가 안 보이면 신고하는 구조라
+         «상대가 안 왔다» 가 아니라 «내 화면에 안 보였다» 가 기록된다. 두 사람이 서로 다른
+         워커의 방에 있던 동안(CLAUDE.md 2장) 강사는 매번 들어와 있었는데도 알림이 떴다 —
+         실측 13건 중 11건이 오판. ⛔ 기록은 지우지 않는다(학생이 못 본 것은 사실이다).
+         대신 «오판» 이라고 화면이 함께 알려 준다. 판정 정본은 src/no-show-truth.ts. */
+      let presence = new Map<string, any>();
+      try { presence = await teacherPresenceByRoom(env.DB, items); }
+      catch (e: any) { console.warn('[no-shows] 강사 출석 대조 생략:', e?.message); }
+
       const now = Date.now();
       const weekAgo = now - 7 * 86400 * 1000;
       const dayAgo = now - 86400 * 1000;
-      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0;
+      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0, teacherFalse = 0, teacherUnknown = 0;
       for (const r of items) {
         if (r.created_at >= weekAgo) week++;
         if (r.created_at >= dayAgo) today++;
-        if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
+        if (r.missing_role === 'teacher') {
+          teacherMiss++;
+          const p = presence.get(String(r.room_id || ''));
+          // present: true=있었음(오판) · false=흔적 없음(진짜) · null/미조회=모름
+          r.teacher_present = p ? p.present : null;
+          r.teacher_seen_from = p ? p.from : null;
+          r.teacher_seen_to = p ? p.to : null;
+          r.teacher_seen_min = p ? p.minutes : null;
+          r.false_alarm = r.teacher_present === true;
+          if (r.false_alarm) teacherFalse++;
+          else if (r.teacher_present === null) teacherUnknown++;
+        } else studentMiss++;
       }
-      return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+      return json({
+        ok: true, count: items.length, today, this_week: week,
+        by_missing: {
+          teacher: teacherMiss, student: studentMiss,
+          // 「강사 미입장」 중 실제로는 강사가 접속해 있던 건 / 판정할 수 없는 건
+          teacher_false_alarm: teacherFalse,
+          teacher_unknown: teacherUnknown,
+          teacher_real: Math.max(0, teacherMiss - teacherFalse - teacherUnknown),
+        },
+        no_shows: items,
+      });
     }
 
     // 🥭 Phase RM — POST /api/admin/no-shows/contact — 노쇼 대상에게 재알림(웹푸시) + 접촉 기록
@@ -11595,6 +11672,144 @@ LIMIT $limit`;
         included_excluded: _laAll,
         students: applyPIIScope(_laItems, _laScope.scope),   // 🔒 권한별 전화번호 마스킹
         can_view_pii: canViewPII(_laScope.scope),
+      });
+    }
+
+    /* ── 📊 GET /api/admin/attendance/school-stats — 학원별 학생 수업현황 (SLP 출석 통계) ──
+     *   (2026-08-19) admin.html 이 카드를 만들 때 데모 16행(데모지사1·데모학당A~F·DEMOID_01…)을
+     *   그대로 하드코딩해 둔 채 실서비스에 배포돼 있었다. 실제 지사·학당·학생으로 바꾼다.
+     *
+     *   🔑 출처는 attendance 다 — class_schedules 는 안 쓴다. 바로 위 long-absent 주석에서
+     *      이미 확인한 이유와 같다(673행뿐이고 대부분 데모 시드라 실수업과 안 이어진다).
+     *      카페24 동기화는 room_id=`c24-{class_id}` 로 «수업 1건 = 행 1개» 를 넣고
+     *      class_state 2 → 'present'(출석), 그 외 → 'scheduled'(미실시=결석)로 채운다.
+     *   🧹 ghost 학원(무료수업(지인)·망고아이 기본대리점·교육용 대리점·테스트대리점)은
+     *      명부(students_erp) 단계에서 뺀다 — 화면에 데모/테스트 지사가 다시 보이지 않게 하는 것이
+     *      이번 요청의 핵심이다.
+     *   🔒 지사·대리점 로그인은 scopeStudentCond 로 자기 범위만 본다(다른 화면과 동일 규칙).
+     *   ⏳ 아직 오지 않은 날은 «결석» 이 아니라 «미실시» 일 뿐이므로 오늘(KST)까지만 센다.
+     *
+     *   ?meta=1 이면 무거운 출결 집계 없이, 드롭다운(지사·학당)용 실제 (지사,학당) 조합만 돌려준다
+     *   — adm-core.js 의 smFillAgencyFilter() 와 같은 원칙: 서버가 스코프로 이미 자른 실데이터에서
+     *   목록을 만들어야 지사 계정에 다른 지사 학원이 섞여 나오지 않는다.
+     */
+    if (method === 'GET' && path === '/api/admin/attendance/school-stats') {
+      const _saToday = today();
+      const _saNow = new Date();
+      const _saYearIn = parseInt(url.searchParams.get('year') || '', 10);
+      const _saYear = (_saYearIn >= 2020 && _saYearIn <= 2100) ? _saYearIn : _saNow.getUTCFullYear();
+      const _saMonthIn = parseInt(url.searchParams.get('month') || '', 10);
+      const _saMonth = (_saMonthIn >= 1 && _saMonthIn <= 12) ? _saMonthIn : 0;
+      const _pad2 = (n: number) => String(n).padStart(2, '0');
+      const _saFrom = _saMonth ? `${_saYear}-${_pad2(_saMonth)}-01` : `${_saYear}-01-01`;
+      const _saToExcl = _saMonth
+        ? new Date(Date.UTC(_saYear, _saMonth, 1)).toISOString().slice(0, 10)
+        : `${_saYear + 1}-01-01`;
+      const _saToCap = _saToExcl < _saToday ? _saToExcl : _saToday; // 미래분은 안 센다
+
+      const _saScope = await getScope(env as any, request);
+      const _saCond = scopeStudentCond(_saScope, 's');
+      const GHOST_SHOPS = ['무료수업(지인)', '망고아이 기본대리점', '교육용 대리점', '테스트대리점'];
+
+      const _saMetaWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `s.franchise IS NOT NULL AND s.franchise <> ''`,
+        `s.shop_name IS NOT NULL AND s.shop_name <> ''`,
+      ];
+      const _saMetaBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saMetaWhere.push(_saCond.cond); _saMetaBinds.push(..._saCond.binds); }
+
+      if (url.searchParams.get('meta') === '1') {
+        const rs = await env.DB.prepare(
+          `SELECT DISTINCT s.franchise AS franchise, s.shop_name AS shop_name
+             FROM students_erp s WHERE ${_saMetaWhere.join(' AND ')}
+            ORDER BY s.franchise, s.shop_name LIMIT 4000`
+        ).bind(..._saMetaBinds).all<any>().catch(() => ({ results: [] }));
+        return json({ ok: true, pairs: rs.results || [], scope: { type: _saScope.type, label: _saScope.label } });
+      }
+
+      const _saFranchise = (url.searchParams.get('franchise') || '').trim();
+      const _saShop = (url.searchParams.get('shop_name') || url.searchParams.get('academy') || '').trim();
+      const _saQ = (url.searchParams.get('q') || '').trim();
+      const _saLike = '%' + _saQ.replace(/[%_]/g, '') + '%';
+      const _saResult = (url.searchParams.get('result') || '').trim();
+      const _saLimit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const _saOffset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+
+      const _saWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `(COALESCE(s.status,'정상') IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')`,
+      ];
+      const _saBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saWhere.push(_saCond.cond); _saBinds.push(..._saCond.binds); }
+      if (_saFranchise) { _saWhere.push('s.franchise = ?'); _saBinds.push(_saFranchise); }
+      if (_saShop) { _saWhere.push('s.shop_name = ?'); _saBinds.push(_saShop); }
+      if (_saQ) {
+        _saWhere.push(`(COALESCE(s.korean_name, s.student_name, s.username, '') LIKE ? OR s.english_name LIKE ? OR s.user_id LIKE ? OR s.login_id LIKE ?)`);
+        _saBinds.push(_saLike, _saLike, _saLike, _saLike);
+      }
+
+      const _saResultCond =
+        _saResult === 'excellent' ? `AND rate >= 90` :
+        _saResult === 'warning'   ? `AND rate >= 70 AND rate < 90` :
+        _saResult === 'fail'      ? `AND rate IS NOT NULL AND rate < 70` : '';
+
+      const _saCte =
+        `WITH base AS (
+           SELECT s.user_id AS user_id,
+                  COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
+                  s.english_name AS english_name, s.shop_name AS shop_name, s.franchise AS franchise
+             FROM students_erp s WHERE ${_saWhere.join(' AND ')}
+         ),
+         att AS (
+           SELECT a.user_id AS user_id,
+                  SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS attended_n,
+                  COUNT(*) AS total_n
+             FROM attendance a
+            WHERE a.room_id LIKE 'c24-%'
+              AND COALESCE(a.role,'student') = 'student'
+              AND a.date >= ? AND a.date < ?
+              AND a.user_id IN (SELECT user_id FROM base)
+            GROUP BY a.user_id
+         ),
+         merged AS (
+           SELECT b.user_id, b.name, b.english_name, b.shop_name, b.franchise,
+                  COALESCE(att.attended_n, 0) AS attended_n,
+                  COALESCE(att.total_n, 0)    AS total_n,
+                  CASE WHEN COALESCE(att.total_n, 0) = 0 THEN NULL
+                       ELSE ROUND(100.0 * COALESCE(att.attended_n, 0) / att.total_n) END AS rate
+             FROM base b LEFT JOIN att ON att.user_id = b.user_id
+         ) `;
+      const _saDateBinds = [_saFrom, _saToCap];
+
+      const _saKpiRow = await env.DB.prepare(
+        `${_saCte}
+         SELECT COUNT(*) AS n,
+                SUM(total_n) AS total_classes, SUM(attended_n) AS total_attended,
+                COUNT(DISTINCT shop_name) AS schools,
+                SUM(CASE WHEN rate IS NOT NULL AND rate <= 70 THEN 1 ELSE 0 END) AS risk
+           FROM merged WHERE 1=1 ${_saResultCond}`
+      ).bind(..._saBinds, ..._saDateBinds).first<any>().catch(() => null);
+
+      const _saRows = await env.DB.prepare(
+        `${_saCte}
+         SELECT * FROM merged WHERE 1=1 ${_saResultCond}
+          ORDER BY franchise, shop_name, name LIMIT ? OFFSET ?`
+      ).bind(..._saBinds, ..._saDateBinds, _saLimit, _saOffset).all<any>().catch(() => ({ results: [] }));
+
+      return json({
+        ok: true,
+        year: _saYear, month: _saMonth || null, from: _saFrom, to_excl: _saToExcl, counted_to: _saToCap,
+        total: Number(_saKpiRow?.n || 0),
+        limit: _saLimit, offset: _saOffset,
+        kpi: {
+          rate: _saKpiRow?.total_classes ? Math.round(100 * Number(_saKpiRow.total_attended || 0) / Number(_saKpiRow.total_classes)) : null,
+          schools: Number(_saKpiRow?.schools || 0),
+          students: Number(_saKpiRow?.n || 0),
+          risk: Number(_saKpiRow?.risk || 0),
+        },
+        items: _saRows.results || [],
+        scope: { type: _saScope.type, label: _saScope.label },
       });
     }
 

@@ -1469,6 +1469,10 @@ const worker = {
         //    ℹ️ isAgencyAllowedApi 에는 넣지 않았다 — 이 화면은 본사 전용이고
         //       지사·대리점 계정은 위쪽에서 /admin/exec 로 돌아간다.
         path === '/api/admin/attendance/long-absent' ||
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //    지사·대리점도 보는 화면이라 isAgencyAllowedApi 에도 등록했다(핸들러가 scopeStudentCond 로 자기 범위만 자름).
+        path === '/api/admin/attendance/school-stats' ||
         // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
         //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
         //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
@@ -5384,6 +5388,9 @@ function isAgencyAllowedApi(path: string): boolean {
           org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
     '/api/admin/franchises',
     '/api/admin/centers',
+    /* 📊 (2026-08-19) 학원별 학생 수업현황 — 지사장·학원장도 «자기 지사·자기 학원» 출석 통계를 봐야 한다.
+       핸들러(api-admin.ts)가 scopeStudentCond() 로 이미 자기 범위만 잘라서 주므로 여기 열어도 안 샌다. */
+    '/api/admin/attendance/school-stats',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }
