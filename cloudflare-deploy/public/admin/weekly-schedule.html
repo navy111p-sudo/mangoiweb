@@ -1761,6 +1761,7 @@ document.addEventListener('keydown', function(e){
 // ═══════════════════════════════════════════════════════════════════
 var wizState=null;
 function openEnrollWizard(prefill){
+  loadTeacherPersonality();   // 🙂 4단계 추천에서 쓸 강사 성향 — 미리 받아 둔다(실패해도 추천은 돈다)
   wizState={
     step:1,
     student:{name:'',uid:'',level:''},
@@ -1857,7 +1858,7 @@ function renderWizStep(){
       '<div class="wiz-desc">'+(L?'여러 개 선택 가능 (탭하여 토글) · 잘 모르겠으면 그냥 넘어가세요 — 오피스 선생님으로 배정됩니다':'Tap to toggle multiple \u00b7 Not sure? Skip \u2014 we assign an Office teacher')+'</div>'+
       '<div class="opt-grid cols-2">'+cards+'</div>'+
       '<h2 class="wiz-h2" style="margin-top:20px">🙂 '+(L?'원하는 선생님 성향':'Teacher Personality')+'</h2>'+
-      '<div class="wiz-desc">'+(L?'어떤 선생님이면 좋겠어요? (여러 개 선택 가능 · 안 골라도 됩니다)':'What kind of teacher? (multiple, optional)')+'</div>'+
+      '<div class="wiz-desc">'+(L?'어떤 선생님이면 좋겠어요? 고르면 추천 순서에 반영됩니다 (여러 개 선택 가능 · 안 골라도 됩니다)':'What kind of teacher? Your pick boosts the recommendation ranking (multiple, optional)')+'</div>'+
       '<div class="opt-grid cols-2">'+perCards+'</div>';
   } else if(s.step===3){
     // 요일 + 시간 그리드
@@ -1882,6 +1883,15 @@ function renderWizStep(){
       gridHtml;
     setupTimeGridDrag();
   } else if(s.step===4){
+    /* ⏳ 강사 성향은 fetch 로 받아 온다. 그 전에 추천을 그리면 성향이 «없는» 것으로 계산돼
+       순서가 한 번 잘못 보이고, 사람은 그 화면을 보고 고른다. 도착하면 한 번 다시 그린다.
+       (openEnrollWizard 에서 미리 부르므로 대개는 이미 와 있어 다시 그릴 일이 없다) */
+    loadTeacherPersonality().then(function(){
+      if(wizState && wizState.step===4){
+        var box=document.getElementById('match-results');
+        if(box)box.innerHTML=computeMatches();
+      }
+    });
     // AI 매칭 결과
     body.innerHTML='<h2 class="wiz-h2">✨ '+(L?'AI 매칭 결과':'AI Match Results')+'</h2>'+
       '<div class="wiz-desc">'+(L?'학생 선호도와 교사 빈 시간을 매칭했습니다. 카드를 클릭하면 즉시 등록됩니다.':'Click a card to assign instantly.')+'</div>'+
@@ -2005,10 +2015,48 @@ function setupTimeGridDrag(){
 }
 
 // AI 매칭 계산: 선호 교사 카테고리 × 선호 시간 × 빈 슬롯
-function computeMatches(){
-  var L=currentLang==='ko';
+/* 🙂 (2026-08-18 수정요청 #02 후속) 강사 «성향» — 관리자 › 🧠 강사 MBTI 등록에서 넣은 값.
+   지금까지 마법사는 성향을 물어보기만 하고 추천에는 못 썼다(강사 쪽 자료가 없었다).
+   ⚠️ 강사 이름 붙이기 — teacher_mbti 는 «Teacher Kes», teachers 는 «KES» 로 이름 체계가 다르다
+      (2026-08-18 실측: 19명 전원이 아래 정규화로 붙는다). id 로는 못 붙는다 — 키 공간이 다르다. */
+var TEACHER_PERS={};          // 정규화이름 → ['kind','fun',…]
+var _persPromise=null;
+function persNormName(v){
+  return String(v||'').toUpperCase().replace(/^HT\s+/,'').replace(/^TEACHER\s+/,'').replace(/[^A-Z0-9가-힣]/g,'');
+}
+/* ⚠️ «불렀는지» 를 boolean 으로 기억하면 안 된다. 두 번째 호출이 곧바로 resolve 돼서
+      첫 fetch 가 아직 오는 중인데도 «다 됐다» 로 넘어간다 — 그러면 4단계가 성향 없는 상태로
+      그려지고, 사람은 그 (틀린) 순서를 보고 고른다. 2026-08-18 실측으로 잡았다.
+      → **약속(promise) 자체를 기억**해서 나중에 부른 쪽도 같은 것을 기다리게 한다.
+      실패해도 그 약속을 그대로 둔다(추천은 성향 없이도 돌아간다 — 매번 다시 부르지 않는다). */
+function loadTeacherPersonality(){
+  if(_persPromise)return _persPromise;
+  _persPromise=fetch('/api/teachers/mbti-list',{credentials:'include'})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      ((d&&d.teachers)||[]).forEach(function(t){
+        var p=String(t.personality||'').split(',').filter(Boolean);
+        if(p.length)TEACHER_PERS[persNormName(t.teacher_name)]=p;
+      });
+    })
+    .catch(function(){/* 성향 없이 진행 */});
+  return _persPromise;
+}
+/** 그 강사가 학생이 고른 성향을 몇 개나 가졌나 */
+function persOverlap(teacher,want){
+  if(!want||!want.length)return {n:0,of:0,list:[]};
+  var have=TEACHER_PERS[persNormName(teacher.name)]||TEACHER_PERS[persNormName(teacher.name_en)]||[];
+  var hit=want.filter(function(p){return have.indexOf(p)>=0;});
+  return {n:hit.length,of:want.length,list:hit};
+}
+
+/* 🧮 추천 계산 — **한 곳에서만** 한다.
+   예전에는 computeMatches() 와 wizPickMatch() 가 같은 계산을 각자 복사해 갖고 있었다.
+   한쪽만 고치면 «화면에 보이는 1등» 과 «클릭했을 때 잡히는 1등» 이 달라진다(조용히 엉뚱한
+   강사가 배정된다). 성향 점수를 넣으면서 둘을 하나로 합친다. */
+function wizBuildMatches(){
   var s=wizState;
-  var prefHours={}; // {dow: [hours]}
+  var prefHours={};
   Object.keys(s.hours).forEach(function(k){
     var p=k.split('_'); var dow=parseInt(p[0],10), h=parseInt(p[1],10);
     prefHours[dow]=prefHours[dow]||[];
@@ -2016,12 +2064,8 @@ function computeMatches(){
   });
   // 요일 칩만 선택된 경우 → 그 요일의 09-20시 전체
   s.dows.forEach(function(d){
-    if(!prefHours[d]){
-      prefHours[d]=[];
-      for(var h=9;h<=20;h++)prefHours[d].push(h);
-    }
+    if(!prefHours[d]){ prefHours[d]=[]; for(var h=9;h<=20;h++)prefHours[d].push(h); }
   });
-  // 매칭: 선호 교사 × prefHours에서 빈 슬롯
   var matches=[];
   TEACHERS.forEach(function(t){
     if(s.teacherPrefs.length && s.teacherPrefs.indexOf(t.category)<0)return;
@@ -2033,15 +2077,31 @@ function computeMatches(){
         if(!hourHasSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});
       });
     });
-    if(openSlots.length>0){
-      var score=Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)));
-      matches.push({teacher:t,slots:openSlots,score:score});
-    }
+    if(!openSlots.length)return;
+    var timeScore=Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)));
+    var pm=persOverlap(t,s.personality);
+    /* 🙂 성향 점수 섞기 — «더하기» 가 아니라 «가중평균» 이다.
+       ⚠️ 더하기로 하면 아무 효과가 없다. 시간 점수는 빈 슬롯이 조금만 넉넉해도 곧바로 100 에
+          닿아서(요일 1개 · 빈 시간 12칸이면 600 → 100 으로 잘림), 거기에 무엇을 더해도 다시
+          100 이라 순서가 안 바뀐다. 2026-08-18 실측으로 잡았다 — 세 강사가 전부 100% 였다.
+       ⚠️ 성향을 «안 골랐으면» 예전 점수 그대로다(가중치 0). 고른 사람에게만 갈린다. */
+    var persPct=pm.of?Math.round(100*pm.n/pm.of):0;
+    var score=pm.of?Math.round(timeScore*0.7+persPct*0.3):timeScore;
+    matches.push({teacher:t,slots:openSlots,score:score,
+                  timeScore:timeScore,persPct:persPct,pers:pm});
   });
   matches.sort(function(a,b){return b.score-a.score;});
+  return matches;
+}
+
+function computeMatches(){
+  var L=currentLang==='ko';
+  var matches=wizBuildMatches();
   if(matches.length===0){
     return '<div class="empty-msg">'+(L?'조건에 맞는 교사가 없습니다. 이전 단계로 돌아가 선호도를 조정하세요.':'No teachers match. Go back and adjust preferences.')+'</div>';
   }
+  var PL=L?{kind:'😊 상냥한',fun:'🎉 재미있는',edu:'📚 교육적인',serious:'🎯 진지한',laugh:'😄 웃음많은'}
+          :{kind:'😊 Warm',fun:'🎉 Fun',edu:'📚 Educational',serious:'🎯 Serious',laugh:'😄 Cheerful'};
   return matches.slice(0,6).map(function(m,i){
     var nm=(currentLang==='en'&&m.teacher.name_en)?m.teacher.name_en:m.teacher.name;
     var ini=(nm.match(/[A-Za-z가-힣]/)||['?'])[0];
@@ -2049,33 +2109,24 @@ function computeMatches(){
       var dn=(L?['월','화','수','목','금','토','일']:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'])[sl.dow];
       return '<span class="match-slot-chip">'+dn+' '+String(sl.hour).padStart(2,'0')+':00</span>';
     }).join('');
+    /* 🙂 왜 이 강사가 위에 있는지 보이게 한다 — 맞은 성향을 칩으로 띄운다.
+       성향을 골랐는데 하나도 안 맞으면 «성향 자료 없음/불일치» 를 굳이 적지 않는다(점수로 이미 밀렸다). */
+    var persChips=m.pers.list.map(function(p){
+      return '<span class="match-slot-chip" style="background-color:#e0e7ff;color:#3730a3">'+PL[p]+'</span>';
+    }).join('');
     return '<div class="match-card" data-mi="'+i+'" onclick="wizPickMatch('+i+')">'+
       '<div class="mc-head"><div class="mc-avatar avatar '+m.teacher.category+'">'+ini+'</div>'+
       '<div class="mc-info"><div class="mc-name">'+escapeHtml(nm)+' <span class="cat-badge '+m.teacher.category+'" style="font-size:9px">'+m.teacher.category+'</span></div></div>'+
       '<div class="mc-score">⭐ '+m.score+'%</div></div>'+
+      (persChips?'<div class="mc-slots">'+persChips+'</div>':'')+
       '<div class="mc-slots">'+slotChips+(m.slots.length>8?'<span class="match-slot-chip">+'+(m.slots.length-8)+'</span>':'')+'</div></div>';
   }).join('');
 }
 window.__wizMatches=null;
 function wizPickMatch(i){
-  // computeMatches가 매번 다시 계산하므로 캐시
-  var s=wizState;
-  var prefHours={};
-  Object.keys(s.hours).forEach(function(k){var p=k.split('_');prefHours[parseInt(p[0],10)]=prefHours[parseInt(p[0],10)]||[];prefHours[parseInt(p[0],10)].push(parseInt(p[1],10));});
-  s.dows.forEach(function(d){if(!prefHours[d]){prefHours[d]=[];for(var h=9;h<=20;h++)prefHours[d].push(h);}});
-  var matches=[];
-  TEACHERS.forEach(function(t){
-    if(s.teacherPrefs.length && s.teacherPrefs.indexOf(t.category)<0)return;
-    var openSlots=[];
-    Object.keys(prefHours).forEach(function(dow){
-      var d=new Date(currentWeekStart);d.setDate(d.getDate()+parseInt(dow,10));
-      var dateISO=fmtISO(d);
-      prefHours[dow].forEach(function(h){if(!hourHasSlot(t.id,dateISO,h))openSlots.push({dow:parseInt(dow,10),hour:h,date:dateISO});});
-    });
-    if(openSlots.length>0){matches.push({teacher:t,slots:openSlots,score:Math.min(100,Math.round(openSlots.length*100/Math.max(1,Object.keys(prefHours).length*2)))});}
-  });
-  matches.sort(function(a,b){return b.score-a.score;});
-  s.chosenMatch=matches[i];
+  // ⚠️ 화면을 그린 것과 **같은 함수**로 다시 계산한다. 계산을 복사해 두면 순서가 갈려
+  //    «누른 카드와 다른 강사» 가 잡힌다.
+  wizState.chosenMatch=wizBuildMatches()[i];
   document.querySelectorAll('.match-card').forEach(function(el){el.style.borderColor='var(--bd)';});
   var el=document.querySelector('.match-card[data-mi="'+i+'"]');
   if(el){el.style.borderColor='var(--ac)';el.style.background='rgba(251,191,36,.12)';}
@@ -2189,8 +2240,8 @@ async function wizFinalize(){
     /* 🙂 성향은 «기록» 이지 «매칭 기준» 이 아니다. 강사 쪽에 성향 자료가 아직 없어서
        추천에는 반영되지 않는다 — 화면이 그렇게 보이면 안 되므로 한 줄로 밝혀 둔다. */
     '<div class="ds-sub" style="margin-top:10px;opacity:.8">'+(L
-      ? '※ 성향은 수업 메모에 기록됩니다. 강사 성향 자료가 아직 없어 추천 순서에는 반영되지 않습니다.'
-      : '※ Personality is stored in the class note. It does not affect the recommendation order yet.')+'</div>'+
+      ? '※ 성향은 수업 메모에 기록되고, 추천 순서에도 반영됩니다(가산점). 성향이 등록되지 않은 강사는 그 점수를 못 받으니, 관리자 › 🧠 강사 MBTI 등록에서 채워 주세요.'
+      : '※ Personality is stored in the class note and boosts the recommendation ranking. Teachers without personality data get no boost — fill it in under Admin › Teacher MBTI.')+'</div>'+
     '</div></div>'+
     '<div class="modal-actions"><button class="modal-btn primary" onclick="closeModal();render()">'+(L?'확인':'OK')+'</button></div></div>';
 }

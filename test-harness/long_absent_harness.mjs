@@ -92,8 +92,11 @@ check('스크립트는 카드를 열 때 받는다 (지연 로드)',
   /type="text\/lazy-js"[^>]*data-src="\/js\/adm-longabsent\.js\?v=\d+"[^>]*data-card="card-long-absent"/.test(html));
 check('지연 태그가 노출 함수 목록을 들고 있다 (대역 함수용)',
   /data-src="\/js\/adm-longabsent\.js[^"]*"[^>]*data-globals="[^"]*laLoad[^"]*"/.test(html));
+/* ⚠️ (2026-08-19) 항목 뒤에 다른 칸(tip 등)이 붙어도 통과하게 열어 둔다 — 지키려는 것은
+   «자기 항목이 있고, 그 항목이 card-long-absent 만 가리킨다» 이지 «항목의 마지막 칸이 cards» 가 아니다.
+   실제로 항목별 툴팁(tip)을 추가했을 때 이 검사가 FAIL 났다. */
 check('사이드바에 «자기 항목» 이 있다 — 다른 카드와 겹쳐 놓지 않는다',
-  /\{ ko: '장기 결석생',[^}]*cards: \['card-long-absent'\] \}/.test(ia6));
+  /\{ ko: '장기 결석생',[^}]*cards: \['card-long-absent'\][^}]*\}/.test(ia6));
 check('검색·정렬 입력이 있다 (요구사항 5)',
   /id="la-q"/.test(html) && /id="la-sort"/.test(html) && /id="la-min"/.test(html));
 check('목록에 필수 항목이 다 있다 (이름·아이디·담당강사·연속결석·마지막출석)',

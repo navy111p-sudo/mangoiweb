@@ -10,6 +10,29 @@
    대사 API 응답에 pg_fee_rate 가 오면 그 값으로 갱신하고, 못 받았을 때만 기본값을 쓴다. */
 window.__pgFeeRate = (typeof window.__pgFeeRate === 'number') ? window.__pgFeeRate : 0.0286;
 window.pgFeeRateLabel = function(){ return (window.__pgFeeRate * 100).toFixed(2) + '%'; };
+
+/* 🔐 «이 카드가 지금 이 계정에게 감춰져 있는가» — 판정 정본 (2026-08-18)
+
+   카드를 감추는 방법이 **세 갈래**로 늘어났는데 읽는 쪽이 각자 판단하고 있었다.
+   그래서 「사이드바엔 없는데 검색에는 나오는」 식의 불일치가 계속 생겼다.
+   판정을 여기 한 곳으로 모은다 — 새 숨김 방식이 생기면 **이 함수만** 고칠 것.
+
+     ① `.rbac-hide`         역할 등급 (CARD_POLICY → _applyMenuVisibility)
+     ② `.ph118-card-hidden` 권한 매트릭스 (adm-q10.js PERMS)
+     ③ 인라인 display:none  옛 방식. 남아 있을 수 있어 계속 인정한다
+
+   ⛔ `.ia6-hide` 는 **넣지 않는다.** 그건 «항목을 누르면 관련 카드만 보이기»(showOnly)의
+      일시적 화면 상태이지 «이 사람이 볼 수 있는가» 가 아니다. 넣으면 카드 하나를 고른
+      순간 나머지가 전부 «권한 없음» 으로 판정돼 검색·바로가기가 통째로 비워진다.
+   ⚠️ 인라인 display 로 감춘 카드는 PC(≥1024px)에서 **실제로는 화면에 보인다**
+      (#legacy-cards 복구 규칙이 이긴다 — CLAUDE.md 2장 함정 참고). 그래도 «감춤 의도» 로
+      읽는 것이 맞다. 보이는 것이 버그이지 판정이 버그가 아니다. */
+window.mangoiCardHidden = function (el) {
+  if (!el) return true;
+  if (el.classList && (el.classList.contains('rbac-hide') ||
+                       el.classList.contains('ph118-card-hidden'))) return true;
+  return !!(el.style && el.style.display === 'none');
+};
 window.notePgFeeRate = function(v){ if (typeof v === 'number' && v > 0) window.__pgFeeRate = v; };
 
 let chartAtt = null, chartRwd = null;
@@ -9209,7 +9232,7 @@ function buildMenuIndex() {
     // 🔐 RBAC: 역할로 감춘 카드는 사이드바에 안 띄움
     //   (2026-08-18) 숨김 표시가 «인라인 display» → «.rbac-hide 클래스» 로 바뀌었다.
     //   인라인 검사도 남겨 둔다 — 옛 방식으로 감추는 코드가 남아 있어도 계속 걸러진다.
-    if (d.classList.contains('rbac-hide') || d.style.display === 'none') return;
+    if (window.mangoiCardHidden(d)) return;
     // 1) 카드 자체에 data-menu-label-ko/en 이 있으면 최우선 (배지 텍스트 빨림 방지)
     let ko = d.getAttribute('data-menu-label-ko') || '';
     let en = d.getAttribute('data-menu-label-en') || '';
@@ -9289,7 +9312,7 @@ function buildMenuIndex() {
   MENU_ALIASES.forEach(function(a){
     var el = document.getElementById(a.card);
     // RBAC 숨김 카드는 제외 — (2026-08-18) 숨김 표시가 .rbac-hide 클래스로 바뀌었다
-    if (!el || el.classList.contains('rbac-hide') || el.style.display === 'none') return;
+    if (window.mangoiCardHidden(el)) return;
     _globalSearchIndex.push({
       kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
       label: a.label, labelEn: a.en || a.label,   // en 이 있으면 영문 라벨로 (강사 다수 필리핀)

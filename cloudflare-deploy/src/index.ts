@@ -627,7 +627,25 @@ const worker = {
       try { probe.bindings.AI = !!(env as any)?.AI; } catch {}
       try { probe.bindings.SIGNALING_ROOM = !!(env as any)?.SIGNALING_ROOM; } catch {}
       try { probe.bindings.VIDEO_CALL_ROOM = !!(env as any)?.VIDEO_CALL_ROOM; } catch {}
-      const secretKeys = ['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','KAKAO_API_KEY','KAKAO_TEMPLATE_ID','SOLAPI_API_KEY','SOLAPI_API_SECRET','SOLAPI_SENDER','GIFTISHOW_AUTH_CODE','GIFTISHOW_AUTH_TOKEN'];
+      /* 🔑 여기 이름은 **코드가 실제로 읽는 env 이름과 글자 그대로 같아야 한다.**
+         2026-08-18 실측: 10개 중 5개(KAKAO_API_KEY·KAKAO_TEMPLATE_ID·SOLAPI_SENDER·
+         GIFTISHOW_AUTH_CODE·GIFTISHOW_AUTH_TOKEN)가 이 줄에만 있고 코드 어디서도 안 쓰는
+         «유령 이름» 이었다. 그래서 등록을 제대로 해 둬도 영원히 false 로 나왔다 —
+         웹푸시가 안 되는 원인을 찾다가 SOLAPI_SENDER: false 를 보고 「문자 발송도 죽었구나」로
+         읽을 뻔했다. 실제로는 그런 변수가 없었을 뿐이고, 진짜 발신번호(SOLAPI_FROM_PHONE)는
+         이 목록이 아예 묻지도 않고 있었다.
+         ⚠️ 점검 도구가 거짓을 말하면 없는 문제를 쫓게 된다. 코드 버그보다 비싸다.
+         ℹ️ 이 값(secrets_present)을 그리는 화면은 없다 — /api/admin/health-check 의 JSON 을
+            직접 열어서 본다(admin/health.html 은 이 필드를 렌더링하지 않는다).
+         감시: test-harness/secret_names_harness.mjs 가 «코드가 안 쓰는 이름» 을 FAIL 낸다. */
+      const secretKeys = [
+        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT',   // 🔔 웹푸시
+        'SOLAPI_API_KEY', 'SOLAPI_API_SECRET',                       // 💬 문자·알림톡
+        'SOLAPI_FROM_PHONE',                                         //    발신번호 (구 SOLAPI_SENDER — 그런 이름은 없었다)
+        'SOLAPI_PFID',                                               //    카카오 채널 ID
+        'KAKAO_CLIENT_ID', 'KAKAO_CLIENT_SECRET',                    // 🔑 카카오 소셜로그인
+        'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
+      ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
       try {
         if ((env as any)?.DB) {
@@ -1796,6 +1814,17 @@ const worker = {
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
       const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🚗 /sales — 영업 전용 휴대폰 화면 (2026-08-18)
+    //   ⚠️ 확장자 없는 주소는 **여기서 한 줄로 직접 이어 줘야** 한다.
+    //      [assets] 가 html_handling="none" 이라 /sales → /sales.html 자동 연결이 없다.
+    //      2026-08-18 실제로 밟음: 인증 게이트(isAdminPath)에만 등록하고 이 줄을 빠뜨려
+    //      /sales 가 아무 데도 안 걸리고 **홈 화면(index.html)이 떴다.**
+    //      게이트는 통과했으니 «권한 문제» 로 보이지도 않아 원인 찾기가 더 어렵다.
+    if (path === '/sales' || path === '/sales/') {
+      const r = new Request(new URL('/sales.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
