@@ -8199,6 +8199,18 @@ LIMIT $limit`;
           return json({ ok: false, error: 'already_exists',
             message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
         }
+        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
+        //    안 잡힘」과 같은 뿌리). scope_value 를 이름으로 매칭하는 구조라, 이미 같은 이름의
+        //    대리점이 있으면 이 로그인이 «그 대리점 자료까지» 함께 보게 된다. 등록 자체는 막지
+        //    않고(대리점만 먼저 등록하는 기존 동작은 유지) 로그인 계정만 막는다.
+        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? LIMIT 1`)
+          .bind(b.name).first<{ id: number }>();
+        if (nameDup) {
+          return json({ ok: false, error: 'duplicate_center_name',
+            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
+                      '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
+                      '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.' }, 409);
+        }
       }
 
       const r = await env.DB.prepare(
