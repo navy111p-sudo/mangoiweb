@@ -112,6 +112,15 @@ check('자식 클릭이 손자를 여닫는다 (openGc 여닫이)', /openGc\(sub
 check('그 리스너가 window 캡처다 — 사이드바에 걸면 ph97 이 삼킨다',
   /openGc\(sub, true\);[\s\S]{0,120}?\}, true\);/.test(r25));
 check('그룹이 접혀 손자가 사라지지 않게 지킨다 (keepGroupOpen)', /function keepGroupOpen\s*\(/.test(r25));
+/* 🔁 2026-08-19 사장님 「손자 메뉴도 다시 누르면 접히게」. 손자는 마지막 단계라 사이드바 안에는
+   접을 것이 없어서, «본문의 그 칸» 을 접는다 — 그룹·자식과 규칙이 이어진다.
+   ⚠️ «같은 손자를 연속으로» 누른 경우만 접는다(lastGo.desc === desc). 그 조건을 지우면
+      다른 데를 보다가 돌아와 누른 것까지 접혀 「보러 왔는데 닫힌다」가 된다. */
+check('같은 손자를 다시 누르면 본문의 그 칸이 접힌다 (lastGo)',
+  /var lastGo = null;/.test(r25) &&
+  /lastGo\.desc === desc[\s\S]{0,260}?prev\.open = false;/.test(r25));
+check('다른 손자·딴 페이지·함수형은 접기 대상이 아니다 — 기억을 지운다',
+  (r25.match(/lastGo = null;/g) || []).length >= 3);
 
 console.log('\n[ ⑤ «방금 폈다» 표시가 다섯 곳에서 짝이 맞는다 ]');
 /* 한쪽만 고치면 —
@@ -186,7 +195,7 @@ check('「수강 운영」 이름을 바꿨으니 이사표에 한 줄 적혀 �
   /'teacher:수강 운영\(배율·정원\)':\s*'teacher:수강 운영'/.test(ia6));
 
 console.log('\n[ ⑨ 캐시 번호 ]');
-for (const [file, min] of [['adm-r25', 20], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
+for (const [file, min] of [['adm-r25', 21], ['adm-ia6', 41], ['adm-s11', 5], ['adm-s15', 4]]) {
   const m = html.match(new RegExp(`${file}\\.js\\?v=(\\d+)`));
   check(`admin.html 의 ${file}.js 버전이 ${min} 이상`, !!m && Number(m[1]) >= min);
 }
