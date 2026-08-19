@@ -18,6 +18,13 @@
 //
 //   ⚠️ 글자색을 span/div 에 주지 않는다 — admin-inline-c.css 가 .sub-body 안의
 //      p/span/div 색을 !important 로 덮는다. 색은 <td>·배경색으로 낸다.
+//
+//   👩‍🏫 강사 이름은 서버가 «카페24 강사번호 → 급여표 이름 → 원부(teachers) 번호» 로 찾아 준다.
+//      ⛔ 화면에서 번호를 손대지 말 것. attendance.teacher_name 에는 옛 동기화가 넣은
+//         **남의 이름**이 남아 있고, 카페24 번호와 원부 번호는 서로 다른 체계다
+//         (자세한 이유는 api-admin.ts 의 loadCafe24TeacherMap 주석).
+//      「원부 미연결」은 이름은 맞는데 원부에 그 이름이 없다는 뜻이다 — 일정은 생기고
+//      강사 칸만 빈다. 관리자 › 강사 관리에서 이름을 맞추면 다음부터 붙는다.
 // ═══════════════════════════════════════════════════════════════════════════
 (function () {
   'use strict';
@@ -93,7 +100,12 @@
         + ' · 명부에 없음 ' + num(T.skip_not_in_roster),
         'Auto-excluded — already scheduled ' + num(T.skip_already)
         + ' · not active ' + num(T.skip_not_active)
-        + ' · not in roster ' + num(T.skip_not_in_roster)) + '</span>';
+        + ' · not in roster ' + num(T.skip_not_in_roster)) + '</span>'
+      /* 👩‍🏫 강사가 안 붙는 건수를 미리 알린다 — 만들고 나서 「강사가 없네」가 안 되게 */
+      + '<br><span ' + t(
+        '권장분 강사 — 미상 ' + num(T.no_teacher) + '건 · 원부 미연결 ' + num(T.teacher_unlinked) + '건',
+        'Teacher on recommended — unknown ' + num(T.no_teacher)
+        + ' · not linked to roster ' + num(T.teacher_unlinked)) + '</span>';
   }
 
   function pickedCount() { return ROWS.filter(function (r) { return r._pick; }).length; }
@@ -129,7 +141,10 @@
           + (r.shop_name ? '<br><span style="color:#64748b;font-size:11px">' + esc(r.shop_name) + '</span>' : '') + '</td>'
         + '<td style="padding:6px 8px;font-size:12.5px;color:#1e293b">'
           + esc((isEn() ? 'every ' : '매주 ') + dowName(r.dow) + ' ' + r.start_time) + ' · ' + esc(r.duration_min) + (isEn() ? 'min' : '분') + '</td>'
-        + '<td style="padding:6px 8px;font-size:12px;color:#475569">' + esc(r.teacher_name || '—') + '</td>'
+        + '<td style="padding:6px 8px;font-size:12px;color:#475569">' + esc(r.teacher_name || '—')
+          + (r.teacher_name && !r.teacher_id
+              ? '<br><span style="background-color:#fef3c7;border-radius:999px;padding:1px 6px;font-size:10.5px">'
+                + esc(isEn() ? 'not linked' : '원부 미연결') + '</span>' : '') + '</td>'
         + '<td style="padding:6px 8px;font-size:12px;color:#475569;text-align:right">' + num(r.seen)
           + (r.last_date ? '<br><span style="color:#94a3b8;font-size:11px">' + esc(r.last_date) + '</span>' : '') + '</td>'
         + '<td style="padding:6px 8px"><span style="background-color:' + bg + ';border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700">'
@@ -172,6 +187,8 @@
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (!d || !d.ok) throw new Error((d && (d.message || d.error)) || 'failed');
       say((isEn() ? '✅ Created ' + d.created + ' schedules.' : '✅ 수업 일정 ' + d.created + '건을 만들었습니다.')
+        + (d.without_teacher ? (isEn() ? ' (' + d.without_teacher + ' without teacher)'
+                                       : ' (강사 미배정 ' + d.without_teacher + '건)') : '')
         + (d.skipped_count ? (isEn() ? ' (' + d.skipped_count + ' skipped)' : ' (건너뜀 ' + d.skipped_count + '건)') : ''),
         '#15803d');
       preview(true); // 다시 훑어서 «이미 일정 있음» 으로 바뀐 것을 눈으로 확인시킨다(결과 메시지는 남긴다)

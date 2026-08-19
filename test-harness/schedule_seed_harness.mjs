@@ -109,6 +109,35 @@ check('수업 길이를 접속 시간에서 뽑되 10~60분으로 가둔다',
   /Math\.max\(10, Math\.min\(60, mins \|\| DEFAULT_CLASS_MINUTES\)\)/.test(prev));
 check('만들고 나서 결과 메시지를 지우지 않는다', /preview\(true\);/.test(js));
 
+console.log('\n[ I. 👩‍🏫 강사 — 번호 체계를 섞지 않는다 ]');
+/* 🪤 강사 번호가 «세 벌» 이다 —
+     카페24 번호 : attendance.teacher_uid · teacher_payroll_auto.teacher_id  (실측 9~196)
+     원부 번호   : teachers.id · class_schedules.teacher_id                   (1~29)
+     프로필 번호 : teacher_profiles.id                                        (4~37)
+   겹치는 자리에서 서로 «다른 사람» 이다(카페24 24 = Teacher Mariane / 원부 24 = HANNAH).
+   2026-08-18 에 동기화가 이걸 섞어 attendance 602행에 남의 이름을 넣었고(79aa8ed 로 수리),
+   같은 실수를 이 도구가 반복하면 학생 일정에 남의 강사가 붙는다. */
+/* 부정 검사는 주석을 벗겨 낸 사본으로 — 「왜 안 읽는지」 적은 주석이 자기 검사에 걸린다
+   (CLAUDE.md 「하니스에 «이 단어가 없어야 한다»」 함정) */
+const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+const prevC = strip(prev), applC = strip(appl), aapiC = strip(aapi);
+
+check('🔴 preview 가 attendance.teacher_name 을 읽지 않는다 (옛 동기화가 남의 이름을 넣어 둔 칸)',
+  !/a\.teacher_name/.test(prevC));
+check('이름은 teacher_payroll_auto 에서 찾는다 (번호와 이름을 함께 받은 유일한 표)',
+  /FROM teacher_payroll_auto/.test(aapiC) && /loadCafe24TeacherMap/.test(prevC));
+check('🔴 원부 연결은 이름이 «유일» 할 때만 (겹치면 잇지 않는다)',
+  /tid\.set\(k, tid\.has\(k\) \? null : String\(t\.id\)\)/.test(aapiC));
+check('🔴 apply 가 카페24 번호를 class_schedules.teacher_id 에 그대로 넣지 않는다',
+  !/it\?\.teacher_uid \? String\(it\.teacher_uid\) : null/.test(applC));
+check('🔴 apply 가 강사를 서버에서 다시 찾는다 (화면이 보낸 번호를 그대로 믿지 않는다)',
+  /loadCafe24TeacherMap\(env, list\.map/.test(applC) && /const teacherId = /.test(applC));
+check('못 이으면 비워 둔다 (빈 칸은 눈에 띄지만 틀린 이름은 안 띈다)',
+  /\?\.teacherId : null\) \|\| null/.test(applC));
+check('강사가 안 붙는 건수를 미리보기가 숫자로 알린다', /no_teacher:/.test(prevC) && /teacher_unlinked:/.test(prevC));
+check('만든 뒤에도 강사 미배정 건수를 돌려준다', /without_teacher:/.test(applC));
+check('화면이 «원부 미연결» 을 표시한다', /원부 미연결/.test(js));
+
 console.log('\n[ H. 화면이 붙어 있다 ]');
 check('카드가 admin.html 에 있다', /id="card-schedule-seed"/.test(html));
 check('스크립트를 부른다', /src="\/js\/adm-schedule-seed\.js\?v=\d+"/.test(html));

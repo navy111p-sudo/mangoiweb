@@ -316,6 +316,61 @@ function normTeacherName(v: any): string {
   return String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ').replace(/^teacher\s+/, '');
 }
 
+/* ═══ 카페24 강사번호 → «이름 · 원부번호» 다리 (2026-08-19) ═══
+   attendance.teacher_uid 는 **카페24 강사번호**다(실측 9~196). 그런데 —
+     ① 이름 칸(attendance.teacher_name)은 거의 비어 있다. 4주 실측(2026-07-22~08-19)에서
+        학생 행 4,084건 중 강사번호는 3,251건(80%)에 있는데 **이름은 243건(6%)** 뿐이었다.
+     ② 그 243건은 «비어 있는 것보다 나쁘다» — 옛 동기화가 카페24 번호를 `teachers.id` 로
+        오인해 조회한 **남의 이름**이다(카페24 24 = Teacher Mariane 인데 HANNAH 로 적혀 있다).
+        동기화 코드는 79aa8ed 에서 고쳤지만 **이미 들어간 행은 그대로**다.
+   ⛔ 그래서 attendance.teacher_name 을 읽지 말 것. 번호로 매번 다시 찾는다.
+   ✅ 이름 = teacher_payroll_auto. 카페24 서버가 «번호와 이름을 함께» 밀어넣은 유일한 표라
+      번호↔이름이 어긋나지 않는다(실측: 4주에 나온 강사번호 27개가 전부 여기서 이름이 나온다).
+   ✅ 원부번호 = 그 이름을 normTeacherName 으로 정규화해 teachers 와 **유일하게** 맞을 때만.
+      class_schedules.teacher_id 를 읽는 화면들이 `LEFT JOIN teachers` 를 하므로, 여기에
+      카페24 번호를 그대로 넣으면 번호가 겹치는 자리에서 조용히 남의 이름이 뜬다(=①과 같은 사고).
+      애매하면 **비워 둔다** — 빈 칸은 눈에 띄지만 틀린 이름은 안 띈다.
+      (실측: 665건 중 이름 665건 · 원부연결 590건. 못 이은 것은 「HT NESS」·「Wan」과
+       사람이 아닌 「스케줄변경중」·「test teacher」다) */
+export type Cafe24TeacherInfo = { name: string | null; teacherId: string | null };
+
+async function loadCafe24TeacherMap(
+  env: { DB: D1Database }, uids: (string | null | undefined)[],
+): Promise<Map<string, Cafe24TeacherInfo>> {
+  const out = new Map<string, Cafe24TeacherInfo>();
+  const want = new Set(uids.map(u => String(u ?? '').trim()).filter(Boolean));
+  if (!want.size) return out;
+
+  // 원부(teachers) 정규화 이름 → id. 같은 이름이 둘 이상이면 «잇지 않음»(null) 으로 못 박는다.
+  const tid = new Map<string, string | null>();
+  try {
+    const rs = await env.DB.prepare(`SELECT id, name FROM teachers`).all();
+    for (const t of ((rs.results || []) as any[])) {
+      const k = normTeacherName(t.name);
+      if (!k) continue;
+      tid.set(k, tid.has(k) ? null : String(t.id));
+    }
+  } catch { /* 원부가 없는 옛 DB — 이름만 준다 */ }
+
+  try {
+    // 오름차순이라 같은 번호가 여러 달 있으면 **최근 달 이름**이 남는다(개명·표기변경 반영)
+    const rs = await env.DB.prepare(
+      `SELECT CAST(teacher_id AS TEXT) AS c24, teacher_name
+         FROM teacher_payroll_auto
+        WHERE teacher_name IS NOT NULL AND teacher_name <> ''
+        ORDER BY year ASC, month ASC`
+    ).all();
+    for (const r of ((rs.results || []) as any[])) {
+      const c24 = String(r.c24 || '');
+      if (!want.has(c24)) continue;
+      const nm = String(r.teacher_name || '').trim();
+      out.set(c24, { name: nm || null, teacherId: (tid.get(normTeacherName(nm)) ?? null) });
+    }
+  } catch { /* 급여 인제스트 표가 없는 옛 DB — 이름 없이 진행(화면이 «미상» 으로 보여 준다) */ }
+
+  return out;
+}
+
 async function loadCafe24PayrollMonth(env: { DB: D1Database }, year: number, month: number) {
   let rows: any[] = [];
   try {
@@ -5356,8 +5411,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
                 COUNT(*)                                              AS seen,
                 MAX(a.date)                                           AS last_date,
                 AVG(COALESCE(a.total_session_ms, 0))                   AS avg_ms,
-                MAX(a.teacher_uid)                                    AS teacher_uid,
-                MAX(a.teacher_name)                                   AS teacher_name
+                MAX(a.teacher_uid)                                    AS teacher_uid
            FROM attendance a
           WHERE a.role = 'student' AND a.joined_at IS NOT NULL
             AND a.date BETWEEN ? AND ?
@@ -5385,11 +5439,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
       const DOW_TXT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+      /* 👩‍🏫 강사 — 번호(카페24)로 이름·원부번호를 다시 찾는다.
+         ⛔ attendance.teacher_name 은 읽지 않는다(옛 동기화가 남의 이름을 넣어 둔 칸이다).
+            자세한 이유는 loadCafe24TeacherMap 주석. */
+      const tMapSeed = await loadCafe24TeacherMap(env, rows.map(r => r.teacher_uid));
+
       const items = rows.map(r => {
         const uid = String(r.user_id);
         const st = stuMap.get(uid);
         const dow = Number(r.dow);
         const startTime = String(r.start_time);
+        const tInfo = r.teacher_uid ? tMapSeed.get(String(r.teacher_uid)) : undefined;
         // 수업 길이 — 접속 시간 평균을 10분 단위로. 기록이 없으면 기본 20분(class-policy).
         const mins = Math.round(Number(r.avg_ms || 0) / 60000 / 10) * 10;
         return {
@@ -5402,7 +5462,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           start_time: startTime,
           duration_min: Math.max(10, Math.min(60, mins || DEFAULT_CLASS_MINUTES)),
           teacher_uid: r.teacher_uid || null,
-          teacher_name: r.teacher_name || null,
+          teacher_name: tInfo?.name || null,
+          teacher_id: tInfo?.teacherId || null,      // 원부(teachers.id) — 못 이으면 null 로 둔다
+          teacher_linked: !!tInfo?.teacherId,
           seen: Number(r.seen || 0),
           last_date: r.last_date || null,
           already: haveKey.has(`${uid}|${DOW_TXT[dow]}|${startTime}`),
@@ -5422,6 +5484,9 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           skip_already: items.filter(i => i.already).length,
           skip_not_active: items.filter(i => i.in_roster && !i.active).length,
           skip_not_in_roster: items.filter(i => !i.in_roster).length,
+          /* 강사가 안 붙는 것도 숫자로 보여 준다 — 「일정은 생겼는데 강사가 없다」를 미리 알린다 */
+          no_teacher: recommended.filter(i => !i.teacher_name).length,
+          teacher_unlinked: recommended.filter(i => i.teacher_name && !i.teacher_id).length,
         },
       });
     }
@@ -5443,6 +5508,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const now = Date.now();
       const actor = await getAdminActor(request, env as any);
       let created = 0; const skipped: any[] = [];
+
+      /* 👩‍🏫 강사 칸 — 화면이 보내 준 번호를 그대로 쓰지 않고 **서버가 다시 찾는다.**
+         ⛔ class_schedules.teacher_id 는 원부(teachers.id) 번호다. 카페24 번호를 그대로
+            넣으면 겹치는 자리에서 남의 이름이 뜬다(이 표를 읽는 화면들이 LEFT JOIN teachers 를 한다).
+         못 이으면 **비워 둔다** — 「강사 미배정」은 눈에 띄지만 틀린 강사는 안 띈다. */
+      const tMapApply = await loadCafe24TeacherMap(env, list.map((it: any) => it?.teacher_uid));
+      let withTeacher = 0;
 
       for (const it of list) {
         const uid = String(it?.user_id || '').trim();
@@ -5466,14 +5538,19 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (String(stu.status || '') !== 'active') { skipped.push({ user_id: uid, reason: 'not_active' }); continue; }
 
         const dur = Math.max(10, Math.min(60, Number(it?.duration_min) || DEFAULT_CLASS_MINUTES));
+        const teacherId = (it?.teacher_uid ? tMapApply.get(String(it.teacher_uid))?.teacherId : null) || null;
         await env.DB.prepare(
           `INSERT INTO class_schedules (user_id, student_name, schedule_kind, class_type, day_of_week, start_time, duration_min, teacher_id, status, source, created_by, created_at, updated_at)
            VALUES (?,?,'recurring','regular',?,?,?,?,'active','attendance_seed',?,?,?)`
         ).bind(uid, stu.korean_name || stu.student_name || null, dowTxt, startTime, dur,
-               it?.teacher_uid ? String(it.teacher_uid) : null, actor.name || 'admin', now, now).run();
+               teacherId, actor.name || 'admin', now, now).run();
         created++;
+        if (teacherId) withTeacher++;
       }
-      return json({ ok: true, created, skipped_count: skipped.length, skipped: skipped.slice(0, 50) });
+      return json({
+        ok: true, created, with_teacher: withTeacher, without_teacher: created - withTeacher,
+        skipped_count: skipped.length, skipped: skipped.slice(0, 50),
+      });
     }
 
     // 🥭 Phase 6d — POST /api/admin/class-schedules/seed-demo
