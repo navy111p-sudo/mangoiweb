@@ -2312,7 +2312,8 @@ async function _menuPost(url, body) {
   const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});
   const d = await r.json().catch(()=>({}));
   if (!r.ok || d.ok === false) {
-    alert((adminLang==='en'?'Failed: ':'실패: ') + (d.error || ('HTTP '+r.status)));
+    // 서버가 사람이 읽을 message 를 주면 그걸 우선한다 — d.error 는 'bad_username' 같은 코드뿐이라 뜻이 안 통한다.
+    alert((adminLang==='en'?'Failed: ':'실패: ') + (d.message || d.error || ('HTTP '+r.status)));
     return null;
   }
   return d;
@@ -3941,13 +3942,30 @@ async function addCenter() {
   const e = id => document.getElementById(id);
   const name = (e('ct-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
+  //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
+  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
+  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
+  if ((loginId && !loginPw) || (!loginId && loginPw)) {
+    alert(adminLang==='en' ? 'Fill in both login ID and password, or leave both blank.'
+                            : '로그인 아이디와 비밀번호를 둘 다 입력하거나, 둘 다 비워 두세요.');
+    return;
+  }
   const d = await _menuPost('/api/admin/centers', {
     franchise_id: e('ct-franchise').value || null, name,
     country: e('ct-country').value||null, manager: e('ct-manager').value||null,
     address: e('ct-address').value||null,
-    payment_type: (e('ct-paytype') && e('ct-paytype').value) || null   // 💳 (2026-08-12 수정요청 #05)
+    payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,   // 💳 (2026-08-12 수정요청 #05)
+    login_username: loginId || null, login_password: loginPw || null
   });
-  if (d) { ['ct-name','ct-country','ct-manager','ct-address','ct-paytype'].forEach(id=>{ if(e(id)) e(id).value=''; }); loadCenters(); }
+  if (d) {
+    ['ct-name','ct-country','ct-manager','ct-address','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    if (d.login_created) {
+      alert(adminLang==='en' ? ('Agency login account created: ' + loginId)
+                              : ('대리점 로그인 계정을 만들었습니다: ' + loginId));
+    }
+    loadCenters();
+  }
 }
 
 // ── 레벨테스트 ───────────────────────────────────────────────────────
