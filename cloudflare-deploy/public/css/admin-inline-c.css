@@ -4316,6 +4316,36 @@ button.chip:hover,
     padding: 8px 18px !important; border-radius: 8px !important;
     font-weight: 800 !important; cursor: pointer !important;
   }
+  /* ✍️ 표의 「결재 올리기」 (2026-08-20 신설)
+     ⛔ .pm-row-btn.tax 를 재사용했더니 — ① 링크라 밑줄이 그어지고
+        ② 라벨이 칸(160px)보다 길어 **두 줄로 접히면서 배경이 조각나** 「글자가 잘려 내려온」 것처럼 보였다.
+        (인라인 요소는 줄마다 배경이 따로 그려진다 — 버튼처럼 보이지만 버튼이 아니다)
+     ✅ inline-flex + nowrap 으로 «한 줄로만» 그린다. 라벨도 짧게 줄였다. */
+  /* 양식 이름이 두 줄로 접혀 지저분하던 것 — 표는 바깥 상자가 overflow-x:auto 라 넘쳐도 안전하다 */
+  #card-report-forms .rf-table td:nth-child(2) { white-space: nowrap; }
+
+  #card-report-forms .rf-go {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap !important;      /* 두 줄로 접히지 않는다 */
+    text-decoration: none !important;    /* 링크 밑줄 제거 */
+    background: rgba(16,185,129,0.16) !important;
+    color: #6EE7B7 !important;
+    border: 1px solid rgba(16,185,129,0.5) !important;
+    border-radius: 7px !important;
+    padding: 6px 11px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+  #card-report-forms .rf-go:hover {
+    background: rgba(16,185,129,0.28) !important;
+    color: #A7F3D0 !important;
+  }
+
   #card-report-forms .rf-btn-new {
     background: linear-gradient(135deg, #10B981, #059669) !important;
     color: #fff !important; border: 0 !important;
@@ -4323,6 +4353,11 @@ button.chip:hover,
     font-weight: 800 !important; cursor: pointer !important;
     margin: 18px auto 0 !important;
     display: block !important;
+  }
+  #card-report-forms a.rf-btn-new {
+    text-decoration: none !important;
+    width: max-content !important;
+    text-align: center;
   }
   #card-report-forms .rf-btn-new:hover {
     background: linear-gradient(135deg, #059669, #047857) !important;
@@ -4385,15 +4420,20 @@ button.chip:hover,
     background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
     color: #fff !important;
   }
+  /* 💬 안내 박스 (2026-08-20 손질)
+     · 진한 파랑 배경이 «투박하다» 는 지적 → 배경은 아주 옅게, 강조는 왼쪽 띠로만.
+     · 글자가 상자 안에서 답답하게 눌리던 것 → 여백·줄간격을 늘리고 문장을 두 줄로 줄였다. */
   #card-report-forms .rf-info {
-    background: rgba(37,99,235,0.15) !important;
-    border-left: 4px solid #2563EB;
+    background: rgba(37,99,235,0.07) !important;
+    border: 1px solid rgba(37,99,235,0.22);
+    border-left: 3px solid #3B82F6;
     color: #F8FAFC !important;
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 12px 16px;
     margin-bottom: 14px;
     font-size: 12.5px;
-    line-height: 1.7;
+    line-height: 1.85;
+    overflow-wrap: anywhere;   /* 긴 낱말이 상자를 밀어내지 않게 */
   }
   #card-report-forms .rf-info b { color: #93C5FD !important; }
 
@@ -8025,6 +8065,9 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-report-forms .rf-form-name:hover { color: #1E40AF !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.22) !important; color: #475569 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info { background: #F5F8FF !important; border-color: #D5E2FB !important; border-left-color: #3B82F6 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go { background: #E9F7F1 !important; color: #0B6E63 !important; border-color: #9AD5C4 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go:hover { background: #D5EFE6 !important; color: #075E54 !important; }
 
   /* 19) 학원별 학생 수업현황 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info { color: #1E293B !important; }
