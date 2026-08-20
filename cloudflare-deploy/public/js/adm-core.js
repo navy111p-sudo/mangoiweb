@@ -1273,6 +1273,79 @@ function _ensureRoomEnhCss(){
   st.textContent='@keyframes roomAlertPulse{0%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,.45)}70%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 6px rgba(239,68,68,0)}100%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,0)}} tr.room-alert>td{background:rgba(239,68,68,.08)!important} tr.room-alert>td:first-child{animation:roomAlertPulse 1.3s ease-in-out infinite} @media (prefers-reduced-motion:reduce){tr.room-alert>td:first-child{animation:none}} .room-alert-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;vertical-align:middle}';
   document.head.appendChild(st);
 }
+/* 📅 «예약 기준 지금 수업» 요약 줄  (2026-08-20 사장님 「지금 수업이 없어?」)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜 만들었나] 이 표는 «망고아이 화상방에 붙어 있는 사람» 만 센다. 그런데 카페24
+      예약 수업은 그 방을 거치지 않아서(실측: `c24-*` 방 실접속 전 기간 0건),
+      수업 4건이 진행 중이던 시각에도 화면은 «지금 진행 중인 수업이 없습니다» 라고
+      말했다. 같은 사실인데 «오늘 한가하다» 로 읽힌다.
+   [무엇을 그리나] 「지금 수업 4건 · 화상방 접속 0건」 — 둘을 **나란히** 놓는다.
+      숫자가 갈리는 것 자체가 정보다(수업은 도는데 우리 방을 안 쓰고 있다).
+   ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
+      `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
+      (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+function _renderRoomsSummary(counts, liveRooms, _L) {
+  const box = document.getElementById('rooms-now-summary');
+  if (!box) return;
+  if (!counts) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const now = counts.now || 0, soon = counts.soon || 0, conn = counts.connected || 0;
+  box.style.display = '';
+  const chip = (label, val, color) =>
+    '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9999px;'
+    /* ⚠️ 색에 `!important` 를 붙인다 — admin-inline-c.css 가 카드 안 글자를
+       `#101828 !important` 로 통째로 덮어서, 그냥 쓰면 색이 조용히 죽는다.
+       (인라인 !important 는 작성자 !important 를 이긴다. CLAUDE.md 2장) */
+    + 'background-color:#ffffff;border:1px solid #e5e7eb;font-size:12px;font-weight:700;color:#374151 !important">'
+    + label + '<b style="font-size:14px;color:' + color + ' !important">' + val + '</b></span>';
+  box.innerHTML =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    + chip((_L ? 'Scheduled now' : '지금 수업'), now, now ? '#dc2626' : '#6b7280')
+    + chip((_L ? 'In a Mango-i room' : '화상방 접속'), liveRooms, liveRooms ? '#16a34a' : '#6b7280')
+    + (soon ? chip((_L ? 'Starting soon' : '곧 시작'), soon, '#2563eb') : '')
+    + '</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.6">'
+    + (_L
+        ? 'Left = classes booked in cafe24 for this moment. Right = people actually connected to a Mango-i room. They are different numbers on purpose — a booked class does not open a Mango-i room by itself.'
+        : '왼쪽은 <b>카페24에 예약된 수업</b>, 오른쪽은 <b>망고아이 화상방에 실제로 붙어 있는 사람</b>입니다. 예약 수업이 화상방을 자동으로 열지는 않기 때문에 두 숫자는 원래 다를 수 있습니다.')
+    + (conn ? '' : '')
+    + '</div>';
+}
+
+/* 📅 예약 수업 행 — 방 목록 아래에 함께 그린다.
+   ⛔ «접속 기록 없음» 을 «미접속» 이라고 쓰지 않는다. 서버는 학생 계정·이름이
+      완전일치하는 실접속 행이 있을 때만 «접속 확인» 으로 답한다(추측하지 않는다).
+      즉 우리가 아는 것은 «기록이 없다» 까지다. */
+function _schedRowsHtml(list, _L, roomsEmpty) {
+  if (!list || !list.length) return '';
+  const head = '<tr><td colspan="6" style="background-color:#f8fafc;padding:8px 12px;line-height:1.6">'
+    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+    + (roomsEmpty
+        ? '<div style="font-size:12px;color:#6b7280">'
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다.')
+          + '</div>'
+        : '')
+    + '</td></tr>';
+  return head + list.map(function (c) {
+    const ph = c.phase === 'soon' ? { t: (_L ? 'Starts soon' : '곧 시작'), c: '#2563eb' }
+             : c.phase === 'ended' ? { t: (_L ? 'Just ended' : '방금 끝남'), c: '#6b7280' }
+             : { t: (_L ? 'In progress' : '진행 중'), c: '#dc2626' };
+    const conn = c.connected
+      ? '<span class="badge ok">✅ ' + (_L ? 'Connected' : '접속 확인') + '</span>'
+      : '<span style="color:#b45309 !important;font-weight:700;font-size:12px">' + (_L ? 'No connection record' : '접속 기록 없음') + '</span>';
+    return '<tr data-sched="1">'
+      + '<td><b>' + _esc(c.start_kst || '') + '~' + _esc(c.end_kst || '') + '</b>'
+      +   '<div style="font-size:11px;color:#9ca3af">' + _esc(c.room_id || '') + '</div></td>'
+      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span></td>'
+      + '<td>' + _esc(c.student_name || (_L ? '(unknown)' : '(학생 미상)'))
+      +   ' <span style="color:#9ca3af">·</span> ' + _esc(c.teacher_name || (_L ? '(teacher unknown)' : '(강사 미상)')) + '</td>'
+      + '<td>-</td><td>-</td>'
+      + '<td>' + conn
+      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '') + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
 async function loadActiveRooms() {
   _ensureRoomEnhCss();
   const _L = adminLang==='en';
@@ -1283,9 +1356,11 @@ async function loadActiveRooms() {
     if (window.__roomsHover && tb0 && tb0.querySelector('tr[data-room]')) return;
   }
   try {
-    const [rr, ar] = await Promise.all([
+    const [rr, ar, cr] = await Promise.all([
       fetch('/api/active-rooms'),
-      fetch('/api/admin/alerts').catch(()=>null)
+      fetch('/api/admin/alerts').catch(()=>null),
+      // 📅 (2026-08-20) 예약 기준 «지금 수업». 실패해도 방 목록은 종전대로 그린다.
+      fetch('/api/admin/classes-now', { credentials: 'include', cache: 'no-store' }).catch(()=>null)
     ]);
     const rooms = await rr.json();
     const tb = document.getElementById('active-rooms-table');
@@ -1294,7 +1369,17 @@ async function loadActiveRooms() {
     try {
       if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
     } catch(_) {}
+    /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
+       ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
+    let sched = [], scounts = null;
+    try {
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+    } catch(_) {}
+    _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
+
     if (!rooms || rooms.length === 0) {
+      if (schedRows) { tb.innerHTML = schedRows; return; }
       /* 🔴 (2026-08-08) 「⚡ 자주 쓰는 기능 → 수업 종료 / 연장」이 이 카드로 온다.
          그런데 진행 중인 수업이 없으면 «현재 진행 중인 수업 없음» 한 줄만 떠서,
          종료·연장을 하러 온 사람 눈에는 «눌렀는데 아무 일도 안 일어났다» 로 보였다.
@@ -1341,7 +1426,7 @@ async function loadActiveRooms() {
           <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
-    }).join('');
+    }).join('') + schedRows;
     _wireRoomsActions();
   } catch(e) {
     document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
