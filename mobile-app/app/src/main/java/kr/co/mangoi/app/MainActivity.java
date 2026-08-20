@@ -269,10 +269,16 @@ public class MainActivity extends AppCompatActivity {
                 sp.edit().putInt("last_vc", curVc).apply();
             }
         } catch (Exception ignore) {}
+        /* 🥭 (2026-08-20 사장님 제보 ①④ 「돌아오면 화면이 안 나온다」)
+           restoreState() 는 **복원에 실패하면 아무것도 안 하고 null 을 돌려준다.**
+           수업 화면처럼 저장할 상태가 크면 실제로 실패하는 일이 있다(안드로이드가
+           Bundle 크기를 제한한다). 지금까지 그 값을 안 봤기 때문에, 실패하면
+           **주소를 한 번도 안 여는 빈 화면**이 되고 앱이 스스로 회복하지 못했다.
+           → 복원이 안 됐으면 시작 주소를 다시 연다. 에러도 안 나던 사고라 이 한 줄이 전부다. */
         if (savedInstanceState == null) {
             webView.loadUrl(START_URL + "?_app=" + System.currentTimeMillis());
-        } else {
-            webView.restoreState(savedInstanceState);
+        } else if (webView.restoreState(savedInstanceState) == null) {
+            webView.loadUrl(START_URL + "?_app=" + System.currentTimeMillis());
         }
 
         // 앱(APK) 자체 자동 업데이트 확인 — 더 높은 버전이 있으면 안내 후 설치
