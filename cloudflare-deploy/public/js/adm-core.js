@@ -5524,8 +5524,14 @@ function _addEnrollmentRow(prefill) {
   // 요일 — 7 체크박스 (월화수목금토일)
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
+  // 🖱️ (2026-08-19) 체크박스를 요일 글자 «아래» 로 — 한 줄에 체크박스가 촘촘히 붙어 있으면
+  //    옆 요일을 잘못 누르기 쉬웠다(글자-체크박스가 가로로 이어져 클릭 판정이 겹쳐 보임).
+  //    글자와 체크박스를 세로로 쌓고 각 요일 사이 간격을 넉넉히 둬서 오클릭을 줄인다.
   const dayChecks = dayCodes.map((c, i) =>
-    '<label style="font-size:11px;margin-right:3px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-right:1px;vertical-align:middle"/>' + dayLabels[i] + '</label>'
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;margin-right:6px;cursor:pointer;vertical-align:top">' +
+      '<span>' + dayLabels[i] + '</span>' +
+      '<input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-top:3px"/>' +
+    '</label>'
   ).join('');
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
