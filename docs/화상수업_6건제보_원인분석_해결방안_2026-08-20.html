@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>화상수업 6건 제보 — 원인 분석 및 해결방안</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 14mm 13mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "NanumGothic","NanumBarunGothic",sans-serif; color:#111827; font-size:10.2pt; line-height:1.62; margin:0; }
+  h1 { font-size:19pt; margin:0 0 2mm; letter-spacing:-.4px; }
+  h2 { font-size:12.5pt; margin:8mm 0 2.5mm; padding:2mm 0 1.5mm; border-bottom:2px solid #111827; }
+  h3 { font-size:11pt; margin:5mm 0 1.5mm; color:#0f172a; }
+  p  { margin:0 0 2mm; }
+  .sub { color:#4b5563; font-size:9.3pt; margin-bottom:5mm; }
+  .lead { background:#f8fafc; border-left:4px solid #f59e0b; padding:3mm 4mm; margin:0 0 5mm; }
+  table { width:100%; border-collapse:collapse; margin:2mm 0 4mm; font-size:9pt; }
+  th,td { border:1px solid #d1d5db; padding:1.6mm 2mm; text-align:left; vertical-align:top; }
+  th { background:#f1f5f9; font-weight:700; }
+  td.c, th.c { text-align:center; }
+  code { font-family:"NanumGothicCoding",monospace; font-size:8.6pt; background:#f1f5f9; padding:0 1mm; border-radius:2px; }
+  .box { border:1px solid #d1d5db; border-radius:3px; padding:3mm 4mm; margin:0 0 4mm; background:#fafafa; }
+  .box.warn { border-color:#fca5a5; background:#fef2f2; }
+  .box.ok   { border-color:#86efac; background:#f0fdf4; }
+  ul,ol { margin:0 0 2mm; padding-left:5.5mm; }
+  li { margin-bottom:1mm; }
+  .tag { display:inline-block; font-size:8pt; font-weight:700; padding:.4mm 1.8mm; border-radius:3px; color:#fff; }
+  .t-red{background:#dc2626}.t-org{background:#ea580c}.t-blu{background:#2563eb}.t-gry{background:#6b7280}.t-grn{background:#16a34a}
+  .small { font-size:8.8pt; color:#4b5563; }
+  .pb { page-break-before: always; }
+  .avoid { page-break-inside: avoid; }
+  hr { border:0; border-top:1px solid #e5e7eb; margin:5mm 0; }
+</style></head><body>
+
+<h1>화상수업 6건 제보 — 원인 분석 및 해결방안 보고서</h1>
+<div class="sub">
+대상 수업: <b>class-850-20260820</b> (2026-08-20 19:19 ~ 19:43 KST) · 학생 jeong · 교사 강선생님<br>
+작성: 2026-08-20 · 근거: D1 <code>attendance</code> 실측 11행, 소스코드 정독, 로컬 헤드리스 렌더 측정(PC 1440×900 / 폰 390×844)
+</div>
+
+<div class="lead">
+<b>결론 한 줄.</b> 제보 6건 중 <b>4건(2·3·4·5번)은 뿌리가 하나</b>입니다 —
+<b>「나간 사람이 서버 방(Durable Object)에서 안 없어진다」</b>.
+휴대폰이 통신이 끊기거나 앱이 백그라운드로 가면 WebSocket 종료 신호가 서버에 도달하지 않는데,
+<b>서버에는 「일정 시간 응답 없으면 내보낸다」는 판정이 아예 없습니다.</b>
+그래서 같은 사람이 방에 두 번 들어가 있는 상태가 되고 → 3명 표시 · jeong 두 명 · 검은 「연결 중…」 타일 ·
+그 유령을 살리려는 자동 재연결이 진짜 교사 연결을 갉아먹습니다.<br>
+1·6번(교재)은 별개 뿌리입니다 — <b>「교재」 탭 버튼이 없고</b>, 되돌아가는 유일한 입구인
+「📚 교재도구」 칩이 <b>휴대폰에서는 화면 밖에 있습니다</b>(실측).
+</div>
+
+<h2>1. 제보 정리 · PC 영향 여부</h2>
+<table>
+<tr><th class="c" style="width:6mm">#</th><th style="width:38mm">제보 내용</th><th>확인된 원인</th><th class="c" style="width:23mm">PC에서도?</th><th class="c" style="width:15mm">확인 근거</th></tr>
+<tr><td class="c">1</td><td>교재가 보이지 않아</td><td>교재 탭 버튼 없음 + 방에 공유된 교재가 없으면 대기 카드만 표시. 폴링/WS 유실 시 자가복구 경로가 조건부</td><td class="c"><span class="tag t-org">일부 발생</span><br><span class="small">복귀 입구는 PC에 보임</span></td><td class="c">렌더 실측<br>+ 코드</td></tr>
+<tr><td class="c">2</td><td>왜 3명이 나와?</td><td rowspan="3">서버 방에 <b>죽은 소켓이 남음</b>. 서버측 생존 확인(하트비트 타임아웃) 없음 + 재입장 식별자(clientId)가 <code>sessionStorage</code>(탭 단위)라 새 탭/앱이면 중복 정리 실패</td><td class="c" rowspan="3"><span class="tag t-red">발생함</span><br><span class="small">단, 빈도는 휴대폰이 압도적</span></td><td class="c" rowspan="3">D1 실측<br>+ 코드</td></tr>
+<tr><td class="c">3</td><td>학생이 두 명 나와</td></tr>
+<tr><td class="c">4</td><td>jeong이 두 명이야</td></tr>
+<tr><td class="c">5</td><td>중국 선생님과 연결이 잘 안 돼</td><td>유령 타일이 「고착」으로 오판돼 <b>피어당 최대 4회 강제 재연결</b> 유발 + 「🎤 상대 소리가 안 와요」 오경보. 여기에 교사도 20분간 3회 재입장</td><td class="c"><span class="tag t-org">발생함</span><br><span class="small">회선 품질은 별도 요인</span></td><td class="c">D1 실측<br>+ 코드</td></tr>
+<tr><td class="c">6</td><td>나갔다 바꾸면 교재가 안 보인다</td><td><b>「교재」 탭 버튼이 존재하지 않음.</b> 칠판·동영상·게임으로 한 번 바꾸면 되돌아올 버튼이 없고, 유일한 입구인 「📚 교재도구」 칩이 폰에서 화면 밖</td><td class="c"><span class="tag t-blu">PC 거의 없음</span><br><span class="small">칩이 보이므로</span></td><td class="c">렌더 실측</td></tr>
+</table>
+
+<h2>2. 실측 증거</h2>
+
+<h3>2-1. D1 출석 기록 — 25분 동안 입장 11회, 그중 2건은 「나간 기록이 없음」</h3>
+<table>
+<tr><th class="c">#</th><th>사람</th><th class="c">입장</th><th class="c">퇴장 기록</th><th class="c">마지막 신호</th><th>비고</th></tr>
+<tr><td class="c">3155259</td><td>jeong</td><td class="c">19:19:21</td><td class="c">19:19:42</td><td class="c">19:19:42</td><td></td></tr>
+<tr style="background:#fef2f2"><td class="c">3155260</td><td>jeong</td><td class="c">19:19:48</td><td class="c">19:21:46</td><td class="c">19:21:46</td><td><b>3155263과 27초간 겹침</b></td></tr>
+<tr style="background:#fef2f2"><td class="c">3155263</td><td>jeong</td><td class="c">19:21:19</td><td class="c">19:21:46</td><td class="c">19:21:47</td><td><b>← 「jeong 두 명」 구간</b></td></tr>
+<tr><td class="c">3155265</td><td>jeong</td><td class="c">19:21:52</td><td class="c">19:29:59</td><td class="c">19:29:59</td><td></td></tr>
+<tr><td class="c">3155267</td><td>교사</td><td class="c">19:24:48</td><td class="c">19:34:14</td><td class="c">19:34:19</td><td>9분 26초</td></tr>
+<tr><td class="c">3155270</td><td>jeong</td><td class="c">19:30:01</td><td class="c">19:35:32</td><td class="c">19:35:32</td><td>← 스크린샷 ②(05:29)</td></tr>
+<tr><td class="c">3155274</td><td>교사</td><td class="c">19:35:06</td><td class="c">19:39:36</td><td class="c">19:39:36</td><td>교사 재입장 1</td></tr>
+<tr><td class="c">3155276</td><td>jeong</td><td class="c">19:35:42</td><td class="c">19:39:43</td><td class="c">19:39:43</td><td>← 스크린샷 ①(03:32)</td></tr>
+<tr style="background:#fef2f2"><td class="c">3155277</td><td>jeong</td><td class="c">19:39:46</td><td class="c"><b>없음</b></td><td class="c">19:40:39</td><td><b>퇴장 기록 없이 사라짐</b></td></tr>
+<tr style="background:#fef2f2"><td class="c">3155278</td><td>jeong</td><td class="c">19:40:39</td><td class="c"><b>없음</b></td><td class="c">19:41:39</td><td>← 스크린샷 ③④(00:08)</td></tr>
+<tr><td class="c">3155279</td><td>교사</td><td class="c">19:40:59</td><td class="c">19:43:04</td><td class="c">19:43:04</td><td>교사 재입장 2</td></tr>
+</table>
+<p class="small">
+· 학생은 <b>25분 동안 7번</b>, 교사는 <b>3번</b> 들어왔습니다. 정상 수업이 아니라 「들어갔다 나갔다」를 반복한 기록입니다.<br>
+· 스크린샷의 타이머(03:32 / 05:29 / 00:08)가 위 표의 세션 길이와 정확히 맞아떨어져, <b>어느 스크린샷이 어느 세션인지 특정됩니다.</b><br>
+· <span style="background:#fef2f2">붉은 줄</span>이 「두 명으로 보이던」 구간입니다.
+</p>
+
+<div class="box warn avoid">
+<b>⚠️ 여기서 중요한 함정 하나.</b>
+3155277·3155278은 <b>「퇴장 기록 없음」인데도 D1만 보면 정상으로 보입니다</b>(status=attended).
+퇴장 시각(<code>left_at</code>)은 브라우저가 <code>/api/attendance/leave</code>를 <b>HTTP로</b> 불러야 기록되는데,
+휴대폰은 <b>WebSocket이 먼저 죽고 HTTP는 살아 있는</b> 경우가 흔합니다.
+그래서 <b>출석표에는 「정상 퇴장」이라 적히는데 화상방 서버에는 그 사람이 계속 앉아 있는</b> 어긋남이 생깁니다.
+「출석 기록이 멀쩡하니 방도 멀쩡하겠지」로 판단하면 이 사고는 영원히 안 보입니다.
+</div>
+
+<h3>2-2. 헤드리스 렌더 실측 — 「교재」로 돌아가는 입구</h3>
+<table>
+<tr><th style="width:44mm">항목</th><th class="c">PC 1440×900</th><th class="c">휴대폰 390×844</th></tr>
+<tr><td>「교재」 탭 버튼</td><td class="c"><b>없음</b></td><td class="c"><b>없음</b></td></tr>
+<tr><td>「📚 교재도구」 칩 위치</td><td class="c">x 659 ~ 870</td><td class="c">x 659 ~ 870</td></tr>
+<tr><td>탭바가 실제로 보이는 폭</td><td class="c">1040px</td><td class="c"><b>375px</b></td></tr>
+<tr><td>칩이 화면에 보이는가</td><td class="c"><span class="tag t-grn">보임</span></td><td class="c"><span class="tag t-red">안 보임</span></td></tr>
+<tr><td>탭바 전체 너비 / 보이는 폭</td><td class="c">1178 / 1040 (1.1배)</td><td class="c">1182 / 375 (<b>3.15배</b>)</td></tr>
+</table>
+<p class="small">측정 방법: <code>cloudflare-deploy/public</code>을 로컬 서버로 띄우고 컨테이너 내장 크로미움으로 렌더 →
+<code>getBoundingClientRect()</code> 로 좌표 직접 측정. 스크린샷 눈대중이 아닙니다.</p>
+
+<div class="box avoid">
+<b>즉, 6번 제보의 정확한 실체.</b> 학생이 「🖊 칠판」이나 「🎮 학생게임」을 한 번 누르면 교재 화면이 사라지는데,
+<b>돌아올 버튼이 화면에 하나도 없습니다.</b> 탭바를 손가락으로 <b>옆으로 밀어야</b> 나오는 「📚 교재도구」 칩이 유일한 입구입니다.
+PC는 그 칩이 처음부터 보이므로 같은 일이 잘 안 생깁니다 — <b>「휴대폰에서만 그런가?」의 답은 「이 항목은 예」</b>입니다.
+</div>
+
+<div class="pb"></div>
+<h2>3. 원인 — 코드 수준</h2>
+
+<h3>3-1. 【뿌리 A】 서버 방에 「죽은 사람」이 남는다 <span class="tag t-red">2·3·4번, 5번 일부</span></h3>
+<p>화상수업 방은 Cloudflare Durable Object(<code>src/video-call-room.ts</code>)입니다. 여기에 두 가지가 겹칩니다.</p>
+<table>
+<tr><th style="width:34mm">문제</th><th>내용</th><th style="width:33mm">위치</th></tr>
+<tr><td><b>① 서버에 생존 확인이 없다</b></td>
+<td>참가자 명단(<code>joinedUsers()</code>)은 소켓의 <code>readyState</code>만 봅니다. 휴대폰이 터널·지하철·화면잠금으로
+조용히 끊기면 서버 쪽 소켓은 한참 동안 <code>OPEN</code>으로 남습니다. <b>「N초 응답 없으면 퇴장 처리」가 코드에 없습니다.</b>
+브라우저는 25초마다 ping을 보내고 2회 무응답이면 스스로 끊는데, <b>서버는 그 반대 방향 판정을 하지 않습니다.</b></td>
+<td><code>video-call-room.ts</code><br>830·843행 부근</td></tr>
+<tr><td><b>② 중복 정리 열쇠가 탭 단위</b></td>
+<td>같은 사람이 다시 들어오면 서버가 옛 소켓을 닫아 주는 장치(<code>clientId</code>)가 있는데, 그 값이
+<code>sessionStorage</code>에 저장됩니다. <b>탭이 바뀌거나 앱이 새 창으로 열면 값이 새로 생겨</b> 서버는 다른 사람으로 봅니다.
+그러면 중복 정리가 통째로 건너뛰어집니다.</td>
+<td><code>js/idx-main.js</code><br><code>vcClientId()</code> 5837행</td></tr>
+<tr><td><b>③ 퇴장 알림이 유실되면 그만</b></td>
+<td>정상 퇴장 시 <code>leave-room</code> 메시지를 보내지만, 이미 WebSocket이 죽어 있으면 그냥 사라집니다
+(재전송 대기열 대상이 아님). <code>pagehide</code>·<code>beforeunload</code>에서 퇴장을 알리는 코드도 없습니다.</td>
+<td><code>js/idx-main.js</code><br>6929행 / 254행</td></tr>
+</table>
+
+<div class="box warn avoid">
+<b>왜 PC보다 휴대폰에서 훨씬 심한가.</b>
+PC는 탭을 닫거나 다른 곳으로 이동하면 브라우저가 <b>확실하게</b> 종료 신호를 보냅니다 → 서버가 즉시 정리합니다.
+휴대폰은 화면잠금·앱 전환·통신 전환(LTE↔Wi-Fi)에서 <b>종료 신호 없이 연결만 조용히 죽습니다.</b>
+그래서 <b>코드 결함 자체는 PC·휴대폰 공통이지만, 실제로 터지는 것은 대부분 휴대폰</b>입니다.
+PC에서도 브라우저 강제종료·절전 진입·유선 뽑힘이면 똑같이 재현됩니다.
+</div>
+
+<h3>3-2. 【뿌리 A의 2차 피해】 유령이 진짜 연결을 갉아먹는다 <span class="tag t-org">5번</span></h3>
+<p>유령 타일은 <code>vcghost-</code> 가 아니라 <b>정상 참가자 id(<code>vc-video-…</code>)</b>로 만들어집니다. 그래서 감시 로직들이 「진짜 사람인데 영상이 안 온다」로 오판합니다.</p>
+<ul>
+<li><b>고착 워치독</b>(<code>vcStuckPeerWatch</code>, 3초마다 점검·9초 넘으면 고착 판정): 유령마다 <b>최대 4회</b> 강제 재연결(<code>vcReconnectPeer</code>)을 겁니다. 화상수업은 mesh 구조라 재협상 때마다 <b>모든 참가자의 업로드가 흔들립니다.</b></li>
+<li><b>오디오 감시</b>: 유령은 영원히 소리가 안 오므로 스크린샷의 빨간 띠 <b>「🎤 상대 소리가 안 와요 (상대방 마이크 확인)」가 계속 뜹니다.</b> 이건 오경보입니다 — 교사 마이크는 정상이었습니다.</li>
+</ul>
+<p class="small">참고: 교사(강선생님)도 20분 동안 3회 재입장했습니다(위 표). 필리핀·중국 회선 자체의 품질 문제와
+위 유령발 재연결이 <b>겹쳐서</b> 「연결이 잘 안 된다」로 체감된 것으로 봅니다.</p>
+
+<h3>3-3. 【뿌리 B】 교재로 돌아갈 길이 없다 <span class="tag t-blu">1·6번</span></h3>
+<ul>
+<li>탭바에는 <b>칠판 · 동영상 · 학생게임 · 배경화면 · AI 웜업 · 복습퀴즈</b> 6개뿐이고 <b>「교재」 버튼은 2026-06-27에 「중복」이라는 이유로 제거</b>됐습니다(<code>index.html</code> 8244행 주석). 교재 패널(<code>tab-pdf</code>)은 「기본으로 켜져 있는 화면」일 뿐, 눌러서 돌아올 대상이 아닙니다.</li>
+<li>대신 「📚 교재도구」 칩이 그 역할을 하는데, <b>휴대폰에서는 탭바 오른쪽 화면 밖</b>에 있습니다(2-2 실측).</li>
+<li>교사가 다시 교재를 열어 주면(<code>pdf-share</code>) 학생 화면이 강제로 교재 탭으로 돌아옵니다. <b>즉 학생 혼자서는 못 돌아오고 교사가 다시 눌러 줘야 합니다.</b></li>
+<li>교재 탭이 아닐 때는 「잠시만 기다려 주세요」 안내조차 안 뜹니다(<code>vcWaitCardSync</code>는 교재 탭일 때만 동작) → 학생에게는 <b>아무 설명 없이 교재가 사라진 것</b>으로 보입니다.</li>
+</ul>
+
+<div class="box avoid">
+<b>1번(교재가 아예 안 보임)에 대한 유보 사항 — 정직하게 적습니다.</b>
+스크린샷 ①②는 교재 탭이 켜진 채 대기 카드가 떠 있으므로, 그 순간 <b>브라우저가 교재 데이터를 하나도 갖고 있지 않았다</b>는 뜻입니다.
+그런데 바로 다음 세션(19:39:46 입장)에서는 <b>8초 만에</b> 교재가 떴습니다(스크린샷 ④).
+즉 서버에는 교재가 있었는데 <b>그 세션에서만 못 받은</b> 상황으로 보입니다.
+후보는 ⓐ 교재 상태 폴링이 <code>_vcJoinedRoomId</code> 조건에 걸려 꺼진 상태, ⓑ <code>vcJoinRoom()</code> 이중 호출로 표시 상태가 초기화되는 경합입니다.
+<b>다만 이 둘은 아직 코드 정독 수준의 추정이고 실측으로 확정하지 못했습니다.</b>
+확정 방법은 5장 「추가 확인」에 적었습니다.
+</div>
+
+<div class="pb"></div>
+<h2>4. 해결방안</h2>
+
+<h3>1순위 — 유령 참가자 제거 <span class="tag t-red">2·3·4번 직접 해결, 5번 크게 개선</span></h3>
+<table>
+<tr><th class="c" style="width:8mm">안</th><th style="width:42mm">무엇을</th><th>어떻게</th><th class="c" style="width:16mm">난이도</th></tr>
+<tr><td class="c">A-1</td><td><b>서버에 생존 판정 추가</b><br><span class="small">(핵심 대책)</span></td>
+<td>소켓마다 마지막 메시지 도착 시각을 기록하고, 방 알람(<code>storage.setAlarm</code>)으로 30초마다 점검해
+<b>90초 이상 조용한 소켓은 강제로 닫고 <code>user-left</code>를 방송</b>합니다.
+브라우저는 이미 25초마다 ping을 보내므로 정상 접속은 절대 안 걸립니다.</td>
+<td class="c">중</td></tr>
+<tr><td class="c">A-2</td><td><b>중복 정리 열쇠를 넓힌다</b></td>
+<td><code>clientId</code>를 <code>sessionStorage</code> → <code>localStorage</code>로 옮기되 <b>「기기 단위」로만</b> 씁니다.
+과거에 계정 단위로 했다가 「가족 공용 계정·PC+폰 동시접속이 서로를 걷어차는」 사고가 났으므로
+<b>계정 단위로는 절대 되돌리지 않습니다.</b></td>
+<td class="c">하</td></tr>
+<tr><td class="c">A-3</td><td><b>떠날 때 확실히 알린다</b></td>
+<td><code>pagehide</code>에서 <code>navigator.sendBeacon</code>으로 퇴장 신호를 보냅니다.
+WebSocket이 죽어도 HTTP는 살아 있는 경우가 많아, 2-1의 어긋남을 상당 부분 막습니다.</td>
+<td class="c">하</td></tr>
+<tr><td class="c">A-4</td><td><b>화면에서 유령을 숨긴다</b><br><span class="small">(즉효 완화책)</span></td>
+<td>같은 이름의 참가자 타일이 둘 이상이고 <b>한쪽만 15초 넘게 영상이 없으면</b> 그 타일을 접습니다.
+서버를 못 고치는 동안에도 <b>「3명이 나온다」·오경보 배너·강제 재연결 폭주가 즉시 멈춥니다.</b></td>
+<td class="c">하</td></tr>
+</table>
+<p class="small"><b>권장 순서: A-4(당장) → A-1(근본) → A-2·A-3(보강).</b>
+A-1이 근본이지만 화상수업 DO는 CLAUDE.md의 「공동 금지구역」이라 배포 권한자 판단이 필요합니다.</p>
+
+<h3>2순위 — 교재로 돌아갈 길 만들기 <span class="tag t-blu">1·6번</span></h3>
+<table>
+<tr><th class="c" style="width:8mm">안</th><th style="width:42mm">무엇을</th><th>어떻게</th><th class="c" style="width:16mm">난이도</th></tr>
+<tr><td class="c">B-1</td><td><b>「📖 교재」 탭 버튼 복원</b><br><span class="small">(가장 확실)</span></td>
+<td>탭바 <b>맨 앞</b>에 교재 버튼을 되살립니다. 2026-06-27에 「중복」으로 뺀 것이지만,
+그 뒤 교재가 <b>기본 화면</b>이 되면서 전제가 바뀌었습니다. 학생은 한 번만 누르면 교재로 돌아옵니다.<br>
+<span class="small">⚠️ 「일부러 없앤 것을 되살리는 변경」이라 <b>사장님 확인 후</b> 진행합니다.</span></td>
+<td class="c">하</td></tr>
+<tr><td class="c">B-2</td><td>탭바 첫 화면에 칩 노출</td>
+<td>B-1을 안 할 경우의 대안. 「📚 교재도구」 칩을 탭바 맨 앞으로 옮기거나 고정시켜 폰에서도 처음부터 보이게 합니다.</td>
+<td class="c">하</td></tr>
+<tr><td class="c">B-3</td><td>교재가 없을 때 항상 안내</td>
+<td>지금은 교재 탭일 때만 「잠시만 기다려 주세요」가 뜹니다. 다른 탭에 있어도
+「지금 선생님 교재를 보고 있지 않아요 → 교재 보기」 같은 <b>되돌아가는 버튼이 달린 안내</b>를 띄웁니다.</td>
+<td class="c">중</td></tr>
+</table>
+
+<h3>3순위 — 연결 품질 <span class="tag t-org">5번</span></h3>
+<ul>
+<li><b>1순위 A안이 끝나면 다시 측정</b>합니다. 유령발 강제 재연결(피어당 최대 4회)이 사라진 뒤의 체감이 진짜 회선 문제의 크기입니다.</li>
+<li>「🎤 상대 소리가 안 와요」 배너는 <b>영상·오디오가 한 번이라도 도착한 적 있는 상대</b>에게만 띄우도록 조건을 좁힙니다(오경보 제거).</li>
+<li>중국·필리핀 회선은 TURN 경유 비율을 별도로 측정해야 판단할 수 있습니다. 이번 보고서 범위 밖입니다.</li>
+</ul>
+
+<h2>5. 추가 확인이 필요한 것 (미확정)</h2>
+<ol>
+<li><b>1번 「교재가 아예 안 보임」의 확정.</b> 다음 수업에서 증상이 나오면
+휴대폰 브라우저 주소창에 <code>mangoi.ai/api/room-media/class-850-YYYYMMDD</code> 를 열어
+<code>pdfState</code> 가 <b>서버에 있는지</b> 확인해 주세요.
+<b>있는데 화면에 없다 = 클라이언트 문제(추정 ⓐⓑ 확정)</b>, <b>없다 = 교사가 교재를 안 올린 것</b>으로 갈립니다.</li>
+<li><b>PC 실제 재현.</b> 이 컨테이너는 프록시 때문에 <code>mangoi.ai</code> 에 접속할 수 없어
+<b>실제 2인 통화를 PC로 재현하지 못했습니다.</b> 위 PC 판정은 코드 정독 + 로컬 렌더 측정에 근거한 것입니다.
+PC에서 「수업 중 브라우저 강제종료 → 다시 입장」을 한 번 해 보시면 유령 타일이 PC에서도 뜨는지 바로 확인됩니다.</li>
+<li><b>두 도메인 확인.</b> CLAUDE.md의 알려진 함정 — <code>mangoi.ai</code> 와 <code>test.mangoi.co.kr</code> 은
+<b>서로 다른 Worker</b>라 같은 방 번호라도 방이 갈립니다. 이번 건은 교사·학생이 서로 보였으므로 해당 없음이지만,
+「참여자 1명」 증상이 나오면 먼저 <b>양쪽 주소창의 호스트명을 비교</b>하세요.</li>
+</ol>
+
+<h2>6. 아직 아무것도 고치지 않았습니다</h2>
+<p>이번 작업은 <b>원인 파악과 해결방안 정리까지</b>입니다. 코드는 한 줄도 바꾸지 않았고 D1 데이터도 조회만 했습니다.
+어느 안부터 진행할지 정해 주시면 그때 착수하겠습니다.
+<b>1순위 A-4(화면에서 유령 숨기기)는 사고 반경이 작고 효과가 즉시</b>라 먼저 하시길 권합니다.
+A-1(서버 생존 판정)은 화상수업 Durable Object 를 건드리므로 <b>배포 권한자 확인</b>이 필요합니다.</p>
+
+</body></html>
