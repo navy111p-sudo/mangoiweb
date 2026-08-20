@@ -3340,6 +3340,142 @@ button.chip:hover,
     transform: none !important; box-shadow: none !important;
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ (2026-08-20 사장님 지시) 수강신청 등록 표 → 「카드 두 줄」 배치
+     ─────────────────────────────────────────────────────────────────────
+     왜 — 열 개짜리 한 줄(min-width:1180px)에 관리자 화면 zoom:1.3 이 곱해져
+       실제로는 약 1,534px 를 차지했다. 사장님 화면에 늘 가로 스크롤이 남았고,
+       2026-08-20 의 «⏰ 가 입력칸을 덮는» 사고도 좁은 칸에서만 재현되던 것이었다.
+     어떻게 — DOM 은 그대로 두고 CSS 로만 눕힌다. `<tr>` 가 카드, `<td>` 가 이름표 붙은 칸이 된다.
+       ⚠️ 이 방식을 고른 이유가 있다 — 값을 읽는 `_readEnrollmentRows()` 가
+          `#en-multi-rows tr` 와 `.en-row-*` 를 그대로 쓰고, 행 배선 20줄도 `tr.querySelector` 다.
+          마크업을 카드 `<div>` 로 바꾸면 그 전부를 함께 고쳐야 한다.
+       ⚠️ 칸 이름은 `data-label` → `::before` 로 그린다. 표 머리(thead)를 숨기면
+          이름이 함께 사라지므로 칸마다 다시 붙여 줘야 한다.
+     ⛔ hover 로 커지지 않는다(색만) — 1-3 「hover 확대 금지」.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table {
+    min-width: 0 !important; width: 100% !important;
+    border-collapse: separate !important; border-spacing: 0 !important;
+    background: transparent !important;
+  }
+  #en-multi-table thead { display: none !important; }
+  #en-multi-table tbody { display: block !important; }
+  #en-multi-table tbody tr {
+    display: grid !important; grid-template-columns: repeat(12, 1fr);
+    gap: 10px 12px; position: relative;
+    padding: 32px 12px 12px !important; margin-bottom: 10px;
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+  }
+  #en-multi-table tbody tr td.en-c {
+    display: block !important; border: 0 !important; padding: 0 !important;
+    white-space: normal !important; min-width: 0; vertical-align: top;
+  }
+  #en-multi-table tbody tr td.en-c::before {
+    content: attr(data-label); display: block; margin-bottom: 4px;
+    font-size: 10.5px; font-weight: 700; color: #6b7280; letter-spacing: .01em;
+  }
+  #en-multi-table tbody tr td.en-c-num::before,
+  #en-multi-table tbody tr td.en-c-del::before { content: none; }
+  /* 번호와 ✕ 는 카드 머리로 — 흐름에서 빼내 칸을 안 잡아먹게 한다 */
+  #en-multi-table tbody tr td.en-c-num {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 11px !important; font-weight: 700 !important; color: #6b7280 !important;
+    background: #f8fafc; border: 1px solid #e5e7eb !important;
+    border-radius: 5px; padding: 0 7px !important; line-height: 18px;
+  }
+  #en-multi-table tbody tr td.en-c-del { position: absolute; top: 5px; right: 8px; }
+  /* 첫 줄 = 누구를·어떻게 · 둘째 줄 = 언제 (DOM 순서와 다르므로 order 로 세운다) */
+  #en-multi-table tbody tr td.en-c-uid   { order: 1; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-type  { order: 2; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-prio  { order: 3; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-size  { order: 4; grid-column: span 2; }
+  #en-multi-table tbody tr td.en-c-day   { order: 5; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-time  { order: 6; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-start { order: 7; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-dur   { order: 8; grid-column: span 2; }
+  @media (max-width: 1100px) {
+    #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
+    #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }
+  }
+  @media (max-width: 620px) {
+    #en-multi-table tbody tr td.en-c { grid-column: span 6 !important; }
+  }
+
+  /* 요일·레벨 구분 — 켜진 것이 눈에 «보이게». 체크박스는 그대로 두고 상자만 씌운다
+     (값을 읽는 쪽이 `.en-row-day:checked` 를 세므로 input 을 없애면 안 된다).
+     ⚠️ 요일은 «체크박스 위 / 글자 아래» 세로 배치를 유지한다(2026-08-20 사장님 지시). */
+  #en-multi-table td.en-c-day label,
+  #en-multi-table td.en-c-type label {
+    border: 1px solid #e5e7eb; border-radius: 7px; background: #ffffff;
+    padding: 4px 6px; margin-right: 3px !important; cursor: pointer;
+  }
+  #en-multi-table td.en-c-day label { min-width: 30px; justify-content: center; }
+  #en-multi-table td.en-c-type label { display: inline-flex; align-items: center; }
+  #en-multi-table td.en-c-day label:has(input:checked),
+  #en-multi-table td.en-c-type label:has(input:checked) {
+    border-color: #4338ca; background: #eef2ff; color: #3730a3; font-weight: 700;
+  }
+
+  /* 🗓️ 시작일 «굴리기» — 날짜칸 옆 버튼 + 년·월·일 드럼.
+     ⚠️ `.enw-col li` 높이(30px)는 `adm-core.js` 의 EN_WHEEL_ITEM 과 반드시 같아야 한다.
+        어긋나면 스크롤 위치로 값을 되읽을 때 한 칸씩 밀린다. */
+  #en-multi-table .en-start-wrap { display: flex; gap: 4px; align-items: center; position: relative; }
+  #en-multi-table .en-start-wrap input.en-row-start { min-width: 0; }
+  #en-multi-table td button.en-row-start-wheel {
+    flex: 0 0 auto; height: 26px !important; padding: 0 8px !important;
+    box-sizing: border-box !important; white-space: nowrap;
+    background: #eef2ff !important; background-image: none !important;
+    border: 1px solid #c7d2fe !important; border-radius: 6px !important;
+    color: #4338ca !important; font-size: 11px !important; font-weight: 700 !important;
+    line-height: 1 !important;
+  }
+  #en-multi-table td button.en-row-start-wheel:hover {
+    background: #e0e7ff !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  #en-multi-table .enw-pop {
+    position: absolute; z-index: 40; top: calc(100% + 5px); left: 0;
+    background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(15,23,42,.16); padding: 8px;
+  }
+  #en-multi-table .enw-heads { display: flex; gap: 3px; padding: 0 3px 4px; }
+  #en-multi-table .enw-heads span {
+    flex: 1; min-width: 52px; text-align: center;
+    font-size: 10px; font-weight: 700; color: #6b7280;
+  }
+  #en-multi-table .enw-drum { position: relative; display: flex; gap: 3px; }
+  #en-multi-table .enw-band {
+    position: absolute; left: 0; right: 0; top: 50%; height: 30px;
+    transform: translateY(-50%); border-radius: 6px;
+    background: #eef2ff; border: 1px solid #c7d2fe; pointer-events: none;
+  }
+  #en-multi-table .enw-col {
+    position: relative; z-index: 1; height: 90px; overflow-y: auto;
+    scroll-snap-type: y mandatory; overscroll-behavior: contain;
+    scrollbar-width: none; cursor: ns-resize; border-radius: 6px;
+  }
+  #en-multi-table .enw-col::-webkit-scrollbar { display: none; }
+  #en-multi-table .enw-col ul { list-style: none; margin: 0; padding: 30px 0; }
+  #en-multi-table .enw-col li {
+    height: 30px; line-height: 30px; min-width: 52px; text-align: center;
+    font-size: 13px; color: #9ca3af; scroll-snap-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  #en-multi-table .enw-col li.on { color: #4338ca; font-weight: 800; }
+  #en-multi-table .enw-foot { display: flex; gap: 5px; margin-top: 7px; }
+  #en-multi-table .enw-foot button {
+    flex: 1; height: 26px !important; padding: 0 !important;
+    box-sizing: border-box !important; background-image: none !important;
+    border-radius: 6px !important; font-size: 11px !important;
+    font-weight: 700 !important; line-height: 1 !important;
+    background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #334155 !important;
+  }
+  #en-multi-table .enw-foot button.enw-ok {
+    background: #4338ca !important; border-color: #4338ca !important; color: #ffffff !important;
+  }
+  #en-multi-table .enw-foot button:hover { transform: none !important; box-shadow: none !important; }
+
   /* ============================================
      폼 — input/textarea/select
      ============================================ */
