@@ -35,7 +35,7 @@ interface VcAttachment {
   role?: string;
   joined?: boolean;
   clientId?: string;   // 브라우저 탭 안정 식별자 — 재연결 좀비 소켓 dedup 키
-  /** 🫀 (2026-08-20) 이 소켓이 «마지막으로 살아 있던» 시각(ms).
+  /** 💓 (2026-08-20) 이 소켓이 «마지막으로 살아 있던» 시각(ms).
    *  hibernation 으로 DO 가 메모리에서 내려가도 attachment 는 살아남으므로,
    *  깨어난 알람이 «언제부터 조용한가» 를 판단할 바닥값으로 쓴다. */
   seenAt?: number;
@@ -104,7 +104,7 @@ export class VideoCallRoom {
   //   서버 변수 하나로 클라 재배포 없이 즉시 원복 가능(문제 시 'off' 로 바꾸고 재배포).
   private stickyUid: boolean = false;
 
-  /* 🫀 (2026-08-20 사장님 제보 「왜 3명이 나와?」·「jeong 이 두 명이야」) 서버측 생존 판정.
+  /* 💓 (2026-08-20 사장님 제보 「왜 3명이 나와?」·「jeong 이 두 명이야」) 서버측 생존 판정.
      ─────────────────────────────────────────────────────────────────────────
      [사고] 2026-08-20 class-850 수업에서 학생이 25분간 7번 재입장했는데,
        나간 세션의 소켓이 방에 그대로 남아 «참여자 3명 · 검은 「연결 중…」 타일 두 개» 가 됐다.
@@ -131,7 +131,7 @@ export class VideoCallRoom {
     this.state = state;
     this.roomId = '';
     try { this.stickyUid = !!(env && env.VC_STICKY_UID === 'on'); } catch { this.stickyUid = false; }
-    /* 🫀 클라이언트(createWebSocket)가 25초마다 보내는 정확히 이 문자열에 자동 응답한다.
+    /* 💓 클라이언트(createWebSocket)가 25초마다 보내는 정확히 이 문자열에 자동 응답한다.
        문자열이 **완전히 일치**해야 발동하므로 `JSON.stringify({type:'ping'})` 와 한 글자도 달라선 안 된다.
        일치하지 않으면 예전처럼 webSocketMessage 의 case 'ping' 이 답한다(이중 안전). */
     try {
@@ -165,7 +165,7 @@ export class VideoCallRoom {
     if (request.headers.get('Upgrade') === 'websocket') {
       const userId = this.generateUserId();
       const { 0: client, 1: server } = new WebSocketPair();
-      /* 🫀 (2026-08-20) 붙은 시각을 반드시 남긴다 — 없으면 「붙기만 하고 join 도 ping 도 안 하는」
+      /* 💓 (2026-08-20) 붙은 시각을 반드시 남긴다 — 없으면 「붙기만 하고 join 도 ping 도 안 하는」
          소켓이 생존 판정의 바닥값을 못 구해 영원히 살아 있는 것으로 취급되고, 청소 알람도 안 멈춘다. */
       server.serializeAttachment({ userId, roomId: this.roomId, joined: false, seenAt: Date.now() } as VcAttachment);
       this.state.acceptWebSocket(server);
@@ -243,7 +243,7 @@ export class VideoCallRoom {
     return new Response('Invalid request', { status: 400 });
   }
 
-  /* 🫀 (2026-08-20) 죽은 소켓 청소 알람 — 위 LIVENESS_* 주석 참고.
+  /* 💓 (2026-08-20) 죽은 소켓 청소 알람 — 위 LIVENESS_* 주석 참고.
      알람은 «입장한 사람이 한 명이라도 있을 때만» 다시 걸린다. */
   private scheduleLivenessAlarm(): void {
     try {
@@ -268,6 +268,9 @@ export class VideoCallRoom {
     for (const ws of this.state.getWebSockets()) {
       const att = this.attOf(ws);
       if (!att) continue;
+      /* hibernation 에서 알람으로 깨면 생성자가 roomId 를 비워 둔 채로 온다 → 로그가 room=- 로 남아
+         「어느 방에서 청소했는지」를 사후에 못 찾는다. webSocketMessage 와 같은 방식으로 되살린다. */
+      if (!this.roomId && att.roomId) this.roomId = att.roomId;
       if (ws.readyState !== WebSocket.OPEN) continue;
       const seen = this.lastSeenOf(ws, att);
       /* 시각을 하나도 못 구한 소켓(=붙자마자 알람이 돈 경우)은 이번 판에서 건드리지 않는다.
@@ -298,7 +301,17 @@ export class VideoCallRoom {
     try {
       const att = this.attOf(ws);
       if (!att) return;
-      this.lastSeen.set(ws, Date.now());   // 🫀 무엇이든 도착했다 = 살아 있다
+      /* 💓 무엇이든 도착했다 = 살아 있다.
+         ⚠️ 메모리(lastSeen)에만 적으면 안 된다 — DO 가 hibernation 으로 내려가면 Map 이 통째로 비고,
+            깨어난 알람에는 «입장 시각»(att.seenAt)밖에 안 남아 **멀쩡한 수업 전원이 120초에 끊긴다.**
+            그래서 1분에 한 번은 attachment 에도 적는다(attachment 는 hibernation 을 넘어 살아남는다).
+            매 메시지마다 쓰지 않는 이유는 칠판 획처럼 초당 수십 건 오는 타입이 있어서다. */
+      const _now = Date.now();
+      this.lastSeen.set(ws, _now);
+      if (_now - (att.seenAt || 0) > 60000) {
+        try { ws.serializeAttachment({ ...att, seenAt: _now } as VcAttachment); }
+        catch (e) { console.warn('[VideoChat][liveness] seenAt 기록 실패', (e as any)?.message); }
+      }
       if (att.roomId) this.roomId = att.roomId;
       const text = typeof message === 'string' ? message : new TextDecoder().decode(message);
       const msg: WebSocketMessage = JSON.parse(text);
@@ -494,7 +507,7 @@ export class VideoCallRoom {
     // attachment 에 사용자명/joined 기록 (재기동에도 유지) — 인계 시엔 물려받은 userId 사용
     const att = this.attOf(ws) || { userId: effectiveUserId, roomId: this.roomId };
     ws.serializeAttachment({ ...att, userId: effectiveUserId, roomId: this.roomId, username, role: role || 'student', joined: true, clientId: clientId || att.clientId, seenAt: Date.now() } as VcAttachment);
-    // 🫀 (2026-08-20) 죽은 소켓 청소 알람 시작 — 사람이 있는 동안만 스스로 이어 건다.
+    // 💓 (2026-08-20) 죽은 소켓 청소 알람 시작 — 사람이 있는 동안만 스스로 이어 건다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
 
@@ -615,7 +628,7 @@ export class VideoCallRoom {
 
     const att = this.attOf(ws) || { userId, roomId: this.roomId };
     ws.serializeAttachment({ ...att, userId, roomId: this.roomId, username: (data && data.username) || '관찰자', role: 'observer', joined: false, seenAt: Date.now() } as VcAttachment);
-    // 🫀 (2026-08-20) 참관자도 청소 대상 — 죽은 참관 소켓이 남으면 정원 2자리를 계속 먹는다.
+    // 💓 (2026-08-20) 참관자도 청소 대상 — 죽은 참관 소켓이 남으면 정원 2자리를 계속 먹는다.
     this.lastSeen.set(ws, Date.now());
     this.scheduleLivenessAlarm();
 

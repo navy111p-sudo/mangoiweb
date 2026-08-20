@@ -82,6 +82,18 @@ ok('자동응답이 안 먹는 클라이언트를 위해 기존 ping 핸들러�
    /case 'ping':\s*this\.send\(userId, \{ type: 'pong'/.test(DO));
 ok('생존 시각은 세 곳 중 «가장 최근» 을 쓴다(하나가 비어도 오판 안 함)',
    /lastSeenOf\(ws[\s\S]{0,420}getAutoResponseTimestamp/.test(DO));
+// 🔴 메모리 Map 에만 적으면 hibernation 때 통째로 비고, 남는 바닥값이 «입장 시각» 뿐이라
+//    **멀쩡한 수업 전원이 120초에 끊긴다.** attachment 는 hibernation 을 넘어 살아남는다.
+ok('생존 시각을 attachment 에도 주기적으로 적는다(hibernation 대비)',
+   /_now - \(att\.seenAt \|\| 0\) > \d+/.test(DO) && /serializeAttachment\(\{ \.\.\.att, seenAt: _now \}/.test(DO));
+ok('알람이 roomId 를 되살린다(안 하면 청소 로그가 room=- 로 남아 추적 불가)',
+   /if \(!this\.roomId && att\.roomId\) this\.roomId = att\.roomId;/.test(DO));
+/* ⛔ 이모지는 Unicode 13 이상 금지(Win10 에서 두부로 보임 — CLAUDE.md 1-4).
+   이 파일이 처음 짜였을 때 심장 이모지(U+1FAC0, Unicode 13.0)를 8곳에 썼다가 걸렸다.
+   경계를 U+1FAC0 으로 잡는 이유 — 같은 블록(Extended-A) 안에서도 U+1FA70~1FA9F 는
+   Unicode 12.0 이라 허용된다(이 파일에 이미 U+1FA9E 🪞 가 2026-08-12 부터 있다).
+   U+1FAC0 부터가 Unicode 13.0 이 추가한 구간이다. */
+ok('Unicode 13 이상 이모지를 쓰지 않는다', !/[\u{1FAC0}-\u{1FAFF}]/u.test(DO));
 
 // ── ② 화면: 유령 타일 청소 ─────────────────────────────────────────
 console.log('\n[ ② 화면 — 서버가 치우기 전 2분 동안의 즉효 완화책 ]');
