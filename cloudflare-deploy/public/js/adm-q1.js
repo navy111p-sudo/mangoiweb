@@ -190,22 +190,46 @@
         + chip('전체', d.count||0, '99,102,241')
         + chip('학생 노쇼', (d.by_missing&&d.by_missing.student)||0, '239,68,68')
         + chip('강사 노쇼', (d.by_missing&&d.by_missing.teacher)||0, '168,85,247')
+        /* 🔎 (2026-08-19) 「강사 미입장」 중 오판 건수를 따로 보여 준다. 이 기록은 학생 브라우저가
+           «내 화면에 안 보였다» 로 만드는 것이라, 강사가 멀쩡히 들어와 있어도 쌓인다.
+           숫자만 보고 강사를 탓하지 않도록 «강사 잘못 아님» 을 같은 줄에 둔다. */
+        + (((d.by_missing&&d.by_missing.teacher_false_alarm)||0) > 0
+             ? chip('└ 오판(강사 접속함)', d.by_missing.teacher_false_alarm, '52,211,153') : '')
         + '</div>'
         + d.no_shows.map(function(row){
             var who = row.missing_role === 'teacher' ? '<span style="color:#c4b5fd;font-weight:800">강사 미입장</span>' : '<span style="color:#fca5a5;font-weight:800">학생 미입장</span>';
             var push = row.notified_push ? '📲 푸시✓' : '📲 푸시—';
             var kakao = row.notified_kakao ? '💬 알림톡✓' : '💬 알림톡—';
-            return '<div style="border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">'
+            /* 오판이면 빨간 카드가 아니라 초록 테두리로 — 「봐야 할 일」과 「봐도 되는 일」을 색으로 가른다 */
+            var isFalse = row.false_alarm === true;
+            var box = isFalse
+              ? 'border:1px solid rgba(52,211,153,0.45);background:rgba(52,211,153,0.07)'
+              : 'border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.06)';
+            var mins = (row.teacher_seen_min != null && row.teacher_seen_min > 0) ? (row.teacher_seen_min + '분 접속') : '접속 기록 있음';
+            var note = isFalse
+              ? '<div style="flex-basis:100%;font-size:11.5px;color:#6ee7b7;background:rgba(52,211,153,.10);border-radius:8px;padding:6px 9px">'
+                + '✅ <b>오판입니다 — 강사 잘못이 아닙니다.</b> 출석 기록에 <b>'+_esc(mins)+'</b> 으로 남아 있습니다. '
+                + '이 알림은 <b>학생 화면에서</b> 「상대가 안 보인다」로 만들어집니다 — 서로 다른 주소로 들어오면 각자 다른 방이 되어 이렇게 됩니다. '
+                + '강사 평가 지표에서는 이미 빠져 있습니다.</div>'
+              : (row.missing_role === 'teacher' && row.teacher_present === null
+                  ? '<div style="flex-basis:100%;font-size:11.5px;color:#fcd34d">⚠️ 출석 기록으로는 판정할 수 없습니다(이름 없는 접속 기록). 사람이 확인해 주세요.</div>'
+                  : '');
+            return '<div style="'+box+';border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">'
               + '<div style="min-width:130px"><b>'+_esc(row.student_name||'학생')+'</b> <span style="color:#94a3b8;font-size:11px">/ '+_esc(row.teacher_name||'강사미배정')+'</span></div>'
-              + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who+' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
+              + '<div style="flex:1;min-width:150px;font-size:12px;color:#cbd5e1">'+who
+              +   (isFalse ? ' <span style="color:#34d399;font-weight:800">(오판)</span>' : '')
+              +   ' · <span style="color:#94a3b8">'+_esc(row.lesson_title||'영어 수업')+'</span></div>'
               + '<div style="font-size:11.5px;color:#94a3b8">🕒 '+fmtDate(row.created_at)+' · '+(row.waited_min||5)+'분 대기</div>'
               + '<div style="font-size:11px;color:#a3b3d1">'+push+' · '+kakao+'</div>'
               + '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-left:auto">'
               +   (row.student_phone ? '<a href="tel:'+_esc(row.student_phone)+'" style="font-size:11.5px;color:#7dd3fc;text-decoration:none;background:rgba(125,211,252,.12);padding:5px 9px;border-radius:8px">📞 학생 '+_esc(row.student_phone)+'</a>' : '')
               +   (row.parent_phone ? '<a href="tel:'+_esc(row.parent_phone)+'" style="font-size:11.5px;color:#86efac;text-decoration:none;background:rgba(134,239,172,.12);padding:5px 9px;border-radius:8px">📞 학부모 '+_esc(row.parent_phone)+'</a>' : '')
               +   ((!row.student_phone && !row.parent_phone) ? '<span style="font-size:11px;color:#64748b">번호 없음</span>' : '')
-              +   '<button onclick="noShowContact('+row.id+')" style="font-size:11.5px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700">📲 다시 알림</button>'
+              /* 오판에는 [다시 알림] 을 주지 않는다 — 들어와 있던 강사에게 «왜 안 들어왔냐» 고
+                 푸시를 보내는 꼴이라, 잘못된 알림 위에 잘못된 알림을 얹는다. */
+              +   (isFalse ? '' : '<button onclick="noShowContact('+row.id+')" style="font-size:11.5px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.35);color:#fbbf24;border-radius:8px;padding:5px 10px;cursor:pointer;font-weight:700">📲 다시 알림</button>')
               + '</div>'
+              + note                                   /* flex-basis:100% — 카드 맨 아래 한 줄로 */
               + '</div>';
           }).join('');
     } catch(e) {
