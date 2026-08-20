@@ -5589,13 +5589,16 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14 피드백 ④) ⑥ 수업 기간 — 몇 개월 할지 고르는 칸이 아예 없었다.
   //   기본값을 미리 박아 두지 않는다. 실제 학생 등록이라 «안 고른 채로 지나가는» 것보다
   //   «고르라고 막는» 쪽이 안전하다(아래 addEnrollment 가 빈 값이면 등록을 멈춘다).
-  const durOptionsList = [
-    { v: '1',  ko: '1개월',  en: '1 month'   },
-    { v: '3',  ko: '3개월',  en: '3 months'  },
-    { v: '6',  ko: '6개월',  en: '6 months'  },
-    { v: '12', ko: '12개월', en: '12 months' },
-    { v: 'unlimited', ko: '♾️ 무기한', en: '♾️ Unlimited' }
-  ];
+  //   🗓️ (2026-08-20 사장님 지시) 1·3·6·12 만 있던 것을 **1~12 전부** 로 넓혔다.
+  //     그 네 개는 «수강권 패키지» 감각으로 고른 값이라 2·4·5개월짜리를 넣을 방법이 없었다.
+  //     종료일 계산(`_enAddMonths`)과 표시(`_enDurLabel`)는 원래 아무 숫자나 받으므로 여기만 넓히면 된다.
+  //   ⚠️ 서버 `api-admin.ts` 의 duration_months 허용 목록과 **짝**이다 — 한쪽만 넓히면
+  //     서버가 모르는 값이라며 **에러 없이 null** 로 지운다(「골랐는데 기간이 비어 있다」).
+  const durOptionsList = [];
+  for (let _dm = 1; _dm <= 12; _dm++) {
+    durOptionsList.push({ v: String(_dm), ko: _dm + '개월', en: _dm + (_dm === 1 ? ' month' : ' months') });
+  }
+  durOptionsList.push({ v: 'unlimited', ko: '♾️ 무기한', en: '♾️ Unlimited' });
   const _durCur = String(v.duration_months || '');
   const durOpts = '<option value="">' + (_enrIsEn ? '— select —' : '— 선택 —') + '</option>' +
     durOptionsList.map(d => '<option value="' + d.v + '"' + (_durCur === d.v ? ' selected' : '') + '>' +
@@ -5625,38 +5628,47 @@ function _addEnrollmentRow(prefill) {
     '<input type="hidden" class="en-row-fee" value="' + _esc(v.fee) + '" />';
 
   tr.innerHTML =
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">' + idx + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' + hiddenCarry +
+    '<td class="en-c en-c-num" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">' + idx + '</td>' +
+    '<td class="en-c en-c-uid" data-label="' + (_enrIsEn ? 'Student ID' : '학생 아이디') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' + hiddenCarry +
       '<input class="en-row-uid" placeholder="user001" value="' + _esc(v.uid) + '" ' +
         'title="' + (_enrIsEn ? 'Student login ID — the name is looked up from the roster' : '학생 로그인 아이디 — 이름은 학생 명부에서 자동으로 찾습니다') + '" ' +
         'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<div class="en-row-who" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px">' +
         (v.name ? '👤 ' + _esc(v.name) : '') + '</div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
+    '<td class="en-c en-c-type" data-label="' + (_enrIsEn ? 'Type' : '레벨 구분') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
     /* 👨‍🏫 (2026-08-13 수정요청 #03) 「강사 우선」을 고르면 «누구인지» 를 여기서 바로 고른다.
        ⚠️ 표에 열을 새로 만들지 않는다 — ③ 배정 우선순위 칸 «안» 에 딸린 칸으로 둔다.
           열을 늘리면 2026-08-12 에 정리한 «등록 때 사람이 고르는 것은 5가지» 가 다시 무너진다.
        ⚠️ 얼굴 사진은 넣지 않는다(요구사항 2). datalist 라 타이핑하면 좁혀지고(요구사항 3),
           목록은 강사 명부(GET /api/admin/teachers, active=1)를 그대로 쓴다.
        ⚠️ 「시간 우선」이면 감추고 **값도 비운다**(요구사항 4) — 안 비우면 숨은 값이 저장된다. */
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+    '<td class="en-c en-c-prio" data-label="' + (_enrIsEn ? 'Matching priority' : '배정 우선순위') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
       teacherSel +
       '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
+    '<td class="en-c en-c-day" data-label="' + (_enrIsEn ? 'Days' : '요일') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
+    '<td class="en-c en-c-time" data-label="' + (_enrIsEn ? 'Time' : '시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
       '<input class="en-row-time" type="text" placeholder="'+(_enrIsEn?'10:30 or Mon 7:30, Wed 8:00':'10:30 또는 월7:30,수8:00')+'" value="' + _esc(v.time) + '" ' +
         'title="'+(_enrIsEn?'Single time (e.g. 10:30) or per-day time (e.g. Mon 7:30, Wed 8:00)':'단일 시간(예: 10:30) 또는 요일별 시간(예: 월 7:30, 수 8:00)')+'" ' +
         'style="width:calc(100% - 28px);padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
         'style="width:24px;height:24px;margin-left:2px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px;vertical-align:middle">⏰</button>' +
     '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+    '<td class="en-c en-c-size" data-label="' + (_enrIsEn ? '1:1 or group' : '수업 형태') + '" style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
+    /* 🗓️ (2026-08-20 사장님 지시) 시작일을 «굴려서» 고른다 — 년·월·일 드럼(`_enOpenDateWheel`).
+       ⚠️ 날짜칸(`.en-row-start`) 자체는 그대로 둔다. 값을 읽는 곳이 `.value`(YYYY-MM-DD)를 기대하고,
+          이미 날짜를 아는 사람은 타이핑이 훨씬 빠르다. 휠은 그 칸에 값을 «써 넣는» 보조 도구다. */
+    '<td class="en-c en-c-start" data-label="' + (_enrIsEn ? 'Start date' : '시작일') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<div class="en-start-wrap">' +
+        '<input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+        '<button type="button" class="en-row-start-wheel" aria-expanded="false" ' +
+          'title="' + (_enrIsEn ? 'Scroll to pick year/month/day' : '년·월·일을 굴려서 고르기') + '">' +
+          (_enrIsEn ? 'pick' : '굴리기') + '</button>' +
+      '</div></td>' +
+    '<td class="en-c en-c-dur" data-label="' + (_enrIsEn ? 'Class period' : '수업 기간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
       '<div class="en-row-dur-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
+    '<td class="en-c en-c-del" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
   tbody.appendChild(tr);
   // 행 삭제 — 마지막 1행은 항상 유지
   tr.querySelector('.en-row-del').addEventListener('click', () => {
@@ -5690,6 +5702,9 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14) ⑥ 기간 — 고른 기간이 언제 끝나는지 시작일과 묶어 한 줄로 보여 준다
   tr.querySelector('.en-row-duration').addEventListener('change', () => _enDurNote(tr));
   tr.querySelector('.en-row-start').addEventListener('change', () => _enDurNote(tr));
+  // 🗓️ (2026-08-20) 「굴리기」 — 년·월·일 드럼을 열어 시작일을 고른다. 날짜칸 직접 입력도 그대로 살아 있다.
+  const _swBtn = tr.querySelector('.en-row-start-wheel');
+  if (_swBtn) _swBtn.addEventListener('click', () => _enOpenDateWheel(_swBtn, tr.querySelector('.en-row-start')));
   _enDurNote(tr);
   // 🧑‍🏫 (2026-08-14) ③ 이 «강사 우선» 일 때만 강사 목록을 편다. 목록은 한 번만 받아 캐시한다.
   _enLoadTeachers();
@@ -5753,6 +5768,150 @@ function _enAddMonths(startISO, months) {
   const nd = Math.min(d, lastDay);
   return ny + '-' + String(nm).padStart(2, '0') + '-' + String(nd).padStart(2, '0');
 }
+
+/* 🗓️ (2026-08-20 사장님 지시) 시작일 «굴려서 고르기» — 년·월·일 드럼.
+   ⚠️ 이 함수는 날짜칸을 **대신하지 않는다.** `.en-row-start`(type=date)에 값을 써 넣고
+      change 를 쏘는 보조 도구다 — 값을 읽는 쪽(`_readEnrollmentRows`)도 종료일 계산도 그대로 쓴다.
+   ⚠️ 스크롤은 브라우저 것을 그대로 쓴다(scroll-snap). 직접 만든 드래그 계산을 두면
+      마우스 휠·터치·키보드를 각각 따로 처리해야 하고, 그 셋이 어긋나는 순간 «안 멈추는 드럼» 이 된다.
+   ⚠️ 관리자 화면은 `zoom:1.3` 이라 칸 높이를 px 로 못 박는다 — 확대는 브라우저가 알아서 곱한다. */
+const EN_WHEEL_ITEM = 30; /* 한 칸 높이(px). CSS `#en-multi-table .enw-col li` 와 반드시 같아야 한다 */
+
+function _enOpenDateWheel(btn, input) {
+  if (!btn || !input) return;
+  const wrap = btn.closest('.en-start-wrap');
+  if (!wrap) return;
+  const already = wrap.querySelector('.enw-pop');
+  _enCloseDateWheels();
+  if (already) return; /* 열려 있던 것을 누른 것이면 «닫기» 로 끝낸다 */
+
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const base = _enParseISO(input.value) || _enTodayParts();
+
+  const pop = document.createElement('div');
+  pop.className = 'enw-pop';
+  pop.innerHTML =
+    '<div class="enw-heads"><span>' + (en ? 'Year' : '년') + '</span><span>' + (en ? 'Mon' : '월') +
+      '</span><span>' + (en ? 'Day' : '일') + '</span></div>' +
+    '<div class="enw-drum">' +
+      '<div class="enw-band" aria-hidden="true"></div>' +
+      '<div class="enw-col enw-y" tabindex="0" role="listbox" aria-label="' + (en ? 'Year' : '연도') + '"><ul></ul></div>' +
+      '<div class="enw-col enw-m" tabindex="0" role="listbox" aria-label="' + (en ? 'Month' : '월') + '"><ul></ul></div>' +
+      '<div class="enw-col enw-d" tabindex="0" role="listbox" aria-label="' + (en ? 'Day' : '일') + '"><ul></ul></div>' +
+    '</div>' +
+    '<div class="enw-foot">' +
+      '<button type="button" class="enw-today">' + (en ? 'Today' : '오늘') + '</button>' +
+      '<button type="button" class="enw-ok">' + (en ? 'Done' : '확인') + '</button>' +
+    '</div>';
+  wrap.appendChild(pop);
+  btn.setAttribute('aria-expanded', 'true');
+
+  const cur = { y: base.y, m: base.m, d: base.d };
+  const colY = pop.querySelector('.enw-y'), colM = pop.querySelector('.enw-m'), colD = pop.querySelector('.enw-d');
+  const thisYear = new Date().getFullYear();
+  const years = []; for (let y = thisYear - 1; y <= thisYear + 3; y++) years.push(y);
+  const months = []; for (let m = 1; m <= 12; m++) months.push(m);
+
+  function fill(col, values, pad2) {
+    const ul = col.querySelector('ul');
+    ul.textContent = '';
+    values.forEach((v) => {
+      const li = document.createElement('li');
+      li.textContent = pad2 ? String(v).padStart(2, '0') : String(v);
+      ul.appendChild(li);
+    });
+    col._values = values;
+  }
+  function idxOf(col) {
+    return Math.max(0, Math.min((col._values.length - 1), Math.round(col.scrollTop / EN_WHEEL_ITEM)));
+  }
+  function go(col, i, smooth) {
+    col.scrollTo({ top: Math.max(0, i) * EN_WHEEL_ITEM, behavior: smooth ? 'smooth' : 'auto' });
+    paint(col);
+  }
+  function paint(col) {
+    const i = idxOf(col);
+    const lis = col.querySelectorAll('li');
+    for (let k = 0; k < lis.length; k++) lis[k].classList.toggle('on', k === i);
+  }
+  function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+  function rebuildDays(keepDay) {
+    const max = daysInMonth(cur.y, cur.m);
+    const vals = []; for (let i = 1; i <= max; i++) vals.push(i);
+    if (!colD._values || colD._values.length !== max) fill(colD, vals, true);
+    cur.d = Math.min(keepDay || cur.d, max);
+    go(colD, cur.d - 1, false);
+  }
+  function commit() {
+    input.value = cur.y + '-' + String(cur.m).padStart(2, '0') + '-' + String(cur.d).padStart(2, '0');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function wire(col, kind) {
+    let t = null;
+    col.addEventListener('scroll', () => {
+      paint(col);
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        const v = col._values[idxOf(col)];
+        if (kind === 'y') { cur.y = v; rebuildDays(cur.d); }
+        else if (kind === 'm') { cur.m = v; rebuildDays(cur.d); }
+        else cur.d = v;
+        commit();
+      }, 90);
+    });
+    col.addEventListener('click', (e) => {
+      const li = e.target.closest('li');
+      if (li) go(col, Array.prototype.indexOf.call(li.parentNode.children, li), true);
+    });
+    col.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      go(col, idxOf(col) + (e.key === 'ArrowDown' ? 1 : -1), true);
+    });
+  }
+
+  fill(colY, years, false);
+  fill(colM, months, true);
+  rebuildDays(cur.d);
+  go(colY, years.indexOf(cur.y), false);
+  go(colM, cur.m - 1, false);
+  wire(colY, 'y'); wire(colM, 'm'); wire(colD, 'd');
+  /* ⛔ 여는 순간에는 값을 쓰지 않는다 — 「기본값을 몰래 넣지 않는다」(⑥ 수업 기간과 같은 원칙).
+        잘못 눌렀다가 바깥을 클릭하면 빈 칸 그대로여야 한다. 값은 «굴렸을 때» 와 «확인» 에서만 들어간다. */
+  pop.querySelector('.enw-ok').addEventListener('click', () => { commit(); _enCloseDateWheels(); });
+  pop.querySelector('.enw-today').addEventListener('click', () => {
+    const t = _enTodayParts();
+    cur.y = t.y; cur.m = t.m;
+    go(colY, years.indexOf(t.y), true);
+    go(colM, t.m - 1, true);
+    rebuildDays(t.d);
+    commit();
+  });
+  /* 팝오버 안 클릭이 «바깥 클릭» 으로 새지 않게 — 아래 document 핸들러와 짝이다 */
+  pop.addEventListener('click', (e) => e.stopPropagation());
+  setTimeout(() => colD.focus({ preventScroll: true }), 0);
+}
+
+function _enCloseDateWheels() {
+  document.querySelectorAll('.enw-pop').forEach((p) => p.remove());
+  document.querySelectorAll('.en-row-start-wheel').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+}
+function _enParseISO(v) {
+  const p = String(v || '').split('-');
+  if (p.length !== 3) return null;
+  const y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+  if (!y || !m || !d) return null;
+  return { y, m, d };
+}
+function _enTodayParts() {
+  const n = new Date();
+  return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+}
+document.addEventListener('click', (e) => {
+  if (e.target.closest && e.target.closest('.en-start-wrap')) return;
+  _enCloseDateWheels();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _enCloseDateWheels(); });
 
 /* 🧑‍🏫 (2026-08-14) ③ 「강사 우선」용 강사 목록.
    ⚠️ 출처는 «teachers» 표(/api/admin/teachers, active=1)다. teacher_profiles 가 아니다 —

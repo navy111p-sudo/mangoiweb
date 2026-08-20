@@ -9358,8 +9358,12 @@ LIMIT $limit`;
       const _prio = b.assign_priority === 'teacher' ? 'teacher' : 'schedule';
       // 🗓️ (2026-08-14) ⑥ 수업 기간 — 화면이 보내는 값만 받는다. 모르는 값은 저장하지 않는다
       //   (오타·옛 폼이 보낸 쓰레기가 그대로 남으면 나중에 회차 계산이 조용히 틀어진다).
+      //   🗓️ (2026-08-20 사장님 지시) 1·3·6·12 «수강권 단위» 만 받던 것을 **1~12** 로 넓혔다.
+      //     2개월·4개월·5개월짜리를 넣을 방법이 아예 없었고, 화면에서 골라도 여기서 걸려
+      //     **에러 없이 null** 이 되므로 「분명 골랐는데 기간이 비어 있다」가 된다.
+      //   ⚠️ 화면 목록(`adm-core.js` 의 `durOptionsList`)과 **짝**이다. 한쪽만 넓히면 그 조용한 null 이 그대로 재현된다.
       const _durRaw = b.duration_months == null ? '' : String(b.duration_months).trim();
-      const _dur = ['1', '3', '6', '12', 'unlimited'].includes(_durRaw) ? _durRaw : null;
+      const _dur = (_durRaw === 'unlimited' || /^([1-9]|1[0-2])$/.test(_durRaw)) ? _durRaw : null;
       const r = await env.DB.prepare(
         `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
