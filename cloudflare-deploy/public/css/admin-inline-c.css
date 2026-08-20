@@ -3305,6 +3305,41 @@ button.chip:hover,
     color: #FFFFFF !important;
   }
 
+  /* ─────────── 수강신청 등록 표 — 행 안 «작은 아이콘 버튼» ───────────
+     ⚠️ 위 #tp-list-table 과 같은 사정이다. 바로 위 전역 룰이
+     padding:9px 18px · 인디고 그라데이션을 !important 로 입히는데,
+     작성자 !important 는 인라인 style 을 이기므로 adm-core.js 가 적어 보낸
+     «width:24px; padding:0; 앰버» · «투명 빨강 ✕» 이 통째로 무시된다.
+     실측(2026-08-20 헤드리스, 1280·1100·1024px 동일):
+       ⏰ 요일별 시간  목표 26×26 → 실제 49×31 (시간 칸이 비워 둔 28px 를 넘어 입력칸을 밀어냄)
+       ✕ 행 삭제    목표 투명 빨강 → 실제 67×46 파란 알약
+     ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
+     width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
+     ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  #en-multi-table td button.en-row-time-builder {
+    width: 26px !important; height: 26px !important; padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #fef3c7 !important; background-image: none !important;
+    border: 1px solid #f59e0b !important; border-radius: 4px !important;
+    color: #92400e !important; font-size: 12px !important; font-weight: 400 !important;
+    line-height: 1 !important; vertical-align: middle !important;
+  }
+  #en-multi-table td button.en-row-time-builder:hover {
+    background: #fde68a !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  #en-multi-table td button.en-row-del {
+    padding: 0 6px !important; box-sizing: border-box !important;
+    background: transparent !important; background-image: none !important;
+    border: 0 !important; border-radius: 0 !important;
+    color: #ef4444 !important; font-size: 14px !important; font-weight: 700 !important;
+  }
+  #en-multi-table td button.en-row-del:hover {
+    background: transparent !important; background-image: none !important;
+    color: #b91c1c !important;
+    transform: none !important; box-shadow: none !important;
+  }
+
   /* ============================================
      폼 — input/textarea/select
      ============================================ */
