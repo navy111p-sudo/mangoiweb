@@ -11392,6 +11392,141 @@ LIMIT $limit`;
       });
     }
 
+    /* 🔴 GET /api/admin/classes-now   (2026-08-20 사장님 「지금 수업이 없어?」)
+       ═══════════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] 관리자 「🔴 실시간 수업 현황」 표는 **망고아이 화상방에 지금
+          붙어 있는 사람**만 센다(`/api/active-rooms` → KV + Durable Object). 그런데
+          카페24 예약 수업은 그 방을 거치지 않는다 — 실측(2026-08-20): `c24-*` 방에
+          실접속(`last_seen_at > 0`)이 남은 행은 **전 기간 0건**이다.
+          그래서 수업 4건이 진행 중이던 15:08 에도 화면은 «지금 진행 중인 수업이
+          없습니다» 라고 말했다. 같은 사실인데 «오늘 한가하다» 로 읽힌다.
+
+       [여기서 하는 일] «예약 기준으로 지금 진행 중이어야 할 수업» 을 돌려준다.
+          화면은 이것을 «방에 붙어 있는 사람» 과 나란히 그려서
+          「수업 4건 · 화상방 접속 0건」 으로 보여 준다.
+
+       [접속 여부를 어떻게 아나] 같은 학생의 **실접속 행**(`last_seen_at > 0`)이 그 수업
+          시간과 겹치는지로만 판정한다.
+          ⛔ 방 번호로 잇지 않는다 — 카페24 방(`c24-…`)과 망고아이 방
+             (`class-{예약id}-{YYYYMMDD}`)은 번호 체계가 아예 다르다.
+          ⛔ 이름이 비슷하다고 잇지 않는다. `user_id` 완전일치, 아니면 학생 이름
+             완전일치(공백·대소문자만 정규화)뿐이고 후보가 둘 이상이면 잇지 않는다.
+          ✅ 못 이으면 `connected:false` 로 둔다. 화면 문구도 «미접속» 이 아니라
+             **«접속 기록 없음»** 이다 — 우리가 아는 것은 딱 그만큼이다.
+
+       🔴 강사 이름 — `attendance.teacher_name` 은 **읽지 않는다.** 옛 동기화가 카페24
+          강사번호를 원부번호로 오인해 넣은 **남의 이름**이 섞여 있다(CLAUDE.md 2장,
+          카페24 24 = Teacher Mariane 인데 HANNAH 로 적힌 행이 실재한다).
+          번호(`teacher_uid`) → `loadCafe24TeacherMap()` 으로 매번 다시 찾고,
+          못 찾으면 **비운다**(화면은 «미상»).
+
+       🔒 지사·대리점 격리 — 학생 이름이 나가므로 `scopeStudentCond()` 로 자른다.
+          범위 밖 수업은 목록에서 **빼고 건수에도 넣지 않는다**(건수만으로도 남의 지사
+          규모가 새기 때문). 🔒 강사에게는 닫는다 — 전사 학생 이름이 한 화면에 모인다
+          (`index.ts` 의 `TEACHER_BLOCKED_PREFIXES` 에도 함께 등록했다. 이중 방어).
+
+       ⛔ SELECT 만 한다. 이 API 는 아무것도 고치지 않는다. */
+    if (method === 'GET' && path === '/api/admin/classes-now') {
+      const _actor = await getAdminActor(request, env as any);
+      if (_actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+
+      const now = Date.now();
+      const AHEAD_MS = 15 * 60 * 1000;        // 곧 시작(15분 앞)까지 함께 보여 준다
+      const GRACE_MS = 5 * 60 * 1000;         // 끝난 직후 5분은 «방금 끝남» 으로 남긴다
+      const SCAN_MS = 6 * 60 * 60 * 1000;     // joined_at 인덱스 구간 — 6시간 넘는 수업은 없다
+      const DEFAULT_LEN_MS = 30 * 60 * 1000;  // 끝시각이 없는 행의 길이 가정
+      const kstHM = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(11, 16);
+
+      try {
+        const sc = await getScope(env as any, request);
+        const stu = scopeStudentCond(sc, 'se');
+        /* 예약(카페24) 행. 학생 이름을 명부에서 가져오면서 같은 조인으로 스코프를 자른다 —
+           명부에 없는 학생은 «범위를 확인할 수 없음» 이므로 지사·대리점에게는 안 보인다. */
+        const rs: any = await env.DB.prepare(
+          `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
+                  se.korean_name AS stu_ko, se.english_name AS stu_en
+             FROM attendance a
+             LEFT JOIN students_erp se ON se.user_id = a.user_id
+            WHERE a.room_id LIKE 'c24-%'
+              AND a.joined_at >= ? AND a.joined_at <= ?
+              AND COALESCE(a.left_at, a.joined_at + ?) >= ?
+              ${stu.cond ? `AND (${stu.cond})` : ''}
+            ORDER BY a.joined_at ASC LIMIT 200`
+        ).bind(now - SCAN_MS, now + AHEAD_MS, DEFAULT_LEN_MS, now - GRACE_MS, ...stu.binds).all();
+        const rows = ((rs.results || []) as any[]);
+
+        /* 실접속 행 — 오늘 «정말로 화상방에 붙은» 사람. 하루 수십 건이라 통째로 읽어도 가볍다.
+           (`last_seen_at > 0` 이 카페24 씨앗과 실접속을 가르는 유일하게 확실한 표시다) */
+        const liveRows = await (async () => {
+          try {
+            const r: any = await env.DB.prepare(
+              `SELECT user_id, username, room_id, joined_at, left_at, last_seen_at
+                 FROM attendance
+                WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
+                LIMIT 500`
+            ).bind(now - SCAN_MS - AHEAD_MS).all();
+            return (r.results || []) as any[];
+          } catch { return [] as any[]; }
+        })();
+        const normName = (v: any) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+        // 이름 → 실접속 행. 같은 이름이 둘 이상이면 «누구인지 모름» 이므로 잇지 않는다.
+        const liveByName = new Map<string, any | null>();
+        for (const lr of liveRows) {
+          const k = normName(lr.username);
+          if (!k) continue;
+          liveByName.set(k, liveByName.has(k) ? null : lr);
+        }
+
+        const tmap = await loadCafe24TeacherMap(env as any, rows.map(r => r.teacher_uid));
+
+        const classes = rows.map(r => {
+          const start = Number(r.joined_at) || 0;
+          const end = Number(r.left_at) || (start + DEFAULT_LEN_MS);
+          const student = r.stu_ko || r.username || r.stu_en || null;
+          // 접속 대조 — ① 계정 완전일치 ② 이름 완전일치(유일할 때만). 겹치는 시간대만 인정한다.
+          const overlaps = (lr: any) => {
+            const ls = Number(lr.joined_at) || 0;
+            const le = Number(lr.left_at) || Number(lr.last_seen_at) || ls;
+            return ls <= end + GRACE_MS && le >= start - GRACE_MS;
+          };
+          let hit: any = null;
+          for (const lr of liveRows) {
+            if (String(lr.user_id || '') === String(r.user_id || '') && overlaps(lr)) { hit = lr; break; }
+          }
+          if (!hit && student) {
+            const cand = liveByName.get(normName(student));
+            if (cand && overlaps(cand)) hit = cand;
+          }
+          return {
+            room_id: r.room_id,
+            start_kst: kstHM(start), end_kst: kstHM(end),
+            start_ms: start, end_ms: end,
+            student_name: student,
+            // 못 이었으면 비운다 — 모르는 것보다 틀린 이름이 나쁘다
+            teacher_name: (tmap.get(String(r.teacher_uid || '')) || {}).name || null,
+            cafe24_status: r.status || null,
+            phase: start > now ? 'soon' : (end < now ? 'ended' : 'now'),
+            connected: !!hit,
+            live_room: hit ? String(hit.room_id || '') : null,
+          };
+        });
+
+        return json({
+          ok: true,
+          now_kst: kstHM(now),
+          counts: {
+            now: classes.filter(c => c.phase === 'now').length,
+            soon: classes.filter(c => c.phase === 'soon').length,
+            ended: classes.filter(c => c.phase === 'ended').length,
+            connected: classes.filter(c => c.connected).length,
+          },
+          classes,
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'classes_now_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
     /* 🔍 GET /api/admin/textbook-files/dup-report   (2026-08-19 Melca 8/19 제보 ⑥)
        ═══════════════════════════════════════════════════════════════════════════
        「교재가 200페이지가 넘는다 / BTS 1 은 115쪽인데 실제 내용은 23쪽」의 정체는

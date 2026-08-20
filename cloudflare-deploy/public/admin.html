@@ -1744,6 +1744,10 @@
     <button id="rooms-refresh" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="새로고침" data-en="Refresh" onclick="event.stopPropagation()">새로고침</button>
   </summary>
   <div class="menu-body">
+    <!-- 🔴 (2026-08-20) 「지금 수업 N건 · 화상방 접속 M건」 요약 줄 — adm-core.js 의 _renderRoomsSummary 가 채운다.
+         이 표는 «화상방에 붙어 있는 사람» 만 세는데 카페24 예약 수업은 그 방을 안 거쳐서,
+         수업이 도는 시각에도 «진행 중인 수업이 없습니다» 로 보이던 것을 여기서 함께 알려 준다. -->
+    <div id="rooms-now-summary" style="display:none;background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:10px"></div>
     <table data-gc="📋 활성 룸 목록" data-gc-en="Active Rooms">
       <thead><tr><th data-ko="방 ID" data-en="Room ID">방 ID</th><th data-ko="참가자 수" data-en="Users">참가자 수</th><th data-ko="참가자" data-en="Participants">참가자</th><th>PDF</th><th data-ko="영상" data-en="Video">영상</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="active-rooms-table"><tr><td colspan="6" class="empty" data-ko="로딩 중..." data-en="Loading...">로딩 중...</td></tr></tbody>
@@ -9293,7 +9297,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=134" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=136" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=134: 2026-08-19 대리점(학원) 신규 등록 폼에 로그인 아이디·비밀번호 — addCenter() 가
      서버에 login_username/login_password 를 함께 보내고, 실패 시 서버 message 를 그대로 띄운다.
      이 작업도 v=132 를 썼는데 main 이 먼저 v=133 을 가져가서 번호를 새로 딴다
