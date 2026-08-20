@@ -35,6 +35,12 @@
 작성: 2026-08-20 · 근거: D1 <code>attendance</code> 실측 11행, 소스코드 정독, 로컬 헤드리스 렌더 측정(PC 1440×900 / 폰 390×844)
 </div>
 
+<div class="box ok" style="margin:0 0 4mm">
+<b>📌 8/21 추가 확인으로 1번의 결론이 바뀌었습니다.</b>
+「교재가 보이지 않아」는 <b>코드 문제가 아니었습니다</b> — 그 시각에 방에 교재가 정말 없었습니다(서버 기록으로 확정, 3-3 참고).
+아래 본문 중 1번 관련 서술은 그에 맞춰 고쳤습니다. 2~6번은 초판 그대로입니다.
+</div>
+
 <div class="lead">
 <b>결론 한 줄.</b> 제보 6건 중 <b>4건(2·3·4·5번)은 뿌리가 하나</b>입니다 —
 <b>「나간 사람이 서버 방(Durable Object)에서 안 없어진다」</b>.
@@ -49,7 +55,7 @@
 <h2>1. 제보 정리 · PC 영향 여부</h2>
 <table>
 <tr><th class="c" style="width:6mm">#</th><th style="width:38mm">제보 내용</th><th>확인된 원인</th><th class="c" style="width:23mm">PC에서도?</th><th class="c" style="width:15mm">확인 근거</th></tr>
-<tr><td class="c">1</td><td>교재가 보이지 않아</td><td>교재 탭 버튼 없음 + 방에 공유된 교재가 없으면 대기 카드만 표시. 폴링/WS 유실 시 자가복구 경로가 조건부</td><td class="c"><span class="tag t-org">일부 발생</span><br><span class="small">복귀 입구는 PC에 보임</span></td><td class="c">렌더 실측<br>+ 코드</td></tr>
+<tr style="background:#f0fdf4"><td class="c">1</td><td>교재가 보이지 않아</td><td><b>버그가 아니었습니다 — 그때 방에 교재가 정말 없었습니다.</b> 교재는 <b>19:41:14</b>에 올라왔는데 스크린샷은 19:35~19:39 것입니다. 대기 카드는 사실을 말하고 있었습니다 <span class="small">(8/21 서버 확인)</span></td><td class="c"><span class="tag t-grn">해당 없음</span><br><span class="small">코드 문제 아님</span></td><td class="c">서버 실측<br>(8/21)</td></tr>
 <tr><td class="c">2</td><td>왜 3명이 나와?</td><td rowspan="3">서버 방에 <b>죽은 소켓이 남음</b>. 서버측 생존 확인(하트비트 타임아웃) 없음 + 재입장 식별자(clientId)가 <code>sessionStorage</code>(탭 단위)라 새 탭/앱이면 중복 정리 실패</td><td class="c" rowspan="3"><span class="tag t-red">발생함</span><br><span class="small">단, 빈도는 휴대폰이 압도적</span></td><td class="c" rowspan="3">D1 실측<br>+ 코드</td></tr>
 <tr><td class="c">3</td><td>학생이 두 명 나와</td></tr>
 <tr><td class="c">4</td><td>jeong이 두 명이야</td></tr>
@@ -155,18 +161,32 @@ PC에서도 브라우저 강제종료·절전 진입·유선 뽑힘이면 똑같
 <li>교재 탭이 아닐 때는 「잠시만 기다려 주세요」 안내조차 안 뜹니다(<code>vcWaitCardSync</code>는 교재 탭일 때만 동작) → 학생에게는 <b>아무 설명 없이 교재가 사라진 것</b>으로 보입니다.</li>
 </ul>
 
-<div class="box avoid">
-<b>1번(교재가 아예 안 보임)에 대한 유보 사항 — 정직하게 적습니다.</b>
-스크린샷 ①②는 교재 탭이 켜진 채 대기 카드가 떠 있으므로, 그 순간 <b>브라우저가 교재 데이터를 하나도 갖고 있지 않았다</b>는 뜻입니다.
-그런데 바로 다음 세션(19:39:46 입장)에서는 <b>8초 만에</b> 교재가 떴습니다(스크린샷 ④).
-즉 서버에는 교재가 있었는데 <b>그 세션에서만 못 받은</b> 상황으로 보입니다.
-후보는 ⓐ 교재 상태 폴링이 <code>_vcJoinedRoomId</code> 조건에 걸려 꺼진 상태, ⓑ <code>vcJoinRoom()</code> 이중 호출로 표시 상태가 초기화되는 경합입니다.
-<b>다만 이 둘은 아직 코드 정독 수준의 추정이고 실측으로 확정하지 못했습니다.</b>
-확정 방법은 5장 「추가 확인」에 적었습니다.
+<div class="box ok avoid">
+<b>✅ 1번(교재가 아예 안 보임) — 8/21 서버 확인으로 결론이 «뒤집혔습니다».</b><br>
+보고서 초판에서는 「서버엔 교재가 있었는데 그 세션만 못 받은 듯하다」고 적고 클라이언트 버그 후보 2가지를 세웠습니다.
+<b>틀렸습니다.</b> 사장님이 <code>/api/room-media/class-850-20260820</code> 을 열어 확인한 결과,
+방에 올라간 교재의 파일 이름이 <code>pdf-<b>1787222474267</b>-20.jpg</code> 였습니다.
+그 숫자가 <b>올라간 시각</b>이고, 환산하면 <b>19:41:14</b> 입니다.
+<table style="margin-top:2mm">
+<tr><th>시각</th><th>무슨 일</th></tr>
+<tr><td class="c">19:19</td><td>수업 시작(학생 첫 입장)</td></tr>
+<tr style="background:#fef2f2"><td class="c">19:35:30</td><td>스크린샷 ②(05:29) — 대기 카드 <b>← 이때 방에 교재 없음</b></td></tr>
+<tr style="background:#fef2f2"><td class="c">19:39:14</td><td>스크린샷 ①(03:32) — 대기 카드 <b>← 이때도 없음</b></td></tr>
+<tr><td class="c">19:40:47</td><td>스크린샷 ④ — 화면에 교재가 보임(<b>본인 기기에서 라이브러리로 연 것</b>)</td></tr>
+<tr style="background:#f0fdf4"><td class="c"><b>19:41:14</b></td><td><b>교재가 «방»에 공유됨</b> — 27초 뒤</td></tr>
+</table>
+즉 <b>대기 카드는 거짓말을 하지 않았습니다.</b> 수업 시작부터 <b>22분간</b> 방에 교재가 없었던 것이 사실이고,
+스크린샷 ④의 교재는 그때 본인이 직접 연 것이 화면에만 먼저 보인 것입니다(공유는 27초 뒤).
+<br><br>
+⚠️ <b>다만 이것이 「문제가 없었다」는 뜻은 아닙니다.</b> 왜 22분간 교재가 안 올라왔는지가 남습니다 —
+그 시간 동안 <b>교사가 3번 재입장</b>했습니다(19:24 · 19:35 · 19:41). 뿌리 A(유령 참가자)로 연결이 흔들리는 동안
+교재를 올릴 겨를이 없었을 가능성이 큽니다. <b>1번은 2·3·4·5번의 결과였을 수 있습니다.</b>
+그렇다면 뿌리 A 를 고친 것으로 1번도 함께 나아집니다 — 다음 수업에서 확인이 필요합니다.
 </div>
 
 <div class="pb"></div>
-<h2>4. 해결방안</h2>
+<h2>4. 해결방안 <span class="small" style="font-weight:400">— 제안 당시(8/20) 내용</span></h2>
+<p class="small" style="margin:0 0 3mm"><b>📌 실제로 무엇을 했는지는 6장을 보세요.</b> 이 장은 «그때 무엇을 제안했나» 를 기록으로 남긴 것이라 고치지 않았습니다 — 숫자(30초/90초)와 A-2 는 실행하면서 바뀌었습니다(45초/120초 · A-2 는 제외).</p>
 
 <h3>1순위 — 유령 참가자 제거 <span class="tag t-red">2·3·4번 직접 해결, 5번 크게 개선</span></h3>
 <table>
@@ -219,10 +239,9 @@ A-1이 근본이지만 화상수업 DO는 CLAUDE.md의 「공동 금지구역」
 
 <h2>5. 추가 확인이 필요한 것 (미확정)</h2>
 <ol>
-<li><b>1번 「교재가 아예 안 보임」의 확정.</b> 다음 수업에서 증상이 나오면
-휴대폰 브라우저 주소창에 <code>mangoi.ai/api/room-media/class-850-YYYYMMDD</code> 를 열어
-<code>pdfState</code> 가 <b>서버에 있는지</b> 확인해 주세요.
-<b>있는데 화면에 없다 = 클라이언트 문제(추정 ⓐⓑ 확정)</b>, <b>없다 = 교사가 교재를 안 올린 것</b>으로 갈립니다.</li>
+<li><b>1번 「교재가 아예 안 보임」은 8/21 에 확정됐습니다</b> — 위 3-3 상자 참고. <b>코드 문제가 아니라 「그때 방에 교재가 없었다」</b> 였습니다.
+남은 것은 <b>왜 22분간 안 올라왔는가</b> 이고, 뿌리 A(유령 참가자)로 교사가 3번 재입장한 것과 이어져 있을 가능성이 큽니다.
+다음 수업에서 교재가 제때 올라오는지 봐 주세요.</li>
 <li><b>PC 실제 재현.</b> 이 컨테이너는 프록시 때문에 <code>mangoi.ai</code> 에 접속할 수 없어
 <b>실제 2인 통화를 PC로 재현하지 못했습니다.</b> 위 PC 판정은 코드 정독 + 로컬 렌더 측정에 근거한 것입니다.
 PC에서 「수업 중 브라우저 강제종료 → 다시 입장」을 한 번 해 보시면 유령 타일이 PC에서도 뜨는지 바로 확인됩니다.</li>
@@ -231,10 +250,45 @@ PC에서 「수업 중 브라우저 강제종료 → 다시 입장」을 한 번
 「참여자 1명」 증상이 나오면 먼저 <b>양쪽 주소창의 호스트명을 비교</b>하세요.</li>
 </ol>
 
-<h2>6. 아직 아무것도 고치지 않았습니다</h2>
-<p>이번 작업은 <b>원인 파악과 해결방안 정리까지</b>입니다. 코드는 한 줄도 바꾸지 않았고 D1 데이터도 조회만 했습니다.
-어느 안부터 진행할지 정해 주시면 그때 착수하겠습니다.
-<b>1순위 A-4(화면에서 유령 숨기기)는 사고 반경이 작고 효과가 즉시</b>라 먼저 하시길 권합니다.
-A-1(서버 생존 판정)은 화상수업 Durable Object 를 건드리므로 <b>배포 권한자 확인</b>이 필요합니다.</p>
+<h2>6. 실행 결과 (2026-08-21 배포 완료)</h2>
+<p>보고 뒤 사장님 승인으로 1·2순위를 진행해 <b>PR #368 로 병합·배포</b>했습니다.</p>
+<table>
+<tr><th class="c" style="width:8mm">안</th><th style="width:46mm">무엇을</th><th>결과</th><th class="c" style="width:16mm">상태</th></tr>
+<tr><td class="c">A-1</td><td>서버에 생존 판정 추가</td><td>45초마다 점검, <b>120초</b> 무응답 소켓을 <code>4003</code> 으로 닫고 <code>dropped</code> 방송. ping 자동응답으로 DO 를 깨우지 않고 생존 시각 확보. 빈 방이면 알람 중지</td><td class="c"><span class="tag t-grn">완료</span></td></tr>
+<tr><td class="c">A-4</td><td>화면에서 유령을 숨긴다</td><td><code>js/idx-vc-dupghost.js</code>(신규·<code>defer</code>) — <b>20초</b> 만에 제거 + 참여자 수 표시 보정</td><td class="c"><span class="tag t-grn">완료</span></td></tr>
+<tr><td class="c">A-3</td><td>떠날 때 확실히 알린다</td><td><code>pagehide</code> 에서 <code>leave-room</code> 재전송. ⚠️ 새 API 라우트(<code>sendBeacon</code>) 대신 기존 WebSocket 을 씀 — <code>src/index.ts</code>(공동 금지구역)를 안 건드리려고</td><td class="c"><span class="tag t-grn">완료</span></td></tr>
+<tr style="background:#fef2f2"><td class="c">A-2</td><td>중복 정리 열쇠를 넓힌다</td><td><b>하지 않았습니다.</b> 가족 공용 계정·관리자 Ghost 참관에서 <b>양쪽이 서로를 닫는 무한 킥</b>이 됩니다(2026-07-14 에 이미 밟은 사고). A-1·A-3·A-4 로 목적은 달성되고 위험만 남습니다</td><td class="c"><span class="tag t-gry">제외</span></td></tr>
+<tr><td class="c">B-1</td><td>「📖 교재」 탭 버튼 복원</td><td>탭바 <b>맨 앞</b>. 다시 눌러도 안 접힘</td><td class="c"><span class="tag t-grn">완료</span></td></tr>
+<tr><td class="c">5</td><td>마이크 오경보 차단</td><td>붙은 적 있는 상대에게만. 띄운 뒤 지우면 3초마다 깜빡여서 <b>띄우기 전에</b> 막음</td><td class="c"><span class="tag t-grn">완료</span></td></tr>
+</table>
+
+<h3>🔴 하마터면 «고치려던 것보다 큰 사고» — 검증에서 잡음</h3>
+<p><code>index.html</code> 은 <code>vcRemovePeer</code> 를 후킹해 <b><code>reason === 'left'</code> 면 10초 뒤 수업을 종료</b>시킵니다. 처음 짠 코드가 두 곳에서 그 경로를 탔습니다.</p>
+<ul>
+<li>유령을 <code>'left'</code> 로 지우면 → 교사가 아직 안 들어온 학생 화면에 <b>「수업이 끝났어요」</b></li>
+<li><code>pagehide</code> 에서 무조건 보내면 → <b>교사가 폰을 잠깐 내려놓은 것만으로 수업이 끝남</b>(앱 전환도 <code>pagehide</code> 로 뜨는 브라우저가 있음)</li>
+</ul>
+<p>→ 사유를 비워서 부르고, bfcache(<code>event.persisted</code>)는 건너뜁니다. 1-4 의
+「<code>dropped</code> 로 자동 종료 말 것 — <code>left</code> 만 종료」의 <b>뒷면</b>이라 CLAUDE.md 함정표에 넣었습니다.</p>
+
+<h3>검증</h3>
+<p>타입체크 통과 · 회귀 하니스 <b>PASS 189 / FAIL 0</b> · 배포 게이트 <b>4종 통과</b> ·
+새 하니스 <code>vc_ghost_liveness_harness</code> <b>37/37</b> ·
+컨테이너 크로미움으로 4종(유령청소 · 무한킥 안전 · 오경보 · 교재 버튼) 눈으로 확인.
+배포 run 2565 성공, 커밋 포함 확인.</p>
+
+<div class="box warn avoid">
+<b>⚠️ 아직 사람이 봐야 끝납니다.</b> 프록시가 <code>mangoi.ai</code> 를 막아 <b>실제 2인 통화는 재현하지 못했습니다.</b>
+다음 수업에서 ① 탭바 맨 왼쪽에 <b>「📖 교재」</b> 버튼이 보이는지 ② 나갔다 들어와도 <b>「3명」·검은 유령 타일</b>이 안 뜨는지
+③ <b>교재가 제때 올라오는지</b>(위 1번) 를 봐 주세요.
+</div>
+
+<div class="box avoid">
+<b>🔴 별건으로 남는 과제 — 첫 화면 무게.</b>
+작업 시작 시점에 <code>index.html</code> blocking 예산 여유가 <b>194바이트</b>뿐이었습니다(1549.31KB / 상한 1549.5KB).
+그래서 마이크 오경보 차단 로직을 제자리(감시견 옆)가 아니라 <code>defer</code> 별도 파일에 넣어야 했습니다.
+지금은 다른 작업 덕에 조금 풀렸지만(1548KB), <b>이 예산은 필리핀 회선을 지키려고 둔 것</b>이라
+무엇을 뒤로 미룰지 사람이 정해야 합니다.
+</div>
 
 </body></html>
