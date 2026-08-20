@@ -741,9 +741,25 @@ export async function handleAdminAuthApi(
         : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
         : 'ko';
 
+      /* 🏠 로그인 뒤 첫 화면 — **서버가 정한다.**
+         [왜] 이 판정이 화면 세 곳에 복제돼 있었다(admin/login.html · idx-user-session.js 두 군데).
+              필리핀 매니저를 가벼운 화면으로 보내려면 세 곳을 다 고쳐야 하고, 하나만 빠뜨리면
+              «어디서 로그인했느냐에 따라 다른 화면» 이 된다. 그래서 정본을 여기 하나로 모은다.
+         [왜 필리핀 매니저는 /manager 인가] admin.html 은 gzip 934KB·요청 145개인데, 거기서 부르는
+              관리자 API 231개 중 매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는
+              열어도 403 이다. 못 쓰는 화면을 필리핀 회선으로 받게 할 이유가 없다.
+              /manager 는 72KB 이고 결재함 버튼도 이미 거기 있다. **권한은 달라지지 않는다.**
+         ⚠️ 화면은 `next` 딥링크가 있으면 그쪽을 우선한다(여기 값은 next 가 없을 때만 쓴다). */
+      const homePath =
+        isTeacher ? '/teacher'
+        : (rr.role === 'branch' || rr.role === 'agency') ? '/manager'
+        : PH_MANAGERS.indexOf(username) >= 0 ? '/manager'
+        : '/admin.html';
+
       return json(
         {
           ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
+          home_path: homePath,   // 🏠 화면은 next 가 없을 때 이 값으로 간다
           name: acctName || username,
           server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
           // 🪪 (2026-08-09) 화면 어휘의 완전한 신원 — 이제 화면은 «추측하지 않는다».

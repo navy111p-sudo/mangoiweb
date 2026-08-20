@@ -260,6 +260,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             pref_lang: wantLang || 'ko',
             // 🌏 국적(ISO 2글자) — 하위 페이지가 이걸 보고 언어를 정한다(KR 만 한국어)
             nationality: (data.nationality ? String(data.nationality).toUpperCase() : ''),
+            // 🏠 상단바 사용자 메뉴(idx-user-session.js)가 «내 첫 화면» 을 알도록 실어 둔다
+            home_path: data.home_path || '',
             login_at: Date.now()
           };
           localStorage.setItem('mangoi_admin_session', JSON.stringify(session));
@@ -282,9 +284,16 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         //         매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는 열어도 403 이다.
         //         → 그들이 실제로 쓸 수 있는 것만 담은 화면으로 보낸다. 권한 변화는 없다.
         //      ⚠️ 이 분기는 public/index.html 에도 **복제**돼 있다(CLAUDE.md 2절). 함께 고칠 것.
-        if ((!clean || clean === '/admin.html')
-            && (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency')) {
-          clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/manager';
+        //   🏠 (2026-08-20) 이 판정의 **정본은 서버**(auth-admin.ts 의 home_path)로 옮겼다.
+        //      화면 세 곳에 같은 규칙이 복제돼 있어, 한쪽만 고치면 «어디서 로그인했느냐에 따라
+        //      다른 화면» 이 된다. 서버가 보내주면 그대로 따른다. 옛 규칙은 서버가 값을
+        //      안 줄 때(구버전 응답)만 쓰는 폴백으로 남긴다.
+        if (!clean || clean === '/admin.html') {
+          if (data.home_path) {
+            clean = data.home_path;
+          } else if (String(role).indexOf('teacher') >= 0 || role === 'branch' || role === 'agency') {
+            clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/manager';
+          }
         }
         setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
       } else {
