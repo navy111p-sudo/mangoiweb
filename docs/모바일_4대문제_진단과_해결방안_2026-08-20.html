@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>망고아이 휴대폰 4대 문제 — 진단과 해결방안 (2026-08-20)</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'WenQuanYi Zen Hei', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    color: #1a2233; font-size: 10.2pt; line-height: 1.62; margin: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 20pt; margin: 0 0 4px; letter-spacing: -0.5px; color: #0f172a; }
+  h2 {
+    font-size: 13.5pt; margin: 26px 0 10px; padding: 7px 12px; color: #fff;
+    background: linear-gradient(90deg, #b45309, #d97706); border-radius: 6px;
+    page-break-after: avoid;
+  }
+  h3 { font-size: 11.4pt; margin: 18px 0 7px; color: #92400e; page-break-after: avoid;
+       border-left: 4px solid #f59e0b; padding-left: 8px; }
+  h4 { font-size: 10.4pt; margin: 13px 0 5px; color: #1e3a5f; page-break-after: avoid; }
+  p  { margin: 6px 0; }
+  ul, ol { margin: 6px 0 6px 0; padding-left: 20px; }
+  li { margin: 3px 0; }
+  code, .code {
+    font-family: 'DejaVu Sans Mono', monospace; font-size: 8.8pt;
+    background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 3px;
+    padding: 0 3px; color: #0f172a; word-break: break-all;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 9px 0; font-size: 9.2pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  thead { display: table-header-group; }
+  th, td { border: 1px solid #cbd5e1; padding: 5px 7px; vertical-align: top; text-align: left; }
+  th { background: #f1f5f9; color: #0f172a; font-weight: 700; }
+  td.num, th.num { text-align: center; white-space: nowrap; }
+
+  .cover { border: 2px solid #d97706; border-radius: 10px; padding: 16px 18px; background: #fffbeb; }
+  .cover .sub { color: #78350f; font-size: 10pt; margin-top: 2px; }
+  .meta { font-size: 8.8pt; color: #6b7280; margin-top: 8px; }
+
+  .box { border-radius: 7px; padding: 9px 12px; margin: 9px 0; page-break-inside: avoid; }
+  .cause  { background: #fef2f2; border: 1px solid #fca5a5; }
+  .fix    { background: #ecfdf5; border: 1px solid #6ee7b7; }
+  .note   { background: #eff6ff; border: 1px solid #93c5fd; }
+  .warn   { background: #fffbeb; border: 1px solid #fcd34d; }
+  .box .t { font-weight: 800; display: block; margin-bottom: 3px; }
+  .cause .t { color: #991b1b; }
+  .fix   .t { color: #065f46; }
+  .note  .t { color: #1e40af; }
+  .warn  .t { color: #92400e; }
+
+  .pill { display: inline-block; border-radius: 99px; padding: 1px 8px; font-size: 8.4pt;
+          font-weight: 700; color: #fff; white-space: nowrap; }
+  .p-hi  { background: #dc2626; }
+  .p-mid { background: #d97706; }
+  .p-low { background: #0891b2; }
+  .p-ok  { background: #059669; }
+
+  .pagebreak { page-break-before: always; }
+  .small { font-size: 8.8pt; color: #475569; }
+
+  /* 화면 도식 */
+  .mock-row { display: flex; gap: 14px; margin: 10px 0; page-break-inside: avoid; }
+  .mock { width: 50%; }
+  .mock .cap { font-size: 9pt; font-weight: 800; margin-bottom: 5px; text-align: center; }
+  .phone {
+    border: 2px solid #334155; border-radius: 14px; background: #0b1220;
+    height: 300px; position: relative; overflow: hidden; color: #e2e8f0; font-size: 7.4pt;
+  }
+  .phone .tag {
+    position: absolute; border-radius: 8px; padding: 2px 5px; font-weight: 700;
+    white-space: nowrap; line-height: 1.25; text-align: center;
+  }
+  .t-bar   { background: #1f2937; border: 1px solid #475569; color: #ffd24d; }
+  .t-float { background: #7c2d12; border: 1px solid #f59e0b; color: #fde68a; }
+  .t-dock  { background: #1e293b; border: 1px solid #64748b; color: #cbd5e1; }
+  .t-vid   { background: #334155; border: 1px dashed #94a3b8; color: #e2e8f0; }
+  .t-body  { background: #111c31; border: 1px solid #334155; color: #94a3b8; }
+  .legend { font-size: 8.4pt; color: #475569; margin-top: 5px; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>망고아이 휴대폰 4대 문제 — 진단과 해결방안</h1>
+  <div class="sub">사장님 제보 4건(2026-08-20)에 대한 원인 분석 · 해결안 제시 <b>(코드는 아직 고치지 않았습니다)</b></div>
+  <div class="meta">
+    작성 2026-08-20 &middot; 대상 저장소 <span class="code">navy111p-sudo/mangoiweb</span> &middot;
+    기준 커밋 <span class="code">52a5aa4</span> &middot; 분석 브랜치 <span class="code">claude/mango-eye-mobile-issues-2wca4y</span>
+  </div>
+</div>
+
+<h3 style="margin-top:16px">한 장 요약</h3>
+<table>
+  <tr>
+    <th class="num" style="width:34px">번호</th>
+    <th style="width:150px">사장님 말씀</th>
+    <th>진짜 원인 (한 줄)</th>
+    <th class="num" style="width:56px">시급도</th>
+  </tr>
+  <tr>
+    <td class="num">1·4</td>
+    <td>카톡 보고 오면 / 다른 사이트 갔다 오면 <b>망고아이 로고만 나온다</b></td>
+    <td>그 화면은 <b>「홈 화면에 추가」한 웹앱의 시작 화면(스플래시)</b>입니다. 안드로이드가 뒤에 있던 망고아이를 메모리에서 지워서, 돌아올 때 <b>처음부터 다시 켜지는 것</b>입니다. 그런데 첫 화면을 그리는 데 필요한 파일이 <b>1.5MB(블로킹 기준)</b>라 회선이 느리면 로고가 몇십 초씩 떠 있고, 서비스워커의 첫 요청에는 <b>제한시간이 없어</b> 통신이 반쯤 끊기면 <b>영원히</b> 로고만 남습니다.</td>
+    <td class="num"><span class="pill p-hi">높음</span></td>
+  </tr>
+  <tr>
+    <td class="num">2</td>
+    <td>회의방에서 <b>필리핀 매니저와 잘 만나지지 않는다</b></td>
+    <td>로비에 들어갈 때마다 <b>방번호 칸을 코드가 강제로 비웁니다</b>. 그래서 한 번 <span class="code">meet-1234</span>로 만났어도, 다시 들어가면 방번호가 사라져 <b>공용방(<span class="code">mangoi-class</span>)</b>으로 떨어집니다. 게다가 그 공용방은 <b>정원이 4명</b>이고, 저장소는 워커를 <b>두 벌</b> 배포해 도메인이 갈리면 <b>같은 방 이름이라도 다른 방</b>이 됩니다.</td>
+    <td class="num"><span class="pill p-hi">높음</span></td>
+  </tr>
+  <tr>
+    <td class="num">3</td>
+    <td>세로 화면 <b>아이콘 자리 정돈</b></td>
+    <td>수업 화면의 떠 있는 버튼이 <b>서로를 모르는 채</b> 각자 좌표를 갖고 있습니다(<span class="code">index.html</span> 한 파일에만 <span class="code">position:fixed</span> 70곳). 새 버튼이 생길 때마다 「몇 px 아래로」를 손으로 맞춰 왔고, 그래서 지금 <b>얼굴 영상 위</b>와 <b>「잠시만 기다려 주세요」 글자 위</b>에 버튼이 겹쳐 있습니다.</td>
+    <td class="num"><span class="pill p-mid">중간</span></td>
+  </tr>
+</table>
+
+<div class="note box">
+  <span class="t">이 문서가 하는 일 / 안 하는 일</span>
+  이 문서는 <b>원인을 찾아 해결안을 제시하는 데까지</b>입니다. 사장님이 「먼저 알려 달라」고 하셔서
+  <b>코드는 한 줄도 고치지 않았습니다.</b> 아래 3장 끝의 「제가 생각하는 배치」에 대해 예/아니오만 주시면
+  그때 실제 수정에 들어가겠습니다.
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>1 · 4 &nbsp;&nbsp; 「카톡 보고 오면 / 다른 사이트 갔다 오면 로고만 나온다」</h2>
+
+<p>두 제보는 <b>같은 문제</b>입니다. 원인이 하나이므로 함께 다룹니다.</p>
+
+<h3>먼저 — 그 로고 화면의 정체</h3>
+
+<p>사장님이 보시는 「남색 배경 + 가운데 망고 아이콘」 화면은 <b>망고아이 안에서 그리는 화면이 아닙니다.</b>
+휴대폰(크롬/삼성인터넷)이 <b>웹앱을 처음 켤 때 자동으로 만들어 주는 시작 화면</b>입니다. 근거는 이렇습니다.</p>
+
+<table>
+  <tr><th style="width:150px">단서</th><th>확인 결과</th></tr>
+  <tr>
+    <td>배경색</td>
+    <td><span class="code">public/manifest.json</span> 의 <span class="code">"background_color": "#050714"</span> — 사진의 남색과 같습니다.
+        (참고로 안드로이드 앱(APK)의 시작 화면은 <b>흰색</b>입니다. <span class="code">themes.xml</span> 이 밝은 테마라 배경을 정해 두지 않았습니다.)</td>
+  </tr>
+  <tr>
+    <td>아이콘 모양</td>
+    <td><span class="code">public/img/icon-512.png</span> — 주황 둥근사각 + 흰 원 + 헤드폰 망고. 사진과 <b>같은 그림</b>입니다.</td>
+  </tr>
+  <tr>
+    <td>시작 방식</td>
+    <td><span class="code">manifest.json</span> 의 <span class="code">"display": "standalone"</span> — 주소창 없이 앱처럼 뜨는 설정입니다.</td>
+  </tr>
+</table>
+
+<div class="warn box">
+  <span class="t">확인 부탁드립니다 (1분)</span>
+  사장님이 <b>「홈 화면에 추가」한 아이콘</b>으로 여시는지, <b>설치한 망고아이 앱(APK)</b>으로 여시는지 알려 주세요.
+  둘 다 고칠 준비를 해 두었지만, <b>어느 쪽이 먼저인지</b>가 달라집니다.
+  구별법 — 로고 화면 배경이 <b>남색이면 홈 화면 웹앱</b>, <b>흰색이면 앱(APK)</b>입니다.
+</div>
+
+<h3>왜 매번 처음부터 다시 켜지나 — 원인 세 겹</h3>
+
+<div class="cause box">
+  <span class="t">원인 ① 안드로이드가 뒤에 있는 망고아이를 지웁니다 (근본 원인)</span>
+  수업 화면은 <b>카메라·마이크·영상 통신·1MB짜리 화면 파일</b>을 동시에 물고 있어 메모리를 많이 씁니다.
+  카톡을 켜면 안드로이드는 <b>메모리를 많이 쓰는 뒤쪽 앱부터</b> 지웁니다. 그래서 돌아왔을 때 남아 있는 것이 없고,
+  <b>「이어서」가 아니라 「처음부터」</b>가 됩니다. 이때 나오는 것이 그 로고 화면입니다.
+</div>
+
+<div class="cause box">
+  <span class="t">원인 ② 처음부터 다시 켜지는 데 너무 오래 걸립니다</span>
+  <table style="margin:6px 0 0">
+    <tr><th style="width:210px">첫 화면을 그리기 전에 받아야 하는 것</th><th class="num" style="width:80px">크기</th><th>출처</th></tr>
+    <tr><td><span class="code">index.html</span></td><td class="num">988 KB</td><td>파일 실측</td></tr>
+    <tr><td><span class="code">js/idx-main.js</span></td><td class="num">845 KB</td><td>파일 실측</td></tr>
+    <tr><td><b>합계(블로킹 기준선)</b></td><td class="num"><b>1,537 KB</b></td><td><span class="code">test-harness/first-paint-budget.json</span></td></tr>
+  </table>
+  <p style="margin-top:6px">화면을 <b>한 픽셀이라도 그리기 전에</b> 1.5MB를 받아야 합니다. 사무실 와이파이에서는 1~2초지만,
+  휴대폰 데이터·필리핀 회선에서는 <b>10~30초</b>가 됩니다. 그동안 화면에는 로고밖에 없습니다.
+  「멈춘 것」이 아니라 「아직 받는 중」인데, 쓰는 사람에게는 구별이 안 됩니다.</p>
+</div>
+
+<div class="cause box">
+  <span class="t">원인 ③ 통신이 반쯤 끊기면 「영원히」 로고입니다 (진짜 고장)</span>
+  <span class="code">public/sw.js</span> 130~161행, 첫 화면 요청 처리:
+  <div class="code" style="display:block;padding:6px 8px;margin:5px 0">return await fetch(request, { cache: 'no-store' });&nbsp;&nbsp;// ← 제한시간 없음</div>
+  <b>제한시간이 없습니다.</b> 통신이 「실패」하면 캐시로 넘어가는 길이 있지만, 휴대폰이 잠자다 깨어날 때 흔한
+  <b>「연결은 살아 있는데 응답이 안 오는」</b> 상태에서는 실패로 처리되지 않고 <b>그냥 기다립니다.</b>
+  이때 로고 화면은 <b>몇 분이고 그대로</b>입니다. 사장님이 「로고만 나온다」고 하신 상황이 이것으로 보입니다.
+</div>
+
+<h4>덤으로 발견한 것 — 돌아올 때마다 새로고침이 걸릴 수 있습니다</h4>
+<p><span class="code">public/js/idx-push-sw.js</span> 51~53행은 <b>화면이 다시 보일 때마다</b> 새 버전을 확인하고,
+34~40행은 새 버전이 잡히면 <b><span class="code">location.reload()</span></b> 로 화면을 통째로 다시 읽습니다
+(수업 중이거나 연 지 30초 안이면 건너뜁니다). 배포가 잦은 날에는 <b>카톡 보고 올 때마다 새로고침</b>이 걸리고,
+그때마다 위의 1.5MB를 다시 받습니다.</p>
+
+<h3>해결방안</h3>
+
+<table>
+  <tr><th class="num" style="width:34px">순서</th><th style="width:170px">무엇을</th><th>어떻게 / 왜 그렇게</th><th class="num" style="width:70px">난이도</th></tr>
+  <tr>
+    <td class="num">A</td>
+    <td><b>첫 요청에 제한시간을 둔다</b><br><span class="small">즉시 효과 · 위험 낮음</span></td>
+    <td><span class="code">sw.js</span> 의 첫 화면 요청을 <b>3초 안에 응답이 없으면</b> 이미 받아 둔 화면으로 먼저 그리고, 새 화면은 뒤에서 계속 받습니다.
+        <b>「영원히 로고」가 구조적으로 불가능해집니다.</b><br>
+        <span class="small">※ 2026-08-08 에 「느린 회선에서 옛 화면을 보여 준다」는 이유로 제한시간을 뺀 이력이 있습니다. 그래서 이번에는
+        <b>그림·JS 는 지금처럼 계속 기다리고, 「첫 화면 HTML」 하나만</b> 제한시간을 둡니다. 옛 화면이 나오는 사고는 재발하지 않습니다.</span></td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">B</td>
+    <td><b>로고 화면에 진행 표시를 넣는다</b><br><span class="small">체감 개선</span></td>
+    <td>지금은 로고만 있어 「멈췄나?」와 「받는 중」이 구별되지 않습니다. <span class="code">index.html</span> 맨 앞에
+        <b>바로 그려지는 안내 한 줄 + 진행 막대</b>를 두고, <b>12초가 지나면 「다시 시도」 버튼</b>을 띄웁니다.
+        고장 나도 <b>사람이 빠져나올 길</b>이 생깁니다.</td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">C</td>
+    <td><b>첫 화면 무게를 줄인다</b><br><span class="small">근본 해결</span></td>
+    <td>1.5MB 중 대부분은 <b>홈 화면에서 당장 쓰지 않는 기능</b>(수업 화면·게임·관리 기능)입니다.
+        이것을 <b>나중에 받는 파일로 분리</b>하면 첫 화면 무게가 크게 줄고, 로고가 떠 있는 시간도 같이 줄어듭니다.<br>
+        <span class="small">※ 이미 <span class="code">first_paint_budget_harness</span> 가 이 무게를 감시하고 있어, 줄인 만큼 자동으로 기록됩니다.</span></td>
+    <td class="num"><span class="pill p-mid">보통</span></td>
+  </tr>
+  <tr>
+    <td class="num">D</td>
+    <td><b>수업 중에 메모리를 놓는다</b></td>
+    <td>화면이 안 보이는 동안 <b>배경 영상·큰 그림·안 쓰는 캔버스를 놓아 줍니다.</b>
+        메모리를 덜 쓰면 안드로이드가 <b>망고아이를 덜 지웁니다</b> = 애초에 다시 켜질 일이 줄어듭니다.<br>
+        <span class="small">⚠ 카메라·마이크는 <b>절대 건드리지 않습니다.</b> 과거에 이 자리에서 카메라를 껐다가 사고가 난 기록이
+        <span class="code">js/net-lite.js</span> 271~273행에 남아 있습니다.</span></td>
+    <td class="num"><span class="pill p-mid">보통</span></td>
+  </tr>
+  <tr>
+    <td class="num">E</td>
+    <td><b>돌아올 때 새로고침을 참는다</b></td>
+    <td><span class="code">idx-push-sw.js</span> 의 자동 새로고침을 <b>수업 중뿐 아니라 「방금 돌아온 직후 몇 초」에도</b> 미룹니다.
+        새 버전은 그다음 조용한 때에 적용됩니다.</td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+</table>
+
+<h4>앱(APK)을 쓰고 계신다면 — 별도로 고쳐야 할 진짜 버그가 하나 있습니다</h4>
+<div class="cause box">
+  <span class="t"><span class="code">mobile-app/.../MainActivity.java</span> 272~276행</span>
+  <div class="code" style="display:block;padding:6px 8px;margin:5px 0">if (savedInstanceState == null) { webView.loadUrl(START_URL + "?_app=" + ...); }
+else { webView.restoreState(savedInstanceState); }&nbsp;&nbsp;// ← 돌려주는 값을 안 봅니다</div>
+  안드로이드의 <span class="code">restoreState()</span> 는 <b>복원에 실패하면 아무것도 안 하고 null 을 돌려줍니다.</b>
+  수업 화면처럼 저장할 상태가 크면 실패하는 일이 실제로 있습니다. 지금 코드는 그 값을 안 보기 때문에,
+  실패하면 <b>주소를 한 번도 안 여는 빈 화면</b>이 되고 <b>스스로 회복하지 못합니다.</b>
+  <div style="margin-top:5px"><b>고침</b> — 돌려받은 값이 비어 있으면 <b>시작 주소를 다시 연다</b> (세 줄).
+  같이 <b>앱에도 남색 시작 화면</b>을 넣어 웹앱과 같은 모습으로 맞춥니다.</div>
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>2 &nbsp;&nbsp; 「회의방에서 필리핀 매니저와 잘 만나지지 않는다」</h2>
+
+<h3>보내 주신 사진이 이미 답을 알려 주고 있습니다</h3>
+<table>
+  <tr><th style="width:80px">사진</th><th style="width:120px">화면 위 방 이름</th><th>상태</th></tr>
+  <tr><td>2번째</td><td class="code">meet-1234</td><td><b>둘 다 있습니다</b> — <span class="code">mgr_karl</span> 과 <span class="code">jeong</span> 얼굴 두 개. <b>이때는 성공했습니다.</b></td></tr>
+  <tr><td>3·4번째</td><td class="code">mangoi-class</td><td><b>혼자입니다</b> — <span class="code">jeong (나)</span> 하나뿐.</td></tr>
+</table>
+<p><b>방 이름이 서로 다릅니다.</b> 같은 방에 못 들어간 것이지, 통신이 안 된 것이 아닙니다.
+그리고 <span class="code">mangoi-class</span> 는 <b>방번호를 비우고 들어갔을 때 자동으로 가는 공용방</b>입니다.</p>
+
+<h3>원인 — 네 가지가 겹쳐 있습니다</h3>
+
+<div class="cause box">
+  <span class="t">원인 ① 로비에 들어갈 때마다 방번호를 코드가 강제로 지웁니다 &nbsp;<span class="pill p-hi">이게 주범입니다</span></span>
+  <span class="code">public/js/idx-main.js</span> 2066행:
+  <div class="code" style="display:block;padding:6px 8px;margin:5px 0">if (roomInput) roomInput.value = '';&nbsp;&nbsp;// 방번호 칸을 비운다</div>
+  <b>일부러 넣은 코드입니다.</b> 옛날에 저장된 임의의 방번호가 몰래 채워져 서로 다른 방으로 갈리던 사고를 막으려던 것입니다.
+  그런데 지금은 <b>사장님이 방금 쓰신 번호까지 지웁니다.</b> 그래서 <span class="code">meet-1234</span> 로 한 번 만나셨어도,
+  나갔다 다시 들어가면 칸이 비어 있고 → <b>공용방으로 떨어집니다.</b> 매니저는 <span class="code">meet-1234</span> 에 그대로 있고요.
+  <div style="margin-top:5px" class="small">사진 2번(성공) → 사진 3·4번(혼자)의 순서가 정확히 이 시나리오입니다.</div>
+</div>
+
+<div class="cause box">
+  <span class="t">원인 ② 그 공용방은 정원이 4명입니다</span>
+  <span class="code">src/video-call-room.ts</span> 29행: <span class="code">SHARED_ROOM_MAX_USERS = 4</span>.
+  전국의 강사·매니저가 방번호 없이 들어오면 <b>모두 이 한 방</b>으로 모입니다. 5번째부터는 <b>들어가자마자 튕깁니다.</b>
+  회선이 끊겼다 붙은 사람이 자리를 물고 있으면 자리가 더 빨리 찹니다.
+  <div style="margin-top:5px" class="small">※ 4명 제한 자체는 2026-08-06 에 <b>일부러</b> 넣은 것입니다(공용방에 50명이 몰려 40명이 튕긴 사고의 대책).
+  제한을 푸는 것이 답이 아니라, <b>애초에 공용방에 안 가게</b> 하는 것이 답입니다.</div>
+</div>
+
+<div class="cause box">
+  <span class="t">원인 ③ 도메인이 다르면 「같은 방 이름」이라도 다른 방입니다</span>
+  이 저장소는 워커를 <b>두 벌</b> 배포합니다 — <span class="code">webrtc-unified-platform</span> 과 <span class="code">webrtc-unified-platform-prod</span>
+  (<span class="code">wrangler.toml</span> 40행과 166행에 방 저장소가 <b>따로</b> 선언돼 있습니다).
+  두 사람이 <b>다른 주소로 열면</b> 같은 <span class="code">meet-1234</span> 를 넣어도 <b>서로 다른 방</b>이 만들어집니다.
+  <div style="margin-top:5px">
+    2026-08-19 에 <span class="code">test.mangoi.co.kr</span> 을 운영 워커로 옮겨서 <b>지금은 대부분 해소</b>됐지만,
+    <b>워커 기본 주소(<span class="code">…workers.dev</span>)로 열면 여전히 갈립니다.</b>
+    <div class="small" style="margin-top:3px">확인법 — 두 사람의 <b>주소창 맨 앞 글자(호스트명)를 비교</b>하는 것이 가장 빠릅니다. 방번호부터 의심하지 마세요.</div>
+  </div>
+</div>
+
+<div class="cause box">
+  <span class="t">원인 ④ 「오늘 예약이 없으면」 자동 교정이 안 됩니다</span>
+  <span class="code">idx-main.js</span> 2622행 이후에, 방번호가 비어 있으면 <b>오늘 내 예약 수업 방으로 자동 교정</b>하는 장치가 있습니다.
+  다만 조건이 <b>「오늘 예약이 있고, 입장 시간이 열렸을 때」</b>입니다. 사장님과 매니저가 <b>수업이 아닌 회의</b>로 만나실 때는
+  예약이 없으니 이 장치가 돌지 않고, 그대로 공용방으로 갑니다.
+</div>
+
+<h3>해결방안</h3>
+<table>
+  <tr><th class="num" style="width:34px">순서</th><th style="width:170px">무엇을</th><th>어떻게</th><th class="num" style="width:70px">난이도</th></tr>
+  <tr>
+    <td class="num">A</td>
+    <td><b>방번호를 기억한다</b><br><span class="small">— 단, 안전하게</span></td>
+    <td><b>사람이 직접 입력한 방번호만</b> 기억했다가 다시 채웁니다. 옛날 사고의 원인이던
+        <b>자동 생성 방번호(<span class="code">room-xxxxxx</span>)는 계속 안 채웁니다.</b>
+        게다가 <b>몇 시간 지난 방번호는 버리고</b>, 채운 뒤에는 <b>「지난번 방번호입니다 — 맞나요?」</b>를 눈에 보이게 띄웁니다.
+        <br><span class="small">→ 사진 2번(성공)의 상태가 <b>계속 유지</b>됩니다.</span></td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">B</td>
+    <td><b>「같이 볼 링크」를 만든다</b><br><span class="small">— 제일 확실한 방법</span></td>
+    <td>로비에 <b>「이 방 링크 복사」</b> 버튼을 답니다. 누르면
+        <span class="code">https://mangoi.ai/?vc_room=meet-1234&amp;vc_autojoin=1</span> 이 복사되고,
+        그걸 매니저에게 카톡으로 보내면 <b>번호를 타이핑할 일도, 도메인이 갈릴 일도 없습니다</b>(원인 ①③이 동시에 사라집니다).
+        <br><span class="small">※ 이 주소 형식은 이미 만들어져 동작합니다(<span class="code">idx-main.js</span> 2145~2151행). 버튼만 없습니다.</span>
+        <br><span class="small">⚠ 카톡으로 링크를 보낼 때는 <b>반드시 <span class="code">https://mangoi.ai</span></b> 로 보내야 합니다.</span></td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">C</td>
+    <td><b>공용방에 들어갔음을 알려 준다</b></td>
+    <td>지금은 공용방에 떨어져도 <b>화면에 아무 표시가 없습니다.</b> 그래서 「연결이 안 되네」로 보입니다.
+        방 이름이 <span class="code">mangoi-class</span> 이면 상단에
+        <b>「지금 공용 연습방입니다 · 상대와 만나려면 같은 방번호를 넣으세요」</b>를 띄웁니다.
+        <br><span class="small">※ 지금도 <span class="code">__vcSharedRoomNotice</span> 라는 표시값은 만들어지는데 화면에 안 그립니다. 그리기만 하면 됩니다.</span></td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">D</td>
+    <td><b>「정원이 찼습니다」를 제대로 말한다</b></td>
+    <td>4명 정원에 걸려 튕길 때 <b>왜 튕겼는지</b>를 한/영 두 줄로 보여 주고, <b>다른 방번호를 넣는 길</b>을 바로 옆에 둡니다.
+        <br><span class="small">지금도 서버는 이유를 보내 주는데(<span class="code">room-full</span>), 화면 안내가 약합니다.</span></td>
+    <td class="num"><span class="pill p-ok">쉬움</span></td>
+  </tr>
+  <tr>
+    <td class="num">E</td>
+    <td><b>사장님·매니저 전용 회의방을 고정한다</b><br><span class="small">— 운영으로 푸는 방법</span></td>
+    <td>수업방과 섞이지 않는 <b>고정 회의방 하나</b>(예: <span class="code">mgr-room</span>)를 정하고, 그 링크를 두 분 홈 화면에 저장합니다.
+        <b>코드 수정 없이 오늘부터 쓸 수 있습니다.</b> 위 A~D 가 들어가기 전의 임시책으로도 좋습니다.</td>
+    <td class="num"><span class="pill p-ok">즉시</span></td>
+  </tr>
+</table>
+
+<div class="warn box">
+  <span class="t">⚠ 하지 않을 것</span>
+  <b>공용방 정원(4명)을 늘리는 것</b>은 답이 아닙니다. 2026-08-06 에 <b>일부러 낮춘</b> 값이고,
+  늘리면 「모르는 선생님이 내 방에 들어온다」는 옛 신고가 그대로 돌아옵니다.
+</div>
+
+<div class="pagebreak"></div>
+
+<h2>3 &nbsp;&nbsp; 「세로 화면 아이콘 자리 정돈 — 어디에 배치해야 하나?」</h2>
+
+<h3>지금 무슨 일이 일어나고 있나</h3>
+<p>수업 화면의 떠 있는 버튼들은 <b>서로의 존재를 모릅니다.</b> 각자 「위에서 몇 px」 같은 자기 좌표를 갖고 있고,
+새 버튼이 생길 때마다 <b>손으로 몇 px씩 밀어서</b> 피해 왔습니다.
+그 흔적이 <span class="code">index.html</span> 한 파일에만 <span class="code">position:fixed</span> <b>70곳</b>,
+새로고침 버튼 하나에만 위치 규칙이 <b>8벌</b>입니다.</p>
+
+<table>
+  <tr><th style="width:135px">화면에 보이는 것</th><th style="width:120px">코드 이름</th><th style="width:130px">지금 자리</th><th>겹치는 상대</th></tr>
+  <tr><td>방이름·시계·녹화점</td><td class="code">#mg-unibar</td><td>위 8px, 가운데</td><td>—</td></tr>
+  <tr><td><b>라이트(밝기)</b></td><td class="code">#mango-theme-toggle</td><td>위 56px, 오른쪽 10px</td><td><b>얼굴 영상 위에 얹힘</b></td></tr>
+  <tr><td><b>바구니(포인트)</b></td><td class="code">#vc-basket-float</td><td>위 56px, 왼쪽 10px</td><td><b>얼굴 영상 위에 얹힘</b></td></tr>
+  <tr><td>번개(가벼운 모드)</td><td class="code">#vc-btn-lite</td><td>상단바 오른쪽 끝</td><td>방이름 알약과 나란히</td></tr>
+  <tr><td>파란 동그라미(영상 재연결)</td><td class="code">#vc-btn-resync</td><td>상단바 안 → 화면 왼쪽으로 밀림</td><td>대기 안내 글자</td></tr>
+  <tr><td><b>기능(주황 버튼)</b></td><td class="code">.vc-phero-ctrl</td><td>오른쪽 10px, 아래 58px<br>(독 열리면 132px)</td><td><b>「잠시만 기다려 주세요」 글자 위</b></td></tr>
+  <tr><td>아래 도구모음</td><td class="code">#vc-dock</td><td>가운데 아래</td><td>대기 안내 아랫줄</td></tr>
+  <tr><td>점 세 개</td><td class="code">#vc-dock-more</td><td>가운데 맨 아래</td><td>—</td></tr>
+  <tr><td>「아래 → 작게」</td><td class="code">#vc-dock-size</td><td>아래 102px, 가운데+96px</td><td>—</td></tr>
+  <tr><td>새로고침(♻)</td><td class="code">#ph52-cache-fab</td><td><b>규칙 8벌</b>이 서로 다툼</td><td>상담 버튼</td></tr>
+</table>
+
+<p class="small">사장님이 빨간 동그라미로 표시하신 곳이 정확히 <b>얼굴 영상 위의 두 개(바구니·라이트)</b>와
+<b>안내 글자 위의 「기능」</b>입니다. 실제로 그 셋이 「남의 자리에 얹혀 있는」 버튼들입니다.</p>
+
+<h3>제 생각 — 「떠 있는 버튼」을 없애고 <u>두 줄</u>로 모읍니다</h3>
+
+<div class="note box">
+  <span class="t">기준으로 삼은 세 가지</span>
+  <ol style="margin:4px 0 0">
+    <li><b>영상과 글자 위에는 아무것도 올리지 않습니다.</b> 얼굴과 안내문이 수업의 본체입니다.</li>
+    <li><b>떠 있는 자리는 두 곳만 — 맨 위 한 줄, 맨 아래 한 줄.</b> 자리가 둘뿐이면 <b>겹칠 방법이 없습니다.</b>
+        지금처럼 「몇 px 아래로」를 손으로 맞추는 일이 없어집니다.</li>
+    <li><b>수업 중에 손이 가는 것만 밖에 둡니다.</b> 나머지는 <b>「기능」 안</b>으로 넣습니다. 기능이 없어지는 것이 아니라 <b>한 겹 안</b>으로 들어갑니다.</li>
+  </ol>
+</div>
+
+<div class="mock-row">
+  <div class="mock">
+    <div class="cap" style="color:#991b1b">지금 (겹침 5곳)</div>
+    <div class="phone">
+      <div class="tag t-float" style="top:6px; right:6px">번개</div>
+      <div class="tag t-bar"   style="top:8px; left:50%; transform:translateX(-50%)">방이름 · 시계 · ●</div>
+      <div class="tag t-vid"   style="top:34px; left:8px; right:8px; height:110px; padding-top:44px">상대 / 내 얼굴 영상</div>
+      <div class="tag t-float" style="top:44px; left:12px">바구니 0</div>
+      <div class="tag t-float" style="top:44px; right:12px">라이트</div>
+      <div class="tag t-body"  style="top:150px; left:8px; right:8px; height:96px; padding-top:34px">잠시만 기다려 주세요<br>Please wait.</div>
+      <div class="tag t-float" style="top:186px; left:12px">↺</div>
+      <div class="tag t-float" style="top:186px; right:12px">기능</div>
+      <div class="tag t-dock"  style="bottom:26px; left:8px; right:8px">마이크 카메라 화면공유 채팅 상담 설정 나가기</div>
+      <div class="tag t-dock"  style="bottom:6px; left:8px">아래→작게</div>
+      <div class="tag t-dock"  style="bottom:6px; left:50%; transform:translateX(-50%)">· · ·</div>
+    </div>
+    <div class="legend">주황 = 떠 있는 버튼. 영상 위 2곳, 글자 위 2곳, 아래 3곳으로 흩어져 있습니다.</div>
+  </div>
+
+  <div class="mock">
+    <div class="cap" style="color:#065f46">제안 (겹침 0곳)</div>
+    <div class="phone">
+      <div class="tag t-bar" style="top:8px; left:6px; right:6px; display:flex; align-items:center; justify-content:space-between">
+        <span>바구니 0</span>
+        <span>방이름 · 시계 · ●</span>
+        <span>라이트 · 번개</span>
+      </div>
+      <div class="tag t-vid"  style="top:38px; left:8px; right:8px; height:120px; padding-top:50px">상대 / 내 얼굴 영상<br><span style="font-size:6.6pt">(위에 아무것도 없음)</span></div>
+      <div class="tag t-body" style="top:166px; left:8px; right:8px; height:96px; padding-top:34px">잠시만 기다려 주세요<br>Please wait.<br><span style="font-size:6.6pt">(위에 아무것도 없음)</span></div>
+      <div class="tag t-dock" style="bottom:8px; left:6px; right:6px; padding:4px 5px">
+        <div>마이크 &nbsp; 카메라 &nbsp; 화면공유 &nbsp; 채팅 &nbsp; 기능</div>
+        <div style="margin-top:3px; font-size:6.8pt; color:#94a3b8">상담 · 설정 · 나가기 · 재연결 · 새로고침 → 「기능」 안으로</div>
+      </div>
+    </div>
+    <div class="legend">떠 있는 자리는 <b>위 한 줄 · 아래 한 줄</b>뿐. 영상과 글자 위는 완전히 비웁니다.</div>
+  </div>
+</div>
+
+<h4>구체적으로 이렇게 옮깁니다</h4>
+<table>
+  <tr><th style="width:120px">버튼</th><th style="width:105px">지금</th><th style="width:130px">제안</th><th>이유</th></tr>
+  <tr><td>바구니(포인트)</td><td>영상 위 왼쪽</td><td><b>맨 윗줄 왼쪽 칸</b></td><td>수업 내내 보여야 하지만 <b>누르는 버튼이 아닙니다.</b> 정보는 정보줄에.</td></tr>
+  <tr><td>라이트(밝기)</td><td>영상 위 오른쪽</td><td><b>맨 윗줄 오른쪽 칸</b></td><td>같은 이유. 하루 한두 번 누르는 설정입니다.</td></tr>
+  <tr><td>번개(가벼운 모드)</td><td>상단 오른쪽 끝</td><td><b>맨 윗줄 오른쪽 칸</b>(라이트 옆)</td><td>라이트와 성격이 같은 「화면 설정」입니다. 붙여 둡니다.</td></tr>
+  <tr><td><b>기능</b></td><td>글자 위에 떠 있음</td><td><b>아래 도구모음의 오른쪽 끝 칸</b></td><td>수업 중 가장 자주 누르는 버튼입니다. <b>엄지가 닿는 아래</b>가 맞고, 다른 도구와 같은 줄에 있어야 찾기 쉽습니다.</td></tr>
+  <tr><td>영상 재연결(↺)</td><td>화면 왼쪽에 떠 있음</td><td><b>「기능」 안 첫 칸</b></td><td>화면이 멈췄을 때만 씁니다. 밖에 둘 만큼 자주 쓰지 않습니다.</td></tr>
+  <tr><td>새로고침(♻)</td><td>규칙 8벌</td><td><b>「기능」 안</b>(수업 중 밖에 안 보임)</td><td>수업 중에는 거의 위험한 버튼입니다. 한 겹 안으로 넣습니다.</td></tr>
+  <tr><td>「아래→작게」, 점 세 개</td><td>아래 따로따로</td><td><b>「기능 &gt; 화면 설정」 한 줄</b></td><td>도구모음의 모양을 바꾸는 것이니, 도구모음 밖에 버튼 두 개를 더 둘 이유가 없습니다.</td></tr>
+  <tr><td>상담 · 설정 · 나가기</td><td>아래 도구모음</td><td><b>「기능」 안으로</b><br><span class="small">(나가기는 「기능」 안 맨 아래, 빨간색)</span></td><td>아래 한 줄에 <b>7개는 너무 많습니다</b>(390px 폭에서 한 칸이 손가락보다 좁습니다). <b>5개로 줄입니다.</b></td></tr>
+</table>
+
+<div class="warn box">
+  <span class="t">한 가지 여쭙습니다 — 「나가기」를 안으로 넣어도 될까요</span>
+  겹침을 없애려면 아래 줄을 5칸으로 줄여야 하는데, 그러려면 <b>상담·설정·나가기</b>가 「기능」 안으로 들어가야 합니다.
+  <b>「나가기」는 밖에 있어야 한다</b>고 보시면 그렇게 남기고 대신 <b>「화면공유」를 안으로</b> 넣겠습니다(휴대폰에서는 거의 안 쓰는 기능입니다).
+  <b>어느 쪽이 좋으신지만 알려 주세요.</b>
+</div>
+
+<h4>그리고 다시 어긋나지 않게 — 자리 규칙을 코드로 못 박습니다</h4>
+<p>지금 문제의 뿌리는 「어디에 두었나」가 아니라 <b>「둘 자리가 정해져 있지 않다」</b>입니다.
+그래서 새 버튼이 생길 때마다 같은 일이 반복됩니다. 배치를 바꾸면서 함께 넣을 것:</p>
+<ul>
+  <li><b>자리를 이름으로 정합니다.</b> 「위 56px」 같은 숫자 대신 <b>맨 윗줄 왼쪽/가운데/오른쪽, 맨 아랫줄</b> 네 칸만 두고,
+      새 버튼은 그 칸 중 하나에 넣습니다. 칸 밖에는 놓을 수 없습니다.</li>
+  <li><b>영상과 안내문은 그 두 줄만큼 자리를 비워 둡니다</b>(겹치는 것이 아니라 아래로 내려옵니다).</li>
+  <li><b>회귀 감시를 추가합니다</b> — 세로 화면에서 <b>떠 있는 버튼이 영상·안내문과 겹치면 검사 실패</b>가 나게 합니다.
+      다음에 누가 새 버튼을 얹으면 <b>배포 전에 걸립니다.</b>
+      <span class="small">(이 저장소는 이미 <span class="code">test-harness</span> 로 이런 감시를 하고 있어, 같은 방식으로 한 줄 더 넣으면 됩니다.)</span></li>
+</ul>
+
+<div class="pagebreak"></div>
+
+<h2>다음 단계 — 제가 제안하는 순서</h2>
+
+<table>
+  <tr><th class="num" style="width:34px">순</th><th style="width:180px">할 일</th><th style="width:64px">해당</th><th>왜 이 순서인가</th></tr>
+  <tr><td class="num">1</td><td><b>고정 회의방 하나 정하기</b><br><span class="small">코드 수정 없음 · 오늘 가능</span></td><td>2번</td>
+      <td>매니저와 만나는 문제를 <b>오늘 바로</b> 없앱니다. 아래 작업들이 끝날 때까지의 임시책이기도 합니다.</td></tr>
+  <tr><td class="num">2</td><td><b>첫 요청 제한시간 + 로고 화면 진행 표시</b></td><td>1·4번</td>
+      <td>가장 짧은 수정으로 <b>「영원히 로고」를 없앱니다.</b> 화면이 바뀌는 작업이 아니라 위험이 낮습니다.</td></tr>
+  <tr><td class="num">3</td><td><b>방번호 기억 + 「이 방 링크 복사」 + 공용방 안내</b></td><td>2번</td>
+      <td>「매번 다시 알려 줘야 하는」 상태 자체를 없앱니다.</td></tr>
+  <tr><td class="num">4</td><td><b>세로 화면 아이콘 두 줄로 정돈 + 겹침 감시</b></td><td>3번</td>
+      <td>화면이 크게 바뀌므로 <b>사장님이 한 번 보시고 확정</b>한 뒤에 들어갑니다.</td></tr>
+  <tr><td class="num">5</td><td><b>첫 화면 무게 줄이기 · 메모리 놓기</b></td><td>1·4번</td>
+      <td>근본 해결이지만 손대는 범위가 넓습니다. 위가 안정된 뒤에 합니다.</td></tr>
+  <tr><td class="num">6</td><td><b>앱(APK) 빈 화면 버그 + 앱 시작 화면</b></td><td>1·4번</td>
+      <td>사장님이 <b>앱으로 쓰신다면 순서를 2번 다음으로 올립니다.</b></td></tr>
+</table>
+
+<h3>제가 확인한 것 / 확인하지 못한 것</h3>
+<div class="note box">
+  <span class="t">확인한 것 (코드를 직접 열어 봤습니다)</span>
+  <ul style="margin:4px 0 0">
+    <li>첫 화면 무게 <b>1,537 KB</b> — <span class="code">test-harness/first-paint-budget.json</span></li>
+    <li>첫 요청에 제한시간 없음 — <span class="code">public/sw.js</span> 130~161행</li>
+    <li>돌아올 때 새 버전 확인 → 새로고침 — <span class="code">public/js/idx-push-sw.js</span> 34~53행</li>
+    <li>웹앱 시작 화면 색·아이콘 일치 — <span class="code">public/manifest.json</span>, <span class="code">public/img/icon-512.png</span></li>
+    <li>방번호 칸 강제 비움 — <span class="code">public/js/idx-main.js</span> 2066행</li>
+    <li>공용방 이름·정원 — <span class="code">idx-main.js</span> 2608행, <span class="code">src/video-call-room.ts</span> 29·398행</li>
+    <li>워커 두 벌 = 방 저장소 두 벌 — <span class="code">cloudflare-deploy/wrangler.toml</span> 40행·166행</li>
+    <li>앱 복원 실패 무방비 — <span class="code">mobile-app/.../MainActivity.java</span> 272~276행</li>
+    <li>세로 화면 떠 있는 버튼의 좌표 — 표 3장에 파일·행 번호로 적었습니다</li>
+  </ul>
+</div>
+<div class="warn box">
+  <span class="t">확인하지 못한 것 (솔직히 적습니다)</span>
+  <ul style="margin:4px 0 0">
+    <li><b>사장님 휴대폰에서 실제로 재현해 보지는 못했습니다.</b> 이 작업 환경은 <span class="code">mangoi.ai</span> 로 나가는 통신이 막혀 있어
+        <b>배포된 실제 화면을 볼 수 없습니다.</b> 위 진단은 <b>코드와 보내 주신 사진</b>을 근거로 한 것입니다.</li>
+    <li><b>웹앱(홈 화면 아이콘)인지 앱(APK)인지</b>는 사진만으로 남색 배경 ⇒ 웹앱으로 판단했습니다. <b>확인 부탁드립니다.</b></li>
+    <li>2번 문제에서 <b>매니저 쪽 화면의 방 이름</b>은 사진이 없어 모릅니다.
+        다음에 안 만나지실 때 <b>두 분 화면 위쪽의 방 이름을 각각 찍어</b> 주시면 원인 ①인지 ③인지 바로 갈립니다.</li>
+  </ul>
+</div>
+
+<h3>사장님이 직접 해 보실 수 있는 확인 (각 30초)</h3>
+<table>
+  <tr><th style="width:130px">증상</th><th>이렇게 확인하면 원인이 갈립니다</th></tr>
+  <tr><td>로고만 나온다</td>
+      <td>그 상태로 <b>1분을 기다려</b> 보세요. <b>결국 뜨면</b> = 느린 것(원인 ②), <b>계속 로고면</b> = 멈춘 것(원인 ③).
+          어느 쪽인지에 따라 고치는 곳이 다릅니다.</td></tr>
+  <tr><td>매니저와 안 만난다</td>
+      <td>두 분 화면 <b>맨 위 알약</b>에 적힌 방 이름을 서로 불러 보세요. <b>다르면</b> 원인 ①(방번호),
+          <b>같은데도 안 보이면</b> 원인 ③(주소가 다름) → 그때는 <b>주소창 맨 앞 글자</b>를 비교합니다.</td></tr>
+  <tr><td>혼자 있는데 방 이름이 <span class="code">mangoi-class</span></td>
+      <td><b>공용방에 떨어진 것입니다.</b> 방번호 칸에 약속한 번호를 넣고 다시 입장하시면 됩니다.</td></tr>
+</table>
+
+<p class="small" style="margin-top:22px; border-top:1px solid #cbd5e1; padding-top:8px">
+이 문서는 진단·제안까지입니다. 위 「다음 단계」의 순서와, 3장 끝의 <b>「나가기」 위치</b>에 대한 답을 주시면
+그 순서대로 작업해서 각각 검증(타입체크 · 회귀 하니스) 결과와 함께 보고드리겠습니다.
+</p>
+
+</body>
+</html>
