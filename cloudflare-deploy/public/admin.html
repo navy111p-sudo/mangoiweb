@@ -346,103 +346,130 @@
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     🧭 (2026-08-19 사장님) 경로 줄 — [← 뒤로] [🏠 홈] + 지금 어디
+     ═══════════════════════════════════════════════════════════════════
+     [왜] 관리자 화면에는 뒤로도 홈도 없었다. 다른 화면은 js/back-nav.js 가 동그란 ←
+       를 띄우지만 admin.html 만 «홈이라 갈 곳이 없다» 는 이유로 제외돼 있었다. 그런데
+       이 화면은 한 페이지 안에서 카드만 바꿔 보여 주는 구조라, 안에서 열 번을 옮겨 다녀도
+       «직전으로» 가 없고 깊이 들어가면 대시보드로 돌아올 길도 없다. 카드가 85장이라
+       「내가 어디 왔는지」 표시도 필요했다 — 이 화면에 지금까지 하나도 없던 정보다.
+     [자리] 본문 맨 위 · sticky. 사이드바를 접거나(PC) 닫아도(휴대폰) 늘 보인다.
+       ⚠️ #legacy-cards 밖이라 adm-ia6.js 가 «고른 항목의 카드만» 남길 때도 사라지지 않는다.
+     🔴 [왜 .admin-layout «밖»에 두는가 — 2026-08-20 사장님 신고 「세로줄이 어떤 메뉴에선 사라진다」]
+       sticky 는 «자기 부모 상자» 안에서만 붙어 있을 수 있다. 부모 바닥이 화면 위로
+       올라가면 줄도 같이 끌려 올라가 사라진다. 그런데 카드 87장 중 **14장이
+       #admin-main-scale 밖**에 있다(card-payments-b2b·b2c·report-forms·notice-board·
+       timetable·lesson-log·gallery·homework·school-attendance-stats·lib-admin/teacher/
+       branch/agency/student — .admin-layout 은 그보다 훨씬 앞에서 닫힌다).
+       그래서 이 줄이 #admin-main-scale 안에 있던 동안, 그 14장으로 뛰는 메뉴에서는
+       부모 바닥이 화면 꼭대기 근처에 있어 조금만 내려가도 줄이 통째로 사라졌다.
+       실측(1920×1080): 「자료실」 ▸ 1 관리자 자료실 = 줄 top −13(겨우 보임) ·
+       ▸ 2 강사 자료실 = −463 · ▸ 5 학생·학부모 자료실 = −1216(사라짐).
+       카드가 안에 있는 「회계」는 800px 을 더 내려도 top 0 으로 멀쩡했다.
+       ✅ <body> 직속으로 두면 부모 상자가 «문서 전체» 라 어디까지 내려가도 붙는다.
+       ✅ 왼쪽 위치·폭은 손으로 맞추지 않는다 — 컬럼을 미는 것이 body 자신의
+          padding(PC `24px 24px 24px 312px` · 모바일 0)이라, body 직속이면 .admin-layout
+          과 **저절로 같은 자리**가 된다. 사이드바를 접어도 그 padding 이 함께 움직인다.
+       ⛔ 다시 #admin-main-scale 안으로 되돌리지 말 것. 그 14장을 컬럼 안으로 옮기는 쪽은
+          별건이다(adm-ia6.js 의 fitTail() 이 꼬리 여백을 «body 맨 끝»에 붙이는 것이
+          바로 그 14장 때문이라, 함께 손봐야 한다).
+     [이름] 「카드 제목」이 아니라 «사이드바에서 누른 항목» 이름을 쓴다. 항목 44개 중
+       23개가 카드를 여러 장 묶어서(data-cards), 카드 제목을 쓰면 대표 첫 장 이름만 나온다.
+     ⚠️ [hidden] 속성을 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
+        [hidden]{display:none} 을 이겨서 계속 보인다(바로 아래 #ph164-recent 와 같은 이유).
+     ⚠️ 이 줄이 카드 제목을 가리지 않게 하는 보정(--adm-jump-offset)은 js/adm-crumb.js 가
+        한다. 2026-08-04 옛 상단바에서 똑같은 신고가 있었고 그때 코드를 되살린 것이다.
+     내용·동작은 js/adm-crumb.js 담당. -->
+<style id="mi-crumb-css">
+  #mi-crumb {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    margin: 0 0 10px; padding: 6px 10px;
+    background: rgba(255,255,255,.97);
+    -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
+    border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 3px 12px -6px rgba(2,6,18,.28);
+  }
+  #mi-crumb.mi-crumb-off { display: none !important; }
+  /* 🔴 (2026-08-19 실측) 처음엔 도크와 같은 남색(#14213b)+옅은 노랑 글자로 만들었는데,
+     js/adm-light-surfaces.js 가 «어두운 배경» 을 찾아 밝게 되돌리면서 배경만
+     rgb(244,246,251) 로 인라인 !important 로 갈아치웠다. 글자는 그대로 #ffd98a 라
+     **흰 바탕에 옅은 노랑 글자(대비 1.3:1)** 가 됐다 — 사실상 안 보인다.
+     ✅ 그래서 처음부터 밝게 만든다. 그 파일이 손댈 것이 없으니 서로 싸우지 않는다.
+     ⛔ 남색으로 되돌리려면 그 파일 SKIP_SEL 에 넣어야 하는데, 「관리자 화면은 밝게」가
+        2026-07-22 사장님 지시라 예외를 늘리지 않는다. */
+  .mi-crumb-btn {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    padding: 6px 11px; border-radius: 999px; cursor: pointer;
+    font-size: 13px; font-weight: 800; line-height: 1;
+    background: #ffffff; color: #14213b; border: 1px solid #f0c46a;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mi-crumb-home { background: #fff7e6; }
+  .mi-crumb-btn:hover { background: #fff3d6; border-color: #e0a020; }
+  .mi-crumb-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+  .mi-crumb-ico { font-size: 14px; line-height: 1; }
+  #mi-crumb-where {
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+    margin-left: 4px; font-size: 13px; color: #667085; white-space: nowrap; overflow: hidden;
+  }
+  #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
+  #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+  .mi-crumb-sep { opacity: .5; flex: none; }
+  /* 🔴 (2026-08-19 실측) 휴대폰에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것.
+     admin-inline-c.css 의 @media(max-width:900px) 에 `html, body{overflow-x:hidden!important}`
+     이 있는데(「대시보드 가로 잘림 방지」), overflow-x 를 hidden 으로 정하면 overflow-y 가
+     auto 로 «계산돼» **body 자체가 스크롤 상자**가 된다. 그런데 실제로 굴러가는 것은
+     viewport(html) 이라 body 는 scrollTop 이 영영 0 이고, 그 안의 sticky 는 «자기 상자가
+     한 번도 안 굴렀으니 붙을 일도 없다» 로 판단해 그냥 흘러간다.
+     실측: 390·768px = 700 굴린 뒤 줄 top −636(실패) / 1023·1024px = 0(정상).
+     ✅ `clip` 은 «잘라내기만 하고 스크롤 상자를 만들지 않는» 값이라 가로 잘림 방어는
+        그대로 두면서 sticky 를 살린다. body 의 스크롤은 지금도 아무도 쓰지 않는다(실측 scrollTop 0).
+     ⚠️ 선택자를 `html body`(특정성 2)로 쓴다 — `body` 하나면 특정성이 같아서, 문서상
+        «뒤»에 오는 admin-inline-c.css 쪽 !important 가 이긴다(그 파일은 <body> 안에서 링크된다).
+     ⚠️ clip 을 모르는 옛 사파리(iOS 15 이하)는 이 줄을 통째로 버린다 → 지금과 똑같이 hidden.
+        그런 기기에서는 줄이 따라오지 않을 뿐, 잘림 방어는 그대로다. */
+  @media (max-width: 900px) {
+    html body { overflow-x: clip !important; }
+  }
+  /* 📐 (2026-08-20) 이 줄은 이제 <body> 직속이라 .admin-layout 의 여백을 «상속»하지 않는다.
+     ≤920px 에서 그 상자만 `padding: 12px`(오른쪽 12px)를 갖기 때문에, 맞춰 주지 않으면
+     줄만 아래 카드들보다 12px 더 넓게 튀어나온다(실측 390·768·900px 에서 12px).
+     ⚠️ 920px 은 admin-inline-c.css 의 「본문 풀폭」 블록과 **같은 경계**다. 한쪽만 바꾸지 말 것.
+     ⚠️ 1024px 이상에서 컬럼을 오른쪽으로 미는 것은 body 자신의 padding(312px)이라
+        body 직속인 이 줄도 저절로 같이 움직인다 — 그쪽은 맞출 것이 없다. */
+  @media (max-width: 920px) {
+    #mi-crumb { margin-right: 12px; }
+  }
+  @media (max-width: 1023px) {
+    /* ⚠️ 왼쪽 위 «줄 3개»(#mgv2-burger — fixed, 8px + 46px)가 이 줄을 덮는다. 그만큼 비워 둔다. */
+    #mi-crumb { padding-left: 62px; }
+    .mi-crumb-btn { font-size: 12px; padding: 6px 9px; }
+    #mi-crumb-where { font-size: 12px; }
+  }
+</style>
+<div id="mi-crumb" class="mi-crumb-off" role="navigation" aria-label="현재 위치">
+  <button type="button" id="mi-crumb-back" class="mi-crumb-btn"
+          title="직전에 보던 메뉴로" data-ko-title="직전에 보던 메뉴로" data-en-title="Previous menu">
+    <span class="mi-crumb-ico" aria-hidden="true">←</span><span data-ko="뒤로" data-en="Back">뒤로</span>
+  </button>
+  <button type="button" id="mi-crumb-home" class="mi-crumb-btn"
+          title="대시보드 첫 화면으로" data-ko-title="대시보드 첫 화면으로" data-en-title="Dashboard home">
+    <span class="mi-crumb-ico" aria-hidden="true">🏠</span><span data-ko="홈" data-en="Home">홈</span>
+  </button>
+  <div id="mi-crumb-where">
+    <span id="mi-crumb-group" data-ko="" data-en=""></span>
+    <span class="mi-crumb-sep" aria-hidden="true">›</span>
+    <b id="mi-crumb-item" data-ko="" data-en=""></b>
+  </div>
+</div>
+
 <div class="admin-layout">
   <!-- 좌측 사이드바 — JS 로 자동 채워짐 -->
 
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
-    <!-- ═══════════════════════════════════════════════════════════════════
-         🧭 (2026-08-19 사장님) 경로 줄 — [← 뒤로] [🏠 홈] + 지금 어디
-         ═══════════════════════════════════════════════════════════════════
-         [왜] 관리자 화면에는 뒤로도 홈도 없었다. 다른 화면은 js/back-nav.js 가 동그란 ←
-           를 띄우지만 admin.html 만 «홈이라 갈 곳이 없다» 는 이유로 제외돼 있었다. 그런데
-           이 화면은 한 페이지 안에서 카드만 바꿔 보여 주는 구조라, 안에서 열 번을 옮겨 다녀도
-           «직전으로» 가 없고 깊이 들어가면 대시보드로 돌아올 길도 없다. 카드가 85장이라
-           「내가 어디 왔는지」 표시도 필요했다 — 이 화면에 지금까지 하나도 없던 정보다.
-         [자리] 본문 맨 위 · sticky. 사이드바를 접거나(PC) 닫아도(휴대폰) 늘 보인다.
-           ⚠️ #legacy-cards 밖이라 adm-ia6.js 가 «고른 항목의 카드만» 남길 때도 사라지지 않는다.
-         [이름] 「카드 제목」이 아니라 «사이드바에서 누른 항목» 이름을 쓴다. 항목 44개 중
-           23개가 카드를 여러 장 묶어서(data-cards), 카드 제목을 쓰면 대표 첫 장 이름만 나온다.
-         ⚠️ [hidden] 속성을 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
-            [hidden]{display:none} 을 이겨서 계속 보인다(바로 아래 #ph164-recent 와 같은 이유).
-         ⚠️ 이 줄이 카드 제목을 가리지 않게 하는 보정(--adm-jump-offset)은 js/adm-crumb.js 가
-            한다. 2026-08-04 옛 상단바에서 똑같은 신고가 있었고 그때 코드를 되살린 것이다.
-         내용·동작은 js/adm-crumb.js 담당. -->
-    <style id="mi-crumb-css">
-      #mi-crumb {
-        position: sticky; top: 0; z-index: 60;
-        display: flex; align-items: center; gap: 8px; min-width: 0;
-        margin: 0 0 10px; padding: 6px 10px;
-        background: rgba(255,255,255,.97);
-        -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
-        border: 1px solid #e2e8f0; border-radius: 12px;
-        box-shadow: 0 3px 12px -6px rgba(2,6,18,.28);
-      }
-      #mi-crumb.mi-crumb-off { display: none !important; }
-      /* 🔴 (2026-08-19 실측) 처음엔 도크와 같은 남색(#14213b)+옅은 노랑 글자로 만들었는데,
-         js/adm-light-surfaces.js 가 «어두운 배경» 을 찾아 밝게 되돌리면서 배경만
-         rgb(244,246,251) 로 인라인 !important 로 갈아치웠다. 글자는 그대로 #ffd98a 라
-         **흰 바탕에 옅은 노랑 글자(대비 1.3:1)** 가 됐다 — 사실상 안 보인다.
-         ✅ 그래서 처음부터 밝게 만든다. 그 파일이 손댈 것이 없으니 서로 싸우지 않는다.
-         ⛔ 남색으로 되돌리려면 그 파일 SKIP_SEL 에 넣어야 하는데, 「관리자 화면은 밝게」가
-            2026-07-22 사장님 지시라 예외를 늘리지 않는다. */
-      .mi-crumb-btn {
-        display: inline-flex; align-items: center; gap: 5px; flex: none;
-        padding: 6px 11px; border-radius: 999px; cursor: pointer;
-        font-size: 13px; font-weight: 800; line-height: 1;
-        background: #ffffff; color: #14213b; border: 1px solid #f0c46a;
-        -webkit-tap-highlight-color: transparent;
-      }
-      #mi-crumb-home { background: #fff7e6; }
-      .mi-crumb-btn:hover { background: #fff3d6; border-color: #e0a020; }
-      .mi-crumb-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
-      .mi-crumb-ico { font-size: 14px; line-height: 1; }
-      #mi-crumb-where {
-        display: flex; align-items: center; gap: 6px; min-width: 0;
-        margin-left: 4px; font-size: 13px; color: #667085; white-space: nowrap; overflow: hidden;
-      }
-      #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
-      #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
-      .mi-crumb-sep { opacity: .5; flex: none; }
-      /* 🔴 (2026-08-19 실측) 휴대폰에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것.
-         admin-inline-c.css 의 @media(max-width:900px) 에 `html, body{overflow-x:hidden!important}`
-         이 있는데(「대시보드 가로 잘림 방지」), overflow-x 를 hidden 으로 정하면 overflow-y 가
-         auto 로 «계산돼» **body 자체가 스크롤 상자**가 된다. 그런데 실제로 굴러가는 것은
-         viewport(html) 이라 body 는 scrollTop 이 영영 0 이고, 그 안의 sticky 는 «자기 상자가
-         한 번도 안 굴렀으니 붙을 일도 없다» 로 판단해 그냥 흘러간다.
-         실측: 390·768px = 700 굴린 뒤 줄 top −636(실패) / 1023·1024px = 0(정상).
-         ✅ `clip` 은 «잘라내기만 하고 스크롤 상자를 만들지 않는» 값이라 가로 잘림 방어는
-            그대로 두면서 sticky 를 살린다. body 의 스크롤은 지금도 아무도 쓰지 않는다(실측 scrollTop 0).
-         ⚠️ 선택자를 `html body`(특정성 2)로 쓴다 — `body` 하나면 특정성이 같아서, 문서상
-            «뒤»에 오는 admin-inline-c.css 쪽 !important 가 이긴다(그 파일은 <body> 안에서 링크된다).
-         ⚠️ clip 을 모르는 옛 사파리(iOS 15 이하)는 이 줄을 통째로 버린다 → 지금과 똑같이 hidden.
-            그런 기기에서는 줄이 따라오지 않을 뿐, 잘림 방어는 그대로다. */
-      @media (max-width: 900px) {
-        html body { overflow-x: clip !important; }
-      }
-      @media (max-width: 1023px) {
-        /* ⚠️ 왼쪽 위 «줄 3개»(#mgv2-burger — fixed, 8px + 46px)가 이 줄을 덮는다. 그만큼 비워 둔다. */
-        #mi-crumb { padding-left: 62px; }
-        .mi-crumb-btn { font-size: 12px; padding: 6px 9px; }
-        #mi-crumb-where { font-size: 12px; }
-      }
-    </style>
-    <div id="mi-crumb" class="mi-crumb-off" role="navigation" aria-label="현재 위치">
-      <button type="button" id="mi-crumb-back" class="mi-crumb-btn"
-              title="직전에 보던 메뉴로" data-ko-title="직전에 보던 메뉴로" data-en-title="Previous menu">
-        <span class="mi-crumb-ico" aria-hidden="true">←</span><span data-ko="뒤로" data-en="Back">뒤로</span>
-      </button>
-      <button type="button" id="mi-crumb-home" class="mi-crumb-btn"
-              title="대시보드 첫 화면으로" data-ko-title="대시보드 첫 화면으로" data-en-title="Dashboard home">
-        <span class="mi-crumb-ico" aria-hidden="true">🏠</span><span data-ko="홈" data-en="Home">홈</span>
-      </button>
-      <div id="mi-crumb-where">
-        <span id="mi-crumb-group" data-ko="" data-en=""></span>
-        <span class="mi-crumb-sep" aria-hidden="true">›</span>
-        <b id="mi-crumb-item" data-ko="" data-en=""></b>
-      </div>
-    </div>
-
     <!-- ═══════════════════════════════════════════════════════════════════
          ⚡ (2026-08-16 사장님) 「자주 쓰는 기능」을 첫 화면 **맨 위**로
          ═══════════════════════════════════════════════════════════════════
