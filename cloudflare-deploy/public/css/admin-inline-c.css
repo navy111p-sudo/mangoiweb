@@ -3417,64 +3417,67 @@ button.chip:hover,
     border-color: #4338ca; background: #eef2ff; color: #3730a3; font-weight: 700;
   }
 
-  /* 🗓️ 시작일 «굴리기» — 날짜칸 옆 버튼 + 년·월·일 드럼.
-     ⚠️ `.enw-col li` 높이(30px)는 `adm-core.js` 의 EN_WHEEL_ITEM 과 반드시 같아야 한다.
-        어긋나면 스크롤 위치로 값을 되읽을 때 한 칸씩 밀린다. */
-  #en-multi-table .en-start-wrap { display: flex; gap: 4px; align-items: center; position: relative; }
-  #en-multi-table .en-start-wrap input.en-row-start { min-width: 0; }
-  #en-multi-table td button.en-row-start-wheel {
-    flex: 0 0 auto; height: 26px !important; padding: 0 8px !important;
-    box-sizing: border-box !important; white-space: nowrap;
-    background: #eef2ff !important; background-image: none !important;
-    border: 1px solid #c7d2fe !important; border-radius: 6px !important;
-    color: #4338ca !important; font-size: 11px !important; font-weight: 700 !important;
-    line-height: 1 !important;
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ 시작일 — PC 는 «누르면 달력»(브라우저 기본), 휴대폰은 «굴리는 드럼».
+     ─────────────────────────────────────────────────────────────────────
+     ⛔ 팝오버로 띄우지 않는다. 2026-08-21 실측 — 표(`#en-multi-table`)가 overflow:hidden 이라
+        칸 밖으로 나간 팝오버가 통째로 잘렸다(팝오버 bottom 16945 > 표 bottom 16783).
+        버튼은 눌리는데 화면에는 아무것도 안 나타나서 「작동이 안 된다」로 보였다.
+        ✅ 드럼을 «칸 안에» 두면 칸이 늘어나므로 잘릴 일이 없다.
+     ⚠️ `.enw-col li` 높이(28px)는 `adm-core.js` 의 EN_WHEEL_ITEM 과 반드시 같아야 한다.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table .en-start-wrap { display: block; }
+  #en-multi-table .en-start-wrap input.en-row-start { cursor: pointer; }
+
+  /* 자주 쓰는 시작일 — 실제로 수업이 시작되는 날은 거의 이 넷 중 하나다.
+     ⚠️ 전역 룰(details.menu-card button{인디고 !important})이 이 작은 버튼도 파란 알약으로
+        뭉개므로 ID 접두로 되살린다(같은 파일 위쪽 ⏰·✕ 와 같은 사정). */
+  #en-multi-table .en-start-quick { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  #en-multi-table td button.en-q {
+    padding: 2px 7px !important; height: auto !important; box-sizing: border-box !important;
+    background: #f8fafc !important; background-image: none !important;
+    border: 1px solid #e2e8f0 !important; border-radius: 5px !important;
+    color: #475569 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.5 !important; white-space: nowrap;
   }
-  #en-multi-table td button.en-row-start-wheel:hover {
-    background: #e0e7ff !important; background-image: none !important;
+  #en-multi-table td button.en-q:hover {
+    background: #eef2ff !important; background-image: none !important;
+    border-color: #c7d2fe !important; color: #4338ca !important;
     transform: none !important; box-shadow: none !important;
   }
-  #en-multi-table .enw-pop {
-    position: absolute; z-index: 40; top: calc(100% + 5px); left: 0;
-    background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(15,23,42,.16); padding: 8px;
+
+  /* 📱 드럼 — 휴대폰에서만 보인다. PC 는 브라우저 기본 달력이 훨씬 빠르다. */
+  #en-multi-table .en-start-drum { display: none; }
+  @media (max-width: 1023px) {
+    #en-multi-table .en-start-drum { display: block; margin-top: 6px; }
   }
-  #en-multi-table .enw-heads { display: flex; gap: 3px; padding: 0 3px 4px; }
+  #en-multi-table .enw-heads { display: flex; gap: 3px; padding: 0 3px 3px; }
   #en-multi-table .enw-heads span {
-    flex: 1; min-width: 52px; text-align: center;
+    flex: 1; min-width: 46px; text-align: center;
     font-size: 10px; font-weight: 700; color: #6b7280;
   }
-  #en-multi-table .enw-drum { position: relative; display: flex; gap: 3px; }
+  #en-multi-table .enw-drum {
+    position: relative; display: flex; gap: 3px; padding: 3px;
+    border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc;
+  }
   #en-multi-table .enw-band {
-    position: absolute; left: 0; right: 0; top: 50%; height: 30px;
+    position: absolute; left: 3px; right: 3px; top: 50%; height: 28px;
     transform: translateY(-50%); border-radius: 6px;
     background: #eef2ff; border: 1px solid #c7d2fe; pointer-events: none;
   }
   #en-multi-table .enw-col {
-    position: relative; z-index: 1; height: 90px; overflow-y: auto;
+    position: relative; z-index: 1; flex: 1; height: 84px; overflow-y: auto;
     scroll-snap-type: y mandatory; overscroll-behavior: contain;
     scrollbar-width: none; cursor: ns-resize; border-radius: 6px;
   }
   #en-multi-table .enw-col::-webkit-scrollbar { display: none; }
-  #en-multi-table .enw-col ul { list-style: none; margin: 0; padding: 30px 0; }
+  #en-multi-table .enw-col ul { list-style: none; margin: 0; padding: 28px 0; }
   #en-multi-table .enw-col li {
-    height: 30px; line-height: 30px; min-width: 52px; text-align: center;
+    height: 28px; line-height: 28px; text-align: center;
     font-size: 13px; color: #9ca3af; scroll-snap-align: center;
     font-variant-numeric: tabular-nums;
   }
   #en-multi-table .enw-col li.on { color: #4338ca; font-weight: 800; }
-  #en-multi-table .enw-foot { display: flex; gap: 5px; margin-top: 7px; }
-  #en-multi-table .enw-foot button {
-    flex: 1; height: 26px !important; padding: 0 !important;
-    box-sizing: border-box !important; background-image: none !important;
-    border-radius: 6px !important; font-size: 11px !important;
-    font-weight: 700 !important; line-height: 1 !important;
-    background: #f8fafc !important; border: 1px solid #cbd5e1 !important; color: #334155 !important;
-  }
-  #en-multi-table .enw-foot button.enw-ok {
-    background: #4338ca !important; border-color: #4338ca !important; color: #ffffff !important;
-  }
-  #en-multi-table .enw-foot button:hover { transform: none !important; box-shadow: none !important; }
 
   /* ============================================
      폼 — input/textarea/select

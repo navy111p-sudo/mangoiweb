@@ -5661,9 +5661,13 @@ function _addEnrollmentRow(prefill) {
     '<td class="en-c en-c-start" data-label="' + (_enrIsEn ? 'Start date' : '시작일') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<div class="en-start-wrap">' +
         '<input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
-        '<button type="button" class="en-row-start-wheel" aria-expanded="false" ' +
-          'title="' + (_enrIsEn ? 'Scroll to pick year/month/day' : '년·월·일을 굴려서 고르기') + '">' +
-          (_enrIsEn ? 'pick' : '굴리기') + '</button>' +
+        '<div class="en-start-drum" aria-label="' + (_enrIsEn ? 'Scroll to pick the date' : '굴려서 날짜 고르기') + '"></div>' +
+        '<div class="en-start-quick">' +
+          '<button type="button" class="en-q" data-q="today">'  + (_enrIsEn ? 'Today'      : '오늘')      + '</button>' +
+          '<button type="button" class="en-q" data-q="tomo">'   + (_enrIsEn ? 'Tomorrow'   : '내일')      + '</button>' +
+          '<button type="button" class="en-q" data-q="nextmon">'+ (_enrIsEn ? 'Next Mon'   : '다음주 월') + '</button>' +
+          '<button type="button" class="en-q" data-q="next1">'  + (_enrIsEn ? 'Next 1st'   : '다음달 1일')+ '</button>' +
+        '</div>' +
       '</div></td>' +
     '<td class="en-c en-c-dur" data-label="' + (_enrIsEn ? 'Class period' : '수업 기간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
@@ -5702,9 +5706,34 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14) ⑥ 기간 — 고른 기간이 언제 끝나는지 시작일과 묶어 한 줄로 보여 준다
   tr.querySelector('.en-row-duration').addEventListener('change', () => _enDurNote(tr));
   tr.querySelector('.en-row-start').addEventListener('change', () => _enDurNote(tr));
-  // 🗓️ (2026-08-20) 「굴리기」 — 년·월·일 드럼을 열어 시작일을 고른다. 날짜칸 직접 입력도 그대로 살아 있다.
-  const _swBtn = tr.querySelector('.en-row-start-wheel');
-  if (_swBtn) _swBtn.addEventListener('click', () => _enOpenDateWheel(_swBtn, tr.querySelector('.en-row-start')));
+  /* 🗓️ (2026-08-21) 시작일 — 「누르면 달력」 + 자주 쓰는 날짜 버튼.
+     ⚠️ 직접 만든 년·월·일 드럼을 뺐다. 팝오버가 표(`overflow:hidden`) 밖으로 못 나가
+        «눌리는데 안 보이는» 상태였고(2026-08-21 실측: 팝오버 bottom 16945 > 표 bottom 16783),
+        무엇보다 브라우저 기본 달력이 이미 «미래 날짜를 눌러서 고르는» 일을 한다.
+     ⚠️ showPicker() 는 Chrome/Edge 만 있고 «사용자 조작 없이» 부르면 예외를 던진다 → 클릭 안에서, try 로 감싼다. */
+  const _startInp = tr.querySelector('.en-row-start');
+  if (_startInp) {
+    /* PC 에서만 «칸을 누르면 달력» — 휴대폰은 아래 드럼이 주인공이라 OS 창까지 겹쳐 뜨면 방해가 된다 */
+    _startInp.addEventListener('click', () => {
+      if (!_enIsWideScreen()) return;
+      try { if (typeof _startInp.showPicker === 'function') _startInp.showPicker(); } catch (e) { /* 기본 동작에 맡긴다 */ }
+    });
+  }
+  /* 📱 휴대폰 — 년·월·일 드럼을 «칸 안에 그대로» 편다(사장님 지시 2026-08-21).
+     ⚠️ 팝오버로 띄우면 안 된다: 표가 overflow:hidden 이라 밖으로 나간 부분이 통째로 잘린다
+        (실측 2026-08-21 — 팝오버 bottom 16945 > 표 bottom 16783 이라 «눌리는데 안 보이는» 상태였다).
+        칸 안에 있으면 칸이 늘어나므로 잘릴 일이 없다.
+     ⚠️ 폭에 상관없이 만들어 두고 «보이기» 만 CSS 로 가른다 — 화면을 돌리거나 창을 줄여도 그대로 산다. */
+  const _drumHost = tr.querySelector('.en-start-drum');
+  if (_drumHost && _startInp) _enBuildDateWheel(_drumHost, _startInp);
+  tr.querySelectorAll('.en-q').forEach((qb) => {
+    qb.addEventListener('click', () => {
+      const iso = _enQuickDate(qb.dataset.q);
+      if (!iso || !_startInp) return;
+      _startInp.value = iso;
+      _startInp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
   _enDurNote(tr);
   // 🧑‍🏫 (2026-08-14) ③ 이 «강사 우선» 일 때만 강사 목록을 편다. 목록은 한 번만 받아 캐시한다.
   _enLoadTeachers();
@@ -5769,28 +5798,47 @@ function _enAddMonths(startISO, months) {
   return ny + '-' + String(nm).padStart(2, '0') + '-' + String(nd).padStart(2, '0');
 }
 
-/* 🗓️ (2026-08-20 사장님 지시) 시작일 «굴려서 고르기» — 년·월·일 드럼.
-   ⚠️ 이 함수는 날짜칸을 **대신하지 않는다.** `.en-row-start`(type=date)에 값을 써 넣고
-      change 를 쏘는 보조 도구다 — 값을 읽는 쪽(`_readEnrollmentRows`)도 종료일 계산도 그대로 쓴다.
-   ⚠️ 스크롤은 브라우저 것을 그대로 쓴다(scroll-snap). 직접 만든 드래그 계산을 두면
-      마우스 휠·터치·키보드를 각각 따로 처리해야 하고, 그 셋이 어긋나는 순간 «안 멈추는 드럼» 이 된다.
-   ⚠️ 관리자 화면은 `zoom:1.3` 이라 칸 높이를 px 로 못 박는다 — 확대는 브라우저가 알아서 곱한다. */
-const EN_WHEEL_ITEM = 30; /* 한 칸 높이(px). CSS `#en-multi-table .enw-col li` 와 반드시 같아야 한다 */
+/* 📱 (2026-08-21 사장님 지시) 시작일 드럼 — 년·월·일을 굴려서 고른다. 휴대폰에서만 보인다.
+   ⚠️ 스크롤은 브라우저 것(scroll-snap)을 그대로 쓴다. 직접 만든 드래그 계산을 두면 휠·터치·키보드를
+      각각 처리해야 하고, 셋이 어긋나는 순간 «안 멈추는 드럼» 이 된다.
+   ⚠️ 칸 높이(EN_WHEEL_ITEM)는 CSS `.en-start-drum .enw-col li` 와 반드시 같아야 한다 —
+      어긋나면 스크롤 위치로 값을 되읽을 때 한 칸씩 밀린다.
+   ⛔ 여는 순간에 값을 쓰지 않는다 — 「기본값을 몰래 넣지 않는다」. 굴렸을 때만 날짜칸에 들어간다. */
+const EN_WHEEL_ITEM = 28;
 
-function _enOpenDateWheel(btn, input) {
-  if (!btn || !input) return;
-  const wrap = btn.closest('.en-start-wrap');
-  if (!wrap) return;
-  const already = wrap.querySelector('.enw-pop');
-  _enCloseDateWheels();
-  if (already) return; /* 열려 있던 것을 누른 것이면 «닫기» 로 끝낸다 */
+function _enIsWideScreen() {
+  try { return window.matchMedia('(min-width: 1024px)').matches; } catch (e) { return true; }
+}
 
+/* ⚠️ 숨어 있는 동안에는 만들지 않는다. 행은 «카드가 닫힌 채로» 만들어지는데(페이지 로드 시 1행 자동 추가),
+      숨은 요소는 스크롤이 안 먹어서 세 칸이 전부 맨 위에 머문다 → 열어 보면 2025-01-01 을 가리키고,
+      그 상태에서 한 칸만 굴려도 엉뚱한 해가 들어간다(2026-08-21 실측으로 확인).
+   ✅ 그래서 «화면에 들어올 때» 만든다. ResizeObserver 로 뒤늦게 자리를 맞추는 방법도 해 봤지만
+      제때 맞지 않았다 — 아예 보일 때 만드는 쪽이 어긋날 여지가 없다. */
+function _enBuildDateWheel(host, input) {
+  if (!host || !input || host.dataset.enDrumReady) return;
+  const build = () => _enBuildDateWheelNow(host, input);
+  if (typeof IntersectionObserver !== 'function') { build(); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) { io.disconnect(); build(); }
+  });
+  io.observe(host);
+  /* 관찰이 안 먹는 경우(스크롤 없이 바로 만지는 등)를 위한 안전망 */
+  ['pointerdown', 'focusin'].forEach((ev) => {
+    host.addEventListener(ev, () => { io.disconnect(); build(); }, { once: true });
+  });
+}
+
+function _enBuildDateWheelNow(host, input) {
+  if (!host || !input || host.dataset.enDrumReady === '1') return;
+  host.dataset.enDrumReady = '1';
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
-  const base = _enParseISO(input.value) || _enTodayParts();
+  const now = new Date();
+  const state = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  const seed = _enParseISO(input.value);
+  if (seed) { state.y = seed.y; state.m = seed.m; state.d = seed.d; }
 
-  const pop = document.createElement('div');
-  pop.className = 'enw-pop';
-  pop.innerHTML =
+  host.innerHTML =
     '<div class="enw-heads"><span>' + (en ? 'Year' : '년') + '</span><span>' + (en ? 'Mon' : '월') +
       '</span><span>' + (en ? 'Day' : '일') + '</span></div>' +
     '<div class="enw-drum">' +
@@ -5798,18 +5846,10 @@ function _enOpenDateWheel(btn, input) {
       '<div class="enw-col enw-y" tabindex="0" role="listbox" aria-label="' + (en ? 'Year' : '연도') + '"><ul></ul></div>' +
       '<div class="enw-col enw-m" tabindex="0" role="listbox" aria-label="' + (en ? 'Month' : '월') + '"><ul></ul></div>' +
       '<div class="enw-col enw-d" tabindex="0" role="listbox" aria-label="' + (en ? 'Day' : '일') + '"><ul></ul></div>' +
-    '</div>' +
-    '<div class="enw-foot">' +
-      '<button type="button" class="enw-today">' + (en ? 'Today' : '오늘') + '</button>' +
-      '<button type="button" class="enw-ok">' + (en ? 'Done' : '확인') + '</button>' +
     '</div>';
-  wrap.appendChild(pop);
-  btn.setAttribute('aria-expanded', 'true');
 
-  const cur = { y: base.y, m: base.m, d: base.d };
-  const colY = pop.querySelector('.enw-y'), colM = pop.querySelector('.enw-m'), colD = pop.querySelector('.enw-d');
-  const thisYear = new Date().getFullYear();
-  const years = []; for (let y = thisYear - 1; y <= thisYear + 3; y++) years.push(y);
+  const colY = host.querySelector('.enw-y'), colM = host.querySelector('.enw-m'), colD = host.querySelector('.enw-d');
+  const years = []; for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 3; y++) years.push(y);
   const months = []; for (let m = 1; m <= 12; m++) months.push(m);
 
   function fill(col, values, pad2) {
@@ -5823,40 +5863,47 @@ function _enOpenDateWheel(btn, input) {
     col._values = values;
   }
   function idxOf(col) {
-    return Math.max(0, Math.min((col._values.length - 1), Math.round(col.scrollTop / EN_WHEEL_ITEM)));
-  }
-  function go(col, i, smooth) {
-    col.scrollTo({ top: Math.max(0, i) * EN_WHEEL_ITEM, behavior: smooth ? 'smooth' : 'auto' });
-    paint(col);
+    return Math.max(0, Math.min(col._values.length - 1, Math.round(col.scrollTop / EN_WHEEL_ITEM)));
   }
   function paint(col) {
     const i = idxOf(col);
     const lis = col.querySelectorAll('li');
     for (let k = 0; k < lis.length; k++) lis[k].classList.toggle('on', k === i);
   }
-  function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
-  function rebuildDays(keepDay) {
-    const max = daysInMonth(cur.y, cur.m);
-    const vals = []; for (let i = 1; i <= max; i++) vals.push(i);
-    if (!colD._values || colD._values.length !== max) fill(colD, vals, true);
-    cur.d = Math.min(keepDay || cur.d, max);
-    go(colD, cur.d - 1, false);
+  function go(col, i, smooth) {
+    col.scrollTo({ top: Math.max(0, i) * EN_WHEEL_ITEM, behavior: smooth ? 'smooth' : 'auto' });
+    paint(col);
+  }
+  function rebuildDays() {
+    const max = new Date(state.y, state.m, 0).getDate();
+    if (!colD._values || colD._values.length !== max) {
+      const vals = []; for (let i = 1; i <= max; i++) vals.push(i);
+      fill(colD, vals, true);
+    }
+    state.d = Math.min(state.d, max);
+    go(colD, state.d - 1, false);
   }
   function commit() {
-    input.value = cur.y + '-' + String(cur.m).padStart(2, '0') + '-' + String(cur.d).padStart(2, '0');
+    input.value = state.y + '-' + String(state.m).padStart(2, '0') + '-' + String(state.d).padStart(2, '0');
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  /* ⛔ «사람이 굴렸을 때만» 값을 쓴다. 자리를 맞추려고 코드가 굴리는 스크롤도 같은 이벤트를 내므로,
+        이 표시가 없으면 카드를 열기만 해도 날짜가 저절로 들어간다(「기본값을 몰래 넣지 않는다」). */
+  let userTouched = false;
   function wire(col, kind) {
     let t = null;
+    ['wheel', 'pointerdown', 'touchstart', 'keydown'].forEach((ev) => {
+      col.addEventListener(ev, () => { userTouched = true; }, { passive: true });
+    });
     col.addEventListener('scroll', () => {
       paint(col);
       if (t) clearTimeout(t);
       t = setTimeout(() => {
         const v = col._values[idxOf(col)];
-        if (kind === 'y') { cur.y = v; rebuildDays(cur.d); }
-        else if (kind === 'm') { cur.m = v; rebuildDays(cur.d); }
-        else cur.d = v;
-        commit();
+        if (kind === 'y') { state.y = v; rebuildDays(); }
+        else if (kind === 'm') { state.m = v; rebuildDays(); }
+        else state.d = v;
+        if (userTouched) commit();
       }, 90);
     });
     col.addEventListener('click', (e) => {
@@ -5872,30 +5919,23 @@ function _enOpenDateWheel(btn, input) {
 
   fill(colY, years, false);
   fill(colM, months, true);
-  rebuildDays(cur.d);
-  go(colY, years.indexOf(cur.y), false);
-  go(colM, cur.m - 1, false);
+  rebuildDays();
+  go(colY, Math.max(0, years.indexOf(state.y)), false);
+  go(colM, state.m - 1, false);
   wire(colY, 'y'); wire(colM, 'm'); wire(colD, 'd');
-  /* ⛔ 여는 순간에는 값을 쓰지 않는다 — 「기본값을 몰래 넣지 않는다」(⑥ 수업 기간과 같은 원칙).
-        잘못 눌렀다가 바깥을 클릭하면 빈 칸 그대로여야 한다. 값은 «굴렸을 때» 와 «확인» 에서만 들어간다. */
-  pop.querySelector('.enw-ok').addEventListener('click', () => { commit(); _enCloseDateWheels(); });
-  pop.querySelector('.enw-today').addEventListener('click', () => {
-    const t = _enTodayParts();
-    cur.y = t.y; cur.m = t.m;
-    go(colY, years.indexOf(t.y), true);
-    go(colM, t.m - 1, true);
-    rebuildDays(t.d);
-    commit();
+
+  /* 날짜칸을 직접 고치거나 «자주 쓰는 날짜» 를 누르면 드럼도 따라간다 */
+  input.addEventListener('change', () => {
+    const p = _enParseISO(input.value);
+    if (!p) return;
+    if (p.y === state.y && p.m === state.m && p.d === state.d) return;
+    state.y = p.y; state.m = p.m; state.d = p.d;
+    go(colY, Math.max(0, years.indexOf(p.y)), false);
+    go(colM, p.m - 1, false);
+    rebuildDays();
   });
-  /* 팝오버 안 클릭이 «바깥 클릭» 으로 새지 않게 — 아래 document 핸들러와 짝이다 */
-  pop.addEventListener('click', (e) => e.stopPropagation());
-  setTimeout(() => colD.focus({ preventScroll: true }), 0);
 }
 
-function _enCloseDateWheels() {
-  document.querySelectorAll('.enw-pop').forEach((p) => p.remove());
-  document.querySelectorAll('.en-row-start-wheel').forEach((b) => b.setAttribute('aria-expanded', 'false'));
-}
 function _enParseISO(v) {
   const p = String(v || '').split('-');
   if (p.length !== 3) return null;
@@ -5903,15 +5943,23 @@ function _enParseISO(v) {
   if (!y || !m || !d) return null;
   return { y, m, d };
 }
-function _enTodayParts() {
-  const n = new Date();
-  return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate() };
+
+/* 🗓️ (2026-08-21) 자주 쓰는 시작일 — 「오늘·내일·다음주 월·다음달 1일」.
+   실제로 수업이 시작되는 날은 거의 이 넷 중 하나다. 달력을 열지 않고 한 번에 넣는다.
+   ⚠️ 로컬 시각 기준이다 — new Date() 를 그대로 쓰면 UTC 로 밀려 «어제» 가 들어간다. */
+function _enQuickDate(kind) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); /* 자정 근처 시차 밀림 방지 */
+  if (kind === 'tomo') d.setDate(d.getDate() + 1);
+  else if (kind === 'nextmon') {
+    /* 다음 «월요일». 오늘이 월요일이면 다음 주 월요일(7일 뒤)로 간다 — 「다음주 월」이라고 적어 뒀으므로. */
+    const gap = (8 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + gap);
+  } else if (kind === 'next1') {
+    d.setMonth(d.getMonth() + 1, 1);
+  }
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
-document.addEventListener('click', (e) => {
-  if (e.target.closest && e.target.closest('.en-start-wrap')) return;
-  _enCloseDateWheels();
-});
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') _enCloseDateWheels(); });
 
 /* 🧑‍🏫 (2026-08-14) ③ 「강사 우선」용 강사 목록.
    ⚠️ 출처는 «teachers» 표(/api/admin/teachers, active=1)다. teacher_profiles 가 아니다 —
