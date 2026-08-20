@@ -6714,11 +6714,17 @@ function _renderImportPreview(records, source) {
   document.getElementById('en-import-confirm-btn').addEventListener('click', () => _bulkRegisterEnrollments(records));
 }
 
+/* ✅ (2026-08-20) 엑셀·워드·카톡으로 가져온 건도 다중등록표(addEnrollment/_enAutoConfirm)와
+   같은 파이프라인을 태운다. 그 전에는 여기서 /api/admin/enrollments 로 «신청만» 저장하고
+   끝나서, 화면에 «등록 완료» 로 떠도 실제로는 강사 배정·시간표 생성(배정)까지 가지 않았다 —
+   목록에 전부 pending 으로 쌓이고 사람이 건마다 「▸ 확정 안 됨」을 눌러야 배정이 됐다.
+   등록표 쪽만 (2026-08-12) 「등록 = 확정」으로 고쳐졌고 가져오기 경로는 빠져 있었다. */
 async function _bulkRegisterEnrollments(records) {
   const box = document.getElementById('en-import-preview');
-  if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록 중… (' + records.length + '건)</div>';
-  let ok = 0, fail = 0; const errs = [];
-  for (const r of records) {
+  if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록·확정 중… (0 / ' + records.length + '건)</div>';
+  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
     try {
       const res = await fetch('/api/admin/enrollments', {
         method: 'POST', credentials: 'include',
@@ -6726,15 +6732,27 @@ async function _bulkRegisterEnrollments(records) {
         body: JSON.stringify(r)
       });
       const j = await res.json().catch(() => ({}));
-      if (res.ok && j.ok !== false) ok++;
-      else { fail++; errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status))); }
+      if (res.ok && j.ok !== false) {
+        ok++;
+        // ✅ 등록 = 확정. 저장 직후 바로 이어 돌린다(별도 확정 클릭 없음) — addEnrollment 와 동일 패턴.
+        const cf = await _enAutoConfirm(j.id || j.enrollment_id);
+        if (cf.ok) confirmed++;
+        else notConfirmed.push(r.student_name + ': ' +
+          (cf.error || (cf.failed || []).map(s => s.detail).join(' / ') || '확정 보류'));
+      } else {
+        fail++; errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status)));
+      }
     } catch (e) {
       fail++; errs.push(r.student_name + ': ' + (e.message || e));
     }
+    if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록·확정 중… (' + (i + 1) + ' / ' + records.length + '건)</div>';
   }
   if (box) {
-    box.innerHTML = '<div style="font-size:13px"><b>✅ 등록 완료 — 성공 ' + ok + '건 / 실패 ' + fail + '건</b>' +
+    box.innerHTML = '<div style="font-size:13px"><b>✅ 등록 ' + ok + '건 · 확정(배정) ' + confirmed + '건' +
+      (notConfirmed.length ? ' · ⚠️ 확정 보류 ' + notConfirmed.length + '건' : '') +
+      (fail ? ' · ❌ 실패 ' + fail + '건' : '') + '</b>' +
       (errs.length ? '<div style="margin-top:6px;color:#dc2626;font-size:11px">실패 상세:<br>' + errs.map(_aiEsc).join('<br>') + '</div>' : '') +
+      (notConfirmed.length ? '<div style="margin-top:6px;color:#b45309;font-size:11px">확정 보류 — 목록의 「▸ 확정 안 됨」을 눌러 이유를 보고 고쳐 주세요:<br>' + notConfirmed.map(_aiEsc).join('<br>') + '</div>' : '') +
       '</div>';
   }
   loadEnrollments();
