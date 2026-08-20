@@ -139,8 +139,11 @@ ok('새 소켓을 만들기 전에도 비운다(낡은 인터벌이 새 소켓�
 ok('전제②: 서버가 ping 에 pong 을 돌려준다', /case 'ping':\s*this\.send\(userId, \{ type: 'pong'/.test(DO));
 ok('전제③: ping 응답에 join 여부 검사가 없다(관찰자도 pong 을 받아야 함)',
    !/case 'ping'[\s\S]{0,80}isJoined/.test(DO));
+// (2026-08-20) 객체 «모양» 이 아니라 «뜻» 을 검사한다 — seenAt(생존 판정) 같은 칸이 늘어도
+//   userId 가 accept 시점에 붙어 있는지만 보면 이 검사의 목적은 그대로다.
+//   예전 정규식은 중괄호 안을 통째로 못 박아 두어, 칸 하나 늘리자 의미가 멀쩡한데 FAIL 했다.
 ok('전제③-b: 소켓 accept 시점에 userId 를 붙인다(입장 전에도 send 가 도달)',
-   /server\.serializeAttachment\(\{ userId, roomId: this\.roomId, joined: false \}/.test(DO));
+   /server\.serializeAttachment\(\{[^}]*\buserId\b[^}]*joined: false[^}]*\}/.test(DO));
 ok('ping 주기 25초는 그대로 유지(Cloudflare 유휴 타임아웃 방지)', /\}, 25000\); \/\/ 25초마다 ping/.test(IDX));
 ok('정원초과·강제종료는 재연결 중단(예전엔 거절→재연결 무한루프)',
    /data\.type === 'room-full' \|\| data\.type === 'force_end'[\s\S]{0,200}intentionalClose = true;/.test(IDX));

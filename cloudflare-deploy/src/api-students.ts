@@ -12,6 +12,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken, startSession, inspec
 import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
 import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정 SMS 인증 (2026-07-22)
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(홈 상담봇과 공유)
+import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
 
 export async function handleStudentsApi(
@@ -435,6 +436,15 @@ ${MANGOI_KNOWLEDGE}`;
       //    조회를 대소문자 무시(NOCASE)로 바꾸고, 이후 처리는 DB의 원래 표기(stu.user_id)를 쓴다.
       const stu: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash FROM students_erp WHERE user_id = ? COLLATE NOCASE`).bind(uid).first();
       if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 ID 를 찾을 수 없습니다. 학원에 문의해주세요.' }, 404);
+
+      /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 로그인도 막는다.
+         명부에서만 감추면 «없앴다» 가 아니다 — 같은 사람의 옛 계정으로 들어가서
+         「내 수업이 안 보인다」가 그대로 재현된다(정우영 계정 15개 건).
+         ⛔ students_erp 행을 지워서 막지 말 것 — 카페24가 정본이라 밤에 되살아난다.
+         정본: src/student-override.ts */
+      if (await isStudentHidden(env, String(stu.user_id))) {
+        return json({ ok: false, error: 'account_retired', message: '더 이상 사용하지 않는 계정입니다. 현재 사용 중인 아이디로 로그인해주세요.' }, 403);
+      }
 
       // 비밀번호 검증 — 설정된 경우만
       if (stu.password_hash) {

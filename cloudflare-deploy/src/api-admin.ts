@@ -11,6 +11,7 @@
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
@@ -34,7 +35,7 @@ import { writeClassAudit, listClassAudit } from './class-audit';   // 📜 수�
 import { runAbsentStudentSweep } from './absent-sweep';            // 🚨 결석 위험 자동 알림
 import { runRecordingFinalizeSweep } from './recordings-r2';       // 🛟 버려진 녹화 자동 마무리
 import { runLessonReminderSweep } from './lesson-reminder';        // 📣 수업 전 리마인더
-import { getAdminActor, sameTeacherName, checkAdminSession } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교
+import { getAdminActor, sameTeacherName, checkAdminSession, hashPassword, FULL_ACCESS_ACCOUNTS } from './auth-admin';  // 승인자 기록(SR·FD)·강사 스코프 비교 · 대리점 로그인 계정 생성
 import { corpcardConfigured, runCorpCardSync, corpcardData, corpcardStatus, secretFp8, CODEF_SANDBOX_BASE } from './corpcard-sync';  // 💳 법인카드 CODEF 연동
 import { barobillConfigured, baroMissing, runBarobillSync, baroCreds } from './barobill-sync';  // 💳 법인카드 바로빌 연동(2026-08-14 CODEF 월 80만원 → 월 3,300원)
 import { bankConfigured, bankMissing, runBankSync, bankacctData, bankacctStatus } from './bankacct-sync';  // 🏦 신한은행 계좌 입출금 — 바로빌 계좌조회(2026-08-14)
@@ -42,6 +43,7 @@ import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수�
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
+import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -1994,12 +1996,30 @@ export async function handleAdminApi(
         : Date.parse(`${year}-${String(month + 1).padStart(2, '0')}-01T00:00:00+09:00`);
       const kstDay = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 
-      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
+      // teacher_name·student_name 을 함께 읽는다 — 아래 «오판» 대조(이름 일치 + 학생과의 혼동 배제)에 필요하다.
+      const noShows: any = await env.DB.prepare(`SELECT room_id, schedule_id, missing_role, teacher_name, student_name, created_at FROM class_no_show WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const nsByRoom: any = {}; const nsBySched: any = {};
       for (const n of (noShows.results || [])) {
         if (n.room_id) nsByRoom[n.room_id] = n;
         if (n.schedule_id != null) nsBySched[`${n.schedule_id}|${kstDay(n.created_at)}`] = n;
       }
+      /* 🔎 (2026-08-19) 「강사 미입장」이 **정말** 미입장이었나를 출석 기록과 대조한다.
+         [왜 급여에서까지] 아래 상태 판정이 teacher_no_show 면 그 수업은 **수업료가 0원**이 된다
+         (amount 는 finish·student_absent·postponed 에만 붙는다). 그런데 이 행은 학생 브라우저가
+         «내 화면에 안 보였다» 로 만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면
+         강사가 멀쩡히 들어와 있어도 쌓인다(CLAUDE.md 2장) — 실측 13건 중 11건이 오판이었다.
+         그대로 두면 «들어와서 수업한 강사에게 0원을 주는» 계산이 된다.
+         ⚠️ 판정 정본은 노쇼 리포트·강사 지표와 **같은 함수**다(src/no-show-truth.ts).
+            세 곳이 다른 답을 내면 「화면엔 오판이라는데 급여는 0원」이 된다.
+         ⚠️ «모름»(판정 불가)은 살려 주지 않는다 — 모르는 것을 «있었다» 로 단정하면
+            진짜 노쇼에 수업료가 나간다. 확실히 있었을 때만 되돌린다. */
+      let nsPresence = new Map<string, any>();
+      try { nsPresence = await teacherPresenceByRoom(env.DB, (noShows.results || []) as any[]); }
+      catch (e: any) { console.warn('[payroll] 노쇼 대조 생략:', e?.message); }
+      const nsIsFalseAlarm = (n: any): boolean => {
+        const p = n && n.room_id ? nsPresence.get(String(n.room_id)) : null;
+        return !!(p && p.present === true);
+      };
 
       const fbs: any = await env.DB.prepare(`SELECT room_id, teacher_name, created_at FROM teacher_class_feedback WHERE created_at >= ? AND created_at < ?`).bind(mStart, mEnd).all().catch(() => ({ results: [] }));
       const fbByRoom: any = {}; const fbByTeacherDay: any = {};
@@ -2118,7 +2138,9 @@ export async function handleAdminApi(
         if (schedStatus === 'postponed') st = 'postponed';
         else if (upcoming) st = 'upcoming';
         else if (ns && ns.missing_role === 'student') st = 'student_absent';
-        else if (ns && ns.missing_role === 'teacher') st = 'teacher_no_show';
+        /* 🔎 오판이면 «미입장» 으로 보지 않는다 — 강사가 실제로 들어와 수업한 건이다.
+           그러면 아래 흐름을 그대로 타고 'finish'(정상 수업, 전액)로 남는다. 위 nsIsFalseAlarm 주석 참고. */
+        else if (ns && ns.missing_role === 'teacher' && !nsIsFalseAlarm(ns)) st = 'teacher_no_show';
 
         const base = Math.round((mins / 10) * fee);
         /* ⏸ 연기 수업의 지급률 — 「언제 연기했나」로 갈린다(위 earlyPostponePct 주석 참고).
@@ -3854,10 +3876,35 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
              FROM lesson_late_minutes lm JOIN class_schedules cs ON cs.id = lm.schedule_id
             WHERE lm.lesson_date >= ? AND lm.minutes > 0 AND cs.teacher_name IS NOT NULL
             GROUP BY cs.teacher_name`, since90d),
-        // 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
-        q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM class_no_show
-            WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL
-            GROUP BY teacher_name`, since90ms),
+        /* 🚫 강사 노쇼 (수업에 강사가 안 들어옴)
+           🔎 (2026-08-19) **오판을 빼고 센다.** 이 행은 학생 브라우저가 «내 화면에 안 보였다» 로
+              만드는 것이라, 두 사람이 서로 다른 워커의 방에 있으면 강사가 멀쩡히 들어와 있어도
+              쌓인다(CLAUDE.md 2장). 실측 13건 중 11건이 오판이었고, 그대로 세면 잘못이 없는
+              강사의 90일 평가가 내려간다. 판정은 노쇼 리포트와 **같은 함수**를 쓴다
+              (src/no-show-truth.ts) — 두 벌로 두면 화면마다 다른 답이 나온다.
+           ⚠️ GROUP BY 를 서버에서 하지 않고 원본 행을 받아 TS 에서 접는다. 낱말 경계 이름 비교를
+              SQL 로 흉내 내면 그게 바로 「이름으로 사람 정하기」 함정이라 정확히 못 한다.
+           ⚠️ 판정 불가(모름)는 **빼지 않는다** — 모르는 것을 «오판» 으로 단정하면 진짜 노쇼가 감춰진다. */
+        (async () => {
+          /* ⚠️ `teacher_name` 을 **별칭 없이도** 실어 보낸다. teacherPresenceByRoom 은 그 이름의
+             필드를 읽으므로, `AS tn` 만 두면 이름이 빈 값이 되어 전부 «모름» 이 되고
+             **오판이 한 건도 제외되지 않는다**(에러는 안 난다 — 조용히 예전과 같아진다).
+             2026-08-19 실제로 밟았고, 아래 GROUP BY 접기가 `tn` 을 쓰기 때문에 둘 다 필요하다. */
+          const raw = await q(
+            `SELECT teacher_name, teacher_name AS tn, room_id, missing_role, student_name FROM class_no_show
+              WHERE created_at >= ? AND missing_role = 'teacher' AND teacher_name IS NOT NULL`, since90ms);
+          let pres = new Map<string, any>();
+          try { pres = await teacherPresenceByRoom(env.DB, raw as any[]); }
+          catch (e: any) { console.warn('[hr-signals] 노쇼 대조 생략:', e?.message); }
+          const cnt = new Map<string, number>();
+          for (const r of raw) {
+            const p = pres.get(String(r.room_id || ''));
+            if (p && p.present === true) continue;          // 오판 — 강사는 접속해 있었다
+            const k = String(r.tn || '');
+            cnt.set(k, (cnt.get(k) || 0) + 1);
+          }
+          return Array.from(cnt, ([tn, n]) => ({ tn, n }));
+        })(),
         // 📝 강사가 작성한 학생 평가서 (행정 성실도)
         q(`SELECT teacher_name AS tn, COUNT(*) AS n FROM student_evaluations
             WHERE created_at >= ? AND teacher_name IS NOT NULL GROUP BY teacher_name`, since90ms),
@@ -5234,16 +5281,47 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         try { rows = await env.DB.prepare(`SELECT id, room_id, schedule_id, missing_role, missing_uid, student_name, teacher_name, lesson_title, waited_min, notified_push, notified_kakao, created_at FROM class_no_show ORDER BY created_at DESC LIMIT ?`).bind(limit).all<any>(); } catch {}
       }
       const items = rows.results || [];
+      /* 🔎 (2026-08-19) 「강사 미입장」이 정말 미입장이었나 — 출석 기록과 대조한다.
+         이 행은 **학생 브라우저가** 만든다: 5분을 기다려도 상대가 안 보이면 신고하는 구조라
+         «상대가 안 왔다» 가 아니라 «내 화면에 안 보였다» 가 기록된다. 두 사람이 서로 다른
+         워커의 방에 있던 동안(CLAUDE.md 2장) 강사는 매번 들어와 있었는데도 알림이 떴다 —
+         실측 13건 중 11건이 오판. ⛔ 기록은 지우지 않는다(학생이 못 본 것은 사실이다).
+         대신 «오판» 이라고 화면이 함께 알려 준다. 판정 정본은 src/no-show-truth.ts. */
+      let presence = new Map<string, any>();
+      try { presence = await teacherPresenceByRoom(env.DB, items); }
+      catch (e: any) { console.warn('[no-shows] 강사 출석 대조 생략:', e?.message); }
+
       const now = Date.now();
       const weekAgo = now - 7 * 86400 * 1000;
       const dayAgo = now - 86400 * 1000;
-      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0;
+      let week = 0, today = 0, teacherMiss = 0, studentMiss = 0, teacherFalse = 0, teacherUnknown = 0;
       for (const r of items) {
         if (r.created_at >= weekAgo) week++;
         if (r.created_at >= dayAgo) today++;
-        if (r.missing_role === 'teacher') teacherMiss++; else studentMiss++;
+        if (r.missing_role === 'teacher') {
+          teacherMiss++;
+          const p = presence.get(String(r.room_id || ''));
+          // present: true=있었음(오판) · false=흔적 없음(진짜) · null/미조회=모름
+          r.teacher_present = p ? p.present : null;
+          r.teacher_seen_from = p ? p.from : null;
+          r.teacher_seen_to = p ? p.to : null;
+          r.teacher_seen_min = p ? p.minutes : null;
+          r.false_alarm = r.teacher_present === true;
+          if (r.false_alarm) teacherFalse++;
+          else if (r.teacher_present === null) teacherUnknown++;
+        } else studentMiss++;
       }
-      return json({ ok: true, count: items.length, today, this_week: week, by_missing: { teacher: teacherMiss, student: studentMiss }, no_shows: items });
+      return json({
+        ok: true, count: items.length, today, this_week: week,
+        by_missing: {
+          teacher: teacherMiss, student: studentMiss,
+          // 「강사 미입장」 중 실제로는 강사가 접속해 있던 건 / 판정할 수 없는 건
+          teacher_false_alarm: teacherFalse,
+          teacher_unknown: teacherUnknown,
+          teacher_real: Math.max(0, teacherMiss - teacherFalse - teacherUnknown),
+        },
+        no_shows: items,
+      });
     }
 
     // 🥭 Phase RM — POST /api/admin/no-shows/contact — 노쇼 대상에게 재알림(웹푸시) + 접촉 기록
@@ -7802,6 +7880,11 @@ LIMIT $limit`;
         binds.push(like, like, like, like, like, like, like, like, like);
       }
       if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
+      /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 명부에서 뺀다.
+         students_erp 는 카페24가 정본이라 지워도 밤에 되살아나므로 «읽을 때» 거른다.
+         표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open) — 이유는 student-override.ts. */
+      const _hideEx = await hiddenExcludeCond(env as any, 's');
+      if (_hideEx) conds.push(_hideEx);
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
       /* 🐢 (2026-08-13 수정요청 #01) 「학생 목록을 누르면 한참 걸린다」
          원인은 위 SELECT 목록에 매달려 있던 «상관 서브쿼리 3개» 였다. 학생 한 줄을 만들 때마다
@@ -8166,10 +8249,70 @@ LIMIT $limit`;
       const b = await parseJsonBody(request);
       if (!b || !b.name) return invalidBody(['name']);
       const now = Date.now();
+
+      /* 🔑 (2026-08-19 사장님 요청) 대리점 등록과 함께 로그인 계정도 만든다.
+         지금까지는 대리점(학원)을 등록해도 로그인 계정을 만드는 자리가 없어서, 필요하면
+         admin_account 에 손으로 심어야 했다 — CLAUDE.md 「직원을 등록했는데 로그인이 안 돼요」와
+         같은 뿌리(«등록» 화면이 실제 로그인 계정 생성과 분리돼 있던 문제).
+         아이디·비번을 «둘 다» 채웠을 때만 계정을 만든다. 하나만 채우면 400 — 대리점만 만들어지고
+         로그인은 없는 «반쪽» 상태를 피한다. scope_value 는 반드시 centers.name 과 똑같아야 한다
+         (scope.ts scopeCenterCond 가 id 가 아니라 «이름» 으로 대리점 계정을 가른다). */
+      const loginUsername = String(b.login_username || '').trim();
+      const loginPassword = String(b.login_password || '');
+      if (loginUsername || loginPassword) {
+        if (!loginUsername || !loginPassword) {
+          return json({ ok: false, error: 'login_fields_incomplete',
+            message: '대리점 로그인 아이디와 비밀번호를 함께 입력하세요.' }, 400);
+        }
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(loginUsername)) {
+          return json({ ok: false, error: 'bad_username',
+            message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.' }, 400);
+        }
+        if (loginPassword.length < 6) {
+          return json({ ok: false, error: 'too_short',
+            message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+        }
+        if (FULL_ACCESS_ACCOUNTS.has(loginUsername.toLowerCase())) {
+          return json({ ok: false, error: 'reserved_username',
+            message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.' }, 403);
+        }
+        const dup = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? LIMIT 1`)
+          .bind(loginUsername).first<{ username: string }>();
+        if (dup) {
+          return json({ ok: false, error: 'already_exists',
+            message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
+        }
+        // ⚠️ centers.name 은 유일하지 않다(CLAUDE.md 「가맹점 정산에서 특정 지사 매출이 통째로
+        //    안 잡힘」과 같은 뿌리). scope_value 를 이름으로 매칭하는 구조라, 이미 같은 이름의
+        //    대리점이 있으면 이 로그인이 «그 대리점 자료까지» 함께 보게 된다. 등록 자체는 막지
+        //    않고(대리점만 먼저 등록하는 기존 동작은 유지) 로그인 계정만 막는다.
+        const nameDup = await env.DB.prepare(`SELECT id FROM centers WHERE name = ? LIMIT 1`)
+          .bind(b.name).first<{ id: number }>();
+        if (nameDup) {
+          return json({ ok: false, error: 'duplicate_center_name',
+            message: '이미 같은 이름의 대리점이 있어 로그인 계정을 만들 수 없습니다 — 이름으로 접근 범위를 가르기 때문에 ' +
+                      '다른 대리점 자료가 섞여 보일 수 있습니다. 대리점 이름을 구분되게 바꾸거나, ' +
+                      '로그인 계정 없이 먼저 등록한 뒤 본사에 문의하세요.' }, 409);
+        }
+      }
+
       const r = await env.DB.prepare(
         `INSERT INTO centers (franchise_id, name, country, address, manager, payment_type, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(b.franchise_id || null, b.name, b.country || null, b.address || null, b.manager || null, _normPayType(b.payment_type), now, now).run();
-      return json({ ok: true, id: r.meta.last_row_id });
+
+      let loginCreated = false;
+      if (loginUsername && loginPassword) {
+        await env.DB.prepare(
+          `INSERT INTO admin_account (username, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`
+        ).bind(loginUsername, await hashPassword(loginPassword), b.name, now, now).run();
+        await env.DB.prepare(
+          `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, 'agency', ?, ?)
+           ON CONFLICT(username) DO UPDATE SET scope_type = excluded.scope_type, scope_value = excluded.scope_value, updated_at = excluded.updated_at`
+        ).bind(loginUsername, b.name, now).run();
+        loginCreated = true;
+      }
+
+      return json({ ok: true, id: r.meta.last_row_id, login_created: loginCreated });
     }
 
     // ─── 레벨테스트 ───────────────────────────────────────────────────────
@@ -9529,11 +9672,48 @@ LIMIT $limit`;
       const whisperId = r.meta?.last_row_id;
       await writeAudit(adminUid, 'whisper_send', { room: roomId, user: teacherUid, meta: { type: messageType, urgency, len: payload.length } });
 
-      // GM-4 미구현: 실제 WebSocket push 는 추후 (SignalingRoom DO 와 통합)
+      /* 📢 실제 전달  (2026-08-19 Melca 8/19 제보 2-③)
+         ═══════════════════════════════════════════════════════════════════════
+         [전에는] 여기 `// GM-4 미구현: 실제 WebSocket push 는 추후` 라는 주석과 함께
+            D1 기록만 하고 끝났다. 응답은 늘 delivery_status:'queued' 였고 **강사 화면에는
+            한 번도 도착하지 않았다.** 화면에는 보내기 버튼이 있어 «보냈다» 로 보였다.
+            (제보 원문: "Chat is not visible as observer send message at the classroom")
+         [이제] 그 방의 VideoCallRoom DO 로 밀어 넣는다. DO 가 staff 소켓에만 보낸다.
+         ⚠️ 실패해도 **기록은 남긴다** — 위 INSERT 는 이미 끝났다. 「보내려 했다」는 사실은
+            감사 로그의 값어치가 있고, 전달 여부는 delivery_status 로 정직하게 구분한다.
+         ⚠️ 방이 비어 있으면 delivered:0 이다. 그때는 'queued' 로 답한다 —
+            «보낸 척» 하면 관리자가 강사가 받은 줄 알고 기다린다. */
+      let delivered = 0, deliverErr: string | null = null;
+      try {
+        const doId = (env as any).VIDEO_CALL_ROOM.idFromName(roomId);
+        const stub = (env as any).VIDEO_CALL_ROOM.get(doId);
+        const resp = await stub.fetch(`https://internal/whisper?roomId=${encodeURIComponent(roomId)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload, message_type: messageType, urgency, from: adminUid }),
+        });
+        const d: any = await resp.json().catch(() => null);
+        delivered = Number(d?.delivered || 0);
+      } catch (e: any) {
+        deliverErr = String(e?.message || e);
+        console.warn('[whisper] DO push 실패:', deliverErr);
+      }
+
+      if (delivered > 0) {
+        try {
+          await env.DB.prepare(`UPDATE admin_whispers SET delivered_at = ? WHERE id = ?`)
+            .bind(Date.now(), whisperId).run();
+        } catch { /* 기록 갱신 실패가 «전달됐다» 를 뒤집지는 않는다 */ }
+      }
+
       return json({
         ok: true, whisper_id: whisperId,
-        delivery_status: 'queued',                               // GM-4 에서 'delivered' 로 갱신
-        learning_note: '강사 클라이언트에만 전달, 학생 누설 차단 처리는 GM-4 단계에서 활성화',
+        delivery_status: delivered > 0 ? 'delivered' : 'queued',
+        delivered,
+        ...(deliverErr ? { deliver_error: deliverErr } : {}),
+        note: delivered > 0
+          ? '강사 화면에 전달했습니다.'
+          : '지금 그 방에 강사가 접속해 있지 않아 전달되지 않았습니다(기록은 남았습니다).',
       });
     }
 
@@ -11128,6 +11308,400 @@ LIMIT $limit`;
       }
     }
 
+    /* 👥 GET /api/admin/live-classes?rooms=a,b,c   (2026-08-19 Melca 8/19 제보 ①·2-①)
+       ═══════════════════════════════════════════════════════════════════════════
+       「지금 진행 중인 수업」 목록에 **누구 수업인지**가 없었다. 화면에 뜨는 것은
+       방 번호와 인원수뿐이라(`meet-123 · 2 participants`) 급히 참관해야 할 때
+       어느 수업인지 알 수 없었다.
+
+       [왜 별도 엔드포인트인가] 방 목록 자체는 `/api/active-rooms` 가 이미 준다.
+          그 핸들러는 index.ts 에 있고 KV 정리·반환순서 같은 미묘한 동작을 가지고 있다
+          (CLAUDE.md 4-2 공동 금지구역). **거기는 건드리지 않고**, 이미 받은 방 번호를
+          받아 «이름만 붙여» 돌려주는 창구를 따로 둔다. 화면은 두 번 부르지만 이쪽은 작다.
+
+       [방 번호 → 수업] room_id 는 `class-{예약id}-{YYYYMMDD}` 로 결정론적이다
+          (api-mango.ts·absent-sweep.ts 와 같은 규칙). 그 규칙에 안 맞는 방
+          (임시 회의방 `meet-123` 등)은 **비워서** 돌려준다 — 추측하지 않는다.
+
+       🔴 강사 이름 — 번호가 세 벌인 함정을 여기서 다시 밟지 않는다.
+          class_schedules.teacher_id 는 **원부번호**(teachers.id, 1~29)다.
+          카페24 강사번호(9~196)를 여기 넣던 사고는 schedule-seed 쪽에서 이미 고쳐
+          (loadCafe24TeacherMap 을 거쳐 원부번호로 변환해 넣는다) 지금은 이 칸이
+          일관되게 원부번호다 → `LEFT JOIN teachers` 가 맞다.
+          ⛔ attendance.teacher_name 은 여기서도 쓰지 않는다(남의 이름이 들어 있다).
+
+       🔒 지사·대리점 격리 — 이 화면(manager.html)은 지사·대리점도 쓴다.
+          자기 범위 밖 수업의 **학생 이름을 보여 주면 개인정보가 샌다.**
+          scopeStudentCond 로 잘라, 범위 밖이면 이름 없이 «해당 없음» 으로만 답한다. */
+    if (method === 'GET' && path === '/api/admin/live-classes') {
+      const raw = String(url.searchParams.get('rooms') || '').trim();
+      if (!raw) return json({ ok: true, rooms: {} });
+      // 한 번에 200개까지 — 방이 그보다 많을 일은 없고, 넘으면 조용히 자르지 않고 자른 사실을 알린다
+      const MAX_ROOMS = 200;
+      const all = raw.split(',').map(x => x.trim()).filter(Boolean);
+      const roomIds = all.slice(0, MAX_ROOMS);
+
+      // class-{id}-{YYYYMMDD} 만 해석한다. 나머지는 «수업 방이 아님» 으로 그대로 둔다.
+      const byScheduleId = new Map<string, string[]>();   // 예약id → [roomId,...]
+      for (const rid of roomIds) {
+        const m = rid.match(/^class-(\d+)-(\d{8})$/);
+        if (!m) continue;
+        const sid = m[1];
+        if (!byScheduleId.has(sid)) byScheduleId.set(sid, []);
+        byScheduleId.get(sid)!.push(rid);
+      }
+
+      const out: Record<string, any> = {};
+      for (const rid of roomIds) out[rid] = null;         // 못 찾으면 null — 화면이 «미상» 으로 그린다
+
+      const ids = [...byScheduleId.keys()];
+      if (ids.length) {
+        const sc = await getScope(env as any, request);
+        const stuCond = scopeStudentCond(sc, 'se');
+        try {
+          const rows = await selectInChunks<any>(
+            env.DB, ids,
+            (ph) => `SELECT cs.id, cs.student_name, cs.user_id, cs.start_time, cs.duration_min,
+                            cs.class_type, cs.teacher_id,
+                            t.name  AS teacher_name,
+                            se.korean_name AS stu_ko, se.english_name AS stu_en
+                       FROM class_schedules cs
+                       LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+                       LEFT JOIN students_erp se ON se.user_id = cs.user_id
+                      WHERE CAST(cs.id AS TEXT) IN (${ph})
+                        ${stuCond.cond ? `AND (${stuCond.cond})` : ''}`,
+            { tail: stuCond.binds, swallowErrors: true },
+          );
+          for (const r of rows) {
+            const rids = byScheduleId.get(String(r.id)) || [];
+            for (const rid of rids) {
+              out[rid] = {
+                schedule_id: Number(r.id),
+                // 이름은 명부(students_erp) 를 먼저 — class_schedules.student_name 은 옛 스냅샷일 수 있다
+                student_name: r.stu_ko || r.student_name || r.stu_en || null,
+                student_name_en: r.stu_en || null,
+                // 못 이었으면 **비운다.** 모르는 것보다 틀린 이름이 나쁘다.
+                teacher_name: r.teacher_name || null,
+                start_time: r.start_time || null,
+                duration_min: Number(r.duration_min) || null,
+                class_type: r.class_type || null,
+              };
+            }
+          }
+        } catch (e: any) {
+          return json({ ok: false, error: 'live_classes_failed', detail: String(e?.message || e) }, 500);
+        }
+      }
+      return json({
+        ok: true, rooms: out,
+        ...(all.length > roomIds.length ? { truncated: all.length - roomIds.length } : {}),
+      });
+    }
+
+    /* 🔴 GET /api/admin/classes-now   (2026-08-20 사장님 「지금 수업이 없어?」)
+       ═══════════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] 관리자 「🔴 실시간 수업 현황」 표는 **망고아이 화상방에 지금
+          붙어 있는 사람**만 센다(`/api/active-rooms` → KV + Durable Object). 그런데
+          카페24 예약 수업은 그 방을 거치지 않는다 — 실측(2026-08-20): `c24-*` 방에
+          실접속(`last_seen_at > 0`)이 남은 행은 **전 기간 0건**이다.
+          그래서 수업 4건이 진행 중이던 15:08 에도 화면은 «지금 진행 중인 수업이
+          없습니다» 라고 말했다. 같은 사실인데 «오늘 한가하다» 로 읽힌다.
+
+       [여기서 하는 일] «예약 기준으로 지금 진행 중이어야 할 수업» 을 돌려준다.
+          화면은 이것을 «방에 붙어 있는 사람» 과 나란히 그려서
+          「수업 4건 · 화상방 접속 0건」 으로 보여 준다.
+
+       [접속 여부를 어떻게 아나] 같은 학생의 **실접속 행**(`last_seen_at > 0`)이 그 수업
+          시간과 겹치는지로만 판정한다.
+          ⛔ 방 번호로 잇지 않는다 — 카페24 방(`c24-…`)과 망고아이 방
+             (`class-{예약id}-{YYYYMMDD}`)은 번호 체계가 아예 다르다.
+          ⛔ 이름이 비슷하다고 잇지 않는다. `user_id` 완전일치, 아니면 학생 이름
+             완전일치(공백·대소문자만 정규화)뿐이고 후보가 둘 이상이면 잇지 않는다.
+          ✅ 못 이으면 `connected:false` 로 둔다. 화면 문구도 «미접속» 이 아니라
+             **«접속 기록 없음»** 이다 — 우리가 아는 것은 딱 그만큼이다.
+
+       🔴 강사 이름 — `attendance.teacher_name` 은 **읽지 않는다.** 옛 동기화가 카페24
+          강사번호를 원부번호로 오인해 넣은 **남의 이름**이 섞여 있다(CLAUDE.md 2장,
+          카페24 24 = Teacher Mariane 인데 HANNAH 로 적힌 행이 실재한다).
+          번호(`teacher_uid`) → `loadCafe24TeacherMap()` 으로 매번 다시 찾고,
+          못 찾으면 **비운다**(화면은 «미상»).
+
+       🔒 지사·대리점 격리 — 학생 이름이 나가므로 `scopeStudentCond()` 로 자른다.
+          범위 밖 수업은 목록에서 **빼고 건수에도 넣지 않는다**(건수만으로도 남의 지사
+          규모가 새기 때문). 🔒 강사에게는 닫는다 — 전사 학생 이름이 한 화면에 모인다
+          (`index.ts` 의 `TEACHER_BLOCKED_PREFIXES` 에도 함께 등록했다. 이중 방어).
+
+       ⛔ SELECT 만 한다. 이 API 는 아무것도 고치지 않는다. */
+    if (method === 'GET' && path === '/api/admin/classes-now') {
+      const _actor = await getAdminActor(request, env as any);
+      if (_actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+
+      const now = Date.now();
+      const AHEAD_MS = 15 * 60 * 1000;        // 곧 시작(15분 앞)까지 함께 보여 준다
+      const GRACE_MS = 5 * 60 * 1000;         // 끝난 직후 5분은 «방금 끝남» 으로 남긴다
+      const SCAN_MS = 6 * 60 * 60 * 1000;     // joined_at 인덱스 구간 — 6시간 넘는 수업은 없다
+      const DEFAULT_LEN_MS = 30 * 60 * 1000;  // 끝시각이 없는 행의 길이 가정
+      const kstHM = (ms: number) => new Date(ms + 9 * 3600 * 1000).toISOString().slice(11, 16);
+
+      try {
+        const sc = await getScope(env as any, request);
+        const stu = scopeStudentCond(sc, 'se');
+        /* 예약(카페24) 행. 학생 이름을 명부에서 가져오면서 같은 조인으로 스코프를 자른다 —
+           명부에 없는 학생은 «범위를 확인할 수 없음» 이므로 지사·대리점에게는 안 보인다. */
+        const rs: any = await env.DB.prepare(
+          `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
+                  se.korean_name AS stu_ko, se.english_name AS stu_en
+             FROM attendance a
+             LEFT JOIN students_erp se ON se.user_id = a.user_id
+            WHERE a.room_id LIKE 'c24-%'
+              AND a.joined_at >= ? AND a.joined_at <= ?
+              AND COALESCE(a.left_at, a.joined_at + ?) >= ?
+              ${stu.cond ? `AND (${stu.cond})` : ''}
+            ORDER BY a.joined_at ASC LIMIT 200`
+        ).bind(now - SCAN_MS, now + AHEAD_MS, DEFAULT_LEN_MS, now - GRACE_MS, ...stu.binds).all();
+        const rows = ((rs.results || []) as any[]);
+
+        /* 실접속 행 — 오늘 «정말로 화상방에 붙은» 사람. 하루 수십 건이라 통째로 읽어도 가볍다.
+           (`last_seen_at > 0` 이 카페24 씨앗과 실접속을 가르는 유일하게 확실한 표시다) */
+        const liveRows = await (async () => {
+          try {
+            const r: any = await env.DB.prepare(
+              `SELECT user_id, username, room_id, joined_at, left_at, last_seen_at
+                 FROM attendance
+                WHERE joined_at >= ? AND last_seen_at IS NOT NULL AND last_seen_at > 0
+                LIMIT 500`
+            ).bind(now - SCAN_MS - AHEAD_MS).all();
+            return (r.results || []) as any[];
+          } catch { return [] as any[]; }
+        })();
+        const normName = (v: any) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+        // 이름 → 실접속 행. 같은 이름이 둘 이상이면 «누구인지 모름» 이므로 잇지 않는다.
+        const liveByName = new Map<string, any | null>();
+        for (const lr of liveRows) {
+          const k = normName(lr.username);
+          if (!k) continue;
+          liveByName.set(k, liveByName.has(k) ? null : lr);
+        }
+
+        const tmap = await loadCafe24TeacherMap(env as any, rows.map(r => r.teacher_uid));
+
+        const classes = rows.map(r => {
+          const start = Number(r.joined_at) || 0;
+          const end = Number(r.left_at) || (start + DEFAULT_LEN_MS);
+          const student = r.stu_ko || r.username || r.stu_en || null;
+          // 접속 대조 — ① 계정 완전일치 ② 이름 완전일치(유일할 때만). 겹치는 시간대만 인정한다.
+          const overlaps = (lr: any) => {
+            const ls = Number(lr.joined_at) || 0;
+            const le = Number(lr.left_at) || Number(lr.last_seen_at) || ls;
+            return ls <= end + GRACE_MS && le >= start - GRACE_MS;
+          };
+          let hit: any = null;
+          for (const lr of liveRows) {
+            if (String(lr.user_id || '') === String(r.user_id || '') && overlaps(lr)) { hit = lr; break; }
+          }
+          if (!hit && student) {
+            const cand = liveByName.get(normName(student));
+            if (cand && overlaps(cand)) hit = cand;
+          }
+          return {
+            room_id: r.room_id,
+            start_kst: kstHM(start), end_kst: kstHM(end),
+            start_ms: start, end_ms: end,
+            student_name: student,
+            // 못 이었으면 비운다 — 모르는 것보다 틀린 이름이 나쁘다
+            teacher_name: (tmap.get(String(r.teacher_uid || '')) || {}).name || null,
+            cafe24_status: r.status || null,
+            phase: start > now ? 'soon' : (end < now ? 'ended' : 'now'),
+            connected: !!hit,
+            live_room: hit ? String(hit.room_id || '') : null,
+          };
+        });
+
+        return json({
+          ok: true,
+          now_kst: kstHM(now),
+          counts: {
+            now: classes.filter(c => c.phase === 'now').length,
+            soon: classes.filter(c => c.phase === 'soon').length,
+            ended: classes.filter(c => c.phase === 'ended').length,
+            connected: classes.filter(c => c.connected).length,
+          },
+          classes,
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'classes_now_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* 🔍 GET /api/admin/textbook-files/dup-report   (2026-08-19 Melca 8/19 제보 ⑥)
+       ═══════════════════════════════════════════════════════════════════════════
+       「교재가 200페이지가 넘는다 / BTS 1 은 115쪽인데 실제 내용은 23쪽」의 정체는
+       **같은 파일이 여러 번 올라간 것**이다. 새 중복은 2026-08-14 에 막혔지만
+       (아래 POST 의 dupRow 검사) 그 전에 쌓인 것은 그대로 남아 있다.
+
+       ⛔ 이 API 는 **SELECT 만** 한다. 지우지도 고치지도 않는다.
+          D1 은 개발·운영이 같은 DB 이고 실제 학생 29,000명이 쓴다 —
+          «무엇을 지울지» 는 숫자를 눈으로 본 사람이 정한다(CLAUDE.md 1-1).
+
+       판정 기준은 업로드 차단과 **같은 기준**(name + size_bytes)이다.
+       두 기준이 어긋나면 「진단은 중복이라는데 업로드는 통과」 같은 모순이 생긴다. */
+    if (method === 'GET' && path === '/api/admin/textbook-files/dup-report') {
+      await ensureTextbookFilesTable();
+      try {
+        const rs: any = await env.DB.prepare(
+          `WITH f AS (
+             SELECT (CASE WHEN substr(name,1,1)='[' THEN substr(name,2,instr(name,']')-2) ELSE '(기타)' END) AS book,
+                    name AS nm, COALESCE(size_bytes,0) AS sz
+               FROM textbook_files WHERE active = 1
+           ), u AS (
+             SELECT book, nm, sz, COUNT(*) AS n FROM f GROUP BY book, nm, sz
+           )
+           SELECT book,
+                  SUM(n)            AS files,
+                  COUNT(*)          AS uniq_files,
+                  SUM(n) - COUNT(*) AS dup_files,
+                  SUM(n * sz)       AS bytes,
+                  SUM((n - 1) * sz) AS dup_bytes
+             FROM u GROUP BY book ORDER BY dup_files DESC, files DESC`
+        ).all();
+        const books = (rs.results || []).map((r: any) => ({
+          book: r.book,
+          files: Number(r.files) || 0,
+          uniq_files: Number(r.uniq_files) || 0,
+          dup_files: Number(r.dup_files) || 0,
+          bytes: Number(r.bytes) || 0,
+          dup_bytes: Number(r.dup_bytes) || 0,
+          // 몇 배로 부풀었는지 — 「115쪽인데 실제는 23쪽」을 한 숫자로 보여 준다
+          ratio: Number(r.uniq_files) > 0 ? Math.round((Number(r.files) / Number(r.uniq_files)) * 100) / 100 : 1,
+        }));
+        const sum = (k: string) => books.reduce((a: number, b: any) => a + (b[k] || 0), 0);
+        return json({
+          ok: true,
+          books,
+          total: {
+            books: books.length,
+            files: sum('files'), uniq_files: sum('uniq_files'), dup_files: sum('dup_files'),
+            bytes: sum('bytes'), dup_bytes: sum('dup_bytes'),
+          },
+          note: '판정 기준은 업로드 중복차단과 같다(name + size_bytes). 이 API 는 읽기 전용이다.',
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: 'dup_report_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
+    /* ✏️ POST /api/admin/textbook-files/rebook   (2026-08-19 Melca 8/19 제보 ④⑦)
+       ═══════════════════════════════════════════════════════════════════════════
+       「파닉스 A~Z 를 따로 나눠 달라 / BTS 2 는 762쪽이니 유닛별로 나눠 달라」
+
+       [왜 이름만 바꾸면 되나] 라이브러리의 «묶음» 은 파일 이름 앞의 [대괄호] 로만
+          정해진다(public/js/idx-x3.js _serverFilesToBooks). 즉 R2 파일을 다시 올릴
+          필요가 전혀 없다 — textbook_files.name 만 바꾸면 그 자리에서 갈라진다.
+       [왜 API 가 필요한가] 지금은 파일 하나씩 고치는 PATCH 뿐이다. 파닉스는 26묶음이고
+          BTS 2 는 762개 파일이다. 손으로 할 수 있는 일이 아니다.
+
+       모드 두 가지 — 둘 다 이름만 바꾼다. R2 오브젝트는 건드리지 않는다.
+         · rename       : [A] … → [B] …            (묶음 이름만 갈아 끼움)
+         · split-lesson : [A] X/f.jpg → [A X] f.jpg (레슨 칸을 묶음 이름으로 올림)
+                          파닉스(`[Mangoi Phonics] A/1.jpg`)·BTS 유닛이 정확히 이 모양이다.
+
+       ⛔ dry_run 이 **기본값**이다. 무엇이 어떻게 바뀌는지 먼저 보여 주고,
+          사람이 확인한 뒤에만 진짜로 바꾼다. dry_run 없이 바로 바꾸는 경로는 만들지 않았다.
+       ⛔ 본사(hq)만. 핸들러에서 canEditOrg() 로 막는다(화면만 감추면 URL 로 뚫린다).
+       ⚠️ 한 번에 5,000행까지. 넘으면 거절하고 몇 건인지 알려 준다 —
+          말없이 일부만 바꾸면 «반만 갈라진» 라이브러리가 남는다. */
+    if (method === 'POST' && path === '/api/admin/textbook-files/rebook') {
+      /* 🔒 강사 차단 — canEditOrg() 만으로는 **못 막는다.**
+         canEditOrg 는 type==='hq' 와 type==='none' 에 true 를 주는데,
+         그 'none' 이 «내부직원·교사» 다(src/scope.ts 주석). 즉 강사가 그대로 통과한다.
+         admin_write_guard_harness 가 이 구멍을 잡아 줬다 — 가드를 한 줄 더 둔다. */
+      const _rbActor = await getAdminActor(request, env as any);
+      if (_rbActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const _rbScope = await getScope(env as any, request);
+      if (!canEditOrg(_rbScope)) return json({ ok: false, error: 'forbidden' }, 403);
+      await ensureTextbookFilesTable();
+      const b: any = await request.json().catch(() => ({}));
+      const match = String(b?.match || '').trim();
+      const mode = String(b?.mode || 'rename').trim();
+      const replace = String(b?.replace ?? '').trim();
+      const dryRun = b?.dry_run !== false;      // 기본 true — 명시적으로 false 를 줘야 바꾼다
+      if (!match) return json({ ok: false, error: 'match_required' }, 400);
+      if (mode !== 'rename' && mode !== 'split-lesson') return json({ ok: false, error: 'invalid_mode', allowed: ['rename', 'split-lesson'] }, 400);
+      if (mode === 'rename' && !replace) return json({ ok: false, error: 'replace_required' }, 400);
+
+      const MAX_ROWS = 5000;
+      const rs: any = await env.DB.prepare(
+        `SELECT id, name FROM textbook_files WHERE active = 1 AND name LIKE ? ORDER BY id LIMIT ?`
+      ).bind(`[${match}]%`, MAX_ROWS + 1).all().catch(() => ({ results: [] }));
+      const rows: any[] = rs.results || [];
+      if (rows.length > MAX_ROWS) {
+        return json({ ok: false, error: 'too_many_rows', max: MAX_ROWS,
+          hint: `[${match}] 로 시작하는 파일이 ${MAX_ROWS}개를 넘습니다. 더 좁은 묶음 이름으로 나눠서 실행하세요.` }, 400);
+      }
+
+      /* 새 이름 계산 — 규칙이 한 곳에만 있어야 미리보기와 실제 적용이 어긋나지 않는다. */
+      const newNameOf = (nm: string): string | null => {
+        const m = nm.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (!m || m[1].trim() !== match) return null;      // 정확히 그 묶음만 — 부분일치 금지
+        const rest = m[2] || '';
+        if (mode === 'rename') return `[${replace}] ${rest}`.trim();
+        // split-lesson — 레슨 칸(첫 '/' 앞)을 묶음 이름 뒤에 붙인다
+        const slash = rest.indexOf('/');
+        if (slash < 0) return null;                        // 레슨 칸이 없으면 건드리지 않는다
+        const lesson = rest.slice(0, slash).trim();
+        const file = rest.slice(slash + 1).trim();
+        if (!lesson || !file) return null;
+        const head = replace ? `${replace} ${lesson}` : `${match} ${lesson}`;
+        return `[${head}] ${file}`;
+      };
+
+      const plan: { id: number; from: string; to: string }[] = [];
+      let skipped = 0;
+      for (const r of rows) {
+        const to = newNameOf(String(r.name || ''));
+        if (to == null || to === r.name) { skipped++; continue; }
+        plan.push({ id: Number(r.id), from: String(r.name), to });
+      }
+
+      // 바뀐 뒤 묶음이 몇 개로 갈라지는지 — 미리보기에서 이것부터 본다
+      const booksAfter: Record<string, number> = {};
+      for (const p2 of plan) {
+        const mm = p2.to.match(/^\[([^\]]+)\]/);
+        const k = mm ? mm[1] : '(기타)';
+        booksAfter[k] = (booksAfter[k] || 0) + 1;
+      }
+
+      if (dryRun) {
+        return json({
+          ok: true, dry_run: true, matched: rows.length, will_change: plan.length, skipped,
+          books_after: booksAfter,
+          sample: plan.slice(0, 20),
+          note: '아무것도 바꾸지 않았습니다. 적용하려면 dry_run:false 로 다시 호출하세요.',
+        });
+      }
+
+      if (!plan.length) return json({ ok: true, dry_run: false, changed: 0, note: '바꿀 파일이 없습니다.' });
+
+      /* D1 배치 — 한 문장에 바인드 2개(name, id)라 100개 한도에는 여유가 있지만,
+         배치 자체를 크게 만들면 한 건 실패에 전부 말린다. 200개씩 끊는다. */
+      const now = Date.now();
+      let changed = 0;
+      for (let i = 0; i < plan.length; i += 200) {
+        const chunk = plan.slice(i, i + 200);
+        const stmts = chunk.map((c) =>
+          env.DB.prepare(`UPDATE textbook_files SET name = ?, updated_at = ? WHERE id = ?`).bind(c.to, now, c.id)
+        );
+        try { await env.DB.batch(stmts); changed += chunk.length; }
+        catch (e: any) {
+          return json({ ok: false, error: 'partial_failure', changed, failed_at: i,
+            detail: String(e?.message || e) }, 500);
+        }
+      }
+      await writeAudit(String(b?.by || 'admin'), 'textbook_rebook',
+        { meta: { match, mode, replace, changed } });
+      return json({ ok: true, dry_run: false, changed, books_after: booksAfter });
+    }
+
     // GET /api/admin/textbook-files — 라이브러리 목록
     if (method === 'GET' && path === '/api/admin/textbook-files') {
       await ensureTextbookFilesTable();
@@ -11595,6 +12169,144 @@ LIMIT $limit`;
         included_excluded: _laAll,
         students: applyPIIScope(_laItems, _laScope.scope),   // 🔒 권한별 전화번호 마스킹
         can_view_pii: canViewPII(_laScope.scope),
+      });
+    }
+
+    /* ── 📊 GET /api/admin/attendance/school-stats — 학원별 학생 수업현황 (SLP 출석 통계) ──
+     *   (2026-08-19) admin.html 이 카드를 만들 때 데모 16행(데모지사1·데모학당A~F·DEMOID_01…)을
+     *   그대로 하드코딩해 둔 채 실서비스에 배포돼 있었다. 실제 지사·학당·학생으로 바꾼다.
+     *
+     *   🔑 출처는 attendance 다 — class_schedules 는 안 쓴다. 바로 위 long-absent 주석에서
+     *      이미 확인한 이유와 같다(673행뿐이고 대부분 데모 시드라 실수업과 안 이어진다).
+     *      카페24 동기화는 room_id=`c24-{class_id}` 로 «수업 1건 = 행 1개» 를 넣고
+     *      class_state 2 → 'present'(출석), 그 외 → 'scheduled'(미실시=결석)로 채운다.
+     *   🧹 ghost 학원(무료수업(지인)·망고아이 기본대리점·교육용 대리점·테스트대리점)은
+     *      명부(students_erp) 단계에서 뺀다 — 화면에 데모/테스트 지사가 다시 보이지 않게 하는 것이
+     *      이번 요청의 핵심이다.
+     *   🔒 지사·대리점 로그인은 scopeStudentCond 로 자기 범위만 본다(다른 화면과 동일 규칙).
+     *   ⏳ 아직 오지 않은 날은 «결석» 이 아니라 «미실시» 일 뿐이므로 오늘(KST)까지만 센다.
+     *
+     *   ?meta=1 이면 무거운 출결 집계 없이, 드롭다운(지사·학당)용 실제 (지사,학당) 조합만 돌려준다
+     *   — adm-core.js 의 smFillAgencyFilter() 와 같은 원칙: 서버가 스코프로 이미 자른 실데이터에서
+     *   목록을 만들어야 지사 계정에 다른 지사 학원이 섞여 나오지 않는다.
+     */
+    if (method === 'GET' && path === '/api/admin/attendance/school-stats') {
+      const _saToday = today();
+      const _saNow = new Date();
+      const _saYearIn = parseInt(url.searchParams.get('year') || '', 10);
+      const _saYear = (_saYearIn >= 2020 && _saYearIn <= 2100) ? _saYearIn : _saNow.getUTCFullYear();
+      const _saMonthIn = parseInt(url.searchParams.get('month') || '', 10);
+      const _saMonth = (_saMonthIn >= 1 && _saMonthIn <= 12) ? _saMonthIn : 0;
+      const _pad2 = (n: number) => String(n).padStart(2, '0');
+      const _saFrom = _saMonth ? `${_saYear}-${_pad2(_saMonth)}-01` : `${_saYear}-01-01`;
+      const _saToExcl = _saMonth
+        ? new Date(Date.UTC(_saYear, _saMonth, 1)).toISOString().slice(0, 10)
+        : `${_saYear + 1}-01-01`;
+      const _saToCap = _saToExcl < _saToday ? _saToExcl : _saToday; // 미래분은 안 센다
+
+      const _saScope = await getScope(env as any, request);
+      const _saCond = scopeStudentCond(_saScope, 's');
+      const GHOST_SHOPS = ['무료수업(지인)', '망고아이 기본대리점', '교육용 대리점', '테스트대리점'];
+
+      const _saMetaWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `s.franchise IS NOT NULL AND s.franchise <> ''`,
+        `s.shop_name IS NOT NULL AND s.shop_name <> ''`,
+      ];
+      const _saMetaBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saMetaWhere.push(_saCond.cond); _saMetaBinds.push(..._saCond.binds); }
+
+      if (url.searchParams.get('meta') === '1') {
+        const rs = await env.DB.prepare(
+          `SELECT DISTINCT s.franchise AS franchise, s.shop_name AS shop_name
+             FROM students_erp s WHERE ${_saMetaWhere.join(' AND ')}
+            ORDER BY s.franchise, s.shop_name LIMIT 4000`
+        ).bind(..._saMetaBinds).all<any>().catch(() => ({ results: [] }));
+        return json({ ok: true, pairs: rs.results || [], scope: { type: _saScope.type, label: _saScope.label } });
+      }
+
+      const _saFranchise = (url.searchParams.get('franchise') || '').trim();
+      const _saShop = (url.searchParams.get('shop_name') || url.searchParams.get('academy') || '').trim();
+      const _saQ = (url.searchParams.get('q') || '').trim();
+      const _saLike = '%' + _saQ.replace(/[%_]/g, '') + '%';
+      const _saResult = (url.searchParams.get('result') || '').trim();
+      const _saLimit = Math.max(1, Math.min(200, parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+      const _saOffset = Math.max(0, parseInt(url.searchParams.get('offset') || '0', 10) || 0);
+
+      const _saWhere: string[] = [
+        `s.shop_name NOT IN (${GHOST_SHOPS.map(() => '?').join(',')})`,
+        `(COALESCE(s.status,'정상') IN ('정상','활동','active') OR s.status IS NULL OR s.status = '')`,
+      ];
+      const _saBinds: any[] = [...GHOST_SHOPS];
+      if (_saCond.cond) { _saWhere.push(_saCond.cond); _saBinds.push(..._saCond.binds); }
+      if (_saFranchise) { _saWhere.push('s.franchise = ?'); _saBinds.push(_saFranchise); }
+      if (_saShop) { _saWhere.push('s.shop_name = ?'); _saBinds.push(_saShop); }
+      if (_saQ) {
+        _saWhere.push(`(COALESCE(s.korean_name, s.student_name, s.username, '') LIKE ? OR s.english_name LIKE ? OR s.user_id LIKE ? OR s.login_id LIKE ?)`);
+        _saBinds.push(_saLike, _saLike, _saLike, _saLike);
+      }
+
+      const _saResultCond =
+        _saResult === 'excellent' ? `AND rate >= 90` :
+        _saResult === 'warning'   ? `AND rate >= 70 AND rate < 90` :
+        _saResult === 'fail'      ? `AND rate IS NOT NULL AND rate < 70` : '';
+
+      const _saCte =
+        `WITH base AS (
+           SELECT s.user_id AS user_id,
+                  COALESCE(s.korean_name, s.student_name, s.username, s.user_id) AS name,
+                  s.english_name AS english_name, s.shop_name AS shop_name, s.franchise AS franchise
+             FROM students_erp s WHERE ${_saWhere.join(' AND ')}
+         ),
+         att AS (
+           SELECT a.user_id AS user_id,
+                  SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS attended_n,
+                  COUNT(*) AS total_n
+             FROM attendance a
+            WHERE a.room_id LIKE 'c24-%'
+              AND COALESCE(a.role,'student') = 'student'
+              AND a.date >= ? AND a.date < ?
+              AND a.user_id IN (SELECT user_id FROM base)
+            GROUP BY a.user_id
+         ),
+         merged AS (
+           SELECT b.user_id, b.name, b.english_name, b.shop_name, b.franchise,
+                  COALESCE(att.attended_n, 0) AS attended_n,
+                  COALESCE(att.total_n, 0)    AS total_n,
+                  CASE WHEN COALESCE(att.total_n, 0) = 0 THEN NULL
+                       ELSE ROUND(100.0 * COALESCE(att.attended_n, 0) / att.total_n) END AS rate
+             FROM base b LEFT JOIN att ON att.user_id = b.user_id
+         ) `;
+      const _saDateBinds = [_saFrom, _saToCap];
+
+      const _saKpiRow = await env.DB.prepare(
+        `${_saCte}
+         SELECT COUNT(*) AS n,
+                SUM(total_n) AS total_classes, SUM(attended_n) AS total_attended,
+                COUNT(DISTINCT shop_name) AS schools,
+                SUM(CASE WHEN rate IS NOT NULL AND rate <= 70 THEN 1 ELSE 0 END) AS risk
+           FROM merged WHERE 1=1 ${_saResultCond}`
+      ).bind(..._saBinds, ..._saDateBinds).first<any>().catch(() => null);
+
+      const _saRows = await env.DB.prepare(
+        `${_saCte}
+         SELECT * FROM merged WHERE 1=1 ${_saResultCond}
+          ORDER BY franchise, shop_name, name LIMIT ? OFFSET ?`
+      ).bind(..._saBinds, ..._saDateBinds, _saLimit, _saOffset).all<any>().catch(() => ({ results: [] }));
+
+      return json({
+        ok: true,
+        year: _saYear, month: _saMonth || null, from: _saFrom, to_excl: _saToExcl, counted_to: _saToCap,
+        total: Number(_saKpiRow?.n || 0),
+        limit: _saLimit, offset: _saOffset,
+        kpi: {
+          rate: _saKpiRow?.total_classes ? Math.round(100 * Number(_saKpiRow.total_attended || 0) / Number(_saKpiRow.total_classes)) : null,
+          schools: Number(_saKpiRow?.schools || 0),
+          students: Number(_saKpiRow?.n || 0),
+          risk: Number(_saKpiRow?.risk || 0),
+        },
+        items: _saRows.results || [],
+        scope: { type: _saScope.type, label: _saScope.label },
       });
     }
 
@@ -12104,6 +12816,19 @@ LIMIT $limit`;
     if (path.startsWith('/api/admin/counseling/')) {
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_slots (id INTEGER PRIMARY KEY AUTOINCREMENT, staff_uid TEXT NOT NULL, date TEXT NOT NULL, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 30, status TEXT DEFAULT 'open', created_at INTEGER);`); } catch {}
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS counseling_bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, slot_id INTEGER, staff_uid TEXT, date TEXT, start_time TEXT, parent_name TEXT, parent_phone TEXT, student_uid TEXT, topic TEXT, status TEXT DEFAULT '예약', created_at INTEGER);`); } catch {}
+      /* 🪤 위 `/api/counseling/` 블록과 같은 함정 — CREATE TABLE IF NOT EXISTS 는 표가 이미 있으면
+       *    컬럼이 모자라도 그대로 둔다. 이 블록만 ALTER 가 빠져 있어서 슬롯 생성이 항상
+       *    "no such column: staff_uid" 로 500 이었다(2026-08-19 실측). */
+      for (const ddl of [
+        `ALTER TABLE counseling_slots ADD COLUMN status TEXT DEFAULT 'open'`,
+        `ALTER TABLE counseling_slots ADD COLUMN duration_min INTEGER DEFAULT 30`,
+        `ALTER TABLE counseling_slots ADD COLUMN staff_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN status TEXT DEFAULT '예약'`,
+        `ALTER TABLE counseling_bookings ADD COLUMN slot_id INTEGER`,
+        `ALTER TABLE counseling_bookings ADD COLUMN parent_phone TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN student_uid TEXT`,
+        `ALTER TABLE counseling_bookings ADD COLUMN topic TEXT`,
+      ]) { try { await env.DB.exec(ddl); } catch {} }   // 이미 있으면 에러 → 무시가 정상
     }
     if (method === 'POST' && path === '/api/admin/counseling/slot/open') {
       const b = await parseJsonBody(request);

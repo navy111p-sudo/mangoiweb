@@ -180,6 +180,13 @@ html[data-t="dark"] .wk-day{border-color:#2a3542}
 .pill{display:inline-block;font-size:12px;font-weight:700;padding:3px 8px;border-radius:20px;vertical-align:2px}
 .p-live{background:#0b7a3d;color:#fff}
 .p-done{background:#e7ebef;color:#6b7783}
+/* 🏷 (2026-08-19 제보 ①) 취소·노쇼 배지. 색만 다르고 크기·위치는 다른 배지와 같다
+   (hover 확대 금지와 같은 이유 — 줄이 들썩이면 읽기가 나빠진다). */
+.p-plan{background:#f1f4f7;color:#7b8896;font-weight:600}
+.p-cancel{background:#e7ebef;color:#8a929b;text-decoration:line-through}
+.p-noshow{background:#b45309;color:#fff}
+/* 취소된 줄은 통째로 흐리게 — 「없어진 것」이 아니라 「취소된 것」임이 보여야 한다 */
+.cls.cls-cancel{opacity:.55}
 .p-soon{background:#fff2cc;color:#7a5c00}
 .p-info{background:#eef1f5;color:#6b7783;font-weight:600}
 /* 망고아이 수업이 아닌 줄 — 눈에 띄되 '내 수업'과 헷갈리지 않게 한 단계 죽인다 */
@@ -338,6 +345,8 @@ html[data-t="dark"] .btn-post{background:#1d2630;color:#7db1f0;border-color:#3c5
 html[data-t="dark"] .btn-early{background:#1d2630;color:#5fcf90;border-color:#2f7d52}
 html[data-t="dark"] .btn-skip{background:#252f3a;color:#dbe4ed}
 html[data-t="dark"] .p-done{background:#252f3a;color:#9dabb9}
+html[data-t="dark"] .p-plan{background:#212b35;color:#8a96a3}
+html[data-t="dark"] .p-cancel{background:#252f3a;color:#7b8896;text-decoration:line-through}
 html[data-t="dark"] .p-soon{background:#4a3a06;color:#ffd97a}
 html[data-t="dark"] .p-info{background:#252f3a;color:#9dabb9}
 html[data-t="dark"] .err{background:#3a1e1b;border-color:#6b3b36;color:#f7c2bd}
@@ -1343,11 +1352,46 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
              : ('w' + Math.max(1, Math.round((sc.open_at_ts - t) / 60000)));
       // 상태뿐 아니라 '표시되는 내용'도 지문에 넣는다 — 캐시를 그린 뒤 서버 응답에서
       // 학생·교재가 바뀌었는데 상태만 같아서 옛 내용이 남는 일을 막는다.
-      sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + sc.start_time + ':' + stuName(sc)
+      // 🏷 class_state 도 지문에 넣는다 — 안 넣으면 서버가 «취소됨/노쇼» 를 새로 알려 줘도
+      //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
+      sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
+           + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc)
            + ':' + (sc.level || '') + ':' + (sc.textbook || '') + ',';
     }
     if (sig === lastSig) return;
     lastSig = sig;
+
+    /* 🏷 (2026-08-19 Melca 8/19 제보 ①) 「예정/진행중/완료/취소/노쇼가 구분되나」
+       ────────────────────────────────────────────────────────────────────
+       예전에는 이 화면이 상태를 **자기가 계산**했다(live/done/open). 서버도 따로 계산해서
+       같은 것을 두 벌 두고 있었고, 취소·노쇼는 라벨 자체가 없었다.
+       이제 서버가 class_state 를 정해서 내려주고 **여기서는 그리기만** 한다.
+       ⚠️ 옛 응답(로컬 캐시)에는 class_state 가 없다 → 그때만 예전 방식으로 떨어진다.
+          없는 상태를 지어내지 않는다.
+       ⚠️ 라벨을 textContent 로 나중에 갈아 끼우지 않는다 — i18n 이 못 따라온다.
+          언어가 바뀌면 이 함수가 처음부터 다시 그린다(renderClasses 가 다시 돈다). */
+    function stPill(c, live, done, open){
+      var st = c.class_state;
+      if (st === 'cancelled') return ' <span class="pill p-cancel">' + esc(T('Cancelled','취소됨')) + '</span>';
+      if (st === 'no_show'){
+        var who = c.no_show_role === 'teacher' ? T('teacher','강사')
+                : c.no_show_role === 'student' ? T('student','학생')
+                : c.no_show_role === 'both'    ? T('both','둘 다') : '';
+        return ' <span class="pill p-noshow">' + esc(who ? T('No-show · ' + who, '노쇼 · ' + who) : T('No-show','노쇼')) + '</span>';
+      }
+      if (st === 'ongoing') return ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>';
+      if (st === 'done')    return ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>';
+      /* 「예정」도 **눈에 보이게** 적는다 — 제보가 정확히 「구분이 되나」였다.
+         배지가 없으면 «예정» 인지 «라벨이 빠진» 것인지 사람이 알 수 없다.
+         다만 앞으로 올 수업이 대부분이라 눈에 덜 띄는 회색으로 둔다(입장가능은 그대로 강조). */
+      if (st === 'scheduled')
+        return open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>'
+                    : ' <span class="pill p-plan">' + esc(T('Scheduled','예정')) + '</span>';
+      // ↓ class_state 가 없는 옛 캐시 — 예전 판정 그대로
+      return live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
+           : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
+           : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : '');
+    }
 
     for (var i=0;i<list.length;i++){
       var c = list[i];
@@ -1412,6 +1456,23 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         continue;
       }
 
+      /* 🚫 (2026-08-19) 취소된 수업 — 오늘 것만 회색으로 남긴다(서버가 오늘 것만 내려준다).
+         예전엔 목록에서 통째로 빠져서 강사에게는 «내 수업이 그냥 없어진» 것으로 보였다.
+         ⛔ 입장·일지 버튼은 주지 않는다 — 취소된 수업에 들어갈 방은 없다. */
+      if (c.class_state === 'cancelled'){
+        h += '<div class="cls cls-cancel">'
+          +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
+          +   '<div class="cls-main">'
+          +     '<div class="cls-name">' + esc(stuName(c) || T('(name not set)','(이름 미등록)'))
+          +       stPill(c, live, done, open)
+          +     '</div>'
+          +     '<div class="cls-meta">' + esc(T('This class was cancelled.','취소된 수업입니다.'))
+          +       ' &middot; ' + c.duration_min + T(' min', '분') + '</div>'
+          +   '</div>'
+          + '</div>';
+        continue;
+      }
+
       h += '<div class="cls">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
@@ -1420,9 +1481,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
            끝나면 평가를 남겨야 한다. 예전엔 평범한 수업과 똑같이 보여 «누가 신입인지» 알 수 없었다.
            크기·위치는 다른 배지와 같게 두고 색으로만 구분한다(hover 확대 금지 규칙과 같은 이유). */
         +       kindPill(c)
-        +       (live ? ' <span class="pill p-live">' + esc(T('NOW','진행중')) + '</span>'
-                      : done ? ' <span class="pill p-done">' + esc(T('Done','완료')) + '</span>'
-                             : (open ? ' <span class="pill p-soon">' + esc(T('Open','입장가능')) + '</span>' : ''))
+        +       stPill(c, live, done, open)
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
         +   '</div>'

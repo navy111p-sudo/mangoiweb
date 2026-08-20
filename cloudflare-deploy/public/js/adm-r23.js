@@ -41,83 +41,157 @@
   }
 
   // ============================================================
-  // 2) 학원별 수업현황 검색 — 실제 필터링 작동
+  // 2) 학원별 수업현황 검색 — 실데이터 (2026-08-19)
+  //    이전엔 admin.html 에 박힌 데모 16행(데모지사1·데모학당A~F)을 DOM에서 숨기기만
+  //    했었다. 지금은 /api/admin/attendance/school-stats 를 직접 불러 그린다.
+  //    지사·학당 드롭다운도 같은 API 의 ?meta=1 로 «서버가 이미 스코프로 자른» 실제
+  //    (지사,학당) 조합에서 채운다 — smFillAgencyFilter() 와 같은 원칙.
   // ============================================================
-  window.saSearch = function(){
+  var saPairs = [];         // [{franchise, shop_name}] — meta 로 받은 실제 조합
+  var saOffset = 0;
+  var SA_PAGE = 100;
+
+  function saEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  }); }
+
+  function saFillSelect(sel, values, placeholder){
+    if (!sel) return;
+    var keep = sel.value;
+    sel.innerHTML = '<option value="">' + placeholder + '</option>' +
+      values.map(function(v){ return '<option value="' + saEsc(v) + '">' + saEsc(v) + '</option>'; }).join('');
+    if (keep && values.indexOf(keep) >= 0) sel.value = keep;
+  }
+
+  function saRefreshAcademyOptions(){
+    var branchSel = document.getElementById('sa-branch');
+    var academySel = document.getElementById('sa-academy');
+    if (!academySel) return;
+    var branch = branchSel ? branchSel.value : '';
+    var shops = Array.from(new Set(
+      saPairs.filter(function(p){ return !branch || p.franchise === branch; })
+             .map(function(p){ return p.shop_name; }).filter(Boolean)
+    )).sort(function(a,b){ return a.localeCompare(b,'ko'); });
+    saFillSelect(academySel, shops, '전체 학당');
+  }
+
+  async function saLoadMeta(){
+    try {
+      var r = await fetch('/api/admin/attendance/school-stats?meta=1', { cache: 'no-store', credentials: 'include' });
+      var d = await r.json();
+      if (!d || !d.ok) return;
+      saPairs = Array.isArray(d.pairs) ? d.pairs : [];
+      var branches = Array.from(new Set(saPairs.map(function(p){ return p.franchise; }).filter(Boolean)))
+        .sort(function(a,b){ return a.localeCompare(b,'ko'); });
+      saFillSelect(document.getElementById('sa-branch'), branches, '전체 지사');
+      saRefreshAcademyOptions();
+    } catch (e) { console.warn('[ph120] 지사·학당 목록 로드 실패', e); }
+  }
+
+  function saResultBadge(rate){
+    if (rate === null || rate === undefined) return { cls: '', label: '—' };
+    if (rate >= 90) return { cls: 'excellent', label: 'Excellent' };
+    if (rate >= 70) return { cls: 'warning', label: 'Warning' };
+    return { cls: 'fail', label: 'Fail' };
+  }
+
+  function saRenderRows(items, total, append, startOffset){
+    var tbody = document.getElementById('sa-tbody');
+    if (!tbody) return;
+    if (!items.length && !append) {
+      tbody.innerHTML = '<tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px">⚠ 조건에 맞는 학생이 없습니다</td></tr>';
+      return;
+    }
+    var html = items.map(function(it, i){
+      var no = startOffset + i + 1;
+      var absentN = Math.max(0, (it.total_n||0) - (it.attended_n||0));
+      var rate = (it.rate === null || it.rate === undefined) ? null : Number(it.rate);
+      var badge = saResultBadge(rate);
+      var barCls = badge.cls || 'fail';
+      var width = rate === null ? 0 : rate;
+      var resultCell = rate === null
+        ? '<span class="sa-sub">데이터없음</span>'
+        : '<span class="sa-result ' + badge.cls + '">' + badge.label + '</span>';
+      return '<tr>' +
+        '<td>' + no + '</td>' +
+        '<td>' + saEsc(it.franchise || '—') + '</td>' +
+        '<td>' + saEsc(it.shop_name || '—') + '</td>' +
+        '<td>' + saEsc(it.name || '') + '</td>' +
+        '<td>' + saEsc(it.english_name || '') + '</td>' +
+        '<td>' + saEsc(it.user_id || '') + '</td>' +
+        '<td>' + absentN + '</td>' +
+        '<td>' + (it.attended_n||0) + '/' + (it.total_n||0) + '</td>' +
+        '<td>' + (rate === null ? '—' : rate + '%') + '</td>' +
+        '<td>' + resultCell + '</td>' +
+        '<td><span class="sa-rate-bar"><span class="sa-rate-fill ' + barCls + '" style="width:' + width + '%"></span></span></td>' +
+        '</tr>';
+    }).join('');
+    if (append) tbody.insertAdjacentHTML('beforeend', html); else tbody.innerHTML = html;
+  }
+
+  function saRenderKpi(kpi){
+    window.__saLastKpi = kpi || {};
+    var rateEl = document.getElementById('sa-kpi-rate');
+    var schoolsEl = document.getElementById('sa-kpi-schools');
+    var studentsEl = document.getElementById('sa-kpi-students');
+    var riskEl = document.getElementById('sa-kpi-risk');
+    if (rateEl) rateEl.textContent = (kpi && kpi.rate != null) ? kpi.rate + '%' : '—';
+    if (schoolsEl) schoolsEl.textContent = (kpi && kpi.schools != null) ? kpi.schools + '개' : '—';
+    if (studentsEl) studentsEl.textContent = (kpi && kpi.students != null) ? kpi.students.toLocaleString('ko-KR') + '명' : '—';
+    if (riskEl) riskEl.textContent = (kpi && kpi.risk != null) ? kpi.risk + '명' : '—';
+  }
+
+  function saQueryString(offset){
     var year = (document.getElementById('sa-year')||{}).value || '';
     var month = (document.getElementById('sa-month')||{}).value || '';
     var branch = (document.getElementById('sa-branch')||{}).value || '';
     var academy = (document.getElementById('sa-academy')||{}).value || '';
-    var student = ((document.getElementById('sa-student')||{}).value || '').toLowerCase().trim();
+    var student = ((document.getElementById('sa-student')||{}).value || '').trim();
     var result = (document.getElementById('sa-result')||{}).value || '';
+    var qs = 'limit=' + SA_PAGE + '&offset=' + (offset||0);
+    if (year) qs += '&year=' + encodeURIComponent(year);
+    if (month) qs += '&month=' + encodeURIComponent(month);
+    if (branch) qs += '&franchise=' + encodeURIComponent(branch);
+    if (academy) qs += '&shop_name=' + encodeURIComponent(academy);
+    if (student) qs += '&q=' + encodeURIComponent(student);
+    if (result) qs += '&result=' + encodeURIComponent(result);
+    return qs;
+  }
 
-    var rows = document.querySelectorAll('#sa-tbody tr');
-    var visible = 0;
-    var matchedExcellent = 0, matchedWarning = 0, matchedFail = 0;
-
-    rows.forEach(function(row){
-      var cells = row.querySelectorAll('td');
-      if (cells.length < 11) return;
-
-      var rowBranch  = cells[1].textContent.toLowerCase();
-      var rowAcademy = cells[2].textContent.toLowerCase();
-      var rowStudentName = cells[3].textContent.toLowerCase();
-      var rowStudentEn   = cells[4].textContent.toLowerCase();
-      var rowStudentId   = cells[5].textContent.toLowerCase();
-      var rowStudentAll  = rowStudentName + ' ' + rowStudentEn + ' ' + rowStudentId;
-      var rowResult = cells[9].textContent.toLowerCase();
-
-      var match = true;
-      if (academy && rowAcademy.indexOf(academy.toLowerCase()) < 0) match = false;
-      if (branch && rowBranch.indexOf(branch.toLowerCase()) < 0) match = false;
-      if (student && rowStudentAll.indexOf(student) < 0) match = false;
-      if (result) {
-        if (result === 'excellent' && rowResult.indexOf('excellent') < 0) match = false;
-        if (result === 'warning' && rowResult.indexOf('warning') < 0) match = false;
-        if (result === 'fail' && rowResult.indexOf('fail') < 0) match = false;
+  async function saFetch(offset, append){
+    var tbody = document.getElementById('sa-tbody');
+    if (!append && tbody) tbody.innerHTML = '<tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px">불러오는 중...</td></tr>';
+    var note = document.getElementById('sa-list-note');
+    var moreWrap = document.getElementById('sa-loadmore-wrap');
+    try {
+      var r = await fetch('/api/admin/attendance/school-stats?' + saQueryString(offset), { cache: 'no-store', credentials: 'include' });
+      var d = await r.json();
+      if (!d || !d.ok) throw new Error((d && d.error) || ('HTTP ' + r.status));
+      saRenderRows(d.items || [], d.total || 0, !!append, offset||0);
+      saOffset = (offset||0) + (d.items||[]).length;
+      saRenderKpi(d.kpi);
+      if (note) {
+        note.textContent = '📌 ' + (d.total||0).toLocaleString('ko-KR') + '명 중 ' + saOffset.toLocaleString('ko-KR') + '명 표시' +
+          (d.scope && d.scope.type && d.scope.type !== 'hq' && d.scope.type !== 'none' ? ' · 범위: ' + d.scope.label : '');
       }
-
-      row.style.display = match ? '' : 'none';
-      if (match) {
-        visible++;
-        if (rowResult.indexOf('excellent') >= 0) matchedExcellent++;
-        else if (rowResult.indexOf('warning') >= 0) matchedWarning++;
-        else if (rowResult.indexOf('fail') >= 0) matchedFail++;
+      if (moreWrap) {
+        moreWrap.innerHTML = (saOffset < (d.total||0))
+          ? '<button class="sa-btn-search" onclick="saLoadMore()">⬇ 더 보기 (' + ((d.total||0) - saOffset).toLocaleString('ko-KR') + '명 더)</button>'
+          : '';
       }
-    });
-
-    // 검색 결과 통계 박스
-    var card = document.getElementById('card-school-attendance-stats');
-    if (!card) return;
-    var existing = document.getElementById('sa-search-stat');
-    if (!existing) {
-      existing = document.createElement('div');
-      existing.id = 'sa-search-stat';
-      existing.style.cssText = 'padding:12px 16px;margin-top:14px;background:linear-gradient(135deg,rgba(37,99,235,0.18),rgba(96,165,250,0.10));border:1px solid rgba(96,165,250,0.5);border-radius:10px;color:#DBEAFE;font-weight:700;text-align:center;font-size:13px';
-      var tableWrap = card.querySelector('.sa-table');
-      if (tableWrap && tableWrap.parentElement) {
-        tableWrap.parentElement.appendChild(existing);
-      }
+    } catch (e) {
+      console.warn('[ph120] 학원별 수업현황 조회 실패', e);
+      if (!append && tbody) tbody.innerHTML = '<tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px;color:#FCA5A5">⚠ 불러오기 실패: ' + saEsc(e.message||e) + '</td></tr>';
     }
-    if (visible === 0) {
-      existing.innerHTML = '⚠ <b style="color:#FCA5A5">검색 결과 없음</b> — 조건을 완화해서 다시 시도해주세요. ' +
-        '<a href="javascript:void(0)" onclick="saReset()" style="color:#67E8F9;margin-left:8px;text-decoration:underline">↩ 검색 초기화</a>';
-    } else {
-      var conds = [];
-      if (academy) conds.push('🏫 ' + academy);
-      if (branch) conds.push('🏬 ' + branch);
-      if (student) conds.push('👨‍🎓 "' + student + '"');
-      if (result) conds.push('📊 ' + result);
-      if (month) conds.push('📅 ' + year + '/' + month + '월');
-      existing.innerHTML =
-        '🔍 검색 결과: <b style="color:#86EFAC;font-size:16px">' + visible + '명</b> 표시 / 전체 ' + rows.length + '명' +
-        (conds.length ? '<br><span style="color:#93C5FD;font-size:11.5px;font-weight:600">조건: ' + conds.join(' · ') + '</span>' : '') +
-        '<br><span style="color:#94A3B8;font-size:11px;font-weight:600">' +
-        '✅ Excellent ' + matchedExcellent + '명 · ⚠ Warning ' + matchedWarning + '명 · ❌ Fail ' + matchedFail + '명' +
-        ' &nbsp; <a href="javascript:void(0)" onclick="saReset()" style="color:#67E8F9;text-decoration:underline">↩ 초기화</a></span>';
-    }
-    console.log('[ph120] 검색 완료 —', visible, '/', rows.length, '명 표시');
+  }
+
+  window.saSearch = function(){
+    saRefreshAcademyOptions();
+    saOffset = 0;
+    saFetch(0, false);
   };
+
+  window.saLoadMore = function(){ saFetch(saOffset, true); };
 
   // 초기화
   window.saReset = function(){
@@ -127,9 +201,7 @@
       if (el.tagName === 'SELECT') el.selectedIndex = 0;
       else el.value = '';
     });
-    document.querySelectorAll('#sa-tbody tr').forEach(function(r){ r.style.display = ''; });
-    var stat = document.getElementById('sa-search-stat');
-    if (stat) stat.remove();
+    saSearch();
     console.log('[ph120] 검색 초기화');
   };
 
@@ -152,10 +224,19 @@
     });
   }
 
+  // 학원별 수업현황 카드 — 처음 발견될 때 한 번만 지사·학당 목록 + 첫 조회를 부른다
+  function ph120InitSchoolStats(){
+    var tbody = document.getElementById('sa-tbody');
+    if (!tbody || tbody.__ph120) return;
+    tbody.__ph120 = true;
+    saLoadMeta().then(function(){ saSearch(); });
+  }
+
   // 초기 + 주기 실행
   function ph120Init(){
     ph120FixHomeBtn();
     ph120BindEnter();
+    ph120InitSchoolStats();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph120Init);
   else ph120Init();

@@ -1673,6 +1673,7 @@ function vcToggleSoundBanner(show) {
             const prev = pc.__audPrev || { bytes: 0, blocked: 0, noTrack: 0 };
             const flowing = bytes > prev.bytes;
             // ── 상대 마이크 자체가 없음/꺼짐 → 우리 쪽에선 못 고침, 안내만
+            //   false-alarm guard(2026-08-20): js/idx-vc-dupghost.js
             let hint = box.querySelector('.vc-noaudio-hint');
             if (!hasAudioTrack || (!flowing && bytes === 0)) {
                 prev.noTrack = (prev.noTrack || 0) + 1;
@@ -4335,6 +4336,15 @@ function vcHandleMessage(msg) {
                     try { if (typeof showToast === 'function') showToast('👩‍🏫 선생님이 화면을 바꿨어요'); } catch(_){}
                 }
             } catch(_){ window._vcTabSyncApplying = false; }
+            break;
+        }
+        // 📢 귓속말 — 그리기는 /js/idx-whisper.js(defer). 아직 안 왔으면 큐에 담아 둔다.
+        case 'admin-whisper':
+        case 'admin-whisper-ack': {
+            try {
+                if (typeof window.vcWhisperOn === 'function') window.vcWhisperOn(msg.type, msg.data);
+                else { (window.__vcWhisperQ = window.__vcWhisperQ || []).push([msg.type, msg.data]); }
+            } catch(_){}
             break;
         }
         // 🖥 (2026-08-12 Melca) 화면 공유 시작/종료 알림 — 예전엔 학생은 예고 없이
@@ -7557,7 +7567,8 @@ window.vcToggleContentTab = function(tabName){
     }
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
-    if (alreadyShowing && tabName !== 'whiteboard') {
+    // 📖 (2026-08-20) 교재도 칠판처럼 다시 눌러도 안 접는다
+    if (alreadyShowing && tabName !== 'whiteboard' && tabName !== 'pdf') {
         vcSetContentCollapsed(true);
     } else {
         vcSetContentCollapsed(false);

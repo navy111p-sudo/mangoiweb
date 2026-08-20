@@ -216,13 +216,14 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <span id="badge" class="badge zero">0</span>
   </h1>
   <div class="tbar">
+    <button class="tbtn" onclick="goBack()"><span data-en="← Back" data-ko="← 뒤로">← Back</span></button>
+    <a class="tbtn" id="homeBtn" href="/admin.html"><span data-en="🏠 Home" data-ko="🏠 홈">🏠 Home</span></a>
     <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
     <button class="tbtn" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
     <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
     <button class="tbtn" id="soundBtn" onclick="toggleSound()"><span data-en="Sound: on" data-ko="소리 켬">Sound: on</span></button>
     <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
-    <a class="tbtn" href="/manager"><span data-en="Dashboard" data-ko="대시보드">Dashboard</span></a>
     <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
   </div>
 </div>
@@ -336,9 +337,12 @@ var CUR = 'PHP';
 var OCR = null;                     // 영수증에서 읽은 값 {amount, spent_at, vendor}
 var FILE = null;                    // 첨부할 파일 (사진 축소본)
 var FOCUS_ID = 0;                   // 푸시로 들어왔을 때 강조할 건
+var WANT_TYPE = '';                 // 🔗 /work?type=leave — 열자마자 그 분류 폼을 편다
 try {
   var q = location.search.match(/[?&]id=(\d+)/);
   if (q) FOCUS_ID = Number(q[1]);
+  var qt = location.search.match(/[?&]type=([a-zA-Z_]+)/);
+  if (qt) WANT_TYPE = String(qt[1]).toLowerCase();
 } catch (e) {}
 
 /* ── 첫 화면 — API 1회 ────────────────────────────────────────────────────── */
@@ -374,9 +378,33 @@ function load(){
 }
 window.reloadAll = function(){ load().catch(function(){}); };
 
+/* ── 🔙 뒤로 · 🏠 홈 (2026-08-20) ──────────────────────────────────────────
+   왜 — 결재함에는 나가는 길이 「로그아웃」밖에 없었다. 관리자 화면에서 「결재 올리기」로
+        건너오면 돌아갈 방법이 없어 브라우저 뒤로가기를 눌러야 했다(휴대폰 앱에서는 그것도 없다).
+   ⚠️ 새 탭·카톡 링크로 열면 history 가 «이 페이지 하나» 뿐이라 back() 이 아무 일도 하지 않는다.
+      그때는 홈으로 보낸다 — 「눌렀는데 아무 일도 안 일어난다」 를 만들지 않는다. */
+window.goBack = function(){
+  var home = (document.getElementById('homeBtn') || {}).href || '/admin.html';
+  try {
+    if (window.history.length > 1) { window.history.back(); return; }
+  } catch (e) {}
+  location.href = home;
+  /* ⛔ 「back 이 안 먹으면 홈으로」 를 setTimeout 안전망으로 만들지 말 것.
+     뒤로 간 뒤 «앞으로» 로 이 화면에 돌아오면(bfcache 복원) 멈춰 있던 타이머가 깨어나
+     사람이 누르지도 않은 이동이 일어난다. history.length 판정만으로 충분하다. */
+};
+
+/* 홈은 «그 사람의 홈» 이어야 한다 — 강사에게 1.3MB 관리자 화면을 주지 않는다.
+   판정이 오기 전 기본값은 관리자 화면이고, /api/approval/home 이 오면 바로잡는다. */
+function applyHome(){
+  var a = document.getElementById('homeBtn'); if (!a || !D || !D.me) return;
+  a.href = D.me.is_teacher ? '/teacher' : (D.me.is_ph_manager ? '/manager' : '/admin.html');
+}
+
 /* ── 그리기 ───────────────────────────────────────────────────────────────── */
 function repaint(){
   if (!D) return;
+  applyHome();
   paintBadge();
   paintKinds();
   paintReuse();
@@ -1412,7 +1440,7 @@ try {
 // 초안 자동저장 — 폼은 다시 그려지지만 이 리스너는 바깥 상자에 붙어 있어 살아남는다.
 document.getElementById('form').addEventListener('input', draftSave);
 
-load().then(restoreDraft).catch(function(){ restoreDraft(); });
+load().then(restoreDraft).then(openWantedType).catch(function(){ restoreDraft(); openWantedType(); });
 outboxFlush();
 subFlush();
 paintQueue();
@@ -1434,6 +1462,36 @@ function restoreDraft(){
   // ⚠️ 사진은 되살리지 못한다(기기 저장소에 담기엔 크고, 다시 찍는 편이 확실하다).
   note(T('Restored what you were writing. The photo needs to be taken again.',
          '쓰시던 내용을 되살렸습니다. 사진은 다시 찍어 주세요.'));
+}
+
+/* 🔗 분류 딥링크 — `/work?type=leave` 로 들어오면 그 결재 폼을 바로 편다. (2026-08-20)
+ *
+ * 왜 — 관리자 화면 「보고서 양식」에서 «휴가 계획서» 를 고르고 넘어와도 **분류가 따라오지
+ *      않아** 도착해서 또 골라야 했다. 「양식을 골랐다 → 그 폼이 열린다」 가 한 흐름이 되어야
+ *      두 화면이 «두 벌» 이 아니라 «한 흐름» 이 된다.
+ *
+ * ⚠️ 쓰다 만 초안이 우선이다 — restoreDraft 가 이미 폼을 열었으면(PICK) 손대지 않는다.
+ *    덮어쓰면 쓰던 글이 사라진다.
+ * ⚠️ 올릴 수 없는 분류는 서버가 `types` 에서 아예 빼고 준다(강사의 지출 등).
+ *    그때 조용히 넘기면 「눌렀는데 아무 일도 안 일어난다」 가 되므로 한 줄 알려 준다.
+ */
+function openWantedType(){
+  if (!WANT_TYPE || PICK) return;
+  var types = (D && D.types) || [];
+  if (!types.length) return;                 // 아직 못 받았다 — 여기서 판단하지 않는다
+  var want = WANT_TYPE; WANT_TYPE = '';      // 한 번만 — 다시 그릴 때 또 열리지 않게
+  var found = null;
+  for (var i = 0; i < types.length; i++) if (types[i].key === want) found = types[i];
+  if (!found) {
+    toast(T('This account cannot submit that type.', '이 계정으로는 올릴 수 없는 분류입니다.'));
+    return;
+  }
+  window.pick(found.key);
+  // 폼이 화면 밖에 있으면 «열렸는데 안 보인다» 가 된다. 열었으면 눈에 보이게 한다.
+  try {
+    var f = document.getElementById('form');
+    if (f && !f.hidden) f.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (e) {}
 }
 
 window.addEventListener('online', function(){

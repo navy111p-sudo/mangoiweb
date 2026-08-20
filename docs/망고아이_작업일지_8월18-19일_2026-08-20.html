@@ -1,0 +1,238 @@
+<title>망고아이 작업일지 8월 18·19일</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F4F6F3; --surface:#FFFFFF; --ink:#161E1A; --muted:#5D6C64; --faint:#8A968F;
+  --line:#DBE2DC; --line-soft:#E9EEEA; --accent:#0E6A4E; --accent-soft:#E2F0E9;
+  --warn:#8A5B00; --warn-soft:#F6ECD8;
+  --shadow:0 1px 2px rgba(22,30,26,.05),0 8px 24px -16px rgba(22,30,26,.25);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101413; --surface:#181D1B; --ink:#E7EDE8; --muted:#9DAAA3; --faint:#77857D;
+    --line:#293029; --line-soft:#222825; --accent:#5CC79B; --accent-soft:#163026;
+    --warn:#D9B267; --warn-soft:#332A17;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101413; --surface:#181D1B; --ink:#E7EDE8; --muted:#9DAAA3; --faint:#77857D;
+  --line:#293029; --line-soft:#222825; --accent:#5CC79B; --accent-soft:#163026;
+  --warn:#D9B267; --warn-soft:#332A17;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Noto Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  font-weight:400; line-height:1.75; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:62rem;margin:0 auto;padding:clamp(2rem,5vw,4.5rem) clamp(1rem,4vw,2.5rem) 5rem;display:flex;flex-direction:column;gap:3rem}
+header{display:flex;flex-direction:column;gap:.9rem;border-bottom:1px solid var(--line);padding-bottom:2rem}
+.eyebrow{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0}
+h1{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:clamp(1.9rem,4.4vw,2.9rem);line-height:1.25;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{margin:0;color:var(--muted);max-width:44em}
+.meta{display:flex;flex-wrap:wrap;gap:.4rem 1.4rem;font-size:.85rem;color:var(--faint);font-family:"JetBrains Mono",ui-monospace,monospace;margin:0}
+section{display:flex;flex-direction:column;gap:1.1rem}
+h2{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:1.5rem;margin:0;letter-spacing:-.01em;word-break:keep-all}
+h3{font-family:"Gowun Batang",Batang,serif;font-weight:700;font-size:1.08rem;margin:1.2rem 0 0;word-break:keep-all}
+p{margin:0;max-width:44em;word-break:keep-all}
+.note{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:2px;padding:1.25rem 1.4rem;display:flex;flex-direction:column;gap:.8rem;box-shadow:var(--shadow)}
+.note.warn{border-left-color:var(--warn)}
+.note strong{font-weight:700}
+.plain{background:var(--accent-soft);border-radius:2px;padding:.9rem 1.1rem;color:var(--ink);font-size:.94rem}
+.plain b{font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:2px;overflow:hidden}
+.stat{background:var(--surface);padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.2rem;min-width:0}
+.stat b{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:1.7rem;font-weight:500;font-variant-numeric:tabular-nums;color:var(--accent);line-height:1.1}
+.stat span{font-size:.82rem;color:var(--muted)}
+.day{display:flex;align-items:baseline;gap:.8rem;margin:.4rem 0 .1rem;font-family:"Gowun Batang",Batang,serif;font-size:1.15rem;font-weight:700}
+.day-date{white-space:nowrap}
+.day::after{content:"";flex:1;height:1px;background:var(--line)}
+ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+ul.list li{padding-left:1.1rem;position:relative;word-break:keep-all;max-width:46em}
+ul.list li::before{content:"—";position:absolute;left:0;color:var(--faint)}
+ol{margin:0;padding-left:1.3rem;display:flex;flex-direction:column;gap:.4rem;max-width:44em}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:2px;background:var(--surface)}
+th,td{text-align:left;padding:.65rem .9rem;border-bottom:1px solid var(--line-soft);vertical-align:top;word-break:keep-all}
+th{font-size:.76rem;letter-spacing:.06em;color:var(--faint);font-weight:500;text-transform:uppercase;background:var(--line-soft);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+td a,p a,li a{color:var(--accent)}
+code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:.88em;background:var(--line-soft);padding:.08em .35em;border-radius:2px}
+footer{border-top:1px solid var(--line);padding-top:1.5rem;color:var(--faint);font-size:.84rem;display:flex;flex-direction:column;gap:.3rem}
+footer a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media print{
+  body{background:#fff;color:#000}
+  .wrap{max-width:none;padding:0}
+  section{break-inside:auto}
+  h2,h3{break-after:avoid}
+  .note,.stats,.tblwrap{break-inside:avoid}
+}
+</style>
+
+<div class="wrap">
+<header>
+  <p class="eyebrow">망고아이 · Claude Code 작업일지</p>
+  <h1>8월 18일·19일에 무엇을 고쳤나</h1>
+  <p class="sub">이틀 동안 「화면엔 있는데 실제로는 안 되던 것」을 대거 찾아내서 진짜로 동작하게 만들었습니다.
+  그중 제일 큰 건, 선생님과 사장님이 같은 수업 방 번호를 넣고도 서로 못 만나던 사고의 원인을 찾은 것입니다.</p>
+  <p class="meta"><span>2026-08-18 → 2026-08-19</span><span>작성 2026-08-20</span><span>쉬운 말로 정리</span></p>
+</header>
+
+<section>
+  <h2>한눈에</h2>
+  <div class="stats">
+    <div class="stat"><b>141</b><span>고친 묶음 (병합된 PR)</span></div>
+    <div class="stat"><b>179</b><span>코드 변경 건 (커밋)</span></div>
+    <div class="stat"><b>22</b><span>남긴 기록 문서</span></div>
+    <div class="stat"><b>29,000</b><span>쓰고 있는 학생 수</span></div>
+  </div>
+  <div class="note">
+    <p><strong>숫자는 저장소에서 다시 세었습니다.</strong> 처음 돌린 요약본에는 PR 94건 · 변경 188건으로 적혀 있었는데,
+    실제로 세어 보니 <strong>병합된 PR 141건</strong>(GitHub 기준, 8/18 00:00 ~ 8/20 00:00 KST) ·
+    <strong>커밋 179건</strong>(병합 커밋 제외)이었습니다. 기록 문서 22건과 학생 29,000명은 원래 숫자가 맞습니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2 class="day"><span class="day-date">📅 8월 18일 — 돈 계산을 바로잡고, 가짜 화면을 진짜로</span></h2>
+
+  <h3>1. 돈 숫자가 틀리던 것을 맞춤</h3>
+  <p>매출·정산 화면의 금액이 통장이나 실제와 안 맞는 문제를 여러 개 고쳤습니다.</p>
+  <p class="plain"><b>쉽게 말하면</b> — 통장에 「케이씨피M」이라고 찍힌 돈이 있는데, 이건 매출이 아니라
+  회사 계좌끼리 옮긴 돈이었습니다. 그걸 매출로 세고 있어서 <b>4,632만원</b>이 부풀어 있었어요.
+  용돈 통장에서 저금통으로 옮긴 걸 「용돈 받았다」고 센 셈입니다. 이제 안 셉니다.</p>
+  <ul class="list">
+    <li>카드 결제 수수료율을 3.3% → <strong>2.86%</strong>로 통일 (사장님이 확인해 준 실제 값)</li>
+    <li>학원이 통장으로 직접 보낸 돈(B2B)이 가맹점 정산서에서 0원으로 나오던 것 → 이제 합산</li>
+    <li>정산 수수료 기본값을 「지점 40% / 본사 60%」로 정하고, 지사별로 따로 설정도 가능하게</li>
+  </ul>
+
+  <h3>2. 「버튼은 있는데 눌러도 아무 일도 안 나던 것」들</h3>
+  <p class="plain"><b>쉽게 말하면</b> — 자판기 버튼은 달려 있는데 안에 음료가 안 들어 있는 상태였습니다.
+  겉모습만 만들어 두고 진짜 기능은 연결이 안 돼 있던 화면들을 실제로 동작하게 바꿨습니다.</p>
+  <ul class="list">
+    <li>결제관리 화면이 연습용 가짜 데이터를 보여주고 있던 것 → 실제 데이터로 교체</li>
+    <li>가짜 표에 실제 학생·거래처 정보가 섞여 있던 것 → 제거 (개인정보 문제)</li>
+    <li>관리자 비밀번호 찾기 기능 신설 (원래 없었음)</li>
+  </ul>
+
+  <h3>3. 잘못된 독촉 문자가 나갈 뻔한 것을 막음</h3>
+  <p class="plain"><b>쉽게 말하면</b> — 「결제 기록이 아예 없는 사람」을 「돈을 안 낸 사람」으로 잘못 보고 있었습니다.
+  가입만 하고 아직 결제 단계가 아닌 분들에게 «돈 내세요» 문자가 갈 뻔했어요. 자동 독촉 기능을 껐습니다.</p>
+
+  <h3>4. 화면이 깨지던 것 수리</h3>
+  <ul class="list">
+    <li>매출 그래프가 창 크기를 바꿀 때마다 아래로 계속 길어지던 것 (690px → 3,070px → 5,758px)</li>
+    <li>정산서·분기보고서 표가 PC와 인쇄에서 옆으로 삐져나오던 것</li>
+  </ul>
+
+  <h3>5. 새로 만든 것</h3>
+  <ul class="list">
+    <li>영업담당자 제도 — 실적·인사평가·보상체계 신설 (기본급 230만, 계약 1곳당 60만, 월 목표 2곳)</li>
+    <li>영업 AI 4종 — 오늘 어디 방문할지, 위험한 학원은 어디인지 자동으로 알려 줌</li>
+    <li>수업 길이 변경 신청함 (신청은 언제나, 반영은 월 1회)</li>
+    <li>강사 한 명당 하루에 받을 수 있는 긴 수업 정원제</li>
+  </ul>
+</section>
+
+<section>
+  <h2 class="day"><span class="day-date">📅 8월 19일 — 사람이 실제로 겪던 문제들을 뿌리부터</span></h2>
+
+  <h3>가장 큰 사고 — 선생님과 사장님이 같은 방 번호를 넣었는데 서로 안 보였던 이유</h3>
+  <p>중국인 강선생님과 사장님이 <strong>7월 31일부터 8월 19일까지 여덟 번의 수업</strong>에서 한 번도 만나지 못했습니다.
+  둘 다 화면엔 「참여자 1명」만 떴고, 매번 「강사 미입장」 알림까지 갔습니다.</p>
+  <p class="plain"><b>쉽게 말하면</b> — 서버가 두 대로 돌아가고 있었고, 두 사람이 서로 다른 주소로 접속하고 있었습니다.
+  같은 「301호」에 가긴 갔는데, 한 명은 A동 301호, 한 명은 B동 301호였던 거예요.
+  방 번호는 똑같으니 아무도 이상한 줄 몰랐고, 출석 기록(DB)은 두 서버가 같이 쓰기 때문에
+  기록만 보면 「둘 다 같은 방에 있었음」으로 멀쩡하게 보였습니다. 그래서 20일 동안 못 찾았습니다.</p>
+  <p>이제 어느 주소로 들어오든 같은 곳으로 모이게 정리했고, 앞으로 같은 실수를 안 밟도록 규칙 문서에 못 박아 뒀습니다.
+  자세한 조사 과정은 <a href="작업기록/260819_강선생님_수업방_안보임_워커두벌_DO분리.md">작업기록 문서</a>에 남겼습니다.</p>
+
+  <h4 style="margin:.6rem 0 0;font-weight:700">이 사고가 만든 2차 피해도 함께 수리</h4>
+  <div class="tblwrap"><table>
+    <tr><th>문제</th><th>내용</th></tr>
+    <tr>
+      <td>가짜 「강사 미입장」</td>
+      <td>학생 화면에 선생님이 안 보이면 자동으로 「선생님 안 왔음」이 기록됩니다. 그런데 위 사고 때문에
+      선생님이 13분간 들어와 있었는데도 알림이 갔어요. <strong>13건 중 11건이 오판</strong>이었습니다.</td>
+    </tr>
+    <tr>
+      <td>급여가 0원</td>
+      <td>「강사 미입장」으로 찍히면 그 수업은 수업료가 0원입니다. 잘못 찍힌 기록 때문에 선생님 월급이 깎일 뻔했습니다
+      → 출석 기록과 대조해서 오판이면 급여를 정상 지급하도록 고침</td>
+    </tr>
+  </table></div>
+  <div class="note warn">
+    <p><strong>왜 기록을 그냥 지우지 않았나</strong> — 「학생이 못 봤다」는 것 자체는 사실이라서요.
+    지워 버리면 「왜 수업이 안 됐는지」도 같이 사라집니다. 그래서 지우지 않고,
+    읽을 때 «이건 오판입니다»라고 함께 알려 주는 방식을 골랐습니다.</p>
+  </div>
+
+  <h3>선생님한테 「남의 수업·남의 급여」가 보일 뻔한 것</h3>
+  <p class="plain"><b>쉽게 말하면</b> — 선생님 번호표가 두 종류였습니다. 학교로 치면 「학번」과 「출석부 번호」가
+  따로 있는데 둘 다 그냥 숫자라 겹쳐요. 24번이 한쪽에선 Mariane 선생님, 다른 쪽에선 HANNAH 선생님이었습니다.
+  번호로 이으면 에러도 안 나고 조용히 남의 정보가 붙습니다. 이제 번호 대신 이름으로 잇고,
+  확실하지 않으면 아예 안 보여 줍니다.</p>
+
+  <h3>필리핀 매니저가 몇 주째 «남의 계정»으로 일하고 있던 것</h3>
+  <p>매니저 Karl 이 본인 계정 대신 화면 점검용 시연 계정(부산지사)으로 8월 10일부터 계속 로그인하고 있었습니다.
+  그래서 「제 화면엔 그 메뉴가 없어요」라는 제보가 계속 나왔던 거예요.
+  계정을 되돌리고, 시연 계정 비밀번호도 강한 값으로 바꿨습니다.</p>
+
+  <h3>눌러도 안 눌리던 버튼 3종</h3>
+  <ul class="list">
+    <li>휴대폰 계정 버튼 — 눌리긴 눌렸는데, 창이 메뉴 밑에 깔려서 안 보였습니다</li>
+    <li>채팅 ✕ 버튼 — 다른 게 위에 겹쳐서 클릭을 가로채고 있었음</li>
+    <li>수업 입장 안내창 ✕ — 똑같은 안내창이 두 장 쌓여 있어서, 한 장 닫아도 밑에 또 있었음</li>
+  </ul>
+  <div class="note">
+    <p><strong>배운 것 — 「열렸다」와 「보인다」는 다릅니다.</strong> 코드상으로는 다 정상이었어요.
+    그래서 앞으로는 «그 자리 맨 위에 실제로 뭐가 있나»를 좌표로 재서 확인합니다.</p>
+  </div>
+
+  <h3>카카오톡으로 링크를 열면 로그인이 무한 반복되던 것</h3>
+  <p class="plain"><b>쉽게 말하면</b> — 카톡 안에서 열리는 브라우저가 로그인 도장(쿠키)을 돌려주지 않습니다.
+  로그인은 성공하는데 다음 화면이 「누구세요?」 하고 되돌려보내요. 무한 반복입니다.
+  이제 카톡에서 연 걸 알아채면 「크롬으로 열기」 안내를 띄웁니다.</p>
+
+  <h3>겉모습만 있던 기능 → 진짜로 저장되게</h3>
+  <ul class="list">
+    <li>본사 직원 등록 — 「✅ 등록 완료」라고 떴지만 서버에 아무것도 안 갔습니다. 진짜 계정이 만들어지게 교체</li>
+    <li>신규 학생 등록 마법사 — 같은 문제. 이제 진짜로 저장됩니다</li>
+    <li>대리점(학원) 등록 — 아이디·비밀번호 입력란을 추가해 실제 로그인 계정까지 발급</li>
+  </ul>
+
+  <h3>관리자 메뉴 정리 (이틀에 걸쳐)</h3>
+  <ul class="list">
+    <li>메뉴 3단계(그룹 → 항목 → 세부)를 43개 항목 전부 완성</li>
+    <li>세부 메뉴 이름이 지어낸 가짜였던 것 54개 제거 — 「학생 상세 프로필」을 누르면 「만료 임박 학생」이 열렸었음</li>
+    <li>메뉴 검색이 1.5초 뒤에 저절로 풀리던 것 수리</li>
+    <li>화면 위에 [← 뒤로] [🏠 홈] 경로줄 추가 — 지금 어디 있는지 항상 보이게</li>
+  </ul>
+
+  <h3>8월 19일 강사 제보 12건 처리</h3>
+  <p class="plain"><b>의외의 발견</b> — 12건 중 <b>5건은 이미 만들어져 있었습니다.</b> 다만 제보한 사람이 보는 화면에만 없었어요.
+  이 서비스는 비슷한 관리자 화면이 4개(admin / manager / teacher / work)라서, 「관리자 페이지」라는 말이
+  사람마다 다른 화면을 가리킵니다. 없다고 새로 만들면 같은 기능이 두 벌이 돼서 더 큰 문제가 됩니다.</p>
+</section>
+
+<section>
+  <h2>✅ 확인한 방법</h2>
+  <ul class="list">
+    <li>모든 변경은 타입 검사 + 자동 회귀 테스트(하니스)를 통과한 뒤 병합했습니다</li>
+    <li>화면이 바뀌는 작업은 브라우저로 실제 렌더해서 눈으로 확인했습니다</li>
+    <li>새로 발견한 함정 10건 이상을 규칙 문서(<a href="../CLAUDE.md">CLAUDE.md</a>)에 등재했습니다 — 다음에 같은 실수를 안 밟기 위해</li>
+    <li>이 문서의 내용은 2026-08-20 에 저장소의 커밋·코드와 한 줄씩 대조해 다시 확인했습니다</li>
+  </ul>
+</section>
+
+<footer>
+  <p>망고아이 · 작성 2026-08-20 · 대상 기간 2026-08-18 ~ 2026-08-19</p>
+  <p>이틀치 작업기록 원문 22건: <a href="작업기록/">docs/작업기록/</a> · 문서 목차: <a href="INDEX.md">docs/INDEX.md</a></p>
+</footer>
+</div>

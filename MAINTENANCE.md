@@ -25,9 +25,21 @@
 > | 주소 | 정체 | 사람에게 안내 |
 > |---|---|---|
 > | **`mangoi.ai`** | **정본.** Worker 가 응답 | ✅ 이것만 |
-> | `test.mangoi.co.kr` | **같은 Worker 의 먼저 붙인 커스텀 도메인.** 살아 있음 | ❌ (죽이지도 말 것 — 아래 참조) |
+> | `test.mangoi.co.kr` | **먼저 붙인 커스텀 도메인.** 살아 있음. 2026-08-19 부터 `mangoi.ai` 와 **같은 `-prod` 워커** | ❌ (죽이지도 말 것 — 아래 참조) |
 > | `mangoi.co.kr` / `www.mangoi.co.kr` | 118.219.234.180 **구 서버**(옛 PHP LMS). Worker 화면·API 없음 | ❌ |
 > | ~~`mango-i.com`~~ | **등록조차 안 된 도메인**(NXDOMAIN, 2026-07-28 실측) | ❌ 절대 |
+>
+> 🔴 **2026-08-19 이전에는 `test.mangoi.co.kr` 이 «기본» 워커(`webrtc-unified-platform`)에 붙어
+> 있었습니다.** 이 저장소는 워커를 두 벌 배포하는데(`deploy.ps1` [6] 단계 · `deploy.yml` 1)2) 단계),
+> `wrangler.toml` 이 워커마다 `new_sqlite_classes = ["VideoCallRoom"]` 을 따로 선언해
+> **Durable Object 가 갈립니다.** 그래서 두 도메인에서 **같은 방 번호를 넣어도 서로 다른 방**이었고,
+> 중국인 강선생님과 사장님이 8회 수업 동안 한 번도 만나지 못했습니다(2026-08-19 규명 → 같은 날
+> `-prod` 로 이전). D1·KV·R2 는 두 워커가 공유하므로 **출석 기록만 보면 멀쩡해 보였습니다.**
+>
+> ⚠️ **도메인이 어느 워커에 붙어 있는지는 코드에 없습니다.** `wrangler.toml` 에 `routes` 가 한 줄도
+> 없고 전부 대시보드에서 관리합니다 — **Workers & Pages > 워커 > Settings > Domains & Routes**.
+> ⛔ 「못 박아 두자」며 `routes` 를 넣지 마세요. 그 목록은 **전체 목록으로 취급되어 적지 않은
+> 도메인을 다음 배포에서 지웁니다**(= `mangoi.ai` 가 내려갑니다). 자세한 이유는 CLAUDE.md 2장 표.
 >
 > ⚠️ **`test.mangoi.co.kr` 을 일괄 치환하지 마세요.** 죽은 주소가 아니라, 아직 여러 곳이 붙박이로
 > 쓰고 있습니다 — 안드로이드/iOS 앱의 시작 URL, `cloudflare-deploy/scripts/smoke-test.ps1` 의 기본

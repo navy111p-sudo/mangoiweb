@@ -79,6 +79,25 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     <div class="sub">역할에 맞는 데이터 범위가 자동 적용됩니다.</div>
   </div>
   <div class="body">
+    <!-- 🚧 인앱 브라우저 경고 (2026-08-19) — 카카오톡 등 «앱 안 브라우저» 는 로그인 쿠키를 돌려주지 않아
+         로그인은 성공해도 곧바로 이 화면으로 되돌아온다. 서버 기록으로 확인한 실제 사고다. -->
+    <div id="inappWarn" style="display:none;margin:0 0 16px;padding:14px 16px;border-radius:14px;
+         background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.45);color:#fde68a;font-size:17px;line-height:1.55">
+      <div style="font-weight:800;margin-bottom:6px" id="inappTitle">⚠️ 카카오톡 안에서는 로그인이 유지되지 않습니다</div>
+      <div style="font-size:15.5px;color:rgba(255,255,255,0.82)" id="inappDesc">
+        로그인은 되지만 이 브라우저가 로그인 상태를 저장하지 못해 다시 이 화면이 뜹니다.
+        아래 버튼으로 크롬·사파리에서 열어 주세요.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+        <button type="button" id="inappOpen" style="flex:1 1 auto;min-width:140px;padding:11px 14px;border:0;border-radius:10px;
+                background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:16px;font-weight:800;cursor:pointer">🌐 크롬으로 열기</button>
+        <button type="button" id="inappCopy" style="flex:0 0 auto;padding:11px 14px;border:1px solid rgba(255,255,255,0.28);border-radius:10px;
+                background:rgba(255,255,255,0.08);color:#fff;font-size:16px;font-weight:800;cursor:pointer">📋 주소 복사</button>
+      </div>
+      <div id="inappHint" style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:9px">
+        버튼이 안 되면 오른쪽 위 ⋮ 를 눌러 '다른 브라우저로 열기' 를 고르세요.
+      </div>
+    </div>
     <form id="loginForm" autocomplete="on">
       <div class="field">
         <label>👤 아이디</label>
@@ -150,6 +169,67 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
   var params = new URLSearchParams(location.search);
   var nextUrl = params.get('next') || '/admin.html';
   try { nextUrl = decodeURIComponent(nextUrl); } catch(e){}
+
+  /* ══ 🚧 인앱 브라우저(앱 안 브라우저) 판정 — 2026-08-19 ═══════════════════════════════════
+     [실제 사고] 사장님이 카카오톡에서 mangoi.ai/work 를 열고 admin 으로 로그인 → 로그인 화면이
+       다시 떴다. 서버 기록상 로그인은 **성공**(admin_login_history success=1)했는데, 그때 만들어진
+       세션 2건이 «한 번도 쓰이지 않았다»(admin_sessions 의 last_seen_at == created_at).
+       = 인앱 브라우저가 세션 쿠키를 돌려주지 않는다. 같은 폰의 크롬 세션은 40분 정상이었다.
+     ⚠️ 이건 사장님만의 문제가 아니다 — 알림톡·카톡 링크로 /teacher·/manager·/work 를 여는
+        강사·매니저에게 똑같이 일어난다(「로그인했는데 또 로그인하래요」의 한 뿌리).
+     ⛔ 「쿠키를 넓히면 되지 않나」로 풀 수 없다. 쿠키는 제대로 내려가고 있고, 그것을 돌려주지
+        않는 쪽이 앱이다. 브라우저를 바꾸는 것 말고는 방법이 없다. */
+  var UA = String(navigator.userAgent || '');
+  var IS_ANDROID = /Android/i.test(UA);
+  var IS_IOS = /iPhone|iPad|iPod/i.test(UA);
+  function inAppName(){
+    if (/KAKAOTALK/i.test(UA)) return '카카오톡';
+    if (/NAVER\(inapp|NAVER /i.test(UA)) return '네이버 앱';
+    if (/Instagram/i.test(UA)) return '인스타그램';
+    if (/FBAN|FBAV|FB_IAB/i.test(UA)) return '페이스북';
+    if (/Line\//i.test(UA)) return '라인';
+    if (/DaumApps|band/i.test(UA)) return '다음·밴드';
+    if (IS_ANDROID && /; wv\)/i.test(UA)) return '앱 안 브라우저';
+    return '';
+  }
+  var IN_APP = inAppName();
+  function showInappWarn(loggedIn){
+    var box = document.getElementById('inappWarn'); if (!box) return;
+    var nm = IN_APP || '앱 안 브라우저';
+    document.getElementById('inappTitle').textContent = loggedIn
+      ? ('⚠️ 로그인은 됐지만 ' + nm + ' 이(가) 로그인 상태를 저장하지 못했습니다')
+      : ('⚠️ ' + nm + ' 안에서는 로그인이 유지되지 않습니다');
+    if (IS_IOS) {
+      document.getElementById('inappOpen').textContent = '🌐 사파리로 열기';
+      document.getElementById('inappHint').textContent = '버튼이 안 되면 오른쪽 아래 ⋯ 를 눌러 「Safari로 열기」를 고르세요.';
+    }
+    box.style.display = 'block';
+    try { box.scrollIntoView({ block: 'nearest' }); } catch(e){}
+  }
+  (function wireInapp(){
+    var openBtn = document.getElementById('inappOpen');
+    var copyBtn = document.getElementById('inappCopy');
+    var target = function(){ return location.href; };
+    if (openBtn) openBtn.addEventListener('click', function(){
+      var u = target();
+      if (IS_ANDROID) {
+        /* 안드로이드는 intent: 로 크롬을 직접 지정할 수 있다. 크롬이 없으면 아무 일도 안 일어나므로
+           안내 문구(⋮ → 다른 브라우저로 열기)를 함께 남겨 둔다. */
+        var bare = u.replace(/^https?:\/\//, '');
+        location.href = 'intent://' + bare + '#Intent;scheme=https;package=com.android.chrome;end';
+        return;
+      }
+      if (IS_IOS) { location.href = 'x-safari-' + u; return; }   // 사파리로 넘기기(지원 기기에서만)
+      window.open(u, '_blank');
+    });
+    if (copyBtn) copyBtn.addEventListener('click', function(){
+      var u = target();
+      var done = function(){ copyBtn.textContent = '✅ 복사됨'; setTimeout(function(){ copyBtn.textContent = '📋 주소 복사'; }, 1800); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(u).then(done, function(){ prompt('이 주소를 복사해서 크롬에 붙여넣으세요', u); }); }
+      else { prompt('이 주소를 복사해서 크롬에 붙여넣으세요', u); }
+    });
+    if (IN_APP) showInappWarn(false);
+  })();
   document.getElementById('loginForm').addEventListener('submit', async function(e){
     e.preventDefault();
     var btn = document.getElementById('loginBtn');
@@ -295,7 +375,23 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             clean = (String(role).indexOf('teacher') >= 0) ? '/teacher' : '/manager';
           }
         }
-        setTimeout(function(){ location.href = clean || '/admin.html'; }, 400);
+        var _go = function(){ setTimeout(function(){ location.href = clean || '/admin.html'; }, 400); };
+        if (!IN_APP) { _go(); }
+        else {
+          /* 🚧 인앱 브라우저에서는 «정말 로그인이 유지되는지» 보내기 전에 한 번 확인한다.
+             쿠키가 안 돌아오면 그대로 보내 봐야 로그인 화면으로 되돌아올 뿐이다(무한 반복).
+             확인 자체가 실패하면(회선 문제 등) 원래대로 진행한다 — 멀쩡한 사람을 막지 않는다. */
+          var _ok = true;
+          try {
+            var chk = await fetch('/api/admin/me', { credentials:'include', cache:'no-store' });
+            _ok = chk.ok;
+          } catch(e){ _ok = true; }
+          if (_ok) { _go(); }
+          else {
+            btn.disabled = false; btn.textContent = '✅ 로그인';
+            showInappWarn(true);
+          }
+        }
       } else {
         var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
         err.textContent = '❌ ' + msg;

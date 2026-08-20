@@ -3305,6 +3305,41 @@ button.chip:hover,
     color: #FFFFFF !important;
   }
 
+  /* ─────────── 수강신청 등록 표 — 행 안 «작은 아이콘 버튼» ───────────
+     ⚠️ 위 #tp-list-table 과 같은 사정이다. 바로 위 전역 룰이
+     padding:9px 18px · 인디고 그라데이션을 !important 로 입히는데,
+     작성자 !important 는 인라인 style 을 이기므로 adm-core.js 가 적어 보낸
+     «width:24px; padding:0; 앰버» · «투명 빨강 ✕» 이 통째로 무시된다.
+     실측(2026-08-20 헤드리스, 1280·1100·1024px 동일):
+       ⏰ 요일별 시간  목표 26×26 → 실제 49×31 (시간 칸이 비워 둔 28px 를 넘어 입력칸을 밀어냄)
+       ✕ 행 삭제    목표 투명 빨강 → 실제 67×46 파란 알약
+     ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
+     width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
+     ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  #en-multi-table td button.en-row-time-builder {
+    width: 26px !important; height: 26px !important; padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #fef3c7 !important; background-image: none !important;
+    border: 1px solid #f59e0b !important; border-radius: 4px !important;
+    color: #92400e !important; font-size: 12px !important; font-weight: 400 !important;
+    line-height: 1 !important; vertical-align: middle !important;
+  }
+  #en-multi-table td button.en-row-time-builder:hover {
+    background: #fde68a !important; background-image: none !important;
+    transform: none !important; box-shadow: none !important;
+  }
+  #en-multi-table td button.en-row-del {
+    padding: 0 6px !important; box-sizing: border-box !important;
+    background: transparent !important; background-image: none !important;
+    border: 0 !important; border-radius: 0 !important;
+    color: #ef4444 !important; font-size: 14px !important; font-weight: 700 !important;
+  }
+  #en-multi-table td button.en-row-del:hover {
+    background: transparent !important; background-image: none !important;
+    color: #b91c1c !important;
+    transform: none !important; box-shadow: none !important;
+  }
+
   /* ============================================
      폼 — input/textarea/select
      ============================================ */
@@ -4281,6 +4316,36 @@ button.chip:hover,
     padding: 8px 18px !important; border-radius: 8px !important;
     font-weight: 800 !important; cursor: pointer !important;
   }
+  /* ✍️ 표의 「결재 올리기」 (2026-08-20 신설)
+     ⛔ .pm-row-btn.tax 를 재사용했더니 — ① 링크라 밑줄이 그어지고
+        ② 라벨이 칸(160px)보다 길어 **두 줄로 접히면서 배경이 조각나** 「글자가 잘려 내려온」 것처럼 보였다.
+        (인라인 요소는 줄마다 배경이 따로 그려진다 — 버튼처럼 보이지만 버튼이 아니다)
+     ✅ inline-flex + nowrap 으로 «한 줄로만» 그린다. 라벨도 짧게 줄였다. */
+  /* 양식 이름이 두 줄로 접혀 지저분하던 것 — 표는 바깥 상자가 overflow-x:auto 라 넘쳐도 안전하다 */
+  #card-report-forms .rf-table td:nth-child(2) { white-space: nowrap; }
+
+  #card-report-forms .rf-go {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap !important;      /* 두 줄로 접히지 않는다 */
+    text-decoration: none !important;    /* 링크 밑줄 제거 */
+    background: rgba(16,185,129,0.16) !important;
+    color: #6EE7B7 !important;
+    border: 1px solid rgba(16,185,129,0.5) !important;
+    border-radius: 7px !important;
+    padding: 6px 11px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+  #card-report-forms .rf-go:hover {
+    background: rgba(16,185,129,0.28) !important;
+    color: #A7F3D0 !important;
+  }
+
   #card-report-forms .rf-btn-new {
     background: linear-gradient(135deg, #10B981, #059669) !important;
     color: #fff !important; border: 0 !important;
@@ -4288,6 +4353,11 @@ button.chip:hover,
     font-weight: 800 !important; cursor: pointer !important;
     margin: 18px auto 0 !important;
     display: block !important;
+  }
+  #card-report-forms a.rf-btn-new {
+    text-decoration: none !important;
+    width: max-content !important;
+    text-align: center;
   }
   #card-report-forms .rf-btn-new:hover {
     background: linear-gradient(135deg, #059669, #047857) !important;
@@ -4350,15 +4420,20 @@ button.chip:hover,
     background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
     color: #fff !important;
   }
+  /* 💬 안내 박스 (2026-08-20 손질)
+     · 진한 파랑 배경이 «투박하다» 는 지적 → 배경은 아주 옅게, 강조는 왼쪽 띠로만.
+     · 글자가 상자 안에서 답답하게 눌리던 것 → 여백·줄간격을 늘리고 문장을 두 줄로 줄였다. */
   #card-report-forms .rf-info {
-    background: rgba(37,99,235,0.15) !important;
-    border-left: 4px solid #2563EB;
+    background: rgba(37,99,235,0.07) !important;
+    border: 1px solid rgba(37,99,235,0.22);
+    border-left: 3px solid #3B82F6;
     color: #F8FAFC !important;
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 12px 16px;
     margin-bottom: 14px;
     font-size: 12.5px;
-    line-height: 1.7;
+    line-height: 1.85;
+    overflow-wrap: anywhere;   /* 긴 낱말이 상자를 밀어내지 않게 */
   }
   #card-report-forms .rf-info b { color: #93C5FD !important; }
 
@@ -5236,17 +5311,36 @@ button.chip:hover,
   }
 
   /* === 모달 (ph114 와 같은 디자인 재사용) === */
+  /* 🔴 (2026-08-19 사장님 「이거 작동이 안된다」) z-index 를 100000 → 100002 로 올렸다.
+     [무슨 일이 있었나] 이 모달을 여는 계정 버튼(#ph115-user)은 사이드바 바닥 도크
+       (#ph162-dock) 안에 있다. 그런데 휴대폰에서 그 사이드바는 화면을 100% 덮는 드로어이고
+       z-index 가 **100001** 이다(이 파일의 @media(max-width:1023px) 블록).
+       그래서 계정 버튼을 누르면 모달은 «열리는데»(overlay.show, display:flex) 드로어가
+       그 위를 통째로 덮어 **아무것도 안 보였다.** 눌러도 반응이 없는 화면이 된다.
+       실측(2026-08-19, 크로미움): 탭 직후 overlay.show=true 인데
+       elementsFromPoint(모달 중앙) = [드로어 시계, ASIDE#ph85-sidebar, …] 로 모달이 3번째였다.
+     ⚠️ «열렸다» 와 «보인다» 는 다르다 — classList 만 확인하면 이 사고를 못 본다.
+        반드시 elementsFromPoint 로 «맨 위에 무엇이 있나» 를 재라(CLAUDE.md 2장).
+     ⚠️ 드로어(100001)를 낮추는 방향으로 풀지 말 것 — 그 값은 드로어 뒷막(#mga-overlay,
+        100000) 위에 있어야 한다. 모달을 올리는 쪽이 반경이 작다.
+     📜 짧은 화면 대비 — 이 모달은 내용이 690px 가까이 된다. 세로가 짧은 폰에서는
+        align-items:center + overflow 없음이면 위아래가 잘려 맨 아래 «로그아웃» 을 못 누른다.
+        그래서 넘칠 때만 스크롤되게 overflow-y:auto 를 주고, 가운데 정렬은 flex 정렬 대신
+        모달의 margin:auto 로 한다(넘칠 때 위쪽이 잘리는 flex 정렬 함정 회피). */
   #ph115-modal-overlay {
     position: fixed !important; inset: 0 !important;
     background: rgba(0,0,0,0.75) !important;
     backdrop-filter: blur(6px) !important;
-    z-index: 100000 !important;
+    z-index: 100002 !important;
     display: none !important;
-    align-items: center !important;
+    align-items: flex-start !important;
     justify-content: center !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
     padding: 20px !important;
   }
   #ph115-modal-overlay.show { display: flex !important; }
+  #ph115-modal-overlay > #ph115-modal { margin: auto !important; }
   #ph115-modal {
     background: linear-gradient(135deg, #0F172A, #1E293B) !important;
     border: 2px solid rgba(96,165,250,0.6) !important;
@@ -7971,6 +8065,9 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-report-forms .rf-form-name:hover { color: #1E40AF !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.22) !important; color: #475569 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info { background: #F5F8FF !important; border-color: #D5E2FB !important; border-left-color: #3B82F6 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go { background: #E9F7F1 !important; color: #0B6E63 !important; border-color: #9AD5C4 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go:hover { background: #D5EFE6 !important; color: #075E54 !important; }
 
   /* 19) 학원별 학생 수업현황 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info { color: #1E293B !important; }
@@ -9043,3 +9140,63 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
     background: rgba(150,120,70,0.16) !important;
     color: #78716c !important;
   }
+
+/* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════
+   검색은 style.display 를 쓰지 않는다 — admin.html 의 «강제 visible» 복구 루프가
+   1.5초마다 display:none 을 전부 되살려서, 검색이 «쳤다가 잠시 뒤 풀리는» 상태였다.
+   그 루프는 사이드바가 통째로 사라졌던 사고의 복구책이라 지우면 안 되고,
+   대신 검색이 **클래스로** 숨긴다. 복구 루프는 style 만 보므로 서로 안 부딪힌다.
+   ⚠️ 클래스 이름을 바꾸면 admin.html 의 runSearch(HIDE 상수)도 함께 고칠 것.
+   ⚠️ !important 가 필요하다 — 사이드바 요소들이 다른 규칙에서 display 를 지정받는다. */
+#ph85-sidebar .ph85-group.ph85-shide,
+#ph85-sidebar .ph85-sub.ph85-shide,
+#ph85-sidebar .ph125-grandchildren.ph85-shide,
+#ph85-sidebar .ph125-gc.ph85-shide { display: none !important; }
+
+/* ═══ ⭐ 자주 쓰는 메뉴 (2026-08-19 · js/adm-quickfav.js) ═══════════════════
+   검색창 아래, 그룹 목록 위. 매일 쓰는 대여섯 개를 3번 클릭 → 1번으로.
+   ⚠️ 일부러 .ph85-group / .ph85-sub 이름을 쓰지 않는다 — 그 이름을 쓰면
+      그룹 갯수 배지·역할 필터·메뉴 검색이 이 줄까지 세거나 거른다.
+   ⚠️ 숨김은 클래스로만 한다(.qf-empty/.qf-searching). style.display 로 숨기면
+      admin.html 의 «강제 visible» 복구 루프가 되살린다. */
+#ph85-sidebar .qf-box{
+  margin: 6px 10px 10px; padding: 7px 8px 8px;
+  border: 1px solid rgba(234,88,12,.22); border-radius: 11px;
+  background: #fffaf3;
+}
+#ph85-sidebar .qf-box.qf-empty,
+#ph85-sidebar .qf-box.qf-searching{ display: none !important; }
+#ph85-sidebar .qf-head{
+  font-size: 11.5px; font-weight: 700; color: #9a3412;
+  padding: 1px 4px 6px; letter-spacing: -.01em;
+}
+#ph85-sidebar .qf-row{
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 6px; border-radius: 7px; cursor: pointer;
+  font-size: 13px; color: #344054; line-height: 1.35;
+}
+#ph85-sidebar .qf-row:hover{ background: rgba(234,88,12,.10); color: #9a3412; }
+#ph85-sidebar .qf-mark{ flex: none; width: 14px; font-size: 11px; opacity: .75; text-align: center; }
+#ph85-sidebar .qf-row.qf-pinned .qf-mark{ color: #ea580c; opacity: 1; }
+#ph85-sidebar .qf-name{
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ★ 버튼 — 보이는 글자는 작게 두되 «누르는 범위»는 손가락에 맞춘다(권장 44px). */
+#ph85-sidebar .qf-star{
+  flex: none; width: 30px; height: 30px; margin: -8px -4px -8px 0;
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; line-height: 1; color: #b4b8c0;
+}
+#ph85-sidebar .qf-row.qf-pinned .qf-star{ color: #ea580c; }
+#ph85-sidebar .qf-star:hover{ color: #ea580c; }
+@media (max-width: 1023px){
+  #ph85-sidebar .qf-row{ padding: 9px 6px; font-size: 13.5px; }
+  #ph85-sidebar .qf-star{ width: 44px; height: 44px; margin: -12px -6px -12px 0; }
+}
+/* 다크(기본) 테마 — 아이보리가 아닐 때 */
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-box{
+  background: rgba(255,255,255,.06); border-color: rgba(148,163,184,.28);
+}
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-head{ color: #fbbf24; }
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row{ color: #cbd5e1; }
+html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row:hover{ background: rgba(148,163,184,.14); color: #f8fafc; }

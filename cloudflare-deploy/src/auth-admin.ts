@@ -26,6 +26,9 @@ import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provi
 export interface AuthEnv {
   DB: D1Database;
   ADMIN_PASSWORD?: string;
+  // 🔐 (2026-08-19) 시연용 지사·대리점·교사 계정 비번. 미설정이면 코드의 강한 폴백을 쓴다.
+  //   `wrangler secret put DEMO_PASSWORD` 로 바꿀 수 있다(바꾸면 그 값이 정본).
+  DEMO_PASSWORD?: string;
   // 🧑‍🏫 강사 옛 LMS 통과 인증 (legacy-teacher-auth.ts) — 'off' 로 즉시 차단 가능
   LEGACY_TEACHER_LOGIN?: string;
   LEGACY_LMS_BASE?: string;
@@ -341,11 +344,24 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
   //   ① 전체권한 계정(admin·cfo·ops_lead)은 추측 불가한 강한 비번 강제(공개 로그인 화면 노출 제거와 세트).
   //   ② 매 부팅마다 비번을 강제로 되돌리던 UPDATE 제거 → 사장님이 바꾼 비번/ env.ADMIN_PASSWORD 가 유지됨.
   //   ③ 과거에 심어진 취약 비번(=아이디와 동일: admin/cfo/ops)만 1회성으로 강한값으로 자동 교체.
+  // 🔐 (2026-08-19 사장님 지시 — 필리핀 매니저 Karl 이 `branch_busan/busan` 으로 몇 주째 일하고 있던 건):
+  //   ④ **저권한 시연 계정도 아이디에서 유추되는 비번을 쓰면 안 된다.** 이 계정들은 «데모» 라는 이름과 달리
+  //      admin_scope 로 **실제 자료**에 연결돼 있다(branch_busan → 지사 '부산' = 실제 학생·매출).
+  //      비번이 busan/daegu/gn001/sc002/teacher 라 아이디만 알면 남의 지사 자료가 열렸다.
+  //      → ①③ 과 같은 방식(강한 비번으로 심기 + 취약 비번일 때만 1회 교체)을 이 계정들에도 적용한다.
+  //   ⚠️ 계정을 지우거나 잠그지는 않는다 — 사장님·본사가 화면 점검에 실제로 쓰고 있고(로그인 기록 확인),
+  //      지우면 그 점검 경로가 통째로 사라진다. «비번만» 추측 불가로 바꾼다.
+  //   ⚠️ capitown(캐피타운 본사)은 아이디에서 유추되는 비번이 아니고 정산 실사용 계정이라 건드리지 않는다.
   try {
     // env.ADMIN_PASSWORD 미설정 시에도 절대 'admin' 같은 자명한 값이 되지 않도록 강한 폴백 사용.
     const strongAdminPw = (env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length >= 8)
       ? env.ADMIN_PASSWORD : 'FbshDMf9ei5Tog';
+    // 저권한 시연 계정(지사·대리점·교사)용 강한 비번. env.DEMO_PASSWORD 를 넣으면 그 값이 이긴다.
+    const strongDemoPw = (env.DEMO_PASSWORD && env.DEMO_PASSWORD.length >= 8)
+      ? env.DEMO_PASSWORD : 'Kv8pQn3TjWz5Ra';
     const FULL_ACCESS = new Set(['admin', 'cfo', 'ops_lead']);
+    // 실제 스코프가 붙어 있는 시연 계정 — 아이디 유래 비번을 쓰면 안 되는 대상
+    const SCOPED_DEMO = new Set(['branch_busan', 'branch_daegu', 'agency_gn001', 'agency_sc002', 'hq_t_001', 'hq_t_len']);
     // [username, 취약했던 기존 비번(교체 감지용), 표시이름]
     const demoAccounts: Array<[string, string, string]> = [
       ['admin', 'admin', '본사·경영진'],
@@ -364,24 +380,26 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     const nowD = Date.now();
     for (const acc of demoAccounts) {
       const u = acc[0], oldPw = acc[1], nm = acc[2];
-      const seedPw = FULL_ACCESS.has(u) ? strongAdminPw : oldPw;   // 전체권한 계정은 강한 비번으로 심는다
+      // 강한 비번을 심는 대상: 전체권한 계정 + 실제 스코프가 붙은 시연 계정
+      const strongPw = FULL_ACCESS.has(u) ? strongAdminPw : (SCOPED_DEMO.has(u) ? strongDemoPw : null);
+      const seedPw = strongPw || oldPw;
       const ex: any = await env.DB.prepare(`SELECT id, password_hash FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
       if (!ex) {
         await env.DB.prepare(
           `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
         ).bind(u, await hashPassword(seedPw), nm, nowD, nowD).run();
         console.warn('[auth-admin] demo account seeded:', u);
-      } else if (FULL_ACCESS.has(u)) {
-        // 이미 존재하는 전체권한 계정: '아이디와 동일한 취약 비번'일 때만 강한 비번으로 1회 교체.
+      } else if (strongPw) {
+        // 이미 존재하는 계정: '아이디에서 유추되는 취약 비번'일 때만 강한 비번으로 1회 교체.
         //   (이미 강한 비번이거나 사장님이 바꾼 비번은 건드리지 않음)
         const isWeak = await verifyPassword(oldPw, String(ex.password_hash || ''));
         if (isWeak) {
           await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
-            .bind(await hashPassword(strongAdminPw), nowD, u).run();
-          console.warn('[auth-admin] 🔐 weak password rotated for full-access account:', u);
+            .bind(await hashPassword(strongPw), nowD, u).run();
+          console.warn('[auth-admin] 🔐 weak password rotated:', u);
         }
       }
-      // 그 외(저권한 데모/실계정)는 seed-if-missing 만. 매부팅 강제리셋 제거로 바뀐 비번이 유지됨.
+      // 그 외(스코프 없는 실계정)는 seed-if-missing 만. 매부팅 강제리셋 제거로 바뀐 비번이 유지됨.
     }
   } catch (e) {
     console.warn('[auth-admin] demo seed failed:', (e as any)?.message);
