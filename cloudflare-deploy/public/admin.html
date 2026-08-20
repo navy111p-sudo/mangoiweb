@@ -10666,9 +10666,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- 안내 박스 -->
     <div class="rf-info">
-      💡 <b>보고서 양식</b> — 강사·직원이 작성하는 결재 문서 (휴가 계획서, 기안서, 지출 결의서 등) 의 템플릿을 관리합니다.<br>
-      ▸ <b>강사 측 흐름</b>: 강사가 양식 선택 → 작성 → 결재 신청 &nbsp;
-      ▸ <b>관리자 측 흐름</b>: 신규 등록 / 사용중↔보관 토글 / 양식 편집
+      💡 <b>보고서 양식</b> — 강사·직원이 쓰는 결재 문서(휴가 계획서, 기안·지출 결의서)의 <b>생김새를 미리 보는 곳</b>입니다.<br>
+      ▸ <b>실제 결재는 전자결재 화면에서 올립니다</b> — 양식 이름을 누르면 미리보기, 「✍️ 이 양식으로 결재 올리기」를 누르면 그 분류의 결재 폼이 바로 열립니다.<br>
+      ▸ 결재함 열기: <a href="/work" style="font-weight:800">🧾 전자결재 (/work)</a> — 올리기 · 결재하기 · 지난 결재 보기가 모두 그곳에 있습니다.
     </div>
 
     <!-- 검색 툴바 -->
@@ -10701,8 +10701,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th style="width:160px">액션</th>
       </tr></thead>
       <tbody id="rf-tbody">
-        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><button class="pm-row-btn tax" onclick="rfEdit(2)">편집</button><button class="pm-row-btn" onclick="rfToggle(2)">보관</button></td></tr>
-        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><button class="pm-row-btn tax" onclick="rfEdit(1)">편집</button><button class="pm-row-btn" onclick="rfToggle(1)">보관</button></td></tr>
+        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><a class="pm-row-btn tax" href="/work?type=expense" style="text-decoration:none" data-ko="✍️ 이 양식으로 결재 올리기" data-en="✍️ Submit with this form">✍️ 이 양식으로 결재 올리기</a></td></tr>
+        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><a class="pm-row-btn tax" href="/work?type=leave" style="text-decoration:none" data-ko="✍️ 이 양식으로 결재 올리기" data-en="✍️ Submit with this form">✍️ 이 양식으로 결재 올리기</a></td></tr>
       </tbody>
     </table>
     </div>
@@ -10716,8 +10716,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button class="rf-page-btn">»</button>
     </div>
 
-    <!-- 신규등록 버튼 (중앙 강조) -->
-    <button data-gc="➕ 신규 양식 등록" data-gc-en="Add Form" class="rf-btn-new" onclick="rfNew()">➕ 신규 양식 등록</button>
+    <!-- 🧾 결재함 바로가기 (중앙 강조)
+         ⛔ 2026-08-20 — 여기 있던 「➕ 신규 양식 등록」을 뺐다(사장님 지시).
+            양식 템플릿 CRUD 백엔드가 없어서 「준비 중입니다」 알림창만 뜨던 버튼이고,
+            양식(휴가·지출)은 이미 전자결재 분류 7종 안에 들어 있다. 창구는 /work 하나다.
+            ⚠️ 손자 메뉴 이름표(data-gc)도 함께 뺐다 — 남겨 두면 사이드바에 «갈 곳 없는 손자»가 된다. -->
+    <a data-gc="🧾 전자결재 열기" data-gc-en="Open approvals" class="rf-btn-new" href="/work" style="display:inline-block;text-decoration:none" data-ko="🧾 전자결재 화면 열기 — 결재 올리기·결재하기" data-en="🧾 Open approvals — submit or decide">🧾 전자결재 화면 열기 — 결재 올리기·결재하기</a>
 
   </div>
 </details>
@@ -10758,14 +10762,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     console.log('[ph107] 양식 검색 —', shown, '/', rows.length);
   };
 
-  // 양식 편집·보관·신규등록 — 저장할 서버가 없다. 있는 척하지 않는다.
-  function rfNotReady(what){
-    alert(what + ' 기능은 아직 준비 중입니다.\n\n지금은 양식 이름을 눌러 미리보기만 가능합니다.\n결재를 올리시려면 전자결재 화면을 이용해 주세요.');
-  }
-  window.rfEdit   = function(id){ console.log('[ph107] 양식 편집 요청 #' + id + ' (준비 중)'); rfNotReady('양식 편집'); };
-  window.rfToggle = function(id){ console.log('[ph107] 양식 보관 요청 #' + id + ' (준비 중)'); rfNotReady('양식 보관/사용중 전환'); };
-  window.rfNew    = function(){   console.log('[ph107] 신규 양식 등록 요청 (준비 중)');       rfNotReady('신규 양식 등록'); };
-  console.log('[ph107] 보고서 양식 카드 초기화 완료');
+  /* ⛔ 2026-08-20 — rfEdit·rfToggle·rfNew 를 지웠다(사장님 지시).
+   *   셋 다 「준비 중입니다」 알림창만 띄우던 버튼이고, 저장할 서버가 없다.
+   *   ⛔ 다시 만들지 말 것 — 양식(휴가·지출)은 이미 전자결재 분류 7종
+   *      (approval-policy.ts TYPES)에 들어 있다. 양식을 여기서 따로 관리하면
+   *      휴가 신청 창구가 두 개가 되고 「어디로 올려야 하나요」가 시작된다.
+   *   ✅ 종이 양식처럼 칸을 더 받고 싶으면 TYPES 에 입력칸을 늘리는 쪽이 정본이다. */
+  console.log('[ph107] 보고서 양식 카드 초기화 완료 — 실제 결재는 /work');
 })();
 </script>
 
@@ -10794,7 +10797,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-r17.js?v=2" defer></script><!-- 분할추출:adm-r17 -->
+<script src="/js/adm-r17.js?v=3" defer></script><!-- 분할추출:adm-r17 -->
 
 
 <!-- Phase 109 admin (2026-05-25) — 양식 모달 인쇄/PDF/Excel/Word 다운로드 -->
