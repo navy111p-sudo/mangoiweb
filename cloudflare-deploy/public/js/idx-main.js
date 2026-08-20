@@ -1673,6 +1673,7 @@ function vcToggleSoundBanner(show) {
             const prev = pc.__audPrev || { bytes: 0, blocked: 0, noTrack: 0 };
             const flowing = bytes > prev.bytes;
             // ── 상대 마이크 자체가 없음/꺼짐 → 우리 쪽에선 못 고침, 안내만
+            //   false-alarm guard(2026-08-20): js/idx-vc-dupghost.js
             let hint = box.querySelector('.vc-noaudio-hint');
             if (!hasAudioTrack || (!flowing && bytes === 0)) {
                 prev.noTrack = (prev.noTrack || 0) + 1;
@@ -7566,7 +7567,8 @@ window.vcToggleContentTab = function(tabName){
     }
     var panel = document.getElementById('tab-' + tabName);
     var alreadyShowing = panel && panel.classList.contains('active') && !vcIsContentCollapsed();
-    if (alreadyShowing && tabName !== 'whiteboard') {
+    // 📖 (2026-08-20) 교재도 칠판처럼 다시 눌러도 안 접는다
+    if (alreadyShowing && tabName !== 'whiteboard' && tabName !== 'pdf') {
         vcSetContentCollapsed(true);
     } else {
         vcSetContentCollapsed(false);
