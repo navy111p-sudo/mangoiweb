@@ -5607,11 +5607,12 @@ function _addEnrollmentRow(prefill) {
     '<label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" class="en-row-type" value="trial"' + (types.includes('trial')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.trial+'</label>' +
     '<label style="font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-type" value="regular"' + (types.includes('regular')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.regular+'</label>';
   // 요일 — 7 체크박스 (월화수목금토일)
+  //   🧑‍🏫 (2026-08-20) 체크박스가 요일 글자 «옆» 이 아니라 «위» 에 오도록 — 칸마다 세로로 쌓는다
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
-  const dayChecks = dayCodes.map((c, i) =>
-    '<label style="font-size:11px;margin-right:3px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-right:1px;vertical-align:middle"/>' + dayLabels[i] + '</label>'
-  ).join('');
+  const dayChecks = '<div style="display:flex;gap:5px">' + dayCodes.map((c, i) =>
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:0 0 1px"/>' + dayLabels[i] + '</label>'
+  ).join('') + '</div>';
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
   //    · 이름: 아래 _enLookupStudent 가 학생 아이디로 명부에서 찾아 넣는다
