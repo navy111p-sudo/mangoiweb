@@ -134,7 +134,7 @@
       { ko:'⏰ 만료 임박 학생',     en:'⏰ Expiring Soon',     anchor:'sm-expiring' },
       { ko:'🚪 오늘 수업',          en:'🚪 Today\'s Classes',  anchor:'sm-today-classes' },
       { ko:'📅 오늘 출결',          en:'📅 Today\'s Attendance', anchor:'sm-today-attendance' },
-      { ko:'📅 학원 전체 스케줄',   en:'📅 All Schedules',    anchor:'sm-all-schedules' },
+      { ko:'📅 전체 스케줄',       en:'📅 All Schedules',    anchor:'sm-all-schedules' },
       { ko:'🏆 연속 출석 랭킹',     en:'🏆 Streak Ranking',   anchor:'sm-streak-rank' },
       { ko:'📞 최근 상담 통합',     en:'📞 Recent Consults',  anchor:'sm-recent-consult' },
       { ko:'💭 단체 메시지',        en:'💭 Bulk Message',     anchor:'sm-bulk-section' }

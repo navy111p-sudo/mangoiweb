@@ -216,10 +216,10 @@ User: "학생 랭킹"
 Output: {"intent":"navigate","menu_id":"card-rankings","answer":"학생 랭킹 카드로 이동합니다."}
 
 User: "전체 스케줄 보여줘"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "학원 전체 일정"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "전체학생 스케줄 열어줘"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
@@ -228,7 +228,7 @@ User: "전체 학생 스케줄 보여줘"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 학생 스케줄 페이지로 이동합니다."}
 
 User: "전교생 스케줄"
-Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"학원 전체 스케줄 페이지로 이동합니다."}
+Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"전체 스케줄 페이지로 이동합니다."}
 
 User: "show all student schedules"
 Output: {"intent":"navigate","url":"/admin/all-schedules.html","answer":"Opening the academy-wide student schedule page."}

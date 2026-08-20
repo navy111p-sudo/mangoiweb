@@ -7801,7 +7801,7 @@ button.chip:hover,
   #ph85-sidebar .ph85-sub:hover .mi-ico,
   #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
   #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#fbbf24 !important; opacity:1 !important; }
-  /* 강조 줄(학원 전체 스케줄)은 파란 계열 유지 */
+  /* 강조 줄(전체 스케줄)은 파란 계열 유지 */
   #ph85-sidebar .ph85-sub-schedule .mi-ico{ color:#60a5fa !important; opacity:.92 !important; }
   #ph85-sidebar .ph85-sub-schedule:hover .mi-ico{ color:#93c5fd !important; opacity:1 !important; }
 
