@@ -152,30 +152,40 @@
    *   진짜 전자결재는 이미 `/work.html` 에 다 있다 — POST /api/approval/requests,
    *   첨부·OCR·음성·전결·멱등성까지. 그러니 여기서 흉내내지 말고 그쪽으로 보낸다.
    *   ⛔ 「완료」 라는 말을 다시 넣지 말 것. 서버에 보내는 코드가 생기기 전까지는 거짓말이다. */
-  var APPROVAL_URL = '/work.html';
+  var APPROVAL_URL = '/work';
+
+  /* 🔗 양식 → 전자결재 «분류» 짝 (2026-08-20)
+   *   왜 — 예전에는 /work 로 보내기만 해서 도착해서 분류를 **또** 골라야 했다.
+   *        「양식을 골랐다 → 그 폼이 열린다」 가 되어야 두 화면이 한 흐름이 된다.
+   *   ⚠️ 값은 approval-policy.ts 의 TYPES key 다(leave · expense · doc …).
+   *      거기 없는 값을 적으면 /work 가 「올릴 수 없는 분류」로 안내하고 만다. */
+  var FORM_TO_TYPE = { 1: 'leave', 2: 'expense' };
 
   // 진짜 결재 화면으로 이동. 카톡·문자 인앱 브라우저는 새 창을 못 열고
   // 예외 없이 null 만 돌려주므로, 비면 같은 창에서 연다.
-  function gotoApproval(){
+  function gotoApproval(formId){
+    var t = FORM_TO_TYPE[formId];
+    var url = APPROVAL_URL + (t ? ('?type=' + t) : '');
     var w = null;
-    try { w = window.open(APPROVAL_URL, '_blank'); } catch (e) { w = null; }
-    if (!w) location.href = APPROVAL_URL;
+    try { w = window.open(url, '_blank'); } catch (e) { w = null; }
+    if (!w) location.href = url;
   }
 
   // 임시 저장 — 저장할 서버가 없다. 있는 척하지 않는다.
   window.rfSaveDraft = function(){
     if (!currentFormId) return;
     console.log('[ph108] 임시 저장 요청 — 양식 #' + currentFormId + ' (미리보기라 저장하지 않음)');
-    alert('이 창은 양식 미리보기라 저장되지 않습니다.\n\n작성 중인 내용을 남기려면 전자결재 화면에서 작성해 주세요.');
+    alert('이 창은 양식 미리보기라 저장되지 않습니다.\n\n전자결재 화면(/work)에서 작성하시면 쓰다 만 내용도 자동으로 저장됩니다.');
   };
 
   // 결재 상신 — 실제 상신은 전자결재 화면에서만 이뤄진다.
   window.rfSubmit = function(){
     if (!currentFormId) return;
     console.log('[ph108] 결재 상신 요청 — 양식 #' + currentFormId + ' (미리보기라 상신하지 않음)');
-    if (!confirm('이 창은 양식 미리보기라 결재가 올라가지 않습니다.\n\n전자결재 화면으로 이동할까요?')) return;
+    if (!confirm('이 창은 양식 미리보기라 결재가 올라가지 않습니다.\n\n전자결재 화면에서 이 양식으로 바로 작성하시겠습니까?')) return;
+    var id = currentFormId;
     rfCloseModal();
-    gotoApproval();
+    gotoApproval(id);
   };
 
   console.log('[ph108] 양식 미리보기 모달 초기화 완료 — rfOpen(id) 로 양식 ID 1, 2 호출 가능');
