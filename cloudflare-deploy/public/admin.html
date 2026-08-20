@@ -9837,13 +9837,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
               건드리면 진단·EN·🔊음성 토글의 2칸/3칸 배치까지 함께 흔들린다.
            ⚠️ 이름도 이모지도 경로 줄과 겹치면 안 된다 — 그 줄의 「🏠 홈」은 «대시보드 첫 화면»,
               여기는 «망고아이 사이트» 로 나가는 문이다. 2026-08-21 사장님 지적: 처음엔 둘 다 🏠 라
-              「어느 쪽이 어디로 가는지」 헷갈렸다 → 이쪽을 🥭 로 바꾸고, 이름도 사장님이 정하신
-              «Mr.mangi»(캐릭터 이름) 로 바꿨다. 어디로 가는지는 title 툴팁이 말해 준다.
-              ⛔ 다시 🏠 로 되돌리거나 «홈» 이라는 말로 되돌리지 말 것 — 경로 줄과 또 겹친다. -->
+              「어느 쪽이 어디로 가는지」 헷갈렸다 → 이쪽은 **망고아이 캐릭터 그림 + 「사이트 홈」**,
+              경로 줄은 🏠 로 갈랐다. ⛔ 이 자리를 🏠 이모지로 되돌리지 말 것 — 또 겹친다.
+              ⚠️ 그림(<img>)에는 data-ko/data-en 을 걸지 않는다 — 관리자 화면의 언어 전환
+                 (adm-core.js 63행: [data-ko] 를 훑어 el.textContent 로 대입)은 그 요소의 내용을
+                 **통째로 갈아치우므로**, 앵커에 걸면 EN 을 한 번 누르는 순간 그림이 사라진다.
+                 그래서 글자만 <span> 으로 감싸 거기에 걸었다.
+              ⚠️ 그림은 이미 이 화면이 쓰는 파일이다(AI 운영 비서 얼굴 poster) — 새 요청이 아니다. -->
       <a class="ph162-pill" id="ph162-sitehome" href="/" style="grid-column:1 / -1"
          title="망고아이 첫 화면(전체 메뉴)으로" data-ko-title="망고아이 첫 화면(전체 메뉴)으로"
-         data-en-title="Back to the Mangoi home (All Menu)"
-         data-ko="🥭 Mr.mangi" data-en="🥭 Mr.mangi">🥭 Mr.mangi</a>
+         data-en-title="Back to the Mangoi home (All Menu)"><img
+         src="/img/Mangoi_Character.png" alt="" width="22" height="22" loading="lazy"
+         style="width:22px;height:22px;object-fit:contain;flex:none"><span
+         data-ko="사이트 홈" data-en="Site home">사이트 홈</span></a>
   </div>
 </aside>
 
