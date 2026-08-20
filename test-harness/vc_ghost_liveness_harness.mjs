@@ -146,5 +146,18 @@ ok('교재는 다시 눌러도 접히지 않는다(돌아오려고 누르는 버
    /tabName !== 'whiteboard' && tabName !== 'pdf'/.test(MAIN));
 ok('교재 버튼에 한/영 라벨이 있다', /data-ko="📖 교재" data-en="📖 Textbook"/.test(IDX));
 
+/* 🎨 (2026-08-21) 활성 탭이 «앰버 알약 + 파란 밑줄» 로 두 색이 싸우던 것.
+   옛 세대 `.tab-btn.active{border-bottom-color:#38bdf8}` 위에 이 파일이 알약을 얹으면서
+   밑줄을 안 껐다. 교재 버튼이 생겨 첫 화면에 늘 보이게 되자 티가 났다. */
+const REF = R('../cloudflare-deploy/public/css/vc-refresh.css');
+ok('활성 탭에서 옛 파란 밑줄을 끈다(알약과 색이 싸움)',
+   /\.tab-btn\.active\{[^}]*border-bottom-color:\s*transparent/.test(REF));
+// ⛔ box-shadow 로 그리면 저사양 모드(html.lite-mode)가 box-shadow:none !important 로 지운다(실측).
+ok('테두리를 box-shadow 가 아니라 outline 으로 그린다(lite-mode 에서 사라짐)',
+   /\.tab-btn\.active\{[^}]*outline:[^}]*outline-offset:\s*-1px/.test(REF)
+   && !/\.tab-btn\.active\{[^}]*box-shadow:inset/.test(REF));
+ok('라이트 테마는 그 테마의 강조색(하늘)으로 맞춘다(앰버 배경 + 파란 글자 방지)',
+   /body\.vc-theme-light\.vc-in-call \.tab-bar \.tab-btn\.active\{/.test(REF));
+
 console.log(`\n결과: ${PASS} 통과, ${FAIL} 실패`);
 if (FAIL) { FAILS.forEach(f => console.log(`실패: ${f}`)); process.exit(1); }
