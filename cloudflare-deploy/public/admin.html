@@ -683,7 +683,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=35"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=36"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -10690,9 +10690,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- 안내 박스 -->
     <div class="rf-info">
-      💡 <b>보고서 양식</b> — 강사·직원이 쓰는 결재 문서(휴가 계획서, 기안·지출 결의서)의 <b>생김새를 미리 보는 곳</b>입니다.<br>
-      ▸ <b>실제 결재는 전자결재 화면에서 올립니다</b> — 양식 이름을 누르면 미리보기, 「✍️ 이 양식으로 결재 올리기」를 누르면 그 분류의 결재 폼이 바로 열립니다.<br>
-      ▸ 결재함 열기: <a href="/work" style="font-weight:800">🧾 전자결재 (/work)</a> — 올리기 · 결재하기 · 지난 결재 보기가 모두 그곳에 있습니다.
+      💡 <b>보고서 양식</b> — 결재 문서의 <b>생김새를 미리 보는 곳</b>입니다. 양식 이름을 누르면 미리보기가 열립니다.<br>
+      ▸ <b>실제 결재는 전자결재에서 올립니다</b> — 「✍️ 결재 올리기」를 누르면 그 분류의 결재 폼이 바로 열립니다.
     </div>
 
     <!-- 검색 툴바 -->
@@ -10721,12 +10720,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th>보고서 양식명</th>
         <th style="width:100px">분류</th>
         <th style="width:120px">상태</th>
-        <th style="width:140px">최종 수정일</th>
-        <th style="width:160px">액션</th>
+        <th style="width:130px">최종 수정일</th>
+        <th style="width:150px">액션</th>
       </tr></thead>
       <tbody id="rf-tbody">
-        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><a class="pm-row-btn tax" href="/work?type=expense" style="text-decoration:none" data-ko="✍️ 이 양식으로 결재 올리기" data-en="✍️ Submit with this form">✍️ 이 양식으로 결재 올리기</a></td></tr>
-        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><a class="pm-row-btn tax" href="/work?type=leave" style="text-decoration:none" data-ko="✍️ 이 양식으로 결재 올리기" data-en="✍️ Submit with this form">✍️ 이 양식으로 결재 올리기</a></td></tr>
+        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><a class="rf-go" href="/work?type=expense" data-ko="✍️ 결재 올리기" data-en="✍️ Submit">✍️ 결재 올리기</a></td></tr>
+        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><a class="rf-go" href="/work?type=leave" data-ko="✍️ 결재 올리기" data-en="✍️ Submit">✍️ 결재 올리기</a></td></tr>
       </tbody>
     </table>
     </div>
@@ -10745,7 +10744,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             양식 템플릿 CRUD 백엔드가 없어서 「준비 중입니다」 알림창만 뜨던 버튼이고,
             양식(휴가·지출)은 이미 전자결재 분류 7종 안에 들어 있다. 창구는 /work 하나다.
             ⚠️ 손자 메뉴 이름표(data-gc)도 함께 뺐다 — 남겨 두면 사이드바에 «갈 곳 없는 손자»가 된다. -->
-    <a data-gc="🧾 전자결재 열기" data-gc-en="Open approvals" class="rf-btn-new" href="/work" style="display:inline-block;text-decoration:none" data-ko="🧾 전자결재 화면 열기 — 결재 올리기·결재하기" data-en="🧾 Open approvals — submit or decide">🧾 전자결재 화면 열기 — 결재 올리기·결재하기</a>
+    <a data-gc="🧾 전자결재 열기" data-gc-en="Open approvals" class="rf-btn-new" href="/work" data-ko="🧾 전자결재 화면 열기" data-en="🧾 Open approvals">🧾 전자결재 화면 열기</a>
 
   </div>
 </details>
