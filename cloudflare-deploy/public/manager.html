@@ -1211,7 +1211,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       var when = (nm && nm.start_time) ? '<span class="muted">' + esc(nm.start_time) + '</span>' : '';
       return '<div class="row"><b>' + esc(head) + '</b>' + subId + when
            + (cnt !== '' ? '<span class="muted">' + esc(T(cnt + ' in room', '참여 ' + cnt + '명')) + '</span>' : '')
-           + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room=' + encodeURIComponent(id) + '">'
+           /* 🔗 (2026-08-20) 이름은 반드시 `room_id` — ghost-view.html 은 room_id 만 읽는다.
+              `?room=` 로 보내면 방 번호가 빈 채로 열려 «관찰을 눌렀는데 아무 수업도 없다» 가 된다
+              (제보 문서 「Observer Issue in All Menu Dashboard」와 같은 뿌리). */
+           + '<a class="tag" target="_blank" rel="noopener" href="/admin/ghost-view.html?room_id=' + encodeURIComponent(id) + '">'
            +   esc(T('Observe', '관찰')) + '</a></div>';
     }, T('No class is running right now.', '지금 진행 중인 수업이 없습니다.'));
   }

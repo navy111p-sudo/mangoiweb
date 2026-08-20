@@ -306,7 +306,14 @@
     /* 🎯 우측 상단 컨트롤 바 정리 — 헤더 안 한 줄 정렬 */
     .header {
       background:linear-gradient(135deg, #1f1b3a, #0f172a);
-      padding:12px 18px; border-bottom:2px solid var(--purple);
+      /* ⬅ (2026-08-20) 왼쪽 여백은 js/back-nav.js 가 띄우는 동그란 ← 자리다.
+         그 버튼은 position:fixed(left 14px · 지름 38px)라 문서 흐름을 차지하지 않아서,
+         여백이 없으면 제목 «👀 수업 관찰» 위에 그대로 겹쳐 앉는다(실측 1280×900).
+         ⚠️ 이 주석에 홑낫표(U+300C·U+300D)를 쓰지 말 것 — 한자 폰트(983KB) 장식문자 검사가 CSS 주석은
+            벗겨 내지 못해 이 화면 하나 때문에 폰트를 받게 된다(admin_lazyload_harness ②-3).
+         ⚠️ 이 화면은 PC 에서 body{zoom:1.3} 이라 그 38px 가 화면에서는 ≈49px 로 커진다 —
+            여백은 zoom «안쪽» 값이므로 62px 면 충분하다(14+38+여유). */
+      padding:12px 18px 12px 62px; border-bottom:2px solid var(--purple);
       display:flex; align-items:center; gap:14px; flex-wrap:wrap;
       position:sticky; top:0; z-index:50; backdrop-filter:blur(12px);
     }
@@ -521,7 +528,9 @@
     @keyframes alertSlide { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
 
     @media (max-width:600px) {
-      .header { padding:10px 12px; gap:8px; }
+      /* ← 는 480px 이하에서 8px·34px 로 작아지고 그 위로는 14px·38px 다(back-nav.js).
+         두 경우를 한 값으로 덮는다 — 56px 는 14+38 보다 크다. */
+      .header { padding:10px 12px 10px 56px; gap:8px; }
       .header h1 { font-size:14px; }
       .ghost-badge { font-size:9.5px; padding:3px 8px; }
       .header-info { font-size:11px; }
@@ -557,7 +566,45 @@
     </div>
   </div>
 
-  <div class="wrap">
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       🗂 «수업 고르기» — 강의실 번호 없이 들어왔을 때 (2026-08-20 필리핀 매니저 제보)
+       ═══════════════════════════════════════════════════════════════════════════
+       [왜] 전체 메뉴(index.html)의 「👀 수업 관찰」 타일은 이 화면을
+         `/admin/ghost-view.html` 을 **파라미터 없이** 연다(js/idx-allmenu.js).
+         그런데 이 화면은 «방 하나를 보는 뷰어» 라, room_id 가 없으면 빈 방 번호로
+         조회가 나가 채팅·참가자가 영원히 비고 영상 칸도 「연결 중…」에서 멈춘다.
+         쓰는 사람 눈에는 «수업이 하나도 안 뜬다» 로 보인다
+         (제보 문서 「Observer Issue in All Menu Dashboard」 — 관리자 대시보드에는
+          보이는 수업 두 건이 여기서는 안 보였다).
+       [고침] 방 번호가 없으면 뷰어 대신 **지금 열려 있는 수업 목록**을 그려 고르게 한다.
+         ⛔ 전체 메뉴 타일(idx-allmenu.js)·관리자 카드는 건드리지 않았다 — 이 화면 하나로 닫는다.
+       ⚠️ 실제 «영상» 은 이 화면이 아니라 `/?observe=<방번호>` 가 보여 준다
+         (src/video-call-room.ts 의 handleJoinObserve). 이 화면은 지금도 메타·채팅·참가자만
+         보여 주므로(아래 「GM-4」 안내 참고) 줄마다 그 버튼을 함께 둔다.
+       ⚠️ 참관은 전부 감사 로그에 남아야 한다 — 줄을 누르면 /api/admin/ghost/start 를
+         먼저 부른다. 기록이 실패해도 이동은 막지 않는다(수업 대응이 우선 — adm-core.js
+         의 observeRoom() 이 같은 판단을 했다). -->
+  <div id="ghd-picker" style="display:none;max-width:1100px;margin:0 auto;padding:14px">
+    <div class="panel">
+      <h2>👀 <span data-ko="관찰할 수업 고르기" data-en="Choose a class to observe">관찰할 수업 고르기</span></h2>
+      <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:12px">
+        <span data-ko="강의실 번호 없이 열렸습니다. 아래에서 수업을 고르면 그 수업으로 들어갑니다."
+              data-en="This page was opened without a room number. Pick a class below to observe it.">강의실 번호 없이 열렸습니다. 아래에서 수업을 고르면 그 수업으로 들어갑니다.</span>
+      </div>
+
+      <h3 style="margin:0 0 6px 0;font-size:12px;color:#fca5a5;font-weight:800">🔴
+        <span data-ko="지금 화상방에 붙어 있는 수업" data-en="Classes live in a Mango-i room">지금 화상방에 붙어 있는 수업</span>
+      </h3>
+      <div id="ghd-pick-live" style="margin-bottom:16px"></div>
+
+      <h3 style="margin:0 0 6px 0;font-size:12px;color:#93c5fd;font-weight:800">📅
+        <span data-ko="예약 기준 지금 수업 (카페24)" data-en="Booked classes for this moment (cafe24)">예약 기준 지금 수업 (카페24)</span>
+      </h3>
+      <div id="ghd-pick-sched"></div>
+    </div>
+  </div>
+
+  <div class="wrap" id="ghd-viewer">
     <!-- 좌측: 비디오 + KPI + 발화비율 + 액션 -->
     <div class="panel">
       <h2>🎬 <span data-ko="강의실 실시간 화면" data-en="Live Classroom">강의실 실시간 화면</span></h2>
@@ -567,6 +614,11 @@
           <div class="big">📡</div>
           <div data-ko="라이브 영상 스트림 연결 중…" data-en="Connecting to live stream…">라이브 영상 스트림 연결 중…</div>
           <div style="font-size:11px;color:#fcd34d;margin-top:6px">⚠ 실제 영상은 GM-4 단계에서. 현재는 메타데이터·채팅·참가자만 실시간 표시.</div>
+          <!-- 🎥 (2026-08-20) 위 안내대로 이 칸에는 영상이 오지 않는다. 「연결 중…」만 떠 있으면
+               장애로 읽히므로, 실제로 영상이 나오는 화면(/?observe=)으로 가는 문을 함께 둔다. -->
+          <button type="button" id="ghd-open-live" class="btn btn-primary" style="margin-top:10px" onclick="ghdOpenLive()">🎥
+            <span data-ko="라이브 화면 열기 (새 창)" data-en="Open live video (new tab)">라이브 화면 열기 (새 창)</span>
+          </button>
         </div>
       </div>
 
@@ -964,10 +1016,190 @@
     window.addEventListener('offline', () => setConn('down'));
 
     // 🔄 수동 새로고침 = 스케줄러를 깨워 즉시 1회 갱신(pollCycle 이 채팅·참여자·알림을 한꺼번에 다시 읽는다)
-    window.ghdRefresh = function(){ kickPolling(); };
+    window.ghdRefresh = function(){ if (!roomId) { ghdLoadPicker(); return; } kickPolling(); };
 
-    kickPolling();
-    setInterval(updateDuration, 1000);
+    /* ═══════════════════════════════════════════════════════════════════════
+       🗂 «수업 고르기» (2026-08-20) — 위 #ghd-picker 주석에 왜 필요한지 적어 두었다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    function ghdEn() {
+      /* 🌐 언어 판정은 getLang() 으로 한다(CLAUDE.md 2장 — 이 페이지도 i18n 엔진이
+         mango-i18n.js 하나가 아니라 adm-lang-boot 와 짝이다). 없으면 공용 키를 본다. */
+      try { return (window.getLang ? window.getLang() : localStorage.getItem('mangoi_lang')) === 'en'; }
+      catch (e) { return false; }
+    }
+    function ghdAdminUid() {
+      try { var s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {}; return String(s.uid || '').trim(); }
+      catch (e) { return ''; }
+    }
+    /* 🪟 새 창 — 카톡·문자 인앱 브라우저는 새 창을 못 열고 **예외도 안 던진다**(null 만 준다).
+       그래서 try/catch 가 아니라 «반환값이 비었나» 로 판정해 같은 창으로 연다(CLAUDE.md 2장). */
+    function ghdOpenTab(url) {
+      var w = null;
+      try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+      if (!w) location.href = url;
+    }
+    window.ghdOpenLive = function () {
+      if (!roomId) return;
+      ghdOpenTab(location.origin + '/?observe=' + encodeURIComponent(roomId));
+    };
+    /* 고른 수업으로 이동. mode='live' 면 실제 영상 화면, 아니면 이 화면(메타·채팅·참가자).
+       ⚠️ 어느 쪽이든 참관 기록을 먼저 남긴다 — 학생 사생활 정책상 참관은 모두 남아야 한다.
+          기록이 실패해도 이동은 막지 않는다. */
+    window.ghdPick = async function (room, mode) {
+      if (!room) return;
+      var uid = ghdAdminUid(), obs = 0;
+      if (uid) {
+        try {
+          var r = await safeFetch('/api/admin/ghost/start', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+            body: JSON.stringify({ admin_uid: uid, room_id: room, reason: '수업 관찰 목록에서 선택 (Class Observer list)' })
+          });
+          var d = await r.json();
+          if (d && d.ok) obs = d.observation_id || 0;
+        } catch (e) { /* 기록 실패 — 참관 자체는 막지 않는다 */ }
+      }
+      if (mode === 'live') { ghdOpenTab(location.origin + '/?observe=' + encodeURIComponent(room)); return; }
+      location.href = '/admin/ghost-view.html?room_id=' + encodeURIComponent(room)
+        + (obs ? '&obs_id=' + obs : '') + (uid ? '&admin_uid=' + encodeURIComponent(uid) : '');
+    };
+
+    function ghdPickBtns(room, en) {
+      var ra = esc(room).replace(/'/g, '&#39;');
+      return '<button type="button" class="btn btn-primary" style="font-size:11.5px;padding:5px 10px;margin-right:5px"'
+        + ' onclick="ghdPick(this.dataset.room,\'live\')" data-room="' + ra + '">🎥 '
+        + (en ? 'Live video' : '라이브 화면') + '</button>'
+        + '<button type="button" class="btn btn-ghost" style="font-size:11.5px;padding:5px 10px"'
+        + ' onclick="ghdPick(this.dataset.room,\'meta\')" data-room="' + ra + '">👁 '
+        + (en ? 'Chat / members' : '채팅·참가자') + '</button>';
+    }
+    function ghdPickRow(inner) {
+      return '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:9px 4px;'
+        + 'border-top:1px solid rgba(148,163,184,0.14)">' + inner + '</div>';
+    }
+
+    async function ghdLoadPicker() {
+      var en = ghdEn();
+      var box = document.getElementById('ghd-pick-live');
+      if (!box) return;
+      box.innerHTML = '<div style="color:#94a3b8;padding:8px 0;font-size:12px">' + (en ? 'Loading…' : '불러오는 중…') + '</div>';
+      var rooms = null;
+      try {
+        var r = await safeFetch('/api/active-rooms', { credentials: 'include' });
+        var j = await r.json();
+        rooms = Array.isArray(j) ? j : [];
+      } catch (e) {
+        box.innerHTML = '<div style="color:#fca5a5;padding:8px 0;font-size:12px">⚠ ' + esc(e.message || e) + '</div>';
+      }
+      if (rooms) {
+        /* 👥 「누구 수업인지」 — 방 번호만으로는 알 수 없다. 실패해도 표는 그대로 그린다
+           (이름 때문에 목록이 안 나오면 더 나쁘다 — adm-s1.js 가 같은 판단을 했다). */
+        var names = {};
+        try {
+          var ids = rooms.map(function (rm) { return rm.roomId; }).filter(Boolean);
+          if (ids.length) {
+            var rn = await safeFetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')), { credentials: 'include' });
+            var dn = await rn.json();
+            if (dn && dn.ok && dn.rooms) names = dn.rooms;
+          }
+        } catch (e) { /* 조용히 — 이름 칸만 «—» */ }
+
+        box.innerHTML = rooms.length
+          ? rooms.map(function (rm) {
+              var nm = names[rm.roomId] || {};
+              var who = [nm.teacher_name, nm.student_name].filter(Boolean).map(esc).join(' · ');
+              var users = (rm.users || []).map(function (u) { return esc(u.username); }).join(', ');
+              var alone = (rm.userCount === 1)
+                ? ' <span style="color:#fbbf24;font-weight:800;font-size:11px">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>' : '';
+              return ghdPickRow(
+                  '<div style="min-width:200px;flex:1">'
+                +   '<div style="font-weight:800;color:#e9d5ff;font-size:12.5px">' + (who || esc(rm.roomId)) + '</div>'
+                /* 이름을 못 찾았으면 제목이 이미 방 번호다 — 아랫줄에 또 적지 않는다 */
+                +   '<div style="font-size:11px;color:#94a3b8">'
+                +     (who ? '<code style="color:#c4b5fd">' + esc(rm.roomId) + '</code> · ' : '')
+                +     (rm.userCount || 0) + (en ? ' in room' : '명 접속') + alone
+                +     (users ? ' · ' + users : '') + '</div>'
+                + '</div>'
+                + '<div style="white-space:nowrap">' + ghdPickBtns(rm.roomId, en) + '</div>');
+            }).join('')
+          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px;line-height:1.7">'
+            + (en
+                ? 'Nobody is connected to a Mango-i room right now. cafe24-booked classes do not go through this room, so check the booked list below.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없습니다. 카페24 예약 수업은 이 방을 거치지 않으니 아래 «예약 기준» 목록으로 확인하세요.')
+            + '</div>';
+      }
+      ghdLoadSchedPicker();
+    }
+
+    /* 📅 예약 기준 «지금 수업». 강사 계정에는 닫혀 있는 API(403)라 실패하면 구역째 감춘다.
+       ⚠️ 여기 나온 수업은 대개 «접속 기록 없음» 이다 — 버그가 아니라 카페24에서 돌고 있다는 뜻이다
+          (CLAUDE.md 2장 「🔴 실시간 수업 현황이 비었는데 수업은 돌고 있음」). */
+    async function ghdLoadSchedPicker() {
+      var en = ghdEn();
+      var box = document.getElementById('ghd-pick-sched');
+      if (!box) return;
+      var sec = box.previousElementSibling;
+      var hide = function () { box.style.display = 'none'; if (sec) sec.style.display = 'none'; };
+      try {
+        var r = await safeFetch('/api/admin/classes-now', { credentials: 'include' });
+        var d = await r.json();
+        if (!d || !d.ok) { hide(); return; }
+        var list = d.classes || [];
+        box.style.display = ''; if (sec) sec.style.display = '';
+        box.innerHTML = list.length
+          ? list.map(function (c) {
+              var ph = c.phase === 'soon' ? { t: (en ? 'Starts soon' : '곧 시작'), c: '#93c5fd' }
+                     : c.phase === 'ended' ? { t: (en ? 'Just ended' : '방금 끝남'), c: '#94a3b8' }
+                     : { t: (en ? 'In progress' : '진행 중'), c: '#fca5a5' };
+              var conn = c.connected
+                ? '<span style="color:#86efac;font-weight:800">' + (en ? '✅ Connected' : '✅ 접속 확인') + '</span>'
+                : '<span style="color:#fbbf24;font-weight:700">' + (en ? 'No connection record' : '접속 기록 없음') + '</span>';
+              return ghdPickRow(
+                  '<div style="min-width:200px;flex:1">'
+                +   '<div style="font-weight:800;color:#dbeafe;font-size:12.5px">'
+                +     esc(c.student_name || (en ? '(unknown)' : '(학생 미상)')) + ' <span style="color:#64748b">·</span> '
+                +     esc(c.teacher_name || (en ? '(teacher unknown)' : '(강사 미상)')) + '</div>'
+                +   '<div style="font-size:11px;color:#94a3b8">' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '')
+                +     ' · <span style="color:' + ph.c + ';font-weight:800">' + ph.t + '</span></div>'
+                + '</div>'
+                + '<div style="font-size:11.5px;white-space:nowrap">' + conn
+                +   (c.live_room ? ' <div style="font-size:11px;color:#94a3b8">' + esc(c.live_room) + '</div>' : '')
+                + '</div>');
+            }).join('')
+          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px">'
+            + (en ? 'No class is booked for this moment.' : '이 시각에 예약된 수업이 없습니다.') + '</div>';
+      } catch (e) { hide(); }
+    }
+
+    function ghdEnterPickerMode() {
+      var en = ghdEn();
+      var v = document.getElementById('ghd-viewer'); if (v) v.style.display = 'none';
+      var p = document.getElementById('ghd-picker'); if (p) p.style.display = 'block';
+      /* 방이 정해져야 뜻이 있는 버튼은 감춘다(녹화·AI 요약·긴급·참관 종료).
+         ⚠️ 작성자 CSS 의 .btn 에는 !important 가 없어 인라인 display 로 이긴다.
+            [hidden] 은 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 그것이 이긴다(CLAUDE.md 2장). */
+      try {
+        document.querySelectorAll('.header-actions .btn-record, .header-actions .btn-gold, .header-actions .btn-emergency, .header-actions .btn-end')
+          .forEach(function (b) { b.style.display = 'none'; });
+      } catch (e) { /* 무시 */ }
+      var rm = document.getElementById('ghd-room');
+      if (rm) {
+        rm.setAttribute('data-ko', '수업 선택'); rm.setAttribute('data-en', 'Choose a class');
+        rm.textContent = en ? 'Choose a class' : '수업 선택';
+      }
+      var conn = document.getElementById('ghd-conn'); if (conn) conn.style.display = 'none';
+      ghdLoadPicker();
+      /* 🌐 JS 로 그린 라벨은 language 토글이 못 고친다 — 다시 그린다(CLAUDE.md 2장). */
+      window.addEventListener('mangoi:lang-changed', function () { ghdLoadPicker(); });
+    }
+
+    /* 🚦 방 번호가 있으면 종전 그대로 뷰어, 없으면 «수업 고르기».
+       ⛔ 방 번호 없이 폴링을 돌리면 빈 room_id 로 조회가 나가 서버만 두드린다. */
+    if (roomId) {
+      kickPolling();
+      setInterval(updateDuration, 1000);
+    } else {
+      ghdEnterPickerMode();
+    }
 
     // 녹화 토글은 head 의 rec-boot 스크립트가 처리합니다 (window.ghdToggleRecord)
   </script>
