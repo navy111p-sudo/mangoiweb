@@ -132,9 +132,11 @@
         // 🇵🇭🏫 (2026-08-08) 여기만 옛 규칙이 남아 강사·매니저를 전부 /admin/mypage 로 보내고 있었다.
         //   위쪽 로그인 분기(24751)와 admin/login.html 은 이미 /teacher 로 가는데 이 메뉴만 달랐다.
         //   역할판정 로직이 세 곳에 복제돼 있다 — 하나를 고치면 나머지도 반드시 함께 볼 것(CLAUDE.md 2절).
-        var _dest = (_r.indexOf('teacher') >= 0) ? '/teacher'
-                  : (_r === 'branch' || _r === 'agency') ? '/manager'
-                  : '/admin.html';
+        // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 옛 규칙으로 폴백.
+        var _dest = (_as && _as.home_path)
+                  || ((_r.indexOf('teacher') >= 0) ? '/teacher'
+                     : (_r === 'branch' || _r === 'agency') ? '/manager'
+                     : '/admin.html');
         btn.title = L ? '메뉴 열기' : 'Open menu';
         btn.onclick = function(){ toggleAdminUserMenu(_as, _dest); };
         btn.style.background = 'linear-gradient(135deg,rgba(59,130,246,.18),rgba(37,99,235,.18))';
@@ -720,13 +722,17 @@
       // 🧑‍🏫 (2026-07-27) 교사 판정을 아이디 접두사보다 먼저 본다. 옛 LMS 에서 넘어온 강사
       //   아이디는 형태가 제각각이라(예: capi… 로 시작하는 이름) 접두사 규칙에 걸리면
       //   엉뚱한 화면(캐피타운 정산)으로 가버린다. 서버가 준 is_teacher 가 항상 우선.
-      var dest = '/admin.html';
-      // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로. admin/login.html 의 같은 분기와
-      //   **반드시 함께** 고쳐야 한다(역할판정 로직이 두 파일에 복제돼 있음 — CLAUDE.md 2절).
-      if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
-      // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로. admin/login.html 의 같은 분기와 함께 고칠 것.
-      else if (role === 'branch' || role === 'agency') dest = '/manager';
-      else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 아래 옛 규칙이 정한다.
+      var dest = (j && j.home_path) || '/admin.html';
+      /* ⚠️ 아래 옛 규칙은 **서버가 값을 안 줄 때만** 돌아야 한다. 묶지 않으면 바로 위에서
+            받은 home_path 를 그대로 덮어써, 서버로 정본을 옮긴 의미가 사라진다. */
+      if (!(j && j.home_path)) {
+        // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로.
+        if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
+        // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로.
+        else if (role === 'branch' || role === 'agency') dest = '/manager';
+        else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      }
       closeLoginModal();
       var fbL = (window.getLang?window.getLang():'ko')==='ko';
       showLcToast2(fbL ? ('✅ ' + name + '님 환영합니다!') : ('✅ Welcome, ' + name + '!'));
