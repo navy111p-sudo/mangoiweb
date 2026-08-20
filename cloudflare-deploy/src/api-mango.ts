@@ -34,6 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1472,9 +1473,12 @@ export async function handleMangoApi(
       const like = '%' + q.replace(/[%_]/g, '') + '%';
       const results: any[] = [];
       try {
+        // 🧹 (2026-08-20) 숨김 지정한 중복 계정은 통합검색에도 안 나온다 — 명부와 답이 갈리면 안 된다.
+        const _omniHide = await hiddenExcludeCond(env as any);
         const rs = await env.DB.prepare(
           `SELECT user_id, username, korean_name, english_name FROM students_erp
-           WHERE korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?
+           WHERE (korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?)
+           ${_omniHide ? 'AND ' + _omniHide : ''}
            LIMIT 25`
         ).bind(like, like, like, like).all();
         for (const r of ((rs.results as any[]) || [])) {
@@ -2336,8 +2340,14 @@ ${numbered}`;
       try {
         // rowid 는 모든 SQLite 테이블에 항상 존재 — id 컬럼 없는 스키마에서도 동작
         const _swErp = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+        /* 🧹 (2026-08-20) 숨김 지정한 중복 계정 제외 — students_erp 는 카페24가 정본이라
+           지워도 밤에 되살아난다. 그래서 «읽을 때» 거른다(정본: src/student-override.ts).
+           ⚠️ 이 handler 는 어떤 에러든 삼켜 빈 배열을 돌려준다. 표가 없을 때 조건절이
+              붙으면 `no such table` 로 **명부 전체가 사라진 것처럼** 보이므로,
+              hiddenExcludeCond 는 그럴 때 빈 문자열을 준다(fail-open). 그 성질에 기대고 있다. */
+        const _erpConds = [_swErp.cond, await hiddenExcludeCond(env as any)].filter(Boolean);
         const rs = await env.DB.prepare(
-          `SELECT rowid AS _rowid, * FROM students_erp ${_swErp.cond ? 'WHERE ' + _swErp.cond + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
+          `SELECT rowid AS _rowid, * FROM students_erp ${_erpConds.length ? 'WHERE ' + _erpConds.join(' AND ') + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
         ).bind(..._swErp.binds, lim).all<any>();
         const items = (rs.results || []).map(r => {
           // id 컬럼이 없으면 rowid 를 id 로 사용 (프론트 호환)

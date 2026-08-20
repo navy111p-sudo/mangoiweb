@@ -43,6 +43,7 @@ import { handleEnrollActivateApi } from './enroll-activate';       // 📚 수�
 import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  // ♾️ 자동연장 실청구(제보 #2-2/#3-2)
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
+import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -7879,6 +7880,11 @@ LIMIT $limit`;
         binds.push(like, like, like, like, like, like, like, like, like);
       }
       if (_ssw.cond) { conds.push(_ssw.cond); binds.push(..._ssw.binds); }
+      /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 명부에서 뺀다.
+         students_erp 는 카페24가 정본이라 지워도 밤에 되살아나므로 «읽을 때» 거른다.
+         표가 없으면 빈 문자열이 와서 아무것도 안 거른다(fail-open) — 이유는 student-override.ts. */
+      const _hideEx = await hiddenExcludeCond(env as any, 's');
+      if (_hideEx) conds.push(_hideEx);
       const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
       /* 🐢 (2026-08-13 수정요청 #01) 「학생 목록을 누르면 한참 걸린다」
          원인은 위 SELECT 목록에 매달려 있던 «상관 서브쿼리 3개» 였다. 학생 한 줄을 만들 때마다
