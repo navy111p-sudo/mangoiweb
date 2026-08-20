@@ -1165,8 +1165,16 @@
                 +   (c.live_room ? ' <div style="font-size:11px;color:#94a3b8">' + esc(c.live_room) + '</div>' : '')
                 + '</div>');
             }).join('')
-          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px">'
-            + (en ? 'No class is booked for this moment.' : '이 시각에 예약된 수업이 없습니다.') + '</div>';
+          /* 🕐 (2026-08-21) 빈 칸에 «지금 몇 시인지 · 어디까지 보는 목록인지» 를 함께 적는다.
+             안 적으면 새벽처럼 정말로 수업이 없는 시각에도 «또 안 뜨는구나» 로 읽힌다
+             (실측 2026-08-21 04:17 KST: 진행 중 0건인데 그날 예약은 182건이었다).
+             ⚠️ 시각은 서버가 준 now_kst 를 쓴다 — 참관자 PC 가 필리핀이면 자기 시계와 다르다. */
+          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px;line-height:1.7">'
+            + (en
+                ? 'No class is in progress or starting within the next 15 minutes'
+                  + (d.now_kst ? ' (now ' + esc(d.now_kst) + ' KST)' : '') + '.'
+                : '지금' + (d.now_kst ? '(' + esc(d.now_kst) + ' KST)' : '') + ' 진행 중이거나 15분 안에 시작하는 예약 수업이 없습니다.')
+            + '</div>';
       } catch (e) { hide(); }
     }
 
