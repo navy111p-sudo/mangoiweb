@@ -4832,7 +4832,9 @@ function _renderEnrollments() {
               'background:#fff;color:#6d28d9;cursor:pointer" title="' +
               (en ? 'Parent text / billing schedule — opt in here' : '학부모 문자·결제 예약은 여기서 켭니다') + '">' +
               (en ? '⚙ Follow-up' : '⚙ 후속') + '</button>' : '')) +
-        _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
+        /* 🥭 (2026-08-20) 「▶ 수강시작」 버튼 제거 — enroll-activate.ts 의 확정 파이프라인이
+           class_schedules 를 이미 status='active' 로 만든다. 그 버튼은 enrollments.status 만
+           confirmed → active 로 바꿀 뿐 시간표는 새로 안 만들어 실제로는 아무 일도 안 났다. */
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
