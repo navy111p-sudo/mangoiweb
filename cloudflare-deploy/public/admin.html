@@ -11650,7 +11650,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     // fix (2026-06-02) — 가짜 hq_mgr 세션을 만들지 않고, 실제 관리자 로그인 페이지로 이동(정직한 권한 전환)
     if (!confirm('로그아웃하고 다른 계정으로 로그인할까요?')) return;
     try { localStorage.removeItem('admin_session'); localStorage.removeItem('mangoi_admin_session'); } catch(e){}
-    window.location.href = '/admin/login';
+    // 🚪 (2026-08-21) localStorage 만 지우면 **로그아웃이 아니다.** 세션의 정본은 HttpOnly 쿠키
+    //   mango_admin_session + D1 admin_sessions 이고, JS 로는 못 지운다 — 서버에 POST 해야 끊긴다.
+    //   그 전에는 이 버튼을 누르고 자리를 떠도 앞사람 세션이 최대 30일 살아 있었다.
+    //   실패해도 로그인 화면으로는 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+    var go = function(){ window.location.href = '/admin/login'; };
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).then(go, go); }
+    catch(e) { go(); }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph116EnforceSidebar);
