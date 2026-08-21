@@ -176,16 +176,17 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 <body>
 
 <div class="topbar">
-  <a class="home" href="/">🏠 홈</a>
-  <div class="title" id="title">교재 로딩 중…</div>
-  <button class="btn" id="btn-prev" title="이전 파일">◀</button>
-  <button class="btn" id="btn-next" title="다음 파일">▶</button>
-  <button class="btn primary" id="btn-fs" title="전체화면">⛶ 전체</button>
-  <button class="btn share" id="btn-share" title="화면 공유로 학생에게 보여주기">📺 수업에 공유</button>
+  <a class="home" href="/" data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</a>
+  <div class="title" id="title" data-ko="교재 로딩 중…" data-en="Loading textbook…">교재 로딩 중…</div>
+  <button class="btn" id="btn-lang" onclick="tvToggleLang()" title="한국어 / English" data-ko-title="한국어 / English" data-en-title="Korean / English" aria-label="언어 전환" data-ko-aria="언어 전환" data-en-aria="Switch language"><span aria-hidden="true">🌐</span> <span class="lang-label-sync" id="tv-lang-cap">EN</span></button>
+  <button class="btn" id="btn-prev" title="이전 파일" data-ko-title="이전 파일" data-en-title="Previous file" aria-label="이전 파일" data-ko-aria="이전 파일" data-en-aria="Previous file">◀</button>
+  <button class="btn" id="btn-next" title="다음 파일" data-ko-title="다음 파일" data-en-title="Next file" aria-label="다음 파일" data-ko-aria="다음 파일" data-en-aria="Next file">▶</button>
+  <button class="btn primary" id="btn-fs" title="전체화면" data-ko-title="전체화면" data-en-title="Fullscreen" data-ko="⛶ 전체" data-en="⛶ Full">⛶ 전체</button>
+  <button class="btn share" id="btn-share" title="화면 공유로 학생에게 보여주기" data-ko-title="화면 공유로 학생에게 보여주기" data-en-title="Show it to students by sharing your screen" data-ko="📺 수업에 공유" data-en="📺 Share in class">📺 수업에 공유</button>
 </div>
 
 <aside class="sidebar" id="sidebar">
-  <h3>📑 레슨 · 파일</h3>
+  <h3 data-ko="📑 레슨 · 파일" data-en="📑 Lessons &amp; Files">📑 레슨 · 파일</h3>
   <div id="lesson-list"></div>
 </aside>
 <button class="sidebar-toggle" id="sb-toggle" title="사이드바 토글">◀</button>
@@ -202,10 +203,10 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 
 <div class="empty" id="empty" style="display:none">
   <div class="ico">📭</div>
-  <h2>교재를 찾을 수 없어요</h2>
-  <p>이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.</p>
+  <h2 data-ko="교재를 찾을 수 없어요" data-en="Textbook not found">교재를 찾을 수 없어요</h2>
+  <p data-ko="이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다." data-en="It may have been deleted, or uploaded on a different device.">이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.</p>
   <div id="other-books" style="margin-top:18px"></div>
-  <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px">📚 교재 업로더로 돌아가기</a></p>
+  <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px" data-ko="📚 교재 업로더로 돌아가기" data-en="📚 Back to Textbook Uploader">📚 교재 업로더로 돌아가기</a></p>
 </div>
 
 <script>
@@ -249,6 +250,59 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
   var cur  = -1;
   var curURL = null;     // 지금 화면에 쓰는 objectURL (다음 장으로 갈 때 revoke)
   var zoomable = false;  // 이미지일 때만 확대/이동
+
+  /* 🌐 언어 — 이 화면은 공용 i18n 엔진(js/mango-i18n.js)을 «안 부른다».
+     ═══════════════════════════════════════════════════════════════════
+     [제보] 마이마이 8/21: 「이 기능은 번역이 안 됩니다. EN 을 눌러도 한국어 그대로예요」
+     [원인] 번역할 엔진이 이 페이지에 없다. 그래서 data-ko/data-en 을 달아 놔도
+        아무도 적용해 주지 않는다 — 사이드바에서 겪은 것과 «같은 뿌리» 다.
+     [고침] 이 화면 것만 스스로 번역한다 + 상단바에 🌐 버튼을 둔다.
+     ⚠️ 언어 판정은 getLang() 을 먼저 본다(CLAUDE.md 2장 «언어 판정»).
+     ⚠️ 공통 키는 mangoi_lang 이다(mango_lang 은 구버전). */
+  function tvLang(){
+    try { return window.getLang ? window.getLang() : (localStorage.getItem('mangoi_lang') || 'ko'); }
+    catch(e){ return 'ko'; }
+  }
+  function tvEn(){ return tvLang() !== 'ko'; }
+  // 공용 엔진과 같은 우선순위: 그 언어 → en → ko
+  function tvPick(el, lang, sfx){
+    var v = el.getAttribute('data-' + lang + sfx);
+    if (v !== null) return v;
+    if (lang !== 'en'){ v = el.getAttribute('data-en' + sfx); if (v !== null) return v; }
+    if (lang !== 'ko'){ v = el.getAttribute('data-ko' + sfx); if (v !== null) return v; }
+    return null;
+  }
+  function tvApplyLang(){
+    var lg = tvLang();
+    document.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
+      var t = tvPick(el, lg, ''); if (t !== null) el.textContent = t;
+    });
+    document.querySelectorAll('[data-ko-title],[data-en-title]').forEach(function(el){
+      var t = tvPick(el, lg, '-title'); if (t !== null) el.title = t;
+    });
+    document.querySelectorAll('[data-ko-aria],[data-en-aria]').forEach(function(el){
+      var a = tvPick(el, lg, '-aria'); if (a !== null) el.setAttribute('aria-label', a);
+    });
+    var cap = $('tv-lang-cap');
+    if (cap) cap.textContent = (lg === 'ko') ? 'EN' : 'KO';   // «다음» 언어를 보여 준다
+    try { document.documentElement.lang = lg; } catch(e){}
+  }
+  /* ⛔ 엔진이 있는 화면이라면 그쪽에 맡긴다 — 우리가 localStorage 를 직접 건드리면
+     본문과 사이드바의 언어가 갈린다(사이드바에서 같은 판단을 했다). */
+  window.tvToggleLang = function(){
+    var delegated = false;
+    try { if (typeof window.toggleLang === 'function'){ window.toggleLang(); delegated = true; } } catch(e){}
+    if (!delegated){
+      var next = (tvLang() === 'ko') ? 'en' : 'ko';
+      try { localStorage.setItem('mangoi_lang', next); } catch(e){}
+      try { window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail:{ lang: next } })); } catch(e){}
+    }
+    tvApplyLang();
+    try { if (FLAT.length) { updateTitle(); renderSidebar(); markActive(); } } catch(e){}
+  };
+  window.addEventListener('mangoi:lang-changed', function(){
+    try { tvApplyLang(); if (FLAT.length){ updateTitle(); renderSidebar(); markActive(); } } catch(e){}
+  });
 
   function esc(s){
     return String(s == null ? '' : s)
@@ -473,7 +527,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     updateTitle();
     updatePageNav();
     resetZoom();
-    stage.innerHTML = '<div style="color:#94A3B8;font-size:13px">불러오는 중…</div>';
+    stage.innerHTML = '<div style="color:#94A3B8;font-size:13px">' + (tvEn() ? 'Loading…' : '불러오는 중…') + '</div>';
     revoke();
 
     var url = f.url || '';
@@ -481,7 +535,8 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       var rec = await idbGet(LOCAL_DB, 'files', f.id);
       if (cur !== i) return;                       // 그 사이 다른 장을 눌렀으면 버린다
       if (!rec || !rec.blob) {
-        stageMsg('이 파일을 읽지 못했습니다.', f.name + ' — 브라우저 저장 공간에서 사라졌을 수 있습니다.');
+        stageMsg(tvEn() ? 'Could not read this file.' : '이 파일을 읽지 못했습니다.',
+                 f.name + (tvEn() ? ' — it may have been cleared from browser storage.' : ' — 브라우저 저장 공간에서 사라졌을 수 있습니다.'));
         return;
       }
       curURL = URL.createObjectURL(rec.blob);
@@ -497,7 +552,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       wrap.id = 'pan-wrap';
       var img = new Image();
       img.alt = f.name;
-      img.onerror = function(){ stageMsg('이미지를 표시하지 못했습니다.', f.name); };
+      img.onerror = function(){ stageMsg(tvEn() ? 'Could not display this image.' : '이미지를 표시하지 못했습니다.', f.name); };
       img.src = url;
       wrap.appendChild(img);
       stage.appendChild(wrap);
@@ -525,9 +580,9 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       box.innerHTML =
         '<div style="font-size:34px">📄</div>' +
         '<div style="font-size:13px;font-weight:700;color:#fff;margin:8px 0">' + esc(f.name) + '</div>' +
-        '<div style="font-size:12px;color:#94A3B8">이 형식은 화면에서 바로 열 수 없습니다.</div>';
+        '<div style="font-size:12px;color:#94A3B8">' + (tvEn() ? 'This format cannot be opened here.' : '이 형식은 화면에서 바로 열 수 없습니다.') + '</div>';
       var a = document.createElement('a');
-      a.href = url; a.download = f.name; a.textContent = '⬇ 내려받기';
+      a.href = url; a.download = f.name; a.textContent = tvEn() ? '⬇ Download' : '⬇ 내려받기';
       a.style.cssText = 'display:inline-block;margin-top:12px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:8px 16px;border-radius:99px;font-weight:800;text-decoration:none;font-size:12.5px';
       box.appendChild(a);
       stage.appendChild(box);
@@ -545,7 +600,9 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     if (BOOK.level) bits.push(BOOK.level);
     if (f) bits.push(f.name);
     if (FLAT.length > 1) bits.push((cur + 1) + ' / ' + FLAT.length);
-    $('title').innerHTML = '📖 ' + esc(BOOK.textbook) + '<span class="sub">' + esc(bits.join(' · ')) + '</span>';
+    var _tt = $('title');
+    _tt.removeAttribute('data-ko'); _tt.removeAttribute('data-en');   // 교재 이름은 사용자 데이터 — 번역 대상이 아니다
+    _tt.innerHTML = '📖 ' + esc(BOOK.textbook) + '<span class="sub">' + esc(bits.join(' · ')) + '</span>';
     document.title = BOOK.textbook + ' — 교재 뷰어';
   }
 
@@ -629,7 +686,10 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 
   /* ── 빈 상태 — 이유를 말하고 이 기기에 있는 교재를 골라 준다 ──────────── */
   async function showEmpty(){
-    $('title').textContent = '교재를 찾을 수 없어요';
+    var _t = $('title');
+    _t.setAttribute('data-ko', '교재를 찾을 수 없어요');
+    _t.setAttribute('data-en', 'Textbook not found');
+    _t.textContent = tvEn() ? 'Textbook not found' : '교재를 찾을 수 없어요';
     $('sidebar').style.display = 'none';
     $('sb-toggle').style.display = 'none';
     $('page-nav').style.display = 'none';
@@ -643,14 +703,16 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     books.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
     var html = '';
     if (books.length) {
-      html += '<div style="font-size:12px;color:#94A3B8;margin-bottom:8px">이 기기에 있는 교재</div>';
+      html += '<div style="font-size:12px;color:#94A3B8;margin-bottom:8px">' + (tvEn() ? 'Textbooks on this device' : '이 기기에 있는 교재') + '</div>';
       html += books.slice(0, 12).map(function(b){
         return '<a href="?id=' + encodeURIComponent(b.id) + '" style="display:block;background:#1A2548;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
                '📖 ' + esc(b.textbook || '교재') +
                '<span style="color:#94A3B8;font-weight:600"> · ' + (b.totalFiles || 0) + '개 파일</span></a>';
       }).join('');
     } else {
-      html += '<div style="font-size:12.5px;color:#94A3B8;line-height:1.7">이 브라우저에는 등록된 교재가 없습니다.<br>교재는 <b style="color:#E2E8F0">올린 그 브라우저에만</b> 저장됩니다.</div>';
+      html += '<div style="font-size:12.5px;color:#94A3B8;line-height:1.7">' + (tvEn()
+        ? 'No textbooks are registered in this browser.<br>A textbook is stored <b style="color:#E2E8F0">only in the browser it was uploaded from</b>.'
+        : '이 브라우저에는 등록된 교재가 없습니다.<br>교재는 <b style="color:#E2E8F0">올린 그 브라우저에만</b> 저장됩니다.') + '</div>';
     }
     host.innerHTML = html;
 
@@ -661,7 +723,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       var gs = (j && j.ok && j.groups) ? j.groups.filter(function(g){ return g.book && g.book !== '(기타)'; }) : [];
       if (gs.length) {
         host.insertAdjacentHTML('beforeend',
-          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">📚 공용 자료실 (모든 기기에서 보임)</div>' +
+          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') + '</div>' +
           gs.slice(0, 12).map(function(g){
             return '<a href="?book=' + encodeURIComponent(g.book) + '" style="display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
                    '📚 ' + esc(g.book) + '<span style="color:#94A3B8;font-weight:600"> · ' + (g.files || 0) + '개 파일</span></a>';
@@ -687,18 +749,24 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
       try {
         if (document.fullscreenElement) document.exitFullscreen();
         else $('viewer').requestFullscreen();
-      } catch(e){ alert('이 브라우저에서는 전체화면을 쓸 수 없습니다.'); }
+      } catch(e){ alert(tvEn() ? 'Fullscreen is not available in this browser.' : '이 브라우저에서는 전체화면을 쓸 수 없습니다.'); }
     };
 
     /* 📺 수업에 공유 — 이 탭에서는 수업방에 넣을 수 없다.
        ⛔ «공유했습니다» 라고 띄우고 아무것도 안 하는 시연 껍데기를 만들지 말 것
           (CLAUDE.md 2장 「직원을 등록했는데 로그인이 안 돼요」와 같은 사고). */
     $('btn-share').onclick = function(){
-      alert('📺 학생에게 보여주기\n\n' +
-            '이 화면은 «내가 미리 보는» 창입니다.\n' +
-            '학생에게 띄우려면 수업방에 들어간 뒤\n' +
-            '아래 [📖 교재] 탭 → [교재도구] 에서 고르세요.\n\n' +
-            '(수업방에서 고른 교재만 학생 화면으로 함께 넘어갑니다)');
+      alert(tvEn()
+        ? ('📺 Showing it to students\n\n' +
+           'This window is your own preview.\n' +
+           'To put a textbook on the students\' screens, join the class first,\n' +
+           'then pick it from the [📖 Textbook] tab → [Textbook tools].\n\n' +
+           '(Only a textbook chosen inside the class is shared with students)')
+        : ('📺 학생에게 보여주기\n\n' +
+           '이 화면은 «내가 미리 보는» 창입니다.\n' +
+           '학생에게 띄우려면 수업방에 들어간 뒤\n' +
+           '아래 [📖 교재] 탭 → [교재도구] 에서 고르세요.\n\n' +
+           '(수업방에서 고른 교재만 학생 화면으로 함께 넘어갑니다)'));
     };
 
     document.addEventListener('keydown', function(e){
@@ -718,6 +786,7 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
     wireChrome();
     buildZoomRail();
     wireStageGestures();
+    tvApplyLang();          // 🌐 데이터를 부르기 전에 화면 글자부터 맞춘다
 
     try {
       if (SRV_BOOK) {
