@@ -77,6 +77,11 @@ ok('③ 정책은 teacher_id 로 찾는다(이름으로 이으면 남의 것이 
    /SELECT enabled FROM vc_relay_force WHERE teacher_id = \?/.test(MANGO));
 ok('③ 조회가 실패해도 수업을 막지 않는다(기본 = 직접 연결)',
    /catch \{ netRelay = false; \}/.test(MANGO));
+/* ⛔ Cloudflare TURN 이 없으면 /api/ice-servers 는 «무료 공개 TURN(openrelay)» 을 내려준다.
+   거기로 강제 릴레이하면 직접 연결보다 나빠질 수 있다 — 회선을 살리려다 더 망가뜨리는 교환. */
+ok('⛔ ③ Cloudflare TURN 이 설정됐을 때만 릴레이를 켠다(무료 공개 TURN 강제 방지)',
+   /const hasCfTurn = !!\(\(env as any\)\.TURN_KEY_ID && \(env as any\)\.TURN_KEY_API_TOKEN\);/.test(MANGO)
+   && /netRelay = hasCfTurn && !!\(rrow/.test(MANGO));
 ok('③ 관리자 API 가 있다 (GET·POST /api/admin/vc/relay)',
    /path === '\/api\/admin\/vc\/relay' && \(method === 'GET' \|\| method === 'POST'\)/.test(ADMIN));
 // canEditOrg() 는 강사를 못 막는다(scope.type==='none' 에 true) — 반드시 따로 막아야 한다.
