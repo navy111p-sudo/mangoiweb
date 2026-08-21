@@ -4248,6 +4248,37 @@ async function leveltestDeleteApp(id, name) {
   alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
 }
 
+/* 🗑️ (2026-08-21) 화면에 지금 «보이는» 레벨테스트 신청 전체 삭제 — 수강신청 enDeleteAllVisible() 과 같은 꼴.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 바인드 한도, 서버도 같은 값으로 막는다) — 넘으면 다시 누르게 안내한다.
+   ⛔ 되돌릴 수 없다. 연결된 수업은 서버가 삭제 전에 cancelled 로 정리한다. */
+async function ltDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const rows = (__ltShown || []).filter(a => a && a.id != null);
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(a => a.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' level-test application(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 레벨테스트 신청을 삭제할까요?\n되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  loadLeveltestApps();
+  if (rows.length > 90) {
+    alert(en ? (n + ' deleted. More than 90 matched — press the button again for the rest.')
+             : (n + '건 삭제했습니다. 90건이 넘게 걸려서 나머지는 다시 눌러 주세요.'));
+  }
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -4273,6 +4304,7 @@ async function loadLeveltestApps() {
    ⚠️ 원본 배열(__ltApps)은 절대 건드리지 않는다. sort() 는 제자리 정렬이라
       원본에 하면 «오래된순» 을 한 번 누른 뒤 필터를 바꾸면 순서가 뒤엉킨다. */
 let __ltApps = [];
+let __ltShown = [];   // 🗑️ _ltRenderApps() 가 방금 그린 목록(검색·필터 반영) — 일괄 삭제가 이것만 지운다
 function _ltRenderApps() {
   const tb = document.getElementById('leveltest-apps-table');
   if (!tb) return;
@@ -4287,6 +4319,14 @@ function _ltRenderApps() {
       .map(v => String(v == null ? '' : v).toLowerCase()).join(' ').includes(q));
   }
   items.sort((a, b) => so === 'old' ? (a.created_at - b.created_at) : (b.created_at - a.created_at));
+
+  /* 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 지금 화면에 그린 목록을 그대로 기억해 둔다.
+     ⛔ 삭제 쪽에서 검색·필터를 다시 계산하지 않는다. 두 벌이 되면 언젠가 어긋나고,
+        그때 «화면에 안 보이는 건»이 지워진다(되돌릴 수 없다). 그리는 쪽 하나만 정본이다. */
+  __ltShown = items;
+  const delAllBtn = document.getElementById('lt-delete-all-btn');
+  //   본사(경영진·관리자)만 — 서버가 같은 조건으로 403 을 던지니 여기서는 «눌러도 안 되는 버튼»을 감출 뿐이다.
+  if (delAllBtn) delAllBtn.style.display = ((typeof window !== 'undefined' && window._isHqMgrOrUp) && items.length) ? '' : 'none';
 
   const cnt = document.getElementById('lt-apps-count');
   if (cnt) {
