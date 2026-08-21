@@ -7927,6 +7927,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         </select>
         <button onclick="_ltResetAppFilters()" style="padding:5px 10px;font-size:12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer" data-ko="지우기" data-en="Clear">지우기</button>
         <button onclick="ltGotoCalendar()" style="padding:5px 10px;font-size:12px;border:1px solid #c4b5fd;border-radius:8px;background:#f5f3ff;color:#5b21b6;font-weight:700;cursor:pointer;white-space:nowrap" data-ko="📅 캘린더에서 보기" data-en="📅 See on calendar">📅 캘린더에서 보기</button>
+        <!-- 🗑️ (2026-08-21) 보이는 항목 전체 삭제 — 수강신청(#en-delete-all-btn)과 같은 꼴.
+             기본 display:none 이고 _ltRenderApps() 가 본사(_isHqMgrOrUp)일 때만 켜준다.
+             ⚠️ 보안은 서버가 강제한다(DELETE /api/admin/leveltest/applications 가 같은 조건으로 403). -->
+        <button id="lt-delete-all-btn" onclick="ltDeleteAllVisible()" style="display:none;padding:5px 10px;font-size:12px;border:1px solid #fecaca;border-radius:8px;background:#fff5f5;color:#b91c1c;cursor:pointer;white-space:nowrap" data-ko="🗑️ 보이는 항목 전체 삭제" data-en="🗑️ Delete all visible">🗑️ 보이는 항목 전체 삭제</button>
         <span id="lt-apps-count" style="font-size:11px;color:#64748b;white-space:nowrap"></span>
       </div>
       <div style="overflow-x:auto">
@@ -9322,7 +9326,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=151" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=152" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=152: 2026-08-21 레벨테스트 신청현황에 「🗑️ 보이는 항목 전체 삭제」 — 서버는 이미 ids 배열을
+     받고 있었고 화면에 버튼만 없어서 14건을 한 줄씩 지워야 했다. 수강신청과 같은 꼴.
    · v=151: 2026-08-20 수강신청 목록의 「▶ 수강시작」 버튼 제거 — 「등록 = 확정」으로 바뀐 뒤
      쓸 일이 없어졌고, 눌러도 되돌릴 수 없어 오클릭 위험만 남아 있었다.
      (이 작업은 v=135 를 썼는데 main 이 먼저 v=150 까지 가져가서 번호를 새로 딴다)
