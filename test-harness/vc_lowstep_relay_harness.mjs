@@ -49,15 +49,17 @@ ok('① 화질 단계가 5개다(마지막 = 얼굴만 남기는 단계)',
 ok('① 해상도 축소도 5개로 짝이 맞는다',
    /const SCALE = \[1, 1\.5, 2, 3, 4\];/.test(CODE));
 ok('① 하한이 단계별이고 4단계만 낮다(앞 단계 동작 보존)',
-   /FLOOR_BR\s*=\s*\[150, 150, 150, 150, 60\]/.test(CODE)
-   && /FLOOR_FPS\s*=\s*\[10, 10, 10, 10, 5\]/.test(CODE));
+   /const lo = step >= 4;/.test(CODE)
+   && /Math\.max\(lo \? 60000 : 150000,/.test(CODE)
+   && /Math\.max\(lo \? 5 : 10,/.test(CODE));
 // 하한을 상수로 되돌리면 4단계가 150kbps 로 올라붙어 «절벽»이 되살아난다.
 ok('① 150kbps·10fps 를 다시 상수로 박아 두지 않았다',
    !/maxBitrate\s*=\s*Math\.max\(150 \* 1000/.test(CODE)
    && !/maxFramerate\s*=\s*Math\.max\(10,/.test(CODE));
 // 본 경로와 «구형 브라우저 대체 경로» 둘 다 고쳐야 한다 — 한쪽만 고치면 그 기기에서만 조용히 옛 동작.
 ok('① 본 경로·대체 경로 두 곳 모두 단계별 하한을 쓴다',
-   (CODE.match(/Math\.max\(\(FLOOR_BR\[step\] \|\| 150\) \* 1000/g) || []).length === 2);
+   (CODE.match(/Math\.max\(lo \? 60000 : 150000,/g) || []).length === 2
+   && (CODE.match(/Math\.max\(lo \? 5 : 10,/g) || []).length === 2);
 
 // ── ② 중계(TURN) 강제 ──────────────────────────────────────
 ok('② createPeer 가 관리자 설정(__vcRelayAlways)을 본다',

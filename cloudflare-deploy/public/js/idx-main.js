@@ -2643,7 +2643,7 @@ async function vcJoinRoom(skipUI) {
         var _js = _jd && (_jd.current || _jss.filter(function (s) { return s.join_open; })[0]);
         // 게이트 상태를 기억해 둔다 — 조회가 실패한 다음 번에도 «막을지 말지» 를 알아야 한다.
         if (_jd && _jd.student_gate) window.__vcStudentGate = _jd.student_gate;
-        if (_jd) window.__vcRelayAlways = !!_jd.net_relay;   // 🔁 중계 강제(관리자 설정) — createPeer 가 읽는다
+        if (_jd) window.__vcRelayAlways = !!_jd.net_relay;
 
         if (_js && _js.room_id && _js.join_open) {
           vcTypedRoom = _js.room_id;
@@ -4884,8 +4884,7 @@ function vcArmFullscreenRetry() {
 
 (function vcAdaptiveQuality() {
     if (window.__vcAdaptive) return; window.__vcAdaptive = true;
-    // 📉 4단계 = «얼굴만» (그 아래가 곧바로 AAO 완전꺼짐이라 절벽이 컸다). 근거: vc_lowstep_relay_harness
-    const STEPS = [1.0, 0.6, 0.35, 0.2, 0.08];
+    const STEPS = [1.0, 0.6, 0.35, 0.2, 0.08];   // 4단계=얼굴만 (vc_lowstep_relay_harness)
     // 🎛 설정(자동/고/저)이 정한 기준 상한을 그대로 쓴다 — '저'면 처음부터 360p·15fps 로 시작한다
     function baseCaps() {
         try { if (window.vcQualityCaps) return window.vcQualityCaps(); } catch (_) {}
@@ -4893,10 +4892,7 @@ function vcArmFullscreenRetry() {
                        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24, scale: 1 };
     }
-    const SCALE = [1, 1.5, 2, 3, 4];
-    const FLOOR_BR  = [150, 150, 150, 150, 60];   // 단계별 하한 — 4단계만 낮춘다(앞 단계는 그대로)
-    const FLOOR_FPS = [10, 10, 10, 10, 5];
-    // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
+    const SCALE = [1, 1.5, 2, 3, 4];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
 
     /* 🕐 (2026-08-11 강사 피드백 — "오디오 지연", "렉", "버퍼링")
        [빠져 있던 것] 보내는 쪽은 오래 다듬어 왔다(비트레이트 적응·Opus FEC/DTX·AAO).
@@ -4933,18 +4929,19 @@ function vcArmFullscreenRetry() {
             if (!sender || !sender.getParameters) return;
             const caps = baseCaps();
             const mult = STEPS[step];
+            const lo = step >= 4;   // 4단계만 하한을 낮춘다(앞 단계는 그대로)
             const params = sender.getParameters();
             if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-            params.encodings[0].maxBitrate   = Math.max((FLOOR_BR[step] || 150) * 1000, Math.round(caps.br * mult));
-            params.encodings[0].maxFramerate = Math.max(FLOOR_FPS[step] || 10, Math.round(caps.fps * mult));
+            params.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+            params.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
             params.encodings[0].scaleResolutionDownBy = (caps.scale || 1) * (SCALE[step] || 1);
             sender.setParameters(params).catch(() => {
                 // 일부 구형 브라우저는 scaleResolutionDownBy 를 거부 → 해상도 축소 없이 비트레이트 상한만이라도 재적용
                 try {
                     const p2 = sender.getParameters();
                     if (!p2.encodings || !p2.encodings.length) p2.encodings = [{}];
-                    p2.encodings[0].maxBitrate   = Math.max((FLOOR_BR[step] || 150) * 1000, Math.round(caps.br * mult));
-                    p2.encodings[0].maxFramerate = Math.max(FLOOR_FPS[step] || 10, Math.round(caps.fps * mult));
+                    p2.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+                    p2.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
                     delete p2.encodings[0].scaleResolutionDownBy;
                     sender.setParameters(p2).catch(() => {});
                 } catch (_) {}
