@@ -23,12 +23,22 @@
   };
   /* 🚪 매니저 직접 입장 — 강사가 못 들어왔을 때 대신 수업을 맡기 위한 통로.
      참관(ghost)과 달리 실제 참가자로 들어간다. 새 창으로 열어 관리자 화면은 그대로 둔다. */
+  /* 📷 (2026-08-20) 직접 입장은 카메라를 끈 채로 들어간다 — &vc_cam=off (js/vc-observe-guard.js 가 처리).
+     [왜] 이 버튼은 참관이 아니라 «실제 참가자» 다. 켠 채로 들어가면 수업 중간에 학생 화면에
+          낯선 얼굴이 갑자기 뜬다(2026-08-19 필리핀 매니저 제보). 트랙은 살려 두므로 수업 안에서
+          [카메라] 버튼 한 번이면 켜진다 — 「강사 대신 수업을 맡는」 용도는 그대로다.
+     ⚠️ 확인 문구를 늘릴 때는 teacher_feedback_admin_harness 의 «ghEnterRoom 뒤 600자 안에 confirm»
+        검사를 넘기지 않게 — 긴 설명은 이렇게 함수 «위» 에 둔다. */
   window.ghEnterRoom = function(roomId){
     const en = _ghIsEn();
-    const msg = en ? ('Enter class "' + roomId + '" as a participant?\n(Students and the teacher will see you.)')
-                   : ('수업 "' + roomId + '" 에 직접 입장할까요?\n(참관이 아니라 실제 참가자로 들어갑니다 — 학생·강사에게 보입니다.)');
+    const msg = en ? ('Enter class "' + roomId + '" as a participant?\n\n'
+                    + '· NOT observation — students and the teacher see you.\n'
+                    + '· Camera starts OFF ([Camera] button turns it on).')
+                   : ('수업 "' + roomId + '" 에 직접 입장할까요?\n\n'
+                    + '· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n'
+                    + '· 카메라는 꺼진 채로 입장합니다([카메라] 버튼으로 켜기).');
     if (!confirm(msg)) return;
-    const url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
+    const url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
     /* 팝업이 막히면 조용히 실패하지 않도록 공통 헬퍼 사용 (adm-core.js) */
     if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Enter class' : '수업 입장');
     else window.open(url, '_blank', 'noopener');
@@ -95,12 +105,16 @@
               + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
               + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
               + '<td style="padding:6px 8px;white-space:nowrap">'
-              +   '<button type="button" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'style="padding:4px 10px;font-size:11.5px;margin-right:4px;background:rgba(139,92,246,0.22);color:#ddd6fe;border:1px solid rgba(139,92,246,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
+              +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     '>'
               +     (en ? '👁 Select' : '👁 참관 선택') + '</button>'
-              +   '<button type="button" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.22);color:#a7f3d0;border:1px solid rgba(16,185,129,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
-              +     (en ? '🚪 Enter' : '🚪 직접 입장') + '</button>'
+              /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
+                 초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
+              +   '<button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
+                                    : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '" '
+              +     '>'
+              +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
               + '</td></tr>';
           }).join('')
         + '</tbody></table>';

@@ -182,6 +182,11 @@
     } catch (e) {
       console.warn('[ph120] 학원별 수업현황 조회 실패', e);
       if (!append && tbody) tbody.innerHTML = '<tr><td colspan="11" class="sa-sub" style="text-align:center;padding:16px;color:#FCA5A5">⚠ 불러오기 실패: ' + saEsc(e.message||e) + '</td></tr>';
+    } finally {
+      // 🔔 (2026-08-21) adm-s14.js(ph121 통계 박스)가 "표가 실제로 갱신된 뒤" 자기 카드를
+      //   다시 그리도록 신호를 보낸다 — saFetch 는 비동기라 saSearch() 호출 직후엔 아직
+      //   #sa-tbody 가 옛 데이터다. 성공·실패 모두 신호를 보내야 실패 시에도 박스가 멈춰있지 않는다.
+      try { document.dispatchEvent(new CustomEvent('mangoi:sa-search-done')); } catch (e2) { /* 무시 */ }
     }
   }
 

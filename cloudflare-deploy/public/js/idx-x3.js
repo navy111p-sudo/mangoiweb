@@ -588,6 +588,16 @@
     });
     return seq;
   }
+  /* 🔗 미리보기 창(/js/idx-tb-preview.js)이 쓰는 헬퍼 한 벌.
+     이 IIFE 안의 함수들은 바깥에서 안 보이므로 여기서 한 번만 넘겨준다.
+     ⚠️ buildBookSequence 를 저쪽에 복사하지 말 것 — 목록의 쪽 번호와 ◀▶ 시퀀스가
+        어긋나는 순간 「3번을 눌렀는데 4번이 뜬다」가 된다. 정본은 여기 하나다. */
+  window.__tbfLibHelpers = {
+    esc: esc, fileEmoji: fileEmoji, courseIcon: courseIcon, naturalCmp: naturalCmp,
+    buildBookSequence: buildBookSequence, ensureServerBookFiles: _ensureServerBookFiles,
+    closeLibrary: function(){ try { window.closeTextbookLibrary(); } catch(_){} }
+  };
+
   async function applyBookToClass(book){
     try {
       if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
@@ -608,84 +618,41 @@
       window.open(first.url, '_blank');
     }
   }
+  /* 📑 (2026-08-20 Melca 8/13 제보 ②) 「페이지를 고르면 창이 바로 닫힌다 — 내가 닫을 때까지
+        떠 있게 해 달라. 크기도 조절하고 싶고, 파일 이름에 쪽 번호가 안 보인다(BODA 처럼)」
+     ═══════════════════════════════════════════════════════════════════════════════
+     실제 구현은 「js/idx-tb-preview.js」(defer) 에 있다. 여기 두지 않은 이유:
+        이 파일(idx-x3.js)은 index.html 이 **blocking 으로** 부른다. 그 예산은 지금
+        여유가 0KB 다(first_paint_budget_harness — 필리핀 회선을 지키려고 둔 예산이고,
+        학생 29,000명 **전원**이 첫 화면에서 받는다). 미리보기는 **강사만** 쓰는 기능이라
+        학생 첫 화면을 무겁게 할 이유가 없다.
+     ⚠️ 그래서 이 창을 고칠 때는 idx-tb-preview.js 를 고치고 index.html 의 그 태그
+        ?v= 를 올린다. 여기를 고치는 게 아니다.
+     ⚠️ 헬퍼(esc·naturalCmp·buildBookSequence…)는 이 IIFE 안에만 있어서 바깥에서 못 본다
+        → __tbfLibHelpers 로 한 벌 넘겨준다(아래 buildBookSequence 옆). */
   async function previewBook(book){
-    // 서버 교재면 파일을 먼저 lazy 로드
-    if (book && book._serverBook && !(book.lessons && book.lessons.length)) {
-      try { if (typeof window.showToast === 'function') window.showToast('📥 교재 불러오는 중…'); } catch(_){}
-      try { await _ensureServerBookFiles(book); } catch(e) { alert('교재 파일 로드 실패: ' + (e.message || e)); return; }
+    var fn = window.__tbfPreviewBook;
+    if (typeof fn !== 'function') {
+      // defer 스크립트가 아직 안 왔다(느린 회선에서 클릭이 아주 빠른 경우). 조용히 실패하지 않는다.
+      var en = false; try { en = (typeof getLang === 'function' && getLang() === 'en'); } catch(_){}
+      alert(en ? 'Still loading — please try again in a moment.' : '아직 불러오는 중입니다 — 잠시 뒤 다시 눌러 주세요.');
+      return;
     }
-    var lessons = book.lessons || [];
-    var modal = document.createElement('div');
-    modal.id = 'tbf-preview-modal';
-    modal.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;padding:14px';
-    var lessonsHtml = '';
-    if (lessons.length === 0) {
-      lessonsHtml = '<div style="color:#94a3b8;text-align:center;padding:30px">레슨 정보가 없습니다.</div>';
-    } else {
-      // ph250: 레슨 자연 정렬 + 레슨 안의 파일도 자연 정렬
-      lessons.slice().sort(function(a,b){ return naturalCmp(a.name, b.name); }).forEach(function(l){
-        lessonsHtml += '<div style="margin-bottom:10px"><div style="font-weight:700;color:#1e40af;font-size:13px;margin-bottom:4px">📑 ' + esc(l.name) + '</div>';
-        var sortedIds = (l.fileIds || []).slice().sort(function(a, b){
-          var fa = window._libFileMap[a] || {};
-          var fb = window._libFileMap[b] || {};
-          return naturalCmp(fa.name || '', fb.name || '');
-        });
-        sortedIds.forEach(function(fid){
-          var f = window._libFileMap[fid];
-          if (!f) {
-            lessonsHtml += '<div style="color:#94a3b8;padding:4px 8px">❓ 파일 없음</div>';
-          } else {
-            lessonsHtml += '<div class="tbf-pv-file" data-fid="' + esc(fid) + '" data-kind="' + esc(f.kind) + '" data-name="' + esc(f.name) + '" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:#f8fafc;border-radius:6px;margin:3px 0;font-size:12px;cursor:pointer;border:1px solid #e2e8f0">' +
-              '<span>' + fileEmoji(f.kind) + '</span>' +
-              '<span style="flex:1;color:#334155;font-weight:600">' + esc(f.name) + '</span>' +
-              '<span style="padding:3px 10px;background:#3b82f6;color:#fff;border-radius:99px;font-size:11px;font-weight:700">▶ 띄우기</span>' +
-            '</div>';
-          }
-        });
-        lessonsHtml += '</div>';
-      });
-    }
-    modal.innerHTML =
-      '<div style="background:#fff;border-radius:14px;width:min(640px,95vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">' +
-        '<div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#f8fafc,#eff6ff)">' +
-          '<div style="font-size:22px">' + courseIcon(book.publisher) + '</div>' +
-          '<div style="flex:1">' +
-            '<div style="font-weight:900;color:#0f172a;font-size:15px">' + esc(book.textbook) + '</div>' +
-            '<div style="font-size:11.5px;color:#64748b">' + esc(book.publisher) + ' · ' + esc(book.level || '') + '</div>' +
-          '</div>' +
-          '<button id="tbf-pv-close" style="background:#fff;border:1px solid #cbd5e1;padding:6px 12px;border-radius:8px;cursor:pointer;font-weight:700">✕</button>' +
-        '</div>' +
-        '<div style="padding:14px 18px;overflow-y:auto;flex:1">' + lessonsHtml + '</div>' +
-      '</div>';
-    /* 🔒 (2026-08-07 QA #4) 배경 클릭 닫힘 차단 — 정책은 /js/mg-modal-policy.js. 폴백 true = 예전 동작 */
-    modal.addEventListener('click', function(e){ if (e.target === modal && (window.mgBackdropClosable ? window.mgBackdropClosable(modal) : true)) modal.remove(); });
-    document.body.appendChild(modal);
-    document.getElementById('tbf-pv-close').addEventListener('click', function(){ modal.remove(); });
-    // ph250: 미리보기에서 파일 클릭 시 — book 전체 시퀀스 만들어 그 파일부터 시작
-    modal.querySelectorAll('.tbf-pv-file').forEach(function(el){
-      el.addEventListener('click', function(){
-        var fid = el.getAttribute('data-fid');
-        var seq = buildBookSequence(book);
-        var idx = 0;
-        for (var i = 0; i < seq.length; i++) {
-          if (seq[i].id === fid) { idx = i; break; }
-        }
-        if (seq.length === 0) { alert('파일을 찾을 수 없습니다.'); return; }
-        window._libSequence = seq;
-        window._libSeqIdx = idx;
-        console.log('[ph250] 미리보기에서 시퀀스 시작 —', seq.length, '개 / 현재', idx + 1);
-        modal.remove();
-        closeTextbookLibrary();
-        var f = seq[idx];
-        if (window.selectFromTextbookLibrary) window.selectFromTextbookLibrary(f.id, f.url, f.kind, f.name);
-      });
-    });
+    return fn(book);
   }
 
   document.addEventListener('keydown', function(e){
     if (e.key === 'Escape') {
       var pv = document.getElementById('tbf-preview-modal');
-      if (pv) { pv.remove(); return; }
+      /* ESC 로 닫을 때도 크기·자리를 남긴다 — ✕ 로 닫을 때만 저장하면
+         «ESC 로 닫은 다음에는 창이 원래 자리로 돌아가는» 반쪽이 된다. */
+      if (pv) {
+        try {
+          var r = pv.getBoundingClientRect();
+          localStorage.setItem('mangoi_tbpv_box', JSON.stringify({ l: Math.round(r.left), t: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }));
+        } catch(_){}
+        pv.remove(); return;
+      }
       var m = document.getElementById('tbf-lib-modal');
       if (m && m.style.display === 'flex') closeTextbookLibrary();
     }

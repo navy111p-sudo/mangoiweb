@@ -153,11 +153,24 @@ const IDX = readPageSource('index.html');   // 분해 대응
 //   강사(아이디가 capi… 로 시작할 수 있음)가 캐피타운 정산 화면으로 새어 나간다.
 //   주석이 사이에 들어가도 깨지지 않도록 '순서'만 본다.
 {
-  const iDest = IDX.indexOf("var dest = '/admin.html';");
+  /* (2026-08-20) 첫 화면 판정의 «정본» 이 서버(auth-admin.ts 의 home_path)로 옮겨졌다.
+     ⚠️ 글자 `var dest = '/admin.html';` 을 그대로 찾던 옛 검사는 서버 값을 얹는 순간 깨졌다.
+        깨진 것은 «보호» 가 아니라 «찾는 글자» 다 — 지켜야 할 것은 순서뿐이니 순서만 본다. */
+  const iDest = IDX.search(/var dest = .*'\/admin\.html'/);
   const iTeacher = IDX.indexOf("String(role).indexOf('teacher') >= 0", iDest);
   const iCapi = IDX.indexOf("uid.indexOf('capi') === 0", iDest);
   ok(iDest >= 0 && iTeacher > iDest && iCapi > iTeacher,
-     '홈 로그인: 교사 판정이 아이디 접두사(capi…)보다 먼저');
+     '홈 로그인(폴백): 교사 판정이 아이디 접두사(capi…)보다 먼저');
+
+  /* 🏠 서버가 정하는 쪽도 같은 순서를 지켜야 한다. isTeacher 를 먼저 거르지 않으면
+        capi… 아이디를 가진 옛 LMS 강사가 매니저 포털로 새어 나간다. 화면 폴백만 지키면
+        정작 «정본» 이 뚫린 채로 통과한다. */
+  const AUTH = readFileSync(resolve(root, 'cloudflare-deploy', 'src', 'auth-admin.ts'), 'utf8');
+  const iHome = AUTH.indexOf('const homePath =');
+  const iIsT  = AUTH.indexOf('isTeacher ?', iHome);
+  const iRole = AUTH.indexOf("rr.role === 'branch'", iHome);
+  ok(iHome >= 0 && iIsT > iHome && iRole > iIsT,
+     '서버 home_path: 교사 판정이 역할 판정보다 먼저');
   ok(/indexOf\('teacher'\) >= 0\) dest = '\/teacher'/.test(IDX),
      '홈 로그인: 교사는 초경량 강사 포털(/teacher)로 이동');
 }

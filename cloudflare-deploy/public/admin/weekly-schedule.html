@@ -186,6 +186,9 @@ h1 .sub{font-size:13px;color:var(--tx2);font-weight:500;margin-left:4px}
 .slot-1on1{background:#bcaef0}   /* 라벤더 — 1:1 */
 .slot-group{background:#f4abce}  /* 소프트 핑크 — 그룹 */
 .slot-temp{background:#8cc3f0} /* 스카이블루 단색 — 대체 (체크무늬 제거) */
+/* 🏷 (2026-08-21) LMS 점유·시연 시드 — 진짜 수업(1on1/group/temp)과 같은 색을 쓰지 않는다.
+   지우지 않고(운영 판단 영역) 정체만 밝힌다 — adm-q6.js «강사 스케줄» 카드와 같은 원칙. */
+.slot-ghost{background:repeating-linear-gradient(45deg,rgba(251,191,36,.35),rgba(251,191,36,.35) 5px,rgba(180,83,9,.45) 5px,rgba(180,83,9,.45) 10px)}
 /* 파스텔 배경 위 가독성: 어두운 글자 + 굵기 + 밝은 외곽 그림자 */
 .slot-text{color:#1e293b;font-size:9.5px;font-weight:800;line-height:22px;padding:0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(255,255,255,.4)}
 /* ⏱ 현재 시간 가이드선 — 붉은색 */
@@ -297,6 +300,8 @@ tr:hover .tl-td-day{background:rgba(251,191,36,.07)}
 .tl-seg.s-group{background:#f4abce;border-left:2.5px solid #db2777}
 .tl-seg.s-temp{background:#8cc3f0;border-left:2.5px solid #2563eb}
 .tl-seg.s-blocked{background:repeating-linear-gradient(45deg,rgba(148,163,184,.45),rgba(148,163,184,.45) 3px,rgba(100,116,139,.6) 3px,rgba(100,116,139,.6) 6px)}
+/* 🏷 (2026-08-21) LMS 점유·시연 시드 — 위 .slot-ghost 와 같은 뜻(진짜 수업 아님), 주간 타임라인용 */
+.tl-seg.s-ghost{background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)}
 .tl-seg.s-free{background:rgba(16,185,129,.30);border-left:2.5px solid #059669}
 html[data-admin-theme="ivory"] .tl-seg.s-1on1{background:var(--cell-1on1)}
 html[data-admin-theme="ivory"] .tl-seg.s-group{background:var(--cell-group)}
@@ -700,11 +705,15 @@ body.dragging{cursor:crosshair}
   <div class="sm"><span data-ko="그룹" data-en="Group">그룹</span><b id="st-group">—</b><span class="u" id="st-group-pct">—</span></div>
   <div class="sm"><span data-ko="활동 교사" data-en="Active">활동 교사</span><b id="st-teachers">—</b></div>
   <div class="sm"><span data-ko="빈 슬롯" data-en="Open slots">빈 슬롯</span><b id="st-free">—</b><span class="u" data-ko="배정 가능" data-en="assignable">배정 가능</span></div>
+  <!-- 🏷 (2026-08-21) LMS 점유/시연 시드 — 진짜 수업이 아닌 칸이 몇 건인지 숫자로 먼저 말해 준다.
+       색만 바꾸면 숫자를 안 보는 사람에게는 여전히 "수업이 많다"로 남는다. -->
+  <div class="sm" title="옛 LMS로 수업 중이라 못 쓰는 시간 + 6월 시연용 시드 — 실제 수업 아님"><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span><b id="st-ghost">—</b></div>
   <div class="lgs">
     <span><i style="background:#bcaef0;border-left:3px solid #7c3aed"></i><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
     <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="그룹" data-en="Group">그룹</span></span>
     <span><i style="background:#8cc3f0;border-left:3px solid #2563eb"></i><span data-ko="임시" data-en="Temp">임시</span></span>
     <span><i style="background:repeating-linear-gradient(45deg,#94a3b8,#94a3b8 3px,#64748b 3px,#64748b 6px)"></i><span data-ko="휴무" data-en="Off">휴무</span></span>
+    <span><i style="background:repeating-linear-gradient(45deg,rgba(251,191,36,.55),rgba(251,191,36,.55) 3px,rgba(180,83,9,.65) 3px,rgba(180,83,9,.65) 6px)"></i><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span></span>
   </div>
 </section>
 <section class="controls one-line">
@@ -1005,18 +1014,31 @@ function generateDemoSlots(){
   }
 }
 
+/* 🏷 (2026-08-21) «강사 스케줄엔 수업이 있는데 매니저 '오늘 수업'엔 없다» 제보의 원인.
+   class_schedules 의 활성 행 대부분(실측 667건 중 658건)은 진짜 망고아이 수업이 아니라
+   ① origin='lms'   — 강사가 옛 LMS로 수업 중이라 못 쓰는 시간(학생 없음)
+   ② origin='sample'— 6월 시연용 시드 데이터
+   서버(/api/admin/schedules)는 이미 origin 을 내려주는데 이 화면만 그걸 안 읽고 전부
+   진짜 수업(1대1/그룹)처럼 그려서 "수업이 이미 많이 잡혀 있다"로 오해하게 했다.
+   ⛔ 지우지 않는다 — «강사가 이 시간을 못 쓴다» 는 정보라 사라지면 매니저가 그 시간에
+   이중배정할 수 있다(renderMoveGrid 의 충돌판정은 그래서 그대로 둔다). 여기서는 통계·색만
+   구분한다. */
+function isGhostSlot(s){ return !!(s && (s.origin==='lms' || s.origin==='sample')); }
+var GHOST_TAG={ lms:{ko:'LMS 점유',en:'LMS busy',badge:'LMS'}, sample:{ko:'시드 데이터',en:'Demo seed',badge:'시드'} };
+
 function computeStats(){
-  var total=0,on1=0,grp=0,temp=0,active=new Set();
+  var total=0,on1=0,grp=0,temp=0,ghost=0,active=new Set();
   var byCat={home:0,office:0,native:0,manager:0};
   TEACHERS.forEach(function(t){byCat[t.category]=(byCat[t.category]||0)+1;});
   Object.keys(SLOTS).forEach(function(k){
     var s=SLOTS[k];
     if(s.type==='blocked')return;
+    if(isGhostSlot(s)){ ghost++; return; }
     total++;
     if(s.type==='1on1')on1++;else if(s.type==='group')grp++;else if(s.type==='temp')temp++;
     active.add(k.split('__')[0]);
   });
-  return{total:total,on1:on1,grp:grp,temp:temp,active:active.size,byCat:byCat};
+  return{total:total,on1:on1,grp:grp,temp:temp,ghost:ghost,active:active.size,byCat:byCat};
 }
 
 function teacherWeekStats(tid){
@@ -1040,6 +1062,8 @@ function render(){
   document.getElementById('st-group').textContent=s.grp+(currentLang==='ko'?'건':'');
   document.getElementById('st-group-pct').textContent=s.total?Math.round(s.grp/s.total*100)+'%':'0%';
   document.getElementById('st-teachers').textContent=s.active+'/'+TEACHERS.length;
+  var ghostEl=document.getElementById('st-ghost');
+  if(ghostEl)ghostEl.textContent=s.ghost+(currentLang==='ko'?'건':'');
   syncCatSelect(s.byCat);
   var q=searchQuery.toLowerCase().trim();
   function tMatch(t){
@@ -1216,11 +1240,13 @@ function weekStripHTML(t,iso){
     var left=(it.startMin-DAY0)/SPAN_MIN*100;
     var w=dur/SPAN_MIN*100;
     if(left<0||left>=100)return;
+    var ghost=isGhostSlot(s);
     var who=(s.students&&s.students.length)
       ? (s.students.length===1?s.students[0].name:(L?'그룹 '+s.students.length+'명':'Group '+s.students.length))
-      : (s.type==='blocked'?(L?'휴무':'Off'):'');
+      : (ghost?(L?GHOST_TAG[s.origin].ko+' · 실제 수업 아님':GHOST_TAG[s.origin].en+' · not a real class')
+             :(s.type==='blocked'?(L?'휴무':'Off'):''));
     var title=escapeHtml(tName(t))+' · '+iso+' '+minLabel(it.startMin)+' ('+dur+(L?'분':'m')+')'+(who?' · '+who:'');
-    out+='<span class="tl-seg s-'+s.type+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(0.6,w-0.15).toFixed(2)+
+    out+='<span class="tl-seg s-'+(ghost?'ghost':s.type)+'" style="left:'+left.toFixed(2)+'%;width:'+Math.max(0.6,w-0.15).toFixed(2)+
       '%" title="'+escapeHtml(title)+'"></span>';
   });
   return out;
@@ -1244,7 +1270,7 @@ function renderDayGrid(list){
     list.forEach(function(t){
       for(var q=0;q<STEPS_PER_HOUR;q++){
         var s=getSlotAt(t.id,iso,h*60+q*SLOT_STEP);
-        if(s&&s.type!=='blocked')n++;
+        if(s&&s.type!=='blocked'&&!isGhostSlot(s))n++;
       }
     });
     hist[h]=n;if(n>mx)mx=n;
@@ -1288,12 +1314,14 @@ function renderDayGrid(list){
         var span=Math.max(1,Math.ceil(durMin/SLOT_STEP));
         if(step+span>TOTAL_STEPS)span=TOTAL_STEPS-step;      // 격자 밖으로 넘치지 않게
         var payload=encodeURIComponent(JSON.stringify({teacher:nm,date:iso,hour:h3,slot:s,minute:m3}));
+        var ghost2=isGhostSlot(s);
         var txt='';
         if(s.students&&s.students.length){
           txt=(s.students.length===1)?s.students[0].name:((L?'그룹·':'G·')+s.students.length);
-        }else if(s.type==='blocked'){ txt=L?'휴무':'Off'; }
+        }else if(ghost2){ txt=GHOST_TAG[s.origin].badge||(s.origin==='lms'?'LMS':(L?'시드':'Seed')); }
+        else if(s.type==='blocked'){ txt=L?'휴무':'Off'; }
         var dur=s.duration_min?'<span class="dg-dur">'+s.duration_min+'m</span>':'';
-        body+='<td colspan="'+span+'" class="slot slot-'+s.type+todayCls+(freeMode?' dimmed':'')+edge+'"'+base+
+        body+='<td colspan="'+span+'" class="slot '+(ghost2?'slot-ghost':'slot-'+s.type)+todayCls+(freeMode?' dimmed':'')+edge+'"'+base+
           ' title="'+minLabel(startMin)+'~'+minLabel(startMin+durMin)+'"'+
           ' data-slot="'+payload+'">'+escapeHtml(txt)+dur+'</td>';
         skip=span-1;
@@ -1338,9 +1366,14 @@ document.addEventListener('mousemove',function(e){
   var t=e.target.closest('.slot');
   if(!t||!t.dataset.slot){tooltip.classList.remove('show');return;}
   var data=JSON.parse(decodeURIComponent(t.dataset.slot));var s=data.slot;
-  var typeL=({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 임시 수업':'🔵 Temporary'})[s.type]||s.type;
   var L=currentLang==='ko';
+  var ghost3=isGhostSlot(s);
+  var typeL=ghost3?(L?'⚠️ '+GHOST_TAG[s.origin].ko:'⚠️ '+GHOST_TAG[s.origin].en)
+    :({blocked:currentLang==='ko'?'🚫 수업 불가':'🚫 Blocked','1on1':currentLang==='ko'?'🟣 1대1 수업':'🟣 1-on-1 Class',group:currentLang==='ko'?'💗 그룹 수업':'💗 Group Class',temp:currentLang==='ko'?'🔵 임시 수업':'🔵 Temporary'})[s.type]||s.type;
   var html='<div class="tooltip-title">'+typeL+'</div>';
+  /* 🏷 (2026-08-21) 학생이 안 붙어 있어 «누구 수업인지 모를 1:1 수업» 으로 오해하던 자리 —
+     지우지 않고(운영 판단 영역) 정체만 밝힌다(adm-q6.js «강사 스케줄» 카드와 같은 원칙). */
+  if(ghost3)html+='<div class="tooltip-row" style="color:#fbbf24"><span class="k">'+(L?'실제 수업':'Real class')+'</span><span class="v">'+(L?'아님 — 화면에 잡아두는 용도':'No — placeholder only')+'</span></div>';
   html+='<div class="tooltip-row"><span class="k">'+(L?'교사':'Teacher')+'</span><span class="v">'+escapeHtml(data.teacher)+'</span></div>';
   // ⏱ 10분 격자 — 분·실제 길이로 표시(그리드와 같은 기본값 SLOT_STEP)
   var ttSt=data.hour*60+(data.minute||0), ttDur=Number(s.duration_min)>0?Number(s.duration_min):SLOT_STEP;
@@ -3670,6 +3703,6 @@ reloadAndRender();
 <!-- 🏠 글로벌 홈페이지 FAB (헤더 EN 옆으로 이동되어 hidden) -->
 <a id="global-home-fab" href="/" style="display:none">홈</a>
 
-<script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=13" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>
