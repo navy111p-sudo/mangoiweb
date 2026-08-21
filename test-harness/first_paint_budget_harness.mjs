@@ -22,6 +22,22 @@
 //   pdf.js 316KB 의 4배다. 진짜 무게는 파일 안에 있다.
 //
 // 예산을 의도적으로 바꿀 때:  node test-harness/first_paint_budget_harness.mjs --update
+//
+// 📜 기준선 변경 이력 — «왜» 를 남긴다. 이 줄이 없으면 다음 사람이 «그냥 올려도 되는 것» 으로 읽는다.
+//   2026-08-21  index.html 1537 → 1550KB (사장님 승인)
+//     여유 12KB 가 실제로 다 소진됐다. 그날 하루에만
+//       · idx-x8.js  +671B  (사이드바 한/영 전환, PR #403)
+//       · idx-main.js +435B (화질 4단계 + 중계 강제, PR #407 — 8/25 중국어 수업 대비)
+//     둘을 합쳐 623B 를 넘겼다. PR #407 쪽은 주석을 덜어내 704B → 435B 까지 줄였지만,
+//     **그 변경을 통째로 되돌려도 여유가 81B 뿐**이라 트리밍으로는 풀 수 없는 상태였다.
+//   ⚠️ 그래서 이 갱신은 «문제 해결» 이 아니라 «시간 벌기» 다. 진짜 할 일은 따로 남아 있다 —
+//      index.html 은 지금 blocking 외부 스크립트가 24개이고, 그중 idx-vc-* (수업 중에만 쓰는
+//      파일들)만 60KB 가 넘는다. 이것들을 defer 로 내리면 기준선을 오히려 «내릴» 수 있다.
+//      ⛔ 다만 로드 순서 변경은 라이브 장애 전력이 있다(idx-vc-screenmode.js 머리말 참조).
+//         급할 때 곁다리로 하지 말고 별도 PR 로 제대로 검증할 것.
+//   ⛔ 이번에 index.html «만» 올렸다. --update 는 세 페이지를 전부 현재값으로 고정하는데,
+//      admin.html·student-games.html 은 통과 중이었으므로 원래 값(296·288)으로 되돌려 두었다.
+//      남의 페이지 여유까지 같이 리셋하지 말 것.
 
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
