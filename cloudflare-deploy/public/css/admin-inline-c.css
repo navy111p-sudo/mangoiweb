@@ -3316,7 +3316,20 @@ button.chip:hover,
      ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
      width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
      ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  /* 🕐 (2026-08-21 사장님 지시) ⏰ 는 «입력칸 안쪽 오른쪽 끝» 에 얹는다.
+     밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다. 자리는 입력칸의 padding-right 로 비운다.
+     ⚠️ transform 으로 세로 가운데를 맞추므로, 전역 hover 룰의 translateY(-1px) 가 그대로 먹으면
+        버튼이 아래로 튄다 — hover 에서도 같은 transform 을 !important 로 못 박는다(1-3 「hover 확대 금지」). */
+  #en-multi-table .en-time-wrap { position: relative; display: block; }
+  /* ⚠️ 오른쪽 여백을 인라인 style 로 주면 안 먹는다 — 아래 「폼 — input/textarea/select」 전역 룰이
+        padding 을 !important 로 덮기 때문이다(실측 2026-08-21: 32px 로 적었는데 12px 로 나옴).
+        여백이 모자라면 친 글자가 ⏰ 밑으로 들어간다. ID 접두로 이 칸만 되살린다. */
+  #en-multi-table .en-time-wrap input.en-row-time {
+    display: block; padding-right: 34px !important;
+  }
   #en-multi-table td button.en-row-time-builder {
+    position: absolute !important; right: 4px !important; top: 50% !important;
+    transform: translateY(-50%) !important;
     width: 26px !important; height: 26px !important; padding: 0 !important;
     box-sizing: border-box !important;
     background: #fef3c7 !important; background-image: none !important;
@@ -3326,7 +3339,7 @@ button.chip:hover,
   }
   #en-multi-table td button.en-row-time-builder:hover {
     background: #fde68a !important; background-image: none !important;
-    transform: none !important; box-shadow: none !important;
+    transform: translateY(-50%) !important; box-shadow: none !important;
   }
   #en-multi-table td button.en-row-del {
     padding: 0 6px !important; box-sizing: border-box !important;
@@ -9218,7 +9231,12 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
   /* 👤 런타임 mount 되는 계정 버튼 — 헤더 시절 모양을 도크 모양으로 덮는다.
      옛 규칙들이 !important 라 여기서도 !important 가 필요하다. */
   #ph162-dock #ph115-user {
-    grid-column: 1 / -1 !important;
+    /* 🧭 (2026-08-21 사장님 「부피가 너무 크다」) 옛 값은 1 / -1 = 한 줄 전체였다.
+       이제 «마지막 칸을 빼고» 차지하고, 그 마지막 칸에 사이트 홈이 옆으로 선다 → 줄이 하나 줄어든다.
+       ⚠️ -2 / -1 · 1 / -2 로 «끝에서부터» 세는 이유: 음성 토글이 못 붙는 브라우저에서는
+          도크가 3칸이 아니라 2칸이다(adm-r15.js 의 .has-voice 가 안 붙는다). 앞에서부터
+          세면(1/3, 3/-1) 그때 칸이 모자라 암시적 열이 생기면서 배치가 무너진다. */
+    grid-column: 1 / -2 !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
@@ -9278,6 +9296,55 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
   html[data-admin-theme="ivory"] #ph162-dock #ph115-user .ph115-role {
     background: rgba(150,120,70,0.16) !important;
     color: #78716c !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🧹 (2026-08-21 사장님 지적 「사이트 홈과 관리자 칸 사이가 너무 비어 있다」)
+     그 빈 자리는 여백이 아니라 **옛 상단바의 사용자 버튼**(#topUserBtn)이다.
+     배경만 투명해서 안 보일 뿐, 그리드 한 줄을 그대로 차지하고 있었다
+     (실측 2026-08-21, 헤드리스: PC 28px·휴대폰 22px + 간격 7px).
+
+     [왜 지금까지 안 숨겨졌나] 이 파일 5389행이 이미 `#topUserBtn{display:none!important}`
+       라고 적어 두었는데, 옛 헤더 규칙 `#topUserBtn.th-user{display:inline-flex!important}`
+       (1944·4922행)가 **특정도가 한 칸 높아서** 이긴다. 게다가 그리드 자식이라
+       inline-flex 가 flex 로 승격돼 한 줄을 온전히 먹었다.
+     → 여기서 도크 id 를 앞에 붙여(2,0,0) 확실히 이긴다.
+
+     ⛔ 요소를 admin.html 에서 지우지 말 것 — adm-core.js 의 initTopUserMenu() 가
+        /api/admin/me 를 부르는 이 화면의 «유일한» 서버 신원 조회 자리다.
+        보이지만 않으면 되고, 지우면 그 호출까지 함께 사라진다. */
+  #ph162-dock #topUserBtn,
+  #ph162-dock #topUserPopup {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important; height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+
+  /* 🏠 사이트 홈 — 계정 카드 «옆» 마지막 한 칸.
+     [왜 옆으로] 도크가 네 줄(유틸·계정·빈칸·홈)이라 PC 227px·휴대폰 172px 를 늘 덮고 있었다.
+       빈 칸을 없애고 홈을 계정 옆으로 옮기면 두 줄이 된다.
+     ⚠️ 칸 하나(PC 기준 91px)에 그림+글자를 넣어야 하므로 여백·글자를 조금 줄인다.
+        ⛔ 글자를 빼고 그림만 남기지 말 것 — 이 버튼은 「나가는 문이 안 보인다」는
+           2026-08-20 필리핀 매니저 제보로 넣은 것이다(admin.html 의 그 자리 주석 참조).
+     ⚠️ 좁은 칸에서 이름이 길어져도 다른 칸을 밀지 않도록 min-width:0 + overflow:hidden. */
+  #ph162-dock #ph162-sitehome {
+    grid-column: -2 / -1 !important;
+    min-width: 0;
+    padding: 8px 6px;
+    gap: 4px;
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+  #ph162-dock #ph162-sitehome img {
+    width: 18px !important; height: 18px !important;
+  }
+  /* 글자는 EN 일 때가 더 길다(「사이트 홈」 4글자 대 「Site home」 9글자). 칸을 넘치면
+     하드하게 잘리는 대신 «…» 로 줄인다 — 넘쳐서 옆 칸(계정)을 밀어내는 것보다 낫다.
+     실측(2026-08-21 헤드리스, PC 1440·1024 · 휴대폰): 「사이트 홈」·「Site home」 둘 다
+     넘치지 않았고(scrollWidth ≤ clientWidth), 계정 이름을 길게 넣어도 홈 칸 폭은 그대로였다. */
+  #ph162-dock #ph162-sitehome span {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
 /* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════

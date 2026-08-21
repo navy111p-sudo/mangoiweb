@@ -5661,11 +5661,16 @@ function _addEnrollmentRow(prefill) {
       '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
     '<td class="en-c en-c-day" data-label="' + (_enrIsEn ? 'Days' : '요일') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
     '<td class="en-c en-c-time" data-label="' + (_enrIsEn ? 'Time' : '시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
+      /* 🕐 (2026-08-21 사장님 지시) ⏰ 를 «입력칸 안쪽 오른쪽 끝» 에 넣는다.
+         밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다 — 자리는 padding-right 로 비우고
+         버튼은 CSS 로 그 자리에 얹는다(`.en-time-wrap`). 값·동작은 그대로다. */
+      '<div class="en-time-wrap">' +
       '<input class="en-row-time" type="text" placeholder="'+(_enrIsEn?'10:30 or Mon 7:30, Wed 8:00':'10:30 또는 월7:30,수8:00')+'" value="' + _esc(v.time) + '" ' +
         'title="'+(_enrIsEn?'Single time (e.g. 10:30) or per-day time (e.g. Mon 7:30, Wed 8:00)':'단일 시간(예: 10:30) 또는 요일별 시간(예: 월 7:30, 수 8:00)')+'" ' +
-        'style="width:calc(100% - 28px);padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+        'style="width:100%;padding:4px 32px 4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
-        'style="width:24px;height:24px;margin-left:2px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px;vertical-align:middle">⏰</button>' +
+        'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
+      '</div>' +
     '</td>' +
     '<td class="en-c en-c-size" data-label="' + (_enrIsEn ? '1:1 or group' : '수업 형태') + '" style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
     /* 🗓️ (2026-08-20 사장님 지시) 시작일을 «굴려서» 고른다 — 년·월·일 드럼(`_enOpenDateWheel`).
