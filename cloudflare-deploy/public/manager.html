@@ -353,7 +353,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
       <button class="tbtn" id="mode" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
       <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
-      <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
+      <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
+      <button class="tbtn tbtn-out" id="logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></button>
     </div>
   </div>
 
@@ -623,6 +624,29 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     MODE = (MODE === 'dark') ? 'light' : 'dark';
     try { localStorage.setItem('mangoi_manager_theme', MODE); } catch (e) {}
     applyMode();
+  };
+
+  // ── 🚪 로그아웃 ───────────────────────────────────────────────────────────
+  //   세션 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐(옛 /admin/logout 링크는 죽은 경로).
+  //   🔴 캐시(mgr_cache_*)에는 대기자·요청자 «이름» 이 있다 → 공용 PC 대비로 함께 지운다.
+  //   배경·버린 방법: docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md
+  var _logoutBtn = document.getElementById('logout');
+  if (_logoutBtn) _logoutBtn.onclick = function(){
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var kill = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(CACHE_PREFIX) === 0) kill.push(k);
+      }
+      kill.forEach(function(k){ localStorage.removeItem(k); });
+      // 홈 화면 상단 칩이 읽는 신원 표시 — 남겨 두면 로그아웃 뒤에도 이름이 계속 뜬다.
+      localStorage.removeItem('mangoi_admin_session');
+    } catch (e) {}
+    // 서버 호출이 실패해도 로그인 화면으로 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+    var done = function(){ location.href = '/admin/login.html'; };
+    fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).then(done).catch(done);
   };
 
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
