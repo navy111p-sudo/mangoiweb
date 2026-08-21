@@ -81,7 +81,13 @@
     + '#mg-drawer.open{transform:translateX(0)}'
     + '#mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}'
     + '#mg-drawer-overlay.open{opacity:1;visibility:visible}'
-    + '.mg-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}'
+    + '.mg-drawer-head{display:flex;align-items:center;justify-content:flex-start;padding:18px 16px 12px;border-bottom:1px solid rgba(255,255,255,.08)}'
+    /* ⚠️ space-between 을 쓰지 않는다 — 자식이 늘거나 줄 때 라벨이 밀린다(CLAUDE.md 2장 «hover 때 글자가 움직임»).
+       오른쪽 정렬은 margin-left:auto 로 한다. */
+    + '.mg-head-btns{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}'
+    + '.mg-drawer-lang{display:flex;align-items:center;gap:5px;height:34px;padding:0 12px;border-radius:99px;background:rgba(251,191,36,.13);border:1px solid rgba(251,191,36,.45);color:#fbbf24;font-family:inherit;font-size:12px;font-weight:800;letter-spacing:.4px;cursor:pointer;flex-shrink:0;transition:background .2s ease,border-color .2s ease}'
+    + '.mg-drawer-lang:hover{background:rgba(251,191,36,.26);border-color:rgba(251,191,36,.85)}'
+    + '.mg-drawer-lang:active{background:rgba(251,191,36,.34)}'
     + '.mg-drawer-logo{font-size:18px;font-weight:800;color:#fbbf24;letter-spacing:.3px}'
     + '.mg-drawer-x{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);color:#e2e8f0;width:34px;height:34px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .25s ease,background .2s ease,color .2s ease,border-color .2s ease}'
     + '.mg-drawer-x:hover{background:rgba(251,191,36,.18);color:#fbbf24;border-color:rgba(251,191,36,.55);transform:rotate(90deg)}'
@@ -112,6 +118,51 @@
     + '@keyframes mgTabGlow{0%,100%{box-shadow:0 0 12px rgba(251,191,36,.75),0 0 26px rgba(245,158,11,.45);border-color:rgba(251,191,36,.85)}50%{box-shadow:0 0 26px rgba(255,214,90,1),0 0 52px rgba(251,191,36,.9),0 0 72px rgba(251,191,36,.5);border-color:#ffe07a}}'
     + '#mg-drawer-tab{opacity:0;animation:mgTabFadeIn .9s ease-out 1.2s forwards, mgTabGlow 2.8s ease-in-out 2.1s infinite}'
     + '@media (prefers-reduced-motion: reduce){#mg-drawer-tab{animation:none !important;opacity:1 !important;box-shadow:0 0 16px rgba(251,191,36,.85),0 0 30px rgba(251,191,36,.5) !important;border-color:rgba(251,191,36,.95) !important}}';
+
+  /* 🌐 언어 — 이 사이드바는 «스스로» 번역한다 (2026-08-21)
+     ═══════════════════════════════════════════════════════════════════
+     [증상] 마이마이: 「사이드바에 영어 번역을 넣어 줄 수 있나요?」
+     [실측] 번역은 **처음부터 다 있었다** — 아래 ITEMS/GROUPS 의 en: 필드가
+        data-ko/data-en 으로 DOM 에 그대로 박힌다. 그런데 그걸 «적용» 하는 것은
+        공용 i18n 엔진(js/mango-i18n.js)이고, inject() 끝에서 window.applyLang 을
+        부를 뿐이라 **그 엔진이 없는 페이지에서는 아무 일도 안 일어난다.**
+        이 사이드바를 쓰는 26개 화면 중 8개에 엔진이 없고, 하필 마이마이가 온종일 쓰는
+        textbook-viewer.html · textbook-uploader.html 이 둘 다 거기에 있었다.
+     [고침] 엔진에 기대지 않고 드로어 «안» 만 직접 번역한다. 엔진이 있으면 그대로 두고
+        (중복 적용은 무해 — 같은 값을 다시 쓴다) 없으면 이 함수가 대신한다.
+     ⚠️ 언어 판정은 반드시 getLang() 을 거친다(CLAUDE.md 2장 «언어 판정»).
+        인라인 currentLang 을 직접 읽으면 🌐 를 눌러도 안 따라온다.
+     ⚠️ 공통 키는 mangoi_lang 이다. mango_lang 은 구버전 키라 쓰지 않는다. */
+  function mgLang(){
+    try { return window.getLang ? window.getLang() : (localStorage.getItem('mangoi_lang') || 'ko'); }
+    catch(e){ return 'ko'; }
+  }
+  // 공용 엔진과 «같은» 우선순위: 그 언어 → en → ko
+  function mgPick(el, lang, sfx){
+    var v = el.getAttribute('data-' + lang + sfx);
+    if (v !== null) return v;
+    if (lang !== 'en'){ v = el.getAttribute('data-en' + sfx); if (v !== null) return v; }
+    if (lang !== 'ko'){ v = el.getAttribute('data-ko' + sfx); if (v !== null) return v; }
+    return null;
+  }
+  function mgApplyLang(){
+    var root = document.getElementById('mg-drawer');
+    if (!root) return;
+    var lg = mgLang();
+    root.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
+      var t = mgPick(el, lg, ''); if (t !== null) el.textContent = t;
+    });
+    root.querySelectorAll('[data-ko-title],[data-en-title]').forEach(function(el){
+      var t = mgPick(el, lg, '-title'); if (t !== null) el.title = t;
+    });
+    // ⚠️ querySelectorAll 은 root 자신을 포함하지 않는다 — aside 의 aria-label 을 따로 챙긴다
+    [root].concat(Array.prototype.slice.call(root.querySelectorAll('[data-ko-aria],[data-en-aria]')))
+      .forEach(function(el){
+        var a = mgPick(el, lg, '-aria'); if (a !== null) el.setAttribute('aria-label', a);
+      });
+    var cap = root.querySelector('.mg-lang-cap');
+    if (cap) cap.textContent = (lg === 'ko') ? 'EN' : 'KO';   // «다음» 언어를 보여 준다
+  }
 
   // ---- 마크업 ----
   function btnHtml(it){
@@ -167,7 +218,12 @@
     aside.innerHTML = ''
       + '<div class="mg-drawer-head">'
       +   '<span class="mg-drawer-logo" onclick="mgDrawerClose();location.href=\'/\';" style="cursor:pointer" title="홈으로" data-ko-title="홈으로" data-en-title="Home" role="link" tabindex="0" onkeydown="if(event.key===\'Enter\'){mgDrawerClose();location.href=\'/\';}"><img src="/img/mango-ufo.png" alt="" style="height:24px;width:auto;vertical-align:middle;margin-right:5px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))"> Mangoi</span>'
-      +   '<button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
+      +   '<div class="mg-head-btns">'
+      +     '<button class="mg-drawer-lang" onclick="mgToggleLang()" aria-label="언어 전환" data-ko-aria="언어 전환" data-en-aria="Switch language" title="한국어 / English" data-ko-title="한국어 / English" data-en-title="Korean / English">'
+      +       '<span aria-hidden="true">🌐</span><span class="lang-label-sync mg-lang-cap">EN</span>'
+      +     '</button>'
+      +     '<button class="mg-drawer-x" onclick="mgDrawerClose()" aria-label="닫기" data-ko-aria="닫기" data-en-aria="Close">✕</button>'
+      +   '</div>'
       + '</div>'
       + '<nav class="mg-drawer-nav">' + buildNav() + '</nav>'
       + '<button id="mg-drawer-tab" onclick="mgDrawerToggle()" aria-label="메뉴 열기" data-ko-aria="메뉴 열기" data-en-aria="Open menu" aria-expanded="false" aria-controls="mg-drawer">'
@@ -178,8 +234,10 @@
     document.body.appendChild(overlay);
     document.body.appendChild(aside);
 
-    // 언어 재적용(mango-i18n.js 로드돼 있으면)
+    // 언어 재적용(mango-i18n.js 로드돼 있으면 화면 전체를)
     try { if (window.applyLang) window.applyLang(); else if (window.mangoApplyI18n) window.mangoApplyI18n(); } catch(e){}
+    // …그리고 엔진이 있든 없든 드로어 안은 «항상» 우리가 맞춘다(위 머리말 참고)
+    try { mgApplyLang(); } catch(e){}
 
     // "열림" 탭 fade-in 은 세션당 1회만
     try {
@@ -222,6 +280,34 @@
     var d=document.getElementById('mg-drawer'), o=document.getElementById('mg-drawer-overlay');
     if(d)d.classList.remove('open'); if(o)o.classList.remove('open'); mgSetLabel(false);
   };
+  /* 🌐 언어 전환 — 엔진이 있으면 그쪽에 맡기고, 없으면 사이드바가 스스로 한다.
+     ⛔ 엔진이 있는 페이지에서 우리가 직접 localStorage 를 건드리면 화면 본문과 사이드바의
+        언어가 갈린다(엔진의 currentLang 은 그대로이므로). 반드시 위임이 먼저다. */
+  window.mgToggleLang = function(){
+    var delegated = false;
+    try {
+      if (typeof window.toggleLang === 'function'){ window.toggleLang(); delegated = true; }
+    } catch(e){ delegated = false; }
+
+    if (!delegated){
+      // 공용 엔진이 없는 화면(교재 뷰어·업로더 등) — 여기서만 우리가 직접 바꾼다
+      var next = (mgLang() === 'ko') ? 'en' : 'ko';
+      try { localStorage.setItem('mangoi_lang', next); } catch(e){}
+      try { document.documentElement.lang = next; } catch(e){}
+      try { window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail:{ lang: next } })); } catch(e){}
+    }
+
+    try { mgApplyLang(); } catch(e){}
+    var d = document.getElementById('mg-drawer');
+    try { mgSetLabel(!!(d && d.classList.contains('open'))); } catch(e){}
+  };
+
+  /* 화면 어딘가의 🌐 로 언어가 바뀌면 사이드바도 따라간다.
+     (엔진이 setLang 끝에서 이 이벤트를 쏜다 — CLAUDE.md 2장 «JS 로 그린 라벨») */
+  window.addEventListener('mangoi:lang-changed', function(){
+    try { mgApplyLang(); } catch(e){}
+  });
+
   // 다른 페이지에서는 해당 기능 URL 로 이동
   window.mgGo = function(go){
     var url = URLS[go] || '/';

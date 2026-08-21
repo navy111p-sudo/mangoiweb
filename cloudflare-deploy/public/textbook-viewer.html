@@ -176,16 +176,17 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 <body>
 
 <div class="topbar">
-  <a class="home" href="/">🏠 홈</a>
-  <div class="title" id="title">교재 로딩 중…</div>
-  <button class="btn" id="btn-prev" title="이전 파일">◀</button>
-  <button class="btn" id="btn-next" title="다음 파일">▶</button>
-  <button class="btn primary" id="btn-fs" title="전체화면">⛶ 전체</button>
-  <button class="btn share" id="btn-share" title="화면 공유로 학생에게 보여주기">📺 수업에 공유</button>
+  <a class="home" href="/" data-ko="🏠 홈" data-en="🏠 Home">🏠 홈</a>
+  <div class="title" id="title" data-ko="교재 로딩 중…" data-en="Loading textbook…">교재 로딩 중…</div>
+  <button class="btn" id="btn-lang" onclick="tvToggleLang()" title="한국어 / English" data-ko-title="한국어 / English" data-en-title="Korean / English" aria-label="언어 전환" data-ko-aria="언어 전환" data-en-aria="Switch language"><span aria-hidden="true">🌐</span> <span class="lang-label-sync" id="tv-lang-cap">EN</span></button>
+  <button class="btn" id="btn-prev" title="이전 파일" data-ko-title="이전 파일" data-en-title="Previous file" aria-label="이전 파일" data-ko-aria="이전 파일" data-en-aria="Previous file">◀</button>
+  <button class="btn" id="btn-next" title="다음 파일" data-ko-title="다음 파일" data-en-title="Next file" aria-label="다음 파일" data-ko-aria="다음 파일" data-en-aria="Next file">▶</button>
+  <button class="btn primary" id="btn-fs" title="전체화면" data-ko-title="전체화면" data-en-title="Fullscreen" data-ko="⛶ 전체" data-en="⛶ Full">⛶ 전체</button>
+  <button class="btn share" id="btn-share" title="화면 공유로 학생에게 보여주기" data-ko-title="화면 공유로 학생에게 보여주기" data-en-title="Show it to students by sharing your screen" data-ko="📺 수업에 공유" data-en="📺 Share in class">📺 수업에 공유</button>
 </div>
 
 <aside class="sidebar" id="sidebar">
-  <h3>📑 레슨 · 파일</h3>
+  <h3 data-ko="📑 레슨 · 파일" data-en="📑 Lessons &amp; Files">📑 레슨 · 파일</h3>
   <div id="lesson-list"></div>
 </aside>
 <button class="sidebar-toggle" id="sb-toggle" title="사이드바 토글">◀</button>
@@ -202,17 +203,610 @@ html,body{background:#0a0f1f;color:var(--text);font-family:MangoiHanSC,-apple-sy
 
 <div class="empty" id="empty" style="display:none">
   <div class="ico">📭</div>
-  <h2>교재를 찾을 수 없어요</h2>
-  <p>이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.</p>
+  <h2 data-ko="교재를 찾을 수 없어요" data-en="Textbook not found">교재를 찾을 수 없어요</h2>
+  <p data-ko="이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다." data-en="It may have been deleted, or uploaded on a different device.">이 교재가 삭제되었거나, 다른 기기에서 등록한 교재일 수 있습니다.</p>
   <div id="other-books" style="margin-top:18px"></div>
-  <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px">📚 교재 업로더로 돌아가기</a></p>
+  <p style="margin-top:18px"><a href="/textbook-uploader.html" style="background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:9px 18px;border-radius:99px;font-weight:800;text-decoration:none;font-size:13px" data-ko="📚 교재 업로더로 돌아가기" data-en="📚 Back to Textbook Uploader">📚 교재 업로더로 돌아가기</a></p>
 </div>
 
 <script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   📖 교재 뷰어 — 실제 구현 (2026-08-21)
+
+   왜 만들었나 — 「교재를 올렸는데 “보기”를 누르면 교재가 안 나온다」 제보.
+     원인은 업로드도 데이터도 아니었다. 이 파일의 <script> 가 ph262 «안전 stub»
+     이라 **아무 일도 하지 않았다.** 화면 껍데기(CSS·툴바·사이드바·페이지바)는
+     처음부터 완성돼 있어서, 열면 «교재 로딩 중…» 에서 영원히 멈췄다.
+     에러가 하나도 안 나기 때문에 «업로드가 잘못됐나» 로 오진하기 쉬웠다.
+
+   교재가 어디에 있나 — 업로더(textbook-uploader.html)는 교재를 서버가 아니라
+     **브라우저 IndexedDB**(`mangoi-textbooks`)에 넣는다. 「보기」가 넘기는 `?id=`
+     도 그 안의 uuid 다. 그래서 «다른 기기·다른 브라우저에서 올린 교재» 가 여기서
+     안 보이는 것은 고장이 아니라 구조다 → 빈 화면 대신 이유를 말하고 이 기기에
+     있는 교재를 골라 주는 쪽으로 처리한다.
+     공용 자료실(서버 R2)에 올라간 것은 `?book=<교재명>` 으로 볼 수 있다.
+
+   ⛔ 이 화면은 **읽기 전용**이다.
+      `indexedDB.open` 을 **버전 없이** 부른다 — 버전을 적으면 upgrade 가 돌아
+      업로더가 관리하는 store 구조를 뷰어가 건드리게 된다. 여기서는 절대 안 한다.
+      (업로더 주석 ph261: 「사용자 동의 없이는 DB 삭제 안 함」과 같은 취지)
+
+   ⚠️ 124장짜리 교재가 있다. **blob 은 목록에 들고 있지 않는다** — 목록에는
+      이름·종류·크기만 두고, 보는 그 한 장만 그때 읽어 objectURL 을 만든 뒤
+      다음 장으로 넘어갈 때 revoke 한다.
+   ═══════════════════════════════════════════════════════════════════════════ */
 (function(){
   "use strict";
-  // ph262: textbook-viewer 안전 stub — 데이터 무관, 보기 모드만
-  console.log('[ph262] textbook-viewer stub loaded');
+
+  var DB_NAME = 'mangoi-textbooks';
+  var $ = function(id){ return document.getElementById(id); };
+  var params  = new URLSearchParams(location.search);
+  var BOOK_ID = (params.get('id') || '').trim();
+  var SRV_BOOK= (params.get('book') || '').trim();   // 공용 자료실(서버) 모드
+
+  var LOCAL_DB = null;   // 열어 둔 IndexedDB (파일 blob 을 그때그때 읽으려고 유지)
+  var BOOK = null;       // { publisher, textbook, level, category, lessons:[{name, files:[]}] }
+  var FLAT = [];         // 화면에 넘길 순서대로 편 파일 목록
+  var cur  = -1;
+  var curURL = null;     // 지금 화면에 쓰는 objectURL (다음 장으로 갈 때 revoke)
+  var zoomable = false;  // 이미지일 때만 확대/이동
+
+  /* 🌐 언어 — 이 화면은 공용 i18n 엔진(js/mango-i18n.js)을 «안 부른다».
+     ═══════════════════════════════════════════════════════════════════
+     [제보] 마이마이 8/21: 「이 기능은 번역이 안 됩니다. EN 을 눌러도 한국어 그대로예요」
+     [원인] 번역할 엔진이 이 페이지에 없다. 그래서 data-ko/data-en 을 달아 놔도
+        아무도 적용해 주지 않는다 — 사이드바에서 겪은 것과 «같은 뿌리» 다.
+     [고침] 이 화면 것만 스스로 번역한다 + 상단바에 🌐 버튼을 둔다.
+     ⚠️ 언어 판정은 getLang() 을 먼저 본다(CLAUDE.md 2장 «언어 판정»).
+     ⚠️ 공통 키는 mangoi_lang 이다(mango_lang 은 구버전). */
+  function tvLang(){
+    try { return window.getLang ? window.getLang() : (localStorage.getItem('mangoi_lang') || 'ko'); }
+    catch(e){ return 'ko'; }
+  }
+  function tvEn(){ return tvLang() !== 'ko'; }
+  // 공용 엔진과 같은 우선순위: 그 언어 → en → ko
+  function tvPick(el, lang, sfx){
+    var v = el.getAttribute('data-' + lang + sfx);
+    if (v !== null) return v;
+    if (lang !== 'en'){ v = el.getAttribute('data-en' + sfx); if (v !== null) return v; }
+    if (lang !== 'ko'){ v = el.getAttribute('data-ko' + sfx); if (v !== null) return v; }
+    return null;
+  }
+  function tvApplyLang(){
+    var lg = tvLang();
+    document.querySelectorAll('[data-ko],[data-en]').forEach(function(el){
+      var t = tvPick(el, lg, ''); if (t !== null) el.textContent = t;
+    });
+    document.querySelectorAll('[data-ko-title],[data-en-title]').forEach(function(el){
+      var t = tvPick(el, lg, '-title'); if (t !== null) el.title = t;
+    });
+    document.querySelectorAll('[data-ko-aria],[data-en-aria]').forEach(function(el){
+      var a = tvPick(el, lg, '-aria'); if (a !== null) el.setAttribute('aria-label', a);
+    });
+    var cap = $('tv-lang-cap');
+    if (cap) cap.textContent = (lg === 'ko') ? 'EN' : 'KO';   // «다음» 언어를 보여 준다
+    try { document.documentElement.lang = lg; } catch(e){}
+  }
+  /* ⛔ 엔진이 있는 화면이라면 그쪽에 맡긴다 — 우리가 localStorage 를 직접 건드리면
+     본문과 사이드바의 언어가 갈린다(사이드바에서 같은 판단을 했다). */
+  window.tvToggleLang = function(){
+    var delegated = false;
+    try { if (typeof window.toggleLang === 'function'){ window.toggleLang(); delegated = true; } } catch(e){}
+    if (!delegated){
+      var next = (tvLang() === 'ko') ? 'en' : 'ko';
+      try { localStorage.setItem('mangoi_lang', next); } catch(e){}
+      try { window.dispatchEvent(new CustomEvent('mangoi:lang-changed', { detail:{ lang: next } })); } catch(e){}
+    }
+    tvApplyLang();
+    try { if (FLAT.length) { updateTitle(); renderSidebar(); markActive(); } } catch(e){}
+  };
+  window.addEventListener('mangoi:lang-changed', function(){
+    try { tvApplyLang(); if (FLAT.length){ updateTitle(); renderSidebar(); markActive(); } } catch(e){}
+  });
+
+  function esc(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  /* Slide7 / Slide10 / Slide26 를 사람이 세는 순서로. 업로드 순서가 뒤엉킨
+     묶음이 실제로 있어서(작업기록 참고) 이름 기준 자연정렬로 다시 세운다. */
+  function natCmp(a, b){
+    return String(a||'').localeCompare(String(b||''), undefined, { numeric:true, sensitivity:'base' });
+  }
+  function fileKind(name){
+    var ext = String(name||'').toLowerCase().split('.').pop();
+    if (ext === 'pdf') return 'pdf';
+    if (['jpg','jpeg','png','webp','gif','bmp'].indexOf(ext) >= 0) return 'image';
+    if (['mp4','webm','mov','m4v'].indexOf(ext) >= 0) return 'video';
+    if (['mp3','wav','m4a','ogg'].indexOf(ext) >= 0) return 'audio';
+    return 'other';
+  }
+  function iconOf(k){
+    return k === 'pdf' ? '📕' : k === 'image' ? '🖼️' : k === 'video' ? '🎬' : k === 'audio' ? '🎧' : '📄';
+  }
+  function humanSize(b){
+    b = Number(b || 0);
+    if (!b) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+
+  /* ── IndexedDB (읽기 전용) ────────────────────────────────────────────── */
+  function openRead(){
+    return new Promise(function(resolve){
+      var req;
+      try { req = indexedDB.open(DB_NAME); }          // ⛔ 버전 지정 금지(위 머리말)
+      catch(e){ resolve(null); return; }
+      req.onsuccess = function(){
+        var d = req.result;
+        if (!d.objectStoreNames.contains('textbooks') || !d.objectStoreNames.contains('files')) {
+          console.warn('[viewer] store 없음 — 이 기기에는 아직 등록된 교재가 없습니다.');
+          try { d.close(); } catch(_){}
+          resolve(null); return;
+        }
+        resolve(d);
+      };
+      req.onerror   = function(){ console.warn('[viewer] IndexedDB 열기 실패', req.error); resolve(null); };
+      req.onblocked = function(){ console.warn('[viewer] IndexedDB 차단'); resolve(null); };
+    });
+  }
+  function idbGet(db, store, key){
+    return new Promise(function(resolve){
+      if (!db) { resolve(null); return; }
+      try {
+        var tx = db.transaction(store, 'readonly');
+        var rq = tx.objectStore(store).get(key);
+        rq.onsuccess = function(){ resolve(rq.result || null); };
+        rq.onerror   = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+  }
+  function idbGetAll(db, store){
+    return new Promise(function(resolve){
+      if (!db) { resolve([]); return; }
+      try {
+        var tx = db.transaction(store, 'readonly');
+        var rq = tx.objectStore(store).getAll();
+        rq.onsuccess = function(){ resolve(rq.result || []); };
+        rq.onerror   = function(){ resolve([]); };
+      } catch(e){ resolve([]); }
+    });
+  }
+  /* 한 트랜잭션에서 여러 건 — 124장이면 트랜잭션도 124개가 되지 않게.
+     ⚠️ 결과에서 **blob 은 버린다**(머리말 참고). */
+  function idbGetMany(db, store, keys){
+    return new Promise(function(resolve){
+      var out = [];
+      if (!db || !keys || !keys.length) { resolve(out); return; }
+      var tx;
+      try { tx = db.transaction(store, 'readonly'); } catch(e){ resolve(out); return; }
+      var os = tx.objectStore(store);
+      keys.forEach(function(k){
+        var rq = os.get(k);
+        rq.onsuccess = function(){
+          var r = rq.result;
+          if (r) out.push({ id: r.id, name: r.name, kind: r.kind || fileKind(r.name), size: r.size });
+        };
+        rq.onerror = function(){};
+      });
+      tx.oncomplete = function(){ resolve(out); };
+      tx.onerror    = function(){ resolve(out); };
+      tx.onabort    = function(){ resolve(out); };
+    });
+  }
+
+  /* ── 불러오기 ─────────────────────────────────────────────────────────── */
+  async function loadLocal(){
+    LOCAL_DB = await openRead();
+    if (!LOCAL_DB || !BOOK_ID) return null;
+    var meta = await idbGet(LOCAL_DB, 'textbooks', BOOK_ID);
+    if (!meta) return null;
+    var lessons = [];
+    var raw = meta.lessons || [];
+    for (var i = 0; i < raw.length; i++) {
+      var files = await idbGetMany(LOCAL_DB, 'files', raw[i].fileIds || []);
+      files.sort(function(a, b){ return natCmp(a.name, b.name); });
+      if (files.length) lessons.push({ name: raw[i].name || '레슨', files: files });
+    }
+    if (!lessons.length) return null;
+    return {
+      publisher: meta.publisher || '', textbook: meta.textbook || '교재',
+      level: meta.level || '', category: meta.category || '', lessons: lessons, src: 'idb'
+    };
+  }
+
+  /* 공용 자료실(서버 R2). 업로더가 넣는 이름 형식이 「[교재] 레슨 / 파일명」이라
+     그 모양대로 레슨을 되살린다. 형식이 아니면 통째로 한 레슨에 담는다. */
+  async function loadServer(name){
+    var j = null;
+    try {
+      var r = await fetch('/api/textbook-files?limit=20000&book=' + encodeURIComponent(name), { credentials: 'same-origin' });
+      if (!r.ok) return null;
+      j = await r.json();
+    } catch(e){ return null; }
+    if (!j || !j.ok || !(j.items || []).length) return null;
+
+    var byLesson = new Map();
+    j.items.forEach(function(it){
+      var nm = String(it.name || '');
+      nm = nm.replace(/^\[[^\]]*\]\s*/, '');            // 「[교재] 」 떼기
+      var lsn = '', fn = nm;
+      var cut = nm.indexOf(' / ');
+      if (cut > 0) { lsn = nm.slice(0, cut); fn = nm.slice(cut + 3); }
+      if (!lsn) lsn = '전체';
+      if (!byLesson.has(lsn)) byLesson.set(lsn, []);
+      byLesson.get(lsn).push({ id: it.id, name: fn, kind: it.kind || fileKind(fn), size: it.size_bytes, url: it.url });
+    });
+    var lessons = [];
+    Array.from(byLesson.keys()).sort(natCmp).forEach(function(k){
+      var fs = byLesson.get(k);
+      fs.sort(function(a, b){ return natCmp(a.name, b.name); });
+      lessons.push({ name: k, files: fs });
+    });
+    return { publisher: '공용 자료실', textbook: name, level: '', category: '', lessons: lessons, src: 'server' };
+  }
+
+  /* ── 화면 그리기 ──────────────────────────────────────────────────────── */
+  function flatten(){
+    FLAT = [];
+    BOOK.lessons.forEach(function(l, li){
+      l.files.forEach(function(f){
+        f._g = FLAT.length; f._l = li;
+        FLAT.push(f);
+      });
+    });
+  }
+
+  function renderSidebar(){
+    var host = $('lesson-list');
+    host.innerHTML = '';
+    BOOK.lessons.forEach(function(l, li){
+      var item = document.createElement('div');
+      item.className = 'lesson-item' + (li === 0 ? ' open' : '');
+
+      var head = document.createElement('div');
+      head.className = 'lesson-head';
+      head.innerHTML = '<span>' + esc(l.name) + '</span><span class="cnt">' + l.files.length + '</span>';
+      head.onclick = function(){ item.classList.toggle('open'); };
+
+      var box = document.createElement('div');
+      box.className = 'lesson-files';
+      l.files.forEach(function(f){
+        var el = document.createElement('div');
+        el.className = 'file-item';
+        el.setAttribute('data-gi', String(f._g));
+        el.title = f.name + (f.size ? ' · ' + humanSize(f.size) : '');
+        el.innerHTML = '<span class="ic">' + iconOf(f.kind) + '</span><span class="nm">' + esc(f.name) + '</span>';
+        el.onclick = function(){ show(f._g); };
+        box.appendChild(el);
+      });
+
+      item.appendChild(head);
+      item.appendChild(box);
+      host.appendChild(item);
+    });
+  }
+
+  function markActive(){
+    var list = document.querySelectorAll('#lesson-list .file-item');
+    for (var i = 0; i < list.length; i++) {
+      var on = Number(list[i].getAttribute('data-gi')) === cur;
+      list[i].classList.toggle('active', on);
+      if (on) {
+        var item = list[i].closest('.lesson-item');
+        if (item && !item.classList.contains('open')) item.classList.add('open');
+        try { list[i].scrollIntoView({ block: 'nearest' }); } catch(_){}
+      }
+    }
+  }
+
+  function stageMsg(msg, sub){
+    $('stage').innerHTML =
+      '<div style="text-align:center;color:#94A3B8;padding:24px;max-width:420px">' +
+        '<div style="font-size:38px;opacity:.55;margin-bottom:10px">📄</div>' +
+        '<div style="font-size:14px;font-weight:700;color:#fff">' + esc(msg) + '</div>' +
+        (sub ? '<div style="font-size:12px;margin-top:7px;line-height:1.6">' + esc(sub) + '</div>' : '') +
+      '</div>';
+  }
+
+  function revoke(){
+    if (curURL) { try { URL.revokeObjectURL(curURL); } catch(_){} curURL = null; }
+  }
+
+  async function show(i){
+    if (!FLAT.length) return;
+    if (i < 0) i = 0;
+    if (i >= FLAT.length) i = FLAT.length - 1;
+    cur = i;
+    var f = FLAT[i];
+    var stage = $('stage');
+
+    markActive();
+    updateTitle();
+    updatePageNav();
+    resetZoom();
+    stage.innerHTML = '<div style="color:#94A3B8;font-size:13px">' + (tvEn() ? 'Loading…' : '불러오는 중…') + '</div>';
+    revoke();
+
+    var url = f.url || '';
+    if (!url) {
+      var rec = await idbGet(LOCAL_DB, 'files', f.id);
+      if (cur !== i) return;                       // 그 사이 다른 장을 눌렀으면 버린다
+      if (!rec || !rec.blob) {
+        stageMsg(tvEn() ? 'Could not read this file.' : '이 파일을 읽지 못했습니다.',
+                 f.name + (tvEn() ? ' — it may have been cleared from browser storage.' : ' — 브라우저 저장 공간에서 사라졌을 수 있습니다.'));
+        return;
+      }
+      curURL = URL.createObjectURL(rec.blob);
+      url = curURL;
+    }
+
+    zoomable = (f.kind === 'image');
+    stage.innerHTML = '';
+
+    if (f.kind === 'image') {
+      var wrap = document.createElement('div');
+      wrap.className = 'pan-wrap';
+      wrap.id = 'pan-wrap';
+      var img = new Image();
+      img.alt = f.name;
+      img.onerror = function(){ stageMsg(tvEn() ? 'Could not display this image.' : '이미지를 표시하지 못했습니다.', f.name); };
+      img.src = url;
+      wrap.appendChild(img);
+      stage.appendChild(wrap);
+    } else if (f.kind === 'pdf') {
+      var fr = document.createElement('iframe');
+      fr.src = url;
+      fr.title = f.name;
+      fr.style.width = 'min(1100px, 92vw)';        // 인라인으로 폭을 못 박는다(부모가 flex 라 0 이 될 수 있음)
+      stage.appendChild(fr);
+    } else if (f.kind === 'video') {
+      var v = document.createElement('video');
+      v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.src = url;
+      stage.appendChild(v);
+    } else if (f.kind === 'audio') {
+      var card = document.createElement('div');
+      card.className = 'audio-card';
+      card.innerHTML = '<div style="font-size:34px">🎧</div><div style="font-size:13px;font-weight:700;color:#fff;margin-top:6px">' + esc(f.name) + '</div>';
+      var au = document.createElement('audio');
+      au.controls = true; au.src = url;
+      card.appendChild(au);
+      stage.appendChild(card);
+    } else {
+      var box = document.createElement('div');
+      box.className = 'audio-card';
+      box.innerHTML =
+        '<div style="font-size:34px">📄</div>' +
+        '<div style="font-size:13px;font-weight:700;color:#fff;margin:8px 0">' + esc(f.name) + '</div>' +
+        '<div style="font-size:12px;color:#94A3B8">' + (tvEn() ? 'This format cannot be opened here.' : '이 형식은 화면에서 바로 열 수 없습니다.') + '</div>';
+      var a = document.createElement('a');
+      a.href = url; a.download = f.name; a.textContent = tvEn() ? '⬇ Download' : '⬇ 내려받기';
+      a.style.cssText = 'display:inline-block;margin-top:12px;background:linear-gradient(135deg,#3B82F6,#1D4ED8);color:#fff;padding:8px 16px;border-radius:99px;font-weight:800;text-decoration:none;font-size:12.5px';
+      box.appendChild(a);
+      stage.appendChild(box);
+    }
+
+    var rail = $('zoom-rail');
+    if (rail) rail.style.display = zoomable ? 'flex' : 'none';
+    applyZoom();
+  }
+
+  function updateTitle(){
+    var f = FLAT[cur];
+    var bits = [];
+    if (BOOK.publisher) bits.push(BOOK.publisher);
+    if (BOOK.level) bits.push(BOOK.level);
+    if (f) bits.push(f.name);
+    if (FLAT.length > 1) bits.push((cur + 1) + ' / ' + FLAT.length);
+    var _tt = $('title');
+    _tt.removeAttribute('data-ko'); _tt.removeAttribute('data-en');   // 교재 이름은 사용자 데이터 — 번역 대상이 아니다
+    _tt.innerHTML = '📖 ' + esc(BOOK.textbook) + '<span class="sub">' + esc(bits.join(' · ')) + '</span>';
+    document.title = BOOK.textbook + ' — 교재 뷰어';
+  }
+
+  function updatePageNav(){
+    var nav = $('page-nav');
+    if (FLAT.length <= 1) { nav.style.display = 'none'; return; }
+    nav.style.display = 'flex';
+    $('pn-info').textContent = (cur + 1) + ' / ' + FLAT.length;
+    $('pn-prev').disabled = (cur <= 0);
+    $('pn-next').disabled = (cur >= FLAT.length - 1);
+  }
+
+  /* ── 확대 / 이동 (이미지 전용) ────────────────────────────────────────── */
+  var Z = 1, PX = 0, PY = 0;
+  function applyZoom(){
+    var w = $('pan-wrap');
+    if (w) w.style.transform = 'translate(calc(-50% + ' + PX + 'px), calc(-50% + ' + PY + 'px)) scale(' + Z + ')';
+    var pct = $('zr-pct');   if (pct) pct.textContent = Math.round(Z * 100) + '%';
+    var rng = $('zr-range'); if (rng) rng.value = String(Math.round(Z * 100));
+  }
+  function setZoom(z){
+    Z = Math.max(0.25, Math.min(4, z));
+    if (Z <= 1) { PX = 0; PY = 0; }
+    applyZoom();
+  }
+  function resetZoom(){ Z = 1; PX = 0; PY = 0; applyZoom(); }
+
+  function buildZoomRail(){
+    if ($('zoom-rail')) return;
+    var rail = document.createElement('div');
+    rail.className = 'zoom-rail';
+    rail.id = 'zoom-rail';
+    rail.style.display = 'none';
+    rail.innerHTML =
+      '<span class="zr-mag">🔍</span>' +
+      '<button class="zr-btn" id="zr-out" title="축소">−</button>' +
+      '<div class="zr-slider"><input type="range" id="zr-range" min="25" max="400" step="5" value="100" aria-label="확대 비율"></div>' +
+      '<button class="zr-btn" id="zr-in" title="확대">+</button>' +
+      '<span class="zr-pct" id="zr-pct">100%</span>' +
+      '<button class="zr-btn reset" id="zr-reset" title="원래 크기">↺</button>';
+    document.body.appendChild(rail);
+    $('zr-out').onclick   = function(){ setZoom(Z - 0.2); };
+    $('zr-in').onclick    = function(){ setZoom(Z + 0.2); };
+    $('zr-reset').onclick = function(){ resetZoom(); };
+    $('zr-range').oninput = function(){ setZoom(Number(this.value) / 100); };
+  }
+
+  function wireStageGestures(){
+    var stage = $('stage');
+    stage.addEventListener('wheel', function(e){
+      if (!zoomable) return;
+      e.preventDefault();
+      setZoom(Z * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
+    }, { passive: false });
+
+    var dragging = false, sx = 0, sy = 0, ox = 0, oy = 0, pid = null;
+    stage.addEventListener('pointerdown', function(e){
+      if (!zoomable || Z <= 1) return;
+      dragging = true; pid = e.pointerId;
+      sx = e.clientX; sy = e.clientY; ox = PX; oy = PY;
+      stage.classList.add('dragging');
+      try { stage.setPointerCapture(pid); } catch(_){}
+    });
+    stage.addEventListener('pointermove', function(e){
+      if (!dragging) return;
+      PX = ox + (e.clientX - sx);
+      PY = oy + (e.clientY - sy);
+      applyZoom();
+    });
+    var stop = function(){
+      if (!dragging) return;
+      dragging = false;
+      stage.classList.remove('dragging');
+      try { if (pid != null) stage.releasePointerCapture(pid); } catch(_){}
+      pid = null;
+    };
+    stage.addEventListener('pointerup', stop);
+    stage.addEventListener('pointercancel', stop);
+    stage.addEventListener('dblclick', function(){ if (zoomable) setZoom(Z > 1 ? 1 : 2); });
+  }
+
+  /* ── 빈 상태 — 이유를 말하고 이 기기에 있는 교재를 골라 준다 ──────────── */
+  async function showEmpty(){
+    var _t = $('title');
+    _t.setAttribute('data-ko', '교재를 찾을 수 없어요');
+    _t.setAttribute('data-en', 'Textbook not found');
+    _t.textContent = tvEn() ? 'Textbook not found' : '교재를 찾을 수 없어요';
+    $('sidebar').style.display = 'none';
+    $('sb-toggle').style.display = 'none';
+    $('page-nav').style.display = 'none';
+    $('btn-prev').style.display = $('btn-next').style.display = 'none';
+    $('btn-fs').style.display = $('btn-share').style.display = 'none';
+    $('viewer').style.left = '0';
+    $('empty').style.display = 'block';
+
+    var host = $('other-books');
+    var books = await idbGetAll(LOCAL_DB, 'textbooks');
+    books.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+    var html = '';
+    if (books.length) {
+      html += '<div style="font-size:12px;color:#94A3B8;margin-bottom:8px">' + (tvEn() ? 'Textbooks on this device' : '이 기기에 있는 교재') + '</div>';
+      html += books.slice(0, 12).map(function(b){
+        return '<a href="?id=' + encodeURIComponent(b.id) + '" style="display:block;background:#1A2548;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
+               '📖 ' + esc(b.textbook || '교재') +
+               '<span style="color:#94A3B8;font-weight:600"> · ' + (b.totalFiles || 0) + '개 파일</span></a>';
+      }).join('');
+    } else {
+      html += '<div style="font-size:12.5px;color:#94A3B8;line-height:1.7">' + (tvEn()
+        ? 'No textbooks are registered in this browser.<br>A textbook is stored <b style="color:#E2E8F0">only in the browser it was uploaded from</b>.'
+        : '이 브라우저에는 등록된 교재가 없습니다.<br>교재는 <b style="color:#E2E8F0">올린 그 브라우저에만</b> 저장됩니다.') + '</div>';
+    }
+    host.innerHTML = html;
+
+    /* 공용 자료실(서버)에 올라간 묶음이 있으면 그쪽도 안내한다. */
+    try {
+      var r = await fetch('/api/textbook-files?group=1', { credentials: 'same-origin' });
+      var j = await r.json();
+      var gs = (j && j.ok && j.groups) ? j.groups.filter(function(g){ return g.book && g.book !== '(기타)'; }) : [];
+      if (gs.length) {
+        host.insertAdjacentHTML('beforeend',
+          '<div style="font-size:12px;color:#94A3B8;margin:14px 0 8px">' + (tvEn() ? '📚 Shared library (visible on every device)' : '📚 공용 자료실 (모든 기기에서 보임)') + '</div>' +
+          gs.slice(0, 12).map(function(g){
+            return '<a href="?book=' + encodeURIComponent(g.book) + '" style="display:block;background:#131C36;border:1px solid rgba(96,165,250,0.18);border-radius:8px;padding:8px 11px;margin-bottom:5px;font-size:12.5px;text-align:left">' +
+                   '📚 ' + esc(g.book) + '<span style="color:#94A3B8;font-weight:600"> · ' + (g.files || 0) + '개 파일</span></a>';
+          }).join(''));
+      }
+    } catch(_){}
+  }
+
+  /* ── 상단바 · 키보드 ──────────────────────────────────────────────────── */
+  function wireChrome(){
+    $('btn-prev').onclick = function(){ show(cur - 1); };
+    $('btn-next').onclick = function(){ show(cur + 1); };
+    $('pn-prev').onclick  = function(){ show(cur - 1); };
+    $('pn-next').onclick  = function(){ show(cur + 1); };
+
+    $('sb-toggle').onclick = function(){
+      var sb = $('sidebar');
+      sb.classList.toggle('hidden');
+      this.textContent = sb.classList.contains('hidden') ? '▶' : '◀';
+    };
+
+    $('btn-fs').onclick = function(){
+      try {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else $('viewer').requestFullscreen();
+      } catch(e){ alert(tvEn() ? 'Fullscreen is not available in this browser.' : '이 브라우저에서는 전체화면을 쓸 수 없습니다.'); }
+    };
+
+    /* 📺 수업에 공유 — 이 탭에서는 수업방에 넣을 수 없다.
+       ⛔ «공유했습니다» 라고 띄우고 아무것도 안 하는 시연 껍데기를 만들지 말 것
+          (CLAUDE.md 2장 「직원을 등록했는데 로그인이 안 돼요」와 같은 사고). */
+    $('btn-share').onclick = function(){
+      alert(tvEn()
+        ? ('📺 Showing it to students\n\n' +
+           'This window is your own preview.\n' +
+           'To put a textbook on the students\' screens, join the class first,\n' +
+           'then pick it from the [📖 Textbook] tab → [Textbook tools].\n\n' +
+           '(Only a textbook chosen inside the class is shared with students)')
+        : ('📺 학생에게 보여주기\n\n' +
+           '이 화면은 «내가 미리 보는» 창입니다.\n' +
+           '학생에게 띄우려면 수업방에 들어간 뒤\n' +
+           '아래 [📖 교재] 탭 → [교재도구] 에서 고르세요.\n\n' +
+           '(수업방에서 고른 교재만 학생 화면으로 함께 넘어갑니다)'));
+    };
+
+    document.addEventListener('keydown', function(e){
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') { show(cur + 1); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { show(cur - 1); }
+      else if (e.key === '+' || e.key === '=') { if (zoomable) setZoom(Z + 0.2); }
+      else if (e.key === '-' || e.key === '_') { if (zoomable) setZoom(Z - 0.2); }
+      else if (e.key === '0') { resetZoom(); }
+    });
+
+    window.addEventListener('pagehide', revoke);
+  }
+
+  /* ── 시작 ─────────────────────────────────────────────────────────────── */
+  (async function boot(){
+    wireChrome();
+    buildZoomRail();
+    wireStageGestures();
+    tvApplyLang();          // 🌐 데이터를 부르기 전에 화면 글자부터 맞춘다
+
+    try {
+      if (SRV_BOOK) {
+        BOOK = await loadServer(SRV_BOOK);
+        if (!BOOK) LOCAL_DB = await openRead();
+      } else {
+        BOOK = await loadLocal();
+      }
+    } catch(e){
+      console.error('[viewer] 불러오기 실패', e);
+      BOOK = null;
+    }
+
+    if (!BOOK || !BOOK.lessons.length) { await showEmpty(); return; }
+
+    flatten();
+    renderSidebar();
+    await show(0);
+    console.log('[viewer] 교재 표시:', BOOK.textbook, '· 레슨', BOOK.lessons.length, '· 파일', FLAT.length, '· 출처', BOOK.src);
+  })();
 })();
 </script>
 <script defer src="/js/back-nav.js"></script>

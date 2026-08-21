@@ -223,7 +223,10 @@ check('소스 일치(프론트): auto 호출이 lang 을 전송', /lang:st\.lang
 //   만든 본문 이해문제(zh_passage.questions)를 그대로 써서 정확도까지 높였다.
 // ════════════════════════════════════════════════════════════════════
 section('[G] 중국어 2차 개편 — 본문기반 조립 + TTS/STT 언어분기 + 한자 채점');
-check('rqBuildZhFromPassage 가 4유형(choice/listen/write/speak) 전부 조립', /rqBuildZhFromPassage\s*=\s*\(p: any\)/.test(API)
+// ⚠️ (2026-08-21) 시그니처를 «(p: any)» 로 통째로 못 박아 두었더니, 오답 보기 풀을 넘기려고
+//   인자를 하나 더한 것만으로 FAIL 이 났다(CLAUDE.md 2장 「객체 모양을 정규식으로 못 박아…」 함정).
+//   검사는 «그 함수가 있고 4유형을 만드는가» 라는 뜻으로만 본다.
+check('rqBuildZhFromPassage 가 4유형(choice/listen/write/speak) 전부 조립', /rqBuildZhFromPassage\s*=\s*\([^)]*\bp: any/.test(API)
   && /type: 'choice'/.test(API) && /type: 'listen'/.test(API) && /type: 'write'/.test(API) && /type: 'speak'/.test(API));
 check('본문 이해문제는 zh_passage.questions 의 원저작 정답을 그대로 사용(AI 미사용)', /rqZhPassageFind/.test(API) && /q\.q_ko \|\| q\.q/.test(API));
 check('/api/review-quiz/auto 가 zh 일 때 패시지 우선 시도(AI보다 먼저)', /if \(lang === 'zh'\) \{\s*\n\s*const passRow = await rqZhPassageFind/.test(API));

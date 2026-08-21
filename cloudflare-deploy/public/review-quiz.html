@@ -83,8 +83,12 @@
     .rq-chip.score { color:var(--gold); }
     .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
     .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    /* 🔊 이 버튼은 «효과음»(정답·오답 삐 소리) 전용이다. 듣기 문항의 음성과 무관한데
+       아이콘만 있어서 «퀴즈 소리»로 오해를 샀다(2026-08-21 사장님 지적) → 글자를 함께 보여 준다. */
     .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
-      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+      border-radius:99px; min-width:34px; height:34px; padding:0 11px; font-size:12px; font-weight:700;
+      color:var(--text); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .rq-mute .rq-mute-ico { font-size:15px; }
     @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
 
     /* ━━━ 어드벤처 진행 트랙 (망고가 전진) ━━━ */
@@ -237,7 +241,9 @@
     function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
     function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
     function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
-    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_muted', SFX.muted?'1':'0'); }catch(e){}
+      if(btn){ var _i=btn.querySelector('.rq-mute-ico'); if(_i) _i.textContent=SFX.muted?'🔇':'🔊'; else btn.textContent=SFX.muted?'🔇':'🔊'; }
+      if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
 
     // ━━━ 🥭 망고 응원 대사 ━━━
     var CHEER_OK   = { ko:['정답이야! 🎉','완벽해! 🌟','대단한데?! 👏','바로 그거야! 🔥','천재인가 봐! 🧠','최고야! 😆'], en:["Correct! 🎉","Perfect! 🌟","Awesome! 👏","That's it! 🔥","Genius! 🧠","The best! 😆"] };
@@ -348,7 +354,7 @@
       var hud = '<div class="rq-hud">'
         + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + (isEn()?'':'점') + '</span>'
         + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + (isEn()?' combo':' 콤보') + '</span>' : '')
-        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="' + (isEn()?'Sound on/off':'소리 켜기/끄기') + '">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" aria-label="' + (isEn()?'Sound effects on/off':'효과음 켜기 끄기') + '" title="' + (isEn()?'Sound effects (right/wrong chime) — the listening audio is the «🔊 Play audio» button inside the question':'효과음(정답·오답 소리) 켜기·끄기 — 듣기 문항의 음성은 문제 안의 «🔊 음성 듣기» 버튼입니다') + '"><span class="rq-mute-ico">' + (SFX.muted?'🔇':'🔊') + '</span>' + (isEn()?'SFX':'효과음') + '</button>'
         + '</div>';
 
       // ── 어드벤처 트랙: 망고가 골(🏁)을 향해 전진 ──
