@@ -45,9 +45,20 @@ self.addEventListener('activate', (event) => {
         .filter(k => k !== CACHE_NAME && k !== RUNTIME_CACHE && k !== ASSET_CACHE)
         .map(k => caches.delete(k))
       )
-    ).then(pruneAssetCache).then(() => self.clients.claim())
+    ).then(pruneAssetCache).then(enableNavPreload).then(() => self.clients.claim())
   );
 });
+
+// 🚀 (2026-08-20) Navigation Preload — «첫 화면 요청» 을 SW 가 깨어나기를 기다리지 않고
+//   브라우저가 곧바로 시작하게 한다. SW 부팅(수십~수백 ms)이 첫 화면에서 통째로 사라진다.
+//   미지원 브라우저는 registration.navigationPreload 자체가 없으므로 조용히 건너뛴다.
+async function enableNavPreload() {
+  try {
+    if (self.registration && self.registration.navigationPreload) {
+      await self.registration.navigationPreload.enable();
+    }
+  } catch (e) { /* 지원 안 하면 그냥 지금까지처럼 동작한다 */ }
+}
 
 // 버전이 올라간 옛 파일(예: adm-core.js?v=44)은 아무도 다시 요청하지 않으므로 그냥 쌓인다.
 // 넘치면 오래된 쪽(먼저 들어온 순)부터 잘라 낸다. Cache API 는 삽입 순서를 보존한다.
@@ -128,16 +139,79 @@ self.addEventListener('fetch', (event) => {
 
   // HTML 요청 (탐색)
   if (request.mode === 'navigate' || request.destination === 'document') {
-    event.respondWith((async () => {
-      try {
-        // 항상 최신 HTML — 브라우저 HTTP 캐시 우회 (배포 즉시 반영)
-        return await fetch(request, { cache: 'no-store' });
-      } catch (e) {
-        const cached = await caches.match('/');
-        if (cached) return cached;
-        // 오프라인 폴백 — 데드엔드 방지: 네트워크 복구 시 스스로 SW 해제 후 새로고침
-        return new Response(
-          `<!doctype html><meta charset="utf-8"><title>오프라인</title>
+    event.respondWith(handleNavigate(event, request));
+    return;
+  }
+
+  // 정적 자산 (이미지/폰트, 그리고 ?v= 가 없는 js/css): 네트워크 우선.
+  //   🪤 (2026-08-08) **타임아웃 폴백을 없앴다.** 이것이 「관리자 화면에 옛 CSS·이미지가
+  //      남는다」던 사고의 진짜 원인이었다 — 느린 회선에서 4초가 지나면, 새 파일이 아직
+  //      오고 있는데도 옛 캐시를 내주고 그걸로 화면을 그렸다. 회선이 느릴수록 더 자주 터졌다.
+  //      이제 폴백은 **네트워크가 실제로 실패했을 때만** 일어난다(= 진짜 오프라인).
+  //      느린 것은 기다린다. 기다리는 동안 화면이 비는 것보다, 옛것으로 잘못 그리는 게 나쁘다.
+  event.respondWith(networkFirst(request, RUNTIME_CACHE));
+});
+
+/* 🥭 (2026-08-20) 첫 화면(탐색) 요청 — «영원히 로고만» 을 구조적으로 없앤다.
+   ─────────────────────────────────────────────────────────────────────────
+   [증상] 사장님 제보 — 카톡을 보고 돌아오거나 다른 사이트에 갔다 오면 망고아이 로고만
+          뜨고 화면이 안 나온다. 홈 화면에 설치된 웹앱(WebAPK)은 안드로이드가 뒤에서
+          지워 버리므로 «처음부터» 다시 켜지는데, 그때 시작 화면(로고)은 **첫 픽셀이
+          그려질 때까지** 떠 있다.
+   [원인] 여기 있던 코드는 `await fetch(request, {cache:'no-store'})` 한 줄이었고
+          **제한시간이 없었다.** 네트워크가 «실패» 하면 아래 캐시로 넘어가지만,
+          휴대폰이 잠자다 깨어날 때 흔한 «연결은 살아 있는데 응답이 안 오는» 상태는
+          실패가 아니라 그냥 기다림이다 → 로고 화면이 몇 분이고 남는다.
+   [해결] 이미 받아 둔 첫 화면이 있으면 3.5초만 기다리고, 안 오면 그것으로 «먼저 그린다».
+          새 HTML 은 뒤에서 계속 받아 캐시에 넣으므로 **다음 번엔 최신**이다.
+   ⚠️ 2026-08-08 에 「느린 회선에서 옛것을 내주더라」며 타임아웃을 없앤 이력이 있다.
+      그건 **그림·js/css(서브리소스)** 이야기이고 그 규칙은 그대로 뒀다(아래 networkFirst).
+      여기는 «첫 화면 HTML 하나» 뿐이고, 못 그리면 화면이 아예 없다 — 판단 기준이 다르다.
+   ⚠️ ?v= 는 쿼리스트링이라 파일 경로가 아니다. 옛 HTML 을 그려도 참조하는 js/css 경로는
+      그대로 있으므로 404 가 나지 않는다. */
+const NAV_TIMEOUT_MS = 3500;
+
+async function handleNavigate(event, request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  const fromNetwork = (async () => {
+    let resp = null;
+    // Navigation Preload 가 켜져 있으면 브라우저가 이미 시작해 둔 응답을 그대로 받는다.
+    try { resp = await event.preloadResponse; } catch (e) { resp = null; }
+    if (!resp) resp = await fetch(request, { cache: 'no-store' });
+    // 성공한 HTML 만 «첫 화면» 자리에 넣어 둔다(다음 번 콜드 스타트가 즉시 그려진다).
+    try {
+      const ct = (resp && resp.headers.get('content-type')) || '';
+      if (resp && resp.ok && ct.includes('text/html')) {
+        cache.put('/', resp.clone()).catch(() => {});
+      }
+    } catch (e) { /* 캐시 저장 실패가 화면을 막으면 안 된다 */ }
+    return resp;
+  })();
+
+  const cached = await cache.match('/');
+
+  if (cached) {
+    try {
+      return await Promise.race([
+        fromNetwork,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('nav-timeout')), NAV_TIMEOUT_MS))
+      ]);
+    } catch (e) {
+      // 느리거나 반쯤 끊겼다 → 가진 것으로 «먼저» 그린다. 새 HTML 은 계속 받아 둔다.
+      event.waitUntil(fromNetwork.catch(() => {}));
+      return cached;
+    }
+  }
+
+  // 첫 방문이라 가진 것이 없다 — 기다리는 수밖에 없고, 실패하면 안내 화면.
+  try { return await fromNetwork; } catch (e) { return offlineFallbackResponse(); }
+}
+
+// 오프라인 폴백 — 데드엔드 방지: 네트워크 복구 시 스스로 SW 해제 후 새로고침
+function offlineFallbackResponse() {
+  return new Response(
+    `<!doctype html><meta charset="utf-8"><title>오프라인</title>
 <div style="padding:40px;font-family:sans-serif;text-align:center;color:#333">
 <h1>📡 네트워크 연결 안 됨</h1>
 <p id="m">연결을 확인하는 중입니다…</p>
@@ -154,21 +228,9 @@ var _n=0,_t=setInterval(async function(){
   if(_n>20){ clearInterval(_t); var m=document.getElementById('m'); if(m) m.textContent='잠시 후 다시 시도해주세요.'; }
 },3000);
 </script>`,
-          { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-        );
-      }
-    })());
-    return;
-  }
-
-  // 정적 자산 (이미지/폰트, 그리고 ?v= 가 없는 js/css): 네트워크 우선.
-  //   🪤 (2026-08-08) **타임아웃 폴백을 없앴다.** 이것이 「관리자 화면에 옛 CSS·이미지가
-  //      남는다」던 사고의 진짜 원인이었다 — 느린 회선에서 4초가 지나면, 새 파일이 아직
-  //      오고 있는데도 옛 캐시를 내주고 그걸로 화면을 그렸다. 회선이 느릴수록 더 자주 터졌다.
-  //      이제 폴백은 **네트워크가 실제로 실패했을 때만** 일어난다(= 진짜 오프라인).
-  //      느린 것은 기다린다. 기다리는 동안 화면이 비는 것보다, 옛것으로 잘못 그리는 게 나쁘다.
-  event.respondWith(networkFirst(request, RUNTIME_CACHE));
-});
+    { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+  );
+}
 
 // 캐시 우선 — ?v= 로 버전이 박힌 자산 전용.
 //   같은 URL 이면 같은 내용이 보장되므로 «최신 확인» 자체가 불필요하다.

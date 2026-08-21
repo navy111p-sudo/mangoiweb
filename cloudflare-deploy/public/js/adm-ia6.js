@@ -650,6 +650,28 @@
     var en = isEn();
     var frag = document.createDocumentFragment();
 
+    /* 🧾 결재함 — 그룹들 «위» 에 고정으로 한 줄. (2026-08-20 사장님 지시)
+       [왜 그룹 안에 안 넣었나] 그룹은 접혀 있는 것이 기본이라, 접힌 동안에는 대기 건수가
+          보이지 않는다. 결재는 «누가 답을 기다리는» 일이라 접힌 채로 묻히면 안 된다.
+       [왜 <a> 인가] 이 사이드바의 클릭은 window 캡처 핸들러 둘(adm-s11 ph97 · IA6 wireDelegate)이
+          가로챈다. 다만 그들은 `.ph85-head` / `.ph85-sub` / `.ph86-action-btn` 만 본다.
+          그래서 **다른 class 의 진짜 링크**로 두면 어느 쪽에도 안 걸리고, 리스너 없이
+          브라우저가 그냥 이동시킨다 — 가로채기와 싸울 일이 없다.
+       ⛔ class 를 .ph85-head/.ph85-sub 로 바꾸지 말 것(그 순간 삼켜진다).
+       [배지] 숫자는 admin.html 의 결재 블록이 **같은 API 호출 한 번**으로 채운다.
+          여기서 또 부르면 첫 화면에서 같은 요청이 두 번 나간다. */
+    var appr = document.createElement('a');
+    appr.id = 'ia6-appr';
+    appr.href = '/work';
+    appr.setAttribute('data-ko', '결재함');
+    appr.setAttribute('data-en', 'Approvals');
+    appr.innerHTML =
+      '<div class="ph85-ico">' + svg('<path d="M3 13h4l2 3h6l2-3h4"/>' +
+        '<path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>') + '</div>' +
+      '<div class="ia6-appr-t">' + (en ? 'Approvals' : '결재함') + '</div>' +
+      '<span id="ia6-appr-n" class="ia6-appr-n"></span>';
+    frag.appendChild(appr);
+
     GROUPS.forEach(function (g) {
       var grp = document.createElement('div');
       grp.className = 'ph85-group';

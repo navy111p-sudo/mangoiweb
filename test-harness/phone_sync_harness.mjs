@@ -100,8 +100,15 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   return { fields, values };
 }
 `);
+  /* 🧹 (2026-08-20) student-override.ts 는 «진짜 파일 그대로» 넣는다.
+     이유는 위 teacher-match 와 정반대다 — 껍데기로 바꾸면 「동기화가 이름을 덮은 뒤
+     우리 지정을 다시 입히는가」를 검사할 수 없다. 그게 이 모듈의 존재 이유다.
+     Neo4j 로 나가지 않는 순수 D1 코드라 그대로 돌려도 된다. */
+  writeFileSync(join(tmp, 'student-override.ts'), readFileSync(join(SRC, 'student-override.ts'), 'utf8'));
   // 확장자 없는 상대 import 는 node 가 못 찾는다 — 사본에서만 .ts 를 붙인다
-  writeFileSync(join(tmp, 'cafe24-sync.ts'), txt.replace(/from '\.\/teacher-match'/, "from './teacher-match.ts'"));
+  writeFileSync(join(tmp, 'cafe24-sync.ts'), txt
+    .replace(/from '\.\/teacher-match'/, "from './teacher-match.ts'")
+    .replace(/from '\.\/student-override'/, "from './student-override.ts'"));
   const M = await import(pathToFileURL(join(tmp, 'cafe24-sync.ts')).href);
 
   const sq = new DatabaseSync(':memory:');
@@ -121,9 +128,15 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
       { user_id:'s2', name:'이서연', shop_name:'서초점' },
       { user_id:'s4', name:'최하늘', shop_name:'강남점', parent_phone:'010-9999-0000' },
       { user_id:'s5', name:'정예은', shop_name:'강남점', student_phone:'010-5555-6666' },
+      // 🧹 이름 덮어쓰기 대상 — 카페24는 'jeong' 을 주는데 우리는 '정우영' 으로 보여야 한다
+      { user_id:'s6', name:'jeong', shop_name:'강남점' },
     ],
     parentPhones: { s1:'010-1111-2222', s2:'   ' },
   };
+  /* 🧹 지정을 미리 넣어 둔다. 동기화가 s6 의 이름을 'jeong' 으로 덮어쓴 «뒤»
+     applyStudentErpOverrides 가 '정우영' 으로 되돌리는지가 아래 검사의 핵심이다. */
+  sq.exec(`CREATE TABLE IF NOT EXISTS student_erp_override (user_id TEXT PRIMARY KEY, korean_name TEXT, hidden INTEGER NOT NULL DEFAULT 0, memo TEXT, created_at INTEGER NOT NULL, updated_at INTEGER)`);
+  sq.exec(`INSERT INTO student_erp_override (user_id, korean_name, hidden, created_at) VALUES ('s6','정우영',0,1)`);
   let off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   const g = (u,c) => sq.prepare(`SELECT ${c} v FROM students_erp WHERE user_id=?`).get(u)?.v;
 
@@ -133,6 +146,14 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   check('학생 번호가 student_phone·phone 양쪽에 들어간다',
         g('s5','student_phone') === '010-5555-6666' && g('s5','phone') === '010-5555-6666');
   check('기존 칸(소속)이 함께 유지된다', g('s1','shop_name') === '강남점', String(g('s1','shop_name')));
+  /* 🧹 (2026-08-20) 「동기화 뒤에 우리 지정을 다시 입힌다」 — 순서가 뒤집히면 여기서 걸린다.
+     applyStudentErpOverrides 호출을 지우거나 INSERT 앞으로 옮기면 'jeong' 이 그대로 남는다. */
+  check('지정한 이름이 동기화 뒤에 다시 입혀진다 (korean_name)',
+        g('s6','korean_name') === '정우영', String(g('s6','korean_name')));
+  check('지정한 이름이 username 에도 함께 입혀진다',
+        g('s6','username') === '정우영', String(g('s6','username')));
+  check('지정이 없는 학생의 이름은 카페24 값 그대로다',
+        g('s1','korean_name') === '김민준', String(g('s1','korean_name')));
 
   // 야간 동기화가 매일 도는 상황 — 두 번 돌려도 지워지면 안 된다
   off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }

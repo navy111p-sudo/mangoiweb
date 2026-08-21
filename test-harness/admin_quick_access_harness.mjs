@@ -12,7 +12,7 @@
 //     → 대신 그 항목의 **사이드바 버튼을 대신 눌러 준다.** 버튼은 `data-card` 로 찾는다.
 //
 //   ── 2차(08-08 오후) 개편으로 새로 못박는 것 ────────────────────────────
-//   ③ 기본 10개 (＋출결 현황 · 결제/미납 · 평가서 · 문의/신규상담)
+//   ③ 기본 11개 (결재함 ＋ 출결 현황 · 결제/미납 · 평가서 · 문의/신규상담)
 //   ④ 🐞 역할 권한으로 감춰진 카드의 바로가기는 그리지 않는다.
 //      역할 숨김(adm-core `_applyMenuVisibility`)은 **class**(.rbac-hide) 이고
 //      ia6 의 카드 필터도 **class**(.ia6-hide) 다 — 이름이 달라 서로 구분된다.
@@ -92,7 +92,17 @@ function makeDom({ ia6On = true, cardIds = [], roleHidden = [], containerHidden 
   const doc = {
     readyState: 'complete',
     body: {},
-    addEventListener() {},
+    /* 🧾 클릭 핸들러를 기억해 둔다 — 「결재함을 누르면 정말 /work 로 가는가」를
+       문자열이 아니라 **실제로 돌려서** 확인하기 위해서다(CLAUDE.md 「넘기는 모양」 함정). */
+    _click: [],
+    addEventListener(type, fn) { if (type === 'click') doc._click.push(fn); },
+    /** key 로 표시된 칸을 실제로 누른다. onActivate 가 기대하는 최소한의 이벤트만 만든다. */
+    __click(key) {
+      const q = { getAttribute: (k) => (k === 'data-qa' ? key : null) };
+      const t = { closest: (sel) => (sel === '.ph161-q' ? q : null) };
+      const ev = { target: t, preventDefault() {}, stopPropagation() {} };
+      doc._click.forEach((fn) => fn(ev));
+    },
     createElement: () => node(),
     getElementById: (id) => {
       if (id === 'ph161-quick-items') return box;
@@ -119,16 +129,21 @@ function memStore(seed = {}) {
 }
 
 function runQa(dom, store = memStore()) {
+  /* 🧾 결재함 칸만 «딴 페이지로 간다» — location.href 대입이 그 증거다.
+     실제 브라우저가 아니므로 가짜 location 을 하나 넣어 무엇으로 갔는지 받아 둔다. */
+  dom.log.went = [];
+  const loc = { set href(v) { dom.log.went.push(String(v)); }, get href() { return ''; } };
   const g = {
     document: dom.doc,
+    location: loc,
     window: { addEventListener() {}, matchMedia: () => ({ matches: false }) },
     localStorage: store,
     setTimeout: (fn) => { try { fn(); } catch { /* 무시 */ } return 0; },
     navigator: {}                                     // sendBeacon 없음 → 계측은 조용히 건너뛴다
   };
   g.window.document = dom.doc;
-  const fn = new Function('document', 'window', 'localStorage', 'setTimeout', 'navigator', qa);
-  fn(g.document, g.window, g.localStorage, g.setTimeout, g.navigator);
+  const fn = new Function('document', 'window', 'localStorage', 'setTimeout', 'navigator', 'location', qa);
+  fn(g.document, g.window, g.localStorage, g.setTimeout, g.navigator, g.location);
   return g.window;
 }
 
@@ -143,12 +158,17 @@ const ALL = [
 ];
 const DAY = Math.floor((Date.now() + 32400000) / 86400000);   // KST 기준 일련일
 
-console.log('\n[ ① 기본 10개가 정해진 순서로 그려진다 ]');
+/* 🧾 (2026-08-20) 「결재함」이 이 표의 **첫 칸**으로 들어왔다.
+   그 전에는 이 표 «위» 에 초록 줄이 따로 떠 있었는데, 표 밖에 혼자 있어 어색했고
+   사이드바에도 결재함이 생기면서 같은 입구가 셋이 됐다(사장님 지적) → 표 안으로 들였다.
+   ⚠️ 다른 칸과 달리 **카드가 없다**(href 로 딴 페이지로 간다) — 아래 ④ 가 그래서 따로 검사한다. */
+console.log('\n[ ① 기본 11개가 정해진 순서로 그려진다 ]');
 const dom1 = makeDom({ cardIds: ALL });
 const win1 = runQa(dom1);
 const labels = labelsOf(dom1.box.innerHTML);
-check(`항목이 10개 렌더된다 (실제: ${labels.length})`, labels.length === 10);
-check(`첫 항목이 「오늘 수업」이다 (실제: "${labels[0] || ''}")`, /^오늘 수업/.test(labels[0] || ''));
+check(`항목이 11개 렌더된다 (실제: ${labels.length})`, labels.length === 11);
+check(`첫 항목이 「결재함」이다 (실제: "${labels[0] || ''}")`, labels[0] === '결재함');
+check(`그 다음이 「오늘 수업」이다 (실제: "${labels[1] || ''}")`, /^오늘 수업/.test(labels[1] || ''));
 ['출결 현황', '결제 · 미납', '평가서', '문의 · 신규상담'].forEach((l) =>
   check(`신규 항목이 들어 있다: ${l}`, labels.includes(l)));
 check('바로가기 대상 카드 9종이 admin.html 에 실제로 있다',
@@ -172,6 +192,19 @@ check('🪤 감춰진 카드로 곧바로 스크롤하지 않는다 (그게 «�
 check('나머지 항목도 전부 같은 경로를 탄다 — 하나만 고치면 반쪽이다',
   ALL.every((id) => { dom1.log.clicked.length = 0; win1.ph161Go(id, null); return dom1.log.clicked.includes(id); }));
 
+/* 🧾 결재함 칸만 «딴 페이지» 로 간다 — 나머지는 이 화면의 카드를 연다.
+   ⚠️ 문자열로 「href 를 쓰는가」만 보면 안 된다(CLAUDE.md: «넘기는 모양» 은 실제로 돌려서 확인).
+      여기서는 진짜로 눌러 보고 무엇으로 갔는지 잰다. */
+{
+  const dom = makeDom({ cardIds: ALL });
+  runQa(dom);
+  dom.doc.__click('결재함');
+  check(`「결재함」을 누르면 /work 로 간다 (실제: "${dom.log.went[0] || ''}")`,
+    dom.log.went[0] === '/work');
+  check('그때 카드 버튼은 누르지 않는다 (화면이 두 벌이 되지 않게)',
+    dom.log.clicked.length === 0);
+}
+
 console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도» 안 그린다 ]');
 {
   // 지사 계정 흉내 — 평가서·결제 카드가 인라인 display:none 으로 잠겨 있다
@@ -180,15 +213,18 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const ls = labelsOf(dom.box.innerHTML);
   check('권한 없는 「평가서」가 목록에서 빠진다', !ls.includes('평가서'));
   check('권한 없는 「결제 · 미납」이 목록에서 빠진다', !ls.includes('결제 · 미납'));
-  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 8 && ls.includes('출결 현황'));
+  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 9 && ls.includes('출결 현황'));
+  /* 🪤 결재함은 «가리킬 카드» 가 없다 — 카드의 display 만 보고 판정하면 조용히 사라진다.
+     결재는 지사·대리점도 올려야 하는 일이라 사라지면 안 된다. */
+  check('카드가 없는 「결재함」은 권한 판정에서 빠지지 않는다', ls[0] === '결재함');
 }
 {
   // ia6 의 카드 필터(class)는 «권한 없음» 이 아니다 — 이걸 권한으로 오해하면 목록이 통째로 빈다
   const dom = makeDom({ cardIds: ALL });
   ALL.forEach((id) => dom.cards[id].classList.add('ia6-hide'));
   runQa(dom);
-  check('.ia6-hide 는 권한 숨김이 아니다 — 10개가 그대로 남는다',
-    labelsOf(dom.box.innerHTML).length === 10);
+  check('.ia6-hide 는 권한 숨김이 아니다 — 11개가 그대로 남는다',
+    labelsOf(dom.box.innerHTML).length === 11);
 }
 {
   // 🔴 (2026-08-08 실측 회귀) 바깥 컨테이너 #legacy-cards 가 display:none 인 순간이 있다.
@@ -196,8 +232,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   //    컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
   const dom = makeDom({ cardIds: ALL, containerHidden: true });
   runQa(dom);
-  check('바깥 컨테이너가 감춰져 있어도 10개가 그대로 남는다 (권한과 화면전환을 구분한다)',
-    labelsOf(dom.box.innerHTML).length === 10);
+  check('바깥 컨테이너가 감춰져 있어도 11개가 그대로 남는다 (권한과 화면전환을 구분한다)',
+    labelsOf(dom.box.innerHTML).length === 11);
 }
 
 console.log('\n[ ⑤ 🐞 data-ko 는 «span 에만» — 바깥 div 에 붙으면 아이콘이 지워진다 ]');
@@ -214,10 +250,13 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, seeded);
   const ls = labelsOf(dom.box.innerHTML);
-  check(`많이 쓴 「문의 · 신규상담」이 맨 위로 온다 (실제: "${ls[0]}")`, ls[0] === '문의 · 신규상담');
-  check(`그 다음이 「평가서」다 (실제: "${ls[1]}")`, ls[1] === '평가서');
+  /* 📌 결재함은 pin 이라 사용기록과 무관하게 맨 앞을 지킨다 — 결재는 «누가 답을 기다리는» 일이라
+     덜 눌렀다는 이유로 뒤로 밀리면 안 된다. 순서 학습은 그 다음 칸부터 적용된다. */
+  check(`「결재함」은 사용기록과 무관하게 맨 위를 지킨다 (실제: "${ls[0]}")`, ls[0] === '결재함');
+  check(`많이 쓴 「문의 · 신규상담」이 그 다음이다 (실제: "${ls[1]}")`, ls[1] === '문의 · 신규상담');
+  check(`그 다음이 「평가서」다 (실제: "${ls[2]}")`, ls[2] === '평가서');
   check('기록 없는 나머지는 기본 순서를 그대로 지킨다 (동점 → 기본 순서)',
-    ls[2] === '오늘 수업 (바로 입장)' && ls[3] === '수업 관찰');
+    ls[3] === '오늘 수업 (바로 입장)' && ls[4] === '수업 관찰');
 }
 {
   // 30일이 지난 기록은 잊는다 — 안 그러면 반년 전 습관에 순서가 묶인다
@@ -225,7 +264,7 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, old);
   check('30일보다 오래된 기록은 순서에 영향을 주지 않는다',
-    labelsOf(dom.box.innerHTML)[0] === '오늘 수업 (바로 입장)');
+    labelsOf(dom.box.innerHTML)[1] === '오늘 수업 (바로 입장)');
 }
 {
   // 「기본 순서」로 고정하면 사용기록을 무시한다 — 아무도 순서에 갇히지 않게
@@ -236,14 +275,14 @@ console.log('\n[ ⑥ 순서는 내 사용기록으로 정해지고, 동점이면
   const dom = makeDom({ cardIds: ALL });
   runQa(dom, fixed);
   check('기본 순서 모드에서는 사용기록을 무시한다',
-    labelsOf(dom.box.innerHTML)[0] === '오늘 수업 (바로 입장)');
+    labelsOf(dom.box.innerHTML)[1] === '오늘 수업 (바로 입장)');
 }
 check('망가진 사용기록(JSON 아님)에도 죽지 않는다', (() => {
   try {
     const bad = memStore({ mangoi_qa_use: '{{{망가짐' });
     const dom = makeDom({ cardIds: ALL });
     runQa(dom, bad);
-    return labelsOf(dom.box.innerHTML).length === 10;
+    return labelsOf(dom.box.innerHTML).length === 11;
   } catch { return false; }
 })());
 

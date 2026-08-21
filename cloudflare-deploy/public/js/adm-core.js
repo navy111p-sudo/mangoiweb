@@ -1273,6 +1273,82 @@ function _ensureRoomEnhCss(){
   st.textContent='@keyframes roomAlertPulse{0%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,.45)}70%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 6px rgba(239,68,68,0)}100%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,0)}} tr.room-alert>td{background:rgba(239,68,68,.08)!important} tr.room-alert>td:first-child{animation:roomAlertPulse 1.3s ease-in-out infinite} @media (prefers-reduced-motion:reduce){tr.room-alert>td:first-child{animation:none}} .room-alert-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;vertical-align:middle}';
   document.head.appendChild(st);
 }
+/* 📅 «예약 기준 지금 수업» 요약 줄  (2026-08-20 사장님 「지금 수업이 없어?」)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜 만들었나] 이 표는 «망고아이 화상방에 붙어 있는 사람» 만 센다. 그런데 카페24
+      예약 수업은 그 방을 거치지 않아서(실측: `c24-*` 방 실접속 전 기간 0건),
+      수업 4건이 진행 중이던 시각에도 화면은 «지금 진행 중인 수업이 없습니다» 라고
+      말했다. 같은 사실인데 «오늘 한가하다» 로 읽힌다.
+   [무엇을 그리나] 「지금 수업 4건 · 화상방 접속 0건」 — 둘을 **나란히** 놓는다.
+      숫자가 갈리는 것 자체가 정보다(수업은 도는데 우리 방을 안 쓰고 있다).
+   ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
+      `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
+      (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+function _renderRoomsSummary(counts, liveRooms, _L) {
+  const box = document.getElementById('rooms-now-summary');
+  if (!box) return;
+  if (!counts) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const now = counts.now || 0, soon = counts.soon || 0, conn = counts.connected || 0;
+  box.style.display = '';
+  const chip = (label, val, color) =>
+    '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9999px;'
+    /* ⚠️ 색에 `!important` 를 붙인다 — admin-inline-c.css 가 카드 안 글자를
+       `#101828 !important` 로 통째로 덮어서, 그냥 쓰면 색이 조용히 죽는다.
+       (인라인 !important 는 작성자 !important 를 이긴다. CLAUDE.md 2장) */
+    + 'background-color:#ffffff;border:1px solid #e5e7eb;font-size:12px;font-weight:700;color:#374151 !important">'
+    + label + '<b style="font-size:14px;color:' + color + ' !important">' + val + '</b></span>';
+  box.innerHTML =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    + chip((_L ? 'Scheduled now' : '지금 수업'), now, now ? '#dc2626' : '#6b7280')
+    + chip((_L ? 'In a Mango-i room' : '화상방 접속'), liveRooms, liveRooms ? '#16a34a' : '#6b7280')
+    + (soon ? chip((_L ? 'Starting soon' : '곧 시작'), soon, '#2563eb') : '')
+    + '</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.6">'
+    + (_L
+        ? 'Left = classes booked in cafe24 for this moment. Right = people actually connected to a Mango-i room. They are different numbers on purpose — a booked class does not open a Mango-i room by itself.'
+        : '왼쪽은 <b>카페24에 예약된 수업</b>, 오른쪽은 <b>망고아이 화상방에 실제로 붙어 있는 사람</b>입니다. 예약 수업이 화상방을 자동으로 열지는 않기 때문에 두 숫자는 원래 다를 수 있습니다.')
+    + (conn ? '' : '')
+    + '</div>';
+}
+
+/* 📅 예약 수업 행 — 방 목록 아래에 함께 그린다.
+   ⛔ «접속 기록 없음» 을 «미접속» 이라고 쓰지 않는다. 서버는 학생 계정·이름이
+      완전일치하는 실접속 행이 있을 때만 «접속 확인» 으로 답한다(추측하지 않는다).
+      즉 우리가 아는 것은 «기록이 없다» 까지다. */
+function _schedRowsHtml(list, _L, roomsEmpty) {
+  if (!list || !list.length) return '';
+  const head = '<tr><td colspan="6" style="background-color:#f8fafc;padding:8px 12px;line-height:1.6">'
+    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+    + (roomsEmpty
+        ? '<div style="font-size:12px;color:#6b7280">'
+          /* 📌 (2026-08-21) «참관» 을 함께 적는다 — 필리핀 매니저가 참관 버튼을 찾다가 이 표를 보고
+             «버튼이 없어졌다» 로 읽었다. 종료·연장만 적혀 있으면 참관을 찾는 사람에게는 답이 안 된다.
+             그리고 아래 카페24 줄에 버튼이 «원래» 없다는 것까지 적어야 다시 안 묻는다. */
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end, extend or observe in this table. The classes below are running on cafe24 — "No connection record" is normal, and they have no observe button.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장·참관할 대상은 없습니다. 아래 수업들은 카페24에서 돌고 있어 «접속 기록 없음» 으로 나오는 것이 정상이고, 참관 버튼도 생기지 않습니다.')
+          + '</div>'
+        : '')
+    + '</td></tr>';
+  return head + list.map(function (c) {
+    const ph = c.phase === 'soon' ? { t: (_L ? 'Starts soon' : '곧 시작'), c: '#2563eb' }
+             : c.phase === 'ended' ? { t: (_L ? 'Just ended' : '방금 끝남'), c: '#6b7280' }
+             : { t: (_L ? 'In progress' : '진행 중'), c: '#dc2626' };
+    const conn = c.connected
+      ? '<span class="badge ok">✅ ' + (_L ? 'Connected' : '접속 확인') + '</span>'
+      : '<span style="color:#b45309 !important;font-weight:700;font-size:12px">' + (_L ? 'No connection record' : '접속 기록 없음') + '</span>';
+    return '<tr data-sched="1">'
+      + '<td><b>' + _esc(c.start_kst || '') + '~' + _esc(c.end_kst || '') + '</b>'
+      +   '<div style="font-size:11px;color:#9ca3af">' + _esc(c.room_id || '') + '</div></td>'
+      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span></td>'
+      + '<td>' + _esc(c.student_name || (_L ? '(unknown)' : '(학생 미상)'))
+      +   ' <span style="color:#9ca3af">·</span> ' + _esc(c.teacher_name || (_L ? '(teacher unknown)' : '(강사 미상)')) + '</td>'
+      + '<td>-</td><td>-</td>'
+      + '<td>' + conn
+      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '') + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
 async function loadActiveRooms() {
   _ensureRoomEnhCss();
   const _L = adminLang==='en';
@@ -1283,9 +1359,11 @@ async function loadActiveRooms() {
     if (window.__roomsHover && tb0 && tb0.querySelector('tr[data-room]')) return;
   }
   try {
-    const [rr, ar] = await Promise.all([
+    const [rr, ar, cr] = await Promise.all([
       fetch('/api/active-rooms'),
-      fetch('/api/admin/alerts').catch(()=>null)
+      fetch('/api/admin/alerts').catch(()=>null),
+      // 📅 (2026-08-20) 예약 기준 «지금 수업». 실패해도 방 목록은 종전대로 그린다.
+      fetch('/api/admin/classes-now', { credentials: 'include', cache: 'no-store' }).catch(()=>null)
     ]);
     const rooms = await rr.json();
     const tb = document.getElementById('active-rooms-table');
@@ -1294,7 +1372,17 @@ async function loadActiveRooms() {
     try {
       if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
     } catch(_) {}
+    /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
+       ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
+    let sched = [], scounts = null;
+    try {
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+    } catch(_) {}
+    _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
+
     if (!rooms || rooms.length === 0) {
+      if (schedRows) { tb.innerHTML = schedRows; return; }
       /* 🔴 (2026-08-08) 「⚡ 자주 쓰는 기능 → 수업 종료 / 연장」이 이 카드로 온다.
          그런데 진행 중인 수업이 없으면 «현재 진행 중인 수업 없음» 한 줄만 떠서,
          종료·연장을 하러 온 사람 눈에는 «눌렀는데 아무 일도 안 일어났다» 로 보였다.
@@ -1327,21 +1415,34 @@ async function loadActiveRooms() {
       const roomAttr = _esc(String(room.roomId == null ? '' : room.roomId));
       const al = alertMap[String(room.roomId)];
       const badge = al ? ' <span class="room-alert-badge">🚨 '+(TYPE_KO[al.alert_type]||al.alert_type)+'</span>' : '';
-      const btnCss = 'padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;color:#fff;';
+      /* 👁 (2026-08-21) 버튼 색 규칙 — 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임).
+         [왜] 이 GHOST 버튼만 주황이었다. 그런데 다른 두 목록(adm-s1 «직접 입장(보임)» ·
+         adm-today-classes «입장(보임)»)에서 주황은 정반대 뜻인 «학생에게 보인다» 다.
+         같은 색이 화면마다 다른 뜻이면 색은 안 보는 편이 나은 표시가 되고, 급할 때
+         손이 먼저 나가는 버튼에서 그 혼동은 «참관인 줄 알고 수업에 등장» 으로 끝난다.
+         ⛔ 이 값을 주황으로 되돌리지 말 것 — observer_camera_guard_harness 가 FAIL 낸다.
+         🔴 그리고 색만 고쳐서는 «화면에 안 나옵니다». admin-inline-c.css 9072행의
+            html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class])
+            이 카드 안 «클래스 없는» 버튼을 background:#ffffff !important 로 칠합니다.
+            인라인 style 은 작성자 !important 에 집니다(2026-08-21 실측: 네 버튼 전부 흰색이었고,
+            그래서 «즉시 개입»·«강제 종료» 의 빨강도 안 나오고 있었습니다).
+            ✅ 그 규칙의 논리가 «클래스가 없다 = 의도한 색이 없다» 이므로, 의도한 색이 있는
+               버튼에는 클래스를 답니다(rm-act…). ⛔ 클래스 이름을 «-btn» 으로 끝내지 마세요 —
+               [class$="-btn"] 규칙(같은 파일 3894·9012행)에 다시 걸립니다. */
       return `<tr class="${al?'room-alert':''}" data-room="${roomAttr}" data-students="${_esc(JSON.stringify(studentNames))}">
         <td>${_esc(room.roomId)}${badge}</td>
-        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#f59e0b;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
+        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#a78bfa;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
         <td>${_esc(userNames)}</td>
         <td>${room.hasPdf ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td>${room.hasVideo ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${al?`<button data-act="intervene" style="${btnCss}background:#ef4444;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
-          <button data-act="observe" style="${btnCss}background:#f59e0b;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
-          <button data-act="extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}" style="${btnCss}background:#2563eb;">⏳ ${_L?'Extend':'연장'}</button>
-          <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
+          ${al?`<button data-act="intervene" class="rm-act rm-act-intervene">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
+          <button data-act="observe" class="rm-act rm-act-observe">👁 ${_L?'Ghost':'GHOST 참관'}</button>
+          <button data-act="extend" class="rm-act rm-act-extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}">⏳ ${_L?'Extend':'연장'}</button>
+          <button data-act="end" class="rm-act rm-act-end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
-    }).join('');
+    }).join('') + schedRows;
     _wireRoomsActions();
   } catch(e) {
     document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
@@ -4124,6 +4225,29 @@ async function leveltestMakeClass(id, opts) {
   alert('⚠ ' + msg);
 }
 
+/* 🗑️ (2026-08-21 사장님 지시) 레벨테스트 신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 연결된 수업이 있으면
+      삭제 전에 먼저 cancelled 로 정리해 강사·학생 달력에 유령 수업이 남지 않게 한다. */
+async function leveltestDeleteApp(id, name) {
+  const en = (adminLang === 'en');
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this application' : '이 신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadLeveltestApps(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -4269,7 +4393,12 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
+       여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+    const deleteBtn = (typeof window !== 'undefined' && window._isHqMgrOrUp)
+      ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
+      : '';
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
@@ -4595,6 +4724,11 @@ function _renderEnrollments() {
   const tb = document.getElementById('enrollments-table');
   if (!tb) return;
 
+  // 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 본사(경영진·관리자)만. 서버가 같은 조건으로
+  //   403 을 던지므로 여기서는 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐이다.
+  const delAllBtn = document.getElementById('en-delete-all-btn');
+  if (delAllBtn) delAllBtn.style.display = (typeof window !== 'undefined' && window._isHqMgrOrUp) ? '' : 'none';
+
   // ── 중복 의심 — 살아 있는 건(대기·확정·수강중)끼리만 본다.
   //    취소된 옛 신청과 지금 수업 중인 신청이 나란히 있는 건 정상이므로 세지 않는다.
   const cnt = {};
@@ -4704,6 +4838,13 @@ function _renderEnrollments() {
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
+        /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403을 던지니
+           여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+        ((typeof window !== 'undefined' && window._isHqMgrOrUp)
+          ? '<button type="button" onclick="enDeleteOne(' + it.id + ')" title="' +
+            (en ? 'Delete this enrollment (cannot be undone)' : '이 수강신청을 삭제합니다 (되돌릴 수 없음)') + '" ' +
+            'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
+          : '') +
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
@@ -5506,13 +5647,16 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14 피드백 ④) ⑥ 수업 기간 — 몇 개월 할지 고르는 칸이 아예 없었다.
   //   기본값을 미리 박아 두지 않는다. 실제 학생 등록이라 «안 고른 채로 지나가는» 것보다
   //   «고르라고 막는» 쪽이 안전하다(아래 addEnrollment 가 빈 값이면 등록을 멈춘다).
-  const durOptionsList = [
-    { v: '1',  ko: '1개월',  en: '1 month'   },
-    { v: '3',  ko: '3개월',  en: '3 months'  },
-    { v: '6',  ko: '6개월',  en: '6 months'  },
-    { v: '12', ko: '12개월', en: '12 months' },
-    { v: 'unlimited', ko: '♾️ 무기한', en: '♾️ Unlimited' }
-  ];
+  //   🗓️ (2026-08-20 사장님 지시) 1·3·6·12 만 있던 것을 **1~12 전부** 로 넓혔다.
+  //     그 네 개는 «수강권 패키지» 감각으로 고른 값이라 2·4·5개월짜리를 넣을 방법이 없었다.
+  //     종료일 계산(`_enAddMonths`)과 표시(`_enDurLabel`)는 원래 아무 숫자나 받으므로 여기만 넓히면 된다.
+  //   ⚠️ 서버 `api-admin.ts` 의 duration_months 허용 목록과 **짝**이다 — 한쪽만 넓히면
+  //     서버가 모르는 값이라며 **에러 없이 null** 로 지운다(「골랐는데 기간이 비어 있다」).
+  const durOptionsList = [];
+  for (let _dm = 1; _dm <= 12; _dm++) {
+    durOptionsList.push({ v: String(_dm), ko: _dm + '개월', en: _dm + (_dm === 1 ? ' month' : ' months') });
+  }
+  durOptionsList.push({ v: 'unlimited', ko: '♾️ 무기한', en: '♾️ Unlimited' });
   const _durCur = String(v.duration_months || '');
   const durOpts = '<option value="">' + (_enrIsEn ? '— select —' : '— 선택 —') + '</option>' +
     durOptionsList.map(d => '<option value="' + d.v + '"' + (_durCur === d.v ? ' selected' : '') + '>' +
@@ -5524,11 +5668,12 @@ function _addEnrollmentRow(prefill) {
     '<label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" class="en-row-type" value="trial"' + (types.includes('trial')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.trial+'</label>' +
     '<label style="font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-type" value="regular"' + (types.includes('regular')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.regular+'</label>';
   // 요일 — 7 체크박스 (월화수목금토일)
+  //   🧑‍🏫 (2026-08-20) 체크박스가 요일 글자 «옆» 이 아니라 «위» 에 오도록 — 칸마다 세로로 쌓는다
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
-  const dayChecks = dayCodes.map((c, i) =>
-    '<label style="font-size:11px;margin-right:3px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-right:1px;vertical-align:middle"/>' + dayLabels[i] + '</label>'
-  ).join('');
+  const dayChecks = '<div style="display:flex;gap:5px">' + dayCodes.map((c, i) =>
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:0 0 1px"/>' + dayLabels[i] + '</label>'
+  ).join('') + '</div>';
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
   //    · 이름: 아래 _enLookupStudent 가 학생 아이디로 명부에서 찾아 넣는다
@@ -5541,38 +5686,56 @@ function _addEnrollmentRow(prefill) {
     '<input type="hidden" class="en-row-fee" value="' + _esc(v.fee) + '" />';
 
   tr.innerHTML =
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">' + idx + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' + hiddenCarry +
+    '<td class="en-c en-c-num" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center;color:#9ca3af;font-size:11px">' + idx + '</td>' +
+    '<td class="en-c en-c-uid" data-label="' + (_enrIsEn ? 'Student ID' : '학생 아이디') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' + hiddenCarry +
       '<input class="en-row-uid" placeholder="user001" value="' + _esc(v.uid) + '" ' +
         'title="' + (_enrIsEn ? 'Student login ID — the name is looked up from the roster' : '학생 로그인 아이디 — 이름은 학생 명부에서 자동으로 찾습니다') + '" ' +
         'style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<div class="en-row-who" style="font-size:10.5px;color:#9ca3af;margin-top:2px;min-height:13px">' +
         (v.name ? '👤 ' + _esc(v.name) : '') + '</div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
+    '<td class="en-c en-c-type" data-label="' + (_enrIsEn ? 'Type' : '레벨 구분') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + typeChecks + '</td>' +
     /* 👨‍🏫 (2026-08-13 수정요청 #03) 「강사 우선」을 고르면 «누구인지» 를 여기서 바로 고른다.
        ⚠️ 표에 열을 새로 만들지 않는다 — ③ 배정 우선순위 칸 «안» 에 딸린 칸으로 둔다.
           열을 늘리면 2026-08-12 에 정리한 «등록 때 사람이 고르는 것은 5가지» 가 다시 무너진다.
        ⚠️ 얼굴 사진은 넣지 않는다(요구사항 2). datalist 라 타이핑하면 좁혀지고(요구사항 3),
           목록은 강사 명부(GET /api/admin/teachers, active=1)를 그대로 쓴다.
        ⚠️ 「시간 우선」이면 감추고 **값도 비운다**(요구사항 4) — 안 비우면 숨은 값이 저장된다. */
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+    '<td class="en-c en-c-prio" data-label="' + (_enrIsEn ? 'Matching priority' : '배정 우선순위') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-priority" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + prioOpts + '</select>' +
       teacherSel +
       '<div class="en-row-prio-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
+    '<td class="en-c en-c-day" data-label="' + (_enrIsEn ? 'Days' : '요일') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' + dayChecks + '</td>' +
+    '<td class="en-c en-c-time" data-label="' + (_enrIsEn ? 'Time' : '시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb;white-space:nowrap">' +
+      /* 🕐 (2026-08-21 사장님 지시) ⏰ 를 «입력칸 안쪽 오른쪽 끝» 에 넣는다.
+         밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다 — 자리는 padding-right 로 비우고
+         버튼은 CSS 로 그 자리에 얹는다(`.en-time-wrap`). 값·동작은 그대로다. */
+      '<div class="en-time-wrap">' +
       '<input class="en-row-time" type="text" placeholder="'+(_enrIsEn?'10:30 or Mon 7:30, Wed 8:00':'10:30 또는 월7:30,수8:00')+'" value="' + _esc(v.time) + '" ' +
         'title="'+(_enrIsEn?'Single time (e.g. 10:30) or per-day time (e.g. Mon 7:30, Wed 8:00)':'단일 시간(예: 10:30) 또는 요일별 시간(예: 월 7:30, 수 8:00)')+'" ' +
-        'style="width:calc(100% - 28px);padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+        'style="width:100%;padding:4px 32px 4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
       '<button type="button" class="en-row-time-builder" title="요일별 시간 다르게 설정" ' +
-        'style="width:24px;height:24px;margin-left:2px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px;vertical-align:middle">⏰</button>' +
+        'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
+      '</div>' +
     '</td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb"><input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" /></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb">' +
+    '<td class="en-c en-c-size" data-label="' + (_enrIsEn ? '1:1 or group' : '수업 형태') + '" style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
+    /* 🗓️ (2026-08-20 사장님 지시) 시작일을 «굴려서» 고른다 — 년·월·일 드럼(`_enOpenDateWheel`).
+       ⚠️ 날짜칸(`.en-row-start`) 자체는 그대로 둔다. 값을 읽는 곳이 `.value`(YYYY-MM-DD)를 기대하고,
+          이미 날짜를 아는 사람은 타이핑이 훨씬 빠르다. 휠은 그 칸에 값을 «써 넣는» 보조 도구다. */
+    '<td class="en-c en-c-start" data-label="' + (_enrIsEn ? 'Start date' : '시작일') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<div class="en-start-wrap">' +
+        '<input class="en-row-start" type="date" value="' + (v.start||'') + '" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px" />' +
+        '<div class="en-start-drum" aria-label="' + (_enrIsEn ? 'Scroll to pick the date' : '굴려서 날짜 고르기') + '"></div>' +
+        '<div class="en-start-quick">' +
+          '<button type="button" class="en-q" data-q="today">'  + (_enrIsEn ? 'Today'      : '오늘')      + '</button>' +
+          '<button type="button" class="en-q" data-q="tomo">'   + (_enrIsEn ? 'Tomorrow'   : '내일')      + '</button>' +
+          '<button type="button" class="en-q" data-q="nextmon">'+ (_enrIsEn ? 'Next Mon'   : '다음주 월') + '</button>' +
+          '<button type="button" class="en-q" data-q="next1">'  + (_enrIsEn ? 'Next 1st'   : '다음달 1일')+ '</button>' +
+        '</div>' +
+      '</div></td>' +
+    '<td class="en-c en-c-dur" data-label="' + (_enrIsEn ? 'Class period' : '수업 기간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
       '<select class="en-row-duration" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + durOpts + '</select>' +
       '<div class="en-row-dur-note" style="font-size:10.5px;color:#9ca3af;margin-top:2px"></div></td>' +
-    '<td style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
+    '<td class="en-c en-c-del" style="padding:4px 6px;border:1px solid #e5e7eb;text-align:center"><button type="button" class="en-row-del" title="이 행 삭제" style="background:transparent;border:0;color:#ef4444;font-size:14px;cursor:pointer;padding:0 6px">✕</button></td>';
   tbody.appendChild(tr);
   // 행 삭제 — 마지막 1행은 항상 유지
   tr.querySelector('.en-row-del').addEventListener('click', () => {
@@ -5606,6 +5769,34 @@ function _addEnrollmentRow(prefill) {
   // 🗓️ (2026-08-14) ⑥ 기간 — 고른 기간이 언제 끝나는지 시작일과 묶어 한 줄로 보여 준다
   tr.querySelector('.en-row-duration').addEventListener('change', () => _enDurNote(tr));
   tr.querySelector('.en-row-start').addEventListener('change', () => _enDurNote(tr));
+  /* 🗓️ (2026-08-21) 시작일 — 「누르면 달력」 + 자주 쓰는 날짜 버튼.
+     ⚠️ 직접 만든 년·월·일 드럼을 뺐다. 팝오버가 표(`overflow:hidden`) 밖으로 못 나가
+        «눌리는데 안 보이는» 상태였고(2026-08-21 실측: 팝오버 bottom 16945 > 표 bottom 16783),
+        무엇보다 브라우저 기본 달력이 이미 «미래 날짜를 눌러서 고르는» 일을 한다.
+     ⚠️ showPicker() 는 Chrome/Edge 만 있고 «사용자 조작 없이» 부르면 예외를 던진다 → 클릭 안에서, try 로 감싼다. */
+  const _startInp = tr.querySelector('.en-row-start');
+  if (_startInp) {
+    /* PC 에서만 «칸을 누르면 달력» — 휴대폰은 아래 드럼이 주인공이라 OS 창까지 겹쳐 뜨면 방해가 된다 */
+    _startInp.addEventListener('click', () => {
+      if (!_enIsWideScreen()) return;
+      try { if (typeof _startInp.showPicker === 'function') _startInp.showPicker(); } catch (e) { /* 기본 동작에 맡긴다 */ }
+    });
+  }
+  /* 📱 휴대폰 — 년·월·일 드럼을 «칸 안에 그대로» 편다(사장님 지시 2026-08-21).
+     ⚠️ 팝오버로 띄우면 안 된다: 표가 overflow:hidden 이라 밖으로 나간 부분이 통째로 잘린다
+        (실측 2026-08-21 — 팝오버 bottom 16945 > 표 bottom 16783 이라 «눌리는데 안 보이는» 상태였다).
+        칸 안에 있으면 칸이 늘어나므로 잘릴 일이 없다.
+     ⚠️ 폭에 상관없이 만들어 두고 «보이기» 만 CSS 로 가른다 — 화면을 돌리거나 창을 줄여도 그대로 산다. */
+  const _drumHost = tr.querySelector('.en-start-drum');
+  if (_drumHost && _startInp) _enBuildDateWheel(_drumHost, _startInp);
+  tr.querySelectorAll('.en-q').forEach((qb) => {
+    qb.addEventListener('click', () => {
+      const iso = _enQuickDate(qb.dataset.q);
+      if (!iso || !_startInp) return;
+      _startInp.value = iso;
+      _startInp.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
   _enDurNote(tr);
   // 🧑‍🏫 (2026-08-14) ③ 이 «강사 우선» 일 때만 강사 목록을 편다. 목록은 한 번만 받아 캐시한다.
   _enLoadTeachers();
@@ -5668,6 +5859,169 @@ function _enAddMonths(startISO, months) {
   const lastDay = new Date(Date.UTC(ny, nm, 0)).getUTCDate();
   const nd = Math.min(d, lastDay);
   return ny + '-' + String(nm).padStart(2, '0') + '-' + String(nd).padStart(2, '0');
+}
+
+/* 📱 (2026-08-21 사장님 지시) 시작일 드럼 — 년·월·일을 굴려서 고른다. 휴대폰에서만 보인다.
+   ⚠️ 스크롤은 브라우저 것(scroll-snap)을 그대로 쓴다. 직접 만든 드래그 계산을 두면 휠·터치·키보드를
+      각각 처리해야 하고, 셋이 어긋나는 순간 «안 멈추는 드럼» 이 된다.
+   ⚠️ 칸 높이(EN_WHEEL_ITEM)는 CSS `.en-start-drum .enw-col li` 와 반드시 같아야 한다 —
+      어긋나면 스크롤 위치로 값을 되읽을 때 한 칸씩 밀린다.
+   ⛔ 여는 순간에 값을 쓰지 않는다 — 「기본값을 몰래 넣지 않는다」. 굴렸을 때만 날짜칸에 들어간다. */
+const EN_WHEEL_ITEM = 28;
+
+function _enIsWideScreen() {
+  try { return window.matchMedia('(min-width: 1024px)').matches; } catch (e) { return true; }
+}
+
+/* ⚠️ 숨어 있는 동안에는 만들지 않는다. 행은 «카드가 닫힌 채로» 만들어지는데(페이지 로드 시 1행 자동 추가),
+      숨은 요소는 스크롤이 안 먹어서 세 칸이 전부 맨 위에 머문다 → 열어 보면 2025-01-01 을 가리키고,
+      그 상태에서 한 칸만 굴려도 엉뚱한 해가 들어간다(2026-08-21 실측으로 확인).
+   ✅ 그래서 «화면에 들어올 때» 만든다. ResizeObserver 로 뒤늦게 자리를 맞추는 방법도 해 봤지만
+      제때 맞지 않았다 — 아예 보일 때 만드는 쪽이 어긋날 여지가 없다. */
+function _enBuildDateWheel(host, input) {
+  if (!host || !input || host.dataset.enDrumReady) return;
+  const build = () => _enBuildDateWheelNow(host, input);
+  if (typeof IntersectionObserver !== 'function') { build(); return; }
+  const io = new IntersectionObserver((entries) => {
+    if (entries.some((e) => e.isIntersecting)) { io.disconnect(); build(); }
+  });
+  io.observe(host);
+  /* 관찰이 안 먹는 경우(스크롤 없이 바로 만지는 등)를 위한 안전망 */
+  ['pointerdown', 'focusin'].forEach((ev) => {
+    host.addEventListener(ev, () => { io.disconnect(); build(); }, { once: true });
+  });
+}
+
+function _enBuildDateWheelNow(host, input) {
+  if (!host || !input || host.dataset.enDrumReady === '1') return;
+  host.dataset.enDrumReady = '1';
+  const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  const now = new Date();
+  const state = { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  const seed = _enParseISO(input.value);
+  if (seed) { state.y = seed.y; state.m = seed.m; state.d = seed.d; }
+
+  host.innerHTML =
+    '<div class="enw-heads"><span>' + (en ? 'Year' : '년') + '</span><span>' + (en ? 'Mon' : '월') +
+      '</span><span>' + (en ? 'Day' : '일') + '</span></div>' +
+    '<div class="enw-drum">' +
+      '<div class="enw-band" aria-hidden="true"></div>' +
+      '<div class="enw-col enw-y" tabindex="0" role="listbox" aria-label="' + (en ? 'Year' : '연도') + '"><ul></ul></div>' +
+      '<div class="enw-col enw-m" tabindex="0" role="listbox" aria-label="' + (en ? 'Month' : '월') + '"><ul></ul></div>' +
+      '<div class="enw-col enw-d" tabindex="0" role="listbox" aria-label="' + (en ? 'Day' : '일') + '"><ul></ul></div>' +
+    '</div>';
+
+  const colY = host.querySelector('.enw-y'), colM = host.querySelector('.enw-m'), colD = host.querySelector('.enw-d');
+  const years = []; for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 3; y++) years.push(y);
+  const months = []; for (let m = 1; m <= 12; m++) months.push(m);
+
+  function fill(col, values, pad2) {
+    const ul = col.querySelector('ul');
+    ul.textContent = '';
+    values.forEach((v) => {
+      const li = document.createElement('li');
+      li.textContent = pad2 ? String(v).padStart(2, '0') : String(v);
+      ul.appendChild(li);
+    });
+    col._values = values;
+  }
+  function idxOf(col) {
+    return Math.max(0, Math.min(col._values.length - 1, Math.round(col.scrollTop / EN_WHEEL_ITEM)));
+  }
+  function paint(col) {
+    const i = idxOf(col);
+    const lis = col.querySelectorAll('li');
+    for (let k = 0; k < lis.length; k++) lis[k].classList.toggle('on', k === i);
+  }
+  function go(col, i, smooth) {
+    col.scrollTo({ top: Math.max(0, i) * EN_WHEEL_ITEM, behavior: smooth ? 'smooth' : 'auto' });
+    paint(col);
+  }
+  function rebuildDays() {
+    const max = new Date(state.y, state.m, 0).getDate();
+    if (!colD._values || colD._values.length !== max) {
+      const vals = []; for (let i = 1; i <= max; i++) vals.push(i);
+      fill(colD, vals, true);
+    }
+    state.d = Math.min(state.d, max);
+    go(colD, state.d - 1, false);
+  }
+  function commit() {
+    input.value = state.y + '-' + String(state.m).padStart(2, '0') + '-' + String(state.d).padStart(2, '0');
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  /* ⛔ «사람이 굴렸을 때만» 값을 쓴다. 자리를 맞추려고 코드가 굴리는 스크롤도 같은 이벤트를 내므로,
+        이 표시가 없으면 카드를 열기만 해도 날짜가 저절로 들어간다(「기본값을 몰래 넣지 않는다」). */
+  let userTouched = false;
+  function wire(col, kind) {
+    let t = null;
+    ['wheel', 'pointerdown', 'touchstart', 'keydown'].forEach((ev) => {
+      col.addEventListener(ev, () => { userTouched = true; }, { passive: true });
+    });
+    col.addEventListener('scroll', () => {
+      paint(col);
+      if (t) clearTimeout(t);
+      t = setTimeout(() => {
+        const v = col._values[idxOf(col)];
+        if (kind === 'y') { state.y = v; rebuildDays(); }
+        else if (kind === 'm') { state.m = v; rebuildDays(); }
+        else state.d = v;
+        if (userTouched) commit();
+      }, 90);
+    });
+    col.addEventListener('click', (e) => {
+      const li = e.target.closest('li');
+      if (li) go(col, Array.prototype.indexOf.call(li.parentNode.children, li), true);
+    });
+    col.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      go(col, idxOf(col) + (e.key === 'ArrowDown' ? 1 : -1), true);
+    });
+  }
+
+  fill(colY, years, false);
+  fill(colM, months, true);
+  rebuildDays();
+  go(colY, Math.max(0, years.indexOf(state.y)), false);
+  go(colM, state.m - 1, false);
+  wire(colY, 'y'); wire(colM, 'm'); wire(colD, 'd');
+
+  /* 날짜칸을 직접 고치거나 «자주 쓰는 날짜» 를 누르면 드럼도 따라간다 */
+  input.addEventListener('change', () => {
+    const p = _enParseISO(input.value);
+    if (!p) return;
+    if (p.y === state.y && p.m === state.m && p.d === state.d) return;
+    state.y = p.y; state.m = p.m; state.d = p.d;
+    go(colY, Math.max(0, years.indexOf(p.y)), false);
+    go(colM, p.m - 1, false);
+    rebuildDays();
+  });
+}
+
+function _enParseISO(v) {
+  const p = String(v || '').split('-');
+  if (p.length !== 3) return null;
+  const y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+  if (!y || !m || !d) return null;
+  return { y, m, d };
+}
+
+/* 🗓️ (2026-08-21) 자주 쓰는 시작일 — 「오늘·내일·다음주 월·다음달 1일」.
+   실제로 수업이 시작되는 날은 거의 이 넷 중 하나다. 달력을 열지 않고 한 번에 넣는다.
+   ⚠️ 로컬 시각 기준이다 — new Date() 를 그대로 쓰면 UTC 로 밀려 «어제» 가 들어간다. */
+function _enQuickDate(kind) {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); /* 자정 근처 시차 밀림 방지 */
+  if (kind === 'tomo') d.setDate(d.getDate() + 1);
+  else if (kind === 'nextmon') {
+    /* 다음 «월요일». 오늘이 월요일이면 다음 주 월요일(7일 뒤)로 간다 — 「다음주 월」이라고 적어 뒀으므로. */
+    const gap = (8 - d.getDay()) % 7 || 7;
+    d.setDate(d.getDate() + gap);
+  } else if (kind === 'next1') {
+    d.setMonth(d.getMonth() + 1, 1);
+  }
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 /* 🧑‍🏫 (2026-08-14) ③ 「강사 우선」용 강사 목록.
@@ -5773,6 +6127,31 @@ async function _enLookupStudent(tr) {
   }
 }
 
+// "HH:MM" → [hh, mm] 2자리 문자열. 분은 10분 단위로 반올림(00/10/20/30/40/50). 빈 값이면 ['','']
+function _tbTimeToParts(t) {
+  const m = (t || '').match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (!m) return ['', ''];
+  const hh = String(Math.min(23, parseInt(m[1], 10) || 0)).padStart(2, '0');
+  let mm = Math.round((parseInt(m[2], 10) || 0) / 10) * 10;
+  if (mm >= 60) mm = 50;
+  return [hh, String(mm).padStart(2, '0')];
+}
+function _tbHourOptions(selected) {
+  let opts = '<option value="">--</option>';
+  for (let h = 0; h < 24; h++) {
+    const v = String(h).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  }
+  return opts;
+}
+function _tbMinOptions(selected) {
+  let opts = '<option value="">--</option>';
+  [0, 10, 20, 30, 40, 50].forEach(m => {
+    const v = String(m).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  });
+  return opts;
+}
 // 🥭 Phase 32 — 요일별 시간 빌더 모달
 function _openTimeBuilder(tr) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -5799,16 +6178,21 @@ function _openTimeBuilder(tr) {
         '💡 시간 비워두면 그 요일은 제외됩니다' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center">';
+  const selStyle = 'padding:6px 4px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff';
   dayCodes.forEach((code, i) => {
     const isChecked = checkedDays.includes(code) || parsed[code];
     const t = parsed[code] || '';
+    const [th, tm] = _tbTimeToParts(t);
     html +=
       '<label style="font-weight:700;color:#1f2937;display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" class="tb-day" data-code="' + code + '" ' + (isChecked?'checked':'') + ' style="margin:0;cursor:pointer">' +
         dayLabels[i] +
       '</label>' +
-      '<input type="time" step="600" class="tb-time" data-code="' + code + '" value="' + t + '" placeholder="시간" ' +
-        'style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />';
+      '<div style="display:flex;align-items:center;gap:4px">' +
+        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th) + '</select>' +
+        '<span style="color:#9ca3af">:</span>' +
+        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm) + '</select>' +
+      '</div>';
   });
   html += '</div>' +
       '<div style="display:flex;gap:8px;margin-top:18px">' +
@@ -5820,14 +6204,17 @@ function _openTimeBuilder(tr) {
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
   const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
-  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용
+  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용 (분은 10분 단위로 반올림)
   overlay.querySelector('#tb-same-time').addEventListener('click', () => {
     const t = prompt('모든 체크된 요일에 적용할 시간 (HH:MM):', '10:30');
     if (!t) return;
+    const [th, tm] = _tbTimeToParts(t);
     overlay.querySelectorAll('.tb-day:checked').forEach(chk => {
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      if (tin) tin.value = t;
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      if (hSel) hSel.value = th;
+      if (mSel) mSel.value = tm;
     });
   });
   overlay.querySelector('#tb-cancel').addEventListener('click', close);
@@ -5839,9 +6226,11 @@ function _openTimeBuilder(tr) {
     overlay.querySelectorAll('.tb-day').forEach(chk => {
       if (!chk.checked) return;
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      const t = (tin?.value || '').trim();
-      if (t) result.push({ day: code, time: t });
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      const h = hSel?.value || '';
+      const m = mSel?.value || '';
+      if (h !== '' && m !== '') result.push({ day: code, time: h + ':' + m });
     });
     // 행의 요일 체크박스 갱신
     tr.querySelectorAll('.en-row-day').forEach(chk => {
@@ -6358,6 +6747,69 @@ async function setEnrollmentStatus(id, status) {
     ? ((name ? name + ' — ' : '') + 'status changed to ' + label)
     : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다'));
   loadEnrollments();
+}
+
+/* 🗑️ (2026-08-21 사장님 지시) 수강신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 확정·활성화돼 실제
+      수업(class_schedules.source='adm-enroll:<id>')이 생긴 건은 삭제 전에 그 수업을
+      먼저 cancelled 로 정리한다(레벨테스트 삭제와 같은 이유). */
+async function enDeleteOne(id) {
+  const en = (adminLang === 'en');
+  const cur = _enItems.find(x => String(x.id) === String(id)) || {};
+  const name = cur.student_name ? String(cur.student_name) : '';
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this enrollment' : '이 수강신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id, { method: 'DELETE', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadEnrollments(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
+/* 🗑️ 화면에 지금 «보이는» 항목(검색·상태 필터가 걸려 있으면 그것만) 전체 삭제.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 IN 바인드 한도) — 그 이상이면 나눠서 다시 누르게 안내. */
+async function enDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const q = String(_enQuery || '').trim().toLowerCase();
+  const sel = document.getElementById('en-status-filter');
+  const fs = sel ? sel.value : '';
+  let rows = _enItems;
+  if (fs) rows = rows.filter(it => String(it.status || '') === fs);
+  if (q) rows = rows.filter(it => (
+    String(it.student_name || '').toLowerCase().includes(q) ||
+    String(it.student_user_id || '').toLowerCase().includes(q) ||
+    String(it.package || '').toLowerCase().includes(q) ||
+    String(it.teacher_name || '').toLowerCase().includes(q)
+  ));
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(it => it.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' enrollment(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 수강신청을 삭제할까요? 되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  _enToast(en ? (n + ' enrollment(s) deleted') : (n + '건 삭제했습니다'));
+  loadEnrollments();
+  if (rows.length > 90) {
+    alert(en ? 'More than 90 matched — press the button again for the rest.' : '90건이 넘게 걸려서 나머지는 다시 눌러 주세요.');
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -14012,6 +14464,10 @@ window.rebuildGlobalSearchIndex = function() {
     else if (role === 'mgr' || role === 'manager') role = 'hq_mgr';
     const isExec = role === 'hq_exec';
     const isMgrOrUp = isExec || role === 'hq_mgr';
+    // 🗑️ (2026-08-21) 레벨테스트 신청 삭제 버튼 노출 판정에 재사용 — 본사(경영진·관리자)만.
+    //   서버(api-admin.ts DELETE /api/admin/leveltest/applications)가 이미 같은 조건으로 403 을
+    //   던진다. 여기서 감추는 것은 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐 — 보안은 서버 쪽.
+    window._isHqMgrOrUp = isMgrOrUp;
     const isHQ = role && role.startsWith('hq');
     const isBranchUp = isHQ || role === 'branch';
     const isAgencyUp = isBranchUp || role === 'agency';
