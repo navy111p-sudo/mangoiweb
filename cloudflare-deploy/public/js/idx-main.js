@@ -4990,7 +4990,7 @@ function vcArmFullscreenRetry() {
                    기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
                 try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
-                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
+                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});
 
             // 📶 저대역 자동 음성전용(AAO) — 오디오 손실 기준 판정(영상을 꺼도 오디오는 흐르므로 회복 감지가 신뢰됨).
@@ -5012,6 +5012,8 @@ function vcArmFullscreenRetry() {
                     else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
                     else { A.good = 0; }
                     vcAAOApply();
+                    // 📶 AAO 중엔 영상 통계가 없다 — 오디오 값으로 이어 적는다
+                    if (A.active) { try { vcQualityAcc(alp, art); } catch (_) {} }
                 }).catch(function(){});
             } catch (_) {}
         });
@@ -5075,7 +5077,7 @@ function vcQualityAcc(loss, rtt) {
         var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
         var A = window.__vcAAO || {};
         var body = JSON.stringify({
-            room: (window.vcRoomId || window.currentRoomId || ''),
+            room: (vcRoomId || ''),
             uid: (u && u.uid) || '', name: (u && u.name) || '',
             role: isT ? 'teacher' : ((u && u.role) || 'student'),
             avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
