@@ -591,6 +591,48 @@ export async function handleAdminApi(
     }
 
     // ════════════════════════════════════════════════════════════
+    // 🔁 화상수업 «중계(TURN) 강제» — 강사별 on/off
+    //   GET  /api/admin/vc/relay            → 지정된 강사 목록
+    //   POST /api/admin/vc/relay {teacher_id, enabled, note}
+    //
+    //   [무엇을 하는 설정인가] 지금은 직접(P2P) 연결이 **실패해야** 릴레이로 넘어간다.
+    //   중국 회선처럼 «연결은 되는데 패킷만 흘리는» 경우엔 그 조건에 안 걸려 영영 직접 경로를 쓴다.
+    //   여기서 켜 두면 그 강사 수업은 처음부터 Cloudflare TURN 으로 붙는다.
+    //   전달 경로는 /api/class/sessions/today 의 net_relay (학생·교사가 같은 값을 받는다).
+    //
+    //   ⚠️ 켜면 전송량 과금이 늘고 홉이 하나 늘어 RTT 가 조금 오른다. 회선이 나쁜 강사에게만 쓸 것.
+    //   ⚠️ 강사 번호는 class_schedules.teacher_id( = teachers.id ) 도메인이다. 카페24 번호가 아니다.
+    // ════════════════════════════════════════════════════════════
+    if (path === '/api/admin/vc/relay' && (method === 'GET' || method === 'POST')) {
+      /* 🔐 강사 전면 차단 — canEditOrg() 는 강사를 «못 막는다»(scope.type==='none' 에 true).
+         CLAUDE.md 2장 「관리자 쓰기 API 를 본사 전용으로 막았는데 강사가 그대로 실행됨」. */
+      const _vrActor = await getAdminActor(request, env as any);
+      if (_vrActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      try {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
+        if (method === 'GET') {
+          const rs: any = await env.DB.prepare(
+            `SELECT r.teacher_id, r.enabled, r.note, r.updated_at, r.updated_by, t.name AS teacher_name
+             FROM vc_relay_force r LEFT JOIN teachers t ON CAST(t.id AS TEXT) = r.teacher_id
+             ORDER BY r.updated_at DESC LIMIT 200`
+          ).all();
+          return json({ ok: true, rows: rs.results || [] });
+        }
+        const body: any = await request.json().catch(() => ({}));
+        const tid = String(body?.teacher_id ?? '').trim();
+        if (!tid || !/^\d+$/.test(tid)) return json({ ok: false, error: 'teacher_id_required' }, 400);
+        const on = (body?.enabled === true || body?.enabled === 1 || body?.enabled === '1') ? 1 : 0;
+        const note = String(body?.note ?? '').slice(0, 200) || null;
+        await env.DB.prepare(
+          `INSERT INTO vc_relay_force (teacher_id, enabled, note, updated_at, updated_by) VALUES (?,?,?,?,?)
+           ON CONFLICT(teacher_id) DO UPDATE SET enabled=excluded.enabled, note=excluded.note,
+             updated_at=excluded.updated_at, updated_by=excluded.updated_by`
+        ).bind(tid, on, note, Date.now(), _vrActor?.name || 'admin').run();
+        return json({ ok: true, teacher_id: tid, enabled: on });
+      } catch (e: any) { return json({ ok: false, error: e?.message || 'vc_relay_failed' }, 500); }
+    }
+
+    // ════════════════════════════════════════════════════════════
     // 💵 Phase 15 — 매출 / 학생 흐름 통계
     //   GET /api/admin/stats/revenue?period=day|month|quarter|half|year&from=YYYY-MM-DD&to=YYYY-MM-DD
     //     · student_payments 테이블 기준 (status='paid' 만 합산)

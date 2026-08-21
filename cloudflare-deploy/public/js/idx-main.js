@@ -2215,6 +2215,7 @@ async function vcJoinMyClass() {
         var d = await r.json();
         var sessions = (d && d.sessions) || [];
         var current = d && d.current;
+        if (d) window.__vcRelayAlways = !!d.net_relay;
         if (!sessions.length) {
             alert('오늘 예약된 수업이 없어요. 🗓️\n예약이 있는데도 안 보이면 아래 "방 코드 직접 입력"으로 입장해 주세요.');
             return;
@@ -2642,6 +2643,7 @@ async function vcJoinRoom(skipUI) {
         var _js = _jd && (_jd.current || _jss.filter(function (s) { return s.join_open; })[0]);
         // 게이트 상태를 기억해 둔다 — 조회가 실패한 다음 번에도 «막을지 말지» 를 알아야 한다.
         if (_jd && _jd.student_gate) window.__vcStudentGate = _jd.student_gate;
+        if (_jd) window.__vcRelayAlways = !!_jd.net_relay;
 
         if (_js && _js.room_id && _js.join_open) {
           vcTypedRoom = _js.room_id;
@@ -4882,7 +4884,7 @@ function vcArmFullscreenRetry() {
 
 (function vcAdaptiveQuality() {
     if (window.__vcAdaptive) return; window.__vcAdaptive = true;
-    const STEPS = [1.0, 0.6, 0.35, 0.2];
+    const STEPS = [1.0, 0.6, 0.35, 0.2, 0.08];   // 4단계=얼굴만 (vc_lowstep_relay_harness)
     // 🎛 설정(자동/고/저)이 정한 기준 상한을 그대로 쓴다 — '저'면 처음부터 360p·15fps 로 시작한다
     function baseCaps() {
         try { if (window.vcQualityCaps) return window.vcQualityCaps(); } catch (_) {}
@@ -4890,7 +4892,7 @@ function vcArmFullscreenRetry() {
                        || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
         return { br: (mobile ? 500 : 1200) * 1000, fps: mobile ? 15 : 24, scale: 1 };
     }
-    const SCALE = [1, 1.5, 2, 3];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
+    const SCALE = [1, 1.5, 2, 3, 4];   // 단계별 해상도 축소 — 낮은 비트레이트에선 픽셀 수를 줄여야 깨짐(블록화) 대신 선명한 저해상도가 됨
 
     /* 🕐 (2026-08-11 강사 피드백 — "오디오 지연", "렉", "버퍼링")
        [빠져 있던 것] 보내는 쪽은 오래 다듬어 왔다(비트레이트 적응·Opus FEC/DTX·AAO).
@@ -4927,18 +4929,19 @@ function vcArmFullscreenRetry() {
             if (!sender || !sender.getParameters) return;
             const caps = baseCaps();
             const mult = STEPS[step];
+            const lo = step >= 4;   // 4단계만 하한을 낮춘다(앞 단계는 그대로)
             const params = sender.getParameters();
             if (!params.encodings || !params.encodings.length) params.encodings = [{}];
-            params.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
-            params.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+            params.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+            params.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
             params.encodings[0].scaleResolutionDownBy = (caps.scale || 1) * (SCALE[step] || 1);
             sender.setParameters(params).catch(() => {
                 // 일부 구형 브라우저는 scaleResolutionDownBy 를 거부 → 해상도 축소 없이 비트레이트 상한만이라도 재적용
                 try {
                     const p2 = sender.getParameters();
                     if (!p2.encodings || !p2.encodings.length) p2.encodings = [{}];
-                    p2.encodings[0].maxBitrate   = Math.max(150 * 1000, Math.round(caps.br * mult));
-                    p2.encodings[0].maxFramerate = Math.max(10, Math.round(caps.fps * mult));
+                    p2.encodings[0].maxBitrate   = Math.max(lo ? 60000 : 150000, Math.round(caps.br * mult));
+                    p2.encodings[0].maxFramerate = Math.max(lo ? 5 : 10, Math.round(caps.fps * mult));
                     delete p2.encodings[0].scaleResolutionDownBy;
                     sender.setParameters(p2).catch(() => {});
                 } catch (_) {}
@@ -4990,7 +4993,7 @@ function vcArmFullscreenRetry() {
                    기준은 화질 단계를 올릴 때와 같은 숫자를 쓴다: 손실 1.5% 미만 + RTT 250ms 미만.
                    한 번이라도 나빠지면 즉시 브라우저 자동으로 되돌아간다 = 끊김이 지연보다 우선. */
                 try { tuneReceiveLatency(pc, step === 0 && lossPct < 1.5 && (rtt === 0 || rtt < 250)); } catch (_) {}
-                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(30초마다 전송, fire-and-forget)
+                try { vcQualityAcc(lossPct, rtt); } catch (_) {}   // 📶 회선품질 로깅 누적(fire-and-forget)
             }).catch(function() {});
 
             // 📶 저대역 자동 음성전용(AAO) — 오디오 손실 기준 판정(영상을 꺼도 오디오는 흐르므로 회복 감지가 신뢰됨).
@@ -5012,6 +5015,8 @@ function vcArmFullscreenRetry() {
                     else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
                     else { A.good = 0; }
                     vcAAOApply();
+                    // 📶 AAO 중엔 영상 통계가 없다 — 오디오 값으로 이어 적는다
+                    if (A.active) { try { vcQualityAcc(alp, art); } catch (_) {} }
                 }).catch(function(){});
             } catch (_) {}
         });
@@ -5075,7 +5080,7 @@ function vcQualityAcc(loss, rtt) {
         var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
         var A = window.__vcAAO || {};
         var body = JSON.stringify({
-            room: (window.vcRoomId || window.currentRoomId || ''),
+            room: (vcRoomId || ''),
             uid: (u && u.uid) || '', name: (u && u.name) || '',
             role: isT ? 'teacher' : ((u && u.role) || 'student'),
             avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
@@ -5108,9 +5113,9 @@ function vcCreatePeer(userId, username) {
         rtcpMuxPolicy: 'require',
         iceCandidatePoolSize: 2
     };
-    if (window.__vcForceRelay && window.__vcForceRelay[userId] && window.__vcIceHasTurn) {
+    if (__vcIceHasTurn && (window.__vcRelayAlways || (window.__vcForceRelay && window.__vcForceRelay[userId]))) {
         _pcCfg.iceTransportPolicy = 'relay';
-        console.warn('[vc-webrtc] 🔁 relay 강제(직접연결 실패 복구):', userId);
+        console.warn('[vc-webrtc] 🔁 relay 강제:', userId);
     }
     const pc = new RTCPeerConnection(_pcCfg);
     vcPeerConnections[userId] = pc;
