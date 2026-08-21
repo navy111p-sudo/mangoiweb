@@ -9339,3 +9339,77 @@ html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-box{
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-head{ color: #fbbf24; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row{ color: #cbd5e1; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row:hover{ background: rgba(148,163,184,.14); color: #f8fafc; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   👁 (2026-08-21) 참관 / 직접 입장 버튼 — 색이 화면에 «실제로» 나오게
+   ───────────────────────────────────────────────────────────────────────
+   [뜻] 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임)
+        · 빨강 = 되돌릴 수 없는 행위(즉시 개입·강제 종료) · 파랑 = 그 밖의 이동
+
+   [왜 여기에 있나 — 인라인 style 로는 화면에 안 나온다]
+   2026-08-21 헤드리스 실측: 「🔴 실시간 수업 현황」 버튼 네 개가 전부 흰색이었다.
+   인라인에 색을 적어 두었는데도 그렇다. 이 파일의 규칙 둘이 순서대로 이긴다 —
+     ① 3279행  details.menu-card button:not(…)                    → 파랑 그라데이션 !important
+     ② 9072행  html[…="ivory"][…="slate"] [id^="card-"] button:not([class]) → #ffffff !important
+   ②의 근거는 «클래스가 없다 = 의도한 색이 없다» 인데 이 버튼들에서 그 전제가 틀렸다.
+   그래서 클래스를 달아 ②를 벗어나면, 이번엔 ①이 잡아 전부 같은 파랑이 된다.
+
+   [특이성] ① 이 (0,5,2) 라 «맨 끝 + !important» 만으로는 진다(실측으로 확인).
+   이 파일이 9062행에 적어 둔 방식을 그대로 쓴다 — «항상 참인 :not() 을 덧붙여
+   대상은 그대로 둔 채 힘만 올린다». 아래는 (0,8,1) 이라 ① 을 이긴다.
+   ⚠️ 카드 조상을 조건에 넣지 않는다 — 「오늘 수업」은 카드 id 가 sm- 로 시작해
+      [id^="card-"] 로는 안 걸린다(2026-08-21 실측).
+
+   ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
+   감시: test-harness/observer_camera_guard_harness.mjs F절
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* 힘 올리기용 꼬리 — 우리 버튼엔 이 클래스들이 붙을 일이 없어 «항상 참» 이다 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  border-radius: 6px !important; cursor: pointer !important;
+  background-image: none !important; box-shadow: none !important; transform: none !important;
+}
+/* 「🔴 실시간 수업 현황」 — 채운 버튼 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 12px !important; font-size: 12px !important; font-weight: 600 !important;
+  border: none !important; color: #fff !important;
+}
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #8b5cf6 !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #2563eb !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #ef4444 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #dc2626 !important; }
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #7c3aed !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #1d4ed8 !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #dc2626 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #b91c1c !important; }
+
+/* 「👀 수업 관찰」 카드 · 「🚪 오늘 수업」 표 — 옅은 칩 */
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 10px !important; font-size: 11.5px !important; font-weight: 700 !important;
+}
+button.gh-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.22) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.5) !important; margin-right: 4px !important;
+}
+button.gh-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.22) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+}
+button.tc-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.16) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+  padding: 4px 12px !important; font-weight: 800 !important; margin-right: 4px !important;
+}
+button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.45) !important;
+}
+/* 다크(기본) 테마에서는 옅은 칩의 «글자»가 배경에 묻힌다 — 밝은 쪽으로 */
+html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
+html:not([data-admin-theme="ivory"]) button.gh-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #fde68a !important; }

@@ -128,14 +128,14 @@
             : '<span style="color:#b45309;font-weight:800">' + T('⚠ 미배정', '⚠ unassigned') + '</span>';
           var act = s.join_open
             /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
-            ? '<button type="button" onclick="tcEnterClass(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + who + '\'))" '
+            ? '<button type="button" class="tc-act tc-act-enter" onclick="tcEnterClass(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + who + '\'))" '
               + 'title="' + T('실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)',
                               'Join as a real participant — students see you (camera starts off)') + '" '
-              + 'style="padding:4px 12px;font-size:11.5px;margin-right:4px;background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.55);border-radius:6px;font-weight:800;cursor:pointer">'
+              + '>'
               + T('🚪 입장(보임)', '🚪 Join (visible)') + '</button>'
             : '<span style="color:#9ca3af;font-size:11.5px;margin-right:4px">' + T('입장 시간 아님', 'not open') + '</span>';
-          act += '<button type="button" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
-              + 'style="padding:4px 10px;font-size:11.5px;background:rgba(139,92,246,0.16);color:#6d28d9;border:1px solid rgba(139,92,246,0.45);border-radius:6px;font-weight:700;cursor:pointer">'
+          act += '<button type="button" class="tc-act tc-act-observe" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
+              + '>'
               + T('👁 참관', '👁 Observe') + '</button>';
           /* 🧪 레벨테스트 표시 — 일반수업과 응대가 다르다(첫 수업·보호자 대기·결과 입력).
              한 목록에 두되 눈으로 즉시 갈라지게. 크기·위치는 고정, 색으로만 구분한다. */

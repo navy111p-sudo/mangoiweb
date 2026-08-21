@@ -120,6 +120,70 @@ console.log('\n▶ E. 직접 입장은 카메라를 끄고, 참관은 그대로 
         /vcBroadcastCamState\(false/.test(guardCode));
 }
 
+/* ── F. 색이 «화면에» 나오는가 — 세 겹의 덮어쓰기 ────────────────────
+   [뜻] 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임) · 빨강 = 위험.
+   [사고] 2026-08-21 헤드리스 실측 — 인라인 style 로 준 색이 «한 개도» 화면에 안 나왔다.
+     ① admin-inline-c.css 3279행 details.menu-card button:not(…) → 파랑 그라데이션 !important
+     ② 같은 파일 9072행 [id^="card-"] button:not([class])        → #ffffff !important
+     ③ adm-light-surfaces.js 페인터 → 어두운 배경을 인라인 !important 로 밝게(파랑이 흰색이 됐다)
+   그래서 ①②는 클래스 + 특이성 (0,8,1) CSS 로, ③은 SKIP_SEL 등재로 막는다.
+   ⛔ 색을 JS 인라인으로 되돌리면 화면에서 조용히 사라진다 — 그래서 «인라인 금지» 도 검사한다. */
+console.log('\n▶ F. 참관/직접입장 색이 화면에 실제로 나오는가');
+{
+  const css = read('cloudflare-deploy/public/css/admin-inline-c.css');
+  const painter = read('cloudflare-deploy/public/js/adm-light-surfaces.js');
+
+  // ⓐ JS 는 «클래스만» 붙인다 — 색을 인라인으로 주면 위 ①②③ 에 먹힌다
+  const btnLine = (t, mark) => (t.match(new RegExp('^.*' + mark + '.*$', 'm')) || [''])[0];
+  const noInlineBg = l => !/style="[^"]*background/.test(l);
+  check('실시간 수업 현황 [GHOST 참관] 은 클래스만 쓴다(인라인 색 없음)',
+        /class="rm-act rm-act-observe"/.test(admCore) && noInlineBg(btnLine(admCore, 'rm-act-observe')));
+  check('같은 표의 [강제 종료]·[연장]·[즉시 개입]도 클래스만 쓴다',
+        ['rm-act-end', 'rm-act-extend', 'rm-act-intervene'].every(c =>
+          new RegExp('class="rm-act ' + c + '"').test(admCore) && noInlineBg(btnLine(admCore, c))));
+  check('수업 관찰 카드 두 버튼도 클래스만 쓴다',
+        /class="gh-act gh-act-observe"/.test(admS1) && /class="gh-act gh-act-enter"/.test(admS1)
+        && noInlineBg(btnLine(admS1, 'gh-act-observe')) && noInlineBg(btnLine(admS1, 'gh-act-enter')));
+  check('오늘 수업 두 버튼도 클래스만 쓴다',
+        /class="tc-act tc-act-enter"/.test(admToday) && /class="tc-act tc-act-observe"/.test(admToday)
+        && noInlineBg(btnLine(admToday, 'tc-act-enter')) && noInlineBg(btnLine(admToday, 'tc-act-observe')));
+
+  // ⓑ 색의 정본은 CSS 한 곳 — 뜻대로 칠해져 있는가
+  const rule = sel => {
+    const i = css.indexOf(sel);
+    return i < 0 ? '' : css.slice(i, css.indexOf('}', i) + 1);
+  };
+  check('CSS: 참관은 보라(#8b5cf6)', /#8b5cf6/.test(rule('button.rm-act-observe:not(')));
+  check('CSS: 직접 입장은 주황(245,158,11)', /245,\s*158,\s*11/.test(rule('button.gh-act-enter:not('))
+        && /245,\s*158,\s*11/.test(rule('button.tc-act-enter:not(')));
+  check('CSS: 카드 안 참관 칩은 보라(139,92,246)', /139,\s*92,\s*246/.test(rule('button.gh-act-observe:not('))
+        && /139,\s*92,\s*246/.test(rule('button.tc-act-observe:not(')));
+  check('CSS: 강제 종료는 빨강(#dc2626) — 되돌릴 수 없는 행위', /#dc2626/.test(rule('button.rm-act-end:not(')));
+  check('CSS: 참관과 직접 입장이 «다른» 색이다',
+        !/#8b5cf6/.test(rule('button.gh-act-enter:not(')) && !/245,\s*158,\s*11/.test(rule('button.rm-act-observe:not(')));
+
+  // ⓒ 특이성 — «맨 끝 + !important» 만으로는 ① 을 못 이긴다(실측)
+  const strong = sel => (rule(sel).match(/:not\(/g) || []).length >= 5;
+  check('CSS 선택자에 특이성 꼬리(:not() 5개 이상)가 붙어 있다',
+        ['button.rm-act-observe:not(', 'button.gh-act-enter:not(', 'button.tc-act-observe:not('].every(strong));
+  check('CSS 규칙이 파랑 그라데이션 규칙(3279행)보다 «뒤»에 있다',
+        css.indexOf('button.rm-act-observe:not(') > css.indexOf('details.table-card.menu-card button:not('));
+  check('클래스 이름이 «-btn» 으로 끝나지 않는다([class$="-btn"] 규칙 회피)',
+        !/class="[^"]*-btn"/.test(btnLine(admCore, 'rm-act-observe')));
+
+  // ⓓ 페인터가 이 버튼들을 밝게 눌러 색을 지우지 못하게
+  check('페인터 SKIP_SEL 에 세 계열이 등재돼 있다',
+        /'\.rm-act'/.test(painter) && /'\.gh-act'/.test(painter) && /'\.tc-act'/.test(painter),
+        'adm-light-surfaces.js');
+
+  // ⓔ 색맹·흑백 출력 대비 — 글자로도 갈라진다
+  check('직접 입장은 «(보임)» 글자로도 구분된다',
+        /직접 입장\(보임\)/.test(admS1) && /입장\(보임\)/.test(admToday));
+
+  // ⓕ 행 템플릿 안 HTML 주석 금지(행마다 DOM 에 주석 노드가 박힌다)
+  check('행 템플릿 안에 HTML 주석을 넣지 않았다', !/return `<tr[\s\S]{0,1500}<!--/.test(admCore));
+}
+
 console.log('\n' + '═'.repeat(64));
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
 if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }

@@ -1412,18 +1412,31 @@ async function loadActiveRooms() {
       const roomAttr = _esc(String(room.roomId == null ? '' : room.roomId));
       const al = alertMap[String(room.roomId)];
       const badge = al ? ' <span class="room-alert-badge">🚨 '+(TYPE_KO[al.alert_type]||al.alert_type)+'</span>' : '';
-      const btnCss = 'padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;color:#fff;';
+      /* 👁 (2026-08-21) 버튼 색 규칙 — 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임).
+         [왜] 이 GHOST 버튼만 주황이었다. 그런데 다른 두 목록(adm-s1 «직접 입장(보임)» ·
+         adm-today-classes «입장(보임)»)에서 주황은 정반대 뜻인 «학생에게 보인다» 다.
+         같은 색이 화면마다 다른 뜻이면 색은 안 보는 편이 나은 표시가 되고, 급할 때
+         손이 먼저 나가는 버튼에서 그 혼동은 «참관인 줄 알고 수업에 등장» 으로 끝난다.
+         ⛔ 이 값을 주황으로 되돌리지 말 것 — observer_camera_guard_harness 가 FAIL 낸다.
+         🔴 그리고 색만 고쳐서는 «화면에 안 나옵니다». admin-inline-c.css 9072행의
+            html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class])
+            이 카드 안 «클래스 없는» 버튼을 background:#ffffff !important 로 칠합니다.
+            인라인 style 은 작성자 !important 에 집니다(2026-08-21 실측: 네 버튼 전부 흰색이었고,
+            그래서 «즉시 개입»·«강제 종료» 의 빨강도 안 나오고 있었습니다).
+            ✅ 그 규칙의 논리가 «클래스가 없다 = 의도한 색이 없다» 이므로, 의도한 색이 있는
+               버튼에는 클래스를 답니다(rm-act…). ⛔ 클래스 이름을 «-btn» 으로 끝내지 마세요 —
+               [class$="-btn"] 규칙(같은 파일 3894·9012행)에 다시 걸립니다. */
       return `<tr class="${al?'room-alert':''}" data-room="${roomAttr}" data-students="${_esc(JSON.stringify(studentNames))}">
         <td>${_esc(room.roomId)}${badge}</td>
-        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#f59e0b;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
+        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#a78bfa;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
         <td>${_esc(userNames)}</td>
         <td>${room.hasPdf ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td>${room.hasVideo ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${al?`<button data-act="intervene" style="${btnCss}background:#ef4444;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
-          <button data-act="observe" style="${btnCss}background:#f59e0b;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
-          <button data-act="extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}" style="${btnCss}background:#2563eb;">⏳ ${_L?'Extend':'연장'}</button>
-          <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
+          ${al?`<button data-act="intervene" class="rm-act rm-act-intervene">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
+          <button data-act="observe" class="rm-act rm-act-observe">👁 ${_L?'Ghost':'GHOST 참관'}</button>
+          <button data-act="extend" class="rm-act rm-act-extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}">⏳ ${_L?'Extend':'연장'}</button>
+          <button data-act="end" class="rm-act rm-act-end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
     }).join('') + schedRows;
