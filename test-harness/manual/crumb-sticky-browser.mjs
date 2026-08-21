@@ -66,6 +66,13 @@ async function serve() {
 async function open(browser, width, height) {
   const ctx = await browser.newContext({ viewport: { width, height }, isMobile: false });
   const page = await ctx.newPage();
+  /* 🪤 «환영 안내»(#aw-overlay)를 닫힌 상태로 시작한다 — 처음 여는 사람에게만 뜨는 안내인데,
+        js/adm-welcome.js 가 열릴 때 `html{overflow:hidden}` 을 걸고 사람이 닫아야만 푼다.
+        빈 브라우저로 열면 그 안내가 계속 떠 있어 **멀쩡한 폭까지 실패로 나온다**
+        (2026-08-20 실제로 1023px 을 거짓 실패로 읽었다). 실제 사용자는 한 번 닫으면 다시 안 뜬다. */
+  await page.addInitScript(() => {
+    try { localStorage.setItem('mangoi_admin_welcome_v1_done', '1'); } catch (e) { /* 시크릿 모드 */ }
+  });
   await page.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#ph85-sidebar [data-ia6-item]', { timeout: 30000 });
   await page.waitForTimeout(2500);        // IA6 가 카드까지 고르고 나서 재야 한다
