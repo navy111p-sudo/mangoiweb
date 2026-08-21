@@ -1390,7 +1390,10 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
         const hit = sentences.find((s2: any) => s2 && s2.hz && String(s2.hz).includes(k.hz) && !usedSent.has(String(s2.hz)));
         if (!hit) continue;
         usedSent.add(String(hit.hz));
-        const blanked = String(hit.hz).replace(k.hz, '____');
+        /* ⚠️ 그 단어가 문장에 두 번 나오면 «첫 번째만» 가려서는 안 된다 — 정답이 뒷부분에
+           그대로 남아 학생이 읽고 베낀다(2026-08-21 제5과 「不过小庆的头发长，小乐的头发短。」).
+           split/join 으로 «전부» 가린다. */
+        const blanked = String(hit.hz).split(k.hz).join('____');
         const m = mcq(tag(`✏️ 빈칸에 알맞은 단어는?  ${blanked}  (${hit.ko || ''})`), k.hz,
           `${hit.hz}${hit.py ? ' (' + hit.py + ')' : ''} — ${k.hz} = ${k.ko}`);
         if (m) { qs.push(m); blanks++; }
