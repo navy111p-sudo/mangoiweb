@@ -417,22 +417,16 @@
   #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
   #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
   .mi-crumb-sep { opacity: .5; flex: none; }
-  /* 🔴 (2026-08-19 실측) 휴대폰에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것.
-     admin-inline-c.css 의 @media(max-width:900px) 에 `html, body{overflow-x:hidden!important}`
-     이 있는데(「대시보드 가로 잘림 방지」), overflow-x 를 hidden 으로 정하면 overflow-y 가
-     auto 로 «계산돼» **body 자체가 스크롤 상자**가 된다. 그런데 실제로 굴러가는 것은
-     viewport(html) 이라 body 는 scrollTop 이 영영 0 이고, 그 안의 sticky 는 «자기 상자가
-     한 번도 안 굴렀으니 붙을 일도 없다» 로 판단해 그냥 흘러간다.
-     실측: 390·768px = 700 굴린 뒤 줄 top −636(실패) / 1023·1024px = 0(정상).
-     ✅ `clip` 은 «잘라내기만 하고 스크롤 상자를 만들지 않는» 값이라 가로 잘림 방어는
-        그대로 두면서 sticky 를 살린다. body 의 스크롤은 지금도 아무도 쓰지 않는다(실측 scrollTop 0).
-     ⚠️ 선택자를 `html body`(특정성 2)로 쓴다 — `body` 하나면 특정성이 같아서, 문서상
-        «뒤»에 오는 admin-inline-c.css 쪽 !important 가 이긴다(그 파일은 <body> 안에서 링크된다).
-     ⚠️ clip 을 모르는 옛 사파리(iOS 15 이하)는 이 줄을 통째로 버린다 → 지금과 똑같이 hidden.
-        그런 기기에서는 줄이 따라오지 않을 뿐, 잘림 방어는 그대로다. */
-  @media (max-width: 900px) {
-    html body { overflow-x: clip !important; }
-  }
+  /* 🔴 휴대폰·태블릿(≤900px)에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것 — 고친 자리는 여기가 아니다.
+     범인은 admin-inline-c.css 의 @media(max-width:900px) 에 있던 `html, body{overflow-x:hidden}`
+     중 **`html` 쪽**이다(루트가 스크롤 상자가 되면 body 의 overflow 가 뷰포트로 못 올라가고,
+     그 안의 sticky 가 「내 상자는 한 번도 안 굴렀다」로 판단해 흘러간다). 그 파일에서 고쳤다.
+     📜 2026-08-19 에 여기에 `html body{overflow-x:clip !important}` 를 넣어 고치려 했지만
+        **선택자가 body 만 가리켜서 아무 효과가 없었다**(그대로 −1397px 로 흘러갔다).
+        게다가 `overflow-x:clip` 은 다른 축이 스크롤 값이면 표준에 따라 `hidden` 으로 계산돼,
+        한 축만 clip 으로 바꾸는 방법 자체가 성립하지 않는다. 그래서 그 줄은 걷어냈다.
+     ⛔ 여기에 비슷한 «덮어쓰기»를 다시 넣지 말 것 — 고칠 곳은 루트(html)를 스크롤 상자로
+        만드는 그 규칙 하나다. 감시는 test-harness/manual/crumb-sticky-browser.mjs. */
   /* 📐 (2026-08-20) 이 줄은 이제 <body> 직속이라 .admin-layout 의 여백을 «상속»하지 않는다.
      ≤920px 에서 그 상자만 `padding: 12px`(오른쪽 12px)를 갖기 때문에, 맞춰 주지 않으면
      줄만 아래 카드들보다 12px 더 넓게 튀어나온다(실측 390·768·900px 에서 12px).
@@ -710,7 +704,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=41"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=40: 2026-08-21 사이드바 하단 도크 두 줄로(빈 칸 #topUserBtn 감춤 + 사이트 홈을 계정 옆으로) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=42"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=42: 2026-08-20 ≤900px 에서 `html{overflow-x:hidden}` 이 경로 줄 sticky 를 죽이던 것(body 만 남김) · v=40: 2026-08-21 사이드바 하단 도크 두 줄로(빈 칸 #topUserBtn 감춤 + 사이트 홈을 계정 옆으로) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
