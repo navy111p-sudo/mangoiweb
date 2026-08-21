@@ -1,0 +1,50 @@
+<!doctype html><meta charset="utf-8"><title>vc lowstep/relay probe</title>
+<!-- 수동 검증 페이지 — 「초저화질 4단계」와 「중계 강제」를 실제 Chromium 에서 «값으로» 확인한다.
+     문자열 검사(하니스)로는 «어떤 값이 실제로 적용되는가» 를 볼 수 없어서 이 페이지가 따로 있다.
+     실행:
+       cd cloudflare-deploy/public && python3 -m http.server 8899 &
+       cp test-harness/manual/vc-lowstep-relay-browser.html cloudflare-deploy/public/__probe.html
+       /opt/pw-browsers/chromium-1194/chrome-linux/chrome --headless --no-sandbox --disable-gpu \
+         --virtual-time-budget=8000 --dump-dom http://127.0.0.1:8899/__probe.html | grep -A12 'id="out"'
+     기대값(2026-08-21 실측):
+       B step0~3 = 1200/720/420/240kbps (기존과 동일) · step4 = 96kbps·5fps·1/4
+       A OFF=all · ON=relay · TURN없음=all
+     ⚠️ manual/ 규약상 자동 게이트가 물어 가지 않는다. 화질단계·릴레이를 건드리면 사람이 부를 것. --><body><pre id="out">RUN</pre>
+<script>window.__e=[];window.onerror=function(m){window.__e.push(String(m))};</script>
+<script src="/js/idx-main.js?v=29"></script>
+<script>
+var L=[]; L.push('errors=' + (window.__e.length? window.__e.join(' | ') : 'none'));
+
+/* ── B: 단계별 실제 적용값을 잰다 ───────────────────────── */
+function fakePc(){
+  var p={encodings:[{}]};
+  var sender={track:{kind:'video'},getParameters:function(){return p},
+              setParameters:function(np){p=np;return Promise.resolve()}};
+  return {getSenders:function(){return [sender]},_read:function(){return p.encodings[0]}};
+}
+// PC 화질 기준을 고정(데스크톱 기본): br 1200k, fps 24, scale 1
+window.vcQualityCaps=function(){return {br:1200*1000,fps:24,scale:1}};
+for (var st=0; st<=4; st++){
+  var pc=fakePc();
+  window.__vcApplyStep(pc, st);
+  var e=pc._read();
+  L.push('B step'+st+' → '+Math.round(e.maxBitrate/1000)+'kbps, '+e.maxFramerate+'fps, 해상도 1/'+e.scaleResolutionDownBy);
+}
+
+/* ── A: 중계 강제가 실제로 PC 설정에 반영되는가 ─────────── */
+try {
+  __vcIceHasTurn = true;
+  ICE_SERVERS = { iceServers:[{urls:'turn:turn.example.com:3478',username:'u',credential:'c'}] };
+  window.__vcRelayAlways = false;
+  vcCreatePeer('probeOff','off');
+  L.push('A 평소(관리자 OFF) → iceTransportPolicy=' + (vcPeerConnections['probeOff'].getConfiguration().iceTransportPolicy||'(기본=all)'));
+  window.__vcRelayAlways = true;
+  vcCreatePeer('probeOn','on');
+  L.push('A 중계강제(관리자 ON) → iceTransportPolicy=' + (vcPeerConnections['probeOn'].getConfiguration().iceTransportPolicy||'(기본=all)'));
+  // TURN 이 없으면 절대 relay 로 가면 안 된다(연결 자체가 불가능해짐)
+  __vcIceHasTurn = false;
+  vcCreatePeer('probeNoTurn','nt');
+  L.push('A TURN 없음 안전장치 → iceTransportPolicy=' + (vcPeerConnections['probeNoTurn'].getConfiguration().iceTransportPolicy||'(기본=all)'));
+} catch(e){ L.push('A THREW: '+e.message); }
+document.getElementById('out').textContent=L.join('\n');
+</script></body>
