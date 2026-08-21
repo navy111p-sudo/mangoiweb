@@ -9395,7 +9395,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
 <script src="/js/adm-today-classes.js?v=5" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=11" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
+<script src="/js/adm-quick-access.js?v=12" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
 <script src="/js/adm-crumb.js?v=2" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->
 <script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
@@ -12648,39 +12648,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      상담원 아바타가 차지하고 있어서 그 뒤에 가려진다(2026-08-17 사장님 화면에서 확인).
      대신 본문 **맨 위**(자주 쓰는 기능 바로 위)에 한 줄로 끼워 넣는다.
      흐름 안에 있으므로 무엇에도 가려지지 않고, 눈이 처음 닿는 자리다. */
-  function draw(n, late){
-    if (document.getElementById('mi-appr-badge')) return;
-    var ko = (localStorage.getItem('mangoi_lang') !== 'en');
-    var label = n
-      ? (ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late + '건') : '') + ' — 지금 처리하기')
-            : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : '') + ' — open'))
-      : (ko ? '결재함 열기 — 올리기 · 지난 결재 보기' : 'Open approvals — submit or review');
-
-    var a = document.createElement('a');
-    a.id = 'mi-appr-badge';
-    a.href = '/work';
-    a.textContent = label;
-
-    var anchor = document.getElementById('ph161-quick');   // 「자주 쓰는 기능」 = 본문 맨 위 블록
-    if (anchor && anchor.parentNode) {
-      a.style.cssText =
-        'display:block;margin:0 0 12px;padding:14px 18px;border-radius:12px;text-decoration:none;' +
-        'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#e8eef4')) + ';' +
-        'color:' + (n || late ? '#fff' : '#2f3d4d') + ';' +
-        'border:1px solid ' + (n || late ? 'transparent' : '#ccd7e2') + ';' +
-        'font:700 15px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;';
-      anchor.parentNode.insertBefore(a, anchor);
-      return;
-    }
-    // 앵커를 못 찾으면(레이아웃이 바뀐 경우) 예전처럼 떠 있는 버튼으로 — 아주 안 보이는 것보다는 낫다.
-    a.style.cssText =
-      'position:fixed;right:16px;bottom:150px;z-index:9999;' +
-      'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#5a6873')) + ';color:#fff;' +
-      'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;' +
-      'padding:12px 16px;border-radius:22px;text-decoration:none;' +
-      'box-shadow:0 2px 10px rgba(0,0,0,.25)';
-    document.body.appendChild(a);
-  }
+  /* 🧾 (2026-08-20) 초록 줄을 **없앴다.**
+     [왜] 처음엔 「어디에도 안 보인다」(2026-08-17)를 급히 풀려고 「자주 쓰는 기능」 상자
+          «위» 에 흐름 안 요소로 끼워 넣었다. 그때는 그것이 유일한 입구였다.
+          지금은 ① 사이드바 맨 위 「결재함」 ② 이 「자주 쓰는 기능」 표 첫 칸 두 곳이 있어
+          초록 줄까지 두면 같은 입구가 셋이고, 표 밖에 혼자 떠 있어 어색했다(사장님 지적).
+     [대신] 표의 「결재함」 칸에 **숫자만** 붙인다. 칸 자체는 adm-quick-access.js 가 그린다.
+     ⛔ 여기서 결재 목록·승인 버튼을 만들지 말 것 — 화면이 두 벌이 되고 /work 를 만든 이유가 사라진다. */
   /* 🧾 사이드바 맨 위 「결재함」 줄의 숫자. 요소는 adm-ia6.js 가 그리는데 **나중에 다시 그릴 수**
      있으므로(사이드바를 통째로 새로 그리는 스크립트가 여럿이다) 숫자를 기억해 뒀다가 다시 입힌다.
      ⚠️ 여기서 API 를 또 부르지 않는다 — 첫 화면에서 같은 요청이 두 번 나간다. */
@@ -12697,6 +12671,26 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   // 사이드바가 다시 그려져도 숫자가 사라지지 않게 — 가볍게 되입힌다(요청 없음).
   setInterval(function(){ paintSidebar(); }, 4000);
 
+  function paintQuick(n, late){
+    var row = document.querySelector('#ph161-quick-items .ph161-q[data-qa="결재함"]');
+    if (!row) return false;
+    var b = row.querySelector('.mi-appr-n');
+    if (!b) {
+      b = document.createElement('span');
+      b.className = 'mi-appr-n';
+      /* 인라인으로 쓴다 — 이 표의 다른 칸도 전부 인라인 style 이고, 그래야 이 블록이
+         admin.html 의 CSS 에 아무것도 기대지 않는다(이 파일 1MB, 사고 반경을 줄인다). */
+      b.style.cssText = 'flex:none;margin-left:6px;background:#c0392b;color:#fff;'
+        + 'font-size:11px;font-weight:800;min-width:18px;height:18px;border-radius:9px;'
+        + 'display:flex;align-items:center;justify-content:center;padding:0 5px';
+      row.appendChild(b);
+    }
+    b.textContent = n > 0 ? String(n) : '';
+    b.style.display = n > 0 ? 'flex' : 'none';
+    b.title = late ? ('지연 ' + late + '건') : '';
+    return true;
+  }
+
   function load(){
     fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -12707,8 +12701,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           var x = j.inbox[i];
           if (x.stage_due_at && now > Number(x.stage_due_at)) late++;
         }
-        draw(j.inbox.length, late);
         paintSidebar(j.inbox.length);
+        /* 「자주 쓰는 기능」 표는 adm-quick-access.js 가 나중에 그릴 수 있다.
+           아직 없으면 잠깐 뒤 다시 — 못 붙였는데 조용히 넘어가면 숫자가 영영 안 뜬다. */
+        if (!paintQuick(j.inbox.length, late)) {
+          var tries = 0;
+          var iv = setInterval(function(){
+            if (paintQuick(j.inbox.length, late) || ++tries > 20) clearInterval(iv);
+          }, 500);
+        }
       })
       .catch(function(){ /* 결재를 못 불러온 것이 관리자 화면을 망치지 않는다 */ });
   }
