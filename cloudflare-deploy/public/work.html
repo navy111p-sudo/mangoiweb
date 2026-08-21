@@ -224,7 +224,8 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
     <button class="tbtn" id="soundBtn" onclick="toggleSound()"><span data-en="Sound: on" data-ko="소리 켬">Sound: on</span></button>
     <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
-    <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
+    <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
+    <button class="tbtn tbtn-out" id="logoutBtn"><span data-en="Log out" data-ko="로그아웃">Log out</span></button>
   </div>
 </div>
 
@@ -757,6 +758,26 @@ function removeLocal(id){
 
 /* ── 못 보낸 결재 큐 — teacher.html 의 검증된 패턴 ────────────────────────── */
 var OUTBOX_KEY = 'mangoi_work_outbox_v1';
+
+/* ── 🚪 로그아웃 ───────────────────────────────────────────────────────────
+   세션 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐(옛 /admin/logout 은 죽은 경로).
+   🔴 캐시(mangoi_work_home_v1)에는 신청자 이름·사유·금액이 있다 → 공용 PC 대비로 지운다.
+   ⛔ 못 보낸 결재·초안은 **지우지 않는다** — 아직 서버에 없어서 지우면 그대로 사라진다.
+      대신 남아 있으면 먼저 알린다(로그아웃하면 자동 전송이 못 돈다).
+   배경·버린 방법: docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md */
+document.getElementById('logoutBtn').onclick = function(){
+  var pending = 0;
+  try { pending = (JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]') || []).length; } catch (e) {}
+  if (pending && !confirm(T(
+        'You have ' + pending + ' decision(s) not yet sent. They stay on this device but cannot be sent after you log out. Log out anyway?',
+        '아직 보내지 못한 결재가 ' + pending + '건 있습니다. 이 기기에는 남지만 로그아웃하면 보낼 수 없습니다. 그래도 로그아웃할까요?'))) return;
+  var btn = this;
+  btn.disabled = true;
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  var go = function(){ location.href = '/admin/login.html'; };
+  // 서버 호출이 실패해도 로그인 화면으로 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+  fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).then(go, go);
+};
 function outboxRead(){
   try { var a = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(a) ? a : []; }
   catch (e) { return []; }

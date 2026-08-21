@@ -1321,8 +1321,11 @@ function _schedRowsHtml(list, _L, roomsEmpty) {
     + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
     + (roomsEmpty
         ? '<div style="font-size:12px;color:#6b7280">'
-          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table.'
-                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다.')
+          /* 📌 (2026-08-21) «참관» 을 함께 적는다 — 필리핀 매니저가 참관 버튼을 찾다가 이 표를 보고
+             «버튼이 없어졌다» 로 읽었다. 종료·연장만 적혀 있으면 참관을 찾는 사람에게는 답이 안 된다.
+             그리고 아래 카페24 줄에 버튼이 «원래» 없다는 것까지 적어야 다시 안 묻는다. */
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end, extend or observe in this table. The classes below are running on cafe24 — "No connection record" is normal, and they have no observe button.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장·참관할 대상은 없습니다. 아래 수업들은 카페24에서 돌고 있어 «접속 기록 없음» 으로 나오는 것이 정상이고, 참관 버튼도 생기지 않습니다.')
           + '</div>'
         : '')
     + '</td></tr>';

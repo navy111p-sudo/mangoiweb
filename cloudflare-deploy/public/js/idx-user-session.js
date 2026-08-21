@@ -532,6 +532,7 @@
   window.logout = function(){
     setUser(null);
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();   // 위 removeItem 의 «나머지 반» — 아래 함수 주석 참고
     document.getElementById('user-menu').classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
   };
@@ -552,8 +553,15 @@
     menu.classList.add('show');
   };
 
+  // 🚪 관리자 세션 폐기(2026-08-21). 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐.
+  //   ⚠️ 첫 화면 예산 때문에 설명은 docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md 에 둔다.
+  function mangoiRevokeAdminCookie(){
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).catch(function(){}); } catch(e){}
+  }
+
   window.logoutAdminSession = function(){
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();
     var menu = document.getElementById('user-menu');
     if(menu) menu.classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));

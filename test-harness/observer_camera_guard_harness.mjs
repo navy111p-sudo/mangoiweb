@@ -184,6 +184,38 @@ console.log('\n▶ F. 참관/직접입장 색이 화면에 실제로 나오는�
   check('행 템플릿 안에 HTML 주석을 넣지 않았다', !/return `<tr[\s\S]{0,1500}<!--/.test(admCore));
 }
 
+/* ── G. «참관할 수업이 없을 때» 화면이 그렇게 말하는가 ────────────────
+   [사고] 2026-08-21 사장님이 「지금 수업 11 · 화상방 접속 0」 화면을 보시고
+   «참관 버튼이 안 보인다» 고 하셨다. 고장이 아니라 카페24 예약 수업이라 참관 대상이
+   없는 것인데, 안내문이 «종료·연장할 대상이 없다» 고만 말해 참관을 찾는 사람에게는
+   답이 되지 않았다. 아래 카페24 줄에 버튼이 «원래» 없다는 사실도 어디에도 없었다. */
+console.log('\n▶ G. 참관 대상이 없을 때의 안내문');
+{
+  const ghostView = read('cloudflare-deploy/public/admin/ghost-view.html');
+
+  check('「지금 수업」 표 안내가 «참관» 도 함께 말한다',
+        /종료·연장·참관할 대상은 없습니다/.test(admCore), 'adm-core.js _schedRowsHtml');
+  check('그 안내가 «카페24 줄엔 참관 버튼이 없다» 까지 적는다',
+        /참관 버튼도 생기지 않습니다/.test(admCore));
+  check('영어 화면도 같은 뜻이다',
+        /nothing to end, extend or observe/.test(admCore) && /no observe button/.test(admCore));
+
+  check('「수업 관찰」 화면도 «지금은 참관할 수업이 없다» 고 말한다',
+        /참관할 수업이 없다는 뜻입니다/.test(ghostView), 'ghost-view.html ghdLoadPicker');
+  check('그 화면도 «카페24는 참관 버튼이 없다 · 고장이 아니다» 를 적는다',
+        /참관 버튼이 없습니다/.test(ghostView) && /고장이 아닙니다/.test(ghostView));
+  check('영어 화면도 같은 뜻이다',
+        /no class to observe/.test(ghostView) && /not a fault/.test(ghostView));
+
+  // 안내와 화면이 어긋나지 않게 — 카페24 줄에는 실제로 버튼을 그리지 않아야 한다
+  const sched = admCore.slice(admCore.indexOf('function _schedRowsHtml'),
+                              admCore.indexOf('async function loadActiveRooms'));
+  check('카페24 줄에는 실제로 버튼을 그리지 않는다(안내와 화면 일치)',
+        !/<button/.test(sched), '_schedRowsHtml');
+  check('카페24 방 번호로 참관 링크를 만들지 않는다(번호 체계가 다르다)',
+        !/observe=/.test(sched) && !/observeRoom\(/.test(sched));
+}
+
 console.log('\n' + '═'.repeat(64));
 console.log(`  ✅ PASS ${pass}    ❌ FAIL ${fail}`);
 if (failures.length) { console.log('\n  실패 목록:'); failures.forEach(f => console.log('   - ' + f)); }
