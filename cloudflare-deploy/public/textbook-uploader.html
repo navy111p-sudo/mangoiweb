@@ -29,7 +29,15 @@ header.hero::before{content:'';position:absolute;inset:0;background:radial-gradi
 header.hero h1{font-size:22px;font-weight:900;color:#fff;display:flex;align-items:center;gap:10px;position:relative}
 header.hero h1 .ico{font-size:30px}
 header.hero .sub{margin-top:6px;font-size:13.5px;color:rgba(255,255,255,0.92);font-weight:600;position:relative}
-header.hero .home{position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 13px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none}
+/* 🏠 (2026-08-21) «홈 버튼이 안 눌린다» — 보이는데 클릭이 h1 으로 가고 있었다.
+   [원인] 바로 아래 `header.hero h1` 이 position:relative 인데 **둘 다 z-index:auto** 라,
+      같은 층에서는 «DOM 순서가 늦은 쪽» 이 위로 온다. h1 이 .home 뒤에 있고 display:flex 로
+      헤더 폭을 꽉 채워서 버튼 위를 덮었다. (h1/.sub 의 position:relative 는 장식용
+      ::before 그라데이션 위로 글자를 올리려고 붙인 것 — 지우면 안 된다)
+   ⚠️ 화면에는 멀쩡히 보이므로 «CSS 를 눈으로 좇으면» 원인이 안 보인다.
+      판정은 document.elementsFromPoint 로 «맨 위에 무엇이 있나» 를 재야 한다.
+   ✅ 고침은 .home 에 z-index 를 주어 auto 인 형제들을 이기게 하는 것. */
+header.hero .home{position:absolute;top:14px;right:14px;z-index:2;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.35);color:#fff;padding:6px 13px;border-radius:99px;font-size:12px;font-weight:700;text-decoration:none}
 header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
 /* 업로드 영역 */
