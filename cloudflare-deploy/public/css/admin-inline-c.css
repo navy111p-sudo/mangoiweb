@@ -3316,7 +3316,20 @@ button.chip:hover,
      ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
      width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
      ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  /* 🕐 (2026-08-21 사장님 지시) ⏰ 는 «입력칸 안쪽 오른쪽 끝» 에 얹는다.
+     밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다. 자리는 입력칸의 padding-right 로 비운다.
+     ⚠️ transform 으로 세로 가운데를 맞추므로, 전역 hover 룰의 translateY(-1px) 가 그대로 먹으면
+        버튼이 아래로 튄다 — hover 에서도 같은 transform 을 !important 로 못 박는다(1-3 「hover 확대 금지」). */
+  #en-multi-table .en-time-wrap { position: relative; display: block; }
+  /* ⚠️ 오른쪽 여백을 인라인 style 로 주면 안 먹는다 — 아래 「폼 — input/textarea/select」 전역 룰이
+        padding 을 !important 로 덮기 때문이다(실측 2026-08-21: 32px 로 적었는데 12px 로 나옴).
+        여백이 모자라면 친 글자가 ⏰ 밑으로 들어간다. ID 접두로 이 칸만 되살린다. */
+  #en-multi-table .en-time-wrap input.en-row-time {
+    display: block; padding-right: 34px !important;
+  }
   #en-multi-table td button.en-row-time-builder {
+    position: absolute !important; right: 4px !important; top: 50% !important;
+    transform: translateY(-50%) !important;
     width: 26px !important; height: 26px !important; padding: 0 !important;
     box-sizing: border-box !important;
     background: #fef3c7 !important; background-image: none !important;
@@ -3326,7 +3339,7 @@ button.chip:hover,
   }
   #en-multi-table td button.en-row-time-builder:hover {
     background: #fde68a !important; background-image: none !important;
-    transform: none !important; box-shadow: none !important;
+    transform: translateY(-50%) !important; box-shadow: none !important;
   }
   #en-multi-table td button.en-row-del {
     padding: 0 6px !important; box-sizing: border-box !important;
