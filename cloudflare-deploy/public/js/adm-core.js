@@ -6082,6 +6082,31 @@ async function _enLookupStudent(tr) {
   }
 }
 
+// "HH:MM" → [hh, mm] 2자리 문자열. 분은 10분 단위로 반올림(00/10/20/30/40/50). 빈 값이면 ['','']
+function _tbTimeToParts(t) {
+  const m = (t || '').match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (!m) return ['', ''];
+  const hh = String(Math.min(23, parseInt(m[1], 10) || 0)).padStart(2, '0');
+  let mm = Math.round((parseInt(m[2], 10) || 0) / 10) * 10;
+  if (mm >= 60) mm = 50;
+  return [hh, String(mm).padStart(2, '0')];
+}
+function _tbHourOptions(selected) {
+  let opts = '<option value="">--</option>';
+  for (let h = 0; h < 24; h++) {
+    const v = String(h).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  }
+  return opts;
+}
+function _tbMinOptions(selected) {
+  let opts = '<option value="">--</option>';
+  [0, 10, 20, 30, 40, 50].forEach(m => {
+    const v = String(m).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  });
+  return opts;
+}
 // 🥭 Phase 32 — 요일별 시간 빌더 모달
 function _openTimeBuilder(tr) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -6108,16 +6133,21 @@ function _openTimeBuilder(tr) {
         '💡 시간 비워두면 그 요일은 제외됩니다' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center">';
+  const selStyle = 'padding:6px 4px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff';
   dayCodes.forEach((code, i) => {
     const isChecked = checkedDays.includes(code) || parsed[code];
     const t = parsed[code] || '';
+    const [th, tm] = _tbTimeToParts(t);
     html +=
       '<label style="font-weight:700;color:#1f2937;display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" class="tb-day" data-code="' + code + '" ' + (isChecked?'checked':'') + ' style="margin:0;cursor:pointer">' +
         dayLabels[i] +
       '</label>' +
-      '<input type="time" step="600" class="tb-time" data-code="' + code + '" value="' + t + '" placeholder="시간" ' +
-        'style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />';
+      '<div style="display:flex;align-items:center;gap:4px">' +
+        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th) + '</select>' +
+        '<span style="color:#9ca3af">:</span>' +
+        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm) + '</select>' +
+      '</div>';
   });
   html += '</div>' +
       '<div style="display:flex;gap:8px;margin-top:18px">' +
@@ -6129,14 +6159,17 @@ function _openTimeBuilder(tr) {
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
   const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
-  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용
+  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용 (분은 10분 단위로 반올림)
   overlay.querySelector('#tb-same-time').addEventListener('click', () => {
     const t = prompt('모든 체크된 요일에 적용할 시간 (HH:MM):', '10:30');
     if (!t) return;
+    const [th, tm] = _tbTimeToParts(t);
     overlay.querySelectorAll('.tb-day:checked').forEach(chk => {
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      if (tin) tin.value = t;
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      if (hSel) hSel.value = th;
+      if (mSel) mSel.value = tm;
     });
   });
   overlay.querySelector('#tb-cancel').addEventListener('click', close);
@@ -6148,9 +6181,11 @@ function _openTimeBuilder(tr) {
     overlay.querySelectorAll('.tb-day').forEach(chk => {
       if (!chk.checked) return;
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      const t = (tin?.value || '').trim();
-      if (t) result.push({ day: code, time: t });
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      const h = hSel?.value || '';
+      const m = mSel?.value || '';
+      if (h !== '' && m !== '') result.push({ day: code, time: h + ':' + m });
     });
     // 행의 요일 체크박스 갱신
     tr.querySelectorAll('.en-row-day').forEach(chk => {
