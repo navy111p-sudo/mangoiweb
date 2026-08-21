@@ -4392,7 +4392,7 @@ function _ltPaint(tb, items) {
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
     /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
        여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
-    const deleteBtn = window._isHqMgrOrUp
+    const deleteBtn = (typeof window !== 'undefined' && window._isHqMgrOrUp)
       ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
       : '';
     return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
@@ -4721,6 +4721,11 @@ function _renderEnrollments() {
   const tb = document.getElementById('enrollments-table');
   if (!tb) return;
 
+  // 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 본사(경영진·관리자)만. 서버가 같은 조건으로
+  //   403 을 던지므로 여기서는 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐이다.
+  const delAllBtn = document.getElementById('en-delete-all-btn');
+  if (delAllBtn) delAllBtn.style.display = (typeof window !== 'undefined' && window._isHqMgrOrUp) ? '' : 'none';
+
   // ── 중복 의심 — 살아 있는 건(대기·확정·수강중)끼리만 본다.
   //    취소된 옛 신청과 지금 수업 중인 신청이 나란히 있는 건 정상이므로 세지 않는다.
   const cnt = {};
@@ -4828,6 +4833,13 @@ function _renderEnrollments() {
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
+        /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403을 던지니
+           여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+        ((typeof window !== 'undefined' && window._isHqMgrOrUp)
+          ? '<button type="button" onclick="enDeleteOne(' + it.id + ')" title="' +
+            (en ? 'Delete this enrollment (cannot be undone)' : '이 수강신청을 삭제합니다 (되돌릴 수 없음)') + '" ' +
+            'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
+          : '') +
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
@@ -6730,6 +6742,69 @@ async function setEnrollmentStatus(id, status) {
     ? ((name ? name + ' — ' : '') + 'status changed to ' + label)
     : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다'));
   loadEnrollments();
+}
+
+/* 🗑️ (2026-08-21 사장님 지시) 수강신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 확정·활성화돼 실제
+      수업(class_schedules.source='adm-enroll:<id>')이 생긴 건은 삭제 전에 그 수업을
+      먼저 cancelled 로 정리한다(레벨테스트 삭제와 같은 이유). */
+async function enDeleteOne(id) {
+  const en = (adminLang === 'en');
+  const cur = _enItems.find(x => String(x.id) === String(id)) || {};
+  const name = cur.student_name ? String(cur.student_name) : '';
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this enrollment' : '이 수강신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id, { method: 'DELETE', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadEnrollments(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
+/* 🗑️ 화면에 지금 «보이는» 항목(검색·상태 필터가 걸려 있으면 그것만) 전체 삭제.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 IN 바인드 한도) — 그 이상이면 나눠서 다시 누르게 안내. */
+async function enDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const q = String(_enQuery || '').trim().toLowerCase();
+  const sel = document.getElementById('en-status-filter');
+  const fs = sel ? sel.value : '';
+  let rows = _enItems;
+  if (fs) rows = rows.filter(it => String(it.status || '') === fs);
+  if (q) rows = rows.filter(it => (
+    String(it.student_name || '').toLowerCase().includes(q) ||
+    String(it.student_user_id || '').toLowerCase().includes(q) ||
+    String(it.package || '').toLowerCase().includes(q) ||
+    String(it.teacher_name || '').toLowerCase().includes(q)
+  ));
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(it => it.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' enrollment(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 수강신청을 삭제할까요? 되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  _enToast(en ? (n + ' enrollment(s) deleted') : (n + '건 삭제했습니다'));
+  loadEnrollments();
+  if (rows.length > 90) {
+    alert(en ? 'More than 90 matched — press the button again for the rest.' : '90건이 넘게 걸려서 나머지는 다시 눌러 주세요.');
+  }
 }
 
 /* ════════════════════════════════════════════════════════════

@@ -9449,6 +9449,55 @@ LIMIT $limit`;
       return json({ ok: true, id, status: b.status });
     }
 
+    /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)
+       ⛔ 본사만. `canEditOrg()`는 강사(scope 'none')까지 통과시키는 함정이 있어(CLAUDE.md
+          trap) 쓰지 않는다 — 위 leveltest_applications 삭제와 같은 role==='hq'|'staff' 패턴.
+       ⚠️ 되돌릴 수 없다. 확정·활성화된 신청은 enroll-activate.ts 가
+          `class_schedules.source = 'adm-enroll:<id>'` 로 실제 수업을 만든다 — 신청서만
+          지우면 강사·학생 달력에 담당 없는 유령 수업이 남는다. 삭제 전에 그 수업들을
+          먼저 cancelled 로 정리한다(위 레벨테스트 삭제와 같은 이유). */
+    if (method === 'DELETE' && (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+$/.test(path))) {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden_scope', message: '수강신청 삭제는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can delete enrollments.' }, 403);
+      }
+      const pathId = path.match(/^\/api\/admin\/enrollments\/(\d+)$/);
+      const delBody: any = await parseJsonBody(request).catch(() => null);
+      const idsParam = url.searchParams.get('ids') || url.searchParams.get('id');
+      let ids: number[] = [];
+      if (pathId) ids = [Number(pathId[1])];
+      else if (delBody && Array.isArray(delBody.ids)) ids = delBody.ids.map((x: any) => Number(x));
+      else if (delBody && delBody.id != null) ids = [Number(delBody.id)];
+      else if (idsParam) ids = idsParam.split(',').map((s: string) => Number(s.trim()));
+      ids = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
+      if (!ids.length) return invalidBody(['id']);
+      if (ids.length > 90) return json({ ok: false, error: 'too_many', message: '한 번에 최대 90건까지 삭제할 수 있습니다.' }, 400);
+
+      let actorName = 'admin';
+      try { if (actor.name) actorName = actor.name; } catch {}
+      const deleted: number[] = [];
+      const notFound: number[] = [];
+      for (const id of ids) {
+        const row: any = await env.DB.prepare(`SELECT id, student_name FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+        if (!row) { notFound.push(id); continue; }
+        try {
+          await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE source = ? AND status != 'cancelled'`)
+            .bind(Date.now(), 'adm-enroll:' + id).run();
+        } catch (e: any) { console.warn('[enrollments delete] schedule cancel skipped:', e?.message || e); }
+        try {
+          await writeClassAudit(env, {
+            action: 'delete', student_name: row.student_name || null,
+            actor: actorName, actor_role: 'admin', source: 'enrollment',
+            reason: '수강신청 삭제 (연결 수업 취소 처리)',
+            detail: JSON.stringify({ enrollment_id: id }),
+          });
+        } catch {}
+        await env.DB.prepare(`DELETE FROM enrollments WHERE id = ?`).bind(id).run();
+        deleted.push(id);
+      }
+      return json({ ok: true, deleted, not_found: notFound });
+    }
+
     // ─── 커뮤니티 게시글 ──────────────────────────────────────────────────
     if ((method === 'GET' || method === 'POST') && path === '/api/admin/community-posts') {
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS community_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, body TEXT, author TEXT, pinned INTEGER DEFAULT 0, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
