@@ -4956,9 +4956,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       };
       const isoOf = (d: Date) => d.toISOString().slice(0, 10);
       const weekParam = url.searchParams.get('week');
+      /* 🕘 (2026-08-21) `?week=` 없이 열면(기본 = "이번 주") 서버 UTC 시각을 그대로 썼다.
+         KST 는 UTC+9 라 UTC 15:00~23:59(=KST 00:00~08:59, 하루 중 9시간)에는 "오늘"이
+         이미 KST 로는 다음 날로 넘어갔는데 여기만 하루 전 요일로 주를 나눴다 — 그 창에서는
+         매니저 '오늘 수업'(/api/admin/classes/today, KST 로 계산)과 이 강사 스케줄 캘린더가
+         서로 다른 요일을 "오늘"로 보고 반복수업(day_of_week)을 서로 다른 칸에 꽂았다.
+         2026-08-06 에 매니저 '오늘 수업' 쪽에서 겪은 것과 같은 뿌리(KST 미보정) — 그때 고친
+         세 곳(학생·강사·매니저 경로)에 이 강사 스케줄만 빠져 있었다. */
+      const KST_MS = 9 * 60 * 60 * 1000;
       const start = (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam))
         ? mondayOf(new Date(weekParam + 'T00:00:00Z'))
-        : mondayOf(new Date());
+        : mondayOf(new Date(Date.now() + KST_MS));
       const dowKey = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const weekDates: string[] = [];
       const dateToDow: Record<string, string> = {};
