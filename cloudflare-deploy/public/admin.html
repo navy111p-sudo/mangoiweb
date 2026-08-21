@@ -346,103 +346,124 @@
 })();
 </script>
 
+<!-- ═══════════════════════════════════════════════════════════════════
+     🧭 (2026-08-19 사장님) 경로 줄 — [← 뒤로] [🏠 홈] + 지금 어디
+     ═══════════════════════════════════════════════════════════════════
+     [왜] 관리자 화면에는 뒤로도 홈도 없었다. 다른 화면은 js/back-nav.js 가 동그란 ←
+       를 띄우지만 admin.html 만 «홈이라 갈 곳이 없다» 는 이유로 제외돼 있었다. 그런데
+       이 화면은 한 페이지 안에서 카드만 바꿔 보여 주는 구조라, 안에서 열 번을 옮겨 다녀도
+       «직전으로» 가 없고 깊이 들어가면 대시보드로 돌아올 길도 없다. 카드가 85장이라
+       「내가 어디 왔는지」 표시도 필요했다 — 이 화면에 지금까지 하나도 없던 정보다.
+     [자리] 본문 맨 위 · sticky. 사이드바를 접거나(PC) 닫아도(휴대폰) 늘 보인다.
+       ⚠️ #legacy-cards 밖이라 adm-ia6.js 가 «고른 항목의 카드만» 남길 때도 사라지지 않는다.
+     🔴 [왜 .admin-layout «밖»에 두는가 — 2026-08-20 사장님 신고 「세로줄이 어떤 메뉴에선 사라진다」]
+       sticky 는 «자기 부모 상자» 안에서만 붙어 있을 수 있다. 부모 바닥이 화면 위로
+       올라가면 줄도 같이 끌려 올라가 사라진다. 그런데 카드 87장 중 **14장이
+       #admin-main-scale 밖**에 있다(card-payments-b2b·b2c·report-forms·notice-board·
+       timetable·lesson-log·gallery·homework·school-attendance-stats·lib-admin/teacher/
+       branch/agency/student — .admin-layout 은 그보다 훨씬 앞에서 닫힌다).
+       그래서 이 줄이 #admin-main-scale 안에 있던 동안, 그 14장으로 뛰는 메뉴에서는
+       부모 바닥이 화면 꼭대기 근처에 있어 조금만 내려가도 줄이 통째로 사라졌다.
+       실측(1920×1080): 「자료실」 ▸ 1 관리자 자료실 = 줄 top −13(겨우 보임) ·
+       ▸ 2 강사 자료실 = −463 · ▸ 5 학생·학부모 자료실 = −1216(사라짐).
+       카드가 안에 있는 「회계」는 800px 을 더 내려도 top 0 으로 멀쩡했다.
+       ✅ <body> 직속으로 두면 부모 상자가 «문서 전체» 라 어디까지 내려가도 붙는다.
+       ✅ 왼쪽 위치·폭은 손으로 맞추지 않는다 — 컬럼을 미는 것이 body 자신의
+          padding(PC `24px 24px 24px 312px` · 모바일 0)이라, body 직속이면 .admin-layout
+          과 **저절로 같은 자리**가 된다. 사이드바를 접어도 그 padding 이 함께 움직인다.
+       ⛔ 다시 #admin-main-scale 안으로 되돌리지 말 것. 그 14장을 컬럼 안으로 옮기는 쪽은
+          별건이다(adm-ia6.js 의 fitTail() 이 꼬리 여백을 «body 맨 끝»에 붙이는 것이
+          바로 그 14장 때문이라, 함께 손봐야 한다).
+     [이름] 「카드 제목」이 아니라 «사이드바에서 누른 항목» 이름을 쓴다. 항목 44개 중
+       23개가 카드를 여러 장 묶어서(data-cards), 카드 제목을 쓰면 대표 첫 장 이름만 나온다.
+     ⚠️ [hidden] 속성을 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
+        [hidden]{display:none} 을 이겨서 계속 보인다(바로 아래 #ph164-recent 와 같은 이유).
+     ⚠️ 이 줄이 카드 제목을 가리지 않게 하는 보정(--adm-jump-offset)은 js/adm-crumb.js 가
+        한다. 2026-08-04 옛 상단바에서 똑같은 신고가 있었고 그때 코드를 되살린 것이다.
+     내용·동작은 js/adm-crumb.js 담당. -->
+<style id="mi-crumb-css">
+  #mi-crumb {
+    position: sticky; top: 0; z-index: 60;
+    display: flex; align-items: center; gap: 8px; min-width: 0;
+    margin: 0 0 10px; padding: 6px 10px;
+    background: rgba(255,255,255,.97);
+    -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
+    border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 3px 12px -6px rgba(2,6,18,.28);
+  }
+  #mi-crumb.mi-crumb-off { display: none !important; }
+  /* 🔴 (2026-08-19 실측) 처음엔 도크와 같은 남색(#14213b)+옅은 노랑 글자로 만들었는데,
+     js/adm-light-surfaces.js 가 «어두운 배경» 을 찾아 밝게 되돌리면서 배경만
+     rgb(244,246,251) 로 인라인 !important 로 갈아치웠다. 글자는 그대로 #ffd98a 라
+     **흰 바탕에 옅은 노랑 글자(대비 1.3:1)** 가 됐다 — 사실상 안 보인다.
+     ✅ 그래서 처음부터 밝게 만든다. 그 파일이 손댈 것이 없으니 서로 싸우지 않는다.
+     ⛔ 남색으로 되돌리려면 그 파일 SKIP_SEL 에 넣어야 하는데, 「관리자 화면은 밝게」가
+        2026-07-22 사장님 지시라 예외를 늘리지 않는다. */
+  .mi-crumb-btn {
+    display: inline-flex; align-items: center; gap: 5px; flex: none;
+    padding: 6px 11px; border-radius: 999px; cursor: pointer;
+    font-size: 13px; font-weight: 800; line-height: 1;
+    background: #ffffff; color: #14213b; border: 1px solid #f0c46a;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #mi-crumb-home { background: #fff7e6; }
+  .mi-crumb-btn:hover { background: #fff3d6; border-color: #e0a020; }
+  .mi-crumb-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+  .mi-crumb-ico { font-size: 14px; line-height: 1; }
+  #mi-crumb-where {
+    display: flex; align-items: center; gap: 6px; min-width: 0;
+    margin-left: 4px; font-size: 13px; color: #667085; white-space: nowrap; overflow: hidden;
+  }
+  #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
+  #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
+  .mi-crumb-sep { opacity: .5; flex: none; }
+  /* 🔴 휴대폰·태블릿(≤900px)에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것 — 고친 자리는 여기가 아니다.
+     범인은 admin-inline-c.css 의 @media(max-width:900px) 에 있던 `html, body{overflow-x:hidden}`
+     중 **`html` 쪽**이다(루트가 스크롤 상자가 되면 body 의 overflow 가 뷰포트로 못 올라가고,
+     그 안의 sticky 가 「내 상자는 한 번도 안 굴렀다」로 판단해 흘러간다). 그 파일에서 고쳤다.
+     📜 2026-08-19 에 여기에 `html body{overflow-x:clip !important}` 를 넣어 고치려 했지만
+        **선택자가 body 만 가리켜서 아무 효과가 없었다**(그대로 −1397px 로 흘러갔다).
+        게다가 `overflow-x:clip` 은 다른 축이 스크롤 값이면 표준에 따라 `hidden` 으로 계산돼,
+        한 축만 clip 으로 바꾸는 방법 자체가 성립하지 않는다. 그래서 그 줄은 걷어냈다.
+     ⛔ 여기에 비슷한 «덮어쓰기»를 다시 넣지 말 것 — 고칠 곳은 루트(html)를 스크롤 상자로
+        만드는 그 규칙 하나다. 감시는 test-harness/manual/crumb-sticky-browser.mjs. */
+  /* 📐 (2026-08-20) 이 줄은 이제 <body> 직속이라 .admin-layout 의 여백을 «상속»하지 않는다.
+     ≤920px 에서 그 상자만 `padding: 12px`(오른쪽 12px)를 갖기 때문에, 맞춰 주지 않으면
+     줄만 아래 카드들보다 12px 더 넓게 튀어나온다(실측 390·768·900px 에서 12px).
+     ⚠️ 920px 은 admin-inline-c.css 의 「본문 풀폭」 블록과 **같은 경계**다. 한쪽만 바꾸지 말 것.
+     ⚠️ 1024px 이상에서 컬럼을 오른쪽으로 미는 것은 body 자신의 padding(312px)이라
+        body 직속인 이 줄도 저절로 같이 움직인다 — 그쪽은 맞출 것이 없다. */
+  @media (max-width: 920px) {
+    #mi-crumb { margin-right: 12px; }
+  }
+  @media (max-width: 1023px) {
+    /* ⚠️ 왼쪽 위 «줄 3개»(#mgv2-burger — fixed, 8px + 46px)가 이 줄을 덮는다. 그만큼 비워 둔다. */
+    #mi-crumb { padding-left: 62px; }
+    .mi-crumb-btn { font-size: 12px; padding: 6px 9px; }
+    #mi-crumb-where { font-size: 12px; }
+  }
+</style>
+<div id="mi-crumb" class="mi-crumb-off" role="navigation" aria-label="현재 위치">
+  <button type="button" id="mi-crumb-back" class="mi-crumb-btn"
+          title="직전에 보던 메뉴로" data-ko-title="직전에 보던 메뉴로" data-en-title="Previous menu">
+    <span class="mi-crumb-ico" aria-hidden="true">←</span><span data-ko="뒤로" data-en="Back">뒤로</span>
+  </button>
+  <button type="button" id="mi-crumb-home" class="mi-crumb-btn"
+          title="대시보드 첫 화면으로" data-ko-title="대시보드 첫 화면으로" data-en-title="Dashboard home">
+    <span class="mi-crumb-ico" aria-hidden="true">🏠</span><span data-ko="홈" data-en="Home">홈</span>
+  </button>
+  <div id="mi-crumb-where">
+    <span id="mi-crumb-group" data-ko="" data-en=""></span>
+    <span class="mi-crumb-sep" aria-hidden="true">›</span>
+    <b id="mi-crumb-item" data-ko="" data-en=""></b>
+  </div>
+</div>
+
 <div class="admin-layout">
   <!-- 좌측 사이드바 — JS 로 자동 채워짐 -->
 
   <!-- 메인 영역 -->
   <div id="admin-main-scale">
-    <!-- ═══════════════════════════════════════════════════════════════════
-         🧭 (2026-08-19 사장님) 경로 줄 — [← 뒤로] [🏠 홈] + 지금 어디
-         ═══════════════════════════════════════════════════════════════════
-         [왜] 관리자 화면에는 뒤로도 홈도 없었다. 다른 화면은 js/back-nav.js 가 동그란 ←
-           를 띄우지만 admin.html 만 «홈이라 갈 곳이 없다» 는 이유로 제외돼 있었다. 그런데
-           이 화면은 한 페이지 안에서 카드만 바꿔 보여 주는 구조라, 안에서 열 번을 옮겨 다녀도
-           «직전으로» 가 없고 깊이 들어가면 대시보드로 돌아올 길도 없다. 카드가 85장이라
-           「내가 어디 왔는지」 표시도 필요했다 — 이 화면에 지금까지 하나도 없던 정보다.
-         [자리] 본문 맨 위 · sticky. 사이드바를 접거나(PC) 닫아도(휴대폰) 늘 보인다.
-           ⚠️ #legacy-cards 밖이라 adm-ia6.js 가 «고른 항목의 카드만» 남길 때도 사라지지 않는다.
-         [이름] 「카드 제목」이 아니라 «사이드바에서 누른 항목» 이름을 쓴다. 항목 44개 중
-           23개가 카드를 여러 장 묶어서(data-cards), 카드 제목을 쓰면 대표 첫 장 이름만 나온다.
-         ⚠️ [hidden] 속성을 쓰지 않는다 — 작성자 CSS 가 display 를 정하면 브라우저 기본
-            [hidden]{display:none} 을 이겨서 계속 보인다(바로 아래 #ph164-recent 와 같은 이유).
-         ⚠️ 이 줄이 카드 제목을 가리지 않게 하는 보정(--adm-jump-offset)은 js/adm-crumb.js 가
-            한다. 2026-08-04 옛 상단바에서 똑같은 신고가 있었고 그때 코드를 되살린 것이다.
-         내용·동작은 js/adm-crumb.js 담당. -->
-    <style id="mi-crumb-css">
-      #mi-crumb {
-        position: sticky; top: 0; z-index: 60;
-        display: flex; align-items: center; gap: 8px; min-width: 0;
-        margin: 0 0 10px; padding: 6px 10px;
-        background: rgba(255,255,255,.97);
-        -webkit-backdrop-filter: saturate(180%) blur(8px); backdrop-filter: saturate(180%) blur(8px);
-        border: 1px solid #e2e8f0; border-radius: 12px;
-        box-shadow: 0 3px 12px -6px rgba(2,6,18,.28);
-      }
-      #mi-crumb.mi-crumb-off { display: none !important; }
-      /* 🔴 (2026-08-19 실측) 처음엔 도크와 같은 남색(#14213b)+옅은 노랑 글자로 만들었는데,
-         js/adm-light-surfaces.js 가 «어두운 배경» 을 찾아 밝게 되돌리면서 배경만
-         rgb(244,246,251) 로 인라인 !important 로 갈아치웠다. 글자는 그대로 #ffd98a 라
-         **흰 바탕에 옅은 노랑 글자(대비 1.3:1)** 가 됐다 — 사실상 안 보인다.
-         ✅ 그래서 처음부터 밝게 만든다. 그 파일이 손댈 것이 없으니 서로 싸우지 않는다.
-         ⛔ 남색으로 되돌리려면 그 파일 SKIP_SEL 에 넣어야 하는데, 「관리자 화면은 밝게」가
-            2026-07-22 사장님 지시라 예외를 늘리지 않는다. */
-      .mi-crumb-btn {
-        display: inline-flex; align-items: center; gap: 5px; flex: none;
-        padding: 6px 11px; border-radius: 999px; cursor: pointer;
-        font-size: 13px; font-weight: 800; line-height: 1;
-        background: #ffffff; color: #14213b; border: 1px solid #f0c46a;
-        -webkit-tap-highlight-color: transparent;
-      }
-      #mi-crumb-home { background: #fff7e6; }
-      .mi-crumb-btn:hover { background: #fff3d6; border-color: #e0a020; }
-      .mi-crumb-btn:focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
-      .mi-crumb-ico { font-size: 14px; line-height: 1; }
-      #mi-crumb-where {
-        display: flex; align-items: center; gap: 6px; min-width: 0;
-        margin-left: 4px; font-size: 13px; color: #667085; white-space: nowrap; overflow: hidden;
-      }
-      #mi-crumb-group { overflow: hidden; text-overflow: ellipsis; }
-      #mi-crumb-item { color: #101828; font-weight: 800; overflow: hidden; text-overflow: ellipsis; }
-      .mi-crumb-sep { opacity: .5; flex: none; }
-      /* 🔴 (2026-08-19 실측) 휴대폰에서 이 줄이 «따라오지 않고 그냥 흘러가던» 것.
-         admin-inline-c.css 의 @media(max-width:900px) 에 `html, body{overflow-x:hidden!important}`
-         이 있는데(「대시보드 가로 잘림 방지」), overflow-x 를 hidden 으로 정하면 overflow-y 가
-         auto 로 «계산돼» **body 자체가 스크롤 상자**가 된다. 그런데 실제로 굴러가는 것은
-         viewport(html) 이라 body 는 scrollTop 이 영영 0 이고, 그 안의 sticky 는 «자기 상자가
-         한 번도 안 굴렀으니 붙을 일도 없다» 로 판단해 그냥 흘러간다.
-         실측: 390·768px = 700 굴린 뒤 줄 top −636(실패) / 1023·1024px = 0(정상).
-         ✅ `clip` 은 «잘라내기만 하고 스크롤 상자를 만들지 않는» 값이라 가로 잘림 방어는
-            그대로 두면서 sticky 를 살린다. body 의 스크롤은 지금도 아무도 쓰지 않는다(실측 scrollTop 0).
-         ⚠️ 선택자를 `html body`(특정성 2)로 쓴다 — `body` 하나면 특정성이 같아서, 문서상
-            «뒤»에 오는 admin-inline-c.css 쪽 !important 가 이긴다(그 파일은 <body> 안에서 링크된다).
-         ⚠️ clip 을 모르는 옛 사파리(iOS 15 이하)는 이 줄을 통째로 버린다 → 지금과 똑같이 hidden.
-            그런 기기에서는 줄이 따라오지 않을 뿐, 잘림 방어는 그대로다. */
-      @media (max-width: 900px) {
-        html body { overflow-x: clip !important; }
-      }
-      @media (max-width: 1023px) {
-        /* ⚠️ 왼쪽 위 «줄 3개»(#mgv2-burger — fixed, 8px + 46px)가 이 줄을 덮는다. 그만큼 비워 둔다. */
-        #mi-crumb { padding-left: 62px; }
-        .mi-crumb-btn { font-size: 12px; padding: 6px 9px; }
-        #mi-crumb-where { font-size: 12px; }
-      }
-    </style>
-    <div id="mi-crumb" class="mi-crumb-off" role="navigation" aria-label="현재 위치">
-      <button type="button" id="mi-crumb-back" class="mi-crumb-btn"
-              title="직전에 보던 메뉴로" data-ko-title="직전에 보던 메뉴로" data-en-title="Previous menu">
-        <span class="mi-crumb-ico" aria-hidden="true">←</span><span data-ko="뒤로" data-en="Back">뒤로</span>
-      </button>
-      <button type="button" id="mi-crumb-home" class="mi-crumb-btn"
-              title="대시보드 첫 화면으로" data-ko-title="대시보드 첫 화면으로" data-en-title="Dashboard home">
-        <span class="mi-crumb-ico" aria-hidden="true">🏠</span><span data-ko="홈" data-en="Home">홈</span>
-      </button>
-      <div id="mi-crumb-where">
-        <span id="mi-crumb-group" data-ko="" data-en=""></span>
-        <span class="mi-crumb-sep" aria-hidden="true">›</span>
-        <b id="mi-crumb-item" data-ko="" data-en=""></b>
-      </div>
-    </div>
-
     <!-- ═══════════════════════════════════════════════════════════════════
          ⚡ (2026-08-16 사장님) 「자주 쓰는 기능」을 첫 화면 **맨 위**로
          ═══════════════════════════════════════════════════════════════════
@@ -683,7 +704,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=35"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=43"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=43: 2026-08-21 참관/직접입장 버튼 색이 세 겹에 먹히던 것(파일 맨 끝 블록) · v=42: 2026-08-20 ≤900px 에서 `html{overflow-x:hidden}` 이 경로 줄 sticky 를 죽이던 것(body 만 남김) · v=40: 2026-08-21 사이드바 하단 도크 두 줄로(빈 칸 #topUserBtn 감춤 + 사이트 홈을 계정 옆으로) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -1744,6 +1765,10 @@
     <button id="rooms-refresh" style="padding:4px 10px;font-size:12px;margin-left:auto;margin-right:32px;" data-ko="새로고침" data-en="Refresh" onclick="event.stopPropagation()">새로고침</button>
   </summary>
   <div class="menu-body">
+    <!-- 🔴 (2026-08-20) 「지금 수업 N건 · 화상방 접속 M건」 요약 줄 — adm-core.js 의 _renderRoomsSummary 가 채운다.
+         이 표는 «화상방에 붙어 있는 사람» 만 세는데 카페24 예약 수업은 그 방을 안 거쳐서,
+         수업이 도는 시각에도 «진행 중인 수업이 없습니다» 로 보이던 것을 여기서 함께 알려 준다. -->
+    <div id="rooms-now-summary" style="display:none;background-color:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:10px 12px;margin-bottom:10px"></div>
     <table data-gc="📋 활성 룸 목록" data-gc-en="Active Rooms">
       <thead><tr><th data-ko="방 ID" data-en="Room ID">방 ID</th><th data-ko="참가자 수" data-en="Users">참가자 수</th><th data-ko="참가자" data-en="Participants">참가자</th><th>PDF</th><th data-ko="영상" data-en="Video">영상</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="active-rooms-table"><tr><td colspan="6" class="empty" data-ko="로딩 중..." data-en="Loading...">로딩 중...</td></tr></tbody>
@@ -4129,7 +4154,7 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
   </div>
 </details>
 
-<script src="/js/adm-s1.js?v=4" defer></script><!-- 분할추출:adm-s1 -->
+<script src="/js/adm-s1.js?v=6" defer></script><!-- 분할추출:adm-s1 -->
 
 <!-- 🔐 Phase RT-2 — 화상강의실 초대 관리 (JWT 입장 토큰) -->
 <details class="table-card menu-card" id="card-room-invite">
@@ -8146,6 +8171,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
              data-en-ph="Student · ID · package · teacher"
              style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;min-width:200px;" />
       <button id="en-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;" data-ko="새로고침" data-en="Refresh">새로고침</button>
+      <!-- 🗑️ (2026-08-21) 지금 보이는(필터·검색 적용) 항목 전체 삭제 — 본사(경영진·관리자)만.
+           서버가 같은 조건으로 403 을 던지므로, JS(_renderEnrollments)가 window._isHqMgrOrUp
+           일 때만 보이게 켠다. 기본은 숨김(모르는 역할은 막는 쪽). -->
+      <button id="en-delete-all-btn" onclick="enDeleteAllVisible()" style="display:none;padding:5px 12px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;" data-ko="🗑️ 보이는 항목 전체 삭제" data-en="🗑️ Delete all visible">🗑️ 보이는 항목 전체 삭제</button>
     </div>
     <table data-gc="📋 신청 목록" data-gc-en="Enrollment List"><thead><tr><th data-ko="신청일" data-en="Created">신청일</th><th data-ko="학생" data-en="Student">학생</th><th data-ko="패키지" data-en="Package">패키지</th><th data-ko="월 수강료" data-en="Monthly Fee">월 수강료</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="enrollments-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
@@ -9293,10 +9322,11 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=135" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
-   · v=135: 2026-08-20 수강신청 「양식 등록」(엑셀·워드·카톡 가져오기)도 다중등록표와 같은
+<script src="/js/adm-core.js?v=148" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=148: 2026-08-20 수강신청 「양식 등록」(엑셀·워드·카톡 가져오기)도 다중등록표와 같은
      확정 파이프라인(_enAutoConfirm)을 태움 — 그 전에는 신청만 저장되고 배정(강사·시간표)까지
      안 갔다. _bulkRegisterEnrollments() 수정.
+     (이 작업은 v=135 를 썼는데 main 이 먼저 v=147 까지 가져가서 번호를 새로 딴다)
    · v=134: 2026-08-19 대리점(학원) 신규 등록 폼에 로그인 아이디·비밀번호 — addCenter() 가
      서버에 login_username/login_password 를 함께 보내고, 실패 시 서버 message 를 그대로 띄운다.
      이 작업도 v=132 를 썼는데 main 이 먼저 v=133 을 가져가서 번호를 새로 딴다
@@ -9366,12 +9396,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-today-classes.js?v=4" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
-<script src="/js/adm-quick-access.js?v=11" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
+<script src="/js/adm-today-classes.js?v=6" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/adm-quick-access.js?v=12" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
 <script src="/js/adm-crumb.js?v=2" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->
 <script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
-<script src="/js/adm-light-surfaces.js?v=12" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
+<script src="/js/adm-light-surfaces.js?v=13" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
 </div>
 </div>
@@ -9819,6 +9849,41 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <button id="topLogoutBtn" type="button" class="th-user-popup-logout">🚪 로그아웃</button>
         </div>
       </div>
+      <!-- ═══════════════════════════════════════════════════════════════════
+           🏠 (2026-08-20 필리핀 매니저 제보) 사이트 홈으로 나가는 문
+           ═══════════════════════════════════════════════════════════════════
+           [왜] 이 화면에는 나가는 문이 **로그아웃뿐이었다.**
+             · js/back-nav.js 는 /admin.html 을 «홈이라 갈 곳이 없다» 며 일부러 제외한다.
+             · 옛 상단바(.top-header)는 2026-08-15 에 없어졌고, 그 컨트롤이 이 도크로 왔는데
+               홈 링크는 따라오지 않았다.
+             · 2026-08-19 에 생긴 경로 줄(#mi-crumb)의 「🏠 홈」은 «대시보드 첫 화면» 이고,
+               첫 화면에서는 줄 자체가 감춰진다(js/adm-crumb.js).
+             → 전체 메뉴에서 들어온 사람이 되돌아갈 길이 없었다
+               (제보 문서 「Missing 'Back' or 'Home' button in MangoEye Management Dashboard」).
+           [자리] 계정 카드(#ph115-user) **바로 옆 마지막 한 칸**. 계정 카드는 런타임에 🌐EN 바로 뒤로
+             끼어들므로(adm-r21.js) 이 줄을 **마지막 자식**으로 두면 늘 그 뒤(=같은 줄 오른쪽 끝)에 남는다.
+           🧭 2026-08-21 사장님 「부피가 너무 크다 · 계정과 사이트 홈 사이가 너무 비어 있다」 →
+              옛 배치는 «맨 아래 한 줄 전체»(style="grid-column:1 / -1")였고, 그 위에 안 보이는
+              #topUserBtn 줄이 하나 더 끼어 네 줄이었다. 이제 빈 줄을 감추고 홈을 계정 옆으로 올려
+              **두 줄**이 됐다(2026-08-21 헤드리스 실측: PC 1440 에서 227→130px, 휴대폰 172→100px).
+           ⚠️ 폭·여백은 이제 admin-inline-c.css 맨 끝 «#ph162-dock #ph162-sitehome» 블록이 잡는다
+              (인라인 grid-column 은 뺐다). 그 블록은 마지막 칸만 집으므로 진단·EN·🔊음성 토글의
+              2칸/3칸 배치는 그대로다 — adm-r15.js 는 건드리지 않았다.
+           ⚠️ 이름도 이모지도 경로 줄과 겹치면 안 된다 — 그 줄의 「🏠 홈」은 «대시보드 첫 화면»,
+              여기는 «망고아이 사이트» 로 나가는 문이다. 2026-08-21 사장님 지적: 처음엔 둘 다 🏠 라
+              「어느 쪽이 어디로 가는지」 헷갈렸다 → 이쪽은 **망고아이 캐릭터 그림 + 「사이트 홈」**,
+              경로 줄은 🏠 로 갈랐다. ⛔ 이 자리를 🏠 이모지로 되돌리지 말 것 — 또 겹친다.
+              ⚠️ 그림(<img>)에는 data-ko/data-en 을 걸지 않는다 — 관리자 화면의 언어 전환
+                 (adm-core.js 63행: [data-ko] 를 훑어 el.textContent 로 대입)은 그 요소의 내용을
+                 **통째로 갈아치우므로**, 앵커에 걸면 EN 을 한 번 누르는 순간 그림이 사라진다.
+                 그래서 글자만 <span> 으로 감싸 거기에 걸었다.
+              ⚠️ 그림은 이미 이 화면이 쓰는 파일이다(AI 운영 비서 얼굴 poster) — 새 요청이 아니다. -->
+      <a class="ph162-pill" id="ph162-sitehome" href="/"
+         title="망고아이 첫 화면(전체 메뉴)으로" data-ko-title="망고아이 첫 화면(전체 메뉴)으로"
+         data-en-title="Back to the Mangoi home (All Menu)"><img
+         src="/img/Mangoi_Character.png" alt="" width="18" height="18" loading="lazy"
+         style="object-fit:contain;flex:none"><span
+         data-ko="사이트 홈" data-en="Site home">사이트 홈</span></a>
   </div>
 </aside>
 
@@ -10665,9 +10730,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
     <!-- 안내 박스 -->
     <div class="rf-info">
-      💡 <b>보고서 양식</b> — 강사·직원이 작성하는 결재 문서 (휴가 계획서, 기안서, 지출 결의서 등) 의 템플릿을 관리합니다.<br>
-      ▸ <b>강사 측 흐름</b>: 강사가 양식 선택 → 작성 → 결재 신청 &nbsp;
-      ▸ <b>관리자 측 흐름</b>: 신규 등록 / 사용중↔보관 토글 / 양식 편집
+      💡 <b>보고서 양식</b> — 결재 문서의 <b>생김새를 미리 보는 곳</b>입니다. 양식 이름을 누르면 미리보기가 열립니다.<br>
+      ▸ <b>실제 결재는 전자결재에서 올립니다</b> — 「✍️ 결재 올리기」를 누르면 그 분류의 결재 폼이 바로 열립니다.
     </div>
 
     <!-- 검색 툴바 -->
@@ -10696,12 +10760,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         <th>보고서 양식명</th>
         <th style="width:100px">분류</th>
         <th style="width:120px">상태</th>
-        <th style="width:140px">최종 수정일</th>
-        <th style="width:160px">액션</th>
+        <th style="width:130px">최종 수정일</th>
+        <th style="width:150px">액션</th>
       </tr></thead>
       <tbody id="rf-tbody">
-        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><button class="pm-row-btn tax" onclick="rfEdit(2)">편집</button><button class="pm-row-btn" onclick="rfToggle(2)">보관</button></td></tr>
-        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><button class="pm-row-btn tax" onclick="rfEdit(1)">편집</button><button class="pm-row-btn" onclick="rfToggle(1)">보관</button></td></tr>
+        <tr><td>2</td><td><a class="rf-form-name" onclick="rfOpen(2)">📄 기안 및 지출서 (구)</a></td><td>회계</td><td><span class="rf-badge active">사용중</span></td><td>2026-04-15</td><td><a class="rf-go" href="/work?type=expense" data-ko="✍️ 결재 올리기" data-en="✍️ Submit">✍️ 결재 올리기</a></td></tr>
+        <tr><td>1</td><td><a class="rf-form-name" onclick="rfOpen(1)">🌴 휴가 계획서</a></td><td>인사/총무</td><td><span class="rf-badge active">사용중</span></td><td>2026-03-22</td><td><a class="rf-go" href="/work?type=leave" data-ko="✍️ 결재 올리기" data-en="✍️ Submit">✍️ 결재 올리기</a></td></tr>
       </tbody>
     </table>
     </div>
@@ -10715,8 +10779,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <button class="rf-page-btn">»</button>
     </div>
 
-    <!-- 신규등록 버튼 (중앙 강조) -->
-    <button data-gc="➕ 신규 양식 등록" data-gc-en="Add Form" class="rf-btn-new" onclick="rfNew()">➕ 신규 양식 등록</button>
+    <!-- 🧾 결재함 바로가기 (중앙 강조)
+         ⛔ 2026-08-20 — 여기 있던 「➕ 신규 양식 등록」을 뺐다(사장님 지시).
+            양식 템플릿 CRUD 백엔드가 없어서 「준비 중입니다」 알림창만 뜨던 버튼이고,
+            양식(휴가·지출)은 이미 전자결재 분류 7종 안에 들어 있다. 창구는 /work 하나다.
+            ⚠️ 손자 메뉴 이름표(data-gc)도 함께 뺐다 — 남겨 두면 사이드바에 «갈 곳 없는 손자»가 된다. -->
+    <a data-gc="🧾 전자결재 열기" data-gc-en="Open approvals" class="rf-btn-new" href="/work" data-ko="🧾 전자결재 화면 열기" data-en="🧾 Open approvals">🧾 전자결재 화면 열기</a>
 
   </div>
 </details>
@@ -10757,14 +10825,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     console.log('[ph107] 양식 검색 —', shown, '/', rows.length);
   };
 
-  // 양식 편집·보관·신규등록 — 저장할 서버가 없다. 있는 척하지 않는다.
-  function rfNotReady(what){
-    alert(what + ' 기능은 아직 준비 중입니다.\n\n지금은 양식 이름을 눌러 미리보기만 가능합니다.\n결재를 올리시려면 전자결재 화면을 이용해 주세요.');
-  }
-  window.rfEdit   = function(id){ console.log('[ph107] 양식 편집 요청 #' + id + ' (준비 중)'); rfNotReady('양식 편집'); };
-  window.rfToggle = function(id){ console.log('[ph107] 양식 보관 요청 #' + id + ' (준비 중)'); rfNotReady('양식 보관/사용중 전환'); };
-  window.rfNew    = function(){   console.log('[ph107] 신규 양식 등록 요청 (준비 중)');       rfNotReady('신규 양식 등록'); };
-  console.log('[ph107] 보고서 양식 카드 초기화 완료');
+  /* ⛔ 2026-08-20 — rfEdit·rfToggle·rfNew 를 지웠다(사장님 지시).
+   *   셋 다 「준비 중입니다」 알림창만 띄우던 버튼이고, 저장할 서버가 없다.
+   *   ⛔ 다시 만들지 말 것 — 양식(휴가·지출)은 이미 전자결재 분류 7종
+   *      (approval-policy.ts TYPES)에 들어 있다. 양식을 여기서 따로 관리하면
+   *      휴가 신청 창구가 두 개가 되고 「어디로 올려야 하나요」가 시작된다.
+   *   ✅ 종이 양식처럼 칸을 더 받고 싶으면 TYPES 에 입력칸을 늘리는 쪽이 정본이다. */
+  console.log('[ph107] 보고서 양식 카드 초기화 완료 — 실제 결재는 /work');
 })();
 </script>
 
@@ -10793,7 +10860,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
   </div>
 </div>
 
-<script src="/js/adm-r17.js?v=2" defer></script><!-- 분할추출:adm-r17 -->
+<script src="/js/adm-r17.js?v=3" defer></script><!-- 분할추출:adm-r17 -->
 
 
 <!-- Phase 109 admin (2026-05-25) — 양식 모달 인쇄/PDF/Excel/Word 다운로드 -->
@@ -11081,6 +11148,19 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       <div class="lib-err" id="lib-err-branch"></div>
     </div>
     <div data-gc="📚 자료 목록" data-gc-en="Files" class="lib-files" id="lib-files-branch" style="display:none">
+      <!-- 🚗 영업 기록 앱 안내문 (2026-08-20 사장님 지시로 지사 자료실에 올림).
+           ⚠️ 대상은 «본사 영업담당자» 다 — /sales 화면은 관리자 세션 + sales_reps 등록이 있어야 열린다.
+              지사 계정으로는 열리지 않으므로, 지사에서 「우리도 쓰는 것이냐」 문의가 오면 그렇게 답한다. -->
+      <div class="lib-doc">
+        <div class="lib-doc-t">🚗 영업 기록 앱 사용법 (A4 한 장) <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
+        <div class="lib-lang"><span class="lib-lang-lb">한글</span>
+          <a class="lib-chip" href="/library/branch/sales-guide-kr.pdf" target="_blank" rel="noopener">📄 열기</a>
+          <a class="lib-chip" href="/library/branch/sales-guide-kr.pdf" download="망고아이_영업기록_사용법.pdf">⬇ 저장</a>
+        </div>
+        <div class="lib-note">🖨 <b>인쇄해서 차에 두는 용도</b>입니다. 그림 위주 한 장이라 따로 설명이 필요 없습니다.
+          오른쪽 위 QR 을 휴대폰으로 찍으면 영업 기록 화면이 바로 열립니다.
+          ⚠️ 인쇄할 때 «실제 크기(100%)»로 뽑아야 QR 이 잘 찍힙니다.</div>
+      </div>
       <div class="lib-doc">
         <div class="lib-doc-t">🎬 동영상 사용설명서 <span style="font-size:11px;color:#93c5fd;font-weight:700">NEW</span></div>
         <div class="lib-lang"><span class="lib-lang-lb">한글</span>
@@ -11578,7 +11658,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     // fix (2026-06-02) — 가짜 hq_mgr 세션을 만들지 않고, 실제 관리자 로그인 페이지로 이동(정직한 권한 전환)
     if (!confirm('로그아웃하고 다른 계정으로 로그인할까요?')) return;
     try { localStorage.removeItem('admin_session'); localStorage.removeItem('mangoi_admin_session'); } catch(e){}
-    window.location.href = '/admin/login';
+    // 🚪 (2026-08-21) localStorage 만 지우면 **로그아웃이 아니다.** 세션의 정본은 HttpOnly 쿠키
+    //   mango_admin_session + D1 admin_sessions 이고, JS 로는 못 지운다 — 서버에 POST 해야 끊긴다.
+    //   그 전에는 이 버튼을 누르고 자리를 떠도 앞사람 세션이 최대 30일 살아 있었다.
+    //   실패해도 로그인 화면으로는 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+    var go = function(){ window.location.href = '/admin/login'; };
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).then(go, go); }
+    catch(e) { go(); }
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ph116EnforceSidebar);
@@ -11648,13 +11734,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 120 admin (2026-05-25) — 홈 버튼 관리자 상단 이동 + 학원별 수업현황 검색 실제 작동 -->
-<script src="/js/adm-r23.js?v=2" defer></script><!-- 분할추출:adm-r23 -->
+<script src="/js/adm-r23.js?v=3" defer></script><!-- 분할추출:adm-r23 -->
 
 
 <!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
 
 
-<script src="/js/adm-s14.js?v=3" defer></script><!-- 분할추출:adm-s14 -->
+<script src="/js/adm-s14.js?v=4" defer></script><!-- 분할추출:adm-s14 -->
 
 
 <!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
@@ -12453,7 +12539,29 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      양쪽 브랜치가 같은 파일을 고치면서 각자 번호를 올리기 때문이다.
      규칙: **양쪽보다 큰 번호**를 쓴다. 낮은 쪽을 고르면 한쪽 브라우저에 옛 파일이 캐시로 남는다.
      파일 내용 자체는 git 이 자동 병합했고(양쪽 변경 모두 살아 있음), 여기서는 번호만 정한다. -->
-<script src="/js/adm-ia6.js?v=44" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<style id="ia6-appr-css">
+/* 🧾 사이드바 맨 위 「결재함」 — adm-ia6.js 가 그린다.
+   ⛔ class 를 .ph85-head/.ph85-sub 로 바꾸지 말 것: 그 순간 window 캡처 핸들러 둘이 클릭을 삼킨다.
+   ⛔ hover 확대(transform)를 넣지 말 것 — 「정신없다」고 2026-07-22 에 일부러 뺀 규칙(CLAUDE.md 1-3).
+      강조는 색으로만 한다. */
+#ph85-sidebar #ia6-appr{
+  display:flex;align-items:center;gap:11px;text-decoration:none;
+  background:#fff;border:1.5px solid #0b6e63;border-radius:12px;
+  padding:11px 12px 11px 14px;margin:0 0 10px;color:#0b6e63;
+  font-size:15.5px;font-weight:800}
+#ph85-sidebar #ia6-appr .ph85-ico{color:#0b6e63;display:flex;align-items:center}
+#ph85-sidebar #ia6-appr .ia6-appr-t{flex:1;min-width:0}
+/* 대기가 있으면 초록으로 «켜진다» — 0 건이면 테두리만 남아 «여기 있다» 를 계속 알린다.
+   (올리러 들어갈 때는 언제나 0 건이라, 그때도 찾기 쉬워야 한다) */
+#ph85-sidebar #ia6-appr.on{background:#0b6e63;color:#fff;border-color:#0b6e63}
+#ph85-sidebar #ia6-appr.on .ph85-ico{color:#9fd8d0}
+.ia6-appr-n{background:#c0392b;color:#fff;font-size:12.5px;font-weight:800;
+  min-width:22px;height:22px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;padding:0 6px}
+#ph85-sidebar #ia6-appr.on .ia6-appr-n{background:#fff;color:#0b6e63}
+.ia6-appr-n:empty{display:none}
+</style>
+<script src="/js/adm-ia6.js?v=45" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-quickfav.js?v=1" defer></script><!-- ⭐ 자주 쓰는 메뉴(고정★ + 최근 본) — 사용성 점검 2번 · 2026-08-19 -->
 <script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
@@ -12553,39 +12661,49 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      상담원 아바타가 차지하고 있어서 그 뒤에 가려진다(2026-08-17 사장님 화면에서 확인).
      대신 본문 **맨 위**(자주 쓰는 기능 바로 위)에 한 줄로 끼워 넣는다.
      흐름 안에 있으므로 무엇에도 가려지지 않고, 눈이 처음 닿는 자리다. */
-  function draw(n, late){
-    if (document.getElementById('mi-appr-badge')) return;
-    var ko = (localStorage.getItem('mangoi_lang') !== 'en');
-    var label = n
-      ? (ko ? ('결재 ' + n + '건' + (late ? (' · 지연 ' + late + '건') : '') + ' — 지금 처리하기')
-            : ('Approvals ' + n + (late ? (' · ' + late + ' overdue') : '') + ' — open'))
-      : (ko ? '결재함 열기 — 올리기 · 지난 결재 보기' : 'Open approvals — submit or review');
-
-    var a = document.createElement('a');
-    a.id = 'mi-appr-badge';
-    a.href = '/work';
-    a.textContent = label;
-
-    var anchor = document.getElementById('ph161-quick');   // 「자주 쓰는 기능」 = 본문 맨 위 블록
-    if (anchor && anchor.parentNode) {
-      a.style.cssText =
-        'display:block;margin:0 0 12px;padding:14px 18px;border-radius:12px;text-decoration:none;' +
-        'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#e8eef4')) + ';' +
-        'color:' + (n || late ? '#fff' : '#2f3d4d') + ';' +
-        'border:1px solid ' + (n || late ? 'transparent' : '#ccd7e2') + ';' +
-        'font:700 15px/1.3 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;';
-      anchor.parentNode.insertBefore(a, anchor);
-      return;
-    }
-    // 앵커를 못 찾으면(레이아웃이 바뀐 경우) 예전처럼 떠 있는 버튼으로 — 아주 안 보이는 것보다는 낫다.
-    a.style.cssText =
-      'position:fixed;right:16px;bottom:150px;z-index:9999;' +
-      'background:' + (late ? '#a4341f' : (n ? '#0b6e63' : '#5a6873')) + ';color:#fff;' +
-      'font:600 14px/1.2 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;' +
-      'padding:12px 16px;border-radius:22px;text-decoration:none;' +
-      'box-shadow:0 2px 10px rgba(0,0,0,.25)';
-    document.body.appendChild(a);
+  /* 🧾 (2026-08-20) 초록 줄을 **없앴다.**
+     [왜] 처음엔 「어디에도 안 보인다」(2026-08-17)를 급히 풀려고 「자주 쓰는 기능」 상자
+          «위» 에 흐름 안 요소로 끼워 넣었다. 그때는 그것이 유일한 입구였다.
+          지금은 ① 사이드바 맨 위 「결재함」 ② 이 「자주 쓰는 기능」 표 첫 칸 두 곳이 있어
+          초록 줄까지 두면 같은 입구가 셋이고, 표 밖에 혼자 떠 있어 어색했다(사장님 지적).
+     [대신] 표의 「결재함」 칸에 **숫자만** 붙인다. 칸 자체는 adm-quick-access.js 가 그린다.
+     ⛔ 여기서 결재 목록·승인 버튼을 만들지 말 것 — 화면이 두 벌이 되고 /work 를 만든 이유가 사라진다. */
+  /* 🧾 사이드바 맨 위 「결재함」 줄의 숫자. 요소는 adm-ia6.js 가 그리는데 **나중에 다시 그릴 수**
+     있으므로(사이드바를 통째로 새로 그리는 스크립트가 여럿이다) 숫자를 기억해 뒀다가 다시 입힌다.
+     ⚠️ 여기서 API 를 또 부르지 않는다 — 첫 화면에서 같은 요청이 두 번 나간다. */
+  var apprN = null;
+  function paintSidebar(n){
+    if (typeof n === 'number') apprN = n;
+    if (apprN === null) return;
+    var row = document.getElementById('ia6-appr');
+    if (!row) return;
+    var el = document.getElementById('ia6-appr-n');
+    if (el) el.textContent = apprN > 0 ? String(apprN) : '';
+    row.classList.toggle('on', apprN > 0);
   }
+  // 사이드바가 다시 그려져도 숫자가 사라지지 않게 — 가볍게 되입힌다(요청 없음).
+  setInterval(function(){ paintSidebar(); }, 4000);
+
+  function paintQuick(n, late){
+    var row = document.querySelector('#ph161-quick-items .ph161-q[data-qa="결재함"]');
+    if (!row) return false;
+    var b = row.querySelector('.mi-appr-n');
+    if (!b) {
+      b = document.createElement('span');
+      b.className = 'mi-appr-n';
+      /* 인라인으로 쓴다 — 이 표의 다른 칸도 전부 인라인 style 이고, 그래야 이 블록이
+         admin.html 의 CSS 에 아무것도 기대지 않는다(이 파일 1MB, 사고 반경을 줄인다). */
+      b.style.cssText = 'flex:none;margin-left:6px;background:#c0392b;color:#fff;'
+        + 'font-size:11px;font-weight:800;min-width:18px;height:18px;border-radius:9px;'
+        + 'display:flex;align-items:center;justify-content:center;padding:0 5px';
+      row.appendChild(b);
+    }
+    b.textContent = n > 0 ? String(n) : '';
+    b.style.display = n > 0 ? 'flex' : 'none';
+    b.title = late ? ('지연 ' + late + '건') : '';
+    return true;
+  }
+
   function load(){
     fetch('/api/approval/home', { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function(r){ return r.ok ? r.json() : null; })
@@ -12596,7 +12714,15 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           var x = j.inbox[i];
           if (x.stage_due_at && now > Number(x.stage_due_at)) late++;
         }
-        draw(j.inbox.length, late);
+        paintSidebar(j.inbox.length);
+        /* 「자주 쓰는 기능」 표는 adm-quick-access.js 가 나중에 그릴 수 있다.
+           아직 없으면 잠깐 뒤 다시 — 못 붙였는데 조용히 넘어가면 숫자가 영영 안 뜬다. */
+        if (!paintQuick(j.inbox.length, late)) {
+          var tries = 0;
+          var iv = setInterval(function(){
+            if (paintQuick(j.inbox.length, late) || ++tries > 20) clearInterval(iv);
+          }, 500);
+        }
       })
       .catch(function(){ /* 결재를 못 불러온 것이 관리자 화면을 망치지 않는다 */ });
   }

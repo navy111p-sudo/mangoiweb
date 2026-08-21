@@ -13,6 +13,7 @@
  *   - index.ts scheduled() 의 야간 자동 새로고침 (nightlyCafe24Refresh)
  */
 import { runCypher } from './teacher-match';
+import { applyStudentErpOverrides } from './student-override';
 
 export interface SyncEnv {
   DB: D1Database;
@@ -185,7 +186,15 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
     }));
     imported += Math.min(400, values.length - i);
   }
-  return { imported, done: values.length < lim };
+  const done = values.length < lim;
+  /* 🧹 (2026-08-20) 마지막 페이지를 넣은 «직후» 우리 지정을 다시 입힌다.
+        위 INSERT OR REPLACE 가 korean_name 을 카페24 값으로 덮기 때문에,
+        여기서 되돌리지 않으면 D1 에서 고친 이름은 하룻밤이면 사라진다.
+        ⚠️ 순서가 전부다 — 이 호출이 «동기화 앞» 으로 옮겨가면 그 순간 무의미해진다.
+        ⚠️ 마지막 페이지에서만 부른다. 중간 페이지에서 불러 봐야 뒤 페이지가 다시 덮는다.
+        정본·이유는 src/student-override.ts 머리말. */
+  if (done) { try { await applyStudentErpOverrides(env); } catch { /* 동기화 자체는 계속 */ } }
+  return { imported, done };
 }
 
 /** 📅 출석/수업 (:Class) 한 페이지 → D1 attendance (room_id='c24-{class_id}').
@@ -310,7 +319,10 @@ export async function nightlyCafe24Refresh(env: SyncEnv): Promise<Record<string,
       if (r.done) break;
       off += 3000;
     }
-    out.students = { imported: total };
+    /* 🧹 한 번 더 — importCafe24Students 는 «마지막 페이지» 에서만 지정을 다시 입힌다.
+       학생이 늘어 15페이지를 다 쓰고도 done 이 안 나면 그 호출이 없다. 멱등한 UPDATE 라
+       두 번 돌아도 무해하니, 못 도는 경우를 없애는 쪽을 택한다. */
+    out.students = { imported: total, overrides: await applyStudentErpOverrides(env) };
   } catch (e: any) { out.students = { error: String(e?.message || e) }; }
   try {
     // 🔒 경계 있는 창 [60일 전, 180일 후] 만 삭제·재삽입. 창 밖(과거·먼미래 예약)은 보존.

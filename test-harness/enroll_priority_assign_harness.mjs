@@ -3,7 +3,7 @@
 //   배경: 「수업 등록 창에서 강사를 직접 지정할 수 있게 되어 있다 — 요구사항과 불일치」.
 //     등록 때 사람이 «입력·선택» 하는 것은 아래 6가지뿐이어야 한다.
 //       ① 학생 아이디  ② 레벨 구분(레벨/체험/정규)  ③ 요일·시간 우선 / 강사 우선
-//       ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일  ⑥ 수업 기간(1·3·6·12개월 / 무기한)
+//       ④ 그룹수업 여부(1:1 / 그룹)  ⑤ 시작일  ⑥ 수업 기간(1~12개월 / 무기한)
 //     강사를 «이름으로 지명» 하는 «항상 떠 있는» 칸은 이 화면에 두지 않는다. 최종적으로
 //     누구를 붙일지는 ③ 과 «그 시간에 실제로 비어 있는가» 로 「▸ 처리」 단계에서 정해진다.
 //
@@ -103,8 +103,12 @@ check('③ 고른 희망 강사는 「강사 우선」일 때만 서버로 간�
 
 /* 🗓️ 2026-08-14 피드백 ④ — ⑥ 수업 기간(회차) */
 check('⑥ 수업 기간 select 가 있다 (en-row-duration)', /class="en-row-duration"/.test(rowFn));
-check('⑥ 선택지는 1·3·6·12개월 + 무기한 다섯 가지',
-  ["'1'", "'3'", "'6'", "'12'", "'unlimited'"].every(v => new RegExp('v: ' + v).test(rowFn)));
+// 🗓️ 2026-08-20 사장님 지시 — 1·3·6·12 «수강권 단위» 만 있어서 2·4·5개월을 넣을 방법이 없었다.
+//   1~12 전부 + 무기한으로 넓혔다. ⚠️ 아래 «서버가 아는 값» 검사와 **짝**이다 —
+//   한쪽만 넓히면 화면에서 고른 2개월이 서버에서 **에러 없이 null** 이 된다.
+check('⑥ 선택지는 1~12개월 전부 + 무기한',
+  /for \(let _dm = 1; _dm <= 12; _dm\+\+\)/.test(rowFn) &&
+  /durOptionsList\.push\(\{ v: 'unlimited'/.test(rowFn));
 check('⑥ 기본값을 몰래 넣지 않는다 («— 선택 —» 이 기본)', /— 선택 —/.test(rowFn));
 check('⑥ 안 고르면 등록을 막는다', /const noDur = records\.filter\(r => !r\._duration\)/.test(coreSrc));
 check('⑥ 숫자 개월이면 종료일(end_date)을 시작일 + N개월로 함께 저장한다',
@@ -115,8 +119,10 @@ check('⑥ 단건·일괄 POST 두 곳 모두 duration_months 를 보낸다',
   (coreSrc.match(/duration_months: r\.duration_months/g) || []).length === 2);
 check('⑥ 서버가 enrollments.duration_months 컬럼을 보강한다',
   /_addEnrCol2\('duration_months', 'TEXT'\)/.test(admSrc));
-check('⑥ 서버는 아는 값만 저장한다 (오타·옛 폼이 보낸 값 금지)',
-  /\['1', '3', '6', '12', 'unlimited'\]\.includes\(_durRaw\)/.test(admSrc));
+check('⑥ 서버는 아는 값만 저장한다 (오타·옛 폼이 보낸 값 금지) — 1~12 또는 무기한',
+  /_durRaw === 'unlimited' \|\| \/\^\(\[1-9\]\|1\[0-2\]\)\$\/\.test\(_durRaw\)/.test(admSrc));
+check('⑥ 화면 목록과 서버 허용 범위가 «같은 12개월» 이다 (한쪽만 넓히면 조용히 null)',
+  /_dm <= 12/.test(rowFn) && /1\[0-2\]/.test(admSrc));
 check('③ 초기 포커스는 학생 아이디 칸 (이름 칸이 없어졌으므로)',
   /querySelector\('\.en-row-uid'\); if \(inp\) inp\.focus\(\)/.test(rowFn));
 
