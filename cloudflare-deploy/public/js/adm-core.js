@@ -4222,6 +4222,29 @@ async function leveltestMakeClass(id, opts) {
   alert('⚠ ' + msg);
 }
 
+/* 🗑️ (2026-08-21 사장님 지시) 레벨테스트 신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 연결된 수업이 있으면
+      삭제 전에 먼저 cancelled 로 정리해 강사·학생 달력에 유령 수업이 남지 않게 한다. */
+async function leveltestDeleteApp(id, name) {
+  const en = (adminLang === 'en');
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this application' : '이 신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadLeveltestApps(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -4367,7 +4390,12 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
+       여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+    const deleteBtn = window._isHqMgrOrUp
+      ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
+      : '';
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
@@ -14356,6 +14384,10 @@ window.rebuildGlobalSearchIndex = function() {
     else if (role === 'mgr' || role === 'manager') role = 'hq_mgr';
     const isExec = role === 'hq_exec';
     const isMgrOrUp = isExec || role === 'hq_mgr';
+    // 🗑️ (2026-08-21) 레벨테스트 신청 삭제 버튼 노출 판정에 재사용 — 본사(경영진·관리자)만.
+    //   서버(api-admin.ts DELETE /api/admin/leveltest/applications)가 이미 같은 조건으로 403 을
+    //   던진다. 여기서 감추는 것은 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐 — 보안은 서버 쪽.
+    window._isHqMgrOrUp = isMgrOrUp;
     const isHQ = role && role.startsWith('hq');
     const isBranchUp = isHQ || role === 'branch';
     const isAgencyUp = isBranchUp || role === 'agency';

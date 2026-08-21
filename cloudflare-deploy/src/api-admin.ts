@@ -8866,6 +8866,63 @@ LIMIT $limit`;
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
         return json({ ok: true, items, pending });
       }
+      /* 🗑️ DELETE — 신청 삭제 (2026-08-21, 사장님 지시: 레벨테스트 신청현황의 데모 항목 정리)
+         ⛔ 본사만. `canEditOrg()` 는 강사(scope 'none')까지 통과시키는 함정이 있어(CLAUDE.md
+            trap) 쓰지 않는다 — 다른 "본사만" 엔드포인트와 같은 role==='hq'|'staff' 패턴.
+         ⚠️ 되돌릴 수 없다. 연결된 수업(schedule_id)이 있으면 삭제 전에 먼저 cancelled 로
+            정리한다 — 신청서만 지우면 강사·학생 달력에 담당 없는 유령 수업이 남는다
+            (위 「취소했는데 수업은 살아 있다」 사고와 같은 뿌리). */
+      if (method === 'DELETE') {
+        const actor = await getAdminActor(request, env as any);
+        if (!actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+          return json({ ok: false, error: 'forbidden_scope', message: '레벨테스트 신청 삭제는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can delete level-test applications.' }, 403);
+        }
+        const delBody: any = await parseJsonBody(request).catch(() => null);
+        const idsParam = url.searchParams.get('ids') || url.searchParams.get('id');
+        let ids: number[] = [];
+        if (delBody && Array.isArray(delBody.ids)) ids = delBody.ids.map((x: any) => Number(x));
+        else if (delBody && delBody.id != null) ids = [Number(delBody.id)];
+        else if (idsParam) ids = idsParam.split(',').map((s: string) => Number(s.trim()));
+        ids = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
+        if (!ids.length) return invalidBody(['ids']);
+        if (ids.length > 90) return json({ ok: false, error: 'too_many', message: '한 번에 최대 90건까지 삭제할 수 있습니다.' }, 400);
+
+        let actorName = 'admin';
+        try { if (actor.name) actorName = actor.name; } catch {}
+        const deleted: number[] = [];
+        const notFound: number[] = [];
+        for (const id of ids) {
+          const appRow: any = await env.DB.prepare(
+            `SELECT id, schedule_id, student_name, desired_date, desired_time, assigned_teacher FROM leveltest_applications WHERE id = ? LIMIT 1`
+          ).bind(id).first();
+          if (!appRow) { notFound.push(id); continue; }
+          if (appRow.schedule_id) {
+            try {
+              const sched: any = await env.DB.prepare(
+                `SELECT id, status FROM class_schedules WHERE id = ? LIMIT 1`
+              ).bind(Number(appRow.schedule_id)).first();
+              if (sched && String(sched.status || 'active') !== 'cancelled') {
+                await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`)
+                  .bind(Date.now(), Number(sched.id)).run();
+              }
+            } catch (e: any) { console.warn('[leveltest delete] schedule cancel skipped:', e?.message || e); }
+          }
+          try {
+            await writeClassAudit(env, {
+              action: 'delete', schedule_id: appRow.schedule_id || null,
+              teacher_name: appRow.assigned_teacher || null,
+              student_name: appRow.student_name || null,
+              lesson_date: appRow.desired_date || null, lesson_time: appRow.desired_time || null,
+              actor: actorName, actor_role: 'admin', source: 'leveltest_app',
+              reason: '레벨테스트 신청 삭제 (연결 수업 취소 처리)',
+              detail: JSON.stringify({ app_id: id }),
+            });
+          } catch {}
+          await env.DB.prepare(`DELETE FROM leveltest_applications WHERE id = ?`).bind(id).run();
+          deleted.push(id);
+        }
+        return json({ ok: true, deleted, not_found: notFound });
+      }
       // POST → 상태/배정/메모 업데이트
       const b = await parseJsonBody(request);
       if (!b || !b.id) return invalidBody(['id']);
