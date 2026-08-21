@@ -4225,6 +4225,29 @@ async function leveltestMakeClass(id, opts) {
   alert('⚠ ' + msg);
 }
 
+/* 🗑️ (2026-08-21 사장님 지시) 레벨테스트 신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 연결된 수업이 있으면
+      삭제 전에 먼저 cancelled 로 정리해 강사·학생 달력에 유령 수업이 남지 않게 한다. */
+async function leveltestDeleteApp(id, name) {
+  const en = (adminLang === 'en');
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this application' : '이 신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadLeveltestApps(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -4370,7 +4393,12 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
+       여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+    const deleteBtn = (typeof window !== 'undefined' && window._isHqMgrOrUp)
+      ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
+      : '';
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
@@ -4696,6 +4724,11 @@ function _renderEnrollments() {
   const tb = document.getElementById('enrollments-table');
   if (!tb) return;
 
+  // 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 본사(경영진·관리자)만. 서버가 같은 조건으로
+  //   403 을 던지므로 여기서는 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐이다.
+  const delAllBtn = document.getElementById('en-delete-all-btn');
+  if (delAllBtn) delAllBtn.style.display = (typeof window !== 'undefined' && window._isHqMgrOrUp) ? '' : 'none';
+
   // ── 중복 의심 — 살아 있는 건(대기·확정·수강중)끼리만 본다.
   //    취소된 옛 신청과 지금 수업 중인 신청이 나란히 있는 건 정상이므로 세지 않는다.
   const cnt = {};
@@ -4803,6 +4836,13 @@ function _renderEnrollments() {
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
+        /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403을 던지니
+           여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+        ((typeof window !== 'undefined' && window._isHqMgrOrUp)
+          ? '<button type="button" onclick="enDeleteOne(' + it.id + ')" title="' +
+            (en ? 'Delete this enrollment (cannot be undone)' : '이 수강신청을 삭제합니다 (되돌릴 수 없음)') + '" ' +
+            'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
+          : '') +
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
@@ -6085,6 +6125,31 @@ async function _enLookupStudent(tr) {
   }
 }
 
+// "HH:MM" → [hh, mm] 2자리 문자열. 분은 10분 단위로 반올림(00/10/20/30/40/50). 빈 값이면 ['','']
+function _tbTimeToParts(t) {
+  const m = (t || '').match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (!m) return ['', ''];
+  const hh = String(Math.min(23, parseInt(m[1], 10) || 0)).padStart(2, '0');
+  let mm = Math.round((parseInt(m[2], 10) || 0) / 10) * 10;
+  if (mm >= 60) mm = 50;
+  return [hh, String(mm).padStart(2, '0')];
+}
+function _tbHourOptions(selected) {
+  let opts = '<option value="">--</option>';
+  for (let h = 0; h < 24; h++) {
+    const v = String(h).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  }
+  return opts;
+}
+function _tbMinOptions(selected) {
+  let opts = '<option value="">--</option>';
+  [0, 10, 20, 30, 40, 50].forEach(m => {
+    const v = String(m).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  });
+  return opts;
+}
 // 🥭 Phase 32 — 요일별 시간 빌더 모달
 function _openTimeBuilder(tr) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -6111,16 +6176,21 @@ function _openTimeBuilder(tr) {
         '💡 시간 비워두면 그 요일은 제외됩니다' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center">';
+  const selStyle = 'padding:6px 4px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff';
   dayCodes.forEach((code, i) => {
     const isChecked = checkedDays.includes(code) || parsed[code];
     const t = parsed[code] || '';
+    const [th, tm] = _tbTimeToParts(t);
     html +=
       '<label style="font-weight:700;color:#1f2937;display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" class="tb-day" data-code="' + code + '" ' + (isChecked?'checked':'') + ' style="margin:0;cursor:pointer">' +
         dayLabels[i] +
       '</label>' +
-      '<input type="time" step="600" class="tb-time" data-code="' + code + '" value="' + t + '" placeholder="시간" ' +
-        'style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />';
+      '<div style="display:flex;align-items:center;gap:4px">' +
+        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th) + '</select>' +
+        '<span style="color:#9ca3af">:</span>' +
+        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm) + '</select>' +
+      '</div>';
   });
   html += '</div>' +
       '<div style="display:flex;gap:8px;margin-top:18px">' +
@@ -6132,14 +6202,17 @@ function _openTimeBuilder(tr) {
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
   const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
-  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용
+  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용 (분은 10분 단위로 반올림)
   overlay.querySelector('#tb-same-time').addEventListener('click', () => {
     const t = prompt('모든 체크된 요일에 적용할 시간 (HH:MM):', '10:30');
     if (!t) return;
+    const [th, tm] = _tbTimeToParts(t);
     overlay.querySelectorAll('.tb-day:checked').forEach(chk => {
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      if (tin) tin.value = t;
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      if (hSel) hSel.value = th;
+      if (mSel) mSel.value = tm;
     });
   });
   overlay.querySelector('#tb-cancel').addEventListener('click', close);
@@ -6151,9 +6224,11 @@ function _openTimeBuilder(tr) {
     overlay.querySelectorAll('.tb-day').forEach(chk => {
       if (!chk.checked) return;
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      const t = (tin?.value || '').trim();
-      if (t) result.push({ day: code, time: t });
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      const h = hSel?.value || '';
+      const m = mSel?.value || '';
+      if (h !== '' && m !== '') result.push({ day: code, time: h + ':' + m });
     });
     // 행의 요일 체크박스 갱신
     tr.querySelectorAll('.en-row-day').forEach(chk => {
@@ -6670,6 +6745,69 @@ async function setEnrollmentStatus(id, status) {
     ? ((name ? name + ' — ' : '') + 'status changed to ' + label)
     : ((name ? name + ' ' : '') + '상태를 «' + label + '» 으로 바꿨습니다'));
   loadEnrollments();
+}
+
+/* 🗑️ (2026-08-21 사장님 지시) 수강신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 확정·활성화돼 실제
+      수업(class_schedules.source='adm-enroll:<id>')이 생긴 건은 삭제 전에 그 수업을
+      먼저 cancelled 로 정리한다(레벨테스트 삭제와 같은 이유). */
+async function enDeleteOne(id) {
+  const en = (adminLang === 'en');
+  const cur = _enItems.find(x => String(x.id) === String(id)) || {};
+  const name = cur.student_name ? String(cur.student_name) : '';
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this enrollment' : '이 수강신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id, { method: 'DELETE', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadEnrollments(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
+/* 🗑️ 화면에 지금 «보이는» 항목(검색·상태 필터가 걸려 있으면 그것만) 전체 삭제.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 IN 바인드 한도) — 그 이상이면 나눠서 다시 누르게 안내. */
+async function enDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const q = String(_enQuery || '').trim().toLowerCase();
+  const sel = document.getElementById('en-status-filter');
+  const fs = sel ? sel.value : '';
+  let rows = _enItems;
+  if (fs) rows = rows.filter(it => String(it.status || '') === fs);
+  if (q) rows = rows.filter(it => (
+    String(it.student_name || '').toLowerCase().includes(q) ||
+    String(it.student_user_id || '').toLowerCase().includes(q) ||
+    String(it.package || '').toLowerCase().includes(q) ||
+    String(it.teacher_name || '').toLowerCase().includes(q)
+  ));
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(it => it.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' enrollment(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 수강신청을 삭제할까요? 되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  _enToast(en ? (n + ' enrollment(s) deleted') : (n + '건 삭제했습니다'));
+  loadEnrollments();
+  if (rows.length > 90) {
+    alert(en ? 'More than 90 matched — press the button again for the rest.' : '90건이 넘게 걸려서 나머지는 다시 눌러 주세요.');
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -14324,6 +14462,10 @@ window.rebuildGlobalSearchIndex = function() {
     else if (role === 'mgr' || role === 'manager') role = 'hq_mgr';
     const isExec = role === 'hq_exec';
     const isMgrOrUp = isExec || role === 'hq_mgr';
+    // 🗑️ (2026-08-21) 레벨테스트 신청 삭제 버튼 노출 판정에 재사용 — 본사(경영진·관리자)만.
+    //   서버(api-admin.ts DELETE /api/admin/leveltest/applications)가 이미 같은 조건으로 403 을
+    //   던진다. 여기서 감추는 것은 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐 — 보안은 서버 쪽.
+    window._isHqMgrOrUp = isMgrOrUp;
     const isHQ = role && role.startsWith('hq');
     const isBranchUp = isHQ || role === 'branch';
     const isAgencyUp = isBranchUp || role === 'agency';

@@ -4956,9 +4956,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       };
       const isoOf = (d: Date) => d.toISOString().slice(0, 10);
       const weekParam = url.searchParams.get('week');
+      /* 🕘 (2026-08-21) `?week=` 없이 열면(기본 = "이번 주") 서버 UTC 시각을 그대로 썼다.
+         KST 는 UTC+9 라 UTC 15:00~23:59(=KST 00:00~08:59, 하루 중 9시간)에는 "오늘"이
+         이미 KST 로는 다음 날로 넘어갔는데 여기만 하루 전 요일로 주를 나눴다 — 그 창에서는
+         매니저 '오늘 수업'(/api/admin/classes/today, KST 로 계산)과 이 강사 스케줄 캘린더가
+         서로 다른 요일을 "오늘"로 보고 반복수업(day_of_week)을 서로 다른 칸에 꽂았다.
+         2026-08-06 에 매니저 '오늘 수업' 쪽에서 겪은 것과 같은 뿌리(KST 미보정) — 그때 고친
+         세 곳(학생·강사·매니저 경로)에 이 강사 스케줄만 빠져 있었다. */
+      const KST_MS = 9 * 60 * 60 * 1000;
       const start = (weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam))
         ? mondayOf(new Date(weekParam + 'T00:00:00Z'))
-        : mondayOf(new Date());
+        : mondayOf(new Date(Date.now() + KST_MS));
       const dowKey = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const weekDates: string[] = [];
       const dateToDow: Record<string, string> = {};
@@ -8866,6 +8874,63 @@ LIMIT $limit`;
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
         return json({ ok: true, items, pending });
       }
+      /* 🗑️ DELETE — 신청 삭제 (2026-08-21, 사장님 지시: 레벨테스트 신청현황의 데모 항목 정리)
+         ⛔ 본사만. `canEditOrg()` 는 강사(scope 'none')까지 통과시키는 함정이 있어(CLAUDE.md
+            trap) 쓰지 않는다 — 다른 "본사만" 엔드포인트와 같은 role==='hq'|'staff' 패턴.
+         ⚠️ 되돌릴 수 없다. 연결된 수업(schedule_id)이 있으면 삭제 전에 먼저 cancelled 로
+            정리한다 — 신청서만 지우면 강사·학생 달력에 담당 없는 유령 수업이 남는다
+            (위 「취소했는데 수업은 살아 있다」 사고와 같은 뿌리). */
+      if (method === 'DELETE') {
+        const actor = await getAdminActor(request, env as any);
+        if (!actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+          return json({ ok: false, error: 'forbidden_scope', message: '레벨테스트 신청 삭제는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can delete level-test applications.' }, 403);
+        }
+        const delBody: any = await parseJsonBody(request).catch(() => null);
+        const idsParam = url.searchParams.get('ids') || url.searchParams.get('id');
+        let ids: number[] = [];
+        if (delBody && Array.isArray(delBody.ids)) ids = delBody.ids.map((x: any) => Number(x));
+        else if (delBody && delBody.id != null) ids = [Number(delBody.id)];
+        else if (idsParam) ids = idsParam.split(',').map((s: string) => Number(s.trim()));
+        ids = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
+        if (!ids.length) return invalidBody(['ids']);
+        if (ids.length > 90) return json({ ok: false, error: 'too_many', message: '한 번에 최대 90건까지 삭제할 수 있습니다.' }, 400);
+
+        let actorName = 'admin';
+        try { if (actor.name) actorName = actor.name; } catch {}
+        const deleted: number[] = [];
+        const notFound: number[] = [];
+        for (const id of ids) {
+          const appRow: any = await env.DB.prepare(
+            `SELECT id, schedule_id, student_name, desired_date, desired_time, assigned_teacher FROM leveltest_applications WHERE id = ? LIMIT 1`
+          ).bind(id).first();
+          if (!appRow) { notFound.push(id); continue; }
+          if (appRow.schedule_id) {
+            try {
+              const sched: any = await env.DB.prepare(
+                `SELECT id, status FROM class_schedules WHERE id = ? LIMIT 1`
+              ).bind(Number(appRow.schedule_id)).first();
+              if (sched && String(sched.status || 'active') !== 'cancelled') {
+                await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`)
+                  .bind(Date.now(), Number(sched.id)).run();
+              }
+            } catch (e: any) { console.warn('[leveltest delete] schedule cancel skipped:', e?.message || e); }
+          }
+          try {
+            await writeClassAudit(env, {
+              action: 'delete', schedule_id: appRow.schedule_id || null,
+              teacher_name: appRow.assigned_teacher || null,
+              student_name: appRow.student_name || null,
+              lesson_date: appRow.desired_date || null, lesson_time: appRow.desired_time || null,
+              actor: actorName, actor_role: 'admin', source: 'leveltest_app',
+              reason: '레벨테스트 신청 삭제 (연결 수업 취소 처리)',
+              detail: JSON.stringify({ app_id: id }),
+            });
+          } catch {}
+          await env.DB.prepare(`DELETE FROM leveltest_applications WHERE id = ?`).bind(id).run();
+          deleted.push(id);
+        }
+        return json({ ok: true, deleted, not_found: notFound });
+      }
       // POST → 상태/배정/메모 업데이트
       const b = await parseJsonBody(request);
       if (!b || !b.id) return invalidBody(['id']);
@@ -9390,6 +9455,55 @@ LIMIT $limit`;
       if (!allowed.has(b.status)) return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
       await env.DB.prepare(`UPDATE enrollments SET status = ?, updated_at = ? WHERE id = ?`).bind(b.status, Date.now(), id).run();
       return json({ ok: true, id, status: b.status });
+    }
+
+    /* 🗑️ DELETE — 수강신청 삭제 (2026-08-21, 사장님 지시: 수강신청 목록의 데모 항목 정리)
+       ⛔ 본사만. `canEditOrg()`는 강사(scope 'none')까지 통과시키는 함정이 있어(CLAUDE.md
+          trap) 쓰지 않는다 — 위 leveltest_applications 삭제와 같은 role==='hq'|'staff' 패턴.
+       ⚠️ 되돌릴 수 없다. 확정·활성화된 신청은 enroll-activate.ts 가
+          `class_schedules.source = 'adm-enroll:<id>'` 로 실제 수업을 만든다 — 신청서만
+          지우면 강사·학생 달력에 담당 없는 유령 수업이 남는다. 삭제 전에 그 수업들을
+          먼저 cancelled 로 정리한다(위 레벨테스트 삭제와 같은 이유). */
+    if (method === 'DELETE' && (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+$/.test(path))) {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok || actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden_scope', message: '수강신청 삭제는 본사만 할 수 있습니다.', message_en: 'Only HQ accounts can delete enrollments.' }, 403);
+      }
+      const pathId = path.match(/^\/api\/admin\/enrollments\/(\d+)$/);
+      const delBody: any = await parseJsonBody(request).catch(() => null);
+      const idsParam = url.searchParams.get('ids') || url.searchParams.get('id');
+      let ids: number[] = [];
+      if (pathId) ids = [Number(pathId[1])];
+      else if (delBody && Array.isArray(delBody.ids)) ids = delBody.ids.map((x: any) => Number(x));
+      else if (delBody && delBody.id != null) ids = [Number(delBody.id)];
+      else if (idsParam) ids = idsParam.split(',').map((s: string) => Number(s.trim()));
+      ids = Array.from(new Set(ids.filter((n) => Number.isFinite(n) && n > 0)));
+      if (!ids.length) return invalidBody(['id']);
+      if (ids.length > 90) return json({ ok: false, error: 'too_many', message: '한 번에 최대 90건까지 삭제할 수 있습니다.' }, 400);
+
+      let actorName = 'admin';
+      try { if (actor.name) actorName = actor.name; } catch {}
+      const deleted: number[] = [];
+      const notFound: number[] = [];
+      for (const id of ids) {
+        const row: any = await env.DB.prepare(`SELECT id, student_name FROM enrollments WHERE id = ? LIMIT 1`).bind(id).first();
+        if (!row) { notFound.push(id); continue; }
+        try {
+          await env.DB.prepare(`UPDATE class_schedules SET status='cancelled', updated_at=? WHERE source = ? AND status != 'cancelled'`)
+            .bind(Date.now(), 'adm-enroll:' + id).run();
+        } catch (e: any) { console.warn('[enrollments delete] schedule cancel skipped:', e?.message || e); }
+        try {
+          await writeClassAudit(env, {
+            action: 'delete', student_name: row.student_name || null,
+            actor: actorName, actor_role: 'admin', source: 'enrollment',
+            reason: '수강신청 삭제 (연결 수업 취소 처리)',
+            detail: JSON.stringify({ enrollment_id: id }),
+          });
+        } catch {}
+        await env.DB.prepare(`DELETE FROM enrollments WHERE id = ?`).bind(id).run();
+        deleted.push(id);
+      }
+      return json({ ok: true, deleted, not_found: notFound });
     }
 
     // ─── 커뮤니티 게시글 ──────────────────────────────────────────────────

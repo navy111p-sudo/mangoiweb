@@ -8171,6 +8171,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
              data-en-ph="Student · ID · package · teacher"
              style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;min-width:200px;" />
       <button id="en-refresh-btn" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;" data-ko="새로고침" data-en="Refresh">새로고침</button>
+      <!-- 🗑️ (2026-08-21) 지금 보이는(필터·검색 적용) 항목 전체 삭제 — 본사(경영진·관리자)만.
+           서버가 같은 조건으로 403 을 던지므로, JS(_renderEnrollments)가 window._isHqMgrOrUp
+           일 때만 보이게 켠다. 기본은 숨김(모르는 역할은 막는 쪽). -->
+      <button id="en-delete-all-btn" onclick="enDeleteAllVisible()" style="display:none;padding:5px 12px;font-size:12px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;" data-ko="🗑️ 보이는 항목 전체 삭제" data-en="🗑️ Delete all visible">🗑️ 보이는 항목 전체 삭제</button>
     </div>
     <table data-gc="📋 신청 목록" data-gc-en="Enrollment List"><thead><tr><th data-ko="신청일" data-en="Created">신청일</th><th data-ko="학생" data-en="Student">학생</th><th data-ko="패키지" data-en="Package">패키지</th><th data-ko="월 수강료" data-en="Monthly Fee">월 수강료</th><th data-ko="상태" data-en="Status">상태</th><th data-ko="액션" data-en="Actions">액션</th></tr></thead>
       <tbody id="enrollments-table"><tr><td colspan="6" class="empty">—</td></tr></tbody></table>
@@ -9318,7 +9322,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=143" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=147" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=134: 2026-08-19 대리점(학원) 신규 등록 폼에 로그인 아이디·비밀번호 — addCenter() 가
      서버에 login_username/login_password 를 함께 보내고, 실패 시 서버 message 를 그대로 띄운다.
      이 작업도 v=132 를 썼는데 main 이 먼저 v=133 을 가져가서 번호를 새로 딴다
@@ -11726,13 +11730,13 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 
 
 <!-- Phase 120 admin (2026-05-25) — 홈 버튼 관리자 상단 이동 + 학원별 수업현황 검색 실제 작동 -->
-<script src="/js/adm-r23.js?v=2" defer></script><!-- 분할추출:adm-r23 -->
+<script src="/js/adm-r23.js?v=3" defer></script><!-- 분할추출:adm-r23 -->
 
 
 <!-- Phase 121 admin (2026-05-25) — 검색 결과 통계 박스 가독성 강화 -->
 
 
-<script src="/js/adm-s14.js?v=3" defer></script><!-- 분할추출:adm-s14 -->
+<script src="/js/adm-s14.js?v=4" defer></script><!-- 분할추출:adm-s14 -->
 
 
 <!-- Phase 122 admin (2026-05-25) — 학생 이름 클릭 시 상세보기 페이지로 이동 -->
