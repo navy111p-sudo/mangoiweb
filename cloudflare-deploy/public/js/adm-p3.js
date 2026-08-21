@@ -109,7 +109,7 @@
     "학생 수업 평가": "Student Class Ratings",
     "학생·학부모 자료실": "Student·Parent Library",
     "학원 수": "Academies",
-    "학원 전체 스케줄": "Academy Full Schedule",
+    "전체 스케줄": "All Schedules",
     "학원별 학생 수업현황": "Attendance by School",
     "학원별 학생 수업현황 (SLP 출석 통계)": "Attendance Stats by Academy (SLP)",
     "현재 역할": "Current Role",
@@ -227,7 +227,7 @@
     '📢 공지 스튜디오': '📢 Notice Studio',
     '📢 팝업 게시': '📢 Popup Posting',
     '📅 캘린더 관리': '📅 Calendar Management',
-    '📅 학원 전체 스케줄': '📅 Academy Full Schedule',
+    '📅 전체 스케줄': '📅 All Schedules',
 
     // === ph125 손자 메뉴 누락 보강 (2026-07-10) ===
     'QR 생성': 'Generate QR',

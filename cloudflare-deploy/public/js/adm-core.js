@@ -13805,7 +13805,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-auto-attendance', name_ko: '자동 출석 체크',            name_en: 'Auto Attendance',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-class-attendance', name_ko: '수업별 출석부',            name_en: 'Class Attendance Sheet',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-calendar',    name_ko: '📅 캘린더 관리 🆕',              name_en: 'Calendar Management',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
-      { id: 'all_schedules',    name_ko: '📅 학원 전체 스케줄 🆕',         name_en: 'All Academy Schedules',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
+      { id: 'all_schedules',    name_ko: '📅 전체 스케줄 🆕',              name_en: 'All Schedules',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
     ]},
     // 🆕 📚 자료실 — 대상별 방(사용설명서·동영상·매뉴얼). card-lib-* 는 사이드바 카드에 1:1 자동 반영
     { group_ko: '📚 자료실 (사용설명서 · 매뉴얼)', group_en: '📚 Library (Manuals)', items: [
