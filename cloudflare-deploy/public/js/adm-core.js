@@ -3942,7 +3942,7 @@ async function loadCenters(opts) {
     return loadCenters({ offset: Math.max(0, _ctState.total - _ctState.limit) });
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="7" class="empty">'
+    tb.innerHTML = '<tr><td colspan="8" class="empty">'
       + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
@@ -3956,8 +3956,25 @@ async function loadCenters(opts) {
       style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:${cur?'#eff6ff':'#fff'};color:${cur?'#1d4ed8':'#6b7280'};font-weight:${cur?'700':'400'}">`
       + opt('', '미지정', 'None') + opt('B2B', 'B2B', 'B2B') + opt('B2C', 'B2C', 'B2C') + '</select>';
   };
+  /* 💰 (2026-08-22) 주 1회 수강료 — 사장님 확인 단가.
+       표준 30,000원 = 본사 18,000(60%) + 대리점 12,000(40%). 주 2·3·5회는 배수라 비율 동일.
+       더 받는 곳(예: 40,000원)은 **추가분을 대리점이 다 가짐** → 본사는 18,000원 고정.
+       그래서 요율은 손으로 적지 않고 «18,000 ÷ 수강료» 로 서버가 낸다(40,000 → 45%).
+     ⚠️ 안 정한 곳은 값이 비어서 온다. 그때 30,000 을 «저장된 값처럼» 보여 주면
+        사람이 정한 것과 기본값을 구분할 수 없다 → 회색 placeholder 로만 보여 준다. */
+  const _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
+  const _tuCell = c => {
+    const v = (c.tuition_krw == null || c.tuition_krw === '') ? '' : Number(c.tuition_krw);
+    const eff = Math.round((_CT_HQ_UNIT / (v || _CT_STD_TUITION)) * 1000) / 10;   // 본사 요율 %
+    const tip = (adminLang==='en' ? 'Weekly-1 tuition. Empty = standard 30,000. HQ margin = 18,000 / tuition'
+                                  : '주 1회 수강료. 비우면 표준 30,000원. 본사 마진 = 18,000 ÷ 수강료 (지금 ' + eff.toFixed(1) + '%)');
+    return `<input type="number" min="${_CT_HQ_UNIT}" step="1000" value="${v}" placeholder="${_CT_STD_TUITION}"
+      onchange="ctSetTuition(${Number(c.id)},this)" data-prev="${v}" data-name="${_esc(c.name)}" title="${tip}"
+      style="width:96px;padding:2px 6px;font-size:12px;text-align:right;border:1px solid ${v?'#7c3aed':'#d1d5db'};border-radius:6px;background:${v?'#f5f3ff':'#fff'};color:${v?'#5b21b6':'#6b7280'};font-weight:${v?'700':'400'}">
+      <span style="font-size:10px;color:#9ca3af"> ${eff.toFixed(0)}%</span>`;
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
@@ -3987,6 +4004,35 @@ async function ctSetPayType(id, sel) {
   loadCenters();
 }
 window.ctSetPayType = ctSetPayType;
+
+/* 💰 수강료 저장 — 서버가 이 값으로 «본사 요율» 을 계산해 정산에 바로 반영한다.
+   비우고 저장하면 설정을 지워 표준 30,000원(=60%)으로 돌아간다.
+   ⚠️ 실패하면 화면 값을 되돌리고 알린다 — 조용한 반쪽 성공 금지(결제유형 저장과 같은 규칙). */
+async function ctSetTuition(id, inp) {
+  const prev = inp.getAttribute('data-prev') || '';
+  const name = inp.getAttribute('data-name') || '';
+  const raw = String(inp.value || '').trim();
+  const en = (adminLang === 'en');
+  if (!name) { alert(en ? 'Agency name missing' : '대리점 이름을 알 수 없습니다'); inp.value = prev; return; }
+  const body = raw === ''
+    ? { scope_type: 'agency', scope_key: name, reset: true }              // 비우면 표준값으로
+    : { scope_type: 'agency', scope_key: name, tuition_krw: Number(raw) };
+  try {
+    const r = await fetch('/api/admin/settlement/rate-config', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+  } catch (e) {
+    inp.value = prev;
+    alert((en ? 'Failed to save tuition: ' : '수강료 저장 실패: ') + e.message);
+    return;
+  }
+  // 저장되면 옆의 «요율 %» 표시가 이미 틀렸다 → 그 행만 다시 그리려 하지 말고 목록을 새로 받는다
+  loadCenters();
+}
+window.ctSetTuition = ctSetTuition;
 
 // 💳 (2026-08-14) 결제유형 필터 버튼 + 유형별 건수.
 //    ⚠️ hover 강조는 «색만» — 크기·위치를 움직이면 안 된다(CLAUDE.md 1-3 «정신없다»고 제거된 것).

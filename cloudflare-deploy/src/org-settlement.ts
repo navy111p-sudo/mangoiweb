@@ -95,6 +95,33 @@ const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
    실제로 2026-08-18 에 그런 상태였다(정산관리 60% vs 정산서 15% 하드코딩).
    복사하지 말고 이것을 부를 것. */
 export const DEFAULT_HQ_RATE = 0.60;        // 본사 마진 기본 60%
+
+/* 💰 수강료 표준 단가 (2026-08-22 사장님·직원 확인)
+   주 1회 기준:
+     · 홈페이지 대외가 60,000원 → 가맹 학원은 대체로 50% 할인 → 소비자가 30,000원
+     · 30,000원 중 18,000원이 본사 마진(60%) · 12,000원이 가맹점 수수료(40%)
+     · 주 2·3·5회는 주 1회의 «배수» — 비율이라 그대로 따라온다
+
+   🔑 대리점이 표준보다 더 받는 경우(예: 40,000원)의 배분은 **「추가분은 전액 대리점」**이다.
+      본사는 표준가에 붙은 18,000원만 가져간다. 그래서 요율은 «고정»이 아니라
+      수강료에서 파생된다:
+
+          본사 요율 = HQ_UNIT_KRW ÷ 그 대리점 수강료
+            30,000원 → 60.0%      40,000원 → 45.0%
+
+   ⚠️ 이 방식을 택한 이유 — 요율을 사람이 직접 적게 하면 「40,000원 받는 곳은 45%」를
+      매번 손으로 계산해야 하고, 한 번 틀리면 가맹점에 보내는 정산서가 틀린다.
+      수강료만 적게 하고 요율은 기계가 내도록 했다.
+   ⚠️ 가맹점을 코드에 특정하지 않는다(사장님 지시). 추가로 받는 곳이 새로 생겨도
+      코딩 없이 화면에서 그 대리점 수강료만 고치면 된다. */
+export const STANDARD_TUITION_KRW = 30000;   // 주 1회 표준 소비자가
+export const HQ_UNIT_KRW = 18000;            // 그중 본사 몫 (= 30,000 × 60%)
+/** 수강료 → 본사 마진율. 표준가면 정확히 DEFAULT_HQ_RATE 가 나온다. */
+export function hqRateFromTuition(tuitionKrw: number): number | null {
+  const t = Math.round(Number(tuitionKrw));
+  if (!Number.isFinite(t) || t < HQ_UNIT_KRW) return null;   // 본사 단가보다 싼 수강료는 성립하지 않는다
+  return Math.min(1, HQ_UNIT_KRW / t);
+}
 const DEFAULT_BRANCH_RATE = 0.40;    // 지점 수수료 기본 40% (= 1 - DEFAULT_HQ_RATE)
 const RATE_MIN = 0, RATE_MAX = 1;    // 수동 설정 허용 범위(0~100%)
 const clampRate = (r: number) => {
@@ -130,6 +157,22 @@ function nextSettlementDate(period: string): string {
   return `${ny}-${String(nm).padStart(2, '0')}-15`;
 }
 
+/* 🧾 수수료·수강료 «수동 설정» 표 — DDL 은 여기 한 벌뿐이다.
+   ⚠️ export 인 이유: 대리점 목록(api-admin.ts /api/admin/centers)이 이 표를 조인해
+      수강료를 함께 내려주는데, 표가 없는 환경에서 그 조회가 통째로 실패하면
+      **대리점 목록 화면이 깨진다.** 그래서 그쪽도 조회 전에 이것을 부른다.
+      DDL 을 복사해 두 벌로 만들면 언젠가 어긋난다. */
+export async function ensureRateOverrideTable(env: Env): Promise<void> {
+  await safe(async () => {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS settlement_rate_override (scope_type TEXT NOT NULL, scope_key TEXT NOT NULL, hq_rate REAL NOT NULL, note TEXT, updated_at INTEGER NOT NULL, updated_by TEXT, PRIMARY KEY (scope_type, scope_key))`);
+    return true;
+  }, false);
+  /* 💰 수강료 칸 (2026-08-22 추가). 이미 있는 표에는 ADD COLUMN 으로 붙인다 —
+     CREATE TABLE IF NOT EXISTS 는 «이미 있으면 아무것도 안 하므로» 칸이 안 생긴다.
+     ⚠️ 이미 붙어 있으면 duplicate column 오류가 나는데 그게 정상이라 삼킨다. */
+  await safe(async () => { await env.DB.exec(`ALTER TABLE settlement_rate_override ADD COLUMN tuition_krw INTEGER`); return true; }, false);
+}
+
 // ── 스키마 보장 + 라벨에서 그래프 트리 자동 구성 ────────────────────────────
 async function ensureSchema(env: Env): Promise<void> {
   await safe(async () => {
@@ -150,7 +193,7 @@ async function ensureSchema(env: Env): Promise<void> {
        scope_key  = 그 이름 — students_erp.franchise / shop_name 라벨과 같은 문자열
        hq_rate    = 본사 마진 비율(0~1). 지점 수수료 = 1 - hq_rate */
   await safe(async () => {
-    await env.DB.exec(`CREATE TABLE IF NOT EXISTS settlement_rate_override (scope_type TEXT NOT NULL, scope_key TEXT NOT NULL, hq_rate REAL NOT NULL, note TEXT, updated_at INTEGER NOT NULL, updated_by TEXT, PRIMARY KEY (scope_type, scope_key))`);
+    await ensureRateOverrideTable(env);
     return true;
   }, false);
 }
@@ -656,28 +699,45 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
         }, false);
         if (!okDel) return err('reset failed', 500);
         return json({ ok: true, reset: true, scope_type: scopeType, scope_key: scopeKey,
-                      hq_rate: DEFAULT_HQ_RATE, branch_rate: DEFAULT_BRANCH_RATE });
+                      hq_rate: DEFAULT_HQ_RATE, branch_rate: DEFAULT_BRANCH_RATE,
+                      tuition_krw: STANDARD_TUITION_KRW });
       }
 
-      // 지점 수수료(branch_rate)나 본사 마진(hq_rate) 중 «온 쪽» 을 받아 본사 마진으로 환산.
+      /* 요율을 정하는 길이 셋이다. 우선순위는 «수강료» 가 가장 높다 —
+         수강료를 적어 주면 요율은 기계가 낸다(사람이 45% 를 손으로 계산하지 않게).
+           ① tuition_krw : 주 1회 수강료 → 본사 요율 = 18,000 ÷ 수강료
+           ② hq_rate     : 본사 마진율 직접
+           ③ branch_rate : 지점 수수료율 직접 (1 - 그 값) */
       let rate: number | null = null;
-      if (b?.hq_rate != null) rate = toRate(b.hq_rate);
+      let tuition: number | null = null;
+      if (b?.tuition_krw != null && String(b.tuition_krw).trim() !== '') {
+        const t = Math.round(Number(b.tuition_krw));
+        if (!Number.isFinite(t) || t <= 0) return err('tuition_krw 는 0보다 큰 금액이어야 합니다');
+        rate = hqRateFromTuition(t);
+        if (rate == null) {
+          return err(`수강료가 본사 단가(${HQ_UNIT_KRW.toLocaleString('ko-KR')}원)보다 작을 수 없습니다 — 받은 값 ${t.toLocaleString('ko-KR')}원`);
+        }
+        tuition = t;
+      }
+      else if (b?.hq_rate != null) rate = toRate(b.hq_rate);
       else if (b?.branch_rate != null) { const br = toRate(b.branch_rate); rate = br == null ? null : clampRate(1 - br); }
-      if (rate == null) return err('hq_rate or branch_rate required (0~1 비율 또는 0~100 퍼센트)');
+      if (rate == null) return err('tuition_krw, hq_rate, branch_rate 중 하나가 필요합니다 (요율은 0~1 비율 또는 0~100 퍼센트)');
 
       const okUp = await safe(async () => {
         await env.DB.prepare(`
-          INSERT INTO settlement_rate_override (scope_type, scope_key, hq_rate, note, updated_at, updated_by)
-          VALUES (?,?,?,?,?,?)
+          INSERT INTO settlement_rate_override (scope_type, scope_key, hq_rate, tuition_krw, note, updated_at, updated_by)
+          VALUES (?,?,?,?,?,?,?)
           ON CONFLICT(scope_type, scope_key) DO UPDATE SET
-            hq_rate=excluded.hq_rate, note=excluded.note, updated_at=excluded.updated_at, updated_by=excluded.updated_by
-        `).bind(scopeType, scopeKey, rate, String(b?.note || '').slice(0, 200) || null, Date.now(), who).run();
+            hq_rate=excluded.hq_rate, tuition_krw=excluded.tuition_krw, note=excluded.note,
+            updated_at=excluded.updated_at, updated_by=excluded.updated_by
+        `).bind(scopeType, scopeKey, rate, tuition, String(b?.note || '').slice(0, 200) || null, Date.now(), who).run();
         return true;
       }, false);
       if (!okUp) return err('save failed', 500);
       return json({ ok: true, scope_type: scopeType, scope_key: scopeKey,
                     hq_rate: Math.round(rate * 10000) / 10000,
-                    branch_rate: Math.round((1 - rate) * 10000) / 10000, updated_by: who });
+                    branch_rate: Math.round((1 - rate) * 10000) / 10000,
+                    tuition_krw: tuition, hq_unit_krw: HQ_UNIT_KRW, updated_by: who });
     }
 
     // ── GET /tree : 조직 그래프 트리 ──

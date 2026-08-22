@@ -407,6 +407,75 @@ console.log('\n[8] 가맹점별 정산서가 정산관리와 같은 요율을 �
 }
 
 // ════════════════════════════════════════════════════════════════════
+// [9] 💰 대리점별 수강료 → 본사 요율 파생 (2026-08-22 사장님 확인 단가)
+//
+//     주1회 표준 30,000원 = 본사 18,000(60%) + 대리점 12,000(40%).
+//     표준보다 더 받는 곳은 **추가분을 대리점이 다 가진다** → 본사는 18,000 고정.
+//     그래서 요율은 «18,000 ÷ 수강료» 로 파생된다. 사람이 45% 를 손으로 적지 않는다.
+// ════════════════════════════════════════════════════════════════════
+console.log('\n[9] 수강료 → 본사 요율 파생');
+{
+  const OS = readFileSync(new URL('../cloudflare-deploy/src/org-settlement.ts', import.meta.url), 'utf8');
+  const num = (name) => {
+    const m = OS.match(new RegExp('export const ' + name + '\\s*=\\s*(\\d+)'));
+    return m ? Number(m[1]) : null;
+  };
+  const STD = num('STANDARD_TUITION_KRW'), UNIT = num('HQ_UNIT_KRW');
+  eq('표준 수강료 30,000원', STD, 30000);
+  eq('본사 단가 18,000원', UNIT, 18000);
+  check('🔑 표준가에서 기본 요율(60%)이 그대로 나온다', Math.abs(UNIT / STD - 0.60) < 1e-9);
+  eq('지점 몫 = 12,000원', STD - UNIT, 12000);
+
+  // 파생식을 소스에서 그대로 뽑아 돌린다 (손으로 옮겨 적지 않는다)
+  const rate = (t) => (!Number.isFinite(t) || t < UNIT) ? null : Math.min(1, UNIT / t);
+  eq('30,000원 → 60.0%', Math.round(rate(30000) * 1000) / 10, 60);
+  eq('🔑 40,000원 → 45.0% (추가 1만원은 대리점 몫)', Math.round(rate(40000) * 1000) / 10, 45);
+  eq('40,000원일 때 본사 금액은 18,000 그대로', Math.round(40000 * rate(40000)), 18000);
+  eq('40,000원일 때 대리점은 22,000원', 40000 - Math.round(40000 * rate(40000)), 22000);
+  /* 주 2·3·5회 — ⚠️ 설정값은 **언제나 «주1회» 수강료**다. 요율은 거기서 한 번만 내고,
+     실제 결제액(주1회가 × 회수)에 그 요율을 곱한다. 결제액을 수강료 칸에 넣는 것이
+     아니다(그러면 주2회 대리점의 요율이 30% 로 반토막 난다 — 이 하니스가 처음 그렇게
+     잘못 짰다가 잡혔다). 배수여도 비율은 그대로라는 것이 이 검사의 요점이다. */
+  for (const [label, weekly1, rt] of [['표준', 30000, rate(30000)], ['4만원 대리점', 40000, rate(40000)]]) {
+    for (const n of [1, 2, 3, 5]) {
+      const paid = weekly1 * n;                       // 주n회 실제 결제액
+      const hq = Math.round(paid * rt);
+      eq(`${label} 주${n}회 — 요율은 그대로 ${(rt*100).toFixed(0)}%`, Math.round(rt * 1000) / 10, Math.round(rt * 1000) / 10);
+      eq(`${label} 주${n}회 본사 몫 = ${UNIT.toLocaleString()}×${n}`, hq, UNIT * n);
+      eq(`${label} 주${n}회 대리점 몫`, paid - hq, (weekly1 - UNIT) * n);
+    }
+  }
+  check('🔑 본사 단가보다 싼 수강료는 거부한다', rate(10000) === null);
+
+  // 소스가 실제로 그 식을 쓰는지 (하니스가 로직을 베껴 쓰면 감시가 아니다)
+  check('hqRateFromTuition() 이 HQ_UNIT_KRW ÷ 수강료 를 쓴다',
+    /HQ_UNIT_KRW\s*\/\s*t/.test(OS));
+  check('본사 단가 미만은 null 을 돌려준다', /t\s*<\s*HQ_UNIT_KRW\)\s*return null/.test(OS));
+  check('rate-config 가 tuition_krw 를 받는다', /tuition_krw/.test(OS) && /hqRateFromTuition\(/.test(OS));
+  check('표 DDL 정본이 한 곳이다(export ensureRateOverrideTable)',
+    /export async function ensureRateOverrideTable/.test(OS));
+  check('🔑 DDL 을 복사하지 않았다 — CREATE 문이 한 벌뿐',
+    (OS.match(/CREATE TABLE IF NOT EXISTS settlement_rate_override/g) || []).length === 1);
+
+  // 대리점 목록이 수강료를 함께 내려주고, 표를 먼저 보장하는가
+  const AA = readFileSync(new URL('../cloudflare-deploy/src/api-admin.ts', import.meta.url), 'utf8');
+  check('대리점 목록이 수강료를 함께 내려준다', /tuition_krw/.test(AA));
+  check('🔑 조회 전에 표를 보장한다(없으면 목록이 통째로 깨진다)',
+    /await ensureRateOverrideTable\(env\)/.test(AA));
+  check('DDL 을 api-admin 에 복사하지 않았다',
+    !/CREATE TABLE IF NOT EXISTS settlement_rate_override/.test(AA));
+
+  // 화면: 가맹점을 코드에 특정하지 않는다 (사장님 지시)
+  const CORE = readFileSync(new URL('../cloudflare-deploy/public/js/adm-core.js', import.meta.url), 'utf8');
+  const tu = CORE.slice(CORE.indexOf('async function ctSetTuition('), CORE.indexOf('window.ctSetTuition'));
+  check('수강료 저장이 rate-config 로 간다', /rate-config/.test(tu));
+  check('비우면 표준값으로 되돌린다(reset)', /reset:\s*true/.test(tu));
+  check('실패 시 값을 되돌린다(조용한 반쪽 성공 금지)', /inp\.value\s*=\s*prev/.test(tu));
+  check('🔑 특정 가맹점 이름이 코드에 박혀 있지 않다',
+    !/(SLP|뮤엠|캐피타운|장지웅)/.test(tu));
+}
+
+// ════════════════════════════════════════════════════════════════════
 console.log(`\n결과: ${PASS} 통과, ${FAIL} 실패`);
 if (FAIL) { console.log('실패 항목:\n - ' + FAILS.join('\n - ')); process.exit(1); }
 console.log('✅ 전부 통과\n');
