@@ -9,6 +9,7 @@
      기대값(2026-08-21 실측):
        B step0~3 = 1200/720/420/240kbps (기존과 동일) · step4 = 96kbps·5fps·1/4
        A OFF=all · ON=relay · TURN없음=all
+       C sev2=유지 · sev3+floor(false)=유지 · sev3+floor(true)=끔 · sev5=끔 · floor없음=유지
      ⚠️ manual/ 규약상 자동 게이트가 물어 가지 않는다. 화질단계·릴레이를 건드리면 사람이 부를 것. --><body><pre id="out">RUN</pre>
 <script>window.__e=[];window.onerror=function(m){window.__e.push(String(m))};</script>
 <script src="/js/idx-main.js?v=29"></script>
@@ -46,5 +47,19 @@ try {
   vcCreatePeer('probeNoTurn','nt');
   L.push('A TURN 없음 안전장치 → iceTransportPolicy=' + (vcPeerConnections['probeNoTurn'].getConfiguration().iceTransportPolicy||'(기본=all)'));
 } catch(e){ L.push('A THREW: '+e.message); }
+/* ⏱ AAO 가 최저 화질을 «써 본 뒤에만» 끄는가 */
+try {
+  vcCamOn = true;
+  window.vcLocalStream = { getVideoTracks: function(){ return [{enabled:true}] } };
+  window.vcBroadcastCamState = function(){};
+  [['sev=2 (임계 미만)', {active:false,sev:2,good:0,floor:true}],
+   ['sev=3 · 최저화질 아직 안 써봄', {active:false,sev:3,good:0,floor:false}],
+   ['sev=3 · 최저화질 적용됨', {active:false,sev:3,good:0,floor:true}],
+   ['sev=5 · 못 썼지만 심각', {active:false,sev:5,good:0,floor:false}],
+   ['floor 값 없음(sev=3)', {active:false,sev:3,good:0}]].forEach(function(t){
+    window.__vcAAO = t[1]; vcAAOApply();
+    L.push('C ' + t[0] + ' → ' + (window.__vcAAO.active ? '영상 끔' : '영상 유지'));
+  });
+} catch(e){ L.push('C THREW: ' + e.message); }
 document.getElementById('out').textContent=L.join('\n');
 </script></body>

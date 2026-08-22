@@ -5014,6 +5014,10 @@ function vcArmFullscreenRetry() {
                     if (alp > 12 || art > 600) { A.sev++; A.good = 0; }     // 오디오 12%↑ 손실/RTT 600ms↑ = 망 붕괴
                     else if (alp < 3) { A.good++; if (A.sev > 0) A.sev--; } // 회복
                     else { A.good = 0; }
+                    /* 📉 두 판정이 같은 4초 주기라, 급격한 붕괴에선 AAO(3틱)가 최저 화질(4틱)보다
+                       먼저 와서 «얼굴만» 단계가 한 번도 안 쓰인다. 2틱째에 미리 내려 8초를 벌어 준다. */
+                    if (A.sev >= 2 && (pc.__qStep || 0) < STEPS.length - 1) { pc.__qStep = STEPS.length - 1; applyStep(pc, pc.__qStep); }
+                    A.floor = (pc.__qStep || 0) >= STEPS.length - 1;
                     vcAAOApply();
                     // 📶 AAO 중엔 영상 통계가 없다 — 오디오 값으로 이어 적는다
                     if (A.active) { try { vcQualityAcc(alp, art); } catch (_) {} }
@@ -5028,7 +5032,7 @@ function vcArmFullscreenRetry() {
 function vcAAOApply() {
     const A = window.__vcAAO; if (!A) return;
     if (typeof vcCamOn === 'undefined') return;
-    if (!A.active && A.sev >= 3 && vcCamOn !== false) {
+    if (!A.active && A.sev >= 3 && (A.floor || A.sev >= 5) && vcCamOn !== false) {
         A.active = true;
         try { if (window.vcLocalStream) vcLocalStream.getVideoTracks().forEach(function(t){ t.enabled = false; }); } catch (_) {}
         try { if (window.vcBg && vcBg.isProcessing) { vcBg._aaoWas = true; vcBg.isProcessing = false; } } catch (_) {}
