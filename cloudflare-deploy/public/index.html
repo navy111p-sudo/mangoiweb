@@ -3729,17 +3729,20 @@
   @media (max-width:640px){
     .ht-glass{ -webkit-text-stroke-width:1.2px !important; letter-spacing:0.5px !important; transform:scaleX(1.1) !important; }
   }
-  /* 🥭 휴대폰에서만 새 로고로 — PC·태블릿은 위 골드 제목 그대로.
-     토글을 여기(제목 정본)에 두는 이유: mango-logo.css 가 늦게 와도 «무엇을 보일지» 는
-     첫 페인트부터 정해져 있어야 옛 제목이 잠깐 보였다 바뀌는 일이 없습니다. */
-  .ht-logo{ display:none !important; }
-  @media (max-width:640px){
-    .ht-glass{ display:none !important; }
-    .ht-logo{
-      display:inline-flex !important;
-      /* .home-title 의 clamp 를 물려받지 않게 로고 크기를 따로 정합니다 */
-      font-size: clamp(34px, 13.6vw, 64px) !important;
-    }
+  /* 🥭 홈 제목 = 새 로고 (2026-08-22 사장님 확정).
+     처음엔 «휴대폰에서만» 이었는데 같은 날 «휴대폰 가로도, PC 도 똑같이» 로 넓혔습니다.
+     그래서 폭 조건이 없습니다 — 어느 화면에서나 로고입니다.
+     옛 골드 외곽선 제목(.ht-glass)은 지우지 않고 숨겨만 뒀습니다. 되돌리려면 이 두
+     줄만 빼면 그대로 돌아옵니다.
+     이 토글을 여기(제목 정본)에 두는 이유: mango-logo.css 가 늦게 와도 «무엇을 보일지»
+     는 첫 페인트부터 정해져 있어야 옛 제목이 잠깐 보였다 바뀌지 않습니다. */
+  .ht-glass{ display:none !important; }
+  .ht-logo{
+    display:inline-flex !important;
+    /* .home-title 의 clamp 를 물려받지 않게 로고 크기를 따로 정합니다.
+       13.6vw 는 좁은 폰에서 화면 폭의 80% 가 되도록 맞춘 값이고,
+       80px 상한은 넓은 PC 에서 옛 제목과 비슷한 크기가 되는 지점입니다. */
+    font-size: clamp(34px, 13.6vw, 80px) !important;
   }
   /* 🚫 옛 요소 — 로딩 초반에 잠깐 보이던 것들. 첫 화면부터 숨긴다.
      (예전엔 이 숨김 CSS 가 문서 25,000줄쯤에 있어서 그 전까지 화면에 노출됐다) */
@@ -5812,17 +5815,15 @@ window.mgIsSlowNet = function(){
     </script>
     <!-- 🥭 Phase 8 — 우주 버블 안의 망고아이 마스코트 + 골드 세리프 타이틀 -->
     <div class="home-hero-stack" style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.4rem;position:relative;z-index:2;">
-      <div class="mascot-bubble" aria-hidden="false">
-        <img src="/img/Mangoi_Character.png" alt="Mangoi"
-             onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';"
-             class="mascot-img" loading="lazy" decoding="async"/>
-        <span class="mascot-shine"></span>
-        <span class="mascot-rim"></span>
-      </div>
+      <!-- (삭제됨 2026-08-22) 제목 위에 떠 있던 망고 마스코트(.mascot-bubble) —
+           새 로고의 «O» 자리에 같은 캐릭터가 들어가면서 화면에 망고가 둘이 됐습니다.
+           사장님 지시로 위쪽 것을 뺐습니다. 아래 .mascot-bubble·.mascot-img·
+           .mascot-shine·.mascot-rim·@keyframes mangoiFloat 규칙은 되살릴 때를 위해
+           남겨 뒀습니다(지금은 쓰는 곳이 없습니다). 왼쪽 우주인은 그대로입니다. -->
       <h1 id="home-subtitle" class="home-title" aria-label="MANGO AI">
         <span class="ht-glass">Mango Ai</span>
-        <!-- 휴대폰 전용. width/height 를 적어 두는 이유: CSS 가 늦게 오면 320px 원본
-             크기로 잠깐 그려져 화면이 크게 출렁입니다(그때 자리를 미리 잡아 둡니다) -->
+        <!-- width/height 를 적어 두는 이유: CSS 가 늦게 오면 320px 원본 크기로 잠깐
+             그려져 화면이 크게 출렁입니다(그때 자리를 미리 잡아 둡니다) -->
         <span class="ht-logo mango-logo">
           <span class="mango-logo__text">MANG</span>
           <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt="" width="60" height="48" decoding="async"></span>
