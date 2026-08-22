@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>MANGO AI 로고 — 미리보기</title>
+<!-- 한자 글꼴 통일(전 화면 공통) — hanzi_font_harness 규칙 -->
+<link rel="stylesheet" href="/css/mangoi-han.css">
+<!-- 정본은 /css/mango-logo.css 한 곳. 이 화면은 «보기만» 합니다 -->
+<link rel="stylesheet" href="/css/mango-logo.css?v=3">
+<style>
+  :root{ --pv-bg:#0B0D24; --pv-card:#141733; --pv-line:rgba(255,255,255,.10); --pv-dim:#9aa0c0; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; padding:28px 20px 64px;
+    background:var(--pv-bg); color:#e8ebff;
+    font-family:MangoiHanSC,-apple-system,BlinkMacSystemFont,'Segoe UI','Malgun Gothic','맑은 고딕',sans-serif;
+    line-height:1.6;
+  }
+  .pv-wrap{ max-width:900px; margin:0 auto; }
+  h1{ font-size:19px; margin:0 0 4px; font-weight:700; }
+  .pv-sub{ color:var(--pv-dim); font-size:13px; margin:0 0 26px; }
+  h2{ font-size:14px; margin:30px 0 10px; color:var(--pv-dim); font-weight:700; }
+
+  .pv-box{
+    background:var(--pv-card); border:1px solid var(--pv-line); border-radius:14px;
+    padding:26px 22px; margin-bottom:14px;
+    display:flex; align-items:center; justify-content:center;
+    min-height:112px;
+    /* 로고는 white-space:nowrap 이라 줄바꿈이 안 됩니다 → 좁은 폭에서는 «이 상자 안에서»
+       옆으로 굴러야 합니다. 안 그러면 문서 전체에 가로 스크롤이 생깁니다(CLAUDE.md 2장) */
+    overflow-x:auto; min-width:0;
+  }
+  .pv-box--light{ background:#FFFDF6; border-color:#e7dfc9; }
+  .pv-box--photo{ background:linear-gradient(135deg,#1b2a4a,#3d2a12); }
+
+  .pv-note{ color:var(--pv-dim); font-size:12.5px; margin:-6px 0 18px; }
+  .pv-note code{ background:rgba(255,255,255,.07); padding:1px 6px; border-radius:5px; font-size:12px; color:#ffd98a; }
+
+  .pv-sizes{ display:flex; flex-direction:column; align-items:flex-start; gap:22px; justify-content:flex-start; }
+  .pv-size-row{ display:flex; align-items:center; gap:16px; }
+  .pv-size-tag{ color:var(--pv-dim); font-size:12px; min-width:64px; flex:0 0 auto; }
+
+  .pv-code{
+    background:#0a0c1e; border:1px solid var(--pv-line); border-radius:10px;
+    padding:14px 16px; overflow-x:auto; font-size:12.5px; line-height:1.7;
+    color:#cbd2f5; white-space:pre; margin:0 0 8px;
+    font-family:MangoiHanSC,ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .pv-foot{ color:var(--pv-dim); font-size:12px; margin-top:34px; border-top:1px solid var(--pv-line); padding-top:16px; }
+</style>
+</head>
+<body>
+<div class="pv-wrap">
+
+  <h1>MANGO AI 로고 — 미리보기</h1>
+  <p class="pv-sub">정본은 <code style="color:#ffd98a">/css/mango-logo.css</code> 한 파일입니다. 이 화면은 확인용이라 기존 화면은 하나도 건드리지 않습니다.</p>
+
+  <h2>1. 기본 — 어두운 배경</h2>
+  <div class="pv-box">
+    <div class="mango-logo" role="img" aria-label="MANGO AI" style="font-size:56px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+  </div>
+  <p class="pv-note">기본 클래스만 씁니다 — <code>class="mango-logo"</code></p>
+
+  <h2>2. 밝은 배경 — <code style="color:#ffd98a">--ink</code> 로 대비 확보</h2>
+  <div class="pv-box pv-box--light">
+    <div class="mango-logo mango-logo--ink mango-logo--flat" role="img" aria-label="MANGO AI" style="font-size:56px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+  </div>
+  <p class="pv-note">흰 배경에서는 연노랑이 날아갑니다 → <code>mango-logo--ink</code> 로 진하게, <code>mango-logo--flat</code> 으로 빛번짐 끔(인쇄물도 이 조합)</p>
+
+  <h2>3. «AI»를 남색 알약으로 — <code style="color:#ffd98a">--pill</code></h2>
+  <div class="pv-box">
+    <div class="mango-logo mango-logo--pill" role="img" aria-label="MANGO AI" style="font-size:56px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text mango-logo__ai">AI</span>
+    </div>
+  </div>
+  <div class="pv-box pv-box--light">
+    <div class="mango-logo mango-logo--pill mango-logo--ink mango-logo--flat" role="img" aria-label="MANGO AI" style="font-size:56px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text mango-logo__ai">AI</span>
+    </div>
+  </div>
+  <p class="pv-note"><code>--mango-ink</code>(#0B0D24) 를 쓰는 변형입니다. 작게 넣을 때 «AI»가 뭉개지지 않습니다. ⚠️ 이 변형만은 «AI» 칸에 <code>&amp;nbsp;</code> 대신 <code>mango-logo__ai</code> 클래스를 주세요(알약 안에 빈칸이 들어갑니다)</p>
+
+  <h2>4. 사진·그라데이션 위</h2>
+  <div class="pv-box pv-box--photo">
+    <div class="mango-logo" role="img" aria-label="MANGO AI" style="font-size:56px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+  </div>
+
+  <h2>5. 크기 — font-size 하나만 바꿉니다</h2>
+  <div class="pv-box pv-sizes">
+    <div class="pv-size-row"><span class="pv-size-tag">96px</span>
+      <div class="mango-logo" role="img" aria-label="MANGO AI" style="font-size:96px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+    </div>
+    <div class="pv-size-row"><span class="pv-size-tag">38px<br><span style="font-size:11px">(기본)</span></span>
+      <div class="mango-logo" role="img" aria-label="MANGO AI">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+    </div>
+    <div class="pv-size-row"><span class="pv-size-tag">22px</span>
+      <div class="mango-logo" role="img" aria-label="MANGO AI" style="font-size:22px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+    </div>
+    <div class="pv-size-row"><span class="pv-size-tag">14px</span>
+      <div class="mango-logo mango-logo--flat" role="img" aria-label="MANGO AI" style="font-size:14px">
+      <span class="mango-logo__text">MANG</span>
+      <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt=""></span>
+      <span class="mango-logo__text">&nbsp;AI</span>
+    </div>
+    </div>
+  </div>
+  <p class="pv-note">14px 처럼 아주 작을 때는 빛번짐이 글자를 흐리게 하니 <code>--flat</code> 을 함께 쓰세요</p>
+
+  <h2>6. 붙여넣기용 마크업</h2>
+  <pre class="pv-code">&lt;link rel="stylesheet" href="/css/mango-logo.css?v=3"&gt;
+
+&lt;!-- ============ MANGO AI 로고 (부드러운 채움) ============ --&gt;
+&lt;div class="mango-logo" role="img" aria-label="MANGO AI"&gt;
+  &lt;span class="mango-logo__text"&gt;MANG&lt;/span&gt;
+  &lt;span class="mango-logo__o"&gt;
+    &lt;img src="/assets/mango-mascot.png" alt=""&gt;
+  &lt;/span&gt;
+  &lt;span class="mango-logo__text"&gt;&amp;nbsp;AI&lt;/span&gt;
+&lt;/div&gt;</pre>
+  <p class="pv-note">크기는 <code>style="font-size:56px"</code> 한 줄로. 읽어 주는 프로그램에는 <code>aria-label</code> 로 «MANGO AI» 한 덩어리로 들립니다</p>
+
+  <p class="pv-foot">
+    ⚠️ 이 로고를 <b>public/index.html(홈+화상수업)</b> 에는 걸지 마세요 — 그 화면은 첫 화면 용량 예산 여유가 거의 없고,
+    2026-07-23 에 구글 웹폰트를 일부러 뺀 화면입니다. 홈 제목을 바꾸는 것은 별건으로 사람이 결정할 일입니다.
+  </p>
+
+</div>
+</body>
+</html>
