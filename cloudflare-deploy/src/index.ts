@@ -3685,7 +3685,36 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
       advanced:      ['최고예요! 이제 더 어려운 도전을 해 볼까요? 🏆', 'Amazing! Ready for a harder challenge? 🏆'],
     };
     const m = MSG[focus] || MSG.keep_going;
-    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1] });
+
+    /* ⑥ 🎫 레벨테스트 «통과» 여부 — 게임 허브의 단계별 해금을 한 번에 여는 두 번째 열쇠
+       ────────────────────────────────────────────────────────────────
+       왜 여기에 얹었나: 게임 허브(student-games.html)는 이미 이 응답 하나를 받아
+         잠금 판정(_questApplyServer)에 쓰고 있다. 새 엔드포인트를 만들면 라우팅·인증
+         게이트에 또 등록해야 하고(CLAUDE.md 2장 «새 API 추가»), 허브가 요청을 한 번 더
+         보낸다. 같은 학생·같은 캐시(10분)에 실어 보내는 편이 실수할 자리가 적다.
+       판정 근거: 상담·예약 단계가 아니라 **결과가 확정된 것**만 통과로 본다.
+         · final_level 이 채워졌다 = 강사·본사가 레벨을 확정했다(관리자 화면의 «결과 확정»).
+         · status='done' = 레벨테스트 일정이 끝난 것으로 표시됐다.
+       ⛔ status='confirmed'(일정만 잡힘)를 통과로 세지 말 것 — 신청만 하고 안 본 학생까지
+          게임이 전부 열린다. 그러면 「레벨테스트로 바로 열기」가 «신청 버튼»이 되어 버린다.
+       표가 없는 계정(레벨테스트를 아예 안 만든 환경)에서는 조용히 false 로 둔다. */
+    let leveltestPassed = false;
+    let leveltestLevel: string | null = null;
+    try {
+      const lt: any = await env.DB.prepare(
+        `SELECT final_level, status FROM leveltest_applications
+          WHERE student_uid = ?
+            AND ( (final_level IS NOT NULL AND TRIM(final_level) <> '') OR status = 'done' )
+          ORDER BY updated_at DESC LIMIT 1`
+      ).bind(userId).first();
+      if (lt) {
+        leveltestPassed = true;
+        const lv = String(lt.final_level || '').trim();
+        leveltestLevel = lv || null;
+      }
+    } catch {}
+
+    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1], leveltest_passed: leveltestPassed, leveltest_level: leveltestLevel });
     try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, out, { expirationTtl: 600 }); } catch {}
     return new Response(out, { status: 200, headers: _MS_JSON });
   } catch (e: any) {
