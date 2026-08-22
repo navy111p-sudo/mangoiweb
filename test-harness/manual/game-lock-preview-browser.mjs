@@ -156,6 +156,10 @@ for (const [label, w, h] of [['휴대폰 390', 390, 844], ['태블릿 768', 768,
       needTxt: need ? need.textContent.trim() : '',
       ways: Array.prototype.map.call(ways, (b) => b.textContent.trim().slice(0, 26)),
       overlap: [], coveredTop: '', docOverflow: document.documentElement.scrollWidth > innerWidth,
+      dots: document.querySelectorAll('.pv-dots i').length,
+      shotW: (document.querySelector('.pv-media img') || {}).naturalWidth || 0,
+      shotSrc: ((document.querySelector('.pv-media img') || {}).getAttribute
+        ? document.querySelector('.pv-media img').getAttribute('src') : '') || '',
     };
     if (h2 && lock && hit(h2.getBoundingClientRect(), lock.getBoundingClientRect())) out.overlap.push('자물쇠 × 제목');
     if (dsc && lock && hit(dsc.getBoundingClientRect(), lock.getBoundingClientRect())) out.overlap.push('자물쇠 × 설명');
@@ -175,6 +179,10 @@ for (const [label, w, h] of [['휴대폰 390', 390, 844], ['태블릿 768', 768,
   check('여는 방법이 두 가지 나온다', pv.ways.length === 2, JSON.stringify(pv.ways));
   check('그중 하나가 레벨테스트다', pv.ways.some((t) => t.indexOf('레벨테스트') >= 0), JSON.stringify(pv.ways));
   check('미리보기 창이 가로로 안 넘친다', !pv.docOverflow);
+  /* 🎞 슬라이드 — 실제 플레이 화면 2장이 뜨고, 점이 그 수만큼 나오는가.
+     사진이 404 면 img 는 남지만 naturalWidth 가 0 이라 «회색 상자» 가 된다 → 그것까지 잰다. */
+  check('미리보기 사진이 실제로 받아졌다 (' + pv.shotW + 'px)', pv.shotW > 100, JSON.stringify(pv.shotSrc));
+  check('슬라이드 점이 사진 수만큼 있다 (' + pv.dots + ')', pv.dots >= 2, String(pv.dots));
 
   // ── 🎫 레벨테스트를 통과하면 잠금이 사라진다 ──────────────────
   const after = await page.evaluate(() => {
