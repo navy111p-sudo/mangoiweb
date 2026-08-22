@@ -586,7 +586,7 @@
       '<div class="lm-body">'+
         // ━━━━ 😊 패스키(얼굴/지문) 로그인 — 지원 브라우저에서만 노출 ━━━━
         (window.PublicKeyCredential ?
-          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
+          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊👆 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
           '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:0 0 10px;position:relative">'+
             '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 아이디로':'Or with ID')+'</span>'+
             '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
