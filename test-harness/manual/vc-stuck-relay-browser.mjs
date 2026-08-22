@@ -14,17 +14,15 @@
  *
  * ⚠️ file:// 로 열면 안 된다(CLAUDE.md 2장) · 동의 모달을 스텁해야 한다(같은 장 함정).
  *
- *   CHROME_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome \
- *   node test-harness/manual/vc-stuck-relay-browser.mjs
+ *   PW_DIR=/tmp/pw node test-harness/manual/vc-stuck-relay-browser.mjs
  */
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import puppeteer from 'puppeteer-core';
+import { requireBrowser } from './_pw.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
-const CHROME = process.env.CHROME_PATH || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const PORT = 8941;
 
 let pass = 0, fail = 0;
@@ -37,16 +35,16 @@ const srv = spawn('python3', ['-m', 'http.server', String(PORT), '--bind', '127.
                   { cwd: PUB, stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 1200));
 
-const browser = await puppeteer.launch({
-  executablePath: CHROME, headless: 'new',
+const { chromium, exe } = requireBrowser();
+const browser = await chromium.launch({
+  executablePath: exe,
   args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required',
          '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
-  protocolTimeout: 120000,
 });
 
 try {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   const perrs = [];
   page.on('pageerror', e => perrs.push(String(e).slice(0, 200)));
   page.on('dialog', async d => { try { await d.dismiss(); } catch (_) {} });
@@ -54,7 +52,9 @@ try {
   page.on('console', m => { const t = m.text(); if (t.includes('[vc-stuck]')) stuckLogs.push(t.slice(0, 160)); });
 
   await page.goto(`http://127.0.0.1:${PORT}/index.html`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-  await page.waitForSelector('#vc-name-input', { timeout: 30000 });
+  /* ⚠️ playwright 의 waitForSelector 는 기본이 «보일 때까지» 다. 로비 입력칸은 아직 숨은
+     뷰 안에 있어서 그대로 두면 30초 뒤 타임아웃이 난다 — «붙어 있으면» 으로 기다린다. */
+  await page.waitForSelector('#vc-name-input', { state: 'attached', timeout: 30000 });
   await new Promise(r => setTimeout(r, 2500));
 
   await page.evaluate(() => {
