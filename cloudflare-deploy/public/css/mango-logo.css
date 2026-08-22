@@ -1,0 +1,155 @@
+/* ============================================================================
+   MANGO AI 워드마크 — 재사용 CSS (2026-08-22)
+
+   [무엇인가] 「MANGO AI」 한 줄 로고. 「MANGO」 의 O 자리에 망고 캐릭터가 들어갑니다.
+             글자는 외곽선이 아니라 «속을 채우는» 세로 그라데이션(연노랑 → 망고 → 진한 호박)입니다.
+
+   [쓰는 법]  <link rel="stylesheet" href="/css/mango-logo.css?v=1"> 한 줄 + 아래 마크업.
+
+       <div class="mango-logo" role="img" aria-label="MANGO AI">
+         <span class="mango-logo__text">MANG</span>
+         <span class="mango-logo__o">
+           <img src="/assets/mango-mascot.png" alt="">
+         </span>
+         <span class="mango-logo__text">&nbsp;AI</span>
+       </div>
+
+   [「AI」 앞 간격] 위처럼 &nbsp; 로 띄우거나, 마지막 칸에 mango-logo__ai 클래스를 주면
+             CSS 가 간격을 잡습니다(&nbsp; 없이). --pill 변형은 뒤쪽 방식을 쓰세요.
+
+   [크기]     .mango-logo 의 font-size 하나만 바꾸면 캐릭터·간격·빛번짐까지 전부
+             비율을 지키며 같이 커집니다(안쪽 치수를 전부 em 으로 적었습니다).
+             예) <span class="mango-logo" style="font-size:64px">…</span>
+
+   [변형]     .mango-logo--pill    「AI」를 남색 알약 안에 넣습니다
+             .mango-logo--flat    빛번짐(glow)을 끕니다 — 인쇄물·밝은 배경용
+             .mango-logo--ink     밝은 배경에서 그라데이션을 조금 더 진하게
+
+   ⚠️ 폰트: Nunito 를 구글 폰트에서 받습니다. 못 받아도 «둥근 산세리프 굵은 글자»
+      폴백으로 그려지므로 모양이 무너지지는 않습니다.
+      ⛔ 이 파일을 public/index.html(홈+화상수업)에 걸지 마세요 — 그 화면은 첫 화면
+         용량 예산이 남아 있지 않고(CLAUDE.md 2장), 2026-07-23 ph161 로 구글 웹폰트를
+         일부러 뺀 화면입니다. 새 화면·문서·인쇄물에 쓰세요.
+
+   ⚠️ 관리자 화면(admin.html)에 쓸 때는 admin-inline-c.css 의 전역 !important 규칙과
+      부딪힐 수 있습니다(CLAUDE.md 2장 「카드 안 박스 색」·「표 안 아이콘 버튼」 함정).
+      그때는 조상 id 를 앞에 붙여 특정성을 올리세요.
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&display=swap');
+
+:root{
+  --mango-top:  #FFE39C;
+  --mango-mid:  #FFC53D;
+  --mango-deep: #E8A21B;
+  --mango-ink:  #0B0D24;
+}
+
+.mango-logo{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  white-space: nowrap;
+  /* 이 값만 바꾸면 로고 전체가 비율 유지하며 스케일됩니다 */
+  font-size: 38px;
+}
+
+.mango-logo__text{
+  /* 맨 앞 MangoiHanSC 는 «한자 글꼴 통일 가드»(test-harness/hanzi_font_harness.mjs) 규칙입니다.
+     그 글꼴의 unicode-range 에 ASCII 가 없어서 MANGO·AI 같은 영문은 그대로 Nunito 가 그립니다 */
+  font-family: MangoiHanSC, 'Nunito', -apple-system, BlinkMacSystemFont,
+               'Segoe UI Variable Display', 'Segoe UI', 'Trebuchet MS', 'Malgun Gothic', sans-serif;
+  font-weight: 800;
+  font-size: 1em;
+  letter-spacing: .012em;
+  /* 폴백: background-clip:text 가 안 먹는 환경에서도 «보이는» 색이 먼저 있어야 합니다.
+     (투명으로 시작해 두면 지원 안 되는 브라우저에서 글자가 영영 안 보입니다) */
+  color: var(--mango-mid);
+}
+
+/* 속을 채우는 세로 그라데이션 — 위 연노랑 → 가운데 망고 → 아래 진한 호박 */
+@supports ((-webkit-background-clip: text) or (background-clip: text)){
+  .mango-logo__text{
+    background-image: linear-gradient(180deg,
+      var(--mango-top)  0%,
+      var(--mango-mid)  52%,
+      var(--mango-deep) 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+/* 「MANGO」 의 O 자리 — 3D 망고 캐릭터 */
+.mango-logo__o{
+  display: inline-block;
+  /* 그림이 320×259(가로가 더 김)이고 캐릭터가 손을 들고 있어, 정사각 칸에 contain 으로
+     넣으면 «망고 몸통» 이 글자 높이의 절반쯤으로 쪼그라들어 O 로 안 읽힙니다.
+     그래서 칸을 그림 비율(1.236)에 맞추고, 몸통이 대문자 높이와 맞도록 키웠습니다.
+     (1.16em 정사각 → 1.62×1.31em. 화면에 4가지를 그려 놓고 고른 값입니다) */
+  width: 1.62em;
+  height: 1.31em;
+  /* 그림 좌우에 투명 여백이 있어 그만큼 앞뒤 글자에 당겨 붙입니다 */
+  margin: 0 -.12em;
+  position: relative;
+  top: .01em;
+  flex: 0 0 auto;
+}
+.mango-logo__o > img,
+.mango-logo__o > svg{
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* 「AI」 — 기본은 같은 그라데이션, 앞에 한 칸 띄움 */
+.mango-logo__ai{
+  margin-left: .26em;
+}
+
+/* 은은한 따뜻한 빛번짐 — 네온처럼 단단한 테두리가 아니라 «번지는» 느낌 */
+.mango-logo__text,
+.mango-logo__o{
+  filter:
+    drop-shadow(0 0 .10em rgba(255, 197,  61, .42))
+    drop-shadow(0 0 .30em rgba(232, 162,  27, .26));
+}
+
+/* ── 변형 ────────────────────────────────────────────────────────────── */
+
+/* .mango-logo--flat : 빛번짐 끄기 (인쇄물·밝은 배경) */
+.mango-logo--flat .mango-logo__text,
+.mango-logo--flat .mango-logo__o{ filter: none; }
+
+/* .mango-logo--ink : 밝은 배경에서 그라데이션을 조금 더 진하게 (대비 확보) */
+@supports ((-webkit-background-clip: text) or (background-clip: text)){
+  .mango-logo--ink .mango-logo__text{
+    background-image: linear-gradient(180deg,
+      var(--mango-mid)  0%,
+      var(--mango-deep) 62%,
+      #B87A0E          100%);
+  }
+}
+.mango-logo--ink .mango-logo__text{ color: var(--mango-deep); }
+
+/* .mango-logo--pill : 「AI」를 남색 알약 안에 */
+.mango-logo--pill .mango-logo__ai,
+.mango-logo--pill .mango-logo__text:last-child{
+  background-image: none;
+  -webkit-background-clip: border-box;
+          background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--mango-mid);
+  background-color: var(--mango-ink);
+  border-radius: .42em;
+  padding: .16em .30em .20em;
+  font-size: .78em;
+  letter-spacing: .04em;
+  /* 알약은 위 filter 로 번지면 지저분해집니다 */
+  filter: none;
+  /* 부모 font-size 가 1em 기준이라 margin 도 자기 크기 기준으로 다시 잡습니다 */
+  margin-left: .30em;
+}
