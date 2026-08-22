@@ -1,0 +1,40 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   🔤 Nunito — MANGO AI 워드마크 전용 글꼴 정의 (2026-08-22)
+
+   ── 왜 파일을 따로 두는가 ──────────────────────────────────────────────
+   ① @font-face 정의는 `font-family: 'Nunito'` 로 시작할 수밖에 없는데,
+      한자 글꼴 통일 가드(test-harness/hanzi_font_harness.mjs)는 모든 CSS 의
+      font-family 가 MangoiHanSC 로 시작하기를 요구합니다. 그래서 정의문만
+      떼어 내 그 하니스의 SKIP 목록에 올렸습니다 — mangoi-han.css 와 같은 사정입니다.
+   ② mango-logo.css 본문은 계속 가드의 검사를 받습니다(한쪽만 예외).
+
+   ── 왜 구글에서 안 받고 직접 싣는가 ────────────────────────────────────
+   처음엔 @import 로 fonts.googleapis.com 을 불렀는데 두 가지가 걸렸습니다.
+     · 이 저장소는 2026-07-23(ph161)에 구글 웹폰트를 «일부러» 뺐습니다.
+       필리핀·중국 회선에서 남의 서버를 한 번 더 기다리는 것이 부담입니다.
+     · @import 는 CSS 를 다 읽은 «뒤에» 요청이 나가서 로고가 늦게 제 모습이 됩니다.
+   그래서 latin 서브셋 한 벌(39KB)만 받아 실어 보냅니다. 우리 글자는 «MANGO AI»
+   뿐이라 latin 하나면 충분합니다(라틴확장·키릴·베트남어 서브셋은 안 받았습니다).
+
+   ⚠️ 이 파일은 Nunito 를 «변수 글꼴» 한 벌로 씁니다 — 구글이 700·800 두 굵기에
+      같은 파일을 주기 때문입니다. font-weight: 700 900 범위로 선언해 두면
+      브라우저가 그 안에서 굵기를 만들어 냅니다.
+
+   📜 글꼴 저작권: Nunito — SIL Open Font License 1.1
+      전문은 /fonts/nunito-latin.LICENSE.txt 에 함께 넣었습니다.
+      Copyright 2014 The Nunito Project Authors (https://github.com/googlefonts/nunito)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  /* 변수 글꼴이라 범위로 선언합니다 — 700(기본)·800(변형) 둘 다 이 한 파일이 냅니다 */
+  font-weight: 700 900;
+  /* swap: 글꼴이 오기 전에는 폴백으로 «보이게» 합니다. 안 보이는 것보다 낫습니다 */
+  font-display: swap;
+  src: url('/fonts/nunito-latin.woff2') format('woff2');
+  /* 라틴 기본면만 — 한글·한자는 이 글꼴이 건드리지 않습니다 */
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+                 U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122,
+                 U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
