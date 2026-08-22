@@ -2481,17 +2481,45 @@ function vcRemoveDemoTeacher(){
    해결: 입장 직전에 getUserMedia 를 한 번 호출해 권한 팝업을 '먼저' 끝낸다.
      거부·미지원이어도 절대 입장을 막지 않는다(fail-open — 수업이 최우선). */
 window.__vcPermReady = false;
+/* ⚡ (2026-08-22 필리핀 강사 입장속도) 여기서 연 카메라를 «버리지 않고» 입장에 그대로 넘긴다.
+   [예전] bare {video:true,audio:true} 로 열고 곧바로 stop() → vcJoinRoom 이 처음부터 다시 열었다.
+     ① 카메라를 두 번 여는 셈이라 그 시간이 통째로 입장 지연이 된다(저사양 노트북일수록 크다).
+     ② bare 제약은 해상도 상한이 없어 웹캠이 1080p 로 열리는 일까지 있었다 — 곧 버릴 스트림에
+        CPU·발열을 쓰고, 그 사이 입장이 더 늦어진다.
+   [지금] 처음부터 acquireLocalMedia 의 튜닝된 제약(에코제거·PC 720p/모바일 VGA 상한·기억한 장치)으로
+     한 번만 열고 재사용한다. 권한 팝업을 «먼저» 끝낸다는 이 함수의 목적은 그대로다.
+   ⚠️ 소비되지 않으면 카메라 불이 켜진 채로 남는다 — 입장이 도중에 멈추는 길이 있다
+      (대기화면 vcShowClassGate·방 검증 차단·오늘 수업 없음). 그래서 20초 안에 아무도
+      가져가지 않으면 스스로 놓는다. */
+window.__vcPermStream = null;
+window.vcReleasePermStream = function () {
+    var s = window.__vcPermStream; window.__vcPermStream = null;
+    try { if (s && s.getTracks) s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+};
+/** 방금 확보한 스트림을 «한 번만» 가져간다. 살아 있지 않으면 null(호출자가 정상 획득으로 내려감). */
+window.vcTakePermStream = function () {
+    var s = window.__vcPermStream;
+    if (!s || typeof s.getTracks !== 'function') return null;
+    window.__vcPermStream = null;
+    try { clearTimeout(window.__vcPermRelT); } catch (_) {}
+    var live = false;
+    try { live = s.getTracks().some(function (t) { return t.readyState === 'live'; }); } catch (_) {}
+    if (!live) { try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {} return null; }
+    return s;
+};
 window.vcEnsureMediaPermission = async function () {
-    if (window.__vcPermReady) return true;
+    if (window.__vcPermReady && window.__vcPermStream) return true;
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
         var s = null;
-        try { s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true }); }
+        try { s = await acquireLocalMedia({ video: true, audio: true }); }
         catch (e) {
             if (e && e.name === 'NotAllowedError') throw e;      // 사용자가 거부 → 재요청 안 함
-            s = await navigator.mediaDevices.getUserMedia({ audio: true });  // 카메라만 막힌 경우 소리라도 확보
+            s = await acquireLocalMedia({ video: false, audio: true });  // 카메라만 막힌 경우 소리라도 확보
         }
-        try { s.getTracks().forEach(function (t) { t.stop(); }); } catch (_) {}
+        window.vcReleasePermStream();
+        window.__vcPermStream = s;
+        try { window.__vcPermRelT = setTimeout(window.vcReleasePermStream, 20000); } catch (_) {}
         window.__vcPermReady = true;
         return true;
     } catch (e) {
@@ -2597,9 +2625,11 @@ async function vcJoinRoom(skipUI) {
     } catch (_) {}
     // 🎥 (2026-07-24) 권한 팝업을 입장보다 '먼저' 끝낸다 — 미디어 없는 SDP 고착 방지.
     //   모든 입장 경로(수동 입력·?room=·vc_autojoin·오늘 내 수업)가 이 한 곳을 지난다.
+    /* 📶 TURN 발급을 여기서 «걸어만» 둔다 — 카메라 권한 팝업·오늘수업 조회와 겹쳐서 진행된다.
+       실제 대기(await)는 피어를 만들기 직전 한 곳에서 한다(아래 «TURN 확보» 주석).
+       vcEnsureIceServers 는 진행 중 promise 를 공유하므로 두 번 불러도 fetch 는 한 번이다. */
+    try { vcEnsureIceServers(); } catch(_) {}
     try { await window.vcEnsureMediaPermission(); } catch (_) {}
-    // 📶 TURN 자격증명 확보 후 입장 (자동입장이 ICE fetch를 앞지르는 레이스 방지)
-    try { await vcEnsureIceServers(); } catch(_) {}
     // 비밀번호 (vc-room-input)는 인증용으로 저장만 함 (실 운영 시 백엔드 검증)
     const vcPassword = document.getElementById('vc-room-input').value.trim();
     // 방번호: 새 필드(vc-roomcode-input)
@@ -3449,12 +3479,18 @@ async function vcJoinRoom(skipUI) {
     // 칠판 캔버스가 보이는 시점에 실제 크기로 리사이즈 (display:none → flex 직후)
     setTimeout(() => { if (typeof wbResize === 'function') wbResize(); }, 100);
 
-    // ICE 서버 설정 먼저 가져오기 (TURN 포함)
-    await fetchIceServers();
-    console.log('[vc] ICE 서버 설정:', JSON.stringify(ICE_SERVERS.iceServers.map(s => s.urls)));
+    /* 📶 TURN 확보 — 위에서 미리 걸어 둔 발급을 여기서 기다린다.
+       ⛔ 예전엔 fetchIceServers() 를 무조건 한 번 더 불렀다. 위에서 이미 받아 놓은 자격증명이
+          있어도 매 입장마다 HTTP 왕복이 한 번 더 나갔다 — 필리핀 회선에서 그대로 입장 지연이다.
+          vcEnsureIceServers 는 «TURN 이 없거나 4시간 지났을 때만» 실제로 받아 오고,
+          그 경우에도 3초에서 끊어 수업을 지연시키지 않는다. */
+    await vcEnsureIceServers();
 
     try {
-        vcLocalStream = await acquireLocalMedia({ video: true, audio: true });
+        /* ⚡ 권한 선확보 때 이미 연 카메라가 있으면 그것을 그대로 쓴다(카메라 두 번 열지 않기).
+           없거나 이미 죽었으면 예전처럼 새로 연다 — 어느 쪽이든 입장은 계속된다. */
+        vcLocalStream = (window.vcTakePermStream && window.vcTakePermStream())
+                        || await acquireLocalMedia({ video: true, audio: true });
         document.getElementById('vc-local-video').srcObject = vcLocalStream;
         document.getElementById('vc-local-label').textContent = vcUsername + (miIsEn() ? ' (Me)' : ' (나)');
         attachStreamMonitor(document.getElementById('vc-local-box'), vcLocalStream);
