@@ -61,6 +61,24 @@ ok('① 본 경로·대체 경로 두 곳 모두 단계별 하한을 쓴다',
    (CODE.match(/Math\.max\(lo \? 60000 : 150000,/g) || []).length === 2
    && (CODE.match(/Math\.max\(lo \? 5 : 10,/g) || []).length === 2);
 
+/* ⏱ (2026-08-21 추가) 4단계를 «만들었는데 못 쓰던» 빈틈.
+   두 판정이 같은 4초 주기다 — 화질은 한 틱에 한 단계씩 내려가 4단계까지 4틱(≈16초),
+   AAO 는 3틱(≈12초)에 영상을 통째로 끈다. 그래서 급격한 붕괴에서는 AAO 가 «한 틱 먼저»
+   와서 새로 만든 «얼굴만» 단계가 한 번도 안 쓰였다. 기능은 있는데 닿지 않는 상태.
+   → ① 오디오가 2틱 나빠지면 그 자리에서 최저 단계로 내려 8초를 벌고,
+     ② AAO 는 «최저 단계를 실제로 써 봤을 때만» 끈다(단 sev>=5 면 오디오 우선으로 그냥 끔).
+   실측(헤드리스): sev3+floor=false → 영상 유지 · sev3+floor=true → 끔 · sev5+false → 끔. */
+ok('⏱ 오디오가 2틱 나빠지면 영상을 먼저 최저 단계로 내린다',
+   /A\.sev >= 2 && \(pc\.__qStep \|\| 0\) < STEPS\.length - 1/.test(CODE)
+   && /pc\.__qStep = STEPS\.length - 1; applyStep\(pc, pc\.__qStep\)/.test(CODE));
+ok('⏱ 최저 단계에 닿았는지를 AAO 가 볼 수 있게 기록한다',
+   /A\.floor = \(pc\.__qStep \|\| 0\) >= STEPS\.length - 1;/.test(CODE));
+ok('⏱ AAO 는 최저 단계를 써 본 뒤에만 영상을 끈다',
+   /A\.sev >= 3 && \(A\.floor \|\| A\.sev >= 5\)/.test(CODE));
+// ⛔ 이 탈출구가 없으면 최저 단계에 못 닿는 상황에서 AAO 가 영영 안 걸려 «오디오까지» 죽는다.
+ok('⛔ ⏱ 그래도 심각하면(sev>=5) 오디오를 살리려 영상을 끈다',
+   /A\.sev >= 5/.test(CODE));
+
 // ── ② 중계(TURN) 강제 ──────────────────────────────────────
 ok('② createPeer 가 관리자 설정(__vcRelayAlways)을 본다',
    /window\.__vcRelayAlways \|\| \(window\.__vcForceRelay/.test(CODE));
