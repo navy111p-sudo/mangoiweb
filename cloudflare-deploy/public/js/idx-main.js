@@ -1451,7 +1451,28 @@ function vcReconnectPeer(userId) {
         if ((tries[id] || 0) >= MAX_TRIES) return;
         tries[id] = (tries[id] || 0) + 1;
         var name = (box.querySelector('.video-label') || {}).textContent || '참가자';
-        console.warn('[vc-stuck] 상대 영상 미도착 ' + Math.round((now - firstSeen[id]) / 1000) + '초 → 복구 시도 ' + tries[id] + ':', id, name);
+        /* 📶 (2026-08-22) 두 번째 시도부터는 TURN 릴레이를 강제한다.
+           [빠져 있던 것] 이 워치독은 4번을 재시도하면서 **4번 다 «직접 연결» 로만** 걸었다.
+             직접 경로가 원천적으로 막힌 회선(사무실 대칭NAT·기업 방화벽)에서는 네 번이 전부
+             같은 이유로 실패하고, **릴레이는 한 번도 안 써 보고 포기**한다.
+             릴레이를 켜 주는 길이 두 개 있었지만 둘 다 여기까지 안 온다 —
+             ① ICE 가 'failed' 로 떨어질 때(그 판정까지 수십 초, 그 전에 이 워치독이 소진된다)
+             ② 참관자 전용 워치독(vcObserverRetryStalled) — 학생·강사에겐 안 돈다.
+           [왜 1회는 직접으로 두나] MAX_TRIES 를 2→4 로 올린 이유가 «상대가 뒤늦게 권한을
+             허용하는 경우» 라, 첫 실패는 경로 문제가 아니라 미디어 문제일 때가 많다.
+             첫 판은 그대로 두고, 그래도 안 되면 경로를 의심한다.
+           [비용] 릴레이 중계는 돈이 든다. 그래서 «전부 릴레이» 가 아니라 **이미 두 번 실패한
+             연결만** 릴레이로 보낸다 — 집에서 잘 붙는 강사는 예전과 완전히 같다.
+           ⛔ 여기서 __vcRelayAlways(전역)를 켜지 마세요 — 그건 서버가 세션별로 정하는 값이고,
+              전역으로 켜면 그 뒤 «직접 시도» 가 아예 없어져 스스로 회복할 길이 사라집니다.
+              피어별 __vcForceRelay 는 붙는 순간 지워집니다(vcCreatePeer 의 ICE connected). */
+        /* ⚠️ `__vcIceHasTurn` 은 이 파일 최상단의 `let` 이다 — **window 에 속성이 생기지 않는다.**
+           `window.__vcIceHasTurn` 으로 읽으면 언제나 undefined 라 조건이 무의미해진다
+           (2026-08-21 회선품질 로그가 `window.vcRoomId` 로 같은 함정을 밟았다). 이름으로 직접 읽는다. */
+        if (tries[id] >= 2 && __vcIceHasTurn) {
+          try { (window.__vcForceRelay = window.__vcForceRelay || {})[id] = true; } catch (_) {}
+        }
+        console.warn('[vc-stuck] 상대 영상 미도착 ' + Math.round((now - firstSeen[id]) / 1000) + '초 → 복구 시도 ' + tries[id] + (tries[id] >= 2 ? ' (릴레이 강제)' : '') + ':', id, name);
         firstSeen[id] = now + 5000;   // 재협상에 시간을 주기 위해 다음 판정을 뒤로 미룸
         try {
           if (pc) vcReconnectPeer(id);                 // PC 있음 → 지금 트랙으로 재빌드+재offer
