@@ -33,8 +33,11 @@
     '.pv-media{position:relative;background:#081227;aspect-ratio:16/10;overflow:hidden;display:flex;align-items:center;justify-content:center}',
     '.pv-media img,.pv-media video{width:100%;height:100%;object-fit:cover;display:block}',
     '.pv-media .pv-lock{position:absolute;right:12px;top:12px;z-index:3;padding:6px 13px;border-radius:999px;background:rgba(8,20,44,.88);border:1px solid rgba(251,191,36,.65);color:#fde68a;font-size:13px;font-weight:900;box-shadow:0 2px 10px rgba(0,0,0,.45)}',
-    /* 슬라이드 점 — 사진이 여러 장일 때만 나온다 */
+    /* 슬라이드 점 — 사진이 여러 장일 때만 나온다.
+       ⚠️ 사진 아래쪽이 밝은 게임(피자·낚시)에서는 흰 점이 묻힌다 → 옅은 그림자막을 함께 깐다.
+          막은 pointer-events:none 이라 사진 클릭을 막지 않는다. */
     '.pv-dots{position:absolute;left:0;right:0;bottom:10px;z-index:3;display:flex;justify-content:center;gap:7px}',
+    '.pv-dots::before{content:"";position:absolute;left:0;right:0;bottom:-10px;height:46px;z-index:-1;pointer-events:none;background:linear-gradient(to top,rgba(4,10,26,.62),rgba(4,10,26,0))}',
     '.pv-dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.42);box-shadow:0 1px 4px rgba(0,0,0,.6);transition:background .2s,transform .2s}',
     '.pv-dots i.on{background:#fbbf24;transform:scale(1.25)}',
     /* 제목·설명 칸 — 자물쇠와 «다른 층» 이라 겹칠 자리가 없다 */
@@ -74,18 +77,39 @@
      ⚠️ 없는 파일을 여기 적으면 **미리보기를 열 때마다 404** 가 난다. 같은 함정을
         전체메뉴 아이콘에서 이미 밟았다(js/idx-allmenu.js 32행 주석). 그래서 이 표에는
         **실제로 올라온 파일만** 적는다.
-     📌 지금은 전용 클립·연속 스크린샷이 한 장도 없어 비어 있다 → 카드 사진 한 장으로 그린다.
-        플레이 영상을 찍어 올리면 여기 경로만 채우면 된다(코드는 안 고쳐도 된다).
-        회귀 감시: test-harness/game_quest_unlock_harness.mjs 가 «여기 적힌 파일이
+     📌 이 사진들은 **손으로 찍은 것이 아니라** test-harness/manual/game-preview-capture.mjs 가
+        게임을 헤드리스 브라우저로 실제로 띄우고 시작 화면을 눌러 넘긴 뒤 찍은 «진짜 플레이
+        화면» 이다(게임당 2장, 720x450 WebP, 7~41KB). 게임 화면을 크게 바꿨으면 사람이
+        그 스크립트를 다시 돌리면 된다 — 21판을 손으로 다시 돌 필요가 없다.
+     📌 표에 없는 게임(battle3d·tank)은 **일부러 비웠다.** 그 자리는 카드 사진 한 장으로
+        그려진다 — 잘못 찍힌 사진보다 그쪽이 낫다.
+     회귀 감시: test-harness/game_quest_unlock_harness.mjs 가 «여기 적힌 파일이
         실재하는가» 를 검사한다. */
   var GAME_PREVIEW = {
-    /* 예)
-    spacemonster: {
-      clip:  '/video/games/spacemonster.mp4',                 // 30~60초 플레이 클립
-      shots: ['/img/games/preview/spacemonster-1.webp',       // 또는 스크린샷 슬라이드
-              '/img/games/preview/spacemonster-2.webp']
-    },
-    */
+    spacemonster: { shots: ['/img/games/preview/spacemonster-1.webp', '/img/games/preview/spacemonster-2.webp'] },
+    avatar: { shots: ['/img/games/preview/avatar-1.webp', '/img/games/preview/avatar-2.webp'] },
+    pizza: { shots: ['/img/games/preview/pizza-1.webp', '/img/games/preview/pizza-2.webp'] },
+    escape: { shots: ['/img/games/preview/escape-1.webp', '/img/games/preview/escape-2.webp'] },
+    escapezombie: { shots: ['/img/games/preview/escapezombie-1.webp', '/img/games/preview/escapezombie-2.webp'] },
+    escapeschool: { shots: ['/img/games/preview/escapeschool-1.webp', '/img/games/preview/escapeschool-2.webp'] },
+    langace: { shots: ['/img/games/preview/langace-1.webp', '/img/games/preview/langace-2.webp'] },
+    p383d: { shots: ['/img/games/preview/p383d-1.webp', '/img/games/preview/p383d-2.webp'] },
+    fish: { shots: ['/img/games/preview/fish-1.webp', '/img/games/preview/fish-2.webp'] },
+    shooter: { shots: ['/img/games/preview/shooter-1.webp', '/img/games/preview/shooter-2.webp'] },
+    suspect: { shots: ['/img/games/preview/suspect-1.webp', '/img/games/preview/suspect-2.webp'] },
+    speaking: { shots: ['/img/games/preview/speaking-1.webp', '/img/games/preview/speaking-2.webp'] },
+    wordfighter: { shots: ['/img/games/preview/wordfighter-1.webp', '/img/games/preview/wordfighter-2.webp'] },
+    tetris: { shots: ['/img/games/preview/tetris-1.webp', '/img/games/preview/tetris-2.webp'] },
+    rescue: { shots: ['/img/games/preview/rescue-1.webp', '/img/games/preview/rescue-2.webp'] },
+    brick: { shots: ['/img/games/preview/brick-1.webp', '/img/games/preview/brick-2.webp'] },
+    match: { shots: ['/img/games/preview/match-1.webp', '/img/games/preview/match-2.webp'] },
+    fill: { shots: ['/img/games/preview/fill-1.webp', '/img/games/preview/fill-2.webp'] },
+    balloon: { shots: ['/img/games/preview/balloon-1.webp', '/img/games/preview/balloon-2.webp'] },
+    /* 클립을 올리면 shots 대신 clip 을 쓴다 (30~60초):
+       spacemonster: { clip: '/video/games/spacemonster.mp4' },
+       ⛔ battle3d · tank 는 일부러 비워 뒀다 — 자동 캡처가 «설정 화면» 까지밖에 못 갔고
+          (battle3d), tank 는 지형 텍스처가 안 실려 실제 화면과 다르게 찍혔다.
+          잘못 찍힌 사진보다 카드 사진 폴백이 낫다. 사람이 찍어 올리면 여기 두 줄만 더한다. */
   };
 
   var _pvTimer = null;
