@@ -105,15 +105,15 @@
               + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
               + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
               + '<td style="padding:6px 8px;white-space:nowrap">'
-              +   '<button type="button" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'style="padding:4px 10px;font-size:11.5px;margin-right:4px;background:rgba(139,92,246,0.22);color:#ddd6fe;border:1px solid rgba(139,92,246,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
+              +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     '>'
               +     (en ? '👁 Select' : '👁 참관 선택') + '</button>'
               /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
                  초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
-              +   '<button type="button" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +   '<button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
               +     'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
                                     : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '" '
-              +     'style="padding:4px 10px;font-size:11.5px;background:rgba(245,158,11,0.22);color:#fde68a;border:1px solid rgba(245,158,11,0.55);border-radius:6px;font-weight:700;cursor:pointer">'
+              +     '>'
               +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
               + '</td></tr>';
           }).join('')

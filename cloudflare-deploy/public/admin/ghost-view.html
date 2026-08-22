@@ -1123,8 +1123,8 @@
             }).join('')
           : '<div style="color:#94a3b8;padding:9px 0;font-size:12px;line-height:1.7">'
             + (en
-                ? 'Nobody is connected to a Mango-i room right now. cafe24-booked classes do not go through this room, so check the booked list below.'
-                : '지금 망고아이 화상방에 붙어 있는 사람이 없습니다. 카페24 예약 수업은 이 방을 거치지 않으니 아래 «예약 기준» 목록으로 확인하세요.')
+                ? 'Nobody is connected to a Mango-i room right now — so there is no class to observe. The booked classes below run on cafe24 and do not go through this room, so they have no observe button. This is not a fault.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없습니다 — 지금은 참관할 수업이 없다는 뜻입니다. 아래 «예약 기준 지금 수업» 은 카페24에서 돌고 있어 이 방을 거치지 않으므로 참관 버튼이 없습니다. 고장이 아닙니다.')
             + '</div>';
       }
       ghdLoadSchedPicker();
@@ -1165,8 +1165,16 @@
                 +   (c.live_room ? ' <div style="font-size:11px;color:#94a3b8">' + esc(c.live_room) + '</div>' : '')
                 + '</div>');
             }).join('')
-          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px">'
-            + (en ? 'No class is booked for this moment.' : '이 시각에 예약된 수업이 없습니다.') + '</div>';
+          /* 🕐 (2026-08-21) 빈 칸에 «지금 몇 시인지 · 어디까지 보는 목록인지» 를 함께 적는다.
+             안 적으면 새벽처럼 정말로 수업이 없는 시각에도 «또 안 뜨는구나» 로 읽힌다
+             (실측 2026-08-21 04:17 KST: 진행 중 0건인데 그날 예약은 182건이었다).
+             ⚠️ 시각은 서버가 준 now_kst 를 쓴다 — 참관자 PC 가 필리핀이면 자기 시계와 다르다. */
+          : '<div style="color:#94a3b8;padding:9px 0;font-size:12px;line-height:1.7">'
+            + (en
+                ? 'No class is in progress or starting within the next 15 minutes'
+                  + (d.now_kst ? ' (now ' + esc(d.now_kst) + ' KST)' : '') + '.'
+                : '지금' + (d.now_kst ? '(' + esc(d.now_kst) + ' KST)' : '') + ' 진행 중이거나 15분 안에 시작하는 예약 수업이 없습니다.')
+            + '</div>';
       } catch (e) { hide(); }
     }
 

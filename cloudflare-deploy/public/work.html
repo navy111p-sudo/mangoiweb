@@ -216,14 +216,16 @@ html.dark .reuse button{background:#16202c;border-color:#33404f;color:#e6edf3}
     <span id="badge" class="badge zero">0</span>
   </h1>
   <div class="tbar">
+    <button class="tbtn" onclick="goBack()"><span data-en="← Back" data-ko="← 뒤로">← Back</span></button>
+    <a class="tbtn" id="homeBtn" href="/admin.html"><span data-en="🏠 Home" data-ko="🏠 홈">🏠 Home</span></a>
     <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
     <button class="tbtn" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
     <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
     <button class="tbtn" id="pushBtn" onclick="askPush()" hidden><span data-en="Notify me" data-ko="알림 받기">Notify me</span></button>
     <button class="tbtn" id="soundBtn" onclick="toggleSound()"><span data-en="Sound: on" data-ko="소리 켬">Sound: on</span></button>
     <button class="tbtn" id="awayBtn" onclick="openAway()" hidden><span data-en="Away" data-ko="부재중">Away</span></button>
-    <a class="tbtn" href="/manager"><span data-en="Dashboard" data-ko="대시보드">Dashboard</span></a>
-    <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
+    <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
+    <button class="tbtn tbtn-out" id="logoutBtn"><span data-en="Log out" data-ko="로그아웃">Log out</span></button>
   </div>
 </div>
 
@@ -377,9 +379,33 @@ function load(){
 }
 window.reloadAll = function(){ load().catch(function(){}); };
 
+/* ── 🔙 뒤로 · 🏠 홈 (2026-08-20) ──────────────────────────────────────────
+   왜 — 결재함에는 나가는 길이 「로그아웃」밖에 없었다. 관리자 화면에서 「결재 올리기」로
+        건너오면 돌아갈 방법이 없어 브라우저 뒤로가기를 눌러야 했다(휴대폰 앱에서는 그것도 없다).
+   ⚠️ 새 탭·카톡 링크로 열면 history 가 «이 페이지 하나» 뿐이라 back() 이 아무 일도 하지 않는다.
+      그때는 홈으로 보낸다 — 「눌렀는데 아무 일도 안 일어난다」 를 만들지 않는다. */
+window.goBack = function(){
+  var home = (document.getElementById('homeBtn') || {}).href || '/admin.html';
+  try {
+    if (window.history.length > 1) { window.history.back(); return; }
+  } catch (e) {}
+  location.href = home;
+  /* ⛔ 「back 이 안 먹으면 홈으로」 를 setTimeout 안전망으로 만들지 말 것.
+     뒤로 간 뒤 «앞으로» 로 이 화면에 돌아오면(bfcache 복원) 멈춰 있던 타이머가 깨어나
+     사람이 누르지도 않은 이동이 일어난다. history.length 판정만으로 충분하다. */
+};
+
+/* 홈은 «그 사람의 홈» 이어야 한다 — 강사에게 1.3MB 관리자 화면을 주지 않는다.
+   판정이 오기 전 기본값은 관리자 화면이고, /api/approval/home 이 오면 바로잡는다. */
+function applyHome(){
+  var a = document.getElementById('homeBtn'); if (!a || !D || !D.me) return;
+  a.href = D.me.is_teacher ? '/teacher' : (D.me.is_ph_manager ? '/manager' : '/admin.html');
+}
+
 /* ── 그리기 ───────────────────────────────────────────────────────────────── */
 function repaint(){
   if (!D) return;
+  applyHome();
   paintBadge();
   paintKinds();
   paintReuse();
@@ -732,6 +758,26 @@ function removeLocal(id){
 
 /* ── 못 보낸 결재 큐 — teacher.html 의 검증된 패턴 ────────────────────────── */
 var OUTBOX_KEY = 'mangoi_work_outbox_v1';
+
+/* ── 🚪 로그아웃 ───────────────────────────────────────────────────────────
+   세션 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐(옛 /admin/logout 은 죽은 경로).
+   🔴 캐시(mangoi_work_home_v1)에는 신청자 이름·사유·금액이 있다 → 공용 PC 대비로 지운다.
+   ⛔ 못 보낸 결재·초안은 **지우지 않는다** — 아직 서버에 없어서 지우면 그대로 사라진다.
+      대신 남아 있으면 먼저 알린다(로그아웃하면 자동 전송이 못 돈다).
+   배경·버린 방법: docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md */
+document.getElementById('logoutBtn').onclick = function(){
+  var pending = 0;
+  try { pending = (JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]') || []).length; } catch (e) {}
+  if (pending && !confirm(T(
+        'You have ' + pending + ' decision(s) not yet sent. They stay on this device but cannot be sent after you log out. Log out anyway?',
+        '아직 보내지 못한 결재가 ' + pending + '건 있습니다. 이 기기에는 남지만 로그아웃하면 보낼 수 없습니다. 그래도 로그아웃할까요?'))) return;
+  var btn = this;
+  btn.disabled = true;
+  try { localStorage.removeItem(CACHE_KEY); } catch (e) {}
+  var go = function(){ location.href = '/admin/login.html'; };
+  // 서버 호출이 실패해도 로그인 화면으로 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+  fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).then(go, go);
+};
 function outboxRead(){
   try { var a = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]'); return Array.isArray(a) ? a : []; }
   catch (e) { return []; }

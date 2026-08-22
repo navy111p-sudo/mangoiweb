@@ -193,6 +193,14 @@ body.is-off .card{opacity:.82}
 #todo .todo-row .t1{display:block;font-size:14.5px;font-weight:800;color:#16202c;letter-spacing:-.01em}
 #todo .todo-row .t2{display:block;font-size:12px;color:#5d6b7a;margin-top:1px}
 #todo .todo-row .go{flex:none;color:#8b97a4;font-size:15px;font-weight:700}
+/* 🔴 상단바 결재 배지 — 아래쪽 고정 바(.tb-n)와 같은 모양으로 맞춘다.
+      예전엔 ' (2)' 라는 맨 글자여서 좁은 바에서 눈에 안 띄었다(2026-08-20 실측).
+      :empty 로 숨기므로 0 건일 때는 자리를 차지하지 않는다. */
+#toWork #apprN{display:inline-block;margin-left:5px;font-size:11.5px;font-weight:800;
+  color:#fff;background:#c0392b;border-radius:999px;padding:1px 6px;min-width:18px;
+  text-align:center;line-height:1.5}
+#toWork #apprN:empty{display:none}
+html.dark #toWork #apprN{background:#e05a45;color:#1d2530}
 #todo .todo-clear{padding:6px 2px 12px;font-size:14px;color:#047857;font-weight:800}
 #todo .todo-clear span{display:block;font-size:12.5px;color:#5d6b7a;font-weight:600;margin-top:2px}
 html.dark #todo{background:#1d2530;border-color:#39434f}
@@ -345,7 +353,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       <button class="tbtn" id="lang" onclick="toggleLang()">KO</button>
       <button class="tbtn" id="mode" onclick="toggleMode()"><span id="modeLbl" data-en="Dark" data-ko="어둡게">Dark</span></button>
       <button class="tbtn" onclick="reloadAll()"><span data-en="Refresh" data-ko="새로고침">Refresh</span></button>
-      <a class="tbtn tbtn-out" href="/admin/logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></a>
+      <!-- 🚪 (2026-08-21) 예전엔 죽은 경로로 보내 세션이 안 끊겼다 — 아래 onclick 참고. -->
+      <button class="tbtn tbtn-out" id="logout"><span data-en="Log out" data-ko="로그아웃">Log out</span></button>
     </div>
   </div>
 
@@ -615,6 +624,29 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     MODE = (MODE === 'dark') ? 'light' : 'dark';
     try { localStorage.setItem('mangoi_manager_theme', MODE); } catch (e) {}
     applyMode();
+  };
+
+  // ── 🚪 로그아웃 ───────────────────────────────────────────────────────────
+  //   세션 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐(옛 /admin/logout 링크는 죽은 경로).
+  //   🔴 캐시(mgr_cache_*)에는 대기자·요청자 «이름» 이 있다 → 공용 PC 대비로 함께 지운다.
+  //   배경·버린 방법: docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md
+  var _logoutBtn = document.getElementById('logout');
+  if (_logoutBtn) _logoutBtn.onclick = function(){
+    var btn = this;
+    btn.disabled = true;
+    try {
+      var kill = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(CACHE_PREFIX) === 0) kill.push(k);
+      }
+      kill.forEach(function(k){ localStorage.removeItem(k); });
+      // 홈 화면 상단 칩이 읽는 신원 표시 — 남겨 두면 로그아웃 뒤에도 이름이 계속 뜬다.
+      localStorage.removeItem('mangoi_admin_session');
+    } catch (e) {}
+    // 서버 호출이 실패해도 로그인 화면으로 보낸다 — 여기서 멈추면 로그아웃한 줄 알고 자리를 뜬다.
+    var done = function(){ location.href = '/admin/login.html'; };
+    fetch('/api/admin/logout', { method: 'POST', credentials: 'include' }).then(done).catch(done);
   };
 
   // ── ⭐ 자주 쓰는 기능 바로가기 ──────────────────────────
@@ -1381,8 +1413,11 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .catch(function(){ return null; });
   }
 
-  function todoRow(dot, t1, t2, cardId){
-    return '<button type="button" class="todo-row" data-card="' + esc(cardId) + '">'
+  /* href 를 주면 «다른 화면으로 가는 줄» 이 된다(결재함은 이 화면 안의 카드가 아니다).
+     ⚠️ data-card 로 두면 아래 클릭 처리가 getElementById 로 못 찾고 **조용히 아무 일도 안 한다**. */
+  function todoRow(dot, t1, t2, cardId, href){
+    return '<button type="button" class="todo-row" data-card="' + esc(cardId || '') + '"'
+         + (href ? ' data-href="' + esc(href) + '"' : '') + '>'
          + '<span class="dot" style="background:' + dot + '"></span>'
          + '<span class="tx"><span class="t1">' + esc(t1) + '</span>'
          + '<span class="t2">' + esc(t2) + '</span></span>'
@@ -1396,6 +1431,19 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (!box || !body) return;
 
     var html = '', total = 0;
+
+    /* ⓪ 결재 대기 — **가장 먼저**. 사람이 답을 기다리는 것 중 가장 오래 멈춰 있기 쉽다.
+       [왜 넣었나] 2026-08-20 실측: 상단바엔 «Approvals(2)» 가 떠 있는데 바로 아래 이 카드가
+       «지금은 볼 것이 없습니다» 라고 말하고 있었다. 먼저 읽히는 쪽이 이 카드라, 필리핀
+       매니저가 «오늘 할 일 없네» 하고 닫아 버린다. 두 숫자가 서로 다른 말을 하면 안 된다.
+       ⚠️ 이 값은 loadApprovalBadge() 가 채운다 — 그 호출이 끝나면 paintTodo() 를 다시 부른다. */
+    if (D.apprPending > 0) {
+      total += D.apprPending;
+      html += todoRow('#a4341f',
+        T('Approvals waiting', '결재 대기'),
+        D.apprPending + T(' waiting for your decision', '건이 내 결정을 기다립니다'),
+        '', '/work');
+    }
 
     // ① 연기 · 변경 요청 — 학원장이 승인·거절해야 하는 것 (지사·대리점은 자기 학생 것만)
     if (D.reqs) {
@@ -1445,6 +1493,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   document.addEventListener('click', function (e) {
     var b = e.target.closest && e.target.closest('#todo .todo-row');
     if (!b) return;
+    var href = b.getAttribute('data-href');
+    if (href) { location.href = href; return; }        // 결재함처럼 «딴 화면» 인 줄
     var sec = document.getElementById(b.getAttribute('data-card'));
     if (!sec) return;
     sec.open = true;
@@ -1464,8 +1514,14 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
       .then(function(j){
         if (!j || !j.ok) return;
         var n = Number(j.pending || 0);
+        /* 「오늘 봐야 할 것」이 이 숫자를 함께 쓰도록 담아 두고 다시 그린다.
+           담아 두지 않으면 두 곳이 서로 다른 말을 한다(위 ⓪ 주석 참고). */
+        D.apprPending = n;
+        try { paintTodo(); } catch (e) {}
         var el = document.getElementById('apprN');
-        if (el && n > 0) el.textContent = ' (' + n + ')';
+        /* ⚠️ 예전엔 ' (2)' 라는 **글자**였다 — 좁은 상단바에서 눈에 띄지 않아 그냥 지나쳤다.
+              아래쪽 고정 바(.tb-n)와 같은 빨간 알약으로 맞춘다. 0 이면 비워 :empty 로 숨는다. */
+        if (el) el.textContent = n > 0 ? String(n) : '';
         /* 아래쪽 고정 바의 결재 배지도 **이 한 번의 호출**로 함께 채운다.
            따로 부르면 첫 화면 API 계약이 깨지고, 두 숫자가 서로 어긋날 수도 있다.
            ⚠️ 괄호 없이 숫자만 — 좁은 칸이라 «(3)» 은 알약 배지 안에서 넘친다.

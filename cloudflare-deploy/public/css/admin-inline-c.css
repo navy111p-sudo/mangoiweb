@@ -473,8 +473,25 @@
       text-overflow: ellipsis !important;
       justify-content: center !important;
     }
-    /* 4. 대시보드 가로 잘림 방지 */
-    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    /* 4. 대시보드 가로 잘림 방지
+       🔴 (2026-08-20) 여기서 `html` 을 빼면 안 되는 것처럼 보이지만, **빼야 한다.**
+          `html{overflow-x:hidden}` 은 루트를 «스크롤 상자» 로 만든다. 그러면 body 의 overflow 가
+          뷰포트로 올라가지 못하고 body 가 자기 스크롤 상자를 갖는데, 실제로 굴러가는 것은
+          뷰포트라 body 의 scrollTop 은 영영 0 이다. 그 안의 position:sticky 는 「자기 상자가
+          한 번도 안 굴렀으니 붙을 일도 없다」로 판단해 그냥 흘러간다.
+          → 본문 맨 위 경로 줄(#mi-crumb)이 ≤900px 에서 **한 번도 안 붙어 있었다.**
+          실측(390·768·900px, Chromium 141): 맨 아래까지 굴리면 줄 top −1397·−1152·−1135.
+          이 줄에서 `html, ` 을 지우자 셋 다 top 0. 901px 이상은 원래부터 정상이었다.
+       ✅ 가로 잘림 방어는 그대로다 — html 이 visible 이면 **body 의 overflow 가 뷰포트로 올라가
+          뷰포트가 대신 자른다**(CSS 표준의 «전파»). 실측으로 scrollWidth ≤ innerWidth 유지.
+       📜 2026-08-19 에 admin.html 이 `html body{overflow-x:clip}` 로 이걸 고치려 했지만
+          **선택자가 body 만 가리켜서 아무 효과가 없었다.** 범인은 처음부터 html 쪽이었다.
+          같은 교훈이 css/mangoi-layout.css 머리말에도 적혀 있다 —
+          「⛔ html/body 에 overflow-x:hidden 을 걸지 않는다. position:sticky 가 죽는다」.
+       ⛔ 여기에 `html` 을 다시 넣지 말 것. test-harness/manual/crumb-sticky-browser.mjs 가
+          실제로 그려서 잰다(그 검사가 이 버그를 찾아냈다). */
+    body { overflow-x: hidden !important; }
+    html, body { max-width: 100vw !important; }
     /* legacy-toggle / toggleAllMenuCards 버튼 — 큰 터치 영역 */
     #legacy-toggle,
     button[onclick*="toggleAllMenuCards"] {
@@ -3305,6 +3322,193 @@ button.chip:hover,
     color: #FFFFFF !important;
   }
 
+  /* ─────────── 수강신청 등록 표 — 행 안 «작은 아이콘 버튼» ───────────
+     ⚠️ 위 #tp-list-table 과 같은 사정이다. 바로 위 전역 룰이
+     padding:9px 18px · 인디고 그라데이션을 !important 로 입히는데,
+     작성자 !important 는 인라인 style 을 이기므로 adm-core.js 가 적어 보낸
+     «width:24px; padding:0; 앰버» · «투명 빨강 ✕» 이 통째로 무시된다.
+     실측(2026-08-20 헤드리스, 1280·1100·1024px 동일):
+       ⏰ 요일별 시간  목표 26×26 → 실제 49×31 (시간 칸이 비워 둔 28px 를 넘어 입력칸을 밀어냄)
+       ✕ 행 삭제    목표 투명 빨강 → 실제 67×46 파란 알약
+     ID 접두(특이도)로 둘만 되살린다. ⚠️ box-sizing 을 명시하는 이유 —
+     width 가 테두리를 포함해야 입력칸의 calc(100% - 28px) 와 딱 맞는다.
+     ⛔ hover 는 «색만» — 전역 룰의 transform/box-shadow 를 함께 끈다(크기·위치 고정 원칙). */
+  /* 🕐 (2026-08-21 사장님 지시) ⏰ 는 «입력칸 안쪽 오른쪽 끝» 에 얹는다.
+     밖에 나란히 두면 칸 가운데에 툭 튀어나와 보인다. 자리는 입력칸의 padding-right 로 비운다.
+     ⚠️ transform 으로 세로 가운데를 맞추므로, 전역 hover 룰의 translateY(-1px) 가 그대로 먹으면
+        버튼이 아래로 튄다 — hover 에서도 같은 transform 을 !important 로 못 박는다(1-3 「hover 확대 금지」). */
+  #en-multi-table .en-time-wrap { position: relative; display: block; }
+  /* ⚠️ 오른쪽 여백을 인라인 style 로 주면 안 먹는다 — 아래 「폼 — input/textarea/select」 전역 룰이
+        padding 을 !important 로 덮기 때문이다(실측 2026-08-21: 32px 로 적었는데 12px 로 나옴).
+        여백이 모자라면 친 글자가 ⏰ 밑으로 들어간다. ID 접두로 이 칸만 되살린다. */
+  #en-multi-table .en-time-wrap input.en-row-time {
+    display: block; padding-right: 34px !important;
+  }
+  #en-multi-table td button.en-row-time-builder {
+    position: absolute !important; right: 4px !important; top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 26px !important; height: 26px !important; padding: 0 !important;
+    box-sizing: border-box !important;
+    background: #fef3c7 !important; background-image: none !important;
+    border: 1px solid #f59e0b !important; border-radius: 4px !important;
+    color: #92400e !important; font-size: 12px !important; font-weight: 400 !important;
+    line-height: 1 !important; vertical-align: middle !important;
+  }
+  #en-multi-table td button.en-row-time-builder:hover {
+    background: #fde68a !important; background-image: none !important;
+    transform: translateY(-50%) !important; box-shadow: none !important;
+  }
+  #en-multi-table td button.en-row-del {
+    padding: 0 6px !important; box-sizing: border-box !important;
+    background: transparent !important; background-image: none !important;
+    border: 0 !important; border-radius: 0 !important;
+    color: #ef4444 !important; font-size: 14px !important; font-weight: 700 !important;
+  }
+  #en-multi-table td button.en-row-del:hover {
+    background: transparent !important; background-image: none !important;
+    color: #b91c1c !important;
+    transform: none !important; box-shadow: none !important;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ (2026-08-20 사장님 지시) 수강신청 등록 표 → 「카드 두 줄」 배치
+     ─────────────────────────────────────────────────────────────────────
+     왜 — 열 개짜리 한 줄(min-width:1180px)에 관리자 화면 zoom:1.3 이 곱해져
+       실제로는 약 1,534px 를 차지했다. 사장님 화면에 늘 가로 스크롤이 남았고,
+       2026-08-20 의 «⏰ 가 입력칸을 덮는» 사고도 좁은 칸에서만 재현되던 것이었다.
+     어떻게 — DOM 은 그대로 두고 CSS 로만 눕힌다. `<tr>` 가 카드, `<td>` 가 이름표 붙은 칸이 된다.
+       ⚠️ 이 방식을 고른 이유가 있다 — 값을 읽는 `_readEnrollmentRows()` 가
+          `#en-multi-rows tr` 와 `.en-row-*` 를 그대로 쓰고, 행 배선 20줄도 `tr.querySelector` 다.
+          마크업을 카드 `<div>` 로 바꾸면 그 전부를 함께 고쳐야 한다.
+       ⚠️ 칸 이름은 `data-label` → `::before` 로 그린다. 표 머리(thead)를 숨기면
+          이름이 함께 사라지므로 칸마다 다시 붙여 줘야 한다.
+     ⛔ hover 로 커지지 않는다(색만) — 1-3 「hover 확대 금지」.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table {
+    min-width: 0 !important; width: 100% !important;
+    border-collapse: separate !important; border-spacing: 0 !important;
+    background: transparent !important;
+  }
+  #en-multi-table thead { display: none !important; }
+  #en-multi-table tbody { display: block !important; }
+  #en-multi-table tbody tr {
+    display: grid !important; grid-template-columns: repeat(12, 1fr);
+    gap: 10px 12px; position: relative;
+    padding: 32px 12px 12px !important; margin-bottom: 10px;
+    background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px;
+  }
+  #en-multi-table tbody tr td.en-c {
+    display: block !important; border: 0 !important; padding: 0 !important;
+    white-space: normal !important; min-width: 0; vertical-align: top;
+  }
+  #en-multi-table tbody tr td.en-c::before {
+    content: attr(data-label); display: block; margin-bottom: 4px;
+    font-size: 10.5px; font-weight: 700; color: #6b7280; letter-spacing: .01em;
+  }
+  #en-multi-table tbody tr td.en-c-num::before,
+  #en-multi-table tbody tr td.en-c-del::before { content: none; }
+  /* 번호와 ✕ 는 카드 머리로 — 흐름에서 빼내 칸을 안 잡아먹게 한다 */
+  #en-multi-table tbody tr td.en-c-num {
+    position: absolute; top: 8px; left: 12px;
+    font-size: 11px !important; font-weight: 700 !important; color: #6b7280 !important;
+    background: #f8fafc; border: 1px solid #e5e7eb !important;
+    border-radius: 5px; padding: 0 7px !important; line-height: 18px;
+  }
+  #en-multi-table tbody tr td.en-c-del { position: absolute; top: 5px; right: 8px; }
+  /* 첫 줄 = 누구를·어떻게 · 둘째 줄 = 언제 (DOM 순서와 다르므로 order 로 세운다) */
+  #en-multi-table tbody tr td.en-c-uid   { order: 1; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-type  { order: 2; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-prio  { order: 3; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-size  { order: 4; grid-column: span 2; }
+  #en-multi-table tbody tr td.en-c-day   { order: 5; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-time  { order: 6; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-start { order: 7; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-dur   { order: 8; grid-column: span 2; }
+  @media (max-width: 1100px) {
+    #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
+    #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }
+  }
+  @media (max-width: 620px) {
+    #en-multi-table tbody tr td.en-c { grid-column: span 6 !important; }
+  }
+
+  /* 요일·레벨 구분 — 켜진 것이 눈에 «보이게». 체크박스는 그대로 두고 상자만 씌운다
+     (값을 읽는 쪽이 `.en-row-day:checked` 를 세므로 input 을 없애면 안 된다).
+     ⚠️ 요일은 «체크박스 위 / 글자 아래» 세로 배치를 유지한다(2026-08-20 사장님 지시). */
+  #en-multi-table td.en-c-day label,
+  #en-multi-table td.en-c-type label {
+    border: 1px solid #e5e7eb; border-radius: 7px; background: #ffffff;
+    padding: 4px 6px; margin-right: 3px !important; cursor: pointer;
+  }
+  #en-multi-table td.en-c-day label { min-width: 30px; justify-content: center; }
+  #en-multi-table td.en-c-type label { display: inline-flex; align-items: center; }
+  #en-multi-table td.en-c-day label:has(input:checked),
+  #en-multi-table td.en-c-type label:has(input:checked) {
+    border-color: #4338ca; background: #eef2ff; color: #3730a3; font-weight: 700;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     🗓️ 시작일 — PC 는 «누르면 달력»(브라우저 기본), 휴대폰은 «굴리는 드럼».
+     ─────────────────────────────────────────────────────────────────────
+     ⛔ 팝오버로 띄우지 않는다. 2026-08-21 실측 — 표(`#en-multi-table`)가 overflow:hidden 이라
+        칸 밖으로 나간 팝오버가 통째로 잘렸다(팝오버 bottom 16945 > 표 bottom 16783).
+        버튼은 눌리는데 화면에는 아무것도 안 나타나서 「작동이 안 된다」로 보였다.
+        ✅ 드럼을 «칸 안에» 두면 칸이 늘어나므로 잘릴 일이 없다.
+     ⚠️ `.enw-col li` 높이(28px)는 `adm-core.js` 의 EN_WHEEL_ITEM 과 반드시 같아야 한다.
+     ══════════════════════════════════════════════════════════════════════ */
+  #en-multi-table .en-start-wrap { display: block; }
+  #en-multi-table .en-start-wrap input.en-row-start { cursor: pointer; }
+
+  /* 자주 쓰는 시작일 — 실제로 수업이 시작되는 날은 거의 이 넷 중 하나다.
+     ⚠️ 전역 룰(details.menu-card button{인디고 !important})이 이 작은 버튼도 파란 알약으로
+        뭉개므로 ID 접두로 되살린다(같은 파일 위쪽 ⏰·✕ 와 같은 사정). */
+  #en-multi-table .en-start-quick { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+  #en-multi-table td button.en-q {
+    padding: 2px 7px !important; height: auto !important; box-sizing: border-box !important;
+    background: #f8fafc !important; background-image: none !important;
+    border: 1px solid #e2e8f0 !important; border-radius: 5px !important;
+    color: #475569 !important; font-size: 10.5px !important; font-weight: 600 !important;
+    line-height: 1.5 !important; white-space: nowrap;
+  }
+  #en-multi-table td button.en-q:hover {
+    background: #eef2ff !important; background-image: none !important;
+    border-color: #c7d2fe !important; color: #4338ca !important;
+    transform: none !important; box-shadow: none !important;
+  }
+
+  /* 📱 드럼 — 휴대폰에서만 보인다. PC 는 브라우저 기본 달력이 훨씬 빠르다. */
+  #en-multi-table .en-start-drum { display: none; }
+  @media (max-width: 1023px) {
+    #en-multi-table .en-start-drum { display: block; margin-top: 6px; }
+  }
+  #en-multi-table .enw-heads { display: flex; gap: 3px; padding: 0 3px 3px; }
+  #en-multi-table .enw-heads span {
+    flex: 1; min-width: 46px; text-align: center;
+    font-size: 10px; font-weight: 700; color: #6b7280;
+  }
+  #en-multi-table .enw-drum {
+    position: relative; display: flex; gap: 3px; padding: 3px;
+    border: 1px solid #cbd5e1; border-radius: 9px; background: #f8fafc;
+  }
+  #en-multi-table .enw-band {
+    position: absolute; left: 3px; right: 3px; top: 50%; height: 28px;
+    transform: translateY(-50%); border-radius: 6px;
+    background: #eef2ff; border: 1px solid #c7d2fe; pointer-events: none;
+  }
+  #en-multi-table .enw-col {
+    position: relative; z-index: 1; flex: 1; height: 84px; overflow-y: auto;
+    scroll-snap-type: y mandatory; overscroll-behavior: contain;
+    scrollbar-width: none; cursor: ns-resize; border-radius: 6px;
+  }
+  #en-multi-table .enw-col::-webkit-scrollbar { display: none; }
+  #en-multi-table .enw-col ul { list-style: none; margin: 0; padding: 28px 0; }
+  #en-multi-table .enw-col li {
+    height: 28px; line-height: 28px; text-align: center;
+    font-size: 13px; color: #9ca3af; scroll-snap-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  #en-multi-table .enw-col li.on { color: #4338ca; font-weight: 800; }
+
   /* ============================================
      폼 — input/textarea/select
      ============================================ */
@@ -4281,6 +4485,36 @@ button.chip:hover,
     padding: 8px 18px !important; border-radius: 8px !important;
     font-weight: 800 !important; cursor: pointer !important;
   }
+  /* ✍️ 표의 「결재 올리기」 (2026-08-20 신설)
+     ⛔ .pm-row-btn.tax 를 재사용했더니 — ① 링크라 밑줄이 그어지고
+        ② 라벨이 칸(160px)보다 길어 **두 줄로 접히면서 배경이 조각나** 「글자가 잘려 내려온」 것처럼 보였다.
+        (인라인 요소는 줄마다 배경이 따로 그려진다 — 버튼처럼 보이지만 버튼이 아니다)
+     ✅ inline-flex + nowrap 으로 «한 줄로만» 그린다. 라벨도 짧게 줄였다. */
+  /* 양식 이름이 두 줄로 접혀 지저분하던 것 — 표는 바깥 상자가 overflow-x:auto 라 넘쳐도 안전하다 */
+  #card-report-forms .rf-table td:nth-child(2) { white-space: nowrap; }
+
+  #card-report-forms .rf-go {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    white-space: nowrap !important;      /* 두 줄로 접히지 않는다 */
+    text-decoration: none !important;    /* 링크 밑줄 제거 */
+    background: rgba(16,185,129,0.16) !important;
+    color: #6EE7B7 !important;
+    border: 1px solid rgba(16,185,129,0.5) !important;
+    border-radius: 7px !important;
+    padding: 6px 11px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+  }
+  #card-report-forms .rf-go:hover {
+    background: rgba(16,185,129,0.28) !important;
+    color: #A7F3D0 !important;
+  }
+
   #card-report-forms .rf-btn-new {
     background: linear-gradient(135deg, #10B981, #059669) !important;
     color: #fff !important; border: 0 !important;
@@ -4288,6 +4522,11 @@ button.chip:hover,
     font-weight: 800 !important; cursor: pointer !important;
     margin: 18px auto 0 !important;
     display: block !important;
+  }
+  #card-report-forms a.rf-btn-new {
+    text-decoration: none !important;
+    width: max-content !important;
+    text-align: center;
   }
   #card-report-forms .rf-btn-new:hover {
     background: linear-gradient(135deg, #059669, #047857) !important;
@@ -4350,15 +4589,20 @@ button.chip:hover,
     background: linear-gradient(135deg, #2563EB, #3B82F6) !important;
     color: #fff !important;
   }
+  /* 💬 안내 박스 (2026-08-20 손질)
+     · 진한 파랑 배경이 «투박하다» 는 지적 → 배경은 아주 옅게, 강조는 왼쪽 띠로만.
+     · 글자가 상자 안에서 답답하게 눌리던 것 → 여백·줄간격을 늘리고 문장을 두 줄로 줄였다. */
   #card-report-forms .rf-info {
-    background: rgba(37,99,235,0.15) !important;
-    border-left: 4px solid #2563EB;
+    background: rgba(37,99,235,0.07) !important;
+    border: 1px solid rgba(37,99,235,0.22);
+    border-left: 3px solid #3B82F6;
     color: #F8FAFC !important;
-    border-radius: 8px;
-    padding: 10px 14px;
+    border-radius: 10px;
+    padding: 12px 16px;
     margin-bottom: 14px;
     font-size: 12.5px;
-    line-height: 1.7;
+    line-height: 1.85;
+    overflow-wrap: anywhere;   /* 긴 낱말이 상자를 밀어내지 않게 */
   }
   #card-report-forms .rf-info b { color: #93C5FD !important; }
 
@@ -7801,7 +8045,7 @@ button.chip:hover,
   #ph85-sidebar .ph85-sub:hover .mi-ico,
   #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
   #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#fbbf24 !important; opacity:1 !important; }
-  /* 강조 줄(학원 전체 스케줄)은 파란 계열 유지 */
+  /* 강조 줄(전체 스케줄)은 파란 계열 유지 */
   #ph85-sidebar .ph85-sub-schedule .mi-ico{ color:#60a5fa !important; opacity:.92 !important; }
   #ph85-sidebar .ph85-sub-schedule:hover .mi-ico{ color:#93c5fd !important; opacity:1 !important; }
 
@@ -7990,6 +8234,9 @@ button.chip:hover,
   html[data-admin-theme="ivory"] #card-report-forms .rf-form-name:hover { color: #1E40AF !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.active { background: rgba(34,197,94,0.18) !important; color: #15803D !important; }
   html[data-admin-theme="ivory"] #card-report-forms .rf-badge.inactive { background: rgba(148,163,184,0.22) !important; color: #475569 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-info { background: #F5F8FF !important; border-color: #D5E2FB !important; border-left-color: #3B82F6 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go { background: #E9F7F1 !important; color: #0B6E63 !important; border-color: #9AD5C4 !important; }
+  html[data-admin-theme="ivory"] #card-report-forms .rf-go:hover { background: #D5EFE6 !important; color: #075E54 !important; }
 
   /* 19) 학원별 학생 수업현황 카드 — 밝게(ivory) 모드: 밝은 배경 + 어두운 글자 */
   html[data-admin-theme="ivory"] #card-school-attendance-stats .sa-info { color: #1E293B !important; }
@@ -9001,7 +9248,12 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
   /* 👤 런타임 mount 되는 계정 버튼 — 헤더 시절 모양을 도크 모양으로 덮는다.
      옛 규칙들이 !important 라 여기서도 !important 가 필요하다. */
   #ph162-dock #ph115-user {
-    grid-column: 1 / -1 !important;
+    /* 🧭 (2026-08-21 사장님 「부피가 너무 크다」) 옛 값은 1 / -1 = 한 줄 전체였다.
+       이제 «마지막 칸을 빼고» 차지하고, 그 마지막 칸에 사이트 홈이 옆으로 선다 → 줄이 하나 줄어든다.
+       ⚠️ -2 / -1 · 1 / -2 로 «끝에서부터» 세는 이유: 음성 토글이 못 붙는 브라우저에서는
+          도크가 3칸이 아니라 2칸이다(adm-r15.js 의 .has-voice 가 안 붙는다). 앞에서부터
+          세면(1/3, 3/-1) 그때 칸이 모자라 암시적 열이 생기면서 배치가 무너진다. */
+    grid-column: 1 / -2 !important;
     display: flex !important;
     align-items: center !important;
     gap: 8px !important;
@@ -9063,6 +9315,55 @@ html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] a[href="/b
     color: #78716c !important;
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     🧹 (2026-08-21 사장님 지적 「사이트 홈과 관리자 칸 사이가 너무 비어 있다」)
+     그 빈 자리는 여백이 아니라 **옛 상단바의 사용자 버튼**(#topUserBtn)이다.
+     배경만 투명해서 안 보일 뿐, 그리드 한 줄을 그대로 차지하고 있었다
+     (실측 2026-08-21, 헤드리스: PC 28px·휴대폰 22px + 간격 7px).
+
+     [왜 지금까지 안 숨겨졌나] 이 파일 5389행이 이미 `#topUserBtn{display:none!important}`
+       라고 적어 두었는데, 옛 헤더 규칙 `#topUserBtn.th-user{display:inline-flex!important}`
+       (1944·4922행)가 **특정도가 한 칸 높아서** 이긴다. 게다가 그리드 자식이라
+       inline-flex 가 flex 로 승격돼 한 줄을 온전히 먹었다.
+     → 여기서 도크 id 를 앞에 붙여(2,0,0) 확실히 이긴다.
+
+     ⛔ 요소를 admin.html 에서 지우지 말 것 — adm-core.js 의 initTopUserMenu() 가
+        /api/admin/me 를 부르는 이 화면의 «유일한» 서버 신원 조회 자리다.
+        보이지만 않으면 되고, 지우면 그 호출까지 함께 사라진다. */
+  #ph162-dock #topUserBtn,
+  #ph162-dock #topUserPopup {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important; height: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+  }
+
+  /* 🏠 사이트 홈 — 계정 카드 «옆» 마지막 한 칸.
+     [왜 옆으로] 도크가 네 줄(유틸·계정·빈칸·홈)이라 PC 227px·휴대폰 172px 를 늘 덮고 있었다.
+       빈 칸을 없애고 홈을 계정 옆으로 옮기면 두 줄이 된다.
+     ⚠️ 칸 하나(PC 기준 91px)에 그림+글자를 넣어야 하므로 여백·글자를 조금 줄인다.
+        ⛔ 글자를 빼고 그림만 남기지 말 것 — 이 버튼은 「나가는 문이 안 보인다」는
+           2026-08-20 필리핀 매니저 제보로 넣은 것이다(admin.html 의 그 자리 주석 참조).
+     ⚠️ 좁은 칸에서 이름이 길어져도 다른 칸을 밀지 않도록 min-width:0 + overflow:hidden. */
+  #ph162-dock #ph162-sitehome {
+    grid-column: -2 / -1 !important;
+    min-width: 0;
+    padding: 8px 6px;
+    gap: 4px;
+    font-size: 11.5px;
+    overflow: hidden;
+  }
+  #ph162-dock #ph162-sitehome img {
+    width: 18px !important; height: 18px !important;
+  }
+  /* 글자는 EN 일 때가 더 길다(「사이트 홈」 4글자 대 「Site home」 9글자). 칸을 넘치면
+     하드하게 잘리는 대신 «…» 로 줄인다 — 넘쳐서 옆 칸(계정)을 밀어내는 것보다 낫다.
+     실측(2026-08-21 헤드리스, PC 1440·1024 · 휴대폰): 「사이트 홈」·「Site home」 둘 다
+     넘치지 않았고(scrollWidth ≤ clientWidth), 계정 이름을 길게 넣어도 홈 칸 폭은 그대로였다. */
+  #ph162-dock #ph162-sitehome span {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
 /* ═══ 🔍 메뉴 검색 결과 숨김 (2026-08-19) ═══════════════════════════════════
    검색은 style.display 를 쓰지 않는다 — admin.html 의 «강제 visible» 복구 루프가
    1.5초마다 display:none 을 전부 되살려서, 검색이 «쳤다가 잠시 뒤 풀리는» 상태였다.
@@ -9122,3 +9423,77 @@ html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-box{
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-head{ color: #fbbf24; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row{ color: #cbd5e1; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row:hover{ background: rgba(148,163,184,.14); color: #f8fafc; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   👁 (2026-08-21) 참관 / 직접 입장 버튼 — 색이 화면에 «실제로» 나오게
+   ───────────────────────────────────────────────────────────────────────
+   [뜻] 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임)
+        · 빨강 = 되돌릴 수 없는 행위(즉시 개입·강제 종료) · 파랑 = 그 밖의 이동
+
+   [왜 여기에 있나 — 인라인 style 로는 화면에 안 나온다]
+   2026-08-21 헤드리스 실측: 「🔴 실시간 수업 현황」 버튼 네 개가 전부 흰색이었다.
+   인라인에 색을 적어 두었는데도 그렇다. 이 파일의 규칙 둘이 순서대로 이긴다 —
+     ① 3279행  details.menu-card button:not(…)                    → 파랑 그라데이션 !important
+     ② 9072행  html[…="ivory"][…="slate"] [id^="card-"] button:not([class]) → #ffffff !important
+   ②의 근거는 «클래스가 없다 = 의도한 색이 없다» 인데 이 버튼들에서 그 전제가 틀렸다.
+   그래서 클래스를 달아 ②를 벗어나면, 이번엔 ①이 잡아 전부 같은 파랑이 된다.
+
+   [특이성] ① 이 (0,5,2) 라 «맨 끝 + !important» 만으로는 진다(실측으로 확인).
+   이 파일이 9062행에 적어 둔 방식을 그대로 쓴다 — «항상 참인 :not() 을 덧붙여
+   대상은 그대로 둔 채 힘만 올린다». 아래는 (0,8,1) 이라 ① 을 이긴다.
+   ⚠️ 카드 조상을 조건에 넣지 않는다 — 「오늘 수업」은 카드 id 가 sm- 로 시작해
+      [id^="card-"] 로는 안 걸린다(2026-08-21 실측).
+
+   ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
+   감시: test-harness/observer_camera_guard_harness.mjs F절
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* 힘 올리기용 꼬리 — 우리 버튼엔 이 클래스들이 붙을 일이 없어 «항상 참» 이다 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  border-radius: 6px !important; cursor: pointer !important;
+  background-image: none !important; box-shadow: none !important; transform: none !important;
+}
+/* 「🔴 실시간 수업 현황」 — 채운 버튼 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 12px !important; font-size: 12px !important; font-weight: 600 !important;
+  border: none !important; color: #fff !important;
+}
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #8b5cf6 !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #2563eb !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #ef4444 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #dc2626 !important; }
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #7c3aed !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #1d4ed8 !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #dc2626 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #b91c1c !important; }
+
+/* 「👀 수업 관찰」 카드 · 「🚪 오늘 수업」 표 — 옅은 칩 */
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 10px !important; font-size: 11.5px !important; font-weight: 700 !important;
+}
+button.gh-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.22) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.5) !important; margin-right: 4px !important;
+}
+button.gh-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.22) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+}
+button.tc-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.16) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+  padding: 4px 12px !important; font-weight: 800 !important; margin-right: 4px !important;
+}
+button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.45) !important;
+}
+/* 다크(기본) 테마에서는 옅은 칩의 «글자»가 배경에 묻힌다 — 밝은 쪽으로 */
+html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
+html:not([data-admin-theme="ivory"]) button.gh-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #fde68a !important; }

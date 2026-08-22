@@ -48,6 +48,17 @@
      card = 이동할 카드 id (= ia6 항목의 cards[0])
      sub  = 그 안에서 추가로 펼쳐 내려갈 요소 id (없으면 null) */
   var ITEMS = [
+    /* 🧾 결재함 — **이 표의 첫 칸**. 다른 항목과 달리 이 화면의 카드가 아니라 딴 페이지로 간다.
+       [왜 여기 넣었나] 2026-08-20 까지는 이 표 «위» 에 초록 줄이 따로 떠 있었다. 급히 만든
+          입구라 표 밖에 있어 어색했고, 사이드바에도 결재함이 생기면서 입구가 셋이 됐다.
+          표 안으로 들여 하나 줄인다.
+       ⚠️ card 가 없으므로 usable()·roleHidden() 이 판정할 대상이 없다 — href 항목은 그대로 통과시킨다.
+       ⚠️ 순서 학습(freezeOrder)이 이 칸을 아래로 밀지 않도록 pin 을 준다. 결재는 «누가 답을
+          기다리는» 일이라 덜 눌렀다는 이유로 뒤로 가면 안 된다. */
+    { key: '결재함', ko: '결재함', en: 'Approvals',
+      card: null, sub: null, href: '/work', pin: true,
+      ico: '<path d="M3 13h4l2 3h6l2-3h4"/><path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>' },
+
     { key: '오늘수업',   ko: '오늘 수업 (바로 입장)',   en: "Today's classes (join)",
       card: 'card-students-mgmt', sub: 'sm-today-classes',
       ico: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>' },
@@ -132,9 +143,15 @@
   function freezeOrder() {
     if (mode() === 'fixed') { ORDER = ITEMS.slice(); return; }
     var use = loadUse(), t = dayNo();
+    /* 📌 pin 항목은 «자동 정렬» 에서도 맨 앞에 고정한다.
+       결재는 누가 답을 기다리는 일이라, 덜 눌렀다는 이유로 아래로 밀리면 안 된다.
+       (이 표는 많이 누른 순으로 스스로 재배치된다 — 그 규칙에서만 예외를 둔다) */
     ORDER = ITEMS
       .map(function (it, i) { return { it: it, i: i, s: scoreOf(use[it.key], t) }; })
-      .sort(function (a, b) { return (b.s - a.s) || (a.i - b.i); })   // 동점 → 기본 순서
+      .sort(function (a, b) {
+        var ap = a.it.pin ? 1 : 0, bp = b.it.pin ? 1 : 0;
+        return (bp - ap) || (b.s - a.s) || (a.i - b.i);   // 고정 → 많이 쓴 순 → 기본 순서
+      })
       .map(function (x) { return x.it; });
   }
 
@@ -179,6 +196,8 @@
   }
 
   function usable(it) {
+    // 🔗 딴 페이지로 가는 항목은 이 화면의 카드를 안 쓴다 — 카드로 판정하면 «항상 없음» 이 된다.
+    if (it.href) return true;
     var el = document.getElementById(it.card);
     return !!el && !roleHidden(el);
   }
@@ -388,6 +407,7 @@
     saveUse(use);
     track(key);
 
+    if (it.href) { location.href = it.href; return; }   // 딴 페이지(결재함)
     window.ph161Go(it.card, it.sub);
   }
 
