@@ -10,6 +10,29 @@
    대사 API 응답에 pg_fee_rate 가 오면 그 값으로 갱신하고, 못 받았을 때만 기본값을 쓴다. */
 window.__pgFeeRate = (typeof window.__pgFeeRate === 'number') ? window.__pgFeeRate : 0.0286;
 window.pgFeeRateLabel = function(){ return (window.__pgFeeRate * 100).toFixed(2) + '%'; };
+
+/* 🔐 «이 카드가 지금 이 계정에게 감춰져 있는가» — 판정 정본 (2026-08-18)
+
+   카드를 감추는 방법이 **세 갈래**로 늘어났는데 읽는 쪽이 각자 판단하고 있었다.
+   그래서 「사이드바엔 없는데 검색에는 나오는」 식의 불일치가 계속 생겼다.
+   판정을 여기 한 곳으로 모은다 — 새 숨김 방식이 생기면 **이 함수만** 고칠 것.
+
+     ① `.rbac-hide`         역할 등급 (CARD_POLICY → _applyMenuVisibility)
+     ② `.ph118-card-hidden` 권한 매트릭스 (adm-q10.js PERMS)
+     ③ 인라인 display:none  옛 방식. 남아 있을 수 있어 계속 인정한다
+
+   ⛔ `.ia6-hide` 는 **넣지 않는다.** 그건 «항목을 누르면 관련 카드만 보이기»(showOnly)의
+      일시적 화면 상태이지 «이 사람이 볼 수 있는가» 가 아니다. 넣으면 카드 하나를 고른
+      순간 나머지가 전부 «권한 없음» 으로 판정돼 검색·바로가기가 통째로 비워진다.
+   ⚠️ 인라인 display 로 감춘 카드는 PC(≥1024px)에서 **실제로는 화면에 보인다**
+      (#legacy-cards 복구 규칙이 이긴다 — CLAUDE.md 2장 함정 참고). 그래도 «감춤 의도» 로
+      읽는 것이 맞다. 보이는 것이 버그이지 판정이 버그가 아니다. */
+window.mangoiCardHidden = function (el) {
+  if (!el) return true;
+  if (el.classList && (el.classList.contains('rbac-hide') ||
+                       el.classList.contains('ph118-card-hidden'))) return true;
+  return !!(el.style && el.style.display === 'none');
+};
 window.notePgFeeRate = function(v){ if (typeof v === 'number' && v > 0) window.__pgFeeRate = v; };
 
 let chartAtt = null, chartRwd = null;
@@ -1250,6 +1273,79 @@ function _ensureRoomEnhCss(){
   st.textContent='@keyframes roomAlertPulse{0%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,.45)}70%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 6px rgba(239,68,68,0)}100%{box-shadow:inset 3px 0 0 #ef4444,0 0 0 0 rgba(239,68,68,0)}} tr.room-alert>td{background:rgba(239,68,68,.08)!important} tr.room-alert>td:first-child{animation:roomAlertPulse 1.3s ease-in-out infinite} @media (prefers-reduced-motion:reduce){tr.room-alert>td:first-child{animation:none}} .room-alert-badge{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:9999px;background:#ef4444;color:#fff;font-size:10px;font-weight:800;vertical-align:middle}';
   document.head.appendChild(st);
 }
+/* 📅 «예약 기준 지금 수업» 요약 줄  (2026-08-20 사장님 「지금 수업이 없어?」)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜 만들었나] 이 표는 «망고아이 화상방에 붙어 있는 사람» 만 센다. 그런데 카페24
+      예약 수업은 그 방을 거치지 않아서(실측: `c24-*` 방 실접속 전 기간 0건),
+      수업 4건이 진행 중이던 시각에도 화면은 «지금 진행 중인 수업이 없습니다» 라고
+      말했다. 같은 사실인데 «오늘 한가하다» 로 읽힌다.
+   [무엇을 그리나] 「지금 수업 4건 · 화상방 접속 0건」 — 둘을 **나란히** 놓는다.
+      숫자가 갈리는 것 자체가 정보다(수업은 도는데 우리 방을 안 쓰고 있다).
+   ⚠️ 색은 `background-color:` 로만 준다 — `background:linear-gradient(…)` 이나
+      `background:#…` 은 admin-inline-c.css 의 옛 다크 규칙이 `!important` 로 덮는다
+      (CLAUDE.md 2장 「관리자 카드 안 박스 색이 안 먹음」). */
+function _renderRoomsSummary(counts, liveRooms, _L) {
+  const box = document.getElementById('rooms-now-summary');
+  if (!box) return;
+  if (!counts) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const now = counts.now || 0, soon = counts.soon || 0, conn = counts.connected || 0;
+  box.style.display = '';
+  const chip = (label, val, color) =>
+    '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:9999px;'
+    /* ⚠️ 색에 `!important` 를 붙인다 — admin-inline-c.css 가 카드 안 글자를
+       `#101828 !important` 로 통째로 덮어서, 그냥 쓰면 색이 조용히 죽는다.
+       (인라인 !important 는 작성자 !important 를 이긴다. CLAUDE.md 2장) */
+    + 'background-color:#ffffff;border:1px solid #e5e7eb;font-size:12px;font-weight:700;color:#374151 !important">'
+    + label + '<b style="font-size:14px;color:' + color + ' !important">' + val + '</b></span>';
+  box.innerHTML =
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    + chip((_L ? 'Scheduled now' : '지금 수업'), now, now ? '#dc2626' : '#6b7280')
+    + chip((_L ? 'In a Mango-i room' : '화상방 접속'), liveRooms, liveRooms ? '#16a34a' : '#6b7280')
+    + (soon ? chip((_L ? 'Starting soon' : '곧 시작'), soon, '#2563eb') : '')
+    + '</div>'
+    + '<div style="font-size:12px;color:#6b7280;margin-top:6px;line-height:1.6">'
+    + (_L
+        ? 'Left = classes booked in cafe24 for this moment. Right = people actually connected to a Mango-i room. They are different numbers on purpose — a booked class does not open a Mango-i room by itself.'
+        : '왼쪽은 <b>카페24에 예약된 수업</b>, 오른쪽은 <b>망고아이 화상방에 실제로 붙어 있는 사람</b>입니다. 예약 수업이 화상방을 자동으로 열지는 않기 때문에 두 숫자는 원래 다를 수 있습니다.')
+    + (conn ? '' : '')
+    + '</div>';
+}
+
+/* 📅 예약 수업 행 — 방 목록 아래에 함께 그린다.
+   ⛔ «접속 기록 없음» 을 «미접속» 이라고 쓰지 않는다. 서버는 학생 계정·이름이
+      완전일치하는 실접속 행이 있을 때만 «접속 확인» 으로 답한다(추측하지 않는다).
+      즉 우리가 아는 것은 «기록이 없다» 까지다. */
+function _schedRowsHtml(list, _L, roomsEmpty) {
+  if (!list || !list.length) return '';
+  const head = '<tr><td colspan="6" style="background-color:#f8fafc;padding:8px 12px;line-height:1.6">'
+    + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+    + (roomsEmpty
+        ? '<div style="font-size:12px;color:#6b7280">'
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다.')
+          + '</div>'
+        : '')
+    + '</td></tr>';
+  return head + list.map(function (c) {
+    const ph = c.phase === 'soon' ? { t: (_L ? 'Starts soon' : '곧 시작'), c: '#2563eb' }
+             : c.phase === 'ended' ? { t: (_L ? 'Just ended' : '방금 끝남'), c: '#6b7280' }
+             : { t: (_L ? 'In progress' : '진행 중'), c: '#dc2626' };
+    const conn = c.connected
+      ? '<span class="badge ok">✅ ' + (_L ? 'Connected' : '접속 확인') + '</span>'
+      : '<span style="color:#b45309 !important;font-weight:700;font-size:12px">' + (_L ? 'No connection record' : '접속 기록 없음') + '</span>';
+    return '<tr data-sched="1">'
+      + '<td><b>' + _esc(c.start_kst || '') + '~' + _esc(c.end_kst || '') + '</b>'
+      +   '<div style="font-size:11px;color:#9ca3af">' + _esc(c.room_id || '') + '</div></td>'
+      + '<td><span style="color:' + ph.c + ' !important;font-weight:800">' + ph.t + '</span></td>'
+      + '<td>' + _esc(c.student_name || (_L ? '(unknown)' : '(학생 미상)'))
+      +   ' <span style="color:#9ca3af">·</span> ' + _esc(c.teacher_name || (_L ? '(teacher unknown)' : '(강사 미상)')) + '</td>'
+      + '<td>-</td><td>-</td>'
+      + '<td>' + conn
+      +   (c.live_room ? '<div style="font-size:11px;color:#6b7280">' + _esc(c.live_room) + '</div>' : '') + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
 async function loadActiveRooms() {
   _ensureRoomEnhCss();
   const _L = adminLang==='en';
@@ -1260,9 +1356,11 @@ async function loadActiveRooms() {
     if (window.__roomsHover && tb0 && tb0.querySelector('tr[data-room]')) return;
   }
   try {
-    const [rr, ar] = await Promise.all([
+    const [rr, ar, cr] = await Promise.all([
       fetch('/api/active-rooms'),
-      fetch('/api/admin/alerts').catch(()=>null)
+      fetch('/api/admin/alerts').catch(()=>null),
+      // 📅 (2026-08-20) 예약 기준 «지금 수업». 실패해도 방 목록은 종전대로 그린다.
+      fetch('/api/admin/classes-now', { credentials: 'include', cache: 'no-store' }).catch(()=>null)
     ]);
     const rooms = await rr.json();
     const tb = document.getElementById('active-rooms-table');
@@ -1271,7 +1369,17 @@ async function loadActiveRooms() {
     try {
       if (ar) { const ad = await ar.json(); if (ad && ad.ok !== false) (ad.items||[]).forEach(it => { if (!it.acknowledged_at) alertMap[String(it.room_id)] = it; }); }
     } catch(_) {}
+    /* 📅 예약 기준 «지금 수업» — 강사 계정(403)·구버전 서버에서는 조용히 없는 것으로 둔다.
+       ⛔ 여기서 실패한다고 방 목록까지 못 그리게 하면 안 된다(원래 기능이 우선). */
+    let sched = [], scounts = null;
+    try {
+      if (cr) { const cj = await cr.json(); if (cj && cj.ok) { sched = cj.classes || []; scounts = cj.counts || null; } }
+    } catch(_) {}
+    _renderRoomsSummary(scounts, (rooms || []).length, _L);
+    const schedRows = _schedRowsHtml(sched, _L, !rooms || rooms.length === 0);
+
     if (!rooms || rooms.length === 0) {
+      if (schedRows) { tb.innerHTML = schedRows; return; }
       /* 🔴 (2026-08-08) 「⚡ 자주 쓰는 기능 → 수업 종료 / 연장」이 이 카드로 온다.
          그런데 진행 중인 수업이 없으면 «현재 진행 중인 수업 없음» 한 줄만 떠서,
          종료·연장을 하러 온 사람 눈에는 «눌렀는데 아무 일도 안 일어났다» 로 보였다.
@@ -1318,7 +1426,7 @@ async function loadActiveRooms() {
           <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
-    }).join('');
+    }).join('') + schedRows;
     _wireRoomsActions();
   } catch(e) {
     document.getElementById('active-rooms-table').innerHTML = '<tr><td colspan="6" class="empty">'+(_L?'Load failed: ':'로딩 실패: ') + e.message + '</td></tr>';
@@ -1576,7 +1684,10 @@ function _applyPayrollTeacherUI() {
     });
     // 신규 강사 등록 폼 숨김
     var tnew = document.getElementById('t-new-btn');
-    if (tnew) { var d = tnew.closest('details'); if (d) d.style.display = 'none'; }
+    // 🔐 (2026-08-18) details 는 인라인 display:none 이 안 먹는다(#legacy-cards 복구 규칙).
+    //   버튼 4개는 <button> 이라 위에서 정상적으로 감춰지는데 이 폼만 남아, 강사 화면이
+    //   «버튼은 없고 등록 폼만 있는» 어중간한 모양이 됐었다. 그래서 클래스로 감춘다.
+    if (tnew) { var d = tnew.closest('details'); if (d) d.classList.add('rbac-hide'); }
     // 안내 배너 1회 삽입
     var card = document.getElementById('card-payroll');
     if (card && !document.getElementById('payroll-teacher-note')) {
@@ -2286,7 +2397,8 @@ async function _menuPost(url, body) {
   const r = await fetch(url, {method:'POST',headers:{'Content-Type':'application/json'},credentials:'include',body:JSON.stringify(body)});
   const d = await r.json().catch(()=>({}));
   if (!r.ok || d.ok === false) {
-    alert((adminLang==='en'?'Failed: ':'실패: ') + (d.error || ('HTTP '+r.status)));
+    // 서버가 사람이 읽을 message 를 주면 그걸 우선한다 — d.error 는 'bad_username' 같은 코드뿐이라 뜻이 안 통한다.
+    alert((adminLang==='en'?'Failed: ':'실패: ') + (d.message || d.error || ('HTTP '+r.status)));
     return null;
   }
   return d;
@@ -3915,13 +4027,30 @@ async function addCenter() {
   const e = id => document.getElementById(id);
   const name = (e('ct-name').value||'').trim();
   if (!name) { alert(adminLang==='en'?'Name required':'이름은 필수'); return; }
+  // 🔑 (2026-08-19) 로그인 아이디·비밀번호 — 둘 다 채워야 계정을 만든다. 하나만 채우면
+  //    서버 왕복 없이 여기서 먼저 막는다(centers 는 만들어지지 않았는데 계정만 실패하는 걸 방지).
+  const loginId = (e('ct-login-id') && e('ct-login-id').value || '').trim();
+  const loginPw = (e('ct-login-pw') && e('ct-login-pw').value || '');
+  if ((loginId && !loginPw) || (!loginId && loginPw)) {
+    alert(adminLang==='en' ? 'Fill in both login ID and password, or leave both blank.'
+                            : '로그인 아이디와 비밀번호를 둘 다 입력하거나, 둘 다 비워 두세요.');
+    return;
+  }
   const d = await _menuPost('/api/admin/centers', {
     franchise_id: e('ct-franchise').value || null, name,
     country: e('ct-country').value||null, manager: e('ct-manager').value||null,
     address: e('ct-address').value||null,
-    payment_type: (e('ct-paytype') && e('ct-paytype').value) || null   // 💳 (2026-08-12 수정요청 #05)
+    payment_type: (e('ct-paytype') && e('ct-paytype').value) || null,   // 💳 (2026-08-12 수정요청 #05)
+    login_username: loginId || null, login_password: loginPw || null
   });
-  if (d) { ['ct-name','ct-country','ct-manager','ct-address','ct-paytype'].forEach(id=>{ if(e(id)) e(id).value=''; }); loadCenters(); }
+  if (d) {
+    ['ct-name','ct-country','ct-manager','ct-address','ct-paytype','ct-login-id','ct-login-pw'].forEach(id=>{ if(e(id)) e(id).value=''; });
+    if (d.login_created) {
+      alert(adminLang==='en' ? ('Agency login account created: ' + loginId)
+                              : ('대리점 로그인 계정을 만들었습니다: ' + loginId));
+    }
+    loadCenters();
+  }
 }
 
 // ── 레벨테스트 ───────────────────────────────────────────────────────
@@ -5478,11 +5607,12 @@ function _addEnrollmentRow(prefill) {
     '<label style="font-size:11px;margin-right:6px;cursor:pointer"><input type="checkbox" class="en-row-type" value="trial"' + (types.includes('trial')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.trial+'</label>' +
     '<label style="font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-type" value="regular"' + (types.includes('regular')?' checked':'') + ' style="margin-right:2px;vertical-align:middle"/>'+_typeLbl.regular+'</label>';
   // 요일 — 7 체크박스 (월화수목금토일)
+  //   🧑‍🏫 (2026-08-20) 체크박스가 요일 글자 «옆» 이 아니라 «위» 에 오도록 — 칸마다 세로로 쌓는다
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = _enrIsEn ? ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] : ['월','화','수','목','금','토','일'];
-  const dayChecks = dayCodes.map((c, i) =>
-    '<label style="font-size:11px;margin-right:3px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin-right:1px;vertical-align:middle"/>' + dayLabels[i] + '</label>'
-  ).join('');
+  const dayChecks = '<div style="display:flex;gap:5px">' + dayCodes.map((c, i) =>
+    '<label style="display:inline-flex;flex-direction:column;align-items:center;font-size:11px;cursor:pointer"><input type="checkbox" class="en-row-day" value="' + c + '"' + (days.includes(c)?' checked':'') + ' style="margin:0 0 1px"/>' + dayLabels[i] + '</label>'
+  ).join('') + '</div>';
 
   // ⛔ 이름·패키지·수강료는 «사람이 치는 칸»을 없앴다(요구사항). 값 자체는 hidden 으로 남는다 —
   //    · 이름: 아래 _enLookupStudent 가 학생 아이디로 명부에서 찾아 넣는다
@@ -9203,8 +9333,10 @@ let _globalSearchIndex = [];  // [{ kind, kindLabel, label, sub, action }]
 function buildMenuIndex() {
   _menuIndex = [];
   document.querySelectorAll('details.menu-card').forEach((d, idx) => {
-    // 🔐 RBAC: display:none 인 카드는 사이드바에 안 띄움
-    if (d.style.display === 'none') return;
+    // 🔐 RBAC: 역할로 감춘 카드는 사이드바에 안 띄움
+    //   (2026-08-18) 숨김 표시가 «인라인 display» → «.rbac-hide 클래스» 로 바뀌었다.
+    //   인라인 검사도 남겨 둔다 — 옛 방식으로 감추는 코드가 남아 있어도 계속 걸러진다.
+    if (window.mangoiCardHidden(d)) return;
     // 1) 카드 자체에 data-menu-label-ko/en 이 있으면 최우선 (배지 텍스트 빨림 방지)
     let ko = d.getAttribute('data-menu-label-ko') || '';
     let en = d.getAttribute('data-menu-label-en') || '';
@@ -9283,7 +9415,8 @@ function buildMenuIndex() {
   ];
   MENU_ALIASES.forEach(function(a){
     var el = document.getElementById(a.card);
-    if (!el || el.style.display === 'none') return;  // RBAC 숨김 카드는 제외
+    // RBAC 숨김 카드는 제외 — (2026-08-18) 숨김 표시가 .rbac-hide 클래스로 바뀌었다
+    if (window.mangoiCardHidden(el)) return;
     _globalSearchIndex.push({
       kind:'menu', kindLabelKo:'📋 바로가기', kindLabelEn:'📋 Shortcut',
       label: a.label, labelEn: a.en || a.label,   // en 이 있으면 영문 라벨로 (강사 다수 필리핀)
@@ -10862,7 +10995,7 @@ window.rebuildGlobalSearchIndex = function() {
        장부는 그 옆에 붙인다. 차이(%)의 분모도 통장이다. */
     const detail = rec.verdict === 'no_data' ? '' :
       `<div style="margin-top:6px;font-size:12px;color:#374151">
-        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b> → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
+        통장에 들어온 「케이씨피」 정산금 <b>${fmtKRW(rec.deposit_pg)}</b>${rec.lag_days ? `<span style="color:#1e3a8a"> (이 달 결제분이 ${rec.lag_days}일 뒤 들어온 구간 기준 — 같은 달 통장에 찍힌 금액은 ${fmtKRW(rec.deposit_pg_same_month)})</span>` : ''} → 수수료 ${window.pgFeeRateLabel()}를 되돌린 통장 기준 매출 <b>${rec.bank_revenue == null ? '—' : fmtKRW(rec.bank_revenue)}</b> ·
         장부 매출(KCP 정산 대상) <b>${fmtKRW(rec.revenue)}</b> → 예상 입금 <b>${fmtKRW(rec.expected)}</b>
         (차이 ${rec.diff == null ? '—' : fmtKRW(rec.diff)}, 통장 기준 ${rec.diff_pct}%)
       </div>`;
@@ -11567,13 +11700,13 @@ window.rebuildGlobalSearchIndex = function() {
       <h1>👨‍🏫 강사별 급여명세서</h1>
       <div class="meta">${d.label} · 총 ${d.teacher_count}명</div>
       ${noteList(d.notes)}
-      <table>
+      <div class="tblwrap"><table class="compact">
         <thead><tr><th>강사ID</th><th>이름</th><th>국가</th><th class="num">수업분</th><th class="num">기본급여</th><th class="num">상여</th><th class="num">공제</th><th class="num">실지급</th></tr></thead>
         <tbody>
           ${d.rows.map(r => `<tr><td>${r.teacher_id}</td><td><b>${r.teacher_name||r.teacher_id}</b></td><td>${r.country||''}</td><td class="num">${(r.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(r.payment_krw)}</td><td class="num">${fmtKRW(r.bonus)}</td><td class="num" style="color:#dc2626">${fmtKRW(-Math.abs(r.deduction||0))}</td><td class="num"><b>${fmtKRW(r.net)}</b></td></tr>`).join('') || '<tr><td colspan="8" style="text-align:center;color:#6b7280">데이터 없음</td></tr>'}
           <tr class="total"><td colspan="3">합계</td><td class="num">${(d.totals.minutes||0).toLocaleString()}</td><td class="num">${fmtKRW(d.totals.payment)}</td><td class="num">${fmtKRW(d.totals.bonus)}</td><td class="num">${fmtKRW(d.totals.deduction)}</td><td class="num">${fmtKRW(d.totals.net)}</td></tr>
         </tbody>
-      </table>`;
+      </table></div>`;
   }
 
   function renderKpi(d){
@@ -11766,6 +11899,7 @@ window.rebuildGlobalSearchIndex = function() {
   // 📊 카페24 매출·손익 추이 대시보드 (Chart.js 콤보차트 + KPI)
   window._c24finData = null; window._c24finChart = null;
   window.c24FinSummary = async function(range){
+    const en = (window.adminLang==='en');
     range = range || window._c24finRange || 24; window._c24finRange = range;
     const kpiBox = document.getElementById('c24fin-kpis');
     const cv = document.getElementById('c24finChart');
@@ -11784,14 +11918,22 @@ window.rebuildGlobalSearchIndex = function() {
       }
       const all = (window._c24finData.months||[]).slice().reverse(); // 오래된→최근
       const months = all.slice(-range);
-      if (!months.length){ if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1">데이터 없음</div>'; return; }
+      if (!months.length){
+        /* 🈳 (2026-08-18) «데이터 없음» 만 띄우면 고장인지 원래 빈 건지 구분이 안 된다.
+           실측: Neo4j 연결은 정상(교재 62권 등 다른 노드는 조회됨)인데 회계 노드(AccBook)만
+           0건이었다. 적재는 카페24 서버 쪽 작업이라 워커가 대신 채울 수 없다 —
+           요청서: docs/카페24_회계데이터_적재요청_2026-08-18.md */
+        if(kpiBox) kpiBox.innerHTML='<div style="color:#94a3b8;grid-column:1/-1;line-height:1.6">'
+          +(en?'No accounting data in Neo4j yet. The connection is fine — the Cafe24 server has not loaded the ledger (AccBook) data.'
+               :'카페24 회계 데이터가 아직 Neo4j에 적재되지 않았습니다. 연결은 정상이고(교재·학생 명부는 조회됩니다), 회계장부(AccBook) 적재는 카페24 서버 쪽 작업입니다.')
+          +'</div>';
+        return;
+      }
       // 구간 합계 + 마진율
       // 🧾 income/expense 는 서버(finance-cafe24/summary)가 「케이씨피M」을 이미 뺀 값이다.
       //    (「케이씨피M」 = 하나은행에서 옮겨 온 운영자금 — 매출이 아니라 자금 이동)
       const sumInc = months.reduce(function(s,m){return s+(Number(m.income)||0);},0);
       const sumExp = months.reduce(function(s,m){return s+(Number(m.expense)||0);},0);
-      const sumExcl = months.reduce(function(s,m){return s+(Number(m.excluded_transfer)||0);},0);
-      const cntExcl = months.reduce(function(s,m){return s+(Number(m.excluded_count)||0);},0);
       const sumNet = sumInc - sumExp;
       const margin = sumInc>0 ? Math.round(sumNet/sumInc*1000)/10 : 0;
       // 최근 달 전월 대비
@@ -11900,6 +12042,8 @@ window.rebuildGlobalSearchIndex = function() {
       tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',won],['tax','세액',won],['total','합계',won],['tax_type','과세']],
       deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',won],['method','결제']],
     };
+    // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
+    const NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
     const cols = COLS[kind] || COLS.ledger;
     head.innerHTML = '<tr>'+cols.map(function(c){ return '<th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'+esc(c[1])+'</th>'; }).join('')+'</tr>';
     body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'Loading…':'불러오는 중…')+'</td></tr>';
@@ -11908,9 +12052,13 @@ window.rebuildGlobalSearchIndex = function() {
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||d.code||'API error');
       const rows = d.rows||[];
-      // 🧾 회계장부 탭 — 「케이씨피M」(하나은행에서 옮겨 온 운영자금)은 매출이 아니므로 합계에서 뺀다.
-      //    판정은 서버(finance-cafe24/ledger)가 excluded_from_revenue 로 내려준다(규칙 정본 = accounting-reports.ts).
+      // 🧾 회계장부 탭 — 매출 판정은 전부 서버가 한다(규칙 정본 = accounting-reports.ts).
+      //    · excluded_from_revenue : 자금이동 행인가 (합계에서 통째로 뺀다)
+      //    · counts_as_revenue     : 매출로 셀 행인가 (위 요약 KPI·추이와 **같은 규칙**)
+      //    ⚠️ 여기서 type===1 만 보고 더하면 요약 KPI 와 숫자가 어긋난다 —
+      //       같은 화면에 「매출 ₩A」와 「총매출 ₩B」가 따로 찍히는 사고가 난다.
       var isExcl = function(row){ return !!row.excluded_from_revenue; };
+      var isRev  = function(row){ return !!row.counts_as_revenue; };
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
         if (kind === 'ledger' && rows.length) {
@@ -11918,7 +12066,8 @@ window.rebuildGlobalSearchIndex = function() {
           rows.forEach(function(row){
             var m = Number(row.money)||0;
             if (isExcl(row)) { sExc += m; nExc++; return; }
-            if (Number(row.type) === 1) sInc += m; else if (Number(row.type) === 2) sExp += m;
+            if (Number(row.type) === 1) { if (isRev(row)) sInc += m; }
+            else if (Number(row.type) === 2) sExp += m;
           });
           cnt.innerHTML = esc(base)
             + ' · <b style="color:#1d4ed8">' + (en?'Revenue ':'매출 ') + esc(won(sInc)) + '</b>'
@@ -11938,7 +12087,10 @@ window.rebuildGlobalSearchIndex = function() {
              합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
           return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
         }).join('')+'</tr>';
-      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'No data':'데이터 없음')+'</td></tr>';
+      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
+        +(en?'No data — the Cafe24 server has not loaded this data ('+(NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
+             :'데이터 없음 — 카페24 서버에서 이 데이터('+(NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
+        +'</td></tr>';
     } catch(e){
       body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#dc2626">'+(en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
     }
@@ -12441,9 +12593,25 @@ window.rebuildGlobalSearchIndex = function() {
       const v = V[d.verdict] || V.no_data;
       const t = d.totals || {};
       let html = `<div style="font-size:16px;font-weight:800;color:#111;border-bottom:3px solid #fb923c;padding-bottom:6px;margin-bottom:12px">${_esc(d.label)}</div>`;
+      /* ⏳ 판정 근거는 «시차 맞춘» 값이다 — 같은 달끼리 빼면 창의 양 끝이 서로 다른
+         결제를 보고 있어 매번 한 방향으로 «통장이 적다» 가 나온다(2026-08-18). */
+      const lm = d.lag_matched;
+      const headDiff = lm ? lm.diff : t.diff;
+      const headPct  = lm ? lm.diff_pct : t.diff_pct;
       html += `<div style="background:${v[1]};border:1px solid ${v[0]}33;border-left:4px solid ${v[0]};border-radius:8px;padding:10px 12px;margin-bottom:12px">
-        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 누적 차이 ${_fmt(t.diff)} (${t.diff_pct}% · 통장 기준)</div>
+        <div style="font-weight:800;color:${v[0]};margin-bottom:4px">${v[2]} · 차이 ${_fmt(headDiff)} (${headPct}% · 통장 기준)</div>
         <div style="font-size:12px;color:#374151">${_esc(d.message)}</div></div>`;
+      if (lm) {
+        html += `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:#1e3a8a;line-height:1.7">
+          <b>⏳ PG 정산 시차 ${lm.lag_days}일을 맞춰 비교했습니다</b><br>
+          케이씨피는 <b>주 1회</b> 정산하는데 결제일부터 입금까지 2~4주가 걸립니다. 그래서 «같은 달 장부 vs 같은 달 통장» 을 그대로 빼면
+          <b>아직 정산 안 된 최근 결제가 통째로 «미입금» 으로 잡힙니다.</b> 아래 월별 표가 들쭉날쭉한 것은 그 때문이며 정상입니다.<br>
+          · 결제 <b>${_esc(lm.pay_from)} ~ ${_esc(lm.pay_to)}</b> — 장부 ${_fmt(lm.revenue)} (${lm.pay_count}건) · 예상 입금 ${_fmt(lm.expected)}<br>
+          · 입금 <b>${_esc(lm.deposit_from)} ~ ${_esc(lm.deposit_to)}</b> — 실제 ${_fmt(lm.deposit_pg)} · 통장 기준 매출 ${_fmt(lm.bank_revenue)}<br>
+          · <b>차이 ${_fmt(lm.diff)} (${lm.diff_pct}%)</b> ← 판정은 이 값으로 합니다
+          <div style="margin-top:6px;color:#3730a3">※ 시차 ${lm.lag_days}일은 실측 추정치입니다. KCP 정산명세서를 받으면 실제 값으로 맞출 수 있습니다.</div>
+        </div>`;
+      }
       html += '<table style="width:100%;border-collapse:collapse;font-size:12px">'
         + '<thead style="background:#f3f4f6"><tr>'
         + '<th style="padding:6px 8px;text-align:left;border-bottom:2px solid #e5e7eb">월</th>'
@@ -12477,7 +12645,7 @@ window.rebuildGlobalSearchIndex = function() {
       html += `<p style="margin-top:8px;font-size:11px;color:#6b7280;line-height:1.6">
         ※ <b>기준은 통장</b>입니다 — 신한 통장에 실제로 들어온 「케이씨피」 정산금(${_esc(d.basis_label || '통장 「케이씨피」 입금')})을 기준으로, 장부가 얼마나 어긋나는지 봅니다.<br>
         ※ 대사 대상은 「케이씨피」 입금 <b>하나뿐</b>입니다. 통장 직접입금(B2B)·기타 입금·자기 계좌 간 자금 이동은 <b>제외</b>했고, 장부 매출도 KCP 정산 대상 결제만 셉니다.<br>
-        ※ 카드 결제는 PG(케이씨피)가 며칠 뒤 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 시차는 누적에서 상쇄되므로 판정은 누적 합계로 합니다.<br>
+        ※ 카드 결제는 PG(케이씨피)가 <b>2~4주 뒤</b>에 정산해 넣어 주므로 <b>월별로 어긋나는 것은 정상</b>입니다. 판정은 위의 <b>시차를 맞춘 비교</b>로 합니다(누적만으로는 창의 양 끝이 서로 다른 결제를 봅니다).<br>
         ※ 시연용 테스트 결제는 장부 매출에서 이미 제외했습니다. 기타 입금(국세 환급·타행 이체 등)은 수업료가 아니라 참고로만 표시합니다.
         ${d.bank_data_from ? '<br>※ 계좌 입금 자료는 ' + _esc(d.bank_data_from) + ' 부터 있습니다(그 전 달은 판정하지 않습니다).' : ''}</p>`;
       if (notes.length) {
@@ -13408,17 +13576,17 @@ window.rebuildGlobalSearchIndex = function() {
 
   // 사용자 목록 (데모)
   const SAMPLE_USERS = [
-    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active', password:'admin' },
-    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active', password:'cfo' },
-    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active', password:'ops' },
-    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active', password:'teacher' },
-    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active', password:'teacher' },
-    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', password:'busan',   branch_id:'test_br_3'  /* 부산 */ },
-    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', password:'daegu',   branch_id:'test_br_8'  /* 대구 */ },
-    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', password:'incheon', branch_id:'test_br_2'  /* 인천 */ },
-    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', password:'gn001',   agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
-    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', password:'sc002',   agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
-    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', password:'pj003',  agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
+    { uid:'admin',          name:'정우영',  role:'hq_exec',    branch:'본사 · 대표이사',  status:'active' },
+    { uid:'cfo01',           name:'김재무',  role:'hq_exec',    branch:'본사 · CFO',       status:'active' },
+    { uid:'ops_lead',        name:'박운영',  role:'hq_mgr',     branch:'본사 · 운영 매니저', status:'active' },
+    { uid:'hq_t_001',        name:'강선생',  role:'hq_teacher', branch:'본사 · 마스터 강사', status:'active' },
+    { uid:'hq_t_002',        name:'문선생',  role:'hq_teacher', branch:'본사 · 콘텐츠 강사', status:'active' },
+    { uid:'branch_busan',    name:'이지점',  role:'branch', branch:'부산 지사',       status:'active', branch_id:'test_br_3'  /* 부산 */ },
+    { uid:'branch_daegu',    name:'최지점',  role:'branch', branch:'대구 지사',       status:'active', branch_id:'test_br_8'  /* 대구 */ },
+    { uid:'branch_incheon',  name:'정지점',  role:'branch', branch:'인천 지사',       status:'active', branch_id:'test_br_2'  /* 인천 */ },
+    { uid:'agency_gn001',    name:'한대리',  role:'agency', branch:'강남점 대리점',   status:'active', agency_id:'test_ag_0',  parent_branch_id:'test_br_0'  /* 서울 강남구 */ },
+    { uid:'agency_sc002',    name:'송대리',  role:'agency', branch:'서초점 대리점',   status:'active', agency_id:'test_ag_1',  parent_branch_id:'test_br_1'  /* 서울 서초구 */ },
+    { uid:'agency_pj003',    name:'백대리',  role:'agency', branch:'판교점 대리점',   status:'pending', agency_id:'test_ag_4',  parent_branch_id:'test_br_4'  /* 경기 성남 */ },
     { uid:'parent_hong01',   name:'홍길순',  role:'parent', branch:'학부모 (홍길동 모)', status:'active' },
     { uid:'parent_kim02',    name:'김순영',  role:'parent', branch:'학부모 (김민수 모)', status:'active' },
     { uid:'parent_lee03',    name:'이수자',  role:'parent', branch:'학부모 (이지민 모)', status:'active' },
@@ -13528,7 +13696,12 @@ window.rebuildGlobalSearchIndex = function() {
     // 역할별 사용자 표 다시 렌더 (열려있을 때만)
     if (typeof renderUsersByRole === 'function') renderUsersByRole();
   }
-  window.registerHqEmployee = function() {
+  /* ➕ 본사 직원 등록 — 서버에 «진짜로» 만든다.  (2026-08-18 수리)
+     ⚠️ 예전 이 함수는 localStorage 에만 넣고 「✅ 등록 완료」 알림을 띄웠다.
+        서버로는 아무것도 안 보내서, «등록했는데 로그인이 안 되는» 계정이 만들어졌다.
+        (CLAUDE.md 「비밀번호 변경 시연 껍데기 4벌」과 같은 종류)
+     임시 비밀번호는 서버가 만들어 **이 화면에서 한 번만** 보여 준다. 어디에도 저장하지 않는다. */
+  window.registerHqEmployee = async function() {
     const $ = id => document.getElementById(id);
     const uid = ($('hqe-uid')?.value || '').trim();
     const name = ($('hqe-name')?.value || '').trim();
@@ -13537,21 +13710,59 @@ window.rebuildGlobalSearchIndex = function() {
     const phone = ($('hqe-phone')?.value || '').trim();
     const branch = ($('hqe-branch')?.value || '').trim();
     const msg = $('hqe-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
+    const btn = document.querySelector('#card-permissions button.primary');
+    function show(t, ok) {
+      if (!msg) { alert(t); return; }
+      msg.style.display = 'block';
+      msg.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+      msg.style.borderColor = ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)';
+      msg.style.color = ok ? '#065f46' : '#b91c1c';
+      msg.innerHTML = t;
+    }
     if (msg) msg.style.display = 'none';
-    if (!uid || uid.length < 3) return showErr('⚠️ 아이디는 3자 이상 입력하세요.');
-    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return showErr('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
-    if (!name) return showErr('⚠️ 이름을 입력하세요.');
-    // 중복 체크
-    if (SAMPLE_USERS.some(u => u.uid === uid)) return showErr('⚠️ 이미 사용 중인 아이디입니다.');
-    const arr = _hqeLoad();
-    arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
-    _hqeSave(arr);
-    _hqeRefreshAll();
-    pushAuditLog((adminLang==='en'?'HQ employee registered: ':'본사 직원 등록: ') + name + ' (' + uid + ' · ' + rank + ')');
-    // 폼 초기화
-    ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
-    alert((adminLang==='en' ? '✅ Registered: ' : '✅ 등록 완료: ') + name);
+
+    // 화면에서도 한 번 거른다(서버가 정본이지만, 왕복 전에 알려주는 편이 빠르다)
+    if (!uid || uid.length < 3) return show('⚠️ 아이디는 3자 이상 입력하세요.');
+    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return show('⚠️ 아이디는 영문/숫자/_만 가능합니다.');
+    if (!name) return show('⚠️ 이름을 입력하세요.');
+
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/staff-create', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: uid, name: name, rank: rank, email: email, phone: phone })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        show('⚠️ ' + (j.message || j.error || '등록하지 못했습니다.'));
+        return;
+      }
+      // 임시 비번은 지금 한 번만 보인다 — 눈에 띄게 크게.
+      show(
+        '<b style="font-size:13.5px">✅ ' + name + '(' + uid + ') 계정을 만들었습니다.</b><br>' +
+        '<div style="margin-top:8px;padding:10px 12px;background:#fff;border:2px solid #10b981;border-radius:8px">' +
+          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">임시 비밀번호 — 이 화면에서만 보입니다</div>' +
+          '<div style="font-family:MangoiHanSC,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:1px;color:#065f46;margin-top:3px">' +
+            (j.temp_password || '') + '</div>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.7">' +
+          '본인에게 전달하시고, <b>로그인 후 마이페이지에서 비밀번호를 바꾸라고</b> 안내하세요.<br>' +
+          '잃어버리면 「강사·직원 비밀번호 재설정」으로 다시 만들 수 있습니다.' +
+        '</div>', true);
+
+      // 화면 목록용 기록(이 브라우저에만 남는 편의용 목록이다 — 계정 자체는 서버에 있다)
+      const arr = _hqeLoad();
+      arr.unshift({ uid, name, rank, email, phone, branch, registered_at: Date.now() });
+      _hqeSave(arr);
+      _hqeRefreshAll();
+      pushAuditLog((adminLang==='en'?'HQ employee created: ':'본사 직원 계정 생성: ') + name + ' (' + uid + ' · ' + rank + ')');
+      ['hqe-uid','hqe-name','hqe-email','hqe-phone','hqe-branch'].forEach(id => { const e = $(id); if (e) e.value = ''; });
+    } catch (e) {
+      show('⚠️ 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   };
   // 페이지 로드 시 + 권한 카드 토글 시 갱신
   document.addEventListener('DOMContentLoaded', () => {
@@ -13567,7 +13778,7 @@ window.rebuildGlobalSearchIndex = function() {
     const dyn = (function(){ try { return JSON.parse(localStorage.getItem('mangoi_hq_employees') || '[]'); } catch(e){ return []; } })();
     return SAMPLE_USERS.concat(dyn.map(e => ({
       uid: e.uid, name: e.name, role: e.rank,
-      branch: e.branch || '', password: 'demo',  // 동적 등록 직원 데모 비번
+      branch: e.branch || '',
       _origin: 'dynamic'
     })));
   }
@@ -13718,35 +13929,17 @@ window.rebuildGlobalSearchIndex = function() {
       '<div style="margin-top:3px;font-size:10.5px;font-weight:500;opacity:0.75">📦 ' + scope + '</div>';
   }
 
+  // 🔐 (2026-08-19) 화면 안에서 비번을 대조하던 «옛 오버레이 로그인» 폐지.
+  //   admin.html 에 `#admin-login-overlay` 폼은 이미 없어 부를 곳이 없는데, SAMPLE_USERS 에
+  //   평문 비번(busan·gn001·teacher…)이 남아 있었다. 이 파일은 /js/adm-core.js 로 **누구나
+  //   받아 볼 수 있는 공개 자산**이라, 그 값이 곧 실계정(branch_busan 등) 비번 힌트였다.
+  //   → 평문 비번을 지우고, 이 함수는 서버 로그인으로만 보낸다. 화면에서 «비번이 맞나» 를
+  //     판정하는 길을 남겨 두면 언제든 같은 유출이 다시 생긴다.
   window.adminLogin = function() {
     const $ = id => document.getElementById(id);
-    const uid = ($('admin-login-uid')?.value || '').trim();
-    const pw = ($('admin-login-pw')?.value || '').trim();
     const msg = $('admin-login-msg');
-    function showErr(t) { if (msg) { msg.textContent = t; msg.style.display = 'block'; } }
-    if (msg) msg.style.display = 'none';
-    if (!uid || !pw) return showErr('⚠️ 아이디와 비밀번호를 입력해 주세요.');
-    const users = _allUsers();
-    const u = users.find(x => x.uid === uid);
-    if (!u) return showErr('❌ 존재하지 않는 아이디입니다.');
-    if (u.password && u.password !== pw) return showErr('❌ 비밀번호가 일치하지 않습니다.');
-    if (u.status === 'pending') return showErr('⏸ 가입 승인 대기 중인 계정입니다.');
-    const session = {
-      uid: u.uid, name: u.name, role: u.role,
-      branch: u.branch || '',
-      branch_id: u.branch_id || u.parent_branch_id || null,
-      agency_id: u.agency_id || null,
-      login_at: Date.now(),
-    };
-    _saveSession(session);
-    window._adminSession = session;
-    _renderSessionBanner();
-    pushAuditLog((adminLang==='en'?'Login: ':'로그인: ') + u.name + ' (' + u.uid + ' · ' + u.role + ')');
-    // 권한별 일부 메뉴 숨김 (본사가 아닌 경우 권한 설정 카드 등)
-    _applyMenuVisibility();
-    // 학생 목록 등 다시 로드
-    if (typeof loadStudentList === 'function') try { loadStudentList(); } catch(e){}
-    if (typeof loadFranchises === 'function') try { loadFranchises(); } catch(e){}
+    if (msg) { msg.textContent = '🔐 로그인 화면으로 이동합니다.'; msg.style.display = 'block'; }
+    location.href = '/admin/login?next=' + encodeURIComponent(location.pathname + location.search);
   };
 
   window.adminLogout = function() {
@@ -13845,11 +14038,18 @@ window.rebuildGlobalSearchIndex = function() {
     'card-rankings':          'branch',   // 학생 랭킹
     // 본사 + 지사 + 대리점 (대리점은 자기 데이터만 — adminScopeFilter 가 처리)
     'card-students-mgmt':     'agency',
-    // 🏢 조직 관리 — 안에 지사(241) + 대리점·학원 전국 목록(921)이 함께 들어 있다.
-    //    합치기 전 두 카드 등급이 agency / branch 로 갈렸는데, 전국 목록이 더 민감하므로
-    //    엄격한 쪽('branch' = 본사+지사)으로 통일했다. (대리점 계정은 애초에 admin.html 을
-    //    못 받는다 — index.ts 가 /admin/exec 로 돌려보낸다. 그래도 화면 쪽도 맞춰 둔다.)
-    'card-franchises':        'branch',   // 🏢 조직 관리 (본사 › 지사 › 대리점)
+    /* 🏢 조직 관리 — 안에 대표지사 + 지사(241) + 대리점·학원(921)이 함께 들어 있다.
+       🔓 (2026-08-18 사장님 수정요청 #03·#04) 'branch' → 'agency'.
+          사장님이 「영업사원·지사장·학원장이 보기 쉽게」 하라고 하신 화면인데, 정작
+          **학원장에게는 카드째 안 보였고**(등급 'branch') 지사장이 열어도 API 가 403 이라
+          **빈 표**만 떴다. 셋 중 둘에게 닫힌 화면이었다.
+       ⚠️ 전국 명부를 연 것이 아니다 — 자료는 서버가 자른다:
+            · /api/admin/franchises · /api/admin/centers → scopeFranchiseCond/scopeCenterCond
+              (src/scope.ts) 로 지사 = 자기 지사, 대리점 = 자기 한 칸
+            · 등록·수정·대표지사 지정은 canEditOrg() 로 본사만 (403)
+          화면 쪽 짝은 아래 _applyOrgScopeUI() — 본사 전용 칸(대표지사·등록 폼)을 감춘다.
+          **서버와 화면 둘 다** 봐야 한다. 한쪽만 고치면 새거나, 빈 폼이 남는다. */
+    'card-franchises':        'agency',   // 🏢 조직 관리 (대표지사 › 지사 › 대리점)
     'card-enrollments':       'agency',   // 수강신청
     'card-level-tests':       'agency',   // 레벨 테스트
     'card-pronunciation':     'agency',   // 발음교정
@@ -13860,6 +14060,39 @@ window.rebuildGlobalSearchIndex = function() {
     'card-data-export':       'agency',   // 데이터 내보내기
     'card-daily-charts':      'agency',   // 일자별 차트
   };
+  /* 🏢 조직 관리 카드 — 본사 전용 칸을 지사·대리점에게 감춘다 (2026-08-18 수정요청 #03·#04)
+     카드 등급(CARD_POLICY)은 **카드 한 장 단위**라, 카드를 열면 그 안이 통째로 열린다.
+     그런데 이 카드 안에는 «보여도 되는 것»(자기 지사·자기 대리점 목록 — 서버가 잘라 준다)과
+     «보이면 안 되는 것»(대표지사 권역표, 등록·수정 폼)이 섞여 있다. 그래서 칸 단위로 한 번 더 자른다.
+     ⚠️ 서버가 이미 403 으로 막고 있다. 여기서 감추는 것은 «눌러도 안 되는 버튼» 을 안 보이게 하려는
+        것이지 보안이 아니다 — 이 함수를 지운다고 자료가 새지는 않는다(반대로, 서버 쪽
+        canEditOrg() 를 지우면 이 함수가 있어도 URL 로 뚫린다).
+     ⚠️ 감추는 방법은 «.rbac-hide 클래스» 다. 인라인 display 는 #legacy-cards 안에서
+        admin-inline-c.css 의 «카드들 보이게» 복구 규칙(!important)에 진다 — 역할별 카드 숨김이
+        PC 에서 통째로 안 먹던 것이 그 때문이었고(#264 로 수리), 여기도 같은 함정 위에 있다.
+        ⚠️ 이 클래스를 «읽는» 쪽(buildMenuIndex 등)은 `details.menu-card` 만 훑는다.
+           여기서 붙이는 대상은 카드가 아니라 카드 «안» 의 하위 칸이라 그 판정에 안 걸린다. */
+  function _applyOrgScopeUI(isHQ) {
+    var hq = !!isHQ;                 // 모르는 역할은 false — 막는 쪽으로 떨어진다
+    /* 감출 칸 —
+         · 🏛️ 대표지사(card-master-branches) = 전국 권역표. 자기 대표지사만 보이더라도
+           «등록·배정» 이 본사 일이라 칸째 감춘다.
+         · 🏯 본사 관리(card-hq-orgs) = 법인 정보(사업자등록번호·대표이사·주소). 지사·대리점이
+           볼 것도 고칠 것도 아니다. API(/api/admin/org/hq)는 지사 허용목록에 없어 이미 403 이라,
+           감추지 않으면 «열리는데 늘 비어 있는 칸» 이 된다. */
+    var ids = ['card-master-branches', 'card-hq-orgs'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.classList.toggle('rbac-hide', !hq);
+    });
+    // 등록 폼 — «+ 지사 신규 등록», «+ 대리점(학원) 신규 등록». 서버가 403 이라 눌러도 안 된다.
+    ['fr-add-btn', 'ct-add-btn'].forEach(function (bid) {
+      var btn = document.getElementById(bid);
+      var box = btn && btn.closest ? btn.closest('details') : null;
+      if (box) box.classList.toggle('rbac-hide', !hq);
+    });
+  }
+
   function _applyMenuVisibility() {
     const s = window._adminSession;
     if (!s) return;
@@ -13893,10 +14126,21 @@ window.rebuildGlobalSearchIndex = function() {
         const policy = CARD_POLICY[el.id];
         visible = policy ? levelOK(policy) : isHQ; // 정책 미등록 카드는 본사 전용
       }
-      el.style.display = visible ? '' : 'none';
+      // 🔐 (2026-08-18) 인라인 display 가 아니라 «.rbac-hide» 클래스로 감춘다.
+      //   인라인은 admin-inline-c.css 의 «카드들 보이게» 복구 규칙(!important)에 져서
+      //   PC(≥1024px)에서 하나도 안 감춰지고 있었다. 자세한 경위는 그 CSS 주석 참고.
+      //   ⚠️ 이 클래스를 «읽는» 쪽(buildMenuIndex·검색색인·바로가기·리텐션 허브)과 짝이다.
+      el.classList.toggle('rbac-hide', !visible);
+      el.style.display = '';   // 옛 방식이 남긴 인라인 값 청소(있으면)
     });
-    // 사이드바 즉시 재인덱싱 (display:none 카드 제외됨)
+    _applyOrgScopeUI(isHQ);     // 본사(교사 포함)만 조직을 «고칠» 수 있다 — 모르는 역할은 막는 쪽으로
+    // 사이드바 즉시 재인덱싱 (역할로 감춘 카드 제외됨)
     if (typeof buildMenuIndex === 'function') buildMenuIndex();
+    /* 🔐 (2026-08-18) 역할 적용이 끝났다고 알린다.
+       PC 사이드바(adm-ia6.js)는 정적 GROUPS 목록으로 그려 역할을 모르기 때문에, 이 신호를 받아
+       «가리키는 카드가 전부 감춰진» 항목을 감춘다. 안 그러면 눌러도 빈 화면인 메뉴가 남는다.
+       ⚠️ 이 함수는 로그인·세션 갱신 때마다 다시 도므로 신호도 그때마다 나간다. */
+    try { document.dispatchEvent(new CustomEvent('mangoi:menu-visibility')); } catch (e) { /* 무시 */ }
   }
 
   // 페이지 로드 시 세션 확인

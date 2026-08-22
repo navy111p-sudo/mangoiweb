@@ -22,6 +22,8 @@ import { getAdminActor, PH_MANAGERS, otherAccountOf } from './auth-admin';
 // 🎚️ 학생 읽기 밴드(판단력 훈련) — KV 1회 조회. 수업 전에 강사가 "이 아이가 지금
 //    어느 정도 문장을 읽나"를 알 수 있게 오늘 수업 목록에 얹는다.
 import { getReadingBandFor } from './api-judgment';
+// 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 나눈다 — 손으로 90 씩 자르지 않는다
+import { selectInChunks } from './d1-chunk';
 
 interface TeacherEnv {
   DB: D1Database;
@@ -258,22 +260,31 @@ export async function handleTeacherApi(
   }
   const weekDays: any[] = weekDates.map((date, i) => ({ date, dow: weekDow[i], is_today: date === todayStr, items: [] as any[] }));
   if (conds.length) {
-    const whereSql = `cs.status != 'cancelled' AND (${conds.join(' OR ')})`;
+    /* 🗓 (2026-08-19 Melca 8/19 제보 ①) 취소된 수업도 **받아는 온다.**
+       예전엔 여기서 통째로 뺐다. 그런데 강사 입장에서는 «내 수업이 그냥 없어진» 것으로 보인다 —
+       취소를 본 적이 없으니 「왜 없어졌지」가 된다.
+       → 받아 와서 «오늘 것만» 회색으로 남기고, 내일부터는 그리지 않는다(아래 class_state).
+       ⚠️ 주간 시간표(weekDays)·앞으로 7일(upcoming)에는 넣지 않는다 — 거기는 «앞으로 할 일» 이라
+          취소된 것이 섞이면 시간표를 잘못 읽는다. */
+    const whereSql = `(cs.status IS NULL OR cs.status <> 'cancelled' OR cs.scheduled_date = ?) AND (${conds.join(' OR ')})`;
     // 교재·레벨은 students_erp 에서 — 스키마 드리프트가 있는 테이블이라 실패하면 조인 없이 재시도.
     const sqlJoin =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source, se.level AS level, se.textbook AS textbook,
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status,
+              se.level AS level, se.textbook AS textbook,
               se.english_name AS student_en
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
     const sqlPlain =
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
-              cs.duration_min, cs.notes, cs.class_type, cs.source
+              cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status
          FROM class_schedules cs WHERE ${whereSql}`;
     let rows: any;
-    try { rows = await env.DB.prepare(sqlJoin).bind(...binds).all<any>(); }
-    catch { try { rows = await env.DB.prepare(sqlPlain).bind(...binds).all<any>(); } catch { rows = { results: [] }; } }
+    // ⚠️ whereSql 맨 앞에 취소-예외용 ? 하나가 늘었다 — 바인드 순서를 반드시 맞춘다.
+    const bindsAll = [todayStr, ...binds];
+    try { rows = await env.DB.prepare(sqlJoin).bind(...bindsAll).all<any>(); }
+    catch { try { rows = await env.DB.prepare(sqlPlain).bind(...bindsAll).all<any>(); } catch { rows = { results: [] }; } }
 
     /* ⏰ 입장 시간창 — 강사는 학생보다 **먼저(또는 같이)** 열려야 한다.
        (2026-08-02) 예전엔 값이 셋으로 갈라져 있었다: 학생 10분 / 마이페이지 30분 / 이 화면 5분.
@@ -339,6 +350,9 @@ export async function handleTeacherApi(
       /* 🗓 주간 스케줄 — 오늘/앞으로 판정과 «별개» 로 먼저 채운다.
          반복 수업도 넣는다: 여기는 «내 시간표» 라 그게 본래 목적이다.
          (앞의 upcoming 목록에는 일부러 안 넣었다 — 거기는 «특별한 한 건» 을 띄우는 자리다) */
+      // 🗓 취소된 수업은 «오늘 목록» 에만 회색으로 남긴다 — 시간표·앞으로 7일에는 넣지 않는다.
+      const _cancelled = String(s.sched_status || '') === 'cancelled';
+      if (_cancelled) { /* 주간표 채우기 건너뜀 */ } else
       for (let wi = 0; wi < 7; wi++) {
         const hit = s.scheduled_date
           ? (String(s.scheduled_date).slice(0, 10) === weekDays[wi].date)
@@ -367,6 +381,7 @@ export async function handleTeacherApi(
         /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
            ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
               가득 찬다 → **일회성(one_off)만**. 레벨테스트는 전부 일회성이라 정확히 걸린다. */
+        if (_cancelled) continue;                     // 취소된 것은 «앞으로» 에 넣지 않는다
         if (!s.scheduled_date) continue;
         const d = String(s.scheduled_date).slice(0, 10);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || d <= todayStr) continue;
@@ -450,6 +465,19 @@ export async function handleTeacherApi(
         enter_until_ts: enterUntilTs,
         duration_min: dur,
         status,
+        /* 🏷 (2026-08-19 Melca 8/19 제보 ①) 「예정/진행중/완료/취소/노쇼가 구분되나」
+           ─────────────────────────────────────────────────────────────────
+           예전에는 화면이 이 값을 **자기가 다시 계산**했다(teacher.html 의 done/live/open).
+           그래서 화면마다 답이 달라질 수 있었고, 취소·노쇼는 라벨 자체가 없었다.
+           이제 **서버가 정해서 내려주고 화면은 그리기만 한다.**
+           ⚠️ 위의 status(early/open/live/done)는 **그대로 둔다** — 버튼 열림 판정 등
+              이미 쓰는 곳이 있다. 여기서 없애면 조용히 깨진다.
+              class_state 는 «사람에게 보여줄 라벨» 이고 status 는 «문이 열렸나» 다.
+           ⚠️ 노쇼는 여기서 판정하지 않는다 — 아래에서 class_no_show 기록을 그대로 읽는다.
+              판정을 두 벌 두면 화면마다 다른 답이 나온다(src/no-show-truth.ts 의 원칙). */
+        class_state: _cancelled ? 'cancelled'
+                   : (status === 'live' ? 'ongoing'
+                   : (status === 'done' ? 'done' : 'scheduled')),
         join_open: now >= open_at_ts && now <= close_at_ts,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
         can_enter: now >= enterFromTs && now <= enterUntilTs,
@@ -501,11 +529,51 @@ export async function handleTeacherApi(
    *  ⚠️ 카페24가 아직 강사 속성을 안 주면 teacher_uid 가 전부 NULL 이라 이 블록은
    *     조용히 0건이 된다(화면은 예전 그대로). cafe24-sync.ts 의 같은 날짜 주석 참고.
    */
-  if (!onlyNext && linkedTeacherIds.length) {
+  if (!onlyNext) {
     try {
-      // 바인드는 강사 1명당 보통 1~2개다(부분일치를 쓰지 않으므로). IN 목록을 손으로 만들지 않고
-      // 이 파일이 이미 쓰는 방식대로 OR 로 편다.
-      const tConds = linkedTeacherIds.map(() => 'a.teacher_uid = ?').join(' OR ');
+      /* 🔴 (2026-08-19) 여기가 «남의 수업이 보일 뻔한» 자리다. 반드시 읽고 고칠 것.
+         첫 판에서는 linkedTeacherIds(= D1 `teachers.id`, 지역 일련번호 1~29)를
+         attendance.teacher_uid 와 곧바로 맞췄다. 그런데 teacher_uid 는
+         **카페24 강사번호**(실측 9~196)다 — 완전히 다른 번호 체계다.
+         번호가 우연히 겹치는 자리에서 정확히 «다른 사람» 이 걸렸다(실측):
+           · HANNAH 계정(teachers.id=24) ↔ 카페24 24 = Teacher Mariane 의 수업 127건
+           · MELCA  계정(teachers.id=26) ↔ 카페24 26 = Teacher Rica 의 수업 11건
+         학생 이름이 함께 보이므로 «남의 수업이 보이는» 사고 그대로였다.
+         (이 파일 위쪽 'Anna → HANNAH' 기록과 같은 종류의 사고다. 번호라서 더 안 보였다.)
+
+         → 로그인 계정을 **카페24 강사번호로 따로 해석**한다. 경로는 하나뿐이다:
+              teacher_profiles.korean_name/english_name
+                ── 완전일치 ──▶ teacher_payroll_auto.teacher_name → teacher_id(카페24 번호)
+            teacher_payroll_auto 는 카페24 서버가 «번호와 이름을 함께» 밀어넣은 표라
+            그 안에서는 번호↔이름이 어긋나지 않는다.
+         ⚠️ 완전일치만 쓴다. 부분일치는 절대 금지 — 'Anna' 가 'H-ANNA-H' 에 붙던 그 사고다.
+         ⚠️ 후보가 2개 이상이면 **아무것도 붙이지 않는다**. 모르는 것보다 틀린 게 나쁘다.
+         ⚠️ 못 찾으면 이 블록은 조용히 0건이 된다(화면은 예전 그대로). 안전한 실패다.
+         ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
+      const cafe24Tids: string[] = [];
+      const nameKeys = [String(actor.name || '').trim()].filter(Boolean);
+      if (nameKeys.length) {
+        const prof = await env.DB.prepare(
+          `SELECT korean_name, english_name FROM teacher_profiles
+            WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
+        ).bind(nameKeys[0], nameKeys[0]).all<any>().catch(() => ({ results: [] as any[] }));
+        const rows = prof.results || [];
+        // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
+        if (rows.length === 1) {
+          const cand = [rows[0].korean_name, rows[0].english_name].filter(Boolean);
+          for (const nm of cand) {
+            const pay = await env.DB.prepare(
+              `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
+                WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
+            ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
+            const pr = pay.results || [];
+            if (pr.length === 1) { cafe24Tids.push(String(pr[0].teacher_id)); break; }
+          }
+        }
+      }
+      if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
+
+      const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
       const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
       const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
       const lmsRs = await env.DB.prepare(
@@ -518,7 +586,7 @@ export async function handleTeacherApi(
             AND (${tConds})
           ORDER BY a.joined_at DESC
           LIMIT 200`
-      ).bind(sinceDate, todayStr, ...linkedTeacherIds).all<any>();
+      ).bind(sinceDate, todayStr, ...cafe24Tids).all<any>();
 
       const seen = new Set(classes.map((c: any) => String(c.room_id)));
       for (const r of (lmsRs.results || [])) {
@@ -549,16 +617,51 @@ export async function handleTeacherApi(
           enter_from_ts: start_ts, enter_until_ts: end_ts,
           duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
           status: 'done',
+          class_state: 'done',        // 🏷 화면이 한 규칙으로만 그리게 — 여기만 빠지면 라벨이 안 뜬다
           join_open: false,
           can_enter: false,
         });
       }
       classes.sort((a, b) => a.start_ts - b.start_ts);
     } catch (e: any) {
-      // LMS 수업을 못 읽어도 오늘 예약 수업 표시는 살아 있어야 한다.
-      console.warn('[teacher-portal] lms classes:', e?.message);
+      // 카페24 번호를 못 찾았거나(no_cafe24_teacher_id) 조회가 실패해도
+      // 오늘 예약 수업 표시는 살아 있어야 한다. 못 찾은 경우는 «안 보여주는» 쪽으로 실패한다.
+      if (e?.message !== 'no_cafe24_teacher_id') console.warn('[teacher-portal] lms classes:', e?.message);
     }
   }
+
+  /* 🚫 노쇼 — 끝난 수업 중 «누군가 안 온» 기록이 있으면 라벨을 no_show 로 올린다.
+     ⚠️ 새로 판정하지 않는다. class_no_show 에 이미 남은 것을 읽기만 한다
+        (학생 브라우저가 5분 기다린 뒤 신고해 만든 행 — absent-sweep.ts).
+        판정을 두 벌 두면 화면마다 다른 답이 나온다.
+     ⚠️ **끝난 수업에만** 붙인다. 진행 중인 수업에 노쇼를 붙이면
+        «지금 하고 있는데 노쇼» 라는 모순이 화면에 뜬다.
+     ⚠️ 실패해도 목록은 그대로 나온다(라벨이 «완료» 로 남을 뿐) —
+        노쇼 표시 하나 때문에 강사가 오늘 수업을 못 보면 안 된다.
+     ⚠️ 배너용 호출(?only=next)에서는 건너뛴다 — 그쪽은 «다음 수업 한 건» 만 쓰는 가벼운 경로다. */
+  if (!onlyNext) try {
+    const doneRooms = classes.filter((c: any) => c.class_state === 'done' && c.room_id).map((c: any) => c.room_id);
+    if (doneRooms.length) {
+      const ns = await selectInChunks<any>(
+        env.DB, doneRooms,
+        (ph) => `SELECT room_id, missing_role FROM class_no_show WHERE room_id IN (${ph})`,
+        { swallowErrors: true },
+      );
+      const miss = new Map<string, string>();
+      for (const r of ns) {
+        const k = String(r.room_id || '');
+        if (!k) continue;
+        const role = String(r.missing_role || '');
+        // 같은 방에 학생·강사가 둘 다 있으면 «둘 다» 로 적는다
+        miss.set(k, (miss.has(k) && miss.get(k) !== role) ? 'both' : role);
+      }
+      for (const c of (classes as any[])) {
+        if (c.class_state !== 'done') continue;
+        const m = miss.get(c.room_id);
+        if (m) { c.class_state = 'no_show'; c.no_show_role = m; }
+      }
+    }
+  } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
 
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *

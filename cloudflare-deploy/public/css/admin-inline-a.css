@@ -51,10 +51,23 @@
   .card-label { font-size: 13px; color: #6b7280; margin-bottom: 8px; font-weight: 500; }
   .card-value { font-size: 32px; font-weight: 700; color: #111827; }
   .card-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
-  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .chart-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
+  /* ⚠️ (2026-08-18) 차트 4종이 창 폭에 따라 상자를 벗어나던 것 수리.
+     [원인] `1fr` 은 `minmax(auto, 1fr)` 이라 최소폭이 «내용의 min-content» 다. 캔버스·범례가
+       그보다 넓어지면 칸이 더 못 줄어 그리드가 부모를 넘친다. `min-width:0` 이 있어야 줄어든다.
+       그 규칙이 예전엔 `@media (max-width:640px)` 안에만 있어서(admin-inline-c.css) **641px 위**,
+       특히 2단인 769px 이상에서 그대로 넘쳤다. 관리자 PC 는 `zoom:1.3` 이라 1280px 화면의
+       실효 폭이 ~985px — 정확히 이 구간에 들어온다.
+     [고친 방법] 폭에 따라 칸 수가 자동으로 접히게 하고(auto-fit + minmax), 칸이 내용보다
+       작게 줄 수 있도록 `min-width:0` 을 상시로 준다. 캔버스에는 `max-width:100%` 안전망.
+     ⛔ `1fr 1fr` 로 되돌리지 말 것 — 아래 768px 미디어 규칙만으로는 그 사이 구간이 안 잡힌다.
+        (같은 함정을 매출 대시보드 차트에서 이미 한 번 밟았다 — adm-core.js accLoadSalesChart) */
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; min-width: 0; }
   .chart-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
-  .chart-wrapper { position: relative; height: 280px; }
+  /* 캔버스는 «높이가 정해진 position:relative 래퍼» 안에 있어야 한다
+     (Chart.js responsive + maintainAspectRatio:false 가 부모 크기를 그대로 따라간다) */
+  .chart-wrapper { position: relative; height: 280px; min-width: 0; }
+  .chart-card canvas { max-width: 100%; }
   .table-card { background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); border-radius: 14px; padding: 20px; box-shadow: 0 6px 16px -6px rgba(120,53,15,0.12), 0 1px 3px rgba(0,0,0,0.03); border: 0; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f3f4f6; }
@@ -82,6 +95,18 @@
      - 액티브: 앰버→코랄 그라데이션 + 흰 글자
   ════════════════════════════════════════════════════════════ */
   .admin-layout { display: grid; grid-template-columns: 260px 1fr; gap: 24px; }
+  /* 🪤 (2026-08-18) 그리드 칸은 «내용보다 작아지지 않는다» — 기본값이 min-width:auto 다.
+       그래서 1fr 칸(#admin-main-scale)이 그 안의 넓은 표만큼 부풀어 창 밖으로 나갔다.
+       실측: 1500px 창에서 「학생관리」(컬럼 17개, 표 1,703px)를 열면 카드가 1,821px 이 되고
+             문서가 586px 가로로 넘쳤다. 페이지 전체에 가로 스크롤바가 생기고 오른쪽
+             컬럼(대리점명·본사명·지사명)은 옆으로 밀어야 보였다.
+       ⚠️ 표를 담은 상자에는 이미 overflow-x:auto 가 걸려 있었는데도 안 먹었다 —
+          상자가 «넘칠 일이 없을 만큼» 같이 커져 버려서다. 원인은 늘 이 한 칸이다.
+       ✅ min-width:0 하나면 칸이 그리드 폭을 지키고, 그때부터 안쪽 overflow-x:auto 가
+          제 일을 한다(표가 자기 상자 안에서 좌우로 스크롤).
+       검증: 이 줄을 넣고 메뉴 카드 86개를 전부 열어 봤고 가로로 넘치는 카드는 0개.
+             CLAUDE.md 2장 「차트가 카드 밖으로」 항목의 그리드 함정과 같은 뿌리다. */
+  #admin-main-scale { min-width: 0; }
   .admin-sidebar {
     position: sticky; top: 20px; align-self: start;
     background:

@@ -272,9 +272,32 @@ export async function handlePasskeyApi(
     const uid = String(body.user_id || '').trim();
     let allowCredentials: any[] = [];
     if (uid) {
-      const rs: any = await env.DB.prepare(`SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ?`).bind(uid).all();
+      /* 🈶 rp_id 로 걸러 낸다 (2026-08-18).
+       *   예전에는 user_id 만 보고 **다른 도메인에 등록된 패스키까지** 후보로 내줬다.
+       *   그러면 브라우저는 «이 사이트(rpId)에 맞는 자격증명» 을 못 찾아 세리머니가 그냥 실패하고,
+       *   화면에는 「인증이 취소됐거나 시간이 초과됐어요」 만 뜬다 — 진짜 이유(주소가 바뀌어
+       *   재등록이 필요하다)를 사용자가 알 방법이 없다. 앱 주소를 mangoi.ai 로 옮기면서
+       *   test.mangoi.co.kr 에 등록해 둔 사람들이 정확히 이 상태가 된다.
+       *   ⚠️ rp_id 가 NULL 인 행은 컬럼이 생기기 전에 만들어진 것이라 어느 도메인인지 알 수 없다.
+       *      지금은 0건이지만, 있으면 막지 말고 후보에 넣는다(막으면 멀쩡한 사람이 못 들어온다). */
+      const rs: any = await env.DB.prepare(
+        `SELECT credential_id, transports FROM webauthn_credentials WHERE user_id = ? AND (rp_id = ? OR rp_id IS NULL)`
+      ).bind(uid, rpId).all();
       const creds = rs.results || [];
-      if (!creds.length) return json({ ok: false, error: 'no_passkey', message: '이 계정에 등록된 패스키가 없어요. 비밀번호로 로그인한 뒤 등록해주세요.' }, 404);
+      if (!creds.length) {
+        // 이 도메인엔 없지만 **다른 도메인에는 있는** 경우 — 「없음」이 아니라 「옮겨졌음」이라고 알려야 한다.
+        const other: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM webauthn_credentials WHERE user_id = ?`
+        ).bind(uid).first();
+        if (Number(other?.n || 0) > 0) {
+          return json({
+            ok: false, error: 'passkey_other_domain',
+            message: '주소가 바뀌면서 이 기기의 얼굴/지문 로그인이 해제됐어요. 비밀번호로 로그인하면 다시 등록할 수 있어요.',
+            message_en: 'Your passkey was registered on our old address. Sign in with your password to set it up again.',
+          }, 404);
+        }
+        return json({ ok: false, error: 'no_passkey', message: '이 계정에 등록된 패스키가 없어요. 비밀번호로 로그인한 뒤 등록해주세요.' }, 404);
+      }
       allowCredentials = creds.map((c: any) => ({ type: 'public-key', id: c.credential_id, transports: c.transports ? JSON.parse(c.transports) : undefined }));
     }
     const challenge = b64uFromBytes(crypto.getRandomValues(new Uint8Array(32)));

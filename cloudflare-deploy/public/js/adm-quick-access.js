@@ -151,11 +151,29 @@
         조상을 훑되 **menu-card 만** 본다(카드가 카드를 품는 구조가 실제로 있다 — ia6 주석 참고).
      ⚠️ ia6 의 카드 필터는 class(.ia6-hide) 라 인라인을 안 건드리지만, 과거에 인라인으로
         건드린 코드가 있었으므로 방어적으로 한 번 더 제외한다. */
+  /* 🔐 카드 숨김 판정 — **규칙 정본은 adm-core.js 의 `window.mangoiCardHidden`** 이다.
+     아래는 그것이 없을 때만 도는 안전장치다(하니스 단독 실행 · adm-core 로드 실패).
+     ⚠️ 규칙을 여기서 «늘리지» 마세요. 새 숨김 방식이 생기면 정본만 고치고,
+        정본이 있는 정상 경로에서는 이 줄이 아예 실행되지 않습니다. */
+  function _cardHidden(el) {
+    if (window.mangoiCardHidden) return window.mangoiCardHidden(el);
+    if (!el) return true;
+    if (el.classList && (el.classList.contains('rbac-hide') ||
+                         el.classList.contains('ph118-card-hidden'))) return true;
+    return !!(el.style && el.style.display === 'none');
+  }
+
   function roleHidden(el) {
     for (var n = el; n && n !== document.body; n = n.parentElement) {
       if (n.tagName !== 'DETAILS') continue;
       if (!n.classList || !n.classList.contains('menu-card')) continue;
-      if (n.style && n.style.display === 'none' && !n.classList.contains('ia6-hide')) return true;
+      // 🔐 (2026-08-18) 역할 숨김이 인라인 display → «.rbac-hide» 클래스로 바뀌었다.
+      //   위 주석의 «인라인에만 건다» 전제가 이때 깨졌으니 같이 읽는다(옛 인라인도 계속 인정).
+      //   판정 정본은 adm-core.js 의 window.mangoiCardHidden 이다(세 가지 숨김을 한 곳에서 본다).
+      //   ⚠️ 단 «.ia6-hide 는 권한이 아니다» 라는 위 예외는 여기서 계속 지킨다 —
+      //      화면 전환으로 감춘 카드를 «권한 없음» 으로 읽으면 바로가기가 통째로 비워진다.
+      if (n.classList && n.classList.contains('ia6-hide')) continue;
+      if (_cardHidden(n)) return true;
     }
     return false;
   }

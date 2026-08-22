@@ -43,6 +43,7 @@
  */
 
 import { getScope, scopeStudentCond, type Scope } from './scope';
+import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트·정산서와 같은 조건을 쓴다
 
 interface Env {
   DB: D1Database;
@@ -307,7 +308,7 @@ async function subtreeNodeRevenue(env: Env, rootId: number, startMs: number, end
       -- (:Student)-[:PAID]->(:Payment) : 해당 월 확정 결제만
       LEFT JOIN student_payments p
              ON p.user_id = st.user_id
-            AND p.status = 'paid'
+            AND p.status = 'paid' AND ${notSeedSql('p')}
             AND p.paid_at >= ? AND p.paid_at < ?
       GROUP BY s.id, s.parent_id, s.type, s.name, s.commission_rate, s.depth
       ORDER BY s.depth, s.id
@@ -502,7 +503,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
                  COALESCE(SUM(p.amount_krw),0) AS gross_revenue
           FROM student_payments p
           JOIN students_erp s ON s.user_id = p.user_id
-          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ?${scWhere}
+          WHERE p.status='paid' AND ${notSeedSql('p')} AND p.paid_at >= ? AND p.paid_at < ?${scWhere}
           GROUP BY franchise_name, agency_name
           HAVING gross_revenue > 0
         `).bind(startMs, endMs, ...sc.binds).all<any>()).results || [], [] as any[]);
@@ -583,7 +584,7 @@ export async function settlementRouter(request: Request, env: Env): Promise<Resp
                  COALESCE(SUM(p.amount_krw),0) AS gross_revenue
           FROM student_payments p
           JOIN students_erp s ON s.user_id = p.user_id
-          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ?${scWhere}
+          WHERE p.status='paid' AND ${notSeedSql('p')} AND p.paid_at >= ? AND p.paid_at < ?${scWhere}
           GROUP BY franchise_name, agency_name
         `).bind(startMs, endMs, ...sc.binds).all<any>()).results || [], [] as any[]);
 

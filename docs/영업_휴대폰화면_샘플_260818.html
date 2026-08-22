@@ -1,0 +1,327 @@
+<title>영업 휴대폰 화면</title>
+<style>
+:root{
+  --page:#eceef1; --ink:#15181d; --dim:#6b7280; --line:#e2e5ea; --card:#ffffff;
+  --mango:#d97706; --mango-d:#b45309; --go:#15803d; --up:#1d4ed8; --rec:#dc2626;
+  --teal:#0f766e; --frame:#2b2f36;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --page:#15181c; --frame:#000; }
+}
+:root[data-theme="dark"]{ --page:#15181c; --frame:#000; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);
+  font-family:'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;
+  word-break:keep-all;padding:26px 16px 60px}
+.head{max-width:1180px;margin:0 auto 22px}
+h1{font-size:clamp(22px,4vw,30px);margin:0 0 8px;font-weight:900;letter-spacing:-.02em}
+.lede{font-size:15.5px;color:var(--dim);margin:0;line-height:1.7;max-width:70ch}
+.demo{background:#fef3c7;border:1px solid #fde68a;color:#7c4a03;border-radius:12px;
+  padding:12px 16px;margin:16px 0 0;font-size:14.5px;line-height:1.7;max-width:70ch}
+
+.row{display:flex;gap:26px;flex-wrap:wrap;justify-content:center;max-width:1180px;margin:0 auto}
+.col{flex:0 0 auto;width:340px}
+.cap{text-align:center;font-size:14px;font-weight:800;color:var(--dim);margin:0 0 10px;letter-spacing:-.01em}
+.cap b{color:var(--mango)}
+
+/* 휴대폰 틀 */
+.phone{background:var(--frame);border-radius:34px;padding:10px;box-shadow:0 10px 30px rgba(0,0,0,.22)}
+.screen{background:#f4f5f7;border-radius:26px;overflow:hidden;height:660px;
+  display:flex;flex-direction:column;color:#15181d}
+.scroll{flex:1;overflow-y:auto}
+
+.top{background:#fff;padding:13px 15px 11px;border-bottom:1px solid var(--line)}
+.hi{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.hi small{display:block;font-size:13px;font-weight:600;color:var(--dim);margin-top:2px}
+.note{padding:9px 15px;font-size:13.5px;line-height:1.55}
+.note.info{background:#e0f2fe;color:#075985;border-bottom:1px solid #bae6fd}
+.note.ok{background:#dcfce7;color:#14532d;border-bottom:1px solid #bbf7d0}
+.wrap{padding:14px 13px 20px}
+
+.big{display:block;width:100%;border:0;border-radius:18px;background:var(--mango);color:#fff;
+  font-family:inherit;font-size:21px;font-weight:900;padding:22px 14px;margin:0 0 13px;
+  letter-spacing:-.02em;box-shadow:0 2px 0 var(--mango-d);text-align:center}
+.big small{display:block;font-size:13px;font-weight:700;opacity:.92;margin-top:5px}
+.big.rec{background:var(--rec);box-shadow:0 2px 0 #991b1b}
+.big.gray{background:#fff;color:var(--ink);border:2px solid #d1d5db;box-shadow:none}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:11px}
+.card h2{font-size:16px;margin:0 0 3px;font-weight:900;letter-spacing:-.02em}
+.card .sub{font-size:13px;color:var(--dim);margin:0 0 10px;line-height:1.55}
+.place{font-size:18.5px;font-weight:900;letter-spacing:-.02em}
+.why{font-size:13.5px;color:#4b5563;margin-top:3px;line-height:1.5}
+.tag{display:inline-block;font-size:11.5px;font-weight:800;padding:2px 9px;border-radius:999px;
+  background:#f3f4f6;color:#4b5563;margin-right:5px}
+.tag.hot{background:#fee2e2;color:#991b1b}
+.tag.warm{background:#fef3c7;color:#92400e}
+.sep{border-top:1px solid #eef0f3;padding-top:12px;margin-top:12px}
+
+.acts{display:flex;gap:7px;margin-top:10px}
+.act{flex:1;min-height:55px;border-radius:13px;border:2px solid #d1d5db;background:#fff;
+  font-family:inherit;font-size:14px;font-weight:800;color:var(--ink);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:5px 3px}
+.act .ic{font-size:19px;line-height:1}
+.act.go{background:var(--go);border-color:var(--go);color:#fff}
+.act.up{background:var(--up);border-color:var(--up);color:#fff}
+.act.off{opacity:.5}
+
+.money{background:var(--teal);color:#fff;border-radius:18px;padding:20px 16px;margin-bottom:11px}
+.money .k{font-size:13.5px;font-weight:700;opacity:.9}
+.money .v{font-size:35px;font-weight:900;letter-spacing:-.03em;margin-top:2px;font-variant-numeric:tabular-nums}
+.money .t{font-size:12.5px;opacity:.9;margin-top:5px;line-height:1.5}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.num{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.num .k{font-size:12.5px;color:var(--dim);font-weight:700}
+.num .v{font-size:25px;font-weight:900;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.num .t{font-size:11.5px;color:#9ca3af;margin-top:1px}
+
+.recp{background:#fff;border:2px solid var(--rec);border-radius:18px;padding:15px;margin-bottom:13px}
+.heard{font-size:15.5px;line-height:1.6;color:var(--ink)}
+.heard.empty{color:#9ca3af}
+.field{margin-top:11px}
+.field label{display:block;font-size:12.5px;font-weight:800;color:var(--dim);margin-bottom:4px}
+.fake{width:100%;font-size:15.5px;padding:13px;border:2px solid #d1d5db;border-radius:13px;
+  background:#fff;color:var(--ink);min-height:52px;display:flex;align-items:center}
+.pick{display:flex;flex-wrap:wrap;gap:7px}
+.pick span{flex:1 1 30%;min-height:52px;border-radius:13px;border:2px solid #d1d5db;background:#fff;
+  font-size:14.5px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.pick span.on{background:var(--mango);border-color:var(--mango);color:#fff}
+
+.bar{background:#fff;border-top:1px solid var(--line);display:flex}
+.bar div{flex:1;min-height:66px;font-size:12.5px;font-weight:800;color:var(--dim);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.bar div .ic{font-size:22px;line-height:1}
+.bar div.on{color:var(--mango)}
+.stack{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f3f5;font-size:14.5px}
+.stack b{font-variant-numeric:tabular-nums}
+</style>
+
+<div class="head">
+  <h1>영업 휴대폰 화면 — 운전하시는 분용</h1>
+  <p class="lede">타이핑을 하지 않습니다. 말하거나 누르기만 합니다. 화면은 세 개뿐이고, 아래 바에서 손가락을 옮기지 않고 바꿉니다.</p>
+  <div class="demo"><b>샘플입니다.</b> 학원 이름과 숫자는 전부 가짜 예시입니다. 실제 주소는 <b>mangoi.ai/sales</b> — 휴대폰 홈 화면에 추가해 두시면 앱처럼 열립니다.</div>
+</div>
+
+<div class="row">
+
+  <!-- ① 오늘 -->
+  <div class="col">
+    <p class="cap">① 오늘 — <b>열면 바로 이 화면</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>2026-08-18 · 2026년 8월</small></div></div>
+      <div class="note info">지금은 «연습 기간»입니다(2026-11-16까지). 점수는 나오지만 상여에는 반영되지 않습니다. 성과급은 그대로 나갑니다.</div>
+      <div class="scroll"><div class="wrap">
+        <div class="big">🎤 방문 기록하기<small>말만 하시면 AI가 정리합니다</small></div>
+
+        <div class="card">
+          <h2>⚠️ 빠져나갈 수 있는 학원</h2>
+          <div class="sub">여기가 이탈하면 성과급 2차(절반)를 못 받습니다.</div>
+          <div class="place">둔산 세종어학원</div>
+          <div class="why">수업이 45% 줄었습니다 (61건 → 34건).</div>
+        </div>
+
+        <div class="card">
+          <h2>🗺 오늘 갈 곳</h2>
+          <div class="sub">가까운 순서가 아니라 <b>계약에 가까운 순서</b>입니다.</div>
+
+          <div class="sep">
+            <div class="place">1. 유성 SLP어학원</div>
+            <div style="margin-top:4px"><span class="tag hot">16일째 안 감</span><span class="tag">제안·시연</span><span class="tag">대전 유성구</span></div>
+            <div class="why">제안·시연 단계 · 예정일 3일 지남</div>
+            <div class="why"><b>할 일:</b> 저학년 맞춤 시간표안 들고 재방문</div>
+            <div class="acts">
+              <div class="act"><span class="ic">📞</span>전화</div>
+              <div class="act"><span class="ic">🗺</span>길찾기</div>
+              <div class="act go"><span class="ic">✅</span>다녀왔어요</div>
+            </div>
+          </div>
+
+          <div class="sep">
+            <div class="place">2. 청주 온에듀학원</div>
+            <div style="margin-top:4px"><span class="tag">제안·시연</span><span class="tag">충북 청주</span></div>
+            <div class="why">제안·시연 단계 · 같은 지역에 3곳 — 묶어서 방문 가능</div>
+            <div class="acts">
+              <div class="act"><span class="ic">📞</span>전화</div>
+              <div class="act"><span class="ic">🗺</span>길찾기</div>
+              <div class="act go"><span class="ic">✅</span>다녀왔어요</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>📝 오늘은 아직 기록 전</h2>
+          <div class="sub" style="margin:0">기록이 없으면 다녀오셔도 «안 간 것»으로 계산됩니다. 위 버튼으로 30초면 끝납니다.</div>
+        </div>
+      </div></div>
+      <div class="bar">
+        <div class="on"><span class="ic">🚗</span>오늘</div>
+        <div><span class="ic">🏫</span>학원</div>
+        <div><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ② 말하는 중 -->
+  <div class="col">
+    <p class="cap">② 🎤 누르고 <b>그냥 말하면 됩니다</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>듣고 있습니다</small></div></div>
+      <div class="scroll"><div class="wrap">
+        <div class="recp"><div class="heard">오늘 유성 SLP어학원 갔고요, 원장님이 단가는 괜찮은데 초등 저학년 시간표가 안 맞는다고 하셨어요. 화상수업 시연은 반응 좋았습니다. 다음 주 화요일에 저학년 맞춤 시간표안 만들어서 다시 가기로 했어요.</div></div>
+        <div class="big rec">■ 다 말했어요<small>누르면 자동으로 정리됩니다</small></div>
+        <div class="card"><h2>이렇게 쓰시면 됩니다</h2>
+          <div class="sub" style="margin:0">문장을 다듬지 않으셔도 됩니다. 평소 말하듯 하시면 AI가 학원·종류·다음 할 일로 나눠 줍니다.<br><br>
+          운전 중에는 <b>세워 두고</b> 눌러 주세요.</div></div>
+      </div></div>
+      <div class="bar">
+        <div class="on"><span class="ic">🚗</span>오늘</div>
+        <div><span class="ic">🏫</span>학원</div>
+        <div><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ③ AI 정리 결과 -->
+  <div class="col">
+    <p class="cap">③ AI가 정리 — <b>틀린 것만 고치고 저장</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>2026-08-18</small></div></div>
+      <div class="scroll"><div class="wrap">
+        <div class="recp">
+          <div style="font-size:13px;font-weight:800;color:var(--dim);margin-bottom:5px">AI가 정리했습니다 — 틀린 것만 고치세요</div>
+          <div class="heard" style="font-size:14px;color:#6b7280">오늘 유성 SLP어학원 갔고요, 원장님이 단가는 괜찮은데…</div>
+          <div class="field"><label>어느 학원인가요</label><div class="fake">유성 SLP어학원</div></div>
+          <div class="field"><label>무엇을 했나요</label>
+            <div class="pick"><span class="on">방문</span><span>전화</span><span>시연</span><span>관리방문</span><span>미팅</span><span>기타</span></div>
+          </div>
+          <div class="field"><label>다음에 할 일 (없으면 비워도 됩니다)</label>
+            <div class="fake" style="min-height:70px;align-items:flex-start;padding-top:12px;line-height:1.5">다음 주 화요일 저학년 맞춤 시간표안 준비해서 재방문</div></div>
+        </div>
+        <div class="big">✅ 저장하기<small>이 기록이 그대로 점수가 됩니다</small></div>
+        <div class="big gray">취소</div>
+      </div></div>
+      <div class="bar">
+        <div class="on"><span class="ic">🚗</span>오늘</div>
+        <div><span class="ic">🏫</span>학원</div>
+        <div><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ④ 학원 -->
+  <div class="col">
+    <p class="cap">④ 학원 — <b>줄마다 원탭</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>내 학원 12곳</small></div></div>
+      <div class="scroll"><div class="wrap">
+        <div class="big">🎤 새 학원 추가<small>학원 이름만 말하면 됩니다</small></div>
+        <div class="card">
+          <h2>제안·시연 <span class="tag">3곳</span></h2>
+          <div class="sep">
+            <div class="place">유성 SLP어학원</div>
+            <div class="why">대전 유성구</div>
+            <div class="why">마지막 방문 2026-08-02</div>
+            <div class="acts">
+              <div class="act"><span class="ic">📞</span>전화</div>
+              <div class="act go"><span class="ic">✅</span>다녀왔어요</div>
+              <div class="act up"><span class="ic">⬆️</span>계약</div>
+            </div>
+          </div>
+          <div class="sep">
+            <div class="place">청주 온에듀학원</div>
+            <div class="why">충북 청주</div>
+            <div class="acts">
+              <div class="act"><span class="ic">📞</span>전화</div>
+              <div class="act go"><span class="ic">✅</span>다녀왔어요</div>
+              <div class="act up"><span class="ic">⬆️</span>계약</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h2>방문상담 <span class="tag">4곳</span></h2>
+          <div class="sep">
+            <div class="place">공주 한빛어학원</div>
+            <div class="why">충남 공주</div>
+            <div class="acts">
+              <div class="act off"><span class="ic">📞</span>번호 없음</div>
+              <div class="act go"><span class="ic">✅</span>다녀왔어요</div>
+              <div class="act up"><span class="ic">⬆️</span>제안·시연</div>
+            </div>
+          </div>
+        </div>
+      </div></div>
+      <div class="bar">
+        <div><span class="ic">🚗</span>오늘</div>
+        <div class="on"><span class="ic">🏫</span>학원</div>
+        <div><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ⑤ 내 실적 -->
+  <div class="col">
+    <p class="cap">⑤ 내 실적 — <b>돈이 제일 위에</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>2026년 8월</small></div></div>
+      <div class="scroll"><div class="wrap">
+        <div class="money">
+          <div class="k">이번 달 성과급</div>
+          <div class="v">900,000원</div>
+          <div class="t">계약 1곳당 600,000원 — 계약할 때 절반, 3개월 유지되면 나머지 절반</div>
+        </div>
+        <div class="nums">
+          <div class="num"><div class="k">계약한 학원</div><div class="v">3곳</div><div class="t">목표 2곳</div></div>
+          <div class="num"><div class="k">새 학생</div><div class="v">34명</div><div class="t">목표 20명</div></div>
+          <div class="num"><div class="k">방문·상담</div><div class="v">41건</div><div class="t">목표 48건</div></div>
+          <div class="num"><div class="k">기록한 날</div><div class="v">18일</div><div class="t">근무일 21일</div></div>
+        </div>
+        <div class="card" style="margin-top:11px">
+          <h2>성과급 내역</h2>
+          <div class="sep"><div style="font-weight:800">유성 SLP어학원 — 300,000원</div>
+            <div class="why">계약 체결 — 성과급 1차(50%) (2026-08-11)</div></div>
+          <div class="sep"><div style="font-weight:800">노은 리더스어학원 — 300,000원</div>
+            <div class="why">계약 후 90일 유지 확인 — 성과급 2차(50%) (2026-08-14)</div></div>
+        </div>
+        <div class="card">
+          <h2>지금 진행 중</h2>
+          <div class="stack"><span>발굴</span><b>24곳</b></div>
+          <div class="stack"><span>접촉</span><b>15곳</b></div>
+          <div class="stack"><span>방문상담</span><b>9곳</b></div>
+          <div class="stack" style="border:0"><span>제안·시연</span><b>3곳</b></div>
+        </div>
+      </div></div>
+      <div class="bar">
+        <div><span class="ic">🚗</span>오늘</div>
+        <div><span class="ic">🏫</span>학원</div>
+        <div class="on"><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- ⑥ 끊겼을 때 -->
+  <div class="col">
+    <p class="cap">⑥ 터널·시골에서 <b>끊겨도 안 잃습니다</b></p>
+    <div class="phone"><div class="screen">
+      <div class="top"><div class="hi">홍길동님<small>2026-08-18</small></div></div>
+      <div class="note" style="background:#fef3c7;color:#7c4a03;border-bottom:1px solid #fde68a">아직 못 보낸 기록 2건을 이 휴대폰에 저장해 뒀습니다. 인터넷이 되면 자동으로 보냅니다.</div>
+      <div class="note ok">지금 인터넷이 안 됩니다. 휴대폰에 저장해 뒀다가 자동으로 보냅니다.</div>
+      <div class="scroll"><div class="wrap">
+        <div class="big">🎤 방문 기록하기<small>말만 하시면 AI가 정리합니다</small></div>
+        <div class="card">
+          <h2>왜 이렇게 만들었나</h2>
+          <div class="sub" style="margin:0">
+            영업은 터널·시골·지하주차장에서 신호가 자주 끊깁니다.<br><br>
+            보통 앱은 이때 <b>«전송 실패»라고 하고 기록이 사라집니다.</b> 그러면 다시 적을 시간이 없어서 그냥 넘어가고, 그 방문은 점수에서 빠집니다.<br><br>
+            이 화면은 <b>휴대폰에 먼저 저장</b>합니다. 신호가 잡히는 순간 알아서 보냅니다. 사장님이나 이사님이 아무것도 안 하셔도 됩니다.
+          </div>
+        </div>
+      </div></div>
+      <div class="bar">
+        <div class="on"><span class="ic">🚗</span>오늘</div>
+        <div><span class="ic">🏫</span>학원</div>
+        <div><span class="ic">💰</span>내 실적</div>
+      </div>
+    </div></div>
+  </div>
+
+</div>

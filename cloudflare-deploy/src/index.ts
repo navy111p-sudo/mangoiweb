@@ -311,7 +311,8 @@ const worker = {
             || path.startsWith('/admin/')
             || path === '/teacher' || path === '/teacher/' || path === '/teacher.html'
             || path === '/manager' || path === '/manager/' || path === '/manager.html'
-            || path === '/work' || path === '/work/' || path === '/work.html') {
+            || path === '/work' || path === '/work/' || path === '/work.html'
+            || path === '/sales' || path === '/sales/' || path === '/sales.html') {
           const next = encodeURIComponent(path + url.search);
           return Response.redirect(new URL(`/admin/login?next=${next}`, request.url).toString(), 302);
         }
@@ -404,6 +405,10 @@ const worker = {
             '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
             // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 🔴 지금 수업 현황 (2026-08-20) — 전사 학생 이름·강사 배정이 한 화면에 모인다.
+            //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
+            //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes-now',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -626,7 +631,25 @@ const worker = {
       try { probe.bindings.AI = !!(env as any)?.AI; } catch {}
       try { probe.bindings.SIGNALING_ROOM = !!(env as any)?.SIGNALING_ROOM; } catch {}
       try { probe.bindings.VIDEO_CALL_ROOM = !!(env as any)?.VIDEO_CALL_ROOM; } catch {}
-      const secretKeys = ['VAPID_PUBLIC_KEY','VAPID_PRIVATE_KEY','VAPID_SUBJECT','KAKAO_API_KEY','KAKAO_TEMPLATE_ID','SOLAPI_API_KEY','SOLAPI_API_SECRET','SOLAPI_SENDER','GIFTISHOW_AUTH_CODE','GIFTISHOW_AUTH_TOKEN'];
+      /* 🔑 여기 이름은 **코드가 실제로 읽는 env 이름과 글자 그대로 같아야 한다.**
+         2026-08-18 실측: 10개 중 5개(KAKAO_API_KEY·KAKAO_TEMPLATE_ID·SOLAPI_SENDER·
+         GIFTISHOW_AUTH_CODE·GIFTISHOW_AUTH_TOKEN)가 이 줄에만 있고 코드 어디서도 안 쓰는
+         «유령 이름» 이었다. 그래서 등록을 제대로 해 둬도 영원히 false 로 나왔다 —
+         웹푸시가 안 되는 원인을 찾다가 SOLAPI_SENDER: false 를 보고 「문자 발송도 죽었구나」로
+         읽을 뻔했다. 실제로는 그런 변수가 없었을 뿐이고, 진짜 발신번호(SOLAPI_FROM_PHONE)는
+         이 목록이 아예 묻지도 않고 있었다.
+         ⚠️ 점검 도구가 거짓을 말하면 없는 문제를 쫓게 된다. 코드 버그보다 비싸다.
+         ℹ️ 이 값(secrets_present)을 그리는 화면은 없다 — /api/admin/health-check 의 JSON 을
+            직접 열어서 본다(admin/health.html 은 이 필드를 렌더링하지 않는다).
+         감시: test-harness/secret_names_harness.mjs 가 «코드가 안 쓰는 이름» 을 FAIL 낸다. */
+      const secretKeys = [
+        'VAPID_PUBLIC_KEY', 'VAPID_PRIVATE_KEY', 'VAPID_SUBJECT',   // 🔔 웹푸시
+        'SOLAPI_API_KEY', 'SOLAPI_API_SECRET',                       // 💬 문자·알림톡
+        'SOLAPI_FROM_PHONE',                                         //    발신번호 (구 SOLAPI_SENDER — 그런 이름은 없었다)
+        'SOLAPI_PFID',                                               //    카카오 채널 ID
+        'KAKAO_CLIENT_ID', 'KAKAO_CLIENT_SECRET',                    // 🔑 카카오 소셜로그인
+        'GIFTISHOW_API_KEY', 'GIFTISHOW_USER_ID',                    // 🎁 기프티콘
+      ];
       for (const k of secretKeys) probe.secrets_present[k] = !!(env as any)?.[k];
       try {
         if ((env as any)?.DB) {
@@ -987,6 +1010,8 @@ const worker = {
         path === '/api/admin/profile' ||
         path === '/api/admin/change-password' ||
         path === '/api/admin/staff-password-reset' ||
+        // ➕ 직원 계정 생성 (2026-08-18) — 게이트는 handleAdminAuthApi 안에서 경영진·본사로 한 번 더.
+        path === '/api/admin/staff-create' ||
         // 🔑 비밀번호 찾기(셀프 재설정) — 로그인 전에 부르는 API 라 isAuthPublicPath 에도 등록돼 있다.
         path === '/api/admin/password-reset/request' ||
         path === '/api/admin/password-reset/confirm' ||
@@ -1105,6 +1130,10 @@ const worker = {
         // 🏯 (2026-08-18) 본사 관리 — 「시스템 › 조직 관리 › 본사 관리」 목록·등록·수정·삭제.
         //    '/api/admin/org' 접두사라 TEACHER_BLOCKED_PREFIXES 에 이미 걸려 강사에게는 닫힌다.
         path === '/api/admin/org/hq' ||
+        /* 🗓 (2026-08-19) 지난 수업(attendance)에서 주간 일정을 만드는 도구.
+           preview 는 읽기만, apply 는 «사람이 화면에서 고른 것» 만 만든다.
+           ⚠️ 본사 전용 — 핸들러가 canEditOrg() 로 한 번 더 막는다. */
+        path.startsWith('/api/admin/schedule-seed/') ||
         path === '/api/admin/franchises' ||
         path === '/api/admin/centers' ||
         path === '/api/admin/level-tests' ||
@@ -1119,6 +1148,14 @@ const worker = {
         // 📚 Phase 39 — 교재 파일 라이브러리 + 망고아이 비디오
         path === '/api/admin/textbook-files' ||
         /^\/api\/admin\/textbook-files\/\d+$/.test(path) ||
+        // 🔍✏️ (2026-08-19) 교재 중복 진단(읽기 전용) · 묶음 일괄 이름변경(본사 전용, dry_run 기본)
+        //     ⚠️ 위 정규식은 /\d+$/ 라 이 두 경로를 안 잡는다 — 반드시 따로 적어야 인증을 거친다.
+        path === '/api/admin/textbook-files/dup-report' ||
+        path === '/api/admin/textbook-files/rebook' ||
+        // 👥 (2026-08-19) 진행 중인 방 번호 → 강사·학생 이름. 핸들러가 스코프로 잘라서 준다.
+        path === '/api/admin/live-classes' ||
+        // 🔴 (2026-08-20) 예약 기준 «지금 진행 중이어야 할 수업». 핸들러가 스코프로 자르고 강사는 막는다.
+        path === '/api/admin/classes-now' ||
         // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
         path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
@@ -1444,6 +1481,10 @@ const worker = {
         //    ℹ️ isAgencyAllowedApi 에는 넣지 않았다 — 이 화면은 본사 전용이고
         //       지사·대리점 계정은 위쪽에서 /admin/exec 로 돌아간다.
         path === '/api/admin/attendance/long-absent' ||
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts.
+        //    ⚠️ 여기 + api-mango.ts 위임 가드 «둘 다» 등록해야 동작한다(CLAUDE.md 함정).
+        //    지사·대리점도 보는 화면이라 isAgencyAllowedApi 에도 등록했다(핸들러가 scopeStudentCond 로 자기 범위만 자름).
+        path === '/api/admin/attendance/school-stats' ||
         // 📺📖 (2026-08-10 삭제) 비디오 자막·AI 사전 게이트 등록 5종 제거.
         //    전부 핸들러가 없어 라이브 404/미구현이었다(반쪽 배선):
         //      /api/admin/video/subtitle-upload · /api/video/subtitle · /api/admin/video/subtitles
@@ -1793,6 +1834,17 @@ const worker = {
     // 🧾 /admin/teacher-payroll — 강사 급여 자동 대시보드 페이지 (관리자 전용)
     if (path === '/admin/teacher-payroll' || path === '/admin/teacher-payroll/') {
       const r = new Request(new URL('/admin/teacher-payroll.html' + url.search, request.url).toString(), request);
+      return env.ASSETS.fetch(r);
+    }
+
+    // 🚗 /sales — 영업 전용 휴대폰 화면 (2026-08-18)
+    //   ⚠️ 확장자 없는 주소는 **여기서 한 줄로 직접 이어 줘야** 한다.
+    //      [assets] 가 html_handling="none" 이라 /sales → /sales.html 자동 연결이 없다.
+    //      2026-08-18 실제로 밟음: 인증 게이트(isAdminPath)에만 등록하고 이 줄을 빠뜨려
+    //      /sales 가 아무 데도 안 걸리고 **홈 화면(index.html)이 떴다.**
+    //      게이트는 통과했으니 «권한 문제» 로 보이지도 않아 원인 찾기가 더 어렵다.
+    if (path === '/sales' || path === '/sales/') {
+      const r = new Request(new URL('/sales.html' + url.search, request.url).toString(), request);
       return env.ASSETS.fetch(r);
     }
 
@@ -4494,10 +4546,26 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
 
     // 활성 방 목록에 등록 — fire-and-forget 이지만 worker 가 응답 후
     // 종료되어 KV put 이 드롭되지 않도록 ctx.waitUntil 로 보존
+    /* ⏱ TTL 2시간 (2026-08-20 — 그 전에는 600초였다)
+       ═══════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] 이 키는 **WebSocket 이 붙는 순간에만** 쓰이고 수업이
+          진행되는 동안 갱신되지 않는다. TTL 이 10분이라 **10분 넘게 안정적으로
+          연결된 수업은 관리자 「실시간 수업 현황」 표에서 사라졌다.**
+          하필 그 표가 «수업 종료 / 연장»·«Ghost 참관» 의 입구라, 정작 손봐야 할
+          수업일수록 목록에 없었다. 실측(2026-08-19 `meet-123`): 19:58~22:04
+          2시간 6분 수업인데 마지막 접속이 20:00:51 — 그 뒤 약 1시간 53분간
+          화면에는 «진행 중인 수업 없음» 이었다.
+       [왜 TTL 만 늘려도 되나] 아래 handleActiveRooms 가 방마다 Durable Object 에
+          `/status` 를 물어 **인원 0이면 그 자리에서 KV 키를 지운다.** 즉 TTL 은
+          «정답» 이 아니라 «후보 목록» 의 안전망일 뿐이고, 유령 방은 다음 조회
+          (관리자 화면 15초 주기)에서 곧바로 정리된다.
+       ⛔ 하트비트마다 KV 를 다시 쓰는 방식은 일부러 택하지 않았다 — 화상수업
+          Durable Object 를 건드려야 하는데(CLAUDE.md 4-2 공동 금지구역) 사고
+          반경 대비 이득이 없다. 숫자 하나가 가장 안전하다. */
     const kvPut = env.SESSION_STATE.put(`active-room:${roomId}`, JSON.stringify({
       roomId,
       lastActivity: Date.now()
-    }), { expirationTtl: 600 }).catch(() => {});
+    }), { expirationTtl: 7200 }).catch(() => {});
     if (ctx && typeof ctx.waitUntil === 'function') {
       ctx.waitUntil(kvPut);
     }
@@ -5072,6 +5140,12 @@ function isAdminPath(path: string, method: string): boolean {
   //   강사는 긴급·고객불만만 올릴 수 있고, 그 판정은 /api/approval/* 핸들러가 분류별로 한다.
   if (path === '/work' || path === '/work/' || path === '/work.html') return true;
 
+  // 🚗 영업 전용 휴대폰 화면 (2026-08-18) — 거래처 학원장 연락처와 본인 성과급이 담긴다.
+  //   로그인 필수. 역할 게이트(본사 또는 담당자 본인)는 /api/admin/sales/* 핸들러가 한 번 더 본다.
+  //   ⚠️ 위 «미인증 리다이렉트 목록» 에도 함께 등록했다 — 한쪽만 하면 인증은 걸리는데
+  //      'API 취급' 이 되어 화면에 JSON 원문이 뜬다(2026-08-02 실사고).
+  if (path === '/sales' || path === '/sales/' || path === '/sales.html') return true;
+
   //   ⚠️ `/api/teacher/` 전체를 잠그지 말 것. 이미 있는 `/api/teacher/praise`(수업 중 실시간 칭찬)
   //      `/api/teacher/my-ratings` 등이 함께 걸린다 — 수업 경로를 건드리는 변경이 된다.
   //      새로 만든 포털 엔드포인트만 콕 집어 잠근다.
@@ -5187,6 +5261,7 @@ function isAdminPath(path: string, method: string): boolean {
   // 🏢 Phase 9 — 추가 메뉴 6종
   if (path === '/api/admin/franchises') return true;
   if (path === '/api/admin/org/hq') return true;                 // 🏯 본사 관리(법인정보) — 반드시 인증 뒤
+  if (path.startsWith('/api/admin/schedule-seed/')) return true; // 🗓 지난 수업 → 일정 만들기 — 반드시 인증 뒤(본사 전용)
   if (path === '/api/admin/centers') return true;
   if (path === '/api/admin/level-tests') return true;
   if (path === '/api/admin/enrollments' || /^\/api\/admin\/enrollments\/\d+(\/(plan|activate))?$/.test(path)) return true;
@@ -5194,6 +5269,12 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbooks') return true;
   // 📚 Phase 39 — 교재 파일 라이브러리 (관리자 전용 업로드/관리)
   if (path === '/api/admin/textbook-files' || /^\/api\/admin\/textbook-files\/\d+$/.test(path)) return true;
+  // 🔍✏️ (2026-08-19) 중복 진단 · 묶음 일괄 이름변경 — 위 정규식(\d+)에 안 걸리므로 따로 적는다
+  if (path === '/api/admin/textbook-files/dup-report' || path === '/api/admin/textbook-files/rebook') return true;
+  // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 반드시 인증 뒤
+  if (path === '/api/admin/live-classes') return true;
+  // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 학생 이름이 나가므로 반드시 인증 뒤
+  if (path === '/api/admin/classes-now') return true;
   // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
   if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
@@ -5330,6 +5411,24 @@ function isAgencyAllowedApi(path: string): boolean {
           POST /decide 도 같은 조건으로 다시 확인한다(id 만 알면 남의 요청을 승인하던 것을 막음).
           이 줄만 지우고 핸들러 격리를 빼면 **다른 대리점 학생 이름이 새어 나간다.** */
     '/api/admin/schedule-requests',
+    /* 🏢 조직 명부 (2026-08-18 사장님 수정요청 #03·#04) — 「영업사원·지사장·학원장이 보기 쉽게」.
+         그동안 조직 관리 화면은 지사장이 열어도 이 두 경로가 여기 없어 403 → **빈 표**만 떴고,
+         학원장에게는 카드 등급('branch')이 걸려 화면 자체가 안 보였다. 둘 다 이번에 연다.
+       ⚠️ 여는 조건은 하나 — **핸들러가 스코프로 자른 뒤에만** 연다. api-admin.ts 의
+          두 핸들러는 scopeFranchiseCond()/scopeCenterCond()(src/scope.ts)로
+          지사 = 자기 지사, 대리점(학원) = 자기 한 칸까지 잘라서 내려주고,
+          등록·수정·대표지사 지정은 canEditOrg() 로 본사만 허용한다(403).
+          그 조건절을 빼고 이 두 줄만 남기면 **전국 지사 241건·대리점 921건이 통째로 샌다.**
+          org_scope_harness.mjs 가 «열림» 과 «잘림» 을 함께 감시한다. */
+    '/api/admin/franchises',
+    '/api/admin/centers',
+    /* 📊 (2026-08-19) 학원별 학생 수업현황 — 지사장·학원장도 «자기 지사·자기 학원» 출석 통계를 봐야 한다.
+       핸들러(api-admin.ts)가 scopeStudentCond() 로 이미 자기 범위만 잘라서 주므로 여기 열어도 안 샌다. */
+    '/api/admin/attendance/school-stats',
+    /* 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 지사장·학원장도 «우리 학원 수업이 지금
+       돌고 있나» 를 봐야 한다. 핸들러가 scopeStudentCond() 로 자기 범위 학생의 수업만
+       잘라서 주고(범위 밖은 목록·건수 양쪽에서 빠진다), 강사에게는 아예 닫혀 있다. */
+    '/api/admin/classes-now',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

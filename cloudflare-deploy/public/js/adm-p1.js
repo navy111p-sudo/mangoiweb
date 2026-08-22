@@ -80,10 +80,23 @@
     tabsEl.appendChild(btn);
   });
 
+  /* 🔐 카드 숨김 판정 — **규칙 정본은 adm-core.js 의 `window.mangoiCardHidden`** 이다.
+     아래는 그것이 없을 때만 도는 안전장치다(하니스 단독 실행 · adm-core 로드 실패).
+     ⚠️ 규칙을 여기서 «늘리지» 마세요. 새 숨김 방식이 생기면 정본만 고치고,
+        정본이 있는 정상 경로에서는 이 줄이 아예 실행되지 않습니다. */
+  function _cardHidden(el) {
+    if (window.mangoiCardHidden) return window.mangoiCardHidden(el);
+    if (!el) return true;
+    if (el.classList && (el.classList.contains('rbac-hide') ||
+                         el.classList.contains('ph118-card-hidden'))) return true;
+    return !!(el.style && el.style.display === 'none');
+  }
+
   function memberVisible(id){
     if (VIRTUAL_TABS.indexOf(id) !== -1) return true;
     var el = document.getElementById(id);
-    return !!el && el.style.display !== 'none';
+    // 🔐 판정 정본 = adm-core.js 의 window.mangoiCardHidden (역할·권한매트릭스·옛 인라인)
+    return !!el && !_cardHidden(el);
   }
   function activate(id){
     if (!panels[id] || !memberVisible(id)) return;
@@ -541,7 +554,8 @@
         MEMBERS.forEach(function(m){
           if (VIRTUAL_TABS.indexOf(m.id) !== -1) return;
           var card = document.getElementById(m.id);
-          if (!card || card.style.display === 'none') return;
+          // 🔐 판정 정본 = adm-core.js 의 window.mangoiCardHidden
+          if (_cardHidden(card)) return;
           _globalSearchIndex.push({
             kind: 'menu', kindLabelKo: '📋 메뉴', kindLabelEn: '📋 Menu',
             label: m.ko + ' (리텐션 센터)', labelEn: m.en + ' (Retention Center)', sub: '',

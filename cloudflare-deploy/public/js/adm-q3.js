@@ -315,6 +315,15 @@
           ? `👨‍🏫 Teacher Mode — your payslip only · ${year}-${String(month).padStart(2,'0')} · Classes <b>${fmt(_tl)}</b> · Deduction <b style="color:#dc2626">− ${fmtP(_td)}</b> · Final <b style="color:#d97706">${fmtP(_tf)}</b>`
           : `👨‍🏫 강사 모드 — 본인 급여만 · ${year}년 ${month}월 · 수업 <b>${fmt(_tl)}</b>회 · 공제 <b style="color:#dc2626">− ${fmtP(_td)}</b> · 실지급 <b style="color:#d97706">${fmtP(_tf)}</b>`);
       }
+      /* 📦 카페24에는 있는데 명부와 이름이 안 이어진 강사 — 조용히 빠지면 «급여를 못 받은»
+         사람이 생긴다. 관리자에게만, 있을 때만 한 줄 띄운다(강사 본인 뷰에는 안 띄운다). */
+      const _un = (d.c24_unmatched || []);
+      if (!_prTeacherView && _un.length) {
+        const names = _un.map(u => esc(u.teacher_name || '?')).join(', ');
+        summaryHtml += isEn
+          ? `<div style="margin-top:6px;font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 9px">⚠ <b>${_un.length}</b> teacher(s) in the Cafe24 payroll could not be matched to a profile by name: ${names}</div>`
+          : `<div style="margin-top:6px;font-size:11.5px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 9px">⚠ 카페24 급여에는 있는데 <b>이름으로 명부와 못 이은</b> 강사 <b>${_un.length}</b>명: ${names} <span style="color:#92400e">— 실제 강사라면 명부 이름을 카페24와 맞춰 주세요</span></div>`;
+      }
       document.getElementById('pr-summary').innerHTML = summaryHtml;
       const saveBtn = document.getElementById('pr-save-btn');
       // 강사는 저장(정산 확정) 불가 — 미리보기·실제 모두
@@ -345,6 +354,20 @@
       };
       // 🎖 등급 선택 셀 — 관리자만 변경 가능(강사 뷰는 읽기전용). 등급 미지정 시 요율만 표시.
       const _lvlLabel = (code) => { const x = _prLevels.find(v=>v.code===code); return x ? (isEn ? x.label_en : x.label_ko) : ''; };
+      /* 📦 이 줄의 숫자가 카페24에서 온 것이면 표시한다 (2026-08-18).
+         D1 예약표에 수업이 없어서 카페24 월간 집계로 채운 줄이다. 공제는 붙지 않는다
+         — 그 값에는 수업별 피드백·지각 판정 근거가 없기 때문. 「상세」를 눌러도
+         수업 목록은 비어 있는 것이 정상이라, 그 사실을 배지에 적어 둔다. */
+      const c24Badge = (r) => {
+        if (r.amount_source !== 'cafe24') return '';
+        const mins = r.c24_minutes_real === false
+          ? (isEn ? ' · minutes estimated (×20m)' : ' · 분은 ×20분 환산')
+          : '';
+        const t = isEn
+          ? 'From the Cafe24 monthly payroll sync (no per-lesson records in this system)' + mins
+          : '카페24 월간 급여 동기화 값 (이 시스템엔 수업별 기록이 없습니다)' + mins;
+        return `<br><span title="${esc(t)}" style="font-size:10px;color:#0f766e;background:#ecfdf5;border:1px solid #99f6e4;border-radius:10px;padding:0 6px;font-weight:700">${isEn?'Cafe24':'카페24'}</span>`;
+      };
       const levelCellMain = (r) => {
         // 프로필 미연결 강사(원부 teachers 에만 있는 행) — 등급을 지정할 프로필이 없다.
         // 관리자 「강사 사진 연결」에서 프로필을 이으면 다음 계산부터 단가·등급이 붙는다.
@@ -360,7 +383,17 @@
         }
         const opts = `<option value=""${cur?'':' selected'}>${isEn?'— none —':'— 미지정 —'}</option>` +
           _prLevels.map(v=>`<option value="${esc(v.code)}"${v.code===cur?' selected':''}>${esc(isEn?v.label_en:v.label_ko)} (₱${fmt(v.rate_per_20min)})</option>`).join('');
-        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px">${opts}</select><br>${rateTxt}`;
+        /* 🎖 단가가 하나도 없는데(개별 단가 X · 등급 X) 이 달에 수업이 있는 강사 —
+           수업료가 전부 0 으로 계산되고 있다는 뜻이다. 셀렉트를 붉게 해 단가부터 넣게 유도.
+           수업이 0회면 조용히 둔다(전 강사를 붉게 칠하면 아무도 안 본다). */
+        const needRate = r.rate_missing && (r.lesson_count||0) > 0;
+        const selStyle = needRate
+          ? 'max-width:150px;padding:4px 6px;font-size:11.5px;border:2px solid #dc2626;border-radius:5px;background:#fef2f2'
+          : 'max-width:150px;padding:4px 6px;font-size:11.5px;border:1px solid #d1d5db;border-radius:5px';
+        const warn = needRate
+          ? `<br><span style="font-size:10px;color:#dc2626;font-weight:700">${isEn?'⚠ No rate — fees calc as 0':'⚠ 단가 미지정 — 수업료가 0으로 계산 중'}</span>`
+          : '';
+        return `<select onchange="prSetLevel(${r.teacher_id}, this.value)" style="${selStyle}">${opts}</select><br>${rateTxt}${warn}`;
       };
       tbody.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border-radius:8px;overflow:hidden">
         <thead style="background:linear-gradient(135deg,#fef3c7,#fde68a)"><tr>
@@ -378,6 +411,10 @@
         </tr></thead>
         <tbody>${_prRows.map((r, i) => {
           const fin = r.final_amount ?? r.calculated_amount;
+          // 단가가 없어서 0 이 된 금액은 «0원 지급» 이 아니라 «아직 계산할 수 없음» 이다
+          const finCell = (r.rate_missing && (r.lesson_count||0) > 0)
+            ? `<span style="color:#dc2626;font-size:11px;font-weight:700">${isEn?'⚠ set rate first':'⚠ 단가 미지정'}</span>`
+            : fmtP(fin);
           const subCnt = [];
           if (r.absent_count) subCnt.push(`🙅 ${r.absent_count}`);
           if (r.no_feedback_count) subCnt.push(`📝 ${r.no_feedback_count}`);
@@ -385,12 +422,12 @@
           <tr style="border-bottom:1px solid #e5e7eb">
             <td style="padding:9px 12px"><b>${esc(r.korean_name||'-')}</b>${r.english_name?'<br><span style="font-size:11px;color:#9ca3af">'+esc(r.english_name)+'</span>':''}</td>
             <td style="padding:9px 12px">${levelCellMain(r)}</td>
-            <td style="padding:9px 12px;text-align:center;font-weight:700">${fmt(r.lesson_count)}${subCnt.length?'<br><span style="font-size:10px;color:#dc2626">'+subCnt.join(' ')+'</span>':''}</td>
+            <td style="padding:9px 12px;text-align:center;font-weight:700">${fmt(r.lesson_count)}${c24Badge(r)}${subCnt.length?'<br><span style="font-size:10px;color:#dc2626">'+subCnt.join(' ')+'</span>':''}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(r.total_minutes)}${H.minutes}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.fee_per_10min)}</td>
             <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmtP(r.calculated_amount)}</td>
             <td style="padding:9px 12px;text-align:right;font-weight:700;color:${(r.deduction_total||0)>0?'#dc2626':'#9ca3af'}">${(r.deduction_total||0)>0?'− '+fmtP(r.deduction_total):'—'}</td>
-            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${fmtP(fin)}</td>
+            <td style="padding:9px 12px;text-align:right;font-weight:800;color:#d97706">${finCell}</td>
             <td style="padding:8px 10px;text-align:right">
               <input type="number" value="${r.adjusted_amount ?? ''}" placeholder="${fmt(fin)}"
                      onchange="prRowAdjust(${i}, this.value)"

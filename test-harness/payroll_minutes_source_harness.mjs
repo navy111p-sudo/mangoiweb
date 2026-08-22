@@ -56,12 +56,41 @@ let body = extract('calcPayrollOne', adminTs)
   .replace(/let lengthSource: [^=]+=/, 'let lengthSource =');
 
 const DEFAULT_CLASS_MINUTES = 20;
+
+/* 🔗 (2026-08-18) calcPayrollOne 이 카페24 값을 «이름으로» 찾도록 바뀌었다.
+   그 다리(loadCafe24PayrollMonth·normTeacherName)도 원문에서 그대로 떼어 와 함께 실행한다 —
+   흉내 낸 함수를 넣으면 진짜 코드가 바뀌어도 이 하니스가 계속 통과해 버린다. */
+function extractPlain(name, text) {
+  const i = text.indexOf('function ' + name);
+  if (i < 0) throw new Error(name + ' 를 못 찾음');
+  const braceStart = text.indexOf('{', text.indexOf(')', i));
+  let d = 0, end = -1;
+  for (let k = braceStart; k < text.length; k++) {
+    const c = text[k];
+    if (c === '{') d++;
+    else if (c === '}') { d--; if (d === 0) { end = k; break; } }
+  }
+  return text.slice(i, end + 1);
+}
+const bridgeSrc = (extractPlain('normTeacherName', adminTs) + '\n' + extractPlain('loadCafe24PayrollMonth', adminTs))
+  .replace(/function normTeacherName\(v: any\): string \{/, 'function normTeacherName(v) {')
+  .replace(/(?:async )?function loadCafe24PayrollMonth\([\s\S]*?\) \{/,
+           'async function loadCafe24PayrollMonth(env, year, month) {')
+  .replace(/let rows: any\[\] = \[\];/, 'let rows = [];')
+  .replace(/rows = \(rs\.results \|\| \[\]\) as any\[\];/, 'rows = (rs.results || []);')
+  .replace(/const byName: Record<string, any> = \{\};/, 'const byName = {};')
+  .replace(/const dupe = new Set<string>\(\);/, 'const dupe = new Set();')
+  .replace(/const matched = new Set<string>\(\);/, 'const matched = new Set();')
+  .replace(/find\(\.\.\.names: any\[\]\): any \| null \{/, 'find(...names) {')
+  .replace(/unmatched\(\): any\[\] \{/, 'unmatched() {');
+
 const fn = new Function(
   'DEFAULT_CLASS_MINUTES', 'classTenMinUnits', 'PAYROLL_PHP_TO_KRW', 'calcWeightedTotal', 'classifyEvalGrade',
-  body + '; return calcPayrollOne;'
+  bridgeSrc + '\n' + body + '; return calcPayrollOne;'
 )(DEFAULT_CLASS_MINUTES, (m) => m / 10, 24, () => 0, () => '미평가');
 
-/** 아주 작은 D1 흉내 — 어떤 SELECT 인지 보고 미리 정해 둔 행을 돌려준다. */
+/** 아주 작은 D1 흉내 — 어떤 SELECT 인지 보고 미리 정해 둔 행을 돌려준다.
+    카페24 표는 이제 .all() 로 그 달 전체를 읽어 «이름으로» 잇는다. */
 function fakeDb({ teacher, monthly, ingest }) {
   return {
     prepare(sql) {
@@ -70,15 +99,20 @@ function fakeDb({ teacher, monthly, ingest }) {
         async first() {
           if (/FROM teachers/.test(sql))                 return teacher;
           if (/teacher_monthly_classes/.test(sql))       return monthly;
-          if (/teacher_payroll_auto/.test(sql))          return ingest;
           if (/teacher_evaluations/.test(sql))           return null;
           return null;
+        },
+        async all() {
+          if (/teacher_payroll_auto/.test(sql)) return { results: ingest ? [ingest] : [] };
+          return { results: [] };
         }
       };
     }
   };
 }
 const T = { id: 1, name: '테스트강사', status: 'active', years: 1, rate_per_10min_php: 30, hourly_rate_php: 0, rank: 'A', center_id: 1, active: 1 };
+/* 카페24 행은 이름으로 잇는다 — 이름이 없으면 이어지지 않는 것이 정상이다 */
+const c24 = (mins) => ({ teacher_id: 161, teacher_name: T.name, completed_classes: 10, pay_php: 0, total_minutes: mins });
 const run = (monthly, ingest) => fn({ DB: fakeDb({ teacher: T, monthly, ingest }) }, 1, 2026, 8);
 
 console.log('\n════════ 급여 «분» 출처 3단 우선순위 ════════');
@@ -92,7 +126,7 @@ console.log('\n════════ 급여 «분» 출처 3단 우선순위 
 }
 {
   /* ② 카페24가 분을 보내 주면 사람 손 없이 그것으로 계산 — 30분 100회 = 3,000분 */
-  const r = await run({ class_count: 100, total_10min_units: null, notes: null }, { total_minutes: 3000 });
+  const r = await run({ class_count: 100, total_10min_units: null, notes: null }, c24(3000));
   check('② 카페24가 보낸 분이 있으면 그것으로 계산 (3,000분 → 300토막)', r.total_10min_units === 300);
   check('② 출처가 ingest 로 표시된다', r.length_source === 'ingest');
   check('② length_recorded 는 true (경고를 띄우지 않는다)', r.length_recorded === true);
@@ -100,13 +134,13 @@ console.log('\n════════ 급여 «분» 출처 3단 우선순위 
 }
 {
   /* ① 사람이 넣은 값이 카페24보다 세다 — 뒤집히면 «고쳤는데 원복» 이 된다 */
-  const r = await run({ class_count: 100, total_10min_units: 250, notes: null }, { total_minutes: 3000 });
+  const r = await run({ class_count: 100, total_10min_units: 250, notes: null }, c24(3000));
   check('① 사람 입력이 카페24 값을 이긴다 (250토막)', r.total_10min_units === 250);
   check('① 출처가 manual 로 표시된다', r.length_source === 'manual');
 }
 {
   /* 0 이나 NULL 을 «값» 으로 오해하면 안 된다 */
-  const r = await run({ class_count: 10, total_10min_units: 0, notes: null }, { total_minutes: 0 });
+  const r = await run({ class_count: 10, total_10min_units: 0, notes: null }, c24(0));
   check('0 은 «안 들어온 것» 으로 본다 (0분 지급 사고 방지)', r.length_source === 'assumed_20min' && r.total_minutes === 200);
 }
 {
@@ -114,8 +148,10 @@ console.log('\n════════ 급여 «분» 출처 3단 우선순위 
   const db = { prepare(sql) { return { bind() { return this; }, async first() {
     if (/FROM teachers/.test(sql)) return T;
     if (/teacher_monthly_classes/.test(sql)) return { class_count: 5, total_10min_units: null, notes: null };
-    if (/teacher_payroll_auto/.test(sql)) throw new Error('no such column: total_minutes');
     return null;
+  }, async all() {
+    if (/teacher_payroll_auto/.test(sql)) throw new Error('no such column: total_minutes');
+    return { results: [] };
   } }; } };
   const r = await fn({ DB: db }, 1, 2026, 8);
   check('칸이 없는 옛 DB 에서도 죽지 않고 예전 규칙으로 계산한다', r.ok === true && r.total_minutes === 100);

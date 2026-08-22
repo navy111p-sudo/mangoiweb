@@ -264,6 +264,25 @@ function render(){
   if (TAB === 'leave') return viewLeave();
   if (TAB === 'sweeps') return viewSweeps();
 }
+
+/* ═══ 🧭 (2026-08-19) 주소 뒤 #탭이름 으로 바로 그 탭을 연다 ═══
+   관리자 사이드바의 손자 메뉴(「강사 ▸ 수강 운영 ▸ 💸 환불 계산기」)가 이 주소로 온다.
+   이 화면은 탭 하나만 그리는 구조라, 해시를 안 보면 무엇을 눌러도 늘 「공휴일」이 열린다
+   — 쓰는 사람에게는 «손자 메뉴가 다 같은 데로 간다» 로 보인다.
+   ⚠️ 탭 이름은 위 .tab[data-t] 값과 같아야 한다. 모르는 이름이면 조용히 기본 탭(공휴일)이다
+      (하니스 sidebar_three_level_harness 가 사이드바 목록과 이 값이 어긋나면 FAIL 낸다). */
+function applyHashTab(){
+  var h = String(location.hash || '').replace(/^#/, '');
+  if (!h) return false;
+  var t = document.querySelector('.tab[data-t="' + h.replace(/"/g, '') + '"]');
+  if (!t) return false;
+  document.querySelectorAll('.tab').forEach(function(x){ x.classList.remove('on'); });
+  t.classList.add('on'); TAB = h;
+  return true;
+}
+window.addEventListener('hashchange', function(){ if (applyHashTab()) render(); });
+
+applyHashTab();
 render();
 </script>
 <!-- BUILD:20260813015745 -->

@@ -72,9 +72,33 @@ body.vc-in-call .tab-bar .tab-btn{
   transition:background .12s ease, color .12s ease;
 }
 body.vc-in-call .tab-bar .tab-btn:hover{background:rgba(255,255,255,.06)}
+/* 🎨 (2026-08-21 사장님 「이것만 주변과 안 어울린다」) 활성 탭 알약 다듬기.
+   [무엇이 보였나] 「📖 교재」 하나만 «앰버 상자 + 파란 밑줄» 로 튀었다.
+   [원인] 스타일이 두 세대 겹쳐 있었다 —
+     ① 옛 세대: .tab-btn.active { color:#38bdf8; border-bottom-color:#38bdf8 }  ← 파란 «밑줄» 탭
+     ② 이 파일: 앰버 «알약» 으로 다시 디자인했는데, ①의 파란 밑줄을 끄지 않았다.
+     → 앰버 알약 아래에 파란 줄이 남아 두 색이 싸웠다. 라이트 테마는 더 심해서
+       글자까지 파랑으로 덮여(«앰버 배경 + 파란 글자») 완전히 따로 놀았다.
+   [왜 이제야 보였나] 교재 탭에는 버튼이 없어서(2026-06-27 제거) 첫 화면에 활성 탭이
+     하나도 없었다. 2026-08-20 에 「📖 교재」 버튼을 되살리자 수업 내내 화면에 남게 됐다.
+   [고침] 알약 하나만 남긴다 — 밑줄은 끄고, 테두리는 각 테마의 «자기 강조색» 으로.
+   ⚠️ 링을 box-shadow 로 그리면 안 된다 — 저사양 모드(html.lite-mode)가
+      `box-shadow:none !important` 로 전부 지워서 테두리가 사라진다(실측).
+      outline + outline-offset:-1px 은 레이아웃도 안 밀고 lite-mode 에서도 살아남는다. */
 body.vc-in-call .tab-bar .tab-btn.active{
-  background:rgba(251,191,36,.20) !important;color:#fcd34d !important;
-  box-shadow:inset 0 0 0 1px rgba(251,191,36,.5);
+  background:rgba(251,191,36,.16) !important;color:#fcd34d !important;
+  border-bottom-color:transparent !important;   /* ① 옛 파란 밑줄 끄기 */
+  outline:1px solid rgba(251,191,36,.45); outline-offset:-1px;
+}
+/* 라이트 테마는 탭 강조색이 하늘색(--mlt-sky-deep)이다. 그 테마의 뜻을 존중해
+   «앰버 배경 + 파란 글자» 대신 하늘색 알약으로 맞춘다.
+   ⚠️ 선택자를 mango-theme-light.css 와 «같은 무게» 로 맞춰야 한다 —
+      그 파일의 body.vc-theme-light.vc-in-call … 규칙도 !important 라, 가벼우면 진다.
+      이 파일이 문서상 뒤에 오므로 같은 무게면 이쪽이 이긴다. */
+body.vc-theme-light.vc-in-call .tab-bar .tab-btn.active{
+  background:rgba(14,165,233,.10) !important;color:var(--mlt-sky-deep) !important;
+  border-bottom-color:transparent !important;
+  outline:1px solid rgba(14,165,233,.35); outline-offset:-1px;
 }
 
 /* ---------- 영상/콘텐츠: 라운드 카드 + 그림자 ---------- */

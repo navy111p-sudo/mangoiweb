@@ -833,6 +833,18 @@
       var r = await fetch('/api/passkey/login/options', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: uid }) });
       var d = await r.json();
       if (!d.ok) {
+        /* 🈶 (2026-08-18) 주소가 바뀌어 옛 도메인 패스키만 있는 경우.
+           이건 «오류» 가 아니라 «다시 등록하시면 됩니다» 안내라 빨간 ❌ 대신 파란 안내로 띄우고,
+           바로 다음 행동(비밀번호 로그인)으로 이어지게 비밀번호 칸에 커서를 옮긴다.
+           ⚠️ 서버가 rp_id 로 걸러 주기 전에는 이 분기까지 오지도 못하고 세리머니가 그냥 실패해
+              「인증이 취소됐거나 시간이 초과됐어요」만 떴다(진짜 이유를 알 수 없었다). */
+        if (d.error === 'passkey_other_domain') {
+          showStep('💡 ' + (L
+            ? '주소가 바뀌면서 얼굴/지문 로그인이 해제됐어요. 아래에 비밀번호를 넣어 로그인하시면 다시 등록할 수 있어요.'
+            : (d.message_en || 'Your passkey was registered on our old address. Sign in with your password to set it up again.')));
+          try { var pw = document.getElementById('lm-pw'); if (pw) pw.focus(); } catch(e){}
+          return;
+        }
         // 그 계정에 패스키가 없거나 준비 실패 → 아이디 입력 유도(조용히 끝나지 않게)
         showErr('❌ ' + (d.message || d.error || (L?'패스키 준비 실패':'Passkey unavailable')) + (uid ? '' : (L?' 학생 ID를 입력한 뒤 눌러주세요.':' Enter your Student ID first.')));
         return;
@@ -874,7 +886,11 @@
       if (e && e.name === 'AbortError') { /* 새 시도가 이전 요청을 중단한 것 — 조용히 무시 */ }
       else if (e && e.name === 'NotAllowedError') showErr(L?'❌ 인증이 취소됐거나 시간이 초과됐어요. 다시 시도해주세요. (NotAllowed)':'❌ Cancelled or timed out. (NotAllowed)');
       else if (e && e.name === 'NotSupportedError') showErr(L?'❌ 이 브라우저는 패스키를 지원하지 않아요. 크롬/엣지 최신 버전을 사용해주세요.':'❌ Passkeys not supported in this browser.');
-      else if (e && e.name === 'SecurityError') showErr('❌ 보안 오류(SecurityError) — 주소가 test.mangoi.co.kr 인지 확인해주세요.');
+      // ⚠️ 2026-08-18 — 여기 적힌 주소가 옛 주소(test.mangoi.co.kr)로 남아 있었다.
+      //    도메인을 옮기면 이런 «문구 속 주소» 가 조용히 거짓말이 된다. 정본은 mangoi.ai.
+      else if (e && e.name === 'SecurityError') showErr(L
+        ? '❌ 보안 오류(SecurityError) — 주소창이 mangoi.ai 인지 확인해주세요.'
+        : '❌ SecurityError — please check the address is mangoi.ai.');
       else showErr('❌ [' + ((e && e.name) || 'Error') + '] ' + ((e && e.message) || e));
     } finally { window.__pkBusy = false; }
   };

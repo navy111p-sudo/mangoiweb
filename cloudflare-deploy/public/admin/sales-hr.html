@@ -121,6 +121,20 @@
   pre.report{white-space:pre-wrap;word-break:break-word;background:rgba(15,23,42,.6);
        border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:16px;font-size:14.5px;
        line-height:1.8;font-family:inherit;margin:12px 0 0}
+  /* 성과 부진 대응 — 단계 색. 빨강을 함부로 쓰지 않는다(1단계는 «벌» 이 아니다). */
+  .stg{border-radius:14px;padding:14px 16px;margin:12px 0;border:1px solid rgba(148,163,184,.25)}
+  .stg .lv{font-size:13px;font-weight:800;letter-spacing:.02em;opacity:.85}
+  .stg .nm{font-size:20px;font-weight:800;margin-top:2px}
+  .stg .ln{font-size:15px;line-height:1.75;margin-top:8px}
+  .stg0{background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.32)}
+  .stg1{background:rgba(56,189,248,.10);border-color:rgba(56,189,248,.32)}
+  .stg2{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35)}
+  .stg3{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.38)}
+  .tw{overflow-x:auto;min-width:0;max-width:100%}
+  .rec{display:flex;gap:8px;align-items:flex-start;font-size:14.5px;line-height:1.7;margin:6px 0}
+  .rec .m{flex:0 0 auto;font-weight:800}
+  .guard{font-size:14.5px;line-height:1.75;margin:6px 0;padding-left:14px;
+       border-left:3px solid rgba(239,68,68,.45)}
   details.more{margin-top:10px}
   details.more > summary{cursor:pointer;color:#93c5fd;font-weight:700;font-size:15px}
   @media (max-width:760px){
@@ -147,7 +161,8 @@
       <h1>영업 실적 · 인사평가</h1>
       <div class="sub">전국 지사·학원 영업 담당자의 활동·계약·평가·성과급을 한 화면에서 봅니다.</div>
     </div>
-    <a class="btn ghost" href="/admin.html" style="margin-left:auto;text-decoration:none">← 관리자 홈</a>
+    <a class="btn ghost" href="/sales" style="margin-left:auto;text-decoration:none">📱 휴대폰용 화면</a>
+    <a class="btn ghost" href="/admin.html" style="text-decoration:none">← 관리자 홈</a>
   </div>
 
   <!-- ── 기간·담당자 ─────────────────────────────────────────────── -->
@@ -179,7 +194,10 @@
   function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[], reportText:'' };
+  var STATE = { reps:[], repId:null, period:'', data:null, canEdit:false, leads:[], stages:[], reportText:'',
+    // 서버(SALES_DEFAULTS)가 정본. 통신 실패로 못 받았을 때만 쓰는 예비값이다.
+    defaults:{ base_salary_krw:2300000, incentive_per_deal_krw:600000,
+               target_deals:2, target_students:20, target_visits:48, target_leads:20, target_care:8 } };
 
   /* 기간 선택지 — 최근 12개월 + 최근 4개 반기.
      평가는 반기, 성과급은 월이라 둘 다 있어야 한다. */
@@ -213,6 +231,7 @@
     return api('/api/admin/sales/reps').then(function(j){
       STATE.reps = j.reps || [];
       STATE.canEdit = !!j.can_edit;
+      STATE.defaults = j.defaults || STATE.defaults;
       var sel=g('rep');
       sel.innerHTML = STATE.reps.map(function(r){
         return '<option value="'+r.id+'">'+esc(r.name)+(r.active?'':' (비활성)')+'</option>';
@@ -279,6 +298,7 @@
     html += fairnessHtml();
     html += scoreHtml(card, j);
     html += evalHtml();
+    html += disciplineHtml();
     html += diaryHtml(j);
     html += dealFormHtml();
     html += leadFormHtml();
@@ -290,6 +310,7 @@
     loadNextVisits();
     loadAtRisk();
     loadFairness();
+    loadDiscipline();
   }
 
   function repInfoHtml(r){
@@ -782,6 +803,221 @@
     }catch(e){ g('rp_msg').textContent='복사가 막혀 있습니다. 글을 직접 선택해 주세요.'; }
   }
 
+  /* ── 🧭 성과가 낮을 때 (성과 부진 대응) ───────────────────────────
+     ⚠️ 이 카드는 «벌 주는 화면» 이 아니다. 한국에서 성과 부진은 징계 사유가 아니라서
+        기본급을 깎거나 차를 회수하면 그 자체가 분쟁이 된다. 돈으로 가는 결과는
+        **반기 상여 배율** 까지가 전부다. 이 화면이 실제로 하는 일은
+        「면담했다 · 기회를 줬다 · 그래도 안 됐다」 를 **기록으로 남기는 것**이고,
+        그 기록이 나중에 회사를 지킨다.
+     ⛔ 본사(canEdit)만 본다. 당사자가 「직무 재검토」 를 화면에서 먼저 읽게 두면 안 된다. */
+  function disciplineHtml(){
+    if(!STATE.canEdit) return '';
+    return '<div class="card"><h2>🧭 성과가 낮을 때 — 무엇을 하면 되나</h2>'
+      + '<p class="hint">성과가 낮다고 <b>기본급을 깎거나 차를 회수하지 않습니다.</b> 그건 벌이고, '
+      + '우리나라에서 성과 부진은 벌을 줄 수 있는 잘못이 아니라 다툼이 됩니다. '
+      + '돈으로 가는 결과는 <b>반기 상여 배율</b>까지입니다. '
+      + '대신 여기서는 <b>면담 → 개선계획 → 결과 확인</b>을 순서대로 남깁니다. '
+      + '이 기록이 있어야 나중에 어떤 결정을 하더라도 정당해집니다.</p>'
+      + '<div id="dcBody"><div class="muted">불러오는 중…</div></div></div>';
+  }
+
+  function loadDiscipline(){
+    if(!STATE.repId || !g('dcBody')) return;
+    api('/api/admin/sales/discipline?rep_id='+STATE.repId)
+      .then(function(j){
+        if(!j.ok){ g('dcBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; return; }
+        STATE.disc = j;
+        g('dcBody').innerHTML = disciplineBody(j);
+        bindDiscipline(j);
+      })
+      .catch(function(){ g('dcBody').innerHTML='<div class="muted">불러오지 못했습니다.</div>'; });
+  }
+
+  function disciplineBody(j){
+    var st = j.stage || {};
+    var h = '<div class="stg stg'+(st.stage||0)+'">'
+      + '<div class="lv">'+(st.stage||0)+'단계</div>'
+      + '<div class="nm">'+esc(st.label||'')+'</div>'
+      + '<div class="ln"><b>지금 할 일</b> · '+esc(st.what||'')+'</div>'
+      + '<div class="ln"><b>왜 이 단계인가</b> · '+esc(st.why||'')+'</div>'
+      + '<div class="ln"><b>돈으로 가는 결과</b> · '+esc(st.money||'')+'</div>'
+      + '</div>';
+
+    // 단계 안내 — 「다음에 무슨 일이 생기나」 를 미리 보여 준다. 예측 가능해야 공정하다.
+    h += '<details class="more"><summary>단계가 어떻게 올라가나요?</summary>'
+      + '<div class="ln" style="font-size:14.5px;line-height:1.8;margin-top:8px">'
+      + '<b>0단계 정상</b> — B 이상. 하실 일 없습니다.<br>'
+      + '<b>1단계 관심·면담</b> — 반기 평가가 한 번 C+ 이하. 면담 한 번, 원인 찾기. 벌 없음.<br>'
+      + '<b>2단계 개선계획</b> — 두 번 연속 C 이하. 3개월 개선계획을 열고 주 1회 점검합니다. '
+      + '목표는 <b>낮춰서</b> 잡습니다 — 못 지킬 목표는 기록으로도 쓸모가 없습니다.<br>'
+      + '<b>3단계 직무 재검토</b> — 개선계획을 미달로 마친 뒤에도 D. 직무 재배치·조건 재협상을 '
+      + '<b>노무사와 상의해서</b> 검토합니다. 여기서 혼자 결정하지 마세요.'
+      + '</div></details>';
+
+    // 하지 말 것 — 매번 같이 보여 준다. 잊으면 사고가 난다.
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">⛔ 이것만은 하지 마세요</h3>';
+    h += (j.guardrails||[]).map(function(x){ return '<div class="guard">'+esc(x)+'</div>'; }).join('');
+
+    // 기록 자가 점검
+    var r = j.record || {};
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">📎 기록이 남아 있나요</h3>'
+      + '<p class="hint" style="margin-top:0">나중에 필요한 것은 이 네 가지입니다. '
+      + '하나라도 비어 있으면 그 상태에서 다음 단계로 가지 마세요. '
+      + '<b>위의 단계와는 기준이 다릅니다</b> — 단계는 「지금 무엇을 할까」라서 <b>연속</b>이어야 하고, '
+      + '여기는 「자료가 남아 있나」라서 사이가 떠 있어도 셉니다.</p>'
+      + recLine(r.fair_eval, '공정한 평가를 했다 (연습 기간이 아닌 확정 평가가 있다)')
+      + recLine(r.repeated, '한 번이 아니라 여러 번 낮았다 (연속이 아니어도 셉니다)')
+      + recLine(r.chance_given, '개선할 기회를 줬다 (개선계획을 열었다)')
+      + recLine(r.still_short, '그럼에도 개선되지 않았다 (개선계획을 미달로 마쳤다)');
+
+    // 평가 이력
+    var evs = j.evals || [];
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">📊 확정된 평가 이력</h3>';
+    if(!evs.length){
+      h += '<div class="muted">아직 확정된 평가가 없습니다.</div>';
+    } else {
+      h += '<div class="tw"><table><thead><tr><th>기간</th><th>등급</th><th>점수</th><th>상여</th><th>비고</th></tr></thead><tbody>'
+        + evs.map(function(e){
+            return '<tr><td>'+esc(e.period)+'</td><td><b>'+esc(e.grade||'-')+'</b></td>'
+              + '<td>'+(e.final_total==null?'-':Math.round(e.final_total*10)/10)+'</td>'
+              + '<td>'+(e.bonus_krw==null?'-':won(e.bonus_krw))+'</td>'
+              + '<td>'+(e.advisory?'연습 기간 (판정에 안 씀)':'')+'</td></tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    }
+
+    // 개선계획
+    var op = j.open_plan;
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">📝 개선계획</h3>';
+    if(op){
+      h += '<div class="warnbox"><b>진행 중</b> · '+esc(op.period_start)+' ~ '+esc(op.period_end)+'</div>'
+        + '<div class="ln" style="margin-top:8px"><b>목표</b><br>'+esc(op.goals||'').replace(/\n/g,'<br>')+'</div>'
+        + (op.support?('<div class="ln" style="margin-top:8px"><b>회사가 돕는 것</b><br>'+esc(op.support).replace(/\n/g,'<br>')+'</div>'):'')
+        + '<div class="toolbar" style="margin-top:12px">'
+        + '<label class="f">결과<select id="dc_result">'
+        + '<option value="">고르세요</option><option value="achieved">달성</option><option value="failed">미달</option>'
+        + '</select></label></div>'
+        + '<label class="f">무엇을 보고 그렇게 판단했나 <textarea id="dc_note" placeholder="예: 3개월 동안 계약 3곳, 목표 2곳을 넘겼습니다."></textarea></label>'
+        + '<div class="toolbar" style="margin-top:8px"><button class="btn primary" id="dc_close" type="button">개선계획 마치기</button>'
+        + '<span class="muted" id="dc_msg"></span></div>';
+    } else if((j.stage||{}).stage >= 2){
+      h += '<div class="warnbox">지금은 개선계획을 열어야 하는 단계입니다. '
+        + '목표는 <b>지킬 수 있는 크기</b>로 잡으세요.</div>'
+        + '<label class="f">개선 목표 (꼭 적어야 저장됩니다)'
+        + '<textarea id="dc_goals" placeholder="예: 3개월 동안 신규 계약 3곳. 매주 방문 4곳 이상, 방문 기록은 그날 안에 남기기."></textarea></label>'
+        + '<label class="f">회사가 도와줄 것'
+        + '<textarea id="dc_support" placeholder="예: 본사 동행 방문 월 2회, 학원 제안서 양식 제공, 매주 금요일 15분 점검 통화"></textarea></label>'
+        + '<div class="toolbar" style="margin-top:8px">'
+        + '<label class="f">기간<select id="dc_months"><option value="3">3개월</option><option value="2">2개월</option><option value="6">6개월</option></select></label>'
+        + '<button class="btn primary" id="dc_open" type="button">개선계획 열기</button>'
+        + '<span class="muted" id="dc_msg"></span></div>';
+    } else {
+      h += '<div class="muted">지금은 개선계획이 필요한 단계가 아닙니다.</div>';
+    }
+
+    var past = (j.plans||[]).filter(function(p){ return p.status!=='open'; });
+    if(past.length){
+      h += '<details class="more"><summary>지난 개선계획 '+past.length+'건</summary>'
+        + past.map(function(p){
+            return '<div class="flag '+(p.status==='failed'?'warn':'info')+'">'
+              + '<div class="t">'+esc(p.period_start)+' ~ '+esc(p.period_end)+' · '
+              + (p.status==='achieved'?'달성':'미달')+'</div>'
+              + '<div class="d">'+esc(p.result_note||'')+'</div></div>';
+          }).join('')
+        + '</details>';
+    }
+
+    // 면담 기록
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">🗣 면담 기록</h3>'
+      + '<p class="hint" style="margin-top:0">이 표가 비어 있으면 나중에 「기회를 줬다」를 증명할 수 없습니다. '
+      + '짧아도 좋으니 그날 남기세요.</p>'
+      + '<div class="toolbar">'
+      + '<label class="f">날짜<input type="date" id="dc_mdate" value="'+todayISO()+'"></label>'
+      + '<label class="f">종류<select id="dc_mkind">'
+      + '<option value="talk">면담</option><option value="checkin">주간 점검</option>'
+      + '<option value="plan_open">개선계획 시작</option><option value="plan_close">개선계획 마무리</option>'
+      + '</select></label></div>'
+      + '<label class="f">무슨 이야기를 했나 <textarea id="dc_msum" placeholder="예: 방문은 많은데 계약으로 안 이어짐. 원장님들이 단가보다 시간표를 걱정한다고 함."></textarea></label>'
+      + '<label class="f">서로 합의한 것 <textarea id="dc_magr" placeholder="예: 다음 달까지 시간표 제안서를 만들어서 재방문 5곳"></textarea></label>'
+      + '<div class="toolbar" style="margin-top:8px"><button class="btn primary" id="dc_msave" type="button">면담 기록 저장</button>'
+      + '<span class="muted" id="dc_mmsg"></span></div>';
+
+    var ms = j.meetings || [];
+    if(ms.length){
+      h += '<div class="tw" style="margin-top:12px"><table><thead><tr><th>날짜</th><th>종류</th><th>내용</th><th>합의</th></tr></thead><tbody>'
+        + ms.map(function(m){
+            return '<tr><td>'+esc(m.meeting_date)+'</td><td>'+esc(meetKo(m.kind))+'</td>'
+              + '<td>'+esc(m.summary||'')+'</td><td>'+esc(m.agreed||'')+'</td></tr>';
+          }).join('')
+        + '</tbody></table></div>';
+    } else {
+      h += '<div class="muted" style="margin-top:10px">아직 남긴 면담 기록이 없습니다.</div>';
+    }
+
+    return h;
+  }
+
+  function recLine(ok, text){
+    return '<div class="rec"><span class="m">'+(ok?'✅':'⬜')+'</span><span>'+esc(text)+'</span></div>';
+  }
+
+  function meetKo(k){
+    return k==='checkin'?'주간 점검':k==='plan_open'?'개선계획 시작':k==='plan_close'?'개선계획 마무리':'면담';
+  }
+
+  function bindDiscipline(j){
+    if(g('dc_open')) g('dc_open').addEventListener('click', function(){
+      var goals = (g('dc_goals').value||'').trim();
+      if(!goals){ g('dc_msg').textContent='개선 목표를 적어 주세요.'; return; }
+      var st = j.stage || {};
+      var trig = (j.evals||[]).filter(function(e){ return !e.advisory; }).slice(0,2);
+      post('/api/admin/sales/improvement-plan', {
+        action:'open', rep_id: STATE.repId, goals: goals,
+        support: (g('dc_support').value||'').trim(),
+        months: Number(g('dc_months').value||3),
+        trigger_periods: trig.map(function(e){ return e.period; }).join(', '),
+        trigger_grades: trig.map(function(e){ return e.grade; }).join(', ')
+      }, 'dc_msg', '개선계획을 열었습니다.');
+    });
+
+    if(g('dc_close')) g('dc_close').addEventListener('click', function(){
+      var result = g('dc_result').value;
+      if(!result){ g('dc_msg').textContent='달성/미달을 골라 주세요.'; return; }
+      var note = (g('dc_note').value||'').trim();
+      if(!note){ g('dc_msg').textContent='판단 근거를 한 줄이라도 적어 주세요.'; return; }
+      post('/api/admin/sales/improvement-plan', {
+        action:'close', rep_id: STATE.repId, plan_id: (j.open_plan||{}).id,
+        result: result, result_note: note
+      }, 'dc_msg', '개선계획을 마쳤습니다.');
+    });
+
+    if(g('dc_msave')) g('dc_msave').addEventListener('click', function(){
+      var sum = (g('dc_msum').value||'').trim();
+      if(!sum){ g('dc_mmsg').textContent='무슨 이야기를 했는지 적어 주세요.'; return; }
+      post('/api/admin/sales/meeting', {
+        rep_id: STATE.repId, meeting_date: g('dc_mdate').value,
+        kind: g('dc_mkind').value, summary: sum,
+        agreed: (g('dc_magr').value||'').trim(),
+        plan_id: (j.open_plan||{}).id || null
+      }, 'dc_mmsg', '면담 기록을 저장했습니다.');
+    });
+  }
+
+  /** 저장 공통 — 성공하면 카드를 다시 그린다(단계가 바뀔 수 있다). */
+  function post(url, payload, msgId, okText){
+    var el = g(msgId); if(el) el.textContent='저장 중…';
+    api(url, { method:'POST', body: JSON.stringify(payload) })
+      .then(function(r){
+        if(!r || !r.ok){
+          if(el) el.textContent = (r && r.message) ? r.message : '저장하지 못했습니다.';
+          return;
+        }
+        if(el) el.textContent = okText;
+        loadDiscipline();
+      })
+      .catch(function(){ if(el) el.textContent='저장하지 못했습니다.'; });
+  }
+
   /* ── ⚖️ 공정성 감시 ───────────────────────────────────────────── */
   function fairnessHtml(){
     return '<div class="card"><h2>⚖️ 공정성 감시</h2>'
@@ -889,25 +1125,36 @@
   }
 
   /* ── 담당자 설정 ────────────────────────────────────────────── */
+  /* 저장된 값이 있으면 그것, 없으면 서버가 준 기본값(SALES_DEFAULTS). */
+  function dv(v, key){
+    if(v!=null && v!=='') return v;
+    var d=STATE.defaults||{};
+    return d[key]!=null ? d[key] : 0;
+  }
+
   function repFormHtml(r){
     if(!STATE.canEdit && r) return '';
     r = r || {};
     return '<div class="card"><h2>담당자 설정'+(r.id?'':' (신규 등록)')+'</h2>'
       + '<p class="hint">기본급·건당 성과급·월 목표는 <b>제도의 숫자</b>입니다. 코드를 고치지 않고 여기서 바꿉니다. '
       + '월별로 다르게 하려면 목표는 아래 «이 달만 목표 바꾸기»를 쓰세요.</p>'
+      + (r.id ? '' : '<div class="okbox" style="margin-bottom:14px">'
+          + '금액·목표는 <b>사장님이 확정하신 값</b>으로 미리 채워 두었습니다 — '
+          + '기본급 230만원 · 계약 1곳당 60만원 · 월 목표 2곳.<br>'
+          + '<b>담당자 이름만 넣고 «저장»을 누르시면 됩니다.</b> 나중에 언제든 여기서 바꿀 수 있습니다.</div>')
       + '<div class="grid g3">'
       + '<label class="f">이름<input id="rp_name" value="'+esc(r.name||'')+'"></label>'
       + '<label class="f">담당 지역<input id="rp_region" value="'+esc(r.region||'')+'"></label>'
       + '<label class="f">관리자 아이디(본인 로그인)<input id="rp_user" value="'+esc(r.admin_username||'')+'" placeholder="비우면 본인 조회 불가"></label>'
       + '<label class="f">입사일<input type="date" id="rp_hired" value="'+esc(r.hired_at||'')+'"></label>'
       + '<label class="f">제도 시작일(기준선 시작)<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
-      + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+(r.base_salary_krw||0)+'"></label>'
-      + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+(r.incentive_per_deal_krw||0)+'"></label>'
-      + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+(r.target_deals!=null?r.target_deals:2)+'"></label>'
-      + '<label class="f">월 목표 — 학생<input type="number" id="rp_ts" min="0" value="'+(r.target_students!=null?r.target_students:20)+'"></label>'
-      + '<label class="f">월 목표 — 방문<input type="number" id="rp_tv" min="0" value="'+(r.target_visits!=null?r.target_visits:48)+'"></label>'
-      + '<label class="f">월 목표 — 신규 발굴<input type="number" id="rp_tl" min="0" value="'+(r.target_leads!=null?r.target_leads:20)+'"></label>'
-      + '<label class="f">월 목표 — 관리방문<input type="number" id="rp_tc" min="0" value="'+(r.target_care!=null?r.target_care:8)+'"></label>'
+      + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+dv(r.base_salary_krw,'base_salary_krw')+'"></label>'
+      + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+dv(r.incentive_per_deal_krw,'incentive_per_deal_krw')+'"></label>'
+      + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+dv(r.target_deals,'target_deals')+'"></label>'
+      + '<label class="f">월 목표 — 학생<input type="number" id="rp_ts" min="0" value="'+dv(r.target_students,'target_students')+'"></label>'
+      + '<label class="f">월 목표 — 방문<input type="number" id="rp_tv" min="0" value="'+dv(r.target_visits,'target_visits')+'"></label>'
+      + '<label class="f">월 목표 — 신규 발굴<input type="number" id="rp_tl" min="0" value="'+dv(r.target_leads,'target_leads')+'"></label>'
+      + '<label class="f">월 목표 — 관리방문<input type="number" id="rp_tc" min="0" value="'+dv(r.target_care,'target_care')+'"></label>'
       + '</div>'
       + '<div class="toolbar" style="margin-top:12px">'
       + '<button class="btn primary" id="rp_save" type="button" data-id="'+(r.id||0)+'">저장</button>'

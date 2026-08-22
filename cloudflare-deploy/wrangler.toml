@@ -16,6 +16,25 @@ account_id = "7ae16a3c4bcc84743c70828a5156ebb3"
 enabled = true
 head_sampling_rate = 0.05
 
+# 🔴 (2026-08-19) 이 블록이 [env.production] 에 한 벌 더 있다 = **워커가 두 벌이고, DO 도 두 벌**이다.
+#   Durable Object 네임스페이스는 «스크립트마다» 만들어지므로, 같은 이름으로 방을 열어도
+#   webrtc-unified-platform 과 webrtc-unified-platform-prod 는 **서로 다른 방**이다.
+#   화상수업 WS 주소는 location.host 로 만들어지므로(js/idx-main.js createWebSocket)
+#   **어느 도메인으로 열었느냐가 곧 어느 방이냐** 가 된다.
+#   ⚠️ D1·KV·R2 는 아래에서 두 환경이 **같은 id** 를 쓴다 → 출석·토큰은 한 DB 에 같이 쌓여
+#      «둘 다 같은 방에 있었다» 로 보인다. 갈리는 건 DO 하나뿐이라 DB 만 보면 못 찾는다.
+#   실제 사고: test.mangoi.co.kr(기본 워커) 의 강사와 mangoi.ai(-prod) 의 학생이 8회 수업 동안
+#      한 번도 만나지 못했다 → 2026-08-19 에 test.mangoi.co.kr 을 -prod 로 옮겨 해결.
+#
+# 🌐 도메인은 **여기서 관리하지 않는다.** Cloudflare 대시보드
+#    (Workers & Pages > 워커 > Settings > Domains & Routes) 가 정본이다.
+#    ⛔ 「못 박아 두자」며 routes 를 추가하지 말 것. 두 가지가 조용히 깨진다:
+#      ① routes 는 «추가» 가 아니라 «전체 목록» 이다 — 적지 않은 도메인은 다음 배포에서
+#         지워진다. test.mangoi.co.kr 만 적으면 **mangoi.ai 가 떨어져 서비스가 내려간다.**
+#      ② routes 를 넣는 순간 workers_dev 가 false 로 «추론» 된다(Cloudflare 문서 명시) →
+#         webrtc-unified-platform-prod.navy111p.workers.dev 가 죽고, 그 주소로 배포를 확인하는
+#         deploy.ps1(77행)·deploy-full.ps1(130행)·deploy.yml(164·174행)이 함께 깨진다.
+#    정말 적으려면 **붙어 있는 도메인을 하나도 빠뜨리지 말고 전부 + workers_dev = true** 를 함께.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalingRoom", "VideoCallRoom"]
@@ -139,6 +158,9 @@ head_sampling_rate = 0.05
 
 # Wrangler 4 also requires [[migrations]] to be redeclared per env.
 # Missing this causes prod deploy error code 10097 (Free plan + DO + sqlite_classes).
+# 🔴 이것이 기본 환경의 DO 와 **다른 네임스페이스**를 만든다 — 위 [[migrations]] 주석 참고.
+#    (mangoi.ai · www.mangoi.ai · test.mangoi.co.kr 은 전부 이쪽 워커에 붙어 있어야 한다.
+#     2026-08-19 이전엔 test.mangoi.co.kr 만 기본 워커에 있어 화상수업이 갈렸다)
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalingRoom", "VideoCallRoom"]

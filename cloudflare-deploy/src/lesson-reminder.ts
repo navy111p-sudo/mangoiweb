@@ -34,6 +34,50 @@ export interface LessonReminderResult {
   dry?: boolean;
 }
 
+/* 🏫 오늘 끝난 «옛 LMS 수업»(카페24 동기화분) — 피드백 리마인드 대상 (2026-08-19)
+ *
+ *  담당 판정은 **카페24 강사번호**(attendance.teacher_uid, 실측 9~196)로만 한다.
+ *  ⛔ D1 `teachers.id`(지역 일련번호 1~29)와 절대 섞지 말 것 — 다른 체계이고,
+ *     번호가 겹치는 자리에서 조용히 «다른 사람» 이 걸린다
+ *     (실측: 카페24 24=Teacher Mariane 인데 teachers 24=HANNAH).
+ *     CLAUDE.md 2장 「강사에게 남의 수업·급여가 보임」 항목 참고.
+ *  ✅ 번호 → 사람 이름은 teacher_payroll_auto 로만 해석한다(카페24가 번호와 이름을
+ *     함께 밀어넣은 표라 그 안에서는 안 어긋난다). 못 찾으면 그 강사는 건너뛴다 —
+ *     이름을 모르면 문자에 뭐라고 쓸지도 모르고, 추측해서 보내면 남에게 간다.
+ */
+async function endedC24Lessons(env: any, ymdKst: string): Promise<any[]> {
+  const rs = await env.DB.prepare(
+    `SELECT a.room_id, a.user_id, a.username, a.teacher_uid,
+            p.teacher_name AS teacher_name
+       FROM attendance a
+       LEFT JOIN (SELECT teacher_id, MAX(teacher_name) AS teacher_name
+                    FROM teacher_payroll_auto WHERE teacher_name IS NOT NULL
+                   GROUP BY teacher_id) p
+              ON CAST(p.teacher_id AS TEXT) = a.teacher_uid
+      WHERE a.room_id LIKE 'c24-%' AND a.status = 'present'
+        AND a.date = ? AND a.teacher_uid IS NOT NULL
+      LIMIT 500`
+  ).bind(ymdKst).all().catch(() => ({ results: [] as any[] }));
+
+  const out: any[] = [];
+  for (const r of ((rs.results || []) as any[])) {
+    if (!r.teacher_name) continue;          // 번호를 사람으로 해석 못 하면 보내지 않는다
+    out.push({
+      id: null,
+      room_id: String(r.room_id),
+      user_id: r.user_id,
+      student_name: r.username || r.user_id,
+      start_time: '',                        // c24 행에는 «예정 시각» 이 없다 — 문구에서 학생 이름만 쓴다
+      // teacher_id 는 **카페24 번호**다. 아래 전화번호 조회가 이 값을 teachers.id 로 쓰지 않도록
+      // teacher_name 을 함께 넘긴다(이름 완전일치로 teacher_profiles 를 찾는다).
+      teacher_id: null,
+      teacher_name: String(r.teacher_name),
+      src: 'lms',                            // 문구를 «어제 수업» 으로 바꾸는 표시
+    });
+  }
+  return out;
+}
+
 /**
  * 🧑‍🏫 교사 당일 피드백 리마인드 (KST 19:00) — 오늘 진행된 수업(입장 기록 존재) 중
  * 피드백(teacher_class_feedback 또는 승인된 feedback_drafts)이 없는 건을 교사별로 묶어
@@ -81,6 +125,33 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     if (endTs > now) continue;
     ended.push({ ...s, room_id: `class-${s.id}-${ymd}` });
   }
+  /* 🏫 (2026-08-19) 옛 LMS 수업(카페24 동기화분)도 리마인드 대상에 넣는다.
+   *
+   *  [왜] 강사들은 옛 LMS 에서 수업한다. 그 수업은 attendance 의 room_id='c24-*' 로
+   *       이미 들어와 있는데(18만 건), 이 스윕은 class_schedules(정규 수업 0건)만 보고
+   *       있었다. 그래서 **한 번도 문자를 보낸 적이 없다** — 증거: feedback_reminder_log
+   *       테이블이 아예 없었다(그 표는 ended 가 있어야 만들어지는 자리에 있다).
+   *
+   *  ⛔ **기본 꺼짐**이다. 이 스윕 자체는 기본 ON('off' 일 때만 멈춤)이고 매일 19:00 KST 에
+   *     도는데, 여기서 대상을 늘리는 순간 **그날 저녁 강사 25명에게 실제로 문자가 나간다.**
+   *     그래서 이 경로만 «켜야 동작하는» 반대 규칙으로 둔다. 사람이 dry 결과를 보고
+   *     KV(SESSION_STATE) 'feedback_reminder_c24' = 'on' 을 넣어야 켜진다.
+   *     (dry=1 로는 플래그와 무관하게 미리 볼 수 있다 — 확인이 목적이므로)
+   */
+  const c24On = await (async () => {
+    try { return (await env.SESSION_STATE?.get('feedback_reminder_c24')) === 'on'; } catch { return false; }
+  })();
+  if (c24On || dry) {
+    /* ⏰ «어제» 다. 오늘이 아니다 — 카페24 동기화는 03:00 KST 에 **전날치까지** 가져온다.
+       그래서 이 스윕이 도는 19:00 KST 시점에 «오늘» 수업은 D1 에 아직 0건이다
+       (2026-08-19 실측: 오늘 0건 / 어제 103건, 최신 동기화 날짜 = 어제).
+       ⛔ todayStr 로 되돌리면 이 경로는 **영원히 0건**이 되어 조용히 아무 일도 안 한다. */
+    const yKst = new Date(now + KST - 86400000).toISOString().slice(0, 10);
+    try { ended.push(...await endedC24Lessons(env, yKst)); } catch (e: any) {
+      console.warn('[feedback-reminder] c24 수업 조회 실패:', e?.message);
+    }
+  }
+
   if (!ended.length) return out;
 
   try {
@@ -97,6 +168,14 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
       if (fb1) continue;
       const fb2 = await env.DB.prepare(`SELECT 1 FROM feedback_drafts WHERE room_id = ? AND status = 'approved' LIMIT 1`).bind(c.room_id).first().catch(() => null);
       if (fb2) continue;
+      /* 🪤 (2026-08-19) 수업일지(student_evaluations)를 빠뜨리면 «일지는 썼는데 안 썼다고
+         문자가 가는» 사고가 난다. 강사가 /teacher 에서 [일지 쓰기] 로 남기는 곳은 여기다
+         (POST /api/eval/create). 위 두 표(teacher_class_feedback·feedback_drafts)와는
+         **다른 표**라서, 셋 다 봐야 «썼다» 를 옳게 판정한다. */
+      const fb3 = await env.DB.prepare(
+        `SELECT 1 FROM student_evaluations WHERE room_id = ? LIMIT 1`
+      ).bind(c.room_id).first().catch(() => null);
+      if (fb3) continue;
       const key = String(c.teacher_id ?? c.teacher_name ?? 'unknown');
       if (!missingByTeacher[key]) missingByTeacher[key] = { name: c.teacher_name || key, teacher_id: c.teacher_id, items: [] };
       missingByTeacher[key].items.push(c);
@@ -127,7 +206,12 @@ export async function runFeedbackReminderSweep(env: any, opts: { dry?: boolean }
     const times = g.items.slice(0, 6).map((c: any) => `${c.start_time} ${c.student_name || c.user_id || ''}`.trim()).join(' / ');
     const detail: any = { teacher: g.name, missing: g.items.length, times };
     if (phone && !dry) {
-      const msg = `[MANGOi] ${g.name}, you have ${g.items.length} class(es) today without feedback yet: ${times}\nPlease write/approve before midnight KST to avoid the -P25/class deduction. My Page > Feedback.`;
+      /* 🕐 LMS 수업은 하루 늦게 들어오므로 «어제» 로 말해야 맞다. 그리고 그때는 자정이
+         이미 지났으니 «자정 전에 쓰면 공제를 피한다» 는 문구를 쓰면 거짓말이 된다. */
+      const isLms = g.items.every((c: any) => c.src === 'lms');
+      const msg = isLms
+        ? `[MANGOi] ${g.name}, ${g.items.length} class(es) from yesterday have no class log yet: ${times}\nPlease write them in My Page > Class log.`
+        : `[MANGOi] ${g.name}, you have ${g.items.length} class(es) today without feedback yet: ${times}\nPlease write/approve before midnight KST to avoid the -P25/class deduction. My Page > Feedback.`;
       try {
         const r = await sendPlainSms(env, phone, msg);
         detail.sms = r && r.ok ? 'sent' : (r && (r.error || r.message)) || 'failed';

@@ -18,7 +18,10 @@
 //      (역할별 숨김 _applyMenuVisibility 도 이미 같은 방식이라 검증된 길이다.)
 //
 //   ⚠️ 역할 권한을 건드리지 않는다.
-//      역할 숨김은 인라인 style.display 로 걸린다. 여기서는 class 만 쓰므로
+//      역할 숨김은 «.rbac-hide» class 로 걸린다(2026-08-18 변경 — 그 전에는 인라인
+//      style.display 였는데, #legacy-cards 의 display:block !important 에 져서 PC 에서
+//      아예 안 먹고 있었다. admin-inline-c.css 의 .rbac-hide 주석에 경위가 있다).
+//      여기서 쓰는 class 는 «.ia6-hide» 로 이름이 달라 서로 안 겹치므로,
 //      «지사에게 안 보이던 카드»가 이 기능 때문에 보이게 되는 일은 없다.
 //
 //   ⚠️ 검색은 그대로 동작한다.
@@ -33,6 +36,11 @@
 
   var LS_KEY = 'mangoi_admin_ia6';       // 마지막으로 보던 항목
   var HIDE = 'ia6-hide';
+  /* 🔐 (2026-08-18) 사이드바 «항목» 을 역할 권한으로 감출 때 쓰는 class.
+     ⛔ 위 HIDE(.ia6-hide)를 재사용하면 안 된다 — 그건 «카드» 를 감추는 showOnly 전용이고,
+        showOnly 가 매번 managed 전체에서 그 class 를 벗겨 내므로(아래 showOnly 참고)
+        같은 이름을 쓰면 항목 감춤이 항목 클릭 한 번에 통째로 풀린다. */
+  var ROLE_HIDE = 'ia6-role-hide';
 
   // ── 6그룹 40항목 (2026-08-17 「수업 길이 변경」·「수강 운영」 +2) ─────────
   //   기준은 «누가 언제 하는 일인가». 부서(회계·강사)와 시점(오늘)을 섞지 않았다.
@@ -47,9 +55,11 @@
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
            거기 넣으면 장기 결석생 표를 보려고 아래로 스크롤해야 한다(그게 이 카드의 요점이 아니다). */
-        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'] },
+        { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
+          tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
         { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
-        { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'] },
+        { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
+          tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
         { ko: '방 초대',    en: 'Room invites',    cards: ['card-room-invite'] },
         /* 🐞 (2026-08-13 수정요청 #04) 「문의·버그」 한 항목이 신규상담 카드와 버그 카드를
            **함께** 띄우고 있었다. 버그·문의를 보러 온 사람 화면 맨 위에 «신규상담 → 등록 전환»
@@ -63,7 +73,8 @@
               wireRevealOnJump 가 data-card 로 항목을 찾으므로, 옛 사이드바·검색·허브에서
               버그 카드로 점프할 때 지금까지 showAll() 로 새던 것이 제 항목으로 간다. */
         { ko: '신규상담',    en: 'Inquiries',      cards: ['card-inquiry-mgmt'] },
-        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'] },
+        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
+          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' },
         { ko: '알림함',     en: 'Alerts',          cards: ['card-admin-alerts', 'card-notifications'] }
       ]
     },
@@ -84,14 +95,27 @@
       ico: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c3 2 9 2 12 0v-5"/>',
       items: [
         { ko: '강사 명부',   en: 'Teachers',        cards: ['card-teacher-mgmt', 'card-mbti-mgmt', 'card-teacher-link', 'card-teacher-contact'] },
-        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule'] },
+        { ko: '시간표·근무', en: 'Schedule',        cards: ['card-timetable', 'card-calendar', 'card-auto-schedule', 'card-schedule-seed'] },
         /* 📅 수업 길이 변경 신청함 (2026-08-17 사장님) — 카드가 아니라 별도 페이지다.
            href 배선은 capiHref 와 같은 계약으로 이미 있었다(select() 참고). 여기가 첫 사용처다.
            ⚠️ href 항목은 select() 가 localStorage 에 «마지막으로 보던 항목» 으로 저장하지 않는다
               (저장 전에 location.href 로 빠진다). 저장되면 admin.html 을 열 때마다 여기로
               튕겨 나가므로, 그 순서를 바꾸지 말 것.
            자리 — 「시간표·근무」 바로 아래. 길이를 바꾸면 뒤 학생 시각이 밀리므로 시간표 일이다. */
-        { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html' },
+        /* 🧭 (2026-08-19 사장님) 「메뉴 ▸ 자식 ▸ 손자」를 **모든 항목에서** 보이게 —
+           카드가 아니라 딴 페이지로 가는 항목은 손자를 만들 재료가 화면에 없다(다른 문서다).
+           그래서 그 페이지의 «구역 이름»만 여기 적고, 주소 뒤 #id 로 바로 그 구역까지 간다.
+           ⚠️ id 는 그 파일에 진짜로 있어야 한다 — 손으로 적은 목록이라 어긋나면 조용히
+              페이지 맨 위만 열린다. `sidebar_three_level_harness.mjs` 가 파일을 열어 확인한다.
+           ⛔ 없는 구역 이름을 지어 넣지 말 것(2026-08-18 「데모 매핑」 사고와 같은 함정). */
+        { ko: '수업 길이 변경', en: 'Class length', href: '/admin/duration-requests.html',
+          tip: '📅 20·30·40분 변경 신청 — 매달 1일에 한꺼번에 반영',
+          tipEn: '📅 Class-length requests — applied on the 1st of each month',
+          secs: [
+            { ko: '❓ 이 화면이 뭔가요',       en: '❓ What is this page', id: 'dr-guide' },
+            { ko: '🔍 미리보기 · 이번 달 반영', en: '🔍 Preview & apply',  id: 'dr-apply' },
+            { ko: '📋 대기 중인 신청',        en: '📋 Pending requests', id: 'dr-pending' }
+          ] },
         { ko: '수업 일지',   en: 'Lesson log',      cards: ['card-lesson-log'] },
         { ko: '급여',        en: 'Payroll',         cards: ['card-payroll-auto', 'card-payroll'] },
         /* 📚 수강 운영 관리 (2026-08-17 사장님) — 이것도 메뉴에 없어 주소를 쳐야만 들어갔다.
@@ -101,9 +125,23 @@
               «/admin/ 이면 무조건 인증» 규칙이 걸리지 않는다 — 대신 안의 자료는 전부
               checkAdminSession 을 거치는 API 로 받는다(빈 표만 보인다). 새 자료를 HTML 에
               직접 박지 말 것. */
-        { ko: '수강 운영(배율·정원)', en: 'Enrollment ops', href: '/enroll-ops.html' },
-        { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'] },
-        { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'] }
+        /* 📚 이 화면은 «탭 하나만 그리는» 구조라 id 가 아니라 탭 이름(data-t)이 주소가 된다.
+           /enroll-ops.html#rates 처럼 열면 그 탭으로 시작한다(그 파일의 applyHashTab). */
+        { ko: '수강 운영', en: 'Enrollment ops', href: '/enroll-ops.html',
+          tip: '📚 강사 배율 · 긴 수업 정원 · 공휴일 · 환불 계산',
+          tipEn: '📚 Teacher rates, long-class capacity, holidays, refunds',
+          secs: [
+            { ko: '🎌 공휴일',          en: '🎌 Holidays',        id: 'holidays' },
+            { ko: '⏰ 종료 후보 명단',   en: '⏰ Ending soon',     id: 'ending' },
+            { ko: '🧑‍🏫 강사 등급 배율', en: '🧑‍🏫 Teacher rates', id: 'rates' },
+            { ko: '💸 환불 계산기',      en: '💸 Refund calc',     id: 'refund' },
+            { ko: '🏖 강사 휴가 대체',   en: '🏖 Leave cover',     id: 'leave' },
+            { ko: '🔔 자동 작업 점검',   en: '🔔 Auto jobs',       id: 'sweeps' }
+          ] },
+        { ko: '강사 평가',   en: 'Teacher review',  cards: ['card-class-ratings', 'card-praise-stats', 'card-supervisor'],
+          tip: '⭐ 수업 직후 학생 별점 · 칭찬 통계 · 참관', tipEn: '⭐ Post-class ratings, praise stats, observation' },
+        { ko: '품질·이력',   en: 'Quality & audit', cards: ['card-vc-quality', 'card-class-audit', 'card-report-forms', 'card-no-shows'],
+          tip: '📶 화상 회선 품질 · 수업 변경 이력 · 노쇼', tipEn: '📶 Call quality, class change history, no-shows' }
       ]
     },
     {
@@ -112,7 +150,8 @@
       items: [
         { ko: '평가서',      en: 'Evaluations',       cards: ['card-eval-mgmt', 'card-bulk-eval', 'card-ai-lesson-report', 'card-ai-eval-draft', 'card-monthly-report', 'card-comparison-report', 'card-monthly-ai-report', 'card-lesson-insight'] },
         { ko: '교재',        en: 'Textbooks',         cards: ['card-textbooks', 'card-video-dict'] },
-        { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'] },
+        { ko: '학습 콘텐츠', en: 'Learning content',  cards: ['card-review-quiz', 'card-microlearn', 'card-mini-toeic', 'card-pronunciation', 'card-voice-diary'],
+          tip: '🧩 복습퀴즈 · 마이크로러닝 · 발음교정 · 음성일기', tipEn: '🧩 Review quiz, micro-learning, pronunciation, voice diary' },
         { ko: '숙제',        en: 'Homework',          cards: ['card-homework'] },
         { ko: '녹화',        en: 'Recordings',        cards: ['card-recording-storage'] },
         { ko: '학습 분석',   en: 'Learning analytics',cards: ['card-voice-stats', 'card-selfscore'] }
@@ -123,6 +162,13 @@
       ico: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
       items: [
         { ko: '회계',        en: 'Accounting',  cards: ['card-accounting-mgmt'] },
+        /* 📊 (2026-08-18 사장님 요청) 「매출 대시보드」 를 사이드바에서 바로 —
+           회계 카드 «안의» 접이식 줄(sub-acc-11)이라 회계를 열고 또 찾아야 했다.
+           대표지사·지사·대리점(org 그룹)과 같은 방식: 카드 열기 + openSub 로 그 칸까지 펼친다. */
+        /* 🗑 (2026-08-18 사장님 결정) 「매출 대시보드」 항목을 뺐다 — 「회계」와 이름만 다르고
+           가리키는 카드가 같아서, 손자 19줄이 글자까지 똑같이 두 벌 나왔다.
+           ⚠️ 기능은 안 없앴다. 「회계 ▸ 📊 매출 대시보드」 손자로 한 번에 간다(검색으로도 나온다).
+              2026-08-18 «사이드바에서 바로» 요청(#283)은 그 손자 줄이 대신한다. */
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
@@ -130,7 +176,13 @@
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
         //    지사정산 카드(card-franchises · /api/admin/settlement/branch-summary)이고,
         //    캐피타운 계열 계정(role capitown/franchise · uid capi*)만 capiHref 로 보낸다.
-        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-franchises'], capiHref: '/admin/capitown-settlement.html' }
+        /* 🏢 (2026-08-18) 가리키는 곳을 고쳤다. 이름은 「정산」인데 실제로는 조직 명부 카드
+           (card-franchises)를 열고 있어서, 대표지사·지사·대리점 항목과 손자가 똑같았다.
+           진짜 정산 화면은 회계 카드 안 「🏢 지점/가맹점 정산 (한눈에)」(sub-acc-5) 다.
+           ⚠️ 캐피타운 계열 계정은 그대로 전용 페이지로 보낸다(capiHref) — 그 분기는 건드리지 않았다. */
+        { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html',
+          /* 대표 카드가 회계라, 두지 않으면 「회계」와 «똑같은 툴팁» 이 뜬다(무엇이 다른지 알 수 없다). */
+          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' }
         /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
            「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
            회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
@@ -146,13 +198,29 @@
                    (card-franchises) 안의 «하위 항목» 이라, openSub 로 그 칸을 바로 펼친다.
          ⚠️ 항목 키는 `org:항목이름` 이다. 이름을 바꿀 때는 아래 RENAMED 이사표에 한 줄 적을 것 —
             안 그러면 「어제 보던 화면이 아침에 딴 데 가 있다」 로 신고가 들어온다. */
-      key: 'org', ko: '운영자 (본사·지사·대리점)', en: 'Organization',
+      /* ✂️ (2026-08-19 사장님) 그룹 이름에서 「운영자」를 빼고 «본사·지사·대리점» 만 남긴다.
+         다른 그룹은 2~6자(오늘·학생·강사·시스템)인데 여기만 15자라 유독 길었고,
+         괄호 안은 결국 «안에 든 항목 이름» 을 미리 적어 둔 것이었다.
+         ⚠️ 그룹 «키» 는 여전히 'org' 다 — 저장된 「마지막으로 보던 항목」(`org:지사` 등)은
+            그룹 이름이 아니라 이 키를 쓰므로 이름을 바꿔도 안 깨진다(항목 이름을 바꿀 때만
+            RENAMED 이사표가 필요하다). */
+      key: 'org', ko: '본사·지사·대리점', en: 'HQ · Branches · Agencies',
       ico: '<path d="M3 21h18"/><path d="M5 21V7l7-4v18"/><path d="M12 9h7v12"/><path d="M9 9v0M9 13v0M9 17v0M16 13v0M16 17v0"/>',
       items: [
-        { ko: '조직 (지사·대리점)', en: 'Organization', cards: ['card-franchises'] },
-        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches' },
-        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches' },
-        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers' }
+        /* 🗑 (2026-08-18 사장님 결정) 「조직 (지사·대리점)」 을 뺐다 — 아래 세 항목과 같은 카드를
+           가리켜 손자 4줄이 네 번 반복됐다. 대신 그 카드의 네 번째 칸 「🏯 본사 관리」 를
+           항목으로 세운다. 그렇게 하지 않으면 「조직」 을 없앤 순간 본사 관리로 갈 길이 사라진다. */
+        /* 💬 (2026-08-19) 넷은 «같은 카드의 다른 칸» 이라, 카드 기준 툴팁(adm-s15)을 그대로 받으면
+           「🏬 가맹점·지사·대리점 관리」 한 줄이 네 번 똑같이 뜬다 — 무엇이 다른지 알 수 없다.
+           그래서 항목마다 «자기» 설명을 준다(아래 tip). 카드 툴팁보다 이것이 우선한다. */
+        { ko: '대표지사', en: 'Master branch', cards: ['card-franchises'], openSub: 'card-master-branches',
+          tip: '🏛️ 여러 지사를 묶는 권역 단위', tipEn: '🏛️ Regional group of several branches' },
+        { ko: '지사',     en: 'Branch',        cards: ['card-franchises'], openSub: 'sub-branches',
+          tip: '🏢 지사 명부 — 소속 대리점 찾기', tipEn: '🏢 Branch list — find agencies under a branch' },
+        { ko: '대리점',   en: 'Agency',        cards: ['card-franchises'], openSub: 'card-centers',
+          tip: '🏪 대리점(학원) 명부 — 소속 지사 · 결제유형', tipEn: '🏪 Agency list — branch and payment type' },
+        { ko: '본사 관리', en: 'HQ',           cards: ['card-franchises'], openSub: 'card-hq-orgs',
+          tip: '🏯 본사 법인 정보 (사업자번호 · 대표이사)', tipEn: '🏯 HQ corporate info' }
       ]
     },
     {
@@ -163,10 +231,12 @@
       key: 'ops', ko: '시스템', en: 'System',
       ico: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.09A1.65 1.65 0 0 0 10.6 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6h.09a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
       items: [
-        { ko: '경영 지표',   en: 'Dashboard',     cards: ['card-dashboard', 'card-kpi-dashboard', 'card-daily-charts', 'card-rankings', 'card-nps-monthly'] },
+        { ko: '경영 지표',   en: 'Dashboard',     cards: ['card-dashboard', 'card-kpi-dashboard', 'card-daily-charts', 'card-rankings', 'card-nps-monthly'],
+          tip: '📊 매출 · 학생 · 강사 핵심 지표 한눈에', tipEn: '📊 Revenue, students, teachers at a glance' },
         { ko: '이탈·예측',   en: 'Retention',     cards: ['card-retention-risk', 'card-ai-forecast'] },
         { ko: '공지 발송',   en: 'Announcements', cards: ['card-webpush-mgmt', 'card-kakao-mgmt', 'card-poster-maker', 'card-popups-mgmt', 'card-notice-board'] },
-        { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'] },
+        { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
+          tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
         { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
         /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
@@ -315,13 +385,28 @@
      ⚠️ 버튼 크기를 코드에 박지 않고 **실제로 재서** 쓴다 — 안전영역(노치) 때문에
         기기마다 다르고, CSS 를 고쳤을 때 이 값만 옛것으로 남는 일을 막는다.
      ⚠️ 데스크톱은 0 그대로다(버튼이 없다). 기존 동작을 하나도 바꾸지 않는다. */
+  /* 🧭 (2026-08-19) 본문 맨 위 «경로 줄»(#mi-crumb) 이 sticky 로 맨 위를 덮는다.
+     그 높이만큼 더 내려가지 않으면 카드 제목이 정확히 그 줄에 가린다 — 2026-08-04 옛
+     상단바에서 이미 한 번 겪은 신고다(js/adm-crumb.js 머리말 참고).
+     ⚠️ 그 줄은 카드 쪽 CSS 규칙(scroll-margin-top:var(--adm-jump-offset))으로도 보정하는데,
+        여기서 쓰는 값은 **인라인 스타일**이라 그 규칙을 이긴다. 그래서 여기도 같이 더해야
+        한다 — 한쪽만 고치면 «사이드바로 들어간 메뉴만 가려지는» 반쪽 상태가 된다.
+     ⚠️ 높이는 adm-crumb.js 가 offsetHeight(=body{zoom:1.3} 곱해지기 «전» px)로 재서 준다.
+        getBoundingClientRect 로 재면 데스크톱에서 1.3 배 부풀어 그만큼 더 내려간다. */
   function topGap() {
-    if (!window.matchMedia('(max-width: 1023px)').matches) return 0;
-    var b = document.getElementById('mgv2-burger');
-    if (!b) return 0;
-    var r = b.getBoundingClientRect();
-    if (!r.height) return 0;
-    return Math.round(r.bottom + 8);
+    var gap = 0;
+    if (window.matchMedia('(max-width: 1023px)').matches) {
+      var b = document.getElementById('mgv2-burger');
+      if (b) {
+        var r = b.getBoundingClientRect();
+        if (r.height) gap = Math.round(r.bottom + 8);
+      }
+    }
+    try {
+      var c = window.__miCrumbGap ? window.__miCrumbGap() : 0;
+      if (c > gap) gap = c;
+    } catch (e) { /* 경로 줄이 없어도 기존 동작 그대로 */ }
+    return gap;
   }
 
   function fitTail() {
@@ -350,6 +435,64 @@
       if (css > 0 && shown > 0) ratio = css / shown;            // 배율의 역수 — 재서 알아낸다
       css = Math.max(0, css + gap * ratio);
       t.style.height = Math.ceil(css) + 'px';
+    }
+  }
+
+  /* ═══ 🔐 역할 필터 — 「눌러도 빈 화면」인 사이드바 항목을 감춘다 (2026-08-18) ═══════
+     경위: 역할별 카드 숨김(_applyMenuVisibility)이 PC 에서 안 먹던 것을 .rbac-hide 로 고치자,
+       이번엔 «카드는 제대로 감춰졌는데 그 카드를 가리키는 사이드바 항목은 그대로» 가 되었다.
+       ia6 사이드바는 아래 GROUPS 라는 «정적 목록» 으로 그려서 역할을 전혀 안 보기 때문이다.
+       예: 본사 매니저에게 「데이터·보관」은 card-retention(경영진 전용) 하나만 가리키는데,
+           그 카드가 감춰져 눌러도 아무 일이 없었다.
+     판정: 항목이 가리키는 카드가 «전부» 감춰졌을 때만 감춘다(하나라도 열려 있으면 남긴다).
+     ⚠️ DOM 에 없는 카드 id 는 «판단 보류» 로 세지 않는다 — 오래된 id 가 목록에 남아 있을 수
+        있는데, 그것 때문에 멀쩡한 항목이 사라지면 그게 더 큰 사고다. 하나도 못 찾으면 남긴다. */
+  /* 🔐 카드 숨김 판정 — **규칙 정본은 adm-core.js 의 `window.mangoiCardHidden`** 이다.
+     아래는 그것이 없을 때만 도는 안전장치다(하니스 단독 실행 · adm-core 로드 실패).
+     ⚠️ 규칙을 여기서 «늘리지» 마세요. 새 숨김 방식이 생기면 정본만 고치고,
+        정본이 있는 정상 경로에서는 이 줄이 아예 실행되지 않습니다. */
+  function _cardHidden(el) {
+    if (window.mangoiCardHidden) return window.mangoiCardHidden(el);
+    if (!el) return true;
+    if (el.classList && (el.classList.contains('rbac-hide') ||
+                         el.classList.contains('ph118-card-hidden'))) return true;
+    return !!(el.style && el.style.display === 'none');
+  }
+
+  function cardRoleHidden(id) {
+    var el = document.getElementById(id);
+    if (!el) return null;                                  // 없는 카드 = 판단 보류
+    // 판정 정본 = adm-core.js 의 window.mangoiCardHidden (역할 · 권한매트릭스 · 옛 인라인)
+    return !!_cardHidden(el);
+  }
+
+  function applyRoleFilter() {
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return;
+    var subs = bar.querySelectorAll('.ph85-group[data-ia6] .ph85-sub[data-cards]');
+    for (var i = 0; i < subs.length; i++) {
+      var d = subs[i];
+      var ids = (d.getAttribute('data-cards') || '').split(' ');
+      var known = 0, blocked = 0;
+      for (var j = 0; j < ids.length; j++) {
+        if (!ids[j]) continue;
+        var r = cardRoleHidden(ids[j]);
+        if (r === null) continue;
+        known++; if (r) blocked++;
+      }
+      var hide = known > 0 && blocked === known;
+      if (hide) d.classList.add(ROLE_HIDE); else d.classList.remove(ROLE_HIDE);
+    }
+    // 그룹 머리 — 그 안 항목이 하나도 안 남으면 그룹째 감춘다(빈 아코디언을 남기지 않는다)
+    var grps = bar.querySelectorAll('.ph85-group[data-ia6]');
+    for (var g = 0; g < grps.length; g++) {
+      var all = grps[g].querySelectorAll('.ph85-sub');
+      var alive = 0;
+      for (var k = 0; k < all.length; k++) {
+        if (!all[k].classList.contains(ROLE_HIDE)) alive++;
+      }
+      if (all.length > 0 && alive === 0) grps[g].classList.add(ROLE_HIDE);
+      else grps[g].classList.remove(ROLE_HIDE);
     }
   }
 
@@ -530,6 +673,27 @@
         d.setAttribute('data-en', it.en);
         d.setAttribute('data-ia6-item', g.key + ':' + it.ko);
         if (it.cards && it.cards[0]) d.setAttribute('data-card', it.cards[0]);
+        // 🔐 역할 필터용 — 이 항목이 가리키는 카드 «전부». data-card 는 대표(첫) 장뿐이라
+        //    「대표는 보이는데 나머지는 다 막힌」 경우를 판정할 수 없다.
+        d.setAttribute('data-cards', (it.cards || []).join(' '));
+        /* 🧭 (2026-08-18) 이 항목이 카드 «안의 한 칸» 을 바로 가리키면 그 id 를 실어 둔다.
+           손자 메뉴(adm-r25.js)가 이걸 보고 «여기는 잎이다 → 손자를 만들지 않는다» 로 판단한다.
+           안 실어 주면 손자 생성기가 카드 «전체» 를 읽어, 「대표지사·지사·대리점」 세 항목이
+           전부 똑같은 4줄을 보여 준다(2026-08-18 실측 — 사장님 「중복」 지적의 원인). */
+        if (it.openSub) d.setAttribute('data-ia6-sub', it.openSub);
+        /* 🔗 (2026-08-19) 딴 페이지로 가는 항목의 «구역 목록» 을 DOM 에 실어 둔다.
+           손자 생성기(adm-r25.js)는 이 화면의 카드만 읽을 수 있어서, 이걸 안 실어 주면
+           그 항목만 손자가 없는 «2단짜리» 로 남는다. */
+        if (it.href) d.setAttribute('data-ia6-href', it.href);
+        /* 💬 (2026-08-19) 이 항목만의 설명. 툴팁을 붙이는 곳은 adm-s15.js 한 곳인데, 거기는
+           «대표 카드» 기준이라 ① 카드를 여럿 맡거나 ② 같은 카드의 다른 칸을 가리키거나
+           ③ 카드가 아예 없는(딴 페이지) 항목에서는 엉뚱하거나 빈 설명이 된다.
+           그래서 항목이 자기 설명을 가지면 그것을 싣고, adm-s15 가 이 값을 우선한다. */
+        if (it.tip) d.setAttribute('data-ia6-tip', it.tip);
+        if (it.tipEn) d.setAttribute('data-ia6-tip-en', it.tipEn);
+        if (it.href && it.secs && it.secs.length) {
+          try { d.setAttribute('data-ia6-secs', JSON.stringify(it.secs)); } catch (e) { /* 무시 */ }
+        }
         d.textContent = en ? it.en : it.ko;
         // ⚠️ 요소마다 리스너를 붙이지 않는다.
         //    사이드바 노드를 나중에 통째로 다시 그리는 스크립트가 있어서(실측: 붙인 리스너가
@@ -635,16 +799,27 @@
      조직 관리 카드 하나에 대표지사·지사·대리점 세 칸이 들어 있어서, 카드만 열어 주면
      쓰는 사람이 또 한 번 그 칸을 찾아 눌러야 한다. 형제 칸은 건드리지 않는다 —
      닫아 버리면 «방금 열어 둔 게 왜 닫히지» 가 된다.
-     ⚠️ 여기서 scrollIntoView 를 하지 않는다. 바로 앞의 showOnly 가 alignTop 으로
+     ⚠️ 여기서 scrollIntoView 를 «직접» 부르지 않는다. 바로 앞의 showOnly 가 alignTop 으로
         1.8초 동안 «대표 카드를 맨 위로» 를 계속 다시 맞추기 때문에, 여기서 스크롤하면
-        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다. 카드가 맨 위에 오면 세 칸의
-        제목줄은 어차피 첫 화면 안에 들어온다(한 줄짜리 summary 세 개). */
+        곧바로 되돌려져 «눌렀는데 화면이 튄다» 가 된다.
+        대신 **연 칸을 돌려주고, 부르는 쪽에서 alignTop 의 «목표» 를 그 칸으로 바꾼다** —
+        같은 기계를 그대로 쓰므로 서로 싸우지 않는다(alignTop 은 진행 중인 따라가기를
+        스스로 취소한다). 스크롤 코드를 새로 만들지 않는 것이 요점이다.
+
+     🔴 (2026-08-19) 「눌러도 안 열린다」 — 원래는 카드만 맨 위로 올리고 말았다.
+        전제가 «카드가 맨 위면 그 칸 제목줄도 첫 화면 안에 들어온다» 였는데,
+        그건 조직 관리 카드처럼 **한 줄짜리 칸이 세 개뿐일 때만** 맞다.
+        회계 카드는 칸이 12개고 「📊 매출 대시보드」는 그중 9번째다.
+        실측(1440×900): 칸은 open=true 인데 제목줄이 top 1492px — 화면 아래로 592px
+        벗어나 있었다. 쓰는 사람에게는 «열리지 않았다» 로 보인다(2026-08-19 사장님 제보).
+        비교로 조직 그룹 「대리점」은 top 440px 이라 화면 안이었다 — 그래서 그동안 안 걸렸다. */
   function openSubSection(item) {
-    if (!item || !item.openSub) return;
+    if (!item || !item.openSub) return null;
     var el = document.getElementById(item.openSub);
-    if (!el) return;
+    if (!el) return null;
     var n = el;
     while (n && n.tagName === 'DETAILS') { n.open = true; n = n.parentElement ? n.parentElement.closest('details') : null; }
+    return el;
   }
 
   function select(key) {
@@ -658,7 +833,10 @@
           그래야 지도가 «지금 여기» 를 찍을 수 있다. */
     if (it.href) { location.href = it.href; return true; }
     showOnly(it, key);
-    openSubSection(it);
+    /* 연 칸이 있으면 «그 칸» 을 맨 위로 — showOnly 가 방금 시작한 카드 따라가기를
+       alignTop 이 스스로 취소하고 목표를 바꾼다(위 openSubSection 주석 참고). */
+    var openedSub = openSubSection(it);
+    if (openedSub) alignTop(openedSub);
     try { localStorage.setItem(LS_KEY, key); } catch (e) { /* 무시 */ }
     var bar = document.getElementById('ph85-sidebar');
     if (bar) {
@@ -688,6 +866,13 @@
     window.addEventListener('click', function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
+      /* 🔴 (2026-08-18) ▸ 손자 메뉴 토글·손자 항목은 «그냥 지나가게» 둔다.
+         이 핸들러는 항목 안의 «모든» 클릭을 「항목 선택」으로 처리하는데, ▸ 토글은
+         그 항목의 자식이라 함께 잡혔다. 그래서 ▸ 를 눌러도 손자가 펴지는 대신
+         카드 필터만 바뀌었다 — 쓰는 사람에게는 «손자 메뉴가 안 뜬다» 로 보인다.
+         adm-s11.js(ph97)가 2026-08-06 에 똑같은 사고를 냈고 같은 예외로 고쳤다.
+         ⛔ 지우지 말 것. 지우면 새 사이드바에서 3단계 메뉴를 여는 방법이 없어진다. */
+      if (t.closest('#ph85-sidebar .ph125-toggle') || t.closest('#ph85-sidebar .ph125-gc')) return;
       var sub = t.closest('[data-ia6-item]');
       if (sub) {
         /* 📱 (2026-08-16 사장님 요청 ④) 모바일은 «닫고 나서» 고른다 — 순서가 핵심이다.
@@ -701,12 +886,20 @@
                 닫기를 먼저 해야 스크롤이 먹는다.
            실측(390×844): 「강사 ▸ 시간표·근무」 클릭 2.6초 뒤에도 드로어=열림,
                           고른 카드가 화면 위(-258px)로 벗어나 있었다. */
-        if (window.matchMedia('(max-width: 1023px)').matches) {
+        /* 📱 (2026-08-19) «손자를 펴는 중» 이면 닫지 않는다 — adm-s11.js 와 같은 이유·같은 표시.
+           adm-r25.js 가 우리보다 «먼저» 돌면서(문서상 위) 그 표시를 남긴다. */
+        if (window.matchMedia('(max-width: 1023px)').matches && !(window.__ph125OpenedUntil > Date.now())) {
           var sb = document.getElementById('ph85-sidebar');
           if (sb) sb.classList.remove('open');
           try { if (typeof window.mgaClose === 'function') window.mgaClose(); } catch (err) { /* 무시 */ }
           document.body.classList.remove('mga-open');
         }
+        /* 🔗 (2026-08-19) 딴 페이지로 가는 항목은 **한 번 더 눌러야** 간다.
+           첫 누름은 손자(그 페이지의 구역들)를 펴는 누름이다 — 곧바로 이동하면
+           손자가 화면에 나타날 새가 없어 「이 메뉴만 3단이 아니다」가 된다.
+           표시는 adm-r25.js 가 남긴다(우리보다 먼저 돈다 — 문서상 위). 800ms 뒤 저절로 풀린다. */
+        if (sub.getAttribute('data-ia6-secs') && window.__ph125OpenedEl === sub &&
+            window.__ph125OpenedUntil > Date.now()) return;
         select(sub.getAttribute('data-ia6-item'));
         return;
       }
@@ -802,6 +995,8 @@
       // 옛 9그룹을 인라인 style 로 감추면 admin.html 의 검색 핸들러가
       // g.style.display='' 로 되돌려 놓는다(실측으로 잡힘). 그래서 CSS 로 못박는다.
       '#ph85-sidebar .ph85-group[data-ia6-legacy]{display:none !important}' +
+      // 🔐 역할로 감춘 사이드바 항목·그룹 (applyRoleFilter). id 를 앞에 붙여 확실히 이기게 한다.
+      '#ph85-sidebar .' + ROLE_HIDE + '{display:none !important}' +
       '#ph85-sidebar .ph85-sub.ia6-on{background:rgba(251,191,36,.18);color:#fde68a;font-weight:800}' +
       /* 📐 (2026-08-15) 그룹 줄을 조금 낮춰 «6그룹 + 메뉴 지도»가 첫 화면에 다 들어오게 한다.
          실측(1919×740 · zoom 1.3 · CSS px): 메뉴가 시작되는 자리 134.6, 도크가 시작되는 자리 440.8
@@ -824,6 +1019,7 @@
     if (!build(bar)) return;
     bar.__ia6 = true;
     css();
+    applyRoleFilter();   // 🔐 역할로 못 여는 항목은 그리자마자 감춘다(깜빡임 방지)
     collect();
     wireDelegate(bar);
     wireSearch();
@@ -840,7 +1036,13 @@
     var RENAMED = {
       'today:문의·버그': 'today:신규상담',
       // 🏢 (2026-08-18) 「정산·매출 ▸ 조직 (지사·대리점)」 → 「운영자 ▸ 조직 (지사·대리점)」
-      'money:조직 (지사·대리점)': 'org:조직 (지사·대리점)'
+      'money:조직 (지사·대리점)': 'org:대표지사',
+      // 🗑 (2026-08-18) 없앤 두 항목을 잇는다. 안 이으면 어제 보던 화면이 「오늘의 수업」으로 튄다.
+      'org:조직 (지사·대리점)': 'org:대표지사',
+      'money:매출 대시보드': 'money:회계',
+      /* ✂️ (2026-08-19) 「수강 운영(배율·정원)」 → 「수강 운영」. 괄호 설명은 툴팁으로 옮겼다.
+         이 줄이 없으면 그 메뉴를 마지막으로 보던 사람이 아침에 「오늘의 수업」으로 튄다. */
+      'teacher:수강 운영(배율·정원)': 'teacher:수강 운영'
     };
     if (want && RENAMED[want]) {
       want = RENAMED[want];
@@ -854,6 +1056,13 @@
         });
       });
     }
+    /* 🏠 (2026-08-19) 경로 줄의 «홈» 을 누르면 이 칸에 '__home' 표시가 남는다(js/adm-crumb.js).
+       그 표시가 있으면 **아무 항목도 고르지 않는다** = 카드가 전부 보이는 대시보드.
+       [왜] 이 줄이 없으면 홈을 눌러 대시보드를 봐도 **새로고침 한 번에 「오늘의 수업」으로
+         돌아온다**(바로 아래 «처음이면 「오늘」의 첫 항목» 때문). 사장님 지적.
+       ⚠️ 문자열 '__home' 은 adm-crumb.js 와 짝이다. 한쪽만 고치면 조용히 옛 동작으로 돌아간다.
+       ⚠️ 항목 key 는 `그룹키:한글이름` 꼴이라 '__home' 과 절대 겹치지 않는다. */
+    if (want === '__home') return;
     if (!picked) { picked = GROUPS[0].items[0]; pickedKey = GROUPS[0].key + ':' + picked.ko; }
     showOnly(picked, pickedKey);
     openSubSection(picked);
@@ -908,9 +1117,17 @@
          들어오면 그쪽에 양보하고 손을 뗀다. 예: ⚡자주 쓰는 기능의 「오늘 수업 (바로 입장)」은
          카드 안의 하위 항목(sm-today-classes)까지 내려가야 하는데, 우리가 계속 카드 맨 위로
          되돌리면 그 이동이 매번 취소된다. 대표 카드 자신으로 오는 스크롤(jumpToMenu 등)은
-         우리와 목적지가 같으므로 그대로 둔다. */
+         우리와 목적지가 같으므로 그대로 둔다.
+
+         🔴 (2026-08-19) «조상» 으로 오는 스크롤도 양보하면 안 된다 — 그게 「눌러도 안 열린다」의
+            정체였다. openSub 항목은 카드 «안의 칸» 을 목적지로 삼는데, adm-s11(ph97)이 같은
+            클릭에서 50ms 뒤 **그 칸이 든 카드** 를 따로 scrollIntoView 한다(smooth + rAF 로 두 번).
+            카드는 우리 목적지가 아니므로 이 줄이 곧바로 손을 떼 버렸고, 그래서 칸은 open=true 인데
+            화면은 카드 맨 위에 머물렀다(실측 1440×900: 칸 제목줄 top 1492px — 화면 밖 592px).
+            조상으로 오는 스크롤은 «다른 곳» 이 아니라 **같은 목적지의 거친 판** 이다. 양보하지 않는다. */
       try {
-        if (!alignSelf && alignRelease && alignLead && this !== alignLead) alignRelease();
+        if (!alignSelf && alignRelease && alignLead &&
+            this !== alignLead && !this.contains(alignLead)) alignRelease();
       } catch (e) { /* 무시 */ }
       return orig.apply(this, arguments);
     };
@@ -920,8 +1137,20 @@
   else init();
   // 본문·역할 적용이 늦게 끝나는 경우가 있어 한 번 더 시도한다(중복 실행은 __ia6 로 막힘).
   setTimeout(init, 900);
+
+  /* 🔐 역할 필터를 다시 거는 시점 (2026-08-18)
+     ① adm-core 가 역할을 적용한 직후 — 로그인·세션 갱신마다 온다.
+        ⚠️ 순서가 정해져 있지 않다: 역할 적용이 사이드바 그리기보다 먼저일 수도, 나중일 수도 있다.
+           그래서 «이벤트를 받았을 때» 와 «init 이 끝났을 때» 양쪽에서 건다(init 안에도 있음).
+     ② 늦게 오는 경우 대비 — init 재시도와 같은 이유로 두 번 더 훑는다.
+        ⛔ setInterval 로 계속 돌리지 않는다. 사이드바 스크롤이 끊긴 전례가 있다(위 ph85 주석). */
+  document.addEventListener('mangoi:menu-visibility', function () {
+    try { applyRoleFilter(); } catch (e) { /* 무시 — 사이드바를 못 그리게 만들지 않는다 */ }
+  });
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 1500);
+  setTimeout(function () { try { applyRoleFilter(); } catch (e) {} }, 3500);
   wireRevealOnJump();   // init 성공 여부와 무관하게 건다(감춘 게 없으면 cardOf 가 늘 null)
 
   // 다른 코드가 필요할 때 쓰도록 최소한만 노출
-  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS };
+  window.mangoiIA6 = { showAll: showAll, select: select, groups: GROUPS, applyRoleFilter: applyRoleFilter };
 })();

@@ -34,6 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1399,6 +1400,9 @@ export async function handleMangoApi(
         //       본사 전용이고, 지사·대리점 계정은 index.ts 가 /admin/exec 로 돌려보낸다.
         //       (그래도 쿼리 자체에는 scopeFragments 격리를 걸어 뒀다. 나중에 열어도 안 샌다.)
         || path === '/api/admin/attendance/long-absent'
+        // 📊 (2026-08-19) 학원별 학생 수업현황(SLP 출석 통계) — 핸들러는 api-admin.ts 에 있다.
+        //    안 적으면 handleAdminApi 까지 못 가서 404 (바로 위 long-absent 와 같은 함정).
+        || path === '/api/admin/attendance/school-stats'
         || path === '/api/admin/payments/cafe24-diag'
         || path === '/api/admin/absent-sweep/run'
         || path === '/api/admin/lesson-reminder/run'
@@ -1424,6 +1428,13 @@ export async function handleMangoApi(
         || path.startsWith('/api/admin/finance-cafe24/')
         || path === '/api/admin/org/import-cafe24' || path === '/api/admin/staff/graph-list'
         || path === '/api/admin/org/hq'   // 🏯 본사 관리 (2026-08-18) — 여기 없으면 handleAdminApi 까지 못 가서 404
+        // 🗓 (2026-08-19) 지난 수업에서 일정 만들기 — 미리보기/적용. 같은 이유로 여기에도 등록해야 한다
+        || path.startsWith('/api/admin/schedule-seed/')
+        // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        //     (teacher-contacts·finance-cafe24 가 같은 이유로 통째로 먹통이던 이력이 있다)
+        || path === '/api/admin/live-classes'
+        // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        || path === '/api/admin/classes-now'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')
@@ -1462,9 +1473,12 @@ export async function handleMangoApi(
       const like = '%' + q.replace(/[%_]/g, '') + '%';
       const results: any[] = [];
       try {
+        // 🧹 (2026-08-20) 숨김 지정한 중복 계정은 통합검색에도 안 나온다 — 명부와 답이 갈리면 안 된다.
+        const _omniHide = await hiddenExcludeCond(env as any);
         const rs = await env.DB.prepare(
           `SELECT user_id, username, korean_name, english_name FROM students_erp
-           WHERE korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?
+           WHERE (korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?)
+           ${_omniHide ? 'AND ' + _omniHide : ''}
            LIMIT 25`
         ).bind(like, like, like, like).all();
         for (const r of ((rs.results as any[]) || [])) {
@@ -2326,8 +2340,14 @@ ${numbered}`;
       try {
         // rowid 는 모든 SQLite 테이블에 항상 존재 — id 컬럼 없는 스키마에서도 동작
         const _swErp = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+        /* 🧹 (2026-08-20) 숨김 지정한 중복 계정 제외 — students_erp 는 카페24가 정본이라
+           지워도 밤에 되살아난다. 그래서 «읽을 때» 거른다(정본: src/student-override.ts).
+           ⚠️ 이 handler 는 어떤 에러든 삼켜 빈 배열을 돌려준다. 표가 없을 때 조건절이
+              붙으면 `no such table` 로 **명부 전체가 사라진 것처럼** 보이므로,
+              hiddenExcludeCond 는 그럴 때 빈 문자열을 준다(fail-open). 그 성질에 기대고 있다. */
+        const _erpConds = [_swErp.cond, await hiddenExcludeCond(env as any)].filter(Boolean);
         const rs = await env.DB.prepare(
-          `SELECT rowid AS _rowid, * FROM students_erp ${_swErp.cond ? 'WHERE ' + _swErp.cond + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
+          `SELECT rowid AS _rowid, * FROM students_erp ${_erpConds.length ? 'WHERE ' + _erpConds.join(' AND ') + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
         ).bind(..._swErp.binds, lim).all<any>();
         const items = (rs.results || []).map(r => {
           // id 컬럼이 없으면 rowid 를 id 로 사용 (프론트 호환)
@@ -2626,6 +2646,8 @@ ${numbered}`;
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN address TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN birth_date TEXT;`); } catch {}
       try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN notes TEXT;`); } catch {}
+      // password_hash — api-students.ts 의 ensureLoginTable() 과 동일한 안전망(이미 있으면 무시)
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT;`); } catch {}
     };
 
     // /api/admin/student/:uid/full — 한 번에 모든 탭 데이터 적재 (Promise.allSettled)
@@ -2972,6 +2994,16 @@ ${numbered}`;
           if (PII_GUARD.has(k) && isMaskedValue(b[k])) { skippedMasked.push(k); continue; }
           sets.push(`${k} = ?`); vals.push(b[k]);
         }
+        // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
+        let passwordChanged = false;
+        if (typeof b.new_password === 'string' && b.new_password.length > 0) {
+          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
+          const buf = await crypto.subtle.digest('SHA-256', enc);
+          const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
+          sets.push('password_hash = ?'); vals.push(ph);
+          passwordChanged = true;
+        }
         if (sets.length === 0) {
           return skippedMasked.length
             ? json({ ok: false, error: 'masked_values_rejected', skipped_masked: skippedMasked }, 400)
@@ -2983,7 +3015,7 @@ ${numbered}`;
         await env.DB.prepare(
           `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
         ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked });
+        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged });
       }
     }
 

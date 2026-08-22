@@ -23,12 +23,22 @@
   };
   /* 🚪 매니저 직접 입장 — 강사가 못 들어왔을 때 대신 수업을 맡기 위한 통로.
      참관(ghost)과 달리 실제 참가자로 들어간다. 새 창으로 열어 관리자 화면은 그대로 둔다. */
+  /* 📷 (2026-08-20) 직접 입장은 카메라를 끈 채로 들어간다 — &vc_cam=off (js/vc-observe-guard.js 가 처리).
+     [왜] 이 버튼은 참관이 아니라 «실제 참가자» 다. 켠 채로 들어가면 수업 중간에 학생 화면에
+          낯선 얼굴이 갑자기 뜬다(2026-08-19 필리핀 매니저 제보). 트랙은 살려 두므로 수업 안에서
+          [카메라] 버튼 한 번이면 켜진다 — 「강사 대신 수업을 맡는」 용도는 그대로다.
+     ⚠️ 확인 문구를 늘릴 때는 teacher_feedback_admin_harness 의 «ghEnterRoom 뒤 600자 안에 confirm»
+        검사를 넘기지 않게 — 긴 설명은 이렇게 함수 «위» 에 둔다. */
   window.ghEnterRoom = function(roomId){
     const en = _ghIsEn();
-    const msg = en ? ('Enter class "' + roomId + '" as a participant?\n(Students and the teacher will see you.)')
-                   : ('수업 "' + roomId + '" 에 직접 입장할까요?\n(참관이 아니라 실제 참가자로 들어갑니다 — 학생·강사에게 보입니다.)');
+    const msg = en ? ('Enter class "' + roomId + '" as a participant?\n\n'
+                    + '· NOT observation — students and the teacher see you.\n'
+                    + '· Camera starts OFF ([Camera] button turns it on).')
+                   : ('수업 "' + roomId + '" 에 직접 입장할까요?\n\n'
+                    + '· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n'
+                    + '· 카메라는 꺼진 채로 입장합니다([카메라] 버튼으로 켜기).');
     if (!confirm(msg)) return;
-    const url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
+    const url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
     /* 팝업이 막히면 조용히 실패하지 않도록 공통 헬퍼 사용 (adm-core.js) */
     if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Enter class' : '수업 입장');
     else window.open(url, '_blank', 'noopener');
@@ -48,8 +58,24 @@
         return;
       }
       if (cnt) cnt.textContent = en ? ('· ' + rooms.length + ' room(s)') : ('· ' + rooms.length + '개 방');
+      /* 👥 (2026-08-19 제보 2-①) 「누구 수업인지」 — 방 번호만으로는 알 수 없다.
+         ⚠️ 참가자 칸(rm.users)은 «지금 접속해 있는 사람»이라 강사가 아직 안 들어왔으면 비어 있다.
+            그때가 바로 급히 참관해야 할 때이므로, 예약된 강사·학생을 D1 에서 따로 받아 채운다.
+         ⚠️ 실패해도 표는 그대로 뜬다(이름 칸만 «—»). 이름 때문에 목록이 안 나오면 더 나쁘다. */
+      let sched = {};
+      try {
+        const ids = rooms.map(function(rm){ return rm.roomId; }).filter(Boolean);
+        if (ids.length) {
+          const rn = await fetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')),
+                                 { credentials: 'include' });
+          const dn = await rn.json();
+          if (dn && dn.ok && dn.rooms) sched = dn.rooms;
+        }
+      } catch (e) { /* 조용히 — 표는 이름 없이 그대로 그린다 */ }
+
       box.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">'
         + '<thead><tr style="color:#94a3b8;text-align:left">'
+        +   '<th style="padding:6px 8px">' + (en ? 'Class' : '수업') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'Room' : '강의실') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'People' : '인원') + '</th>'
         +   '<th style="padding:6px 8px">' + (en ? 'Participants' : '참가자') + '</th>'
@@ -62,7 +88,19 @@
             /* 👤 한 명뿐이면 상대가 아직 안 들어온 상태 — 매니저가 가장 먼저 봐야 할 줄이라 표시 */
             const alone = (rm.userCount === 1)
               ? ' <span style="color:#fbbf24;font-weight:800">' + (en ? '⚠ waiting alone' : '⚠ 혼자 대기중') + '</span>' : '';
+            /* 👥 예약된 강사·학생. 못 이었으면 «—» — 추측해서 채우지 않는다.
+               (강사 번호가 세 벌이라 잘못 이으면 조용히 남의 이름이 붙는다 — CLAUDE.md 2장) */
+            const sc = sched[rm.roomId];
+            const whoT = (sc && sc.teacher_name) ? esc(sc.teacher_name) : '';
+            const whoS = (sc && sc.student_name) ? esc(sc.student_name) : '';
+            const whoTxt = (whoT || whoS)
+              ? (whoT ? '<b style="color:#e9d5ff">' + whoT + '</b>' : '')
+                + (whoT && whoS ? '<span style="color:#64748b"> · </span>' : '')
+                + (whoS ? '<span style="color:#cbd5e1">' + whoS + '</span>' : '')
+                + ((sc && sc.start_time) ? '<div style="color:#94a3b8;font-size:11px">' + esc(sc.start_time) + '</div>' : '')
+              : '<span style="color:#64748b">—</span>';
             return '<tr style="border-top:1px solid rgba(255,255,255,0.06)">'
+              + '<td style="padding:6px 8px">' + whoTxt + '</td>'
               + '<td style="padding:6px 8px"><code style="color:#c4b5fd">' + rid + '</code>' + alone + '</td>'
               + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
               + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
@@ -70,9 +108,13 @@
               +   '<button type="button" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
               +     'style="padding:4px 10px;font-size:11.5px;margin-right:4px;background:rgba(139,92,246,0.22);color:#ddd6fe;border:1px solid rgba(139,92,246,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
               +     (en ? '👁 Select' : '👁 참관 선택') + '</button>'
+              /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
+                 초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
               +   '<button type="button" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
-              +     'style="padding:4px 10px;font-size:11.5px;background:rgba(16,185,129,0.22);color:#a7f3d0;border:1px solid rgba(16,185,129,0.5);border-radius:6px;font-weight:700;cursor:pointer">'
-              +     (en ? '🚪 Enter' : '🚪 직접 입장') + '</button>'
+              +     'title="' + (en ? 'Join as a real participant — students see you (camera starts off)'
+                                    : '실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)') + '" '
+              +     'style="padding:4px 10px;font-size:11.5px;background:rgba(245,158,11,0.22);color:#fde68a;border:1px solid rgba(245,158,11,0.55);border-radius:6px;font-weight:700;cursor:pointer">'
+              +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
               + '</td></tr>';
           }).join('')
         + '</tbody></table>';

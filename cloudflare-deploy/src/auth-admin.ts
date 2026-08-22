@@ -26,6 +26,9 @@ import { legacyLoginEnabled, verifyLegacyLmsLogin, lookupTeacherByLoginId, provi
 export interface AuthEnv {
   DB: D1Database;
   ADMIN_PASSWORD?: string;
+  // 🔐 (2026-08-19) 시연용 지사·대리점·교사 계정 비번. 미설정이면 코드의 강한 폴백을 쓴다.
+  //   `wrangler secret put DEMO_PASSWORD` 로 바꿀 수 있다(바꾸면 그 값이 정본).
+  DEMO_PASSWORD?: string;
   // 🧑‍🏫 강사 옛 LMS 통과 인증 (legacy-teacher-auth.ts) — 'off' 로 즉시 차단 가능
   LEGACY_TEACHER_LOGIN?: string;
   LEGACY_LMS_BASE?: string;
@@ -341,11 +344,24 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
   //   ① 전체권한 계정(admin·cfo·ops_lead)은 추측 불가한 강한 비번 강제(공개 로그인 화면 노출 제거와 세트).
   //   ② 매 부팅마다 비번을 강제로 되돌리던 UPDATE 제거 → 사장님이 바꾼 비번/ env.ADMIN_PASSWORD 가 유지됨.
   //   ③ 과거에 심어진 취약 비번(=아이디와 동일: admin/cfo/ops)만 1회성으로 강한값으로 자동 교체.
+  // 🔐 (2026-08-19 사장님 지시 — 필리핀 매니저 Karl 이 `branch_busan/busan` 으로 몇 주째 일하고 있던 건):
+  //   ④ **저권한 시연 계정도 아이디에서 유추되는 비번을 쓰면 안 된다.** 이 계정들은 «데모» 라는 이름과 달리
+  //      admin_scope 로 **실제 자료**에 연결돼 있다(branch_busan → 지사 '부산' = 실제 학생·매출).
+  //      비번이 busan/daegu/gn001/sc002/teacher 라 아이디만 알면 남의 지사 자료가 열렸다.
+  //      → ①③ 과 같은 방식(강한 비번으로 심기 + 취약 비번일 때만 1회 교체)을 이 계정들에도 적용한다.
+  //   ⚠️ 계정을 지우거나 잠그지는 않는다 — 사장님·본사가 화면 점검에 실제로 쓰고 있고(로그인 기록 확인),
+  //      지우면 그 점검 경로가 통째로 사라진다. «비번만» 추측 불가로 바꾼다.
+  //   ⚠️ capitown(캐피타운 본사)은 아이디에서 유추되는 비번이 아니고 정산 실사용 계정이라 건드리지 않는다.
   try {
     // env.ADMIN_PASSWORD 미설정 시에도 절대 'admin' 같은 자명한 값이 되지 않도록 강한 폴백 사용.
     const strongAdminPw = (env.ADMIN_PASSWORD && env.ADMIN_PASSWORD.length >= 8)
       ? env.ADMIN_PASSWORD : 'FbshDMf9ei5Tog';
+    // 저권한 시연 계정(지사·대리점·교사)용 강한 비번. env.DEMO_PASSWORD 를 넣으면 그 값이 이긴다.
+    const strongDemoPw = (env.DEMO_PASSWORD && env.DEMO_PASSWORD.length >= 8)
+      ? env.DEMO_PASSWORD : 'Kv8pQn3TjWz5Ra';
     const FULL_ACCESS = new Set(['admin', 'cfo', 'ops_lead']);
+    // 실제 스코프가 붙어 있는 시연 계정 — 아이디 유래 비번을 쓰면 안 되는 대상
+    const SCOPED_DEMO = new Set(['branch_busan', 'branch_daegu', 'agency_gn001', 'agency_sc002', 'hq_t_001', 'hq_t_len']);
     // [username, 취약했던 기존 비번(교체 감지용), 표시이름]
     const demoAccounts: Array<[string, string, string]> = [
       ['admin', 'admin', '본사·경영진'],
@@ -364,24 +380,26 @@ export async function ensureAuthSchema(env: AuthEnv): Promise<void> {
     const nowD = Date.now();
     for (const acc of demoAccounts) {
       const u = acc[0], oldPw = acc[1], nm = acc[2];
-      const seedPw = FULL_ACCESS.has(u) ? strongAdminPw : oldPw;   // 전체권한 계정은 강한 비번으로 심는다
+      // 강한 비번을 심는 대상: 전체권한 계정 + 실제 스코프가 붙은 시연 계정
+      const strongPw = FULL_ACCESS.has(u) ? strongAdminPw : (SCOPED_DEMO.has(u) ? strongDemoPw : null);
+      const seedPw = strongPw || oldPw;
       const ex: any = await env.DB.prepare(`SELECT id, password_hash FROM admin_account WHERE username = ? LIMIT 1`).bind(u).first();
       if (!ex) {
         await env.DB.prepare(
           `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at) VALUES (?, ?, ?, NULL, NULL, ?, ?)`
         ).bind(u, await hashPassword(seedPw), nm, nowD, nowD).run();
         console.warn('[auth-admin] demo account seeded:', u);
-      } else if (FULL_ACCESS.has(u)) {
-        // 이미 존재하는 전체권한 계정: '아이디와 동일한 취약 비번'일 때만 강한 비번으로 1회 교체.
+      } else if (strongPw) {
+        // 이미 존재하는 계정: '아이디에서 유추되는 취약 비번'일 때만 강한 비번으로 1회 교체.
         //   (이미 강한 비번이거나 사장님이 바꾼 비번은 건드리지 않음)
         const isWeak = await verifyPassword(oldPw, String(ex.password_hash || ''));
         if (isWeak) {
           await env.DB.prepare(`UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`)
-            .bind(await hashPassword(strongAdminPw), nowD, u).run();
-          console.warn('[auth-admin] 🔐 weak password rotated for full-access account:', u);
+            .bind(await hashPassword(strongPw), nowD, u).run();
+          console.warn('[auth-admin] 🔐 weak password rotated:', u);
         }
       }
-      // 그 외(저권한 데모/실계정)는 seed-if-missing 만. 매부팅 강제리셋 제거로 바뀐 비번이 유지됨.
+      // 그 외(스코프 없는 실계정)는 seed-if-missing 만. 매부팅 강제리셋 제거로 바뀐 비번이 유지됨.
     }
   } catch (e) {
     console.warn('[auth-admin] demo seed failed:', (e as any)?.message);
@@ -1020,6 +1038,121 @@ export async function handleAdminAuthApi(
     //     · 대상도 강사/해외 스태프 계정(`mangoi_*` · `hq_t*`)으로 한정 —
     //       admin·cfo·ops_lead 같은 전체권한 계정은 이 경로로 못 바꾼다(권한 상승 차단).
     //     · 누가 언제 누구 것을 바꿨는지 admin_login_history 에 남긴다.
+    // ── ➕ 직원 계정 «진짜» 만들기 (2026-08-18) ──────────────────────────────
+    //
+    //   왜 만들었나 — 관리자 화면의 「➕ 본사 직원 등록」은 **시연용 껍데기였다.**
+    //     adm-core.js 의 registerHqEmployee() 가 입력값을 localStorage 에만 넣고
+    //     「✅ 등록 완료」 알림을 띄웠다. 서버로는 아무것도 보내지 않았다.
+    //     그래서 «등록했는데 로그인이 안 되는» 계정이 만들어졌다(2026-08-18 실제로 밟음).
+    //     CLAUDE.md 에 기록된 「비밀번호 변경 시연 껍데기 4벌」과 같은 종류다.
+    //   더 근본적으로는, **직원 계정을 사람이 만드는 통로가 서버에 아예 없었다.**
+    //     admin_account 에 INSERT 하는 곳은 부트스트랩·데모시드·강사 자동생성 셋뿐이었다.
+    //     지금까지는 계정이 필요하면 코드에 심어서 배포해 왔다는 뜻이다.
+    //
+    //   설계 판단
+    //     ① **비밀번호를 사람이 정하지 않는다.** 서버가 임시 비번을 만들어 한 번만 돌려준다.
+    //        사람이 정하게 하면 «1234» 가 들어오고, 그 계정이 회사 데이터 전체를 연다.
+    //     ② 응답에 담긴 임시 비번은 **그 화면에서 한 번만 보인다.** 저장하지 않는다
+    //        (해시만 DB 에 남는다). 잃어버리면 비번 재설정으로 다시 만든다.
+    //     ③ 권한 상승 차단 — 전체권한 계정(admin·cfo·ops_lead) 이름으로는 만들 수 없다.
+    //     ④ 아이디 접두사와 직급이 어긋나면 **막는다.** `hq_t*` 는 resolveRole() 이
+    //        무조건 강사로 판정한다 — 관리자로 만들었는데 강사 화면으로 튕기는 사고가 난다.
+    if (path === '/api/admin/staff-create' && method === 'POST') {
+      const actor = await getAdminActor(request, env);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden',
+          message: '경영진·본사 관리자만 계정을 만들 수 있습니다.',
+          message_en: 'Only executives and head-office admins can create accounts.' }, 403);
+      }
+
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const username = String(body?.username || '').trim();
+      const name     = String(body?.name || '').trim();
+      const rank     = String(body?.rank || 'hq_mgr').trim();
+      const email    = String(body?.email || '').trim() || null;
+      const phone    = String(body?.phone || '').trim() || null;
+
+      const RANKS = ['hq_exec', 'hq_mgr', 'hq_teacher'];
+      if (!/^[a-zA-Z0-9_]{3,32}$/.test(username)) {
+        return json({ ok: false, error: 'bad_username',
+          message: '아이디는 영문·숫자·밑줄(_)로 3~32자여야 합니다.' }, 400);
+      }
+      if (!name) return json({ ok: false, error: 'name_required', message: '이름을 입력하세요.' }, 400);
+      if (RANKS.indexOf(rank) < 0) return json({ ok: false, error: 'bad_rank', allowed: RANKS }, 400);
+
+      // 권한 상승 차단 — 전체권한 계정 이름을 새로 만들 수 없다.
+      if (FULL_ACCESS_ACCOUNTS.has(username)) {
+        return json({ ok: false, error: 'reserved_username',
+          message: '이 아이디는 시스템 전체권한 계정이라 새로 만들 수 없습니다.' }, 403);
+      }
+
+      // 접두사 ↔ 직급 불일치 차단. `hq_t*` 는 역할 판정이 무조건 «강사» 다.
+      const looksTeacherId = /^hq_t/i.test(username);
+      if (looksTeacherId && rank !== 'hq_teacher') {
+        return json({ ok: false, error: 'prefix_rank_mismatch',
+          message: '아이디가 hq_t 로 시작하면 시스템이 항상 «교사»로 판정합니다. ' +
+                   '관리자·경영진으로 만들려면 다른 아이디를 쓰세요.' }, 400);
+      }
+      if (!looksTeacherId && rank === 'hq_teacher') {
+        return json({ ok: false, error: 'prefix_rank_mismatch',
+          message: '교사 계정은 아이디를 hq_t 로 시작해야 합니다(예: hq_t_kim).' }, 400);
+      }
+
+      // ⚠️ 이름에 «교사·강사·선생» 이 들어가면 resolveRole() 이 교사로 판정한다.
+      //    막지는 않되(진짜 그런 성함일 수 있다) 만든 사람에게 반드시 알린다.
+      const nameLooksTeacher = /교사|강사|선생|teacher/i.test(name);
+      if (nameLooksTeacher && rank !== 'hq_teacher') {
+        return json({ ok: false, error: 'name_looks_teacher',
+          message: '이름에 «교사·강사·선생» 이 들어가면 시스템이 그 계정을 교사로 판정해 ' +
+                   '강사 화면으로 보냅니다. 이름을 바꾸거나 직급을 교사로 선택하세요.' }, 400);
+      }
+
+      const dup = await env.DB.prepare(
+        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
+      ).bind(username).first<{ username: string }>();
+      if (dup) {
+        return json({ ok: false, error: 'already_exists',
+          message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
+      }
+
+      // 임시 비번 — 사람이 옮겨 적을 수 있게 헷갈리는 글자(0/O, 1/l/I)를 뺀다.
+      const ALPHA = 'abcdefghijkmnpqrstuvwxyz23456789';
+      const rnd = crypto.getRandomValues(new Uint8Array(12));
+      let tempPw = '';
+      for (let i = 0; i < rnd.length; i++) tempPw += ALPHA[rnd[i] % ALPHA.length];
+      tempPw = tempPw.slice(0, 4) + '-' + tempPw.slice(4, 8) + '-' + tempPw.slice(8, 12);
+
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).bind(username, await hashPassword(tempPw), name, email, phone, now, now).run();
+
+      // 역할 스코프 — 이게 없으면 autoSeedOne() 의 추측에 맡겨진다.
+      await env.DB.exec(
+        `CREATE TABLE IF NOT EXISTS admin_scope (username TEXT PRIMARY KEY, scope_type TEXT NOT NULL, scope_value TEXT, updated_at INTEGER);`
+      ).catch(() => { /* 이미 있으면 정상 */ });
+      const scopeType = (rank === 'hq_teacher') ? 'teacher' : 'hq';
+      await env.DB.prepare(
+        `INSERT INTO admin_scope (username, scope_type, scope_value, updated_at) VALUES (?, ?, NULL, ?)
+         ON CONFLICT(username) DO UPDATE SET scope_type=excluded.scope_type, updated_at=excluded.updated_at`
+      ).bind(username, scopeType, now).run().catch(() => null);
+
+      // 감사 기록 — «누가 이 계정을 만들었는가» 가 남아야 한다.
+      const cIp = request.headers.get('cf-connecting-ip') || '';
+      const cUa = request.headers.get('user-agent') || '';
+      await recordLogin(env, username, cIp, cUa, true, 'created_by:' + actor.username).catch(() => {});
+
+      return json({
+        ok: true, username, name, rank, scope_type: scopeType,
+        temp_password: tempPw,
+        message: '계정을 만들었습니다. 아래 임시 비밀번호는 지금 이 화면에서만 보입니다 — ' +
+                 '본인에게 전달하고, 로그인 후 마이페이지에서 바꾸게 하세요.',
+      });
+    }
+
     if (path === '/api/admin/staff-password-reset' && method === 'POST') {
       const actor = await getAdminActor(request, env);
       if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);

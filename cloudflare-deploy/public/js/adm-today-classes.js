@@ -48,15 +48,21 @@
 
   /* 🚪 실제 참가자로 입장 — 강사가 못 들어왔을 때 매니저가 대신 맡는 용도.
      참관(ghost)과 달리 학생에게 보이므로, 오해가 없도록 반드시 한 번 확인받는다. */
+  /* 📷 (2026-08-20) 카메라를 끈 채로 입장 — &vc_cam=off (js/vc-observe-guard.js 가 처리).
+     수업 중간에 낯선 얼굴이 뜨는 것을 막되, 트랙은 살아 있어 [카메라] 버튼 한 번으로 켜진다.
+     ⚠️ 확인 문구를 늘릴 때는 teacher_feedback_admin_harness 의 «tcEnterClass 뒤 700자 안에
+        confirm» 검사를 넘기지 않게 — 긴 설명은 이렇게 함수 «위» 에 둔다. */
   window.tcEnterClass = function (roomId, who) {
     var msg = T(
       '수업에 직접 입장할까요?\n\n강의실: ' + roomId + '\n학생: ' + (who || '-') +
-        '\n\n※ 참관이 아니라 실제 참가자로 들어갑니다. 학생·강사에게 보입니다.',
+        '\n\n※ 참관이 아니라 실제 참가자입니다. 학생·강사에게 보입니다.' +
+        '\n※ 카메라는 꺼진 채로 입장합니다([카메라] 버튼으로 켜기).',
       'Join this class as a participant?\n\nRoom: ' + roomId + '\nStudent: ' + (who || '-') +
-        '\n\nNote: this is NOT silent observation — students and the teacher will see you.'
+        '\n\nNote: NOT observation — students and the teacher see you.' +
+        '\nCamera starts OFF ([Camera] button turns it on).'
     );
     if (!confirm(msg)) return;
-    var url = location.origin + '/?vc_autojoin=1&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
+    var url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId);
     /* 팝업이 막히면 안내 링크를 띄운다 — 그냥 window.open 만 하면 조용히 실패한다 (adm-core.js 공통) */
     if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업 입장', 'Enter class'));
     else window.open(url, '_blank', 'noopener');
@@ -121,9 +127,12 @@
             ? esc(s.teacher_name)
             : '<span style="color:#b45309;font-weight:800">' + T('⚠ 미배정', '⚠ unassigned') + '</span>';
           var act = s.join_open
+            /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
             ? '<button type="button" onclick="tcEnterClass(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + who + '\'))" '
-              + 'style="padding:4px 12px;font-size:11.5px;margin-right:4px;background:rgba(16,185,129,0.16);color:#047857;border:1px solid rgba(16,185,129,0.5);border-radius:6px;font-weight:800;cursor:pointer">'
-              + T('🚪 입장', '🚪 Join') + '</button>'
+              + 'title="' + T('실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)',
+                              'Join as a real participant — students see you (camera starts off)') + '" '
+              + 'style="padding:4px 12px;font-size:11.5px;margin-right:4px;background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.55);border-radius:6px;font-weight:800;cursor:pointer">'
+              + T('🚪 입장(보임)', '🚪 Join (visible)') + '</button>'
             : '<span style="color:#9ca3af;font-size:11.5px;margin-right:4px">' + T('입장 시간 아님', 'not open') + '</span>';
           act += '<button type="button" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
               + 'style="padding:4px 10px;font-size:11.5px;background:rgba(139,92,246,0.16);color:#6d28d9;border:1px solid rgba(139,92,246,0.45);border-radius:6px;font-weight:700;cursor:pointer">'
