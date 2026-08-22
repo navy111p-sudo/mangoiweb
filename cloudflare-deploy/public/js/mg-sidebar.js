@@ -76,8 +76,12 @@
   ];
 
   // ---- CSS (index.html 인라인과 동일 + hover 확대 효과) ----
+  /* 🔑 배경은 «94~97% 그라디언트» — 투명 22% 로 되돌리지 말 것 (2026-08-22).
+     backdrop-filter 가 안 되는 브라우저(카톡 인앱·구형 WebView·저전력)에서는 흐림이 통째로
+     무시돼 얇은 색 한 겹만 남고 뒤 화면이 다 비친다. 어둡게 하는 힘은 배경에 직접 굽는다.
+     ⚠️ index.html 인라인 드로어에 같은 줄이 한 벌 더 있다 — 둘 다 고쳐야 한다. */
   var css = ''
-    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
+    + '#mg-drawer{position:fixed;top:0;left:0;height:100%;width:250px;max-width:80vw;background:linear-gradient(180deg,rgba(12,18,38,0.94),rgba(6,10,22,0.97));-webkit-backdrop-filter:blur(14px) saturate(135%);backdrop-filter:blur(14px) saturate(135%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,\'Noto Sans KR\',-apple-system,BlinkMacSystemFont,sans-serif;border-right:1px solid rgba(251,191,36,.25)}'
     + '#mg-drawer.open{transform:translateX(0)}'
     + '#mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}'
     + '#mg-drawer-overlay.open{opacity:1;visibility:visible}'
