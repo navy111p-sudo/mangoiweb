@@ -3691,6 +3691,14 @@
      두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
 <link rel="preload" as="image" href="/img/home-bg-bright.webp?v=20260730">
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
+<!-- 🥭 홈 제목 로고 (2026-08-22 사장님 확정: 휴대폰에서만 교체, PC 는 그대로)
+     정본은 /css/mango-logo.css 한 곳. 글꼴 정의를 «따로» 링크하는 이유는,
+     mango-logo.css 안 @import 가 CSS 를 다 읽은 뒤에야 요청을 내보내 한 번 더
+     왕복하기 때문입니다. 여기서 미리 걸어 두면 그 @import 는 캐시에서 끝납니다.
+     ⚠️ PC 는 이 글꼴 파일(39KB)을 «받지 않습니다» — 로고가 display:none 이라
+        브라우저가 쓰지 않는 @font-face 는 내려받지 않습니다. -->
+<link rel="stylesheet" href="/css/mango-logo-font.css?v=1">
+<link rel="stylesheet" href="/css/mango-logo.css?v=6">
 <style id="mg-title-final">
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
   /* 🌟 속은 투명(우주 배경이 비침) + 빛나는 금색 외곽선, 가로로 살짝 넓게 */
@@ -3720,6 +3728,18 @@
   }
   @media (max-width:640px){
     .ht-glass{ -webkit-text-stroke-width:1.2px !important; letter-spacing:0.5px !important; transform:scaleX(1.1) !important; }
+  }
+  /* 🥭 휴대폰에서만 새 로고로 — PC·태블릿은 위 골드 제목 그대로.
+     토글을 여기(제목 정본)에 두는 이유: mango-logo.css 가 늦게 와도 «무엇을 보일지» 는
+     첫 페인트부터 정해져 있어야 옛 제목이 잠깐 보였다 바뀌는 일이 없습니다. */
+  .ht-logo{ display:none !important; }
+  @media (max-width:640px){
+    .ht-glass{ display:none !important; }
+    .ht-logo{
+      display:inline-flex !important;
+      /* .home-title 의 clamp 를 물려받지 않게 로고 크기를 따로 정합니다 */
+      font-size: clamp(34px, 13.6vw, 64px) !important;
+    }
   }
   /* 🚫 옛 요소 — 로딩 초반에 잠깐 보이던 것들. 첫 화면부터 숨긴다.
      (예전엔 이 숨김 CSS 가 문서 25,000줄쯤에 있어서 그 전까지 화면에 노출됐다) */
@@ -5801,6 +5821,13 @@ window.mgIsSlowNet = function(){
       </div>
       <h1 id="home-subtitle" class="home-title" aria-label="MANGO AI">
         <span class="ht-glass">Mango Ai</span>
+        <!-- 휴대폰 전용. width/height 를 적어 두는 이유: CSS 가 늦게 오면 320px 원본
+             크기로 잠깐 그려져 화면이 크게 출렁입니다(그때 자리를 미리 잡아 둡니다) -->
+        <span class="ht-logo mango-logo">
+          <span class="mango-logo__text">MANG</span>
+          <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt="" width="60" height="48" decoding="async"></span>
+          <span class="mango-logo__text">&nbsp;AI</span>
+        </span>
       </h1>
       <p id="home-tagline" class="home-tagline">
         <span data-ko="AI로 생각하고 결정하는 영어, 망고아이" data-en="Think and decide in English — Mango Ai">AI로 생각하고 결정하는 영어, 망고아이</span>
