@@ -310,18 +310,19 @@ export interface ExpenseAccountRules {
   owners: Set<string>;           // 지사 대표자명 (franchises.owner_name)
 }
 
-/** 판정에 필요한 표 두 개를 한 번에 읽어 둔다. 행마다 쿼리하지 않기 위해 분리했다. */
+/** 판정에 필요한 표 두 개를 한 번에 읽어 둔다. 행마다 쿼리하지 않기 위해 분리했다.
+ *  ⛔ 여기서 읽기 실패를 `safe()` 로 삼키지 말 것 — 빈 목록으로 이어가면 **에러 없이**
+ *     「지사수수료 0원」이 되어 손익계산서가 틀린 채로 그려진다. 부르는 쪽이 판단하도록
+ *     그대로 던진다(`monthActualOpex` 는 쪼개기를 통째로 포기해 「기타출금」 한 덩어리로
+ *     남기고, `bankExpensesReport` 는 화면에 숫자 대신 오류를 낸다).
+ *     같은 모양의 사고: CLAUDE.md 2장 「`erp-list` 는 어떤 에러든 삼켜 빈 배열을 주므로…」 */
 export async function loadExpenseAccountRules(env: Env): Promise<ExpenseAccountRules> {
   await ensurePayeeTable(env);
   const payees = new Map<string, string>();
-  const mp: any = await safe(
-    async () => await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all(),
-    { results: [] } as any);
+  const mp: any = await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all();
   for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) payees.set(r.payee, r.category);
   const owners = new Set<string>();
-  const ow: any = await safe(
-    async () => await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all(),
-    { results: [] } as any);
+  const ow: any = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
   for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(String(r.owner_name).trim());
   return { payees, owners };
 }

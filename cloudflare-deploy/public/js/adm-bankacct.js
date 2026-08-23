@@ -53,10 +53,15 @@
     moved:  ['다른 줄로 — 강사급여·매출차감', 'Moved to another line'],
     review: ['확인 필요 — 계정과목 없음', 'Needs an account']
   };
-  /* ⛔ 색을 인라인 style 로 주지 않는다 — 관리자 화면은 `admin-inline-c.css` 의 전역 규칙과
-     `js/adm-light-surfaces.js` 페인터가 인라인 색을 **!important 로 갈아엎는다**(2026-08-23 실측:
-     빨강 #b91c1c → rgb(55,92,129)). 뜻이 있는 색은 클래스로 주고, 값은 그 CSS 파일 맨 끝
-     `#acc-bankacct …` 블록이 정한다. 페인터 예외(SKIP_SEL)에도 `.bk-sig` 로 등재돼 있다. */
+  /* ⛔ 색을 인라인 style 로 주지 않는다 — `admin-inline-c.css` 의 전역 규칙이 `[id^="card-"]`
+     안 글자를 통째로 덮고, 그 위에 페인터가 **인라인 `!important` 로 한 번 더** 칠한다.
+     2026-08-23 실측(KPI 타일): 빨강 `#b91c1c` 로 적은 글자가 화면에는 `rgb(248,250,252)`(흰빛)
+     — 인라인에 `color: rgb(248,250,252) !important` 가 박혀 있었고 `data-lightened` 는 없었다
+     (= `js/adm-s13.js` 의 `fixTextOnDark()` 가 칠한 것).
+     ✅ 뜻이 있는 색은 클래스로 주고, 값은 그 CSS 파일 맨 끝 `#acc-bankacct …` 블록이 정한다.
+     ⛔ 페인터의 `SKIP_SEL` 에는 **일부러 등재하지 않았다** — 그건 «대비가 모자랄 때만» 도는
+        가독성 구제라, 예외로 빼면 어두운 타일 위에 안 읽히는 빨강이 박힌다. 대신 색이 눌릴 수
+        있는 자리는 아래 `pct()` 처럼 ▲▼ 로 뜻을 함께 말한다. */
   var ROLE_CLASS = { opex: 'bk-role-opex', dup: 'bk-role-dup', moved: 'bk-role-moved', review: 'bk-role-review' };
 
   /* 🎨 도넛 색 — 계정과목 수만큼 돌려 쓴다. 「기타출금」만 늘 빨강으로 튀게 해서
@@ -316,31 +321,15 @@
     }
   };
 
-  /* 🔄 계좌 동기화 — 바로빌에서 새 거래를 받아온다(밤에 자동으로도 돈다).
-     끝나면 곧바로 다시 조회해서 화면과 DB 가 어긋난 채로 남지 않게 한다. */
-  window.bankExpSync = async function () {
-    if (_busy) return;
-    _busy = true;
-    var btn = $('acc-bank-sync-btn');
-    var old = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.textContent = en() ? 'Syncing…' : '동기화 중…'; }
-    try {
-      var r = await fetch('/api/admin/bankacct/sync', { method: 'POST', credentials: 'include' });
-      var d = null; try { d = await r.json(); } catch (e) {}
-      if (d && d.ok === false && d.message) {
-        var box = $('acc-bank-status');
-        if (box) {
-          box.innerHTML = '<div style="background-color:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:9px 12px;font-size:12px;color:#78350f">'
-            + esc(en() ? (d.message_en || d.message) : d.message) + '</div>';
-        }
-      }
-    } catch (e) { /* 아래에서 다시 조회하므로 여기서는 조용히 */ }
-    finally {
-      _busy = false;
-      if (btn) { btn.disabled = false; btn.innerHTML = old; }
-    }
-    await window.bankExpLoad();
-  };
+  /* ⛔ «계좌 동기화» 실행 함수를 여기 두지 않는다 (2026-08-23 에 넣었다가 뺐다).
+     `POST /api/admin/bankacct/sync` 는 적재만 하는 것이 아니라 끝에서
+     `UPDATE bankacct_transactions SET category=?` 로 **전 기간 소급 재분류**를 한다
+     (`src/bankacct-sync.ts`). D1 은 개발·운영이 같은 DB 라 CLAUDE.md 1-1 이
+     「UPDATE 는 사람에게 먼저 알릴 것」이라고 못 박는다. 지금까지 그 UPDATE 를 도는 것은
+     밤 자동 동기화뿐이었고, 화면에 버튼을 붙이면 본사 관리자 누구나 돌릴 수 있게 된다.
+     ✅ 이 화면은 «보는» 화면이다. 새 거래는 밤에 자동으로 들어오고, 계정과목 지정은
+        「🏷️ 지출 계정과목 분류」에서 하며 **동기화를 기다리지 않고 바로 반영된다**
+        (서버가 저장된 category 를 덮어쓰지 않고 «읽을 때» 판정하기 때문). */
 
   // ── 카드를 펼치면 자동 조회 (버튼 안 눌러도 바로 보이게) ──────────────────
   (function bind() {
