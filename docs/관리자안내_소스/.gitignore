@@ -1,0 +1,7 @@
+# 굽는 데만 쓰는 것들 — 저장소에 넣지 않습니다.
+node_modules
+fonts
+fonts/
+fonts_pkg
+.shots/
+.build/

@@ -3691,6 +3691,14 @@
      두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
 <link rel="preload" as="image" href="/img/home-bg-bright.webp?v=20260730">
 <link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
+<!-- 🥭 홈 제목 로고 (2026-08-22 사장님 확정: 휴대폰에서만 교체, PC 는 그대로)
+     정본은 /css/mango-logo.css 한 곳. 글꼴 정의를 «따로» 링크하는 이유는,
+     mango-logo.css 안 @import 가 CSS 를 다 읽은 뒤에야 요청을 내보내 한 번 더
+     왕복하기 때문입니다. 여기서 미리 걸어 두면 그 @import 는 캐시에서 끝납니다.
+     ⚠️ PC 는 이 글꼴 파일(39KB)을 «받지 않습니다» — 로고가 display:none 이라
+        브라우저가 쓰지 않는 @font-face 는 내려받지 않습니다. -->
+<link rel="stylesheet" href="/css/mango-logo-font.css?v=1">
+<link rel="stylesheet" href="/css/mango-logo.css?v=6">
 <style id="mg-title-final">
   .home-title { background: transparent !important; gap: 0 !important; font-size: clamp(40px, 7.6vw, 80px) !important; }
   /* 🌟 속은 투명(우주 배경이 비침) + 빛나는 금색 외곽선, 가로로 살짝 넓게 */
@@ -3720,6 +3728,21 @@
   }
   @media (max-width:640px){
     .ht-glass{ -webkit-text-stroke-width:1.2px !important; letter-spacing:0.5px !important; transform:scaleX(1.1) !important; }
+  }
+  /* 🥭 홈 제목 = 새 로고 (2026-08-22 사장님 확정).
+     처음엔 «휴대폰에서만» 이었는데 같은 날 «휴대폰 가로도, PC 도 똑같이» 로 넓혔습니다.
+     그래서 폭 조건이 없습니다 — 어느 화면에서나 로고입니다.
+     옛 골드 외곽선 제목(.ht-glass)은 지우지 않고 숨겨만 뒀습니다. 되돌리려면 이 두
+     줄만 빼면 그대로 돌아옵니다.
+     이 토글을 여기(제목 정본)에 두는 이유: mango-logo.css 가 늦게 와도 «무엇을 보일지»
+     는 첫 페인트부터 정해져 있어야 옛 제목이 잠깐 보였다 바뀌지 않습니다. */
+  .ht-glass{ display:none !important; }
+  .ht-logo{
+    display:inline-flex !important;
+    /* .home-title 의 clamp 를 물려받지 않게 로고 크기를 따로 정합니다.
+       13.6vw 는 좁은 폰에서 화면 폭의 80% 가 되도록 맞춘 값이고,
+       80px 상한은 넓은 PC 에서 옛 제목과 비슷한 크기가 되는 지점입니다. */
+    font-size: clamp(34px, 13.6vw, 80px) !important;
   }
   /* 🚫 옛 요소 — 로딩 초반에 잠깐 보이던 것들. 첫 화면부터 숨긴다.
      (예전엔 이 숨김 CSS 가 문서 25,000줄쯤에 있어서 그 전까지 화면에 노출됐다) */
@@ -4584,7 +4607,11 @@ window.mgIsSlowNet = function(){
   </button>
 </aside>
 <style>
-  #mg-drawer{position:fixed;top:0;left:0;height:100%;width:325px;max-width:90vw;background:rgba(11,16,32,0.22);-webkit-backdrop-filter:blur(10px) saturate(130%);backdrop-filter:blur(10px) saturate(130%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;border-right:1px solid rgba(251,191,36,.25)}
+  /* 🔑 배경은 «94~97% 그라디언트» — 투명 22% 로 되돌리지 말 것 (2026-08-22 사장님 지시).
+     흐림(backdrop-filter)이 안 되는 브라우저(카톡 인앱·구형 WebView·저전력)에서는 그것이
+     통째로 무시돼 얇은 색 한 겹만 남고 뒤 화면이 다 비쳤다. 어둡게 하는 힘은 배경에 직접 굽는다.
+     ⚠️ js/mg-sidebar.js 에 같은 줄이 한 벌 더 있다(홈 밖 26개 화면) — 둘 다 고쳐야 한다. */
+  #mg-drawer{position:fixed;top:0;left:0;height:100%;width:325px;max-width:90vw;background:linear-gradient(180deg,rgba(12,18,38,0.94),rgba(6,10,22,0.97));-webkit-backdrop-filter:blur(14px) saturate(135%);backdrop-filter:blur(14px) saturate(135%);box-shadow:6px 0 24px rgba(0,0,0,.3);transform:translateX(-100%);transition:transform .3s ease-in-out;z-index:100000;display:flex;flex-direction:column;font-family:MangoiHanSC,'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Malgun Gothic','맑은 고딕',sans-serif;border-right:1px solid rgba(251,191,36,.25)}
   #mg-drawer.open{transform:translateX(0)}
   #mg-drawer-overlay{position:fixed;inset:0;background:rgba(2,6,18,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;visibility:hidden;transition:opacity .3s;z-index:99999}
   #mg-drawer-overlay.open{opacity:1;visibility:visible}
@@ -5788,15 +5815,20 @@ window.mgIsSlowNet = function(){
     </script>
     <!-- 🥭 Phase 8 — 우주 버블 안의 망고아이 마스코트 + 골드 세리프 타이틀 -->
     <div class="home-hero-stack" style="display:flex;flex-direction:column;align-items:center;margin-bottom:1.4rem;position:relative;z-index:2;">
-      <div class="mascot-bubble" aria-hidden="false">
-        <img src="/img/Mangoi_Character.png" alt="Mangoi"
-             onerror="this.onerror=null;this.style.background='linear-gradient(135deg,#fbbf24,#f59e0b)';this.style.padding='40px';this.style.fontSize='120px';this.alt='망고아이';"
-             class="mascot-img" loading="lazy" decoding="async"/>
-        <span class="mascot-shine"></span>
-        <span class="mascot-rim"></span>
-      </div>
+      <!-- (삭제됨 2026-08-22) 제목 위에 떠 있던 망고 마스코트(.mascot-bubble) —
+           새 로고의 «O» 자리에 같은 캐릭터가 들어가면서 화면에 망고가 둘이 됐습니다.
+           사장님 지시로 위쪽 것을 뺐습니다. 아래 .mascot-bubble·.mascot-img·
+           .mascot-shine·.mascot-rim·@keyframes mangoiFloat 규칙은 되살릴 때를 위해
+           남겨 뒀습니다(지금은 쓰는 곳이 없습니다). 왼쪽 우주인은 그대로입니다. -->
       <h1 id="home-subtitle" class="home-title" aria-label="MANGO AI">
         <span class="ht-glass">Mango Ai</span>
+        <!-- width/height 를 적어 두는 이유: CSS 가 늦게 오면 320px 원본 크기로 잠깐
+             그려져 화면이 크게 출렁입니다(그때 자리를 미리 잡아 둡니다) -->
+        <span class="ht-logo mango-logo">
+          <span class="mango-logo__text">MANG</span>
+          <span class="mango-logo__o"><img src="/assets/mango-mascot.png" alt="" width="60" height="48" decoding="async"></span>
+          <span class="mango-logo__text">&nbsp;AI</span>
+        </span>
       </h1>
       <p id="home-tagline" class="home-tagline">
         <span data-ko="AI로 생각하고 결정하는 영어, 망고아이" data-en="Think and decide in English — Mango Ai">AI로 생각하고 결정하는 영어, 망고아이</span>
@@ -8930,7 +8962,7 @@ window.mgIsSlowNet = function(){
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=31"></script>
+<script src="/js/idx-main.js?v=34"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=1" defer></script>
@@ -10706,7 +10738,7 @@ window.mgIsSlowNet = function(){
 <div class="login-overlay" id="login-overlay" onclick="if(event.target===this)closeLoginModal()"></div>
 <!-- 로그인 후 사용자 드롭다운 메뉴 -->
 <div class="user-menu" id="user-menu"></div>
-<script src="/js/idx-user-session.js?v=4"></script>
+<script src="/js/idx-user-session.js?v=5"></script>
 
 <!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
 <script defer src="/js/idx-remote-support.js?v=1"></script>
@@ -13910,7 +13942,7 @@ window.mgIsSlowNet = function(){
 <!-- 🎭 얼굴 꾸미기(마스크·액세서리) 엔진 — MediaPipe Face Detection -->
 <!--    카메라(또는 가상배경 합성 캔버스) → 얼굴 landmark 검출 → 액세서리 오버레이 합성 →
         captureStream → 모든 peer sender 에 replaceTrack. 가상배경(vcBg)과 공존. -->
-<script src="/js/idx-x6.js?v=8"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x6.js?v=9"></script><!-- 분할추출:idx-x6 (원복: 이 위치에 인라인) -->
 
 <!-- BUILD:20260813015745 -->
 <!-- 🧹 수업 연기/변경 통합 (2026-06-08) — 겹치던 옛 모달(ph64/69/71/75) 대신 단일 페이지로 일원화 -->
