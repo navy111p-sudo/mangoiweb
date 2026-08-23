@@ -9883,6 +9883,7 @@ function buildMenuIndex() {
           집계 카드는 자기 라벨로 이미 걸리므로 별칭을 따로 두지 않는다. */
     { kw:'레벨테스트 레벨 테스트 신청 신청현황 등록 등록결과 접수 결과 배정 대기 level test application signup', card:'card-level-tests', label:'레벨테스트 신청·등록 결과', en:'Level Test Applications', top:true },
     { kw:'법인카드 법인 카드내역 카드사용 지출 지출내역 경비 corpcard', card:'acc-corpcard', label:'법인카드 사용내역 (지출)' },
+    { kw:'신한은행 신한 계좌 통장 은행 출금 입출금 지출 계정과목 거래처 bankacct bank', card:'acc-bankacct', label:'신한 계좌 입출금 (지출 분석)' },
     { kw:'강의실 입장 테스트 장비점검 웹캠 마이크 점검 테스트하네스 진단 test', card:'card-classroom-test', label:'강의실 입장·장비 점검 테스트' }
   ];
   MENU_ALIASES.forEach(function(a){
