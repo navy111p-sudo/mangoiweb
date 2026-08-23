@@ -3702,9 +3702,49 @@
      도착 전에도 이미 '대문자 + 금색 외곽선' 최종 형태로 보인다. -->
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
 <!-- 🖼️ 홈 배경 먼저 받기 — 배경이 늦게 오면 그때까지 '배경 없는 옛 화면'이 보인다.
-     두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
-<link rel="preload" as="image" href="/img/home-bg-bright.webp?v=20260730">
-<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
+     ⚡ (2026-08-23) 예전엔 두 장을 «둘 다» preload 했다. 시간대에 따라 밝은/어두운 테마가
+        자동으로 바뀌는데 <link> 태그로는 어느 쪽이 될지 알 수 없어서였다.
+        그런데 첫 화면에 실제로 쓰이는 건 «언제나 한 장뿐» 이라, 나머지 한 장(밝은 147KB /
+        어두운 40KB)은 그냥 버려지는 다운로드였다. 필리핀 회선에서는 이게 그대로 «늦게 뜸» 이 된다.
+        → 지금은 아래 스크립트가 «이번에 쓸 한 장» 만 골라서 먼저 받고,
+          나머지 한 장은 화면을 다 그린 뒤 한가할 때 조용히 받아 둔다(테마 칩을 눌러
+          바꿔도 즉시 바뀌는 것은 그대로 유지된다 — 한국처럼 회선이 빠른 곳은 체감 차이가 없다).
+     ⚠️ 아래 판정은 이 파일 뒤쪽 applyHomeTheme() 과 «같은 규칙» 이어야 한다
+        (?home= → localStorage mangoi_home_theme_mode → 자동은 6~18시가 밝음).
+        둘이 어긋나면 «안 쓸 그림» 을 먼저 받게 된다 — 화면은 멀쩡해서 티가 안 난다.
+        그래서 test-harness/home_bg_preload_harness.mjs 가 두 곳을 대조해 FAIL 낸다. -->
+<script>
+(function(){
+  var BRIGHT='/img/home-bg-bright.webp?v=20260730', DARK='/img/home-bg-dark.webp?v=20260730';
+  var bright=true;                                   // 못 정하면 밝은 쪽(기본 자동·낮)
+  try{
+    var mode=null, hh=null;
+    var sp=new URLSearchParams(location.search), p=sp.get('home');
+    if(p==='bright'||p==='light') mode='bright';
+    else if(p==='dark') mode='dark';
+    else if(p==='auto') mode='auto';
+    var h2=parseInt(sp.get('hh'),10); if(!isNaN(h2)&&h2>=0&&h2<=23) hh=h2;
+    if(!mode){ try{ var m=localStorage.getItem('mangoi_home_theme_mode');
+      if(m==='bright'||m==='dark'||m==='auto') mode=m; }catch(e){} }
+    if(!mode) mode='auto';
+    var hr=(hh!==null)?hh:new Date().getHours();
+    bright=(mode==='bright')||(mode==='auto'&&hr>=6&&hr<18);
+  }catch(e){}
+  var use=bright?BRIGHT:DARK, other=bright?DARK:BRIGHT;
+  var l=document.createElement('link');
+  l.rel='preload'; l.as='image'; l.href=use;
+  document.head.appendChild(l);
+  // 나머지 한 장: 화면을 다 그린 뒤 한가할 때만. 데이터 절약 모드면 아예 안 받는다.
+  try{
+    var save=(navigator.connection&&navigator.connection.saveData)===true;
+    if(!save) addEventListener('load', function(){
+      var go=function(){ var l2=document.createElement('link');
+        l2.rel='prefetch'; l2.as='image'; l2.href=other; document.head.appendChild(l2); };
+      (window.requestIdleCallback||function(f){ setTimeout(f,3000); })(go, {timeout:8000});
+    }, {once:true});
+  }catch(e){}
+})();
+</script>
 <!-- 🥭 홈 제목 로고 (2026-08-22 사장님 확정: 휴대폰에서만 교체, PC 는 그대로)
      정본은 /css/mango-logo.css 한 곳. 글꼴 정의를 «따로» 링크하는 이유는,
      mango-logo.css 안 @import 가 CSS 를 다 읽은 뒤에야 요청을 내보내 한 번 더
