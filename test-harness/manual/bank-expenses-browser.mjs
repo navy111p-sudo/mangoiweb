@@ -71,6 +71,27 @@ const SEED = {
   ],
   account_options: ['지사수수료', '광고선전비', '지급수수료', '기타출금'],
   can_assign: true,
+  prev_month: '2026-06',
+  /* 🔁 고정비·변동비 — 김영진은 4개월 중 4개월·금액 폭 ×1.05 라 고정비,
+     주식회사알수없는곳은 1개월만 나와 변동비. 화면이 «근거» 를 함께 그려야 한다. */
+  recurring: {
+    window: ['2026-04', '2026-05', '2026-06', '2026-07'],
+    window_months: 4, min_months: 3, spread_max: 1.25,
+    fixed_total: 6_000_000, recurring_total: 2_000_000, variable_total: 4_500_000,
+    items: [
+      { payee: '김영진', account: '지사수수료', current: 6_000_000, kind: 'fixed', months_seen: 4, avg: 5_900_000, spread: 1.05 },
+      { payee: '신한카드', account: '카드대금', current: 2_000_000, kind: 'recurring', months_seen: 4, avg: 1_600_000, spread: 2.4 },
+      { payee: '주식회사알수없는곳', account: '기타출금', current: 1_500_000, kind: 'variable', months_seen: 1, avg: 1_500_000, spread: 1 },
+      { payee: '메트로은행', account: '강사급여송금', current: 1_000_000, kind: 'variable', months_seen: 2, avg: 1_100_000, spread: 1.3 },
+    ],
+  },
+  /* 📈 «사라진» 거래처(status:'gone')를 반드시 포함한다 — 당월 목록만 보면 영영 안 보인다 */
+  movers: [
+    { payee: '주식회사알수없는곳', account: '기타출금', current: 1_500_000, prev: 0, delta: 1_500_000, delta_pct: null, status: 'new' },
+    { payee: '김영진', account: '지사수수료', current: 6_000_000, prev: 5_500_000, delta: 500_000, delta_pct: 9.1, status: 'changed' },
+    { payee: '메트로은행', account: '강사급여송금', current: 1_000_000, prev: 1_200_000, delta: -200_000, delta_pct: -16.7, status: 'changed' },
+    { payee: '옛구독서비스', account: '기타출금', current: 0, prev: 900_000, delta: -900_000, delta_pct: -100, status: 'gone' },
+  ],
   status: { state: 'ok', configured: true, message_ko: '계좌 연동 정상. 아래는 실제 입출금 내역입니다.', message_en: 'Bank sync is healthy.', last_sync_at: Date.UTC(2026, 6, 26, 0, 0), last_error: null, rows_total: 812, rows_month: 4 },
 };
 
@@ -119,6 +140,9 @@ async function open(browser, width, height, opts = {}) {
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
 
+  /* 🪤 계정과목 지정은 `confirm()` 으로 한 번 확인한다(휠·방향키 오조작 방지).
+        헤드리스는 기본이 «취소» 라 그대로 두면 저장 검사가 통째로 안 돈다. */
+  page.on('dialog', d => d.accept().catch(() => {}));
   await page.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
   /* ⚠️ state:'attached' 로 기다린다 — 관리자 카드는 adm-ia6.js 가 `ia6-hide` 로
         **한 번에 한 장만** 보여 주므로, 처음에는 붙어 있어도 «보이지 않는다». */
@@ -363,6 +387,124 @@ async function openCard(page) {
       }));
       check('저장 실패를 말로 알린다', /저장하지 못했습니다/.test(r.note), r.note.slice(0, 70));
       check('실패하면 고른 값을 되돌린다', r.val !== '지급수수료', r.val);
+      await ctx.close();
+    }
+
+    /* ── ⑨ 🎨 «적은 대로 화면에 나오는가» — 전역 CSS·페인터가 덮는 자리 ──────────
+       2026-08-23 함정 대조가 실측으로 잡은 것이다: `<select>` 의 인라인 style 이
+       `[id^="card-"] select{…!important}` 에 통째로 져서 11px→13.5px 로 부풀고,
+       안내줄 갈색은 `#101828` 로 눌렸다. 코드만 보면 «있는» 값이라 이 검사가 없으면
+       또 놓친다. 반드시 **getComputedStyle 로 실측**한다. */
+    console.log('\n[9] 적은 대로 화면에 나오는가 (전역 CSS 가 덮는 자리)');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      const st = await page.evaluate(() => {
+        const sel = document.querySelector('#acc-bank-payees select.bk-assign');
+        const note = document.getElementById('acc-bank-assign-note');
+        const mute = document.querySelector('#acc-bank-payees .bk-note-mute');
+        const cs = e => e ? getComputedStyle(e) : null;
+        const a = cs(sel), b = cs(note), c = cs(mute);
+        return {
+          selFont: a && a.fontSize, selPadTop: a && a.paddingTop, selPadLeft: a && a.paddingLeft,
+          selBox: a && a.boxSizing, selMax: a && a.maxWidth,
+          noteColor: b && b.color, muteColor: c && c.color,
+        };
+      });
+      check('지정 칸 글자 11px', st.selFont === '11px', String(st.selFont));
+      check('지정 칸 여백 3px 5px', st.selPadTop === '3px' && st.selPadLeft === '5px',
+        st.selPadTop + ' / ' + st.selPadLeft);
+      check('지정 칸이 테두리를 포함해 폭을 센다', st.selBox === 'border-box', String(st.selBox));
+      check('지정 칸이 칸 밖으로 안 넘친다', st.selMax === '160px', String(st.selMax));
+      /* 🪤 「지난 출금까지 바뀐다」는 경고로 읽혀야 한다 — 본문색으로 눌리면 안 된다 */
+      check('안내줄이 경고색으로 나온다', (st.noteColor || '').replace(/\s/g, '') === 'rgb(120,53,15)',
+        String(st.noteColor));
+      check('설명 글자가 회색으로 나온다', (st.muteColor || '').replace(/\s/g, '') === 'rgb(107,114,128)',
+        String(st.muteColor));
+      await ctx.close();
+    }
+
+    /* ── ⑩ 「기타출금」 = 지정 지우기 — 지울 것이 없으면 못 고른다 ───────────── */
+    console.log('\n[10] 「기타출금」은 «지정 지우기» — 아무 일도 안 일어나는 선택을 막는다');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      const o = await page.evaluate(() => {
+        const pick = p => [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+          .find(s => s.getAttribute('data-payee') === p);
+        const info = s => s ? [].slice.call(s.options).map(x => ({ v: x.value, t: x.textContent, d: x.disabled })) : null;
+        return { assigned: info(pick('김영진')), notAssigned: info(pick('주식회사알수없는곳')) };
+      });
+      const clearOf = (arr) => (arr || []).find(x => x.v === '기타출금');
+      check('「기타출금」 라벨이 «지정 지우기» 로 나온다', /지정 지우기/.test((clearOf(o.assigned) || {}).t || ''),
+        String((clearOf(o.assigned) || {}).t));
+      check('지정된 거래처는 지울 수 있다', clearOf(o.assigned) && clearOf(o.assigned).d === false);
+      /* 🪤 지정이 없던 곳에서 고르면 서버는 DELETE 를 하지만 지울 것이 없어 아무 일도
+            안 일어나고 «성공» 으로 보인다 — 그 선택 자체를 막는다 */
+      check('지정이 없던 거래처는 못 고른다', clearOf(o.notAssigned) && clearOf(o.notAssigned).d === true,
+        JSON.stringify(clearOf(o.notAssigned)));
+      await ctx.close();
+    }
+
+    /* ── ⑧ 🔁 고정비·변동비 · 📈 증감 Top · 📥 엑셀 (3단계) ─────────────────── */
+    console.log('\n[8] 고정비·변동비 · 전월 대비 증감 · 엑셀 내보내기');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+
+      const r = await page.evaluate(() => {
+        const txt = id => (document.getElementById(id) || {}).textContent || '';
+        const rowsOf = id => [].slice.call(document.querySelectorAll('#' + id + ' tr'))
+          .map(tr => tr.textContent.replace(/\s+/g, ' ').trim());
+        return {
+          sum: txt('acc-bank-recur-sum'),
+          note: txt('acc-bank-recur-note'),
+          recur: rowsOf('acc-bank-recur'),
+          title: txt('acc-bank-movers-title'),
+          up: rowsOf('acc-bank-movers-up'),
+          down: rowsOf('acc-bank-movers-down'),
+          hasXlsxBtn: !!document.getElementById('acc-bank-xlsx-btn'),
+        };
+      });
+
+      check('고정비 합계를 그린다', /6,000,000/.test(r.sum), r.sum.replace(/\s+/g, ' ').slice(0, 70));
+      check('세 묶음(고정·반복·변동) 전부', /고정비/.test(r.sum) && /반복/.test(r.sum) && /변동비/.test(r.sum),
+        r.sum.replace(/\s+/g, ' ').slice(0, 70));
+      check('고정비가 맨 위로 정렬', /김영진/.test(r.recur[0] || ''), r.recur[0]);
+      /* 🪤 «패턴 추정» 이라 근거가 같은 줄에 있어야 한다 — 숫자만 주면 확인할 방법이 없다 */
+      check('근거(몇 달 나왔는지)를 함께', /4\/4개월/.test(r.recur[0] || ''), r.recur[0]);
+      check('근거(금액 폭)를 함께', /×1\.05/.test(r.recur[0] || ''), r.recur[0]);
+      check('«패턴 추정» 임을 밝힌다', /패턴 추정/.test(r.note), r.note.slice(0, 60));
+      check('창 기간을 밝힌다', /2026-04/.test(r.note) && /2026-07/.test(r.note), r.note.slice(0, 90));
+
+      check('증감 제목에 비교 대상 두 달', /2026-06/.test(r.title) && /2026-07/.test(r.title), r.title);
+      check('늘어난 곳 — 새로 생긴 것 포함', r.up.some(t => /주식회사알수없는곳/.test(t) && /새로 생김/.test(t)), r.up.join(' | ').slice(0, 90));
+      check('늘어난 곳 — 큰 것부터', /주식회사알수없는곳/.test(r.up[0] || ''), r.up[0]);
+      /* 🪤 «사라진» 거래처는 당월 목록에 없어서 안 보이기 쉽다 — 반드시 나와야 한다 */
+      check('줄어든 곳 — «사라짐» 이 보인다', r.down.some(t => /옛구독서비스/.test(t) && /사라짐/.test(t)), r.down.join(' | ').slice(0, 90));
+      check('줄어든 곳 — 많이 줄어든 것부터', /옛구독서비스/.test(r.down[0] || ''), r.down[0]);
+      check('엑셀 버튼이 있다', r.hasXlsxBtn, '없음');
+
+      // 📥 엑셀 — 새 창(window.open)이 아니라 같은 창으로 나가야 한다(인앱 브라우저)
+      const exportUrl = await page.evaluate(() => {
+        let got = null;
+        const d = Object.getOwnPropertyDescriptor(window.location, 'href');
+        // location 을 못 갈아끼우는 브라우저를 대비해, 함수가 무엇을 만드는지만 확인한다
+        const orig = window.location.assign;
+        try {
+          Object.defineProperty(window, '__bkOpenCalled', { value: false, writable: true });
+          const openOrig = window.open;
+          window.open = function () { window.__bkOpenCalled = true; return null; };
+          const src = String(window.bankExpExport);
+          window.open = openOrig;
+          got = { src, openUsed: /window\.open/.test(src) };
+        } catch (e) { got = { src: '', openUsed: false }; }
+        void d; void orig;
+        return got;
+      });
+      check('엑셀은 window.open 을 안 쓴다', !exportUrl.openUsed, '(인앱 브라우저는 새 창을 못 엽니다)');
+      check('내보내기 주소에 format 이 실린다', /format=/.test(exportUrl.src), exportUrl.src.slice(0, 120));
+
       await ctx.close();
     }
 

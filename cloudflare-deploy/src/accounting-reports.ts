@@ -637,7 +637,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
     if (p === 'payees') return await payeesRouter(env, request, url);
     // 🏦 신한 계좌 «출금» 원장 — 계정과목·거래처별로 쪼개서 본다(2026-08-23)
-    if (p === 'bank-expenses') return await bankExpensesReport(env, request, url);
+    if (p === 'bank-expenses') return await bankExpensesReport(env, request, url, fmt);
     // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
     if (p === 'payers') return await payersRouter(env, request, url);
     // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
@@ -1192,24 +1192,35 @@ interface BankExpenseRow {
   remark: string; category: string; memo: string;
 }
 
-async function bankExpensesReport(env: Env, request: Request, url: URL): Promise<Response> {
+async function bankExpensesReport(env: Env, request: Request, url: URL, fmt = 'json'): Promise<Response> {
   const q = String(url.searchParams.get('month') || '');
   const period = /^\d{4}-\d{2}$/.test(q) ? q : currentMonth();
   const { label } = monthRange(period);
 
   const rules = await loadExpenseAccountRules(env);
 
-  // 이 달 출금 전건 (최신순). 한 달치라 페이징 없이 그대로 내려준다.
-  const rows = await safe(async () => {
+  /* 🔁 «4개월 창» 을 한 번에 읽는다 — 고정비 판정(같은 거래처가 반복해서 나오는가)과
+     전월 대비 증감이 지난 달들을 필요로 한다. 달마다 따로 조회하면 왕복이 네 배가 된다.
+     ⚠️ 화면의 «출금 내역» 표는 이 중 이번 달만 쓴다(아래 detail). */
+  const [wy, wm] = period.split('-').map(Number);
+  const RECUR_WINDOW = 4;                       // 당월 포함 4개월
+  const windowMonths: string[] = [];
+  for (let i = RECUR_WINDOW - 1; i >= 0; i--) {
+    windowMonths.push(new Date(Date.UTC(wy, wm - 1 - i, 1)).toISOString().slice(0, 7));
+  }
+  const prevMonth = windowMonths[windowMonths.length - 2];
+
+  const windowRows = await safe(async () => {
     const r = await env.DB.prepare(`
       SELECT id, trans_at, amount, balance, COALESCE(remark,'') AS remark,
              COALESCE(category,'기타출금') AS category, COALESCE(memo,'') AS memo
       FROM bankacct_transactions
-      WHERE kind='out' AND substr(trans_at,1,7)=?
+      WHERE kind='out' AND substr(trans_at,1,7) >= ? AND substr(trans_at,1,7) <= ?
       ORDER BY trans_at DESC, id DESC
-    `).bind(period).all();
+    `).bind(windowMonths[0], period).all();
     return (r.results || []) as unknown as BankExpenseRow[];
   }, [] as BankExpenseRow[]);
+  const rows = windowRows.filter(r => String(r.trans_at).slice(0, 7) === period);
 
   /* 📈 최근 12개월 «총 출금» 추이 — 계정과목 판정 없이 순수 SQL 합계다.
      전월 대비·3개월 평균 KPI 도 이 값으로 낸다(달마다 전건을 다시 판정하지 않기 위해). */
@@ -1278,7 +1289,11 @@ async function bankExpensesReport(env: Env, request: Request, url: URL): Promise
        「기타출금」일 때만 쪼갠다. 급여이체·카드대금처럼 은행 적요로 이미 분류가 붙은 행은
        지정해도 **안 바뀐다.** 그걸 화면이 모르면 사장님이 지정해 놓고 「저장이 안 된다」고
        읽게 된다(실제로 그렇게 보인다 — 에러도 안 난다). 그래서 서버가 미리 알려 준다. */
-    if (d.bank_category === UNCLASSIFIED) cur.assignable = true;
+    /* ⛔ 적요가 빈 행은 지정 대상에서 뺀다 — 아래 key 가 '(적요 없음)' 이 되는데,
+       그 이름으로 저장해 봐야 resolveExpenseAccount() 의 두 조회(payeeBase(remark)·
+       remark.trim())가 **둘 다 안 맞아 영영 안 먹는다.** 칸을 내면 지정해 놓고
+       「저장이 안 된다」가 된다(2026-08-23 함정 대조에서 지적). */
+    if (d.bank_category === UNCLASSIFIED && (d.payee || d.remark)) cur.assignable = true;
     if (d.datetime < cur.first) cur.first = d.datetime;
     if (d.datetime > cur.last) cur.last = d.datetime;
     payeeMap.set(key, cur);
@@ -1308,13 +1323,81 @@ async function bankExpensesReport(env: Env, request: Request, url: URL): Promise
      연동이 꺼져 있는 것과 «그 달에 출금이 없는 것» 은 완전히 다른 이야기다. */
   const status = await safe(async () => await bankacctStatus(env, { current: rows }), null);
 
+  /* ═══ 🔁 고정비 · 변동비 가르기 (3단계) ════════════════════════════════════
+     [왜] 계좌 출금은 임대료·보험·구독료처럼 **매달 같은 곳에 비슷한 금액**이 나가는 것이
+     많다. 그걸 갈라 놓으면 「이번 달 왜 늘었나」에 바로 답할 수 있다 — 고정비는 그대로인데
+     변동비만 늘었다면 볼 곳이 좁아진다. 카드 화면에는 없는 축이다.
+
+     [판정] 당월 포함 4개월 창에서 그 거래처가 **3개월 이상** 나왔고, 월별 합계의
+     **최대/최소 비율이 1.25 이하**면 「고정비」. 3개월 이상 나왔지만 금액이 흔들리면
+     「반복(금액 변동)」, 나머지는 「변동비」.
+     ⚠️ 이건 «추정»이다. 회계 계정과목이 아니라 «패턴»이라 화면에 근거(몇 달 나왔는지·
+        금액 폭)를 함께 내려 준다 — 숫자만 주면 사람이 확인할 방법이 없다.
+     ⚠️ 창이 4개월이므로 **자료가 4개월치 없는 초기에는 대부분 «변동비»로 보인다.**
+        그건 틀린 게 아니라 «아직 모른다» 는 뜻이다. 화면이 창 기간을 함께 밝힌다. */
+  const byPayeeMonth = new Map<string, Map<string, number>>();
+  for (const r of windowRows) {
+    const key = payeeBase(r.remark) || r.remark || '(적요 없음)';
+    const ym = String(r.trans_at).slice(0, 7);
+    const m = byPayeeMonth.get(key) || new Map<string, number>();
+    m.set(ym, (m.get(ym) || 0) + (Number(r.amount) || 0));
+    byPayeeMonth.set(key, m);
+  }
+
+  const RECUR_MIN_MONTHS = 3;      // 4개월 중 3개월 이상 나와야 «반복»
+  const FIXED_SPREAD_MAX = 1.25;   // 월별 합계 최대/최소가 이 이하면 «금액이 일정하다»
+  type RecurKind = 'fixed' | 'recurring' | 'variable';
+  const recurOf = (payee: string): { kind: RecurKind; monthsSeen: number; avg: number; spread: number | null } => {
+    const m = byPayeeMonth.get(payee);
+    if (!m) return { kind: 'variable', monthsSeen: 0, avg: 0, spread: null };
+    const vals = [...m.values()].filter(v => v > 0);
+    const monthsSeen = vals.length;
+    const avg = monthsSeen ? Math.round(vals.reduce((a, b) => a + b, 0) / monthsSeen) : 0;
+    const min = monthsSeen ? Math.min(...vals) : 0;
+    const max = monthsSeen ? Math.max(...vals) : 0;
+    const spread = min > 0 ? Math.round((max / min) * 100) / 100 : null;
+    if (monthsSeen < RECUR_MIN_MONTHS) return { kind: 'variable', monthsSeen, avg, spread };
+    if (spread != null && spread <= FIXED_SPREAD_MAX) return { kind: 'fixed', monthsSeen, avg, spread };
+    return { kind: 'recurring', monthsSeen, avg, spread };
+  };
+
+  const recurItems = payees.map(p => {
+    const r = recurOf(p.payee);
+    return {
+      payee: p.payee, account: p.account, current: p.total,
+      kind: r.kind, months_seen: r.monthsSeen, avg: r.avg, spread: r.spread,
+    };
+  });
+  const kindSum = (k: RecurKind) => recurItems.filter(i => i.kind === k).reduce((a, i) => a + i.current, 0);
+
+  /* ═══ 📈 전월 대비 증감 (거래처 단위) ══════════════════════════════════════
+     ⚠️ **이번 달에 없는 거래처도 넣는다.** 정기결제가 끊긴 것·지사수수료가 안 나간 것은
+        «줄었다» 가 아니라 «사라졌다» 인데, 당월 목록만 보면 영영 안 보인다. */
+  const prevByPayee = new Map<string, number>();
+  for (const [payee, m] of byPayeeMonth) {
+    const v = m.get(prevMonth) || 0;
+    if (v > 0) prevByPayee.set(payee, v);
+  }
+  const curByPayee = new Map(payees.map(p => [p.payee, p.total] as [string, number]));
+  const moverKeys = new Set<string>([...curByPayee.keys(), ...prevByPayee.keys()]);
+  const movers = [...moverKeys].map(payee => {
+    const cur = curByPayee.get(payee) || 0;
+    const prv = prevByPayee.get(payee) || 0;
+    return {
+      payee, current: cur, prev: prv, delta: cur - prv,
+      delta_pct: prv > 0 ? Math.round(((cur - prv) / prv) * 1000) / 10 : null,
+      account: (payees.find(p => p.payee === payee) || { account: '' }).account,
+      status: prv === 0 ? 'new' : (cur === 0 ? 'gone' : 'changed'),
+    };
+  }).filter(m => m.delta !== 0).sort((a, b) => b.delta - a.delta);
+
   /* 🔐 «이 사람이 계정과목을 지정할 수 있나» — 실제 저장은 payeesRouter 가 `scope.type !== 'hq'`
      로 막는다(403). 화면도 같은 기준으로 지정 칸을 감춘다 — **서버만 있으면 «눌러도 안 되는
      칸»이 남고, 화면만 있으면 URL 로 뚫린다**(CLAUDE.md 2장). 그래서 둘 다 둔다.
      ⛔ `canEditOrg()` 를 쓰지 말 것 — 그 함수는 `'none'`(내부직원·교사)에도 true 를 준다. */
   const canAssign = await safe(async () => (await getScope(env, request)).type === 'hq', false);
 
-  return json({
+  const payload = {
     ok: true, type: 'bank-expenses', period, label,
     summary: {
       out_total: outTotal,
@@ -1339,9 +1422,76 @@ async function bankExpensesReport(env: Env, request: Request, url: URL): Promise
     history,
     account_options: EXPENSE_CATEGORIES,
     can_assign: canAssign,
+    /* 🔁 고정비·변동비 — «패턴 추정» 이라 근거(창 기간·몇 달 나왔는지·금액 폭)를 함께 준다 */
+    recurring: {
+      window: windowMonths,
+      window_months: RECUR_WINDOW,
+      min_months: RECUR_MIN_MONTHS,
+      spread_max: FIXED_SPREAD_MAX,
+      fixed_total: kindSum('fixed'),
+      recurring_total: kindSum('recurring'),
+      variable_total: kindSum('variable'),
+      items: recurItems,
+    },
+    // 📈 전월 대비 증감 — 늘어난 것부터. «사라진 거래처»(status='gone')도 들어 있다
+    movers,
+    prev_month: prevMonth,
     status,
     note: '이 화면은 계좌 «출금» 만 봅니다. 계정과목은 손익계산서와 같은 판정(resolveExpenseAccount)을 씁니다.',
-  });
+  };
+
+  /* 📥 엑셀·CSV 내보내기 — 화면과 «같은 payload» 로 만든다. 따로 계산하면 어긋난다.
+     ⛔ 입금 시트를 만들지 말 것(「케이씨피M」 금지가 되살아난다). */
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    const won = (n: any) => Number(n) || 0;
+    const KIND_KO: Record<string, string> = { fixed: '고정비', recurring: '반복(금액 변동)', variable: '변동비' };
+    const summaryRows: (string | number)[][] = [
+      ['망고아이 신한 계좌 출금 분석', label],
+      ['※ 계좌 «출금» 만 담았습니다. 계정과목은 손익계산서와 같은 기준입니다.'],
+      [],
+      ['이번 달 총 출금', won(payload.summary.out_total)],
+      ['건수', won(payload.summary.out_count)],
+      ['전월 출금', won(payload.summary.prev_total)],
+      ['3개월 평균', won(payload.summary.avg3m)],
+      ['판관비에 들어가는 금액', won(payload.summary.opex_total)],
+      ['중복이라 뺀 금액(카드대금·급여이체)', won(payload.summary.dup_total)],
+      ['다른 줄로 간 금액(강사급여·매출차감)', won(payload.summary.moved_total)],
+      ['아직 계정과목 없음', won(payload.summary.review_total)],
+      [],
+      [`고정비 (최근 ${RECUR_WINDOW}개월 중 ${RECUR_MIN_MONTHS}개월 이상·금액 일정)`, kindSum('fixed')],
+      ['반복(금액 변동)', kindSum('recurring')],
+      ['변동비', kindSum('variable')],
+      [],
+      ['계정과목', '금액', '건수', '비중(%)', '손익계산서 취급'],
+      ...categories.map(c => [c.account, won(c.total), won(c.count), c.share,
+        c.role === 'opex' ? '판관비에 포함' : c.role === 'dup' ? '제외 — 중복'
+        : c.role === 'moved' ? '다른 줄로' : '확인 필요'] as (string | number)[]),
+    ];
+    const sheets: XlsxSheet[] = [
+      { name: '거래처별', headerRows: 1, rows: [
+        ['거래처', '계정과목', '금액', '건수', '성격', '최근 4개월 중', '월평균', '첫 거래', '마지막 거래'],
+        ...payees.map(p => {
+          const r = recurItems.find(i => i.payee === p.payee);
+          return [p.payee, p.account, won(p.total), won(p.count),
+            KIND_KO[r?.kind || 'variable'], `${r?.months_seen || 0}개월`, won(r?.avg),
+            p.first_at, p.last_at] as (string | number)[];
+        }),
+      ] },
+      { name: '전월 대비 증감', headerRows: 1, rows: [
+        ['거래처', '계정과목', '이번 달', prevMonth, '증감', '증감(%)', '상태'],
+        ...movers.map(m => [m.payee, m.account, won(m.current), won(m.prev), won(m.delta),
+          m.delta_pct == null ? '' : m.delta_pct,
+          m.status === 'new' ? '새로 생김' : m.status === 'gone' ? '사라짐' : ''] as (string | number)[]),
+      ] },
+      { name: '출금 내역', headerRows: 1, rows: [
+        ['일시', '적요', '거래처', '계정과목', '출금액', '잔액'],
+        ...detail.map(d => [d.datetime, d.remark, d.payee, d.account, won(d.amount), won(d.balance)] as (string | number)[]),
+      ] },
+    ];
+    return out(fmt, `bank-expenses-${period}.csv`, summaryRows, sheets);
+  }
+
+  return json(payload);
 }
 
 /* 🧾 GET  /api/admin/reports/payers[?months=12]  아직 소속이 안 붙은 결제 아이디 + 지사 목록

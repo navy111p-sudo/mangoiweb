@@ -9527,3 +9527,24 @@ html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph
 #acc-bankacct .bk-role-dup    { color: #6b7280 !important; }  /* 중복이라 제외 */
 #acc-bankacct .bk-role-moved  { color: #7c3aed !important; }  /* 다른 줄로 간 돈 */
 #acc-bankacct .bk-role-review { color: #b91c1c !important; }  /* 확인 필요 */
+
+/* ── 🏷️ 계정과목 지정 칸 · 안내 글자 (2026-08-23, 2단계 함정 대조에서 잡힘) ──────
+   [무엇이 죽었나] 이 파일의 전역 규칙이 **인라인 style 을 통째로 이깁니다.** 실측:
+     · `[id^="card-"] select`(3866행)   → font-size 11px 로 적었는데 화면은 **13.5px**,
+                                          padding 3px 5px → **8px 12px**
+     · `#legacy-cards select`(8473행)   → max-width 150px → **100%**(좁은 화면)
+     · `[id^="card-"] :is(p,span,div…)`(8743·8744행) → 안내줄 갈색 #78350f → **#101828**
+   즉 「경고로 읽히라고」 준 색과 「표 안에 들어가라고」 준 크기가 둘 다 사라집니다.
+   ⛔ 그 전역 규칙들을 고쳐서 풀지 말 것 — 관리자 화면 전체의 입력칸·글자가 걸립니다.
+   ✅ 조상 id 를 앞에 붙여(ID 한 칸) 여기서만 되살립니다. `box-sizing` 도 함께 명시해야
+      `max-width` 가 테두리를 포함해 칸 안에 들어갑니다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#acc-bankacct td select.bk-assign {
+  font-size: 11px !important;
+  padding: 3px 5px !important;
+  max-width: 160px !important;
+  box-sizing: border-box !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 5px !important;
+}
+#acc-bankacct .bk-note      { color: #78350f !important; }   /* 「지난 출금까지 바뀐다」 경고 */
+#acc-bankacct .bk-note-mute { color: #6b7280 !important; }   /* 「지정해도 안 바뀝니다」 등 설명 */

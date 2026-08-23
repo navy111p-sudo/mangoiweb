@@ -267,11 +267,12 @@
   /** 지정 칸 하나 — 지정할 수 있을 때만 고르는 칸을 내고, 아니면 «왜 못 하는지» 를 적는다. */
   function assignCell(r, opts) {
     if (!_data || !_data.can_assign) {
-      return '<span style="color:#9ca3af">' + (en() ? '—' : '—') + '</span>';
+      return '<span class="bk-sig bk-note-mute">—</span>';
     }
     if (!r.assignable) {
-      /* 은행 적요로 이미 분류가 붙은 거래처 — 지정해도 안 바뀐다는 사실을 그대로 적는다 */
-      return '<span style="color:#6b7280;font-size:11px">'
+      /* 은행 적요로 이미 분류가 붙은 거래처 — 지정해도 안 바뀐다는 사실을 그대로 적는다.
+         ⚠️ 색은 클래스로 — 인라인 color 는 `[id^="card-"] :is(span…)` 전역 규칙에 진다. */
+      return '<span class="bk-sig bk-note-mute" style="font-size:11px">'
         + esc(en() ? 'Set from the bank remark — assigning has no effect'
                    : '은행 적요로 이미 분류됨 — 지정해도 안 바뀝니다') + '</span>';
     }
@@ -280,14 +281,24 @@
        change 가 발화한 «뒤» 에 `sel.value` 를 읽으면 그건 이미 바뀐 값이라 되돌리기가
        무효가 된다(2026-08-23 브라우저 검사가 실제로 잡았다: 실패했는데 고른 값이 그대로
        남아 «저장된 줄» 아는 상태). */
+    /* ⛔ 크기·테두리를 인라인 style 로 주지 않는다 — `[id^="card-"] select` 전역 규칙이
+       `!important` 로 이겨서 11px→13.5px·3px 5px→8px 12px 로 부풀린다(2026-08-23 실측).
+       값은 `admin-inline-c.css` 맨 끝 `#acc-bankacct td select.bk-assign` 블록이 정한다. */
     var html = '<select class="bk-assign" data-payee="' + esc(r.payee)
-      + '" data-prev="' + esc(cur) + '"'
-      + ' style="font-size:11px;padding:3px 5px;border:1px solid #d1d5db;border-radius:5px;max-width:150px">';
+      + '" data-prev="' + esc(cur) + '">';
     html += '<option value=""' + (cur ? '' : ' selected') + '>'
           + esc(cur ? '' : (en() ? '— choose —' : '— 고르기 —')) + '</option>';
     for (var i = 0; i < opts.length; i++) {
-      html += '<option value="' + esc(opts[i]) + '"' + (opts[i] === cur ? ' selected' : '') + '>'
-            + esc(opts[i]) + '</option>';
+      var o = opts[i];
+      /* ⚠️ 서버에서 「기타출금」은 «지정 지우기»(DELETE)다. 그런데 지정이 없던 거래처
+         (지사 대표자명 자동판정으로 과목이 붙은 곳)에서 고르면 **아무것도 안 지워지는데
+         성공으로 보이고 화면도 그대로**다 — 「저장이 안 된다」가 다른 길로 재현된다.
+         그래서 라벨을 «지정 지우기» 로 밝히고, 지울 것이 없으면 고를 수 없게 한다. */
+      var isClear = (o === '기타출금');
+      var label = isClear ? (en() ? '기타출금 (clear assignment)' : '기타출금 (지정 지우기)') : o;
+      var dis = (isClear && !r.assigned) ? ' disabled' : '';
+      html += '<option value="' + esc(o) + '"' + (o === cur ? ' selected' : '') + dis + '>'
+            + esc(label) + '</option>';
     }
     return html + '</select>';
   }
@@ -304,6 +315,13 @@
           var payee = sel.getAttribute('data-payee') || '';
           var cat = sel.value;
           if (!payee || !cat) return;
+          /* ⚠️ 포커스된 select 는 휠·방향키만으로도 값이 바뀌어 change 가 발화한다.
+             그 한 번이 운영 DB(개발·운영 같은 DB)에 바로 쓰이고 **지난 달 손익계산서까지**
+             움직이므로 한 번 확인한다. 취소하면 원래 값으로 되돌린다. */
+          var ask = en()
+            ? 'Assign “' + cat + '” to “' + payee + '”?\nThis also applies to that payee’s PAST withdrawals.'
+            : '「' + payee + '」의 계정과목을 「' + cat + '」(으)로 지정할까요?\n지난 출금까지 함께 바뀝니다.';
+          if (!window.confirm(ask)) { sel.value = sel.getAttribute('data-prev') || ''; return; }
           saveAssign(payee, cat, sel);
         });
       })(list[i]);
@@ -311,7 +329,14 @@
   }
 
   async function saveAssign(payee, category, sel) {
-    if (_busy) return;
+    if (_busy) {
+      /* ⛔ 조용히 버리지 않는다 — 고른 값이 잠깐 남아 «저장된 줄» 알게 된다 */
+      var busyNote = $('acc-bank-assign-note');
+      if (busyNote) busyNote.textContent = en() ? 'Still saving — try again in a moment.'
+                                                : '아직 저장 중입니다. 잠시 뒤 다시 골라 주세요.';
+      if (sel) sel.value = sel.getAttribute('data-prev') || '';
+      return;
+    }
     _busy = true;
     var note = $('acc-bank-assign-note');
     // ⛔ `sel.value` 를 쓰지 말 것 — change 뒤라 이미 «바뀐 값» 이다. 원래 값은 data-prev.
@@ -370,8 +395,123 @@
     }).join('');
   }
 
+  /* ── 🔁 고정비 · 변동비 (3단계) ────────────────────────────────────────────
+     ⚠️ 이건 «패턴 추정» 이지 회계 계정과목이 아니다. 그래서 근거(몇 달 나왔는지·금액 폭)를
+        같은 줄에 함께 그린다 — 숫자만 주면 사람이 맞는지 확인할 방법이 없다.
+     ⚠️ 자료가 창(4개월)만큼 없는 초기에는 대부분 «변동비» 로 나온다. 틀린 게 아니라
+        «아직 모른다» 는 뜻이라, 창 기간을 표 아래에 밝힌다. */
+  var KIND_LABEL = {
+    fixed:     ['고정비', 'Fixed'],
+    recurring: ['반복 (금액 변동)', 'Recurring (varies)'],
+    variable:  ['변동비', 'Variable']
+  };
+  var KIND_CLASS = { fixed: 'bk-role-opex', recurring: 'bk-role-moved', variable: 'bk-role-dup' };
+
+  function renderRecurring() {
+    var box = $('acc-bank-recur-sum'), tb = $('acc-bank-recur'), note = $('acc-bank-recur-note');
+    var rc = _data && _data.recurring;
+    if (!rc) {
+      if (box) box.innerHTML = '';
+      if (tb) tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
+      if (note) note.textContent = '';
+      return;
+    }
+    if (box) {
+      box.innerHTML = [
+        ['fixed', rc.fixed_total], ['recurring', rc.recurring_total], ['variable', rc.variable_total]
+      ].map(function (p) {
+        var lab = KIND_LABEL[p[0]];
+        return '<div style="border:1px solid #e5e7eb;border-radius:8px;padding:9px 11px;min-width:0">'
+          + '<div style="font-size:11px;color:#6b7280">' + esc(en() ? lab[1] : lab[0]) + '</div>'
+          + '<div class="bk-sig ' + KIND_CLASS[p[0]] + '" style="font-size:17px;font-weight:800;margin-top:2px">'
+          + krw(p[1]) + '</div></div>';
+      }).join('');
+    }
+    // 고정비 → 반복 → 변동 순, 각 묶음 안에서는 금액 큰 순. 위에서부터 «매달 나가는 돈» 이다
+    var order = { fixed: 0, recurring: 1, variable: 2 };
+    var items = (rc.items || []).slice().sort(function (a, b) {
+      return (order[a.kind] - order[b.kind]) || (b.current - a.current);
+    }).slice(0, 20);
+    if (tb) {
+      tb.innerHTML = items.length ? items.map(function (i) {
+        var lab = KIND_LABEL[i.kind] || KIND_LABEL.variable;
+        var why = (en() ? 'seen ' : '') + (i.months_seen || 0)
+          + (en() ? ' of ' + (rc.window_months || 4) + ' months' : '/' + (rc.window_months || 4) + '개월')
+          + (i.spread != null ? (en() ? ' · spread ×' : ' · 금액 폭 ×') + i.spread : '');
+        return '<tr>'
+          + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9">' + esc(i.payee) + '</td>'
+          + '<td class="bk-sig ' + (KIND_CLASS[i.kind] || '') + '" style="padding:7px 9px;border-bottom:1px solid #f1f5f9">'
+          + esc(en() ? lab[1] : lab[0]) + '</td>'
+          + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700">' + krw(i.current) + '</td>'
+          + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;color:#6b7280">' + krw(i.avg) + '</td>'
+          + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:11px">' + esc(why) + '</td>'
+          + '</tr>';
+      }).join('') : '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
+    }
+    if (note) {
+      var w = rc.window || [];
+      note.textContent = en()
+        ? '※ Estimated from a pattern, not an accounting rule: seen in ' + (rc.min_months || 3) + '+ of '
+          + (rc.window_months || 4) + ' months (' + (w[0] || '') + '–' + (w[w.length - 1] || '')
+          + ') with amounts within ×' + (rc.spread_max || 1.25) + '. With less history most payees read as “variable”.'
+        : '※ 회계 기준이 아니라 «패턴 추정» 입니다 — ' + (w[0] || '') + '~' + (w[w.length - 1] || '')
+          + ' 중 ' + (rc.min_months || 3) + '개월 이상 나왔고 금액 폭이 ×' + (rc.spread_max || 1.25)
+          + ' 이하면 고정비로 봅니다. 자료가 이 기간만큼 없으면 대부분 «변동비» 로 나옵니다.';
+    }
+  }
+
+  // ── 📈 전월 대비 증감 Top 5 ───────────────────────────────────────────────
+  function renderMovers() {
+    var up = $('acc-bank-movers-up'), down = $('acc-bank-movers-down'), t = $('acc-bank-movers-title');
+    var list = (_data && _data.movers) || [];
+    if (t && _data) {
+      var ko = '📈 전월 대비 증감 Top 5 (' + (_data.prev_month || '') + ' → ' + (_data.period || '') + ')';
+      var eng = '📈 Biggest changes ' + (_data.prev_month || '') + ' → ' + (_data.period || '');
+      t.setAttribute('data-ko', ko); t.setAttribute('data-en', eng);
+      t.textContent = en() ? eng : ko;
+    }
+    var draw = function (tb, rows, sign) {
+      if (!tb) return;
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td style="padding:16px;text-align:center;color:#9ca3af">'
+          + (en() ? 'none' : '없음') + '</td></tr>';
+        return;
+      }
+      tb.innerHTML = rows.map(function (m) {
+        var tag = m.status === 'new' ? (en() ? 'new' : '새로 생김')
+                : m.status === 'gone' ? (en() ? 'gone' : '사라짐')
+                : (m.delta_pct == null ? '' : (m.delta_pct > 0 ? '▲' : '▼') + Math.abs(m.delta_pct) + '%');
+        return '<tr>'
+          + '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9">' + esc(m.payee)
+          + (m.account ? '<span style="color:#9ca3af;font-size:11px"> · ' + esc(m.account) + '</span>' : '')
+          + '</td>'
+          + '<td class="bk-sig ' + (sign > 0 ? 'bk-sig-up' : 'bk-sig-down')
+          + '" style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;white-space:nowrap">'
+          + (sign > 0 ? '+' : '−') + krw(Math.abs(m.delta)).slice(1) + '</td>'
+          + '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:11px;white-space:nowrap">'
+          + esc(tag) + '</td>'
+          + '</tr>';
+      }).join('');
+    };
+    draw(up, list.filter(function (m) { return m.delta > 0; }).slice(0, 5), 1);
+    // 줄어든 쪽은 «가장 많이 줄어든» 것부터 — 서버가 증가순으로 줬으니 뒤에서 5개를 뒤집는다
+    draw(down, list.filter(function (m) { return m.delta < 0; }).slice(-5).reverse(), -1);
+  }
+
+  /* 📥 엑셀 내보내기 — 서버가 «화면과 같은 payload» 로 만들어 준다(따로 계산하지 않는다).
+     ⚠️ `window.open` 을 쓰지 않는다 — 카톡·문자앱 인앱 브라우저는 새 창을 못 열고
+        예외도 안 던지며 null 만 돌려준다(CLAUDE.md 2장). 파일은 Content-Disposition 이
+        붙어 오므로 `location.href` 로도 화면이 넘어가지 않고 내려받기만 된다. */
+  window.bankExpExport = function (fmt) {
+    var mEl = $('acc-bank-month');
+    var m = (mEl && mEl.value) ? mEl.value : '';
+    location.href = '/api/admin/reports/bank-expenses?format=' + encodeURIComponent(fmt || 'xlsx')
+                  + (m ? '&month=' + encodeURIComponent(m) : '');
+  };
+
   function renderAll() {
-    renderStatus(); renderKpis(); renderCats(); renderPayees(); renderRows(); renderCharts();
+    renderStatus(); renderKpis(); renderCats(); renderRecurring(); renderMovers();
+    renderPayees(); renderRows(); renderCharts();
   }
 
   /* 자료가 없을 때 — 숫자를 한 칸도 채우지 않는다(₩0 도 «실제 0원» 으로 읽힌다). */
@@ -387,9 +527,14 @@
     setText('bk-kpi-prev-sub', '전월 ₩—', 'last month ₩—');
     setText('bk-kpi-avg3-sub', '평균 ₩—', 'avg ₩—');
     setText('bk-kpi-review-sub', '「기타출금」 비율 —%', 'share —%');
-    ['acc-bank-cats', 'acc-bank-payees'].forEach(function (id) {
+    ['acc-bank-cats', 'acc-bank-payees', 'acc-bank-recur'].forEach(function (id) {
       var tb = $(id); if (tb) tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
     });
+    ['acc-bank-movers-up', 'acc-bank-movers-down'].forEach(function (id) {
+      var tb = $(id); if (tb) tb.innerHTML = '<tr><td style="padding:16px;text-align:center;color:#9ca3af">—</td></tr>';
+    });
+    var rs = $('acc-bank-recur-sum'); if (rs) rs.innerHTML = '';
+    var rn = $('acc-bank-recur-note'); if (rn) rn.textContent = '';
     var rb = $('acc-bank-rows');
     if (rb) {
       rb.innerHTML = '<tr><td colspan="5" style="padding:26px;text-align:center;color:#b45309;font-size:13px">'
@@ -431,9 +576,10 @@
      (`src/bankacct-sync.ts`). D1 은 개발·운영이 같은 DB 라 CLAUDE.md 1-1 이
      「UPDATE 는 사람에게 먼저 알릴 것」이라고 못 박는다. 지금까지 그 UPDATE 를 도는 것은
      밤 자동 동기화뿐이었고, 화면에 버튼을 붙이면 본사 관리자 누구나 돌릴 수 있게 된다.
-     ✅ 이 화면은 «보는» 화면이다. 새 거래는 밤에 자동으로 들어오고, 계정과목 지정은
-        「🏷️ 지출 계정과목 분류」에서 하며 **동기화를 기다리지 않고 바로 반영된다**
-        (서버가 저장된 category 를 덮어쓰지 않고 «읽을 때» 판정하기 때문). */
+     ✅ 새 거래는 밤에 자동으로 들어온다. 계정과목 지정은 (2026-08-23 2단계부터) 이 화면의
+        거래처 표에서 바로 할 수 있고, 저장은 「🏷️ 지출 계정과목 분류」와 **같은 API** 를 쓴다.
+        어느 쪽에서 하든 **동기화를 기다리지 않고 바로 반영된다** — 서버가 저장된 category 를
+        덮어쓰지 않고 «읽을 때» 판정하기 때문이다. */
 
   // ── 카드를 펼치면 자동 조회 (버튼 안 눌러도 바로 보이게) ──────────────────
   (function bind() {
