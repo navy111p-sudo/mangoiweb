@@ -34,6 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
+import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -1432,6 +1433,8 @@ export async function handleMangoApi(
         // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 여기 없으면 handleAdminApi 까지 못 가서 404
         //     (teacher-contacts·finance-cafe24 가 같은 이유로 통째로 먹통이던 이력이 있다)
         || path === '/api/admin/live-classes'
+        // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 여기 없으면 handleAdminApi 까지 못 가서 404
+        || path === '/api/admin/classes-now'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')
@@ -1470,9 +1473,12 @@ export async function handleMangoApi(
       const like = '%' + q.replace(/[%_]/g, '') + '%';
       const results: any[] = [];
       try {
+        // 🧹 (2026-08-20) 숨김 지정한 중복 계정은 통합검색에도 안 나온다 — 명부와 답이 갈리면 안 된다.
+        const _omniHide = await hiddenExcludeCond(env as any);
         const rs = await env.DB.prepare(
           `SELECT user_id, username, korean_name, english_name FROM students_erp
-           WHERE korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?
+           WHERE (korean_name LIKE ? OR english_name LIKE ? OR username LIKE ? OR user_id LIKE ?)
+           ${_omniHide ? 'AND ' + _omniHide : ''}
            LIMIT 25`
         ).bind(like, like, like, like).all();
         for (const r of ((rs.results as any[]) || [])) {
@@ -1691,8 +1697,36 @@ export async function handleMangoApi(
          입장을 누르는 바로 그 지점에서 호출되므로, 여기에 실어 보내는 것이 가장 확실하다.
          ⛔ 기본 'off' — 지금 켜면 실제 학생 예약이 6건뿐이라 대다수가 입장 불가가 된다(wrangler.toml 주석 참고). */
       const studentGate = ((env as any).VC_STUDENT_ROOM_GATE === 'on') ? 'on' : 'off';
+
+      /* 🔁 net_relay — 이 수업은 «중계(TURN) 강제» 로 붙을지를 서버가 알려 준다.
+         위 student_gate 와 같은 사정이다(정적 화면은 설정을 직접 못 읽는다) + 이 API 는
+         학생·교사 «양쪽» 이 입장 직전에 부르므로 두 사람이 같은 정책을 받는다.
+
+         [왜 필요한가] 지금은 직접(P2P) 연결이 **실패해야** 릴레이로 넘어간다(idx-main.js createPeer).
+         그런데 중국 회선은 «연결은 되는데 패킷만 흘리는» 경우가 많아 그 조건에 안 걸린다.
+         2026-08-21 중국어 수업(class-851)에서 강사 영상이 AAO 로 통째로 꺼졌다.
+
+         [왜 이름이 아니라 번호인가] 강사 번호는 세 갈래라 이름으로 이으면 남의 것이 붙는다
+         (CLAUDE.md 2장). 여기 teacher_id 는 class_schedules ↔ teachers.id 한 도메인이라
+         어긋날 수 없다. 게다가 위 sqlNoJoin 경로에는 teacher_name 이 아예 없다. */
+      let netRelay = false;
+      const relayTid = String((current && current.teacher_id) || '').trim();
+      if (relayTid) {
+        try {
+          await ensureSchemaOnce('vc_relay_force', async () => {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
+          });
+          const rrow = await env.DB.prepare(`SELECT enabled FROM vc_relay_force WHERE teacher_id = ?`).bind(relayTid).first<any>();
+          /* ⛔ Cloudflare TURN 이 설정돼 있을 때만 켠다. 없으면 /api/ice-servers 가 대체 목록으로
+             **무료 공개 TURN(openrelay.metered.ca)** 을 내려주는데, 거기로 «강제» 릴레이하면
+             직접 연결보다 나빠질 수 있다. 회선을 살리려다 더 망가뜨리는 교환은 하지 않는다. */
+          const hasCfTurn = !!((env as any).TURN_KEY_ID && (env as any).TURN_KEY_API_TOKEN);
+          netRelay = hasCfTurn && !!(rrow && Number(rrow.enabled) === 1);
+        } catch { netRelay = false; }   // 표가 없거나 조회 실패 = 평소대로(직접 연결). 수업을 막지 않는다.
+      }
+
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate });
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
@@ -2334,8 +2368,14 @@ ${numbered}`;
       try {
         // rowid 는 모든 SQLite 테이블에 항상 존재 — id 컬럼 없는 스키마에서도 동작
         const _swErp = await studentScopeWhere(env, request);  // 🔒 지사/대리점 격리
+        /* 🧹 (2026-08-20) 숨김 지정한 중복 계정 제외 — students_erp 는 카페24가 정본이라
+           지워도 밤에 되살아난다. 그래서 «읽을 때» 거른다(정본: src/student-override.ts).
+           ⚠️ 이 handler 는 어떤 에러든 삼켜 빈 배열을 돌려준다. 표가 없을 때 조건절이
+              붙으면 `no such table` 로 **명부 전체가 사라진 것처럼** 보이므로,
+              hiddenExcludeCond 는 그럴 때 빈 문자열을 준다(fail-open). 그 성질에 기대고 있다. */
+        const _erpConds = [_swErp.cond, await hiddenExcludeCond(env as any)].filter(Boolean);
         const rs = await env.DB.prepare(
-          `SELECT rowid AS _rowid, * FROM students_erp ${_swErp.cond ? 'WHERE ' + _swErp.cond + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
+          `SELECT rowid AS _rowid, * FROM students_erp ${_erpConds.length ? 'WHERE ' + _erpConds.join(' AND ') + ' ' : ''}ORDER BY rowid DESC LIMIT ?`
         ).bind(..._swErp.binds, lim).all<any>();
         const items = (rs.results || []).map(r => {
           // id 컬럼이 없으면 rowid 를 id 로 사용 (프론트 호환)

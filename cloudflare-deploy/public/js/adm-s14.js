@@ -5,41 +5,39 @@
 (function(){
   'use strict';
 
-  // saSearch override — 통계 박스 새 디자인
+  /* 🔧 (2026-08-21) — 이 파일(ph121, 2026-07-14)이 실데이터 배선(adm-r23.js, 2026-08-19)보다
+     나중에 로드되면서 window.saSearch 를 통째로 덮어쓰고 있었다. adm-r23.js 의 실제 검색은
+     서버(/api/admin/attendance/school-stats)에 다시 물어 표를 갈아치우고 학당 드롭다운도
+     saRefreshAcademyOptions() 로 지사에 맞게 다시 채우는데, 이 파일은 그걸 부르지 않고
+     «이미 화면에 있는 100건» 을 텍스트로 다시 숨기기만 했다. 그래서 지사를 바꿔도
+     ① 학당 드롭다운이 그대로(전체 대리점) ② 서버 재검색도 안 되고 처음 로드된 100건만
+     클라이언트에서 숨겨졌다 — 「지사를 골라도 대리점이 전부 나온다」 제보의 원인이 이것이다.
+     ⛔ 통째로 덮어쓰지 않는다 — r23 의 실제 검색을 먼저 부르고, saFetch 가 끝났다는 신호
+     (mangoi:sa-search-done)를 받은 뒤에만 이 파일의 통계 박스를 다시 그린다. */
+  var _saSearchReal = window.saSearch;   // adm-r23.js 가 먼저 정의해 둔 실제 검색(fetch + 드롭다운 갱신)
   window.saSearch = function(){
+    if (typeof _saSearchReal === 'function') _saSearchReal();
+  };
+
+  // saSearch 통계 박스 — 서버가 이미 필터링해 그려 준 #sa-tbody 를 세어 그린다(재필터링 안 함)
+  function saStatBox(){
     var year = (document.getElementById('sa-year')||{}).value || '';
     var month = (document.getElementById('sa-month')||{}).value || '';
     var branch = (document.getElementById('sa-branch')||{}).value || '';
     var academy = (document.getElementById('sa-academy')||{}).value || '';
-    var student = ((document.getElementById('sa-student')||{}).value || '').toLowerCase().trim();
+    var student = ((document.getElementById('sa-student')||{}).value || '').trim();
     var result = (document.getElementById('sa-result')||{}).value || '';
 
     var rows = document.querySelectorAll('#sa-tbody tr');
     var visible = 0, exCount = 0, warnCount = 0, failCount = 0;
-
     rows.forEach(function(row){
       var cells = row.querySelectorAll('td');
       if (cells.length < 11) return;
-      var rowBranch  = cells[1].textContent.toLowerCase();
-      var rowAcademy = cells[2].textContent.toLowerCase();
-      var rowStudent = (cells[3].textContent + ' ' + cells[4].textContent + ' ' + cells[5].textContent).toLowerCase();
+      visible++;
       var rowResult = cells[9].textContent.toLowerCase();
-      var match = true;
-      if (academy && rowAcademy.indexOf(academy.toLowerCase()) < 0) match = false;
-      if (branch && rowBranch.indexOf(branch.toLowerCase()) < 0) match = false;
-      if (student && rowStudent.indexOf(student) < 0) match = false;
-      if (result) {
-        if (result === 'excellent' && rowResult.indexOf('excellent') < 0) match = false;
-        if (result === 'warning' && rowResult.indexOf('warning') < 0) match = false;
-        if (result === 'fail' && rowResult.indexOf('fail') < 0) match = false;
-      }
-      row.style.display = match ? '' : 'none';
-      if (match) {
-        visible++;
-        if (rowResult.indexOf('excellent') >= 0) exCount++;
-        else if (rowResult.indexOf('warning') >= 0) warnCount++;
-        else if (rowResult.indexOf('fail') >= 0) failCount++;
-      }
+      if (rowResult.indexOf('excellent') >= 0) exCount++;
+      else if (rowResult.indexOf('warning') >= 0) warnCount++;
+      else if (rowResult.indexOf('fail') >= 0) failCount++;
     });
 
     var card = document.getElementById('card-school-attendance-stats');
@@ -71,17 +69,18 @@
     } else {
       existing.classList.remove('empty');
       existing.innerHTML =
-        '<div class="ph121-main">🔍 검색 결과 <b>' + visible + '명</b> 표시 / 전체 ' + rows.length + '명</div>' +
+        '<div class="ph121-main">🔍 검색 결과 <b>' + visible + '명</b> 표시</div>' +
         (conds.length ? '<div class="ph121-conds">조건: ' + conds.join('  ·  ') + '</div>' : '') +
         '<div class="ph121-cards">' +
           '<div class="ph121-card excellent"><div class="ph121-card-label">✅ Excellent</div><div class="ph121-card-value">' + exCount + '명</div></div>' +
           '<div class="ph121-card warning"><div class="ph121-card-label">⚠ Warning</div><div class="ph121-card-value">' + warnCount + '명</div></div>' +
           '<div class="ph121-card fail"><div class="ph121-card-label">❌ Fail</div><div class="ph121-card-value">' + failCount + '명</div></div>' +
         '</div>' +
-        '<a class="ph121-reset" href="javascript:void(0)" onclick="saReset()">↩ 검색 조건 초기화 (전체 ' + rows.length + '명 보기)</a>';
+        '<a class="ph121-reset" href="javascript:void(0)" onclick="saReset()">↩ 검색 조건 초기화</a>';
     }
-    console.log('[ph121] 검색 결과 통계 박스 새 디자인 —', visible, '/', rows.length);
-  };
+    console.log('[ph121] 검색 결과 통계 박스 새 디자인 —', visible);
+  }
+  document.addEventListener('mangoi:sa-search-done', saStatBox);
 
   // 데모 안내문 다크 박스로 교체
   function ph121DemoNote(){

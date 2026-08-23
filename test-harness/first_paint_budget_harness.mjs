@@ -22,6 +22,33 @@
 //   pdf.js 316KB 의 4배다. 진짜 무게는 파일 안에 있다.
 //
 // 예산을 의도적으로 바꿀 때:  node test-harness/first_paint_budget_harness.mjs --update
+//
+// 📜 기준선 변경 이력 — «왜» 를 남긴다. 이 줄이 없으면 다음 사람이 «그냥 올려도 되는 것» 으로 읽는다.
+//   2026-08-21  index.html 1537 → 1550KB (사장님 승인)
+//     여유 12KB 가 실제로 다 소진됐다. 그날 하루에만
+//       · idx-x8.js  +671B  (사이드바 한/영 전환, PR #403)
+//       · idx-main.js +435B (화질 4단계 + 중계 강제, PR #407 — 8/25 중국어 수업 대비)
+//     둘을 합쳐 623B 를 넘겼다. PR #407 쪽은 주석을 덜어내 704B → 435B 까지 줄였지만,
+//     **그 변경을 통째로 되돌려도 여유가 81B 뿐**이라 트리밍으로는 풀 수 없는 상태였다.
+//   ⚠️ 그래서 이 갱신은 «문제 해결» 이 아니라 «시간 벌기» 다. 진짜 할 일은 따로 남아 있다 —
+//      index.html 은 지금 blocking 외부 스크립트가 24개이고, 그중 idx-vc-* (수업 중에만 쓰는
+//      파일들)만 60KB 가 넘는다. 이것들을 defer 로 내리면 기준선을 오히려 «내릴» 수 있다.
+//      ⛔ 다만 로드 순서 변경은 라이브 장애 전력이 있다(idx-vc-screenmode.js 머리말 참조).
+//         급할 때 곁다리로 하지 말고 별도 PR 로 제대로 검증할 것.
+// 📌 2026-08-22 — student-games.html 288 → 303KB (사장님 지시 「미리보기 + 순차 잠금」)
+//   ⚠️ 15KB 중 **11KB 는 이 작업 이전에 이미 main 에 있던 것**이다. 이 파일을 건드리기 전
+//      실측이 299KB 였다(기준선 288 + 여유 12 = 상한 300 → 남은 여유 1KB). 즉 누군가
+//      기준선을 안 올린 채 11KB 를 넣어 여유를 다 써 둔 상태였다.
+//   · 이번 작업이 실제로 더한 것은 4KB — 잠금 카드 CSS(.lockchip/.locknote)와 해금 판정이다.
+//     미리보기 창(8.9KB)은 처음부터 js/game-preview.js 로 빼서 defer 로 내렸다.
+//   ⚠️ 이것도 «시간 벌기» 다. student-games.html 의 blocking 외부 스크립트 113KB 중
+//      mangoi-speak-cycle.js(43KB)·mangoi-listen-first.js(13KB)·game-tts.js(10KB)·
+//      mangoi-memory.js(10KB) 는 **게임을 시작한 뒤에만** 쓰인다 — defer 로 내리면
+//      기준선을 오히려 내릴 수 있다. ⛔ 다만 이 화면은 hubRenderMenu() 를 파싱 중에
+//      부르므로 로드 순서 변경은 별도 PR 로 제대로 검증할 것(라이브 장애 전력 있음).
+//   ⛔ 이번에 index.html «만» 올렸다. --update 는 세 페이지를 전부 현재값으로 고정하는데,
+//      admin.html·student-games.html 은 통과 중이었으므로 원래 값(296·288)으로 되돌려 두었다.
+//      남의 페이지 여유까지 같이 리셋하지 말 것.
 
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';

@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>작업일지 점검 보고</title>
+<style>
+:root{
+  --ink:#1A1F1C; --muted:#4E5A53; --faint:#7C877F;
+  --line:#D6DED8; --line-soft:#E8EDE9;
+  --accent:#0D5F45; --accent-soft:#E5F1EB;
+  --bad:#9A3412; --bad-soft:#FBEAE1;
+  --ask:#7A5200; --ask-soft:#FAF0DA;
+  --paper:#FFFFFF;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--paper);color:var(--ink)}
+body{
+  font-family:"Noto Sans CJK KR","Noto Sans KR",sans-serif;
+  font-size:10.5pt; line-height:1.75; word-break:keep-all;
+}
+.page{padding:14mm 15mm 12mm}
+header{border-bottom:2px solid var(--accent);padding-bottom:7mm;margin-bottom:7mm}
+.eyebrow{font-size:8.5pt;letter-spacing:.22em;color:var(--accent);margin:0 0 3mm;font-weight:700}
+h1{font-family:"Noto Serif CJK KR",serif;font-size:22pt;line-height:1.3;margin:0 0 4mm;font-weight:700;letter-spacing:-.01em}
+.sub{margin:0;color:var(--muted);font-size:10pt;max-width:62em}
+.meta{margin:4mm 0 0;font-size:8.5pt;color:var(--faint);display:flex;gap:6mm;flex-wrap:wrap}
+
+h2{font-family:"Noto Serif CJK KR",serif;font-size:14pt;margin:8mm 0 3.5mm;font-weight:700;
+   display:flex;align-items:center;gap:3mm;break-after:avoid}
+h2 .num{display:inline-flex;align-items:center;justify-content:center;
+   width:8mm;height:8mm;border-radius:50%;background:var(--accent);color:#fff;
+   font-family:"Noto Sans CJK KR",sans-serif;font-size:10pt;font-weight:700;flex:none}
+h3{font-size:11pt;margin:6mm 0 2mm;font-weight:700;break-after:avoid}
+p{margin:0 0 3mm;max-width:64em}
+.lead{color:var(--muted);font-size:9.8pt;margin-bottom:5mm}
+
+.box{border:1px solid var(--line);border-left:3px solid var(--accent);
+     background:var(--accent-soft);padding:4mm 5mm;margin:0 0 5mm;break-inside:avoid}
+.box.bad{border-left-color:var(--bad);background:var(--bad-soft)}
+.box.ask{border-left-color:var(--ask);background:var(--ask-soft)}
+.box p:last-child{margin-bottom:0}
+.box .tag{font-size:8.5pt;font-weight:700;letter-spacing:.06em;color:var(--accent);
+     display:block;margin-bottom:1.5mm}
+.box.bad .tag{color:var(--bad)} .box.ask .tag{color:var(--ask)}
+
+table{border-collapse:collapse;width:100%;font-size:9.5pt;margin:0 0 5mm}
+tr{break-inside:avoid}
+thead{display:table-header-group}
+th,td{text-align:left;padding:2.4mm 3mm;border-bottom:1px solid var(--line-soft);vertical-align:top}
+th{background:var(--line-soft);font-size:8.5pt;letter-spacing:.05em;color:var(--muted);font-weight:700;white-space:nowrap}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+table{border:1px solid var(--line)}
+
+ul{margin:0 0 4mm;padding-left:5mm;list-style:none}
+li{position:relative;padding-left:4mm;margin-bottom:1.8mm;max-width:62em}
+li::before{content:"\2022";position:absolute;left:0;color:var(--faint)}
+ul.check li::before{content:"\2713";color:var(--accent);font-weight:700}
+ul.ask li::before{content:"\25B8";color:var(--ask)}
+
+.ok{color:var(--accent);font-weight:700}
+.no{color:var(--bad);font-weight:700}
+code{font-family:"DejaVu Sans Mono",monospace;font-size:9pt;background:var(--line-soft);padding:.3mm 1mm;border-radius:1mm}
+footer{margin-top:8mm;break-inside:avoid;padding-top:4mm;border-top:1px solid var(--line);font-size:8.5pt;color:var(--faint)}
+@page{size:A4;margin:0}
+</style></head><body><div class="page">
+
+<header>
+  <p class="eyebrow">망고아이 · 점검 보고</p>
+  <h1>「8월 18·19일 작업일지」 PDF 를<br>사실과 맞춰 봤습니다</h1>
+  <p class="sub">받은 PDF 에 적힌 내용이 실제로 그렇게 되어 있는지, 저장소의 코드와 기록을 하나씩 열어 대조했습니다.
+  <b>글로 적힌 내용은 전부 사실이었고, 맨 앞 통계 숫자 두 개가 틀렸습니다.</b></p>
+  <p class="meta"><span>확인한 날 2026-08-20</span><span>대상 2026-08-18 ~ 08-19</span><span>PR #363 병합 완료</span></p>
+</header>
+
+<h2><span class="num">1</span>문제점 — 무엇이 잘못돼 있었나</h2>
+<p class="lead">두 가지입니다. 하나는 숫자, 하나는 인쇄 모양입니다. 내용 자체는 문제가 없었습니다.</p>
+
+<h3>가. 맨 앞 큰 숫자 두 개가 실제와 달랐습니다</h3>
+<p>PDF 첫 장에 큰 글씨로 「94 · 188 · 22 · 29,000」 이 적혀 있었습니다.
+저장소에서 직접 세어 보니 앞의 두 개가 안 맞았습니다.</p>
+<table>
+  <tr><th>항목</th><th class="num">PDF 에 적힌 값</th><th class="num">실제로 센 값</th><th>판정</th></tr>
+  <tr><td>고친 묶음 (PR)</td><td class="num">94</td><td class="num"><b>141</b></td><td class="no">틀림</td></tr>
+  <tr><td>코드 변경 건 (커밋)</td><td class="num">188</td><td class="num"><b>179</b></td><td class="no">틀림</td></tr>
+  <tr><td>남긴 기록 문서</td><td class="num">22</td><td class="num">22</td><td class="ok">맞음</td></tr>
+  <tr><td>쓰고 있는 학생 수</td><td class="num">29,000</td><td class="num">29,000</td><td class="ok">맞음</td></tr>
+</table>
+<div class="box bad">
+  <span class="tag">왜 이게 문제인가</span>
+  <p>이 숫자는 보고서에서 제일 먼저, 제일 크게 보이는 자리입니다.
+  여기가 틀리면 <b>나머지 내용까지 「대충 쓴 것」으로 읽힙니다.</b>
+  게다가 94 는 어떤 방식으로 세어도 나오지 않는 숫자였습니다 —
+  세는 기준이 잘못된 게 아니라 근거를 알 수 없는 숫자였습니다.</p>
+</div>
+<p><b>쉽게 말하면</b> — 같은 이틀을 두고도 세는 방법이 여러 가지입니다.
+저장소 안에서만 세면 84개, 다른 방식까지 더하면 123개, 깃허브가 공식으로 기록한 값은 141개입니다.
+그래서 <b>깃허브 공식 기록인 141</b> 을 쓰고, <b>「어떻게 세었는지」를 문서에 함께 적어</b> 뒀습니다.
+다음에 누가 다시 세어도 같은 숫자가 나오게 하기 위해서입니다.</p>
+
+<h3>나. PDF 2쪽이 두 줄만 남고 텅 비어 있었습니다</h3>
+<p>1쪽의 「새로 만든 것」 목록이 쪽 경계에서 잘려, 나머지 두 줄이 2쪽으로 넘어가고
+그 아래가 전부 백지였습니다.</p>
+<div class="box bad">
+  <span class="tag">이건 전에도 밟은 함정입니다</span>
+  <p>종이 크기(A4)에 높이를 딱 맞춰 놓고 넘치는 부분은 잘라 버리는 방식으로 만든 문서가
+  이 저장소에 이미 있습니다. <b>글꼴이 조금만 달라져도 아래가 소리 없이 잘립니다.</b>
+  경고도 안 뜨기 때문에 만든 사람은 모릅니다. 규칙 문서(CLAUDE.md)에 이미 적혀 있는 함정입니다.</p>
+</div>
+
+<h2><span class="num">2</span>요청사항 — 사람이 정해 주셔야 하는 것</h2>
+<p class="lead">제 판단으로 하지 않고 남겨 둔 것들입니다.</p>
+<ul class="ask">
+  <li><b>공유 범위</b> — 작업일지를 웹페이지로 발행했습니다(아래 3-다).
+  <b>기본은 비공개</b>라, 직원분들께 보이게 하려면 그 페이지의 공유 메뉴에서 직접 켜셔야 합니다.
+  제가 임의로 공개하지 않았습니다.</li>
+  <li><b>숫자 세는 기준을 이걸로 고정할지</b> — 앞으로도 「깃허브 공식 병합 기록」 기준으로 셀지,
+  아니면 다른 기준이 편하신지 정해 주시면 다음부터 그 기준으로 통일하겠습니다.</li>
+  <li><b>이 PDF 를 정기적으로 낼지</b> — 지금은 요청하실 때만 만듭니다.
+  매주 혹은 매월 자동으로 내드릴 수도 있습니다.</li>
+</ul>
+<div class="box ask">
+  <span class="tag">확인이 필요한 한 가지</span>
+  <p>작업일지의 내용은 저장소의 코드·기록과 대조해 맞다는 것까지 확인했습니다.
+  다만 <b>배포된 실제 화면은 이 작업 환경에서 열 수 없습니다</b>(회선이 막혀 있습니다).
+  화면이 바뀌는 작업은 마지막에 사람이 한 번 눈으로 봐 주셔야 끝입니다.</p>
+</div>
+
+<h2><span class="num">3</span>해결한 것</h2>
+
+<h3>가. 내용을 하나씩 대조해 사실 확인을 마쳤습니다</h3>
+<p>PDF 에 적힌 항목을 실제 코드·기록과 맞춰 봤고, <b>전부 근거가 있었습니다.</b></p>
+<table>
+  <tr><th>PDF 의 주장</th><th>확인한 근거</th></tr>
+  <tr><td>회사 계좌끼리 옮긴 돈 4,632만원을 매출로 세고 있었다</td><td>규칙 문서 · 8/18 작업기록에 실측으로 기록</td></tr>
+  <tr><td>카드 수수료를 2.86% 로 통일했다</td><td>코드에 <code>PG_RATE = 0.0286</code></td></tr>
+  <tr><td>정산 기본값 지점 40% · 본사 60%</td><td>코드에 <code>DEFAULT_BRANCH_RATE = 0.40</code></td></tr>
+  <tr><td>서버가 두 벌이라 화상수업 방이 갈렸다</td><td>설정 파일에 방 서버 선언이 두 벌</td></tr>
+  <tr><td>「강사 미입장」 13건 중 11건이 오판</td><td>오판을 걸러 주는 코드 파일 + 8/19 작업기록</td></tr>
+  <tr><td>강사 번호가 두 종류라 남의 정보가 붙을 뻔했다</td><td>규칙 문서에 실제 이름까지 기록</td></tr>
+  <tr><td>매니저가 시연 계정으로 몇 주째 일하고 있었다</td><td>8/19 작업기록에 로그인 기록까지</td></tr>
+  <tr><td>카톡으로 열면 로그인이 무한 반복됐다</td><td>로그인 화면에 「크롬으로 열기」 코드</td></tr>
+  <tr><td>겉모습만 있던 등록 기능들을 진짜로 바꿨다</td><td>8/18~19 커밋에 각각 존재</td></tr>
+  <tr><td>강사 제보 12건 중 5건은 이미 있었다</td><td>규칙 문서 · 8/19 작업기록</td></tr>
+</table>
+
+<h3>나. 틀린 숫자를 고치고, 인쇄 모양도 함께 고쳤습니다</h3>
+<ul class="check">
+  <li>PR 94 → <b>141</b>, 코드 변경 188 → <b>179</b> 로 정정하고, <b>세는 기준을 본문에 명시</b></li>
+  <li>A4 에 높이를 고정하는 방식을 버리고 <b>화면 크기에 맞춰 흐르는 방식</b>으로 바꿈 — 잘릴 일이 없습니다</li>
+  <li>휴대폰·태블릿·PC 세 가지 폭에서 직접 그려 보고 <b>옆으로 삐져나오는 곳 0건</b> 확인</li>
+</ul>
+
+<h3>다. 저장소에 넣고, 링크로도 열리게 했습니다</h3>
+<ul class="check">
+  <li>작업일지를 저장소 <code>docs/</code> 에 넣고 문서 목차에 등록 (PR #363, 병합 완료)</li>
+  <li>깃허브 계정이 없어도 열리는 <b>웹페이지 링크</b>로 발행 — 목차의 「링크로 바로 보는 문서」 표에 추가</li>
+  <li>이번 대조 과정 자체도 <b>작업기록으로 남김</b> — 왜 141 을 골랐는지, 어떤 방법을 버렸는지까지</li>
+</ul>
+
+<h2><span class="num">4</span>기타 — 알아 두시면 좋은 것</h2>
+<ul>
+  <li><b>이 문서는 사이트 배포와 무관합니다.</b> 문서만 바뀌었기 때문에 실제 서비스는 건드리지 않았습니다.</li>
+  <li><b>내용이 맞다는 것과 화면이 맞다는 것은 다릅니다.</b> 코드 검사와 자동 시험은 전부 통과했지만,
+  그건 「코드가 말이 된다」는 뜻이지 「사장님 화면에 제대로 보인다」는 뜻이 아닙니다.
+  8월 17일에 정확히 이 틈에서 사고가 한 번 났습니다.</li>
+  <li><b>같은 이틀을 세는 방법이 여러 가지라는 것</b> 자체가 이번에 얻은 교훈입니다.
+  앞으로 숫자를 낼 때는 「어떻게 세었는지」를 항상 같이 적겠습니다.</li>
+  <li><b>원본 PDF 는 버리지 않았습니다.</b> 고친 판을 새로 만들었을 뿐이고,
+  무엇을 왜 고쳤는지는 작업기록에 남아 있습니다.</li>
+</ul>
+
+<footer>
+  망고아이 · 작성 2026-08-20 · 대상 기간 2026-08-18 ~ 2026-08-19<br>
+  관련: PR #363 (병합 완료) · docs/망고아이_작업일지_8월18-19일_2026-08-20.html · docs/작업기록/
+</footer>
+
+</div></body></html>

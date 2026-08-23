@@ -23,8 +23,11 @@ const PUB = path.join(HERE, '..', 'cloudflare-deploy', 'public');
 const FONT = 'MangoiHanSC';
 
 // 벤더 번들·이모지 전용 그리기는 제외
+// mango-logo-font.css 는 mangoi-han.css 와 같은 «@font-face 정의만 있는 파일» 이다.
+// 정의문은 font-family:'Nunito' 로 시작할 수밖에 없어 ① 검사를 통과할 수 없다.
+// 그 글꼴을 «쓰는» 쪽(mango-logo.css)은 예외가 아니라 그대로 검사받는다. (2026-08-22)
 const SKIP = new Set(['pdf.min.js', 'pdf.worker.min.js', 'idx-x6.js',
-                      'tailwind-build.css', 'mangoi-han.css']);
+                      'tailwind-build.css', 'mangoi-han.css', 'mango-logo-font.css']);
 
 const ls = (dir, ext) => {
   try {

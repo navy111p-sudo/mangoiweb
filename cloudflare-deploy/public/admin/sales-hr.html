@@ -311,7 +311,27 @@
     loadAtRisk();
     loadFairness();
     loadDiscipline();
+    applyHash();
   }
+
+  /* ── 주소 뒤 #칸 으로 들어왔을 때 그 칸으로 보내기 ────────────────
+     ⚠️ 이 화면은 카드를 **JS 로 그린다.** 문서가 열리는 순간에는 #sh-low 같은 칸이
+        아직 없어서 브라우저의 기본 해시 이동이 **조용히 아무 일도 안 한다**(에러도 없다).
+        그래서 render() 가 끝난 뒤에 «직접» 보낸다.
+     사이드바(js/adm-ia6.js 「정산·매출 ▸ 영업 실적·평가」)의 손자가 이 앵커들을 쓴다.
+     ⛔ 앵커 id 를 바꾸려면 그쪽 secs 도 같이 고칠 것 — 한쪽만 고치면 화면 맨 위만 열린다.
+        (sidebar_three_level_harness 가 두 파일을 대조해 FAIL 낸다) */
+  function applyHash(){
+    var id = String(location.hash || '').replace(/^#/, '');
+    if(!id) return;
+    var el = document.getElementById(id);
+    if(!el) return;
+    // 카드가 그려진 «다음 프레임» 에 보내야 위치가 확정된다.
+    requestAnimationFrame(function(){
+      try { el.scrollIntoView({ behavior:'auto', block:'start' }); } catch(e){ el.scrollIntoView(); }
+    });
+  }
+  window.addEventListener('hashchange', applyHash);
 
   function repInfoHtml(r){
     return '기본급 <b>'+won(r.base_salary_krw)+'</b> · 계약 1곳당 성과급 <b>'+won(r.incentive_per_deal_krw)+'</b>'
@@ -322,7 +342,7 @@
 
   function kpiHtml(c, j){
     var comp = c.compensation || {};
-    return '<div class="card">'
+    return '<div class="card" id="sh-kpi">'
       + '<h2>'+esc(j.period_label)+' 요약</h2>'
       + '<p class="hint">숫자는 전부 서버가 기록에서 세어 만든 것입니다. 담당자가 직접 입력한 실적 숫자는 하나도 없습니다.</p>'
       + '<div class="grid g3">'
@@ -422,7 +442,7 @@
         + '</tr>'
         + '<tr><td colspan="6" class="why">'+esc(i.reason)+'</td></tr>';
     }).join('');
-    return '<div class="card"><h2>자동 채점 (85점)</h2>'
+    return '<div class="card" id="sh-score"><h2>자동 채점 (85점)</h2>'
       + '<p class="hint">실적 60 + 활동 25. 사람이 매기는 15점(보고·차량·협업)은 아래 «평가 확정»에서 넣습니다. '
       + '점수 아래 줄이 <b>«왜 이 점수인가»</b>입니다 — 이걸 설명 못 하면 평가 제도는 무너집니다.</p>'
       + '<div class="scroll"><table><thead><tr><th>항목</th><th class="num">실적</th><th class="num">목표</th>'
@@ -523,7 +543,7 @@
         + '<td>'+esc(a.next_action||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="5" class="empty">아직 기록이 없습니다.</td></tr>';
 
-    return '<div class="card"><h2>영업일지</h2>'
+    return '<div class="card" id="sh-diary"><h2>영업일지</h2>'
       + '<p class="hint">필수는 <b>«학원»과 «종류» 둘뿐</b>입니다. 나머지는 비워도 저장됩니다 — 길게 쓰게 하면 3주째부터 아무도 안 씁니다.</p>'
       // 🎤 말로 쓰기 — 이 제도 전체가 «매일 기록» 위에 서 있다. 타이핑을 요구하면 3주째부터 안 쓴다.
       //    브라우저 음성인식이 없으면 이 블록은 «붙여넣고 정리하기» 로 그대로 쓰인다.
@@ -680,7 +700,7 @@
      서버가 규칙으로 점수를 매기고 «왜» 를 함께 보냅니다.
      AI 로 순서를 정하지 않은 이유 — 이유를 설명 못 하면 아무도 그 순서를 안 따릅니다. */
   function nextVisitsHtml(){
-    return '<div class="card"><h2>🗺 오늘 어디부터 갈까</h2>'
+    return '<div class="card" id="sh-visits"><h2>🗺 오늘 어디부터 갈까</h2>'
       + '<p class="hint">단계·방치 일수·본인이 적어 둔 예정일·지역 묶음·근처 성공 사례로 점수를 매깁니다. '
       + '<b>왜 이 순서인지</b>가 항상 함께 나옵니다.</p>'
       + '<div id="nvBody"><div class="muted">불러오는 중…</div></div></div>';
@@ -718,7 +738,7 @@
 
   /* ── ⚠️ 위험한 학원 ───────────────────────────────────────────── */
   function atRiskHtml(){
-    return '<div class="card"><h2>⚠️ 위험한 학원</h2>'
+    return '<div class="card" id="sh-risk"><h2>⚠️ 위험한 학원</h2>'
       + '<p class="hint">계약한 학원의 <b>수업이 줄고 있는지</b>를 봅니다(최근 30일 vs 그 앞 30일). '
       + '유지율은 평가 15점이자 성과급 2차 50%의 조건이라, 이 알림은 담당자에게 <b>직접 돈이 걸린 알림</b>입니다.</p>'
       + '<div id="arBody"><div class="muted">불러오는 중…</div></div></div>';
@@ -812,7 +832,7 @@
      ⛔ 본사(canEdit)만 본다. 당사자가 「직무 재검토」 를 화면에서 먼저 읽게 두면 안 된다. */
   function disciplineHtml(){
     if(!STATE.canEdit) return '';
-    return '<div class="card"><h2>🧭 성과가 낮을 때 — 무엇을 하면 되나</h2>'
+    return '<div class="card" id="sh-low"><h2>🧭 성과가 낮을 때 — 무엇을 하면 되나</h2>'
       + '<p class="hint">성과가 낮다고 <b>기본급을 깎거나 차를 회수하지 않습니다.</b> 그건 벌이고, '
       + '우리나라에서 성과 부진은 벌을 줄 수 있는 잘못이 아니라 다툼이 됩니다. '
       + '돈으로 가는 결과는 <b>반기 상여 배율</b>까지입니다. '
@@ -1244,6 +1264,6 @@
   boot();
 })();
 </script>
-<script src="/js/adm-light-surfaces.js?v=12" defer></script>
+<script src="/js/adm-light-surfaces.js?v=13" defer></script>
 </body>
 </html>

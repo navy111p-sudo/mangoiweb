@@ -182,7 +182,33 @@
            ⚠️ 캐피타운 계열 계정은 그대로 전용 페이지로 보낸다(capiHref) — 그 분기는 건드리지 않았다. */
         { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html',
           /* 대표 카드가 회계라, 두지 않으면 「회계」와 «똑같은 툴팁» 이 뜬다(무엇이 다른지 알 수 없다). */
-          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' }
+          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' },
+        /* 🚗 (2026-08-21 사장님 「영업 메뉴가 어디 있냐」) — 사이드바 어디에도 없었다.
+           링크를 admin.html 의 사용자 메뉴(#topUserPopup)에만 달아 뒀는데, 그 메뉴는
+           admin-inline-c.css 가 `display:none !important` 로 통째로 감춘다
+           (화면에 실제로 보이는 계정 메뉴는 adm-r21.js 가 따로 그리고, 거기엔 이 링크가 없다).
+           메뉴 검색으로도 못 찾는다 — 색인(buildMenuIndex)이 `details.menu-card` 만 훑는데
+           이 화면은 별도 페이지라 카드가 없다. 그래서 주소를 아는 사람만 들어갈 수 있었다.
+           ⚠️ secs(손자)를 일부러 적지 않는다 — 이 화면은 카드를 **JS 로 그려서** 문서가
+              로드된 시점에는 그 id 들이 없다. 주소 뒤 #id 로 보내면 에러 없이 «맨 위만»
+              열린다(2026-08-18 「데모 매핑」과 같은 함정). 손자가 필요하면 그 화면에
+              먼저 진짜 앵커를 만들고 나서 적을 것.
+           ⚠️ 주소를 `/admin/sales-hr` (확장자 없이)로 쓰지 말 것 — 그 주소는 src/index.ts 의
+              재작성으로만 열리는데 `site_map_drift_harness` 는 그걸 모르고 «죽은 링크» 로
+              FAIL 낸다(그 하니스가 실제로 잡아 줬다). 이 파일의 다른 항목들과 같이 실제
+              파일 경로를 쓴다(/admin/duration-requests.html · /enroll-ops.html). */
+        { ko: '영업 실적·평가', en: 'Sales & review', href: '/admin/sales-hr.html',
+          tip: '🚗 영업담당자 방문·계약·성과급·반기 평가',
+          tipEn: '🚗 Sales rep visits, deals, incentives, half-year review',
+          secs: [
+            { ko: '📊 이번 달 요약',     en: '📊 This month',      id: 'sh-kpi' },
+            { ko: '🗺 오늘 어디부터',    en: '🗺 Where to go',     id: 'sh-visits' },
+            { ko: '⚠️ 위험한 학원',      en: '⚠️ At-risk academies', id: 'sh-risk' },
+            { ko: '📝 영업일지',         en: '📝 Activity log',    id: 'sh-diary' },
+            { ko: '🎯 자동 채점',        en: '🎯 Auto scoring',    id: 'sh-score' },
+            { ko: '✅ 평가 확정',        en: '✅ Confirm review',  id: 'evalCard' },
+            { ko: '🧭 성과가 낮을 때',   en: '🧭 If underperforming', id: 'sh-low' }
+          ] }
         /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
            「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
            회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
@@ -649,6 +675,28 @@
     var anchor = olds[0];
     var en = isEn();
     var frag = document.createDocumentFragment();
+
+    /* 🧾 결재함 — 그룹들 «위» 에 고정으로 한 줄. (2026-08-20 사장님 지시)
+       [왜 그룹 안에 안 넣었나] 그룹은 접혀 있는 것이 기본이라, 접힌 동안에는 대기 건수가
+          보이지 않는다. 결재는 «누가 답을 기다리는» 일이라 접힌 채로 묻히면 안 된다.
+       [왜 <a> 인가] 이 사이드바의 클릭은 window 캡처 핸들러 둘(adm-s11 ph97 · IA6 wireDelegate)이
+          가로챈다. 다만 그들은 `.ph85-head` / `.ph85-sub` / `.ph86-action-btn` 만 본다.
+          그래서 **다른 class 의 진짜 링크**로 두면 어느 쪽에도 안 걸리고, 리스너 없이
+          브라우저가 그냥 이동시킨다 — 가로채기와 싸울 일이 없다.
+       ⛔ class 를 .ph85-head/.ph85-sub 로 바꾸지 말 것(그 순간 삼켜진다).
+       [배지] 숫자는 admin.html 의 결재 블록이 **같은 API 호출 한 번**으로 채운다.
+          여기서 또 부르면 첫 화면에서 같은 요청이 두 번 나간다. */
+    var appr = document.createElement('a');
+    appr.id = 'ia6-appr';
+    appr.href = '/work';
+    appr.setAttribute('data-ko', '결재함');
+    appr.setAttribute('data-en', 'Approvals');
+    appr.innerHTML =
+      '<div class="ph85-ico">' + svg('<path d="M3 13h4l2 3h6l2-3h4"/>' +
+        '<path d="M5.5 5h13l2.5 8v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5z"/>') + '</div>' +
+      '<div class="ia6-appr-t">' + (en ? 'Approvals' : '결재함') + '</div>' +
+      '<span id="ia6-appr-n" class="ia6-appr-n"></span>';
+    frag.appendChild(appr);
 
     GROUPS.forEach(function (g) {
       var grp = document.createElement('div');

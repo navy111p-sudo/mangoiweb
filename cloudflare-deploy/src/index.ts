@@ -405,6 +405,10 @@ const worker = {
             '/api/admin/push', '/api/admin/popups', '/api/admin/posters',
             // ── 운영 감시·데이터 반출 (card-admin-ghost · card-admin-alerts · card-data-export) ──
             '/api/admin/ghost', '/api/admin/alerts', '/api/admin/export',
+            // ── 🔴 지금 수업 현황 (2026-08-20) — 전사 학생 이름·강사 배정이 한 화면에 모인다.
+            //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
+            //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes-now',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -1150,6 +1154,8 @@ const worker = {
         path === '/api/admin/textbook-files/rebook' ||
         // 👥 (2026-08-19) 진행 중인 방 번호 → 강사·학생 이름. 핸들러가 스코프로 잘라서 준다.
         path === '/api/admin/live-classes' ||
+        // 🔴 (2026-08-20) 예약 기준 «지금 진행 중이어야 할 수업». 핸들러가 스코프로 자르고 강사는 막는다.
+        path === '/api/admin/classes-now' ||
         // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
         path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
@@ -3679,7 +3685,36 @@ async function handleGamesRecommend(request: Request, env: Env): Promise<Respons
       advanced:      ['최고예요! 이제 더 어려운 도전을 해 볼까요? 🏆', 'Amazing! Ready for a harder challenge? 🏆'],
     };
     const m = MSG[focus] || MSG.keep_going;
-    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1] });
+
+    /* ⑥ 🎫 레벨테스트 «통과» 여부 — 게임 허브의 단계별 해금을 한 번에 여는 두 번째 열쇠
+       ────────────────────────────────────────────────────────────────
+       왜 여기에 얹었나: 게임 허브(student-games.html)는 이미 이 응답 하나를 받아
+         잠금 판정(_questApplyServer)에 쓰고 있다. 새 엔드포인트를 만들면 라우팅·인증
+         게이트에 또 등록해야 하고(CLAUDE.md 2장 «새 API 추가»), 허브가 요청을 한 번 더
+         보낸다. 같은 학생·같은 캐시(10분)에 실어 보내는 편이 실수할 자리가 적다.
+       판정 근거: 상담·예약 단계가 아니라 **결과가 확정된 것**만 통과로 본다.
+         · final_level 이 채워졌다 = 강사·본사가 레벨을 확정했다(관리자 화면의 «결과 확정»).
+         · status='done' = 레벨테스트 일정이 끝난 것으로 표시됐다.
+       ⛔ status='confirmed'(일정만 잡힘)를 통과로 세지 말 것 — 신청만 하고 안 본 학생까지
+          게임이 전부 열린다. 그러면 「레벨테스트로 바로 열기」가 «신청 버튼»이 되어 버린다.
+       표가 없는 계정(레벨테스트를 아예 안 만든 환경)에서는 조용히 false 로 둔다. */
+    let leveltestPassed = false;
+    let leveltestLevel: string | null = null;
+    try {
+      const lt: any = await env.DB.prepare(
+        `SELECT final_level, status FROM leveltest_applications
+          WHERE student_uid = ?
+            AND ( (final_level IS NOT NULL AND TRIM(final_level) <> '') OR status = 'done' )
+          ORDER BY updated_at DESC LIMIT 1`
+      ).bind(userId).first();
+      if (lt) {
+        leveltestPassed = true;
+        const lv = String(lt.final_level || '').trim();
+        leveltestLevel = lv || null;
+      }
+    } catch {}
+
+    const out = JSON.stringify({ ok: true, lang, status, focus, accuracy, pron, attempts, weak, message_ko: m[0], message_en: m[1], leveltest_passed: leveltestPassed, leveltest_level: leveltestLevel });
     try { if (env.SESSION_STATE) await env.SESSION_STATE.put(ckey, out, { expirationTtl: 600 }); } catch {}
     return new Response(out, { status: 200, headers: _MS_JSON });
   } catch (e: any) {
@@ -4540,10 +4575,26 @@ async function handleVideoCallWebSocket(request: Request, url: URL, env: Env, ct
 
     // 활성 방 목록에 등록 — fire-and-forget 이지만 worker 가 응답 후
     // 종료되어 KV put 이 드롭되지 않도록 ctx.waitUntil 로 보존
+    /* ⏱ TTL 2시간 (2026-08-20 — 그 전에는 600초였다)
+       ═══════════════════════════════════════════════════════════════════════
+       [무엇이 문제였나] 이 키는 **WebSocket 이 붙는 순간에만** 쓰이고 수업이
+          진행되는 동안 갱신되지 않는다. TTL 이 10분이라 **10분 넘게 안정적으로
+          연결된 수업은 관리자 「실시간 수업 현황」 표에서 사라졌다.**
+          하필 그 표가 «수업 종료 / 연장»·«Ghost 참관» 의 입구라, 정작 손봐야 할
+          수업일수록 목록에 없었다. 실측(2026-08-19 `meet-123`): 19:58~22:04
+          2시간 6분 수업인데 마지막 접속이 20:00:51 — 그 뒤 약 1시간 53분간
+          화면에는 «진행 중인 수업 없음» 이었다.
+       [왜 TTL 만 늘려도 되나] 아래 handleActiveRooms 가 방마다 Durable Object 에
+          `/status` 를 물어 **인원 0이면 그 자리에서 KV 키를 지운다.** 즉 TTL 은
+          «정답» 이 아니라 «후보 목록» 의 안전망일 뿐이고, 유령 방은 다음 조회
+          (관리자 화면 15초 주기)에서 곧바로 정리된다.
+       ⛔ 하트비트마다 KV 를 다시 쓰는 방식은 일부러 택하지 않았다 — 화상수업
+          Durable Object 를 건드려야 하는데(CLAUDE.md 4-2 공동 금지구역) 사고
+          반경 대비 이득이 없다. 숫자 하나가 가장 안전하다. */
     const kvPut = env.SESSION_STATE.put(`active-room:${roomId}`, JSON.stringify({
       roomId,
       lastActivity: Date.now()
-    }), { expirationTtl: 600 }).catch(() => {});
+    }), { expirationTtl: 7200 }).catch(() => {});
     if (ctx && typeof ctx.waitUntil === 'function') {
       ctx.waitUntil(kvPut);
     }
@@ -5251,6 +5302,8 @@ function isAdminPath(path: string, method: string): boolean {
   if (path === '/api/admin/textbook-files/dup-report' || path === '/api/admin/textbook-files/rebook') return true;
   // 👥 (2026-08-19) 진행 중인 수업의 강사·학생 이름 — 반드시 인증 뒤
   if (path === '/api/admin/live-classes') return true;
+  // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 학생 이름이 나가므로 반드시 인증 뒤
+  if (path === '/api/admin/classes-now') return true;
   // 🙈 (2026-08-13) 라이브러리 숨김 목록 — 관리자 전용
   if (path === '/api/admin/textbook-hidden-books') return true;
   // 🎬 Phase 39 — 망고아이 비디오 관리 (관리자 전용)
@@ -5401,6 +5454,10 @@ function isAgencyAllowedApi(path: string): boolean {
     /* 📊 (2026-08-19) 학원별 학생 수업현황 — 지사장·학원장도 «자기 지사·자기 학원» 출석 통계를 봐야 한다.
        핸들러(api-admin.ts)가 scopeStudentCond() 로 이미 자기 범위만 잘라서 주므로 여기 열어도 안 샌다. */
     '/api/admin/attendance/school-stats',
+    /* 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 지사장·학원장도 «우리 학원 수업이 지금
+       돌고 있나» 를 봐야 한다. 핸들러가 scopeStudentCond() 로 자기 범위 학생의 수업만
+       잘라서 주고(범위 밖은 목록·건수 양쪽에서 빠진다), 강사에게는 아예 닫혀 있다. */
+    '/api/admin/classes-now',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

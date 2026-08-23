@@ -17,7 +17,9 @@
     chat:'<path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4.3A8 8 0 1 1 21 11.5z"/>',
     consult:'<path d="M4 4.5h16a1.2 1.2 0 0 1 1.2 1.2v9a1.2 1.2 0 0 1-1.2 1.2h-9.2L6 20.5v-4.6H4a1.2 1.2 0 0 1-1.2-1.2v-9A1.2 1.2 0 0 1 4 4.5Z"/>',
     settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
-    leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>'
+    leave:'<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4"/><path d="M9 16l4-4-4-4"/><line x1="13" y1="12" x2="3" y2="12"/>',
+    /* ☰ 기능 (2026-08-20) — 세로 휴대폰에서만 쓰는 «모든 기능·게임» 메뉴 */
+    func:'<line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>'
   };
   /* 아이콘 22 → 26 (2026-07-22, 강사 피드백 #7 "설정 옵션이 너무 작다") */
   function svg(p){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" width="26" height="26" aria-hidden="true">'+p+'</svg>'; }
@@ -198,7 +200,9 @@
     '  body.vc-in-call #vc-dock-handle{display:none !important;}', /* 옛 문고리 → ⋯ 버튼으로 대체 */
     '  /* ★ (2026-07-14) 독이 열리면 좌우 플로팅 버튼(☰ 기능 / ↺ 캐시)을 독 위로 올려 겹침 방지 —',
     '     독 폭이 96vw 라 양끝 버튼(right:10/left:16, bottom 58~92px)이 열린 독(50~120px 대역)과 정확히 겹치던 문제 */',
-    '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
+    '  /* 🥭 (2026-08-20 제보 ③) ☰기능 은 «올리지» 않고 «감춘다» — 독 안에 같은 버튼이 있고,',
+    '     132px 로 올린 자리가 정확히 「잠시만 기다려 주세요」 안내문 한가운데였다(실측 t=580). */',
+    '  body.vc-in-call.vc-dock-open .vc-phero-ctrl{display:none !important;}',
     '  body.vc-in-call.vc-dock-open #ph52-cache-fab, body.vc-in-call.vc-dock-open .ph52-cache-fab{bottom:calc(env(safe-area-inset-bottom,0px) + 132px) !important;}',
     '}',
     '/* ★ (2026-07-23 사장님) PC: 하단 독이 내 얼굴(PIP)을 가린다 → 문고리로 접었다 폈다.',
@@ -229,6 +233,20 @@
     '@media (max-width:1024px){',
     '  body.vc-in-call.vc-dock-open #vc-dock-size{display:inline-flex;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);left:14px;}',
     '  body.vc-in-call.vc-dock-open.vc-dock-top #vc-dock-size{top:calc(var(--vcdock-top,140px) + 60px);bottom:auto;left:50%;transform:translateX(-50%);}',
+    '}',
+    /* ☰ 기능 (2026-08-20 사장님 지시 ③) — 세로 휴대폰에서만 «화면공유» 자리를 «기능» 이 대신한다.
+       ・왜 — 세로에서 ☰기능 은 가장 자주 누르는 버튼인데 화면 한가운데 떠 있어 안내문을 가렸다.
+              독 안으로 들여보내면 «떠 있는 버튼» 이 하나 줄고, 자리도 정해진다.
+       ・화면공유는 사라지지 않는다 — ☰ 기능 메뉴 안으로 들어간다(idx-vc-screenmode.js).
+       ⛔ PC·가로에는 ☰ 기능 메뉴 자체가 없다. 그쪽에서 화면공유를 감추면 쓸 방법이 없어지므로
+          «세로 + 좁은 화면» 에서만 바꾼다. 버튼 개수는 양쪽 다 7개 그대로다(줄 넘침 없음). */
+    /* ⚠️ 선택자를 «#vc-dock #vc-dock-func» 로 쓴다 — 위의 «#vc-dock button{display:flex}» 가
+       특정성(1,0,1)이 더 높아 «#vc-dock-func»(1,0,0) 하나로는 못 이긴다.
+       실제로 밟았다: PC·가로에서 화면공유와 기능이 «둘 다» 나와 버튼이 8개가 됐다(실측). */
+    '#vc-dock #vc-dock-func{display:none;}',
+    '@media (max-width:1024px) and (orientation:portrait){',
+    '  #vc-dock #vc-dock-share{display:none !important;}',
+    '  #vc-dock #vc-dock-func{display:flex !important;}',
     '}'
   ].join('\n');
 
@@ -708,7 +726,7 @@
     dock = document.createElement('div'); dock.id = 'vc-dock';
     // 🌐 (2026-07-25) 독 라벨을 data-ko/data-en 으로 고정 — '설정'·'화면공유'는 i18n 사전에 없어
     //   sweep 타이밍에 따라 라벨이 오락가락하던 문제를 없앤다(항상 현재 언어를 따름).
-    var LBL_EN = {'마이크':'Microphone','카메라':'Camera','화면공유':'Screen sharing','채팅':'Chat','상담':'Consult','설정':'Settings','나가기':'Exit'};
+    var LBL_EN = {'마이크':'Microphone','카메라':'Camera','화면공유':'Screen sharing','채팅':'Chat','상담':'Consult','설정':'Settings','나가기':'Exit','기능':'Menu'};
     function mk(id, label, icon, cls, tip){
       var b = document.createElement('button'); b.id = 'vc-dock-' + id; if (cls) b.className = cls;
       if (tip) b.title = tip;
@@ -719,6 +737,11 @@
     btnMic = mk('mic','마이크','mic',null,'마이크 켜기/끄기');
     btnCam = mk('cam','카메라','cam',null,'카메라 켜기/끄기');
     var bShare = mk('share','화면공유','share',null,'화면공유 — 내 화면·파일을 학생에게 보여주기');
+    /* ☰ 기능 (2026-08-20 사장님 지시 ③) — 세로 휴대폰에서만 «화면공유» 자리를 대신한다.
+       화면공유는 ☰ 기능 메뉴 안으로 들어간다(사장님이 그렇게 고르셨다).
+       ⚠️ PC·가로에는 ☰ 기능 메뉴 자체가 없으므로 그쪽 독은 지금까지처럼 «화면공유» 를 쓴다
+          — 그래서 버튼을 둘 다 만들어 두고 아래 CSS 로 화면 방향에 따라 하나만 보여 준다. */
+    var bFunc = mk('func','기능','func',null,'기능·게임 메뉴 열기 (칠판·교재·화면공유·게임)');
     var bChat = mk('chat','채팅','chat',null,'채팅 창 열기/닫기');
     // 🔔 (2026-07-24) 안읽음 배지 부착 — 값 갱신은 window.vcDockChatBadge(n, pulse)
     try {
@@ -733,6 +756,7 @@
     btnMic.onclick = function(){ if(isCL())showHint('마이크'); closeSettings(); call('vcToggleMic'); setTimeout(sync, 60); };
     btnCam.onclick = function(){ if(isCL())showHint('카메라'); closeSettings(); call('vcToggleCam'); setTimeout(sync, 60); };
     bShare.onclick = function(){ if(isCL())showHint('화면공유'); closeSettings(); call('vcFolderOpen','screen'); };
+    bFunc.onclick = function(){ closeSettings(); call('vcTogglePheroMenu'); };
     bChat.onclick = function(){ if(isCL())showHint('채팅'); closeSettings(); window.vcDockChatBadge(0); openDelayed(function(){ call('vcToggleChat'); }); };
     // 외부 링크: 지연 없이 즉시(팝업차단 방지) · 채널 «홈» — /chat 은 비로그인 PC 를 로그인 화면으로 튕긴다
     bConsult.onclick = function(){ if(isCL())showHint('상담'); closeSettings();
@@ -742,7 +766,7 @@
     bSet.onclick = function(e){ if(e&&e.stopPropagation) e.stopPropagation(); if(isCL())showHint('설정'); openDelayed(toggleSettings); };
     bLeave.onclick = function(){ if(isCL())showHint('나가기'); closeSettings(); call('vcLeaveRoom'); };
 
-    [btnMic, btnCam, bShare, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
+    [btnMic, btnCam, bShare, bFunc, bChat, bConsult, bSet, bLeave].forEach(function(b){ dock.appendChild(b); });
     document.body.appendChild(dock);
 
     // 🥭 (2026-06-28) 문고리(핸들) — 휴대폰 가로에서 도크를 아래로 접었다/폈다 (카메라 얼굴 가림 해소)

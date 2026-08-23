@@ -132,9 +132,11 @@
         // 🇵🇭🏫 (2026-08-08) 여기만 옛 규칙이 남아 강사·매니저를 전부 /admin/mypage 로 보내고 있었다.
         //   위쪽 로그인 분기(24751)와 admin/login.html 은 이미 /teacher 로 가는데 이 메뉴만 달랐다.
         //   역할판정 로직이 세 곳에 복제돼 있다 — 하나를 고치면 나머지도 반드시 함께 볼 것(CLAUDE.md 2절).
-        var _dest = (_r.indexOf('teacher') >= 0) ? '/teacher'
-                  : (_r === 'branch' || _r === 'agency') ? '/manager'
-                  : '/admin.html';
+        // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 옛 규칙으로 폴백.
+        var _dest = (_as && _as.home_path)
+                  || ((_r.indexOf('teacher') >= 0) ? '/teacher'
+                     : (_r === 'branch' || _r === 'agency') ? '/manager'
+                     : '/admin.html');
         btn.title = L ? '메뉴 열기' : 'Open menu';
         btn.onclick = function(){ toggleAdminUserMenu(_as, _dest); };
         btn.style.background = 'linear-gradient(135deg,rgba(59,130,246,.18),rgba(37,99,235,.18))';
@@ -530,6 +532,7 @@
   window.logout = function(){
     setUser(null);
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();   // 위 removeItem 의 «나머지 반» — 아래 함수 주석 참고
     document.getElementById('user-menu').classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
   };
@@ -550,8 +553,15 @@
     menu.classList.add('show');
   };
 
+  // 🚪 관리자 세션 폐기(2026-08-21). 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐.
+  //   ⚠️ 첫 화면 예산 때문에 설명은 docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md 에 둔다.
+  function mangoiRevokeAdminCookie(){
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).catch(function(){}); } catch(e){}
+  }
+
   window.logoutAdminSession = function(){
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();
     var menu = document.getElementById('user-menu');
     if(menu) menu.classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
@@ -576,7 +586,7 @@
       '<div class="lm-body">'+
         // ━━━━ 😊 패스키(얼굴/지문) 로그인 — 지원 브라우저에서만 노출 ━━━━
         (window.PublicKeyCredential ?
-          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
+          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊👆 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
           '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:0 0 10px;position:relative">'+
             '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 아이디로':'Or with ID')+'</span>'+
             '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
@@ -720,13 +730,17 @@
       // 🧑‍🏫 (2026-07-27) 교사 판정을 아이디 접두사보다 먼저 본다. 옛 LMS 에서 넘어온 강사
       //   아이디는 형태가 제각각이라(예: capi… 로 시작하는 이름) 접두사 규칙에 걸리면
       //   엉뚱한 화면(캐피타운 정산)으로 가버린다. 서버가 준 is_teacher 가 항상 우선.
-      var dest = '/admin.html';
-      // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로. admin/login.html 의 같은 분기와
-      //   **반드시 함께** 고쳐야 한다(역할판정 로직이 두 파일에 복제돼 있음 — CLAUDE.md 2절).
-      if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
-      // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로. admin/login.html 의 같은 분기와 함께 고칠 것.
-      else if (role === 'branch' || role === 'agency') dest = '/manager';
-      else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      // 🏠 첫 화면 정본은 서버(auth-admin.ts home_path). 없을 때만 아래 옛 규칙이 정한다.
+      var dest = (j && j.home_path) || '/admin.html';
+      /* ⚠️ 아래 옛 규칙은 **서버가 값을 안 줄 때만** 돌아야 한다. 묶지 않으면 바로 위에서
+            받은 home_path 를 그대로 덮어써, 서버로 정본을 옮긴 의미가 사라진다. */
+      if (!(j && j.home_path)) {
+        // 🇵🇭 (2026-08-02) 강사는 초경량 강사 포털(/teacher)로.
+        if (String(role).indexOf('teacher') >= 0) dest = '/teacher';
+        // 🏫 (2026-08-08) 지사·대리점도 초경량 매니저 포털로.
+        else if (role === 'branch' || role === 'agency') dest = '/manager';
+        else if (uid === 'capitown' || uid.indexOf('capi') === 0) dest = '/admin/capitown-settlement.html';
+      }
       closeLoginModal();
       var fbL = (window.getLang?window.getLang():'ko')==='ko';
       showLcToast2(fbL ? ('✅ ' + name + '님 환영합니다!') : ('✅ Welcome, ' + name + '!'));
