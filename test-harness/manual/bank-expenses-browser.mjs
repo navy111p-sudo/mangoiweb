@@ -50,10 +50,13 @@ const SEED = {
     { account: '강사급여송금', total: 1_000_000, count: 1, role: 'moved', share: 8 },
   ],
   payees: [
-    { payee: '김영진', total: 6_000_000, count: 1, account: '지사수수료', first_at: '2026-07-05 10:00', last_at: '2026-07-05 10:00', assigned: true },
-    { payee: '신한카드', total: 2_000_000, count: 1, account: '카드대금', first_at: '2026-07-15 09:00', last_at: '2026-07-15 09:00', assigned: false },
-    { payee: '주식회사알수없는곳', total: 1_500_000, count: 1, account: '기타출금', first_at: '2026-07-20 14:00', last_at: '2026-07-20 14:00', assigned: false },
-    { payee: '메트로은행', total: 1_000_000, count: 1, account: '강사급여송금', first_at: '2026-07-25 11:00', last_at: '2026-07-25 11:00', assigned: false },
+    /* assignable = 그 거래처에 «저장된 1차 분류가 기타출금인» 행이 있는가.
+       김영진·주식회사알수없는곳은 true(지정하면 바뀐다), 신한카드·메트로은행은 false
+       (은행 적요로 이미 분류돼 지정해도 안 바뀐다 — 화면이 그 사실을 적어야 한다). */
+    { payee: '김영진', total: 6_000_000, count: 1, account: '지사수수료', first_at: '2026-07-05 10:00', last_at: '2026-07-05 10:00', assigned: true, assignable: true },
+    { payee: '신한카드', total: 2_000_000, count: 1, account: '카드대금', first_at: '2026-07-15 09:00', last_at: '2026-07-15 09:00', assigned: false, assignable: false },
+    { payee: '주식회사알수없는곳', total: 1_500_000, count: 1, account: '기타출금', first_at: '2026-07-20 14:00', last_at: '2026-07-20 14:00', assigned: false, assignable: true },
+    { payee: '메트로은행', total: 1_000_000, count: 1, account: '강사급여송금', first_at: '2026-07-25 11:00', last_at: '2026-07-25 11:00', assigned: false, assignable: false },
   ],
   rows: [
     { id: 4, datetime: '2026-07-25 11:00', remark: '메트로은행 송금', payee: '메트로은행', bank_category: '강사급여송금', account: '강사급여송금', role: 'moved', amount: 1_000_000, balance: 3_000_000, memo: '' },
@@ -67,6 +70,7 @@ const SEED = {
     { month: '2026-06', total: 10_000_000, count: 4 }, { month: '2026-07', total: 12_500_000, count: 4 },
   ],
   account_options: ['지사수수료', '광고선전비', '지급수수료', '기타출금'],
+  can_assign: true,
   status: { state: 'ok', configured: true, message_ko: '계좌 연동 정상. 아래는 실제 입출금 내역입니다.', message_en: 'Bank sync is healthy.', last_sync_at: Date.UTC(2026, 6, 26, 0, 0), last_error: null, rows_total: 812, rows_month: 4 },
 };
 
@@ -93,9 +97,25 @@ async function open(browser, width, height, opts = {}) {
   // 🏦 이 화면이 부르는 API 만 스텁한다. 나머지 관리자 API 는 빈 응답으로 조용히 돌려보낸다.
   await ctx.route('**/api/admin/reports/bank-expenses*', route =>
     route.fulfill({ status: 200, contentType: 'application/json',
-      body: JSON.stringify(opts.empty ? { ...SEED, summary: { ...SEED.summary, out_total: 0, out_count: 0, review_total: 0, review_ratio: 0 }, categories: [], payees: [], rows: [] } : SEED) }));
+      body: JSON.stringify(
+        opts.empty ? { ...SEED, summary: { ...SEED.summary, out_total: 0, out_count: 0, review_total: 0, review_ratio: 0 }, categories: [], payees: [], rows: [] }
+        : opts.noAssign ? { ...SEED, can_assign: false }
+        : SEED) }));
+  /* 🏷️ 계정과목 지정(2단계) — 실제로 어떤 요청이 나갔는지 브라우저 쪽에 적어 둔다.
+     «화면만 바뀌고 서버에는 안 갔다» 는 사고를 잡기 위한 것이다(CLAUDE.md 2장 «시연 껍데기»). */
+  await ctx.route('**/api/admin/reports/payees*', async route => {
+    const u = route.request().url();
+    await page.evaluate((rec) => { (window.__bkPosts = window.__bkPosts || []).push(rec); },
+      { url: u, method: route.request().method() }).catch(() => {});
+    if (opts.assignFails) {
+      return route.fulfill({ status: 403, contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: '계정과목 지정은 본사 계정만 할 수 있습니다.' }) });
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+  });
   await ctx.route('**/api/**', route => {
-    if (/bank-expenses/.test(route.request().url())) return route.fallback();
+    const u = route.request().url();
+    if (/bank-expenses|reports\/payees/.test(u)) return route.fallback();
     return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
   });
 
@@ -261,6 +281,88 @@ async function openCard(page) {
       }));
       check('내역 없음을 말로 알린다', /없습니다/.test(t.rows), t.rows.trim().slice(0, 50));
       check('계정과목 표도 비운다', /없습니다|—/.test(t.cats), t.cats.trim().slice(0, 50));
+      await ctx.close();
+    }
+
+    /* ── ⑥ 🏷️ 계정과목 지정 (2단계) ────────────────────────────────────────── */
+    console.log('\n[6] 거래처 표에서 그 자리에서 계정과목 지정');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+
+      const cells = await page.evaluate(() =>
+        [].slice.call(document.querySelectorAll('#acc-bank-payees tr')).map(tr => {
+          const tds = tr.querySelectorAll('td');
+          return {
+            payee: tds[0] ? tds[0].textContent.trim() : '',
+            last: tds[4] ? tds[4].textContent.trim() : '',
+            hasSelect: !!tr.querySelector('select.bk-assign'),
+          };
+        }));
+      const kim = cells.find(c => /김영진/.test(c.payee));
+      const card = cells.find(c => /신한카드/.test(c.payee));
+
+      check('지정 가능한 거래처엔 고르는 칸', !!kim && kim.hasSelect, JSON.stringify(kim));
+      /* 🪤 은행 적요로 이미 분류된 거래처는 지정해도 안 바뀐다 — 칸을 내면 사장님이
+            지정해 놓고 「저장이 안 된다」고 읽는다(에러가 안 나기 때문). 이유를 적어야 한다. */
+      check('안 바뀌는 거래처엔 칸 대신 이유', !!card && !card.hasSelect && /안 바뀝니다/.test(card.last), JSON.stringify(card));
+
+      const note = await page.evaluate(() => (document.getElementById('acc-bank-assign-note') || {}).textContent || '');
+      check('«지난 출금까지 바뀐다» 를 알린다', /지난 출금까지/.test(note), note.slice(0, 60));
+
+      // 실제로 고르면 서버로 나가는가 — 화면만 바뀌는 «시연 껍데기» 가 아닌지
+      await page.evaluate(() => {
+        const sel = [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+          .find(s => s.getAttribute('data-payee') === '주식회사알수없는곳');
+        sel.value = '지급수수료';
+        sel.dispatchEvent(new Event('change'));
+      });
+      await page.waitForTimeout(1500);
+      const posts = await page.evaluate(() => window.__bkPosts || []);
+      const hit = posts.find(p => /payee=/.test(p.url));
+      check('서버로 POST 가 실제로 나간다', !!hit && hit.method === 'POST', JSON.stringify(posts).slice(0, 160));
+      check('거래처·계정과목이 함께 실린다',
+        !!hit && decodeURIComponent(hit.url).indexOf('payee=주식회사알수없는곳') >= 0
+              && decodeURIComponent(hit.url).indexOf('category=지급수수료') >= 0,
+        hit ? decodeURIComponent(hit.url) : '(없음)');
+      await ctx.close();
+    }
+
+    /* ── ⑦ 지정할 수 없는 계정 / 저장 실패 ────────────────────────────────── */
+    console.log('\n[7] 본사가 아니면 칸을 안 낸다 · 저장이 실패하면 말로 알린다');
+    {
+      const { ctx, page } = await open(browser, 1440, 900, { noAssign: true });
+      await openCard(page);
+      const r = await page.evaluate(() => ({
+        selects: document.querySelectorAll('#acc-bank-payees select.bk-assign').length,
+        note: (document.getElementById('acc-bank-assign-note') || {}).textContent || '',
+      }));
+      /* 서버는 403 으로 막지만 화면도 함께 감춘다 — 서버만 있으면 «눌러도 안 되는 칸» 이 남는다 */
+      check('본사가 아니면 고르는 칸 0개', r.selects === 0, '실제 ' + r.selects);
+      check('왜 못 하는지 적는다', /본사 계정만/.test(r.note), r.note.slice(0, 50));
+      await ctx.close();
+    }
+    {
+      const { ctx, page } = await open(browser, 1440, 900, { assignFails: true });
+      await openCard(page);
+      await page.evaluate(() => {
+        const sel = [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+          .find(s => s.getAttribute('data-payee') === '주식회사알수없는곳');
+        sel.value = '지급수수료';
+        sel.dispatchEvent(new Event('change'));
+      });
+      await page.waitForTimeout(1200);
+      const r = await page.evaluate(() => ({
+        note: (document.getElementById('acc-bank-assign-note') || {}).textContent || '',
+        // 실패했으면 고른 값을 되돌려야 한다 — 안 그러면 «저장된 줄» 안다
+        val: (function () {
+          const s = [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+            .find(s => s.getAttribute('data-payee') === '주식회사알수없는곳');
+          return s ? s.value : '(없음)';
+        })(),
+      }));
+      check('저장 실패를 말로 알린다', /저장하지 못했습니다/.test(r.note), r.note.slice(0, 70));
+      check('실패하면 고른 값을 되돌린다', r.val !== '지급수수료', r.val);
       await ctx.close();
     }
 

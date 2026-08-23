@@ -217,14 +217,37 @@
     }).join('');
   }
 
-  // ── 🏪 거래처별 표 ────────────────────────────────────────────────────────
+  /* ── 🏪 거래처별 표 + 🏷️ 그 자리에서 계정과목 지정 (2단계) ──────────────────
+     [왜 여기서 지정하나] 지정 화면(「🏷️ 지출 계정과목 분류」)이 이 카드 아래 따로 있는데,
+     «무엇을 지정해야 하는지» 는 이 표를 봐야 안다. 두 화면을 오가면 금액이 큰 것부터
+     처리하기가 어렵다. 그래서 보는 자리에서 바로 정한다 — 저장은 **기존 API 그대로**
+     (`POST /api/admin/reports/payees`)라 지정 화면과 규칙이 갈라질 수 없다.
+
+     ⚠️ 지정은 **그 거래처의 지난 출금까지 함께** 바뀐다(서버가 «읽을 때» 판정하므로).
+        그 사실을 표 아래에 반드시 적어 둔다 — 모르고 누르면 지난달 손익계산서가 움직인다.
+     ⚠️ 저장된 1차 분류가 「기타출금」이 아닌 행(급여이체·카드대금 등)은 **지정해도 안 바뀐다.**
+        서버가 `assignable` 로 미리 알려 주므로 그런 거래처에는 칸 대신 이유를 적는다.
+        (안 그러면 지정해 놓고 「저장이 안 된다」로 읽힌다 — 에러가 안 나기 때문이다.)
+     ⚠️ 낙관적 갱신을 하지 않는다 — 서버가 «저장했다» 고 답한 뒤에 **다시 조회**한다.
+        화면만 먼저 바꾸면 실패했을 때 «바뀐 줄 아는» 상태가 남는다. */
   function renderPayees() {
     var tb = $('acc-bank-payees'); if (!tb) return;
     var rows = ((_data && _data.payees) || []).slice(0, 20);
+    var note = $('acc-bank-assign-note');
+    if (note) {
+      note.textContent = !_data ? ''
+        : (_data.can_assign
+            ? (en()
+                ? '※ Assigning an account applies to that payee’s PAST and future withdrawals. Choosing “기타출금” clears the assignment.'
+                : '※ 계정과목을 지정하면 그 거래처의 «지난 출금까지» 함께 그 과목으로 들어갑니다. 「기타출금」을 고르면 지정을 지웁니다.')
+            : (en() ? '※ Only head-office accounts can assign expense accounts.'
+                    : '※ 계정과목 지정은 본사 계정만 할 수 있습니다.'));
+    }
     if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="4" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
+      tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
       return;
     }
+    var opts = (_data && _data.account_options) || [];
     tb.innerHTML = rows.map(function (r) {
       var needs = r.account === '기타출금';
       return '<tr>'
@@ -235,8 +258,89 @@
         + esc(r.account) + '</td>'
         + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700">' + krw(r.total) + '</td>'
         + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right">' + (r.count || 0) + '</td>'
+        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9">' + assignCell(r, opts) + '</td>'
         + '</tr>';
     }).join('');
+    bindAssign();
+  }
+
+  /** 지정 칸 하나 — 지정할 수 있을 때만 고르는 칸을 내고, 아니면 «왜 못 하는지» 를 적는다. */
+  function assignCell(r, opts) {
+    if (!_data || !_data.can_assign) {
+      return '<span style="color:#9ca3af">' + (en() ? '—' : '—') + '</span>';
+    }
+    if (!r.assignable) {
+      /* 은행 적요로 이미 분류가 붙은 거래처 — 지정해도 안 바뀐다는 사실을 그대로 적는다 */
+      return '<span style="color:#6b7280;font-size:11px">'
+        + esc(en() ? 'Set from the bank remark — assigning has no effect'
+                   : '은행 적요로 이미 분류됨 — 지정해도 안 바뀝니다') + '</span>';
+    }
+    var cur = opts.indexOf(r.account) >= 0 ? r.account : '';
+    /* ⚠️ `data-prev` 에 «원래 값» 을 적어 둔다 — 저장이 실패했을 때 되돌리기 위해서다.
+       change 가 발화한 «뒤» 에 `sel.value` 를 읽으면 그건 이미 바뀐 값이라 되돌리기가
+       무효가 된다(2026-08-23 브라우저 검사가 실제로 잡았다: 실패했는데 고른 값이 그대로
+       남아 «저장된 줄» 아는 상태). */
+    var html = '<select class="bk-assign" data-payee="' + esc(r.payee)
+      + '" data-prev="' + esc(cur) + '"'
+      + ' style="font-size:11px;padding:3px 5px;border:1px solid #d1d5db;border-radius:5px;max-width:150px">';
+    html += '<option value=""' + (cur ? '' : ' selected') + '>'
+          + esc(cur ? '' : (en() ? '— choose —' : '— 고르기 —')) + '</option>';
+    for (var i = 0; i < opts.length; i++) {
+      html += '<option value="' + esc(opts[i]) + '"' + (opts[i] === cur ? ' selected' : '') + '>'
+            + esc(opts[i]) + '</option>';
+    }
+    return html + '</select>';
+  }
+
+  /* 고르면 바로 저장한다. 저장이 끝나면 화면 전체를 다시 조회한다 —
+     계정과목이 바뀌면 KPI·도넛·계정과목 표·내역 표가 **전부** 따라 움직여야 하기 때문이다. */
+  function bindAssign() {
+    var list = document.querySelectorAll('#acc-bank-payees select.bk-assign');
+    for (var i = 0; i < list.length; i++) {
+      (function (sel) {
+        if (sel.__bkBound) return;
+        sel.__bkBound = true;
+        sel.addEventListener('change', function () {
+          var payee = sel.getAttribute('data-payee') || '';
+          var cat = sel.value;
+          if (!payee || !cat) return;
+          saveAssign(payee, cat, sel);
+        });
+      })(list[i]);
+    }
+  }
+
+  async function saveAssign(payee, category, sel) {
+    if (_busy) return;
+    _busy = true;
+    var note = $('acc-bank-assign-note');
+    // ⛔ `sel.value` 를 쓰지 말 것 — change 뒤라 이미 «바뀐 값» 이다. 원래 값은 data-prev.
+    var prev = sel ? (sel.getAttribute('data-prev') || '') : '';
+    if (sel) sel.disabled = true;
+    try {
+      var url = '/api/admin/reports/payees?payee=' + encodeURIComponent(payee)
+              + '&category=' + encodeURIComponent(category);
+      var r = await fetch(url, { method: 'POST', credentials: 'include' });
+      var d = null; try { d = await r.json(); } catch (e) {}
+      if (!r.ok || !d || !d.ok) {
+        /* 실패는 말로 알린다 — 조용히 두면 «저장된 줄» 안다.
+           서버가 403 을 주는 경우(본사 아님)도 여기로 온다. */
+        if (note) {
+          note.textContent = (en() ? 'Could not save: ' : '저장하지 못했습니다: ')
+            + String((d && (d.error || d.message)) || ('HTTP ' + r.status));
+        }
+        if (sel) { sel.disabled = false; sel.value = prev; }
+        _busy = false;
+        return;
+      }
+    } catch (e) {
+      if (note) note.textContent = en() ? 'Network error.' : '통신에 실패했습니다.';
+      if (sel) { sel.disabled = false; sel.value = prev; }
+      _busy = false;
+      return;
+    }
+    _busy = false;
+    await window.bankExpLoad();   // 서버가 «저장했다» 고 답한 뒤에만 다시 그린다
   }
 
   // ── 🧾 출금 내역 표 ───────────────────────────────────────────────────────

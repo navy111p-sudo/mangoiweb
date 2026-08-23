@@ -637,7 +637,7 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
     if (p === 'payees') return await payeesRouter(env, request, url);
     // 🏦 신한 계좌 «출금» 원장 — 계정과목·거래처별로 쪼개서 본다(2026-08-23)
-    if (p === 'bank-expenses') return await bankExpensesReport(env, url);
+    if (p === 'bank-expenses') return await bankExpensesReport(env, request, url);
     // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
     if (p === 'payers') return await payersRouter(env, request, url);
     // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
@@ -1192,7 +1192,7 @@ interface BankExpenseRow {
   remark: string; category: string; memo: string;
 }
 
-async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
+async function bankExpensesReport(env: Env, request: Request, url: URL): Promise<Response> {
   const q = String(url.searchParams.get('month') || '');
   const period = /^\d{4}-\d{2}$/.test(q) ? q : currentMonth();
   const { label } = monthRange(period);
@@ -1266,11 +1266,19 @@ async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
 
   /* 🏪 거래처별 합계 — 은행 적요는 「김영진(지성교」처럼 잘려 오므로 payeeBase() 로 묶는다.
      카드의 «가맹점» 자리에 해당하는 축이고, 이 화면에서 실제로 제일 쓸모가 많다. */
-  const payeeMap = new Map<string, { total: number; count: number; accounts: Set<string>; first: string; last: string }>();
+  const payeeMap = new Map<string, {
+    total: number; count: number; accounts: Set<string>; first: string; last: string; assignable: boolean;
+  }>();
   for (const d of detail) {
     const key = d.payee || d.remark || '(적요 없음)';
-    const cur = payeeMap.get(key) || { total: 0, count: 0, accounts: new Set<string>(), first: d.datetime, last: d.datetime };
+    const cur = payeeMap.get(key)
+      || { total: 0, count: 0, accounts: new Set<string>(), first: d.datetime, last: d.datetime, assignable: false };
     cur.total += d.amount; cur.count++; cur.accounts.add(d.account);
+    /* 🏷️ «지정해도 소용 있는 거래처인가» — resolveExpenseAccount() 는 저장된 category 가
+       「기타출금」일 때만 쪼갠다. 급여이체·카드대금처럼 은행 적요로 이미 분류가 붙은 행은
+       지정해도 **안 바뀐다.** 그걸 화면이 모르면 사장님이 지정해 놓고 「저장이 안 된다」고
+       읽게 된다(실제로 그렇게 보인다 — 에러도 안 난다). 그래서 서버가 미리 알려 준다. */
+    if (d.bank_category === UNCLASSIFIED) cur.assignable = true;
     if (d.datetime < cur.first) cur.first = d.datetime;
     if (d.datetime > cur.last) cur.last = d.datetime;
     payeeMap.set(key, cur);
@@ -1284,6 +1292,7 @@ async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
     first_at: v.first, last_at: v.last,
     // 사람이 직접 지정해 둔 거래처인가 — 화면에서 «지정됨» 표시로 쓴다
     assigned: rules.payees.has(payee),
+    assignable: v.assignable,
   })).sort((a, b) => b.total - a.total);
 
   const idx = months.indexOf(period);
@@ -1298,6 +1307,12 @@ async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
   /* 📣 «왜 비어 있는지» 를 숫자 대신 말해 주는 상태 한 줄 — 법인카드 화면과 같은 원칙.
      연동이 꺼져 있는 것과 «그 달에 출금이 없는 것» 은 완전히 다른 이야기다. */
   const status = await safe(async () => await bankacctStatus(env, { current: rows }), null);
+
+  /* 🔐 «이 사람이 계정과목을 지정할 수 있나» — 실제 저장은 payeesRouter 가 `scope.type !== 'hq'`
+     로 막는다(403). 화면도 같은 기준으로 지정 칸을 감춘다 — **서버만 있으면 «눌러도 안 되는
+     칸»이 남고, 화면만 있으면 URL 로 뚫린다**(CLAUDE.md 2장). 그래서 둘 다 둔다.
+     ⛔ `canEditOrg()` 를 쓰지 말 것 — 그 함수는 `'none'`(내부직원·교사)에도 true 를 준다. */
+  const canAssign = await safe(async () => (await getScope(env, request)).type === 'hq', false);
 
   return json({
     ok: true, type: 'bank-expenses', period, label,
@@ -1323,6 +1338,7 @@ async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
     rows: detail,
     history,
     account_options: EXPENSE_CATEGORIES,
+    can_assign: canAssign,
     status,
     note: '이 화면은 계좌 «출금» 만 봅니다. 계정과목은 손익계산서와 같은 판정(resolveExpenseAccount)을 씁니다.',
   });
