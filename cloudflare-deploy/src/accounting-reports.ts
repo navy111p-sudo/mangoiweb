@@ -27,7 +27,8 @@ import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
 // 🧾 수수료율 판정은 정산관리(org-settlement)와 **같은 것**을 쓴다 — 그 파일 주석 참고
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
-import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
+import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
+import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 
 interface Env {
   DB: D1Database;
@@ -297,6 +298,56 @@ function looksCorporate(remark: string): boolean {
    변형 표기까지 잡아 준다는 보장이 없어 여기 직접 하드코딩해 둔다. */
 const KNOWN_FRANCHISE_PAYEE_RE = /^남궁국화A?$/;
 
+/* ── 🧭 계정과목 판정 «한 곳» (2026-08-23) ──────────────────────────────────
+   [왜 함수로 뺐나] 이 판정은 원래 monthActualOpex() 안에만 있었다. 그래서 손익계산서는
+   계정과목 13종으로 보는데, 계좌 원장을 그리는 화면은 DB 의 category(9종)밖에 못 보아
+   **같은 달인데 두 화면의 분류가 어긋나는** 구조였다. 판정을 복제하지 말고 한 함수로
+   모은다(같은 뿌리의 선례: src/no-show-truth.ts).
+   ⚠️ DB 의 category 를 덮어쓰지 않고 «읽을 때» 판정한다 — 지정한 것이 동기화(배포
+      권한자만 실행)를 기다리지 않고 바로 반영되게. 원본(적요·금액)은 절대 안 건드린다. */
+export interface ExpenseAccountRules {
+  payees: Map<string, string>;   // 사람이 지정한 거래처 → 계정과목 (expense_payee_category)
+  owners: Set<string>;           // 지사 대표자명 (franchises.owner_name)
+}
+
+/** 판정에 필요한 표 두 개를 한 번에 읽어 둔다. 행마다 쿼리하지 않기 위해 분리했다. */
+export async function loadExpenseAccountRules(env: Env): Promise<ExpenseAccountRules> {
+  await ensurePayeeTable(env);
+  const payees = new Map<string, string>();
+  const mp: any = await safe(
+    async () => await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all(),
+    { results: [] } as any);
+  for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) payees.set(r.payee, r.category);
+  const owners = new Set<string>();
+  const ow: any = await safe(
+    async () => await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all(),
+    { results: [] } as any);
+  for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(String(r.owner_name).trim());
+  return { payees, owners };
+}
+
+/** 계좌 출금 한 행 → 계정과목.
+ *  저장된 category 가 「기타출금」일 때만 쪼개고, 나머지 9종(급여이체·카드대금 등)은 그대로 둔다. */
+export function resolveExpenseAccount(rules: ExpenseAccountRules, remark: string, storedCategory?: string): string {
+  const stored = String(storedCategory || '') || UNCLASSIFIED;
+  if (stored !== UNCLASSIFIED) return stored;
+  const base = payeeBase(remark);
+  const hit = rules.payees.get(base) || rules.payees.get(String(remark || '').trim());
+  if (hit) return hit;
+  if (KNOWN_FRANCHISE_PAYEE_RE.test(base)) return '지사수수료';
+  if (base && rules.owners.has(base) && !looksCorporate(remark)) return '지사수수료';
+  return UNCLASSIFIED;
+}
+
+/** 그 계정과목이 판관비 합계에서 어떻게 취급되는가 — 화면과 손익계산서가 같은 말을 하게. */
+export type ExpenseRole = 'opex' | 'dup' | 'moved' | 'review';
+export function expenseRoleOf(account: string): ExpenseRole {
+  if (OPEX_DUP_CATEGORIES.includes(account)) return 'dup';       // 카드·급여명세와 이중계상 → 합계에서 제외
+  if (OPEX_MOVED_CATEGORIES.includes(account)) return 'moved';   // 강사급여·매출차감 줄로 간 돈
+  if (account === UNCLASSIFIED) return 'review';                 // 아직 계정과목이 없는 돈
+  return 'opex';
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -321,27 +372,21 @@ async function monthActualOpex(env: Env, period: string) {
   const split = await safe(async () => {
     const misc = bankAll.find(b => b.category === UNCLASSIFIED);
     if (!misc) return null;
-    await ensurePayeeTable(env);
     const rows = await env.DB.prepare(`
       SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
       WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)=?
     `).bind(UNCLASSIFIED, period).all();
-    const map = new Map<string, string>();
-    const mp = await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all();
-    for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) map.set(r.payee, r.category);
-    const owners = new Set<string>();
-    const ow = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
-    for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(r.owner_name.trim());
+    /* 🧭 판정은 resolveExpenseAccount() 한 곳에서 — 계좌 원장 화면
+       (/api/admin/reports/bank-expenses)도 같은 함수를 쓴다. 여기서 규칙을 다시 적으면
+       두 화면의 분류가 조용히 갈라진다(2026-08-23 에 함수로 뺀 이유). */
+    const rules = await loadExpenseAccountRules(env);
 
     const byCat = new Map<string, number>();
     let unresolved = 0;
     for (const r of ((rows.results || []) as Array<{ remark: string; amount: number }>)) {
       const amt = Number(r.amount) || 0;
-      const base = payeeBase(r.remark);
-      let cat = map.get(base) || map.get(r.remark.trim());
-      if (!cat && KNOWN_FRANCHISE_PAYEE_RE.test(base)) cat = '지사수수료';
-      if (!cat && base && owners.has(base) && !looksCorporate(r.remark)) cat = '지사수수료';
-      if (!cat) { cat = UNCLASSIFIED; unresolved += amt; }
+      const cat = resolveExpenseAccount(rules, r.remark, UNCLASSIFIED);
+      if (cat === UNCLASSIFIED) unresolved += amt;
       byCat.set(cat, (byCat.get(cat) || 0) + amt);
     }
     return { byCat, unresolved };
@@ -590,6 +635,8 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'close' || p === 'reopen') return await closeRouter(env, request, url, p);
     // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
     if (p === 'payees') return await payeesRouter(env, request, url);
+    // 🏦 신한 계좌 «출금» 원장 — 계정과목·거래처별로 쪼개서 본다(2026-08-23)
+    if (p === 'bank-expenses') return await bankExpensesReport(env, url);
     // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
     if (p === 'payers') return await payersRouter(env, request, url);
     // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
@@ -1117,6 +1164,166 @@ async function payeesRouter(env: Env, request: Request, url: URL): Promise<Respo
     unresolved_count: unresolved.length,
     unresolved_krw: unresolved.reduce((a, i) => a + (Number(i.amount) || 0), 0),
     note: '한 번 정하면 그 거래처의 지난 출금과 앞으로의 출금이 전부 그 과목으로 들어갑니다. 「기타출금」을 고르면 지정을 지웁니다.',
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 GET /api/admin/reports/bank-expenses?month=YYYY-MM   신한 계좌 «출금» 원장
+
+   [왜 만들었나 — 2026-08-23 사장님 요청] 신한카드는 「💳 법인카드 사용내역」 화면이 있어
+   가맹점·업종별로 들여다볼 수 있는데, **신한 계좌는 화면이 아예 없었다.** 계좌 데이터는
+   2026-08-14 부터 매일 쌓이고 있었지만(bankacct_transactions), 화면에 나오는 곳은
+   손익계산서의 「계좌 출금 — ○○」 합계 한 줄뿐이라 «무슨 돈인지» 를 볼 수가 없었다.
+   (/api/admin/bankacct/transactions 는 그때 만들어 뒀는데 **부르는 화면이 한 곳도 없었다.**)
+
+   [왜 bankacct 가 아니라 reports 밑인가] 계정과목 판정(resolveExpenseAccount)이 이 파일에
+   있기 때문이다. 화면이 DB 의 category(9종)를 그리면 손익계산서(계정과목 13종)와 숫자가
+   어긋난다. 같은 파일에서 같은 함수를 쓰게 두면 **어긋날 수가 없다.**
+   덤으로 /api/admin/reports/ 는 인증 게이트·강사 차단에 이미 등록돼 있어
+   src/index.ts(공동 금지구역)를 건드리지 않는다.
+
+   ⛔ **입금(kind='in')은 내려주지 않는다.** 「케이씨피M」(하나은행 → 신한 자금이체)·
+      «운영자금 보충»·«성격 미확인 입금» 은 2026-08-18 사장님 지시로 매출·회계 화면에서
+      전부 뺐다. 여기서 입금 표를 그리면 그것이 그대로 되살아난다. 이 화면은 «지출» 전용이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+interface BankExpenseRow {
+  id: number; trans_at: string; amount: number; balance: number;
+  remark: string; category: string; memo: string;
+}
+
+async function bankExpensesReport(env: Env, url: URL): Promise<Response> {
+  const q = String(url.searchParams.get('month') || '');
+  const period = /^\d{4}-\d{2}$/.test(q) ? q : currentMonth();
+  const { label } = monthRange(period);
+
+  const rules = await loadExpenseAccountRules(env);
+
+  // 이 달 출금 전건 (최신순). 한 달치라 페이징 없이 그대로 내려준다.
+  const rows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT id, trans_at, amount, balance, COALESCE(remark,'') AS remark,
+             COALESCE(category,'기타출금') AS category, COALESCE(memo,'') AS memo
+      FROM bankacct_transactions
+      WHERE kind='out' AND substr(trans_at,1,7)=?
+      ORDER BY trans_at DESC, id DESC
+    `).bind(period).all();
+    return (r.results || []) as unknown as BankExpenseRow[];
+  }, [] as BankExpenseRow[]);
+
+  /* 📈 최근 12개월 «총 출금» 추이 — 계정과목 판정 없이 순수 SQL 합계다.
+     전월 대비·3개월 평균 KPI 도 이 값으로 낸다(달마다 전건을 다시 판정하지 않기 위해). */
+  const [py, pm] = period.split('-').map(Number);
+  const months: string[] = [];
+  for (let i = 11; i >= 0; i--) months.push(new Date(Date.UTC(py, pm - 1 - i, 1)).toISOString().slice(0, 7));
+  const histMap = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT substr(trans_at,1,7) AS ym, COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt
+      FROM bankacct_transactions
+      WHERE kind='out' AND substr(trans_at,1,7) >= ? AND substr(trans_at,1,7) <= ?
+      GROUP BY ym
+    `).bind(months[0], months[months.length - 1]).all();
+    const m = new Map<string, { total: number; cnt: number }>();
+    for (const x of ((r.results || []) as Array<{ ym: string; total: number; cnt: number }>)) {
+      m.set(x.ym, { total: Number(x.total) || 0, cnt: Number(x.cnt) || 0 });
+    }
+    return m;
+  }, new Map<string, { total: number; cnt: number }>());
+  const history = months.map(ym => ({
+    month: ym, total: histMap.get(ym)?.total || 0, count: histMap.get(ym)?.cnt || 0,
+  }));
+
+  /* 🧭 행마다 계정과목·거래처를 붙인다 — 판정은 손익계산서와 같은 함수. */
+  const detail = rows.map(r => {
+    const account = resolveExpenseAccount(rules, r.remark, r.category);
+    return {
+      id: r.id,
+      datetime: r.trans_at,
+      remark: r.remark,
+      payee: payeeBase(r.remark),
+      bank_category: r.category,     // 은행 적요로 붙은 1차 분류(9종) — 참고용
+      account,                       // 손익계산서가 쓰는 계정과목 — 화면의 기준
+      role: expenseRoleOf(account),
+      amount: Number(r.amount) || 0,
+      balance: Number(r.balance) || 0,
+      memo: r.memo,
+    };
+  });
+
+  // 📊 계정과목별 합계
+  const catMap = new Map<string, { total: number; count: number }>();
+  for (const d of detail) {
+    const cur = catMap.get(d.account) || { total: 0, count: 0 };
+    cur.total += d.amount; cur.count++;
+    catMap.set(d.account, cur);
+  }
+  const outTotal = detail.reduce((a, d) => a + d.amount, 0);
+  const categories = [...catMap].map(([account, v]) => ({
+    account, total: v.total, count: v.count,
+    role: expenseRoleOf(account),
+    share: outTotal > 0 ? Math.round((v.total / outTotal) * 1000) / 10 : 0,
+  })).sort((a, b) => b.total - a.total);
+
+  /* 🏪 거래처별 합계 — 은행 적요는 「김영진(지성교」처럼 잘려 오므로 payeeBase() 로 묶는다.
+     카드의 «가맹점» 자리에 해당하는 축이고, 이 화면에서 실제로 제일 쓸모가 많다. */
+  const payeeMap = new Map<string, { total: number; count: number; accounts: Set<string>; first: string; last: string }>();
+  for (const d of detail) {
+    const key = d.payee || d.remark || '(적요 없음)';
+    const cur = payeeMap.get(key) || { total: 0, count: 0, accounts: new Set<string>(), first: d.datetime, last: d.datetime };
+    cur.total += d.amount; cur.count++; cur.accounts.add(d.account);
+    if (d.datetime < cur.first) cur.first = d.datetime;
+    if (d.datetime > cur.last) cur.last = d.datetime;
+    payeeMap.set(key, cur);
+  }
+  const payees = [...payeeMap].map(([payee, v]) => ({
+    payee, total: v.total, count: v.count,
+    /* ⚠️ 한 거래처의 출금이 여러 과목으로 갈릴 수 있다(적요마다 1차 분류가 다르게 붙는 경우).
+       첫 줄의 과목을 대표로 쓰면 조용히 틀린 과목이 붙으므로 «여러 과목» 이라고 밝힌다. */
+    account: v.accounts.size === 1 ? [...v.accounts][0] : '여러 과목',
+    accounts: [...v.accounts],
+    first_at: v.first, last_at: v.last,
+    // 사람이 직접 지정해 둔 거래처인가 — 화면에서 «지정됨» 표시로 쓴다
+    assigned: rules.payees.has(payee),
+  })).sort((a, b) => b.total - a.total);
+
+  const idx = months.indexOf(period);
+  const prevTotal = idx > 0 ? history[idx - 1].total : 0;
+  const prev3 = history.slice(Math.max(0, idx - 3), Math.max(0, idx)).filter(h => h.total > 0);
+  const avg3m = prev3.length ? Math.round(prev3.reduce((a, h) => a + h.total, 0) / prev3.length) : 0;
+  const pct = (base: number) => (base > 0 ? Math.round(((outTotal - base) / base) * 1000) / 10 : null);
+
+  const sumRole = (role: ExpenseRole) => categories.filter(c => c.role === role).reduce((a, c) => a + c.total, 0);
+  const reviewTotal = sumRole('review');
+
+  /* 📣 «왜 비어 있는지» 를 숫자 대신 말해 주는 상태 한 줄 — 법인카드 화면과 같은 원칙.
+     연동이 꺼져 있는 것과 «그 달에 출금이 없는 것» 은 완전히 다른 이야기다. */
+  const status = await safe(async () => await bankacctStatus(env, { current: rows }), null);
+
+  return json({
+    ok: true, type: 'bank-expenses', period, label,
+    summary: {
+      out_total: outTotal,
+      out_count: detail.length,
+      prev_total: prevTotal,
+      prev_delta_pct: pct(prevTotal),
+      avg3m,
+      avg3m_delta_pct: pct(avg3m),
+      // 💼 판관비로 실제로 들어가는 금액 — 손익계산서의 「계좌 출금」 줄 합계와 같아야 한다
+      opex_total: sumRole('opex') + reviewTotal,
+      // ♻️ 다른 줄과 겹쳐 판관비에서 뺀 돈(카드대금·급여이체)
+      dup_total: sumRole('dup'),
+      // ↪️ 판관비가 아니라 다른 줄로 간 돈(강사급여송금·학생환불)
+      moved_total: sumRole('moved'),
+      // 🏷️ 아직 계정과목이 없는 돈 — 이 비율을 0 에 가깝게 만드는 것이 이 화면의 목적
+      review_total: reviewTotal,
+      review_ratio: outTotal > 0 ? Math.round((reviewTotal / outTotal) * 1000) / 10 : 0,
+    },
+    categories,
+    payees,
+    rows: detail,
+    history,
+    account_options: EXPENSE_CATEGORIES,
+    status,
+    note: '이 화면은 계좌 «출금» 만 봅니다. 계정과목은 손익계산서와 같은 판정(resolveExpenseAccount)을 씁니다.',
   });
 }
 

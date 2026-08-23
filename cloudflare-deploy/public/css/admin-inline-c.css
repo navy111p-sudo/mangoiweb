@@ -9497,3 +9497,28 @@ html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.
 html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
 html:not([data-admin-theme="ivory"]) button.gh-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary),
 html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #fde68a !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 신한 계좌 지출 화면 — «뜻이 있는 색» 만 지킨다 (2026-08-23)
+
+   [왜 여기 있나] 이 파일 8743·8744 행이 `[id^="card-"]` 안의 글자를 통째로
+   `#101828 !important` 로 덮고, `js/adm-light-surfaces.js` 페인터가 그 위에 인라인
+   `!important` 로 한 번 더 칠한다. 그래서 화면 코드에 색을 적어도 화면에는 안 나온다
+   (2026-08-23 실측: 빨강 #b91c1c → rgb(55,92,129)).
+
+   ⛔ 그 두 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 글자색이 걸린다.
+   ✅ 대신 ① `.bk-sig` 를 페인터 SKIP_SEL 에 등재하고 ② 여기서 **조상 id 를 앞에 붙여**
+      (`#acc-bankacct …` = ID 한 칸) 위 규칙들을 이긴다. ID 칸이 있으면 클래스를
+      아무리 많이 쌓은 규칙도 못 이긴다.
+   ⚠️ 나머지 글자(제목·표 본문)는 일부러 두었다 — 그건 테마가 정하는 것이 맞다.
+      여기서 지키는 것은 «색이 곧 정보» 인 것들뿐이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#acc-bankacct .bk-sig-amt    { color: #1e40af !important; }   /* 이번 달 총 출금 */
+#acc-bankacct .bk-sig-up     { color: #b91c1c !important; }   /* 지출이 늘었다 = 나쁜 소식 */
+#acc-bankacct .bk-sig-down   { color: #047857 !important; }   /* 줄었다 */
+#acc-bankacct .bk-sig-flat   { color: #6b7280 !important; }   /* 비교할 지난달이 없다 */
+#acc-bankacct .bk-sig-review { color: #b91c1c !important; }   /* 아직 계정과목이 없는 돈 */
+#acc-bankacct .bk-role-opex   { color: #1e40af !important; }  /* 판관비에 포함 */
+#acc-bankacct .bk-role-dup    { color: #6b7280 !important; }  /* 중복이라 제외 */
+#acc-bankacct .bk-role-moved  { color: #7c3aed !important; }  /* 다른 줄로 간 돈 */
+#acc-bankacct .bk-role-review { color: #b91c1c !important; }  /* 확인 필요 */
