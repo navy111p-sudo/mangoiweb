@@ -5,16 +5,25 @@
  *   → 끄는 길이 둘이다. ① 화면 아무 데나 클릭·터치 ② 🔊 버튼.
  *     버튼은 «다시 듣기» 도 겸한다(꺼진 뒤 누르면 처음부터 다시 울린다).
  *
- * [왜 파일을 받지 않고 «합성» 하나]
- *   ① 저작권 — 시판 음원을 라이브 서비스에 올릴 수 없다. 이 코드가 만드는 소리는
- *      전부 웹오디오 오실레이터로 그 자리에서 계산한 것이라 100% 우리 것이다.
- *   ② 첫 화면 무게 — mp3 를 두면 학생 29,000명이 그 바이트를 받는다. 여기는 0바이트다.
- *      (CLAUDE.md 2장 「index.html 에 기능을 더했는데 첫 화면 무게로 FAIL」)
- *   ⚠️ 그래서 이 파일은 반드시 defer 다. blocking 으로 옮기면 예산 하니스가 FAIL 낸다.
- *
- * [무엇을 소리내나] 6.4초짜리 «망고 일출» — F 장조 펜타토닉.
- *   낮은 패드가 서서히 차오르고 그 위로 종소리 아르페지오가 올라간 뒤 Fadd9 로 풀린다.
+ * [무엇을 소리내나] 슈트라우스 «짜라투스트라는 이렇게 말했다» 서주 «일출» — 약 82초.
+ *   (사장님이 지정하신 «처음부터 1분 20초까지»)
+ *   낮은 도(C) 지속음 위로 «도–솔–도» 가 세 번 올라가고, 그때마다 단3화음이 장3화음으로
+ *   열린다. 세 번째가 가장 크고 팀파니와 함께 길게 남으며 끝난다.
  *   ⛔ 반복(loop)하지 않는다. 한 번 울리고 끝이다 — 홈에 머무는 학생 폰을 계속 깨우지 않는다.
+ *
+ * [🔓 저작권 — 왜 이 곡은 되나] 두 가지를 갈라서 봐야 한다.
+ *   ・**작곡**(1896년 작, 슈트라우스 1949년 몰) → 사후 70년이 지나 **퍼블릭 도메인**이다.
+ *     그래서 «연주하는 것» 자체는 자유롭다.
+ *   ・**녹음** → 완전히 별개의 권리다(실연자·음반제작자). 요즘 오케스트라 녹음은 아직 살아 있다.
+ *   ⛔ 그래서 유튜브·시판 음원에서 소리를 **가져오지 않는다.** 대신 이 코드가 오실레이터로
+ *      **직접 연주**한다 — «작곡은 PD, 연주는 우리 것» 이라 어느 쪽에도 걸리지 않는다.
+ *   ⚠️ 진짜 오케스트라 음색을 원하면 **퍼블릭 도메인 녹음 파일**을 구해 넣으면 된다.
+ *      그때는 이 합성 대신 <audio> 를 쓰고, 1~2MB 를 «소리를 켤 때만» 받도록 지연 로딩할 것.
+ *
+ * [왜 파일이 아니라 «합성» 인가 — 무게]
+ *   mp3 를 두면 학생 29,000명이 그 바이트를 받는다. 여기는 **음원 0바이트**다.
+ *   (CLAUDE.md 2장 「index.html 에 기능을 더했는데 첫 화면 무게로 FAIL」)
+ *   ⚠️ 그래서 이 파일은 반드시 defer 다. blocking 으로 옮기면 예산 하니스가 FAIL 낸다.
  *
  * [언제 울리나 — 안 울려야 할 때가 더 중요하다]
  *   ・수업 중(body.vc-in-call) 절대 금지. 수업 소리와 겹치면 그 자체로 사고다.
@@ -104,96 +113,181 @@
   }
 
   // ── 音色 ────────────────────────────────────────────────────────────────
-  // 종·마림바: 배음 셋을 더해 만든다. 3.01 배는 일부러 살짝 어긋내 «금속» 느낌을 준다.
-  function bell(freq, at, dur, vol, dest) {
-    var parts = [[1, 1], [2, 0.40], [3.01, 0.16]];
-    for (var i = 0; i < parts.length; i++) {
+  // ⚠️ 여기 있는 소리는 전부 오실레이터로 «그 자리에서 연주» 하는 것이다.
+  //    남의 녹음을 가져다 쓰는 것이 아니다 — 그 구분이 이 파일의 핵심이다(머리말 참조).
+
+  var noiseBuf = null;   // 팀파니 타격음용 (한 번만 만든다)
+  function noise() {
+    if (noiseBuf) return noiseBuf;
+    var len = Math.floor(ctx.sampleRate * 0.5);
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+    var d = noiseBuf.getChannelData(0);
+    // ⛔ Math.random() 대신 결정론적 잡음 — 들을 때 차이가 없고, 매번 같은 소리가 난다.
+    var seed = 12345;
+    for (var i = 0; i < len; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      d[i] = (seed / 0x3fffffff) - 1;
+    }
+    return noiseBuf;
+  }
+
+  // 오르간 페달 — 배음을 쌓아 «바닥» 을 만든다. 아주 천천히 차오른다.
+  function pedal(freq, at, dur, vol, dest) {
+    var stack = [[1, 1], [2, 0.5], [4, 0.22], [8, 0.07]];
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.exponentialRampToValueAtTime(Math.max(vol, 0.001), at + Math.min(14, dur * 0.35));
+    env.gain.setValueAtTime(vol, at + Math.max(0.1, dur - 3));
+    env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    env.connect(dest);
+    for (var i = 0; i < stack.length; i++) {
       var osc = ctx.createOscillator();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq * parts[i][0], at);
-      var env = ctx.createGain();
-      env.gain.setValueAtTime(0.0001, at);
-      env.gain.linearRampToValueAtTime(vol * parts[i][1], at + 0.012);
-      env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-      osc.connect(env); env.connect(dest);
-      osc.start(at); osc.stop(at + dur + 0.05);
+      osc.frequency.setValueAtTime(freq * stack[i][0], at);
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(stack[i][1], at);
+      osc.connect(g); g.connect(env);
+      osc.start(at); osc.stop(at + dur + 0.1);
       nodes.push(osc);
     }
   }
 
-  // 패드: 삼각파 둘을 아주 조금 디튠해 두껍게. 로우패스가 서서히 열려 «밝아오는» 느낌.
-  function pad(freq, at, dur, vol, dest) {
+  // 금관 — 톱니파를 로우패스로 눌러 «붑» 하고 부푸는 관악기 결을 만든다.
+  function brass(freq, at, dur, vol, dest) {
     var lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.Q.setValueAtTime(0.7, at);
-    lp.frequency.setValueAtTime(520, at);
-    lp.frequency.linearRampToValueAtTime(1750, at + 1.6);
+    lp.Q.setValueAtTime(1.1, at);
+    lp.frequency.setValueAtTime(freq * 1.6, at);
+    lp.frequency.linearRampToValueAtTime(freq * 5.5, at + Math.min(0.5, dur * 0.4));
+    lp.frequency.linearRampToValueAtTime(freq * 3.2, at + dur);
 
     var env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, at);
-    env.gain.linearRampToValueAtTime(vol, at + 1.15);
-    env.gain.setValueAtTime(vol, at + Math.max(1.2, dur - 1.8));
+    env.gain.linearRampToValueAtTime(vol, at + 0.13);          // 관악기다운 완만한 어택
+    env.gain.setValueAtTime(vol, at + Math.max(0.2, dur - 0.5));
     env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-
     lp.connect(env); env.connect(dest);
 
-    var detune = [1, 1.005];
+    // 살짝 흔들어 주면(비브라토) 기계음이 덜 난다
+    var lfo = ctx.createOscillator(); lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(5.2, at);
+    var lfoAmt = ctx.createGain(); lfoAmt.gain.setValueAtTime(freq * 0.004, at);
+    lfo.connect(lfoAmt);
+    lfo.start(at); lfo.stop(at + dur + 0.1);
+    nodes.push(lfo);
+
+    var detune = [0.997, 1, 1.003];   // 셋을 겹쳐 «여러 명이 분다» 는 두께
     for (var i = 0; i < detune.length; i++) {
       var osc = ctx.createOscillator();
-      osc.type = 'triangle';
+      osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(freq * detune[i], at);
+      lfoAmt.connect(osc.frequency);
       osc.connect(lp);
-      osc.start(at); osc.stop(at + dur + 0.05);
+      osc.start(at); osc.stop(at + dur + 0.1);
       nodes.push(osc);
     }
   }
 
+  // 팀파니 — 낮은 사인 «둥» + 아주 짧은 잡음 «탁»
+  function timpani(freq, at, vol, dest) {
+    var osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq * 1.5, at);
+    osc.frequency.exponentialRampToValueAtTime(freq, at + 0.09);
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.linearRampToValueAtTime(vol, at + 0.008);
+    env.gain.exponentialRampToValueAtTime(0.0001, at + 1.5);
+    osc.connect(env); env.connect(dest);
+    osc.start(at); osc.stop(at + 1.6);
+    nodes.push(osc);
+
+    var src = ctx.createBufferSource();
+    src.buffer = noise();
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(freq * 3, at);
+    var nEnv = ctx.createGain();
+    nEnv.gain.setValueAtTime(vol * 0.5, at);
+    nEnv.gain.exponentialRampToValueAtTime(0.0001, at + 0.12);
+    src.connect(bp); bp.connect(nEnv); nEnv.connect(dest);
+    src.start(at); src.stop(at + 0.2);
+    nodes.push(src);
+  }
+
+  function chordAt(freqs, at, dur, vol, dest) {
+    for (var i = 0; i < freqs.length; i++) brass(freqs[i], at, dur, vol, dest);
+  }
+
   // ── 곡 ──────────────────────────────────────────────────────────────────
-  // F 장조 펜타토닉(F G A C D). 따뜻하고 «해가 뜨는» 색이라 망고와 맞는다.
+  // 리하르트 슈트라우스 「짜라투스트라는 이렇게 말했다」(1896) 서주 «일출».
+  // 🔓 작곡가 사후 70년이 지나 **작곡은 퍼블릭 도메인**이다 — 그래서 «연주» 는 자유롭다.
+  //    ⛔ 자유롭지 않은 것은 «남의 녹음» 이다. 그래서 음원을 가져오지 않고 여기서 직접 낸다.
+  // 다 장조. 낮은 도(C) 지속음 위로 도–솔–도 가 세 번 올라가고, 그때마다 단3화음이
+  // 장3화음으로 열린다. 세 번째가 가장 크고, 팀파니와 함께 끝까지 남는다.
+  var C1 = 32.70, C2 = 65.41, C3 = 130.81;
+  var C4 = 261.63, G4 = 392.00, C5 = 523.25;
+  var Eb4 = 311.13, E4 = 329.63, G3 = 196.00, Eb3 = 155.56, E3 = 164.81;
+
   function compose(t0) {
-    // 공간감 — 짧은 피드백 딜레이. 리버브 임펄스가 없으니 이걸로 대신한다.
+    var span = 82;    // 사장님 요청 «처음부터 1분 20초까지»
+
+    // 공간감 — 큰 홀 흉내. 리버브 임펄스가 없어 피드백 딜레이로 대신한다.
     var delay = ctx.createDelay(1.0);
-    delay.delayTime.setValueAtTime(0.28, t0);
-    var fb = ctx.createGain(); fb.gain.setValueAtTime(0.24, t0);
-    var wet = ctx.createGain(); wet.gain.setValueAtTime(0.20, t0);
+    delay.delayTime.setValueAtTime(0.42, t0);
+    var fb = ctx.createGain(); fb.gain.setValueAtTime(0.32, t0);
+    var wet = ctx.createGain(); wet.gain.setValueAtTime(0.26, t0);
     delay.connect(fb); fb.connect(delay);
     delay.connect(wet); wet.connect(master);
 
-    // 종소리는 dry + wet 둘 다로 보낸다
     var bus = ctx.createGain(); bus.gain.setValueAtTime(1, t0);
     bus.connect(master); bus.connect(delay);
     nodes.push(delay, fb, wet, bus);
 
-    // ① 바닥 패드 — F2 + C3 가 6.2초 동안 깔린다
-    pad(87.31,  t0, 6.2, 0.085, master);   // F2
-    pad(130.81, t0, 6.2, 0.060, master);   // C3
+    // ① 바닥 — 낮은 도 지속음이 끝까지 깔린다 (거의 안 들리게 시작)
+    pedal(C1, t0, span, 0.085, master);
+    pedal(C2, t0, span, 0.055, master);
 
-    // ② 올라가는 아르페지오 — 일출
-    var rise = [
-      [349.23, 0.30, 1.9, 0.28],   // F4
-      [440.00, 0.44, 1.9, 0.26],   // A4
-      [523.25, 0.58, 1.9, 0.26],   // C5
-      [587.33, 0.72, 1.8, 0.24],   // D5
-      [698.46, 0.86, 2.2, 0.28],   // F5
-      [880.00, 1.04, 2.4, 0.22]    // A5
+    // ②③④ 세 번의 «도–솔–도». 갈수록 커진다.
+    //    [시작초, 금관세기, 화음세기, 팀파니세기, 화음길이]
+    var passes = [
+      [17.0, 0.115, 0.075, 0.30, 4.0],
+      [35.0, 0.145, 0.095, 0.40, 4.0],
+      [53.0, 0.180, 0.130, 0.52, 9.5]
     ];
-    for (var i = 0; i < rise.length; i++) {
-      bell(rise[i][0], t0 + rise[i][1], rise[i][2], rise[i][3], bus);
+
+    for (var p = 0; p < passes.length; p++) {
+      var s = t0 + passes[p][0], bv = passes[p][1], cv = passes[p][2];
+      var tv = passes[p][3], hold = passes[p][4];
+      var last = (p === passes.length - 1);
+
+      brass(C4, s,       3.1, bv,        bus);
+      brass(G4, s + 3.2, 3.1, bv * 1.05, bus);
+      brass(C5, s + 6.4, 3.2, bv * 1.10, bus);
+
+      // 단3화음 → 장3화음 («어두움에서 빛으로»)
+      var minorAt = s + 9.7, majorAt = minorAt + 1.9;
+      if (!last) {
+        chordAt([C3, Eb3, G3, C4, Eb4], minorAt, 2.0, cv, bus);
+      } else {
+        chordAt([C3, Eb3, G3, C4, Eb4], minorAt, 1.6, cv, bus);
+      }
+      chordAt([C2, C3, E3, G3, C4, E4, G4, C5], majorAt, hold, cv * 1.15, bus);
+
+      // 팀파니 — 화음이 열리는 순간과 그 뒤 두 번
+      timpani(C2, majorAt,        tv,        bus);
+      timpani(C2, majorAt + 0.62, tv * 0.72, bus);
+      timpani(C3, majorAt + 1.24, tv * 0.60, bus);
+
+      if (last) {
+        // 마지막은 팀파니가 한 번 더 밀어 주고, 화음이 길게 남으며 끝난다
+        timpani(C2, majorAt + 2.0, tv * 0.85, bus);
+        timpani(C2, majorAt + 2.6, tv * 0.65, bus);
+        chordAt([C2, C3, G3, C4, E4, G4], majorAt + 4.2, span - (passes[p][0] + 15.8), cv * 0.8, bus);
+      }
     }
 
-    // ③ 반짝임 — 아주 작게. 있는지 없는지 모를 정도가 맞다.
-    var spark = [1046.50, 1174.66, 1396.91];   // C6 D6 F6
-    for (var j = 0; j < spark.length; j++) {
-      bell(spark[j], t0 + 1.45 + j * 0.09, 1.5, 0.075, bus);
-    }
-
-    // ④ 풀리는 화음 Fadd9 — 길게 남으며 끝난다
-    var chord = [174.61, 220.00, 261.63, 392.00];   // F3 A3 C4 G4
-    for (var k = 0; k < chord.length; k++) {
-      bell(chord[k], t0 + 1.95, 3.6, 0.115, bus);
-    }
-
-    return 6.4;   // 전체 길이(초)
+    return span;
   }
 
   // ── 정지 — 짧게 페이드아웃해야 «툭» 끊기지 않는다 ──────────────────────
@@ -240,11 +334,18 @@
     master = ctx.createGain();
     master.gain.setValueAtTime(MASTER_VOL, ctx.currentTime);
 
-    // 마지막에 컴프레서 — 배음이 겹칠 때 거칠어지는 것을 눌러 준다
+    // 🛡️ 마지막은 «리미터» 다 — 컴프레서가 아니라 한계를 못 넘게 막는 용도.
+    //   마지막 화음은 금관 8성부 × (디튠 3개) 라 톱니파가 20개 넘게 겹친다. 그대로 두면
+    //   합이 1.0 을 넘어 스피커에서 «지직» 거린다. ratio 20 · 빠른 어택으로 천장을 만든다.
+    //   ⚠️ 헤드리스에서 오프라인 렌더로 피크를 재려 했으나 가상시간 안에 끝나지 않아
+    //      **수치로 확인하지 못했다.** 그래서 «재서 맞추는» 대신 «넘을 수 없게» 막는 쪽을 택했다.
     var comp = ctx.createDynamicsCompressor();
     try {
-      comp.threshold.setValueAtTime(-18, ctx.currentTime);
-      comp.ratio.setValueAtTime(3, ctx.currentTime);
+      comp.threshold.setValueAtTime(-3, ctx.currentTime);
+      comp.knee.setValueAtTime(0, ctx.currentTime);
+      comp.ratio.setValueAtTime(20, ctx.currentTime);
+      comp.attack.setValueAtTime(0.003, ctx.currentTime);
+      comp.release.setValueAtTime(0.25, ctx.currentTime);
     } catch (e) {}
     master.connect(comp); comp.connect(ctx.destination);
 
