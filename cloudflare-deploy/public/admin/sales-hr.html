@@ -201,7 +201,22 @@
   function g(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-  function won(n){ if(n==null||isNaN(n)) return '-'; return Number(n).toLocaleString('ko-KR')+'원'; }
+  /* ══════════════════════════════════════════════════════════════
+     💰 금액 표시 잠금 (2026-08-23 사장님 지시)
+       「아직 금액을 책정하지 않았으니 상여금이나 일단 모든 금액은 XX 로」
+
+     ⚠️ 계산을 끈 것이 아닙니다. 서버는 그대로 계산하고 DB 에도 그대로 저장됩니다 —
+        **화면에 그리는 것만** 가립니다. 확정 뒤 아래 한 줄을 false 로 바꾸면
+        모든 화면의 금액이 한꺼번에 되살아납니다(고칠 곳이 여기 하나뿐입니다).
+     ⚠️ 설정 화면의 «기본급·성과급 입력칸» 은 가리지 않습니다.
+        거기가 금액을 정하는 자리라, 가리면 확정 자체를 못 합니다.
+     ══════════════════════════════════════════════════════════════ */
+  var MONEY_LOCKED = true;
+  function won(n){
+    if(MONEY_LOCKED) return 'XX원';
+    if(n==null||isNaN(n)) return '-';
+    return Number(n).toLocaleString('ko-KR')+'원';
+  }
   function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
@@ -399,6 +414,14 @@
   }
   window.addEventListener('hashchange', applyHash);
 
+  /** 금액이 왜 XX 로 보이는지 — 한 줄로만. 길게 쓰면 아무도 안 읽는다. */
+  function moneyNote(){
+    return MONEY_LOCKED
+      ? '<div class="eg" style="margin:10px 0 0">💰 <b>금액은 아직 정하는 중이라 XX 로 표시합니다.</b> '
+        + '계산과 기록은 그대로 돌아가고 있습니다 — 확정되면 그대로 나타납니다.</div>'
+      : '';
+  }
+
   function repInfoHtml(r){
     return '기본급 <b>'+won(r.base_salary_krw)+'</b> · 계약 1곳당 성과급 <b>'+won(r.incentive_per_deal_krw)+'</b>'
       + ' · 월 목표 <b>'+ (r.target_deals||0) +'곳</b>'
@@ -411,6 +434,7 @@
     return '<div class="card" id="sh-kpi">'
       + '<h2>'+esc(j.period_label)+' 요약</h2>'
       + '<p class="lead">숫자는 <b>기록에서 저절로</b> 세어집니다. 따로 적어 넣는 실적은 없습니다.</p>'
+      + moneyNote()
       + '<div class="grid g3">'
       + kpi('신규 계약 학원', c.deal_count+'곳', '목표 '+c.targets.deals+'곳','', c.deal_count, c.targets.deals)
       + kpi('신규 등록 학생', c.student_count+'명', '목표 '+c.targets.students+'명','', c.student_count, c.targets.students)
@@ -1240,10 +1264,13 @@
     r = r || {};
     return '<div class="card"><h2>담당자 설정'+(r.id?'':' (신규 등록)')+'</h2>'
       + '<p class="lead">기본급·성과급·목표를 <b>여기서</b> 바꿉니다. 바꾸면 점수와 금액이 바로 따라옵니다.</p>'
+      + (MONEY_LOCKED
+          ? '<div class="eg">💰 다른 화면의 금액은 <b>XX</b> 로 가려 두었습니다. '
+            + '<b>이 칸만은 그대로 보입니다</b> — 여기가 금액을 정하는 자리라서요.</div>'
+          : '')
       + '<div class="eg">한 달만 다르게 하고 싶으면 아래 «이 달만 목표 바꾸기»를 쓰세요.</div>'
       + (r.id ? '' : '<div class="okbox" style="margin-bottom:14px">'
-          + '금액·목표는 <b>사장님이 확정하신 값</b>으로 미리 채워 두었습니다 — '
-          + '기본급 230만원 · 계약 1곳당 60만원 · 월 목표 2곳.<br>'
+          + '금액·목표는 <b>임시 값</b>으로 미리 채워 두었습니다 (아직 정하는 중입니다).<br>'
           + '<b>담당자 이름만 넣고 «저장»을 누르시면 됩니다.</b> 나중에 언제든 여기서 바꿀 수 있습니다.</div>')
       + '<div class="grid g3">'
       + '<label class="f">이름<input id="rp_name" value="'+esc(r.name||'')+'"></label>'
