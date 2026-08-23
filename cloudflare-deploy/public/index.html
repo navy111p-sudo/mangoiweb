@@ -3701,10 +3701,96 @@
      [폰트가 늦게 와도 안 흔들리게] 폴백을 굵은 산세리프(Arial Black)로 둬서 Paytone One
      도착 전에도 이미 '대문자 + 금색 외곽선' 최종 형태로 보인다. -->
 <!-- ph161 (2026-07-23): 구글 웹폰트 제거. 여기서 받던 한글(Noto Sans KR/Serif)은 맑은 고딕·바탕으로 폴백 -->
+<!-- 🌐 «가벼운 모드»(저대역폭) 판정 — 정본. 2026-07-23 에 만든 것을 2026-08-23 에 여기로 올렸습니다.
+     왜: 교사 다수가 필리핀 민다나오 카가얀데오로(CDO) 콜센터의 «공유 회선» 을 함께 씁니다.
+         한 사람이 장식용 리소스를 받는 동안 같은 회선의 다른 교사 화상수업이 밀립니다.
+         수업은 필수, 장식은 선택이므로 회선이 좁으면 장식부터 버립니다.
+     ⚠️ 왜 <head> 인가: 홈 배경 그림을 고르는 일이 바로 아래에서 일어납니다. 예전처럼 문서 아래쪽에
+         정의하면 그 시점엔 함수가 없어 물어볼 수가 없습니다.
+     ⛔ 이 함수를 다른 곳에 «한 벌 더» 만들지 마세요. 한쪽만 고쳐져 조용히 어긋납니다. -->
+<script>
+window.mgIsSlowNet = function(){
+  try{                                    /* 시험용 강제: ?lite=1 켜기 · ?lite=0 끄기 */
+    var f = new URLSearchParams(location.search).get('lite');
+    if(f === '1') return true;
+    if(f === '0') return false;
+  }catch(_){}
+  try{
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if(c){
+      if(c.saveData === true) return true;                     // 데이터 절약 모드
+      var et = String(c.effectiveType || '');
+      if(et === 'slow-2g' || et === '2g' || et === '3g') return true;
+      if(typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < 1.5) return true;  // 1.5Mbps 미만
+      if(typeof c.rtt === 'number' && c.rtt >= 500) return true;                             // 왕복 0.5초 이상
+    }
+  }catch(_){}
+  /* 🇵🇭 (2026-08-23) navigator.connection 은 «크로미움 계열에서만» 있습니다.
+     그래서 아이폰·사파리로 접속하면 위 판정이 통째로 건너뛰어져, 필리핀 강사가 아이폰을 쓰면
+     이 보호를 한 번도 못 받고 있었습니다(2026-07-23 에 만든 뒤 줄곧). 기기 시간대로 한 번 더 봅니다.
+     ⚠️ 시간대는 «기기 설정» 이라 여행·설정 오류로 틀릴 수 있습니다. 그래도 틀렸을 때 잃는 것은
+        장식(홍보 영상·큰 배경 그림)뿐이고, 맞았을 때 얻는 것은 수업이 안 밀리는 것입니다. */
+  try{
+    if((Intl.DateTimeFormat().resolvedOptions().timeZone || '') === 'Asia/Manila') return true;
+  }catch(_){}
+  return false;
+};
+try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite'); }catch(_){}
+</script>
+<style id="mg-lite-css">
+  /* 가벼운 모드: 큰 배경 그림(밝은 147KB · 어두운 40KB)을 아예 받지 않는다.
+     배경 자리에는 #view-home 에 이미 박혀 있는 base64 축소본이 그대로 보인다 —
+     어차피 blur 처리해서 쓰는 배경이라 «없는 화면» 이 되지는 않는다. */
+  html.mg-lite #view-home::before,
+  html.mg-lite body.home-bright #view-home::before { background-image: none !important; }
+</style>
 <!-- 🖼️ 홈 배경 먼저 받기 — 배경이 늦게 오면 그때까지 '배경 없는 옛 화면'이 보인다.
-     두 장 다 걸어두는 이유: 시간대에 따라 밝은/어두운 테마가 자동으로 바뀌기 때문. -->
-<link rel="preload" as="image" href="/img/home-bg-bright.webp?v=20260730">
-<link rel="preload" as="image" href="/img/home-bg-dark.webp?v=20260730">
+     ⚡ (2026-08-23) 예전엔 두 장을 «둘 다» preload 했다. 시간대에 따라 밝은/어두운 테마가
+        자동으로 바뀌는데 <link> 태그로는 어느 쪽이 될지 알 수 없어서였다.
+        그런데 첫 화면에 실제로 쓰이는 건 «언제나 한 장뿐» 이라, 나머지 한 장(밝은 147KB /
+        어두운 40KB)은 그냥 버려지는 다운로드였다. 필리핀 회선에서는 이게 그대로 «늦게 뜸» 이 된다.
+        → 지금은 아래 스크립트가 «이번에 쓸 한 장» 만 골라서 먼저 받고,
+          나머지 한 장은 화면을 다 그린 뒤 한가할 때 조용히 받아 둔다(테마 칩을 눌러
+          바꿔도 즉시 바뀌는 것은 그대로 유지된다 — 한국처럼 회선이 빠른 곳은 체감 차이가 없다).
+     ⚠️ 아래 판정은 이 파일 뒤쪽 applyHomeTheme() 과 «같은 규칙» 이어야 한다
+        (?home= → localStorage mangoi_home_theme_mode → 자동은 6~18시가 밝음).
+        둘이 어긋나면 «안 쓸 그림» 을 먼저 받게 된다 — 화면은 멀쩡해서 티가 안 난다.
+        그래서 test-harness/home_bg_preload_harness.mjs 가 두 곳을 대조해 FAIL 낸다. -->
+<script>
+(function(){
+  var BRIGHT='/img/home-bg-bright.webp?v=20260730', DARK='/img/home-bg-dark.webp?v=20260730';
+  var bright=true;                                   // 못 정하면 밝은 쪽(기본 자동·낮)
+  try{
+    var mode=null, hh=null;
+    var sp=new URLSearchParams(location.search), p=sp.get('home');
+    if(p==='bright'||p==='light') mode='bright';
+    else if(p==='dark') mode='dark';
+    else if(p==='auto') mode='auto';
+    var h2=parseInt(sp.get('hh'),10); if(!isNaN(h2)&&h2>=0&&h2<=23) hh=h2;
+    if(!mode){ try{ var m=localStorage.getItem('mangoi_home_theme_mode');
+      if(m==='bright'||m==='dark'||m==='auto') mode=m; }catch(e){} }
+    if(!mode) mode='auto';
+    var hr=(hh!==null)?hh:new Date().getHours();
+    bright=(mode==='bright')||(mode==='auto'&&hr>=6&&hr<18);
+  }catch(e){}
+  /* 🇵🇭 가벼운 모드(필리핀·느린 회선)에서는 큰 배경 그림을 한 장도 받지 않는다.
+     위 mg-lite CSS 가 배경을 끄므로 받아 봐야 쓰이지도 않는다. */
+  try{ if(window.mgIsSlowNet && window.mgIsSlowNet()) return; }catch(_){}
+  var use=bright?BRIGHT:DARK, other=bright?DARK:BRIGHT;
+  var l=document.createElement('link');
+  l.rel='preload'; l.as='image'; l.href=use;
+  document.head.appendChild(l);
+  // 나머지 한 장: 화면을 다 그린 뒤 한가할 때만. 데이터 절약 모드면 아예 안 받는다.
+  try{
+    var save=(navigator.connection&&navigator.connection.saveData)===true;
+    if(!save) addEventListener('load', function(){
+      var go=function(){ var l2=document.createElement('link');
+        l2.rel='prefetch'; l2.as='image'; l2.href=other; document.head.appendChild(l2); };
+      (window.requestIdleCallback||function(f){ setTimeout(f,3000); })(go, {timeout:8000});
+    }, {once:true});
+  }catch(e){}
+})();
+</script>
 <!-- 🥭 홈 제목 로고 (2026-08-22 사장님 확정: 휴대폰에서만 교체, PC 는 그대로)
      정본은 /css/mango-logo.css 한 곳. 글꼴 정의를 «따로» 링크하는 이유는,
      mango-logo.css 안 @import 가 CSS 를 다 읽은 뒤에야 요청을 내보내 한 번 더
@@ -4540,26 +4626,11 @@
   <button id="mango-promo-mute" type="button" aria-label="소리 켜기/끄기" title="소리 켜기/끄기" style="position:absolute;left:50%;transform:translateX(-50%);bottom:8px;width:32px;height:32px;border-radius:50%;border:0;background:rgba(0,0,0,.55);color:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)">🔇</button>
   <button id="mango-promo-close" type="button" aria-label="닫기" title="닫기" style="position:absolute;left:50%;transform:translateX(-50%);top:8px;width:26px;height:26px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#fff;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">✕</button>
 </div>
-<script>
-/* 🌐 (2026-07-23) 저대역폭 회선 감지 — 공통 판정 함수
-   왜: 교사 다수가 필리핀 민다나오 카가얀데오로(CDO) 콜센터의 '공유 회선' 을 함께 쓴다.
-       한 사람이 장식용 리소스를 받는 동안 같은 회선에서 진행 중인 다른 교사의 화상수업이
-       밀린다. 수업은 필수, 장식은 선택이므로 회선이 좁으면 장식부터 버린다.
-   주의: navigator.connection 은 크로미움 계열에서만 제공된다.
-        없으면 '느리지 않음' 으로 본다 — 즉 기존 동작을 그대로 유지한다(안전한 기본값). */
-window.mgIsSlowNet = function(){
-  try{
-    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if(!c) return false;
-    if(c.saveData === true) return true;                       // 데이터 절약 모드
-    var et = String(c.effectiveType || '');
-    if(et === 'slow-2g' || et === '2g' || et === '3g') return true;
-    if(typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < 1.5) return true;  // 1.5Mbps 미만
-    if(typeof c.rtt === 'number' && c.rtt >= 500) return true;                             // 왕복 0.5초 이상
-    return false;
-  }catch(_){ return false; }
-};
-</script>
+<!-- 🌐 window.mgIsSlowNet 의 정의는 (2026-08-23) <head> 로 옮겼습니다 — 이 파일 위쪽 «가벼운 모드» 블록.
+     왜 옮겼나: 홈 배경 그림을 고르는 것이 <head> 에서 일어나는데, 여기(문서 한참 아래)에 있으면
+     그 시점엔 아직 함수가 없어서 «느린 회선인가» 를 물어볼 수가 없었다.
+     ⛔ 여기에 같은 함수를 다시 만들지 마세요 — 정의가 두 벌이 되면 한쪽만 고쳐져 조용히 어긋납니다
+        (test-harness/home_bg_preload_harness.mjs 가 «정의는 한 곳뿐» 으로 못 박습니다). -->
 <script defer src="/js/idx-promo-video.js?v=1"></script>
 <!-- 🍔 모바일 좌측 슬라이드 사이드바 (터치로 열고/닫기) -->
 <div id="mg-drawer-overlay" onclick="mgDrawerClose()"></div>
