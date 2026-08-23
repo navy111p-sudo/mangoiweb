@@ -32,7 +32,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const R = (p) => readFileSync(resolve(__dir, p), 'utf8');
-const MAIN  = R('../cloudflare-deploy/public/js/idx-main.js');
+/* 🪤 (2026-08-23) idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다. 둘을 이어서 본다. */
+const MAIN  = R('../cloudflare-deploy/public/js/idx-main.js') + '\n' + R('../cloudflare-deploy/public/js/idx-main-vc.js');
 const MANGO = R('../cloudflare-deploy/src/api-mango.ts');
 const ADMIN = R('../cloudflare-deploy/src/api-admin.ts');
 // 부정 검사는 주석을 벗겨 낸 사본으로 (자기 설명 주석에 걸리는 사고 방지)

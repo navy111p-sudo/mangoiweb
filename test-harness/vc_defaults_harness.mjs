@@ -32,6 +32,16 @@ function load(saved, fsBehavior) {
   const s = html.indexOf("const VC_Q_KEY = 'mangoi_vc_quality'");
   const e = html.indexOf('(function vcAdaptiveQuality()', s);
   if (s < 0 || e < 0) return null;      // 설정 블록 자체가 없음 → 아래 검사들이 깔끔하게 실패한다
+  /* 🪤 (2026-08-23) 이 검사는 «두 표시자 사이» 를 통째로 잘라 실행한다.
+     idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 가르면서, 그 사이에 있던
+     화질·전체화면 코드가 통째로 수업 쪽으로 옮겨갔다 — 잘라낸 조각에 남은 것은
+     const VC_Q_KEY 같은 «설정값» 뿐이라 vcGetQuality 가 «함수가 아님» 으로 죽었다.
+     이제 «설정 블록» 은 두 조각이다. 둘을 이어서 본다.
+     ⚠️ 표시자를 이름으로 잡는 이 방식은 코드가 또 옮겨지면 다시 깨진다.
+        그때는 «어디로 갔는지» 를 찾아 아래 두 표시자만 고치면 된다. */
+  const vs = html.indexOf('function vcQualityMode()');
+  const ve = html.indexOf('function vcAAOApply()', vs);
+  const vcPart = (vs >= 0 && ve > vs) ? '\n' + html.slice(vs, ve) : '';
   const store = Object.assign({}, saved || {});
   const log = { fsRequests: 0, pointerHandlers: [], applied: [] };
   const sandbox = {
@@ -62,7 +72,8 @@ function load(saved, fsBehavior) {
   sandbox.window = sandbox;
   if (fsBehavior === 'unsupported') delete sandbox.document.documentElement.requestFullscreen;
   vm.createContext(sandbox);
-  vm.runInContext(html.slice(s, e), sandbox);
+  const block = html.slice(s, e) + vcPart;
+  vm.runInContext(block, sandbox);
   sandbox.__vcApplyStep = (pc, step) => log.applied.push({ pc: pc.id, step });
   return sandbox;
 }

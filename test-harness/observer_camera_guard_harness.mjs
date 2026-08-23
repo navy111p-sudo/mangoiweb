@@ -48,7 +48,11 @@ const strip = t => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm
 const indexHtml = read(join(PUB, 'index.html'));
 const guard     = read(join(PUB, 'js', 'vc-observe-guard.js'));
 const guardCode = strip(guard);
-const idxMain   = read(join(PUB, 'js', 'idx-main.js'));
+/* 🪤 (2026-08-23) idx-main.js 를 «홈»(idx-main.js)과 «수업»(idx-main-vc.js)으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 그 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다(실제로 3건이 그렇게 깨졌다).
+   페이지의 행동은 «그 페이지가 로드하는 스크립트 전부» 에서 나온다. 둘을 이어서 본다. */
+const idxMain   = read(join(PUB, 'js', 'idx-main.js')) + '\n' + read(join(PUB, 'js', 'idx-main-vc.js'));
 const admS1     = read(join(PUB, 'js', 'adm-s1.js'));
 const admToday  = read(join(PUB, 'js', 'adm-today-classes.js'));
 const admCore   = read(join(PUB, 'js', 'adm-core.js'));

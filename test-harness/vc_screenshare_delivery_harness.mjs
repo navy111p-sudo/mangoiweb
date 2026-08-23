@@ -22,7 +22,10 @@ import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = process.env.MANGOI_PUB || join(ROOT, 'cloudflare-deploy', 'public');
-const js = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8');
+/* 🪤 (2026-08-23) idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다. 둘을 이어서 본다. */
+const js = readFileSync(join(PUB, 'js', 'idx-main.js'), 'utf8') + '\n' + readFileSync(join(PUB, 'js', 'idx-main-vc.js'), 'utf8');
 
 let pass = 0, fail = 0;
 const failures = [];

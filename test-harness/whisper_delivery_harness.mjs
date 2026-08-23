@@ -40,7 +40,10 @@ const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/
 
 const DO_SRC = R('cloudflare-deploy/src/video-call-room.ts');
 const ADMIN_SRC = R('cloudflare-deploy/src/api-admin.ts');
-const CLIENT_SRC = R('cloudflare-deploy/public/js/idx-main.js');
+/* 🪤 (2026-08-23) idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다. 둘을 이어서 본다. */
+const CLIENT_SRC = R('cloudflare-deploy/public/js/idx-main.js') + '\n' + R('cloudflare-deploy/public/js/idx-main-vc.js');
 /* 📢 그리기는 별도 파일(defer). idx-main.js 는 849KB 이고 index.html 첫 화면 blocking
    예산에 들어간다 — 강사만 쓰는 기능을 학생 29,000명에게 내려보내지 않는다. */
 const WHISPER_SRC = R('cloudflare-deploy/public/js/idx-whisper.js');

@@ -43,7 +43,10 @@ function ok(name, cond) {
 const DO   = R('../cloudflare-deploy/src/video-call-room.ts');
 const IDX  = R('../cloudflare-deploy/public/index.html');
 const GH   = R('../cloudflare-deploy/public/js/idx-vc-dupghost.js');
-const MAIN = R('../cloudflare-deploy/public/js/idx-main.js');
+/* 🪤 (2026-08-23) idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다. 둘을 이어서 본다. */
+const MAIN = R('../cloudflare-deploy/public/js/idx-main.js') + '\n' + R('../cloudflare-deploy/public/js/idx-main-vc.js');
 
 // ── ① 서버: 생존 판정 ──────────────────────────────────────────────
 console.log('\n[ ① 서버(DO) — 죽은 소켓을 스스로 내보낸다 ]');

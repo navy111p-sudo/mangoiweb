@@ -48,6 +48,23 @@ function slice(text, startMark, endMark) {
   return e < 0 ? text.slice(s) : text.slice(s, e);
 }
 
+/* 🪤 (2026-08-23) «끝 표시자» 로 함수 끝을 찾는 방식은 코드가 «옮겨지면» 깨진다.
+   idx-main.js 를 홈/수업으로 가르면서 window.vcRoleStored 와 그 «다음 줄» 이 서로
+   다른 파일로 갈렸고, 그러자 slice() 가 파일 끝까지 훑어 VM 에서 통째로 터졌다.
+   (같은 성격의 경고가 이 파일 위쪽 CRLF 주석에 이미 있다 — 이번엔 원인이 «분해» 였다.)
+   중괄호를 세어 함수 끝을 찾으면 코드가 어디로 옮겨가든 맞는다. */
+function sliceFn(text, startMark) {
+  const s = text.indexOf(startMark);
+  if (s < 0) return '';
+  let d = 0, started = false;
+  for (let i = s; i < text.length; i++) {
+    const c = text[i];
+    if (c === '{') { d++; started = true; }
+    else if (c === '}') { d--; if (started && d === 0) return text.slice(s, i + 1) + ';'; }
+  }
+  return '';
+}
+
 console.log('\n════════ Melca 강사 피드백 (2026-08-08) ════════');
 
 /* ══════════════════════════════════════════════════════════════════
@@ -172,7 +189,7 @@ console.log('\n[2] 역할 — 남의 «강사» 를 물려받지 않는가');
         /uid && owner !== uid/.test(html));
 
   /* vcRoleStored 를 떼어내 실제로 돌려 본다 — «주인 확인» 이 진짜로 동작하는지 */
-  const fn = slice(html, 'window.vcRoleStored = function(){', '\n// fix (2026-06-01) — 자동 입장');
+  const fn = sliceFn(html, 'window.vcRoleStored = function(){');
   check('vcRoleStored 를 찾았다', fn.length > 100);
   if (fn.length > 100) {
     const run = (storedRole, ownerUid, loginUid) => {

@@ -32,7 +32,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
-const MAIN = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+/* 🪤 (2026-08-23) idx-main.js 를 «홈» 과 «수업»(idx-main-vc.js) 으로 갈랐다.
+   여기서 보는 것은 «수업 화면의 행동» 이라 절반이 다른 파일로 옮겨갔다 —
+   한 파일만 읽으면 «기능이 사라졌다» 고 오판한다. 둘을 이어서 본다. */
+const MAIN = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-main.js'), 'utf8') + '\n' + readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-main-vc.js'), 'utf8');
 
 // 부정 검사는 주석을 벗겨 낸 사본으로 판정한다(설명 주석이 자기 검사에 걸리는 사고 방지 —
 // CLAUDE.md 2장 「하니스에 «이 단어가 없어야 한다» 검사를 넣었는데 내 주석 때문에 FAIL」).

@@ -35,10 +35,19 @@ function check(name, cond, extra) {
 const START = 'window.vcApplySharedPdf = function(';
 const i0 = html.indexOf(START);
 if (i0 < 0) { console.log('❌ vcApplySharedPdf 를 찾지 못했습니다'); process.exit(1); }
-const END = '\n};\nwindow.vcStartPdfPoll';
-const i1 = html.indexOf(END, i0);
-if (i1 < 0) { console.log('❌ 함수 끝을 찾지 못했습니다'); process.exit(1); }
-const SRC = html.slice(i0, i1 + 3);
+/* 🪤 (2026-08-23) 예전엔 «다음 줄이 window.vcStartPdfPoll» 로 함수 끝을 찾았다.
+   idx-main.js 를 홈/수업으로 가르면서 그 사이에 빈 줄이 하나 생겨 표시자가 안 맞았고,
+   멀쩡한 코드가 «함수 끝을 찾지 못했습니다» 로 죽었다. 중괄호를 세면 코드가 어디로 옮겨가든 맞는다. */
+const SRC = (function(){
+  let d = 0, started = false;
+  for (let i = i0; i < html.length; i++) {
+    const c = html[i];
+    if (c === '{') { d++; started = true; }
+    else if (c === '}') { d--; if (started && d === 0) return html.slice(i0, i + 1) + ';'; }
+  }
+  return '';
+})();
+if (!SRC) { console.log('❌ 함수 끝을 찾지 못했습니다'); process.exit(1); }
 
 const URL_A = 'https://x/api/textbook-files/1.jpg';
 
