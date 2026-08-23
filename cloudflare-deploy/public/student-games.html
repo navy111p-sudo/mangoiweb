@@ -2078,14 +2078,14 @@ function _renderQuestBar(){
   if(!_questMode){
     bar.style.display = 'flex';
     bar.innerHTML = '<span>🔓 모든 게임이 열려 있어요 (' + total + '개)</span>' +
-      '<button type="button" class="qbtn" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
+      '<button type="button" class="qbtn" title="게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
     return;
   }
   bar.style.display = 'flex';
   if(_ltPassed){
     // 🎫 레벨테스트로 이미 열린 상태 — 「몇 개 더 깨야 한다」를 말하면 거짓말이 된다
     bar.innerHTML = '<span>🎫 레벨테스트 통과! 모든 게임 <b>' + total + '개</b>가 열려 있어요</span>' +
-      '<button type="button" class="qbtn" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
+      '<button type="button" class="qbtn" title="게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
     return;
   }
   var next = (open < total) ? HUB_GAMES[open] : null;
@@ -2093,8 +2093,8 @@ function _renderQuestBar(){
     (next ? '<span>열린 게임 중 <b>안 깬 게임 하나</b>를 클리어하면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
           : '<span>👑 모든 게임을 다 열었어요!</span>') +
     // 두 번째 해금 경로 — 잠긴 카드를 눌러야만 보이면 존재를 모르는 학생이 생긴다
-    (next ? '<button type="button" class="qbtn" onclick="hubGoLeveltest()">🎫 레벨테스트로 한 번에 열기</button>' : '') +
-    '<button type="button" class="qbtn" onclick="toggleQuestMode()">🔓 전체 열기</button>';
+    (next ? '<button type="button" class="qbtn" title="레벨테스트에 통과하면 게임을 하나씩 깨지 않아도 모든 게임이 한꺼번에 열려요" onclick="hubGoLeveltest()">🎫 레벨테스트로 한 번에 열기</button>' : '') +
+    '<button type="button" class="qbtn" title="퀘스트 없이 지금 바로 모든 게임을 열어요" onclick="toggleQuestMode()">🔓 전체 열기</button>';
 }
 
 function hubRenderMenu(){
