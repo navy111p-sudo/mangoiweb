@@ -17,6 +17,7 @@ import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
+import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 /* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
@@ -148,24 +149,34 @@ async function ensureSubscriptionsSchema(env: any): Promise<void> {
   }
 }
 
-/** 자동연장 대상 학생의 "월 1회" 견적 — renew-order 와 완전히 같은 계산식(가격 산정 이원화 방지) */
-async function autoRenewQuote(env: any, uid: string) {
+/** 자동연장 대상 학생의 견적(기본 1개월) — renew-order 와 완전히 같은 계산식(가격 산정 이원화 방지).
+ *  🔁 (2026-08-23) months 를 받게 확장 — charge-now(등록 카드로 창 없이 결제)가 3·6·12개월도 쓴다.
+ *     기간할인(6개월 95% / 12개월 90%)은 enrollQuoteCalc 가 그대로 적용한다. */
+async function autoRenewQuote(env: any, uid: string, months = 1) {
   const cur = await currentEnrollment(env, uid);
   if (!cur.active || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
   const weekly = cur.days.length;
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'weekly_unresolved' };
   const { shopName, weekly1Price } = await priceForUid(env, uid);
   const tRate = await teacherRateFor(env, cur.teacher_id);
-  const q = enrollQuoteCalc(weekly1Price, weekly, 1, cur.minutes, tRate);
-  return { ok: true, cur, weekly, amount: q.amount, sessions: q.sessions, shopName, weekly1Price, tRate };
+  const q = enrollQuoteCalc(weekly1Price, weekly, months, cur.minutes, tRate);
+  return { ok: true, cur, weekly, months, amount: q.amount, sessions: q.sessions, shopName, weekly1Price, tRate };
+}
+
+/** ♾️ 다음 자동청구 시각 = «수강 마지막 수업일 3일 전» KST 10:00 (01:00 UTC — cron 스윕 시각과 동일).
+ *  등록시각 +30일 고정은 수강 종료일과 어긋나 «수업 공백»(종료가 먼저) 또는 «한 달 이른 청구»(청구가 먼저)를
+ *  만들었다(2026-08-23 수리). 이미 지난 시각이면 지금 — 다음 스윕에서 바로 청구 대상이 된다. */
+function nextBillingFromLastDate(lastDate: string): number {
+  const t = Date.parse(String(lastDate || '') + 'T01:00:00Z') - 3 * 86400 * 1000;
+  return isNaN(t) ? Date.now() + 30 * 86400 * 1000 : Math.max(Date.now(), t);
 }
 
 /** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
  *  성공: payment_orders 에 실제 결제로 기록 + enrollCreateSchedules 로 다음 달 수업 실제 생성.
  *  실패: fail_count 누적, 3회째면 자동 해지(카드가 계속 막히는데 계속 시도하지 않음). */
-export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: boolean; error?: string; amount?: number }> {
+export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
   if (!sub.billing_key || !sub.customer_key) return { ok: false, error: 'no_billing_key' };
-  const q = await autoRenewQuote(env, sub.user_id);
+  const q = await autoRenewQuote(env, sub.user_id, months);
   if (!('ok' in q) || !q.ok) {
     // 현재 요일·시간 패턴을 더 이상 확신할 수 없음(수동으로 스케줄이 바뀐 경우 등) — 잘못된 금액 청구 방지, 해지 처리
     await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE id=?`).bind(Date.now(), sub.id).run();
@@ -182,7 +193,7 @@ export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: 
 
   // 1) 정상 주문 생성(연장과 동일 로직 — enroll_json·회차·충돌회피 전부 재사용)
   const orderResp = await createEnrollOrder(env, sub.user_id, {
-    weekly: q.weekly, months: 1, minutes: q.cur.minutes, times: q.cur.times,
+    weekly: q.weekly, months: q.months, minutes: q.cur.minutes, times: q.cur.times,
     startDate: addDays(q.cur.last_date, 1), teacherId: q.cur.teacher_id, days: q.cur.days,
   }, 'auto_renew');
   const orderBody: any = await orderResp.json().catch(() => ({}));
@@ -224,8 +235,14 @@ export async function chargeSubscriptionOnce(env: any, sub: any): Promise<{ ok: 
     await activateEnrollment(env, order, amount, now, orderId);
     await sendBuyerPaidSms(env, order, amount, orderId).catch(() => {});
   }
+  /* 다음 청구는 «30일 뒤» 가 아니라 «이번에 산 수업이 끝나기 3일 전». 3·6·12개월을 샀으면 그만큼 뒤로 밀린다.
+     구독의 amount 는 화면이 «매월 ○원» 으로 보여주는 값이라 개월 수와 무관하게 월 견적으로 적는다. */
+  const newLastDate = String(orderBody?.summary?.last_date || '');
+  const nextBillingAt = newLastDate ? nextBillingFromLastDate(newLastDate) : now + 30 * 86400 * 1000;
+  const monthlyAmount = q.months === 1 ? amount
+    : enrollQuoteCalc(q.weekly1Price, q.weekly, 1, q.cur.minutes, q.tRate).amount;
   await env.DB.prepare(`UPDATE subscriptions SET amount=?, last_billed_at=?, next_billing_at=?, fail_count=0, updated_at=? WHERE id=?`)
-    .bind(amount, now, now + 30 * 86400 * 1000, now, sub.id).run();
+    .bind(monthlyAmount, now, nextBillingAt, now, sub.id).run();
   return { ok: true, amount };
 }
 
@@ -257,6 +274,11 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
   if (!live) {
     return { ok: true, dry_run: true, due_count: rows.length, note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)' };
   }
+  /* 📨 D-3 사전고지 — 결제 3일 안쪽으로 들어온 구독에 «○일에 ○원 자동결제» 문자(결제일별 1회 멱등).
+     국내 정기결제 관행(사전고지 없는 자동청구 = 민원 1순위). 라이브일 때만 — dry-run 중에 보내면
+     «결제 예정» 이라는 문자 자체가 거짓말이 된다. 실패해도 청구 루프는 막지 않는다. */
+  let notified = 0;
+  try { notified = await sendPrebillNotices(env); } catch (e) { console.warn('[auto-renew] prebill notice:', (e as any)?.message); }
   let charged = 0, failed = 0;
   const results: any[] = [];
   for (const sub of rows) {
@@ -264,7 +286,45 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
     if (r.ok) charged++; else failed++;
     results.push({ id: sub.id, user_id: sub.user_id, ...r });
   }
-  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, results };
+  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, notified, results };
+}
+
+/** 📨 자동청구 사전고지 — next_billing_at 이 3일 안인 활성 구독의 학부모 폰에 금액·날짜·해지 안내.
+ *  멱등: enroll_notify_log (uid, kind='prebill', day=결제예정일) — 같은 결제일에 두 번 보내지 않는다.
+ *  전화번호 조회는 만료문자(runEnrollExpirySweep)와 같은 곳(students_erp 의 parent_phone→phone). */
+async function sendPrebillNotices(env: any): Promise<number> {
+  const now = Date.now();
+  const rs: any = await env.DB.prepare(
+    `SELECT user_id, student_name, amount, next_billing_at FROM subscriptions
+     WHERE status='active' AND billing_key IS NOT NULL AND next_billing_at > ? AND next_billing_at <= ?`
+  ).bind(now, now + 3 * 86400 * 1000).all();
+  const rows = ((rs as any)?.results as any[]) || [];
+  if (!rows.length) return 0;
+  try {
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS enroll_notify_log (uid TEXT NOT NULL, kind TEXT NOT NULL, day TEXT NOT NULL, sent_at INTEGER, PRIMARY KEY (uid, kind, day))`);
+  } catch (_) { /* 이미 있음 — 정상 */ }
+  let sent = 0;
+  for (const sub of rows) {
+    const uid = String(sub.user_id || '');
+    if (!uid) continue;
+    const billDay = new Date(Number(sub.next_billing_at) + 9 * 3600 * 1000).toISOString().slice(0, 10); // KST 날짜
+    const dup: any = await env.DB.prepare(`SELECT uid FROM enroll_notify_log WHERE uid=? AND kind='prebill' AND day=? LIMIT 1`).bind(uid, billDay).first();
+    if (dup) continue;
+    let phone = '', name = '';
+    try {
+      const s: any = await env.DB.prepare(
+        `SELECT COALESCE(parent_phone, phone) AS ph, COALESCE(korean_name, english_name, username) AS nm FROM students_erp WHERE user_id = ? LIMIT 1`
+      ).bind(uid).first();
+      phone = String(s?.ph || '').replace(/[^0-9]/g, '');
+      name = String(s?.nm || '');
+    } catch (_) {}
+    await env.DB.prepare(`INSERT OR REPLACE INTO enroll_notify_log (uid, kind, day, sent_at) VALUES (?, 'prebill', ?, ?)`).bind(uid, billDay, now).run();
+    if (phone.length < 10) continue;
+    const txt = `[망고아이] ♾️ 자동결제 안내\n${name ? name + ' 학생 · ' : ''}${billDay.slice(5).replace('-', '/')}에 ${Number(sub.amount || 0).toLocaleString('ko-KR')}원이 등록된 카드로 자동 결제될 예정입니다.\n변경·해지: ${siteUrl('/enroll.html')}`;
+    const sr = await sendPlainSms(env, phone, txt);
+    if (sr?.ok) sent++;
+  }
+  return sent;
 }
 
 /**
@@ -797,14 +857,17 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     const now = Date.now();
     // 기존에 활성 구독이 있으면 정리하고(중복청구 방지) 새로 등록
     await env.DB.prepare(`UPDATE subscriptions SET status='replaced', updated_at=? WHERE user_id=? AND status='active'`).bind(now, authUid).run();
+    // 🔁 (2026-08-23) 첫 청구일 = «등록 +30일» 이 아니라 «현재 수강 종료 3일 전». 남은 수업이 10일치면
+    //    10-3일 뒤에 청구돼 수업이 끊기지 않고, 25일치 남았으면 그때까지 청구하지 않는다.
+    const nextBillingAt = nextBillingFromLastDate(String(q.cur.last_date || ''));
     const ins = await env.DB.prepare(
       `INSERT INTO subscriptions (user_id, student_name, plan, amount, status, next_billing_at, created_at, updated_at, billing_key, customer_key, fail_count, teacher_id, weekly, minutes)
        VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, 0, ?, ?, ?)`
     ).bind(authUid, q.cur.teacher_name ? String(q.cur.teacher_name) : authUid, 'auto_renew', q.amount,
-           now + 30 * 86400 * 1000, now, now, String(tossJson.billingKey), customerKey,
+           nextBillingAt, now, now, String(tossJson.billingKey), customerKey,
            String(q.cur.teacher_id), q.weekly, q.cur.minutes).run();
 
-    return json({ ok: true, id: ins.meta.last_row_id, next_billing_at: now + 30 * 86400 * 1000, amount: q.amount });
+    return json({ ok: true, id: ins.meta.last_row_id, next_billing_at: nextBillingAt, amount: q.amount });
   }
 
   if (path === '/api/pay/billing/cancel' && method === 'POST') {
@@ -814,6 +877,30 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
     await ensureSubscriptionsSchema(env);
     await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE user_id=? AND status='active'`).bind(Date.now(), authUid).run();
     return json({ ok: true });
+  }
+
+  /* ♾️→💳 (2026-08-23) 등록된 카드로 «결제창 없이» 즉시 결제 — 사장님 지시 「자동결제이면 그냥 자동으로
+     결제되는 방식으로」. 자동결제 학생의 연장 버튼과 카드등록 직후 «지금 바로 결제» 가 이걸 쓴다.
+     1·3·6·12개월 전부 지원(기간할인은 enrollQuoteCalc 가 동일 적용). 사람이 버튼을 눌러 시작하는
+     결제라 cron 킬스위치(billing:auto_renew_live)와는 무관하다 — 수동 「연장 결제」와 같은 급의 동의. */
+  if (path === '/api/pay/billing/charge-now' && method === 'POST') {
+    const body = await parseJsonBody(request) || {};
+    const authUid = await authUidFromRequest(request, url, env, body);
+    if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
+    const months = Number(body.months || 1);
+    if (![1, 3, 6, 12].includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
+    await ensureSubscriptionsSchema(env);
+    const sub: any = await env.DB.prepare(
+      `SELECT * FROM subscriptions WHERE user_id=? AND status='active' AND billing_key IS NOT NULL ORDER BY id DESC LIMIT 1`
+    ).bind(authUid).first();
+    if (!sub) return json({ ok: false, error: 'no_subscription', message: '먼저 자동결제 카드를 등록해 주세요.' }, 400);
+    // 🛡️ 더블클릭·새로고침 연타 방어 — 직전 청구 60초 안에는 다시 청구하지 않는다(이중결제 예방)
+    if (Number(sub.last_billed_at || 0) > Date.now() - 60 * 1000) {
+      return json({ ok: false, error: 'too_soon', message: '방금 결제가 진행됐어요. 잠시 후 결제 내역을 확인해 주세요.' }, 429);
+    }
+    const r = await chargeSubscriptionOnce(env, sub, months);
+    if (!r.ok) return json({ ok: false, error: r.error, message: '결제에 실패했어요: ' + String(r.error || '') }, 400);
+    return json({ ok: true, amount: r.amount, months });
   }
 
   if (path === '/api/pay/billing/status' && method === 'GET') {
@@ -845,6 +932,23 @@ async function activateEnrollment(env: any, order: any, amount: number, when: nu
   } catch (e) { console.warn('[pay] enrollment activate:', (e as any)?.message); }
   // 📚 수강신청 주문이면 회차 전량을 실제 수업으로 생성 (멱등·충돌 회피)
   await enrollCreateSchedules(env, order, orderId).catch((e: any) => console.warn('[enroll] schedules:', e?.message));
+  // ♾️ (2026-08-23) 수동 연장(결제창)이 자동결제와 겹치지 않게 — 결제로 수업이 늘었으면
+  //    다음 자동청구일도 «새 종료일 3일 전» 으로 다시 잡는다. 미리 3개월을 결제한 학생에게
+  //    옛 청구일 그대로 한 달치를 또 청구하는 사고를 막는 줄이다. 구독 없는 학생은 그냥 지나간다.
+  await syncSubscriptionNextBilling(env, order.uid).catch(() => {});
+}
+
+/** ♾️ uid 의 활성 구독이 있으면 next_billing_at 을 현재 수강 종료일 기준으로 재계산해 맞춘다 */
+async function syncSubscriptionNextBilling(env: any, uid: any): Promise<void> {
+  if (!uid) return;
+  const sub: any = await env.DB.prepare(
+    `SELECT id FROM subscriptions WHERE user_id=? AND status='active' AND billing_key IS NOT NULL ORDER BY id DESC LIMIT 1`
+  ).bind(String(uid)).first();
+  if (!sub) return;
+  const cur = await currentEnrollment(env, String(uid));
+  if (!cur?.active || !cur.last_date) return;
+  await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=?`)
+    .bind(nextBillingFromLastDate(String(cur.last_date)), Date.now(), sub.id).run();
 }
 
 /** 📱 학부모 결제완료 확인문자 — "됐나 안 됐나" 불안 재시도(이중결제 1위 원인)를 원천 차단 */
