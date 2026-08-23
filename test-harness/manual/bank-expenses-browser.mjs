@@ -53,7 +53,7 @@ const SEED = {
     /* assignable = 그 거래처에 «저장된 1차 분류가 기타출금인» 행이 있는가.
        김영진·주식회사알수없는곳은 true(지정하면 바뀐다), 신한카드·메트로은행은 false
        (은행 적요로 이미 분류돼 지정해도 안 바뀐다 — 화면이 그 사실을 적어야 한다). */
-    { payee: '김영진', total: 6_000_000, count: 1, account: '지사수수료', first_at: '2026-07-05 10:00', last_at: '2026-07-05 10:00', assigned: true, assignable: true },
+    { payee: '김영진', total: 6_000_000, count: 2, account: '지사수수료', first_at: '2026-07-05 10:00', last_at: '2026-07-18 09:00', assigned: true, assignable: true },
     { payee: '신한카드', total: 2_000_000, count: 1, account: '카드대금', first_at: '2026-07-15 09:00', last_at: '2026-07-15 09:00', assigned: false, assignable: false },
     { payee: '주식회사알수없는곳', total: 1_500_000, count: 1, account: '기타출금', first_at: '2026-07-20 14:00', last_at: '2026-07-20 14:00', assigned: false, assignable: true },
     { payee: '메트로은행', total: 1_000_000, count: 1, account: '강사급여송금', first_at: '2026-07-25 11:00', last_at: '2026-07-25 11:00', assigned: false, assignable: false },
@@ -62,7 +62,8 @@ const SEED = {
     { id: 4, datetime: '2026-07-25 11:00', remark: '메트로은행 송금', payee: '메트로은행', bank_category: '강사급여송금', account: '강사급여송금', role: 'moved', amount: 1_000_000, balance: 3_000_000, memo: '' },
     { id: 3, datetime: '2026-07-20 14:00', remark: '주식회사알수없는곳', payee: '주식회사알수없는곳', bank_category: '기타출금', account: '기타출금', role: 'review', amount: 1_500_000, balance: 4_000_000, memo: '' },
     { id: 2, datetime: '2026-07-15 09:00', remark: '신한카드 결제', payee: '신한카드', bank_category: '카드대금', account: '카드대금', role: 'dup', amount: 2_000_000, balance: 5_500_000, memo: '' },
-    { id: 1, datetime: '2026-07-05 10:00', remark: '김영진(지성교', payee: '김영진', bank_category: '기타출금', account: '지사수수료', role: 'opex', amount: 6_000_000, balance: 7_500_000, memo: '' },
+    { id: 5, datetime: '2026-07-18 09:00', remark: '김영진(지성교', payee: '김영진', bank_category: '기타출금', account: '지사수수료', role: 'opex', amount: 2_400_000, balance: 6_100_000, memo: '' },
+    { id: 1, datetime: '2026-07-05 10:00', remark: '김영진(지성교', payee: '김영진', bank_category: '기타출금', account: '지사수수료', role: 'opex', amount: 3_600_000, balance: 7_500_000, memo: '' },
   ],
   history: [
     { month: '2026-02', total: 9_000_000, count: 3 }, { month: '2026-03', total: 9_500_000, count: 3 },
@@ -228,7 +229,8 @@ async function openCard(page) {
       check('미분류 비율', /12%/.test(m.reviewSub), m.reviewSub);
       check('계정과목 표 4줄', m.catRows === 4, '실제 ' + m.catRows);
       check('거래처 표 4줄', m.payeeRows === 4, '실제 ' + m.payeeRows);
-      check('출금 내역 4줄', m.txRows === 4, '실제 ' + m.txRows);
+      // 씨앗은 5건 — 김영진이 «한 거래처 2건» 이라 합계/개별 구분 검사(⑪)에 쓰인다
+      check('출금 내역 5줄', m.txRows === 5, '실제 ' + m.txRows);
       check('연동 상태 문구', /계좌 연동 정상/.test(m.status), m.status.slice(0, 40));
       check('적재 건수 표시', /812/.test(m.status), m.status.slice(0, 80));
 
@@ -517,6 +519,91 @@ async function openCard(page) {
       });
       check('엑셀은 window.open 을 안 쓴다', !exportUrl.openUsed, '(인앱 브라우저는 새 창을 못 엽니다)');
       check('내보내기 주소에 format 이 실린다', /format=/.test(exportUrl.src), exportUrl.src.slice(0, 120));
+
+      await ctx.close();
+    }
+
+    /* ── ⑪ 🔎 «합계» 와 «한 건» 을 구분해서 보여 주는가 (2026-08-23) ──────────
+       사장님 물음: 「이상호 두 개는 무슨 차이야?」 — 「🏪 거래처별 합계」의 2건 합계와
+       「🧾 출금 내역」의 개별 한 건이 같은 이름·비슷한 금액으로 나란히 보였다. */
+    console.log('\n[11] 합계 줄에 «N건 합계» + 이름을 눌러 개별 건 펼치기');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+
+      const before = await page.evaluate(() => {
+        const rows = [].slice.call(document.querySelectorAll('#acc-bank-payees tr'));
+        const kim = rows.find(r => /김영진/.test(r.textContent));
+        const one = rows.find(r => /메트로은행/.test(r.textContent));
+        return {
+          kim: kim ? kim.textContent.replace(/\s+/g, ' ').trim() : null,
+          one: one ? one.textContent.replace(/\s+/g, ' ').trim() : null,
+          kimClickable: !!(kim && kim.querySelector('.bk-exp')),
+          oneClickable: !!(one && one.querySelector('.bk-exp')),
+          detailRows: document.querySelectorAll('#acc-bank-payees tr.bk-detail').length,
+          header: (document.querySelector('#acc-bank-payees')
+            ? document.getElementById('acc-bank-payees').closest('table').querySelector('thead').textContent
+            : '').replace(/\s+/g, ' ').trim(),
+          note: [].slice.call(document.querySelectorAll('#acc-bankacct .bk-note-mute'))
+            .map(e => e.textContent).join(' | '),
+        };
+      });
+
+      check('합계 줄에 «2건 합계» 가 적힌다', /2건 합계/.test(before.kim || ''), before.kim);
+      check('헤더가 «합계 금액» 이라고 말한다', /합계 금액/.test(before.header), before.header.slice(0, 60));
+      check('표 아래에 «합계 vs 한 건» 을 설명한다', /개별 건이 펼쳐집니다/.test(before.note), before.note.slice(0, 90));
+      check('2건 이상인 거래처는 이름을 누를 수 있다', before.kimClickable === true);
+      /* 🪤 1건짜리는 펼칠 것이 없다 — 누를 수 있게 두면 «눌렀는데 아무 일도 안 일어남» 이 된다 */
+      check('1건짜리 거래처는 누를 수 없다', before.oneClickable === false);
+      check('처음에는 접혀 있다', before.detailRows === 0, String(before.detailRows));
+
+      // 눌러서 펼친다
+      await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-payees .bk-exp[data-exp="김영진"]');
+        el.click();
+      });
+      await page.waitForTimeout(300);
+      const after = await page.evaluate(() => {
+        const d = document.querySelector('#acc-bank-payees tr.bk-detail');
+        return {
+          count: document.querySelectorAll('#acc-bank-payees tr.bk-detail').length,
+          text: d ? d.textContent.replace(/\s+/g, ' ').trim() : '',
+          innerRows: d ? d.querySelectorAll('table tr').length : 0,
+          marker: (document.querySelector('#acc-bank-payees .bk-exp[data-exp="김영진"]') || {}).textContent || '',
+        };
+      });
+      check('누르면 펼쳐진다', after.count === 1, String(after.count));
+      /* 🪤 묶는 키가 서버와 다르면 «합계는 2건인데 펼치면 1건» 이 조용히 생긴다 */
+      check('합계 건수만큼 개별 건이 나온다 (2건)', after.innerRows === 2, String(after.innerRows));
+      check('개별 금액이 보인다', /3,600,000/.test(after.text) && /2,400,000/.test(after.text), after.text.slice(0, 110));
+      check('펼침 표시가 ▾ 로 바뀐다', /▾/.test(after.marker), after.marker);
+
+      // 계정과목을 지정하면 화면 전체가 다시 그려진다 — 그때도 펼침이 유지돼야 한다
+      await page.evaluate(() => {
+        const sel = [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+          .find(s => s.getAttribute('data-payee') === '주식회사알수없는곳');
+        sel.value = '지급수수료';
+        sel.dispatchEvent(new Event('change'));
+      });
+      await page.waitForTimeout(1500);
+      const kept = await page.evaluate(() => document.querySelectorAll('#acc-bank-payees tr.bk-detail').length);
+      check('다시 조회해도 펼친 것이 유지된다', kept === 1, String(kept));
+
+      // 다시 누르면 접힌다
+      await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-payees .bk-exp[data-exp="김영진"]');
+        if (el) el.click();
+      });
+      await page.waitForTimeout(300);
+      const closed = await page.evaluate(() => document.querySelectorAll('#acc-bank-payees tr.bk-detail').length);
+      check('다시 누르면 접힌다', closed === 0, String(closed));
+
+      /* 🪤 색은 전역 CSS·페인터가 덮던 자리다 — 실제로 나온 색을 잰다 */
+      const color = await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-payees .bk-exp');
+        return el ? getComputedStyle(el).color : null;
+      });
+      check('누를 수 있다는 것이 색으로 보인다', (color || '').replace(/\s/g, '') === 'rgb(30,64,175)', String(color));
 
       await ctx.close();
     }

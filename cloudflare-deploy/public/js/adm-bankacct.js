@@ -22,6 +22,7 @@
   var _data = null;          // 마지막으로 받은 payload (언어 전환 때 다시 그리는 데 쓴다)
   var _charts = {};          // Chart 인스턴스 — 다시 그릴 때 destroy 해야 겹치지 않는다
   var _busy = false;
+  var _expanded = {};        // 🔎 거래처별 표에서 «펼쳐 둔» 이름 — 다시 그려도 유지한다
 
   function en() { return !!(window.adminLang && window.adminLang !== 'ko'); }
   function esc(v) {
@@ -250,18 +251,82 @@
     var opts = (_data && _data.account_options) || [];
     tb.innerHTML = rows.map(function (r) {
       var needs = r.account === '기타출금';
-      return '<tr>'
-        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9">' + esc(r.payee)
-        + (r.assigned ? ' <span style="font-size:10px;color:#047857">('
+      var n = Number(r.count) || 0;
+      var open = !!_expanded[r.payee];
+      /* 🔎 이 표는 «합계», 아래 「출금 내역」 표는 «한 건» 이다. 두 표에 같은 이름이
+         비슷한 금액으로 나와 「무슨 차이냐」는 물음이 실제로 나왔다(2026-08-23 사장님).
+         그래서 ① 금액 밑에 «N건 합계» 를 적고 ② 이름을 누르면 그 N건을 여기서 편다. */
+      var line = '<tr>'
+        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9">'
+        + (n > 1
+            ? '<span class="bk-sig bk-exp" data-exp="' + esc(r.payee) + '" role="button" tabindex="0">'
+              + (open ? '▾ ' : '▸ ') + esc(r.payee) + '</span>'
+            : esc(r.payee))
+        + (r.assigned ? ' <span class="bk-sig bk-ok" style="font-size:10px">('
             + (en() ? 'assigned' : '지정됨') + ')</span>' : '') + '</td>'
         + '<td class="' + (needs ? 'bk-sig bk-role-review' : '') + '" style="padding:7px 9px;border-bottom:1px solid #f1f5f9">'
         + esc(r.account) + '</td>'
-        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700">' + krw(r.total) + '</td>'
-        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right">' + (r.count || 0) + '</td>'
+        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700">' + krw(r.total)
+        + (n > 1 ? '<div class="bk-sig bk-note-mute" style="font-size:10px;font-weight:400;margin-top:1px">'
+                   + esc(n + (en() ? ' transactions total' : '건 합계')) + '</div>' : '')
+        + '</td>'
+        + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right">' + n + '</td>'
         + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9">' + assignCell(r, opts) + '</td>'
         + '</tr>';
+      return line + (open ? detailRows(r.payee) : '');
     }).join('');
     bindAssign();
+    bindExpand();
+  }
+
+  /* 펼친 줄 — 그 거래처의 «개별 건» 을 여기서 보여 준다.
+     ⚠️ 서버를 다시 부르지 않는다. 그 달 전건이 이미 `_data.rows` 에 있다.
+     ⚠️ 묶는 키를 서버와 똑같이 맞춘다(`payee || remark || '(적요 없음)'`) — 여기서 다르게
+        묶으면 «합계는 2건인데 펼치면 1건» 같은 어긋남이 조용히 생긴다. */
+  function detailRows(payee) {
+    var list = ((_data && _data.rows) || []).filter(function (d) {
+      return (d.payee || d.remark || '(적요 없음)') === payee;
+    });
+    if (!list.length) {
+      return '<tr><td colspan="5" class="bk-sig bk-note-mute" style="padding:8px 9px 8px 26px;border-bottom:1px solid #f1f5f9">'
+        + esc(en() ? 'No individual rows for this month.' : '이 달에는 개별 건이 없습니다.') + '</td></tr>';
+    }
+    var inner = list.map(function (d) {
+      return '<tr>'
+        + '<td style="padding:4px 8px;white-space:nowrap">' + esc(String(d.datetime || '').slice(0, 16)) + '</td>'
+        + '<td style="padding:4px 8px">' + esc(d.remark) + '</td>'
+        + '<td style="padding:4px 8px">' + esc(d.account) + '</td>'
+        + '<td style="padding:4px 8px;text-align:right;font-weight:700">' + krw(d.amount) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<tr class="bk-detail"><td colspan="5" style="padding:0 9px 8px 26px;border-bottom:1px solid #f1f5f9">'
+      + '<div class="bk-sig bk-note-mute" style="font-size:11px;margin:2px 0 4px">'
+      + esc(en() ? 'Individual transactions (' + list.length + ')'
+                 : '이 거래처의 개별 건 ' + list.length + '건') + '</div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px">'
+      + inner + '</table></div></td></tr>';
+  }
+
+  /** 이름을 누르면 편다/접는다. 편 상태는 다시 그려도 유지한다(계정과목 지정 뒤 재조회 포함). */
+  function bindExpand() {
+    var list = document.querySelectorAll('#acc-bank-payees .bk-exp');
+    for (var i = 0; i < list.length; i++) {
+      (function (el) {
+        if (el.__bkExpBound) return;
+        el.__bkExpBound = true;
+        var toggle = function (e) {
+          e.preventDefault();
+          var k = el.getAttribute('data-exp') || '';
+          if (_expanded[k]) delete _expanded[k]; else _expanded[k] = true;
+          renderPayees();
+        };
+        el.addEventListener('click', toggle);
+        // 키보드로도 열 수 있게 (role="button" 을 달았으니 짝을 맞춘다)
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') toggle(e);
+        });
+      })(list[i]);
+    }
   }
 
   /** 지정 칸 하나 — 지정할 수 있을 때만 고르는 칸을 내고, 아니면 «왜 못 하는지» 를 적는다. */

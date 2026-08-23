@@ -9575,3 +9575,16 @@ html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph
 }
 #acc-bankacct .bk-note      { color: #78350f !important; }   /* 「지난 출금까지 바뀐다」 경고 */
 #acc-bankacct .bk-note-mute { color: #6b7280 !important; }   /* 「지정해도 안 바뀝니다」 등 설명 */
+
+/* ── 🔎 거래처 이름을 눌러 «개별 건» 펼치기 (2026-08-23) ────────────────────
+   [왜] 「🏪 거래처별 합계」와 「🧾 출금 내역」에 같은 이름이 다른 금액으로 나와
+   «무슨 차이냐» 는 물음이 실제로 나왔다. 합계 줄에서 바로 그 건들을 펼쳐 보게 한다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 않는다 — 1-3 「hover 확대 금지」.
+      강조는 색과 밑줄만, 크기·위치는 고정. */
+#acc-bankacct .bk-exp        { color: #1e40af !important; cursor: pointer; font-weight: 700; }
+#acc-bankacct .bk-exp:hover  { text-decoration: underline; }
+#acc-bankacct .bk-exp:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+#acc-bankacct .bk-ok         { color: #047857 !important; }   /* «(지정됨)» 배지 */
+#acc-bankacct tr.bk-detail   { background: #f8fafc; }
+#acc-bankacct tr.bk-detail td,
+#acc-bankacct tr.bk-detail th { color: #374151 !important; }
