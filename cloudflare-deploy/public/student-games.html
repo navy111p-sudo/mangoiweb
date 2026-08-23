@@ -1696,9 +1696,13 @@ function _hubAudioClearTapHint(){
 }
 function toggleHubAudioMute(){
   if(Date.now() - _hubAudioResumedAt < 400){ _hubAudioSyncBtn(); return; }   // 방금 "눌러서 듣기" 제스처였던 클릭은 토글 취급하지 않음
-  _hubIntroDismissed = !_hubIntroDismissed;
   var a = document.getElementById('hub-intro-audio');
-  if(_hubIntroDismissed){ if(a) a.pause(); }
+  /* 🔴 다음 상태는 «플래그를 뒤집어» 정하지 않는다 — 실제로 «소리가 나고 있나» 로 정한다.
+     플래그로 뒤집으면, 이 클릭 직전에 딴 코드(아래 pointerdown 자동정지 등)가 플래그를
+     이미 true 로 만들어 둔 경우 «음소거 상태니까 켜자» 로 읽혀 소리가 도로 살아난다. */
+  var playing = !!(a && !a.paused && !a.ended);
+  _hubIntroDismissed = playing;
+  if(_hubIntroDismissed){ if(a){ try{ a.pause(); }catch(_){} } }
   else if(a){ try{ a.play().catch(function(){}); }catch(_){} }
   _hubAudioClearTapHint();
   _hubAudioSyncBtn();
@@ -1732,8 +1736,15 @@ function _hubPlayIntroAudio(){
 }
 // 🔇 안내음성이 나오는 동안 다른 곳을 클릭하면(게임 시작·언어 전환·메뉴 이동 등) 그 즉시 멈춘다.
 //   막힌 자동재생을 방금 그 클릭으로 막 재개시킨 경우만 예외(_hubAudioResumedAt 400ms 창) — 안 그러면 재생하자마자 바로 멈춰버림.
-document.addEventListener('pointerdown', function(){
+document.addEventListener('pointerdown', function(e){
   if(Date.now() - _hubAudioResumedAt < 400) return;
+  /* 🔴 음소거 버튼 자신은 여기서 손대지 않는다(2026-08-23 「무음을 눌러도 안 멈춘다」의 정체).
+     pointerdown 이 click 보다 먼저 오므로, 여기서 pause + _hubIntroDismissed=true 로 만들어 두면
+     곧이어 오는 toggleHubAudioMute() 가 그 상태를 보고 «지금 꺼져 있으니 켜자» 로 뒤집어
+     소리가 그 자리에서 되살아났다. 몇 번을 눌러도 계속 재생 → 멈출 방법이 아예 없었다.
+     버튼 처리는 toggleHubAudioMute() 한 곳에만 맡긴다. */
+  var t = e && e.target;
+  if(t && t.closest && t.closest('#hub-audio-mute-btn')) return;
   var a = document.getElementById('hub-intro-audio');
   if(a && !a.paused){ a.pause(); _hubIntroDismissed = true; _hubAudioSyncBtn(); }
 });
