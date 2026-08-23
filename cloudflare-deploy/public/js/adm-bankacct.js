@@ -271,10 +271,16 @@
     }
     if (!r.assignable) {
       /* 은행 적요로 이미 분류가 붙은 거래처 — 지정해도 안 바뀐다는 사실을 그대로 적는다.
-         ⚠️ 색은 클래스로 — 인라인 color 는 `[id^="card-"] :is(span…)` 전역 규칙에 진다. */
-      return '<span class="bk-sig bk-note-mute" style="font-size:11px">'
-        + esc(en() ? 'Set from the bank remark — assigning has no effect'
-                   : '은행 적요로 이미 분류됨 — 지정해도 안 바뀝니다') + '</span>';
+         ⚠️ 색은 클래스로 — 인라인 color 는 `[id^="card-"] :is(span…)` 전역 규칙에 진다.
+         ⚠️ 여기에 «(지정됨)» 배지가 붙어 있는데 지울 칸이 없으면 막다른 길로 보인다.
+            그런 경우(지정해 둔 뒤 은행 1차 분류가 바뀐 거래처)에는 어디서 지우는지 알려 준다. */
+      var msg = en() ? 'Set from the bank remark — assigning has no effect'
+                     : '은행 적요로 이미 분류됨 — 지정해도 안 바뀝니다';
+      if (r.assigned) {
+        msg += en() ? ' (clear it in “Expense categories” below)'
+                    : ' (지우려면 아래 「🏷️ 지출 계정과목 분류」에서)';
+      }
+      return '<span class="bk-sig bk-note-mute" style="font-size:11px">' + esc(msg) + '</span>';
     }
     var cur = opts.indexOf(r.account) >= 0 ? r.account : '';
     /* ⚠️ `data-prev` 에 «원래 값» 을 적어 둔다 — 저장이 실패했을 때 되돌리기 위해서다.
@@ -295,7 +301,14 @@
          성공으로 보이고 화면도 그대로**다 — 「저장이 안 된다」가 다른 길로 재현된다.
          그래서 라벨을 «지정 지우기» 로 밝히고, 지울 것이 없으면 고를 수 없게 한다. */
       var isClear = (o === '기타출금');
-      var label = isClear ? (en() ? '기타출금 (clear assignment)' : '기타출금 (지정 지우기)') : o;
+      /* ⚠️ 라벨에 «지정 지우기» 를 붙이는 것은 **지울 것이 있을 때뿐**이다.
+         「기타출금」은 EXPENSE_CATEGORIES 에 들어 있으므로, 아직 지정 안 된 거래처
+         (= 이 화면이 줄이려는 그 대상)는 `cur === '기타출금'` 이라 그 option 이
+         **selected 이면서 disabled** 가 된다. 그때 라벨까지 바꾸면 닫힌 select 에
+         「기타출금 (지정 지우기)」가 «현재 계정과목» 인 것처럼 보인다(2026-08-23 대조가 잡음). */
+      var label = (isClear && r.assigned)
+        ? (en() ? '기타출금 (clear assignment)' : '기타출금 (지정 지우기)')
+        : o;
       var dis = (isClear && !r.assigned) ? ' disabled' : '';
       html += '<option value="' + esc(o) + '"' + (o === cur ? ' selected' : '') + dis + '>'
             + esc(label) + '</option>';
@@ -454,9 +467,15 @@
         ? '※ Estimated from a pattern, not an accounting rule: seen in ' + (rc.min_months || 3) + '+ of '
           + (rc.window_months || 4) + ' months (' + (w[0] || '') + '–' + (w[w.length - 1] || '')
           + ') with amounts within ×' + (rc.spread_max || 1.25) + '. With less history most payees read as “variable”.'
+          + (rc.period_in_progress ? ' ⚠️ This month is still in progress — totals are incomplete.' : '')
         : '※ 회계 기준이 아니라 «패턴 추정» 입니다 — ' + (w[0] || '') + '~' + (w[w.length - 1] || '')
           + ' 중 ' + (rc.min_months || 3) + '개월 이상 나왔고 금액 폭이 ×' + (rc.spread_max || 1.25)
-          + ' 이하면 고정비로 봅니다. 자료가 이 기간만큼 없으면 대부분 «변동비» 로 나옵니다.';
+          + ' 이하면 고정비로 봅니다. 자료가 이 기간만큼 없으면 대부분 «변동비» 로 나옵니다.'
+          /* ⚠️ 진행 중인 달은 «합계» 가 아직 덜 찼다. 한 달에 여러 번 나가는 거래처는
+             월 중반에 금액 폭이 부풀어 고정비가 «반복» 으로 내려앉는다 — 그 사실을 밝힌다. */
+          + (rc.period_in_progress
+              ? ' ⚠️ 이번 달은 아직 진행 중이라 합계가 덜 찼습니다 — 매달 여러 번 나가는 곳은 «반복» 으로 보일 수 있습니다.'
+              : '');
     }
   }
 
@@ -487,7 +506,7 @@
           + '</td>'
           + '<td class="bk-sig ' + (sign > 0 ? 'bk-sig-up' : 'bk-sig-down')
           + '" style="padding:6px 8px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:700;white-space:nowrap">'
-          + (sign > 0 ? '+' : '−') + krw(Math.abs(m.delta)).slice(1) + '</td>'
+          + (sign > 0 ? '+' : '−') + krw(Math.abs(m.delta)) + '</td>'
           + '<td style="padding:6px 8px;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:11px;white-space:nowrap">'
           + esc(tag) + '</td>'
           + '</tr>';

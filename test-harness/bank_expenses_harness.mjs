@@ -198,6 +198,7 @@ if (!mod) {
   check('변화 없는 곳은 목록에 없다', !(d.movers || []).some(m => m.delta === 0));
 
   console.log('\n[ ⑦ 📥 엑셀 내보내기가 실제로 만들어지는가 ]');
+  const summaryLike = (x) => (x.sheets || []).map(s => s.rows || []);
   const xres = await mod.bankExpensesReport(env, req, new URL('https://x/?month=2026-07&format=xlsx'), 'xlsx');
   const x = await xres.json();
   check('xlsx 응답이 만들어진다', !!x && x.__xlsx === true);
@@ -210,6 +211,12 @@ if (!mod) {
         (2026-08-18 지시로 화면에서 뺀 것이 파일로 새는 형태) */
   check('입금 시트가 없다', !names.some(n => /입금/.test(n)), names.join(','));
   const flat = JSON.stringify(x.sheets);
+  /* 🪤 시트 «이름» 만 보면 다른 이름으로 담은 입금을 못 잡는다. 내용도 함께 본다 —
+     화면에서 뺀 것이 파일로 새는 것이 이 검사의 목적이다(2026-08-23 대조 지적). */
+  const all = flat + JSON.stringify(summaryLike(x));
+  check('엑셀 어디에도 「케이씨피M」이 없다', !/케이씨피\s*M|KCP\s*M/i.test(all));
+  check('엑셀 어디에도 «운영자금 보충»·«확인필요 입금» 이 없다',
+    !/운영자금\s*보충|확인필요\s*입금|성격\s*미확인/.test(all));
   check('사라진 거래처가 엑셀에도 담긴다', /옛구독서비스/.test(flat));
   check('금액이 «숫자» 로 들어간다 (엑셀에서 합계가 되게)',
     /,6000000,/.test(flat) || /\[6000000/.test(flat) || /:6000000/.test(flat) || flat.includes('6000000'));

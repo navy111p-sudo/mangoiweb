@@ -443,6 +443,19 @@ async function openCard(page) {
             안 일어나고 «성공» 으로 보인다 — 그 선택 자체를 막는다 */
       check('지정이 없던 거래처는 못 고른다', clearOf(o.notAssigned) && clearOf(o.notAssigned).d === true,
         JSON.stringify(clearOf(o.notAssigned)));
+      /* 🪤 option 의 disabled·라벨만 보면 **닫힌 select 가 무엇을 보여 주는지**를 못 잡는다.
+         「기타출금」은 계정과목 목록에도 들어 있어서, 아직 지정 안 된 거래처는 그 option 이
+         selected 이면서 disabled 가 된다 — 그때 라벨까지 «지정 지우기» 면 그것이 «현재
+         계정과목» 인 것처럼 보인다(2026-08-23 함정 대조가 실측으로 잡음). */
+      const shown = await page.evaluate(() => {
+        const pick = p => [].slice.call(document.querySelectorAll('#acc-bank-payees select.bk-assign'))
+          .find(s => s.getAttribute('data-payee') === p);
+        const cur = s => (s && s.selectedIndex >= 0) ? s.options[s.selectedIndex].textContent.trim() : null;
+        return { notAssigned: cur(pick('주식회사알수없는곳')), assigned: cur(pick('김영진')) };
+      });
+      check('지정 안 된 줄은 «기타출금» 그대로 보인다 (지우기 문구가 안 붙는다)',
+        shown.notAssigned === '기타출금', String(shown.notAssigned));
+      check('지정된 줄은 현재 계정과목이 보인다', shown.assigned === '지사수수료', String(shown.assigned));
       await ctx.close();
     }
 

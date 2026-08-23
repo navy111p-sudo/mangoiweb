@@ -1425,6 +1425,11 @@ async function bankExpensesReport(env: Env, request: Request, url: URL, fmt = 'j
     /* 🔁 고정비·변동비 — «패턴 추정» 이라 근거(창 기간·몇 달 나왔는지·금액 폭)를 함께 준다 */
     recurring: {
       window: windowMonths,
+      /* ⚠️ 조회한 달이 «아직 진행 중» 이면 그 달 합계는 덜 찼다. 한 달에 여러 번 나가는
+         거래처는 월 중반에 금액 폭(spread)이 부풀어 「고정비」가 「반복」으로 내려앉는다.
+         판정을 흔들지 않고 **사실을 화면에 밝히는 쪽**을 골랐다 — 진행 중인 달을 판정에서
+         빼면 창이 3개월로 줄어 「3개월 이상」 조건이 «세 달 모두» 가 되어 더 빡빡해진다. */
+      period_in_progress: period === currentMonth(),
       window_months: RECUR_WINDOW,
       min_months: RECUR_MIN_MONTHS,
       spread_max: FIXED_SPREAD_MAX,
