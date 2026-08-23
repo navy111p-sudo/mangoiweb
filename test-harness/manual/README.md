@@ -86,6 +86,28 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
 또 `/api/consents/` 를 「이미 동의함」으로 물려야 한다 — `mango-consent.js` 가 `vcJoinRoom` 을
 감싸고 동의 모달로 **조용히** 기다리기 때문이다(에러가 안 난다).
 
+## game-lock-preview-browser.mjs — 게임 허브의 잠금·미리보기·버튼 설명 (87건)
+
+게임 카드의 자물쇠가 제목·설명을 가리지 않는지, 잠긴 카드를 눌렀을 때 미리보기가 뜨는지를
+**좌표로** 잰다(문자열 하니스로는 볼 수 없는 종류다).
+
+여기에 퀘스트 바 버튼(`🎫 레벨테스트로 한 번에 열기` · `🔓 전체 열기` · `🎯 퀘스트 모드로 하기`)의
+**설명 줄**도 함께 본다.
+
+> **왜 필요한가** — 버튼 설명을 `title` 툴팁으로만 달면 **폰에서는 영영 안 뜬다**(마우스 전용).
+> 그래서 같은 글을 `.qhint` 로 한 번 더 그리고, 마우스가 있는 넓은 화면에서만 CSS 로 감춘다.
+> 그 «감춤/보임» 은 `getComputedStyle` 로 재야 알 수 있어서 여기서 확인한다.
+> 마지막 한 판은 `isMobile`·`hasTouch` 로 **진짜 터치 기기**(`hover:none`)를 흉내 내는데,
+> 폭만 좁힌 문맥은 헤드리스에서도 `hover:hover` 로 보고되기 때문이다.
+
+폭 세 가지(390·768·1440) + 터치 390 에서 돈다. 게임 카드·잠금·퀘스트 바를 건드리면 사람이 불러야 한다:
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/game-lock-preview-browser.mjs
+```
+
+---
+
 ---
 
 ## 새 검사를 더할 때

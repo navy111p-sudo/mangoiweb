@@ -72,6 +72,7 @@
   var current = '';      // 지금 보고 있는 항목 key. '' = 대시보드
   var pushed  = 0;       // 우리가 history 에 쌓은 칸 수 (0 이면 뒤로 갈 «우리» 칸이 없다)
   var quiet   = false;   // 되돌아가는 중 — 그 클릭은 새 발자국이 아니다
+  var armed   = false;   // 사이드바가 다 그려졌나 — 부팅 중의 자동 스크롤을 «이동» 으로 세지 않기 위해
 
   function $(id) { return document.getElementById(id); }
   function isEn() {
@@ -152,6 +153,7 @@
 
   /* ── 🏠 홈 ──────────────────────────────────────────────────────────────── */
   function goHome(fromPop) {
+    armed = true;
     current = '';
     /* 새로고침해도 대시보드로 남게 표시를 남긴다 — adm-ia6.js 의 boot() 가 이 값을 본다. */
     try { localStorage.setItem(LS_IA6, HOME); } catch (e) { /* 사파리 시크릿 등 — 무시 */ }
@@ -201,11 +203,79 @@
     var key = it.getAttribute('data-ia6-item');
     if (!key || quiet) return;
     if (key === current) return;         // 같은 곳을 다시 눌러도 칸은 하나
+    armed = true;
     current = key;
     pushStep(key);
     // IA6 가 ia6-on 을 붙이고 카드를 고른 «뒤» 에 그린다
     setTimeout(render, 0);
   }, true);
+
+  /* ── 🧭 «점프» 도 이동으로 센다 (2026-08-19 3차) ───────────────────────────
+     [무엇이 안 됐나] 🏠 홈을 누른 뒤처럼 **카드가 전부 보이는 상태**에서 ⚡자주 쓰는 기능·
+       통합검색·카드 안 「…하러 가기」 로 옮겨 가면 **경로 줄이 안 따라왔다**(사장님 제보).
+     [왜] 그런 «점프» 는 사이드바 항목을 누르는 게 아니라 카드로 scrollIntoView 하는 것이다.
+       adm-ia6.js 의 wireRevealOnJump 가 그걸 가로채 «사이드바 항목을 대신 눌러» 주는데,
+       그 되살리기는 **가려던 카드가 감춰져 있을 때만** 한다(cardOf 가 .ia6-hide 인 카드만 찾는다).
+       카드가 이미 보이면 아무도 누르지 않으니 우리 클릭 감시에도 안 걸린다.
+       실측(1440×900): 메뉴에 들어가 있을 때 점프 → 「강사 › 강사 평가」 정상 /
+                       홈 직후 같은 점프 → 줄이 감춰진 채 그대로.
+     [고침] 카드로 뛰는 것을 **한 곳에서** 본다 — 감춰졌든 보이든 상관없이 그 카드를 맡은
+       항목을 찾아 줄만 맞춘다. ⚡·검색·AI·카드 안 버튼·딥링크가 전부 이 길로 모인다.
+     ⚠️ 우리 래퍼는 adm-ia6.js «보다 먼저» 설치된다(문서 순서: adm-crumb 9352행, adm-ia6 12436행).
+        그래서 IA6 래퍼가 우리를 감싸고 → 되살리기(항목 클릭)가 먼저 끝난 뒤 우리가 돈다.
+        그 경우 이미 current 가 같아져 있어 아무 일도 하지 않는다(이중 처리 없음).
+     ⚠️ 부팅 중에는 세지 않는다(armed). adm-ia6.js 가 «마지막으로 보던 메뉴» 를 자동으로 열면서
+        스크롤하는데, 그걸 이동으로 세면 history 에 칸이 하나 쌓여 **첫 화면의 ← 가 관리자 밖으로
+        나가 버린다**(위 goBack 주석 참고).
+     ⚠️ 카드 하나를 여러 항목이 나눠 맡기도 한다(조직 카드 = 대표지사·지사·대리점·본사 관리).
+        그래서 **먼저 «카드 안의 그 칸»(data-ia6-sub)** 으로 찾고, 없을 때만 카드로 찾는다. */
+  function itemForCard(cardId) {
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar || !cardId) return null;
+    var list = bar.querySelectorAll('[data-ia6-item][data-cards]'), i;
+    for (i = 0; i < list.length; i++) {
+      var cards = (list[i].getAttribute('data-cards') || '').split(/\s+/);
+      if (cards.indexOf(cardId) >= 0) return list[i];
+    }
+    return null;
+  }
+
+  function itemForJump(el) {
+    var bar = document.getElementById('ph85-sidebar');
+    if (!bar) return null;
+    for (var n = el; n && n !== document.body; n = n.parentElement) {
+      if (!n.id) continue;
+      var sub = null;
+      try { sub = bar.querySelector('[data-ia6-sub="' + n.id.replace(/"/g, '\\"') + '"]'); } catch (e) { /* 무시 */ }
+      if (sub) return sub;                       // 카드 «안의 그 칸» 을 정확히 맡은 항목
+      if (/^card-/.test(n.id)) {
+        var byCard = itemForCard(n.id);
+        if (byCard) return byCard;
+      }
+    }
+    return null;
+  }
+
+  function noteJump(el) {
+    if (!armed || quiet) return;
+    var it = itemForJump(el);
+    if (!it) return;                             // 카드가 아닌 곳으로 가는 스크롤은 이동이 아니다
+    var key = it.getAttribute('data-ia6-item');
+    if (!key || key === current) return;         // 같은 곳으로의 재보정 스크롤 — 아무 일도 하지 않는다
+    current = key;
+    pushStep(key);
+    render();
+  }
+
+  try {
+    var origSIV = Element.prototype.scrollIntoView;
+    if (typeof origSIV === 'function') {
+      Element.prototype.scrollIntoView = function () {
+        try { noteJump(this); } catch (e) { /* 점프는 어떤 경우에도 막지 않는다 */ }
+        return origSIV.apply(this, arguments);
+      };
+    }
+  } catch (e) { /* 무시 */ }
 
   /* ── 📐 착지점 내리기 (--adm-jump-offset) ─────────────────────────────────── */
   try {
@@ -269,7 +339,10 @@
       if (key && key !== HOME && itemEl(key)) current = key;
     }
     render();
-    if (!current && tries++ < 30) setTimeout(boot, 400);
+    /* 사이드바 항목이 생겼다 = adm-ia6.js 의 부팅이 이미 끝났다(그 자리에서 항목을 고르고
+       카드를 맞춘다). 그때부터 «점프» 를 이동으로 센다 — 그 전 자동 스크롤은 세지 않는다. */
+    if (!armed && document.querySelector('#ph85-sidebar [data-ia6-item]')) armed = true;
+    if (!armed && tries++ < 30) setTimeout(boot, 400);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

@@ -11,6 +11,7 @@
 import { json, parseJsonBody, invalidBody, toCSV, csvResponse, today } from './api-util';
 import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 결제 제외 — 리포트와 같은 조건을 쓴다
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
+import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
@@ -8212,6 +8213,10 @@ LIMIT $limit`;
       //    CREATE 에 넣지 않는 이유: schema_drift 하니스가 «운영 실제에 없는 CREATE 컬럼» 을 막는다.
       //    NULL = 미지정. #03 의 B2B/B2C 결제 리스트 분리가 이 값을 필터 기준으로 쓴다.
       try { await env.DB.exec(`ALTER TABLE centers ADD COLUMN payment_type TEXT`); } catch {}
+      /* 💰 (2026-08-22) 아래 목록이 대리점별 수강료를 함께 내려준다. 그 표가 없는
+         환경에서 조인이 실패하면 **대리점 목록이 통째로 안 뜬다** — 표를 먼저 보장한다.
+         DDL 정본은 org-settlement.ts 한 곳이다(복사하지 말 것). */
+      await ensureRateOverrideTable(env);
       const _normPayType = (v: any): string | null => {
         const s = String(v || '').trim().toUpperCase();
         return s === 'B2B' || s === 'B2C' ? s : null;
@@ -8287,7 +8292,15 @@ LIMIT $limit`;
         if (pt === 'NONE') listWhere.push(IS_NONE);
         else if (pt) { listWhere.push(`c.payment_type = ?`); listBinds.push(pt); }
         const listWhereSql = listWhere.length ? ` WHERE ${listWhere.join(' AND ')}` : '';
-        const cols = min ? 'c.id, c.name' : 'c.*, f.name AS franchise_name';
+        /* 💰 (2026-08-22) 대리점별 «주 1회 수강료» 를 함께 내려준다.
+           안 정한 곳은 NULL 로 오고 화면이 표준값(30,000원)을 보여 준다 — 여기서
+           표준값을 채워 보내면 «사람이 정한 값» 과 «기본값» 을 구분할 수 없어진다.
+           ⚠️ 정본은 settlement_rate_override 다(정산 계산이 보는 그 표). centers 에
+              칸을 새로 만들지 않는다 — 두 벌이 되면 어느 쪽이 맞는지 알 수 없다. */
+        const cols = min ? 'c.id, c.name'
+          : `c.*, f.name AS franchise_name,
+             (SELECT o.tuition_krw FROM settlement_rate_override o
+               WHERE o.scope_type='agency' AND o.scope_key = c.name) AS tuition_krw`;
         const pageSql = limit === 0 ? '' : ` LIMIT ? OFFSET ?`;
         const pageBinds = limit === 0 ? listBinds : [...listBinds, limit, offset];
         const rs = await env.DB.prepare(
@@ -11247,7 +11260,8 @@ LIMIT $limit`;
     // ════════════════════════════════════════════════════════════
     // 💳 정기결제 자동화 (Recurring Billing / Subscriptions)
     // ════════════════════════════════════════════════════════════
-    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check') {
+    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check'
+        || path === '/api/admin/billing/auto-renew-live' || path === '/api/admin/billing/auto-renew-due') {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       } catch {}
@@ -11303,6 +11317,51 @@ LIMIT $limit`;
       if (method === 'POST' && path === '/api/admin/subscription/cron-check') {
         const result = await runAutoRenewChargeSweep(env);
         return json(result);
+      }
+
+      /* ♾️ (2026-08-23) 자동청구 킬스위치(KV billing:auto_renew_live) — 사장님이 화면에서 켜고 끈다.
+         지금까지는 wrangler CLI 로만 만질 수 있어 스위치가 영영 dry-run 이었다.
+         ⚠️ 실돈 스위치: 변경(POST)은 본사(hq) 스코프만. 강사는 scope 'none' 이라 canEditOrg 를
+            통과해 버리는 함정(CLAUDE.md 2장)이 있으므로 isTeacher 를 따로 막는다. */
+      if (path === '/api/admin/billing/auto-renew-live') {
+        const a = await getAdminActor(request, env as any);
+        if (!a.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        if (a.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        let live = false;
+        try { live = (await (env as any).SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
+        if (method === 'GET') return json({ ok: true, live });
+        if (method === 'POST') {
+          const sc = await getScope(env as any, request);
+          if (sc.type !== 'hq' && !FULL_ACCESS_ACCOUNTS.has(a.username)) {
+            return json({ ok: false, error: 'forbidden_hq_only', message: '자동청구 스위치는 본사만 변경할 수 있습니다.' }, 403);
+          }
+          const b: any = await parseJsonBody(request);
+          const want = b?.live === true || b?.live === 1 || b?.live === '1';
+          try { await (env as any).SESSION_STATE.put('billing:auto_renew_live', want ? '1' : '0'); }
+          catch (e) { return json({ ok: false, error: 'kv_write_failed', message: String((e as any)?.message || e) }, 500); }
+          console.log('[billing] auto_renew_live ->', want ? '1' : '0', 'by', a.username);
+          return json({ ok: true, live: want, by: a.username });
+        }
+        return json({ ok: false, error: 'method_not_allowed' }, 405);
+      }
+
+      /* ♾️ 청구 예정 목록(읽기 전용) — 스위치를 켜기 «전에» 누가 얼마 청구될지 보는 미리보기.
+         cron-check(POST)는 스위치가 켜져 있으면 그 자리에서 실청구가 나가므로 미리보기로 쓰면 안 된다. */
+      if (method === 'GET' && path === '/api/admin/billing/auto-renew-due') {
+        const now = Date.now();
+        const rs: any = await env.DB.prepare(
+          `SELECT id, user_id, student_name, amount, next_billing_at, fail_count
+           FROM subscriptions WHERE status='active' AND billing_key IS NOT NULL
+           ORDER BY next_billing_at ASC LIMIT 200`
+        ).all().catch(() => ({ results: [] }));
+        const rows = ((rs as any)?.results as any[]) || [];
+        const dueNow = rows.filter((r) => Number(r.next_billing_at || 0) <= now);
+        return json({
+          ok: true, total: rows.length,
+          due_now: dueNow.length,
+          due_now_amount: dueNow.reduce((s, r) => s + Number(r.amount || 0), 0),
+          list: rows.map((r) => ({ ...r, due: Number(r.next_billing_at || 0) <= now })),
+        });
       }
     }
 

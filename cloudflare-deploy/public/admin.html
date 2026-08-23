@@ -704,7 +704,7 @@
     })();
     </script>
 
-    <link rel="stylesheet" href="/css/admin-inline-c.css?v=44"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=44: 2026-08-20 '학원 전체 스케줄' → '전체 스케줄' 주석 정리 · v=43: 2026-08-21 참관/직접입장 버튼 색이 세 겹에 먹히던 것(파일 맨 끝 블록) · v=42: 2026-08-20 ≤900px 에서 `html{overflow-x:hidden}` 이 경로 줄 sticky 를 죽이던 것(body 만 남김) · v=40: 2026-08-21 사이드바 하단 도크 두 줄로(빈 칸 #topUserBtn 감춤 + 사이트 홈을 계정 옆으로) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
+    <link rel="stylesheet" href="/css/admin-inline-c.css?v=45"><!-- admin.html 본문에 있던 스타일 (head 로 올리면 안 됨) · v=45: 2026-08-23 사이드바 시계+날씨 높이 절반으로(라벨·날짜 한 줄 + 글자·여백 축소) · v=44: 2026-08-20 '학원 전체 스케줄' → '전체 스케줄' 주석 정리 · v=43: 2026-08-21 참관/직접입장 버튼 색이 세 겹에 먹히던 것(파일 맨 끝 블록) · v=42: 2026-08-20 ≤900px 에서 `html{overflow-x:hidden}` 이 경로 줄 sticky 를 죽이던 것(body 만 남김) · v=40: 2026-08-21 사이드바 하단 도크 두 줄로(빈 칸 #topUserBtn 감춤 + 사이트 홈을 계정 옆으로) · v=34: 2026-08-19 계정 모달(#ph115-modal-overlay)이 모바일 드로어(z:100001) 밑에 깔리던 것 수정 · v=31: 2026-08-18 역할 숨김용 .rbac-hide 규칙 추가 · v=30: 2026-08-17 ph106 실데이터 + ph128 통계띠 hidden -->
 
     <!-- 🎨 대시보드 숫자 색 규칙 (2026-08-08) — 12줄, 파일 추가 없음(요청 0건 증가)
          왜 여기냐 —
@@ -5518,9 +5518,14 @@ window.__admSettleRun = function(fn){
   <summary><span data-ko="💳 정기결제 자동화" data-en="💳 Recurring Billing">💳 정기결제 자동화</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(34,197,94,0.10),rgba(16,185,129,0.05));border:1px solid rgba(34,197,94,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#86efac;line-height:1.6"
-         data-ko="💡 매월 자동 청구 (KST 09:00 cron). Toss Payments 연동은 추후 작업."
-         data-en="💡 Auto charge monthly (KST 09:00 cron). Toss Payments integration is pending.">
-      💡 매월 자동 청구 (KST 09:00 cron). Toss Payments 연동은 추후 작업.
+         data-ko="💡 학생이 카드를 등록하면(수강신청 화면) 수업 종료 3일 전에 자동 청구됩니다 (매일 KST 10:00 cron, Toss 빌링키). 결제 3일 전 학부모에게 사전고지 문자가 나갑니다."
+         data-en="💡 Students register a card on the Enroll page; charges run automatically 3 days before their classes end (daily KST 10:00 cron, Toss billing key). Parents get a heads-up SMS 3 days before.">
+      💡 학생이 카드를 등록하면(수강신청 화면) 수업 종료 3일 전에 자동 청구됩니다 (매일 KST 10:00 cron, Toss 빌링키). 결제 3일 전 학부모에게 사전고지 문자가 나갑니다.
+    </div>
+    <!-- ♾️ (2026-08-23) 자동청구 마스터 스위치 — KV billing:auto_renew_live. 꺼져 있으면 cron 은 미리보기만 한다.
+         켜고 끄는 건 본사만(서버 403). 켜기 전에 아래 «청구 예정» 미리보기를 보고 결정한다. -->
+    <div data-gc="♾️ 자동청구 스위치" data-gc-en="Auto-charge Switch" id="rb-switch" style="border:1px solid rgba(251,191,36,0.35);background:rgba(120,53,15,0.15);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.7">
+      <span style="color:#94a3b8">⏳ 스위치 상태 확인 중…</span>
     </div>
     <div data-gc="📊 구독 요약" data-gc-en="Subscription Summary" id="rb-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <button onclick="rbLoad()" class="primary" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
@@ -5590,7 +5595,52 @@ window.__admSettleRun = function(fn){
     alert(r.ok ? (isEn()?'Cancelled.':'해지 완료.') : '❌');
     if (r.ok) rbLoad();
   };
-  document.getElementById('card-recurring-billing')?.addEventListener('toggle', function(){ if (this.open) rbLoad(); });
+  /* ♾️ (2026-08-23) 자동청구 마스터 스위치 + 청구 예정 미리보기.
+     ⚠️ 미리보기는 GET auto-renew-due(읽기 전용)만 쓴다 — cron-check(POST)는 스위치가 켜져 있으면
+        그 자리에서 실청구가 나간다. */
+  window.rbSwitchLoad = async function(){
+    const en = isEn();
+    const box = document.getElementById('rb-switch');
+    if (!box) return;
+    try {
+      const [sw, due] = await Promise.all([
+        fetch('/api/admin/billing/auto-renew-live').then(x=>x.json()),
+        fetch('/api/admin/billing/auto-renew-due').then(x=>x.json()),
+      ]);
+      if (!sw.ok || !due.ok) throw new Error(sw.error||due.error||'failed');
+      const live = !!sw.live;
+      const badge = live
+        ? `<span style="background:#16a34a;color:#fff;border-radius:999px;padding:2px 10px;font-weight:800">${en?'ON — charging live':'켜짐 — 실제 청구 중'}</span>`
+        : `<span style="background:#475569;color:#e2e8f0;border-radius:999px;padding:2px 10px;font-weight:800">${en?'OFF — preview only':'꺼짐 — 미리보기만'}</span>`;
+      const amt = (due.due_now_amount||0).toLocaleString();
+      const preview = (due.list||[]).slice(0,8).map(r =>
+        `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#cbd5e1">
+           <span>${esc(r.student_name||r.user_id)}${r.due?' <b style="color:#fbbf24">'+(en?'due now':'지금 대상')+'</b>':''}</span>
+           <span>${(r.amount||0).toLocaleString()}원 · ${r.next_billing_at?new Date(r.next_billing_at).toISOString().slice(0,10):'-'}</span>
+         </div>`).join('');
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <b style="color:#fcd34d">♾️ ${en?'Auto-charge master switch':'자동청구 마스터 스위치'}</b> ${badge}
+          <button id="rb-switch-btn" style="margin-left:auto;border:0;border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer;color:#fff;background:${live?'#dc2626':'linear-gradient(135deg,#22c55e,#16a34a)'}">${live?(en?'Turn OFF':'끄기'):(en?'Turn ON':'켜기')}</button>
+        </div>
+        <div style="margin-top:6px;color:#e2e8f0">${en?'Due now':'지금 청구 대상'} <b style="color:#fbbf24">${due.due_now||0}${en?'':'명'}</b> · ${amt}원 / ${en?'card-registered total':'카드 등록'} ${due.total||0}${en?'':'명'}</div>
+        ${preview ? `<div style="margin-top:6px;border-top:1px dashed rgba(148,163,184,0.3);padding-top:6px">${preview}${(due.list||[]).length>8?`<div style="font-size:11px;color:#94a3b8">… ${en?'and more':'외'} ${(due.list||[]).length-8}${en?'':'명'}</div>`:''}</div>` : ''}
+        <div style="margin-top:6px;font-size:11.5px;color:#94a3b8">${en?'While OFF, the daily sweep only previews (no charge). Turning ON starts real charges from the next sweep (daily KST 10:00) — parents get a D-3 heads-up SMS.':'꺼져 있는 동안 매일 스윕은 미리보기만 합니다. 켜면 다음 스윕(매일 KST 10:00)부터 실제 청구가 시작되고, 학부모에게 결제 3일 전 사전고지 문자가 나갑니다.'}</div>`;
+      document.getElementById('rb-switch-btn').onclick = async function(){
+        const msg = live
+          ? (en?'Turn OFF auto-charging? The sweep goes back to preview-only.':'자동청구를 끌까요? 스윕이 다시 미리보기만 하게 됩니다.')
+          : (en?`Turn ON auto-charging?\nDue now: ${due.due_now||0} student(s), ${amt} KRW — charged from the next daily sweep (KST 10:00).`
+              :`자동청구를 켤까요?\n지금 대상 ${due.due_now||0}명 · ${amt}원이 다음 스윕(매일 KST 10:00)부터 실제 청구됩니다.`);
+        if (!confirm(msg)) return;
+        const r = await fetch('/api/admin/billing/auto-renew-live', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ live: !live }) }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
+        if (!r.ok) { alert('❌ ' + (r.message||r.error||'failed')); return; }
+        rbSwitchLoad();
+      };
+    } catch(e) {
+      box.innerHTML = `<span style="color:#fca5a5">❌ ${esc(e.message)}</span>`;
+    }
+  };
+  document.getElementById('card-recurring-billing')?.addEventListener('toggle', function(){ if (this.open) { rbLoad(); rbSwitchLoad(); } });
 })();
 </script>
 
@@ -7725,8 +7775,8 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
             <span style="font-size:12px;color:#64748b" data-ko="결제유형" data-en="Pay type">결제유형</span>
             <span id="ct-ptfilter" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></span>
           </div>
-          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
-            <tbody id="centers-table"><tr><td colspan="7" class="empty">—</td></tr></tbody></table>
+          <table data-gc="🏪 대리점 목록" data-gc-en="🏪 Agency list" style="margin-top:4px;"><thead><tr><th>ID</th><th data-ko="지사" data-en="Branch">지사</th><th data-ko="대리점·학원명" data-en="Agency">대리점·학원명</th><th data-ko="결제유형" data-en="Pay type">결제유형</th><th data-ko="주1회 수강료" data-en="Weekly-1 tuition">주1회 수강료</th><th data-ko="국가" data-en="Country">국가</th><th data-ko="원장·담당자" data-en="Manager">원장·담당자</th><th data-ko="주소" data-en="Address">주소</th></tr></thead>
+            <tbody id="centers-table"><tr><td colspan="8" class="empty">—</td></tr></tbody></table>
         </div>
       </details>
 
@@ -9326,7 +9376,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=152" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=154" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=154: 2026-08-22 대리점 목록에 「주1회 수강료」 칸 — 수강료를 정하면 본사 요율이
+     18,000 ÷ 수강료 로 자동 계산된다(가맹점을 코드에 특정하지 않는다)
+   · v=153: 2026-08-22 가맹점별 정산서 수수료율을 정산관리와 하나로 (하드코딩 15% 제거) + 요율 칸 추가.
+     이 작업은 v=122 → v=138 로 두 번 밀렸다 — main 이 그때마다 그 번호를 먼저 가져갔다.
+     규칙대로 양쪽보다 큰 번호를 새로 딴다(내용은 자동병합으로 양쪽 다 들어가 있다)
    · v=152: 2026-08-21 레벨테스트 신청현황에 「🗑️ 보이는 항목 전체 삭제」 — 서버는 이미 ids 배열을
      받고 있었고 화면에 버튼만 없어서 14건을 한 줄씩 지워야 했다. 수강신청과 같은 꼴.
    · v=151: 2026-08-20 수강신청 목록의 「▶ 수강시작」 버튼 제거 — 「등록 = 확정」으로 바뀐 뒤
@@ -9408,7 +9463,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 <script src="/js/adm-today-classes.js?v=6" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=12" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
-<script src="/js/adm-crumb.js?v=2" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->
+<script src="/js/adm-crumb.js?v=3" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->
 <script src="/js/adm-cdo-weather.js?v=2" defer></script><!-- 🌤 카가얀데오로(CDO) 날씨 — 사이드바 시계 밑 (2026-08-17) -->
 <script src="/js/adm-light-surfaces.js?v=13" defer></script><!-- 🌤 카드 속 '너무 진한' 패널 자동 완화 + 안 보이는 글자색 교정 (2026-07-22) -->
 
@@ -12570,7 +12625,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
 #ph85-sidebar #ia6-appr.on .ia6-appr-n{background:#fff;color:#0b6e63}
 .ia6-appr-n:empty{display:none}
 </style>
-<script src="/js/adm-ia6.js?v=45" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
+<script src="/js/adm-ia6.js?v=48" defer></script><!-- 🧭 메뉴 6그룹 재배치 + 고른 항목의 카드만 표시 (2026-08-08 · 08-13 문의/버그 항목 분리 · 08-15 그룹명 시스템 복원 · 08-16 사이트 구조도 제거 · 08-16 모바일 «닫고 나서 이동» · 08-17 「메뉴 지도」 즉시 이동 · 08-18 「운영자」 그룹 신설 · 08-19 openSub 항목은 «그 칸» 을 맨 위로 · 08-18 1안 — 중복 항목 정리(매출 대시보드·조직 제거, 본사 관리 신설) + openSub 를 data-ia6-sub 로 DOM 에 실어 손자 생성기가 «잎» 을 알아보게) --><!-- v=48: 「정산·매출 ▸ 영업 실적·평가」 추가 — 사이드바 어디에도 없어 주소를 아는 사람만 들어가던 화면(2026-08-21 사장님). --><!-- v=35: 양쪽 브랜치가 각자 33·34 로 올려 충돌 → 규칙대로 «양쪽보다 큰 번호». 본문은 git 이 자동 병합(양쪽 변경 모두 살아 있음). -->
 <script src="/js/adm-quickfav.js?v=1" defer></script><!-- ⭐ 자주 쓰는 메뉴(고정★ + 최근 본) — 사용성 점검 2번 · 2026-08-19 -->
 <script src="/js/adm-schedule-seed.js?v=3" defer></script><!-- 🗓 지난 수업에서 일정 만들기 (2026-08-19 A안: 미리보기 → 고르기 → 만들기) -->
 <script src="/js/adm-menu-hit.js?v=2" defer></script><!-- 📏 메뉴 사용 계측 — 「무엇이 안 눌리는가」 (2026-08-08) -->
