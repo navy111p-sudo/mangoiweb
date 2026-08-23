@@ -272,7 +272,12 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
   let live = false;
   try { live = (await env.SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
   if (!live) {
-    return { ok: true, dry_run: true, due_count: rows.length, note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)' };
+    // 미리보기에 «누가·얼마» 를 담아 준다 — 사장님이 스위치를 켜기 전에 볼 목록 (2026-08-23)
+    return {
+      ok: true, dry_run: true, due_count: rows.length,
+      due: rows.map((r: any) => ({ id: r.id, user_id: r.user_id, student_name: r.student_name, amount: r.amount, next_billing_at: r.next_billing_at })),
+      note: 'KV billing:auto_renew_live=1 로 켜야 실제 청구됩니다(현재 미리보기만)',
+    };
   }
   /* 📨 D-3 사전고지 — 결제 3일 안쪽으로 들어온 구독에 «○일에 ○원 자동결제» 문자(결제일별 1회 멱등).
      국내 정기결제 관행(사전고지 없는 자동청구 = 민원 1순위). 라이브일 때만 — dry-run 중에 보내면

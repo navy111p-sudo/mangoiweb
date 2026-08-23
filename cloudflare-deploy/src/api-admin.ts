@@ -11260,7 +11260,8 @@ LIMIT $limit`;
     // ════════════════════════════════════════════════════════════
     // 💳 정기결제 자동화 (Recurring Billing / Subscriptions)
     // ════════════════════════════════════════════════════════════
-    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check') {
+    if (path === '/api/admin/subscriptions' || path === '/api/admin/subscription/charge-now' || path === '/api/admin/subscription/cancel' || path === '/api/subscription/create' || path === '/api/admin/subscription/cron-check'
+        || path === '/api/admin/billing/auto-renew-live' || path === '/api/admin/billing/auto-renew-due') {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       } catch {}
@@ -11316,6 +11317,51 @@ LIMIT $limit`;
       if (method === 'POST' && path === '/api/admin/subscription/cron-check') {
         const result = await runAutoRenewChargeSweep(env);
         return json(result);
+      }
+
+      /* ♾️ (2026-08-23) 자동청구 킬스위치(KV billing:auto_renew_live) — 사장님이 화면에서 켜고 끈다.
+         지금까지는 wrangler CLI 로만 만질 수 있어 스위치가 영영 dry-run 이었다.
+         ⚠️ 실돈 스위치: 변경(POST)은 본사(hq) 스코프만. 강사는 scope 'none' 이라 canEditOrg 를
+            통과해 버리는 함정(CLAUDE.md 2장)이 있으므로 isTeacher 를 따로 막는다. */
+      if (path === '/api/admin/billing/auto-renew-live') {
+        const a = await getAdminActor(request, env as any);
+        if (!a.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        if (a.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+        let live = false;
+        try { live = (await (env as any).SESSION_STATE.get('billing:auto_renew_live')) === '1'; } catch {}
+        if (method === 'GET') return json({ ok: true, live });
+        if (method === 'POST') {
+          const sc = await getScope(env as any, request);
+          if (sc.type !== 'hq' && !FULL_ACCESS_ACCOUNTS.has(a.username)) {
+            return json({ ok: false, error: 'forbidden_hq_only', message: '자동청구 스위치는 본사만 변경할 수 있습니다.' }, 403);
+          }
+          const b: any = await parseJsonBody(request);
+          const want = b?.live === true || b?.live === 1 || b?.live === '1';
+          try { await (env as any).SESSION_STATE.put('billing:auto_renew_live', want ? '1' : '0'); }
+          catch (e) { return json({ ok: false, error: 'kv_write_failed', message: String((e as any)?.message || e) }, 500); }
+          console.log('[billing] auto_renew_live ->', want ? '1' : '0', 'by', a.username);
+          return json({ ok: true, live: want, by: a.username });
+        }
+        return json({ ok: false, error: 'method_not_allowed' }, 405);
+      }
+
+      /* ♾️ 청구 예정 목록(읽기 전용) — 스위치를 켜기 «전에» 누가 얼마 청구될지 보는 미리보기.
+         cron-check(POST)는 스위치가 켜져 있으면 그 자리에서 실청구가 나가므로 미리보기로 쓰면 안 된다. */
+      if (method === 'GET' && path === '/api/admin/billing/auto-renew-due') {
+        const now = Date.now();
+        const rs: any = await env.DB.prepare(
+          `SELECT id, user_id, student_name, amount, next_billing_at, fail_count
+           FROM subscriptions WHERE status='active' AND billing_key IS NOT NULL
+           ORDER BY next_billing_at ASC LIMIT 200`
+        ).all().catch(() => ({ results: [] }));
+        const rows = ((rs as any)?.results as any[]) || [];
+        const dueNow = rows.filter((r) => Number(r.next_billing_at || 0) <= now);
+        return json({
+          ok: true, total: rows.length,
+          due_now: dueNow.length,
+          due_now_amount: dueNow.reduce((s, r) => s + Number(r.amount || 0), 0),
+          list: rows.map((r) => ({ ...r, due: Number(r.next_billing_at || 0) <= now })),
+        });
       }
     }
 
