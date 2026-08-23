@@ -59,7 +59,8 @@
   var nodes = [];         // 살아 있는 오실레이터 — 정지할 때 전부 stop()
   var playing = false;
   var finished = false;   // 이번 세션에서 할 일이 끝났음
-  var armGesture = null;  // 시작 신호로 쓴 제스처 — 그 한 번은 정지로 세지 않는다
+  var startedAt = 0;      // 재생을 시작한 시각(ms) — 시작시킨 클릭이 자기를 끄지 못하게
+  var START_GRACE_MS = 700;   // 한 번의 손짓이 만드는 형제 이벤트를 다 덮을 만큼
   var btn = null;
   var endTimer = null;
 
@@ -157,9 +158,11 @@
     var lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
     lp.Q.setValueAtTime(1.1, at);
-    lp.frequency.setValueAtTime(freq * 1.6, at);
-    lp.frequency.linearRampToValueAtTime(freq * 5.5, at + Math.min(0.5, dur * 0.4));
-    lp.frequency.linearRampToValueAtTime(freq * 3.2, at + dur);
+    // «웅장하게» (2026-08-23) — 필터를 더 열어 금관의 쨍한 윗배음을 살린다.
+    //   숫자만 키우면 낮은 음이 답답하고 높은 음이 날카로워지므로 상한을 함께 둔다.
+    lp.frequency.setValueAtTime(freq * 2.0, at);
+    lp.frequency.linearRampToValueAtTime(Math.min(freq * 9, 9500), at + Math.min(0.5, dur * 0.4));
+    lp.frequency.linearRampToValueAtTime(Math.min(freq * 5, 7000), at + dur);
 
     var env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, at);
@@ -219,6 +222,41 @@
     for (var i = 0; i < freqs.length; i++) brass(freqs[i], at, dur, vol, dest);
   }
 
+  // 심벌즈 — 잡음을 하이패스로 걸러 «촤아» 하고 길게 사라진다 (2026-08-23 사장님 «고음도» 요청)
+  function cymbal(at, dur, vol, dest) {
+    var src = ctx.createBufferSource();
+    src.buffer = noise(); src.loop = true;
+    var hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.setValueAtTime(5200, at);
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.linearRampToValueAtTime(vol, at + 0.015);
+    env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    src.connect(hp); hp.connect(env); env.connect(dest);
+    src.start(at); src.stop(at + dur + 0.1);
+    nodes.push(src);
+  }
+
+  // 높은 현(스트링) — 사인 셋을 미세 디튠해 «반짝이며 떠 있는» 고음층
+  function shimmer(freq, at, dur, vol, dest) {
+    var detune = [0.996, 1, 1.004];
+    var env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, at);
+    env.gain.linearRampToValueAtTime(vol, at + Math.min(0.9, dur * 0.3));
+    env.gain.setValueAtTime(vol, at + Math.max(0.9, dur - 1.2));
+    env.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    env.connect(dest);
+    for (var i = 0; i < detune.length; i++) {
+      var osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq * detune[i], at);
+      osc.connect(env);
+      osc.start(at); osc.stop(at + dur + 0.1);
+      nodes.push(osc);
+    }
+  }
+
   // ── 곡 ──────────────────────────────────────────────────────────────────
   // 리하르트 슈트라우스 「짜라투스트라는 이렇게 말했다」(1896) 서주 «일출».
   // 🔓 작곡가 사후 70년이 지나 **작곡은 퍼블릭 도메인**이다 — 그래서 «연주» 는 자유롭다.
@@ -256,6 +294,8 @@
       [53.0, 0.180, 0.130, 0.52, 9.5]
     ];
 
+    var G5 = 783.99, C6 = 1046.50, E5 = 659.26;   // «고음» (2026-08-23 사장님 요청)
+
     for (var p = 0; p < passes.length; p++) {
       var s = t0 + passes[p][0], bv = passes[p][1], cv = passes[p][2];
       var tv = passes[p][3], hold = passes[p][4];
@@ -265,6 +305,14 @@
       brass(G4, s + 3.2, 3.1, bv * 1.05, bus);
       brass(C5, s + 6.4, 3.2, bv * 1.10, bus);
 
+      // 🎺 옥타브 위 겹침 — 2·3번째는 트럼펫이 한 옥타브 위에서 같이 분다 (원곡의 «쨍한» 층)
+      if (p >= 1) {
+        var ov = bv * (last ? 0.55 : 0.40);
+        brass(C5, s,       3.1, ov,        bus);
+        brass(G5, s + 3.2, 3.1, ov * 1.05, bus);
+        brass(C6, s + 6.4, 3.2, ov * 1.10, bus);
+      }
+
       // 단3화음 → 장3화음 («어두움에서 빛으로»)
       var minorAt = s + 9.7, majorAt = minorAt + 1.9;
       if (!last) {
@@ -273,9 +321,16 @@
         chordAt([C3, Eb3, G3, C4, Eb4], minorAt, 1.6, cv, bus);
       }
       chordAt([C2, C3, E3, G3, C4, E4, G4, C5], majorAt, hold, cv * 1.15, bus);
+      // 화음 위에도 고음층 — 높은 현이 E5·G5·C6 로 떠 있는다
+      if (p >= 1) {
+        shimmer(E5, majorAt, Math.min(hold, 6), cv * 0.30, bus);
+        shimmer(G5, majorAt, Math.min(hold, 6), cv * 0.26, bus);
+        if (last) shimmer(C6, majorAt, Math.min(hold, 6), cv * 0.22, bus);
+      }
 
-      // 팀파니 — 화음이 열리는 순간과 그 뒤 두 번
+      // 팀파니 — 화음이 열리는 순간과 그 뒤 두 번. 열릴 때 심벌즈가 «촤아» (2번째부터)
       timpani(C2, majorAt,        tv,        bus);
+      if (p >= 1) cymbal(majorAt, last ? 3.2 : 2.2, last ? 0.16 : 0.10, bus);
       timpani(C2, majorAt + 0.62, tv * 0.72, bus);
       timpani(C3, majorAt + 1.24, tv * 0.60, bus);
 
@@ -283,7 +338,10 @@
         // 마지막은 팀파니가 한 번 더 밀어 주고, 화음이 길게 남으며 끝난다
         timpani(C2, majorAt + 2.0, tv * 0.85, bus);
         timpani(C2, majorAt + 2.6, tv * 0.65, bus);
-        chordAt([C2, C3, G3, C4, E4, G4], majorAt + 4.2, span - (passes[p][0] + 15.8), cv * 0.8, bus);
+        var tailAt = majorAt + 4.2, tailDur = span - (passes[p][0] + 15.8);
+        chordAt([C2, C3, G3, C4, E4, G4], tailAt, tailDur, cv * 0.8, bus);
+        shimmer(E5, tailAt, Math.min(tailDur, 8), cv * 0.20, bus);
+        shimmer(G5, tailAt, Math.min(tailDur, 8), cv * 0.17, bus);
       }
     }
 
@@ -323,14 +381,38 @@
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { markDone(); return; }
 
+    if (ctx) drop(ctx);   // 앞선 시도가 잠긴 채 남아 있으면 정리 (컨텍스트는 페이지당 개수 제한이 있다)
     try { ctx = new AC(); } catch (e) { markDone(); return; }
 
-    // 정책상 잠겨 있으면 제스처를 기다린다 (resume 은 제스처 안에서만 통한다)
+    // 제스처 «안» 에서 만든 컨텍스트는 대개 'running' 으로 시작한다.
+    // 🔴 'suspended' 면 resume() 을 부르는데, 이건 **약속(Promise)** 이라
+    //    바로 뒤에서 state 를 봐도 여전히 'suspended' 다. 예전 코드가 그렇게 봐서
+    //    자동재생 시도를 늘 실패로 판정하고 컨텍스트를 닫아 버렸다.
+    //    ✅ 약속이 풀린 «뒤에» 이어서 시작한다.
     if (ctx.state === 'suspended') {
-      try { ctx.resume(); } catch (e) {}
-      if (ctx.state === 'suspended') { try { ctx.close(); } catch (e) {} ctx = null; return; }
+      var pending = ctx, promise = null;
+      try { promise = pending.resume(); } catch (e) {}
+      if (promise && typeof promise.then === 'function') {
+        promise.then(function () {
+          if (ctx !== pending || playing || blocked() || muted() || finished) { drop(pending); return; }
+          if (pending.state !== 'running') { drop(pending); return; }
+          begin();
+        }, function () { drop(pending); });
+      } else {
+        drop(pending);
+      }
+      return;
     }
+    begin();
+  }
 
+  function drop(c) {
+    try { if (c && c.close) c.close(); } catch (e) {}
+    if (ctx === c) { ctx = null; master = null; }
+  }
+
+  // 실제로 소리를 만드는 부분 — 컨텍스트가 «깨어 있는» 것이 확인된 뒤에만 불린다.
+  function begin() {
     master = ctx.createGain();
     master.gain.setValueAtTime(MASTER_VOL, ctx.currentTime);
 
@@ -350,6 +432,7 @@
     master.connect(comp); comp.connect(ctx.destination);
 
     playing = true;
+    startedAt = Date.now();
     syncBtn();
     var len = compose(ctx.currentTime + 0.06);
     endTimer = setTimeout(function () {
@@ -450,12 +533,17 @@
     if (!playing) {
       if (finished || blocked()) return;
       // 아직 안 울렸다 = 이 제스처는 자동재생 잠금을 푸는 열쇠다.
-      armGesture = ev;
       play();
       return;
     }
-    // 시작시킨 바로 그 이벤트가 되돌아온 것이면 무시 (안 그러면 즉시 자기를 끈다)
-    if (armGesture && ev === armGesture) { armGesture = null; return; }
+    // 🔴 «막 시작시킨 그 클릭» 이 자기를 끄지 못하게 한다.
+    //   손가락 한 번에 이벤트가 여럿 온다 — 마우스는 pointerdown+mousedown,
+    //   터치는 pointerdown+touchstart. 예전엔 «시작 신호로 쓴 이벤트 객체와 같은가» 로
+    //   갈랐는데, 뒤따라오는 형제 이벤트는 «다른 객체» 라 그대로 정지로 읽혔다.
+    //   → 클릭 한 번에 시작하자마자 꺼졌고, markDone() 까지 불려 그 세션엔 영영 안 울렸다.
+    //   (2026-08-23 사장님 「아무 음악소리도 안 들린다」의 원인. CLAUDE.md 게임허브 함정의 형제)
+    //   ✅ 객체 동일성이 아니라 «시작한 지 얼마나 지났나» 로 판단한다.
+    if (startedAt && (Date.now() - startedAt) < START_GRACE_MS) return;
     stop(true);
   }
 
@@ -520,7 +608,7 @@
     window.mangoiOpeningReplay = function () {
       try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
       setMuted(false);
-      finished = false; playing = false; armGesture = null;
+      finished = false; playing = false; startedAt = 0;
       play(); syncBtn();
     };
   } catch (e) {}
