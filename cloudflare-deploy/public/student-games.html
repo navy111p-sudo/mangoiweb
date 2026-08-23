@@ -222,6 +222,16 @@
   .quest-bar .qbtn{background:rgba(0,0,0,.26);border:1px solid rgba(255,255,255,.2);border-radius:999px;
     color:#e2e8f0;padding:6px 13px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
   .quest-bar .qbtn:hover{background:rgba(0,0,0,.4);color:#fff}
+  /* 📱 버튼 설명 줄 — title 툴팁은 마우스 전용이라 폰에서 안 뜬다.
+     기본은 «보이게» 두고, 마우스가 있는 화면에서만 감춘다(툴팁과 겹치지 않게).
+     ⛔ .qwrap 에 flex 를 쓰지 말 것 — 설명 문장이 낱글자로 쪼개진다. */
+  .quest-bar .qwrap{display:block;text-align:center;max-width:100%}
+  .quest-bar .qhint{display:block;margin:4px auto 0;max-width:22em;
+    font-size:12px;font-weight:700;line-height:1.45;color:#fde68a;opacity:.92;white-space:normal}
+  /* 감추는 것은 «마우스가 있고 + 넓은» 화면뿐 — 터치 기기(hover:none)와 좁은 창은 그대로 보인다.
+     ⚠️ 좁은 폭 조건을 함께 두는 이유: 헤드리스·데스크톱 창을 좁혀도 hover:hover 로 보고되어
+        hover 조건만으로는 «폰 폭에서 보이는가» 를 검사할 방법이 없다. */
+  @media(hover:hover) and (pointer:fine) and (min-width:641px){.quest-bar .qhint{display:none}}
   @media(max-width:640px){.quest-bar{font-size:13.5px;padding:9px 13px}}
 
   /* ===== 게임 화면 ===== */
@@ -2071,6 +2081,21 @@ function toggleQuestMode(){
   _toastHub(_questMode ? '🎯 퀘스트 모드 ON — 하나씩 깨서 열어 봐요!' : '🔓 전체 게임을 모두 열었어요!');
 }
 
+/* 퀘스트 바 버튼 한 개 — 버튼 + «무슨 뜻인지» 한 줄.
+   ⚠️ title 툴팁은 마우스 전용이라 폰에서는 영영 안 뜬다 — 그래서 같은 글을
+      .qhint 로 또 그리고, 마우스가 있는 화면에서만 CSS 로 감춘다(둘이 겹쳐 보이지 않게).
+   ⛔ .qwrap 을 flex 로 만들지 말 것 — 설명 문장이 낱글자로 쪼개진다(CLAUDE.md 2장 함정). */
+function _qbtn(label, hint, call){
+  return '<span class="qwrap">' +
+           '<button type="button" class="qbtn" title="' + hint + '" onclick="' + call + '">' + label + '</button>' +
+           '<span class="qhint">' + hint + '</span>' +
+         '</span>';
+}
+/* 버튼 설명 — 10세가 읽고 바로 알 수 있게 한 줄씩. 정본은 여기 한 곳 */
+var QBTN_QUEST = '게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요';
+var QBTN_LT    = '레벨테스트에 통과하면 게임을 하나씩 깨지 않아도 모든 게임이 한꺼번에 열려요';
+var QBTN_ALL   = '퀘스트 없이 지금 바로 모든 게임을 열어요';
+
 function _renderQuestBar(){
   var bar = document.getElementById('quest-bar');
   if(!bar) return;
@@ -2078,14 +2103,14 @@ function _renderQuestBar(){
   if(!_questMode){
     bar.style.display = 'flex';
     bar.innerHTML = '<span>🔓 모든 게임이 열려 있어요 (' + total + '개)</span>' +
-      '<button type="button" class="qbtn" title="게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
+      _qbtn('🎯 퀘스트 모드로 하기', QBTN_QUEST, 'toggleQuestMode()');
     return;
   }
   bar.style.display = 'flex';
   if(_ltPassed){
     // 🎫 레벨테스트로 이미 열린 상태 — 「몇 개 더 깨야 한다」를 말하면 거짓말이 된다
     bar.innerHTML = '<span>🎫 레벨테스트 통과! 모든 게임 <b>' + total + '개</b>가 열려 있어요</span>' +
-      '<button type="button" class="qbtn" title="게임을 하나 깰 때마다 새 게임이 하나씩 열리는 모드예요" onclick="toggleQuestMode()">🎯 퀘스트 모드로 하기</button>';
+      _qbtn('🎯 퀘스트 모드로 하기', QBTN_QUEST, 'toggleQuestMode()');
     return;
   }
   var next = (open < total) ? HUB_GAMES[open] : null;
@@ -2093,8 +2118,8 @@ function _renderQuestBar(){
     (next ? '<span>열린 게임 중 <b>안 깬 게임 하나</b>를 클리어하면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
           : '<span>👑 모든 게임을 다 열었어요!</span>') +
     // 두 번째 해금 경로 — 잠긴 카드를 눌러야만 보이면 존재를 모르는 학생이 생긴다
-    (next ? '<button type="button" class="qbtn" title="레벨테스트에 통과하면 게임을 하나씩 깨지 않아도 모든 게임이 한꺼번에 열려요" onclick="hubGoLeveltest()">🎫 레벨테스트로 한 번에 열기</button>' : '') +
-    '<button type="button" class="qbtn" title="퀘스트 없이 지금 바로 모든 게임을 열어요" onclick="toggleQuestMode()">🔓 전체 열기</button>';
+    (next ? _qbtn('🎫 레벨테스트로 한 번에 열기', QBTN_LT, 'hubGoLeveltest()') : '') +
+    _qbtn('🔓 전체 열기', QBTN_ALL, 'toggleQuestMode()');
 }
 
 function hubRenderMenu(){
