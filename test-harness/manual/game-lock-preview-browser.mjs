@@ -198,6 +198,121 @@ for (const [label, w, h] of [['휴대폰 390', 390, 844], ['태블릿 768', 768,
   check('자물쇠·해금 안내도 함께 사라진다', after.chips === 0 && after.notes === 0,
     after.chips + '/' + after.notes);
 
+
+  /* ── 📱 퀘스트 바 버튼 설명 — 「폰에서도 보이는가」 ────────────────
+     title 툴팁은 마우스 전용이라 터치 기기에서는 영영 안 뜬다. 그래서 같은 글을
+     .qhint 로 한 번 더 그리고 마우스가 있는 화면에서만 CSS 로 감춘다.
+     그 «감춤/보임» 은 좌표·계산값 문제라 문자열 하니스로는 볼 수 없다. */
+  await page.evaluate(() => {
+    // 잠금이 풀린 상태로 끝났으므로 퀘스트 모드를 다시 켜서 버튼 세 개를 모두 만든다
+    try { localStorage.setItem('mangoi_quest_mode', 'on'); localStorage.setItem('mangoi_quest_src', 'user'); } catch (_) {}
+    _setLeveltestPass(false);
+    _questMode = true;
+    hubRenderMenu();
+  });
+  const qb = await page.evaluate(() => {
+    const wraps = Array.prototype.slice.call(document.querySelectorAll('#quest-bar .qwrap'));
+    const out = { n: wraps.length, btns: [], noHint: [], shred: [], hidden: [], flex: [] };
+    wraps.forEach((w) => {
+      const b = w.querySelector('.qbtn'), h = w.querySelector('.qhint');
+      const label = b ? b.textContent.trim() : '(버튼없음)';
+      out.btns.push(label);
+      if (!h || !h.textContent.trim()) { out.noHint.push(label); return; }
+      // 버튼의 title 과 화면 설명이 같은 글이어야 한다(한쪽만 고치는 사고 방지)
+      if (b.getAttribute('title') !== h.textContent.trim()) out.noHint.push(label + '(title≠글)');
+      const cs = getComputedStyle(h);
+      const r = h.getBoundingClientRect();
+      if (cs.display === 'none' || r.height < 1) out.hidden.push(label);
+      // 낱글자 쪼개짐 — 잠긴 카드 안내와 같은 사고(CLAUDE.md 2장). display:flex 면 그 자체가 위험
+      if (getComputedStyle(w).display === 'flex') out.flex.push(label);
+      const lines = Math.round(r.height / parseFloat(cs.lineHeight || '16'));
+      if (lines > 3) out.shred.push(label + ' ' + lines + '줄');
+    });
+    return out;
+  });
+  const touch = w <= 640;   // 이 검사에서 «폰» 으로 보는 폭
+  /* 퀘스트 모드일 때 바에 서는 버튼은 «두 개» 다(레벨테스트 · 전체 열기).
+     「퀘스트 모드로 하기」는 반대 상태(전체 개방)에서만 나오므로 아래에서 따로 본다. */
+  check('퀘스트 바 버튼이 두 개다 (' + qb.n + ')', qb.n === 2, JSON.stringify(qb.btns));
+  check('버튼마다 설명 글이 붙어 있다', qb.noHint.length === 0, qb.noHint.join(' | '));
+  check('.qwrap 을 flex 로 두지 않았다', qb.flex.length === 0, qb.flex.join(' | '));
+  if (touch) {
+    /* 🔴 이 작업의 핵심 요구 — 폰에서 설명이 «화면에» 보여야 한다 */
+    check('폰: 설명이 화면에 보인다', qb.hidden.length === 0, qb.hidden.join(' | '));
+    check('폰: 설명이 낱글자로 쪼개지지 않는다', qb.shred.length === 0, qb.shred.join(' | '));
+  } else {
+    check('PC: 설명은 툴팁이 대신하므로 감춘다', qb.hidden.length === qb.n,
+      qb.hidden.length + '/' + qb.n);
+  }
+  const qbOver = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+  check('퀘스트 바를 그려도 가로로 안 넘친다', !qbOver);
+
+  /* 반대 상태(전체 개방)의 「퀘스트 모드로 하기」에도 같은 설명이 붙는가 —
+     세 버튼 중 하나만 빠뜨리는 것이 흔한 사고라 상태를 바꿔서 확인한다. */
+  const qb2 = await page.evaluate(() => {
+    _questMode = false; hubRenderMenu();
+    const w = document.querySelector('#quest-bar .qwrap');
+    if (!w) return { n: 0 };
+    const b = w.querySelector('.qbtn'), h = w.querySelector('.qhint');
+    return {
+      n: document.querySelectorAll('#quest-bar .qwrap').length,
+      label: b ? b.textContent.trim() : '',
+      same: !!(b && h && b.getAttribute('title') === h.textContent.trim()),
+      shown: !!(h && getComputedStyle(h).display !== 'none' && h.getBoundingClientRect().height >= 1),
+    };
+  });
+  check('전체 개방 상태에도 버튼 설명이 있다 — ' + qb2.label, qb2.n === 1 && qb2.same,
+    JSON.stringify(qb2));
+  check(touch ? '폰: 그 설명도 화면에 보인다' : 'PC: 그 설명은 툴팁이 대신한다',
+    touch ? qb2.shown : !qb2.shown, String(qb2.shown));
+
+  await ctx.close();
+}
+
+/* ── 📱 «진짜 터치 기기» 한 판 더 ────────────────────────────────
+   위 반복문의 문맥은 폭만 다를 뿐 전부 «마우스 있는» 기기로 보고된다(hover:hover).
+   폰이 실제로 보는 길은 hover:none 쪽이므로 isMobile/hasTouch 로 한 번 더 확인한다 —
+   이게 통과해야 「폰에서도 보인다」를 사실로 말할 수 있다. */
+{
+  console.log('\n▶ 터치 기기 390 (hover:none)');
+  const ctx = await browser.newContext({
+    viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148',
+  });
+  await ctx.addInitScript(() => {
+    try {
+      localStorage.setItem('mangoi_quest_mode', 'on');
+      localStorage.setItem('mangoi_quest_src', 'user');
+      localStorage.removeItem('mangoi_game_clears');
+      localStorage.removeItem('mangoi_leveltest_pass');
+    } catch (_) {}
+  });
+  const page = await ctx.newPage();
+  await page.goto(BASE + '/student-games.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#quest-bar .qwrap', { timeout: 15000 }).catch(() => {});
+  const r = await page.evaluate(() => {
+    const out = { hoverNone: matchMedia('(hover:none)').matches, n: 0, hidden: [], shred: [], texts: [] };
+    document.querySelectorAll('#quest-bar .qwrap').forEach((w) => {
+      out.n++;
+      const b = w.querySelector('.qbtn'), h = w.querySelector('.qhint');
+      const label = b ? b.textContent.trim() : '?';
+      if (!h) { out.hidden.push(label + '(없음)'); return; }
+      const cs = getComputedStyle(h), rc = h.getBoundingClientRect();
+      out.texts.push(h.textContent.trim().slice(0, 18));
+      if (cs.display === 'none' || rc.height < 1) out.hidden.push(label);
+      const lines = Math.round(rc.height / parseFloat(cs.lineHeight || '16'));
+      if (lines > 3) out.shred.push(label + ' ' + lines + '줄');
+    });
+    out.overflow = document.documentElement.scrollWidth > innerWidth;
+    return out;
+  });
+  check('이 문맥이 실제로 터치 기기로 보고된다 (hover:none)', r.hoverNone);
+  check('버튼 두 개가 그려진다 (' + r.n + ')', r.n === 2);
+  /* 🔴 사장님 요구 그대로 — 폰에서 «마우스 없이» 설명이 보이는가 */
+  check('터치 기기: 설명이 화면에 보인다', r.n > 0 && r.hidden.length === 0, r.hidden.join(' | '));
+  check('터치 기기: 설명이 낱글자로 쪼개지지 않는다', r.shred.length === 0, r.shred.join(' | '));
+  check('터치 기기: 가로로 안 넘친다', !r.overflow);
+  console.log('     설명: ' + JSON.stringify(r.texts));
   await ctx.close();
 }
 
