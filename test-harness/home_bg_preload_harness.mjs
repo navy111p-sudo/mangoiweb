@@ -99,5 +99,34 @@ if (/data-join/.test(teacherBare) && /saveData/.test(teacherBare))
   ok('⑧ 오늘 수업이 있을 때만, 그리고 데이터 절약 모드가 아닐 때만 미리 받는다');
 else no('⑧ 조건 없이 미리 받는다 — 수업 없는 날 온 강사의 데이터를 쓴다');
 
+/* ── ⑨ 🔴 «느린 회선» 판정이 한 벌뿐인가 ────────────────────────────── */
+//   2026-08-23 에 문서 아래쪽 정의를 <head> 로 옮겼다. 두 벌이 되면 한쪽만 고쳐져 조용히 어긋난다.
+const slowDefs = (indexBare.match(/window\.mgIsSlowNet\s*=\s*function/g) || []).length;
+if (slowDefs === 1) ok('⑨ mgIsSlowNet 정의가 한 곳뿐이다');
+else no(`⑨ mgIsSlowNet 정의가 ${slowDefs}곳이다 — 한쪽만 고쳐지면 화면마다 답이 달라진다`);
+
+/* ── ⑩ 🔴 정의가 «배경 고르기보다 앞» 에 있는가 (순서) ─────────────── */
+//   뒤에 있으면 <head> 에서 부를 때 함수가 아직 없어 조용히 «안 느림» 이 된다 — 에러도 안 난다.
+const posDef = indexBare.indexOf('window.mgIsSlowNet = function');
+// ⚠️ 기준점을 그냥 파일 이름으로 잡으면 안 된다 — 그 이름은 문서 위쪽 CSS(#view-home::before)에
+//    이미 나온다. «고르는 스크립트» 자신을 가리키는 표식으로 잡는다.
+const posUse = indexBare.indexOf("var BRIGHT='/img/home-bg-bright.webp");
+if (posDef > 0 && posUse > 0 && posDef < posUse)
+  ok('⑩ mgIsSlowNet 정의가 배경 고르는 코드보다 앞에 있다');
+else no('⑩ mgIsSlowNet 정의가 배경 고르는 코드보다 뒤에 있다 — 가벼운 모드가 배경에 안 먹는다');
+
+/* ── ⑪ 🇵🇭 아이폰 구멍이 메워져 있는가 ──────────────────────────── */
+//   navigator.connection 은 크로미움 전용이라, 그것만 보면 아이폰 강사는 보호를 못 받는다.
+if (/Asia\/Manila/.test(indexBare) && /resolvedOptions\(\)\.timeZone/.test(indexBare))
+  ok('⑪ navigator.connection 이 없는 기기(아이폰)도 시간대로 한 번 더 본다');
+else no('⑪ 시간대 신호가 없다 — 아이폰으로 접속한 필리핀 강사는 가벼운 모드를 못 받는다');
+
+/* ── ⑫ 가벼운 모드면 큰 배경 그림을 «한 장도» 안 받는가 ───────────── */
+if (/mgIsSlowNet\s*&&\s*window\.mgIsSlowNet\(\)\s*\)\s*return|mgIsSlowNet\(\)\)\s*return/.test(indexBare)
+    && /html\.mg-lite[^{]*#view-home::before/.test(indexBare))
+  ok('⑫ 가벼운 모드에서는 배경을 받지도 않고 CSS 로 쓰지도 않는다');
+else no('⑫ 가벼운 모드인데 배경을 그대로 받는다 — 받아 봐야 쓰이지도 않는 40~147KB');
+
+
 console.log(`\n${fail === 0 ? '✅' : '🚨'} home_bg_preload_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
