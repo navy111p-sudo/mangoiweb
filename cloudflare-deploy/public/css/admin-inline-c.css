@@ -7326,20 +7326,30 @@ button.chip:hover,
         js/adm-light-surfaces.js 가 런타임에 표면을 다시 칠한다. 특정 색을 박으면
         «흰 바탕에 흰 글자» 가 나는 자리가 여기다. 그래서 글자색은 부모에서 물려받고
         (color:inherit) 배경·테두리는 반투명으로만 얹는다 — 어느 바탕에서도 읽힌다. */
+  /* 📏 (2026-08-23 사장님) 「크기를 절반으로」 — 시계+날씨 덩어리가 사이드바 맨 위를
+        130px 가까이 먹고 있었다(실측: 폰 390px 129.8px · PC 1440px(zoom1.3) 190.5px).
+        여백·글자를 함께 줄여 폰 68.4px(52.7%) · PC 86.8px(45.6%) 로 낮췄다.
+        ⚠️ 글자만 반으로 줄이면(17px→8.5px) 40~50대 사용자가 못 읽는다. 그래서
+           «줄 수» 를 줄여서 높이를 벌었다 — 라벨과 날짜를 한 줄에 나란히 놓는다
+           (아래 .mgv2-c 의 grid). 글자는 읽히는 선까지만 내렸다. */
   #mgv2-clock {
-    display: flex; gap: 8px; color: inherit;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+    display: flex; gap: 6px; color: inherit;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px;
     border-bottom: 1px solid currentColor;
     border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
   }
   /* 모바일만 오른쪽 여백을 크게 — 드로어 ✕ 버튼 자리를 비운다(56px).
      안 그러면 «필리핀» 칸을 덮는다. PC 에는 ✕ 가 없으니 그 여백이 낭비다. */
   @media (max-width: 1023px) { #mgv2-clock { padding-right: 60px; } }
+  /* 칸 안은 2줄이다 — 윗줄에 «라벨 + 날짜», 아랫줄에 시각.
+     ⚠️ HTML 순서는 라벨 → 시각 → 날짜 그대로다(admin.html 의 mgv2-clock-js 가 그렇게 만든다).
+        자리만 grid 로 바꿨으니 JS 는 건드릴 필요가 없다. */
   #mgv2-clock .mgv2-c {
     flex: 1; min-width: 0;
     background: rgba(128,145,180,.13);
     border: 1px solid rgba(128,145,180,.22);
-    border-radius: 11px; padding: 7px 10px;
+    border-radius: 8px; padding: 2px 8px 3px;
+    display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 5px;
   }
   /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
      이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
@@ -7348,33 +7358,50 @@ button.chip:hover,
      ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
         직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
         키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
-  #mgv2-clock .mgv2-l { font-size: 10.5px; font-weight: 700; opacity: .78; letter-spacing: .2px; }
+  #mgv2-clock .mgv2-l {
+    grid-column: 1; grid-row: 1;
+    font-size: 9.5px; font-weight: 700; opacity: .78; letter-spacing: .2px;
+    line-height: 1.2; white-space: nowrap;
+  }
   #mgv2-clock .mgv2-t {
-    font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: .4px;
+    grid-column: 1 / -1; grid-row: 2;
+    font-size: 13px; font-weight: 800; line-height: 1.2; letter-spacing: .3px;
     font-variant-numeric: tabular-nums;
   }
-  #mgv2-clock .mgv2-d { font-size: 10px; opacity: .78; }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
+  /* 날짜는 라벨과 «같은 줄» 오른쪽 끝. 좁은 폰에서도 줄바꿈되지 않게 nowrap. */
+  #mgv2-clock .mgv2-d {
+    grid-column: 2; grid-row: 1; justify-self: end;
+    font-size: 9px; opacity: .78; line-height: 1.2; white-space: nowrap;
+  }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
 
   /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
      ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
         «날씨: —» 같은 빈 껍데기를 남기지 않는다. */
   #mgv2-weather {
-    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px;
-    margin: 8px 12px 0; padding: 7px 10px;
-    border: 1px solid rgba(128,145,180,.22); border-radius: 11px;
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px;
+    margin: 3px 12px 0; padding: 2px 8px 3px;
+    border: 1px solid rgba(128,145,180,.22); border-radius: 8px;
     background: rgba(128,145,180,.13);
-    color: inherit; font-size: 12px; line-height: 1.3; word-break: keep-all;
+    color: inherit; font-size: 10px; line-height: 1.25; word-break: keep-all;
   }
   #mgv2-weather.mgv2-w-empty { display: none; }
+  /* ⚠️ (2026-08-23) 날씨 줄도 시계와 같은 오른쪽 여백을 받는다. 시계를 절반으로 낮추면서
+        날씨 줄이 y≈50px 로 올라왔는데, 드로어 ✕(#mgv2-burger.is-open, top 8px·높이 46px)의
+        아래끝이 y≈54px 라 오른쪽 끝이 ✕ 밑으로 들어갔다. 360px 에서도 이 여백을 빼고
+        한 줄에 들어간다(실측). ⚠️ 반드시 위 «margin: 3px 12px 0» 축약형 «뒤» 에 둘 것 —
+        앞에 두면 같은 특정성(1,0,0)이라 뒤에 오는 축약형이 이겨서 아무 일도 안 일어난다. */
+  @media (max-width: 1023px) { #mgv2-weather { margin-right: 60px; } }
   /* 아이콘은 SVG 다(글자가 아니다). 글자와 baseline 을 맞추면 위로 떠 보이므로
      이 칸만 세로 가운데로 맞추고, 좁아져도 찌그러지지 않게 flex:none 을 준다. */
   #mgv2-weather .mgv2-w-ico  { display: inline-flex; flex: none; align-self: center; line-height: 0; opacity: .9; }
-  #mgv2-weather .mgv2-w-ico svg { display: block; }
+  /* 아이콘 크기는 JS 가 svg 속성(15×15)으로 적어 보내지만 CSS 가 이긴다 —
+     줄 높이를 낮춘 만큼(2026-08-23) 여기서 함께 줄인다. JS 는 건드리지 않는다. */
+  #mgv2-weather .mgv2-w-ico svg { display: block; width: 12px; height: 12px; }
   #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
-  #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
-  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 11px; }   /* .62 → .78 : 3.4:1 이었다 */
+  #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 9px; }   /* .62 → .78 : 3.4:1 이었다 */
   /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
-  #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
+  #ph85-sidebar .ph85-brand { padding-top: 6px !important; }
 
   /* ① 왼쪽 맨 위 «줄 3개» — 이것 하나로 열고 닫는다.
      ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다. 글자로 그리면 기종마다 굵기·크기가

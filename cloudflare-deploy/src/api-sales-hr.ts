@@ -1461,10 +1461,10 @@ export function judgeDiscipline(evals: any[], failedPlan: boolean): DisciplineSt
 
   if (real.length === 0) {
     return {
-      stage: 0, label: '판단 보류',
-      what: '아직 상여에 연결되는 평가가 없습니다. 지금은 기록을 쌓는 기간입니다.',
-      why: '연습 기간이 아닌 확정 평가가 한 번도 없습니다.',
-      money: '없음',
+      stage: 0, label: '기록 쌓는 중',
+      what: '지금은 기록을 모으는 때입니다. 편하게 활동하시면 됩니다.',
+      why: '아직 상여로 이어지는 평가가 없습니다.',
+      money: '이번에는 해당 없음',
     };
   }
 
@@ -1475,47 +1475,47 @@ export function judgeDiscipline(evals: any[], failedPlan: boolean): DisciplineSt
   // 3단계 — 개선계획을 «미달» 로 닫은 뒤에도 D
   if (failedPlan && lastRank >= GRADE_RANK['D']) {
     return {
-      stage: 3, label: '직무 재검토',
-      what: '직무 재배치 또는 조건 재협상을 검토할 단계입니다. **노무사 상담 없이 진행하지 마세요.**',
-      why: `개선계획을 미달로 마친 뒤에도 ${last.period} 평가가 ${last.grade} 입니다.`,
-      money: '반기 상여 0원 (D등급 배율 0%)',
+      stage: 3, label: '함께 다시 정하기',
+      what: '맡은 일이 잘 맞는지 함께 이야기해 볼 때입니다. 무엇을 정하든 노무사와 먼저 상의하세요.',
+      why: `개선계획을 마친 뒤 ${last.period} 평가가 ${last.grade} 입니다.`,
+      money: '기본급은 그대로 · 이번 반기 상여는 쉬어 갑니다',
     };
   }
 
   // 2단계 — 최근 2회 연속 C 이하
   if (prev && lastRank >= RANK_C && GRADE_RANK[prev.grade] >= RANK_C) {
     return {
-      stage: 2, label: '개선계획',
-      what: '3개월 개선계획을 개설하세요. 목표를 낮춰 구체적으로 잡고 주 1회 점검합니다.',
-      why: `${prev.period} ${prev.grade} · ${last.period} ${last.grade} — 두 번 연속 C 이하입니다.`,
-      money: `반기 상여 ${last.grade === 'D' ? '0원' : '감액'} (${last.grade}등급 배율 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%)`,
+      stage: 2, label: '3개월 함께 달리기',
+      what: '3개월 계획을 같이 세웁니다. 목표는 꼭 지킬 수 있는 크기로 잡고, 주 1회 15분씩 이야기합니다.',
+      why: `${prev.period} ${prev.grade} · ${last.period} ${last.grade} — 두 번 이어서 낮았습니다.`,
+      money: `기본급은 그대로 · 이번 반기 상여는 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%`,
     };
   }
 
   // 1단계 — 최근 1회가 C+ 이하
   if (lastRank >= RANK_CPLUS) {
     return {
-      stage: 1, label: '관심 · 면담',
-      what: '면담을 한 번 하고 원인을 함께 찾으세요. **이 단계에서 벌을 주지 마세요.**',
-      why: `${last.period} 평가가 ${last.grade} 입니다. 아직 한 번뿐입니다.`,
-      money: `반기 상여 감액 (${last.grade}등급 배율 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%)`,
+      stage: 1, label: '한 번 이야기 나누기',
+      what: '커피 한 잔 하며 무엇이 막혔는지 들어 보세요. 이번엔 그걸로 충분합니다.',
+      why: `${last.period} 평가가 ${last.grade} 입니다. 아직 한 번입니다.`,
+      money: `기본급은 그대로 · 이번 반기 상여는 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 0) * 100)}%`,
     };
   }
 
   return {
-    stage: 0, label: '정상',
-    what: '따로 하실 일이 없습니다.',
+    stage: 0, label: '좋습니다',
+    what: '잘 되고 있습니다. 따로 하실 일은 없습니다.',
     why: `${last.period} 평가가 ${last.grade} 입니다.`,
-    money: `반기 상여 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 1) * 100)}%`,
+    money: `이번 반기 상여 ${Math.round((SALES_BONUS_MULTIPLIER[last.grade] ?? 1) * 100)}%`,
   };
 }
 
 /** 단계별로 «하지 말 것» — 화면이 매번 같이 보여 준다. 잊으면 사고가 나는 것들이다. */
 export const DISCIPLINE_GUARDRAILS = [
-  '기본급을 깎지 마세요. 성과 부진은 징계 사유가 아니라서 감봉은 부당징계 다툼이 됩니다.',
-  '영업차량을 회수하지 마세요. 특혜가 아니라 업무 도구입니다 — 뺏으면 영업을 못 합니다.',
-  '연습 기간의 낮은 점수를 근거로 쓰지 마세요. 상여에도 연결하지 않는 기간입니다.',
-  '면담·개선계획은 반드시 기록으로 남기세요. 기록이 없으면 나중에 회사가 불리해집니다.',
+  '기본급은 그대로입니다. 결과에 따라 달라지는 것은 반기 상여뿐입니다.',
+  '영업차량도 그대로 씁니다. 현장을 다니는 데 꼭 필요하니까요.',
+  '연습 기간 점수는 세지 않습니다. 상여로 이어지는 평가부터 기준으로 봅니다.',
+  '나눈 이야기는 그날 짧게 남깁니다. 나중에 서로 기억이 달라지지 않게요.',
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════

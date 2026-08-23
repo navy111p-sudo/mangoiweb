@@ -130,6 +130,17 @@
   .stg1{background:rgba(56,189,248,.10);border-color:rgba(56,189,248,.32)}
   .stg2{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35)}
   .stg3{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.38)}
+  /* ── 그림·예시 (2026-08-23 사장님: 글 적게·그림으로) ── */
+  .viz{display:block;width:100%;max-width:430px;height:auto;margin:12px 0 4px}
+  .gbar{height:6px;border-radius:3px;background:rgba(148,163,184,.22);margin-top:8px;overflow:hidden}
+  .gbar > i{display:block;height:100%;border-radius:3px}
+  .eg{background:rgba(56,189,248,.09);border-left:3px solid #38bdf8;border-radius:0 10px 10px 0;
+      padding:10px 14px;margin:10px 0;font-size:14.5px;line-height:1.7;color:#cbd5e1}
+  .eg b{color:#93c5fd;font-weight:800}
+  .keep{display:flex;gap:9px;align-items:flex-start;font-size:14.5px;line-height:1.7;margin:7px 0}
+  .keep .m{flex:0 0 auto;color:#6ee7b7;font-weight:900}
+  .lead{font-size:15.5px;line-height:1.7;color:#cbd5e1;margin:0 0 12px}
+  .lead b{color:#e6edf6}
   .tw{overflow-x:auto;min-width:0;max-width:100%}
   .rec{display:flex;gap:8px;align-items:flex-start;font-size:14.5px;line-height:1.7;margin:6px 0}
   .rec .m{flex:0 0 auto;font-weight:800}
@@ -159,7 +170,7 @@
     <img src="/img/mango-char.png" alt="Mangoi" loading="lazy" decoding="async">
     <div>
       <h1>영업 실적 · 인사평가</h1>
-      <div class="sub">전국 지사·학원 영업 담당자의 활동·계약·평가·성과급을 한 화면에서 봅니다.</div>
+      <div class="sub">영업 담당자가 <b>어디를 다녀왔고, 몇 곳과 계약했고, 얼마를 받는지</b>를 한 화면에서 봅니다.</div>
     </div>
     <a class="btn ghost" href="/sales" style="margin-left:auto;text-decoration:none">📱 휴대폰용 화면</a>
     <a class="btn ghost" href="/admin.html" style="text-decoration:none">← 관리자 홈</a>
@@ -190,7 +201,22 @@
   function g(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
     return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-  function won(n){ if(n==null||isNaN(n)) return '-'; return Number(n).toLocaleString('ko-KR')+'원'; }
+  /* ══════════════════════════════════════════════════════════════
+     💰 금액 표시 잠금 (2026-08-23 사장님 지시)
+       「아직 금액을 책정하지 않았으니 상여금이나 일단 모든 금액은 XX 로」
+
+     ⚠️ 계산을 끈 것이 아닙니다. 서버는 그대로 계산하고 DB 에도 그대로 저장됩니다 —
+        **화면에 그리는 것만** 가립니다. 확정 뒤 아래 한 줄을 false 로 바꾸면
+        모든 화면의 금액이 한꺼번에 되살아납니다(고칠 곳이 여기 하나뿐입니다).
+     ⚠️ 설정 화면의 «기본급·성과급 입력칸» 은 가리지 않습니다.
+        거기가 금액을 정하는 자리라, 가리면 확정 자체를 못 합니다.
+     ══════════════════════════════════════════════════════════════ */
+  var MONEY_LOCKED = true;
+  function won(n){
+    if(MONEY_LOCKED) return 'XX원';
+    if(n==null||isNaN(n)) return '-';
+    return Number(n).toLocaleString('ko-KR')+'원';
+  }
   function pct(r){ if(r==null||isNaN(r)) return '-'; return Math.round(r*100)+'%'; }
   function todayISO(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
@@ -273,6 +299,61 @@
     }
   }
 
+  /* ── 그림 조각 ───────────────────────────────────────────────
+     글로 길게 설명하던 것을 그림으로 바꾼다. 사장님 지시(2026-08-23):
+     「글은 적게·쉽게, 대신 그림으로 이해를 돕게」.
+     ⚠️ 전부 인라인 SVG 다 — 외부 파일이 없어야 캐시·오프라인 사고가 안 난다.
+     ⚠️ 애니메이션을 넣지 않는다(저전력·백그라운드 탭에서 멈춰 «영영 안 보임» 사고). */
+
+  function svgScoreSplit(){
+    return '<svg viewBox="0 0 400 54" class="viz" role="img" aria-label="100점 중 85점은 자동, 15점은 사람">'
+      + '<rect x="0" y="10" width="338" height="26" rx="7" fill="#10b981"/>'
+      + '<rect x="342" y="10" width="58" height="26" rx="7" fill="#38bdf8"/>'
+      + '<text x="169" y="28" text-anchor="middle" font-size="14" font-weight="800" fill="#04241b">85점 · 기록에서 자동</text>'
+      + '<text x="371" y="28" text-anchor="middle" font-size="13" font-weight="800" fill="#04222e">15점</text>'
+      + '<text x="371" y="50" text-anchor="middle" font-size="11" font-weight="700" fill="#93c5fd">사람이</text>'
+      + '</svg>';
+  }
+
+  function svgIncentiveFlow(per){
+    var W = won(Math.round((per||0)/2));
+    return '<svg viewBox="0 0 400 92" class="viz" role="img" aria-label="계약할 때 절반, 3개월 유지되면 나머지 절반">'
+      + '<rect x="2" y="16" width="150" height="46" rx="11" fill="rgba(245,158,11,.16)" stroke="#f59e0b"/>'
+      + '<text x="77" y="37" text-anchor="middle" font-size="13.5" font-weight="800" fill="#fbbf24">계약한 날</text>'
+      + '<text x="77" y="55" text-anchor="middle" font-size="13" font-weight="800" fill="#e6edf6">'+esc(W)+'</text>'
+      + '<path d="M158 39h72" stroke="#94a3b8" stroke-width="2.5" fill="none"/>'
+      + '<path d="M226 33l7 6-7 6" stroke="#94a3b8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'
+      + '<text x="194" y="28" text-anchor="middle" font-size="11.5" font-weight="700" fill="#a9b7ca">3개월 뒤</text>'
+      + '<rect x="240" y="16" width="158" height="46" rx="11" fill="rgba(16,185,129,.16)" stroke="#10b981"/>'
+      + '<text x="319" y="37" text-anchor="middle" font-size="13.5" font-weight="800" fill="#6ee7b7">계속 다니면</text>'
+      + '<text x="319" y="55" text-anchor="middle" font-size="13" font-weight="800" fill="#e6edf6">'+esc(W)+'</text>'
+      + '<text x="200" y="84" text-anchor="middle" font-size="12" font-weight="700" fill="#7c8ba1">한 곳 계약하면 모두 '+esc(won(per))+'</text>'
+      + '</svg>';
+  }
+
+  function goalBar(now, target){
+    var n=Number(now)||0, t=Number(target)||0;
+    if(!t) return '';
+    var pct=Math.max(0,Math.min(100,Math.round(n/t*100)));
+    var col= pct>=100 ? '#10b981' : (pct>=50 ? '#f59e0b' : '#64748b');
+    return '<div class="gbar" title="'+pct+'%"><i style="width:'+pct+'%;background:'+col+'"></i></div>';
+  }
+
+  function svgLadder(cur){
+    var steps=[{t:'좋습니다',c:'#10b981'},{t:'한 번 이야기',c:'#38bdf8'},
+               {t:'3개월 함께',c:'#f59e0b'},{t:'다시 이야기',c:'#a78bfa'}];
+    var out='<svg viewBox="0 0 400 76" class="viz" role="img" aria-label="지금 '+cur+'단계">';
+    for(var i=0;i<4;i++){
+      var x=2+i*100, on=(i===cur);
+      out += '<rect x="'+x+'" y="14" width="94" height="38" rx="10" fill="'+(on?steps[i].c:'rgba(148,163,184,.10)')
+          + '" stroke="'+(on?steps[i].c:'rgba(148,163,184,.30)')+'" stroke-width="'+(on?2:1)+'"/>'
+          + '<text x="'+(x+47)+'" y="31" text-anchor="middle" font-size="11" font-weight="800" fill="'+(on?'#0b1220':'#7c8ba1')+'">'+i+'단계</text>'
+          + '<text x="'+(x+47)+'" y="45" text-anchor="middle" font-size="12" font-weight="800" fill="'+(on?'#0b1220':'#a9b7ca')+'">'+steps[i].t+'</text>';
+      if(on) out += '<text x="'+(x+47)+'" y="70" text-anchor="middle" font-size="11.5" font-weight="800" fill="'+steps[i].c+'">지금 여기</text>';
+    }
+    return out+'</svg>';
+  }
+
   /* ── 그리기 ─────────────────────────────────────────────────── */
   function render(){
     var j = STATE.data;
@@ -311,6 +392,34 @@
     loadAtRisk();
     loadFairness();
     loadDiscipline();
+    applyHash();
+  }
+
+  /* ── 주소 뒤 #칸 으로 들어왔을 때 그 칸으로 보내기 ────────────────
+     ⚠️ 이 화면은 카드를 **JS 로 그린다.** 문서가 열리는 순간에는 #sh-low 같은 칸이
+        아직 없어서 브라우저의 기본 해시 이동이 **조용히 아무 일도 안 한다**(에러도 없다).
+        그래서 render() 가 끝난 뒤에 «직접» 보낸다.
+     사이드바(js/adm-ia6.js 「정산·매출 ▸ 영업 실적·평가」)의 손자가 이 앵커들을 쓴다.
+     ⛔ 앵커 id 를 바꾸려면 그쪽 secs 도 같이 고칠 것 — 한쪽만 고치면 화면 맨 위만 열린다.
+        (sidebar_three_level_harness 가 두 파일을 대조해 FAIL 낸다) */
+  function applyHash(){
+    var id = String(location.hash || '').replace(/^#/, '');
+    if(!id) return;
+    var el = document.getElementById(id);
+    if(!el) return;
+    // 카드가 그려진 «다음 프레임» 에 보내야 위치가 확정된다.
+    requestAnimationFrame(function(){
+      try { el.scrollIntoView({ behavior:'auto', block:'start' }); } catch(e){ el.scrollIntoView(); }
+    });
+  }
+  window.addEventListener('hashchange', applyHash);
+
+  /** 금액이 왜 XX 로 보이는지 — 한 줄로만. 길게 쓰면 아무도 안 읽는다. */
+  function moneyNote(){
+    return MONEY_LOCKED
+      ? '<div class="eg" style="margin:10px 0 0">💰 <b>금액은 아직 정하는 중이라 XX 로 표시합니다.</b> '
+        + '계산과 기록은 그대로 돌아가고 있습니다 — 확정되면 그대로 나타납니다.</div>'
+      : '';
   }
 
   function repInfoHtml(r){
@@ -322,31 +431,34 @@
 
   function kpiHtml(c, j){
     var comp = c.compensation || {};
-    return '<div class="card">'
+    return '<div class="card" id="sh-kpi">'
       + '<h2>'+esc(j.period_label)+' 요약</h2>'
-      + '<p class="hint">숫자는 전부 서버가 기록에서 세어 만든 것입니다. 담당자가 직접 입력한 실적 숫자는 하나도 없습니다.</p>'
+      + '<p class="lead">숫자는 <b>기록에서 저절로</b> 세어집니다. 따로 적어 넣는 실적은 없습니다.</p>'
+      + moneyNote()
       + '<div class="grid g3">'
-      + kpi('신규 계약 학원', c.deal_count+'곳', '목표 '+c.targets.deals+'곳','')
-      + kpi('신규 등록 학생', c.student_count+'명', '목표 '+c.targets.students+'명','')
-      + kpi('방문·상담', findItem(c,'visits')+'건', '목표 '+c.targets.visits+'건','')
-      + kpi('영업일지 기록', findItem(c,'diary')+'일', '근무일 '+c.targets.workdays+'일','')
-      + kpi('자동 점수(85점 중)', (c.earned==null?'-':c.earned), '적용가능 만점 '+c.applicable_max+'점','warn')
+      + kpi('신규 계약 학원', c.deal_count+'곳', '목표 '+c.targets.deals+'곳','', c.deal_count, c.targets.deals)
+      + kpi('신규 등록 학생', c.student_count+'명', '목표 '+c.targets.students+'명','', c.student_count, c.targets.students)
+      + kpi('방문·상담', findItem(c,'visits')+'건', '목표 '+c.targets.visits+'건','', findItem(c,'visits'), c.targets.visits)
+      + kpi('영업일지 기록', findItem(c,'diary')+'일', '근무일 '+c.targets.workdays+'일','', findItem(c,'diary'), c.targets.workdays)
+      + kpi('지금까지 받은 점수', (c.earned==null?'-':c.earned)+'점', '지금 잴 수 있는 만점 '+c.applicable_max+'점','warn', c.earned, c.applicable_max)
       + kpi('이 기간 성과급', won(comp.incentive_krw), '계약 1차 + 유지 2차','money')
       + '</div>'
       + (c.advisory
-          ? '<div class="baseline"><b>기준선 기간입니다 (' + esc(c.baseline_until||'') + '까지).</b> '
-            + '점수는 계산하지만 <b>상여에는 연결하지 않습니다.</b> '
-            + '기록이 3개월은 쌓여야 「월 목표 2곳」이 쉬운지 무리인지 알 수 있습니다 — '
-            + '그 전에 정한 목표로 사람을 평가하면 그건 평가가 아니라 추측입니다.</div>'
+          ? '<div class="baseline"><b>지금은 연습 기간입니다 (' + esc(c.baseline_until||'') + '까지).</b><br>'
+            + '점수는 보이지만 <b>상여와는 이어지지 않습니다.</b> 편하게 활동하세요.'
+            + '<div class="eg"><b>왜 연습 기간이 있나요?</b><br>'
+            + '「월 2곳」이 알맞은 목표인지 아직 모릅니다. 3개월 다녀 보면 압니다.<br>'
+            + '예) 3개월 동안 월 3곳씩 됐다면 목표를 올리고, 1곳이 벅찼다면 낮춥니다.</div></div>'
           : '')
       + (c.applicable_max < 85
-          ? '<div class="warnbox">아직 <b>자료가 없어 채점하지 않은 항목</b>이 있습니다. 그 항목은 0점이 아니라 «해당없음»으로 빼고, 남은 항목의 만점('
-            + c.applicable_max + '점)을 기준으로 환산합니다.</div>'
+          ? '<div class="warnbox">아직 자료가 없는 항목은 <b>0점이 아니라 «해당없음»</b>으로 빼 둡니다. 남은 항목의 만점('
+            + c.applicable_max + '점)으로 계산합니다.<div class="eg">예) 계약이 아직 없으면 «3개월 유지율»을 잴 수 없습니다. 그건 0점이 아니라 «해당없음»입니다.</div></div>'
           : '')
       + '</div>';
   }
-  function kpi(k,v,t,cls){
-    return '<div class="kpi '+(cls||'')+'"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div><div class="t">'+esc(t)+'</div></div>';
+  function kpi(k,v,t,cls,now,target){
+    return '<div class="kpi '+(cls||'')+'"><div class="k">'+esc(k)+'</div><div class="v">'+esc(v)+'</div>'
+      + '<div class="t">'+esc(t)+'</div>' + goalBar(now,target) + '</div>';
   }
   function findItem(c,key){
     var it=(c.auto_items||[]).filter(function(i){ return i.key===key; })[0];
@@ -355,8 +467,10 @@
 
   function pipelineHtml(c){
     var html = '<div class="card"><h2>영업 파이프라인</h2>'
-      + '<p class="hint">지금 진행 중인 후보 학원이 어느 단계에 몇 곳 있는지입니다. '
-      + '「방문은 많은데 제안이 없다」와 「제안은 많은데 계약이 없다」는 처방이 정반대라 나눠서 봅니다.</p>'
+      + '<p class="lead">후보 학원이 <b>어디까지 왔는지</b> 단계별로 셉니다.</p>'
+      + '<div class="eg"><b>어디서 막혔는지 보입니다.</b><br>'
+      + '방문은 많은데 제안이 적다 → 만나서 무슨 말을 할지 준비가 필요합니다.<br>'
+      + '제안은 많은데 계약이 적다 → 가격표나 시간표를 손볼 때입니다.</div>'
       + '<div class="pipe">';
     (c.pipeline||[]).forEach(function(s){
       html += '<div class="st"><div class="n">STEP '+s.n+'</div><div class="t">'+esc(s.ko)+'</div><div class="c">'+s.count+'</div></div>';
@@ -368,8 +482,9 @@
   function retentionHtml(j){
     var due = j.retention_due || [];
     var head = '<div class="card"><h2>🔔 3개월 유지 확인</h2>'
-      + '<p class="hint">유지 여부는 <b>매일 밤 시스템이 학생 명부·수업 기록을 보고 자동으로 판정</b>합니다. '
-      + '여기 올라오는 것은 <b>기계가 판정하지 못한 건</b>뿐입니다 — 사람이 봐야 하는 이유가 함께 적혀 있습니다.</p>'
+      + '<p class="lead">계약 3개월 뒤, 그 학원이 <b>계속 다니는지</b> 확인합니다. 대부분 밤사이 자동으로 끝납니다.</p>'
+      + svgIncentiveFlow((((STATE.data||{}).cards||[{}])[0].rep||{}).incentive_per_deal_krw)
+      + '<div class="eg">아래 목록에 뜨는 것은 <b>자동으로 못 정한 것</b>뿐입니다. 왜 그런지 이유가 함께 적혀 있습니다.</div>'
       + (STATE.canEdit
           ? '<div class="toolbar"><button class="btn" id="rt_sweep" type="button">지금 자동 판정 실행</button>'
             + '<span class="muted" id="rt_msg"></span></div>'
@@ -422,9 +537,11 @@
         + '</tr>'
         + '<tr><td colspan="6" class="why">'+esc(i.reason)+'</td></tr>';
     }).join('');
-    return '<div class="card"><h2>자동 채점 (85점)</h2>'
-      + '<p class="hint">실적 60 + 활동 25. 사람이 매기는 15점(보고·차량·협업)은 아래 «평가 확정»에서 넣습니다. '
-      + '점수 아래 줄이 <b>«왜 이 점수인가»</b>입니다 — 이걸 설명 못 하면 평가 제도는 무너집니다.</p>'
+    return '<div class="card" id="sh-score"><h2>점수는 이렇게 만들어집니다</h2>'
+      + '<p class="lead">100점 중 <b>85점은 기록에서 저절로</b> 계산됩니다.</p>'
+      + svgScoreSplit()
+      + '<div class="eg"><b>표 읽는 법</b> — 각 줄 아래에 <b>왜 그 점수인지</b> 한 줄로 적혀 있습니다.<br>'
+      + '예) 「방문 31건 / 목표 48건 → 65% → 6.5점」처럼 계산 과정이 그대로 보입니다.</div>'
       + '<div class="scroll"><table><thead><tr><th>항목</th><th class="num">실적</th><th class="num">목표</th>'
       + '<th class="num">달성률</th><th class="num">점수</th><th>　</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
       + '</div>';
@@ -432,9 +549,12 @@
 
   /* ── 평가 확정 (사람 15점) ─────────────────────────────────── */
   function evalHtml(){
-    return '<div class="card" id="evalCard"><h2>평가 확정 (사람이 매기는 15점)</h2>'
-      + '<p class="hint">보고 마감 준수 5 · 차량·비용 관리 5 · 협업 5. '
-      + '반기(YYYY-H1/H2)를 고르면 등급과 반기 상여가 함께 계산됩니다.</p>'
+    return '<div class="card" id="evalCard"><h2>사람이 보는 15점</h2>'
+      + '<p class="lead">기계가 셀 수 없는 <b>세 가지만</b> 사람이 매깁니다. 각 5점씩입니다.</p>'
+      + '<div class="eg"><b>보고 마감</b> 약속한 날짜에 보고가 왔나<br>'
+      + '<b>차량·비용</b> 회사 차와 경비를 잘 챙겼나<br>'
+      + '<b>협업</b> 본사·강사와 손발이 맞았나<br>'
+      + '<span style="color:#7c8ba1">예) 세 가지 모두 무난했다면 4점씩 = 12점입니다.</span></div>'
       + '<div id="evalBody"><div class="muted">불러오는 중…</div></div></div>';
   }
 
@@ -447,19 +567,20 @@
         var canEdit=!!j.can_edit;
         var html='';
         if(j.advisory){
-          html += '<div class="baseline"><b>기준선 기간 — 이 평가는 참고용입니다 ('+esc(j.baseline_until||'')+'까지).</b> '
-            + '점수와 등급은 그대로 나오지만 <b>상여는 계산하지 않습니다.</b> '
-            + '첫 '+(j.baseline_days||90)+'일은 「이 사람이 잘하나」를 보는 기간이 아니라 '
-            + '「우리 목표가 현실적인가」를 보는 기간입니다.</div>';
+          html += '<div class="baseline"><b>연습 기간이라 이 평가는 참고용입니다 ('+esc(j.baseline_until||'')+'까지).</b><br>'
+            + '점수와 등급은 보이지만 <b>상여로는 이어지지 않습니다.</b><br>'
+            + '<span style="color:#93c5fd">첫 '+(j.baseline_days||90)+'일은 <b>우리 목표가 알맞은지</b> 보는 기간입니다.</span></div>';
         }
         html += '<div class="grid g3">'
-          + numField('sc_reporting','보고 마감 준수 (0~5)',5,s.score_reporting,canEdit)
-          + numField('sc_vehicle','차량·비용 관리 (0~5)',5,s.score_vehicle,canEdit)
-          + numField('sc_teamwork','협업 평가 (0~5)',5,s.score_teamwork,canEdit)
+          + numField('sc_reporting','보고 마감 (0~5점)',5,s.score_reporting,canEdit)
+          + numField('sc_vehicle','차량·비용 (0~5점)',5,s.score_vehicle,canEdit)
+          + numField('sc_teamwork','협업 (0~5점)',5,s.score_teamwork,canEdit)
           + '</div>';
         html += '<div class="grid g2" style="margin-top:12px">'
-          + '<label class="f">잘한 점<textarea id="ev_str" '+(canEdit?'':'disabled')+'>'+esc(s.strengths||'')+'</textarea></label>'
-          + '<label class="f">개선할 점<textarea id="ev_imp" '+(canEdit?'':'disabled')+'>'+esc(s.improvements||'')+'</textarea></label>'
+          + '<label class="f">잘한 점 (예: 대전 지역을 꾸준히 돌아 계약 2곳)'
+            + '<textarea id="ev_str" '+(canEdit?'':'disabled')+'>'+esc(s.strengths||'')+'</textarea></label>'
+          + '<label class="f">다음에 더 해 볼 것 (예: 방문 뒤 제안서까지 이어 보기)'
+            + '<textarea id="ev_imp" '+(canEdit?'':'disabled')+'>'+esc(s.improvements||'')+'</textarea></label>'
           + '</div>';
         if(canEdit){
           html += '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="ev_save" type="button">평가 저장·확정</button>'
@@ -469,18 +590,18 @@
         var f=j.final||{};
         html += '<div class="grid g3" style="margin-top:14px">'
           + '<div class="kpi"><div class="k">자동 점수</div><div class="v">'+(j.auto?j.auto.earned:'-')+'</div>'
-            + '<div class="t">적용가능 만점 '+(j.auto?j.auto.applicable_max:'-')+'점</div></div>'
-          + '<div class="kpi"><div class="k">환산 총점 (100점)</div><div class="v">'+(f.total==null?'-':f.total)+'</div>'
-            + '<div class="t">'+(f.converted?'일부 항목 해당없음 → 비율 환산':'전 항목 채점')+'</div></div>'
+            + '<div class="t">지금 잴 수 있는 만점 '+(j.auto?j.auto.applicable_max:'-')+'점</div></div>'
+          + '<div class="kpi"><div class="k">100점으로 바꾸면</div><div class="v">'+(f.total==null?'-':f.total)+'</div>'
+            + '<div class="t">'+(f.converted?'해당없음을 뺀 뒤 비율로 환산':'모든 항목을 채점했습니다')+'</div></div>'
           + '<div class="kpi money"><div class="k">등급 · 반기 상여</div>'
             + '<div class="v"><span class="grade">'+(j.grade||'-')+'</span>'
             + (j.advisory?'<span class="chip">참고용</span>':'')+'</div>'
             + '<div class="t">'+(j.bonus_krw!=null
                 ? (won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')')
-                : (j.advisory ? '기준선 기간이라 상여를 계산하지 않습니다' : '반기를 골라야 계산됩니다'))+'</div></div>'
+                : (j.advisory ? '연습 기간이라 상여는 계산하지 않습니다' : '반기(H1·H2)를 골라야 계산됩니다'))+'</div></div>'
           + '</div>';
         if(f.manual_sum==null){
-          html += '<div class="warnbox">사람이 매기는 15점이 아직 비어 있습니다. 지금 총점은 <b>자동 85점만</b>으로 환산한 값입니다.</div>';
+          html += '<div class="warnbox">위 세 칸(15점)이 아직 비어 있습니다. 지금 총점은 <b>자동 85점만</b>으로 계산한 값입니다.</div>';
         }
         if(s.evaluated_at){
           html += '<div class="muted" style="margin-top:10px">마지막 확정: '+esc(s.evaluator||'')+' · '
@@ -523,7 +644,7 @@
         + '<td>'+esc(a.next_action||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="5" class="empty">아직 기록이 없습니다.</td></tr>';
 
-    return '<div class="card"><h2>영업일지</h2>'
+    return '<div class="card" id="sh-diary"><h2>영업일지</h2>'
       + '<p class="hint">필수는 <b>«학원»과 «종류» 둘뿐</b>입니다. 나머지는 비워도 저장됩니다 — 길게 쓰게 하면 3주째부터 아무도 안 씁니다.</p>'
       // 🎤 말로 쓰기 — 이 제도 전체가 «매일 기록» 위에 서 있다. 타이핑을 요구하면 3주째부터 안 쓴다.
       //    브라우저 음성인식이 없으면 이 블록은 «붙여넣고 정리하기» 로 그대로 쓰인다.
@@ -680,9 +801,10 @@
      서버가 규칙으로 점수를 매기고 «왜» 를 함께 보냅니다.
      AI 로 순서를 정하지 않은 이유 — 이유를 설명 못 하면 아무도 그 순서를 안 따릅니다. */
   function nextVisitsHtml(){
-    return '<div class="card"><h2>🗺 오늘 어디부터 갈까</h2>'
-      + '<p class="hint">단계·방치 일수·본인이 적어 둔 예정일·지역 묶음·근처 성공 사례로 점수를 매깁니다. '
-      + '<b>왜 이 순서인지</b>가 항상 함께 나옵니다.</p>'
+    return '<div class="card" id="sh-visits"><h2>🗺 오늘 어디부터 갈까</h2>'
+      + '<p class="lead">계약에 <b>가까운 순서</b>로 줄을 세웁니다.</p>'
+      + '<div class="eg"><b>이런 곳이 위로 옵니다</b> — 제안까지 갔는데 답이 없는 곳 · 오래 안 간 곳 · '
+      + '가려던 날이 오늘인 곳 · 같은 동네에 계약이 있는 곳</div>'
       + '<div id="nvBody"><div class="muted">불러오는 중…</div></div></div>';
   }
 
@@ -718,9 +840,10 @@
 
   /* ── ⚠️ 위험한 학원 ───────────────────────────────────────────── */
   function atRiskHtml(){
-    return '<div class="card"><h2>⚠️ 위험한 학원</h2>'
-      + '<p class="hint">계약한 학원의 <b>수업이 줄고 있는지</b>를 봅니다(최근 30일 vs 그 앞 30일). '
-      + '유지율은 평가 15점이자 성과급 2차 50%의 조건이라, 이 알림은 담당자에게 <b>직접 돈이 걸린 알림</b>입니다.</p>'
+    return '<div class="card" id="sh-risk"><h2>⚠️ 위험한 학원</h2>'
+      + '<p class="lead">계약한 학원의 <b>수업이 줄고 있는지</b> 봅니다. 최근 30일과 그 앞 30일을 견줍니다.</p>'
+      + '<div class="eg">예) 지난달 12명 → 이번 달 9명이면 미리 알려 드립니다. '
+      + '한 번 찾아가면 대부분 돌아옵니다.</div>'
       + '<div id="arBody"><div class="muted">불러오는 중…</div></div></div>';
   }
 
@@ -756,8 +879,8 @@
   /* ── 📰 자동 보고서 ───────────────────────────────────────────── */
   function reportHtml(){
     return '<div class="card"><h2>📰 자동 보고서</h2>'
-      + '<p class="hint">사람이 보고서를 쓰지 않습니다. <b>월요일 아침에 지난주 보고가 알림으로 자동 발송</b>됩니다'
-      + '(활동이 0인 주는 보내지 않습니다 — 빈 보고서가 매주 오면 진짜 보고서도 같이 묻힙니다).</p>'
+      + '<p class="lead"><b>월요일 아침</b>에 지난주 보고가 저절로 만들어져 알림으로 갑니다. 손으로 쓰지 않습니다.</p>'
+      + '<div class="eg">활동이 없던 주는 보내지 않습니다. 빈 보고가 쌓이면 진짜 보고까지 묻히니까요.</div>'
       + '<div class="toolbar">'
       + '<label class="f">기간<select id="rp_period">'
         + '<option value="week">지난주</option><option value="week-0">이번 주</option>'
@@ -812,12 +935,12 @@
      ⛔ 본사(canEdit)만 본다. 당사자가 「직무 재검토」 를 화면에서 먼저 읽게 두면 안 된다. */
   function disciplineHtml(){
     if(!STATE.canEdit) return '';
-    return '<div class="card"><h2>🧭 성과가 낮을 때 — 무엇을 하면 되나</h2>'
-      + '<p class="hint">성과가 낮다고 <b>기본급을 깎거나 차를 회수하지 않습니다.</b> 그건 벌이고, '
-      + '우리나라에서 성과 부진은 벌을 줄 수 있는 잘못이 아니라 다툼이 됩니다. '
-      + '돈으로 가는 결과는 <b>반기 상여 배율</b>까지입니다. '
-      + '대신 여기서는 <b>면담 → 개선계획 → 결과 확인</b>을 순서대로 남깁니다. '
-      + '이 기록이 있어야 나중에 어떤 결정을 하더라도 정당해집니다.</p>'
+    return '<div class="card" id="sh-low"><h2>🤝 결과가 아쉬울 때 — 함께 하는 방법</h2>'
+      + '<p class="lead">결과가 아쉬운 반기가 있어도 <b>기본급과 영업차량은 그대로</b>입니다.<br>'
+      + '결과에 따라 달라지는 것은 <b>반기 상여</b> 하나뿐입니다.</p>'
+      + '<div class="eg"><b>여기서 하는 일은 세 가지입니다.</b><br>'
+      + '① 이야기 나누기 → ② 3개월 함께 해 보기 → ③ 결과 확인하기<br>'
+      + '<span style="color:#7c8ba1">한 단계씩 천천히 갑니다. 한 번 아쉬웠다고 바로 넘어가지 않습니다.</span></div>'
       + '<div id="dcBody"><div class="muted">불러오는 중…</div></div></div>';
   }
 
@@ -835,7 +958,8 @@
 
   function disciplineBody(j){
     var st = j.stage || {};
-    var h = '<div class="stg stg'+(st.stage||0)+'">'
+    var h = svgLadder(Number(st.stage)||0)
+      + '<div class="stg stg'+(st.stage||0)+'">'
       + '<div class="lv">'+(st.stage||0)+'단계</div>'
       + '<div class="nm">'+esc(st.label||'')+'</div>'
       + '<div class="ln"><b>지금 할 일</b> · '+esc(st.what||'')+'</div>'
@@ -845,30 +969,33 @@
 
     // 단계 안내 — 「다음에 무슨 일이 생기나」 를 미리 보여 준다. 예측 가능해야 공정하다.
     h += '<details class="more"><summary>단계가 어떻게 올라가나요?</summary>'
-      + '<div class="ln" style="font-size:14.5px;line-height:1.8;margin-top:8px">'
-      + '<b>0단계 정상</b> — B 이상. 하실 일 없습니다.<br>'
-      + '<b>1단계 관심·면담</b> — 반기 평가가 한 번 C+ 이하. 면담 한 번, 원인 찾기. 벌 없음.<br>'
-      + '<b>2단계 개선계획</b> — 두 번 연속 C 이하. 3개월 개선계획을 열고 주 1회 점검합니다. '
-      + '목표는 <b>낮춰서</b> 잡습니다 — 못 지킬 목표는 기록으로도 쓸모가 없습니다.<br>'
-      + '<b>3단계 직무 재검토</b> — 개선계획을 미달로 마친 뒤에도 D. 직무 재배치·조건 재협상을 '
-      + '<b>노무사와 상의해서</b> 검토합니다. 여기서 혼자 결정하지 마세요.'
-      + '</div></details>';
+      + '<div class="tw"><table style="margin-top:10px"><thead><tr>'
+      + '<th>단계</th><th>언제</th><th>무엇을</th></tr></thead><tbody>'
+      + '<tr><td><b>0 좋습니다</b></td><td>B 이상</td><td>그대로 가시면 됩니다</td></tr>'
+      + '<tr><td><b>1 한 번 이야기</b></td><td>C+ 이하가 한 번</td><td>커피 한 잔 하며 이야기</td></tr>'
+      + '<tr><td><b>2 3개월 함께</b></td><td>C 이하가 두 번 이어서</td><td>3개월 계획 + 주 1회 15분</td></tr>'
+      + '<tr><td><b>3 다시 이야기</b></td><td>3개월 뒤에도 아쉬울 때</td><td>맡은 일이 잘 맞는지 함께 이야기</td></tr>'
+      + '</tbody></table></div>'
+      + '<div class="eg">예) 2026-H1 이 C, 2026-H2 도 C 라면 <b>2단계</b>입니다. '
+      + 'H1 이 C 였어도 H2 가 B 로 올라오면 다시 <b>0단계</b>입니다.</div>'
+      + '</details>';
 
     // 하지 말 것 — 매번 같이 보여 준다. 잊으면 사고가 난다.
-    h += '<h3 style="margin:18px 0 6px;font-size:16px">⛔ 이것만은 하지 마세요</h3>';
-    h += (j.guardrails||[]).map(function(x){ return '<div class="guard">'+esc(x)+'</div>'; }).join('');
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">✅ 어떤 경우에도 그대로입니다</h3>';
+    h += (j.guardrails||[]).map(function(x){
+      return '<div class="keep"><span class="m">✓</span><span>'+esc(x)+'</span></div>';
+    }).join('');
 
     // 기록 자가 점검
     var r = j.record || {};
-    h += '<h3 style="margin:18px 0 6px;font-size:16px">📎 기록이 남아 있나요</h3>'
-      + '<p class="hint" style="margin-top:0">나중에 필요한 것은 이 네 가지입니다. '
-      + '하나라도 비어 있으면 그 상태에서 다음 단계로 가지 마세요. '
-      + '<b>위의 단계와는 기준이 다릅니다</b> — 단계는 「지금 무엇을 할까」라서 <b>연속</b>이어야 하고, '
-      + '여기는 「자료가 남아 있나」라서 사이가 떠 있어도 셉니다.</p>'
-      + recLine(r.fair_eval, '공정한 평가를 했다 (연습 기간이 아닌 확정 평가가 있다)')
-      + recLine(r.repeated, '한 번이 아니라 여러 번 낮았다 (연속이 아니어도 셉니다)')
-      + recLine(r.chance_given, '개선할 기회를 줬다 (개선계획을 열었다)')
-      + recLine(r.still_short, '그럼에도 개선되지 않았다 (개선계획을 미달로 마쳤다)');
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">📎 함께해 온 기록</h3>'
+      + '<p class="lead" style="margin-top:0">그동안 <b>함께 해 온 일</b>을 모아 둔 칸입니다. 다음 단계는 여기가 채워진 뒤에 갑니다.</p>'
+      + '<div class="eg">위 단계와 <b>세는 방법이 조금 다릅니다.</b> '
+      + '단계는 «이어서» 낮았는지를 보고, 여기는 «몇 번» 있었는지만 봅니다.</div>'
+      + recLine(r.fair_eval, '평가를 제대로 했다 (연습 기간이 아닌 평가가 있다)')
+      + recLine(r.repeated, '한 번이 아니라 여러 번 이어졌다')
+      + recLine(r.chance_given, '함께 해 볼 기회를 드렸다 (3개월 계획을 열었다)')
+      + recLine(r.still_short, '3개월을 함께한 뒤에도 아쉬웠다');
 
     // 평가 이력
     var evs = j.evals || [];
@@ -888,31 +1015,32 @@
 
     // 개선계획
     var op = j.open_plan;
-    h += '<h3 style="margin:18px 0 6px;font-size:16px">📝 개선계획</h3>';
+    h += '<h3 style="margin:18px 0 6px;font-size:16px">📝 3개월 함께 달리기</h3>';
     if(op){
       h += '<div class="warnbox"><b>진행 중</b> · '+esc(op.period_start)+' ~ '+esc(op.period_end)+'</div>'
         + '<div class="ln" style="margin-top:8px"><b>목표</b><br>'+esc(op.goals||'').replace(/\n/g,'<br>')+'</div>'
         + (op.support?('<div class="ln" style="margin-top:8px"><b>회사가 돕는 것</b><br>'+esc(op.support).replace(/\n/g,'<br>')+'</div>'):'')
         + '<div class="toolbar" style="margin-top:12px">'
         + '<label class="f">결과<select id="dc_result">'
-        + '<option value="">고르세요</option><option value="achieved">달성</option><option value="failed">미달</option>'
+        + '<option value="">고르세요</option><option value="achieved">잘 됐습니다</option><option value="failed">아직 아쉽습니다</option>'
         + '</select></label></div>'
-        + '<label class="f">무엇을 보고 그렇게 판단했나 <textarea id="dc_note" placeholder="예: 3개월 동안 계약 3곳, 목표 2곳을 넘겼습니다."></textarea></label>'
-        + '<div class="toolbar" style="margin-top:8px"><button class="btn primary" id="dc_close" type="button">개선계획 마치기</button>'
+        + '<label class="f">무엇을 보고 그렇게 보셨나요 <textarea id="dc_note" placeholder="예: 3개월 동안 계약 3곳으로 목표를 넘겼습니다."></textarea></label>'
+        + '<div class="toolbar" style="margin-top:8px"><button class="btn primary" id="dc_close" type="button">3개월 마무리하기</button>'
         + '<span class="muted" id="dc_msg"></span></div>';
     } else if((j.stage||{}).stage >= 2){
-      h += '<div class="warnbox">지금은 개선계획을 열어야 하는 단계입니다. '
-        + '목표는 <b>지킬 수 있는 크기</b>로 잡으세요.</div>'
-        + '<label class="f">개선 목표 (꼭 적어야 저장됩니다)'
+      h += '<div class="warnbox">3개월 계획을 함께 세울 때입니다. 목표는 <b>꼭 지킬 수 있는 크기</b>로 잡습니다.</div>'
+        + '<div class="eg"><b>좋은 목표</b> 3개월 동안 계약 3곳 · 매주 방문 4곳 · 그날 안에 기록<br>'
+        + '<b>아쉬운 목표</b> 「열심히 하기」 — 지켰는지 확인할 수가 없습니다.</div>'
+        + '<label class="f">3개월 동안 할 일 (꼭 적어야 저장됩니다)'
         + '<textarea id="dc_goals" placeholder="예: 3개월 동안 신규 계약 3곳. 매주 방문 4곳 이상, 방문 기록은 그날 안에 남기기."></textarea></label>'
         + '<label class="f">회사가 도와줄 것'
-        + '<textarea id="dc_support" placeholder="예: 본사 동행 방문 월 2회, 학원 제안서 양식 제공, 매주 금요일 15분 점검 통화"></textarea></label>'
+        + '<textarea id="dc_support" placeholder="예: 본사 동행 방문 월 2회, 제안서 양식 드리기, 금요일 15분 통화"></textarea></label>'
         + '<div class="toolbar" style="margin-top:8px">'
         + '<label class="f">기간<select id="dc_months"><option value="3">3개월</option><option value="2">2개월</option><option value="6">6개월</option></select></label>'
-        + '<button class="btn primary" id="dc_open" type="button">개선계획 열기</button>'
+        + '<button class="btn primary" id="dc_open" type="button">함께 달리기 시작</button>'
         + '<span class="muted" id="dc_msg"></span></div>';
     } else {
-      h += '<div class="muted">지금은 개선계획이 필요한 단계가 아닙니다.</div>';
+      h += '<div class="okbox">지금은 따로 계획을 세울 단계가 아닙니다. 잘 가고 있습니다.</div>';
     }
 
     var past = (j.plans||[]).filter(function(p){ return p.status!=='open'; });
@@ -929,8 +1057,7 @@
 
     // 면담 기록
     h += '<h3 style="margin:18px 0 6px;font-size:16px">🗣 면담 기록</h3>'
-      + '<p class="hint" style="margin-top:0">이 표가 비어 있으면 나중에 「기회를 줬다」를 증명할 수 없습니다. '
-      + '짧아도 좋으니 그날 남기세요.</p>'
+      + '<p class="lead" style="margin-top:0">두 줄이면 충분합니다. <b>그날 바로</b> 남기는 것이 가장 좋습니다.</p>'
       + '<div class="toolbar">'
       + '<label class="f">날짜<input type="date" id="dc_mdate" value="'+todayISO()+'"></label>'
       + '<label class="f">종류<select id="dc_mkind">'
@@ -1021,9 +1148,9 @@
   /* ── ⚖️ 공정성 감시 ───────────────────────────────────────────── */
   function fairnessHtml(){
     return '<div class="card"><h2>⚖️ 공정성 감시</h2>'
-      + '<p class="hint">평가 제도가 무너지는 이유는 대부분 「부정확해서」가 아니라 <b>「불공정하다고 느껴서」</b>입니다. '
-      + '그래서 사람이 놓치기 쉬운 운·환경 요인을 시스템이 먼저 짚어 올립니다. '
-      + '<b>점수를 자동으로 고치지는 않습니다</b> — 그러면 이 기능은 점수 부풀리기가 됩니다.</p>'
+      + '<p class="lead">점수만으로는 안 보이는 <b>사정</b>을 미리 짚어 드립니다.</p>'
+      + '<div class="eg">예) 담당 지역이 중간에 바뀌었거나, 기록이 남기 시작한 날이 늦었다면 알려 드립니다.<br>'
+      + '<span style="color:#7c8ba1">점수를 대신 고쳐 주지는 않습니다. 판단은 사람 몫으로 남깁니다.</span></div>'
       + '<div id="fnBody"><div class="muted">불러오는 중…</div></div></div>';
   }
 
@@ -1053,7 +1180,7 @@
         + '<td>'+esc(l.last_contact_at||'')+'</td></tr>';
     }).join('') || '<tr><td colspan="6" class="empty">아직 등록된 후보 학원이 없습니다.</td></tr>';
     return '<div class="card"><h2>후보 학원</h2>'
-      + '<p class="hint">담당자 머릿속에 있는 거래처를 <b>회사 자산으로 옮기는</b> 곳입니다. 사람이 바뀌어도 남습니다.</p>'
+      + '<p class="lead">만난 학원을 여기 적어 두면 <b>회사에 남습니다.</b> 담당자가 바뀌어도 그대로입니다.</p>'
       + '<div class="grid g3">'
       + '<label class="f">학원 이름<input id="ld_name" placeholder="예: 둔산 ○○어학원"></label>'
       + '<label class="f">지역<input id="ld_region" placeholder="예: 대전 서구"></label>'
@@ -1091,7 +1218,7 @@
         + '성과급의 근거라서, 본인이 자기 실적을 입력하지 않도록 막아 둔 것입니다.</p></div>';
     }
     return '<div class="card"><h2>계약 등록 (본사)</h2>'
-      + '<p class="hint">계약을 넣으면 성과급 1차(50%)가 그 달에 잡히고, 90일 뒤 «유지 확인» 목록에 올라옵니다.</p>'
+      + '<p class="lead">계약을 넣으면 <b>성과급 절반</b>이 그 달에 잡히고, 3개월 뒤 나머지 절반을 확인합니다.</p>'
       + '<div class="grid g3">'
       + '<label class="f">학원 이름<input id="dl_name"></label>'
       + '<label class="f">연결할 후보 학원<select id="dl_lead"></select></label>'
@@ -1136,18 +1263,21 @@
     if(!STATE.canEdit && r) return '';
     r = r || {};
     return '<div class="card"><h2>담당자 설정'+(r.id?'':' (신규 등록)')+'</h2>'
-      + '<p class="hint">기본급·건당 성과급·월 목표는 <b>제도의 숫자</b>입니다. 코드를 고치지 않고 여기서 바꿉니다. '
-      + '월별로 다르게 하려면 목표는 아래 «이 달만 목표 바꾸기»를 쓰세요.</p>'
+      + '<p class="lead">기본급·성과급·목표를 <b>여기서</b> 바꿉니다. 바꾸면 점수와 금액이 바로 따라옵니다.</p>'
+      + (MONEY_LOCKED
+          ? '<div class="eg">💰 다른 화면의 금액은 <b>XX</b> 로 가려 두었습니다. '
+            + '<b>이 칸만은 그대로 보입니다</b> — 여기가 금액을 정하는 자리라서요.</div>'
+          : '')
+      + '<div class="eg">한 달만 다르게 하고 싶으면 아래 «이 달만 목표 바꾸기»를 쓰세요.</div>'
       + (r.id ? '' : '<div class="okbox" style="margin-bottom:14px">'
-          + '금액·목표는 <b>사장님이 확정하신 값</b>으로 미리 채워 두었습니다 — '
-          + '기본급 230만원 · 계약 1곳당 60만원 · 월 목표 2곳.<br>'
+          + '금액·목표는 <b>임시 값</b>으로 미리 채워 두었습니다 (아직 정하는 중입니다).<br>'
           + '<b>담당자 이름만 넣고 «저장»을 누르시면 됩니다.</b> 나중에 언제든 여기서 바꿀 수 있습니다.</div>')
       + '<div class="grid g3">'
       + '<label class="f">이름<input id="rp_name" value="'+esc(r.name||'')+'"></label>'
       + '<label class="f">담당 지역<input id="rp_region" value="'+esc(r.region||'')+'"></label>'
       + '<label class="f">관리자 아이디(본인 로그인)<input id="rp_user" value="'+esc(r.admin_username||'')+'" placeholder="비우면 본인 조회 불가"></label>'
       + '<label class="f">입사일<input type="date" id="rp_hired" value="'+esc(r.hired_at||'')+'"></label>'
-      + '<label class="f">제도 시작일(기준선 시작)<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
+      + '<label class="f">연습 기간 시작일<input type="date" id="rp_prog" value="'+esc(r.program_started_at||'')+'"></label>'
       + '<label class="f">기본급(원)<input type="number" id="rp_base" min="0" value="'+dv(r.base_salary_krw,'base_salary_krw')+'"></label>'
       + '<label class="f">계약 1곳당 성과급(원)<input type="number" id="rp_inc" min="0" value="'+dv(r.incentive_per_deal_krw,'incentive_per_deal_krw')+'"></label>'
       + '<label class="f">월 목표 — 계약<input type="number" id="rp_td" min="0" value="'+dv(r.target_deals,'target_deals')+'"></label>'
