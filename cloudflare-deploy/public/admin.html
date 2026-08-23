@@ -5518,9 +5518,14 @@ window.__admSettleRun = function(fn){
   <summary><span data-ko="💳 정기결제 자동화" data-en="💳 Recurring Billing">💳 정기결제 자동화</span></summary>
   <div class="menu-body">
     <div style="background:linear-gradient(135deg,rgba(34,197,94,0.10),rgba(16,185,129,0.05));border:1px solid rgba(34,197,94,0.30);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#86efac;line-height:1.6"
-         data-ko="💡 매월 자동 청구 (KST 09:00 cron). Toss Payments 연동은 추후 작업."
-         data-en="💡 Auto charge monthly (KST 09:00 cron). Toss Payments integration is pending.">
-      💡 매월 자동 청구 (KST 09:00 cron). Toss Payments 연동은 추후 작업.
+         data-ko="💡 학생이 카드를 등록하면(수강신청 화면) 수업 종료 3일 전에 자동 청구됩니다 (매일 KST 10:00 cron, Toss 빌링키). 결제 3일 전 학부모에게 사전고지 문자가 나갑니다."
+         data-en="💡 Students register a card on the Enroll page; charges run automatically 3 days before their classes end (daily KST 10:00 cron, Toss billing key). Parents get a heads-up SMS 3 days before.">
+      💡 학생이 카드를 등록하면(수강신청 화면) 수업 종료 3일 전에 자동 청구됩니다 (매일 KST 10:00 cron, Toss 빌링키). 결제 3일 전 학부모에게 사전고지 문자가 나갑니다.
+    </div>
+    <!-- ♾️ (2026-08-23) 자동청구 마스터 스위치 — KV billing:auto_renew_live. 꺼져 있으면 cron 은 미리보기만 한다.
+         켜고 끄는 건 본사만(서버 403). 켜기 전에 아래 «청구 예정» 미리보기를 보고 결정한다. -->
+    <div data-gc="♾️ 자동청구 스위치" data-gc-en="Auto-charge Switch" id="rb-switch" style="border:1px solid rgba(251,191,36,0.35);background:rgba(120,53,15,0.15);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.7">
+      <span style="color:#94a3b8">⏳ 스위치 상태 확인 중…</span>
     </div>
     <div data-gc="📊 구독 요약" data-gc-en="Subscription Summary" id="rb-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px"></div>
     <button onclick="rbLoad()" class="primary" style="background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:700;cursor:pointer;margin-bottom:12px">
@@ -5590,7 +5595,52 @@ window.__admSettleRun = function(fn){
     alert(r.ok ? (isEn()?'Cancelled.':'해지 완료.') : '❌');
     if (r.ok) rbLoad();
   };
-  document.getElementById('card-recurring-billing')?.addEventListener('toggle', function(){ if (this.open) rbLoad(); });
+  /* ♾️ (2026-08-23) 자동청구 마스터 스위치 + 청구 예정 미리보기.
+     ⚠️ 미리보기는 GET auto-renew-due(읽기 전용)만 쓴다 — cron-check(POST)는 스위치가 켜져 있으면
+        그 자리에서 실청구가 나간다. */
+  window.rbSwitchLoad = async function(){
+    const en = isEn();
+    const box = document.getElementById('rb-switch');
+    if (!box) return;
+    try {
+      const [sw, due] = await Promise.all([
+        fetch('/api/admin/billing/auto-renew-live').then(x=>x.json()),
+        fetch('/api/admin/billing/auto-renew-due').then(x=>x.json()),
+      ]);
+      if (!sw.ok || !due.ok) throw new Error(sw.error||due.error||'failed');
+      const live = !!sw.live;
+      const badge = live
+        ? `<span style="background:#16a34a;color:#fff;border-radius:999px;padding:2px 10px;font-weight:800">${en?'ON — charging live':'켜짐 — 실제 청구 중'}</span>`
+        : `<span style="background:#475569;color:#e2e8f0;border-radius:999px;padding:2px 10px;font-weight:800">${en?'OFF — preview only':'꺼짐 — 미리보기만'}</span>`;
+      const amt = (due.due_now_amount||0).toLocaleString();
+      const preview = (due.list||[]).slice(0,8).map(r =>
+        `<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#cbd5e1">
+           <span>${esc(r.student_name||r.user_id)}${r.due?' <b style="color:#fbbf24">'+(en?'due now':'지금 대상')+'</b>':''}</span>
+           <span>${(r.amount||0).toLocaleString()}원 · ${r.next_billing_at?new Date(r.next_billing_at).toISOString().slice(0,10):'-'}</span>
+         </div>`).join('');
+      box.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <b style="color:#fcd34d">♾️ ${en?'Auto-charge master switch':'자동청구 마스터 스위치'}</b> ${badge}
+          <button id="rb-switch-btn" style="margin-left:auto;border:0;border-radius:8px;padding:8px 14px;font-weight:800;cursor:pointer;color:#fff;background:${live?'#dc2626':'linear-gradient(135deg,#22c55e,#16a34a)'}">${live?(en?'Turn OFF':'끄기'):(en?'Turn ON':'켜기')}</button>
+        </div>
+        <div style="margin-top:6px;color:#e2e8f0">${en?'Due now':'지금 청구 대상'} <b style="color:#fbbf24">${due.due_now||0}${en?'':'명'}</b> · ${amt}원 / ${en?'card-registered total':'카드 등록'} ${due.total||0}${en?'':'명'}</div>
+        ${preview ? `<div style="margin-top:6px;border-top:1px dashed rgba(148,163,184,0.3);padding-top:6px">${preview}${(due.list||[]).length>8?`<div style="font-size:11px;color:#94a3b8">… ${en?'and more':'외'} ${(due.list||[]).length-8}${en?'':'명'}</div>`:''}</div>` : ''}
+        <div style="margin-top:6px;font-size:11.5px;color:#94a3b8">${en?'While OFF, the daily sweep only previews (no charge). Turning ON starts real charges from the next sweep (daily KST 10:00) — parents get a D-3 heads-up SMS.':'꺼져 있는 동안 매일 스윕은 미리보기만 합니다. 켜면 다음 스윕(매일 KST 10:00)부터 실제 청구가 시작되고, 학부모에게 결제 3일 전 사전고지 문자가 나갑니다.'}</div>`;
+      document.getElementById('rb-switch-btn').onclick = async function(){
+        const msg = live
+          ? (en?'Turn OFF auto-charging? The sweep goes back to preview-only.':'자동청구를 끌까요? 스윕이 다시 미리보기만 하게 됩니다.')
+          : (en?`Turn ON auto-charging?\nDue now: ${due.due_now||0} student(s), ${amt} KRW — charged from the next daily sweep (KST 10:00).`
+              :`자동청구를 켤까요?\n지금 대상 ${due.due_now||0}명 · ${amt}원이 다음 스윕(매일 KST 10:00)부터 실제 청구됩니다.`);
+        if (!confirm(msg)) return;
+        const r = await fetch('/api/admin/billing/auto-renew-live', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ live: !live }) }).then(x=>x.json()).catch(()=>({ok:false,error:'network'}));
+        if (!r.ok) { alert('❌ ' + (r.message||r.error||'failed')); return; }
+        rbSwitchLoad();
+      };
+    } catch(e) {
+      box.innerHTML = `<span style="color:#fca5a5">❌ ${esc(e.message)}</span>`;
+    }
+  };
+  document.getElementById('card-recurring-billing')?.addEventListener('toggle', function(){ if (this.open) { rbLoad(); rbSwitchLoad(); } });
 })();
 </script>
 
