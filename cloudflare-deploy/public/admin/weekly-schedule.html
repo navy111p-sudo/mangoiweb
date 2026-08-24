@@ -680,6 +680,13 @@ body.half-hour .slot-text{font-size:9px;line-height:18px}
 .mini-cal td.slot{user-select:none;-webkit-user-select:none}
 body.dragging{cursor:crosshair}
 
+
+/* 🧹 (2026-08-24) LMS·시드 정리 버튼 — 통계 칩 안의 작은 버튼.
+   조용한 회색으로 둔다: 자주 누를 것이 아니고, 누르면 되돌리기 어려운 쪽이라 눈에 덜 띄어야 한다. */
+.ghost-purge-btn{margin-left:6px;padding:1px 7px;border:1px solid #cbd5e1;background:#fff;color:#475569;
+  border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;line-height:1.6;vertical-align:1px}
+.ghost-purge-btn:hover{background:#f1f5f9;border-color:#94a3b8}
+.ghost-purge-btn[disabled]{opacity:.5;cursor:progress}
 </style>
 <link rel="stylesheet" href="/css/admin-readability.css?v=4"><!-- 가독성 보강 -->
 <style id="pc-scale">
@@ -707,7 +714,12 @@ body.dragging{cursor:crosshair}
   <div class="sm"><span data-ko="빈 슬롯" data-en="Open slots">빈 슬롯</span><b id="st-free">—</b><span class="u" data-ko="배정 가능" data-en="assignable">배정 가능</span></div>
   <!-- 🏷 (2026-08-21) LMS 점유/시연 시드 — 진짜 수업이 아닌 칸이 몇 건인지 숫자로 먼저 말해 준다.
        색만 바꾸면 숫자를 안 보는 사람에게는 여전히 "수업이 많다"로 남는다. -->
-  <div class="sm" title="옛 LMS로 수업 중이라 못 쓰는 시간 + 6월 시연용 시드 — 실제 수업 아님"><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span><b id="st-ghost">—</b></div>
+  <div class="sm" title="옛 LMS로 수업 중이라 못 쓰는 시간 + 6월 시연용 시드 — 실제 수업 아님"><span data-ko="LMS·시드" data-en="LMS/Demo">LMS·시드</span><b id="st-ghost">—</b>
+    <!-- 🧹 (2026-08-24 사장님 지시) 자리표시 일괄 정리. 실제 수업이 아니고 지워도 망고아이
+         데이터에 영향이 없다는 확인 아래 넣었다. 누르면 «몇 건인지» 부터 세어 보여 준다. -->
+    <button type="button" id="st-ghost-purge" class="ghost-purge-btn" hidden
+            data-ko-title="LMS·시드 자리표시를 한 번에 정리합니다" data-en-title="Clear LMS/Demo placeholders"
+            data-ko="정리" data-en="Clear">정리</button></div>
   <div class="lgs">
     <span><i style="background:#bcaef0;border-left:3px solid #7c3aed"></i><span data-ko="1대1" data-en="1-on-1">1대1</span></span>
     <span><i style="background:#f4abce;border-left:3px solid #db2777"></i><span data-ko="그룹" data-en="Group">그룹</span></span>
@@ -1082,6 +1094,10 @@ function render(){
   document.getElementById('st-teachers').textContent=s.active+'/'+TEACHERS.length;
   var ghostEl=document.getElementById('st-ghost');
   if(ghostEl)ghostEl.textContent=s.ghost+(currentLang==='ko'?'건':'');
+  /* 🧹 (2026-08-24) 정리할 것이 있을 때만 버튼을 보인다 — 0 건일 때 남아 있으면
+     «눌러도 아무 일도 안 일어나는 버튼» 이 된다. */
+  var purgeBtn=document.getElementById('st-ghost-purge');
+  if(purgeBtn)purgeBtn.hidden=!(s.ghost>0);
   syncCatSelect(s.byCat);
   var q=searchQuery.toLowerCase().trim();
   function tMatch(t){
@@ -1349,6 +1365,64 @@ function renderDayGrid(list){
   });
   return head+body+'</tbody></table></div>';
 }
+
+/* 🧹 LMS·시드 «자리표시» 일괄 정리 — 2026-08-24 사장님 지시
+   ────────────────────────────────────────────────────────────────────────────
+   [왜] 이 칸들은 진짜 수업이 아닌데(활성 667행 중 658행) 화면을 가득 채워
+     배정을 어렵게 만든다. 먼저 «판정만 바꿔» 배정을 열었지만, 칸이 그대로 보이니
+     실제 운영에서는 달라진 게 없다는 판단으로 정리 쪽으로 왔다.
+   ⚠️ 되돌리기 어려운 조작이라 **두 단계**로 만든다:
+     ① 서버에 «몇 건인지» 먼저 물어본다(dry_run) — 화면 통계가 아니라 DB 가 답한다.
+        (화면 숫자는 «지금 보고 있는 주» 만 센다. 실제로 지워지는 건 전체다)
+     ② 그 숫자를 보여 주고 사람이 확인한 뒤에만 지운다.
+   ℹ️ 서버는 status='cancelled' 로 내린다 — 이 화면의 한 칸 삭제와 같은 방식이라
+     화면에서는 사라지고, 잘못됐을 때 되돌릴 수 있다.
+   ⛔ 학생이 붙은 행은 서버가 절대 건드리지 않는다(user_id 가 정확히 lms/type_seed 일 때만). */
+(function(){
+  var btn=document.getElementById('st-ghost-purge');
+  if(!btn||btn._bound)return;
+  btn._bound=true;
+  btn.addEventListener('click',async function(){
+    var L=currentLang==='ko';
+    btn.disabled=true;
+    try{
+      // ① 몇 건인지 DB 에 먼저 묻는다
+      var r=await fetch('/api/admin/class-schedules/purge-placeholders',{
+        method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({which:'both',dry_run:true})});
+      var d=await r.json().catch(function(){return null;});
+      if(!r.ok||!d||!d.ok){
+        alert(L?('⚠️ 건수를 확인하지 못했습니다: '+((d&&d.error)||r.status))
+               :('⚠️ Could not count: '+((d&&d.error)||r.status)));
+        return;
+      }
+      if(!d.count){ alert(L?'정리할 자리표시가 없습니다.':'Nothing to clear.'); return; }
+      var msg=L
+        ? ('LMS·시드 자리표시 '+d.count+'건을 정리합니다.\n'
+           +'  · LMS 점유 '+d.lms+'건\n  · 시연 시드 '+d.seed+'건\n\n'
+           +'실제 수업(학생이 붙은 칸)은 건드리지 않습니다.\n계속할까요?')
+        : ('Clear '+d.count+' LMS/Demo placeholders?\n'
+           +'  · LMS '+d.lms+'\n  · Demo seed '+d.seed+'\n\n'
+           +'Real classes (with students) are not touched.');
+      if(!confirm(msg))return;
+      // ② 확인을 받은 뒤에만 지운다
+      var r2=await fetch('/api/admin/class-schedules/purge-placeholders',{
+        method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({which:'both'})});
+      var d2=await r2.json().catch(function(){return null;});
+      if(!r2.ok||!d2||!d2.ok){
+        alert(L?('⚠️ 정리 실패: '+((d2&&d2.error)||r2.status)):('⚠️ Failed: '+((d2&&d2.error)||r2.status)));
+        return;
+      }
+      alert(L?('✅ '+d2.count+'건을 정리했습니다.'):('✅ Cleared '+d2.count+'.'));
+      // 화면을 «서버에서 다시 읽어» 반영한다 — 메모리만 지우면 새로고침에 되살아난다
+      await loadData();
+      render();
+    }catch(e){
+      alert((currentLang==='ko'?'⚠️ 정리 실패(네트워크): ':'⚠️ Failed (network): ')+(e&&e.message||e));
+    }finally{ btn.disabled=false; }
+  });
+})();
 
 // 일간 뷰의 요일 선택 버튼
 function buildDayPicker(){
