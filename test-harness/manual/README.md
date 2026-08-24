@@ -160,3 +160,28 @@ PW_DIR=/tmp/pw node test-harness/manual/feedback-menu-level-warmup-browser.mjs
 - 머리에 `import { requireBrowser } from './_pw.mjs';` 를 쓰면
   준비물 확인·건너뜀 처리가 한 줄로 끝난다.
 - **운영 DB 를 건드리지 말 것.** 서버를 띄우지 말고 `fetch` 를 가짜로 바꿔 쓴다.
+
+---
+
+## lms-slot-assign-browser.mjs — LMS·시드 칸에 수업이 들어가는가 (15건)
+
+`class_schedules` 활성 행의 대부분은 진짜 수업이 아니라 **자리표시**다
+(`user_id='lms'` 옛 LMS 점유 · `'type_seed'` 6월 시연 시드). 2026-08-24 사장님 지시로
+**그 칸에도 수업을 배정할 수 있게** 판정을 바꿨다(데이터는 지우지 않았다).
+
+문자열 하니스(`schedule_10min_manager_harness` 4부)는 「그 함수를 쓰는가」까지만 본다.
+정작 사람을 막는 것은 **«누르면 무엇이 뜨는가»** 였다 — `click` 이 `mouseup` «뒤» 에 오기
+때문에 상세 모달이 「새 슬롯 추가」를 덮어써서 «눌러도 아무 일도 안 일어난» 것처럼 보인다.
+그건 코드를 읽어서는 안 보인다.
+
+1. LMS·시드 칸이 «빈 칸» 으로 판정되는가 (진짜 수업은 그대로 «참»)
+2. 그 칸을 누르면 「새 슬롯 추가」가 뜨는가 (상세가 덮지 않는가)
+3. 미배정 학생 칩을 끌면 «놓을 수 있음»(drop-target-ok)으로 보이는가
+4. 빈칸 찾기가 그 시간을 «빈 시간» 으로 세는가
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/lms-slot-assign-browser.mjs
+```
+
+⚠️ 주간 스케줄의 **배정 가능 판정**(`cellBusy`·`conflictReason`·`hourHasSlot`)이나
+서버 겹침판정(`src/schedule-conflict.ts`)을 건드리면 **사람이 이걸 불러야** 한다.
