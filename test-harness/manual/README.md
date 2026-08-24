@@ -28,6 +28,25 @@ PW_DIR=/tmp/pw node test-harness/manual/approval-ui-browser.mjs
 
 ---
 
+## c24-expense-deeplink-browser.mjs — 「카페24 회계 실데이터 ▸ 지출결의」 로 가는 길 (20건)
+
+사장님이 «그 화면 경로 주소» 를 물으셔서, 알려 드리기 전에 **정말 그리로 가는지** 좌표로 잰 것.
+
+- 해시 딥링크 `/admin.html#sub-c24-finance` 로 카드·칸이 열리는가
+- 지출결의 탭·표(일자·제목·거래처·결제·내용·지급일)가 그려지는가, 「N건 제외」가 적히는가
+- 사이드바 「회계」 ▸ 손자 「🧾 카페24 회계 실데이터」 로 갔을 때와 **같은 자로 비교**
+- 해시가 없으면 카드가 감춰져 있는가(= 해시가 실제로 일을 하는가)
+
+⏳ **알려진 한계 1건** — 딥링크는 칸을 «열기만» 하고 화면을 그 칸으로 데려가지 않는다
+(PC top 1285px · 폰 1036px). 사이드바로 가면 정상. 고칠지는 사람이 결정할 일이라
+`knownLimit()` 로 기록만 한다 — 고친 뒤 `check()` 로 바꾸는 것이 합격 기준.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/c24-expense-deeplink-browser.mjs
+```
+
+---
+
 ## approval-offline-browser.mjs — 끊겨도 잃지 않는가 (17건)
 
 한국↔필리핀 교환에서 가장 아픈 «끊김» 을 눌러서 확인한다.
