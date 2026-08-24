@@ -3025,7 +3025,7 @@ ${numbered}`;
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
         if (typeof b.new_password === 'string' && b.new_password.length > 0) {
-          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          if (b.new_password.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
           const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
           const buf = await crypto.subtle.digest('SHA-256', enc);
           const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
