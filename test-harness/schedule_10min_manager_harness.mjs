@@ -137,7 +137,14 @@ check('덮은 칸은 건너뛴다 (겹쳐 그리지 않는다)', /skip=span-1;/.
 check('드래그 선택이 «시» 가 아니라 «분» 으로 범위를 잡는다',
   /var sMin=Math\.min\(dragStart\.startMin,info\.startMin\)/.test(src));
 check('주간 타임라인도 분으로 위치를 잡는다', /var DAY0=GRID_H0\*60, SPAN_MIN=GRID_SPAN\*60;/.test(src));
-check('저장할 때 고른 칸의 분이 들어간다', /\},info\.minute\|\|0\);/.test(src));
+/* 🔎 «분» 이 저장까지 살아서 가는가. 2026-08-24 부터 만들기는 서버로 나가므로
+   화면 슬롯(addSlot 의 마지막 인자)만 보면 안 되고 **서버로 보내는 start_time** 도 봐야 한다.
+   ⛔ 옛 검사는 `},info.minute||0);` 라는 «코드 모양» 을 못 박아 두어, 저장이 서버로 바뀌자
+      뜻은 멀쩡한데 검사만 깨졌다. 뜻으로 적는다. */
+check('저장할 때 고른 칸의 분이 들어간다 (서버로 보내는 시각)',
+  /start_time:minLabel\(info\.hour\*60\+\(info\.minute\|\|0\)\)/.test(src));
+check('저장할 때 고른 칸의 분이 들어간다 (화면 슬롯)',
+  /addSlot\([^;]*?,\s*info\.minute\|\|0\);/s.test(src));
 check('슬롯 이동 시 원본 키를 분까지 맞춰 지운다 (안 지우면 «복사» 가 된다)',
   /delete SLOTS\[slotKey\(ctx\.srcTeacher\.id,ctx\.srcCoords\.dateISO,ctx\.srcCoords\.hour\*60\+\(ctx\.srcCoords\.minute\|\|0\)\)\]/.test(src));
 
@@ -302,6 +309,77 @@ console.log('\n════ 5부. LMS·시드 일괄 정리 API 의 안전장치
     /purgeBtn\.hidden=!\(s\.ghost>0\)/.test(w));
   check('정리 뒤 서버에서 다시 읽는다 (화면만 바뀌는 착시 금지)',
     /await loadData\(\);\s*\n\s*render\(\);/.test(w));
+}
+
+/* 💾 (2026-08-24 사장님 제보) 「수업을 잡았는데 학생 화면엔 오늘 수업이 없다 · 강의실에서 못 만난다」
+   [무엇이 문제였나] 이 화면의 «수업 만들기» 가 메모리(SLOTS)에만 넣고 서버에 POST 를 안 했다.
+     → `class_schedules` 에 행이 없으니 학생 조회(/api/class/sessions/today)도 0건이고,
+        방 번호(`class-{예약id}-{YYYYMMDD}`)를 만들 근거 자체가 없어 서로 다른 방에 앉는다.
+     차단(blocked)은 2026-08-12 에 같은 이유로 고쳤는데 «수업» 쪽이 그대로 남아 있었다.
+   ⚠️ 이 사고는 «화면에는 멀쩡히 그려진다» 는 것이 함정이다 — 새로고침해야 사라진다.
+      그래서 «저장 전에 addSlot 으로 그리지 않는다» 를 함께 못 박는다. */
+console.log('\n════ 6부. 수업 «만들기» 가 서버에 저장되는가 ════');
+{
+  const cutBlock = (from, to) => {
+    const i = src.indexOf(from); if (i < 0) return '';
+    const j = src.indexOf(to, i + from.length); return j < 0 ? src.slice(i) : src.slice(i, j);
+  };
+  const save = cutBlock('async function saveNewSlot(){', 'window.saveNewSlot=saveNewSlot;');
+  const assign = cutBlock('async function assignStudent(stu, info){', '\n  // ── 9)');
+  check('saveNewSlot 을 찾았다', !!save);
+  check('assignStudent 를 찾았다', !!assign);
+
+  /* 🔴 핵심 — 두 «만들기» 경로가 모두 서버를 부른다. 문자열이 아니라 «부르는가» 를 본다. */
+  check('🔴 새 슬롯 저장이 서버에 수업을 등록한다',
+    /postClassScheduleAsk\(/.test(save));
+  check('🔴 대기 풀 배정도 서버에 수업을 등록한다',
+    /postClassScheduleAsk\(/.test(assign));
+  check('🔴 실제로 /api/admin/class-schedules 로 나간다',
+    /fetch\('\/api\/admin\/class-schedules'/.test(src));
+
+  /* ⛔ 저장이 끝나기 전에 화면에 그리면, 서버가 거절해도 «있는 것처럼» 보여 이 사고가 그대로 남는다. */
+  check('⛔ saveNewSlot 이 서버 저장 없이 화면에만 그리지 않는다 (addSlot 직접 호출 0건)',
+    !/\baddSlot\(/.test(save));
+  check('⛔ assignStudent 는 저장 «성공한 뒤에만» 그린다 (실패하면 그리지도, 풀에서 빼지도 않음)',
+    /if\(!res2\.ok\)\{[\s\S]{0,400}?return;\s*\}[\s\S]*?addSlot\(/.test(assign) &&
+    assign.indexOf('POOL = POOL.filter') > assign.indexOf('if(!res2.ok)'));
+
+  /* 겹침(409 conflict)은 사람에게 한 번 되묻고, 근무불가(teacher_unavailable)는 되묻지 않는다 —
+     강사가 실제로 없는 시간에 수업을 꽂으면 그 수업은 진행 자체가 불가능하다. */
+  check('🟡 겹치면 사람에게 한 번 되묻는다', /error==='conflict'[\s\S]{0,220}?confirm\(/.test(src));
+  check("⛔ 되묻는 것은 «conflict» 일 때뿐 (근무불가는 force 로 못 뚫는다)",
+    /res\.status===409 && res\.j && res\.j\.error==='conflict'/.test(src));
+
+  /* 저장 뒤에는 반드시 서버에서 다시 읽는다 — 예약 id 가 붙어야 이동·삭제가 되고,
+     서버가 실제로 무엇을 만들었는지 화면이 «자기 기억» 이 아니라 «서버» 로 확인한다. */
+  check('🔴 저장 뒤 서버에서 다시 읽는다 (화면만 바뀌는 착시 금지)',
+    /await reloadAndRender\(\);/.test(save));
+
+  /* 서버가 받는 모양 — 하나라도 빠지면 400 이 나고 화면엔 «저장 실패» 만 뜬다. */
+  check('🟡 일회성(one_off) + 날짜를 함께 보낸다 (없으면 서버가 date_required)',
+    /schedule_kind:'one_off'/.test(save) && /scheduled_date:info\.dateISO/.test(save));
+  check('🟡 시작 시각을 HH:MM 으로 보낸다 (칸의 «분» 까지)',
+    /start_time:minLabel\(info\.hour\*60\+\(info\.minute\|\|0\)\)/.test(save));
+  check('🟡 학생이 없으면 아예 보내지 않는다 (서버는 학생 없는 수업을 만들 수 없다)',
+    /if\(!students\.length\)\{[\s\S]{0,200}?return;/.test(save));
+
+  /* 수업 종류 매핑 — 서버 허용목록과 «함께» 본다. 한쪽만 늘리면 조용히 regular 가 된다
+     (CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」 과 같은 뿌리). */
+  const api2 = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+  const allow = /\['regular', 'trial', 'level_test', 'makeup'\]\.includes\(String\(body\.class_type/.test(api2);
+  check('서버의 class_type 허용목록을 찾았다', allow);
+  const mapped = [...(src.match(/SLOT_TYPE_TO_CLASS_TYPE=\{[^}]*\}/) || [''])[0].matchAll(/:'([a-z_]+)'/g)].map(m => m[1]);
+  check('🔴 화면이 보내는 class_type 이 전부 서버 허용목록 안에 있다',
+    mapped.length > 0 && mapped.every((x) => ['regular', 'trial', 'level_test', 'makeup'].includes(x)), mapped);
+
+  /* 메모 입력칸 id 가 종류마다 다르다 — 예전엔 차단용 id 만 읽어 수업 메모가 항상 빈 값이었다. */
+  check('🟡 수업 메모 입력칸(ns-note-2)도 읽는다',
+    /getElementById\('ns-note-2'\)\?\.value/.test(save));
+
+  /* 👥 서버에는 group 이라는 class_type 이 없어 그룹 수업은 «학생마다 한 행» 으로 들어온다.
+     같은 칸에 그냥 넣으면 나중 행이 앞 행을 덮어써 3명짜리가 1명으로 보인다. */
+  check('👥 같은 칸의 여러 행을 한 수업으로 합친다 (그룹이 1명으로 줄지 않게)',
+    /getSlotAt\(s\.teacher_id,s\.date,hh\*60\+mm\)/.test(src) && /exist0\.type='group'/.test(src));
 }
 
 console.log('\n' + '─'.repeat(58));
