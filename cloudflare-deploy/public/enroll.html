@@ -167,7 +167,7 @@ document.getElementById('navBack').addEventListener('click', function(){
 
 <script src="https://js.tosspayments.com/v1/payment"></script>
 <script>
-(function(){
+(async function(){   /* await 는 관리자 세션 폴백 확인(아래 /api/admin/me) 한 곳뿐 */
   'use strict';
   var UID = null, TOKEN = null;
   try {
@@ -227,12 +227,23 @@ document.getElementById('navBack').addEventListener('click', function(){
   }
 
   if (!UID && !RT) {
-    app.innerHTML = '<h1><img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> 수강신청</h1><div class="login-need">'
-      + '<div style="font-size:40px">🔒</div>'
-      + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
-      + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
-    document.querySelector('.price').style.display = 'none';
-    return;
+    /* 🔑 (2026-08-23) 「로그인했는데 또 로그인하래요」(CLAUDE.md 2장 — 세션 두 갈래)의 이 화면 판.
+       홈 통합 로그인이 «관리자 폴백» 으로 성공하면(사장님 jeong 이 정확히 이 경우) 학생 키가
+       localStorage 에 없다. 잠그기 전에 관리자 세션 쿠키로 «누구인지» 물어보고, 있으면 그
+       아이디(본인)로 계속 간다. 서버 쪽도 같은 폴백을 본다(enroll-ops authUidOrAdminSession —
+       관리자 세션은 «자기 username» 으로만 인정되므로 남의 수강·결제는 여전히 403). */
+    var me = null;
+    try { me = await fetch('/api/admin/me', { credentials: 'same-origin' }).then(function(r){ return r.json(); }); } catch(e){}
+    if (me && me.ok && me.user && me.user.username) {
+      UID = String(me.user.username);
+    } else {
+      app.innerHTML = '<h1><img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> 수강신청</h1><div class="login-need">'
+        + '<div style="font-size:40px">🔒</div>'
+        + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
+        + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
+      document.querySelector('.price').style.display = 'none';
+      return;
+    }
   }
 
   function el(id){ return document.getElementById(id); }
