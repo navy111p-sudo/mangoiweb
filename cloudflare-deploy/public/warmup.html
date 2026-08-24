@@ -603,10 +603,7 @@ function fetchMeaning(text){
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
   return fetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    /* mode:'chat' — 문맥을 아는 언어모델 번역(화상수업 채팅과 같은 경로).
-       기본 경로(m2m100)는 "warm up" 을 「따뜻하게 하다」로 직역했다(2026-08-24 학원장 검수).
-       캐시 접두사가 달라서(trc4: ↔ tr:) 옛 직역 캐시는 자동으로 비켜간다 — 따로 지울 것 없음. */
-    body: JSON.stringify({ texts:[key], target:'ko', mode:'chat' })
+    body: JSON.stringify({ texts:[key], target:'ko' })
   }).then(function(r){ return r.json(); }).then(function(d){
     var out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
     if(out) _koCache[key] = out;
@@ -1043,14 +1040,7 @@ function _startSttSession(){
    ② 교재가 있으면 AI가 그 교재 내용으로 첫 워밍업 질문을 하며 시작
    ③ 조회/AI 실패 시 기존 자유 대화 인사로 폴백 (화면은 절대 안 깨짐) */
 function fallbackGreeting(){
-  /* 🖐 첫인사는 «정해진 문장» — [뜻] 버튼이 기계번역을 부르기 전에 _koCache 에
-     사람이 다듬은 한국어를 미리 넣어 둔다. "warm up" 이 「수업 전에 따뜻하게하자」로
-     직역돼 나갔던 것(2026-08-24 학원장 검수)이 이 문장이라, 여기만은 번역기에 안 맡긴다. */
-  var greet = 'Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?';
-  _koCache[greet] = '안녕하세요! 저는 여러분의 망고아이 AI 친구예요 🥭 '
-    + (LESSON_TOPIC ? ('오늘은 "'+LESSON_TOPIC+'"에 대해 이야기해요. ') : '')
-    + '수업 전에 가볍게 몸풀기해요. 오늘 기분이 어때요?';
-  addMsg(greet, 'ai');
+  addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
 }
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;

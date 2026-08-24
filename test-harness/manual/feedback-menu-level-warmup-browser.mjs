@@ -1,14 +1,16 @@
 // -*- coding: utf-8 -*-
 /* ═══════════════════════════════════════════════════════════════════════
- * 원장 검수 피드백 1·2·6번 수정이 «화면에서 실제로» 동작하는가 (16건)
+ * 원장 검수 피드백 2·6번 수정이 «화면에서 실제로» 동작하는가 (11건)
  *   (2026-08-24, PR #445 — docs/작업기록/260824_원장피드백_… 참고)
  *
  *   A. index.html — 중국어 복습퀴즈 조건 표시 + 「레벨 테스트」 타일
  *      · 비수강생: 드로어·퀵버튼·「AI와 친구하기」 목록의 중국어 항목 전부 숨김
  *      · mangoi_zh_learner=1 이면 전부 복귀
  *   B. judgment.html — 「레벨 다시 재기」 상시 버튼 + ?placement=1 즉시 시작
- *   C. warmup.html — 첫인사 [뜻] 은 사람이 쓴 한국어(번역 API 0회),
- *      새 문장 [뜻] 은 mode:'chat' 으로 발신
+ *
+ *   ⚠️ 원장 피드백 1번(웜업 「뜻」 직역)과 3·4·5번(판단력 훈련 문법)은
+ *      각각 PR #443·#448 이 더 근본적인 방식으로 이미 해결해서 이 PR 에서는 뺐다
+ *      (겹치면 같은 함수에 서로 다른 2차 교정 로직이 두 벌 쌓인다) — 그래서 C 섹션(warmup.html) 없음.
  *
  *   ⚠️ 문자열 하니스로는 못 잡는 것들이라 실제 Chromium 으로 잰다.
  *      «게이트가 물어 가지 않는» manual/ 검사다 — 이 화면들을 고치면 사람이 부른다:
@@ -171,41 +173,6 @@ try {
       return { placement: t.indexOf('레벨 찾기') >= 0, step: t.indexOf('1 / 6') >= 0 };
     });
     check('B4 ?placement=1 → 곧장 「레벨 찾기 1/6」', pl2.placement && pl2.step, JSON.stringify(pl2));
-    await ctx.close();
-  }
-
-  /* ══ C. warmup.html — [뜻] 번역 경로 ══ */
-  {
-    const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
-    await stubApis(ctx);
-    await ctx.addInitScript(() => { localStorage.setItem('mangoi_logged_user', JSON.stringify({ uid: 'stu1', name: 'Test' })); });
-    const page = await ctx.newPage();
-    const posts = [];
-    page.on('request', (r) => { if (r.url().includes('/api/translate')) posts.push(r.postData() || ''); });
-    await page.goto(BASE + '/warmup.html', { waitUntil: 'domcontentloaded', timeout: 45000 });
-    await page.waitForTimeout(3500);
-    const greet = await page.evaluate(() => { const m = document.querySelector('.msg.ai'); return m ? m.textContent : ''; });
-    check('C1 고정 첫인사 표시', greet.indexOf('warm up before class') >= 0, greet.slice(0, 60));
-    await page.evaluate(() => { const b = document.querySelector('.msg.ai .mean-btn'); b && b.click(); });
-    await page.waitForTimeout(1200);
-    const chip = await page.evaluate(() => { const c = document.querySelector('.msg.ai .ko-chip'); return c ? c.textContent : ''; });
-    // «따뜻하게» 직역이 다시 나오면 여기서 잡힌다 — 사람이 쓴 «몸풀기» 가 나와야 한다
-    check('C2 첫인사 [뜻] = 사람이 쓴 한국어(몸풀기)', chip.indexOf('몸풀기') >= 0 && chip.indexOf('SERVER_TRANSLATION') < 0, chip.slice(0, 80));
-    check('C3 첫인사 [뜻] 은 번역 API 0회(_koCache 선탑재)', posts.length === 0, posts.length + '회');
-    const added = await page.evaluate(() => {
-      if (typeof addMsg !== 'function') return false;
-      addMsg('This is a brand new sentence.', 'ai'); return true;
-    });
-    if (added) {
-      await page.evaluate(() => { const ms = document.querySelectorAll('.msg.ai'); const b = ms[ms.length - 1].querySelector('.mean-btn'); b && b.click(); });
-      await page.waitForTimeout(1200);
-      check('C4 새 문장 [뜻] 은 mode:"chat" 으로 발신', posts.some((p) => p.indexOf('"mode":"chat"') >= 0), posts.slice(-1)[0] || '(요청 없음)');
-      const chip2 = await page.evaluate(() => { const ms = document.querySelectorAll('.msg.ai'); const c = ms[ms.length - 1].querySelector('.ko-chip'); return c ? c.textContent : ''; });
-      check('C5 새 문장 [뜻] 은 서버 번역이 그대로 표시됨', chip2.indexOf('SERVER_TRANSLATION') >= 0, chip2.slice(0, 60));
-    } else {
-      check('C4 새 문장 [뜻] 은 mode:"chat" 으로 발신', false, 'addMsg 를 부를 수 없음(전역 아님) — 코드 확인 필요');
-      check('C5 새 문장 [뜻] 은 서버 번역이 그대로 표시됨', false, '위와 동일');
-    }
     await ctx.close();
   }
 } finally {
