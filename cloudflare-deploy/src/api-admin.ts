@@ -27,6 +27,7 @@ import { scopeFragments, studentScopeWhere, getScope, franchiseList, scopeStuden
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(학부모봇과 공유)
 import { runCypher, Neo4jNotConfiguredError } from './teacher-match';  // 🕸️ Neo4j 그래프
 import { KCP_TRANSFER_CYPHER_RE, KCP_REVENUE_CYPHER_RE } from './accounting-reports';  // 🧾 「케이씨피M」(운영자금 이체) = 매출 아님 / 「케이씨피」 = 매출 인정 — 판정 정본
+import { c24ExpenseDrop, C24_HANGUL_CYPHER_RE, C24_LETTER_CYPHER_RE } from './c24-expense-filter';  // 🧾 카페24 지출결의 중 «우리 것이 아닌» 건(한글 결재·특정 결재라인) 제외 — 판정 정본
 import { importCafe24Org, importCafe24Payments, importCafe24Students, importCafe24Attendance } from './cafe24-sync';
 import { applyPIIScope, canViewPII } from './pii-mask';
 import { HQ_PROFILE } from './hq-profile';                        // 🏯 본사(법인) 정보 정본 — 사이트 «회사 정보» 푸터와 같은 값
@@ -7600,7 +7601,15 @@ ${chatSampleText}
              숫자는 틀어지지 않는다. */
           ledger: `MATCH (a:AccBook) WHERE NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)${month ? ` AND (a.month = $month OR a.date STARTS WITH $month)` : ''} RETURN a.date AS date, a.type AS type, a.acc_type AS acc_type, a.subject AS subject, a.money AS money, a.store AS store, a.memo AS memo, a.month AS month, (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe) AS excluded_from_revenue, ((coalesce(a.store,'') =~ $kcpRe OR coalesce(a.memo,'') =~ $kcpRe OR coalesce(a.subject,'') =~ $kcpRe) AND NOT (coalesce(a.store,'') =~ $kcpmRe OR coalesce(a.memo,'') =~ $kcpmRe OR coalesce(a.subject,'') =~ $kcpmRe)) AS counts_as_revenue ORDER BY a.date DESC LIMIT $lim`,
           payroll: `MATCH (p:Payroll) ${month ? `WHERE p.month = $month` : ''} RETURN p.user_id AS user_id, p.month AS month, p.base AS base, p.total AS total, p.deduction AS deduction, p.actual AS actual, p.income_tax AS income_tax, p.pension AS pension, p.work_day AS work_day, p.pay_date AS pay_date ORDER BY p.month DESC LIMIT $lim`,
-          expenses: `MATCH (d:ExpenseReport) RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date ORDER BY d.reg_date DESC LIMIT $lim`,
+          /* 🧾 지출결의 — 카페24 `ExpenseReport` 에는 **망고아이와 무관한 다른 조직의 지출품의서가 함께 쌓인다.**
+             그래서 우리 화면에서는 그 건을 뺀다(2026-08-24 사장님 지시). 판정 정본은 `src/c24-expense-filter.ts`.
+             ⚠️ 아래 WHERE 는 «먼저 덜어내기»(전송량·8초 타임아웃 방어)일 뿐이고, **최종 판정은 TS** 가 한다
+                (`c24ExpenseDrop`, 아래 rows 필터). 그래서 이 정규식이 언젠가 헛돌아도 결과는 안 틀린다.
+             ⚠️ `properties(d) AS props` 를 함께 받는 이유: **결재라인이 어느 속성에 들어 있는지 카페24가 정한다.**
+                우리가 이름을 모르므로 통째로 받아서 훑는다. 응답에 담기 전에 지운다(용량). */
+          expenses: `MATCH (d:ExpenseReport)
+            WHERE NOT ((CASE WHEN coalesce(d.name,'') =~ $c24LetterRe THEN coalesce(d.name,'') ELSE coalesce(d.content,'') END) =~ $c24HangulRe)
+            RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date, properties(d) AS props ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
           deposits: `MATCH (s:SavedMoney) RETURN s.center_id AS center_id, s.amount AS amount, s.method AS method, s.date AS date, s.state AS state ORDER BY s.date DESC LIMIT $lim`,
         };
@@ -7611,9 +7620,34 @@ ${chatSampleText}
              장부 탭의 «매출» 합계가 위 summary(KPI·추이)와 **같은 규칙**을 쓰게 하려고 서버가
              판정해 내려준다. ⚠️ 한쪽만 바꾸면 같은 화면에서 「매출 ₩A」와 「총매출 ₩B」가
              서로 다르게 찍힌다 — 그 불일치를 잡으려고 만든 화면에서 그러면 안 된다. */
-          const { fields, values } = await runCypher(env, cy, { lim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE, kcpRe: KCP_REVENUE_CYPHER_RE }, 'READ');
-          const rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
-          return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows });
+          /* 🧾 지출결의는 Cypher 가 «한글 제목» 을 이미 덜어냈지만, TS 가 한 번 더 판정하면서
+             결재라인(「Joy」·「박상인」)까지 본다. 그만큼 줄어드니 조금 넉넉히 읽어 온다.
+             ⚠️ Neo4j 호출은 8초 타임아웃이라 무작정 키우면 화면이 통째로 비어 버린다 — 20% 여유까지만. */
+          const fetchLim = (kind === 'expenses') ? Math.min(2000, Math.ceil(lim * 1.2)) : lim;
+          const { fields, values } = await runCypher(env, cy, { lim: fetchLim, month, kcpmRe: KCP_TRANSFER_CYPHER_RE, kcpRe: KCP_REVENUE_CYPHER_RE, c24HangulRe: C24_HANGUL_CYPHER_RE, c24LetterRe: C24_LETTER_CYPHER_RE }, 'READ');
+          let rows = values.map(row => Object.fromEntries(fields.map((f, i) => [f, row[i]])));
+          let filteredOut = 0;
+          let propKeys: string[] = [];
+          if (kind === 'expenses') {
+            /* 🧾 «우리 것이 아닌» 지출품의서를 뺀다 — 판정 정본 src/c24-expense-filter.ts.
+               ⛔ 여기에 판정 규칙을 복사해 쓰지 말 것(같은 규칙이 두 벌이 되는 순간 어긋나기 시작한다).
+               ℹ️ prop_keys 는 **속성 «이름» 만** 모은 것이다(값이 아니다). 결재라인이 실제로 어느 칸에
+                  들어 있는지 사람이 한 번 확인하려고 남긴다 — 카페24가 정한 이름을 우리가 모르기 때문. */
+            const seenKeys = new Set<string>();
+            const kept: typeof rows = [];
+            for (const r of rows) {
+              const props = (r.props && typeof r.props === 'object') ? r.props as Record<string, unknown> : {};
+              Object.keys(props).forEach(k => seenKeys.add(k));
+              const verdict = c24ExpenseDrop({ ...props, name: r.name, content: r.content });
+              delete (r as Record<string, unknown>).props;   // 화면이 안 쓰는 원본 뭉치는 응답에서 뺀다
+              if (verdict.drop) { filteredOut++; continue; }
+              kept.push(r);
+            }
+            rows = kept.slice(0, lim);
+            propKeys = [...seenKeys].sort();
+          }
+          return admCachePut(env, _finKey, { ok: true, source: 'neo4j', kind, count: rows.length, rows,
+            ...(kind === 'expenses' ? { filtered_out: filteredOut, prop_keys: propKeys } : {}) });
         } catch (e: any) {
           if (e instanceof Neo4jNotConfiguredError) return json({ ok: false, code: 'NEO4J_NOT_CONFIGURED', error: e.message }, 503);
           return json({ ok: false, code: 'NEO4J_UNREACHABLE', error: String(e?.message || e) }, 502);
