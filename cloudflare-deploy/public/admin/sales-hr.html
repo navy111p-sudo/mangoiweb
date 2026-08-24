@@ -569,7 +569,7 @@
         var html='';
         if(j.advisory){
           html += '<div class="baseline"><b>연습 기간이라 이 평가는 참고용입니다 ('+esc(j.baseline_until||'')+'까지).</b><br>'
-            + '점수와 등급은 보이지만 <b>상여로는 이어지지 않습니다.</b><br>'
+            + '점수는 보이지만 <b>등급·상여는 연습 기간이 끝난 뒤부터</b> 매깁니다.<br>'
             + '<span style="color:#93c5fd">첫 '+(j.baseline_days||90)+'일은 <b>우리 목표가 알맞은지</b> 보는 기간입니다.</span></div>';
         }
         html += '<div class="grid g3">'
@@ -598,11 +598,14 @@
           + '<div class="kpi"><div class="k">100점으로 바꾸면</div><div class="v">'+(f.total==null?'-':f.total)+'</div>'
             + '<div class="t">'+(f.converted?'해당없음을 뺀 뒤 비율로 환산':'모든 항목을 채점했습니다')+'</div></div>'
           + '<div class="kpi money"><div class="k">등급 · 반기 상여</div>'
-            + '<div class="v"><span class="grade">'+(j.grade||'-')+'</span>'
-            + (j.advisory?'<span class="chip">참고용</span>':'')+'</div>'
-            + '<div class="t">'+(j.bonus_krw!=null
-                ? (won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')')
-                : (j.advisory ? '연습 기간이라 상여는 계산하지 않습니다' : '반기(H1·H2)를 골라야 계산됩니다'))+'</div></div>'
+            + (j.advisory
+                ? '<div class="v" style="font-size:19px;line-height:1.3;padding-top:6px">기록 쌓는 중</div>'
+                  + '<div class="t">연습 기간에는 등급을 매기지 않습니다</div>'
+                : '<div class="v"><span class="grade">'+(j.grade||'-')+'</span></div>'
+                  + '<div class="t">'+(j.bonus_krw!=null
+                      ? (won(j.bonus_krw)+' (배율 '+j.bonus_multiplier+')')
+                      : '반기(H1·H2)를 골라야 계산됩니다')+'</div>')
+            + '</div>'
           + '</div>';
         if(f.manual_sum==null){
           html += '<div class="warnbox">위 세 칸(15점)이 아직 비어 있습니다. 지금 총점은 <b>자동 85점만</b>으로 계산한 값입니다.</div>';
@@ -643,9 +646,15 @@
       if(g('ev_str') && !g('ev_str').value) g('ev_str').value=(j.strengths||[]).join('\n');
       if(g('ev_imp') && !g('ev_imp').value) g('ev_imp').value=(j.improvements||[]).join('\n');
 
-      var h='<div class="eg" style="margin-top:12px"><b>🤖 AI 초안입니다 — 확정은 사장님이 하십니다.</b>';
+      var h='<div class="eg" style="margin-top:12px"><b>'
+        + (j.model==='rules' ? '📊 기록 숫자로 만든 초안입니다 — 확정은 사장님이 하십니다.'
+                             : '🤖 AI 초안입니다 — 확정은 사장님이 하십니다.')+'</b>';
       if(j.summary) h+='<br>'+esc(j.summary);
       h+='</div>';
+      // AI 가 왜 폴백됐는지 — 한 줄이면 다음 스크린샷으로 원인을 잡을 수 있다
+      if(j.model==='rules' && j.ai_error){
+        h+='<div class="muted" style="margin-top:6px">AI 연결 상태: '+esc(j.ai_error)+'</div>';
+      }
       var ev=function(name,d){
         if(!d) return '';
         return '<div class="rec"><span class="m">'+(d.score!=null?'✏️':'⬜')+'</span><span><b>'+name+'</b> — '
