@@ -46,8 +46,8 @@ const PAYROLL = [
   { user_id: 'teacher_a', month: '2026-06', base: 3000000, total: 3300000, deduction: 260000, actual: 3040000, work_day: 9 },
 ];
 const EXPENSES = [
-  { reg_date: '2026-07-11', name: 'Office supplies', organ: 'Lazada', method: 'card', content: 'ink', pay_date: '2026-07-13' },
-  { reg_date: '2026-07-04', name: 'Aircon repair', organ: 'Cool Co', method: 'cash', content: 'unit 2', pay_date: '' },
+  { reg_date: '2026-07-11', name: 'Office supplies', organ: 'Lazada', method: 'card', content: 'ink', pay_date: '2026-07-13', state: 1, doc_id: 'D1' },
+  { reg_date: '2026-07-04', name: 'Aircon repair', organ: 'Cool Co', method: 'cash', content: 'unit 2', pay_date: '', state: 1, doc_id: 'D2' },
 ];
 const TAX = [
   { date: '2026-07-31', supplier: '망고아이', receiver: '나다학원', supply: 900000, tax: 90000, total: 990000, tax_type: '과세' },
@@ -245,15 +245,39 @@ const headText = (page) => page.evaluate(() =>
     const hs = await headText(page);
     check('앞서 누른 거래처 칸은 ⇅ 로 돌아간다', hs[4].includes('⇅') && hs[0].includes('▲'), hs.join('|'));
 
-    /* ── ⑤ 빈 값은 방향과 상관없이 아래로 ───────────────────────────────── */
+    /* ── ⑤ 빈 값은 방향과 상관없이 아래로 ─────────────────────────────────
+       ⚠️ 빈 값 검사에 **지출결의 탭을 쓰지 말 것** — 그 탭은 2026-08-24(PR #465)부터
+          전용 화면(`__c24ExpSetup`, 칩·검색·자체 정렬 `data-s`)이 그린다. 이 정렬이 안 걸린다.
+          그래서 회계장부의 «적요»(한 행이 빈 값)로 잰다. */
     console.log('\n[5] 빈 칸(—)은 올림·내림 어느 쪽이든 맨 아래');
+    await openTab(page, 'ledger');
+    await clickHead(page, 'memo');               // 네 행 중 하나가 빈 값
+    const memoAsc = await colText(page, 5);
+    check('올림순에서 빈 칸이 아래', memoAsc[memoAsc.length - 1] === '—', memoAsc.join(','));
+    await clickHead(page, 'memo');
+    const memoDesc = await colText(page, 5);
+    check('내림순에서도 빈 칸이 아래', memoDesc[memoDesc.length - 1] === '—', memoDesc.join(','));
+
+    /* ── ⑤-2 지출결의 탭은 «전용 화면» 이 맡는다(경계 확인) ─────────────────
+       두 작업이 같은 화면에서 만나 정렬이 두 벌이 되지 않게 갈라 둔 경계다.
+       여기가 깨지면 한 탭에 정렬 UI 가 두 개 뜨거나, 전용 화면이 통째로 덮인다. */
+    console.log('\n[5-2] 지출결의 탭은 전용 화면(칩·검색)이 그린다');
     await openTab(page, 'expenses');
-    await clickHead(page, 'pay_date');           // 두 행 중 하나가 빈 값
-    const payAsc = await colText(page, 5);
-    check('올림순에서 빈 칸이 아래', payAsc[payAsc.length - 1] === '—', payAsc.join(','));
-    await clickHead(page, 'pay_date');
-    const payDesc = await colText(page, 5);
-    check('내림순에서도 빈 칸이 아래', payDesc[payDesc.length - 1] === '—', payDesc.join(','));
+    const exp = await page.evaluate(() => ({
+      tools: !!document.querySelector('#c24fin-tools .c24x-chip'),
+      ownTh: document.querySelectorAll('#c24fin-head th[data-s]').length,
+      mineTh: document.querySelectorAll('#c24fin-head th[data-c]').length,
+      toolsShown: (() => { const t = document.getElementById('c24fin-tools'); return !!t && t.style.display !== 'none'; })(),
+    }));
+    check('지출결의에 전용 도구 줄(칩)이 뜬다', exp.tools);
+    check('머리글은 전용 화면 것(data-s)', exp.ownTh > 0 && exp.mineTh === 0, JSON.stringify(exp));
+    await openTab(page, 'ledger');
+    const backTools = await page.evaluate(() => {
+      const t = document.getElementById('c24fin-tools');
+      return { hidden: !t || t.style.display === 'none', mineTh: document.querySelectorAll('#c24fin-head th[data-c]').length };
+    });
+    check('다른 탭으로 돌아오면 도구 줄이 숨는다', backTools.hidden, JSON.stringify(backTools));
+    check('머리글도 이쪽 정렬(data-c)로 돌아온다', backTools.mineTh === 7, String(backTools.mineTh));
 
     /* ── ⑥ 나머지 탭에도 정렬이 붙는가 ─────────────────────────────────── */
     console.log('\n[6] 급여명세·세금계산서·예치금 — 다섯 탭 모두');

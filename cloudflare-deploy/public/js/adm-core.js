@@ -12519,6 +12519,181 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e){ if(kpiBox) kpiBox.innerHTML='<div style="color:#f87171;grid-column:1/-1;font-size:12px">집계 실패: '+String(e&&e.message||e)+'</div>'; }
   };
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     🧾 지출결의 탭 전용 — 분류(추정) · 상태 · 검색 · 정렬  (2026-08-24 사장님 요청)
+
+     [왜] 이 탭은 표 하나뿐이라 «훑어보기» 밖에 안 됐다. 그런데 원본에 **금액이 없어서**
+     («prop_keys` = content·doc_id·name·pay_date·reg_date·state 여섯 개, 2026-08-24 실측)
+     합계·추이 같은 진짜 집계를 만들 수가 없다. 그래서 금액 없이도 되는 것부터 한다 —
+     «무엇이 · 몇 건 · 언제 · 어떤 상태로» 를 세어 주고, 찾고, 줄 세운다.
+     금액 요청서: docs/카페24_지출결의_속성추가_적재요청_2026-08-24.md
+
+     ⚠️ 분류는 **제목 글자로 하는 추정**이다. 원본에 분류 칸이 없다.
+        그래서 화면에도 「분류(추정)」 이라고 적는다 — 원본에 있는 값처럼 보이면 안 된다.
+     ⚠️ `state` 는 **뜻을 우리가 모른다**(카페24에 문의 중). 그래서 «승인»·«반려» 같은 말로
+        옮기지 않는다. 원본 코드를 그대로 적고, **다수와 다른 값만** 눈에 띄게 한다.
+        ⛔ 코드값에 이름을 붙이지 말 것 — 답을 받기 전까지는 그게 지어내는 것이다.
+     ⛔ 칩·검색칸을 `<button>`·`<select>` 로 만들지 말 것 — `admin-inline-c.css` 의 전역 규칙이
+        인라인 style 을 `!important` 로 이겨 파란 알약이 된다(CLAUDE.md 2장 두 항목).
+        `<span>` 과 `<input>` 을 쓰고, 모양은 파일 맨 끝 꼬리 블록(#sub-c24-finance …)에서 준다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  var C24X_KINDS = [
+    /* 순서가 규칙이다 — 위에서부터 먼저 맞는 것으로 정한다.
+       실측 50건의 제목을 보고 지은 것이다(격주 급여가 대다수, 나머지가 세무·시설). */
+    { key:'salary', ko:'급여',      en:'Payroll',  re:/\b(salary|payroll|cut|13th\s*month)\b/i },
+    { key:'tax',    ko:'세무·행정', en:'Tax/Admin',re:/(tax|itr|permit|financial\s+statement|percentage|audit|accounting|billing)/i },
+    { key:'fac',    ko:'시설·수리', en:'Facility', re:/(floor|roof|water\s*tank|air.?condition|electric|wiring|power\s*station|building|deposit|repair|replacement|tank)/i },
+    { key:'loan',   ko:'대출·대여', en:'Loan',     re:/\bloan\b/i },
+  ];
+  /** 제목으로 분류를 «추정» 한다. 못 맞히면 «기타» — 억지로 밀어 넣지 않는다. */
+  window.c24ExpKindOf = function(name){
+    var t = String(name == null ? '' : name);
+    for (var i = 0; i < C24X_KINDS.length; i++) if (C24X_KINDS[i].re.test(t)) return C24X_KINDS[i];
+    return { key:'etc', ko:'기타', en:'Other' };
+  };
+
+  /** 지출결의 표를 그린다(필터·정렬 포함). c24FinLoad 가 expenses 일 때만 부른다. */
+  window.__c24ExpSetup = function(rows, cols, esc, filteredOut){
+    var en = (window.adminLang === 'en');
+    var head = document.getElementById('c24fin-head');
+    var body = document.getElementById('c24fin-body');
+    var cnt  = document.getElementById('c24fin-count');
+    var table = document.getElementById('c24fin-table');
+    if (!head || !body || !table) return;
+
+    // 분류·상태를 미리 붙여 둔다(그릴 때마다 정규식을 다시 돌리지 않게)
+    var list = rows.map(function(r){ var k = window.c24ExpKindOf(r.name); return Object.assign({}, r, { __kind: en ? k.en : k.ko, __kkey: k.key }); });
+
+    /* 🔢 «다수와 다른 상태» — 코드의 뜻을 모르니 이름을 붙이는 대신 «흔한 값과 다르다» 로만 말한다.
+       (실측 50건은 49건이 1, 1건이 0. 그 1건이 눈에 띄어야 사람이 확인하러 간다) */
+    var freq = {}; list.forEach(function(r){ var v = String(r.state == null ? '' : r.state); freq[v] = (freq[v]||0)+1; });
+    var major = null, best = -1;
+    Object.keys(freq).forEach(function(v){ if (freq[v] > best) { best = freq[v]; major = v; } });
+    list.forEach(function(r){ r.__odd = (String(r.state == null ? '' : r.state) !== major); });
+    var oddN = list.filter(function(r){ return r.__odd; }).length;
+
+    var state = { kind: 'all', odd: false, q: '', sort: 'reg_date', dir: -1 };
+
+    var pick = function(){
+      var q = state.q.trim().toLowerCase();
+      var out = list.filter(function(r){
+        if (state.kind !== 'all' && r.__kkey !== state.kind) return false;
+        if (state.odd && !r.__odd) return false;
+        if (q && (String(r.name||'') + ' ' + String(r.content||'')).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+      out.sort(function(a, b){
+        var x = String(a[state.sort] == null ? '' : a[state.sort]);
+        var y = String(b[state.sort] == null ? '' : b[state.sort]);
+        return x < y ? -state.dir : x > y ? state.dir : 0;
+      });
+      return out;
+    };
+
+    // ── 도구 줄 ── (없으면 표 «위» 에 만든다. admin.html 을 건드리지 않으려고 JS 로 세운다)
+    var wrap = table.parentElement;
+    var tools = document.getElementById('c24fin-tools');
+    if (!tools) { tools = document.createElement('div'); tools.id = 'c24fin-tools'; wrap.parentElement.insertBefore(tools, wrap); }
+    tools.style.display = '';   // 다른 탭을 보고 오면 숨겨져 있다(c24FinLoad 가 감춘다)
+
+    var drawTools = function(){
+      var cur = pick();
+      var per = {}; list.forEach(function(r){ per[r.__kkey] = (per[r.__kkey]||0) + 1; });
+      var chip = function(k, label, n, on){
+        return '<span class="c24x-chip' + (on ? ' c24x-on' : '') + '" data-k="' + k + '" role="button" tabindex="0">'
+             + esc(label) + ' <b>' + n + '</b></span>';
+      };
+      var chips = [chip('all', en ? 'All' : '전체', list.length, state.kind === 'all')];
+      C24X_KINDS.forEach(function(k){ if (per[k.key]) chips.push(chip(k.key, en ? k.en : k.ko, per[k.key], state.kind === k.key)); });
+      if (per.etc) chips.push(chip('etc', en ? 'Other' : '기타', per.etc, state.kind === 'etc'));
+
+      tools.innerHTML =
+        '<div class="c24x-row">' + chips.join('') +
+          (oddN ? '<span class="c24x-chip c24x-odd' + (state.odd ? ' c24x-on' : '') + '" data-odd="1" role="button" tabindex="0">'
+                + (en ? 'State ≠ ' + esc(major) : '상태 ' + esc(major) + ' 아님') + ' <b>' + oddN + '</b></span>' : '') +
+          '<input id="c24x-q" class="c24x-q" type="text" autocomplete="off" placeholder="' +
+            (en ? 'Search title / content' : '제목·내용 검색') + '" value="' + esc(state.q) + '">' +
+          '<span class="c24x-n">' + (en ? cur.length + ' / ' + list.length + ' shown' : list.length + '건 중 ' + cur.length + '건') + '</span>' +
+        '</div>' +
+        '<div class="c24x-note">' + (en
+          ? 'Category is a guess from the title (the source has no category field). The meaning of the state code is being confirmed with Cafe24. Amounts are not in the source yet.'
+          : '분류는 <b>제목으로 추정</b>한 값입니다(원본에 분류 칸이 없습니다). 상태 코드의 뜻은 카페24에 확인 중입니다. '
+            + '<b>금액은 원본에 아직 없습니다</b> — 그래서 합계·추이를 만들 수 없습니다.')
+          + (filteredOut ? (en ? ' Excluded ' + filteredOut + ' unrelated request(s).' : ' 다른 곳 지출품의 ' + filteredOut + '건은 제외했습니다.') : '')
+        + '</div>';
+    };
+
+    var drawHead = function(){
+      head.innerHTML = '<tr>' + cols.map(function(c){
+        var on = (state.sort === c[0]);
+        return '<th class="c24x-th' + (on ? ' c24x-sorted' : '') + '" data-s="' + c[0] + '" role="button" tabindex="0" '
+             + 'style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'
+             + esc(c[1]) + (on ? (state.dir < 0 ? ' ▼' : ' ▲') : '') + '</th>';
+      }).join('') + '</tr>';
+    };
+
+    var drawBody = function(){
+      var cur = pick();
+      if (!cur.length) {
+        body.innerHTML = '<tr><td colspan="' + cols.length + '" style="padding:20px;text-align:center;color:#9ca3af">'
+          + (en ? 'No rows match.' : '조건에 맞는 건이 없습니다.') + '</td></tr>';
+        return;
+      }
+      body.innerHTML = cur.map(function(row){
+        return '<tr style="border-bottom:1px solid #f1f5f9">' + cols.map(function(c){
+          var v = row[c[0]];
+          var wrapS = (c[0] === 'content' || c[0] === 'name') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+          var inner;
+          if (c[0] === '__kind') inner = '<span class="c24x-tag c24x-tag-' + row.__kkey + '">' + esc(v) + '</span>';
+          else if (c[0] === 'state') inner = '<span class="c24x-st' + (row.__odd ? ' c24x-st-odd' : '') + '">' + esc(v == null || v === '' ? '—' : v) + '</span>';
+          else inner = esc(v == null || v === '' ? '—' : v);
+          return '<td style="padding:7px 10px;' + wrapS + '" title="' + esc(v) + '">' + inner + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    };
+
+    var redraw = function(){ drawTools(); drawHead(); drawBody(); };
+
+    /* 조작은 «위임» 으로 받는다 — 다시 그릴 때마다 리스너를 새로 달면 겹쳐 쌓인다.
+       ⛔ 같은 요소에 두 번 달리지 않게 표식을 둔다(탭을 오갈 때마다 이 함수가 다시 불린다). */
+    if (!tools.__c24wired) {
+      tools.__c24wired = true;
+      var hit = function(e){
+        var el = e.target.closest ? e.target.closest('.c24x-chip') : null;
+        if (!el) return;
+        if (el.hasAttribute('data-odd')) state.odd = !state.odd;
+        else { state.kind = el.getAttribute('data-k'); }
+        redraw();
+      };
+      tools.addEventListener('click', hit);
+      tools.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hit(e); } });
+      tools.addEventListener('input', function(e){
+        if (!e.target || e.target.id !== 'c24x-q') return;
+        state.q = e.target.value;
+        drawBody();
+        // 입력칸을 다시 그리면 포커스가 날아가므로 «건수» 만 갱신한다
+        var n = tools.querySelector('.c24x-n');
+        if (n) n.textContent = en ? (pick().length + ' / ' + list.length + ' shown') : (list.length + '건 중 ' + pick().length + '건');
+      });
+    }
+    if (!head.__c24wired) {
+      head.__c24wired = true;
+      var sortHit = function(e){
+        var th = e.target.closest ? e.target.closest('.c24x-th') : null;
+        if (!th) return;
+        var k = th.getAttribute('data-s');
+        if (state.sort === k) state.dir = -state.dir; else { state.sort = k; state.dir = (k === 'reg_date' || k === 'pay_date') ? -1 : 1; }
+        drawHead(); drawBody();
+      };
+      head.addEventListener('click', sortHit);
+      head.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortHit(e); } });
+    }
+
+    // 「총 N건」 줄은 도구 줄이 대신 말해 준다 — 같은 말을 두 곳에 쓰지 않는다.
+    if (cnt) cnt.textContent = '';
+    redraw();
+  };
+
   // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
   const c24finEsc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
   const c24finWon = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
@@ -12526,7 +12701,16 @@ window.rebuildGlobalSearchIndex = function() {
   const C24FIN_COLS = {
     ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',c24finWon],['store','거래처'],['memo','적요'],['month','귀속월']],
     payroll:  [['user_id','대상'],['month','월'],['base','기본급',c24finWon],['total','지급계',c24finWon],['deduction','공제계',c24finWon],['actual','실지급',c24finWon],['work_day','근무일']],
-    expenses: [['reg_date','일자'],['name','제목'],['organ','거래처'],['method','결제'],['content','내용'],['pay_date','지급일']],
+    /* 🧾 지출결의 — 2026-08-24 실측으로 칸을 다시 짰다(PR #465).
+       카페24 원본(`ExpenseReport`)의 속성은 content·doc_id·name·pay_date·reg_date·state **여섯 개뿐**이다.
+       ⛔ 그래서 예전 「거래처(organ)」·「결제(method)」 칸은 **값이 올 수 없어 늘 «—»** 였다 —
+          빈 칸을 세워 두면 «아직 안 들어온 값» 처럼 보여 오해를 만든다. 뺐다.
+       ✅ 대신 원본에 있는데 안 그리던 `state` 를 세우고, 제목에서 **추정** 분류를 붙인다.
+       ⚠️ 금액(money)이 원본에 없어 합계·추이는 여전히 만들 수 없다 —
+          적재 요청서: docs/카페24_지출결의_속성추가_적재요청_2026-08-24.md
+       ⚠️ 이 탭만 전용 화면(`__c24ExpSetup` — 칩·검색·자체 정렬)이 그린다. 아래 머리글 정렬은
+          나머지 네 탭 몫이다. 한 탭에 정렬을 두 벌 두지 않으려고 그렇게 갈랐다(2026-08-24 병합). */
+    expenses: [['reg_date','일자'],['__kind','분류(추정)'],['name','제목'],['content','내용'],['pay_date','지급일'],['state','상태']],
     tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',c24finWon],['tax','세액',c24finWon],['total','합계',c24finWon],['tax_type','과세']],
     deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',c24finWon],['method','결제']],
   };
@@ -12534,6 +12718,7 @@ window.rebuildGlobalSearchIndex = function() {
     date:'Date', acc_type:'Type', subject:'Account', money:'Amount', store:'Vendor', memo:'Memo', month:'Month',
     user_id:'Payee', base:'Base pay', total:'Total', deduction:'Deduction', actual:'Net pay', work_day:'Work days',
     reg_date:'Date', name:'Title', organ:'Vendor', method:'Payment', content:'Detail', pay_date:'Paid on',
+    __kind:'Category', state:'State',
     supplier:'Supplier', receiver:'Receiver', supply:'Supply', tax:'Tax', tax_type:'Taxation',
     center_id:'Center ID', amount:'Amount',
   };
@@ -12603,6 +12788,14 @@ window.rebuildGlobalSearchIndex = function() {
             + '</span>' + cutTail;
         } else { cnt.innerHTML = esc(base) + cutTail; }
       }
+      /* 🧾 지출결의만 전용 그리기(분류 추정·상태·검색·정렬)로 넘긴다 — PR #465.
+         ⛔ 다른 탭(장부·급여·세금·예치금)은 손대지 않는다 — 그쪽은 금액이 있어 지금 화면이 맞다.
+         ⚠️ 그래서 **이 탭에는 아래 머리글 정렬(c24FinDrawBody)이 안 걸린다.** 전용 화면이 자기
+            정렬(`c24x-th`·▲▼)을 이미 갖고 있어서, 한 탭에 정렬을 두 벌 두지 않으려고 이렇게 갈랐다
+            (2026-08-24 두 작업이 같은 화면에서 만나 병합할 때 내린 판단). */
+      var _tools = document.getElementById('c24fin-tools');
+      if (kind === 'expenses') { window.__c24ExpSetup(rows, cols, esc, d.filtered_out || 0); return; }
+      if (_tools) _tools.style.display = 'none';
       // ↕️ 정렬용으로 원본을 담아 둔다 — 이후 «머리글 누르기» 는 서버를 다시 부르지 않는다.
       window._c24finSort.rows = rows;
       c24FinDrawBody();
@@ -12713,6 +12906,10 @@ window.rebuildGlobalSearchIndex = function() {
     if (!S || !S.cols || !S.cols.length) return;
     const lang = (ev && ev.detail && ev.detail.lang) || window.adminLang;
     S.en = (lang === 'en');
+    /* ⛔ 지출결의는 전용 화면(`__c24ExpSetup`)이 머리글·본문을 자기 방식(`data-s`·칩·검색)으로 그린다.
+       여기서 다시 그리면 **그 화면을 덮어써 자체 정렬이 죽는다.** 그 탭은 통째로 다시 불러
+       전용 화면이 새 언어로 그리게 한다(서버는 120초 KV 캐시라 홉이 늘지 않는다). */
+    if (S.kind === 'expenses') { try { window.c24FinLoad('expenses'); } catch(e){} return; }
     c24FinDrawHead();
     c24FinDrawBody();
   });

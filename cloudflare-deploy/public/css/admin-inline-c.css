@@ -9687,6 +9687,87 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
   background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important;
 }
 
+/* ── 🧾 「카페24 회계 실데이터 ▸ 지출결의」 도구 줄 · 표 (2026-08-24 사장님 요청) ──────
+   [왜 여기(파일 맨 끝)에, 왜 조상 id 를 앞에 붙이나]
+   이 카드 안에서는 아래 전역 규칙들이 **인라인 style 을 `!important` 로 이깁니다**:
+     · `details.menu-card button{ background:인디고 그라데이션 !important; padding:9px 18px !important }`
+     · `details.menu-card input:not(...)/select{ background:rgba(15,23,42,.75) !important; padding:8px 12px !important }`
+     · `[id^="card-"] :is(p,span,div,b,strong…){ color:#101828 !important }`
+   그래서 ① 칩·검색칸을 `<button>`·`<select>` 로 만들지 않고 `<span>`·`<input>` 으로 세우고
+        ② 모양은 **조상 id(#sub-c24-finance = ID 한 칸)** 를 앞에 붙여 여기서만 되살립니다.
+   ⛔ 전역 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 버튼·입력칸이 걸립니다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 말 것(CLAUDE.md 1-3 「hover 확대 금지」). 강조는 색만.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — `[class$="-btn"]` 규칙에 다시 걸립니다.
+   ✅ 색은 `background-color:` 로 줍니다(`background:linear-gradient(...)` 는 옛 다크 규칙에 걸립니다). */
+#sub-c24-finance #c24fin-tools { margin: 2px 0 10px; }
+#sub-c24-finance #c24fin-tools .c24x-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 12px !important; font-weight: 700;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
+  user-select: none;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip b { color: #64748b !important; font-weight: 800; }
+#sub-c24-finance #c24fin-tools .c24x-chip:hover { background-color: #e2e8f0 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on {
+  background-color: #1d4ed8 !important; border-color: #1d4ed8;
+  color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on b { color: #dbeafe !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+/* 「다수와 다른 상태」 — 확인하러 가야 하는 줄이라 색을 따로 준다 */
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd {
+  background-color: #fef3c7 !important; border-color: #f59e0b; color: #92400e !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd b { color: #b45309 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on {
+  background-color: #b45309 !important; border-color: #b45309; color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on b { color: #fef3c7 !important; }
+/* 검색칸 — 전역 다크 입력 규칙(3515행)을 이 카드에서만 되돌린다.
+   `box-sizing` 을 함께 적어야 테두리가 폭 안에 들어온다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#sub-c24-finance #c24fin-tools input.c24x-q {
+  flex: 1 1 190px; min-width: 150px; max-width: 340px;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-n { font-size: 12px !important; color: #64748b !important; margin-left: auto; }
+#sub-c24-finance #c24fin-tools .c24x-note {
+  margin-top: 7px; font-size: 11.5px !important; line-height: 1.6;
+  color: #6b7280 !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-note b { color: #b45309 !important; }
+/* 정렬 헤더 — 「신한 계좌」 화면과 같은 조작(한 번 누르면 뒤집힌다) */
+#sub-c24-finance #c24fin-table th.c24x-th { cursor: pointer; user-select: none; }
+#sub-c24-finance #c24fin-table th.c24x-th:hover { color: #1d4ed8 !important; }
+#sub-c24-finance #c24fin-table th.c24x-sorted { color: #1d4ed8 !important; }
+/* 분류(추정) 배지 — 원본 값이 아니라 우리가 지은 것이라 색을 옅게 둔다 */
+#sub-c24-finance #c24fin-table .c24x-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px !important; font-weight: 700; white-space: nowrap;
+  background-color: #f1f5f9 !important; color: #475569 !important;
+}
+#sub-c24-finance #c24fin-table .c24x-tag-salary { background-color: #dbeafe !important; color: #1e40af !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-tax    { background-color: #ede9fe !important; color: #5b21b6 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-fac    { background-color: #dcfce7 !important; color: #166534 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-loan   { background-color: #ffe4e6 !important; color: #9f1239 !important; }
+/* 상태 — 코드의 «뜻» 을 모르므로 이름을 붙이지 않는다. 다수와 다른 값만 눈에 띄게 한다. */
+#sub-c24-finance #c24fin-table .c24x-st { color: #64748b !important; font-weight: 700; }
+#sub-c24-finance #c24fin-table .c24x-st-odd {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background-color: #fef3c7 !important; color: #92400e !important;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════
    ↕️ 「카페24 회계 실데이터」 표 — «지금 이 칸으로 정렬 중» 강조 (2026-08-24)
 
