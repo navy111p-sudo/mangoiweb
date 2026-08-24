@@ -608,9 +608,41 @@ export async function handleAdminAuthApi(
         } catch (e) { console.warn('[auth-admin] bruteforce check:', (e as any)?.message); }
       }
 
-      const row = await env.DB.prepare(
-        `SELECT username, password_hash FROM admin_account WHERE username = ? LIMIT 1`
-      ).bind(username).first<{ username: string; password_hash: string }>();
+      /* 🔤 (2026-08-24 사장님 지시) 아이디의 **대소문자를 무시한다.**
+       *
+       *  [무엇이 문제였나] `admin_account.username` 은 `TEXT NOT NULL UNIQUE` — COLLATE NOCASE 가
+       *    없어 SQLite 가 대소문자를 «다른 값» 으로 본다. 그런데 이 조회가 못 찾으면 아래
+       *    «옛 LMS 통과 인증» 이 그 자리에서 **새 계정을 만든다**(입력한 글자 그대로).
+       *    → 휴대폰 키보드의 자동 대문자 한 번에 계정이 두 벌이 된다.
+       *    실측(2026-08-24): `mangoi_167`(7/30, HANNAH 연결됨) 과 `Mangoi_167`(8/24, 연결 안 됨)
+       *    이 나란히 존재했고, 정작 쓰는 쪽이 연결이 없어 강사 화면이 «수업 없음» 이었다.
+       *    출근·급여가 계정 단위라 기록도 두 갈래로 쪼개진다.
+       *
+       *  [규칙] ① 정확일치를 **먼저** 본다  ② 없으면 대소문자만 다른 후보를 본다
+       *    ⚠️ ①이 핵심이다. NOCASE 하나로만 찾으면 이미 존재하는 두 계정 중 아무거나 골라
+       *       «어제까지 되던 사람» 의 비밀번호가 갑자기 안 맞게 된다.
+       *    ⚠️ 후보마다 비밀번호를 대 본다 — 대소문자가 갈린 두 계정에 서로 다른 비번이
+       *       걸려 있을 수 있어서다(그 경우 한쪽이 잠기면 안 된다). 비번 해시는 SHA-256
+       *       한 번이라(hashPassword) 몇 개를 대 봐도 부담이 없다.
+       *    ⚠️ «계정이 없다»(→ 옛 LMS 폴백) 와 «있는데 비번이 틀리다»(→ 401) 의 구분은
+       *       그대로 지킨다. 후보가 하나라도 있으면 폴백하지 않는다 —
+       *       그래야 새 계정이 더 생기지 않는다(이 고침의 목적).
+       *  ⛔ 스키마를 COLLATE NOCASE 로 바꾸는 방식은 쓰지 않았다. 이미 대소문자만 다른 행이
+       *     실재해서 UNIQUE 제약에 걸리고, 표를 다시 만들어야 한다(운영 DB 라 반경이 크다). */
+      const cands = await env.DB.prepare(
+        `SELECT username, password_hash FROM admin_account
+          WHERE username = ? COLLATE NOCASE
+          ORDER BY (username = ?) DESC, id ASC LIMIT 5`
+      ).bind(username, username).all<{ username: string; password_hash: string }>();
+      const candRows = (cands?.results || []) as { username: string; password_hash: string }[];
+      let row: { username: string; password_hash: string } | null = null;
+      for (const c of candRows) {
+        if (await verifyPassword(password, c.password_hash)) { row = c; break; }
+      }
+      /* 🪪 이후 모든 조회·기록은 **DB 에 적힌 그대로의 아이디**를 쓴다(입력값이 아니라).
+         세션·2FA·스코프·연결표가 전부 username 을 열쇠로 쓰므로, 여기서 통일하지 않으면
+         대소문자가 갈린 채로 아래로 흘러 같은 문제가 다시 생긴다. */
+      const acctUser = row ? String(row.username) : (candRows[0] ? String(candRows[0].username) : username);
 
       // 🧑‍🏫 (2026-07-27 사장님 지시) 강사 "기존 아이디·비밀번호" 통과 인증 + 최초 로그인 자동 이관.
       //   새 시스템에 계정이 **없을 때만** 옛 카페24 LMS 로 대신 로그인해 보고, 통과하면
@@ -618,6 +650,11 @@ export async function handleAdminAuthApi(
       //   두 번째 로그인부터는 이 블록을 타지 않는다(계정이 생겼으므로) = 옛 서버 의존 1회뿐.
       //   ⚠️ 이미 계정이 있는데 비번이 틀린 경우는 폴백하지 않는다 — 새 시스템에서 비번을
       //      바꾼 사람이 옛 비번으로 다시 들어가지는 못해야 하기 때문(비번 변경이 무의미해짐).
+      if (!row && candRows.length) {
+        // 계정은 있다(대소문자 무시). 비번만 틀렸으므로 옛 LMS 로 폴백하지 않는다.
+        await recordLogin(env, acctUser, ip, ua, false, 'wrong_password');
+        return json({ ok: false, error: 'invalid_credentials' }, 401);
+      }
       if (!row) {
         if (!legacyLoginEnabled(env as any)) {
           await recordLogin(env, username, ip, ua, false, 'unknown_user');
@@ -639,13 +676,8 @@ export async function handleAdminAuthApi(
           return json({ ok: false, error: 'provision_failed', message: '계정 생성 중 오류가 발생했습니다. 관리자에게 문의해 주세요.', message_en: 'Could not create your account. Please contact the office.' }, 500);
         }
         console.log(`[auth-admin] 옛 LMS 통과 인증 → 강사 계정 자동 생성: ${username} (명부매칭=${info.matched})`);
-      } else {
-        const passOk = await verifyPassword(password, row.password_hash);
-        if (!passOk) {
-          await recordLogin(env, username, ip, ua, false, 'wrong_password');
-          return json({ ok: false, error: 'invalid_credentials' }, 401);
-        }
       }
+      // (비밀번호 검증은 위 후보 루프에서 이미 끝났다 — 여기서 다시 하지 않는다)
 
       // 🔐 2단계 인증(2FA): 이 계정이 2FA 를 켰다면 비번 통과만으로는 로그인 불가.
       //   비번은 맞았지만 코드가 없으면 need_2fa 로 '코드 입력 단계'를 요청(실패로 기록 안 함).
@@ -657,7 +689,7 @@ export async function handleAdminAuthApi(
       const twoFaDisabled = String((env as any).ADMIN_2FA_DISABLED || '').toLowerCase() === 'true';
       const twofa = twoFaDisabled ? null : await env.DB.prepare(
         `SELECT secret, enabled FROM admin_2fa WHERE username = ? LIMIT 1`
-      ).bind(username).first<{ secret: string; enabled: number }>();
+      ).bind(acctUser).first<{ secret: string; enabled: number }>();
       if (twofa && twofa.enabled) {
         const code = String(body?.code || body?.otp || '').trim();
         if (!code) {
@@ -665,7 +697,7 @@ export async function handleAdminAuthApi(
         }
         const codeOk = await verifyTOTP(twofa.secret, code, Date.now());
         if (!codeOk) {
-          await recordLogin(env, username, ip, ua, false, 'wrong_2fa');
+          await recordLogin(env, acctUser, ip, ua, false, 'wrong_2fa');
           return json({ ok: false, error: 'invalid_2fa', message: '인증 코드가 올바르지 않습니다.' }, 401);
         }
       }
@@ -676,7 +708,7 @@ export async function handleAdminAuthApi(
       await env.DB.prepare(
         `INSERT INTO admin_sessions (token, username, ip, user_agent, created_at, expires_at, last_seen_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(token, username, ip, ua, now, now + ttl, now).run();
+      ).bind(token, acctUser, ip, ua, now, now + ttl, now).run();
 
       // 🔔 로그인 알림(2026-07-10): 이 계정+IP 조합의 '이전 성공 로그인'이 하나도 없으면
       //   = 낯선 기기/장소에서의 첫 로그인 → 사장님 폰(OWNER_ALERT_PHONE)으로 문자.
@@ -684,19 +716,19 @@ export async function handleAdminAuthApi(
       try {
         const prior = await env.DB.prepare(
           `SELECT COUNT(*) AS n FROM admin_login_history WHERE username = ? AND ip = ? AND success = 1`
-        ).bind(username, ip).first<{ n: number }>();
+        ).bind(acctUser, ip).first<{ n: number }>();
         if ((prior?.n || 0) === 0) {
           const anyEnv = env as any;
           const toPhone = anyEnv.OWNER_ALERT_PHONE;
           if (toPhone) {
             const kst = new Date(now + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
-            const text = `[망고아이] 관리자 로그인 알림\n계정: ${username}\n시간: ${kst} (KST)\nIP: ${ip || '알수없음'}\n본인이 아니면 즉시 비밀번호를 변경하세요.`;
+            const text = `[망고아이] 관리자 로그인 알림\n계정: ${acctUser}\n시간: ${kst} (KST)\nIP: ${ip || '알수없음'}\n본인이 아니면 즉시 비밀번호를 변경하세요.`;
             await sendPlainSms(anyEnv, toPhone, text);
           }
         }
       } catch (e) { console.warn('[auth-admin] login alert:', (e as any)?.message); }
 
-      await recordLogin(env, username, ip, ua, true, null);
+      await recordLogin(env, acctUser, ip, ua, true, null);
 
       // 🪪 로그인 성공 시 서버가 권위 있는 역할을 판정해 응답에 실어 보낸다(2026-07-05).
       //   기존엔 login.html 이 아이디 접두사(hq_t_*)만으로 역할을 '추측'해서, 접두사가 없는
@@ -707,11 +739,11 @@ export async function handleAdminAuthApi(
       let acctNationality = '';
       let scopeType = 'none';
       try {
-        const acc = await env.DB.prepare(`SELECT name, pref_lang, nationality FROM admin_account WHERE username = ? LIMIT 1`).bind(username).first<{ name: string; pref_lang: string; nationality: string }>();
+        const acc = await env.DB.prepare(`SELECT name, pref_lang, nationality FROM admin_account WHERE username = ? LIMIT 1`).bind(acctUser).first<{ name: string; pref_lang: string; nationality: string }>();
         acctName = acc?.name || '';
         acctPrefLang = String(acc?.pref_lang || '').toLowerCase();
         acctNationality = String(acc?.nationality || '').trim().toUpperCase();
-        const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(username).first<{ scope_type: string }>();
+        const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(acctUser).first<{ scope_type: string }>();
         if (sc?.scope_type) scopeType = sc.scope_type;
       } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
 
@@ -730,11 +762,11 @@ export async function handleAdminAuthApi(
           if (nat) {
             acctNationality = nat;
             await env.DB.prepare(`UPDATE admin_account SET nationality = ?, updated_at = ? WHERE username = ?`)
-              .bind(nat, now, username).run();
+              .bind(nat, now, acctUser).run();
           }
         } catch (e) { console.warn('[auth-admin] nationality from teacher_profiles:', (e as any)?.message); }
       }
-      const rr = resolveRole(scopeType, username, acctName);
+      const rr = resolveRole(scopeType, acctUser, acctName);
       const isTeacher = rr.role === 'teacher';
 
       // 🌏 (2026-07-23 사장님 지시) **국적으로 언어를 정한다** — 한국인은 한국어, 외국인은 모두 영어.
@@ -749,9 +781,9 @@ export async function handleAdminAuthApi(
       //   한국어 화면에 갇히지 않도록 남겨 둔다(읽지 못하는 언어로 갇히면 스스로 못 되돌린다).
       //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
       //   ※ 이름 칸에 **직함이 섞여 있다**(`Maimai (본사 매니저)`). 괄호 이후를 잘라 사람 이름만 본다.
-      const isForeignStaffId = /^(hq_t|mangoi_)/i.test(username);
+      const isForeignStaffId = /^(hq_t|mangoi_)/i.test(acctUser);
       const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
-      const namedOk = !!baseName && baseName !== username;
+      const namedOk = !!baseName && baseName !== acctUser;
       const prefLang: 'en' | 'ko' =
         (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
         : acctNationality ? (acctNationality === 'KR' ? 'ko' : 'en')
@@ -771,19 +803,21 @@ export async function handleAdminAuthApi(
       const homePath =
         isTeacher ? '/teacher'
         : (rr.role === 'branch' || rr.role === 'agency') ? '/manager'
-        : PH_MANAGERS.indexOf(username) >= 0 ? '/manager'
+        : PH_MANAGERS.indexOf(acctUser) >= 0 ? '/manager'
         : '/admin.html';
 
       return json(
         {
-          ok: true, username, expires_at: now + ttl, redirect: '/admin.html',
+          /* 🔤 (2026-08-24) 화면에는 **DB 에 적힌 그대로의 아이디**를 돌려준다 —
+             입력한 대소문자를 그대로 주면 화면·저장값이 계정과 어긋난 채로 남는다. */
+          ok: true, username: acctUser, expires_at: now + ttl, redirect: '/admin.html',
           home_path: homePath,   // 🏠 화면은 next 가 없을 때 이 값으로 간다
-          name: acctName || username,
+          name: acctName || acctUser,
           server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
           // 🪪 (2026-08-09) 화면 어휘의 완전한 신원 — 이제 화면은 «추측하지 않는다».
           //   login.html:216 이 지적한 두 가지 결핍(hq_exec/hq_mgr 구분 · branch_id/agency_id 부재)을
           //   여기서 채운다. 접두사 규칙의 정본은 resolveUiIdentity() 하나뿐이다.
-          ...(() => { const ui = resolveUiIdentity(username, acctName, isTeacher);
+          ...(() => { const ui = resolveUiIdentity(acctUser, acctName, isTeacher);
             return { ui_role: ui.ui_role, branch_id: ui.branch_id, agency_id: ui.agency_id, display_name: ui.display_name }; })(),
           pref_lang: prefLang, nationality: acctNationality || null,
         },
@@ -1125,12 +1159,19 @@ export async function handleAdminAuthApi(
                    '강사 화면으로 보냅니다. 이름을 바꾸거나 직급을 교사로 선택하세요.' }, 400);
       }
 
+      /* 🔤 (2026-08-24) 중복 검사도 **대소문자를 무시**한다 — 로그인이 무시하므로
+         `mangoi_167` 이 있는데 `Mangoi_167` 을 새로 만들면 «둘 중 아무나 열리는» 계정이 된다.
+         무엇과 부딪혔는지 그대로 알려 준다(대소문자만 다르면 사람이 눈으로 못 찾는다). */
       const dup = await env.DB.prepare(
-        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
+        `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`
       ).bind(username).first<{ username: string }>();
       if (dup) {
+        const sameWord = String(dup.username) !== username;
         return json({ ok: false, error: 'already_exists',
-          message: '이미 있는 아이디입니다. 다른 아이디를 쓰세요.' }, 409);
+          message: sameWord
+            ? `이미 «${dup.username}» 가 있습니다(대소문자만 다릅니다). 로그인은 대소문자를 구분하지 않으니 다른 아이디를 쓰세요.`
+            : '이미 있는 아이디입니다. 다른 아이디를 쓰세요.',
+          existing: dup.username }, 409);
       }
 
       // 임시 비번 — 사람이 옮겨 적을 수 있게 헷갈리는 글자(0/O, 1/l/I)를 뺀다.
