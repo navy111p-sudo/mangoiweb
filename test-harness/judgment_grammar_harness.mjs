@@ -69,7 +69,8 @@ console.log('\n[ C. 교정(검증) 프롬프트 계약 ]');
 
 console.log('\n[ D. 생성기가 규칙을 넣고, 결과를 검사해 다시 뽑는가 ]');
 {
-  check('생성 프롬프트에 품질 규칙이 들어간다', /\$\{qualityLine\}/.test(SRVJ) && /const qualityLine = englishQualityRules\(allowBroken\)/.test(SRVJ));
+  // 2026-08-24: 성인 카테고리가 추가되며 englishQualityRules 가 나이대 인자를 받는다(judgment_agegroup_harness.mjs 참고).
+  check('생성 프롬프트에 품질 규칙이 들어간다', /\$\{qualityLine\}/.test(SRVJ) && /const qualityLine = englishQualityRules\(allowBroken, ageGroup\)/.test(SRVJ));
   // ★ 지시만으로는 안 지켜집니다 — 결과를 실제로 검사하고 어긋나면 다시 뽑아야 합니다(단어 수 검사와 같은 원칙)
   check('생성 결과를 문법 검사해 어긋나면 다시 뽑는다', /attempt < 3 && !\(await englishLooksCorrect\(/.test(SRVJ));
   check('끝까지 안 맞으면 그래도 문제를 준다(마지막 시도는 수용)', /attempt < 3 && !\(await englishLooksCorrect/.test(SRVJ),

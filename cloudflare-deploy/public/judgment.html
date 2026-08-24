@@ -451,7 +451,7 @@
   // ⚡ 다음 문제 선(先)생성 — 문제는 AI가 만들어 몇 초 걸립니다. 학생이 지금 문제를 푸는 동안
   //    다음 문제를 미리 받아두면 "다음 문제 →"가 즉시 뜹니다. (요청은 항상 1문제 앞서기만 함)
   var prefetch = null, prefetchDone = false;
-  function requestScenario(focusMisc, nudge, setBand, mode, probeBand, src){
+  function requestScenario(focusMisc, nudge, setBand, mode, probeBand, src, ageGroup){
     var body = {uid:UID, lang:'en', textbook:TEXTBOOK};
     if(focusMisc) body.focus_misconception = focusMisc;
     // 🎚️ 읽기 난이도 조정 — 서버가 밴드를 옮긴 뒤 그 밴드로 문제를 만들어 돌려줍니다.
@@ -461,6 +461,7 @@
     if(mode) body.band_mode = mode;           // 'auto'(AI가 조절) / 'manual'(고른 자리 유지)
     if(probeBand) body.probe_band = probeBand; // 레벨 찾기 — 저장값은 안 건드리고 이 밴드로만 출제
     if(src) body.band_src = src;              // 밴드를 누가 정했는지 기록('placement')
+    if(ageGroup) body.age_group = ageGroup;    // 🧑‍🎓 누구를 위한 문제인가('child'/'adult') — 실력과 독립인 축
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
       body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
@@ -477,6 +478,8 @@
   //   이름·설명은 서버(judgment-level.ts)가 단일 출처입니다. 화면에 하드코딩하지 않아
   //   범주를 손볼 때 서버 한 곳만 고치면 됩니다.
   var BAND_CATALOG = null, CUR_BAND = 0, CUR_MODE = 'auto';
+  // 🧑‍🎓 누구를 위한 문제인가 — 실력(CUR_BAND/CUR_MODE)과 독립인 축. 기본은 'child'(지금까지의 전부).
+  var CUR_AGE = 'child';
   // 방금 'AI가 맞춰줄게요'로 바꾼 경우에만 안내 한 줄을 띄우기 위한 표시(다음 문제부터는 안 띄움)
   var MODE_JUST_SET = false;
   function captureBand(d){
@@ -484,6 +487,7 @@
     if(Array.isArray(d.band_catalog) && d.band_catalog.length) BAND_CATALOG = d.band_catalog;
     if(d.reading_band) CUR_BAND = Number(d.reading_band)||0;
     if(d.band_mode) CUR_MODE = (d.band_mode==='manual') ? 'manual' : 'auto';
+    if(d.age_group) CUR_AGE = (d.age_group==='adult') ? 'adult' : 'child';
   }
   function bandText(b, key){
     // key: 이름(n) / 설명(d) — 화면 언어에 맞춰 고릅니다
@@ -608,6 +612,27 @@
     }).join('');
     // 🎚️ 누가 난이도를 정할지 — 두 가지 중 하나. 지금 켜진 쪽에 표시가 붙습니다.
     var onChip = '<span class="lvm-on">'+T('지금','on','当前')+'</span>';
+    // 🧑‍🎓 누구를 위한 문제인가 — 밴드(실력)와는 완전히 다른 축이라 별도 줄로. 캐릭터·게임 연출은 그대로 두고
+    //    문제 소재·말투만 바뀝니다(2026-08-24 제안서). data-g 를 쓰고 data-m 은 안 씁니다 — 아래 모드 버튼 핸들러와
+    //    같은 .lvm-btn 클래스를 재사용하지만 서로 다른 속성으로 갈라야 두 핸들러가 안 겹칩니다.
+    var ageToggle =
+      '<div class="lvp-sub" style="margin-top:0">'+T('누구를 위한 문제인가요?','Who is this for?','谁在做题？')+'</div>'+
+      '<div class="lvm">'+
+        '<button type="button" class="lva-btn lvm-btn'+(CUR_AGE!=='adult'?' cur':'')+'" data-g="child">'+
+          '<span class="lvm-ic">🧑‍🎓</span>'+
+          '<span class="lvm-t">'+T('학생 (기본)','Student (default)','学生（默认）')+(CUR_AGE!=='adult'?onChip:'')+'</span>'+
+          '<span class="lvm-d">'+T('학교·친구 같은 일상 소재로 문제를 만들어요.',
+                                   'Uses everyday school and friend situations.',
+                                   '以学校、朋友等日常情境出题。')+'</span>'+
+        '</button>'+
+        '<button type="button" class="lva-btn lvm-btn'+(CUR_AGE==='adult'?' cur':'')+'" data-g="adult">'+
+          '<span class="lvm-ic">🧑‍💼</span>'+
+          '<span class="lvm-t">'+T('성인','Adult','成人')+(CUR_AGE==='adult'?onChip:'')+'</span>'+
+          '<span class="lvm-d">'+T('직장·일상 같은 성인 상황으로 문제를 만들어요.',
+                                   'Uses workplace and everyday adult situations.',
+                                   '以职场、日常等成人情境出题。')+'</span>'+
+        '</button>'+
+      '</div>';
     var modes =
       '<div class="lvm">'+
         '<button type="button" class="lvm-btn'+(CUR_MODE==='auto'?' cur':'')+'" data-m="auto">'+
@@ -630,6 +655,7 @@
       '<div class="hint">'+T('둘 중 하나를 고르세요. 언제든 다시 바꿀 수 있어요.',
                              'Pick one of the two. You can change it anytime.',
                              '二选一，随时可以再改。')+'</div>'+
+      ageToggle+
       modes+
       // 🎯 어느 쪽을 고르든, 출발점을 모르겠으면 여기서 찾습니다
       '<button type="button" class="pl-cta" id="plStart">'+
@@ -646,17 +672,27 @@
       '<div class="lvp-list">'+items+'</div>'+
       '<button class="btn ghost" id="lvpClose">'+T('그냥 계속하기','Keep going','继续做题')+'</button>';
     reEnter();
-    Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn'), function(el){
+    // data-m 이 있는 것만 — 아래 나이대 토글(.lva-btn)도 같은 .lvm-btn 스타일을 재사용하지만
+    // data-g 를 쓰므로, 여기서 걸러 두 핸들러가 서로의 버튼을 잘못 집지 않게 합니다.
+    Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn[data-m]'), function(el){
       el.addEventListener('click', function(){
         var m = el.getAttribute('data-m');
         if(m===CUR_MODE){ if(scenario){ renderQuestion(); reEnter(); } else { loadScenario(); } return; }
-        Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn,.lvp-item'), function(x){ x.disabled = true; });
+        Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn,.lva-btn,.lvp-item'), function(x){ x.disabled = true; });
         if(m==='manual'){
           // '직접'은 어느 범주에 머물지가 있어야 뜻이 생깁니다 → 지금 범주 그대로 고정합니다.
           loadScenario(null, 0, CUR_BAND || 0, 'manual');
         } else {
           loadScenario(null, 0, 0, 'auto');
         }
+      });
+    });
+    Array.prototype.forEach.call(stage.querySelectorAll('.lva-btn'), function(el){
+      el.addEventListener('click', function(){
+        var g = el.getAttribute('data-g');
+        if(g===CUR_AGE){ if(scenario){ renderQuestion(); reEnter(); } else { loadScenario(); } return; }
+        Array.prototype.forEach.call(stage.querySelectorAll('.lvm-btn,.lva-btn,.lvp-item'), function(x){ x.disabled = true; });
+        loadScenario(null, 0, 0, null, g);
       });
     });
     Array.prototype.forEach.call(stage.querySelectorAll('.lvp-item'), function(el){
@@ -680,13 +716,14 @@
   // focusMisc 를 주면 그 오답 유형에 맞춘 문제를 새로 받습니다.
   //   미리 받아둔 문제는 '일반' 문제라 이 경우엔 쓰지 않고 버립니다.
   //   nudge(-1/+1)·setBand 도 마찬가지 — 미리 받아둔 문제는 '옮기기 전' 밴드로 만들어졌으므로 반드시 버립니다.
-  async function loadScenario(focusMisc, nudge, setBand, mode){
+  //   ageGroup 도 같은 이유 — 방금 성인/학생을 바꿨는데 옛 나이대로 미리 만들어 둔 문제를 내보내면 안 됩니다.
+  async function loadScenario(focusMisc, nudge, setBand, mode, ageGroup){
     view='q'; chosen = -1;
     MODE_JUST_SET = (mode === 'auto' && !setBand);
     var p = null, ready = false;
-    if(focusMisc || nudge || setBand || mode){
+    if(focusMisc || nudge || setBand || mode || ageGroup){
       prefetch = null; prefetchDone = false;
-      p = requestScenario(focusMisc, nudge, setBand, mode);
+      p = requestScenario(focusMisc, nudge, setBand, mode, 0, null, ageGroup);
     } else {
       p = prefetch; ready = prefetchDone;
       prefetch = null; prefetchDone = false;
@@ -698,6 +735,9 @@
       : nudge ? (nudge<0
           ? T('조금 더 쉬운 문장으로 바꾸고 있어요…','Making the sentences easier…','正在换成更简单的句子…')
           : T('조금 더 도전적인 문장으로 바꾸고 있어요…','Making the sentences harder…','正在换成更有挑战的句子…'))
+      : ageGroup ? (ageGroup==='adult'
+          ? T('성인용 문제로 바꾸고 있어요…','Switching to adult questions…','正在切换为成人题…')
+          : T('학생용 문제로 바꾸고 있어요…','Switching to student questions…','正在切换为学生题…'))
       : focusMisc
         ? T('이 유형에 맞춘 문제를 만들고 있어요…','Making a question on this type…','正在出这类题…')
         : T('맞춤 문제를 만들고 있어요…','Creating your question…','正在为你出题…'));
