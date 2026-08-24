@@ -12520,6 +12520,33 @@ window.rebuildGlobalSearchIndex = function() {
   };
 
   // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
+  const c24finEsc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+  const c24finWon = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
+  // 컬럼 정의 (kind별) — [키, 머리글(ko), 서식함수?]
+  const C24FIN_COLS = {
+    ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',c24finWon],['store','거래처'],['memo','적요'],['month','귀속월']],
+    payroll:  [['user_id','대상'],['month','월'],['base','기본급',c24finWon],['total','지급계',c24finWon],['deduction','공제계',c24finWon],['actual','실지급',c24finWon],['work_day','근무일']],
+    expenses: [['reg_date','일자'],['name','제목'],['organ','거래처'],['method','결제'],['content','내용'],['pay_date','지급일']],
+    tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',c24finWon],['tax','세액',c24finWon],['total','합계',c24finWon],['tax_type','과세']],
+    deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',c24finWon],['method','결제']],
+  };
+  const C24FIN_COLS_EN = {
+    date:'Date', acc_type:'Type', subject:'Account', money:'Amount', store:'Vendor', memo:'Memo', month:'Month',
+    user_id:'Payee', base:'Base pay', total:'Total', deduction:'Deduction', actual:'Net pay', work_day:'Work days',
+    reg_date:'Date', name:'Title', organ:'Vendor', method:'Payment', content:'Detail', pay_date:'Paid on',
+    supplier:'Supplier', receiver:'Receiver', supply:'Supply', tax:'Tax', tax_type:'Taxation',
+    center_id:'Center ID', amount:'Amount',
+  };
+  // ↕️ 숫자로 정렬할 칸 — 서식함수(₩)가 붙은 칸은 자동으로 숫자다. 여기엔 «서식은 없는데 숫자인» 칸만 적는다.
+  const C24FIN_NUMCOL = { work_day:1 };
+  // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
+  const C24FIN_NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
+  /* ↕️ 정렬 상태 (2026-08-24 사장님 지시 — 다섯 탭 표에 올림순·내림순).
+     받아 온 행을 여기 담아 두고 «다시 그리기» 만 한다 — 정렬할 때 서버를 다시 부르지 않는다.
+     dir: 1=올림순 ▲ / -1=내림순 ▼ / 0=원래 순서(서버가 준 날짜 내림차순).
+     ⚠️ 서버가 limit=1000 으로 잘라 준 목록을 정렬하는 것이다. 「제일 큰 금액」이 아니라
+        「가져온 1000건 중 제일 큰 금액」이다 — 건수 표시에 «(표시된 건 기준)» 이 붙는 이유. */
+  window._c24finSort = { kind:'', rows:[], cols:[], key:'', dir:0, en:false };
   window.c24FinLoad = async function(kind){
     const en = (window.adminLang==='en');
     const head = document.getElementById('c24fin-head');
@@ -12527,20 +12554,11 @@ window.rebuildGlobalSearchIndex = function() {
     const cnt = document.getElementById('c24fin-count');
     if (!body) return;
     document.querySelectorAll('.c24fin-tab').forEach(function(b){ b.style.background = (b.getAttribute('data-k')===kind)?'#f59e0b':'#fff'; b.style.color=(b.getAttribute('data-k')===kind)?'#fff':'#334155'; });
-    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
-    const won = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
-    // 컬럼 정의 (kind별)
-    const COLS = {
-      ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',won],['store','거래처'],['memo','적요'],['month','귀속월']],
-      payroll:  [['user_id','대상'],['month','월'],['base','기본급',won],['total','지급계',won],['deduction','공제계',won],['actual','실지급',won],['work_day','근무일']],
-      expenses: [['reg_date','일자'],['name','제목'],['organ','거래처'],['method','결제'],['content','내용'],['pay_date','지급일']],
-      tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',won],['tax','세액',won],['total','합계',won],['tax_type','과세']],
-      deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',won],['method','결제']],
-    };
-    // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
-    const NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
-    const cols = COLS[kind] || COLS.ledger;
-    head.innerHTML = '<tr>'+cols.map(function(c){ return '<th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'+esc(c[1])+'</th>'; }).join('')+'</tr>';
+    const esc = c24finEsc;
+    const cols = C24FIN_COLS[kind] || C24FIN_COLS.ledger;
+    // 탭을 바꾸면 정렬은 초기화한다(칸 이름이 탭마다 다르다).
+    window._c24finSort = { kind:kind, rows:[], cols:cols, key:'', dir:0, en:en };
+    c24FinDrawHead();
     body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'Loading…':'불러오는 중…')+'</td></tr>';
     try {
       const r = await fetch('/api/admin/finance-cafe24/'+kind+'?limit=1000', { credentials:'include' });
@@ -12554,6 +12572,7 @@ window.rebuildGlobalSearchIndex = function() {
       //       같은 화면에 「매출 ₩A」와 「총매출 ₩B」가 따로 찍히는 사고가 난다.
       var isExcl = function(row){ return !!row.excluded_from_revenue; };
       var isRev  = function(row){ return !!row.counts_as_revenue; };
+      const won = c24finWon;
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
         if (kind === 'ledger' && rows.length) {
@@ -12579,23 +12598,106 @@ window.rebuildGlobalSearchIndex = function() {
             + '</span>';
         } else { cnt.textContent = base; }
       }
-      body.innerHTML = rows.length ? rows.map(function(row){
-        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
-          var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
-          var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
-          var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
-             장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
-             합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
-        }).join('')+'</tr>';
-      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
-        +(en?'No data — the Cafe24 server has not loaded this data ('+(NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
-             :'데이터 없음 — 카페24 서버에서 이 데이터('+(NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
-        +'</td></tr>';
+      // ↕️ 정렬용으로 원본을 담아 둔다 — 이후 «머리글 누르기» 는 서버를 다시 부르지 않는다.
+      window._c24finSort.rows = rows;
+      c24FinDrawBody();
     } catch(e){
       body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#dc2626">'+(en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
     }
+  };
+
+  /* ↕️ 표 머리글 — 누르면 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다.
+     ⚠️ 머리글 글자와 화살표를 **다른 `<span>`** 에 담는다. 한 덩어리로 쓰면 i18n 사전(전체 문자열 일치)이
+        「일자」와 「일자 ▲」를 다른 말로 보게 된다 — CLAUDE.md 2장 「i18n 사전」 함정. */
+  function c24FinDrawHead(){
+    const head = document.getElementById('c24fin-head');
+    const S = window._c24finSort;
+    if (!head || !S || !S.cols) return;
+    const esc = c24finEsc;
+    head.innerHTML = '<tr>'+S.cols.map(function(c){
+      const on = (S.key === c[0] && S.dir !== 0);
+      const arrow = on ? (S.dir > 0 ? '▲' : '▼') : '⇅';
+      const label = S.en ? (C24FIN_COLS_EN[c[0]] || c[1]) : c[1];
+      const tip = S.en ? 'Sort — asc / desc / original order' : '정렬 — 올림순 / 내림순 / 원래 순서';
+      return '<th data-c="'+esc(c[0])+'" onclick="c24FinSort(\''+esc(c[0])+'\')" title="'+esc(tip)+'"'
+        + ' style="padding:9px 10px;text-align:left;border-bottom:2px solid '+(on?'#f59e0b':'#e5e7eb')+';cursor:pointer;'
+        + 'user-select:none;-webkit-user-select:none;white-space:nowrap'+(on?';color:#b45309':'')+'">'
+        + '<span>'+esc(label)+'</span>'
+        + '<span aria-hidden="true" style="margin-left:4px;font-size:10px;opacity:'+(on?'1':'0.35')+'">'+arrow+'</span>'
+        + '</th>';
+    }).join('')+'</tr>';
+  }
+
+  /* ↕️ 본문 — 정렬 상태(S.key·S.dir)를 적용해 다시 그린다.
+     ⛔ 원본 배열(S.rows)을 제자리에서 뒤집지 말 것 — «원래 순서» 로 못 돌아온다. slice() 로 사본을 만든다. */
+  function c24FinDrawBody(){
+    const body = document.getElementById('c24fin-body');
+    const S = window._c24finSort;
+    if (!body || !S || !S.cols) return;
+    const esc = c24finEsc, en = S.en, cols = S.cols, kind = S.kind;
+    let rows = S.rows || [];
+    if (S.key && S.dir !== 0){
+      const col = cols.filter(function(c){ return c[0] === S.key; })[0];
+      if (col){
+        const isNum = !!col[2] || !!C24FIN_NUMCOL[S.key];
+        const dir = S.dir;
+        rows = rows.slice().sort(function(a, b){
+          const va = a[S.key], vb = b[S.key];
+          const ea = (va == null || va === ''), eb = (vb == null || vb === '');
+          // 빈 값은 방향과 상관없이 늘 아래로 — 내림순으로 뒤집었더니 빈 칸이 맨 위를 덮는 일을 막는다.
+          if (ea && eb) return 0;
+          if (ea) return 1;
+          if (eb) return -1;
+          let r;
+          if (isNum) { r = (Number(va) || 0) - (Number(vb) || 0); }
+          else { try { r = String(va).localeCompare(String(vb), 'ko', { numeric:true, sensitivity:'base' }); }
+                 catch(e){ r = String(va) < String(vb) ? -1 : (String(va) > String(vb) ? 1 : 0); } }
+          return dir < 0 ? -r : r;
+        });
+      }
+    }
+    body.innerHTML = rows.length ? rows.map(function(row){
+      return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
+        var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
+        var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
+        var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+        /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
+           장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
+           합계에서 빼는 계산은 c24FinLoad 의 isExcl() 로 그대로 돈다. */
+        return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+      }).join('')+'</tr>';
+    }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
+      +(en?'No data — the Cafe24 server has not loaded this data ('+(C24FIN_NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
+           :'데이터 없음 — 카페24 서버에서 이 데이터('+(C24FIN_NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
+      +'</td></tr>';
+    c24FinDrawNote();
+  }
+
+  // ↕️ 지금 무엇으로 정렬돼 있는지 한 줄로 알려 준다(화살표만으로는 «내림순» 인지 말이 안 나온다).
+  function c24FinDrawNote(){
+    const note = document.getElementById('c24fin-sortnote');
+    const S = window._c24finSort;
+    if (!note || !S) return;
+    if (!S.key || S.dir === 0){
+      note.textContent = S.en ? 'Click a header to sort' : '머리글을 누르면 정렬';
+      note.style.color = '#9ca3af';
+      return;
+    }
+    const col = (S.cols||[]).filter(function(c){ return c[0] === S.key; })[0];
+    const label = col ? (S.en ? (C24FIN_COLS_EN[col[0]] || col[1]) : col[1]) : S.key;
+    note.textContent = (S.en ? 'Sorted by ' + label + ' · ' + (S.dir > 0 ? 'ascending ▲' : 'descending ▼')
+                             : '정렬: ' + label + ' · ' + (S.dir > 0 ? '올림순 ▲' : '내림순 ▼'));
+    note.style.color = '#b45309';
+  }
+
+  // ↕️ 머리글 클릭 — 같은 칸이면 올림순 → 내림순 → 원래 순서, 다른 칸이면 그 칸 올림순부터.
+  window.c24FinSort = function(key){
+    const S = window._c24finSort;
+    if (!S || !S.cols || !S.rows || !S.rows.length) return;
+    if (S.key === key) { S.dir = (S.dir === 1) ? -1 : (S.dir === -1 ? 0 : 1); if (S.dir === 0) S.key = ''; }
+    else { S.key = key; S.dir = 1; }
+    c24FinDrawHead();
+    c24FinDrawBody();
   };
 
   window.accLoadFranchise = async function(){
