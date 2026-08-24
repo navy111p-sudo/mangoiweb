@@ -131,6 +131,29 @@ PW_DIR=/tmp/pw node test-harness/manual/vc-fastentry-browser.mjs
 
 ---
 
+## feedback-menu-level-warmup-browser.mjs — 원장 검수 피드백 화면 2종 (11건)
+
+2026-08-24 이보영 학원 원장 검수(PR #445) 수정이 화면에서 실제로 동작하는지 잰다.
+**문자열 하니스로는 «숨김이 실제로 먹었나»·«늦게 생기는 목록까지 가려지나» 를 못 본다.**
+
+- A. `index.html` — 중국어 복습퀴즈가 비수강생에게 숨고(`mangoi_zh_learner`)
+  수강생에게 복귀하는가(드로어·퀵버튼·늦게 생기는 「AI와 친구하기」 목록까지),
+  전체메뉴 「레벨 테스트」 타일이 `?placement=1` 로 가는가
+- B. `judgment.html` — 「레벨 다시 재기」 상시 버튼, `?placement=1` 즉시 시작
+
+⚠️ 원장 검수 6건 중 1번(웜업 「뜻」 직역)·3~5번(판단력 훈련 문법)은 PR #443·#448 이
+각각 더 근본적인 방식(learn 모드·재검증 생성기)으로 이미 해결해서 이 PR·이 파일에서는 뺐다
+(파일명은 그대로 두었다 — 두 번 다 좁힌 «지적 2·6» 검사이므로 다시 짓지 않았다).
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/feedback-menu-level-warmup-browser.mjs
+```
+
+⏳ `js/idx-allmenu.js`(중국어 숨김·타일) · `judgment.html`(레벨 찾기 입구) ·
+`warmup.html`(뜻 번역 경로) 을 건드리면 사람이 불러야 한다.
+
+---
+
 ## 새 검사를 더할 때
 
 - 파일 이름을 `*_harness.mjs` 로 짓지 말 것 — 게이트가 물어 간다.

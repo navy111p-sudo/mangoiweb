@@ -763,9 +763,13 @@
         // 한 칸씩 옮기는 것 말고, 범주를 직접 고르고 싶은 학생·학부모를 위한 길
         (BAND_CATALOG && BAND_CATALOG.length
           ? '<button type="button" data-pick="1">🎚️ '+T('난이도 설정','Level settings','难度设置')+'</button>' : '')+
+        // 🎯 레벨 찾기 상시 입구(2026-08-24 학원장 검수) — [난이도 설정] 2단계 안쪽에만 있어
+        //    «처음엔 있었는데 다시 못 찾겠다» 는 제보. 문제 화면에 항상 보이게 꺼내 둔다.
+        '<button type="button" data-pl="1">🎯 '+T('레벨 다시 재기','Retake my level','重新测难度')+'</button>'+
       '</div>';
     Array.prototype.forEach.call(stage.querySelectorAll('.lvladj button'), function(el){
       el.addEventListener('click', function(){
+        if(el.getAttribute('data-pl')){ startPlacement(); return; }
         if(el.getAttribute('data-pick')){ showBandPicker(); return; }
         // 연타로 여러 밴드가 한꺼번에 밀리지 않도록 즉시 잠급니다(요청은 ±1 로만 해석되지만 화면도 막아 둡니다).
         Array.prototype.forEach.call(stage.querySelectorAll('.lvladj button'), function(b){ b.disabled = true; });
@@ -1022,7 +1026,11 @@
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
 
   applyStatic();
-  loadScenario();
+  // 🎯 전체메뉴 「레벨 테스트」 타일이 ?placement=1 로 들어온다 — 문제 대신 레벨 찾기부터 시작.
+  //    (기능은 전부터 있었지만 입구가 [난이도 설정] 2단계 안쪽뿐이라
+  //     «처음엔 있었는데 다시 못 찾겠다» 는 검수 피드백이 있었다. 2026-08-24)
+  if(new URLSearchParams(location.search).get('placement')==='1') startPlacement();
+  else loadScenario();
 })();
 </script>
 <!-- BUILD:20260813015745 -->
