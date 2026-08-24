@@ -151,6 +151,28 @@ console.log('\n⑤ advisory — SQL 로 읽을 수 있어야 판정에서 뺄 �
   ok(/advisory: !!Number\(e\.advisory\)/.test(apiCode), '읽을 때 0/1 을 불리언으로 되돌린다');
 }
 
+/* ── ⑥ AI 평가 초안 — «AI 는 초안, 확정은 사람» ─────────────────
+   2026-08-24 사장님 「AI 가 자동으로 평가하게」 → 초안까지만 자동으로 했다.
+   이 경계가 무너지면(AI 가 바로 저장하면) 평가 책임이 사람에게서 떠난다. */
+console.log('\n⑥ AI 평가 초안 — AI 는 초안까지, 확정은 사람이');
+{
+  const i = apiCode.indexOf("path === '/api/admin/sales/ai-eval'");
+  ok(i > 0, 'ai-eval 라우트가 있다');
+  ok(/if \(!hq\) return json\(\{ ok: false, error: 'forbidden'/.test(apiCode.slice(i, i + 300)),
+    'ai-eval 은 본사만');
+  const seg = apiCode.slice(i, i + 1200);
+  ok(!/INSERT|UPDATE|DELETE/.test(seg), 'ai-eval 은 DB 에 아무것도 쓰지 않는다 — 저장은 사람 몫');
+  ok(/clampAiScore/.test(apiCode), '점수는 서버 화이트리스트(0~5)로 자른다');
+  ok(/if \(!ev \|\| v == null \|\| isNaN\(n\)\) return \{ score: null/.test(apiCode),
+    '근거(evidence)가 없으면 점수도 버린다 — 지어낸 점수 차단');
+  ok(/나이·성별·출신/.test(api), '프롬프트가 신상 정보 사용을 금지한다');
+  ok(/금지어: 징계, 벌, 불이익/.test(api), '프롬프트가 벌·징계 어휘를 금지한다 (말투 규칙과 일치)');
+  ok(/ev_ai/.test(html) && /AI 초안 받기/.test(html), '화면에 «AI 초안 받기» 버튼이 있다');
+  ok(/el\.value===''\)/.test(html.replace(/\s/g,'')) || /el\.value===''/.test(html),
+    '사람이 이미 넣은 점수는 AI 가 덮지 않는다');
+  ok(/확정은 사장님이|확정은 사람이/.test(html), '화면이 «확정은 사람» 을 명시한다');
+}
+
 // ⚠️ 요약 형식은 러너(run.mjs)가 «숫자 + 공백 + FAIL» 을 실패로 읽으므로 «/» 로 끊는다
 console.log(`\n${fail === 0 ? '✅' : '❌'} PASS ${pass} / FAIL ${fail}\n`);
 process.exit(fail === 0 ? 0 : 1);

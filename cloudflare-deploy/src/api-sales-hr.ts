@@ -1519,6 +1519,126 @@ export const DISCIPLINE_GUARDRAILS = [
 ];
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * 🤖 AI 평가 초안 — «AI 가 초안을 쓰고, 사람이 확인하고 확정한다»
+ *
+ *   왜 «초안» 까지인가 (2026-08-24 사장님과 논의)
+ *     AI 의 강점은 사장님 말씀 그대로다 — 친분·감정이 안 들어간다. 그래서 85점은
+ *     이미 기계가 센다. 남은 15점도 AI 가 «초안» 을 쓰되 확정은 사람이 한다:
+ *     ① AI 는 자료에 없는 것(차량 관리 등)을 모르면서 아는 척 지어낼 수 있다.
+ *     ② 평가의 책임자는 법적으로 회사(사람)여야 한다 — 「AI 판정」 은 방어가 안 된다.
+ *
+ *   벤치마킹 — 학생 리포트카드가 아니라 영업 평가를 잘하는 회사들의 공통 패턴
+ *     · 근거 연결(Gong·Salesforce류): 모든 문장에 근거 숫자. 자료에 없는 주장 금지.
+ *     · 초안+서명(SAP·Workday류): AI 초안 → 사람이 고치고 확정. 신상 정보 차단.
+ *     · 코칭 구조(Lattice류): 잘한 것 → 다음에 해 볼 것 → 바로 할 행동.
+ *     · 자기 비교: 남이 아니라 지난 기간의 자기와 비교(담당자가 1명이라 더더욱).
+ *
+ *   ⚠️ 화이트리스트 원칙(parseDiaryByAI 와 동일): LLM 이 뭘 뱉든 서버가 걸러서
+ *      0~5 범위·글자수 상한을 강제한다. 점수는 근거가 없으면 null(해당없음)로 둔다.
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+const AI_EVAL_SYSTEM = [
+  '너는 영업담당자의 반기 평가 «초안» 을 쓰는 보조자다. 최종 결정은 사람이 한다.',
+  '아래 규칙을 어기면 초안 전체가 버려진다.',
+  '① 반드시 JSON 하나만 출력한다. 다른 글자는 쓰지 않는다.',
+  '② 모든 문장에 입력 자료의 숫자를 근거로 붙인다. 자료에 없는 내용은 쓰지 않는다.',
+  '③ 점수를 매길 근거 자료가 없는 항목은 점수를 null 로 둔다. 추측으로 채우지 않는다.',
+  '④ 나이·성별·출신 등 사람에 대한 정보는 판단에 쓰지 않는다. 오직 활동 기록만 본다.',
+  '⑤ 글은 한국의 15세 청소년이 읽어도 이해할 만큼 쉽게, 긍정적인 말투로 쓴다.',
+  '   금지어: 징계, 벌, 불이익, 문책, 해고, 감봉, «하지 마세요» 같은 금지형.',
+  '형식: {"reporting":{"score":0~5|null,"evidence":"근거 한 줄"},',
+  ' "vehicle":{"score":0~5|null,"evidence":"근거 한 줄"},',
+  ' "teamwork":{"score":0~5|null,"evidence":"근거 한 줄"},',
+  ' "summary":"한 줄 총평","strengths":["잘한 것(근거 숫자 포함)",..최대3],',
+  ' "improvements":["다음에 해 볼 것",..최대2],"next_actions":["바로 할 행동",..최대3],',
+  ' "data_gaps":["자료가 없어 판단하지 않은 것",..]}',
+].join('\n');
+
+/** 0~5 로 자르고 0.5 단위로 맞춘다. 근거(evidence)가 없으면 점수도 버린다. */
+function clampAiScore(v: any, evidence: any): { score: number | null; evidence: string } {
+  const ev = String(evidence || '').trim().slice(0, 200);
+  const n = Number(v);
+  if (!ev || v == null || isNaN(n)) return { score: null, evidence: ev };
+  return { score: Math.max(0, Math.min(5, Math.round(n * 2) / 2)), evidence: ev };
+}
+
+function aiStrList(v: any, max: number, len: number): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.slice(0, max).map((x) => String(x || '').trim().slice(0, len)).filter(Boolean);
+}
+
+async function aiEvaluateSales(env: SalesEnv, rep: any, range: PeriodRange): Promise<any> {
+  if (!env.AI) return { ok: false, error: 'ai_unavailable' };
+  const asOf = todayISO();
+  const auto = await computeAutoScores(env, rep, range, asOf);
+
+  // 지난 기간의 자기 자신 — 비교 대상은 남이 아니라 과거의 자기다.
+  const prevKey = previousPeriod(range.kind === 'half'
+    ? `${range.start.slice(0, 4)}-H${range.start.slice(5, 7) === '01' ? 1 : 2}`
+    : range.start.slice(0, 7));
+  const prevRange = prevKey ? parsePeriod(prevKey) : null;
+  const prevAuto = prevRange ? await computeAutoScores(env, rep, prevRange, asOf) : null;
+
+  // 활동 기록 — «그날 바로 적었나» 가 보고 성실성의 실측 근거다.
+  const acts: any = await env.DB.prepare(
+    `SELECT activity_date, kind, outcome, next_action, created_at FROM sales_activities
+      WHERE rep_id = ? AND activity_date >= ? AND activity_date <= ?
+      ORDER BY activity_date DESC LIMIT 80`
+  ).bind(rep.id, range.start, range.end).all().catch(() => ({ results: [] }));
+  const rows: any[] = acts?.results || [];
+  let sameDay = 0;
+  for (const a of rows) {
+    const c = new Date(Number(a.created_at) + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    if (c === String(a.activity_date)) sameDay++;
+  }
+  const meets: any = await env.DB.prepare(
+    `SELECT COUNT(*) AS c FROM sales_meetings WHERE rep_id = ? AND meeting_date >= ? AND meeting_date <= ?`
+  ).bind(rep.id, range.start, range.end).first().catch(() => null);
+
+  const facts = [
+    `기간: ${range.label} (${range.start} ~ ${range.end})`,
+    `자동 점수 항목:`,
+    ...auto.items.map((i: any) => `- ${i.label}: ${i.reason}`),
+    `영업일지: ${rows.length}건, 그중 그날 바로 적은 것 ${sameDay}건`,
+    `면담·점검 기록: ${Number(meets?.c || 0)}건`,
+    prevAuto ? `지난 기간 비교 — 계약 ${prevAuto.deal_count}→${auto.deal_count}곳, 학생 ${prevAuto.student_count}→${auto.student_count}명` : `지난 기간 자료 없음(첫 평가 기간)`,
+    `차량·비용 관리 자료: 시스템에 없음`,
+  ].join('\n');
+
+  for (const model of DIARY_MODELS) {
+    try {
+      const res: any = await env.AI.run(model, {
+        messages: [
+          { role: 'system', content: AI_EVAL_SYSTEM },
+          { role: 'user', content: facts },
+        ],
+        max_tokens: 900,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      });
+      const raw = String(res?.response || res?.result?.response || '').trim();
+      let p: any = null;
+      try { p = JSON.parse(raw); }
+      catch { const m = raw.match(/\{[\s\S]*\}/); p = m ? JSON.parse(m[0]) : null; }
+      if (!p) continue;
+      return {
+        ok: true, model,
+        reporting: clampAiScore(p?.reporting?.score, p?.reporting?.evidence),
+        vehicle: clampAiScore(p?.vehicle?.score, p?.vehicle?.evidence),
+        teamwork: clampAiScore(p?.teamwork?.score, p?.teamwork?.evidence),
+        summary: String(p?.summary || '').trim().slice(0, 200),
+        strengths: aiStrList(p?.strengths, 3, 200),
+        improvements: aiStrList(p?.improvements, 2, 200),
+        next_actions: aiStrList(p?.next_actions, 3, 200),
+        data_gaps: aiStrList(p?.data_gaps, 4, 120),
+        facts_used: { diary_total: rows.length, diary_same_day: sameDay, meetings: Number(meets?.c || 0) },
+      };
+    } catch { /* 다음 모델로 */ }
+  }
+  return { ok: false, error: 'ai_failed' };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * 권한 헬퍼
  * ═════════════════════════════════════════════════════════════════════════ */
 
@@ -2424,6 +2544,22 @@ export async function handleSalesHrApi(
       actor.username || null, now
     ).run();
     return json({ ok: true, meeting_id: r?.meta?.last_row_id ?? null });
+  }
+
+  // ── 🤖 AI 평가 초안 (본사만) ─────────────────────────────────────
+  //   AI 는 초안까지만 쓴다. 확정(저장)은 사람이 기존 «평가 저장·확정» 버튼으로 한다.
+  //   그래서 이 API 는 DB 에 아무것도 쓰지 않는다 — 읽고 초안만 돌려준다.
+  if (path === '/api/admin/sales/ai-eval' && method === 'POST') {
+    if (!hq) return json({ ok: false, error: 'forbidden', message: '평가 초안은 본사 계정만 받을 수 있습니다.' }, 403);
+    const repId = Number(body?.rep_id || 0);
+    const range = parsePeriod(String(body?.period || ''));
+    if (!(repId > 0) || !range) return json({ ok: false, error: 'invalid' }, 400);
+    const rep = await getRep(env, repId);
+    if (!rep) return json({ ok: false, error: 'rep_not_found' }, 404);
+    const draft = await aiEvaluateSales(env, rep, range);
+    if (!draft.ok) return json({ ok: false, error: draft.error,
+      message: 'AI 초안을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 502);
+    return json({ ...draft, rep_id: repId, rep_name: rep.name, period_label: range.label });
   }
 
   return json({ ok: false, error: 'not_found', path }, 404);
