@@ -211,6 +211,10 @@ export function bandPromptLine(band: any): string {
     + `if it is under ${s.minWords} words, add concrete detail (who, where, what just happened) until it fits. `
     // 선택지에는 하한을 주지 않습니다 — 아이가 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
     + `Each OPTION must be at most ${s.maxWords} words and must stay something a child would really say. `
+    // ⚠️ 단어 수를 맞추려고 문법을 깨면 안 됩니다 — 실사고(2026-08-24): 첫걸음(선택지 5단어 이하)에서
+    //    "Want to play with me?"(6단어)가 안 들어가자 to 를 떨어뜨린 "Want play with me" 가 나갔습니다.
+    + `Even at this level, every sentence must stay complete, natural, grammatically correct English — `
+    + `never drop words like "to" or "do" to fit the word limit; pick a different shorter natural expression instead. `
     + `Grammar allowed: ${s.grammar}. `
     + `Keep the JUDGMENT itself just as challenging: the difficulty must come from how subtle the choice is, `
     + `NOT from long sentences or hard words. Never make the best option obvious just because the words are simple.`;
