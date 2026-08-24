@@ -12549,7 +12549,6 @@ window.rebuildGlobalSearchIndex = function() {
   window._c24finSort = { kind:'', rows:[], cols:[], key:'', dir:0, en:false };
   window.c24FinLoad = async function(kind){
     const en = (window.adminLang==='en');
-    const head = document.getElementById('c24fin-head');
     const body = document.getElementById('c24fin-body');
     const cnt = document.getElementById('c24fin-count');
     if (!body) return;
@@ -12575,6 +12574,12 @@ window.rebuildGlobalSearchIndex = function() {
       const won = c24finWon;
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
+        /* ⚠️ 서버가 limit=1000 에서 잘랐을 수 있다 — 그러면 정렬해서 맨 위에 온 것은
+           「제일 큰 금액」이 아니라 **「가져온 1000건 중 제일 큰 금액」** 이다.
+           정렬을 단 뒤로는 이 사실이 다섯 탭 모두에서 오해를 부르므로 탭을 가리지 않고 적는다
+           (예전에는 회계장부 탭에만 붙어 있었다). */
+        var cutTail = (rows.length >= 1000
+          ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
         if (kind === 'ledger' && rows.length) {
           var sInc = 0, sExp = 0, sExc = 0, nExc = 0;
           rows.forEach(function(row){
@@ -12588,15 +12593,15 @@ window.rebuildGlobalSearchIndex = function() {
             + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
             /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
                그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
-            + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
+            + cutTail;
         } else if (kind === 'expenses' && (d.filtered_out || 0) > 0) {
           /* 🧾 이 탭은 카페24 원본에서 «우리 것이 아닌» 지출품의서를 뺀 목록이다
              (한글 결재 · 결재라인 Joy·박상인 — 2026-08-24 사장님 지시. 정본 src/c24-expense-filter.ts).
              몇 건을 뺐는지 적어 두는 이유는 «원본과 건수가 다른 것»이 고장으로 오인되지 않게 하기 위함이다. */
           cnt.innerHTML = esc(base) + ' <span style="color:#9ca3af">· '
             + (en ? 'excluded ' + d.filtered_out + ' unrelated request(s)' : '다른 곳 지출품의 ' + d.filtered_out + '건 제외')
-            + '</span>';
-        } else { cnt.textContent = base; }
+            + '</span>' + cutTail;
+        } else { cnt.innerHTML = esc(base) + cutTail; }
       }
       // ↕️ 정렬용으로 원본을 담아 둔다 — 이후 «머리글 누르기» 는 서버를 다시 부르지 않는다.
       window._c24finSort.rows = rows;
@@ -12608,7 +12613,10 @@ window.rebuildGlobalSearchIndex = function() {
 
   /* ↕️ 표 머리글 — 누르면 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다.
      ⚠️ 머리글 글자와 화살표를 **다른 `<span>`** 에 담는다. 한 덩어리로 쓰면 i18n 사전(전체 문자열 일치)이
-        「일자」와 「일자 ▲」를 다른 말로 보게 된다 — CLAUDE.md 2장 「i18n 사전」 함정. */
+        「일자」와 「일자 ▲」를 다른 말로 보게 된다 — CLAUDE.md 2장 「i18n 사전」 함정.
+     ⚠️ «정렬 중» 강조는 **클래스(.c24fin-on)로만** 준다. 인라인 color/border 는 이 카드에서
+        화면에 안 나온다(admin-inline-c.css 8770·8793 의 !important 가 이긴다 — 실측).
+        규칙은 그 파일 맨 끝 «#card-accounting-mgmt» 블록에 있다. */
   function c24FinDrawHead(){
     const head = document.getElementById('c24fin-head');
     const S = window._c24finSort;
@@ -12619,9 +12627,10 @@ window.rebuildGlobalSearchIndex = function() {
       const arrow = on ? (S.dir > 0 ? '▲' : '▼') : '⇅';
       const label = S.en ? (C24FIN_COLS_EN[c[0]] || c[1]) : c[1];
       const tip = S.en ? 'Sort — asc / desc / original order' : '정렬 — 올림순 / 내림순 / 원래 순서';
-      return '<th data-c="'+esc(c[0])+'" onclick="c24FinSort(\''+esc(c[0])+'\')" title="'+esc(tip)+'"'
-        + ' style="padding:9px 10px;text-align:left;border-bottom:2px solid '+(on?'#f59e0b':'#e5e7eb')+';cursor:pointer;'
-        + 'user-select:none;-webkit-user-select:none;white-space:nowrap'+(on?';color:#b45309':'')+'">'
+      return '<th data-c="'+esc(c[0])+'" class="'+(on?'c24fin-on':'')+'"'
+        + ' onclick="c24FinSort(\''+esc(c[0])+'\')" title="'+esc(tip)+'"'
+        + ' style="padding:9px 10px;text-align:left;cursor:pointer;'
+        + 'user-select:none;-webkit-user-select:none;white-space:nowrap">'
         + '<span>'+esc(label)+'</span>'
         + '<span aria-hidden="true" style="margin-left:4px;font-size:10px;opacity:'+(on?'1':'0.35')+'">'+arrow+'</span>'
         + '</th>';
@@ -12673,22 +12682,40 @@ window.rebuildGlobalSearchIndex = function() {
     c24FinDrawNote();
   }
 
-  // ↕️ 지금 무엇으로 정렬돼 있는지 한 줄로 알려 준다(화살표만으로는 «내림순» 인지 말이 안 나온다).
+  /* ↕️ 지금 무엇으로 정렬돼 있는지 한 줄로 알려 준다 — 화살표만으로는 «내림순» 인지 말이 안 나오고,
+        이 화면은 색을 덮는 CSS 가 여러 겹이라 **뜻을 지고 가는 것은 이 글자**다.
+     ⚠️ `data-ko`/`data-en` 도 함께 갱신한다. 그것 없이 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다
+        (CLAUDE.md 2장 「JS 로 그린 라벨」). 여기는 아이콘이 아니라 «글자» 요소라 그 두 속성이 맞는 도구다. */
   function c24FinDrawNote(){
     const note = document.getElementById('c24fin-sortnote');
     const S = window._c24finSort;
     if (!note || !S) return;
-    if (!S.key || S.dir === 0){
-      note.textContent = S.en ? 'Click a header to sort' : '머리글을 누르면 정렬';
-      note.style.color = '#9ca3af';
-      return;
-    }
+    const put = function(ko, en, on){
+      note.setAttribute('data-ko', ko);
+      note.setAttribute('data-en', en);
+      note.textContent = S.en ? en : ko;
+      note.classList.toggle('c24fin-note-on', !!on);   // 색은 클래스로 — 인라인은 이 카드에서 진다
+    };
+    if (!S.key || S.dir === 0){ put('머리글을 누르면 정렬', 'Click a header to sort', false); return; }
     const col = (S.cols||[]).filter(function(c){ return c[0] === S.key; })[0];
-    const label = col ? (S.en ? (C24FIN_COLS_EN[col[0]] || col[1]) : col[1]) : S.key;
-    note.textContent = (S.en ? 'Sorted by ' + label + ' · ' + (S.dir > 0 ? 'ascending ▲' : 'descending ▼')
-                             : '정렬: ' + label + ' · ' + (S.dir > 0 ? '올림순 ▲' : '내림순 ▼'));
-    note.style.color = '#b45309';
+    const koLabel = col ? col[1] : S.key;
+    const enLabel = col ? (C24FIN_COLS_EN[col[0]] || col[1]) : S.key;
+    put('정렬: ' + koLabel + ' · ' + (S.dir > 0 ? '올림순 ▲' : '내림순 ▼'),
+        'Sorted by ' + enLabel + ' · ' + (S.dir > 0 ? 'ascending ▲' : 'descending ▼'), true);
   }
+
+  /* 🌐 언어를 바꾸면 머리글·안내 줄을 다시 그린다.
+     `toggleAdminLang()` 은 **새로고침 없이 DOM 만** 갈아서, JS 가 textContent 로 그린 글자는
+     안 따라온다(CLAUDE.md 2장 「JS 로 그린 라벨」). 표 내용(빈 화면 안내문)도 언어를 타므로 함께 그린다.
+     ⚠️ 서버를 다시 부르지 않는다 — 담아 둔 행을 그대로 다시 그릴 뿐이다. */
+  document.addEventListener('mangoi:lang-changed', function(ev){
+    const S = window._c24finSort;
+    if (!S || !S.cols || !S.cols.length) return;
+    const lang = (ev && ev.detail && ev.detail.lang) || window.adminLang;
+    S.en = (lang === 'en');
+    c24FinDrawHead();
+    c24FinDrawBody();
+  });
 
   // ↕️ 머리글 클릭 — 같은 칸이면 올림순 → 내림순 → 원래 순서, 다른 칸이면 그 칸 올림순부터.
   window.c24FinSort = function(key){

@@ -187,6 +187,47 @@ const headText = (page) => page.evaluate(() =>
           숫자로 재는지 확인 — 위 올림순 첫 줄이 45,000 이면 숫자 비교가 맞다. */
     check('금액은 글자가 아니라 숫자로 비교한다', asc[0] === '₩45,000' && asc[3] === '₩5,000,000', asc.join(','));
 
+    /* ── ②-2 «정렬 중» 강조가 **화면에 실제로 그려지는가** ─────────────────
+       🪤 코드에 색을 적어 두는 것과 그려지는 것은 다르다 — 이 카드에서는 인라인 style 이
+          admin-inline-c.css 의 !important(8770·8793행)에 진다. 그래서 «인라인 값» 이 아니라
+          **getComputedStyle** 로 재고, 정렬 안 한 칸과 «다른가» 까지 본다
+          (CLAUDE.md 2장 「카드 안 글자에 색을 줬는데 화면에는 흰빛으로」). */
+    console.log('\n[2-2] «정렬 중» 강조가 화면에 실제로 그려지는가');
+    await clickHead(page, 'money');                 // 다시 올림순으로
+    const paint = await page.evaluate(() => {
+      const on = document.querySelector('#c24fin-head th[data-c="money"]');
+      const off = document.querySelector('#c24fin-head th[data-c="store"]');
+      const note = document.getElementById('c24fin-sortnote');
+      const cs = el => el ? getComputedStyle(el) : null;
+      const a = cs(on), b = cs(off), n = cs(note);
+      return {
+        onColor: a.color, offColor: b.color,
+        onLabel: on.firstElementChild ? cs(on.firstElementChild).color : '',
+        onBorder: a.borderBottomColor + ' ' + a.borderBottomWidth,
+        offBorder: b.borderBottomColor + ' ' + b.borderBottomWidth,
+        noteColor: n.color, hasCls: on.classList.contains('c24fin-on'),
+      };
+    });
+    check('정렬 중인 칸에 c24fin-on 클래스', paint.hasCls);
+    check('정렬 중인 칸 글자색이 앰버(rgb(180,83,9))', paint.onColor === 'rgb(180, 83, 9)', paint.onColor);
+    check('그 안의 라벨 span 도 앰버', paint.onLabel === 'rgb(180, 83, 9)', paint.onLabel);
+    check('정렬 안 한 칸과 색이 다르다', paint.onColor !== paint.offColor, paint.onColor + ' vs ' + paint.offColor);
+    /* 🪤 굵기를 «2px» 로 못 박지 말 것 — `body{zoom:1.3}` 이라 계산값이 2 ÷ 1.3 = 1.538px 로 나온다
+          (실측). 색과 «다른 칸보다 굵다» 로 판정한다(CLAUDE.md 2장 zoom 함정의 계산값 판). */
+    const px = s => parseFloat((String(s).match(/([\d.]+)px\s*$/) || [])[1] || '0');
+    const bw = px(paint.onBorder), bwOff = px(paint.offBorder);
+    check('밑줄이 앰버색으로 굵어진다', /rgb\(245, 158, 11\)/.test(paint.onBorder) && bw > bwOff,
+      paint.onBorder + ' vs ' + paint.offBorder);
+    check('밑줄이 다른 칸과 다르다', paint.onBorder !== paint.offBorder, paint.onBorder + ' vs ' + paint.offBorder);
+    check('안내 줄도 앰버로 그려진다', paint.noteColor === 'rgb(180, 83, 9)', paint.noteColor);
+    await clickHead(page, 'money'); await clickHead(page, 'money');   // 원래 순서로 되돌림
+    const offAgain = await page.evaluate(() => {
+      const th = document.querySelector('#c24fin-head th[data-c="money"]');
+      const n = document.getElementById('c24fin-sortnote');
+      return { cls: th.classList.contains('c24fin-on'), note: n.classList.contains('c24fin-note-on') };
+    });
+    check('원래 순서로 돌리면 강조도 벗겨진다', !offAgain.cls && !offAgain.note, JSON.stringify(offAgain));
+
     /* ── ③ 글자 칸 — 거래처(한글) 정렬 ──────────────────────────────────── */
     console.log('\n[3] 거래처 — 한글 가나다 정렬');
     await clickHead(page, 'store');
@@ -248,6 +289,25 @@ const headText = (page) => page.evaluate(() =>
     await clickHead(page, 'money');
     const note2 = await page.evaluate(() => (document.getElementById('c24fin-sortnote') || {}).textContent || '');
     check('내림순이면 «내림순» 이라고 적는다', /금액/.test(note2) && /내림순/.test(note2), note2);
+
+    /* ── ⑧-2 🌐 EN — 머리글·안내 줄이 언어를 따라오는가 ────────────────────
+       🪤 `toggleAdminLang()` 은 새로고침 없이 DOM 만 간다. JS 가 textContent 로 그린 글자는
+          `mangoi:lang-changed` 를 직접 받지 않으면 안 따라온다(CLAUDE.md 2장 「JS 로 그린 라벨」). */
+    console.log('\n[8-2] 🌐 EN 으로 바꾸면 머리글·안내 줄이 따라오는가');
+    await page.evaluate(() => { if (typeof window.toggleAdminLang === 'function') window.toggleAdminLang(); });
+    await page.waitForTimeout(500);
+    const enState = await page.evaluate(() => ({
+      lang: window.adminLang,
+      head: [...document.querySelectorAll('#c24fin-head th')].map(th => th.firstElementChild.textContent),
+      note: (document.getElementById('c24fin-sortnote') || {}).textContent || '',
+    }));
+    check('EN 으로 바뀌었다', enState.lang === 'en', enState.lang);
+    check('머리글이 영어로 다시 그려진다', enState.head[0] === 'Date' && enState.head[3] === 'Amount', enState.head.join('|'));
+    check('안내 줄도 영어', /Sorted by Amount|Click a header/.test(enState.note), enState.note);
+    await page.evaluate(() => { if (typeof window.toggleAdminLang === 'function') window.toggleAdminLang(); });
+    await page.waitForTimeout(500);
+    const koBack = await page.evaluate(() => [...document.querySelectorAll('#c24fin-head th')].map(th => th.firstElementChild.textContent));
+    check('KO 로 되돌아온다', koBack[3] === '금액', koBack.join('|'));
 
     /* ── ⑨ 합계 줄(매출·지출)은 정렬해도 안 바뀐다 ───────────────────── */
     console.log('\n[9] 건수·합계 줄은 정렬과 무관');
