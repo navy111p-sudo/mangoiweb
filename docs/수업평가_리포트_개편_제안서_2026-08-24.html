@@ -1,0 +1,371 @@
+<title>망고아이 평가표 개편안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap">
+<style>
+:root{
+  --bg:#FAF7F0; --card:#FFFFFF; --ink:#2A2418; --muted:#6E6553;
+  --line:#E7DFCE; --mango:#C57F03; --mango-deep:#9A6402; --mango-soft:#FBEED3;
+  --green:#3E7C4F; --green-soft:#E7F1E9; --band2:#B4552D; --band2-soft:#F9E9E0;
+  --band3:#3F6BA5; --band3-soft:#E7EEF7; --band4:#6D5A9E; --band4-soft:#ECE8F5;
+  --star:#E3A414; --star-off:#D8D0BC; --code:#F4EFE3;
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#201B12; --card:#2B2517; --ink:#EFE8D6; --muted:#B3A98D;
+    --line:#4A4128; --mango:#F0B646; --mango-deep:#F6C866; --mango-soft:#3E3418;
+    --green:#83C795; --green-soft:#2B3A2E; --band2:#E09570; --band2-soft:#3E2C22;
+    --band3:#8FB2DE; --band3-soft:#253244; --band4:#B3A3DE; --band4-soft:#332C44;
+    --star:#F0B646; --star-off:#5A523C; --code:#352E1D;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#201B12; --card:#2B2517; --ink:#EFE8D6; --muted:#B3A98D;
+  --line:#4A4128; --mango:#F0B646; --mango-deep:#F6C866; --mango-soft:#3E3418;
+  --green:#83C795; --green-soft:#2B3A2E; --band2:#E09570; --band2-soft:#3E2C22;
+  --band3:#8FB2DE; --band3-soft:#253244; --band4:#B3A3DE; --band4-soft:#332C44;
+  --star:#F0B646; --star-off:#5A523C; --code:#352E1D;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:15px; line-height:1.8; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:880px; margin:0 auto; padding:56px 22px 90px}
+h1,h2,h3{font-family:'Gowun Batang','Noto Sans KR',serif; line-height:1.4; text-wrap:balance}
+h1{font-size:34px; font-weight:700; margin:10px 0 6px}
+h2{font-size:23px; font-weight:700; margin:64px 0 14px; padding-top:22px; border-top:1px solid var(--line)}
+h3{font-size:17px; font-weight:700; margin:30px 0 8px}
+p{margin:10px 0; max-width:70ch}
+.eyebrow{font-size:12px; font-weight:700; letter-spacing:.18em; color:var(--mango); text-transform:uppercase}
+.meta{color:var(--muted); font-size:13px; margin-bottom:2px}
+.lead{font-size:16.5px}
+strong{font-weight:700}
+a{color:var(--mango-deep)}
+ul,ol{padding-left:22px; max-width:72ch}
+li{margin:6px 0}
+.note{background:var(--mango-soft); border-radius:10px; padding:14px 18px; font-size:14px; max-width:100%}
+.tldr{
+  background:var(--card); border:1px solid var(--line); border-left:4px solid var(--mango);
+  border-radius:12px; padding:20px 24px; margin:28px 0 0;
+}
+.tldr b{color:var(--mango-deep)}
+table{border-collapse:collapse; width:100%; font-size:13.5px; font-variant-numeric:tabular-nums}
+.tblwrap{overflow-x:auto; margin:16px 0; border:1px solid var(--line); border-radius:12px; background:var(--card)}
+th,td{padding:10px 14px; text-align:left; vertical-align:top; border-top:1px solid var(--line)}
+thead th{border-top:none; background:var(--code); font-weight:700; white-space:nowrap}
+td:first-child,th:first-child{white-space:nowrap}
+.good{color:var(--green); font-weight:700}
+.bad{color:var(--band2); font-weight:700}
+.muted{color:var(--muted)}
+.pill{display:inline-block; font-size:11.5px; font-weight:700; padding:2px 10px; border-radius:999px; vertical-align:2px}
+.pill-rec{background:var(--green); color:#fff}
+.pill-band{background:var(--code); color:var(--muted)}
+
+/* ── 샘플 목업 ── */
+.samples{display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr)); gap:22px; margin:22px 0}
+.sample{background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; display:flex; flex-direction:column}
+.sample.rec{border:2px solid var(--green)}
+.s-head{padding:14px 18px 12px; border-bottom:1px solid var(--line)}
+.s-head .tag{font-size:11px; font-weight:700; letter-spacing:.14em}
+.s-head h3{margin:2px 0 0; font-size:16.5px}
+.s-head .who{font-size:12.5px; color:var(--muted); margin-top:2px}
+.s-body{padding:16px 18px 18px; display:flex; flex-direction:column; gap:12px; flex:1}
+.s-foot{padding:12px 18px 16px; border-top:1px dashed var(--line); font-size:13px}
+.s-foot b{display:block; margin-bottom:2px}
+.mock{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:14px 15px; font-size:13px}
+.mock .m-title{font-weight:700; font-size:13.5px; margin-bottom:8px}
+.m-row{display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:4px 0}
+.m-row .lbl{color:var(--ink)}
+.stars{letter-spacing:2px; white-space:nowrap; font-size:13px}
+.stars .on{color:var(--star)} .stars .off{color:var(--star-off)}
+.dots{white-space:nowrap; letter-spacing:1px}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{border:1px solid var(--line); border-radius:999px; padding:2px 11px; font-size:12px; background:var(--card); color:var(--muted)}
+.chip.on{border-color:var(--mango); background:var(--mango-soft); color:var(--ink); font-weight:500}
+.cando{list-style:none; padding:0; margin:0}
+.cando li{margin:5px 0; padding-left:24px; position:relative; line-height:1.55}
+.cando li::before{content:"☐"; position:absolute; left:2px; color:var(--muted)}
+.cando li.ck::before{content:"☑"; color:var(--green); font-weight:700}
+.face-row{display:flex; justify-content:space-between; align-items:center; gap:8px; padding:5px 0}
+.face-pick{white-space:nowrap; font-size:15px}
+.face-pick .pick{outline:2px solid var(--mango); outline-offset:2px; border-radius:50%}
+.face-pick span{margin-left:6px}
+.quote{border-left:3px solid var(--mango); padding:2px 12px; color:var(--muted); font-size:12.5px; margin:4px 0}
+.fix{font-size:12.5px}
+.fix del{color:var(--band2); text-decoration-thickness:1px}
+.fix ins{color:var(--green); text-decoration:none; font-weight:700}
+.gauge{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted)}
+.gauge .track{flex:1; height:6px; border-radius:3px; background:var(--star-off); position:relative; min-width:60px}
+.gauge .fill{position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:var(--mango)}
+.split{display:grid; grid-template-columns:1fr; gap:10px}
+@media(min-width:760px){ .sample.wide .split{grid-template-columns:1fr 1fr} }
+.sample.wide{grid-column:1 / -1}
+.why{background:var(--green-soft); border-radius:10px; padding:12px 16px; font-size:13.5px}
+.phase{display:flex; gap:14px; margin:14px 0; align-items:flex-start}
+.phase .no{flex:0 0 auto; width:30px; height:30px; border-radius:50%; background:var(--mango); color:#fff; font-weight:900; display:flex; align-items:center; justify-content:center; font-size:14px; margin-top:3px}
+.phase .bd{flex:1}
+.phase .bd b{display:block}
+.phase .bd .sub{font-size:13.5px; color:var(--muted)}
+.src{font-size:12.5px; color:var(--muted); line-height:2}
+:focus-visible{outline:2px solid var(--mango); outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ html{scroll-behavior:smooth} }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">보고제안서 · 망고아이</div>
+  <h1>학생 수업평가 리포트 개편안</h1>
+  <div class="meta">2026-08-24 · 타사 5곳 비교 조사 + 현행 시스템 진단 기반 · 평가표 샘플 5종 포함</div>
+
+  <div class="tldr">
+    <b>결론 먼저.</b> 평가표를 학년·수준별로 완전히 다르게 여러 벌 만드는 것보다,
+    <b>「뼈대(평가 축 5개)는 하나로 정형화하고, 문항의 표현과 기대 기준만 연령·수준 밴드 3개로 바꾸는」</b>
+    방식을 권합니다(아래 샘플 5). 그리고 <b>매 수업 평가는 지금처럼 가볍게, 월 1회 종합 리포트는 깊게</b> —
+    조사한 업체들이 공통으로 쓰는 이원 구조입니다. 완전 다양화(밴드마다 다른 양식)는
+    강사 부담·데이터 비교 불가능·유지보수 세 가지 이유로 권하지 않습니다.
+  </div>
+
+  <h2>1. 지금 우리 평가는 어떻게 되어 있나</h2>
+  <p>제안에 앞서 코드로 확인한 현재 상태입니다.</p>
+  <ul>
+    <li><b>강사가 쓰는 것</b> — 수업 후 「1분 수업 일지」: 영어 메모 + 상황 칩 4개(잘 말했어요 · 칭찬 많이 · 발음 연습 필요 · 숙제 미제출) + 별점 2개(<b>참여도 · 이해도</b>). AI가 한국어로 다듬어 학부모에게 문자로 나갑니다.</li>
+    <li><b>별점 2개는 기본값이 4점으로 미리 찍혀 있습니다.</b> 강사가 안 만지면 그대로 전송되므로, 사실상 대부분의 평가가 「참여도 4 · 이해도 4」로 쌓입니다. 말씀하신 «항목이 하나뿐인 것 같다»는 체감의 실체가 이것입니다 — 항목이 적고, 그마저 변별력이 없습니다.</li>
+    <li><b>그릇은 이미 더 큽니다.</b> DB와 학부모 열람 화면(eval.html)은 숙제·태도·말하기까지 5개 항목과 잘한 점·보완점·다음 목표 칸을 이미 지원합니다. 강사 화면이 2개만 쓰고 있을 뿐입니다.</li>
+    <li><b>학년 데이터</b> — 학생 명부(students_erp)에 학년(grade)·학교(school) 칸이 카페24에서 넘어옵니다(채워진 비율은 확인 필요). <b>수준(레벨) 데이터는 신규생 레벨테스트뿐</b>이고, 재학생에게는 없습니다.</li>
+    <li>나이·학년·수준이 평가 문항이나 기준에 반영되는 곳은 <b>현재 한 군데도 없습니다.</b> 7살과 중학생이 같은 두 항목, 같은 잣대로 평가됩니다 — 제기하신 문제의식이 정확합니다.</li>
+  </ul>
+
+  <h2>2. 다른 업체들은 어떻게 하나</h2>
+  <div class="tblwrap"><table>
+    <thead><tr><th>업체 / 기준</th><th>매 수업</th><th>정기 리포트</th><th>수준·연령 축</th></tr></thead>
+    <tbody>
+      <tr><td>51Talk</td><td>매 수업 강사 피드백 리포트</td><td>유닛(단원)마다 정기 평가</td><td>레벨 단계별 커리큘럼</td></tr>
+      <tr><td>Novakid</td><td>수업 후 강사 코멘트</td><td>학부모 대시보드에 어휘·문법 성장 그래프, 레벨 승급 시 인증서</td><td>커리큘럼 전체가 CEFR(국제 공통 언어 기준)에 정렬</td></tr>
+      <tr><td>Cambly Kids</td><td>수업 녹화 다시보기로 학부모가 직접 확인</td><td>가벼움</td><td>대화 노출 중심, 고정 커리큘럼 약함</td></tr>
+      <tr><td>Cambridge YLE<br><span class="muted">(국제 아동 시험)</span></td><td>—</td><td>연령대별 3단계 시험(Starters·Movers·Flyers)</td><td>Pre-A1→A2. 저연령은 합격/불합격 없이 방패 개수로 격려만</td></tr>
+      <tr><td>국내 주니어 화상영어<br><span class="muted">(튜터링 등)</span></td><td>수업 피드백</td><td>정기 리포트 제공을 상품 특징으로 내세움</td><td>초등 전문 커리큘럼</td></tr>
+    </tbody>
+  </table></div>
+  <p>공통점이 셋 보입니다.</p>
+  <ol>
+    <li><b>매 수업 피드백은 가볍게, 정기(월·유닛) 리포트는 깊게</b> — 두 층으로 나눕니다. 매 수업에 무거운 평가표를 쓰는 곳은 없습니다.</li>
+    <li><b>수준 축은 자체 발명이 아니라 CEFR 같은 공인 기준에 얹습니다</b> — 학부모에게 「우리 애가 A1이래요」라고 말할 수 있는 것 자체가 상품이 됩니다.</li>
+    <li><b>저연령은 점수가 아니라 격려·Can-do(«~를 할 수 있어요»)</b> — 유아·초등 저학년에게 숫자 점수를 주는 곳은 없습니다. Cambridge조차 이 연령대엔 불합격을 없앴습니다.</li>
+  </ol>
+
+  <h2>3. 갈림길 — 하나로 정형화? 다양하게?</h2>
+  <div class="tblwrap"><table>
+    <thead><tr><th></th><th>A안 · 단일 정형화</th><th>B안 · 완전 다양화</th><th>C안 · 뼈대 하나 + 밴드 문항 <span class="pill pill-rec">추천</span></th></tr></thead>
+    <tbody>
+      <tr><td>방식</td><td>전 학생 같은 양식, 항목만 5개로 보강</td><td>연령×수준마다 다른 양식(6~9종)</td><td>평가 축 5개는 전 학생 공통, 문항 표현·기대 기준만 3개 밴드로</td></tr>
+      <tr><td>강사 부담</td><td class="good">낮음</td><td class="bad">높음 — 학생마다 다른 양식 숙지</td><td class="good">낮음 — 화면이 밴드를 알아서 바꿔 줌</td></tr>
+      <tr><td>편파성 해소</td><td class="bad">안 됨 — 7살과 중학생 같은 잣대</td><td class="good">됨</td><td class="good">됨 — 같은 «말하기» 축이라도 밴드별 기준이 다름</td></tr>
+      <tr><td>성장 추이·비교</td><td class="good">가능</td><td class="bad">불가능 — 양식이 다르면 지난달과 비교 못 함</td><td class="good">가능 — 축이 같아서 밴드가 바뀌어도 이어짐</td></tr>
+      <tr><td>유지보수</td><td class="good">쉬움</td><td class="bad">양식 수만큼 어려움</td><td>중간 — 문항 사전 3벌 관리</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">💡 «다양하게 하면 좋지 않나»의 직관은 맞습니다 — 다만 <b>다양해야 하는 것은 양식이 아니라 문항과 기준</b>입니다.
+  양식(축)까지 다양해지면 강사는 헷갈리고, 데이터는 끊기고, 시간이 지나면 아무도 전체를 관리하지 못합니다.</p>
+
+  <h2>4. 평가표 샘플 5종</h2>
+  <p>1번은 A안, 2~4번은 B안의 연령 밴드 3종(그대로 써도 되고, C안의 «밴드별 문항»으로 흡수해도 됩니다),
+  5번이 추천안(C안)의 실제 모습입니다. 밴드 이름은 망고 성장에 빗대 <b>새싹 🌱 → 자람 🌿 → 열매 🥭</b>로 지어 보았습니다.</p>
+
+  <div class="samples">
+
+    <!-- 샘플 1 -->
+    <div class="sample">
+      <div class="s-head">
+        <div class="tag" style="color:var(--muted)">샘플 1 · A안</div>
+        <h3>표준 통합형 — 한 장으로 정형화</h3>
+        <div class="who">전 연령 공통 · 51Talk식 매수업 리포트</div>
+      </div>
+      <div class="s-body">
+        <div class="mock">
+          <div class="m-title">📋 오늘의 수업 평가 — 민준 (Teacher Rica)</div>
+          <div class="m-row"><span class="lbl">🎯 참여도</span><span class="stars"><span class="on">★★★★</span><span class="off">☆</span></span></div>
+          <div class="m-row"><span class="lbl">💡 이해도</span><span class="stars"><span class="on">★★★</span><span class="off">☆☆</span></span></div>
+          <div class="m-row"><span class="lbl">🗣 말하기</span><span class="stars"><span class="on">★★★★</span><span class="off">☆</span></span></div>
+          <div class="m-row"><span class="lbl">📚 어휘·표현</span><span class="stars"><span class="on">★★★</span><span class="off">☆☆</span></span></div>
+          <div class="m-row"><span class="lbl">📝 숙제</span><span class="stars"><span class="on">★★★★★</span></span></div>
+          <div class="quote">잘한 점 · 새 단어를 문장에 바로 써 봤어요<br>다음 목표 · 과거형으로 어제 일 말해 보기</div>
+        </div>
+      </div>
+      <div class="s-foot">
+        <b>장점</b> 단순하고, 전 학생 비교·통계가 쉽습니다. 지금 DB 그릇을 그대로 씁니다.
+        <b style="margin-top:8px">한계</b> 제기하신 문제가 그대로 남습니다 — 7살의 «말하기 3점»과 중학생의 «말하기 3점»이 같은 뜻이 아닙니다.
+      </div>
+    </div>
+
+    <!-- 샘플 2 -->
+    <div class="sample">
+      <div class="s-head">
+        <div class="tag" style="color:var(--band2)">샘플 2 · B안 — 새싹 밴드</div>
+        <h3>유아 ~ 초2 · 격려형 그림 평가</h3>
+        <div class="who">Pre-A1 · Cambridge Starters의 «불합격 없음» 원칙</div>
+      </div>
+      <div class="s-body">
+        <div class="mock">
+          <div class="m-title">🌱 오늘의 영어 놀이 — 서연</div>
+          <div class="face-row"><span class="lbl">즐겁게 참여했어요</span><span class="face-pick"><span class="pick">😄</span><span>🙂</span><span>😌</span></span></div>
+          <div class="face-row"><span class="lbl">선생님 말을 듣고 따라했어요</span><span class="face-pick"><span>😄</span><span class="pick">🙂</span><span>😌</span></span></div>
+          <div class="face-row"><span class="lbl">배운 단어를 말해 봤어요</span><span class="face-pick"><span class="pick">😄</span><span>🙂</span><span>😌</span></span></div>
+          <div style="margin-top:8px; font-weight:700; font-size:12.5px">오늘 할 수 있게 된 것</div>
+          <ul class="cando">
+            <li class="ck">인사하고 이름을 말할 수 있어요</li>
+            <li class="ck">색깔 단어 3개를 말할 수 있어요 (red, blue, yellow)</li>
+            <li>1~10까지 셀 수 있어요 <span class="muted">(다음 시간에!)</span></li>
+          </ul>
+          <div class="quote">🗣 오늘 아이가 한 말 그대로 — “I like yellow!”</div>
+        </div>
+      </div>
+      <div class="s-foot">
+        <b>포인트</b> 점수·별점이 없습니다. 3단계 얼굴 + «할 수 있게 된 것» 체크 + 아이가 실제로 말한 문장 한 줄.
+        이 연령 학부모가 원하는 것은 등수가 아니라 <b>«우리 애가 즐겁게 하고 있고, 뭔가 늘고 있다»</b>는 확인입니다.
+      </div>
+    </div>
+
+    <!-- 샘플 3 -->
+    <div class="sample">
+      <div class="s-head">
+        <div class="tag" style="color:var(--band3)">샘플 3 · B안 — 자람 밴드</div>
+        <h3>초3 ~ 초6 · 기능별 성장 평가</h3>
+        <div class="who">A1~A2 · 국내 초등 교육과정의 말하기 평가 요소 반영</div>
+      </div>
+      <div class="s-body">
+        <div class="mock">
+          <div class="m-title">🌿 오늘의 수업 평가 — 지우</div>
+          <div class="m-row"><span class="lbl">🗣 말하기 (발음·유창성)</span><span class="stars"><span class="on">★★★★</span><span class="off">☆</span></span></div>
+          <div class="m-row"><span class="lbl">👂 듣고 이해하기</span><span class="stars"><span class="on">★★★★</span><span class="off">☆</span></span></div>
+          <div class="m-row"><span class="lbl">📚 어휘·표현 쓰기</span><span class="stars"><span class="on">★★★</span><span class="off">☆☆</span></span></div>
+          <div class="m-row"><span class="lbl">✏️ 문장 만들기</span><span class="stars"><span class="on">★★★</span><span class="off">☆☆</span></span></div>
+          <div class="m-row"><span class="lbl">🎯 참여·태도</span><span class="stars"><span class="on">★★★★★</span></span></div>
+          <div style="margin-top:8px; font-weight:700; font-size:12.5px">이번 수업의 Can-do</div>
+          <ul class="cando">
+            <li class="ck">주말에 한 일을 3문장으로 말할 수 있어요</li>
+            <li class="ck">좋아하는 것과 이유를 말할 수 있어요</li>
+          </ul>
+          <div class="fix">✍️ 오늘 고친 문장 — <del>He go to school</del> → <ins>He goes to school</ins></div>
+        </div>
+      </div>
+      <div class="s-foot">
+        <b>포인트</b> «이해도» 한 덩어리를 4기능으로 쪼갭니다. 학부모가 가장 반가워하는 것은
+        별점보다 <b>«오늘 고친 문장» 한 줄</b> — 수업이 실제로 있었다는 가장 구체적인 증거입니다.
+      </div>
+    </div>
+
+    <!-- 샘플 4 -->
+    <div class="sample">
+      <div class="s-head">
+        <div class="tag" style="color:var(--band4)">샘플 4 · B안 — 열매 밴드</div>
+        <h3>중등 이상 · CEFR 눈금 평가</h3>
+        <div class="who">A2+ · 링글식 교정 노트 + 국제 기준 눈금</div>
+      </div>
+      <div class="s-body">
+        <div class="mock">
+          <div class="m-title">🥭 Lesson Review — 현우</div>
+          <div class="m-row"><span class="lbl">유창성</span><span class="gauge"><span class="track"><span class="fill" style="width:55%"></span></span><span>A2.2</span></span></div>
+          <div class="m-row"><span class="lbl">정확성(문법)</span><span class="gauge"><span class="track"><span class="fill" style="width:45%"></span></span><span>A2.1</span></span></div>
+          <div class="m-row"><span class="lbl">어휘 범위</span><span class="gauge"><span class="track"><span class="fill" style="width:55%"></span></span><span>A2.2</span></span></div>
+          <div class="m-row"><span class="lbl">발음</span><span class="gauge"><span class="track"><span class="fill" style="width:70%"></span></span><span>B1.1</span></span></div>
+          <div style="margin-top:8px; font-weight:700; font-size:12.5px">교정 노트</div>
+          <div class="fix">
+            1. <del>I am agree with you</del> → <ins>I agree with you</ins><br>
+            2. <del>more better</del> → <ins>much better</ins><br>
+            3. 발표 표현 추천 — “Let me walk you through…”
+          </div>
+          <div class="quote">다음 수업 목표 · 찬반 의견을 근거 2개와 함께 말하기</div>
+        </div>
+      </div>
+      <div class="s-foot">
+        <b>포인트</b> 별점 대신 <b>CEFR 눈금(A2.1 → A2.2 → B1.1…)</b>. «지난달 A2.1 → 이번달 A2.2»는
+        별점 4가 5가 된 것과 달리 객관적 근거가 있는 성장 서사가 되고, 그대로 마케팅 자산이 됩니다.
+      </div>
+    </div>
+
+    <!-- 샘플 5 (추천) -->
+    <div class="sample rec wide">
+      <div class="s-head">
+        <div class="tag" style="color:var(--green)">샘플 5 · C안 <span class="pill pill-rec">추천</span></div>
+        <h3>한 뼈대 · 밴드별 문항 — 매 수업은 가볍게, 월간은 깊게</h3>
+        <div class="who">축 5개(참여·이해·말하기·어휘·숙제)는 전 밴드 공통 · 문항 표현과 기대 기준만 밴드별 · Novakid + YLE 구조</div>
+      </div>
+      <div class="s-body">
+        <div class="split">
+          <div class="mock">
+            <div class="m-title">① 매 수업 — 지금의 1분 일지 그대로, 칩만 밴드별로</div>
+            <div style="font-size:12px; color:var(--muted); margin-bottom:6px">자람 밴드(초3~6) 강사 화면 칩</div>
+            <div class="chips">
+              <span class="chip on">문장으로 대답했어요</span>
+              <span class="chip on">새 표현을 바로 썼어요</span>
+              <span class="chip">발음 연습이 필요해요</span>
+              <span class="chip">듣고 이해를 어려워했어요</span>
+              <span class="chip on">숙제를 다 해왔어요</span>
+              <span class="chip">집중이 어려운 날이었어요</span>
+            </div>
+            <div style="font-size:12px; color:var(--muted); margin:10px 0 6px">새싹 밴드(유아~초2)라면 같은 자리의 칩이 이렇게 바뀝니다</div>
+            <div class="chips">
+              <span class="chip">즐겁게 참여했어요</span>
+              <span class="chip">단어를 따라 말했어요</span>
+              <span class="chip">한국어 도움이 아직 필요해요</span>
+            </div>
+            <div class="m-row" style="margin-top:8px"><span class="lbl">🎯 참여도</span><span class="stars"><span class="off">☆☆☆☆☆</span> <span class="muted" style="font-size:11px">← 기본값 제거, 안 고르면 «미평가»</span></span></div>
+          </div>
+          <div class="mock">
+            <div class="m-title">② 월 1회 — 종합 성장 리포트 (자동 생성)</div>
+            <div class="m-row"><span class="lbl">🗣 말하기</span><span class="dots"><span style="color:var(--mango)">●●●●</span><span style="color:var(--star-off)">○</span> <span class="good" style="font-size:11px">▲ 지난달보다</span></span></div>
+            <div class="m-row"><span class="lbl">💡 이해</span><span class="dots"><span style="color:var(--mango)">●●●</span><span style="color:var(--star-off)">○○</span> <span class="muted" style="font-size:11px">— 유지</span></span></div>
+            <div class="m-row"><span class="lbl">📚 어휘</span><span class="dots"><span style="color:var(--mango)">●●●●</span><span style="color:var(--star-off)">○</span> <span class="good" style="font-size:11px">▲</span></span></div>
+            <div style="margin-top:8px; font-weight:700; font-size:12.5px">이번 달 할 수 있게 된 것 (Can-do 4개 달성)</div>
+            <ul class="cando">
+              <li class="ck">주말에 한 일을 3문장으로 말하기</li>
+              <li class="ck">가게에서 물건 값 묻고 답하기</li>
+            </ul>
+            <div class="quote">이번 달 배운 표현 12개 · 출석 8/8 · 숙제 7/8 (자동 집계)<br>강사 종합 코멘트 + 다음 달 목표 (한국어)</div>
+          </div>
+        </div>
+        <div class="why">
+          <b>왜 이것을 추천하나</b><br>
+          ① <b>강사 부담이 늘지 않습니다.</b> 매 수업 입력은 지금과 같은 30초 — 칩 문구만 학생 밴드에 맞게 화면이 바꿔 줍니다. 필리핀 강사들이 새 양식을 외울 필요가 없습니다.<br>
+          ② <b>편파성이 해소됩니다.</b> 같은 «말하기» 축이라도 새싹 밴드는 «단어를 따라 말함», 열매 밴드는 «근거를 들어 의견을 말함»이 만점 기준 — 나이·수준에 맞는 잣대가 됩니다.<br>
+          ③ <b>데이터가 이어집니다.</b> 축이 공통이라 학생이 자라 밴드가 바뀌어도 성장 그래프가 끊기지 않고, 강사별·지사별 비교도 됩니다.<br>
+          ④ <b>지금 시스템을 최대한 재활용합니다.</b> DB 5칸·학부모 문자 발송·AI 한국어 다듬기 경로가 모두 이미 있습니다. 새로 짓는 것은 «밴드 배정»과 «월간 리포트 조립»뿐입니다.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>5. 밴드는 어떻게 정하나</h2>
+  <ul>
+    <li><b>1차 자동 배정</b> — 명부의 학년(grade)으로: 유아~초2 = 새싹, 초3~6 = 자람, 중등 이상 = 열매. 신규생은 레벨테스트 결과가 있으면 그것을 우선.</li>
+    <li><b>강사 확정</b> — 첫 수업에서 강사가 한 번 확인·조정합니다(초5인데 실력은 새싹일 수 있고, 그 반대도 있습니다). <b>자동 추정만 믿지 않는 것</b>이 핵심입니다 — 학년 데이터가 비어 있거나 틀린 학생이 있을 수 있습니다.</li>
+    <li>밴드는 학생 프로필에 저장하고, 관리자 화면에서 언제든 정정할 수 있게 합니다.</li>
+  </ul>
+
+  <h2>6. 도입 순서 제안</h2>
+  <div class="phase"><div class="no">0</div><div class="bd"><b>데이터 확인 (읽기만)</b><span class="sub">학년(grade) 채움 비율, 기존 별점 분포(정말 4점에 몰려 있는지)를 SELECT로 확인 — 제안의 전제를 숫자로 검증합니다.</span></div></div>
+  <div class="phase"><div class="no">1</div><div class="bd"><b>즉시 가능한 작은 수리</b><span class="sub">별점 기본값 4 제거(안 고르면 «미평가»로 저장) + 이미 DB에 있는 말하기·숙제·태도 항목을 강사 화면에 노출. 변별력 문제의 절반이 이것만으로 풀립니다.</span></div></div>
+  <div class="phase"><div class="no">2</div><div class="bd"><b>밴드 도입</b><span class="sub">학생별 밴드 배정(자동+강사 확정) → 강사 화면의 칩·문항 문구가 밴드를 따라가게. 새싹 밴드는 별점을 얼굴 3단계로 표시 전환.</span></div></div>
+  <div class="phase"><div class="no">3</div><div class="bd"><b>월간 종합 리포트</b><span class="sub">한 달치 평가·출석·숙제·배운 표현을 자동 조립 + 강사 종합 코멘트 한 단락 → 기존 알림톡 경로로 발송. Can-do 누적과 CEFR 눈금은 여기서부터.</span></div></div>
+
+  <h2>7. 유의할 점</h2>
+  <ul>
+    <li><b>강사 입력 시간 상한을 지켜야 합니다.</b> 매 수업 30초를 넘기는 순간 형식적으로 찍게 되고, 그러면 항목이 몇 개든 다시 «전부 4점»이 됩니다. 문항을 늘리고 싶은 유혹은 전부 월간 리포트 쪽으로 보내는 것이 원칙입니다.</li>
+    <li><b>평가 데이터는 급여·공제 판정에도 연결되어 있습니다</b>(수업일지 작성 여부). 양식을 바꿀 때 그 배선을 함께 확인해야 합니다.</li>
+    <li><b>학부모 발송 경로가 두 갈래</b>(수업일지 / AI 초안 승인)라 월간 리포트를 더할 때 이중 발송이 나지 않게 설계해야 합니다.</li>
+    <li>CEFR 눈금(샘플 4)은 강사 교육 없이 붙이면 강사마다 잣대가 달라집니다 — 밴드별 기준표(어떤 수행이 A2.2인지)를 한 장으로 만들어 강사에게 배포한 뒤에 켜는 것이 안전합니다.</li>
+  </ul>
+
+  <h2>참고한 자료</h2>
+  <p class="src">
+    <a href="https://www.novakidschool.com/blog/does-novakid-offer-progress-reports/">Novakid — 학부모 진도 리포트 안내</a> ·
+    <a href="https://www.novakidschool.com/cefr/">Novakid — CEFR 레벨 가이드</a> ·
+    <a href="https://www.51talk.com/articles/top-online-english-learning-platforms-for-children%EF%BC%9A51talk-vipkid-cambly-kids-novakid-more/">51Talk — 플랫폼 비교(수업 구조·피드백 리포트)</a> ·
+    <a href="https://www.cambridgeenglish.org/Images/461823-young-learners-revision-publication.pdf">Cambridge — Pre-A1 Starters·Movers·Flyers 평가 체계</a> ·
+    <a href="https://www.cambly.com/kids?lang=en">Cambly Kids</a> ·
+    <a href="https://junior.tutoring.co.kr/">튜터링 초등</a> ·
+    <a href="https://www.kci.go.kr/kciportal/landing/article.kci?arti_id=ART003099050">국내 초등 영어 수업평가 기준 연구(KCI)</a>
+  </p>
+  <p class="meta" style="margin-top:30px">이 문서는 제안서입니다 — 코드 변경은 아직 없습니다. 방향을 정해 주시면 0·1단계부터 진행하겠습니다.</p>
+</div>
