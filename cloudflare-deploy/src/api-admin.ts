@@ -3589,6 +3589,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          자동 조인이 불가능함을 확인(잘못 매칭하면 다른 강사 사진이 나가는 사고가 됨).
          그래서 사람이 직접 확인하며 연결하는 컬럼을 둔다 — 관리자 화면 "강사 사진 연결" 탭에서 채움. */
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`); } catch {}
+      // 🔑 (2026-08-24) 로그인 아이디를 강사 프로필 화면에서 보여주려면 이 표가 있어야 한다 —
+      //   teacher_account_links(admin_account.username ↔ teachers.id, "강사 계정 연결" 카드가 채움)가
+      //   아직 한 번도 안 열렸으면 없을 수 있어 여기서도 보강한다.
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER);`); } catch {}
     };
 
     if (method === 'GET' && path === '/api/admin/teacher-profiles') {
@@ -3606,8 +3610,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
         binds.push(_tpActor.name, _tpActor.name);
       }
-      const sql = `SELECT * FROM teacher_profiles${where.length ? ' WHERE ' + where.join(' AND ') : ''}
-                   ORDER BY status='활동중' DESC, korean_name ASC`;
+      // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
+      //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
+      //   두 표에 같은 컬럼명이 없어 where 절은 그대로 써도 모호해지지 않는다.
+      const sql = `SELECT tp.*, tal.username AS login_username
+                   FROM teacher_profiles tp
+                   LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+                   ${where.length ? ' WHERE ' + where.join(' AND ') : ''}
+                   ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
         const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
         return json({ ok: true, items: rs.results || [] });
@@ -3805,7 +3815,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
       }
       if (method === 'GET') {
-        const row = await env.DB.prepare(`SELECT * FROM teacher_profiles WHERE id = ?`).bind(id).first<any>();
+        // 🔑 (2026-08-24) login_username — 위 목록 조회와 같은 조인(추측 아닌 명시적 연결만)
+        const row = await env.DB.prepare(
+          `SELECT tp.*, tal.username AS login_username
+             FROM teacher_profiles tp
+             LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+            WHERE tp.id = ?`
+        ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
         if (_tpiActor.isTeacher && !sameTeacherName(_tpiActor.name, row.korean_name) && !sameTeacherName(_tpiActor.name, row.english_name)) {
           return json({ ok: false, error: 'forbidden_teacher', message: '본인 프로필만 조회할 수 있습니다.' }, 403);

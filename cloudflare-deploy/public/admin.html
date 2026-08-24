@@ -3597,6 +3597,24 @@
                   </select>
                   <div style="font-size:10.5px;color:#9ca3af;margin-top:3px" data-ko="이 프로필의 사진·MBTI가 수강신청 화면 강사 선택에 노출되려면, 급여용 강사 계정과 연결해야 합니다. 잘못 연결하면 다른 강사 사진이 나갈 수 있으니 이름을 확인하고 고르세요." data-en="Link to the payroll teacher account so this profile's photo/MBTI shows on the enrollment screen. Double-check the name — a wrong link shows the wrong teacher's photo.">이 프로필의 사진·MBTI가 수강신청 화면 강사 선택에 노출되려면, 급여용 강사 계정과 연결해야 합니다. 잘못 연결하면 다른 강사 사진이 나갈 수 있으니 이름을 확인하고 고르세요.</div>
                 </div>
+                <!-- 🔑 (2026-08-24) 로그인 계정 — 이 화면엔 아이디/비밀번호가 아예 안 보인다는 지적으로 추가.
+                     아이디는 «강사 계정 연결» 카드가 이미 만든 연결(teacher_account_links)을 그대로 읽어 보여줄 뿐,
+                     여기서 추측하지 않는다(연결이 없으면 «연결된 로그인 계정 없음»). 비밀번호는 새로 만들지 않고
+                     기존 /api/admin/staff-password-reset(경영진·본사 관리자 전용, adm-core.js openTeacherPwReset)을
+                     그대로 재사용한다 — 아이디만 자동으로 채워 준다. 신규 등록 중(저장 전)에는 연결이 없으므로 숨긴다. -->
+                <div id="tp-login-block" style="grid-column:1/-1;display:none;margin-top:4px;padding:10px 12px;background:rgba(37,99,235,0.07);border:1px solid rgba(37,99,235,0.25);border-radius:8px">
+                  <div style="font-size:12px;font-weight:800;color:#1d4ed8;margin-bottom:6px" data-ko="🔑 로그인 계정" data-en="🔑 Login Account">🔑 로그인 계정</div>
+                  <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                    <div style="flex:1;min-width:160px">
+                      <label style="font-size:11px;color:#374151;font-weight:600" data-ko="아이디" data-en="Login ID">아이디</label>
+                      <input id="tp-login-username" type="text" readonly style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#f3f4f6;color:#111827" />
+                    </div>
+                    <button type="button" id="tp-login-pwreset-btn" onclick="window.openTeacherPwReset && openTeacherPwReset(document.getElementById('tp-name').value, document.getElementById('tp-login-username').value)"
+                            style="padding:7px 14px;font-size:12.5px;font-weight:700;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;white-space:nowrap"
+                            data-ko="🔑 비밀번호 변경" data-en="🔑 Change Password">🔑 비밀번호 변경</button>
+                  </div>
+                  <div id="tp-login-hint" style="font-size:10.5px;color:#9ca3af;margin-top:5px"></div>
+                </div>
                 <div><label style="font-size:11px;color:#374151;font-weight:600" data-ko="상태" data-en="Status">상태</label>
                   <select id="tp-status" style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
                     <option value="활동중" data-ko="🟢 활동중" data-en="🟢 Active">🟢 활동중</option>
@@ -9546,7 +9564,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=155" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=156" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+   · v=156: 2026-08-24 강사 정보 수정 화면에 「🔑 로그인 계정」 — 아이디가 안 보이고 비밀번호도
+     못 바꾼다는 지적. teacher_account_links 로 이미 연결된 아이디만 보여주고(추측 없음),
+     비밀번호 변경은 기존 /api/admin/staff-password-reset 을 그대로 재사용한다
    · v=154: 2026-08-22 대리점 목록에 「주1회 수강료」 칸 — 수강료를 정하면 본사 요율이
      18,000 ÷ 수강료 로 자동 계산된다(가맹점을 코드에 특정하지 않는다)
    · v=153: 2026-08-22 가맹점별 정산서 수수료율을 정산관리와 하나로 (하드코딩 15% 제거) + 요율 칸 추가.
