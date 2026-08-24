@@ -1919,6 +1919,11 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
+      // 🗣️ (2026-08-24) mode='learn' — 웜업·AI친구 «뜻 보기» 전용. AI 튜터의 영어 문장을
+      //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
+      //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
+      //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
          📝 mode='note' — 수업 일지 전용 (2026-08-10)
@@ -2038,7 +2043,8 @@ ${numbered}`;
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
-      const cacheKey = (t: string) => (chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl1:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -2068,10 +2074,21 @@ ${numbered}`;
       const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
       // 💬 채팅 모드 — 언어모델로 한 문장씩. 실패하면 아래 m2m100 이 그대로 받아준다.
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
+      // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
+      //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
+      const learnSys = 'You translate what an AI English tutor said in a fun pre-class warm-up chat, '
+        + 'so a young Korean student (elementary or middle school) can understand what the English means. '
+        + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
+        + 'For example, "Let\'s warm up before class" means having a light practice chat, not making anything warm. '
+        + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
+        + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
+        + 'In a school context "숙제" is school homework, never housework or a job. '
+        + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
         const to = LANG_NAME[target] || 'English';
-        const sys = 'You translate one chat message at a time for a live online English class. '
+        const chatSys = 'You translate one chat message at a time for a live online English class. '
           + 'Speakers are Korean office staff and Filipino or Chinese teachers talking about lessons, '
           + 'homework, schedules and students. Reply with ONLY the translated message. '
           + 'No quotes, no notes, no romanization, no explanation. '
@@ -2089,8 +2106,10 @@ ${numbered}`;
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: sys },
-            { role: 'user', content: `Translate this ${from} chat message into ${to}:\n${t}` },
+            { role: 'system', content: learnMode ? learnSys : chatSys },
+            { role: 'user', content: learnMode
+                ? `Translate this ${from} message into natural ${to} (free translation of the meaning):\n${t}`
+                : `Translate this ${from} chat message into ${to}:\n${t}` },
           ],
           max_tokens: 300,
         });
@@ -2099,7 +2118,9 @@ ${numbered}`;
         out = out.replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
         out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
         if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
-        out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        // 여러 줄로 떠들면 — 채팅은 첫 줄만(한 메시지 = 한 줄), learn 은 여러 문장짜리
+        // 말풍선이 있어 첫 줄만 취하면 뜻이 잘린다 → 한 줄로 이어 붙인다.
+        out = learnMode ? out.replace(/\s*\r?\n\s*/g, ' ').trim() : out.split(/\r?\n/)[0].trim();
         /* 어미 중첩 교정 — 프롬프트로 금지해도 모델이 "죄송합니다요" 를 계속 만든다.
            존댓말을 시켰더니 이미 존댓말인 -습니다/-습니까 뒤에 요를 한 번 더 붙인다.
            확률에 맡기지 말고 여기서 확정적으로 떼어낸다. */
@@ -2120,7 +2141,7 @@ ${numbered}`;
         for (const t of need) {
           try {
             let out = '';
-            if (chatMode) {
+            if (chatMode || learnMode) {
               try { out = await chatTranslate(t); }
               catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
             }
