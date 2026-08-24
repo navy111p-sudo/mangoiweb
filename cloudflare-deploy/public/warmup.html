@@ -597,13 +597,26 @@ function setSubMode(m, announce){
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
+/* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
+   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24). 주제 구간만 동적이라 패턴으로 맞춘다. */
+function curatedMeaning(text){
+  var m = String(text||'').trim().match(
+    /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
+  if(m) return '안녕하세요! 저는 망고아이 AI 친구예요 🥭 '
+    + (m[1] ? ('오늘의 주제는 "' + m[1] + '"예요. ') : '')
+    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
+  return '';
+}
 function fetchMeaning(text){
   var key = String(text||'').trim();
   if(!key) return Promise.resolve('');
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
+  var cur = curatedMeaning(key);
+  if(cur){ _koCache[key] = cur; return Promise.resolve(cur); }
   return fetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ texts:[key], target:'ko' })
+    // mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역.
+    body: JSON.stringify({ texts:[key], target:'ko', mode:'learn' })
   }).then(function(r){ return r.json(); }).then(function(d){
     var out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
     if(out) _koCache[key] = out;
