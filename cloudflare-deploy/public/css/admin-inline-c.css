@@ -9767,3 +9767,31 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
   display: inline-block; padding: 2px 8px; border-radius: 6px;
   background-color: #fef3c7 !important; color: #92400e !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ↕️ 「카페24 회계 실데이터」 표 — «지금 이 칸으로 정렬 중» 강조 (2026-08-24)
+
+   [왜 여기 있나] 이 강조를 JS 인라인 style 로 주면 **화면에 안 나옵니다.**
+   실측(1440×900, getComputedStyle): 인라인 color:#b45309 → 실제 rgb(16,24,40),
+   인라인 border-bottom:2px solid #f59e0b → 실제 0.769px rgba(15,23,42,.1).
+   이기는 규칙 두 개가 이 파일에 있습니다(테마 조건부가 아닙니다 —
+   admin.html 이 data-admin-theme="ivory"·data-admin-tone="slate" 를 무조건 박습니다):
+     · 8770행  …[id^="card-"] :is(…,span,th,…) { color:#101828 !important }
+     · 8793행  … table th { border-bottom:1px solid rgba(15,23,42,.10) !important }
+   작성자 !important 는 인라인도 이깁니다(CLAUDE.md 2장 「카드 안 글자에 색을 줬는데」).
+
+   [그래서] 클래스로 주고, **조상 id 두 개**를 앞에 붙여 이깁니다(2,1,1 / 2,1,0).
+   ⛔ 색을 JS 인라인으로 되돌리지 마세요 — 화면엔 안 나오는데 코드만 보면 나오는 줄 압니다.
+   ⛔ 이 강조가 사라져도 «무슨 정렬인지» 는 ▲▼ 기호와 안내 줄(#c24fin-sortnote)이
+      말로 지고 갑니다 — 색은 거들 뿐입니다(어두운 면에서 색이 눌리는 화면이라).
+   ═══════════════════════════════════════════════════════════════════════ */
+#card-accounting-mgmt #c24fin-head th.c24fin-on,
+#card-accounting-mgmt #c24fin-head th.c24fin-on span {
+  color: #b45309 !important;
+}
+#card-accounting-mgmt #c24fin-head th.c24fin-on {
+  border-bottom: 2px solid #f59e0b !important;
+}
+#card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
+  color: #b45309 !important; font-weight: 700 !important;
+}
