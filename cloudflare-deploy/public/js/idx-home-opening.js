@@ -5,23 +5,21 @@
  *   → 끄는 길이 둘이다. ① 화면 아무 데나 클릭·터치 ② 🔊 버튼.
  *     버튼은 «다시 듣기» 도 겸한다(꺼진 뒤 누르면 처음부터 다시 울린다).
  *
- * [무엇을 소리내나] 슈트라우스 «짜라투스트라는 이렇게 말했다» 서주 «일출» — 약 82초.
- *   (사장님이 지정하신 «처음부터 1분 20초까지»)
- *   낮은 도(C) 지속음 위로 «도–솔–도» 가 세 번 올라가고, 그때마다 단3화음이 장3화음으로
- *   열린다. 세 번째가 가장 크고 팀파니와 함께 길게 남으며 끝난다.
+ * [무엇을 소리내나] 슈트라우스 «짜라투스트라는 이렇게 말했다» 서주 «일출».
+ *   1순위 — **진짜 녹음** `/audio/zarathustra-opening.mp3` 의 3초~1분 20초 (2026-08-24 사장님 지정).
+ *     Sascha Ende 연주(filmmusic.io), 위키미디어 커먼즈의 **CC-BY 4.0** 파일.
+ *     ⚠️ CC-BY 조건 = 출처 표기. 재생 중 왼쪽 아래에 뜨는 출처 한 줄(#mgo-sound-credit)을
+ *        지우면 **라이선스 위반**이 된다. 디자인이 거슬리면 옮기되 없애지 말 것.
+ *   2순위 — 파일이 없거나 못 읽으면 아래 compose() 의 **웹오디오 합성**(약 82초)으로 폴백.
+ *     낮은 도 지속음 위로 «도–솔–도» 세 번, 단3화음 → 장3화음, 팀파니.
  *   ⛔ 반복(loop)하지 않는다. 한 번 울리고 끝이다 — 홈에 머무는 학생 폰을 계속 깨우지 않는다.
  *
- * [🔓 저작권 — 왜 이 곡은 되나] 두 가지를 갈라서 봐야 한다.
- *   ・**작곡**(1896년 작, 슈트라우스 1949년 몰) → 사후 70년이 지나 **퍼블릭 도메인**이다.
- *     그래서 «연주하는 것» 자체는 자유롭다.
- *   ・**녹음** → 완전히 별개의 권리다(실연자·음반제작자). 요즘 오케스트라 녹음은 아직 살아 있다.
- *   ⛔ 그래서 유튜브·시판 음원에서 소리를 **가져오지 않는다.** 대신 이 코드가 오실레이터로
- *      **직접 연주**한다 — «작곡은 PD, 연주는 우리 것» 이라 어느 쪽에도 걸리지 않는다.
- *   ⚠️ 진짜 오케스트라 음색을 원하면 **퍼블릭 도메인 녹음 파일**을 구해 넣으면 된다.
- *      그때는 이 합성 대신 <audio> 를 쓰고, 1~2MB 를 «소리를 켤 때만» 받도록 지연 로딩할 것.
+ * [🔓 저작권 — 무엇이 되고 무엇이 안 되나]
+ *   ・**작곡**(1896년 작, 슈트라우스 1949년 몰) → 사후 70년이 지나 **퍼블릭 도메인**.
+ *   ・**녹음** → 별개 권리. 유튜브·시판 음원은 안 되고, **CC-BY·PD 로 공개된 녹음**만 된다.
+ *     지금 파일이 그 CC-BY 녹음이다. ⛔ 다른 녹음으로 바꿀 때도 라이선스부터 확인할 것.
  *
- * [왜 파일이 아니라 «합성» 인가 — 무게]
- *   mp3 를 두면 학생 29,000명이 그 바이트를 받는다. 여기는 **음원 0바이트**다.
+ * [무게] mp3 는 **재생을 시작할 때만** 받는다(new Audio 가 그때 요청) — 첫 화면 무게 0바이트.
  *   (CLAUDE.md 2장 「index.html 에 기능을 더했는데 첫 화면 무게로 FAIL」)
  *   ⚠️ 그래서 이 파일은 반드시 defer 다. blocking 으로 옮기면 예산 하니스가 FAIL 낸다.
  *
@@ -61,6 +59,22 @@
   var finished = false;   // 이번 세션에서 할 일이 끝났음
   var startedAt = 0;      // 재생을 시작한 시각(ms) — 시작시킨 클릭이 자기를 끄지 못하게
   var START_GRACE_MS = 700;   // 한 번의 손짓이 만드는 형제 이벤트를 다 덮을 만큼
+
+  // ── 🎼 진짜 녹음 (2026-08-24 사장님 지정) ────────────────────────────────
+  // Sascha Ende — «Also Sprach Zarathustra (feat. Richard Strauss)», filmmusic.io
+  // 위키미디어 커먼즈에서 받은 CC-BY 4.0 녹음. 재생 중 왼쪽 아래에 출처 한 줄을 띄운다
+  // (CC-BY 는 «출처 표기» 가 조건이다 — 그 줄을 지우면 라이선스 위반이 된다).
+  // 지정 구간: 3초 ~ 1분 20초. 파일은 자르지 않고 «재생만» 그 구간으로 한다
+  //   (이 컨테이너의 ffmpeg 은 오디오 코덱이 없는 축소 빌드라 자르기가 불가능하고,
+  //    자를 필요도 없다 — currentTime 으로 시작점을, timeupdate 로 끝점을 잡으면 된다).
+  // ⚠️ 파일이 없거나(404)·못 읽으면 **웹오디오 합성(아래 compose)** 으로 자동 폴백한다.
+  // ⚠️ 파일은 «재생을 시작할 때만» 받는다 — 첫 화면 무게에 0바이트.
+  var AUDIO_URL   = '/audio/zarathustra-opening.mp3';
+  var AUDIO_START = 3;      // 초 — 사장님 지정 «3초부터»
+  var AUDIO_END   = 80;     // 초 — «1분 20초까지»
+  var AUDIO_VOL   = 0.85;   // 음반은 이미 마스터링돼 있어 합성(0.40)보다 높여도 안전
+  var audioEl = null;
+  var audioFailed = false;  // 한 번 실패하면 이 세션에서는 합성으로만 간다
   var btn = null;
   var endTimer = null;
 
@@ -353,6 +367,20 @@
     if (endTimer) { clearTimeout(endTimer); endTimer = null; }
     if (!playing) { if (byUser) markDone(); syncBtn(); return; }
     playing = false;
+
+    if (audioEl) {
+      // 진짜 녹음 — 0.18초 페이드아웃 후 정리
+      var a = audioEl, steps = 6, i = 0;
+      var iv = setInterval(function () {
+        i++;
+        try { a.volume = Math.max(0, a.volume * (1 - i / steps)); } catch (e) {}
+        if (i >= steps) { clearInterval(iv); if (a === audioEl) cleanupAudio(); else { try { a.pause(); } catch (e) {} } }
+      }, 30);
+      markDone();
+      syncBtn();
+      return;
+    }
+
     try {
       var now = ctx.currentTime;
       master.gain.cancelScheduledValues(now);
@@ -376,7 +404,120 @@
   }
 
   // ── 재생 ────────────────────────────────────────────────────────────────
+  // 진짜 녹음을 먼저 시도하고, 실패하면(파일 없음·재생 불가) 합성으로 폴백한다.
   function play() {
+    if (playing || blocked()) return;
+    // 🔴 시작 «절차가 진행 중» 이면(파일을 받는 중 — play() 약속이 아직 안 풀림) 또 만들지 않는다.
+    //    안 막으면 그 사이 클릭마다 Audio 가 하나씩 더 생겨 **같은 곡이 겹쳐** 울린다
+    //    (느린 회선일수록 이 창이 길다 — 헤드리스 실측으로 재현하고 막았다).
+    if (audioEl) return;
+    if (!audioFailed) { playAudio(); return; }
+    playSynth();
+  }
+
+  function cleanupAudio() {
+    var a = audioEl; audioEl = null;
+    if (!a) return;
+    try { a.pause(); } catch (e) {}
+    try { a.removeAttribute('src'); a.load(); } catch (e) {}   // 내려받기 중단
+    showCredit(false);
+  }
+
+  function finishAudio() {
+    playing = false;
+    markDone();
+    cleanupAudio();
+    syncBtn();
+  }
+
+  function playAudio() {
+    var a = null;
+    try { a = new Audio(); } catch (e) { audioFailed = true; playSynth(); return; }
+    audioEl = a;
+    a.preload = 'auto';
+    // #t=3 (미디어 프래그먼트) 로 시작점을 요청하고, 못 알아듣는 브라우저를 위해
+    // loadedmetadata 에서 한 번 더 currentTime 으로 잡는다.
+    a.src = AUDIO_URL + '#t=' + AUDIO_START;
+    a.volume = AUDIO_VOL;
+
+    a.addEventListener('loadedmetadata', function () {
+      try { if (a.currentTime < AUDIO_START - 0.5) a.currentTime = AUDIO_START; } catch (e) {}
+    });
+    a.addEventListener('timeupdate', function () {
+      if (a !== audioEl || !playing) return;
+      var t = a.currentTime;
+      if (t >= AUDIO_END) { finishAudio(); return; }
+      // 끝 2초는 페이드아웃 — 1:20 에서 «툭» 끊기지 않게
+      if (t >= AUDIO_END - 2) {
+        try { a.volume = Math.max(0, AUDIO_VOL * (AUDIO_END - t) / 2); } catch (e) {}
+      }
+    });
+    a.addEventListener('ended', function () { if (a === audioEl && playing) finishAudio(); });
+    a.addEventListener('error', function () {
+      // 소스가 깨졌다(404·디코드 실패) — 이 세션은 합성으로
+      if (a !== audioEl) return;
+      audioFailed = true;
+      var wasPlaying = playing; playing = false;
+      cleanupAudio();
+      if (!wasPlaying && !finished) playSynth();
+    });
+
+    // 🛡️ 워치독 — 내려받기가 멎어 play() 약속이 «영영 안 풀리면» 이 세션은 합성으로 간다.
+    //   안 두면 audioEl 이 잡힌 채로 남아 재생도 폴백도 없는 «무음 세션» 이 된다.
+    //   12초는 느린 회선의 정상 버퍼링을 해치지 않을 만큼 길게 잡은 값이다.
+    var watchdog = setTimeout(function () {
+      if (a !== audioEl || playing) return;
+      audioFailed = true;
+      cleanupAudio();
+      if (!finished && !blocked() && !muted()) playSynth();
+    }, 12000);
+
+    var p = null;
+    try { p = a.play(); } catch (e) { clearTimeout(watchdog); audioFailed = true; cleanupAudio(); playSynth(); return; }
+    if (p && typeof p.then === 'function') {
+      p.then(function () {
+        clearTimeout(watchdog);
+        if (a !== audioEl) return;
+        playing = true;
+        startedAt = Date.now();
+        syncBtn();
+        showCredit(true);
+      }, function () {
+        clearTimeout(watchdog);
+        if (a !== audioEl) return;
+        if (a.error) {
+          // 파일 쪽 문제 → 합성 폴백
+          audioFailed = true; cleanupAudio();
+          if (!finished) playSynth();
+        } else {
+          // 자동재생 잠김 → 정리하고 사용자 제스처를 기다린다 (onGesture 가 다시 부른다)
+          cleanupAudio();
+        }
+      });
+    } else {
+      playing = true; startedAt = Date.now(); syncBtn(); showCredit(true);
+    }
+  }
+
+  // ── ♪ 출처 표기 (CC-BY 조건) — 재생 중에만 왼쪽 아래에 작게 ─────────────
+  var creditEl = null;
+  function showCredit(on) {
+    if (!on) { if (creditEl) { try { creditEl.remove(); } catch (e) {} creditEl = null; } return; }
+    if (creditEl) return;
+    try {
+      var d = document.createElement('div');
+      d.id = 'mgo-sound-credit';
+      d.textContent = '♪ Sascha Ende — Also Sprach Zarathustra (filmmusic.io) · CC BY 4.0';
+      d.style.cssText = 'position:fixed;left:16px;bottom:116px;z-index:2147482900;' +
+        'font:11px/1.4 sans-serif;color:#fde68a;background:rgba(18,12,2,.55);' +
+        'padding:3px 9px;border-radius:999px;pointer-events:none;max-width:78vw;' +
+        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      (document.body || document.documentElement).appendChild(d);
+      creditEl = d;
+    } catch (e) {}
+  }
+
+  function playSynth() {
     if (playing || blocked()) return;
     var AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) { markDone(); return; }
@@ -608,7 +749,8 @@
     window.mangoiOpeningReplay = function () {
       try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
       setMuted(false);
-      finished = false; playing = false; startedAt = 0;
+      finished = false; playing = false; startedAt = 0; audioFailed = false;
+      cleanupAudio();
       play(); syncBtn();
     };
   } catch (e) {}
