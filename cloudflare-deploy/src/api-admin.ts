@@ -5066,11 +5066,33 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let rows: any[] = [];
       try {
         const rs: any = await env.DB.prepare(
-          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes FROM class_schedules WHERE (status IS NULL OR status='active')`
+          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes, source FROM class_schedules WHERE (status IS NULL OR status='active')`
         ).all();
         rows = rs.results || [];
       } catch (e: any) {
         return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
+      }
+
+      /* 🗓️ (2026-08-24) 「코스 기간」이 시작일=종료일(그 날 하루)로 뜨는 문제.
+         [왜] enroll-activate.ts 가 수강신청을 확정하면 6개월치 화·목 수업을
+              **회당 한 행**(schedule_kind='dated', scheduled_date=그날짜)으로 심는다
+              (INSERT ... VALUES (…'dated'…scheduled_date…)). 그래서 한 행 = 그 날 하루일 뿐,
+              등록 전체 기간이 아니다. 그런데 아래 one-off 분기가 그 한 행의 scheduled_date
+              를 그대로 start_date/end_date 로 써서, 모달에 "시작일=종료일=이 날" 로 보였다
+              (실제 6개월 신청인데 하루짜리처럼 보이는 것이 바로 이 계산).
+         [해법] 같은 신청(class_schedules.source, enroll-activate.ts 의 SRC_PREFIX+id)으로
+              생성된 행들의 scheduled_date 중 최소/최대를 실제 코스 기간으로 쓴다.
+              DB 를 새로 만들지 않는다 — 위에서 이미 다 읽어 온 rows 를 한 번 더 돈다.
+              source 가 없거나(=진짜 하루짜리 대체수업 등) 겹치는 행이 자기 하나뿐이면
+              min=max=그날 그대로라 기존 동작과 같다. */
+      const sourceRange: Record<string, { min: string; max: string }> = {};
+      for (const r of rows) {
+        const src = String(r.source || '');
+        const sd = String(r.scheduled_date || '');
+        if (!src || !sd) continue;
+        const cur = sourceRange[src];
+        if (!cur) sourceRange[src] = { min: sd, max: sd };
+        else { if (sd < cur.min) cur.min = sd; if (sd > cur.max) cur.max = sd; }
       }
 
       const items: any[] = [];
@@ -5105,7 +5127,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (kind === 'one_off' || r.scheduled_date) {
           const d = String(r.scheduled_date || '');
           if (d >= weekStartISO && d <= weekEndISO) {
-            items.push({ ...base, date: d, start_date: d, end_date: d });
+            const range = sourceRange[String(r.source || '')];
+            items.push({ ...base, date: d, start_date: range ? range.min : d, end_date: range ? range.max : d });
           }
         } else {
           const want = normDow(r.day_of_week);
