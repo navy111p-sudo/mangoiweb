@@ -60,6 +60,9 @@ function cut(re, label) {
 }
 const parts = [
   cut(/var SLOT_STEP=10;[\s\S]*?function minLabel\(startMin\)\{[^}]*\}/, '10분 격자 헬퍼'),
+  /* 🟡 (2026-08-24) hourHasSlot 이 isGhostSlot 을 쓴다 — LMS·시드 칸을 «빈 시간» 으로 세기 위해서다.
+     판정을 여기에 복제하지 않고 **화면 소스에서 그대로 뽑아** 쓴다. 복제하면 한쪽만 바뀐다. */
+  cut(/function isGhostSlot\(s\)\{[^}]*\}/, 'isGhostSlot(LMS·시드 판정)'),
   'function pad2(n){return String(n).padStart(2,"0");}',
 ];
 const sandbox = { SLOTS: {} };
@@ -91,6 +94,19 @@ if (api) {
     !!api.getSlot('t1', '2026-08-12', 19, 20));
   check('hourHasSlot: 19:40+40분이 20시에 걸치는 것을 잡는다', api.hourHasSlot('t1', '2026-08-12', 20) === true);
   check('hourHasSlot: 아무것도 없는 21시는 false', api.hourHasSlot('t1', '2026-08-12', 21) === false);
+  /* 🟡 (2026-08-24 사장님 지시) LMS·시드 «자리표시» 칸은 «빈 시간» 으로 센다.
+     [왜] 그 칸이 «찬 시간» 으로 잡히면 그 자리에 수업을 아예 못 넣는다
+          (실측: HANNAH 화요일 15~18·21시가 전부 LMS 라 배정 불가, 목요일은 21시가 비어 배정됨).
+     ⛔ 되돌리려면 데이터가 아니라 이 규칙을 되돌리는 것이다 — 행은 지우지 않았다. */
+  api.addSlot('t1', '2026-08-12', 22, { type: '1on1', duration_min: 60, origin: 'lms' }, 0);
+  check('🟡 LMS 자리표시 칸은 «빈 시간» 이다 (그 자리에 수업을 넣을 수 있다)',
+    api.hourHasSlot('t1', '2026-08-12', 22) === false);
+  api.addSlot('t1', '2026-08-12', 23, { type: '1on1', duration_min: 60, origin: 'sample' }, 0);
+  check('🟡 시드 자리표시 칸도 «빈 시간» 이다',
+    api.hourHasSlot('t1', '2026-08-12', 23) === false);
+  api.addSlot('t1', '2026-08-13', 22, { type: '1on1', duration_min: 60 }, 0);
+  check('⛔ 진짜 수업은 그대로 «찬 시간» 이다 (겹침 방어까지 풀면 안 된다)',
+    api.hourHasSlot('t1', '2026-08-13', 22) === true);
   check('minLabel 은 0 을 채운다', api.minLabel(9 * 60 + 5) === '09:05', api.minLabel(9 * 60 + 5));
 
   /* 🕐 (2026-08-17) 빈틈 0 의 근거 — 고를 수 있는 «모든» 길이가 격자의 배수여야 한다.
@@ -195,6 +211,50 @@ console.log('\n──────── 3-2. 규정 문구·격자도 함께 풀
 check('그리드의 tooSoon 도 매니저면 풀린다', /var tooSoon = !mgrOverride &&/.test(src));
 check('규정 문구가 «되는데 안 된다고 적힌» 상태로 남지 않는다', /매니저 권한 — 시간 제한 없이 수정 가능/.test(src));
 check('컷오프 호출이 분까지 넘긴다', /!canPostpone\(dateISO, hour, minute\)/.test(src) && /!canChange\(dateISO, hour, minute\)/.test(src));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🟡 (2026-08-24 사장님 지시) LMS·시드 «자리표시» 칸에도 수업을 배정할 수 있어야 한다.
+   ───────────────────────────────────────────────────────────────────────────
+   [무엇이 문제였나] class_schedules 활성 행의 대부분이 진짜 수업이 아니라 자리표시인데
+     (user_id='lms' — 옛 LMS 점유 / 'type_seed' — 6월 시연 시드), 화면과 서버가 그걸
+     «이미 예약된» 으로 보고 그 시간에 수업을 못 넣게 막았다. 실측 제보: HANNAH 화요일
+     15·16·17·18·21시가 전부 LMS 라 배정 불가, 목요일은 21시가 비어 수업이 들어갔다.
+   [고른 길] 데이터는 지우지 않고 «판정» 만 바꾼다 — 되돌리기가 재배포 한 번이면 된다.
+   ⛔ 옛 주석에 「renderMoveGrid 의 충돌판정은 그대로 둔다」고 적혀 있었다.
+      그 문장을 근거로 되돌리지 말 것 — 위 지시로 뒤집힌 것이다.
+   ⚠️ 판정을 흩어 놓지 않는다 — 화면은 cellBusy() 한 곳, 서버는 NOT_PLACEHOLDER 한 곳.
+      아래 검사는 «직접 읽는 코드가 되살아나지 않았는가» 까지 함께 본다. */
+console.log('\n════════ 4부. LMS·시드 칸에 수업을 넣을 수 있는가 ════════');
+{
+  check('화면 판정이 한 곳에 모여 있다 (cellBusy)', /function cellBusy\(td\)/.test(src));
+  check('cellBusy 는 LMS·시드를 «빈 칸» 으로 본다',
+    /function cellBusy\(td\)\{[^}]*!isGhostCell\(td\)/.test(src));
+  check('학생 배정 충돌판정이 cellBusy 를 쓴다', /if\(cellBusy\(td\) \|\| td\.dataset\.cont\)/.test(src));
+  check('충돌판정이 SLOTS 쪽에서도 LMS·시드를 통과시킨다', /if\(_s && !isGhostSlot\(_s\)\)/.test(src));
+  check('빈칸 드래그 시작이 cellBusy 를 쓴다', /if\(!td\|\|cellBusy\(td\)\)return/.test(src));
+  check('빈칸 드래그 범위 선택이 cellBusy 를 쓴다', /if\(cellBusy\(cell\)\)return/.test(src));
+  check('수업 이동 드롭 판정이 cellBusy 를 쓴다',
+    /var occupied = cellBusy\(dropCell\)/.test(src) && /if\(cellBusy\(dropCell\)\)\{/.test(src));
+  /* 🔴 클릭으로 상세 모달을 열면 mouseup 이 띄운 「새 슬롯 추가」 를 덮어써서
+     «눌러도 추가가 안 되는» 것처럼 보인다(click 은 mouseup «뒤» 에 온다). */
+  check('🔴 LMS·시드 칸 클릭이 상세 모달로 새 슬롯 모달을 덮지 않는다',
+    !/if\(t\.dataset\.slot\)\{\s*\n\s*var data=JSON\.parse/.test(src));
+  /* «직접 읽기» 가 한 곳이라도 되살아나면 그 자리만 조용히 옛 동작으로 돌아간다 */
+  const rawBusy = src.split('\n').filter((l) =>
+    /(?:if\s*\(|&&|\|\|)\s*!?\w+\.dataset\.slot\b/.test(l) &&
+    !/cellBusy|!t\.dataset\.slot|!td\.dataset\.slot/.test(l));
+  check('«칸이 찼나» 를 dataset.slot 으로 직접 보는 코드가 없다 (전부 cellBusy 경유)',
+    rawBusy.length === 0, rawBusy.slice(0, 3).map((x) => x.trim()));
+
+  const sc = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'schedule-conflict.ts'), 'utf8');
+  check('서버 겹침판정에도 제외 규칙이 있다', /NOT_PLACEHOLDER/.test(sc));
+  check('제외식이 다른 파일과 글자까지 같다',
+    /NOT IN \('lms','type_seed'\)/.test(sc) && /LOWER\(COALESCE\(user_id,''\)\)/.test(sc));
+  const qs = sc.match(/FROM class_schedules[\s\S]{0,220}?`/g) || [];
+  check('class_schedules 를 보는 겹침·정원 쿼리가 모두 제외한다 (한 곳만 빠지면 조용히 막힌다)',
+    qs.length > 0 && qs.every((x) => x.includes('NOT_PLACEHOLDER')),
+    qs.filter((x) => !x.includes('NOT_PLACEHOLDER')).length + '개 누락');
+}
 
 console.log('\n' + '─'.repeat(58));
 console.log(fail === 0 ? `✅ ALL PASS (${pass})` : `⚠ PASS ${pass} / FAIL ${fail}`);

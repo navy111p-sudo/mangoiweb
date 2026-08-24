@@ -868,6 +868,7 @@ function hourHasSlot(tid,d,h){
     if(k.indexOf(tid+'__'+d+'__')!==0)continue;
     var st=parseInt(k.slice((tid+'__'+d+'__').length),10);
     if(isNaN(st))continue;
+    if(isGhostSlot(SLOTS[k]))continue;          // 🟡 LMS·시드는 «빈 시간» 으로 본다(위 주석)
     var en=st+((SLOTS[k]&&SLOTS[k].duration_min)||SLOT_STEP);
     if(st<to&&from<en)return true;
   }
@@ -1020,11 +1021,28 @@ function generateDemoSlots(){
    ② origin='sample'— 6월 시연용 시드 데이터
    서버(/api/admin/schedules)는 이미 origin 을 내려주는데 이 화면만 그걸 안 읽고 전부
    진짜 수업(1대1/그룹)처럼 그려서 "수업이 이미 많이 잡혀 있다"로 오해하게 했다.
-   ⛔ 지우지 않는다 — «강사가 이 시간을 못 쓴다» 는 정보라 사라지면 매니저가 그 시간에
-   이중배정할 수 있다(renderMoveGrid 의 충돌판정은 그래서 그대로 둔다). 여기서는 통계·색만
-   구분한다. */
+   ⛔ 지우지 않는다 — 데이터는 그대로 둔다. 여기서는 통계·색만 구분한다.
+
+   🟡 (2026-08-24 사장님 지시) **배정은 막지 않는다.**
+      [무엇이 문제였나] 이 칸들이 «이미 예약된» 으로 판정돼 그 시간에 수업을 넣을 수 없었다.
+        실측 제보: HANNAH 목요일 21시는 비어 있어 수업이 들어갔는데, 화요일 같은 시간은
+        LMS 칸이라 아무것도 못 넣었다(화면 상단 「LMS·시드 556건」).
+      [왜 지우지 않고 판정만 바꾸나] 그 행은 지우면 되돌릴 수 없는 운영 데이터이고(개발·운영
+        같은 DB), «그때 강사가 못 쓰던 시간» 이라는 기록 자체는 남겨 두는 편이 낫다.
+        판정만 바꾸면 재배포 한 번으로 되돌아온다.
+      ⚠️ 그 대신 **이중배정을 화면이 더는 막아 주지 않는다.** 이 데이터는 `lms_import_w26`
+        (한 번 넣은 정적 임포트)라 지금 실제 LMS 일정과 맞는다는 보장이 없어서 내린 판단이다.
+        시간이 실제로 겹치는지는 사람이 확인해야 한다.
+      ⛔ 예전 주석에 「renderMoveGrid 의 충돌판정은 그대로 둔다」고 적혀 있었다. 그 문장을
+        근거로 되돌리지 말 것 — 위 지시로 뒤집힌 것이다.
+      📌 판정을 바꾸는 자리는 아래 cellBusy() 한 곳으로 모았다. 새로 «칸이 찼나» 를 보는
+        코드를 쓸 때는 `td.dataset.slot` 을 직접 읽지 말고 반드시 cellBusy() 를 쓸 것. */
 function isGhostSlot(s){ return !!(s && (s.origin==='lms' || s.origin==='sample')); }
 var GHOST_TAG={ lms:{ko:'LMS 점유',en:'LMS busy',badge:'LMS'}, sample:{ko:'시드 데이터',en:'Demo seed',badge:'시드'} };
+/* 🟡 «그 칸에 진짜 수업이 있나» — LMS·시드는 «비어 있는 것»으로 본다.
+   렌더가 그 칸에 class="slot-ghost" 를 붙이므로(아래 그리드 생성부) 그것으로 가른다. */
+function isGhostCell(td){ return !!(td && td.classList && td.classList.contains('slot-ghost')); }
+function cellBusy(td){ return !!(td && td.dataset && td.dataset.slot) && !isGhostCell(td); }
 
 function computeStats(){
   var total=0,on1=0,grp=0,temp=0,ghost=0,active=new Set();
@@ -1600,7 +1618,7 @@ document.addEventListener('mousemove', function(e){
     dnd.lastTarget=null;
   }
   if(dropCell && dropCell!==dnd.sourceEl){
-    var occupied = !!dropCell.dataset.slot;
+    var occupied = cellBusy(dropCell);          // 🟡 LMS·시드 칸은 «놓을 수 있음»
     dropCell.classList.add(occupied?'drop-target-bad':'drop-target-ok');
     dnd.lastTarget=dropCell;
   }
@@ -1641,7 +1659,7 @@ document.addEventListener('mouseup', function(e){
     dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
   }
   // 점유된 셀이면 거부
-  if(dropCell.dataset.slot){
+  if(cellBusy(dropCell)){                       // 🟡 LMS·시드 칸에는 놓을 수 있다
     showDndToast((L?'❌ 그 시간엔 이미 다른 수업이 있어요':'❌ Slot already taken'),'bad');
     dnd.sourceEl=null;dnd.sourceData=null;dnd.lastTarget=null;return;
   }
@@ -2940,7 +2958,11 @@ function openSlotDetail(teacherName,dateISO,hour,slot,minute){
 document.addEventListener('click',function(e){
   var t=e.target.closest('.slot');
   if(!t)return;
-  if(t.dataset.slot){
+  /* 🟡 (2026-08-24) LMS·시드 칸은 «빈 칸» 과 같게 다룬다 — 상세 모달을 열지 않는다.
+     안 그러면 그 칸을 눌러 수업을 넣으려 할 때, mouseup 이 띄운 「새 슬롯 추가」 위에
+     click 이 이 상세 모달을 덮어써서 «눌러도 추가가 안 되는» 것처럼 보인다
+     (click 은 mouseup «뒤» 에 온다). 정체 확인은 hover 툴팁이 그대로 해 준다. */
+  if(cellBusy(t)){
     var data=JSON.parse(decodeURIComponent(t.dataset.slot));
     openSlotDetail(data.teacher,data.date,data.hour,data.slot,data.minute||0);
   }
@@ -2977,7 +2999,7 @@ function getCellInfo(td){
 
 document.addEventListener('mousedown',function(e){
   var td=e.target.closest('.slot');
-  if(!td||td.dataset.slot)return; // 빈 셀에서만 드래그 시작
+  if(!td||cellBusy(td))return; // 빈 셀에서만 드래그 시작 (🟡 LMS·시드 칸도 «빈 셀»)
   if(e.button!==0)return;
   var info=getCellInfo(td);if(!info||!info.teacher)return;
   isDragging=true;
@@ -3001,7 +3023,7 @@ document.addEventListener('mousemove',function(e){
   dragSelected=[];
   var scope=dragStart.card&&dragStart.card.querySelectorAll?dragStart.card:document;
   Array.prototype.forEach.call(scope.querySelectorAll('td.slot'),function(cell){
-    if(cell.dataset.slot)return;                       // 이미 수업이 있는 칸은 제외
+    if(cellBusy(cell))return;                          // 이미 수업이 있는 칸은 제외 (🟡 LMS·시드 제외 안 함)
     if(cell.dataset.tid!==dragStart.td.dataset.tid)return;
     var hh=parseInt(cell.dataset.hour,10);
     var mm=parseInt(cell.dataset.min||'0',10)||0;
@@ -3595,8 +3617,10 @@ reloadAndRender();
   }
   // 충돌 사유 반환: null = 배정 가능 / 문자열 = 거부 사유
   function conflictReason(td, info){
-    if(td.dataset.slot || td.dataset.cont) return (currentLang==='ko'?'이미 예약된':'occupied');
-    if(getSlot(info.teacher.id, info.dateISO, info.hour, info.minute||0)) return (currentLang==='ko'?'이미 예약된':'occupied');
+    if(cellBusy(td) || td.dataset.cont) return (currentLang==='ko'?'이미 예약된':'occupied');
+    /* 🟡 LMS·시드 칸은 «배정 가능» 으로 본다(위 isGhostSlot 주석의 2026-08-24 지시) */
+    var _s = getSlot(info.teacher.id, info.dateISO, info.hour, info.minute||0);
+    if(_s && !isGhostSlot(_s)) return (currentLang==='ko'?'이미 예약된':'occupied');
     if(typeof HOLIDAY_MAP!=='undefined' && HOLIDAY_MAP[info.dateISO] && HOLIDAY_MAP[info.dateISO].length)
       return (currentLang==='ko'?'휴가/공휴일':'holiday');
     return null;
