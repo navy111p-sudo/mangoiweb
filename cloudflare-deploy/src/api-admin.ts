@@ -3589,6 +3589,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
          자동 조인이 불가능함을 확인(잘못 매칭하면 다른 강사 사진이 나가는 사고가 됨).
          그래서 사람이 직접 확인하며 연결하는 컬럼을 둔다 — 관리자 화면 "강사 사진 연결" 탭에서 채움. */
       try { await env.DB.exec(`ALTER TABLE teacher_profiles ADD COLUMN linked_teacher_id INTEGER`); } catch {}
+      // 🔑 (2026-08-24) 로그인 아이디를 강사 프로필 화면에서 보여주려면 이 표가 있어야 한다 —
+      //   teacher_account_links(admin_account.username ↔ teachers.id, "강사 계정 연결" 카드가 채움)가
+      //   아직 한 번도 안 열렸으면 없을 수 있어 여기서도 보강한다.
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS teacher_account_links (username TEXT PRIMARY KEY, teacher_id TEXT NOT NULL, teacher_name TEXT, linked_by TEXT, linked_at INTEGER);`); } catch {}
     };
 
     if (method === 'GET' && path === '/api/admin/teacher-profiles') {
@@ -3606,8 +3610,14 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         where.push('(LOWER(TRIM(korean_name))=LOWER(TRIM(?)) OR LOWER(TRIM(english_name))=LOWER(TRIM(?)))');
         binds.push(_tpActor.name, _tpActor.name);
       }
-      const sql = `SELECT * FROM teacher_profiles${where.length ? ' WHERE ' + where.join(' AND ') : ''}
-                   ORDER BY status='활동중' DESC, korean_name ASC`;
+      // 🔑 (2026-08-24) login_username — linked_teacher_id(teachers.id)로 teacher_account_links 를
+      //   조인해 그 강사의 실제 로그인 아이디를 함께 내려준다(연결이 없으면 NULL, 추측 아님).
+      //   두 표에 같은 컬럼명이 없어 where 절은 그대로 써도 모호해지지 않는다.
+      const sql = `SELECT tp.*, tal.username AS login_username
+                   FROM teacher_profiles tp
+                   LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+                   ${where.length ? ' WHERE ' + where.join(' AND ') : ''}
+                   ORDER BY tp.status='활동중' DESC, tp.korean_name ASC`;
       try {
         const rs = await env.DB.prepare(sql).bind(...binds).all<any>();
         return json({ ok: true, items: rs.results || [] });
@@ -3805,7 +3815,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return json({ ok: false, error: 'forbidden_teacher', message: '강사는 강사 프로필을 수정·삭제할 수 없습니다.' }, 403);
       }
       if (method === 'GET') {
-        const row = await env.DB.prepare(`SELECT * FROM teacher_profiles WHERE id = ?`).bind(id).first<any>();
+        // 🔑 (2026-08-24) login_username — 위 목록 조회와 같은 조인(추측 아닌 명시적 연결만)
+        const row = await env.DB.prepare(
+          `SELECT tp.*, tal.username AS login_username
+             FROM teacher_profiles tp
+             LEFT JOIN teacher_account_links tal ON CAST(tal.teacher_id AS TEXT) = CAST(tp.linked_teacher_id AS TEXT)
+            WHERE tp.id = ?`
+        ).bind(id).first<any>();
         if (!row) return json({ ok: false, error: 'not_found' }, 404);
         if (_tpiActor.isTeacher && !sameTeacherName(_tpiActor.name, row.korean_name) && !sameTeacherName(_tpiActor.name, row.english_name)) {
           return json({ ok: false, error: 'forbidden_teacher', message: '본인 프로필만 조회할 수 있습니다.' }, 403);
@@ -5050,11 +5066,33 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let rows: any[] = [];
       try {
         const rs: any = await env.DB.prepare(
-          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes FROM class_schedules WHERE (status IS NULL OR status='active')`
+          `SELECT id, user_id, student_name, schedule_kind, class_type, day_of_week, scheduled_date, start_time, duration_min, teacher_id, status, notes, source FROM class_schedules WHERE (status IS NULL OR status='active')`
         ).all();
         rows = rs.results || [];
       } catch (e: any) {
         return json({ ok: true, week: weekStartISO, count: 0, items: [], schedules: [], _err: String(e?.message || e) });
+      }
+
+      /* 🗓️ (2026-08-24) 「코스 기간」이 시작일=종료일(그 날 하루)로 뜨는 문제.
+         [왜] enroll-activate.ts 가 수강신청을 확정하면 6개월치 화·목 수업을
+              **회당 한 행**(schedule_kind='dated', scheduled_date=그날짜)으로 심는다
+              (INSERT ... VALUES (…'dated'…scheduled_date…)). 그래서 한 행 = 그 날 하루일 뿐,
+              등록 전체 기간이 아니다. 그런데 아래 one-off 분기가 그 한 행의 scheduled_date
+              를 그대로 start_date/end_date 로 써서, 모달에 "시작일=종료일=이 날" 로 보였다
+              (실제 6개월 신청인데 하루짜리처럼 보이는 것이 바로 이 계산).
+         [해법] 같은 신청(class_schedules.source, enroll-activate.ts 의 SRC_PREFIX+id)으로
+              생성된 행들의 scheduled_date 중 최소/최대를 실제 코스 기간으로 쓴다.
+              DB 를 새로 만들지 않는다 — 위에서 이미 다 읽어 온 rows 를 한 번 더 돈다.
+              source 가 없거나(=진짜 하루짜리 대체수업 등) 겹치는 행이 자기 하나뿐이면
+              min=max=그날 그대로라 기존 동작과 같다. */
+      const sourceRange: Record<string, { min: string; max: string }> = {};
+      for (const r of rows) {
+        const src = String(r.source || '');
+        const sd = String(r.scheduled_date || '');
+        if (!src || !sd) continue;
+        const cur = sourceRange[src];
+        if (!cur) sourceRange[src] = { min: sd, max: sd };
+        else { if (sd < cur.min) cur.min = sd; if (sd > cur.max) cur.max = sd; }
       }
 
       const items: any[] = [];
@@ -5089,7 +5127,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (kind === 'one_off' || r.scheduled_date) {
           const d = String(r.scheduled_date || '');
           if (d >= weekStartISO && d <= weekEndISO) {
-            items.push({ ...base, date: d, start_date: d, end_date: d });
+            const range = sourceRange[String(r.source || '')];
+            items.push({ ...base, date: d, start_date: range ? range.min : d, end_date: range ? range.max : d });
           }
         } else {
           const want = normDow(r.day_of_week);

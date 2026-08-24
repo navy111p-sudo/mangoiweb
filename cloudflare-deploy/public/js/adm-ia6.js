@@ -73,8 +73,6 @@
               wireRevealOnJump 가 data-card 로 항목을 찾으므로, 옛 사이드바·검색·허브에서
               버그 카드로 점프할 때 지금까지 showAll() 로 새던 것이 제 항목으로 간다. */
         { ko: '신규상담',    en: 'Inquiries',      cards: ['card-inquiry-mgmt'] },
-        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
-          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' },
         { ko: '알림함',     en: 'Alerts',          cards: ['card-admin-alerts', 'card-notifications'] }
       ]
     },
@@ -264,7 +262,12 @@
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
           tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
+        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
+        /* 🐞 (2026-08-24 사장님) 「오늘」에서 옮겨옴 — 버그·피드백은 «오늘 할 일» 이 아니라
+           운영 전반에 걸쳐 쌓이는 신고함이라 시스템 쪽이 맞다는 지적. cards/카드 자체는
+           그대로(card-bug-reports) — 어느 그룹 items 배열에 있느냐만 바뀐다. */
+        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
+          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' }
         /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
            «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 것». 실제로 같은 페이지로 갔다.
            같은 곳으로 가는 문을 둘 두면 «둘이 다른 건가?» 를 매번 생각하게 만든다.

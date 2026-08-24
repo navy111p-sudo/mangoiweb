@@ -2703,15 +2703,20 @@ async function vcJoinRoom(skipUI) {
         } else if (_isT) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
-          window.__vcSharedRoomNotice = true;
+          window.__vcSharedRoomNotice = 'teacher';
         } else if (_jd && _jd.student_gate !== 'on') {
           /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
              ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
                 518건은 학생이 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드.
                 이 상태로 켜면 대다수 학생이 "예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
                 카페24 수업을 실제 학생 예약으로 옮긴 뒤 wrangler.toml 의
-                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다. */
-          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방)');
+                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다.
+             ⚠️ (2026-08-24) 그래도 학생에게는 «몰래» 들여보내지 않는다 — 폴백 자체(입장 가능함)는
+                그대로 두고, 교사와 같은 사후 알림 배너(__vcSharedRoomNotice)만 학생용 문구로 띄운다.
+                가로막지 않는 이유: 이 분기로 오는 학생 대부분은 «아직 예약 이관이 안 된» 실제
+                수강생이라 여기서 막으면 그 학생들이 수업에 못 들어간다(위 주석과 같은 사정). */
+          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방, 학생에게는 안내 배너)');
+          window.__vcSharedRoomNotice = 'student';
         } else {
           // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
@@ -2862,12 +2867,14 @@ async function vcJoinRoom(skipUI) {
     // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
     //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
     try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
-    /* 🔒 (2026-07-28) 오늘 예약이 없어 '공용 연습방'으로 들어온 교사에게만 알린다 —
-       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다.
+    /* 🔒 (2026-07-28, 2026-08-24 학생 추가) 오늘 예약이 없어 '공용 연습방'으로 들어온 사람에게 알린다 —
+       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다. 학생 쪽은 더 심각하다 —
+       실수로 이 방에서 «수업처럼» 진행하면 다른 학생·강사와 뒤섞인다. 값은 'teacher'|'student'.
        ※ 이 블록은 위 전체화면 호출보다 뒤에 둔다 — 하니스가 'vc-in-call 추가 → 전체화면 호출'
          인접(400자)을 검사하므로, 사이에 코드를 넣으면 그 보장이 깨진다. */
     try {
       if (window.__vcSharedRoomNotice) {
+        var _sharedWho = window.__vcSharedRoomNotice;
         window.__vcSharedRoomNotice = false;
         var _en0 = (typeof getLang === 'function' && getLang() === 'en');
         var _nm = document.getElementById('vc-room-name');
@@ -2878,9 +2885,15 @@ async function vcJoinRoom(skipUI) {
           _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
         }
         setTimeout(function(){
-          alert(_en0
-            ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
-            : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          if (_sharedWho === 'student') {
+            alert(_en0
+              ? "You don't have a class booked for today, so you entered a SHARED practice room — not your real classroom.\n\nOther students/teachers may also be here. Please don't start a lesson here. Check the home screen for your class days/times, and use \"Enter My Class\" when it's actually time."
+              : '오늘 예약된 수업이 없어서, 실제 수업방이 아닌 "공용 연습방"으로 들어왔어요.\n\n다른 학생·강사도 이 방에 있을 수 있어요. 여기서 수업을 진행하지 마세요.\n홈 화면에서 내 수업 요일·시간을 확인하고, 수업 시간이 되면 "오늘 내 수업 바로 입장"을 이용해 주세요.');
+          } else {
+            alert(_en0
+              ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
+              : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          }
         }, 900);
       }
     } catch(e){}
