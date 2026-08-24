@@ -29,6 +29,9 @@ import {
   DEFAULT_BAND_MODE, normalizeBandMode, shouldAutoAdjust, type BandMode,
   situationFitsBand, countWords,
 } from './judgment-level';
+// 🧐 영어 품질(문법) 규칙 — «Want play with me» 가 보기로 나가던 사고(2026-08-24)의 정본.
+//    judgment-english.ts 도 import 없는 순수 모듈이라 하니스가 직접 불러 검증합니다.
+import { englishQualityRules, grammarCheckPrompt, allowsBrokenDistractors } from './judgment-english';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
 export { normalizeBand, bandLabel, bandName, bandCatalog } from './judgment-level';
@@ -687,6 +690,30 @@ async function resolveReadingBand(env: MangoEnv, uid: string, erpLevel?: string 
 }
 
 /**
+ * 🧐 생성된 문항의 영어를 같은 모델로 한 번 더 읽혀 봅니다(교정자 역할, 짧은 응답).
+ *   onlyIndex 가 있으면(문법 연습 문항) 상황문 + 그 선택지(정답)만 검사합니다 —
+ *   오답은 일부러 틀리게 만든 것이라 전부 검사하면 정상 문항이 계속 걸러집니다.
+ *   ⚠️ 검증기 실패(LLM 오류·깨진 JSON)는 통과로 취급 — 검증기가 죽어도 문제 제공은 막지 않습니다.
+ */
+async function englishLooksCorrect(ai: any, situation: string, options: string[], onlyIndex: number | null): Promise<boolean> {
+  const items = [String(situation || '')];
+  if (onlyIndex == null) items.push(...(options || []).map((o) => String(o || '')));
+  else if (options && options[onlyIndex] != null) items.push(String(options[onlyIndex]));
+  try {
+    const resp: any = await ai.run(JUDGE_MODEL, {
+      messages: [
+        { role: 'system', content: 'You proofread English for a children\'s learning app. Reply in strict JSON only.' },
+        { role: 'user', content: grammarCheckPrompt(items) },
+      ],
+      max_tokens: 120,
+    });
+    const j = parseFirstJson(resp);
+    if (!j || !Array.isArray(j.bad)) return true;
+    return j.bad.length === 0;
+  } catch { return true; }
+}
+
+/**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
  *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
  */
@@ -789,6 +816,11 @@ export async function generatePersonalizedScenario(
     //    예전에는 students_erp.level 을 그대로 넘겼는데, 그 값이 전 학생 빈칸이라
     //    이 줄이 항상 빈 문자열이었고 → AI 가 매번 백지에서 문장 길이를 정했습니다(난이도 들쭉날쭉의 원인).
     const levelLine = bandPromptLine(askBand);
+    // 🧐 오답에 «틀린 문법»이 허용되는 유일한 경우 — 학생이 문법 유형(형태/시제) 연습을 스스로 고른 문항.
+    //    그 외에는 오답도 문법은 맞아야 합니다: 오답은 상황·말투가 어긋난 말이지 깨진 영어가 아닙니다.
+    //    (깨진 오답은 문법만 보고 답이 나와 «판단» 훈련이 되지 않고, 화면에는 오탈자 사고로 보입니다)
+    const allowBroken = allowsBrokenDistractors(pickedMisc);
+    const qualityLine = englishQualityRules(allowBroken);
     // LLM 이 가끔 깨진 JSON/중복 시나리오를 반환 → 최대 4회 재시도, 시도마다 주제·각도를 새로 뽑아 변주
     for (let attempt = 0; attempt < 4 && !scenario; attempt++) {
       const themePool = SCENARIO_THEMES.filter((t) => !recent.themes.includes(t));
@@ -799,6 +831,7 @@ export async function generatePersonalizedScenario(
 ${focus}
 ${tbLine}
 ${levelLine}
+${qualityLine}
 Set the situation in this specific context: "${theme}". The decision the child faces should involve: ${angle}.
 ${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
@@ -808,7 +841,7 @@ Return STRICT JSON only:
   "skill_tag": "<short kebab tag>",
   "options": ["<expression A>", "<expression B>", "<expression C>"],
   "correct_index": <0-based index of the best option>,
-  "option_scores": [<one 0-100 score per option, SAME ORDER as options. The best option: 95-100. An option that is understandable and polite enough but slightly less natural: 60-80. An option that a child could reasonably think is fine but is clearly off in tone or meaning: 35-55. A clearly rude or wrong option: 5-25. Spread the scores out — do NOT give every wrong option the same number>],
+  "option_scores": [<one 0-100 score per option, SAME ORDER as options. The best option: 95-100. An option that is understandable and polite enough but slightly less natural: 60-80. An option that a child could reasonably think is fine but is clearly off in tone or meaning: 35-55. A clearly rude or clearly wrong-for-the-situation option: 5-25. Spread the scores out — do NOT give every wrong option the same number>],
   "difficulty": <1-5 how hard this judgment is for this child: 1=obvious, 3=needs thought, 5=subtle tone difference only a careful learner catches>,
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
   "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
@@ -844,6 +877,15 @@ Return STRICT JSON only:
           // 선택지별 점수가 없으면 채점이 옛 100·45 이분법으로 떨어집니다 → 앞 시도에서는 다시 뽑습니다.
           if (!scores && attempt < 2) {
             console.warn('[judgment] scenario missing option_scores, retrying (attempt ' + (attempt + 1) + ')');
+            continue;
+          }
+          // 🧐 영어 문법 검사 — «Want play with me» 같은 깨진 보기가 그대로 나가던 사고(2026-08-24 사장님 지적).
+          //    지시(프롬프트)만으로는 안 지켜지는 것이 이 저장소의 반복 실측이라(단어 수와 같은 뿌리),
+          //    받은 상황문·선택지를 같은 모델에 다시 읽혀 보고 어긋나면 다시 뽑습니다.
+          //    문법 연습 문항(allowBroken)은 오답이 일부러 틀린 것이므로 상황문·정답만 검사합니다.
+          //    마지막 시도는 그대로 받습니다 — 문제를 못 주는 것이 더 나쁩니다(길이 검사와 같은 원칙).
+          if (attempt < 3 && !(await englishLooksCorrect(ai, situation, opts4, allowBroken ? ci : null))) {
+            console.warn('[judgment] scenario failed grammar check, retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
           scenario = {
