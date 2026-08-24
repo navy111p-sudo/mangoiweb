@@ -212,6 +212,33 @@ export async function provisionTeacherAccount(
 ): Promise<void> {
   const now = Date.now();
   const email = loginId.includes('@') ? loginId : null;
+
+  /* 🔤 (2026-08-24) **대소문자만 다른 계정을 새로 만들지 않는다.**
+     [왜] `admin_account.username` 은 COLLATE NOCASE 가 없어 SQLite 가 `mangoi_167` 과
+       `Mangoi_167` 을 다른 값으로 본다. 그래서 아래 `ON CONFLICT(username)` 은 이 경우를
+       **못 걸러 준다** — 휴대폰 키보드의 자동 대문자 한 번에 계정이 두 벌이 됐다
+       (실측 2026-08-24: 두 계정이 나란히 존재, 쓰는 쪽에 연결이 없어 강사 화면이 «수업 없음»).
+     [무엇을 하나] 이미 있는 쪽을 그대로 쓴다. 비밀번호·이름을 덮어쓰지 않는다 —
+       이 함수는 «없을 때 만드는» 자리이지 «고치는» 자리가 아니다.
+     ℹ️ 부르는 쪽(auth-admin 로그인)도 이미 대소문자 무시로 찾으므로 여기까지 오는 일은
+       거의 없다. 그래도 둔다 — 이 함수가 계정을 만드는 유일한 자동 경로라, 여기가 마지막 문이다. */
+  /* ⚠️ try/catch 로 감싼다 — 여기는 «로그인» 경로다. 이 확인이 무슨 이유로든(옛 D1 스텁,
+     드라이버 차이) 예외를 던지면 강사가 아예 로그인하지 못하게 된다. 못 확인하면
+     «예전처럼» 진행한다(막는 쪽이 아니라 통과시키는 쪽으로 실패). */
+  let existing: { username: string } | null = null;
+  try {
+    existing = await env.DB.prepare(
+      `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`
+    ).bind(loginId).first<{ username: string }>();
+  } catch (e: any) {
+    console.warn('[legacy-teacher-auth] 대소문자 중복 확인 실패(계속 진행):', e?.message || e);
+  }
+  if (existing && String(existing.username) !== loginId) {
+    console.warn('[legacy-teacher-auth] 대소문자만 다른 계정이 이미 있어 새로 만들지 않음:',
+      loginId, '→', existing.username);
+    return;
+  }
+
   await env.DB.prepare(
     `INSERT INTO admin_account (username, password_hash, name, email, phone, created_at, updated_at, pref_lang, nationality)
      VALUES (?, ?, ?, ?, NULL, ?, ?, NULL, NULL)

@@ -388,7 +388,7 @@ ${MANGOI_KNOWLEDGE}`;
       // 검증 — 프론트와 동일 규칙
       if (!uid || uid.length < 4 || uid.length > 20) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 4~20자여야 합니다.' }, 400);
       if (!/^[a-zA-Z0-9_]+$/.test(uid)) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/언더바만 가능합니다.' }, 400);
-      if (!pwd || pwd.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+      if (!pwd || pwd.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
       if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.' }, 400);
       // 중복 아이디 차단
       const exists: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ?`).bind(uid).first();
@@ -768,7 +768,7 @@ ${MANGOI_KNOWLEDGE}`;
       const code = String(b.code || '').trim();
       const newPwd = String(b.new_password || '').trim();
       if (!uid || !code) return json({ ok: false, error: 'invalid_input', message: '아이디와 인증번호를 입력해 주세요.' }, 400);
-      if (!newPwd || newPwd.length < 6) return json({ ok: false, error: 'weak_password', message: '새 비밀번호는 6자 이상이어야 합니다.' }, 400);
+      if (!newPwd || newPwd.length < 4) return json({ ok: false, error: 'weak_password', message: '새 비밀번호는 4자 이상이어야 합니다.' }, 400);
       const stu: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`).bind(uid).first();
       if (!stu) return json({ ok: false, error: 'user_not_found', message: '해당 아이디를 찾을 수 없습니다.' }, 404);
       const canonUid = String(stu.user_id);

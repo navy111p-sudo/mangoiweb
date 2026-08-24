@@ -15,7 +15,7 @@
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
-import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession } from './enroll-ops';
+import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
 
@@ -154,7 +154,8 @@ async function ensureSubscriptionsSchema(env: any): Promise<void> {
  *     기간할인(6개월 95% / 12개월 90%)은 enrollQuoteCalc 가 그대로 적용한다. */
 async function autoRenewQuote(env: any, uid: string, months = 1) {
   const cur = await currentEnrollment(env, uid);
-  if (!cur.active || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
+  // 🔁 (2026-08-24) active(미래 수업 있음) 대신 renewable — 60일 안에 끝난 수강도 자동결제로 이어받는다.
+  if (!cur.renewable || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
   const weekly = cur.days.length;
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'weekly_unresolved' };
   const { shopName, weekly1Price } = await priceForUid(env, uid);
@@ -168,7 +169,11 @@ async function autoRenewQuote(env: any, uid: string, months = 1) {
  *  만들었다(2026-08-23 수리). 이미 지난 시각이면 지금 — 다음 스윕에서 바로 청구 대상이 된다. */
 function nextBillingFromLastDate(lastDate: string): number {
   const t = Date.parse(String(lastDate || '') + 'T01:00:00Z') - 3 * 86400 * 1000;
-  return isNaN(t) ? Date.now() + 30 * 86400 * 1000 : Math.max(Date.now(), t);
+  if (isNaN(t)) return Date.now() + 30 * 86400 * 1000;
+  /* ⚠️ (2026-08-24) 계산된 시각이 이미 지났으면(수업이 곧 끝나거나 이미 끝난 학생) «지금» 으로 두면 안 된다 —
+     다음 스윕이 그 자리에서 청구해 버려 **D-3 사전고지 문자가 나갈 틈이 없다**. 3일 뒤로 밀어
+     오늘 안내가 먼저 나가게 한다(sendPrebillNotices 가 now~now+3일 창을 본다). */
+  return t > Date.now() ? t : Date.now() + 3 * 86400 * 1000;
 }
 
 /** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
@@ -194,7 +199,7 @@ export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Pr
   // 1) 정상 주문 생성(연장과 동일 로직 — enroll_json·회차·충돌회피 전부 재사용)
   const orderResp = await createEnrollOrder(env, sub.user_id, {
     weekly: q.weekly, months: q.months, minutes: q.cur.minutes, times: q.cur.times,
-    startDate: addDays(q.cur.last_date, 1), teacherId: q.cur.teacher_id, days: q.cur.days,
+    startDate: renewStartDate(q.cur.last_date), teacherId: q.cur.teacher_id, days: q.cur.days,
   }, 'auto_renew');
   const orderBody: any = await orderResp.json().catch(() => ({}));
   if (!orderBody || !orderBody.ok) {
@@ -951,7 +956,7 @@ async function syncSubscriptionNextBilling(env: any, uid: any): Promise<void> {
   ).bind(String(uid)).first();
   if (!sub) return;
   const cur = await currentEnrollment(env, String(uid));
-  if (!cur?.active || !cur.last_date) return;
+  if (!cur?.renewable || !cur.last_date) return;
   await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=?`)
     .bind(nextBillingFromLastDate(String(cur.last_date)), Date.now(), sub.id).run();
 }

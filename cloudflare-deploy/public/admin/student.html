@@ -577,7 +577,7 @@
             <div class="form-row"><label data-ko="생년월일"       data-en="Birth Date">생년월일</label><input id="cBirth" type="date"></div>
             <div class="form-row"><label data-ko="가맹점"         data-en="Franchise">가맹점</label><input id="cFranchise" type="text"></div>
             <div class="form-row"><label data-ko="지점"           data-en="Branch">지점</label><input id="cShop" type="text"></div>
-            <div class="form-row"><label data-ko="새 비밀번호"     data-en="New Password">새 비밀번호</label><input id="cPassword" type="text" autocomplete="new-password" placeholder="변경하지 않으려면 비워 두세요 (6자 이상)"></div>
+            <div class="form-row"><label data-ko="새 비밀번호"     data-en="New Password">새 비밀번호</label><input id="cPassword" type="text" autocomplete="new-password" placeholder="변경하지 않으려면 비워 두세요 (4자 이상)"></div>
             <div class="form-row"><label data-ko="비밀번호 확인"   data-en="Confirm Password">비밀번호 확인</label><input id="cPasswordConfirm" type="text" autocomplete="new-password" placeholder="새 비밀번호를 한 번 더 입력"></div>
           </div>
           <div class="form-row"><label data-ko="주소"     data-en="Address">주소</label><input id="cAddress" type="text"></div>
@@ -827,7 +827,7 @@ const T = {
   contactSaved:{ko:'학생 정보가 저장되었습니다', en:'Student info saved'},
   contactFields:{ko:'개 필드', en:' fields'},
   pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
-  pwTooShort:{ko:'비밀번호는 6자 이상이어야 합니다', en:'Password must be at least 6 characters'},
+  pwTooShort:{ko:'비밀번호는 4자 이상이어야 합니다', en:'Password must be at least 4 characters'},
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
@@ -1648,7 +1648,7 @@ $('cSaveBtn').addEventListener('click', async () => {
   const pw = $('cPassword').value, pwConfirm = $('cPasswordConfirm').value;
   if (pw || pwConfirm) {
     if (pw !== pwConfirm) { toast(t('pwMismatch'), true); return; }
-    if (pw.length < 6) { toast(t('pwTooShort'), true); return; }
+    if (pw.length < 4) { toast(t('pwTooShort'), true); return; }
   }
   const body = {
     student_phone: $('cStudentPhone').value || null,
@@ -2955,6 +2955,6 @@ loadFull();
 </a>
 
 <script defer src="/js/back-nav.js"></script>
-<script src="/js/adm-light-surfaces.js?v=13" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
+<script src="/js/adm-light-surfaces.js?v=14" defer></script><!-- 🌤 남은 다크 잔재 자동 완화 + 글자 대비 교정 -->
 </body>
 </html>
