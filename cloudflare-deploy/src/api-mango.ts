@@ -1729,6 +1729,107 @@ export async function handleMangoApi(
       return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay });
     }
 
+    // 🥭 (2026-08-24) GET /api/class/schedule/mine — 학생 홈 화면 "내 수업" 위젯.
+    //   [왜] 위 /sessions/today 는 "오늘" 만 본다. 학생이 홈에서 "무슨 요일 몇 시에 수업이
+    //        있는지"를 미리 알 방법이 아예 없었다(내일부터 수업인 학생은 "오늘 예약 없음"만 봄).
+    //   [무엇] 입장 판정과는 무관한 **읽기 전용 안내**다. class_schedules 를 그대로 보여주고,
+    //        반복 요일은 "다음에 오는 날짜"까지 계산해 준다. 방 조회·입장 로직은 건드리지 않는다.
+    //   ⚠️ 요일 파서(dowList)는 /sessions/today 의 dowMatches 와 반드시 같은 표기를 인식해야
+    //      한다 — 한쪽만 알아듣는 표기가 있으면 "화면엔 있는데 입장은 안 되는" 어긋남이 생긴다.
+    if (method === 'GET' && path === '/api/class/schedule/mine') {
+      await ensureSchemaOnce('class_schedules', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+      });
+      const msUserId = (url.searchParams.get('user_id') || '').trim();
+      const msName = (url.searchParams.get('student_name') || '').trim();
+      if (!msUserId && !msName) return json({ ok: false, error: 'identity_required', schedules: [] }, 400);
+
+      const DOW_LABEL_KO = ['일', '월', '화', '수', '목', '금', '토'];
+      const DOW_LABEL_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const MS_DOW_MAP: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const dowList = (raw: any): number[] => {
+        const out: number[] = [];
+        for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+          const q = p.trim();
+          if (!q) continue;
+          if (/^\d+$/.test(q)) { const n = Number(q); if (n >= 0 && n <= 6) out.push(n); continue; }
+          const v = MS_DOW_MAP[q.toLowerCase()];
+          if (v != null) out.push(v);
+        }
+        return out;
+      };
+
+      const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, t.name AS teacher_name
+                          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                          WHERE cs.status != 'cancelled' AND ${cond}`;
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+      };
+
+      let msRows: any[] = [];
+      let msMatchedBy: 'uid' | 'name' | 'none' = 'none';
+      if (msUserId) { msRows = await runMsPass('cs.user_id = ?', msUserId); if (msRows.length) msMatchedBy = 'uid'; }
+      if (!msRows.length && msName) { msRows = await runMsPass('cs.student_name = ?', msName); if (msRows.length) msMatchedBy = 'name'; }
+
+      const msNow = Date.now();
+      const MS_KST = 9 * 3600 * 1000;
+      const msK = new Date(msNow + MS_KST);
+      const msKY = msK.getUTCFullYear(), msKMo = msK.getUTCMonth(), msKD = msK.getUTCDate(), msKDow = msK.getUTCDay();
+      const msPad = (n: number) => String(n).padStart(2, '0');
+
+      const schedules = msRows.map((r: any) => {
+        const dows = r.scheduled_date ? [] : dowList(r.day_of_week);
+        const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
+        let nextDate: string | null = null;
+        let nextStartTs: number | null = null;
+        if (r.scheduled_date) {
+          const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.scheduled_date));
+          if (dm) {
+            const sTs = Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0) - MS_KST;
+            const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+            if (sTs + graceMs >= msNow) { nextDate = r.scheduled_date; nextStartTs = sTs; }
+          }
+        } else if (dows.length) {
+          let bestDelta = 8;
+          for (const d of dows) {
+            let delta = (d - msKDow + 7) % 7;
+            if (delta === 0) {
+              const todayStartTs = Date.UTC(msKY, msKMo, msKD, hh, mm, 0) - MS_KST;
+              const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+              if (msNow > todayStartTs + graceMs) delta = 7;   // 오늘 수업은 이미 끝났다 → 다음 주로
+            }
+            if (delta < bestDelta) bestDelta = delta;
+          }
+          const nd = new Date(msNow + MS_KST + bestDelta * 86400000);
+          const ny = nd.getUTCFullYear(), nmo = nd.getUTCMonth(), nda = nd.getUTCDate();
+          nextStartTs = Date.UTC(ny, nmo, nda, hh, mm, 0) - MS_KST;
+          nextDate = `${ny}-${msPad(nmo + 1)}-${msPad(nda)}`;
+        }
+        return {
+          schedule_id: r.id,
+          day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
+          day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
+          scheduled_date: r.scheduled_date || null,
+          start_time: r.start_time,
+          duration_min: r.duration_min,
+          class_type: r.class_type,
+          teacher_name: r.teacher_name || null,
+          next_date: nextDate,
+          next_start_ts: nextStartTs,
+        };
+      }).filter((s: any) => s.day_labels_ko.length || s.scheduled_date)
+        .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
+
+      return json({ ok: true, matched_by: msMatchedBy, schedules });
+    }
+
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
     //   예약제 방(class-{id}-{YYYYMMDD})에 '남의 방'으로 잘못 입장하는 것을 서버가 검증.
     //   ▸ 정상 예약자(학생)·담당 교사·관리자는 통과. 예약을 못 찾거나 신원 불명이면 fail-open(통과)로 정상수업 방해 금지.
@@ -3046,7 +3147,7 @@ ${numbered}`;
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
         if (typeof b.new_password === 'string' && b.new_password.length > 0) {
-          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          if (b.new_password.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
           const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
           const buf = await crypto.subtle.digest('SHA-256', enc);
           const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');

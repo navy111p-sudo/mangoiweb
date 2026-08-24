@@ -2756,7 +2756,7 @@ async function loadTeacherProfiles() {
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
         //   경영진·본사 관리자에게만 보인다. 서버(staff-password-reset)에서 한 번 더 막는다.
         (_tpCanResetPw()
-          ? '<button class="tp-act-btn tp-act--pw" onclick="openTeacherPwReset(\'' + _aiEsc(t.korean_name || t.english_name || '') + '\')" title="비밀번호 재설정" data-en-title="Reset password" style="' + _TP_ACT_BTN + '" aria-label="비밀번호 재설정">' + _TP_IC.key + '</button>'
+          ? '<button class="tp-act-btn tp-act--pw" onclick="openTeacherPwReset(\'' + _aiEsc(t.korean_name || t.english_name || '') + '\',\'' + _aiEsc(t.login_username || '') + '\')" title="비밀번호 재설정" data-en-title="Reset password" style="' + _TP_ACT_BTN + '" aria-label="비밀번호 재설정">' + _TP_IC.key + '</button>'
           : '') +
         '<button class="tp-act-btn tp-act--del" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\', this)" title="제거" style="' + _TP_ACT_BTN + '" aria-label="제거">' + _TP_IC.trash + '</button>' +
       '</td>' +
@@ -2784,7 +2784,7 @@ function _tpCanResetPw() {
   } catch (e) { return false; }
 }
 
-window.openTeacherPwReset = function (teacherName) {
+window.openTeacherPwReset = function (teacherName, presetUsername) {
   var EN = (window.adminLang === 'en');
   var T = function (ko, en) { return EN ? en : ko; };
   var old = document.getElementById('tp-pw-modal'); if (old) old.remove();
@@ -2800,7 +2800,7 @@ window.openTeacherPwReset = function (teacherName) {
           'Enter this teacher\'s <b>login ID</b> exactly. Resetting will sign them out of every device.') +
       '</div>' +
       '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('계정 아이디', 'Login ID') + '</label>' +
-      '<input id="tp-pw-user" type="text" autocomplete="off" placeholder="mangoi_018" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
+      '<input id="tp-pw-user" type="text" autocomplete="off" value="' + _aiEsc(presetUsername || '') + '" placeholder="mangoi_018" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
       '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('새 비밀번호 (6자 이상)', 'New password (6+ characters)') + '</label>' +
       '<input id="tp-pw-new" type="text" autocomplete="off" style="width:100%;padding:9px 11px;margin:4px 0 6px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
       '<div style="font-size:11.5px;color:#94a3b8;margin-bottom:14px">' +
@@ -3251,9 +3251,12 @@ function clearTeacherForm() {
   ['tp-name','tp-en-name','tp-email','tp-phone','tp-kakao','tp-dob','tp-gender','tp-active-region','tp-origin-region',
    'tp-fee-10min','tp-group','tp-join-date','tp-leave-date','tp-image-url','tp-video-url',
    'tp-education','tp-career','tp-cert','tp-avail-days','tp-avail-hours','tp-bank-name','tp-bank-acct','tp-notes',
-   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro','tp-linked-teacher']
+   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro','tp-linked-teacher','tp-login-username']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const st = document.getElementById('tp-status'); if (st) st.value = '활동중';
+  // 🔑 신규 등록 중엔 연결된 로그인 계정이 있을 수 없으므로 다시 숨긴다(수정 열 때만 보임).
+  const loginBlock = document.getElementById('tp-login-block');
+  if (loginBlock) loginBlock.style.display = 'none';
 }
 
 // 🧪 4문항 빠른 MBTI 테스트 — 결과를 tp-mbti-type select 에 자동 입력
@@ -3503,6 +3506,25 @@ async function editTeacherProfile(id) {
   set('tp-education', t.education); set('tp-career', t.career); set('tp-cert', t.certifications);
   set('tp-avail-days', t.available_days); set('tp-avail-hours', t.available_hours);
   set('tp-bank-name', t.bank_name); set('tp-bank-acct', t.bank_account); set('tp-notes', t.notes);
+  // 🔑 (2026-08-24) 로그인 계정 — teacher_account_links 로 이미 연결돼 있으면 아이디를 보여주고,
+  //   없으면 이유를 알려준다(추측하지 않음). 비밀번호 변경 버튼은 경영진·본사 관리자만.
+  (function () {
+    const block = document.getElementById('tp-login-block');
+    const hint = document.getElementById('tp-login-hint');
+    const btn = document.getElementById('tp-login-pwreset-btn');
+    if (!block) return;
+    block.style.display = (typeof _tpCanResetPw === 'function' && _tpCanResetPw()) ? 'block' : 'none';
+    set('tp-login-username', t.login_username || '');
+    if (btn) btn.disabled = !t.login_username;
+    if (hint) {
+      var _en = (window.adminLang === 'en');
+      hint.textContent = t.login_username
+        ? (_en ? 'Logs in with this ID. If forgotten, reset the password here.'
+                : '이 아이디로 로그인합니다. 잊었을 때 여기서 새 비밀번호로 재설정할 수 있습니다.')
+        : (_en ? 'Link a login account first via the 🔗 Link Teacher Accounts card to see the ID and change the password.'
+                : '🔗 강사 계정 연결 카드에서 로그인 계정을 먼저 연결해야 아이디가 보이고 비밀번호를 바꿀 수 있습니다.');
+    }
+  })();
   // Add 버튼을 임시로 "수정 저장" 으로 변경
   const btn = document.getElementById('tp-add-btn');
   if (btn) {
