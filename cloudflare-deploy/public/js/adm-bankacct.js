@@ -24,6 +24,144 @@
   var _busy = false;
   var _expanded = {};        // 🔎 거래처별 표에서 «펼쳐 둔» 이름 — 다시 그려도 유지한다
 
+  /* ── 🔃 정렬 · 🔍 필터 (2026-08-24 사장님 요청) ────────────────────────────
+     [왜 화면에서 하나] 그 달 전건이 이미 payload 에 있다. 서버를 다시 부르면 왕복만 늘고
+     «합계와 목록이 다른 시점 자료» 가 될 위험이 생긴다(펼치기 때와 같은 판단).
+     ⚠️ 그래서 필터는 «받아 온 그 달» 안에서만 거른다 — 다른 달을 찾으려면 월을 바꿔야 한다.
+     ⚠️ 걸러 놓으면 위쪽 KPI·도넛과 표가 어긋나 보인다. KPI 는 «그 달 전체» 이고 표는
+        «걸러진 것» 이라 둘 다 맞다 — 그 사실을 표 옆 «N/M건 · 표시 중 합계» 로 말한다.
+        (숫자만 바뀌고 아무 설명이 없으면 「합계가 틀렸다」로 읽힌다) */
+  var _sort = { recur: [], cats: [], payees: [], rows: [] };
+  var _flt  = { recurQ: '', recurKind: '', catsRole: '', payeesQ: '', rowsQ: '', rowsAcc: '' };
+  var _moversAll = false;    // 📈 증감 표를 Top 5 로 볼지, 전체로 볼지
+
+  /* 정렬 «값» 을 꺼내는 법 — 숫자는 숫자로, 글자는 글자로 비교해야 한다.
+     ⚠️ 성격(kind)은 글자로 비교하면 「고정비·반복·변동」이 뜻과 무관한 순서가 되므로
+        의미 순서(고정 0 → 반복 1 → 변동 2)를 숫자로 준다. */
+  var SORT_VAL = {
+    recur: {
+      payee:   function (r) { return String(r.payee || ''); },
+      kind:    function (r) { return ({ fixed: 0, recurring: 1, variable: 2 })[r.kind]; },
+      current: function (r) { return Number(r.current) || 0; },
+      avg:     function (r) { return Number(r.avg) || 0; },
+      months:  function (r) { return Number(r.months_seen) || 0; }
+    },
+    cats: {
+      account: function (r) { return String(r.account || ''); },
+      total:   function (r) { return Number(r.total) || 0; },
+      count:   function (r) { return Number(r.count) || 0; },
+      share:   function (r) { return Number(r.share) || 0; },
+      role:    function (r) { return String(r.role || ''); }
+    },
+    payees: {
+      payee:   function (r) { return String(r.payee || ''); },
+      account: function (r) { return String(r.account || ''); },
+      total:   function (r) { return Number(r.total) || 0; },
+      count:   function (r) { return Number(r.count) || 0; }
+    },
+    rows: {
+      datetime: function (r) { return String(r.datetime || ''); },
+      remark:   function (r) { return String(r.remark || ''); },
+      account:  function (r) { return String(r.account || ''); },
+      amount:   function (r) { return Number(r.amount) || 0; },
+      balance:  function (r) { return Number(r.balance) || 0; }
+    }
+  };
+  var SORT_LABEL = {
+    recur:  { payee: ['거래처', 'Payee'], kind: ['성격', 'Type'], current: ['이번 달', 'This month'],
+              avg: ['월평균', 'Monthly avg'], months: ['근거', 'Why'] },
+    cats:   { account: ['계정과목', 'Account'], total: ['금액', 'Amount'], count: ['건수', 'Count'],
+              share: ['비중', 'Share'], role: ['손익계산서 취급', 'In P&L'] },
+    payees: { payee: ['거래처', 'Payee'], account: ['계정과목', 'Account'], total: ['합계 금액', 'Total'],
+              count: ['건수', 'Count'] },
+    rows:   { datetime: ['일시', 'Date'], remark: ['적요', 'Remark'], account: ['계정과목', 'Account'],
+              amount: ['출금액', 'Amount'], balance: ['잔액', 'Balance'] }
+  };
+
+  function applySort(table, list) {
+    var spec = _sort[table];
+    if (!spec || !spec.length) return list;   // 안 걸었으면 서버가 준 순서 그대로 — 예전 동작이다
+    var vf = SORT_VAL[table] || {};
+    return list.slice().sort(function (a, b) {
+      for (var i = 0; i < spec.length; i++) {
+        var f = vf[spec[i].key]; if (!f) continue;
+        var va = f(a), vb = f(b), c;
+        if (typeof va === 'number' && typeof vb === 'number') c = va - vb;
+        else c = String(va == null ? '' : va).localeCompare(String(vb == null ? '' : vb), 'ko');
+        if (c !== 0) return spec[i].dir === 'asc' ? c : -c;
+      }
+      return 0;
+    });
+  }
+
+  /** 헤더 클릭 = 내림 → 오름 → 해제. Shift+클릭 = 2차·3차 키 추가 (법인카드 표와 같은 조작) */
+  function toggleSort(table, key, shift) {
+    var spec = _sort[table]; if (!spec) return;
+    var idx = -1;
+    for (var i = 0; i < spec.length; i++) if (spec[i].key === key) idx = i;
+    if (shift) {
+      if (idx === -1) spec.push({ key: key, dir: 'desc' });
+      else if (spec[idx].dir === 'desc') spec[idx].dir = 'asc';
+      else spec.splice(idx, 1);
+    } else if (spec.length === 1 && spec[0].key === key) {
+      if (spec[0].dir === 'desc') spec[0].dir = 'asc';
+      else _sort[table] = [];
+    } else {
+      _sort[table] = [{ key: key, dir: 'desc' }];
+    }
+  }
+
+  /* 지금 무슨 순서인지 화면에 말한다 — 화살표만 두면 «왜 이 순서지» 를 아무도 모른다. */
+  function paintSortUi(table) {
+    var ths = document.querySelectorAll('#acc-bankacct .pr-th[data-bk-table="' + table + '"]');
+    var spec = _sort[table] || [];
+    for (var i = 0; i < ths.length; i++) {
+      var th = ths[i], ar = th.querySelector('.pr-arrow');
+      th.classList.remove('pr-active');
+      if (ar) ar.textContent = '↕';
+      var k = th.getAttribute('data-sort-key'), at = -1;
+      for (var j = 0; j < spec.length; j++) if (spec[j].key === k) at = j;
+      if (at >= 0) {
+        th.classList.add('pr-active');
+        if (ar) ar.textContent = (spec[at].dir === 'asc' ? '▲' : '▼') + (spec.length > 1 ? String(at + 1) : '');
+      }
+    }
+    var note = $('acc-bank-' + table + '-sortnote'); if (!note) return;
+    if (!spec.length) { note.innerHTML = ''; return; }
+    var L = en(), lab = SORT_LABEL[table] || {};
+    note.innerHTML = spec.map(function (s, i) {
+      var t = lab[s.key] || [s.key, s.key];
+      return '<span class="bk-sortchip">' + (spec.length > 1 ? (i + 1) + '. ' : '')
+           + esc(L ? t[1] : t[0]) + ' ' + (s.dir === 'asc' ? '▲' : '▼') + '</span>';
+    }).join('')
+    /* ⛔ `<button>` 이 아니라 span 이다 — `details.menu-card button` 전역 규칙이 인디고
+       그라데이션 알약(padding 9px 18px)으로 바꿔 제목줄을 밀어낸다(CLAUDE.md 2장). */
+    + '<span class="bk-clear" data-bk-clear="' + table + '" role="button" tabindex="0">'
+    + (L ? '✕ clear sort' : '✕ 정렬 해제') + '</span>';
+  }
+
+  /** 「N / M건 · 표시 중 합계 ₩…」 — 걸러 놓고 합계가 안 맞아 보이는 것을 막는다 */
+  function setCount(id, shown, total, sum) {
+    var el = $(id); if (!el) return;
+    if (!total) { el.textContent = ''; return; }
+    var L = en();
+    var txt = (shown === total)
+      ? (L ? total + ' rows' : total + '건')
+      : (L ? shown + ' of ' + total + ' rows' : total + '건 중 ' + shown + '건');
+    if (sum != null) txt += (L ? ' · shown total ' : ' · 표시 중 합계 ') + krw(sum);
+    el.textContent = txt;
+  }
+
+  function hit(q, parts) {
+    if (!q) return true;
+    var s = parts.join(' ').toLowerCase();
+    return s.indexOf(String(q).trim().toLowerCase()) !== -1;
+  }
+  function sumOf(list, key) {
+    var t = 0; for (var i = 0; i < list.length; i++) t += (Number(list[i][key]) || 0);
+    return t;
+  }
+
   function en() { return !!(window.adminLang && window.adminLang !== 'ko'); }
   function esc(v) {
     return String(v == null ? '' : v)
@@ -198,10 +336,16 @@
   // ── 🏷️ 계정과목별 표 ──────────────────────────────────────────────────────
   function renderCats() {
     var tb = $('acc-bank-cats'); if (!tb) return;
-    var cats = (_data && _data.categories) || [];
+    var all = (_data && _data.categories) || [];
+    var cats = applySort('cats', all.filter(function (c) {
+      return !_flt.catsRole || c.role === _flt.catsRole;
+    }));
+    setCount('acc-bank-cats-count', cats.length, all.length, sumOf(cats, 'total'));
+    paintSortUi('cats');
     if (!cats.length) {
       tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">'
-        + (en() ? 'No withdrawals in this month.' : '이 달에는 출금이 없습니다.') + '</td></tr>';
+        + (all.length ? (en() ? 'Nothing matches this filter.' : '고른 조건에 맞는 계정과목이 없습니다.')
+                      : (en() ? 'No withdrawals in this month.' : '이 달에는 출금이 없습니다.')) + '</td></tr>';
       return;
     }
     tb.innerHTML = cats.map(function (c) {
@@ -233,7 +377,12 @@
         화면만 먼저 바꾸면 실패했을 때 «바뀐 줄 아는» 상태가 남는다. */
   function renderPayees() {
     var tb = $('acc-bank-payees'); if (!tb) return;
-    var rows = ((_data && _data.payees) || []).slice(0, 20);
+    var allPayees = (_data && _data.payees) || [];
+    /* ⚠️ 거르고 «나서» 20개를 자른다 — 먼저 자르면 21번째부터는 검색해도 영영 안 나온다. */
+    var matched = allPayees.filter(function (r) { return hit(_flt.payeesQ, [r.payee, r.account]); });
+    var rows = applySort('payees', matched).slice(0, 20);
+    setCount('acc-bank-payees-count', rows.length, allPayees.length, sumOf(rows, 'total'));
+    paintSortUi('payees');
     var note = $('acc-bank-assign-note');
     if (note) {
       note.textContent = !_data ? ''
@@ -245,7 +394,9 @@
                     : '※ 계정과목 지정은 본사 계정만 할 수 있습니다.'));
     }
     if (!rows.length) {
-      tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
+      tb.innerHTML = '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">'
+        + (allPayees.length ? esc(en() ? 'Nothing matches this search.' : '검색어에 맞는 거래처가 없습니다.') : '—')
+        + '</td></tr>';
       return;
     }
     var opts = (_data && _data.account_options) || [];
@@ -449,7 +600,19 @@
   // ── 🧾 출금 내역 표 ───────────────────────────────────────────────────────
   function renderRows() {
     var tb = $('acc-bank-rows'); if (!tb) return;
-    var rows = (_data && _data.rows) || [];
+    var all = (_data && _data.rows) || [];
+    syncAccountOptions(all);
+    var rows = applySort('rows', all.filter(function (r) {
+      return (!_flt.rowsAcc || r.account === _flt.rowsAcc)
+          && hit(_flt.rowsQ, [r.remark, r.account, r.payee]);
+    }));
+    setCount('acc-bank-rows-count', rows.length, all.length, sumOf(rows, 'amount'));
+    paintSortUi('rows');
+    if (!rows.length && all.length) {
+      tb.innerHTML = '<tr><td colspan="5" style="padding:26px;text-align:center;color:#9ca3af;font-size:13px">'
+        + esc(en() ? 'Nothing matches this filter.' : '고른 조건에 맞는 출금이 없습니다.') + '</td></tr>';
+      return;
+    }
     if (!rows.length) {
       var st = _data && _data.status;
       var why = st ? (en() ? (st.message_en || st.message_ko) : st.message_ko) : '';
@@ -471,6 +634,38 @@
         + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;color:#6b7280">' + krw(r.balance) + '</td>'
         + '</tr>';
     }).join('');
+  }
+
+  /* 「계정과목 전체」 드롭다운 — «그 달에 실제로 나온 과목» 만 넣는다.
+     ⚠️ 없는 과목을 고를 수 있게 두면 빈 표가 나와 「검색했는데 아무것도 없다」가 된다.
+     ⚠️ 고른 값이 새 목록에 없으면(달을 바꾼 경우) 필터를 스스로 푼다 — 안 그러면 표가
+        영영 비어 있는데 왜 그런지 화면 어디에도 안 나온다. */
+  function syncAccountOptions(rows) {
+    var sel = $('acc-bank-rows-acc'); if (!sel) return;
+    var seen = {}, list = [];
+    for (var i = 0; i < rows.length; i++) {
+      var a = rows[i].account || '';
+      if (a && !seen[a]) { seen[a] = 1; list.push(a); }
+    }
+    list.sort(function (x, y) { return x.localeCompare(y, 'ko'); });
+    var sig = list.join('\u0001');
+    if (sel.__bkSig === sig) return;
+    sel.__bkSig = sig;
+    if (_flt.rowsAcc && seen[_flt.rowsAcc] !== 1) _flt.rowsAcc = '';
+    var head = sel.querySelector('option[value=""]');
+    sel.innerHTML = '';
+    sel.appendChild(head || (function () {
+      var o = document.createElement('option');
+      o.value = ''; o.textContent = en() ? 'All accounts' : '계정과목 전체';
+      o.setAttribute('data-ko', '계정과목 전체'); o.setAttribute('data-en', 'All accounts');
+      return o;
+    })());
+    for (var j = 0; j < list.length; j++) {
+      var op = document.createElement('option');
+      op.value = list[j]; op.textContent = list[j];
+      sel.appendChild(op);
+    }
+    sel.value = _flt.rowsAcc || '';
   }
 
   /* ── 🔁 고정비 · 변동비 (3단계) ────────────────────────────────────────────
@@ -507,9 +702,18 @@
     }
     // 고정비 → 반복 → 변동 순, 각 묶음 안에서는 금액 큰 순. 위에서부터 «매달 나가는 돈» 이다
     var order = { fixed: 0, recurring: 1, variable: 2 };
-    var items = (rc.items || []).slice().sort(function (a, b) {
+    var allItems = rc.items || [];
+    var matched = allItems.filter(function (i) {
+      return (!_flt.recurKind || i.kind === _flt.recurKind) && hit(_flt.recurQ, [i.payee]);
+    });
+    /* 기본 순서는 «고정 → 반복 → 변동, 그 안에서 금액 큰 순» — 위에서부터 매달 나가는 돈이다.
+       헤더를 눌러 정렬을 걸면 그 순서가 이긴다. */
+    var items = matched.slice().sort(function (a, b) {
       return (order[a.kind] - order[b.kind]) || (b.current - a.current);
-    }).slice(0, 20);
+    });
+    items = applySort('recur', items).slice(0, 20);
+    setCount('acc-bank-recur-count', items.length, allItems.length, sumOf(items, 'current'));
+    paintSortUi('recur');
     if (tb) {
       tb.innerHTML = items.length ? items.map(function (i) {
         var lab = KIND_LABEL[i.kind] || KIND_LABEL.variable;
@@ -524,7 +728,9 @@
           + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;text-align:right;color:#6b7280">' + krw(i.avg) + '</td>'
           + '<td style="padding:7px 9px;border-bottom:1px solid #f1f5f9;color:#6b7280;font-size:11px">' + esc(why) + '</td>'
           + '</tr>';
-      }).join('') : '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">—</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="padding:22px;text-align:center;color:#9ca3af">'
+        + (allItems.length ? esc(en() ? 'Nothing matches this filter.' : '고른 조건에 맞는 거래처가 없습니다.') : '—')
+        + '</td></tr>';
     }
     if (note) {
       var w = rc.window || [];
@@ -577,9 +783,26 @@
           + '</tr>';
       }).join('');
     };
-    draw(up, list.filter(function (m) { return m.delta > 0; }).slice(0, 5), 1);
-    // 줄어든 쪽은 «가장 많이 줄어든» 것부터 — 서버가 증가순으로 줬으니 뒤에서 5개를 뒤집는다
-    draw(down, list.filter(function (m) { return m.delta < 0; }).slice(-5).reverse(), -1);
+    var ups = list.filter(function (m) { return m.delta > 0; });
+    // 줄어든 쪽은 «가장 많이 줄어든» 것부터 — 서버가 증가순으로 줬으니 뒤집는다
+    var downs = list.filter(function (m) { return m.delta < 0; }).slice().reverse();
+    var N = _moversAll ? Math.max(ups.length, downs.length) : 5;
+    draw(up, ups.slice(0, N), 1);
+    draw(down, downs.slice(0, N), -1);
+
+    /* 「전체 보기」 — 이 표에 정렬 헤더를 달지 않는 대신 5개 너머를 볼 수 있게 한다.
+       ⚠️ 더 볼 것이 없으면 «누를 수 있는 것처럼» 두지 않는다(눌러도 아무 일이 없다). */
+    var more = $('acc-bank-movers-more');
+    if (more) {
+      var extra = Math.max(ups.length, downs.length) - 5;
+      if (extra <= 0) { more.textContent = ''; more.removeAttribute('data-bk-more'); }
+      else {
+        more.setAttribute('data-bk-more', '1');
+        more.textContent = _moversAll
+          ? (en() ? '▴ show top 5 only' : '▴ Top 5 만 보기')
+          : (en() ? '▾ show all (' + extra + ' more)' : '▾ 전체 보기 (' + extra + '개 더)');
+      }
+    }
   }
 
   /* 📥 엑셀 내보내기 — 서버가 «화면과 같은 payload» 로 만들어 준다(따로 계산하지 않는다).
@@ -617,6 +840,11 @@
     ['acc-bank-movers-up', 'acc-bank-movers-down'].forEach(function (id) {
       var tb = $(id); if (tb) tb.innerHTML = '<tr><td style="padding:16px;text-align:center;color:#9ca3af">—</td></tr>';
     });
+    ['recur', 'cats', 'payees', 'rows'].forEach(function (t) {
+      var n = $('acc-bank-' + t + '-sortnote'); if (n) n.innerHTML = '';
+      var c = $('acc-bank-' + t + '-count'); if (c) c.textContent = '';
+    });
+    var mm = $('acc-bank-movers-more'); if (mm) { mm.textContent = ''; mm.removeAttribute('data-bk-more'); }
     var rs = $('acc-bank-recur-sum'); if (rs) rs.innerHTML = '';
     var rn = $('acc-bank-recur-note'); if (rn) rn.textContent = '';
     var rb = $('acc-bank-rows');
@@ -677,6 +905,54 @@
       if (!mEl.value) mEl.value = kstMonth();
       mEl.addEventListener('change', function () { window.bankExpLoad(); });
     }
+    /* 🔃 정렬 헤더 · ✕ 정렬 해제 · ▾ 전체 보기 — 위임 한 곳에서 받는다.
+       ⚠️ 표는 다시 그릴 때마다 통째로 갈아치워지므로 헤더에 리스너를 «직접» 달면
+          한 번 그리고 나서 죽는다. 그래서 `#acc-bankacct` 에 한 번만 단다.
+       ⚠️ 필요한 표 하나만 다시 그린다 — 전부 다시 그리면 펼쳐 둔 거래처가 접히고
+          차트도 매번 destroy/재생성이라 눈에 띄게 끊긴다. */
+    function rerenderTable(t) {
+      if (t === 'recur') renderRecurring();
+      else if (t === 'cats') renderCats();
+      else if (t === 'payees') renderPayees();
+      else if (t === 'rows') renderRows();
+    }
+    function onActivate(e) {
+      if (!_data) return;
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var th = t.closest('.pr-th[data-bk-table]');
+      if (th) {
+        toggleSort(th.getAttribute('data-bk-table'), th.getAttribute('data-sort-key'), !!e.shiftKey);
+        rerenderTable(th.getAttribute('data-bk-table'));
+        e.preventDefault(); return;
+      }
+      var cl = t.closest('[data-bk-clear]');
+      if (cl) {
+        var k = cl.getAttribute('data-bk-clear');
+        _sort[k] = []; rerenderTable(k);
+        e.preventDefault(); return;
+      }
+      var mo = t.closest('[data-bk-more]');
+      if (mo) { _moversAll = !_moversAll; renderMovers(); e.preventDefault(); }
+    }
+    d.addEventListener('click', onActivate);
+    d.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target && e.target.closest && e.target.closest('[data-bk-clear],[data-bk-more]')) onActivate(e);
+    });
+
+    /* 🔍 필터 칸 — 입력할 때마다 그 표만 다시 그린다(서버를 부르지 않는다). */
+    [['acc-bank-recur-q', 'recurQ', 'recur'], ['acc-bank-recur-kind', 'recurKind', 'recur'],
+     ['acc-bank-cats-role', 'catsRole', 'cats'],
+     ['acc-bank-payees-q', 'payeesQ', 'payees'],
+     ['acc-bank-rows-q', 'rowsQ', 'rows'], ['acc-bank-rows-acc', 'rowsAcc', 'rows']
+    ].forEach(function (m) {
+      var el = $(m[0]); if (!el) return;
+      var h = function () { _flt[m[1]] = el.value || ''; if (_data) rerenderTable(m[2]); };
+      el.addEventListener('input', h);
+      el.addEventListener('change', h);
+    });
+
     d.addEventListener('toggle', function () {
       if (d.open && !_data) window.bankExpLoad();
     });

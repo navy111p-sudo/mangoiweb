@@ -2850,6 +2850,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       + '</div>'
       + stars('participation', T('Participation','참여도'))
       + stars('comprehension', T('Comprehension','이해도'))
+      + stars('speaking',      T('Speaking','말하기'))
       + '<div id="ev-msg"></div>'
       + '<div class="mrow">'
       +   '<button class="btn btn-gray" type="button" id="ev-x">' + esc(T('Cancel','취소')) + '</button>'
@@ -2891,10 +2892,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var picked = chosenChips(), parts = [], i;
       for (i = 0; i < picked.length; i++) if (CHIP_EN[picked[i]]) parts.push(CHIP_EN[picked[i]]);
       if (!parts.length) return '';
-      var sp = pick(mask, 'participation'), sc = pick(mask, 'comprehension');
+      var sp = pick(mask, 'participation'), sc = pick(mask, 'comprehension'), sk = pick(mask, 'speaking');
       return (c.student_name || 'The student') + ' ' + parts.join(', and ') + '.'
            + (sp ? ' Participation ' + sp + ' out of 5.'  : '')
-           + (sc ? ' Comprehension ' + sc + ' out of 5.' : '');
+           + (sc ? ' Comprehension ' + sc + ' out of 5.' : '')
+           + (sk ? ' Speaking ' + sk + ' out of 5.' : '');
     }
 
     // ── 다듬어서 한국어로 (서버 1회) ──
@@ -2982,6 +2984,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         lesson_date: DATA.today,
         score_participation: pick(mask,'participation'),
         score_comprehension: pick(mask,'comprehension'),
+        score_speaking: pick(mask,'speaking'),
         note_en: en || raw,
         note_ko: ko,
         chips: chosenChips(),
@@ -3007,10 +3010,14 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   function chip(key, label){
     return '<button type="button" class="tchip" data-chip="' + key + '">' + esc(label) + '</button>';
   }
+  /* ⚠️ 기본값을 미리 찍지 않는다 (2026-08-24 평가 개편 1단계).
+     예전엔 4가 미리 찍혀 있어 «안 만진 평가»가 전부 참여도4·이해도4 로 쌓였다 —
+     항목이 있어도 변별력이 0 이었다. 이제 안 고르면 그 항목은 «미평가»(null)로 저장되고,
+     학부모 화면(eval.html)은 null 항목을 아예 그리지 않으므로 거짓 점수가 나가지 않는다. */
   function stars(key, label){
     var h = '<div class="fld"><label>' + esc(label) + '</label><div class="stars">';
     for (var i=1;i<=5;i++){
-      h += '<input type="radio" name="'+key+'" id="'+key+i+'" value="'+i+'"' + (i===4?' checked':'') + '>'
+      h += '<input type="radio" name="'+key+'" id="'+key+i+'" value="'+i+'">'
         +  '<label for="'+key+i+'">'+i+'</label>';
     }
     return h + '</div></div>';
