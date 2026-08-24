@@ -293,10 +293,49 @@ console.log('\n⑧ 소스 드리프트 가드 (cafe24-sync.ts / api-mango.ts / i
   check('teacher: 카페24 강사번호를 payroll 로 해석(teachers.id 직결 금지)',
         tch.includes('teacher_payroll_auto') && tch.includes('cafe24Tids')
         && !/tConds\s*=\s*linkedTeacherIds/.test(tch));
+  /* ⚠️ (2026-08-24) 「뜻」으로 검사한다 — 조건문 «모양» 을 문자열로 못 박아 두면
+        이름 후보를 하나 늘리는 것 같은 무해한 수정에도 FAIL 이 난다(실제로 밟음:
+        `rows.length === 1` → `rows.length !== 1) continue`). 지켜야 하는 것은 둘뿐이다:
+          ① 프로필·급여 조회가 **완전일치**일 것 — 부분일치(LIKE) 금지('Anna → HANNAH')
+          ② 후보가 «정확히 1개» 일 때만 붙일 것
+        그래서 그 블록만 잘라 내어 LIKE 가 없는지까지 함께 본다(예전 검사보다 강하다). */
+  const c24Block = tch.slice(tch.indexOf('const cafe24Tids'), tch.indexOf('no_cafe24_teacher_id'));
   check('teacher: 완전일치만 · 후보 2개 이상이면 붙이지 않음',
-        tch.includes('COLLATE NOCASE') && tch.includes('rows.length === 1') && tch.includes('pr.length === 1'));
+        c24Block.includes('COLLATE NOCASE')
+        && !/\bLIKE\b/.test(c24Block)
+        && /rows\.length\s*[!=]==\s*1/.test(c24Block)
+        && /pr\.length\s*[!=]==\s*1/.test(c24Block));
   check('teacher: 번호를 못 찾으면 안 보여주는 쪽으로 실패',
         tch.includes('no_cafe24_teacher_id'));
+
+  /* 📅 (2026-08-24 Hannah 「내일 수업이 안 보인다」) 카페24 «예약» 수업이 강사 화면에 뜨는가.
+     ────────────────────────────────────────────────────────────────────────────
+     이 저장소는 카페24 예약을 `class_schedules` 에 **한 줄도 넣지 않는다**. 들어오는 곳은
+     `attendance` 의 `c24-*` 씨앗뿐이고(야간 동기화 창 [60일 전 ~ 180일 후]),
+     강사 포털이 그것을 읽어 줘야 «내일» 이 보인다. 예전엔 `date <= 오늘` 로 잘라내고 있어
+     카페24 수업이 «미래» 로 보일 경로가 아예 없었다. */
+  check('sync: class_schedules 에는 손대지 않는다(예약은 attendance 씨앗으로만)',
+        !sync.includes('class_schedules'));
+  check('teacher: 카페24 «예약»(scheduled)도 읽는다 — date<=오늘 로만 자르지 않는다',
+        tch.includes('lmsFutureRs') && /=== 'scheduled'/.test(tch));
+  check('teacher: 예약 수업을 주간 시간표·앞으로 7일에 싣는다',
+        /weekDays\[wi\]\.items\.push/.test(tch)
+        && /upcoming\.push\(\{[\s\S]{0,400}source: 'lms'/.test(tch));
+  /* 🔴 여기가 사고가 날 자리다 — 카페24 행에는 망고아이 «방» 이 없다. 오늘 목록에 끼우면
+        [입장] 버튼이 붙어 아무도 없는 방으로 보내게 된다. 그래서 그 루프 안에서는
+        `classes.push` 를 절대 하지 않는다(주간·앞으로 7일에만 넣는다). */
+  const futLoop = tch.slice(tch.indexOf('for (const r of (lmsFutureRs.results'));
+  const futLoopEnd = futLoop.indexOf('classes.sort(');
+  check('🔴 teacher: 예약 수업을 «오늘 목록» 에는 넣지 않는다(방이 없어 빈 방으로 보내게 된다)',
+        futLoopEnd > 0 && !futLoop.slice(0, futLoopEnd).includes('classes.push'));
+  /* 동기화가 가져오는 칸에 수업 «유형» 속성이 없다 → «체험» 이라고 지어내면 정규수업이
+     체험으로 보인다. 모르는 것은 모르는 채로 둔다(출처만 밝힌다). */
+  check('teacher: 카페24 행의 유형을 추측하지 않는다',
+        !/source: 'lms',[\s\S]{0,120}class_kind: '(trial|level_test|makeup)'/.test(tch));
+  /* `mangoi_###` 계정은 표시이름이 아이디 그대로라 teacher_profiles 완전일치가 영원히 0건이다.
+     본사가 「강사 계정 연결」로 사람을 정해 줘도 이 경로만 계속 실패하던 것을 고친 자리. */
+  check('teacher: 카페24 번호 해석에 **원부 이름**을 먼저 쓴다(mangoi_### 계정 구제)',
+        /nameKeys[\s\S]{0,240}resolvedRows/.test(tch));
   /* 이름도 같은 번호 체계에서만 가져와야 한다 — teachers 로 되돌리면 남의 이름이 박힌다. */
   check('sync: 강사 이름은 payroll(같은 번호 체계)에서만',
         sync.includes('SELECT teacher_name FROM teacher_payroll_auto')

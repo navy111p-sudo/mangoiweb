@@ -129,6 +129,9 @@ html[data-t="dark"] .pwform input{background:#1b2330;border-color:#2c3949;color:
    대부분이 정규라 전부 배지가 붙으면 «특별한 수업» 표시가 묻힌다. */
 .pill.p-trial{background:#7c3aed;color:#fff}
 .pill.p-makeup{background:#b45309;color:#fff}
+/* 🏫 (2026-08-24) 카페24 LMS 예약 수업 표시. 유형 배지(위 셋)와 «색만» 다르고 크기는 같다.
+   회색 계열로 둔 이유: 이건 «수업 유형» 이 아니라 «출처» 라 유형 배지보다 덜 튀어야 한다. */
+.pill.p-c24{background:#475569;color:#fff}
 .wk-nav{display:flex;gap:6px;margin:0 0 10px}
 .wk-nav button{flex:1;padding:8px 6px;border:1px solid #d7dee6;background:#fff;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:#334}
 .wk-nav button.on{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -934,10 +937,15 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   function kindPill(c){
     var k = c && c.class_kind;
     if (!k) k = (c && c.is_level_test) ? 'level_test' : 'regular';
-    if (k === 'level_test') return ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>';
-    if (k === 'trial')      return ' <span class="pill p-trial">' + esc(T('TRIAL','체험수업')) + '</span>';
-    if (k === 'makeup')     return ' <span class="pill p-makeup">' + esc(T('MAKE-UP','보강수업')) + '</span>';
-    return '';   // 정규수업 — 배지 없음(대부분이 정규라 붙이면 특별한 수업 표시가 묻힌다)
+    /* 🏫 (2026-08-24) 카페24 LMS 예약 수업이면 «출처» 를 함께 밝힌다.
+       ⚠️ 유형(체험/정규)은 **서버도 모른다** — 카페24 동기화가 그 속성을 안 가져온다.
+          그래서 «체험» 이라고 추측해 적지 않는다. 틀린 유형이 붙는 쪽이 더 나쁘다. */
+    var lms = (c && c.source === 'lms')
+      ? ' <span class="pill p-c24">' + esc(T('LMS','카페24')) + '</span>' : '';
+    if (k === 'level_test') return lms + ' <span class="pill p-lt">' + esc(T('LEVEL TEST','레벨테스트')) + '</span>';
+    if (k === 'trial')      return lms + ' <span class="pill p-trial">' + esc(T('TRIAL','체험수업')) + '</span>';
+    if (k === 'makeup')     return lms + ' <span class="pill p-makeup">' + esc(T('MAKE-UP','보강수업')) + '</span>';
+    return lms;  // 정규수업 — 유형 배지 없음(대부분이 정규라 붙이면 «특별한 수업» 표시가 묻힌다)
   }
 
   // ── 캐시 ──────────────────────────────────────────────────────────────────
