@@ -40,6 +40,20 @@ export function normalizeBandMode(raw: any): BandMode {
   return String(raw || '').trim().toLowerCase() === 'manual' ? 'manual' : 'auto';
 }
 
+/**
+ * 누구를 위한 문제인가 — 실력(밴드)과는 독립인 별개 축입니다.
+ *   'child'(기본) : 학교·친구 같은 일상 소재(지금까지의 전부)
+ *   'adult'       : 직장·일상 같은 성인 소재
+ * ⚠️ 문장 길이·문법 범위(BAND_SPECS)는 그대로 재사용합니다 — 이건 영어 실력 축이라
+ *    성인 초보자도 아이 초보자와 같은 규칙(3~5단어)이 맞습니다. 이 축은 '소재·어투'만 바꿉니다.
+ */
+export type AgeGroup = 'child' | 'adult';
+export const DEFAULT_AGE_GROUP: AgeGroup = 'child';
+
+export function normalizeAgeGroup(raw: any): AgeGroup {
+  return String(raw || '').trim().toLowerCase() === 'adult' ? 'adult' : 'child';
+}
+
 /** 이 모드에서 자동 조절을 돌려도 되는가. */
 export function shouldAutoAdjust(mode: any): boolean {
   return normalizeBandMode(mode) === 'auto';
@@ -200,17 +214,18 @@ export function sentenceHint(band: any): string {
   return n <= 1 ? 'ONE sentence' : `${n} short sentences`;
 }
 
-export function bandPromptLine(band: any): string {
+export function bandPromptLine(band: any, ageGroup: any = DEFAULT_AGE_GROUP): string {
   const s = bandSpec(band);
-  return `READING LEVEL (strict): the child reads at Mangoi textbook level ${bandLabel(s.band)}. `
+  const adult = normalizeAgeGroup(ageGroup) === 'adult';
+  return `READING LEVEL (strict): ${adult ? 'the adult learner reads' : 'the child reads'} at Mangoi textbook level ${bandLabel(s.band)}. `
     // ⚠️ 하한이 반드시 있어야 합니다. 상한만 주면 LLM 이 어느 밴드에서든 짧게 써 버려
     //    위쪽 범주가 아무 효과를 못 냅니다(라이브 실측: 상한 18 인데 7단어가 나왔음).
     + `The SITUATION text must be ${s.minWords}-${s.maxWords} words long — not shorter, not longer. `
     // 문장 개수 + 자가 점검 지시 — 단어 수만으로는 계속 짧게 씁니다(라이브 실측).
     + `Write it as ${sentenceHint(s.band)}. Count the words of your situation before you answer: `
     + `if it is under ${s.minWords} words, add concrete detail (who, where, what just happened) until it fits. `
-    // 선택지에는 하한을 주지 않습니다 — 아이가 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
-    + `Each OPTION must be at most ${s.maxWords} words and must stay something a child would really say. `
+    // 선택지에는 하한을 주지 않습니다 — 실제로 할 법한 말이라 억지로 늘리면 부자연스러워집니다.
+    + `Each OPTION must be at most ${s.maxWords} words and must stay something ${adult ? 'an adult would really say' : 'a child would really say'}. `
     // ⚠️ 단어 수를 맞추려고 문법을 깨면 안 됩니다 — 실사고(2026-08-24): 첫걸음(선택지 5단어 이하)에서
     //    "Want to play with me?"(6단어)가 안 들어가자 to 를 떨어뜨린 "Want play with me" 가 나갔습니다.
     + `Even at this level, every sentence must stay complete, natural, grammatically correct English — `
