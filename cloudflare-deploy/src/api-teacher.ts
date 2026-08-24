@@ -161,8 +161,13 @@ export async function handleTeacherApi(
       : Promise.resolve(null),
     /* 🔗 관리자가 손으로 정해 준 «계정 = 강사» 정답표. 있으면 이름 추측을 건너뛴다.
        (관리자 화면: 강사 계정 연결 카드 / 표: teacher_account_links) */
+    /* 🔤 (2026-08-24) 아이디 **대소문자를 무시**해서 찾는다.
+       로그인이 대소문자를 무시하므로(auth-admin.ts) 세션에 담기는 아이디와
+       본사가 연결해 둔 아이디의 대소문자가 갈릴 수 있다. 그때 연결을 못 찾으면
+       화면이 「계정이 연결돼 있지 않다」고 말한다 — 실제로 그렇게 밟았다
+       (`mangoi_167` 에 연결이 있는데 `Mangoi_167` 로 들어와 0건). */
     actor.username
-      ? env.DB.prepare(`SELECT teacher_id, teacher_name FROM teacher_account_links WHERE username = ?`)
+      ? env.DB.prepare(`SELECT teacher_id, teacher_name FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`)
           .bind(actor.username).first<any>()
           .catch(() => null)   // 표가 아직 없어도(첫 배포) 화면은 예전대로 돌아야 한다
       : Promise.resolve(null),
