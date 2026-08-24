@@ -55,9 +55,15 @@ const knownLimit = (n, stillBroken, measured) => {
 const SEED = {
   ok: true, source: 'neo4j', kind: 'expenses', count: 2, filtered_out: 7,
   prop_keys: ['content', 'name', 'organ', 'pay_date', 'reg_date', 'sign_users', 'state'],
+  /* 2026-08-24 실측 응답에서 성격이 다른 것만 골라 왔다 — 분류 5종과 «다수와 다른 상태» 가 섞이게. */
   rows: [
-    { reg_date: '2026-08-13', name: '1ST CUT SALARY JULY 30- AUGUST 12, 2026', organ: null, method: null, content: null, pay_date: '2026-08-13' },
-    { reg_date: '2026-07-30', name: '2ND CUT SALARY JULY 14-29, 2026', organ: null, method: null, content: null, pay_date: '2026-07-30' },
+    { reg_date: '2026-08-13', name: '1ST CUT SALARY JULY 30- AUGUST 12, 2026', content: null, pay_date: '2026-08-13', state: 1 },
+    { reg_date: '2026-07-30', name: '2ND CUT SALARY JULY 14-29, 2026', content: null, pay_date: '2026-07-30', state: 1 },
+    { reg_date: '2026-05-14', name: 'billing ilano accounting', content: null, pay_date: '2026-05-14', state: 0 },
+    { reg_date: '2026-04-07', name: 'Korphil ITR and Audited Financial  Statement  2025', content: 'Preparation and Filig', pay_date: '2026-04-07', state: 1 },
+    { reg_date: '2025-08-13', name: '4th floor water tank', content: 'Replacement to automatic floater switch', pay_date: '2025-08-13', state: 1 },
+    { reg_date: '2025-06-04', name: 'Farrah Loan', content: 'Salary Loan 3,000', pay_date: '2025-06-04', state: 1 },
+    { reg_date: '2026-01-15', name: 'BUSINESS PERMIT 2026', content: 'MANGOI, KORPHIL AND DHF', pay_date: '2026-01-15', state: 1 },
   ],
 };
 
@@ -141,12 +147,81 @@ const main = async () => {
         const first = [...document.querySelectorAll('#c24fin-body tr:first-child td')].map(t => t.textContent.trim());
         return { head, rows, first, cnt: (document.getElementById('c24fin-count') || {}).textContent || '' };
       });
-      check('지출결의 표 머리가 6칸(일자·제목·거래처·결제·내용·지급일)',
-        tbl.head.join(',') === '일자,제목,거래처,결제,내용,지급일', tbl.head.join(','));
+      // ⚠️ 머리글에는 정렬 표시(▼/▲)가 붙는다 — 그것까지 비교하면 «정렬이 켜졌다» 는 이유로 FAIL 난다.
+      check('표 머리가 새 6칸이다 (늘 비던 거래처·결제 대신 분류·상태)',
+        tbl.head.map(t => t.replace(/[▼▲]/g, '').trim()).join(',') === '일자,분류(추정),제목,내용,지급일,상태',
+        tbl.head.join(','));
       check('영어(필리핀) 결재가 남아 있다',
-        tbl.rows === 2 && /SALARY/.test(tbl.first.join(' ')), tbl.first.join(' | '));
-      check('제외 건수를 화면이 적어 준다',
-        /7건 제외/.test(tbl.cnt), tbl.cnt);
+        tbl.rows === 7 && /SALARY/.test(tbl.first.join(' ')), tbl.first.join(' | '));
+
+      /* 🧾 도구 줄 — 분류 칩·검색·상태·정렬이 «실제로» 동작하는지. 문자열 검사로는 못 본다. */
+      const tools = await page.evaluate(() => {
+        const t = document.getElementById('c24fin-tools');
+        if (!t) return { ok: false };
+        const chips = [...t.querySelectorAll('.c24x-chip')].map(c => c.textContent.trim());
+        const q = t.querySelector('input.c24x-q');
+        const cs = q ? getComputedStyle(q) : null;
+        const chip0 = t.querySelector('.c24x-chip');
+        const cc = chip0 ? getComputedStyle(chip0) : null;
+        return {
+          ok: true, chips,
+          note: (t.querySelector('.c24x-note') || {}).textContent || '',
+          qBg: cs && cs.backgroundColor, qPad: cs && cs.padding, qFont: cs && cs.fontSize,
+          chipBg: cc && cc.backgroundColor, chipImg: cc && cc.backgroundImage, chipPad: cc && cc.padding,
+        };
+      });
+      check('도구 줄이 표 위에 생겼다', tools.ok);
+      check('분류 칩이 실제 데이터대로 나온다 (급여·세무·시설·대출)',
+        /급여 2/.test(tools.chips.join('|')) && /세무·행정 3/.test(tools.chips.join('|'))
+        && /시설·수리 1/.test(tools.chips.join('|')) && /대출·대여 1/.test(tools.chips.join('|')),
+        tools.chips.join(' | '));
+      check('「상태 1 아님」 칩이 그 1건을 집어낸다',
+        /상태 1 아님 1/.test(tools.chips.join('|')), tools.chips.join(' | '));
+      check('분류가 «추정» 이고 금액이 없다는 사실을 화면이 말한다',
+        /추정/.test(tools.note) && /금액은 원본에 아직 없습니다/.test(tools.note));
+      check('제외 건수를 화면이 적어 준다', /7건은 제외/.test(tools.note), tools.note.slice(0, 60));
+
+      /* 🪤 CLAUDE.md 2장 — 카드 안 전역 규칙이 인라인을 !important 로 이긴다.
+            칩이 파란 알약(그라데이션·9px 18px)이 되지 않았는지, 검색칸이 다크로 안 덮였는지 «재서» 본다. */
+      check('칩이 전역 button 규칙에 안 먹혔다 (그라데이션 아님)',
+        tools.chipImg === 'none' && tools.chipPad === '5px 11px',
+        'image=' + tools.chipImg + ' padding=' + tools.chipPad);
+      check('검색칸이 전역 다크 input 규칙에 안 먹혔다',
+        tools.qBg === 'rgb(255, 255, 255)' && tools.qPad === '5px 10px' && tools.qFont === '12px',
+        'bg=' + tools.qBg + ' padding=' + tools.qPad + ' font=' + tools.qFont);
+
+      // 칩 눌러 거르기
+      const filtered = await page.evaluate(() => {
+        [...document.querySelectorAll('#c24fin-tools .c24x-chip')]
+          .find(c => /급여/.test(c.textContent)).click();
+        return { rows: document.querySelectorAll('#c24fin-body tr').length,
+                 texts: [...document.querySelectorAll('#c24fin-body tr')].map(r => r.textContent.slice(0, 40)) };
+      });
+      check('「급여」 칩을 누르면 급여 건만 남는다',
+        filtered.rows === 2 && filtered.texts.every(t => /SALARY/i.test(t)), filtered.texts.join(' | '));
+
+      // 검색
+      const searched = await page.evaluate(() => {
+        [...document.querySelectorAll('#c24fin-tools .c24x-chip')].find(c => /전체/.test(c.textContent)).click();
+        const q = document.getElementById('c24x-q');
+        q.value = 'permit'; q.dispatchEvent(new Event('input', { bubbles: true }));
+        return { rows: document.querySelectorAll('#c24fin-body tr').length,
+                 first: (document.querySelector('#c24fin-body tr') || {}).textContent || '' };
+      });
+      check('검색이 제목으로 찾는다', searched.rows === 1 && /PERMIT/.test(searched.first), searched.first.slice(0, 50));
+
+      // 정렬 — 일자 헤더를 누르면 뒤집힌다
+      const sorted = await page.evaluate(() => {
+        const q = document.getElementById('c24x-q');
+        q.value = ''; q.dispatchEvent(new Event('input', { bubbles: true }));
+        const first = () => (document.querySelector('#c24fin-body tr td') || {}).textContent || '';
+        const before = first();
+        document.querySelector('#c24fin-head th.c24x-th').click();
+        return { before, after: first() };
+      });
+      check('일자 헤더를 누르면 정렬이 뒤집힌다 (기본은 최신순)',
+        sorted.before === '2026-08-13' && sorted.after === '2025-06-04',
+        sorted.before + ' → ' + sorted.after);
 
       await ctx.close();
     }
