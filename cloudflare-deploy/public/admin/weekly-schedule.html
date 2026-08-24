@@ -979,6 +979,17 @@ async function loadData(){
               if(isNaN(hh))return;
               mm=Math.round((mm||0)/SLOT_STEP)*SLOT_STEP;   // 10분 격자에 맞춰 스냅
               if(mm>=60){hh+=1;mm-=60;}
+              /* 👥 (2026-08-24) 그룹 수업은 서버에 «학생마다 한 행» 으로 들어간다 —
+                 서버 class_type 에 group 이 없어서 같은 강사·날짜·시각에 여러 행이 생긴다.
+                 SLOTS 는 (강사·날짜·분) 하나에 한 칸이라 그냥 넣으면 **나중 행이 앞 행을 덮어써**
+                 학생 3명짜리 수업이 화면에는 1명으로 보인다. 같은 칸이면 학생을 합친다. */
+              var exist0=getSlotAt(s.teacher_id,s.date,hh*60+mm);
+              if(exist0&&exist0.type!=='blocked'&&(s.type||'1on1')!=='blocked'&&(s.students||[]).length){
+                var have={};(exist0.students||[]).forEach(function(x){have[x.uid||x.name]=1;});
+                (s.students||[]).forEach(function(x){if(!have[x.uid||x.name]){exist0.students.push(x);have[x.uid||x.name]=1;}});
+                if((exist0.students||[]).length>1)exist0.type='group';
+                return;
+              }
               addSlot(s.teacher_id,s.date,hh,{
                 type:s.type||'1on1',students:s.students||[],
                 start_date:s.start_date,end_date:s.end_date,note:s.note,
@@ -3205,25 +3216,71 @@ function renderNewSlotFields(type){
       '<input type="date" id="ns-end">'+
       '<label>'+(L?'메모 (선택)':'Note (optional)')+'</label>'+
       '<input type="text" id="ns-note-2">'+
+      /* ℹ️ 매주 반복이 아니라 «고른 칸의 날짜» 에 하나씩 만들어진다(서버 schedule_kind='one_off').
+         코스 시작·종료일은 서버 예약에 그런 칸이 없어 메모로 함께 적힌다 — 화면이 그 사실을 말해 준다. */
+      '<div style="margin-top:8px;font-size:12px;opacity:.8">'+(L
+        ? 'ℹ️ 고른 칸의 <b>날짜마다 수업 1건</b>이 등록됩니다(매주 반복 아님). 코스 시작·종료일은 메모로 함께 기록됩니다.'
+        : 'ℹ️ One class is created <b>per selected date</b> (not weekly recurring). The course start/end dates are recorded in the note.')+'</div>'+
     '</div>';
   }
 }
 
-function saveNewSlot(){
+/* 💾 (2026-08-24) «수업 만들기» 는 반드시 서버에 저장한다 ─────────────────────
+   [무엇이 문제였나] 이 화면의 «만들기» 는 메모리 SLOTS 에만 넣고 POST 를 하지 않았다.
+     그래서 화면에는 수업이 그려지는데 `class_schedules` 에는 행이 없었다 →
+     학생 화면은 「오늘 수업 없음」, 강의실 방 번호(`class-{예약id}-{YYYYMMDD}`)도
+     만들어질 수 없어 강사·학생이 서로 만나지 못한다(2026-08-24 사장님 제보:
+     jjy2323 장지웅 · HANNAH · 22:00 수업이 통째로 없었다).
+   ⚠️ 차단(blocked)은 2026-08-12 에 이미 고쳤는데 «수업» 쪽은 그대로 남아 있었다.
+     이동(2310행)·삭제(class-schedules DELETE)는 서버를 부르는데 만들기만 안 불렀다.
+   ⛔ 저장이 끝나기 «전에» addSlot 으로 그리지 말 것 — 서버가 거절해도 화면에는
+     수업이 있는 것처럼 보여서, 지금과 똑같은 «화면엔 있는데 실제론 없는» 상태가 된다. */
+async function postClassSchedule(payload, force){
+  var body={};for(var k in payload)body[k]=payload[k];
+  if(force)body.force=true;
+  var r=await fetch('/api/admin/class-schedules',{method:'POST',credentials:'include',
+    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  var j=await r.json().catch(function(){return {};});
+  return {ok:r.ok&&!!(j&&j.ok),status:r.status,j:j};
+}
+/* 겹치는 수업이 있으면 서버가 409 conflict 로 한 번 되묻는다(마법사 wizFinalize 와 같은 흐름).
+   ⚠️ 409 라도 error==='teacher_unavailable' 은 force 로도 못 뚫는다 — 되묻지 않고 실패로 둔다. */
+async function postClassScheduleAsk(payload, state){
+  var L=currentLang==='ko';
+  state=state||{};
+  var res=await postClassSchedule(payload, !!state.forced);
+  if(!res.ok && res.status===409 && res.j && res.j.error==='conflict' && !state.forced){
+    if(confirm((res.j.message||(L?'겹치는 수업이 있습니다.':'There is an overlapping class.'))+'\n\n'+(L?'그래도 등록할까요?':'Register anyway?'))){
+      state.forced=true;
+      res=await postClassSchedule(payload,true);
+    }
+  }
+  return res;
+}
+/* 화면의 수업 종류 → 서버가 아는 class_type. 서버는 regular|trial|level_test|makeup 만 받고
+   모르는 값은 조용히 'regular' 로 바꾼다(api-admin.ts). 여기서 명시해 두면 그 침묵에 안 기댄다. */
+var SLOT_TYPE_TO_CLASS_TYPE={ '1on1':'regular', 'group':'regular', 'temp':'makeup' };
+function classTypeOf(t){ return SLOT_TYPE_TO_CLASS_TYPE[t]||'regular'; }
+
+async function saveNewSlot(){
   var L=currentLang==='ko';
   var infos=window.__newSlotInfos||[];
   if(infos.length===0){closeModal();return;}
   var selectedEl=document.querySelector('.type-choice.selected');
   if(!selectedEl){alert(L?'수업 종류를 선택하세요':'Please choose a class type');return;}
   var type=selectedEl.dataset.type;
-  var note=document.getElementById('ns-note')?.value||'';
+  /* ⚠️ 메모 입력칸의 id 가 종류마다 다르다 — 차단은 `ns-note`, 수업은 `ns-note-2`.
+     예전엔 `ns-note` 만 읽어서 수업 메모가 «항상 빈 값» 이었다(에러는 안 난다). */
+  var note=(document.getElementById('ns-note')?.value)||(document.getElementById('ns-note-2')?.value)||'';
   var students=[];
   if(type!=='blocked'){
     var raw=document.getElementById('ns-students')?.value||'';
     raw.split('\n').forEach(function(line){
       line=line.trim();if(!line)return;
       var parts=line.split(':');
-      students.push({name:(parts[0]||'').trim(),uid:(parts[1]||'unknown').trim()});
+      /* 아이디를 안 적었으면 «없음» 으로 둔다. 예전엔 'unknown' 을 박아서 그 글자가
+         그대로 학생 아이디로 저장될 뻔했다 — 서버는 이름으로도 학생을 찾아 준다. */
+      students.push({name:(parts[0]||'').trim(),uid:(parts[1]||'').trim()});
     });
   }
   var start=document.getElementById('ns-start')?.value||infos[0].dateISO;
@@ -3278,18 +3335,60 @@ function saveNewSlot(){
     });
     return;
   }
-  infos.forEach(function(info){
-    addSlot(info.teacher.id,info.dateISO,info.hour,{
-      type:type,students:students,
-      start_date:start,end_date:end,note:note,
-      duration_min:dur
-    },info.minute||0);   // ⏱ 10분 격자 — 고른 칸의 «분» 그대로 저장
-  });
-  closeModal();clearDragSel();
-  render();
-  console.log('[saved]',infos.length,'slots',type);
+  /* 💾 여기부터가 «서버에 저장» 이다. 위 헬퍼 주석 참고 — 예전엔 이 자리가 addSlot 뿐이었다. */
+  if(!students.length){
+    alert(L?'학생을 한 명 이상 적어 주세요 (이름:아이디)':'Enter at least one student (name:id)');
+    return;
+  }
+  var saveBtn2=document.getElementById('new-slot-save');
+  if(saveBtn2){saveBtn2.disabled=true;saveBtn2.textContent=L?'저장 중…':'Saving…';}
+  var noteFull=note+((start||end)?((note?' · ':'')+(L?'코스 ':'Course ')+(start||'?')+'~'+(end||'?')):'');
+  var state={forced:false}, okCnt=0, failMsgs=[];
+  try{
+    for(var ii=0;ii<infos.length;ii++){
+      var info=infos[ii];
+      for(var si=0;si<students.length;si++){
+        var stu=students[si];
+        var payload={
+          student_name:stu.name||'',
+          teacher_id:String(info.teacher.id),
+          teacher_name:info.teacher.name,
+          schedule_kind:'one_off',                    // 고른 칸이 «그 날짜» 라 일회성이다
+          scheduled_date:info.dateISO,
+          start_time:minLabel(info.hour*60+(info.minute||0)),
+          duration_min:dur,
+          class_type:classTypeOf(type),
+          notes:noteFull
+        };
+        if(stu.uid)payload.user_id=stu.uid;           // 아이디가 있으면 그것이 우선(동명이인 방지)
+        var res=await postClassScheduleAsk(payload,state);
+        if(res.ok){
+          okCnt++;
+          if(res.j&&res.j.warning)failMsgs.push('⚠️ '+res.j.warning);
+        }else{
+          failMsgs.push((stu.name||'?')+' '+payload.scheduled_date+' '+payload.start_time+' — '+
+            ((res.j&&(res.j.message||res.j.error))||('HTTP '+res.status)));
+        }
+      }
+    }
+  }catch(e){
+    failMsgs.push(L?'네트워크 오류':'network error');
+  }
+  if(saveBtn2){saveBtn2.disabled=false;saveBtn2.textContent='💾 '+(L?'저장':'Save');}
+  if(okCnt>0){
+    closeModal();clearDragSel();
+    await reloadAndRender();   // 서버에서 다시 읽어야 예약 id·source 가 붙는다
+    showDndToast(L?('✅ 수업 '+okCnt+'건 저장됨'):('✅ '+okCnt+' class(es) saved'),'ok');
+  }
+  if(failMsgs.length){
+    alert((okCnt>0?(L?'⚠️ 일부만 저장됐습니다.\n\n':'⚠️ Partly saved.\n\n')
+                  :(L?'❌ 저장하지 못했습니다.\n\n':'❌ Nothing was saved.\n\n'))+failMsgs.join('\n'));
+  }
+  console.log('[saved:server]',okCnt,'classes',type,'fail',failMsgs.length);
 }
 window.saveNewSlot=saveNewSlot;
+window.postClassSchedule=postClassSchedule;
+window.postClassScheduleAsk=postClassScheduleAsk;
 
 function deleteSlotConfirm(teacherName,dateISO,hour,minute){
   minute=minute||0;   // ⏱ 10분 격자 — 키는 «자정부터의 분». 분을 빼먹으면 화면에서 안 지워진다
@@ -3778,15 +3877,37 @@ reloadAndRender();
   }, true);
 
   // ── 8) 배정 처리 + 학부모 알림톡 큐 적재 + 토스트 ────────────────────
-  function assignStudent(stu, info){
+  async function assignStudent(stu, info){
+    var L2=(currentLang==='ko');
+    var dur2=(typeof defaultDuration!=='undefined'?defaultDuration:20);
+    var note2=(L2?'대기 풀에서 배정':'Assigned from pool');
+    /* 💾 (2026-08-24) 대기 풀 배정도 «서버에» 저장한다 — 예전엔 addSlot 만 하고
+       class_schedules POST 가 없어서 새로고침하면 사라졌다(학생 화면에도 안 나온다).
+       자세한 사정은 postClassSchedule 머리말 참고. */
+    var res2;
+    try{
+      res2=await window.postClassScheduleAsk({
+        user_id:stu.uid, student_name:stu.name,
+        teacher_id:String(info.teacher.id), teacher_name:info.teacher.name,
+        schedule_kind:'one_off', scheduled_date:info.dateISO,
+        start_time:minLabel(info.hour*60+(info.minute||0)),
+        duration_min:dur2, class_type:'regular', notes:note2
+      },{forced:false});
+    }catch(e){ res2={ok:false,status:0,j:{message:(L2?'네트워크 오류':'network error')}}; }
+    if(!res2.ok){
+      /* ⛔ 실패하면 화면에도 그리지 않고 대기 풀에서도 빼지 않는다 —
+         «화면엔 배정됐는데 실제론 없는» 상태가 바로 이 사고의 원인이었다. */
+      showDndToast('⛔ '+((res2.j&&(res2.j.message||res2.j.error))||(L2?'저장 실패':'save failed')),'bad');
+      return;
+    }
     // 슬롯 생성 (1대1). ⏱ (2026-08-12) 고른 칸의 «분» 그대로, 길이는 기본 20분.
     //   예전엔 50분이 박혀 있었는데 50분은 고를 수 있는 길이가 아니다(20/40분).
     addSlot(info.teacher.id, info.dateISO, info.hour, {
       type:'1on1',
       students:[{name:stu.name, uid:stu.uid}],
-      duration_min:(typeof defaultDuration!=='undefined'?defaultDuration:20),
+      duration_min:dur2,
       start_date:info.dateISO,
-      note:(currentLang==='ko'?'대기 풀에서 배정':'Assigned from pool')
+      note:note2
     }, info.minute||0);
     // 대기 풀에서 제거
     POOL = POOL.filter(function(s){return s.uid !== stu.uid;});
