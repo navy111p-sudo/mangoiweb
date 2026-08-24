@@ -608,6 +608,266 @@ async function openCard(page) {
       await ctx.close();
     }
 
+    /* ── ⑫ 🧱 다섯 구역이 «눈으로» 갈라지는가 (2026-08-24) ─────────────────
+       사장님 「선이 흐려서 잘 보이지 않아」. 코드에 굵게 적어도 이 파일의 전역 규칙이
+       인라인 style 을 이기므로, **화면에 실제로 나온 값**을 재야 한다. */
+    console.log('\n[12] 구역 구분선 — 굵기·색 띠·간격을 실측');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      /* 🪤 `body{zoom:1.3}` 이라 테두리 굵기를 «px 숫자» 로 못 잰다 — 브라우저가 zoom 을
+            곱한 뒤 기기 픽셀로 반올림하고 그 값을 다시 나눠서 돌려주므로 2px 가
+            1.538px, 6px 가 5.385px 로 나온다(2026-08-24 실측). 그래서 절대값이 아니라
+            «표 안 줄 대비 몇 배인가» 로 판정한다 — zoom 과 무관하고 뜻도 그대로다. */
+      const m = await page.evaluate(() => {
+        const out = [];
+        document.querySelectorAll('#acc-bankacct .bk-sec').forEach(el => {
+          const cs = getComputedStyle(el);
+          out.push({
+            cls: el.className,
+            top: parseFloat(cs.borderTopWidth), left: parseFloat(cs.borderLeftWidth),
+            leftColor: cs.borderLeftColor.replace(/\s/g, ''),
+            mb: parseFloat(cs.marginBottom),
+          });
+        });
+        const td = document.querySelector('#acc-bank-rows td');
+        const h = document.querySelector('#acc-bankacct .bk-sec-h');
+        return {
+          secs: out,
+          inner: td ? parseFloat(getComputedStyle(td).borderBottomWidth) : null,
+          head: h ? parseFloat(getComputedStyle(h).borderBottomWidth) : null,
+        };
+      });
+      const secs = m.secs;
+      check('다섯 구역 모두 bk-sec 이다', secs.length === 5, String(secs.length));
+      check('구역 테두리가 표 안 줄보다 굵다', m.inner > 0 && secs.every(s => s.top >= m.inner * 1.8),
+            JSON.stringify({ sec: secs.map(s => s.top), inner: m.inner }));
+      check('왼쪽 색 띠가 테두리보다 훨씬 굵다', secs.every(s => s.left >= s.top * 2.5),
+            JSON.stringify(secs.map(s => [s.top, s.left])));
+      check('구역마다 띠 색이 다르다', new Set(secs.map(s => s.leftColor)).size === 5,
+            JSON.stringify(secs.map(s => s.leftColor)));
+      /* 🪤 색 띠가 «남이 칠한 회색» 이면 안 된다 — `js/adm-s13.js` 페인터가 인라인
+            `border-color: rgba(15,23,42,0.1) !important` 로 덮은 적이 있다(2026-08-24). */
+      check('띠 색을 페인터가 덮지 않았다',
+            secs.every(s => !/rgba\(15,23,42/.test(s.leftColor)), JSON.stringify(secs.map(s => s.leftColor)));
+      check('구역 사이 여백이 20px 이상', secs.slice(0, 4).every(s => s.mb >= 20),
+            JSON.stringify(secs.map(s => s.mb)));
+      /* 🪤 표 «안» 줄까지 굵어지면 숫자가 안 읽힌다 — 구역만 굵어졌는지 함께 확인 */
+      check('표 안 줄은 얇은 그대로', m.inner != null && m.inner < secs[0].top, String(m.inner));
+      /* 제목이 구역 안에서 스스로 갈라져 보이는가 (밑줄) */
+      check('구역 제목 밑에 줄이 있다', m.head != null && m.head >= m.inner * 1.8,
+            JSON.stringify({ head: m.head, inner: m.inner }));
+      await ctx.close();
+    }
+
+    /* ── ⑬ 🔃 정렬 — 헤더를 눌러 오름/내림이 실제로 «순서» 를 바꾸는가 ────────
+       ⚠️ 「정렬 함수가 있다」가 아니라 «화면에 그려진 줄 순서» 를 읽어서 판정한다.
+          문자열 하니스로는 순서를 볼 수 없다(CLAUDE.md 2장). */
+    console.log('\n[13] 정렬 — 헤더 클릭이 화면의 줄 순서를 바꾸는가');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      const col = (tbody, i) => page.evaluate(([tb, idx]) =>
+        [].slice.call(document.querySelectorAll('#' + tb + ' > tr'))
+          .filter(tr => !tr.classList.contains('bk-detail'))
+          .map(tr => (tr.cells[idx] ? tr.cells[idx].textContent.trim() : '')), [tbody, i]);
+      const clickTh = (table, key, shift = false) => page.evaluate(([t, k, sh]) => {
+        const th = document.querySelector(`#acc-bankacct .pr-th[data-bk-table="${t}"][data-sort-key="${k}"]`);
+        if (th) th.dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: sh }));
+      }, [table, key, shift]);
+
+      check('정렬 헤더가 네 표에 달렸다', await page.evaluate(() =>
+        ['recur', 'cats', 'payees', 'rows'].every(t =>
+          document.querySelectorAll(`#acc-bankacct .pr-th[data-bk-table="${t}"]`).length >= 4)), '');
+
+      // 🧾 출금 내역 — 금액 내림 → 오름 → 해제
+      const before = await col('acc-bank-rows', 3);
+      await clickTh('rows', 'amount'); await page.waitForTimeout(250);
+      const desc = await col('acc-bank-rows', 3);
+      const num = a => a.map(v => Number(String(v).replace(/[^0-9]/g, '')));
+      const isDesc = arr => arr.every((v, i) => i === 0 || arr[i - 1] >= v);
+      const isAsc = arr => arr.every((v, i) => i === 0 || arr[i - 1] <= v);
+      check('금액 헤더 한 번 = 내림차순', isDesc(num(desc)), desc.join(' | '));
+      await clickTh('rows', 'amount'); await page.waitForTimeout(250);
+      const asc = await col('acc-bank-rows', 3);
+      check('한 번 더 = 오름차순', isAsc(num(asc)), asc.join(' | '));
+      await clickTh('rows', 'amount'); await page.waitForTimeout(250);
+      const back = await col('acc-bank-rows', 3);
+      check('세 번째 = 해제 (서버가 준 순서로 돌아옴)', back.join() === before.join(), back.join(' | '));
+
+      // 화살표·상태 칩이 «지금 무슨 순서인지» 를 말하는가
+      await clickTh('rows', 'amount'); await page.waitForTimeout(250);
+      const ui = await page.evaluate(() => ({
+        arrow: (document.querySelector('#acc-bankacct .pr-th[data-bk-table="rows"][data-sort-key="amount"] .pr-arrow') || {}).textContent || '',
+        note: (document.getElementById('acc-bank-rows-sortnote') || {}).textContent || '',
+        active: !!document.querySelector('#acc-bankacct .pr-th[data-bk-table="rows"].pr-active'),
+      }));
+      check('헤더 화살표가 방향을 보여 준다', /▼/.test(ui.arrow), ui.arrow);
+      check('지금 무슨 순서인지 글로도 말한다', /출금액/.test(ui.note), ui.note);
+      check('정렬 중인 헤더가 강조된다', ui.active, String(ui.active));
+
+      // ✕ 정렬 해제
+      await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-rows-sortnote .bk-clear');
+        if (el) el.click();
+      });
+      await page.waitForTimeout(250);
+      const cleared = await page.evaluate(() => (document.getElementById('acc-bank-rows-sortnote') || {}).textContent || '');
+      check('✕ 정렬 해제가 먹는다', cleared === '', cleared);
+
+      /* 🪤 ✕ 해제는 `<button>` 이면 전역 규칙이 인디고 알약(padding 9px 18px)으로
+            바꿔 제목줄을 밀어낸다. span 인지 + 눌리는 색인지 함께 잰다. */
+      await clickTh('rows', 'amount'); await page.waitForTimeout(250);
+      const clr = await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-rows-sortnote .bk-clear');
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return { tag: el.tagName, color: cs.color.replace(/\s/g, ''), pad: cs.padding };
+      });
+      check('정렬 해제는 button 이 아니다 (전역 알약 규칙 회피)', clr && clr.tag !== 'BUTTON', JSON.stringify(clr));
+      check('정렬 해제가 누를 수 있는 색으로 보인다', clr && clr.color === 'rgb(30,64,175)', JSON.stringify(clr));
+
+      // 🏷️ 계정과목 표 — 글자(계정과목) 오름차순
+      await clickTh('cats', 'account'); await clickTh('cats', 'account'); await page.waitForTimeout(250);
+      const catsAsc = await col('acc-bank-cats', 0);
+      check('글자 열도 가나다순으로 정렬된다',
+            catsAsc.join() === catsAsc.slice().sort((a, b) => a.localeCompare(b, 'ko')).join(), catsAsc.join(' | '));
+
+      // Shift+클릭 = 2차 정렬키
+      await page.evaluate(() => { const el = document.querySelector('#acc-bank-cats-sortnote .bk-clear'); if (el) el.click(); });
+      await page.waitForTimeout(200);
+      await clickTh('cats', 'role');
+      await clickTh('cats', 'total', true);
+      await page.waitForTimeout(250);
+      const multi = await page.evaluate(() => (document.getElementById('acc-bank-cats-sortnote') || {}).textContent || '');
+      check('Shift+클릭이 2차 정렬키를 더한다', /1\./.test(multi) && /2\./.test(multi), multi);
+      await ctx.close();
+    }
+
+    /* ── ⑭ 🔍 필터 — 거른 뒤에도 «합계가 틀린 것처럼» 보이지 않는가 ───────── */
+    console.log('\n[14] 필터 — 검색·분류가 실제로 줄을 거르는가');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      const rowCount = tb => page.evaluate(t =>
+        [].slice.call(document.querySelectorAll('#' + t + ' > tr'))
+          .filter(tr => !tr.classList.contains('bk-detail') && !tr.querySelector('td[colspan]')).length, tb);
+
+      check('출금 내역이 5줄로 시작한다', await rowCount('acc-bank-rows') === 5, '');
+
+      // 적요 검색
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-rows-q');
+        el.value = '김영진'; el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('적요 검색이 줄을 거른다', await rowCount('acc-bank-rows') === 2, '');
+      const cnt = await page.evaluate(() => (document.getElementById('acc-bank-rows-count') || {}).textContent || '');
+      check('「N건 중 M건」을 적어 준다', /5건 중 2건/.test(cnt), cnt);
+      /* 🪤 거르면 위쪽 KPI(그 달 전체)와 표가 어긋나 보인다 — «표시 중 합계» 로 말해야
+            「합계가 틀렸다」로 안 읽힌다. 김영진 2건 = 3,600,000 + 2,400,000 */
+      check('«표시 중 합계» 를 함께 적어 준다', /6,000,000/.test(cnt), cnt);
+
+      // 안 맞는 검색어 — «없다» 고 말하는가 (빈 표로 두면 고장으로 읽힌다)
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-rows-q');
+        el.value = '있을리없는거래처'; el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      const none = await page.evaluate(() => (document.getElementById('acc-bank-rows') || {}).textContent || '');
+      check('맞는 것이 없으면 그렇다고 말한다', /맞는 조건|맞는 출금/.test(none), none.trim().slice(0, 60));
+
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-rows-q');
+        el.value = ''; el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('검색어를 지우면 전부 돌아온다', await rowCount('acc-bank-rows') === 5, '');
+
+      /* 🪤 계정과목 드롭다운은 «그 달에 실제로 나온 과목» 만 담아야 한다 —
+            안 나온 과목을 고르면 빈 표가 되어 「검색했는데 아무것도 없다」가 된다. */
+      const opts = await page.evaluate(() =>
+        [].slice.call(document.querySelectorAll('#acc-bank-rows-acc option')).map(o => o.value));
+      check('계정과목 목록이 그 달에 나온 것만이다',
+            opts.length === 5 && !opts.includes('광고선전비'), opts.join(','));
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-rows-acc');
+        el.value = '지사수수료'; el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('계정과목 필터가 먹는다', await rowCount('acc-bank-rows') === 2, '');
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-rows-acc');
+        el.value = ''; el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+
+      // 🔁 고정비·변동비 — 성격 필터
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-recur-kind');
+        el.value = 'fixed'; el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('성격(고정비만) 필터가 먹는다', await rowCount('acc-bank-recur') === 1, '');
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-recur-kind');
+        el.value = ''; el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+
+      // 🏷️ 계정과목 표 — 손익계산서 취급 필터
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-cats-role');
+        el.value = 'review'; el.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('손익계산서 취급 필터가 먹는다', await rowCount('acc-bank-cats') === 1, '');
+
+      // 🏪 거래처 검색 — 펼치기(2026-08-23)와 함께 살아 있는가
+      await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-payees-q');
+        el.value = '김영진'; el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await page.waitForTimeout(250);
+      check('거래처 검색이 줄을 거른다', await rowCount('acc-bank-payees') === 1, '');
+      await page.evaluate(() => {
+        const el = document.querySelector('#acc-bank-payees .bk-exp[data-exp="김영진"]');
+        if (el) el.click();
+      });
+      await page.waitForTimeout(300);
+      check('걸러진 상태에서도 펼치기가 살아 있다',
+            await page.evaluate(() => document.querySelectorAll('#acc-bank-payees tr.bk-detail').length) === 1, '');
+
+      /* 🪤 필터 칸은 `[id^="card-"] select`(13.5px·8px 12px)·`#legacy-cards select`(폭 100%)에
+            먹힌다. 코드가 아니라 «화면에 나온 값» 을 잰다. */
+      const box = await page.evaluate(() => {
+        const i = document.getElementById('acc-bank-rows-q');
+        const s = document.getElementById('acc-bank-rows-acc');
+        const g = el => { const cs = getComputedStyle(el); return { fs: cs.fontSize, w: el.offsetWidth, bs: cs.boxSizing }; };
+        return { input: g(i), sel: g(s) };
+      });
+      check('검색칸 글자가 12px 로 살아 있다', box.input.fs === '12px', JSON.stringify(box.input));
+      check('드롭다운 글자가 12px 로 살아 있다', box.sel.fs === '12px', JSON.stringify(box.sel));
+      check('드롭다운이 칸 폭을 다 먹지 않는다', box.sel.w > 0 && box.sel.w <= 230, JSON.stringify(box.sel));
+      check('box-sizing 이 border-box 다', box.sel.bs === 'border-box', box.sel.bs);
+      await ctx.close();
+    }
+
+    /* ── ⑮ 📈 증감 표 «전체 보기» ─────────────────────────────────────────── */
+    console.log('\n[15] 전월 대비 증감 — Top 5 너머를 볼 수 있는가');
+    {
+      const { ctx, page } = await open(browser, 1440, 900);
+      await openCard(page);
+      /* 씨앗은 늘어난 곳 2·줄어든 곳 2 라 «더 볼 것» 이 없다 —
+         그때 누를 수 있는 것처럼 두면 「눌렀는데 아무 일도 안 일어남」이 된다. */
+      const more = await page.evaluate(() => {
+        const el = document.getElementById('acc-bank-movers-more');
+        return el ? { text: el.textContent.trim(), armed: el.hasAttribute('data-bk-more') } : null;
+      });
+      check('더 볼 것이 없으면 «전체 보기» 를 내밀지 않는다', more && more.text === '' && !more.armed, JSON.stringify(more));
+      await ctx.close();
+    }
+
     /* ── ⑤ 🌐 EN 전환 — JS 로 그린 글자가 따라오는가 ───────────────────────── */
     console.log('\n[5] 언어 전환 — JS 로 그린 라벨이 EN 을 따라오는가');
     {
