@@ -279,6 +279,22 @@ console.log('\n════ 5부. LMS·시드 일괄 정리 API 의 안전장치
   check('🟡 «몇 건인지» 만 세어 보는 길이 있다 (화면이 먼저 묻는다)', /dry_run/.test(blk));
   check('📜 감사 로그를 남긴다', /writeClassAudit\(env, \{/.test(blk));
 
+  /* 🔴 (2026-08-24 실측) 여기가 이번에 실제로 밟은 자리다 — 핸들러·화면·권한이 전부 맞는데
+     화면이 「⚠️ 건수를 확인하지 못했습니다: Not Found」 를 냈다.
+     새 `/api/admin/*` 경로는 **관문이 셋**이고 하나만 빠져도 404 다:
+       ① index.ts 인증 게이트  — `/api/admin/` default-deny 라 자동 통과(등록 불필요)
+       ② index.ts **라우팅 허용목록** — 경로를 «하나씩» 적는다. 여기가 빠졌었다.
+       ③ api-mango.ts 위임 가드 — 여기 없으면 handleAdminApi 까지 못 간다
+     ⚠️ ①과 ②를 같은 것으로 착각하면 이 사고가 그대로 재현된다.
+     ⚠️ `/api/admin/class-schedules` 는 ②에 **정확일치**로만 올라와 있어 하위 경로는
+        매번 한 줄을 더해야 한다(`startsWith` 가 아니다). */
+  const idx = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'index.ts'), 'utf8');
+  const mango = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-mango.ts'), 'utf8');
+  check('🔴 index.ts 라우팅 허용목록에 등록돼 있다 (없으면 Not Found)',
+    idx.includes("path === '/api/admin/class-schedules/purge-placeholders'"));
+  check('🔴 api-mango.ts 위임 가드를 통과한다 (없으면 handleAdminApi 까지 못 간다)',
+    /path\.startsWith\('\/api\/admin\/class-schedules'\)/.test(mango));
+
   const w = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'admin', 'weekly-schedule.html'), 'utf8');
   check('화면이 «건수 확인 → 사람 확인 → 실행» 두 단계다',
     /dry_run:true/.test(w.replace(/\s/g, '')) && /confirm\(msg\)/.test(w));
