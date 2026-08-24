@@ -9588,3 +9588,72 @@ html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph
 #acc-bankacct tr.bk-detail   { background: #f8fafc; }
 #acc-bankacct tr.bk-detail td,
 #acc-bankacct tr.bk-detail th { color: #374151 !important; }
+
+/* ── 🧱 다섯 구역을 «눈으로» 가르기 + 🔃 정렬 헤더 · 🔍 필터 칸 (2026-08-24 사장님 요청) ──
+   [무엇이 문제였나] 「고정비·변동비 / 전월 대비 증감 / 계정과목별 합계 / 거래처별 합계 /
+   출금 내역」 다섯 구역이 **전부 똑같은 `1px solid #e5e7eb`** 라, 스크롤하면 어디서 어디까지가
+   한 덩어리인지 안 보였다(사장님 「선이 흐려서 잘 보이지 않아」).
+   ⛔ 표 «안» 줄까지 굵게 하지 않는다 — 줄이 굵어지면 숫자가 더 안 읽힌다.
+      가르는 것은 «구역» 이고, 표 안은 지금의 얇은 줄(`#f1f5f9`)이 맞다.
+   ✅ 구역은 ① 테두리 2px ② 왼쪽 6px 색 띠(구역마다 다른 색) ③ 제목 밑 2px 줄
+      ④ 구역 사이 여백 22px — 네 가지로 가른다. 색 띠만으로도 스크롤 중에 위치를 안다.
+   ⛔ hover 에 `transform`·`scale` 을 넣지 않는다(CLAUDE.md 1-3 「hover 확대 금지」).
+   ⚠️ 값이 `!important` 인 이유는 이 파일 전역 규칙(3866·8473·8743행 등)이 인라인 style 을
+      통째로 이기기 때문이다. 조상 id(`#acc-bankacct`)를 앞에 붙여야 그것을 다시 이긴다. */
+#acc-bankacct .bk-sec {
+  /* 🪤 배경을 여기서 «흰색으로 못 박는» 이유 — 화면 쪽 인라인 `background:#fff` 는 이 파일의
+     옛 다크 규칙에 지고, 그 «어두워진 계산값» 을 본 `js/adm-s13.js` 페인터가 이 상자를
+     밝게 다시 칠하면서 **`border-color` 까지 인라인 `!important` 로** 덮어쓴다.
+     실측(2026-08-24): 아래 색 띠가 다섯 구역 모두 `rgba(15,23,42,0.1)` 로 나왔다 —
+     인라인 `!important` 는 어떤 CSS 도 못 이기므로 «칠해지지 않게» 막는 것이 유일한 길이다.
+     ✅ 배경이 처음부터 흰색이면 페인터의 `isDarkGray()` 가 거짓이라 손을 대지 않는다.
+     ⛔ 페인터를 고치거나 예외로 빼지 말 것 — 그건 어두운 면의 가독성 구제다. */
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #cbd5e1 !important;
+  border-left: 6px solid #94a3b8 !important;
+  border-radius: 10px !important;
+  margin-bottom: 22px !important;
+  padding: 14px !important;
+}
+#acc-bankacct .bk-sec-recur  { border-left-color: #0f4c81 !important; }
+#acc-bankacct .bk-sec-movers { border-left-color: #b45309 !important; }
+#acc-bankacct .bk-sec-cats   { border-left-color: #6d28d9 !important; }
+#acc-bankacct .bk-sec-payees { border-left-color: #0f766e !important; }
+#acc-bankacct .bk-sec-rows   { border-left-color: #334155 !important; }
+#acc-bankacct .bk-sec-h {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px !important; font-weight: 800 !important;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 7px;
+  margin-bottom: 10px !important;
+}
+
+/* 🔍 필터 줄 — `[id^="card-"] select`(3866행)가 13.5px·8px 12px 로 부풀리고
+   `#legacy-cards select`(8473행)가 폭을 100% 로 늘린다. 여기서 되살린다.
+   ⚠️ `box-sizing` 을 함께 적어야 테두리가 폭 밖으로 나가지 않는다(2장 「표 안의 작은 버튼」). */
+#acc-bankacct .bk-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#acc-bankacct .bk-tools input.bk-filter,
+#acc-bankacct .bk-tools select.bk-filter-sel {
+  font-size: 12px !important;
+  padding: 5px 8px !important;
+  max-width: 230px !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 6px !important;
+}
+#acc-bankacct .bk-count { font-size: 11px !important; color: #6b7280 !important; font-weight: 400 !important; }
+
+/* 🔃 정렬 — 법인카드 표(.pr-th)와 «같은 조작»(헤더 클릭 = 내림→오름→해제, Shift+클릭 = 2차 키).
+   ⚠️ 공용 `.pr-th` 규칙은 미디어쿼리 안에 있어 여기까지 안 온다. 그래서 값을 다시 적는다.
+   ⛔ 정렬 해제를 `<button>` 으로 만들지 말 것 — `details.menu-card button` 전역 규칙이
+      인디고 그라데이션 알약(padding 9px 18px)으로 바꿔 제목줄을 밀어낸다(2장). */
+#acc-bankacct .pr-th { cursor: pointer; user-select: none; position: relative; padding-right: 22px !important; }
+#acc-bankacct .pr-th:hover { background: #f3f4f6; }
+#acc-bankacct .pr-th .pr-arrow { position: absolute; right: 5px; font-size: 10px; color: #9ca3af !important; font-weight: 700; }
+#acc-bankacct .pr-th.pr-active { background: #eff6ff; }
+#acc-bankacct .pr-th.pr-active .pr-arrow { color: #1e40af !important; }
+#acc-bankacct .bk-sortnote { font-size: 11px !important; font-weight: 400 !important; display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+#acc-bankacct .bk-sortchip { background: #dbeafe; color: #1e40af !important; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+#acc-bankacct .bk-clear { color: #1e40af !important; cursor: pointer; font-weight: 700; text-decoration: underline; }
+#acc-bankacct .bk-clear:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
