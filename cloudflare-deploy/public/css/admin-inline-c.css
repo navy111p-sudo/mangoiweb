@@ -9657,3 +9657,32 @@ html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph
 #acc-bankacct .bk-sortchip { background: #dbeafe; color: #1e40af !important; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
 #acc-bankacct .bk-clear { color: #1e40af !important; cursor: pointer; font-weight: 700; text-decoration: underline; }
 #acc-bankacct .bk-clear:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🔑 강사 정보 수정 「로그인 계정」의 «비밀번호 변경» 버튼 (2026-08-24)
+   [증상] 파랑(#2563eb)으로 인라인 지정했는데 브라우저 실측은 흰 버튼이었다
+          — background rgb(255,255,255) · color rgb(52,64,84) · padding 9px 18px.
+   [왜] 이 버튼엔 class 가 없었다 → 9072·9129 행의 «클래스가 없다 = 의도한 색이 없다»
+        규칙(`[id^="card-"] button:not([class])` → #ffffff !important)이 인라인을 이겼다.
+        작성자 !important 는 인라인보다 세다(2장 「관리자 버튼에 색을 줬는데 흰색」).
+   [고침] ① 클래스를 붙여 그 두 규칙의 대상에서 빠지고
+          ② 남는 경쟁자 `details.table-card.menu-card button:not(…)`(0,5,2) 를
+             아래 (0,6,1) 로 이긴다 — rm-act 계열(9480행)과 같은 방식이다.
+          ③ 페인터(adm-light-surfaces.js)의 SKIP_SEL 에도 등재했다.
+   ⛔ 색을 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"](3894·9012행)에 걸린다.
+   ═══════════════════════════════════════════════════════════════════════ */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  padding: 7px 14px !important; font-size: 12.5px !important; font-weight: 700 !important;
+  background: #2563eb !important; background-image: none !important;
+  color: #fff !important; border: 0 !important; border-radius: 6px !important;
+  box-shadow: none !important; transform: none !important;
+  cursor: pointer !important; white-space: nowrap !important;
+}
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):hover{
+  background: #1d4ed8 !important;
+}
+/* 연결된 로그인 계정이 없으면 비활성 — «누를 수 있는데 안 되는» 버튼으로 보이지 않게 */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):disabled{
+  background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important;
+}
