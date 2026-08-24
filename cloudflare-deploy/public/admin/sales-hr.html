@@ -550,7 +550,8 @@
   /* ── 평가 확정 (사람 15점) ─────────────────────────────────── */
   function evalHtml(){
     return '<div class="card" id="evalCard"><h2>사람이 보는 15점</h2>'
-      + '<p class="lead">기계가 셀 수 없는 <b>세 가지만</b> 사람이 매깁니다. 각 5점씩입니다.</p>'
+      + '<p class="lead">기계가 셀 수 없는 <b>세 가지만</b> 사람이 매깁니다. 각 5점씩입니다.<br>'
+      + '<b>🤖 AI 초안 받기</b>를 누르면 AI 가 기록을 읽고 초안을 채워 줍니다 — 확정은 사람이 합니다.</p>'
       + '<div class="eg"><b>보고 마감</b> 약속한 날짜에 보고가 왔나<br>'
       + '<b>차량·비용</b> 회사 차와 경비를 잘 챙겼나<br>'
       + '<b>협업</b> 본사·강사와 손발이 맞았나<br>'
@@ -583,7 +584,10 @@
             + '<textarea id="ev_imp" '+(canEdit?'':'disabled')+'>'+esc(s.improvements||'')+'</textarea></label>'
           + '</div>';
         if(canEdit){
-          html += '<div class="toolbar" style="margin-top:12px"><button class="btn primary" id="ev_save" type="button">평가 저장·확정</button>'
+          html += '<div id="ev_ai_box"></div>'
+            + '<div class="toolbar" style="margin-top:12px">'
+            + '<button class="btn" id="ev_ai" type="button">🤖 AI 초안 받기</button>'
+            + '<button class="btn primary" id="ev_save" type="button">평가 저장·확정</button>'
             + '<span class="muted" id="ev_msg"></span></div>';
         }
         // 현재 총점·등급
@@ -609,6 +613,7 @@
         }
         g('evalBody').innerHTML=html;
         if(canEdit && g('ev_save')) g('ev_save').addEventListener('click', saveEvaluation);
+        if(canEdit && g('ev_ai')) g('ev_ai').addEventListener('click', runAiDraft);
       })
       .catch(function(){ g('evalBody').innerHTML='<div class="muted">평가를 불러오지 못했습니다.</div>'; });
   }
@@ -617,6 +622,47 @@
     return '<label class="f">'+esc(label)
       + '<input type="number" id="'+id+'" min="0" max="'+max+'" step="0.5" value="'+(val==null?'':val)+'"'
       + (canEdit?'':' disabled')+'></label>';
+  }
+
+  /* ── 🤖 AI 평가 초안 ──────────────────────────────────────────
+     AI 는 초안까지만 씁니다. 점수 칸을 채워 주고 근거를 보여 줄 뿐,
+     저장은 사람이 «평가 저장·확정» 을 눌러야 됩니다.
+     자료가 없는 항목(차량 등)은 AI 도 비워 둡니다 — 지어내지 않습니다. */
+  function runAiDraft(){
+    var btn=g('ev_ai'); if(!btn) return;
+    btn.disabled=true; btn.textContent='AI 가 읽는 중…';
+    g('ev_ai_box').innerHTML='';
+    api('/api/admin/sales/ai-eval', { method:'POST', body: JSON.stringify({
+      rep_id: STATE.repId, period: STATE.period
+    })}).then(function(j){
+      btn.disabled=false; btn.textContent='🤖 AI 초안 받기';
+      if(!j.ok){ g('ev_ai_box').innerHTML='<div class="warnbox">'+esc(j.message||'AI 초안을 만들지 못했습니다.')+'</div>'; return; }
+      // 점수 칸 채우기 — 근거가 있는 것만. 이미 값이 있으면 덮지 않는다(사람 우선).
+      var put=function(id,d){ var el=g(id); if(el && d && d.score!=null && el.value==='') el.value=d.score; };
+      put('sc_reporting', j.reporting); put('sc_vehicle', j.vehicle); put('sc_teamwork', j.teamwork);
+      if(g('ev_str') && !g('ev_str').value) g('ev_str').value=(j.strengths||[]).join('\n');
+      if(g('ev_imp') && !g('ev_imp').value) g('ev_imp').value=(j.improvements||[]).join('\n');
+
+      var h='<div class="eg" style="margin-top:12px"><b>🤖 AI 초안입니다 — 확정은 사장님이 하십니다.</b>';
+      if(j.summary) h+='<br>'+esc(j.summary);
+      h+='</div>';
+      var ev=function(name,d){
+        if(!d) return '';
+        return '<div class="rec"><span class="m">'+(d.score!=null?'✏️':'⬜')+'</span><span><b>'+name+'</b> — '
+          + (d.score!=null ? (d.score+'점 · '+esc(d.evidence)) : '자료가 없어 비워 둠 (직접 넣어 주세요)')+'</span></div>';
+      };
+      h+=ev('보고 마감',j.reporting)+ev('차량·비용',j.vehicle)+ev('협업',j.teamwork);
+      if((j.next_actions||[]).length){
+        h+='<div class="eg"><b>바로 해 볼 것</b><br>'+ (j.next_actions||[]).map(esc).join('<br>')+'</div>';
+      }
+      if((j.data_gaps||[]).length){
+        h+='<div class="muted" style="margin-top:8px">AI 가 판단하지 않은 것: '+ (j.data_gaps||[]).map(esc).join(' · ')+'</div>';
+      }
+      g('ev_ai_box').innerHTML=h;
+    }).catch(function(){
+      btn.disabled=false; btn.textContent='🤖 AI 초안 받기';
+      g('ev_ai_box').innerHTML='<div class="warnbox">불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</div>';
+    });
   }
 
   function saveEvaluation(){
