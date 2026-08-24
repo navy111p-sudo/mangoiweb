@@ -1085,6 +1085,14 @@ const worker = {
         path === '/api/admin/ai-action' ||
         path === '/api/admin/class-schedules' ||
         path === '/api/admin/class-schedules/seed-demo' ||
+        /* 🧹 (2026-08-24) LMS·시드 자리표시 일괄 정리.
+           ⚠️ 이 목록은 «허용목록» 이다 — 인증 게이트(isAdminPath)가 `/api/admin/` 을
+              통째로 default-deny 하는 것과 **다른 것**이다. 인증은 통과하는데 여기 없으면
+              라우팅이 안 돼 핸들러까지 못 가고 «Not Found» 가 된다.
+              실제로 그렇게 밟았다: 화면 버튼이 「⚠️ 건수를 확인하지 못했습니다: Not Found」.
+           ⚠️ `/api/admin/class-schedules` 는 **정확일치**로만 올라와 있어(위 두 줄),
+              하위 경로를 새로 만들면 매번 여기에 한 줄을 더해야 한다. */
+        path === '/api/admin/class-schedules/purge-placeholders' ||
         // 🚫 강사 근무불가(휴가·휴식시간) — 강사 피드백(2026-07-24), /api/admin/class-schedules 등록 시 자동 차단에 사용
         path === '/api/admin/teacher-unavailability' ||
         /^\/api\/admin\/teacher-unavailability\/\d+$/.test(path) ||

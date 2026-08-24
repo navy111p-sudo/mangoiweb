@@ -160,3 +160,68 @@ PW_DIR=/tmp/pw node test-harness/manual/feedback-menu-level-warmup-browser.mjs
 - 머리에 `import { requireBrowser } from './_pw.mjs';` 를 쓰면
   준비물 확인·건너뜀 처리가 한 줄로 끝난다.
 - **운영 DB 를 건드리지 말 것.** 서버를 띄우지 말고 `fetch` 를 가짜로 바꿔 쓴다.
+
+---
+
+## lms-slot-assign-browser.mjs — LMS·시드 칸에 수업이 들어가는가 (15건)
+
+`class_schedules` 활성 행의 대부분은 진짜 수업이 아니라 **자리표시**다
+(`user_id='lms'` 옛 LMS 점유 · `'type_seed'` 6월 시연 시드). 2026-08-24 사장님 지시로
+**그 칸에도 수업을 배정할 수 있게** 판정을 바꿨다(데이터는 지우지 않았다).
+
+문자열 하니스(`schedule_10min_manager_harness` 4부)는 「그 함수를 쓰는가」까지만 본다.
+정작 사람을 막는 것은 **«누르면 무엇이 뜨는가»** 였다 — `click` 이 `mouseup` «뒤» 에 오기
+때문에 상세 모달이 「새 슬롯 추가」를 덮어써서 «눌러도 아무 일도 안 일어난» 것처럼 보인다.
+그건 코드를 읽어서는 안 보인다.
+
+1. LMS·시드 칸이 «빈 칸» 으로 판정되는가 (진짜 수업은 그대로 «참»)
+2. 그 칸을 누르면 「새 슬롯 추가」가 뜨는가 (상세가 덮지 않는가)
+3. 미배정 학생 칩을 끌면 «놓을 수 있음»(drop-target-ok)으로 보이는가
+4. 빈칸 찾기가 그 시간을 «빈 시간» 으로 세는가
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/lms-slot-assign-browser.mjs
+```
+
+⚠️ 주간 스케줄의 **배정 가능 판정**(`cellBusy`·`conflictReason`·`hourHasSlot`)이나
+서버 겹침판정(`src/schedule-conflict.ts`)을 건드리면 **사람이 이걸 불러야** 한다.
+
+---
+
+## class-create-persist-browser.mjs — 수업을 만들면 «서버에» 저장되는가 (23건)
+
+2026-08-24 사장님 제보: jjy2323(장지웅) 학생과 HANNAH 강사의 **22:00 수업을 주간 스케줄
+화면에서 잡았는데** ① 학생 화면은 「오늘 잡힌 수업이 없다」 ② 강의실에서 서로 못 만났다.
+
+원인은 이 화면의 «수업 만들기» 가 **메모리(SLOTS)에만 넣고 서버에 POST 를 안 한 것**.
+`class_schedules` 에 행이 없으니 학생 조회(`/api/class/sessions/today`)도 0건이고,
+결정론적 방 번호(`class-{예약id}-{YYYYMMDD}`)를 만들 근거 자체가 없었다.
+차단(blocked)은 2026-08-12 에 같은 이유로 고쳤는데 «수업» 쪽이 그대로 남아 있었다.
+
+⚠️ 이 사고의 고약한 점은 **화면에는 멀쩡히 그려진다**는 것이다 — 새로고침해야 사라진다.
+그래서 코드를 읽어도, 화면을 봐도 안 보이고 **네트워크를 봐야** 보인다.
+
+1. 빈 칸 → 「새 슬롯 추가」 → 저장 ⇒ `/api/admin/class-schedules` 로 POST 가 나가는가
+2. 보낸 내용이 서버 계약과 맞는가 (one_off + 날짜 + HH:MM + 학생 + 강사 + 길이 + class_type)
+3. 서버가 거절하면 화면에 그리지 않는가 ← 이 사고의 핵심
+4. 겹치면(409 conflict) 한 번 묻고 «그래도» 면 force 로 다시 보내는가
+5. 대기 풀 배정도 저장되는가 — 실패하면 풀에서 빼지도, 칸에 그리지도 않는가
+6. 같은 칸의 여러 행(그룹)이 한 수업으로 합쳐지는가 (3명이 1명으로 줄지 않게)
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/class-create-persist-browser.mjs
+```
+
+⚠️ 주간 스케줄의 **만들기·배정 경로**(`saveNewSlot`·`assignStudent`·`postClassSchedule`)를
+건드리면 **사람이 이걸 불러야** 한다.
+
+🪤 이 검사를 쓰다 밟은 함정 둘 — 새 브라우저 검사를 쓸 때 그대로 만난다.
+- **모달을 «지우지» 말 것.** `#modal-box` 의 class 가 바로 `modal` 이라
+  `querySelectorAll('.modal').forEach(remove)` 로 치우면 그 뒤 `openModal` 이
+  **떨어져 나간 노드**에 그린다 — 에러도 없고 화면에도 아무것도 안 뜬다
+  (실측: `dragSelected` 는 1인데 `.type-choice` 는 0). `closeModal()` 만 부른다.
+- **일간 격자는 가로로 길다.** 늦은 시간 칸은 창(1600px) 밖이라 `boundingBox()` 가
+  x=1966 같은 값을 준다. 그 좌표로 진짜 마우스를 누르면 엉뚱한 곳을 누르는 셈이라
+  `mousedown` 이 아예 안 걸린다. 드래그선택은 좌표가 아니라 «어느 요소에서 눌렀나» 로만
+  판정하므로 그 칸에 `MouseEvent` 를 직접 보낸다. 단 **대기 풀 배정은 예외** —
+  그쪽 `mouseup` 은 `elementFromPoint(clientX,clientY)` 를 쓰므로 진짜 좌표가 필요하다.

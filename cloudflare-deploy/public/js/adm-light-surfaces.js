@@ -40,6 +40,10 @@
     //   색이 사라지면 「참관인 줄 알고 직접 입장」·「강제 종료를 예사 버튼으로 오인」이 된다.
     //   글자 대비는 이 스크립트 대신 admin-inline-c.css 맨 끝 블록이 함께 정한다.
     '.rm-act', '.rm-act *', '.gh-act', '.gh-act *', '.tc-act', '.tc-act *',
+    // 🔑 (2026-08-24) 강사 정보 수정의 «비밀번호 변경» — 위와 같은 이유(색이 «주요 실행» 표시).
+    //   실측: 등재 전에는 파랑 #2563eb 가 흰 버튼(rgb 255,255,255)으로 눌렸다.
+    //   글자 대비는 admin-inline-c.css 맨 끝 button.tp-login-pw 블록이 함께 정한다.
+    '.tp-login-pw', '.tp-login-pw *',
     'canvas', 'svg', 'svg *', 'video', 'iframe'
   ].join(',');
 

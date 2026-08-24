@@ -672,7 +672,9 @@
       if (!d.ok) { alert('❌ ' + (d.message || d.error || (L?'요청 실패':'Request failed'))); return; }
       var code = (prompt('📱 ' + (d.message || (L?'문자로 받은 인증번호 6자리를 입력해 주세요':'Enter the 6-digit code'))) || '').trim();
       if (!code) return;
-      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (6자 이상)':'New password (6+ chars)') || '').trim();
+      // 🔢 (2026-08-24) 4자 — 서버(api-students.ts password-reset/confirm)가 4자를 받는데
+      //   여기 안내만 6자로 남아 「4자로 줄였다는데 6자 이상 쓰래요」가 됐다(옛 LMS 기준이 4자).
+      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (4자 이상)':'New password (4+ chars)') || '').trim();
       if (!npw) return;
       var r2 = await fetch('/api/student/password-reset/confirm', {
         method:'POST', headers:{'Content-Type':'application/json'},

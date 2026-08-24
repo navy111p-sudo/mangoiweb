@@ -12570,6 +12570,13 @@ window.rebuildGlobalSearchIndex = function() {
             /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
                그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
             + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
+        } else if (kind === 'expenses' && (d.filtered_out || 0) > 0) {
+          /* 🧾 이 탭은 카페24 원본에서 «우리 것이 아닌» 지출품의서를 뺀 목록이다
+             (한글 결재 · 결재라인 Joy·박상인 — 2026-08-24 사장님 지시. 정본 src/c24-expense-filter.ts).
+             몇 건을 뺐는지 적어 두는 이유는 «원본과 건수가 다른 것»이 고장으로 오인되지 않게 하기 위함이다. */
+          cnt.innerHTML = esc(base) + ' <span style="color:#9ca3af">· '
+            + (en ? 'excluded ' + d.filtered_out + ' unrelated request(s)' : '다른 곳 지출품의 ' + d.filtered_out + '건 제외')
+            + '</span>';
         } else { cnt.textContent = base; }
       }
       body.innerHTML = rows.length ? rows.map(function(row){

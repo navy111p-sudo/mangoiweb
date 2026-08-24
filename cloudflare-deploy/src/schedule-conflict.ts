@@ -94,6 +94,19 @@ export async function longClassCapFor(env: any, teacherId: string): Promise<numb
   } catch { return DEFAULT_LONG_CLASS_DAILY_CAP; }
 }
 
+/* 🟡 (2026-08-24 사장님 지시) LMS·시드 «자리표시» 행은 겹침으로 세지 않는다.
+ *   class_schedules 활성 행의 대부분은 진짜 수업이 아니라 자리표시다(실측 667행 중 658행):
+ *     · user_id='lms'       — 강사가 옛 LMS 로 수업 중이라 못 쓰던 시간 (source=lms_import_w26)
+ *     · user_id='type_seed' — 6월 시연용 시드
+ *   그 행들 때문에 그 시간에 망고아이 수업을 아예 넣을 수 없었다(주간 스케줄 화면에서
+ *   «이미 예약된» 으로 막히고, 여기서도 409 conflict 가 났다).
+ *   ⚠️ 제외식은 api-admin.ts·api-teacher.ts·churn-graph.ts 의 `NOT IN ('lms','type_seed')` 와
+ *      **글자 하나까지 같게** 유지할 것 — 화면마다 다르게 세기 시작하면 아무도 못 고친다.
+ *   ⚠️ 그 대신 이중배정을 서버가 더는 막아 주지 않는다. 이 데이터는 한 번 넣은 정적 임포트라
+ *      지금 실제 LMS 일정과 맞는다는 보장이 없어서 내린 판단이다(화면 쪽 주석과 같은 근거).
+ *   ⛔ 데이터는 지우지 않았다 — 되돌리려면 이 조건절만 빼면 된다. */
+const NOT_PLACEHOLDER = `AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`;
+
 /** 그 강사가 이미 잡아 둔 긴 수업 수 — 요일(정기) 또는 날짜(1회) 기준 */
 async function longClassCountsByDay(env: any, teacherId: string, q: ScheduleSlotQuery): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
@@ -103,9 +116,9 @@ async function longClassCountsByDay(env: any, teacherId: string, q: ScheduleSlot
     const rs = await env.DB.prepare(
       q.kind === 'recurring'
         ? `SELECT id, day_of_week, duration_min FROM class_schedules
-             WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring'`
+             WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' ${NOT_PLACEHOLDER}`
         : `SELECT id, scheduled_date, duration_min FROM class_schedules
-             WHERE teacher_id = ? AND status = 'active' AND scheduled_date = ?`
+             WHERE teacher_id = ? AND status = 'active' AND scheduled_date = ? ${NOT_PLACEHOLDER}`
     ).bind(...(q.kind === 'recurring' ? [teacherId] : [teacherId, q.schedDate])).all();
     for (const row of ((rs as any)?.results || []) as any[]) {
       if (exclude != null && String(row.id) === exclude) continue;      // 자기 자신은 안 센다(옮길 때)
@@ -157,14 +170,14 @@ async function activeRowsBy(env: any, col: 'user_id' | 'teacher_id', val: string
       const rs = await env.DB.prepare(
         `SELECT id, day_of_week, scheduled_date, start_time, duration_min, user_id, teacher_id
            FROM class_schedules
-          WHERE ${col} = ? AND status = 'active' AND schedule_kind = 'recurring'`
+          WHERE ${col} = ? AND status = 'active' AND schedule_kind = 'recurring' ${NOT_PLACEHOLDER}`
       ).bind(val).all();
       return rs?.results || [];
     }
     const rs = await env.DB.prepare(
       `SELECT id, day_of_week, scheduled_date, start_time, duration_min, user_id, teacher_id
          FROM class_schedules
-        WHERE ${col} = ? AND status = 'active' AND scheduled_date = ?`
+        WHERE ${col} = ? AND status = 'active' AND scheduled_date = ? ${NOT_PLACEHOLDER}`
     ).bind(val, q.schedDate).all();
     return rs?.results || [];
   } catch { return []; }
