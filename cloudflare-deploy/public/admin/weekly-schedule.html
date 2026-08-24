@@ -3221,6 +3221,37 @@ function deleteSlotConfirm(teacherName,dateISO,hour,minute){
       .catch(function(){alert(L?'⚠️ 삭제 실패(네트워크)':'⚠️ Delete failed (network)');});
     return;
   }
+  /* 🥭 (2026-08-24) class_schedules 로 뒷받침된 슬롯(1:1·그룹·LMS 점유·시드 등)은
+     서버에도 실제로 지워야 한다 — 서버 API(DELETE /api/admin/class-schedules/:id,
+     status='cancelled' 로 취소 처리 + class_audit_log 기록)는 이미 있었는데,
+     이 화면은 지금까지 메모리(SLOTS)만 지우고 있어서 새로고침하면 그대로 되살아났다
+     (편집도 같은 사정 — saveNewSlot 참고). 그래서 "LMS 점유로 막혀 있으니 지워 달라"는
+     요청이 화면에서 지워도 실제로는 안 지워지는 상태였다.
+     ⚠️ 근무불가 차단(위 unavailability 분기)과는 다른 API 다 — 혼동해서 합치지 말 것. */
+  if(slot&&slot.id){
+    var who=(slot.students&&slot.students.length)?slot.students.map(function(s){return s.name;}).join(', '):(slot.note||'');
+    var kindTxt=slot.origin==='lms'?(L?'LMS 점유 표시':'LMS occupancy marker')
+      :slot.origin==='sample'?(L?'시연 시드':'demo seed')
+      :(L?'수업':'class');
+    var msg='🗑 '+kindTxt+(who?(' — '+who):'')+'\n'+teacherName+' · '+dateISO+' '+minLabel(hour*60+minute)+
+      '\n\n'+(L?'삭제하면 서버에도 반영됩니다(취소 처리). 계속할까요?':'This removes it on the server too (marked cancelled). Continue?');
+    if(!confirm(msg))return;
+    fetch('/api/admin/class-schedules/'+encodeURIComponent(slot.id),{method:'DELETE',credentials:'include',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:'주간 전체 스케줄 화면에서 삭제'})})
+      .then(function(r){return r.json().catch(function(){return{};});})
+      .then(function(res){
+        if(res&&res.ok){
+          closeModal();
+          reloadAndRender();   // 서버 기준으로 다시 그리기
+          showDndToast(L?'✅ 삭제됐습니다':'✅ Deleted','ok');
+        }else{
+          alert((L?'⚠️ 삭제 실패: ':'⚠️ Delete failed: ')+((res&&(res.message||res.error))||(L?'서버 오류':'server error')));
+        }
+      })
+      .catch(function(){alert(L?'⚠️ 삭제 실패(네트워크)':'⚠️ Delete failed (network)');});
+    return;
+  }
+  // 서버에 등록된 id 가 없는 슬롯(순수 메모리 전용) — 화면에서만 지운다
   if(!confirm(L?'이 슬롯을 삭제하시겠어요?':'Delete this slot?'))return;
   if(t)delete SLOTS[slotKey(t.id,dateISO,hour*60+minute)];
   closeModal();render();
