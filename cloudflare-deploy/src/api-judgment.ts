@@ -686,6 +686,63 @@ async function resolveReadingBand(env: MangoEnv, uid: string, erpLevel?: string 
   return { state: emptyBandState(DEFAULT_BAND, 'default', human || null), existed: false, changedByHuman: false };
 }
 
+// ═══ ✍️ 영어 품질 안전망 (2026-08-24, 학원장 검수 피드백) ═══════════════════
+//   문제가 LLM 즉석 생성이라 문법이 깨진 보기(«I don't want play»)와 목적어 빠진 문장
+//   («Can I buy?»), 마침표 누락이 그대로 학생에게 나갔다. 영어 교육 서비스라 신뢰 문제다.
+//   세 겹으로 막는다:
+//     ① 생성 프롬프트에 «오답은 말투만 어긋나고 문법은 완전해야 한다» 를 명시 (아래 프롬프트)
+//     ② endPunct() — 문장부호 결정적 보정 (모델 지시만으로는 계속 빠뜨린다)
+//     ③ polishScenarioEnglish() — 교정 전용 2차 LLM 호출(temperature 0.1)로 문법만 고침.
+//        ⚠️ 오답 보기의 «일부러 어긋난 말투» 는 살려야 하므로 어투·단어는 못 바꾸게 지시하고,
+//        원문 단어가 절반도 안 남은 «다시 쓴» 답은 버리고 원문을 유지한다(keepsMeaning).
+//        검수 호출이 실패하면 원문 그대로 출제한다 — 문제를 못 주는 것이 더 나쁘다(재시도 철학과 동일).
+const endPunct = (s: string): string => {
+  const t = String(s || '').trim();
+  if (!t || /[.!?…"”]$/.test(t)) return t;
+  // 끝부호가 없으면: 의문문 시작 단어(조동사·be·wh)면 ? , 아니면 . — 이 앱의 보기는 대부분 아이가 하는 말/질문이다
+  return t + (/^(can|could|may|might|would|will|shall|should|do|does|did|is|are|am|was|were|have|has|had|what|where|when|why|how|who|whose|which)\b/i.test(t) ? '?' : '.');
+};
+const _pwords = (s: string) => String(s).toLowerCase().replace(/[^a-z']+/g, ' ').split(/\s+/).filter(Boolean);
+function keepsMeaning(fixed: string, orig: string): boolean {
+  const o = _pwords(orig); if (!o.length) return false;
+  const f = new Set(_pwords(fixed));
+  let hit = 0; for (const w of o) if (f.has(w)) hit++;
+  // 원문 단어의 절반 이상이 남아 있고, 길이가 두 배 넘게 불지 않아야 «문법만 고친 것» 으로 본다
+  return hit / o.length >= 0.5 && _pwords(fixed).length <= o.length * 2 + 3;
+}
+async function polishScenarioEnglish(ai: any, scenario: any): Promise<any> {
+  try {
+    const sents: string[] = [String(scenario.situation || ''), ...scenario.options.map((o: any) => String(o || ''))];
+    const prompt = `You are a strict English proofreader for a children's English course.
+Fix GRAMMAR mistakes only: missing words ("I don't want play" -> "I don't want to play"), missing objects ("Can I buy?" -> "Can I buy it?"), wrong verb forms, missing articles, broken structure, and missing end punctuation.
+DO NOT change tone, politeness, word choice, contractions, or meaning — some sentences are intentionally casual or blunt for a learning exercise, and that must stay.
+If a sentence is already correct, return it EXACTLY unchanged.
+
+Sentences:
+${sents.map((s, i) => i + ': ' + s).join('\n')}
+
+Reply STRICT JSON only: {"fixed": ["<sentence 0>", "<sentence 1>", ...]} — same order, same count (${sents.length}).`;
+    const resp: any = await ai.run(JUDGE_MODEL, {
+      messages: [
+        { role: 'system', content: 'You proofread English sentences. Reply in strict JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 600, temperature: 0.1,
+    });
+    const j = parseFirstJson(resp);
+    if (j && Array.isArray(j.fixed) && j.fixed.length === sents.length) {
+      // 순서·개수가 그대로라 correct_index·option_scores 는 손대지 않아도 계속 맞는다
+      const out = j.fixed.map((f: any, i: number) => {
+        const fx = endPunct(String(f || '').slice(0, i === 0 ? 500 : 300));
+        return fx && keepsMeaning(fx, sents[i]) ? fx : endPunct(sents[i]);
+      });
+      scenario.situation = out[0];
+      scenario.options = out.slice(1);
+    }
+  } catch (e: any) { console.warn('[judgment] grammar polish fail:', e?.message); }
+  return scenario;
+}
+
 /**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
  *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
@@ -802,6 +859,11 @@ ${levelLine}
 Set the situation in this specific context: "${theme}". The decision the child faces should involve: ${angle}.
 ${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
+ENGLISH QUALITY RULES — this is an English education service, so these are HARD requirements:
+- EVERY option must be a complete, grammatically correct English sentence a native speaker could actually say (correct verb forms, needed objects and articles — "I don't want play" or a dangling "Can I buy?" are NOT acceptable).
+- Wrong options must be wrong ONLY in tone, politeness, or fit for the situation — NEVER in grammar.
+- End the situation and every option with correct punctuation: "." for statements, "?" for questions, "!" for exclamations.
+
 Return STRICT JSON only:
 {
   "situation": "<1-2 sentence real-life context, English, child-friendly>",
@@ -835,7 +897,8 @@ Return STRICT JSON only:
             console.warn('[judgment] situation length off band ' + askBand + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
-          const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
+          // ✍️ 문장부호 결정적 보정(위 ② — 프롬프트로 지시해도 모델이 마침표를 자주 빼먹는다)
+          const opts4 = j.options.map((o: any) => endPunct(String(o).slice(0, 300))).slice(0, 4);
           // ⚠️ 정답 인덱스는 '자르고 난 뒤'의 길이로 제한해야 합니다.
           //    전에는 자르기 전 길이로 제한해서, LLM 이 5지선다에 correct_index=4 를 주면
           //    정답 선택지가 잘려나가고 인덱스만 남아 학생이 절대 정답을 맞힐 수 없었습니다.
@@ -847,7 +910,7 @@ Return STRICT JSON only:
             continue;
           }
           scenario = {
-            situation,
+            situation: endPunct(situation),
             skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
             options: opts4,
             correct_index: ci,
@@ -861,6 +924,10 @@ Return STRICT JSON only:
       } catch (e: any) { console.warn('[judgment] scenario LLM fail (attempt ' + (attempt + 1) + '):', e?.message); }
     }
   }
+  // 🧐 2차 문법 검수(위 ③) — 만들어진 문제를 내보내기 전에 교정 전용 호출로 문법만 한 번 더 고친다.
+  //    출제 이력·정답지 저장보다 먼저 — 저장·화면 모두 «검수를 거친 최종 문장» 이어야 한다.
+  if (scenario && ai) scenario = await polishScenarioEnglish(ai, scenario);
+
   // 출제 이력 갱신 — 다음 요청의 '반복 금지' 목록이 된다 (최근 15문항 / 주제 8개, 48h)
   if (scenario && kv) {
     try {
