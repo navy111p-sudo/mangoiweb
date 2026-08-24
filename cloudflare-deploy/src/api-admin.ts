@@ -6017,6 +6017,72 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   등록해두면 위 /api/admin/class-schedules 등록 시 자동으로 막힌다(teacher_unavailable 409).
     const TU_TABLE_SQL = `CREATE TABLE IF NOT EXISTS teacher_unavailability (id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id TEXT NOT NULL, teacher_name TEXT, kind TEXT NOT NULL DEFAULT 'date_range', start_date TEXT, end_date TEXT, day_of_week INTEGER, start_time TEXT, end_time TEXT, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL)`;
 
+    /* 🧹 LMS·시드 «자리표시» 일괄 정리 — 2026-08-24 사장님 지시
+     * ═══════════════════════════════════════════════════════════════════════
+     * [무엇인가] class_schedules 활성 행의 대부분은 진짜 수업이 아니라 자리표시다:
+     *     · user_id='lms'       — 옛 LMS 점유 (source=lms_import_w26, notes='LMS 수업중')
+     *     · user_id='type_seed' — 6월 시연용 시드 (source=type_seed_20260623)
+     *   학생이 안 붙어 있어 화면엔 「LMS」·「시드」 배지로만 보인다.
+     *
+     * [왜 지우나] 2026-08-24 에 먼저 «판정만 바꿔» 그 칸에도 배정할 수 있게 했지만,
+     *   칸이 화면에 그대로 남아 실제 운영에서는 달라진 게 없다는 판단(사장님).
+     *   → 「실제 데이터가 아니고 지워도 망고아이 데이터에 영향이 없다」는 확인 아래 정리한다.
+     *
+     * [어떻게 지우나] **status='cancelled'** 로 내린다 — 이 저장소에서 «삭제» 는 이미
+     *   그 뜻이다(DELETE /api/admin/class-schedules/:id 가 같은 방식). 화면은 전부
+     *   `status='active'` 만 읽으므로 즉시 사라지고, 잘못됐을 때 되돌릴 수 있다.
+     *   ⛔ 행을 물리적으로 지우지 않는다 — 개발·운영이 같은 DB라 되돌릴 방법이 없어진다.
+     *
+     * ⚠️ 학생이 붙어 있는 행은 **절대** 건드리지 않는다. user_id 가 정확히 그 둘일 때만.
+     * ⚠️ 강사·지사·대리점은 실행할 수 없다(아래 게이트). 본사만.
+     * ℹ️ dry_run=true 면 «몇 건인지» 만 세어 돌려준다 — 화면이 먼저 보여 주고 묻는다.
+     * 📜 감사 로그는 **요약 한 줄**만 남긴다(수백 줄을 남기면 이력이 그것으로 덮인다).
+     */
+    if (method === 'POST' && path === '/api/admin/class-schedules/purge-placeholders') {
+      const _pActor = await getAdminActor(request, env as any);
+      if (_pActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      const _pScope = await getScope(env as any, request);
+      if (!canEditOrg(_pScope)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+
+      const body: any = await request.json().catch(() => ({}));
+      const which = String(body?.which || 'both');
+      /* 지울 대상은 «표시자 목록» 으로만 정한다 — 조건을 자유 문자열로 받지 않는다.
+         (자유 조건을 받으면 언젠가 진짜 수업까지 지우는 요청이 만들어진다) */
+      const UIDS = which === 'lms' ? ['lms'] : which === 'seed' ? ['type_seed'] : ['lms', 'type_seed'];
+      const ph = UIDS.map(() => '?').join(',');
+      const WHERE = `WHERE LOWER(COALESCE(user_id,'')) IN (${ph})
+                       AND (status IS NULL OR status = 'active')`;
+      try {
+        const cnt: any = await env.DB.prepare(
+          `SELECT COUNT(*) AS n,
+                  SUM(CASE WHEN LOWER(COALESCE(user_id,'')) = 'lms' THEN 1 ELSE 0 END) AS lms,
+                  SUM(CASE WHEN LOWER(COALESCE(user_id,'')) = 'type_seed' THEN 1 ELSE 0 END) AS seed
+             FROM class_schedules ${WHERE}`
+        ).bind(...UIDS).first();
+        const total = Number(cnt?.n || 0);
+        if (body?.dry_run) {
+          return json({ ok: true, dry_run: true, count: total,
+            lms: Number(cnt?.lms || 0), seed: Number(cnt?.seed || 0) });
+        }
+        if (!total) return json({ ok: true, count: 0, message: '정리할 자리표시가 없습니다.' });
+
+        await env.DB.prepare(
+          `UPDATE class_schedules SET status = 'cancelled', updated_at = ? ${WHERE}`
+        ).bind(Date.now(), ...UIDS).run();
+
+        await writeClassAudit(env, {
+          action: 'remove', schedule_id: null,
+          actor: _pActor.name || '관리자', actor_role: 'admin', source: 'ui',
+          reason: `LMS·시드 자리표시 일괄 정리 (${which}) — ${total}건`,
+        }).catch(() => {});
+
+        return json({ ok: true, count: total,
+          lms: Number(cnt?.lms || 0), seed: Number(cnt?.seed || 0), status: 'cancelled' });
+      } catch (e: any) {
+        return json({ ok: false, error: 'purge_failed', detail: String(e?.message || e) }, 500);
+      }
+    }
+
     if (method === 'GET' && path === '/api/admin/teacher-unavailability') {
       try { await env.DB.exec(TU_TABLE_SQL); } catch {}
       const teacherIdQ = (url.searchParams.get('teacher_id') || '').trim();

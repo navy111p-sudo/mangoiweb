@@ -256,6 +256,38 @@ console.log('\n════════ 4부. LMS·시드 칸에 수업을 넣�
     qs.filter((x) => !x.includes('NOT_PLACEHOLDER')).length + '개 누락');
 }
 
+/* 🧹 (2026-08-24 사장님 지시) LMS·시드 자리표시 «일괄 정리» — 지우는 API 라 안전장치를 못 박는다.
+   [왜 지우나] 판정만 바꿔 배정을 열었지만 칸이 화면에 그대로 남아 실제 운영에서는
+     달라진 게 없다는 판단. 「실제 데이터가 아니고 지워도 영향 없다」는 확인 아래 정리한다.
+   ⛔ 이 검사들은 «지나치게 많이 지우는» 쪽을 막는 것이다. 느슨하게 고치지 말 것. */
+console.log('\n════ 5부. LMS·시드 일괄 정리 API 의 안전장치 ════');
+{
+  const api = readFileSync(join(ROOT, 'cloudflare-deploy', 'src', 'api-admin.ts'), 'utf8');
+  const i = api.indexOf("path === '/api/admin/class-schedules/purge-placeholders'");
+  const blk = i > 0 ? api.slice(i, i + 3500) : '';
+  check('일괄 정리 API 가 있다', !!blk);
+  check('🔴 강사는 실행할 수 없다', /_pActor\.isTeacher\) return json\(\{ ok: false, error: 'forbidden_teacher' \}, 403\)/.test(blk));
+  check('🔴 지사·대리점도 실행할 수 없다 (본사만)', /canEditOrg\(_pScope\)\) return json\(\{ ok: false, error: 'forbidden_scope' \}, 403\)/.test(blk));
+  /* 🔴 여기가 사고가 날 자리다 — 조건을 자유 문자열로 받으면 언젠가 진짜 수업을 지운다. */
+  check('🔴 지울 대상을 «표시자 목록» 으로만 정한다 (자유 조건 금지)',
+    /const UIDS = which === 'lms'[\s\S]{0,160}?\['lms', 'type_seed'\]/.test(blk));
+  check("🔴 user_id 가 정확히 lms/type_seed 인 행만 (학생이 붙은 행은 절대 안 건드림)",
+    /LOWER\(COALESCE\(user_id,''\)\) IN \(\$\{ph\}\)/.test(blk));
+  check('🔴 이미 취소된 행은 다시 안 건드린다', /status IS NULL OR status = 'active'/.test(blk));
+  check('⛔ 물리 삭제하지 않는다 — 되돌릴 수 있게 status=cancelled',
+    /UPDATE class_schedules SET status = 'cancelled'/.test(blk) && !/DELETE\s+FROM\s+class_schedules/i.test(blk));
+  check('🟡 «몇 건인지» 만 세어 보는 길이 있다 (화면이 먼저 묻는다)', /dry_run/.test(blk));
+  check('📜 감사 로그를 남긴다', /writeClassAudit\(env, \{/.test(blk));
+
+  const w = readFileSync(join(ROOT, 'cloudflare-deploy', 'public', 'admin', 'weekly-schedule.html'), 'utf8');
+  check('화면이 «건수 확인 → 사람 확인 → 실행» 두 단계다',
+    /dry_run:true/.test(w.replace(/\s/g, '')) && /confirm\(msg\)/.test(w));
+  check('정리할 것이 0건이면 버튼을 감춘다 (누를 게 없는 버튼 금지)',
+    /purgeBtn\.hidden=!\(s\.ghost>0\)/.test(w));
+  check('정리 뒤 서버에서 다시 읽는다 (화면만 바뀌는 착시 금지)',
+    /await loadData\(\);\s*\n\s*render\(\);/.test(w));
+}
+
 console.log('\n' + '─'.repeat(58));
 console.log(fail === 0 ? `✅ ALL PASS (${pass})` : `⚠ PASS ${pass} / FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

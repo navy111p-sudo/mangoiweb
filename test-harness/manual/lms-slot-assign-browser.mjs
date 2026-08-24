@@ -170,6 +170,40 @@ const cellAt = (page, date, hour) => page.evaluate(([d, h]) => {
     check('⛔ 진짜 수업 칸 위에서는 «놓을 수 없음»(drop-target-bad)',
       !!overReal.cls && overReal.cls.includes('drop-target-bad'), overReal);
 
+    console.log('\n[3.5] 🧹 LMS·시드 «정리» 버튼');
+    /* ⚠️ 서버 호출은 가짜로 물린다 — D1(개발·운영 공용)에 아무것도 쓰지 않는다.
+       확인하는 것은 «두 단계로 묻는가»: ① 건수를 DB 에 먼저 묻고 ② 확인을 받은 뒤에만 지운다. */
+    {
+      const calls = [];
+      await page.exposeFunction('__logPurge', (b) => { calls.push(b); }).catch(() => {});
+      await page.route('**/purge-placeholders', async (route) => {
+        const body = JSON.parse(route.request().postData() || '{}');
+        await page.evaluate((b) => window.__logPurge(JSON.stringify(b)), body).catch(() => {});
+        return route.fulfill({ status: 200, contentType: 'application/json',
+          body: JSON.stringify(body.dry_run
+            ? { ok: true, dry_run: true, count: 3, lms: 2, seed: 1 }
+            : { ok: true, count: 3, lms: 2, seed: 1, status: 'cancelled' }) });
+      });
+      const shown = await page.evaluate(() => {
+        const b = document.getElementById('st-ghost-purge');
+        return b ? { exists: true, hidden: b.hidden } : { exists: false };
+      });
+      check('정리할 것이 있으면 버튼이 보인다', shown.exists && shown.hidden === false, shown);
+
+      let dialogs = [];
+      page.on('dialog', async (d) => { dialogs.push(d.message()); await d.accept(); });
+      await page.click('#st-ghost-purge').catch(() => {});
+      await page.waitForTimeout(1200);
+      const sent = calls.map((c) => JSON.parse(c));
+      check('🔴 ① 먼저 «몇 건인지» 를 DB 에 묻는다 (dry_run)',
+        sent.length >= 1 && sent[0].dry_run === true, sent);
+      check('🔴 그 숫자를 사람에게 보여 준다', dialogs.some((m) => /3/.test(m)), dialogs);
+      check('🔴 ② 확인을 받은 뒤에만 진짜로 지운다',
+        sent.length === 2 && !sent[1].dry_run, sent);
+      check('⛔ 진짜 수업은 건드리지 않는다고 알린다',
+        dialogs.some((m) => /실제 수업|Real classes/.test(m)), dialogs);
+    }
+
     console.log('\n[4] 빈칸 찾기(hourHasSlot) 가 LMS 시간을 «빈 시간» 으로 세는가');
     const probe = await page.evaluate(([d]) => ({
       loaded: Object.keys(SLOTS).length,          // 0 이면 아래 값이 전부 «가짜 통과» 다
