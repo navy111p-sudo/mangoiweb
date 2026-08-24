@@ -16253,6 +16253,11 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 }
 </style>
 <script src="/js/idx-vc-textbook.js?v=1"></script>
+<!-- 📚 (2026-08-24 안드로이드 체험수업 제보) 「라이브러리에서도 폰 파일에서도 교재를 못 올린다」
+     대기 카드 위에 교재 입구(라이브러리·내 파일)를 붙인다. 폰에서는 교재 툴바가 접혀 있고
+     탭바의 입구들이 x≥735 라 390px 화면 밖이었다(실측). 자세한 사연은 그 파일 머리말에.
+     ⚠️ defer 필수 — index.html 의 첫 화면 blocking 예산 여유가 1,164바이트뿐이다(CLAUDE.md). -->
+<script defer src="/js/idx-vc-wait-actions.js?v=1"></script>
 <!-- 👻 (2026-08-20) 「같은 사람이 두 명으로 보인다」 유령 타일 청소 — 서버 생존판정(A-1)과 짝인 화면쪽 즉효 완화책.
      ⚠️ idx-main.js 에 넣지 말 것: 849KB 에 학생 29,000명 전원이 첫 화면에서 받는 파일이고 예산 여유가 12KB 뿐이다(CLAUDE.md). -->
 <script src="/js/idx-vc-dupghost.js?v=3" defer></script>
