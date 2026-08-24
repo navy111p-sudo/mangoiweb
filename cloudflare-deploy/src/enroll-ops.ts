@@ -487,22 +487,43 @@ export function inferWeeklyDays(pastAndFuture: string[], futureOnly: string[]): 
   return null;
 }
 
+/** 🔁 이미 끝난 수강도 «같은 요일·시간» 으로 이어 받을 수 있는 기간 (2026-08-24 사장님 결정).
+ *  재등록이 가장 필요한 순간이 «막 끝난 직후» 인데, 그때 연장 카드가 사라져 신규 폼을 처음부터
+ *  다시 채워야 했다. 너무 넓히면 «반년 전 그만둔 학생» 에게 옛 강사·시간을 들이밀게 되므로 60일. */
+export const ENROLL_RENEW_LOOKBACK_DAYS = 60;
+
+/** 연장 수업의 시작일 — «마지막 수업 다음 날», 단 그날이 이미 지났으면 «오늘» 부터.
+ *  ⚠️ 이 보정이 없으면 끝난 학생의 새 수업이 **과거 날짜로** 잡힌다(enrollDates 는 startDate 부터 센다). */
+export function renewStartDate(lastDate: string, today?: string): string {
+  const t = today || kstToday();
+  const next = addDays(String(lastDate || ''), 1);
+  return next > t ? next : t;
+}
+
 /** 학생의 현재 수강 상태 요약 (남은 회차·마지막 수업일·요일·시간·강사) */
 export async function currentEnrollment(env: any, uid: string): Promise<any> {
   const today = kstToday();
-  const since = addDays(today, -14);   // 요일 패턴 추정용 과거 창(연장 시점엔 미래가 거의 없다)
+  /* 🔁 (2026-08-24) 창을 60일로 넓혔다 — 미래 수업이 0건인 «끝난» 학생도 연장 대상으로 잡기 위해.
+     ⚠️ 넓힌 창을 요일 추정에 그대로 쓰면 안 된다 — 도중에 요일을 바꾼 학생이 4일로 잡혀
+        판정 불가가 된다. 추정 창은 아래에서 «마지막 수업일 기준 최근 14일» 로 다시 좁힌다
+        (수강 중인 학생에게는 today 기준과 같아 기존 동작 그대로다). */
+  const since = addDays(today, -ENROLL_RENEW_LOOKBACK_DAYS);
   const rs: any = await env.DB.prepare(
     `SELECT scheduled_date, start_time, COALESCE(duration_min,20) AS dm, teacher_id, source
      FROM class_schedules
      WHERE user_id = ? AND status = 'active' AND scheduled_date IS NOT NULL AND scheduled_date >= ?
-     ORDER BY scheduled_date ASC LIMIT 400`
+     ORDER BY scheduled_date ASC LIMIT 800`
   ).bind(uid, since).all();
   const all = ((rs?.results as any[]) || []);
+  if (!all.length) return { active: false, renewable: false, ended: false, remaining: 0 };
   const future = all.filter((r) => String(r.scheduled_date) >= today);
-  if (!future.length) return { active: false, remaining: 0 };
+  const ended = future.length === 0;   // 미래 수업 0건 = 이미 끝난 수강(창 안에 과거 기록은 있다)
 
-  const last = future[future.length - 1];
-  const days = inferWeeklyDays(all.map((r) => String(r.scheduled_date)), future.map((r) => String(r.scheduled_date)));
+  const last = ended ? all[all.length - 1] : future[future.length - 1];
+  // 요일·시간 추정 창 — 끝난 학생은 «마지막 수업일» 을 기준으로 최근 14일을 본다.
+  const patFrom = addDays(ended ? String(last.scheduled_date) : today, -14);
+  const pat = all.filter((r) => String(r.scheduled_date) >= patFrom);
+  const days = inferWeeklyDays(pat.map((r) => String(r.scheduled_date)), future.map((r) => String(r.scheduled_date)));
   let teacherName = '';
   try {
     const t: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(String(last.teacher_id)).first();
@@ -514,7 +535,7 @@ export async function currentEnrollment(env: any, uid: string): Promise<any> {
      ⚠️ days 에 있는 요일 전부가 시간을 얻지 못하면(그 요일 수업이 이미 다 소진돼 남은 행이 없는 경우 등)
         '연장 결제'를 진행하면 안 된다 — days_resolved 와 같은 이유로 추측 청구를 막는다. */
   const timesByDow: Record<number, string> = {};
-  for (const r of all) {
+  for (const r of pat) {   // ⚠️ all(60일) 이 아니라 추정 창 — 옛 시간이 최신을 덮지 않게
     const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
     const t = String(r.start_time || '');
     if (enrollTimeToMin(t) >= 0) timesByDow[dow] = t;
@@ -524,9 +545,12 @@ export async function currentEnrollment(env: any, uid: string): Promise<any> {
   if (timesResolved) for (const d of (days as number[])) times[d] = timesByDow[d];
 
   return {
-    active: true,
+    active: !ended,                       // 뜻 유지: «앞으로 남은 수업이 있다»
+    ended,                                // 🔁 이미 끝났지만 60일 안이라 이어받을 수 있다
+    renewable: true,                      // 화면·서버가 «연장 카드를 열까» 판정할 때 보는 값
+    days_since_end: ended ? daysBetween(String(last.scheduled_date), today) : 0,
     remaining: future.length,
-    next_date: String(future[0].scheduled_date),
+    next_date: ended ? '' : String(future[0].scheduled_date),
     last_date: String(last.scheduled_date),
     days: days || [],
     days_resolved: !!days,               // false 면 화면이 연장 카드를 숨기고 신규 신청으로 안내
@@ -878,7 +902,8 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     }
 
     const cur = await currentEnrollment(env, uid);
-    if (!cur.active) return json({ ok: false, error: 'no_active_enrollment', message: '연장할 수업이 없습니다. 새로 신청해 주세요.' }, 400);
+    // 🔁 (2026-08-24) 이미 끝난 수강도 60일 안이면 이어받는다(renewable) — 재등록이 가장 필요한 순간이다.
+    if (!cur.renewable) return json({ ok: false, error: 'no_active_enrollment', message: '연장할 수업이 없습니다. 새로 신청해 주세요.' }, 400);
     const months = Number(body.months || 0);
     if (!ENROLL_MONTHS.includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
     const weekly = cur.days.length;
@@ -895,7 +920,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     for (const d of cur.days as number[]) timesMin[d] = enrollTimeToMin(cur.times[d]);
     const p = {
       weekly, months, minutes: cur.minutes, times: cur.times, timesMin,
-      startDate: addDays(cur.last_date, 1),        // 마지막 수업 다음 회차부터 이어짐(부장님 답변 12번)
+      startDate: renewStartDate(cur.last_date),    // 마지막 수업 다음 회차부터(끝난 학생은 오늘부터 — 과거 날짜 방지)
       teacherId: cur.teacher_id, days: cur.days,
     };
     const res = await createEnrollOrder(env, uid, p, 'renew');

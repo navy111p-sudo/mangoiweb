@@ -528,8 +528,9 @@ document.getElementById('navBack').addEventListener('click', function(){
   /* 연장 버튼 라벨 — JS 로 그리는 라벨은 data-ko/data-en 도 «함께» 갱신해야 🌐 전환이 산다 (CLAUDE.md 2장) */
   function updateRenewBtnLabel(){
     var b = el('btnRenew'); if (!b) return;
-    var ko = SUB ? '💳 등록된 카드로 바로 결제' : '연장 결제';
-    var en = SUB ? '💳 Pay now with saved card' : 'Extend & pay';
+    var restart = !!(CUR && CUR.ended);   // 이미 끝난 수강이면 «연장» 이 아니라 «다시 시작»
+    var ko = SUB ? '💳 등록된 카드로 바로 결제' : (restart ? '다시 시작 결제' : '연장 결제');
+    var en = SUB ? '💳 Pay now with saved card' : (restart ? 'Restart & pay' : 'Extend & pay');
     b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
     b.textContent = curLang() === 'en' ? en : ko;
   }
@@ -546,7 +547,7 @@ document.getElementById('navBack').addEventListener('click', function(){
     };
   }
   function renewQuote(){
-    if (!CUR || !CUR.active) return;
+    if (!CUR || !CUR.renewable) return;
     fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ uid:UID||'', weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
       .then(function(r){return r.json();}).then(function(d){
@@ -558,13 +559,15 @@ document.getElementById('navBack').addEventListener('click', function(){
   }
   fetch('/api/pay/enroll/my-current?' + (RT ? RTQ : ('uid='+encodeURIComponent(UID)+(TOKEN?('&token='+encodeURIComponent(TOKEN)):''))))
     .then(function(r){return r.json();}).then(function(d){
-      if (!d || !d.ok || !d.current || !d.current.active) return;
+      /* 🔁 (2026-08-24) active(미래 수업 있음) → renewable(60일 안에 끝난 수강 포함).
+         재등록이 가장 필요한 «막 끝난 직후» 에 카드가 사라지던 것을 고친다. */
+      if (!d || !d.ok || !d.current || !d.current.renewable) { showNoRenewNote(); return; }
       CUR = d.current;
       var wk = (CUR.days||[]).length;
       // 요일 패턴을 서버가 확신하지 못하면(중간에 요일 변경 등) 연장 카드를 숨기고 신규 신청으로 유도
-      if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) return;
+      if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) { showNoRenewNote(); return; }
       // 🕐 (2026-07-30) 요일별 시간도 마찬가지로 확실할 때만 연장 카드를 보여준다 — 제보 #2-3.
-      if (!CUR.times_resolved) return;
+      if (!CUR.times_resolved) { showNoRenewNote(); return; }
       // 모든 요일이 같은 시각이면 기존처럼 한 번만 표시, 요일마다 다르면 각각 표시.
       var timeList = CUR.days.map(function(i){ return (CUR.times && CUR.times[i]) || CUR.time; });
       var sameTime = timeList.every(function(t){ return t === timeList[0]; });
@@ -574,8 +577,28 @@ document.getElementById('navBack').addEventListener('click', function(){
       el('renewInfo').innerHTML =
         '👩‍🏫 <b>'+esc(CUR.teacher_name||'담당 선생님')+'</b> · '
         + dayTimeStr + ' (' + CUR.minutes + '분)<br>'
-        + '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
-        + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : '');
+        + (CUR.ended
+            ? '📅 <b>'+esc(CUR.last_date)+'</b> 에 수업이 끝났어요'
+              + (CUR.days_since_end ? ' <span style="color:#fca5a5">('+CUR.days_since_end+'일 전)</span>' : '')
+              + '<br><span style="color:#6ee7b7">같은 요일·시간·선생님으로 <b>다음 수업일부터</b> 이어서 시작합니다</span>'
+            : '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
+              + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : ''));
+      // 끝난 학생에게는 제목도 «다시 시작하기» 로 (연장이라는 말이 어색하다)
+      if (CUR.ended) {
+        var _rh = document.querySelector('#stRenew h2');
+        if (_rh) _rh.innerHTML = '🔁 <span data-ko="수업 다시 시작하기" data-en="Restart my classes">수업 다시 시작하기</span>';
+        // ⚠️ 안내문도 함께 — 끝난 학생은 «마지막 수업 다음 회차» 가 아니라 «오늘 이후 첫 수업일» 부터 잡힌다.
+        var _rn = document.querySelector('#stRenew .note');
+        if (_rn) {
+          var _k = '같은 요일·시간·선생님 그대로, 오늘 이후 가장 가까운 수업일부터 새로 잡아 드려요.';
+          var _e = 'Same days, time and teacher — classes restart from the next matching day after today.';
+          _rn.setAttribute('data-ko', _k); _rn.setAttribute('data-en', _e);
+          _rn.textContent = curLang() === 'en' ? _e : _k;
+        }
+        var _rl = document.querySelector('#stRenew .lbl');
+        if (_rl) { _rl.setAttribute('data-ko','수강 기간'); _rl.setAttribute('data-en','Duration');
+                   _rl.textContent = curLang() === 'en' ? 'Duration' : '수강 기간'; }
+      }
       el('stRenew').style.display = 'block';
       /* 🔁 (2026-08-23) «연장 우선» — 수강 중인 로그인 학생은 신규 폼을 접는다(사장님 지시 ①④).
          rt(문자 링크) 모드는 이미 renew-only 클래스가 같은 일을 하고 있으니 건드리지 않는다. */
@@ -590,6 +613,23 @@ document.getElementById('navBack').addEventListener('click', function(){
       renderRenewMonths(); renewQuote();
       renderAutoRenewBox();
     }).catch(function(){});
+
+  /* 🛈 (2026-08-24) 연장·자동결제 카드를 못 여는 이유를 «화면이 스스로» 말한다.
+     지금까지는 아무 설명 없이 신규 폼만 떠서 「자동결제가 왜 안 보이지?」가 됐다(사장님 제보).
+     ⚠️ rt(문자 링크) 모드는 자체 안내가 이미 있으므로 건드리지 않는다. */
+  function showNoRenewNote(){
+    if (RT) return;
+    var st = el('stRenew'); if (!st || st.style.display === 'block') return;
+    var box = document.createElement('div');
+    box.className = 'step';
+    box.style.cssText = 'border-color:rgba(148,163,184,0.3);background:rgba(30,41,59,0.6)';
+    box.innerHTML = '<div style="font-size:13px;color:#cbd5e1;line-height:1.7">'
+      + '🛈 <b>이어받을 수업이 없어 연장·자동결제 카드를 열 수 없어요.</b><br>'
+      + '<span style="color:#94a3b8;font-size:12px">자동결제는 «지금 듣고 있는(또는 최근 60일 안에 끝난) 수업»의 '
+      + '요일·시간·선생님을 그대로 이어받는 기능이라, 먼저 아래에서 한 번 신청해 주세요. '
+      + '결제가 끝나면 이 화면에 자동결제 버튼이 생깁니다.</span></div>';
+    st.parentNode.insertBefore(box, st.nextSibling);
+  }
 
   /* ══ ♾️ 자동연장(정기결제) — 카드 한 번 등록하면 매월 자동으로 이어짐 ══ */
   function renderAutoRenewBox(){
