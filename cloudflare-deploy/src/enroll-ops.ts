@@ -26,6 +26,24 @@ import {
 } from './class-policy';
 import { checkAdminSession } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
+
+/** 🔑 수강신청·자동결제용 로그인 판정 — 학생 토큰이 우선, 없으면 «관리자 세션 쿠키» 를
+ *  본인 아이디(uid = username)로 인정한다. 「로그인했는데 또 로그인하래요」(CLAUDE.md 2장 —
+ *  로그인 세션 두 갈래)의 수강신청 판: 홈 통합 로그인이 «관리자 폴백» 으로 성공하면
+ *  (2026-08-23 사장님 jeong 이 정확히 이 경우) 학생 키가 localStorage 에 없어 화면이 잠겼다.
+ *  ⚠️ 관리자 세션은 «그 username 자신» 으로만 인정 — 다른 uid 를 대신 인증해 주지 않는다.
+ *     호출부의 `authUid !== uid` 검사가 그대로 살아 있어 남의 수강·결제는 여전히 403 이다.
+ *  ⛔ 학생 키(mangoi_logged_user)를 관리자에게 만들어 주는 방식으로 풀지 말 것 — 학생 전용
+ *     기능이 통째로 열린다(CLAUDE.md 같은 항목의 금지 사항). */
+export async function authUidOrAdminSession(request: Request, url: URL, env: any, body?: any): Promise<string | null> {
+  const uid = await authUidGlobal(request, url, env, body);
+  if (uid) return uid;
+  try {
+    const sess = await checkAdminSession(request, env as any);
+    if (sess?.ok && sess.username) return String(sess.username);
+  } catch (_) {}
+  return null;
+}
 import { sendPlainSms } from './solapi-client';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서
 /* 🔗 1회용 연장 링크 — 학부모 폰에 학생 로그인이 없어도 «이 학생의 연장» 만 되게 하는 좁은 권한.
@@ -796,7 +814,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const body = await parseJsonBody(request) || {};
     const uid = String(body.uid || '').trim();
     if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
-    const authUid = await authUidGlobal(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
     if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
     const p = enrollParse(body);
@@ -813,7 +831,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const uid = scope ? scope.uid : String(url.searchParams.get('uid') || '').trim();
     if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
     if (!scope) {
-      const authUid = await authUidGlobal(request, url, env, {});
+      const authUid = await authUidOrAdminSession(request, url, env, {});
       if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
     }
@@ -854,7 +872,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const uid = renewScope ? renewScope.uid : String(body.uid || '').trim();
     if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
     if (!renewScope) {
-      const authUid = await authUidGlobal(request, url, env, body);
+      const authUid = await authUidOrAdminSession(request, url, env, body);
       if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
       if (authUid !== uid) return json({ ok: false, error: 'uid_mismatch' }, 403);
     }
