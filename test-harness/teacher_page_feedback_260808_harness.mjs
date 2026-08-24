@@ -81,19 +81,9 @@ check('오늘·앞으로·주간 세 목록이 모두 class_kind 를 싣는다',
 check('화면 배지도 한 함수에서 나온다', /function kindPill\(c\)/.test(thtml));
 check('세 목록이 모두 그 함수를 쓴다', (thtml.match(/kindPill\(/g) || []).length >= 4);
 check('배지 색이 정의돼 있다', /\.pill\.p-trial\{/.test(thtml) && /\.pill\.p-makeup\{/.test(thtml));
-/* ⚠️ (2026-08-24) 「뜻」으로 검사한다 — 예전엔 `return '';` 라는 **한 줄 모양**을 못 박아 둬서,
-   같은 배지 함수에 «출처(LMS)» 표시를 더하자 뜻은 그대로인데 검사만 깨졌다.
-   지켜야 하는 것은 «정규수업에 **유형** 배지(레벨테스트/체험/보강)를 붙이지 않는다» 뿐이다.
-   → kindPill 의 마지막 return(=정규수업 갈래)에 유형 배지 클래스가 없는지로 본다. */
-const kpStart = thtml.indexOf('function kindPill(c){');
-const kpSrc = kpStart >= 0 ? thtml.slice(kpStart, thtml.indexOf('\n  }', kpStart)) : '';
-const kpTail = kpSrc ? kpSrc.slice(kpSrc.lastIndexOf('return ')) : '';
-check('정규수업엔 «유형» 배지를 안 붙인다 (전부 붙이면 특별한 수업이 묻힌다)',
-  !!kpSrc && !/p-lt|p-trial|p-makeup/.test(kpTail));
+check('정규수업엔 배지를 안 붙인다 (전부 붙이면 특별한 수업이 묻힌다)',
+  /return '';\s*\/\/ 정규수업/.test(thtml));
 check('배지가 한/영 둘 다', /T\('TRIAL','체험수업'\)/.test(thtml) && /T\('MAKE-UP','보강수업'\)/.test(thtml));
-/* 🏫 (2026-08-24) 카페24 LMS 예약 수업은 «유형» 이 아니라 «출처» 로 구분한다.
-   유형(체험/정규)은 서버도 모른다 — 동기화가 그 속성을 안 가져온다. 추측해 적지 않는다. */
-check('카페24 LMS 수업은 «출처» 배지로 구분한다', /source === 'lms'/.test(thtml) && /\.pill\.p-c24\{/.test(thtml));
 
 console.log('\n[ ② 수업료 — 상태에 «연기» 가 있다 ]');
 /* "For class fee, Please include: Lesson time / Student / Status / Deductions"

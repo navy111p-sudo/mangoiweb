@@ -551,69 +551,32 @@ export async function handleTeacherApi(
          ⚠️ 못 찾으면 이 블록은 조용히 0건이 된다(화면은 예전 그대로). 안전한 실패다.
          ⛔ linkedTeacherIds 로 되돌리지 말 것. 번호가 겹치는 자리에서 조용히 남의 수업을 준다. */
       const cafe24Tids: string[] = [];
-      /* 🔑 (2026-08-24) 이름 후보에 **원부 이름**을 앞세운다.
-         [왜] `mangoi_###` 은 옛 카페24 LMS 아이디로 자동 이관된 계정이라 표시이름이
-              아이디 그대로다(`auth-admin.ts` 머리말). 그런 계정은 `actor.name` 이
-              'Mangoi_167' 이므로 teacher_profiles 완전일치가 **영원히 0건**이고,
-              본사가 「강사 계정 연결」로 사람을 정해 줘도 이 블록만 계속 실패했다.
-              (2026-08-24 Hannah 「내일 수업이 안 보인다」 제보의 두 번째 겹)
-         → 위에서 이미 확정한 원부 행(resolvedRows)의 이름을 **먼저** 써 본다.
-            그건 본사가 손으로 고른 값(teacher_account_links)이거나 완전일치/낱말경계로
-            확정된 값이라 `actor.name` 보다 근거가 강하다.
-         ⚠️ 규칙 자체는 그대로다 — 후보 이름마다 «완전일치 + 유일» 일 때만 붙인다.
-            부분일치도, 후보 2개 이상에서 고르는 것도 여전히 금지('Anna → HANNAH'). */
-      const nameKeys = Array.from(new Set(
-        [...resolvedRows.map((x: any) => String(x.name || '').trim()), String(actor.name || '').trim()]
-          .filter(Boolean)
-      ));
-      for (const key of nameKeys) {
+      const nameKeys = [String(actor.name || '').trim()].filter(Boolean);
+      if (nameKeys.length) {
         const prof = await env.DB.prepare(
           `SELECT korean_name, english_name FROM teacher_profiles
             WHERE korean_name = ? COLLATE NOCASE OR english_name = ? COLLATE NOCASE LIMIT 2`
-        ).bind(key, key).all<any>().catch(() => ({ results: [] as any[] }));
+        ).bind(nameKeys[0], nameKeys[0]).all<any>().catch(() => ({ results: [] as any[] }));
         const rows = prof.results || [];
         // 프로필이 둘 이상 걸리면 누구인지 모르는 것이다 → 붙이지 않는다.
-        if (rows.length !== 1) continue;
-        const cand = [rows[0].korean_name, rows[0].english_name].filter(Boolean);
-        for (const nm of cand) {
-          const pay = await env.DB.prepare(
-            `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
-              WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
-          ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
-          const pr = pay.results || [];
-          if (pr.length === 1) { cafe24Tids.push(String(pr[0].teacher_id)); break; }
+        if (rows.length === 1) {
+          const cand = [rows[0].korean_name, rows[0].english_name].filter(Boolean);
+          for (const nm of cand) {
+            const pay = await env.DB.prepare(
+              `SELECT DISTINCT teacher_id FROM teacher_payroll_auto
+                WHERE teacher_name = ? COLLATE NOCASE LIMIT 2`
+            ).bind(nm).all<any>().catch(() => ({ results: [] as any[] }));
+            const pr = pay.results || [];
+            if (pr.length === 1) { cafe24Tids.push(String(pr[0].teacher_id)); break; }
+          }
         }
-        if (cafe24Tids.length) break;
       }
       if (!cafe24Tids.length) throw new Error('no_cafe24_teacher_id');
 
       const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
       const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
       const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
-
-      /* 📅 (2026-08-24 Hannah 「내일 수업이 안 보인다」) 카페24 LMS **예약** 수업.
-         ────────────────────────────────────────────────────────────────────────
-         [무엇이 문제였나] 이 화면의 오늘 목록·주간 시간표·앞으로 7일은 전부 D1
-            `class_schedules` 만 본다. 그런데 카페24 예약은 그 표에 **한 줄도 안 들어온다**
-            (`cafe24-sync.ts` 는 class_schedules 를 쓰지 않는다). 들어오는 곳은 `attendance`
-            의 `c24-*` 씨앗뿐이고, 야간 동기화 창이 [60일 전 ~ 180일 후] 라 **내일 수업도
-            이미 D1 에 있다**. 그런데 위 조회가 `date <= 오늘` 로 잘라내고 있었다 —
-            그 블록은 「끝난 수업에 일지 쓰기」 용이라 미래를 일부러 뺀 것이다.
-            결과: 강사 화면은 카페24 수업을 «미래» 로 보여줄 경로가 아예 없었다.
-
-         [여기서 하는 일] 예약 행을 따로 읽어 **주간 시간표**와 **앞으로 7일** 에만 넣는다.
-         ⚠️ 오늘 목록(`classes`)은 **건드리지 않는다.** 거기는 [입장] 버튼·상태 라벨이
-            걸려 있는 자리라, 방이 없는 카페24 행을 끼우면 아무도 없는 방으로 보내게 된다.
-         ⚠️ 상태값이 다르다 — 카페24 `ClassState` 1(예정) → `status='scheduled'`,
-            2(완료) → `'present'`(`cafe24-sync.ts`). 미래 행은 반드시 `scheduled` 로 찾는다.
-            취소·삭제된 수업은 야간 동기화가 창을 통째로 지우고 다시 넣으므로 저절로 빠진다.
-         ⚠️ 수업 «유형»(체험/정규)은 알 수 없다 — 동기화 Cypher 가 가져오는 칸에
-            그런 속성이 없다. 그래서 «체험» 이라고 **추측해 적지 않고** 출처(LMS)만 밝힌다.
-         ⚡ 위 조회와 **나란히** 던진다. 왕복이 늘지 않아야 필리핀 회선에서 체감이 같다. */
-      const UPCOMING_AHEAD_DAYS = 7;                // 아래 UPCOMING_DAYS(예약표)와 같은 값
-      const aheadDate = new Date(now + KST + UPCOMING_AHEAD_DAYS * 86400000).toISOString().slice(0, 10);
-      const [lmsRs, lmsFutureRs] = await Promise.all([
-      env.DB.prepare(
+      const lmsRs = await env.DB.prepare(
         `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
                 a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook
            FROM attendance a
@@ -623,24 +586,7 @@ export async function handleTeacherApi(
             AND (${tConds})
           ORDER BY a.joined_at DESC
           LIMIT 200`
-      ).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(),
-      /* 🗓 주간 시간표에 그릴 «표시 중인 주» + 앞으로 7일. 두 구간을 OR 로 묶어 한 번에 읽는다
-         (지난 주로 이동하면 그 주만, 이번 주면 두 구간이 겹쳐 사실상 한 구간이다).
-         ⚠️ 범위를 «주 시작 ~ 오늘+7» 한 덩어리로 만들지 말 것 — 몇 달 전 주로 이동하면
-            그 사이 전부를 긁어 온다. */
-      env.DB.prepare(
-        `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date, a.status,
-                a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook
-           FROM attendance a
-           LEFT JOIN students_erp se ON se.user_id = a.user_id
-          WHERE a.room_id LIKE 'c24-%'
-            AND ((a.date >= ? AND a.date <= ?) OR (a.date > ? AND a.date <= ?))
-            AND (${tConds})
-          ORDER BY a.joined_at ASC
-          LIMIT 400`
-      ).bind(weekDates[0], weekDates[6], todayStr, aheadDate, ...cafe24Tids).all<any>()
-        .catch(() => ({ results: [] as any[] })),
-      ]);
+      ).bind(sinceDate, todayStr, ...cafe24Tids).all<any>();
 
       const seen = new Set(classes.map((c: any) => String(c.room_id)));
       for (const r of (lmsRs.results || [])) {
@@ -676,56 +622,6 @@ export async function handleTeacherApi(
           can_enter: false,
         });
       }
-
-      /* 📅 예약 행 → **주간 시간표**와 **앞으로 7일** 에만 넣는다(오늘 목록은 위 주석대로 그대로). */
-      const wkIndex = new Map<string, number>();
-      weekDates.forEach((d, i) => wkIndex.set(d, i));
-      /* 같은 날 같은 시각에 이미 그린 줄이 있으면 겹쳐 그리지 않는다 — 강사는 같은 시각에 두
-         수업을 할 수 없으니 그건 «다른 수업» 이 아니라 «같은 수업이 두 경로로 온 것» 이다.
-         (예약표에서 온 줄을 남긴다 — 그쪽은 방·유형까지 아는 쪽이다) */
-      const wkTaken = new Set<string>();
-      for (let wi = 0; wi < 7; wi++) {
-        for (const it of weekDays[wi].items) wkTaken.add(weekDates[wi] + '|' + it.start_time);
-      }
-      const upTaken = new Set(upcoming.map((u: any) => u.date + '|' + u.start_time));
-
-      for (const r of (lmsFutureRs.results || [])) {
-        const rid = String(r.room_id || '');
-        const start_ts = Number(r.joined_at) || 0;
-        const date = String(r.date || '').slice(0, 10);
-        if (!rid || !start_ts || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-        const end_ts = Number(r.left_at) > start_ts ? Number(r.left_at) : start_ts + 30 * 60000;
-        const kk = new Date(start_ts + KST);
-        const start_time = `${pad(kk.getUTCHours())}:${pad(kk.getUTCMinutes())}`;
-        const duration_min = Math.max(1, Math.round((end_ts - start_ts) / 60000));
-        const student_name = r.username || r.user_id || null;
-        const key = date + '|' + start_time;
-
-        const wi = wkIndex.get(date);
-        if (wi != null && !wkTaken.has(key)) {
-          wkTaken.add(key);
-          weekDays[wi].items.push({
-            id: rid, start_time, duration_min,
-            student_name, student_name_en: r.student_en || null,
-            kind: 'class',
-            // ⚠️ 유형은 «모른다». 카페24 동기화가 가져오는 칸에 그런 속성이 없다.
-            //    «체험» 이라고 추측해 적으면 정규수업이 체험으로 보인다 → 출처만 밝힌다.
-            class_kind: 'regular', is_level_test: false, source: 'lms',
-          });
-        }
-        // «앞으로 7일» 은 내일부터 — 오늘 것은 오늘 목록이 맡는다. 아직 «예정» 인 것만.
-        if (date > todayStr && date <= aheadDate
-            && String(r.status || '') === 'scheduled' && !upTaken.has(key)) {
-          upTaken.add(key);
-          upcoming.push({
-            id: rid, date, start_time, start_ts, duration_min,
-            student_name, student_name_en: r.student_en || null,
-            level: r.level || null, textbook: r.textbook || null,
-            class_kind: 'regular', is_level_test: false, source: 'lms',
-          });
-        }
-      }
-
       classes.sort((a, b) => a.start_ts - b.start_ts);
     } catch (e: any) {
       // 카페24 번호를 못 찾았거나(no_cafe24_teacher_id) 조회가 실패해도
