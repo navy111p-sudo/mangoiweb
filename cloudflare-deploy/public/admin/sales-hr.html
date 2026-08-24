@@ -646,9 +646,15 @@
       if(g('ev_str') && !g('ev_str').value) g('ev_str').value=(j.strengths||[]).join('\n');
       if(g('ev_imp') && !g('ev_imp').value) g('ev_imp').value=(j.improvements||[]).join('\n');
 
-      var h='<div class="eg" style="margin-top:12px"><b>🤖 AI 초안입니다 — 확정은 사장님이 하십니다.</b>';
+      var h='<div class="eg" style="margin-top:12px"><b>'
+        + (j.model==='rules' ? '📊 기록 숫자로 만든 초안입니다 — 확정은 사장님이 하십니다.'
+                             : '🤖 AI 초안입니다 — 확정은 사장님이 하십니다.')+'</b>';
       if(j.summary) h+='<br>'+esc(j.summary);
       h+='</div>';
+      // AI 가 왜 폴백됐는지 — 한 줄이면 다음 스크린샷으로 원인을 잡을 수 있다
+      if(j.model==='rules' && j.ai_error){
+        h+='<div class="muted" style="margin-top:6px">AI 연결 상태: '+esc(j.ai_error)+'</div>';
+      }
       var ev=function(name,d){
         if(!d) return '';
         return '<div class="rec"><span class="m">'+(d.score!=null?'✏️':'⬜')+'</span><span><b>'+name+'</b> — '
