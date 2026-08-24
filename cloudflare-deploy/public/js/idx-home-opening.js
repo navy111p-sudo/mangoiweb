@@ -499,19 +499,24 @@
     }
   }
 
-  // ── ♪ 출처 표기 (CC-BY 조건) — 재생 중에만 왼쪽 아래에 작게 ─────────────
+  // ── ♪ 출처 표기 (CC-BY 조건) — 페이지 «맨 아래» 정적 한 줄 ──────────────
+  // 처음엔 재생 중 왼쪽 아래에 떠 있는 상자였는데 사장님이 「제목은 삭제」 지시(2026-08-24).
+  // ⛔ 표기를 아예 없애면 CC-BY 위반이라 «위치» 만 옮겼다 — CC BY 4.0 §3(a)(2)는
+  //    «매체·맥락에 맞는 합리적 방식» 을 허용하므로, 사이트 바닥글 방식이 통용된다.
+  //    스크롤 맨 끝의 10px 정적 한 줄이라 화면에는 사실상 안 보인다.
+  // showCredit(on) 시그니처는 유지 — 재생 경로의 호출부를 안 건드리기 위해서다.
+  //    on=true 면 «존재 보장» 만 하고, false 여도 지우지 않는다(정적 표기니까).
   var creditEl = null;
   function showCredit(on) {
-    if (!on) { if (creditEl) { try { creditEl.remove(); } catch (e) {} creditEl = null; } return; }
-    if (creditEl) return;
+    if (!on || creditEl) return;
+    if (document.getElementById('mgo-sound-credit')) { creditEl = document.getElementById('mgo-sound-credit'); return; }
     try {
       var d = document.createElement('div');
       d.id = 'mgo-sound-credit';
-      d.textContent = '♪ Sascha Ende — Also Sprach Zarathustra (filmmusic.io) · CC BY 4.0';
-      d.style.cssText = 'position:fixed;left:16px;bottom:116px;z-index:2147482900;' +
-        'font:11px/1.4 sans-serif;color:#fde68a;background:rgba(18,12,2,.55);' +
-        'padding:3px 9px;border-radius:999px;pointer-events:none;max-width:78vw;' +
-        'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      d.textContent = 'Music: Also Sprach Zarathustra — Sascha Ende (filmmusic.io) · CC BY 4.0';
+      // ⚠️ position 없음(정적) — 문서 흐름의 맨 끝. 떠 있지 않으니 아무것도 안 가린다.
+      d.style.cssText = 'font:10px/1.6 sans-serif;color:rgba(255,255,255,.45);' +
+        'text-align:center;padding:6px 12px 10px;pointer-events:none;';
       (document.body || document.documentElement).appendChild(d);
       creditEl = d;
     } catch (e) {}
