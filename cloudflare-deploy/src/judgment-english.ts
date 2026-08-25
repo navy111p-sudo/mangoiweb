@@ -35,10 +35,11 @@ export function allowsBrokenDistractors(pickedMisconception: any): boolean {
  *   true(문법 연습 문항): 오답에만 «한 개의 사실적인 문법 실수»를 심고,
  *     상황문·정답·해설은 여전히 흠 없는 영어여야 합니다.
  */
-export function englishQualityRules(allowBrokenDistractors: boolean): string {
+export function englishQualityRules(allowBrokenDistractors: boolean, ageGroup: any = 'child'): string {
+  const adult = String(ageGroup || '').trim().toLowerCase() === 'adult';
   if (allowBrokenDistractors) {
     return 'ENGLISH QUALITY (strict): The situation, the "why" explanation, and the BEST option must be complete, natural, grammatically correct English. '
-      + 'Because the child chose to practice grammar, each WRONG option must contain exactly ONE realistic grammar mistake a Korean child actually makes '
+      + `Because the ${adult ? 'learner' : 'child'} chose to practice grammar, each WRONG option must contain exactly ONE realistic grammar mistake ${adult ? 'a Korean adult learner' : 'a Korean child'} actually makes `
       + '(a missing word like "to", wrong word order, or a wrong verb form) — everything else about it stays natural. '
       + 'Never use broken English anywhere except inside those wrong options.';
   }
@@ -53,9 +54,10 @@ export function englishQualityRules(allowBrokenDistractors: boolean): string {
  *   이 저장소의 반복 실측(단어 수)이 보여주듯 지시만으로는 안 지켜집니다 —
  *   받은 문장을 실제로 검사하고 어긋나면 다시 뽑습니다.
  */
-export function grammarCheckPrompt(items: string[]): string {
+export function grammarCheckPrompt(items: string[], ageGroup: any = 'child'): string {
+  const adult = String(ageGroup || '').trim().toLowerCase() === 'adult';
   const list = (items || []).map((s, i) => `${i + 1}. ${String(s || '')}`).join('\n');
-  return 'You are a strict English proofreader for a children\'s English learning app.\n'
+  return `You are a strict English proofreader for ${adult ? 'an adult English learning app' : 'a children\'s English learning app'}.\n`
     + 'For each numbered line below, decide whether it is complete, natural, grammatically correct English that a native speaker could actually say.\n'
     + 'Casual spoken forms are fine ("Wanna play?", "Sounds good!"). '
     + 'A missing required word ("Want play with me" is missing "to"), wrong word order, or a wrong verb form is NOT fine.\n\n'
