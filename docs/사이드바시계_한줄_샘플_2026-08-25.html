@@ -1,0 +1,375 @@
+<title>한 줄 시계 3안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700;800&display=swap">
+<style>
+  :root{
+    --paper:#eaeef5; --card:#ffffff; --ink:#151a24; --ink2:#5b6474;
+    --line:#d5dbe6; --rule:#c3cbda;
+    --keep:#0f6b53; --cut:#b8342a; --note:#8a5a12;
+    --chip:#e3e8f1;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e121a; --card:#161c26; --ink:#e8ecf4; --ink2:#98a2b5;
+      --line:#28303e; --rule:#333d4d;
+      --keep:#4ec39a; --cut:#f0796f; --note:#e0a44a;
+      --chip:#212a37;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e121a; --card:#161c26; --ink:#e8ecf4; --ink2:#98a2b5;
+    --line:#28303e; --rule:#333d4d;
+    --keep:#4ec39a; --cut:#f0796f; --note:#e0a44a;
+    --chip:#212a37;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"Noto Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+    font-size:15px; line-height:1.7; letter-spacing:-.1px;
+    padding:28px 18px 64px;
+  }
+  .wrap{max-width:840px; margin:0 auto; display:flex; flex-direction:column; gap:26px}
+
+  .eyebrow{
+    font-size:11px; font-weight:700; letter-spacing:1.6px; color:var(--ink2);
+    text-transform:uppercase; margin:0;
+  }
+  h1{
+    font-size:clamp(24px,5vw,33px); font-weight:900; line-height:1.25; margin:6px 0 10px;
+    text-wrap:balance; letter-spacing:-.6px;
+  }
+  .lede{margin:0; color:var(--ink2); max-width:60ch}
+  .lede b{color:var(--ink); font-weight:700}
+
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:18px 18px 20px; display:flex; flex-direction:column; gap:14px;
+  }
+  .card > h2{
+    margin:0; font-size:17px; font-weight:800; letter-spacing:-.3px;
+    display:flex; align-items:baseline; gap:9px; flex-wrap:wrap;
+  }
+  .tag{
+    font-size:10.5px; font-weight:700; letter-spacing:.6px; padding:2px 7px;
+    border-radius:5px; background:var(--chip); color:var(--ink2); white-space:nowrap;
+  }
+  .tag.rec{background:color-mix(in srgb, var(--keep) 16%, transparent); color:var(--keep)}
+  .desc{margin:0; font-size:13.5px; color:var(--ink2); max-width:62ch}
+  .desc b{color:var(--ink); font-weight:700}
+
+  /* ── 미리보기: 관리자 사이드바 윗부분을 그대로 흉내낸다 ── */
+  .previews{display:flex; flex-wrap:wrap; gap:14px 20px}
+  .pv{min-width:0; max-width:100%; display:flex; flex-direction:column; gap:6px; overflow-x:auto}
+  .pv .sb{flex:0 0 auto}
+  .pv.pc .sb{width:260px}
+  .pv.ph .sb{width:390px}
+  .pv-cap{
+    font-size:10.5px; font-weight:700; letter-spacing:.8px; color:var(--ink2);
+    display:flex; justify-content:space-between; gap:8px;
+  }
+  .pv-h{font-variant-numeric:tabular-nums; font-family:"JetBrains Mono",monospace; font-weight:700}
+  .sb{
+    border-radius:10px; overflow:hidden; position:relative;
+    border:1px solid rgba(128,145,180,.28);
+  }
+  .sb.dark{background:linear-gradient(180deg,#0b1020,#121a30); color:#e6ecff}
+  .sb.ivory{background:#f7f4ec; color:#101828}
+  .sb-rest{padding:9px 12px 12px; display:flex; flex-direction:column; gap:7px}
+  .sb-row{height:9px; border-radius:4px; background:currentColor; opacity:.13}
+  .sb-row.w70{width:70%} .sb-row.w52{width:52%} .sb-row.w84{width:84%}
+  .x{
+    position:absolute; top:7px; right:9px; width:26px; height:26px; border-radius:7px;
+    display:grid; place-items:center; font-size:14px; font-weight:700;
+    background:rgba(128,145,180,.16); border:1px solid rgba(128,145,180,.3);
+  }
+
+  /* ── 시계 공통 (실제 CSS 와 같은 뼈대) ── */
+  .clk{
+    display:flex; gap:6px; color:inherit; padding:4px 12px;
+    border-bottom:1px solid color-mix(in srgb, currentColor 16%, transparent);
+  }
+  .clk.phone{padding-right:44px}
+  .c{
+    flex:1; min-width:0; background:rgba(128,145,180,.13);
+    border:1px solid rgba(128,145,180,.22); border-radius:8px;
+  }
+  .t{font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums}
+
+  /* 지금(2줄) */
+  .now .c{padding:2px 8px 3px; display:grid; grid-template-columns:auto 1fr; align-items:baseline; column-gap:5px}
+  .now .l{grid-column:1; grid-row:1; font-size:9.5px; font-weight:700; opacity:.78; letter-spacing:.2px; line-height:1.2; white-space:nowrap}
+  .now .t{grid-column:1/-1; grid-row:2; font-size:13px; font-weight:800; line-height:1.2; letter-spacing:.3px}
+  .now .d{grid-column:2; grid-row:1; justify-self:end; font-size:9px; opacity:.78; line-height:1.2; white-space:nowrap}
+
+  /* A안 — 한 칸에 둘 다 */
+  .a .c{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:10px;
+    padding:3px 8px; white-space:nowrap; line-height:1.2;
+  }
+  .a .l{font-size:10px; font-weight:700; opacity:.78; letter-spacing:.6px; margin-right:-5px}
+  .a .t{font-size:14px; font-weight:800; letter-spacing:.4px}
+  .a .sep{opacity:.32; font-weight:700}
+
+  /* B안 — 칸 둘, 각 칸이 한 줄 */
+  .b .c{display:flex; align-items:center; gap:6px; padding:3px 8px; justify-content:center; white-space:nowrap; line-height:1.2}
+  .b .l{
+    font-size:9.5px; font-weight:800; letter-spacing:.5px; line-height:1;
+    padding:2px 4px; border-radius:4px; background:rgba(128,145,180,.22); opacity:.9;
+  }
+  .b .t{font-size:13.5px; font-weight:800; letter-spacing:.3px}
+
+  /* C안 — 한 줄 + 시차 */
+  .c-var .c{display:flex; align-items:center; gap:8px; padding:3px 9px; white-space:nowrap; justify-content:space-between; line-height:1.2}
+  .c-var .grp{display:flex; align-items:baseline; gap:5px; min-width:0}
+  .c-var .l{font-size:9.5px; font-weight:800; opacity:.72; letter-spacing:.5px}
+  .c-var .t{font-size:13.5px; font-weight:800; letter-spacing:.3px}
+  .c-var .gap{
+    font-size:9px; font-weight:700; letter-spacing:.3px; padding:1px 5px; border-radius:99px;
+    background:rgba(128,145,180,.22); opacity:.85; font-family:"JetBrains Mono",monospace;
+  }
+
+  /* ── 표 ── */
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:13.5px; min-width:420px}
+  th,td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-size:11px; letter-spacing:.8px; color:var(--ink2); font-weight:700; text-transform:uppercase}
+  td.num{font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap}
+  .cut{color:var(--cut); font-weight:700}
+  .keep{color:var(--keep); font-weight:700}
+
+  ul{margin:0; padding-left:1.15em; color:var(--ink2); font-size:13.5px; display:flex; flex-direction:column; gap:5px}
+  li b{color:var(--ink); font-weight:700}
+  code{
+    font-family:"JetBrains Mono",monospace; font-size:12.5px;
+    background:var(--chip); padding:1px 5px; border-radius:4px; color:var(--ink);
+  }
+  .foot{font-size:12.5px; color:var(--ink2); border-top:1px solid var(--rule); padding-top:14px}
+  .foot b{color:var(--ink)}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">관리자 사이드바 · 세계시계</p>
+    <h1>날짜와 «한국·필리핀» 을 빼고 한 줄로</h1>
+    <p class="lede">지금은 칸마다 두 줄입니다 — 윗줄에 <b>라벨 + 날짜</b>, 아랫줄에 <b>시각</b>.
+      여기서 <span class="cut">날짜</span>와 <span class="cut">«한국»·«필리핀» 글자</span>를 빼면 남는 것은
+      <span class="keep">KR·PH 와 시각</span>뿐이라 한 줄에 들어갑니다. 세 가지로 만들어 봤습니다 — 아래는 실제로 초가 흐르는 미리보기입니다.</p>
+  </header>
+
+  <!-- 지금 -->
+  <section class="card">
+    <h2>지금 <span class="tag">현재 화면</span></h2>
+    <p class="desc">칸마다 2줄. 사이드바 맨 위를 이만큼 차지합니다.</p>
+    <div class="previews">
+      <div class="pv pc">
+        <div class="pv-cap"><span>다크 · PC 사이드바 260px</span><span class="pv-h" data-h="now-d">–</span></div>
+        <div class="sb dark">
+          <div class="clk now" id="now-d">
+            <div class="c"><div class="l">한국 KR</div><div class="t" data-kr>--:--:--</div><div class="d" data-krd>&nbsp;</div></div>
+            <div class="c"><div class="l">필리핀 PH</div><div class="t" data-ph>--:--:--</div><div class="d" data-phd>&nbsp;</div></div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+      <div class="pv ph">
+        <div class="pv-cap"><span>폰 390px · ✕ 자리 비움</span><span class="pv-h" data-h="now-p">–</span></div>
+        <div class="sb ivory">
+          <div class="x">✕</div>
+          <div class="clk now phone" id="now-p">
+            <div class="c"><div class="l">한국 KR</div><div class="t" data-kr>--:--:--</div><div class="d" data-krd>&nbsp;</div></div>
+            <div class="c"><div class="l">필리핀 PH</div><div class="t" data-ph>--:--:--</div><div class="d" data-phd>&nbsp;</div></div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- A안 -->
+  <section class="card">
+    <h2>A안 · 한 칸에 나란히 <span class="tag rec">추천</span></h2>
+    <p class="desc">상자를 <b>하나</b>로 합치고 가운데 점으로 나눕니다. 테두리가 하나뿐이라 사이드바가 가장 정돈돼 보이고,
+      가로가 넉넉해진 만큼 <b>시각 글자를 조금 키웠습니다</b>(14px) — 그래서 B·C안보다 2px 높습니다.</p>
+    <div class="previews">
+      <div class="pv pc">
+        <div class="pv-cap"><span>다크 · PC 사이드바 260px</span><span class="pv-h" data-h="a-d">–</span></div>
+        <div class="sb dark">
+          <div class="clk a" id="a-d">
+            <div class="c">
+              <span class="l">KR</span><span class="t" data-kr>--:--:--</span>
+              <span class="sep">·</span>
+              <span class="l">PH</span><span class="t" data-ph>--:--:--</span>
+            </div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+      <div class="pv ph">
+        <div class="pv-cap"><span>폰 390px · ✕ 자리 비움</span><span class="pv-h" data-h="a-p">–</span></div>
+        <div class="sb ivory">
+          <div class="x">✕</div>
+          <div class="clk a phone" id="a-p">
+            <div class="c">
+              <span class="l">KR</span><span class="t" data-kr>--:--:--</span>
+              <span class="sep">·</span>
+              <span class="l">PH</span><span class="t" data-ph>--:--:--</span>
+            </div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- B안 -->
+  <section class="card">
+    <h2>B안 · 두 칸 그대로, 각 칸이 한 줄 <span class="tag">지금과 가장 비슷</span></h2>
+    <p class="desc">칸 두 개는 지금과 같고 <b>줄만 하나로</b> 줄입니다. KR·PH 를 작은 배지로 감싸 어느 쪽 시각인지 바로 읽힙니다.
+      나중에 도시를 하나 더 넣을 여지가 있습니다.</p>
+    <div class="previews">
+      <div class="pv pc">
+        <div class="pv-cap"><span>다크 · PC 사이드바 260px</span><span class="pv-h" data-h="b-d">–</span></div>
+        <div class="sb dark">
+          <div class="clk b" id="b-d">
+            <div class="c"><span class="l">KR</span><span class="t" data-kr>--:--:--</span></div>
+            <div class="c"><span class="l">PH</span><span class="t" data-ph>--:--:--</span></div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+      <div class="pv ph">
+        <div class="pv-cap"><span>폰 390px · ✕ 자리 비움</span><span class="pv-h" data-h="b-p">–</span></div>
+        <div class="sb ivory">
+          <div class="x">✕</div>
+          <div class="clk b phone" id="b-p">
+            <div class="c"><span class="l">KR</span><span class="t" data-kr>--:--:--</span></div>
+            <div class="c"><span class="l">PH</span><span class="t" data-ph>--:--:--</span></div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- C안 -->
+  <section class="card">
+    <h2>C안 · 한 줄 + 시차 <span class="tag">−1h 표시</span></h2>
+    <p class="desc">A안에 <b>시차 배지</b>를 붙였습니다. 필리핀이 한 시간 느리다는 것을 매번 계산하지 않아도 됩니다.
+      다만 글자가 하나 더 늘어 좁은 폰에서 여유가 가장 적습니다.</p>
+    <div class="previews">
+      <div class="pv pc">
+        <div class="pv-cap"><span>다크 · PC 사이드바 260px</span><span class="pv-h" data-h="c-d">–</span></div>
+        <div class="sb dark">
+          <div class="clk c-var" id="c-d">
+            <div class="c">
+              <span class="grp"><span class="l">KR</span><span class="t" data-kr>--:--:--</span></span>
+              <span class="grp"><span class="l">PH</span><span class="t" data-ph>--:--:--</span></span>
+              <span class="gap">−1h</span>
+            </div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+      <div class="pv ph">
+        <div class="pv-cap"><span>폰 390px · ✕ 자리 비움</span><span class="pv-h" data-h="c-p">–</span></div>
+        <div class="sb ivory">
+          <div class="x">✕</div>
+          <div class="clk c-var phone" id="c-p">
+            <div class="c">
+              <span class="grp"><span class="l">KR</span><span class="t" data-kr>--:--:--</span></span>
+              <span class="grp"><span class="l">PH</span><span class="t" data-ph>--:--:--</span></span>
+              <span class="gap">−1h</span>
+            </div>
+          </div>
+          <div class="sb-rest"><div class="sb-row w84"></div><div class="sb-row w52"></div><div class="sb-row w70"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 비교 -->
+  <section class="card">
+    <h2>높이 비교</h2>
+    <p class="desc">아래 숫자는 <b>이 미리보기 화면에서 실제로 잰 값</b>입니다(시계 줄만, 사이드바 나머지 제외).
+      관리자 화면은 PC 에서 <code>zoom:1.3</code> 이라 실제로는 이보다 조금 더 커 보입니다.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>안</th><th>줄</th><th>PC 260px</th><th>폰 390px</th><th>남는 것</th></tr></thead>
+        <tbody>
+          <tr><td>지금</td><td>2줄</td><td class="num" data-cell="now-d">–</td><td class="num" data-cell="now-p">–</td><td>라벨·날짜·시각</td></tr>
+          <tr><td><b>A안</b></td><td>1줄</td><td class="num" data-cell="a-d">–</td><td class="num" data-cell="a-p">–</td><td>KR·PH·시각</td></tr>
+          <tr><td><b>B안</b></td><td>1줄</td><td class="num" data-cell="b-d">–</td><td class="num" data-cell="b-p">–</td><td>KR·PH·시각</td></tr>
+          <tr><td><b>C안</b></td><td>1줄</td><td class="num" data-cell="c-d">–</td><td class="num" data-cell="c-p">–</td><td>KR·PH·시각·시차</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 고칠 자리 -->
+  <section class="card">
+    <h2>고르시면 손댈 자리</h2>
+    <ul>
+      <li><b>글자·구조</b> — <code>admin.html</code> 의 <code>mgv2-clock-js</code> 안 <code>innerHTML</code> 두 줄.
+        날짜 칸(<code>mgv2-krd</code>·<code>mgv2-phd</code>)을 없애면 <code>tick()</code> 의 날짜 대입도 함께 뺍니다.</li>
+      <li><b>모양</b> — <code>css/admin-inline-c.css</code> 7335행부터의 <code>#mgv2-clock</code> 규칙.
+        지금은 칸 안이 2줄 grid 라 이걸 flex 한 줄로 바꿉니다.</li>
+      <li><b>같은 마크업이 한 벌 더</b> — <code>admin/mobile-nav-v2-demo.html</code>(시연용). 함께 맞춰 둡니다.</li>
+      <li><b>주의</b> — 폰에서는 오른쪽 <b>✕ 버튼 자리 60px</b> 를 비워야 해서 실제 폭은 330px 남짓입니다.
+        위 폰 미리보기가 그 상태입니다.</li>
+    </ul>
+  </section>
+
+  <p class="foot"><b>아직 코드는 안 고쳤습니다.</b> 어느 안으로 할지 말씀해 주시면 그 안으로 반영하고,
+    타입체크·회귀 하니스를 돌린 뒤 올리겠습니다.</p>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var KR='Asia/Seoul', PH='Asia/Manila';
+  function two(n){ return n<10 ? '0'+n : ''+n; }
+  function parts(tz, now){
+    var o={};
+    try{
+      new Intl.DateTimeFormat('ko-KR',{timeZone:tz,hour12:false,hour:'2-digit',minute:'2-digit',
+        second:'2-digit',month:'numeric',day:'numeric',weekday:'short'})
+        .formatToParts(now).forEach(function(p){ o[p.type]=p.value; });
+    }catch(e){ return {t:'--:--:--', d:''}; }
+    return { t: two(+o.hour%24)+':'+o.minute+':'+o.second,
+             d: o.month+'/'+o.day+' ('+o.weekday+')' };
+  }
+  function fill(sel, v){
+    var ns=document.querySelectorAll(sel);
+    for(var i=0;i<ns.length;i++) ns[i].textContent=v;
+  }
+  function tick(){
+    var now=new Date(), kr=parts(KR,now), ph=parts(PH,now);
+    fill('[data-kr]', kr.t); fill('[data-krd]', kr.d);
+    fill('[data-ph]', ph.t); fill('[data-phd]', ph.d);
+  }
+  tick();
+  if(!window.matchMedia('(prefers-reduced-motion: reduce)').matches) setInterval(tick,1000);
+  else setInterval(tick,1000);
+
+  function measure(){
+    ['now-d','now-p','a-d','a-p','b-d','b-p','c-d','c-p'].forEach(function(id){
+      var el=document.getElementById(id); if(!el) return;
+      var h=Math.round(el.getBoundingClientRect().height)+'px';
+      var cap=document.querySelector('[data-h="'+id+'"]'); if(cap) cap.textContent=h;
+      var cell=document.querySelector('[data-cell="'+id+'"]'); if(cell) cell.textContent=h;
+    });
+  }
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  measure();
+  var rz=0;
+  window.addEventListener('resize', function(){
+    if(rz) return;
+    rz=setTimeout(function(){ rz=0; measure(); },250);
+  });
+})();
+</script>

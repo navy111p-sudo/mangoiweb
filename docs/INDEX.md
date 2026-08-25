@@ -31,6 +31,7 @@
 | 일일업무 보고서 (누적) | [열기](https://claude.ai/code/artifact/dc51ec99-7ae7-411e-8819-e9813b75099b) | [업무보고/일일업무보고.md](업무보고/일일업무보고.md) |
 | Avatar Quest Staff Guide (EN) | [열기](https://claude.ai/code/artifact/354199b8-2df0-4ed9-b795-f5c99016400a) | [AvatarQuest_Staff_Guide_EN.html](AvatarQuest_Staff_Guide_EN.html) |
 | 수업평가 리포트 개편안 (샘플 5종) | [열기](https://claude.ai/code/artifact/33b04b9a-c16c-4826-98c6-2a91d7c3b3fc) | [수업평가_리포트_개편_제안서_2026-08-24.html](수업평가_리포트_개편_제안서_2026-08-24.html) |
+| 사이드바 시계 한 줄 샘플 (3안) | [열기](https://claude.ai/code/artifact/ed6fef26-952d-4b7d-a5cd-6b1dec8108a8) | [사이드바시계_한줄_샘플_2026-08-25.html](사이드바시계_한줄_샘플_2026-08-25.html) |
 
 ---
 
