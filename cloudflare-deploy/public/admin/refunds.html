@@ -23,52 +23,99 @@
          (등록을 잊어도 안전한 쪽으로 실패한다) 그래서 index.ts 는 건드리지 않았다.
 -->
 <style>
+  /* ══════════════════════════════════════════════════════════════════
+     🎨 밝은 테마 — 2026-08-25 사장님 지적 «배경이 너무 어두워서 글자가 잘 안 보여»
+
+     무엇이 문제였나 (처음에 다크로 만들었다가 실제 화면에서 드러난 것)
+       /admin/ 하위 화면은 css/adm-light-theme.css 를 함께 받는데, 그 파일은
+       **html·body 의 배경과 글자색을 !important 로 덮습니다** (2026-07-23 밝은 테마 통일).
+       그런데 카드·표는 CSS 변수(--card 등)를 쓰는 화면만 함께 밝아집니다.
+       이 화면은 색을 하드코딩했기 때문에
+         · body        → 밝게 덮임
+         · 카드        → 어두운 남색 그대로
+         · 카드 안 글자 → body 에서 상속받은 #101828(거의 검정)
+       이 되어 «어두운 카드에 검은 글자» 라는 최악의 대비가 됐습니다.
+
+     ⛔ 그래서 이 화면에는 다크 색을 다시 넣지 마세요. 넣으려면 하드코딩이 아니라
+        CSS 변수를 써야 하고, 그러면 밝은 테마 통일과 어긋납니다.
+     ✅ 색은 adm-light-theme.css 가 admin.html 에서 실측해 둔 값을 그대로 씁니다
+        (카드 #ffffff · 글자 #101828 · 보조 #475467 · 흐림 #667085 · 강조 앰버 #b45309).
+     ✅ 회귀 감시: test-harness/manual/refund-admin-browser.mjs 3부가 «글자와 배경의
+        대비비» 를 실제로 재서 4.5:1 미만이면 실패로 만듭니다.
+     ══════════════════════════════════════════════════════════════════ */
   * { box-sizing:border-box; }
-  body { margin:0; font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif; background:linear-gradient(160deg,#0f172a,#1e293b); color:#e6edf6; min-height:100vh; padding:22px; font-size:17px; }
+  body {
+    margin:0; font-family:MangoiHanSC,'Malgun Gothic','맑은 고딕','Segoe UI',sans-serif;
+    color:#101828; min-height:100vh; padding:22px; font-size:17px;
+    background:
+      radial-gradient(420px 280px at 100% 0%, rgba(251,191,36,.10) 0%, rgba(0,0,0,0) 62%),
+      linear-gradient(#f3f6fb 0%, #e6ecf4 100%);
+    background-attachment: fixed;
+  }
   .wrap { max-width:1080px; margin:0 auto; }
   .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
   .head img { height:52px; }
-  h1 { font-size:29px; margin:0; font-weight:900; }
-  .sub { color:#a9b7ca; font-size:16.5px; margin:4px 0 20px; line-height:1.55; }
-  .card { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.22); border-radius:20px; padding:22px; margin-bottom:18px; }
-  .card h2 { font-size:19px; margin:0 0 12px; font-weight:800; }
+  h1 { font-size:29px; margin:0; font-weight:900; color:#101828; }
+  .sub { color:#475467; font-size:16.5px; margin:4px 0 20px; line-height:1.55; }
+
+  .card { background:#ffffff; border:1px solid #e4e9f2; border-radius:20px; padding:22px; margin-bottom:18px;
+          box-shadow:0 1px 3px rgba(16,24,40,.07); }
+  .card h2 { font-size:19px; margin:0 0 12px; font-weight:800; color:#101828; }
+
   .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; margin-bottom:14px; }
-  .stat { background:rgba(15,23,42,0.65); border:1px solid rgba(148,163,184,0.22); border-radius:16px; padding:18px; text-align:center; }
-  .stat .n { font-size:26px; font-weight:900; color:#fcd34d; }
-  .stat .l { font-size:14px; color:#a9b7ca; margin-top:5px; }
-  .stat.alert .n { color:#fca5a5; }
+  .stat { background:#ffffff; border:1px solid #e4e9f2; border-radius:16px; padding:18px; text-align:center;
+          box-shadow:0 1px 3px rgba(16,24,40,.06); }
+  .stat .n { font-size:26px; font-weight:900; color:#b45309; }
+  .stat .l { font-size:14px; color:#475467; margin-top:5px; }
+  .stat.alert .n { color:#b91c1c; }
+
   .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-  select, input, textarea, button { font-size:16px; border-radius:11px; padding:12px 14px; border:1px solid rgba(148,163,184,0.4); font-family:inherit; }
-  select, input, textarea { background:#0f172a; color:#e6edf6; }
+  select, input, textarea, button { font-size:16px; border-radius:11px; padding:12px 14px; border:1px solid #cfd8e6; font-family:inherit; }
+  select, input, textarea { background:#ffffff; color:#101828; }
+  input::placeholder, textarea::placeholder { color:#8592a6; }
   textarea { width:100%; resize:vertical; min-height:74px; line-height:1.5; }
-  .btn { cursor:pointer; font-weight:800; background:transparent; color:#e6edf6; border:1px solid rgba(148,163,184,0.45); }
+  .btn { cursor:pointer; font-weight:800; background:#ffffff; color:#1d2939; border:1px solid #cfd8e6; }
+  .btn:hover { background:#f4f7fc; }
   .btn:disabled { opacity:0.45; cursor:not-allowed; }
-  .btn-go { background:#0369a1; border-color:#0284c7; color:#fff; }
-  .btn-danger { background:#b91c1c; border-color:#dc2626; color:#fff; }
+  /* 실행 계열 두 버튼은 색으로 구분한다 — 헷갈려 누르면 돈이 나간다.
+     밝은 면 위에서도 대비가 넉넉한 진한 값으로. */
+  .btn-go { background:#0369a1; border-color:#0369a1; color:#ffffff; }
+  .btn-go:hover { background:#075985; }
+  .btn-danger { background:#b91c1c; border-color:#b91c1c; color:#ffffff; }
+  .btn-danger:hover { background:#991b1b; }
+
   table { width:100%; border-collapse:collapse; margin-top:6px; font-size:16px; }
-  th, td { padding:13px 9px; text-align:left; border-bottom:1px solid rgba(148,163,184,0.16); vertical-align:middle; }
-  th { color:#a9b7ca; font-size:13.5px; font-weight:700; white-space:nowrap; }
+  th, td { padding:13px 9px; text-align:left; border-bottom:1px solid #eef2f8; vertical-align:middle; color:#101828; }
+  th { color:#475467; font-size:13.5px; font-weight:700; white-space:nowrap; background:#f7f9fd; }
   td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
-  tbody tr:nth-child(even) { background:rgba(148,163,184,0.06); }
+  tbody tr:nth-child(even) td { background:#fafbfe; }
   .pick { cursor:pointer; }
-  .pick:hover td { background:rgba(56,189,248,0.14); }
+  .pick:hover td { background:#eaf4fd; }
+
   .kv { display:grid; grid-template-columns:auto 1fr; gap:7px 16px; font-size:16px; }
-  .kv dt { color:#a9b7ca; font-size:14.5px; white-space:nowrap; }
-  .kv dd { margin:0; font-weight:700; }
+  .kv dt { color:#475467; font-size:14.5px; white-space:nowrap; }
+  .kv dd { margin:0; font-weight:700; color:#101828; }
   .money { font-variant-numeric:tabular-nums; font-weight:900; }
-  .big-money { font-size:27px; color:#fcd34d; }
-  .warn { background:rgba(180,83,9,0.22); border:1px solid rgba(251,191,36,0.5); border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
-  .danger { background:rgba(153,27,27,0.28); border:1px solid rgba(248,113,113,0.55); border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
-  .ok { background:rgba(22,101,52,0.28); border:1px solid rgba(74,222,128,0.5); border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
-  .muted { color:#7c8ba1; font-size:14.5px; line-height:1.6; }
-  .empty { text-align:center; color:#a9b7ca; padding:32px 12px; line-height:1.7; }
+  .big-money { font-size:27px; color:#b45309; }
+
+  /* 안내 상자 — 밝은 면 위에서 «옅은 바탕 + 진한 글자» 로 뜻을 준다 */
+  .warn   { background:#fffbeb; border:1px solid #fcd34d; color:#7c2d12; border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
+  .danger { background:#fef2f2; border:1px solid #fca5a5; color:#991b1b; border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
+  .ok     { background:#f0fdf4; border:1px solid #86efac; color:#166534; border-radius:14px; padding:13px 16px; margin:11px 0; line-height:1.6; font-size:15.5px; }
+  .warn b, .danger b, .ok b { color:inherit; }
+
+  .muted { color:#667085; font-size:14.5px; line-height:1.6; }
+  .empty { text-align:center; color:#667085; padding:32px 12px; line-height:1.7; }
   .row { display:flex; flex-wrap:wrap; gap:11px; align-items:center; margin:10px 0; }
-  label.chk { display:flex; align-items:center; gap:8px; font-size:15.5px; cursor:pointer; }
+  label.chk { display:flex; align-items:center; gap:8px; font-size:15.5px; cursor:pointer; color:#101828; }
   label.chk input { width:19px; height:19px; padding:0; }
+
   .st { display:inline-block; font-size:13px; font-weight:800; padding:3px 10px; border-radius:999px; }
-  .st-done { background:rgba(22,101,52,0.5); color:#86efac; }
-  .st-failed { background:rgba(153,27,27,0.5); color:#fca5a5; }
-  .st-requested { background:rgba(180,83,9,0.5); color:#fcd34d; }
+  .st-done      { background:#dcfce7; color:#166534; }
+  .st-failed    { background:#fee2e2; color:#991b1b; }
+  .st-requested { background:#fef3c7; color:#92400e; }
+
+  details > summary { color:#475467; }
   /* 표는 자기 상자 안에서 옆으로 굴린다 — 안 그러면 좁은 폰에서 문서 전체가 가로로 밀린다
      (실측: 390px 화면에서 내역 표 619px → 문서 664px). min-width:0 은 이 상자가 나중에
      flex·grid 자식이 되어도 «내용보다 작아질 수 있게» 두는 안전망이다. */
@@ -147,7 +194,7 @@
       <span class="muted" id="f-max"></span>
     </div>
     <div class="row" style="display:block">
-      <label class="muted">환불 사유 <b style="color:#fca5a5">(필수)</b> — 나중에 남는 것은 이 한 줄입니다</label>
+      <label class="muted">환불 사유 <b style="color:#b91c1c">(필수)</b> — 나중에 남는 것은 이 한 줄입니다</label>
       <textarea id="f-reason" placeholder="예) 학부모 요청 · 이사로 수업 중단 (2026-08-25 통화)"></textarea>
     </div>
     <div class="row">
@@ -201,7 +248,7 @@
   </div>
 
   <p class="muted" style="text-align:center;margin:26px 0">
-    <a href="/admin.html" style="color:#7dd3fc">← 관리자 홈</a>
+    <a href="/admin.html" style="color:#1d4ed8;font-weight:700">← 관리자 홈</a>
   </p>
 </div>
 
