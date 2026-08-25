@@ -5055,15 +5055,34 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       <span data-ko="📔 음성일기" data-en="📔 Diary">📔 음성일기</span>
     </button>
     <style>
-      #login-btn:hover{background:rgba(251,191,36,.15)!important;border-color:rgba(251,191,36,.7)!important;color:#fde68a!important;transform:translateY(-1px)}
+      /* 🔑 (2026-08-25) 로그인 칩이 우상단 아이콘 줄에 묻혀 너무 작다는 사장님 지적.
+         641px 이상에서는 화면 위쪽 가운데에 크고 눈에 띄게 따로 띄운다(아래 min-width:641px 참고).
+         ⚠️ ≤640px 에서는 그렇게 못 한다 — 실측(CDP 로 직접 뷰포트 크기별 getBoundingClientRect
+         측정, 2장 「헤드리스 크로미움 최소폭 500px」 함정 피해서): 480~640px 폭 구간은
+         우상단 칩 줄 아래 끝(≈33px)과 `.home-title` 위 끝(≈64px)의 틈이 31px 뿐이라
+         큼직한 로그인 버튼(가운데든 우측 둘째 줄이든) 하나가 들어갈 자리가 없다
+         (칩 줄과 겹치거나 타이틀과 겹치거나 둘 중 하나). 그래서 ≤640px 에서는 원래대로
+         #ph50-chip-row 안(우상단 한 줄)에 남겨 두고 색만 눈에 띄게 한다 — 이 배열에서
+         빼면 안 된다(위 CHIP_IDS 참고).
+         ⚠️ 로그인/로그아웃 색은 idx-user-session.js updateLoginUI() 가 인라인 style 로
+         덮어쓴다(비로그인=골드, 학생=초록, 교사/관리자=파랑) — 여기서는 위치·크기만 정할 것. */
+      @media (min-width:641px){
+        /* #ph50-chip-row > * 의 position:static!important 보다 특정성이 높다
+           (id+class 1,1,0 > id뿐인 1,0,0) — 그래서 !important 끼리도 이 규칙이 이긴다.
+           DOM 은 그대로 #ph50-chip-row 의 자식이지만(클릭외부감지·MutationObserver·
+           vc-in-call 숨김이 전부 이 DOM 관계·id 로 동작하므로 그대로 둬야 안전),
+           position 만 fixed 로 바꿔 흐름 밖으로 빼서 화면 중앙에 별도로 띄운다. */
+        #login-btn.hero-chip{
+          position:fixed!important; top:0.8rem!important; left:50%!important; right:auto!important; transform:translateX(-50%)!important;
+          z-index:10001!important; padding:10px 24px!important; font-size:1rem!important; border-radius:999px!important;
+          background:linear-gradient(135deg,#fde68a,#f59e0b); border:1px solid rgba(245,158,11,0.9); color:#1a1a1a;
+          box-shadow:0 10px 26px -4px rgba(245,158,11,0.55), inset 0 1px 0 rgba(255,255,255,0.5);
+        }
+        #login-btn:hover{transform:translateX(-50%) translateY(-2px)!important;box-shadow:0 14px 32px -4px rgba(245,158,11,0.7), inset 0 1px 0 rgba(255,255,255,0.55)!important}
+        .user-menu{top:4.2rem!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important}
+      }
       @media (max-width:640px){
         /* ─── 헤더 ─── */
-        #login-btn{right:5.8rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important;top:0.9rem!important;max-width:140px}
-        #login-btn-label{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
-        #lang-toggle{top:0.9rem!important;right:1rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important}
-        #user-menu{right:1rem!important;top:3.5rem!important;min-width:200px!important;max-width:calc(100vw - 24px)}
-
-        /* ─── 메인 - 노란 큰 수업입장 버튼 ─── */
         #btn-enter-class{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important;line-height:1.5!important}
         #btn-enter-class .btn-enter-icon{width:22px!important;height:22px!important}
         .lesson-action-row > div{font-size:10.5px!important;flex-direction:column;gap:2px!important}
@@ -5121,8 +5140,6 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 
       /* ─── 매우 작은 화면 (≤380px) ─── */
       @media (max-width:380px){
-        #login-btn{right:5rem!important;padding:0.35rem 0.55rem!important;font-size:0.72rem!important;max-width:120px}
-        #login-btn-label{max-width:62px}
         #lang-toggle{padding:0.35rem 0.55rem!important;font-size:0.72rem!important}
         #cal-grid-wrap > div:first-child,
         #cal-grid-wrap > div:nth-child(2),
@@ -5147,7 +5164,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       .lm-btn{flex:1;padding:11px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid #232b40;background:transparent;color:#e2e8f0}
       .lm-btn:hover{background:#1a2032}
       /* 사용자 메뉴 (로그인 상태) */
-      .user-menu{position:absolute;top:4rem;right:7.5rem;background:#131826;border:1px solid #232b40;border-radius:12px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5);min-width:180px;display:none;z-index:100;animation:lcFade .15s}
+      .user-menu{position:absolute;top:4rem;right:7.5rem;background:#131826;border:1px solid #232b40;border-radius:12px;padding:6px;box-shadow:0 16px 40px rgba(0,0,0,.5);min-width:180px;display:none;z-index:10002;animation:lcFade .15s}
       .user-menu.show{display:block}
       .um-item{padding:9px 12px;border-radius:8px;cursor:pointer;color:#e2e8f0;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px}
       .um-item:hover{background:#1a2032}
@@ -5206,7 +5223,9 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         border-color: rgba(251,191,36,0.85);
         color: #fff8d6;
       }
-      #login-btn.hero-chip{ right: 5.5rem; }
+      /* 🔑 login-btn 의 위치·크기는 위쪽 @media(min-width:641px) #login-btn.hero-chip
+         한 곳에서만 따로 정한다(2026-08-25, 화면 중앙 상단). ≤640px 에서는 이 줄
+         (#ph50-chip-row) 안에 그대로 있으므로 여기 아래 규칙들처럼 손댈 필요 없다. */
       /* 🌤️ 배경 밝게/어둡게 토글 칩 — 실제 위치는 ph50-chip-row(flex, 로그인 바로 왼쪽)가 관리.
          아래 right는 ph50 로드 전 잠깐의 폴백일 뿐(겹침 방지 위해 로그인보다 왼쪽) */
       #home-theme-toggle.home-theme-chip{ right: 11.5rem; color:#fde68a; }
@@ -5247,13 +5266,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           padding: 4px 10px;
           font-size: 0.72rem;
         }
-        /* 로그인은 EN 옆에 한 줄 아래 배치 */
-        #login-btn.hero-chip{
-          right: 5rem !important;
-          top: 3rem !important;
-          padding: 5px 9px;
-          font-size: 0.74rem;
-        }
+        /* 🔑 login-btn 은 641px 이상에서만 화면 중앙 상단에 따로 뜬다 — ≤640px 인 여기서는
+           그냥 이 줄(#ph50-chip-row) 안에 있으므로 아래 다른 칩처럼 별도 규칙이 필요 없다. */
         #lang-toggle.hero-chip-lang{
           right: 1rem !important;
           top: 3rem !important;
@@ -5269,7 +5283,6 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         }
       }
       @media (max-width:380px){
-        #login-btn.hero-chip{ right: 4.4rem !important; padding: 4px 8px; font-size: 0.7rem; }
         #lang-toggle.hero-chip-lang{ right: 0.8rem !important; padding: 4px 8px; }
         #points-chip.hero-chip-points{ right: 0.8rem !important; font-size: 0.68rem; padding: 3px 8px; }
         #home-theme-toggle.home-theme-chip{ right: 4.6rem !important; font-size: 0.66rem; padding: 3px 7px; }
@@ -10838,7 +10851,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <div class="login-overlay" id="login-overlay" onclick="if(event.target===this)closeLoginModal()"></div>
 <!-- 로그인 후 사용자 드롭다운 메뉴 -->
 <div class="user-menu" id="user-menu"></div>
-<script src="/js/idx-user-session.js?v=7"></script><!-- v=7: 2026-08-25 포인트샵 브랜드의 🥭 이모지를 Mr.mango 캐릭터로 -->
+<script src="/js/idx-user-session.js?v=8"></script><!-- v=8: 2026-08-25 비로그인 로그인 버튼 색을 무채색→골드로 -->
 
 <!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
 <script defer src="/js/idx-remote-support.js?v=1"></script>
@@ -13681,6 +13694,10 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 (function(){
   'use strict';
   // 🌤️ home-theme-toggle 를 맨 앞(왼쪽)에 → 로그인 바로 왼쪽, flex-row 가 자동 간격(겹침 방지)
+  // 🔑 (2026-08-25) login-btn 은 계속 이 목록에 있다 — 모바일(≤640px)에서는 이 우상단 줄
+  //    안에 그대로 두는 것이 안전하다(그 아래 #login-btn.hero-chip 의 641px 미만 주석 참고,
+  //    타이틀과 겹치는 실측을 거쳐 되돌린 것). 641px 이상에서만 CSS 특정성으로 이 줄의
+  //    `position:static!important` 를 이겨서 화면 중앙 상단으로 따로 띄운다.
   var CHIP_IDS = ['home-theme-toggle', 'login-btn', 'points-chip', 'lang-toggle', 'admin-shortcut-chip'];
 
   // ★ dismiss flag 정리 — 단, 사용자가 의도적으로 dismiss 한 경우(수업 진입 후) 는 보존
