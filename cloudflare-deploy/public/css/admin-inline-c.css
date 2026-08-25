@@ -7341,38 +7341,39 @@ button.chip:hover,
   /* 모바일만 오른쪽 여백을 크게 — 드로어 ✕ 버튼 자리를 비운다(56px).
      안 그러면 «필리핀» 칸을 덮는다. PC 에는 ✕ 가 없으니 그 여백이 낭비다. */
   @media (max-width: 1023px) { #mgv2-clock { padding-right: 60px; } }
-  /* 칸 안은 2줄이다 — 윗줄에 «라벨 + 날짜», 아랫줄에 시각.
-     ⚠️ HTML 순서는 라벨 → 시각 → 날짜 그대로다(admin.html 의 mgv2-clock-js 가 그렇게 만든다).
-        자리만 grid 로 바꿨으니 JS 는 건드릴 필요가 없다. */
+  /* 📏 (2026-08-25 사장님) 「날짜랑 «한국»·«필리핀» 빼고 한 줄에」 — 샘플 A안 채택.
+     상자가 «하나» 다. 그 안에 KR·시각 · PH·시각 을 가운데로 모아 한 줄에 놓는다.
+     ⚠️ line-height 를 반드시 못 박는다. 이 파일 바깥(관리자 본문)의 상속값이 1.5~1.7 이라
+        한 줄로 만들어도 상자 높이가 그만큼 부풀어 «줄만 줄고 높이는 그대로» 가 된다
+        (샘플 검증에서 실제로 밟음 — 1.2 를 넣기 전 35px 이 아니라 45px 였다).
+     ⚠️ nowrap 이 빠지면 좁은 폰(≤330px, 아래 ✕ 여백 참고)에서 «09:08:» / «10» 으로 쪼개진다. */
   #mgv2-clock .mgv2-c {
     flex: 1; min-width: 0;
     background: rgba(128,145,180,.13);
     border: 1px solid rgba(128,145,180,.22);
-    border-radius: 8px; padding: 2px 8px 3px;
-    display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 5px;
+    border-radius: 8px; padding: 3px 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    white-space: nowrap; line-height: 1.2;
   }
   /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
      이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
-     라벨 3.9:1 · 날짜 2.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다
-     — 특히 날짜가 가장 나빴다. .78 로 올리면 셋 다 5.0:1 이 된다.
+     라벨 3.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다.
+     .78 로 올리면 5.0:1 이 된다.
      ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
         직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
         키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
+  /* 라벨(KR·PH)은 자기 시각에 «붙어» 보여야 한다. 음수 margin 은 상자 gap(10px)이
+     라벨↔시각 사이에도 그대로 들어가 «KR   09:08:10» 으로 벌어지는 것을 되돌리는 것이다. */
   #mgv2-clock .mgv2-l {
-    grid-column: 1; grid-row: 1;
-    font-size: 9.5px; font-weight: 700; opacity: .78; letter-spacing: .2px;
-    line-height: 1.2; white-space: nowrap;
+    font-size: 10px; font-weight: 700; opacity: .78; letter-spacing: .6px;
+    margin-right: -5px;
   }
   #mgv2-clock .mgv2-t {
-    grid-column: 1 / -1; grid-row: 2;
-    font-size: 13px; font-weight: 800; line-height: 1.2; letter-spacing: .3px;
+    font-size: 14px; font-weight: 800; letter-spacing: .3px;
     font-variant-numeric: tabular-nums;
   }
-  /* 날짜는 라벨과 «같은 줄» 오른쪽 끝. 좁은 폰에서도 줄바꿈되지 않게 nowrap. */
-  #mgv2-clock .mgv2-d {
-    grid-column: 2; grid-row: 1; justify-self: end;
-    font-size: 9px; opacity: .78; line-height: 1.2; white-space: nowrap;
-  }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
+  /* 가운뎃점은 «두 시각을 가르는» 장식이라 화면낭독기에는 안 읽힌다(aria-hidden). */
+  #mgv2-clock .mgv2-sep { opacity: .32; font-weight: 700; }
 
   /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
      ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
