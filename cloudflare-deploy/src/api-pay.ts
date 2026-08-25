@@ -18,6 +18,7 @@ import { sendPlainSms } from './solapi-client';
 import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
+import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 /* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
@@ -346,6 +347,16 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   if (!path.startsWith('/api/pay/')) return null;
 
   await ensurePayTable(env);
+
+  /* ═══ 💸 환불 «실행·기록» — 전용 모듈(api-pay-refund.ts)로 위임 (2026-08-25) ═══
+     ⚠️ enroll 위임보다 **먼저** 와야 한다 — 경로가 /api/pay/admin/refund* 라 겹치지는 않지만,
+        환불은 돈을 되돌리는 유일한 길이라 라우팅에서 눈에 띄는 자리에 둔다.
+     ℹ️ 기존 «계산기»(/api/pay/enroll/admin/refund-quote)는 그대로 둔다 —
+        수강신청 화면이 쓰고 있고, 새 미리보기와 답이 같은지 대조하는 근거가 된다. */
+  if (path.startsWith('/api/pay/admin/refund')) {
+    const r = await handleRefundApi(request, url, env);
+    if (r) return r;
+  }
 
   // ═══ 📚 수강신청(enroll) — 전용 모듈(enroll-ops.ts)로 위임 ═══
   if (path.startsWith('/api/pay/enroll/')) {
