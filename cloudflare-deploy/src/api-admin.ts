@@ -4974,17 +4974,65 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       }
     }
 
-    // ── GET /api/popups/media/:key — 업로드된 미디어 프록시 ──
-    if (method === 'GET' && path.startsWith('/api/popups/media/')) {
+    // ── GET/HEAD /api/popups/media/:key — 업로드된 미디어 프록시 ──
+    //   🎬 (2026-08-25) Range(206) 지원 추가 — 여기에 «영상» 을 올릴 수 있게 된 뒤로 필요해졌다.
+    //     · iOS 사파리는 <video> 재생을 구간 요청으로 시작한다. 200 + 전체 파일만 돌려주면
+    //       큰 영상이 아예 재생되지 않거나 첫 프레임 전에 통째로 버퍼링한다.
+    //     · 되감기(seek)도 Accept-Ranges 가 있어야 브라우저가 허용한다.
+    //   같은 사정으로 인트로 영상은 src/index.ts 의 /media/intro.mp4 라우트가 이미 206 을 준다 —
+    //   그쪽은 키가 고정이고 여기는 업로드된 임의의 키라, 둘을 합치지 않고 같은 규칙만 맞춘다.
+    if ((method === 'GET' || method === 'HEAD') && path.startsWith('/api/popups/media/')) {
       const key = decodeURIComponent(path.replace('/api/popups/media/', ''));
+      // 🔒 이 경로는 «로그인 없이» 열린다(src/index.ts 의 공개 목록). 그런데 버킷(RECORDINGS)에는
+      //    수업 «녹화» 도 같이 들어 있다 — 키를 그대로 받으면 주소만 알면 남의 수업이 열린다.
+      //    업로더(/api/admin/popups/upload-media)가 만드는 키는 항상 popup-media/ 로 시작하므로
+      //    읽을 수 있는 범위를 거기로 묶는다. (.. 로 위로 올라가는 것도 함께 막는다)
+      if (!key.startsWith('popup-media/') || key.includes('..')) {
+        return new Response('Not Found', { status: 404 });
+      }
       const r2 = (env as any).RECORDINGS;
       if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
-      const obj = await r2.get(key);
+
+      const rangeHeader = request.headers.get('Range');
+      const opts: any = {};
+      let wantRange = false;
+      if (rangeHeader) {
+        const m = /bytes=(\d+)-(\d*)/.exec(rangeHeader);
+        if (m) {
+          const start = parseInt(m[1], 10);
+          const end = m[2] ? parseInt(m[2], 10) : undefined;
+          opts.range = end !== undefined ? { offset: start, length: end - start + 1 } : { offset: start };
+          wantRange = true;
+        }
+      }
+
+      // HEAD 는 본문 없이 헤더만 — 브라우저가 Accept-Ranges·Content-Length 를 먼저 확인할 때 쓴다.
+      const obj = method === 'HEAD' ? await r2.head(key) : await r2.get(key, opts);
       if (!obj) return new Response('Not Found', { status: 404 });
+
       const headers = new Headers();
       obj.writeHttpMetadata(headers);
-      headers.set('Cache-Control', 'public, max-age=86400');
+      headers.set('Accept-Ranges', 'bytes');
+      // 업로드 키에 시각이 박혀 있어 같은 주소의 내용이 바뀌지 않는다 → 길게 캐시해도 안전.
+      headers.set('Cache-Control', 'public, max-age=604800, immutable');
       headers.set('Access-Control-Allow-Origin', '*');
+      if (obj.httpEtag) headers.set('ETag', obj.httpEtag);
+
+      if (method === 'HEAD') {
+        headers.set('Content-Length', String(obj.size));
+        return new Response(null, { status: 200, headers });
+      }
+      const r = (obj as any).range;
+      if (wantRange && r) {
+        // 끝을 안 적은 요청(bytes=N-)에 R2 가 length 를 안 채워 주면 «본문은 일부인데 길이는 전체»가
+        // 되어 되감기가 깨진다. 남은 크기로 직접 계산해 둔다.
+        const off = r.offset || 0;
+        const len = r.length !== undefined ? r.length : (obj.size - off);
+        headers.set('Content-Range', `bytes ${off}-${off + len - 1}/${obj.size}`);
+        headers.set('Content-Length', String(len));
+        return new Response(obj.body, { status: 206, headers });
+      }
+      headers.set('Content-Length', String(obj.size));
       return new Response(obj.body, { headers });
     }
 
