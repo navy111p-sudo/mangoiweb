@@ -8541,7 +8541,15 @@ document.getElementById('legacy-toggle')?.addEventListener('click', toggleLegacy
 //   다시 같은 컬럼 Shift+클릭으로 desc → asc → 제거 cycle
 const SM_SORT_MAX = 3;
 let _smStudents = [];                                       // 원본 데이터 캐시
-let _smSort = [{ key: 'last_seen', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
+/* 🗓️ (2026-08-25 사장님 지적) 기본 정렬이 「최근 가입일」이 되어야 하는데, 여기 적힌
+   기본값은 예전부터 `last_seen`(최근 출석)이었다 — 그런데 지금 화면에는 `last_seen` 을
+   가진 열 자체가 없다(th.sort-indicator 매칭 대상이 없어 화면에 활성 표시도 안 뜬다).
+   그래서 클릭 한 번 없이 새로 불러오면 이 배열의 `last_seen` 이 값이 전부 비어(null) 있어
+   비교가 전부 0이 되고, 결과적으로 서버가 준 순서(사실상 created_at desc)를 그대로 보여줬다
+   — 「이름순」으로 보였던 것은 화면을 보던 사람이 그 전에 「학생명」 헤더를 눌러 둔 상태가
+   남아 있었을 뿐, 코드가 정한 기본값은 아니었다. 어느 쪽이든 원하는 기본값(최근 가입일)과는
+   달랐으므로 실제 표에 있는 열(가입일 = created_at)로 명시한다. */
+let _smSort = [{ key: 'created_at', dir: 'desc' }];          // 정렬 배열 (우선순위 순)
 let _smSearch = '';                                         // 🔍 검색어 (학생명·아이디)
 let _smAgency = '';                                         // 🏫 대리점·학원 필터 (빈값 = 전체)
 let _smCountBase = '';                                      // 전체 인원수 라벨 (검색 시 "N명 / 전체" 표시용)
