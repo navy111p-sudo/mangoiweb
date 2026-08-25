@@ -5868,8 +5868,13 @@ function _addEnrollmentRow(prefill) {
     }
   });
   // 🥭 Phase 32 — ⏰ 버튼 클릭 시 요일별 시간 빌더 모달 오픈
-  tr.querySelector('.en-row-time-builder').addEventListener('click', () => {
-    _openTimeBuilder(tr);
+  //   (2026-08-25) 강사 우선 배정일 때는 그 강사의 예약된 시간을 서버에 물어보고 나서 여는데,
+  //   그 잠깐 사이 버튼이 «눌러도 반응 없음» 으로 보이지 않게 짧게 로딩 표시를 한다.
+  tr.querySelector('.en-row-time-builder').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    const orig = btn.textContent;
+    btn.disabled = true; btn.textContent = '…';
+    try { await _openTimeBuilder(tr); } finally { btn.disabled = false; btn.textContent = orig; }
   });
   // 🧭 (2026-08-12) ③ 우선순위 — 고른 값이 «다음 단계에서 무슨 뜻인지» 한 줄로 알려 준다
   tr.querySelector('.en-row-priority').addEventListener('change', () => _enPrioNote(tr));
@@ -6147,11 +6152,14 @@ async function _enLoadTeachers() {
     const r = await fetch('/api/admin/teachers', { cache: 'no-store', credentials: 'include' });
     const d = await r.json().catch(() => ({}));
     if (d && d.ok) {
+      // 🕐 (2026-08-25) id 도 함께 남긴다 — ⏰ 시간 빌더가 「이 강사의 이미 예약된 시간」을
+      //   걸러 보여주려면 숫자 id 가 필요하다(_enTeacherIdByName 참고). 화면·서버가 주고받는
+      //   값은 여전히 이름 그대로(위 주석의 이유) — id 는 이 화면 안에서만 쓰는 보조값이다.
+      const seen = Object.create(null);
       __enTeachers = (d.items || d.teachers || [])
-        .map(t => String((t && t.name) || '').trim())
-        .filter(Boolean)
-        .filter((v, i, arr) => arr.indexOf(v) === i)
-        .sort();
+        .map(t => ({ id: String((t && t.id) || '').trim(), name: String((t && t.name) || '').trim() }))
+        .filter(t => t.name && !seen[t.name] && (seen[t.name] = true))
+        .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
     } else {
       __enTeachersErr = (d && d.error) || ('HTTP ' + r.status);
     }
@@ -6161,6 +6169,11 @@ async function _enLoadTeachers() {
   __enTeachersLoading = false;
   _enFillTeacherSelects();
   return __enTeachers;
+}
+function _enTeacherIdByName(name) {
+  if (!__enTeachers || !name) return '';
+  const hit = __enTeachers.find(t => t.name === name);
+  return hit ? hit.id : '';
 }
 function _enFillTeacherSelects() {
   const en = (document.documentElement.lang === 'en' || window.adminLang === 'en');
@@ -6180,10 +6193,36 @@ function _enFillTeacherSelects() {
     }
     sel.innerHTML = '<option value="">' +
         (en ? '— any teacher —' : '— 강사 무관 (자동 배정) —') + '</option>' +
-      __enTeachers.map(n => '<option value="' + _esc(n) + '"' + (n === cur ? ' selected' : '') + '>' +
-        _esc(n) + '</option>').join('');
-    sel.value = (__enTeachers.indexOf(cur) >= 0) ? cur : '';
+      __enTeachers.map(t => '<option value="' + _esc(t.name) + '"' + (t.name === cur ? ' selected' : '') + '>' +
+        _esc(t.name) + '</option>').join('');
+    sel.value = (__enTeachers.some(t => t.name === cur)) ? cur : '';
   });
+}
+/* 🕐 (2026-08-25) 「강사 우선」에서 특정 강사를 고르면, ⏰ 시간 빌더가 그 강사의 이미 예약된
+   시간을 걸러 보여준다 — «다른 학생 화·목 21:10 에 이미 배정돼 있는데도 새 학생을 같은
+   시간에 등록할 수 있는 것처럼 진행된다»(2026-08-25 사장님 지적)의 근본 대응.
+   ⚠️ 새 API 를 만들지 않는다 — 이 판정을 하는 엔진(busyTimesForTeacher, 겹침 판정 기준까지)은
+      이미 학생 셀프결제 화면(enroll-ops.ts 「제보 #1」)에 있고, 공개 API(POST
+      /api/pay/enroll/busy-times, /api/pay/* 는 index.ts 에 이미 통째로 위임돼 있어 라우팅
+      등록도 필요 없다)로도 이미 나가 있다. 판정을 새로 베끼면 두 화면이 기준을 잊고
+      어긋난다(CLAUDE.md 2절 "판정을 세 곳에 복제하지 말 것"과 같은 이유) — 그대로 재사용한다.
+   ⚠️ 수업 길이(분)를 이 표는 안 받는다. 서버 기본값과 같은 20분(class-policy.ts
+      DEFAULT_CLASS_MINUTES)으로 고정 — 다르면 여기서 "비었다"고 보여준 시간이 실제 배정
+      (▸ 처리) 때 다시 막힐 수 있다. */
+const _enBusyCache = Object.create(null);
+async function _enFetchBusyTimes(teacherId) {
+  if (!teacherId) return {};
+  if (_enBusyCache[teacherId]) return _enBusyCache[teacherId];
+  try {
+    const r = await fetch('/api/pay/enroll/busy-times', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ teacher_id: teacherId, days: [0, 1, 2, 3, 4, 5, 6], minutes: 20 }),
+    });
+    const d = await r.json().catch(() => ({}));
+    const busy = (d && d.ok && d.busy) ? d.busy : {};
+    _enBusyCache[teacherId] = busy;
+    return busy;
+  } catch (e) { return {}; }
 }
 
 /* 👤 학생 아이디 → 학생 명부(students_erp)에서 이름 찾기.
@@ -6244,24 +6283,34 @@ function _tbTimeToParts(t) {
   if (mm >= 60) mm = 50;
   return [hh, String(mm).padStart(2, '0')];
 }
-function _tbHourOptions(selected) {
+// 🕐 (2026-08-25) busyList — 그 요일에 이미 막힌 'HH:MM' 문자열 배열(예: ['21:10','21:20']).
+//   미지정(undefined/빈 배열)이면 예전처럼 아무 것도 막지 않는다(「강사 우선」이 아닐 때).
+function _tbHourOptions(selected, busyList) {
   let opts = '<option value="">--</option>';
+  const busy = Array.isArray(busyList) ? busyList : [];
   for (let h = 0; h < 24; h++) {
     const v = String(h).padStart(2, '0');
-    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+    // 그 시(hour)의 10분 슬롯 6개가 전부 막혀 있으면 시 자체를 고를 이유가 없다
+    const allBusy = busy.length > 0 &&
+      [0, 10, 20, 30, 40, 50].every(m => busy.indexOf(v + ':' + String(m).padStart(2, '0')) !== -1);
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + (allBusy ? ' disabled' : '') + '>' +
+      v + (allBusy ? ' 🚫' : '') + '</option>';
   }
   return opts;
 }
-function _tbMinOptions(selected) {
+function _tbMinOptions(selected, hour, busyList) {
   let opts = '<option value="">--</option>';
+  const busy = Array.isArray(busyList) ? busyList : [];
   [0, 10, 20, 30, 40, 50].forEach(m => {
     const v = String(m).padStart(2, '0');
-    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+    const isBusy = !!hour && busy.indexOf(hour + ':' + v) !== -1;
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + (isBusy ? ' disabled' : '') + '>' +
+      v + (isBusy ? ' 🚫' : '') + '</option>';
   });
   return opts;
 }
 // 🥭 Phase 32 — 요일별 시간 빌더 모달
-function _openTimeBuilder(tr) {
+async function _openTimeBuilder(tr) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
   const dayLabels = ['월','화','수','목','금','토','일'];
   // 현재 행의 요일 체크 상태
@@ -6269,6 +6318,16 @@ function _openTimeBuilder(tr) {
   // 현재 시간 입력값 파싱
   const currentTime = (tr.querySelector('.en-row-time')?.value || '').trim();
   const parsed = _parseScheduleText(currentTime);
+  // 🕐 (2026-08-25) 「강사 우선」 + 특정 강사를 골랐을 때만 그 강사의 예약된 시간을 걸러 보여준다.
+  //   「요일·시간 우선」이거나 강사가 「자동 배정」(빈값)이면 예전처럼 전부 선택 가능하다 —
+  //   아직 누구에게 배정될지 모르는데 특정 강사 기준으로 막으면 안 된다.
+  const prio = tr.querySelector('.en-row-priority')?.value || 'schedule';
+  const teacherName = (tr.querySelector('.en-row-teacher')?.value || '').trim();
+  const teacherId = (prio === 'teacher' && teacherName) ? _enTeacherIdByName(teacherName) : '';
+  const busyByDow = teacherId ? await _enFetchBusyTimes(teacherId) : {};
+  const DOW_NUM = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
+  const busyByCode = {};
+  dayCodes.forEach((code) => { busyByCode[code] = busyByDow[String(DOW_NUM[code])] || busyByDow[DOW_NUM[code]] || []; });
   // 모달 생성
   const overlay = document.createElement('div');
   overlay.id = 'time-builder-overlay';
@@ -6285,21 +6344,25 @@ function _openTimeBuilder(tr) {
       '<div style="background:#fef3c7;padding:8px 12px;border-radius:6px;font-size:11px;color:#78350f;margin-bottom:12px">' +
         '💡 시간 비워두면 그 요일은 제외됩니다' +
       '</div>' +
+      (teacherId ? '<div style="background:#fee2e2;padding:8px 12px;border-radius:6px;font-size:11px;color:#991b1b;margin-bottom:12px">' +
+        '🚫 = ' + _esc(teacherName) + ' 강사가 이미 다른 학생과 배정된 시간(선택 불가)' +
+      '</div>' : '') +
       '<div style="display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center">';
   const selStyle = 'padding:6px 4px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff';
   dayCodes.forEach((code, i) => {
     const isChecked = checkedDays.includes(code) || parsed[code];
     const t = parsed[code] || '';
     const [th, tm] = _tbTimeToParts(t);
+    const busyList = busyByCode[code];
     html +=
       '<label style="font-weight:700;color:#1f2937;display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" class="tb-day" data-code="' + code + '" ' + (isChecked?'checked':'') + ' style="margin:0;cursor:pointer">' +
         dayLabels[i] +
       '</label>' +
       '<div style="display:flex;align-items:center;gap:4px">' +
-        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th) + '</select>' +
+        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th, busyList) + '</select>' +
         '<span style="color:#9ca3af">:</span>' +
-        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm) + '</select>' +
+        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm, th, busyList) + '</select>' +
       '</div>';
   });
   html += '</div>' +
@@ -6311,6 +6374,19 @@ function _openTimeBuilder(tr) {
     '</div>';
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
+  // 🕐 (2026-08-25) 시(hour)를 바꾸면 그 시간대의 분(10분 단위) 중 막힌 것만 다시 걸러 그린다
+  //   — 분 목록은 «어느 시를 골랐는지» 에 따라 달라지므로 처음 그릴 때 한 번만으로는 못 잡는다.
+  if (teacherId) {
+    dayCodes.forEach((code) => {
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      if (!hSel || !mSel) return;
+      hSel.addEventListener('change', () => {
+        const curMin = mSel.value;
+        mSel.innerHTML = _tbMinOptions(curMin, hSel.value, busyByCode[code]);
+      });
+    });
+  }
   const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
   // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용 (분은 10분 단위로 반올림)
   overlay.querySelector('#tb-same-time').addEventListener('click', () => {
