@@ -6209,10 +6209,19 @@ function _enFillTeacherSelects() {
    ⚠️ 수업 길이(분)를 이 표는 안 받는다. 서버 기본값과 같은 20분(class-policy.ts
       DEFAULT_CLASS_MINUTES)으로 고정 — 다르면 여기서 "비었다"고 보여준 시간이 실제 배정
       (▸ 처리) 때 다시 막힐 수 있다. */
+/* ⚠️ (2026-08-25 trap-check 지적) 캐시를 새로고침 전까지 무기한 두면, 같은 관리자 세션에서
+   ① Hannah 화/목 21:10 으로 학생A 를 방금 등록 → ② 바로 이어서 학생B 도 같은 표에서 Hannah
+   시간 빌더를 열 때 ②가 ①이전(=아직 안 막힌) 캐시를 보여줄 수 있다. 실제 이중배정으로
+   이어지진 않는다 — 「▸ 처리」(enroll-activate.ts)가 확정 시점에 class_schedules 를 다시 조회해
+   겹치면 건너뛰고 경고한다. 그래도 "방금 고친 바로 그 안내가 다시 틀리게 보인다"는 신뢰도
+   문제라 30초로 짧게 만료시킨다 — 같은 강사를 여러 행에서 연달아 열 때 매번 왕복하는 것도
+   막고, 등록 흐름(보통 수십 초 이상 걸림) 안에서는 충분히 새로 물어본다. */
 const _enBusyCache = Object.create(null);
+const _EN_BUSY_TTL_MS = 30000;
 async function _enFetchBusyTimes(teacherId) {
   if (!teacherId) return {};
-  if (_enBusyCache[teacherId]) return _enBusyCache[teacherId];
+  const hit = _enBusyCache[teacherId];
+  if (hit && (Date.now() - hit.ts) < _EN_BUSY_TTL_MS) return hit.data;
   try {
     const r = await fetch('/api/pay/enroll/busy-times', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -6220,7 +6229,7 @@ async function _enFetchBusyTimes(teacherId) {
     });
     const d = await r.json().catch(() => ({}));
     const busy = (d && d.ok && d.busy) ? d.busy : {};
-    _enBusyCache[teacherId] = busy;
+    _enBusyCache[teacherId] = { data: busy, ts: Date.now() };
     return busy;
   } catch (e) { return {}; }
 }
