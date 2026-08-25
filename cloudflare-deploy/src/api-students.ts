@@ -131,16 +131,24 @@ export async function handleStudentsApi(
       const cUid = String(b.child_user_id || '').trim();
       if (!pUid || !cUid) return json({ ok: false, error: 'parent_user_id_and_child_user_id_required' }, 400);
 
-      // 자녀가 students_erp 에 있는지 확인 — 없으면 생성
-      const exists = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ? LIMIT 1`).bind(cUid).first();
+      /* 자녀가 students_erp 에 있는지 확인 — 없으면 생성.
+         🔤 (2026-08-25) 확인은 **대소문자를 무시**한다. 구분하면 `jeong` 이 있는데
+            `Jeong` 으로 이으라고 할 때 「없다」로 읽어 **빈 학생 행을 새로 만들고**
+            학부모를 그 빈 계정에 잇는다 → 학부모 화면이 영영 비어 보인다.
+         ✅ 찾은 뒤에는 **DB 에 적힌 표기**(childUid)로 UPDATE·응답을 통일한다 —
+            여기서 갈리면 대소문자가 그대로 아래로 흐른다(admin_account 건과 같은 규칙). */
+      const exists = await env.DB.prepare(
+        `SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`
+      ).bind(cUid).first<{ user_id: string }>();
+      const childUid = exists ? String(exists.user_id) : cUid;
       if (exists) {
         await env.DB.prepare(`UPDATE students_erp SET parent_user_id = ?, parent_name = COALESCE(?, parent_name) WHERE user_id = ?`)
-          .bind(pUid, b.parent_name || null, cUid).run();
+          .bind(pUid, b.parent_name || null, childUid).run();
       } else {
         await env.DB.prepare(`INSERT INTO students_erp (user_id, student_name, parent_user_id, parent_name, status, created_at) VALUES (?,?,?,?,?,?)`)
-          .bind(cUid, b.child_name || cUid, pUid, b.parent_name || null, '신규', Date.now()).run();
+          .bind(childUid, b.child_name || childUid, pUid, b.parent_name || null, '신규', Date.now()).run();
       }
-      return json({ ok: true, parent_user_id: pUid, child_user_id: cUid });
+      return json({ ok: true, parent_user_id: pUid, child_user_id: childUid });
     }
 
     // ── GET /api/parent/my-children?uid=X — 학부모의 자녀 목록 ──
@@ -390,9 +398,22 @@ ${MANGOI_KNOWLEDGE}`;
       if (!/^[a-zA-Z0-9_]+$/.test(uid)) return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/언더바만 가능합니다.' }, 400);
       if (!pwd || pwd.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
       if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력해 주세요.' }, 400);
-      // 중복 아이디 차단
-      const exists: any = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ?`).bind(uid).first();
-      if (exists) return json({ ok: false, error: 'exists', message: '이미 사용 중인 아이디입니다.' }, 409);
+      /* 중복 아이디 차단 — 🔤 (2026-08-25) **대소문자를 무시**한다.
+         바로 아래 `/api/student/login` 이 `WHERE user_id = ? COLLATE NOCASE` 로 찾으므로,
+         여기서만 구분하면 `jeong` 이 있는데 `Jeong` 이 새로 만들어지고(PK 는 BINARY 라
+         UNIQUE 에 안 걸린다) 로그인은 둘 중 «아무 행이나» 집는다.
+         ⚠️ 관리자 수동 등록(api-admin.ts `/api/admin/students/create`)과 **짝**이다 —
+            한쪽만 고치면 그 경로로 그대로 두 벌이 생긴다. */
+      const exists: any = await env.DB.prepare(
+        `SELECT user_id FROM students_erp WHERE user_id = ? COLLATE NOCASE LIMIT 1`
+      ).bind(uid).first();
+      if (exists) {
+        const caseOnly = String(exists.user_id) !== uid;
+        return json({ ok: false, error: 'exists',
+          message: caseOnly
+            ? `이미 «${exists.user_id}» 가 있습니다(대소문자만 다릅니다). 로그인은 대소문자를 구분하지 않으니 다른 아이디를 쓰세요.`
+            : '이미 사용 중인 아이디입니다.' }, 409);
+      }
       const now = Date.now();
       const ph = await hashPwd(pwd);
       await env.DB.prepare(
