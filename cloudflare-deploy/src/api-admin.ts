@@ -8196,6 +8196,10 @@ LIMIT $limit`;
       try { body = await request.json(); } catch { body = null; }
       const uid = String(body?.user_id || '').trim();
       const name = String(body?.name || '').trim();
+      // 🔑 (2026-08-25 사장님 요청) 관리자가 비밀번호를 직접 정할 수 있게 — 비우면 예전처럼
+      //   서버가 임시 비밀번호를 만든다(아래). 기준은 자가등록·재설정과 같다(4자 이상,
+      //   api-students.ts 참고 — 「관리자 수동 등록과 짝」이라 적힌 그 규칙).
+      const customPwd = String(body?.password || '').trim();
       const studentPhone = String(body?.student_phone || '').trim() || null;
       const parentPhone = String(body?.parent_phone || '').trim() || null;
       const shopName = String(body?.shop_name || '').trim() || null;
@@ -8209,6 +8213,9 @@ LIMIT $limit`;
         return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/밑줄(_)만 가능합니다.' }, 400);
       }
       if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력하세요.' }, 400);
+      if (customPwd && customPwd.length < 4) {
+        return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
+      }
 
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
       for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
@@ -8237,13 +8244,17 @@ LIMIT $limit`;
           existing: dup.user_id }, 409);
       }
 
-      // 임시 비밀번호 — /api/student/login 이 검증하는 것과 같은 해시(SHA-256 + salt).
+      // 비밀번호 — 직접 입력했으면 그대로, 아니면 임시 비밀번호를 만든다.
+      //   해시는 /api/student/login 이 검증하는 것과 같은 방식(SHA-256 + salt).
       //   ⚠️ auth-admin.ts 의 hashPassword() 는 관리자 계정용 다른 솔트라 여기 쓰면 학생이 로그인하지 못한다.
-      const ALPHA = 'abcdefghijkmnpqrstuvwxyz23456789';
-      const rnd = crypto.getRandomValues(new Uint8Array(12));
-      let tempPw = '';
-      for (let i = 0; i < rnd.length; i++) tempPw += ALPHA[rnd[i] % ALPHA.length];
-      tempPw = tempPw.slice(0, 4) + '-' + tempPw.slice(4, 8) + '-' + tempPw.slice(8, 12);
+      let tempPw = customPwd;
+      if (!tempPw) {
+        const ALPHA = 'abcdefghijkmnpqrstuvwxyz23456789';
+        const rnd = crypto.getRandomValues(new Uint8Array(12));
+        tempPw = '';
+        for (let i = 0; i < rnd.length; i++) tempPw += ALPHA[rnd[i] % ALPHA.length];
+        tempPw = tempPw.slice(0, 4) + '-' + tempPw.slice(4, 8) + '-' + tempPw.slice(8, 12);
+      }
       const pwdBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tempPw + '|mangoi-salt-2026'));
       const pwdHash = Array.from(new Uint8Array(pwdBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
 
