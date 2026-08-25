@@ -168,19 +168,22 @@
     border-bottom: 1px solid rgba(255,255,255,.10);
     background: rgba(255,255,255,.03);
   }
+  /* 📏 (2026-08-25) 날짜·«한국»·«필리핀» 을 빼고 한 줄에 담는다 — 실물(admin.html + admin-inline-c.css)과
+     같은 모양을 유지한다. 여기만 옛 2줄로 남겨 두면 «어느 쪽이 지금 화면인가» 를 헷갈리게 한다. */
   .dr-clock {
     display: flex; gap: 8px; margin-bottom: 10px;
   }
   .dr-clock .c {
     flex: 1; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
     border-radius: 11px; padding: 7px 10px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    white-space: nowrap; line-height: 1.2;
   }
-  .dr-clock .c .lbl { font-size: 10.5px; font-weight: 700; opacity: .65; letter-spacing: .2px; }
+  .dr-clock .c .lbl { font-size: 11px; font-weight: 700; opacity: .65; letter-spacing: .5px; margin-right: -5px; }
   .dr-clock .c .t {
     font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .4px;
-    line-height: 1.25;
   }
-  .dr-clock .c .d { font-size: 10px; opacity: .5; }
+  .dr-clock .c .sep { opacity: .32; font-weight: 700; }
   .dr-head { display: flex; align-items: center; gap: 9px; }
   .dr-head .logo {
     width: 30px; height: 30px; flex: none; border-radius: 9px;
@@ -291,8 +294,11 @@
   <!-- ③ 시계 = 사이드바 맨 위. 화면 위를 떠다니며 버튼을 가리던 캡슐을 여기로 들여왔다 -->
   <div class="dr-top">
     <div class="dr-clock">
-      <div class="c"><div class="lbl">한국 KR</div><div class="t" id="clk-kr">--:--:--</div><div class="d" id="dat-kr">&nbsp;</div></div>
-      <div class="c"><div class="lbl">필리핀 PH</div><div class="t" id="clk-ph">--:--:--</div><div class="d" id="dat-ph">&nbsp;</div></div>
+      <div class="c">
+        <span class="lbl">KR</span><span class="t" id="clk-kr">--:--:--</span>
+        <span class="sep" aria-hidden="true">·</span>
+        <span class="lbl">PH</span><span class="t" id="clk-ph">--:--:--</span>
+      </div>
     </div>
     <div class="dr-head">
       <div class="logo">&#127818;</div>
@@ -599,15 +605,14 @@
     var now = new Date();
     function parts(tz) {
       var s = new Intl.DateTimeFormat('ko-KR', {
-        timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
-        month: 'numeric', day: 'numeric', weekday: 'short'
+        timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
       }).formatToParts(now), o = {};
       s.forEach(function (p) { o[p.type] = p.value; });
-      return { t: two(+o.hour % 24) + ':' + o.minute + ':' + o.second, d: o.month + '/' + o.day + ' (' + o.weekday + ')' };
+      return { t: two(+o.hour % 24) + ':' + o.minute + ':' + o.second };
     }
     var kr = parts('Asia/Seoul'), ph = parts('Asia/Manila');
-    $('clk-kr').textContent = kr.t; $('dat-kr').textContent = kr.d;
-    $('clk-ph').textContent = ph.t; $('dat-ph').textContent = ph.d;
+    $('clk-kr').textContent = kr.t;
+    $('clk-ph').textContent = ph.t;
     $('bar-clock').innerHTML = 'KR ' + kr.t.slice(0, 5) + '<br>PH ' + ph.t.slice(0, 5);
   }
   function startClock() { tick(); clearInterval(timer); timer = setInterval(tick, 1000); }

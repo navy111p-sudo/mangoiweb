@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<!--
+  망고아이 — 외주 제안서 대조 검토 보고서 (2026-08-24)
+
+  ⚠️ 정본은 같은 이름의 .pdf 입니다. 이 HTML 은 «다시 만들 수 있게» 남겨 둔 원본입니다.
+     본문 글꼴이 Pretendard 라, 그 글꼴이 없는 PC 에서 이 HTML 을 열면 대체 글꼴로 그려져
+     쪽 나눔이 PDF 와 달라집니다(내용은 같습니다).
+
+  PDF 다시 만들기 (이 저장소의 원격 작업 환경 기준):
+     chromium --headless --no-pdf-header-footer --print-to-pdf=out.pdf report.html
+
+  ⛔ 이 파일에 height:297mm + overflow:hidden 을 넣지 마세요 —
+     docs/ 의 옛 인쇄용 문서가 그래서 아래가 잘렸습니다(CLAUDE.md 2장 함정).
+     지금은 자연 흐름 + @page 라 글꼴이 달라져도 잘리지 않고 쪽 수만 바뀝니다.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>망고아이 — 외주 제안서 대조 검토 보고서</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm 14mm 14mm; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; }
+  body {
+    font-family: 'Pretendard', 'WenQuanYi Zen Hei', sans-serif;
+    font-size: 10.2pt; line-height: 1.62; color: #1F2937;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1,h2,h3,h4 { margin:0; font-weight:700; }
+  p { margin: 0 0 6px; }
+  ul,ol { margin: 4px 0 8px; padding-left: 18px; }
+  li { margin-bottom: 3px; }
+  code { font-family:'DejaVu Sans Mono',monospace; font-size:8.6pt; background:#F3F4F6; padding:1px 4px; border-radius:3px; color:#374151; }
+
+  /* ── 표지 ── */
+  .cover { padding: 34mm 0 0; page-break-after: always; }
+  .cover .kicker { font-size:10pt; letter-spacing:.12em; color:#B45309; font-weight:600; margin-bottom:10px; }
+  .cover h1 { font-size:27pt; line-height:1.25; letter-spacing:-.02em; }
+  .cover .sub { font-size:12.5pt; color:#4B5563; margin-top:14px; line-height:1.6; }
+  .cover .meta { margin-top:40mm; font-size:9.6pt; color:#6B7280; border-top:1px solid #E5E7EB; padding-top:12px; }
+  .cover .meta b { color:#374151; font-weight:600; }
+  .cover-box { margin-top:26px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:8px; padding:16px 18px; }
+  .cover-box h4 { font-size:11pt; color:#92400E; margin-bottom:8px; }
+  .cover-box p { font-size:10pt; color:#78350F; margin:0; }
+
+  /* ── 섹션 ── */
+  .sec { page-break-before: always; }
+  .sec-head { border-bottom:2px solid #1F2937; padding-bottom:6px; margin-bottom:13px; }
+  .sec-head .n { font-size:9pt; color:#B45309; font-weight:700; letter-spacing:.1em; }
+  .sec-head h2 { font-size:17.5pt; letter-spacing:-.01em; margin-top:2px; }
+  .sec-head .d { font-size:9.6pt; color:#6B7280; margin-top:4px; }
+
+  h3.blk { font-size:12pt; margin:16px 0 8px; padding-left:9px; border-left:4px solid #F59E0B; page-break-after:avoid; }
+  .sec-head { page-break-after:avoid; }
+  thead, tr { page-break-inside:avoid; }
+
+  /* ── 표 ── */
+  table { width:100%; border-collapse:collapse; margin:9px 0 12px; font-size:8.9pt; }
+  th { background:#374151; color:#fff; font-weight:600; text-align:left; padding:6px 8px; font-size:8.5pt; }
+  td { padding:5px 8px; border-bottom:1px solid #E5E7EB; vertical-align:top; line-height:1.5; }
+  tr:nth-child(even) td { background:#F9FAFB; }
+  .tag { display:inline-block; font-size:8pt; font-weight:700; padding:2px 7px; border-radius:10px; white-space:nowrap; }
+  .t-none { background:#FEE2E2; color:#991B1B; }
+  .t-part { background:#FEF3C7; color:#92400E; }
+  .t-have { background:#DCFCE7; color:#166534; }
+  .t-over { background:#DBEAFE; color:#1E40AF; }
+
+  /* ── 카드 ── */
+  .card { border:1px solid #E5E7EB; border-radius:7px; padding:11px 14px; margin:9px 0; page-break-inside:avoid; }
+  .card.crit { background:#FEF2F2; border-color:#FCA5A5; }
+  .card.warn { background:#FFFBEB; border-color:#FDE68A; }
+  .card.info { background:#F9FAFB; }
+  .card h4 { font-size:11pt; margin-bottom:5px; }
+  .card h4 .pri { font-size:8pt; font-weight:700; padding:2px 7px; border-radius:10px; margin-right:7px; vertical-align:2px; }
+  .p1 { background:#B91C1C; color:#fff; }
+  .p2 { background:#D97706; color:#fff; }
+  .p3 { background:#0369A1; color:#fff; }
+  .p4 { background:#6B7280; color:#fff; }
+  .card .row { font-size:9.3pt; margin:3px 0; }
+  .card .row > b.lb { display:inline-block; min-width:64px; color:#6B7280; font-weight:600; }
+  .ev { font-size:8.6pt; color:#6B7280; margin-top:7px; padding-top:6px; border-top:1px dashed #D1D5DB; }
+  .ev b { color:#374151; }
+
+  .quote { background:#F3F4F6; border-left:3px solid #9CA3AF; padding:8px 12px; margin:8px 0; font-size:9.2pt; color:#4B5563; }
+
+  .two { display:flex; gap:12px; margin:12px 0; }
+  .two > div { flex:1; border:1px solid #E5E7EB; border-radius:7px; padding:12px 14px; min-width:0; }
+  .two h5 { font-size:10pt; margin:0 0 7px; }
+  .two ul { font-size:9.2pt; margin:0; padding-left:16px; }
+
+  .big { display:flex; gap:10px; margin:14px 0; }
+  .big > div { flex:1; text-align:center; border:1px solid #E5E7EB; border-radius:7px; padding:13px 8px; min-width:0; }
+  .big .num { font-size:23pt; font-weight:800; line-height:1.1; letter-spacing:-.02em; }
+  .big .lb { font-size:8.6pt; color:#6B7280; margin-top:5px; line-height:1.4; }
+
+  .sec.apx table { font-size:8.5pt; }
+  .sec.apx td { padding:4px 8px; line-height:1.45; }
+  .sec.apx .quote { margin:6px 0; font-size:8.9pt; padding:7px 11px; }
+  .sec.apx h3.blk { margin:11px 0 6px; }
+  .foot { margin-top:13px; padding-top:8px; border-top:1px solid #E5E7EB; font-size:8.6pt; color:#9CA3AF; }
+</style>
+</head>
+<body>
+
+<!-- ═════════ 표지 ═════════ -->
+<div class="cover">
+  <div class="kicker">외주 제안서 대조 검토</div>
+  <h1>망고아이에 없는 것과<br>있어도 보완할 것</h1>
+  <div class="sub">
+    「망고아이 화상영어 플랫폼 신규 구축(MVP) 제안」(크몽 엔터프라이즈 × 똑똑한개발자, 2026.08)을<br>
+    현재 운영 중인 망고아이 코드베이스와 항목별로 대조한 결과입니다.
+  </div>
+
+  <div class="cover-box">
+    <h4>한 줄 결론</h4>
+    <p>제안서가 6,600만원에 「신규 구축」하겠다는 MVP 범위는 <b>망고아이가 이미 갖고 있는 것의 부분집합</b>입니다.
+       다만 그 안에 <b>정말로 우리에게 없는 것이 3가지</b> 있고, 그중 하나(<b>환불 실행·기록</b>)는
+       실제 돈이 오가는데 시스템에 흔적이 남지 않는 상태라 우선 처리가 필요합니다.</p>
+  </div>
+
+  <div class="meta">
+    <b>검토 대상</b> &nbsp;제안서 10쪽 (MVP 6,600만원 / AI 추가 시 7,700만원)<br>
+    <b>대조 기준</b> &nbsp;저장소 <code>navy111p-sudo/mangoiweb</code> — 백엔드 96개 파일, 화면 HTML 100여 개, 회귀 하니스 222종<br>
+    <b>검토 방법</b> &nbsp;소스 코드 직접 확인 (실서비스 DB·화면은 이 환경에서 접근할 수 없어 코드 기준으로 판정)<br>
+    <b>작성일</b> &nbsp;2026-08-24
+  </div>
+</div>
+
+<!-- ═════════ 1. 대조표 ═════════ -->
+<div class="sec">
+  <div class="sec-head">
+    <div class="n">SECTION 1</div>
+    <h2>제안서 MVP 9개 항목 — 망고아이 현황 대조</h2>
+    <div class="d">제안서 4·5쪽의 「개발 범위 ①②」를 그대로 옮겨 놓고, 우리 코드에 실제로 있는지 확인했습니다.</div>
+  </div>
+
+  <table>
+    <tr>
+      <th style="width:20%">제안서 MVP 항목</th>
+      <th style="width:9%">우리 상태</th>
+      <th style="width:42%">망고아이 실제 구현</th>
+      <th style="width:29%">차이</th>
+    </tr>
+    <tr>
+      <td><b>학생·강사 반응형 웹 1종</b><br><span style="color:#6B7280;font-size:8.6pt">로그인·코스조회·수강신청·결제·내수업·화상입장</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td><code>index.html</code>(홈+화상수업)·<code>teacher.html</code>·<code>manager.html</code>·<code>parent.html</code>·<code>student.html</code> 등 화면 100여 개. 학부모·필리핀 매니저 전용 화면까지 분리</td>
+      <td>화면 수는 제안서의 몇 배. 다만 첫 화면 무게가 한계 (→ B-10)</td>
+    </tr>
+    <tr>
+      <td><b>레벨테스트 (기본형)</b><br><span style="color:#6B7280;font-size:8.6pt">문항 응시·결과 확인·정적 매핑 코스 추천</span></td>
+      <td><span class="tag t-part">부분</span></td>
+      <td>신청·자동 스케줄 배정(<code>leveltest-schedule.ts</code>), 입장 티켓(<code>leveltest-ticket.ts</code>), 시험 엔진(<code>api-exam.ts</code> — 문항 AI 생성·응시·채점), AI 자동 진단 화면</td>
+      <td><b>결과 → 코스/반 자동 추천 매핑이 없음</b> (→ A-3). 신청 데이터도 실전 검증 전 (→ B-9)</td>
+    </tr>
+    <tr>
+      <td><b>수강신청 · 예약</b><br><span style="color:#6B7280;font-size:8.6pt">강좌 개설·스케줄·승인/자동확정·예약 현황</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td><code>enroll-ops.ts</code>(1,200줄) — 강사별 가능 시간 조회·충돌 검사·공휴일 회피·기간 할인·연장/자동연장, 주간 스케줄 관리 화면</td>
+      <td>제안서의 「수동 배정 기준」보다 앞섬. 단 스케줄 표에 자리표시 행이 대량 잔존 (→ B-8)</td>
+    </tr>
+    <tr>
+      <td><b>화상 수업 연동</b><br><span style="color:#6B7280;font-size:8.6pt">외부 솔루션(Zoom 등) 링크 발급·입장 동선</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td><b>자체 WebRTC</b>(<code>video-call-room.ts</code> Durable Object) — 저대역폭 오디오 모드, 참관(Ghost), 녹화(<code>recordings-r2.ts</code>), 유령 참가자 자동 정리, 회선 품질 적응</td>
+      <td>제안서는 외부 솔루션 의존(과금·정책 종속). 우리는 자체 보유. 단 <b>장애 시 대체 경로가 없음</b> (→ A-4)</td>
+    </tr>
+    <tr>
+      <td><b>PG 결제 연동 (표준)</b><br><span style="color:#6B7280;font-size:8.6pt">성공/실패 처리·내역 조회</span></td>
+      <td><span class="tag t-have">있음</span></td>
+      <td>토스페이먼츠 연동(<code>api-pay.ts</code> 1,054줄) — 주문 생성·승인·웹훅·결제 링크 발송·<b>정기 자동결제(빌링키)</b>·결제 감사</td>
+      <td>제안서의 「표준 1종 연동」보다 넓음 (자동결제는 제안서에 없음)</td>
+    </tr>
+    <tr>
+      <td><b>환불 관리자 수동 처리</b><br><span style="color:#6B7280;font-size:8.6pt">환불 내역 기록</span></td>
+      <td><span class="tag t-none">없음</span></td>
+      <td>환불 <b>금액 계산기</b>만 존재(<code>/api/pay/enroll/admin/refund-quote</code>). 환불규정 안내 화면(<code>refund.html</code>)은 정적 문서</td>
+      <td><b>제안서에 있는데 우리에게 없는 유일한 핵심 기능</b> (→ A-1)</td>
+    </tr>
+    <tr>
+      <td><b>회원 관리</b><br><span style="color:#6B7280;font-size:8.6pt">학생/강사 조회·등록·상태, 권한 3종</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td>권한이 3종이 아니라 <b>본사·지사·대리점·강사·캐피타운</b> 5종 + 스코프 격리(<code>scope.ts</code>), 직원 계정 생성 API, 패스키 로그인</td>
+      <td>학생 명부의 정본이 카페24라 우리가 주인이 아님 (→ B-7)</td>
+    </tr>
+    <tr>
+      <td><b>강좌·수업 운영</b><br><span style="color:#6B7280;font-size:8.6pt">강사 배정·스케줄·출결/완료 처리</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td>출결 자동 기록(입퇴장·접속 시간·끊김 횟수), 노쇼 판정, 보강·연기 처리, 강사 매칭, 수업일지·학부모 피드백 발송</td>
+      <td>강사 식별번호가 세 갈래로 갈려 오배정 위험 (→ B-5)</td>
+    </tr>
+    <tr>
+      <td><b>기본 통계</b><br><span style="color:#6B7280;font-size:8.6pt">수강신청·수업 수·매출 합계 (차트 1~2종)</span></td>
+      <td><span class="tag t-over">초과</span></td>
+      <td>KPI 대시보드·매출 분석·강사 가동률·이탈 예측·학습 인사이트·손익계산서·월간 회계 리포트</td>
+      <td>회계 화면 일부가 데이터 미적재로 빈 상태 (→ B-2)</td>
+    </tr>
+  </table>
+
+  <div class="quote">
+    <b>정리</b> — 9개 항목 중 <b>6개는 제안서 범위를 넘어섰고</b>, 2개는 부분, <b>1개(환불 실행)만 실제로 없습니다.</b>
+    제안서 6쪽이 「§7 별도 협의 · Phase 2」로 미뤄 둔 항목(ERP·회계·급여·정산 자동화·멀티테넌시·성과평가·포인트 랭킹·자체 WebRTC·수업 녹화)은
+    <b>대부분 우리가 이미 운영 중</b>입니다 — 자세한 내용은 3절.
+  </div>
+</div>
+
+<!-- ═════════ 2. 없는 것 ═════════ -->
+<div class="sec">
+  <div class="sec-head">
+    <div class="n">SECTION 2 · A</div>
+    <h2>현재 망고아이에 없는 것</h2>
+    <div class="d">제안서 범위 안에서, 코드로 확인한 실제 결손 4건입니다.</div>
+  </div>
+
+  <div class="card crit">
+    <h4><span class="pri p1">최우선</span>A-1. 환불을 «실행»하고 «기록»하는 길이 없습니다</h4>
+    <div class="row"><b class="lb">있는 것</b> 환불 금액 <b>계산기</b> 하나. 기간 할인을 취소하고 정가로 사용분을 정산해 잔액을 산출합니다.</div>
+    <div class="row"><b class="lb">없는 것</b> ① 결제 취소(PG) 호출 ② 환불 신청 접수 → 승인 → 실행 흐름 ③ 환불 내역 테이블 ④ 관리자 화면의 환불 처리 버튼</div>
+    <div class="row"><b class="lb">결과</b> 환불은 담당자가 <b>토스 대시보드에서 직접</b> 처리하게 되고, 우리 시스템에는 그 사실이 남지 않습니다.
+      나중에 신한 계좌 거래 적요를 「학생환불」로 분류해 <b>사후에 금액만</b> 회계에 잡습니다 — 누가·왜·어느 주문을 환불했는지는 복원할 수 없습니다.</div>
+    <div class="row"><b class="lb">왜 중요한가</b> 환불은 분쟁이 가장 잦은 지점입니다. 「얼마를 언제 왜 돌려줬는지」를 시스템이 못 말하면
+      학부모 응대와 회계 대사가 모두 사람 기억에 의존하게 됩니다. 제안서도 이 항목만은 MVP에 넣었습니다.</div>
+    <div class="ev"><b>확인 방법</b> 토스 API를 부르는 지점은 코드 전체에 4곳뿐이며(<code>payments/confirm</code>, <code>billing/authorizations/issue</code>,
+      <code>billing/{key}</code>, <code>payments/orders/{id}</code>) <b>결제취소(<code>payments/{key}/cancel</code>)는 0건</b>입니다.
+      <code>enroll-ops.ts:1104</code> 주석에도 「계산만. 실제 환불 실행은 사람이」라고 적혀 있습니다.
+      <code>admin.html</code>에서 「환불」이 나오는 12곳은 전부 계산기·안내문·회계 조회입니다.</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p3">확장</span>A-2. 코스(상품) 카탈로그가 없습니다</h4>
+    <div class="row"><b class="lb">현재</b> 수강신청은 상품을 고르는 방식이 아니라 <b>「주 N회 × M개월 × 수업길이」 계산식</b>으로 값을 냅니다(<code>enroll_prices</code>).
+      커리큘럼 화면은 소개용 정적 페이지입니다.</div>
+    <div class="row"><b class="lb">한계</b> 그룹 수업·특강·단기 패키지·이벤트가 같은 계산식에 안 맞으면 <b>팔 방법이 없습니다</b>. 새 상품마다 코드 수정이 필요합니다.</div>
+    <div class="row"><b class="lb">참고</b> 지금 사업 형태(1:1 정기 수업)에는 계산식이 오히려 잘 맞습니다. 상품을 늘릴 계획이 없다면 급하지 않습니다.</div>
+    <div class="ev"><b>확인 방법</b> <code>courses</code>·<code>products</code> 성격의 테이블 정의가 코드에 없습니다. 가격 결정은 <code>enroll-ops.ts</code>의 <code>enrollQuoteCalc()</code> 한 곳입니다.</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p3">확장</span>A-3. 레벨테스트 결과 → 코스·반 자동 추천이 없습니다</h4>
+    <div class="row"><b class="lb">있는 것</b> 레벨테스트 신청·자동 일정 배정·입장 티켓·시험 응시 엔진·AI 자동 진단까지 전부.</div>
+    <div class="row"><b class="lb">없는 것</b> 「결과 점수 → 추천 코스/교재/강사」로 이어지는 <b>매핑 규칙</b>. 지금은 강사·관리자가 사람 판단으로 다음 단계를 정합니다.</div>
+    <div class="row"><b class="lb">영향</b> 레벨테스트를 마케팅 유입(무료 체험)으로 쓰려면 결과 화면에서 바로 신청으로 이어져야 하는데, 그 연결이 끊겨 있습니다.</div>
+    <div class="ev"><b>확인 방법</b> <code>leveltest-schedule.ts</code>·<code>judgment-level.ts</code>에 추천·매핑 로직이 없습니다.
+      판단력 훈련의 밴드 조정(<code>auto</code>)은 훈련 난이도용이지 코스 배정용이 아닙니다.</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>A-4. 화상수업이 멈췄을 때의 «대체 경로»가 없습니다</h4>
+    <div class="row"><b class="lb">현재</b> 자체 WebRTC 한 갈래뿐입니다. 외부 솔루션(Zoom·Meet) 링크로 임시 전환하는 스위치가 코드에 <b>0건</b>입니다.</div>
+    <div class="row"><b class="lb">왜 문제인가</b> 자체 구현은 기능·비용에서 유리하지만, 장애가 나면 <b>그날 수업 전체가 멈춥니다</b>.
+      실제로 워커가 두 벌 배포되면서 방(Durable Object)이 갈려 <b>7월 31일~8월 19일 여덟 번의 수업에서 강사와 학생이 한 번도 만나지 못한</b> 사고가 있었습니다.</div>
+    <div class="row"><b class="lb">제안</b> 관리자가 수업 단위로 「외부 링크로 대체」를 켤 수 있는 최소 스위치 — 링크 입력 → 학생·강사 화면에 그 링크 노출 → 문자 발송.
+      기능이 아니라 <b>보험</b>입니다.</div>
+    <div class="ev"><b>확인 방법</b> <code>src/</code> 전체에서 zoom 문자열이 나오는 파일은 법인카드 동기화(가맹점명) 1건뿐입니다.</div>
+  </div>
+</div>
+
+<!-- ═════════ 3. 보완할 것 ═════════ -->
+<div class="sec">
+  <div class="sec-head">
+    <div class="n">SECTION 2 · B</div>
+    <h2>있어도 보완해야 할 것</h2>
+    <div class="d">기능은 있으나 신뢰할 수 없거나, 사람 손이 계속 들어가는 지점입니다. 우선순위 순.</div>
+  </div>
+
+  <h3 class="blk">돈에 직접 걸리는 것</h3>
+
+  <div class="card crit">
+    <h4><span class="pri p1">최우선</span>B-1. 강사 급여가 «어디에도 안 잡히는» 달이 생길 수 있습니다</h4>
+    <div class="row"><b class="lb">증상</b> 진짜 급여명세(payslips)가 없는 달에는 손익계산서의 「강사 급여」 줄이 <b>메트로은행 송금분만</b> 잡습니다.
+      그런데 국내 계좌에서 「급여이체」로 분류된 출금은 <b>「강사급여와 중복이니 제외」라는 전제로 판관비에서도 빠집니다</b>.</div>
+    <div class="row"><b class="lb">즉</b> 겹쳐 보이는 게 문제가 아니라, <b>양쪽 어디에도 안 잡히는 누락</b>일 수 있습니다. 손익이 실제보다 좋게 나옵니다.</div>
+    <div class="row"><b class="lb">필요한 일</b> 최근 몇 달의 「급여이체」 출금 목록과 payslips를 나란히 놓고 대사 — 사람이 한 번 확인해야 판정됩니다.</div>
+    <div class="ev"><b>근거</b> <code>CLAUDE.md</code> 2장에 「아직 고치지 않은 위험」으로 명시. <code>accounting-reports.ts</code>·<code>bankacct-sync.ts</code>의 <code>BANK_CAT_RULES</code>.</div>
+  </div>
+
+  <div class="card crit">
+    <h4><span class="pri p1">최우선</span>B-2. 「카페24 회계 실데이터」 화면이 빈 채로 운영 중입니다</h4>
+    <div class="row"><b class="lb">증상</b> 그 화면이 읽는 Neo4j <code>AccBook</code> 노드가 <b>0건</b>입니다. 같은 DB의 <code>Book</code> 62건은 조회되므로 연결 문제가 아니라
+      <b>카페24 쪽이 회계 노드를 아직 적재하지 않은 것</b>입니다(우리 저장소엔 적재 코드가 없고 읽기만 합니다).</div>
+    <div class="row"><b class="lb">영향</b> 회계 메뉴 중 한 탭이 계속 비어 있고, 「데이터가 없다」와 「기능이 고장났다」를 화면만 봐서는 구분할 수 없습니다.</div>
+    <div class="row"><b class="lb">필요한 일</b> 코드 수정이 아니라 <b>카페24에 적재 요청</b>. 요청서는 이미 작성돼 있습니다(<code>docs/카페24_회계데이터_적재요청_2026-08-18.md</code>).</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-3. 지사 이름이 겹쳐 매출이 통째로 배정되지 않는 곳이 있습니다</h4>
+    <div class="row"><b class="lb">증상</b> <code>centers.name</code>이 유일하지 않아, 같은 이름이 두 지사 이상으로 갈리면 가맹점 정산이 「어느 쪽인지 모름」으로 판정해
+      <b>아무 데도 배정하지 않습니다</b>(아무 쪽에 몰아주는 것도 오류라서).</div>
+    <div class="row"><b class="lb">규모</b> 2026-08-16 기준 <b>5개 이름 · 학생 2,603명</b>이 이 상태였습니다. 그 지사의 정산서 매출이 0으로 찍힙니다.</div>
+    <div class="row"><b class="lb">필요한 일</b> 코드로는 못 풉니다. 카페24에서 지사·대리점 이름을 구분되게 정리해야 합니다.</div>
+    <div class="ev"><b>확인 쿼리</b> <code>SELECT name FROM centers GROUP BY name HAVING COUNT(DISTINCT franchise_id)&gt;1</code></div>
+  </div>
+
+  <div class="card info">
+    <h4><span class="pri p3">개선</span>B-4. 중복 결제는 «찾아만» 주고 되돌리지 않습니다</h4>
+    <div class="row">중복 결제 탐지 화면(<code>admin/duplicate-payments.html</code>·<code>api-refund-audit.ts</code>)은 있으나,
+      찾은 뒤 환불로 이어지는 길이 A-1 때문에 끊깁니다. A-1을 만들면 여기에 「이 건 환불」 버튼 하나로 붙습니다.</div>
+  </div>
+
+  <h3 class="blk">데이터가 조용히 틀리는 것</h3>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-5. 강사 식별번호가 «세 벌»이고 겹치는 자리에서 다른 사람입니다</h4>
+    <div class="row"><b class="lb">구조</b> 카페24 강사번호(9~196) · 원부 <code>teachers.id</code>(1~29) · 프로필 <code>teacher_profiles.id</code>(4~37) — 셋이 서로 다른 체계입니다.</div>
+    <div class="row"><b class="lb">실제</b> 카페24 24번 = Teacher Mariane인데 원부 24번 = HANNAH, 카페24 26번 = Teacher Rica인데 원부 26번 = MELCA.
+      숫자로 이으면 <b>에러 없이 조용히 남의 이름·남의 수업·남의 급여</b>가 붙습니다.</div>
+    <div class="row"><b class="lb">현재</b> 이름 완전일치로만 잇고 모르면 비우도록 고쳤고 회귀 감시도 붙었습니다. 다만
+      <code>attendance_seed</code> 경로는 아직 옛 방식이 남아 <b>지금은 0건이라 피해가 없을 뿐, 쓰는 순간 재현</b>됩니다.
+      2026-08-18 동기화가 이미 602행에 남의 이름을 넣었고, 그중 창 밖 28행은 야간 동기화로도 안 고쳐집니다.</div>
+    <div class="row"><b class="lb">필요한 일</b> 남은 씨앗 경로 정리 + 이미 잘못 들어간 행 정정(사람 확인 필요 — 실 데이터라 CI가 막아 주지 못함).</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-6. 대소문자만 다른 중복 계정이 실재합니다</h4>
+    <div class="row"><b class="lb">원인</b> 계정 아이디에 대소문자 구분이 걸려 있어 <code>mangoi_167</code>과 <code>Mangoi_167</code>이 다른 계정이 됩니다.
+      로그인 조회가 못 찾으면 옛 인증 경로가 <b>그 자리에서 새 계정을 만들어</b>, 휴대폰 키보드 자동 대문자 한 번에 계정이 두 벌이 됩니다.</div>
+    <div class="row"><b class="lb">영향</b> 출근·급여가 계정 단위라 기록이 갈라지고, 정작 쓰는 쪽에 강사 연결이 없어 「수업 없음」이 뜹니다(실제 발생).</div>
+    <div class="row"><b class="lb">현재</b> 2026-08-24에 대소문자를 무시하도록 고쳤습니다. <b>다만 이미 생긴 중복 계정은 코드가 못 지웁니다 — 사람이 정리해야 합니다.</b></div>
+    <div class="ev"><b>확인 쿼리</b> <code>SELECT LOWER(username) k, COUNT(*) n, GROUP_CONCAT(username) FROM admin_account GROUP BY k HAVING n&gt;1</code></div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-7. 학생 명부의 주인이 우리가 아닙니다</h4>
+    <div class="row"><b class="lb">구조</b> 카페24에서 온 학생 행은 매일 밤 03:00에 <b>전부 지우고 다시 넣습니다</b>(UPSERT가 아니라 삭제 후 재삽입).
+      그래서 이름 수정도, 행 삭제도, 새로 적어 둔 값도 <b>하룻밤이면 사라집니다</b>.</div>
+    <div class="row"><b class="lb">현재</b> 별도 override 테이블로 이름 고정·명부 숨김을 우회하고 있습니다. 동작은 하지만 <b>구조적으로 취약</b>합니다 —
+      읽는 쪽 네 곳이 짝을 맞춰야 하고, 한 곳만 빠지면 「명부엔 없는데 로그인은 되는」 상태가 됩니다.</div>
+    <div class="row"><b class="lb">실제 사례</b> 한 학생의 계정이 카페24에 15개 있었고, 정작 쓰는 계정은 카페24에 이름이 없어 아이디로만 찍혀 이름 검색에 안 걸렸습니다.</div>
+    <div class="row"><b class="lb">판단 필요</b> 「학생 마스터를 망고아이로 가져올 것인가」는 사업 결정입니다. 지금 구조에서는 카페24를 고쳐야만 근본 수정이 됩니다.</div>
+  </div>
+
+  <div class="card info">
+    <h4><span class="pri p3">개선</span>B-8. 주간 스케줄 표의 대부분이 실제 수업이 아닙니다</h4>
+    <div class="row">활성 스케줄 667행 중 <b>658행이 자리표시</b>였습니다 — 옛 LMS 점유 518행 + 시연 시드 140행.
+      이 때문에 특정 요일·시간에 수업을 넣을 수 없었습니다(「이미 예약된」).</div>
+    <div class="row"><b class="lb">현재</b> 판정에서 제외하도록 고쳤고, 8-24에 일괄 정리 버튼(취소 처리·되돌릴 수 있음)까지 붙었습니다.
+      <b>남은 일은 실행과 확인</b> — 건수 확인 후 사람이 실행합니다.</div>
+  </div>
+
+  <div class="card info">
+    <h4><span class="pri p4">점검</span>B-9. 레벨테스트는 만들어졌지만 실전 데이터가 0건입니다</h4>
+    <div class="row">2026-08-20 확인 시 신청 17건이 <b>전부 데모</b>였고 실제 신청은 0건이었습니다.
+      기능이 도는지는 실제 신청이 한 번 통과해 봐야 알 수 있습니다. 마케팅에 쓰기 전 실전 1건 검증을 권합니다.</div>
+  </div>
+
+  <h3 class="blk">구조·운영</h3>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-10. 첫 화면 용량 여유가 194바이트뿐입니다</h4>
+    <div class="row"><b class="lb">현황</b> <code>index.html</code> 1.0MB, <code>idx-main.js</code> 873KB — <b>학생 29,000명 전원이 첫 화면에서 받습니다.</b>
+      필리핀·중국 회선을 지키려고 둔 용량 예산이 거의 가득 차, <b>주석 한 문단만 더해도 검사가 빨간불</b>입니다.</div>
+    <div class="row"><b class="lb">의미</b> 지금은 기능을 더할 때마다 별도 파일로 빼는 우회로 버티고 있습니다. <b>누가 무엇을 지연 로딩으로 뺄지 정하는 별건 과제</b>가 필요합니다.</div>
+    <div class="row"><b class="lb">참고</b> 제안서가 「반응형 웹 1종 신규 구축」을 말하는 근거가 될 수 있는 유일한 지점입니다 —
+      다만 신규 구축은 이 문제를 푸는 대신 지금 있는 기능 대부분을 잃습니다.</div>
+  </div>
+
+  <div class="card warn">
+    <h4><span class="pri p2">위험</span>B-11. 옛 도메인을 아직 못 지웁니다 (앱 때문에)</h4>
+    <div class="row">이미 설치된 앱은 APK에 박힌 옛 주소(<code>test.mangoi.co.kr</code>)를 계속 봅니다.
+      먼저 지우면 <b>앱이 흰 화면이 되고, 업데이트 확인 주소도 같은 도메인이라 앱이 스스로 복구할 수 없습니다.</b></div>
+    <div class="row">리다이렉트로 넘기는 것도 안 됩니다 — 그 도메인으로 등록된 <b>패스키 6건이 무효화</b>되고 앱 사용자 로그인이 날아갑니다.</div>
+    <div class="row"><b class="lb">필요한 일</b> 새 APK 보급률을 확인한 뒤 마지막에 정리. <b>지금은 「그대로 둔다」가 정답</b>이며, 이 사실을 팀이 아는 것이 중요합니다.</div>
+  </div>
+
+  <div class="card info">
+    <h4><span class="pri p3">개선</span>B-12. 화면이 틀린 버그를 자동 검사가 못 잡습니다</h4>
+    <div class="row">회귀 하니스 222종은 <b>문자열 검사</b>라 「함수가 있는가」는 보지만 <b>「화면 어디에 그려졌는가」는 못 봅니다</b>.
+      실제로 타입체크·하니스·CI가 전부 초록불인 상태에서 화면 버그가 여러 건 나왔습니다.</div>
+    <div class="row">진짜 브라우저로 좌표를 재는 검사 23종이 있지만 <code>manual/</code>에 있어 <b>자동으로 돌지 않습니다 — 사람이 불러야 합니다.</b></div>
+    <div class="row"><b class="lb">제안</b> 최소한 「경로 줄·사이드바·수업 입장」 3종만이라도 CI에 편입할지 검토. 브라우저는 이미 컨테이너에 있습니다.</div>
+  </div>
+</div>
+
+<!-- ═════════ 4. 우리가 이미 가진 것 ═════════ -->
+<div class="sec">
+  <div class="sec-head">
+    <div class="n">SECTION 3</div>
+    <h2>제안서가 「Phase 2·별도 협의」로 미룬 것 중, 우리가 이미 가진 것</h2>
+    <div class="d">제안서 6쪽 「§7 별도 협의」 목록을 그대로 대조했습니다. 협상에 쓸 수 있는 자산 목록입니다.</div>
+  </div>
+
+  <table>
+    <tr><th style="width:26%">제안서가 미룬 항목</th><th style="width:12%">우리 상태</th><th>망고아이 실제</th></tr>
+    <tr><td><b>AI 학습 보고서</b><br><span style="color:#6B7280;font-size:8.6pt">+1,100만원 조건</span></td><td><span class="tag t-have">보유</span></td>
+        <td>AI 학습리포트·학습 인사이트·수업 인사이트·게임 인사이트·경영 요약(<code>learning-insights.ts</code>·<code>lesson-insight.ts</code>·<code>exec-summary.ts</code>)</td></tr>
+    <tr><td><b>ERP · 회계 · 급여 관리</b></td><td><span class="tag t-have">보유</span></td>
+        <td>손익계산서·월간/분기 회계 리포트·법인카드 동기화·통장 거래 분류·강사 급여 자동 산정·급여명세(<code>accounting-reports.ts</code>·<code>api-payroll-auto.ts</code>·<code>bankacct-sync.ts</code>·<code>corpcard-sync.ts</code>)</td></tr>
+    <tr><td><b>정산 자동화 · 부분환불 계산</b></td><td><span class="tag t-part">부분</span></td>
+        <td>가맹점 정산(<code>org-settlement.ts</code> 911줄)·캐피타운 정산 보유. <b>부분환불은 계산까지만</b>(→ A-1)</td></tr>
+    <tr><td><b>멀티테넌시 (가맹점/학원)</b></td><td><span class="tag t-have">보유</span></td>
+        <td>본사·지사(241곳)·대리점(921곳) 조직 구조 + 스코프 격리(<code>scope.ts</code>) — 지사는 자기 지사, 대리점은 자기 한 칸만 조회</td></tr>
+    <tr><td><b>성과평가 · 포인트 랭킹</b></td><td><span class="tag t-have">보유</span></td>
+        <td>포인트·기프티콘 교환(<code>api-points.ts</code>·<code>giftishow-client.ts</code>)·배지·스트릭·학생 랭킹·강사 90일 지표·수업 별점 평가</td></tr>
+    <tr><td><b>자체 WebRTC · 수업 녹화</b></td><td><span class="tag t-have">보유</span></td>
+        <td>자체 화상 서버(Durable Object)·녹화 저장/정리(<code>recordings-r2.ts</code>·<code>recordings-cleanup.ts</code>)·참관·회선 품질 적응</td></tr>
+    <tr><td><b>커뮤니티 · 자료실 · 그룹웨어</b></td><td><span class="tag t-part">부분</span></td>
+        <td>자료실(교재 라이브러리·업로더·뷰어)·전자결재(<code>api-approval.ts</code> 1,465줄·<code>work.html</code>) 보유. <b>커뮤니티(게시판)는 없음</b></td></tr>
+  </table>
+
+  <h3 class="blk">제안서에 아예 없는 우리 자산</h3>
+  <div class="two">
+    <div>
+      <h5>학습 콘텐츠</h5>
+      <ul>
+        <li>학습 게임 20여 종 (탱크·슈터·좀비탈출·문법피자 등)</li>
+        <li>판단력 훈련 — AI 실시간 문항 생성</li>
+        <li>단어장·마이크로퀴즈·복습퀴즈·웜업</li>
+        <li>AI 영작 첨삭·영어친구 챗</li>
+        <li>발음 평가 (Azure)·음성 코칭 (한/중)</li>
+        <li>MBTI·미스터리 추리·3D 배틀</li>
+      </ul>
+    </div>
+    <div>
+      <h5>운영·마케팅</h5>
+      <ul>
+        <li>이탈 예측·이탈 전파 분석 (<code>churn-*.ts</code>)</li>
+        <li>마케팅 스튜디오·포스터 생성</li>
+        <li>카카오 알림톡 (SOLAPI)·웹푸시</li>
+        <li>패스키(지문) 로그인</li>
+        <li>수업 리마인더·결석 자동 처리</li>
+        <li>서비스 상태판·장애 기록</li>
+        <li>회귀 하니스 222종 + CI 게이트</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="big">
+    <div><div class="num" style="color:#B45309">96</div><div class="lb">백엔드 소스 파일</div></div>
+    <div><div class="num" style="color:#B45309">222</div><div class="lb">회귀 감시 하니스</div></div>
+    <div><div class="num" style="color:#B45309">55</div><div class="lb">작업 기록 문서</div></div>
+    <div><div class="num" style="color:#B45309">29,000</div><div class="lb">실사용 학생 수</div></div>
+  </div>
+</div>
+
+<!-- ═════════ 5. 판단 ═════════ -->
+<div class="sec">
+  <div class="sec-head">
+    <div class="n">SECTION 4</div>
+    <h2>판단과 권고 순서</h2>
+    <div class="d">이 검토로 확인된 사실에 근거한 의견입니다. 결정은 사장님 몫입니다.</div>
+  </div>
+
+  <h3 class="blk">제안서에 대한 판단</h3>
+  <div class="card info">
+    <div class="row"><b class="lb">범위</b> 제안서 MVP 9개 항목 중 6개는 망고아이가 이미 넘어섰고, 2개는 부분 보유,
+      <b>실제로 없는 것은 「환불 실행·기록」 하나</b>입니다.</div>
+    <div class="row"><b class="lb">비용</b> 6,600만원(AI 포함 7,700만원)으로 얻는 것은, 지금 있는 것의 부분집합을 <b>처음부터 다시 만든 결과물</b>입니다.
+      제안서가 「Phase 2 별도 협의」로 미룬 항목 7개 중 5개를 우리는 이미 운영 중이므로, 신규 구축을 택하면
+      <b>그 5개를 잃고 다시 사야 합니다.</b></div>
+    <div class="row"><b class="lb">일정</b> 12주 · 인력 2명(빌더 1 + 디자이너 1) 구조는 MVP 범위에는 타당해 보이지만,
+      우리 현 시스템의 규모(백엔드 96파일·화상 자체 구현·회계/급여/정산)를 이관하는 일정은 아닙니다 — 제안서도 「기존 시스템 비승계」를 명시하고 있습니다.</div>
+    <div class="row"><b class="lb">선행 이력</b> 크몽을 통한 <b>2026-07-09 제안은 「처음부터 다시, 약 3천만원」</b>이었습니다.
+      당시 검증(<code>docs/크몽_진단_검증.md</code>)에서 그 업체가 짚은 <b>진짜 문제 두 가지(관리자 API 무인증 노출·통짜 HTML 구조)는 사실로 확인</b>돼
+      보안 문제는 그날 근본 수정했고, <b>「전면 재개발이 유일한 해법」이라는 결론은 성립하지 않는 것</b>으로 판정했습니다.
+      이번 제안은 금액이 6,600만원으로 늘었고 <b>범위 판정 결과는 그때와 같습니다</b> — 다만 이번 제안서는
+      기존 시스템 비승계를 스스로 명시하고 있어, 논점이 「고칠 것인가 다시 만들 것인가」로 더 분명해졌습니다.</div>
+    <div class="row"><b class="lb">따라서</b> 이 제안서의 가치는 「무엇을 살 것인가」보다 <b>「우리가 어디가 비었는지 확인하는 체크리스트」</b>에 있습니다.
+      실제 결손 3~4건은 신규 구축이 아니라 <b>현 코드 위 추가 개발</b>로 훨씬 적은 비용에 가능합니다.</div>
+  </div>
+
+  <h3 class="blk">권고 처리 순서</h3>
+  <table>
+    <tr><th style="width:6%">순서</th><th style="width:26%">할 일</th><th style="width:12%">성격</th><th>이유</th></tr>
+    <tr><td><b>1</b></td><td>환불 실행·기록 (A-1)</td><td>개발</td>
+        <td>돈이 오가는데 시스템에 안 남습니다. 분쟁·회계 대사의 근거가 사람 기억뿐입니다. 이 목록에서 유일하게 <b>제안서도 MVP에 넣은</b> 항목입니다.</td></tr>
+    <tr><td><b>2</b></td><td>급여 누락 여부 확인 (B-1)</td><td>대사</td>
+        <td>개발이 아니라 <b>확인 작업</b>입니다. 「급여이체」 출금과 급여명세를 나란히 놓고 한 번 맞춰 보면 판정됩니다. 손익 숫자의 신뢰도가 걸립니다.</td></tr>
+    <tr><td><b>3</b></td><td>중복 계정·지사 이름 정리 (B-3·B-6)</td><td>데이터</td>
+        <td>코드는 이미 고쳤고 <b>남은 행 정리는 사람 몫</b>입니다. 미루면 계속 새로 생깁니다.</td></tr>
+    <tr><td><b>4</b></td><td>카페24 회계 적재 요청 (B-2)</td><td>외부</td>
+        <td>요청서가 이미 있습니다. 보내는 것만 남았습니다. 우리 코드로는 못 풉니다.</td></tr>
+    <tr><td><b>5</b></td><td>화상 대체 경로 스위치 (A-4)</td><td>개발</td>
+        <td>작은 기능이지만 <b>보험</b>입니다. 자체 화상만 있는 구조에서 장애 = 그날 수업 전체 중단입니다.</td></tr>
+    <tr><td><b>6</b></td><td>강사 씨앗 경로 정리 (B-5)</td><td>개발</td>
+        <td>지금 0건이라 피해가 없지만 <b>쓰는 순간 남의 급여·남의 수업</b>이 붙습니다.</td></tr>
+    <tr><td><b>7</b></td><td>스케줄 자리표시 정리 실행 (B-8)</td><td>운영</td>
+        <td>버튼은 붙었습니다. 건수 확인 후 실행하면 배정이 실제로 쉬워집니다.</td></tr>
+    <tr><td><b>8</b></td><td>첫 화면 용량 계획 (B-10)</td><td>설계</td>
+        <td>여유 194바이트. <b>무엇을 뺄지 사람이 정해야 하는 별건 과제</b>입니다. 미루면 기능 추가가 막힙니다.</td></tr>
+    <tr><td><b>9</b></td><td>코스 카탈로그·레벨테스트 매핑 (A-2·A-3)</td><td>확장</td>
+        <td>지금 사업 형태(1:1 정기 수업)에는 급하지 않습니다. <b>상품을 늘리거나 레벨테스트를 유입 경로로 쓸 때</b> 필요합니다.</td></tr>
+  </table>
+
+  </div>
+
+
+</div>
+
+
+<!-- ═════════ 부록 ═════════ -->
+<div class="sec apx">
+  <div class="sec-head">
+    <div class="n">APPENDIX</div>
+    <h2>부록 — 이 판정을 다시 확인하는 방법</h2>
+    <div class="d">몇 달 뒤 「정말 그런가」를 다시 물었을 때, 이 표만 있으면 사람이 직접 확인할 수 있습니다.</div>
+  </div>
+
+  <table>
+    <tr><th style="width:16%">항목</th><th style="width:34%">확인할 곳</th><th>확인 방법 · 판정 기준</th></tr>
+    <tr><td><b>A-1</b> 환불 실행</td><td><code>src/api-pay.ts</code> · <code>src/enroll-ops.ts</code></td>
+        <td><code>grep -rn "api.tosspayments.com" src/</code> — 결과에 <code>payments/{key}/cancel</code> 이 <b>나오면 만들어진 것</b>, 안 나오면 그대로입니다</td></tr>
+    <tr><td><b>A-2</b> 코스 카탈로그</td><td><code>src/enroll-ops.ts</code></td>
+        <td>가격이 <code>enrollQuoteCalc()</code> 계산식이 아니라 상품 테이블 조회로 바뀌었는지</td></tr>
+    <tr><td><b>A-3</b> 레벨테스트 매핑</td><td><code>src/leveltest-schedule.ts</code></td>
+        <td>결과 점수를 받아 코스·교재를 돌려주는 함수가 생겼는지</td></tr>
+    <tr><td><b>A-4</b> 화상 대체 경로</td><td><code>src/</code> 전체</td>
+        <td><code>grep -rln "zoom" src/</code> — 법인카드 동기화 1건 외에 나오면 만들어진 것</td></tr>
+    <tr><td><b>B-1</b> 급여 누락</td><td>회계 · 통장</td>
+        <td>「급여이체」로 분류된 국내 출금 목록과 그 달의 급여명세를 나란히 놓고 합계 대사. <b>사람이 확인해야 판정됩니다</b></td></tr>
+    <tr><td><b>B-2</b> 회계 데이터</td><td>관리자 화면</td>
+        <td><code>/api/admin/finance-cafe24/ledger?limit=20</code> 의 <code>count</code> 가 0이면 카페24 미적재 상태 그대로</td></tr>
+    <tr><td><b>B-3</b> 지사 이름 중복</td><td>D1 <code>centers</code></td>
+        <td><code>SELECT name FROM centers GROUP BY name HAVING COUNT(DISTINCT franchise_id)&gt;1</code> — 0행이면 정리 완료</td></tr>
+    <tr><td><b>B-5</b> 강사 번호</td><td>D1 <code>class_schedules</code></td>
+        <td><code>SELECT COUNT(*) FROM class_schedules WHERE source='attendance_seed'</code> — 0이 아니면 남의 이름이 붙었을 수 있습니다</td></tr>
+    <tr><td><b>B-6</b> 중복 계정</td><td>D1 <code>admin_account</code></td>
+        <td><code>SELECT LOWER(username) k, COUNT(*) n FROM admin_account GROUP BY k HAVING n&gt;1</code> — 0행이면 정리 완료</td></tr>
+    <tr><td><b>B-8</b> 자리표시</td><td>D1 <code>class_schedules</code></td>
+        <td><code>SELECT user_id, COUNT(*) FROM class_schedules WHERE status='active' AND user_id IN ('lms','type_seed') GROUP BY user_id</code></td></tr>
+    <tr><td><b>B-9</b> 레벨테스트</td><td>D1 <code>leveltest_applications</code></td>
+        <td>데모가 아닌 실제 신청이 1건이라도 통과했는지 (이 표에는 「데모 표시」 칸이 없어 이름·정황으로 봐야 합니다)</td></tr>
+    <tr><td><b>B-10</b> 첫 화면 용량</td><td>리포 루트</td>
+        <td><code>node test-harness/first_paint_budget_harness.mjs</code> — 남은 여유 바이트를 직접 알려 줍니다</td></tr>
+  </table>
+
+  <div class="quote">
+    <b>주의</b> — 위 SQL 은 <b>전부 SELECT 뿐</b>입니다. 이 저장소의 D1 은 개발과 운영이 같은 DB 라
+    (테스트용 DB 가 따로 없습니다) 확인 목적의 DELETE·UPDATE·DROP 은 실제 학생 데이터를 건드립니다.
+    <b>변경이 필요하면 반드시 사람에게 먼저 알리고 진행하세요.</b>
+  </div>
+
+  <div style="page-break-inside:avoid">
+  <h3 class="blk">이 보고서를 만든 절차</h3>
+  <div class="card info">
+    <div class="row"><b class="lb">① 원본</b> 제안서 10쪽의 본문을 전부 추출해 항목을 목록화</div>
+    <div class="row"><b class="lb">② 대조</b> 항목마다 우리 저장소에서 해당 기능의 API 정의·화면 파일을 직접 찾아 존재 여부 판정</div>
+    <div class="row"><b class="lb">③ 교차</b> 「있다」로 판정된 것은 구현 깊이까지 확인 (예: 환불은 계산기만 있고 실행이 없음)</div>
+    <div class="row"><b class="lb">④ 보완</b> 저장소에 이미 기록돼 있던 미해결 위험을 우선순위와 함께 정리</div>
+    <div class="ev"><b>판정하지 않은 것</b> ① 실서비스 화면 (이 작업 환경의 프록시가 <code>mangoi.ai</code> 를 막습니다)
+      ② 운영 DB 의 현재 숫자 — B-3·B-6 등의 건수는 최근 실측 기록에 근거한 값이며 <b>지금은 달라졌을 수 있습니다</b>
+      ③ 제안사의 실제 개발 역량·유사 구축 실적.<br>
+      <b>그리고</b> 「없다」로 적은 것은 <b>코드에 없다</b>는 뜻입니다 — 운영상 사람 손으로 하고 있는 일은 코드에 안 보입니다.
+      환불(A-1)이 정확히 그런 경우로, <b>일은 되고 있으나 시스템에 남지 않는 상태</b>입니다.</div>
+  </div>
+  <div class="foot">
+    망고아이 — 외주 제안서 대조 검토 · 2026-08-24 · 저장소 <code>navy111p-sudo/mangoiweb</code> 기준<br>
+    대조 원본: 「망고아이 화상영어 플랫폼 신규 구축(MVP) 제안」 크몽 엔터프라이즈 × 똑똑한개발자, 2026. 08 (10쪽)
+    </div>
+</div>
+</div>
+
+</body>
+</html>
