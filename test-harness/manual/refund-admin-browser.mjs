@@ -311,6 +311,104 @@ try {
   const lock = await p2.evaluate(() => document.getElementById('btn-run').disabled);
   check('휴대폰에서도 실행 버튼은 기본 잠김', lock === true);
 
+
+  /* ══ 3부. 🔴 글자가 실제로 읽히는가 (대비비) ══
+     2026-08-25 사장님 지적 「배경이 너무 어두워서 글자가 잘 안 보여」로 추가.
+     그때까지의 검사는 «버튼이 빨간가» 만 봤지 «글자와 배경의 대비» 는 한 번도 안 쟀다.
+     그래서 어두운 카드에 검은 글자가 깔린 화면이 38종 전부 초록불로 통과했다.
+
+     원인은 /admin/ 하위 화면이 함께 받는 css/adm-light-theme.css 다 —
+     그 파일이 html·body 의 배경과 글자색을 !important 로 덮는데,
+     카드 색을 하드코딩한 화면은 카드만 어두운 채 남아 «어두운 면 + 검은 글자» 가 된다.
+     ⚠️ 이 검사는 반드시 그 CSS 가 함께 적용된 상태(로컬 HTTP 서버)에서 재야 한다. */
+  console.log('\n[ 3부. 글자가 실제로 읽히는가 — WCAG 대비비 ]');
+  const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+  const p3 = await ctx3.newPage();
+  await p3.route('**/api/pay/admin/**', async (route) => {
+    const u = route.request().url();
+    if (u.includes('refund-preview')) return route.fulfill({ json: PREVIEW });
+    if (u.includes('/refunds')) return route.fulfill({ json: LIST });
+    const b = JSON.parse(route.request().postData() || '{}');
+    return route.fulfill({ json: { ok: true, dry_run: true, will: {
+      order_id: b.order_id, amount: b.amount, kind: 'partial', mode: 'pg_cancel',
+      cancel_remaining_classes: !!b.cancel_remaining_classes,
+      remaining_classes: 8, active_subscription: true,
+    }, preview: PREVIEW.preview } });
+  });
+  await p3.goto(`http://127.0.0.1:${PORT}/admin/refunds.html`, { waitUntil: 'networkidle' });
+  await p3.fill('#q-order', 'MGE-TEST-1');
+  await p3.click('#btn-load');
+  await wait(400);
+  await p3.fill('#f-reason', '대비 검사');
+  await p3.click('#btn-dry');
+  await wait(400);
+
+  const contrast = await p3.evaluate(() => {
+    /* 요소 뒤에 실제로 깔린 색 — 자기 배경이 투명하면 조상을 타고 올라간다.
+       («보이는 색» 은 계산된 backgroundColor 하나로는 알 수 없다) */
+    const parse = (c) => {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(c || '');
+      return m ? { r: +m[1], g: +m[2], b: +m[3], a: m[4] === undefined ? 1 : +m[4] } : null;
+    };
+    const bgOf = (el) => {
+      let n = el;
+      while (n && n !== document.documentElement) {
+        const c = parse(getComputedStyle(n).backgroundColor);
+        if (c && c.a > 0.5) return c;
+        n = n.parentElement;
+      }
+      return { r: 243, g: 246, b: 251, a: 1 };   // 본문 그라데이션의 밝은 쪽
+    };
+    const lum = (c) => {
+      const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+    };
+    const ratio = (a, b) => {
+      const l1 = lum(a), l2 = lum(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    };
+
+    const out = [];
+    const sel = 'h1, h2, p, dt, dd, label, th, td, .muted, .sub, .stat .n, .stat .l, .btn, summary, .warn, .danger, .ok';
+    for (const el of document.querySelectorAll(sel)) {
+      const txt = (el.childNodes.length && [...el.childNodes]
+        .filter(n => n.nodeType === 3).map(n => n.textContent.trim()).join(' ')).trim();
+      if (!txt) continue;                                   // 자기 글자가 없는 상자는 건너뛴다
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;                  // 안 보이는 것은 뺀다
+      const st = getComputedStyle(el);
+      const fg = parse(st.color);
+      if (!fg) continue;
+      const cr = ratio(fg, bgOf(el));
+      const px = parseFloat(st.fontSize) || 16;
+      const bold = (parseInt(st.fontWeight, 10) || 400) >= 700;
+      const big = px >= 24 || (px >= 18.66 && bold);         // WCAG 「큰 글자」
+      const need = big ? 3 : 4.5;
+      if (cr < need) out.push({ t: txt.slice(0, 16), cr: Math.round(cr * 100) / 100, need, color: st.color });
+    }
+    return out;
+  });
+  check('🔴 읽히지 않는 글자가 없다 (WCAG AA — 본문 4.5:1 · 큰 글자 3:1)',
+    contrast.length === 0, contrast.slice(0, 6));
+
+  /* 카드가 «밝은 면» 인지도 함께 못 박는다 — 어두워지면 위 대비 검사와 함께 무너진다 */
+  const surfaces = await p3.evaluate(() => {
+    const l = (c) => {
+      const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(c || '');
+      if (!m) return null;
+      const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+      return 0.2126 * f(+m[1]) + 0.7152 * f(+m[2]) + 0.0722 * f(+m[3]);
+    };
+    return {
+      card: l(getComputedStyle(document.querySelector('.card')).backgroundColor),
+      stat: l(getComputedStyle(document.querySelector('.stat')).backgroundColor),
+      input: l(getComputedStyle(document.getElementById('q-order')).backgroundColor),
+    };
+  });
+  check('카드가 밝은 면이다 (다크로 되돌아가면 글자가 안 보인다)', surfaces.card > 0.7, surfaces);
+  check('요약 타일도 밝은 면이다', surfaces.stat > 0.7, surfaces);
+  check('입력칸도 밝은 면이다', surfaces.input > 0.7, surfaces);
+
   await browser.close();
 } catch (e) {
   fail++;

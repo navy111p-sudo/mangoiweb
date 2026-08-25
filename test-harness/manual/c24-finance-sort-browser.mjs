@@ -36,10 +36,10 @@ const check = (n, ok, why) => {
       일부러 금액·거래처가 날짜순과 어긋나게 섞어 두었다.
    ⚠️ 「케이씨피M」 행은 넣지 않는다 — 서버가 목록에서 빼고 내려주기 때문이다(2026-08-18 지시). ── */
 const LEDGER = [
-  { date: '2026-07-20', type: 2, acc_type: '지출', subject: '광고선전비', money: 300000, store: '다판다광고', memo: '배너', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: false },
-  { date: '2026-07-15', type: 1, acc_type: '수입', subject: '카드매출', money: 5000000, store: '케이씨피', memo: '정산', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: true },
-  { date: '2026-07-02', type: 2, acc_type: '지출', subject: '지급수수료', money: 1200000, store: '가나상사', memo: '', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: false },
-  { date: '2026-06-28', type: 2, acc_type: '지출', subject: '소모품비', money: 45000, store: '하나문구', memo: '용지', month: '2026-06', excluded_from_revenue: false, counts_as_revenue: false },
+  { date: '2026-07-20', type: 2, acc_type: 0, subject: '광고선전비', money: 300000, store: '다판다광고', memo: '배너', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: false },
+  { date: '2026-07-15', type: 1, acc_type: 0, subject: '카드매출', money: 5000000, store: '케이씨피', memo: '정산', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: true },
+  { date: '2026-07-02', type: 2, acc_type: 0, subject: '지급수수료', money: 1200000, store: '가나상사', memo: '', month: '2026-07', excluded_from_revenue: false, counts_as_revenue: false },
+  { date: '2026-06-28', type: 2, acc_type: 0, subject: '소모품비', money: 45000, store: '하나문구', memo: '용지', month: '2026-06', excluded_from_revenue: false, counts_as_revenue: false },
 ];
 const PAYROLL = [
   { user_id: 'teacher_b', month: '2026-07', base: 2000000, total: 2200000, deduction: 180000, actual: 2020000, work_day: 21 },
@@ -227,6 +227,33 @@ const headText = (page) => page.evaluate(() =>
       return { cls: th.classList.contains('c24fin-on'), note: n.classList.contains('c24fin-note-on') };
     });
     check('원래 순서로 돌리면 강조도 벗겨진다', !offAgain.cls && !offAgain.note, JSON.stringify(offAgain));
+
+    /* ── ②-3 「구분」 칸 — 뜻 모를 원본코드가 아니라 «수입/지출» 로 보이는가 ──────
+       🪤 2026-08-24 사장님 「구분은 무슨 뜻이야?」 — 화면에 카페24 원본 `acc_type` 이
+          그대로 찍혀 「0」 이 보였다. 뜻이 정의된 칸은 `type`(1=수입/2=지출) 뿐이다. */
+    console.log('\n[2-3] 「구분」 이 수입/지출로 보이는가');
+    await openTab(page, 'ledger');
+    const gu = await page.evaluate(() => {
+      const cells = [...document.querySelectorAll('#c24fin-body tr')].map(tr => tr.children[1]);
+      return {
+        texts: cells.map(td => (td.textContent || '').trim()),
+        title: (cells[0].getAttribute('title') || ''),
+        head: (document.querySelector('#c24fin-head th[data-c="type"]') || {}).textContent || '',
+      };
+    });
+    check('머리글 키가 type 이다(acc_type 아님)', /구분/.test(gu.head), gu.head);
+    check('칸에 수입/지출 만 보인다', gu.texts.every(t => t === '수입' || t === '지출'), gu.texts.join(','));
+    check('수입 1건 · 지출 3건 (씨앗 그대로)',
+      gu.texts.filter(t => t === '수입').length === 1 && gu.texts.filter(t => t === '지출').length === 3, gu.texts.join(','));
+    check('원본값은 툴팁에 남는다(acc_type 포함)', /acc_type=/.test(gu.title) && /뜻 미확인/.test(gu.title), gu.title);
+
+    await clickHead(page, 'type');
+    const guAsc = await colText(page, 1);
+    check('구분 올림순이면 수입이 먼저(type 1 → 2)', guAsc[0] === '수입' && guAsc[guAsc.length - 1] === '지출', guAsc.join(','));
+    await clickHead(page, 'type');
+    const guDesc = await colText(page, 1);
+    check('구분 내림순이면 지출이 먼저', guDesc[0] === '지출' && guDesc[guDesc.length - 1] === '수입', guDesc.join(','));
+    await clickHead(page, 'type');   // 원래 순서로
 
     /* ── ③ 글자 칸 — 거래처(한글) 정렬 ──────────────────────────────────── */
     console.log('\n[3] 거래처 — 한글 가나다 정렬');
