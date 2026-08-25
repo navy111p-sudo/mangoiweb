@@ -7,7 +7,7 @@
  *     · 불러온 대화가 «지금 대화» 앞에 오는가 (vcReceiveChat 은 항상 맨 뒤에 붙인다)
  *     · 불러온 200개가 안읽음 배지를 올리거나 채팅창을 저절로 열지 않는가(_loadedAt)
  *     · 「채팅 지우기」 뒤에 지운 대화가 되살아나지 않는가
- *     · 방 종류에 따라 기간이 갈리는가 (수업방 48시간 / 고정 기본방 3시간)
+ *     · 방 종류에 따라 기간이 갈리는가 (수업방 48시간 / 고정 기본방 1시간)
  *   전부 코드를 읽어서는 확인할 수 없어서 실제로 눌러 보고 잰다.
  *
  * ⚠️ file:// 로 열면 안 된다 — index.html 의 <script src="/js/…"> 가 전부 404 가 되어
@@ -185,7 +185,7 @@ try {
   }, room);
 
   const hShared = await hoursFor(ROOM_SHARED);
-  ok('고정 기본방(mangoi-class)은 3시간 = 이번 타임만', hShared === 3, `${hShared}시간`);
+  ok('고정 기본방(mangoi-class)은 1시간만', hShared === 1, `${hShared}시간`);
   const hDated = await hoursFor(ROOM_DATED);
   ok('날짜 박힌 수업방은 48시간까지', hDated === 48, `${hDated}시간`);
 

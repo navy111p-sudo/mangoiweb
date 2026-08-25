@@ -72,10 +72,10 @@ check('④ 불러온 메시지에 _loadedAt 을 붙인다',
   '이 표시가 없으면 재입장마다 안읽음 배지가 200개로 뜨고 채팅창이 저절로 열립니다(idx-main.js vcReceiveChat).');
 
 // ⑤ 방 종류에 따라 기간이 갈린다
-check('⑤ 날짜 박힌 수업방 48시간 / 고정 기본방 3시간',
-  /48\s*\*\s*HOUR/.test(histCode) && /3\s*\*\s*HOUR/.test(histCode) &&
+check('⑤ 날짜 박힌 수업방 48시간 / 고정 기본방 1시간',
+  /48\s*\*\s*HOUR/.test(histCode) && /\bWINDOW_SHARED\s*=\s*1\s*\*\s*HOUR/.test(histCode) &&
   /\^class-\.\+-\\d\{8\}\$/.test(histCode),
-  '기본방(mangoi-class)은 여러 수업이 한 방을 돌려 씁니다. 한 숫자로 통일하면 남의 수업 대화가 넘어옵니다.');
+  '기본방(mangoi-class)은 여러 수업이 한 방을 돌려 씁니다. 2026-08-25 사장님 지시로 1시간입니다 — 늘리면 앞 타임 상담이 다음 학생에게 보입니다.');
 
 // ⑥ 「채팅 지우기」와 짝이 맞는다
 check('⑥ 지운 시각을 방마다 기억해 그 뒤만 불러온다',
