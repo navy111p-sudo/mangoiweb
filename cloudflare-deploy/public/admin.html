@@ -1886,12 +1886,19 @@
                 <input id="sm-reg-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="Jane Doe" style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
               </label>
               <!-- 🔑 (2026-08-25 사장님 요청) 비밀번호를 직접 입력할 수 있게. 비워두면 예전처럼
-                   서버가 임시 비밀번호를 만들어 등록 후 이 화면에 한 번 보여준다(기존 동작 유지). -->
+                   서버가 임시 비밀번호를 만들어 등록 후 이 화면에 한 번 보여준다(기존 동작 유지).
+                   ⚠️ (trap-check 지적) 기본은 가려서(type=password) 옆에서 못 보게 하고,
+                   👁 를 눌러야만 잠깐 펼쳐 보이게 했다 — 화면공유·어깨너머 노출 방지. -->
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="🔑 비밀번호 (비우면 자동 생성)" data-en="🔑 Password (leave blank to auto-generate)">🔑 비밀번호 (비우면 자동 생성)</span>
-                <input id="sm-reg-password" type="text" placeholder="4자 이상 · 비우면 자동 생성" autocomplete="off"
-                       data-ko-placeholder="4자 이상 · 비우면 자동 생성" data-en-placeholder="4+ chars · blank = auto-generate"
-                       style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:MangoiHanSC,Consolas,monospace" />
+                <div style="display:flex;gap:4px;margin-top:3px">
+                  <input id="sm-reg-password" type="password" placeholder="4자 이상 · 비우면 자동 생성" autocomplete="new-password"
+                         data-ko-placeholder="4자 이상 · 비우면 자동 생성" data-en-placeholder="4+ chars · blank = auto-generate"
+                         style="width:100%;box-sizing:border-box;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:MangoiHanSC,Consolas,monospace" />
+                  <button type="button" onclick="var i=document.getElementById('sm-reg-password');var show=i.type==='password';i.type=show?'text':'password';this.textContent=show?'🙈':'👁';"
+                          title="비밀번호 표시/숨기기" data-ko-title="비밀번호 표시/숨기기" data-en-title="Show/hide password"
+                          style="flex:0 0 auto;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;background:#f9fafb;cursor:pointer;font-size:13px">👁</button>
+                </div>
               </label>
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="📞 학생 연락처" data-en="📞 Student Phone">📞 학생 연락처</span>
