@@ -5094,6 +5094,11 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
            이웃 칩(lang-toggle 등)과 마찬가지로 지우지 않는다(trap-check 지적: 이것만 빠져 있었음). */
         #login-btn{right:5.8rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important;top:0.9rem!important;max-width:140px}
         #login-btn-label{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
+        /* 🌐 (2026-08-25 재점검으로 발견) 위 login-btn 폴백과 «짝» 인 lang-toggle 폴백도
+           같은 리팩터에서 함께 지워져 있었다 — 원래 값 그대로 복원. padding·font-size·
+           border-radius 는 !important 라 아래 #lang-toggle.hero-chip-lang(비!important)보다
+           이 값이 이긴다. ph50MoveChips() 가 우상단 줄로 옮기기 «전» 잠깐 쓰이는 폴백이다. */
+        #lang-toggle{top:0.9rem!important;right:1rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important}
         #btn-enter-class{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important;line-height:1.5!important}
         #btn-enter-class .btn-enter-icon{width:22px!important;height:22px!important}
         .lesson-action-row > div{font-size:10.5px!important;flex-direction:column;gap:2px!important}
