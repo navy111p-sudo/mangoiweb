@@ -131,11 +131,62 @@ a{color:var(--accent)}
 <div class="wrap">
 
 <header>
-  <p class="eyebrow">화상수업 화면 진단</p>
+  <p class="eyebrow">화상수업 화면 진단 · 수정 완료</p>
   <h1>교재가 안 보이는 이유</h1>
   <p class="sub">8월 25일 신고 <strong>7건</strong>&#8202;&#8212;&#8202;사장님 4건(핀치 확대·교사 화면 크기·얼굴 위치·글자 깨짐)과 강선생님 3건(교재 업로드·가면·배경화면)&#8202;&#8212;&#8202;을 코드에서 되짚었습니다. 서로 다른 신고처럼 보이지만 <strong>원인은 10개이고, 두 갈래로 갈립니다</strong>: 사장님 것은 <em>화면을 그리는 방식</em>, 강선생님 것은 <em>중국에서 접속한다는 사실</em>입니다.</p>
-  <p class="meta"><span>2026-08-25</span><span>대상 방 class-848-20260825</span><span>브랜치 claude/textbook-display-issues-xig5pe</span></p>
+  <p class="meta"><span>2026-08-25</span><span>대상 방 class-848-20260825</span><span>브랜치 claude/textbook-display-issues-xig5pe</span><span>수정 반영 2026-08-25</span></p>
 </header>
+
+<section>
+  <h2>고친 것 &#183; 사장님 답변 반영</h2>
+
+  <div class="note">
+    <p><strong>사장님 답변</strong> &#8212; ① 세로폰 얼굴 배치는 그대로, 가로에서만 오른쪽 ② <strong>교재 원본은 흐리지 않았다</strong> ③ 중국어는 「막혔을 때 이유를 말해 주는 문구」까지만.</p>
+    <p>②가 결정적이었습니다. <strong>원본이 선명했다면 범인은 「화면에서 줄이는 단계」로 확정</strong>됩니다 &#8212; 원인 &#9313;(1배 해상도)과 &#9316;(저품질 축소)입니다. 추측이 아니라 확정된 원인을 고쳤습니다.</p>
+  </div>
+
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>신고</th><th>고친 내용</th><th>확인</th></tr></thead>
+      <tbody>
+        <tr><td>1 · 핀치 확대</td><td>손을 떼는 순간의 「100% 되돌리기」 한 번만 무시. 진짜 더블탭 되돌리기는 그대로 살아 있음</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>1 · 확대 버튼 없음</td><td>교재 위에 <strong>＋ / 배율 / － / ↺</strong> 버튼을 폰에서만 띄움</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>3·4 · 글자 깨짐</td><td>교재를 <strong>화면 배율(2배)만큼 촘촘히</strong> 그림 + 사진은 <strong>절반씩 나눠</strong> 줄임</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>2 · 교사 화면 크기</td><td><strong>손대지 않음</strong> &#8212; 세로 배치를 그대로 두라 하셔서 함께 걸린 규칙을 건드리지 않았습니다</td><td><span class="pill p-mid">보류</span></td></tr>
+        <tr><td>3 · 얼굴 위치</td><td><strong>손대지 않음</strong> &#8212; 가로는 이미 오른쪽(실측 확인), 세로는 지시대로 위에 유지</td><td><span class="pill p-lo">실측 확인</span></td></tr>
+        <tr><td>5 · 교재 업로드</td><td>파일 고르기 창과 검사에 <code>webp</code> 추가(서버는 이미 허용) + HEIC 안내</td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+        <tr><td>6 · 가면</td><td>12초 안에 모델이 안 오면 <strong>이유를 중국어로</strong> 말해 줌. 모델 자체 서빙은 <strong>사장님 결정 대기</strong></td><td><span class="pill p-mid">일부</span></td></tr>
+        <tr><td>7 · 배경화면 두 번 클릭</td><td>교재&#183;칠판과 같이 <strong>다시 눌러도 접히지 않게</strong></td><td><span class="pill p-lo">브라우저 실측</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>어떻게 넣었나 &#183; 첫 화면 예산 104바이트</h3>
+  <p>실측한 여유가 <strong>104바이트</strong>였습니다. 그래서 새 코드는 전부 <strong>새 파일 <code>js/idx-vc-mobilefix.js</code>(defer)</strong>로 빼고, 손댈 수 없는 자리 두 곳만 <strong>31바이트</strong>로 고쳤습니다. 첫 화면에 더해진 무게는 <strong>0바이트</strong>이고 <strong>73바이트가 남았습니다.</strong></p>
+  <pre><i>// 첫 화면에 실린 것은 31바이트뿐 — 나머지는 수업이 시작된 뒤에만 받는다</i>
+js/idx-main.js  <b>+31B</b>   scale 에 화면 배율 곱하기 · 업로드 형식에 webp 추가
+js/idx-vc-mobilefix.js  (defer, 첫 화면 <b>0B</b>)   나머지 전부</pre>
+
+  <div class="cause good">
+    <div class="cause-t"><span class="tag">검증</span><span>글자를 찾는 검사로는 이 버그들이 안 잡힙니다</span></div>
+    <ul class="list">
+      <li>타입체크 통과 &#183; 회귀 하니스 <strong>PASS 207 / FAIL 0</strong> &#183; 배포 게이트 4종 통과</li>
+      <li>그런데 <strong>이 버그들이 살아 있는 동안에도 그 검사들은 전부 초록불이었습니다.</strong> 그래서 진짜 브라우저로 재는 검사를 새로 만들었습니다 &#8212; <code>test-harness/manual/vc-textbook-mobile-browser.mjs</code> (<strong>30건 전부 통과</strong>).</li>
+      <li>재는 것: 캔버스의 실제 점 개수 / 두 손가락을 실제로 벌렸다 뗀 뒤의 배율 / 확대 버튼이 그 자리에서 «맨 위»인가(보인다&#8800;눌린다) / 배경화면 두 번 클릭 / 중국어가 붙는가 / 얼굴 위치.</li>
+      <li>⚠️ <strong>자동으로 돌지 않습니다</strong>(<code>manual/</code> 규약). 교재 렌더&#183;핀치&#183;확대 버튼을 건드리면 사람이 불러야 합니다.</li>
+    </ul>
+  </div>
+
+  <div class="stop">
+    <h3>배포 전에 알아 두실 것</h3>
+    <p><strong>공동 금지구역을 건드렸습니다</strong> &#8212; <code>public/index.html</code>과 <code>js/idx-main.js</code>입니다(CLAUDE.md 4-2장). 사장님 지시로 진행했지만, 배포 전에 <strong>공동 유지보수자에게 알려 주십시오.</strong></p>
+    <p><strong>배포 후 사장님이 한 번 보셔야 끝납니다.</strong> 작업 환경의 프록시가 <code>mangoi.ai</code>를 막아 배포된 실제 화면은 확인할 수 없습니다. 보실 것: 폰에서 교재 글자가 읽히는지 &#183; 두 손가락으로 키운 뒤 손을 떼도 커진 채 남는지 &#183; 교재 오른쪽 아래 ＋/－ 버튼.</p>
+  </div>
+
+  <div class="note">
+    <p><strong>남은 결정 하나 &#183; 가면(신고 6)</strong> &#8212; 지금은 「왜 안 되는지」만 알려 줍니다. 진짜로 되게 하려면 얼굴인식 파일을 우리 서버로 복사해야 하는데 <strong>약 15MB</strong>(모델 3.8MB + 실행 파일 11MB)입니다. 저장소에 영구히 들어가고 배포할 때마다 함께 올라갑니다. <strong>가면은 수업을 막는 기능이 아니라 꾸미기</strong>라, 넣을지는 사장님이 정하실 일로 남겨 두었습니다. 넣기로 하시면 경로는 이미 준비돼 있어 파일만 복사하면 됩니다.</p>
+  </div>
+</section>
 
 <section>
   <h2>한눈에</h2>

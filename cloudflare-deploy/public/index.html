@@ -8509,7 +8509,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                     <!-- 업로드 버튼: label 대신 button+명시적 트리거로 교체 (클릭 확실히 등록 + 콘솔 로그) -->
                     <button type="button" onclick="triggerUpload('pdf')" style="padding:0.4rem 0.8rem; border-radius:8px; background:rgba(148,163,184,0.15); color:#e2e8f0; font-size:0.85rem; cursor:pointer; border:none;" data-ko="📁 교재 업로드 · Upload (여러 장 선택 가능)" data-en="📁 Upload · 교재 업로드 (select several at once)" title="여러 장을 한 번에 고를 수 있어요 — Ctrl+A(전체) 또는 Ctrl/Shift+클릭 · Select several pages at once">📁 교재 업로드 · Upload (여러 장 선택 가능)</button>
                     <!-- multiple (2026-07-22, 강사 피드백 #4) — 수업 중 교재를 한 장씩만 올릴 수 있어 불편했다. -->
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" id="pdf-upload" multiple style="display:none;" onchange="pdfUpload(this)" />
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" id="pdf-upload" multiple style="display:none;" onchange="pdfUpload(this)" />
                     <button type="button" onclick="triggerUpload('file')" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📎 파일 업로드 · Attach file (모든 파일)" data-en="📎 Attach file · 파일 업로드 (any type)" title="워드·엑셀·PPT·한글·ZIP 등 모든 파일을 학생에게 공유(다운로드)">📎 파일 업로드 · Attach file (모든 파일)</button>
                     <input type="file" id="file-share-upload" style="display:none;" onchange="fileShareUpload(this)" />
                     <button onclick="openTextbookLibrary()" style="padding:0.4rem 0.8rem; border-radius:8px; background:linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; font-size:0.85rem; cursor:pointer; border:none; font-weight:700;" data-ko="📚 라이브러리 (Library)" data-en="📚 Library (라이브러리)" title="관리자가 업로드한 교재 라이브러리에서 선택">
@@ -9108,7 +9108,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=35"></script>
+<script src="/js/idx-main.js?v=36"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=1" defer></script>
@@ -16319,6 +16319,10 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
         다섯 번째 입장 경로를 만들면 소켓이 두 개 열려 유령 참가자가 된다(idx-vc-room.js 머리말).
      ⚠️ idx-main.js(849KB, blocking)에 넣지 말 것: 첫 화면 예산 여유가 5KB 뿐이다(CLAUDE.md). -->
 <script defer src="/js/idx-vc-fastentry.js?v=1"></script>
+<!-- 📱 (2026-08-25) 휴대폰 수업 화면 수리 묶음 — 교재 선명도(화면 배율)·핀치 확대 유지·확대 버튼·
+     배경화면 탭 접힘·중국어 안내. defer 필수: index.html 첫 화면 예산 여유가 104바이트뿐이라
+     idx-main.js 에는 한 줄도 못 넣는다(first_paint_budget_harness). -->
+<script defer src="/js/idx-vc-mobilefix.js?v=1"></script>
 <style id="mg-theme-toggle-topright">
   /* 🌙/☀ 다크·라이트(밝기) 토글 버튼 — 수업 화면 '우측 상단' 복원.
      ─────────────────────────────────────────────────────────────────────────
