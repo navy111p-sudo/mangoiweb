@@ -409,6 +409,10 @@ const worker = {
             //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
             //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
             '/api/admin/classes-now',
+            // ── 📅 (2026-08-25) 오늘 전체 수업 목록 — 위와 같은 사유(전사 학생 이름·강사 배정).
+            //    카페24 예약까지 합쳐 주게 되면서 한 화면에 모이는 양이 더 늘었다.
+            //    핸들러도 403 을 내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes/today',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -1229,6 +1233,8 @@ const worker = {
         path === '/api/admin/students/erp-seed' ||
         // 📚 교재 일괄 배정 (학생관리 카드)
         path === '/api/admin/students/bulk-assign-textbook' ||
+        // ➕ 학생 수동 등록 (학생관리 카드 「학생 등록」 버튼)
+        path === '/api/admin/students/create' ||
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
@@ -5466,6 +5472,10 @@ function isAgencyAllowedApi(path: string): boolean {
        돌고 있나» 를 봐야 한다. 핸들러가 scopeStudentCond() 로 자기 범위 학생의 수업만
        잘라서 주고(범위 밖은 목록·건수 양쪽에서 빠진다), 강사에게는 아예 닫혀 있다. */
     '/api/admin/classes-now',
+    /* 📅 (2026-08-25) 오늘 전체 수업 — manager.html 은 지사장·학원장도 쓴다. 「우리 학원 수업이
+       오늘 몇 건인가」는 그들이 봐야 하는 것이고, 핸들러가 scopeStudentCond() 로 자기 범위
+       학생의 수업만 잘라서 준다(범위 밖은 목록·건수 양쪽에서 빠진다). 강사에게는 위에서 닫았다. */
+    '/api/admin/classes/today',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

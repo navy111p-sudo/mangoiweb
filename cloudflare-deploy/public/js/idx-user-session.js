@@ -148,9 +148,10 @@
         lbl.setAttribute('data-ko','로그인');
         lbl.setAttribute('data-en','Login');
         btn.onclick = openLoginModal;
-        btn.style.background = 'rgba(30,41,59,0.85)';
-        btn.style.borderColor = 'rgba(148,163,184,0.35)';
-        btn.style.color = '#e2e8f0';
+        // 🔑 (2026-08-25) 비로그인 로그인 버튼이 눈에 안 띈다는 지적 — 무채색 대신 골드로.
+        btn.style.background = 'linear-gradient(135deg,#fde68a,#f59e0b)';
+        btn.style.borderColor = 'rgba(245,158,11,0.9)';
+        btn.style.color = '#1a1a1a';
       }
     }
     // 🎁 Phase P3: 포인트 칩 동기화 (로그인 시 표시 + 잔액 fetch)

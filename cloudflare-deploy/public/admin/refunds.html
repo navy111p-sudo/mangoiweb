@@ -116,6 +116,9 @@
   .st-requested { background:#fef3c7; color:#92400e; }
 
   details > summary { color:#475467; }
+
+  /* 사이드바 손자(#rf-pick·#rf-history)로 뛰어들 때 제목이 창 맨 위에 딱 붙지 않게 */
+  #rf-pick, #pv-card, #rf-history { scroll-margin-top: 16px; }
   /* 표는 자기 상자 안에서 옆으로 굴린다 — 안 그러면 좁은 폰에서 문서 전체가 가로로 밀린다
      (실측: 390px 화면에서 내역 표 619px → 문서 664px). min-width:0 은 이 상자가 나중에
      flex·grid 자식이 되어도 «내용보다 작아질 수 있게» 두는 안전망이다. */
@@ -166,7 +169,7 @@
   </div>
 
   <!-- ── 1) 주문 고르기 ── -->
-  <div class="card">
+  <div class="card" id="rf-pick">
     <h2 data-ko="① 환불할 결제 고르기" data-en="1. Pick a payment">① 환불할 결제 고르기</h2>
     <div class="toolbar">
       <input id="q-order" placeholder="주문번호 (예: MGE-...)" style="flex:1;min-width:240px">
@@ -238,7 +241,7 @@
   </div>
 
   <!-- ── 3) 내역 ── -->
-  <div class="card">
+  <div class="card" id="rf-history">
     <h2 data-ko="환불 내역" data-en="Refund history">환불 내역</h2>
     <p class="muted">실패한 요청도 남습니다 — «왜 안 됐나»가 사라지면 같은 시도를 반복하게 되기 때문입니다.</p>
     <div class="tbl-scroll"><table><thead><tr>
