@@ -8176,6 +8176,74 @@ LIMIT $limit`;
       return json({ ok: true, count: _piiStudents.length, students: _piiStudents, can_view_pii: canViewPII(_ssw.scope) });
     }
 
+    // ➕ 학생 수동 등록 — 카페24 명부에 없는 학생(체험·특수 케이스)을 관리자가 직접 만든다.
+    //   POST /api/admin/students/create  body:{ user_id, name, student_phone?, parent_phone?, shop_name?, notes? }
+    //   ⚠️ students_erp 는 카페24가 매일 밤 DELETE+INSERT 로 갈아엎지만(CLAUDE.md 2장 「학생 이름·계정을
+    //      D1 에서 고치거나 지웠는데 다음날 원복됨」), 그 삭제 조건은 created_at = CAFE24_STUDENT_SENTINEL
+    //      (1751500000000) 인 행만이다. 여기서는 Date.now() 로 넣으므로 야간 동기화에서 지워지지 않는다
+    //      (self_signup·레벨테스트 체험계정과 같은 검증된 패턴 — api-students.ts:399, leveltest-schedule.ts:83).
+    //   본사·직원만 — 강사·지사·대리점은 막는다(staff-create 와 같은 기준. index.ts 라우팅 허용목록에도 등록 필요).
+    if (method === 'POST' && path === '/api/admin/students/create') {
+      const actor = await getAdminActor(request, env as any);
+      if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+      if (actor.isTeacher || !(actor.role === 'hq' || actor.role === 'staff')) {
+        return json({ ok: false, error: 'forbidden',
+          message: '본사 관리자만 학생을 등록할 수 있습니다.',
+          message_en: 'Only head-office admins can register students.' }, 403);
+      }
+
+      let body: any;
+      try { body = await request.json(); } catch { body = null; }
+      const uid = String(body?.user_id || '').trim();
+      const name = String(body?.name || '').trim();
+      const studentPhone = String(body?.student_phone || '').trim() || null;
+      const parentPhone = String(body?.parent_phone || '').trim() || null;
+      const shopName = String(body?.shop_name || '').trim() || null;
+      const notes = String(body?.notes || '').trim() || null;
+
+      // 검증 — 홈 회원가입(/api/student/register)과 동일 규칙
+      if (!uid || uid.length < 4 || uid.length > 20) {
+        return json({ ok: false, error: 'invalid_user_id', message: '아이디는 4~20자여야 합니다.' }, 400);
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(uid)) {
+        return json({ ok: false, error: 'invalid_user_id', message: '아이디는 영문/숫자/밑줄(_)만 가능합니다.' }, 400);
+      }
+      if (!name) return json({ ok: false, error: 'name_required', message: '학생 이름을 입력하세요.' }, 400);
+
+      await env.DB.exec(`CREATE TABLE IF NOT EXISTS students_erp (user_id TEXT PRIMARY KEY, student_name TEXT, parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, program TEXT, status TEXT, created_at INTEGER);`);
+      for (const [col, type] of [['korean_name', 'TEXT'], ['username', 'TEXT'], ['student_phone', 'TEXT'], ['notes', 'TEXT'],
+                                  ['shop_name', 'TEXT'], ['source', 'TEXT'], ['password_hash', 'TEXT'], ['last_login_at', 'INTEGER'],
+                                  ['updated_at', 'INTEGER']] as [string, string][]) {
+        try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN ${col} ${type}`); } catch {}
+      }
+
+      const dup = await env.DB.prepare(`SELECT user_id FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      if (dup) return json({ ok: false, error: 'exists', message: '이미 사용 중인 아이디입니다.' }, 409);
+
+      // 임시 비밀번호 — /api/student/login 이 검증하는 것과 같은 해시(SHA-256 + salt).
+      //   ⚠️ auth-admin.ts 의 hashPassword() 는 관리자 계정용 다른 솔트라 여기 쓰면 학생이 로그인하지 못한다.
+      const ALPHA = 'abcdefghijkmnpqrstuvwxyz23456789';
+      const rnd = crypto.getRandomValues(new Uint8Array(12));
+      let tempPw = '';
+      for (let i = 0; i < rnd.length; i++) tempPw += ALPHA[rnd[i] % ALPHA.length];
+      tempPw = tempPw.slice(0, 4) + '-' + tempPw.slice(4, 8) + '-' + tempPw.slice(8, 12);
+      const pwdBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(tempPw + '|mangoi-salt-2026'));
+      const pwdHash = Array.from(new Uint8Array(pwdBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+      const now = Date.now();
+      await env.DB.prepare(
+        `INSERT INTO students_erp (user_id, korean_name, student_name, username, status, signup_date,
+           student_phone, parent_phone, shop_name, notes, source, password_hash, created_at, updated_at)
+         VALUES (?, ?, ?, ?, '정상', ?, ?, ?, ?, ?, 'admin_manual', ?, ?, ?)`
+      ).bind(uid, name, name, name, today(), studentPhone, parentPhone, shopName, notes, pwdHash, now, now).run();
+
+      return json({
+        ok: true, user_id: uid, name,
+        temp_password: tempPw,
+        message: '학생을 등록했습니다. 아래 임시 비밀번호는 지금 이 화면에서만 보입니다 — 학생·학부모에게 전달하세요.',
+      });
+    }
+
     // ========================================================================
 
     // 🏢 Phase 9 — 메뉴 6개 (지사·대리점학원·레벨테스트·수강신청·커뮤니티·교재)

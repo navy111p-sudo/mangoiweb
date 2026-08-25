@@ -9050,6 +9050,90 @@ document.addEventListener('click', (ev) => {
   });
 })();
 
+/* ➕ 학생 등록 모달 — 서버에 «진짜로» 만든다 (POST /api/admin/students/create).
+   CLAUDE.md 「직원을 등록했는데 로그인이 안 돼요」의 «시연 껍데기»(localStorage 에만 넣고
+   알림만 띄우던 것)와 같은 사고를 피하려고, staff-create/registerHqEmployee 와 같은 패턴을 쓴다.
+   임시 비밀번호는 서버가 만들어 이 화면에서 한 번만 보여 준다 — 어디에도 저장하지 않는다. */
+(function () {
+  window.smOpenRegisterModal = function () {
+    const modal = document.getElementById('sm-register-modal');
+    if (!modal) return;
+    ['sm-reg-uid', 'sm-reg-name', 'sm-reg-phone', 'sm-reg-parent-phone', 'sm-reg-shop', 'sm-reg-notes'].forEach(id => {
+      const e = document.getElementById(id); if (e) e.value = '';
+    });
+    const msg = document.getElementById('sm-reg-msg');
+    if (msg) { msg.style.display = 'none'; msg.innerHTML = ''; }
+    modal.style.display = 'flex';
+    setTimeout(() => { const u = document.getElementById('sm-reg-uid'); if (u) u.focus(); }, 30);
+  };
+  window.smCloseRegisterModal = function () {
+    const modal = document.getElementById('sm-register-modal');
+    if (modal) modal.style.display = 'none';
+  };
+  // 배경 클릭으로도 닫히게 (다른 모달들과 같은 관례)
+  document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('sm-register-modal');
+    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) window.smCloseRegisterModal(); });
+  });
+
+  window.smSubmitRegisterStudent = async function () {
+    const $ = id => document.getElementById(id);
+    const uid = ($('sm-reg-uid')?.value || '').trim();
+    const name = ($('sm-reg-name')?.value || '').trim();
+    const phone = ($('sm-reg-phone')?.value || '').trim();
+    const parentPhone = ($('sm-reg-parent-phone')?.value || '').trim();
+    const shop = ($('sm-reg-shop')?.value || '').trim();
+    const notes = ($('sm-reg-notes')?.value || '').trim();
+    const msg = $('sm-reg-msg');
+    const btn = $('sm-reg-submit');
+    const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+    function show(t, ok) {
+      if (!msg) { alert(t); return; }
+      msg.style.display = 'block';
+      msg.style.background = ok ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)';
+      msg.style.border = '1px solid ' + (ok ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)');
+      msg.style.color = ok ? '#065f46' : '#b91c1c';
+      msg.innerHTML = t;
+    }
+    if (msg) msg.style.display = 'none';
+
+    // 화면에서도 한 번 거른다(서버가 정본이지만, 왕복 전에 알려주는 편이 빠르다)
+    if (!uid || uid.length < 4 || uid.length > 20) return show(_L ? '⚠️ User ID must be 4–20 characters.' : '⚠️ 아이디는 4~20자여야 합니다.');
+    if (!/^[a-zA-Z0-9_]+$/.test(uid)) return show(_L ? '⚠️ User ID may only contain letters, numbers, and _.' : '⚠️ 아이디는 영문/숫자/밑줄(_)만 가능합니다.');
+    if (!name) return show(_L ? '⚠️ Enter the student name.' : '⚠️ 이름을 입력하세요.');
+
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/students/create', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: uid, name: name, student_phone: phone, parent_phone: parentPhone, shop_name: shop, notes: notes })
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) {
+        show('⚠️ ' + (j.message || j.error || (_L ? 'Could not register the student.' : '등록하지 못했습니다.')));
+        return;
+      }
+      show(
+        '<b style="font-size:13.5px">✅ ' + name + '(' + uid + ') ' + (_L ? 'account created.' : '계정을 만들었습니다.') + '</b><br>' +
+        '<div style="margin-top:8px;padding:10px 12px;background:#fff;border:2px solid #10b981;border-radius:8px">' +
+          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">' + (_L ? 'Temporary password — shown only on this screen' : '임시 비밀번호 — 이 화면에서만 보입니다') + '</div>' +
+          '<div style="font-family:MangoiHanSC,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:1px;color:#065f46;margin-top:3px">' +
+            (j.temp_password || '') + '</div>' +
+        '</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.7">' +
+          (_L ? 'Pass it on to the student/parent and have them change the password after logging in.' : '학생·학부모에게 전달하고, 로그인 후 비밀번호를 바꾸라고 안내하세요.') +
+        '</div>', true);
+      // 목록을 새로 불러와 방금 등록한 학생이 바로 보이게 한다.
+      if (typeof loadStudentList === 'function') loadStudentList();
+    } catch (e) {
+      show(_L ? '⚠️ Could not reach the server. Please try again.' : '⚠️ 서버에 연결하지 못했습니다. 잠시 후 다시 시도하세요.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  };
+})();
+
 /* ════════════════════════════════════════════════════════════
    Phase 13 — 학생관리 집계 뷰 5종 (전체 학생 가로 보기)
    - 만료 임박 / 오늘 출결 / 연속 출석 랭킹 / 최근 상담 / 단체 톡짹톡
