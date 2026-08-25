@@ -114,14 +114,20 @@ document.getElementById('navBack').addEventListener('click', function(){
        ⚠️ 주소로 받은 «안내» 값이다 — 가격·권한 계산에는 쓰지 않는다(서버가 따로 계산한다).
           그래서 위조되어도 손해가 없고, 반대로 이 값을 근거로 무언가를 결정해서도 안 된다.
        ⚠️ 강사에게 전달되는 진짜 근거는 leveltest_applications 에 이미 남아 있다. -->
+  <!-- 🌐 ⛔ 이 화면에서는 data-ko/data-en 을 달면 «오히려» 번역이 죽는다.
+            enroll.html 은 mango-i18n.js(=applyLang·getLang 정본)를 부르지 않는다.
+            유일한 엔진인 js/i18n-sweep.js 는 그 두 속성을 「applyLang 이 맡은 것」으로 보고
+            _i18nManaged() → FILTER_REJECT 로 **서브트리째 건너뛴다.** 맡을 applyLang 이 없으니
+            결과는 «아무도 번역하지 않음» = 영어 사용자에게 한국어 그대로.
+            (CLAUDE.md 2장 「JS 로 그린 라벨」은 applyLang 이 있는 화면 이야기다 — 여기는 반대다)
+            ⚠️ 이 파일에 이미 그런 요소가 44곳 있다. 그건 별건이고, 새로 만드는 것만은 안 단다. -->
   <div class="step" id="stLtResult" style="display:none;border-color:rgba(52,211,153,.45);background:rgba(6,78,59,.28)">
-    <h2 style="color:#6ee7b7">🎯 <span data-ko="레벨테스트 결과" data-en="Your placement result">레벨테스트 결과</span></h2>
-    <div class="row"><span class="lbl" data-ko="최종 레벨" data-en="Level">최종 레벨</span><b id="ltResLevel" style="color:#6ee7b7;font-size:17px"></b></div>
-    <div class="row" id="ltResBookRow" style="display:none"><span class="lbl" data-ko="추천 교재" data-en="Textbook">추천 교재</span><b id="ltResBook" style="color:#a7f3d0"></b></div>
+    <h2 style="color:#6ee7b7">🎯 <span>레벨테스트 결과</span></h2>
+    <div class="row"><span class="lbl">최종 레벨</span><b id="ltResLevel" style="color:#6ee7b7;font-size:17px"></b></div>
+    <div class="row" id="ltResBookRow" style="display:none"><span class="lbl">추천 교재</span><b id="ltResBook" style="color:#a7f3d0"></b></div>
     <!-- ⚠️ color 를 따로 준다 — 공용 .note 의 #64748b 는 이 초록 상자 위에서 대비 4.41 로
               본문 기준(4.5)에 못 미친다(2026-08-25 브라우저 검사에서 실측). -->
-    <div class="note" style="color:#a7d9c4" data-ko="이 레벨에 맞춰 담당 선생님이 첫 수업을 준비합니다. 아래에서 요일·시간만 골라 주세요."
-         data-en="Your teacher will prepare the first class at this level — just pick your days and times below.">이 레벨에 맞춰 담당 선생님이 첫 수업을 준비합니다. 아래에서 요일·시간만 골라 주세요.</div>
+    <div class="note" style="color:#a7d9c4">이 레벨에 맞춰 담당 선생님이 첫 수업을 준비합니다. 아래에서 요일·시간만 골라 주세요.</div>
   </div>
 
   <!-- 🧭 (2026-07-31) 강사 먼저 / 시간 먼저 — 제보 #2. 시간이 중요한 회원은 원하는 요일·시간을 먼저 고르면
@@ -298,18 +304,16 @@ document.getElementById('navBack').addEventListener('click', function(){
               값은 위에서 sessionStorage 에 담아 뒀으니 로그인하고 돌아오면 그대로 이어진다.
          ⚠️ textContent 로 넣는다 — 주소로 받은 값이라 innerHTML 로 붙이면 안 된다
             (esc() 는 이 줄보다 «아래» 에서 선언되지만 함수 선언이라 호출은 된다.
-             그래도 굳이 문자열을 조립하지 않는 쪽이 안전하다). */
+             그래도 굳이 문자열을 조립하지 않는 쪽이 안전하다).
+         🌐 ⛔ data-ko/data-en 을 달지 않는다 — 위 상자 주석과 같은 이유다.
+            i18n-sweep 은 body 를 MutationObserver 로 지켜보므로(childList·subtree)
+            나중에 붙인 이 줄도 알아서 번역한다. 속성을 달면 그 대상에서 빠진다. */
       if (LT_HINT && LT_HINT.level) {
         var _ltNote = document.createElement('div');
         _ltNote.style.cssText = 'margin:14px auto 0;max-width:420px;padding:10px 12px;border-radius:10px;'
           + 'border:1px solid rgba(52,211,153,.45);background:rgba(6,78,59,.28);color:#a7f3d0;font-size:13px;line-height:1.5';
         var _what = LT_HINT.level + (LT_HINT.book ? ' · ' + LT_HINT.book : '');
-        /* 🌐 data-ko/data-en 을 «함께» 박는다 — JS 로 그린 글자는 그것 없이는 🌐 를 눌러도
-              안 따라온다(CLAUDE.md 2장). 아이콘 버튼이 아니라 «문장» 이라 이 두 속성이 맞다. */
-        _ltNote.setAttribute('data-ko', '🎯 레벨테스트 결과(' + _what + ')는 기억해 뒀어요. 로그인하고 돌아오시면 그대로 이어집니다.');
-        _ltNote.setAttribute('data-en', '🎯 We saved your placement result (' + _what + ') — log in and it will still be here.');
-        _ltNote.textContent = _ltNote.getAttribute(
-          (window.getLang && window.getLang() === 'en') ? 'data-en' : 'data-ko');
+        _ltNote.textContent = '🎯 레벨테스트 결과(' + _what + ')는 기억해 뒀어요. 로그인하고 돌아오시면 그대로 이어집니다.';
         var _need = app.querySelector('.login-need');
         if (_need) _need.appendChild(_ltNote);
       }

@@ -93,12 +93,27 @@ console.log('\n[ D. 신청 화면(enroll.html) — 표시만 한다 · 결과를
   check('로그인 화면에도 «기억해 뒀다» 고 적어 준다',
     /LT_HINT && LT_HINT\.level/.test(ENROLL) && /기억해 뒀어요/.test(ENROLL));
   check('그 안내문도 textContent 로 넣는다', /_ltNote\.textContent = /.test(ENROLL));
-  // 🌐 JS 로 그린 글자는 data-ko/data-en 이 없으면 🌐 를 눌러도 안 따라온다 (CLAUDE.md 2장)
-  check('안내문에 한/영을 함께 박는다',
-    /_ltNote\.setAttribute\('data-ko'/.test(ENROLL) && /_ltNote\.setAttribute\('data-en'/.test(ENROLL));
-  check('결과 상자의 라벨에도 한/영이 있다',
-    /id="ltResLevel"/.test(ENROLL) && /data-ko="최종 레벨" data-en="Level"/.test(ENROLL)
-      && /data-ko="추천 교재" data-en="Textbook"/.test(ENROLL));
+
+  /* 🌐 ⛔ 이 화면에서는 data-ko/data-en 이 «번역을 켜는» 것이 아니라 «끄는» 것이다.
+     enroll.html 은 mango-i18n.js(applyLang·getLang 정본)를 부르지 않고, 유일한 엔진인
+     i18n-sweep.js 가 그 두 속성을 「applyLang 이 맡은 것」으로 보고 서브트리째 건너뛴다
+     (_i18nManaged → FILTER_REJECT). 맡을 applyLang 이 없으니 아무도 번역하지 않는다.
+     CLAUDE.md 2장 「JS 로 그린 라벨」은 applyLang 이 있는 화면 이야기다 — 여기는 반대다. */
+  check('enroll.html 은 여전히 applyLang 엔진을 안 부른다 (전제 확인)',
+    !/mango-i18n\.js/.test(strip(ENROLL)) && /i18n-sweep\.js/.test(ENROLL));
+  // 상자 «안» 만 잘라서 본다 — 글자 수로 자르면 뒤따르는 다른 블록의 data-ko 를 잡는다
+  const LTBOX = (() => {
+    const E = strip(ENROLL);
+    const i = E.indexOf('id="stLtResult"');
+    if (i < 0) return '';
+    const j = E.indexOf('\n  </div>', i);
+    return j < 0 ? E.slice(i, i + 900) : E.slice(i, j);
+  })();
+  check('결과 상자를 잘라 낼 수 있다 (검사 자신의 전제)', LTBOX.length > 200, LTBOX.length);
+  check('새 결과 상자에 data-ko/data-en 을 달지 않았다 (달면 번역이 죽는다)',
+    !/data-(ko|en)=/.test(LTBOX));
+  check('JS 안내문에도 안 달았다', !/_ltNote\.setAttribute\('data-(ko|en)'/.test(strip(ENROLL)));
+  check('그 이유가 코드 옆에 남아 있다', /i18n-sweep[\s\S]{0,300}(REJECT|건너뛴다)/.test(ENROLL));
   check('로그인 잠금 자체는 그대로다 (그냥 통과시키지 않는다)',
     /class="login-need"/.test(ENROLL) && /document\.querySelector\('\.price'\)\.style\.display = 'none';[\s\S]{0,40}return;/.test(ENROLL));
 }
