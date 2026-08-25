@@ -83,18 +83,23 @@ check('⑥ 지운 시각을 방마다 기억해 그 뒤만 불러온다',
   /Math\.max\(/.test(histCode),
   '이게 없으면 «지웠는데 다시 들어오니 살아 있다» 가 됩니다.');
 
-// ⑦ 방 번호를 window 로 읽지 않는다 (CLAUDE.md 함정)
-check('⑦ 방 번호를 window.vcRoomId 로 읽지 않는다',
+// ⑦ 같은 기능이 두 벌이 되지 않는다
+check('⑦ 옛 vcLoadChatHistory 를 이쪽으로 모은다',
+  /window\.vcLoadChatHistory\s*=\s*loadHistory/.test(histCode),
+  'idx-main.js 의 옛 경로는 「채팅 지우기」 시각을 몰라 지운 대화를 되살립니다.');
+
+// ⑧ 방 번호를 window 로 읽지 않는다 (CLAUDE.md 함정)
+check('⑧ 방 번호를 window.vcRoomId 로 읽지 않는다',
   !/window\.vcRoomId/.test(histCode),
   'vcRoomId 는 let 이라 window 에 없습니다 — 항상 undefined 가 되어 조용히 빈 값으로 흐릅니다.');
 
-// ⑧ 서버가 기간 경계를 지킨다
-check('⑧ GET /api/chat/messages 가 since 를 받아 거른다',
+// ⑨ 서버가 기간 경계를 지킨다
+check('⑨ GET /api/chat/messages 가 since 를 받아 거른다',
   /searchParams\.get\('since'\)/.test(api) && /sent_at\s*>=\s*\?/.test(api) &&
   /\.bind\(roomId,\s*since,\s*limit\)/.test(api),
   '화면에서만 자르면 실제로는 전부 내려받습니다.');
-check('⑧ since 를 안 보내면 예전대로 동작한다 (관리자 조회 보호)',
+check('⑨ since 를 안 보내면 예전대로 동작한다 (관리자 조회 보호)',
   /sinceRaw\s*>\s*0\s*\?\s*sinceRaw\s*:\s*0/.test(api));
 
-console.log(`\n${fail ? `🚨 FAIL ${fail}` : '✅ 전부 통과'} — 총 12건`);
+console.log(`\n${fail ? `🚨 FAIL ${fail}` : '✅ 전부 통과'} — 총 13건`);
 process.exit(fail ? 1 : 0);

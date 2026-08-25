@@ -151,6 +151,7 @@ try {
       at,
       since: parseInt((asked || '').match(/since=(\d+)/)?.[1] || '0', 10),
       label: b.textContent.trim(),
+      disabled: b.disabled,
       gone: document.getElementById('vc-chat-messages').innerText.indexOf('선생님 조금 늦어요') < 0,
     };
   }, ROOM_DATED);
@@ -158,6 +159,8 @@ try {
   ok('지운 뒤에는 그 시각 이후만 묻는다', cleared.since >= cleared.at, `since=${cleared.since} ≥ ${cleared.at}`);
   ok('지운 대화가 되살아나지 않는다', cleared.gone);
   ok('불러올 것이 없으면 그렇게 알려 준다', /없어요|No earlier/.test(cleared.label), cleared.label);
+  ok('«없어요» 뒤에도 다시 누를 수 있다', cleared.disabled === false,
+     '수업 도중 뒤늦게 이력이 생겨도 부를 수 있어야 합니다');
 
   // ── ④ 방 종류별 기간 ──
   console.log('\n④ 방 종류별 기간 — 한 숫자로 통일하지 않는다');

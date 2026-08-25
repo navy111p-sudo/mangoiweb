@@ -133,8 +133,11 @@
       var rows = d.rows || [];
       if (!rows.length) {
         setLabel(b, '불러올 이전 대화가 없어요', 'No earlier messages');
+        // ⚠️ 여기서 disabled 를 안 풀면 «다시 누르기» 가 아예 막힌다 — 수업 도중 뒤늦게
+        //   이력이 생겨도 부를 방법이 없어진다(2026-08-25 함정 대조에서 잡힘).
+        if (b) b.disabled = false;
         loading = false;
-        return;   // 버튼은 눌린 채로 둔다(다시 눌러도 같은 결과)
+        return;
       }
 
       var box = document.getElementById('vc-chat-messages');
@@ -143,15 +146,15 @@
       /* 지금 화면에 있는 대화는 «뒤» 에 그대로 둔다.
          vcReceiveChat 이 container.innerHTML += 로 «맨 뒤에» 붙이므로,
          비우고 → 이력을 먼저 그리고 → 원래 것을 다시 붙이는 순서라야 시간순이 맞는다. */
-      var prev = box.innerHTML;
+      /* ⚠️ innerHTML 로 퍼냈다 다시 붙이면 나중에 버블에 리스너·미디어가 붙는 날 조용히 날아간다.
+         노드를 그대로 들고 있다가 되돌린다(지금 버블은 순수 HTML 이지만 미리 막아 둔다). */
+      var prev = Array.prototype.slice.call(box.childNodes);
       box.innerHTML = '';
 
       var head = document.createElement('div');
       head.className = 'vc-chat-hist-mark';
       head.style.cssText = 'text-align:center;font-size:11px;color:#94a3b8;padding:6px 4px;margin-bottom:6px;border-bottom:1px dashed rgba(148,163,184,.22)';
-      head.textContent = isEn()
-        ? '─ ' + rows.length + ' earlier message(s) ─'
-        : '─ 이전 대화 ' + rows.length + '개 ─';
+      setLabel(head, '─ 이전 대화 ' + rows.length + '개 ─', '─ ' + rows.length + ' earlier message(s) ─');
       box.appendChild(head);
 
       for (var i = 0; i < rows.length; i++) {
@@ -167,13 +170,13 @@
         } catch (e) { /* 한 줄이 깨져도 나머지는 그린다 */ }
       }
 
-      if (prev) {
+      if (prev.length) {
         var tail = document.createElement('div');
         tail.className = 'vc-chat-hist-mark';
         tail.style.cssText = 'text-align:center;font-size:11px;color:#94a3b8;padding:6px 4px;margin:6px 0;border-top:1px dashed rgba(148,163,184,.22)';
-        tail.textContent = isEn() ? '─ from here: this session ─' : '─ 여기부터 지금 대화 ─';
+        setLabel(tail, '─ 여기부터 지금 대화 ─', '─ from here: this session ─');
         box.appendChild(tail);
-        box.innerHTML += prev;
+        for (var k = 0; k < prev.length; k++) box.appendChild(prev[k]);
       }
 
       // 불러온 목적이 «읽는 것» 이므로 맨 위(가장 오래된 것)로 올려 준다
@@ -202,4 +205,11 @@
 
   // 콘솔에서 직접 부를 수 있게(점검용)
   window.vcChatHistoryLoad = loadHistory;
+
+  /* 옛 경로를 이쪽으로 모은다 — idx-main.js 의 vcLoadChatHistory() 는 「채팅 지우기」 시각을
+     모르기 때문에, 그쪽으로 부르면 **지운 대화가 그대로 되살아난다.** 기간 제한도 없다.
+     같은 기능이 두 벌이면 «화면마다 답이 다른» 사고가 시작되므로(CLAUDE.md) 입구를 하나로 둔다.
+     ⚠️ 옛 이름은 점검용으로 남아 있고(파일 주석 「콘솔에서 직접 호출」), 자동 로드 스위치를
+        누가 켜더라도 이제는 이쪽 규칙(기간 + 지운 시각)을 거쳐 간다. */
+  if (typeof window.vcLoadChatHistory === 'function') window.vcLoadChatHistory = loadHistory;
 })();
