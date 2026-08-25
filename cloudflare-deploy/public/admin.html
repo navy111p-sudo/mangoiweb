@@ -1872,9 +1872,9 @@
           </div>
           <div style="padding:18px 20px;max-height:76vh;overflow:auto;">
             <p style="margin:0 0 12px;font-size:12px;color:#475467;line-height:1.6"
-               data-ko="카페24 명부에 없는 학생(체험 수업 등)의 로그인 계정을 실제로 만듭니다. 등록하면 임시 비밀번호가 이 화면에 한 번만 표시됩니다 — 학생·학부모에게 전달하고 로그인 후 비밀번호를 바꾸게 하세요."
-               data-en="Creates a real login account for a student not in the Cafe24 roster (e.g. a trial student). A temporary password is shown here once — pass it on and have them change it after logging in.">
-              카페24 명부에 없는 학생(체험 수업 등)의 <b>로그인 계정을 실제로 만듭니다.</b> 등록하면 <b>임시 비밀번호가 이 화면에 한 번만</b> 표시됩니다 — 학생·학부모에게 전달하고 로그인 후 비밀번호를 바꾸게 하세요.
+               data-ko="카페24 명부에 없는 학생(체험 수업 등)의 로그인 계정을 실제로 만듭니다. 비밀번호를 직접 입력하거나, 비워두면 임시 비밀번호를 자동으로 만들어 이 화면에 한 번만 표시합니다 — 학생·학부모에게 전달하고 로그인 후 비밀번호를 바꾸게 하세요."
+               data-en="Creates a real login account for a student not in the Cafe24 roster (e.g. a trial student). Enter a password yourself, or leave it blank to auto-generate one — either way it's shown here once. Pass it on and have them change it after logging in.">
+              카페24 명부에 없는 학생(체험 수업 등)의 <b>로그인 계정을 실제로 만듭니다.</b> 비밀번호를 직접 입력하거나, 비워두면 <b>임시 비밀번호를 자동으로 만들어 이 화면에 한 번만</b> 표시합니다 — 학생·학부모에게 전달하고 로그인 후 비밀번호를 바꾸게 하세요.
             </p>
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:10px">
               <label style="font-size:11.5px;color:#374151;font-weight:600">
@@ -1885,6 +1885,14 @@
                 <span data-ko="👤 이름 (필수)" data-en="👤 Name (required)">👤 이름 (필수)</span>
                 <input id="sm-reg-name" type="text" placeholder="홍길동" data-ko-placeholder="홍길동" data-en-placeholder="Jane Doe" style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
               </label>
+              <!-- 🔑 (2026-08-25 사장님 요청) 비밀번호를 직접 입력할 수 있게. 비워두면 예전처럼
+                   서버가 임시 비밀번호를 만들어 등록 후 이 화면에 한 번 보여준다(기존 동작 유지). -->
+              <label style="font-size:11.5px;color:#374151;font-weight:600">
+                <span data-ko="🔑 비밀번호 (비우면 자동 생성)" data-en="🔑 Password (leave blank to auto-generate)">🔑 비밀번호 (비우면 자동 생성)</span>
+                <input id="sm-reg-password" type="text" placeholder="4자 이상 · 비우면 자동 생성" autocomplete="off"
+                       data-ko-placeholder="4자 이상 · 비우면 자동 생성" data-en-placeholder="4+ chars · blank = auto-generate"
+                       style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;font-family:MangoiHanSC,Consolas,monospace" />
+              </label>
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="📞 학생 연락처" data-en="📞 Student Phone">📞 학생 연락처</span>
                 <input id="sm-reg-phone" type="tel" placeholder="010-0000-0000" style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
@@ -1893,9 +1901,15 @@
                 <span data-ko="📞 부모님 연락처" data-en="📞 Parent Phone">📞 부모님 연락처</span>
                 <input id="sm-reg-parent-phone" type="tel" placeholder="010-0000-0000" style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
               </label>
+              <!-- 🏫 (2026-08-25 사장님 요청) 직접 타이핑하던 칸을 실제 대리점 목록에서 검색해
+                   고르는 칸으로 바꿨다. <datalist> 라 목록에 없는 값도 여전히 칠 수는 있다
+                   (예: 아직 카페24에 안 올라간 신규 대리점) — 강제로 막지는 않는다. -->
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="🏫 소속 대리점·학원명" data-en="🏫 Agency/Academy">🏫 소속 대리점·학원명</span>
-                <input id="sm-reg-shop" type="text" placeholder="예) 강남캠퍼스" style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
+                <input id="sm-reg-shop" type="text" list="sm-reg-shop-list" placeholder="입력해서 검색 · 예) 강남캠퍼스" autocomplete="off"
+                       data-ko-placeholder="입력해서 검색 · 예) 강남캠퍼스" data-en-placeholder="Type to search · e.g. Gangnam Campus"
+                       style="width:100%;box-sizing:border-box;margin-top:3px;padding:7px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />
+                <datalist id="sm-reg-shop-list"></datalist>
               </label>
               <label style="font-size:11.5px;color:#374151;font-weight:600">
                 <span data-ko="📝 메모" data-en="📝 Notes">📝 메모</span>
@@ -9684,7 +9698,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=164" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=165" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=161: 2026-08-24 회계장부 「구분」 칸을 카페24 원본 acc_type(뜻 미상, 화면에 「0」)에서
      type(1=수입/2=지출)으로 바꿔 «수입»·«지출» 로 그린다. 위 합계와 같은 값이라 어긋날 수 없다.
      acc_type 은 지우지 않고 그 칸 툴팁에 원본으로 남긴다 — 뜻은 카페24에 확인 필요

@@ -9138,17 +9138,37 @@ document.addEventListener('click', (ev) => {
 /* ➕ 학생 등록 모달 — 서버에 «진짜로» 만든다 (POST /api/admin/students/create).
    CLAUDE.md 「직원을 등록했는데 로그인이 안 돼요」의 «시연 껍데기»(localStorage 에만 넣고
    알림만 띄우던 것)와 같은 사고를 피하려고, staff-create/registerHqEmployee 와 같은 패턴을 쓴다.
-   임시 비밀번호는 서버가 만들어 이 화면에서 한 번만 보여 준다 — 어디에도 저장하지 않는다. */
+   비밀번호를 직접 입력할 수도 있고(2026-08-25 사장님 요청), 비워두면 예전처럼 서버가 임시
+   비밀번호를 만들어 이 화면에서 한 번만 보여 준다 — 어디에도 저장하지 않는다. */
 (function () {
+  // 🏫 (2026-08-25) 소속 대리점·학원명 — 손으로 치던 칸을 실제 대리점 목록(GET /api/admin/centers)
+  //   에서 검색해 고르는 <datalist> 로 바꿨다. 한 번만 받아 캐시(921건, 매번 받을 이유 없음).
+  //   ⚠️ 이 화면을 보는 사람의 권한 범위 그대로 온다(scopeCenterCond) — 지사·대리점 계정이면
+  //     자기 소속만 보이는데, 그건 그 계정이 그 학생을 어차피 자기 소속으로만 등록할 것이므로 맞다.
+  let __smAgencyOpts = null, __smAgencyLoading = false;
+  async function _smLoadAgencyOptions() {
+    const dl = document.getElementById('sm-reg-shop-list');
+    if (!dl || __smAgencyOpts || __smAgencyLoading) return;
+    __smAgencyLoading = true;
+    try {
+      const r = await fetch('/api/admin/centers?fields=min&limit=0', { credentials: 'include', cache: 'no-store' });
+      const d = await r.json().catch(() => ({}));
+      const items = (d && d.ok && Array.isArray(d.items)) ? d.items : [];
+      __smAgencyOpts = items.map(c => String((c && c.name) || '').trim()).filter(Boolean);
+      dl.innerHTML = __smAgencyOpts.map(n => '<option value="' + _esc(n) + '"></option>').join('');
+    } catch (e) { /* 못 받아도 칸은 여전히 손으로 칠 수 있다 — 조용히 포기 */ }
+    __smAgencyLoading = false;
+  }
   window.smOpenRegisterModal = function () {
     const modal = document.getElementById('sm-register-modal');
     if (!modal) return;
-    ['sm-reg-uid', 'sm-reg-name', 'sm-reg-phone', 'sm-reg-parent-phone', 'sm-reg-shop', 'sm-reg-notes'].forEach(id => {
+    ['sm-reg-uid', 'sm-reg-name', 'sm-reg-password', 'sm-reg-phone', 'sm-reg-parent-phone', 'sm-reg-shop', 'sm-reg-notes'].forEach(id => {
       const e = document.getElementById(id); if (e) e.value = '';
     });
     const msg = document.getElementById('sm-reg-msg');
     if (msg) { msg.style.display = 'none'; msg.innerHTML = ''; }
     modal.style.display = 'flex';
+    _smLoadAgencyOptions();
     setTimeout(() => { const u = document.getElementById('sm-reg-uid'); if (u) u.focus(); }, 30);
   };
   window.smCloseRegisterModal = function () {
@@ -9165,6 +9185,7 @@ document.addEventListener('click', (ev) => {
     const $ = id => document.getElementById(id);
     const uid = ($('sm-reg-uid')?.value || '').trim();
     const name = ($('sm-reg-name')?.value || '').trim();
+    const password = ($('sm-reg-password')?.value || '').trim();  // 비우면 서버가 임시 비밀번호를 만든다
     const phone = ($('sm-reg-phone')?.value || '').trim();
     const parentPhone = ($('sm-reg-parent-phone')?.value || '').trim();
     const shop = ($('sm-reg-shop')?.value || '').trim();
@@ -9186,23 +9207,29 @@ document.addEventListener('click', (ev) => {
     if (!uid || uid.length < 4 || uid.length > 20) return show(_L ? '⚠️ User ID must be 4–20 characters.' : '⚠️ 아이디는 4~20자여야 합니다.');
     if (!/^[a-zA-Z0-9_]+$/.test(uid)) return show(_L ? '⚠️ User ID may only contain letters, numbers, and _.' : '⚠️ 아이디는 영문/숫자/밑줄(_)만 가능합니다.');
     if (!name) return show(_L ? '⚠️ Enter the student name.' : '⚠️ 이름을 입력하세요.');
+    // 비밀번호는 «선택» — 비워두면 서버가 자동 생성한다. 적었으면 4자 이상이어야 한다
+    // (/api/student/register·비밀번호 재설정과 같은 기준, api-students.ts 참고).
+    if (password && password.length < 4) return show(_L ? '⚠️ Password must be at least 4 characters.' : '⚠️ 비밀번호는 4자 이상이어야 합니다.');
 
     if (btn) btn.disabled = true;
     try {
       const r = await fetch('/api/admin/students/create', {
         method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: uid, name: name, student_phone: phone, parent_phone: parentPhone, shop_name: shop, notes: notes })
+        body: JSON.stringify({ user_id: uid, name: name, password: password || undefined, student_phone: phone, parent_phone: parentPhone, shop_name: shop, notes: notes })
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || !j.ok) {
         show('⚠️ ' + (j.message || j.error || (_L ? 'Could not register the student.' : '등록하지 못했습니다.')));
         return;
       }
+      // 직접 입력한 비밀번호면 그 사실을 알려주는 라벨로, 비웠으면 예전처럼 「임시 비밀번호」로.
+      const _pwLabelKo = password ? '입력한 비밀번호 — 이 화면에서만 다시 보입니다' : '임시 비밀번호 — 이 화면에서만 보입니다';
+      const _pwLabelEn = password ? 'The password you entered — shown here once more' : 'Temporary password — shown only on this screen';
       show(
         '<b style="font-size:13.5px">✅ ' + name + '(' + uid + ') ' + (_L ? 'account created.' : '계정을 만들었습니다.') + '</b><br>' +
         '<div style="margin-top:8px;padding:10px 12px;background:#fff;border:2px solid #10b981;border-radius:8px">' +
-          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">' + (_L ? 'Temporary password — shown only on this screen' : '임시 비밀번호 — 이 화면에서만 보입니다') + '</div>' +
+          '<div style="font-size:11.5px;color:#6b7280;font-weight:700">' + (_L ? _pwLabelEn : _pwLabelKo) + '</div>' +
           '<div style="font-family:MangoiHanSC,Consolas,monospace;font-size:20px;font-weight:800;letter-spacing:1px;color:#065f46;margin-top:3px">' +
             (j.temp_password || '') + '</div>' +
         '</div>' +
