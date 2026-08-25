@@ -53,6 +53,15 @@
           border:1.5px solid rgba(251,191,36,.55);box-shadow:0 8px 24px -12px rgba(245,158,11,.6)}
   .remind b{display:block;color:#fde68a;font-size:16px;font-weight:800;margin-bottom:4px}
   .remind span{display:block;color:#cbb994;font-size:12.5px;line-height:1.6}
+  /* ▶ 결과가 나온 «뒤» 의 다음 걸음. 시작 전에는 «🔔 알림 받기» 가 그 자리를 쓰고,
+     끝난 뒤에는 이것이 쓴다 — 둘이 동시에 뜨지 않으므로 색을 세게 써도 안 부딪힌다.
+     [왜 필요한가] 레벨·추천 교재까지 다 보여 주고도 «그래서 뭘 하면 되나» 로 이어지는 길이
+     한 곳도 없었다(2026-08-25). 결과를 받은 사람이 스스로 신청 화면을 찾아가야 했다. */
+  .nextstep{display:block;text-decoration:none;padding:16px 16px;border-radius:14px;margin:12px 0 4px;
+            background:linear-gradient(135deg,rgba(16,185,129,.22),rgba(5,150,105,.12));
+            border:1.5px solid rgba(52,211,153,.55);box-shadow:0 8px 24px -12px rgba(16,185,129,.6)}
+  .nextstep b{display:block;color:#6ee7b7;font-size:16px;font-weight:800;margin-bottom:4px}
+  .nextstep span{display:block;color:#a7d9c4;font-size:12.5px;line-height:1.6}
   .muted{font-size:12px;color:#6b7a99;line-height:1.7;text-align:center;margin-top:18px}
   .err{background:rgba(239,68,68,.1);border-color:rgba(248,113,113,.4);color:#fecaca}
   /* 💬 문의 = 카카오 채널. 문자로 들어오는 화면이라 «폰에서 엄지로» 누른다 —
@@ -204,6 +213,27 @@
     if (r.recommended_textbook) h += '<div class="row"><span class="k">📚 ' + t('추천 교재','Textbook') + '</span><b>' + esc(r.recommended_textbook) + '</b></div>';
     if (r.next_class_guide) h += '<div class="sub" style="margin-top:10px">📘 ' + esc(r.next_class_guide) + '</div>';
     h += '</div>';
+
+    /* ▶ 레벨이 확정됐다 = 「그래서 이제 뭘 하면 되나」에 답할 차례다.
+       ⚠️ 결과가 나왔을 때만 낸다 — 테스트 «전» 에 신청을 권하면 순서가 뒤집힌다.
+       ⚠️ 레벨·추천 교재를 주소에 실어 보낸다. 신청 화면이 그대로 보여 주기만 하는
+          «안내» 값이고 가격·권한에는 쓰이지 않는다 — 그래서 위조돼도 손해가 없다.
+          (신청의 진짜 근거는 로그인 계정과 서버가 계산하는 금액이다) */
+    if (r.final_level) {
+      /* 🔴 &amp; 로 적는다 — «&lt_level» 은 브라우저가 옛 문자참조 &lt(=<) 로 읽어 버린다.
+         세미콜론이 없어도 디코딩되는 legacy named reference 라 주소가
+         «?from=lt<_level=A2» 가 되고 **레벨이 통째로 사라진다.**
+         2026-08-25 브라우저 검사에서 잡았다(문자열 하니스로는 안 보인다). */
+      var q = '?from=lt&amp;lt_level=' + encodeURIComponent(r.final_level);
+      if (r.recommended_textbook) q += '&amp;lt_book=' + encodeURIComponent(r.recommended_textbook);
+      h += '<a class="nextstep" href="/enroll.html' + q + '">'
+        +   '<b>▶ ' + t('이 결과로 수업 신청하기', 'Start classes at this level') + '</b>'
+        +   '<span>' + t('레벨 ' + esc(r.final_level) + (r.recommended_textbook ? ' · ' + esc(r.recommended_textbook) : '')
+                         + ' 에 맞춰 요일·시간을 고르실 수 있어요',
+                         'Pick your days and times for level ' + esc(r.final_level)
+                         + (r.recommended_textbook ? ' · ' + esc(r.recommended_textbook) : '')) + '</span>'
+        +  '</a>';
+    }
 
     /* ── ② 🔔 알림 받기 — 수업 «전» 이면 이게 제일 중요한 행동이다 ──
        [왜] 문자는 무음모드·스팸함이면 그냥 놓친다. 캘린더 알람은 잠금화면에 뜨고 비용도 0원인데,

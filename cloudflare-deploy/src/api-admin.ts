@@ -9114,7 +9114,31 @@ LIMIT $limit`;
         } catch (e) { items.forEach(a => { a.ticket_url = null; }); }
         const cnt = await env.DB.prepare(`SELECT COUNT(*) AS n FROM leveltest_applications WHERE status = 'pending'`).all();
         const pending = (cnt.results && cnt.results[0] && (cnt.results[0] as any).n) || 0;
-        return json({ ok: true, items, pending });
+        /* 📚 (2026-08-25) 레벨별 «지금까지 실제로 추천한 교재» — 평가 화면의 기본값 제안용.
+           [왜] 최종 레벨은 AI 추정이 미리 채워지는데 추천 교재만 늘 빈 칸이라, 강사가 매번
+                처음부터 판단했다. 그런데 그 판단은 이미 여러 번 내려져 DB 에 쌓여 있다.
+           ⛔ 「A1 이면 파닉스」 같은 규칙을 코드가 «지어내지» 않는다 — 교재 선택은 레벨만이
+              아니라 나이·목적(성인 비즈니스/시험대비 등)이 함께 걸리는 사업 판단이라,
+              사람이 실제로 고른 것을 세어서 되돌려 줄 뿐이다.
+           ⚠️ 제안이지 확정이 아니다. 화면은 «비어 있을 때만» 채우고 강사가 언제든 바꾼다.
+           ⚠️ 표가 없거나 조회가 실패하면 조용히 빈 객체 — 평가 화면은 지금과 똑같이 동작한다. */
+        const bookHints: Record<string, string> = {};
+        try {
+          const hr = await env.DB.prepare(
+            `SELECT final_level, recommended_textbook, COUNT(*) AS n
+               FROM leveltest_applications
+              WHERE final_level IS NOT NULL AND TRIM(final_level) <> ''
+                AND recommended_textbook IS NOT NULL AND TRIM(recommended_textbook) <> ''
+              GROUP BY final_level, recommended_textbook
+              ORDER BY final_level, n DESC`
+          ).all();
+          // 레벨마다 «가장 많이 고른» 하나만 남긴다 (ORDER BY n DESC 라 첫 줄이 최빈값)
+          for (const r of ((hr.results || []) as any[])) {
+            const lv = String(r.final_level || '').trim();
+            if (lv && !bookHints[lv]) bookHints[lv] = String(r.recommended_textbook || '').trim();
+          }
+        } catch (e) { console.warn('[leveltest] book hints:', (e as any)?.message); }
+        return json({ ok: true, items, pending, book_hints: bookHints });
       }
       /* 🗑️ DELETE — 신청 삭제 (2026-08-21, 사장님 지시: 레벨테스트 신청현황의 데모 항목 정리)
          ⛔ 본사만. `canEditOrg()` 는 강사(scope 'none')까지 통과시키는 함정이 있어(CLAUDE.md

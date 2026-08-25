@@ -108,6 +108,22 @@ document.getElementById('navBack').addEventListener('click', function(){
     </div>
   </div>
 
+  <!-- 🎯 (2026-08-25) 레벨테스트 결과를 들고 온 사람에게 그 결과를 보여 준다.
+       [왜] 그동안 결과 화면에서 신청으로 오는 길이 없었고, 어렵게 찾아와도 «내 레벨이 반영됐나»
+            를 확인할 자리가 없었다. 여기서 한 번 되짚어 주면 안심하고 고르게 된다.
+       ⚠️ 주소로 받은 «안내» 값이다 — 가격·권한 계산에는 쓰지 않는다(서버가 따로 계산한다).
+          그래서 위조되어도 손해가 없고, 반대로 이 값을 근거로 무언가를 결정해서도 안 된다.
+       ⚠️ 강사에게 전달되는 진짜 근거는 leveltest_applications 에 이미 남아 있다. -->
+  <div class="step" id="stLtResult" style="display:none;border-color:rgba(52,211,153,.45);background:rgba(6,78,59,.28)">
+    <h2 style="color:#6ee7b7">🎯 <span data-ko="레벨테스트 결과" data-en="Your placement result">레벨테스트 결과</span></h2>
+    <div class="row"><span class="lbl" data-ko="최종 레벨" data-en="Level">최종 레벨</span><b id="ltResLevel" style="color:#6ee7b7;font-size:17px"></b></div>
+    <div class="row" id="ltResBookRow" style="display:none"><span class="lbl" data-ko="추천 교재" data-en="Textbook">추천 교재</span><b id="ltResBook" style="color:#a7f3d0"></b></div>
+    <!-- ⚠️ color 를 따로 준다 — 공용 .note 의 #64748b 는 이 초록 상자 위에서 대비 4.41 로
+              본문 기준(4.5)에 못 미친다(2026-08-25 브라우저 검사에서 실측). -->
+    <div class="note" style="color:#a7d9c4" data-ko="이 레벨에 맞춰 담당 선생님이 첫 수업을 준비합니다. 아래에서 요일·시간만 골라 주세요."
+         data-en="Your teacher will prepare the first class at this level — just pick your days and times below.">이 레벨에 맞춰 담당 선생님이 첫 수업을 준비합니다. 아래에서 요일·시간만 골라 주세요.</div>
+  </div>
+
   <!-- 🧭 (2026-07-31) 강사 먼저 / 시간 먼저 — 제보 #2. 시간이 중요한 회원은 원하는 요일·시간을 먼저 고르면
        그 시간에 비어있는 강사만 걸러서 보여준다(참고: www.mangoi.co.kr). -->
   <div class="step" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
@@ -184,6 +200,42 @@ document.getElementById('navBack').addEventListener('click', function(){
           (my-current · renew-link · renew-order). 자세한 이유는 src/renew-link.ts 머리말. */
   var RT = null;
   try { RT = new URLSearchParams(location.search).get('rt') || null; } catch(e){}
+  /* 🎯 레벨테스트 결과를 달고 왔으면 맨 위에 되짚어 준다 (t.html·parent.html 의 «이 결과로 신청» 버튼).
+     ⚠️ 표시 전용이다 — 이 값으로 금액·강사·권한을 정하지 않는다.
+     ⚠️ 값이 없으면 상자를 그리지 않는다(일반 신청자에게는 없던 화면이 그대로다). */
+  var LT_HINT = null;             /* {level, book} — 로그인 안내문에서도 쓴다 */
+  var LT_KEY = 'mangoi_enroll_lt';
+  (function showLevelTestResult(){
+    try {
+      var qp = new URLSearchParams(location.search);
+      var lv = (qp.get('lt_level') || '').trim().slice(0, 12);
+      var book = (qp.get('lt_book') || '').trim().slice(0, 60);
+      /* 🔒 주소에 없으면 «아까 들고 왔던 것» 을 꺼낸다.
+         [왜] 체험 학생은 계정이 없는 경우가 많아 여기서 로그인 화면으로 한 번 튕긴다.
+              홈에서 로그인하고 돌아오면 주소에 붙였던 값이 사라져 결과가 통째로 없어졌다.
+         ⚠️ sessionStorage 다 — 탭을 닫으면 사라진다. 로그인 왕복만 견디면 되는 값이라
+            localStorage 로 «굳히지» 않는다(다음 사람이 이 폰을 써도 남의 레벨이 안 뜬다). */
+      if (!lv) {
+        try {
+          var saved = JSON.parse(sessionStorage.getItem(LT_KEY) || 'null');
+          if (saved && saved.level) { lv = String(saved.level).slice(0, 12); book = String(saved.book || '').slice(0, 60); }
+        } catch (e2) {}
+      } else {
+        try { sessionStorage.setItem(LT_KEY, JSON.stringify({ level: lv, book: book })); } catch (e3) {}
+      }
+      if (!lv) return;
+      LT_HINT = { level: lv, book: book };
+      var box = document.getElementById('stLtResult');
+      var lvEl = document.getElementById('ltResLevel');
+      if (!box || !lvEl) return;
+      lvEl.textContent = lv;
+      if (book) {
+        var bEl = document.getElementById('ltResBook'), bRow = document.getElementById('ltResBookRow');
+        if (bEl && bRow) { bEl.textContent = book; bRow.style.display = ''; }
+      }
+      box.style.display = '';
+    } catch (e) { /* 안내일 뿐이라 실패해도 신청 흐름은 그대로 */ }
+  })();
   var RTQ = RT ? ('rt=' + encodeURIComponent(RT)) : '';
 
   /* 🕐 (2026-07-30) st.times = { 요일: 'HH:MM' } — 제보 #2-3. st.time 은 "요일마다 다른 시간" 을
@@ -241,6 +293,26 @@ document.getElementById('navBack').addEventListener('click', function(){
         + '<div style="font-size:40px">🔒</div>'
         + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
         + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
+      /* 🎯 레벨테스트 결과를 들고 왔다면 «없어지지 않았다» 고 말해 준다.
+         [왜] 여기서 그냥 잠그면 체험 학생에게는 결과가 통째로 사라진 것으로 보인다.
+              값은 위에서 sessionStorage 에 담아 뒀으니 로그인하고 돌아오면 그대로 이어진다.
+         ⚠️ textContent 로 넣는다 — 주소로 받은 값이라 innerHTML 로 붙이면 안 된다
+            (esc() 는 이 줄보다 «아래» 에서 선언되지만 함수 선언이라 호출은 된다.
+             그래도 굳이 문자열을 조립하지 않는 쪽이 안전하다). */
+      if (LT_HINT && LT_HINT.level) {
+        var _ltNote = document.createElement('div');
+        _ltNote.style.cssText = 'margin:14px auto 0;max-width:420px;padding:10px 12px;border-radius:10px;'
+          + 'border:1px solid rgba(52,211,153,.45);background:rgba(6,78,59,.28);color:#a7f3d0;font-size:13px;line-height:1.5';
+        var _what = LT_HINT.level + (LT_HINT.book ? ' · ' + LT_HINT.book : '');
+        /* 🌐 data-ko/data-en 을 «함께» 박는다 — JS 로 그린 글자는 그것 없이는 🌐 를 눌러도
+              안 따라온다(CLAUDE.md 2장). 아이콘 버튼이 아니라 «문장» 이라 이 두 속성이 맞다. */
+        _ltNote.setAttribute('data-ko', '🎯 레벨테스트 결과(' + _what + ')는 기억해 뒀어요. 로그인하고 돌아오시면 그대로 이어집니다.');
+        _ltNote.setAttribute('data-en', '🎯 We saved your placement result (' + _what + ') — log in and it will still be here.');
+        _ltNote.textContent = _ltNote.getAttribute(
+          (window.getLang && window.getLang() === 'en') ? 'data-en' : 'data-ko');
+        var _need = app.querySelector('.login-need');
+        if (_need) _need.appendChild(_ltNote);
+      }
       document.querySelector('.price').style.display = 'none';
       return;
     }

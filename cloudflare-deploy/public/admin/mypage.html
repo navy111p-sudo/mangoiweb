@@ -2211,6 +2211,7 @@
   // ── 🎯 레벨테스트 신청 (강사 열람 + 1:1 평가) ──
   function ltEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   var __ltAppsById = {};
+  var __ltBookHints = {};   // 레벨 → 그동안 가장 많이 고른 추천 교재 (서버 집계)
   // 표준 CEFR 스피킹 루브릭 5항목 — 어느 선생님이 매겨도 일관되게(공정)
   var LT_DIMS = [
     { key:'pron',          ico:'🗣', ko:'발음',      en:'Pronunciation' },
@@ -2233,6 +2234,10 @@
       .then(function(r){ return r.json(); })
       .then(function(d){
         var items = (d && d.items) || [];
+        /* 📚 레벨별 «지금까지 실제로 추천한 교재» (서버가 세어 준 최빈값) — 평가 화면 기본값 제안용.
+           ⛔ 규칙을 코드가 지어낸 것이 아니라 사람이 고른 것을 되돌려 주는 값이다.
+              데이터가 없으면 비어 있고, 그때는 지금까지처럼 빈 칸으로 시작한다. */
+        __ltBookHints = (d && d.book_hints) || {};
         __ltAppsById = {};
         items.forEach(function(a){ __ltAppsById[a.id] = a; });
         if (!items.length){ body.innerHTML = '<div style="padding:26px;text-align:center;color:var(--text-muted)">'+(en?'No applications yet':'아직 신청이 없습니다')+'</div>'; return; }
@@ -2379,6 +2384,27 @@
     // 최종레벨 기본값 = AI 추정(객관 기준선)
     var sel = document.getElementById('lt-eval-level');
     if (sel) sel.value = ltSuggestLevel(app, ltCalcScore(ltEvalState.rubric));
+    /* 📚 (2026-08-25) 추천 교재 기본값 — 그동안 «이 레벨에» 가장 많이 고른 교재를 미리 넣어 준다.
+       [왜] 레벨은 AI 추정이 미리 채워지는데 교재만 늘 빈 칸이라 매번 처음부터 판단해야 했다.
+       ⚠️ 이미 적힌 값이 있으면 절대 덮지 않는다 — 지난 평가를 다시 여는 경우다.
+       ⚠️ 레벨을 바꾸면 제안도 따라 바꾼다. 단 «사람이 손댄 뒤에는» 다시 안 건드린다
+          (touched) — 고른 것을 화면이 되돌리면 그게 더 나쁘다. */
+    var bookEl = document.getElementById('lt-eval-book');
+    if (bookEl) {
+      var touched = false;
+      bookEl.addEventListener('input', function(){ touched = true; });
+      var applyHint = function(){
+        if (touched || (bookEl.value || '').trim()) return;
+        var hint = __ltBookHints[(sel && sel.value) || ''] || '';
+        if (hint) {
+          bookEl.value = hint;
+          bookEl.title = EN() ? 'Suggested from past assessments at this level — change it freely.'
+                              : '이 레벨에서 그동안 가장 많이 고른 교재예요. 다르면 바꾸세요.';
+        }
+      };
+      applyHint();
+      if (sel) sel.addEventListener('change', applyHint);
+    }
     ltRefreshScore();
   };
   window.ltPick = function(dim, n){

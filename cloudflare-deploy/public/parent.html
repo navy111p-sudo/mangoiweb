@@ -629,6 +629,33 @@ async function pdLeveltest(){
     '</div>';
   }).join('');
 
+  /* ▶ 결과가 나온 신청이 있으면 «다음 걸음» 을 준다 (2026-08-25).
+     레벨·추천 교재까지 다 보여 주고도 그 다음으로 이어지는 길이 없어서,
+     결과를 받은 학부모가 스스로 신청 화면을 찾아가야 했다.
+     ⚠️ 가장 최근 결과 하나만 쓴다 — 여러 건이면 옛 레벨로 신청하게 된다.
+     ⚠️ 주소에 싣는 레벨·교재는 신청 화면이 그대로 보여 주는 «안내» 값이다.
+        가격·권한에는 쓰이지 않으므로 위조돼도 손해가 없다. */
+  const withLevel = items.filter(a => a && a.final_level)
+    .sort((x, y) => (y.created_at || 0) - (x.created_at || 0))[0];
+  const nextStep = withLevel
+    ? (() => {
+        /* 🔴 &amp; 로 적는다 — «&lt_level» 은 브라우저가 옛 문자참조 &lt(=<) 로 읽어 버린다.
+           세미콜론이 없어도 디코딩되는 legacy named reference 라 주소가
+           «?from=lt<_level=A2» 가 되고 **레벨이 통째로 사라진다.**
+           2026-08-25 브라우저 검사에서 잡았다(문자열 하니스로는 안 보인다). */
+        let q = '?from=lt&amp;lt_level=' + encodeURIComponent(withLevel.final_level);
+        if (withLevel.recommended_textbook) q += '&amp;lt_book=' + encodeURIComponent(withLevel.recommended_textbook);
+        const what = esc(withLevel.final_level) + (withLevel.recommended_textbook ? ' · ' + esc(withLevel.recommended_textbook) : '');
+        return '<a href="/enroll.html' + q + '" style="display:block;text-decoration:none;margin-top:6px;padding:14px 15px;border-radius:12px;'
+          + 'background:linear-gradient(135deg,rgba(16,185,129,.22),rgba(5,150,105,.12));border:1.5px solid rgba(52,211,153,.55)">'
+          + '<b style="display:block;color:#6ee7b7;font-size:15px;font-weight:800;margin-bottom:3px">▶ '
+          + (isEn ? 'Start classes at this level' : '이 결과로 수업 신청하기') + '</b>'
+          + '<span style="display:block;color:#a7d9c4;font-size:12.5px;line-height:1.6">'
+          + (isEn ? 'Pick your days and times for ' : '') + what + (isEn ? '' : ' 에 맞춰 요일·시간을 고르실 수 있어요')
+          + '</span></a>';
+      })()
+    : '';
+
   // 아직 AI 진단을 안 본 신청이 있으면 바로 볼 수 있게 안내 (희망 톤)
   const needsAi = items.some(a => a.ai_score == null && a.status !== 'cancelled');
   const cta = needsAi
@@ -638,7 +665,7 @@ async function pdLeveltest(){
           : '먼저 5분짜리 AI 자동 진단을 받아보세요. 선생님이 딱 맞는 지점에서 시작할 수 있어요. ') +
         '<a href="/level-test-ai.html" style="color:#a5b4fc;font-weight:800">' + (isEn ? 'Start →' : '시작하기 →') + '</a></div>'
     : '';
-  el.innerHTML = rows + cta;
+  el.innerHTML = rows + nextStep + cta;
   card.style.display = '';
 }
 
