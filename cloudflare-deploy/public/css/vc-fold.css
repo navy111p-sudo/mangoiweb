@@ -1,0 +1,171 @@
+/* vc-fold.css — 펼친 폴더블(갤럭시 Z 폴드)·태블릿 «넓은 세로» 수업화면 (2026-08-25)
+   ─────────────────────────────────────────────────────────────────────────────
+   [제보] 사장님, 갤럭시 Z 폴드를 **펼친 상태**에서
+      ① 교재가 깨져서 잘 안 보인다  ② 교사 화면이 작고 학생 화면이 크다
+      ③ 가로로 안 보인다            ④ 얼굴이 «위» 에 있다(교재 왼쪽·얼굴 오른쪽이어야 한다)
+   [원인] 펼친 폴드는 «폭이 넓은데 orientation 은 portrait» 인 화면이다(실측 738×830).
+      이 파일이 아닌 index.html 의 수업 레이아웃은 «≤920px + portrait = 휴대폰 세로» 로
+      단정하고 얼굴을 위, 교재를 아래로 쌓는다. 게다가 「화면을 가로로 돌려주세요」
+      오버레이까지 뜬다(실측 display:flex). 폴드를 몇 도만 돌려 830×738 이 되면
+      landscape 로 잡혀 «교재 왼쪽 · 얼굴 오른쪽» 으로 확 바뀐다 —
+      같은 기기, 같은 자세인데 픽셀 몇 개로 배치가 뒤집히고 있었다.
+   [처리] «짧은 변이 600px 이상 + 가로세로비 0.62 이상 + 폭 1024px 이하» 를
+      **넓은 화면(vc-wide)** 으로 보고(js/idx-vc-fold.js 가 body 에 붙인다),
+      방향과 무관하게 이미 있는 «교재 왼쪽 · 얼굴 오른쪽» 배치를 쓴다.
+      ⚠️ 휴대폰 세로(390×844 → 짧은 변 390)는 조건에 걸리지 않는다. 학생 29,000명이
+         쓰는 그 화면은 **한 줄도 바뀌지 않는다** — 그래서 미디어쿼리를 고치지 않고
+         새 클래스로 덮는 길을 택했다.
+   ⛔ 되돌릴 때는 이 파일과 js/idx-vc-fold.js, index.html 의 그 두 줄만 지우면 된다.
+
+   📐 특이도 메모 — 이 파일은 «맨 마지막에» 링크된다(문서 순서상 유리). 그래도
+      #vc-video-grid#vc-video-grid#vc-video-grid 처럼 id 를 겹쳐 쓴 곳이 있는데,
+      세로 PIP 규칙(#vc-main-row.video-pip #vc-video-grid#vc-video-grid
+      .video-box:not(.vc-pip-primary):not(#vc-local-box) = id 4개)을 이겨야 하기 때문이다.
+      CLAUDE.md 「id 하나짜리 선택자는 id+클래스를 못 이긴다」 함정과 같은 뿌리다. */
+
+/* ── ① 「화면을 가로로 돌려주세요」 안내·흐림 해제 ───────────────────────────
+      넓은 화면은 이미 충분히 넓다. 돌리라고 할 이유가 없고, 그 오버레이가
+      수업 UI 를 blur + pointer-events:none 으로 통째로 막고 있었다. */
+/* ⚠️ 특이도 주의 — 상대는 body.vc-in-call:not(.vc-orientation-dismissed) …(클래스 2개)다.
+      .vc-wide 하나만으로는 진다(실측: 고치기 전 overlay 가 display:flex 그대로였다).
+      html 을 앞에 붙이고 .vc-in-call 을 함께 써서 확실히 이긴다. */
+html body.vc-wide.vc-in-call #vc-orientation-overlay,
+html body.vc-wide.vc-in-call #vc-rotate-hint,
+html body.vc-wide.vc-in-call .rotate-hint,
+html body.vc-wide #vc-orientation-overlay { display: none !important; }
+html body.vc-wide.vc-in-call #view-videocall-call > *:not(#vc-orientation-overlay) {
+  filter: none !important;
+  pointer-events: auto !important;
+}
+
+/* ── ② 교재 왼쪽(메인) · 얼굴 오른쪽(사이드바) ─────────────────────────────
+      index.html 의 mg-vc-right-sidebar 블록이 order 로 이미 해 두었는데,
+      ≤900 세로 블록이 그걸 되돌린다. 넓은 화면에서만 다시 뒤집는다. */
+body.vc-wide.vc-in-call #vc-main-row { flex-direction: row !important; height: 100% !important; }
+body.vc-wide.vc-in-call #vc-main-row > #vc-content-pane { order: 1 !important; }
+body.vc-wide.vc-in-call #vc-main-row > #vc-video-pane   { order: 2 !important; }
+
+/* 얼굴 칸 — 오른쪽 세로 기둥. 세로폰용 «위쪽 띠»(max-height:28~32vh) 를 끈다.
+   PIP·facepip 의 절대배치(position:absolute)도 여기서 제자리로 되돌린다. */
+body.vc-wide.vc-in-call #vc-main-row:not(.video-full):not(.video-solo):not(.video-free):not(.vc-side-collapsed) > #vc-video-pane {
+  position: relative !important;
+  top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+  width: 34% !important;
+  max-width: 380px !important;
+  min-width: 150px !important;
+  height: 100% !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: 0 0 auto !important;
+  z-index: auto !important;
+  border-radius: 0 !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  border-left: 1px solid rgba(148,163,184,0.25) !important;
+  background: rgba(10,21,48,0.95) !important;
+  overflow: hidden !important;
+  padding: 4px !important;
+}
+/* 사용자가 고른 분할 비율은 «폭» 으로만 반영한다(세로용 높이 비율 규칙 무효) */
+body.vc-wide.vc-in-call #vc-main-row.video-quarter:not(.video-full):not(.video-solo):not(.video-free) > #vc-video-pane { width: 26% !important; }
+body.vc-wide.vc-in-call #vc-main-row.video-half:not(.video-full):not(.video-solo):not(.video-free) > #vc-video-pane { width: 34% !important; }
+body.vc-wide.vc-in-call #vc-main-row.video-threequarter:not(.video-full):not(.video-solo):not(.video-free) > #vc-video-pane { width: 52% !important; }
+
+/* 교재 칸 — 남는 폭 전부 */
+body.vc-wide.vc-in-call #vc-main-row:not(.video-full) > #vc-content-pane {
+  display: flex !important;
+  position: static !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  max-height: none !important;
+}
+
+/* ── ③ 얼굴 타일: 세로 1열 · 교사 위 · 학생과 «같은 크기» ──────────────────
+      ⛔ 1:1 에서 내 타일을 62% 로 줄이는 규칙(vc-teacher-first ②)과
+         세로 PIP 의 22% 규칙은 여기선 끈다 — 사장님 지시는 「교사가 크던가
+         최소한 같은 크기」다. */
+body.vc-wide.vc-in-call #view-videocall-call #vc-main-row:not(.video-full):not(.video-solo) #vc-video-grid#vc-video-grid#vc-video-grid {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  grid-template-rows: none !important;
+  grid-auto-rows: 1fr !important;
+  grid-auto-flow: row !important;
+  width: 100% !important;
+  height: 100% !important;
+  align-content: stretch !important;
+  justify-items: stretch !important;
+  gap: 6px !important;
+  padding: 0 0 calc(66px + env(safe-area-inset-bottom, 0px)) 0 !important;
+  overflow: hidden !important;
+}
+body.vc-wide.vc-in-call #view-videocall-call #vc-main-row:not(.video-full):not(.video-solo) #vc-video-grid#vc-video-grid#vc-video-grid .video-box,
+body.vc-wide.vc-in-call #view-videocall-call #vc-main-row:not(.video-full):not(.video-solo) #vc-video-grid#vc-video-grid#vc-video-grid #vc-local-box {
+  display: block !important;
+  position: relative !important;
+  top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+  order: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  flex: 1 1 auto !important;
+  aspect-ratio: auto !important;
+  opacity: 1 !important;
+  z-index: auto !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  justify-self: stretch !important;
+}
+/* 내 타일은 항상 아래(교사가 위) — vc-teacher-first ① 과 같은 방향 */
+body.vc-wide.vc-in-call #view-videocall-call #vc-main-row #vc-video-grid#vc-video-grid#vc-video-grid #vc-local-box { order: 96 !important; }
+
+/* ── ④ 얼굴PIP 가 감추던 기능 탭바(교재·칠판·동영상…)는 넓은 화면에선 보여야 한다 ──
+      js/idx-vc-fold.js 가 넓은 화면에 들어올 때 PIP·얼굴PIP 를 1/2 로 되돌리므로
+      평소엔 여기까지 안 오지만, 되돌리기 전 한 프레임을 위해 함께 둔다.
+      ⚠️ 화면비율 바(.video-size-bar)는 여기서 손대지 않는다 — ≤900 세로에서
+         `display:none !important` 로 통째로 감춰져 있어(index.html 3457행) 위치만
+         바꿔 봐야 아무 일도 안 일어난다. 되살릴지는 별건이다. */
+body.vc-wide.vc-in-call #vc-main-row .content-pane .tab-bar { display: flex !important; }
+
+/* ── ⑤ 손가락으로 끌면 «바로» 움직이게 (scroll-behavior) ────────────────────
+      [문제] `.pdf-scroll-wrap` 에 `scroll-behavior: smooth`(index.html 2112행)가 걸려 있다.
+             그래서 JS 가 `wrap.scrollLeft = …` 로 끌 때마다 **부드러운 이동 애니메이션이
+             매번 새로 시작**되어 실제로는 거의 안 움직인다.
+             실측(738×830, 확대 3배): smooth 면 손가락으로 끌어도 scrollLeft **0**,
+             auto 면 **120**. 브라우저가 대신 굴려 주던 동안에는 이게 안 보였다.
+      ⚠️ 수업 중(body.vc-in-call)에만 건다 — 교재 뷰어는 수업 안에서만 쓴다. */
+body.vc-in-call #pdf-scroll-wrap { scroll-behavior: auto !important; }
+
+/* 넓은 화면(폴드·태블릿)에서만 제스처를 브라우저에 안 넘긴다.
+      [왜] `@media(max-width:1024px)` 가 이 상자에 `touch-action: pan-x pan-y` 를 거는데,
+           그러면 두 손가락 제스처를 브라우저가 «스크롤» 로 가져가 `touchmove` 가
+           non-cancelable 이 되거나 `touchcancel` 로 끊길 수 있다(안드로이드 실기기).
+      ⛔ **폰(≤600px)에는 걸지 않는다.** 브라우저가 대신 굴려 주는 것을 끄면 이동이
+         전부 JS 몫이 되는데, 학생 29,000명이 쓰는 화면에서 그 위험을 질 이유가 없다.
+         헤드리스에서는 `pan-x pan-y` 로도 핀치가 3.25배까지 되는 것을 확인했다 —
+         즉 이 줄은 «폴드에서 확실히 되게» 하는 보험이지 폰에 필요한 것이 아니다. */
+body.vc-wide.vc-in-call #pdf-scroll-wrap { touch-action: none !important; }
+
+/* ── ⑥ 「교재를 크게 해도 커지지 않는다」 (제보 ⑥) ─────────────────────────
+   🔴 확대 배율은 제대로 올라가고 있었다. 캔버스 «그림» 도 3배로 커졌다(실측 428→1283px).
+      그런데 화면에 보이는 크기는 452px 그대로였다 —
+      css/mangoi-layout.css 84행의 전역 초기화
+          img, video, canvas, svg, iframe { max-width: 100%; }
+      가 교재 캔버스에도 걸려, 3배로 그린 그림을 **원래 폭으로 도로 줄여** 보여주고 있었다.
+      («가로 스크롤 방지» 목적의 옳은 규칙인데, 확대해서 보라고 만든 캔버스에는 독이었다.)
+   ⚠️ 그래서 🔍+ 버튼도, 핀치도, 더블탭도 «눌리기는 하는데 아무 일이 없어» 보였다.
+      2026-07-28 에 고친 「window.pdfZoom 대 let pdfZoom」 과는 **다른 두 번째 원인**이다.
+   ✅ 교재 캔버스 넷만 예외로 둔다. 배율 1.0 에서는 어차피 상자에 맞게 그리므로
+      문서가 옆으로 밀리지 않고, 확대분은 #pdf-scroll-wrap(overflow:scroll) 안에서 굴러간다.
+   ⚠️ 필기 캔버스(#pdf-anno*)도 «함께» 풀어야 한다 — 한쪽만 풀면 필기가 그림과 어긋난다. */
+body.vc-in-call #pdf-canvas,
+body.vc-in-call #pdf-canvas-2,
+body.vc-in-call #pdf-anno,
+body.vc-in-call #pdf-anno-2 {
+  max-width: none !important;
+  max-height: none !important;
+}

@@ -353,6 +353,10 @@ export class VideoCallRoom {
         case 'pdf-anno-undo':
         case 'pdf-anno-shape':
         case 'pdf-pointer':
+        case 'pdf-zoom':             // 🔍 (2026-08-25) 교사 → 학생: 교재 확대 배율.
+                                     //   「선생님은 교재를 키웠는데 학생은 그대로」 제보(사장님).
+                                     //   그리는 쪽에서 data.role 이 교사일 때만 적용한다 —
+                                     //   device-report·quiz-pick 등 다른 릴레이와 같은 규칙.
         case 'whiteboard-text':
         case 'whiteboard-shape':
         case 'whiteboard-stroke':

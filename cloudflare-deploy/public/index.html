@@ -17906,5 +17906,13 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   else boot();
 })();
 </script>
+
+<!-- 📱 (2026-08-25 사장님 제보) 갤럭시 Z 폴드를 «펼친» 상태에서 교재가 작고 얼굴이 위에 있던 문제.
+     펼친 폴드는 «폭이 넓은데 orientation 은 portrait» 라(실측 738×830) 휴대폰 세로 규칙에 걸렸다.
+     자세한 사연·되돌리는 법은 css/vc-fold.css 머리말에.
+     ⚠️ CSS 는 첫 화면 blocking 예산에 안 세지만, JS 는 반드시 defer 여야 한다(여유 100바이트).
+     ⚠️ 이 <link> 는 문서 «맨 끝» 이라야 세로폰 규칙을 이긴다. head 로 올리지 말 것. -->
+<link rel="stylesheet" href="/css/vc-fold.css?v=2">
+<script defer src="/js/idx-vc-fold.js?v=2"></script>
 </body>
 </html>
