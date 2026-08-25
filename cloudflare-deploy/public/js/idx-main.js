@@ -2716,7 +2716,7 @@ async function vcJoinRoom(skipUI) {
                 가로막지 않는 이유: 이 분기로 오는 학생 대부분은 «아직 예약 이관이 안 된» 실제
                 수강생이라 여기서 막으면 그 학생들이 수업에 못 들어간다(위 주석과 같은 사정). */
           console.log('[vc] student_gate=off → 예전 폴백 유지(공용방, 학생에게는 안내 배너)');
-          window.__vcSharedRoomNotice = 'student';
+          window.__vcSharedRoomNotice = (_js && _js.open_at_ts) ? { who: 'student', openAtTs: _js.open_at_ts } : 'student';
         } else {
           // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
@@ -2867,34 +2867,14 @@ async function vcJoinRoom(skipUI) {
     // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
     //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
     try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
-    /* 🔒 (2026-07-28, 2026-08-24 학생 추가) 오늘 예약이 없어 '공용 연습방'으로 들어온 사람에게 알린다 —
-       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다. 학생 쪽은 더 심각하다 —
-       실수로 이 방에서 «수업처럼» 진행하면 다른 학생·강사와 뒤섞인다. 값은 'teacher'|'student'.
-       ※ 이 블록은 위 전체화면 호출보다 뒤에 둔다 — 하니스가 'vc-in-call 추가 → 전체화면 호출'
-         인접(400자)을 검사하므로, 사이에 코드를 넣으면 그 보장이 깨진다. */
+    /* 🔒 (2026-07-28, 2026-08-24 학생 추가, 2026-08-25 파일 분리) 오늘 예약이 없어 '공용 연습방'으로
+       들어온 사람에게 알린다. 실제 배너·alert 는 idx-vc-shared-notice.js(defer)가 그린다 — 첫 화면
+       예산 여유가 거의 0 이라 여기(blocking)엔 트리거 한 줄만 둔다. 값 모양은 그 파일 머리말 참고.
+       ※ 전체화면 호출보다 뒤에 둔다 — 'vc-in-call 추가→전체화면 호출' 인접(400자) 하니스 보장 유지. */
     try {
       if (window.__vcSharedRoomNotice) {
-        var _sharedWho = window.__vcSharedRoomNotice;
-        window.__vcSharedRoomNotice = false;
-        var _en0 = (typeof getLang === 'function' && getLang() === 'en');
-        var _nm = document.getElementById('vc-room-name');
-        if (_nm && _nm.parentNode) {
-          var _tag = document.createElement('span');
-          _tag.textContent = _en0 ? '  (shared practice room - others may join)' : '  (공용 연습방 · 다른 사람도 들어올 수 있어요)';
-          _tag.style.cssText = 'font-size:11.5px;font-weight:700;color:#fbbf24;margin-left:6px';
-          _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
-        }
-        setTimeout(function(){
-          if (_sharedWho === 'student') {
-            alert(_en0
-              ? "You don't have a class booked for today, so you entered a SHARED practice room — not your real classroom.\n\nOther students/teachers may also be here. Please don't start a lesson here. Check the home screen for your class days/times, and use \"Enter My Class\" when it's actually time."
-              : '오늘 예약된 수업이 없어서, 실제 수업방이 아닌 "공용 연습방"으로 들어왔어요.\n\n다른 학생·강사도 이 방에 있을 수 있어요. 여기서 수업을 진행하지 마세요.\n홈 화면에서 내 수업 요일·시간을 확인하고, 수업 시간이 되면 "오늘 내 수업 바로 입장"을 이용해 주세요.');
-          } else {
-            alert(_en0
-              ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
-              : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
-          }
-        }, 900);
+        var _n = window.__vcSharedRoomNotice; window.__vcSharedRoomNotice = false;
+        if (window.vcSharedRoomAlert) window.vcSharedRoomAlert(_n);
       }
     } catch(e){}
     try { if (window.mangoiClassEntryNotice) setTimeout(window.mangoiClassEntryNotice, 600); } catch(e){}
