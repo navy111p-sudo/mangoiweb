@@ -1976,10 +1976,25 @@
                data-en="💡 🔴 Live = you can join now. [🚪 Join] enters as a real participant (not observation) — use it to cover a class when the teacher can't get in.">
             💡 🔴 진행중 = 지금 들어갈 수 있는 수업입니다. [🚪 입장]은 참관이 아니라 실제 참가자로 들어갑니다 — 강사가 못 들어왔을 때 대신 수업을 맡는 용도입니다.
           </div>
+          <div style="font-size:11.5px;color:#475569;background:rgba(148,163,184,0.12);border:1px solid rgba(148,163,184,0.32);border-radius:6px;padding:7px 12px;margin-bottom:8px;line-height:1.6"
+               data-ko="ℹ️ 「LMS」 표시가 붙은 줄은 카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관 버튼이 없습니다 — 그 수업은 카페24에서 참관하세요."
+               data-en="ℹ️ Rows marked «LMS» run on cafe24. They have no Mangoi room, so there is no join/observe button — observe those from cafe24.">
+            ℹ️ 「LMS」 표시가 붙은 줄은 카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관 버튼이 없습니다 — 그 수업은 카페24에서 참관하세요.
+          </div>
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
             <button id="tc-load" class="primary" style="padding:5px 12px;font-size:12px;" data-ko="🔄 불러오기" data-en="🔄 Load">🔄 불러오기</button>
             <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px;cursor:pointer">
               <input type="checkbox" id="tc-only-live" /> <span data-ko="지금 들어갈 수 있는 것만" data-en="Joinable only">지금 들어갈 수 있는 것만</span>
+            </label>
+            <!-- 📆 (2026-08-25) 날짜를 고르면 지난 수업 기록이 된다 — 조회 API 는 같다(둘이 어긋날 일이 없다). 비워 두면 오늘.
+                 ⚠️ 크기는 여기서 못 정한다 — `admin-inline-c.css` 의 `details.menu-card input` 이
+                    `padding:8px 12px !important; font-size:13.5px !important` 로 인라인을 이긴다(실측 확인).
+                    이 줄은 flex-wrap 툴바라 커져도 안 밀리므로 전역 규칙을 그대로 따른다.
+                    ⛔ 좁은 «표 칸» 에 같은 입력을 넣을 때는 다르다 — 그때는 ID 접두 규칙으로 되살릴 것
+                       (선례: `#acc-bankacct td select.bk-assign`. CLAUDE.md 2장). -->
+            <label style="font-size:12px;color:#6b7280;display:inline-flex;align-items:center;gap:4px">
+              <span data-ko="날짜" data-en="Date">날짜</span>
+              <input type="date" id="tc-date" style="box-sizing:border-box;width:170px" />
             </label>
             <span style="font-size:11px;color:#6b7280;" id="tc-count"></span>
           </div>
@@ -9800,7 +9815,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      ② 이 브랜치: 급여 «총 수업시간(분)» 칸이 값의 출처를 구분(사람 입력 / 카페24 «자동» / 20분 가정 «입력 필요»)
      파일 내용은 자동병합으로 둘 다 들어가 있다. 번호만 새로 딴 것이라 어느 쪽도 묻히지 않는다. -->
 <script src="/js/adm-bulkbook.js?v=1" defer></script><!-- 📚 학생 교재 일괄 배정 모달 (학생관리 툴바 버튼 주입) -->
-<script src="/js/adm-today-classes.js?v=6" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
+<script src="/js/adm-today-classes.js?v=7" defer></script><!-- 🚪 오늘 수업 바로 입장 (매니저용, 2026-07-23) -->
 <script src="/js/adm-quick-access.js?v=12" defer></script><!-- ⚡ 자주 쓰는 기능 (2026-07-23 · 08-08 10개+자동정렬 · 08-16 첫 화면 맨 위로 이동) -->
 <script src="/js/adm-recent-menus.js?v=1" defer></script><!-- 🕘 최근 본 메뉴 5개 (2026-08-16) -->
 <script src="/js/adm-crumb.js?v=3" defer></script><!-- 🧭 경로 줄 — 뒤로·홈·지금 어디 (2026-08-19) -->

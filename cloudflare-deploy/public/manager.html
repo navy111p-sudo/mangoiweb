@@ -494,6 +494,23 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
     
 
+    <!-- 📅 오늘 전체 수업 (2026-08-25 매니저 보고서 ②③⑤ — 경위는 작업기록 260825)
+         ⚠️ «펼칠 때만» 부른다 — 이 화면의 계약은 «첫 화면 API 2회».
+         ⚠️ 외부 파일로 빼지 않는다 — 외부 JS 0개가 이 화면의 설계다. -->
+    <details class="card" id="c-today" ontoggle="if(this.open)loadTodayAll()">
+      <summary><span data-en="All classes today" data-ko="오늘 전체 수업">All classes today</span></summary>
+      <div class="muted" style="font-size:12px;line-height:1.6;padding:2px 0 8px"
+           data-en="Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes."
+           data-ko="「LMS」 표시가 붙은 줄은 카페24에서 도는 수업입니다 — 망고아이 방이 없어 입장 버튼이 없습니다. 날짜를 고르면 지난 수업 기록이 됩니다.">
+        Rows marked «LMS» run on cafe24 — there is no Mangoi room, so they have no Join button. Pick a date to see finished classes.
+      </div>
+      <label style="font-size:12px;display:inline-flex;align-items:center;gap:6px;padding-bottom:8px">
+        <span data-en="Date" data-ko="날짜">Date</span>
+        <input type="date" id="taDate" onchange="loadTodayAll()" style="box-sizing:border-box;width:150px;padding:3px 6px;font-size:12px">
+      </label>
+      <div id="todayAllBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+    </details>
+
     <details class="card" id="c-live" ontoggle="if(this.open)loadLive()">
       <summary><span data-en="Classes running now" data-ko="지금 진행 중인 수업">Classes running now</span></summary>
       <div id="liveBody" class="empty" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
@@ -730,7 +747,8 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
 
   // ── ① 오늘 ────────────────────────────────────────────────────────────────
   var D = { today: null, month: null, series: null, flow: null, students: null, util: null, wait: null, me: null,
-            payroll: null, leave: null, reqs: null, live: null, outage: null, bugs: null };
+            payroll: null, leave: null, reqs: null, live: null, outage: null, bugs: null,
+            todayAll: null };
 
   function paintToday(){
     var d = D.today; if (!d) return;
@@ -1185,6 +1203,83 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   });
 
 
+  /* ③-2 오늘 전체 수업 — 서버가 망고아이 예약과 카페24 예약을 합쳐 준다.
+     카페24 줄은 join_open:false (우리 방이 없어 들어갈 데가 없다).
+     ⛔ 자동갱신 금지 — [Refresh]·날짜 변경 때만. 🔒 범위 격리는 서버(scopeStudentCond). */
+  window.loadTodayAll = function(){
+    var el = document.getElementById('todayAllBody');
+    var dEl = document.getElementById('taDate');
+    var qs = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? ('?date=' + encodeURIComponent(dEl.value)) : '';
+    if (D.todayAll && D.todayAll._qs === qs) { paintTodayAll(); return; }
+    el.className = 'empty';
+    el.textContent = T('Loading...', '불러오는 중...');
+    // quietGet — 실패해도 로그인으로 안 튕긴다(get() 은 403 에서 튕긴다)
+    quietGet('/api/admin/classes/today' + qs)
+      .then(function(j){
+        if (!j) { failBox(el, new Error('load_failed')); return; }
+        j._qs = qs; D.todayAll = j; paintTodayAll();
+      })
+      .catch(function(e){ failBox(el, e); });
+  };
+
+  function paintTodayAll(){
+    var j = D.todayAll || {};
+    var rows = (j.sessions || []).slice();
+    // 들어갈 수 있는 줄을 맨 위로 — 급할 때 위만 보면 되게
+    rows.sort(function(a, b){
+      if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
+      return (a.start_ts || 0) - (b.start_ts || 0);
+    });
+    var c = j.counts || {};
+    var head = '<div class="muted" style="padding-bottom:6px">'
+      + esc(T((j.date || '') + ' · ' + rows.length + ' total'
+                + (c.cafe24 ? ' · ' + c.cafe24 + ' on cafe24' : '')
+                + (c.joinable ? ' · ' + c.joinable + ' joinable' : ''),
+              (j.date || '') + ' · 전체 ' + rows.length + '건'
+                + (c.cafe24 ? ' · 카페24 ' + c.cafe24 + '건' : '')
+                + (c.joinable ? ' · 입장가능 ' + c.joinable + '건' : ''))) + '</div>';
+    hqRows('todayAllBody', rows, function(r){
+      var t = esc(r.start_time || '');
+      var who = esc(r.student_name || r.student_uid || '-');
+      /* ⚠️ 강사 미배정은 매니저가 가장 먼저 봐야 하는 줄이다 — 회색(.muted) 안에 넣으면
+         부모 색에 묻혀 «그냥 한 줄» 로 보인다(2026-08-25 브라우저 실측에서 잡음). 상자를 갈라 둔다. */
+      var tea = r.teacher_name
+        ? '<span class="muted">' + esc(r.teacher_name) + '</span>'
+        : '<span style="color:#b45309;font-weight:800">' + esc(T('unassigned', '미배정')) + '</span>';
+      var tags = '';
+      if (r.source === 'cafe24') tags += '<span class="tag">LMS</span>';
+      if (!r.textbook_assigned) tags += '<span class="tag hot">' + esc(T('no textbook', '교재 미배정')) + '</span>';
+      else if (r.textbook) tags += '<span class="muted">' + esc(r.textbook) + '</span>';
+      // 🚪 입장 — 망고아이 방이 있는 줄만(강사 대체용). 확인 문구는 관리자 화면과 같다
+      var act = r.join_open
+        ? '<a class="tag" href="#" onclick="return taJoin(this)" data-room="' + esc(r.room_id || '') + '" data-who="' + who + '">'
+          + esc(T('Join', '입장')) + '</a>'
+        : '';
+      return '<div class="row"><b>' + t + '</b><span>' + who + '</span>'
+           + tea + tags + act + '</div>';
+    }, T('No classes on this date.', '이 날짜에는 수업이 없습니다.'));
+    var box = document.getElementById('todayAllBody');
+    if (rows.length && box) box.insertAdjacentHTML('afterbegin', head);
+  }
+
+  /* 실제 참가자로 입장 — 카메라는 꺼진 채로 시작(js/vc-observe-guard.js 가 &vc_cam=off 를 처리).
+     ⚠️ 카톡·문자앱 인앱 브라우저는 window.open 이 **예외 없이 null** 만 돌려준다 →
+        반환값을 보고 같은 창으로 연다(CLAUDE.md 2장 함정). */
+  window.taJoin = function(a){
+    var room = a.getAttribute('data-room') || '';
+    var who = a.getAttribute('data-who') || '';
+    if (!room) return false;
+    if (!confirm(T('Join this class as a real participant?\n\nRoom: ' + room + '\nStudent: ' + who
+                   + '\n\nNOT observation — students and the teacher see you. Camera starts OFF.',
+                   '이 수업에 실제 참가자로 입장할까요?\n\n강의실: ' + room + '\n학생: ' + who
+                   + '\n\n※ 참관이 아닙니다. 학생·강사에게 보입니다. 카메라는 꺼진 채로 시작합니다.'))) return false;
+    var url = location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(room);
+    var w = null;
+    try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+    if (!w) location.href = url;
+    return false;
+  };
+
   // ④ 지금 진행 중인 수업 → 관찰(고스트) 열기
   //    ⚠️ 관찰 자체는 실시간 영상이라 경량화 대상이 아니다. 여기서는 «어느 방이 열려 있는지»
   //       까지만 보여 주고, 실제 관찰은 기존 고스트 화면을 새 탭으로 연다.
@@ -1364,7 +1459,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
   // ── 첫 화면: API 2회 ──────────────────────────────────────────────────────
   window.reloadAll = function(){
     D.series = D.flow = D.students = D.util = D.wait = D.me = null;
-    D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = null;
+    D.payroll = D.leave = D.reqs = D.live = D.outage = D.bugs = D.todayAll = null;
     boot();
     // 펼쳐져 있는 카드는 새 값으로 다시 채운다
     if (document.getElementById('c-trend').open) window.loadTrend();
@@ -1373,7 +1468,7 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (document.getElementById('c-util').open) window.loadUtil();
     if (document.getElementById('c-wait').open) window.loadWait();
     if (document.getElementById('c-me').open) window.loadMe();
-    ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs']
+    ['c-payroll:loadPayroll','c-leave:loadLeave','c-req:loadReqs','c-today:loadTodayAll','c-live:loadLive','c-outage:loadOutage','c-bugs:loadBugs']
       .forEach(function(pair){ var q = pair.split(':'); var el = document.getElementById(q[0]);
         if (el && el.open && typeof window[q[1]] === 'function') window[q[1]](); });
   };
