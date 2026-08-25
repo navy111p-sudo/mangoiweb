@@ -1216,7 +1216,9 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     // quietGet — 실패해도 로그인으로 안 튕긴다(get() 은 403 에서 튕긴다)
     quietGet('/api/admin/classes/today' + qs)
       .then(function(j){
-        if (!j) { failBox(el, new Error('load_failed')); return; }
+        /* 판정은 «성공이라고 말했는가» 로 — 관리자 화면이 404 를 «수업 없음» 으로 그리던 것과 같은 뿌리.
+           (quietGet 은 r.ok 가 아니면 null 을 주므로 404 는 여기서 이미 걸린다) */
+        if (!j || j.ok !== true || !Array.isArray(j.sessions)) { failBox(el, new Error((j && j.error) || 'load_failed')); return; }
         j._qs = qs; D.todayAll = j; paintTodayAll();
       })
       .catch(function(e){ failBox(el, e); });

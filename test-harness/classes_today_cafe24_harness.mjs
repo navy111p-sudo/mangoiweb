@@ -8,8 +8,12 @@
  *   매니저가 [Load] 를 눌렀을 때 화면은 «No classes scheduled for today» 였고,
  *   같은 시각 관리자 「Live Classes」 화면에는 **Scheduled now 6 · In a Mangoi room 0** 이 찍혀 있었다.
  *
- * 원인
- *   /api/admin/classes/today 가 `class_schedules` 만 읽었다. 실제 운영 수업은 카페24가 정본이고
+ * 원인 — **둘이었다**
+ *   🔴 ① 이 경로가 **줄곧 404** 였다. index.ts 라우팅(관문 ②)에는 있었지만 api-mango.ts
+ *      위임 가드(관문 ③)에 없어 handleAdminApi 까지 오지 못했다(2026-07-23 신설 이래).
+ *      404 본문에는 `ok` 칸이 없어 화면의 `d.ok === false` 검사를 통과하고 빈 목록이 되어
+ *      «오늘 예정된 수업이 없습니다» 라는 **정상 문구**로 그려졌다 — 그래서 아무도 고장으로 안 봤다.
+ *   ② 관문을 뚫어도 /api/admin/classes/today 가 `class_schedules` 만 읽었다. 실제 운영 수업은 카페24가 정본이고
  *   카페24 예약은 그 표에 한 줄도 안 들어온다(cafe24-sync 는 attendance 에 `c24-{class_id}` 씨앗으로만 넣는다).
  *   ⚠️ 에러가 안 났다 — 화면은 «정상 문구» 를 띄웠다. 그래서 「기능이 없다」로 신고됐다.
  *
@@ -72,6 +76,32 @@ check('⑥ 서버가 카페24 줄에 observable:false 를 실어 준다', /obser
 check('⑦ 화면이 출처를 보고 버튼을 가른다', /source\s*===\s*'cafe24'/.test(strip(TCJS)));
 check('⑧ 화면이 observable === false 면 참관 버튼을 안 그린다',
   /observable\s*!==\s*false/.test(strip(TCJS)));
+
+console.log('\n── 2-2. 🔴 관문 «셋» — 하나만 빠져도 404 인데 화면엔 «수업 없음» 으로 보인다 ──');
+/* 2026-08-25 실측: 이 경로는 2026-07-23 신설 이래 ③ 위임 가드에 없어 줄곧 404 였다.
+   ⚠️ 「그 문자열이 있는가」로 검사하면 안 된다 — 접두사 규칙(`startsWith`)이 섞여 있어
+      눈으로는 통과처럼 보인다. **조건식을 오려 내 실제로 돌린다**(CLAUDE.md 2장 「넘기는 모양」 교훈). */
+const MANGO = readFileSync(join(ROOT, 'src/api-mango.ts'), 'utf8');
+const guardAllows = (p) => {
+  const anchor = MANGO.indexOf('const rAdmin = await handleAdminApi');
+  const ifPos = MANGO.lastIndexOf('\n    if (', anchor);
+  if (anchor < 0 || ifPos < 0) return null;
+  const cond = MANGO.slice(ifPos + '\n    if ('.length, MANGO.lastIndexOf(') {', anchor))
+    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  try { return new Function('path', 'method', `return (${cond});`)(p, 'GET'); }
+  catch { return null; }
+};
+check('②-1 ③ 위임 가드(api-mango.ts)가 이 경로를 handleAdminApi 로 넘긴다  ← 없으면 404',
+  guardAllows('/api/admin/classes/today') === true);
+check('②-2 ② 라우팅 허용목록(index.ts)에도 있다',
+  INDEX.includes("path === '/api/admin/classes/today'"));
+/* 🔴 404 는 `{error:'Not Found'}` 라 `ok` 칸이 없다. `d.ok === false` 만 보면 그냥 통과하고
+   `d.sessions || []` 가 빈 배열이 되어 «오늘 예정된 수업이 없습니다» 로 그려진다 = 고장이 안 보인다. */
+check('②-3 화면이 «성공이라고 말했는가» 로 판정한다 (ok !== true 면 오류)',
+  /d\.ok !== true/.test(TCJS) && /Array\.isArray\(d\.sessions\)/.test(TCJS));
+check('②-4 화면이 HTTP 실패를 그대로 오류로 올린다', /if \(!r\.ok\) throw/.test(TCJS));
+check('②-5 매니저 화면도 같은 규칙이다',
+  /j\.ok !== true/.test(MGR) && /Array\.isArray\(j\.sessions\)/.test(MGR));
 
 console.log('\n── 3. 강사 차단 · 지사 격리 (스코프로는 강사를 못 막는다) ──');
 check('⑨ 핸들러 첫머리에서 강사를 403 으로 끊는다',
@@ -137,8 +167,8 @@ check('㉗ 실패해도 로그인 화면으로 튕기지 않는다 (quietGet)',
 
 console.log('\n── 7. 캐시 무효화 ──');
 const vm = ADMIN_HTML.match(/adm-today-classes\.js\?v=(\d+)/);
-check(`㉘ adm-today-classes.js ?v= 가 7 이상  [현재 ${vm ? vm[1] : '없음'}]`,
-  !!vm && Number(vm[1]) >= 7);
+check(`㉘ adm-today-classes.js ?v= 가 8 이상  [현재 ${vm ? vm[1] : '없음'}]`,
+  !!vm && Number(vm[1]) >= 8);
 
 console.log('\n─────────────────────────────────────────────');
 /* ⚠️ 요약 줄의 «모양» 이 러너의 판정에 걸린다 — run.mjs 는 «숫자 뒤에 곧바로 FAIL» 이 오면

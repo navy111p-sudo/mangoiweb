@@ -140,6 +140,32 @@ const warnColor = await page.evaluate(() => {
 });
 check('⑬ 그 경고가 회색이 아니다  [' + warnColor + ']', /^rgb\(180, 83, 9\)|^rgb\(18[0-9]/.test(warnColor));
 
+console.log('\n── 4-2. 🔴 404 를 «수업 없음» 으로 그리면 안 된다 ──');
+/* 이 카드가 2026-07-23 신설 이래 줄곧 404 였는데 아무도 «고장» 으로 신고하지 않은 이유가 이것이다.
+   라우팅이 빠지면 본문이 `{error:'Not Found'}` 로 오는데 `ok` 칸이 없어 «성공» 검사를 통과하고,
+   빈 목록이 되어 «오늘 예정된 수업이 없습니다» 라는 **정상 문구**로 그려졌다. */
+const p404 = await ctx.newPage();
+await p404.route('**/api/**', async (route) => {
+  const u = new URL(route.request().url());
+  if (u.pathname === '/api/admin/classes/today') {
+    return route.fulfill({ status: 404, contentType: 'application/json',
+      body: JSON.stringify({ error: 'Not Found', path: u.pathname }) });
+  }
+  return route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' });
+});
+await p404.goto('http://127.0.0.1:8893/manager.html', { waitUntil: 'networkidle' });
+await p404.evaluate(() => {
+  const d = document.getElementById('hqCards'); if (d) d.hidden = false;
+  document.getElementById('c-today').open = true;
+});
+await p404.waitForTimeout(1200);
+const t404 = await p404.locator('#todayAllBody').innerText();
+check('⑯ 404 일 때 «수업이 없습니다» 라고 말하지 않는다  ← 고장을 고장으로 보이게',
+  !/수업이 없습니다|No classes on this date/.test(t404), '[' + t404.slice(0, 40).replace(/\s+/g, ' ') + ']');
+check('⑰ 404 일 때 «불러오지 못했습니다» 로 알린다',
+  /불러오지 못했습니다|Could not load/.test(t404));
+await p404.close();
+
 console.log('\n── 5. 좁은 화면에서 넘치지 않는가 (390px) ──');
 const narrow = await ctx.newPage();
 await narrow.route('**/api/**', async (route) => {

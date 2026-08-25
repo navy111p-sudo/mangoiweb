@@ -198,8 +198,16 @@
          비워 두면 서버가 오늘(KST)로 본다. 모양이 틀린 값은 서버가 오늘로 되돌린다. */
       if (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) qs = '?date=' + encodeURIComponent(dEl.value);
       var r = await fetch('/api/admin/classes/today' + qs, { credentials: 'include' });
-      var d = await r.json();
-      if (!d || d.ok === false) throw new Error(d && d.error ? d.error : 'load_failed');
+      var d = await r.json().catch(function () { return null; });
+      /* 🔴 (2026-08-25) 예전엔 `d.ok === false` 만 봤다. 그런데 라우팅이 빠졌을 때 오는 404 본문은
+         `{error:'Not Found'}` 라 **`ok` 칸이 아예 없다** → 이 검사를 그냥 통과하고
+         `d.sessions || []` 가 빈 배열이 되어 **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다.
+         그래서 이 카드는 2026-07-23 신설 이래 줄곧 404 였는데 아무도 «고장» 으로 신고하지 않았다.
+         ✅ 판정은 «성공이라고 말했는가»(`ok === true` + 목록이 배열) 로 한다 — «실패라고 말했는가» 가 아니라. */
+      if (!r.ok) throw new Error('HTTP ' + r.status + (d && d.error ? ' · ' + d.error : ''));
+      if (!d || d.ok !== true || !Array.isArray(d.sessions)) {
+        throw new Error((d && d.error) || 'load_failed');
+      }
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
