@@ -5082,7 +5082,18 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         .user-menu{top:4.2rem!important;left:50%!important;right:auto!important;transform:translateX(-50%)!important}
       }
       @media (max-width:640px){
-        /* ─── 헤더 ─── */
+        /* ─── 헤더 ───
+           ⚠️ (2026-08-25 trap-check 로 발견) login-btn 을 641px 이상용으로 옮기면서
+           이 줄의 #user-menu 오버라이드를 실수로 통째로 지웠었다 — id+!important 라
+           위 .user-menu 기본값(top:4rem;right:7.5rem)보다 항상 이기던 규칙이었는데,
+           지우고 나니 로그인 칩(여전히 우상단 구석)과 드롭다운 위치가 어긋났다.
+           원래 값 그대로 복원. */
+        #user-menu{right:1rem!important;top:3.5rem!important;min-width:200px!important;max-width:calc(100vw - 24px)}
+        /* login-btn 은 641px 이상에서만 화면 중앙에 뜬다(위 min-width:641px 참고). ≤640px 에서는
+           #ph50-chip-row 안에 남는데, JS(ph50MoveChips)가 그 줄로 옮기기 «전» 잠깐 쓰일 폴백 —
+           이웃 칩(lang-toggle 등)과 마찬가지로 지우지 않는다(trap-check 지적: 이것만 빠져 있었음). */
+        #login-btn{right:5.8rem!important;padding:0.4rem 0.65rem!important;font-size:0.78rem!important;border-radius:11px!important;top:0.9rem!important;max-width:140px}
+        #login-btn-label{max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}
         #btn-enter-class{font-size:14px!important;padding:13px 22px!important;border-radius:13px!important;line-height:1.5!important}
         #btn-enter-class .btn-enter-icon{width:22px!important;height:22px!important}
         .lesson-action-row > div{font-size:10.5px!important;flex-direction:column;gap:2px!important}
@@ -5140,6 +5151,8 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 
       /* ─── 매우 작은 화면 (≤380px) ─── */
       @media (max-width:380px){
+        #login-btn{right:5rem!important;padding:0.35rem 0.55rem!important;font-size:0.72rem!important;max-width:120px}
+        #login-btn-label{max-width:62px}
         #lang-toggle{padding:0.35rem 0.55rem!important;font-size:0.72rem!important}
         #cal-grid-wrap > div:first-child,
         #cal-grid-wrap > div:nth-child(2),
@@ -5223,9 +5236,10 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         border-color: rgba(251,191,36,0.85);
         color: #fff8d6;
       }
-      /* 🔑 login-btn 의 위치·크기는 위쪽 @media(min-width:641px) #login-btn.hero-chip
-         한 곳에서만 따로 정한다(2026-08-25, 화면 중앙 상단). ≤640px 에서는 이 줄
-         (#ph50-chip-row) 안에 그대로 있으므로 여기 아래 규칙들처럼 손댈 필요 없다. */
+      /* 🔑 641px 이상의 진짜 위치·크기는 위쪽 @media(min-width:641px) #login-btn.hero-chip
+         (id+class+!important) 한 곳에서 정하고 이 줄을 항상 이긴다 — 아래는 ph50MoveChips()가
+         이 줄로 옮기기 전 잠깐(그리고 641px 미만) 쓰이는 폴백일 뿐이다(이웃 칩과 동일 패턴). */
+      #login-btn.hero-chip{ right: 5.5rem; }
       /* 🌤️ 배경 밝게/어둡게 토글 칩 — 실제 위치는 ph50-chip-row(flex, 로그인 바로 왼쪽)가 관리.
          아래 right는 ph50 로드 전 잠깐의 폴백일 뿐(겹침 방지 위해 로그인보다 왼쪽) */
       #home-theme-toggle.home-theme-chip{ right: 11.5rem; color:#fde68a; }
@@ -5266,8 +5280,16 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
           padding: 4px 10px;
           font-size: 0.72rem;
         }
-        /* 🔑 login-btn 은 641px 이상에서만 화면 중앙 상단에 따로 뜬다 — ≤640px 인 여기서는
-           그냥 이 줄(#ph50-chip-row) 안에 있으므로 아래 다른 칩처럼 별도 규칙이 필요 없다. */
+        /* 🔑 login-btn 은 641px 이상에서만 화면 중앙 상단에 따로 뜬다(위 min-width:641px 참고).
+           ≤640px 에서는 #ph50-chip-row 안에 그대로 있고, 아래는 그 줄로 옮기기 전 잠깐(또는
+           641px 미만) 쓰이는 폴백이다 — id+class 라 위 「헤더」쪽 #login-btn 보다 특정성이 높아
+           이 값이 이긴다(원래도 그랬다, 2026-08-25 trap-check 로 되살림). */
+        #login-btn.hero-chip{
+          right: 5rem !important;
+          top: 3rem !important;
+          padding: 5px 9px;
+          font-size: 0.74rem;
+        }
         #lang-toggle.hero-chip-lang{
           right: 1rem !important;
           top: 3rem !important;
@@ -5283,6 +5305,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
         }
       }
       @media (max-width:380px){
+        #login-btn.hero-chip{ right: 4.4rem !important; padding: 4px 8px; font-size: 0.7rem; }
         #lang-toggle.hero-chip-lang{ right: 0.8rem !important; padding: 4px 8px; }
         #points-chip.hero-chip-points{ right: 0.8rem !important; font-size: 0.68rem; padding: 3px 8px; }
         #home-theme-toggle.home-theme-chip{ right: 4.6rem !important; font-size: 0.66rem; padding: 3px 7px; }
