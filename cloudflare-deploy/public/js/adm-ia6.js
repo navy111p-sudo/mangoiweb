@@ -169,6 +169,27 @@
               2026-08-18 «사이드바에서 바로» 요청(#283)은 그 손자 줄이 대신한다. */
         { ko: '결제',        en: 'Payments',    cards: ['card-payments-b2b', 'card-payments-b2c', 'card-recurring-billing', 'card-auto-dunning'] },
         { ko: '포인트',      en: 'Points',      cards: ['card-points-mgmt'] },
+        /* 💸 환불 처리 (2026-08-25 사장님 「사이드바에도 넣어줘」) — 별도 페이지라 href 다
+           (위 「수업 길이 변경」·「수강 운영」과 같은 꼴, 주소는 확장자까지 적는다 —
+            확장자를 빼면 site_map_drift_harness 가 «죽은 링크» 로 FAIL 낸다).
+           자리 — 「결제」 바로 아래. 결제의 반대 방향 동작이라 나란히 두는 것이 찾기 쉽다.
+           ⚠️ 이 항목은 **역할 필터를 받지 않는다** — applyRoleFilter 가 `[data-cards]` 인
+              항목만 보기 때문에 카드가 없는 href 항목은 강사·지사에게도 «보인다».
+              기존 href 항목 셋(수업 길이 변경·수강 운영·영업 실적·평가)도 같은 상태다.
+              들어가도 자료는 안 나온다 — 서버(api-pay-refund.ts refundGate)가 강사는
+              forbidden_teacher, 지사·대리점은 forbidden_scope 로 막고 화면이 그 이유를 띄운다.
+              «메뉴를 아예 감추는» 일을 하려면 href 항목용 역할 판정을 새로 만들어야 하고,
+              그건 사이드바 공용 로직이라 별건이다(반경이 네 항목 전부).
+           ⚠️ secs 의 id 는 refunds.html 에 진짜로 있어야 한다(하니스가 파일을 열어 대조).
+           ⛔ 「② 확인」(#pv-card)은 secs 에 넣지 않았다 — 주문을 불러오기 전에는 `hide` 라
+              그리로 보내면 «눌러도 아무 일도 안 일어난» 것으로 보인다. */
+        { ko: '환불 처리', en: 'Refunds', href: '/admin/refunds.html',
+          tip: '💸 결제를 되돌리고 그 사실을 장부에 남깁니다 (본사 전용)',
+          tipEn: '💸 Cancel a payment and record it (HQ only)',
+          secs: [
+            { ko: '① 환불할 결제 고르기', en: '① Pick a payment', id: 'rf-pick' },
+            { ko: '📒 환불 내역',          en: '📒 Refund history', id: 'rf-history' }
+          ] },
         // 🏬 (2026-08-12 수정요청 #04) 「지사 정산」이 역할 무관하게 캐피타운 전용 페이지로
         //    직행하던 것을 고친다 — 캐피타운이 아닌 지사 관리자는 그 페이지의 게이트에서
         //    무조건 「접근 권한이 없습니다」를 봤다. 이제 기본은 권한 스코프가 이미 걸려 있는
