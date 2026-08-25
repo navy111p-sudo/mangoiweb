@@ -12699,7 +12699,14 @@ window.rebuildGlobalSearchIndex = function() {
   const c24finWon = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
   // 컬럼 정의 (kind별) — [키, 머리글(ko), 서식함수?]
   const C24FIN_COLS = {
-    ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',c24finWon],['store','거래처'],['memo','적요'],['month','귀속월']],
+    /* 🧾 「구분」 은 **`type`(1=수입 / 2=지출)** 이다 — 뜻이 정의된 유일한 칸이고,
+       위 합계(매출·지출)도 같은 값으로 계산한다. 한 화면에서 줄과 합계가 어긋날 수 없다.
+       ⛔ 예전에는 카페24 원본 `acc_type` 을 그대로 찍었는데, 그 값의 뜻이 **어디에도 정의돼
+          있지 않아** 화면에 「0」 이 떴다(2026-08-24 사장님 「구분은 무슨 뜻이야?」).
+          적재 요청서에도 「구분 표시용」이라고만 적혀 있다 — 카페24에 뜻을 물어보기 전에는
+          이름을 붙일 수 없다(지출결의 `state` 코드와 같은 사정).
+       ✅ `acc_type` 은 지우지 않고 그 칸 **툴팁**에 원본으로 남긴다(C24FIN_TITLE). */
+    ledger:   [['date','일자'],['type','구분'],['subject','계정과목'],['money','금액',c24finWon],['store','거래처'],['memo','적요'],['month','귀속월']],
     payroll:  [['user_id','대상'],['month','월'],['base','기본급',c24finWon],['total','지급계',c24finWon],['deduction','공제계',c24finWon],['actual','실지급',c24finWon],['work_day','근무일']],
     /* 🧾 지출결의 — 2026-08-24 실측으로 칸을 다시 짰다(PR #465).
        카페24 원본(`ExpenseReport`)의 속성은 content·doc_id·name·pay_date·reg_date·state **여섯 개뿐**이다.
@@ -12715,7 +12722,7 @@ window.rebuildGlobalSearchIndex = function() {
     deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',c24finWon],['method','결제']],
   };
   const C24FIN_COLS_EN = {
-    date:'Date', acc_type:'Type', subject:'Account', money:'Amount', store:'Vendor', memo:'Memo', month:'Month',
+    date:'Date', type:'Type', acc_type:'Type', subject:'Account', money:'Amount', store:'Vendor', memo:'Memo', month:'Month',
     user_id:'Payee', base:'Base pay', total:'Total', deduction:'Deduction', actual:'Net pay', work_day:'Work days',
     reg_date:'Date', name:'Title', organ:'Vendor', method:'Payment', content:'Detail', pay_date:'Paid on',
     __kind:'Category', state:'State',
@@ -12723,7 +12730,26 @@ window.rebuildGlobalSearchIndex = function() {
     center_id:'Center ID', amount:'Amount',
   };
   // ↕️ 숫자로 정렬할 칸 — 서식함수(₩)가 붙은 칸은 자동으로 숫자다. 여기엔 «서식은 없는데 숫자인» 칸만 적는다.
-  const C24FIN_NUMCOL = { work_day:1 };
+  const C24FIN_NUMCOL = { work_day:1, type:1 };
+  /* 🈯 «글자로 바꿔 보여 주는» 칸 — 서식함수(c[2])와 달리 **오른쪽 정렬을 하지 않는다**
+     (c[2] 는 금액용이라 우측정렬·고정폭 글꼴이 함께 붙는다). 정렬은 원래 값(숫자)으로 한다. */
+  const C24FIN_TEXTFMT = {
+    type: function(v, en){
+      const n = Number(v);
+      if (n === 1) return en ? 'Income'  : '수입';
+      if (n === 2) return en ? 'Expense' : '지출';
+      // ⛔ 모르는 값은 «지어내지» 않는다 — 원본을 그대로 보여 주고 툴팁이 사정을 말한다.
+      return (v == null || v === '') ? '—' : String(v);
+    },
+  };
+  /* 💬 툴팁(제목) — 화면에 안 그리는 원본값을 여기 남긴다. 뜻을 모르는 `acc_type` 이 그 예다. */
+  const C24FIN_TITLE = {
+    type: function(row, en){
+      const raw = (row.acc_type == null || row.acc_type === '') ? '—' : String(row.acc_type);
+      return (en ? 'Cafe24 raw: type=' + String(row.type) + ' · acc_type=' + raw + ' (meaning unconfirmed)'
+                 : '카페24 원본: type=' + String(row.type) + ' · acc_type=' + raw + ' (뜻 미확인)');
+    },
+  };
   // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
   const C24FIN_NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
   /* ↕️ 정렬 상태 (2026-08-24 사장님 지시 — 다섯 탭 표에 올림순·내림순).
@@ -12860,13 +12886,16 @@ window.rebuildGlobalSearchIndex = function() {
     }
     body.innerHTML = rows.length ? rows.map(function(row){
       return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
-        var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
+        var v = row[c[0]];
+        var tf = C24FIN_TEXTFMT[c[0]];
+        var disp = c[2] ? c[2](v) : (tf ? esc(tf(v, en)) : esc(v==null||v===''?'—':v));
+        var tt = C24FIN_TITLE[c[0]] ? C24FIN_TITLE[c[0]](row, en) : v;
         var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
         var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
         /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
            장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
            합계에서 빼는 계산은 c24FinLoad 의 isExcl() 로 그대로 돈다. */
-        return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+        return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(tt)+'">'+disp+'</td>';
       }).join('')+'</tr>';
     }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
       +(en?'No data — the Cafe24 server has not loaded this data ('+(C24FIN_NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
