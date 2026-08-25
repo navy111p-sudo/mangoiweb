@@ -244,3 +244,28 @@ PW_DIR=/tmp/pw node test-harness/manual/class-create-persist-browser.mjs
   `mousedown` 이 아예 안 걸린다. 드래그선택은 좌표가 아니라 «어느 요소에서 눌렀나» 로만
   판정하므로 그 칸에 `MouseEvent` 를 직접 보낸다. 단 **대기 풀 배정은 예외** —
   그쪽 `mouseup` 은 `elementFromPoint(clientX,clientY)` 를 쓰므로 진짜 좌표가 필요하다.
+
+---
+
+## 🖥 `manager-today-classes-browser.mjs` — 매니저 「오늘 전체 수업」 (2026-08-25)
+
+8/25 매니저 보고서 ②③⑤. 관리자 카드는 이미 있었는데 늘 비어 있었다 —
+`/api/admin/classes/today` 가 `class_schedules` 만 읽어 **카페24 예약이 한 건도 없었다**.
+합쳐 주도록 고치면서, 문자열로는 못 보는 것 15가지를 실제로 그려서 잰다.
+
+1. 첫 화면에서 이 API 를 **안 부르는가** — 이 화면의 계약은 «첫 화면 API 2회»
+2. 펼치면 부르고, 네 줄이 다 그려지는가
+3. **카페24 줄에 입장 버튼이 안 붙는가** — 붙으면 아무도 없는 방이 열린다
+4. 교재 미배정·강사 미배정이 «색으로» 보이는가 (회색에 묻히지 않는가)
+5. 390px 에서 문서가 안 넘치고, 한 줄이 낱글자로 안 쪼개지는가
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
+```
+
+⚠️ `manager.html` 의 카드·`adm-today-classes.js`·`classes/today` 응답 모양을 건드리면
+**사람이 이걸 불러야** 한다.
+
+🪤 실제로 이 검사가 잡은 것 — 「미배정」 경고를 `.muted` 상자 **안**에 넣었더니
+`rgb(122,135,148)` 회색으로 나왔다. 코드에는 앰버(`#b45309`)라고 적혀 있었다.
+**«무슨 색으로 적었나» 와 «무슨 색으로 보이나» 는 다르다** — `getComputedStyle` 로 재야 한다.

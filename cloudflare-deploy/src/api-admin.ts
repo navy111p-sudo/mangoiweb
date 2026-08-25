@@ -2947,32 +2947,91 @@ export async function handleAdminApi(
     //   기존엔 '오늘 수업' 목록이 학생/강사 본인용(/api/class/today)뿐이라 매니저가 볼 방법이 없었다.
     //   room_id 규칙은 예약 기반 결정론 `class-{scheduleId}-{YYYYMMDD}` 로 api-mango.ts 와 동일해야 한다
     //   (다르면 매니저가 학생과 다른 방에 들어가 서로 못 만난다).
+    /* 📅 (2026-08-25 8/25 매니저 보고서 ②③) 「오늘 전체 수업」이 늘 비어 있던 이유 — **원인이 둘이었다**
+       ═══════════════════════════════════════════════════════════════════════════
+       🔴 ① 이 경로가 **줄곧 404 였다.** `index.ts` 라우팅 목록(관문 ②)에는 있었지만
+          `api-mango.ts` 위임 가드(관문 ③)에 없어서 `handleAdminApi` 까지 오지 못했다
+          (2026-07-23 신설 이래 한 번도 등록된 적이 없다 — `git log -S` 로 확인).
+          ⚠️ 화면에는 «고장» 으로 안 보였다: 404 본문 `{error:'Not Found'}` 에는 `ok` 칸이 없어
+             `if (d.ok === false)` 를 통과하고 `d.sessions || []` 가 빈 배열이 되어
+             **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다.
+          → 2026-08-25 에 관문 ③에 등록했다. 회귀 감시는 `classes_today_cafe24_harness` ②-1
+             (문자열이 아니라 **그 조건식을 실제로 돌려서** 판정한다).
+
+       ② 그리고 관문을 뚫어도 이 API 는 `class_schedules` 만 읽었다. **실제 운영 수업은 카페24가 정본**이고
+       카페24 예약은 그 표에 한 줄도 안 들어온다(cafe24-sync 는 `attendance` 에 `c24-{class_id}`
+       씨앗으로만 넣는다). 그래서 매니저가 [Load] 를 눌러도 «No classes scheduled for today»
+       였다 — 같은 시각 카페24에서는 수업 6건이 돌고 있었다(8/25 보고서 스크린샷 실측).
+       → 두 갈래를 **한 목록으로 합쳐서** 준다. 어디서 온 줄인지는 `source` 로 구분한다.
+
+       ⛔ 카페24 줄에는 [입장]·[참관] 버튼을 주지 않는다(`join_open`·`observable` = false).
+          카페24 수업은 망고아이 화상방을 거치지 않아 **들어갈 방이 없다** — 버튼을 주면
+          아무도 없는 방으로 보낸다(2026-08-24 에 같은 이유로 «오늘 목록에 안 넣는다» 했던 판단).
+          동기화가 가져오는 속성에 강의실 URL 이 없어서(cafe24-sync.ts 의 Cypher) 링크도 못 건다.
+
+       🔒 지사·대리점 격리 — 이 목록은 manager.html 도 쓰고, 그 화면은 지사·대리점도 쓴다.
+          범위 밖 학생 이름이 나가면 개인정보가 샌다 → `scopeStudentCond` 로 자른다
+          (`/api/admin/live-classes`·`classes-now` 와 같은 방식).
+       ⛔ 강사는 아예 막는다 — 전사 학생 이름·강사 배정이 한 화면에 모인다. 강사가 볼 것은
+          teacher.html 이 이미 준다. `scope.type='none'`(내부직원·교사)은 격리 대상이 아니라
+          **스코프로는 못 막는다** → `isTeacher` 로 따로 끊는다(CLAUDE.md 2장 `canEditOrg` 함정과 같은 뿌리).
+
+       🧹 자리표시 행(`user_id` = 'lms'·'type_seed')은 뺀다 — 학생이 안 붙은 «자리만 잡아 둔» 행이라
+          매니저 목록에 섞이면 수백 건이 실제 수업처럼 보인다(실측 기준 lms 518·type_seed 140).
+          ⚠️ 제외식은 `schedule-conflict.ts` 의 `NOT_PLACEHOLDER`·api-teacher.ts·churn-graph.ts 와
+             **글자 하나까지 같게** 유지할 것 — 화면마다 다르게 세기 시작하면 아무도 못 고친다.
+
+       📆 `?date=YYYY-MM-DD` — 없으면 오늘(KST). 「완료된 수업 기록」(보고서 ③)이 같은 API 다.
+          날짜만 바꾸면 되므로 조회를 따로 만들지 않는다(둘이 어긋날 일이 없다). */
     if (method === 'GET' && path === '/api/admin/classes/today') {
+      const _ctActor = await getAdminActor(request, env as any);
+      if (_ctActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
+      /* ⚡ 하루치를 날짜로 집는 인덱스가 없었다(있는 것은 room_id 단독·(user_id,date)·(teacher_uid,date)).
+         `date = ?` 로 거르므로 이 인덱스가 없으면 attendance 전체를 훑는다. 인덱스 추가는
+         데이터 변경이 아니라 안전하다(CLAUDE.md 1-1 은 DELETE/UPDATE/DROP 금지). */
+      try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_date_room ON attendance(date, room_id)`); } catch {}
 
       const KST = 9 * 60 * 60 * 1000;
       const nowMs = Date.now();
       const k = new Date(nowMs + KST);                       // KST 벽시계
-      const kY = k.getUTCFullYear(), kMo = k.getUTCMonth(), kD = k.getUTCDate();
-      const kDow = k.getUTCDay();
       const p2 = (n: number) => String(n).padStart(2, '0');
-      const todayStr = `${kY}-${p2(kMo + 1)}-${p2(kD)}`;
+      const todayStr = `${k.getUTCFullYear()}-${p2(k.getUTCMonth() + 1)}-${p2(k.getUTCDate())}`;
+      /* 📆 조회할 날짜 — 모양이 안 맞으면 조용히 오늘로 (엉뚱한 문자열이 SQL 비교에 들어가면
+         에러 없이 «빈 표» 가 되어 「수업이 없다」로 읽힌다. CLAUDE.md 2장 분기 비교 함정과 같은 뿌리) */
+      const qDate = String(url.searchParams.get('date') || '').trim();
+      const dateStr = /^\d{4}-\d{2}-\d{2}$/.test(qDate) ? qDate : todayStr;
+      const kY = Number(dateStr.slice(0, 4)), kMo = Number(dateStr.slice(5, 7)) - 1, kD = Number(dateStr.slice(8, 10));
+      const kDow = new Date(Date.UTC(kY, kMo, kD)).getUTCDay();
       const ymd = `${kY}${p2(kMo + 1)}${p2(kD)}`;
       const OPEN_BEFORE = 10 * 60 * 1000;                    // 정규 수업: 시작 10분 전부터 입장 가능
       // ⏰ 레벨테스트만 30분 (api-mango.ts·leveltest-ticket.ts 와 같은 값 — 셋이 어긋나면 화면끼리 말이 달라진다)
       const OPEN_BEFORE_LEVELTEST = 30 * 60 * 1000;
       const LATE_AFTER = 15 * 60 * 1000;                     // 종료 15분 후까지 지각 입장 허용
 
+      const _ctScope = await getScope(env as any, request);
+      const _ctStu = scopeStudentCond(_ctScope, 'se');       // 본사·내부직원은 빈 조건(=전체)
+
       let rows: any = { results: [] };
       try {
         rows = await env.DB.prepare(
-          `SELECT cs.*, t.name AS t_name FROM class_schedules cs
+          `SELECT cs.*, t.name AS t_name, se.level AS se_level, se.textbook AS se_textbook
+             FROM class_schedules cs
              LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
-            WHERE COALESCE(cs.status,'active') != 'cancelled'`
-        ).all<any>();
+             LEFT JOIN students_erp se ON se.user_id = cs.user_id
+            WHERE COALESCE(cs.status,'active') != 'cancelled'
+              AND LOWER(COALESCE(cs.user_id,'')) NOT IN ('lms','type_seed')
+              ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}`
+        ).bind(..._ctStu.binds).all<any>();
       } catch {
-        rows = await env.DB.prepare(
-          `SELECT * FROM class_schedules WHERE COALESCE(status,'active') != 'cancelled'`
+        /* students_erp 는 스키마 드리프트가 있는 표다 — 조인이 깨지면 조인 없이 다시 한 번.
+           ⚠️ 단 **스코프가 걸린 요청은 폴백하지 않는다**: 조건이 사라지면 남의 지사 학생까지 나간다.
+              폴백은 조건이 없는 본사·내부직원일 때만 안전하다. */
+        if (_ctStu.cond) { rows = { results: [] } as any; }
+        else rows = await env.DB.prepare(
+          `SELECT * FROM class_schedules
+            WHERE COALESCE(status,'active') != 'cancelled'
+              AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
         ).all<any>().catch(() => ({ results: [] } as any));
       }
 
@@ -2980,7 +3039,7 @@ export async function handleAdminApi(
       for (const s of (rows.results || [])) {
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
         let occurs = false;
-        if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === todayStr);
+        if (s.scheduled_date) occurs = (String(s.scheduled_date).slice(0, 10) === dateStr);
         // ⚠️ Number() 로 비교하지 말 것 — 운영 값은 'Thu' 같은 문자열이라 NaN 이 된다(admDowMatches 주석 참고).
         else if (s.day_of_week != null && s.day_of_week !== '') occurs = admDowMatches(s.day_of_week, kDow);
         if (!occurs) continue;
@@ -2999,9 +3058,17 @@ export async function handleAdminApi(
 
         sessions.push({
           schedule_id: s.id,
+          source: 'mangoi',            // 🏷 망고아이 예약 = 우리 방이 있다 → 입장·참관 가능
+          observable: true,
           room_id: `class-${s.id}-${ymd}`,
           student_uid: s.user_id || null,
           student_name: s.student_name || null,
+          /* 📚 (2026-08-25 보고서 ①) LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 우리 쪽 대응.
+             정본은 students_erp.textbook — 화상수업의 «배정 교재 자동 로드» 가 읽는 그 칸이다.
+             비어 있으면 수업 전에 사람이 손써야 한다는 뜻이라, 강사·매니저가 먼저 봐야 한다. */
+          level: s.se_level || null,
+          textbook: s.se_textbook || null,
+          textbook_assigned: !!String(s.se_textbook || '').trim(),
           teacher_id: s.teacher_id || null,
           teacher_name: s.t_name || s.teacher_name || null,
           start_time: s.start_time || null,
@@ -3016,9 +3083,71 @@ export async function handleAdminApi(
           is_level_test: /leveltest|level_test|level-test/i.test(String(s.source || '') + ' ' + String(s.notes || '')),
         });
       }
+      /* ── ② 카페24 예약 수업 (attendance 의 `c24-{class_id}` 씨앗) ──────────────────
+         실제 운영 수업이 여기 있다(하루 143건 안팎). 학생 이름은 명부에서 가져오면서
+         **같은 조인으로 스코프를 자른다** — 명부에 없는 학생은 «범위를 확인할 수 없음» 이라
+         지사·대리점에게는 보이지 않는다(`classes-now` 와 같은 규칙).
+         ⛔ `attendance.teacher_name` 은 읽지 않는다 — 옛 동기화가 남의 이름을 넣어 둔 칸이다.
+            강사 이름은 `loadCafe24TeacherMap` 을 거쳐 «유일하게 맞을 때만» 붙이고, 아니면 비운다. */
+      let c24Rows: any[] = [];
+      try {
+        const rs: any = await env.DB.prepare(
+          `SELECT a.room_id, a.user_id, a.username, a.status, a.joined_at, a.left_at, a.teacher_uid,
+                  se.korean_name AS stu_ko, se.english_name AS stu_en,
+                  se.level AS se_level, se.textbook AS se_textbook
+             FROM attendance a
+             LEFT JOIN students_erp se ON se.user_id = a.user_id
+            WHERE a.room_id LIKE 'c24-%' AND a.date = ?
+              ${_ctStu.cond ? `AND (${_ctStu.cond})` : ''}
+            ORDER BY a.joined_at ASC LIMIT 400`
+        ).bind(dateStr, ..._ctStu.binds).all();
+        c24Rows = (rs.results || []) as any[];
+      } catch (e: any) { console.warn('[classes/today] cafe24 rows:', e?.message); }
+
+      if (c24Rows.length) {
+        const tmap = await loadCafe24TeacherMap(env as any, c24Rows.map(r => r.teacher_uid));
+        for (const r of c24Rows) {
+          const start_ts = Number(r.joined_at) || 0;
+          const end_ts = Number(r.left_at) || (start_ts + 30 * 60000);
+          let status: string;
+          if (nowMs < start_ts) status = 'early';
+          else if (nowMs <= end_ts + LATE_AFTER) status = 'live';
+          else status = 'ended';
+          sessions.push({
+            schedule_id: null,
+            source: 'cafe24',          // 🏷 카페24 수업 = 우리 방이 없다 → 입장·참관 버튼을 주지 않는다
+            observable: false,
+            room_id: r.room_id,        // 표시용 식별자일 뿐 — 이 번호로 망고아이 방을 열 수 없다
+            student_uid: r.user_id || null,
+            student_name: r.stu_ko || r.username || r.stu_en || null,
+            level: r.se_level || null,
+            textbook: r.se_textbook || null,
+            textbook_assigned: !!String(r.se_textbook || '').trim(),
+            teacher_id: null,
+            teacher_name: (tmap.get(String(r.teacher_uid || '')) || {}).name || null,
+            start_time: new Date(start_ts + KST).toISOString().slice(11, 16),
+            duration_min: Math.max(1, Math.round((end_ts - start_ts) / 60000)),
+            start_ts, end_ts, status,
+            join_open: false,
+            cafe24_status: r.status || null,
+            schedule_kind: null,
+            is_level_test: false,
+          });
+        }
+      }
+
       sessions.sort((a, b) => a.start_ts - b.start_ts);
+      const c24Count = sessions.filter(x => x.source === 'cafe24').length;
       return json({
-        ok: true, today: todayStr, now: nowMs, count: sessions.length, sessions,
+        ok: true,
+        // 🔁 `today` 는 옛 화면이 읽던 이름이라 그대로 둔다(값은 «조회한 날짜»). `date` 가 새 이름.
+        today: dateStr, date: dateStr, is_today: dateStr === todayStr,
+        now: nowMs, count: sessions.length, sessions,
+        counts: {
+          mangoi: sessions.length - c24Count,
+          cafe24: c24Count,
+          joinable: sessions.filter(x => x.join_open).length,
+        },
         level_test_count: sessions.filter(x => x.is_level_test).length,
       });
     }
