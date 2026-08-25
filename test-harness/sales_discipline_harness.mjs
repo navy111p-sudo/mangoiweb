@@ -88,17 +88,33 @@ console.log('\n② 돈 — 기본급은 건드리지 않는다');
     '화면에도 «감봉» 을 실행 수단으로 두지 않는다');
 }
 
+/* ── ②-2 말투 — 남이 봐도 불편하지 않아야 한다 ──────────────────
+   2026-08-23 사장님: 「다른 직원이나 관리자가 보면 거북하다. 완곡하게.」
+   이 화면은 당사자만 보는 것이 아니라 옆자리 사람도 지나가며 본다.
+   벌·징계를 연상시키는 말이 남아 있으면 제도 전체가 «벌 주는 장치» 로 읽힌다. */
+console.log('\n②-2 말투 — 벌을 연상시키는 말을 화면에 두지 않는다');
+{
+  const rough = ['징계', '벌을', '불이익', '경고장', '문책', '해고'];
+  const hit = rough.filter(w => strip(html).includes(w));
+  ok(hit.length === 0, '화면에 벌·징계를 연상시키는 말이 없다', hit.join(', '));
+  ok(!/하지 마세요/.test(strip(html)), '지시·금지형(「하지 마세요」)이 아니라 서술형으로 적는다');
+}
+
 /* ── ③ 가드레일 ──────────────────────────────────────────────── */
 console.log('\n③ 가드레일 — 잊으면 사고가 나는 것들이 매번 같이 보인다');
 {
   ok(/export const DISCIPLINE_GUARDRAILS/.test(api), 'DISCIPLINE_GUARDRAILS 가 있다');
   const g = api.slice(api.indexOf('DISCIPLINE_GUARDRAILS'), api.indexOf('DISCIPLINE_GUARDRAILS') + 1200);
-  ok(/기본급을 깎지 마세요/.test(g), '① 기본급을 깎지 말 것');
-  ok(/영업차량을 회수하지 마세요/.test(g), '② 영업차량을 회수하지 말 것 (업무 도구다)');
-  ok(/연습 기간의 낮은 점수/.test(g), '③ 연습 기간 점수를 근거로 쓰지 말 것');
-  ok(/기록으로 남기세요/.test(g), '④ 면담·개선계획을 기록으로 남길 것');
+  // ⚠️ 2026-08-23 사장님 지시로 문구를 «부정문 → 긍정문» 으로 바꿨다
+  //    (「깎지 마세요」가 거슬린다 → 「그대로 지킵니다」).
+  //    지키는 «규칙» 은 그대로다. 그래서 검사도 뜻으로 맞춘다 — 문장을 통째로 박아 두면
+  //    말투만 다듬어도 FAIL 나서, 다음 사람이 규칙까지 지워 버리는 쪽으로 «고치게» 된다.
+  ok(/기본급은 그대로/.test(g),          '① 기본급은 건드리지 않는다');
+  ok(/영업차량도? 그대로/.test(g),        '② 영업차량은 그대로 쓴다 (업무 도구다)');
+  ok(/연습 기간 점수는 세지 않습니다/.test(g), '③ 연습 기간 점수는 판정에 쓰지 않는다');
+  ok(/그날 짧게 남깁니다/.test(g),        '④ 나눈 이야기를 그날 기록으로 남긴다');
   ok(/guardrails:\s*DISCIPLINE_GUARDRAILS/.test(api), 'API 응답에 그대로 실어 보낸다');
-  ok(/j\.guardrails/.test(html) && /이것만은 하지 마세요/.test(html), '화면이 그대로 그린다');
+  ok(/j\.guardrails/.test(html) && /어떤 경우에도 그대로입니다/.test(html), '화면이 그대로 그린다');
   ok(/노무사/.test(api), '3단계는 노무사 상담을 명시한다');
 }
 
@@ -133,6 +149,28 @@ console.log('\n⑤ advisory — SQL 로 읽을 수 있어야 판정에서 뺄 �
   ok(/evaluated_at, advisory\)/.test(ins), '평가 저장 때 advisory 를 칸에도 넣는다');
   ok(/advisory=excluded\.advisory/.test(ins), '다시 저장해도 advisory 가 갱신된다');
   ok(/advisory: !!Number\(e\.advisory\)/.test(apiCode), '읽을 때 0/1 을 불리언으로 되돌린다');
+}
+
+/* ── ⑥ AI 평가 초안 — «AI 는 초안, 확정은 사람» ─────────────────
+   2026-08-24 사장님 「AI 가 자동으로 평가하게」 → 초안까지만 자동으로 했다.
+   이 경계가 무너지면(AI 가 바로 저장하면) 평가 책임이 사람에게서 떠난다. */
+console.log('\n⑥ AI 평가 초안 — AI 는 초안까지, 확정은 사람이');
+{
+  const i = apiCode.indexOf("path === '/api/admin/sales/ai-eval'");
+  ok(i > 0, 'ai-eval 라우트가 있다');
+  ok(/if \(!hq\) return json\(\{ ok: false, error: 'forbidden'/.test(apiCode.slice(i, i + 300)),
+    'ai-eval 은 본사만');
+  const seg = apiCode.slice(i, i + 1200);
+  ok(!/INSERT|UPDATE|DELETE/.test(seg), 'ai-eval 은 DB 에 아무것도 쓰지 않는다 — 저장은 사람 몫');
+  ok(/clampAiScore/.test(apiCode), '점수는 서버 화이트리스트(0~5)로 자른다');
+  ok(/if \(!ev \|\| v == null \|\| isNaN\(n\)\) return \{ score: null/.test(apiCode),
+    '근거(evidence)가 없으면 점수도 버린다 — 지어낸 점수 차단');
+  ok(/나이·성별·출신/.test(api), '프롬프트가 신상 정보 사용을 금지한다');
+  ok(/금지어: 징계, 벌, 불이익/.test(api), '프롬프트가 벌·징계 어휘를 금지한다 (말투 규칙과 일치)');
+  ok(/ev_ai/.test(html) && /AI 초안 받기/.test(html), '화면에 «AI 초안 받기» 버튼이 있다');
+  ok(/el\.value===''\)/.test(html.replace(/\s/g,'')) || /el\.value===''/.test(html),
+    '사람이 이미 넣은 점수는 AI 가 덮지 않는다');
+  ok(/확정은 사장님이|확정은 사람이/.test(html), '화면이 «확정은 사람» 을 명시한다');
 }
 
 // ⚠️ 요약 형식은 러너(run.mjs)가 «숫자 + 공백 + FAIL» 을 실패로 읽으므로 «/» 로 끊는다

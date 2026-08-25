@@ -38,6 +38,13 @@
   body.renew-only #app > .step:not(#stRenew) { display:none !important; }
   body.renew-only .price { display:none !important; }
   body.renew-only #autoRenewBox { display:none !important; }
+  /* 🔁 (2026-08-23) «연장 우선» 모드 — 사장님 지시 ①④. 로그인 학생이 수강 중이면 신규 신청 폼을 접고
+       연장·자동결제 카드만 먼저 보여준다(어차피 요일·시간·강사가 그대로라 고를 게 기간뿐이다).
+       renew-only(문자 링크)와 달리 자동결제 상자는 살아 있고, ➕ 버튼으로 폼을 되살릴 수 있다. */
+  body.renew-first #app > .step:not(#stRenew) { display:none !important; }
+  body.renew-first .price { display:none !important; }
+  /* 🥭 Mr.mango — 사이트 전용 캐릭터(공식 로고). 제목 왼쪽은 이모지가 아니라 이 캐릭터를 쓴다 (2026-08-23 사장님 지시) */
+  h1 .mr-mango { height:34px; width:auto; vertical-align:-9px; margin-right:4px; filter:drop-shadow(0 1px 3px rgba(0,0,0,.4)); }
   .price .in { max-width:560px; margin:0 auto; display:flex; align-items:center; gap:12px; }
   .amt { font-size:22px; font-weight:900; color:#fbbf24; }
   .amt small { font-size:11px; color:#94a3b8; font-weight:400; display:block; }
@@ -49,25 +56,36 @@
   .login-need { text-align:center; padding:40px 16px; }
   .login-need a { color:#fbbf24; font-weight:800; }
   .dc { color:#6ee7b7; font-size:11px; margin-left:4px; }
+  /* 🧭 (2026-08-23) 상단 뒤로가기·홈 — 사장님 지시 ②. .step 이 아니라 renew-only 모드에서도 남는다
+       (문자 링크로 온 학부모에게도 홈 가는 길이 필요하다). */
+  .topnav { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .topnav button, .topnav a { background:rgba(30,41,59,0.92); border:1px solid rgba(148,163,184,0.3); color:#e2e8f0; border-radius:10px; padding:7px 13px; font-size:13.5px; font-weight:700; cursor:pointer; text-decoration:none; font-family:inherit; line-height:1; }
 </style>
 <script src="/js/session-guard.js" defer></script>
 </head>
 <body>
+<!-- 🧭 (2026-08-23) 뒤로·홈 — #app «밖» 에 둔다. 미로그인·링크만료 화면이 app.innerHTML 을 통째로
+     갈아치우는데, 안에 두면 그 순간 내비게이션도 함께 사라진다(막힌 화면일수록 나갈 길이 필요하다). -->
+<div class="wrap">
+  <div class="topnav">
+    <button type="button" id="navBack" aria-label="뒤로가기">← <span data-ko="뒤로" data-en="Back">뒤로</span></button>
+    <a href="/" id="navHome" aria-label="홈">🏠 <span data-ko="홈" data-en="Home">홈</span></a>
+  </div>
+</div>
+<script>
+/* ← 뒤로가기 — 카톡·문자 인앱 브라우저는 이 화면이 «첫 페이지» 라 히스토리가 없다(연장 링크가 그렇게 열린다).
+   그때 history.back() 은 아무 일도 안 하므로 홈으로 폴백한다. */
+document.getElementById('navBack').addEventListener('click', function(){
+  if (history.length > 1) history.back(); else location.href = '/';
+});
+</script>
 <div class="wrap" id="app">
-  <h1>🥭 <span data-ko="수강신청" data-en="Enroll">수강신청</span></h1>
+  <h1><img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> <span data-ko="수강신청" data-en="Enroll">수강신청</span></h1>
   <div class="sub" data-ko="강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요" data-en="Pick a teacher, days and time — classes are scheduled automatically after payment">강사·요일·시간을 고르고 결제하면 수업이 자동으로 잡혀요</div>
 
-  <!-- 🧭 (2026-07-31) 강사 먼저 / 시간 먼저 — 제보 #2. 시간이 중요한 회원은 원하는 요일·시간을 먼저 고르면
-       그 시간에 비어있는 강사만 걸러서 보여준다(참고: www.mangoi.co.kr). -->
-  <div class="step" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
-    <span class="lbl" style="min-width:auto" data-ko="선택 방식" data-en="Choose by">선택 방식</span>
-    <div class="grid" id="gEntryMode" style="flex:1">
-      <div class="chip on" data-v="teacher" style="flex:1;text-align:center" data-ko="👨‍🏫 강사 먼저" data-en="👨‍🏫 Teacher first">👨‍🏫 강사 먼저</div>
-      <div class="chip" data-v="time" style="flex:1;text-align:center" data-ko="🕐 시간 먼저" data-en="🕐 Time first">🕐 시간 먼저</div>
-    </div>
-  </div>
-
-  <!-- 🔁 연장(재결제) — 현재 수강 중일 때만 표시. 요일·시간·강사 그대로 승계 -->
+  <!-- 🔁 연장(재결제) — 현재 수강 중일 때만 표시. 요일·시간·강사 그대로 승계.
+       🧭 (2026-08-23) 신규 신청 폼 «위» 로 올림 — 사장님 지시 ④ «기존 학생은 기존 스케줄로 바로 간단히».
+       기본 display:none 이라 신규 방문자 화면은 그대로다. -->
   <div class="step" id="stRenew" style="display:none;border-color:rgba(110,231,183,0.45);background:rgba(6,78,59,0.35)">
     <h2 style="color:#6ee7b7">🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span></h2>
     <div id="renewInfo" style="font-size:13px;line-height:1.7"></div>
@@ -83,6 +101,21 @@
 
     <!-- ♾️ (2026-07-31) 자동연장(정기결제) — 제보 #2-2/#3-2. 매번 연장 결제를 안 눌러도 카드가 등록돼 있으면 매월 자동으로 이어진다 -->
     <div id="autoRenewBox" style="margin-top:14px;padding:12px;border-top:1px dashed rgba(148,163,184,0.3)"></div>
+
+    <!-- ➕ «연장 우선» 모드에서 접어 둔 신규 신청 폼을 되살리는 유일한 문 — renew-first 일 때만 보인다 -->
+    <div style="margin-top:10px;text-align:center">
+      <button type="button" id="btnNewEnroll" style="display:none;background:transparent;border:1px dashed rgba(148,163,184,0.45);color:#94a3b8;border-radius:10px;padding:8px 14px;font-size:12.5px;cursor:pointer;font-family:inherit" data-ko="➕ 다른 요일·시간·강사로 새로 신청하기" data-en="➕ Start a new enrollment instead">➕ 다른 요일·시간·강사로 새로 신청하기</button>
+    </div>
+  </div>
+
+  <!-- 🧭 (2026-07-31) 강사 먼저 / 시간 먼저 — 제보 #2. 시간이 중요한 회원은 원하는 요일·시간을 먼저 고르면
+       그 시간에 비어있는 강사만 걸러서 보여준다(참고: www.mangoi.co.kr). -->
+  <div class="step" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
+    <span class="lbl" style="min-width:auto" data-ko="선택 방식" data-en="Choose by">선택 방식</span>
+    <div class="grid" id="gEntryMode" style="flex:1">
+      <div class="chip on" data-v="teacher" style="flex:1;text-align:center" data-ko="👨‍🏫 강사 먼저" data-en="👨‍🏫 Teacher first">👨‍🏫 강사 먼저</div>
+      <div class="chip" data-v="time" style="flex:1;text-align:center" data-ko="🕐 시간 먼저" data-en="🕐 Time first">🕐 시간 먼저</div>
+    </div>
   </div>
 
   <div class="step" id="stTeacher">
@@ -134,7 +167,7 @@
 
 <script src="https://js.tosspayments.com/v1/payment"></script>
 <script>
-(function(){
+(async function(){   /* await 는 관리자 세션 폴백 확인(아래 /api/admin/me) 한 곳뿐 */
   'use strict';
   var UID = null, TOKEN = null;
   try {
@@ -176,7 +209,7 @@
   if (RT && !UID) {
     document.body.classList.add('renew-only');
     var _h1 = document.querySelector('#app h1');
-    if (_h1) _h1.innerHTML = '🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span>';
+    if (_h1) _h1.innerHTML = '<img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> 🔁 <span data-ko="수업 연장하기" data-en="Extend my classes">수업 연장하기</span>';
     var _sub = document.querySelector('#app .sub');
     if (_sub) {
       _sub.setAttribute('data-ko', '문자로 보내 드린 연장 링크입니다. 현재 요일·시간·선생님 그대로 이어집니다');
@@ -186,7 +219,7 @@
     /* 링크가 만료·소진됐으면 «연장 카드가 안 뜨는» 것으로만 보이지 않게, 이유를 화면에 적는다. */
     fetch('/api/pay/enroll/renew-link?' + RTQ).then(function(r){ return r.json(); }).then(function(d){
       if (d && d.ok) return;
-      app.innerHTML = '<h1>🔁 수업 연장하기</h1><div class="login-need">'
+      app.innerHTML = '<h1><img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> 🔁 수업 연장하기</h1><div class="login-need">'
         + '<div style="font-size:40px">⏰</div>'
         + '<div style="margin:10px 0;font-weight:800">' + ((d && d.message) || '링크가 만료되었거나 사용할 수 없습니다.') + '</div>'
         + '<a href="/">홈에서 로그인하기 →</a></div>';
@@ -194,12 +227,23 @@
   }
 
   if (!UID && !RT) {
-    app.innerHTML = '<h1>🥭 수강신청</h1><div class="login-need">'
-      + '<div style="font-size:40px">🔒</div>'
-      + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
-      + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
-    document.querySelector('.price').style.display = 'none';
-    return;
+    /* 🔑 (2026-08-23) 「로그인했는데 또 로그인하래요」(CLAUDE.md 2장 — 세션 두 갈래)의 이 화면 판.
+       홈 통합 로그인이 «관리자 폴백» 으로 성공하면(사장님 jeong 이 정확히 이 경우) 학생 키가
+       localStorage 에 없다. 잠그기 전에 관리자 세션 쿠키로 «누구인지» 물어보고, 있으면 그
+       아이디(본인)로 계속 간다. 서버 쪽도 같은 폴백을 본다(enroll-ops authUidOrAdminSession —
+       관리자 세션은 «자기 username» 으로만 인정되므로 남의 수강·결제는 여전히 403). */
+    var me = null;
+    try { me = await fetch('/api/admin/me', { credentials: 'same-origin' }).then(function(r){ return r.json(); }); } catch(e){}
+    if (me && me.ok && me.user && me.user.username) {
+      UID = String(me.user.username);
+    } else {
+      app.innerHTML = '<h1><img class="mr-mango" src="/img/mango-char.png" alt="Mr.Mango" decoding="async"> 수강신청</h1><div class="login-need">'
+        + '<div style="font-size:40px">🔒</div>'
+        + '<div style="margin:10px 0;font-weight:800" data-ko="로그인 후 이용할 수 있어요" data-en="Please log in first">로그인 후 이용할 수 있어요</div>'
+        + '<a href="/" data-ko="홈에서 로그인하기 →" data-en="Log in on Home →">홈에서 로그인하기 →</a></div>';
+      document.querySelector('.price').style.display = 'none';
+      return;
+    }
   }
 
   function el(id){ return document.getElementById(id); }
@@ -477,6 +521,19 @@
 
   /* ══ 🔁 연장(재결제) — 요일·시간·강사 승계, 마지막 수업 다음 회차부터 ══ */
   var CUR = null, renewMonths = 1;
+  /* ♾️ (2026-08-23) SUB = 활성 자동결제 구독. 있으면 연장 버튼이 결제창 대신 등록 카드로 «즉시» 결제한다
+     (사장님 지시 ① «자동결제이면 그냥 자동으로»). RENEW_AMT 는 확인 대화상자에 보여줄 최근 견적. */
+  var SUB = null, RENEW_AMT = 0;
+  function curLang(){ try { return localStorage.getItem('mangoi_lang') === 'en' ? 'en' : 'ko'; } catch(e){ return 'ko'; } }
+  /* 연장 버튼 라벨 — JS 로 그리는 라벨은 data-ko/data-en 도 «함께» 갱신해야 🌐 전환이 산다 (CLAUDE.md 2장) */
+  function updateRenewBtnLabel(){
+    var b = el('btnRenew'); if (!b) return;
+    var restart = !!(CUR && CUR.ended);   // 이미 끝난 수강이면 «연장» 이 아니라 «다시 시작»
+    var ko = SUB ? '💳 등록된 카드로 바로 결제' : (restart ? '다시 시작 결제' : '연장 결제');
+    var en = SUB ? '💳 Pay now with saved card' : (restart ? 'Restart & pay' : 'Extend & pay');
+    b.setAttribute('data-ko', ko); b.setAttribute('data-en', en);
+    b.textContent = curLang() === 'en' ? en : ko;
+  }
   var DN2 = ['일','월','화','수','목','금','토'];
   function renderRenewMonths(){
     var box = el('gRenewMonths');
@@ -490,22 +547,27 @@
     };
   }
   function renewQuote(){
-    if (!CUR || !CUR.active) return;
+    if (!CUR || !CUR.renewable) return;
     fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ uid:UID||'', weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
       .then(function(r){return r.json();}).then(function(d){
-        if (d && d.ok) el('renewPrice').innerHTML = '<b style="color:#fbbf24;font-size:17px">'+won(d.amount)+'</b> <span style="color:#94a3b8">· '+d.sessions+'회</span>';
+        if (d && d.ok) {
+          RENEW_AMT = Number(d.amount) || 0;
+          el('renewPrice').innerHTML = '<b style="color:#fbbf24;font-size:17px">'+won(d.amount)+'</b> <span style="color:#94a3b8">· '+d.sessions+'회</span>';
+        }
       }).catch(function(){});
   }
   fetch('/api/pay/enroll/my-current?' + (RT ? RTQ : ('uid='+encodeURIComponent(UID)+(TOKEN?('&token='+encodeURIComponent(TOKEN)):''))))
     .then(function(r){return r.json();}).then(function(d){
-      if (!d || !d.ok || !d.current || !d.current.active) return;
+      /* 🔁 (2026-08-24) active(미래 수업 있음) → renewable(60일 안에 끝난 수강 포함).
+         재등록이 가장 필요한 «막 끝난 직후» 에 카드가 사라지던 것을 고친다. */
+      if (!d || !d.ok || !d.current || !d.current.renewable) { showNoRenewNote(); return; }
       CUR = d.current;
       var wk = (CUR.days||[]).length;
       // 요일 패턴을 서버가 확신하지 못하면(중간에 요일 변경 등) 연장 카드를 숨기고 신규 신청으로 유도
-      if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) return;
+      if (!CUR.days_resolved || !(wk===1||wk===2||wk===3||wk===5)) { showNoRenewNote(); return; }
       // 🕐 (2026-07-30) 요일별 시간도 마찬가지로 확실할 때만 연장 카드를 보여준다 — 제보 #2-3.
-      if (!CUR.times_resolved) return;
+      if (!CUR.times_resolved) { showNoRenewNote(); return; }
       // 모든 요일이 같은 시각이면 기존처럼 한 번만 표시, 요일마다 다르면 각각 표시.
       var timeList = CUR.days.map(function(i){ return (CUR.times && CUR.times[i]) || CUR.time; });
       var sameTime = timeList.every(function(t){ return t === timeList[0]; });
@@ -515,12 +577,59 @@
       el('renewInfo').innerHTML =
         '👩‍🏫 <b>'+esc(CUR.teacher_name||'담당 선생님')+'</b> · '
         + dayTimeStr + ' (' + CUR.minutes + '분)<br>'
-        + '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
-        + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : '');
+        + (CUR.ended
+            ? '📅 <b>'+esc(CUR.last_date)+'</b> 에 수업이 끝났어요'
+              + (CUR.days_since_end ? ' <span style="color:#fca5a5">('+CUR.days_since_end+'일 전)</span>' : '')
+              + '<br><span style="color:#6ee7b7">같은 요일·시간·선생님으로 <b>다음 수업일부터</b> 이어서 시작합니다</span>'
+            : '📅 남은 수업 <b>'+CUR.remaining+'회</b> · 종료 예정 <b>'+esc(CUR.last_date)+'</b>'
+              + (CUR.days_left <= 7 ? ' <span style="color:#fca5a5">('+CUR.days_left+'일 남음)</span>' : ''));
+      // 끝난 학생에게는 제목도 «다시 시작하기» 로 (연장이라는 말이 어색하다)
+      if (CUR.ended) {
+        var _rh = document.querySelector('#stRenew h2');
+        if (_rh) _rh.innerHTML = '🔁 <span data-ko="수업 다시 시작하기" data-en="Restart my classes">수업 다시 시작하기</span>';
+        // ⚠️ 안내문도 함께 — 끝난 학생은 «마지막 수업 다음 회차» 가 아니라 «오늘 이후 첫 수업일» 부터 잡힌다.
+        var _rn = document.querySelector('#stRenew .note');
+        if (_rn) {
+          var _k = '같은 요일·시간·선생님 그대로, 오늘 이후 가장 가까운 수업일부터 새로 잡아 드려요.';
+          var _e = 'Same days, time and teacher — classes restart from the next matching day after today.';
+          _rn.setAttribute('data-ko', _k); _rn.setAttribute('data-en', _e);
+          _rn.textContent = curLang() === 'en' ? _e : _k;
+        }
+        var _rl = document.querySelector('#stRenew .lbl');
+        if (_rl) { _rl.setAttribute('data-ko','수강 기간'); _rl.setAttribute('data-en','Duration');
+                   _rl.textContent = curLang() === 'en' ? 'Duration' : '수강 기간'; }
+      }
       el('stRenew').style.display = 'block';
+      /* 🔁 (2026-08-23) «연장 우선» — 수강 중인 로그인 학생은 신규 폼을 접는다(사장님 지시 ①④).
+         rt(문자 링크) 모드는 이미 renew-only 클래스가 같은 일을 하고 있으니 건드리지 않는다. */
+      if (!RT) {
+        document.body.classList.add('renew-first');
+        var bne = el('btnNewEnroll');
+        if (bne) {
+          bne.style.display = '';
+          bne.onclick = function(){ document.body.classList.remove('renew-first'); bne.style.display = 'none'; };
+        }
+      }
       renderRenewMonths(); renewQuote();
       renderAutoRenewBox();
     }).catch(function(){});
+
+  /* 🛈 (2026-08-24) 연장·자동결제 카드를 못 여는 이유를 «화면이 스스로» 말한다.
+     지금까지는 아무 설명 없이 신규 폼만 떠서 「자동결제가 왜 안 보이지?」가 됐다(사장님 제보).
+     ⚠️ rt(문자 링크) 모드는 자체 안내가 이미 있으므로 건드리지 않는다. */
+  function showNoRenewNote(){
+    if (RT) return;
+    var st = el('stRenew'); if (!st || st.style.display === 'block') return;
+    var box = document.createElement('div');
+    box.className = 'step';
+    box.style.cssText = 'border-color:rgba(148,163,184,0.3);background:rgba(30,41,59,0.6)';
+    box.innerHTML = '<div style="font-size:13px;color:#cbd5e1;line-height:1.7">'
+      + '🛈 <b>이어받을 수업이 없어 연장·자동결제 카드를 열 수 없어요.</b><br>'
+      + '<span style="color:#94a3b8;font-size:12px">자동결제는 «지금 듣고 있는(또는 최근 60일 안에 끝난) 수업»의 '
+      + '요일·시간·선생님을 그대로 이어받는 기능이라, 먼저 아래에서 한 번 신청해 주세요. '
+      + '결제가 끝나면 이 화면에 자동결제 버튼이 생깁니다.</span></div>';
+    st.parentNode.insertBefore(box, st.nextSibling);
+  }
 
   /* ══ ♾️ 자동연장(정기결제) — 카드 한 번 등록하면 매월 자동으로 이어짐 ══ */
   function renderAutoRenewBox(){
@@ -530,19 +639,21 @@
     fetch('/api/pay/billing/status' + (TOKEN ? ('?token='+encodeURIComponent(TOKEN)) : ''))
       .then(function(r){return r.json();}).then(function(d){
         var sub = d && d.ok ? d.subscription : null;
+        SUB = sub; updateRenewBtnLabel();
         if (sub) {
           var next = new Date(sub.next_billing_at);
           var nextStr = next.getFullYear()+'-'+String(next.getMonth()+1).padStart(2,'0')+'-'+String(next.getDate()).padStart(2,'0');
-          box.innerHTML = '<div style="font-size:12.5px;color:#6ee7b7">♾️ <b>자동연장 켜짐</b> · 매월 '+won(sub.amount)+' · 다음 결제 '+nextStr+'</div>'
-            + '<button id="btnAutoRenewOff" style="margin-top:6px;padding:6px 12px;font-size:11.5px;border-radius:8px;border:1px solid rgba(252,165,165,0.4);background:transparent;color:#fca5a5;cursor:pointer" data-ko="자동연장 해지" data-en="Turn off auto-renew">자동연장 해지</button>';
+          box.innerHTML = '<div style="font-size:12.5px;color:#6ee7b7">♾️ <b>자동결제 켜짐</b> · 매월 '+won(sub.amount)+' · 다음 결제 '+nextStr+'</div>'
+            + '<div style="font-size:11px;color:#94a3b8;margin-top:3px">수업 종료 3일 전에 등록된 카드로 자동 결제·연장돼요. 결제 전에 문자로 미리 알려드립니다.</div>'
+            + '<button id="btnAutoRenewOff" style="margin-top:6px;padding:6px 12px;font-size:11.5px;border-radius:8px;border:1px solid rgba(252,165,165,0.4);background:transparent;color:#fca5a5;cursor:pointer" data-ko="자동결제 해지" data-en="Turn off auto-pay">자동결제 해지</button>';
           el('btnAutoRenewOff').addEventListener('click', function(){
-            if (!confirm('자동연장을 해지할까요? 다음 결제부터는 자동으로 진행되지 않아요.')) return;
+            if (!confirm('자동결제를 해지할까요? 다음 결제부터는 자동으로 진행되지 않아요.')) return;
             fetch('/api/pay/billing/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid:UID, token:TOKEN }) })
               .then(function(){ renderAutoRenewBox(); });
           });
         } else {
-          box.innerHTML = '<div style="font-size:12px;color:#94a3b8">매번 결제 버튼을 안 눌러도 되도록, 카드 한 번 등록해두면 매월 자동으로 연장돼요.</div>'
-            + '<button id="btnAutoRenewOn" style="margin-top:6px;padding:8px 14px;font-size:12.5px;font-weight:700;border-radius:8px;border:0;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer" data-ko="♾️ 자동연장으로 전환" data-en="♾️ Switch to auto-renew">♾️ 자동연장으로 전환</button>';
+          box.innerHTML = '<div style="font-size:12px;color:#94a3b8">카드를 한 번 등록해두면 수업 종료 3일 전에 자동으로 결제·연장돼요. 매번 버튼을 누를 필요가 없어요.</div>'
+            + '<button id="btnAutoRenewOn" style="margin-top:6px;padding:8px 14px;font-size:12.5px;font-weight:700;border-radius:8px;border:0;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;cursor:pointer" data-ko="♾️ 자동결제 시작 (카드 등록)" data-en="♾️ Start auto-pay (register card)">♾️ 자동결제 시작 (카드 등록)</button>';
           el('btnAutoRenewOn').addEventListener('click', startAutoRenewRegister);
         }
       }).catch(function(){ box.innerHTML = ''; });
@@ -552,7 +663,7 @@
     if (b) { b.disabled = true; b.textContent = '🔄 처리 중…'; }
     fetch('/api/pay/billing/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ uid:UID, token:TOKEN }) })
       .then(function(r){return r.json();}).then(function(o){
-        if (!o || !o.ok) { if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert((o&&o.message)||'자동연장 신청에 실패했어요.'); return; }
+        if (!o || !o.ok) { if(b){b.disabled=false;b.textContent='♾️ 자동결제 시작 (카드 등록)';} alert((o&&o.message)||'자동결제 신청에 실패했어요.'); return; }
         try {
           var tp = window.TossPayments(o.clientKey);
           tp.requestBillingAuth('카드', {
@@ -560,11 +671,11 @@
             successUrl: location.origin + '/enroll.html?billing_return=1',
             failUrl: location.origin + '/enroll.html?billing_fail=1'
           }).catch(function(e){
-            if (b) { b.disabled=false; b.textContent='♾️ 자동연장으로 전환'; }
+            if (b) { b.disabled=false; b.textContent='♾️ 자동결제 시작 (카드 등록)'; }
             if (e && e.code !== 'USER_CANCEL') alert('카드 등록창 오류: ' + (e.message||''));
           });
-        } catch(e){ if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert('결제 모듈 오류'); }
-      }).catch(function(){ if(b){b.disabled=false;b.textContent='♾️ 자동연장으로 전환';} alert('네트워크 오류'); });
+        } catch(e){ if(b){b.disabled=false;b.textContent='♾️ 자동결제 시작 (카드 등록)';} alert('결제 모듈 오류'); }
+      }).catch(function(){ if(b){b.disabled=false;b.textContent='♾️ 자동결제 시작 (카드 등록)';} alert('네트워크 오류'); });
   }
   /* 토스 카드등록 완료 후 돌아왔을 때 — authKey·customerKey 를 서버에 넘겨 실제 빌링키로 교환 */
   (function handleBillingReturn(){
@@ -576,14 +687,47 @@
     fetch('/api/pay/billing/confirm', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ uid:UID, token:TOKEN, authKey:authKey, customerKey:customerKey }) })
       .then(function(r){return r.json();}).then(function(d){
-        if (d && d.ok) alert('♾️ 자동연장이 켜졌어요! 매월 '+won(d.amount)+'이 자동으로 결제됩니다.');
-        else alert('카드 등록은 완료됐지만 자동연장 설정에 실패했어요: '+((d&&d.message)||(d&&d.error)||'오류'));
+        if (d && d.ok) {
+          /* 💳 (2026-08-23) 등록 직후 «지금 바로 결제» 제안 — 사장님 지시 ④ «바로 간단히».
+             거절하면 수업 종료 3일 전에 서버가 알아서 결제한다(등록만으로 끝나도 손해가 없다). */
+          var doNow = confirm('♾️ 자동결제가 켜졌어요! (매월 ' + won(d.amount) + ')\n\n지금 바로 1개월을 결제하고 수업을 이어둘까요?\n(취소해도 수업 종료 3일 전에 자동으로 결제됩니다)');
+          if (doNow) {
+            fetch('/api/pay/billing/charge-now', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ uid:UID, token:TOKEN, months:1 }) })
+              .then(function(r){return r.json();}).then(function(c){
+                if (c && c.ok) alert('✅ ' + won(c.amount) + ' 결제 완료! 같은 요일·시간·선생님으로 이어졌어요.');
+                else alert('카드는 등록됐지만 결제에 실패했어요: ' + ((c&&c.message)||(c&&c.error)||'오류') + '\n(수업 종료 3일 전에 다시 자동으로 시도됩니다)');
+                location.reload();
+              }).catch(function(){ alert('네트워크 오류 — 카드 등록은 완료된 상태예요.'); location.reload(); });
+            return;
+          }
+        }
+        else alert('카드 등록은 완료됐지만 자동결제 설정에 실패했어요: '+((d&&d.message)||(d&&d.error)||'오류'));
         renderAutoRenewBox();
       }).catch(function(){});
   })();
 
   el('btnRenew').addEventListener('click', function(){
     var b = el('btnRenew');
+    /* ♾️ 자동결제 학생 = 결제창 없이 등록 카드로 즉시 결제 (사장님 지시 ① — 「자동결제이면 그냥 자동으로」).
+       rt(문자 링크) 모드는 SUB 조회 자체가 없어(autoRenewBox 접힘) 늘 아래 결제창 경로로 간다. */
+    if (SUB && !RT) {
+      var ask = '등록된 카드로 ' + (RENEW_AMT ? won(RENEW_AMT) : '') + ' 결제할까요?\n(결제창 없이 바로 결제됩니다 · ' + renewMonths + '개월 연장)';
+      if (!confirm(ask)) return;
+      b.disabled = true; b.textContent = '🔄 결제 중…';
+      fetch('/api/pay/billing/charge-now', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ uid:UID, token:TOKEN, months:renewMonths }) })
+        .then(function(r){return r.json();}).then(function(o){
+          if (o && o.ok) {
+            alert('✅ ' + won(o.amount) + ' 결제 완료!\n같은 요일·시간·선생님으로 ' + o.months + '개월 이어졌어요.');
+            location.reload();
+            return;
+          }
+          b.disabled = false; updateRenewBtnLabel();
+          alert((o && o.message) || '결제에 실패했어요: ' + ((o && o.error) || '오류'));
+        }).catch(function(){ b.disabled = false; updateRenewBtnLabel(); alert('네트워크 오류'); });
+      return;
+    }
     b.disabled = true; b.textContent = '🔄 처리 중…';
     fetch('/api/pay/enroll/renew-order', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(RT ? { renew_token:RT, months:renewMonths }

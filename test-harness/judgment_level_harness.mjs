@@ -246,7 +246,8 @@ console.log('\n[ J. 학생이 직접 고르는 길이 열려 있는가 ]');
   check('고른 범주가 자동조절·±1 보다 우선한다',
     /const nudge = picked \? 0 :/.test(readFileSync(resolve(__dir, '../cloudflare-deploy/src/api-judgment.ts'), 'utf8')));
   // 미리 받아둔 문제는 '바꾸기 전' 난이도·모드로 만들어진 것이라 반드시 버려야 합니다
-  check('고르거나 모드를 바꾸면 미리 받아둔 문제를 버린다', /if\(focusMisc \|\| nudge \|\| setBand \|\| mode\)/.test(HTML));
+  // 2026-08-24: 나이대(ageGroup) 토글이 추가되며 같은 폐기 조건에 합류했다(judgment_agegroup_harness.mjs H절이 그쪽을 검증).
+  check('고르거나 모드를 바꾸면 미리 받아둔 문제를 버린다', /if\(focusMisc \|\| nudge \|\| setBand \|\| mode \|\| ageGroup\)/.test(HTML));
   check('같은 범주를 다시 고르면 서버를 부르지 않는다', /if\(b===CUR_BAND\)/.test(HTML));
   // 사장님 지시(2026-08-03): Lv 숫자 옆에 범주 이름이 보여야 한다
   check('목록에서 이름 옆에 교재 Lv 을 괄호로 붙인다', /lvp-lv">\('\+esc\(b\.lv\)\+'\)/.test(HTML));

@@ -25,7 +25,10 @@
 
 import { getScope, type Scope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬퍼로 — D1 바인드 100개 한도
-import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
+// 🧾 수수료율 판정은 정산관리(org-settlement)와 **같은 것**을 쓴다 — 그 파일 주석 참고
+import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
+import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
+import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
 
 interface Env {
   DB: D1Database;
@@ -295,6 +298,57 @@ function looksCorporate(remark: string): boolean {
    변형 표기까지 잡아 준다는 보장이 없어 여기 직접 하드코딩해 둔다. */
 const KNOWN_FRANCHISE_PAYEE_RE = /^남궁국화A?$/;
 
+/* ── 🧭 계정과목 판정 «한 곳» (2026-08-23) ──────────────────────────────────
+   [왜 함수로 뺐나] 이 판정은 원래 monthActualOpex() 안에만 있었다. 그래서 손익계산서는
+   계정과목 13종으로 보는데, 계좌 원장을 그리는 화면은 DB 의 category(9종)밖에 못 보아
+   **같은 달인데 두 화면의 분류가 어긋나는** 구조였다. 판정을 복제하지 말고 한 함수로
+   모은다(같은 뿌리의 선례: src/no-show-truth.ts).
+   ⚠️ DB 의 category 를 덮어쓰지 않고 «읽을 때» 판정한다 — 지정한 것이 동기화(배포
+      권한자만 실행)를 기다리지 않고 바로 반영되게. 원본(적요·금액)은 절대 안 건드린다. */
+export interface ExpenseAccountRules {
+  payees: Map<string, string>;   // 사람이 지정한 거래처 → 계정과목 (expense_payee_category)
+  owners: Set<string>;           // 지사 대표자명 (franchises.owner_name)
+}
+
+/** 판정에 필요한 표 두 개를 한 번에 읽어 둔다. 행마다 쿼리하지 않기 위해 분리했다.
+ *  ⛔ 여기서 읽기 실패를 `safe()` 로 삼키지 말 것 — 빈 목록으로 이어가면 **에러 없이**
+ *     「지사수수료 0원」이 되어 손익계산서가 틀린 채로 그려진다. 부르는 쪽이 판단하도록
+ *     그대로 던진다(`monthActualOpex` 는 쪼개기를 통째로 포기해 「기타출금」 한 덩어리로
+ *     남기고, `bankExpensesReport` 는 화면에 숫자 대신 오류를 낸다).
+ *     같은 모양의 사고: CLAUDE.md 2장 「`erp-list` 는 어떤 에러든 삼켜 빈 배열을 주므로…」 */
+export async function loadExpenseAccountRules(env: Env): Promise<ExpenseAccountRules> {
+  await ensurePayeeTable(env);
+  const payees = new Map<string, string>();
+  const mp: any = await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all();
+  for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) payees.set(r.payee, r.category);
+  const owners = new Set<string>();
+  const ow: any = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
+  for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(String(r.owner_name).trim());
+  return { payees, owners };
+}
+
+/** 계좌 출금 한 행 → 계정과목.
+ *  저장된 category 가 「기타출금」일 때만 쪼개고, 나머지 9종(급여이체·카드대금 등)은 그대로 둔다. */
+export function resolveExpenseAccount(rules: ExpenseAccountRules, remark: string, storedCategory?: string): string {
+  const stored = String(storedCategory || '') || UNCLASSIFIED;
+  if (stored !== UNCLASSIFIED) return stored;
+  const base = payeeBase(remark);
+  const hit = rules.payees.get(base) || rules.payees.get(String(remark || '').trim());
+  if (hit) return hit;
+  if (KNOWN_FRANCHISE_PAYEE_RE.test(base)) return '지사수수료';
+  if (base && rules.owners.has(base) && !looksCorporate(remark)) return '지사수수료';
+  return UNCLASSIFIED;
+}
+
+/** 그 계정과목이 판관비 합계에서 어떻게 취급되는가 — 화면과 손익계산서가 같은 말을 하게. */
+export type ExpenseRole = 'opex' | 'dup' | 'moved' | 'review';
+export function expenseRoleOf(account: string): ExpenseRole {
+  if (OPEX_DUP_CATEGORIES.includes(account)) return 'dup';       // 카드·급여명세와 이중계상 → 합계에서 제외
+  if (OPEX_MOVED_CATEGORIES.includes(account)) return 'moved';   // 강사급여·매출차감 줄로 간 돈
+  if (account === UNCLASSIFIED) return 'review';                 // 아직 계정과목이 없는 돈
+  return 'opex';
+}
+
 const OPEX_DUP_CATEGORIES = ['급여이체', '카드대금'];          // 다른 항목과 이중계상 → 제외
 const OPEX_MOVED_CATEGORIES = ['강사급여송금', '학생환불'];     // 판관비가 아니라 다른 줄로 가는 돈
 async function monthActualOpex(env: Env, period: string) {
@@ -319,27 +373,21 @@ async function monthActualOpex(env: Env, period: string) {
   const split = await safe(async () => {
     const misc = bankAll.find(b => b.category === UNCLASSIFIED);
     if (!misc) return null;
-    await ensurePayeeTable(env);
     const rows = await env.DB.prepare(`
       SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
       WHERE kind='out' AND COALESCE(category,'기타출금')=? AND substr(trans_at,1,7)=?
     `).bind(UNCLASSIFIED, period).all();
-    const map = new Map<string, string>();
-    const mp = await env.DB.prepare(`SELECT payee, category FROM expense_payee_category`).all();
-    for (const r of ((mp.results || []) as Array<{ payee: string; category: string }>)) map.set(r.payee, r.category);
-    const owners = new Set<string>();
-    const ow = await env.DB.prepare(`SELECT DISTINCT owner_name FROM franchises WHERE COALESCE(owner_name,'') <> ''`).all();
-    for (const r of ((ow.results || []) as Array<{ owner_name: string }>)) owners.add(r.owner_name.trim());
+    /* 🧭 판정은 resolveExpenseAccount() 한 곳에서 — 계좌 원장 화면
+       (/api/admin/reports/bank-expenses)도 같은 함수를 쓴다. 여기서 규칙을 다시 적으면
+       두 화면의 분류가 조용히 갈라진다(2026-08-23 에 함수로 뺀 이유). */
+    const rules = await loadExpenseAccountRules(env);
 
     const byCat = new Map<string, number>();
     let unresolved = 0;
     for (const r of ((rows.results || []) as Array<{ remark: string; amount: number }>)) {
       const amt = Number(r.amount) || 0;
-      const base = payeeBase(r.remark);
-      let cat = map.get(base) || map.get(r.remark.trim());
-      if (!cat && KNOWN_FRANCHISE_PAYEE_RE.test(base)) cat = '지사수수료';
-      if (!cat && base && owners.has(base) && !looksCorporate(r.remark)) cat = '지사수수료';
-      if (!cat) { cat = UNCLASSIFIED; unresolved += amt; }
+      const cat = resolveExpenseAccount(rules, r.remark, UNCLASSIFIED);
+      if (cat === UNCLASSIFIED) unresolved += amt;
       byCat.set(cat, (byCat.get(cat) || 0) + amt);
     }
     return { byCat, unresolved };
@@ -588,6 +636,8 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'close' || p === 'reopen') return await closeRouter(env, request, url, p);
     // 🏷️ 지출 계정과목 지정 — 한 번 정하면 다음부터 같은 거래처가 자동으로 그 과목에 들어간다
     if (p === 'payees') return await payeesRouter(env, request, url);
+    // 🏦 신한 계좌 «출금» 원장 — 계정과목·거래처별로 쪼개서 본다(2026-08-23)
+    if (p === 'bank-expenses') return await bankExpensesReport(env, request, url, fmt);
     // 🧾 배정 못 한 결제 아이디 — 목록 + 지사 직접 지정
     if (p === 'payers') return await payersRouter(env, request, url);
     // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
@@ -1116,6 +1166,337 @@ async function payeesRouter(env: Env, request: Request, url: URL): Promise<Respo
     unresolved_krw: unresolved.reduce((a, i) => a + (Number(i.amount) || 0), 0),
     note: '한 번 정하면 그 거래처의 지난 출금과 앞으로의 출금이 전부 그 과목으로 들어갑니다. 「기타출금」을 고르면 지정을 지웁니다.',
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 GET /api/admin/reports/bank-expenses?month=YYYY-MM   신한 계좌 «출금» 원장
+
+   [왜 만들었나 — 2026-08-23 사장님 요청] 신한카드는 「💳 법인카드 사용내역」 화면이 있어
+   가맹점·업종별로 들여다볼 수 있는데, **신한 계좌는 화면이 아예 없었다.** 계좌 데이터는
+   2026-08-14 부터 매일 쌓이고 있었지만(bankacct_transactions), 화면에 나오는 곳은
+   손익계산서의 「계좌 출금 — ○○」 합계 한 줄뿐이라 «무슨 돈인지» 를 볼 수가 없었다.
+   (/api/admin/bankacct/transactions 는 그때 만들어 뒀는데 **부르는 화면이 한 곳도 없었다.**)
+
+   [왜 bankacct 가 아니라 reports 밑인가] 계정과목 판정(resolveExpenseAccount)이 이 파일에
+   있기 때문이다. 화면이 DB 의 category(9종)를 그리면 손익계산서(계정과목 13종)와 숫자가
+   어긋난다. 같은 파일에서 같은 함수를 쓰게 두면 **어긋날 수가 없다.**
+   덤으로 /api/admin/reports/ 는 인증 게이트·강사 차단에 이미 등록돼 있어
+   src/index.ts(공동 금지구역)를 건드리지 않는다.
+
+   ⛔ **입금(kind='in')은 내려주지 않는다.** 「케이씨피M」(하나은행 → 신한 자금이체)·
+      «운영자금 보충»·«성격 미확인 입금» 은 2026-08-18 사장님 지시로 매출·회계 화면에서
+      전부 뺐다. 여기서 입금 표를 그리면 그것이 그대로 되살아난다. 이 화면은 «지출» 전용이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+interface BankExpenseRow {
+  id: number; trans_at: string; amount: number; balance: number;
+  remark: string; category: string; memo: string;
+}
+
+async function bankExpensesReport(env: Env, request: Request, url: URL, fmt = 'json'): Promise<Response> {
+  const q = String(url.searchParams.get('month') || '');
+  const period = /^\d{4}-\d{2}$/.test(q) ? q : currentMonth();
+  const { label } = monthRange(period);
+
+  const rules = await loadExpenseAccountRules(env);
+
+  /* 🔁 «4개월 창» 을 한 번에 읽는다 — 고정비 판정(같은 거래처가 반복해서 나오는가)과
+     전월 대비 증감이 지난 달들을 필요로 한다. 달마다 따로 조회하면 왕복이 네 배가 된다.
+     ⚠️ 화면의 «출금 내역» 표는 이 중 이번 달만 쓴다(아래 detail). */
+  const [wy, wm] = period.split('-').map(Number);
+  const RECUR_WINDOW = 4;                       // 당월 포함 4개월
+  const windowMonths: string[] = [];
+  for (let i = RECUR_WINDOW - 1; i >= 0; i--) {
+    windowMonths.push(new Date(Date.UTC(wy, wm - 1 - i, 1)).toISOString().slice(0, 7));
+  }
+  const prevMonth = windowMonths[windowMonths.length - 2];
+
+  const windowRows = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT id, trans_at, amount, balance, COALESCE(remark,'') AS remark,
+             COALESCE(category,'기타출금') AS category, COALESCE(memo,'') AS memo
+      FROM bankacct_transactions
+      WHERE kind='out' AND substr(trans_at,1,7) >= ? AND substr(trans_at,1,7) <= ?
+      ORDER BY trans_at DESC, id DESC
+    `).bind(windowMonths[0], period).all();
+    return (r.results || []) as unknown as BankExpenseRow[];
+  }, [] as BankExpenseRow[]);
+  const rows = windowRows.filter(r => String(r.trans_at).slice(0, 7) === period);
+
+  /* 📈 최근 12개월 «총 출금» 추이 — 계정과목 판정 없이 순수 SQL 합계다.
+     전월 대비·3개월 평균 KPI 도 이 값으로 낸다(달마다 전건을 다시 판정하지 않기 위해). */
+  const [py, pm] = period.split('-').map(Number);
+  const months: string[] = [];
+  for (let i = 11; i >= 0; i--) months.push(new Date(Date.UTC(py, pm - 1 - i, 1)).toISOString().slice(0, 7));
+  const histMap = await safe(async () => {
+    const r = await env.DB.prepare(`
+      SELECT substr(trans_at,1,7) AS ym, COALESCE(SUM(amount),0) AS total, COUNT(*) AS cnt
+      FROM bankacct_transactions
+      WHERE kind='out' AND substr(trans_at,1,7) >= ? AND substr(trans_at,1,7) <= ?
+      GROUP BY ym
+    `).bind(months[0], months[months.length - 1]).all();
+    const m = new Map<string, { total: number; cnt: number }>();
+    for (const x of ((r.results || []) as Array<{ ym: string; total: number; cnt: number }>)) {
+      m.set(x.ym, { total: Number(x.total) || 0, cnt: Number(x.cnt) || 0 });
+    }
+    return m;
+  }, new Map<string, { total: number; cnt: number }>());
+  const history = months.map(ym => ({
+    month: ym, total: histMap.get(ym)?.total || 0, count: histMap.get(ym)?.cnt || 0,
+  }));
+
+  /* 🧭 행마다 계정과목·거래처를 붙인다 — 판정은 손익계산서와 같은 함수. */
+  const detail = rows.map(r => {
+    const account = resolveExpenseAccount(rules, r.remark, r.category);
+    return {
+      id: r.id,
+      datetime: r.trans_at,
+      remark: r.remark,
+      payee: payeeBase(r.remark),
+      bank_category: r.category,     // 은행 적요로 붙은 1차 분류(9종) — 참고용
+      account,                       // 손익계산서가 쓰는 계정과목 — 화면의 기준
+      role: expenseRoleOf(account),
+      amount: Number(r.amount) || 0,
+      balance: Number(r.balance) || 0,
+      memo: r.memo,
+    };
+  });
+
+  // 📊 계정과목별 합계
+  const catMap = new Map<string, { total: number; count: number }>();
+  for (const d of detail) {
+    const cur = catMap.get(d.account) || { total: 0, count: 0 };
+    cur.total += d.amount; cur.count++;
+    catMap.set(d.account, cur);
+  }
+  const outTotal = detail.reduce((a, d) => a + d.amount, 0);
+  const categories = [...catMap].map(([account, v]) => ({
+    account, total: v.total, count: v.count,
+    role: expenseRoleOf(account),
+    share: outTotal > 0 ? Math.round((v.total / outTotal) * 1000) / 10 : 0,
+  })).sort((a, b) => b.total - a.total);
+
+  /* 🏪 거래처별 합계 — 은행 적요는 「김영진(지성교」처럼 잘려 오므로 payeeBase() 로 묶는다.
+     카드의 «가맹점» 자리에 해당하는 축이고, 이 화면에서 실제로 제일 쓸모가 많다. */
+  const payeeMap = new Map<string, {
+    total: number; count: number; accounts: Set<string>; first: string; last: string; assignable: boolean;
+  }>();
+  for (const d of detail) {
+    const key = d.payee || d.remark || '(적요 없음)';
+    const cur = payeeMap.get(key)
+      || { total: 0, count: 0, accounts: new Set<string>(), first: d.datetime, last: d.datetime, assignable: false };
+    cur.total += d.amount; cur.count++; cur.accounts.add(d.account);
+    /* 🏷️ «지정해도 소용 있는 거래처인가» — resolveExpenseAccount() 는 저장된 category 가
+       「기타출금」일 때만 쪼갠다. 급여이체·카드대금처럼 은행 적요로 이미 분류가 붙은 행은
+       지정해도 **안 바뀐다.** 그걸 화면이 모르면 사장님이 지정해 놓고 「저장이 안 된다」고
+       읽게 된다(실제로 그렇게 보인다 — 에러도 안 난다). 그래서 서버가 미리 알려 준다. */
+    /* ⛔ 적요가 빈 행은 지정 대상에서 뺀다 — 아래 key 가 '(적요 없음)' 이 되는데,
+       그 이름으로 저장해 봐야 resolveExpenseAccount() 의 두 조회(payeeBase(remark)·
+       remark.trim())가 **둘 다 안 맞아 영영 안 먹는다.** 칸을 내면 지정해 놓고
+       「저장이 안 된다」가 된다(2026-08-23 함정 대조에서 지적). */
+    if (d.bank_category === UNCLASSIFIED && (d.payee || d.remark)) cur.assignable = true;
+    if (d.datetime < cur.first) cur.first = d.datetime;
+    if (d.datetime > cur.last) cur.last = d.datetime;
+    payeeMap.set(key, cur);
+  }
+  const payees = [...payeeMap].map(([payee, v]) => ({
+    payee, total: v.total, count: v.count,
+    /* ⚠️ 한 거래처의 출금이 여러 과목으로 갈릴 수 있다(적요마다 1차 분류가 다르게 붙는 경우).
+       첫 줄의 과목을 대표로 쓰면 조용히 틀린 과목이 붙으므로 «여러 과목» 이라고 밝힌다. */
+    account: v.accounts.size === 1 ? [...v.accounts][0] : '여러 과목',
+    accounts: [...v.accounts],
+    first_at: v.first, last_at: v.last,
+    // 사람이 직접 지정해 둔 거래처인가 — 화면에서 «지정됨» 표시로 쓴다
+    assigned: rules.payees.has(payee),
+    assignable: v.assignable,
+  })).sort((a, b) => b.total - a.total);
+
+  const idx = months.indexOf(period);
+  const prevTotal = idx > 0 ? history[idx - 1].total : 0;
+  const prev3 = history.slice(Math.max(0, idx - 3), Math.max(0, idx)).filter(h => h.total > 0);
+  const avg3m = prev3.length ? Math.round(prev3.reduce((a, h) => a + h.total, 0) / prev3.length) : 0;
+  const pct = (base: number) => (base > 0 ? Math.round(((outTotal - base) / base) * 1000) / 10 : null);
+
+  const sumRole = (role: ExpenseRole) => categories.filter(c => c.role === role).reduce((a, c) => a + c.total, 0);
+  const reviewTotal = sumRole('review');
+
+  /* 📣 «왜 비어 있는지» 를 숫자 대신 말해 주는 상태 한 줄 — 법인카드 화면과 같은 원칙.
+     연동이 꺼져 있는 것과 «그 달에 출금이 없는 것» 은 완전히 다른 이야기다. */
+  const status = await safe(async () => await bankacctStatus(env, { current: rows }), null);
+
+  /* ═══ 🔁 고정비 · 변동비 가르기 (3단계) ════════════════════════════════════
+     [왜] 계좌 출금은 임대료·보험·구독료처럼 **매달 같은 곳에 비슷한 금액**이 나가는 것이
+     많다. 그걸 갈라 놓으면 「이번 달 왜 늘었나」에 바로 답할 수 있다 — 고정비는 그대로인데
+     변동비만 늘었다면 볼 곳이 좁아진다. 카드 화면에는 없는 축이다.
+
+     [판정] 당월 포함 4개월 창에서 그 거래처가 **3개월 이상** 나왔고, 월별 합계의
+     **최대/최소 비율이 1.25 이하**면 「고정비」. 3개월 이상 나왔지만 금액이 흔들리면
+     「반복(금액 변동)」, 나머지는 「변동비」.
+     ⚠️ 이건 «추정»이다. 회계 계정과목이 아니라 «패턴»이라 화면에 근거(몇 달 나왔는지·
+        금액 폭)를 함께 내려 준다 — 숫자만 주면 사람이 확인할 방법이 없다.
+     ⚠️ 창이 4개월이므로 **자료가 4개월치 없는 초기에는 대부분 «변동비»로 보인다.**
+        그건 틀린 게 아니라 «아직 모른다» 는 뜻이다. 화면이 창 기간을 함께 밝힌다. */
+  const byPayeeMonth = new Map<string, Map<string, number>>();
+  for (const r of windowRows) {
+    const key = payeeBase(r.remark) || r.remark || '(적요 없음)';
+    const ym = String(r.trans_at).slice(0, 7);
+    const m = byPayeeMonth.get(key) || new Map<string, number>();
+    m.set(ym, (m.get(ym) || 0) + (Number(r.amount) || 0));
+    byPayeeMonth.set(key, m);
+  }
+
+  const RECUR_MIN_MONTHS = 3;      // 4개월 중 3개월 이상 나와야 «반복»
+  const FIXED_SPREAD_MAX = 1.25;   // 월별 합계 최대/최소가 이 이하면 «금액이 일정하다»
+  type RecurKind = 'fixed' | 'recurring' | 'variable';
+  const recurOf = (payee: string): { kind: RecurKind; monthsSeen: number; avg: number; spread: number | null } => {
+    const m = byPayeeMonth.get(payee);
+    if (!m) return { kind: 'variable', monthsSeen: 0, avg: 0, spread: null };
+    const vals = [...m.values()].filter(v => v > 0);
+    const monthsSeen = vals.length;
+    const avg = monthsSeen ? Math.round(vals.reduce((a, b) => a + b, 0) / monthsSeen) : 0;
+    const min = monthsSeen ? Math.min(...vals) : 0;
+    const max = monthsSeen ? Math.max(...vals) : 0;
+    const spread = min > 0 ? Math.round((max / min) * 100) / 100 : null;
+    if (monthsSeen < RECUR_MIN_MONTHS) return { kind: 'variable', monthsSeen, avg, spread };
+    if (spread != null && spread <= FIXED_SPREAD_MAX) return { kind: 'fixed', monthsSeen, avg, spread };
+    return { kind: 'recurring', monthsSeen, avg, spread };
+  };
+
+  const recurItems = payees.map(p => {
+    const r = recurOf(p.payee);
+    return {
+      payee: p.payee, account: p.account, current: p.total,
+      kind: r.kind, months_seen: r.monthsSeen, avg: r.avg, spread: r.spread,
+    };
+  });
+  const kindSum = (k: RecurKind) => recurItems.filter(i => i.kind === k).reduce((a, i) => a + i.current, 0);
+
+  /* ═══ 📈 전월 대비 증감 (거래처 단위) ══════════════════════════════════════
+     ⚠️ **이번 달에 없는 거래처도 넣는다.** 정기결제가 끊긴 것·지사수수료가 안 나간 것은
+        «줄었다» 가 아니라 «사라졌다» 인데, 당월 목록만 보면 영영 안 보인다. */
+  const prevByPayee = new Map<string, number>();
+  for (const [payee, m] of byPayeeMonth) {
+    const v = m.get(prevMonth) || 0;
+    if (v > 0) prevByPayee.set(payee, v);
+  }
+  const curByPayee = new Map(payees.map(p => [p.payee, p.total] as [string, number]));
+  const moverKeys = new Set<string>([...curByPayee.keys(), ...prevByPayee.keys()]);
+  const movers = [...moverKeys].map(payee => {
+    const cur = curByPayee.get(payee) || 0;
+    const prv = prevByPayee.get(payee) || 0;
+    return {
+      payee, current: cur, prev: prv, delta: cur - prv,
+      delta_pct: prv > 0 ? Math.round(((cur - prv) / prv) * 1000) / 10 : null,
+      account: (payees.find(p => p.payee === payee) || { account: '' }).account,
+      status: prv === 0 ? 'new' : (cur === 0 ? 'gone' : 'changed'),
+    };
+  }).filter(m => m.delta !== 0).sort((a, b) => b.delta - a.delta);
+
+  /* 🔐 «이 사람이 계정과목을 지정할 수 있나» — 실제 저장은 payeesRouter 가 `scope.type !== 'hq'`
+     로 막는다(403). 화면도 같은 기준으로 지정 칸을 감춘다 — **서버만 있으면 «눌러도 안 되는
+     칸»이 남고, 화면만 있으면 URL 로 뚫린다**(CLAUDE.md 2장). 그래서 둘 다 둔다.
+     ⛔ `canEditOrg()` 를 쓰지 말 것 — 그 함수는 `'none'`(내부직원·교사)에도 true 를 준다. */
+  const canAssign = await safe(async () => (await getScope(env, request)).type === 'hq', false);
+
+  const payload = {
+    ok: true, type: 'bank-expenses', period, label,
+    summary: {
+      out_total: outTotal,
+      out_count: detail.length,
+      prev_total: prevTotal,
+      prev_delta_pct: pct(prevTotal),
+      avg3m,
+      avg3m_delta_pct: pct(avg3m),
+      // 💼 판관비로 실제로 들어가는 금액 — 손익계산서의 「계좌 출금」 줄 합계와 같아야 한다
+      opex_total: sumRole('opex') + reviewTotal,
+      // ♻️ 다른 줄과 겹쳐 판관비에서 뺀 돈(카드대금·급여이체)
+      dup_total: sumRole('dup'),
+      // ↪️ 판관비가 아니라 다른 줄로 간 돈(강사급여송금·학생환불)
+      moved_total: sumRole('moved'),
+      // 🏷️ 아직 계정과목이 없는 돈 — 이 비율을 0 에 가깝게 만드는 것이 이 화면의 목적
+      review_total: reviewTotal,
+      review_ratio: outTotal > 0 ? Math.round((reviewTotal / outTotal) * 1000) / 10 : 0,
+    },
+    categories,
+    payees,
+    rows: detail,
+    history,
+    account_options: EXPENSE_CATEGORIES,
+    can_assign: canAssign,
+    /* 🔁 고정비·변동비 — «패턴 추정» 이라 근거(창 기간·몇 달 나왔는지·금액 폭)를 함께 준다 */
+    recurring: {
+      window: windowMonths,
+      /* ⚠️ 조회한 달이 «아직 진행 중» 이면 그 달 합계는 덜 찼다. 한 달에 여러 번 나가는
+         거래처는 월 중반에 금액 폭(spread)이 부풀어 「고정비」가 「반복」으로 내려앉는다.
+         판정을 흔들지 않고 **사실을 화면에 밝히는 쪽**을 골랐다 — 진행 중인 달을 판정에서
+         빼면 창이 3개월로 줄어 「3개월 이상」 조건이 «세 달 모두» 가 되어 더 빡빡해진다. */
+      period_in_progress: period === currentMonth(),
+      window_months: RECUR_WINDOW,
+      min_months: RECUR_MIN_MONTHS,
+      spread_max: FIXED_SPREAD_MAX,
+      fixed_total: kindSum('fixed'),
+      recurring_total: kindSum('recurring'),
+      variable_total: kindSum('variable'),
+      items: recurItems,
+    },
+    // 📈 전월 대비 증감 — 늘어난 것부터. «사라진 거래처»(status='gone')도 들어 있다
+    movers,
+    prev_month: prevMonth,
+    status,
+    note: '이 화면은 계좌 «출금» 만 봅니다. 계정과목은 손익계산서와 같은 판정(resolveExpenseAccount)을 씁니다.',
+  };
+
+  /* 📥 엑셀·CSV 내보내기 — 화면과 «같은 payload» 로 만든다. 따로 계산하면 어긋난다.
+     ⛔ 입금 시트를 만들지 말 것(「케이씨피M」 금지가 되살아난다). */
+  if (fmt === 'csv' || fmt === 'xlsx') {
+    const won = (n: any) => Number(n) || 0;
+    const KIND_KO: Record<string, string> = { fixed: '고정비', recurring: '반복(금액 변동)', variable: '변동비' };
+    const summaryRows: (string | number)[][] = [
+      ['망고아이 신한 계좌 출금 분석', label],
+      ['※ 계좌 «출금» 만 담았습니다. 계정과목은 손익계산서와 같은 기준입니다.'],
+      [],
+      ['이번 달 총 출금', won(payload.summary.out_total)],
+      ['건수', won(payload.summary.out_count)],
+      ['전월 출금', won(payload.summary.prev_total)],
+      ['3개월 평균', won(payload.summary.avg3m)],
+      ['판관비에 들어가는 금액', won(payload.summary.opex_total)],
+      ['중복이라 뺀 금액(카드대금·급여이체)', won(payload.summary.dup_total)],
+      ['다른 줄로 간 금액(강사급여·매출차감)', won(payload.summary.moved_total)],
+      ['아직 계정과목 없음', won(payload.summary.review_total)],
+      [],
+      [`고정비 (최근 ${RECUR_WINDOW}개월 중 ${RECUR_MIN_MONTHS}개월 이상·금액 일정)`, kindSum('fixed')],
+      ['반복(금액 변동)', kindSum('recurring')],
+      ['변동비', kindSum('variable')],
+      [],
+      ['계정과목', '금액', '건수', '비중(%)', '손익계산서 취급'],
+      ...categories.map(c => [c.account, won(c.total), won(c.count), c.share,
+        c.role === 'opex' ? '판관비에 포함' : c.role === 'dup' ? '제외 — 중복'
+        : c.role === 'moved' ? '다른 줄로' : '확인 필요'] as (string | number)[]),
+    ];
+    const sheets: XlsxSheet[] = [
+      { name: '거래처별', headerRows: 1, rows: [
+        ['거래처', '계정과목', '금액', '건수', '성격', '최근 4개월 중', '월평균', '첫 거래', '마지막 거래'],
+        ...payees.map(p => {
+          const r = recurItems.find(i => i.payee === p.payee);
+          return [p.payee, p.account, won(p.total), won(p.count),
+            KIND_KO[r?.kind || 'variable'], `${r?.months_seen || 0}개월`, won(r?.avg),
+            p.first_at, p.last_at] as (string | number)[];
+        }),
+      ] },
+      { name: '전월 대비 증감', headerRows: 1, rows: [
+        ['거래처', '계정과목', '이번 달', prevMonth, '증감', '증감(%)', '상태'],
+        ...movers.map(m => [m.payee, m.account, won(m.current), won(m.prev), won(m.delta),
+          m.delta_pct == null ? '' : m.delta_pct,
+          m.status === 'new' ? '새로 생김' : m.status === 'gone' ? '사라짐' : ''] as (string | number)[]),
+      ] },
+      { name: '출금 내역', headerRows: 1, rows: [
+        ['일시', '적요', '거래처', '계정과목', '출금액', '잔액'],
+        ...detail.map(d => [d.datetime, d.remark, d.payee, d.account, won(d.amount), won(d.balance)] as (string | number)[]),
+      ] },
+    ];
+    return out(fmt, `bank-expenses-${period}.csv`, summaryRows, sheets);
+  }
+
+  return json(payload);
 }
 
 /* 🧾 GET  /api/admin/reports/payers[?months=12]  아직 소속이 안 붙은 결제 아이디 + 지사 목록
@@ -1859,10 +2240,29 @@ async function attributeB2bRows(
         넣으면 그대로 붙는다. 목록은 docs/가맹점_매출배정_미확정_목록_2026-08-16.md.
    ⚠️ 수수료율은 가맹 계약서에 있는 값인데 시스템에 없다. 그래서 화면·CSV 에
       «추정» 이라고 밝히고, ?hq_fee= 로 바꿔 볼 수 있게만 한다. */
+/** ?hq_fee= 값 정규화. 「60」도 「0.6」도 60% 로 읽는다(정산관리 toRate 와 같은 규칙).
+    안 넘겼거나 숫자가 아니면 null → 그때는 수동 설정·기본값을 쓴다. */
+function toRateParam(v: string | null): number | null {
+  if (v == null || String(v).trim() === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(1, n > 1 ? n / 100 : n);
+}
+
 async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Response> {
   const period = url.searchParams.get('period') || currentMonth();
   const { startMs, endMs, label } = monthRange(period);
-  const hqFeeRate = Number(url.searchParams.get('hq_fee')) || 0.15;
+  /* 🧾 (2026-08-18) 수수료율을 정산관리와 하나로 맞췄다.
+     예전엔 여기만 «본사 15%» 가 박혀 있어서, 같은 가맹점을 두고 정산관리 화면은
+     60% 를, 이 정산서는 15% 를 뗐다. 정산서는 **가맹점에 실제로 보내는 문서**라
+     그 상태로 두면 분쟁이 난다.
+     이제 판정은 org-settlement 의 resolveHqRate() 하나뿐이다:
+       ① 대리점 수동 설정 → ② 그 대리점이 속한 지사 수동 설정 → ③ 기본값 60%
+     ?hq_fee= 를 명시로 넘기면 그때만 전 가맹점에 그 값을 강제한다(«만약» 계산용). */
+  const hqFeeParam = toRateParam(url.searchParams.get('hq_fee'));
+  const rateOv: RateOverrides = hqFeeParam == null
+    ? await safe(async () => await loadRateOverrides(env), { branch: new Map(), agency: new Map() } as RateOverrides)
+    : { branch: new Map(), agency: new Map() };
 
   /* 🧾 대리 결제자 → 지사 지정표 (2026-08-16 신설).
      학생이 아니라 **대리점·직원 계정이 여러 학생 몫을 한꺼번에 결제**하는 경우가 있다
@@ -1881,26 +2281,32 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
      이 방식으로 바꾸면 「같은 대리점 이름이 두 지사에 있어 배정 불가」 문제가
      통째로 사라진다(예: 「미사용」 대리점 학생 229명은 라벨이 이미 셋으로 나뉘어 있다).
      라벨이 없는 학생만 예전처럼 shop_name → centers → 지사 로 폴백한다. */
+  /* 🧾 요율이 대리점마다 다를 수 있으므로 «지사 × 대리점» 으로 쪼개 집계한다 (2026-08-18).
+     지사 총매출 × 지사요율 로 계산하면 대리점별 수동 설정이 통째로 무시된다.
+     ⚠️ 학생수는 쪼개도 안전하다 — shop_name 은 «학생 원부의 칸» 이라 한 학생은 대리점
+        하나에만 속한다. 그래서 대리점별 DISTINCT 를 더해도 겹쳐 세지 않는다. */
   const attributed = await safe(async () => {
     const r = await env.DB.prepare(`
       WITH ${FRANCHISE_FID_CTE},
       att AS (
         SELECT p.id AS pay_id, p.amount_krw, p.user_id,
-               ${franchiseFidSql('p', 'st')} AS fid
+               ${franchiseFidSql('p', 'st')} AS fid,
+               COALESCE(st.shop_name,'') AS agency
           FROM student_payments p
           LEFT JOIN students_erp st ON st.user_id = p.user_id
          WHERE p.status='paid' AND p.paid_at >= ? AND p.paid_at < ? AND ${notSeedSql('p')}
       )
       SELECT f.id AS franchise_id, f.name AS franchise_name, f.active AS active,
+             a.agency AS agency_name,
              COALESCE(SUM(a.amount_krw),0) AS gross,
              COUNT(a.pay_id) AS pays,
              COUNT(DISTINCT a.user_id) AS students
         FROM att a JOIN franchises f ON f.id = a.fid
-       GROUP BY f.id, f.name, f.active
+       GROUP BY f.id, f.name, f.active, a.agency
        HAVING gross > 0
        ORDER BY gross DESC
     `).bind(startMs, endMs).all();
-    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number }>;
+    return (r.results || []) as Array<{ franchise_id: number; franchise_name: string; active: number; agency_name: string; gross: number; pays: number; students: number }>;
   }, []);
 
   // 장부 총 매출 — 배정된 합과 비교해 «배정 못 한 돈» 을 정직하게 드러낸다
@@ -1920,10 +2326,21 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   const b2b = await attributeB2bDeposits(env, period);
 
   // 가맹점 표는 «장부 결제만 있는 지사» 와 «B2B 만 있는 지사» 를 모두 담아야 한다
-  type FrRow = { franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number; b2bGross: number; b2bCount: number };
+  type FrRow = { franchise_id: number; franchise_name: string; active: number; gross: number; pays: number; students: number;
+                 b2bGross: number; b2bCount: number; byAgency: Map<string, number> };
   const merged = new Map<number, FrRow>();
   for (const f of attributed) {
-    merged.set(f.franchise_id, { ...f, gross: Number(f.gross) || 0, b2bGross: 0, b2bCount: 0 });
+    const cur = merged.get(f.franchise_id) || {
+      franchise_id: f.franchise_id, franchise_name: f.franchise_name, active: f.active,
+      gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0, byAgency: new Map<string, number>(),
+    };
+    const amt = Number(f.gross) || 0;
+    cur.gross += amt;
+    cur.pays += Number(f.pays) || 0;
+    cur.students += Number(f.students) || 0;
+    // 대리점별 매출을 따로 쥔다 — 요율이 대리점마다 다를 수 있다
+    cur.byAgency.set(f.agency_name || '', (cur.byAgency.get(f.agency_name || '') || 0) + amt);
+    merged.set(f.franchise_id, cur);
   }
   if (b2b.byFranchise.size) {
     // B2B 만 있는 지사는 위 쿼리에 안 나오므로 이름을 따로 가져온다
@@ -1938,7 +2355,7 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       for (const f of names) {
         merged.set(Number(f.id), {
           franchise_id: Number(f.id), franchise_name: f.name, active: Number(f.active) || 0,
-          gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0,
+          gross: 0, pays: 0, students: 0, b2bGross: 0, b2bCount: 0, byAgency: new Map<string, number>(),
         });
       }
     }
@@ -1949,9 +2366,29 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     }
   }
 
+  /* 수수료는 «지사 총매출 × 지사요율» 이 아니라 «대리점별 수수료의 합» 이다.
+     대리점마다 요율이 다를 수 있으므로 한 번에 곱하면 틀린 값이 나온다.
+     ⚠️ B2B 통장 입금은 학생·대리점 정보가 없어(적요만 있다) 지사 요율로 뗀다.
+        그 지사에 대리점별 설정이 걸려 있어도 B2B 분에는 못 쓴다 — 붙일 근거가 없다. */
+  const rateOf = (branch: string, agency: string | null) =>
+    hqFeeParam != null ? { rate: hqFeeParam, source: 'param' as const } : resolveHqRate(rateOv, branch, agency);
+
   const rows = Array.from(merged.values()).map(f => {
     const gross = f.gross + f.b2bGross;
-    const fee = Math.round(gross * hqFeeRate);
+    let fee = 0;
+    const usedRates = new Set<number>();
+    for (const [agency, amt] of f.byAgency) {
+      const { rate } = rateOf(f.franchise_name, agency || null);
+      fee += Math.round(amt * rate);
+      usedRates.add(rate);
+    }
+    if (f.b2bGross > 0) {
+      const { rate } = rateOf(f.franchise_name, null);
+      fee += Math.round(f.b2bGross * rate);
+      usedRates.add(rate);
+    }
+    // 화면에 찍는 요율은 «실제로 떼인 비율»(가중평균)이다. 고정 문구를 쓰면 거짓말이 된다
+    const effRate = gross > 0 ? fee / gross : rateOf(f.franchise_name, null).rate;
     return {
       franchise_id: f.franchise_id,
       franchise_name: f.franchise_name + (Number(f.active) === 1 ? '' : ' (비활성 지사)'),
@@ -1962,6 +2399,8 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
       b2b_count: f.b2bCount,
       gross_revenue: gross,
       hq_fee: fee,
+      hq_fee_rate: effRate,                     // 실효 요율(가중평균) — 대리점마다 다르면 섞인 값
+      rate_mixed: usedRates.size > 1,           // 한 지사 안에서 요율이 갈렸는지
       net_settlement: gross - fee,
       due_date: nextSettlementDate(period),
       status: '정산예정',
@@ -2003,9 +2442,17 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     book: a.book + r.book_revenue, b2b: a.b2b + r.b2b_revenue,
   }), { gross: 0, fee: 0, net: 0, book: 0, b2b: 0 });
 
+  // 전체 실효 요율 — 대리점마다 다를 수 있으니 «실제로 뗀 합 ÷ 총매출» 로 낸다
+  const effRateAll = totals.gross > 0 ? totals.fee / totals.gross : (hqFeeParam ?? DEFAULT_HQ_RATE);
+  const anyMixed = rows.some(r => r.rate_mixed) ||
+    new Set(rows.map(r => Number(r.hq_fee_rate.toFixed(6)))).size > 1;
+
   const data = {
     ok: true, type: 'franchise', period, label,
-    hq_fee_rate: hqFeeRate,
+    hq_fee_rate: effRateAll,                    // 실효(가중평균) — 화면 표기용
+    hq_fee_rate_default: DEFAULT_HQ_RATE,       // 수동 설정이 없는 곳에 쓰인 기본값
+    hq_fee_rate_forced: hqFeeParam,             // ?hq_fee= 로 강제한 경우만 값이 있다
+    hq_fee_rate_mixed: anyMixed,                // 가맹점마다 요율이 갈렸는지
     method: 'attributed',                       // 균등분배(equal)가 아니라 학생 단위 귀속
     rows, totals,
     book_total: bookTotal,                      // 카페24 등 결제 장부만
@@ -2022,13 +2469,19 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
     sources: {
       gross_revenue: 'actual' as FigureSource,
       b2b_revenue: (b2b.total > 0 ? 'actual' : 'none') as FigureSource,
-      hq_fee: 'estimated' as FigureSource,      // 계약서 수수료율이 시스템에 없다
+      // 요율은 이제 «추정» 이 아니라 정책값(본사 60%) + 사람이 지정한 수동 설정이다.
+      // 다만 ?hq_fee= 로 강제한 «만약» 계산일 때는 추정으로 표시한다.
+      hq_fee: (hqFeeParam != null ? 'estimated' : 'actual') as FigureSource,
       unassigned: (unassigned > 0 ? 'review' : 'actual') as FigureSource,
     },
     notes: [
       '가맹점별 매출은 학생 한 명씩 실제 소속을 따라가 합산한 값입니다. 균등분배가 아닙니다. 소속은 학생 원부의 지사 라벨을 먼저 쓰고, 라벨이 없으면 대리점 이름으로 찾습니다.',
       '총 매출 = 카페24 등 «장부 결제» + 학원이 통장으로 바로 보낸 «B2B 직접입금» 입니다(2026-08-18부터 B2B 포함 — 월간 리포트·KPI의 매출과 같은 정의). 본사 수수료율은 B2B·B2C 구분 없이 같은 값을 씁니다.',
-      `본사 수수료율 ${(hqFeeRate * 100).toFixed(1)}% 는 시스템에 계약 수수료율이 없어 쓴 임시값입니다 — 가맹점에 보내기 전에 계약서로 확인하세요.`,
+      ...(hqFeeParam != null
+        ? [`본사 수수료율을 ${(hqFeeParam * 100).toFixed(1)}% 로 «강제 지정»해 계산한 «만약» 값입니다(주소의 ?hq_fee=). 저장된 설정이 아니므로 이대로 가맹점에 보내지 마세요.`]
+        : [`본사 수수료율은 정산관리 화면과 같은 기준입니다 — 지사·대리점별 «수수료 비율 설정»이 있으면 그 값, 없으면 기본값 ${(DEFAULT_HQ_RATE * 100).toFixed(0)}%(지점 ${((1 - DEFAULT_HQ_RATE) * 100).toFixed(0)}%). 이 달 실효 요율은 ${(effRateAll * 100).toFixed(1)}% 입니다.`,
+           ...(anyMixed ? ['가맹점마다(또는 한 지사 안 대리점마다) 요율이 다릅니다. 표의 요율 칸은 그 가맹점에서 «실제로 떼인 비율»(가중평균)입니다.'] : []),
+           'B2B 통장 직접입금은 학생·대리점 정보가 없어 지사 요율로 뗍니다 — 그 지사에 대리점별 설정이 걸려 있어도 B2B 분에는 적용할 근거가 없습니다.']),
       ...(b2b.total > 0 ? [`이 달 B2B 직접입금은 ${b2b.rows.length}건 · ₩${b2b.total.toLocaleString('ko-KR')} 이고, 그중 ₩${b2b.assigned.toLocaleString('ko-KR')} 을 가맹점에 붙였습니다. 입금 적요를 대리점·지사 이름과 맞춰 붙이며, 후보가 둘 이상이면 붙이지 않습니다.`] : []),
       ...(unassigned > 0 ? [`소속을 확정하지 못한 매출 ₩${unassigned.toLocaleString('ko-KR')}(${data0Pct(unassigned, revenueTotal)}%)은 어느 가맹점에도 넣지 않았습니다. 대부분은 «학생 원부에 없는 아이디로 들어온 결제»입니다 — 대리점·직원이 학생 몫을 대신 결제하면 그 아이디가 학생 원부에 없어 소속을 알 수 없습니다.`] : []),
       ...(b2b.unassignedTotal > 0 ? [`그중 B2B 직접입금 ₩${b2b.unassignedTotal.toLocaleString('ko-KR')} 은 입금 적요가 어느 대리점·지사인지 확정되지 않은 것입니다 — 회계관리 화면의 「🏦 배정 못 한 B2B 입금」 에서 한 번 지정하면 그 뒤로 자동으로 붙습니다.`] : []),
@@ -2036,16 +2489,20 @@ async function franchiseReport(env: Env, url: URL, fmt: string): Promise<Respons
   };
 
   if (fmt === 'csv' || fmt === 'xlsx') {
-    const HEAD = ['가맹점', '학생수', '결제건수', '장부 결제', 'B2B 직접입금', '총 매출', '본사 수수료', '정산액', '송금예정일', '상태'];
-    const BODY = rows.map(r => [r.franchise_name, r.students, r.pay_count, r.book_revenue, r.b2b_revenue, r.gross_revenue, r.hq_fee, r.net_settlement, r.due_date, r.status]);
+    const HEAD = ['가맹점', '학생수', '결제건수', '장부 결제', 'B2B 직접입금', '총 매출', '수수료율', '본사 수수료', '정산액', '송금예정일', '상태'];
+    const BODY = rows.map(r => [r.franchise_name, r.students, r.pay_count, r.book_revenue, r.b2b_revenue, r.gross_revenue,
+                                `${(r.hq_fee_rate * 100).toFixed(1)}%${r.rate_mixed ? ' (혼합)' : ''}`,
+                                r.hq_fee, r.net_settlement, r.due_date, r.status]);
     return out(fmt, `franchise-settlement-${period}.csv`, [
       ['망고아이 가맹점 정산서', label],
-      [`본사 수수료율: ${(hqFeeRate * 100).toFixed(1)}% (추정 — 계약서 확인 필요 · B2B/B2C 동일)`],
+      [hqFeeParam != null
+        ? `본사 수수료율: ${(hqFeeParam * 100).toFixed(1)}% (?hq_fee= 로 강제 지정한 «만약» 값 — 이대로 보내지 마세요)`
+        : `본사 수수료율: 실효 ${(effRateAll * 100).toFixed(1)}% · 기본값 ${(DEFAULT_HQ_RATE * 100).toFixed(0)}%(지점 ${((1 - DEFAULT_HQ_RATE) * 100).toFixed(0)}%) · 지사·대리점별 수동 설정 우선${anyMixed ? ' · 가맹점마다 다름' : ''}`],
       ['산출 방식', '학생 단위 실제 귀속 (균등분배 아님) · 총 매출 = 장부 결제 + B2B 직접입금'],
       [],
       HEAD,
       ...BODY,
-      ['합계', '', '', totals.book, totals.b2b, totals.gross, totals.fee, totals.net, '', ''],
+      ['합계', '', '', totals.book, totals.b2b, totals.gross, `${(effRateAll * 100).toFixed(1)}%`, totals.fee, totals.net, '', ''],
       [],
       ['매출 총계 (장부 결제 + B2B)', revenueTotal],
       ['  장부 결제 (카페24 등)', bookTotal],

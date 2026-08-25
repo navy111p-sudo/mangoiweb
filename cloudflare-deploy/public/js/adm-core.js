@@ -1321,8 +1321,11 @@ function _schedRowsHtml(list, _L, roomsEmpty) {
     + '<b style="color:#334155">' + (_L ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
     + (roomsEmpty
         ? '<div style="font-size:12px;color:#6b7280">'
-          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end or extend in this table.'
-                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장할 대상은 없습니다.')
+          /* 📌 (2026-08-21) «참관» 을 함께 적는다 — 필리핀 매니저가 참관 버튼을 찾다가 이 표를 보고
+             «버튼이 없어졌다» 로 읽었다. 종료·연장만 적혀 있으면 참관을 찾는 사람에게는 답이 안 된다.
+             그리고 아래 카페24 줄에 버튼이 «원래» 없다는 것까지 적어야 다시 안 묻는다. */
+          + (_L ? 'Nobody is connected to a Mango-i room right now, so there is nothing to end, extend or observe in this table. The classes below are running on cafe24 — "No connection record" is normal, and they have no observe button.'
+                : '지금 망고아이 화상방에 붙어 있는 사람이 없어, 이 표에서 종료·연장·참관할 대상은 없습니다. 아래 수업들은 카페24에서 돌고 있어 «접속 기록 없음» 으로 나오는 것이 정상이고, 참관 버튼도 생기지 않습니다.')
           + '</div>'
         : '')
     + '</td></tr>';
@@ -1412,18 +1415,31 @@ async function loadActiveRooms() {
       const roomAttr = _esc(String(room.roomId == null ? '' : room.roomId));
       const al = alertMap[String(room.roomId)];
       const badge = al ? ' <span class="room-alert-badge">🚨 '+(TYPE_KO[al.alert_type]||al.alert_type)+'</span>' : '';
-      const btnCss = 'padding:4px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;border:none;color:#fff;';
+      /* 👁 (2026-08-21) 버튼 색 규칙 — 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임).
+         [왜] 이 GHOST 버튼만 주황이었다. 그런데 다른 두 목록(adm-s1 «직접 입장(보임)» ·
+         adm-today-classes «입장(보임)»)에서 주황은 정반대 뜻인 «학생에게 보인다» 다.
+         같은 색이 화면마다 다른 뜻이면 색은 안 보는 편이 나은 표시가 되고, 급할 때
+         손이 먼저 나가는 버튼에서 그 혼동은 «참관인 줄 알고 수업에 등장» 으로 끝난다.
+         ⛔ 이 값을 주황으로 되돌리지 말 것 — observer_camera_guard_harness 가 FAIL 낸다.
+         🔴 그리고 색만 고쳐서는 «화면에 안 나옵니다». admin-inline-c.css 9072행의
+            html[data-admin-theme="ivory"][data-admin-tone="slate"] [id^="card-"] button:not([class])
+            이 카드 안 «클래스 없는» 버튼을 background:#ffffff !important 로 칠합니다.
+            인라인 style 은 작성자 !important 에 집니다(2026-08-21 실측: 네 버튼 전부 흰색이었고,
+            그래서 «즉시 개입»·«강제 종료» 의 빨강도 안 나오고 있었습니다).
+            ✅ 그 규칙의 논리가 «클래스가 없다 = 의도한 색이 없다» 이므로, 의도한 색이 있는
+               버튼에는 클래스를 답니다(rm-act…). ⛔ 클래스 이름을 «-btn» 으로 끝내지 마세요 —
+               [class$="-btn"] 규칙(같은 파일 3894·9012행)에 다시 걸립니다. */
       return `<tr class="${al?'room-alert':''}" data-room="${roomAttr}" data-students="${_esc(JSON.stringify(studentNames))}">
         <td>${_esc(room.roomId)}${badge}</td>
-        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#f59e0b;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
+        <td>${room.userCount}${_L?'':' 명'}${room.observerCount > 0 ? ' <span style="color:#a78bfa;font-size:11px;">('+ (_L?'obs ':'관찰 ') + room.observerCount+')</span>' : ''}</td>
         <td>${_esc(userNames)}</td>
         <td>${room.hasPdf ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td>${room.hasVideo ? '<span class="badge ok">'+(_L?'Sharing':'공유중')+'</span>' : '-'}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          ${al?`<button data-act="intervene" style="${btnCss}background:#ef4444;">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
-          <button data-act="observe" style="${btnCss}background:#f59e0b;">👁 ${_L?'Ghost':'GHOST 참관'}</button>
-          <button data-act="extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}" style="${btnCss}background:#2563eb;">⏳ ${_L?'Extend':'연장'}</button>
-          <button data-act="end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}" style="${btnCss}background:#dc2626;">🛑 ${_L?'Force End':'강제 종료'}</button>
+          ${al?`<button data-act="intervene" class="rm-act rm-act-intervene">🚨 ${_L?'Intervene':'즉시 개입'}</button>`:''}
+          <button data-act="observe" class="rm-act rm-act-observe">👁 ${_L?'Ghost':'GHOST 참관'}</button>
+          <button data-act="extend" class="rm-act rm-act-extend" title="${_L?'Open this student’s enrollment-extension page':'이 수업 학생의 «수강 연장» 화면을 엽니다'}">⏳ ${_L?'Extend':'연장'}</button>
+          <button data-act="end" class="rm-act rm-act-end" title="${_L?'Force end this class (disconnects all participants)':'이 수업을 강제 종료합니다 (모든 참가자 연결 해제)'}">🛑 ${_L?'Force End':'강제 종료'}</button>
         </td>
       </tr>`;
     }).join('') + schedRows;
@@ -2740,7 +2756,7 @@ async function loadTeacherProfiles() {
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
         //   경영진·본사 관리자에게만 보인다. 서버(staff-password-reset)에서 한 번 더 막는다.
         (_tpCanResetPw()
-          ? '<button class="tp-act-btn tp-act--pw" onclick="openTeacherPwReset(\'' + _aiEsc(t.korean_name || t.english_name || '') + '\')" title="비밀번호 재설정" data-en-title="Reset password" style="' + _TP_ACT_BTN + '" aria-label="비밀번호 재설정">' + _TP_IC.key + '</button>'
+          ? '<button class="tp-act-btn tp-act--pw" onclick="openTeacherPwReset(\'' + _aiEsc(t.korean_name || t.english_name || '') + '\',\'' + _aiEsc(t.login_username || '') + '\')" title="비밀번호 재설정" data-en-title="Reset password" style="' + _TP_ACT_BTN + '" aria-label="비밀번호 재설정">' + _TP_IC.key + '</button>'
           : '') +
         '<button class="tp-act-btn tp-act--del" onclick="removeTeacherProfile(' + t.id + ',\'' + _aiEsc(t.korean_name||'') + '\', this)" title="제거" style="' + _TP_ACT_BTN + '" aria-label="제거">' + _TP_IC.trash + '</button>' +
       '</td>' +
@@ -2768,7 +2784,7 @@ function _tpCanResetPw() {
   } catch (e) { return false; }
 }
 
-window.openTeacherPwReset = function (teacherName) {
+window.openTeacherPwReset = function (teacherName, presetUsername) {
   var EN = (window.adminLang === 'en');
   var T = function (ko, en) { return EN ? en : ko; };
   var old = document.getElementById('tp-pw-modal'); if (old) old.remove();
@@ -2784,7 +2800,7 @@ window.openTeacherPwReset = function (teacherName) {
           'Enter this teacher\'s <b>login ID</b> exactly. Resetting will sign them out of every device.') +
       '</div>' +
       '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('계정 아이디', 'Login ID') + '</label>' +
-      '<input id="tp-pw-user" type="text" autocomplete="off" placeholder="mangoi_018" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
+      '<input id="tp-pw-user" type="text" autocomplete="off" value="' + _aiEsc(presetUsername || '') + '" placeholder="mangoi_018" style="width:100%;padding:9px 11px;margin:4px 0 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
       '<label style="font-size:11.5px;font-weight:700;color:#374151">' + T('새 비밀번호 (6자 이상)', 'New password (6+ characters)') + '</label>' +
       '<input id="tp-pw-new" type="text" autocomplete="off" style="width:100%;padding:9px 11px;margin:4px 0 6px;border:1px solid #cbd5e1;border-radius:8px;font-size:14px">' +
       '<div style="font-size:11.5px;color:#94a3b8;margin-bottom:14px">' +
@@ -3235,9 +3251,12 @@ function clearTeacherForm() {
   ['tp-name','tp-en-name','tp-email','tp-phone','tp-kakao','tp-dob','tp-gender','tp-active-region','tp-origin-region',
    'tp-fee-10min','tp-group','tp-join-date','tp-leave-date','tp-image-url','tp-video-url',
    'tp-education','tp-career','tp-cert','tp-avail-days','tp-avail-hours','tp-bank-name','tp-bank-acct','tp-notes',
-   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro','tp-linked-teacher']
+   'tp-mbti-type','tp-mbti-hobby','tp-mbti-style','tp-mbti-intro','tp-linked-teacher','tp-login-username']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   const st = document.getElementById('tp-status'); if (st) st.value = '활동중';
+  // 🔑 신규 등록 중엔 연결된 로그인 계정이 있을 수 없으므로 다시 숨긴다(수정 열 때만 보임).
+  const loginBlock = document.getElementById('tp-login-block');
+  if (loginBlock) loginBlock.style.display = 'none';
 }
 
 // 🧪 4문항 빠른 MBTI 테스트 — 결과를 tp-mbti-type select 에 자동 입력
@@ -3487,6 +3506,25 @@ async function editTeacherProfile(id) {
   set('tp-education', t.education); set('tp-career', t.career); set('tp-cert', t.certifications);
   set('tp-avail-days', t.available_days); set('tp-avail-hours', t.available_hours);
   set('tp-bank-name', t.bank_name); set('tp-bank-acct', t.bank_account); set('tp-notes', t.notes);
+  // 🔑 (2026-08-24) 로그인 계정 — teacher_account_links 로 이미 연결돼 있으면 아이디를 보여주고,
+  //   없으면 이유를 알려준다(추측하지 않음). 비밀번호 변경 버튼은 경영진·본사 관리자만.
+  (function () {
+    const block = document.getElementById('tp-login-block');
+    const hint = document.getElementById('tp-login-hint');
+    const btn = document.getElementById('tp-login-pwreset-btn');
+    if (!block) return;
+    block.style.display = (typeof _tpCanResetPw === 'function' && _tpCanResetPw()) ? 'block' : 'none';
+    set('tp-login-username', t.login_username || '');
+    if (btn) btn.disabled = !t.login_username;
+    if (hint) {
+      var _en = (window.adminLang === 'en');
+      hint.textContent = t.login_username
+        ? (_en ? 'Logs in with this ID. If forgotten, reset the password here.'
+                : '이 아이디로 로그인합니다. 잊었을 때 여기서 새 비밀번호로 재설정할 수 있습니다.')
+        : (_en ? 'Link a login account first via the 🔗 Link Teacher Accounts card to see the ID and change the password.'
+                : '🔗 강사 계정 연결 카드에서 로그인 계정을 먼저 연결해야 아이디가 보이고 비밀번호를 바꿀 수 있습니다.');
+    }
+  })();
   // Add 버튼을 임시로 "수정 저장" 으로 변경
   const btn = document.getElementById('tp-add-btn');
   if (btn) {
@@ -3926,7 +3964,7 @@ async function loadCenters(opts) {
     return loadCenters({ offset: Math.max(0, _ctState.total - _ctState.limit) });
   }
   if (!d.ok || !Array.isArray(d.items) || d.items.length === 0) {
-    tb.innerHTML = '<tr><td colspan="7" class="empty">'
+    tb.innerHTML = '<tr><td colspan="8" class="empty">'
       + ((_ctState.q || _ctState.pt) ? (adminLang==='en' ? 'No match' : '검색 결과 없음') : '—') + '</td></tr>';
     _ctRenderPager();
     return;
@@ -3940,8 +3978,25 @@ async function loadCenters(opts) {
       style="padding:2px 6px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:${cur?'#eff6ff':'#fff'};color:${cur?'#1d4ed8':'#6b7280'};font-weight:${cur?'700':'400'}">`
       + opt('', '미지정', 'None') + opt('B2B', 'B2B', 'B2B') + opt('B2C', 'B2C', 'B2C') + '</select>';
   };
+  /* 💰 (2026-08-22) 주 1회 수강료 — 사장님 확인 단가.
+       표준 30,000원 = 본사 18,000(60%) + 대리점 12,000(40%). 주 2·3·5회는 배수라 비율 동일.
+       더 받는 곳(예: 40,000원)은 **추가분을 대리점이 다 가짐** → 본사는 18,000원 고정.
+       그래서 요율은 손으로 적지 않고 «18,000 ÷ 수강료» 로 서버가 낸다(40,000 → 45%).
+     ⚠️ 안 정한 곳은 값이 비어서 온다. 그때 30,000 을 «저장된 값처럼» 보여 주면
+        사람이 정한 것과 기본값을 구분할 수 없다 → 회색 placeholder 로만 보여 준다. */
+  const _CT_STD_TUITION = 30000, _CT_HQ_UNIT = 18000;
+  const _tuCell = c => {
+    const v = (c.tuition_krw == null || c.tuition_krw === '') ? '' : Number(c.tuition_krw);
+    const eff = Math.round((_CT_HQ_UNIT / (v || _CT_STD_TUITION)) * 1000) / 10;   // 본사 요율 %
+    const tip = (adminLang==='en' ? 'Weekly-1 tuition. Empty = standard 30,000. HQ margin = 18,000 / tuition'
+                                  : '주 1회 수강료. 비우면 표준 30,000원. 본사 마진 = 18,000 ÷ 수강료 (지금 ' + eff.toFixed(1) + '%)');
+    return `<input type="number" min="${_CT_HQ_UNIT}" step="1000" value="${v}" placeholder="${_CT_STD_TUITION}"
+      onchange="ctSetTuition(${Number(c.id)},this)" data-prev="${v}" data-name="${_esc(c.name)}" title="${tip}"
+      style="width:96px;padding:2px 6px;font-size:12px;text-align:right;border:1px solid ${v?'#7c3aed':'#d1d5db'};border-radius:6px;background:${v?'#f5f3ff':'#fff'};color:${v?'#5b21b6':'#6b7280'};font-weight:${v?'700':'400'}">
+      <span style="font-size:10px;color:#9ca3af"> ${eff.toFixed(0)}%</span>`;
+  };
   tb.innerHTML = d.items.map(c =>
-    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
+    `<tr><td>${c.id}</td><td>${_esc(c.franchise_name)||'—'}</td><td><b>${_esc(c.name)}</b></td><td>${_ptCell(c)}</td><td style="white-space:nowrap">${_tuCell(c)}</td><td>${_esc(c.country)||'—'}</td><td>${_esc(c.manager)||'—'}</td><td>${_esc(c.address)||'—'}</td></tr>`
   ).join('');
   _ctRenderPager();
 }
@@ -3971,6 +4026,35 @@ async function ctSetPayType(id, sel) {
   loadCenters();
 }
 window.ctSetPayType = ctSetPayType;
+
+/* 💰 수강료 저장 — 서버가 이 값으로 «본사 요율» 을 계산해 정산에 바로 반영한다.
+   비우고 저장하면 설정을 지워 표준 30,000원(=60%)으로 돌아간다.
+   ⚠️ 실패하면 화면 값을 되돌리고 알린다 — 조용한 반쪽 성공 금지(결제유형 저장과 같은 규칙). */
+async function ctSetTuition(id, inp) {
+  const prev = inp.getAttribute('data-prev') || '';
+  const name = inp.getAttribute('data-name') || '';
+  const raw = String(inp.value || '').trim();
+  const en = (adminLang === 'en');
+  if (!name) { alert(en ? 'Agency name missing' : '대리점 이름을 알 수 없습니다'); inp.value = prev; return; }
+  const body = raw === ''
+    ? { scope_type: 'agency', scope_key: name, reset: true }              // 비우면 표준값으로
+    : { scope_type: 'agency', scope_key: name, tuition_krw: Number(raw) };
+  try {
+    const r = await fetch('/api/admin/settlement/rate-config', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.error || ('HTTP ' + r.status));
+  } catch (e) {
+    inp.value = prev;
+    alert((en ? 'Failed to save tuition: ' : '수강료 저장 실패: ') + e.message);
+    return;
+  }
+  // 저장되면 옆의 «요율 %» 표시가 이미 틀렸다 → 그 행만 다시 그리려 하지 말고 목록을 새로 받는다
+  loadCenters();
+}
+window.ctSetTuition = ctSetTuition;
 
 // 💳 (2026-08-14) 결제유형 필터 버튼 + 유형별 건수.
 //    ⚠️ hover 강조는 «색만» — 크기·위치를 움직이면 안 된다(CLAUDE.md 1-3 «정신없다»고 제거된 것).
@@ -4209,6 +4293,60 @@ async function leveltestMakeClass(id, opts) {
   alert('⚠ ' + msg);
 }
 
+/* 🗑️ (2026-08-21 사장님 지시) 레벨테스트 신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 연결된 수업이 있으면
+      삭제 전에 먼저 cancelled 로 정리해 강사·학생 달력에 유령 수업이 남지 않게 한다. */
+async function leveltestDeleteApp(id, name) {
+  const en = (adminLang === 'en');
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this application' : '이 신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadLeveltestApps(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
+/* 🗑️ (2026-08-21) 화면에 지금 «보이는» 레벨테스트 신청 전체 삭제 — 수강신청 enDeleteAllVisible() 과 같은 꼴.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 바인드 한도, 서버도 같은 값으로 막는다) — 넘으면 다시 누르게 안내한다.
+   ⛔ 되돌릴 수 없다. 연결된 수업은 서버가 삭제 전에 cancelled 로 정리한다. */
+async function ltDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const rows = (__ltShown || []).filter(a => a && a.id != null);
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(a => a.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' level-test application(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 레벨테스트 신청을 삭제할까요?\n되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/leveltest/applications', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  loadLeveltestApps();
+  if (rows.length > 90) {
+    alert(en ? (n + ' deleted. More than 90 matched — press the button again for the rest.')
+             : (n + '건 삭제했습니다. 90건이 넘게 걸려서 나머지는 다시 눌러 주세요.'));
+  }
+}
+
 async function loadLeveltestApps() {
   let items = [], pending = 0;
   try {
@@ -4234,6 +4372,7 @@ async function loadLeveltestApps() {
    ⚠️ 원본 배열(__ltApps)은 절대 건드리지 않는다. sort() 는 제자리 정렬이라
       원본에 하면 «오래된순» 을 한 번 누른 뒤 필터를 바꾸면 순서가 뒤엉킨다. */
 let __ltApps = [];
+let __ltShown = [];   // 🗑️ _ltRenderApps() 가 방금 그린 목록(검색·필터 반영) — 일괄 삭제가 이것만 지운다
 function _ltRenderApps() {
   const tb = document.getElementById('leveltest-apps-table');
   if (!tb) return;
@@ -4248,6 +4387,14 @@ function _ltRenderApps() {
       .map(v => String(v == null ? '' : v).toLowerCase()).join(' ').includes(q));
   }
   items.sort((a, b) => so === 'old' ? (a.created_at - b.created_at) : (b.created_at - a.created_at));
+
+  /* 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 지금 화면에 그린 목록을 그대로 기억해 둔다.
+     ⛔ 삭제 쪽에서 검색·필터를 다시 계산하지 않는다. 두 벌이 되면 언젠가 어긋나고,
+        그때 «화면에 안 보이는 건»이 지워진다(되돌릴 수 없다). 그리는 쪽 하나만 정본이다. */
+  __ltShown = items;
+  const delAllBtn = document.getElementById('lt-delete-all-btn');
+  //   본사(경영진·관리자)만 — 서버가 같은 조건으로 403 을 던지니 여기서는 «눌러도 안 되는 버튼»을 감출 뿐이다.
+  if (delAllBtn) delAllBtn.style.display = ((typeof window !== 'undefined' && window._isHqMgrOrUp) && items.length) ? '' : 'none';
 
   const cnt = document.getElementById('lt-apps-count');
   if (cnt) {
@@ -4354,7 +4501,12 @@ function _ltPaint(tb, items) {
     const actions = a.status==='pending'
       ? `<button onclick="leveltestAppStatus(${a.id},'done')" style="padding:3px 8px;font-size:11px;border:0;border-radius:6px;background:#10b981;color:#fff;cursor:pointer;margin-right:4px">${adminLang==='en'?'✅ Done':'✅ 완료'}</button><button onclick="leveltestAppStatus(${a.id},'cancelled')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'✖':'✖ 취소'}</button>`
       : `<button onclick="leveltestAppStatus(${a.id},'pending')" style="padding:3px 8px;font-size:11px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;cursor:pointer">${adminLang==='en'?'↩ Reopen':'↩ 되돌리기'}</button>`;
-    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}</td></tr>`;
+    /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
+       여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+    const deleteBtn = (typeof window !== 'undefined' && window._isHqMgrOrUp)
+      ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
+      : '';
+    return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
   }).join('');
   _ltFillTeacherSelects();   // 표를 새로 그렸으니 방금 생긴 select 들을 다시 채운다
 }
@@ -4680,6 +4832,11 @@ function _renderEnrollments() {
   const tb = document.getElementById('enrollments-table');
   if (!tb) return;
 
+  // 🗑️ (2026-08-21) "보이는 항목 전체 삭제" — 본사(경영진·관리자)만. 서버가 같은 조건으로
+  //   403 을 던지므로 여기서는 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐이다.
+  const delAllBtn = document.getElementById('en-delete-all-btn');
+  if (delAllBtn) delAllBtn.style.display = (typeof window !== 'undefined' && window._isHqMgrOrUp) ? '' : 'none';
+
   // ── 중복 의심 — 살아 있는 건(대기·확정·수강중)끼리만 본다.
   //    취소된 옛 신청과 지금 수업 중인 신청이 나란히 있는 건 정상이므로 세지 않는다.
   const cnt = {};
@@ -4783,10 +4940,19 @@ function _renderEnrollments() {
               'background:#fff;color:#6d28d9;cursor:pointer" title="' +
               (en ? 'Parent text / billing schedule — opt in here' : '학부모 문자·결제 예약은 여기서 켭니다') + '">' +
               (en ? '⚙ Follow-up' : '⚙ 후속') + '</button>' : '')) +
-        _enBtn(it.id, 'active',    en ? '▶ Start'    : '▶ 수강시작', '#10b981', cur) +
+        /* 🥭 (2026-08-20) 「▶ 수강시작」 버튼 제거 — enroll-activate.ts 의 확정 파이프라인이
+           class_schedules 를 이미 status='active' 로 만든다. 그 버튼은 enrollments.status 만
+           confirmed → active 로 바꿀 뿐 시간표는 새로 안 만들어 실제로는 아무 일도 안 났다. */
         _enBtn(it.id, 'cancelled', en ? '✕ Cancel'   : '✕ 취소',    '#ef4444', cur) +
         ((cur === 'cancelled' || cur === 'expired')
           ? _enBtn(it.id, 'pending', en ? '↩ Reopen' : '↩ 되살리기', '#6b7280', cur) : '') +
+        /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403을 던지니
+           여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
+        ((typeof window !== 'undefined' && window._isHqMgrOrUp)
+          ? '<button type="button" onclick="enDeleteOne(' + it.id + ')" title="' +
+            (en ? 'Delete this enrollment (cannot be undone)' : '이 수강신청을 삭제합니다 (되돌릴 수 없음)') + '" ' +
+            'style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:5px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:2px">🗑️</button>'
+          : '') +
       '</td></tr>' +
       '<tr id="en-panel-' + it.id + '" style="display:none"><td colspan="6" style="padding:0;background:#faf5ff"></td></tr>';
   }).join('');
@@ -6069,6 +6235,31 @@ async function _enLookupStudent(tr) {
   }
 }
 
+// "HH:MM" → [hh, mm] 2자리 문자열. 분은 10분 단위로 반올림(00/10/20/30/40/50). 빈 값이면 ['','']
+function _tbTimeToParts(t) {
+  const m = (t || '').match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (!m) return ['', ''];
+  const hh = String(Math.min(23, parseInt(m[1], 10) || 0)).padStart(2, '0');
+  let mm = Math.round((parseInt(m[2], 10) || 0) / 10) * 10;
+  if (mm >= 60) mm = 50;
+  return [hh, String(mm).padStart(2, '0')];
+}
+function _tbHourOptions(selected) {
+  let opts = '<option value="">--</option>';
+  for (let h = 0; h < 24; h++) {
+    const v = String(h).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  }
+  return opts;
+}
+function _tbMinOptions(selected) {
+  let opts = '<option value="">--</option>';
+  [0, 10, 20, 30, 40, 50].forEach(m => {
+    const v = String(m).padStart(2, '0');
+    opts += '<option value="' + v + '"' + (v === selected ? ' selected' : '') + '>' + v + '</option>';
+  });
+  return opts;
+}
 // 🥭 Phase 32 — 요일별 시간 빌더 모달
 function _openTimeBuilder(tr) {
   const dayCodes = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -6095,16 +6286,21 @@ function _openTimeBuilder(tr) {
         '💡 시간 비워두면 그 요일은 제외됩니다' +
       '</div>' +
       '<div style="display:grid;grid-template-columns:60px 1fr;gap:6px;align-items:center">';
+  const selStyle = 'padding:6px 4px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;background:#fff';
   dayCodes.forEach((code, i) => {
     const isChecked = checkedDays.includes(code) || parsed[code];
     const t = parsed[code] || '';
+    const [th, tm] = _tbTimeToParts(t);
     html +=
       '<label style="font-weight:700;color:#1f2937;display:flex;align-items:center;gap:6px;cursor:pointer">' +
         '<input type="checkbox" class="tb-day" data-code="' + code + '" ' + (isChecked?'checked':'') + ' style="margin:0;cursor:pointer">' +
         dayLabels[i] +
       '</label>' +
-      '<input type="time" step="600" class="tb-time" data-code="' + code + '" value="' + t + '" placeholder="시간" ' +
-        'style="padding:6px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" />';
+      '<div style="display:flex;align-items:center;gap:4px">' +
+        '<select class="tb-hour" data-code="' + code + '" style="' + selStyle + '">' + _tbHourOptions(th) + '</select>' +
+        '<span style="color:#9ca3af">:</span>' +
+        '<select class="tb-min" data-code="' + code + '" style="' + selStyle + '">' + _tbMinOptions(tm) + '</select>' +
+      '</div>';
   });
   html += '</div>' +
       '<div style="display:flex;gap:8px;margin-top:18px">' +
@@ -6116,14 +6312,17 @@ function _openTimeBuilder(tr) {
   overlay.innerHTML = html;
   document.body.appendChild(overlay);
   const close = () => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); };
-  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용
+  // 모두 같은 시간 — prompt 로 시간 입력 받아 모든 체크된 요일에 적용 (분은 10분 단위로 반올림)
   overlay.querySelector('#tb-same-time').addEventListener('click', () => {
     const t = prompt('모든 체크된 요일에 적용할 시간 (HH:MM):', '10:30');
     if (!t) return;
+    const [th, tm] = _tbTimeToParts(t);
     overlay.querySelectorAll('.tb-day:checked').forEach(chk => {
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      if (tin) tin.value = t;
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      if (hSel) hSel.value = th;
+      if (mSel) mSel.value = tm;
     });
   });
   overlay.querySelector('#tb-cancel').addEventListener('click', close);
@@ -6135,9 +6334,11 @@ function _openTimeBuilder(tr) {
     overlay.querySelectorAll('.tb-day').forEach(chk => {
       if (!chk.checked) return;
       const code = chk.dataset.code;
-      const tin = overlay.querySelector('.tb-time[data-code="' + code + '"]');
-      const t = (tin?.value || '').trim();
-      if (t) result.push({ day: code, time: t });
+      const hSel = overlay.querySelector('.tb-hour[data-code="' + code + '"]');
+      const mSel = overlay.querySelector('.tb-min[data-code="' + code + '"]');
+      const h = hSel?.value || '';
+      const m = mSel?.value || '';
+      if (h !== '' && m !== '') result.push({ day: code, time: h + ':' + m });
     });
     // 행의 요일 체크박스 갱신
     tr.querySelectorAll('.en-row-day').forEach(chk => {
@@ -6656,6 +6857,69 @@ async function setEnrollmentStatus(id, status) {
   loadEnrollments();
 }
 
+/* 🗑️ (2026-08-21 사장님 지시) 수강신청 삭제 — 데모/테스트 항목 정리용.
+   ⛔ 되돌릴 수 없다. 서버가 본사(경영진·관리자)만 허용하고(403), 확정·활성화돼 실제
+      수업(class_schedules.source='adm-enroll:<id>')이 생긴 건은 삭제 전에 그 수업을
+      먼저 cancelled 로 정리한다(레벨테스트 삭제와 같은 이유). */
+async function enDeleteOne(id) {
+  const en = (adminLang === 'en');
+  const cur = _enItems.find(x => String(x.id) === String(id)) || {};
+  const name = cur.student_name ? String(cur.student_name) : '';
+  const label = name ? (' — ' + name) : '';
+  if (!confirm((en ? 'Delete this enrollment' : '이 수강신청을 삭제할까요') + label + '?\n' +
+    (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments/' + id, { method: 'DELETE', credentials: 'include' });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (d && d.ok) { loadEnrollments(); return; }
+  alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다')));
+}
+
+/* 🗑️ 화면에 지금 «보이는» 항목(검색·상태 필터가 걸려 있으면 그것만) 전체 삭제.
+   ⚠️ 최대 90건까지 한 번에 보낸다(D1 IN 바인드 한도) — 그 이상이면 나눠서 다시 누르게 안내. */
+async function enDeleteAllVisible() {
+  const en = (adminLang === 'en');
+  const q = String(_enQuery || '').trim().toLowerCase();
+  const sel = document.getElementById('en-status-filter');
+  const fs = sel ? sel.value : '';
+  let rows = _enItems;
+  if (fs) rows = rows.filter(it => String(it.status || '') === fs);
+  if (q) rows = rows.filter(it => (
+    String(it.student_name || '').toLowerCase().includes(q) ||
+    String(it.student_user_id || '').toLowerCase().includes(q) ||
+    String(it.package || '').toLowerCase().includes(q) ||
+    String(it.teacher_name || '').toLowerCase().includes(q)
+  ));
+  if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
+  const ids = rows.slice(0, 90).map(it => it.id);
+  if (!confirm((en
+    ? ('Delete ' + ids.length + ' enrollment(s)? This cannot be undone. Linked classes will be cancelled.')
+    : (ids.length + '건의 수강신청을 삭제할까요? 되돌릴 수 없습니다. 연결된 수업은 함께 취소 처리됩니다.')))) return;
+  let d = {};
+  try {
+    const r = await fetch('/api/admin/enrollments', {
+      method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids })
+    });
+    d = await r.json().catch(() => ({}));
+  } catch (e) {
+    alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
+    return;
+  }
+  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  const n = (d.deleted || []).length;
+  _enToast(en ? (n + ' enrollment(s) deleted') : (n + '건 삭제했습니다'));
+  loadEnrollments();
+  if (rows.length > 90) {
+    alert(en ? 'More than 90 matched — press the button again for the rest.' : '90건이 넘게 걸려서 나머지는 다시 눌러 주세요.');
+  }
+}
+
 /* ════════════════════════════════════════════════════════════
    🥭 Phase 23 — 역방향 자동화: 파일/카톡 → 수강신청 일괄 등록
    - importFromFile(file)   : .csv / .doc / .docx / .html 파싱
@@ -7012,11 +7276,17 @@ function _renderImportPreview(records, source) {
   document.getElementById('en-import-confirm-btn').addEventListener('click', () => _bulkRegisterEnrollments(records));
 }
 
+/* ✅ (2026-08-20) 엑셀·워드·카톡으로 가져온 건도 다중등록표(addEnrollment/_enAutoConfirm)와
+   같은 파이프라인을 태운다. 그 전에는 여기서 /api/admin/enrollments 로 «신청만» 저장하고
+   끝나서, 화면에 «등록 완료» 로 떠도 실제로는 강사 배정·시간표 생성(배정)까지 가지 않았다 —
+   목록에 전부 pending 으로 쌓이고 사람이 건마다 「▸ 확정 안 됨」을 눌러야 배정이 됐다.
+   등록표 쪽만 (2026-08-12) 「등록 = 확정」으로 고쳐졌고 가져오기 경로는 빠져 있었다. */
 async function _bulkRegisterEnrollments(records) {
   const box = document.getElementById('en-import-preview');
-  if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록 중… (' + records.length + '건)</div>';
-  let ok = 0, fail = 0; const errs = [];
-  for (const r of records) {
+  if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록·확정 중… (0 / ' + records.length + '건)</div>';
+  let ok = 0, fail = 0, confirmed = 0; const errs = [], notConfirmed = [];
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
     try {
       const res = await fetch('/api/admin/enrollments', {
         method: 'POST', credentials: 'include',
@@ -7024,15 +7294,27 @@ async function _bulkRegisterEnrollments(records) {
         body: JSON.stringify(r)
       });
       const j = await res.json().catch(() => ({}));
-      if (res.ok && j.ok !== false) ok++;
-      else { fail++; errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status))); }
+      if (res.ok && j.ok !== false) {
+        ok++;
+        // ✅ 등록 = 확정. 저장 직후 바로 이어 돌린다(별도 확정 클릭 없음) — addEnrollment 와 동일 패턴.
+        const cf = await _enAutoConfirm(j.id || j.enrollment_id);
+        if (cf.ok) confirmed++;
+        else notConfirmed.push(r.student_name + ': ' +
+          (cf.error || (cf.failed || []).map(s => s.detail).join(' / ') || '확정 보류'));
+      } else {
+        fail++; errs.push(r.student_name + ': ' + (j.error || ('HTTP ' + res.status)));
+      }
     } catch (e) {
       fail++; errs.push(r.student_name + ': ' + (e.message || e));
     }
+    if (box) box.innerHTML = '<div style="color:#9a3412">⏳ 등록·확정 중… (' + (i + 1) + ' / ' + records.length + '건)</div>';
   }
   if (box) {
-    box.innerHTML = '<div style="font-size:13px"><b>✅ 등록 완료 — 성공 ' + ok + '건 / 실패 ' + fail + '건</b>' +
+    box.innerHTML = '<div style="font-size:13px"><b>✅ 등록 ' + ok + '건 · 확정(배정) ' + confirmed + '건' +
+      (notConfirmed.length ? ' · ⚠️ 확정 보류 ' + notConfirmed.length + '건' : '') +
+      (fail ? ' · ❌ 실패 ' + fail + '건' : '') + '</b>' +
       (errs.length ? '<div style="margin-top:6px;color:#dc2626;font-size:11px">실패 상세:<br>' + errs.map(_aiEsc).join('<br>') + '</div>' : '') +
+      (notConfirmed.length ? '<div style="margin-top:6px;color:#b45309;font-size:11px">확정 보류 — 목록의 「▸ 확정 안 됨」을 눌러 이유를 보고 고쳐 주세요:<br>' + notConfirmed.map(_aiEsc).join('<br>') + '</div>' : '') +
       '</div>';
   }
   loadEnrollments();
@@ -9623,6 +9905,7 @@ function buildMenuIndex() {
           집계 카드는 자기 라벨로 이미 걸리므로 별칭을 따로 두지 않는다. */
     { kw:'레벨테스트 레벨 테스트 신청 신청현황 등록 등록결과 접수 결과 배정 대기 level test application signup', card:'card-level-tests', label:'레벨테스트 신청·등록 결과', en:'Level Test Applications', top:true },
     { kw:'법인카드 법인 카드내역 카드사용 지출 지출내역 경비 corpcard', card:'acc-corpcard', label:'법인카드 사용내역 (지출)' },
+    { kw:'신한은행 신한 계좌 통장 은행 출금 입출금 지출 계정과목 거래처 bankacct bank', card:'acc-bankacct', label:'신한 계좌 입출금 (지출 분석)' },
     { kw:'강의실 입장 테스트 장비점검 웹캠 마이크 점검 테스트하네스 진단 test', card:'card-classroom-test', label:'강의실 입장·장비 점검 테스트' }
   ];
   MENU_ALIASES.forEach(function(a){
@@ -11853,12 +12136,20 @@ window.rebuildGlobalSearchIndex = function() {
   /* 🏢 가맹점별 정산서.
      💳 총 매출 = 「장부 결제」(카페24 등) + 「B2B 직접입금」(학원이 통장으로 바로 보낸 수업료).
         예전엔 장부 결제만 세서 B2B 로 받는 가맹점이 매출 0 으로 찍혔다(2026-08-18 수정). */
+  /* 요율 표기 — 값이 없으면 «—». 0.6 → «60.0%». 화면에 숫자를 손으로 쓰지 않는다:
+     예전에 「평균 수수료율 15%」 라고 박아 두었다가 정책이 60% 로 바뀌자 거짓말이 됐다. */
+  const pctRate = v => (v == null || isNaN(v)) ? '—' : (Number(v) * 100).toFixed(1) + '%';
+
   function renderFranchise(d){
     const src = d.sources || {};
     const t = d.totals || {};
     return `
       <h1>🏢 가맹점별 정산서</h1>
       <div class="meta">${d.label} · 학생 단위 실제 귀속 (균등분배 아님) · 장부 결제 + B2B 직접입금</div>
+      ${d.hq_fee_rate_forced != null ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-left:4px solid #dc2626;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
+        <b style="color:#991b1b">⚠️ 수수료율을 ${pctRate(d.hq_fee_rate_forced)} 로 «강제 지정»한 «만약» 계산입니다.</b>
+        저장된 설정이 아니라 주소의 <code>?hq_fee=</code> 로 눌러 쓴 값이라 <b>이대로 가맹점에 보내면 안 됩니다.</b>
+      </div>` : ''}
       ${noteList(d.notes)}
       ${(d.b2b_total||0) > 0 ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:11px 14px;margin:10px 0;font-size:12.5px;line-height:1.7">
         <b style="color:#1e40af">🏦 B2B 직접입금 ${(d.b2b_count||0).toLocaleString()}건 · ${fmtKRW(d.b2b_total)}</b> 을 이 정산서에 포함했습니다
@@ -11882,11 +12173,11 @@ window.rebuildGlobalSearchIndex = function() {
         (d.b2b_unassigned||[]).map(u => ({ date: u.payee, name: u.reason + ' · ' + u.count + '건', amount: u.amount })),
         { dateLabel: '입금 적요', nameLabel: '사유' })}` : ''}
       <div class="tblwrap"><table class="compact">
-        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
+        <thead><tr><th>가맹점</th><th class="num">학생수</th><th class="num">결제건</th><th class="num">장부 결제</th><th class="num">B2B 입금${badge(src.b2b_revenue)}</th><th class="num">총 매출${badge(src.gross_revenue)}</th><th class="num">수수료율</th><th class="num">본사 수수료${badge(src.hq_fee)}</th><th class="num">정산액</th><th>송금예정</th><th>상태</th></tr></thead>
         <tbody>
-          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
-            : '<tr><td colspan="10" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
-          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
+          ${d.rows.length ? d.rows.map(r => `<tr><td>${esc(r.franchise_name)}</td><td class="num">${(r.students||0).toLocaleString()}</td><td class="num">${r.pay_count||0}</td><td class="num">${fmtKRW(r.book_revenue)}</td><td class="num">${(r.b2b_revenue||0) > 0 ? fmtKRW(r.b2b_revenue) : '—'}</td><td class="num">${fmtKRW(r.gross_revenue)}</td><td class="num">${pctRate(r.hq_fee_rate)}${r.rate_mixed ? '<span title="이 가맹점 안에서 대리점마다 요율이 다릅니다 — 실제로 떼인 비율(가중평균)입니다" style="color:#b45309;font-size:10px"> 혼합</span>' : ''}</td><td class="num">${fmtKRW(r.hq_fee)}</td><td class="num"><b>${fmtKRW(r.net_settlement)}</b></td><td>${esc(r.due_date)}</td><td>${esc(r.status)}</td></tr>`).join('')
+            : '<tr><td colspan="11" style="text-align:center;color:#6b7280">이 달에 가맹점으로 귀속된 매출이 없습니다</td></tr>'}
+          <tr class="total"><td>합계</td><td></td><td></td><td class="num">${fmtKRW(t.book)}</td><td class="num">${fmtKRW(t.b2b)}</td><td class="num">${fmtKRW(t.gross)}</td><td class="num">${pctRate(d.hq_fee_rate)}</td><td class="num">${fmtKRW(t.fee)}</td><td class="num">${fmtKRW(t.net)}</td><td></td><td></td></tr>
         </tbody>
       </table></div>
       <p style="font-size:11px;color:#6b7280;margin:6px 0 0;line-height:1.7">
@@ -12228,28 +12519,230 @@ window.rebuildGlobalSearchIndex = function() {
     } catch(e){ if(kpiBox) kpiBox.innerHTML='<div style="color:#f87171;grid-column:1/-1;font-size:12px">집계 실패: '+String(e&&e.message||e)+'</div>'; }
   };
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     🧾 지출결의 탭 전용 — 분류(추정) · 상태 · 검색 · 정렬  (2026-08-24 사장님 요청)
+
+     [왜] 이 탭은 표 하나뿐이라 «훑어보기» 밖에 안 됐다. 그런데 원본에 **금액이 없어서**
+     («prop_keys` = content·doc_id·name·pay_date·reg_date·state 여섯 개, 2026-08-24 실측)
+     합계·추이 같은 진짜 집계를 만들 수가 없다. 그래서 금액 없이도 되는 것부터 한다 —
+     «무엇이 · 몇 건 · 언제 · 어떤 상태로» 를 세어 주고, 찾고, 줄 세운다.
+     금액 요청서: docs/카페24_지출결의_속성추가_적재요청_2026-08-24.md
+
+     ⚠️ 분류는 **제목 글자로 하는 추정**이다. 원본에 분류 칸이 없다.
+        그래서 화면에도 「분류(추정)」 이라고 적는다 — 원본에 있는 값처럼 보이면 안 된다.
+     ⚠️ `state` 는 **뜻을 우리가 모른다**(카페24에 문의 중). 그래서 «승인»·«반려» 같은 말로
+        옮기지 않는다. 원본 코드를 그대로 적고, **다수와 다른 값만** 눈에 띄게 한다.
+        ⛔ 코드값에 이름을 붙이지 말 것 — 답을 받기 전까지는 그게 지어내는 것이다.
+     ⛔ 칩·검색칸을 `<button>`·`<select>` 로 만들지 말 것 — `admin-inline-c.css` 의 전역 규칙이
+        인라인 style 을 `!important` 로 이겨 파란 알약이 된다(CLAUDE.md 2장 두 항목).
+        `<span>` 과 `<input>` 을 쓰고, 모양은 파일 맨 끝 꼬리 블록(#sub-c24-finance …)에서 준다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  var C24X_KINDS = [
+    /* 순서가 규칙이다 — 위에서부터 먼저 맞는 것으로 정한다.
+       실측 50건의 제목을 보고 지은 것이다(격주 급여가 대다수, 나머지가 세무·시설). */
+    { key:'salary', ko:'급여',      en:'Payroll',  re:/\b(salary|payroll|cut|13th\s*month)\b/i },
+    { key:'tax',    ko:'세무·행정', en:'Tax/Admin',re:/(tax|itr|permit|financial\s+statement|percentage|audit|accounting|billing)/i },
+    { key:'fac',    ko:'시설·수리', en:'Facility', re:/(floor|roof|water\s*tank|air.?condition|electric|wiring|power\s*station|building|deposit|repair|replacement|tank)/i },
+    { key:'loan',   ko:'대출·대여', en:'Loan',     re:/\bloan\b/i },
+  ];
+  /** 제목으로 분류를 «추정» 한다. 못 맞히면 «기타» — 억지로 밀어 넣지 않는다. */
+  window.c24ExpKindOf = function(name){
+    var t = String(name == null ? '' : name);
+    for (var i = 0; i < C24X_KINDS.length; i++) if (C24X_KINDS[i].re.test(t)) return C24X_KINDS[i];
+    return { key:'etc', ko:'기타', en:'Other' };
+  };
+
+  /** 지출결의 표를 그린다(필터·정렬 포함). c24FinLoad 가 expenses 일 때만 부른다. */
+  window.__c24ExpSetup = function(rows, cols, esc, filteredOut){
+    var en = (window.adminLang === 'en');
+    var head = document.getElementById('c24fin-head');
+    var body = document.getElementById('c24fin-body');
+    var cnt  = document.getElementById('c24fin-count');
+    var table = document.getElementById('c24fin-table');
+    if (!head || !body || !table) return;
+
+    // 분류·상태를 미리 붙여 둔다(그릴 때마다 정규식을 다시 돌리지 않게)
+    var list = rows.map(function(r){ var k = window.c24ExpKindOf(r.name); return Object.assign({}, r, { __kind: en ? k.en : k.ko, __kkey: k.key }); });
+
+    /* 🔢 «다수와 다른 상태» — 코드의 뜻을 모르니 이름을 붙이는 대신 «흔한 값과 다르다» 로만 말한다.
+       (실측 50건은 49건이 1, 1건이 0. 그 1건이 눈에 띄어야 사람이 확인하러 간다) */
+    var freq = {}; list.forEach(function(r){ var v = String(r.state == null ? '' : r.state); freq[v] = (freq[v]||0)+1; });
+    var major = null, best = -1;
+    Object.keys(freq).forEach(function(v){ if (freq[v] > best) { best = freq[v]; major = v; } });
+    list.forEach(function(r){ r.__odd = (String(r.state == null ? '' : r.state) !== major); });
+    var oddN = list.filter(function(r){ return r.__odd; }).length;
+
+    var state = { kind: 'all', odd: false, q: '', sort: 'reg_date', dir: -1 };
+
+    var pick = function(){
+      var q = state.q.trim().toLowerCase();
+      var out = list.filter(function(r){
+        if (state.kind !== 'all' && r.__kkey !== state.kind) return false;
+        if (state.odd && !r.__odd) return false;
+        if (q && (String(r.name||'') + ' ' + String(r.content||'')).toLowerCase().indexOf(q) < 0) return false;
+        return true;
+      });
+      out.sort(function(a, b){
+        var x = String(a[state.sort] == null ? '' : a[state.sort]);
+        var y = String(b[state.sort] == null ? '' : b[state.sort]);
+        return x < y ? -state.dir : x > y ? state.dir : 0;
+      });
+      return out;
+    };
+
+    // ── 도구 줄 ── (없으면 표 «위» 에 만든다. admin.html 을 건드리지 않으려고 JS 로 세운다)
+    var wrap = table.parentElement;
+    var tools = document.getElementById('c24fin-tools');
+    if (!tools) { tools = document.createElement('div'); tools.id = 'c24fin-tools'; wrap.parentElement.insertBefore(tools, wrap); }
+    tools.style.display = '';   // 다른 탭을 보고 오면 숨겨져 있다(c24FinLoad 가 감춘다)
+
+    var drawTools = function(){
+      var cur = pick();
+      var per = {}; list.forEach(function(r){ per[r.__kkey] = (per[r.__kkey]||0) + 1; });
+      var chip = function(k, label, n, on){
+        return '<span class="c24x-chip' + (on ? ' c24x-on' : '') + '" data-k="' + k + '" role="button" tabindex="0">'
+             + esc(label) + ' <b>' + n + '</b></span>';
+      };
+      var chips = [chip('all', en ? 'All' : '전체', list.length, state.kind === 'all')];
+      C24X_KINDS.forEach(function(k){ if (per[k.key]) chips.push(chip(k.key, en ? k.en : k.ko, per[k.key], state.kind === k.key)); });
+      if (per.etc) chips.push(chip('etc', en ? 'Other' : '기타', per.etc, state.kind === 'etc'));
+
+      tools.innerHTML =
+        '<div class="c24x-row">' + chips.join('') +
+          (oddN ? '<span class="c24x-chip c24x-odd' + (state.odd ? ' c24x-on' : '') + '" data-odd="1" role="button" tabindex="0">'
+                + (en ? 'State ≠ ' + esc(major) : '상태 ' + esc(major) + ' 아님') + ' <b>' + oddN + '</b></span>' : '') +
+          '<input id="c24x-q" class="c24x-q" type="text" autocomplete="off" placeholder="' +
+            (en ? 'Search title / content' : '제목·내용 검색') + '" value="' + esc(state.q) + '">' +
+          '<span class="c24x-n">' + (en ? cur.length + ' / ' + list.length + ' shown' : list.length + '건 중 ' + cur.length + '건') + '</span>' +
+        '</div>' +
+        '<div class="c24x-note">' + (en
+          ? 'Category is a guess from the title (the source has no category field). The meaning of the state code is being confirmed with Cafe24. Amounts are not in the source yet.'
+          : '분류는 <b>제목으로 추정</b>한 값입니다(원본에 분류 칸이 없습니다). 상태 코드의 뜻은 카페24에 확인 중입니다. '
+            + '<b>금액은 원본에 아직 없습니다</b> — 그래서 합계·추이를 만들 수 없습니다.')
+          + (filteredOut ? (en ? ' Excluded ' + filteredOut + ' unrelated request(s).' : ' 다른 곳 지출품의 ' + filteredOut + '건은 제외했습니다.') : '')
+        + '</div>';
+    };
+
+    var drawHead = function(){
+      head.innerHTML = '<tr>' + cols.map(function(c){
+        var on = (state.sort === c[0]);
+        return '<th class="c24x-th' + (on ? ' c24x-sorted' : '') + '" data-s="' + c[0] + '" role="button" tabindex="0" '
+             + 'style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'
+             + esc(c[1]) + (on ? (state.dir < 0 ? ' ▼' : ' ▲') : '') + '</th>';
+      }).join('') + '</tr>';
+    };
+
+    var drawBody = function(){
+      var cur = pick();
+      if (!cur.length) {
+        body.innerHTML = '<tr><td colspan="' + cols.length + '" style="padding:20px;text-align:center;color:#9ca3af">'
+          + (en ? 'No rows match.' : '조건에 맞는 건이 없습니다.') + '</td></tr>';
+        return;
+      }
+      body.innerHTML = cur.map(function(row){
+        return '<tr style="border-bottom:1px solid #f1f5f9">' + cols.map(function(c){
+          var v = row[c[0]];
+          var wrapS = (c[0] === 'content' || c[0] === 'name') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+          var inner;
+          if (c[0] === '__kind') inner = '<span class="c24x-tag c24x-tag-' + row.__kkey + '">' + esc(v) + '</span>';
+          else if (c[0] === 'state') inner = '<span class="c24x-st' + (row.__odd ? ' c24x-st-odd' : '') + '">' + esc(v == null || v === '' ? '—' : v) + '</span>';
+          else inner = esc(v == null || v === '' ? '—' : v);
+          return '<td style="padding:7px 10px;' + wrapS + '" title="' + esc(v) + '">' + inner + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+    };
+
+    var redraw = function(){ drawTools(); drawHead(); drawBody(); };
+
+    /* 조작은 «위임» 으로 받는다 — 다시 그릴 때마다 리스너를 새로 달면 겹쳐 쌓인다.
+       ⛔ 같은 요소에 두 번 달리지 않게 표식을 둔다(탭을 오갈 때마다 이 함수가 다시 불린다). */
+    if (!tools.__c24wired) {
+      tools.__c24wired = true;
+      var hit = function(e){
+        var el = e.target.closest ? e.target.closest('.c24x-chip') : null;
+        if (!el) return;
+        if (el.hasAttribute('data-odd')) state.odd = !state.odd;
+        else { state.kind = el.getAttribute('data-k'); }
+        redraw();
+      };
+      tools.addEventListener('click', hit);
+      tools.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hit(e); } });
+      tools.addEventListener('input', function(e){
+        if (!e.target || e.target.id !== 'c24x-q') return;
+        state.q = e.target.value;
+        drawBody();
+        // 입력칸을 다시 그리면 포커스가 날아가므로 «건수» 만 갱신한다
+        var n = tools.querySelector('.c24x-n');
+        if (n) n.textContent = en ? (pick().length + ' / ' + list.length + ' shown') : (list.length + '건 중 ' + pick().length + '건');
+      });
+    }
+    if (!head.__c24wired) {
+      head.__c24wired = true;
+      var sortHit = function(e){
+        var th = e.target.closest ? e.target.closest('.c24x-th') : null;
+        if (!th) return;
+        var k = th.getAttribute('data-s');
+        if (state.sort === k) state.dir = -state.dir; else { state.sort = k; state.dir = (k === 'reg_date' || k === 'pay_date') ? -1 : 1; }
+        drawHead(); drawBody();
+      };
+      head.addEventListener('click', sortHit);
+      head.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortHit(e); } });
+    }
+
+    // 「총 N건」 줄은 도구 줄이 대신 말해 준다 — 같은 말을 두 곳에 쓰지 않는다.
+    if (cnt) cnt.textContent = '';
+    redraw();
+  };
+
   // 🧾 카페24 회계 실데이터 (5종 탭) — Neo4j finance-cafe24
+  const c24finEsc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
+  const c24finWon = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
+  // 컬럼 정의 (kind별) — [키, 머리글(ko), 서식함수?]
+  const C24FIN_COLS = {
+    ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',c24finWon],['store','거래처'],['memo','적요'],['month','귀속월']],
+    payroll:  [['user_id','대상'],['month','월'],['base','기본급',c24finWon],['total','지급계',c24finWon],['deduction','공제계',c24finWon],['actual','실지급',c24finWon],['work_day','근무일']],
+    /* 🧾 지출결의 — 2026-08-24 실측으로 칸을 다시 짰다(PR #465).
+       카페24 원본(`ExpenseReport`)의 속성은 content·doc_id·name·pay_date·reg_date·state **여섯 개뿐**이다.
+       ⛔ 그래서 예전 「거래처(organ)」·「결제(method)」 칸은 **값이 올 수 없어 늘 «—»** 였다 —
+          빈 칸을 세워 두면 «아직 안 들어온 값» 처럼 보여 오해를 만든다. 뺐다.
+       ✅ 대신 원본에 있는데 안 그리던 `state` 를 세우고, 제목에서 **추정** 분류를 붙인다.
+       ⚠️ 금액(money)이 원본에 없어 합계·추이는 여전히 만들 수 없다 —
+          적재 요청서: docs/카페24_지출결의_속성추가_적재요청_2026-08-24.md
+       ⚠️ 이 탭만 전용 화면(`__c24ExpSetup` — 칩·검색·자체 정렬)이 그린다. 아래 머리글 정렬은
+          나머지 네 탭 몫이다. 한 탭에 정렬을 두 벌 두지 않으려고 그렇게 갈랐다(2026-08-24 병합). */
+    expenses: [['reg_date','일자'],['__kind','분류(추정)'],['name','제목'],['content','내용'],['pay_date','지급일'],['state','상태']],
+    tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',c24finWon],['tax','세액',c24finWon],['total','합계',c24finWon],['tax_type','과세']],
+    deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',c24finWon],['method','결제']],
+  };
+  const C24FIN_COLS_EN = {
+    date:'Date', acc_type:'Type', subject:'Account', money:'Amount', store:'Vendor', memo:'Memo', month:'Month',
+    user_id:'Payee', base:'Base pay', total:'Total', deduction:'Deduction', actual:'Net pay', work_day:'Work days',
+    reg_date:'Date', name:'Title', organ:'Vendor', method:'Payment', content:'Detail', pay_date:'Paid on',
+    __kind:'Category', state:'State',
+    supplier:'Supplier', receiver:'Receiver', supply:'Supply', tax:'Tax', tax_type:'Taxation',
+    center_id:'Center ID', amount:'Amount',
+  };
+  // ↕️ 숫자로 정렬할 칸 — 서식함수(₩)가 붙은 칸은 자동으로 숫자다. 여기엔 «서식은 없는데 숫자인» 칸만 적는다.
+  const C24FIN_NUMCOL = { work_day:1 };
+  // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
+  const C24FIN_NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
+  /* ↕️ 정렬 상태 (2026-08-24 사장님 지시 — 다섯 탭 표에 올림순·내림순).
+     받아 온 행을 여기 담아 두고 «다시 그리기» 만 한다 — 정렬할 때 서버를 다시 부르지 않는다.
+     dir: 1=올림순 ▲ / -1=내림순 ▼ / 0=원래 순서(서버가 준 날짜 내림차순).
+     ⚠️ 서버가 limit=1000 으로 잘라 준 목록을 정렬하는 것이다. 「제일 큰 금액」이 아니라
+        「가져온 1000건 중 제일 큰 금액」이다 — 건수 표시에 «(표시된 건 기준)» 이 붙는 이유. */
+  window._c24finSort = { kind:'', rows:[], cols:[], key:'', dir:0, en:false };
   window.c24FinLoad = async function(kind){
     const en = (window.adminLang==='en');
-    const head = document.getElementById('c24fin-head');
     const body = document.getElementById('c24fin-body');
     const cnt = document.getElementById('c24fin-count');
     if (!body) return;
     document.querySelectorAll('.c24fin-tab').forEach(function(b){ b.style.background = (b.getAttribute('data-k')===kind)?'#f59e0b':'#fff'; b.style.color=(b.getAttribute('data-k')===kind)?'#fff':'#334155'; });
-    const esc = function(s){ return String(s==null?'':s).replace(/[<>&"]/g,function(c){return({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]);}); };
-    const won = function(n){ try{ return '₩'+Number(n||0).toLocaleString('ko-KR'); }catch(e){ return n; } };
-    // 컬럼 정의 (kind별)
-    const COLS = {
-      ledger:   [['date','일자'],['acc_type','구분'],['subject','계정과목'],['money','금액',won],['store','거래처'],['memo','적요'],['month','귀속월']],
-      payroll:  [['user_id','대상'],['month','월'],['base','기본급',won],['total','지급계',won],['deduction','공제계',won],['actual','실지급',won],['work_day','근무일']],
-      expenses: [['reg_date','일자'],['name','제목'],['organ','거래처'],['method','결제'],['content','내용'],['pay_date','지급일']],
-      tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',won],['tax','세액',won],['total','합계',won],['tax_type','과세']],
-      deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',won],['method','결제']],
-    };
-    // 🈳 빈 화면 안내용 — 탭별로 어느 Neo4j 노드가 비어 있는지 이름을 말해 준다(2026-08-18, AccBook 0건 실측)
-    const NODE_OF = { ledger:'회계장부 AccBook', payroll:'급여 Payroll', expenses:'지출결의 ExpenseReport', tax:'세금계산서 TaxInvoice', deposits:'예치금 SavedMoney' };
-    const cols = COLS[kind] || COLS.ledger;
-    head.innerHTML = '<tr>'+cols.map(function(c){ return '<th style="padding:9px 10px;text-align:left;border-bottom:2px solid #e5e7eb">'+esc(c[1])+'</th>'; }).join('')+'</tr>';
+    const esc = c24finEsc;
+    const cols = C24FIN_COLS[kind] || C24FIN_COLS.ledger;
+    // 탭을 바꾸면 정렬은 초기화한다(칸 이름이 탭마다 다르다).
+    window._c24finSort = { kind:kind, rows:[], cols:cols, key:'', dir:0, en:en };
+    c24FinDrawHead();
     body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af">'+(en?'Loading…':'불러오는 중…')+'</td></tr>';
     try {
       const r = await fetch('/api/admin/finance-cafe24/'+kind+'?limit=1000', { credentials:'include' });
@@ -12263,8 +12756,15 @@ window.rebuildGlobalSearchIndex = function() {
       //       같은 화면에 「매출 ₩A」와 「총매출 ₩B」가 따로 찍히는 사고가 난다.
       var isExcl = function(row){ return !!row.excluded_from_revenue; };
       var isRev  = function(row){ return !!row.counts_as_revenue; };
+      const won = c24finWon;
       if (cnt) {
         var base = (en? rows.length+' rows' : '총 '+rows.length+'건');
+        /* ⚠️ 서버가 limit=1000 에서 잘랐을 수 있다 — 그러면 정렬해서 맨 위에 온 것은
+           「제일 큰 금액」이 아니라 **「가져온 1000건 중 제일 큰 금액」** 이다.
+           정렬을 단 뒤로는 이 사실이 다섯 탭 모두에서 오해를 부르므로 탭을 가리지 않고 적는다
+           (예전에는 회계장부 탭에만 붙어 있었다). */
+        var cutTail = (rows.length >= 1000
+          ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
         if (kind === 'ledger' && rows.length) {
           var sInc = 0, sExp = 0, sExc = 0, nExc = 0;
           rows.forEach(function(row){
@@ -12278,26 +12778,150 @@ window.rebuildGlobalSearchIndex = function() {
             + ' · <b style="color:#b91c1c">' + (en?'Expense ':'지출 ') + esc(won(sExp)) + '</b>'
             /* ⛔ «「케이씨피M」 N건 ₩… 제외» 표기 제거(2026-08-18 지시). 합계에서 빼는 계산은
                그대로다(위에서 sExc 로 걸러 낸다) — 화면에 이름·금액을 쓰지 않을 뿐이다. */
-            + (rows.length >= 1000 ? ' <span style="color:#9ca3af">' + (en?'(shown rows only)':'(표시된 건 기준)') + '</span>' : '');
-        } else { cnt.textContent = base; }
+            + cutTail;
+        } else if (kind === 'expenses' && (d.filtered_out || 0) > 0) {
+          /* 🧾 이 탭은 카페24 원본에서 «우리 것이 아닌» 지출품의서를 뺀 목록이다
+             (한글 결재 · 결재라인 Joy·박상인 — 2026-08-24 사장님 지시. 정본 src/c24-expense-filter.ts).
+             몇 건을 뺐는지 적어 두는 이유는 «원본과 건수가 다른 것»이 고장으로 오인되지 않게 하기 위함이다. */
+          cnt.innerHTML = esc(base) + ' <span style="color:#9ca3af">· '
+            + (en ? 'excluded ' + d.filtered_out + ' unrelated request(s)' : '다른 곳 지출품의 ' + d.filtered_out + '건 제외')
+            + '</span>' + cutTail;
+        } else { cnt.innerHTML = esc(base) + cutTail; }
       }
-      body.innerHTML = rows.length ? rows.map(function(row){
-        return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
-          var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
-          var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
-          var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
-          /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
-             장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
-             합계에서 빼는 계산은 위 isExcl() 로 그대로 돈다. */
-          return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
-        }).join('')+'</tr>';
-      }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
-        +(en?'No data — the Cafe24 server has not loaded this data ('+(NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
-             :'데이터 없음 — 카페24 서버에서 이 데이터('+(NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
-        +'</td></tr>';
+      /* 🧾 지출결의만 전용 그리기(분류 추정·상태·검색·정렬)로 넘긴다 — PR #465.
+         ⛔ 다른 탭(장부·급여·세금·예치금)은 손대지 않는다 — 그쪽은 금액이 있어 지금 화면이 맞다.
+         ⚠️ 그래서 **이 탭에는 아래 머리글 정렬(c24FinDrawBody)이 안 걸린다.** 전용 화면이 자기
+            정렬(`c24x-th`·▲▼)을 이미 갖고 있어서, 한 탭에 정렬을 두 벌 두지 않으려고 이렇게 갈랐다
+            (2026-08-24 두 작업이 같은 화면에서 만나 병합할 때 내린 판단). */
+      var _tools = document.getElementById('c24fin-tools');
+      if (kind === 'expenses') { window.__c24ExpSetup(rows, cols, esc, d.filtered_out || 0); return; }
+      if (_tools) _tools.style.display = 'none';
+      // ↕️ 정렬용으로 원본을 담아 둔다 — 이후 «머리글 누르기» 는 서버를 다시 부르지 않는다.
+      window._c24finSort.rows = rows;
+      c24FinDrawBody();
     } catch(e){
       body.innerHTML = '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#dc2626">'+(en?'Load failed: ':'불러오기 실패: ')+esc(String(e&&e.message||e))+'</td></tr>';
     }
+  };
+
+  /* ↕️ 표 머리글 — 누르면 올림순 ▲ → 내림순 ▼ → 원래 순서 로 돈다.
+     ⚠️ 머리글 글자와 화살표를 **다른 `<span>`** 에 담는다. 한 덩어리로 쓰면 i18n 사전(전체 문자열 일치)이
+        「일자」와 「일자 ▲」를 다른 말로 보게 된다 — CLAUDE.md 2장 「i18n 사전」 함정.
+     ⚠️ «정렬 중» 강조는 **클래스(.c24fin-on)로만** 준다. 인라인 color/border 는 이 카드에서
+        화면에 안 나온다(admin-inline-c.css 8770·8793 의 !important 가 이긴다 — 실측).
+        규칙은 그 파일 맨 끝 «#card-accounting-mgmt» 블록에 있다. */
+  function c24FinDrawHead(){
+    const head = document.getElementById('c24fin-head');
+    const S = window._c24finSort;
+    if (!head || !S || !S.cols) return;
+    const esc = c24finEsc;
+    head.innerHTML = '<tr>'+S.cols.map(function(c){
+      const on = (S.key === c[0] && S.dir !== 0);
+      const arrow = on ? (S.dir > 0 ? '▲' : '▼') : '⇅';
+      const label = S.en ? (C24FIN_COLS_EN[c[0]] || c[1]) : c[1];
+      const tip = S.en ? 'Sort — asc / desc / original order' : '정렬 — 올림순 / 내림순 / 원래 순서';
+      return '<th data-c="'+esc(c[0])+'" class="'+(on?'c24fin-on':'')+'"'
+        + ' onclick="c24FinSort(\''+esc(c[0])+'\')" title="'+esc(tip)+'"'
+        + ' style="padding:9px 10px;text-align:left;cursor:pointer;'
+        + 'user-select:none;-webkit-user-select:none;white-space:nowrap">'
+        + '<span>'+esc(label)+'</span>'
+        + '<span aria-hidden="true" style="margin-left:4px;font-size:10px;opacity:'+(on?'1':'0.35')+'">'+arrow+'</span>'
+        + '</th>';
+    }).join('')+'</tr>';
+  }
+
+  /* ↕️ 본문 — 정렬 상태(S.key·S.dir)를 적용해 다시 그린다.
+     ⛔ 원본 배열(S.rows)을 제자리에서 뒤집지 말 것 — «원래 순서» 로 못 돌아온다. slice() 로 사본을 만든다. */
+  function c24FinDrawBody(){
+    const body = document.getElementById('c24fin-body');
+    const S = window._c24finSort;
+    if (!body || !S || !S.cols) return;
+    const esc = c24finEsc, en = S.en, cols = S.cols, kind = S.kind;
+    let rows = S.rows || [];
+    if (S.key && S.dir !== 0){
+      const col = cols.filter(function(c){ return c[0] === S.key; })[0];
+      if (col){
+        const isNum = !!col[2] || !!C24FIN_NUMCOL[S.key];
+        const dir = S.dir;
+        rows = rows.slice().sort(function(a, b){
+          const va = a[S.key], vb = b[S.key];
+          const ea = (va == null || va === ''), eb = (vb == null || vb === '');
+          // 빈 값은 방향과 상관없이 늘 아래로 — 내림순으로 뒤집었더니 빈 칸이 맨 위를 덮는 일을 막는다.
+          if (ea && eb) return 0;
+          if (ea) return 1;
+          if (eb) return -1;
+          let r;
+          if (isNum) { r = (Number(va) || 0) - (Number(vb) || 0); }
+          else { try { r = String(va).localeCompare(String(vb), 'ko', { numeric:true, sensitivity:'base' }); }
+                 catch(e){ r = String(va) < String(vb) ? -1 : (String(va) > String(vb) ? 1 : 0); } }
+          return dir < 0 ? -r : r;
+        });
+      }
+    }
+    body.innerHTML = rows.length ? rows.map(function(row){
+      return '<tr style="border-bottom:1px solid #f1f5f9">'+cols.map(function(c){
+        var v = row[c[0]]; var disp = c[2] ? c[2](v) : esc(v==null||v===''?'—':v);
+        var align = c[2] ? 'text-align:right;font-family:MangoiHanSC,Consolas,monospace' : '';
+        var wrap = (c[0]==='content'||c[0]==='memo'||c[0]==='subject') ? 'max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis' : '';
+        /* ⛔ «매출 제외» 배지·취소선·「케이씨피M」 툴팁 제거(2026-08-18 지시).
+           장부 행 자체는 카페24 원본이라 그대로 두고, 표시만 다른 행과 같게 한다.
+           합계에서 빼는 계산은 c24FinLoad 의 isExcl() 로 그대로 돈다. */
+        return '<td style="padding:7px 10px;'+align+';'+wrap+'" title="'+esc(v)+'">'+disp+'</td>';
+      }).join('')+'</tr>';
+    }).join('') : '<tr><td colspan="'+cols.length+'" style="padding:20px;text-align:center;color:#9ca3af;line-height:1.6">'
+      +(en?'No data — the Cafe24 server has not loaded this data ('+(C24FIN_NODE_OF[kind]||kind)+') into Neo4j yet. The connection itself is fine.'
+           :'데이터 없음 — 카페24 서버에서 이 데이터('+(C24FIN_NODE_OF[kind]||kind)+')를 아직 Neo4j에 적재하지 않았습니다. 연결 자체는 정상입니다.')
+      +'</td></tr>';
+    c24FinDrawNote();
+  }
+
+  /* ↕️ 지금 무엇으로 정렬돼 있는지 한 줄로 알려 준다 — 화살표만으로는 «내림순» 인지 말이 안 나오고,
+        이 화면은 색을 덮는 CSS 가 여러 겹이라 **뜻을 지고 가는 것은 이 글자**다.
+     ⚠️ `data-ko`/`data-en` 도 함께 갱신한다. 그것 없이 textContent 로만 쓰면 🌐 를 눌러도 안 따라온다
+        (CLAUDE.md 2장 「JS 로 그린 라벨」). 여기는 아이콘이 아니라 «글자» 요소라 그 두 속성이 맞는 도구다. */
+  function c24FinDrawNote(){
+    const note = document.getElementById('c24fin-sortnote');
+    const S = window._c24finSort;
+    if (!note || !S) return;
+    const put = function(ko, en, on){
+      note.setAttribute('data-ko', ko);
+      note.setAttribute('data-en', en);
+      note.textContent = S.en ? en : ko;
+      note.classList.toggle('c24fin-note-on', !!on);   // 색은 클래스로 — 인라인은 이 카드에서 진다
+    };
+    if (!S.key || S.dir === 0){ put('머리글을 누르면 정렬', 'Click a header to sort', false); return; }
+    const col = (S.cols||[]).filter(function(c){ return c[0] === S.key; })[0];
+    const koLabel = col ? col[1] : S.key;
+    const enLabel = col ? (C24FIN_COLS_EN[col[0]] || col[1]) : S.key;
+    put('정렬: ' + koLabel + ' · ' + (S.dir > 0 ? '올림순 ▲' : '내림순 ▼'),
+        'Sorted by ' + enLabel + ' · ' + (S.dir > 0 ? 'ascending ▲' : 'descending ▼'), true);
+  }
+
+  /* 🌐 언어를 바꾸면 머리글·안내 줄을 다시 그린다.
+     `toggleAdminLang()` 은 **새로고침 없이 DOM 만** 갈아서, JS 가 textContent 로 그린 글자는
+     안 따라온다(CLAUDE.md 2장 「JS 로 그린 라벨」). 표 내용(빈 화면 안내문)도 언어를 타므로 함께 그린다.
+     ⚠️ 서버를 다시 부르지 않는다 — 담아 둔 행을 그대로 다시 그릴 뿐이다. */
+  document.addEventListener('mangoi:lang-changed', function(ev){
+    const S = window._c24finSort;
+    if (!S || !S.cols || !S.cols.length) return;
+    const lang = (ev && ev.detail && ev.detail.lang) || window.adminLang;
+    S.en = (lang === 'en');
+    /* ⛔ 지출결의는 전용 화면(`__c24ExpSetup`)이 머리글·본문을 자기 방식(`data-s`·칩·검색)으로 그린다.
+       여기서 다시 그리면 **그 화면을 덮어써 자체 정렬이 죽는다.** 그 탭은 통째로 다시 불러
+       전용 화면이 새 언어로 그리게 한다(서버는 120초 KV 캐시라 홉이 늘지 않는다). */
+    if (S.kind === 'expenses') { try { window.c24FinLoad('expenses'); } catch(e){} return; }
+    c24FinDrawHead();
+    c24FinDrawBody();
+  });
+
+  // ↕️ 머리글 클릭 — 같은 칸이면 올림순 → 내림순 → 원래 순서, 다른 칸이면 그 칸 올림순부터.
+  window.c24FinSort = function(key){
+    const S = window._c24finSort;
+    if (!S || !S.cols || !S.rows || !S.rows.length) return;
+    if (S.key === key) { S.dir = (S.dir === 1) ? -1 : (S.dir === -1 ? 0 : 1); if (S.dir === 0) S.key = ''; }
+    else { S.key = key; S.dir = 1; }
+    c24FinDrawHead();
+    c24FinDrawBody();
   };
 
   window.accLoadFranchise = async function(){
@@ -13633,7 +14257,7 @@ window.rebuildGlobalSearchIndex = function() {
       { id: 'card-auto-attendance', name_ko: '자동 출석 체크',            name_en: 'Auto Attendance',           def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-class-attendance', name_ko: '수업별 출석부',            name_en: 'Class Attendance Sheet',    def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'❌', agency:'✅', parent:'❌', student:'❌' } },
       { id: 'card-calendar',    name_ko: '📅 캘린더 관리 🆕',              name_en: 'Calendar Management',       def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
-      { id: 'all_schedules',    name_ko: '📅 학원 전체 스케줄 🆕',         name_en: 'All Academy Schedules',     def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
+      { id: 'all_schedules',    name_ko: '📅 전체 스케줄 🆕',              name_en: 'All Schedules',              def: { hq_exec:'✅', hq_mgr:'✅', hq_teacher:'✅', branch:'✅', agency:'✅', parent:'❌', student:'❌' } },
     ]},
     // 🆕 📚 자료실 — 대상별 방(사용설명서·동영상·매뉴얼). card-lib-* 는 사이드바 카드에 1:1 자동 반영
     { group_ko: '📚 자료실 (사용설명서 · 매뉴얼)', group_en: '📚 Library (Manuals)', items: [
@@ -14308,6 +14932,10 @@ window.rebuildGlobalSearchIndex = function() {
     else if (role === 'mgr' || role === 'manager') role = 'hq_mgr';
     const isExec = role === 'hq_exec';
     const isMgrOrUp = isExec || role === 'hq_mgr';
+    // 🗑️ (2026-08-21) 레벨테스트 신청 삭제 버튼 노출 판정에 재사용 — 본사(경영진·관리자)만.
+    //   서버(api-admin.ts DELETE /api/admin/leveltest/applications)가 이미 같은 조건으로 403 을
+    //   던진다. 여기서 감추는 것은 "눌러도 안 되는 버튼"을 안 보이게 하는 것뿐 — 보안은 서버 쪽.
+    window._isHqMgrOrUp = isMgrOrUp;
     const isHQ = role && role.startsWith('hq');
     const isBranchUp = isHQ || role === 'branch';
     const isAgencyUp = isBranchUp || role === 'agency';

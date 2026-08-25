@@ -449,8 +449,11 @@ check('화면 — 수업 변경은 원래 화면으로 보낸다',
 
 // 관리자 화면(1MB)은 배지 한 줄만 — 결재 목록을 그리로 옮기면 /work 를 만든 이유가 사라진다.
 const ADMIN_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/admin.html'), 'utf8');
+const QUICK_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-quick-access.js'), 'utf8');
+const IA6_SRC = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/adm-ia6.js'), 'utf8');
+
 check('관리자 화면에는 배지와 링크만 넣었다',
-  /mi-appr-badge/.test(ADMIN_SRC) &&
+  /mi-appr-n/.test(ADMIN_SRC) &&
   !/api\/approval\/requests\/[^/]*\/decide/.test(ADMIN_SRC),
   '관리자 화면에 결재 목록·승인 버튼을 만들면 화면이 두 벌이 된다');
 
@@ -458,29 +461,43 @@ check('관리자 화면에는 배지와 링크만 넣었다',
    그런데 한국 본사(대표·담당)는 전부 admin.html 로 착지하는데, 대기 0건이면
    결재를 **올리러** 들어갈 입구가 화면에 하나도 없었다 — 주소를 외워야 했다.
    이 프로젝트가 없애려던 «찾아 들어가야 한다» 가 그대로 되살아나는 셈이라 뒤집었다.
-   대신 «알림» 이 아니라 «메뉴» 로 읽히게 한다 — 0건이면 숫자 없이 조용한 회색. */
+   🧾 2026-08-20 부터 입구는 **화면이 아니라 메뉴가** 그린다 — 「자주 쓰는 기능」 표 첫 칸과
+   사이드바 맨 위 「결재함」. 둘 다 대기 건수와 무관하게 언제나 그려지므로 «늘 보인다» 가
+   그 자체로 성립한다. 이 블록이 하는 일은 그 위에 **숫자만** 얹는 것이다. */
 check('관리자 화면의 입구는 대기 0건이어도 늘 보인다',
-  !/if \(!n\) return;/.test(ADMIN_SRC),
+  !/if \(!n\) return;/.test(ADMIN_SRC) &&
+  /href: '\/work'/.test(QUICK_SRC) &&
+  /id = 'ia6-appr'/.test(IA6_SRC),
   '입구가 없으면 결재를 올리러 들어갈 방법이 없다');
 
 check('대기가 없을 때는 숫자 없이 «결재함» 으로만 보인다 (알림이 아니라 메뉴)',
-  /ko \? '결재함[^']*' : '[^']*'/.test(ADMIN_SRC),
+  /b\.textContent = n > 0 \? String\(n\) : '';/.test(ADMIN_SRC) &&
+  /b\.style\.display = n > 0 \? 'flex' : 'none';/.test(ADMIN_SRC) &&
+  /el\.textContent = apprN > 0 \? String\(apprN\) : '';/.test(ADMIN_SRC),
   '0건일 때 숫자를 붙이면 «0건» 이 알림처럼 보인다');
 
-check('대기가 없을 때는 조용한 색으로 둔다',
-  /n \? '#0b6e63' : '#(e8eef4|5a6873)'/.test(ADMIN_SRC),
+check('대기가 없을 때는 빨간 배지를 아예 감춘다',
+  /\.ia6-appr-n:empty\{display:none\}/.test(ADMIN_SRC),
   '늘 떠 있는 «빨간 배지» 는 곧 배경이 된다');
 
 /* 🪤 2026-08-17 사장님 화면에서 «어디에도 안 보인다» — 오른쪽 아래는 이미
    「AI 운영비서」 버튼과 상담원 아바타가 쓰고 있어서 떠 있는 배지가 그 뒤에 가려졌다.
-   그래서 본문 맨 위(자주 쓰는 기능 바로 위)에 흐름 안 요소로 넣는다. */
-check('입구를 본문 맨 위에 끼워 넣는다 (떠 있게 두지 않는다)',
-  /getElementById\('ph161-quick'\)/.test(ADMIN_SRC) && /insertBefore\(a, anchor\)/.test(ADMIN_SRC),
+   🧾 2026-08-20 그때 급히 만든 초록 줄을 없앴다 — 「자주 쓰는 기능」 표 «위» 에 혼자
+   떠 있어 어색했고(사장님 지적), 사이드바 결재함까지 생겨 같은 입구가 셋이 됐다.
+   지금은 그 표의 **첫 칸**으로 들어가 있다. 어느 쪽이든 «떠 있게 두지 않는다» 는 그대로다. */
+check('입구는 흐름 안에 둔다 (떠 있게 두지 않는다)',
+  !/position:fixed[^'"]*bottom:150px/.test(ADMIN_SRC) &&
+  /#ph161-quick-items \.ph161-q\[data-qa="결재함"\]/.test(ADMIN_SRC),
   '오른쪽 아래는 AI 운영비서·아바타가 이미 쓰고 있어 가려진다');
 
-check('앵커를 못 찾으면 떠 있는 버튼으로라도 보여 준다',
-  /position:fixed;right:16px;bottom:150px/.test(ADMIN_SRC),
-  '아주 안 보이는 것보다는 낫다');
+check('결재함 칸은 사용 빈도 정렬에 밀리지 않는다 (pin)',
+  /key: '결재함'[\s\S]{0,160}pin: true/.test(QUICK_SRC) &&
+  /a\.it\.pin \? 1 : 0, bp = b\.it\.pin \? 1 : 0/.test(QUICK_SRC),
+  '결재는 «누가 답을 기다리는» 일이라 덜 눌렀다는 이유로 뒤로 가면 안 된다');
+
+check('표가 늦게 그려져도 숫자를 다시 붙인다',
+  /if \(!paintQuick\([^)]*\)\) \{[\s\S]{0,240}setInterval/.test(ADMIN_SRC),
+  '「자주 쓰는 기능」 표는 외부 js 가 그린다 — 한 번 실패하고 넘어가면 숫자가 영영 안 뜬다');
 
 check('관리자 화면의 배지는 반복 폴링하지 않는다',
   /setTimeout\(load, 3000\)/.test(ADMIN_SRC) && !/setInterval\(load/.test(ADMIN_SRC),

@@ -88,8 +88,12 @@
     .rq-chip.score { color:#60a5fa; }
     .rq-chip.combo { color:#fb7185; background:rgba(251,113,133,0.12); border-color:rgba(251,113,133,0.3); }
     .rq-chip.combo.hot { animation:comboPop .4s ease-out; }
+    /* 🔊 이 버튼은 «효과음»(정답·오답 삐 소리) 전용이다. 듣기 문항의 중국어 음성과 무관한데
+       아이콘만 있어서 «퀴즈 소리»로 오해를 샀다(2026-08-21 사장님 지적) → 글자를 함께 보여 준다. */
     .rq-mute { margin-left:auto; cursor:pointer; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12);
-      border-radius:99px; width:34px; height:34px; font-size:15px; color:var(--text); }
+      border-radius:99px; min-width:34px; height:34px; padding:0 11px; font-size:12px; font-weight:700;
+      color:var(--text); white-space:nowrap; display:inline-flex; align-items:center; gap:5px; }
+    .rq-mute .rq-mute-ico { font-size:15px; }
     @keyframes comboPop { 0%{transform:scale(1)} 40%{transform:scale(1.35)} 100%{transform:scale(1)} }
     .rq-track { position:relative; height:34px; margin:2px 0 16px; }
     .rq-track-rail { position:absolute; left:14px; right:14px; top:22px; height:6px; border-radius:99px;
@@ -187,6 +191,10 @@
   </div>
 
   <script>
+    /* 🇨🇳 이 화면을 연 학생은 «중국어 수강생» 으로 기록 (2026-08-24) —
+       홈 메뉴(js/idx-allmenu.js 의 mangoiZhLearner)가 이 표시를 보고 중국어 메뉴를 보여준다.
+       표시가 없으면 중국어 타일은 감춰진다(영어만 듣는 학생·첫 방문자에게 혼란 — 학원장 검수 피드백). */
+    try { localStorage.setItem('mangoi_zh_learner','1'); } catch(e){}
     var APP_STATE = { showPinyin:true, showToneColor:true, lang:'zh' };
     try { var saved=JSON.parse(localStorage.getItem('rq_cn_state')||'{}'); APP_STATE={...APP_STATE,...saved}; } catch(e){}
     function saveAppState(){ try{ localStorage.setItem('rq_cn_state',JSON.stringify(APP_STATE)); }catch(e){} }
@@ -228,7 +236,9 @@
     function sfxCorrect(combo){ var b=[523.25,659.25,783.99]; if(combo>=3) b.push(1046.5); if(combo>=5) b.push(1318.5); beep(b,0.15,'triangle',0.2); }
     function sfxWrong(){ beep([196,155.56],0.22,'sawtooth',0.11); }
     function sfxWin(){ beep([523.25,659.25,783.99,1046.5,1318.5],0.2,'triangle',0.22); }
-    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_cn_muted', SFX.muted?'1':'0'); }catch(e){} if(btn) btn.textContent=SFX.muted?'🔇':'🔊'; if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
+    window.toggleMute = function(btn){ SFX.muted=!SFX.muted; try{ localStorage.setItem('rq_cn_muted', SFX.muted?'1':'0'); }catch(e){}
+      if(btn){ var _i=btn.querySelector('.rq-mute-ico'); if(_i) _i.textContent=SFX.muted?'🔇':'🔊'; else btn.textContent=SFX.muted?'🔇':'🔊'; }
+      if(!SFX.muted) beep([659.25],0.1,'triangle',0.15); };
 
     var CHEER_OK   = { ko:['정답이야! 🎉','完美! 🌟','太棒了! 👏','바로 그거야! 🔥','天才! 🧠','最高! 😆'] };
     var CHEER_HOT  = { ko:['불타오른다! 🔥','아직도 계속! ⚡','连续正确! 🚀','完全燃烧了! 🌊'] };
@@ -322,8 +332,8 @@
         window.scrollTo(0,0);
       } catch(e) { alert('퀴즈를 열 수 없어요. 잠시 후 다시 시도해주세요.'); }
     }
-    var TYPE_ICON = { choice:'📝', listen:'🎧', speak:'🎤' };
-    var TYPE_KO = { choice:'객관식', listen:'듣기', speak:'말하기' };
+    var TYPE_ICON = { choice:'📝', listen:'🎧', write:'✍️', speak:'🎤' };
+    var TYPE_KO = { choice:'객관식', listen:'듣기', write:'쓰기', speak:'말하기' };
     var rec = { mr:null, chunks:[], idx:-1 };
 
     function renderQ() {
@@ -339,7 +349,7 @@
       var hud = '<div class="rq-hud">'
         + '<span class="rq-chip score">⭐ ' + (state.correctCount*10) + '점</span>'
         + (comboOn ? '<span class="rq-chip combo' + (animate?' hot':'') + '">🔥 ' + state.combo + ' 콤보</span>' : '')
-        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" title="소리 켜기/끄기">' + (SFX.muted?'🔇':'🔊') + '</button>'
+        + '<button class="rq-mute" type="button" onclick="toggleMute(this)" aria-label="효과음 켜기 끄기" title="효과음(정답·오답 소리) 켜기·끄기 — 듣기 문항의 중국어 음성은 문제 안의 «🔊 음성 듣기» 버튼입니다"><span class="rq-mute-ico">' + (SFX.muted?'🔇':'🔊') + '</span>효과음</button>'
         + '</div>';
 
       var prog = total > 1 ? (i/(total-1)) : 1;
@@ -372,9 +382,17 @@
           }
           return '<button class="'+cls+'"'+(answered?'':' onclick="pick('+k+')"')+'><span class="opt-prefix">'+ABC[k]+'</span>'+optText+mark+'</button>';
         }).join('');
+      } else if (typ==='write') {
+        inner += '<div class="q-text" style="font-size:18px">'+esc(q.q)+'</div>';
+        if (graded) {
+          inner += '<div style="width:100%;padding:14px 16px;border-radius:10px;background:rgba(255,255,255,0.06);font-size:18px;font-weight:700;color:#fff">'+esc(fb.your||'-')+'</div>';
+        } else {
+          inner += '<input id="writeIn" value="'+esc(state.answers[i]||'')+'" oninput="setText(this.value)" onkeydown="if(event.key===\'Enter\')checkText()" placeholder="한자로 입력하세요 (병음도 됩니다)" autocomplete="off" autocapitalize="off" style="width:100%;padding:14px 16px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.96);color:#111;font-size:18px;font-family:inherit" />'
+            + '<button id="checkBtn" type="button" class="nav-btn primary" style="width:100%;margin-top:10px" onclick="checkText()">✅ 정답 확인</button>';
+        }
       } else { // speak
         inner += '<div style="font-size:14px;color:var(--text2);margin-bottom:8px">'+esc(q.q)+'</div>'
-          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.answer_text||'')+'</div>';
+          + '<div style="font-size:20px;font-weight:800;color:#fff;background:rgba(59,130,246,0.10);border:1px dashed rgba(59,130,246,0.4);border-radius:12px;padding:18px;text-align:center;margin-bottom:14px;line-height:1.4">'+esc(q.target||q.answer_text||'')+'</div>';
         if (!graded) {
           inner += '<div style="text-align:center"><button id="micBtn" type="button" onclick="micToggle('+i+')" style="padding:14px 26px;border:0;border-radius:99px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-size:15px;font-weight:800;cursor:pointer">🎤 녹음하고 말하기</button>'
             + '<div id="micStatus" style="font-size:12px;color:var(--text2);margin-top:10px">버튼을 누르고 또박또박 말해보세요</div></div>';
@@ -386,7 +404,7 @@
         var ok = fb.correct;
         var extra = '';
         if (typ==='listen' && fb.audio_text) extra += '<div style="font-size:12.5px;color:var(--text2);margin-top:6px">🎧 '+esc(fb.audio_text)+'</div>';
-        if (typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
+        if (typ==='write' || typ==='speak') extra += '<div class="rq-a rq-ok" style="font-size:13px;margin-top:6px">정답: '+esc(fb.answer_text||'')+(fb.accuracy!=null?' ('+fb.accuracy+'%)':'')+'</div>';
         fbHtml = '<div class="rq-mascot '+(animate?(ok?'react':'sad'):'')+'">'
           + '<img src="'+MANGO_IMG+'" alt="" onerror="this.style.display=\'none\'">'
           + '<div class="rq-bubble '+(ok?'ok':'no')+' show">'+esc(fb.line||'')+'</div></div>'
@@ -413,6 +431,7 @@
         '</div>';
       document.getElementById('playView').innerHTML = html;
       if (typ==='listen' && !graded) setTimeout(function(){ playAudio(i, true); }, 350);
+      if (typ==='write' && !graded) { var _wi=document.getElementById('writeIn'); if(_wi) try{ _wi.focus(); }catch(e){} }
     }
 
 
@@ -460,7 +479,11 @@
           var blob=new Blob(rec.chunks,{type:'audio/webm'}); rec.mr=null; rec.idx=-1;
           if(blob.size<600){ if(stt) stt.textContent='너무 짧아요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
           try {
-            var fd=new FormData(); fd.append('audio',blob,'speak.webm');
+            /* 🗣️ 기대 언어를 «반드시» 알려 준다. 안 주면 Whisper 가 짧은 발화를 엉뚱한 언어로
+               적는다(api-games.ts /api/voice/transcribe 주석의 2026-07-24 사고). 중국어 화면인데
+               이 한 줄이 빠져 있어서, 중국어로 말해도 다른 언어로 전사돼 거의 늘 오답이었다.
+               수업 화면(js/idx-x8.js)은 처음부터 보내고 있었다. */
+            var fd=new FormData(); fd.append('audio',blob,'speak.webm'); fd.append('lang','zh');
             var r=await fetch('/api/voice/transcribe',{method:'POST',body:fd}).then(function(x){return x.json();});
             var text=(r&&r.ok&&r.text)?String(r.text).trim():'';
             if(!text){ if(stt) stt.textContent='잘 못 들었어요. 다시 하거나 다음으로 넘어가도 돼요'; return; }
@@ -472,6 +495,18 @@
         if(btn){ btn.textContent='⏹ 정지'; btn.style.background='linear-gradient(135deg,#ef4444,#dc2626)'; }
         if(stt) stt.textContent='🔴 녹음 중… 끝나면 정지';
       } catch(e){ if(stt) stt.textContent='마이크 권한이 필요해요. 허용하거나 다음으로 넘어가도 돼요'; }
+    };
+
+    /* ✍️ 쓰기 문항 — 입력과 채점. 이 화면에는 원래 write 처리가 통째로 없었다(2026-08-21). */
+    window.setText = function(v){ state.answers[state.idx]=v; };
+    window.checkText = async function(){
+      var i=state.idx; if(state.fb[i]) return;
+      var v=String(state.answers[i]==null?'':state.answers[i]).trim();
+      if(!v) return;
+      var btn=document.getElementById('checkBtn');
+      if(btn){ btn.disabled=true; btn.textContent='채점 중…'; }
+      var resp=await rqCheck(i, v);
+      applyFeedback(i, resp, v);
     };
 
     async function pick(k){

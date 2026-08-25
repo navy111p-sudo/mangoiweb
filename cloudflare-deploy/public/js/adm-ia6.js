@@ -73,8 +73,6 @@
               wireRevealOnJump 가 data-card 로 항목을 찾으므로, 옛 사이드바·검색·허브에서
               버그 카드로 점프할 때 지금까지 showAll() 로 새던 것이 제 항목으로 간다. */
         { ko: '신규상담',    en: 'Inquiries',      cards: ['card-inquiry-mgmt'] },
-        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
-          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' },
         { ko: '알림함',     en: 'Alerts',          cards: ['card-admin-alerts', 'card-notifications'] }
       ]
     },
@@ -182,7 +180,33 @@
            ⚠️ 캐피타운 계열 계정은 그대로 전용 페이지로 보낸다(capiHref) — 그 분기는 건드리지 않았다. */
         { ko: '지사 정산',   en: 'Settlement',  cards: ['card-accounting-mgmt'], openSub: 'sub-acc-5', capiHref: '/admin/capitown-settlement.html',
           /* 대표 카드가 회계라, 두지 않으면 「회계」와 «똑같은 툴팁» 이 뜬다(무엇이 다른지 알 수 없다). */
-          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' }
+          tip: '🏢 지점·가맹점 정산 — 수수료 비율 설정', tipEn: '🏢 Branch settlement — commission rates' },
+        /* 🚗 (2026-08-21 사장님 「영업 메뉴가 어디 있냐」) — 사이드바 어디에도 없었다.
+           링크를 admin.html 의 사용자 메뉴(#topUserPopup)에만 달아 뒀는데, 그 메뉴는
+           admin-inline-c.css 가 `display:none !important` 로 통째로 감춘다
+           (화면에 실제로 보이는 계정 메뉴는 adm-r21.js 가 따로 그리고, 거기엔 이 링크가 없다).
+           메뉴 검색으로도 못 찾는다 — 색인(buildMenuIndex)이 `details.menu-card` 만 훑는데
+           이 화면은 별도 페이지라 카드가 없다. 그래서 주소를 아는 사람만 들어갈 수 있었다.
+           ⚠️ secs(손자)를 일부러 적지 않는다 — 이 화면은 카드를 **JS 로 그려서** 문서가
+              로드된 시점에는 그 id 들이 없다. 주소 뒤 #id 로 보내면 에러 없이 «맨 위만»
+              열린다(2026-08-18 「데모 매핑」과 같은 함정). 손자가 필요하면 그 화면에
+              먼저 진짜 앵커를 만들고 나서 적을 것.
+           ⚠️ 주소를 `/admin/sales-hr` (확장자 없이)로 쓰지 말 것 — 그 주소는 src/index.ts 의
+              재작성으로만 열리는데 `site_map_drift_harness` 는 그걸 모르고 «죽은 링크» 로
+              FAIL 낸다(그 하니스가 실제로 잡아 줬다). 이 파일의 다른 항목들과 같이 실제
+              파일 경로를 쓴다(/admin/duration-requests.html · /enroll-ops.html). */
+        { ko: '영업 실적·평가', en: 'Sales & review', href: '/admin/sales-hr.html',
+          tip: '🚗 영업담당자 방문·계약·성과급·반기 평가',
+          tipEn: '🚗 Sales rep visits, deals, incentives, half-year review',
+          secs: [
+            { ko: '📊 이번 달 요약',     en: '📊 This month',      id: 'sh-kpi' },
+            { ko: '🗺 오늘 어디부터',    en: '🗺 Where to go',     id: 'sh-visits' },
+            { ko: '⚠️ 위험한 학원',      en: '⚠️ At-risk academies', id: 'sh-risk' },
+            { ko: '📝 영업일지',         en: '📝 Activity log',    id: 'sh-diary' },
+            { ko: '🎯 자동 채점',        en: '🎯 Auto scoring',    id: 'sh-score' },
+            { ko: '✅ 평가 확정',        en: '✅ Confirm review',  id: 'evalCard' },
+            { ko: '🧭 성과가 낮을 때',   en: '🧭 If underperforming', id: 'sh-low' }
+          ] }
         /* 🏢 (2026-08-18 사장님 수정요청 #04) 여기 있던 「조직 (지사·대리점)」 을 아래
            「운영자 (본사·지사·대리점)」 그룹으로 옮겼다 — 조직 «관리» 는 돈 계산이 아니라
            회사 구조를 세우는 일이라, 정산 옆에 있으면 «정산하러 왔다가 조직을 고치는» 자리가 된다.
@@ -238,7 +262,12 @@
         { ko: '자료실',      en: 'Library',       cards: ['card-lib-admin', 'card-lib-teacher', 'card-lib-branch', 'card-lib-agency', 'card-lib-student'],
           tip: '📚 관리자 · 강사 · 지사 · 대리점 · 학생 자료실', tipEn: '📚 Libraries for admin, teachers, branches, agencies, students' },
         { ko: '직원·권한',   en: 'Staff & roles', cards: ['card-permissions', 'card-cafe24-lists'] },
-        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] }
+        { ko: '데이터·보관', en: 'Data',          cards: ['card-data-export', 'card-retention', 'card-gallery', 'card-classroom-test'] },
+        /* 🐞 (2026-08-24 사장님) 「오늘」에서 옮겨옴 — 버그·피드백은 «오늘 할 일» 이 아니라
+           운영 전반에 걸쳐 쌓이는 신고함이라 시스템 쪽이 맞다는 지적. cards/카드 자체는
+           그대로(card-bug-reports) — 어느 그룹 items 배열에 있느냐만 바뀐다. */
+        { ko: '버그·피드백', en: 'Bug reports',    cards: ['card-bug-reports'],
+          tip: '🐞 쓰다가 신고된 오류·건의', tipEn: '🐞 Reported bugs and suggestions' }
         /* 🗺 (2026-08-16 사장님) 여기 있던 「사이트 구조도」를 뺐다 —
            «어차피 메뉴판 맨 위 「메뉴 지도」와 같은 것». 실제로 같은 페이지로 갔다.
            같은 곳으로 가는 문을 둘 두면 «둘이 다른 건가?» 를 매번 생각하게 만든다.

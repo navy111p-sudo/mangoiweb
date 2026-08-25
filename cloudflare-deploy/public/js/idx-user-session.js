@@ -532,6 +532,7 @@
   window.logout = function(){
     setUser(null);
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();   // 위 removeItem 의 «나머지 반» — 아래 함수 주석 참고
     document.getElementById('user-menu').classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
   };
@@ -552,8 +553,15 @@
     menu.classList.add('show');
   };
 
+  // 🚪 관리자 세션 폐기(2026-08-21). 정본은 HttpOnly 쿠키라 JS 로 못 지운다 — 서버 POST 뿐.
+  //   ⚠️ 첫 화면 예산 때문에 설명은 docs/작업기록/260821_로그아웃이_서버세션을_안끊던_네곳.md 에 둔다.
+  function mangoiRevokeAdminCookie(){
+    try { fetch('/api/admin/logout', { method:'POST', credentials:'include' }).catch(function(){}); } catch(e){}
+  }
+
   window.logoutAdminSession = function(){
     try { localStorage.removeItem('mangoi_admin_session'); } catch(e){}
+    mangoiRevokeAdminCookie();
     var menu = document.getElementById('user-menu');
     if(menu) menu.classList.remove('show');
     showLcToast2('👋 '+(((window.getLang?window.getLang():'ko')==='ko')?'로그아웃되었습니다.':'Signed out.'));
@@ -578,7 +586,7 @@
       '<div class="lm-body">'+
         // ━━━━ 😊 패스키(얼굴/지문) 로그인 — 지원 브라우저에서만 노출 ━━━━
         (window.PublicKeyCredential ?
-          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
+          '<button type="button" onclick="doPasskeyLogin()" style="width:100%;padding:14px 18px;margin-bottom:14px;background:linear-gradient(135deg,#34d399,#10b981);color:#052e1b;border:0;border-radius:12px;font-weight:800;font-size:14.5px;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,.35)">😊👆 '+(L?'얼굴/지문으로 바로 로그인':'Sign in with Face / Fingerprint')+'</button>'+
           '<div style="text-align:center;color:#94a3b8;font-size:11.5px;margin:0 0 10px;position:relative">'+
             '<span style="background:#131826;padding:0 12px;position:relative;z-index:1">'+(L?'또는 아이디로':'Or with ID')+'</span>'+
             '<span style="position:absolute;left:0;right:0;top:50%;height:1px;background:#232b40;z-index:0"></span>'+
@@ -664,7 +672,9 @@
       if (!d.ok) { alert('❌ ' + (d.message || d.error || (L?'요청 실패':'Request failed'))); return; }
       var code = (prompt('📱 ' + (d.message || (L?'문자로 받은 인증번호 6자리를 입력해 주세요':'Enter the 6-digit code'))) || '').trim();
       if (!code) return;
-      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (6자 이상)':'New password (6+ chars)') || '').trim();
+      // 🔢 (2026-08-24) 4자 — 서버(api-students.ts password-reset/confirm)가 4자를 받는데
+      //   여기 안내만 6자로 남아 「4자로 줄였다는데 6자 이상 쓰래요」가 됐다(옛 LMS 기준이 4자).
+      var npw = (prompt(L?'새 비밀번호를 입력해 주세요 (4자 이상)':'New password (4+ chars)') || '').trim();
       if (!npw) return;
       var r2 = await fetch('/api/student/password-reset/confirm', {
         method:'POST', headers:{'Content-Type':'application/json'},

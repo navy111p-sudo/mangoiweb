@@ -473,8 +473,25 @@
       text-overflow: ellipsis !important;
       justify-content: center !important;
     }
-    /* 4. 대시보드 가로 잘림 방지 */
-    html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+    /* 4. 대시보드 가로 잘림 방지
+       🔴 (2026-08-20) 여기서 `html` 을 빼면 안 되는 것처럼 보이지만, **빼야 한다.**
+          `html{overflow-x:hidden}` 은 루트를 «스크롤 상자» 로 만든다. 그러면 body 의 overflow 가
+          뷰포트로 올라가지 못하고 body 가 자기 스크롤 상자를 갖는데, 실제로 굴러가는 것은
+          뷰포트라 body 의 scrollTop 은 영영 0 이다. 그 안의 position:sticky 는 「자기 상자가
+          한 번도 안 굴렀으니 붙을 일도 없다」로 판단해 그냥 흘러간다.
+          → 본문 맨 위 경로 줄(#mi-crumb)이 ≤900px 에서 **한 번도 안 붙어 있었다.**
+          실측(390·768·900px, Chromium 141): 맨 아래까지 굴리면 줄 top −1397·−1152·−1135.
+          이 줄에서 `html, ` 을 지우자 셋 다 top 0. 901px 이상은 원래부터 정상이었다.
+       ✅ 가로 잘림 방어는 그대로다 — html 이 visible 이면 **body 의 overflow 가 뷰포트로 올라가
+          뷰포트가 대신 자른다**(CSS 표준의 «전파»). 실측으로 scrollWidth ≤ innerWidth 유지.
+       📜 2026-08-19 에 admin.html 이 `html body{overflow-x:clip}` 로 이걸 고치려 했지만
+          **선택자가 body 만 가리켜서 아무 효과가 없었다.** 범인은 처음부터 html 쪽이었다.
+          같은 교훈이 css/mangoi-layout.css 머리말에도 적혀 있다 —
+          「⛔ html/body 에 overflow-x:hidden 을 걸지 않는다. position:sticky 가 죽는다」.
+       ⛔ 여기에 `html` 을 다시 넣지 말 것. test-harness/manual/crumb-sticky-browser.mjs 가
+          실제로 그려서 잰다(그 검사가 이 버그를 찾아냈다). */
+    body { overflow-x: hidden !important; }
+    html, body { max-width: 100vw !important; }
     /* legacy-toggle / toggleAllMenuCards 버튼 — 큰 터치 영역 */
     #legacy-toggle,
     button[onclick*="toggleAllMenuCards"] {
@@ -7309,20 +7326,30 @@ button.chip:hover,
         js/adm-light-surfaces.js 가 런타임에 표면을 다시 칠한다. 특정 색을 박으면
         «흰 바탕에 흰 글자» 가 나는 자리가 여기다. 그래서 글자색은 부모에서 물려받고
         (color:inherit) 배경·테두리는 반투명으로만 얹는다 — 어느 바탕에서도 읽힌다. */
+  /* 📏 (2026-08-23 사장님) 「크기를 절반으로」 — 시계+날씨 덩어리가 사이드바 맨 위를
+        130px 가까이 먹고 있었다(실측: 폰 390px 129.8px · PC 1440px(zoom1.3) 190.5px).
+        여백·글자를 함께 줄여 폰 68.4px(52.7%) · PC 86.8px(45.6%) 로 낮췄다.
+        ⚠️ 글자만 반으로 줄이면(17px→8.5px) 40~50대 사용자가 못 읽는다. 그래서
+           «줄 수» 를 줄여서 높이를 벌었다 — 라벨과 날짜를 한 줄에 나란히 놓는다
+           (아래 .mgv2-c 의 grid). 글자는 읽히는 선까지만 내렸다. */
   #mgv2-clock {
-    display: flex; gap: 8px; color: inherit;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px;
+    display: flex; gap: 6px; color: inherit;
+    padding: calc(4px + env(safe-area-inset-top, 0px)) 12px 4px;
     border-bottom: 1px solid currentColor;
     border-bottom-color: color-mix(in srgb, currentColor 16%, transparent);
   }
   /* 모바일만 오른쪽 여백을 크게 — 드로어 ✕ 버튼 자리를 비운다(56px).
      안 그러면 «필리핀» 칸을 덮는다. PC 에는 ✕ 가 없으니 그 여백이 낭비다. */
   @media (max-width: 1023px) { #mgv2-clock { padding-right: 60px; } }
+  /* 칸 안은 2줄이다 — 윗줄에 «라벨 + 날짜», 아랫줄에 시각.
+     ⚠️ HTML 순서는 라벨 → 시각 → 날짜 그대로다(admin.html 의 mgv2-clock-js 가 그렇게 만든다).
+        자리만 grid 로 바꿨으니 JS 는 건드릴 필요가 없다. */
   #mgv2-clock .mgv2-c {
     flex: 1; min-width: 0;
     background: rgba(128,145,180,.13);
     border: 1px solid rgba(128,145,180,.22);
-    border-radius: 11px; padding: 7px 10px;
+    border-radius: 8px; padding: 2px 8px 3px;
+    display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 5px;
   }
   /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
      이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
@@ -7331,33 +7358,50 @@ button.chip:hover,
      ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
         직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
         키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
-  #mgv2-clock .mgv2-l { font-size: 10.5px; font-weight: 700; opacity: .78; letter-spacing: .2px; }
+  #mgv2-clock .mgv2-l {
+    grid-column: 1; grid-row: 1;
+    font-size: 9.5px; font-weight: 700; opacity: .78; letter-spacing: .2px;
+    line-height: 1.2; white-space: nowrap;
+  }
   #mgv2-clock .mgv2-t {
-    font-size: 17px; font-weight: 800; line-height: 1.25; letter-spacing: .4px;
+    grid-column: 1 / -1; grid-row: 2;
+    font-size: 13px; font-weight: 800; line-height: 1.2; letter-spacing: .3px;
     font-variant-numeric: tabular-nums;
   }
-  #mgv2-clock .mgv2-d { font-size: 10px; opacity: .78; }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
+  /* 날짜는 라벨과 «같은 줄» 오른쪽 끝. 좁은 폰에서도 줄바꿈되지 않게 nowrap. */
+  #mgv2-clock .mgv2-d {
+    grid-column: 2; grid-row: 1; justify-self: end;
+    font-size: 9px; opacity: .78; line-height: 1.2; white-space: nowrap;
+  }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
 
   /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
      ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
         «날씨: —» 같은 빈 껍데기를 남기지 않는다. */
   #mgv2-weather {
-    display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 7px;
-    margin: 8px 12px 0; padding: 7px 10px;
-    border: 1px solid rgba(128,145,180,.22); border-radius: 11px;
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px;
+    margin: 3px 12px 0; padding: 2px 8px 3px;
+    border: 1px solid rgba(128,145,180,.22); border-radius: 8px;
     background: rgba(128,145,180,.13);
-    color: inherit; font-size: 12px; line-height: 1.3; word-break: keep-all;
+    color: inherit; font-size: 10px; line-height: 1.25; word-break: keep-all;
   }
   #mgv2-weather.mgv2-w-empty { display: none; }
+  /* ⚠️ (2026-08-23) 날씨 줄도 시계와 같은 오른쪽 여백을 받는다. 시계를 절반으로 낮추면서
+        날씨 줄이 y≈50px 로 올라왔는데, 드로어 ✕(#mgv2-burger.is-open, top 8px·높이 46px)의
+        아래끝이 y≈54px 라 오른쪽 끝이 ✕ 밑으로 들어갔다. 360px 에서도 이 여백을 빼고
+        한 줄에 들어간다(실측). ⚠️ 반드시 위 «margin: 3px 12px 0» 축약형 «뒤» 에 둘 것 —
+        앞에 두면 같은 특정성(1,0,0)이라 뒤에 오는 축약형이 이겨서 아무 일도 안 일어난다. */
+  @media (max-width: 1023px) { #mgv2-weather { margin-right: 60px; } }
   /* 아이콘은 SVG 다(글자가 아니다). 글자와 baseline 을 맞추면 위로 떠 보이므로
      이 칸만 세로 가운데로 맞추고, 좁아져도 찌그러지지 않게 flex:none 을 준다. */
   #mgv2-weather .mgv2-w-ico  { display: inline-flex; flex: none; align-self: center; line-height: 0; opacity: .9; }
-  #mgv2-weather .mgv2-w-ico svg { display: block; }
+  /* 아이콘 크기는 JS 가 svg 속성(15×15)으로 적어 보내지만 CSS 가 이긴다 —
+     줄 높이를 낮춘 만큼(2026-08-23) 여기서 함께 줄인다. JS 는 건드리지 않는다. */
+  #mgv2-weather .mgv2-w-ico svg { display: block; width: 12px; height: 12px; }
   #mgv2-weather .mgv2-w-city { font-weight: 700; opacity: .78; }
-  #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
-  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 11px; }   /* .62 → .78 : 3.4:1 이었다 */
+  #mgv2-weather .mgv2-w-temp { font-weight: 800; font-size: 12px; font-variant-numeric: tabular-nums; }
+  #mgv2-weather .mgv2-w-sub  { opacity: .78; font-size: 9px; }   /* .62 → .78 : 3.4:1 이었다 */
   /* 브랜드 줄은 시계 바로 밑에 — 위 여백을 시계가 이미 만들었다 */
-  #ph85-sidebar .ph85-brand { padding-top: 10px !important; }
+  #ph85-sidebar .ph85-brand { padding-top: 6px !important; }
 
   /* ① 왼쪽 맨 위 «줄 3개» — 이것 하나로 열고 닫는다.
      ⚠️ ☰ 「글자」를 쓰지 않고 선 3개를 직접 그린다. 글자로 그리면 기종마다 굵기·크기가
@@ -8028,7 +8072,7 @@ button.chip:hover,
   #ph85-sidebar .ph85-sub:hover .mi-ico,
   #ph85-sidebar .ph85-sub.ph125-open .mi-ico,
   #ph85-sidebar .ph85-sub.ph85-active .mi-ico{ color:#fbbf24 !important; opacity:1 !important; }
-  /* 강조 줄(학원 전체 스케줄)은 파란 계열 유지 */
+  /* 강조 줄(전체 스케줄)은 파란 계열 유지 */
   #ph85-sidebar .ph85-sub-schedule .mi-ico{ color:#60a5fa !important; opacity:.92 !important; }
   #ph85-sidebar .ph85-sub-schedule:hover .mi-ico{ color:#93c5fd !important; opacity:1 !important; }
 
@@ -9406,3 +9450,348 @@ html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-box{
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-head{ color: #fbbf24; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row{ color: #cbd5e1; }
 html:not([data-admin-theme="ivory"]) #ph85-sidebar .qf-row:hover{ background: rgba(148,163,184,.14); color: #f8fafc; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   👁 (2026-08-21) 참관 / 직접 입장 버튼 — 색이 화면에 «실제로» 나오게
+   ───────────────────────────────────────────────────────────────────────
+   [뜻] 보라 = 참관(학생에게 안 보임) · 주황 = 직접 입장(학생에게 보임)
+        · 빨강 = 되돌릴 수 없는 행위(즉시 개입·강제 종료) · 파랑 = 그 밖의 이동
+
+   [왜 여기에 있나 — 인라인 style 로는 화면에 안 나온다]
+   2026-08-21 헤드리스 실측: 「🔴 실시간 수업 현황」 버튼 네 개가 전부 흰색이었다.
+   인라인에 색을 적어 두었는데도 그렇다. 이 파일의 규칙 둘이 순서대로 이긴다 —
+     ① 3279행  details.menu-card button:not(…)                    → 파랑 그라데이션 !important
+     ② 9072행  html[…="ivory"][…="slate"] [id^="card-"] button:not([class]) → #ffffff !important
+   ②의 근거는 «클래스가 없다 = 의도한 색이 없다» 인데 이 버튼들에서 그 전제가 틀렸다.
+   그래서 클래스를 달아 ②를 벗어나면, 이번엔 ①이 잡아 전부 같은 파랑이 된다.
+
+   [특이성] ① 이 (0,5,2) 라 «맨 끝 + !important» 만으로는 진다(실측으로 확인).
+   이 파일이 9062행에 적어 둔 방식을 그대로 쓴다 — «항상 참인 :not() 을 덧붙여
+   대상은 그대로 둔 채 힘만 올린다». 아래는 (0,8,1) 이라 ① 을 이긴다.
+   ⚠️ 카드 조상을 조건에 넣지 않는다 — 「오늘 수업」은 카드 id 가 sm- 로 시작해
+      [id^="card-"] 로는 안 걸린다(2026-08-21 실측).
+
+   ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
+   감시: test-harness/observer_camera_guard_harness.mjs F절
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* 힘 올리기용 꼬리 — 우리 버튼엔 이 클래스들이 붙을 일이 없어 «항상 참» 이다 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  border-radius: 6px !important; cursor: pointer !important;
+  background-image: none !important; box-shadow: none !important; transform: none !important;
+}
+/* 「🔴 실시간 수업 현황」 — 채운 버튼 */
+button.rm-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 12px !important; font-size: 12px !important; font-weight: 600 !important;
+  border: none !important; color: #fff !important;
+}
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #8b5cf6 !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #2563eb !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #ef4444 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){ background: #dc2626 !important; }
+button.rm-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #7c3aed !important; }
+button.rm-act-extend:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #1d4ed8 !important; }
+button.rm-act-intervene:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #dc2626 !important; }
+button.rm-act-end:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):hover{ background: #b91c1c !important; }
+
+/* 「👀 수업 관찰」 카드 · 「🚪 오늘 수업」 표 — 옅은 칩 */
+button.gh-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active),
+button.tc-act:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  padding: 4px 10px !important; font-size: 11.5px !important; font-weight: 700 !important;
+}
+button.gh-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.22) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.5) !important; margin-right: 4px !important;
+}
+button.gh-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.22) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+}
+button.tc-act-enter:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(245,158,11,0.16) !important; color: #b45309 !important;
+  border: 1px solid rgba(245,158,11,0.55) !important;
+  padding: 4px 12px !important; font-weight: 800 !important; margin-right: 4px !important;
+}
+button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
+  border: 1px solid rgba(139,92,246,0.45) !important;
+}
+/* 다크(기본) 테마에서는 옅은 칩의 «글자»가 배경에 묻힌다 — 밝은 쪽으로 */
+html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
+html:not([data-admin-theme="ivory"]) button.gh-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary),
+html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #fde68a !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🏦 신한 계좌 지출 화면 — «뜻이 있는 색» 만 지킨다 (2026-08-23)
+
+   [왜 여기 있나] 이 파일 8743·8744 행이 `[id^="card-"]` 안의 글자를 통째로
+   `#101828 !important` 로 덮고, `js/adm-light-surfaces.js` 페인터가 그 위에 인라인
+   `!important` 로 한 번 더 칠한다. 그래서 화면 코드에 색을 적어도 화면에는 안 나온다
+   (2026-08-23 실측: 빨강 #b91c1c → rgb(55,92,129)).
+
+   ⛔ 그 두 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 글자색이 걸린다.
+   ✅ 대신 여기서 **조상 id 를 앞에 붙여**(`#acc-bankacct …` = ID 한 칸) 위 규칙들을 이긴다.
+      ID 칸이 있으면 클래스를 아무리 많이 쌓은 규칙도 못 이긴다.
+
+   ⛔ **페인터의 `SKIP_SEL` 에는 일부러 넣지 않았다.** `js/adm-s13.js` 의 `fixTextOnDark()` 와
+      `js/adm-light-surfaces.js` 는 «대비가 모자랄 때만» 다시 칠하는 **가독성 구제**다.
+      예외로 빼면 어두운 면 위에 **안 읽히는 빨강**이 그대로 박힌다 — 한 번 등재했다가
+      되돌렸다(2026-08-23). 그래서 색이 눌릴 수 있는 자리(KPI 타일)는 색에 기대지 않고
+      화면 쪽에서 ▲▼ 기호로 뜻을 함께 말한다.
+   ⚠️ 나머지 글자(제목·표 본문)는 일부러 두었다 — 그건 테마가 정하는 것이 맞다.
+      여기서 지키는 것은 «색이 곧 정보» 인 것들뿐이다.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#acc-bankacct .bk-sig-amt    { color: #1e40af !important; }   /* 이번 달 총 출금 */
+#acc-bankacct .bk-sig-up     { color: #b91c1c !important; }   /* 지출이 늘었다 = 나쁜 소식 */
+#acc-bankacct .bk-sig-down   { color: #047857 !important; }   /* 줄었다 */
+#acc-bankacct .bk-sig-flat   { color: #6b7280 !important; }   /* 비교할 지난달이 없다 */
+#acc-bankacct .bk-sig-review { color: #b91c1c !important; }   /* 아직 계정과목이 없는 돈 */
+#acc-bankacct .bk-role-opex   { color: #1e40af !important; }  /* 판관비에 포함 */
+#acc-bankacct .bk-role-dup    { color: #6b7280 !important; }  /* 중복이라 제외 */
+#acc-bankacct .bk-role-moved  { color: #7c3aed !important; }  /* 다른 줄로 간 돈 */
+#acc-bankacct .bk-role-review { color: #b91c1c !important; }  /* 확인 필요 */
+
+/* ── 🏷️ 계정과목 지정 칸 · 안내 글자 (2026-08-23, 2단계 함정 대조에서 잡힘) ──────
+   [무엇이 죽었나] 이 파일의 전역 규칙이 **인라인 style 을 통째로 이깁니다.** 실측:
+     · `[id^="card-"] select`(3866행)   → font-size 11px 로 적었는데 화면은 **13.5px**,
+                                          padding 3px 5px → **8px 12px**
+     · `#legacy-cards select`(8473행)   → max-width 150px → **100%**(좁은 화면)
+     · `[id^="card-"] :is(p,span,div…)`(8743·8744행) → 안내줄 갈색 #78350f → **#101828**
+   즉 「경고로 읽히라고」 준 색과 「표 안에 들어가라고」 준 크기가 둘 다 사라집니다.
+   ⛔ 그 전역 규칙들을 고쳐서 풀지 말 것 — 관리자 화면 전체의 입력칸·글자가 걸립니다.
+   ✅ 조상 id 를 앞에 붙여(ID 한 칸) 여기서만 되살립니다. `box-sizing` 도 함께 명시해야
+      `max-width` 가 테두리를 포함해 칸 안에 들어갑니다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#acc-bankacct td select.bk-assign {
+  font-size: 11px !important;
+  padding: 3px 5px !important;
+  max-width: 160px !important;
+  box-sizing: border-box !important;
+  border: 1px solid #d1d5db !important;
+  border-radius: 5px !important;
+}
+#acc-bankacct .bk-note      { color: #78350f !important; }   /* 「지난 출금까지 바뀐다」 경고 */
+#acc-bankacct .bk-note-mute { color: #6b7280 !important; }   /* 「지정해도 안 바뀝니다」 등 설명 */
+
+/* ── 🔎 거래처 이름을 눌러 «개별 건» 펼치기 (2026-08-23) ────────────────────
+   [왜] 「🏪 거래처별 합계」와 「🧾 출금 내역」에 같은 이름이 다른 금액으로 나와
+   «무슨 차이냐» 는 물음이 실제로 나왔다. 합계 줄에서 바로 그 건들을 펼쳐 보게 한다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 않는다 — 1-3 「hover 확대 금지」.
+      강조는 색과 밑줄만, 크기·위치는 고정. */
+#acc-bankacct .bk-exp        { color: #1e40af !important; cursor: pointer; font-weight: 700; }
+#acc-bankacct .bk-exp:hover  { text-decoration: underline; }
+#acc-bankacct .bk-exp:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+#acc-bankacct .bk-ok         { color: #047857 !important; }   /* «(지정됨)» 배지 */
+#acc-bankacct tr.bk-detail   { background: #f8fafc; }
+#acc-bankacct tr.bk-detail td,
+#acc-bankacct tr.bk-detail th { color: #374151 !important; }
+
+/* ── 🧱 다섯 구역을 «눈으로» 가르기 + 🔃 정렬 헤더 · 🔍 필터 칸 (2026-08-24 사장님 요청) ──
+   [무엇이 문제였나] 「고정비·변동비 / 전월 대비 증감 / 계정과목별 합계 / 거래처별 합계 /
+   출금 내역」 다섯 구역이 **전부 똑같은 `1px solid #e5e7eb`** 라, 스크롤하면 어디서 어디까지가
+   한 덩어리인지 안 보였다(사장님 「선이 흐려서 잘 보이지 않아」).
+   ⛔ 표 «안» 줄까지 굵게 하지 않는다 — 줄이 굵어지면 숫자가 더 안 읽힌다.
+      가르는 것은 «구역» 이고, 표 안은 지금의 얇은 줄(`#f1f5f9`)이 맞다.
+   ✅ 구역은 ① 테두리 2px ② 왼쪽 6px 색 띠(구역마다 다른 색) ③ 제목 밑 2px 줄
+      ④ 구역 사이 여백 22px — 네 가지로 가른다. 색 띠만으로도 스크롤 중에 위치를 안다.
+   ⛔ hover 에 `transform`·`scale` 을 넣지 않는다(CLAUDE.md 1-3 「hover 확대 금지」).
+   ⚠️ 값이 `!important` 인 이유는 이 파일 전역 규칙(3866·8473·8743행 등)이 인라인 style 을
+      통째로 이기기 때문이다. 조상 id(`#acc-bankacct`)를 앞에 붙여야 그것을 다시 이긴다. */
+#acc-bankacct .bk-sec {
+  /* 🪤 배경을 여기서 «흰색으로 못 박는» 이유 — 화면 쪽 인라인 `background:#fff` 는 이 파일의
+     옛 다크 규칙에 지고, 그 «어두워진 계산값» 을 본 `js/adm-s13.js` 페인터가 이 상자를
+     밝게 다시 칠하면서 **`border-color` 까지 인라인 `!important` 로** 덮어쓴다.
+     실측(2026-08-24): 아래 색 띠가 다섯 구역 모두 `rgba(15,23,42,0.1)` 로 나왔다 —
+     인라인 `!important` 는 어떤 CSS 도 못 이기므로 «칠해지지 않게» 막는 것이 유일한 길이다.
+     ✅ 배경이 처음부터 흰색이면 페인터의 `isDarkGray()` 가 거짓이라 손을 대지 않는다.
+     ⛔ 페인터를 고치거나 예외로 빼지 말 것 — 그건 어두운 면의 가독성 구제다. */
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #cbd5e1 !important;
+  border-left: 6px solid #94a3b8 !important;
+  border-radius: 10px !important;
+  margin-bottom: 22px !important;
+  padding: 14px !important;
+}
+#acc-bankacct .bk-sec-recur  { border-left-color: #0f4c81 !important; }
+#acc-bankacct .bk-sec-movers { border-left-color: #b45309 !important; }
+#acc-bankacct .bk-sec-cats   { border-left-color: #6d28d9 !important; }
+#acc-bankacct .bk-sec-payees { border-left-color: #0f766e !important; }
+#acc-bankacct .bk-sec-rows   { border-left-color: #334155 !important; }
+#acc-bankacct .bk-sec-h {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px !important; font-weight: 800 !important;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 7px;
+  margin-bottom: 10px !important;
+}
+
+/* 🔍 필터 줄 — `[id^="card-"] select`(3866행)가 13.5px·8px 12px 로 부풀리고
+   `#legacy-cards select`(8473행)가 폭을 100% 로 늘린다. 여기서 되살린다.
+   ⚠️ `box-sizing` 을 함께 적어야 테두리가 폭 밖으로 나가지 않는다(2장 「표 안의 작은 버튼」). */
+#acc-bankacct .bk-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#acc-bankacct .bk-tools input.bk-filter,
+#acc-bankacct .bk-tools select.bk-filter-sel {
+  font-size: 12px !important;
+  padding: 5px 8px !important;
+  max-width: 230px !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 6px !important;
+}
+#acc-bankacct .bk-count { font-size: 11px !important; color: #6b7280 !important; font-weight: 400 !important; }
+
+/* 🔃 정렬 — 법인카드 표(.pr-th)와 «같은 조작»(헤더 클릭 = 내림→오름→해제, Shift+클릭 = 2차 키).
+   ⚠️ 공용 `.pr-th` 규칙은 미디어쿼리 안에 있어 여기까지 안 온다. 그래서 값을 다시 적는다.
+   ⛔ 정렬 해제를 `<button>` 으로 만들지 말 것 — `details.menu-card button` 전역 규칙이
+      인디고 그라데이션 알약(padding 9px 18px)으로 바꿔 제목줄을 밀어낸다(2장). */
+#acc-bankacct .pr-th { cursor: pointer; user-select: none; position: relative; padding-right: 22px !important; }
+#acc-bankacct .pr-th:hover { background: #f3f4f6; }
+#acc-bankacct .pr-th .pr-arrow { position: absolute; right: 5px; font-size: 10px; color: #9ca3af !important; font-weight: 700; }
+#acc-bankacct .pr-th.pr-active { background: #eff6ff; }
+#acc-bankacct .pr-th.pr-active .pr-arrow { color: #1e40af !important; }
+#acc-bankacct .bk-sortnote { font-size: 11px !important; font-weight: 400 !important; display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+#acc-bankacct .bk-sortchip { background: #dbeafe; color: #1e40af !important; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+#acc-bankacct .bk-clear { color: #1e40af !important; cursor: pointer; font-weight: 700; text-decoration: underline; }
+#acc-bankacct .bk-clear:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🔑 강사 정보 수정 「로그인 계정」의 «비밀번호 변경» 버튼 (2026-08-24)
+   [증상] 파랑(#2563eb)으로 인라인 지정했는데 브라우저 실측은 흰 버튼이었다
+          — background rgb(255,255,255) · color rgb(52,64,84) · padding 9px 18px.
+   [왜] 이 버튼엔 class 가 없었다 → 9072·9129 행의 «클래스가 없다 = 의도한 색이 없다»
+        규칙(`[id^="card-"] button:not([class])` → #ffffff !important)이 인라인을 이겼다.
+        작성자 !important 는 인라인보다 세다(2장 「관리자 버튼에 색을 줬는데 흰색」).
+   [고침] ① 클래스를 붙여 그 두 규칙의 대상에서 빠지고
+          ② 남는 경쟁자 `details.table-card.menu-card button:not(…)`(0,5,2) 를
+             아래 (0,6,1) 로 이긴다 — rm-act 계열(9480행)과 같은 방식이다.
+          ③ 페인터(adm-light-surfaces.js)의 SKIP_SEL 에도 등재했다.
+   ⛔ 색을 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"](3894·9012행)에 걸린다.
+   ═══════════════════════════════════════════════════════════════════════ */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  padding: 7px 14px !important; font-size: 12.5px !important; font-weight: 700 !important;
+  background: #2563eb !important; background-image: none !important;
+  color: #fff !important; border: 0 !important; border-radius: 6px !important;
+  box-shadow: none !important; transform: none !important;
+  cursor: pointer !important; white-space: nowrap !important;
+}
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):hover{
+  background: #1d4ed8 !important;
+}
+/* 연결된 로그인 계정이 없으면 비활성 — «누를 수 있는데 안 되는» 버튼으로 보이지 않게 */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):disabled{
+  background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important;
+}
+
+/* ── 🧾 「카페24 회계 실데이터 ▸ 지출결의」 도구 줄 · 표 (2026-08-24 사장님 요청) ──────
+   [왜 여기(파일 맨 끝)에, 왜 조상 id 를 앞에 붙이나]
+   이 카드 안에서는 아래 전역 규칙들이 **인라인 style 을 `!important` 로 이깁니다**:
+     · `details.menu-card button{ background:인디고 그라데이션 !important; padding:9px 18px !important }`
+     · `details.menu-card input:not(...)/select{ background:rgba(15,23,42,.75) !important; padding:8px 12px !important }`
+     · `[id^="card-"] :is(p,span,div,b,strong…){ color:#101828 !important }`
+   그래서 ① 칩·검색칸을 `<button>`·`<select>` 로 만들지 않고 `<span>`·`<input>` 으로 세우고
+        ② 모양은 **조상 id(#sub-c24-finance = ID 한 칸)** 를 앞에 붙여 여기서만 되살립니다.
+   ⛔ 전역 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 버튼·입력칸이 걸립니다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 말 것(CLAUDE.md 1-3 「hover 확대 금지」). 강조는 색만.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — `[class$="-btn"]` 규칙에 다시 걸립니다.
+   ✅ 색은 `background-color:` 로 줍니다(`background:linear-gradient(...)` 는 옛 다크 규칙에 걸립니다). */
+#sub-c24-finance #c24fin-tools { margin: 2px 0 10px; }
+#sub-c24-finance #c24fin-tools .c24x-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 12px !important; font-weight: 700;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
+  user-select: none;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip b { color: #64748b !important; font-weight: 800; }
+#sub-c24-finance #c24fin-tools .c24x-chip:hover { background-color: #e2e8f0 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on {
+  background-color: #1d4ed8 !important; border-color: #1d4ed8;
+  color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on b { color: #dbeafe !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+/* 「다수와 다른 상태」 — 확인하러 가야 하는 줄이라 색을 따로 준다 */
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd {
+  background-color: #fef3c7 !important; border-color: #f59e0b; color: #92400e !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd b { color: #b45309 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on {
+  background-color: #b45309 !important; border-color: #b45309; color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on b { color: #fef3c7 !important; }
+/* 검색칸 — 전역 다크 입력 규칙(3515행)을 이 카드에서만 되돌린다.
+   `box-sizing` 을 함께 적어야 테두리가 폭 안에 들어온다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#sub-c24-finance #c24fin-tools input.c24x-q {
+  flex: 1 1 190px; min-width: 150px; max-width: 340px;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-n { font-size: 12px !important; color: #64748b !important; margin-left: auto; }
+#sub-c24-finance #c24fin-tools .c24x-note {
+  margin-top: 7px; font-size: 11.5px !important; line-height: 1.6;
+  color: #6b7280 !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-note b { color: #b45309 !important; }
+/* 정렬 헤더 — 「신한 계좌」 화면과 같은 조작(한 번 누르면 뒤집힌다) */
+#sub-c24-finance #c24fin-table th.c24x-th { cursor: pointer; user-select: none; }
+#sub-c24-finance #c24fin-table th.c24x-th:hover { color: #1d4ed8 !important; }
+#sub-c24-finance #c24fin-table th.c24x-sorted { color: #1d4ed8 !important; }
+/* 분류(추정) 배지 — 원본 값이 아니라 우리가 지은 것이라 색을 옅게 둔다 */
+#sub-c24-finance #c24fin-table .c24x-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px !important; font-weight: 700; white-space: nowrap;
+  background-color: #f1f5f9 !important; color: #475569 !important;
+}
+#sub-c24-finance #c24fin-table .c24x-tag-salary { background-color: #dbeafe !important; color: #1e40af !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-tax    { background-color: #ede9fe !important; color: #5b21b6 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-fac    { background-color: #dcfce7 !important; color: #166534 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-loan   { background-color: #ffe4e6 !important; color: #9f1239 !important; }
+/* 상태 — 코드의 «뜻» 을 모르므로 이름을 붙이지 않는다. 다수와 다른 값만 눈에 띄게 한다. */
+#sub-c24-finance #c24fin-table .c24x-st { color: #64748b !important; font-weight: 700; }
+#sub-c24-finance #c24fin-table .c24x-st-odd {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background-color: #fef3c7 !important; color: #92400e !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ↕️ 「카페24 회계 실데이터」 표 — «지금 이 칸으로 정렬 중» 강조 (2026-08-24)
+
+   [왜 여기 있나] 이 강조를 JS 인라인 style 로 주면 **화면에 안 나옵니다.**
+   실측(1440×900, getComputedStyle): 인라인 color:#b45309 → 실제 rgb(16,24,40),
+   인라인 border-bottom:2px solid #f59e0b → 실제 0.769px rgba(15,23,42,.1).
+   이기는 규칙 두 개가 이 파일에 있습니다(테마 조건부가 아닙니다 —
+   admin.html 이 data-admin-theme="ivory"·data-admin-tone="slate" 를 무조건 박습니다):
+     · 8770행  …[id^="card-"] :is(…,span,th,…) { color:#101828 !important }
+     · 8793행  … table th { border-bottom:1px solid rgba(15,23,42,.10) !important }
+   작성자 !important 는 인라인도 이깁니다(CLAUDE.md 2장 「카드 안 글자에 색을 줬는데」).
+
+   [그래서] 클래스로 주고, **조상 id 두 개**를 앞에 붙여 이깁니다(2,1,1 / 2,1,0).
+   ⛔ 색을 JS 인라인으로 되돌리지 마세요 — 화면엔 안 나오는데 코드만 보면 나오는 줄 압니다.
+   ⛔ 이 강조가 사라져도 «무슨 정렬인지» 는 ▲▼ 기호와 안내 줄(#c24fin-sortnote)이
+      말로 지고 갑니다 — 색은 거들 뿐입니다(어두운 면에서 색이 눌리는 화면이라).
+   ═══════════════════════════════════════════════════════════════════════ */
+#card-accounting-mgmt #c24fin-head th.c24fin-on,
+#card-accounting-mgmt #c24fin-head th.c24fin-on span {
+  color: #b45309 !important;
+}
+#card-accounting-mgmt #c24fin-head th.c24fin-on {
+  border-bottom: 2px solid #f59e0b !important;
+}
+#card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
+  color: #b45309 !important; font-weight: 700 !important;
+}

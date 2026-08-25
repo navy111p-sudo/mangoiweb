@@ -2850,6 +2850,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       + '</div>'
       + stars('participation', T('Participation','참여도'))
       + stars('comprehension', T('Comprehension','이해도'))
+      + stars('speaking',      T('Speaking','말하기'))
       + '<div id="ev-msg"></div>'
       + '<div class="mrow">'
       +   '<button class="btn btn-gray" type="button" id="ev-x">' + esc(T('Cancel','취소')) + '</button>'
@@ -2891,10 +2892,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var picked = chosenChips(), parts = [], i;
       for (i = 0; i < picked.length; i++) if (CHIP_EN[picked[i]]) parts.push(CHIP_EN[picked[i]]);
       if (!parts.length) return '';
-      var sp = pick(mask, 'participation'), sc = pick(mask, 'comprehension');
+      var sp = pick(mask, 'participation'), sc = pick(mask, 'comprehension'), sk = pick(mask, 'speaking');
       return (c.student_name || 'The student') + ' ' + parts.join(', and ') + '.'
            + (sp ? ' Participation ' + sp + ' out of 5.'  : '')
-           + (sc ? ' Comprehension ' + sc + ' out of 5.' : '');
+           + (sc ? ' Comprehension ' + sc + ' out of 5.' : '')
+           + (sk ? ' Speaking ' + sk + ' out of 5.' : '');
     }
 
     // ── 다듬어서 한국어로 (서버 1회) ──
@@ -2982,6 +2984,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         lesson_date: DATA.today,
         score_participation: pick(mask,'participation'),
         score_comprehension: pick(mask,'comprehension'),
+        score_speaking: pick(mask,'speaking'),
         note_en: en || raw,
         note_ko: ko,
         chips: chosenChips(),
@@ -3007,10 +3010,14 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   function chip(key, label){
     return '<button type="button" class="tchip" data-chip="' + key + '">' + esc(label) + '</button>';
   }
+  /* ⚠️ 기본값을 미리 찍지 않는다 (2026-08-24 평가 개편 1단계).
+     예전엔 4가 미리 찍혀 있어 «안 만진 평가»가 전부 참여도4·이해도4 로 쌓였다 —
+     항목이 있어도 변별력이 0 이었다. 이제 안 고르면 그 항목은 «미평가»(null)로 저장되고,
+     학부모 화면(eval.html)은 null 항목을 아예 그리지 않으므로 거짓 점수가 나가지 않는다. */
   function stars(key, label){
     var h = '<div class="fld"><label>' + esc(label) + '</label><div class="stars">';
     for (var i=1;i<=5;i++){
-      h += '<input type="radio" name="'+key+'" id="'+key+i+'" value="'+i+'"' + (i===4?' checked':'') + '>'
+      h += '<input type="radio" name="'+key+'" id="'+key+i+'" value="'+i+'">'
         +  '<label for="'+key+i+'">'+i+'</label>';
     }
     return h + '</div></div>';
@@ -3204,5 +3211,58 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
 })();
 </script>
 <!-- BUILD:20260813015745 -->
+<!-- 🇵🇭 (2026-08-23) 수업 자산 «미리 받아두기» — 필리핀 저속·고지연 회선 대책
+     문제: 강사가 「수업 들어가기」를 누르면 /?vc_autojoin=1 로, 즉 «학생 홈»(index.html)으로 간다.
+           그 화면은 첫 그림 전에 1,557KB(파일 24개)를 받아야 하는데, 강사에게 필요한 건
+           그중 화상수업 부분뿐이다. 한국 광랜에선 티가 안 나지만 필리핀 회선에서는
+           «누르고 한참 기다리는» 시간이 그대로 수업 시작 지연이 된다.
+     방법: 강사는 이 화면을 열어 두고 수업 시작까지 몇 분 기다린다. 그 «노는 시간» 에
+           수업에 쓸 파일을 미리 받아 둔다. 누르는 순간엔 이미 캐시에 있다.
+           ?v= 가 붙은 js 는 worker 가 1년 immutable 로 주므로(src/index.ts) 한 번 받으면 끝이다.
+     ⛔ index.html 은 한 글자도 건드리지 않는다 — 로드 순서를 바꾸면 홈 전체가 먹통이 된
+        전례가 있다(js/idx-vc-screenmode.js 머리말, 2026-07-14).
+     ⚠️ 아래 목록의 ?v= 는 index.html 이 실제로 부르는 값과 «반드시» 같아야 한다.
+        다르면 안 쓰는 파일을 받는 것이라 도움이 되기는커녕 데이터만 버린다. 그리고
+        화면은 멀쩡해서 티가 안 난다 → test-harness/home_bg_preload_harness.mjs 가 대조한다. -->
+<script>
+(function(){
+  var FILES = [
+    '/js/idx-main.js?v=35',                  /* 851KB — 홈+화상수업이 같이 든 가장 큰 파일 */
+    '/js/idx-vc-room.js?v=1',
+    '/js/idx-vc-chat.js?v=1',
+    '/js/idx-vc-textbook.js?v=1',
+    '/js/idx-vc-screenmode.js?v=1',
+    '/js/idx-vc-seg-lessonchange.js?v=1'
+  ];
+  var done = false;
+  function warmOne(u){
+    try{
+      var l = document.createElement('link');
+      if (l.relList && l.relList.supports && l.relList.supports('prefetch')) {
+        l.rel = 'prefetch'; l.as = 'script'; l.href = u;
+        document.head.appendChild(l); return;
+      }
+    }catch(e){}
+    /* 사파리(iOS)는 prefetch 를 지원하지 않는다 → 같은 URL 을 조용히 받아 캐시에만 남긴다 */
+    try{ fetch(u, { cache:'force-cache', credentials:'omit', mode:'no-cors' }); }catch(e){}
+  }
+  function warmAll(){
+    if (done) return; done = true;
+    for (var i=0;i<FILES.length;i++) warmOne(FILES[i]);
+  }
+  try{
+    /* 데이터 절약 모드면 하지 않는다 — 본인이 아끼겠다고 켠 것이다 */
+    if ((navigator.connection && navigator.connection.saveData) === true) return;
+    /* 오늘 들어갈 수업이 «있을 때만» 받는다. 수업 카드의 입장 버튼은 [data-join] 을 단다.
+       (수업이 없는 날 명단만 보러 온 강사의 데이터를 쓰지 않기 위해) */
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      if (document.querySelector('[data-join]')) { clearInterval(t); warmAll(); }
+      else if (tries >= 15) clearInterval(t);      /* 30초 안에 수업이 없으면 포기 */
+    }, 2000);
+  }catch(e){}
+})();
+</script>
 </body>
 </html>

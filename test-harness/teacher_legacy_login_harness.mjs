@@ -119,7 +119,16 @@ console.log('\n▶ 3. 계정 자동 생성 — 강사 권한 고정 · 평문 �
 const stmts = [];
 const dbStub = {
   exec: async (sql) => { stmts.push({ sql, binds: [] }); },
-  prepare: (sql) => ({ bind: (...b) => ({ run: async () => { stmts.push({ sql, binds: b }); } }) }),
+  /* 🔤 (2026-08-24) 가짜 D1 도 first()/all() 을 갖춰야 한다 — 진짜 D1 에는 있는데
+     여기에만 없으면, 조회를 한 줄 더한 것만으로 «TypeError 로 하니스가 죽는다»
+     (실제로 그렇게 밟았다). 읽기는 «없음» 으로 답한다: 이 검사는 «새로 만드는» 쪽만 본다. */
+  prepare: (sql) => ({
+    bind: (...b) => ({
+      run: async () => { stmts.push({ sql, binds: b }); },
+      first: async () => { stmts.push({ sql, binds: b, read: true }); return null; },
+      all: async () => { stmts.push({ sql, binds: b, read: true }); return { results: [] }; },
+    }),
+  }),
 };
 await provisionTeacherAccount({ DB: dbStub }, 'anna.cruz@example.com', 'SALT$deadbeef', { name: 'Anna Cruz', teacher_id: '77', matched: true });
 const scopeStmt = stmts.find(s => /INSERT INTO admin_scope/i.test(s.sql));
@@ -137,7 +146,16 @@ ok(/scopeType === 'teacher'\)\s*return \{ role: 'teacher'/.test(SRC),
    "resolveRole 이 scope_type='teacher' 를 교사로 판정");
 ok(/if \(!row\) \{[\s\S]{0,400}?legacyLoginEnabled/.test(SRC),
    '계정이 없을 때(!row)만 옛 LMS 폴백 진입');
-ok(/} else \{[\s\S]{0,200}?verifyPassword\(password, row\.password_hash\)[\s\S]{0,200}?wrong_password/.test(SRC),
+/* ⚠️ (2026-08-24) 「뜻」으로 검사한다 — 예전엔 `} else { … verifyPassword(password, row.password_hash) … }`
+   라는 **한 덩어리 모양**을 못 박아 뒀다. 아이디 대소문자 무시를 넣으면서 검증이
+   «후보 루프» 로 옮겨 가자, 보장은 그대로인데 검사만 깨졌다.
+   지켜야 하는 것은 둘뿐이다:
+     ① 비번을 **새 시스템 해시**로 검증한다(옛 LMS 비번으로 우회 불가)
+     ② 계정이 있는데 비번이 틀리면 **401 로 끝난다** — 옛 LMS 로 폴백하지 않는다
+        (폴백하면 새 시스템에서 비번을 바꾼 의미가 사라지고, 계정이 또 생길 수도 있다) */
+ok(/verifyPassword\(password, c\.password_hash\)/.test(SRC),
+   '계정 후보의 비번을 새 시스템 해시로 검증한다');
+ok(/if \(!row && candRows\.length\)[\s\S]{0,300}?'wrong_password'[\s\S]{0,200}?401\)/.test(SRC),
    '계정이 있으면 새 시스템 비번만 검증(옛 비번으로 우회 불가)');
 ok(/hashPassword\(password\)[\s\S]{0,200}?provisionTeacherAccount/.test(SRC),
    '자동 생성 시 새 방식으로 해시한 뒤 저장');

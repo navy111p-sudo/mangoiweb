@@ -1697,8 +1697,137 @@ export async function handleMangoApi(
          입장을 누르는 바로 그 지점에서 호출되므로, 여기에 실어 보내는 것이 가장 확실하다.
          ⛔ 기본 'off' — 지금 켜면 실제 학생 예약이 6건뿐이라 대다수가 입장 불가가 된다(wrangler.toml 주석 참고). */
       const studentGate = ((env as any).VC_STUDENT_ROOM_GATE === 'on') ? 'on' : 'off';
+
+      /* 🔁 net_relay — 이 수업은 «중계(TURN) 강제» 로 붙을지를 서버가 알려 준다.
+         위 student_gate 와 같은 사정이다(정적 화면은 설정을 직접 못 읽는다) + 이 API 는
+         학생·교사 «양쪽» 이 입장 직전에 부르므로 두 사람이 같은 정책을 받는다.
+
+         [왜 필요한가] 지금은 직접(P2P) 연결이 **실패해야** 릴레이로 넘어간다(idx-main.js createPeer).
+         그런데 중국 회선은 «연결은 되는데 패킷만 흘리는» 경우가 많아 그 조건에 안 걸린다.
+         2026-08-21 중국어 수업(class-851)에서 강사 영상이 AAO 로 통째로 꺼졌다.
+
+         [왜 이름이 아니라 번호인가] 강사 번호는 세 갈래라 이름으로 이으면 남의 것이 붙는다
+         (CLAUDE.md 2장). 여기 teacher_id 는 class_schedules ↔ teachers.id 한 도메인이라
+         어긋날 수 없다. 게다가 위 sqlNoJoin 경로에는 teacher_name 이 아예 없다. */
+      let netRelay = false;
+      const relayTid = String((current && current.teacher_id) || '').trim();
+      if (relayTid) {
+        try {
+          await ensureSchemaOnce('vc_relay_force', async () => {
+            await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_relay_force (teacher_id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, note TEXT, updated_at INTEGER, updated_by TEXT)`);
+          });
+          const rrow = await env.DB.prepare(`SELECT enabled FROM vc_relay_force WHERE teacher_id = ?`).bind(relayTid).first<any>();
+          /* ⛔ Cloudflare TURN 이 설정돼 있을 때만 켠다. 없으면 /api/ice-servers 가 대체 목록으로
+             **무료 공개 TURN(openrelay.metered.ca)** 을 내려주는데, 거기로 «강제» 릴레이하면
+             직접 연결보다 나빠질 수 있다. 회선을 살리려다 더 망가뜨리는 교환은 하지 않는다. */
+          const hasCfTurn = !!((env as any).TURN_KEY_ID && (env as any).TURN_KEY_API_TOKEN);
+          netRelay = hasCfTurn && !!(rrow && Number(rrow.enabled) === 1);
+        } catch { netRelay = false; }   // 표가 없거나 조회 실패 = 평소대로(직접 연결). 수업을 막지 않는다.
+      }
+
       // matched_by: 'uid'=계정 ID 로 찾음(가장 안전) · 'name'=이름 폴백(계정 연결 어긋남 → 운영에서 고쳐야 할 대상)
-      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate });
+      return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay });
+    }
+
+    // 🥭 (2026-08-24) GET /api/class/schedule/mine — 학생 홈 화면 "내 수업" 위젯.
+    //   [왜] 위 /sessions/today 는 "오늘" 만 본다. 학생이 홈에서 "무슨 요일 몇 시에 수업이
+    //        있는지"를 미리 알 방법이 아예 없었다(내일부터 수업인 학생은 "오늘 예약 없음"만 봄).
+    //   [무엇] 입장 판정과는 무관한 **읽기 전용 안내**다. class_schedules 를 그대로 보여주고,
+    //        반복 요일은 "다음에 오는 날짜"까지 계산해 준다. 방 조회·입장 로직은 건드리지 않는다.
+    //   ⚠️ 요일 파서(dowList)는 /sessions/today 의 dowMatches 와 반드시 같은 표기를 인식해야
+    //      한다 — 한쪽만 알아듣는 표기가 있으면 "화면엔 있는데 입장은 안 되는" 어긋남이 생긴다.
+    if (method === 'GET' && path === '/api/class/schedule/mine') {
+      await ensureSchemaOnce('class_schedules', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+      });
+      const msUserId = (url.searchParams.get('user_id') || '').trim();
+      const msName = (url.searchParams.get('student_name') || '').trim();
+      if (!msUserId && !msName) return json({ ok: false, error: 'identity_required', schedules: [] }, 400);
+
+      const DOW_LABEL_KO = ['일', '월', '화', '수', '목', '금', '토'];
+      const DOW_LABEL_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const MS_DOW_MAP: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const dowList = (raw: any): number[] => {
+        const out: number[] = [];
+        for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+          const q = p.trim();
+          if (!q) continue;
+          if (/^\d+$/.test(q)) { const n = Number(q); if (n >= 0 && n <= 6) out.push(n); continue; }
+          const v = MS_DOW_MAP[q.toLowerCase()];
+          if (v != null) out.push(v);
+        }
+        return out;
+      };
+
+      const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, t.name AS teacher_name
+                          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                          WHERE cs.status != 'cancelled' AND ${cond}`;
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+      };
+
+      let msRows: any[] = [];
+      let msMatchedBy: 'uid' | 'name' | 'none' = 'none';
+      if (msUserId) { msRows = await runMsPass('cs.user_id = ?', msUserId); if (msRows.length) msMatchedBy = 'uid'; }
+      if (!msRows.length && msName) { msRows = await runMsPass('cs.student_name = ?', msName); if (msRows.length) msMatchedBy = 'name'; }
+
+      const msNow = Date.now();
+      const MS_KST = 9 * 3600 * 1000;
+      const msK = new Date(msNow + MS_KST);
+      const msKY = msK.getUTCFullYear(), msKMo = msK.getUTCMonth(), msKD = msK.getUTCDate(), msKDow = msK.getUTCDay();
+      const msPad = (n: number) => String(n).padStart(2, '0');
+
+      const schedules = msRows.map((r: any) => {
+        const dows = r.scheduled_date ? [] : dowList(r.day_of_week);
+        const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
+        let nextDate: string | null = null;
+        let nextStartTs: number | null = null;
+        if (r.scheduled_date) {
+          const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.scheduled_date));
+          if (dm) {
+            const sTs = Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0) - MS_KST;
+            const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+            if (sTs + graceMs >= msNow) { nextDate = r.scheduled_date; nextStartTs = sTs; }
+          }
+        } else if (dows.length) {
+          let bestDelta = 8;
+          for (const d of dows) {
+            let delta = (d - msKDow + 7) % 7;
+            if (delta === 0) {
+              const todayStartTs = Date.UTC(msKY, msKMo, msKD, hh, mm, 0) - MS_KST;
+              const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+              if (msNow > todayStartTs + graceMs) delta = 7;   // 오늘 수업은 이미 끝났다 → 다음 주로
+            }
+            if (delta < bestDelta) bestDelta = delta;
+          }
+          const nd = new Date(msNow + MS_KST + bestDelta * 86400000);
+          const ny = nd.getUTCFullYear(), nmo = nd.getUTCMonth(), nda = nd.getUTCDate();
+          nextStartTs = Date.UTC(ny, nmo, nda, hh, mm, 0) - MS_KST;
+          nextDate = `${ny}-${msPad(nmo + 1)}-${msPad(nda)}`;
+        }
+        return {
+          schedule_id: r.id,
+          day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
+          day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
+          scheduled_date: r.scheduled_date || null,
+          start_time: r.start_time,
+          duration_min: r.duration_min,
+          class_type: r.class_type,
+          teacher_name: r.teacher_name || null,
+          next_date: nextDate,
+          next_start_ts: nextStartTs,
+        };
+      }).filter((s: any) => s.day_labels_ko.length || s.scheduled_date)
+        .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
+
+      return json({ ok: true, matched_by: msMatchedBy, schedules });
     }
 
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
@@ -1891,6 +2020,11 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
+      // 🗣️ (2026-08-24) mode='learn' — 웜업·AI친구 «뜻 보기» 전용. AI 튜터의 영어 문장을
+      //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
+      //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
+      //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
          📝 mode='note' — 수업 일지 전용 (2026-08-10)
@@ -2010,7 +2144,8 @@ ${numbered}`;
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
-      const cacheKey = (t: string) => (chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl1:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -2040,10 +2175,21 @@ ${numbered}`;
       const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
       // 💬 채팅 모드 — 언어모델로 한 문장씩. 실패하면 아래 m2m100 이 그대로 받아준다.
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
+      // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
+      //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
+      const learnSys = 'You translate what an AI English tutor said in a fun pre-class warm-up chat, '
+        + 'so a young Korean student (elementary or middle school) can understand what the English means. '
+        + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
+        + 'For example, "Let\'s warm up before class" means having a light practice chat, not making anything warm. '
+        + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
+        + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
+        + 'In a school context "숙제" is school homework, never housework or a job. '
+        + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
         const to = LANG_NAME[target] || 'English';
-        const sys = 'You translate one chat message at a time for a live online English class. '
+        const chatSys = 'You translate one chat message at a time for a live online English class. '
           + 'Speakers are Korean office staff and Filipino or Chinese teachers talking about lessons, '
           + 'homework, schedules and students. Reply with ONLY the translated message. '
           + 'No quotes, no notes, no romanization, no explanation. '
@@ -2061,8 +2207,10 @@ ${numbered}`;
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: sys },
-            { role: 'user', content: `Translate this ${from} chat message into ${to}:\n${t}` },
+            { role: 'system', content: learnMode ? learnSys : chatSys },
+            { role: 'user', content: learnMode
+                ? `Translate this ${from} message into natural ${to} (free translation of the meaning):\n${t}`
+                : `Translate this ${from} chat message into ${to}:\n${t}` },
           ],
           max_tokens: 300,
         });
@@ -2071,7 +2219,9 @@ ${numbered}`;
         out = out.replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
         out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
         if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
-        out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        // 여러 줄로 떠들면 — 채팅은 첫 줄만(한 메시지 = 한 줄), learn 은 여러 문장짜리
+        // 말풍선이 있어 첫 줄만 취하면 뜻이 잘린다 → 한 줄로 이어 붙인다.
+        out = learnMode ? out.replace(/\s*\r?\n\s*/g, ' ').trim() : out.split(/\r?\n/)[0].trim();
         /* 어미 중첩 교정 — 프롬프트로 금지해도 모델이 "죄송합니다요" 를 계속 만든다.
            존댓말을 시켰더니 이미 존댓말인 -습니다/-습니까 뒤에 요를 한 번 더 붙인다.
            확률에 맡기지 말고 여기서 확정적으로 떼어낸다. */
@@ -2092,7 +2242,7 @@ ${numbered}`;
         for (const t of need) {
           try {
             let out = '';
-            if (chatMode) {
+            if (chatMode || learnMode) {
               try { out = await chatTranslate(t); }
               catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
             }
@@ -2997,7 +3147,7 @@ ${numbered}`;
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
         if (typeof b.new_password === 'string' && b.new_password.length > 0) {
-          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          if (b.new_password.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
           const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
           const buf = await crypto.subtle.digest('SHA-256', enc);
           const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');

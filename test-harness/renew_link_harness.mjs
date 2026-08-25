@@ -82,8 +82,10 @@ console.log('\n[ C. uid 는 토큰이 정한다 — 클라이언트가 보낸 ui
   const blk = (i >= 0 && j > i) ? enrollC.slice(i, j) : '';
   check('renew-order: uid 를 토큰(renewScope.uid)에서 가져온다',
     /renewScope\s*\?\s*renewScope\.uid\s*:/.test(blk), '토큰 uid 우선 사용이 안 보인다');
+  /* (2026-08-23) authUidOrAdminSession = authUidGlobal(토큰) → 관리자 세션 쿠키(본인 username 한정) 순의
+     로그인 검증 — «토큰이 없을 때만 로그인 검증» 이라는 이 검사의 뜻은 동일하다(연장토큰과는 무관). */
   check('renew-order: 토큰이 없을 때만 로그인 검증으로 내려간다',
-    /if\s*\(\s*!renewScope\s*\)\s*\{[\s\S]{0,400}authUidGlobal/.test(blk));
+    /if\s*\(\s*!renewScope\s*\)\s*\{[\s\S]{0,400}authUid(Global|OrAdminSession)/.test(blk));
   check('renew-order: 이미 쓴 링크는 막는다(중복 결제 방지)',
     /renewScope\?\.used/.test(blk) && /link_already_used/.test(blk));
   check('renew-order: 주문 성공했을 때만 링크를 소진시킨다',

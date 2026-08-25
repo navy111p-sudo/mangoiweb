@@ -28,7 +28,12 @@ import {
   bandCatalog, bandName, pushResult, nextBand, nudgeBand, type BandTransition,
   DEFAULT_BAND_MODE, normalizeBandMode, shouldAutoAdjust, type BandMode,
   situationFitsBand, countWords,
+  // 🧑‍🎓 누구를 위한 문제인가 — 실력(밴드)과는 독립인 축(2026-08-24). judgment-level.ts 쪽 정의를 그대로 씁니다.
+  DEFAULT_AGE_GROUP, normalizeAgeGroup, type AgeGroup,
 } from './judgment-level';
+// 🧐 영어 품질(문법) 규칙 — «Want play with me» 가 보기로 나가던 사고(2026-08-24)의 정본.
+//    judgment-english.ts 도 import 없는 순수 모듈이라 하니스가 직접 불러 검증합니다.
+import { englishQualityRules, grammarCheckPrompt, allowsBrokenDistractors } from './judgment-english';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
 export { normalizeBand, bandLabel, bandName, bandCatalog } from './judgment-level';
@@ -578,6 +583,18 @@ const SCENARIO_THEMES = [
   'the weather changed your plans', 'waiting in line for your turn', 'a small misunderstanding with a friend',
   'your friend looks sad today', 'inviting someone to play with you', 'you made a mistake and broke something',
 ];
+// 🧑‍💼 성인 모드 전용 소재 풀 — 2026-08-24 제안서 §2. 실력(밴드)·판단 각도(SCENARIO_ANGLES)는
+//    아이용과 그대로 공유합니다(둘 다 언어·나이 중립적인 축). 이 목록만 바뀌면 회사·일상 상황이 됩니다.
+const ADULT_SCENARIO_THEMES = [
+  'at the office with a coworker', 'a work meeting that is running late', 'ordering coffee at a busy café',
+  'meeting a partner\'s parents for the first time', 'asking your boss for a day off', 'a neighbor\'s dog barking at night',
+  'returning a faulty product at a store', 'catching up with an old friend over dinner', 'a job interview',
+  'negotiating the price at a flea market', 'your flight has been delayed', 'a doctor\'s appointment',
+  'moving into a new apartment', 'a coworker asks to borrow something', 'giving feedback to a teammate',
+  'declining a dinner invitation politely', 'small talk while waiting for the elevator', 'asking a stranger for directions',
+  'a landlord raised the rent unexpectedly', 'planning a trip with friends', 'a package delivered to the wrong address',
+  'a video call with a client from another country', 'someone cut in line', 'apologizing for being late to a meeting',
+];
 const SCENARIO_ANGLES = [
   'making a polite request', 'making a suggestion', 'apologizing sincerely', 'asking for permission',
   'inviting someone kindly', 'refusing politely', 'expressing your feelings', 'asking for help',
@@ -610,11 +627,13 @@ interface BandState {
   src: 'teacher' | 'auto' | 'student' | 'default' | 'placement';
   /** 'auto' = AI 가 답을 보고 조절 / 'manual' = 학생이 고른 자리에 머묾 */
   mode: BandMode;
+  /** 🧑‍🎓 누구를 위한 문제인가 — 밴드(실력)와 독립인 축. 기본은 'child'(지금까지의 전부). */
+  ageGroup: AgeGroup;
   at: number;
 }
 
 function emptyBandState(band: any = DEFAULT_BAND, src: BandState['src'] = 'default', base: string | null = null): BandState {
-  return { band: normalizeBand(band), hist: [], base, src, mode: DEFAULT_BAND_MODE, at: Date.now() };
+  return { band: normalizeBand(band), hist: [], base, src, mode: DEFAULT_BAND_MODE, ageGroup: DEFAULT_AGE_GROUP, at: Date.now() };
 }
 
 async function readBandState(env: MangoEnv, uid: string): Promise<BandState | null> {
@@ -631,6 +650,8 @@ async function readBandState(env: MangoEnv, uid: string): Promise<BandState | nu
       src: (['teacher', 'auto', 'student', 'default', 'placement'] as const).includes(j?.src) ? j.src : 'auto',
       // 모드가 없던 옛 저장값은 기본(자동)으로 읽습니다 — 기존 학생의 동작이 바뀌지 않도록.
       mode: normalizeBandMode(j?.mode),
+      // ageGroup 이 없던 옛 저장값은 기본('child')으로 읽습니다 — 기존 학생 29,000명의 동작이 그대로 유지됩니다.
+      ageGroup: normalizeAgeGroup(j?.ageGroup),
       at: Number(j?.at) || 0,
     };
   } catch { return null; }   // 손상된 값은 없는 것으로 — 기본 밴드로 안전 폴백
@@ -687,6 +708,31 @@ async function resolveReadingBand(env: MangoEnv, uid: string, erpLevel?: string 
 }
 
 /**
+ * 🧐 생성된 문항의 영어를 같은 모델로 한 번 더 읽혀 봅니다(교정자 역할, 짧은 응답).
+ *   onlyIndex 가 있으면(문법 연습 문항) 상황문 + 그 선택지(정답)만 검사합니다 —
+ *   오답은 일부러 틀리게 만든 것이라 전부 검사하면 정상 문항이 계속 걸러집니다.
+ *   ⚠️ 검증기 실패(LLM 오류·깨진 JSON)는 통과로 취급 — 검증기가 죽어도 문제 제공은 막지 않습니다.
+ */
+async function englishLooksCorrect(ai: any, situation: string, options: string[], onlyIndex: number | null, ageGroup: AgeGroup = DEFAULT_AGE_GROUP): Promise<boolean> {
+  const items = [String(situation || '')];
+  if (onlyIndex == null) items.push(...(options || []).map((o) => String(o || '')));
+  else if (options && options[onlyIndex] != null) items.push(String(options[onlyIndex]));
+  const adult = ageGroup === 'adult';
+  try {
+    const resp: any = await ai.run(JUDGE_MODEL, {
+      messages: [
+        { role: 'system', content: `You proofread English for ${adult ? 'an adult' : 'a children\'s'} learning app. Reply in strict JSON only.` },
+        { role: 'user', content: grammarCheckPrompt(items, ageGroup) },
+      ],
+      max_tokens: 120,
+    });
+    const j = parseFirstJson(resp);
+    if (!j || !Array.isArray(j.bad)) return true;
+    return j.bad.length === 0;
+  } catch { return true; }
+}
+
+/**
  * 취약 패턴 기반 맞춤 판단 시나리오 1건 생성.
  *   반환: { situation, options[], correct_index, why, skill_tag, target_misconception, textbook, based_on }
  */
@@ -700,8 +746,9 @@ export async function generatePersonalizedScenario(
    *   probeBand : 레벨 찾기(배치테스트) 전용 — 그 밴드로 한 문제만 뽑고
    *               **학생의 저장된 밴드는 건드리지 않습니다**(찾는 중에 값이 흔들리면 안 되므로).
    *   src     : 밴드를 누가 정했는지 기록용('placement' 등)
+   *   ageGroup : 누구를 위한 문제인가('child'/'adult') — 밴드(실력)와 독립인 축. 2026-08-24 신설.
    */
-  bandOpts?: { nudge?: number | null; setBand?: number | null; mode?: string | null; probeBand?: number | null; src?: string | null } | null,
+  bandOpts?: { nudge?: number | null; setBand?: number | null; mode?: string | null; probeBand?: number | null; src?: string | null; ageGroup?: string | null } | null,
 ): Promise<any> {
   const t0 = Date.now();
   await ensureJudgmentTables(env);
@@ -739,6 +786,10 @@ export async function generatePersonalizedScenario(
   //    범주를 직접 고르면 모드를 묻지 않아도 '직접'이 됩니다(고른 자리를 AI가 뒤집으면 모순).
   const wantMode = bandOpts?.mode ? normalizeBandMode(bandOpts.mode) : null;
   const modeChanged = !!wantMode && wantMode !== bandState.mode;
+  // 🧑‍🎓 누구를 위한 문제인가 — 학생이 설정 화면에서 토글을 눌렀을 때만 옵니다.
+  //    실력(mode/nudge/setBand)과는 완전히 독립이라 같은 요청에 함께 실려 와도 서로 안 건드립니다.
+  const wantAgeGroup = bandOpts?.ageGroup ? normalizeAgeGroup(bandOpts.ageGroup) : null;
+  const ageGroupChanged = !!wantAgeGroup && wantAgeGroup !== bandState.ageGroup;
   // 🎯 레벨 찾기(배치테스트) 중인가 — 그렇다면 저장된 밴드를 전혀 건드리지 않고
   //    지정된 밴드로 한 문제만 만들어 줍니다. 찾는 도중에 값이 바뀌면 결과가 오염됩니다.
   const probeRaw = Math.round(+(bandOpts?.probeBand as any));
@@ -755,10 +806,14 @@ export async function generatePersonalizedScenario(
         bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
       }
     }
-    if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged) await writeBandState(env, studentUid, bandState);
+    if (wantAgeGroup) bandState = { ...bandState, ageGroup: wantAgeGroup, at: Date.now() };
+    if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged || ageGroupChanged) await writeBandState(env, studentUid, bandState);
   }
   // 이 요청의 문제를 만들 밴드 — 배치 중이면 탐색 밴드, 아니면 학생의 밴드
   const askBand = probing ? probeRaw : bandState.band;
+  // 이 요청의 문제를 만들 나이대 — 배치 중에도 그대로 유지(탐색 밴드와 달리 소재는 안 바뀜)
+  const ageGroup: AgeGroup = bandState.ageGroup;
+  const isAdult = ageGroup === 'adult';
 
   // 🎲 다양화 컨텍스트 — 같은 문항 반복 방지의 핵심.
   //   ① KV 최근 출제 이력(judgrecent:<uid>, 48h): 프롬프트 '반복 금지' 목록 + 생성 후 중복 검사
@@ -782,34 +837,48 @@ export async function generatePersonalizedScenario(
       : target
       ? `The student is WEAK at the skill "${target.skill}"${miscLabel ? ` and tends to make this mistake: "${miscLabel}" (${targetMisc})` : ''}. Design the scenario to target exactly this weakness.`
       : `This is a new student with no weakness data yet. Design a friendly beginner decision scenario.`;
-    const tbLine = tb.textbook
+    // 🧑‍🎓 아이용은 교재 소재, 성인용은 교재 개념 자체가 없으므로(성인 트랙에 배정된 교재가 없음)
+    //    항상 일반 성인 학습자 문구로 — tb.textbook 이 우연히 채워져 있어도 "교재" 프레이밍을 안 씁니다.
+    const tbLine = (!isAdult && tb.textbook)
       ? `The child is currently studying the textbook "${tb.textbook}". ${tb.samples.length ? `Sentences they are learning: ${tb.samples.slice(0, 6).map((s) => `"${s}"`).join(', ')}. ` : ''}Match the situation's VOCABULARY LEVEL to this textbook so it connects to their class.`
+      : isAdult
+      ? `Keep vocabulary natural and appropriate for an adult English learner — not childish, not textbook-formal.`
       : `Keep vocabulary simple and age-appropriate for a young learner.`;
     // 🎚️ 읽기 난이도는 밴드가 단독으로 결정합니다(문장 길이·문법 범위를 숫자로 못 박음).
     //    예전에는 students_erp.level 을 그대로 넘겼는데, 그 값이 전 학생 빈칸이라
     //    이 줄이 항상 빈 문자열이었고 → AI 가 매번 백지에서 문장 길이를 정했습니다(난이도 들쭉날쭉의 원인).
-    const levelLine = bandPromptLine(askBand);
+    const levelLine = bandPromptLine(askBand, ageGroup);
+    // 🧐 오답에 «틀린 문법»이 허용되는 유일한 경우 — 학생이 문법 유형(형태/시제) 연습을 스스로 고른 문항.
+    //    그 외에는 오답도 문법은 맞아야 합니다: 오답은 상황·말투가 어긋난 말이지 깨진 영어가 아닙니다.
+    //    (깨진 오답은 문법만 보고 답이 나와 «판단» 훈련이 되지 않고, 화면에는 오탈자 사고로 보입니다)
+    const allowBroken = allowsBrokenDistractors(pickedMisc);
+    const qualityLine = englishQualityRules(allowBroken, ageGroup);
+    // 🧑‍💼 성인 모드 — 소재 풀만 통째로 갈아 낍니다(판단 각도는 나이·언어 중립이라 그대로 공유).
+    const themeSet = isAdult ? ADULT_SCENARIO_THEMES : SCENARIO_THEMES;
     // LLM 이 가끔 깨진 JSON/중복 시나리오를 반환 → 최대 4회 재시도, 시도마다 주제·각도를 새로 뽑아 변주
     for (let attempt = 0; attempt < 4 && !scenario; attempt++) {
-      const themePool = SCENARIO_THEMES.filter((t) => !recent.themes.includes(t));
-      const theme = (themePool.length ? themePool : SCENARIO_THEMES)[Math.floor(Math.random() * (themePool.length || SCENARIO_THEMES.length))];
+      const themePool = themeSet.filter((t) => !recent.themes.includes(t));
+      const theme = (themePool.length ? themePool : themeSet)[Math.floor(Math.random() * (themePool.length || themeSet.length))];
       const angle = SCENARIO_ANGLES[Math.floor(Math.random() * SCENARIO_ANGLES.length)];
-      const prompt = `You design DECISION-MAKING English practice for a Korean child. Create ONE short real-life situation and 3-4 candidate English expressions the child could say. Exactly one is clearly the best/most natural for the situation.
+      const who = isAdult ? 'a Korean adult English learner' : 'a Korean child';
+      const whoShort = isAdult ? 'the learner' : 'the child';
+      const prompt = `You design DECISION-MAKING English practice for ${who}. Create ONE short real-life situation and 3-4 candidate English expressions ${whoShort} could say. Exactly one is clearly the best/most natural for the situation.
 
 ${focus}
 ${tbLine}
 ${levelLine}
-Set the situation in this specific context: "${theme}". The decision the child faces should involve: ${angle}.
+${qualityLine}
+Set the situation in this specific context: "${theme}". The decision ${whoShort} faces should involve: ${angle}.
 ${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
 Return STRICT JSON only:
 {
-  "situation": "<1-2 sentence real-life context, English, child-friendly>",
+  "situation": "<1-2 sentence real-life context, English, ${isAdult ? 'natural for an adult' : 'child-friendly'}>",
   "skill_tag": "<short kebab tag>",
   "options": ["<expression A>", "<expression B>", "<expression C>"],
   "correct_index": <0-based index of the best option>,
-  "option_scores": [<one 0-100 score per option, SAME ORDER as options. The best option: 95-100. An option that is understandable and polite enough but slightly less natural: 60-80. An option that a child could reasonably think is fine but is clearly off in tone or meaning: 35-55. A clearly rude or wrong option: 5-25. Spread the scores out — do NOT give every wrong option the same number>],
-  "difficulty": <1-5 how hard this judgment is for this child: 1=obvious, 3=needs thought, 5=subtle tone difference only a careful learner catches>,
+  "option_scores": [<one 0-100 score per option, SAME ORDER as options. The best option: 95-100. An option that is understandable and polite enough but slightly less natural: 60-80. An option that ${isAdult ? 'a learner' : 'a child'} could reasonably think is fine but is clearly off in tone or meaning: 35-55. A clearly rude or clearly wrong-for-the-situation option: 5-25. Spread the scores out — do NOT give every wrong option the same number>],
+  "difficulty": <1-5 how hard this judgment is for ${isAdult ? 'this learner' : 'this child'}: 1=obvious, 3=needs thought, 5=subtle tone difference only a careful learner catches>,
   "why": "<1-2 sentences: WHY the best option is best and why the others are less appropriate — this trains judgment>",
   "why_ko": "<same explanation in NATURAL, CORRECT KOREAN ONLY — use only Hangul, numbers, and basic punctuation; never insert Chinese, Hindi, or other scripts>"
 }`;
@@ -846,6 +915,15 @@ Return STRICT JSON only:
             console.warn('[judgment] scenario missing option_scores, retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
+          // 🧐 영어 문법 검사 — «Want play with me» 같은 깨진 보기가 그대로 나가던 사고(2026-08-24 사장님 지적).
+          //    지시(프롬프트)만으로는 안 지켜지는 것이 이 저장소의 반복 실측이라(단어 수와 같은 뿌리),
+          //    받은 상황문·선택지를 같은 모델에 다시 읽혀 보고 어긋나면 다시 뽑습니다.
+          //    문법 연습 문항(allowBroken)은 오답이 일부러 틀린 것이므로 상황문·정답만 검사합니다.
+          //    마지막 시도는 그대로 받습니다 — 문제를 못 주는 것이 더 나쁩니다(길이 검사와 같은 원칙).
+          if (attempt < 3 && !(await englishLooksCorrect(ai, situation, opts4, allowBroken ? ci : null, ageGroup))) {
+            console.warn('[judgment] scenario failed grammar check, retrying (attempt ' + (attempt + 1) + ')');
+            continue;
+          }
           scenario = {
             situation,
             skill_tag: String(j.skill_tag || target?.skill || '').slice(0, 60) || null,
@@ -870,9 +948,9 @@ Return STRICT JSON only:
       }), { expirationTtl: SCENARIO_RECENT_TTL });
     } catch {}
   }
-  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook, focus: pickedMisc, band: askBand, band_src: probing ? 'probe' : bandState.src });
+  await logPerf(env, 'scenario_generate', studentUid, Date.now() - t0, 0, scenario ? 'ok' : 'llm_error', { source, target_skill: target?.skill || null, textbook: tb.textbook, focus: pickedMisc, band: askBand, band_src: probing ? 'probe' : bandState.src, age_group: ageGroup });
   // 문제 생성이 실패해도 레벨 목록은 함께 돌려줍니다 — 학생이 "레벨 고르기"로 빠져나갈 수 있어야 하므로.
-  if (!scenario) return { ok: false, error: 'scenario_unavailable', reading_band: askBand, band_catalog: bandCatalog(), based_on: { source, weak, textbook: tb.textbook } };
+  if (!scenario) return { ok: false, error: 'scenario_unavailable', reading_band: askBand, age_group: ageGroup, band_catalog: bandCatalog(), based_on: { source, weak, textbook: tb.textbook } };
 
   // 🔒 정답지를 서버에 보관 — 채점 때 클라이언트가 되돌려 보낸 점수 대신 이 값을 씁니다.
   //    학생 화면을 고쳐 option_scores 를 100 으로 보내도 기록되는 점수는 흔들리지 않습니다.
@@ -887,6 +965,8 @@ Return STRICT JSON only:
         // 이 문항이 '어느 밴드에서 출제됐는지' — 채점 때 그 밴드로 기록해야
         //   밴드별 정답률(성공 지표)이 정확해집니다. 푸는 도중 밴드를 옮겨도 어긋나지 않습니다.
         band: askBand,
+        // 🧑‍🎓 이 문항이 어느 나이대로 출제됐는지 — 채점 피드백 문장의 말투를 그 나이대에 맞추기 위해 함께 보관.
+        age_group: ageGroup,
       }), { expirationTtl: SCENARIO_KEY_TTL });
     } catch { sid = null; }
   }
@@ -903,6 +983,9 @@ Return STRICT JSON only:
     band_moved: bandMove ? bandMove.direction : 0,
     band_at_edge: bandMove ? (bandMove.reason === 'at_ceiling' || bandMove.reason === 'at_floor') : false,
     band_picked: picked ? 1 : 0,
+    // 🧑‍🎓 누구를 위한 문제인가 — 학생이 방금 바꿨을 때만 화면이 안내 한 줄을 띄우는 데 씁니다.
+    age_group: ageGroup,
+    age_group_changed: ageGroupChanged ? 1 : 0,
     // 🏷️ 레벨 고르기 목록 — 서버가 단일 출처(화면에 이름을 하드코딩하지 않습니다).
     //    8개 × 짧은 문자열이라 페이로드는 1KB 수준. 별도 왕복을 만들지 않으려고 함께 내려보냅니다.
     band_catalog: bandCatalog(),
@@ -1029,6 +1112,9 @@ export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   const difficulty = normalizeDifficulty(trusted ? keyed.difficulty : input.difficulty);
   // 이 문항이 출제된 읽기 밴드 — 서버 KV 값만 믿습니다(클라이언트는 밴드를 보내지 않음).
   const askedBand: number | null = (trusted && keyed?.band != null) ? normalizeBand(keyed.band) : null;
+  // 🧑‍🎓 이 문항이 출제된 나이대 — 피드백 말투를 같은 나이대로 맞추기 위해 마찬가지로 KV 값만 믿습니다.
+  const askedAgeGroup: AgeGroup = (trusted && keyed?.age_group != null) ? normalizeAgeGroup(keyed.age_group) : DEFAULT_AGE_GROUP;
+  const isAdultAnswer = askedAgeGroup === 'adult';
   // 선택 적절성 — 문제 생성 때 함께 받아둔 선택지별 점수를 사용(추가 LLM 호출 0).
   //   "아깝게 틀림"과 "완전히 엉뚱함"이 갈리므로 공정성·변별력이 함께 올라갑니다.
   //   점수가 없는 옛 문항/구버전 클라이언트는 기존 100·45 방식으로 폴백합니다.
@@ -1047,16 +1133,19 @@ export async function evaluateJudgmentAnswer(env: MangoEnv, input: {
   let whyChosenKo = '', whyChosenEn = '', whyChosenZh = '';
   const ai = (env as any).AI;
   if (ai) {
-    const prompt = `A child practiced DECISION-MAKING English. Situation: "${input.situation}". Options: ${opts.map((o, i) => `[${i}] ${o}`).join(' ')}. The child CHOSE [${ci}] "${chosen}"${correct ? `; the best option was [${correctIdx}] "${correct}"` : ''}. The child's REASON (may be Korean, Chinese, or English): "${reasoning || '(none)'}".
+    const learner = isAdultAnswer ? 'An adult learner' : 'A child';
+    const learnerPoss = isAdultAnswer ? 'The learner\'s' : 'The child\'s';
+    const learnerWho = isAdultAnswer ? 'the learner' : 'the child';
+    const prompt = `${learner} practiced DECISION-MAKING English. Situation: "${input.situation}". Options: ${opts.map((o, i) => `[${i}] ${o}`).join(' ')}. ${isAdultAnswer ? 'They CHOSE' : 'The child CHOSE'} [${ci}] "${chosen}"${correct ? `; the best option was [${correctIdx}] "${correct}"` : ''}. ${learnerPoss} REASON (may be Korean, Chinese, or English): "${reasoning || '(none)'}".
 
-Judge the child's REASONING (not just the choice). Return STRICT JSON only:
+Judge ${learnerPoss.toLowerCase()} REASONING (not just the choice). Return STRICT JSON only:
 {
-  "reasoning_score": <0-100 logic/depth of the child's reason; if no reason given, 0-20. A short reason written in Korean is FINE — judge the thinking, not the English>,
-  "register_awareness": <0-100 how well the child matched formality/tone to the listener and situation. Judge the CHOICE FIRST — a child who picked the right register deserves a high score even if their written reason is short. Use the reason only to adjust up or down>,
+  "reasoning_score": <0-100 logic/depth of ${learnerPoss.toLowerCase()} reason; if no reason given, 0-20. A short reason written in Korean is FINE — judge the thinking, not the English>,
+  "register_awareness": <0-100 how well ${learnerWho} matched formality/tone to the listener and situation. Judge the CHOICE FIRST — ${isAdultAnswer ? 'a learner' : 'a child'} who picked the right register deserves a high score even if their written reason is short. Use the reason only to adjust up or down>,
   "misconception": "<if the choice was wrong, ONE of: ${taxonomyList}; else null>",
-  "why_chosen_ko": "<ONE short sentence in NATURAL KOREAN ONLY about the option the child ACTUALLY picked ("${chosen}") — say concretely what that exact wording sounds like to the listener in this situation (too blunt? too formal? changes the meaning? fine but less warm?). If the child picked the best one, say what makes that wording work. Never just repeat 'it is wrong'>",
+  "why_chosen_ko": "<ONE short sentence in NATURAL KOREAN ONLY about the option ${learnerWho} ACTUALLY picked ("${chosen}") — say concretely what that exact wording sounds like to the listener in this situation (too blunt? too formal? changes the meaning? fine but less warm?). If ${learnerWho} picked the best one, say what makes that wording work. Never just repeat 'it is wrong'>",
   "why_chosen_en": "<same one sentence in simple English>",
-  "feedback_ko": "<1-2 warm, simple sentences in NATURAL KOREAN ONLY (Hangul + basic punctuation; no Chinese/other scripts): praise + one tip>",
+  "feedback_ko": "<1-2 ${isAdultAnswer ? 'clear, respectful' : 'warm, simple'} sentences in NATURAL KOREAN ONLY (Hangul + basic punctuation; no Chinese/other scripts)${isAdultAnswer ? ', using 해요체 (polite, not childish)' : ''}: praise + one tip>",
   "feedback_en": "<same in simple English>"${wantZh ? `,
   "why_chosen_zh": "<same one sentence in simple Simplified Chinese>",
   "feedback_zh": "<same in simple Simplified Chinese>"` : ''}
@@ -1064,7 +1153,7 @@ Judge the child's REASONING (not just the choice). Return STRICT JSON only:
     try {
       const resp: any = await ai.run(JUDGE_MODEL, {
         messages: [
-          { role: 'system', content: 'You coach English decision-making for children. Reply in strict JSON only.' },
+          { role: 'system', content: `You coach English decision-making for ${isAdultAnswer ? 'adult learners' : 'children'}. Reply in strict JSON only.` },
           { role: 'user', content: prompt },
         ],
         max_tokens: 500,

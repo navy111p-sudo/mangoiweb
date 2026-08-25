@@ -745,6 +745,8 @@ Return STRICT JSON only, in BOTH Korean and English:
         //   (src/index.ts 는 금지구역). 생성기가 값을 다시 검증하므로 여기서는 형만 맞춥니다.
         //     band_nudge — "너무 어려워요(-1) / 너무 쉬워요(+1)". ±1 로만 해석돼 한 밴드 이상 안 움직임
         //     set_band   — 학생이 목록에서 직접 고른 범주(1~8). 범위 밖 값은 생성기가 무시
+        //     age_group  — 누구를 위한 문제인가('child'/'adult', 2026-08-24). 같은 이유로 이 요청에 실어 받음
+        //       ⚠️ 이 줄을 빠뜨리면 화면의 「성인」 토글이 조용히 무동작합니다 — 에러도 없이 계속 아이 문제가 나갑니다.
         const sc = await generatePersonalizedScenario(
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
@@ -753,7 +755,8 @@ Return STRICT JSON only, in BOTH Korean and English:
           { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0,
             mode: (body.band_mode || '').toString().trim() || null,
             probeBand: Number(body.probe_band) || 0,
-            src: (body.band_src || '').toString().trim() || null });
+            src: (body.band_src || '').toString().trim() || null,
+            ageGroup: (body.age_group || '').toString().trim() || null });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }

@@ -318,7 +318,9 @@ export async function handleLessonsApi(
       await flushPendingEvalNotifies();
       // 🆕 Web Push 도 함께 (학생/학부모 user_id 가 있으면)
       const pushTitle = `📝 ${body.student_name || '학생'}님의 평가서 도착!`;
-      const pushBody = `종합 점수 ${overall}/10. 자세히 보기 클릭`;
+      // 별점 기본값이 없어져(2026-08-24 1단계) 아무것도 안 고르면 overall 이 null 이다 —
+      // 그때는 점수 문구를 아예 빼고, 만점 표기도 실제 척도(5점)로 맞춘다(예전 «/10» 은 오기).
+      const pushBody = overall != null ? `종합 점수 ${overall}/5. 자세히 보기 클릭` : '자세히 보기 클릭';
       const pushUrl = `/eval.html?id=${evalId}`;
       const pushTag = `eval-${evalId}`;
       const pushResults: any[] = [];

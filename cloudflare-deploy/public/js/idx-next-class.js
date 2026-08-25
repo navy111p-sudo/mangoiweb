@@ -133,7 +133,10 @@
           // «앞 수업이 끝나면» 다음 수업으로 저절로 넘어간다(예전엔 카드가 사라졌다).
           var all=remaining(now);
           var s=all[0];
-          if(!s){ hide(); return; }
+          /* 📅 (2026-08-24) 오늘 수업이 없다 — 완전히 숨기지 않고, 있으면 요일·시간 카드로 대신
+             채운다. 그 로직은 idx-my-schedule.js(defer, 별도 파일)에 있다 — 여기에 그대로
+             넣으면 idx-main.js 처럼 첫 화면 blocking 예산을 넘긴다(둘 다 defer 불가 파일). */
+          if(!s){ if(window.__nccNoClassToday && window.__nccNoClassToday(c, state)) return; hide(); return; }
           var rest=all.slice(1);
           var toStart=(s.start_ts||0)-now;
           var joinable=(s.status==='open'||s.status==='live')||toStart<=0;

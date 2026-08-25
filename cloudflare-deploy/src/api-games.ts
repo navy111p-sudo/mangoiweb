@@ -1175,7 +1175,14 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
     // 채점 보조 — 텍스트 정규화 + 단어 일치율
     // 🈶 (2026-07-31) 한자(一-鿿) 를 허용문자에 추가 — 원래는 중국어를 전부 걸러내서
     //   쓰기/말하기 채점이 항상 빈 문자열끼리 비교돼 정답이어도 오답 처리됐다.
-    const rqNorm = (s: any) => String(s || '').toLowerCase().replace(/[^a-z0-9가-힣一-鿿\s']/g, ' ').replace(/\s+/g, ' ').trim();
+    // 🔤 (2026-08-21) 병음의 «성조 부호» 를 먼저 벗긴다.
+    //   그 전에는 dǎgōng 이 허용문자(a-z) 밖이라 통째로 공백이 되어 «d g ng» 이 됐고,
+    //   학생이 dagong 이라고 치면 영원히 오답이었다. 그래서 write 문항의 accept 에 병음을
+    //   넣어 둔 것이 «있는 척만» 하고 실제로는 한자를 직접 칠 수 있는 사람만 풀 수 있었다.
+    //   ⚠️ NFD 로 분해한 뒤 «반드시» NFC 로 되돌려야 한다 — 한글이 자모로 쪼개진 채 남으면
+    //      아래 가-힣 범위에 안 걸려 한국어 답이 통째로 사라진다.
+    const rqStripTone = (s: string) => { try { return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC'); } catch { return s; } };
+    const rqNorm = (s: any) => rqStripTone(String(s || '').toLowerCase()).replace(/[^a-z0-9가-힣一-鿿\s']/g, ' ').replace(/\s+/g, ' ').trim();
     // 🈶 중국어는 띄어쓰기가 없어 공백 분리로 쪼개면 문장 전체가 토큰 1개가 되어 부분점수 없이
     //   전부/전무로만 채점된다(발음 인식의 사소한 오차에도 0점). 한자가 섞이면 글자 단위로 쪼갠다.
     const rqTokenize = (s: string) => {
@@ -1284,44 +1291,126 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       }
       return null;
     };
-    // 🈶 zh_passage 한 과 → 복습퀴즈 4유형 전부(객관식/듣기/쓰기/말하기) 조립.
-    //   AI 를 전혀 안 쓴다 — 지문의 이해문제(questions)는 사람이 직접 만든 정답이 이미 있고,
-    //   문장(sentences)·핵심단어(keywords)도 검수된 실데이터라 그대로 문제로 바꾸면 100% 정확하다.
-    const rqBuildZhFromPassage = (p: any) => {
+    /* 🈶 zh_passage 한 과 → 복습퀴즈 조립. AI 를 전혀 안 쓴다 —
+       지문의 이해문제(questions)는 사람이 만든 정답이 이미 있고, 문장(sentences)·핵심단어(keywords)도
+       검수된 실데이터라 그대로 문제로 바꾸면 100% 정확하다.
+
+       ⚠️ 2026-08-21 개편 — 그 전에는 «객3·듣2·쓰3·말2» 였는데 사장님이 「말하기·쓰기가 이상하다」고
+       지적하셨고, 실제로 그랬다:
+         · 쓰기가 «한자를 직접 타이핑» 이라 중국어 입력기가 없으면 풀 수 없었다.
+           accept 에 병음을 넣어 뒀지만 rqNorm 이 성조 부호를 통째로 지워(dǎgōng → «d g ng»)
+           병음으로 답해도 무조건 오답이었다(같은 날 rqStripTone 으로 수리).
+         · 말하기는 STT 검증이 안 된 채였다(같은 파일 rqAiGenerate 에는 「중국어는 listen/speak 0으로
+           강제」라고 적혀 있는데 이 함수만 그 판단을 안 지키고 있었다).
+       그래서 «고르는 문제» 를 중심으로 넓히고, 쓰기는 알파벳 자판으로 칠 수 있는 «병음 쓰기» 로 바꿨다.
+       말하기는 연습용으로 1문항만 남긴다.
+
+       구성(12문항) — 📖 본문이해 3 · 🎧 듣기 2 · 🈶 뜻→한자 2 · 🔤 병음→한자 1 ·
+                      ✏️ 문맥 빈칸 2 · 🔤 병음 쓰기 1 · 🎤 말하기 1
+       ⛔ 문항 «유형» 은 서버 스키마상 choice/listen/write/speak 넷뿐이다. 새로 넓힌 것들은 전부
+          choice 의 변형이라 화면에는 「객관식」으로 뜬다 — 그래서 지문 앞에 꼬리표(🈶·🔤·✏️)를 붙여
+          학생이 무엇을 묻는지 알 수 있게 한다.
+       @param pool 다른 과의 핵심단어(오답 보기용). 비어 있으면 이 과 단어들끼리만 섞는다. */
+    const rqBuildZhFromPassage = (p: any, pool: any[] = []) => {
       let sentences: any[] = []; try { sentences = JSON.parse(p.sentences || '[]') || []; } catch {}
       let questions: any[] = []; try { questions = JSON.parse(p.questions || '[]') || []; } catch {}
       let keywords: any[] = []; try { keywords = JSON.parse(p.keywords || '[]') || []; } catch {}
       const qs: any[] = [];
       const label = p.title_ko || p.title_zh || '';
-      // 1) choice — 본문 이해 (원저작 정답 그대로)
+      const tag = (t: string) => (label ? `[${label}] ` : '') + t;
+
+      const kw = keywords.filter((k: any) => k && k.hz && k.ko);
+      // 오답 보기 풀 — 이 과 단어 + 다른 과 단어(복습 효과). 같은 한자는 한 번만.
+      const seenHz = new Set<string>();
+      const poolAll: any[] = [];
+      for (const x of [...kw, ...pool]) {
+        if (!x || !x.hz || !x.ko || seenHz.has(x.hz)) continue;
+        seenHz.add(x.hz); poolAll.push(x);
+      }
+      /* 오답 3개 — 글자 수가 비슷한 것을 먼저 고른다(1글자 정답에 4글자 오답이 섞이면 눈으로 걸러진다). */
+      const distractors = (correctHz: string, n: number) => {
+        const cand = poolAll.filter((x: any) => x.hz !== correctHz);
+        const near = rqShuffle(cand.filter((x: any) => Math.abs([...x.hz].length - [...correctHz].length) <= 1));
+        const rest = rqShuffle(cand.filter((x: any) => Math.abs([...x.hz].length - [...correctHz].length) > 1));
+        return [...near, ...rest].slice(0, n).map((x: any) => x.hz);
+      };
+      const mcq = (qText: string, correct: string, explain: string) => {
+        const ds = distractors(correct, 3);
+        if (ds.length < 2) return null;                       // 보기가 모자라면 그 문항은 만들지 않는다
+        const opts = rqShuffle([correct, ...ds]);
+        return { type: 'choice', q: qText, opts, answer: opts.indexOf(correct), explain };
+      };
+
+      // ── 1) 📖 본문 이해 (원저작 정답 그대로) ─────────────────────────
       for (const q of questions.slice(0, 4)) {
         const opts = (Array.isArray(q.choices) ? q.choices : []).map((c: any) => String(c?.hz || ''));
         const ai2 = Number(q.answer);
         if (opts.length < 2 || opts.some((o: string) => !o) || !Number.isInteger(ai2) || ai2 < 0 || ai2 >= opts.length) continue;
-        const correctChoice = q.choices[ai2];
-        qs.push({ type: 'choice', q: (label ? `[${label}] ` : '') + String(q.q_ko || q.q || ''), opts, answer: ai2,
-          explain: correctChoice ? `정답: ${correctChoice.hz}${correctChoice.ko ? ' (' + correctChoice.ko + ')' : ''}` : '' });
+        const cc = q.choices[ai2];
+        qs.push({ type: 'choice', q: tag('📖 ' + String(q.q_ko || q.q || '')), opts, answer: ai2,
+          explain: cc ? `정답: ${cc.hz}${cc.ko ? ' (' + cc.ko + ')' : ''}` : '' });
       }
-      // 2) listen — 본문 문장 하나를 듣고 뜻 고르기 (다른 문장들의 한국어 뜻이 오답 보기)
-      const koPool = sentences.map((s: any) => s.ko).filter(Boolean);
-      const listenPick = rqShuffle(sentences.filter((s: any) => s.hz && s.ko)).slice(0, 2);
-      for (const s of listenPick) {
-        const distractors = rqShuffle(koPool.filter((k: string) => k !== s.ko)).slice(0, 3);
-        if (distractors.length < 2) continue;
-        const opts = rqShuffle([s.ko, ...distractors]);
-        qs.push({ type: 'listen', q: '🎧 잘 듣고 무슨 뜻인지 고르세요.', audio_text: s.hz, opts, answer: opts.indexOf(s.ko),
-          explain: `${s.hz}${s.py ? ' (' + s.py + ')' : ''}` });
+
+      // ── 2) 🎧 듣기 — 문장을 듣고 뜻 고르기 ──────────────────────────
+      const koPool = sentences.map((s2: any) => s2.ko).filter(Boolean);
+      for (const s2 of rqShuffle(sentences.filter((x: any) => x.hz && x.ko)).slice(0, 2)) {
+        const ds = rqShuffle(koPool.filter((k: string) => k !== s2.ko)).slice(0, 3);
+        if (ds.length < 2) continue;
+        const opts = rqShuffle([s2.ko, ...ds]);
+        qs.push({ type: 'listen', q: '🎧 잘 듣고 무슨 뜻인지 고르세요.', audio_text: s2.hz, opts, answer: opts.indexOf(s2.ko),
+          explain: `${s2.hz}${s2.py ? ' (' + s2.py + ')' : ''}` });
       }
-      // 3) write — 핵심 단어: 우리말 뜻 → 한자
-      for (const k of keywords.slice(0, 3)) {
-        if (!k.hz || !k.ko) continue;
-        qs.push({ type: 'write', q: `다음 우리말 뜻에 해당하는 중국어 단어를 한자로 쓰세요: "${k.ko}"`, answer_text: k.hz,
-          accept: k.py ? [k.py] : [], explain: k.py ? `병음: ${k.py}` : '' });
+
+      // ── 3~4) 어휘 — 뜻→한자 2문항, 병음→한자 1문항 (서로 다른 단어로) ──
+      const kwShuffled = rqShuffle(kw);
+      /* 병음 쓰기는 «두 글자 이상» 단어를 먼저 고른다 — 한 글자(寄 → jì)는 문제로서 너무 헐겁다.
+         그 단어를 먼저 빼놓고 나머지를 뜻→한자·병음→한자에 배분해 네 문항이 서로 다른 단어가 되게 한다. */
+      const writePick = kwShuffled.find((k: any) => k.py && [...String(k.hz)].length >= 2) || kwShuffled.find((k: any) => k.py);
+      const restKw = kwShuffled.filter((k: any) => k !== writePick);
+      const forMeaning = restKw.slice(0, 2);
+      const forPinyin  = restKw.slice(2, 3);
+      const forWrite   = writePick ? [writePick] : [];
+      // ⚠️ 「"우체국" 를 …」 처럼 조사가 틀리지 않게 «…인 …는?» 꼴로 통일한다(받침 판별 불필요).
+      for (const k of forMeaning) {
+        const m = mcq(tag(`🈶 뜻이 "${k.ko}" 인 중국어 단어는?`), k.hz, `${k.hz}${k.py ? ' (' + k.py + ')' : ''} = ${k.ko}`);
+        if (m) qs.push(m);
       }
-      // 4) speak — 본문 문장 소리내어 읽기
-      const speakPick = rqShuffle(sentences.filter((s: any) => s.hz)).slice(0, 2);
-      for (const s of speakPick) {
-        qs.push({ type: 'speak', q: `🎤 아래 문장을 또박또박 읽어보세요.${s.py ? ' (' + s.py + ')' : ''}`, answer_text: s.hz, explain: s.ko || '' });
+      for (const k of forPinyin) {
+        if (!k.py) continue;
+        const m = mcq(tag(`🔤 병음이 "${k.py}" 인 한자는?`), k.hz, `${k.hz} (${k.py}) = ${k.ko}`);
+        if (m) qs.push(m);
+      }
+
+      // ── 5) ✏️ 문맥 빈칸 — 본문 문장에서 그 단어를 가리고 고르게 한다 ──
+      let blanks = 0;
+      const usedSent = new Set<string>();
+      for (const k of kwShuffled) {
+        if (blanks >= 2) break;
+        // 같은 문장을 두 번 쓰지 않는다(빈칸 위치만 다른 쌍둥이 문항 방지, 2026-08-21).
+        const hit = sentences.find((s2: any) => s2 && s2.hz && String(s2.hz).includes(k.hz) && !usedSent.has(String(s2.hz)));
+        if (!hit) continue;
+        usedSent.add(String(hit.hz));
+        /* ⚠️ 그 단어가 문장에 두 번 나오면 «첫 번째만» 가려서는 안 된다 — 정답이 뒷부분에
+           그대로 남아 학생이 읽고 베낀다(2026-08-21 제5과 「不过小庆的头发长，小乐的头发短。」).
+           split/join 으로 «전부» 가린다. */
+        const blanked = String(hit.hz).split(k.hz).join('____');
+        const m = mcq(tag(`✏️ 빈칸에 알맞은 단어는?  ${blanked}  (${hit.ko || ''})`), k.hz,
+          `${hit.hz}${hit.py ? ' (' + hit.py + ')' : ''} — ${k.hz} = ${k.ko}`);
+        if (m) { qs.push(m); blanks++; }
+      }
+
+      // ── 6) 🔤 병음 쓰기 — 알파벳 자판으로 칠 수 있다(성조 부호는 안 받아도 정답) ──
+      for (const k of forWrite) {
+        if (!k.py) continue;
+        const plain = String(k.py).normalize('NFD').replace(/[\u0300-\u036f]/g, '').normalize('NFC');
+        const accept = [...new Set([plain, plain.replace(/\s+/g, '')])].filter((x) => x && x !== k.py);
+        qs.push({ type: 'write', q: `🔤 다음 한자의 병음을 알파벳으로 쓰세요 (성조 부호는 없어도 됩니다): ${k.hz}`,
+          answer_text: k.py, accept, explain: `${k.hz} (${k.py}) = ${k.ko}` });
+      }
+
+      // ── 7) 🎤 말하기 — 본문 문장 한 개 소리내어 읽기(연습) ──────────
+      for (const s2 of rqShuffle(sentences.filter((x: any) => x.hz)).slice(0, 1)) {
+        qs.push({ type: 'speak', q: `🎤 아래 문장을 또박또박 읽어보세요.${s2.py ? ' (' + s2.py + ')' : ''}`, answer_text: s2.hz, explain: s2.ko || '' });
       }
       return qs;
     };
@@ -1694,7 +1783,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (lang === 'zh') {
         const passRow = await rqZhPassageFind(textbook, level, lessonNo);
         if (passRow) {
-          const qsList = rqBuildZhFromPassage(passRow);
+          // 오답 보기용으로 «다른 과» 핵심단어도 함께 넘긴다 — 같은 과 4단어끼리만 돌리면
+          // 어휘 문항 세 개가 늘 같은 보기라 소거법으로 풀린다(2026-08-21).
+          let kwPool: any[] = [];
+          try {
+            const pr: any = await env.DB.prepare(`SELECT keywords FROM zh_passage WHERE active=1 AND textbook=? AND id<>?`).bind(passRow.textbook, passRow.id).all();
+            for (const r of (((pr.results as any[]) || []))) { try { kwPool.push(...(JSON.parse(r.keywords || '[]') || [])); } catch {} }
+          } catch {}
+          const qsList = rqBuildZhFromPassage(passRow, kwPool);
           if (qsList.length) {
             const label = passRow.title_ko || passRow.title_zh || `제${passRow.lesson_no}과`;
             const title = `[${label}] 복습퀴즈`;

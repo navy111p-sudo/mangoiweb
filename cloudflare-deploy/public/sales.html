@@ -205,7 +205,22 @@ body{
 function g(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
   return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
-function won(n){ if(n==null||isNaN(n)) return '0원'; return Number(n).toLocaleString('ko-KR')+'원'; }
+/* ══════════════════════════════════════════════════════════════
+   💰 금액 표시 잠금 (2026-08-23 사장님 지시)
+     「아직 금액을 책정하지 않았으니 상여금이나 일단 모든 금액은 XX 로」
+
+   ⚠️ 계산을 끈 것이 아닙니다. 서버는 그대로 계산하고 DB 에도 그대로 저장됩니다 —
+      **화면에 그리는 것만** 가립니다. 확정 뒤 아래 한 줄을 false 로 바꾸면
+      모든 화면의 금액이 한꺼번에 되살아납니다(고칠 곳이 여기 하나뿐입니다).
+   ⚠️ 설정 화면의 «기본급·성과급 입력칸» 은 가리지 않습니다.
+      거기가 금액을 정하는 자리라, 가리면 확정 자체를 못 합니다.
+   ══════════════════════════════════════════════════════════════ */
+var MONEY_LOCKED = true;
+function won(n){
+  if(MONEY_LOCKED) return 'XX원';
+  if(n==null||isNaN(n)) return '0원';
+  return Number(n).toLocaleString('ko-KR')+'원';
+}
 function todayISO(){ var d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
@@ -638,7 +653,11 @@ function paintMoney(){
   var h='';
   h += '<div class="money"><div class="k">이번 달 성과급</div>'
     + '<div class="v">'+won(m.incentive_krw)+'</div>'
-    + '<div class="t">계약 1곳당 '+won(m.per_deal_krw)+' — 계약할 때 절반, 3개월 유지되면 나머지 절반</div></div>';
+    + '<div class="t">계약 1곳당 '+won(m.per_deal_krw)+' — 계약할 때 절반, 3개월 유지되면 나머지 절반</div></div>'
+    + (MONEY_LOCKED
+        ? '<div class="card"><div class="sub" style="margin:0">💰 <b>금액은 아직 정하는 중이라 XX 로 보입니다.</b><br>'
+          + '다녀온 기록과 계약은 그대로 쌓이고 있으니 걱정하지 않으셔도 됩니다.</div></div>'
+        : '');
 
   h += '<div class="nums">'
     + numBox('계약한 학원', k.deals+'곳', '목표 '+k.deals_target+'곳')
