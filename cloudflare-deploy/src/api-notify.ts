@@ -124,6 +124,13 @@ export async function handleNotifyApi(
       await ensureChatTable();
       const roomId = (url.searchParams.get('room_id') || '').trim();
       const limit = Math.min(500, Math.max(1, parseInt(url.searchParams.get('limit') || '200', 10)));
+      // ⏱ (2026-08-25) since = 이 시각(ms) «이후» 만. 「이전 대화 보기」 버튼이 보내는 값.
+      //   ⚠️ 방 이름이 두 종류라 기간을 서버가 못 정한다 — class-{예약id}-{YYYYMMDD} 는 날짜로
+      //   이미 갈리지만 기본방 'mangoi-class' 는 고정이라 여러 수업이 한 방을 돌려 쓴다.
+      //   그래서 «얼마나 거슬러 볼지» 는 부르는 쪽이 정하고, 여기서는 그 경계만 지킨다.
+      //   안 보내면 예전대로 전체(최근 limit 개) — 관리자 조회·기존 호출이 그대로 돌아야 한다.
+      const sinceRaw = parseInt(url.searchParams.get('since') || '0', 10);
+      const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
       if (!roomId) return json({ ok: false, error: 'room_id_required' }, 400);
       // 🔐 [사생활] 이 수업 참여자만 채팅 조회 — 관리자/교사(쿠키세션) OR 방 로스터에 등록된 학생(토큰).
       //   방ID(class-{id}-{날짜})는 추측 가능 → 무인증/비참여자의 수업 채팅 열람 차단 (2026-07-11)
@@ -143,10 +150,10 @@ export async function handleNotifyApi(
       const rs = await env.DB.prepare(
         `SELECT id, sender_uid, sender_name, sender_role, message, sent_at
            FROM chat_messages
-          WHERE room_id = ?
+          WHERE room_id = ? AND sent_at >= ?
           ORDER BY sent_at DESC
           LIMIT ?`
-      ).bind(roomId, limit).all();
+      ).bind(roomId, since, limit).all();
       // 오래된 → 최근 순으로 reverse (클라이언트 렌더 편의)
       const rows = (rs.results || []).reverse();
       return json({ ok: true, count: rows.length, rows });
