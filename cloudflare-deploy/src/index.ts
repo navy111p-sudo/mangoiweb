@@ -1229,6 +1229,8 @@ const worker = {
         path === '/api/admin/students/erp-seed' ||
         // 📚 교재 일괄 배정 (학생관리 카드)
         path === '/api/admin/students/bulk-assign-textbook' ||
+        // ➕ 학생 수동 등록 (학생관리 카드 「학생 등록」 버튼)
+        path === '/api/admin/students/create' ||
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
