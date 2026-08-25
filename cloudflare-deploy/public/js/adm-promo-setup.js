@@ -25,8 +25,11 @@
   function $(id) { return document.getElementById(id); }
   function say(msg, kind) {
     var el = $('promo-setup-status'); if (!el) return;
-    el.textContent = msg;
-    el.style.color = kind === 'bad' ? '#b91c1c' : (kind === 'good' ? '#047857' : '#4b5563');
+    // 뜻이 «색» 에만 걸리지 않게 기호를 앞에 둔다 — 관리자 화면은 카드 안 글자를
+    // #101828 !important 로 덮는 전역 규칙이 있어서, 평범한 인라인 color 는 진다(실측 확인).
+    el.textContent = (kind === 'bad' ? '⚠️ ' : kind === 'good' ? '✅ ' : '') + msg;
+    var c = kind === 'bad' ? '#b91c1c' : (kind === 'good' ? '#047857' : '#4b5563');
+    try { el.style.setProperty('color', c, 'important'); } catch (e) { el.style.color = c; }
   }
   function videoUrl() { return (($('promo-setup-url') || {}).value || '').trim(); }
 
@@ -50,7 +53,12 @@
 
     if (open) open.addEventListener('click', function () {
       var u = videoUrl();
-      window.open(PAGE + (u ? '?src=' + encodeURIComponent(u) : ''), '_blank', 'noopener');
+      var url = PAGE + (u ? '?src=' + encodeURIComponent(u) : '');
+      // ⚠️ 카톡·문자앱 인앱 브라우저는 새 창을 못 연다. 예외를 던지지 않고 null 만 돌려주므로
+      //    try/catch 로는 못 잡는다(CLAUDE.md 2장). 반환값이 비면 같은 창에서 연다.
+      var w = null;
+      try { w = window.open(url, '_blank', 'noopener'); } catch (e) { w = null; }
+      if (!w) location.href = url;
     });
   }
 
@@ -75,6 +83,19 @@
       // promo.html 이 같은 출처 주소만 재생한다 — 여기서 미리 막아 «만들었는데 안 나오는» 상태를 없앤다.
       say('같은 사이트 주소(/ 로 시작)만 넣을 수 있습니다.', 'bad'); return;
     }
+    // 멱등성이 없다 — 두 번 누르면 팝업이 두 벌 생긴다. 이미 있으면 사람에게 묻는다.
+    try {
+      var lr = await fetch('/api/admin/popups', { credentials: 'include' });
+      var ld = await lr.json().catch(function () { return {}; });
+      var dup = ((ld && ld.rows) || []).filter(function (p) {
+        return String(p.link_url || '').indexOf(PAGE) === 0;
+      });
+      if (dup.length && !confirm('홍보영상 팝업이 이미 ' + dup.length + '개 있습니다. 하나 더 만들까요?\n\n(아니오를 누르면 만들지 않습니다. 기존 팝업은 아래 목록에서 고칠 수 있습니다.)')) {
+        say('만들지 않았습니다. 아래 목록에서 기존 팝업을 고쳐 쓰세요.');
+        return;
+      }
+    } catch (e) { /* 목록을 못 읽어도 만들기는 계속한다 */ }
+
     say('팝업을 만드는 중입니다…');
     try {
       var body = {

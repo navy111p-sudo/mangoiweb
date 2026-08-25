@@ -70,6 +70,13 @@ check('포스터 + /promo.html 링크로 만든다',
 check('만들어지는 팝업은 꺼진 상태다', /enabled:\s*false/.test(setupBare),
   '켜진 채로 만들면 확인 없이 학생 29,000명에게 노출된다');
 check('만들기 전에 외부 주소를 막는다', /charAt\(1\)\s*===\s*'\/'/.test(setupBare));
+check('이미 있으면 사람에게 묻는다(두 번 눌러 두 벌 생기는 것 방지)',
+  /confirm\(/.test(setupBare) && /indexOf\(PAGE\)\s*===\s*0/.test(setupBare));
+check('미리보기가 새 창을 못 열면 같은 창으로 연다',
+  /window\.open\(/.test(setupBare) && /if\s*\(!w\)\s*location\.href/.test(setupBare),
+  '카톡 인앱 브라우저는 새 창을 못 열고 null 만 돌려준다 (CLAUDE.md 2장)');
+check('상태 문구가 색 말고 기호로도 뜻을 지고 간다', /'⚠️ '/.test(setupBare) && /'✅ '/.test(setupBare),
+  '카드 안 글자를 #101828 !important 로 덮는 전역 규칙이 있다');
 check('관리자 화면에 상자가 있다',
   ['promo-setup-file', 'promo-setup-url', 'promo-setup-make', 'promo-setup-status']
     .every((id) => admin.includes('id="' + id + '"')));
@@ -80,6 +87,12 @@ check('팝업 미디어 프록시가 Range 를 읽는다', /bytes=\(\\d\+\)-/.te
 check('206 으로 구간을 돌려준다', /status:\s*206/.test(api) && /Content-Range/.test(api));
 check('Accept-Ranges 를 알린다', /Accept-Ranges/.test(api));
 check('HEAD 도 받는다', /method === 'HEAD'/.test(api));
+check('읽을 수 있는 키를 popup-media/ 로 묶었다',
+  /key\.startsWith\('popup-media\/'\)/.test(api),
+  '같은 R2 버킷에 수업 «녹화» 도 들어 있고 이 경로는 로그인 없이 열린다');
+check('.. 로 위로 올라가는 키를 막는다', /key\.includes\('\.\.'\)/.test(api));
+check('끝을 안 적은 Range 에서도 길이를 계산한다',
+  /r\.length !== undefined \? r\.length : \(obj\.size - off\)/.test(api));
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${PASS} · 실패 ${FAIL}`);

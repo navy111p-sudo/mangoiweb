@@ -4983,6 +4983,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     //   그쪽은 키가 고정이고 여기는 업로드된 임의의 키라, 둘을 합치지 않고 같은 규칙만 맞춘다.
     if ((method === 'GET' || method === 'HEAD') && path.startsWith('/api/popups/media/')) {
       const key = decodeURIComponent(path.replace('/api/popups/media/', ''));
+      // 🔒 이 경로는 «로그인 없이» 열린다(src/index.ts 의 공개 목록). 그런데 버킷(RECORDINGS)에는
+      //    수업 «녹화» 도 같이 들어 있다 — 키를 그대로 받으면 주소만 알면 남의 수업이 열린다.
+      //    업로더(/api/admin/popups/upload-media)가 만드는 키는 항상 popup-media/ 로 시작하므로
+      //    읽을 수 있는 범위를 거기로 묶는다. (.. 로 위로 올라가는 것도 함께 막는다)
+      if (!key.startsWith('popup-media/') || key.includes('..')) {
+        return new Response('Not Found', { status: 404 });
+      }
       const r2 = (env as any).RECORDINGS;
       if (!r2) return json({ ok: false, error: 'r2_not_configured' }, 500);
 
@@ -5016,10 +5023,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         return new Response(null, { status: 200, headers });
       }
       const r = (obj as any).range;
-      if (wantRange && r && r.length !== undefined) {
+      if (wantRange && r) {
+        // 끝을 안 적은 요청(bytes=N-)에 R2 가 length 를 안 채워 주면 «본문은 일부인데 길이는 전체»가
+        // 되어 되감기가 깨진다. 남은 크기로 직접 계산해 둔다.
         const off = r.offset || 0;
-        headers.set('Content-Range', `bytes ${off}-${off + r.length - 1}/${obj.size}`);
-        headers.set('Content-Length', String(r.length));
+        const len = r.length !== undefined ? r.length : (obj.size - off);
+        headers.set('Content-Range', `bytes ${off}-${off + len - 1}/${obj.size}`);
+        headers.set('Content-Length', String(len));
         return new Response(obj.body, { status: 206, headers });
       }
       headers.set('Content-Length', String(obj.size));
