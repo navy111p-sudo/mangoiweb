@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0F1A33">
+<title>망고아이 소개영상</title>
+<meta name="description" content="망고아이가 어떤 곳인지 1분 35초에 담았습니다.">
+<!--
+  promo.html — 홍보영상 전용 경량 페이지 (2026-08-25)
+  ─────────────────────────────────────────────────────────────
+  왜 별도 페이지인가
+    · index.html 은 첫 화면 무게 예산에 여유가 없다(1562KB = 상한). 여기에 영상 코드를
+      더하면 first_paint_budget_harness 가 FAIL 낸다.
+    · 확장자가 있는 주소(/promo.html)는 src/index.ts 2138행이 정적 자산으로 바로 넘긴다
+      → 라우팅·인증 게이트(공동 금지구역)를 한 줄도 건드리지 않는다.
+  가볍게 유지하는 규칙 (고칠 때도 지킬 것)
+    · 외부 js/css 를 부르지 않는다. 이 파일 하나 + 포스터 그림 한 장이 전부다.
+    · 영상은 «누른 뒤에» 붙인다(preload=none + 클릭 시 src 주입). 안 누르면 0 바이트.
+    · 영상 주소는 ?src= 로 받는다. 같은 출처의 mp4/webm/mov 만 허용(외부 주소 주입 차단).
+      기본값은 /video/mangoi-promo.mp4 — 그 파일이 없으면 «준비 중» 안내가 뜬다(검은 화면 금지).
+    · 업로드한 영상은 /api/popups/media/… 로 오는데, 그 경로는 2026-08-25 부터
+      Range(206) 를 지원한다(api-admin.ts). iOS 재생·되감기가 여기에 걸려 있다.
+-->
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2">
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#0B1222;color:#E8EEFA}
+  body{
+    font-family:MangoiHanSC,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+    line-height:1.65; -webkit-font-smoothing:antialiased;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  a{color:inherit}
+  .top{
+    display:flex; align-items:center; gap:10px; padding:14px 18px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .top .brand{display:flex; align-items:center; gap:8px; font-weight:800; font-size:15px; text-decoration:none}
+  .top .brand img{width:26px; height:26px; object-fit:contain}
+  .top .sp{margin-left:auto; display:flex; gap:8px}
+  .tbtn{
+    background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.16); color:#CBD8F0;
+    border-radius:9px; padding:6px 11px; font:inherit; font-size:12.5px; cursor:pointer; text-decoration:none;
+    line-height:1.2;
+  }
+  .tbtn:hover{background:rgba(255,255,255,.14)}
+  main{flex:1; width:100%; max-width:860px; margin:0 auto; padding:22px 18px 40px}
+  .stage{
+    position:relative; width:100%; aspect-ratio:16/9; background:#0F1A33;
+    border-radius:14px; overflow:hidden; border:1px solid rgba(255,255,255,.1);
+    box-shadow:0 24px 60px -30px rgba(0,0,0,.9);
+  }
+  .stage img.poster{width:100%; height:100%; object-fit:cover; display:block}
+  .stage video{width:100%; height:100%; object-fit:contain; display:block; background:#000}
+  #playBtn{
+    position:absolute; inset:0; width:100%; height:100%; border:0; padding:0; cursor:pointer;
+    background:transparent; display:flex; align-items:center; justify-content:center;
+  }
+  #playBtn .circle{
+    width:74px; height:74px; border-radius:50%; background:rgba(255,255,255,.94);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 12px 30px -10px rgba(0,0,0,.8); transition:transform .18s ease;
+  }
+  #playBtn:hover .circle{transform:scale(1.06)}
+  #playBtn:focus-visible{outline:3px solid #F2A62E; outline-offset:-3px}
+  #playBtn .circle b{
+    display:block; width:0; height:0; margin-left:6px;
+    border-top:15px solid transparent; border-bottom:15px solid transparent; border-left:24px solid #12203C;
+  }
+  .len{
+    position:absolute; right:10px; bottom:10px; background:rgba(0,0,0,.68); color:#fff;
+    font-size:12px; font-weight:700; padding:3px 8px; border-radius:6px; letter-spacing:.02em;
+  }
+  h1{font-size:22px; font-weight:800; margin:22px 0 0; line-height:1.4; letter-spacing:-.01em}
+  .sub{margin:8px 0 0; color:#9DAECD; font-size:14.5px}
+  .cta{display:flex; flex-wrap:wrap; gap:10px; margin-top:20px}
+  .cta a{
+    flex:1 1 190px; text-align:center; text-decoration:none; font-weight:800; font-size:15px;
+    padding:14px 16px; border-radius:12px; line-height:1.4;
+  }
+  .cta .go{background:linear-gradient(180deg,#FFD469,#F2A62E); color:#3A2405}
+  .cta .ask{background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.18); color:#DCE6F8}
+  .warn{
+    margin-top:16px; background:rgba(242,166,46,.1); border:1px solid rgba(242,166,46,.35);
+    border-radius:12px; padding:14px 16px; font-size:14px; color:#F5D9A8; display:none;
+  }
+  footer{padding:0 18px 26px; text-align:center; color:#6E7C97; font-size:12.5px}
+  @media (max-width:520px){
+    h1{font-size:19px}
+    main{padding:16px 14px 30px}
+    #playBtn .circle{width:60px; height:60px}
+    #playBtn .circle b{border-top-width:12px; border-bottom-width:12px; border-left-width:19px}
+  }
+  @media (prefers-reduced-motion:reduce){ #playBtn .circle{transition:none} }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <a class="brand" href="/"><img src="/img/mango-char.png" alt="" width="26" height="26"><span id="t-brand">망고아이</span></a>
+  <span class="sp">
+    <button class="tbtn" id="langBtn" type="button">EN</button>
+    <a class="tbtn" href="/" id="t-home">홈으로</a>
+  </span>
+</div>
+
+<main>
+  <div class="stage" id="stage">
+    <img class="poster" id="poster" src="/img/promo/mangoi-promo-poster.png" alt="" width="960" height="540">
+    <button id="playBtn" type="button" aria-label="영상 재생"><span class="circle"><b></b></span></button>
+    <span class="len" id="lenBadge">1:35</span>
+  </div>
+
+  <h1 id="t-title">망고아이가 어떤 곳인지 1분 35초에 담았습니다</h1>
+  <p class="sub" id="t-sub">원어민 선생님과의 1:1 화상수업, 매 수업 학습 리포트, 학부모 알림까지.</p>
+
+  <div class="cta">
+    <a class="go" href="/level-test.html" id="t-cta1">무료 레벨테스트 신청</a>
+    <a class="ask" href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" id="t-cta2">카카오로 상담하기</a>
+  </div>
+
+  <div class="warn" id="warn"></div>
+</main>
+
+<footer id="t-foot">망고아이 · mangoi.ai</footer>
+
+<script>
+(function(){
+  var T = {
+    ko:{ brand:'망고아이', home:'홈으로', lang:'EN',
+         title:'망고아이가 어떤 곳인지 1분 35초에 담았습니다',
+         sub:'원어민 선생님과의 1:1 화상수업, 매 수업 학습 리포트, 학부모 알림까지.',
+         cta1:'무료 레벨테스트 신청', cta2:'카카오로 상담하기',
+         play:'영상 재생', foot:'망고아이 · mangoi.ai',
+         nosrc:'영상이 아직 등록되지 않았습니다. 잠시 후 다시 열어 주세요.',
+         err:'영상을 불러오지 못했습니다. 연결 상태를 확인하고 다시 눌러 주세요.' },
+    en:{ brand:'MangoI', home:'Home', lang:'한국어',
+         title:'See what MangoI is like — in 1 minute 35 seconds',
+         sub:'1:1 video lessons with native teachers, a report after every class, and parent updates.',
+         cta1:'Free level test', cta2:'Chat with us on KakaoTalk',
+         play:'Play video', foot:'MangoI · mangoi.ai',
+         nosrc:'The video is not available yet. Please try again later.',
+         err:'Could not load the video. Check your connection and tap again.' }
+  };
+
+  // ── 언어 (홈과 같은 키를 쓴다: mangoi_lang) ──
+  var lang = 'ko';
+  try { var s = localStorage.getItem('mangoi_lang'); if (s === 'en' || s === 'ko') lang = s; } catch (e) {}
+  function paint(){
+    var t = T[lang];
+    document.documentElement.lang = lang;
+    document.getElementById('t-brand').textContent = t.brand;
+    document.getElementById('t-home').textContent  = t.home;
+    document.getElementById('langBtn').textContent = t.lang;
+    document.getElementById('t-title').textContent = t.title;
+    document.getElementById('t-sub').textContent   = t.sub;
+    document.getElementById('t-cta1').textContent  = t.cta1;
+    document.getElementById('t-cta2').textContent  = t.cta2;
+    document.getElementById('t-foot').textContent  = t.foot;
+    var pb = document.getElementById('playBtn');
+    pb.setAttribute('aria-label', t.play); pb.setAttribute('title', t.play);
+  }
+  document.getElementById('langBtn').addEventListener('click', function(){
+    lang = (lang === 'ko') ? 'en' : 'ko';
+    try { localStorage.setItem('mangoi_lang', lang); } catch (e) {}
+    paint();
+  });
+  paint();
+
+  // ── 영상 주소 — 같은 출처의 동영상 파일만 허용한다 ──
+  //   ⛔ 이 검사를 느슨하게 고치지 말 것: ?src= 로 남의 주소를 넣어 우리 페이지에서
+  //      재생시키는 길이 열린다(«//evil.com/x.mp4» 는 프로토콜 상대 주소라 외부다).
+  var DEFAULT_SRC = '/video/mangoi-promo.mp4';
+  function safeSrc(v){
+    if (!v) return '';
+    if (v.charAt(0) !== '/' || v.charAt(1) === '/') return '';
+    return /\.(mp4|webm|mov)(\?|$)/i.test(v) ? v : '';
+  }
+  var SRC = '';
+  try { SRC = safeSrc(new URLSearchParams(location.search).get('src') || ''); } catch (e) {}
+  if (!SRC) SRC = DEFAULT_SRC;
+
+  var stage = document.getElementById('stage');
+  var playBtn = document.getElementById('playBtn');
+  var warn = document.getElementById('warn');
+  var video = null, started = false;
+
+  function showWarn(msg){ warn.textContent = msg; warn.style.display = 'block'; }
+
+  function start(){
+    if (started) return; started = true;
+    playBtn.style.display = 'none';
+    var badge = document.getElementById('lenBadge');
+    if (badge) badge.style.display = 'none';
+
+    video = document.createElement('video');
+    video.setAttribute('playsinline', '');            // iOS: 전체화면으로 튀지 않게
+    video.setAttribute('controls', '');
+    video.setAttribute('preload', 'auto');
+    video.setAttribute('poster', '/img/promo/mangoi-promo-poster.png');
+    video.src = SRC;
+
+    video.addEventListener('error', function(){
+      // 영상이 없거나 못 받은 경우 — 검은 화면 대신 안내를 보여 주고 다시 누를 수 있게 되돌린다.
+      started = false;
+      if (video && video.parentNode) video.parentNode.removeChild(video);
+      video = null;
+      playBtn.style.display = '';
+      if (badge) badge.style.display = '';
+      showWarn(T[lang][SRC === DEFAULT_SRC ? 'nosrc' : 'err']);
+    });
+
+    var poster = document.getElementById('poster');
+    if (poster) poster.style.display = 'none';
+    stage.insertBefore(video, playBtn);
+
+    // 소리를 켠 채로 시도하고, 브라우저가 막으면 무음으로 재생한다(controls 로 켤 수 있다).
+    var p = video.play();
+    if (p && p.catch) p.catch(function(){
+      try { video.muted = true; var q = video.play(); if (q && q.catch) q.catch(function(){}); } catch (e) {}
+    });
+  }
+  playBtn.addEventListener('click', start);
+})();
+</script>
+</body>
+</html>

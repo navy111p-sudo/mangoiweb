@@ -541,17 +541,39 @@
 </section>
 
 <section>
-  <p class="eyebrow">정해 주시면 바로 진행합니다</p>
-  <h2>네 가지만 골라 주세요</h2>
-  <div class="ask">
-    <label><input type="checkbox"><span><b>어느 안으로 갈까요</b><span>추천은 C + D. 「일단 A로 팝업만 띄워 보자」도 오늘 안에 가능합니다.</span></span></label>
-    <label><input type="checkbox"><span><b>영상을 짧게 자를까요</b><span>20~30초 짧은 판을 만들면 첫인사용으로 훨씬 낫습니다. 편집은 사장님 쪽에서 하시겠습니까, 원본 그대로 쓸까요?</span></span></label>
-    <label><input type="checkbox"><span><b>영상 다음에 무엇을 시킬까요</b><span>무료 레벨테스트 · 상담 신청 · 수강신청 중 하나를 버튼으로 답니다. 클릭 수가 집계되는 자리입니다.</span></span></label>
-    <label><input type="checkbox"><span><b>보여 줄 기간</b><span>상시로 둘지, 모집 기간에만 켤지. 팝업 관리에는 시작·종료 날짜가 있습니다.</span></span></label>
+  <p class="eyebrow">2026-08-25 · 붙였습니다</p>
+  <h2>②안으로 만들어 두었습니다 — 이제 3분이면 켜집니다</h2>
+  <p class="lede">홈 화면 코드는 한 글자도 고치지 않았습니다. 첫 화면에 더해지는 것은 <b>포스터 그림 한 장</b>뿐이고, 영상은 누른 사람에게만 내려갑니다.</p>
+
+  <div class="pick">
+    <div class="row"><span class="n">1</span><span><b>관리자 → 공지/팝업 관리 → 「🎬 홍보영상 팝업 만들기」</b><span>팝업 목록 바로 아래에 새로 생긴 상자입니다.</span></span></div>
+    <div class="row"><span class="n">2</span><span><b>영상 파일을 고르면 자동으로 올라갑니다</b><span>30MB 이하. 올린 주소가 칸에 자동으로 채워집니다.</span></span></div>
+    <div class="row"><span class="n">3</span><span><b>「👁 미리보기」로 확인한 뒤 「🎬 팝업 만들기」</b><span>팝업은 <em>꺼진 상태</em>로 만들어집니다. 목록에서 한 번 더 보고 직접 켜세요 — 켜는 순간 학생 29,000명에게 보입니다.</span></span></div>
+  </div>
+
+  <div class="weigh">
+    <div class="r zero best"><span><b>홈 팝업이 받는 것</b><small>포스터 그림 한 장(108KB, 늦게 받아도 되는 그림이라 첫 화면을 막지 않습니다).</small></span><span class="num">0.1 MB</span><span class="bar"><i style="width:1%"></i></span></div>
+    <div class="r zero"><span><b>영상 페이지 <code>/promo.html</code></b><small>11KB. 외부 스크립트·스타일을 하나도 부르지 않습니다. 영상은 ▶ 를 누른 뒤에 붙습니다.</small></span><span class="num">0.01 MB</span><span class="bar"><i style="width:0%"></i></span></div>
+  </div>
+
+  <div class="why">
+    <div><b>함께 고친 것 — 폰에서 영상이 안 나오던 문제</b> 업로드한 영상 주소(<code>/api/popups/media/…</code>)가 구간 요청(Range)을 지원하지 않았습니다. iOS 사파리는 그 방식으로 재생을 시작해서, 큰 영상은 아예 안 나올 수 있었습니다. 이번에 206 응답을 붙여 재생과 되감기가 되게 했습니다.</div>
+    <div><b>아직 남은 것 — 짧은 판</b> 20~30초로 줄인 영상을 주시면 <b>인트로 자리 교체</b>(①안)까지 갑니다. 그건 추가 무게가 0이고 첫 방문자 전원이 봅니다. 지금 파일(1분 35초)을 그대로 인트로에 넣으면 처음 오신 분을 3배 오래 붙잡습니다.</div>
+    <div><b>제가 확인하지 못한 한 가지</b> 이 작업 환경의 브라우저는 mp4(H.264)를 재생하지 못합니다. 요청이 나가는 것·오류 안내가 뜨는 것·화면 배치까지는 실측했지만, <b>영상이 실제로 재생되는 것은 사장님이 한 번 눌러 보셔야</b> 확인됩니다.</div>
   </div>
 </section>
 
-<footer>2026-08-25 · 코드는 아직 고치지 않았습니다. 고르시면 그때 붙입니다.</footer>
+<section>
+  <p class="eyebrow">정해 주시면 바로 진행합니다</p>
+  <h2>남은 것 — 두 가지만 정해 주세요</h2>
+  <div class="ask">
+    <label><input type="checkbox"><span><b>영상을 짧게 자를까요</b><span>20~30초 판이 있으면 인트로 자리 교체(추가 무게 0)까지 갑니다.</span></span></label>
+    <label><input type="checkbox"><span><b>영상 다음에 무엇을 시킬까요</b><span>지금은 「무료 레벨테스트」와 「카카오 상담」 두 개를 달아 두었습니다. 바꾸실 것이 있으면 말씀해 주세요.</span></span></label>
+    <label><input type="checkbox"><span><b>보여 줄 기간</b><span>상시로 둘지, 모집 기간에만 켤지. 팝업 목록에서 시작·종료 날짜를 정할 수 있습니다.</span></span></label>
+  </div>
+</section>
+
+<footer>2026-08-25 · ②안을 붙였습니다(홈 화면 코드는 그대로). 관리자에서 켜기만 하면 됩니다.</footer>
 </div>
 
 <script>
