@@ -247,6 +247,19 @@
   .legend b{font-size:14px; display:block}
   .legend span{font-size:13px; color:var(--ink-2)}
 
+  /* ── 무게 막대 ── */
+  .weigh{display:flex; flex-direction:column; gap:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--panel)}
+  .weigh .r{display:grid; grid-template-columns:1fr 96px; gap:12px; align-items:center; padding:12px 14px; border-bottom:1px solid var(--line-2)}
+  .weigh .r:last-child{border-bottom:0}
+  .weigh .r.best{background:var(--mango-soft)}
+  .weigh b{font-size:14.5px; display:block; line-height:1.5}
+  .weigh small{font-size:12.5px; color:var(--ink-2); display:block; line-height:1.5}
+  .weigh .num{text-align:right; font-variant-numeric:tabular-nums; font-weight:700; font-size:14px; white-space:nowrap}
+  .weigh .bar{grid-column:1/-1; height:4px; border-radius:2px; background:var(--line-2); overflow:hidden}
+  .weigh .bar i{display:block; height:100%; background:var(--mango)}
+  .weigh .r.zero .num{color:var(--good)}
+  .weigh .r.bad .num{color:var(--warn)}
+
   /* ── 표 ── */
   .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--panel)}
   table{border-collapse:collapse; width:max-content; min-width:100%; font-size:14px}
@@ -271,6 +284,7 @@
     display:grid; place-items:center; font-size:12px; font-weight:700; font-family:var(--mono);
   }
   .pick .row b{display:block; font-size:15px}
+  .pick .row em{font-style:normal; font-weight:700; color:var(--ink)}
   .pick .row span{font-size:14px; color:var(--ink-2)}
   .why{display:flex; flex-direction:column; gap:10px}
   .why div{font-size:14.5px; color:var(--ink-2); padding-left:14px; border-left:2px solid var(--line)}
@@ -458,6 +472,48 @@
     <div><b>E(상단 띠)를 안 고른 이유</b> — 계속 떠 있는 띠는 홍보로도 약하고, 대신 화면 위쪽을 영구히 한 줄 잡아먹습니다. 폰에서 특히 아깝습니다.</div>
     <div><b>A를 «상시»로 안 두는 이유</b> — 중앙 팝업은 첫 화면을 막습니다. 학생 29,000명 중 대부분은 홍보 대상이 아니라 <b>수업에 들어오려는 사람</b>이고, 그분들에게는 매번 치워야 하는 벽이 됩니다.</div>
   </div>
+</section>
+
+<section>
+  <p class="eyebrow">가장 가볍게 · 가장 잘 보이게</p>
+  <h2>새로 얹지 말고, 이미 있는 자리를 쓰는 것</h2>
+  <p class="lede">«가볍다»는 <b>첫 화면에서 무엇을 더 내려받게 하느냐</b>입니다. 그 기준으로 재면 답이 꽤 분명합니다.</p>
+
+  <div class="weigh">
+    <div class="r zero best">
+      <span><b>① 인트로 영상을 새 홍보영상(짧은 판)으로 교체</b><small>지금 첫 방문자가 보는 4.1MB 자리를 그대로 대신합니다. 새로 늘어나는 무게가 없고, 노출은 첫 방문자 100%.</small></span>
+      <span class="num">+0 MB</span>
+      <span class="bar"><i style="width:0%"></i></span>
+    </div>
+    <div class="r zero">
+      <span><b>② 포스터 그림 한 장만 홈에 (영상은 누른 사람만)</b><small>640×360 WebP면 30~50KB. 그림은 첫 화면을 막지 않고 뒤늦게 받아도 됩니다. 영상은 누른 사람에게만 내려갑니다.</small></span>
+      <span class="num">+0.04 MB</span>
+      <span class="bar"><i style="width:1%"></i></span>
+    </div>
+    <div class="r">
+      <span><b>③ 3초짜리 무음 루프로 «움직이는 포스터»</b><small>눈에는 더 띄지만 포스터의 5~10배입니다. 굳이 쓰신다면 회선이 빠를 때만 켜지게.</small></span>
+      <span class="num">+0.3 MB</span>
+      <span class="bar"><i style="width:6%"></i></span>
+    </div>
+    <div class="r bad">
+      <span><b>④ 팝업에 영상 파일을 그대로 넣기</b><small>보든 안 보든 브라우저가 영상 앞부분을 먼저 받습니다. 누르면 남은 18.9MB 전부.</small></span>
+      <span class="num">+0.5~19 MB</span>
+      <span class="bar"><i style="width:100%"></i></span>
+    </div>
+  </div>
+
+  <div class="pick">
+    <div class="row"><span class="n">🥇</span><span><b>가장 가볍고 가장 잘 보이는 답 — ①</b><span>첫 방문자는 이미 전체화면 영상을 보고 있습니다. 그 영상을 홍보 영상으로 바꾸면 <em>노출은 100%, 추가 무게는 0</em>입니다. 팝업은 아무리 잘 만들어도 «닫는 것»부터 배우게 되지만, 인트로 자리는 처음부터 보는 자리입니다.</span></span></div>
+    <div class="row"><span class="n">🥈</span><span><b>팝업으로 하시겠다면 — ②</b><span>팝업에는 <em>포스터 그림만</em> 넣고, 「▶ 영상 보기」를 누른 분에게만 영상을 보여 줍니다. 홈에 더해지는 무게가 그림 한 장뿐이라 사실상 공짜입니다.</span></span></div>
+  </div>
+
+  <div class="why">
+    <div><b>①에는 조건이 하나 있습니다 — 길이</b> 지금 인트로는 <b>29초</b>입니다. 1분 35초를 그 자리에 그대로 넣으면 처음 오신 분을 3배 오래 붙잡아 두는 셈이라, 「건너뛰기」를 누르고 나가실 수 있습니다. <b>20~30초 짧은 판</b>을 먼저 만들어 주셔야 합니다. 긴 판은 「더 보기」를 누른 분께.</div>
+    <div><b>자막도 함께 손봐야 합니다</b> 지금 인트로에는 한국어·영어 자막이 9줄, 초 단위로 붙어 있습니다(<code>idx-x1.js</code>). 영상이 바뀌면 그 표도 새 영상에 맞춰 다시 적어야 합니다.</div>
+    <div><b>②의 영상 페이지는 홈과 무관합니다</b> <code>/promo.html</code>처럼 <b>확장자가 있는 주소</b>는 정적 파일로 바로 나갑니다. 홈 화면 코드도, 첫 화면 예산도 건드리지 않습니다. 영상은 되감기가 되는 <code>/media/</code> 경로에 둡니다.</div>
+  </div>
+
+  <div class="note"><b>무게를 안 쓰고 «잘 보이게» 하는 것들</b> — 움직임보다 <b>자리와 타이밍</b>이 셉니다. ⑴ 시선이 이미 화면에 있는 순간(인트로 끝)에 보여 줄 것 ⑵ 포스터를 카드 폭에 꽉 채우고 ▶ 버튼과 「1:35」 배지를 얹어 «영상»임을 0.5초 안에 알릴 것 ⑶ 버튼은 하나만(무료 레벨테스트) ⑷ 「오늘 하루 안보기」를 꼭 둘 것 — 매번 뜨는 팝업이 가장 빨리 미움받습니다.</div>
 </section>
 
 <section>
