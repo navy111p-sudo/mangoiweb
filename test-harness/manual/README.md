@@ -173,6 +173,29 @@ PW_DIR=/tmp/pw node test-harness/manual/feedback-menu-level-warmup-browser.mjs
 
 ---
 
+## sales-chart-overflow-browser.mjs — 매출 대시보드 그래프가 상자 안에 있는가 (48건)
+
+8/18 수정사항 PDF ⑥번(「그래프가 화면 비율을 벗어난다」)의 **실측 검사**.
+코드는 2026-08-18 에 고쳐졌지만 그것을 실제로 그려서 재 본 검사가 없었다.
+
+폭 6가지(390·768·900·901·1280·1920)에서 항목마다:
+- 캔버스가 카드 상자 «안»(좌·우·아래)에 있는가
+- 문서가 가로로 넘치지 않는가(`scrollWidth <= innerWidth`)
+- 🔑 폭을 세 번 흔들었다 **원래 폭으로 돌아왔을 때** 높이가 처음과 같은가
+  — 예전 버그의 진짜 증상은 «리사이즈할 때마다 누적해서 길어짐»(690 → 3,070 → 5,758px)이었다
+
+⚠️ 두 번 헛짚어서 그 함정을 코드 주석에 남겼다:
+1. 카드는 기본이 숨김(`.ia6-hide`)이라 그냥 열면 **높이 0** 으로 잡히고 «안 넘쳤다» 는
+   거짓 통과가 된다 → `jumpToMenu(카드id)` 로 실제로 띄운다
+2. 폭이 다르면 높이가 달라지는 것은 **정상**(반응형)이다. «다른 폭끼리» 비교하면
+   390px 에서 거짓 실패가 난다 → 같은 폭으로 돌아왔을 때끼리 비교한다
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/sales-chart-overflow-browser.mjs
+```
+
+---
+
 ## 새 검사를 더할 때
 
 - 파일 이름을 `*_harness.mjs` 로 짓지 말 것 — 게이트가 물어 간다.
@@ -244,3 +267,28 @@ PW_DIR=/tmp/pw node test-harness/manual/class-create-persist-browser.mjs
   `mousedown` 이 아예 안 걸린다. 드래그선택은 좌표가 아니라 «어느 요소에서 눌렀나» 로만
   판정하므로 그 칸에 `MouseEvent` 를 직접 보낸다. 단 **대기 풀 배정은 예외** —
   그쪽 `mouseup` 은 `elementFromPoint(clientX,clientY)` 를 쓰므로 진짜 좌표가 필요하다.
+
+---
+
+## 🖥 `manager-today-classes-browser.mjs` — 매니저 「오늘 전체 수업」 (2026-08-25)
+
+8/25 매니저 보고서 ②③⑤. 관리자 카드는 이미 있었는데 늘 비어 있었다 —
+`/api/admin/classes/today` 가 `class_schedules` 만 읽어 **카페24 예약이 한 건도 없었다**.
+합쳐 주도록 고치면서, 문자열로는 못 보는 것 15가지를 실제로 그려서 잰다.
+
+1. 첫 화면에서 이 API 를 **안 부르는가** — 이 화면의 계약은 «첫 화면 API 2회»
+2. 펼치면 부르고, 네 줄이 다 그려지는가
+3. **카페24 줄에 입장 버튼이 안 붙는가** — 붙으면 아무도 없는 방이 열린다
+4. 교재 미배정·강사 미배정이 «색으로» 보이는가 (회색에 묻히지 않는가)
+5. 390px 에서 문서가 안 넘치고, 한 줄이 낱글자로 안 쪼개지는가
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
+```
+
+⚠️ `manager.html` 의 카드·`adm-today-classes.js`·`classes/today` 응답 모양을 건드리면
+**사람이 이걸 불러야** 한다.
+
+🪤 실제로 이 검사가 잡은 것 — 「미배정」 경고를 `.muted` 상자 **안**에 넣었더니
+`rgb(122,135,148)` 회색으로 나왔다. 코드에는 앰버(`#b45309`)라고 적혀 있었다.
+**«무슨 색으로 적었나» 와 «무슨 색으로 보이나» 는 다르다** — `getComputedStyle` 로 재야 한다.

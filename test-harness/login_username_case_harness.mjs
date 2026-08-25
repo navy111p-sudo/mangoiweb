@@ -144,6 +144,53 @@ console.log('\n════ ④ 연결표 조회 ════');
     /FROM teacher_account_links WHERE username = \? COLLATE NOCASE/.test(tapi));
 }
 
+/* ══ ⑤ 학생 계정도 같은 규칙인가 (students_erp) — 2026-08-25 ═════════════════════
+   [무엇이 문제였나]
+     `/api/student/login` 은 `WHERE user_id = ? COLLATE NOCASE` 로 찾는데, 학생을
+     «만드는» 쪽은 `WHERE user_id = ?`(대소문자 구분)로 중복을 봤다. `user_id` 는
+     TEXT PRIMARY KEY = BINARY 라 `jeong` 과 `Jeong` 이 UNIQUE 에 걸리지 않는다.
+     → 두 벌이 나란히 생기고, 로그인은 그중 «아무 행이나» 집는다(출석·포인트가 갈린다).
+     admin_account 건(①~④)과 같은 뿌리인데 표만 다르다. */
+console.log('\n════ ⑤ 학생 계정(students_erp)도 대소문자를 무시하는가 ════');
+{
+  const sadmin = rd('../cloudflare-deploy/src/api-admin.ts');
+  const sstu = rd('../cloudflare-deploy/src/api-students.ts');
+
+  /* «찾는 쪽» 이 실제로 무엇을 고르는지는 눈으로 알 수 없다 — 소스에서 오려 내 돌린다. */
+  const m = /`SELECT user_id FROM students_erp WHERE user_id = \? COLLATE NOCASE LIMIT 1`/.exec(sadmin);
+  check('관리자 수동 등록(/api/admin/students/create)의 중복검사 SQL 을 찾았다', !!m);
+  if (m) {
+    const sql = m[0].slice(1, -1);
+    const db = new DatabaseSync(':memory:');
+    // 운영과 같은 모양 — PRIMARY KEY 에 COLLATE NOCASE 가 «없다»(스키마는 안 바꾼다).
+    db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, korean_name TEXT, password_hash TEXT);`);
+    db.prepare(`INSERT INTO students_erp (user_id, korean_name) VALUES (?, ?)`).run('jeong', '정우영');
+
+    const hit = db.prepare(sql).all('Jeong').map((r) => r.user_id);
+    check('🔴 대소문자만 다른 아이디를 «이미 있다» 로 잡는다', hit.length === 1 && hit[0] === 'jeong', hit);
+    check('상관없는 아이디는 안 잡는다 (과잉 차단 아님)',
+      db.prepare(sql).all('jeong2').length === 0);
+
+    /* 이 검사가 «무의미해지지 않게» 전제도 함께 못박는다: 스키마가 BINARY 라서
+       중복 INSERT 가 실제로 성공한다는 것. 그래서 찾는 쪽이 유일한 방어다. */
+    let inserted = false;
+    try { db.prepare(`INSERT INTO students_erp (user_id) VALUES (?)`).run('Jeong'); inserted = true; } catch { /* 무시 */ }
+    check('⚠️ 전제 확인 — 스키마만으로는 안 막힌다(대소문자만 다른 행이 그대로 들어간다)', inserted);
+  }
+
+  check('홈 회원가입(/api/student/register)의 중복검사도 COLLATE NOCASE 다',
+    /SELECT user_id FROM students_erp WHERE user_id = \? COLLATE NOCASE LIMIT 1/.test(sstu));
+  /* ⛔ 한쪽만 고치면 그 경로로 그대로 두 벌이 생긴다 — 둘은 «짝» 이다. */
+  check('두 등록 경로 모두 대소문자를 구분하는 옛 검사가 남아 있지 않다',
+    !/SELECT user_id FROM students_erp WHERE user_id = \?(?! COLLATE NOCASE)/.test(sadmin)
+    && !/SELECT user_id FROM students_erp WHERE user_id = \?(?! COLLATE NOCASE)/.test(sstu));
+  check('학부모-자녀 잇기도 대소문자를 무시하고, DB 표기로 이어 준다',
+    /FROM students_erp WHERE user_id = \? COLLATE NOCASE LIMIT 1/.test(sstu)
+    && /const childUid = exists \? String\(exists\.user_id\) : cUid;/.test(sstu));
+  check('무엇과 부딪혔는지 알려 준다 (대소문자만 다르면 눈으로 못 찾는다)',
+    /대소문자만 다릅니다/.test(sadmin) && /대소문자만 다릅니다/.test(sstu));
+}
+
 console.log('\n' + '─'.repeat(58));
 console.log(FAIL === 0 ? `✅ ALL PASS (${PASS})` : `⚠ PASS ${PASS} / FAIL ${FAIL}`);
 if (FAIL) { console.log('  실패 항목:'); FAILS.forEach((f) => console.log('   · ' + f)); }
