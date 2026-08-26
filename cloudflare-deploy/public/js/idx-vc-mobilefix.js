@@ -20,6 +20,8 @@
  *   ⑨ 1:1 수업에서 «교사» 얼굴을 크게(상대:나 = 1.6:1, PC 는 누가 PIP 인가로).
  *   ⑩ 중국어 복습퀴즈 — 수업 교재로 언어를 판정하고, 「진도(과)」를 학생이 고르게 한다
  *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
+ *   ⑪ 교재를 넘기면 «지금 몇 과인지» 를 기록한다 — 교재를 과별로 다시 올리면
+ *      진도가 저절로 따라간다(그 전엔 저장하는 코드가 저장소 전체에 0곳이었다).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -813,5 +815,78 @@
     });
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 준비됨'); } catch (e) {}
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑪ 🈶 교재를 넘기면 «지금 몇 과인지» 를 기록한다
+     ──────────────────────────────────────────────────────────────
+     [왜 필요한가] ⑩절에서 학생이 과를 손으로 고르게 했지만, 그건 교재에 과 정보가
+       하나도 없어서 어쩔 수 없이 택한 길이었다(583쪽 전부 「미분류 레슨」·unit_no 전부 NULL).
+       교재를 과별 폴더로 다시 올리면 그 정보가 생긴다 — 그런데 **올리기만 해서는 소용이 없다.**
+       `mangoi_current_lesson` 은 읽는 코드만 둘이고 **저장하는 코드가 저장소 전체에 0곳**이라,
+       교재에 과가 생겨도 복습퀴즈까지 이어지는 고리가 여전히 끊겨 있다.
+       이 절이 그 마지막 한 칸을 잇는다 — 교재를 넘기면 진도가 저절로 따라간다.
+
+     [어디서 읽나] 교재 시퀀스 항목의 이름은 업로더가 「[교재명] 레슨명 / 파일명」 으로 만든다
+       (js/idx-x3.js buildBookSequence). 그 «레슨명» 이 곧 과다.
+     [언제 도나] window.pdfSyncSeqIdx — 보이는 파일이 바뀔 때마다 도는 정본이다
+       (다른 기기가 넘겨도 여기로 온다). ⛔ 상주 setInterval·MutationObserver 를 두지 않는다
+       (CLAUDE.md: body class 감시가 홈 전체를 멎게 한 전력).
+
+     ⚠️ 과를 «모르면» 0 으로 지운다 — 안 지우면 앞 교재의 과가 남아 엉뚱한 퀴즈가 붙는다.
+     ⚠️ 학생이 ⑩절에서 손으로 고른 값을 덮어쓰지 않는다 — 교재가 «실제로 다른 과로 옮겨갔을 때» 만 쓴다.
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var LS_LESSON = 'mangoi_current_lesson';
+    var lastAuto = null;                      // 마지막으로 «자동» 으로 쓴 값
+
+    /* 「[다락원 중국어 마스터 3] 제7과 / Slide3.JPG」 → 7
+       ⛔ 파일 이름은 보지 않는다 — Slide3.JPG 의 3 을 과로 잘못 읽는다(업로더가 밟았던 함정). */
+    function lessonOf(name) {
+      var s = String(name || '');
+      var m = /^\s*\[[^\]]*\]\s*([^/]*)/.exec(s);   // 대괄호 교재명 다음 ~ 첫 슬래시 앞 = 레슨명
+      if (!m) return 0;
+      var seg = m[1];
+      var n = /제\s*(\d+)\s*과|Lesson\s*(\d+)|Unit\s*(\d+)|Chapter\s*(\d+)/i.exec(seg);
+      if (!n) return 0;                            // 「미분류 레슨」·「A 유닛」 → 모름
+      for (var i = 1; i < n.length; i++) { if (n[i]) return parseInt(n[i], 10) || 0; }
+      return 0;
+    }
+    function currentName() {
+      try {
+        var seq = window._libSequence;
+        if (!seq || !seq.length) return '';
+        var it = seq[window._libSeqIdx || 0];
+        return (it && it.name) || '';
+      } catch (e) { return ''; }
+    }
+    function record(name) {
+      var n = lessonOf(name || currentName());
+      if (n === lastAuto) return;                  // 교재가 그 과에 그대로 있다 → 학생 선택을 건드리지 않는다
+      lastAuto = n;
+      try { localStorage.setItem(LS_LESSON, String(n)); } catch (e) {}
+      try { console.log('[mobilefix ⑪] 진도 기록: ' + (n ? '제' + n + '과' : '(모름)')); } catch (e) {}
+    }
+    window.__mgRecordLesson = record;             // ⑩절·검사에서 부를 수 있게
+
+    // 보이는 파일이 바뀌는 정본 — 다른 기기가 넘겨도 여기로 온다
+    var _sync = window.pdfSyncSeqIdx;
+    if (typeof _sync === 'function') {
+      window.pdfSyncSeqIdx = function (url) {
+        var r;
+        try { r = _sync.apply(this, arguments); } finally { try { record(''); } catch (e) {} }
+        return r;
+      };
+    }
+    // 교재를 처음 열 때 — 이름이 인자로 바로 온다(시퀀스가 아직 안 잡혔을 수 있다)
+    var _sel = window.selectFromTextbookLibrary;
+    if (typeof _sel === 'function') {
+      window.selectFromTextbookLibrary = function (id, url, kind, name) {
+        var r;
+        try { r = _sel.apply(this, arguments); } finally { try { record(name); } catch (e) {} }
+        return r;
+      };
+    }
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 준비됨'); } catch (e) {}
 })();

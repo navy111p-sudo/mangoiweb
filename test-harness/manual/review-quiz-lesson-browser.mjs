@@ -60,6 +60,12 @@ const FIXTURE = (opts) => `<!doctype html><html lang="ko"><head><meta charset="u
     window.rqvAuto = function(force){ window.__calls.auto.push(!!force); return Promise.resolve(); };
     window.rqvLoadList = function(){ return Promise.resolve(); };
     window.rqvOnEnter = function(){ return Promise.resolve(); };
+    // 교재 뷰어 전역 — idx-x3.js/idx-main.js 와 «같은 이름·같은 모양»
+    //   시퀀스 항목 이름은 업로더가 만드는 「[교재명] 레슨명 / 파일명」 형식이다.
+    window._libSequence = ${JSON.stringify(opts.seq || [])};
+    window._libSeqIdx = 0;
+    window.pdfSyncSeqIdx = function(url){ window.__calls.fetches.push(url); };
+    window.selectFromTextbookLibrary = function(){};
     window.rqvToggleLang = function(){
       window.__calls.toggle++;
       var b = document.getElementById('rqv-lang-btn');
@@ -207,6 +213,38 @@ console.log('\n[⑤-2] 학생이 이미 中文 을 골라 뒀으면 건드리지
   const { ctx, page } = await open({ book: '다락원 중국어 마스터 3', langBtn: '🇨🇳 中文' }, ZH_RESP);
   eq('토글 0회 (도로 영어가 되면 안 된다)', await page.evaluate(() => window.__calls.toggle), 0);
   eq('그래도 과 고르기 줄은 있다', await page.locator('#rqv-lesson-bar').count(), 1);
+  await ctx.close();
+}
+
+// ── ⑪ 교재를 넘기면 진도가 따라온다 ─────────────────────────────
+console.log('\n[⑪] 교재를 넘기면 «지금 몇 과인지» 가 기록된다 (과별 재업로드가 효과를 내는 고리)');
+{
+  const BOOK = '다락원 중국어 마스터 3';
+  const seq = [1,7,14].map(n => ({ id:'f'+n, url:'/x/'+n+'.jpg', kind:'img',
+    name: `[${BOOK}] 제${n}과 / Slide3.JPG` }));           // ⛔ 파일명의 3 을 과로 읽으면 안 된다
+  seq.push({ id:'fx', url:'/x/none.jpg', kind:'img', name: `[${BOOK}] 미분류 레슨 / Slide9.JPG` });
+  const { ctx, page } = await open({ book: BOOK, langBtn: '🇬🇧 EN', seq }, ZH_RESP);
+
+  async function flipTo(i) {
+    await page.evaluate((k) => { window._libSeqIdx = k; window.pdfSyncSeqIdx('/x/flip'); }, i);
+    await page.waitForTimeout(120);
+    return page.evaluate(() => localStorage.getItem('mangoi_current_lesson'));
+  }
+  eq('제1과 쪽을 보면 1 이 기록된다', await flipTo(0), '1');
+  eq('제7과로 넘기면 7 로 따라온다', await flipTo(1), '7');
+  eq('제14과로 넘기면 14 로 따라온다', await flipTo(2), '14');
+  check('⛔ 파일 이름 「Slide3.JPG」의 3 을 과로 읽지 않는다', (await flipTo(1)) === '7');
+  eq('과를 모르는 쪽(미분류 레슨)으로 가면 0 으로 지운다 — 앞 과가 남으면 엉뚱한 퀴즈가 붙는다',
+    await flipTo(3), '0');
+
+  // 학생이 손으로 고른 값을 교재가 «그 과에 그대로 있는 동안» 덮어쓰지 않는다
+  await flipTo(1);                                   // 교재는 제7과
+  await page.evaluate(() => localStorage.setItem('mangoi_current_lesson', '3'));  // 학생이 제3과 선택
+  await page.evaluate(() => window.pdfSyncSeqIdx('/x/same'));                     // 같은 쪽에서 한 번 더
+  await page.waitForTimeout(120);
+  eq('⚠️ 교재가 안 움직이면 학생이 고른 과를 덮어쓰지 않는다',
+    await page.evaluate(() => localStorage.getItem('mangoi_current_lesson')), '3');
+  eq('교재가 «실제로» 다른 과로 옮겨가면 그때는 따라간다', await flipTo(2), '14');
   await ctx.close();
 }
 

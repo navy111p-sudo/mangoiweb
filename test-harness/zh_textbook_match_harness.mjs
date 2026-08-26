@@ -112,6 +112,52 @@ if (!ts) {
     'AI 자동 출제 (듣기/쓰기/말하기) — 2026-08-07');
 }
 
+console.log('\n[D] 🔴 과별 재업로드 폴더 이름 — 업로더 분류기를 «실제로» 돌린다');
+/* [왜 이 검사가 있나] 2026-08-26 실측으로, 폴더를 어떻게 쌓느냐에 따라 «교재 이름 자체가 달라진다».
+     다락원/마스터3/제1과/…            → 교재명 「마스터3」   ← 중국어 매칭이 통째로 깨진다
+     다락원 중국어 마스터 3/제1과/…     → 교재명 그대로 ✅
+   583쪽을 다시 올린 «뒤에» 알게 되면 되돌릴 방법이 없으므로, 규칙을 여기에 못 박는다.
+   ⚠️ 업로더의 정규식을 손볼 때 이 검사가 FAIL 하면, 다락원 재업로드가 깨진다는 뜻이다. */
+const UP = read('cloudflare-deploy/public/textbook-uploader.html');
+check('교재 업로더 화면이 있다', UP.length > 0);
+{
+  // 업로더의 «분류기» 를 HTML 에서 오려 내 그대로 돌린다 — 규칙을 여기에 베껴 쓰지 않는다.
+  const rxSrc = (UP.match(/const RX = \{[\s\S]*?\n\};/) || [])[0] || '';
+  const fnSrc = (UP.match(/function classifyFile\(file\) \{[\s\S]*?\n\}\n/) || [])[0] || '';
+  check('분류기(RX · classifyFile)를 소스에서 오려 냈다', !!rxSrc && !!fnSrc);
+  if (rxSrc && fnSrc) {
+    const run = new Function('path',
+      rxSrc + '\n' + fnSrc.replace('function classifyFile(file) {', 'function classifyFile(file) {') +
+      '\nfunction fileKind(){ return "img"; }' +
+      '\nreturn classifyFile({ fullPath: path, name: path.split("/").pop(), size: 1 });');
+
+    const BOOK = '다락원 중국어 마스터 3';
+    console.log('  — ✅ 권장 구조: 「' + BOOK + '/제N과/파일」');
+    for (const n of [1, 7, 14]) {
+      const r = run(`${BOOK}/제${n}과/Slide3.JPG`);
+      eq(`제${n}과 — 교재명이 «그대로» 다`, r.textbook, BOOK);
+      eq(`제${n}과 — 과를 인식한다`, r.lesson, `제${n}과`);
+      eq(`제${n}과 — 레벨이 zh_passage 와 같다`, r.level, 'Lv 3');
+    }
+    const r1 = run(`${BOOK}/제1과/Slide3.JPG`);
+    check('그 교재명이 콘텐츠 표기로 이어진다(= 중국어로 잡힌다)',
+      (await (async () => {
+        if (!ts) return true;   // 컴파일 못 하면 이 줄은 건너뛴 셈
+        const js = ts.transpileModule(SRC, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+        const m = await import('data:text/javascript;charset=utf-8,' + encodeURIComponent(js));
+        return m.resolveZhTextbook(r1.textbook, ['다락원']) === '다락원';
+      })()));
+
+    console.log('  — ⛔ 이렇게 쌓으면 «교재 이름이 바뀌어» 중국어 매칭이 깨진다(경고용)');
+    const bad1 = run('다락원/마스터3/제1과/Slide1.jpg');
+    check('「다락원/마스터3/제N과」 는 교재명이 「마스터3」 로 바뀐다 — 쓰지 말 것',
+      bad1.textbook !== BOOK);
+    const bad2 = run(`${BOOK}/001/Slide1.jpg`);
+    check('숫자 폴더(001)는 «유닛마다 다른 책» 으로 쪼개진다 — 다락원에는 쓰지 말 것',
+      bad2.textbook !== BOOK);
+  }
+}
+
 console.log('\n' + '═'.repeat(60));
 console.log(`총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);
 if (fail) { console.log('\n❌ 실패:'); FAILS.forEach(f => console.log('   - ' + f)); process.exit(1); }
