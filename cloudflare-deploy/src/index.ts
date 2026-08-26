@@ -45,6 +45,7 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  // 🧠 판단 경로 그래프(3단계)
 import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
@@ -3750,6 +3751,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 📊 대화 난이도(1 기초 ~ 8 최고) — 프론트 레벨 슬라이더 값. 범위 밖이면 0(미지정).
     const rawDiff = Math.floor(Number(body && body.difficulty));
     const ctxDifficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
+    //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
+    const ctxAge = normalizeWarmupAge(body && body.age_group);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3772,6 +3776,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
+    sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
@@ -3907,6 +3912,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const lessonNo = Number(body.lesson_no) > 0 ? Number(body.lesson_no) : null;
     const rawDiff = Math.floor(Number(body.difficulty));
     const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    const ageGroup = normalizeWarmupAge(body.age_group);   // 🧑‍🎓 대화와 같은 연령대 축(소재·말투)
     const rawCount = Math.floor(Number(body.count));
     const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
 
@@ -3945,6 +3951,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
     let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
+    prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
