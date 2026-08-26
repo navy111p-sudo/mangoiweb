@@ -29,7 +29,8 @@ export async function handleStudentsApi(
     //   반환: 자녀 기본정보 + 최근 출석 + 평가서 4개 + 포인트 잔액/거래 + 결제내역 + 다음 수업
     // ═══════════════════════════════════════════════════════════════
     if (method === 'GET' && path === '/api/parent/dashboard') {
-      const childUid = (url.searchParams.get('child_uid') || '').trim();
+      /* 🔤 (2026-08-26) 아이디 대소문자 무시 — 아래에서 DB 표기로 통일하므로 let 이다. */
+      let childUid = (url.searchParams.get('child_uid') || '').trim();
       if (!childUid) return json({ ok: false, error: 'child_uid_required' }, 400);
 
       // 안전 테이블 생성
@@ -41,15 +42,23 @@ export async function handleStudentsApi(
       await env.DB.exec(`CREATE TABLE IF NOT EXISTS point_rule_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, rule_code TEXT NOT NULL, amount INTEGER, source TEXT, occurred_at INTEGER NOT NULL);`);
 
       // 자녀 기본정보 (password_hash 포함 — 본인확인용, 응답에는 제외)
-      const student = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, program, status, created_at, password_hash FROM students_erp WHERE user_id = ?`).bind(childUid).first<any>();
+      const student = await env.DB.prepare(
+        `SELECT user_id, student_name, parent_name, parent_phone, program, status, created_at, password_hash
+           FROM students_erp WHERE user_id = ? COLLATE NOCASE
+          ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1`
+      ).bind(childUid, childUid).first<any>();
       if (!student) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다.' }, 404);
+      /* 🪪 이후 조회는 전부 **DB 표기**로 — 포인트·평가서·출석·결제가 user_id 를 열쇠로 쓰므로
+         여기서 통일하지 않으면 «학생은 찾았는데 기록만 전부 비는» 상태가 된다. */
+      childUid = String(student.user_id);
 
       // 🔐 [PII] 학부모 본인 확인 — 자녀 계정 '비밀번호 로그인 토큰'이 있어야 열람 가능.
       //   ① 토큰(mango_token)의 uid 가 자녀 uid 와 일치해야 함(남의 자녀 차단)
       //   ② 비밀번호 미설정 계정은 차단 → parent.html 이 "비밀번호 설정(잠그기)"을 유도.
       //   (전화·이름 데이터가 D1 에 없어 비밀번호가 유일한 본인확인 수단)
       const _authUid = await authUidGlobal(request, url, env);
-      if (!_authUid || _authUid !== childUid) {
+      // 🔤 본인확인도 대소문자 무시 — 위에서 계정을 «정확일치 우선» 으로 하나로 좁힌 뒤라 안전하다.
+      if (!_authUid || _authUid.toLowerCase() !== childUid.toLowerCase()) {
         return json({ ok: false, error: 'auth_required', message: '자녀 계정으로 로그인해주세요.' }, 401);
       }
       if (!student.password_hash) {
@@ -455,7 +464,19 @@ ${MANGOI_KNOWLEDGE}`;
 
       // 🔤 (2026-07-22) 학부모 컴플레인 #7: 대소문자 오타로 '학생 ID 없음'이 뜨던 문제 —
       //    조회를 대소문자 무시(NOCASE)로 바꾸고, 이후 처리는 DB의 원래 표기(stu.user_id)를 쓴다.
-      const stu: any = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash FROM students_erp WHERE user_id = ? COLLATE NOCASE`).bind(uid).first();
+      /* 🔤 (2026-08-26 사장님 지시) 아이디는 **대소문자를 완전히 무시한다.** 어린이 학생이
+         가장 헷갈리는 것이 대소문자이고, 한국어에는 대소문자가 없어 감이 없다.
+         ⚠️ 그런데 NOCASE «하나만» 두면 안 된다 — `students_erp.user_id` 는 `TEXT PRIMARY KEY`
+            = BINARY 라 대소문자만 다른 행이 UNIQUE 에 안 걸리고, 실제로 실재한다
+            (2026-08-26 실측: `Kim`/`kim`, `Lee`/`lee` 네 행). ORDER BY 없는 NOCASE 조회는
+            **둘 중 아무 행이나** 집어서 «어제까지 되던 사람» 이 남의 계정으로 들어간다.
+         ✅ 그래서 **정확일치를 먼저** 보고, 없을 때만 대소문자만 다른 행을 쓴다.
+            정본은 관리자 로그인(auth-admin.ts)의 같은 규칙과 한 몸이다. */
+      const stu: any = await env.DB.prepare(
+        `SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash
+           FROM students_erp WHERE user_id = ? COLLATE NOCASE
+          ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1`
+      ).bind(uid, uid).first();
       if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 ID 를 찾을 수 없습니다. 학원에 문의해주세요.' }, 404);
 
       /* 🧹 (2026-08-20) 숨김 지정한 중복 계정은 로그인도 막는다.
@@ -682,7 +703,14 @@ ${MANGOI_KNOWLEDGE}`;
       if (!uid) return json({ ok: false, error: 'user_id_required' }, 400);
 
       let stu: any = null;
-      try { stu = await env.DB.prepare(`SELECT * FROM students_erp WHERE user_id = ?`).bind(uid).first(); } catch {}
+      /* 🔤 (2026-08-26) 로그인과 같은 규칙 — 아이디 대소문자 무시(정확일치 우선).
+         여기가 빠져 있으면 로그인은 되는데 «연장 결제» 만 «학생 정보를 찾을 수 없습니다» 가 된다. */
+      try {
+        stu = await env.DB.prepare(
+          `SELECT * FROM students_erp WHERE user_id = ? COLLATE NOCASE
+            ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1`
+        ).bind(uid, uid).first();
+      } catch {}
       if (!stu) return json({ ok: false, error: 'user_not_found', message: '학생 정보를 찾을 수 없습니다.' }, 404);
 
       const hasPw = !!stu.password_hash;
@@ -730,15 +758,23 @@ ${MANGOI_KNOWLEDGE}`;
       const newPwd = String(b.new_password || '').trim();
       if (!uid || !newPwd || newPwd.length < 4) return json({ ok: false, error: 'invalid_input', message: '새 비밀번호는 4자 이상' }, 400);
 
-      const stu: any = await env.DB.prepare(`SELECT password_hash FROM students_erp WHERE user_id = ?`).bind(uid).first();
+      /* 🔤 (2026-08-26) 로그인과 같은 규칙 — 아이디 대소문자 무시(정확일치 우선).
+         ⚠️ UPDATE 는 반드시 **DB 에 적힌 표기**(canonUid)로 한다. 입력 표기로 쓰면
+            대소문자가 다른 순간 «저장했다는데 새 비번으로 로그인이 안 되는» 상태가 된다
+            (0건 UPDATE 는 에러를 내지 않는다). */
+      const stu: any = await env.DB.prepare(
+        `SELECT user_id, password_hash FROM students_erp WHERE user_id = ? COLLATE NOCASE
+          ORDER BY (user_id = ?) DESC, user_id ASC LIMIT 1`
+      ).bind(uid, uid).first();
       if (!stu) return json({ ok: false, error: 'user_not_found' }, 404);
+      const canonUid = String(stu.user_id);
       // 기존 비밀번호 있으면 검증
       if (stu.password_hash) {
         const h = await hashPwd(oldPwd);
         if (h !== stu.password_hash) return json({ ok: false, error: 'invalid_old_password' }, 401);
       }
       const newHash = await hashPwd(newPwd);
-      await env.DB.prepare(`UPDATE students_erp SET password_hash = ? WHERE user_id = ?`).bind(newHash, uid).run();
+      await env.DB.prepare(`UPDATE students_erp SET password_hash = ? WHERE user_id = ?`).bind(newHash, canonUid).run();
       return json({ ok: true, message: '비밀번호가 변경됐습니다.' });
     }
 

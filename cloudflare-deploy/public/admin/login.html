@@ -42,6 +42,8 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
 .login-btn{width:100%;padding:22px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:#fff;font-weight:800;font-size:25px;border:0;border-radius:14px;cursor:pointer;transition:transform .12s,box-shadow .15s;box-shadow:0 8px 22px -4px rgba(59,130,246,0.6);font-family:inherit;margin-top:4px}
 .login-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px -4px rgba(59,130,246,0.75)}
 .login-btn:disabled{opacity:0.6;cursor:not-allowed;transform:none}
+.caps-warn{display:none;margin-top:10px;padding:10px 14px;background:rgba(251,191,36,0.14);border:1px solid rgba(251,191,36,0.45);border-radius:10px;color:#fcd34d;font-size:17px;line-height:1.45}
+.caps-warn.show{display:block}
 .err{display:none;margin-top:14px;padding:14px 18px;background:rgba(239,68,68,0.16);border:1px solid rgba(239,68,68,0.42);border-radius:10px;color:#fca5a5;font-size:20px;line-height:1.5}
 .err.show{display:block}
 .divider{display:flex;align-items:center;gap:12px;margin:26px 0 18px;color:rgba(230,236,255,0.5);font-size:19px;font-weight:600}
@@ -101,7 +103,7 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     <form id="loginForm" autocomplete="on">
       <div class="field">
         <label>👤 아이디</label>
-        <input type="text" id="username" name="username" autocomplete="username" placeholder="아이디를 입력하세요" required>
+        <input type="text" id="username" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디를 입력하세요" required>
       </div>
       <div class="field">
         <label>🔑 비밀번호</label>
@@ -109,6 +111,9 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
           <input type="password" id="password" name="password" autocomplete="current-password" placeholder="●●●●" required>
           <button type="button" class="pw-eye" id="pwEye" title="비밀번호 보기/숨기기" tabindex="-1">👁</button>
         </div>
+        <!-- 🔠 (2026-08-26) Caps Lock 안내. 비밀번호는 대소문자를 그대로 본다(사장님 결정)므로,
+             «틀렸다» 대신 «왜 틀렸는지» 를 미리 보여 준다. 아이디는 서버가 대소문자를 무시한다. -->
+        <div class="caps-warn" id="capsWarn">🔠 Caps Lock 이 켜져 있어요 — 비밀번호는 대문자·소문자를 구분합니다</div>
         <div class="remember-row">
           <label class="remember">
             <input type="checkbox" id="rememberId">
@@ -155,6 +160,26 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     if (pw.type === 'password') { pw.type = 'text'; this.textContent = '🙈'; }
     else { pw.type = 'password'; this.textContent = '👁'; }
   });
+
+  /* 🔠 (2026-08-26) Caps Lock 안내.
+     아이디는 서버가 대소문자를 무시하지만 **비밀번호는 그대로 본다**(사장님 결정 —
+     강사·관리자 49개 계정이 급여·회계를 여는 열쇠라 강도를 낮추지 않는다).
+     그래서 「틀렸습니다」 뒤에 알려 주는 대신, 원인을 **치기 전에** 보여 준다.
+     ⚠️ `getModifierState` 는 실제 키를 눌러야 값이 잡힌다 — 그래서 keydown·keyup 둘 다 본다.
+     ⚠️ 폰에는 Caps Lock 이 없어 이 줄은 뜨지 않는다(폰은 위 👁 «비밀번호 보기» 가 그 역할). */
+  (function(){
+    var warn = document.getElementById('capsWarn');
+    var pw = document.getElementById('password');
+    if (!warn || !pw) return;
+    function check(e){
+      var on = false;
+      try { on = !!(e.getModifierState && e.getModifierState('CapsLock')); } catch (_) {}
+      warn.classList.toggle('show', on);
+    }
+    pw.addEventListener('keydown', check);
+    pw.addEventListener('keyup', check);
+    pw.addEventListener('blur', function(){ warn.classList.remove('show'); });
+  })();
   // 🔑 (2026-08-17) 「운영자에게 메일 보내세요」 안내 → 실제 셀프 재설정으로 교체.
   //   로직은 /js/adm-pw-reset.js 한 곳에만 있다(admin.html 로그인 오버레이도 같은 파일을 쓴다).
   //   ⚠️ 여기에 재설정 로직을 복사해 넣지 말 것 — 그렇게 네 벌이 됐다가 사고를 냈다(PR #173).

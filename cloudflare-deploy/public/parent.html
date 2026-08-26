@@ -265,7 +265,7 @@ function showKakaoShareDialog(url) {
     <!-- 📋 ID 입력 박스 -->
     <div style="background:rgba(20,41,80,0.6);border:1px solid rgba(99,102,241,0.3);border-radius:16px;padding:24px 20px;max-width:480px;margin:20px auto;text-align:center;backdrop-filter:blur(8px)">
       <label style="display:block;font-size:13px;color:#fbbf24;font-weight:700;margin-bottom:10px" data-ko="👤 자녀의 학생 ID" data-en="👤 Your Child's Student ID">👤 자녀의 학생 ID</label>
-      <input id="uid-input" class="uid-input" type="text" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
+      <input id="uid-input" class="uid-input" type="text" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong_gd" data-ko-placeholder="예: hong_gd" data-en-placeholder="e.g. hong_gd" onkeypress="if(event.key==='Enter')pdGo()" style="margin:0 auto 12px;display:block" />
       <button id="uid-go-btn" class="uid-go" onclick="pdGo()" data-ko="📊 조회하기" data-en="📊 View Dashboard">📊 조회하기</button>
       <!-- 🔐 2단계: 비밀번호 입력/설정 (ID 확인 후 나타남) -->
       <div id="pw-step" style="display:none;margin-top:16px;border-top:1px solid rgba(139,92,246,0.2);padding-top:16px">

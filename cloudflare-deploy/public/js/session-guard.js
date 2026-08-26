@@ -157,3 +157,68 @@
     };
   } catch (_) { /* 이 파일의 어떤 실패도 페이지를 막지 않는다 */ }
 })();
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * 🔤 아이디 칸 «자동 대문자·자동 고침» 차단 (2026-08-26 사장님 지시)
+ *
+ *   왜 필요한가 —
+ *     어린이 학생이 가장 헷갈리는 것이 대소문자다. 한국어에는 대소문자가 없어 감이 없다.
+ *     게다가 폰 키보드는 `type="text"` 칸의 첫 글자를 **기본으로 대문자**로 만든다
+ *     (`autocapitalize` 기본값이 `sentences`). 자동고침(autocorrect)은 더 나빠서
+ *     아이디를 아예 딴 낱말로 바꿔 놓는다 — 이건 서버가 대소문자를 무시해도 못 막는다.
+ *
+ *   서버는 2026-08-26 부터 아이디 대소문자를 무시하므로(`api-students.ts`) 「Hong」 으로
+ *   쳐도 로그인 자체는 된다. 그래도 이 파일이 필요한 이유는 둘이다 —
+ *     ① 화면에 대문자가 찍히는 것 자체가 아이를 멈춰 세운다(「내가 틀렸나?」)
+ *     ② 자동고침은 «다른 글자» 를 만들어 실제로 로그인을 깨뜨린다
+ *
+ *   ⚠️ 로그인 칸(`lm-uid`)은 **모달을 열 때 JS 가 만든다** — 로드 시점에는 없다.
+ *      그래서 «누르는 순간»(pointerdown 캡처)과 «포커스»(focusin 캡처) 둘 다에서 손본다.
+ *      pointerdown 은 포커스보다 먼저라 키보드가 뜨기 전에 속성이 박힌다.
+ *   ⛔ MutationObserver 로 상주 감시하지 않는다 — 이 저장소에는 그것이 홈 화면을 통째로
+ *      멎게 한 전력이 있다(CLAUDE.md 2장 「body 의 class 를 MutationObserver 로」).
+ *   ⛔ 비밀번호 칸은 건드리지 않는다 — 브라우저가 이미 대문자화를 하지 않고,
+ *      값을 손대면 «비번 그대로 두기»(2026-08-26 사장님 결정)를 어기게 된다.
+ *
+ *   ⚠️ index.html 은 공동 금지구역이라 그 안의 칸(`vc-name-input`·`ext-uid`)에
+ *      속성을 직접 적을 수 없다. 그래서 밖에서 입혀 준다.
+ * ═══════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+  try {
+    if (window.__mangoiIdNoCaps) return;
+    window.__mangoiIdNoCaps = true;
+
+    /* 아이디를 받는 칸들. 새 화면을 만들면 `autocomplete="username"` 만 달아도 자동으로 걸린다
+       — 이름 목록은 그것이 빠진 옛 칸들을 위한 보완이다(`lm-uid` 가 실제로 그렇다). */
+    var ID_IDS = { 'lm-uid': 1, 'lg-uid': 1, 'ev-lg-uid': 1, 'ext-uid': 1, 'vc-name-input': 1, 'username': 1 };
+
+    function fixIdField(el) {
+      try {
+        if (!el || el.tagName !== 'INPUT') return;
+        // 비밀번호·체크박스 등은 대상이 아니다. 글자를 받는 칸만.
+        var t = (el.getAttribute('type') || 'text').toLowerCase();
+        if (t !== 'text' && t !== 'search') return;
+        if (!(ID_IDS[el.id] || el.getAttribute('autocomplete') === 'username')) return;
+        if (el.getAttribute('autocapitalize') === 'off') return;   // 이미 손봤다
+        el.setAttribute('autocapitalize', 'off');
+        el.setAttribute('autocorrect', 'off');
+        el.setAttribute('spellcheck', 'false');
+      } catch (_) {}
+    }
+
+    function sweep() {
+      try {
+        var list = document.querySelectorAll('input');
+        for (var i = 0; i < list.length; i++) fixIdField(list[i]);
+      } catch (_) {}
+    }
+
+    // 나중에 만들어지는 칸(로그인 모달)은 «누를 때» 잡는다. 캡처 단계라 남이 삼켜도 우리에겐 온다.
+    document.addEventListener('pointerdown', function (e) { fixIdField(e.target); }, true);
+    document.addEventListener('focusin', function (e) { fixIdField(e.target); }, true);
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sweep);
+    else sweep();
+  } catch (_) { /* 이 파일의 어떤 실패도 페이지를 막지 않는다 */ }
+})();
