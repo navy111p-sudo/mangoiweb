@@ -52,7 +52,7 @@ npx wrangler@latest secret put 이름 --env production
 | 방 보안 | `REQUIRE_ROOM_TOKEN` | 방 토큰 강제 여부 | |
 | 주소 | `PUBLIC_BASE_URL` | 외부 콜백용 기본 URL | |
 | LiveKit | `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` `LIVEKIT_URL` | LiveKit 화상 (보조) | |
-| TURN | `TURN_KEY_ID` `TURN_KEY_API_TOKEN` | Cloudflare TURN (화상 연결 중계) | 🔴 **2026-08-26 실측 «미설정»** — 확인·조치는 아래 「TURN 경로 확인」 |
+| TURN | `TURN_KEY_ID` `TURN_KEY_API_TOKEN` | Cloudflare TURN (화상 연결 중계) | ⚠️ 2026-08-26 하루 안에 **`public-fallback` → `kv-cache` 로 바뀜** — 아래 「TURN 경로 확인」의 관측 기록을 보세요 |
 | 알림톡 | `SOLAPI_API_KEY` `SOLAPI_API_SECRET` `SOLAPI_FROM_PHONE` `SOLAPI_PFID` | SOLAPI 카카오 알림톡/SMS | |
 | 알림톡 | `SOLAPI_TEST_MODE` `AUTO_ALIMTALK` `ALIMTALK_TRACK` | 발송 on/off 스위치 | 미발송 시 1순위 확인 |
 | 알림톡 템플릿 | `SOLAPI_TEMPLATE_ABSENCE` `_ATTENDANCE_RISK` `_CHAT_SUMMARY` `_LESSON_END` `_LESSON_START` `_MENTION` `_PAYMENT_OVERDUE` | 승인된 템플릿 ID 7종 | |
@@ -67,9 +67,39 @@ npx wrangler@latest secret put 이름 --env production
 떨어지고, 그 코드의 주석이 직접 경고합니다 — 「50명을 받을 수 있는 서버가 아니라서,
 **아무 에러 없이 «영상만 안 나오는»** 상태가 된다」.
 
-2026-08-26 에 실제로 그 상태였습니다. 사장님 제보는 「무거우면 자꾸 튕겨나가」 였고,
+### 📌 관측 기록 (2026-08-26) — 코드 밖 상태이므로 «누가·언제·어떻게» 를 함께 적습니다
+
+| 시각(UTC) | 값 | 누가·어떻게 |
+|---|---|---|
+| 07:1x 이전 | **`public-fallback`** | 사장님이 브라우저 F12 → Network 에서 `mangoi.ai/api/turn-config` 응답 헤더 확인 |
+| **07:40:54** | **`kv-cache`** (기본·production 둘 다) | 배포 run #2717 의 「TURN 경로 점검」 단계가 GitHub 러너에서 `workers.dev` 두 주소로 실측 |
+
+`TURN_CACHE_KEY`(`turn:ice-servers:v1`)는 **Cloudflare TURN API 호출이 성공했을 때만**
+기록되고 수명은 1시간입니다(`src/index.ts` 4204행). 무료 폴백은 캐시에 들어가지 않습니다.
+→ **07:40 기준 최근 1시간 안에 Cloudflare TURN 발급이 실제로 성공했습니다. 지금은 정상입니다.**
+
+⚠️ **왜 바뀌었는지는 확인되지 않았습니다.** 두 가지가 모두 가능합니다.
+
+1. 그사이 시크릿을 등록했다 (가장 자연스러움)
+2. 시크릿은 원래 있었고 Cloudflare TURN API 가 장애였다가 복구됐다 —
+   단 `public-fallback` 이 나오려면 24시간짜리 LKG 도 비어 있어야 하므로
+   **24시간 넘는 CF 장애**여야 합니다(가능하지만 흔치 않음)
+
+⛔ 둘 중 하나로 **단정해 적지 마세요.** 「하기로 한 것」이 「했다」로 적혔다가 6일 뒤 같은
+사고가 재발한 전례가 있습니다(CLAUDE.md 2장). 확인되면 이 표에 **한 줄을 덧붙이세요** —
+윗줄을 지우지 말고. 그래야 「한 번 이랬던 적이 있다」가 남습니다.
+
+✅ 지금부터는 사람이 기억할 필요가 없습니다 — 배포마다 `deploy.yml` 이 두 워커를 찍고,
+2층 감시견이 15분 연속 `public-fallback` 이면 문자를 보냅니다.
+
+---
+
+그날 사장님 제보는 「무거우면 자꾸 튕겨나가」 였고,
 D1 실측은 **RTT 389~629ms 인데 손실은 0.7~4.2%(낮음)** — 회선 불량이 아니라
 릴레이 경유의 지문이었습니다. 강사 재입장률 21세션 중 13세션(61.9%).
+⚠️ 그 측정 자체는 사실이지만, **그것이 곧 「시크릿이 없다」의 증거는 아닙니다** —
+무료 폴백을 타고 있었다는 것까지가 관측이고, 그 원인은 위 두 가지 중 어느 쪽이든
+같은 증상을 냅니다.
 
 **확인**
 
