@@ -38,9 +38,13 @@
     background:linear-gradient(180deg,rgba(23,38,72,.98),rgba(18,31,63,.92));
     position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);border-bottom:1px solid var(--border);
     box-shadow:0 6px 20px -12px rgba(0,0,0,.6)}
+  /* ← 는 «앞 화면으로», 🏠 는 «홈으로» — 둘은 가는 곳이 다르다(2026-08-26).
+     ⚠️ ← 는 <button> 이라 appearance·font-family 를 함께 풀어 줘야 <a> 와 같은 모양이 된다. */
   .top .back{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:0 0 auto;
+    appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
     color:var(--text);text-decoration:none;font-weight:800;font-size:22px;border-radius:12px;
     background:rgba(255,255,255,.05);border:1px solid var(--border);transition:background .15s,transform .08s}
+  .top .back.home{font-size:19px}
   .top .back:hover{background:rgba(56,189,248,.16)}
   .top .back:active{transform:scale(.92)}
   .top h1{margin:0;font-size:20px;font-weight:800;flex:1;letter-spacing:-.3px;white-space:nowrap;
@@ -239,6 +243,23 @@
     padding:20px 16px 44px}
   .wu-setup[hidden]{display:none !important}
   .wus-box{max-width:640px;margin:0 auto}
+  /* ⬅️🏠 설정 화면 전용 «나가는 길» (2026-08-26)
+     이 화면은 position:fixed 로 상단바(.top)를 통째로 덮는다 — 그래서 여기에 두지 않으면
+     홈으로 갈 길도, 앞 화면으로 돌아갈 길도 화면에 하나도 없다.
+     ⚠️ 아이콘만 두고 title 로 설명하지 않는다 — 폰에는 hover 가 없어 툴팁이 안 뜬다(CLAUDE.md 2장).
+        그래서 «뒤로»·«홈» 글자를 함께 그린다.
+     스크롤 상자가 .wu-setup 자신이라 sticky 가 여기서는 정상 동작한다(끝까지 내려도 남는다). */
+  .wus-nav{position:sticky;top:0;z-index:3;margin:-20px -16px 22px;padding:10px 16px;
+    background:linear-gradient(180deg,rgba(23,38,72,.98),rgba(23,38,72,.86));
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+  .wus-nav-in{display:flex;align-items:center;gap:8px;max-width:640px;margin:0 auto}
+  .wus-navbtn{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;
+    appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;text-decoration:none;
+    padding:8px 13px;border-radius:12px;font-size:14px;font-weight:800;line-height:1.2;white-space:nowrap;
+    background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);
+    transition:background .15s,transform .08s}
+  .wus-navbtn:hover{background:rgba(56,189,248,.18)}
+  .wus-navbtn:active{transform:scale(.94)}
   .wus-title{display:flex;align-items:center;gap:6px;font-size:22px;font-weight:900;letter-spacing:-.3px;margin:2px 0 8px}
   .wus-lead{font-size:15px;line-height:1.55;color:var(--text2);margin-bottom:6px}
   .wus-sub{font-size:15px;font-weight:800;color:var(--accent);margin:22px 0 4px}
@@ -281,6 +302,7 @@
     border:1px solid var(--border);color:var(--text2)}
   @media (max-width:640px){
     .wu-setup{padding:16px 12px 40px}
+    .wus-nav{margin:-16px -12px 18px;padding:9px 12px}
     .wus-title{font-size:19px}
     .wus-lead{font-size:14px}
     .wus-name{font-size:16px}
@@ -304,6 +326,7 @@
   @media (max-width:640px){
     .top{padding:9px 12px;gap:8px}
     .top .back{width:36px;height:36px;font-size:20px}
+    .top .back.home{font-size:17px}
     .top h1{font-size:16px}
     .icon-btn{width:36px;height:36px;font-size:18px}
     .icon-btn.kebab{font-size:22px}
@@ -348,6 +371,13 @@
           화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
           (감시: test-harness/warmup_age_level_harness.mjs). -->
   <div id="wuSetup" class="wu-setup" hidden aria-label="웜업 시작 설정">
+    <!-- ⬅️🏠 이 화면이 상단바를 덮으므로 «나가는 길» 을 화면 안에 함께 둔다 -->
+    <div class="wus-nav">
+      <div class="wus-nav-in">
+        <button type="button" class="wus-navbtn" id="wusNavBack" aria-label="뒤로 가기">← 뒤로</button>
+        <a class="wus-navbtn" id="wusNavHome" href="/" aria-label="홈으로 가기">🏠 홈</a>
+      </div>
+    </div>
     <div class="wus-box">
       <div id="wusMain">
         <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 웜업 설정</div>
@@ -373,7 +403,8 @@
   </div>
 
   <div class="top">
-    <a href="/" class="back" title="홈으로">←</a>
+    <button type="button" class="back" onclick="goBackOrHome()" title="뒤로 가기" aria-label="뒤로 가기">←</button>
+    <a href="/" class="back home" title="홈으로" aria-label="홈으로 가기">🏠</a>
     <h1><span class="ttl-emoji">🗣️</span> 수업 전 AI 웜업</h1>
     <button id="spkToggle" class="icon-btn" type="button" onclick="toggleSpeech()" title="AI 답변 음성 켜기/끄기">🔊</button>
     <div class="menu-wrap">
@@ -947,6 +978,23 @@ function openSetup(fromMenu){
   try{ box.scrollTop = 0; }catch(e){}
   renderSetup();
 }
+/* ⬅️ 뒤로 — 앞 화면이 «우리 사이트» 일 때만 되돌아가고, 아니면 홈으로 간다.
+   ⚠️ history.back() 만 쓰면 밖에서 바로 들어온 사람(카톡 링크·주소 입력)은 아무 데도 못 간다.
+      그런 경우가 «아무 일도 안 일어난다» 로 보이므로 홈으로 보내는 쪽이 맞다. */
+function goBackOrHome(){
+  var same = false;
+  try{ same = !!document.referrer && new URL(document.referrer).origin === location.origin; }catch(e){}
+  if(same && history.length > 1){ history.back(); return; }
+  location.href = '/';
+}
+/* 설정 화면의 «← 뒤로» — 어디에서 왔느냐에 따라 돌아갈 곳이 다르다.
+   ① 수준 찾기 중이면 → 목록으로  ② 대화 중에 ⋮ 로 열었으면 → 대화로  ③ 그 외 → 앞 화면(없으면 홈) */
+function setupGoBack(){
+  var probe = document.getElementById('wusProbe');
+  if(probe && !probe.hidden){ answerProbe('quit'); return; }
+  if(_warmStarted){ closeSetup(); return; }
+  goBackOrHome();
+}
 function closeSetup(){
   var box = setupEl(); if(box) box.hidden = true;
 }
@@ -965,6 +1013,8 @@ function closeSetup(){
   if(st) st.addEventListener('click', function(){ startWarmup(); });
   var fd = document.getElementById('wusFind');
   if(fd) fd.addEventListener('click', function(){ startProbe(); });
+  var bk = document.getElementById('wusNavBack');
+  if(bk) bk.addEventListener('click', function(){ setupGoBack(); });
 })();
 
 /* 🎯 내 수준 찾기 — 문장 3개를 보여주고 «편하게 읽히는지» 만 묻는다.
