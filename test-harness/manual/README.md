@@ -365,3 +365,24 @@ PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
 ```
 PW_DIR=/tmp/pw node test-harness/manual/observer-whisper-browser.mjs
 ```
+
+---
+
+## observer-no-recording-browser.mjs — 참관자는 녹화하지 않는다 (5건)
+
+「관찰자는 녹화 안 하게 해줘」(2026-08-26 사장님)를 **네트워크로** 확인한다.
+
+자동녹화는 «2초 폴링 + 3초 지연» 으로 시작하고, 보는 조건은 `body.vc-in-call` 하나뿐이라
+**참관자도 함께 녹화를 켜고 있었다**(실측: `class-943` 에 「관찰자」 이름의 녹화 두 건이
+30분 넘게 「● 녹화중」 — 참관자가 창을 닫으면 종료 신호가 안 가 크론이 12시간 뒤에야 정리).
+
+조건이 한 줄만 어긋나도 «코드는 있는데 그래도 켜지는» 상태가 되므로, 소스가 아니라
+**`/api/recordings/start` 가 나가는지**를 본다.
+
+> **🪤 2부가 핵심이다** — 「참관이 아니면 여전히 켜지는가」를 함께 재지 않으면
+> **녹화가 통째로 죽은 상태도 «통과»** 한다. 막는 검사에는 반드시 «막히지 않아야 하는 쪽» 을
+> 함께 둘 것.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/observer-no-recording-browser.mjs
+```
