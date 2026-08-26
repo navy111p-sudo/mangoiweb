@@ -33,10 +33,17 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const MAIN = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-main.js'), 'utf8');
+/* 📌 (2026-08-26) vcQualityAcc() 본체가 js/idx-vc-qlog.js (defer) 로 옮겨졌다.
+   idx-main.js 는 849KB blocking 이고 첫 화면 예산 여유가 351바이트였다 — 그 함수를 내리니
+   예산이 오히려 늘었다. **부르는 곳** 은 여전히 idx-main.js 의 적응 루프이므로,
+   ①·③ 은 두 파일을 합쳐 보고 ② 는 부르는 쪽(MAIN)에서 본다.
+   ⚠️ 한쪽만 보면 「함수가 사라졌다」로 오판해 멀쩡한 코드에 FAIL 을 낸다. */
+const QLOG = readFileSync(resolve(__dir, '../cloudflare-deploy/public/js/idx-vc-qlog.js'), 'utf8');
 
 // 부정 검사는 주석을 벗겨 낸 사본으로 판정한다(설명 주석이 자기 검사에 걸리는 사고 방지 —
 // CLAUDE.md 2장 「하니스에 «이 단어가 없어야 한다» 검사를 넣었는데 내 주석 때문에 FAIL」).
-const CODE = MAIN.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+const CODE = strip(MAIN) + '\n' + strip(QLOG);
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 function ok(name, cond) {
@@ -68,10 +75,20 @@ ok('② AAO 가 켜져 있는 동안에도 품질 로그를 남긴다(오디오 
 // 영상 블록에만 있으면 영상이 꺼진 순간 다시 멈춘다 = 사고 재발.
 ok('② 그 호출이 오디오 손실(alp)·RTT(art) 를 계산한 뒤에 온다',
    (() => {
-     const a = CODE.indexOf('const alp = 100 * adl');
-     const b = CODE.search(/if\s*\(\s*A\.active\s*\)\s*\{\s*try\s*\{\s*vcQualityAcc/);
+     const M = strip(MAIN);   // «부르는 쪽» 의 순서를 보는 검사다 — 합친 사본으로 보면 뜻이 흐려진다
+     const a = M.indexOf('const alp = 100 * adl');
+     const b = M.search(/if\s*\(\s*A\.active\s*\)\s*\{\s*try\s*\{\s*vcQualityAcc/);
      return a > 0 && b > a;
    })());
+
+/* 🔴 (2026-08-26) 뿌리 ② 의 «나머지 절반».
+   위 ②는 AAO 가 «켜진» 구간만 구했다. 그런데 AAO 는 오디오 손실 12% 이상에서야 켜진다 —
+   카메라를 끄거나 영상만 죽은(회선은 멀쩡한) 사람은 AAO 가 안 켜지므로 그때도 로그가 0건이었다.
+   실측(2026-08-26): 하루 예상 ~2,900건 중 실제 25건(약 1%). 「끊긴다」 제보를 숫자로 확인할
+   방법이 없던 진짜 이유다. → 그 return 앞에서 loss=-1 로 «영상 없음» 을 기록한다.
+   자세한 검사(실제 실행 포함)는 test-harness/vc_turn_quality_harness.mjs 3부. */
+ok('② 영상 표본이 아예 없는 틱도 기록에 남는다(카메라 끔·영상 죽음)',
+   /if \(dSent \+ dLost < 25\)[^\n]*vcQualityAcc\(\s*-1\s*,/.test(strip(MAIN)));
 
 // 영상 쪽 호출은 그대로 살아 있어야 한다(정상 수업의 주 경로).
 ok('② 영상 쪽 품질 로그 호출도 그대로 있다',

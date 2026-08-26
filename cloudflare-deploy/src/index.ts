@@ -45,6 +45,10 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
+// «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
+// 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
+import { isEnglishText, isEnglishQuestion } from './english-only';
 import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  // 🧠 판단 경로 그래프(3단계)
 import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
@@ -409,6 +413,10 @@ const worker = {
             //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
             //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
             '/api/admin/classes-now',
+            // ── 📅 (2026-08-25) 오늘 전체 수업 목록 — 위와 같은 사유(전사 학생 이름·강사 배정).
+            //    카페24 예약까지 합쳐 주게 되면서 한 화면에 모이는 양이 더 늘었다.
+            //    핸들러도 403 을 내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
+            '/api/admin/classes/today',
             // ── 🌅 아침 브리핑 (2026-08-08) — 전사 매출·미납 학생 수·2주+ 결석·출석률 요약이 한 문장에 담긴다.
             //    지금까지 이 목록에도, 화면 권한 매트릭스(adm-q10.js PERMS)에도 없어서 강사에게 그대로 열려 있었다.
             //    (PERMS 는 «목록에 있는 카드만» 가리는 방식이라, 등록 안 된 카드는 아무에게도 안 가려진다)
@@ -854,6 +862,59 @@ const worker = {
       }
     }
 
+    /* 📊 저장소 상태 — 화면 KPI 타일용 «진짜» 숫자 (2026-08-26 신설)
+       예전 타일 4개(12.4GB · 156파일 · 248MB · ₩4,820)는 HTML 에 박아 둔 **예시 숫자**였고,
+       옆의 「🔄 새로고침」이 부르는 window.refreshStorageStats 는 저장소 어디에도 없었다.
+       ⚠️ KV 호출수·월 청구액은 Worker 안에서 알 수 없다(Cloudflare 계정 API 영역).
+          그래서 그 두 칸은 «지어내지 않고» 뺐고, 대신 이 화면에서 실제로 궁금한 값
+          — 저장 실패 건수와 곧 만료될 건수 — 를 준다. */
+    if (path === '/api/recordings/storage-stats' && request.method === 'GET') {
+      try {
+        const out: any = { ok: true, r2: null, d1: null };
+        if (env.RECORDINGS) {
+          /* ⚠️ 버킷 전체를 세면 «녹화 파일» 이 아닌 것까지 들어간다 — 2026-08-26 실측에서
+             이 타일이 17.8GB · 15,084 파일로 떴는데 그 대부분이 화상수업 교재(`pdfs/`)였다.
+             제목이 「R2 저장소 (녹화 파일)」인데 교재를 세면 그것도 거짓말이다.
+             → REC_LIST_PREFIXES 만 센다(위 주석 참고). 덤으로 훨씬 싸고 잘리지도 않는다. */
+          let files = 0, bytes = 0, snaps = 0, truncated = false;
+          for (const prefix of REC_LIST_PREFIXES) {
+            let cursor: string | undefined = undefined;
+            for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+              const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+              for (const o of (listed.objects || [])) {
+                if (String(o.key).endsWith('.snap')) { snaps++; continue; }   // 안전망 사본은 «파일» 로 안 센다
+                files++; bytes += (o.size || 0);
+              }
+              cursor = listed.truncated ? (listed.cursor as string) : undefined;
+              if (!cursor) break;
+              if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+            }
+          }
+          out.r2 = { files, bytes, snapshots: snaps, truncated };
+        }
+        try {
+          const now = Date.now();
+          const r = await env.DB.prepare(
+            `SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'completed'     THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN status = 'upload_failed' THEN 1 ELSE 0 END) AS failed,
+                    SUM(CASE WHEN status = 'recording'     THEN 1 ELSE 0 END) AS recording,
+                    SUM(CASE WHEN expires_at IS NOT NULL AND expires_at > ? AND expires_at < ? THEN 1 ELSE 0 END) AS expiring
+               FROM recordings
+              WHERE COALESCE(status, '') != 'deleted'`
+          ).bind(now, now + 30 * 24 * 3600 * 1000).first<any>();
+          out.d1 = {
+            total: Number(r?.total || 0), completed: Number(r?.completed || 0),
+            failed: Number(r?.failed || 0), recording: Number(r?.recording || 0),
+            expiring30d: Number(r?.expiring || 0),
+          };
+        } catch (e: any) { out.d1 = { error: String(e?.message || e) }; }
+        return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
     // R2 녹화 저장소 연결 테스트
     if (path === '/api/recordings/test-r2' && request.method === 'GET') {
       try {
@@ -863,11 +924,27 @@ const worker = {
         const obj = await env.RECORDINGS.get(testKey);
         const text = obj ? await obj.text() : null;
         await env.RECORDINGS.delete(testKey);
-        // 녹화 파일 목록도 확인
-        const recList = await env.RECORDINGS.list({ prefix: 'recordings/', limit: 10 });
+        /* 🔴 2026-08-26: 여기가 'recordings/' **한 접두사만** 보고 있었다.
+           그런데 실제 자동녹화는 전부 'rec/' 에 쌓인다(recordings-r2.ts 의 create).
+           그래서 파일이 멀쩡히 있어도 이 진단은 늘 「녹화 파일 0개」라고 답했고,
+           「저장소가 비었나 보다」로 읽혔다. 두 접두사를 함께 센다. */
+        const [recList, legacyList] = await Promise.all([
+          env.RECORDINGS.list({ prefix: 'rec/', limit: 1000 }),
+          env.RECORDINGS.list({ prefix: 'recordings/', limit: 1000 }),
+        ]);
+        // `.snap` 은 짧은 녹화 안전망의 «사본» 이라 파일 수에서 뺀다(recordings-r2.ts)
+        const recObjs = (recList.objects || []).filter(o => !String(o.key).endsWith('.snap'));
+        const legacyObjs = legacyList.objects || [];
+        const sample = [...recObjs, ...legacyObjs]
+          .sort((x: any, y: any) => new Date(y.uploaded).getTime() - new Date(x.uploaded).getTime())
+          .slice(0, 5)
+          .map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }));
         return new Response(JSON.stringify({
           ok: true, bucket: 'connected', testWrite: !!text, testContent: text,
-          recordingFiles: recList.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+          rec:    { prefix: 'rec/',        count: recObjs.length,    truncated: !!recList.truncated },
+          legacy: { prefix: 'recordings/', count: legacyObjs.length, truncated: !!legacyList.truncated },
+          // 옛 화면(캐시된 admin.html)이 이 이름으로 읽으므로 남겨 둔다 — 이제 두 접두사를 합친 표본이다
+          recordingFiles: sample
         }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
@@ -1229,6 +1306,8 @@ const worker = {
         path === '/api/admin/students/erp-seed' ||
         // 📚 교재 일괄 배정 (학생관리 카드)
         path === '/api/admin/students/bulk-assign-textbook' ||
+        // ➕ 학생 수동 등록 (학생관리 카드 「학생 등록」 버튼)
+        path === '/api/admin/students/create' ||
         path === '/api/community/posts' ||
         path === '/api/teacher-profiles' ||
         path === '/api/_bootstrap' ||
@@ -2947,9 +3026,10 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
         for (const row of (((rs.results as any[]) || []))) {
           let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
           for (const q of qs) {
+            if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 영어 웜업 프롬프트에 넣지 않는다
             for (const c of [q.audio_text, q.answer_text, q.target]) {
               const s = String(c || '').trim();
-              if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !sentences.includes(s)) sentences.push(s);
+              if (isEnglishText(s) && !sentences.includes(s)) sentences.push(s);
             }
           }
         }
@@ -3044,7 +3124,10 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const seenEn = new Set<string>();
     const pushSentence = (en: any, ko: string) => {
       const s = String(en || '').trim();
-      if (!s || !/[a-zA-Z]/.test(s) || s.length > 90) return;
+      /* 여기가 「cāochǎng 이 영어 게임에 섞이던」 자리다 — 옛 판정 `/[a-zA-Z]/` 는
+         「라틴 글자가 한 자라도 있으면 영어」라 병음을 그대로 통과시켰다.
+         ⛔ 낱말 수 하한으로 풀지 말 것 — 영어 정답이 한 낱말인 문항이 많다(BTS 2 → 'red'). */
+      if (!isEnglishText(s, 90)) return;
       const key = s.toLowerCase();
       if (seenEn.has(key)) return;
       seenEn.add(key);
@@ -3062,12 +3145,22 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       if (textbook || level) {
         const tries: Array<{ sql: string; binds: any[] }> = [];
         if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [textbook] });
-        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [level] });
+        /* ⚠️ 레벨 폴백에는 «교재에 안 묶인» 문제은행만 쓴다 — 웜업(warmupLessonContext)과 같은 조건.
+           [왜] review_quizzes 는 영어 전용 표가 아니다. 이 조건이 없으면 「그 레벨의 아무 교재나」가
+                걸려서, 예컨대 level='Lv 3' 인 활성 퀴즈는 2026-08-26 실측 기준 «전부 중국어 교재
+                「다락원」» 이라 영어 게임이 순수 병음만 받게 된다(위 게이트가 막지만, 애초에
+                엉뚱한 교재를 긁어 오는 것 자체가 틀렸다).
+           ⚠️ 그래서 이 폴백은 «교재 없는 공용 문제은행» 이 생기기 전까지 항상 0건이다
+              (실측: 활성 퀴즈 29건이 전부 교재가 붙어 있어 «교재 없음» 0건). 웜업도 같은 상태다.
+              0건이면 게임은 내장 기본 어휘로 폴백한다 — 조용히 잘못된 교재를 주는 것보다 낫다.
+           ⛔ 「그래도 뭐라도 주자」고 이 조건을 빼지 말 것. 2026-08-26 사장님 지시로 맞춘 것이다. */
+        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 4`, binds: [level] });
         for (const t of tries) {
           const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
           for (const row of (((rs.results as any[]) || []))) {
             let qs: any[] = []; try { qs = JSON.parse((row as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const ko = koFromPrompt(q?.q);
               pushSentence(q?.answer_text || q?.audio_text || q?.target, ko);
             }
@@ -3086,7 +3179,8 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
         for (const row of (((rs.results as any[]) || []))) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
-          if (!en || !ko || !/[a-zA-Z]/.test(en) || en.length > 30) continue;
+          // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다
+          if (!ko || !isEnglishText(en, 30)) continue;
           const key = en.toLowerCase();
           if (seenW.has(key)) continue;
           seenW.add(key);
@@ -3184,6 +3278,34 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       return { course: s, seq: 0, title: '', key: s };
     }
 
+    /* 영어 코스 목록에서 «중국어 교재» 를 빼기 위한 이름표.
+       [왜] 아래 코스 목록은 review_quizzes 를 통째로 훑는데 그 표에는 중국어 교재
+            「다락원」이 함께 들어 있다(그 표는 영어 전용이 아니다). 그래서 영어 게임의
+            코스 고르기에 중국어 교재가 한 칸 섞여 나오고, 골라도 레슨이 0개다 —
+            그 교재에서 라틴 글자로 된 값은 전부 «한 낱말 병음» 이라 아래 w.length<2 에
+            걸린다(2026-08-26 D1 실측: 활성 문항 178개 중 라틴 글자 14개, 두 낱말 이상 0개).
+       ⚠️ count 는 «퀴즈 건수» 가 아니라 «그 코스로 묶이는 distinct textbook 문자열 수» 다
+            (아래 cc.count = cc.keys.length). 다락원은 문자열이 하나라 count=1 이고,
+            같은 날 실측 기준 1위는 BTS 1(001~008 = 8)이라 «기본 코스» 가 되지는 않았다.
+            ⛔ 이 줄을 「기본 코스가 다락원이었다」로 되돌리지 말 것 — 한 번 그렇게 적었다가
+               정정했다. 심각도를 부풀리면 다음 사람이 엉뚱한 것을 고친다.
+       [판정] 「zh_vocab 에 있는 교재 = 중국어 코스」 — 중국어 게임이 이미 그 표를
+            정본으로 쓰고 있어서(/api/games/zh-vocab · zh-passage · 아래 glang==='zh' 갈래)
+            새 규칙을 만들지 않아도 된다.
+       ⚠️ active=1 을 «일부러» 안 건다 — 여기서 하는 일은 «빼기» 라, 비활성 중국어 교재까지
+          넓게 잡는 쪽이 안전하다(좁게 잡으면 중국어가 영어 목록으로 새어 든다).
+       ⚠️ 실패해도 영어 목록이 멈추면 안 된다 — 표가 없으면 빈 집합으로 두고 그냥 진행한다. */
+    const zhCourses = new Set<string>();
+    if (glang !== 'zh') {
+      try {
+        const zr = await env.DB.prepare(`SELECT DISTINCT textbook FROM zh_vocab WHERE textbook IS NOT NULL AND textbook != '' LIMIT 200`).all();
+        for (const r of (((zr.results as any[]) || []))) {
+          const t = String((r as any).textbook || '').trim().toLowerCase();
+          if (t) zhCourses.add(t);
+        }
+      } catch {}
+    }
+
     // ── 코스(교재) 목록 ──
     const courseMap = new Map<string, { course: string; count: number; keys: Array<{ key: string; seq: number; title: string }> }>();
     try {
@@ -3193,7 +3315,13 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       } else {
         const rs = await env.DB.prepare(`SELECT textbook FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY textbook ASC LIMIT 500`).all();
         for (const r of (((rs.results as any[]) || []))) {
-          const p = parseEn(String((r as any).textbook || '')); if (!p.key) continue;
+          const rawTb = String((r as any).textbook || '').trim();
+          const p = parseEn(rawTb); if (!p.key) continue;
+          /* 중국어 교재는 영어 코스 목록에서 뺀다. 원문과 «파싱된 코스명» 을 둘 다 본다 —
+             정확일치만 보면 나중에 중국어 퀴즈가 「다락원 001」처럼 과 번호를 달고 들어오는
+             순간 에러 없이 필터가 통째로 헛돈다(CLAUDE.md 「헬퍼에 행을 넘겼는데 아무 일도
+             안 일어남」과 같은 모양). */
+          if (zhCourses.has(rawTb.toLowerCase()) || zhCourses.has(p.course.trim().toLowerCase())) continue;
           if (!courseMap.has(p.course)) courseMap.set(p.course, { course: p.course, count: 0, keys: [] });
           const cc = courseMap.get(p.course)!; cc.keys.push({ key: p.key, seq: p.seq, title: p.title }); cc.count = cc.keys.length;
         }
@@ -3237,8 +3365,9 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
           for (const r of rows) {
             let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
-              if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
+              if (!isEnglishText(en, 90)) continue;
               const t = String(q?.q || ''); const ci = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = ci >= 0 ? t.slice(ci + 1).trim() : '';
               const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
               const w = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean); if (w.length < 2) continue;
@@ -3744,6 +3873,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 📊 대화 난이도(1 기초 ~ 8 최고) — 프론트 레벨 슬라이더 값. 범위 밖이면 0(미지정).
     const rawDiff = Math.floor(Number(body && body.difficulty));
     const ctxDifficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
+    //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
+    const ctxAge = normalizeWarmupAge(body && body.age_group);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3766,6 +3898,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
+    sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
@@ -3901,6 +4034,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const lessonNo = Number(body.lesson_no) > 0 ? Number(body.lesson_no) : null;
     const rawDiff = Math.floor(Number(body.difficulty));
     const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    const ageGroup = normalizeWarmupAge(body.age_group);   // 🧑‍🎓 대화와 같은 연령대 축(소재·말투)
     const rawCount = Math.floor(Number(body.count));
     const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
 
@@ -3939,6 +4073,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
     let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
+    prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
@@ -4909,23 +5044,65 @@ async function handleRecordingUpload(request: Request, env: Env): Promise<Respon
   }
 }
 
+// 🔴 2026-08-25 — 여기서 «있는 녹화가 없다고» 나왔다.
+//   R2 list 는 한 번에 최대 1000개다. 예전엔 커서 없이 딱 한 번만 불렀는데,
+//   버킷 객체가 1000개를 넘으면 **키 사전순 앞 1000개만** 온다.
+//   그런데 실제 녹화 키는 `rec/...` 라 `class-...`·`mangoi-...` 같은 옛 키들보다 뒤로 밀린다.
+//   → 파일이 멀쩡히 있어도 관리자 화면(js/adm-core.js)이 짝을 못 찾아 **전부 「⚠️ 영상 없음」**.
+//   ⚠️ 게다가 «잘렸다» 는 신호가 없어서 «파일이 없다» 와 «목록에 없다» 가 구분되지 않았다.
+//   ✅ 커서로 끝까지 훑고, 그래도 못 다 읽으면 truncated 로 **정직하게** 알린다.
+const REC_LIST_MAX_PAGES = 20;    // 접두사당 최대 20,000개 — 워커 시간·메모리 상한
+
+/* 🔴 2026-08-26(2차) — **이 R2 버킷은 녹화 전용이 아니다.** 여럿이 나눠 쓴다:
+     · `rec/`          자동녹화 multipart (recordings-r2.ts)        ← 녹화
+     · `recordings/`   옛 단일 업로드 (handleRecordingComplete)      ← 녹화
+     · `pdfs/`         화상수업 교재 파일 (아래 /api/video-call/pdf) ← 녹화 아님
+     · `popup-media/`  홈 팝업 이미지·영상 (api-admin.ts)            ← 녹화 아님
+     · `_test/`        진단 버튼이 만들었다 지우는 임시 파일          ← 녹화 아님
+   커서를 넣어 «끝까지» 읽게 고치자(1차 수정) 교재 파일이 전부 딸려 나와, 관리자 녹화 목록에
+   「⚠ 기록 없음(고아)」이 **15,046줄** 찍혔다(2026-08-26 사장님 화면 실측 — 총 15,096건 중).
+   ▶재생 버튼까지 붙어 JPG 를 동영상으로 틀려고 한다.
+   → 버킷 전체를 훑지 말고 **녹화 접두사 두 개만** 훑는다. 싸고, 정확하고, 잘릴 일도 없다.
+   ⚠️ D1 `recordings.file_url` 이 가리키는 키는 이 둘뿐이다(옛 `/blob/upload` 경로는
+      `{방번호}/{날짜}/…` 를 만들지만 **D1 에 아무것도 안 쓰고** 부르는 화면도 없다).
+      혹시 그런 키를 확인해야 하면 `?prefix=` 로 지정해 부를 수 있다. */
+const REC_LIST_PREFIXES = ['rec/', 'recordings/'];
+
 async function handleRecordingList(request: Request, env: Env): Promise<Response> {
   try {
-    if (!env.RECORDINGS) return recordingJson({ items: [] });
+    if (!env.RECORDINGS) return recordingJson({ items: [], count: 0, truncated: false });
     const url = new URL(request.url);
-    const prefix = url.searchParams.get('prefix') || undefined;
-    const listed = await env.RECORDINGS.list({ prefix, limit: 1000 });
-    const items = listed.objects.map(o => ({
-      key: o.key,
-      size: o.size,
-      uploaded: o.uploaded,
-      url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
-      originalName: (o.customMetadata && o.customMetadata.originalName) || o.key.split('/').pop()
-    }));
-    return recordingJson({ items });
+    const only = url.searchParams.get('prefix');
+    const prefixes = only ? [only] : REC_LIST_PREFIXES;
+    const items: any[] = [];
+    let truncated = false;
+    for (const prefix of prefixes) {
+      let cursor: string | undefined = undefined;
+      for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+        const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+        for (const o of (listed.objects || [])) {
+          // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
+          //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
+          if (String(o.key).endsWith('.snap')) continue;
+          items.push({
+            key: o.key,
+            size: o.size,
+            uploaded: o.uploaded,
+            url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
+            originalName: (o.customMetadata && o.customMetadata.originalName) || String(o.key).split('/').pop()
+          });
+        }
+        // ⚠️ 판별 유니온을 좁히지 않는다 — 이 저장소는 tsconfig 가 strict:false 라
+        //    listed.cursor 직접 접근이 TS2339 로 막힌다(CLAUDE.md 2장 함정).
+        cursor = listed.truncated ? (listed.cursor as string) : undefined;
+        if (!cursor) break;
+        if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+      }
+    }
+    return recordingJson({ items, count: items.length, truncated });
   } catch (err: any) {
     console.error('[recording] list error:', err);
-    return recordingJson({ error: err?.message || 'List failed', items: [] }, 500);
+    return recordingJson({ error: err?.message || 'List failed', items: [], count: 0, truncated: false }, 500);
   }
 }
 
@@ -5382,6 +5559,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/retention/')) return true;
   // R2 연결 테스트 — 관리자만
   if (path === '/api/recordings/test-r2') return true;
+  if (path === '/api/recordings/storage-stats') return true;   // 저장소 KPI (건수·용량) — 관리자만
   // 녹화 목록·다운로드·DB삭제·R2삭제 는 관리자만.
   // 학생 클라이언트 자동 호출인 /start, /stop, /upload, /stream, /complete, /blob/upload 는 열어둠.
   if (path === '/api/recordings' && method === 'GET') return true;
@@ -5466,6 +5644,10 @@ function isAgencyAllowedApi(path: string): boolean {
        돌고 있나» 를 봐야 한다. 핸들러가 scopeStudentCond() 로 자기 범위 학생의 수업만
        잘라서 주고(범위 밖은 목록·건수 양쪽에서 빠진다), 강사에게는 아예 닫혀 있다. */
     '/api/admin/classes-now',
+    /* 📅 (2026-08-25) 오늘 전체 수업 — manager.html 은 지사장·학원장도 쓴다. 「우리 학원 수업이
+       오늘 몇 건인가」는 그들이 봐야 하는 것이고, 핸들러가 scopeStudentCond() 로 자기 범위
+       학생의 수업만 잘라서 준다(범위 밖은 목록·건수 양쪽에서 빠진다). 강사에게는 위에서 닫았다. */
+    '/api/admin/classes/today',
   ];
   return allow.some(a => path === a || path.startsWith(a));
 }

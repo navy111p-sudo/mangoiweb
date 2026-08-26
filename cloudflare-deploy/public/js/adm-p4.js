@@ -7,6 +7,22 @@
   const fmtDate = (ms) => ms ? new Date(ms).toLocaleString('ko-KR', { dateStyle:'short', timeStyle:'short' }) : '-';
   const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 
+  // 🍋 브랜드 이름 앞의 망고 이모지를 Mr.mango 캐릭터(공식 로고)로 바꿔 그린다.
+  //   DB(gift_catalog.brand)에는 이모지가 붙은 문자열이 그대로 들어 있고(시드 이후 바뀐 적 없음),
+  //   여기서 «그릴 때만» 갈아 끼운다 — 개발·운영이 같은 D1 이라 UPDATE 로 풀지 않는다(CLAUDE.md 1-1).
+  //   ⚠️ img 의 alt 는 「Mr.mango」로 고정 — admin-inline-c.css 2240행이 alt 에 「망고아이!」가 들어간
+  //      이미지를 display:none 으로 지운다(홈 히어로 배너용 규칙). 이름을 그대로 alt 에 쓰면 안 된다.
+  //   ⚠️ 판정은 indexOf 로 한다 — /g 정규식의 .test() 는 lastIndex 가 남아 «한 번 걸러 한 번씩» 거짓이 된다.
+  const MANGO_EMOJI = /🥭/g;   // U+1F96D (Unicode 9 — Win10 표시 가능)
+  const brandHtml = (brand) => {
+    const raw = String(brand || '').trim();
+    if (!raw) return '<b style="color:#374151">-</b>';
+    if (raw.indexOf('🥭') < 0) return '<b style="color:#374151">' + esc(raw) + '</b>';
+    const label = raw.replace(MANGO_EMOJI, '').trim() || '망고아이';
+    return '<img src="/img/mango-char.png" alt="Mr.mango" style="width:22px;height:22px;object-fit:contain;vertical-align:-6px;margin-right:5px">'
+      + '<b style="color:#374151">' + esc(label) + '</b>';
+  };
+
   // ━━━━━━━━ 학생 잔액 ━━━━━━━━
   let _ptBalances = [];
   window.ptLoadBalances = async function(){
@@ -166,7 +182,7 @@
       }
       const rowsHtml = _ptCatalog.map(g => `
         <tr style="border-bottom:1px solid #e5e7eb;${g.enabled?'':'opacity:.45'}">
-          <td style="padding:9px 12px;font-size:12.5px"><b style="color:#374151">${esc(g.brand||'-')}</b></td>
+          <td style="padding:9px 12px;font-size:12.5px">${brandHtml(g.brand)}</td>
           <td style="padding:9px 12px;font-size:12.5px">${esc(g.name)}</td>
           <td style="padding:9px 12px;font-size:11.5px;color:#6b7280">${esc(g.category||'-')}</td>
           <td style="padding:9px 12px;text-align:right;color:#6b7280">${fmt(g.face_value)}원</td>

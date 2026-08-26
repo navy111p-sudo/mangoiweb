@@ -148,9 +148,10 @@
         lbl.setAttribute('data-ko','로그인');
         lbl.setAttribute('data-en','Login');
         btn.onclick = openLoginModal;
-        btn.style.background = 'rgba(30,41,59,0.85)';
-        btn.style.borderColor = 'rgba(148,163,184,0.35)';
-        btn.style.color = '#e2e8f0';
+        // 🔑 (2026-08-25) 비로그인 로그인 버튼이 눈에 안 띈다는 지적 — 무채색 대신 골드로.
+        btn.style.background = 'linear-gradient(135deg,#fde68a,#f59e0b)';
+        btn.style.borderColor = 'rgba(245,158,11,0.9)';
+        btn.style.color = '#1a1a1a';
       }
     }
     // 🎁 Phase P3: 포인트 칩 동기화 (로그인 시 표시 + 잔액 fetch)
@@ -367,6 +368,15 @@
       refreshPointsChip(true);
     } catch(e) {}
   };
+  // 브랜드의 망고 이모지 → Mr.mango 캐릭터. 판정이 indexOf 인 이유, Text/Html 을 가른 이유는
+  // docs/작업기록/260825_포인트샵_브랜드_Mr.mango.md (첫 화면 예산이 빠듯해 여기엔 안 적는다)
+  var PS_MANGO_RE = /\u{1F96D}/gu;
+  function psBrandText(b){ return String(b||'').replace(PS_MANGO_RE,'').replace(/\s+/g,' ').trim(); }
+  function psBrandHtml(b){
+    var raw = String(b||'').trim(); if (!raw) return '';
+    if (raw.indexOf('\u{1F96D}') < 0) return escapeLT(raw);
+    return '<img src="/img/mango-char.png" alt="Mr.mango" style="width:16px;height:16px;object-fit:contain;vertical-align:-4px;margin-right:3px">' + escapeLT(psBrandText(raw) || '\uB9DD\uACE0\uC544\uC774');
+  }
   window.psLoadCatalog = async function(){
     var pane = document.getElementById('ps-pane-catalog'); if (!pane) return;
     var L = (window.getLang?window.getLang():'ko')==='ko';
@@ -378,7 +388,7 @@
       var rows = d.rows || [];
       if (!rows.length) { pane.innerHTML = '<div class="ps-empty">'+(L?'상품이 없습니다.':'No gifts available.')+'</div>'; return; }
       var cards = rows.map(function(g){
-        var brandTag = g.brand ? '<div class="ps-brand">'+escapeLT(g.brand)+'</div>' : '';
+        var brandTag = g.brand ? '<div class="ps-brand">'+psBrandHtml(g.brand)+'</div>' : '';
         var stockTag = (g.stock != null) ? ('<div class="ps-stock">'+(L?'남은 수량':'Stock')+' '+g.stock+'</div>') : '';
         // 🥭 망고아이(수업료 전환) 카드는 3D 캐릭터 이미지로 표시
         var isMango = (g.brand && g.brand.indexOf('망고아이') >= 0) || g.category === 'tuition'
@@ -397,7 +407,7 @@
           '</div>'+
           '<div class="ps-card-foot">'+
             '<div class="ps-price">'+g.point_price.toLocaleString('ko-KR')+' P</div>'+
-            '<button class="ps-redeem-btn" onclick="psStartRedeem('+g.id+',&quot;'+escapeLT(g.name).replace(/&quot;/g,'\\&quot;')+'&quot;,&quot;'+escapeLT(g.brand||'').replace(/&quot;/g,'\\&quot;')+'&quot;,'+g.point_price+')">'+(L?'교환하기':'Redeem')+'</button>'+
+            '<button class="ps-redeem-btn" onclick="psStartRedeem('+g.id+',&quot;'+escapeLT(g.name).replace(/&quot;/g,'\\&quot;')+'&quot;,&quot;'+escapeLT(psBrandText(g.brand||'')).replace(/&quot;/g,'\\&quot;')+'&quot;,'+g.point_price+')">'+(L?'교환하기':'Redeem')+'</button>'+
           '</div>'+
         '</div>';
       }).join('');
@@ -422,7 +432,7 @@
         var dt = new Date(x.requested_at).toLocaleString('ko-KR');
         return '<div class="ps-hist-item">'+
           '<div class="ps-hist-main">'+
-            '<div class="ps-hist-name">'+(x.gift_brand?escapeLT(x.gift_brand)+' · ':'')+escapeLT(x.gift_name||'-')+'</div>'+
+            '<div class="ps-hist-name">'+(x.gift_brand?psBrandHtml(x.gift_brand)+' · ':'')+escapeLT(x.gift_name||'-')+'</div>'+
             '<div class="ps-hist-meta">'+dt+' · '+(x.recipient_phone||'-')+'</div>'+
           '</div>'+
           '<div class="ps-hist-side">'+

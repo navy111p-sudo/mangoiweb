@@ -39,6 +39,9 @@ import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생�
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
+  // 📼 수업 녹화 파일 저장소 — 런타임엔 wrangler.toml 로 이미 묶여 있는데 «타입 선언만»
+  //   없었다. /api/recordings/stop 이 «실물이 있는가» 를 직접 확인하려면 필요하다(2026-08-26).
+  RECORDINGS?: R2Bucket;
   // 📧 이메일(Resend) — 레벨테스트 신규신청 관리자 알림 + 교사 배정 알림
   //   RESEND_API_KEY, RESEND_FROM, LEVELTEST_ADMIN_EMAIL (email.ts / EmailEnv)
   // 🎯 레벨테스트 신청자 확정 알림톡 템플릿(선택) — 미설정 시 문자(SMS) 폴백
@@ -139,10 +142,24 @@ export async function handleMangoApi(
       try {
         const b: any = await request.json().catch(() => null);
         if (!b || !b.uid) return json({ ok: true });   // 로깅은 실패해도 무관 → 조용히 무시
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        await ensureSchemaOnce('vc_quality', async () => {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+          /* 📶 (2026-08-26) novideo — «영상 표본이 아예 없던 4초 틱» 의 수(카메라 끔·영상 죽음).
+             예전엔 그런 사람의 기록이 **통째로 안 남았다**(js/idx-vc-qlog.js 머리말) — 8/26 하루
+             예상 ~2,900건 중 실제 25건. 「끊긴다」 제보를 숫자로 확인할 방법이 없던 이유다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts:582 에
+                «한 벌 더» 있고, IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다. 두 벌의 모양이
+                갈리면 새 DB(개발용·복구본)에서 어느 쪽이 이겼느냐로 결과가 달라진다
+                (schema_drift_harness 가 그래서 FAIL 을 낸다). 그러니 ALTER 로만 붙인다 —
+                `attendance.host` 와 같은 방식이다. 이미 있으면 예외가 나는데 그게 정상이라 삼킨다. ⚠️ 이 ALTER 는 **첫 로그가 들어와야** 돈다 — 배포 직후
+                SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
+                (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
+          try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+        });
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
-            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0).run();
+            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
+            Number(b.novideo) || 0).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
@@ -484,9 +501,9 @@ export async function handleMangoApi(
            녹화 동의가 계정에 이어지지 못했다.
            ⚠️ user_id 는 그대로 둔다 — 출석·발화시간 집계가 그 값에 이어져 있다. 새 칸만 더한다. */
         res = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?)`
-        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now).run();
+          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?, ?)`
+        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now, request.headers.get('Host') || null).run();
       } catch {
         // 컬럼이 아직 없는 배포본 → 한 번 만들어 두고 아래 기존 경로로 처리(다음 입장부터 채워진다)
         try {
@@ -496,6 +513,7 @@ export async function handleMangoApi(
           const m = String(e?.message || e);
           if (!/duplicate column/i.test(m)) console.warn('[attendance] account_uid 컬럼 추가 실패:', m);
         }
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
         // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
         res = await env.DB.prepare(
           `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
@@ -629,8 +647,19 @@ export async function handleMangoApi(
       //   ⚠️ 클라이언트가 보내는 값(total_session_ms)은 오프라인 동안에도 계속 누적되므로 신뢰할 수 없다.
       //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
+      /* 🌐 (2026-08-25) host — 이 요청이 어느 도메인으로 들어왔는지.
+         [왜 필요한가] 이 저장소는 워커를 두 벌(webrtc-unified-platform · -prod) 배포하고,
+         Durable Object 네임스페이스는 스크립트마다 갈린다(wrangler.toml 주석 참고).
+         화상수업 WS 는 location.host 로 방을 정하므로, 같은 room_id 로 들어와도
+         서로 다른 도메인이면 서로 다른 «방»(DO)에 앉는다 — 그런데 D1(이 표 포함)은
+         두 워커가 같은 id 를 공유해서 attendance 만 보면 «둘 다 같은 방에 있었다» 로
+         보인다(2026-08-19 강선생님 건, CLAUDE.md 2장 「같은 방 번호인데 서로 안 보이고…」).
+         host 를 남겨 두면 다음에 같은 사고가 나도 SQL 한 줄로 확인된다:
+           SELECT user_id, role, host FROM attendance WHERE room_id=? — host 가 갈리면 그게 원인이다. */
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
       });
+      const reqHost = request.headers.get('Host') || null;
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
@@ -690,22 +719,23 @@ export async function handleMangoApi(
                     attended_at = COALESCE(attended_at, ?),
                     role     = COALESCE(role, ?),
                     username = COALESCE(username, ?),
-                    last_seen_at = ?
+                    last_seen_at = ?,
+                    host = COALESCE(host, ?)
               WHERE id = ?`
-          ).bind(now, role, b.username || null, srvNow, existing.id).run();
+          ).bind(now, role, b.username || null, srvNow, reqHost, existing.id).run();
           recovered = (existing.status === 'absent');
         } else {
           // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
           await env.DB.prepare(
-            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ? WHERE id = ?`
-          ).bind(now, srvNow, existing.id).run();
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ?, host = COALESCE(host, ?) WHERE id = ?`
+          ).bind(now, srvNow, reqHost, existing.id).run();
         }
         attendanceId = Number(existing.id);
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow).run();
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow, reqHost).run();
         attendanceId = Number(ins.meta.last_row_id);
       }
 
@@ -1435,6 +1465,12 @@ export async function handleMangoApi(
         || path === '/api/admin/live-classes'
         // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 여기 없으면 handleAdminApi 까지 못 가서 404
         || path === '/api/admin/classes-now'
+        /* 📅 (2026-08-25) 오늘 수업 전체(매니저 «바로 입장» 카드) — **2026-07-23 신설 이래 줄곧 404 였다.**
+           index.ts 라우팅 목록(②)에는 있었지만 이 위임 가드(③)에 없어서 handleAdminApi 까지 못 갔다.
+           ⚠️ 화면에서는 «고장» 으로 안 보였다 — 404 본문 {error:'Not Found'} 에는 `ok` 칸이 없어
+              `if (d.ok === false)` 검사를 통과하고, `d.sessions || []` 가 빈 배열이 되어
+              **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다(8/25 매니저 보고서 ②의 정체). */
+        || path === '/api/admin/classes/today'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')
@@ -3431,16 +3467,59 @@ ${numbered}`;
     if (path === '/api/recordings/stop' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
+
+      /* 🔴 2026-08-26: 예전엔 R2 업로드가 됐든 안 됐든 **무조건 'completed'** 로 적었다.
+         그래서 클라우드에 한 조각도 안 올라간 녹화가 목록에 초록색 「완료 · 2.1MB」로 떴다
+         (그 용량은 브라우저가 잰 «로컬» 값이다). 8/25 에 1,692건이 전부 「완료」인데
+         「⚠️ 영상 없음」이던 화면의 절반이 이것이었다 — 화면이 «저장됐다» 고 말해 버리니
+         아무도 «안 올라갔다» 는 것을 알 수 없었다.
+         → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
+      const cur = await env.DB.prepare(
+        `SELECT file_url, status FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+
+      // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
+      // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
+      const curKey = String(cur?.file_url || '');
+      const looksLikeKey = !!curKey && !curKey.startsWith('CLIENT_ERR:') && !curKey.startsWith('DEBUG:');
+      let headProven = false;    // 실물을 «봤다» — 이때만 완료로 올려준다(자가복구 포함)
+      let headChecked = false;   // 조회가 성립했는가 — 예외면 판단을 보류한다
+      const recBucket = (env as any).RECORDINGS as R2Bucket | undefined;
+      if (looksLikeKey && recBucket) {
+        try { headProven = !!(await recBucket.head(curKey)); headChecked = true; } catch { headChecked = false; }
+      }
+
+      /* ⚠️ 강등은 «없다고 밝혀졌을 때» 만 한다. 조회를 못 했으면 예전 동작(완료)을 유지한다 —
+         이 경로는 수업이 끝날 때마다 도는 곳이라, 막는 쪽이 아니라 통과시키는 쪽으로 실패해야
+         멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
+      const provenMissing = headChecked && !headProven;
+      const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
+      const nothingRecorded = !(Number(b.duration_ms) > 0) && !(Number(b.size_bytes) > 0);
+      const fallbackStatus = (provenMissing || clientSaysFailed)
+        ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
+        : 'completed';
+
       await env.DB.prepare(
         `UPDATE recordings
             SET ended_at = ?, duration_ms = ?, size_bytes = ?,
-                status = CASE WHEN status IN ('upload_failed','deleted') THEN status ELSE 'completed' END,
+                status = CASE
+                  WHEN status = 'deleted'       THEN status
+                  WHEN ? = 1                    THEN 'completed'
+                  WHEN status = 'upload_failed' THEN status
+                  ELSE ?
+                END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0, b.file_url || null, b.storage || null, b.recording_id).run();
+      ).bind(now, b.duration_ms || 0, b.size_bytes || 0,
+             headProven ? 1 : 0, fallbackStatus,
+             b.file_url || null, b.storage || null, b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
-      return json({ ok: true, ended_at: now, status: after?.status || null, storage: after?.storage || null });
+      return json({
+        ok: true, ended_at: now,
+        status: after?.status || null, storage: after?.storage || null,
+        cloud_verified: headProven,          // 화면·진단이 «정말 올라갔나» 를 알 수 있게 함께 준다
+      });
     }
 
     if (path === '/api/recordings' && method === 'GET') {

@@ -23,6 +23,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const cssA = rd('../cloudflare-deploy/public/css/admin-inline-a.css');
+const cssC = rd('../cloudflare-deploy/public/css/admin-inline-c.css');
 const html = rd('../cloudflare-deploy/public/admin.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
@@ -90,6 +91,31 @@ const wrapScrolls = /id="sm-students-wrap"[^>]*overflow\s*:\s*auto/.test(html)
   || /#sm-students-wrap\s*\{[^}]*overflow\s*:\s*auto/.test(cssA);
 check('#sm-students-wrap 이 overflow:auto 로 감싸져 있다', wrapScrolls,
   '상자의 overflow 와 칸의 min-width:0 은 «둘 다» 있어야 동작한다');
+
+console.log('\n[ 떠 있는 버튼 묶음이 폼을 가로막지 않는다 ]');
+/* 🔴 (2026-08-21) #mi-speed-dial 은 접힌 액션 3개의 «자리» 를 그대로 갖고 있다.
+   .mi-sd-action 이 opacity:0 + pointer-events:none 이어도 display 는 살아 있어서
+   컨테이너 상자가 그만큼 높다. 컨테이너가 pointer-events:auto 면 그 «안 보이는» 구간이
+   통째로 클릭을 가로챈다 — 실측(2026-08-21):
+       1400px 상자 108x396 / 보이는 아바타 108px → 위 289px 이 투명 차단
+        900px 상자  83x305 / 보이는 아바타  83px → 위 222px
+   그 자리에 걸린 폼 칸은 «보이는데 안 눌린다» 가 된다(수강신청 시간칸 ⏰ 가 실제로 그랬다).
+   ⚠️ 화면만 봐서는 절대 안 보인다 — elementsFromPoint 로 «맨 위에 무엇이 있나» 를 재야 걸린다. */
+{
+  const sdCss = (cssC.match(/#mi-speed-dial\s*\{[^}]*\}/) || [''])[0];
+  const actCss = (cssC.match(/#mi-sd-actions\s*\{[^}]*\}/) || [''])[0];
+  check('#mi-speed-dial 상자는 클릭을 통과시킨다 (pointer-events:none)',
+    /pointer-events\s*:\s*none/.test(sdCss),
+    '이게 없으면 접힌 액션 자리 200~290px 가 투명하게 클릭을 먹는다');
+  check('#mi-sd-actions 도 접힌 동안 통과시킨다 (pointer-events:none)',
+    /pointer-events\s*:\s*none/.test(actCss));
+  check('아바타(트리거)는 그대로 눌린다 (#mi-ops-fab pointer-events:auto)',
+    /#mi-ops-fab\s*\{[^}]*pointer-events\s*:\s*auto/.test(cssC),
+    '통과만 시키고 되살리지 않으면 상담원 버튼이 아예 안 눌린다');
+  check('펼쳤을 때는 액션이 눌린다 (.is-open 에서 auto 로 되돌림)',
+    /#mi-speed-dial\.is-open\s+#mi-sd-actions\s*\{[^}]*pointer-events\s*:\s*auto/.test(cssC)
+    || /#mi-speed-dial\.is-open\s+\.mi-sd-action\s*\{[^}]*pointer-events\s*:\s*auto/.test(cssC));
+}
 
 console.log('\n' + '─'.repeat(58));
 console.log(`  ${FAIL ? '⚠' : '✅'} PASS ${PASS} / FAIL ${FAIL}`);

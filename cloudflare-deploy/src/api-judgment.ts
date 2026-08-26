@@ -34,6 +34,9 @@ import {
 // 🧐 영어 품질(문법) 규칙 — «Want play with me» 가 보기로 나가던 사고(2026-08-24)의 정본.
 //    judgment-english.ts 도 import 없는 순수 모듈이라 하니스가 직접 불러 검증합니다.
 import { englishQualityRules, grammarCheckPrompt, allowsBrokenDistractors } from './judgment-english';
+// ✒️ 문장 종결부호 — 보기·상황문·해설이 «맨몸» 으로 끝나던 것을 코드에서 다듬습니다(2026-08-26).
+//    정본은 sentence-punct.ts 한 곳이고, 이 파일도 import 없는 순수 모듈이라 하니스가 직접 돌립니다.
+import { endSentence, endSentences, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
 export { normalizeBand, bandLabel, bandName, bandCatalog } from './judgment-level';
@@ -669,12 +672,15 @@ async function writeBandState(env: MangoEnv, uid: string, st: BandState): Promis
  *      화면은 아무것도 표시하지 않습니다(없는 값을 기본값으로 채워 보여주면 강사가 오해합니다).
  */
 export async function getReadingBandFor(env: MangoEnv, uid: string): Promise<
-  { band: number; mode: BandMode; src: string; name_ko: string; name_en: string; lv: string } | null
+  { band: number; mode: BandMode; src: string; age_group: AgeGroup; name_ko: string; name_en: string; lv: string } | null
 > {
   const st = await readBandState(env, String(uid || '').trim());
   if (!st) return null;
   return {
     band: st.band, mode: st.mode, src: st.src,
+    // 🧑‍🎓 나이대도 함께 — 학생 화면의 첫 설정 카드가 «이미 정해 둔 값» 을 표시하는 데 씁니다.
+    //    (강사 화면은 이 칸을 안 읽습니다 — 더하기만 했으므로 기존 호출부는 그대로입니다)
+    age_group: st.ageGroup,
     // 강사 다수가 필리핀이라 한/영 둘 다 내려보냅니다(운영 원칙)
     name_ko: bandName(st.band, 'ko'), name_en: bandName(st.band, 'en'), lv: bandLabel(st.band),
   };
@@ -795,6 +801,14 @@ export async function generatePersonalizedScenario(
   const probeRaw = Math.round(+(bandOpts?.probeBand as any));
   const probing = Number.isFinite(probeRaw) && probeRaw >= 1 && probeRaw <= 8;
 
+  // 🧑‍🎓 나이대는 밴드(실력)와 독립인 축이라 **배치테스트 중에도** 받아 저장합니다.
+  //   ⚠️ 예전에는 이 줄이 아래 `if (!probing)` 안에 있었습니다. 그래서 첫 설정 카드에서
+  //      「성인」 + 「레벨 찾기」를 한 번에 고르면, 배치 6문항이 전부 **아이 소재**로 나오고
+  //      (probe 요청의 age_group 이 조용히 버려짐) 배치가 끝난 뒤에야 성인으로 바뀌었습니다.
+  //      에러가 안 나서 «성인을 골랐는데 학교 이야기가 나온다» 로만 보입니다.
+  //      밴드는 탐색 중 흔들리면 안 되지만 소재 축은 흔들릴 것이 없습니다 — 그래서 여기만 밖으로 뺍니다.
+  if (wantAgeGroup) bandState = { ...bandState, ageGroup: wantAgeGroup, at: Date.now() };
+
   if (!probing) {
     if (picked) {
       const pickedSrc = (bandOpts?.src === 'placement') ? 'placement' : 'student';
@@ -806,8 +820,11 @@ export async function generatePersonalizedScenario(
         bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
       }
     }
-    if (wantAgeGroup) bandState = { ...bandState, ageGroup: wantAgeGroup, at: Date.now() };
     if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged || ageGroupChanged) await writeBandState(env, studentUid, bandState);
+  } else if (ageGroupChanged) {
+    // 배치 중에는 밴드를 저장하지 않습니다 — bandState.band 는 저장돼 있던 값 그대로라
+    //   여기서 써도 탐색 밴드(probeRaw)가 새어 들어가지 않습니다. 바뀐 것은 나이대 하나뿐입니다.
+    await writeBandState(env, studentUid, bandState);
   }
   // 이 요청의 문제를 만들 밴드 — 배치 중이면 탐색 밴드, 아니면 학생의 밴드
   const askBand = probing ? probeRaw : bandState.band;
@@ -868,6 +885,7 @@ ${focus}
 ${tbLine}
 ${levelLine}
 ${qualityLine}
+${PUNCTUATION_PROMPT_RULE}
 Set the situation in this specific context: "${theme}". The decision ${whoShort} faces should involve: ${angle}.
 ${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
@@ -892,7 +910,8 @@ Return STRICT JSON only:
         });
         const j = parseFirstJson(resp);
         if (j && Array.isArray(j.options) && j.options.length >= 2) {
-          const situation = String(j.situation || '').slice(0, 500);
+          // ✒️ 종결부호 보장 — 단어 수 판정(countWords)·중복 판정(normSituation)은 구두점을 안 세므로 영향 없습니다.
+          const situation = endSentence(String(j.situation || '').slice(0, 500));
           if (seenSits.has(normSituation(situation))) {
             console.warn('[judgment] scenario duplicate of recent, retrying (attempt ' + (attempt + 1) + ')');
             continue;
@@ -904,7 +923,9 @@ Return STRICT JSON only:
             console.warn('[judgment] situation length off band ' + askBand + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
-          const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
+          // ✒️ 보기도 «학생이 입으로 할 완결된 문장» 이라 종결부호를 붙입니다 —
+          //    물음표는 뺄 수 없는 부호라, 가지런하게 만드는 길은 마침표를 찍는 쪽뿐입니다(2026-08-26 사장님 지시).
+          const opts4 = endSentences(j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4));
           // ⚠️ 정답 인덱스는 '자르고 난 뒤'의 길이로 제한해야 합니다.
           //    전에는 자르기 전 길이로 제한해서, LLM 이 5지선다에 correct_index=4 를 주면
           //    정답 선택지가 잘려나가고 인덱스만 남아 학생이 절대 정답을 맞힐 수 없었습니다.
@@ -931,8 +952,8 @@ Return STRICT JSON only:
             correct_index: ci,
             option_scores: scores,
             difficulty: normalizeDifficulty(j.difficulty),
-            why: String(j.why || '').slice(0, 600),
-            why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
+            why: endSentence(String(j.why || '').slice(0, 600)),
+            why_ko: endSentence(cleanKo(String(j.why_ko || '')).slice(0, 600)),
           };
           usedTheme = theme;
         }

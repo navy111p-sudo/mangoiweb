@@ -3288,19 +3288,16 @@ async function vcJoinRoom(skipUI) {
                     역할 미확정으로 숨어 있었다 → 강사 입장에선 «없어진» 것이 맞다.
              누르는 자리에 진짜 기능을 둔다. 학생이 눌러도 vcShareMyScreen 이 스스로 막는다. */
           { icon:'🖥️', label:'내 컴퓨터 화면 공유 (Share my screen)', onclick:`vcShareMyScreen()` },
-          { icon:'🟦', label:'1/4 화면', onclick:`vcScreenSet('quarter')` },
-          { icon:'🟦', label:'1/2 화면', onclick:`vcScreenSet('half')` },
-          { icon:'🟦', label:'3/4 화면', onclick:`vcScreenSet('threequarter')` },
-          /* 👥 (2026-07-30 강사 피드백 Kaye 18번) "줌·보다처럼 참가자 전체 보기를 넣어달라"
-         → 이 '전체' 모드가 바로 그 기능이었다(얼굴이 화면 전체를 채움). 라벨이 '전체' 뿐이라
-           무엇의 전체인지 알 수 없었고 메뉴에 숨어 있어 못 찾은 것 → 이름을 분명히 한다. */
-      { icon:'👥', label:'참가자 전체 보기 (Gallery)', onclick:`vcScreenSet('full')` },
-          { icon:'📌', label:'PIP', onclick:`vcScreenSet('pip')` },
-          { icon:'👤', label:'솔로', onclick:`vcScreenSet('solo')` },
-          /* 📝📖 (2026-07-30 강사 피드백 Jane) "교재나 칠판만 따로 크게 볼 수 없다 — 같이 커져서 집중이 어렵다"
-             → 이 두 모드가 바로 '하나만 크게'다(다른 쪽을 숨겨 화면을 통째로 씀). 라벨이 '칠판만'·'교재만'
-               뿐이라 '크게 보는 기능'인 줄 몰랐다 → 이름에 '크게'를 넣어 분명히 한다.
-             ※ 교재 내용 자체 확대는 Ctrl(⌘)+휠 로 따로 되고, 그때 다른 화면 요소는 커지지 않는다. */
+          /* 🖼 이름은 크기바(.vsb-seg)와 **한 벌** — 고치면 아래 toast labels 도 함께.
+             📜 왜 이 이름인지: docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md */
+          { icon:'🟦', label:'교재 크게 (Material)', onclick:`vcScreenSet('quarter')` },
+          { icon:'🟦', label:'기본 (Standard)', onclick:`vcScreenSet('half')` },
+          { icon:'🟦', label:'얼굴 크게 (Faces)', onclick:`vcScreenSet('threequarter')` },
+          { icon:'👥', label:'모두 보기 (Gallery)', onclick:`vcScreenSet('full')` },
+          { icon:'📌', label:'교재 전체 + 작은 얼굴 (PIP)', onclick:`vcScreenSet('pip')` },
+          /* ⛔ '솔로'라 부르지 말 것 — ⋯ 메뉴의 vcToggleSolo(='내 얼굴만')와 **반대 동작**이다.
+             이쪽은 video-solo 라 얼굴이 통째로 사라지고 교재만 남는다. */
+          { icon:'👤', label:'영상 끄고 교재만 (Video off)', onclick:`vcScreenSet('solo')` },
           { icon:'📝', label:'칠판만 크게 (Board only)', onclick:`vcScreenSet('boardonly')` },
           { icon:'📖', label:'교재만 크게 (Book only)', onclick:`vcScreenSet('bookonly')` },
         ],
@@ -3411,7 +3408,8 @@ async function vcJoinRoom(skipUI) {
         }
       } catch(e){}
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만', hidefaces:'🙈 얼굴 숨김 (수업은 계속 참여 중)' };
+      // ⚠️ 위 VC_FOLDERS.screen 의 label 과 **같은 말**이어야 한다.
+      const labels = { quarter:'교재 크게', half:'기본', threequarter:'얼굴 크게', full:'모두 보기', pip:'교재 전체 + 작은 얼굴', facepip:'얼굴 전체 + 작은 교재', solo:'영상 끄고 교재만', boardonly:'칠판만 크게', bookonly:'교재만 크게', hidefaces:'얼굴 숨김 (수업은 계속 참여 중)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -5042,7 +5040,7 @@ function vcArmFullscreenRetry() {
                 pc.__qPrev = { lost: lost, sent: sent };
                 const dLost = Math.max(0, lost - prev.lost);
                 const dSent = Math.max(0, sent - prev.sent);
-                if (dSent + dLost < 25) return;  // 표본 부족(영상 꺼짐 등) — 판단 보류
+                if (dSent + dLost < 25) { try { vcQualityAcc(-1, rtt); } catch (_) {} return; }  // 표본 부족(영상 꺼짐/죽음) — 화질 판단은 보류, 기록은 «영상 없음» 으로 남긴다(js/idx-vc-qlog.js)
                 const lossPct = 100 * dLost / (dSent + dLost);
                 let step = pc.__qStep || 0;
                 if (lossPct > 6 || rtt > 450) {
@@ -5141,30 +5139,7 @@ function vcAAONotify(html) {
     } catch (_) {}
 }
 
-/* 📶 회선품질 로깅 — 적응루프에서 손실/RTT를 누적, 60초마다 요약 1건 전송(fire-and-forget, 통화 무관). 강사별 인터넷 품질 파악용.
-   🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 '강사 회선이 대체로 어떤가'를 보는 용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소. */
-function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], sentAt: Date.now() });
-    if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
-    if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
-    if (Date.now() - Q.sentAt < 60000 || !Q.s.length) return;
-    try {
-        var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
-        var A = window.__vcAAO || {};
-        var body = JSON.stringify({
-            room: (vcRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
-            avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
-            avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
-        });
-        if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
-        else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
-    } catch (_) {}
-    window.__vcQ = { s: [], r: [], sentAt: Date.now() };
-}
+/* 📶 회선품질 로깅 vcQualityAcc() 는 js/idx-vc-qlog.js (defer) 로 옮겼다 — 첫 화면 예산. 부르는 곳 3군데는 전부 try/catch 안이다. */
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
@@ -11599,7 +11574,7 @@ async function pdfUpload(input) {
     }
 
     // 클라이언트측 확장자 검증 — 교재 뷰어가 렌더할 수 있는 것만 교재로 올린다
-    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
     const isAllowed = f => allowedExts.some(e => String(f.name || '').toLowerCase().endsWith(e));
     const okFiles = files.filter(isAllowed);
     const badFiles = files.filter(f => !isAllowed(f));
@@ -11888,7 +11863,7 @@ async function _pdfRenderInner(_seq) {
         baseScale = Math.min(availW / baseVp.width, availH / baseVp.height);
         if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.0;
     }
-    const scale = baseScale * pdfZoom;
+    const scale = baseScale * pdfZoom * (window._pdfDPR||1);
 
     // 1번 페이지
     const canvas1 = document.getElementById('pdf-canvas');
