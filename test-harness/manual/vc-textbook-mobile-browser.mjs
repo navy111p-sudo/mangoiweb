@@ -319,6 +319,63 @@ ok(await fit(345, 687, 1280, 720) === 'cover', '세로폰에서 교사 얼굴은
 ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
   '세로폰에서 화면 공유가 더는 잘리지 않는다 — 고치기 전에는 cover 로 좌우가 날아갔다');
 
+/* ── 9부. 1:1 수업에서 상대(교사) 얼굴이 더 큰가 ─────────────────
+   ⚠️ 앞의 ⑧절은 «칸 안에서 그림이 차지하는 비율» 이고, 여기는 «칸 자체의 크기» 다. 다른 값이다.
+   ⚠️ 2026-07-14 「정확히 반반」 지시를 2026-08-26 사장님 지시로 바꾼 자리라,
+      되돌아가면 이 절이 FAIL 해서 «누가 언제 왜 바꿨나» 를 다시 찾을 수 있어야 한다. */
+console.log('\n⑨ 1:1 수업 — 상대(교사) 얼굴이 더 큰가');
+const TILES = `(function(mode,count,localFirst){
+  document.body.classList.add('vc-in-call');
+  try{ window.vcNukeRotationOverlays && window.vcNukeRotationOverlays(); }catch(e){}
+  var view=document.getElementById('view-videocall-call');
+  if(view){view.style.display='flex'; view.classList.add('active');}
+  document.querySelectorAll('[id^="view-"]').forEach(function(e){ if(e.id!=='view-videocall-call') e.style.display='none'; });
+  var row=document.getElementById('vc-main-row');
+  row.className=row.className.replace(/video-[a-z]+/g,'').trim();
+  if(mode) row.classList.add(mode);
+  var grid=document.getElementById('vc-video-grid'); grid.innerHTML='';
+  var names=['vc-video-teacher','vc-local-box'];
+  if(localFirst) names=['vc-local-box','vc-video-teacher'];
+  if(count>2) names=['vc-video-a','vc-video-b','vc-local-box'];
+  names.forEach(function(idn){
+    var b=document.createElement('div'); b.className='video-box'; b.id=idn;
+    var v=document.createElement('video'); v.style.width='100%'; v.style.height='100%';
+    b.appendChild(v); grid.appendChild(b);
+  });
+  grid.setAttribute('data-count',String(count));
+  function area(idn){ var e=document.getElementById(idn); if(!e) return 0;
+    var r=e.getBoundingClientRect(); return r.width*r.height; }
+  var other = count>2 ? area('vc-video-a') : area('vc-video-teacher');
+  var mine  = area('vc-local-box');
+  return JSON.stringify({ other:Math.round(other), mine:Math.round(mine),
+    ratio: mine>0 ? Math.round(other/mine*100)/100 : null });
+})`;
+const tiles = async (mode, count, localFirst) =>
+  JSON.parse(await evalJs(`${TILES}(${JSON.stringify(mode)},${count},${!!localFirst})`));
+
+await load(390, 844, 3, 'ko-KR');
+let t = await tiles('video-half', 2);
+ok(t.ratio >= 1.5 && t.ratio <= 1.75, `세로폰 1:1 — 상대 얼굴이 1.6배쯤 크다 (실측 ${t.ratio}배, 고치기 전 1배)`,
+  JSON.stringify(t));
+let t2 = await tiles('video-half', 2, true);
+ok(t2.ratio >= 1.5 && t2.ratio <= 1.75,
+  '들어온 순서가 뒤바뀌어도 «상대» 쪽이 크다 (내 타일은 order 로 늘 맨 뒤)', JSON.stringify(t2));
+let t3 = await tiles('video-half', 3);
+ok(Math.abs(t3.ratio - 1) < 0.15, `여러 명 수업(3명)은 그대로 고르게 나뉜다 (실측 ${t3.ratio}배)`, JSON.stringify(t3));
+
+await load(844, 390, 3, 'ko-KR');
+let t4 = await tiles('video-half', 2);
+ok(t4.ratio >= 1.5 && t4.ratio <= 1.75, `가로폰 1:1 — 상대 얼굴이 1.6배쯤 크다 (실측 ${t4.ratio}배, 고치기 전 1배)`,
+  JSON.stringify(t4));
+let t5 = await tiles('video-half', 3);
+ok(Math.abs(t5.ratio - 1) < 0.15, `가로폰 여러 명 수업은 그대로 (실측 ${t5.ratio}배)`, JSON.stringify(t5));
+
+/* PC 는 손대지 않았다 — vc-teacher-first 의 «내 타일 62%» 가 이미 교사를 크게 만든다.
+   여기서 1 에 가까워지면 그 규칙이 깨진 것이다. */
+await load(1280, 800, 2, 'ko-KR');
+let t6 = await tiles('video-half', 2);
+ok(t6.ratio > 2, `PC 는 원래부터 교사가 훨씬 크다 — 건드리지 않았다 (실측 ${t6.ratio}배)`, JSON.stringify(t6));
+
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();
 process.exit(fail ? 1 : 0);
