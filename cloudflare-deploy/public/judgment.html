@@ -326,6 +326,9 @@
       <div class="sub" id="hSub"></div>
     </div>
     <div class="btns">
+      <!-- 🧑‍🎓/🧑‍💼 누구를 위한 문제인가 — 난이도(문장 길이)와 달리 «정체성 설정»이라 언어 토글처럼
+           상시 보이는 자리에 둔다(2026-08-26 사장님 지적: 아래 「난이도 설정」 안에 묻혀 안 보였음). -->
+      <button id="ageBtn" class="pill" title="Who is this for?"><span id="ageIcon">🧑‍🎓</span> <span id="hAge">학생</span></button>
       <button id="growthBtn" class="pill">🌱 <span id="hGrowth">내 성장</span></button>
       <!-- 🔇 무음 — 아이콘만 있는 버튼이라 뜻은 title·aria-label 로만 전달한다
            (글자를 넣으면 34px 상자 안에서 문장이 쪼개진다) -->
@@ -564,6 +567,7 @@
       '<div class="exp-chip"><div class="ic">🔍</div><b>'+T('상황을 읽는 힘','Read the situation','读懂情境的能力')+'</b><span>'+T('말투·상대·때에 맞는 표현을 고르는 감각을 키워요.','Build a feel for tone, listener, and timing.','培养根据语气、对象和时机选择表达的语感。')+'</span></div>'
       +'<div class="exp-chip"><div class="ic">🗣️</div><b>'+T('이유를 설명하는 힘','Explain your why','说明理由的能力')+'</b><span>'+T('"왜?"를 말로 풀면 생각이 단단해져요.','Putting your "why" into words makes thinking stronger.','把"为什么"说出来，思考会更扎实。')+'</span></div>'
       +'<div class="exp-chip"><div class="ic">📈</div><b>'+T('AI 성장 분석','AI growth tracking','AI 成长分析')+'</b><span>'+T('판단력 지수 5가지 축으로 성장을 한눈에 확인해요.','See your growth on 5 judgment-index axes.','通过 5 个判断力指标一眼看到成长。')+'</span></div>';
+    updateAgeBtn();
   }
 
   document.getElementById('explainHead').addEventListener('click', function(){
@@ -670,6 +674,29 @@
   var BAND_CATALOG = null, CUR_BAND = 0, CUR_MODE = 'auto';
   // 🧑‍🎓 누구를 위한 문제인가 — 실력(CUR_BAND/CUR_MODE)과 독립인 축. 기본은 'child'(지금까지의 전부).
   var CUR_AGE = 'child';
+  // 상단 🧑‍🎓/🧑‍💼 pill 의 라벨을 CUR_AGE 에 맞춰 다시 그린다 — applyStatic()(언어 전환 포함)와
+  // captureBand() (서버가 돌려준 나이대 반영) 양쪽에서 부른다. 로그인 전에는 버튼이 없어 조용히 넘어간다.
+  function updateAgeBtn(){
+    var t = document.getElementById('hAge');
+    if(t) t.textContent = (CUR_AGE==='adult') ? T('성인','Adult','成人') : T('학생','Student','学生');
+    var ic = document.getElementById('ageIcon');
+    if(ic) ic.textContent = (CUR_AGE==='adult') ? '🧑‍💼' : '🧑‍🎓';
+    var btn = document.getElementById('ageBtn');
+    if(btn){ var _t=T('누구를 위한 문제인가요?','Who is this for?','谁在做题？'); btn.title=_t; btn.setAttribute('aria-label',_t); }
+  }
+  // 🧑‍🎓/🧑‍💼 나이대를 실제로 바꾸는 단일 진입점 — 상단 pill 이 쓴다(첫 방문 카드는
+  // renderFirstRunSetup() 이 자체 흐름으로 처리). 헤더 pill 로 명시적으로 바꾼 경우도
+  // markSetupDone() 을 함께 불러 — 다음 방문에서 첫 설정 카드가 다시 뜨지 않게 한다.
+  var ageSwitching = false;
+  function switchAgeGroup(next){
+    if(ageSwitching) return;
+    ageSwitching = true;
+    markSetupDone();
+    var btn = document.getElementById('ageBtn');
+    if(btn) btn.disabled = true;
+    function done(){ ageSwitching = false; var b = document.getElementById('ageBtn'); if(b) b.disabled = false; }
+    loadScenario(null, 0, 0, null, next).then(done, done);
+  }
   // 방금 'AI가 맞춰줄게요'로 바꾼 경우에만 안내 한 줄을 띄우기 위한 표시(다음 문제부터는 안 띄움)
   var MODE_JUST_SET = false;
   function captureBand(d){
@@ -678,6 +705,7 @@
     if(d.reading_band) CUR_BAND = Number(d.reading_band)||0;
     if(d.band_mode) CUR_MODE = (d.band_mode==='manual') ? 'manual' : 'auto';
     if(d.age_group) CUR_AGE = (d.age_group==='adult') ? 'adult' : 'child';
+    updateAgeBtn();
   }
   function bandText(b, key){
     // key: 이름(n) / 설명(d) — 화면 언어에 맞춰 고릅니다
@@ -906,6 +934,10 @@
         var g = el.getAttribute('data-g');
         if(g===setupAge || setupBusy) return;
         setupAge = g;
+        // 헤더 🧑‍🎓/🧑‍💼 pill 은 지금까지 서버 응답(captureBand)으로만 갱신됐는데, 이 카드에서
+        // 고르는 순간은 아직 응답 전이라 pill 이 한 박자 늦게 "학생"으로 남아 있었다 — 골랐으면
+        // 바로 반영한다(실제로 저장되는 시점은 여전히 ②를 끝냈을 때다).
+        CUR_AGE = g; updateAgeBtn();
         // 미리 받아 둔 문제는 «옛 나이대» 로 만들어진 것이라 반드시 버립니다(밴드 전환과 같은 원칙).
         prefetch = null; prefetchDone = false;
         prefetchNext(g);
@@ -1474,6 +1506,15 @@
     });
   }
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
+
+  // 🧑‍🎓/🧑‍💼 상단 pill — 누르면 바로 반대 나이대로 전환(🌐 언어 토글과 같은 동작 방식).
+  //   난이도(문장 길이)와 달리 이건 정체성 설정이라 [난이도 설정] 안에 묻지 않고 상시 노출한다
+  //   (2026-08-26 사장님 지적). 레벨 찾기(plOn) 도중에는 적응형 문항 흐름이 깨지므로 무시한다.
+  var ab = document.getElementById('ageBtn');
+  if(ab) ab.addEventListener('click', function(){
+    if(plOn || ageSwitching) return;
+    switchAgeGroup((CUR_AGE==='adult') ? 'child' : 'adult');
+  });
 
   applyStatic();
   // 🎯 전체메뉴 「레벨 테스트」 타일이 ?placement=1 로 들어온다 — 문제 대신 레벨 찾기부터 시작.
