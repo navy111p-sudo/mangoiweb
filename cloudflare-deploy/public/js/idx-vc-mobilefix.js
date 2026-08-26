@@ -450,6 +450,92 @@
     }, 1000);
   }
 
+  /* ══════════════════════════════════════════════════════════════
+     ⑧ 「교사 화면이 작고 학생 화면이 크다」
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] 타일(칸) 크기는 원래 같다. 작아 보이는 것은 칸 «안에서»
+       교사 얼굴만 검은 띠에 둘러싸여 있기 때문이다.
+       영상을 칸에 맞추는 정본(vcSmartFitVideo · js/idx-main.js)은 «영상과 칸의 방향이
+       다르거나 비율 차가 1.35배를 넘으면» 잘리지 않게 contain(전체 보이기)으로 바꾼다.
+       2026-07-14 에 「교사 화면도 학생처럼 꽉 차게」 지시로 예외를 넣었는데
+       그 예외에 **「세로폰일 때만」** 이라는 조건이 붙어 있었다.
+       → PC·태블릿처럼 얼굴 칸이 «세로로 긴» 배치에서는 예외가 안 걸려,
+         교사의 가로(16:9) 웹캠이 위아래 검은 띠로 작아진다.
+
+     [실측 2026-08-26 · 칸 안에서 얼굴 그림이 차지하는 비율]
+       PC·태블릿 1280x800 : 교사 28.2%(contain) / 학생 42.3%  ← 사장님 신고와 일치
+       폰 가로   844x390  : 교사  100%(cover)  / 학생 26.5%
+       폰 세로   390x844  : 둘 다 100%                        ← 2026-07-14 예외가 걸린다
+
+     [고침] 예외의 조건을 «화면 폭» 이 아니라 **«보내온 영상이 가로인가»** 로 바꾼다.
+       · 교사가 PC 웹캠(가로)이면 어느 기기에서도 꽉 찬다.
+       · 교사가 휴대폰 세로로 들어오면 원래 로직 그대로 — 얼굴이 잘리지 않는다.
+     ⛔ 화면 공유는 제외한다 — 가로 영상이지만 꽉 채우면 **공유한 화면의 좌우가 잘려 나간다.**
+        판별은 그 타일에 붙는 «화면 공유 중» 배지(.vc-ss-badge). 서버(DO)가 fromUserId 를
+        실어 주므로(src/video-call-room.ts:422) 어느 타일인지 확실하다.
+     ℹ️ 내 타일(#vc-local-box)은 건드리지 않는다 — 가상배경이 켜지면 contain 이어야
+        턱·목이 안 잘린다(2026-07-13 결정). 신고도 «상대 화면» 에 대한 것이었다.
+     ⚠️ 맞바꾼 것: 세로로 아주 긴 칸에서는 가로 영상의 좌우가 많이 잘린다.
+        얼굴은 대개 화면 가운데에 있어 괜찮지만, 옆으로 비켜 앉으면 잘릴 수 있다.
+        그때는 화면분할 버튼으로 얼굴 칸을 넓히면 된다.
+  ══════════════════════════════════════════════════════════════ */
+  function isScreenShareTile(box) {
+    try { return !!(box && box.querySelector('.vc-ss-badge')); } catch (e) { return false; }
+  }
+
+  var _smartFit = window.vcSmartFitVideo;
+  if (typeof _smartFit === 'function') {
+    window.vcSmartFitVideo = function (v) {
+      try {
+        var box = (v && v.closest) ? v.closest('.video-box') : null;
+        /* 🖥 화면 공유는 «무조건» 전체 보이기. 잘리면 공유한 화면의 좌우가 사라진다.
+           ⚠️ 원래 로직에는 「세로폰에서 상대 타일은 무조건 cover」(2026-07-14) 가 있어서
+              그냥 넘기면 세로폰에서 공유 화면이 잘렸다(2026-08-26 실측 100% cover).
+              그 지시는 «얼굴» 을 꽉 채우라는 것이었지 공유 화면 얘기가 아니다. */
+        if (box && isScreenShareTile(box)) {
+          v.style.setProperty('object-fit', 'contain', 'important');
+          return;
+        }
+        if (v && v.videoWidth && v.videoHeight && v.videoWidth >= v.videoHeight
+            && box && box.id !== 'vc-local-box') {
+          v.style.setProperty('object-fit', 'cover', 'important');
+          return;
+        }
+      } catch (e) {}
+      return _smartFit.apply(this, arguments);
+    };
+  }
+
+  /* 화면 공유가 시작·중지되면 배지가 붙고 떨어진다 → 그 타일만 다시 맞춘다.
+     ⛔ body 의 class 를 지켜보지 않는다(그건 홈 전체를 멎게 한 전력이 있다).
+        영상 그리드 하나만, 배지가 오갈 때만 본다 — 같은 자리에 이미 형제 감시가 있다
+        (idx-main.js 의 grid.__aspectMO). */
+  (function watchScreenShareBadge() {
+    function arm() {
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid || grid.__ssFitMO) return;
+      grid.__ssFitMO = new MutationObserver(function (recs) {
+        var touched = false;
+        for (var i = 0; i < recs.length; i++) {
+          var all = [].concat([].slice.call(recs[i].addedNodes), [].slice.call(recs[i].removedNodes));
+          for (var j = 0; j < all.length; j++) {
+            var n = all[j];
+            if (n && n.classList && n.classList.contains('vc-ss-badge')) { touched = true; break; }
+          }
+          if (touched) break;
+        }
+        if (!touched) return;
+        try {
+          grid.querySelectorAll('.video-box video').forEach(function (v) { window.vcSmartFitVideo(v); });
+        } catch (e) {}
+      });
+      grid.__ssFitMO.observe(grid, { childList: true, subtree: true });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arm);
+    else arm();
+    setTimeout(arm, 1500);          // 그리드가 늦게 생기는 경로 대비 (끝이 있는 재시도)
+  })();
+
   /* ── 화면 상태에 따라 확대 버튼 보이기/숨기기 ──────────────────
      ⛔ body 의 class 를 MutationObserver 로 지켜보지 않는다 — 이 저장소에는 body class 를
         자주 다시 쓰는 코드가 여럿이라 콜백이 쉴 새 없이 돌아 화면이 멎은 전력이 있다
