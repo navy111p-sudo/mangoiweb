@@ -296,6 +296,9 @@
       <div class="sub" id="hSub"></div>
     </div>
     <div class="btns">
+      <!-- 🧑‍🎓/🧑‍💼 누구를 위한 문제인가 — 난이도(문장 길이)와 달리 «정체성 설정»이라 언어 토글처럼
+           상시 보이는 자리에 둔다(2026-08-26 사장님 지적: 아래 「난이도 설정」 안에 묻혀 안 보였음). -->
+      <button id="ageBtn" class="pill" title="Who is this for?"><span id="ageIcon">🧑‍🎓</span> <span id="hAge">학생</span></button>
       <button id="growthBtn" class="pill">🌱 <span id="hGrowth">내 성장</span></button>
       <button id="langBtn" class="pill" title="Language">EN</button>
     </div>
@@ -333,6 +336,15 @@
   var UID = _USER.uid;
   var NAME = _USER.name || localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
   var TEXTBOOK = localStorage.getItem('mangoi_default_textbook') || localStorage.getItem('mango_textbook') || localStorage.getItem('textbook') || '';
+  // 🧑‍🎓/🧑‍💼 «누구를 위한 문제인가» 를 처음 한 번은 문제보다 먼저 물어본다(2026-08-26 사장님 지적 —
+  //   지금까지는 아동용 문제를 한 번 받고 나서야 구석의 [난이도 설정] 안에서 찾아야 했다).
+  //   서버는 학생별로 이미 이 값을 KV 에 기억하지만(judglvl:<uid>), "아직 한 번도 안 물어봤는지"는
+  //   생성 요청을 실제로 보내기 전엔 알 방법이 없어(새 조회 전용 API 를 추가하지 않는 최소 범위 원칙) —
+  //   이 브라우저에서 골랐는지 여부만 로컬에 남긴다. 다른 기기에서는 한 번 더 물어볼 수 있지만
+  //   그래도 기본값(child)로 계속 잘 동작하니 손해가 아니다.
+  function ageAskedKey(){ return 'mangoi_judg_age_asked_' + UID; }
+  function hasAskedAge(){ try{ return localStorage.getItem(ageAskedKey())==='1'; }catch(e){ return true; } }
+  function markAgeAsked(){ try{ localStorage.setItem(ageAskedKey(), '1'); }catch(e){} }
   // 🌐 언어: ?lang= → 사이트 공통 mangoi_lang(홈 토글과 자동 동기화) → 구키 폴백 → 기본 ko
   function normLang(l){ l=String(l||'').slice(0,2).toLowerCase(); return (l==='en'||l==='zh') ? l : 'ko'; }
   var LANG = normLang(new URLSearchParams(location.search).get('lang') || localStorage.getItem('mangoi_lang') || localStorage.getItem('mango_lang') || localStorage.getItem('lang') || 'ko');
@@ -377,6 +389,7 @@
       '<div class="exp-chip"><div class="ic">🔍</div><b>'+T('상황을 읽는 힘','Read the situation','读懂情境的能力')+'</b><span>'+T('말투·상대·때에 맞는 표현을 고르는 감각을 키워요.','Build a feel for tone, listener, and timing.','培养根据语气、对象和时机选择表达的语感。')+'</span></div>'
       +'<div class="exp-chip"><div class="ic">🗣️</div><b>'+T('이유를 설명하는 힘','Explain your why','说明理由的能力')+'</b><span>'+T('"왜?"를 말로 풀면 생각이 단단해져요.','Putting your "why" into words makes thinking stronger.','把"为什么"说出来，思考会更扎实。')+'</span></div>'
       +'<div class="exp-chip"><div class="ic">📈</div><b>'+T('AI 성장 분석','AI growth tracking','AI 成长分析')+'</b><span>'+T('판단력 지수 5가지 축으로 성장을 한눈에 확인해요.','See your growth on 5 judgment-index axes.','通过 5 个判断力指标一眼看到成长。')+'</span></div>';
+    updateAgeBtn();
   }
 
   document.getElementById('explainHead').addEventListener('click', function(){
@@ -392,6 +405,7 @@
     else if(view==='result' && window._lastResult) renderResult(window._lastResult);
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
     else if(view==='nologin') renderNoLogin();   // 로그인 안내도 언어 따라 다시 그린다(안 하면 첫 언어로 굳음)
+    else if(view==='agegate') renderAgeGate();   // 첫 방문 나이대 선택 화면도 마찬가지
     if(solved>0) streakEl.innerHTML = streakText();
   }
   document.getElementById('langBtn').addEventListener('click', function(){
@@ -413,6 +427,38 @@
   }
 
   function loading(msg){ stage.innerHTML = '<div class="center"><span class="spin"></span><div style="margin-top:14px">'+esc(msg)+'</div></div>'; }
+
+  // 🧑‍🎓/🧑‍💼 첫 방문에서 문제보다 먼저 한 번 물어보는 화면. [난이도 설정] 안의 같은 토글과
+  // 마크업·클래스를 그대로 재사용한다(.lva-btn 핸들러도 그쪽과 동일한 모양 — 다만 여긴 첫 진입이라
+  // '지금' 표시는 없다). 고르면 markAgeAsked() 로 다음부턴 안 뜨게 하고 그 나이대로 첫 문제를 받는다.
+  function renderAgeGate(){
+    view = 'agegate';
+    stage.innerHTML =
+      '<div class="lvp-title">🧑‍🎓 '+T('누구를 위한 문제인가요?','Who is this for?','谁在做题？')+'</div>'+
+      '<div class="hint">'+T('상황과 표현이 여기에 맞춰 만들어져요. 나중에 위 버튼으로 언제든 바꿀 수 있어요.',
+                             'Situations and expressions are tailored to this. You can change it anytime with the button above.',
+                             '情境和表达会据此定制。之后随时可用上方按钮更改。')+'</div>'+
+      '<div class="lvm" style="margin-top:18px">'+
+        '<button type="button" class="lva-btn lvm-btn" data-g="child">'+
+          '<span class="lvm-ic">🧑‍🎓</span>'+
+          '<span class="lvm-t">'+T('학생','Student','学生')+'</span>'+
+          '<span class="lvm-d">'+T('학교·친구 같은 일상 소재로 문제를 만들어요.','Uses everyday school and friend situations.','以学校、朋友等日常情境出题。')+'</span>'+
+        '</button>'+
+        '<button type="button" class="lva-btn lvm-btn" data-g="adult">'+
+          '<span class="lvm-ic">🧑‍💼</span>'+
+          '<span class="lvm-t">'+T('성인','Adult','成人')+'</span>'+
+          '<span class="lvm-d">'+T('직장·일상 같은 성인 상황으로 문제를 만들어요.','Uses workplace and everyday adult situations.','以职场、日常等成人情境出题。')+'</span>'+
+        '</button>'+
+      '</div>';
+    reEnter();
+    Array.prototype.forEach.call(stage.querySelectorAll('.lva-btn'), function(el){
+      el.addEventListener('click', function(){
+        Array.prototype.forEach.call(stage.querySelectorAll('.lva-btn'), function(x){ x.disabled = true; });
+        markAgeAsked();
+        loadScenario(null, 0, 0, null, el.getAttribute('data-g'));
+      });
+    });
+  }
 
   // 🎉 콘페티 + XP 팝
   function confetti(){
@@ -480,6 +526,16 @@
   var BAND_CATALOG = null, CUR_BAND = 0, CUR_MODE = 'auto';
   // 🧑‍🎓 누구를 위한 문제인가 — 실력(CUR_BAND/CUR_MODE)과 독립인 축. 기본은 'child'(지금까지의 전부).
   var CUR_AGE = 'child';
+  // 상단 🧑‍🎓/🧑‍💼 pill 의 라벨을 CUR_AGE 에 맞춰 다시 그린다 — applyStatic()(언어 전환 포함)와
+  // captureBand() (서버가 돌려준 나이대 반영) 양쪽에서 부른다. 로그인 전에는 버튼이 없어 조용히 넘어간다.
+  function updateAgeBtn(){
+    var t = document.getElementById('hAge');
+    if(t) t.textContent = (CUR_AGE==='adult') ? T('성인','Adult','成人') : T('학생','Student','学生');
+    var ic = document.getElementById('ageIcon');
+    if(ic) ic.textContent = (CUR_AGE==='adult') ? '🧑‍💼' : '🧑‍🎓';
+    var btn = document.getElementById('ageBtn');
+    if(btn){ var _t=T('누구를 위한 문제인가요?','Who is this for?','谁在做题？'); btn.title=_t; btn.setAttribute('aria-label',_t); }
+  }
   // 방금 'AI가 맞춰줄게요'로 바꾼 경우에만 안내 한 줄을 띄우기 위한 표시(다음 문제부터는 안 띄움)
   var MODE_JUST_SET = false;
   function captureBand(d){
@@ -488,6 +544,7 @@
     if(d.reading_band) CUR_BAND = Number(d.reading_band)||0;
     if(d.band_mode) CUR_MODE = (d.band_mode==='manual') ? 'manual' : 'auto';
     if(d.age_group) CUR_AGE = (d.age_group==='adult') ? 'adult' : 'child';
+    updateAgeBtn();
   }
   function bandText(b, key){
     // key: 이름(n) / 설명(d) — 화면 언어에 맞춰 고릅니다
@@ -1065,11 +1122,25 @@
   }
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
 
+  // 🧑‍🎓/🧑‍💼 상단 pill — 누르면 바로 반대 나이대로 전환(🌐 언어 토글과 같은 동작 방식).
+  //   레벨 찾기(plOn) 도중에는 적응형 문항 흐름이 깨지므로 무시한다.
+  var ageSwitching = false;
+  var ab = document.getElementById('ageBtn');
+  if(ab) ab.addEventListener('click', function(){
+    if(plOn || ageSwitching) return;
+    ageSwitching = true;
+    markAgeAsked();
+    var next = (CUR_AGE==='adult') ? 'child' : 'adult';
+    loadScenario(null, 0, 0, null, next).then(function(){ ageSwitching=false; }, function(){ ageSwitching=false; });
+  });
+
   applyStatic();
   // 🎯 전체메뉴 「레벨 테스트」 타일이 ?placement=1 로 들어온다 — 문제 대신 레벨 찾기부터 시작.
   //    (기능은 전부터 있었지만 입구가 [난이도 설정] 2단계 안쪽뿐이라
   //     «처음엔 있었는데 다시 못 찾겠다» 는 검수 피드백이 있었다. 2026-08-24)
   if(new URLSearchParams(location.search).get('placement')==='1') startPlacement();
+  // 🧑‍🎓/🧑‍💼 이 브라우저에서 아직 한 번도 안 물어봤으면 문제보다 먼저 물어본다(2026-08-26).
+  else if(!hasAskedAge()) renderAgeGate();
   else loadScenario();
 })();
 </script>
