@@ -317,3 +317,28 @@ PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/judgment-tts-browser.mjs
 ```
+
+---
+
+## recording-storage-kpi-browser.mjs — 「녹화 관리 › 저장소 상태」 KPI + 「🔧 진단」 (23건)
+
+이 카드는 오랫동안 **거짓말을 하고 있었다.** 셋 다 문자열 하니스로는 안 보인다 —
+함수도 값도 «있는» 것처럼 보이기 때문이다.
+
+1. KPI 4칸(12.4GB · 156파일 · 248MB · ₩4,820)은 admin.html 에 박아 둔 **예시 숫자**였고
+   채우는 코드가 아예 없었다
+2. 「🔄 새로고침」이 부르는 `window.refreshStorageStats` 는 저장소 어디에도 **없었다**(무동작)
+3. 「🔧 진단」은 R2 의 `recordings/` 한 접두사만 세어, 실제 녹화가 쌓이는 `rec/` 를
+   한 개도 안 봤다 → 파일이 있어도 늘 「0개」
+
+그래서 실제로 그려서 **칸에 무엇이 적혔나**를 읽는다 — 타일 4칸의 값·단위, 옛 예시 숫자가
+남아 있지 않은지, 🌐 전환용 `data-ko`/`data-en` 이 함께 박혔는지, 진단 문구가 두 접두사를
+적는지, 390·768·1280px 가로 넘침, 값 글자의 WCAG 대비(관리자 화면은 CSS·페인터가 색을 덮는다).
+
+> **🪤 여기서 밟은 것** — playwright 는 **나중에 등록한 route 가 이긴다.** 포괄 스텁
+> (`**/api/**`)을 뒤에 등록하면 구체적인 스텁을 전부 삼켜 «화면이 못 채운다» 는
+> 거짓 실패가 난다. 포괄을 먼저 깔고 구체적인 것을 뒤에 등록할 것.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
+```
