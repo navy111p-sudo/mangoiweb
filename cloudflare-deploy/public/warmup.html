@@ -1393,7 +1393,47 @@ function _startSttSession(){
    ① /api/warmup/context 로 로그인 학생의 오늘 교재/레벨/핵심 문장을 조회
    ② 교재가 있으면 AI가 그 교재 내용으로 첫 워밍업 질문을 하며 시작
    ③ 조회/AI 실패 시 기존 자유 대화 인사로 폴백 (화면은 절대 안 깨짐) */
+/* 🎚️ 낮은 단계 첫 인사 — «손으로 쓴 고정 문자열» 이다. LLM 에 맡기지 않는다.
+   ───────────────────────────────────────────────────────────────────────
+   발단(2026-08-26 사장님): 「낮은 단계 학생은 처음 인사말도 잘 이해 못 한다」.
+   실측해 보니 첫 인사가 «레벨을 안 보고» 있었다 — 서버 WARMUP_LEVELS 는 레벨 1 을
+   「3~5단어·현재시제」로 못 박아 두었는데, 이 자리의 인사는 레벨과 무관한 15단어
+   («Let's warm up before class» — 관용구까지 들어 있다)였다. 즉 AI 가 눈높이를
+   못 맞춘 게 아니라, 첫 문장이 «AI 를 거치지 않는» 자리였다.
+   그 문장이 어렵다는 증거는 이미 이 파일에 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로
+   직역해서 curatedMeaning() 에 손으로 의역을 박아 두었다(2026-08-24).
+
+   ⚠️ 여기를 LLM 생성으로 바꾸지 마세요. 낮은 단계에서 단어 수를 조이면 모델이 to·is·a 를
+      떨어뜨립니다 — 판단력 훈련이 「선택지 5단어 이하」 상한 때문에 «Want play with me»(비문)를
+      학생에게 내보낸 전례가 있습니다(CLAUDE.md). 첫 문장은 실패하면 안 되는 자리라 고정입니다.
+   ⚠️ 한국어를 영어 말풍선(en)에 «절대» 섞지 마세요 — AI 말풍선은 자동 낭독되고(addMsg → speak),
+      영어 TTS 가 한글을 읽으면 소리가 뭉개집니다. 한국어는 아래 sys 줄에 따로 씁니다.
+   ⚠️ 질문은 «답이 문장 안에 들어 있는» 형태로만 씁니다(Yes/No 또는 양자택일).
+      길이를 줄여도 열린 질문이면 초보는 그대로 막힙니다 — 초보에게는 열린 질문 자체가 벽입니다.
+      이 파일의 WARMUP_FALLBACK_QUESTIONS.low 가 이미 그 형태입니다(«Do you like pizza or chicken?»).
+   ⚠️ 3단계 이상은 «지금 문장 그대로» 둡니다(아래 폴백). 고치는 범위를 낮은 단계로 한정합니다.
+   ⚠️ 낮은 단계에서는 주제 문장(«Today's topic is …»)을 영어 말풍선에 넣지 않습니다 —
+      길어지기만 하고 학생이 답할 것은 늘지 않습니다. 주제는 아래 한국어 줄에서 알려 줍니다.
+   ─────────────────────────────────────────────────────────────────────── */
+var BEGINNER_GREETINGS = {
+  // 1단계(첫걸음) — 서버 규칙: 3~5단어·현재시제. 질문은 Yes/No.
+  1: { en: "Hi! I'm Mango. 🥭 Are you happy today?",
+       ko: '안녕하세요! 저는 망고예요 🥭 오늘 기분이 좋아요?',
+       tip: '👉 이렇게 대답해 보세요 — "Yes, I am." 또는 "No, I am tired."' },
+  // 2단계(기초) — 서버 규칙: 5~7단어. 질문은 양자택일(고를 말이 문장 안에 있다).
+  2: { en: "Hi! I'm Mango. 🥭 How are you today, happy or tired?",
+       ko: '안녕하세요! 저는 망고예요 🥭 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
+       tip: '👉 이렇게 대답해 보세요 — "I am happy." 또는 "I am tired."' }
+};
 function fallbackGreeting(){
+  var g = BEGINNER_GREETINGS[_warmLevel];
+  if(g){
+    // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
+    _koCache[g.en] = g.ko;
+    addMsg(g.en, 'ai');
+    addMsg(g.ko + '\n' + g.tip + (LESSON_TOPIC ? ('\n📌 오늘의 주제: ' + LESSON_TOPIC) : ''), 'sys');
+    return;
+  }
   addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
 }
 function withCtx(body){
@@ -1420,6 +1460,12 @@ async function initGreeting(){
   try{
     var qs = new URLSearchParams();
     var uid = getLoginId(); if(uid) qs.set('user_id', uid);
+    /* 📊 이 호출은 «설정 화면을 닫은 뒤» 딱 한 번 온다 — 서버가 「학생이 몇 단계·어느 연령대로
+       시작했는가」를 여기서 기록한다(src/warmup-log.ts). 화면 localStorage 에만 있던 값이라
+       그동안 «낮은 단계 학생이 몇 명인지» 조차 셀 수 없었다. 응답은 이 값을 안 쓴다. */
+    qs.set('session_id', SESSION_ID);
+    qs.set('diff', String(_warmLevel));
+    qs.set('age', _warmAge);
     if(WCTX.textbook) qs.set('textbook', WCTX.textbook);
     if(WCTX.level) qs.set('level', WCTX.level);
     if(WCTX.lesson_no) qs.set('lesson', String(WCTX.lesson_no));
@@ -1460,8 +1506,13 @@ async function initGreeting(){
     typing.className = 'typing'; typing.textContent = 'AI 친구가 오늘 배울 교재를 확인하는 중…';
     log.appendChild(typing); log.scrollTop = log.scrollHeight;
     try{
-      var body = withCtx({ session_id: SESSION_ID,
-        student_input: "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson." });
+      /* 🚀 kickoff — 이건 «학생이 한 말» 이 아니라 화면이 AI 에게 첫 인사를 시키는 합성 발화다.
+         서버가 「학생이 입을 뗐다」로 세지 않게 표시해서 보낸다(src/warmup-log.ts).
+         ⚠️ 아래 낮은 단계 한 줄은 «보조» 다 — 지시만으로는 안 지켜진다는 게 이 저장소의 반복
+            실측이라, 실패해도 되도록 되어 있다(교재 조회가 실패하면 고정 인사말로 떨어진다). */
+      var kick = "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson.";
+      if(_warmLevel <= 2) kick += " I am a beginner: keep every sentence under 7 words, and make the question a yes/no question or an either/or question so the answer is inside your question.";
+      var body = withCtx({ session_id: SESSION_ID, kickoff: 1, student_input: kick });
       var kr = await fetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       typing.remove();
       if(kr.ok){

@@ -19,7 +19,7 @@
 //   ⚠️ 문자열만 보는 검사로는 «순서»를 못 잡는다 — 그래서 A 는 모듈을 실제로 돌린다.
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const P = (...a) => resolve(__dir, '../cloudflare-deploy', ...a);
 const W = await import('file://' + P('src/warmup-audience.ts').replace(/\\/g, '/'));
@@ -125,6 +125,150 @@ console.log('\n[ F. 🎯 수준 찾기 — 서버를 부르지 않고 3문항으
     /_pbBand = 4, _pbStep = 2/.test(HTML) && /_pbStep = Math\.max\(1, _pbStep - 1\)/.test(HTML));
   check('찾은 값이 1~8 밖으로 나가지 않는다', /_pbBand = Math\.max\(1, Math\.min\(8, _pbBand\)\)/.test(HTML));
   check('찾은 결과가 실제로 대화 수준으로 저장된다', /function finishProbe\(\)\{?[\s\S]{0,120}setLevel\(_pbBand/.test(HTML));
+}
+
+console.log('\n[ G. 🎚️ 낮은 단계 첫 인사 — 레벨을 실제로 지키는가 ]');
+// 🔴 발단(2026-08-26): 첫 인사가 «레벨을 안 보고» 있었다. 서버는 레벨 1 을 「3~5단어」로
+//    못 박아 두었는데 화면의 고정 인사는 15단어였다 — 즉 시스템이 첫 문장부터 자기 규칙을
+//    어기고 있었다. 「그 문자열이 있는가」로는 이걸 못 잡는다(문자열은 늘 «있다»).
+//    그래서 여기서는 인사말을 뽑아 «단어를 세고», «질문의 형태»를 본다.
+{
+  const gBlock = (HTML.match(/var BEGINNER_GREETINGS\s*=\s*\{([\s\S]*?)\n\};/) || [])[1] || '';
+  const greet = {};
+  for (const m of gBlock.matchAll(/(\d):\s*\{\s*en:\s*"([^"]+)"\s*,\s*ko:\s*'([^']+)'\s*,\s*tip:\s*'([^']+)'/g)) {
+    greet[Number(m[1])] = { en: m[2], ko: m[3], tip: m[4] };
+  }
+  check('낮은 단계 인사말 표를 읽었다', Object.keys(greet).length >= 2, `읽은 단계: ${Object.keys(greet).join(',')}`);
+  check('1·2단계에 인사말이 있다', !!greet[1] && !!greet[2]);
+  // 고치는 범위를 낮은 단계로 한정했다 — 3단계 이상은 지금 문장 그대로다
+  check('3단계 이상은 표에 없다(범위 한정)', !greet[3] && !greet[4]);
+  // ⚠️ 화면 소스에는 작은따옴표가 «\'» 로 이스케이프돼 있다 — 그대로 찾으면 멀쩡한 문장을 못 찾는다
+  check('3단계 이상 폴백 문장이 그대로 남아 있다', /Let\\?'s warm up before class\. How are you today\?/.test(HTML));
+
+  // ── 서버가 정한 단어 수 상한을 «화면이 지키는가» — 두 파일이 같은 말을 하는지 대조한다 ──
+  const srvMax = {};
+  for (const m of srvBlock.matchAll(/^\s*(\d):\s*"[^"]*?(\d+)~(\d+)단어/gm)) srvMax[Number(m[1])] = Number(m[3]);
+  check('서버에서 1·2단계 단어 수 상한을 읽었다', srvMax[1] > 0 && srvMax[2] > 0, `상한: ${srvMax[1]}/${srvMax[2]}`);
+  // 문장별로 센다 — 서버 규칙이 「한 번에 N단어의 짧은 문장」이라 문장 단위가 맞는 눈금이다.
+  const sentences = (en) => String(en).split(/[.?!]+/).map((s) => s.trim()).filter(Boolean);
+  const words = (s) => s.replace(/[^\x20-\x7E]/g, ' ').replace(/[,;:—-]/g, ' ')
+    .split(/\s+/).filter(Boolean).length;
+  for (const lv of [1, 2]) {
+    if (!greet[lv] || !srvMax[lv]) continue;
+    const longest = Math.max(...sentences(greet[lv].en).map(words));
+    check(`${lv}단계 인사말이 서버 상한(${srvMax[lv]}단어)을 지킨다`, longest <= srvMax[lv],
+      `가장 긴 문장 ${longest}단어 — "${greet[lv].en}"`);
+  }
+
+  // ── 🔴 초보에게 진짜 벽은 «길이» 가 아니라 «열린 질문» 이다 ──
+  //    길이를 줄여도 wh- 열린 질문이면 답을 스스로 만들어야 해서 그대로 막힌다.
+  //    Yes/No 이거나 양자택일(고를 말이 질문 안에 들어 있음)이어야 한다.
+  for (const lv of [1, 2]) {
+    if (!greet[lv]) continue;
+    const q = sentences(greet[lv].en).filter((s) => greet[lv].en.includes(s + '?')).pop() || '';
+    const yesNo = /^(?:🥭\s*)?(are|do|is|does|did|can|will|have)\b/i.test(q.replace(/[^\x20-\x7E]/g, '').trim());
+    const eitherOr = /\bor\b/i.test(q);
+    check(`${lv}단계 질문이 Yes/No 이거나 양자택일이다`, !!q && (yesNo || eitherOr), `질문: "${q}"`);
+  }
+
+  // ── 🔴 한국어를 영어 말풍선에 섞으면 «영어 TTS 가 한글을 읽어» 소리가 뭉개진다 ──
+  //    (서버 WARMUP_LEVELS 1번 주석이 같은 사고를 이미 경고하고 있다)
+  for (const lv of [1, 2]) {
+    if (!greet[lv]) continue;
+    check(`${lv}단계 영어 말풍선에 한글이 없다`, !/[가-힣]/.test(greet[lv].en), greet[lv].en);
+    check(`${lv}단계 한국어 뜻·도움말이 준비되어 있다`, /[가-힣]/.test(greet[lv].ko) && /[가-힣]/.test(greet[lv].tip));
+  }
+  check('한국어는 말풍선 «밖»(sys)으로 나간다',
+    /addMsg\(g\.en, 'ai'\)/.test(HTML) && /addMsg\(g\.ko \+ '\\n' \+ g\.tip/.test(HTML));
+  // 「뜻」 은 손으로 다듬은 의역을 쓴다 — 기계번역이 "warm up" 을 「따뜻하게하자」로 옮긴 전례(2026-08-24)
+  check('「뜻」이 기계번역을 부르지 않는다(_koCache 선주입)', /_koCache\[g\.en\] = g\.ko/.test(HTML));
+}
+
+console.log('\n[ H. 📊 웜업 기록 — 「몇 단계로 쓰는가」를 셀 수 있는가 ]');
+// 발단: 대화 수준·연령대가 localStorage 에만 있어 «낮은 단계 학생이 몇 명인지» 조차 못 셌다.
+// ⚠️ 「히스토리가 비었으면 첫 턴」 판정은 «틀린다» — kickoff 합성 발화가 user 로 저장되기 때문.
+//    그래서 문자열이 아니라 판정 함수를 «직접 돌려» 확인한다.
+{
+  const G = await import('file://' + P('src/warmup-log.ts').replace(/\\/g, '/'));
+  const u = (n) => Array.from({ length: n }, () => ({ role: 'user', content: 'x' }));
+
+  check('kickoff(화면이 시킨 합성 발화)는 「입을 뗐다」로 세지 않는다',
+    G.warmupShouldMarkFirstReply([], true) === false);
+  check('자유 대화 — 학생의 첫마디를 잡는다', G.warmupShouldMarkFirstReply([], false) === true);
+  // 🔴 이 줄이 이 절의 핵심이다. kickoff 를 지나온 학생을 놓치면 교재 배정 학생이 통째로 빠진다.
+  check('교재 연동 — kickoff 뒤 학생의 첫마디도 잡는다', G.warmupShouldMarkFirstReply(u(1), false) === true);
+  check('두 마디 넘게 한 뒤에는 더 쓰지 않는다(발화마다 쓰기 금지)',
+    G.warmupShouldMarkFirstReply(u(2), false) === false && G.warmupShouldMarkFirstReply(u(9), false) === false);
+  check('망가진 히스토리에도 죽지 않는다',
+    G.warmupShouldMarkFirstReply(null, false) === true && G.warmupShouldMarkFirstReply([null, 'x'], false) === true);
+
+  // ── 스키마·쓰기 규칙을 «진짜 SQLite» 에 돌려 본다 (운영 DB 는 건드리지 않는다) ──
+  let DatabaseSync = null;
+  try { ({ DatabaseSync } = await import('node:sqlite')); } catch {}
+  if (!DatabaseSync) {
+    console.log('  ⏭  건너뜀 — 이 node 에는 node:sqlite 가 없습니다(Node 22+ 필요)');
+  } else {
+    const db = new DatabaseSync(':memory:');
+    let ddlOk = true;
+    try { for (const sql of G.WARMUP_LOG_DDL) db.exec(sql); } catch (e) { ddlOk = false; FAILS.push('DDL: ' + e.message); }
+    check('DDL 이 실제 SQLite 에서 돈다', ddlOk);
+    const ins = `INSERT OR IGNORE INTO warmup_session_log
+        (session_id, user_id, difficulty, age_group, textbook, level, started_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`;
+    db.prepare(ins).run('s1', 'jeong', 1, 'kid', 'BTS 1', 'Lv 3', 1000);
+    // 같은 세션이 두 번 와도 «시작할 때 고른 값» 이 덮이면 안 된다(대화 중 ⋮ 로 바꿔도 마찬가지)
+    db.prepare(ins).run('s1', 'jeong', 8, 'adult', 'BTS 1', 'Lv 3', 2000);
+    const row = db.prepare(`SELECT * FROM warmup_session_log WHERE session_id='s1'`).get();
+    check('세션은 한 줄만 남는다(INSERT OR IGNORE)',
+      db.prepare(`SELECT COUNT(*) n FROM warmup_session_log`).get().n === 1);
+    check('시작할 때 고른 수준·연령대가 덮이지 않는다', row.difficulty === 1 && row.age_group === 'kid',
+      `difficulty=${row.difficulty} age=${row.age_group}`);
+    check('아직 입을 떼지 않은 세션은 first_reply_at 이 비어 있다', row.first_reply_at == null);
+    const upd = `UPDATE warmup_session_log SET first_reply_at = ? WHERE session_id = ? AND first_reply_at IS NULL`;
+    db.prepare(upd).run(3000, 's1');
+    db.prepare(upd).run(4000, 's1');   // 두 번째 발화에서 한 번 더 불려도 첫 시각이 정본이어야 한다
+    check('첫마디 시각은 «처음 값» 이 남는다',
+      db.prepare(`SELECT first_reply_at f FROM warmup_session_log WHERE session_id='s1'`).get().f === 3000);
+    db.close();
+  }
+
+  // ── CREATE 는 한 곳뿐이어야 한다 — 두 벌이면 먼저 도는 쪽이 이겨 새 DB 에서 칸이 갈린다 ──
+  const srcDir = P('src');
+  const creators = readdirSync(srcDir).filter((f) => f.endsWith('.ts'))
+    .filter((f) => /CREATE TABLE[\s\S]{0,80}warmup_session_log/i.test(readFileSync(resolve(srcDir, f), 'utf8')));
+  check('warmup_session_log 의 CREATE 가 한 파일뿐이다', creators.length === 1, `찾은 곳: ${creators.join(', ') || '없음'}`);
+  check('그 파일은 src/warmup-log.ts 다', creators[0] === 'warmup-log.ts');
+
+  // ── ⛔ 이 표에만 쓴다 — 학생 자료를 건드리지 않는다 ──
+  const LOG = readFileSync(P('src/warmup-log.ts'), 'utf8');
+  const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  const logCode = strip(LOG);
+  check('학생 표(students_erp·attendance)를 건드리지 않는다', !/students_erp|attendance/.test(logCode));
+  check('DELETE·DROP 이 없다', !/\bDELETE\b|\bDROP\b/i.test(logCode));
+  // 「몇 번 나오나」로 세지 말고 «쓰기의 대상 표» 를 하나씩 꺼내 본다
+  const wTargets = [...logCode.matchAll(/\b(?:INSERT(?:\s+OR\s+\w+)?\s+INTO|UPDATE)\s+([A-Za-z_]\w*)/gi)].map((m) => m[1]);
+  check('쓰기는 warmup_session_log 에만 한다',
+    wTargets.length >= 2 && wTargets.every((t) => t === 'warmup_session_log'),
+    `쓰기 대상: ${wTargets.join(', ') || '없음'}`);
+  // ⚠️ 삼키되 «조용히» 삼키면 안 된다 — 기록이 안 들어온 것과 「학생이 안 왔다」가 구분이 안 된다
+  //    (silent_catch_harness 가 지키는 규칙과 같은 뿌리)
+  const catches = [...logCode.matchAll(/catch\s*(?:\([^)]*\))?\s*\{([\s\S]*?)\n  \}/g)].map((m) => m[1]);
+  check('기록이 실패해도 웜업을 멈추지 않는다(던지지 않음)', catches.length >= 2, `catch ${catches.length}개`);
+  check('그 실패가 조용히 묻히지 않는다(로그 한 줄)', catches.every((c) => /console\.(error|warn)/.test(c)));
+
+  // ── 배선: 서버 두 곳 · 화면 ──
+  check('세션 시작을 /api/warmup/context 에서 기록한다',
+    /handleWarmupContext[\s\S]{0,900}logWarmupSessionStart\(env, \{/.test(IDX));
+  check('그때 화면이 고른 수준·연령대를 받는다',
+    /searchParams\.get\('diff'\)/.test(IDX) && /normalizeWarmupAge\(u\.searchParams\.get\('age'\)\)/.test(IDX));
+  check('대화 첫 턴에도 안전망 기록이 있다(비로그인 세션)',
+    /if \(history\.length === 0\) \{[\s\S]{0,300}logWarmupSessionStart\(env/.test(IDX));
+  check('kickoff 를 서버가 읽는다', /const ctxKickoff = !!\(body && body\.kickoff\)/.test(IDX));
+  check('첫마디 표시는 판정 함수를 거친다', /warmupShouldMarkFirstReply\(history, ctxKickoff\)/.test(IDX));
+  check('화면이 세션·수준·연령대를 함께 보낸다',
+    /qs\.set\('session_id', SESSION_ID\)/.test(HTML) && /qs\.set\('diff', String\(_warmLevel\)\)/.test(HTML)
+    && /qs\.set\('age', _warmAge\)/.test(HTML));
+  check('화면이 kickoff 를 표시해 보낸다', /kickoff: 1/.test(HTML));
 }
 
 console.log(`\n${'─'.repeat(60)}`);
