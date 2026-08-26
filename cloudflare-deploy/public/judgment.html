@@ -934,6 +934,10 @@
         var g = el.getAttribute('data-g');
         if(g===setupAge || setupBusy) return;
         setupAge = g;
+        // 헤더 🧑‍🎓/🧑‍💼 pill 은 지금까지 서버 응답(captureBand)으로만 갱신됐는데, 이 카드에서
+        // 고르는 순간은 아직 응답 전이라 pill 이 한 박자 늦게 "학생"으로 남아 있었다 — 골랐으면
+        // 바로 반영한다(실제로 저장되는 시점은 여전히 ②를 끝냈을 때다).
+        CUR_AGE = g; updateAgeBtn();
         // 미리 받아 둔 문제는 «옛 나이대» 로 만들어진 것이라 반드시 버립니다(밴드 전환과 같은 원칙).
         prefetch = null; prefetchDone = false;
         prefetchNext(g);
