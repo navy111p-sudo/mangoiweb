@@ -315,7 +315,8 @@ function stopRecording() {
               body: JSON.stringify({
                 recording_id: savedRecordingId,
                 duration_ms: durationMs,
-                size_bytes: _r2TotalBytes
+                size_bytes: _r2TotalBytes,
+                r2_success: true          // complete 가 ok 를 준 자리다 (2026-08-26)
               })
             });
 
@@ -424,7 +425,8 @@ function _callStop(recId, durationMs, sizeBytes, errorInfo) {
       duration_ms: durationMs || 0,
       size_bytes: sizeBytes || 0,
       file_url: 'CLIENT_ERR:' + (errorInfo || 'unknown'),
-      storage: 'error'
+      storage: 'error',
+      r2_success: false         // 폴백으로 불리는 자리 = 업로드가 실패했다는 뜻 (2026-08-26)
     })
   }).catch(function(e) { console.error('[recorder] stop 폴백 실패:', e); });
 }
