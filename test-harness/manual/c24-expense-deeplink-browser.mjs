@@ -54,16 +54,16 @@ const knownLimit = (n, stillBroken, measured) => {
 /* 씨앗 — 배포된 서버가 내려주는 모양 그대로(필터가 이미 걸린 뒤의 응답). */
 const SEED = {
   ok: true, source: 'neo4j', kind: 'expenses', count: 2, filtered_out: 7,
-  prop_keys: ['content', 'name', 'organ', 'pay_date', 'reg_date', 'sign_users', 'state'],
+  prop_keys: ['content', 'doc_id', 'name', 'pay_date', 'reg_date', 'state'],
   /* 2026-08-24 실측 응답에서 성격이 다른 것만 골라 왔다 — 분류 5종과 «다수와 다른 상태» 가 섞이게. */
   rows: [
-    { reg_date: '2026-08-13', name: '1ST CUT SALARY JULY 30- AUGUST 12, 2026', content: null, pay_date: '2026-08-13', state: 1 },
-    { reg_date: '2026-07-30', name: '2ND CUT SALARY JULY 14-29, 2026', content: null, pay_date: '2026-07-30', state: 1 },
-    { reg_date: '2026-05-14', name: 'billing ilano accounting', content: null, pay_date: '2026-05-14', state: 0 },
-    { reg_date: '2026-04-07', name: 'Korphil ITR and Audited Financial  Statement  2025', content: 'Preparation and Filig', pay_date: '2026-04-07', state: 1 },
-    { reg_date: '2025-08-13', name: '4th floor water tank', content: 'Replacement to automatic floater switch', pay_date: '2025-08-13', state: 1 },
-    { reg_date: '2025-06-04', name: 'Farrah Loan', content: 'Salary Loan 3,000', pay_date: '2025-06-04', state: 1 },
-    { reg_date: '2026-01-15', name: 'BUSINESS PERMIT 2026', content: 'MANGOI, KORPHIL AND DHF', pay_date: '2026-01-15', state: 1 },
+    { reg_date: '2026-08-13', name: '1ST CUT SALARY JULY 30- AUGUST 12, 2026', doc_id: 'D-1001', content: null, pay_date: '2026-08-13', state: 1 },
+    { reg_date: '2026-07-30', name: '2ND CUT SALARY JULY 14-29, 2026', doc_id: 'D-1002', content: null, pay_date: '2026-07-30', state: 1 },
+    { reg_date: '2026-05-14', name: 'billing ilano accounting', doc_id: 'D-1003', content: null, pay_date: '2026-05-14', state: 0 },
+    { reg_date: '2026-04-07', name: 'Korphil ITR and Audited Financial  Statement  2025', doc_id: 'D-1004', content: 'Preparation and Filig', pay_date: '2026-04-07', state: 2 },
+    { reg_date: '2025-08-13', name: '4th floor water tank', doc_id: 'D-1005', content: 'Replacement to automatic floater switch', pay_date: '2025-08-13', state: 1 },
+    { reg_date: '2025-06-04', name: 'Farrah Loan', doc_id: 'D-1006', content: 'Salary Loan 3,000', pay_date: '2025-06-04', state: 1 },
+    { reg_date: '2026-01-15', name: 'BUSINESS PERMIT 2026', doc_id: 'D-1007', content: 'MANGOI, KORPHIL AND DHF', pay_date: '2026-01-15', state: 1 },
   ],
 };
 
@@ -149,7 +149,7 @@ const main = async () => {
       });
       // ⚠️ 머리글에는 정렬 표시(▼/▲)가 붙는다 — 그것까지 비교하면 «정렬이 켜졌다» 는 이유로 FAIL 난다.
       check('표 머리가 새 6칸이다 (늘 비던 거래처·결제 대신 분류·상태)',
-        tbl.head.map(t => t.replace(/[▼▲]/g, '').trim()).join(',') === '일자,분류(추정),제목,내용,지급일,상태',
+        tbl.head.map(t => t.replace(/[▼▲]/g, '').trim()).join(',') === '일자,분류(추정),제목,내용,지급일,상태,문서번호',
         tbl.head.join(','));
       check('영어(필리핀) 결재가 남아 있다',
         tbl.rows === 7 && /SALARY/.test(tbl.first.join(' ')), tbl.first.join(' | '));
@@ -175,8 +175,31 @@ const main = async () => {
         /급여 2/.test(tools.chips.join('|')) && /세무·행정 3/.test(tools.chips.join('|'))
         && /시설·수리 1/.test(tools.chips.join('|')) && /대출·대여 1/.test(tools.chips.join('|')),
         tools.chips.join(' | '));
-      check('「상태 1 아님」 칩이 그 1건을 집어낸다',
-        /상태 1 아님 1/.test(tools.chips.join('|')), tools.chips.join(' | '));
+      check('상태 칩이 «값별» 로 갈라져 건수를 말한다 (0·1·2 가 뭉치지 않는다)',
+        /상태 1 5/.test(tools.chips.join('|')) && /상태 0 1/.test(tools.chips.join('|'))
+        && /상태 2 1/.test(tools.chips.join('|')), tools.chips.join(' | '));
+
+      // 상태 칩을 눌러 그 값만 남기고, 한 번 더 눌러 푼다
+      const byState = await page.evaluate(() => {
+        /* ⚠️ 칩을 누르면 도구 줄이 «다시 그려져» 요소가 교체된다.
+              붙잡아 둔 옛 요소를 다시 누르면 그것은 이미 문서에서 떨어져 나가 아무 일도 안 일어난다.
+              (2026-08-24 이 검사 자체가 그 실수로 FAIL 났다 — 화면은 멀쩡했다) */
+        const pick = () => [...document.querySelectorAll('#c24fin-tools .c24x-chip')].find(c => /상태 0/.test(c.textContent));
+        pick().click();
+        const on = document.querySelectorAll('#c24fin-body tr').length;
+        pick().click();
+        return { on, off: document.querySelectorAll('#c24fin-body tr').length };
+      });
+      check('상태 칩을 누르면 그 값만, 다시 누르면 해제된다',
+        byState.on === 1 && byState.off === 7, '켬 ' + byState.on + ' / 끔 ' + byState.off);
+
+      // 📄 문서번호 — 카페24에서 그 문서를 찾는 열쇠
+      const docs = await page.evaluate(() => {
+        const r = document.querySelector('#c24fin-body tr');
+        return [...r.querySelectorAll('td')].map(t => t.textContent.trim());
+      });
+      check('맨 오른쪽에 문서번호가 나온다', /^D-\d+$/.test(docs[docs.length - 1]), docs.join(' | '));
+      check('안내에 문서번호 쓰임새를 적어 준다', /문서번호/.test(tools.note));
       check('분류가 «추정» 이고 금액이 없다는 사실을 화면이 말한다',
         /추정/.test(tools.note) && /금액은 원본에 아직 없습니다/.test(tools.note));
       check('제외 건수를 화면이 적어 준다', /7건은 제외/.test(tools.note), tools.note.slice(0, 60));
