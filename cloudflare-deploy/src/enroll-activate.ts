@@ -478,6 +478,10 @@ export async function handleEnrollActivateApi(request: Request, url: URL, env: a
             아래 둘은 «근거를 적어 두는 값» 일 뿐 계산에 쓰이지 않는다. */
       base_fee_krw: (plan.enrollment as any).base_fee_krw ?? null,
       length_multiplier: classLengthMultiplier(plan.minutes),
+      /* 「이 기준가가 사람이 적은 값인가, 대리점 단가로 자동으로 세운 값인가」.
+         ⛔ 추측하지 않는다 — 저장할 때 적어 둔 값을 그대로 내려준다(`fee_source`).
+            후자는 **아무도 치지 않은 금액**이라 화면이 그렇게 말해 줘야 한다. */
+      fee_source: (plan.enrollment as any).fee_source ?? null,
       days: plan.days, days_label: dowLabel(plan.days), times: plan.times,
       minutes: plan.minutes, sessions: plan.sessions, start_date: plan.start_date,
       dates: plan.dates, dates_count: plan.dates.length,

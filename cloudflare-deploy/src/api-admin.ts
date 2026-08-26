@@ -9877,6 +9877,9 @@ LIMIT $limit`;
       // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
       //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
       await _addEnrCol2('base_fee_krw', 'INTEGER');
+      // 그 기준가를 «사람이 적었는지 · 대리점 단가로 자동으로 세웠는지». 후자는 아무도 치지 않은
+      //   금액이라 확정 화면이 그렇게 말해 줘야 한다 — 추측하지 않도록 저장해 둔다.
+      await _addEnrCol2('fee_source', 'TEXT');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -9932,7 +9935,7 @@ LIMIT $limit`;
         weekly: weeklyCountFromDays(b.days_of_week),
       });
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw, fee_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -9941,7 +9944,7 @@ LIMIT $limit`;
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio, _dur, _classMin, _fee.baseFeeKrw
+        _prio, _dur, _classMin, _fee.baseFeeKrw, _fee.source
       ).run();
       // 화면이 «얼마로 잡혔는지» 를 그 자리에서 보여 줄 수 있게 계산 결과를 함께 돌려준다
       return json({ ok: true, id: r.meta.last_row_id, fee: _fee });
