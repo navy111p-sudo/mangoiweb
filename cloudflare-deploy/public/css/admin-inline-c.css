@@ -11,11 +11,26 @@
       #mi-sd-backdrop.is-open{ opacity:1; visibility:visible; }
 
       /* 컨테이너: 우하단 코너 고정, 세로 정렬(액션 위 / 트리거 아래), 중심선 일치 */
+      /* 🔴 (2026-08-21) pointer-events:none 이 «장식» 이 아니다 — 이게 없으면 접힌 액션 3개가
+         «안 보이는 채로 자리만 차지» 하면서 그 상자 전체가 클릭을 가로챈다.
+         접힌 상태의 .mi-sd-action 은 opacity:0 + pointer-events:none 이지만 display 는 살아 있어서
+         컨테이너 높이가 그대로 남기 때문이다. 실측(2026-08-21):
+             1400px  상자 108x396  보이는 아바타 108px → 위 289px 이 투명하게 클릭 차단
+              900px  상자  83x305  보이는 아바타  83px → 위 222px
+              482px  상자  83x305  보이는 아바타  83px → 위 222px
+         그 구간에 걸린 폼 칸은 «보이는데 안 눌린다» 가 된다(수강신청 시간칸 ⏰ 가 실제로 그랬다).
+         ✅ 상자는 통과시키고, 실제로 눌러야 하는 것(아바타 · 펼친 액션)에만 auto 를 되돌린다.
+         ⛔ 상자 높이를 줄이는 방식으로 풀지 말 것 — 펼침 애니메이션이 그 높이를 쓴다. */
       #mi-speed-dial{ position:fixed; right:16px; bottom:16px; z-index:9992;
-        display:flex; flex-direction:column; align-items:center; gap:14px; }
+        display:flex; flex-direction:column; align-items:center; gap:14px;
+        pointer-events:none; }
 
       /* 액션 묶음: column-reverse → DOM 첫 항목(AI)이 트리거 바로 위(아래쪽)에 옴 */
-      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px; }
+      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px;
+        pointer-events:none; }
+      /* 눌러야 하는 것만 되살린다 — 아바타는 늘, 액션은 펼쳤을 때만(아래 .is-open 규칙이 auto 로 돌린다) */
+      #mi-ops-fab{ pointer-events:auto; }
+      #mi-speed-dial.is-open #mi-sd-actions{ pointer-events:auto; }
 
       /* 공통 액션 버튼 — 동일 크기 원형 + 통일된 그림자 */
       .mi-sd-action{ position:relative; display:flex; align-items:center; justify-content:center;
@@ -58,20 +73,26 @@
       .mi-sd-ai .mi-sd-chip{ color:#b45309; border:1px solid rgba(180,83,9,0.45); }
 
       /* 메인 트리거 = 상담원 아바타 */
-      #mi-ops-fab{ position:relative; width:64px; height:64px; cursor:pointer; }
-      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:72px; transform:none; max-width:60vw;
-        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
+      /* 📱 (2026-08-21 사장님 지시) 휴대폰에서 아바타를 64 → 48px 로 줄였다.
+         우하단에 떠 있는 물건이라 좁은 화면에서는 폼 칸을 그만큼 덜 가린다.
+         ⚠️ 48px 아래로는 내리지 말 것 — 손가락 터치 최소 권장이 44px 이고,
+            여기에 테두리 2px 가 안쪽으로 들어가 실제 누를 면은 그보다 작다.
+         ⚠️ 여기 «기본값» 이 곧 휴대폰 값이다 — 아래 @media (min-width:481px) 가 PC 를 83px 로 덮는다.
+            그래서 이 줄을 고치면 PC 는 안 바뀌고 휴대폰만 바뀐다. */
+      #mi-ops-fab{ position:relative; width:48px; height:48px; cursor:pointer; }
+      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:56px; transform:none; max-width:60vw;
+        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:11px; padding:3px 9px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
         border:1px solid rgba(255,204,0,0.55); pointer-events:none; transition:opacity .2s ease; }
       #mi-speed-dial.is-open #mi-ops-fab-label{ opacity:0; }
-      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
-        border:3px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
+      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:48px; height:48px;
+        border:2px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
         box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite;
         transition:transform .18s ease; }
       #mi-ops-fab-vid{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%;
         object-fit:cover; object-position:center 18%; display:block; pointer-events:none;
         transition:filter .2s ease; }
-      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
+      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-4px; border-radius:50%; z-index:-1;
         background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
         filter:blur(4px); opacity:.9; animation: miOpsHaloSpin 3s linear infinite; }
       @keyframes miOpsHaloSpin{ to{ transform:rotate(360deg); } }
@@ -82,7 +103,7 @@
       #mi-ops-fab:hover #mi-ops-fab-btn{ transform:scale(1.05); }
       /* 닫기(✕) 오버레이 — 펼쳤을 때 표시 */
       .mi-ops-fab-close{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:26px; font-weight:700;
+        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:20px; font-weight:700;
         opacity:0; transform:rotate(-90deg) scale(0.6); pointer-events:none;
         transition:opacity .22s ease, transform .26s cubic-bezier(0.34,1.4,0.5,1); }
       #mi-speed-dial.is-open .mi-ops-fab-close{ opacity:1; transform:rotate(0deg) scale(1); }
@@ -99,6 +120,7 @@
       @media (min-width:481px){
         #mi-ops-fab{ width:83px; height:83px; }
         #mi-ops-fab-btn{ width:83px; height:83px; border-width:4px; }
+        #mi-ops-fab-btn::before{ inset:-6px; }   /* 휴대폰에서 -4px 로 줄인 것을 PC 는 원래대로 */
         #mi-ops-fab-label{ bottom:91px; font-size:15px; padding:5px 13px; }
         .mi-sd-action{ width:60px; height:60px; }
         .mi-sd-chip{ right:70px; font-size:13px; }

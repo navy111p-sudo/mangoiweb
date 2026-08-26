@@ -1,4 +1,4 @@
-// 🇰🇷🇨🇳 수업 전 AI 웜업 — «영어만» 게이트 하니스 (2026-08-26)
+// 영어 학습 콘텐츠 «영어만» 게이트 하니스 — 웜업 + 게임 (2026-08-26)
 //
 //   왜 필요한가 —
 //     사장님 제보: 「수업 전 AI 웜업」 첫 화면의 «🎯 오늘의 연습 포인트» 에
@@ -23,7 +23,7 @@
 //        문자열 검사는 「부르는가」만 볼 뿐 「무엇을 버리는가」는 못 본다
 //        (CLAUDE.md 2장 「헬퍼에 행을 넘겼는데 아무 일도 안 일어남」).
 //
-//   실행: node test-harness/warmup_english_only_harness.mjs
+//   실행: node test-harness/english_only_harness.mjs
 import { readFileSync } from 'fs';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join, resolve } from 'path';
@@ -40,35 +40,45 @@ const check = (name, ok) => { if (ok) { pass++; console.log('  ✅ ' + name); } 
  *  (CLAUDE.md 2장 「하니스에 부정 검사를 넣었는데 내 주석 때문에 FAIL」). */
 const strip = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
+const gateSrc  = read('cloudflare-deploy/src/english-only.ts');
 const graphSrc = read('cloudflare-deploy/src/warmup-graph.ts');
+const indexSrc = read('cloudflare-deploy/src/index.ts');
 const warmupHtml = read('cloudflare-deploy/public/warmup.html');
 const graphCode = strip(graphSrc);
+const indexCode = strip(indexSrc);
 
-console.log('\n[ ① 판정 정본이 한 파일에 있다 ]');
-check('warmup-graph.ts 가 isEnglishWarmupText 를 내보낸다',
-  /export function isEnglishWarmupText/.test(graphSrc));
-check('warmup-graph.ts 가 isEnglishWarmupQuestion 을 내보낸다',
-  /export function isEnglishWarmupQuestion/.test(graphSrc));
+console.log('\n[ ① 판정 정본이 전용 파일 «하나» 에 있다 ]');
+check('src/english-only.ts 가 isEnglishText 를 내보낸다',
+  /export function isEnglishText\(raw: unknown, maxLen = 80\)/.test(gateSrc));
+check('src/english-only.ts 가 isEnglishQuestion 을 내보낸다',
+  /export function isEnglishQuestion/.test(gateSrc));
+check('warmup-graph.ts 는 그 정본을 import 해서 쓴다 (규칙을 다시 쓰지 않았다)',
+  /import \{ isEnglishText, isEnglishQuestion \} from '\.\/english-only'/.test(graphSrc)
+  && !/^const CJK_KANA_RE/m.test(graphCode));
+check('index.ts 도 같은 정본을 import 한다 (웜업·게임이 한 규칙을 쓴다)',
+  /import \{ isEnglishText, isEnglishQuestion \} from '\.\/english-only'/.test(indexSrc));
+check('⛔ 규칙(문자범위)을 다른 파일에 복사하지 않았다',
+  !/\\u3040-\\u30ff/.test(graphCode) && !/\\u3040-\\u30ff/.test(indexCode));
 check('⛔ 화면(warmup.html)에는 판정 규칙을 복사하지 않았다 (서버가 거른 것을 그대로 그린다)',
-  !/isEnglishWarmup/.test(warmupHtml) && !/병음|pinyin/i.test(strip(warmupHtml)));
+  !/isEnglish/.test(warmupHtml) && !/병음|pinyin/i.test(strip(warmupHtml)));
 
 console.log('\n[ ② ETL 세 입구가 모두 게이트를 지난다 ]');
 check('교재 문장 추출(extractSentences)이 문항 게이트를 먼저 지난다',
-  /function extractSentences[\s\S]{0,400}?if \(!isEnglishWarmupQuestion\(q\)\) continue;/.test(graphCode));
+  /function extractSentences[\s\S]{0,400}?if \(!isEnglishQuestion\(q\)\) continue;/.test(graphCode));
 check('교재 문장 추출이 글자 게이트로 판정한다',
-  /function extractSentences[\s\S]{0,600}?if \(isEnglishWarmupText\(s\)/.test(graphCode));
+  /function extractSentences[\s\S]{0,600}?if \(isEnglishText\(s\)/.test(graphCode));
 check('구 데이터 재채점(regradeWrongs)이 문항 게이트를 지난다',
-  /function regradeWrongs[\s\S]{0,700}?if \(!isEnglishWarmupQuestion\(q\)\) continue;/.test(graphCode));
+  /function regradeWrongs[\s\S]{0,700}?if \(!isEnglishQuestion\(q\)\) continue;/.test(graphCode));
 check('구 데이터 재채점이 글자 게이트로 판정한다',
-  /function regradeWrongs[\s\S]{0,1600}?if \(wrong && isEnglishWarmupText\(text\)\)/.test(graphCode));
+  /function regradeWrongs[\s\S]{0,1600}?if \(wrong && isEnglishText\(text\)\)/.test(graphCode));
 check('신규 detail 추출(detailWrongs)이 글자 게이트로 판정한다',
-  /function detailWrongs[\s\S]{0,1400}?if \(isEnglishWarmupText\(text\)\)/.test(graphCode));
+  /function detailWrongs[\s\S]{0,1400}?if \(isEnglishText\(text\)\)/.test(graphCode));
 /* 🔴 detail 행에는 정답 문자열만 남고 지문·선택지가 없다 — 원본 문항을 함께 넘기지 않으면
    성조부호 없는 병음(accept:['caochang'])이 «적재의 주 경로» 로 그대로 들어간다.
    (2026-08-26 trap-check 가 「detailWrongs 만 게이트가 한 겹」이라고 잡아 준 자리) */
 check('🔴 detailWrongs 가 원본 문항(questions)을 함께 받아 문항 게이트도 태운다',
   /function detailWrongs\([\s\S]{0,300}?quizQuestions\?: string \| null/.test(graphCode)
-  && /function detailWrongs[\s\S]{0,1200}?if \(q !== undefined && !isEnglishWarmupQuestion\(q\)\) continue;/.test(graphCode));
+  && /function detailWrongs[\s\S]{0,1200}?if \(q !== undefined && !isEnglishQuestion\(q\)\) continue;/.test(graphCode));
 check('ETL 이 그 questions 를 실제로 넘긴다 (안 넘기면 위 게이트가 조용히 헛돈다)',
   /detailWrongs\(\{ user_id: r\.user_id, detail: r\.detail, created_at: r\.created_at \}, quiz\.textbook, quiz\.questions\)/.test(graphCode));
 check('⛔ 옛 판정 `/[a-zA-Z]/` 이 코드에 하나도 안 남았다 (「라틴 글자 하나면 영어」)',
@@ -76,18 +86,68 @@ check('⛔ 옛 판정 `/[a-zA-Z]/` 이 코드에 하나도 안 남았다 (「라
 
 console.log('\n[ ③ 읽을 때도 거른다 — 이미 적재된 옛 데이터는 MERGE 라 안 사라진다 ]');
 check('getWeakSentences 가 돌려주기 전에 글자 게이트로 거른다',
-  /export async function getWeakSentences[\s\S]{0,1600}?\.filter\(\(w\) => isEnglishWarmupText\(w\.text\)\)/.test(graphCode));
+  /export async function getWeakSentences[\s\S]{0,1600}?\.filter\(\(w\) => isEnglishText\(w\.text\)\)/.test(graphCode));
 check('④ 거르기 전에 넉넉히 받아 온다 (요청 5건이 전부 중국어면 0건이 된다)',
   /const fetchLimit = Math\.min\(safeLimit \* 4, 40\)/.test(graphCode)
   && /limit: fetchLimit,/.test(graphCode));
 check('그래도 최종 건수는 요청한 만큼으로 자른다',
   /\.slice\(0, safeLimit\)/.test(graphCode));
 
+/* 🎮 게임 쪽 (2026-08-26 사장님 「게임 쪽도 고쳐줘」) — 같은 표를 읽는 index.ts 세 곳.
+   실측: 다락원 활성 문항 178개 중 라틴 글자를 가진 것 14개가 «전부 단일 낱말 병음» 이고
+   (dìtiě·jīpiào·cāochǎng·shuāngyǎnpí…), 두 낱말 이상은 0개다.
+   그래서 낱말 수 하한이 없는 handleGamesVocab 이 그 14개를 영어 게임 문장으로 내보냈다. */
+console.log('\n[ ④-2 게임 API 세 곳도 같은 게이트를 지난다 ]');
+check('warmupLessonContext 가 문항·글자 게이트를 지난다 (웜업 AI 프롬프트)',
+  /async function warmupLessonContext[\s\S]{0,2600}?if \(!isEnglishQuestion\(q\)\) continue;[\s\S]{0,300}?if \(isEnglishText\(s\)/.test(indexCode));
+check('handleGamesVocab 의 pushSentence 가 글자 게이트를 쓴다 (길이 상한 90 유지)',
+  /const pushSentence[\s\S]{0,700}?if \(!isEnglishText\(s, 90\)\) return;/.test(indexCode));
+check('handleGamesVocab 이 문항 게이트도 지난다',
+  /async function handleGamesVocab[\s\S]{0,3000}?if \(!isEnglishQuestion\(q\)\) continue;[\s\S]{0,200}?pushSentence\(/.test(indexCode));
+check('학생 단어장(vocabulary)도 게이트를 지난다 (길이 상한 30 유지)',
+  /if \(!ko \|\| !isEnglishText\(en, 30\)\) continue;/.test(indexCode));
+check('handleGamesLessons 의 영어 갈래가 문항·글자 게이트를 지난다',
+  /if \(!isEnglishQuestion\(q\)\) continue;[\s\S]{0,260}?if \(!isEnglishText\(en, 90\)\) continue;/.test(indexCode));
+check('⛔ 낱말 수 하한으로 풀지 않았다 (영어 정답이 한 낱말인 문항이 많다)',
+  !/isEnglishText\([^)]*\)[\s\S]{0,120}?split\(\/\\s\+\/\)[\s\S]{0,60}?length < 2/.test(indexCode));
+
+console.log('\n[ ④-3 영어 «코스 목록» 에서 중국어 교재를 뺀다 ]');
+/* 🔴 문장을 걸러도 코스 목록은 안 고쳐진다 — 목록은 review_quizzes 를 통째로 훑는다.
+   실측: 다락원이 활성 15건으로 최대 → 목록 1위 → courses[0] 이 기본 코스라
+   교재 미배정 학생(현재 students_erp 29,417명 전원)에게 기본 코스가 다락원이 된다. */
+check('zh_vocab 을 「중국어 교재」 이름표로 읽는다 (새 규칙을 만들지 않았다)',
+  /const zhCourses = new Set<string>\(\)/.test(indexCode)
+  && /SELECT DISTINCT textbook FROM zh_vocab/.test(indexCode));
+check('영어 갈래일 때만 그 조회를 한다',
+  /if \(glang !== 'zh'\) \{[\s\S]{0,200}?zh_vocab/.test(indexCode));
+check('그 이름표로 영어 코스 목록에서 걸러 낸다',
+  /if \(zhCourses\.has\(rawTb\.toLowerCase\(\)\)[\s\S]{0,80}?\) continue;/.test(indexCode));
+/* 🔴 정확일치만 보면 「다락원 001」 같은 이름이 들어오는 순간 «에러 없이» 헛돈다.
+   (2026-08-26 trap-check 가 짚어 준 자리 — 파싱된 코스명도 함께 본다) */
+check('원문과 «파싱된 코스명» 을 둘 다 본다 (정확일치만 보면 조용히 헛돈다)',
+  /zhCourses\.has\(rawTb\.toLowerCase\(\)\) \|\| zhCourses\.has\(p\.course\.trim\(\)\.toLowerCase\(\)\)/.test(indexCode));
+check('parseEn 을 먼저 부른 뒤에 거른다 (p.course 가 있어야 위 판정이 선다)',
+  indexCode.indexOf('const p = parseEn(rawTb);') < indexCode.indexOf('if (zhCourses.has(rawTb.toLowerCase())'));
+check('그 조회에 상한을 뒀다 (표가 커져도 무제한으로 읽지 않는다)',
+  /SELECT DISTINCT textbook FROM zh_vocab[^`]*LIMIT 200/.test(indexCode));
+
+/* 🔴 한 번 틀리게 적었다가 정정한 자리다 — count 는 «퀴즈 건수» 가 아니라
+   «그 코스로 묶이는 distinct textbook 문자열 수»(cc.count = cc.keys.length).
+   다락원은 문자열이 하나라 count=1 이고 «기본 코스» 가 되지 않는다.
+   심각도를 부풀린 문장이 코드 주석·규칙서에 박히면 다음 사람이 엉뚱한 것을 고친다. */
+check('⛔ 「기본 코스가 다락원이었다」로 되돌아가지 않았다 (정정된 사실이 코드 주석에 남아 있다)',
+  /count 는 «퀴즈 건수» 가 아니라/.test(indexSrc)
+  && !/기본 코스가 다락원/.test(indexCode));
+check('⛔ zh_vocab 조회가 실패해도 영어 목록이 멈추지 않는다 (try/catch)',
+  /try \{[\s\S]{0,400}?SELECT DISTINCT textbook FROM zh_vocab[\s\S]{0,400}?\} catch \{\}/.test(indexCode));
+check('⛔ 교재 «이름» 을 보고 중국어라고 짐작하지 않는다',
+  !/다락원/.test(indexCode));
+
 console.log('\n[ ⑤ 문자범위를 소스에 직접 적지 않고 \\u 이스케이프로 쓴다 ]');
 check('한자·가나 범위가 \\u 이스케이프다 (부정 검사 하니스가 그 글자를 잡는 사고 방지)',
-  /const CJK_KANA_RE = \/\[\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\]\//.test(graphSrc));
+  /const CJK_KANA_RE = \/\[\\u3040-\\u30ff\\u3400-\\u4dbf\\u4e00-\\u9fff\\uf900-\\ufaff\]\//.test(gateSrc));
 check('허용 문자 범위도 \\u 이스케이프다',
-  /\/\^\[\\x20-\\x7E\\u2018\\u2019\\u201c\\u201d\\u2013\\u2014\\u2026\]\+\$\//.test(graphSrc));
+  /\/\^\[\\x20-\\x7E\\u2018\\u2019\\u201c\\u201d\\u2013\\u2014\\u2026\]\+\$\//.test(gateSrc));
 
 /* 🔴 여기가 핵심이다 — 위 문자열 검사는 「부르는가」만 본다.
    「무엇을 버리는가」는 함수를 실제로 돌려야만 보인다.
@@ -97,17 +157,15 @@ console.log('\n[ ⑥ 게이트를 컴파일해 실제 문항·문자열로 돌�
 let mod = null, tsWhy = '';
 try {
   const ts = (await import(pathToFileURL(resolve(__dir, '../cloudflare-deploy/node_modules/typescript/lib/typescript.js')).href)).default;
-  // teacher-match import 를 지운 사본을 돌린다 — 게이트는 그 모듈에 기대지 않는다
-  const solo = graphSrc.replace(/^import .*from '\.\/teacher-match';$/m, '');
-  const js = ts.transpileModule(solo, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
+  const js = ts.transpileModule(gateSrc, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
   mod = await import('data:text/javascript;base64,' + Buffer.from(js, 'utf8').toString('base64'));
 } catch (e) { tsWhy = e.message; }
 
 if (!mod) {
   console.log('  ⏭ typescript 를 못 찾아 건너뜀 (' + String(tsWhy).slice(0, 90) + ')');
 } else {
-  const okText = (s) => mod.isEnglishWarmupText(s);
-  const okQ = (q) => mod.isEnglishWarmupQuestion(q);
+  const okText = (s, n) => mod.isEnglishText(s, n);
+  const okQ = (q) => mod.isEnglishQuestion(q);
 
   console.log('  · 🔴 사장님 화면에 실제로 떴던 병음 (2026-08-26 스크린샷 · D1 퀴즈 28·30번)');
   check('"cāochǎng" 은 영어가 아니다', !okText('cāochǎng'));
@@ -161,6 +219,18 @@ if (!mod) {
     okText('caochang') === true);
   check('그 문항을 함께 보면 막힌다',
     !okQ({ type: 'write', q: '한자의 병음을 알파벳으로 쓰세요', answer_text: 'caochang', accept: ['caochang'] }));
+
+  console.log('  · 🎮 게임 — D1 다락원 활성 문항에서 실제로 나온 라틴 글자 14개 (전부 병음)');
+  const REAL_PINYIN = ['dìtiě','jīpiào','dìzhǐ','dòngwùyuán','diànhuà','yīyuàn','kělè',
+                       'cāochǎng','wéijīn','shuāngyǎnpí','lánqiú','yùxí','túshūguǎn','Hànyǔ'];
+  check('14개 전부 게임 상한(90)에서도 탈락한다',
+    REAL_PINYIN.every((w) => !okText(w, 90)));
+  check('단어장 상한(30)에서도 탈락한다',
+    REAL_PINYIN.every((w) => !okText(w, 30)));
+  check('길이 상한은 부르는 쪽이 정한다 (웜업 80 · 게임 90)',
+    okText('x'.repeat(85), 90) === true && okText('x'.repeat(85)) === false);
+  check('게임의 영어 문장은 상한이 90 이라 그대로 통과한다',
+    okText('I visited my grandparents last weekend and we cooked dinner together.', 90));
 }
 
 console.log('\n' + (fail ? '⚠ FAIL ' + fail + ' / PASS ' + pass : '✅ 전부 통과 (' + pass + '건)'));
