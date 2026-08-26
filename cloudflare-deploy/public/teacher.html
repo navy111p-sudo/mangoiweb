@@ -2833,6 +2833,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       '<div class="modal" role="dialog" aria-modal="true">'
       + '<h3>' + esc(T('Class Log','수업 일지')) + '</h3>'
       + '<p class="sub">' + esc(stuName(c) + ' · ' + c.start_time) + '</p>'
+      + '<div class="fld"><label>' + esc(T('Level group (tap to set or change)','수준 그룹 (눌러서 정하거나 바꿔요')) + '</label><div id="ev-band">'
+      +   bandChip('sprout', '🌱', T('Sprout','새싹'), c.eval_band)
+      +   bandChip('grow',   '🌿', T('Grow','자람'), c.eval_band)
+      +   bandChip('fruit',  '🥭', T('Fruit','열매'), c.eval_band)
+      + '</div></div>'
       + '<div class="fld"><label>' + esc(T('Write in English. Grammar does not matter. You can leave this empty.','영어로 편하게 쓰세요. 문법은 신경 쓰지 않으셔도 됩니다. 비워 두셔도 됩니다.')) + '</label>'
       +   '<textarea id="ev-raw" rows="4"></textarea></div>'
       + '<div class="fld"><label>' + esc(T('Tap what happened — this alone is enough','수업에서 있었던 것을 눌러 주세요 — 이것만으로도 됩니다')) + '</label><div id="ev-chips">'
@@ -2862,6 +2867,22 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     function say(cls, txt){ mask.querySelector('#ev-msg').innerHTML = '<div class="' + cls + '">' + esc(txt) + '</div>'; }
     mask.querySelector('#ev-x').onclick = close;
     mask.onclick = function(ev){ if (ev.target === mask) close(); };
+
+    // 🌱 밴드 토글 — 여럿이 아니라 하나만 골라진다(참여도 별점과 같은 자리, 여러 개면 뜻이 없다).
+    //   눌러서 이미 켜진 것을 다시 누르면 «모름» 으로 되돌아간다(잘못 눌렀을 때 물릴 방법이 필요).
+    var bandBox = mask.querySelector('#ev-band');
+    bandBox.onclick = function(ev){
+      var b = ev.target.closest ? ev.target.closest('[data-band]') : null;
+      if (!b) return;
+      var already = b.className.indexOf('on') >= 0;
+      var all = bandBox.querySelectorAll('[data-band]');
+      for (var i=0;i<all.length;i++) all[i].className = 'tchip';
+      if (!already) b.className = 'tchip on';
+    };
+    function chosenBand(){
+      var el = bandBox.querySelector('[data-band].on');
+      return el ? el.getAttribute('data-band') : '';
+    }
 
     // 칩 토글 — 눌린 것만 서버로 간다(빈 칸을 채우게 하지 않기 위한 장치다).
     var chipBox = mask.querySelector('#ev-chips');
@@ -2985,6 +3006,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         score_participation: pick(mask,'participation'),
         score_comprehension: pick(mask,'comprehension'),
         score_speaking: pick(mask,'speaking'),
+        band: chosenBand() || undefined,
         note_en: en || raw,
         note_ko: ko,
         chips: chosenChips(),
@@ -3009,6 +3031,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   }
   function chip(key, label){
     return '<button type="button" class="tchip" data-chip="' + key + '">' + esc(label) + '</button>';
+  }
+  function bandChip(key, icon, label, current){
+    var on = current === key ? ' on' : '';
+    return '<button type="button" class="tchip' + on + '" data-band="' + key + '">' + icon + ' ' + esc(label) + '</button>';
   }
   /* ⚠️ 기본값을 미리 찍지 않는다 (2026-08-24 평가 개편 1단계).
      예전엔 4가 미리 찍혀 있어 «안 만진 평가»가 전부 참여도4·이해도4 로 쌓였다 —

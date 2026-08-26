@@ -277,7 +277,7 @@ export async function handleTeacherApi(
       `SELECT cs.id, cs.user_id, cs.student_name, cs.day_of_week, cs.scheduled_date, cs.start_time,
               cs.duration_min, cs.notes, cs.class_type, cs.source, cs.status AS sched_status,
               se.level AS level, se.textbook AS textbook,
-              se.english_name AS student_en
+              se.english_name AS student_en, se.eval_band AS eval_band
          FROM class_schedules cs
          LEFT JOIN students_erp se ON se.user_id = cs.user_id
         WHERE ${whereSql}`;
@@ -451,6 +451,9 @@ export async function handleTeacherApi(
         student_name_en: s.student_en || null,
         level: s.level || null,
         textbook: s.textbook || null,
+        // 🌱 (2026-08-24) 학년 데이터가 D1 에 사실상 0% 라(CLAUDE.md 2장) 자동 배정을 못 한다 —
+        //   강사가 수업 중 직접 태그한 값을 그대로 보여준다. 미배정이면 null.
+        eval_band: s.eval_band || null,
         note: s.notes || null,
         /* 🧪 (2026-08-06) 레벨테스트인지 알려 준다. 강사에겐 응대가 다르다 —
            처음 만나는 학생이고, 보호자가 옆에 있고, 끝나면 평가를 남겨야 한다.
@@ -581,7 +584,21 @@ export async function handleTeacherApi(
       const tConds = cafe24Tids.map(() => 'a.teacher_uid = ?').join(' OR ');
       const LOOKBACK_DAYS = 14;                     // 일지는 기억이 남아 있을 때 쓴다. 2주면 충분.
       const sinceDate = new Date(now + KST - LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
-      const lmsRs = await env.DB.prepare(
+      // eval_band 컬럼은 /api/eval/create 가 처음 불릴 때 생긴다(ensureEvalTable) — 배포
+      // 직후처럼 아직 없는 순간에 컬럼 하나 때문에 오늘 카페24 수업 목록이 통째로 사라지면
+      // 안 되므로, 그 컬럼 없이도 조회되는 쿼리로 폴백한다(위 sqlJoin/sqlPlain과 같은 패턴).
+      const lmsSqlJoin =
+        `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
+                a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook,
+                se.eval_band AS eval_band
+           FROM attendance a
+           LEFT JOIN students_erp se ON se.user_id = a.user_id
+          WHERE a.room_id LIKE 'c24-%' AND a.status = 'present'
+            AND a.date >= ? AND a.date <= ?
+            AND (${tConds})
+          ORDER BY a.joined_at DESC
+          LIMIT 200`;
+      const lmsSqlPlain =
         `SELECT a.room_id, a.user_id, a.username, a.joined_at, a.left_at, a.date,
                 a.teacher_uid, se.english_name AS student_en, se.level AS level, se.textbook AS textbook
            FROM attendance a
@@ -590,8 +607,10 @@ export async function handleTeacherApi(
             AND a.date >= ? AND a.date <= ?
             AND (${tConds})
           ORDER BY a.joined_at DESC
-          LIMIT 200`
-      ).bind(sinceDate, todayStr, ...cafe24Tids).all<any>();
+          LIMIT 200`;
+      let lmsRs: any;
+      try { lmsRs = await env.DB.prepare(lmsSqlJoin).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
+      catch { lmsRs = await env.DB.prepare(lmsSqlPlain).bind(sinceDate, todayStr, ...cafe24Tids).all<any>(); }
 
       const seen = new Set(classes.map((c: any) => String(c.room_id)));
       for (const r of (lmsRs.results || [])) {
@@ -612,6 +631,7 @@ export async function handleTeacherApi(
           student_name_en: r.student_en || null,
           level: r.level || null,
           textbook: r.textbook || null,
+          eval_band: r.eval_band || null,
           note: null,
           class_kind: 'regular',
           is_level_test: false,
