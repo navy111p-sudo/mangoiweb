@@ -453,9 +453,9 @@
     reEnter();
     Array.prototype.forEach.call(stage.querySelectorAll('.lva-btn'), function(el){
       el.addEventListener('click', function(){
+        if(ageSwitching) return;
         Array.prototype.forEach.call(stage.querySelectorAll('.lva-btn'), function(x){ x.disabled = true; });
-        markAgeAsked();
-        loadScenario(null, 0, 0, null, el.getAttribute('data-g'));
+        switchAgeGroup(el.getAttribute('data-g'));
       });
     });
   }
@@ -535,6 +535,19 @@
     if(ic) ic.textContent = (CUR_AGE==='adult') ? '🧑‍💼' : '🧑‍🎓';
     var btn = document.getElementById('ageBtn');
     if(btn){ var _t=T('누구를 위한 문제인가요?','Who is this for?','谁在做题？'); btn.title=_t; btn.setAttribute('aria-label',_t); }
+  }
+  // 🧑‍🎓/🧑‍💼 나이대를 실제로 바꾸는 단일 진입점 — 상단 pill 과 첫 방문 게이트(renderAgeGate)가
+  // 둘 다 이걸 쓴다. 헤더 pill 만 잠그고 게이트 안 버튼은 따로 잠그던 것을 하나로 합쳐,
+  // "게이트에서 누른 직후 헤더 pill을 또 누르면 요청이 두 번 나가는" 틈을 없앤다(trap-check 지적).
+  var ageSwitching = false;
+  function switchAgeGroup(next){
+    if(ageSwitching) return;
+    ageSwitching = true;
+    markAgeAsked();
+    var btn = document.getElementById('ageBtn');
+    if(btn) btn.disabled = true;
+    function done(){ ageSwitching = false; var b = document.getElementById('ageBtn'); if(b) b.disabled = false; }
+    loadScenario(null, 0, 0, null, next).then(done, done);
   }
   // 방금 'AI가 맞춰줄게요'로 바꾼 경우에만 안내 한 줄을 띄우기 위한 표시(다음 문제부터는 안 띄움)
   var MODE_JUST_SET = false;
@@ -1123,15 +1136,12 @@
   var gb = document.getElementById('growthBtn'); if(gb) gb.addEventListener('click', showGrowth);
 
   // 🧑‍🎓/🧑‍💼 상단 pill — 누르면 바로 반대 나이대로 전환(🌐 언어 토글과 같은 동작 방식).
-  //   레벨 찾기(plOn) 도중에는 적응형 문항 흐름이 깨지므로 무시한다.
-  var ageSwitching = false;
+  //   레벨 찾기(plOn) 도중에는 적응형 문항 흐름이 깨지므로 무시한다. 실제 전환은
+  //   switchAgeGroup() 하나로 모아 첫 방문 게이트(renderAgeGate)와 잠금을 공유한다.
   var ab = document.getElementById('ageBtn');
   if(ab) ab.addEventListener('click', function(){
     if(plOn || ageSwitching) return;
-    ageSwitching = true;
-    markAgeAsked();
-    var next = (CUR_AGE==='adult') ? 'child' : 'adult';
-    loadScenario(null, 0, 0, null, next).then(function(){ ageSwitching=false; }, function(){ ageSwitching=false; });
+    switchAgeGroup((CUR_AGE==='adult') ? 'child' : 'adult');
   });
 
   applyStatic();
