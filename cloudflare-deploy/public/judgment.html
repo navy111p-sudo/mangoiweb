@@ -162,6 +162,17 @@
     background:linear-gradient(92deg,#f59e0b,#fbbf24);border-radius:999px;padding:2px 9px;vertical-align:middle}
   .lvp-sub{margin:18px 0 0;font-size:clamp(13px,1.6vw,16px);font-weight:800;color:var(--pp)}
 
+  /* ── 🎬 첫 진입 설정 카드(2026-08-26) — 새 상자를 만들지 않고 위 .lvm-* 를 그대로 씁니다.
+        한 줄에 하나씩 놓아야 «① → ②» 순서가 눈으로 읽힙니다(2열이면 나란히 놓여 순서가 사라짐). */
+  .lvm.one{grid-template-columns:1fr}
+  .setup-num{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;
+    margin-right:7px;border-radius:50%;background:linear-gradient(92deg,#7c3aed,#a78bfa);
+    color:#fff;font-size:12px;font-weight:900;vertical-align:middle}
+  /* 추천 갈래는 테두리로만 구분합니다 — 1-3 «판단력 훈련 UI 의 게임 요소 금지» */
+  .lvm-btn.reco{border-color:#a78bfa;background:rgba(124,58,237,.16)}
+  .lvm-reco{display:inline-block;margin-left:7px;font-size:11px;font-weight:800;color:#1a1a1a;
+    background:linear-gradient(92deg,#a78bfa,#c4b5fd);border-radius:999px;padding:2px 9px;vertical-align:middle}
+
   /* ── 🎯 레벨 찾기(배치테스트) ── */
   .pl-cta{display:block;width:100%;margin-top:12px;text-align:left;background:rgba(16,185,129,.12);
     border:2px solid rgba(16,185,129,.35);border-radius:16px;padding:14px 16px;cursor:pointer;
@@ -392,6 +403,7 @@
     else if(view==='result' && window._lastResult) renderResult(window._lastResult);
     else if(view==='growth' && window._lastGrowth) renderGrowth(window._lastGrowth);
     else if(view==='nologin') renderNoLogin();   // 로그인 안내도 언어 따라 다시 그린다(안 하면 첫 언어로 굳음)
+    else if(view==='setup') renderFirstRunSetup();   // 🎬 첫 설정 카드도 마찬가지(고른 값 setupAge/setupList 는 그대로 유지)
     if(solved>0) streakEl.innerHTML = streakText();
   }
   document.getElementById('langBtn').addEventListener('click', function(){
@@ -467,10 +479,12 @@
       .then(function(r){ return r.json(); })
       .catch(function(){ return null; });
   }
-  function prefetchNext(){
+  //   ageGroup 을 주면 그 나이대로 미리 만듭니다 — 첫 설정 카드에서 «성인» 을 누른 순간
+  //   서버에 저장까지 함께 끝내려는 것입니다(그래야 그다음 «시작» 이 기다림 0 이 됩니다).
+  function prefetchNext(ageGroup){
     if(prefetch) return;
     prefetchDone = false;
-    prefetch = requestScenario().then(function(d){ prefetchDone = true; return d; });
+    prefetch = requestScenario(null, 0, 0, null, 0, null, ageGroup || null).then(function(d){ prefetchDone = true; return d; });
   }
   function validScenario(d){ return !!(d && d.ok!==false && Array.isArray(d.options) && d.options.length>=2); }
 
@@ -595,6 +609,201 @@
       if(validScenario(d)){ scenario = d; renderQuestion(); reEnter(); prefetchNext(); }
       else loadScenario();
     });
+  }
+
+  // ── 🎬 첫 진입 설정 카드 (2026-08-26 사장님 지시) ──────────────────────────
+  //   왜 만들었나 — 신규 학생은 지금 **전원 밴드 3**에서 시작합니다. 설계서의 1순위였던
+  //   «강사가 준 레벨» 은 운영 D1 실측으로 `students_erp.level` 0/29,417행 · `level_tests` 0행이라
+  //   현장에 존재하지 않습니다. 즉 «폴백이 곧 전부» 입니다.
+  //
+  //   ⛔ 그렇다고 배치테스트 6문항을 첫 관문으로 세우지는 않습니다 — 문항은 문제은행이 아니라
+  //      LLM 이 요청마다 만들고, 배치 중에는 선(先)생성도 꺼집니다(아래 startPlacement).
+  //      운영 실측(analysis_perf_log 최근 14일 78건): 평균 11.0초 · 절반이 10초 초과 · 최대 57초
+  //      → 6문항이면 **대기만 1분 이상**입니다. 첫 방문의 이탈은 «어려워서» 가 아니라 «안 떠서» 납니다.
+  //   ✅ 그래서 이 카드는 LLM 호출 0 으로 즉시 뜨고, **카드가 떠 있는 동안 뒤에서 첫 문제를 만듭니다.**
+  //      가장 흔한 갈래(🤖 AI가 맞춰줄게요)를 고르면 문제가 이미 와 있어 기다림이 0 이 됩니다.
+  //      지금의 «첫 화면 8~11초 공백» 이 «설명 읽는 시간» 으로 바뀌는 것이 이 변경의 진짜 이득입니다.
+  //
+  //   ⚠️ «난이도» 만 묻지 않는 이유 — 밴드는 답을 보고 자동으로 움직이지만
+  //      나이대(child/adult)는 학생이 말해 주지 않으면 **영원히** 학교·친구 소재에 머뭅니다.
+  //      자동 조절이 못 맞추는 유일한 축이라 첫 카드에 반드시 있어야 합니다(2026-08-26 결정).
+  var SETUP_KEY = 'mangoi_judg_setup_v1';
+  var setupAge = 'child', setupList = false, setupBusy = false;
+  // ⚠️ 사파리 프라이빗 등에서 localStorage 접근 자체가 예외를 던집니다 — 못 읽으면 «아직 안 정함» 으로
+  //    보고 카드를 띄웁니다(카드에 «바로 시작» 갈래가 있으므로 최악이어도 한 번 더 묻는 것으로 끝납니다).
+  function setupDone(){ try{ return localStorage.getItem(SETUP_KEY)==='1'; }catch(e){ return false; } }
+  function markSetupDone(){ try{ localStorage.setItem(SETUP_KEY,'1'); }catch(e){} }
+
+  function setupStart(fn){
+    if(setupBusy) return false;      // 연타로 요청이 두 번 나가지 않게
+    setupBusy = true; markSetupDone();
+    Array.prototype.forEach.call(stage.querySelectorAll('button'), function(b){ b.disabled = true; });
+    fn();
+    return true;
+  }
+
+  function renderFirstRunSetup(){
+    view = 'setup';
+    // 📜 «왜 판단력 훈련을 하나요?» 설명 상자는 기본이 펼침(class="explain open")이라 폰에서 두 화면쯤 됩니다.
+    //    그 아래로 밀리면 정작 «정하라»고 띄운 카드가 스크롤 밖에 있어 첫 진입의 뜻이 사라집니다
+    //    (390px 실측 2026-08-26: 카드 top 966px — 화면 844px 밖).
+    //    ⛔ 상자를 없애지는 않습니다 — 제목 줄이 그대로 토글이라 한 번 누르면 다시 펼쳐집니다.
+    try{ document.getElementById('explain').classList.remove('open'); }catch(e){}
+    // ⚡ 카드가 떠 있는 동안 첫 문제를 뒤에서 만들어 둡니다 — 이 카드의 진짜 이득이 이 한 줄입니다.
+    //    (이미 만들고 있으면 prefetchNext 가 그냥 돌아가므로, 다시 그릴 때마다 불러도 안전합니다)
+    if(!prefetch) prefetchNext(setupAge==='adult' ? 'adult' : null);
+    var onChip = '<span class="lvm-on">'+T('선택','on','已选')+'</span>';
+    function ageBtn(g, ic, t, d){
+      var cur = (setupAge===g);
+      return '<button type="button" class="lvm-btn su-age'+(cur?' cur':'')+'" data-g="'+g+'">'
+        + '<span class="lvm-ic">'+ic+'</span>'
+        + '<span class="lvm-t">'+t+(cur?onChip:'')+'</span>'
+        + '<span class="lvm-d">'+d+'</span></button>';
+    }
+    // ②의 «직접 고르기» 목록 — 이름·설명의 단일 출처는 서버(judgment-level.ts)입니다.
+    //   BAND_CATALOG 는 부팅 때 `?only=band` 로 이미 받아 둡니다(LLM 대기 없음).
+    var list = '';
+    if(setupList){
+      list = (BAND_CATALOG && BAND_CATALOG.length)
+        ? '<div class="lvp-list">'+BAND_CATALOG.map(function(b){
+            return '<button type="button" class="lvp-item su-band" data-b="'+b.band+'">'
+              + '<span class="lvp-name">'+esc(bandText(b,'n'))+'<span class="lvp-lv">('+esc(b.lv)+')</span></span>'
+              + '<span class="lvp-desc">'+esc(bandText(b,'d'))+'</span></button>';
+          }).join('')+'</div>'
+        : '<div class="hint" style="margin-top:10px">'+T('난이도 목록을 불러오는 중이에요…','Loading the level list…','正在加载难度列表…')+'</div>';
+    }
+    stage.innerHTML =
+      '<div class="lvp-title">🎬 '+T('시작하기 전에 두 가지만 정할게요','Two quick things before we start','开始前先定两件事')+'</div>'+
+      '<div class="hint">'+T('건너뛰어도 괜찮아요. 나중에 언제든 바꿀 수 있어요.',
+                             'You can skip this — everything is changeable later.',
+                             '跳过也没关系，之后随时可以更改。')+'</div>'+
+
+      '<div class="lvp-sub"><span class="setup-num">1</span>'+T('누구를 위한 문제인가요?','Who is this for?','谁在做题？')+'</div>'+
+      '<div class="hint">'+T('문장 난이도가 아니라 «소재와 말투»가 달라져요.',
+                             'This changes the topics and tone — not the sentence level.',
+                             '这改变的是题材和语气，不是句子难度。')+'</div>'+
+      '<div class="lvm">'+
+        ageBtn('child','🧑‍🎓',T('학생','Student','学生'),
+               T('학교·친구 같은 일상 소재로 문제를 만들어요.','Everyday school and friend situations.','以学校、朋友等日常情境出题。'))+
+        ageBtn('adult','🧑‍💼',T('성인','Adult','成人'),
+               T('직장·일상 같은 성인 상황으로 문제를 만들어요.','Workplace and everyday adult situations.','以职场、日常等成人情境出题。'))+
+      '</div>'+
+
+      '<div class="lvp-sub"><span class="setup-num">2</span>'+T('문장 난이도는 어떻게 정할까요?','How should we set the sentence level?','句子难度怎么定？')+'</div>'+
+      '<div class="lvm one">'+
+        '<button type="button" class="lvm-btn reco" data-s="auto">'+
+          '<span class="lvm-ic">🤖</span>'+
+          '<span class="lvm-t">'+T('AI가 맞춰줄게요','Let AI adjust','让AI来调整')
+            +'<span class="lvm-reco">'+T('추천','best','推荐')+'</span></span>'+
+          '<span class="lvm-d">'+T('바로 시작해요. 푸는 걸 보고 더 쉽게·더 어렵게 자동으로 바꿔요.',
+                                   'Start right away — it moves up or down as you answer.',
+                                   '马上开始，根据你的作答自动变简单或变难。')+'</span>'+
+        '</button>'+
+        '<button type="button" class="lvm-btn" data-s="manual">'+
+          '<span class="lvm-ic">🖐️</span>'+
+          '<span class="lvm-t">'+T('내가 고를래요','I choose myself','我自己选')+'</span>'+
+          '<span class="lvm-d">'+T('8단계 중에서 직접 고르고, 그 자리에 그대로 있어요.',
+                                   'Pick one of 8 levels and stay there.',
+                                   '从8个等级中自选，并保持不变。')+'</span>'+
+        '</button>'+
+      '</div>'+
+      list+
+      // 🎯 배치테스트는 «없애지 않고» 선택지 셋 중 하나로 둡니다 — 원하는 사람만 들어갑니다.
+      //    안내 문구의 «2~3분» 은 위 실측(문항당 평균 11초)에 맞춘 값입니다. 줄이지 마세요.
+      '<button type="button" class="pl-cta" data-s="placement">'+
+        '<span class="lvm-ic">🎯</span>'+
+        '<span class="lvm-t">'+T('내 레벨을 찾아 주세요','Find my level for me','帮我测一下难度')+'</span>'+
+        '<span class="lvm-d">'+T('문제 6개를 풀면 딱 맞는 난이도를 찾아드려요. (약 2~3분)',
+                                 'Six questions and we will find your level. (about 2–3 min)',
+                                 '做6道题就能找到合适的难度。（约2~3分钟）')+'</span>'+
+      '</button>'+
+      '<button class="btn ghost" data-s="skip">'+T('그냥 바로 시작할래요','Just start now','直接开始')+'</button>';
+    reEnter();
+
+    // ① 나이대 — 누른 즉시 서버에 반영하고, 그 응답을 **다음 문제로 미리 받아 둡니다.**
+    //    (요청을 여기서 한 번 보내 두어야 «성인 + AI가 맞춰줄게요» 갈래도 기다림 0 이 됩니다)
+    Array.prototype.forEach.call(stage.querySelectorAll('.su-age'), function(el){
+      el.addEventListener('click', function(){
+        var g = el.getAttribute('data-g');
+        if(g===setupAge || setupBusy) return;
+        setupAge = g;
+        // 미리 받아 둔 문제는 «옛 나이대» 로 만들어진 것이라 반드시 버립니다(밴드 전환과 같은 원칙).
+        prefetch = null; prefetchDone = false;
+        prefetchNext(g);
+        renderFirstRunSetup();
+      });
+    });
+
+    // ② 갈래
+    Array.prototype.forEach.call(stage.querySelectorAll('[data-s]'), function(el){
+      el.addEventListener('click', function(){
+        var k = el.getAttribute('data-s');
+        if(k==='manual'){
+          if(setupBusy) return;
+          setupList = !setupList;
+          renderFirstRunSetup();
+          if(setupList) ensureCatalog().then(function(ok){ if(ok && view==='setup' && setupList) renderFirstRunSetup(); });
+          return;
+        }
+        if(k==='placement'){
+          // 나이대는 이미 위에서 서버에 저장됐습니다(배치 요청은 밴드를 안 건드리지만 소재는 저장값을 씁니다).
+          setupStart(function(){ startPlacement(); });
+          return;
+        }
+        // 'auto' / 'skip' — 미리 받아 둔 문제를 그대로 씁니다(기다림 0).
+        //   ⚠️ mode 를 붙여 보내면 loadScenario 가 미리 받아 둔 문제를 버리고 새로 만듭니다(평균 11초).
+        //      신규 학생의 기본 모드가 이미 'auto' 라 붙일 이유가 없고, 예전에 «직접» 으로 두었던
+        //      학생만 실제로 바꿔야 하므로 그때만 붙입니다.
+        setupStart(function(){ loadScenario(null, 0, 0, (CUR_MODE==='manual' ? 'auto' : null)); });
+      });
+    });
+
+    // 목록에서 범주를 직접 고른 경우 — 그 자리에 머무는 «직접» 모드가 됩니다.
+    Array.prototype.forEach.call(stage.querySelectorAll('.su-band'), function(el){
+      el.addEventListener('click', function(){
+        var b = Number(el.getAttribute('data-b'))||0;
+        if(!b) return;
+        setupStart(function(){ loadScenario(null, 0, b, 'manual'); });
+      });
+    });
+  }
+
+  /** 난이도 범주 목록 확보 — 부팅 때 못 받았으면(네트워크 실패 등) 미리 받아 둔 문제 응답에서 줍습니다. */
+  async function ensureCatalog(){
+    if(BAND_CATALOG && BAND_CATALOG.length) return true;
+    if(!prefetch) prefetchNext(setupAge==='adult' ? 'adult' : null);
+    try{ captureBand(await prefetch); }catch(e){}   // ⚠️ prefetch 를 비우지 않습니다 — 이어서 loadScenario 가 그대로 씁니다
+    return !!(BAND_CATALOG && BAND_CATALOG.length);
+  }
+
+  /**
+   * 부팅 — «난이도를 정한 적 있는 학생인가» 를 KV 1회로 물어보고 첫 화면을 정합니다.
+   *   ⚠️ 이 판정을 시나리오 요청으로 하려 하면 LLM 생성(평균 11초)을 기다려야 해서
+   *      첫 화면이 통째로 늦어집니다. 그래서 이미 열려 있는 GET 에 `?only=band` 를 얹었습니다.
+   *   ⚠️ 그 요청이 실패해도 화면은 반드시 떠야 합니다 — 실패는 «모름» 으로 보고 로컬 표시를 따릅니다.
+   */
+  async function boot(){
+    if(new URLSearchParams(location.search).get('placement')==='1'){
+      markSetupDone(); startPlacement(); return;
+    }
+    if(setupDone()){ loadScenario(); return; }
+    loading(T('준비하고 있어요…','Getting ready…','正在准备…'));
+    var d = null;
+    try{
+      var r = await fetch('/api/judgment/growth?only=band&uid='+encodeURIComponent(UID), {credentials:'include'});
+      d = await r.json();
+    }catch(e){ d = null; }
+    if(d && d.ok){
+      if(Array.isArray(d.band_catalog) && d.band_catalog.length) BAND_CATALOG = d.band_catalog;
+      if(d.has_band){
+        // 이미 정해 둔 학생 — 기기를 바꿔 로컬 표시가 없어도 다시 묻지 않습니다.
+        if(d.reading_band) CUR_BAND = Number(d.reading_band)||0;
+        if(d.band_mode) CUR_MODE = (d.band_mode==='manual') ? 'manual' : 'auto';
+        if(d.age_group) CUR_AGE = setupAge = (d.age_group==='adult') ? 'adult' : 'child';
+        markSetupDone(); loadScenario(); return;
+      }
+    }
+    renderFirstRunSetup();
   }
 
   function showBandPicker(){
@@ -1069,8 +1278,8 @@
   // 🎯 전체메뉴 「레벨 테스트」 타일이 ?placement=1 로 들어온다 — 문제 대신 레벨 찾기부터 시작.
   //    (기능은 전부터 있었지만 입구가 [난이도 설정] 2단계 안쪽뿐이라
   //     «처음엔 있었는데 다시 못 찾겠다» 는 검수 피드백이 있었다. 2026-08-24)
-  if(new URLSearchParams(location.search).get('placement')==='1') startPlacement();
-  else loadScenario();
+  //  🎬 그 밖의 진입은 boot() 가 «처음 오는 학생인가» 를 보고 첫 설정 카드 / 문제를 가른다(2026-08-26).
+  boot();
 })();
 </script>
 <!-- BUILD:20260813015745 -->

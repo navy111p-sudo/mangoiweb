@@ -11,7 +11,8 @@ import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './gift
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts } from './point-policy';
-import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
+import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -728,6 +729,20 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/judgment/growth') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // ⚡ only=band — 성장 리포트(D1 여러 번)를 건너뛰고 «이 학생이 난이도를 정한 적 있나» 만 KV 1회로 답합니다.
+      //   🎬 학생 화면의 첫 진입 설정 카드가 이 답을 기다립니다. 시나리오 요청으로 알아내려 하면
+      //      LLM 생성(운영 실측 평균 11초)을 기다려야 해서 «첫 화면이 안 뜨는» 것이 됩니다.
+      //   ⚠️ 새 경로를 만들지 않고 이미 열려 있는 GET 에 얹습니다 — src/index.ts 는 공동 금지구역입니다.
+      if ((url.searchParams.get('only') || '') === 'band') {
+        try {
+          const b = await getReadingBandFor(env, uid);
+          // ⚠️ has_band=false 는 «판단력 훈련을 한 번도 안 했다» 는 뜻입니다.
+          //    없는 값을 기본값으로 채워 내려보내면 화면이 «이미 정해 뒀다» 로 오해합니다.
+          return json({ ok: true, has_band: !!b, band_catalog: bandCatalog(), ...(b ? {
+            reading_band: b.band, reading_band_label: b.lv, band_mode: b.mode, band_src: b.src, age_group: b.age_group,
+          } : {}) });
+        } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+      }
       try {
         const report = await getGrowthReport(env, uid);
         return json({ ok: true, ...report });
