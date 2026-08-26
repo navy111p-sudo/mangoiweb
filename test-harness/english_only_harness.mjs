@@ -121,7 +121,23 @@ check('zh_vocab 을 「중국어 교재」 이름표로 읽는다 (새 규칙을
 check('영어 갈래일 때만 그 조회를 한다',
   /if \(glang !== 'zh'\) \{[\s\S]{0,200}?zh_vocab/.test(indexCode));
 check('그 이름표로 영어 코스 목록에서 걸러 낸다',
-  /if \(zhCourses\.has\(rawTb\.toLowerCase\(\)\)\) continue;/.test(indexCode));
+  /if \(zhCourses\.has\(rawTb\.toLowerCase\(\)\)[\s\S]{0,80}?\) continue;/.test(indexCode));
+/* 🔴 정확일치만 보면 「다락원 001」 같은 이름이 들어오는 순간 «에러 없이» 헛돈다.
+   (2026-08-26 trap-check 가 짚어 준 자리 — 파싱된 코스명도 함께 본다) */
+check('원문과 «파싱된 코스명» 을 둘 다 본다 (정확일치만 보면 조용히 헛돈다)',
+  /zhCourses\.has\(rawTb\.toLowerCase\(\)\) \|\| zhCourses\.has\(p\.course\.trim\(\)\.toLowerCase\(\)\)/.test(indexCode));
+check('parseEn 을 먼저 부른 뒤에 거른다 (p.course 가 있어야 위 판정이 선다)',
+  indexCode.indexOf('const p = parseEn(rawTb);') < indexCode.indexOf('if (zhCourses.has(rawTb.toLowerCase())'));
+check('그 조회에 상한을 뒀다 (표가 커져도 무제한으로 읽지 않는다)',
+  /SELECT DISTINCT textbook FROM zh_vocab[^`]*LIMIT 200/.test(indexCode));
+
+/* 🔴 한 번 틀리게 적었다가 정정한 자리다 — count 는 «퀴즈 건수» 가 아니라
+   «그 코스로 묶이는 distinct textbook 문자열 수»(cc.count = cc.keys.length).
+   다락원은 문자열이 하나라 count=1 이고 «기본 코스» 가 되지 않는다.
+   심각도를 부풀린 문장이 코드 주석·규칙서에 박히면 다음 사람이 엉뚱한 것을 고친다. */
+check('⛔ 「기본 코스가 다락원이었다」로 되돌아가지 않았다 (정정된 사실이 코드 주석에 남아 있다)',
+  /count 는 «퀴즈 건수» 가 아니라/.test(indexSrc)
+  && !/기본 코스가 다락원/.test(indexCode));
 check('⛔ zh_vocab 조회가 실패해도 영어 목록이 멈추지 않는다 (try/catch)',
   /try \{[\s\S]{0,400}?SELECT DISTINCT textbook FROM zh_vocab[\s\S]{0,400}?\} catch \{\}/.test(indexCode));
 check('⛔ 교재 «이름» 을 보고 중국어라고 짐작하지 않는다',

@@ -3200,19 +3200,26 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
     }
 
     /* 영어 코스 목록에서 «중국어 교재» 를 빼기 위한 이름표.
-       [왜] 영어 코스 목록은 review_quizzes 를 통째로 훑는데 그 표에는 중국어 교재
-            「다락원」이 함께 있다. 실측(2026-08-26): 다락원이 활성 15건으로 «가장 큰»
-            코스라 목록 1위가 되고, courses[0] 이 기본 코스이므로 교재 미배정 학생
-            (=현재 students_erp 29,417명 전원)에게 **기본 코스가 다락원**이 된다.
-            게다가 그 교재의 문장은 전부 한 낱말 병음이라 골라도 레슨이 0개다
-            (문항 178개 중 라틴 글자 14개 = 전부 단일 낱말, 두 낱말 이상 0개).
+       [왜] 아래 코스 목록은 review_quizzes 를 통째로 훑는데 그 표에는 중국어 교재
+            「다락원」이 함께 들어 있다(그 표는 영어 전용이 아니다). 그래서 영어 게임의
+            코스 고르기에 중국어 교재가 한 칸 섞여 나오고, 골라도 레슨이 0개다 —
+            그 교재에서 라틴 글자로 된 값은 전부 «한 낱말 병음» 이라 아래 w.length<2 에
+            걸린다(2026-08-26 D1 실측: 활성 문항 178개 중 라틴 글자 14개, 두 낱말 이상 0개).
+       ⚠️ count 는 «퀴즈 건수» 가 아니라 «그 코스로 묶이는 distinct textbook 문자열 수» 다
+            (아래 cc.count = cc.keys.length). 다락원은 문자열이 하나라 count=1 이고,
+            같은 날 실측 기준 1위는 BTS 1(001~008 = 8)이라 «기본 코스» 가 되지는 않았다.
+            ⛔ 이 줄을 「기본 코스가 다락원이었다」로 되돌리지 말 것 — 한 번 그렇게 적었다가
+               정정했다. 심각도를 부풀리면 다음 사람이 엉뚱한 것을 고친다.
        [판정] 「zh_vocab 에 있는 교재 = 중국어 코스」 — 중국어 게임이 이미 그 표를
-            정본으로 쓰고 있어서(/api/games/zh-vocab) 새 규칙을 만들지 않아도 된다.
+            정본으로 쓰고 있어서(/api/games/zh-vocab · zh-passage · 아래 glang==='zh' 갈래)
+            새 규칙을 만들지 않아도 된다.
+       ⚠️ active=1 을 «일부러» 안 건다 — 여기서 하는 일은 «빼기» 라, 비활성 중국어 교재까지
+          넓게 잡는 쪽이 안전하다(좁게 잡으면 중국어가 영어 목록으로 새어 든다).
        ⚠️ 실패해도 영어 목록이 멈추면 안 된다 — 표가 없으면 빈 집합으로 두고 그냥 진행한다. */
     const zhCourses = new Set<string>();
     if (glang !== 'zh') {
       try {
-        const zr = await env.DB.prepare(`SELECT DISTINCT textbook FROM zh_vocab WHERE textbook IS NOT NULL AND textbook != ''`).all();
+        const zr = await env.DB.prepare(`SELECT DISTINCT textbook FROM zh_vocab WHERE textbook IS NOT NULL AND textbook != '' LIMIT 200`).all();
         for (const r of (((zr.results as any[]) || []))) {
           const t = String((r as any).textbook || '').trim().toLowerCase();
           if (t) zhCourses.add(t);
@@ -3230,8 +3237,12 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
         const rs = await env.DB.prepare(`SELECT textbook FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY textbook ASC LIMIT 500`).all();
         for (const r of (((rs.results as any[]) || []))) {
           const rawTb = String((r as any).textbook || '').trim();
-          if (zhCourses.has(rawTb.toLowerCase())) continue;   // 중국어 교재는 영어 코스 목록에서 뺀다
           const p = parseEn(rawTb); if (!p.key) continue;
+          /* 중국어 교재는 영어 코스 목록에서 뺀다. 원문과 «파싱된 코스명» 을 둘 다 본다 —
+             정확일치만 보면 나중에 중국어 퀴즈가 「다락원 001」처럼 과 번호를 달고 들어오는
+             순간 에러 없이 필터가 통째로 헛돈다(CLAUDE.md 「헬퍼에 행을 넘겼는데 아무 일도
+             안 일어남」과 같은 모양). */
+          if (zhCourses.has(rawTb.toLowerCase()) || zhCourses.has(p.course.trim().toLowerCase())) continue;
           if (!courseMap.has(p.course)) courseMap.set(p.course, { course: p.course, count: 0, keys: [] });
           const cc = courseMap.get(p.course)!; cc.keys.push({ key: p.key, seq: p.seq, title: p.title }); cc.count = cc.keys.length;
         }
