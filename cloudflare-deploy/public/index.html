@@ -9153,11 +9153,11 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <script src="/js/idx-main.js?v=38"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
-<script src="/js/idx-whisper.js?v=1" defer></script>
+<script src="/js/idx-whisper.js?v=3" defer></script>
 <!-- 👁 (2026-08-20) 참관 안전장치 + «직접 입장» 카메라 끄기(&vc_cam=off).
      관리자·매니저만 쓰는 기능이라 defer. idx-main.js 는 한 줄도 안 고친다(첫 화면 예산·캐시).
      되돌리기: 이 줄만 지우면 즉시 원복된다. -->
-<script src="/js/vc-observe-guard.js?v=1" defer></script>
+<script src="/js/vc-observe-guard.js?v=3" defer></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -15092,7 +15092,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script src="/js/vc-spotlight.js?v=3" defer></script><!-- 1:3 선생님 스포트라이트 (기본 ON+안전장치 / 끄기: ?spotlight=0) -->
 <script src="/js/vc-dock.js?v=20" defer></script><!-- 수업 하단 라벨 컨트롤 독 (목업 디자인) — 데스크톱·세로 / 빼면 즉시 원복 -->
 <script src="/js/mango.js?v=35" defer></script>
-<script src="/js/mango-rec.js?v=47" defer></script>
+<script src="/js/mango-rec.js?v=48" defer></script>
 <script src="/js/mango-class-time.js?v=12" defer></script><!-- 시계+시간만 표시, 툴바 EN 왼쪽 도킹(#view-videocall-call .toolbar-right 정확 지정 + 멱등 재시도): 수업 중에만 노출 -->
 <script src="/js/mango-topbar-unified.js?v=5" defer></script><!-- 휴대폰 세로: 수업중·경과+녹화점 한 줄 통합 바(✕ 나가기는 26-07-14 제거, 하단 독만 사용). 빼면 즉시 원복 -->
 <script src="/js/mango-theme.js?v=5" defer></script><!-- 라이트/다크 테마 (한국시간 18시 기준 자동 전환 + 수동선택 localStorage 우선) -->
@@ -16364,7 +16364,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <!-- 📱 (2026-08-25) 휴대폰 수업 화면 수리 묶음 — 교재 선명도(화면 배율)·핀치 확대 유지·확대 버튼·
      배경화면 탭 접힘·중국어 안내. defer 필수: index.html 첫 화면 예산 여유가 104바이트뿐이라
      idx-main.js 에는 한 줄도 못 넣는다(first_paint_budget_harness). -->
-<script defer src="/js/idx-vc-mobilefix.js?v=5"></script>
+<script defer src="/js/idx-vc-mobilefix.js?v=8"></script>
 <style id="mg-theme-toggle-topright">
   /* 🌙/☀ 다크·라이트(밝기) 토글 버튼 — 수업 화면 '우측 상단' 복원.
      ─────────────────────────────────────────────────────────────────────────
@@ -17960,33 +17960,24 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 </script>
 
 <style id="vc-sizebar-2an">
-  /* 🖥 얼굴 크기 컨트롤 «레이아웃 그림 4칸»(2안) — 2026-08-25
-     ─────────────────────────────────────────────────────────────────────
-     ⚠️ 이 블록은 «파일 맨 끝» 에 있어야 한다. 앞선 옛 규칙들을 이겨야 하는데
-        그중에는 !important 가 붙은 것이 여럿이고, 특이도가 같으면 뒤에 오는 쪽이 이긴다.
-     ⚠️ 선택자에 #vc-main-row #vc-video-pane 를 앞세운 이유(특이도 2,3,x):
-        · body.vc-in-call .video-size-bar{display:none!important}          (0,2,0)  ← 폰 세로/가로에서 숨기던 것
-        · body.vc-in-call .video-pane .video-size-bar{display:none!important}(0,3,0)
-        · body.vc-in-call #vc-main-row > #vc-video-pane .video-size-bar    (2,2,1)  ← PC 좁은 사이드바 wrap 규칙
-        ID 하나짜리로는 마지막 것을 못 이긴다(CLAUDE.md 2장 «id 하나는 id+클래스를 못 이긴다»).
-     🔴 .vsb2 를 «두 번» 적은 이유 — 한 번이면 (2,2,0) 이라 위 마지막 규칙 (2,2,1) 에
-        **element 하나 차이로 진다**(2026-08-25 실측: position 은 먹는데 flex-wrap 만 wrap 으로 남았다).
-        두 번 적으면 (2,3,0) 이라 확실히 이긴다. 이 저장소에 이미 같은 선례가 있다
-        (#vc-video-grid#vc-video-grid). ⛔ 한쪽을 지우지 말 것 — 두 줄로 접히던 상태로 돌아간다.
-     ⛔ 옛 규칙들을 지워서 풀지 말 것 — 각각 다른 사고의 복구책이라 사고 반경이 크다.
-        여기서 «덮어쓰기» 만 한다. */
-
-  /* ── 바 ── */
+  /* 🖥 얼굴 크기 컨트롤 «그림 4칸»(2안) — 2026-08-26
+     ⚠️ 이 블록은 파일 «맨 끝» 에 있어야 하고, 선택자의 `.vsb2` 는 «두 번» 적어야 한다.
+        한 번이면 (2,2,0) 이라 옛 규칙 (2,2,1) 에 element 하나 차이로 진다.
+     ⛔ 여기에 color/background 를 넣지 말 것 — 특이도가 라이트 테마를 이겨 «흰 배경에 흰 글자» 가 된다.
+     📜 왜 이렇게 했는지(옛 규칙 목록·특이도 계산·테마·nth-child 함정)는
+        docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md · 260826_크기바_반반을_기본으로.md
+     ⚠️ 설명을 여기에 길게 쓰지 말 것 — 이 파일은 학생 29,000명이 첫 화면에서 받는다
+        (2026-08-26 실측: 주석만 gzip 3.1KB 였다). */
+  
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
     display: flex !important;
-    flex-wrap: nowrap !important;      /* 7개 시절의 wrap(두 줄 접힘)을 끈다 — 이것이 이 작업의 목적 */
+    flex-wrap: nowrap !important;      
     align-items: stretch !important;
     gap: 3px !important;
     padding: 5px 6px !important;
-    position: relative !important;     /* «⋯» 메뉴의 기준 상자 */
+    position: relative !important;     
   }
-
-  /* ── 그림 4칸 ── */
+  
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
     flex: 1 1 0 !important;
     min-width: 0 !important;
@@ -18002,9 +17993,6 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     cursor: pointer !important;
     transition: background .15s, color .15s;
   }
-  /* ⚠️ flex 상자 안에 «흐르는 문장» 을 두면 낱글자로 쪼개진다(CLAUDE.md 2장).
-        여기서는 글자가 전부 <span class="vsb-t"> 한 덩어리 안에 있고 nowrap 이라 안전하다.
-        새 라벨을 넣을 때 이 두 조건을 깨지 말 것. */
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t {
     white-space: nowrap !important;
     overflow: hidden !important;
@@ -18017,21 +18005,12 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     height: 14px !important;
     flex: 0 0 auto !important;
   }
-  /* 🔴 색은 «내가 정하지 않는다» — 배경·글자색은 이미 두 벌이 있다.
-        · 다크: .video-size-bar button{background:rgba(148,163,184,.15); color:#cbd5e1}
-        · 라이트: css/mango-theme-light.css 53~61행(body.vc-theme-light …, 전부 !important)
-     여기서 색을 !important 로 잡으면 특이도(2,4,0)가 라이트 테마(0,2,1~0,4,1)를 이겨
-     **흰 배경에 흰빛 글자**가 된다(2026-08-25 실측 — 실제로 그렇게 만들었다가 되돌렸다).
-     이 블록은 «자리와 크기» 만 갖고, 색은 테마에 맡긴다.
-     ⛔ 여기에 color/background 를 다시 넣지 말 것. */
-  /* ⛔ 링을 box-shadow:inset 으로 그리지 말 것 — 저사양 모드(html.lite-mode)가
-        box-shadow:none !important 로 전부 지운다. outline 은 살아남고 레이아웃도 안 민다. */
+  
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 button:focus-visible {
     outline: 2px solid #f59e0b !important;
     outline-offset: -1px !important;
   }
-
-  /* ── «⋯» 특수 보기 ── */
+  
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more-wrap {
     position: relative !important;
     flex: 0 0 auto !important;
@@ -18046,17 +18025,10 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     line-height: 1 !important;
     cursor: pointer !important;
   }
-  /* 🔴 옛 규칙 `body.vc-in-call .video-size-bar button:nth-child(1),(3){display:none!important}`(폰 세로)는
-     «바의» 1·3번째가 아니라 **자기 부모의 1·3번째 버튼 아무거나**를 잡는다.
-     «⋯»(.vsb-more-wrap 의 첫 자식)와 메뉴의 📌PIP(1번째)·⤡자유(3번째)가 그대로 걸려
-     폰 세로에서 조용히 사라졌다(2026-08-25 실측). 되살리는 줄을 반드시 함께 둔다. */
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more,
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button { display: block !important; }
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more[aria-expanded="true"] { background: #2563eb !important; color: #fff !important; }
-
-  /* z-index 10001 — 수업 화면 안에서는 맨 위여야 하지만,
-     ⛔ #mg-fab-wrap(2147483200)·#vc-reconnect-banner(2147483646) 보다는 «아래» 여야 한다.
-        재연결 안내가 가려지면 수업이 끊긴 것을 모른다(CLAUDE.md 2장). */
+  
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu {
     position: absolute !important;
     top: calc(100% + 5px) !important;
@@ -18072,8 +18044,6 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     border-radius: 8px !important;
   }
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu[hidden] { display: none !important; }
-  /* ⚠️ 배경색은 !important 로 덮지 않는다 — vcToggleSolo()·vcTogglePip() 이
-        인라인 style.background 로 켜짐/꺼짐을 표시한다. 여기서 덮으면 그 표시가 죽는다. */
   #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button {
     flex: 0 0 auto !important;
     width: 100% !important;
@@ -18086,20 +18056,11 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     white-space: nowrap !important;
     cursor: pointer !important;
   }
-
-  /* ── 🌤 라이트 테마 보완 ──
-     · «⋯» 은 id 가 있어서 라이트 규칙의 `button:not([id]):not(.active)` 에 안 걸린다 → 칸과 같은 모양으로 맞춘다.
-     · 메뉴 상자는 기본이 다크색인데, 라이트에서는 글자색이 #1e293b(어두움)로 강제되므로
-       상자까지 어두우면 «어두운 상자에 어두운 글자» 가 된다. 상자를 흰색으로 바꾼다. */
+  
   body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more {
     background: var(--mlt-surface-2) !important;
     border: 1px solid var(--mlt-border) !important;
   }
-  /* 🔴 라이트 테마의 강조색 --mlt-sky-deep(#0ea5e9)에 흰 글자는 **2.77:1** 이라 읽히지 않는다
-        (WCAG 본문 기준 4.5:1). 옛 7버튼 시절에도 같았지만, 2안에서는 «지금 어느 칸인가» 를
-        이 색 하나가 지고 가므로 안 읽히면 컨트롤이 제 일을 못 한다.
-     ⛔ 공용 css/mango-theme-light.css 를 고치지 않는다 — 그 규칙은 다른 화면도 쓴다.
-        여기서 **이 컨트롤에만** 한 단계 진한 파랑(#0369a1, 흰 글자와 5.93:1)을 쓴다. */
   body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg.active,
   body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button.active,
   body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more[aria-expanded="true"] {
@@ -18110,10 +18071,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     border-color: var(--mlt-border) !important;
     box-shadow: 0 8px 24px rgba(15,23,42,0.16) !important;
   }
-
-  /* ── 📱 폰 가로 — 상단 우측에 그림만 (라벨 뺌) ──
-     같은 미디어의 옛 규칙 두 개가 이 바를 숨기고 있었다(2769줄 블록).
-     이제 그림 4칸이라 1/4·3/4 를 숨길 필요가 없다 — 넷 다 보인다. */
+  
   @media (max-width: 920px) and (orientation: landscape) {
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
       display: flex !important;
@@ -18131,27 +18089,18 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
       backdrop-filter: blur(6px);
     }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
-      display: flex !important;        /* 옛 nth-child(1),(3) 숨김 규칙을 되돌린다 */
+      display: flex !important;        
       flex: 0 0 auto !important;
       padding: 3px 4px !important;
     }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t { display: none !important; }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-i { width: 20px !important; height: 13px !important; }
-    /* 이 알약은 영상 «위» 에 뜨므로 불투명 배경이 필요하다 → 라이트 테마용을 따로 준다
-       (안 주면 밝은 화면에 어두운 알약만 떠서 겉돈다) */
     body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
       background: rgba(255,255,255,0.92) !important;
       border-color: var(--mlt-border) !important;
     }
   }
-
-  /* ── 📱 폰 세로 — 얼굴 영역 맨 위에 그림만 (약 22px) ──
-     2026-06-02 «세로 화면 정리» 때 이 바는 통째로 display:none 이 됐다. 이유는 «지면을 너무 차지» 였고
-     그때는 버튼이 7개에 두 줄이었다. 그림 4칸은 한 줄 22px 이라 그 이유가 사라졌고,
-     그동안 폰 세로에는 크기를 바꿀 방법이 아예 없었다(하단 독 시트를 여는 길뿐).
-     ⚠️ 되돌리려면 이 미디어 블록 하나만 지우면 된다 — 나머지에 영향 없음.
-     ℹ️ 세로에서 네 크기가 실제로 동작하는 CSS 는 이미 있다(#vc-portrait-split-modes,
-        22vh/46vh/64vh/전체). 그 규칙들은 하단 독 시트용으로 만들어져 있었을 뿐이다. */
+  
   @media (max-width: 900px) and (orientation: portrait) {
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
       display: flex !important;
@@ -18159,8 +18108,6 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
       gap: 3px !important;
       padding: 3px 5px !important;
       border-radius: 0 !important;
-      /* 배경은 테마가 갖는다 — 다크=투명(패널색), 라이트=흰 surface.
-         여기서 어두운 띠를 깔면 라이트 테마에서 회색 밴드가 생긴다(2026-08-25 눈으로 확인). */
     }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
       display: flex !important;
@@ -18169,10 +18116,9 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
     }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t { display: none !important; }
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-i { width: 22px !important; height: 14px !important; }
-    /* 메뉴는 화면 밖으로 나가지 않게 오른쪽 끝에 붙인다 */
     #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu { right: 0 !important; }
   }
 </style>
-<script src="/js/idx-vc-sizebar.js?v=1" defer></script>
+<script src="/js/idx-vc-sizebar.js?v=2" defer></script>
 </body>
 </html>

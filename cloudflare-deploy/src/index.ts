@@ -45,6 +45,7 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -861,6 +862,53 @@ const worker = {
       }
     }
 
+    /* 📊 저장소 상태 — 화면 KPI 타일용 «진짜» 숫자 (2026-08-26 신설)
+       예전 타일 4개(12.4GB · 156파일 · 248MB · ₩4,820)는 HTML 에 박아 둔 **예시 숫자**였고,
+       옆의 「🔄 새로고침」이 부르는 window.refreshStorageStats 는 저장소 어디에도 없었다.
+       ⚠️ KV 호출수·월 청구액은 Worker 안에서 알 수 없다(Cloudflare 계정 API 영역).
+          그래서 그 두 칸은 «지어내지 않고» 뺐고, 대신 이 화면에서 실제로 궁금한 값
+          — 저장 실패 건수와 곧 만료될 건수 — 를 준다. */
+    if (path === '/api/recordings/storage-stats' && request.method === 'GET') {
+      try {
+        const out: any = { ok: true, r2: null, d1: null };
+        if (env.RECORDINGS) {
+          let files = 0, bytes = 0, snaps = 0, truncated = false;
+          let cursor: string | undefined = undefined;
+          for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+            const listed: any = await env.RECORDINGS.list({ limit: 1000, cursor });
+            for (const o of (listed.objects || [])) {
+              if (String(o.key).endsWith('.snap')) { snaps++; continue; }   // 안전망 사본은 «파일» 로 안 센다
+              files++; bytes += (o.size || 0);
+            }
+            cursor = listed.truncated ? (listed.cursor as string) : undefined;
+            if (!cursor) break;
+            if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+          }
+          out.r2 = { files, bytes, snapshots: snaps, truncated };
+        }
+        try {
+          const now = Date.now();
+          const r = await env.DB.prepare(
+            `SELECT COUNT(*) AS total,
+                    SUM(CASE WHEN status = 'completed'     THEN 1 ELSE 0 END) AS completed,
+                    SUM(CASE WHEN status = 'upload_failed' THEN 1 ELSE 0 END) AS failed,
+                    SUM(CASE WHEN status = 'recording'     THEN 1 ELSE 0 END) AS recording,
+                    SUM(CASE WHEN expires_at IS NOT NULL AND expires_at > ? AND expires_at < ? THEN 1 ELSE 0 END) AS expiring
+               FROM recordings
+              WHERE COALESCE(status, '') != 'deleted'`
+          ).bind(now, now + 30 * 24 * 3600 * 1000).first<any>();
+          out.d1 = {
+            total: Number(r?.total || 0), completed: Number(r?.completed || 0),
+            failed: Number(r?.failed || 0), recording: Number(r?.recording || 0),
+            expiring30d: Number(r?.expiring || 0),
+          };
+        } catch (e: any) { out.d1 = { error: String(e?.message || e) }; }
+        return new Response(JSON.stringify(out), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
+      } catch (e: any) {
+        return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+
     // R2 녹화 저장소 연결 테스트
     if (path === '/api/recordings/test-r2' && request.method === 'GET') {
       try {
@@ -870,11 +918,27 @@ const worker = {
         const obj = await env.RECORDINGS.get(testKey);
         const text = obj ? await obj.text() : null;
         await env.RECORDINGS.delete(testKey);
-        // 녹화 파일 목록도 확인
-        const recList = await env.RECORDINGS.list({ prefix: 'recordings/', limit: 10 });
+        /* 🔴 2026-08-26: 여기가 'recordings/' **한 접두사만** 보고 있었다.
+           그런데 실제 자동녹화는 전부 'rec/' 에 쌓인다(recordings-r2.ts 의 create).
+           그래서 파일이 멀쩡히 있어도 이 진단은 늘 「녹화 파일 0개」라고 답했고,
+           「저장소가 비었나 보다」로 읽혔다. 두 접두사를 함께 센다. */
+        const [recList, legacyList] = await Promise.all([
+          env.RECORDINGS.list({ prefix: 'rec/', limit: 1000 }),
+          env.RECORDINGS.list({ prefix: 'recordings/', limit: 1000 }),
+        ]);
+        // `.snap` 은 짧은 녹화 안전망의 «사본» 이라 파일 수에서 뺀다(recordings-r2.ts)
+        const recObjs = (recList.objects || []).filter(o => !String(o.key).endsWith('.snap'));
+        const legacyObjs = legacyList.objects || [];
+        const sample = [...recObjs, ...legacyObjs]
+          .sort((x: any, y: any) => new Date(y.uploaded).getTime() - new Date(x.uploaded).getTime())
+          .slice(0, 5)
+          .map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }));
         return new Response(JSON.stringify({
           ok: true, bucket: 'connected', testWrite: !!text, testContent: text,
-          recordingFiles: recList.objects.map(o => ({ key: o.key, size: o.size, uploaded: o.uploaded }))
+          rec:    { prefix: 'rec/',        count: recObjs.length,    truncated: !!recList.truncated },
+          legacy: { prefix: 'recordings/', count: legacyObjs.length, truncated: !!legacyList.truncated },
+          // 옛 화면(캐시된 admin.html)이 이 이름으로 읽으므로 남겨 둔다 — 이제 두 접두사를 합친 표본이다
+          recordingFiles: sample
         }), { headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' } });
       } catch (e: any) {
         return new Response(JSON.stringify({ ok: false, error: e?.message }), { headers: { 'Content-Type': 'application/json' } });
@@ -3794,6 +3858,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 📊 대화 난이도(1 기초 ~ 8 최고) — 프론트 레벨 슬라이더 값. 범위 밖이면 0(미지정).
     const rawDiff = Math.floor(Number(body && body.difficulty));
     const ctxDifficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
+    //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
+    const ctxAge = normalizeWarmupAge(body && body.age_group);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3816,6 +3883,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
+    sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
     // 🗓️ 오늘 배울 교재 연동: 학생 배정 교재(students_erp) + 그 교재의 실제 문장(review_quizzes)으로 워밍업 질문
@@ -3951,6 +4019,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const lessonNo = Number(body.lesson_no) > 0 ? Number(body.lesson_no) : null;
     const rawDiff = Math.floor(Number(body.difficulty));
     const difficulty = (rawDiff >= 1 && rawDiff <= 8) ? rawDiff : 0;
+    const ageGroup = normalizeWarmupAge(body.age_group);   // 🧑‍🎓 대화와 같은 연령대 축(소재·말투)
     const rawCount = Math.floor(Number(body.count));
     const count = (rawCount >= 1 && rawCount <= 5) ? rawCount : 3;
 
@@ -3989,6 +4058,7 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
     const levelDesc = difficulty ? WARMUP_LEVELS[difficulty] : (lc.level ? `학생 레벨: ${lc.level}` : '');
     let prompt = `당신은 전문 화상영어 AI 조교입니다. 수업 전 워밍업에서 학생에게 물어볼 영어 질문을 만듭니다.\n`;
     if (levelDesc) prompt += `- 학생 수준: ${levelDesc}\n`;
+    prompt += `- ${warmupAgeLine(ageGroup)}\n`;
     if (lc.textbook) prompt += `- 교재 이름: '${lc.textbook}'${lc.lesson_no ? ` (Lesson ${lc.lesson_no})` : ''}\n`;
     if (topic) prompt += `- 오늘의 주제: '${topic}'\n`;
     if (lc.sentences.length) prompt += `- 오늘 배울 핵심 문장: ${lc.sentences.slice(0, 6).map((s) => `"${s}"`).join(' / ')}\n`;
@@ -5455,6 +5525,7 @@ function isAdminPath(path: string, method: string): boolean {
   if (path.startsWith('/api/retention/')) return true;
   // R2 연결 테스트 — 관리자만
   if (path === '/api/recordings/test-r2') return true;
+  if (path === '/api/recordings/storage-stats') return true;   // 저장소 KPI (건수·용량) — 관리자만
   // 녹화 목록·다운로드·DB삭제·R2삭제 는 관리자만.
   // 학생 클라이언트 자동 호출인 /start, /stop, /upload, /stream, /complete, /blob/upload 는 열어둠.
   if (path === '/api/recordings' && method === 'GET') return true;

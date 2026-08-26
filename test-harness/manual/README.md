@@ -317,3 +317,51 @@ PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/judgment-tts-browser.mjs
 ```
+
+---
+
+## recording-storage-kpi-browser.mjs — 「녹화 관리 › 저장소 상태」 KPI + 「🔧 진단」 (23건)
+
+이 카드는 오랫동안 **거짓말을 하고 있었다.** 셋 다 문자열 하니스로는 안 보인다 —
+함수도 값도 «있는» 것처럼 보이기 때문이다.
+
+1. KPI 4칸(12.4GB · 156파일 · 248MB · ₩4,820)은 admin.html 에 박아 둔 **예시 숫자**였고
+   채우는 코드가 아예 없었다
+2. 「🔄 새로고침」이 부르는 `window.refreshStorageStats` 는 저장소 어디에도 **없었다**(무동작)
+3. 「🔧 진단」은 R2 의 `recordings/` 한 접두사만 세어, 실제 녹화가 쌓이는 `rec/` 를
+   한 개도 안 봤다 → 파일이 있어도 늘 「0개」
+
+그래서 실제로 그려서 **칸에 무엇이 적혔나**를 읽는다 — 타일 4칸의 값·단위, 옛 예시 숫자가
+남아 있지 않은지, 🌐 전환용 `data-ko`/`data-en` 이 함께 박혔는지, 진단 문구가 두 접두사를
+적는지, 390·768·1280px 가로 넘침, 값 글자의 WCAG 대비(관리자 화면은 CSS·페인터가 색을 덮는다).
+
+> **🪤 여기서 밟은 것** — playwright 는 **나중에 등록한 route 가 이긴다.** 포괄 스텁
+> (`**/api/**`)을 뒤에 등록하면 구체적인 스텁을 전부 삼켜 «화면이 못 채운다» 는
+> 거짓 실패가 난다. 포괄을 먼저 깔고 구체적인 것을 뒤에 등록할 것.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
+```
+
+---
+
+## observer-whisper-browser.mjs — 참관 중 귓속말 (22건)
+
+**언제 부르나** — 참관(`/?observe=`) 귓속말, 채팅 대상 칩(`vcChatTarget`·`vcRefreshChatTargets`),
+하단 독 라벨, `js/idx-whisper.js`, `js/vc-observe-guard.js` 를 건드렸을 때.
+
+**왜 손으로 만들었나** — 문자열 하니스는 «그 줄이 있는가» 만 본다. 이 기능에서 실제로 틀렸던 것은
+전부 «화면에 무엇이 보이나» 였다(2026-08-26):
+
+- 「여기 어디에 귓속말이 있어?」 — 기능은 있었는데 하단 독 이름표가 «채팅» 이었다
+- 「채팅창에 아무것도 문자 써도 안 나타나는데?」 — 참관자 글은 방에 안 뿌려져 에코가 없었다
+- 학생을 골라 보내도 강사에게 갔다 — 서버가 `toUserId` 를 안 읽었다
+
+**무엇을 재나** — 독·칩·입력칸 이름표 / 소켓에 실제로 나가는 payload / `/api/chat/messages` 저장을
+건너뛰는지(학생이 「이전 대화 보기」로 읽으면 안 된다) / 보낸 기록이 채팅창에 남는지 /
+학생 화면에 «나에게 온 것만» 뜨는지(`elementsFromPoint` 로 실제로 맨 위인지까지) /
+참관이 아닐 때는 아무것도 안 바뀌는지.
+
+```
+PW_DIR=/tmp/pw node test-harness/manual/observer-whisper-browser.mjs
+```

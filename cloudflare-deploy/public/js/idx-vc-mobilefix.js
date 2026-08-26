@@ -541,36 +541,100 @@
      ──────────────────────────────────────────────────────────────
      [지시] 사장님 2026-08-26 「교사를 학생보다 더 크게도 해줘」.
 
-     [먼저 재 봤다 — 화면마다 이미 다르다]  칸 크기 실측(1:1, video-half)
-       PC 1280x800 : 교사 345x687 / 학생 210x158 → **이미 교사가 7.15배**
-                     (vc-teacher-first 의 «내 타일 62% 축소» 가 이미 걸려 있다)
-       폰 가로     : 295x139 / 295x139 → 정확히 1배
-       폰 세로     : 187x345 / 187x345 → 정확히 1배
-     → 그래서 손댈 곳은 **폰 가로·세로 두 곳뿐**이다. PC 는 건드리지 않는다.
+     [먼저 재 봤다 — 화면마다 «구조 자체» 가 다르다]  칸 크기 실측(1:1, video-half)
+       PC 1280x800 : 상대 341x687 / 나 210x158 → 이미 상대가 7.15배
+                     ⚠️ 여기는 그리드가 아니다 — css/vc-refresh.css 가
+                        «상대 전체화면 + 내 타일은 오른아래 작은 PIP» 로 그린다.
+       폰 가로     : 295x139 / 295x139 → 정확히 1배   ← 그리드(세로로 쌓임)
+       폰 세로     : 187x345 / 187x345 → 정확히 1배   ← 그리드(좌우로 갈림)
+     → 그래서 고침이 «두 종류» 다: 폰은 fr 비중, PC 는 «누가 PIP 인가» 맞바꾸기.
 
      ⚠️ 그 두 곳은 2026-07-14 지시로 «정확히 반반» 이 못 박혀 있던 자리다
         (index.html 3272·3392·3412 — 「겹침·축소·가림 절대 금지」).
         2026-08-26 사장님 지시로 그 결정을 바꾼다. 되돌리려면 이 절만 지우면 된다.
 
-     [무엇을 크게 하나] «상대» 타일이다 — 학생 화면에서는 교사가, 교사 화면에서는
-       학생이 커진다. vc-teacher-first 가 PC 에서 이미 그렇게 하고 있고(내 타일 62%),
-       자기 얼굴이 화면을 지배하는 것을 원하는 사람은 없다.
-     ℹ️ 순서는 CSS order 로 이미 «내 타일이 맨 뒤» 라(index.html vc-teacher-first),
-        그리드 첫 칸이 곧 상대다. 1:1(data-count="2") 일 때만 적용한다.
+     [무엇을 크게 하나] **«교사» 타일이다 — 누가 보든 교사가 크다.**
+       · 학생 화면 → 상대(교사)가 큼
+       · 교사 화면 → **자기 자신**이 큼 (2026-08-26 사장님 추가 지시)
+     ⚠️ 처음엔 «상대» 기준으로 만들었다가 바로 이 지시로 바꿨다. 그때 근거로 삼은
+        「자기 얼굴이 화면을 지배하면 안 된다」는 우리 짐작이었고, 사장님 판단은 달랐다.
+     ℹ️ 순서(order)는 건드리지 않는다 — 내 타일은 그대로 맨 뒤에 있고 «크기» 만 바뀐다.
+        그래서 교사 화면에서는 둘째 칸이 커진다(1fr 1.6fr).
+     ℹ️ 1:1(data-count="2") 일 때만. 3명 이상은 주인공이 정해지지 않는다.
   ══════════════════════════════════════════════════════════════ */
-  var BIG = '1.6fr 1fr';           // 상대 : 나 = 1.6 : 1
+  var BIG  = '1.6fr 1fr';          // 첫 칸(상대)이 큼      — 학생 화면
+  var BIGME = '1fr 1.6fr';         // 둘째 칸(내 타일)이 큼 — 교사 화면(내 타일은 order:96 로 맨 뒤)
+  var PORT = '@media (max-width:920px) and (orientation:portrait){';
+  var LAND = '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){';
+  /* 원래 규칙(index.html 3272·3392)이 (3,2,0)·(3,3,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다.
+     교사용 줄은 body 에 클래스가 하나 더 붙어 자동으로 더 세다. */
+  var SEL_P  = 'body.vc-in-call#{ME} #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="2"]';
+  var SEL_L  = 'body.vc-in-call#{ME} #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"]';
+  function sel(t, me) { return t.replace('#{ME}', me ? '.mg-teacher-self:not(.vc-observer)' : ':not(.mg-teacher-self)'); }
+
   var HERO_CSS =
-    /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중을 준다.
-       원래 규칙(3272행)이 (3,2,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다. */
-    '@media (max-width:920px) and (orientation:portrait){' +
-      'body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="2"]{' +
-        'grid-template-columns:' + BIG + ' !important}' +
+    /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중 */
+    PORT +
+      sel(SEL_P, false) + '{grid-template-columns:' + BIG + ' !important}' +
+      sel(SEL_P, true)  + '{grid-template-columns:' + BIGME + ' !important}' +
     '}' +
-    /* 폰 가로 — 오른쪽 얼굴 컬럼이 «위아래» 로 쌓인다 → 세로 비중을 준다. */
-    '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){' +
-      'body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"]{' +
-        'grid-template-rows:' + BIG + ' !important;grid-auto-rows:1fr !important}' +
+    /* 폰 가로 — 오른쪽 얼굴 컬럼이 «위아래» 로 쌓인다 → 세로 비중 */
+    LAND +
+      sel(SEL_L, false) + '{grid-template-rows:' + BIG + ' !important;grid-auto-rows:1fr !important}' +
+      sel(SEL_L, true)  + '{grid-template-rows:' + BIGME + ' !important;grid-auto-rows:1fr !important}' +
+    '}' +
+    /* PC·태블릿(≥1024px) — 여기는 그리드가 아니다.
+       css/vc-refresh.css 가 1:1 을 «상대 전체화면 + 내 타일은 오른아래 작은 PIP(24%·최대 210px)» 로 그린다
+       (display:block + 둘 다 position:absolute). 그래서 타일 크기를 정하는 것은 fr 비율이 아니라
+       «누가 PIP 인가» 하나다. 교사 화면에서는 그 둘을 맞바꿈 — 내가 전체화면, 상대가 PIP.
+       ⚠️ 폭 만 바꿔서는 안 된다 — 높이도 aspect-ratio·inset 으로 정해진다(실측: 상대 211x687 / 나 210x158).
+       ⚠️ (min-width:1024px) 으로 묶어 둔다 — 이 줄이 폰까지 닿으면 위 fr 규칙과 겹쳐 두 번 줄어든다
+       (실측으로 밟음: 1.6배가 아니라 2.58배가 됐다). 이겨야 할 상대는 vc-refresh.css(2,2,1) 가 아니라
+       index.html vc-teacher-first 의 (3,5,1) 이다 — id 를 다섯 개로 만들어(5,3,1) 이긴다.
+       (id 개수를 먼저 비교하므로 클래스가 적어도 이긴다. 처음엔 (3,3,1) 로 만들어 «내 타일이
+        전체화면인데 폭만 62%» 라는 어정쩡한 상태를 실측으로 밟았다.) */
+    '@media (min-width:1024px){' +
+      /* 내 타일 → 전체화면 */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
+        'position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;' +
+        'max-width:none !important;aspect-ratio:auto !important;border-radius:0 !important;' +
+        'box-shadow:none !important;z-index:1 !important;margin-left:0 !important;opacity:1 !important}' +
+      /* 상대 → 오른아래 PIP (학생 화면에서 내 타일이 받던 «그 크기» 그대로)
+         ℹ️ 62% 는 vc-refresh.css 의 24% 가 아니라 index.html vc-teacher-first 의 값이다 —
+            그 규칙이 (2,5,1) 로 더 세서 학생 화면 PIP 는 실제로 62%(상한 210px)로 그려진다.
+            24% 를 그대로 베끼면 PIP 가 82px 로 나와 학생 화면과 짝이 안 맞는다(실측). */
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box:not(#vc-local-box){' +
+        'position:absolute !important;inset:auto 14px 14px auto !important;' +
+        'width:62% !important;max-width:210px !important;height:auto !important;aspect-ratio:4/3 !important;' +
+        'border-radius:14px !important;overflow:hidden !important;z-index:40 !important;' +
+        'box-shadow:0 0 0 2px rgba(251,191,36,.6),0 10px 26px rgba(0,0,0,.5) !important}' +
     '}';
+
+  /* 내가 교사·관리자인가 — 역할은 입장 뒤에 정해지므로 «끝이 있는» 확인으로 몇 번 다시 본다.
+     ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력이 있다).
+     ⛔ 있을 때만 지우고 없을 때만 더한다 — 무조건 classList 를 쓰면 class 속성이 다시 쓰여
+        남의 감시자를 깨운다(2026-07-14 라이브 장애와 같은 뿌리). */
+  function syncTeacherSelf() {
+    try {
+      var staff = false;
+      try {
+        staff = (typeof window.vcIsStaffNow === 'function') ? !!window.vcIsStaffNow()
+              : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+      } catch (e) {}
+      /* ⛔ 참관(Ghost)은 제외한다. 참관자는 vcMyRole='admin' 이라 위 판정이 true 인데,
+         참관자의 #vc-local-box 는 영상이 없는 «빈 타일» 이고 지워지지도 않는다
+         (index.html 에 정적으로 있다). 방에 한 명뿐일 때 data-count="2" 가 되어
+         «빈 내 타일이 전체화면 + 진짜 참가자가 210px PIP» 가 된다 — 2026-08-26 실측으로 밟음.
+         ⚠️ 선택자에도 :not(.vc-observer) 를 함께 걸어 뒀다. 그 클래스를 붙이는
+         js/vc-observe-guard.js 와 이 파일의 실행 순서에 기대지 않기 위해서다. */
+      var observing = document.body.classList.contains('vc-observer');
+      var want = staff && !observing && document.body.classList.contains('vc-in-call');
+      var has = document.body.classList.contains('mg-teacher-self');
+      if (want && !has) document.body.classList.add('mg-teacher-self');
+      else if (!want && has) document.body.classList.remove('mg-teacher-self');
+    } catch (e) {}
+  }
+  window.mgSyncTeacherSelf = syncTeacherSelf;   // 검사·콘솔에서 부를 수 있게
 
   (function injectHeroCss() {
     function put() {
@@ -594,7 +658,7 @@
   if (typeof _switchTab === 'function') {
     window.vcSwitchTab = function () {
       var r = _switchTab.apply(this, arguments);
-      try { ensureZoomBtns(); zoomBtnsSync(); } catch (e) {}
+      try { ensureZoomBtns(); zoomBtnsSync(); syncTeacherSelf(); } catch (e) {}
       return r;
     };
   }
@@ -604,7 +668,7 @@
       var r = _join.apply(this, arguments);
       var n = 0;
       var iv = setInterval(function () {
-        try { ensureZoomBtns(); zoomBtnsSync(); } catch (e) {}
+        try { ensureZoomBtns(); zoomBtnsSync(); syncTeacherSelf(); } catch (e) {}
         if (++n >= 12) clearInterval(iv);      // 6초까지만 — 상주 타이머를 남기지 않는다
       }, 500);
       return r;

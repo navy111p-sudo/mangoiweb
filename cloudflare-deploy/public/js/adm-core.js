@@ -943,6 +943,7 @@ async function loadRecordings() {
   rows.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
   // 🔐 RBAC 스코프 필터 — 본사 외 사용자에겐 자기 학생/대리점 녹화만
   let _scopedRows = rows;
+  try { if (typeof window.refreshStorageStats === 'function') window.refreshStorageStats(); } catch (_) {}
   if (typeof window.adminScopeFilter === 'function') _scopedRows = window.adminScopeFilter(rows, 'recordings');
   _unifiedRecRows = _scopedRows;
   renderRecordingsTable();
@@ -9875,6 +9876,73 @@ function closePlayback() {
   modal.style.display = 'none';
 }
 
+// 📊 저장소 상태 KPI — «진짜» 숫자로 채운다 (2026-08-26 신설)
+//   예전엔 이 함수가 아예 없어서 옆의 「🔄 새로고침」 버튼이 눌러도 아무 일이 없었고,
+//   타일 네 칸은 HTML 에 박아 둔 예시 숫자(12.4GB·156파일·248MB·₩4,820)를 보여 주고 있었다.
+//   ⚠️ 글자를 JS 로 쓰는 칸은 data-ko/data-en 도 «함께» 갱신한다 — 안 그러면 🌐 를 눌러도
+//      안 따라온다(CLAUDE.md 2장 「JS 로 그린 라벨」).
+function _rsPut(id, text, ko, en) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  if (ko != null) el.setAttribute('data-ko', ko);
+  if (en != null) el.setAttribute('data-en', en);
+}
+function _rsBytes(n) {
+  if (!n) return '0 MB';
+  if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
+  if (n >= 1048576)    return Math.round(n / 1048576) + ' MB';
+  return Math.round(n / 1024) + ' KB';
+}
+window.refreshStorageStats = async function () {
+  var ids = ['rs-r2-size','rs-r2-files','rs-d1-size','rs-d1-tables','rs-rec-failed','rs-rec-failed-u','rs-rec-expiring','rs-rec-expiring-u'];
+  ids.forEach(function (i) { var e = document.getElementById(i); if (e) e.textContent = '…'; });
+  try {
+    const r = await fetch('/api/recordings/storage-stats', { cache: 'no-store' });
+    const d = await r.json();
+    // 판정은 «성공이라고 말했는가» 로 한다 — 404 본문에는 ok 칸이 아예 없다(CLAUDE.md 2장)
+    if (!r.ok || d.ok !== true) throw new Error(d && d.error ? d.error : ('HTTP ' + r.status));
+    const en = (adminLang === 'en');
+    const n = function (v) { return (v == null ? 0 : v).toLocaleString(); };
+
+    if (d.r2) {
+      _rsPut('rs-r2-size', _rsBytes(d.r2.bytes));
+      var fTxtKo = n(d.r2.files) + ' 파일' + (d.r2.truncated ? ' 이상' : '');
+      var fTxtEn = n(d.r2.files) + ' files' + (d.r2.truncated ? '+' : '');
+      _rsPut('rs-r2-files', en ? fTxtEn : fTxtKo, fTxtKo, fTxtEn);
+    } else {
+      _rsPut('rs-r2-size', '—');
+      _rsPut('rs-r2-files', en ? 'not connected' : '연결 안 됨', '연결 안 됨', 'not connected');
+    }
+
+    if (d.d1 && d.d1.error == null) {
+      _rsPut('rs-d1-size', n(d.d1.total));
+      var cKo = '완료 ' + n(d.d1.completed) + '건', cEn = n(d.d1.completed) + ' completed';
+      _rsPut('rs-d1-tables', en ? cEn : cKo, cKo, cEn);
+
+      _rsPut('rs-rec-failed', n(d.d1.failed));
+      var fKo = '건 · 영상이 없는 기록', fEn = 'rows with no video';
+      _rsPut('rs-rec-failed-u', en ? fEn : fKo, fKo, fEn);
+      var fv = document.getElementById('rs-rec-failed');
+      if (fv) fv.style.color = (d.d1.failed > 0) ? '#b91c1c' : '';
+
+      _rsPut('rs-rec-expiring', n(d.d1.expiring30d));
+      var eKo = '건 · 보관 3개월', eEn = 'rows · 90-day retention';
+      _rsPut('rs-rec-expiring-u', en ? eEn : eKo, eKo, eEn);
+    } else {
+      ['rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
+      _rsPut('rs-d1-tables', en ? 'query failed' : '조회 실패', '조회 실패', 'query failed');
+    }
+  } catch (e) {
+    console.warn('[admin] 저장소 상태 조회 실패:', e);
+    var enq = (adminLang === 'en');
+    ['rs-r2-size','rs-d1-size','rs-rec-failed','rs-rec-expiring'].forEach(function (i) { _rsPut(i, '—'); });
+    ['rs-r2-files','rs-d1-tables','rs-rec-failed-u','rs-rec-expiring-u'].forEach(function (i) {
+      _rsPut(i, enq ? 'load failed' : '불러오기 실패', '불러오기 실패', 'load failed');
+    });
+  }
+};
+
 async function testR2() {
   const el = document.getElementById('test-r2-result');
   el.textContent = adminLang==='en'?'Testing...':'테스트 중...';
@@ -9883,13 +9951,22 @@ async function testR2() {
     const r = await fetch('/api/recordings/test-r2');
     const d = await r.json();
     if (d.ok) {
-      const recCount = (d.recordingFiles || []).length;
+      // 🔴 2026-08-26: 예전엔 서버가 'recordings/' 한 접두사만 세어 줬고 화면도 그 수만 보여
+      //   줬다. 실제 자동녹화는 전부 'rec/' 에 쌓이므로 파일이 있어도 늘 「0개」였다.
+      var recN    = (d.rec && d.rec.count    != null) ? d.rec.count    : null;
+      var legacyN = (d.legacy && d.legacy.count != null) ? d.legacy.count : null;
+      var totalN  = (recN == null && legacyN == null)
+        ? (d.recordingFiles || []).length          // 옛 서버 응답 대비
+        : (recN || 0) + (legacyN || 0);
+      var cut = (d.rec && d.rec.truncated) || (d.legacy && d.legacy.truncated);
       el.style.color = '#22c55e';
       el.textContent = adminLang==='en'
-        ? '✅ R2 (Cloudflare Object Storage) OK! Read/Write OK. Files: ' + recCount
-        : '✅ R2 (Cloudflare 객체 저장소) 연결 성공! 쓰기/읽기 OK. 녹화 파일: ' + recCount + '개';
-      if (recCount > 0) {
-        el.textContent += ' — ' + d.recordingFiles.map(f => f.key + ' (' + (f.size/1024).toFixed(0) + 'KB)').join(', ');
+        ? '✅ R2 OK — read/write OK. Files: ' + totalN + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + legacyN + ')')
+        : '✅ R2 연결 성공 — 쓰기/읽기 OK. 녹화 파일 ' + totalN + '개' + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + legacyN + ')');
+      if (cut) el.textContent += adminLang==='en' ? ' · list truncated at 1000' : ' · 목록이 1000개에서 잘림';
+      var sample = d.recordingFiles || [];
+      if (sample.length) {
+        el.textContent += ' — ' + sample.map(f => f.key + ' (' + (f.size/1024).toFixed(0) + 'KB)').join(', ');
       }
     } else {
       el.style.color = '#dc2626';

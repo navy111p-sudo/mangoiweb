@@ -128,6 +128,18 @@ async function run(w,h,label,portrait){
   ok('메뉴에 PIP·솔로·자유가 있다', M.items==='vc-pip-btn,vc-solo-btn,vc-free-btn', M.items);
   ok('메뉴가 화면 안에 들어온다', M.inView===true, 'w='+M.w);
   ok('메뉴가 맨 위에 있다 (가려지지 않음)', M.inMenu===true, M.stack);
+  // 바깥을 누르면 닫히는가 — 문서 리스너를 «메뉴 열린 동안만» 붙이도록 바꾼 뒤 반드시 확인할 것
+  //   (2026-08-26) 상시 리스너를 없앤 변경이라, 이게 깨지면 메뉴가 영영 안 닫힌다.
+  const OUT=await c.ev(`(()=>{
+    const m=document.getElementById('vc-size-menu');
+    const openedBefore = !m.hidden;
+    document.getElementById('vc-video-pane').dispatchEvent(
+      new PointerEvent('pointerdown',{bubbles:true,cancelable:true}));
+    return { openedBefore, closedAfter: m.hidden }; })()`);
+  ok('메뉴가 열려 있었다', OUT.openedBefore===true);
+  ok('바깥을 누르면 닫힌다 (문서 리스너가 붙어 있다)', OUT.closedAfter===true);
+  await c.ev(`document.getElementById('vc-size-more').click()`);   // 다음 검사를 위해 다시 연다
+
   const C=await c.ev(`(()=>{ document.getElementById('vc-pip-btn').click();
     const m=document.getElementById('vc-size-menu'); return new Promise(r=>setTimeout(()=>r({hidden:m.hidden}),60)); })()`);
   ok('메뉴 항목을 누르면 닫힌다', C.hidden===true);
