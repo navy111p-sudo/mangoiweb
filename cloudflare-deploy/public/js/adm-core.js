@@ -12863,15 +12863,17 @@ window.rebuildGlobalSearchIndex = function() {
     var major = null, best = -1;
     Object.keys(freq).forEach(function(v){ if (freq[v] > best) { best = freq[v]; major = v; } });
     list.forEach(function(r){ r.__odd = (String(r.state == null ? '' : r.state) !== major); });
-    var oddN = list.filter(function(r){ return r.__odd; }).length;
 
-    var state = { kind: 'all', odd: false, q: '', sort: 'reg_date', dir: -1 };
+    /* 🔢 상태 값 목록 — 많은 순으로. 어느 값이 몇 건인지 «세어서» 보여 준다.
+       (2026-08-24 실측: 580건에 0·1·2 가 섞여 있었다. 예전 «1 아님» 한 칩으로는 0 과 2 가 뭉쳐 보였다) */
+    var stVals = Object.keys(freq).sort(function(a, b){ return freq[b] - freq[a]; });
+    var state = { kind: 'all', st: null, q: '', sort: 'reg_date', dir: -1 };
 
     var pick = function(){
       var q = state.q.trim().toLowerCase();
       var out = list.filter(function(r){
         if (state.kind !== 'all' && r.__kkey !== state.kind) return false;
-        if (state.odd && !r.__odd) return false;
+        if (state.st !== null && String(r.state == null ? '' : r.state) !== state.st) return false;
         if (q && (String(r.name||'') + ' ' + String(r.content||'')).toLowerCase().indexOf(q) < 0) return false;
         return true;
       });
@@ -12902,15 +12904,20 @@ window.rebuildGlobalSearchIndex = function() {
 
       tools.innerHTML =
         '<div class="c24x-row">' + chips.join('') +
-          (oddN ? '<span class="c24x-chip c24x-odd' + (state.odd ? ' c24x-on' : '') + '" data-odd="1" role="button" tabindex="0">'
-                + (en ? 'State ≠ ' + esc(major) : '상태 ' + esc(major) + ' 아님') + ' <b>' + oddN + '</b></span>' : '') +
+          (stVals.length > 1 ? stVals.map(function(v){
+            /* 코드의 «뜻» 은 모른다 — 이름을 붙이지 않고 숫자를 그대로 적는다.
+               다수와 다른 값만 노랗게 해 «확인해 볼 것» 임을 알린다. */
+            return '<span class="c24x-chip' + (v === major ? '' : ' c24x-odd') + (state.st === v ? ' c24x-on' : '')
+                 + '" data-st="' + esc(v) + '" role="button" tabindex="0">'
+                 + (en ? 'State ' : '상태 ') + esc(v === '' ? '—' : v) + ' <b>' + freq[v] + '</b></span>';
+          }).join('') : '') +
           '<input id="c24x-q" class="c24x-q" type="text" autocomplete="off" placeholder="' +
             (en ? 'Search title / content' : '제목·내용 검색') + '" value="' + esc(state.q) + '">' +
           '<span class="c24x-n">' + (en ? cur.length + ' / ' + list.length + ' shown' : list.length + '건 중 ' + cur.length + '건') + '</span>' +
         '</div>' +
         '<div class="c24x-note">' + (en
           ? 'Category is a guess from the title (the source has no category field). The meaning of the state code is being confirmed with Cafe24. Amounts are not in the source yet.'
-          : '분류는 <b>제목으로 추정</b>한 값입니다(원본에 분류 칸이 없습니다). 상태 코드의 뜻은 카페24에 확인 중입니다. '
+          : '분류는 <b>제목으로 추정</b>한 값입니다(원본에 분류 칸이 없습니다). 상태 코드의 뜻은 카페24에 확인 중이라 숫자를 그대로 적습니다 — 맨 오른쪽 <b>문서번호</b>로 카페24에서 그 문서를 찾아보실 수 있습니다. '
             + '<b>금액은 원본에 아직 없습니다</b> — 그래서 합계·추이를 만들 수 없습니다.')
           + (filteredOut ? (en ? ' Excluded ' + filteredOut + ' unrelated request(s).' : ' 다른 곳 지출품의 ' + filteredOut + '건은 제외했습니다.') : '')
         + '</div>';
@@ -12954,8 +12961,10 @@ window.rebuildGlobalSearchIndex = function() {
       var hit = function(e){
         var el = e.target.closest ? e.target.closest('.c24x-chip') : null;
         if (!el) return;
-        if (el.hasAttribute('data-odd')) state.odd = !state.odd;
-        else { state.kind = el.getAttribute('data-k'); }
+        if (el.hasAttribute('data-st')) {
+          var v = el.getAttribute('data-st');
+          state.st = (state.st === v) ? null : v;      // 한 번 더 누르면 해제
+        } else { state.kind = el.getAttribute('data-k'); }
         redraw();
       };
       tools.addEventListener('click', hit);
@@ -13010,7 +13019,7 @@ window.rebuildGlobalSearchIndex = function() {
           적재 요청서: docs/카페24_지출결의_속성추가_적재요청_2026-08-24.md
        ⚠️ 이 탭만 전용 화면(`__c24ExpSetup` — 칩·검색·자체 정렬)이 그린다. 아래 머리글 정렬은
           나머지 네 탭 몫이다. 한 탭에 정렬을 두 벌 두지 않으려고 그렇게 갈랐다(2026-08-24 병합). */
-    expenses: [['reg_date','일자'],['__kind','분류(추정)'],['name','제목'],['content','내용'],['pay_date','지급일'],['state','상태']],
+    expenses: [['reg_date','일자'],['__kind','분류(추정)'],['name','제목'],['content','내용'],['pay_date','지급일'],['state','상태'],['doc_id','문서번호']],
     tax:      [['date','작성일'],['supplier','공급자'],['receiver','공급받는자'],['supply','공급가',c24finWon],['tax','세액',c24finWon],['total','합계',c24finWon],['tax_type','과세']],
     deposits: [['date','일자'],['center_id','센터ID'],['amount','금액',c24finWon],['method','결제']],
   };
