@@ -54,6 +54,17 @@
   let r2CompleteSent = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
+  // 🛟 스냅샷 — «아직 조각이 하나도 안 올라간» 구간의 안전망 (2026-08-25)
+  //   R2 는 비마지막 파트가 5MiB 이상이어야 해서, 2.5Mbps 기준 첫 ~17초는 서버에 아무것도 없다.
+  //   그 사이 탭이 닫히면 abort 가 나가고 영상이 통째로 사라졌다(2026-08-25 실측 6건).
+  //   → 그 구간 동안만 «지금까지의 버퍼 전체» 를 통짜 파일로 한 번씩 올려 둔다.
+  //   서버는 `<키>.snap` 에 저장하고, multipart 가 끝나면(complete) 지운다.
+  let snapNextAt = 0;      // 다음 스냅샷 예정 시각(ms)
+  let snapCount = 0;       // 이번 녹화에서 올린 스냅샷 수
+  let snapInFlight = false;
+  const SNAP_FIRST_MS = 9000;    // 첫 스냅샷 — 파트가 생기기 한참 전
+  const SNAP_EVERY_MS = 30000;   // 그 뒤 30초마다 (저대역폭 수업은 5MiB 채우는 데 오래 걸린다)
+  const SNAP_MAX = 15;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
   //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
   //   모아둔 걸 통째로» 올려서 파트 크기가 제각각이었고, 비마지막 파트가 2개 이상 되는
@@ -711,6 +722,34 @@
     }
   }
 
+  // 🛟 스냅샷 보내기 — 조각이 아직 하나도 안 올라간 동안에만.
+  //   ⚠️ 버퍼를 비우지 않는다. 이건 «사본» 이고, 정본은 여전히 multipart 다.
+  function maybeSnapshot() {
+    if (!r2InitDone || !r2Key) return;
+    if (r2PartNumber > 0) return;          // 조각이 하나라도 올라갔으면 안전망이 필요 없다
+    if (snapInFlight || snapCount >= SNAP_MAX) return;
+    if (chunkBufferSize <= 0) return;
+    const now = Date.now();
+    if (!snapNextAt) snapNextAt = (startedAt || now) + SNAP_FIRST_MS;
+    if (now < snapNextAt) return;
+    snapInFlight = true;
+    snapNextAt = now + SNAP_EVERY_MS;
+    const body = new Blob(chunkBuffer, { type: 'video/webm' });
+    const key = r2Key;
+    fetch('/api/recordings/upload/snapshot?key=' + encodeURIComponent(key),
+          { method: 'PUT', body: body })
+      .then(function (res) {
+        if (res.ok) {
+          snapCount += 1;
+          console.log('[mango-rec] 스냅샷 저장:', snapCount, (body.size / 1048576).toFixed(2) + 'MB');
+        } else {
+          console.warn('[mango-rec] 스냅샷 실패:', res.status);
+        }
+      })
+      .catch(function (err) { console.warn('[mango-rec] 스냅샷 에러:', err); })
+      .then(function () { snapInFlight = false; });
+  }
+
   // 남은 버퍼를 마지막 파트로 (마지막 파트만 PART_SIZE 미만 허용)
   function flushBuffer() {
     if (chunkBuffer.length === 0) return;
@@ -798,6 +837,9 @@
     r2CompleteSent = false;   // 새 녹화에서는 다시 beforeunload 안전망이 살아나야 한다
     chunkBuffer = [];
     chunkBufferSize = 0;
+    snapNextAt = 0;
+    snapCount = 0;
+    snapInFlight = false;
   }
  
   function onBeforeUnload() {
@@ -824,6 +866,10 @@
         } catch (_) {}
       }
     } else {
+      // 조각이 하나도 없다 = 아직 5MiB 를 못 채운 «짧은 녹화».
+      // ⛔ 예전엔 이 abort 로 녹화가 통째로 사라졌다. 지금은 서버가 abort 를 받으면
+      //    `<키>.snap` 스냅샷을 진짜 키로 되살린다(recordings-r2.ts promoteSnapshot).
+      //    그러니 abort 는 그대로 보내야 한다 — 이게 «되살려라» 신호를 겸한다.
       try {
         navigator.sendBeacon('/api/recordings/upload/abort',
           new Blob([JSON.stringify({ recording_id: recordingId, key: r2Key, upload_id: r2UploadId })], { type: 'application/json' })
@@ -939,6 +985,10 @@
         recordedChunks.push(e.data);
         // R2에도 버퍼링
         bufferChunk(e.data);
+        // 🛟 조각이 아직 하나도 안 올라간 구간이면 스냅샷 한 장.
+        //   ⚠️ bufferChunk 안에서 부르지 말 것 — rec_multipart_uniform_harness 가 그 함수만
+        //      떼어내 실제로 돌리기 때문에 «파트 크기 균일» 검사가 통째로 깨진다.
+        maybeSnapshot();
       }
     };
     startStallWatch();

@@ -25,6 +25,18 @@
          막을 것 : 'Anna' ⊂ 'H·ANNA·H'                            (낱말 속 우연)
      · 이름을 알 수 없으면(teacher_name 이 비었거나 출석행 username 이 전부 null)
        **'모름'(null)** 을 돌려준다. 모르는 것을 «오판» 이라고 단정하지 않는다.
+     · 🆕 (2026-08-26) 출석 이름이 «계정아이디» 로 찍히는 경우가 있어, 이름만 맞춰서는
+       뚫린다. `teacher_account_links` 로 **계정 → 원부 이름** 을 한 번 풀어서도 맞춘다.
+         실사고: 예약은 'HANNAH'(teachers.id=24) 인데 출석부에는 '교사 mangoi_167'
+         (계정아이디)로 찍혀 낱말이 하나도 안 겹쳤다 → hit 이 비어 **present:false**
+         (=「강사가 없었다」로 **확정**)가 됐고, 급여는 present===true 일 때만 되돌리므로
+         (api-admin.ts) 들어와 수업한 강사에게 0원이 나갈 상태였다.
+         강선생님 건 13건이 잘 걸러진 것은 우연히 예약명(중국어 강선생님)과
+         출석명(교사 강선생님)의 표기가 맞았기 때문이다 — 규약은 사람마다 다르다.
+       ⛔ 계정 해석은 **후보가 하나일 때만** 쓴다. 한 계정이 여러 강사로 풀리면
+          이름을 잘못 붙여 «진짜 노쇼를 감추는» 쪽으로 틀리므로 그냥 버린다.
+       ⛔ 계정 조회는 **대소문자 무시**여야 한다 — `mangoi_167` 과 `Mangoi_167` 이
+          실제로 둘 다 있다(CLAUDE.md 2장 「같은 사람인데 계정이 두 개」).
 
    ⚠️ 판정을 두 벌 두지 않으려고 이 파일 하나로 모았다. 노쇼 리포트와 강사 90일 지표가
       같은 함수를 쓴다 — 한쪽만 고치면 화면마다 다른 답이 나온다(이 저장소의 단골 사고).
@@ -45,6 +57,81 @@ export function sameTeacherByWord(a: any, b: any): boolean {
   if (!x || !y) return false;
   if (x === y) return true;
   return words(x).indexOf(y) >= 0 || words(y).indexOf(x) >= 0;
+}
+
+/**
+ * 접속 구간들을 합쳐 «실제로 붙어 있던 시간»(분)을 낸다.
+ *
+ * [왜 «간격» 이 아니라 «합» 인가 — 2026-08-26]
+ *   예전엔 «맨 처음 입장 ~ 맨 마지막 퇴장» 의 간격을 그대로 분으로 냈다. 그런데 강사는
+ *   수업 전에 시험 삼아 잠깐 들어와 보기도 하고, 안 보이면 나갔다 들어오기를 반복한다.
+ *   그러면 사이의 **빈 시간까지 접속 시간에 들어간다.**
+ *   실측(class-895-20260825): 16:27 시험 입장 ~ 21:41 마지막 퇴장 = **314분** 으로 떴다.
+ *   20분짜리 수업인데 「5시간 14분 접속」 이라고 적히는 셈이다.
+ *   이 숫자는 «오판입니다» 라는 판정 **바로 옆에** 붙고 그 판정은 수업료를 되돌린다 —
+ *   말이 안 되는 숫자가 붙으면 맞는 판정까지 못 믿게 된다.
+ *
+ * ⚠️ 그냥 더하면 안 된다. 같은 사람이 **두 기기로 동시에** 들어와 있는 일이 실제로 있다
+ *    (같은 사고에서 교사 기기가 2대였다). 겹치는 구간을 두 번 세면 이번엔 반대로 부풀어진다.
+ *    → 겹치는 것을 하나로 **합집합** 한 뒤 더한다.
+ */
+function connectedMinutes(spans: Array<[number, number]>): number | null {
+  const ok = spans
+    .filter(([s, e]) => s > 0 && e > s)      // 시각이 없거나 뒤집힌 행은 셈에서 뺀다
+    .sort((a, b) => a[0] - b[0]);
+  if (!ok.length) return null;
+  let total = 0;
+  let curS = ok[0][0], curE = ok[0][1];
+  for (let i = 1; i < ok.length; i++) {
+    const [s, e] = ok[i];
+    if (s <= curE) { if (e > curE) curE = e; }   // 겹치거나 맞닿음 → 하나로 잇는다
+    else { total += curE - curS; curS = s; curE = e; }
+  }
+  total += curE - curS;
+  return Math.round(total / 60000);
+}
+
+/**
+ * 계정아이디 → 원부 강사 이름. 화상수업 입장 이름이 «교사 {계정아이디}» 로 찍히는 경우를 푼다.
+ *
+ * ⚠️ 실패해도 던지지 않는다 — 이 해석은 **덤**이다. 조회가 안 되면 빈 Map 을 돌려주고
+ *    판정은 예전과 100% 동일하게(이름 문자열끼리만) 동작한다.
+ * ⛔ 한 계정이 여러 강사로 풀리면 **버린다**. 틀린 이름을 붙이면 진짜 노쇼가 오판으로
+ *    감춰지고 수업료가 전액 나간다 — 이 파일에서 가장 나쁜 방향의 실수다.
+ */
+async function accountToTeacherName(db: any, accounts: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  // 대소문자 무시로 맞춘다 — mangoi_167 / Mangoi_167 이 실제로 둘 다 있다.
+  const keys = Array.from(new Set(accounts.map((a) => nrm(a)).filter(Boolean)));
+  if (!keys.length) return out;
+
+  let rows: any[] = [];
+  try {
+    // ⚠️ D1 바인드 100개 한도 — 손으로 자르지 말고 공용 selectInChunks 를 쓴다(CLAUDE.md 2장).
+    rows = await selectInChunks<any>(db, keys, (ph) =>
+      `SELECT l.username AS acct,
+              COALESCE(NULLIF(TRIM(l.teacher_name), ''), t.name) AS tname
+         FROM teacher_account_links l
+         LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(l.teacher_id AS TEXT)
+        WHERE UPPER(l.username) IN (${ph})`);
+  } catch (e: any) {
+    console.warn('[no-show-truth] 계정↔원부 조회 실패 — 계정 해석 생략:', e?.message);
+    return out;
+  }
+
+  const cands = new Map<string, Set<string>>();
+  for (const r of rows || []) {
+    const k = nrm(r?.acct);
+    const v = String(r?.tname || '').trim();
+    if (!k || !v) continue;
+    const set = cands.get(k) || new Set<string>();
+    set.add(nrm(v));
+    cands.set(k, set);
+    out.set(k, v);
+  }
+  // 후보가 둘 이상인 계정은 «모르는 것» 으로 둔다(위 ⛔).
+  for (const [k, set] of cands) if (set.size > 1) out.delete(k);
+  return out;
 }
 
 export interface TeacherPresence {
@@ -113,6 +200,21 @@ export async function teacherPresenceByRoom(
     byRoom.set(k, list);
   }
 
+  /* 🆕 계정아이디로 찍힌 출석 이름을 «원부 이름» 으로도 풀어 둔다(위 머리주석의 새 규칙).
+     방을 다 모아 **한 번에** 조회한다 — 방마다 부르면 왕복이 방 수만큼 쌓인다. */
+  const acctName = await accountToTeacherName(
+    db, att.map((a) => stripRolePrefix(a?.username)).filter(Boolean));
+
+  /** 이 출석행을 가리키는 이름 후보들 — 적힌 그대로 + 계정을 푼 원부 이름. */
+  const namesOf = (username: any): string[] => {
+    const raw = stripRolePrefix(username);
+    const resolved = acctName.get(nrm(raw));
+    return resolved ? [raw, resolved] : [raw];
+  };
+  /** 후보 중 하나라도 그 이름과 같은 사람이면 맞는 것으로 본다. */
+  const isSamePerson = (username: any, target: any): boolean =>
+    namesOf(username).some((n) => sameTeacherByWord(n, target));
+
   for (const room of rooms) {
     const tname = nameOf.get(room) || '';
     const list = byRoom.get(room) || [];
@@ -127,27 +229,30 @@ export async function teacherPresenceByRoom(
        → 그 방의 «학생 이름» 에도 똑같이 걸리는 접속은 강사로 세지 않는다. 그렇게 걸러 낸 뒤
          남는 것이 없으면 «없었다» 가 아니라 **«모름»** 이다(모르는 것을 단정하지 않는다). */
     const sname = stuOf.get(room) || '';
-    const hit = named.filter((a) => sameTeacherByWord(a.username, tname));
-    const mine = sname ? hit.filter((a) => !sameTeacherByWord(a.username, sname)) : hit;
+    /* ⚠️ 강사·학생 양쪽에 **같은 규칙**을 쓴다. 강사 쪽만 계정 해석을 넣으면
+       «학생과 구분이 안 되는» 접속을 걸러 내던 아래 안전장치가 한쪽만 넓어져 헐거워진다. */
+    const hit = named.filter((a) => isSamePerson(a.username, tname));
+    const mine = sname ? hit.filter((a) => !isSamePerson(a.username, sname)) : hit;
     if (!mine.length) {
       const ambiguous = hit.length > 0;   // 걸리긴 했는데 학생과 구분이 안 된다
       out.set(room, { present: ambiguous ? null : false, from: null, to: null, minutes: null });
       continue;
     }
 
+    /* from·to 는 «언제부터 언제까지 오갔나» 의 바깥 테두리다(그대로 둔다).
+       minutes 는 그 테두리가 아니라 **실제로 붙어 있던 시간의 합**이다 — 위 connectedMinutes 참고. */
     let from = Infinity, to = -Infinity;
+    const spans: Array<[number, number]> = [];
     for (const a of mine) {
       const j = Number(a.joined_at || 0);
       const o = Number(a.out_at || 0);
       if (j > 0 && j < from) from = j;
       if (o > 0 && o > to) to = o;
+      spans.push([j, o]);
     }
     const f = Number.isFinite(from) ? from : null;
     const t = to > 0 ? to : null;
-    out.set(room, {
-      present: true, from: f, to: t,
-      minutes: (f && t && t > f) ? Math.round((t - f) / 60000) : null,
-    });
+    out.set(room, { present: true, from: f, to: t, minutes: connectedMinutes(spans) });
   }
   return out;
 }

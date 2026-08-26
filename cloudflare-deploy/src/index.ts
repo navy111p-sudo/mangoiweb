@@ -4915,23 +4915,46 @@ async function handleRecordingUpload(request: Request, env: Env): Promise<Respon
   }
 }
 
+// 🔴 2026-08-25 — 여기서 «있는 녹화가 없다고» 나왔다.
+//   R2 list 는 한 번에 최대 1000개다. 예전엔 커서 없이 딱 한 번만 불렀는데,
+//   버킷 객체가 1000개를 넘으면 **키 사전순 앞 1000개만** 온다.
+//   그런데 실제 녹화 키는 `rec/...` 라 `class-...`·`mangoi-...` 같은 옛 키들보다 뒤로 밀린다.
+//   → 파일이 멀쩡히 있어도 관리자 화면(js/adm-core.js)이 짝을 못 찾아 **전부 「⚠️ 영상 없음」**.
+//   ⚠️ 게다가 «잘렸다» 는 신호가 없어서 «파일이 없다» 와 «목록에 없다» 가 구분되지 않았다.
+//   ✅ 커서로 끝까지 훑고, 그래도 못 다 읽으면 truncated 로 **정직하게** 알린다.
+const REC_LIST_MAX_PAGES = 20;    // 최대 20,000개 — 워커 시간·메모리 상한
 async function handleRecordingList(request: Request, env: Env): Promise<Response> {
   try {
-    if (!env.RECORDINGS) return recordingJson({ items: [] });
+    if (!env.RECORDINGS) return recordingJson({ items: [], count: 0, truncated: false });
     const url = new URL(request.url);
     const prefix = url.searchParams.get('prefix') || undefined;
-    const listed = await env.RECORDINGS.list({ prefix, limit: 1000 });
-    const items = listed.objects.map(o => ({
-      key: o.key,
-      size: o.size,
-      uploaded: o.uploaded,
-      url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
-      originalName: (o.customMetadata && o.customMetadata.originalName) || o.key.split('/').pop()
-    }));
-    return recordingJson({ items });
+    const items: any[] = [];
+    let cursor: string | undefined = undefined;
+    let truncated = false;
+    for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+      const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+      for (const o of (listed.objects || [])) {
+        // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
+        //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
+        if (String(o.key).endsWith('.snap')) continue;
+        items.push({
+          key: o.key,
+          size: o.size,
+          uploaded: o.uploaded,
+          url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
+          originalName: (o.customMetadata && o.customMetadata.originalName) || String(o.key).split('/').pop()
+        });
+      }
+      // ⚠️ 판별 유니온을 좁히지 않는다 — 이 저장소는 tsconfig 가 strict:false 라
+      //    listed.cursor 직접 접근이 TS2339 로 막힌다(CLAUDE.md 2장 함정).
+      cursor = listed.truncated ? (listed.cursor as string) : undefined;
+      if (!cursor) break;
+      if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
+    }
+    return recordingJson({ items, count: items.length, truncated });
   } catch (err: any) {
     console.error('[recording] list error:', err);
-    return recordingJson({ error: err?.message || 'List failed', items: [] }, 500);
+    return recordingJson({ error: err?.message || 'List failed', items: [], count: 0, truncated: false }, 500);
   }
 }
 

@@ -819,6 +819,7 @@ var _recQuery  = { q: '', date_from: '', date_to: '', status: 'all' };
 var _recOffset = 0;
 var _recLimit  = 50;
 var _recTotal  = 0;
+var _recBlobTruncated = false;   // R2 목록이 상한에 걸려 «잘렸는가» — 잘렸으면 「영상 없음」이 거짓일 수 있다
 
 function _buildRecordingsURL() {
   const p = new URLSearchParams();
@@ -841,6 +842,7 @@ async function loadRecordings() {
     ]);
     recResp = rResp;
     blobRes = bData;
+    _recBlobTruncated = !!(bData && bData.truncated);
     if (recResp && recResp.ok) {
       recList = await recResp.json().catch(() => []);
       // 서버가 보낸 페이지네이션 메타 헤더 갱신
@@ -1013,6 +1015,16 @@ function renderRecordingsTable() {
     cEl.textContent = adminLang === 'en'
       ? ('Total ' + rows.length + '  ·  ✅ Healthy ' + cBoth + '  ·  ⚠️ Video missing ' + cD1 + '  ·  ⚠️ Record missing ' + cOrphan)
       : ('총 ' + rows.length + '건  ·  ✅ 정상(영상+기록) ' + cBoth + '  ·  ⚠️ 영상 없음 ' + cD1 + '  ·  ⚠️ 기록 없음 ' + cOrphan);
+    // ⚠️ R2 목록이 잘렸으면 「영상 없음」은 «파일이 없다» 가 아니라 «못 찾았다» 일 수 있다.
+    //   조용히 놔두면 멀쩡한 녹화를 없어진 것으로 읽게 된다(2026-08-25 이 화면이 실제로 그랬다).
+    if (_recBlobTruncated) {
+      cEl.textContent += adminLang === 'en'
+        ? '  ·  ⚠️ R2 listing truncated — “Video missing” may be inaccurate'
+        : '  ·  ⚠️ R2 목록이 잘렸습니다 — 「영상 없음」이 사실이 아닐 수 있습니다';
+      cEl.style.color = '#b45309';
+    } else {
+      cEl.style.color = '';
+    }
   }
 
   if (!filtered.length) {
