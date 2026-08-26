@@ -139,6 +139,10 @@ export async function handleLessonsApi(
       } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_student ON student_evaluations(student_uid, created_at DESC);`); } catch {}
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_eval_teacher ON student_evaluations(teacher_uid, created_at DESC);`); } catch {}
+      // 🌱 (2026-08-24) 수업평가 밴드(새싹/자람/열매) — students_erp 는 다른 테이블이지만
+      //   /api/eval/create 가 유일한 기록 경로라 같은 게이트에서 함께 보장한다.
+      //   학년(grade) 자동 배정이 불가능해서(CLAUDE.md 2장 실측) 강사가 수동으로 태그한다.
+      try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN eval_band TEXT`); } catch {}
     };
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -282,6 +286,16 @@ export async function handleLessonsApi(
         now, now
       ).run();
       const evalId = ins?.meta?.last_row_id;
+
+      /* 🌱 (2026-08-24) 밴드 태그 — 강사가 이번 일지에서 새싹/자람/열매를 골랐으면
+         그 학생의 students_erp 행에 저장해 다음 수업부터 이어진다. 화이트리스트만
+         받는다(모르는 값은 조용히 버림 — CLAUDE.md 「서버가 아는 값 목록」 함정과 같은 방어).
+         평가 저장 자체를 막을 이유는 아니라 실패해도 무시한다. */
+      if (body.student_uid && ['sprout', 'grow', 'fruit'].includes(String(body.band || ''))) {
+        await env.DB.prepare(
+          `UPDATE students_erp SET eval_band = ? WHERE user_id = ? OR login_id = ?`
+        ).bind(String(body.band), body.student_uid, body.student_uid).run().catch(() => {});
+      }
 
       /* 📲 학부모 발송 (2026-08-09 개편)
          · 번호가 body 에 실려 오면 그대로 쓰고(기존 호출부 호환),
