@@ -8395,14 +8395,56 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
     <div class="vc-main-row video-half" id="vc-main-row">
         <!-- 좌측: 영상 패널 -->
         <div class="video-pane" id="vc-video-pane">
-            <div class="video-size-bar">
-                <button onclick="vcSetVideoSize('quarter', this)" title="화면의 1/4">1/4</button>
-                <button onclick="vcSetVideoSize('half', this)" class="active" title="화면의 1/2">1/2</button>
-                <button onclick="vcSetVideoSize('threequarter', this)" title="화면의 3/4">3/4</button>
-                <button onclick="vcSetVideoSize('full', this)" title="전체화면" data-ko="전체" data-en="Full">전체</button>
-                <button onclick="vcTogglePip(this)" id="vc-pip-btn" title="참가자 비디오 띄우기 (콘텐츠 위에 오버레이)" data-ko="📌 PIP" data-en="📌 PIP" style="background:rgba(245,158,11,.25);color:#fcd34d">📌 PIP</button>
-                <button onclick="vcToggleSolo(this)" id="vc-solo-btn" title="내 화면만 보기 (다른 참가자 숨김)" data-ko="👤 솔로" data-en="👤 Solo" style="background:rgba(168,85,247,.25);color:#d8b4fe">👤 솔로</button>
-                <button onclick="vcToggleFreeResize(this)" id="vc-free-btn" title="가로·세로 자유 크기 조절 (제목줄 드래그=이동, 우하단 모서리 드래그=크기)" data-ko="⤡ 자유" data-en="⤡ Free" style="background:rgba(34,197,94,.22);color:#86efac">⤡ 자유</button>
+            <!-- 🖥 얼굴 크기 컨트롤 «레이아웃 그림 4칸»(2안, 2026-08-25)
+                 · 버튼 7개 → 그림 4칸 + «⋯». 그림이 결과를 그대로 보여 주므로 글자를 안 읽어도 고른다.
+                 · class="video-size-bar" 는 반드시 유지 — idx-main.js 가 이 클래스로 버튼을 찾고
+                   (`.video-size-bar button[onclick*="half"]` 등 6곳), 자유 크기 모드의 «제목줄 드래그»도 이것이다.
+                 · onclick 의 vcSetVideoSize('half'…) 문자열도 유지 — 위 6곳이 그 문자열로 찾는다.
+                 · ⛔ 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
+                   갈아치워 아이콘 자리에 문장이 들어앉는다. 설명은 data-ko-title/-aria 로 단다.
+                   (글자를 그리는 <span class="vsb-t"> 에만 data-ko/data-en 을 단다)
+                 · 동작(표시 맞추기·⋯ 메뉴)은 /js/idx-vc-sizebar.js — 첫 화면 예산 때문에 defer 외부 파일 -->
+            <div class="video-size-bar vsb2" id="vc-size-bar" role="group"
+                 data-ko-aria="얼굴 화면 크기" data-en-aria="Face screen size" aria-label="얼굴 화면 크기">
+                <button type="button" class="vsb-seg" data-size="quarter" aria-pressed="false"
+                        onclick="vcSetVideoSize('quarter', this)"
+                        title="교재를 크게 — 얼굴은 작게" data-ko-title="교재를 크게 — 얼굴은 작게" data-en-title="Bigger material, smaller faces"
+                        data-ko-aria="교재를 크게 — 얼굴은 작게" data-en-aria="Bigger material, smaller faces">
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="5" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="7.3" y=".7" width="14" height="12.6" rx="1.2"/></svg>
+                    <span class="vsb-t" data-ko="교재 크게" data-en="Material">교재 크게</span>
+                </button>
+                <button type="button" class="vsb-seg active" data-size="half" aria-pressed="true"
+                        onclick="vcSetVideoSize('half', this)"
+                        title="얼굴과 교재를 반반" data-ko-title="얼굴과 교재를 반반" data-en-title="Faces and material 50:50"
+                        data-ko-aria="얼굴과 교재를 반반" data-en-aria="Faces and material 50:50">
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="12.6" rx="1.2"/></svg>
+                    <span class="vsb-t" data-ko="반반" data-en="Split">반반</span>
+                </button>
+                <button type="button" class="vsb-seg" data-size="threequarter" aria-pressed="false"
+                        onclick="vcSetVideoSize('threequarter', this)"
+                        title="얼굴을 크게 — 교재는 작게" data-ko-title="얼굴을 크게 — 교재는 작게" data-en-title="Bigger faces, smaller material"
+                        data-ko-aria="얼굴을 크게 — 교재는 작게" data-en-aria="Bigger faces, smaller material">
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="14" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="16.3" y=".7" width="5" height="12.6" rx="1.2"/></svg>
+                    <span class="vsb-t" data-ko="얼굴 크게" data-en="Faces">얼굴 크게</span>
+                </button>
+                <button type="button" class="vsb-seg" data-size="full" aria-pressed="false"
+                        onclick="vcSetVideoSize('full', this)"
+                        title="참가자 얼굴만 전체 화면으로" data-ko-title="참가자 얼굴만 전체 화면으로" data-en-title="All participants, full screen"
+                        data-ko-aria="참가자 얼굴만 전체 화면으로" data-en-aria="All participants, full screen">
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/></svg>
+                    <span class="vsb-t" data-ko="모두 보기" data-en="Gallery">모두 보기</span>
+                </button>
+                <span class="vsb-more-wrap">
+                    <button type="button" class="vsb-more" id="vc-size-more" aria-haspopup="true" aria-expanded="false"
+                            title="특수 보기 (PIP·솔로·자유 크기)"
+                            data-ko-title="특수 보기 (PIP·솔로·자유 크기)" data-en-title="Special views (PIP/Solo/Free)"
+                            data-ko-aria="특수 보기" data-en-aria="Special views">⋯</button>
+                    <span class="vsb-menu" id="vc-size-menu" hidden>
+                        <button onclick="vcTogglePip(this)" id="vc-pip-btn" title="얼굴을 교재 위에 작은 창으로 띄웁니다 (끌어서 옮기고 크기 조절)" data-ko="📌 얼굴 띄우기" data-en="📌 Float faces" style="background:rgba(245,158,11,.25);color:#fcd34d">📌 얼굴 띄우기</button>
+                        <button onclick="vcToggleSolo(this)" id="vc-solo-btn" title="다른 참가자를 숨기고 내 얼굴만 봅니다 (상대에게는 그대로 보입니다)" data-ko="👤 내 얼굴만" data-en="👤 Only me" style="background:rgba(168,85,247,.25);color:#d8b4fe">👤 내 얼굴만</button>
+                        <button onclick="vcToggleFreeResize(this)" id="vc-free-btn" title="가로·세로 자유 크기 조절 (제목줄 드래그=이동, 우하단 모서리 드래그=크기)" data-ko="⤡ 자유 크기" data-en="⤡ Free size" style="background:rgba(34,197,94,.22);color:#86efac">⤡ 자유 크기</button>
+                    </span>
+                </span>
             </div>
             <div class="video-strip" id="vc-video-grid">
                 <div class="video-box" id="vc-local-box">
@@ -9108,7 +9150,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 26-08-12(3차): 17 → 18. 장치 도우미 🎛 가 강사 타일에서 «붙자마자 지워지던» 옛 정리줄 제거. -->
 <!-- 26-08-12(4차): 18 → 19. 역할 판정에 관리자 콘솔 세션 추가 — IT 담당자가 재입장해도 스태프 유지. -->
 <!-- 26-08-13: 20 → 22. 절전 오판(카메라 꺼짐)·복구칩·프리페치·대기토스트 분리. ⚠ 21 은 병행 브랜치(화면공유 보드)가 사용 중 — 건너뛴다. -->
-<script src="/js/idx-main.js?v=36"></script>
+<script src="/js/idx-main.js?v=37"></script>
 <!-- 📢 (2026-08-19) 관리자·참관자 귓속말 표시 — 강사만 쓰는 기능이라 defer.
      되돌리기: 이 줄만 지우면 된다(idx-main.js 의 위임 5줄은 무해하게 큐에만 쌓는다). -->
 <script src="/js/idx-whisper.js?v=1" defer></script>
@@ -17916,5 +17958,221 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
   else boot();
 })();
 </script>
+
+<style id="vc-sizebar-2an">
+  /* 🖥 얼굴 크기 컨트롤 «레이아웃 그림 4칸»(2안) — 2026-08-25
+     ─────────────────────────────────────────────────────────────────────
+     ⚠️ 이 블록은 «파일 맨 끝» 에 있어야 한다. 앞선 옛 규칙들을 이겨야 하는데
+        그중에는 !important 가 붙은 것이 여럿이고, 특이도가 같으면 뒤에 오는 쪽이 이긴다.
+     ⚠️ 선택자에 #vc-main-row #vc-video-pane 를 앞세운 이유(특이도 2,3,x):
+        · body.vc-in-call .video-size-bar{display:none!important}          (0,2,0)  ← 폰 세로/가로에서 숨기던 것
+        · body.vc-in-call .video-pane .video-size-bar{display:none!important}(0,3,0)
+        · body.vc-in-call #vc-main-row > #vc-video-pane .video-size-bar    (2,2,1)  ← PC 좁은 사이드바 wrap 규칙
+        ID 하나짜리로는 마지막 것을 못 이긴다(CLAUDE.md 2장 «id 하나는 id+클래스를 못 이긴다»).
+     🔴 .vsb2 를 «두 번» 적은 이유 — 한 번이면 (2,2,0) 이라 위 마지막 규칙 (2,2,1) 에
+        **element 하나 차이로 진다**(2026-08-25 실측: position 은 먹는데 flex-wrap 만 wrap 으로 남았다).
+        두 번 적으면 (2,3,0) 이라 확실히 이긴다. 이 저장소에 이미 같은 선례가 있다
+        (#vc-video-grid#vc-video-grid). ⛔ 한쪽을 지우지 말 것 — 두 줄로 접히던 상태로 돌아간다.
+     ⛔ 옛 규칙들을 지워서 풀지 말 것 — 각각 다른 사고의 복구책이라 사고 반경이 크다.
+        여기서 «덮어쓰기» 만 한다. */
+
+  /* ── 바 ── */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
+    display: flex !important;
+    flex-wrap: nowrap !important;      /* 7개 시절의 wrap(두 줄 접힘)을 끈다 — 이것이 이 작업의 목적 */
+    align-items: stretch !important;
+    gap: 3px !important;
+    padding: 5px 6px !important;
+    position: relative !important;     /* «⋯» 메뉴의 기준 상자 */
+  }
+
+  /* ── 그림 4칸 ── */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
+    flex: 1 1 0 !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 2px !important;
+    padding: 4px 2px !important;
+    border-radius: 6px !important;
+    font-size: 9.5px !important;
+    line-height: 1.15 !important;
+    cursor: pointer !important;
+    transition: background .15s, color .15s;
+  }
+  /* ⚠️ flex 상자 안에 «흐르는 문장» 을 두면 낱글자로 쪼개진다(CLAUDE.md 2장).
+        여기서는 글자가 전부 <span class="vsb-t"> 한 덩어리 안에 있고 nowrap 이라 안전하다.
+        새 라벨을 넣을 때 이 두 조건을 깨지 말 것. */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+  }
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-i {
+    display: block !important;
+    width: 22px !important;
+    height: 14px !important;
+    flex: 0 0 auto !important;
+  }
+  /* 🔴 색은 «내가 정하지 않는다» — 배경·글자색은 이미 두 벌이 있다.
+        · 다크: .video-size-bar button{background:rgba(148,163,184,.15); color:#cbd5e1}
+        · 라이트: css/mango-theme-light.css 53~61행(body.vc-theme-light …, 전부 !important)
+     여기서 색을 !important 로 잡으면 특이도(2,4,0)가 라이트 테마(0,2,1~0,4,1)를 이겨
+     **흰 배경에 흰빛 글자**가 된다(2026-08-25 실측 — 실제로 그렇게 만들었다가 되돌렸다).
+     이 블록은 «자리와 크기» 만 갖고, 색은 테마에 맡긴다.
+     ⛔ 여기에 color/background 를 다시 넣지 말 것. */
+  /* ⛔ 링을 box-shadow:inset 으로 그리지 말 것 — 저사양 모드(html.lite-mode)가
+        box-shadow:none !important 로 전부 지운다. outline 은 살아남고 레이아웃도 안 민다. */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 button:focus-visible {
+    outline: 2px solid #f59e0b !important;
+    outline-offset: -1px !important;
+  }
+
+  /* ── «⋯» 특수 보기 ── */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more-wrap {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    display: flex !important;
+  }
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more {
+    flex: 0 0 auto !important;
+    width: 26px !important;
+    padding: 0 !important;
+    border-radius: 6px !important;
+    font-size: 14px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+  }
+  /* 🔴 옛 규칙 `body.vc-in-call .video-size-bar button:nth-child(1),(3){display:none!important}`(폰 세로)는
+     «바의» 1·3번째가 아니라 **자기 부모의 1·3번째 버튼 아무거나**를 잡는다.
+     «⋯»(.vsb-more-wrap 의 첫 자식)와 메뉴의 📌PIP(1번째)·⤡자유(3번째)가 그대로 걸려
+     폰 세로에서 조용히 사라졌다(2026-08-25 실측). 되살리는 줄을 반드시 함께 둔다. */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more,
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button { display: block !important; }
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more[aria-expanded="true"] { background: #2563eb !important; color: #fff !important; }
+
+  /* z-index 10001 — 수업 화면 안에서는 맨 위여야 하지만,
+     ⛔ #mg-fab-wrap(2147483200)·#vc-reconnect-banner(2147483646) 보다는 «아래» 여야 한다.
+        재연결 안내가 가려지면 수업이 끊긴 것을 모른다(CLAUDE.md 2장). */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu {
+    position: absolute !important;
+    top: calc(100% + 5px) !important;
+    right: 0 !important;
+    z-index: 10001 !important;
+    min-width: 132px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
+    padding: 4px !important;
+    background: rgba(15,23,42,0.97) !important;
+    border: 1px solid rgba(148,163,184,0.3) !important;
+    border-radius: 8px !important;
+  }
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu[hidden] { display: none !important; }
+  /* ⚠️ 배경색은 !important 로 덮지 않는다 — vcToggleSolo()·vcTogglePip() 이
+        인라인 style.background 로 켜짐/꺼짐을 표시한다. 여기서 덮으면 그 표시가 죽는다. */
+  #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    text-align: left !important;
+    padding: 7px 9px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+  }
+
+  /* ── 🌤 라이트 테마 보완 ──
+     · «⋯» 은 id 가 있어서 라이트 규칙의 `button:not([id]):not(.active)` 에 안 걸린다 → 칸과 같은 모양으로 맞춘다.
+     · 메뉴 상자는 기본이 다크색인데, 라이트에서는 글자색이 #1e293b(어두움)로 강제되므로
+       상자까지 어두우면 «어두운 상자에 어두운 글자» 가 된다. 상자를 흰색으로 바꾼다. */
+  body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more {
+    background: var(--mlt-surface-2) !important;
+    border: 1px solid var(--mlt-border) !important;
+  }
+  /* 🔴 라이트 테마의 강조색 --mlt-sky-deep(#0ea5e9)에 흰 글자는 **2.77:1** 이라 읽히지 않는다
+        (WCAG 본문 기준 4.5:1). 옛 7버튼 시절에도 같았지만, 2안에서는 «지금 어느 칸인가» 를
+        이 색 하나가 지고 가므로 안 읽히면 컨트롤이 제 일을 못 한다.
+     ⛔ 공용 css/mango-theme-light.css 를 고치지 않는다 — 그 규칙은 다른 화면도 쓴다.
+        여기서 **이 컨트롤에만** 한 단계 진한 파랑(#0369a1, 흰 글자와 5.93:1)을 쓴다. */
+  body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg.active,
+  body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu button.active,
+  body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-more[aria-expanded="true"] {
+    background: #0369a1 !important; color: #ffffff !important; border-color: transparent !important;
+  }
+  body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu {
+    background: #ffffff !important;
+    border-color: var(--mlt-border) !important;
+    box-shadow: 0 8px 24px rgba(15,23,42,0.16) !important;
+  }
+
+  /* ── 📱 폰 가로 — 상단 우측에 그림만 (라벨 뺌) ──
+     같은 미디어의 옛 규칙 두 개가 이 바를 숨기고 있었다(2769줄 블록).
+     이제 그림 4칸이라 1/4·3/4 를 숨길 필요가 없다 — 넷 다 보인다. */
+  @media (max-width: 920px) and (orientation: landscape) {
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
+      display: flex !important;
+      position: fixed !important;
+      top: calc(env(safe-area-inset-top,0px) + 44px) !important;
+      right: 6px !important;
+      left: auto !important;
+      width: auto !important;
+      z-index: 9997 !important;
+      gap: 2px !important;
+      padding: 2px 3px !important;
+      background: rgba(15,23,42,0.78) !important;
+      border: 1px solid rgba(148,163,184,0.25) !important;
+      border-radius: 9px !important;
+      backdrop-filter: blur(6px);
+    }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
+      display: flex !important;        /* 옛 nth-child(1),(3) 숨김 규칙을 되돌린다 */
+      flex: 0 0 auto !important;
+      padding: 3px 4px !important;
+    }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t { display: none !important; }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-i { width: 20px !important; height: 13px !important; }
+    /* 이 알약은 영상 «위» 에 뜨므로 불투명 배경이 필요하다 → 라이트 테마용을 따로 준다
+       (안 주면 밝은 화면에 어두운 알약만 떠서 겉돈다) */
+    body.vc-theme-light #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
+      background: rgba(255,255,255,0.92) !important;
+      border-color: var(--mlt-border) !important;
+    }
+  }
+
+  /* ── 📱 폰 세로 — 얼굴 영역 맨 위에 그림만 (약 22px) ──
+     2026-06-02 «세로 화면 정리» 때 이 바는 통째로 display:none 이 됐다. 이유는 «지면을 너무 차지» 였고
+     그때는 버튼이 7개에 두 줄이었다. 그림 4칸은 한 줄 22px 이라 그 이유가 사라졌고,
+     그동안 폰 세로에는 크기를 바꿀 방법이 아예 없었다(하단 독 시트를 여는 길뿐).
+     ⚠️ 되돌리려면 이 미디어 블록 하나만 지우면 된다 — 나머지에 영향 없음.
+     ℹ️ 세로에서 네 크기가 실제로 동작하는 CSS 는 이미 있다(#vc-portrait-split-modes,
+        22vh/46vh/64vh/전체). 그 규칙들은 하단 독 시트용으로 만들어져 있었을 뿐이다. */
+  @media (max-width: 900px) and (orientation: portrait) {
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 {
+      display: flex !important;
+      position: static !important;
+      gap: 3px !important;
+      padding: 3px 5px !important;
+      border-radius: 0 !important;
+      /* 배경은 테마가 갖는다 — 다크=투명(패널색), 라이트=흰 surface.
+         여기서 어두운 띠를 깔면 라이트 테마에서 회색 밴드가 생긴다(2026-08-25 눈으로 확인). */
+    }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-seg {
+      display: flex !important;
+      flex: 1 1 0 !important;
+      padding: 3px 0 !important;
+    }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-t { display: none !important; }
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-i { width: 22px !important; height: 14px !important; }
+    /* 메뉴는 화면 밖으로 나가지 않게 오른쪽 끝에 붙인다 */
+    #vc-main-row #vc-video-pane .video-size-bar.vsb2.vsb2 .vsb-menu { right: 0 !important; }
+  }
+</style>
+<script src="/js/idx-vc-sizebar.js?v=1" defer></script>
 </body>
 </html>

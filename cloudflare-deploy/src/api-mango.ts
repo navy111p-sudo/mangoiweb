@@ -484,9 +484,9 @@ export async function handleMangoApi(
            녹화 동의가 계정에 이어지지 못했다.
            ⚠️ user_id 는 그대로 둔다 — 출석·발화시간 집계가 그 값에 이어져 있다. 새 칸만 더한다. */
         res = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?)`
-        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now).run();
+          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?, ?)`
+        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now, request.headers.get('Host') || null).run();
       } catch {
         // 컬럼이 아직 없는 배포본 → 한 번 만들어 두고 아래 기존 경로로 처리(다음 입장부터 채워진다)
         try {
@@ -496,6 +496,7 @@ export async function handleMangoApi(
           const m = String(e?.message || e);
           if (!/duplicate column/i.test(m)) console.warn('[attendance] account_uid 컬럼 추가 실패:', m);
         }
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
         // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
         res = await env.DB.prepare(
           `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
@@ -629,8 +630,19 @@ export async function handleMangoApi(
       //   ⚠️ 클라이언트가 보내는 값(total_session_ms)은 오프라인 동안에도 계속 누적되므로 신뢰할 수 없다.
       //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
+      /* 🌐 (2026-08-25) host — 이 요청이 어느 도메인으로 들어왔는지.
+         [왜 필요한가] 이 저장소는 워커를 두 벌(webrtc-unified-platform · -prod) 배포하고,
+         Durable Object 네임스페이스는 스크립트마다 갈린다(wrangler.toml 주석 참고).
+         화상수업 WS 는 location.host 로 방을 정하므로, 같은 room_id 로 들어와도
+         서로 다른 도메인이면 서로 다른 «방»(DO)에 앉는다 — 그런데 D1(이 표 포함)은
+         두 워커가 같은 id 를 공유해서 attendance 만 보면 «둘 다 같은 방에 있었다» 로
+         보인다(2026-08-19 강선생님 건, CLAUDE.md 2장 「같은 방 번호인데 서로 안 보이고…」).
+         host 를 남겨 두면 다음에 같은 사고가 나도 SQL 한 줄로 확인된다:
+           SELECT user_id, role, host FROM attendance WHERE room_id=? — host 가 갈리면 그게 원인이다. */
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
       });
+      const reqHost = request.headers.get('Host') || null;
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
@@ -690,22 +702,23 @@ export async function handleMangoApi(
                     attended_at = COALESCE(attended_at, ?),
                     role     = COALESCE(role, ?),
                     username = COALESCE(username, ?),
-                    last_seen_at = ?
+                    last_seen_at = ?,
+                    host = COALESCE(host, ?)
               WHERE id = ?`
-          ).bind(now, role, b.username || null, srvNow, existing.id).run();
+          ).bind(now, role, b.username || null, srvNow, reqHost, existing.id).run();
           recovered = (existing.status === 'absent');
         } else {
           // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
           await env.DB.prepare(
-            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ? WHERE id = ?`
-          ).bind(now, srvNow, existing.id).run();
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ?, host = COALESCE(host, ?) WHERE id = ?`
+          ).bind(now, srvNow, reqHost, existing.id).run();
         }
         attendanceId = Number(existing.id);
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow).run();
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow, reqHost).run();
         attendanceId = Number(ins.meta.last_row_id);
       }
 
