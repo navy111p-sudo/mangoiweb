@@ -1,27 +1,14 @@
-/* 🖥 얼굴 화면 크기 컨트롤 — «레이아웃 그림 4칸»(2안)   2026-08-25
- * ─────────────────────────────────────────────────────────────────────────
- * 왜 만들었나
- *   크기바에 버튼이 7개(1/4·1/2·3/4·전체 + PIP·솔로·자유)라 좁아지면 두 줄로 접혀
- *   수업 화면 위쪽을 먹었다. 폰 세로에서는 아예 display:none 이라 «크기를 바꿀 방법이 0개»,
- *   폰 가로에서는 8.5px 글자로 1/4·3/4 를 숨겨 겨우 넣고 있었다.
- *   → 앞의 넷은 «하나의 축»(얼굴이 차지하는 공간)이므로 결과를 그린 그림 4칸으로 합치고,
- *     수업 중 거의 안 쓰는 뒤의 셋(PIP·솔로·자유)은 «⋯» 안으로 넣었다.
+/* 🖥 얼굴 크기 컨트롤 «그림 4칸»(2안) — 표시 맞추기 + «⋯» 메뉴 여닫기만 한다.
+ * 크기 계산·CSS 폭 규칙에는 손대지 않는다(누르면 마크업의 onclick 이 vcSetVideoSize 를 그대로 부른다).
  *
- * ⛔ 이 파일이 «하지 않는» 것 — 크기 계산·CSS 폭 규칙에는 손대지 않는다.
- *    누르면 기존 vcSetVideoSize() 를 그대로 부른다(마크업의 onclick). 여기 있는 것은
- *    ① «지금 어느 칸인가» 표시 맞추기 ② «⋯» 메뉴 여닫기 뿐이다.
+ * ⛔ body class 를 MutationObserver 로 지켜보지 말 것 — 2026-07-14 홈 전체 먹통 전력.
+ * ⛔ 상주 setInterval 도 두지 말 것 — 홈에 머무는 학생 폰을 계속 깨운다.
+ * ⛔ index.html 에서 반드시 defer 로 부를 것 — 첫 화면 blocking 예산이 수백 바이트뿐이다.
+ * ⚠️ 표시의 정본은 .active 클래스가 아니라 «#vc-main-row 의 모드 클래스» 다
+ *    (하단 독 시트 vcScreenSet 은 .active 를 안 건드려 두 곳이 조용히 어긋난다).
+ * ⚠️ vcScreenSet 은 «수업 입장 때» 만들어진다 — 그래서 접근자로 대입 순간을 낚아챈다.
  *
- * 🪤 밟지 않으려고 일부러 이렇게 한 것들
- *   · body class 를 MutationObserver 로 지켜보지 않는다.
- *     이 저장소에는 body class 를 자주 다시 쓰는 코드가 여럿이라 콜백이 쉴 새 없이 돌아
- *     메인스레드가 잠긴다(2026-07-14 홈 전체 먹통 전력, CLAUDE.md 2장).
- *     대신 vcSetVideoSize/vcScreenSet 를 «감싸» 그 순간에만 확인한다.
- *   · 상주 setInterval 도 두지 않는다 — 홈에 머무는 학생 폰을 계속 깨운다.
- *   · 표시의 정본은 idx-main.js 가 붙이는 .active 클래스가 아니라
- *     «#vc-main-row 의 모드 클래스» 다. 하단 독 「화면 분할」 시트(vcScreenSet)는
- *     .active 를 건드리지 않아서, .active 만 보면 두 곳이 조용히 어긋난다.
- *   · 첫 화면 무게 예산 여유가 177바이트뿐이라(first_paint_budget_harness)
- *     이 파일은 반드시 defer 로 부른다. index.html 에는 마크업·CSS 만 둔다.
+ * 📜 왜 이렇게 했는지: docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md
  */
 (function () {
   'use strict';
@@ -95,11 +82,31 @@
     } catch (e) {}
   }
 
-  function closeMenu() {
-    var m = $(MENU), b = $(MORE);
-    if (m) m.hidden = true;
-    if (b) b.setAttribute('aria-expanded', 'false');
+  /* 바깥을 누르면 닫기 — «메뉴가 열려 있는 동안만» 문서에 붙인다.
+     ⛔ 상시로 달아 두면 수업 내내 모든 탭·클릭마다 이 함수가 돕니다.
+        필리핀·중국 회선의 저사양 폰을 생각하면 안 도는 것이 제일 가볍습니다.
+     ⚠️ 캡처 단계인 이유 — 이 화면에는 클릭을 가로채는 핸들러가 여럿이라
+        버블링만 믿으면 메뉴가 안 닫힙니다. */
+  function onDocDown(e) {
+    var t = e.target;
+    if (!t || !t.closest) { closeMenu(); return; }
+    if (!t.closest('#' + MENU) && !t.closest('#' + MORE)) closeMenu();
   }
+  function onDocKey(e) { if (e.key === 'Escape') closeMenu(); }
+
+  function openMenu(open) {
+    var m = $(MENU), b = $(MORE);
+    if (!m || !b) return;
+    m.hidden = !open;
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.removeEventListener('pointerdown', onDocDown, true);
+    document.removeEventListener('keydown', onDocKey);
+    if (open) {
+      document.addEventListener('pointerdown', onDocDown, true);
+      document.addEventListener('keydown', onDocKey);
+    }
+  }
+  function closeMenu() { openMenu(false); }
 
   function boot() {
     var bar = $(BAR);
@@ -111,9 +118,7 @@
       more.addEventListener('click', function (e) {
         if (!menu) return;
         e.stopPropagation();
-        var open = menu.hidden;
-        menu.hidden = !open;
-        more.setAttribute('aria-expanded', open ? 'true' : 'false');
+        openMenu(menu.hidden);
       });
     }
     /* 메뉴 안 버튼은 자기 onclick(vcTogglePip 등)이 먼저 돌고 나서 닫는다 */
@@ -124,16 +129,6 @@
         if (t && t.closest && t.closest('button')) setTimeout(closeMenu, 0);
       });
     }
-    /* 바깥을 누르면 닫기 — 캡처 단계로 받는다.
-       ⚠️ 이 화면에는 클릭을 가로채는 핸들러가 여럿이라 버블링만 믿으면 안 닫힐 수 있다. */
-    document.addEventListener('pointerdown', function (e) {
-      var t = e.target;
-      if (!t || !t.closest) { closeMenu(); return; }
-      if (!t.closest('#' + MENU) && !t.closest('#' + MORE)) closeMenu();
-    }, true);
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeMenu();
-    });
 
     wrap('vcSetVideoSize');
     wrap('vcScreenSet');
