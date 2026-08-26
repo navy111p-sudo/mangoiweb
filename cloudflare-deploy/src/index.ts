@@ -45,6 +45,9 @@ import { runAbsenceSweep } from './churn-graph';
 import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
+// «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
+// 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
+import { isEnglishText, isEnglishQuestion } from './english-only';
 import { decisionGraphRouter, runDecisionGraphSync } from './decision-graph';  // 🧠 판단 경로 그래프(3단계)
 import { runGrowthSnapshot } from './api-judgment';                            // 📈 판단력 성장 스냅샷(3단계)
 import { churnContagionRouter, runContagionGraphSync } from './churn-contagion';
@@ -2953,9 +2956,10 @@ async function warmupLessonContext(env: Env, o: { userId?: string; textbook?: st
         for (const row of (((rs.results as any[]) || []))) {
           let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
           for (const q of qs) {
+            if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 영어 웜업 프롬프트에 넣지 않는다
             for (const c of [q.audio_text, q.answer_text, q.target]) {
               const s = String(c || '').trim();
-              if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !sentences.includes(s)) sentences.push(s);
+              if (isEnglishText(s) && !sentences.includes(s)) sentences.push(s);
             }
           }
         }
@@ -3050,7 +3054,10 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
     const seenEn = new Set<string>();
     const pushSentence = (en: any, ko: string) => {
       const s = String(en || '').trim();
-      if (!s || !/[a-zA-Z]/.test(s) || s.length > 90) return;
+      /* 여기가 「cāochǎng 이 영어 게임에 섞이던」 자리다 — 옛 판정 `/[a-zA-Z]/` 는
+         「라틴 글자가 한 자라도 있으면 영어」라 병음을 그대로 통과시켰다.
+         ⛔ 낱말 수 하한으로 풀지 말 것 — 영어 정답이 한 낱말인 문항이 많다(BTS 2 → 'red'). */
+      if (!isEnglishText(s, 90)) return;
       const key = s.toLowerCase();
       if (seenEn.has(key)) return;
       seenEn.add(key);
@@ -3074,6 +3081,7 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
           for (const row of (((rs.results as any[]) || []))) {
             let qs: any[] = []; try { qs = JSON.parse((row as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const ko = koFromPrompt(q?.q);
               pushSentence(q?.answer_text || q?.audio_text || q?.target, ko);
             }
@@ -3092,7 +3100,8 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
         for (const row of (((rs.results as any[]) || []))) {
           const en = String((row as any).word || '').trim();
           const ko = String((row as any).korean || '').trim();
-          if (!en || !ko || !/[a-zA-Z]/.test(en) || en.length > 30) continue;
+          // 단어장에 병음·한자를 적어 둔 학생이 있어도 «영어» 게임에는 내보내지 않는다
+          if (!ko || !isEnglishText(en, 30)) continue;
           const key = en.toLowerCase();
           if (seenW.has(key)) continue;
           seenW.add(key);
@@ -3190,6 +3199,27 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       return { course: s, seq: 0, title: '', key: s };
     }
 
+    /* 영어 코스 목록에서 «중국어 교재» 를 빼기 위한 이름표.
+       [왜] 영어 코스 목록은 review_quizzes 를 통째로 훑는데 그 표에는 중국어 교재
+            「다락원」이 함께 있다. 실측(2026-08-26): 다락원이 활성 15건으로 «가장 큰»
+            코스라 목록 1위가 되고, courses[0] 이 기본 코스이므로 교재 미배정 학생
+            (=현재 students_erp 29,417명 전원)에게 **기본 코스가 다락원**이 된다.
+            게다가 그 교재의 문장은 전부 한 낱말 병음이라 골라도 레슨이 0개다
+            (문항 178개 중 라틴 글자 14개 = 전부 단일 낱말, 두 낱말 이상 0개).
+       [판정] 「zh_vocab 에 있는 교재 = 중국어 코스」 — 중국어 게임이 이미 그 표를
+            정본으로 쓰고 있어서(/api/games/zh-vocab) 새 규칙을 만들지 않아도 된다.
+       ⚠️ 실패해도 영어 목록이 멈추면 안 된다 — 표가 없으면 빈 집합으로 두고 그냥 진행한다. */
+    const zhCourses = new Set<string>();
+    if (glang !== 'zh') {
+      try {
+        const zr = await env.DB.prepare(`SELECT DISTINCT textbook FROM zh_vocab WHERE textbook IS NOT NULL AND textbook != ''`).all();
+        for (const r of (((zr.results as any[]) || []))) {
+          const t = String((r as any).textbook || '').trim().toLowerCase();
+          if (t) zhCourses.add(t);
+        }
+      } catch {}
+    }
+
     // ── 코스(교재) 목록 ──
     const courseMap = new Map<string, { course: string; count: number; keys: Array<{ key: string; seq: number; title: string }> }>();
     try {
@@ -3199,7 +3229,9 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
       } else {
         const rs = await env.DB.prepare(`SELECT textbook FROM review_quizzes WHERE active=1 AND textbook IS NOT NULL AND textbook!='' GROUP BY textbook ORDER BY textbook ASC LIMIT 500`).all();
         for (const r of (((rs.results as any[]) || []))) {
-          const p = parseEn(String((r as any).textbook || '')); if (!p.key) continue;
+          const rawTb = String((r as any).textbook || '').trim();
+          if (zhCourses.has(rawTb.toLowerCase())) continue;   // 중국어 교재는 영어 코스 목록에서 뺀다
+          const p = parseEn(rawTb); if (!p.key) continue;
           if (!courseMap.has(p.course)) courseMap.set(p.course, { course: p.course, count: 0, keys: [] });
           const cc = courseMap.get(p.course)!; cc.keys.push({ key: p.key, seq: p.seq, title: p.title }); cc.count = cc.keys.length;
         }
@@ -3243,8 +3275,9 @@ async function handleGamesLessons(request: Request, env: Env): Promise<Response>
           for (const r of rows) {
             let qs: any[] = []; try { qs = JSON.parse((r as any).questions) || []; } catch {}
             for (const q of qs) {
+              if (!isEnglishQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
               const en = String(q?.answer_text || q?.audio_text || q?.target || '').trim();
-              if (!en || !/[a-zA-Z]/.test(en) || en.length > 90) continue;
+              if (!isEnglishText(en, 90)) continue;
               const t = String(q?.q || ''); const ci = Math.max(t.lastIndexOf(':'), t.lastIndexOf('：')); const tail = ci >= 0 ? t.slice(ci + 1).trim() : '';
               const ko = (/[가-힣]/.test(tail) && tail.length >= 2 && tail.length <= 60) ? tail : '';
               const w = en.replace(/[.,!?;:"]/g, '').split(/\s+/).filter(Boolean); if (w.length < 2) continue;
