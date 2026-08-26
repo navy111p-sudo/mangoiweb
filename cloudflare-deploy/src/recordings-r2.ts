@@ -73,6 +73,52 @@ async function clearParts(env: Env, recordingId: number): Promise<void> {
 const UPLOAD_WINDOW_MS = 6 * 60 * 60 * 1000;   // 시작 후 6시간 넘은 녹화엔 더 못 쓴다
 const MAX_PART_NUMBER = 10000;                 // R2 멀티파트 상한
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 🛟 짧은 녹화 안전망 — «스냅샷» (2026-08-25)
+//
+//   [무엇이 문제였나] multipart 는 **비마지막 파트가 5MiB 이상**이어야 한다(R2 규칙).
+//   그래서 녹화 첫 ~17초(2.5Mbps 기준) 동안은 조각이 **하나도** 서버에 없다. 그 사이에
+//   탭이 닫히면 brower 는 abort 를 보내고 그걸로 끝 — 영상이 통째로 사라진다.
+//   실측(2026-08-25 21:33~21:38): 13·17·3·1·2·27초짜리 녹화 6건이 전부 이 구간이었다.
+//
+//   [어떻게 막나] 조각이 아직 하나도 없는 동안, 브라우저가 들고 있는 버퍼 전체를
+//   «통짜 파일»로 한 번씩 올려 둔다. MediaRecorder 의 첫 조각부터 이어붙인 바이트열이라
+//   그 자체로 재생 가능한 webm 이다.
+//
+//   ⚠️ **진짜 키에 쓰지 않는다** — `<키>.snap` 이라는 옆자리에 쓴다.
+//      진행 중인 multipart 와 같은 키에 put 하면 그 뒤 complete 가 어떻게 되는지가
+//      R2 문서로 보장되지 않는다. 만약 complete 가 실패하면 upload/complete 의
+//      «head() 로 실물이 있으면 성공» 자가복구가 **스냅샷(앞부분만)을 완성본으로 오인**해
+//      모든 녹화가 조용히 잘린다. 그 위험을 아예 만들지 않는다.
+//   ✅ 대신 «되살리기» 는 multipart 가 확실히 끝난 뒤에만 한다 — abort 순간(탭 닫힘)과
+//      크론 스윕 두 곳에서 `<키>.snap` → `<키>` 로 옮긴다(promoteSnapshot).
+//   ✅ 정상 마무리(complete 성공) 때는 쓸모없어졌으므로 지운다(dropSnapshot).
+// ─────────────────────────────────────────────────────────────────────────────
+const SNAPSHOT_SUFFIX = '.snap';
+const SNAPSHOT_MAX_BYTES = 8 * 1024 * 1024;   // 버퍼는 5MiB + 조각 하나를 넘지 않는다
+
+/** `<key>.snap` 이 있으면 진짜 키로 옮기고 그 크기를 돌려준다. 없으면 0. */
+async function promoteSnapshot(env: Env, key: string): Promise<number> {
+  try {
+    const snap = await env.RECORDINGS.get(key + SNAPSHOT_SUFFIX);
+    if (!snap) return 0;
+    const buf = await snap.arrayBuffer();
+    if (!buf || buf.byteLength === 0) { await dropSnapshot(env, key); return 0; }
+    await env.RECORDINGS.put(key, buf, { httpMetadata: { contentType: 'video/webm' } });
+    await dropSnapshot(env, key);
+    console.log(`[recordings-r2] 스냅샷 되살림 key=${key} size=${buf.byteLength}`);
+    return buf.byteLength;
+  } catch (e: any) {
+    console.error(`[recordings-r2] 스냅샷 되살리기 실패 key=${key}: ${e?.message || e}`);
+    return 0;
+  }
+}
+
+/** 스냅샷 정리 — 실패해도 본 흐름에 영향 없음 */
+async function dropSnapshot(env: Env, key: string): Promise<void> {
+  try { await env.RECORDINGS.delete(key + SNAPSHOT_SUFFIX); } catch { /* best-effort */ }
+}
+
 /** 이 키가 «지금 녹화 중인» 행의 것인지 확인. 아니면 null */
 async function assertUploadable(env: Env, key: string): Promise<{ id: number } | null> {
   if (!key || !key.startsWith('rec/')) return null;
@@ -195,6 +241,36 @@ export async function handleRecordingUpload(
     return J({ ok: true, part_number: partNumber, etag: part.etag });
   }
 
+  // 2-b) 스냅샷 — 아직 조각이 하나도 없는 «첫 5MiB» 구간의 안전망 (2026-08-25)
+  //      브라우저가 들고 있는 버퍼 전체를 `<키>.snap` 에 통째로 덮어쓴다.
+  //      ⛔ 진짜 키에는 절대 쓰지 않는다(위 SNAPSHOT_SUFFIX 주석 참고).
+  if (path === "/api/recordings/upload/snapshot" && method === "PUT") {
+    const key = url.searchParams.get("key") || "";
+    // 🔐 part 와 «똑같은» 관문 — 실재하고 지금 녹화 중인 행의 키에만 쓸 수 있다
+    const owner = await assertUploadable(env, key);
+    if (!owner) {
+      console.error(`[recordings-r2] snapshot 거부 key=${key}`);
+      return J({ ok: false, error: "not recording" }, 404);
+    }
+    const len = parseInt(request.headers.get("content-length") || "", 10);
+    if (Number.isFinite(len) && len > SNAPSHOT_MAX_BYTES) return J({ ok: false, error: "too large" }, 413);
+    const buf = await request.arrayBuffer();
+    if (!buf || buf.byteLength === 0) return J({ ok: false, error: "empty" }, 400);
+    if (buf.byteLength > SNAPSHOT_MAX_BYTES) return J({ ok: false, error: "too large" }, 413);
+    await env.RECORDINGS.put(key + SNAPSHOT_SUFFIX, buf, {
+      httpMetadata: { contentType: "video/webm" },
+      customMetadata: { recordingId: String(owner.id), snapshot: "1" },
+    });
+    // ⚠️ status 는 건드리지 않는다 — 마무리는 여전히 complete 의 몫이다.
+    //   size_bytes 만 적어 두면 «빈 껍데기 정리»(size_bytes IS NULL) 가 이 행을 안 지운다.
+    try {
+      await env.DB.prepare(
+        `UPDATE recordings SET size_bytes = ? WHERE id = ? AND status = 'recording'`
+      ).bind(buf.byteLength, owner.id).run();
+    } catch { /* 관측용이라 실패해도 업로드는 성공 */ }
+    return J({ ok: true, size: buf.byteLength });
+  }
+
   // 3) 업로드 마무리 — 수업 종료 시 호출
   //    🔴 2026-07-31 실장애: R2 mp.complete()가 실패(또는 beforeunload sendBeacon과 중복 호출로
   //    이미 끝난 upload_id 재완료 시도)해도 예외를 못 잡아 DB가 'completed'로 잘못 남고, 정작
@@ -266,6 +342,9 @@ export async function handleRecordingUpload(
         `UPDATE recordings SET status = 'upload_failed', storage = 'r2_failed'
           WHERE id = ? AND status NOT IN ('completed','deleted')`
       ).bind(b.recording_id).run();
+      // 🧹 이 행은 'upload_failed' 라 어느 경로도 스냅샷을 되살리지 않는다(되살리면 «앞부분만
+      //   담긴 파일» 을 완성본인 척 내놓게 된다). 그러니 남겨 둘 이유가 없다 — 지운다.
+      await dropSnapshot(env, b.key);
       return J({ ok: false, error: failReason }, 500);
     }
 
@@ -278,6 +357,7 @@ export async function handleRecordingUpload(
       .bind(now, b.duration_ms || 0, b.size_bytes || obj!.size || 0, b.key, b.recording_id)
       .run();
     await clearParts(env, b.recording_id);   // 마무리됐으니 장부는 비운다
+    await dropSnapshot(env, b.key);          // 완성본이 생겼으니 스냅샷은 쓸모없다
     return J({ ok: true, key: b.key, size: obj!.size });
   }
 
@@ -301,6 +381,26 @@ export async function handleRecordingUpload(
       const mp = env.RECORDINGS.resumeMultipartUpload(b.key, b.upload_id);
       await mp.abort();
     } catch (_) {}
+
+    // 🛟 스냅샷 되살리기 (2026-08-25) — abort 가 오는 대표적인 경우가 «조각이 하나도 없는데
+    //   탭이 닫힘» 이다. 예전엔 여기서 녹화가 통째로 사라졌다. multipart 는 방금 확실히
+    //   끝났으므로 이제 진짜 키에 써도 안전하다.
+    const snapSize = await promoteSnapshot(env, b.key);
+    if (snapSize > 0) {
+      const nowMs = Date.now();
+      const st = await env.DB.prepare(`SELECT started_at FROM recordings WHERE id = ?`)
+        .bind(b.recording_id).first<{ started_at: number | null }>();
+      const startedAt = Number(st?.started_at) || nowMs;
+      await env.DB.prepare(
+        `UPDATE recordings
+            SET ended_at = COALESCE(ended_at, ?), duration_ms = ?, size_bytes = ?,
+                status = 'completed', storage = 'r2'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
+      ).bind(nowMs, Math.max(0, nowMs - startedAt), snapSize, b.recording_id).run();
+      await clearParts(env, b.recording_id);
+      return J({ ok: true, recovered: 'snapshot', size: snapSize });
+    }
+
     // 이미 완료·삭제된 행은 되돌리지 않는다
     await env.DB.prepare(
       `UPDATE recordings SET status = 'aborted' WHERE id = ? AND status NOT IN ('completed','deleted')`
@@ -634,6 +734,42 @@ export async function runRecordingFinalizeSweep(
       out.failed++;
       out.details.push({ rid, ok: false, error: String(e?.message || e) });
     }
+  }
+
+  // 🛟 스냅샷 되살리기 (2026-08-25) — 탭이 닫힐 때 abort 비콘조차 못 간 경우의 마지막 안전망.
+  //   조각은 하나도 없지만 `<키>.snap` 은 올라가 있을 수 있다. 그 행은 아래 «빈 껍데기 정리»
+  //   조건(size_bytes IS NULL)에 안 걸리므로 여기서 챙기지 않으면 영원히 'recording' 으로 남는다.
+  //   ⚠️ 이 행들은 multipart 를 마무리할 근거(장부)가 없어 complete 가 영영 안 온다.
+  //      그래서 진짜 키에 써도 «완성본을 덮어쓸» 위험이 없다.
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT id, file_url, started_at FROM recordings
+        WHERE status = 'recording'
+          AND started_at IS NOT NULL AND started_at < ?
+          AND file_url IS NOT NULL AND file_url <> ''
+          AND id NOT IN (SELECT DISTINCT recording_id FROM recording_parts)
+        ORDER BY started_at ASC LIMIT ?`
+    ).bind(now - EMPTY_AGE_MS, limit).all();
+    for (const r of ((rs.results || []) as any[])) {
+      const key = String(r.file_url || '');
+      if (!key.startsWith('rec/')) continue;
+      let hasReal: R2Object | null = null;
+      try { hasReal = await env.RECORDINGS.head(key); } catch { hasReal = null; }
+      if (hasReal) continue;                       // 실물이 이미 있으면 손대지 않는다
+      const size = await promoteSnapshot(env, key);
+      if (!size) continue;
+      await env.DB.prepare(
+        `UPDATE recordings
+            SET ended_at = COALESCE(ended_at, ?), duration_ms = COALESCE(duration_ms, 0),
+                size_bytes = ?, status = 'completed', storage = 'r2'
+          WHERE id = ? AND status NOT IN ('completed','deleted')`
+      ).bind(now, size, r.id).run();
+      out.finalized++;
+      out.details.push({ rid: Number(r.id), ok: true, snapshot: true, size });
+    }
+  } catch (e: any) {
+    out.error = (out.error ? out.error + ' / ' : '') + '스냅샷 되살리기 실패: ' + String(e?.message || e);
+    console.error('[rec-finalize]', out.error);
   }
 
   // 🧹 빈 껍데기 정리 — 조각이 하나도 없이 EMPTY_AGE_MS 넘게 'recording' 으로 남은 행.
