@@ -29,6 +29,10 @@
  *   runWarmupGraphSync(env)                        : D1 → Neo4j ETL (멱등 MERGE)
  *   getWeakSentences(env, studentId, textbook, n)  : 취약 문장 (오늘 교재 우선 정렬)
  *   warmupGraphRouter(request, env)                : /api/admin/warmup-graph/*
+ *   isEnglishWarmupText / isEnglishWarmupQuestion  : «영어만» 게이트 (아래 주석 참고)
+ *
+ * ⚠️ 이 표(review_quizzes)는 영어 전용이 아니다 — 중국어 교재 「다락원」이 함께 들어 있다.
+ *    그래서 «영어 문장 추출» 은 라틴 글자 유무가 아니라 아래 두 게이트로 판정한다.
  */
 
 import { runCypher, Neo4jNotConfiguredError, type TeacherMatchEnv } from './teacher-match';
@@ -88,15 +92,69 @@ ORDER BY inToday DESC, w.count DESC, w.last_at DESC
 LIMIT $limit
 `;
 
+/* ── «영어만» 게이트 ────────────────────────────────────────────────
+ *  [왜 생겼나] 2026-08-26 사장님 제보 — 「수업 전 AI 웜업」 첫 화면의
+ *    «🎯 오늘의 연습 포인트» 에 중국어 병음 "cāochǎng"·"shuāngyǎnpí" 가 떴다.
+ *    웜업은 영어 전용 화면인데(WARMUP_SYSTEM 「네 대사는 반드시 영어로」) 왜 중국어냐면 —
+ *    복습퀴즈 은행(review_quizzes)이 «영어 전용 표가 아니다». 실측(2026-08-26): 활성 퀴즈
+ *    31건 중 15건이 중국어 교재 「다락원」이고, 그 안에 이런 문항이 있다.
+ *        { type:'write', q:'🔤 다음 한자의 병음을 알파벳으로 쓰세요: 操场',
+ *          answer_text:'cāochǎng', explain:'操场 (cāochǎng) = 운동장' }
+ *    옛 판정은 `/[a-zA-Z]/.test(s)` — 「라틴 글자가 한 자라도 있으면 영어」였다.
+ *    병음은 라틴 글자로 적으므로 **그 검사를 그대로 통과**한다. 그래서 학생 `jeong` 이
+ *    다락원 퀴즈(28·30번)에서 틀린 병음이 Neo4j 취약문장으로 적재되고, 영어 웜업 화면에
+ *    「오늘의 연습 포인트」로 되돌아 나왔다.
+ *
+ *  [규칙] 두 겹이다 — 한쪽만으로는 못 막는다.
+ *    ① 글자 게이트 isEnglishWarmupText() : ASCII 인쇄가능 문자(+따옴표·대시 몇 종)만 허용.
+ *       성조부호(ā·ǎ·ě·ù…)·한자·한글·가나가 한 자라도 있으면 영어가 아니다.
+ *       ⚠️ 이 게이트가 **이미 Neo4j 에 들어간 옛 데이터까지** 막는다(읽을 때 거른다) —
+ *          그래프를 다시 쓰지 않고도 화면이 바로 깨끗해지는 유일한 자리다.
+ *    ② 문항 게이트 isEnglishWarmupQuestion() : 문항 자체가 중국어·일본어 강의면 통째로 건너뛴다.
+ *       ①만 두면 **성조부호 없는 병음**(accept:['caochang'] 같은 표기)이 언젠가 answer_text
+ *       자리에 들어올 때 그대로 새어 나온다. 문제 지문에 남는 «한자·병음·중국어» 흔적으로 가른다.
+ *
+ *  ⛔ 「두 낱말 이상만 통과」로 풀지 말 것 — 영어 교재의 정답이 한 낱말인 문항이 실제로 많다
+ *     (BTS 2 «빨간색의 영어 단어를 쓰세요» → answer_text:'red'). 그걸 같이 버리게 된다.
+ *  ⚠️ 한글은 ②에서 «중국어 표시» 로 치지 않는다 — 이 표의 문제 지문은 원래 한국어다.
+ *     ①이 결과 문자열에서 한글을 이미 막으므로 겹쳐서 막을 필요도 없다. */
+
+/** ① 결과로 내보낼 «문장» 이 영어인가 — ASCII + 흔한 따옴표·대시만 허용 */
+export function isEnglishWarmupText(raw: unknown): boolean {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s || s.length > 80) return false;
+  if (!/[A-Za-z]/.test(s)) return false;               // 라틴 글자가 아예 없으면 문장이 아니다
+  // \u2018\u2019 = ‘’ · \u201c\u201d = “” · \u2013\u2014 = –— · \u2026 = …
+  return /^[\x20-\x7E\u2018\u2019\u201c\u201d\u2013\u2014\u2026]+$/.test(s);
+}
+
+/** 한자(CJK 통합·확장A·호환)·가나 — 한글(가-힯)은 «일부러» 뺐다(위 주석 참고) */
+const CJK_KANA_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+/** 중국어·일본어 강의임을 드러내는 한국어 표시어 */
+const FOREIGN_COURSE_RE = /(중국어|일본어|한자|병음)/;
+
+/** ② 이 문항이 영어 학습 문항인가 — 중국어·일본어 문항이면 문장을 하나도 꺼내지 않는다 */
+export function isEnglishWarmupQuestion(q: unknown): boolean {
+  if (!q || typeof q !== 'object') return false;
+  const o = q as Record<string, unknown>;
+  const parts: string[] = [];
+  for (const k of ['q', 'explain', 'answer_text', 'audio_text', 'target']) parts.push(String(o[k] == null ? '' : o[k]));
+  if (Array.isArray(o.opts)) for (const v of o.opts) parts.push(String(v == null ? '' : v));
+  if (Array.isArray(o.accept)) for (const v of o.accept) parts.push(String(v == null ? '' : v));
+  const blob = parts.join(' ');
+  return !CJK_KANA_RE.test(blob) && !FOREIGN_COURSE_RE.test(blob);
+}
+
 /** review_quizzes.questions JSON 에서 영어 문장 추출 (index.ts warmupLessonContext 와 동일 기준) */
 function extractSentences(questionsJson: unknown): string[] {
   let qs: any[] = [];
   try { qs = JSON.parse(String(questionsJson || '[]')) || []; } catch {}
   const out: string[] = [];
   for (const q of qs) {
+    if (!isEnglishWarmupQuestion(q)) continue;   // 중국어·일본어 문항은 통째로 건너뛴다
     for (const c of [q?.audio_text, q?.answer_text, q?.target]) {
       const s = String(c || '').trim();
-      if (s && /[a-zA-Z]/.test(s) && s.length <= 80 && !out.includes(s)) out.push(s);
+      if (isEnglishWarmupText(s) && !out.includes(s)) out.push(s);
     }
   }
   return out;
@@ -127,6 +185,7 @@ function regradeWrongs(row: { user_id: string; answers: string; created_at: numb
   const out: WrongEvent[] = [];
   for (let i = 0; i < Math.min(qs.length, ans.length); i++) {
     const q = qs[i]; const a = ans[i];
+    if (!isEnglishWarmupQuestion(q)) continue;   // 중국어·일본어 문항은 취약문장으로 세지 않는다
     const type = q?.type || 'choice';
     let wrong = false; let text = '';
     if (type === 'choice' || type === 'listen') {
@@ -139,7 +198,7 @@ function regradeWrongs(row: { user_id: string; answers: string; created_at: numb
       wrong = type === 'write' ? !(normText(said) === normText(q.answer_text) || acc >= 0.85) : acc < 0.6;
       text = String(q.answer_text || '').trim();
     }
-    if (wrong && text && /[a-zA-Z]/.test(text) && text.length <= 80) {
+    if (wrong && isEnglishWarmupText(text)) {
       out.push({ student_id: row.user_id, text, textbook: quiz.textbook, at: row.created_at });
     }
   }
@@ -154,7 +213,7 @@ function detailWrongs(row: { user_id: string; detail: string; created_at: number
   for (const d of ds) {
     if (d?.correct) continue;
     const text = String(d?.answer_text || d?.audio_text || '').trim();
-    if (text && /[a-zA-Z]/.test(text) && text.length <= 80) {
+    if (isEnglishWarmupText(text)) {
       out.push({ student_id: row.user_id, text, textbook, at: row.created_at });
     }
   }
@@ -269,10 +328,16 @@ export async function getWeakSentences(
 ): Promise<WeakSentence[]> {
   if (!studentId) return [];
   const safeLimit = Number.isInteger(limit) ? Math.min(Math.max(limit, 1), 20) : 5;
+  /* «영어만» 을 읽을 때 한 번 더 거른다 — 그래프에 이미 적재된 옛 데이터 때문이다.
+   *   위 ETL 게이트는 «앞으로 들어올 것» 만 막는다. 이미 들어간 병음(cāochǎng 등)은
+   *   MERGE 라 사라지지 않으므로, 여기서 걸러야 화면이 오늘 바로 깨끗해진다.
+   *   ⚠️ 그래서 Cypher LIMIT 은 «넉넉히» 받아 온다 — 요청한 5건이 전부 중국어면
+   *      거르고 나서 0건이 되어, 영어 취약문장이 있는 학생까지 빈손이 된다. */
+  const fetchLimit = Math.min(safeLimit * 4, 40);
   const { fields, values } = await runCypher(env, WEAK_SENTENCES_QUERY, {
     studentId,
     textbook: textbook || '',
-    limit: safeLimit,
+    limit: fetchLimit,
   });
   const fText = fields.indexOf('text');
   const fCnt = fields.indexOf('wrongCount');
@@ -281,7 +346,7 @@ export async function getWeakSentences(
     text: String(row[fText] || ''),
     wrongCount: toNum(row[fCnt]),
     inTodayTextbook: !!row[fIn],
-  })).filter((w) => w.text);
+  })).filter((w) => isEnglishWarmupText(w.text)).slice(0, safeLimit);
 }
 
 // ── 공통 JSON 응답 헬퍼 (프로젝트 라우터 컨벤션과 동일) ───────────────────────
