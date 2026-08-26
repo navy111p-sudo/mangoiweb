@@ -342,3 +342,26 @@ PW_DIR=/tmp/pw node test-harness/manual/judgment-tts-browser.mjs
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
 ```
+
+---
+
+## observer-whisper-browser.mjs — 참관 중 귓속말 (22건)
+
+**언제 부르나** — 참관(`/?observe=`) 귓속말, 채팅 대상 칩(`vcChatTarget`·`vcRefreshChatTargets`),
+하단 독 라벨, `js/idx-whisper.js`, `js/vc-observe-guard.js` 를 건드렸을 때.
+
+**왜 손으로 만들었나** — 문자열 하니스는 «그 줄이 있는가» 만 본다. 이 기능에서 실제로 틀렸던 것은
+전부 «화면에 무엇이 보이나» 였다(2026-08-26):
+
+- 「여기 어디에 귓속말이 있어?」 — 기능은 있었는데 하단 독 이름표가 «채팅» 이었다
+- 「채팅창에 아무것도 문자 써도 안 나타나는데?」 — 참관자 글은 방에 안 뿌려져 에코가 없었다
+- 학생을 골라 보내도 강사에게 갔다 — 서버가 `toUserId` 를 안 읽었다
+
+**무엇을 재나** — 독·칩·입력칸 이름표 / 소켓에 실제로 나가는 payload / `/api/chat/messages` 저장을
+건너뛰는지(학생이 「이전 대화 보기」로 읽으면 안 된다) / 보낸 기록이 채팅창에 남는지 /
+학생 화면에 «나에게 온 것만» 뜨는지(`elementsFromPoint` 로 실제로 맨 위인지까지) /
+참관이 아닐 때는 아무것도 안 바뀌는지.
+
+```
+PW_DIR=/tmp/pw node test-harness/manual/observer-whisper-browser.mjs
+```

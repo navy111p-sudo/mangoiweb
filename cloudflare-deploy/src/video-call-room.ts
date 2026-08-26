@@ -715,20 +715,63 @@ export class VideoCallRoom {
     }
   }
 
-  /* 👁 참관자 → 강사 전용 귓속말  (2026-08-19 제보 2-③)
-     ⛔ 학생에게는 한 글자도 가지 않는다 — staff 소켓만 고른다.
-     ⚠️ 참관자 본인에게도 에코를 돌려준다. 안 그러면 «보냈는지 안 보냈는지» 를 알 수 없어
+  /* 👁 참관자 귓속말  (2026-08-19 제보 2-③ · 2026-08-26 «학생에게도» 확장)
+     ⛔ 어느 쪽이든 «방에 뿌리지» 않는다. 받는 사람 소켓 하나(또는 staff 소켓들)에만 보낸다.
+     ⚠️ 참관자 본인에게도 회신(ack)을 돌려준다. 안 그러면 «보냈는지 안 보냈는지» 를 알 수 없어
         같은 말을 여러 번 쓰게 된다(원래 제보가 「보내도 안 보인다」였다).
-     ⚠️ 방에 강사가 아직 없으면 delivered:0 을 그대로 알려 준다 — «보낸 척» 하지 않는다. */
+        ⚠️ ack 에 본문(message)도 실어 보낸다 — 참관자 채팅은 방에 안 뿌려져 «에코» 가 없다.
+           그래서 2026-08-26 에 사장님이 「채팅창에 아무것도 안 나타난다」고 하셨다. 화면이
+           이 값으로 자기 채팅창에 «보낸 기록» 을 남긴다(public/js/idx-whisper.js).
+     ⚠️ 받는 사람이 방에 없으면 delivered:0 을 그대로 알려 준다 — «보낸 척» 하지 않는다. */
   private handleObserverWhisper(userId: string, att: VcAttachment, data: any): void {
     const text = String((data && data.message) || '').trim();
     if (!text) return;
+    const body = text.slice(0, 500);
+    const at = Date.now();
+    const fromName = String(att.username || '관찰자').slice(0, 40);
+    const toUserId = String((data && data.toUserId) || '').trim();
+
+    /* 🎯 (2026-08-26 사장님 지시) 대상을 콕 집었으면 «그 한 사람» 에게만 간다 — 학생도 받는다.
+       화면에서 채팅 대상 칩(🔒 이름)을 고르면 toUserId 가 실려 온다(idx-main.js vcSendChat).
+       ⚠️ 여기서 «학생인가» 를 따로 따지지 않는다 — 강사를 콕 집어 보내는 것도 같은 길이다.
+       ⚠️ 학생에게 갈 때는 보낸 사람 이름을 «넘기지 않는다»(from:''). 참관은 인원수·입퇴장
+          어디에도 안 나오는 «투명 유령» 설계인데(handleJoinObserve), 낯선 «관찰자» 라는
+          이름이 학생 화면에 뜨면 그 설계가 화면에서만 깨진다. 받는 화면이 «사무실» 로 그린다.
+       ⛔ broadcast 로 바꾸지 말 것 — 그 순간 학생 전원이 남에게 간 지시를 본다. */
+    if (toUserId) {
+      const target = this.wsOf(toUserId);
+      const ta = target ? this.attOf(target) : null;
+      let delivered = 0;
+      if (target && ta && ta.joined && target.readyState === WebSocket.OPEN) {
+        const staff = this.isStaffAtt(ta);
+        const payload = {
+          message: body,
+          message_type: 'text',
+          urgency: 'normal',
+          from: staff ? fromName : '',
+          at,
+          observer: true,
+          direct: true,        // 🔒 받는 쪽 이중 방어 ① — «콕 집어 보낸 것» 표시
+          to: toUserId,        // 🔒 이중 방어 ② — 내 id 가 아니면 화면이 그리지 않는다
+          toStaff: staff,      //    학생용 문구·표시 시간을 가르는 데 쓴다
+        };
+        try { target.send(JSON.stringify({ type: 'admin-whisper', data: payload })); delivered = 1; }
+        catch { /* 소켓 실패는 delivered:0 으로 정직하게 회신된다 */ }
+      }
+      this.send(userId, {
+        type: 'admin-whisper-ack',
+        data: { delivered, at, to: toUserId, toName: (ta && ta.username) || '', message: body },
+      });
+      return;
+    }
+
+    // 대상을 안 고르면 지금까지처럼 «방에 있는 강사 전원» 에게 간다.
     const payload = {
-      message: text.slice(0, 500),
+      message: body,
       message_type: 'text',
       urgency: 'normal',
-      from: String(att.username || '참관자').slice(0, 40),
-      at: Date.now(),
+      from: fromName,
+      at,
       observer: true,
     };
     const jsonMsg = JSON.stringify({ type: 'admin-whisper', data: payload });
@@ -740,7 +783,7 @@ export class VideoCallRoom {
       try { ws.send(jsonMsg); delivered++; } catch { /* 한 소켓 실패는 무시 */ }
     }
     // 참관자 본인에게 «몇 명에게 갔는지» 회신
-    this.send(userId, { type: 'admin-whisper-ack', data: { delivered, at: payload.at } });
+    this.send(userId, { type: 'admin-whisper-ack', data: { delivered, at, message: body } });
   }
 
   private handleChatMessage(userId: string, data: any): void {

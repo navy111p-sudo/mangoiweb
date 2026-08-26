@@ -73,9 +73,16 @@ console.log('\n▶ B. 참관 중 «보내는» 버튼 숨김');
   }
   check('display:none 을 !important 로 건다(독 CSS 를 이겨야 한다)',
         /display:none\s*!important/.test(guardCode));
-  // 나가기·채팅은 남아야 한다 — 참관자도 나가야 하고, 보기는 해야 한다
-  check('나가기 버튼은 숨기지 않는다', !/vc-dock-leave/.test(guardCode));
-  check('채팅 버튼은 숨기지 않는다', !/vc-dock-chat/.test(guardCode));
+  /* 나가기·채팅은 남아야 한다 — 참관자도 나가야 하고, 보기는 해야 한다.
+     ⚠️ «그 이름이 파일에 아예 없다» 로 검사하면 안 된다. 2026-08-26 에 참관 중 채팅
+        버튼의 이름표를 «귓속말» 로 바꾸느라 그 id 를 «읽기만» 하는 코드가 생기자
+        곧바로 거짓 FAIL 이 났다 — 숨긴 적이 없는데도. 물어야 할 것은 «숨기는가» 다.
+        → 숨김 규칙(body.vc-observer #아이디)의 «대상 목록» 안에 있는지로 판정한다.
+        (CLAUDE.md 2장 「부정 검사가 자기 주석을 잡는다」와 같은 뿌리다) */
+  const hideTargets = (guardCode.match(/body\.vc-observer #[\w-]+/g) || []).join(' ');
+  check('나가기 버튼은 숨기지 않는다', !/vc-dock-leave/.test(hideTargets));
+  check('채팅 버튼은 숨기지 않는다', !/vc-dock-chat/.test(hideTargets),
+        '참관자는 귓속말을 그 버튼으로 연다 — 숨기면 보낼 방법이 아예 없어진다');
 }
 
 /* ── C. 함수 자체 가드 ────────────────────────────────────────────── */
