@@ -13,7 +13,7 @@ import { notSeedSql } from './accounting-reports';   // 🌱 시연용 시드 �
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
-import { DEFAULT_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 급여용 10분 토막 수
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 허용 길이 · 급여용 10분 토막 수
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
@@ -6019,7 +6019,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const [rh, rm] = rawTime.split(':');
       if (Number(rh) > 23 || Number(rm) > 59) return bad('invalid_time', '시작 시간이 올바르지 않습니다.', 'Start time is out of range.');
       const startTime = String(Number(rh)).padStart(2, '0') + ':' + rm;
-      const durationMin = Number.isFinite(Number(body.duration_min)) && Number(body.duration_min) > 0 ? Math.min(Number(body.duration_min), 240) : 30;
+      // ⏱ (2026-08-26) 안 보내면 30분이 아니라 정책 기본값(20분) — class-policy.ts 머리말이
+      //   경고하는 «운영 DB 옛 스키마 DEFAULT 30» 이 여기로 새어 들어오지 않게 명시적으로 20을 쓴다.
+      //   명시된 값은 그대로 존중한다(주간 스케줄 화면은 20/30/40 만 보내지만, 이 API 자체는
+      //   그 세 값으로 좁히지 않는다 — 기존에 열려 있던 상한 240분은 그대로 유지).
+      const durationMin = Number.isFinite(Number(body.duration_min)) && Number(body.duration_min) > 0 ? Math.min(Number(body.duration_min), 240) : DEFAULT_CLASS_MINUTES;
       const classType = ['regular', 'trial', 'level_test', 'makeup'].includes(String(body.class_type || '')) ? String(body.class_type) : 'regular';
       const notes = body.notes ? String(body.notes).slice(0, 500) : null;
 
@@ -9863,6 +9867,9 @@ LIMIT $limit`;
       //   숫자 개월이면 클라이언트가 시작일 + N개월을 end_date/ended_at 으로 같이 보내 온다.
       //   TEXT 인 이유: 'unlimited' 를 0·NULL 로 눌러 두면 «안 고른 것» 과 구분이 안 된다.
       await _addEnrCol2('duration_months', 'TEXT');
+      // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
+      //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
+      await _addEnrCol2('duration_min', 'INTEGER');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -9896,8 +9903,12 @@ LIMIT $limit`;
       //   ⚠️ 화면 목록(`adm-core.js` 의 `durOptionsList`)과 **짝**이다. 한쪽만 넓히면 그 조용한 null 이 그대로 재현된다.
       const _durRaw = b.duration_months == null ? '' : String(b.duration_months).trim();
       const _dur = (_durRaw === 'unlimited' || /^([1-9]|1[0-2])$/.test(_durRaw)) ? _durRaw : null;
+      // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 화면 목록(adm-core.js 의 classMinOptionsList)과 짝.
+      //   모르는 값은 저장하지 않는다(null) — enroll-activate.ts 의 buildEnrollPlan() 이 null 이면
+      //   기본 20분(DEFAULT_CLASS_MINUTES)으로 읽으므로 «안 고름» 과 «모르는 값» 이 같은 결과가 된다.
+      const _classMin = ALLOWED_CLASS_MINUTES.includes(Number(b.duration_min)) ? Number(b.duration_min) : null;
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
@@ -9906,7 +9917,7 @@ LIMIT $limit`;
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio, _dur
+        _prio, _dur, _classMin
       ).run();
       return json({ ok: true, id: r.meta.last_row_id });
     }

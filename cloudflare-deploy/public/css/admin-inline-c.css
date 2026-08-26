@@ -3438,14 +3438,19 @@ button.chip:hover,
   }
   #en-multi-table tbody tr td.en-c-del { position: absolute; top: 5px; right: 8px; }
   /* 첫 줄 = 누구를·어떻게 · 둘째 줄 = 언제 (DOM 순서와 다르므로 order 로 세운다) */
-  #en-multi-table tbody tr td.en-c-uid   { order: 1; grid-column: span 3; }
-  #en-multi-table tbody tr td.en-c-type  { order: 2; grid-column: span 3; }
-  #en-multi-table tbody tr td.en-c-prio  { order: 3; grid-column: span 4; }
-  #en-multi-table tbody tr td.en-c-size  { order: 4; grid-column: span 2; }
-  #en-multi-table tbody tr td.en-c-day   { order: 5; grid-column: span 4; }
-  #en-multi-table tbody tr td.en-c-time  { order: 6; grid-column: span 3; }
-  #en-multi-table tbody tr td.en-c-start { order: 7; grid-column: span 3; }
-  #en-multi-table tbody tr td.en-c-dur   { order: 8; grid-column: span 2; }
+  /* ⏱ (2026-08-26) 「수업 시간」 칸을 넣으면서 둘째 줄을 다시 짰다.
+     ⛔ 새 칸에 order 를 안 주면 기본값 0 이라 «학생 아이디보다 앞» 으로 튀어나온다
+        (order 는 «DOM 순서» 가 아니라 «지정 안 하면 0» 이다 — 실제로 그 상태로 병합돼 있었다).
+     칸 합이 줄마다 정확히 12 여야 빈칸이 안 생긴다: 3+3+4+2 / 4+4+4 / 6+6. */
+  #en-multi-table tbody tr td.en-c-uid      { order: 1; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-type     { order: 2; grid-column: span 3; }
+  #en-multi-table tbody tr td.en-c-prio     { order: 3; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-size     { order: 4; grid-column: span 2; }
+  #en-multi-table tbody tr td.en-c-day      { order: 5; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-time     { order: 6; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-classmin { order: 7; grid-column: span 4; }
+  #en-multi-table tbody tr td.en-c-start    { order: 8; grid-column: span 6; }
+  #en-multi-table tbody tr td.en-c-dur      { order: 9; grid-column: span 6; }
   @media (max-width: 1100px) {
     #en-multi-table tbody tr { grid-template-columns: repeat(6, 1fr); }
     #en-multi-table tbody tr td.en-c { grid-column: span 3 !important; }

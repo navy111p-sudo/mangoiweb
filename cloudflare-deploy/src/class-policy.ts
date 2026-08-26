@@ -27,6 +27,10 @@ export const DEFAULT_CLASS_MINUTES = 20;
  *     ② public/admin/weekly-schedule.html 의 SLOT_STEP 을 5 로
  *        (그 파일의 격자는 화면 렌더링이라 여기서 못 가져간다)
  *     ③ test-harness/schedule_10min_manager_harness.mjs 의 기대값(10분·6칸)도 함께
+ *     ④ public/js/adm-core.js 의 `classMinOptionsList` (수강신청 등록 표의 「수업 시간」 칸)
+ *        — 화면 코드라 이 상수를 import 할 수 없어 «같은 말» 을 손으로 적어 둔 자리다.
+ *        여기만 켜면 서버는 25 를 받는데 화면에는 25 가 없어, 아무도 못 고르는 값이 된다.
+ *        (그 짝이 어긋나면 test-harness/enroll_class_minutes_harness.mjs ① 이 FAIL 낸다)
  *   한 달 시범 뒤 «30분은 너무 길다» 는 소리가 실제로 나오면 그때 켠다.
  */
 export const ENABLE_25MIN: boolean = false;

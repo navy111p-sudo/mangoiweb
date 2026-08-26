@@ -23,7 +23,7 @@
  *      실제 청구는 기존 정기결제 자동화가 그 레코드를 보고 한다.
  */
 import { json, parseJsonBody } from './api-util';
-import { DEFAULT_CLASS_MINUTES } from './class-policy';
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';
 import {
   enrollTimeToMin, enrollDates, enrollConflicts, teachersFreeAt,
   holidaySet, ensureEnrollTables, kstToday
@@ -159,7 +159,11 @@ export async function buildEnrollPlan(env: any, id: number, teacherOverride?: st
   }
 
   const size = parseClassSize(e.class_size || '');
-  const minutes = DEFAULT_CLASS_MINUTES;
+  // ⏱ (2026-08-26 사장님 지시) 등록 화면에서 고른 수업 시간(20/30/40분)을 쓴다.
+  //   ⚠️ 안 고른 값·이상한 값이면 기본값(class-policy.ts DEFAULT_CLASS_MINUTES=20)으로 — 여기서
+  //     조용히 30분(운영 DB 옛 스키마 DEFAULT)이 새어 들어가면 이 파일 머리말이 경고하는 바로 그 사고다.
+  const minutes = (Number(e.duration_min) > 0 && ALLOWED_CLASS_MINUTES.includes(Number(e.duration_min)))
+    ? Number(e.duration_min) : DEFAULT_CLASS_MINUTES;
   if (size > 3) warnings.push('인원 ' + size + '명 — 그룹 수업은 같은 시간에 여러 학생이 들어갑니다');
 
   const sessions = parseSessions(e.package || '', Math.max(1, days.length));
