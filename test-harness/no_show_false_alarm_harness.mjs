@@ -157,8 +157,19 @@ try {
   const ts = (await import(pathToFileURL(resolve(__dir, '../cloudflare-deploy/node_modules/typescript/lib/typescript.js')).href)).default;
   const src = truth.replace(/^import\s*\{[^}]*\}\s*from\s*'\.\/d1-chunk';\s*$/m, '');
   const js = ts.transpileModule(src, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
-  // selectInChunks 를 «가짜 DB» 로 대체 — db.__rows 를 그대로 돌려준다.
-  const stub = `const selectInChunks = async (db) => db.__rows;\n`;
+  /* selectInChunks 를 «가짜 DB» 로 대체.
+     ⚠️ 이 파일은 이제 표를 **두 개** 읽는다(attendance · teacher_account_links) —
+        SQL 을 보고 갈라 주지 않으면 계정 해석 쪽에 출석행이 들어가 조용히 무력화된다.
+     · db.__links 를 안 주면 빈 목록 → 계정 해석 없음 = 예전 동작 그대로. */
+  const stub = `const selectInChunks = async (db, values, sqlFn) => {
+    const sql = typeof sqlFn === 'function' ? sqlFn(values.map(() => '?').join(',')) : '';
+    if (/teacher_account_links/i.test(sql)) {
+      if (db.__linksThrow) throw new Error('no such table: teacher_account_links');
+      const want = new Set((values || []).map((v) => String(v).toUpperCase()));
+      return (db.__links || []).filter((l) => want.has(String(l.acct).toUpperCase()));
+    }
+    return db.__rows;
+  };\n`;
   mod = await import('data:text/javascript;base64,' + Buffer.from(stub + js, 'utf8').toString('base64'));
 } catch (e) { tsWhy = e.message; }
 
@@ -196,6 +207,48 @@ if (!mod) {
     [{ room_id: ROOM, missing_role: 'teacher', teacher_name: '중국어 강선생님', student_name: '정우영' }]);
   check('출석 기록이 아예 없으면 모름 (없었다고 단정하지 않는다)',
     noAtt.get(ROOM) && noAtt.get(ROOM).present === null);
+
+  /* 🔴 ⑪ (2026-08-26) 출석 이름이 «계정아이디» 로 찍히면 이름만으로는 안 맞는다.
+     실사고: 예약 'HANNAH'(teachers.id=24) ↔ 출석 '교사 mangoi_167' → 낱말이 하나도 안 겹쳐
+       present:false(=「없었다」로 **확정**)가 됐고, 급여는 true 일 때만 되돌리므로
+       들어와 수업한 강사에게 0원이 나갈 상태였다. teacher_account_links 로 한 번 풀어서도 맞춘다.
+     ⚠️ 이 묶음이 지키는 것은 «푼다» 만이 아니다 — «함부로 넓히지 않는다» 를 함께 못 박는다. */
+  console.log('\n[ ⑪ 계정아이디로 찍힌 이름을 «원부 이름» 으로 풀어서도 맞춘다 ]');
+  const R2 = 'class-895-20260825';
+  const att2 = [
+    { room_id: R2, role: 'teacher', username: '교사 mangoi_167', joined_at: 1000, out_at: 781000 },
+    { room_id: R2, role: 'student', username: 'delaware', joined_at: 2000, out_at: 700000 },
+  ];
+  const ns2 = [{ room_id: R2, missing_role: 'teacher', teacher_name: 'HANNAH', student_name: '김연숙' }];
+  const at2 = (db) => mod.teacherPresenceByRoom(db, ns2).then((m) => m.get(R2));
+
+  // 운영 실측: 링크는 «대문자» Mangoi_167 쪽에만 붙어 있다 → 대소문자 무시로 찾아야 한다.
+  const solved = await at2({ __rows: att2, __links: [{ acct: 'Mangoi_167', tname: 'HANNAH' }] });
+  check('계정 → 원부 이름을 풀어 오판을 잡는다 (present=true)', !!solved && solved.present === true);
+  check('⛔ 계정 조회는 대소문자를 무시한다 (mangoi_167 ↔ Mangoi_167)',
+    !!solved && solved.present === true);
+
+  const noLink = await at2({ __rows: att2 });
+  check('링크가 없으면 예전 그대로 판정한다 (회귀 0)', !!noLink && noLink.present === false);
+
+  const threw = await at2({ __rows: att2, __linksThrow: true });
+  check('⛔ 링크 조회가 실패해도 던지지 않고 예전 동작으로 내려간다',
+    !!threw && threw.present === false);
+
+  const two = await at2({ __rows: att2,
+    __links: [{ acct: 'Mangoi_167', tname: 'HANNAH' }, { acct: 'Mangoi_167', tname: 'MELCA' }] });
+  check('⛔ 한 계정이 여러 강사로 풀리면 버린다 (틀린 이름을 붙이지 않는다)',
+    !!two && two.present === false);
+
+  const other = await at2({ __rows: att2, __links: [{ acct: 'Mangoi_167', tname: 'MELCA' }] });
+  check('⛔ 링크가 «다른» 강사를 가리키면 오판으로 올리지 않는다', !!other && other.present === false);
+
+  /* 학생 대조도 같은 규칙을 써야 한다 — 강사 쪽만 넓히면 «학생과 구분이 안 되는» 안전장치가 헐거워진다. */
+  const stuAmb = (await mod.teacherPresenceByRoom(
+    { __rows: att2, __links: [{ acct: 'Mangoi_167', tname: '김연숙' }] },
+    [{ room_id: R2, missing_role: 'teacher', teacher_name: '김연숙', student_name: '김연숙' }])).get(R2);
+  check('⛔ 푼 이름이 학생과도 걸리면 «강사 있었음» 으로 세지 않는다 (모름)',
+    !!stuAmb && stuAmb.present === null);
 }
 
 console.log('\n────────────────────────────────');
