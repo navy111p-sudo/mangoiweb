@@ -137,27 +137,103 @@ check('🔑 화이트리스트가 SITE_HOSTS 다 (프롬프트가 내놓은 주�
 check('화이트리스트에 정본 호스트가 실제로 들어간다',
   /'https:\/\/mangoi\.ai'/.test(site) && /SITE_HOSTS[^\n]*SITE_ORIGIN/.test(site));
 
-// ── ④ 규칙서가 같은 말을 하고 있는가 ──────────────────────
+// ── ④ 규칙서·설정이 «같은 말» 을 하고 있는가 ──────────────────────
 /* 규칙서가 **두 벌**이다 — CLAUDE.md(Claude 가 매번 읽는 것)와 MAINTENANCE.md(사람이 읽는 것).
-   한쪽만 고치면 다음 사람이 옛 주소를 그대로 베낀다. 실제로 그렇게 밟았다(2026-08-17). */
-console.log('\n[ ④ 규칙서 두 벌이 코드와 같은 주소를 적고 있다 ]');
+   한쪽만 고치면 다음 사람이 옛 주소를 그대로 베낀다. 실제로 그렇게 밟았다(2026-08-17).
+
+   🔴 (2026-08-26) 이 절을 다시 썼다. 예전 검사는
+        /test\.mangoi\.co\.kr[\s\S]{0,300}-prod/
+     즉 «도메인 이름 근처에 -prod 라는 글자가 있는가» 만 봤다. 그래서 2026-08-19 에 적힌
+     **「test.mangoi.co.kr 도 -prod 워커입니다」라는 거짓 문장이 이 검사를 통과**했다.
+     이전은 실제로 일어나지 않았고(8/19 작업기록에도 「직접 확인하지 못했다」고 적혀 있다),
+     6일 뒤 class-895 수업에서 같은 사고가 재발했다.
+     → «적어 두었는가» 는 «사실인가» 가 아니다. 이 하니스는 대시보드를 볼 수 없으므로
+       «사실» 은 판정할 수 없다. 대신 **판정할 수 있는 것 두 가지**로 바꾼다:
+         ⓐ 코드 밖 상태를 적을 때 «언제·어떻게 확인했는지» 를 문장에 박게 한다
+            (「도메인–워커 배치 (YYYY-MM-DD 대시보드 실측)」 줄)
+         ⓑ 그 배치를 적은 **세 곳이 서로 어긋나지 않는지** 대조한다
+            (CLAUDE.md · MAINTENANCE.md · wrangler.toml)
+       어긋나면 «둘 중 하나는 틀렸다» 가 확정되므로, 사실을 몰라도 사고는 잡힌다. */
+console.log('\n[ ④ 규칙서 두 벌 + wrangler.toml 이 같은 도메인–워커 배치를 적고 있다 ]');
+
+/** 「도메인–워커 배치」를 적어 둔 줄 하나를 꺼낸다(없으면 null). */
+const placementLine = (text) =>
+  text.split('\n').find((l) => /도메인[–\-]워커 배치/.test(l)) || null;
+
+/** 그 줄에서 «이 도메인 뒤에 처음 나오는 워커 이름» 을 읽는다. */
+const workerOf = (line, domain) => {
+  if (!line) return null;
+  const i = line.indexOf(domain);
+  if (i < 0) return null;
+  const m = line.slice(i).match(/webrtc-unified-platform(?:-prod)?/);
+  return m ? m[0] : null;
+};
+
+const PLACEMENT_SOURCES = [
+  ['CLAUDE.md', 'Claude 가 매번 읽는 규칙서'],
+  ['MAINTENANCE.md', '사람이 읽는 유지보수 매뉴얼'],
+  ['cloudflare-deploy/wrangler.toml', '워커 설정'],
+];
+
+const claimed = {};   // 파일 → { test, prod }
+for (const [file, label] of PLACEMENT_SOURCES) {
+  let md = '';
+  try { md = readFileSync(resolve(__dir, '../' + file), 'utf8'); } catch {}
+  check(`${file} (${label}) — 읽을 수 있다`, md.length > 0);
+
+  const line = placementLine(md);
+  check(`${file} — 「도메인–워커 배치」 줄이 있다`, !!line,
+    '「도메인–워커 배치 (YYYY-MM-DD 대시보드 실측)」 형식으로 한 줄 적을 것');
+  /* 코드 밖 상태(대시보드)는 이 하니스가 볼 수 없다. 그러니 최소한 «언제·어떻게 확인했는지» 는
+     문장에 남아 있어야 한다 — 8/19 사고의 정확한 형태가 «확인 안 하고 완료형으로 적기» 였다. */
+  check(`${file} — 그 줄에 확인 날짜와 «대시보드 실측» 근거가 붙어 있다`,
+    !!line && /\(\s*\d{4}-\d{2}-\d{2}\s*대시보드 실측\s*\)/.test(line),
+    line ? '실제: ' + line.trim().slice(0, 80) : '줄 자체가 없다');
+
+  const t = workerOf(line, 'test.mangoi.co.kr');
+  const pr = workerOf(line, 'mangoi.ai');
+  claimed[file] = { test: t, prod: pr };
+  check(`${file} — test.mangoi.co.kr 이 «어느 워커» 인지 워커 이름으로 적혀 있다`, !!t,
+    'webrtc-unified-platform 또는 webrtc-unified-platform-prod 를 명시할 것');
+  check(`${file} — mangoi.ai 가 «어느 워커» 인지 워커 이름으로 적혀 있다`, !!pr);
+}
+
+/* 🔑 여기가 이 절의 핵심이다 — 세 곳이 같은 워커를 지목하는가.
+   사실을 몰라도 «서로 어긋난다» 는 것만으로 하나는 틀렸음이 확정된다. */
+const testClaims = PLACEMENT_SOURCES.map(([f]) => claimed[f]?.test).filter(Boolean);
+const prodClaims = PLACEMENT_SOURCES.map(([f]) => claimed[f]?.prod).filter(Boolean);
+check('🔑 세 곳이 test.mangoi.co.kr 에 대해 **같은 워커**를 지목한다',
+  testClaims.length === PLACEMENT_SOURCES.length && new Set(testClaims).size === 1,
+  '지목: ' + JSON.stringify(claimed));
+check('🔑 세 곳이 mangoi.ai 에 대해 **같은 워커**를 지목한다',
+  prodClaims.length === PLACEMENT_SOURCES.length && new Set(prodClaims).size === 1,
+  '지목: ' + JSON.stringify(claimed));
+/* 두 도메인이 같은 워커라고 적혀 있으면 DO 가 안 갈린다는 뜻이다 — 그건 사고가 끝났다는
+   중대한 주장이라, 적을 때는 반드시 대시보드로 확인한 뒤여야 한다. 어긋남 검사는 아니고
+   «지금은 갈려 있다» 를 사람이 읽고 넘어가지 않도록 값을 찍어 두는 자리다. */
+console.log(`     ↳ 현재 배치: test.mangoi.co.kr → ${testClaims[0] || '?'} · mangoi.ai → ${prodClaims[0] || '?'}`);
+
+/* 📌 배치 줄과 «본문 서술» 이 어긋나는 것도 막는다.
+   실제 사고가 이 형태였다 — 표·문단은 「-prod 워커입니다」라고 단정하는데 사실은 기본 워커였다. */
+for (const [file, label] of PLACEMENT_SOURCES.slice(0, 2)) {
+  let md = '';
+  try { md = readFileSync(resolve(__dir, '../' + file), 'utf8'); } catch {}
+  const onBase = claimed[file]?.test === 'webrtc-unified-platform';
+  check(`${file} — 배치 줄이 «기본 워커» 인데 본문이 「-prod 워커입니다」라고 단정하지 않는다`,
+    !onBase || !/`?test\.mangoi\.co\.kr`?\s*(도|은|는)?\s*`?-prod`?\s*워커입니다/.test(md),
+    '배치 줄과 본문이 어긋난다');
+}
+
+// ── ⑤ 규칙서가 지켜야 할 나머지 ──────────────────────
+console.log('\n[ ⑤ 규칙서가 주소를 옳게 적고 있다 ]');
 const DOCS = [['CLAUDE.md', 'Claude 가 매번 읽는 규칙서'], ['MAINTENANCE.md', '사람이 읽는 유지보수 매뉴얼']];
 for (const [file, label] of DOCS) {
   let md = '';
   try { md = readFileSync(resolve(__dir, '../' + file), 'utf8'); } catch {}
-  check(`${file} (${label}) — 읽을 수 있다`, md.length > 0);
   check(`${file} — 운영 주소가 mangoi.ai 다`,
     /운영 주소:\s*\*\*https:\/\/mangoi\.ai\*\*/.test(md));
-  /* 🔴 (2026-08-19) 판정 문구를 「같은 Worker」에서 바꿨다.
-     그 표현이 **사실이 아니었다** — test.mangoi.co.kr 은 기본 워커(webrtc-unified-platform)에,
-     mangoi.ai 는 -prod 에 붙어 있었다. 워커가 갈리면 Durable Object 도 갈려서, 같은 방 번호를
-     넣어도 서로 다른 방이 된다(중국인 강선생님이 8회 수업 동안 학생과 못 만난 원인).
-     즉 이 검사는 「죽이지 말 것」을 지키려던 것인데, 하필 **틀린 문장**을 지키고 있었다.
-     → 지키려던 뜻(살아 있음·죽이면 앱이 멈춤)으로 바꾸고, 어느 워커인지도 함께 적게 한다. */
   check(`${file} — test.mangoi.co.kr 이 아직 살아 있다고 적어 둔다 (죽이면 앱이 멈춘다)`,
     /test\.mangoi\.co\.kr[\s\S]{0,300}(살아 있|죽은 주소가 아니|죽이지도 말)/.test(md));
-  check(`${file} — test.mangoi.co.kr 이 «어느 워커» 에 붙어 있는지 적어 둔다`,
-    /test\.mangoi\.co\.kr[\s\S]{0,300}-prod/.test(md));
   check(`${file} — mango-i.com 을 운영 주소로 적고 있지 않다`,
     !/운영 주소[^\n]*mango-i\.com/.test(md));
 }
