@@ -3291,7 +3291,7 @@ async function vcJoinRoom(skipUI) {
           /* 🖼 이름은 크기바(.vsb-seg)와 **한 벌** — 고치면 아래 toast labels 도 함께.
              📜 왜 이 이름인지: docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md */
           { icon:'🟦', label:'교재 크게 (Material)', onclick:`vcScreenSet('quarter')` },
-          { icon:'🟦', label:'반반 (Split)', onclick:`vcScreenSet('half')` },
+          { icon:'🟦', label:'기본 (Standard)', onclick:`vcScreenSet('half')` },
           { icon:'🟦', label:'얼굴 크게 (Faces)', onclick:`vcScreenSet('threequarter')` },
           { icon:'👥', label:'모두 보기 (Gallery)', onclick:`vcScreenSet('full')` },
           { icon:'📌', label:'교재 전체 + 작은 얼굴 (PIP)', onclick:`vcScreenSet('pip')` },
@@ -3409,7 +3409,7 @@ async function vcJoinRoom(skipUI) {
       } catch(e){}
       // 사용자 피드백 토스트
       // ⚠️ 위 VC_FOLDERS.screen 의 label 과 **같은 말**이어야 한다.
-      const labels = { quarter:'교재 크게', half:'반반', threequarter:'얼굴 크게', full:'모두 보기', pip:'교재 전체 + 작은 얼굴', facepip:'얼굴 전체 + 작은 교재', solo:'영상 끄고 교재만', boardonly:'칠판만 크게', bookonly:'교재만 크게', hidefaces:'얼굴 숨김 (수업은 계속 참여 중)' };
+      const labels = { quarter:'교재 크게', half:'기본', threequarter:'얼굴 크게', full:'모두 보기', pip:'교재 전체 + 작은 얼굴', facepip:'얼굴 전체 + 작은 교재', solo:'영상 끄고 교재만', boardonly:'칠판만 크게', bookonly:'교재만 크게', hidefaces:'얼굴 숨김 (수업은 계속 참여 중)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
