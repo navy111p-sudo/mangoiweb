@@ -100,8 +100,12 @@ export async function longClassCapFor(env: any, teacherId: string): Promise<numb
  *     · user_id='type_seed' — 6월 시연용 시드
  *   그 행들 때문에 그 시간에 망고아이 수업을 아예 넣을 수 없었다(주간 스케줄 화면에서
  *   «이미 예약된» 으로 막히고, 여기서도 409 conflict 가 났다).
- *   ⚠️ 제외식은 api-admin.ts·api-teacher.ts·churn-graph.ts 의 `NOT IN ('lms','type_seed')` 와
- *      **글자 하나까지 같게** 유지할 것 — 화면마다 다르게 세기 시작하면 아무도 못 고친다.
+ *   ⚠️ 제외식은 api-admin.ts·api-teacher.ts·churn-graph.ts·enroll-ops.ts 의
+ *      `NOT IN ('lms','type_seed')` 와 **글자 하나까지 같게** 유지할 것 —
+ *      화면마다 다르게 세기 시작하면 아무도 못 고친다.
+ *      ⚠️ (2026-08-26) enroll-ops.ts 는 이 목록에서 «단 한 건 등록/이동» 이 아니라 «수강신청 확정
+ *      전용 충돌검사기»(enrollConflicts·busyTimesForTeacher·teachersFreeAt)를 가리킨다 —
+ *      이 파일과 목적은 다르지만(위 22행 주석) 같은 자리표시 데이터를 보므로 같은 제외식이 필요하다.
  *   ⚠️ 그 대신 이중배정을 서버가 더는 막아 주지 않는다. 이 데이터는 한 번 넣은 정적 임포트라
  *      지금 실제 LMS 일정과 맞는다는 보장이 없어서 내린 판단이다(화면 쪽 주석과 같은 근거).
  *   ⛔ 데이터는 지우지 않았다 — 되돌리려면 이 조건절만 빼면 된다. */
