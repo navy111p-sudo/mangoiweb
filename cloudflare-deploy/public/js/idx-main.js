@@ -1592,17 +1592,20 @@ window.vcApplyRemoteCamHint = vcApplyRemoteCamHint;
                                  "소리는 오는데 재생이 막힘"을 감지 → 우회+버튼
         ④ 수업 중 아무 터치/키 → 즉시 소리 살리기 (자동재생 정책의 정석 해법)
    ────────────────────────────────────────────────────────────── */
+/* 🔊 출력 음량 — 사연·정본은 js/idx-vc-outputvolume.js(defer) 머리말. 기본(1)이면 예전과 같다. */
+function vcOutVol() { try { const v = parseFloat(localStorage.getItem('mangoi_vc_out_vol')); return (v >= 0 && v <= 1) ? v : 1; } catch (_) { return 1; } }
 function vcEnsureRemoteAudio() {
+    if (window.vcOutBoost) return;   // 🔊 증폭 중 — 소리는 WebAudio 가 낸다
     Object.keys(vcPeerConnections).forEach(id => {
         const v = document.querySelector('#vc-video-' + id + ' video');
         if (!v) return;
         const aux = document.getElementById('vc-aud-' + id);
         try {
-            v.volume = 1;
+            v.volume = vcOutVol();
             if (aux) {
                 // 보조 오디오 경로 가동 중 — 소리는 aux 전담, 비디오는 계속 음소거(이중재생 방지)
                 v.muted = true;
-                aux.volume = 1; aux.muted = false;
+                aux.volume = vcOutVol(); aux.muted = false;
                 if (aux.paused) { const ap = aux.play(); if (ap && ap.catch) ap.catch(()=>{}); }
                 if (v.paused) { const vp = v.play(); if (vp && vp.catch) vp.catch(()=>{}); }
                 return;
@@ -1714,7 +1717,8 @@ function vcToggleSoundBanner(show) {
             }
             // ── 소리는 오는데 출력이 막힘 → 우회 + 버튼
             const aux = document.getElementById('vc-aud-' + id);
-            const outputBlocked = aux ? (aux.muted || aux.paused) : (v.muted || v.paused);
+            //   🔊 증폭 중 음소거는 «막힘» 이 아니다(WebAudio 가 소리를 낸다)
+            const outputBlocked = window.vcOutBoost ? false : (aux ? (aux.muted || aux.paused) : (v.muted || v.paused));
             if (flowing && outputBlocked) {
                 prev.blocked = (prev.blocked || 0) + 1;
                 if (prev.blocked >= 2) {
@@ -1727,11 +1731,13 @@ function vcToggleSoundBanner(show) {
             }
             prev.bytes = bytes;
             pc.__audPrev = prev;
-            // 매 틱 자동 복구 시도
+            // 매 틱 자동 복구 시도 (🔊 증폭 중엔 건너뛴다 — 위 주석)
             try {
-                v.volume = 1;
-                if (aux) { aux.volume = 1; if (aux.paused) aux.play().catch(()=>{}); }
-                else if (v.muted || v.paused) { v.muted = false; if (v.paused) v.play().catch(()=>{}); }
+                if (!window.vcOutBoost) {
+                    v.volume = vcOutVol();
+                    if (aux) { aux.volume = vcOutVol(); if (aux.paused) aux.play().catch(()=>{}); }
+                    else if (v.muted || v.paused) { v.muted = false; if (v.paused) v.play().catch(()=>{}); }
+                }
             } catch(_) {}
         }
         vcToggleSoundBanner(needTap);
