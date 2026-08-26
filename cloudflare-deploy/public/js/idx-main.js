@@ -5074,10 +5074,12 @@ function vcQualityAcc(loss, rtt) {
         var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
         var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
         var A = window.__vcAAO || {};
+        /* 🩺 room 은 맨이름으로 읽는다 — 715행 `let vcRoomId` 는 window 에 안 붙는다(실측 654행 전부 room='').
+           uid·name 은 vcUsername 폴백 — 교사는 getCurrentUser() 가 null 이다. 자세한 이유: 작업기록 260826 */
         var body = JSON.stringify({
-            room: (window.vcRoomId || window.currentRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
+            room: vcRoomId || '',
+            uid: (u && u.uid) || vcUsername || '', name: (u && u.name) || vcUsername || '',
+            role: isT ? 'teacher' : ((u && u.role) || window.vcMyRole || 'student'),
             avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
             avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
         });
