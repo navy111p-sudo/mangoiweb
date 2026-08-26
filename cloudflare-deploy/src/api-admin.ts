@@ -7852,7 +7852,7 @@ ${chatSampleText}
                 우리가 이름을 모르므로 통째로 받아서 훑는다. 응답에 담기 전에 지운다(용량). */
           expenses: `MATCH (d:ExpenseReport)
             WHERE NOT ((CASE WHEN coalesce(d.name,'') =~ $c24LetterRe THEN coalesce(d.name,'') ELSE coalesce(d.content,'') END) =~ $c24HangulRe)
-            RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date, properties(d) AS props ORDER BY d.reg_date DESC LIMIT $lim`,
+            RETURN d.name AS name, d.content AS content, d.pay_date AS pay_date, d.organ AS organ, d.method AS method, d.memo AS memo, d.state AS state, d.reg_date AS reg_date, d.doc_id AS doc_id, properties(d) AS props ORDER BY d.reg_date DESC LIMIT $lim`,
           tax: `MATCH (t:TaxInvoice) RETURN t.date AS date, t.supplier AS supplier, t.receiver AS receiver, t.supply AS supply, t.tax AS tax, t.total AS total, t.tax_type AS tax_type, t.state AS state ORDER BY t.date DESC LIMIT $lim`,
           deposits: `MATCH (s:SavedMoney) RETURN s.center_id AS center_id, s.amount AS amount, s.method AS method, s.date AS date, s.state AS state ORDER BY s.date DESC LIMIT $lim`,
         };
