@@ -124,5 +124,25 @@ check('타일 값을 하드코딩으로 되돌리지 않았다',
 check('JS 가 그린 글자에 data-ko/data-en 을 함께 박는다 (🌐 전환 대응)',
   /setAttribute\('data-ko'/.test(admCore) && /setAttribute\('data-en'/.test(admCore));
 
+/* ── ⑦ 이 버킷은 «녹화 전용이 아니다» ─────────────────────────────────────
+   같은 R2 를 교재(`pdfs/`)·팝업(`popup-media/`)·진단 임시파일(`_test/`)이 나눠 쓴다.
+   버킷 전체를 훑으면 그것들이 관리자 녹화 목록에 「⚠ 기록 없음(고아)」 로 딸려 나온다 —
+   2026-08-26 사장님 화면 실측에서 **15,046줄**이 그렇게 찍혔다(총 15,096건 중).
+   그래서 목록·저장소 상태 둘 다 «녹화 접두사만» 훑어야 한다. */
+console.log('\n⑦ 녹화 목록·저장소 상태가 «녹화 접두사만» 훑는가');
+check('녹화 접두사 정본(REC_LIST_PREFIXES)이 있다',
+  /const REC_LIST_PREFIXES\s*=\s*\['rec\/',\s*'recordings\/'\]/.test(indexTs));
+const listIdx = indexTs.indexOf('async function handleRecordingList');
+const listBlock = indexTs.slice(listIdx, listIdx + 2500);
+check('목록이 그 접두사 목록을 돌며 훑는다', /for \(const prefix of prefixes\)/.test(listBlock));
+check('목록이 «접두사 없이» 버킷 전체를 훑지 않는다',
+  !/\.list\(\{\s*limit:\s*1000,\s*cursor\s*\}\)/.test(listBlock), 'prefix 없는 list 호출이 남아 있다');
+const statsIdx = indexTs.indexOf("path === '/api/recordings/storage-stats'");
+const statsBlock = indexTs.slice(statsIdx, statsIdx + 2500);
+check('저장소 상태도 접두사만 센다 (교재 17.8GB 가 「녹화 파일」로 잡히던 것)',
+  /for \(const prefix of REC_LIST_PREFIXES\)/.test(statsBlock));
+check('저장소 상태도 버킷 전체를 훑지 않는다',
+  !/\.list\(\{\s*limit:\s*1000,\s*cursor\s*\}\)/.test(statsBlock), 'prefix 없는 list 호출이 남아 있다');
+
 console.log(`\n${FAIL ? '💥' : '🎉'} PASS ${PASS} / FAIL ${FAIL}\n`);
 process.exit(FAIL ? 1 : 0);
