@@ -328,7 +328,7 @@ ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
    ⚠️ PC 는 폰과 «구조가 다르다» — 그리드가 아니라 «전체화면 + 오른아래 PIP» 라
       비중이 아니라 «누가 PIP 인가» 를 맞바꾼다. 그래서 배수가 7배쯤으로 크다(정상). */
 console.log('\n⑨ 1:1 수업 — 교사 얼굴이 더 큰가 (학생 화면·교사 화면)');
-const TILES = `(function(mode,count,localFirst,role,observer){
+const TILES = `(function(mode,count,localFirst,role,observer,remote){
   window.vcMyRole = role || 'student';   // 정본 판정 vcIsStaffNow() 가 이 값을 본다
   document.body.classList.add('vc-in-call');
   if(observer) document.body.classList.add('vc-observer');   // js/vc-observe-guard.js 가 붙이는 그 클래스
@@ -346,7 +346,16 @@ const TILES = `(function(mode,count,localFirst,role,observer){
   names.forEach(function(idn){
     var b=document.createElement('div'); b.className='video-box'; b.id=idn;
     var v=document.createElement('video'); v.style.width='100%'; v.style.height='100%';
-    b.appendChild(v); grid.appendChild(b);
+    b.appendChild(v);
+    /* 상대 타일에 «누구인가» 를 실제 화면과 같은 방식으로 심는다 —
+       역할은 data-role(로스터에서 옴), 이름은 .video-label(vcEnsureParticipantBox 가 그림) */
+    if(remote && idn!=='vc-local-box'){
+      if(remote.role) b.dataset.role=remote.role;
+      if(remote.demo) b.dataset.demo='1';
+      if(remote.name){ var l=document.createElement('span'); l.className='video-label';
+        l.textContent=remote.name; b.appendChild(l); }
+    }
+    grid.appendChild(b);
   });
   grid.setAttribute('data-count',String(count));
   try{ window.mgSyncTeacherSelf && window.mgSyncTeacherSelf(); }catch(e){}
@@ -359,8 +368,8 @@ const TILES = `(function(mode,count,localFirst,role,observer){
     ratio: mine>0 ? Math.round(other/mine*100)/100 : null,
     mineRatio: other>0 ? Math.round(mine/other*100)/100 : null });
 })`;
-const tiles = async (mode, count, localFirst, role, observer) =>
-  JSON.parse(await evalJs(`${TILES}(${JSON.stringify(mode)},${count},${!!localFirst},${JSON.stringify(role || 'student')},${!!observer})`));
+const tiles = async (mode, count, localFirst, role, observer, remote) =>
+  JSON.parse(await evalJs(`${TILES}(${JSON.stringify(mode)},${count},${!!localFirst},${JSON.stringify(role || 'student')},${!!observer},${JSON.stringify(remote || null)})`));
 
 /* ── 학생 화면 = «상대(교사)» 가 크다 ───────────────────────── */
 await load(390, 844, 3, 'ko-KR');
@@ -433,7 +442,45 @@ ok(g1.ratio >= 2 && g1.mineRatio < 1,
   `참관 화면은 «수업 참가자» 가 크다 — 내 빈 타일이 아니라 (실측 상대 ${g1.ratio}배)`, JSON.stringify(g1));
 let g2 = await tiles('video-half', 2, false, 'admin', false);
 ok(g2.cls === true,
-  '참관이 아닌 관리자(직접 입장)는 그대로 자기 타일이 크다 — 넓게 막지 않았다', JSON.stringify(g2));
+  '참관이 아닌 관리자(직접 입장)는 «상대가 학생이면» 그대로 자기 타일이 크다 — 넓게 막지 않았다',
+  JSON.stringify(g2));
+
+/* ── ⑨-4 «이 방의 교사» 가 상대편이면 내가 무엇이든 상대가 크다 ────────────
+   🔴 2026-08-26 사장님 신고 — 학생 수업 입장인데 사장님 얼굴이 전체화면, 강선생님이 210px PIP.
+      원인은 CSS 가 아니라 역할이었다: jeong 은 학생 세션 없이 관리자 폴백으로 로그인해
+      입장 역할이 admin 으로 잡힌다(idx-main.js «else if (_admUid)»). 그러면 ⑨-2 의
+      「교사 자신이 크게」가 그대로 걸린다.
+   ⚠️ 서버가 되돌려 주지 못한다 — verify-room 은 role=admin 이면 privileged 로 즉시 통과시키고
+      resolved_role 을 주지 않아, 「이 예약의 학생」 교정이 admin 에서만 안 돈다(실측 10분 지속).
+   ⛔ 이 절이 FAIL 하면 그 사고가 그대로 되살아난 것이다. */
+console.log('\n⑨-4 상대편에 «교사» 가 있으면 내가 admin 이어도 상대가 큰가');
+await load(1280, 800, 2, 'ko-KR');
+let a1 = await tiles('video-half', 2, false, 'admin', false, { role: 'teacher' });
+ok(a1.cls === false,
+  '관리자로 잡혀 들어와도 상대가 교사(data-role)면 mg-teacher-self 가 안 붙는다', JSON.stringify(a1));
+ok(a1.ratio > 2,
+  `그 화면은 교사가 전체화면, 내 타일이 PIP (실측 ${a1.ratio}배 — 신고 당시엔 반대였다)`,
+  JSON.stringify(a1));
+
+/* 실사고 그림 그대로 — 로스터 역할이 아직 안 왔고 이름표만 「교사 강선생님」 인 경우.
+   ⚠️ 이름 휴리스틱은 여기서 «내 타일을 내리는» 데만 쓴다 — 권한을 올리지 않는다(저장소 규칙). */
+let a2 = await tiles('video-half', 2, false, 'admin', false, { name: '교사 강선생님' });
+ok(a2.cls === false,
+  '역할이 아직 안 와도 이름표가 「교사 …」 면 상대가 크다 (실사고 그림)', JSON.stringify(a2));
+
+/* 강사가 «다른 강사의» 수업에 들어간 경우도 같다 — 주인공은 이 방의 교사 쪽이다 */
+let a3 = await tiles('video-half', 2, false, 'teacher', false, { role: 'teacher' });
+ok(a3.cls === false, '강사끼리 있어도 상대 교사가 크다 — 자기 얼굴로 덮지 않는다', JSON.stringify(a3));
+
+/* 회귀 방어 — 시연용 선생님 타일(data-demo=1)은 사람이 아니다. 여기에 걸려
+   진짜 교사 화면이 «자기 자신 크게» 를 잃으면 ⑨-2 가 무의미해진다. */
+let a4 = await tiles('video-half', 2, false, 'teacher', false, { role: 'teacher', demo: 1 });
+ok(a4.cls === true, '시연용 선생님 타일(data-demo=1)은 «상대 교사» 로 세지 않는다', JSON.stringify(a4));
+
+/* 학생 화면은 아무것도 안 바뀐다 */
+let a5 = await tiles('video-half', 2, false, 'student', false, { role: 'teacher' });
+ok(a5.cls === false && a5.ratio > 2,
+  `학생 화면은 그대로 교사가 크다 (실측 ${a5.ratio}배)`, JSON.stringify(a5));
 
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();
