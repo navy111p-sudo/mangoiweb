@@ -60,6 +60,38 @@ export function sameTeacherByWord(a: any, b: any): boolean {
 }
 
 /**
+ * 접속 구간들을 합쳐 «실제로 붙어 있던 시간»(분)을 낸다.
+ *
+ * [왜 «간격» 이 아니라 «합» 인가 — 2026-08-26]
+ *   예전엔 «맨 처음 입장 ~ 맨 마지막 퇴장» 의 간격을 그대로 분으로 냈다. 그런데 강사는
+ *   수업 전에 시험 삼아 잠깐 들어와 보기도 하고, 안 보이면 나갔다 들어오기를 반복한다.
+ *   그러면 사이의 **빈 시간까지 접속 시간에 들어간다.**
+ *   실측(class-895-20260825): 16:27 시험 입장 ~ 21:41 마지막 퇴장 = **314분** 으로 떴다.
+ *   20분짜리 수업인데 「5시간 14분 접속」 이라고 적히는 셈이다.
+ *   이 숫자는 «오판입니다» 라는 판정 **바로 옆에** 붙고 그 판정은 수업료를 되돌린다 —
+ *   말이 안 되는 숫자가 붙으면 맞는 판정까지 못 믿게 된다.
+ *
+ * ⚠️ 그냥 더하면 안 된다. 같은 사람이 **두 기기로 동시에** 들어와 있는 일이 실제로 있다
+ *    (같은 사고에서 교사 기기가 2대였다). 겹치는 구간을 두 번 세면 이번엔 반대로 부풀어진다.
+ *    → 겹치는 것을 하나로 **합집합** 한 뒤 더한다.
+ */
+function connectedMinutes(spans: Array<[number, number]>): number | null {
+  const ok = spans
+    .filter(([s, e]) => s > 0 && e > s)      // 시각이 없거나 뒤집힌 행은 셈에서 뺀다
+    .sort((a, b) => a[0] - b[0]);
+  if (!ok.length) return null;
+  let total = 0;
+  let curS = ok[0][0], curE = ok[0][1];
+  for (let i = 1; i < ok.length; i++) {
+    const [s, e] = ok[i];
+    if (s <= curE) { if (e > curE) curE = e; }   // 겹치거나 맞닿음 → 하나로 잇는다
+    else { total += curE - curS; curS = s; curE = e; }
+  }
+  total += curE - curS;
+  return Math.round(total / 60000);
+}
+
+/**
  * 계정아이디 → 원부 강사 이름. 화상수업 입장 이름이 «교사 {계정아이디}» 로 찍히는 경우를 푼다.
  *
  * ⚠️ 실패해도 던지지 않는다 — 이 해석은 **덤**이다. 조회가 안 되면 빈 Map 을 돌려주고
@@ -207,19 +239,20 @@ export async function teacherPresenceByRoom(
       continue;
     }
 
+    /* from·to 는 «언제부터 언제까지 오갔나» 의 바깥 테두리다(그대로 둔다).
+       minutes 는 그 테두리가 아니라 **실제로 붙어 있던 시간의 합**이다 — 위 connectedMinutes 참고. */
     let from = Infinity, to = -Infinity;
+    const spans: Array<[number, number]> = [];
     for (const a of mine) {
       const j = Number(a.joined_at || 0);
       const o = Number(a.out_at || 0);
       if (j > 0 && j < from) from = j;
       if (o > 0 && o > to) to = o;
+      spans.push([j, o]);
     }
     const f = Number.isFinite(from) ? from : null;
     const t = to > 0 ? to : null;
-    out.set(room, {
-      present: true, from: f, to: t,
-      minutes: (f && t && t > f) ? Math.round((t - f) / 60000) : null,
-    });
+    out.set(room, { present: true, from: f, to: t, minutes: connectedMinutes(spans) });
   }
   return out;
 }
