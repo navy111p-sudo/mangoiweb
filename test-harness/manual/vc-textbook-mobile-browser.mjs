@@ -328,9 +328,10 @@ ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
    ⚠️ PC 는 폰과 «구조가 다르다» — 그리드가 아니라 «전체화면 + 오른아래 PIP» 라
       비중이 아니라 «누가 PIP 인가» 를 맞바꾼다. 그래서 배수가 7배쯤으로 크다(정상). */
 console.log('\n⑨ 1:1 수업 — 교사 얼굴이 더 큰가 (학생 화면·교사 화면)');
-const TILES = `(function(mode,count,localFirst,role){
+const TILES = `(function(mode,count,localFirst,role,observer){
   window.vcMyRole = role || 'student';   // 정본 판정 vcIsStaffNow() 가 이 값을 본다
   document.body.classList.add('vc-in-call');
+  if(observer) document.body.classList.add('vc-observer');   // js/vc-observe-guard.js 가 붙이는 그 클래스
   try{ window.vcNukeRotationOverlays && window.vcNukeRotationOverlays(); }catch(e){}
   var view=document.getElementById('view-videocall-call');
   if(view){view.style.display='flex'; view.classList.add('active');}
@@ -358,8 +359,8 @@ const TILES = `(function(mode,count,localFirst,role){
     ratio: mine>0 ? Math.round(other/mine*100)/100 : null,
     mineRatio: other>0 ? Math.round(mine/other*100)/100 : null });
 })`;
-const tiles = async (mode, count, localFirst, role) =>
-  JSON.parse(await evalJs(`${TILES}(${JSON.stringify(mode)},${count},${!!localFirst},${JSON.stringify(role||'student')})`));
+const tiles = async (mode, count, localFirst, role, observer) =>
+  JSON.parse(await evalJs(`${TILES}(${JSON.stringify(mode)},${count},${!!localFirst},${JSON.stringify(role || 'student')},${!!observer})`));
 
 /* ── 학생 화면 = «상대(교사)» 가 크다 ───────────────────────── */
 await load(390, 844, 3, 'ko-KR');
@@ -418,6 +419,21 @@ ok(Math.abs(s3.mineRatio - t6.ratio) < 0.5,
 let s3b = await tiles('video-half', 3, false, 'teacher');
 ok(Math.abs(s3b.ratio - 1) < 0.15,
   `PC·교사 화면 여러 명 수업은 그대로 고르게 (실측 ${s3b.ratio}배)`, JSON.stringify(s3b));
+
+/* ── 참관(Ghost)은 제외 ─────────────────────────────────────────
+   🔴 2026-08-26 실측으로 밟은 회귀. 참관자는 vcMyRole='admin' 이라 위 판정이 true 인데,
+      참관자의 #vc-local-box 는 «영상이 없는 빈 타일» 이고 지워지지도 않는다.
+      그래서 방에 한 명뿐일 때 «빈 내 타일이 전체화면 + 진짜 참가자가 210px PIP» 가 됐다.
+   ⛔ 이 두 줄을 지우면 참관 화면이 다시 자기 빈 타일로 덮인다. */
+console.log('\n⑨-3 참관(Ghost)은 «교사 자신 크게» 에서 빠지는가');
+let g1 = await tiles('video-half', 2, false, 'admin', true);
+ok(g1.cls === false,
+  '참관 중(body.vc-observer)에는 mg-teacher-self 가 붙지 않는다 — admin 이어도', JSON.stringify(g1));
+ok(g1.ratio >= 2 && g1.mineRatio < 1,
+  `참관 화면은 «수업 참가자» 가 크다 — 내 빈 타일이 아니라 (실측 상대 ${g1.ratio}배)`, JSON.stringify(g1));
+let g2 = await tiles('video-half', 2, false, 'admin', false);
+ok(g2.cls === true,
+  '참관이 아닌 관리자(직접 입장)는 그대로 자기 타일이 크다 — 넓게 막지 않았다', JSON.stringify(g2));
 
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();

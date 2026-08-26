@@ -570,7 +570,7 @@
      교사용 줄은 body 에 클래스가 하나 더 붙어 자동으로 더 세다. */
   var SEL_P  = 'body.vc-in-call#{ME} #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="2"]';
   var SEL_L  = 'body.vc-in-call#{ME} #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"]';
-  function sel(t, me) { return t.replace('#{ME}', me ? '.mg-teacher-self' : ':not(.mg-teacher-self)'); }
+  function sel(t, me) { return t.replace('#{ME}', me ? '.mg-teacher-self:not(.vc-observer)' : ':not(.mg-teacher-self)'); }
 
   var HERO_CSS =
     /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중 */
@@ -595,7 +595,7 @@
         전체화면인데 폭만 62%» 라는 어정쩡한 상태를 실측으로 밟았다.) */
     '@media (min-width:1024px){' +
       /* 내 타일 → 전체화면 */
-      'body.vc-in-call.mg-teacher-self #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] #vc-local-box{' +
         'position:absolute !important;inset:0 !important;width:100% !important;height:100% !important;' +
         'max-width:none !important;aspect-ratio:auto !important;border-radius:0 !important;' +
         'box-shadow:none !important;z-index:1 !important;margin-left:0 !important;opacity:1 !important}' +
@@ -603,7 +603,7 @@
          ℹ️ 62% 는 vc-refresh.css 의 24% 가 아니라 index.html vc-teacher-first 의 값이다 —
             그 규칙이 (2,5,1) 로 더 세서 학생 화면 PIP 는 실제로 62%(상한 210px)로 그려진다.
             24% 를 그대로 베끼면 PIP 가 82px 로 나와 학생 화면과 짝이 안 맞는다(실측). */
-      'body.vc-in-call.mg-teacher-self #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box:not(#vc-local-box){' +
+      'body.vc-in-call.mg-teacher-self:not(.vc-observer) #vc-main-row#vc-main-row #vc-video-grid#vc-video-grid[data-count="2"] .video-box:not(#vc-local-box){' +
         'position:absolute !important;inset:auto 14px 14px auto !important;' +
         'width:62% !important;max-width:210px !important;height:auto !important;aspect-ratio:4/3 !important;' +
         'border-radius:14px !important;overflow:hidden !important;z-index:40 !important;' +
@@ -621,7 +621,14 @@
         staff = (typeof window.vcIsStaffNow === 'function') ? !!window.vcIsStaffNow()
               : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
       } catch (e) {}
-      var want = staff && document.body.classList.contains('vc-in-call');
+      /* ⛔ 참관(Ghost)은 제외한다. 참관자는 vcMyRole='admin' 이라 위 판정이 true 인데,
+         참관자의 #vc-local-box 는 영상이 없는 «빈 타일» 이고 지워지지도 않는다
+         (index.html 에 정적으로 있다). 방에 한 명뿐일 때 data-count="2" 가 되어
+         «빈 내 타일이 전체화면 + 진짜 참가자가 210px PIP» 가 된다 — 2026-08-26 실측으로 밟음.
+         ⚠️ 선택자에도 :not(.vc-observer) 를 함께 걸어 뒀다. 그 클래스를 붙이는
+         js/vc-observe-guard.js 와 이 파일의 실행 순서에 기대지 않기 위해서다. */
+      var observing = document.body.classList.contains('vc-observer');
+      var want = staff && !observing && document.body.classList.contains('vc-in-call');
       var has = document.body.classList.contains('mg-teacher-self');
       if (want && !has) document.body.classList.add('mg-teacher-self');
       else if (!want && has) document.body.classList.remove('mg-teacher-self');
