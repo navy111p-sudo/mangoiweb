@@ -1025,7 +1025,11 @@
         await M.api('/api/recordings/stop', {
           recording_id: recordingId,
           duration_ms: duration,
-          size_bytes: blob.size
+          size_bytes: blob.size,
+          // 🔴 2026-08-26: 이 한 줄이 없어서 서버가 «업로드가 됐는지» 를 알 방법이 없었고,
+          //   클라우드에 아무것도 없는 녹화까지 「완료」로 적혔다. 서버는 이 값과 별개로
+          //   실물(head)도 확인하지만, create 부터 실패해 키조차 없는 경우는 이것만이 단서다.
+          r2_success: !!r2Success
         });
       } catch (e) { console.warn('[mango-rec] DB stop 에러:', e); }
  

@@ -34,6 +34,9 @@ import {
 // 🧐 영어 품질(문법) 규칙 — «Want play with me» 가 보기로 나가던 사고(2026-08-24)의 정본.
 //    judgment-english.ts 도 import 없는 순수 모듈이라 하니스가 직접 불러 검증합니다.
 import { englishQualityRules, grammarCheckPrompt, allowsBrokenDistractors } from './judgment-english';
+// ✒️ 문장 종결부호 — 보기·상황문·해설이 «맨몸» 으로 끝나던 것을 코드에서 다듬습니다(2026-08-26).
+//    정본은 sentence-punct.ts 한 곳이고, 이 파일도 import 없는 순수 모듈이라 하니스가 직접 돌립니다.
+import { endSentence, endSentences, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 export type { GrowthAxes };
 export { normalizeOptionScores, normalizeDifficulty } from './judgment-scoring';
 export { normalizeBand, bandLabel, bandName, bandCatalog } from './judgment-level';
@@ -882,6 +885,7 @@ ${focus}
 ${tbLine}
 ${levelLine}
 ${qualityLine}
+${PUNCTUATION_PROMPT_RULE}
 Set the situation in this specific context: "${theme}". The decision ${whoShort} faces should involve: ${angle}.
 ${recent.sits.length ? `NEVER repeat or paraphrase any of these situations already used with this student: ${recent.sits.slice(-10).map((s) => `"${s.slice(0, 120)}"`).join(' / ')}. Your situation must be clearly different from all of them.` : ''}
 
@@ -906,7 +910,8 @@ Return STRICT JSON only:
         });
         const j = parseFirstJson(resp);
         if (j && Array.isArray(j.options) && j.options.length >= 2) {
-          const situation = String(j.situation || '').slice(0, 500);
+          // ✒️ 종결부호 보장 — 단어 수 판정(countWords)·중복 판정(normSituation)은 구두점을 안 세므로 영향 없습니다.
+          const situation = endSentence(String(j.situation || '').slice(0, 500));
           if (seenSits.has(normSituation(situation))) {
             console.warn('[judgment] scenario duplicate of recent, retrying (attempt ' + (attempt + 1) + ')');
             continue;
@@ -918,7 +923,9 @@ Return STRICT JSON only:
             console.warn('[judgment] situation length off band ' + askBand + ' (' + countWords(situation) + ' words), retrying (attempt ' + (attempt + 1) + ')');
             continue;
           }
-          const opts4 = j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4);
+          // ✒️ 보기도 «학생이 입으로 할 완결된 문장» 이라 종결부호를 붙입니다 —
+          //    물음표는 뺄 수 없는 부호라, 가지런하게 만드는 길은 마침표를 찍는 쪽뿐입니다(2026-08-26 사장님 지시).
+          const opts4 = endSentences(j.options.map((o: any) => String(o).slice(0, 300)).slice(0, 4));
           // ⚠️ 정답 인덱스는 '자르고 난 뒤'의 길이로 제한해야 합니다.
           //    전에는 자르기 전 길이로 제한해서, LLM 이 5지선다에 correct_index=4 를 주면
           //    정답 선택지가 잘려나가고 인덱스만 남아 학생이 절대 정답을 맞힐 수 없었습니다.
@@ -945,8 +952,8 @@ Return STRICT JSON only:
             correct_index: ci,
             option_scores: scores,
             difficulty: normalizeDifficulty(j.difficulty),
-            why: String(j.why || '').slice(0, 600),
-            why_ko: cleanKo(String(j.why_ko || '')).slice(0, 600),
+            why: endSentence(String(j.why || '').slice(0, 600)),
+            why_ko: endSentence(cleanKo(String(j.why_ko || '')).slice(0, 600)),
           };
           usedTheme = theme;
         }

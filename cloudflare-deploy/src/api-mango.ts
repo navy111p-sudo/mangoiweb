@@ -39,6 +39,9 @@ import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생�
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
+  // 📼 수업 녹화 파일 저장소 — 런타임엔 wrangler.toml 로 이미 묶여 있는데 «타입 선언만»
+  //   없었다. /api/recordings/stop 이 «실물이 있는가» 를 직접 확인하려면 필요하다(2026-08-26).
+  RECORDINGS?: R2Bucket;
   // 📧 이메일(Resend) — 레벨테스트 신규신청 관리자 알림 + 교사 배정 알림
   //   RESEND_API_KEY, RESEND_FROM, LEVELTEST_ADMIN_EMAIL (email.ts / EmailEnv)
   // 🎯 레벨테스트 신청자 확정 알림톡 템플릿(선택) — 미설정 시 문자(SMS) 폴백
@@ -3450,16 +3453,59 @@ ${numbered}`;
     if (path === '/api/recordings/stop' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
+
+      /* 🔴 2026-08-26: 예전엔 R2 업로드가 됐든 안 됐든 **무조건 'completed'** 로 적었다.
+         그래서 클라우드에 한 조각도 안 올라간 녹화가 목록에 초록색 「완료 · 2.1MB」로 떴다
+         (그 용량은 브라우저가 잰 «로컬» 값이다). 8/25 에 1,692건이 전부 「완료」인데
+         「⚠️ 영상 없음」이던 화면의 절반이 이것이었다 — 화면이 «저장됐다» 고 말해 버리니
+         아무도 «안 올라갔다» 는 것을 알 수 없었다.
+         → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
+      const cur = await env.DB.prepare(
+        `SELECT file_url, status FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+
+      // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
+      // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
+      const curKey = String(cur?.file_url || '');
+      const looksLikeKey = !!curKey && !curKey.startsWith('CLIENT_ERR:') && !curKey.startsWith('DEBUG:');
+      let headProven = false;    // 실물을 «봤다» — 이때만 완료로 올려준다(자가복구 포함)
+      let headChecked = false;   // 조회가 성립했는가 — 예외면 판단을 보류한다
+      const recBucket = (env as any).RECORDINGS as R2Bucket | undefined;
+      if (looksLikeKey && recBucket) {
+        try { headProven = !!(await recBucket.head(curKey)); headChecked = true; } catch { headChecked = false; }
+      }
+
+      /* ⚠️ 강등은 «없다고 밝혀졌을 때» 만 한다. 조회를 못 했으면 예전 동작(완료)을 유지한다 —
+         이 경로는 수업이 끝날 때마다 도는 곳이라, 막는 쪽이 아니라 통과시키는 쪽으로 실패해야
+         멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
+      const provenMissing = headChecked && !headProven;
+      const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
+      const nothingRecorded = !(Number(b.duration_ms) > 0) && !(Number(b.size_bytes) > 0);
+      const fallbackStatus = (provenMissing || clientSaysFailed)
+        ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
+        : 'completed';
+
       await env.DB.prepare(
         `UPDATE recordings
             SET ended_at = ?, duration_ms = ?, size_bytes = ?,
-                status = CASE WHEN status IN ('upload_failed','deleted') THEN status ELSE 'completed' END,
+                status = CASE
+                  WHEN status = 'deleted'       THEN status
+                  WHEN ? = 1                    THEN 'completed'
+                  WHEN status = 'upload_failed' THEN status
+                  ELSE ?
+                END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0, b.file_url || null, b.storage || null, b.recording_id).run();
+      ).bind(now, b.duration_ms || 0, b.size_bytes || 0,
+             headProven ? 1 : 0, fallbackStatus,
+             b.file_url || null, b.storage || null, b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
-      return json({ ok: true, ended_at: now, status: after?.status || null, storage: after?.storage || null });
+      return json({
+        ok: true, ended_at: now,
+        status: after?.status || null, storage: after?.storage || null,
+        cloud_verified: headProven,          // 화면·진단이 «정말 올라갔나» 를 알 수 있게 함께 준다
+      });
     }
 
     if (path === '/api/recordings' && method === 'GET') {

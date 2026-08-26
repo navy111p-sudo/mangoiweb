@@ -15,6 +15,10 @@ import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // �
 import { scoreVoiceCoach, scoreTier, analyzeAcoustic, applyAzurePronunciation } from './voice-score';  // 🗣 음성코치 결정론 채점(변별력 하니스 검증)
 import { assessPronunciation } from './azure-pronunciation';  // 🎤 Azure 음소 발음평가(키 없으면 자동으로 건너뜀)
 import type { MangoEnv } from './api-mango';
+// ✒️ 문장 종결부호 정본 — 문제문·해설·읽을 문장에만 씁니다(2026-08-26).
+//    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
+//    ℹ️ answer_text 를 다듬어도 채점은 안 흔들립니다 — rqNorm 이 구두점을 통째로 지웁니다.
+import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -721,9 +725,11 @@ export async function handleGamesApi(
           const mm = raw.match(/\{[\s\S]*\}/);
           if (mm) {
             const parsed = JSON.parse(mm[0]);
+            // ⛔ korean 은 «낱말 뜻» 이라 그대로. ✅ example 은 문장이라 종결부호를 보장합니다.
             korean = String(parsed.korean || '').trim();
-            example = String(parsed.example || '').trim();
-            synonyms = Array.isArray(parsed.synonyms) ? parsed.synonyms.slice(0,5) : [];
+            example = endSentence(String(parsed.example || '').trim());
+            synonyms = (Array.isArray(parsed.synonyms) ? parsed.synonyms.slice(0,5) : [])
+              .map((sy: any) => (sy && typeof sy === 'object') ? { ...sy, example: endSentence(String(sy.example || '').trim()) } : sy);
           }
         } catch (e: any) { console.error('[vocab-ai] failed:', e?.message); }
       }
@@ -1147,10 +1153,17 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       const clean: any[] = [];
       for (const q of list) {
         const type = ['choice', 'listen', 'write', 'speak'].includes(String(q?.type)) ? String(q.type) : 'choice';
-        const explain = String(q?.explain || '').trim();
-        let text = String(q?.q || '').trim();
+        // ✒️ 문장인 칸만 종결부호를 보장합니다. 한국어는 종결어미로 «?»·«.» 를 가르고,
+        //    「…단어는」처럼 판정이 안 서면 endSentence 가 손대지 않고 그대로 돌려줍니다.
+        const explain = endSentence(String(q?.explain || '').trim());
+        let text = endSentence(String(q?.q || '').trim());
         if (type === 'choice' || type === 'listen') {
-          const opts = Array.isArray(q?.opts) ? q.opts.map((o: any) => String(o || '').trim()) : [];
+          // ⛔ choice 의 보기는 「어려운」·「你好」 같은 낱말이라 그대로 둡니다.
+          // ✅ listen 의 보기만 «들려준 문장 + 오답 문장» 이라 문장으로 다듬습니다 —
+          //    대본(audio_text)과 정답 보기가 «마침표 하나 차이» 로 어긋나지 않게 둘을 함께 처리합니다.
+          const opts = Array.isArray(q?.opts)
+            ? q.opts.map((o: any) => { const v = String(o || '').trim(); return type === 'listen' ? endSentence(v) : v; })
+            : [];
           const answer = Number(q?.answer);
           if (type === 'listen' && !text) text = '🎧 잘 듣고 알맞은 답을 고르세요.';
           if (!text) return { ok: false, error: 'question_text_required' };
@@ -1159,7 +1172,7 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
           const audioText = String(q?.audio_text || '').trim();
           if (type === 'listen' && !audioText) return { ok: false, error: 'audio_text_required' };
           const item: any = { type, q: text, opts, answer, explain };
-          if (type === 'listen') item.audio_text = audioText.slice(0, 300);
+          if (type === 'listen') item.audio_text = endSentence(audioText.slice(0, 300));
           clean.push(item);
         } else {
           const answerText = String(q?.answer_text || '').trim();
@@ -1167,7 +1180,7 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
           if (type === 'speak' && !text) text = '🎤 아래 문장을 또박또박 읽어보세요.';
           if (type === 'write' && !text) return { ok: false, error: 'question_text_required' };
           const accept = (Array.isArray(q?.accept) ? q.accept : []).map((a: any) => String(a || '').trim()).filter((a: string) => !!a).slice(0, 8);
-          clean.push({ type, q: text, answer_text: answerText.slice(0, 300), accept, explain });
+          clean.push({ type, q: text, answer_text: endSentence(answerText.slice(0, 300)), accept, explain });
         }
       }
       return { ok: true, list: clean };
@@ -1441,6 +1454,8 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
 Create a review quiz for this class:
 ${ctx || 'General 중국어'}
 
+${PUNCTUATION_PROMPT_RULE}
+
 🔒 IMPORTANT: Use ONLY the Chinese words below (already verified/curated) — do NOT invent any other hanzi, pinyin, or meaning. Every question's correct answer AND every multiple-choice distractor must come from this exact list:
 ${vocabList}
 
@@ -1455,6 +1470,8 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         prompt = `You are an English quiz writer for a Korean kids' English academy (망고아이).
 Create a review quiz for this class:
 ${ctx || 'General elementary English'}
+
+${PUNCTUATION_PROMPT_RULE}
 
 Difficulty must match the textbook level and lesson (younger learners = very short, simple sentences).
 Make exactly:

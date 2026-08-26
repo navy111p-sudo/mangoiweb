@@ -11,6 +11,9 @@
 import { json, parseJsonBody } from './api-util';
 import { authUidFromRequest } from './auth-token';   // 🔐 IDOR 방지 — 본인 시험결과만
 import type { MangoEnv } from './api-mango';
+// ✒️ 문장 종결부호 정본 — 문제문·듣기 대본에만 씁니다.
+//    ⛔ 보기(choice_a~d)는 TOEIC 식 «낱말·구» 라 찍지 않습니다(찍으면 오히려 고장).
+import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 
 async function ensureExamTables(env: MangoEnv): Promise<void> {
   await env.DB.exec(`CREATE TABLE IF NOT EXISTS mt_exams (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, level TEXT DEFAULT 'A1', listening_count INTEGER DEFAULT 5, reading_count INTEGER DEFAULT 5, duration_min INTEGER DEFAULT 20, active INTEGER DEFAULT 1, created_at INTEGER NOT NULL);`);
@@ -57,6 +60,7 @@ Rules:
 - Exactly one clearly correct answer per question; the other three plausible but wrong.
 - Vary the position of the correct answer (do NOT make them all "A").
 - No numbering, no explanations.
+- ${PUNCTUATION_PROMPT_RULE}
 Reply with a raw JSON array ONLY. No markdown, no commentary.`;
 
   try {
@@ -76,13 +80,14 @@ Reply with a raw JSON array ONLY. No markdown, no commentary.`;
     let arr: any[] = [];
     try { arr = JSON.parse(m[0]); } catch { return { ok: false, error: 'ai_bad_json' }; }
     const items = (Array.isArray(arr) ? arr : []).map((q: any) => ({
-      question_text: String(q?.question_text || '').trim(),
+      // ✒️ 빈칸(____)으로 끝나는 문제문은 endSentence 가 «붙일 수 없는 글자» 로 보고 그대로 둡니다.
+      question_text: endSentence(String(q?.question_text || '').trim()),
       choice_a: String(q?.choice_a || '').trim(),
       choice_b: String(q?.choice_b || '').trim(),
       choice_c: String(q?.choice_c || '').trim(),
       choice_d: String(q?.choice_d || '').trim(),
       correct_answer: LETTER_OK(q?.correct_answer),
-      audio_script: String(q?.audio_script || '').trim(),
+      audio_script: endSentence(String(q?.audio_script || '').trim()),
     })).filter(q => q.question_text && q.choice_a && q.choice_b && q.choice_c && q.choice_d);
     if (!items.length) return { ok: false, error: 'ai_invalid_questions' };
     return { ok: true, items: items.slice(0, count) };
