@@ -5040,7 +5040,7 @@ function vcArmFullscreenRetry() {
                 pc.__qPrev = { lost: lost, sent: sent };
                 const dLost = Math.max(0, lost - prev.lost);
                 const dSent = Math.max(0, sent - prev.sent);
-                if (dSent + dLost < 25) return;  // 표본 부족(영상 꺼짐 등) — 판단 보류
+                if (dSent + dLost < 25) { try { vcQualityAcc(-1, rtt); } catch (_) {} return; }  // 표본 부족(영상 꺼짐/죽음) — 화질 판단은 보류, 기록은 «영상 없음» 으로 남긴다(js/idx-vc-qlog.js)
                 const lossPct = 100 * dLost / (dSent + dLost);
                 let step = pc.__qStep || 0;
                 if (lossPct > 6 || rtt > 450) {
@@ -5139,30 +5139,7 @@ function vcAAONotify(html) {
     } catch (_) {}
 }
 
-/* 📶 회선품질 로깅 — 적응루프에서 손실/RTT를 누적, 60초마다 요약 1건 전송(fire-and-forget, 통화 무관). 강사별 인터넷 품질 파악용.
-   🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 '강사 회선이 대체로 어떤가'를 보는 용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소. */
-function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], sentAt: Date.now() });
-    if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
-    if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
-    if (Date.now() - Q.sentAt < 60000 || !Q.s.length) return;
-    try {
-        var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
-        var A = window.__vcAAO || {};
-        var body = JSON.stringify({
-            room: (vcRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
-            avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
-            avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
-        });
-        if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
-        else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
-    } catch (_) {}
-    window.__vcQ = { s: [], r: [], sentAt: Date.now() };
-}
+/* 📶 회선품질 로깅 vcQualityAcc() 는 js/idx-vc-qlog.js (defer) 로 옮겼다 — 첫 화면 예산. 부르는 곳 3군데는 전부 try/catch 안이다. */
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
