@@ -98,8 +98,8 @@ LIMIT $limit
  *    웜업은 영어 전용 화면인데(WARMUP_SYSTEM 「네 대사는 반드시 영어로」) 왜 중국어냐면 —
  *    복습퀴즈 은행(review_quizzes)이 «영어 전용 표가 아니다». 실측(2026-08-26): 활성 퀴즈
  *    31건 중 15건이 중국어 교재 「다락원」이고, 그 안에 이런 문항이 있다.
- *        { type:'write', q:'🔤 다음 한자의 병음을 알파벳으로 쓰세요: 操场',
- *          answer_text:'cāochǎng', explain:'操场 (cāochǎng) = 운동장' }
+ *        { type:'write', q:'🔤 다음 한자의 병음을 알파벳으로 쓰세요: (한자)',
+ *          answer_text:'cāochǎng', explain:'(한자) (cāochǎng) = 운동장' }
  *    옛 판정은 `/[a-zA-Z]/.test(s)` — 「라틴 글자가 한 자라도 있으면 영어」였다.
  *    병음은 라틴 글자로 적으므로 **그 검사를 그대로 통과**한다. 그래서 학생 `jeong` 이
  *    다락원 퀴즈(28·30번)에서 틀린 병음이 Neo4j 취약문장으로 적재되고, 영어 웜업 화면에
@@ -205,13 +205,26 @@ function regradeWrongs(row: { user_id: string; answers: string; created_at: numb
   return out;
 }
 
-/** 신규 데이터 — 제출 시 저장된 채점 detail(JSON)에서 오답 문장 추출 */
-function detailWrongs(row: { user_id: string; detail: string; created_at: number }, textbook: string): WrongEvent[] {
+/** 신규 데이터 — 제출 시 저장된 채점 detail(JSON)에서 오답 문장 추출
+ *  ⚠️ 문항 게이트를 걸려면 «원본 문항» 이 필요하다 — detail 행에는 정답 문자열만 남고
+ *     지문·선택지가 없어서, 성조부호 없는 병음(accept:['caochang'])은 글자 게이트만으로는
+ *     못 거른다. 그래서 quizQuestions(그 퀴즈의 questions JSON)를 함께 받아
+ *     `d.idx` 로 원본 문항을 찾아 ②를 적용한다. idx 가 없으면 문항 게이트는 건너뛰고
+ *     글자 게이트만 태운다 — «막지 못하는 것» 보다 «지금 되는 것을 깨는 것» 이 나쁘다. */
+function detailWrongs(
+  row: { user_id: string; detail: string; created_at: number },
+  textbook: string,
+  quizQuestions?: string | null,
+): WrongEvent[] {
   let ds: any[] = [];
   try { ds = JSON.parse(row.detail) || []; } catch {}
+  let qs: any[] = [];
+  try { qs = JSON.parse(String(quizQuestions || '[]')) || []; } catch {}
   const out: WrongEvent[] = [];
   for (const d of ds) {
     if (d?.correct) continue;
+    const q = Number.isInteger(d?.idx) ? qs[d.idx] : undefined;
+    if (q !== undefined && !isEnglishWarmupQuestion(q)) continue;   // 중국어·일본어 문항이면 통째로 건너뛴다
     const text = String(d?.answer_text || d?.audio_text || '').trim();
     if (isEnglishWarmupText(text)) {
       out.push({ student_id: row.user_id, text, textbook, at: row.created_at });
@@ -269,7 +282,7 @@ export async function runWarmupGraphSync(
       const quiz = quizById.get(Number(r.quiz_id));
       if (!quiz || !r.user_id) continue;
       resultsScanned++;
-      if (r.detail) events.push(...detailWrongs({ user_id: r.user_id, detail: r.detail, created_at: r.created_at }, quiz.textbook));
+      if (r.detail) events.push(...detailWrongs({ user_id: r.user_id, detail: r.detail, created_at: r.created_at }, quiz.textbook, quiz.questions));
       else events.push(...regradeWrongs({ user_id: r.user_id, answers: r.answers, created_at: r.created_at }, quiz));
     }
   } catch (e: any) {

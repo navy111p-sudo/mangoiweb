@@ -62,7 +62,15 @@ check('구 데이터 재채점(regradeWrongs)이 문항 게이트를 지난다',
 check('구 데이터 재채점이 글자 게이트로 판정한다',
   /function regradeWrongs[\s\S]{0,1600}?if \(wrong && isEnglishWarmupText\(text\)\)/.test(graphCode));
 check('신규 detail 추출(detailWrongs)이 글자 게이트로 판정한다',
-  /function detailWrongs[\s\S]{0,700}?if \(isEnglishWarmupText\(text\)\)/.test(graphCode));
+  /function detailWrongs[\s\S]{0,1400}?if \(isEnglishWarmupText\(text\)\)/.test(graphCode));
+/* 🔴 detail 행에는 정답 문자열만 남고 지문·선택지가 없다 — 원본 문항을 함께 넘기지 않으면
+   성조부호 없는 병음(accept:['caochang'])이 «적재의 주 경로» 로 그대로 들어간다.
+   (2026-08-26 trap-check 가 「detailWrongs 만 게이트가 한 겹」이라고 잡아 준 자리) */
+check('🔴 detailWrongs 가 원본 문항(questions)을 함께 받아 문항 게이트도 태운다',
+  /function detailWrongs\([\s\S]{0,300}?quizQuestions\?: string \| null/.test(graphCode)
+  && /function detailWrongs[\s\S]{0,1200}?if \(q !== undefined && !isEnglishWarmupQuestion\(q\)\) continue;/.test(graphCode));
+check('ETL 이 그 questions 를 실제로 넘긴다 (안 넘기면 위 게이트가 조용히 헛돈다)',
+  /detailWrongs\(\{ user_id: r\.user_id, detail: r\.detail, created_at: r\.created_at \}, quiz\.textbook, quiz\.questions\)/.test(graphCode));
 check('⛔ 옛 판정 `/[a-zA-Z]/` 이 코드에 하나도 안 남았다 (「라틴 글자 하나면 영어」)',
   !/\[a-zA-Z\]/.test(graphCode));
 
@@ -147,6 +155,12 @@ if (!mod) {
     okQ({ type: 'write', q: '빨간색의 영어 단어를 쓰세요:', answer_text: 'red', accept: ['Red'] }));
   check('빈 문항·null 에 터지지 않는다',
     okQ({}) === true && okQ(null) === false && okQ('x') === false);
+  /* detail 경로가 실제로 막는 모양 — 성조 없는 병음은 글자 게이트를 «통과» 하므로
+     문항 게이트가 없으면 그대로 적재된다. 그 전제 자체를 못 박아 둔다. */
+  check('🔴 성조 없는 병음 "caochang" 은 글자 게이트를 통과한다 (그래서 문항 게이트가 필요하다)',
+    okText('caochang') === true);
+  check('그 문항을 함께 보면 막힌다',
+    !okQ({ type: 'write', q: '한자의 병음을 알파벳으로 쓰세요', answer_text: 'caochang', accept: ['caochang'] }));
 }
 
 console.log('\n' + (fail ? '⚠ FAIL ' + fail + ' / PASS ' + pass : '✅ 전부 통과 (' + pass + '건)'));
