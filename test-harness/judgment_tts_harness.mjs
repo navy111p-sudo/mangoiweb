@@ -116,5 +116,36 @@ if (/window\.MangoiTTS = \{[^}]*speak:[^}]*prefetch:[^}]*setLang:[^}]*setSpeaker
   ok('⑩ 전제 확인 — game-tts.js 가 speak·prefetch·setLang·setSpeaker·stop 을 그대로 내보낸다');
 else no('⑩ game-tts.js 의 창구가 바뀌었다 — 이 화면의 호출이 조용히 헛돈다(사람이 다시 읽을 것)');
 
+/* ── ⑪ 🐢 읽기 속도 — 고른 속도가 «모든» 낭독에 붙는가 (2026-08-26) ────── */
+//   「조금 빠르다」는 제보로 넣었다. 속도를 바꾸는 자리가 아니라 «쓰는 자리» 가 하나여야
+//   「바꾼 그때만 느리고 다음 문장은 다시 빠른」 어긋남이 안 생긴다.
+if (/MangoiTTS\.speak\(text, rate\(\)/.test(bare))
+  ok('⑪ 낭독은 언제나 지금 고른 속도로 나간다(speak 에 rate() 를 넘긴다)');
+else no('⑪ speak 에 고정 속도를 넘긴다 — 속도 버튼이 다음 문장부터 무시된다');
+
+const ratesLine = bare.match(/var RATES = \[([^\]]+)\]/);
+if (ratesLine && /0\.75/.test(ratesLine[1]) && /0\.9/.test(ratesLine[1]) && /1(\.0)?\s*\]?/.test(ratesLine[1]))
+  ok(`⑪ 세 단계로만 돈다 (${ratesLine[1].trim()}) — 폰에서 슬라이더보다 집기 쉽다`);
+else no('⑪ 속도 단계 목록(RATES)이 없다');
+
+// 기본값 = 0.9(보통). 「조금 빠르다」는 제보로 1.0 에서 낮춰 둔 값이라 되돌릴 때는 사람이 정한다.
+if (/return 1;\s*\/\/ 기본 = 0\.9/.test(bare) || /return 1;/.test(bare.split('function rate()')[0].split('RATE_I')[1] || ''))
+  ok('⑪ 기본은 «보통»(0.9) — 1.0 은 빠르다는 제보로 낮춰 둔 값');
+else no('⑪ 기본 속도가 바뀌었다 — 사람이 정할 일이니 확인할 것');
+
+if (/localStorage\.setItem\(RATE_KEY/.test(bare) && /localStorage\.getItem\(RATE_KEY\)/.test(bare))
+  ok('⑪ 고른 속도를 기억한다(다음 방문에도)');
+else no('⑪ 속도를 기억하지 않는다 — 올 때마다 다시 눌러야 한다');
+
+const speedTag = html.match(/<button id="speedBtn"[^>]*>/);
+if (!speedTag) no('⑪ 속도 버튼(#speedBtn)이 없다');
+else if (/data-(ko|en)=/.test(speedTag[0]))
+  no('⑪ 속도 버튼에 data-ko/data-en 을 달았다 — i18n 엔진이 글자를 통째로 갈아끼운다(CLAUDE.md 2장)');
+else ok('⑪ 속도 버튼은 자기 글자를 스스로 그린다(엔진이 덮어쓰지 않는다)');
+
+if ((bare.match(/applySpeedUI\(\)/g) || []).length >= 3 && /speedBtn\.textContent = ic \+ ' ' \+ speedLabel/.test(bare))
+  ok('⑪ 지금 속도를 «글자로» 보여 주고, 언어를 바꾸면 함께 다시 그린다');
+else no('⑪ 속도가 아이콘으로만 표시되거나 언어 전환 때 굳는다');
+
 console.log(`\n${fail === 0 ? '✅' : '🚨'} judgment_tts_harness — PASS ${pass} / FAIL ${fail}`);
 process.exit(fail === 0 ? 0 : 1);
