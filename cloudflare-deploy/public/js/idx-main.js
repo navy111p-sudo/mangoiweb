@@ -11597,7 +11597,7 @@ async function pdfUpload(input) {
     }
 
     // 클라이언트측 확장자 검증 — 교재 뷰어가 렌더할 수 있는 것만 교재로 올린다
-    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
     const isAllowed = f => allowedExts.some(e => String(f.name || '').toLowerCase().endsWith(e));
     const okFiles = files.filter(isAllowed);
     const badFiles = files.filter(f => !isAllowed(f));
@@ -11886,7 +11886,7 @@ async function _pdfRenderInner(_seq) {
         baseScale = Math.min(availW / baseVp.width, availH / baseVp.height);
         if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.0;
     }
-    const scale = baseScale * pdfZoom;
+    const scale = baseScale * pdfZoom * (window._pdfDPR||1);
 
     // 1번 페이지
     const canvas1 = document.getElementById('pdf-canvas');
