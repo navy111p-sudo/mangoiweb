@@ -111,6 +111,22 @@ check('handleGamesLessons 의 영어 갈래가 문항·글자 게이트를 지�
 check('⛔ 낱말 수 하한으로 풀지 않았다 (영어 정답이 한 낱말인 문항이 많다)',
   !/isEnglishText\([^)]*\)[\s\S]{0,120}?split\(\/\\s\+\/\)[\s\S]{0,60}?length < 2/.test(indexCode));
 
+/* 🔗 레벨 폴백 — 웜업과 게임이 «같은 조건» 이어야 한다 (2026-08-26 사장님 지시로 맞춤).
+   review_quizzes 는 영어 전용 표가 아니라, 이 조건이 없으면 「그 레벨의 아무 교재나」가
+   걸린다. 실측: level='Lv 3' 인 활성 퀴즈는 전부 중국어 교재 「다락원」이다. */
+console.log('\n[ ④-2-b 레벨 폴백이 웜업과 같은 조건이다 ]');
+const lvlFallbacks = indexCode.match(/tries\.push\(\{ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER\(level\)=LOWER\(\?\)[^`]*`/g) || [];
+check('review_quizzes 를 레벨로 긁는 자리가 «둘» 이다 (웜업 · 게임)',
+  lvlFallbacks.length === 2);
+check('🔴 둘 다 «교재에 안 묶인 문제은행» 으로 한정한다 (한쪽만 빠지면 엉뚱한 교재가 걸린다)',
+  lvlFallbacks.length === 2
+  && lvlFallbacks.every((q) => /AND \(textbook IS NULL OR textbook=''\)/.test(q)));
+check('건수 상한은 자리마다 그대로 둔다 (웜업 2 · 게임 4)',
+  lvlFallbacks.some((q) => /LIMIT 2`$/.test(q)) && lvlFallbacks.some((q) => /LIMIT 4`$/.test(q)));
+check('⛔ 중국어 표(zh_vocab·zh_passage)의 레벨 조건은 건드리지 않았다',
+  /FROM zh_vocab[\s\S]{0,400}?LOWER\(level\)=LOWER/.test(indexCode)
+  || /LOWER\(level\)=LOWER[\s\S]{0,400}?FROM zh_vocab/.test(indexCode));
+
 console.log('\n[ ④-3 영어 «코스 목록» 에서 중국어 교재를 뺀다 ]');
 /* 🔴 문장을 걸러도 코스 목록은 안 고쳐진다 — 목록은 review_quizzes 를 통째로 훑는다.
    실측: 다락원이 활성 15건으로 최대 → 목록 1위 → courses[0] 이 기본 코스라

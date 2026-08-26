@@ -3139,7 +3139,16 @@ async function handleGamesVocab(request: Request, env: Env): Promise<Response> {
       if (textbook || level) {
         const tries: Array<{ sql: string; binds: any[] }> = [];
         if (textbook) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(textbook)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [textbook] });
-        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) ORDER BY id DESC LIMIT 4`, binds: [level] });
+        /* ⚠️ 레벨 폴백에는 «교재에 안 묶인» 문제은행만 쓴다 — 웜업(warmupLessonContext)과 같은 조건.
+           [왜] review_quizzes 는 영어 전용 표가 아니다. 이 조건이 없으면 「그 레벨의 아무 교재나」가
+                걸려서, 예컨대 level='Lv 3' 인 활성 퀴즈는 2026-08-26 실측 기준 «전부 중국어 교재
+                「다락원」» 이라 영어 게임이 순수 병음만 받게 된다(위 게이트가 막지만, 애초에
+                엉뚱한 교재를 긁어 오는 것 자체가 틀렸다).
+           ⚠️ 그래서 이 폴백은 «교재 없는 공용 문제은행» 이 생기기 전까지 항상 0건이다
+              (실측: 활성 퀴즈 29건이 전부 교재가 붙어 있어 «교재 없음» 0건). 웜업도 같은 상태다.
+              0건이면 게임은 내장 기본 어휘로 폴백한다 — 조용히 잘못된 교재를 주는 것보다 낫다.
+           ⛔ 「그래도 뭐라도 주자」고 이 조건을 빼지 말 것. 2026-08-26 사장님 지시로 맞춘 것이다. */
+        if (level) tries.push({ sql: `SELECT questions FROM review_quizzes WHERE active=1 AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 4`, binds: [level] });
         for (const t of tries) {
           const rs = await env.DB.prepare(t.sql).bind(...t.binds).all();
           for (const row of (((rs.results as any[]) || []))) {
