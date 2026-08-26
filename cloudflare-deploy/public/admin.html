@@ -8455,7 +8455,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
            ※ 학생 이름·패키지·월 수강료는 «치는 칸»만 없앴다. 이름은 학생 아이디로 명부에서
               자동으로 찾아 넣고, 패키지는 레벨 구분으로 채운다(서버 필수값 + 등록 후 자동
               카톡·CSV·워드 요약이 읽는다). 아래 「양식 등록」 가져오기는 이 표를 거치지 않고
-              바로 서버로 올라가므로 예전 양식 그대로 계속 쓸 수 있다. -->
+              바로 서버로 올라가므로 예전 양식 그대로 계속 쓸 수 있다.
+           ⏱ (2026-08-26) 「수업 시간」(20/30/40분) 을 추가했다 — 안 고르면 기본 20분
+              (`class-policy.ts` `DEFAULT_CLASS_MINUTES`). ⑥ 수업 기간과 달리 «필수» 아니다 —
+              이미 20분이 기본값이라 안 고르는 것 자체가 유효한 선택이라 막을 이유가 없다. -->
       <div style="margin-top:10px">
         <div style="overflow-x:auto">
           <table id="en-multi-table" style="min-width:1180px;font-size:12px;border-collapse:collapse;background:#fff">
@@ -8467,6 +8470,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:170px" data-ko="③ 배정 우선순위*" data-en="③ Matching priority*">③ 배정 우선순위*</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:200px" data-ko="요일" data-en="Days">요일</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="시간" data-en="Time">시간</th>
+                <!-- ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 안 고르면 기본 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
+                     20·30·40 만 있는 이유는 class-policy.ts 의 «10분 격자» 설명과 같다(25분은 아직 꺼둔 스위치). -->
+                <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:90px" data-ko="수업 시간" data-en="Class length">수업 시간</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:110px" data-ko="④ 그룹수업 여부" data-en="④ 1:1 or group">④ 그룹수업 여부</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="⑤ 시작일" data-en="⑤ Start">⑤ 시작일</th>
                 <th style="padding:6px 8px;border:1px solid #e5e7eb;min-width:120px" data-ko="⑥ 수업 기간*" data-en="⑥ Class period*">⑥ 수업 기간*</th>
@@ -9728,7 +9734,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=169" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=170" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=161: 2026-08-24 회계장부 「구분」 칸을 카페24 원본 acc_type(뜻 미상, 화면에 「0」)에서
      type(1=수입/2=지출)으로 바꿔 «수입»·«지출» 로 그린다. 위 합계와 같은 값이라 어긋날 수 없다.
      acc_type 은 지우지 않고 그 칸 툴팁에 원본으로 남긴다 — 뜻은 카페24에 확인 필요

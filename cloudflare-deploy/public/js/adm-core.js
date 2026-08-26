@@ -5734,6 +5734,13 @@ function _addEnrollmentRow(prefill) {
   //   고르게 두면 «인원 수»를 묻는 칸이 되어 버린다. 저장값은 예전 그대로 1:1 / 1:N 을 쓴다
   //   (서버 parseClassSize 가 '1:N' 을 0=그룹으로 읽고, 기존 데이터도 이 표기다).
   const _enrIsEn = (document.documentElement.lang === 'en' || window.adminLang === 'en');
+  // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 안 고르면 기본 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
+  //   20/30/40 만 있는 이유는 class-policy.ts 의 «10분 격자» 설명과 같다(25분은 꺼둔 스위치라 안 넣는다).
+  //   ⚠️ ⑥ 수업 기간과 다르게 «필수» 로 만들지 않는다 — 안 고른 채로도 20분이라는 유효한 값이 있어서다.
+  const classMinOptionsList = [20, 30, 40];
+  const _classMinCur = [20, 30, 40].includes(Number(v.duration_min)) ? Number(v.duration_min) : 20;
+  const classMinOpts = classMinOptionsList.map(m =>
+    '<option value="' + m + '"' + (_classMinCur === m ? ' selected' : '') + '>' + m + (_enrIsEn ? 'min' : '분') + '</option>').join('');
   const sizeOptionsList = [
     { v: '1:1', ko: '1:1 개인',      en: '1:1' },
     { v: '1:N', ko: '그룹 (1:N)',   en: 'Group (1:N)' }
@@ -5838,6 +5845,8 @@ function _addEnrollmentRow(prefill) {
         'style="width:24px;height:24px;padding:0;background:#fef3c7;border:1px solid #f59e0b;border-radius:4px;cursor:pointer;font-size:12px">⏰</button>' +
       '</div>' +
     '</td>' +
+    '<td class="en-c en-c-classmin" data-label="' + (_enrIsEn ? 'Class length' : '수업 시간') + '" style="padding:4px 6px;border:1px solid #e5e7eb">' +
+      '<select class="en-row-classmin" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + classMinOpts + '</select></td>' +
     '<td class="en-c en-c-size" data-label="' + (_enrIsEn ? '1:1 or group' : '수업 형태') + '" style="padding:4px 6px;border:1px solid #e5e7eb"><select class="en-row-size" style="width:100%;padding:4px 6px;border:1px solid #e5e7eb;border-radius:4px;font-size:12px">' + sizeOpts + '</select></td>' +
     /* 🗓️ (2026-08-20 사장님 지시) 시작일을 «굴려서» 고른다 — 년·월·일 드럼(`_enOpenDateWheel`).
        ⚠️ 날짜칸(`.en-row-start`) 자체는 그대로 둔다. 값을 읽는 곳이 `.value`(YYYY-MM-DD)를 기대하고,
@@ -5870,6 +5879,7 @@ function _addEnrollmentRow(prefill) {
       const who = tr.querySelector('.en-row-who'); if (who) who.textContent = '';
       tr.dataset.enUidDone = '';
       const size = tr.querySelector('.en-row-size'); if (size) size.value = '';
+      const classMin = tr.querySelector('.en-row-classmin'); if (classMin) classMin.value = '20';
       const prio = tr.querySelector('.en-row-priority'); if (prio) prio.value = 'schedule';
       const dur = tr.querySelector('.en-row-duration'); if (dur) dur.value = '';
       const tsel = tr.querySelector('.en-row-teacher'); if (tsel) tsel.value = '';
@@ -6507,6 +6517,10 @@ function _readEnrollmentRows() {
     const start = tr.querySelector('.en-row-start')?.value || '';
     const time = tr.querySelector('.en-row-time')?.value || '';
     const classSize = tr.querySelector('.en-row-size')?.value || '';
+    // ⏱ (2026-08-26) 수업 시간(분) — 안 고르거나 이상한 값이면 20분(class-policy.ts DEFAULT_CLASS_MINUTES).
+    //   select 옵션이 20/30/40 뿐이라 정상 사용에서는 항상 그중 하나지만, 값 자체를 방어적으로 다시 검사한다.
+    const classMinRaw = Number(tr.querySelector('.en-row-classmin')?.value);
+    const classMin = [20, 30, 40].includes(classMinRaw) ? classMinRaw : 20;
     const priority = (tr.querySelector('.en-row-priority')?.value || 'schedule');
     // 🧑‍🏫 (2026-08-14) ③ 이 「강사 우선」일 때만 희망 강사를 읽는다 — 그 외에는 값이 있어도 버린다
     const wantTeacher = (priority === 'teacher')
@@ -6535,6 +6549,9 @@ function _readEnrollmentRows() {
       days_of_week: daysKo.join('') || null,
       time: time || null,
       class_size: classSize || null,
+      // ⏱ (2026-08-26) 수업 시간(분) — 서버 POST /api/admin/enrollments 가 저장하고,
+      //   확정(activate) 단계에서 class_schedules.duration_min 으로 그대로 들어간다.
+      duration_min: classMin,
       type: typesKo.join('+') || null,
       // 🧭 (2026-08-12) ③ 배정 우선순위
       assign_priority: priority,
@@ -6627,6 +6644,7 @@ async function addEnrollment() {
       started_at: r.started_at,
       days_of_week: r.days_of_week, time: r.time,
       class_size: r.class_size, type: r.type,
+      duration_min: r.duration_min,
       assign_priority: r.assign_priority,
       teacher_name: r.teacher_name,
       duration_months: r.duration_months, end_date: r.end_date, ended_at: r.ended_at
@@ -6691,6 +6709,7 @@ async function addEnrollment() {
           started_at: r.started_at,
           days_of_week: r.days_of_week, time: r.time,
           class_size: r.class_size, type: r.type,
+          duration_min: r.duration_min,
           assign_priority: r.assign_priority,
           teacher_name: r.teacher_name,
           duration_months: r.duration_months, end_date: r.end_date, ended_at: r.ended_at
