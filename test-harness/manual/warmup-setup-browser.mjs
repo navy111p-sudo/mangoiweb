@@ -236,6 +236,118 @@ console.log('\n[ 6. ?setup=0 — 수업 흐름에서 곧바로 대화 ]');
   await ctx.close();
 }
 
+console.log('\n[ 7. ⬅️🏠 나가는 길 — 설정 화면이 상단바를 덮으므로 화면 안에 있어야 한다 ]');
+{
+  // 「띄웠다」와 「보인다」는 다르다(CLAUDE.md 2장) — 좌표와 «맨 위에 무엇이 있나» 를 잰다.
+  // 대비비는 반투명 층을 합성해서 잰다(그냥 읽으면 멀쩡한 글자가 거짓 실패로 나온다).
+  const { ctx, page } = await openWarmup(390, 844);
+  const m = await page.evaluate(() => {
+    const px = (c) => (String(c).match(/[\d.]+/g) || [0, 0, 0, 1]).map(Number);
+    // ⚠️ backgroundColor 만 읽으면 «그라데이션 배경» 이 투명으로 잡혀, 어두운 화면이
+    //    흰 바탕으로 계산된다 → 멀쩡한 글자가 거짓 실패로 나온다. 그라데이션은 첫 색을 쓴다.
+    const layerOf = (n) => {
+      const cs = getComputedStyle(n);
+      const c = px(cs.backgroundColor);
+      const a = c.length > 3 ? c[3] : 1;
+      if (a > 0) return [c[0], c[1], c[2], a];
+      const g = (cs.backgroundImage || '').match(/rgba?\([^)]+\)/g);
+      if (g && g.length) { const q = px(g[0]); return [q[0], q[1], q[2], q.length > 3 ? q[3] : 1]; }
+      return null;
+    };
+    const bgOf = (el) => {                      // 불투명한 층을 만날 때까지 쌓았다가 아래에서 위로 합성
+      const layers = [];
+      for (let n = el; n; n = n.parentElement) {
+        const L = layerOf(n);
+        if (L) { layers.push(L); if (L[3] >= 1) break; }
+      }
+      let out = [255, 255, 255];
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const [r, g, b, a] = layers[i];
+        out = [r * a + out[0] * (1 - a), g * a + out[1] * (1 - a), b * a + out[2] * (1 - a)];
+      }
+      return out;
+    };
+    const lum = (c) => { const f = c.map((v) => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }); return .2126 * f[0] + .7152 * f[1] + .0722 * f[2]; };
+    const ratio = (el) => {
+      const fg = px(getComputedStyle(el).color), bg = bgOf(el);
+      const a = lum(fg) + .05, b = lum(bg) + .05;
+      return Math.round((Math.max(a, b) / Math.min(a, b)) * 100) / 100;
+    };
+    const back = document.getElementById('wusNavBack');
+    const home = document.getElementById('wusNavHome');
+    const seen = (el) => {
+      const r = el.getBoundingClientRect();
+      const top = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)[0];
+      // ⚠️ 줄 수는 «글자 상자» 로만 센다 — 테두리·안쪽 여백을 빼지 않으면 한 줄짜리가 2줄로 잡힌다
+      const cs = getComputedStyle(el);
+      const pad = ['paddingTop', 'paddingBottom', 'borderTopWidth', 'borderBottomWidth']
+        .reduce((n, k) => n + (parseFloat(cs[k]) || 0), 0);
+      const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.4;
+      return { in: r.top >= 0 && r.bottom <= innerHeight && r.width > 0, onTop: !!(top && el.contains(top)), top: Math.round(r.top),
+               lines: Math.round((r.height - pad) / lh) };
+    };
+    return { back: seen(back), home: seen(home), href: home.getAttribute('href'),
+             cr: { back: ratio(back), home: ratio(home) },
+             topBack: !!document.querySelector('.top button.back'), topHome: !!document.querySelector('.top a.back.home') };
+  });
+  check('설정 화면에 «← 뒤로» 가 보이고 실제로 맨 위에 있다', m.back.in && m.back.onTop, JSON.stringify(m.back));
+  check('설정 화면에 «🏠 홈» 이 보이고 실제로 맨 위에 있다', m.home.in && m.home.onTop, JSON.stringify(m.home));
+  check('홈 버튼은 사이트 홈(/)으로 간다', m.href === '/', String(m.href));
+  check('글자가 낱글자로 쪼개지지 않는다(2줄 미만)', m.back.lines < 2 && m.home.lines < 2, JSON.stringify(m));
+  check('두 버튼 글자가 읽힌다(대비 4.5 이상)', m.cr.back >= 4.5 && m.cr.home >= 4.5, JSON.stringify(m.cr));
+  check('상단바에도 ← 뒤로 · 🏠 홈 이 나뉘어 있다', m.topBack && m.topHome, JSON.stringify(m));
+  // 8단계 목록이라 끝까지 내려가면 사라지면 안 된다 — sticky 로 남아 있어야 한다
+  await page.evaluate(() => { document.getElementById('wuSetup').scrollTop = 99999; });
+  await page.waitForTimeout(200);
+  const stuck = await page.evaluate(() => {
+    const r = document.getElementById('wusNavBack').getBoundingClientRect();
+    return { top: Math.round(r.top), visible: r.top >= 0 && r.top < 80 };
+  });
+  check('끝까지 내려도 나가는 길이 남아 있다(sticky)', stuck.visible, JSON.stringify(stuck));
+  await ctx.close();
+}
+
+console.log('\n[ 8. ⬅️ 뒤로 — 어디에서 왔느냐에 따라 돌아갈 곳이 다르다 ]');
+{
+  // ① 수준 찾기 중 → 목록으로 (그만두는 길이 아래 버튼 말고도 위에 있다)
+  const { ctx, page } = await openWarmup(1280, 900);
+  await page.click('#wusFind');
+  await page.waitForTimeout(200);
+  await page.click('#wusNavBack');
+  await page.waitForTimeout(200);
+  const back1 = await page.evaluate(() => ({
+    probe: document.getElementById('wusProbe').hidden,
+    main: !document.getElementById('wusMain').hidden,
+    setup: !document.getElementById('wuSetup').hidden,
+  }));
+  check('수준 찾기 중에 누르면 목록으로 돌아온다(페이지를 벗어나지 않는다)',
+    back1.probe && back1.main && back1.setup, JSON.stringify(back1));
+  // ② 대화 중 ⋮ 로 열었으면 → 대화로 (홈으로 튕기면 대화가 사라진다)
+  await page.click('#wusStart');
+  await page.waitForTimeout(900);
+  const aiBefore = await page.evaluate(() => document.querySelectorAll('#log .msg.ai').length);
+  await page.click('#menuBtn'); await page.waitForTimeout(150);
+  await page.click('.menu-reopen'); await page.waitForTimeout(250);
+  await page.click('#wusNavBack'); await page.waitForTimeout(250);
+  const back2 = await page.evaluate(() => ({
+    setup: document.getElementById('wuSetup').hidden,
+    ai: document.querySelectorAll('#log .msg.ai').length,
+    url: location.pathname,
+  }));
+  check('대화 중에 열었다가 누르면 대화로 돌아온다', back2.setup && back2.ai === aiBefore && /warmup/.test(back2.url),
+    JSON.stringify(back2));
+  await ctx.close();
+}
+{
+  // ③ 밖에서 바로 들어온 첫 화면 → 홈으로 (history 가 없으면 아무 데도 못 가는 것이 제일 나쁘다)
+  const { ctx, page } = await openWarmup(1280, 900);
+  await page.click('#wusNavBack');
+  await page.waitForTimeout(600);
+  const url = new URL(page.url());
+  check('바로 들어온 첫 화면에서 누르면 홈으로 나간다', url.pathname === '/', page.url());
+  await ctx.close();
+}
+
 await browser.close();
 server.close();
 console.log(`\n${'─'.repeat(60)}`);
