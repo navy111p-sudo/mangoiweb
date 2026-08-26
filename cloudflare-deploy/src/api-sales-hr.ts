@@ -1568,7 +1568,6 @@ function aiStrList(v: any, max: number, len: number): string[] {
 }
 
 async function aiEvaluateSales(env: SalesEnv, rep: any, range: PeriodRange): Promise<any> {
-  if (!env.AI) return { ok: false, error: 'ai_unavailable' };
   const asOf = todayISO();
   const auto = await computeAutoScores(env, rep, range, asOf);
 
@@ -1605,37 +1604,77 @@ async function aiEvaluateSales(env: SalesEnv, rep: any, range: PeriodRange): Pro
     `차량·비용 관리 자료: 시스템에 없음`,
   ].join('\n');
 
-  for (const model of DIARY_MODELS) {
-    try {
-      const res: any = await env.AI.run(model, {
-        messages: [
-          { role: 'system', content: AI_EVAL_SYSTEM },
-          { role: 'user', content: facts },
-        ],
-        max_tokens: 900,
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      });
-      const raw = String(res?.response || res?.result?.response || '').trim();
-      let p: any = null;
-      try { p = JSON.parse(raw); }
-      catch { const m = raw.match(/\{[\s\S]*\}/); p = m ? JSON.parse(m[0]) : null; }
-      if (!p) continue;
-      return {
-        ok: true, model,
-        reporting: clampAiScore(p?.reporting?.score, p?.reporting?.evidence),
-        vehicle: clampAiScore(p?.vehicle?.score, p?.vehicle?.evidence),
-        teamwork: clampAiScore(p?.teamwork?.score, p?.teamwork?.evidence),
-        summary: String(p?.summary || '').trim().slice(0, 200),
-        strengths: aiStrList(p?.strengths, 3, 200),
-        improvements: aiStrList(p?.improvements, 2, 200),
-        next_actions: aiStrList(p?.next_actions, 3, 200),
-        data_gaps: aiStrList(p?.data_gaps, 4, 120),
-        facts_used: { diary_total: rows.length, diary_same_day: sameDay, meetings: Number(meets?.c || 0) },
-      };
-    } catch { /* 다음 모델로 */ }
+  /* ⚠️ (2026-08-24 사장님 실측) 배포 첫 클릭이 「AI 초안을 만들지 못했습니다」 로 끝났는데,
+     원인을 catch 가 통째로 삼켜서 서버에도 화면에도 아무 단서가 없었다. 세 가지를 고친다:
+       ① 마지막 오류를 ai_error 로 실어 보낸다 — 다음 스크린샷 한 장이면 원인이 보이게.
+       ② response_format(json_object) 을 거부하는 모델이 있어, 실패하면 그 옵션 없이 한 번 더.
+       ③ 모델이 전부 실패해도 «기록 숫자만으로 만든 규칙 초안» 을 돌려준다 —
+          버튼이 빈손으로 끝나면 쓰는 사람에게는 «고장» 이다. 점수를 지어내는 것이 아니라
+          근거가 있는 칸(일지 성실률)만 채우고 나머지는 «자료 없음» 으로 비워 둔다. */
+  let lastErr = '';
+  if (env.AI) {
+    for (const model of DIARY_MODELS) {
+      for (const useRF of [true, false]) {
+        try {
+          const opts: any = {
+            messages: [
+              { role: 'system', content: AI_EVAL_SYSTEM },
+              { role: 'user', content: facts },
+            ],
+            max_tokens: 900,
+            temperature: 0.2,
+          };
+          if (useRF) opts.response_format = { type: 'json_object' };
+          const res: any = await env.AI.run(model, opts);
+          const raw = String(res?.response || res?.result?.response || '').trim();
+          let p: any = null;
+          try { p = JSON.parse(raw); }
+          catch { const m = raw.match(/\{[\s\S]*\}/); p = m ? JSON.parse(m[0]) : null; }
+          if (!p) { lastErr = model + (useRF ? '' : '(RF없이)') + ': JSON 아님'; continue; }
+          return {
+            ok: true, model,
+            reporting: clampAiScore(p?.reporting?.score, p?.reporting?.evidence),
+            vehicle: clampAiScore(p?.vehicle?.score, p?.vehicle?.evidence),
+            teamwork: clampAiScore(p?.teamwork?.score, p?.teamwork?.evidence),
+            summary: String(p?.summary || '').trim().slice(0, 200),
+            strengths: aiStrList(p?.strengths, 3, 200),
+            improvements: aiStrList(p?.improvements, 2, 200),
+            next_actions: aiStrList(p?.next_actions, 3, 200),
+            data_gaps: aiStrList(p?.data_gaps, 4, 120),
+            facts_used: { diary_total: rows.length, diary_same_day: sameDay, meetings: Number(meets?.c || 0) },
+          };
+        } catch (e: any) {
+          lastErr = model + (useRF ? '' : '(RF없이)') + ': ' + String(e?.message || e).slice(0, 160);
+        }
+      }
+    }
+  } else {
+    lastErr = 'AI 바인딩 없음';
   }
-  return { ok: false, error: 'ai_failed' };
+
+  // ── 규칙 초안 (AI 폴백) — 근거가 있는 칸만 채운다 ──
+  const meetCnt = Number(meets?.c || 0);
+  const repScore = rows.length > 0 ? Math.max(0, Math.min(5, Math.round((sameDay / rows.length) * 5 * 2) / 2)) : null;
+  const goodItems = (auto.items || []).filter((i: any) => i.rate != null && i.rate >= 0.5);
+  const lowItems  = (auto.items || []).filter((i: any) => i.rate != null && i.rate < 0.5);
+  return {
+    ok: true, model: 'rules', ai_error: lastErr,
+    reporting: rows.length > 0
+      ? { score: repScore, evidence: `일지 ${rows.length}건 중 그날 바로 적은 것 ${sameDay}건` }
+      : { score: null, evidence: '기간 안에 영업일지가 아직 없습니다' },
+    vehicle: { score: null, evidence: '차량·비용 자료가 시스템에 없습니다 — 직접 넣어 주세요' },
+    teamwork: meetCnt > 0
+      ? { score: null, evidence: `면담·점검 ${meetCnt}건 — 점수는 직접 정해 주세요` }
+      : { score: null, evidence: '면담·협업 기록이 아직 없습니다' },
+    summary: rows.length === 0 && auto.deal_count === 0
+      ? '이번 기간에는 채점할 기록이 아직 없습니다. 기록이 쌓이면 초안이 구체적으로 나옵니다.'
+      : 'AI 응답이 잠시 안 되어, 기록 숫자만으로 만든 초안입니다.',
+    strengths: goodItems.slice(0, 3).map((i: any) => `${i.label} — ${i.reason}`),
+    improvements: lowItems.slice(0, 2).map((i: any) => `${i.label} — ${i.reason}`),
+    next_actions: [],
+    data_gaps: (auto.items || []).filter((i: any) => i.score == null).map((i: any) => String(i.label)).slice(0, 4),
+    facts_used: { diary_total: rows.length, diary_same_day: sameDay, meetings: meetCnt },
+  };
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════

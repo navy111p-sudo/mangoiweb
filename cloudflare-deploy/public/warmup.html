@@ -227,6 +227,79 @@
     padding:9px 16px;background:rgba(239,68,68,.12);border-top:1px solid rgba(239,68,68,.3);
     color:#fca5a5;font-size:13px;font-weight:700}
   #listening .dot{width:9px;height:9px;border-radius:50%;background:#ef4444;animation:micpulse 1s infinite}
+  /* ══ 🎚️ 시작 전 «연령·수준 고르기» 화면 (2026-08-26) ══
+     판단력 훈련(judgment.html)의 «문장 난이도 설정»과 같은 뜻·같은 순서로 맞춘 화면.
+     웜업은 페이지를 열자마자 AI 가 첫 질문을 던지는 구조라, 고르기 «전에» 대화가
+     시작되면 이미 엉뚱한 눈높이(초등 소재/성인 소재)로 말이 나간다.
+     → 이 화면을 닫아야 첫 인사(initGreeting)가 돈다.
+     ⚠️ [hidden] 로 감출 때 «작성자 CSS 가 display 를 정하면 브라우저 기본
+        [hidden]{display:none} 을 이긴다»(CLAUDE.md 2장) — 그래서 아래 한 줄을 함께 둔다. */
+  .wu-setup{position:fixed;inset:0;z-index:120;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    background:radial-gradient(125% 100% at 50% -8%,#2a4d9e 0%,#1a2f6b 42%,#122350 100%);
+    padding:20px 16px 44px}
+  .wu-setup[hidden]{display:none !important}
+  .wus-box{max-width:640px;margin:0 auto}
+  .wus-title{display:flex;align-items:center;gap:6px;font-size:22px;font-weight:900;letter-spacing:-.3px;margin:2px 0 8px}
+  .wus-lead{font-size:15px;line-height:1.55;color:var(--text2);margin-bottom:6px}
+  .wus-sub{font-size:15px;font-weight:800;color:var(--accent);margin:22px 0 4px}
+  .wus-hint{font-size:13px;color:var(--text2);line-height:1.5;margin-bottom:10px}
+  .wus-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px}
+  .wus-card,.wus-item,.wus-find{display:block;width:100%;text-align:left;cursor:pointer;font-family:inherit;
+    background:rgba(56,189,248,.07);border:1px solid var(--border);border-radius:14px;color:var(--text);
+    padding:13px 15px;transition:background .15s,border-color .15s}
+  .wus-card:hover,.wus-item:hover,.wus-find:hover{background:rgba(56,189,248,.17)}
+  .wus-card.on,.wus-item.on{background:linear-gradient(135deg,rgba(56,189,248,.28),rgba(14,165,233,.16));
+    border-color:var(--accent)}
+  .wus-name{display:flex;align-items:center;gap:7px;flex-wrap:wrap;font-size:17px;font-weight:800}
+  .wus-lv{font-size:13px;font-weight:700;color:var(--accent);opacity:.9}
+  .wus-now{background:var(--accent);color:#04283a;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800}
+  .wus-desc{margin-top:4px;font-size:14px;color:var(--text2);line-height:1.5}
+  .wus-list{display:flex;flex-direction:column;gap:8px}
+  .wus-find{margin:10px 0 14px;background:rgba(251,191,36,.13);border-color:rgba(251,191,36,.42)}
+  .wus-find:hover{background:rgba(251,191,36,.24)}
+  .wus-find .wus-name{color:#fcd34d}
+  /* 🚀 시작 버튼은 «바닥에 붙여» 둔다 — 수준이 8줄이라 휴대폰에서는 끝까지 내려야 보인다.
+     스크롤 상자가 .wu-setup 자신이라 sticky 가 그 안에서 정상 동작한다
+     (CLAUDE.md 2장의 «html/body overflow 로 sticky 가 죽는» 자리가 아니다).
+     ⚠️ 이 주석에 홑낫표를 쓰지 말 것 — admin_lazyload/subtitle 하니스가 <style> 안 장식 문자를
+        «한자 폰트를 부르는 화면» 으로 세어 FAIL 낸다(CLAUDE.md 2장). */
+  .wus-cta{position:sticky;bottom:-2px;width:100%;margin-top:22px;padding:16px;border:0;border-radius:14px;
+    cursor:pointer;font-family:inherit;
+    background:linear-gradient(135deg,var(--accent),#2563eb);color:#fff;font-size:18px;font-weight:900;
+    box-shadow:0 8px 22px -4px rgba(4,10,26,.75)}
+  .wus-cta:active{transform:scale(.98)}
+  /* 🎯 수준 찾기(3문항) — 문장을 보여주고 «편하게 읽히는지»만 묻는다. 서버를 부르지 않는다 */
+  .wus-probe-q{font-size:14px;font-weight:800;color:var(--accent);margin:4px 0 10px}
+  .wus-sent{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:14px;
+    padding:18px 16px;font-size:20px;line-height:1.5;font-weight:700}
+  .wus-ans{display:grid;gap:8px;margin-top:14px}
+  .wus-dots{display:flex;gap:6px;justify-content:center;margin-bottom:12px}
+  .wus-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
+  .wus-dot.on{background:var(--accent)}
+  .wus-back{display:block;width:100%;margin-top:14px;padding:12px;border-radius:12px;cursor:pointer;
+    font-family:inherit;font-size:15px;font-weight:700;background:rgba(255,255,255,.05);
+    border:1px solid var(--border);color:var(--text2)}
+  @media (max-width:640px){
+    .wu-setup{padding:16px 12px 40px}
+    .wus-title{font-size:19px}
+    .wus-lead{font-size:14px}
+    .wus-name{font-size:16px}
+    .wus-desc{font-size:13px}
+    .wus-sent{font-size:17px;padding:15px 13px}
+    .wus-cta{font-size:16px;padding:14px}
+  }
+  /* 🧑‍🎓 ⋮ 메뉴 안 «연령대» 버튼 — 목소리 버튼과 같은 모양(2열) */
+  .age-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .age-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
+    padding:9px 4px;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
+    color:var(--text2);font-size:13px;font-weight:800;transition:transform .08s,background .15s,color .15s}
+  .age-btns button:hover{background:rgba(56,189,248,.18);color:var(--text)}
+  .age-btns button:active{transform:scale(.92)}
+  .age-btns button.on{background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
+  .menu-reopen{width:100%;margin-top:14px;padding:11px;border-radius:11px;cursor:pointer;font-family:inherit;
+    font-size:14px;font-weight:800;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text)}
+  .menu-reopen:hover{background:rgba(56,189,248,.16)}
   /* 📱 모바일(≤640px): 머리글 한 줄 유지 + 글자 크기 정돈 — 화면에 문장이 온전히 보이게 */
   @media (max-width:640px){
     .top{padding:9px 12px;gap:8px}
@@ -269,6 +342,36 @@
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
+  <!-- ══ 🎚️ 시작 전 «연령·수준 고르기» — 이 화면을 닫아야 첫 인사가 나간다 (2026-08-26) ══
+       판단력 훈련의 «문장 난이도 설정»과 같은 순서: ① 누가 ② 어느 수준 ③ 시작.
+       ⚠️ 목록(연령 4종·수준 8단계)은 서버가 아는 값과 «짝» 이다.
+          화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
+          (감시: test-harness/warmup_age_level_harness.mjs). -->
+  <div id="wuSetup" class="wu-setup" hidden aria-label="웜업 시작 설정">
+    <div class="wus-box">
+      <div id="wusMain">
+        <div class="wus-title"><img src="/img/mango-char.png" class="mango-inline" alt="망고"> 웜업 설정</div>
+        <div class="wus-lead">먼저 <b>누가</b> · <b>어느 수준으로</b> 이야기할지 정해요.<br>대화 중에도 오른쪽 위 <b>⋮</b> 에서 언제든 바꿀 수 있어요.</div>
+
+        <div class="wus-sub">🧑‍🎓 누가 웜업하나요?</div>
+        <div class="wus-hint">고른 나이대에 맞춰 <b>이야기 소재와 말투</b>가 달라져요. (영어 수준과는 별개예요)</div>
+        <div class="wus-grid" id="wusAges"></div>
+
+        <div class="wus-sub">🎚️ 대화 수준</div>
+        <div class="wus-hint">고른 수준에 맞춰 AI가 쓰는 <b>단어와 문장 길이</b>가 달라져요.</div>
+        <button type="button" class="wus-find" id="wusFind">
+          <span class="wus-name">🎯 내 수준 찾아줄까요?</span>
+          <span class="wus-desc">영어 문장 3개만 보면 끝나요. (약 30초)</span>
+        </button>
+        <div class="wus-list" id="wusLevels"></div>
+
+        <button type="button" class="wus-cta" id="wusStart">🚀 이 설정으로 웜업 시작하기</button>
+      </div>
+      <!-- 🎯 수준 찾기 — 서버를 부르지 않고 문장을 보여주며 3번만 묻는다 -->
+      <div id="wusProbe" hidden></div>
+    </div>
+  </div>
+
   <div class="top">
     <a href="/" class="back" title="홈으로">←</a>
     <h1><span class="ttl-emoji">🗣️</span> 수업 전 AI 웜업</h1>
@@ -300,6 +403,12 @@
           <div class="ls-ends"><span>🌱 기초</span><span>최고 🚀</span></div>
         </div>
 
+        <!-- 🧑‍🎓 연령대: 대화 소재·말투 축. 난이도(위)와 «독립» 이라 따로 고른다 -->
+        <div class="menu-group">
+          <div class="menu-label"><span>🧑‍🎓 연령대</span><span class="ls-now" id="ageVal">초등 고학년·중학생</span></div>
+          <div class="age-btns" id="ageBtns" role="radiogroup" aria-label="연령대 선택"></div>
+        </div>
+
         <!-- 🎙️ AI 목소리: 여자/남자 원어민 선택 + 번갈아(둘 다 섞어서) -->
         <div class="menu-group">
           <div class="menu-label"><span>🎙️ AI 목소리</span><span class="ls-now" id="voiceVal">👩 여자</span></div>
@@ -320,6 +429,8 @@
           </div>
           <div class="ls-ends"><span>🌱 읽으며</span><span>귀로만 👂</span></div>
         </div>
+
+        <button type="button" class="menu-reopen" onclick="openSetup(true)">🎚️ 연령·수준 다시 고르기</button>
       </div>
     </div>
   </div>
@@ -597,13 +708,26 @@ function setSubMode(m, announce){
    미리 다 번역하면 보지도 않을 문장까지 비용이 든다. 서버(/api/translate)가 KV 에 캐시하므로
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
+/* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
+   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24). 주제 구간만 동적이라 패턴으로 맞춘다. */
+function curatedMeaning(text){
+  var m = String(text||'').trim().match(
+    /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
+  if(m) return '안녕하세요! 저는 망고아이 AI 친구예요 🥭 '
+    + (m[1] ? ('오늘의 주제는 "' + m[1] + '"예요. ') : '')
+    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
+  return '';
+}
 function fetchMeaning(text){
   var key = String(text||'').trim();
   if(!key) return Promise.resolve('');
   if(_koCache[key] != null) return Promise.resolve(_koCache[key]);
+  var cur = curatedMeaning(key);
+  if(cur){ _koCache[key] = cur; return Promise.resolve(cur); }
   return fetch('/api/translate', {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ texts:[key], target:'ko' })
+    // mode:'learn' — 서버가 언어모델로 «뜻(의역)» 을 만든다. 모드 없는 기본 경로는 m2m100 직역.
+    body: JSON.stringify({ texts:[key], target:'ko', mode:'learn' })
   }).then(function(r){ return r.json(); }).then(function(d){
     var out = (d && d.ok && d.map && d.map[key]) ? String(d.map[key]) : '';
     if(out) _koCache[key] = out;
@@ -661,7 +785,31 @@ function maybeAdjustRate(text){
 }
 
 /* 📊 대화 난이도: 1(기초) ~ 8(최고) → 서버로 difficulty 전달, AI가 눈높이 맞춤 */
-var LEVEL_NAMES = {1:'기초',2:'초급',3:'초급+',4:'초중급',5:'중급',6:'중상급',7:'상급',8:'최고'};
+/* 🏷️ 이름·교재 Lv 구간은 판단력 훈련과 «같은 말» 을 쓴다 — 정본은 서버 judgment-level.ts 의
+   BAND_SPECS(8단계, 교재 Lv 1~34). 두 화면이 같은 Lv 을 서로 다른 이름으로 부르면
+   학생·강사가 「어느 쪽이 맞느냐」를 매번 묻게 된다.
+   ⚠️ 숫자(1~8)가 서버로 가는 값이다 — 이름을 바꿔도 서버 WARMUP_LEVELS 는 숫자로 받는다.
+   ⚠️ 여기 목록과 서버가 아는 범위(1~8)는 «짝» 이다. 화면에만 늘리면 그 값은 조용히
+      무시된다(CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+var LEVEL_CATALOG = [
+  {n:1, ko:'첫걸음', lv:'Lv 1-4',   d:'아주 짧은 문장 (3~5단어)',
+   s:'I like apples.'},
+  {n:2, ko:'기초',   lv:'Lv 5-8',   d:'짧고 쉬운 문장 (5~7단어)',
+   s:'I can ride my bike now.'},
+  {n:3, ko:'초급',   lv:'Lv 9-12',  d:'과거형이 나오는 문장 (7~9단어)',
+   s:'I went to the park with my friend.'},
+  {n:4, ko:'초중급', lv:'Lv 13-17', d:'두 문장이 이어진 문장 (9~12단어)',
+   s:'I wanted to go outside, but it started raining very hard.'},
+  {n:5, ko:'중급',   lv:'Lv 18-21', d:'조금 긴 문장 (12~15단어)',
+   s:'My brother keeps borrowing my headphones without asking, and it really annoys me.'},
+  {n:6, ko:'중고급', lv:'Lv 22-25', d:'관계절·가정법이 나와요 (15~18단어)',
+   s:'If I had known that the museum closes early on Mondays, I would have gone on Sunday.'},
+  {n:7, ko:'고급',   lv:'Lv 26-30', d:'관용표현이 섞여요 (18~22단어)',
+   s:'She was on the fence about taking the job, so we talked it through until she finally made up her mind.'},
+  {n:8, ko:'최상급', lv:'Lv 31-34', d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
+   s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.'}
+];
+var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
 var _warmLevel = 3;
 try{
   var savedLvl = parseInt((Q.get('diff')||localStorage.getItem('mangoi_warmup_level')||'3'),10);
@@ -699,6 +847,212 @@ function setLevel(lv, announce){
   }
 }
 setLevel(_warmLevel);   // 저장된 레벨로 눈금/표시 초기화
+
+/* ══════════════════════════════════════════════════════════════════
+   🧑‍🎓 연령대 — «누구와 이야기하는가». 난이도(위)와 «독립» 인 축이다.
+     난이도는 «문장 길이·문법», 연령대는 «소재·말투» 를 정한다. 한 축으로 묶으면
+     「성인인데 유아 문장」 이나 「초등학생인데 직장 이야기」 중 하나가 반드시 생긴다.
+   ⚠️ id 는 서버(src/warmup-audience.ts WARMUP_AGE_IDS)와 «짝» 이다. 여기에만
+      늘리면 서버가 모르는 값이라 조용히 기본값(child)으로 떨어진다.
+   ══════════════════════════════════════════════════════════════════ */
+var AGE_CATALOG = [
+  {id:'kid',   ic:'🧒',   ko:'유아·초등 저학년', sh:'유아·초등 저',   d:'놀이·동물·가족처럼 아주 익숙한 이야기로'},
+  {id:'child', ic:'🧑‍🎓', ko:'초등 고학년·중학생', sh:'초등 고·중',    d:'학교·친구·취미 같은 또래 이야기로 (기본)'},
+  {id:'teen',  ic:'🎒',   ko:'고등학생',        sh:'고등학생',       d:'관심사·진로·요즘 유행 이야기로'},
+  {id:'adult', ic:'🧑‍💼', ko:'성인',            sh:'성인',           d:'직장·주말·여행 같은 어른의 일상으로'}
+];
+function ageIds(){ var a=[]; for(var i=0;i<AGE_CATALOG.length;i++) a.push(AGE_CATALOG[i].id); return a; }
+function ageInfo(id){
+  for(var i=0;i<AGE_CATALOG.length;i++) if(AGE_CATALOG[i].id===id) return AGE_CATALOG[i];
+  // 모르는 값은 기본(child)으로 — «가장 어린 쪽» 으로 떨어뜨리지 않는다(성인이 유아 취급을 받는다)
+  for(var j=0;j<AGE_CATALOG.length;j++) if(AGE_CATALOG[j].id==='child') return AGE_CATALOG[j];
+  return AGE_CATALOG[0];
+}
+var _warmAge = 'child';
+try{
+  var savedAge = String(Q.get('age') || localStorage.getItem('mangoi_warmup_age') || '').trim().toLowerCase();
+  if(ageIds().indexOf(savedAge) >= 0) _warmAge = savedAge;
+}catch(e){}
+// ⋮ 메뉴 안 연령대 버튼(2열)을 목록에서 그린다
+(function buildAgeBtns(){
+  var box = document.getElementById('ageBtns'); if(!box) return;
+  for(var i=0;i<AGE_CATALOG.length;i++){
+    (function(a){
+      var b=document.createElement('button');
+      b.type='button'; b.textContent=a.ic+' '+a.sh;
+      b.setAttribute('role','radio'); b.setAttribute('data-age', a.id);
+      b.title = a.ko + ' — ' + a.d;
+      b.setAttribute('aria-label', a.ko);
+      b.onclick=function(){ setAge(a.id, true); };
+      box.appendChild(b);
+    })(AGE_CATALOG[i]);
+  }
+})();
+function setAge(id, announce){
+  if(ageIds().indexOf(id) < 0) id = 'child';
+  var changed = (id !== _warmAge);
+  _warmAge = id;
+  try{ localStorage.setItem('mangoi_warmup_age', id); }catch(e){}
+  var box=document.getElementById('ageBtns');
+  if(box){ var bs=box.querySelectorAll('button');
+    for(var i=0;i<bs.length;i++){ var on=(bs[i].getAttribute('data-age')===id);
+      bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
+  var v=document.getElementById('ageVal'); if(v) v.textContent = ageInfo(id).ko;
+  if(announce && changed && _warmStarted && typeof addMsg==='function'){
+    addMsg('🧑‍🎓 이제 ' + ageInfo(id).ko + ' 눈높이로 이야기할게요! ' + ageInfo(id).d, 'sys');
+  }
+  renderSetup();   // 설정 화면이 떠 있으면 선택 표시도 함께 갱신
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   🎚️ 시작 전 설정 화면 — 판단력 훈련의 «난이도 설정» 과 같은 순서
+     ① 누가(연령대) ② 어느 수준(1~8) ③ 🚀 시작
+   ⚠️ 이 화면이 닫히기 전에는 initGreeting() 을 부르지 않는다. 웜업은 첫 인사부터
+      AI 호출이라, 먼저 인사하고 나중에 눈높이를 바꾸면 «이미 나간 첫 질문» 은 못 되돌린다.
+   ══════════════════════════════════════════════════════════════════ */
+var _warmStarted = false;      // 첫 인사가 이미 나갔는가(= 대화가 시작됐는가)
+function setupEl(){ return document.getElementById('wuSetup'); }
+function renderSetup(){
+  var box = setupEl(); if(!box || box.hidden) return;
+  var ages = document.getElementById('wusAges');
+  if(ages){
+    ages.innerHTML = AGE_CATALOG.map(function(a){
+      var on = (a.id === _warmAge);
+      return '<button type="button" class="wus-card'+(on?' on':'')+'" data-age="'+a.id+'">'
+        + '<span class="wus-name">'+a.ic+' '+a.ko+(on?'<span class="wus-now">지금</span>':'')+'</span>'
+        + '<span class="wus-desc">'+a.d+'</span></button>';
+    }).join('');
+  }
+  var lv = document.getElementById('wusLevels');
+  if(lv){
+    lv.innerHTML = LEVEL_CATALOG.map(function(b){
+      var on = (b.n === _warmLevel);
+      return '<button type="button" class="wus-item'+(on?' on':'')+'" data-lvl="'+b.n+'">'
+        + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
+        + '<span class="wus-desc">'+b.d+'</span></button>';
+    }).join('');
+  }
+  var cta = document.getElementById('wusStart');
+  if(cta) cta.textContent = _warmStarted ? '✅ 이 설정으로 계속하기' : '🚀 이 설정으로 웜업 시작하기';
+}
+function openSetup(fromMenu){
+  // ⋮ 메뉴에서 열었으면 메뉴는 함께 닫는다(설정 화면 위에 메뉴가 겹쳐 남지 않게)
+  if(fromMenu && typeof closeMenu==='function'){ try{ closeMenu(); }catch(e){} }
+  var box = setupEl(); if(!box) return;
+  var probe = document.getElementById('wusProbe');
+  var main = document.getElementById('wusMain');
+  if(probe){ probe.hidden = true; probe.innerHTML = ''; }
+  if(main) main.hidden = false;
+  box.hidden = false;
+  try{ box.scrollTop = 0; }catch(e){}
+  renderSetup();
+}
+function closeSetup(){
+  var box = setupEl(); if(box) box.hidden = true;
+}
+/* 목록은 다시 그려지므로 «위임» 으로 한 번만 배선한다(그릴 때마다 리스너를 달면 새는 자리) */
+(function wireSetup(){
+  var box = setupEl(); if(!box) return;
+  box.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('[data-age],[data-lvl]') : null;
+    if(!t || !box.contains(t)) return;
+    if(t.getAttribute('data-age')) { setAge(t.getAttribute('data-age'), false); return; }
+    var n = parseInt(t.getAttribute('data-lvl'),10);
+    if(n>=1 && n<=8) setLevel(n, false);
+    renderSetup();
+  });
+  var st = document.getElementById('wusStart');
+  if(st) st.addEventListener('click', function(){ startWarmup(); });
+  var fd = document.getElementById('wusFind');
+  if(fd) fd.addEventListener('click', function(){ startProbe(); });
+})();
+
+/* 🎯 내 수준 찾기 — 문장 3개를 보여주고 «편하게 읽히는지» 만 묻는다.
+   ⚠️ 서버를 부르지 않는다. 웜업은 첫 화면부터 AI 호출이라 여기서 또 부르면
+      시작이 그만큼 늦어지고, 정작 재는 것은 «읽기 부담» 이라 문장만 있으면 충분하다.
+   판단력 훈련의 배치테스트(6문항 적응형)와 같은 규칙 — 가운데에서 시작해 보폭을 줄인다. */
+var PROBE_ITEMS = 3;
+var _pbIdx = 0, _pbBand = 4, _pbStep = 2;
+function startProbe(){
+  _pbIdx = 0; _pbBand = 4; _pbStep = 2;
+  var main = document.getElementById('wusMain'); if(main) main.hidden = true;
+  renderProbe();
+}
+function probeCatalog(n){ return LEVEL_CATALOG[Math.max(1,Math.min(8,n)) - 1]; }
+function renderProbe(){
+  var probe = document.getElementById('wusProbe'); if(!probe) return;
+  var b = probeCatalog(_pbBand);
+  var dots = '';
+  for(var i=0;i<PROBE_ITEMS;i++) dots += '<span class="wus-dot'+(i<=_pbIdx?' on':'')+'"></span>';
+  probe.innerHTML =
+    '<div class="wus-dots">'+dots+'</div>'
+    + '<div class="wus-probe-q">🎯 내 수준 찾기 '+(_pbIdx+1)+' / '+PROBE_ITEMS+'</div>'
+    + '<div class="wus-sent">'+b.s+'</div>'
+    + '<div class="wus-hint" style="margin-top:12px">이 문장이 <b>읽고 바로 이해</b>되나요?</div>'
+    + '<div class="wus-ans">'
+    +   '<button type="button" class="wus-card" data-pb="up">😀 쉬워요 · 바로 알겠어요</button>'
+    +   '<button type="button" class="wus-card" data-pb="mid">🙂 조금 어려워요</button>'
+    +   '<button type="button" class="wus-card" data-pb="down">😅 어려워요 · 잘 모르겠어요</button>'
+    + '</div>'
+    + '<button type="button" class="wus-back" data-pb="quit">← 그만두고 직접 고를래요</button>';
+  probe.hidden = false;
+  try{ setupEl().scrollTop = 0; }catch(e){}
+}
+function answerProbe(kind){
+  if(kind === 'quit'){
+    var probe=document.getElementById('wusProbe'); if(probe){ probe.hidden=true; probe.innerHTML=''; }
+    var main=document.getElementById('wusMain'); if(main) main.hidden=false;
+    renderSetup(); return;
+  }
+  if(kind === 'up') _pbBand = _pbBand + _pbStep;
+  else if(kind === 'down') _pbBand = _pbBand - _pbStep;
+  _pbBand = Math.max(1, Math.min(8, _pbBand));
+  _pbStep = Math.max(1, _pbStep - 1);
+  _pbIdx++;
+  if(_pbIdx >= PROBE_ITEMS) finishProbe();
+  else renderProbe();
+}
+function finishProbe(){
+  setLevel(_pbBand, false);
+  var b = probeCatalog(_pbBand);
+  var probe = document.getElementById('wusProbe'); if(!probe) return;
+  probe.innerHTML =
+    '<div style="text-align:center;padding:10px 0 4px">'
+    +   '<div style="font-size:44px">🎯</div>'
+    +   '<div class="wus-hint" style="margin:6px 0">딱 맞는 수준을 찾았어요</div>'
+    +   '<div class="wus-title" style="justify-content:center">'+b.ko+' <span class="wus-lv">('+b.lv+')</span></div>'
+    +   '<div class="wus-hint">'+b.d+'</div>'
+    + '</div>'
+    + '<button type="button" class="wus-cta" data-pb="go">'+(_warmStarted ? '✅ 이 수준으로 계속하기' : '🚀 이 수준으로 웜업 시작하기')+'</button>'
+    + '<button type="button" class="wus-back" data-pb="quit">← 목록에서 다시 고를래요</button>';
+}
+(function wireProbe(){
+  var probe = document.getElementById('wusProbe'); if(!probe) return;
+  probe.addEventListener('click', function(e){
+    var t = e.target.closest ? e.target.closest('[data-pb]') : null;
+    if(!t || !probe.contains(t)) return;
+    var k = t.getAttribute('data-pb');
+    if(k === 'go'){ startWarmup(); return; }
+    answerProbe(k);
+  });
+})();
+
+/* 🚀 시작 — 설정 화면을 닫고, 아직 대화 전이면 첫 인사를 부른다.
+   ⚠️ 이미 대화가 시작된 뒤(⋮ 메뉴에서 다시 연 경우)에는 새 인사를 만들지 않는다.
+      바뀐 눈높이는 «다음 발화» 부터 적용된다 — withCtx 가 매 요청에 age_group·difficulty
+      를 함께 보내므로, 대화를 끊지 않고도 그 자리에서 바뀐다. */
+function startWarmup(){
+  closeSetup();
+  if(_warmStarted){
+    if(typeof addMsg==='function'){
+      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + _warmLevel + '단계(' + LEVEL_NAMES[_warmLevel] + ')로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
+    }
+    return;
+  }
+  _warmStarted = true;
+  try{ initGreeting(); }catch(e){}
+}
+setAge(_warmAge);   // 저장된 연령대로 메뉴 버튼/표시 초기화
 // 영어 원어민 보이스 점수화(en-US/en-GB 자연스러운 보이스 우선) — 게임/아바타와 동일 취지
 function _scoreVoice(v){
   var n=(v.name||'').toLowerCase(), lang=(v.lang||'').toLowerCase(), s=0;
@@ -1045,6 +1399,7 @@ function fallbackGreeting(){
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
+  body.age_group = _warmAge;      // 🧑‍🎓 현재 연령대(kid/child/teen/adult) — 소재·말투 축
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
@@ -1058,7 +1413,10 @@ function updateTopicChip(){
   if(WCTX.textbook) t.textContent = '📚 ' + WCTX.textbook + (WCTX.lesson_no ? (' L' + WCTX.lesson_no) : '');
   else t.textContent = LESSON_TOPIC || '자유 대화';
 }
-(async function initGreeting(){
+/* ⚠️ 예전에는 이 자리가 즉시실행(IIFE)이라 «페이지가 열리자마자» 첫 질문이 나갔다.
+   그러면 연령·수준을 고르기 전에 이미 엉뚱한 눈높이로 말이 나가 되돌릴 수 없다.
+   → 이제 시작 버튼(startWarmup)이 부른다. 설정을 건너뛰려면 ?setup=0 을 붙인다. */
+async function initGreeting(){
   try{
     var qs = new URLSearchParams();
     var uid = getLoginId(); if(uid) qs.set('user_id', uid);
@@ -1113,6 +1471,14 @@ function updateTopicChip(){
     }catch(e){ try{ typing.remove(); }catch(_){} }
   }
   fallbackGreeting();
+}
+
+/* ── 4-1. 부팅 — «설정 먼저, 대화는 그 다음» ─────────────────────
+   ?setup=0 이면 곧바로 대화를 시작한다(수업 흐름에서 이미 눈높이를 정해 보낼 때).
+   그 외에는 항상 설정 화면부터 — 지난번 고른 값이 미리 선택돼 있어 한 번만 누르면 시작된다. */
+(function bootWarmup(){
+  if(String(Q.get('setup')||'') === '0'){ startWarmup(); return; }
+  openSetup(false);
 })();
 
 /* ══════════════════════════════════════════════════════════════════

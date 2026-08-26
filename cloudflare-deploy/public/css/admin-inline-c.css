@@ -11,11 +11,26 @@
       #mi-sd-backdrop.is-open{ opacity:1; visibility:visible; }
 
       /* 컨테이너: 우하단 코너 고정, 세로 정렬(액션 위 / 트리거 아래), 중심선 일치 */
+      /* 🔴 (2026-08-21) pointer-events:none 이 «장식» 이 아니다 — 이게 없으면 접힌 액션 3개가
+         «안 보이는 채로 자리만 차지» 하면서 그 상자 전체가 클릭을 가로챈다.
+         접힌 상태의 .mi-sd-action 은 opacity:0 + pointer-events:none 이지만 display 는 살아 있어서
+         컨테이너 높이가 그대로 남기 때문이다. 실측(2026-08-21):
+             1400px  상자 108x396  보이는 아바타 108px → 위 289px 이 투명하게 클릭 차단
+              900px  상자  83x305  보이는 아바타  83px → 위 222px
+              482px  상자  83x305  보이는 아바타  83px → 위 222px
+         그 구간에 걸린 폼 칸은 «보이는데 안 눌린다» 가 된다(수강신청 시간칸 ⏰ 가 실제로 그랬다).
+         ✅ 상자는 통과시키고, 실제로 눌러야 하는 것(아바타 · 펼친 액션)에만 auto 를 되돌린다.
+         ⛔ 상자 높이를 줄이는 방식으로 풀지 말 것 — 펼침 애니메이션이 그 높이를 쓴다. */
       #mi-speed-dial{ position:fixed; right:16px; bottom:16px; z-index:9992;
-        display:flex; flex-direction:column; align-items:center; gap:14px; }
+        display:flex; flex-direction:column; align-items:center; gap:14px;
+        pointer-events:none; }
 
       /* 액션 묶음: column-reverse → DOM 첫 항목(AI)이 트리거 바로 위(아래쪽)에 옴 */
-      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px; }
+      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px;
+        pointer-events:none; }
+      /* 눌러야 하는 것만 되살린다 — 아바타는 늘, 액션은 펼쳤을 때만(아래 .is-open 규칙이 auto 로 돌린다) */
+      #mi-ops-fab{ pointer-events:auto; }
+      #mi-speed-dial.is-open #mi-sd-actions{ pointer-events:auto; }
 
       /* 공통 액션 버튼 — 동일 크기 원형 + 통일된 그림자 */
       .mi-sd-action{ position:relative; display:flex; align-items:center; justify-content:center;
@@ -58,20 +73,26 @@
       .mi-sd-ai .mi-sd-chip{ color:#b45309; border:1px solid rgba(180,83,9,0.45); }
 
       /* 메인 트리거 = 상담원 아바타 */
-      #mi-ops-fab{ position:relative; width:64px; height:64px; cursor:pointer; }
-      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:72px; transform:none; max-width:60vw;
-        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:12px; padding:4px 11px;
+      /* 📱 (2026-08-21 사장님 지시) 휴대폰에서 아바타를 64 → 48px 로 줄였다.
+         우하단에 떠 있는 물건이라 좁은 화면에서는 폼 칸을 그만큼 덜 가린다.
+         ⚠️ 48px 아래로는 내리지 말 것 — 손가락 터치 최소 권장이 44px 이고,
+            여기에 테두리 2px 가 안쪽으로 들어가 실제 누를 면은 그보다 작다.
+         ⚠️ 여기 «기본값» 이 곧 휴대폰 값이다 — 아래 @media (min-width:481px) 가 PC 를 83px 로 덮는다.
+            그래서 이 줄을 고치면 PC 는 안 바뀌고 휴대폰만 바뀐다. */
+      #mi-ops-fab{ position:relative; width:48px; height:48px; cursor:pointer; }
+      #mi-ops-fab-label{ position:absolute; right:0; left:auto; bottom:56px; transform:none; max-width:60vw;
+        background:#1a1a1a; color:#ffcc00; font-weight:800; font-size:11px; padding:3px 9px;
         border-radius:999px; white-space:nowrap; box-shadow:0 3px 10px rgba(0,0,0,0.4);
         border:1px solid rgba(255,204,0,0.55); pointer-events:none; transition:opacity .2s ease; }
       #mi-speed-dial.is-open #mi-ops-fab-label{ opacity:0; }
-      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:64px; height:64px;
-        border:3px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
+      #mi-ops-fab-btn{ position:absolute; left:0; bottom:0; width:48px; height:48px;
+        border:2px solid #ffcc00; border-radius:50%; background:#111; overflow:hidden;
         box-shadow:0 6px 18px rgba(0,0,0,0.35); animation: miOpsGlowPulse 1.8s ease-in-out infinite;
         transition:transform .18s ease; }
       #mi-ops-fab-vid{ position:absolute; inset:0; width:100%; height:100%; border-radius:50%;
         object-fit:cover; object-position:center 18%; display:block; pointer-events:none;
         transition:filter .2s ease; }
-      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-6px; border-radius:50%; z-index:-1;
+      #mi-ops-fab-btn::before{ content:""; position:absolute; inset:-4px; border-radius:50%; z-index:-1;
         background:conic-gradient(from 0deg, #ffcc00, #fff7c2, #ffae00, #fff7c2, #ffcc00);
         filter:blur(4px); opacity:.9; animation: miOpsHaloSpin 3s linear infinite; }
       @keyframes miOpsHaloSpin{ to{ transform:rotate(360deg); } }
@@ -82,7 +103,7 @@
       #mi-ops-fab:hover #mi-ops-fab-btn{ transform:scale(1.05); }
       /* 닫기(✕) 오버레이 — 펼쳤을 때 표시 */
       .mi-ops-fab-close{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:26px; font-weight:700;
+        border-radius:50%; background:rgba(17,17,17,0.62); color:#ffcc00; font-size:20px; font-weight:700;
         opacity:0; transform:rotate(-90deg) scale(0.6); pointer-events:none;
         transition:opacity .22s ease, transform .26s cubic-bezier(0.34,1.4,0.5,1); }
       #mi-speed-dial.is-open .mi-ops-fab-close{ opacity:1; transform:rotate(0deg) scale(1); }
@@ -99,6 +120,7 @@
       @media (min-width:481px){
         #mi-ops-fab{ width:83px; height:83px; }
         #mi-ops-fab-btn{ width:83px; height:83px; border-width:4px; }
+        #mi-ops-fab-btn::before{ inset:-6px; }   /* 휴대폰에서 -4px 로 줄인 것을 PC 는 원래대로 */
         #mi-ops-fab-label{ bottom:91px; font-size:15px; padding:5px 13px; }
         .mi-sd-action{ width:60px; height:60px; }
         .mi-sd-chip{ right:70px; font-size:13px; }
@@ -7341,38 +7363,39 @@ button.chip:hover,
   /* 모바일만 오른쪽 여백을 크게 — 드로어 ✕ 버튼 자리를 비운다(56px).
      안 그러면 «필리핀» 칸을 덮는다. PC 에는 ✕ 가 없으니 그 여백이 낭비다. */
   @media (max-width: 1023px) { #mgv2-clock { padding-right: 60px; } }
-  /* 칸 안은 2줄이다 — 윗줄에 «라벨 + 날짜», 아랫줄에 시각.
-     ⚠️ HTML 순서는 라벨 → 시각 → 날짜 그대로다(admin.html 의 mgv2-clock-js 가 그렇게 만든다).
-        자리만 grid 로 바꿨으니 JS 는 건드릴 필요가 없다. */
+  /* 📏 (2026-08-25 사장님) 「날짜랑 «한국»·«필리핀» 빼고 한 줄에」 — 샘플 A안 채택.
+     상자가 «하나» 다. 그 안에 KR·시각 · PH·시각 을 가운데로 모아 한 줄에 놓는다.
+     ⚠️ line-height 를 반드시 못 박는다. 이 파일 바깥(관리자 본문)의 상속값이 1.5~1.7 이라
+        한 줄로 만들어도 상자 높이가 그만큼 부풀어 «줄만 줄고 높이는 그대로» 가 된다
+        (샘플 검증에서 실제로 밟음 — 1.2 를 넣기 전 35px 이 아니라 45px 였다).
+     ⚠️ nowrap 이 빠지면 좁은 폰(≤330px, 아래 ✕ 여백 참고)에서 «09:08:» / «10» 으로 쪼개진다. */
   #mgv2-clock .mgv2-c {
     flex: 1; min-width: 0;
     background: rgba(128,145,180,.13);
     border: 1px solid rgba(128,145,180,.22);
-    border-radius: 8px; padding: 2px 8px 3px;
-    display: grid; grid-template-columns: auto 1fr; align-items: baseline; column-gap: 5px;
+    border-radius: 8px; padding: 3px 8px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    white-space: nowrap; line-height: 1.2;
   }
   /* 🔍 opacity 는 .78 이 하한이다 (2026-08-17 더블체크에서 재서 잡음).
      이 자리 글자는 10~11px 로 작은데 opacity 로 흐리게 하고 있었다. 실제로 재 보니
-     라벨 3.9:1 · 날짜 2.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다
-     — 특히 날짜가 가장 나빴다. .78 로 올리면 셋 다 5.0:1 이 된다.
+     라벨 3.9:1 · 날씨 부제 3.4:1 로 WCAG AA 본문 기준(4.5:1)에 미달했다.
+     .78 로 올리면 5.0:1 이 된다.
      ⚠️ 더 낮추지 마세요. «연하게 보이는 게 예쁘다» 는 이유로 내리면 40~50대 사장님·
         직원 화면에서 글자가 사라집니다. 흐리게 할 거면 opacity 대신 글자 크기를
         키우세요(18.66px 이상 굵은 글씨는 3:1 만 넘으면 됩니다). */
+  /* 라벨(KR·PH)은 자기 시각에 «붙어» 보여야 한다. 음수 margin 은 상자 gap(10px)이
+     라벨↔시각 사이에도 그대로 들어가 «KR   09:08:10» 으로 벌어지는 것을 되돌리는 것이다. */
   #mgv2-clock .mgv2-l {
-    grid-column: 1; grid-row: 1;
-    font-size: 9.5px; font-weight: 700; opacity: .78; letter-spacing: .2px;
-    line-height: 1.2; white-space: nowrap;
+    font-size: 10px; font-weight: 700; opacity: .78; letter-spacing: .6px;
+    margin-right: -5px;
   }
   #mgv2-clock .mgv2-t {
-    grid-column: 1 / -1; grid-row: 2;
-    font-size: 13px; font-weight: 800; line-height: 1.2; letter-spacing: .3px;
+    font-size: 14px; font-weight: 800; letter-spacing: .3px;
     font-variant-numeric: tabular-nums;
   }
-  /* 날짜는 라벨과 «같은 줄» 오른쪽 끝. 좁은 폰에서도 줄바꿈되지 않게 nowrap. */
-  #mgv2-clock .mgv2-d {
-    grid-column: 2; grid-row: 1; justify-self: end;
-    font-size: 9px; opacity: .78; line-height: 1.2; white-space: nowrap;
-  }   /* .55 → .78 : 2.9:1 이었다(위 주석) */
+  /* 가운뎃점은 «두 시각을 가르는» 장식이라 화면낭독기에는 안 읽힌다(aria-hidden). */
+  #mgv2-clock .mgv2-sep { opacity: .32; font-weight: 700; }
 
   /* 🌤 (2026-08-17 사장님) 카가얀데오로(CDO) 날씨 — 시계 바로 밑 한 줄.
      ⚠️ 받아온 게 없으면 js 가 .mgv2-w-empty 를 붙인다 → 줄 자체가 사라진다.
@@ -9588,3 +9611,210 @@ html:not([data-admin-theme="ivory"]) button.tc-act-enter:not(.ph85-head):not(.ph
 #acc-bankacct tr.bk-detail   { background: #f8fafc; }
 #acc-bankacct tr.bk-detail td,
 #acc-bankacct tr.bk-detail th { color: #374151 !important; }
+
+/* ── 🧱 다섯 구역을 «눈으로» 가르기 + 🔃 정렬 헤더 · 🔍 필터 칸 (2026-08-24 사장님 요청) ──
+   [무엇이 문제였나] 「고정비·변동비 / 전월 대비 증감 / 계정과목별 합계 / 거래처별 합계 /
+   출금 내역」 다섯 구역이 **전부 똑같은 `1px solid #e5e7eb`** 라, 스크롤하면 어디서 어디까지가
+   한 덩어리인지 안 보였다(사장님 「선이 흐려서 잘 보이지 않아」).
+   ⛔ 표 «안» 줄까지 굵게 하지 않는다 — 줄이 굵어지면 숫자가 더 안 읽힌다.
+      가르는 것은 «구역» 이고, 표 안은 지금의 얇은 줄(`#f1f5f9`)이 맞다.
+   ✅ 구역은 ① 테두리 2px ② 왼쪽 6px 색 띠(구역마다 다른 색) ③ 제목 밑 2px 줄
+      ④ 구역 사이 여백 22px — 네 가지로 가른다. 색 띠만으로도 스크롤 중에 위치를 안다.
+   ⛔ hover 에 `transform`·`scale` 을 넣지 않는다(CLAUDE.md 1-3 「hover 확대 금지」).
+   ⚠️ 값이 `!important` 인 이유는 이 파일 전역 규칙(3866·8473·8743행 등)이 인라인 style 을
+      통째로 이기기 때문이다. 조상 id(`#acc-bankacct`)를 앞에 붙여야 그것을 다시 이긴다. */
+#acc-bankacct .bk-sec {
+  /* 🪤 배경을 여기서 «흰색으로 못 박는» 이유 — 화면 쪽 인라인 `background:#fff` 는 이 파일의
+     옛 다크 규칙에 지고, 그 «어두워진 계산값» 을 본 `js/adm-s13.js` 페인터가 이 상자를
+     밝게 다시 칠하면서 **`border-color` 까지 인라인 `!important` 로** 덮어쓴다.
+     실측(2026-08-24): 아래 색 띠가 다섯 구역 모두 `rgba(15,23,42,0.1)` 로 나왔다 —
+     인라인 `!important` 는 어떤 CSS 도 못 이기므로 «칠해지지 않게» 막는 것이 유일한 길이다.
+     ✅ 배경이 처음부터 흰색이면 페인터의 `isDarkGray()` 가 거짓이라 손을 대지 않는다.
+     ⛔ 페인터를 고치거나 예외로 빼지 말 것 — 그건 어두운 면의 가독성 구제다. */
+  background-color: #ffffff !important;
+  background-image: none !important;
+  border: 2px solid #cbd5e1 !important;
+  border-left: 6px solid #94a3b8 !important;
+  border-radius: 10px !important;
+  margin-bottom: 22px !important;
+  padding: 14px !important;
+}
+#acc-bankacct .bk-sec-recur  { border-left-color: #0f4c81 !important; }
+#acc-bankacct .bk-sec-movers { border-left-color: #b45309 !important; }
+#acc-bankacct .bk-sec-cats   { border-left-color: #6d28d9 !important; }
+#acc-bankacct .bk-sec-payees { border-left-color: #0f766e !important; }
+#acc-bankacct .bk-sec-rows   { border-left-color: #334155 !important; }
+#acc-bankacct .bk-sec-h {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 13.5px !important; font-weight: 800 !important;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 7px;
+  margin-bottom: 10px !important;
+}
+
+/* 🔍 필터 줄 — `[id^="card-"] select`(3866행)가 13.5px·8px 12px 로 부풀리고
+   `#legacy-cards select`(8473행)가 폭을 100% 로 늘린다. 여기서 되살린다.
+   ⚠️ `box-sizing` 을 함께 적어야 테두리가 폭 밖으로 나가지 않는다(2장 「표 안의 작은 버튼」). */
+#acc-bankacct .bk-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+#acc-bankacct .bk-tools input.bk-filter,
+#acc-bankacct .bk-tools select.bk-filter-sel {
+  font-size: 12px !important;
+  padding: 5px 8px !important;
+  max-width: 230px !important;
+  width: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 6px !important;
+}
+#acc-bankacct .bk-count { font-size: 11px !important; color: #6b7280 !important; font-weight: 400 !important; }
+
+/* 🔃 정렬 — 법인카드 표(.pr-th)와 «같은 조작»(헤더 클릭 = 내림→오름→해제, Shift+클릭 = 2차 키).
+   ⚠️ 공용 `.pr-th` 규칙은 미디어쿼리 안에 있어 여기까지 안 온다. 그래서 값을 다시 적는다.
+   ⛔ 정렬 해제를 `<button>` 으로 만들지 말 것 — `details.menu-card button` 전역 규칙이
+      인디고 그라데이션 알약(padding 9px 18px)으로 바꿔 제목줄을 밀어낸다(2장). */
+#acc-bankacct .pr-th { cursor: pointer; user-select: none; position: relative; padding-right: 22px !important; }
+#acc-bankacct .pr-th:hover { background: #f3f4f6; }
+#acc-bankacct .pr-th .pr-arrow { position: absolute; right: 5px; font-size: 10px; color: #9ca3af !important; font-weight: 700; }
+#acc-bankacct .pr-th.pr-active { background: #eff6ff; }
+#acc-bankacct .pr-th.pr-active .pr-arrow { color: #1e40af !important; }
+#acc-bankacct .bk-sortnote { font-size: 11px !important; font-weight: 400 !important; display: inline-flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+#acc-bankacct .bk-sortchip { background: #dbeafe; color: #1e40af !important; padding: 2px 7px; border-radius: 4px; font-weight: 700; }
+#acc-bankacct .bk-clear { color: #1e40af !important; cursor: pointer; font-weight: 700; text-decoration: underline; }
+#acc-bankacct .bk-clear:focus-visible { outline: 2px solid #1e40af; outline-offset: 1px; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🔑 강사 정보 수정 「로그인 계정」의 «비밀번호 변경» 버튼 (2026-08-24)
+   [증상] 파랑(#2563eb)으로 인라인 지정했는데 브라우저 실측은 흰 버튼이었다
+          — background rgb(255,255,255) · color rgb(52,64,84) · padding 9px 18px.
+   [왜] 이 버튼엔 class 가 없었다 → 9072·9129 행의 «클래스가 없다 = 의도한 색이 없다»
+        규칙(`[id^="card-"] button:not([class])` → #ffffff !important)이 인라인을 이겼다.
+        작성자 !important 는 인라인보다 세다(2장 「관리자 버튼에 색을 줬는데 흰색」).
+   [고침] ① 클래스를 붙여 그 두 규칙의 대상에서 빠지고
+          ② 남는 경쟁자 `details.table-card.menu-card button:not(…)`(0,5,2) 를
+             아래 (0,6,1) 로 이긴다 — rm-act 계열(9480행)과 같은 방식이다.
+          ③ 페인터(adm-light-surfaces.js)의 SKIP_SEL 에도 등재했다.
+   ⛔ 색을 인라인으로 되돌리지 말 것 — 화면에 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"](3894·9012행)에 걸린다.
+   ═══════════════════════════════════════════════════════════════════════ */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  padding: 7px 14px !important; font-size: 12.5px !important; font-weight: 700 !important;
+  background: #2563eb !important; background-image: none !important;
+  color: #fff !important; border: 0 !important; border-radius: 6px !important;
+  box-shadow: none !important; transform: none !important;
+  cursor: pointer !important; white-space: nowrap !important;
+}
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):hover{
+  background: #1d4ed8 !important;
+}
+/* 연결된 로그인 계정이 없으면 비활성 — «누를 수 있는데 안 되는» 버튼으로 보이지 않게 */
+button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):disabled{
+  background: #cbd5e1 !important; color: #64748b !important; cursor: not-allowed !important;
+}
+
+/* ── 🧾 「카페24 회계 실데이터 ▸ 지출결의」 도구 줄 · 표 (2026-08-24 사장님 요청) ──────
+   [왜 여기(파일 맨 끝)에, 왜 조상 id 를 앞에 붙이나]
+   이 카드 안에서는 아래 전역 규칙들이 **인라인 style 을 `!important` 로 이깁니다**:
+     · `details.menu-card button{ background:인디고 그라데이션 !important; padding:9px 18px !important }`
+     · `details.menu-card input:not(...)/select{ background:rgba(15,23,42,.75) !important; padding:8px 12px !important }`
+     · `[id^="card-"] :is(p,span,div,b,strong…){ color:#101828 !important }`
+   그래서 ① 칩·검색칸을 `<button>`·`<select>` 로 만들지 않고 `<span>`·`<input>` 으로 세우고
+        ② 모양은 **조상 id(#sub-c24-finance = ID 한 칸)** 를 앞에 붙여 여기서만 되살립니다.
+   ⛔ 전역 규칙을 고쳐서 풀지 말 것 — 관리자 화면 전체의 버튼·입력칸이 걸립니다.
+   ⛔ hover 에 `transform`·`scale` 을 쓰지 말 것(CLAUDE.md 1-3 「hover 확대 금지」). 강조는 색만.
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — `[class$="-btn"]` 규칙에 다시 걸립니다.
+   ✅ 색은 `background-color:` 로 줍니다(`background:linear-gradient(...)` 는 옛 다크 규칙에 걸립니다). */
+#sub-c24-finance #c24fin-tools { margin: 2px 0 10px; }
+#sub-c24-finance #c24fin-tools .c24x-row {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 11px; border-radius: 999px; cursor: pointer;
+  font-size: 12px !important; font-weight: 700;
+  background-color: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1;
+  user-select: none;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip b { color: #64748b !important; font-weight: 800; }
+#sub-c24-finance #c24fin-tools .c24x-chip:hover { background-color: #e2e8f0 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on {
+  background-color: #1d4ed8 !important; border-color: #1d4ed8;
+  color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-on b { color: #dbeafe !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip:focus-visible { outline: 2px solid #1d4ed8; outline-offset: 2px; }
+/* 「다수와 다른 상태」 — 확인하러 가야 하는 줄이라 색을 따로 준다 */
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd {
+  background-color: #fef3c7 !important; border-color: #f59e0b; color: #92400e !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd b { color: #b45309 !important; }
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on {
+  background-color: #b45309 !important; border-color: #b45309; color: #ffffff !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-chip.c24x-odd.c24x-on b { color: #fef3c7 !important; }
+/* 검색칸 — 전역 다크 입력 규칙(3515행)을 이 카드에서만 되돌린다.
+   `box-sizing` 을 함께 적어야 테두리가 폭 안에 들어온다(2장 「표 안의 작은 버튼」과 같은 사정). */
+#sub-c24-finance #c24fin-tools input.c24x-q {
+  flex: 1 1 190px; min-width: 150px; max-width: 340px;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-sizing: border-box !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-n { font-size: 12px !important; color: #64748b !important; margin-left: auto; }
+#sub-c24-finance #c24fin-tools .c24x-note {
+  margin-top: 7px; font-size: 11.5px !important; line-height: 1.6;
+  color: #6b7280 !important;
+}
+#sub-c24-finance #c24fin-tools .c24x-note b { color: #b45309 !important; }
+/* 정렬 헤더 — 「신한 계좌」 화면과 같은 조작(한 번 누르면 뒤집힌다) */
+#sub-c24-finance #c24fin-table th.c24x-th { cursor: pointer; user-select: none; }
+#sub-c24-finance #c24fin-table th.c24x-th:hover { color: #1d4ed8 !important; }
+#sub-c24-finance #c24fin-table th.c24x-sorted { color: #1d4ed8 !important; }
+/* 분류(추정) 배지 — 원본 값이 아니라 우리가 지은 것이라 색을 옅게 둔다 */
+#sub-c24-finance #c24fin-table .c24x-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px !important; font-weight: 700; white-space: nowrap;
+  background-color: #f1f5f9 !important; color: #475569 !important;
+}
+#sub-c24-finance #c24fin-table .c24x-tag-salary { background-color: #dbeafe !important; color: #1e40af !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-tax    { background-color: #ede9fe !important; color: #5b21b6 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-fac    { background-color: #dcfce7 !important; color: #166534 !important; }
+#sub-c24-finance #c24fin-table .c24x-tag-loan   { background-color: #ffe4e6 !important; color: #9f1239 !important; }
+/* 상태 — 코드의 «뜻» 을 모르므로 이름을 붙이지 않는다. 다수와 다른 값만 눈에 띄게 한다. */
+#sub-c24-finance #c24fin-table .c24x-st { color: #64748b !important; font-weight: 700; }
+#sub-c24-finance #c24fin-table .c24x-st-odd {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  background-color: #fef3c7 !important; color: #92400e !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ↕️ 「카페24 회계 실데이터」 표 — «지금 이 칸으로 정렬 중» 강조 (2026-08-24)
+
+   [왜 여기 있나] 이 강조를 JS 인라인 style 로 주면 **화면에 안 나옵니다.**
+   실측(1440×900, getComputedStyle): 인라인 color:#b45309 → 실제 rgb(16,24,40),
+   인라인 border-bottom:2px solid #f59e0b → 실제 0.769px rgba(15,23,42,.1).
+   이기는 규칙 두 개가 이 파일에 있습니다(테마 조건부가 아닙니다 —
+   admin.html 이 data-admin-theme="ivory"·data-admin-tone="slate" 를 무조건 박습니다):
+     · 8770행  …[id^="card-"] :is(…,span,th,…) { color:#101828 !important }
+     · 8793행  … table th { border-bottom:1px solid rgba(15,23,42,.10) !important }
+   작성자 !important 는 인라인도 이깁니다(CLAUDE.md 2장 「카드 안 글자에 색을 줬는데」).
+
+   [그래서] 클래스로 주고, **조상 id 두 개**를 앞에 붙여 이깁니다(2,1,1 / 2,1,0).
+   ⛔ 색을 JS 인라인으로 되돌리지 마세요 — 화면엔 안 나오는데 코드만 보면 나오는 줄 압니다.
+   ⛔ 이 강조가 사라져도 «무슨 정렬인지» 는 ▲▼ 기호와 안내 줄(#c24fin-sortnote)이
+      말로 지고 갑니다 — 색은 거들 뿐입니다(어두운 면에서 색이 눌리는 화면이라).
+   ═══════════════════════════════════════════════════════════════════════ */
+#card-accounting-mgmt #c24fin-head th.c24fin-on,
+#card-accounting-mgmt #c24fin-head th.c24fin-on span {
+  color: #b45309 !important;
+}
+#card-accounting-mgmt #c24fin-head th.c24fin-on {
+  border-bottom: 2px solid #f59e0b !important;
+}
+#card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
+  color: #b45309 !important; font-weight: 700 !important;
+}

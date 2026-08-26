@@ -43,6 +43,7 @@ PRIMARY="https://test.mangoi.co.kr"
 FALLBACK="https://webrtc-unified-platform.navy111p.workers.dev"
 
 FAIL_THRESHOLD=2        # 연속 몇 회 실패해야 장애로 볼 것인가 (5분 간격 × 2 = 10분)
+TURN_FAIL_THRESHOLD=3   # 📶 TURN 경로는 «장애» 가 아니라 «설정» 이라 더 느긋하게 본다 (5분 × 3 = 15분)
 CURL_TIMEOUT=15
 
 # 외부 명령은 «이름» 이 아니라 «변수» 로 부른다. 운영에서는 그냥 curl·openssl 이다.
@@ -218,13 +219,42 @@ if [ -z "$REASON" ]; then
   esac
 fi
 
+# ── 2-2) 📶 TURN 경로 점검 : 화상수업이 «무료 공용 TURN» 으로 흐르고 있지 않나 ──
+#  🔴 2026-08-26 실사고. TURN_KEY_ID/TURN_KEY_API_TOKEN 이 워커에 설정돼 있지 않아
+#     모든 수업이 openrelay.metered.ca(무료 공개)로 릴레이되고 있었다. 사이트는 200,
+#     D1 도 cron 도 정상 — 이 감시견의 기존 네 가지 판정에는 **한 개도 안 걸린다.**
+#     그런데 실제로는 RTT 389~629ms(손실은 낮음), 강사 재입장률 61.9% 였고
+#     사장님께는 「가끔 튕긴다」로만 보였다. «조용한 장애» 의 전형이다.
+#  ⚠️ 이건 «죽음» 이 아니라 «설정» 이라 위 REASON 체계에 섞지 않는다 — 섞으면
+#     복구 문자가 「사이트가 정상 복구되었습니다」로 나가 사람을 헷갈리게 한다.
+#     상태도 문자도 따로 관리한다.
+#  ⛔ 측정에 «실패» 했을 때는 경보하지 않는다(TURN_SRC 가 빈 값). 그 경우는 사이트
+#     자체가 이상한 것이고, 위 얕은/심층 점검이 이미 담당한다. 여기서 또 울면 이중 경보다.
+#  ⛔ 사이트가 이미 이상할 때(REASON 있음)는 아예 재지 않는다.
+TURN_SRC=""
+if [ -z "$REASON" ]; then
+  _tbase="$PRIMARY"; [ "$PRIMARY_OK" = "1" ] || _tbase="$FALLBACK"
+  # 헤더 이름은 HTTP/2 에서 소문자로 온다 — 양쪽 다 받는다.
+  TURN_SRC=$("$CURL" -s -o /dev/null -m "$CURL_TIMEOUT" -D - "$_tbase/api/turn-config" 2>/dev/null \
+    | tr -d '\r' | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+fi
+
 # ── 3) 판정 : 연속 실패 누적 ──────────────────────────────────────────────
-PREV_STATE=up; FAILS=0
+PREV_STATE=up; FAILS=0; PREV_TURN=ok; TFAILS=0
 if [ -f "$STATE" ]; then
   # shellcheck disable=SC1090
   . "$STATE"
   PREV_STATE="${PREV_STATE:-up}"; FAILS="${FAILS:-0}"
+  PREV_TURN="${PREV_TURN:-ok}"; TFAILS="${TFAILS:-0}"
 fi
+
+# 📶 TURN 판정 — 오직 'public-fallback' 만 «나쁨» 이다.
+#    'last-known-good' 은 CF 가 잠깐 흔들리는 중이고 자격증명은 아직 진짜라 수업은 정상이다.
+#    빈 값(측정 실패)은 «모름» 이라 어느 쪽으로도 상태를 바꾸지 않는다 — 모르는 것을 단정하지 않는다.
+if [ "$TURN_SRC" = "public-fallback" ]; then TFAILS=$((TFAILS + 1)); else TFAILS=0; fi
+CUR_TURN=$PREV_TURN
+if [ "$TFAILS" -ge "$TURN_FAIL_THRESHOLD" ]; then CUR_TURN=bad
+elif [ "$TFAILS" -eq 0 ] && [ -n "$TURN_SRC" ]; then CUR_TURN=ok; fi
 
 if [ -n "$REASON" ]; then
   FAILS=$((FAILS + 1))
@@ -239,10 +269,10 @@ elif [ "$FAILS" -eq 0 ]; then
   CUR_STATE=up
 fi
 
-log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE"
+log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn='${TURN_SRC:-unknown}' tfails=$TFAILS turnstate=$PREV_TURN->$CUR_TURN"
 
 if [ "$TEST_MODE" = "1" ]; then
-  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE"
+  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn=${TURN_SRC:-unknown} turnstate=$PREV_TURN->$CUR_TURN"
   echo "(--test 는 상태를 저장하지도, 문자를 보내지도 않습니다)"
   exit 0
 fi
@@ -268,8 +298,26 @@ if [ "$CUR_STATE" != "$PREV_STATE" ]; then
   fi
 fi
 
+# ── 5) 📶 TURN 경로가 바뀐 순간에만 1회 ────────────────────────────────────
+#  장애 문자와 «따로» 보낸다. 같은 문장에 섞으면 복구 안내가 서로를 가린다.
+if [ "$CUR_TURN" != "$PREV_TURN" ]; then
+  if [ "$CUR_TURN" = "bad" ]; then
+    TMSG="[망고아이] 📶 화상수업이 «무료 공용 TURN» 으로 연결되고 있습니다(15분 연속). 사이트는 정상이지만 영상 지연·끊김이 잦아집니다. Cloudflare TURN 키(TURN_KEY_ID / TURN_KEY_API_TOKEN)를 워커 두 벌 모두에 넣어 주세요."
+  else
+    TMSG="[망고아이] ✅ 화상수업 TURN 경로가 정상(Cloudflare)으로 돌아왔습니다."
+  fi
+  # send_sms 의 «워커 경유» 보조 경로가 REASON·CUR_STATE 를 읽는다 — 잠깐 빌려 쓰고 되돌린다.
+  _sv_reason="$REASON"; _sv_state="$CUR_STATE"
+  REASON="turn"; [ "$CUR_TURN" = "bad" ] && CUR_STATE=down
+  if send_sms "$TMSG"; then :; else
+    log "WARN TURN 알림 발송 실패 → TURN 상태 저장을 보류합니다 (will retry next run)"
+    CUR_TURN="$PREV_TURN"   # 저장하지 않는다 = 다음 회차(5분 뒤)에 다시 시도
+  fi
+  REASON="$_sv_reason"; CUR_STATE="$_sv_state"
+fi
+
 if [ "$SAVE" = "1" ]; then
   mkdir -p "$(dirname "$STATE")"
-  printf 'PREV_STATE=%s\nFAILS=%s\n' "$CUR_STATE" "$FAILS" > "$STATE"
+  printf 'PREV_STATE=%s\nFAILS=%s\nPREV_TURN=%s\nTFAILS=%s\n' "$CUR_STATE" "$FAILS" "$CUR_TURN" "$TFAILS" > "$STATE"
 fi
 exit 0

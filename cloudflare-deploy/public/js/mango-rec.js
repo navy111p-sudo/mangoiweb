@@ -33,6 +33,25 @@
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
 
+  /* 👁 참관(Ghost) 중에는 녹화하지 않는다 (2026-08-26 사장님 지시)
+     ─────────────────────────────────────────────────────────────────────
+     참관자는 «투명 유령» 이다 — 서버(video-call-room.ts handleJoinObserve)가 인원수·
+     입퇴장 방송 어디에도 안 넣고, 미디어도 한 트랙도 안 보낸다. 그런데 자동녹화는
+     «수업 화면에 들어왔는가»(body.vc-in-call)만 보고 돌아서 참관자도 함께 녹화를 켰다.
+     실측(2026-08-26 사장님 화면): `class-943` 에 「관찰자」 이름으로 시작된 녹화 두 건이
+     30분 넘게 「● 녹화중」 으로 남아 있었다 — 참관자가 창을 닫을 때 종료 신호가 안 가서
+     크론이 12시간 뒤에야 정리한다. 같은 수업을 두세 벌 찍는 셈이라 저장 비용도 는다.
+     ⚠️ 판정 근거는 vc-observe-guard.js 의 observing() 과 «같은 것» 을 쓴다. 이름(「관찰자」)
+        으로 가르지 않는다 — 그건 사람이 바꿀 수 있는 표시일 뿐이다. */
+  function isObserverNow() {
+    try {
+      if (window._vcObserverMode === true) return true;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver === true) return true;
+      if (document.body && document.body.classList.contains('vc-observer')) return true;
+    } catch (_) { /* 아직 선언 전이면 참관이 아니다 */ }
+    return false;
+  }
+
   // 🌐 강사 다수가 필리핀이라 이 배지의 모든 문구는 한/영 두 벌을 갖는다.
   function isEn() {
     try { return (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) { return false; }
@@ -54,6 +73,17 @@
   let r2CompleteSent = false;
   let chunkBuffer = [];
   let chunkBufferSize = 0;
+  // 🛟 스냅샷 — «아직 조각이 하나도 안 올라간» 구간의 안전망 (2026-08-25)
+  //   R2 는 비마지막 파트가 5MiB 이상이어야 해서, 2.5Mbps 기준 첫 ~17초는 서버에 아무것도 없다.
+  //   그 사이 탭이 닫히면 abort 가 나가고 영상이 통째로 사라졌다(2026-08-25 실측 6건).
+  //   → 그 구간 동안만 «지금까지의 버퍼 전체» 를 통짜 파일로 한 번씩 올려 둔다.
+  //   서버는 `<키>.snap` 에 저장하고, multipart 가 끝나면(complete) 지운다.
+  let snapNextAt = 0;      // 다음 스냅샷 예정 시각(ms)
+  let snapCount = 0;       // 이번 녹화에서 올린 스냅샷 수
+  let snapInFlight = false;
+  const SNAP_FIRST_MS = 9000;    // 첫 스냅샷 — 파트가 생기기 한참 전
+  const SNAP_EVERY_MS = 30000;   // 그 뒤 30초마다 (저대역폭 수업은 5MiB 채우는 데 오래 걸린다)
+  const SNAP_MAX = 15;
   // 🔴 2026-08-04: R2 는 «마지막 파트를 뺀 나머지 파트가 1바이트도 틀리지 않고 같은 크기»가
   //   아니면 completeMultipartUpload 를 통째로 거부한다(오류 10048). 예전엔 «5MB 넘으면
   //   모아둔 걸 통째로» 올려서 파트 크기가 제각각이었고, 비마지막 파트가 2개 이상 되는
@@ -711,6 +741,34 @@
     }
   }
 
+  // 🛟 스냅샷 보내기 — 조각이 아직 하나도 안 올라간 동안에만.
+  //   ⚠️ 버퍼를 비우지 않는다. 이건 «사본» 이고, 정본은 여전히 multipart 다.
+  function maybeSnapshot() {
+    if (!r2InitDone || !r2Key) return;
+    if (r2PartNumber > 0) return;          // 조각이 하나라도 올라갔으면 안전망이 필요 없다
+    if (snapInFlight || snapCount >= SNAP_MAX) return;
+    if (chunkBufferSize <= 0) return;
+    const now = Date.now();
+    if (!snapNextAt) snapNextAt = (startedAt || now) + SNAP_FIRST_MS;
+    if (now < snapNextAt) return;
+    snapInFlight = true;
+    snapNextAt = now + SNAP_EVERY_MS;
+    const body = new Blob(chunkBuffer, { type: 'video/webm' });
+    const key = r2Key;
+    fetch('/api/recordings/upload/snapshot?key=' + encodeURIComponent(key),
+          { method: 'PUT', body: body })
+      .then(function (res) {
+        if (res.ok) {
+          snapCount += 1;
+          console.log('[mango-rec] 스냅샷 저장:', snapCount, (body.size / 1048576).toFixed(2) + 'MB');
+        } else {
+          console.warn('[mango-rec] 스냅샷 실패:', res.status);
+        }
+      })
+      .catch(function (err) { console.warn('[mango-rec] 스냅샷 에러:', err); })
+      .then(function () { snapInFlight = false; });
+  }
+
   // 남은 버퍼를 마지막 파트로 (마지막 파트만 PART_SIZE 미만 허용)
   function flushBuffer() {
     if (chunkBuffer.length === 0) return;
@@ -798,6 +856,9 @@
     r2CompleteSent = false;   // 새 녹화에서는 다시 beforeunload 안전망이 살아나야 한다
     chunkBuffer = [];
     chunkBufferSize = 0;
+    snapNextAt = 0;
+    snapCount = 0;
+    snapInFlight = false;
   }
  
   function onBeforeUnload() {
@@ -824,6 +885,10 @@
         } catch (_) {}
       }
     } else {
+      // 조각이 하나도 없다 = 아직 5MiB 를 못 채운 «짧은 녹화».
+      // ⛔ 예전엔 이 abort 로 녹화가 통째로 사라졌다. 지금은 서버가 abort 를 받으면
+      //    `<키>.snap` 스냅샷을 진짜 키로 되살린다(recordings-r2.ts promoteSnapshot).
+      //    그러니 abort 는 그대로 보내야 한다 — 이게 «되살려라» 신호를 겸한다.
       try {
         navigator.sendBeacon('/api/recordings/upload/abort',
           new Blob([JSON.stringify({ recording_id: recordingId, key: r2Key, upload_id: r2UploadId })], { type: 'application/json' })
@@ -837,6 +902,15 @@
   // auto: true면 자동 녹화 (팝업/alert 없이 진행)
   async function startRecording(opts) {
     const auto = opts && opts.auto;
+    // 👁 참관자는 녹화하지 않는다 — 버튼·자동·그 밖의 어떤 경로든 여기를 지난다
+    if (isObserverNow()) {
+      console.log('[mango-rec] 참관 중 — 녹화하지 않습니다');
+      if (!auto) {
+        try { alert(isEn() ? '👁 Observing — recording is off while you observe.'
+                           : '👁 참관 중에는 녹화하지 않습니다.'); } catch (_) {}
+      }
+      return;
+    }
     // 재진입 방지: isRecording은 MediaRecorder.start() 이후에야 true가 되므로,
     // 그 사이(DB INSERT/R2 create 대기 중)에 두 번째 호출이 들어오면 중복 DB 행이 생김.
     // _recStartInFlight 를 시작 시점에 즉시 세팅해 race를 차단한다.
@@ -939,6 +1013,10 @@
         recordedChunks.push(e.data);
         // R2에도 버퍼링
         bufferChunk(e.data);
+        // 🛟 조각이 아직 하나도 안 올라간 구간이면 스냅샷 한 장.
+        //   ⚠️ bufferChunk 안에서 부르지 말 것 — rec_multipart_uniform_harness 가 그 함수만
+        //      떼어내 실제로 돌리기 때문에 «파트 크기 균일» 검사가 통째로 깨진다.
+        maybeSnapshot();
       }
     };
     startStallWatch();
@@ -975,7 +1053,11 @@
         await M.api('/api/recordings/stop', {
           recording_id: recordingId,
           duration_ms: duration,
-          size_bytes: blob.size
+          size_bytes: blob.size,
+          // 🔴 2026-08-26: 이 한 줄이 없어서 서버가 «업로드가 됐는지» 를 알 방법이 없었고,
+          //   클라우드에 아무것도 없는 녹화까지 「완료」로 적혔다. 서버는 이 값과 별개로
+          //   실물(head)도 확인하지만, create 부터 실패해 키조차 없는 경우는 이것만이 단서다.
+          r2_success: !!r2Success
         });
       } catch (e) { console.warn('[mango-rec] DB stop 에러:', e); }
  
@@ -1106,7 +1188,8 @@
       var _isDemoRoom = false;
       try { _isDemoRoom = /^demo-\d+$/i.test(String(typeof vcRoomId !== 'undefined' ? vcRoomId : '')); } catch (_) {}
       // 수업 뷰에 있고, 아직 녹화 안 했으면 자동 시작
-      if (inCall && !_isDemoRoom && !isRecording && !autoRecStarted && !autoRecPending) {
+      var _observing = isObserverNow();   // 👁 참관 중이면 자동녹화도, «켜는 배지» 도 없다
+      if (inCall && !_isDemoRoom && !_observing && !isRecording && !autoRecStarted && !autoRecPending) {
         autoRecPending = true;
         // 미디어 스트림 안정화를 위해 3초 대기 후 시작
         setTimeout(async () => {
@@ -1128,7 +1211,7 @@
 
       // 🔴 녹화가 꺼져 있는 동안에도 «다시 켜는 버튼»은 항상 보여야 한다.
       //   (수동 중지 후 · 자동 시작이 실패한 뒤 둘 다 해당 — 예전엔 어느 쪽도 버튼이 없었다)
-      if (inCall && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
+      if (inCall && !_observing && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
     }
 
     // 수업에서 나갔으면 자동녹화 플래그 리셋

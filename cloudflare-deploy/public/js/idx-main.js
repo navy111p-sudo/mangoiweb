@@ -2703,15 +2703,20 @@ async function vcJoinRoom(skipUI) {
         } else if (_isT) {
           /* 오늘 예약이 없는 교사(연습·시연)는 공용방으로 간다 — 이때는 다른 사람이 들어올 수 있음을
              분명히 알려 준다. 예약된 실제 수업은 위에서 각자 방으로 갈리므로 겹치지 않는다. */
-          window.__vcSharedRoomNotice = true;
+          window.__vcSharedRoomNotice = 'teacher';
         } else if (_jd && _jd.student_gate !== 'on') {
           /* 🚪 게이트 꺼짐(기본) = 예전과 100% 동일하게 공용방으로 폴백한다.
              ⛔ 지금 켜면 안 되는 이유: class_schedules 663건 중 «실제 학생 예약» 은 6건뿐이다.
                 518건은 학생이 없는 강사 시간표 점유(user_id='lms', student_name=NULL), 140건은 시드.
                 이 상태로 켜면 대다수 학생이 "예약된 수업이 없어요" 를 만나 입장 자체를 못 한다.
                 카페24 수업을 실제 학생 예약으로 옮긴 뒤 wrangler.toml 의
-                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다. */
-          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방)');
+                VC_STUDENT_ROOM_GATE 를 'on' 으로 바꾸면 아래 차단이 살아난다.
+             ⚠️ (2026-08-24) 그래도 학생에게는 «몰래» 들여보내지 않는다 — 폴백 자체(입장 가능함)는
+                그대로 두고, 교사와 같은 사후 알림 배너(__vcSharedRoomNotice)만 학생용 문구로 띄운다.
+                가로막지 않는 이유: 이 분기로 오는 학생 대부분은 «아직 예약 이관이 안 된» 실제
+                수강생이라 여기서 막으면 그 학생들이 수업에 못 들어간다(위 주석과 같은 사정). */
+          console.log('[vc] student_gate=off → 예전 폴백 유지(공용방, 학생에게는 안내 배너)');
+          window.__vcSharedRoomNotice = 'student';
         } else {
           // ── 학생: 공용방 폴백 금지 (게이트 켜짐) ──
           var _early = _jss.filter(function (s) { return s.status === 'early'; })
@@ -2862,12 +2867,14 @@ async function vcJoinRoom(skipUI) {
     // 🖥 (2026-07-23) 수업에 들어오면 전체화면 — 설정에서 껐으면 건너뛴다.
     //    브라우저가 사용자 조작 없는 요청을 막으면, 다음 터치 때 한 번 더 시도한다.
     try { window.vcGoFullscreen && window.vcGoFullscreen(); } catch(e){}
-    /* 🔒 (2026-07-28) 오늘 예약이 없어 '공용 연습방'으로 들어온 교사에게만 알린다 —
-       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다.
+    /* 🔒 (2026-07-28, 2026-08-24 학생 추가) 오늘 예약이 없어 '공용 연습방'으로 들어온 사람에게 알린다 —
+       "내 방에 다른 선생님이 들어왔다"(Shas·Kaye)의 실제 이유가 이것이다. 학생 쪽은 더 심각하다 —
+       실수로 이 방에서 «수업처럼» 진행하면 다른 학생·강사와 뒤섞인다. 값은 'teacher'|'student'.
        ※ 이 블록은 위 전체화면 호출보다 뒤에 둔다 — 하니스가 'vc-in-call 추가 → 전체화면 호출'
          인접(400자)을 검사하므로, 사이에 코드를 넣으면 그 보장이 깨진다. */
     try {
       if (window.__vcSharedRoomNotice) {
+        var _sharedWho = window.__vcSharedRoomNotice;
         window.__vcSharedRoomNotice = false;
         var _en0 = (typeof getLang === 'function' && getLang() === 'en');
         var _nm = document.getElementById('vc-room-name');
@@ -2878,9 +2885,15 @@ async function vcJoinRoom(skipUI) {
           _nm.parentNode.insertBefore(_tag, _nm.nextSibling);
         }
         setTimeout(function(){
-          alert(_en0
-            ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
-            : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          if (_sharedWho === 'student') {
+            alert(_en0
+              ? "You don't have a class booked for today, so you entered a SHARED practice room — not your real classroom.\n\nOther students/teachers may also be here. Please don't start a lesson here. Check the home screen for your class days/times, and use \"Enter My Class\" when it's actually time."
+              : '오늘 예약된 수업이 없어서, 실제 수업방이 아닌 "공용 연습방"으로 들어왔어요.\n\n다른 학생·강사도 이 방에 있을 수 있어요. 여기서 수업을 진행하지 마세요.\n홈 화면에서 내 수업 요일·시간을 확인하고, 수업 시간이 되면 "오늘 내 수업 바로 입장"을 이용해 주세요.');
+          } else {
+            alert(_en0
+              ? 'You have no class booked for today, so you entered the shared practice room.\n\nOther teachers can also enter this room. For a real class, enter from your booked class - then you get your own room.'
+              : '오늘 예약된 수업이 없어 공용 연습방으로 들어왔어요.\n\n이 방에는 다른 선생님도 들어올 수 있습니다.\n실제 수업은 예약된 수업으로 입장하시면 선생님만의 방으로 들어갑니다.');
+          }
         }, 900);
       }
     } catch(e){}
@@ -3275,19 +3288,16 @@ async function vcJoinRoom(skipUI) {
                     역할 미확정으로 숨어 있었다 → 강사 입장에선 «없어진» 것이 맞다.
              누르는 자리에 진짜 기능을 둔다. 학생이 눌러도 vcShareMyScreen 이 스스로 막는다. */
           { icon:'🖥️', label:'내 컴퓨터 화면 공유 (Share my screen)', onclick:`vcShareMyScreen()` },
-          { icon:'🟦', label:'1/4 화면', onclick:`vcScreenSet('quarter')` },
-          { icon:'🟦', label:'1/2 화면', onclick:`vcScreenSet('half')` },
-          { icon:'🟦', label:'3/4 화면', onclick:`vcScreenSet('threequarter')` },
-          /* 👥 (2026-07-30 강사 피드백 Kaye 18번) "줌·보다처럼 참가자 전체 보기를 넣어달라"
-         → 이 '전체' 모드가 바로 그 기능이었다(얼굴이 화면 전체를 채움). 라벨이 '전체' 뿐이라
-           무엇의 전체인지 알 수 없었고 메뉴에 숨어 있어 못 찾은 것 → 이름을 분명히 한다. */
-      { icon:'👥', label:'참가자 전체 보기 (Gallery)', onclick:`vcScreenSet('full')` },
-          { icon:'📌', label:'PIP', onclick:`vcScreenSet('pip')` },
-          { icon:'👤', label:'솔로', onclick:`vcScreenSet('solo')` },
-          /* 📝📖 (2026-07-30 강사 피드백 Jane) "교재나 칠판만 따로 크게 볼 수 없다 — 같이 커져서 집중이 어렵다"
-             → 이 두 모드가 바로 '하나만 크게'다(다른 쪽을 숨겨 화면을 통째로 씀). 라벨이 '칠판만'·'교재만'
-               뿐이라 '크게 보는 기능'인 줄 몰랐다 → 이름에 '크게'를 넣어 분명히 한다.
-             ※ 교재 내용 자체 확대는 Ctrl(⌘)+휠 로 따로 되고, 그때 다른 화면 요소는 커지지 않는다. */
+          /* 🖼 이름은 크기바(.vsb-seg)와 **한 벌** — 고치면 아래 toast labels 도 함께.
+             📜 왜 이 이름인지: docs/작업기록/260825_얼굴크기컨트롤_그림4칸_2안.md */
+          { icon:'🟦', label:'교재 크게 (Material)', onclick:`vcScreenSet('quarter')` },
+          { icon:'🟦', label:'기본 (Standard)', onclick:`vcScreenSet('half')` },
+          { icon:'🟦', label:'얼굴 크게 (Faces)', onclick:`vcScreenSet('threequarter')` },
+          { icon:'👥', label:'모두 보기 (Gallery)', onclick:`vcScreenSet('full')` },
+          { icon:'📌', label:'교재 전체 + 작은 얼굴 (PIP)', onclick:`vcScreenSet('pip')` },
+          /* ⛔ '솔로'라 부르지 말 것 — ⋯ 메뉴의 vcToggleSolo(='내 얼굴만')와 **반대 동작**이다.
+             이쪽은 video-solo 라 얼굴이 통째로 사라지고 교재만 남는다. */
+          { icon:'👤', label:'영상 끄고 교재만 (Video off)', onclick:`vcScreenSet('solo')` },
           { icon:'📝', label:'칠판만 크게 (Board only)', onclick:`vcScreenSet('boardonly')` },
           { icon:'📖', label:'교재만 크게 (Book only)', onclick:`vcScreenSet('bookonly')` },
         ],
@@ -3398,7 +3408,8 @@ async function vcJoinRoom(skipUI) {
         }
       } catch(e){}
       // 사용자 피드백 토스트
-      const labels = { quarter:'1/4', half:'1/2', threequarter:'3/4', full:'전체 영상', pip:'📖 교재 크게', facepip:'🧑‍🎓 학생 얼굴 크게', solo:'영상 끔(솔로)', boardonly:'📝 칠판만', bookonly:'📖 교재만', hidefaces:'🙈 얼굴 숨김 (수업은 계속 참여 중)' };
+      // ⚠️ 위 VC_FOLDERS.screen 의 label 과 **같은 말**이어야 한다.
+      const labels = { quarter:'교재 크게', half:'기본', threequarter:'얼굴 크게', full:'모두 보기', pip:'교재 전체 + 작은 얼굴', facepip:'얼굴 전체 + 작은 교재', solo:'영상 끄고 교재만', boardonly:'칠판만 크게', bookonly:'교재만 크게', hidefaces:'얼굴 숨김 (수업은 계속 참여 중)' };
       try {
         const t = document.createElement('div');
         t.textContent = '🖥️ 화면 모드: ' + (labels[mode] || mode);
@@ -5029,7 +5040,7 @@ function vcArmFullscreenRetry() {
                 pc.__qPrev = { lost: lost, sent: sent };
                 const dLost = Math.max(0, lost - prev.lost);
                 const dSent = Math.max(0, sent - prev.sent);
-                if (dSent + dLost < 25) return;  // 표본 부족(영상 꺼짐 등) — 판단 보류
+                if (dSent + dLost < 25) { try { vcQualityAcc(-1, rtt); } catch (_) {} return; }  // 표본 부족(영상 꺼짐/죽음) — 화질 판단은 보류, 기록은 «영상 없음» 으로 남긴다(js/idx-vc-qlog.js)
                 const lossPct = 100 * dLost / (dSent + dLost);
                 let step = pc.__qStep || 0;
                 if (lossPct > 6 || rtt > 450) {
@@ -5128,30 +5139,7 @@ function vcAAONotify(html) {
     } catch (_) {}
 }
 
-/* 📶 회선품질 로깅 — 적응루프에서 손실/RTT를 누적, 60초마다 요약 1건 전송(fire-and-forget, 통화 무관). 강사별 인터넷 품질 파악용.
-   🟢 (2026-07-24 비용절감) 30초 → 60초. 이 값은 '강사 회선이 대체로 어떤가'를 보는 용도라 1분 요약으로 충분하다. D1 쓰기 2배 감소. */
-function vcQualityAcc(loss, rtt) {
-    var Q = window.__vcQ || (window.__vcQ = { s: [], r: [], sentAt: Date.now() });
-    if (typeof loss === 'number' && isFinite(loss)) Q.s.push(loss);
-    if (typeof rtt === 'number' && isFinite(rtt) && rtt > 0) Q.r.push(rtt);
-    if (Date.now() - Q.sentAt < 60000 || !Q.s.length) return;
-    try {
-        var avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; };
-        var u = (typeof getCurrentUser === 'function') ? getCurrentUser() : null;
-        var isT = (typeof vcIsTeacherRole === 'function') && vcIsTeacherRole();
-        var A = window.__vcAAO || {};
-        var body = JSON.stringify({
-            room: (vcRoomId || ''),
-            uid: (u && u.uid) || '', name: (u && u.name) || '',
-            role: isT ? 'teacher' : ((u && u.role) || 'student'),
-            avg_loss: +avg(Q.s).toFixed(1), max_loss: +Math.max.apply(null, Q.s).toFixed(1),
-            avg_rtt: Math.round(avg(Q.r)), aao: A.active ? 1 : 0, samples: Q.s.length
-        });
-        if (navigator.sendBeacon) navigator.sendBeacon('/api/vc/quality-log', new Blob([body], { type: 'application/json' }));
-        else fetch('/api/vc/quality-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () {});
-    } catch (_) {}
-    window.__vcQ = { s: [], r: [], sentAt: Date.now() };
-}
+/* 📶 회선품질 로깅 vcQualityAcc() 는 js/idx-vc-qlog.js (defer) 로 옮겼다 — 첫 화면 예산. 부르는 곳 3군데는 전부 try/catch 안이다. */
 
 /** RTCPeerConnection을 생성합니다 (다자간 통화용). */
 function vcCreatePeer(userId, username) {
@@ -11586,7 +11574,7 @@ async function pdfUpload(input) {
     }
 
     // 클라이언트측 확장자 검증 — 교재 뷰어가 렌더할 수 있는 것만 교재로 올린다
-    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png'];
+    const allowedExts = ['.pdf', '.jpg', '.jpeg', '.png', '.webp'];
     const isAllowed = f => allowedExts.some(e => String(f.name || '').toLowerCase().endsWith(e));
     const okFiles = files.filter(isAllowed);
     const badFiles = files.filter(f => !isAllowed(f));
@@ -11875,7 +11863,7 @@ async function _pdfRenderInner(_seq) {
         baseScale = Math.min(availW / baseVp.width, availH / baseVp.height);
         if (!isFinite(baseScale) || baseScale <= 0) baseScale = 1.0;
     }
-    const scale = baseScale * pdfZoom;
+    const scale = baseScale * pdfZoom * (window._pdfDPR||1);
 
     // 1번 페이지
     const canvas1 = document.getElementById('pdf-canvas');

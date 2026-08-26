@@ -474,6 +474,16 @@
       border-radius:6px; font-size:11.5px; font-family:inherit; resize:vertical;
     }
     .whisper-box .row { display:flex; gap:5px; margin-top:5px; }
+    /* 받는 사람 고르는 칸 — 글 쓰기 «전에» 정하는 것이라 textarea 위에 둔다.
+       ⚠️ 폭을 100% 로 두고 box-sizing 을 명시한다. 이름이 길면(«교사 Teacher - Hannah»)
+          테두리가 상자 밖으로 나가 오른쪽이 잘린다. */
+    .whisper-box .wb-to { width:100%; box-sizing:border-box; margin-bottom:5px; padding:6px;
+      background:#142950; color:#f9fafb; border:1px solid rgba(245,158,11,0.30); border-radius:6px; font-size:11.5px; }
+    /* 결과 한 줄 — «보낸 척» 하지 않으려고 서버가 준 note 를 그대로 적는다.
+       배너는 몇 초 뒤 사라지지만 이 줄은 남는다(누가 받았는지 확인할 자리). */
+    .whisper-box .wb-note { margin-top:5px; font-size:10.5px; line-height:1.45; min-height:0; }
+    .whisper-box .wb-note.ok { color:#86efac; }
+    .whisper-box .wb-note.bad { color:#fca5a5; }
     .whisper-box .row select { padding:6px; background:#142950; color:#f9fafb; border:1px solid rgba(245,158,11,0.30); border-radius:6px; font-size:11px; }
     .whisper-box button {
       flex:1; padding:7px; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff;
@@ -681,9 +691,14 @@
         <button class="btn btn-ghost" onclick="ghdShowAttendance()">📊 <span data-ko="전체 학생 데이터" data-en="All Student Data">전체 학생 데이터</span></button>
       </div>
 
-      <!-- 강사 귓속말 -->
+      <!-- 귓속말 — 강사 전원 또는 콕 집은 한 사람(학생 포함, 2026-08-26 사장님 지시) -->
       <div class="whisper-box">
-        <h3>📢 <span data-ko="강사에게 귓속말 (학생 못 받음)" data-en="Whisper to Teacher (Students cannot see)">강사에게 귓속말 (학생 못 받음)</span></h3>
+        <h3>📢 <span data-ko="귓속말 (고른 사람만 받습니다)" data-en="Whisper (only the person you pick sees it)">귓속말 (고른 사람만 받습니다)</span></h3>
+        <!-- ⚠️ 이 칸은 loadMembers() 가 실제 참가자로 다시 그린다. 여기 적힌 것은 «아직 아무도
+             안 붙었을 때» 의 기본값이다. 사람 이름을 여기 하드코딩하지 말 것. -->
+        <select id="ghd-whisper-to" class="wb-to" title="받는 사람">
+          <option value="">👩‍🏫 강사 전원</option>
+        </select>
         <textarea id="ghd-whisper-text" placeholder="예: 학생이 어려워해요. 천천히 가세요."></textarea>
         <div class="row">
           <select id="ghd-whisper-urgency">
@@ -691,8 +706,9 @@
             <option value="high">🔥 중요</option>
             <option value="critical">🚨 긴급</option>
           </select>
-          <button onclick="ghdSendWhisper()">📢 <span data-ko="강사에게 전송" data-en="Send to Teacher">강사에게 전송</span></button>
+          <button onclick="ghdSendWhisper()">📢 <span data-ko="보내기" data-en="Send">보내기</span></button>
         </div>
+        <div id="ghd-whisper-note" class="wb-note"></div>
       </div>
 
       <!-- 🆕 빠른 강사 평가 (VIPKid 스타일) -->
@@ -741,6 +757,7 @@
     const adminUid = params.get('admin_uid') || 'admin';
     const startedAt = Date.now();
     let _teacherUid = '';
+    let _members = [];        // 지금 접속 중인 참가자 (귓속말 대상 고르기용 — loadMembers 가 채운다)
 
     document.getElementById('ghd-room').textContent = roomId || '(강의실 ID 없음)';
     document.getElementById('ghd-obs-id').textContent = 'ID: ' + (obsId || '—');
@@ -793,6 +810,8 @@
         // 강사 자동 추출 (귓속말용)
         const teacher = items.find(m => m.role === 'teacher');
         if (teacher) _teacherUid = teacher.user_id || teacher.username || '';
+        _members = items;
+        ghdFillWhisperTargets(items);
         wrap.innerHTML = items.map(m => {
           const cls = m.role === 'teacher' ? 'teacher' : 'student';
           const initial = (m.username || m.user_id || '?').charAt(0).toUpperCase();
@@ -809,7 +828,8 @@
             </div>
             <div class="member-quick">
               <button onclick="ghdMemberDetail('${esc(m.user_id)}')">📊 상세</button>
-              ${m.role === 'teacher' ? `<button onclick="ghdFocusWhisper('${esc(m.user_id)}')">📢 귓속말</button>` : `<button onclick="ghdKickStudent('${esc(m.user_id)}')" style="background:rgba(239,68,68,0.20);color:#fca5a5;border-color:rgba(239,68,68,0.35)">🚫 퇴장</button>`}
+              <button onclick="ghdFocusWhisper('${esc(m.user_id)}')">📢 귓속말</button>
+              ${m.role === 'teacher' ? '' : `<button onclick="ghdKickStudent('${esc(m.user_id)}')" style="background:rgba(239,68,68,0.20);color:#fca5a5;border-color:rgba(239,68,68,0.35)">🚫 퇴장</button>`}
             </div>
           </div>`;
         }).join('') || '<div style="color:#94a3b8;padding:18px;text-align:center;font-size:11.5px">접속 중인 참가자 없음</div>';
@@ -871,23 +891,86 @@
       } catch(e){ alert('종료 실패'); }
     };
 
+    /* 받는 사람 고르는 칸을 실제 참가자로 다시 그린다.
+       ⚠️ «지금 고른 사람» 을 잃지 않는다 — 이 함수는 5초마다 도는 새로고침에서도 불린다.
+          고쳐 쓰던 중에 목록이 갱신되면서 대상이 «강사 전원» 으로 슬쩍 돌아가면,
+          학생에게 보내려던 글이 강사에게 간다(오배달이 제일 나쁘다). */
+    window.ghdFillWhisperTargets = function(items) {
+      const sel = document.getElementById('ghd-whisper-to');
+      if (!sel) return;
+      const keep = sel.value;
+      const opts = ['<option value="">👩‍🏫 강사 전원</option>'];
+      (items || []).forEach(m => {
+        const uid = String(m.user_id || '');
+        if (!uid) return;
+        const who = String(m.username || uid);
+        const icon = m.role === 'teacher' ? '👩‍🏫' : '🧑‍🎓';
+        opts.push('<option value="' + esc(uid) + '">' + icon + ' ' + esc(who) + '</option>');
+      });
+      sel.innerHTML = opts.join('');
+      /* 고른 사람이 방을 나갔으면 «강사 전원» 으로 돌아온다 — 없는 사람에게 보내면
+         delivered:0 이 될 뿐이지만, 화면이 그 사람 이름을 계속 보여 주면 더 헷갈린다. */
+      if (keep && Array.prototype.some.call(sel.options, o => o.value === keep)) sel.value = keep;
+    };
+
+    function ghdWhisperNote(msg, ok) {
+      const el = document.getElementById('ghd-whisper-note');
+      if (!el) return;
+      el.textContent = msg || '';
+      el.className = 'wb-note' + (msg ? (ok ? ' ok' : ' bad') : '');
+    }
+
     window.ghdSendWhisper = async function() {
       const text = document.getElementById('ghd-whisper-text').value.trim();
       const urgency = document.getElementById('ghd-whisper-urgency').value;
       if (!text) { alert('메시지를 입력하세요'); return; }
-      const tuid = _teacherUid || prompt('강사 UID 를 입력하세요:');
-      if (!tuid) return;
+
+      /* 대상을 골랐으면 그 «한 사람» 에게만, 안 골랐으면 지금까지처럼 강사 전원에게.
+         ⚠️ 번호와 이름을 둘 다 보낸다 — attendance.user_id 는 화상방이 접속마다 새로
+            발급하는 임시 번호라 재접속하면 죽는다. 서버가 번호 → 이름(유일할 때만) 순으로 찾는다. */
+      const sel = document.getElementById('ghd-whisper-to');
+      const targetUid = sel ? sel.value : '';
+      const hit = targetUid ? (_members || []).find(m => String(m.user_id) === targetUid) : null;
+      const body = { admin_uid: adminUid, room_id: roomId, message_type: 'text', payload: text, urgency };
+      if (targetUid) {
+        body.target_uid = targetUid;
+        body.target_name = String((hit && hit.username) || '');
+        body.target_role = (hit && hit.role === 'teacher') ? 'teacher' : 'student';
+      } else {
+        const tuid = _teacherUid || prompt('강사 UID 를 입력하세요:');
+        if (!tuid) return;
+        body.teacher_uid = tuid;
+      }
+
+      ghdWhisperNote('보내는 중…', true);
       try {
-        const r = await fetch('/api/admin/whisper/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ admin_uid: adminUid, room_id: roomId, teacher_uid: tuid, message_type: 'text', payload: text, urgency }) });
+        const r = await fetch('/api/admin/whisper/send', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
         const d = await r.json();
-        if (d.ok) { document.getElementById('ghd-whisper-text').value = ''; showBanner('📢 강사에게 귓속말 전송 (' + urgency + ')'); }
-      } catch(e){ alert('전송 실패'); }
+        /* 🔴 판정은 «실패라고 말했는가» 가 아니라 «성공이라고 말했는가» 로 한다.
+              라우팅 관문이 하나라도 빠지면 본문이 {error:'Not Found'} 라 ok 칸이 아예 없고,
+              d.ok === false 검사는 undefined 를 통과시켜 «보냈다» 로 그려진다(CLAUDE.md 2장). */
+        if (!r.ok || d.ok !== true) {
+          ghdWhisperNote('전송 실패: ' + (d && (d.error || d.note) ? (d.error || d.note) : ('HTTP ' + r.status)), false);
+          return;
+        }
+        /* 서버가 «갔다/안 갔다» 를 note 로 정직하게 말해 준다 — 그대로 보여 준다.
+           ⛔ delivered 를 안 보고 무조건 「전송 완료」로 적지 말 것. 방에 아무도 없어도
+              기록은 남으므로 ok:true 가 온다. 그걸 성공으로 읽으면 «받은 줄 알고 기다리게» 된다. */
+        const sent = Number(d.delivered || 0) > 0;
+        if (sent) document.getElementById('ghd-whisper-text').value = '';
+        ghdWhisperNote((sent ? '✅ ' : '⚠ ') + (d.note || (sent ? '전달했습니다.' : '전달되지 않았습니다.')), sent);
+        if (sent) showBanner('📢 귓속말 전달 (' + urgency + ')');
+      } catch(e){ ghdWhisperNote('전송 실패: ' + (e && e.message ? e.message : e), false); }
     };
 
     window.ghdFocusWhisper = function(uid) {
-      _teacherUid = uid;
+      const sel = document.getElementById('ghd-whisper-to');
+      const hit = (_members || []).find(m => String(m.user_id) === String(uid));
+      if (sel && Array.prototype.some.call(sel.options, o => o.value === String(uid))) sel.value = String(uid);
+      if (hit && hit.role === 'teacher') _teacherUid = uid;
       document.getElementById('ghd-whisper-text').focus();
-      showBanner('🎯 ' + uid + ' 강사에게 귓속말 준비');
+      ghdWhisperNote('', true);
+      showBanner('🎯 ' + ((hit && hit.username) || uid) + ' 님에게 보낼 준비');
     };
 
     let _curRating = 0;

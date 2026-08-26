@@ -11,7 +11,8 @@ import { sendCoupon, checkBalance, getGiftishowMode, parseWebhook } from './gift
 import type { MangoEnv } from './api-mango';
 // 🪙 포인트 정책 정본(2026-08-07 사장님 승인 7가지) — 금액·상한·유효기간·교환최소는 여기 한 곳에서만 정한다
 import { POINT_POLICY, checkEarnAllowed, syncApprovedRuleAmounts } from './point-policy';
-import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex } from './api-judgment';  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
+import { runJudgmentAnalysis, exportJudgmentEnvelopes, markJudgmentMigrated, getGrowthReport, runGrowthSnapshot, generatePersonalizedScenario, evaluateJudgmentAnswer, sha256hex, getReadingBandFor } from './api-judgment';
+import { bandCatalog } from './judgment-level';  // 🏷️ 난이도 범주 목록의 단일 출처 — 화면에 하드코딩하지 않습니다  // 🧠 판단력 엔진(2단계 Mode A) + Mode B 이관 + 3단계(성장·시나리오·훈련채점)
 
 /**
  * 🎁 기프트 카탈로그 기본 상품 시드 (멱등 — 이미 있으면 건너뜀).
@@ -728,6 +729,20 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/judgment/growth') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // ⚡ only=band — 성장 리포트(D1 여러 번)를 건너뛰고 «이 학생이 난이도를 정한 적 있나» 만 KV 1회로 답합니다.
+      //   🎬 학생 화면의 첫 진입 설정 카드가 이 답을 기다립니다. 시나리오 요청으로 알아내려 하면
+      //      LLM 생성(운영 실측 평균 11초)을 기다려야 해서 «첫 화면이 안 뜨는» 것이 됩니다.
+      //   ⚠️ 새 경로를 만들지 않고 이미 열려 있는 GET 에 얹습니다 — src/index.ts 는 공동 금지구역입니다.
+      if ((url.searchParams.get('only') || '') === 'band') {
+        try {
+          const b = await getReadingBandFor(env, uid);
+          // ⚠️ has_band=false 는 «판단력 훈련을 한 번도 안 했다» 는 뜻입니다.
+          //    없는 값을 기본값으로 채워 내려보내면 화면이 «이미 정해 뒀다» 로 오해합니다.
+          return json({ ok: true, has_band: !!b, band_catalog: bandCatalog(), ...(b ? {
+            reading_band: b.band, reading_band_label: b.lv, band_mode: b.mode, band_src: b.src, age_group: b.age_group,
+          } : {}) });
+        } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
+      }
       try {
         const report = await getGrowthReport(env, uid);
         return json({ ok: true, ...report });
@@ -745,6 +760,8 @@ Return STRICT JSON only, in BOTH Korean and English:
         //   (src/index.ts 는 금지구역). 생성기가 값을 다시 검증하므로 여기서는 형만 맞춥니다.
         //     band_nudge — "너무 어려워요(-1) / 너무 쉬워요(+1)". ±1 로만 해석돼 한 밴드 이상 안 움직임
         //     set_band   — 학생이 목록에서 직접 고른 범주(1~8). 범위 밖 값은 생성기가 무시
+        //     age_group  — 누구를 위한 문제인가('child'/'adult', 2026-08-24). 같은 이유로 이 요청에 실어 받음
+        //       ⚠️ 이 줄을 빠뜨리면 화면의 「성인」 토글이 조용히 무동작합니다 — 에러도 없이 계속 아이 문제가 나갑니다.
         const sc = await generatePersonalizedScenario(
           env, uid, body.lang || 'en', (body.textbook || '').toString().trim() || undefined,
           (body.focus_misconception || '').toString().trim().slice(0, 40) || null,
@@ -753,7 +770,8 @@ Return STRICT JSON only, in BOTH Korean and English:
           { nudge: Math.sign(Number(body.band_nudge) || 0), setBand: Number(body.set_band) || 0,
             mode: (body.band_mode || '').toString().trim() || null,
             probeBand: Number(body.probe_band) || 0,
-            src: (body.band_src || '').toString().trim() || null });
+            src: (body.band_src || '').toString().trim() || null,
+            ageGroup: (body.age_group || '').toString().trim() || null });
         return json(sc, 200);
       } catch (e: any) { return json({ ok: false, error: String(e?.message || e) }, 500); }
     }

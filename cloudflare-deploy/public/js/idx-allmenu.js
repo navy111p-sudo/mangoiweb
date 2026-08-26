@@ -35,7 +35,16 @@
      *   ⛔ quiz.webp 를 돌려쓰지 말 것 — 바로 위 「AI 단어 퀴즈」와 그림이 같아져 구분이 안 된다.
      *   사진이 생기면 build-allmenu-icons.py 로 만들어 여기에 경로만 채우면 된다. */
     {emoji:'🧠', img:'', name:'복습퀴즈', url:'/review-quiz.html'},
-    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html'},
+    /* zh:true — 중국어 수강생에게만 보이는 타일(아래 mangoiZhLearner 참고).
+     *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
+     *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
+    {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true},
+    /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
+     *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
+     *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의
+     *   「🎯 내 레벨을 찾아 주세요」가 같은 자리를 대신합니다 — 타일과 카드가 «같은 것 둘»이었습니다.
+     *   ✅ 입구는 그대로 셋 남아 있습니다: 첫 설정 카드 ③ · 문제 화면 「레벨 다시 재기」 ·
+     *      주소로 직접 여는 /judgment.html?placement=1 (judgment.html 이 계속 읽습니다). */
     {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
     {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},
     {emoji:'🔥', img:'/img/menu/streak.webp', name:'연속 출석', url:'/streak.html'},
@@ -48,6 +57,27 @@
     {emoji:'🔐', img:'/img/menu/login.webp', name:'관리자 로그인', url:'/admin/login'}
   ];
   var ALLMENU_EMO_CSS = 'font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))';
+
+  /* 🇨🇳 중국어 수강생 판별 (2026-08-24 학원장 검수) — 서버에는 «이 학생이 중국어 수업을
+   *   듣는다» 는 구조화된 칸이 없다(수업·교재에 언어 컬럼 없음). 그래서 화면 쪽 신호 둘로 본다:
+   *     ① UI 언어가 중국어(mangoi_lang='zh') — 중국어권 사용자
+   *     ② 중국어 복습퀴즈 화면을 연 적 있음(mangoi_zh_learner=1 — review-quiz-cn.html 이 기록)
+   *   둘 다 아니면 중국어 메뉴를 감춘다. 직접 주소·AI 명령 검색(idx-ai-home.js)으로는 여전히
+   *   열리고, 한 번 열면 ②가 남아 그 뒤로는 메뉴에도 보인다.
+   *   ⚠️ localStorage 접근이 막히면 «보이는 쪽» — 수강생이 기능을 잃는 쪽이 더 나쁘다. */
+  function mangoiZhLearner(){
+    try{
+      if((localStorage.getItem('mangoi_lang')||'')==='zh') return true;
+      return localStorage.getItem('mangoi_zh_learner')==='1';
+    }catch(e){ return true; }
+  }
+  /* index.html 에 박혀 있는 중국어 퀴즈 버튼들(드로어·AI홈 퀵버튼·AI와 친구하기 목록)도 같이 가린다.
+   *   index.html 은 공동 금지구역 + 첫 화면 예산(여유 194B)이라 거기에 코드를 넣지 않고 여기서 처리. */
+  function hideZhStaticEntries(root){
+    if(mangoiZhLearner()) return;
+    var els = (root||document).querySelectorAll('[data-go="review-quiz-cn"], button[onclick*="review-quiz-cn"]');
+    for(var i=0;i<els.length;i++) els[i].style.display='none';
+  }
   function _allmenuEsc(ev){ if (ev.key === 'Escape' || ev.keyCode === 27) closeAllMenuOverlay(); }
   function closeAllMenuOverlay(){
     var ov = document.getElementById('mangoi-allmenu');
@@ -93,7 +123,9 @@
     // 카드 그리드 (스크롤 영역)
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
+    var _zhOk = mangoiZhLearner();
     ALLMENU_ITEMS.forEach(function(m){
+      if(m.zh && !_zhOk) return;   // 🇨🇳 중국어 타일은 중국어 수강생에게만
       // 실사 아이콘 64x64. width/height 속성은 로딩 중 레이아웃 흔들림 방지용이고,
       // 실제 크기는 CSS 가 확정한다(속성이 CSS 를 이기는 사고를 피하려고 둘 다 명시).
       var ico = m.img
@@ -216,6 +248,22 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', buildPanelV22);
   else buildPanelV22();
   setTimeout(buildPanelV22, 500);
+
+  // 🇨🇳 중국어 메뉴 가리기 실행 (2026-08-24) —
+  //   · 정적 버튼(드로어·AI홈 퀵버튼)은 지금 바로 (이 스크립트는 defer 라 DOM 이 준비돼 있다)
+  //   · 「AI와 친구하기」 목록(#ai-friends-ov)은 처음 열 때 만들어지므로, body 에 «붙는 순간»
+  //     한 번 가리고 감시를 끝낸다. ⚠️ body «childList» 감시다 — class 감시는 홈 전체를
+  //     멎게 한 전력이 있으니 절대 금지(CLAUDE.md 2장). childList 는 CLAUDE.md 가 허용한 방식.
+  hideZhStaticEntries();
+  if (!mangoiZhLearner()) {
+    try {
+      var _zhMo = new MutationObserver(function(){
+        var ov = document.getElementById('ai-friends-ov');
+        if (ov) { hideZhStaticEntries(ov); _zhMo.disconnect(); }
+      });
+      _zhMo.observe(document.body, { childList: true });
+    } catch(e){}
+  }
 
   console.log('[v22] 전체메뉴 capture-phase 핸들러 + 패널 즉시 생성 활성');
 })();

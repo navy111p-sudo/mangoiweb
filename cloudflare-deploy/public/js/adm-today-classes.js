@@ -102,9 +102,14 @@
          "레벨테스트는 어디서 보나요"가 반복 질문이었는데, 실제로는 같은 목록에 섞여 있었고
          구분 표시가 없어서 못 찾았을 뿐이다. */
       var lt = _rows.filter(function (s) { return s.is_level_test; }).length;
+      /* 🏷 (2026-08-25) 카페24 건수를 «따로» 센다. 합계만 보여 주면 「목록엔 많은데 왜 다 입장이 안 되나」가 된다 —
+         숫자가 갈려 있어야 «들어갈 수 있는 것»과 «카페24에서 도는 것»이 다르다는 게 먼저 읽힌다. */
+      var c24 = _rows.filter(function (s) { return s.source === 'cafe24'; }).length;
       cntEl.textContent = T(
-        '오늘 ' + _rows.length + '건 · 지금 입장가능 ' + live + '건' + (lt ? ' · 레벨테스트 ' + lt + '건' : ''),
-        _rows.length + ' today · ' + live + ' joinable now' + (lt ? ' · ' + lt + ' level test' : '')
+        _rows.length + '건 · 지금 입장가능 ' + live + '건' + (c24 ? ' · 카페24 ' + c24 + '건' : '')
+          + (lt ? ' · 레벨테스트 ' + lt + '건' : ''),
+        _rows.length + ' total · ' + live + ' joinable now' + (c24 ? ' · ' + c24 + ' on cafe24' : '')
+          + (lt ? ' · ' + lt + ' level test' : '')
       );
     }
 
@@ -116,6 +121,7 @@
       +   '<th>' + T('시간', 'Time') + '</th>'
       +   '<th>' + T('상태', 'Status') + '</th>'
       +   '<th>' + T('학생 / 액션', 'Student / Action') + '</th>'
+      +   '<th>' + T('레벨 · 교재', 'Level · Textbook') + '</th>'
       +   '<th>' + T('강사', 'Teacher') + '</th>'
       +   '<th>' + T('강의실', 'Room') + '</th>'
       + '</tr></thead><tbody>'
@@ -126,17 +132,41 @@
           var teacher = s.teacher_name
             ? esc(s.teacher_name)
             : '<span style="color:#b45309;font-weight:800">' + T('⚠ 미배정', '⚠ unassigned') + '</span>';
-          var act = s.join_open
-            /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
-            ? '<button type="button" class="tc-act tc-act-enter" onclick="tcEnterClass(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + who + '\'))" '
-              + 'title="' + T('실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)',
-                              'Join as a real participant — students see you (camera starts off)') + '" '
-              + '>'
-              + T('🚪 입장(보임)', '🚪 Join (visible)') + '</button>'
-            : '<span style="color:#9ca3af;font-size:11.5px;margin-right:4px">' + T('입장 시간 아님', 'not open') + '</span>';
-          act += '<button type="button" class="tc-act tc-act-observe" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
-              + '>'
-              + T('👁 참관', '👁 Observe') + '</button>';
+          /* 🏷 (2026-08-25) 카페24 수업에는 버튼을 주지 않는다 — 망고아이 방이 없어 들어갈 데가 없다.
+             ⛔ 「일단 눌러 보게」 두면 아무도 없는 방이 열리고, 매니저는 «수업이 깨졌다» 고 읽는다.
+                왜 없는지를 그 자리에 적어 준다(버튼이 없는 것보다 «이유 없이 없는 것» 이 나쁘다). */
+          var isC24 = (s.source === 'cafe24');
+          var act;
+          if (isC24) {
+            act = '<span style="color:#92400e;font-size:11.5px;margin-right:4px" title="'
+              + T('카페24에서 진행되는 수업입니다. 망고아이 화상방이 없어 입장·참관할 수 없습니다.',
+                  'This class runs on cafe24. There is no Mangoi room, so join/observe is not possible.') + '">'
+              + T('카페24 수업 · 입장 불가', 'on cafe24 · cannot join') + '</span>';
+          } else {
+            act = s.join_open
+              /* 🚪 학생에게 «보이는» 입장이라 참관(보라)과 색을 갈라 둔다 — 주황 + (보임) 표시 */
+              ? '<button type="button" class="tc-act tc-act-enter" onclick="tcEnterClass(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + who + '\'))" '
+                + 'title="' + T('실제 참가자로 입장 — 학생에게 보입니다 (카메라는 꺼진 채로 시작)',
+                                'Join as a real participant — students see you (camera starts off)') + '" '
+                + '>'
+                + T('🚪 입장(보임)', '🚪 Join (visible)') + '</button>'
+              : '<span style="color:#9ca3af;font-size:11.5px;margin-right:4px">' + T('입장 시간 아님', 'not open') + '</span>';
+            if (s.observable !== false) {
+              act += '<button type="button" class="tc-act tc-act-observe" onclick="tcObserveClass(decodeURIComponent(\'' + rid + '\'))" '
+                  + '>'
+                  + T('👁 참관', '👁 Observe') + '</button>';
+            }
+          }
+          /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
+             수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
+          var bookTag = s.textbook_assigned
+            ? '<span style="font-size:11px;color:#6b7280">📚 ' + esc(s.textbook) + '</span>'
+            : '<span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:10.5px;font-weight:800;'
+              + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
+              + T('📚 교재 미배정', '📚 no textbook') + '</span>';
+          var levelTag = s.level
+            ? '<span style="font-size:11px;color:#475569">' + esc(s.level) + '</span>'
+            : '';
           /* 🧪 레벨테스트 표시 — 일반수업과 응대가 다르다(첫 수업·보호자 대기·결과 입력).
              한 목록에 두되 눈으로 즉시 갈라지게. 크기·위치는 고정, 색으로만 구분한다. */
           var kindTag = s.is_level_test
@@ -148,8 +178,10 @@
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
             + '<td><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>' + esc(s.student_name || s.student_uid || '-') + '</b>' + kindTag + act + '</div></td>'
+            + '<td><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' + levelTag + bookTag + '</div></td>'
             + '<td>' + teacher + '</td>'
-            + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code></td>'
+            + '<td><code style="font-size:11px;color:#6b7280">' + esc(s.room_id) + '</code>'
+            +   (isC24 ? ' <span style="font-size:10px;color:#92400e;font-weight:800">LMS</span>' : '') + '</td>'
             + '</tr>';
         }).join('')
       + '</tbody></table></div>';
@@ -160,9 +192,22 @@
     if (!box) return;
     box.innerHTML = '<div class="empty">' + T('불러오는 중…', 'Loading…') + '</div>';
     try {
-      var r = await fetch('/api/admin/classes/today', { credentials: 'include' });
-      var d = await r.json();
-      if (!d || d.ok === false) throw new Error(d && d.error ? d.error : 'load_failed');
+      var qs = '';
+      var dEl = $('tc-date');
+      /* 📆 (2026-08-25 보고서 ③) 날짜를 고르면 «완료된 수업 기록» 이 된다 — 조회는 같은 API 다.
+         비워 두면 서버가 오늘(KST)로 본다. 모양이 틀린 값은 서버가 오늘로 되돌린다. */
+      if (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) qs = '?date=' + encodeURIComponent(dEl.value);
+      var r = await fetch('/api/admin/classes/today' + qs, { credentials: 'include' });
+      var d = await r.json().catch(function () { return null; });
+      /* 🔴 (2026-08-25) 예전엔 `d.ok === false` 만 봤다. 그런데 라우팅이 빠졌을 때 오는 404 본문은
+         `{error:'Not Found'}` 라 **`ok` 칸이 아예 없다** → 이 검사를 그냥 통과하고
+         `d.sessions || []` 가 빈 배열이 되어 **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다.
+         그래서 이 카드는 2026-07-23 신설 이래 줄곧 404 였는데 아무도 «고장» 으로 신고하지 않았다.
+         ✅ 판정은 «성공이라고 말했는가»(`ok === true` + 목록이 배열) 로 한다 — «실패라고 말했는가» 가 아니라. */
+      if (!r.ok) throw new Error('HTTP ' + r.status + (d && d.error ? ' · ' + d.error : ''));
+      if (!d || d.ok !== true || !Array.isArray(d.sessions)) {
+        throw new Error((d && d.error) || 'load_failed');
+      }
       /* 지금 들어갈 수 있는 수업을 맨 위로 — 급할 때 위만 보면 되도록 */
       _rows = (d.sessions || []).slice().sort(function (a, b) {
         if (!!a.join_open !== !!b.join_open) return a.join_open ? -1 : 1;
@@ -180,6 +225,10 @@
     if (b && !b._tcBound) { b._tcBound = true; b.addEventListener('click', window.tcLoadToday); }
     var c = $('tc-only-live');
     if (c && !c._tcBound) { c._tcBound = true; c.addEventListener('change', render); }
+    /* 📆 날짜를 바꾸면 곧바로 다시 불러온다 — 「바꿨는데 표가 그대로」 를 만들지 않는다.
+       ⚠️ render() 가 아니라 로더를 부른다. 날짜가 바뀌면 «서버에서 다시» 받아야 한다. */
+    var dt = $('tc-date');
+    if (dt && !dt._tcBound) { dt._tcBound = true; dt.addEventListener('change', function () { window.tcLoadToday(); }); }
     /* 카드를 처음 펼칠 때 1회 자동 로드 — 매니저가 버튼을 또 누르지 않아도 되게 */
     var d = $('sm-today-classes');
     if (d && !d._tcBound) {

@@ -39,6 +39,9 @@ import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생�
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
   SESSION_STATE: KVNamespace;
+  // 📼 수업 녹화 파일 저장소 — 런타임엔 wrangler.toml 로 이미 묶여 있는데 «타입 선언만»
+  //   없었다. /api/recordings/stop 이 «실물이 있는가» 를 직접 확인하려면 필요하다(2026-08-26).
+  RECORDINGS?: R2Bucket;
   // 📧 이메일(Resend) — 레벨테스트 신규신청 관리자 알림 + 교사 배정 알림
   //   RESEND_API_KEY, RESEND_FROM, LEVELTEST_ADMIN_EMAIL (email.ts / EmailEnv)
   // 🎯 레벨테스트 신청자 확정 알림톡 템플릿(선택) — 미설정 시 문자(SMS) 폴백
@@ -139,10 +142,24 @@ export async function handleMangoApi(
       try {
         const b: any = await request.json().catch(() => null);
         if (!b || !b.uid) return json({ ok: true });   // 로깅은 실패해도 무관 → 조용히 무시
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        await ensureSchemaOnce('vc_quality', async () => {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+          /* 📶 (2026-08-26) novideo — «영상 표본이 아예 없던 4초 틱» 의 수(카메라 끔·영상 죽음).
+             예전엔 그런 사람의 기록이 **통째로 안 남았다**(js/idx-vc-qlog.js 머리말) — 8/26 하루
+             예상 ~2,900건 중 실제 25건. 「끊긴다」 제보를 숫자로 확인할 방법이 없던 이유다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts:582 에
+                «한 벌 더» 있고, IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다. 두 벌의 모양이
+                갈리면 새 DB(개발용·복구본)에서 어느 쪽이 이겼느냐로 결과가 달라진다
+                (schema_drift_harness 가 그래서 FAIL 을 낸다). 그러니 ALTER 로만 붙인다 —
+                `attendance.host` 와 같은 방식이다. 이미 있으면 예외가 나는데 그게 정상이라 삼킨다. ⚠️ 이 ALTER 는 **첫 로그가 들어와야** 돈다 — 배포 직후
+                SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
+                (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
+          try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+        });
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
-            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0).run();
+            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
+            Number(b.novideo) || 0).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
@@ -484,9 +501,9 @@ export async function handleMangoApi(
            녹화 동의가 계정에 이어지지 못했다.
            ⚠️ user_id 는 그대로 둔다 — 출석·발화시간 집계가 그 값에 이어져 있다. 새 칸만 더한다. */
         res = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?)`
-        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now).run();
+          `INSERT INTO attendance (room_id, user_id, account_uid, username, role, joined_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', ?, ?, ?)`
+        ).bind(b.room_id, b.user_id, b.account_uid || null, b.username || null, b.role || 'student', now, date, now, request.headers.get('Host') || null).run();
       } catch {
         // 컬럼이 아직 없는 배포본 → 한 번 만들어 두고 아래 기존 경로로 처리(다음 입장부터 채워진다)
         try {
@@ -496,6 +513,7 @@ export async function handleMangoApi(
           const m = String(e?.message || e);
           if (!/duplicate column/i.test(m)) console.warn('[attendance] account_uid 컬럼 추가 실패:', m);
         }
+        try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
         // 아직 checkin 이 한 번도 안 돌아 컬럼이 없는 배포본 대비 폴백(다음 checkin 이 ALTER 로 보강)
         res = await env.DB.prepare(
           `INSERT INTO attendance (room_id, user_id, username, role, joined_at, status, date)
@@ -629,8 +647,19 @@ export async function handleMangoApi(
       //   ⚠️ 클라이언트가 보내는 값(total_session_ms)은 오프라인 동안에도 계속 누적되므로 신뢰할 수 없다.
       //      그래서 클라이언트 시각이 아니라 반드시 '서버 시각'을 쓴다. D1 쓰기는 늘지 않는다(기존 UPDATE 에 컬럼만 추가).
       try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN last_seen_at INTEGER`); } catch {} // 이미 있으면 무시
+      /* 🌐 (2026-08-25) host — 이 요청이 어느 도메인으로 들어왔는지.
+         [왜 필요한가] 이 저장소는 워커를 두 벌(webrtc-unified-platform · -prod) 배포하고,
+         Durable Object 네임스페이스는 스크립트마다 갈린다(wrangler.toml 주석 참고).
+         화상수업 WS 는 location.host 로 방을 정하므로, 같은 room_id 로 들어와도
+         서로 다른 도메인이면 서로 다른 «방»(DO)에 앉는다 — 그런데 D1(이 표 포함)은
+         두 워커가 같은 id 를 공유해서 attendance 만 보면 «둘 다 같은 방에 있었다» 로
+         보인다(2026-08-19 강선생님 건, CLAUDE.md 2장 「같은 방 번호인데 서로 안 보이고…」).
+         host 를 남겨 두면 다음에 같은 사고가 나도 SQL 한 줄로 확인된다:
+           SELECT user_id, role, host FROM attendance WHERE room_id=? — host 가 갈리면 그게 원인이다. */
+      try { await env.DB.exec(`ALTER TABLE attendance ADD COLUMN host TEXT`); } catch {} // 이미 있으면 무시
       try { await env.DB.exec(`CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance(user_id, date)`); } catch {}
       });
+      const reqHost = request.headers.get('Host') || null;
 
       // ── 3) 오늘 수업 스케줄 조회(class_schedules) ── 입장이 "수업 시간 내" 인지 판정
       //    스케줄이 없으면 막지 않고 출석 인정(보수적 기본값 = true). → 버그 재발 방지 우선.
@@ -690,22 +719,23 @@ export async function handleMangoApi(
                     attended_at = COALESCE(attended_at, ?),
                     role     = COALESCE(role, ?),
                     username = COALESCE(username, ?),
-                    last_seen_at = ?
+                    last_seen_at = ?,
+                    host = COALESCE(host, ?)
               WHERE id = ?`
-          ).bind(now, role, b.username || null, srvNow, existing.id).run();
+          ).bind(now, role, b.username || null, srvNow, reqHost, existing.id).run();
           recovered = (existing.status === 'absent');
         } else {
           // 수업 시간 밖 입장 → status 는 건드리지 않고 attended_at 만 보강
           await env.DB.prepare(
-            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ? WHERE id = ?`
-          ).bind(now, srvNow, existing.id).run();
+            `UPDATE attendance SET attended_at = COALESCE(attended_at, ?), last_seen_at = ?, host = COALESCE(host, ?) WHERE id = ?`
+          ).bind(now, srvNow, reqHost, existing.id).run();
         }
         attendanceId = Number(existing.id);
       } else {
         const ins = await env.DB.prepare(
-          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow).run();
+          `INSERT INTO attendance (room_id, user_id, username, role, joined_at, attended_at, status, date, last_seen_at, host)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ).bind(roomId, userId, b.username || null, role, now, now, withinClass ? 'attended' : 'present', date, srvNow, reqHost).run();
         attendanceId = Number(ins.meta.last_row_id);
       }
 
@@ -1435,6 +1465,12 @@ export async function handleMangoApi(
         || path === '/api/admin/live-classes'
         // 🔴 (2026-08-20) 예약 기준 지금 수업 현황 — 여기 없으면 handleAdminApi 까지 못 가서 404
         || path === '/api/admin/classes-now'
+        /* 📅 (2026-08-25) 오늘 수업 전체(매니저 «바로 입장» 카드) — **2026-07-23 신설 이래 줄곧 404 였다.**
+           index.ts 라우팅 목록(②)에는 있었지만 이 위임 가드(③)에 없어서 handleAdminApi 까지 못 갔다.
+           ⚠️ 화면에서는 «고장» 으로 안 보였다 — 404 본문 {error:'Not Found'} 에는 `ok` 칸이 없어
+              `if (d.ok === false)` 검사를 통과하고, `d.sessions || []` 가 빈 배열이 되어
+              **「오늘 예정된 수업이 없습니다」라는 정상 문구**로 그려졌다(8/25 매니저 보고서 ②의 정체). */
+        || path === '/api/admin/classes/today'
         || path === '/api/admin/teachers/graph-list' || path === '/api/admin/books/graph-list'
         || path === '/api/admin/level-tests' || path.startsWith('/api/admin/leveltest/')
         || path.startsWith('/api/admin/retention/')
@@ -1729,6 +1765,107 @@ export async function handleMangoApi(
       return json({ ok: true, now, today: todayStr, role: isTeacher ? 'teacher' : 'student', sessions, current, matched_by: matchedBy, student_gate: studentGate, net_relay: netRelay });
     }
 
+    // 🥭 (2026-08-24) GET /api/class/schedule/mine — 학생 홈 화면 "내 수업" 위젯.
+    //   [왜] 위 /sessions/today 는 "오늘" 만 본다. 학생이 홈에서 "무슨 요일 몇 시에 수업이
+    //        있는지"를 미리 알 방법이 아예 없었다(내일부터 수업인 학생은 "오늘 예약 없음"만 봄).
+    //   [무엇] 입장 판정과는 무관한 **읽기 전용 안내**다. class_schedules 를 그대로 보여주고,
+    //        반복 요일은 "다음에 오는 날짜"까지 계산해 준다. 방 조회·입장 로직은 건드리지 않는다.
+    //   ⚠️ 요일 파서(dowList)는 /sessions/today 의 dowMatches 와 반드시 같은 표기를 인식해야
+    //      한다 — 한쪽만 알아듣는 표기가 있으면 "화면엔 있는데 입장은 안 되는" 어긋남이 생긴다.
+    if (method === 'GET' && path === '/api/class/schedule/mine') {
+      await ensureSchemaOnce('class_schedules', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
+      });
+      const msUserId = (url.searchParams.get('user_id') || '').trim();
+      const msName = (url.searchParams.get('student_name') || '').trim();
+      if (!msUserId && !msName) return json({ ok: false, error: 'identity_required', schedules: [] }, 400);
+
+      const DOW_LABEL_KO = ['일', '월', '화', '수', '목', '금', '토'];
+      const DOW_LABEL_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const MS_DOW_MAP: Record<string, number> = {
+        sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+        tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+        thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+        sat: 6, saturday: 6, '토': 6, '토요일': 6,
+      };
+      const dowList = (raw: any): number[] => {
+        const out: number[] = [];
+        for (const p of String(raw ?? '').split(/[,\s/·]+/)) {
+          const q = p.trim();
+          if (!q) continue;
+          if (/^\d+$/.test(q)) { const n = Number(q); if (n >= 0 && n <= 6) out.push(n); continue; }
+          const v = MS_DOW_MAP[q.toLowerCase()];
+          if (v != null) out.push(v);
+        }
+        return out;
+      };
+
+      const runMsPass = async (cond: string, bind: string): Promise<any[]> => {
+        const sqlJoin = `SELECT cs.id, cs.day_of_week, cs.scheduled_date, cs.start_time, cs.duration_min, cs.class_type, t.name AS teacher_name
+                          FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = cs.teacher_id
+                          WHERE cs.status != 'cancelled' AND ${cond}`;
+        const sqlNoJoin = `SELECT id, day_of_week, scheduled_date, start_time, duration_min, class_type FROM class_schedules WHERE status != 'cancelled' AND ${cond}`;
+        try { return (await env.DB.prepare(sqlJoin).bind(bind).all<any>()).results || []; }
+        catch { return (await env.DB.prepare(sqlNoJoin).bind(bind).all<any>()).results || []; }
+      };
+
+      let msRows: any[] = [];
+      let msMatchedBy: 'uid' | 'name' | 'none' = 'none';
+      if (msUserId) { msRows = await runMsPass('cs.user_id = ?', msUserId); if (msRows.length) msMatchedBy = 'uid'; }
+      if (!msRows.length && msName) { msRows = await runMsPass('cs.student_name = ?', msName); if (msRows.length) msMatchedBy = 'name'; }
+
+      const msNow = Date.now();
+      const MS_KST = 9 * 3600 * 1000;
+      const msK = new Date(msNow + MS_KST);
+      const msKY = msK.getUTCFullYear(), msKMo = msK.getUTCMonth(), msKD = msK.getUTCDate(), msKDow = msK.getUTCDay();
+      const msPad = (n: number) => String(n).padStart(2, '0');
+
+      const schedules = msRows.map((r: any) => {
+        const dows = r.scheduled_date ? [] : dowList(r.day_of_week);
+        const [hh, mm] = String(r.start_time || '00:00').split(':').map((x: string) => Number(x));
+        let nextDate: string | null = null;
+        let nextStartTs: number | null = null;
+        if (r.scheduled_date) {
+          const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(r.scheduled_date));
+          if (dm) {
+            const sTs = Date.UTC(Number(dm[1]), Number(dm[2]) - 1, Number(dm[3]), hh, mm, 0) - MS_KST;
+            const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+            if (sTs + graceMs >= msNow) { nextDate = r.scheduled_date; nextStartTs = sTs; }
+          }
+        } else if (dows.length) {
+          let bestDelta = 8;
+          for (const d of dows) {
+            let delta = (d - msKDow + 7) % 7;
+            if (delta === 0) {
+              const todayStartTs = Date.UTC(msKY, msKMo, msKD, hh, mm, 0) - MS_KST;
+              const graceMs = (Number(r.duration_min) || 30) * 60000 + 15 * 60000;
+              if (msNow > todayStartTs + graceMs) delta = 7;   // 오늘 수업은 이미 끝났다 → 다음 주로
+            }
+            if (delta < bestDelta) bestDelta = delta;
+          }
+          const nd = new Date(msNow + MS_KST + bestDelta * 86400000);
+          const ny = nd.getUTCFullYear(), nmo = nd.getUTCMonth(), nda = nd.getUTCDate();
+          nextStartTs = Date.UTC(ny, nmo, nda, hh, mm, 0) - MS_KST;
+          nextDate = `${ny}-${msPad(nmo + 1)}-${msPad(nda)}`;
+        }
+        return {
+          schedule_id: r.id,
+          day_labels_ko: dows.map(d => DOW_LABEL_KO[d]),
+          day_labels_en: dows.map(d => DOW_LABEL_EN[d]),
+          scheduled_date: r.scheduled_date || null,
+          start_time: r.start_time,
+          duration_min: r.duration_min,
+          class_type: r.class_type,
+          teacher_name: r.teacher_name || null,
+          next_date: nextDate,
+          next_start_ts: nextStartTs,
+        };
+      }).filter((s: any) => s.day_labels_ko.length || s.scheduled_date)
+        .sort((a: any, b: any) => (a.next_start_ts == null ? Infinity : a.next_start_ts) - (b.next_start_ts == null ? Infinity : b.next_start_ts));
+
+      return json({ ok: true, matched_by: msMatchedBy, schedules });
+    }
+
     // 🥭 Phase RM 3단계 — GET /api/class/verify-room
     //   예약제 방(class-{id}-{YYYYMMDD})에 '남의 방'으로 잘못 입장하는 것을 서버가 검증.
     //   ▸ 정상 예약자(학생)·담당 교사·관리자는 통과. 예약을 못 찾거나 신원 불명이면 fail-open(통과)로 정상수업 방해 금지.
@@ -1919,6 +2056,11 @@ ${numbered}`;
       //   ⚠️ 새 경로를 만들지 않고 이 엔드포인트에 모드만 더한 이유: index.ts 게이트가
       //      path === '/api/translate' **정확 일치**라, 새 경로는 등록 없이는 404 가 된다.
       const chatMode = b.mode === 'chat';
+      // 🗣️ (2026-08-24) mode='learn' — 웜업·AI친구 «뜻 보기» 전용. AI 튜터의 영어 문장을
+      //   학생이 이해하도록 한국어로 «의역» 한다. 모드 없는 기본 경로(m2m100)가
+      //   "Let's warm up before class" 를 「수업 전에 따뜻하게하자」로 직역한 제보가 출발점.
+      //   대상 언어가 ko 가 아니면 결과 검증(hasHangul)에서 걸러져 m2m100 으로 넘어간다.
+      const learnMode = b.mode === 'learn';
 
       /* ═══════════════════════════════════════════════════════════════════════
          📝 mode='note' — 수업 일지 전용 (2026-08-10)
@@ -2038,7 +2180,8 @@ ${numbered}`;
       //   ⚠️ 채팅 캐시 접두사에 번호를 붙인다. 프롬프트를 고치면 반드시 올릴 것 —
       //      안 올리면 옛 프롬프트로 만든 번역이 180일 동안 그대로 나온다.
       //      trc2: 존댓말 고정 / trc3: 어미 중첩 금지(프롬프트) / trc4: 어미 중첩 코드 교정(2026-07-29).
-      const cacheKey = (t: string) => (chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
+      //      trl1: learn 모드 첫 프롬프트(2026-08-24) — 접두사가 달라 기존 tr:/trc4: 캐시(직역)와 안 섞인다.
+      const cacheKey = (t: string) => (learnMode ? 'trl1:' : chatMode ? 'trc4:' : 'tr:') + target + ':' + t;
       let texts: string[] = Array.isArray(b.texts) ? b.texts.map((t: any) => String(t || '')).filter((t: string) => t.trim()) : [];
       texts = Array.from(new Set(texts)).slice(0, 50);
       if (!texts.length) return json({ ok: true, map: {} });
@@ -2068,10 +2211,21 @@ ${numbered}`;
       const tgtLang = target === 'en' ? 'english' : (target === 'zh' ? 'chinese' : 'korean');
       // 💬 채팅 모드 — 언어모델로 한 문장씩. 실패하면 아래 m2m100 이 그대로 받아준다.
       const LANG_NAME: Record<string, string> = { en: 'English', ko: 'Korean', zh: 'Simplified Chinese' };
+      // 🗣️ learn 모드 프롬프트 — 「뜻 보기」는 «영어가 무슨 뜻인지» 를 학생에게 알려 주는 카드다.
+      //   직역이 아니라 의역을 시키고(warm up ≠ 따뜻하게), 학생이 읽는 글이라 친근한 해요체로 고정한다.
+      const learnSys = 'You translate what an AI English tutor said in a fun pre-class warm-up chat, '
+        + 'so a young Korean student (elementary or middle school) can understand what the English means. '
+        + 'Give the MEANING in natural, friendly Korean — a free translation, never word-for-word. '
+        + 'For example, "Let\'s warm up before class" means having a light practice chat, not making anything warm. '
+        + 'Reply with ONLY the Korean. No quotes, no notes, no romanization, no explanation. '
+        + 'Use friendly polite 해요체 (해요 / 볼까요? / 어때요?). Never 반말, never stiff formal 합니다체. '
+        + 'Keep names, numbers, quoted titles and emoji exactly as they are. '
+        + 'In a school context "숙제" is school homework, never housework or a job. '
+        + 'Never stack endings — 해요요, 습니다요 are not Korean.';
       async function chatTranslate(t: string): Promise<string> {
         const from = srcOf(t) === 'korean' ? 'Korean' : (srcOf(t) === 'chinese' ? 'Simplified Chinese' : 'English');
         const to = LANG_NAME[target] || 'English';
-        const sys = 'You translate one chat message at a time for a live online English class. '
+        const chatSys = 'You translate one chat message at a time for a live online English class. '
           + 'Speakers are Korean office staff and Filipino or Chinese teachers talking about lessons, '
           + 'homework, schedules and students. Reply with ONLY the translated message. '
           + 'No quotes, no notes, no romanization, no explanation. '
@@ -2089,8 +2243,10 @@ ${numbered}`;
           + 'When the target language is Chinese, use polite 您 rather than 你 when addressing a person.';
         const resp: any = await ai.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
           messages: [
-            { role: 'system', content: sys },
-            { role: 'user', content: `Translate this ${from} chat message into ${to}:\n${t}` },
+            { role: 'system', content: learnMode ? learnSys : chatSys },
+            { role: 'user', content: learnMode
+                ? `Translate this ${from} message into natural ${to} (free translation of the meaning):\n${t}`
+                : `Translate this ${from} chat message into ${to}:\n${t}` },
           ],
           max_tokens: 300,
         });
@@ -2099,7 +2255,9 @@ ${numbered}`;
         out = out.replace(/^```[a-zA-Z]*\s*|\s*```$/g, '').trim();
         out = out.replace(/^(translation|번역)\s*[:：]\s*/i, '').trim();
         if (out.length > 1 && /^["'“”「『]/.test(out) && /["'“”」』]$/.test(out)) out = out.slice(1, -1).trim();
-        out = out.split(/\r?\n/)[0].trim();          // 여러 줄로 떠들면 첫 줄만
+        // 여러 줄로 떠들면 — 채팅은 첫 줄만(한 메시지 = 한 줄), learn 은 여러 문장짜리
+        // 말풍선이 있어 첫 줄만 취하면 뜻이 잘린다 → 한 줄로 이어 붙인다.
+        out = learnMode ? out.replace(/\s*\r?\n\s*/g, ' ').trim() : out.split(/\r?\n/)[0].trim();
         /* 어미 중첩 교정 — 프롬프트로 금지해도 모델이 "죄송합니다요" 를 계속 만든다.
            존댓말을 시켰더니 이미 존댓말인 -습니다/-습니까 뒤에 요를 한 번 더 붙인다.
            확률에 맡기지 말고 여기서 확정적으로 떼어낸다. */
@@ -2120,7 +2278,7 @@ ${numbered}`;
         for (const t of need) {
           try {
             let out = '';
-            if (chatMode) {
+            if (chatMode || learnMode) {
               try { out = await chatTranslate(t); }
               catch (e: any) { dbg.err = 'chat:' + String(e?.message || e); }
             }
@@ -3025,7 +3183,7 @@ ${numbered}`;
         // 새 비밀번호 — students_erp.password_hash, api-students.ts hashPwd() 와 동일한 해시(SHA-256 + 고정 salt)
         let passwordChanged = false;
         if (typeof b.new_password === 'string' && b.new_password.length > 0) {
-          if (b.new_password.length < 6) return json({ ok: false, error: 'weak_password', message: '비밀번호는 6자 이상이어야 합니다.' }, 400);
+          if (b.new_password.length < 4) return json({ ok: false, error: 'weak_password', message: '비밀번호는 4자 이상이어야 합니다.' }, 400);
           const enc = new TextEncoder().encode(b.new_password + '|mangoi-salt-2026');
           const buf = await crypto.subtle.digest('SHA-256', enc);
           const ph = Array.from(new Uint8Array(buf)).map(x => x.toString(16).padStart(2, '0')).join('');
@@ -3309,16 +3467,59 @@ ${numbered}`;
     if (path === '/api/recordings/stop' && method === 'POST') {
       const b = await request.json() as any;
       const now = Date.now();
+
+      /* 🔴 2026-08-26: 예전엔 R2 업로드가 됐든 안 됐든 **무조건 'completed'** 로 적었다.
+         그래서 클라우드에 한 조각도 안 올라간 녹화가 목록에 초록색 「완료 · 2.1MB」로 떴다
+         (그 용량은 브라우저가 잰 «로컬» 값이다). 8/25 에 1,692건이 전부 「완료」인데
+         「⚠️ 영상 없음」이던 화면의 절반이 이것이었다 — 화면이 «저장됐다» 고 말해 버리니
+         아무도 «안 올라갔다» 는 것을 알 수 없었다.
+         → 적기 전에 **실물이 있는지 서버가 직접 확인**한다. 클라이언트 말만 믿지 않는다. */
+      const cur = await env.DB.prepare(
+        `SELECT file_url, status FROM recordings WHERE id = ?`
+      ).bind(b.recording_id).first<{ file_url: string | null; status: string | null }>();
+
+      // 실물 확인은 «진짜 R2 키» 일 때만. 'CLIENT_ERR:'·'DEBUG:' 는 옛 클라이언트가 오류
+      // 메시지를 이 칸에 적어 둔 것이라 키가 아니다(video-call/js/recorder.js `_callStop`).
+      const curKey = String(cur?.file_url || '');
+      const looksLikeKey = !!curKey && !curKey.startsWith('CLIENT_ERR:') && !curKey.startsWith('DEBUG:');
+      let headProven = false;    // 실물을 «봤다» — 이때만 완료로 올려준다(자가복구 포함)
+      let headChecked = false;   // 조회가 성립했는가 — 예외면 판단을 보류한다
+      const recBucket = (env as any).RECORDINGS as R2Bucket | undefined;
+      if (looksLikeKey && recBucket) {
+        try { headProven = !!(await recBucket.head(curKey)); headChecked = true; } catch { headChecked = false; }
+      }
+
+      /* ⚠️ 강등은 «없다고 밝혀졌을 때» 만 한다. 조회를 못 했으면 예전 동작(완료)을 유지한다 —
+         이 경로는 수업이 끝날 때마다 도는 곳이라, 막는 쪽이 아니라 통과시키는 쪽으로 실패해야
+         멀쩡한 녹화가 무더기로 «실패» 로 찍히지 않는다. */
+      const provenMissing = headChecked && !headProven;
+      const clientSaysFailed = b.r2_success === false;   // 새 클라이언트만 보낸다(옛 것은 undefined)
+      const nothingRecorded = !(Number(b.duration_ms) > 0) && !(Number(b.size_bytes) > 0);
+      const fallbackStatus = (provenMissing || clientSaysFailed)
+        ? (nothingRecorded ? 'aborted' : 'upload_failed')   // 1초도 안 찍힌 건 «실패» 가 아니라 «없던 일»
+        : 'completed';
+
       await env.DB.prepare(
         `UPDATE recordings
             SET ended_at = ?, duration_ms = ?, size_bytes = ?,
-                status = CASE WHEN status IN ('upload_failed','deleted') THEN status ELSE 'completed' END,
+                status = CASE
+                  WHEN status = 'deleted'       THEN status
+                  WHEN ? = 1                    THEN 'completed'
+                  WHEN status = 'upload_failed' THEN status
+                  ELSE ?
+                END,
                 file_url = COALESCE(?, file_url), storage = COALESCE(?, storage)
           WHERE id = ?`
-      ).bind(now, b.duration_ms || 0, b.size_bytes || 0, b.file_url || null, b.storage || null, b.recording_id).run();
+      ).bind(now, b.duration_ms || 0, b.size_bytes || 0,
+             headProven ? 1 : 0, fallbackStatus,
+             b.file_url || null, b.storage || null, b.recording_id).run();
       const after = await env.DB.prepare(`SELECT status, storage FROM recordings WHERE id = ?`)
         .bind(b.recording_id).first<{ status: string | null; storage: string | null }>();
-      return json({ ok: true, ended_at: now, status: after?.status || null, storage: after?.storage || null });
+      return json({
+        ok: true, ended_at: now,
+        status: after?.status || null, storage: after?.storage || null,
+        cloud_verified: headProven,          // 화면·진단이 «정말 올라갔나» 를 알 수 있게 함께 준다
+      });
     }
 
     if (path === '/api/recordings' && method === 'GET') {

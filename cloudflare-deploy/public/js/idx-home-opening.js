@@ -602,6 +602,9 @@
       '  color:#fbbf24;font-size:15px;line-height:1;cursor:pointer;',
       '  box-shadow:0 0 10px rgba(245,158,11,.35);',
       '  -webkit-tap-highlight-color:transparent;z-index:2147482900;',
+      /* 🛡 안전망 — 아이콘 말고 «글자» 가 들어오는 사고가 한 번 있었다(위 syncBtn 주석).
+         다시 그런 일이 생겨도 화면으로 쏟아지지는 않게 동그라미 안에서 자른다. */
+      '  overflow:hidden;white-space:nowrap;',
       '  transition:background .18s ease,border-color .18s ease;}',
       '#' + BTN_ID + '.mgo-show{display:flex;}',
       /* ⛔ hover 로 크기를 바꾸지 않는다 — 「hover 확대 금지」(CLAUDE.md 1-3) */
@@ -621,9 +624,20 @@
     btn.classList.toggle('mgo-off', off);
     var ko = off ? '오프닝 소리 켜기' : '오프닝 소리 끄기';
     var en = off ? 'Turn opening sound on' : 'Turn opening sound off';
-    // 🌐 를 눌러도 따라오게 data-ko/data-en 을 함께 갱신한다(CLAUDE.md 2장 「JS 로 그린 라벨」)
-    btn.setAttribute('data-ko', ko);
-    btn.setAttribute('data-en', en);
+    // 🔴 이 버튼에는 data-ko/data-en 을 «절대» 달지 않는다.
+    //    그 두 속성은 i18n 엔진이 **textContent 를 통째로 갈아끼우는** 열쇠라,
+    //    아이콘 자리에 문장이 들어앉는다. 34px 짜리 동그란 버튼이라 그 문장이
+    //    «오프 / 닝 소 / 리 끄 / 기» 로 쪼개져 밖으로 넘친다.
+    //    (2026-08-24 사장님 제보 「글자가 이상해」. 실측 390px: textContent='오프닝 소리 끄기',
+    //     scrollHeight 44 > 상자 32 → 세 줄. 아이콘은 사라진 상태였다.)
+    //    ⚠️ 엔진이 둘이다 — index.html 인라인 엔진과 js/mango-i18n.js. 규칙이 같으니
+    //       한쪽만 피해도 소용없다. 설명은 «-title / -aria» 접미사로 단다(둘 다 지원하고,
+    //       그쪽은 title·aria-label 만 건드려 글자를 그리지 않는다).
+    try { btn.removeAttribute('data-ko'); btn.removeAttribute('data-en'); } catch (e) {}
+    btn.setAttribute('data-ko-title', ko);
+    btn.setAttribute('data-en-title', en);
+    btn.setAttribute('data-ko-aria', ko);
+    btn.setAttribute('data-en-aria', en);
     var isEn = false;
     try { isEn = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
     var label = isEn ? en : ko;

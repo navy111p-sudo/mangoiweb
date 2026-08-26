@@ -15,9 +15,10 @@
 import { json, parseJsonBody } from './api-util';
 import { checkAdminSession } from './auth-admin';
 import { sendPlainSms } from './solapi-client';
-import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays } from './enroll-ops';
+import { handleEnrollApi, enrollCreateSchedules, currentEnrollment, createEnrollOrder, priceForUid, teacherRateFor, enrollQuoteCalc, ENROLL_WEEKLY, addDays, authUidOrAdminSession, renewStartDate } from './enroll-ops';
 import { authUidFromRequest } from './auth-token';
 import { siteUrl } from './site-url';           // 🔗 사람에게 나가는 링크는 한 곳에서 (사전고지 문자)
+import { handleRefundApi } from './api-pay-refund';   // 💸 환불 실행·기록 (2026-08-25 신설)
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 /* 토스 클라이언트 키(공개)의 최후 폴백 = 토스 공식 테스트키(실제 청구 없음).
@@ -154,7 +155,8 @@ async function ensureSubscriptionsSchema(env: any): Promise<void> {
  *     기간할인(6개월 95% / 12개월 90%)은 enrollQuoteCalc 가 그대로 적용한다. */
 async function autoRenewQuote(env: any, uid: string, months = 1) {
   const cur = await currentEnrollment(env, uid);
-  if (!cur.active || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
+  // 🔁 (2026-08-24) active(미래 수업 있음) 대신 renewable — 60일 안에 끝난 수강도 자동결제로 이어받는다.
+  if (!cur.renewable || !cur.days_resolved || !cur.times_resolved) return { error: 'no_active_enrollment' };
   const weekly = cur.days.length;
   if (!ENROLL_WEEKLY.includes(weekly)) return { error: 'weekly_unresolved' };
   const { shopName, weekly1Price } = await priceForUid(env, uid);
@@ -168,7 +170,11 @@ async function autoRenewQuote(env: any, uid: string, months = 1) {
  *  만들었다(2026-08-23 수리). 이미 지난 시각이면 지금 — 다음 스윕에서 바로 청구 대상이 된다. */
 function nextBillingFromLastDate(lastDate: string): number {
   const t = Date.parse(String(lastDate || '') + 'T01:00:00Z') - 3 * 86400 * 1000;
-  return isNaN(t) ? Date.now() + 30 * 86400 * 1000 : Math.max(Date.now(), t);
+  if (isNaN(t)) return Date.now() + 30 * 86400 * 1000;
+  /* ⚠️ (2026-08-24) 계산된 시각이 이미 지났으면(수업이 곧 끝나거나 이미 끝난 학생) «지금» 으로 두면 안 된다 —
+     다음 스윕이 그 자리에서 청구해 버려 **D-3 사전고지 문자가 나갈 틈이 없다**. 3일 뒤로 밀어
+     오늘 안내가 먼저 나가게 한다(sendPrebillNotices 가 now~now+3일 창을 본다). */
+  return t > Date.now() ? t : Date.now() + 3 * 86400 * 1000;
 }
 
 /** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
@@ -194,7 +200,7 @@ export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Pr
   // 1) 정상 주문 생성(연장과 동일 로직 — enroll_json·회차·충돌회피 전부 재사용)
   const orderResp = await createEnrollOrder(env, sub.user_id, {
     weekly: q.weekly, months: q.months, minutes: q.cur.minutes, times: q.cur.times,
-    startDate: addDays(q.cur.last_date, 1), teacherId: q.cur.teacher_id, days: q.cur.days,
+    startDate: renewStartDate(q.cur.last_date), teacherId: q.cur.teacher_id, days: q.cur.days,
   }, 'auto_renew');
   const orderBody: any = await orderResp.json().catch(() => ({}));
   if (!orderBody || !orderBody.ok) {
@@ -342,6 +348,16 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
   await ensurePayTable(env);
 
+  /* ═══ 💸 환불 «실행·기록» — 전용 모듈(api-pay-refund.ts)로 위임 (2026-08-25) ═══
+     ⚠️ enroll 위임보다 **먼저** 와야 한다 — 경로가 /api/pay/admin/refund* 라 겹치지는 않지만,
+        환불은 돈을 되돌리는 유일한 길이라 라우팅에서 눈에 띄는 자리에 둔다.
+     ℹ️ 기존 «계산기»(/api/pay/enroll/admin/refund-quote)는 그대로 둔다 —
+        수강신청 화면이 쓰고 있고, 새 미리보기와 답이 같은지 대조하는 근거가 된다. */
+  if (path.startsWith('/api/pay/admin/refund')) {
+    const r = await handleRefundApi(request, url, env);
+    if (r) return r;
+  }
+
   // ═══ 📚 수강신청(enroll) — 전용 모듈(enroll-ops.ts)로 위임 ═══
   if (path.startsWith('/api/pay/enroll/')) {
     return await handleEnrollApi(request, url, env);
@@ -371,7 +387,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
        클라이언트 가드(idx-payment-modal.js)는 우회 가능하므로, 실제 보안 경계는 여기다.
        uid 는 클라이언트가 보낸 값을 그대로 믿지 않고 세션 토큰으로 재검증한다(enroll-ops.ts
        renew-order 와 동일 패턴) — 그래야 "아무 uid나 적어서 보내는" 위조를 막는다. */
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) {
       return json({ ok: false, error: 'auth_required', message: '로그인 후 결제할 수 있습니다.' }, 401);
     }
@@ -424,7 +440,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
     /* 🔒 (2026-07-30) 비로그인 결제 차단 — 제보 #1. create-order 와 동일한 이유·동일한 방식.
        'other'(맞춤 상담)도 실제 금액이 찍힌 payment_orders 행이 만들어지므로 예외 없이 로그인 요구. */
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) {
       return json({ ok: false, error: 'auth_required', message: '로그인 후 접수할 수 있습니다.' }, 401);
     }
@@ -663,7 +679,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
      ⚠️ 전화번호는 개인정보다. 「본인이 로그인해서 본인 결제창을 여는」 이 경로 외에는 주지 않는다. */
   if (path === '/api/pay/prefill' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
 
     let stu: any = null;
@@ -813,7 +829,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   // ── 9) 자동연장(정기결제) — 제보 #2-2/#3-2. 현재 수강 중인 학생만 카드를 등록해 매월 자동 청구받는다 ──
   if (path === '/api/pay/billing/register' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
     await ensureSubscriptionsSchema(env);
     const q = await autoRenewQuote(env, authUid);
@@ -831,7 +847,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
   if (path === '/api/pay/billing/confirm' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
     const authKey = String(body.authKey || '').trim();
     const customerKey = String(body.customerKey || '').trim();
@@ -877,7 +893,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
 
   if (path === '/api/pay/billing/cancel' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureSubscriptionsSchema(env);
     await env.DB.prepare(`UPDATE subscriptions SET status='cancelled', updated_at=? WHERE user_id=? AND status='active'`).bind(Date.now(), authUid).run();
@@ -890,7 +906,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
      결제라 cron 킬스위치(billing:auto_renew_live)와는 무관하다 — 수동 「연장 결제」와 같은 급의 동의. */
   if (path === '/api/pay/billing/charge-now' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const authUid = await authUidFromRequest(request, url, env, body);
+    const authUid = await authUidOrAdminSession(request, url, env, body);
     if (!authUid) return json({ ok: false, error: 'auth_required', message: '로그인 후 이용해주세요.' }, 401);
     const months = Number(body.months || 1);
     if (![1, 3, 6, 12].includes(months)) return json({ ok: false, error: 'bad_months' }, 400);
@@ -909,7 +925,7 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
   }
 
   if (path === '/api/pay/billing/status' && method === 'GET') {
-    const authUid = await authUidFromRequest(request, url, env, {});
+    const authUid = await authUidOrAdminSession(request, url, env, {});
     if (!authUid) return json({ ok: false, error: 'auth_required' }, 401);
     await ensureSubscriptionsSchema(env);
     const sub: any = await env.DB.prepare(
@@ -951,7 +967,7 @@ async function syncSubscriptionNextBilling(env: any, uid: any): Promise<void> {
   ).bind(String(uid)).first();
   if (!sub) return;
   const cur = await currentEnrollment(env, String(uid));
-  if (!cur?.active || !cur.last_date) return;
+  if (!cur?.renewable || !cur.last_date) return;
   await env.DB.prepare(`UPDATE subscriptions SET next_billing_at=?, updated_at=? WHERE id=?`)
     .bind(nextBillingFromLastDate(String(cur.last_date)), Date.now(), sub.id).run();
 }

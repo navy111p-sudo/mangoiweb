@@ -134,6 +134,16 @@ check('warmup: 뜻을 열면 가려진 말풍선도 함께 열린다',
 // ⚠️ 새 API 가 아니라 기존 경로를 쓴다 — 그래도 게이트 등록 여부는 확인해야 «본문 없는 404»를 안 만난다
 check("index.ts 게이트에 '/api/translate' 가 등록돼 있다", /path === '\/api\/translate'/.test(idx));
 
+// 🗣️ (2026-08-24) 웜업 뜻 보기는 «의역» 모드로 묻는다 — 모드 없는 기본 경로(m2m100)가
+//   "Let's warm up before class" 를 «수업 전에 따뜻하게하자» 로 직역한 제보가 출발점.
+//   서버 learn 모드(언어모델 의역)와 화면의 mode:'learn' 은 짝이다 — 한쪽만 지우면 직역으로 돌아간다.
+const mango = read(P('src', 'api-mango.ts'));
+check("warmup: 뜻 보기를 mode:'learn' 으로 묻는다", /mode:\s*['"]learn['"]/.test(wup));
+check('warmup: 고정 인사말은 손질한 의역을 쓴다(curatedMeaning)',
+  /curatedMeaning/.test(wup) && /입을 풀어/.test(wup));
+check("서버: /api/translate 가 mode='learn' 을 안다", /b\.mode === 'learn'/.test(mango));
+check('서버: learn 모드 캐시 접두사가 따로 있다(옛 직역 캐시와 안 섞임)', /trl1:/.test(mango));
+
 /* ─────────────────────────────────────────────────────────────
    6. speech-coach — 여긴 자막을 가리면 안 된다
    ───────────────────────────────────────────────────────────── */

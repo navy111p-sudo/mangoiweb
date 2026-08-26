@@ -191,6 +191,10 @@
   </div>
 
   <script>
+    /* 🇨🇳 이 화면을 연 학생은 «중국어 수강생» 으로 기록 (2026-08-24) —
+       홈 메뉴(js/idx-allmenu.js 의 mangoiZhLearner)가 이 표시를 보고 중국어 메뉴를 보여준다.
+       표시가 없으면 중국어 타일은 감춰진다(영어만 듣는 학생·첫 방문자에게 혼란 — 학원장 검수 피드백). */
+    try { localStorage.setItem('mangoi_zh_learner','1'); } catch(e){}
     var APP_STATE = { showPinyin:true, showToneColor:true, lang:'zh' };
     try { var saved=JSON.parse(localStorage.getItem('rq_cn_state')||'{}'); APP_STATE={...APP_STATE,...saved}; } catch(e){}
     function saveAppState(){ try{ localStorage.setItem('rq_cn_state',JSON.stringify(APP_STATE)); }catch(e){} }

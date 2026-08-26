@@ -73,9 +73,16 @@ console.log('\n▶ B. 참관 중 «보내는» 버튼 숨김');
   }
   check('display:none 을 !important 로 건다(독 CSS 를 이겨야 한다)',
         /display:none\s*!important/.test(guardCode));
-  // 나가기·채팅은 남아야 한다 — 참관자도 나가야 하고, 보기는 해야 한다
-  check('나가기 버튼은 숨기지 않는다', !/vc-dock-leave/.test(guardCode));
-  check('채팅 버튼은 숨기지 않는다', !/vc-dock-chat/.test(guardCode));
+  /* 나가기·채팅은 남아야 한다 — 참관자도 나가야 하고, 보기는 해야 한다.
+     ⚠️ «그 이름이 파일에 아예 없다» 로 검사하면 안 된다. 2026-08-26 에 참관 중 채팅
+        버튼의 이름표를 «귓속말» 로 바꾸느라 그 id 를 «읽기만» 하는 코드가 생기자
+        곧바로 거짓 FAIL 이 났다 — 숨긴 적이 없는데도. 물어야 할 것은 «숨기는가» 다.
+        → 숨김 규칙(body.vc-observer #아이디)의 «대상 목록» 안에 있는지로 판정한다.
+        (CLAUDE.md 2장 「부정 검사가 자기 주석을 잡는다」와 같은 뿌리다) */
+  const hideTargets = (guardCode.match(/body\.vc-observer #[\w-]+/g) || []).join(' ');
+  check('나가기 버튼은 숨기지 않는다', !/vc-dock-leave/.test(hideTargets));
+  check('채팅 버튼은 숨기지 않는다', !/vc-dock-chat/.test(hideTargets),
+        '참관자는 귓속말을 그 버튼으로 연다 — 숨기면 보낼 방법이 아예 없어진다');
 }
 
 /* ── C. 함수 자체 가드 ────────────────────────────────────────────── */
@@ -101,6 +108,32 @@ console.log('\n▶ D. 참관은 원래 미디어를 안 보낸다 — 그 설계
         /vcJoinAsObserver[\s\S]{0,900}vcLocalStream = new MediaStream\(\)/.test(idxMain));
   check('클라이언트: 참관자의 내 얼굴 타일은 숨긴다',
         /vcJoinAsObserver[\s\S]{0,1200}localBox\.style\.display = 'none'/.test(idxMain));
+}
+
+/* ── D-2. 참관자는 «녹화» 도 하지 않는다 ────────────────────────────────
+   (2026-08-26 사장님 지시 「관찰자는 녹화 안 하게 해줘」)
+   자동녹화는 «수업 화면에 들어왔는가»(body.vc-in-call)만 보고 돌아서 참관자도 함께
+   녹화를 켰다. 실측: `class-943` 에 「관찰자」 이름의 녹화 두 건이 30분 넘게 「● 녹화중」
+   으로 남아 있었다 — 참관자가 창을 닫을 때 종료 신호가 안 가 크론이 12시간 뒤에야 정리한다.
+   ⚠️ 판정은 **이름(「관찰자」)이 아니라** vc-observe-guard 의 observing() 과 같은 근거로.
+      이름은 사람이 바꿀 수 있는 표시일 뿐이다. */
+console.log('\n▶ D-2. 참관 중에는 녹화하지 않는다');
+{
+  const rec = read(join(PUB, 'js', 'mango-rec.js'));
+  const recCode = strip(rec);
+  check('mango-rec.js 에 참관 판정이 있다', /function isObserverNow\s*\(/.test(recCode));
+  check('판정 근거가 guard 와 같다(_vcObserverMode · vcIsObserver · body.vc-observer)',
+        /_vcObserverMode\s*===\s*true/.test(recCode) &&
+        /vcIsObserver\s*===\s*true/.test(recCode) &&
+        /classList\.contains\('vc-observer'\)/.test(recCode));
+  check('startRecording 입구에서 막는다 (자동·수동·앞으로 생길 경로 전부)',
+        /async function startRecording[\s\S]{0,400}if \(isObserverNow\(\)\)[\s\S]{0,300}return;/.test(recCode));
+  check('자동녹화 폴링이 참관 중에는 시작하지 않는다',
+        /!_observing[\s\S]{0,120}!isRecording[\s\S]{0,80}!autoRecStarted/.test(recCode));
+  check('참관자에게는 «녹화 꺼짐 · 눌러서 시작» 배지도 안 띄운다',
+        /!_observing[\s\S]{0,120}showRecBadge\(\)/.test(recCode));
+  check('⛔ 이름(「관찰자」)으로 가르지 않는다',
+        !/teacher_name[\s\S]{0,40}관찰자/.test(recCode) && !/=== *'관찰자'/.test(recCode));
 }
 
 /* ── E. 「직접 입장」 과 「참관」 이 갈라져 있는가 ─────────────────── */
