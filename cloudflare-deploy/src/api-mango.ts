@@ -142,10 +142,24 @@ export async function handleMangoApi(
       try {
         const b: any = await request.json().catch(() => null);
         if (!b || !b.uid) return json({ ok: true });   // 로깅은 실패해도 무관 → 조용히 무시
-        await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
-        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples) VALUES (?,?,?,?,?,?,?,?,?,?)`)
+        await ensureSchemaOnce('vc_quality', async () => {
+          await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+          /* 📶 (2026-08-26) novideo — «영상 표본이 아예 없던 4초 틱» 의 수(카메라 끔·영상 죽음).
+             예전엔 그런 사람의 기록이 **통째로 안 남았다**(js/idx-vc-qlog.js 머리말) — 8/26 하루
+             예상 ~2,900건 중 실제 25건. 「끊긴다」 제보를 숫자로 확인할 방법이 없던 이유다.
+             ⚠️ CREATE 문에는 넣지 않는다 — 같은 표를 만드는 CREATE 가 api-admin.ts:582 에
+                «한 벌 더» 있고, IF NOT EXISTS 는 먼저 실행된 쪽이 이긴다. 두 벌의 모양이
+                갈리면 새 DB(개발용·복구본)에서 어느 쪽이 이겼느냐로 결과가 달라진다
+                (schema_drift_harness 가 그래서 FAIL 을 낸다). 그러니 ALTER 로만 붙인다 —
+                `attendance.host` 와 같은 방식이다. 이미 있으면 예외가 나는데 그게 정상이라 삼킨다. ⚠️ 이 ALTER 는 **첫 로그가 들어와야** 돈다 — 배포 직후
+                SQL 을 돌리면 `no such column: novideo` 가 나오지만 배포 실패가 아니다
+                (CLAUDE.md 2장 `attendance.host` 와 같은 사정). */
+          try { await env.DB.exec(`ALTER TABLE vc_quality ADD COLUMN novideo INTEGER DEFAULT 0`); } catch {}
+        });
+        await env.DB.prepare(`INSERT INTO vc_quality (ts, room, uid, name, role, avg_loss, max_loss, avg_rtt, aao, samples, novideo) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
           .bind(Date.now(), String(b.room || ''), String(b.uid), String(b.name || ''), String(b.role || ''),
-            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0).run();
+            Number(b.avg_loss) || 0, Number(b.max_loss) || 0, Number(b.avg_rtt) || 0, Number(b.aao) || 0, Number(b.samples) || 0,
+            Number(b.novideo) || 0).run();
         if (Math.random() < 0.02) { try { await env.DB.prepare(`DELETE FROM vc_quality WHERE ts < ?`).bind(Date.now() - 30 * 86400000).run(); } catch {} }  // 30일 지난 것 가끔 정리
         return json({ ok: true });
       } catch { return json({ ok: true }); }
