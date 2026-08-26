@@ -11,11 +11,26 @@
       #mi-sd-backdrop.is-open{ opacity:1; visibility:visible; }
 
       /* 컨테이너: 우하단 코너 고정, 세로 정렬(액션 위 / 트리거 아래), 중심선 일치 */
+      /* 🔴 (2026-08-21) pointer-events:none 이 «장식» 이 아니다 — 이게 없으면 접힌 액션 3개가
+         «안 보이는 채로 자리만 차지» 하면서 그 상자 전체가 클릭을 가로챈다.
+         접힌 상태의 .mi-sd-action 은 opacity:0 + pointer-events:none 이지만 display 는 살아 있어서
+         컨테이너 높이가 그대로 남기 때문이다. 실측(2026-08-21):
+             1400px  상자 108x396  보이는 아바타 108px → 위 289px 이 투명하게 클릭 차단
+              900px  상자  83x305  보이는 아바타  83px → 위 222px
+              482px  상자  83x305  보이는 아바타  83px → 위 222px
+         그 구간에 걸린 폼 칸은 «보이는데 안 눌린다» 가 된다(수강신청 시간칸 ⏰ 가 실제로 그랬다).
+         ✅ 상자는 통과시키고, 실제로 눌러야 하는 것(아바타 · 펼친 액션)에만 auto 를 되돌린다.
+         ⛔ 상자 높이를 줄이는 방식으로 풀지 말 것 — 펼침 애니메이션이 그 높이를 쓴다. */
       #mi-speed-dial{ position:fixed; right:16px; bottom:16px; z-index:9992;
-        display:flex; flex-direction:column; align-items:center; gap:14px; }
+        display:flex; flex-direction:column; align-items:center; gap:14px;
+        pointer-events:none; }
 
       /* 액션 묶음: column-reverse → DOM 첫 항목(AI)이 트리거 바로 위(아래쪽)에 옴 */
-      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px; }
+      #mi-sd-actions{ display:flex; flex-direction:column-reverse; align-items:center; gap:14px;
+        pointer-events:none; }
+      /* 눌러야 하는 것만 되살린다 — 아바타는 늘, 액션은 펼쳤을 때만(아래 .is-open 규칙이 auto 로 돌린다) */
+      #mi-ops-fab{ pointer-events:auto; }
+      #mi-speed-dial.is-open #mi-sd-actions{ pointer-events:auto; }
 
       /* 공통 액션 버튼 — 동일 크기 원형 + 통일된 그림자 */
       .mi-sd-action{ position:relative; display:flex; align-items:center; justify-content:center;
