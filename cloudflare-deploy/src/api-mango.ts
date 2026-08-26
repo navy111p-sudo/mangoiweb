@@ -1879,7 +1879,17 @@ export async function handleMangoApi(
       const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
       const m = /^class-(\d+)-\d{8}$/.exec(roomId);
       if (!m) return json({ ok: true, authorized: true, reason: 'not_managed_room' }); // 예약제 방이 아니면 게이트 안 함
-      if (role === 'admin' || role === 'observer') return json({ ok: true, authorized: true, reason: 'privileged' });
+      /* 🔓 (2026-08-26 사장님 지시) 예전에는 admin 도 여기서 함께 빠졌다. 그런데 그 조기 통과가
+         「이 예약의 학생이면 역할을 내린다」 교정을 **admin 에서만 통째로 건너뛰게** 만들었다 —
+         resolved_role 이 없으니 클라이언트가 내릴 근거를 못 받는다. 사장님(jeong)은 학생 세션 없이
+         관리자 폴백으로 로그인해 입장 역할이 admin 으로 잡히는데(idx-main.js 「else if (_admUid)」),
+         그래서 학생 자리로 들어가도 수업 내내 «스태프» 인 채였다(실측 10분 — 얼굴 크기가 뒤집히고
+         화면공유·교재 넘김 권한까지 열렸다). 이제 admin 도 조회를 거쳐 **역할만 사실대로 알려 준다.**
+         ⛔ 그렇다고 «막지» 는 않는다 — 관리자는 어느 방이든 들어갈 수 있어야 한다(아래 authorized 참고).
+         ℹ️ 참관(observer)은 그대로 조기 통과다. 참관은 vcJoinAsObserver 라는 별도 경로라 이 API 를
+            애초에 부르지 않지만, 다른 경로가 role=observer 를 보내도 안전하도록 남겨 둔다. */
+      const isAdminRole = (role === 'admin');
+      if (role === 'observer') return json({ ok: true, authorized: true, reason: 'privileged' });
       if (!userId && !nameParam) return json({ ok: true, authorized: 'unknown', reason: 'no_identity' }); // 신원 불명 → 통과
       const schedId = Number(m[1]);
       let row: any = null;
@@ -1947,18 +1957,35 @@ export async function handleMangoApi(
          (교사가 다른 탭에서 로그인한 상태라면). 있으면 teacher/portal 과 **같은 두 경로**로
          한 번 더 확인한다 — 신원이 «더 명확해지는» 쪽으로만 넓히고, 세션이 없거나 그래도
          못 찾으면 그대로 기존 폴백(경고만, 입장은 막지 않음)으로 이어진다. */
-      if (!ok && /teacher/.test(role)) {
+      if (!ok) {
         try {
           const sess = await checkAdminSession(request, env as any);
           if (sess.ok && sess.username) {
-            if (String(row.teacher_id || '') === sess.username) { ok = true; resolvedRole = 'teacher'; }
-            if (!ok) {
-              const link = await env.DB.prepare(
-                `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
-              ).bind(sess.username).first<any>().catch(() => null);
-              if (link && link.teacher_id && String(row.teacher_id || '') === String(link.teacher_id)) {
-                ok = true; resolvedRole = 'teacher';
+            /* 🔑 강사 판정이 «먼저» 다 — 강사로 확정되면 아래 학생 판정으로 내려가지 않는다. */
+            if (/teacher/.test(role)) {
+              if (String(row.teacher_id || '') === sess.username) { ok = true; resolvedRole = 'teacher'; }
+              if (!ok) {
+                const link = await env.DB.prepare(
+                  `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+                ).bind(sess.username).first<any>().catch(() => null);
+                if (link && link.teacher_id && String(row.teacher_id || '') === String(link.teacher_id)) {
+                  ok = true; resolvedRole = 'teacher';
+                }
               }
+            }
+            /* 🎓 (2026-08-26) 이 예약의 «학생» 인가 — 관리자 세션만 있는 계정은 user_id 를 못 보낸다.
+               홈 통합 로그인의 관리자 폴백(idx-user-session.js tryAdminLoginFallback)은
+               `mangoi_admin_session` 만 만들고 학생 세션(`mangoi_logged_user`)은 만들지 않는다.
+               그래서 getCurrentUser() 가 null 이라 위쪽 userId 경로가 통째로 비어 있었다.
+               쿠키는 이미 와 있으므로(credentials:'include') 그 아이디로 예약의 학생과 대조한다.
+               ⚠️ 대소문자는 무시한다 — students_erp.user_id 는 BINARY 라 `Kim`/`kim` 이 둘 다
+                  실재하고(2026-08-26 실측), 아이디 대소문자는 로그인 쪽도 이미 무시한다.
+               ⛔ 이름으로는 붙이지 않는다 — 여기서 틀리면 «남의 수업에서 학생이 되는» 것이라
+                  아이디 완전일치(대소문자만 무시)에서 멈춘다. */
+            if (!ok) {
+              const su = String(sess.username);
+              const ru = String(row.user_id || '');
+              if (ru && (ru === su || ru.toLowerCase() === su.toLowerCase())) { ok = true; resolvedRole = 'student'; }
             }
           }
         } catch { /* 세션 확인 실패해도 기존 폴백으로 이어진다 — 수업은 막지 않는다 */ }
@@ -1969,11 +1996,17 @@ export async function handleMangoApi(
       // 🔒 (2026-07-28) 교사는 차단하지 않는다 — "수업을 방해하지 않는다"가 이 게이트의 1원칙이다.
       //   담당 지정이 어긋나 있어도 수업은 열려야 한다(어긋남 자체는 운영에서 흔하다).
       //   클라이언트는 authorized === false 일 때만 막으므로, 'unknown' 을 주면 경고만 띄우고 통과한다.
-      //   ※ 이 게이트는 보안 경계가 아니다 — role 은 클라이언트가 보내는 값이고 admin/observer 는 이미 무조건 통과다.
+      //   ※ 이 게이트는 보안 경계가 아니다 — role 은 클라이언트가 보내는 값이고 admin·observer 는 무조건 통과다
+      //     (2026-08-26 부터 admin 은 «통과하되 역할은 사실대로» 로 바뀌었다. 막고 안 막고는 그대로).
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
       if (!ok && /teacher/.test(role)) {
         return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
+      }
+      /* 🔓 관리자는 어느 방이든 통과다(예전 조기 통과와 «막고 안 막고» 는 100% 동일).
+         달라진 것은 resolved_role 을 **함께 준다**는 것뿐이고, 클라이언트는 그 값을 내리는 데만 쓴다. */
+      if (isAdminRole) {
+        return json({ ok: true, authorized: true, reason: ok ? 'match' : 'privileged', owner_name: row.student_name || null, resolved_role: resolvedRole });
       }
       return json({ ok: true, authorized: ok, owner_name: row.student_name || null, reason: ok ? 'match' : 'mismatch', resolved_role: resolvedRole });
     }

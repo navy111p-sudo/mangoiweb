@@ -2798,7 +2798,7 @@ async function vcJoinRoom(skipUI) {
            🔑 «내리는» 데만 쓴다. 올리는 데 쓰면 이름 매칭이 한 번 어긋난 것으로 학생이 강사가 되어
               지금 고치는 사고를 반대 방향으로 다시 만든다(서버도 그래서 teacher 는 null 로 둔다).
            🔑 입장은 막지 않는다 — 이 게이트의 1원칙(수업 방해 금지)은 그대로다. 역할만 바로잡는다.
-           ⚠️ 관리자·참관(admin/observer)은 서버가 privileged 로 먼저 빠져 resolved_role 이 없다. */
+           ⚠️ 참관(observer)만 privileged 로 먼저 빠진다. 관리자는 2026-08-26 부터 받는다. */
         try {
           if (_vres && _vres.resolved_role === 'student' &&
               (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin')) {
