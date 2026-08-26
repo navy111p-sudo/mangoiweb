@@ -46,6 +46,8 @@ import { marketingRouter } from './marketing-studio';
 import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
+import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
+import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -3083,6 +3085,17 @@ async function handleWarmupContext(request: Request, env: Env): Promise<Response
       level: (u.searchParams.get('level') || '').trim(),
       lessonNo: parseInt(u.searchParams.get('lesson') || '0', 10) || null,
     });
+    // 📊 세션 시작 기록 — 설정 화면을 «닫은 뒤» 오는 호출이라 여기 diff/age 가 학생이 고른 값이다.
+    //    이 한 줄이 「낮은 단계 학생이 실제로 몇 단계로 쓰는가」와 「입을 뗐는가」의 분모다.
+    //    실패는 조용히 삼킨다(src/warmup-log.ts) — 기록 때문에 웜업이 멈추면 안 된다.
+    await logWarmupSessionStart(env, {
+      sessionId: (u.searchParams.get('session_id') || '').trim(),
+      userId,
+      difficulty: parseInt(u.searchParams.get('diff') || '0', 10),
+      ageGroup: normalizeWarmupAge(u.searchParams.get('age')),
+      textbook: ctx.textbook,
+      level: ctx.level,
+    });
     // 🕸️ 개인화(Neo4j): 자주 틀린 문장 — 미설정/장애 시 빈 배열 (페이지 로드당 1회 호출이라 캐시 불필요)
     let weak: Array<{ text: string; wrongCount: number; inTodayTextbook: boolean }> = [];
     if (userId && env.NEO4J_QUERY_URL) {
@@ -3876,6 +3889,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🧑‍🎓 연령대(kid/child/teen/adult) — 난이도와 «독립» 인 축. 소재·말투만 바꾼다(src/warmup-audience.ts).
     //    모르는 값·미지정이면 기본값(child)이 되므로 옛 화면의 요청도 지금과 똑같이 동작한다.
     const ctxAge = normalizeWarmupAge(body && body.age_group);
+    // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
+    //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
+    const ctxKickoff = !!(body && body.kickoff);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3895,6 +3911,19 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
       const raw = env.SESSION_STATE ? await env.SESSION_STATE.get(hkey) : null;
       if (raw) history = JSON.parse(raw);
     } catch {}
+
+    // 📊 웜업 기록(src/warmup-log.ts) — 세션당 INSERT 1 + 조건부 UPDATE 최대 2. 발화마다 쓰지 않는다.
+    //   ① 첫 턴의 INSERT 는 «안전망» 이다. 로그인 학생은 /api/warmup/context 에서 이미 잡히고,
+    //      비로그인·교재 미배정 세션만 여기서 처음 기록된다(INSERT OR IGNORE 라 겹쳐도 무해).
+    //   ② 「입을 뗐다」 판정은 히스토리가 비었는지로 하면 «틀린다» — kickoff 합성 발화가 이미
+    //      user 로 저장돼 있기 때문이다. 판정은 순수 함수 하나에 모아 두고 하니스가 직접 돌린다.
+    if (history.length === 0) {
+      await logWarmupSessionStart(env, {
+        sessionId, userId: ctxUserId, difficulty: ctxDifficulty, ageGroup: ctxAge,
+        textbook: ctxTextbook, level: ctxLevel,
+      });
+    }
+    if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
     let sys = WARMUP_SYSTEM;
@@ -3985,8 +4014,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     } catch {}
 
     const turnCount = Math.floor(history.length / 2) + 1;
-    return new Response(JSON.stringify({ session_id: sessionId, ai_response: aiText, turn_count: turnCount }),
-      { status: 200, headers: _MS_JSON });
+    // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
+    //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
+    return new Response(JSON.stringify({
+      session_id: sessionId, ai_response: aiText, turn_count: turnCount,
+      answer_chips: warmupAnswerChips(aiText, ctxDifficulty),
+    }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4050,7 +4083,9 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
           await env.SESSION_STATE.put(hkey, JSON.stringify(history), { expirationTtl: 6 * 3600 });
         } catch {}
       }
-      return new Response(JSON.stringify({ ok: true, picked: pick }), { status: 200, headers: _MS_JSON });
+      // 고른 질문도 곧바로 AI 발화가 되므로 «대답 보기» 를 같이 내려준다(대화 응답과 같은 규칙).
+      return new Response(JSON.stringify({ ok: true, picked: pick, answer_chips: warmupAnswerChips(pick, difficulty) }),
+        { status: 200, headers: _MS_JSON });
     }
 
     if (!env.AI) {

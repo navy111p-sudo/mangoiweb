@@ -1936,6 +1936,33 @@ export async function handleMangoApi(
              (resolvedRole 은 클라이언트에서 내림 전용이므로 null 로 두면 아무 일도 안 일어난다) */
         }
       }
+      /* 🔐 (2026-08-26 실사고) — teacher/portal(자기 목록)엔 뜨는 수업인데 verify-room 은
+         "담당 강사가 아니다" 로 경고한다. 원인: teacher/portal(api-teacher.ts)은 로그인 세션으로
+         계정→강사원부를 ① teacher_account_links 수동 연결 ② class_schedules.teacher_id 에
+         **로그인 계정명이 그대로 들어간 행**(teachers 원부에 이름이 없는 계정, mangoi_0XX 류)
+         ③ teachers.name 낱말경계 일치 — 셋 중 하나로 확정하는데, 이 게이트는 위에서 ③(그것도
+         nameParam 문자열 비교)만 본다. joinClass()(teacher.html)도 user_id 를 안 보내
+         userId 매칭 경로 자체가 안 걸린다 → ①·② 로만 배정된 강사는 매번 이 경고를 본다.
+         verify-room 호출은 credentials:'include' 라 admin_sessions 쿠키가 이미 와 있다
+         (교사가 다른 탭에서 로그인한 상태라면). 있으면 teacher/portal 과 **같은 두 경로**로
+         한 번 더 확인한다 — 신원이 «더 명확해지는» 쪽으로만 넓히고, 세션이 없거나 그래도
+         못 찾으면 그대로 기존 폴백(경고만, 입장은 막지 않음)으로 이어진다. */
+      if (!ok && /teacher/.test(role)) {
+        try {
+          const sess = await checkAdminSession(request, env as any);
+          if (sess.ok && sess.username) {
+            if (String(row.teacher_id || '') === sess.username) { ok = true; resolvedRole = 'teacher'; }
+            if (!ok) {
+              const link = await env.DB.prepare(
+                `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+              ).bind(sess.username).first<any>().catch(() => null);
+              if (link && link.teacher_id && String(row.teacher_id || '') === String(link.teacher_id)) {
+                ok = true; resolvedRole = 'teacher';
+              }
+            }
+          }
+        } catch { /* 세션 확인 실패해도 기존 폴백으로 이어진다 — 수업은 막지 않는다 */ }
+      }
       /* 🎭 학생 이름으로만 붙었는데 «강사» 를 주장하는 경우 = 이번 신고의 그림 그대로다.
          (공용 PC 에 남아 있던 낡은 teacher 를 물려받은 학생) → resolvedRole 이 'student' 로 남아
          클라이언트가 스스로 역할을 내린다. 그래도 **입장은 막지 않는다**(1원칙 유지). */
