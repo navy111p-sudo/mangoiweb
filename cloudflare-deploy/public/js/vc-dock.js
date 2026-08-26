@@ -607,6 +607,12 @@
             '<div class="sg-note" id="sg-mic-note" data-ko="누르고 3초간 말해 보세요" data-en="Press, then speak for 3s">누르고 3초간 말해 보세요</div>' +
           '</div></div>' +
         '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="🔔 소리 확인" data-en="🔔 Play sound">🔔 소리 확인</button></div>' +
+        /* 🔊 (2026-08-26 학생 제보) 안드로이드에서 하드웨어 볼륨키가 "통화" 스트림을 움직이는데
+           실제 출력은 "미디어" 스트림을 따라가는 기기(특히 삼성)가 있어, 버튼을 눌러도 소리가 안 커졌다.
+           OS 가 어느 스트림을 쓸지는 웹페이지가 정할 수 없어서(브라우저에 그 API가 없음) 스트림 자체를
+           "하나로 통일"할 수는 없다 — 대신 OS 스트림과 무관하게 항상 먹는 자체 음량을 하나 둔다.
+           실제 적용은 idx-vc-outputvolume.js(defer, idx-main.js 는 안 건드림)가 window.vcSetOutputVolume 로 한다. */
+        '<div class="sg-row"><label data-ko="출력 음량" data-en="Output volume">출력 음량</label><input type="range" id="sg-out-vol" min="0" max="100" step="5" value="100"></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
         '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
       '</div>' +
@@ -636,6 +642,8 @@
     camDev.onchange = function(){ call('vcSetCamDevice', camDev.value); };
     setPop.querySelector('[data-act="mic"]').onclick = micTest;
     setPop.querySelector('[data-act="spk"]').onclick = beep;
+    var outVol = setPop.querySelector('#sg-out-vol');
+    if (outVol) outVol.oninput = function(){ call('vcSetOutputVolume', outVol.value / 100); };
     setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
     // 영상·녹화
     setPop.querySelectorAll('#sg-quality button').forEach(function(b){
@@ -675,6 +683,11 @@
     try {
       var b = setPop.querySelector('[data-act="blur"]');
       if (b) b.classList.toggle('on', !!(window.vcBg && window.vcBg.mode === 'blur'));
+    } catch(_){}
+    // 🔊 저장된 출력 음량을 보여준다(idx-vc-outputvolume.js 가 아직 안 붙었으면 100%로 둔다)
+    try {
+      var ov = setPop.querySelector('#sg-out-vol');
+      if (ov) ov.value = Math.round((typeof window.vcSavedOutputVolume === 'function' ? window.vcSavedOutputVolume() : 1) * 100);
     } catch(_){}
   }
   // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)
