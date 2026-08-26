@@ -36,7 +36,7 @@ npx wrangler@latest deployments list --env production
 
 | 증상 | 확인 |
 |---|---|
-| 상대가 안 보임/연결 안 됨 · 「자꾸 튕겨요」 | 🔴 **`curl -sI https://mangoi.ai/api/turn-config \| grep -i x-turn-source` 부터.** `public-fallback` 이면 모든 수업이 무료 공개 TURN 으로 릴레이됩니다(아무 에러 없이 영상만 안 나옴 — 2026-08-26 실사고). ⛔ 그 값을 「시크릿이 없다」로 읽지 마세요 — ①없다 ②CF 가 거절했다 ③연결이 안 됐다 **셋이 같은 글자로 나옵니다.** 대시보드에서 시크릿 «이름» 부터 확인. 조치는 [ENVIRONMENT.md 「TURN 경로 확인」](ENVIRONMENT.md#-turn-경로-확인-2026-08-26-추가) (2026-08-26 07:40 기준 `kv-cache`=정상. 그날 하루 안에 값이 바뀌었고 원인은 미확인 — 그 문서의 관측 표 참고) |
+| 상대가 안 보임/연결 안 됨 · 「자꾸 튕겨요」 | 🔴 **`curl -sI https://mangoi.ai/api/turn-config \| grep -i x-turn-source` 부터.** `public-fallback` 이면 모든 수업이 무료 공개 TURN 으로 릴레이됩니다(아무 에러 없이 영상만 안 나옴 — 2026-08-26 실사고). **`X-Turn-Detail` 을 함께 보세요** — `no-secrets`(키 등록) · `cf-http-401/403`(키 **재발급**) · `cf-http-429`(사용량 한도) · `cf-fetch-error`(CF 장애, 기다림). ⛔ `no-secrets` 가 아니면 키를 새로 넣지 마세요. 조치는 [ENVIRONMENT.md 「TURN 경로 확인」](ENVIRONMENT.md#-turn-경로-확인-2026-08-26-추가) (2026-08-26 07:40 기준 `kv-cache`=정상. 그날 하루 안에 값이 바뀌었고 원인은 미확인 — 그 문서의 관측 표 참고) |
 | "남의 방" 들어가짐/차단됨 | 예약 기반 room_id + verify-room 로직 (`api-mango.ts`) — 예약 시간과 시간게이트 확인 |
 | 새로고침 후 연결 실패 | ICE 후보 큐잉 회귀 여부 — 루트의 `test-harness.html`로 회귀 테스트 |
 | 진단 페이지 죽음 | SignalingRoom DO를 지웠는지 확인 (VideoCallRoom과 별개, 둘 다 필요) |

@@ -254,11 +254,24 @@ console.error('Cloudflare TURN fetch error:', err);                             
 | `429` | 사용량 한도 → 요금제·사용량 확인 |
 | `5xx` · fetch error | Cloudflare 쪽 장애 → 우리가 할 일 없음(감시가 알려 줌) |
 
-### 7-3. ⏳ 응답이 이유를 안 알려 주는 것 (별건)
+### 7-3. ~~응답이 이유를 안 알려 주는 것~~ → ✅ **고쳤습니다** (사장님 지시)
 
-`public-fallback` 하나가 세 가지를 뭉뚱그리는 문제(6-2)는 그대로 남아 있습니다.
-`src/index.ts` 가 공동 금지구역이라 손대지 않았습니다. 고친다면 응답 헤더 한 줄이면
-충분합니다 — `X-Turn-Detail: no-secrets` / `cf-http-403` / `cf-fetch-error`.
+`public-fallback` 하나가 세 가지를 뭉뚱그리던 문제를 같은 날 고쳤습니다.
+`handleTurnConfig` 가 `X-Turn-Detail` 을 함께 실어 보냅니다 —
+`cache`·`ok`·`no-secrets`·`cf-http-<코드>`·`cf-fetch-error`.
+
+⚠️ `src/index.ts` 는 공동 금지구역이라 **사장님이 직접 지시해서** 만졌고,
+라우팅·인증 게이트·DO·자산 처리는 한 줄도 안 건드렸습니다. `handleTurnConfig` 안에서만
+작업했고 **어느 경로로 가는지·KV 에 무엇을 저장하는지는 그대로**입니다(하니스 4부가 확인).
+
+읽는 쪽도 함께 고쳤습니다 — `deploy.yml` 요약과 감시견 문자가 **detail 마다 다른 할 일**을
+말합니다. ⛔ 특히 **`no-secrets` 가 아니면 「키를 넣으라」고 하지 않습니다**.
+그 안내가 바로 이번에 제가 잘못한 것입니다.
+
+감시는 `test-harness/turn_detail_harness.mjs`(29건). 그 함수를 소스에서 오려 내
+`node:vm` 으로 **실제로 돌려** 갈래마다 값을 읽습니다 —
+`detail = 'cf-http-…'` 두 줄을 빼 보면 넷이 전부 `no-secrets` 로 뭉쳐지며 **4건이 FAIL** 납니다.
+즉 이 하니스는 «사고 당시 상태» 를 그대로 재현해 잡습니다.
 
 ### 7-4. 참고 — 원래 적어 두었던 시크릿 등록 절차
 

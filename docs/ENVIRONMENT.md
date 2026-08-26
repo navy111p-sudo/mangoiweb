@@ -109,20 +109,38 @@ LKG(`turn:ice-servers:last-good`)는 24시간 보관인데 두 워커가 같은 
 에서 `Cloudflare TURN` 또는 `turn-config` 로 검색하면 **403(키 문제)인지 429(한도)인지
 5xx(CF 장애)인지가 그대로 보입니다.** 보존 기간 안이라면 그것이 유일한 확답입니다.
 
-### 🔴 `public-fallback` 은 서로 다른 세 가지를 뭉뚱그립니다
+### ✅ `X-Turn-Detail` — «왜 그 경로였나» (2026-08-26 추가)
 
-| 실제 상황 | 나오는 값 | 해야 할 일 |
+`X-Turn-Source` 하나로는 `public-fallback` 이 **서로 완전히 다른 세 가지**를 뭉뚱그렸습니다.
+**2026-08-26 에 그것 때문에 반나절을 잘못 짚었습니다** — 「시크릿이 없다」고 단정하고
+키 발급을 안내했는데, 실제로는 워커 두 벌 모두 등록돼 있었습니다.
+
+그래서 **사장님 지시로 이유를 헤더에 함께 싣습니다.**
+
+```bash
+curl -sI https://mangoi.ai/api/turn-config | grep -i '^x-turn-'
+```
+
+| `X-Turn-Detail` | 뜻 | 할 일 |
 |---|---|---|
-| 시크릿이 없다 | `public-fallback` | 키 등록 |
-| CF API 가 거절했다 (403·429·한도초과) | `public-fallback` | 계정·키 확인 |
-| CF 에 연결조차 안 됐다 | `public-fallback` | 장애 복구 대기 |
+| `cache` | 1시간 캐시에서 바로 응답 | — 정상 |
+| `ok` | 방금 Cloudflare 에서 새로 발급 | — 정상 |
+| `no-secrets` | 시크릿이 워커에 없다 | **키 등록** |
+| `cf-http-401` `cf-http-403` | 키가 무효·회수됨 | **키 재발급** (등록 아님) |
+| `cf-http-429` | 사용량 한도 | Calls/TURN 사용량·요금제 확인 |
+| `cf-http-5xx` · `cf-fetch-error` | Cloudflare 쪽 장애 | 기다린다 — 우리가 할 일 없음 |
 
-**2026-08-26 에 이것 때문에 반나절을 잘못 짚었습니다.** 코드는 `console.error` 로 이유를
-남기지만(`src/index.ts` 4209·4211행) `wrangler tail` 을 켜고 있어야만 보이고 아무도 안 봅니다.
+⛔ **`no-secrets` 가 아니면 키를 새로 넣지 마세요.** 이미 있는 키를 덮어쓰면
+「고쳤다」는 기록만 남고 원인은 그대로입니다.
 
-⏳ **아직 안 고쳤습니다** — `src/index.ts` 는 공동 금지구역이라 사람 판단이 필요합니다.
-고친다면 응답 헤더에 이유를 한 줄 더 싣는 정도면 충분합니다(`X-Turn-Detail: no-secrets` /
-`cf-http-403` / `cf-fetch-error`).
+⛔ 값에 **자격증명·CF 응답 본문을 넣지 마세요.** 이 API 는 로그인 없이 누구나 부릅니다
+(`Access-Control-Allow-Origin: *`). 상태 «코드» 까지만 싣습니다.
+
+⚠️ 값은 앞으로 늘어날 수 있습니다. 읽는 쪽(`deploy.yml`·`ops/mangoi-watchdog.sh`)은
+**모르는 값이면 표시만 하고 판정하지 않습니다.** 새로 읽는 코드를 쓸 때도 그렇게 하세요.
+
+감시는 `test-harness/turn_detail_harness.mjs`(29건 — `handleTurnConfig` 를 소스에서
+오려 내 **실제로 돌려** 갈래마다 어떤 값이 나오는지 확인합니다. 되돌리면 4건이 FAIL 납니다).
 
 ⛔ 원인을 **단정해 적지 마세요.** 「하기로 한 것」이 「했다」로 적혔다가 6일 뒤 같은 사고가
 재발한 전례가 있습니다(CLAUDE.md 2장). 확인되면 위 표에 **한 줄을 덧붙이세요** —

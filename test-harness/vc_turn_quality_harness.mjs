@@ -83,8 +83,15 @@ ok('public-fallback 이면 ::error:: 로 크게 남긴다',
 
 /* ⛔ 그러나 배포를 «실패» 시키면 안 된다 — TURN 이 없어도 수업은 (느리게) 되고,
    여기서 막으면 이 문제와 무관한 수정까지 못 나간다. */
-const turnStep = deployYml.slice(deployYml.indexOf('TURN 경로 점검'));
-ok('그래도 배포를 실패시키지는 않는다 (exit 0)', /exit 0/.test(turnStep.slice(0, 4000)));
+/* ⚠️ 예전엔 «앞 4000자 안에 exit 0 이 있나» 로 봤다. 단계가 길어지자 보장은 그대로인데
+   검사만 깨졌다(2026-08-26 실제로 밟음) — 검사를 «길이» 가 아니라 «그 단계의 끝» 으로 자른다. */
+/* ⚠️ 그냥 'TURN 경로 점검' 을 찾으면 **그 위 주석 블록**에 먼저 걸린다(실제로 밟음) —
+   단계 헤더(`- name:`) 자체를 앵커로 쓴다. */
+const turnStepStart = deployYml.indexOf('\n      - name: TURN 경로 점검');
+const nextStep = deployYml.indexOf('\n      - name:', turnStepStart + 1);
+const turnStep = deployYml.slice(turnStepStart, nextStep > 0 ? nextStep : undefined);
+ok('그래도 배포를 실패시키지는 않는다 (그 단계 안에 exit 0)', /^\s*exit 0\s*$/m.test(turnStep),
+   `단계 길이 ${turnStep.length}자`);
 
 /* 알림은 «무엇을 하라» 까지 말해야 한다. 안 그러면 경보가 그냥 소음이 된다. */
 ok('고치는 법(wrangler secret put TURN_KEY_ID)을 함께 남긴다',

@@ -4179,20 +4179,40 @@ const TURN_CACHE_KEY = 'turn:ice-servers:v1';       // 1시간 캐시(정상 경
 const TURN_LKG_KEY = 'turn:ice-servers:last-good';  // 마지막 성공분(24시간, 장애 시 구명줄)
 
 async function handleTurnConfig(env: Env): Promise<Response> {
+  /* 📶 X-Turn-Detail — «왜 그 경로였나» (2026-08-26 사장님 지시로 추가).
+   *
+   *  [왜 필요했나] X-Turn-Source 하나로는 `public-fallback` 이 **서로 완전히 다른 세 가지**를
+   *  뭉뚱그린다 — ① 시크릿이 없다 ② CF API 가 거절했다(403·429·한도초과) ③ 연결조차 안 됐다.
+   *  해야 할 일이 각각 «키 등록»·«계정 확인»·«장애 대기» 로 다른데 화면에 나오는 글자는 똑같다.
+   *  그래서 2026-08-26 에 반나절을 잘못 짚었다 — 「시크릿이 없다」고 단정하고 사장님께 키 발급을
+   *  안내했는데, 대시보드 실측 결과 **워커 두 벌 모두 등록돼 있었다.** 진짜 원인은
+   *  「시크릿은 있는데 24시간 넘게 발급이 한 번도 성공하지 못했다」였다.
+   *  이유는 console.error 로 남고 있었지만 `wrangler tail` 을 켜고 있어야만 보였다.
+   *
+   *  ⛔ 값에 자격증명·CF 응답 «본문» 을 넣지 말 것. 이 API 는 **로그인 없이 누구나** 부른다
+   *     (`Access-Control-Allow-Origin: *`). 상태 «코드» 까지만 싣는다.
+   *  ⚠️ 이 헤더는 진단용이라 없어도 수업은 그대로 된다. 값이 늘어날 수 있으니 읽는 쪽은
+   *     «모르는 값» 을 만나면 그냥 표시만 하고 판정하지 말 것(deploy.yml·watchdog 이 그렇게 한다).
+   */
+  let detail = 'unknown';
   const J = (body: any, cached: string) => new Response(JSON.stringify(body), {
     status: 200,
-    headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'X-Turn-Source': cached }
+    headers: {
+      'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*',
+      'X-Turn-Source': cached, 'X-Turn-Detail': detail
+    }
   });
 
   // 0) 캐시 우선 — 외부 API 호출 없이 즉시 응답
   if (env.SESSION_STATE) {
     try {
       const hit = await env.SESSION_STATE.get(TURN_CACHE_KEY, 'json');
-      if (hit && (hit as any).iceServers) return J(hit, 'kv-cache');
+      if (hit && (hit as any).iceServers) { detail = 'cache'; return J(hit, 'kv-cache'); }
     } catch {}
   }
 
   // Cloudflare TURN 키가 설정되어 있으면 동적 자격증명 생성
+  detail = 'no-secrets';   // 아래 if 에 못 들어가면 이 값 그대로 나간다 = «키가 없다»
   if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN) {
     try {
       const cfResp = await fetch(
@@ -4219,10 +4239,14 @@ async function handleTurnConfig(env: Env): Promise<Response> {
           try { await env.SESSION_STATE.put(TURN_CACHE_KEY, JSON.stringify(payload), { expirationTtl: 3600 }); } catch {}
           try { await env.SESSION_STATE.put(TURN_LKG_KEY, JSON.stringify(payload), { expirationTtl: 86400 }); } catch {}
         }
+        detail = 'ok';
         return J(payload, 'cloudflare');
       }
+      // ⛔ 본문(cfResp.text())은 로그에만. 헤더에는 상태 «코드» 만 싣는다(위 주석).
+      detail = 'cf-http-' + cfResp.status;
       console.error('Cloudflare TURN API error:', cfResp.status, await cfResp.text());
     } catch (err) {
+      detail = 'cf-fetch-error';
       console.error('Cloudflare TURN fetch error:', err);
     }
   }
@@ -4233,7 +4257,7 @@ async function handleTurnConfig(env: Env): Promise<Response> {
     try {
       const lkg = await env.SESSION_STATE.get(TURN_LKG_KEY, 'json');
       if (lkg && (lkg as any).iceServers) {
-        console.warn('[turn-config] Cloudflare TURN 실패 → 마지막 성공 자격증명으로 응답');
+        console.warn('[turn-config] Cloudflare TURN 실패(' + detail + ') → 마지막 성공 자격증명으로 응답');
         return J(lkg, 'last-known-good');
       }
     } catch {}
@@ -4241,7 +4265,7 @@ async function handleTurnConfig(env: Env): Promise<Response> {
 
   // 2) 최후의 수단: 정적 STUN + 공개 TURN 서버들
   //    ⚠️ 여기까지 왔다는 것은 «수업 품질이 무너지고 있다» 는 뜻이다. 로그로 남긴다.
-  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용 — 동시 수업이 많으면 영상이 끊긴다');
+  console.error('[turn-config] ⚠️ 공개 무료 TURN 폴백 사용(' + detail + ') — 동시 수업이 많으면 영상이 끊긴다');
   const response = {
     iceServers: [
       { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
@@ -4252,7 +4276,10 @@ async function handleTurnConfig(env: Env): Promise<Response> {
       { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
     ]
   };
-  // X-Turn-Source 헤더로 어느 경로였는지 밖에서 확인할 수 있다(curl 로 즉시 진단 가능).
+  // X-Turn-Source 로 «어느 경로였나», X-Turn-Detail 로 «왜 그랬나» 를 밖에서 바로 볼 수 있다.
+  //   curl -sI https://mangoi.ai/api/turn-config | grep -i '^x-turn-'
+  //   → public-fallback 인데 detail 이 no-secrets 면 키 등록, cf-http-403 이면 키 무효,
+  //     cf-http-429 면 사용량 한도, cf-fetch-error 면 CF 쪽 장애다.
   return J(response, 'public-fallback');
 }
 

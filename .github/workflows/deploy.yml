@@ -199,8 +199,8 @@ jobs:
           {
             echo "### 📶 TURN 경로 점검"
             echo ""
-            echo "| Worker | X-Turn-Source | 판정 |"
-            echo "|---|---|---|"
+            echo "| Worker | X-Turn-Source | X-Turn-Detail | 판정 |"
+            echo "|---|---|---|---|"
           } >> $GITHUB_STEP_SUMMARY
           BAD=""
           for W in "기본|https://webrtc-unified-platform.navy111p.workers.dev" \
@@ -208,9 +208,22 @@ jobs:
             NAME="${W%%|*}"; URL="${W#*|}"
             # ⚠️ 헤더 이름 대소문자는 HTTP/2 에서 소문자로 온다. sed 로 양쪽 다 받는다.
             #    (awk 의 IGNORECASE 는 러너 기본 awk(mawk)에 없다 — 조용히 빈 값이 된다.)
-            SRC=$(curl -sS -D - -o /dev/null -L --max-time 20 "$URL/api/turn-config" 2>/dev/null \
-                  | tr -d '\r' | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+            HDR=$(curl -sS -D - -o /dev/null -L --max-time 20 "$URL/api/turn-config" 2>/dev/null | tr -d '\r')
+            SRC=$(printf '%s\n' "$HDR" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+            # 📶 X-Turn-Detail — «왜 그 경로였나». source 만으로는 public-fallback 이
+            #    ①시크릿없음 ②CF거절 ③연결실패 셋을 뭉뚱그린다(2026-08-26 실사고).
+            DET=$(printf '%s\n' "$HDR" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Dd][Ee][Tt][Aa][Ii][Ll]: *//p' | tail -n1)
             [ -z "$SRC" ] && SRC="(응답없음)"
+            [ -z "$DET" ] && DET="-"
+            # ⚠️ 모르는 detail 값은 «표시만» 한다 — 값이 늘어날 수 있으므로 판정에 쓰지 않는다.
+            case "$DET" in
+              no-secrets)      WHY="→ 시크릿(TURN_KEY_ID/TURN_KEY_API_TOKEN)이 워커에 없습니다" ;;
+              cf-http-401|cf-http-403) WHY="→ 키가 무효·회수됐습니다. Cloudflare 에서 TURN 키를 다시 발급하세요" ;;
+              cf-http-429)     WHY="→ 사용량 한도입니다. Cloudflare Calls/TURN 사용량·요금제를 확인하세요" ;;
+              cf-http-*)       WHY="→ Cloudflare TURN API 가 거절했습니다 ($DET)" ;;
+              cf-fetch-error)  WHY="→ Cloudflare 에 연결 자체가 실패했습니다(CF 쪽 장애일 수 있음)" ;;
+              *)               WHY="" ;;
+            esac
             case "$SRC" in
               cloudflare|kv-cache)
                 MARK="✅ 정상" ;;
@@ -224,18 +237,29 @@ jobs:
                 MARK="⚠️ 알 수 없는 응답 — /api/turn-config 가 안 열렸을 수 있다"
                 BAD="$BAD $NAME" ;;
             esac
-            echo "$NAME → $SRC → $MARK"
-            echo "| $NAME | \`$SRC\` | $MARK |" >> $GITHUB_STEP_SUMMARY
+            echo "$NAME → $SRC ($DET) → $MARK $WHY"
+            echo "| $NAME | \`$SRC\` | \`$DET\` | $MARK $WHY |" >> $GITHUB_STEP_SUMMARY
             if [ "$SRC" = "public-fallback" ]; then
-              echo "::error::[$NAME 워커] TURN 시크릿 미설정 — 모든 화상수업이 무료 공개 TURN(openrelay)으로 릴레이됩니다. 고치는 법은 배포 요약(Summary)의 «고치는 법» 을 보세요."
+              echo "::error::[$NAME 워커] 모든 화상수업이 무료 공개 TURN(openrelay)으로 릴레이되고 있습니다. 이유: $DET $WHY"
             elif [ "$MARK" != "✅ 정상" ]; then
-              echo "::warning::[$NAME 워커] TURN 경로가 정상이 아닙니다 — X-Turn-Source: $SRC"
+              echo "::warning::[$NAME 워커] TURN 경로가 정상이 아닙니다 — source=$SRC detail=$DET $WHY"
             fi
           done
           if [ -n "$BAD" ]; then
             {
               echo ""
-              echo "**고치는 법** — Cloudflare 대시보드 → Calls → TURN 에서 키를 발급한 뒤, 워커 **두 벌 모두**에 넣습니다."
+              echo "**고치는 법은 \`X-Turn-Detail\` 에 따라 다릅니다.**"
+              echo ""
+              echo "| detail | 뜻 | 할 일 |"
+              echo "|---|---|---|"
+              echo "| \`no-secrets\` | 시크릿이 없다 | 아래 명령으로 등록 |"
+              echo "| \`cf-http-401\` \`cf-http-403\` | 키가 무효·회수됨 | Cloudflare 에서 TURN 키 **재발급** (등록 아님) |"
+              echo "| \`cf-http-429\` | 사용량 한도 | Calls/TURN 사용량·요금제 확인 |"
+              echo "| \`cf-fetch-error\` | 연결 자체 실패 | Cloudflare 쪽 장애 — 우리가 할 일 없음 |"
+              echo ""
+              echo "⛔ **\`no-secrets\` 가 아니면 키를 새로 넣지 마세요** — 이미 있는 키를 덮어쓰면 «고쳤다» 는 기록만 남고 원인은 그대로입니다(2026-08-26 실사고)."
+              echo ""
+              echo "\`no-secrets\` 일 때만 — Cloudflare 대시보드 → Calls → TURN 에서 키를 발급한 뒤, 워커 **두 벌 모두**에 넣습니다."
               echo ""
               echo '```bash'
               echo 'cd cloudflare-deploy'
@@ -245,7 +269,7 @@ jobs:
               echo 'npx wrangler secret put TURN_KEY_API_TOKEN --env production'
               echo '```'
               echo ""
-              echo '확인: `curl -sI https://mangoi.ai/api/turn-config | grep -i x-turn-source` → `cloudflare` 가 나오면 정상입니다.'
+              echo '확인: `curl -sI https://mangoi.ai/api/turn-config | grep -i "^x-turn-"` → source 가 `cloudflare`/`kv-cache` 면 정상입니다.'
             } >> $GITHUB_STEP_SUMMARY
           fi
           # ⛔ 여기서 배포를 실패시키지 않는다(위 주석). 경고만 남기고 통과.
