@@ -872,17 +872,23 @@ const worker = {
       try {
         const out: any = { ok: true, r2: null, d1: null };
         if (env.RECORDINGS) {
+          /* ⚠️ 버킷 전체를 세면 «녹화 파일» 이 아닌 것까지 들어간다 — 2026-08-26 실측에서
+             이 타일이 17.8GB · 15,084 파일로 떴는데 그 대부분이 화상수업 교재(`pdfs/`)였다.
+             제목이 「R2 저장소 (녹화 파일)」인데 교재를 세면 그것도 거짓말이다.
+             → REC_LIST_PREFIXES 만 센다(위 주석 참고). 덤으로 훨씬 싸고 잘리지도 않는다. */
           let files = 0, bytes = 0, snaps = 0, truncated = false;
-          let cursor: string | undefined = undefined;
-          for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
-            const listed: any = await env.RECORDINGS.list({ limit: 1000, cursor });
-            for (const o of (listed.objects || [])) {
-              if (String(o.key).endsWith('.snap')) { snaps++; continue; }   // 안전망 사본은 «파일» 로 안 센다
-              files++; bytes += (o.size || 0);
+          for (const prefix of REC_LIST_PREFIXES) {
+            let cursor: string | undefined = undefined;
+            for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+              const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+              for (const o of (listed.objects || [])) {
+                if (String(o.key).endsWith('.snap')) { snaps++; continue; }   // 안전망 사본은 «파일» 로 안 센다
+                files++; bytes += (o.size || 0);
+              }
+              cursor = listed.truncated ? (listed.cursor as string) : undefined;
+              if (!cursor) break;
+              if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
             }
-            cursor = listed.truncated ? (listed.cursor as string) : undefined;
-            if (!cursor) break;
-            if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
           }
           out.r2 = { files, bytes, snapshots: snaps, truncated };
         }
@@ -5045,34 +5051,53 @@ async function handleRecordingUpload(request: Request, env: Env): Promise<Respon
 //   → 파일이 멀쩡히 있어도 관리자 화면(js/adm-core.js)이 짝을 못 찾아 **전부 「⚠️ 영상 없음」**.
 //   ⚠️ 게다가 «잘렸다» 는 신호가 없어서 «파일이 없다» 와 «목록에 없다» 가 구분되지 않았다.
 //   ✅ 커서로 끝까지 훑고, 그래도 못 다 읽으면 truncated 로 **정직하게** 알린다.
-const REC_LIST_MAX_PAGES = 20;    // 최대 20,000개 — 워커 시간·메모리 상한
+const REC_LIST_MAX_PAGES = 20;    // 접두사당 최대 20,000개 — 워커 시간·메모리 상한
+
+/* 🔴 2026-08-26(2차) — **이 R2 버킷은 녹화 전용이 아니다.** 여럿이 나눠 쓴다:
+     · `rec/`          자동녹화 multipart (recordings-r2.ts)        ← 녹화
+     · `recordings/`   옛 단일 업로드 (handleRecordingComplete)      ← 녹화
+     · `pdfs/`         화상수업 교재 파일 (아래 /api/video-call/pdf) ← 녹화 아님
+     · `popup-media/`  홈 팝업 이미지·영상 (api-admin.ts)            ← 녹화 아님
+     · `_test/`        진단 버튼이 만들었다 지우는 임시 파일          ← 녹화 아님
+   커서를 넣어 «끝까지» 읽게 고치자(1차 수정) 교재 파일이 전부 딸려 나와, 관리자 녹화 목록에
+   「⚠ 기록 없음(고아)」이 **15,046줄** 찍혔다(2026-08-26 사장님 화면 실측 — 총 15,096건 중).
+   ▶재생 버튼까지 붙어 JPG 를 동영상으로 틀려고 한다.
+   → 버킷 전체를 훑지 말고 **녹화 접두사 두 개만** 훑는다. 싸고, 정확하고, 잘릴 일도 없다.
+   ⚠️ D1 `recordings.file_url` 이 가리키는 키는 이 둘뿐이다(옛 `/blob/upload` 경로는
+      `{방번호}/{날짜}/…` 를 만들지만 **D1 에 아무것도 안 쓰고** 부르는 화면도 없다).
+      혹시 그런 키를 확인해야 하면 `?prefix=` 로 지정해 부를 수 있다. */
+const REC_LIST_PREFIXES = ['rec/', 'recordings/'];
+
 async function handleRecordingList(request: Request, env: Env): Promise<Response> {
   try {
     if (!env.RECORDINGS) return recordingJson({ items: [], count: 0, truncated: false });
     const url = new URL(request.url);
-    const prefix = url.searchParams.get('prefix') || undefined;
+    const only = url.searchParams.get('prefix');
+    const prefixes = only ? [only] : REC_LIST_PREFIXES;
     const items: any[] = [];
-    let cursor: string | undefined = undefined;
     let truncated = false;
-    for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
-      const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
-      for (const o of (listed.objects || [])) {
-        // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
-        //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
-        if (String(o.key).endsWith('.snap')) continue;
-        items.push({
-          key: o.key,
-          size: o.size,
-          uploaded: o.uploaded,
-          url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
-          originalName: (o.customMetadata && o.customMetadata.originalName) || String(o.key).split('/').pop()
-        });
+    for (const prefix of prefixes) {
+      let cursor: string | undefined = undefined;
+      for (let page = 0; page < REC_LIST_MAX_PAGES; page++) {
+        const listed: any = await env.RECORDINGS.list({ prefix, limit: 1000, cursor });
+        for (const o of (listed.objects || [])) {
+          // 🛟 `<키>.snap` 은 짧은 녹화 안전망의 «사본» 이라 목록에 내보내지 않는다.
+          //   내보내면 관리자 화면에 「⚠ 기록 없음(고아)」 로 한 줄씩 더 뜬다(recordings-r2.ts 참고).
+          if (String(o.key).endsWith('.snap')) continue;
+          items.push({
+            key: o.key,
+            size: o.size,
+            uploaded: o.uploaded,
+            url: `/api/recordings/blob/${encodeURIComponent(o.key)}`,
+            originalName: (o.customMetadata && o.customMetadata.originalName) || String(o.key).split('/').pop()
+          });
+        }
+        // ⚠️ 판별 유니온을 좁히지 않는다 — 이 저장소는 tsconfig 가 strict:false 라
+        //    listed.cursor 직접 접근이 TS2339 로 막힌다(CLAUDE.md 2장 함정).
+        cursor = listed.truncated ? (listed.cursor as string) : undefined;
+        if (!cursor) break;
+        if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
       }
-      // ⚠️ 판별 유니온을 좁히지 않는다 — 이 저장소는 tsconfig 가 strict:false 라
-      //    listed.cursor 직접 접근이 TS2339 로 막힌다(CLAUDE.md 2장 함정).
-      cursor = listed.truncated ? (listed.cursor as string) : undefined;
-      if (!cursor) break;
-      if (page === REC_LIST_MAX_PAGES - 1) truncated = true;
     }
     return recordingJson({ items, count: items.length, truncated });
   } catch (err: any) {

@@ -39,10 +39,12 @@
      *   2026-08-24 학원장 검수 «영어 앱인데 중국어 퀴즈가 왜 있나» — 기능을 없애는 게 아니라
      *   볼 사람에게만 보여주는 것. 페이지 자체(/review-quiz-cn.html)와 AI 명령 검색은 그대로 열린다. */
     {emoji:'🇨🇳', img:'', name:'중국어 복습퀴즈', url:'/review-quiz-cn.html', zh:true},
-    /* 🎯 레벨 테스트(2026-08-24) — 판단력 훈련 안의 6문항 적응형 «레벨 찾기» 바로 시작.
-     *   기능은 전부터 있었지만 입구가 [난이도 설정] 2단계 안쪽뿐이라
-     *   «처음엔 있었는데 다시 못 찾겠다» 는 검수 피드백이 있었다. judgment.html 이 ?placement=1 을 읽는다. */
-    {emoji:'🎯', img:'', name:'레벨 테스트', url:'/judgment.html?placement=1'},
+    /* ⛔ 「레벨 테스트」 타일을 여기 되살리지 마세요 (2026-08-26 사장님 지시로 뺐습니다).
+     *   2026-08-24 검수 «처음엔 있었는데 다시 못 찾겠다» 대응으로 넣었던 타일인데,
+     *   판단력 훈련이 **첫 진입에 설정 카드**를 띄우게 되면서(PR #512) 그 카드의
+     *   「🎯 내 레벨을 찾아 주세요」가 같은 자리를 대신합니다 — 타일과 카드가 «같은 것 둘»이었습니다.
+     *   ✅ 입구는 그대로 셋 남아 있습니다: 첫 설정 카드 ③ · 문제 화면 「레벨 다시 재기」 ·
+     *      주소로 직접 여는 /judgment.html?placement=1 (judgment.html 이 계속 읽습니다). */
     {emoji:'🧠', img:'/img/menu/mbti.webp', name:'MBTI 매칭', url:'/mbti.html'},
     {emoji:'🧪', img:'/img/menu/mbti-test.webp', name:'MBTI 테스트', url:'/mbti-test.html'},
     {emoji:'🔥', img:'/img/menu/streak.webp', name:'연속 출석', url:'/streak.html'},

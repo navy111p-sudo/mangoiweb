@@ -33,6 +33,25 @@
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
 
+  /* 👁 참관(Ghost) 중에는 녹화하지 않는다 (2026-08-26 사장님 지시)
+     ─────────────────────────────────────────────────────────────────────
+     참관자는 «투명 유령» 이다 — 서버(video-call-room.ts handleJoinObserve)가 인원수·
+     입퇴장 방송 어디에도 안 넣고, 미디어도 한 트랙도 안 보낸다. 그런데 자동녹화는
+     «수업 화면에 들어왔는가»(body.vc-in-call)만 보고 돌아서 참관자도 함께 녹화를 켰다.
+     실측(2026-08-26 사장님 화면): `class-943` 에 「관찰자」 이름으로 시작된 녹화 두 건이
+     30분 넘게 「● 녹화중」 으로 남아 있었다 — 참관자가 창을 닫을 때 종료 신호가 안 가서
+     크론이 12시간 뒤에야 정리한다. 같은 수업을 두세 벌 찍는 셈이라 저장 비용도 는다.
+     ⚠️ 판정 근거는 vc-observe-guard.js 의 observing() 과 «같은 것» 을 쓴다. 이름(「관찰자」)
+        으로 가르지 않는다 — 그건 사람이 바꿀 수 있는 표시일 뿐이다. */
+  function isObserverNow() {
+    try {
+      if (window._vcObserverMode === true) return true;
+      if (typeof vcIsObserver !== 'undefined' && vcIsObserver === true) return true;
+      if (document.body && document.body.classList.contains('vc-observer')) return true;
+    } catch (_) { /* 아직 선언 전이면 참관이 아니다 */ }
+    return false;
+  }
+
   // 🌐 강사 다수가 필리핀이라 이 배지의 모든 문구는 한/영 두 벌을 갖는다.
   function isEn() {
     try { return (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) { return false; }
@@ -883,6 +902,15 @@
   // auto: true면 자동 녹화 (팝업/alert 없이 진행)
   async function startRecording(opts) {
     const auto = opts && opts.auto;
+    // 👁 참관자는 녹화하지 않는다 — 버튼·자동·그 밖의 어떤 경로든 여기를 지난다
+    if (isObserverNow()) {
+      console.log('[mango-rec] 참관 중 — 녹화하지 않습니다');
+      if (!auto) {
+        try { alert(isEn() ? '👁 Observing — recording is off while you observe.'
+                           : '👁 참관 중에는 녹화하지 않습니다.'); } catch (_) {}
+      }
+      return;
+    }
     // 재진입 방지: isRecording은 MediaRecorder.start() 이후에야 true가 되므로,
     // 그 사이(DB INSERT/R2 create 대기 중)에 두 번째 호출이 들어오면 중복 DB 행이 생김.
     // _recStartInFlight 를 시작 시점에 즉시 세팅해 race를 차단한다.
@@ -1160,7 +1188,8 @@
       var _isDemoRoom = false;
       try { _isDemoRoom = /^demo-\d+$/i.test(String(typeof vcRoomId !== 'undefined' ? vcRoomId : '')); } catch (_) {}
       // 수업 뷰에 있고, 아직 녹화 안 했으면 자동 시작
-      if (inCall && !_isDemoRoom && !isRecording && !autoRecStarted && !autoRecPending) {
+      var _observing = isObserverNow();   // 👁 참관 중이면 자동녹화도, «켜는 배지» 도 없다
+      if (inCall && !_isDemoRoom && !_observing && !isRecording && !autoRecStarted && !autoRecPending) {
         autoRecPending = true;
         // 미디어 스트림 안정화를 위해 3초 대기 후 시작
         setTimeout(async () => {
@@ -1182,7 +1211,7 @@
 
       // 🔴 녹화가 꺼져 있는 동안에도 «다시 켜는 버튼»은 항상 보여야 한다.
       //   (수동 중지 후 · 자동 시작이 실패한 뒤 둘 다 해당 — 예전엔 어느 쪽도 버튼이 없었다)
-      if (inCall && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
+      if (inCall && !_observing && !isRecording && !autoRecPending && !_recStartInFlight) showRecBadge();
     }
 
     // 수업에서 나갔으면 자동녹화 플래그 리셋
