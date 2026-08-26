@@ -536,6 +536,55 @@
     setTimeout(arm, 1500);          // 그리드가 늦게 생기는 경로 대비 (끝이 있는 재시도)
   })();
 
+  /* ══════════════════════════════════════════════════════════════
+     ⑨ 1:1 수업에서 «상대(교사) 얼굴» 을 내 얼굴보다 크게
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-08-26 「교사를 학생보다 더 크게도 해줘」.
+
+     [먼저 재 봤다 — 화면마다 이미 다르다]  칸 크기 실측(1:1, video-half)
+       PC 1280x800 : 교사 345x687 / 학생 210x158 → **이미 교사가 7.15배**
+                     (vc-teacher-first 의 «내 타일 62% 축소» 가 이미 걸려 있다)
+       폰 가로     : 295x139 / 295x139 → 정확히 1배
+       폰 세로     : 187x345 / 187x345 → 정확히 1배
+     → 그래서 손댈 곳은 **폰 가로·세로 두 곳뿐**이다. PC 는 건드리지 않는다.
+
+     ⚠️ 그 두 곳은 2026-07-14 지시로 «정확히 반반» 이 못 박혀 있던 자리다
+        (index.html 3272·3392·3412 — 「겹침·축소·가림 절대 금지」).
+        2026-08-26 사장님 지시로 그 결정을 바꾼다. 되돌리려면 이 절만 지우면 된다.
+
+     [무엇을 크게 하나] «상대» 타일이다 — 학생 화면에서는 교사가, 교사 화면에서는
+       학생이 커진다. vc-teacher-first 가 PC 에서 이미 그렇게 하고 있고(내 타일 62%),
+       자기 얼굴이 화면을 지배하는 것을 원하는 사람은 없다.
+     ℹ️ 순서는 CSS order 로 이미 «내 타일이 맨 뒤» 라(index.html vc-teacher-first),
+        그리드 첫 칸이 곧 상대다. 1:1(data-count="2") 일 때만 적용한다.
+  ══════════════════════════════════════════════════════════════ */
+  var BIG = '1.6fr 1fr';           // 상대 : 나 = 1.6 : 1
+  var HERO_CSS =
+    /* 폰 세로 — 위쪽 얼굴 띠가 «좌우» 로 갈린다 → 가로 비중을 준다.
+       원래 규칙(3272행)이 (3,2,0) 이라 [data-count] 로 한 칸 더 얹어 이긴다. */
+    '@media (max-width:920px) and (orientation:portrait){' +
+      'body.vc-in-call #vc-main-row.video-half #vc-video-grid#vc-video-grid[data-count="2"]{' +
+        'grid-template-columns:' + BIG + ' !important}' +
+    '}' +
+    /* 폰 가로 — 오른쪽 얼굴 컬럼이 «위아래» 로 쌓인다 → 세로 비중을 준다. */
+    '@media (max-width:1024px) and (orientation:landscape),(max-height:600px) and (orientation:landscape){' +
+      'body.vc-in-call #vc-main-row:not(.video-solo):not(.video-full) #vc-video-grid#vc-video-grid[data-count="2"]{' +
+        'grid-template-rows:' + BIG + ' !important;grid-auto-rows:1fr !important}' +
+    '}';
+
+  (function injectHeroCss() {
+    function put() {
+      if (document.getElementById('mg-hero-css')) return;
+      if (!document.body) return;
+      var st = document.createElement('style');
+      st.id = 'mg-hero-css';
+      st.textContent = HERO_CSS;
+      document.body.appendChild(st);   // 이 저장소의 화면 CSS 는 body 안에서 링크된다 — 뒤에 와야 이긴다
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+    else put();
+  })();
+
   /* ── 화면 상태에 따라 확대 버튼 보이기/숨기기 ──────────────────
      ⛔ body 의 class 를 MutationObserver 로 지켜보지 않는다 — 이 저장소에는 body class 를
         자주 다시 쓰는 코드가 여럿이라 콜백이 쉴 새 없이 돌아 화면이 멎은 전력이 있다
