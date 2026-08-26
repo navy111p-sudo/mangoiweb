@@ -70,6 +70,11 @@ console.log('\n[ C. ⛔ 확신이 없으면 «찍지 않는 쪽» 으로 실패�
   eq('Sorry,', 'Sorry,');
   // TOEIC 빈칸 문제문 — 밑줄로 끝나면 그대로
   eq('The manager ____', 'The manager ____');
+  // 🔴 그런데 «빈칸 표시 없이 그냥 잘린» 미완성 문장은 이 함수로 못 걸러 냅니다 —
+  //    「I like to eat」(+ 보기 apple)에 마침표를 찍으면 문제가 깨집니다.
+  //    그래서 그런 칸(시험 question_text)은 «호출하지 않는 것» 이 방어선입니다(E절에서 확인).
+  check('⛔ 잘린 미완성 문장은 함수가 못 걸러 낸다 — 호출하지 않는 것이 방어선',
+    P.endSentence('I like to eat') === 'I like to eat.');
   // 한국어인데 종결어미로 판정이 안 서면 그대로 («…단어는?» 인지 «…단어는.» 인지 알 수 없습니다)
   eq('다음 뜻에 해당하는 중국어 단어는', '다음 뜻에 해당하는 중국어 단어는');
   check('낱말 보기(한국어 뜻)는 손대지 않는다', P.endSentence('어려운') === '어려운');
@@ -102,8 +107,12 @@ console.log('\n[ E. 실제로 적용돼 있다 — 생성 결과를 코드에서
   check('판단력: 해설(영어·한국어)을 다듬는다',
     /why: endSentence\(/.test(JUD) && /why_ko: endSentence\(/.test(JUD));
   // 시험 — 문제문·듣기 대본 (⛔ 보기는 TOEIC 식 낱말·구라 제외)
-  check('시험: 문제문을 다듬는다', /question_text: endSentence\(/.test(EXAM));
-  check('시험: 듣기 대본을 다듬는다', /audio_script: endSentence\(/.test(EXAM));
+  // 🔴 시험 문제문은 «찍지 않습니다» — 2026-08-26 실서비스 실측으로 되돌린 결정.
+  //    이 칸에는 완결된 의문문(「What do I like?」)과 «빈칸이 끝에 오는 미완성 문장»
+  //    (「I like to eat」 + 보기 apple)이 섞여 있고(10건 중 5건이 후자), 구별할 방법이 없습니다.
+  check('⛔ 시험 문제문은 다듬지 않는다(빈칸이 끝에 오는 미완성 문장이 섞여 있다)',
+    !/question_text: endSentence\(/.test(EXAM));
+  check('시험: 듣기 대본은 다듬는다', /audio_script: endSentence\(/.test(EXAM));
   check('⛔ 시험 보기(choice_a~d)는 다듬지 않는다', !/choice_[abcd]: endSentence\(/.test(EXAM));
   // 복습퀴즈 — 문제문·해설·읽을 문장
   check('복습퀴즈: 문제문·해설을 다듬는다',

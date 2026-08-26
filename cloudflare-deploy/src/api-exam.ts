@@ -11,8 +11,9 @@
 import { json, parseJsonBody } from './api-util';
 import { authUidFromRequest } from './auth-token';   // 🔐 IDOR 방지 — 본인 시험결과만
 import type { MangoEnv } from './api-mango';
-// ✒️ 문장 종결부호 정본 — 문제문·듣기 대본에만 씁니다.
+// ✒️ 문장 종결부호 정본 — 이 파일에서는 «듣기 대본» 에만 씁니다.
 //    ⛔ 보기(choice_a~d)는 TOEIC 식 «낱말·구» 라 찍지 않습니다(찍으면 오히려 고장).
+//    ⛔ 문제문(question_text)도 찍지 않습니다 — 빈칸이 끝에 오는 미완성 문장이 섞여 있습니다(아래 주석).
 import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
 
 async function ensureExamTables(env: MangoEnv): Promise<void> {
@@ -80,8 +81,13 @@ Reply with a raw JSON array ONLY. No markdown, no commentary.`;
     let arr: any[] = [];
     try { arr = JSON.parse(m[0]); } catch { return { ok: false, error: 'ai_bad_json' }; }
     const items = (Array.isArray(arr) ? arr : []).map((q: any) => ({
-      // ✒️ 빈칸(____)으로 끝나는 문제문은 endSentence 가 «붙일 수 없는 글자» 로 보고 그대로 둡니다.
-      question_text: endSentence(String(q?.question_text || '').trim()),
+      // ⛔ 문제문에는 종결부호를 «찍지 않습니다» (2026-08-26 실측으로 되돌림).
+      //    이 칸에는 두 가지가 섞여 있습니다 — 완결된 의문문(「What do I like?」)과
+      //    «빈칸이 끝에 오는 미완성 문장»(「I like to eat」 + 보기 apple → I like to eat apple).
+      //    프롬프트가 그렇게 시킵니다("TOEIC-style incomplete sentence"). 실서비스 10건 중 5건이 후자였습니다.
+      //    빈칸이 «____» 로 표시되면 endSentence 가 걸러 내지만 그냥 잘려서 오면 못 걸러 냅니다
+      //    → 「I like to eat.」 이 되어 문제가 깨집니다. 둘을 구별할 방법이 없으므로 찍지 않는 쪽이 정답입니다.
+      question_text: String(q?.question_text || '').trim(),
       choice_a: String(q?.choice_a || '').trim(),
       choice_b: String(q?.choice_b || '').trim(),
       choice_c: String(q?.choice_c || '').trim(),
