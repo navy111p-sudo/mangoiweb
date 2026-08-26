@@ -231,7 +231,7 @@ jobs:
                 MARK="⚠️ Cloudflare TURN API 가 흔들리는 중 — 24시간 안에 복구되지 않으면 무료 폴백으로 떨어진다"
                 BAD="$BAD $NAME" ;;
               public-fallback)
-                MARK="🔴 무료 공개 TURN 사용 중 — TURN 시크릿 미설정"
+                MARK="🔴 무료 공개 TURN 사용 중 — 이유는 detail 칸"
                 BAD="$BAD $NAME" ;;
               *)
                 MARK="⚠️ 알 수 없는 응답 — /api/turn-config 가 안 열렸을 수 있다"
