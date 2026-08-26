@@ -5093,6 +5093,18 @@ function _enPanelHtml(p, en) {
           : '<span style="color:#b45309">' + L('연락처 없음', 'no phone') + '</span>') +
         line(L('다음 청구', 'Next billing'), _esc(p.next_billing || '—') + ' · ' +
           (p.monthly_fee_krw ? '₩' + Number(p.monthly_fee_krw).toLocaleString() : L('금액 없음', 'no amount'))) +
+        /* 💰 (2026-08-26 사장님 지시) 「이 금액이 왜 이 금액인가」 — 수업 시간 배수가 실제로 먹혔는지
+           사람이 확정 «전에» 눈으로 확인하는 자리다. 금액은 정기결제가 실제로 청구하므로
+           숫자만 보여 주고 근거를 안 보여 주면 틀려도 아무도 모른다.
+           ⛔ 여기서 다시 곱하지 않는다 — p.monthly_fee_krw 는 이미 곱해진 최종값이다
+              (곱하는 곳은 서버 INSERT 한 자리뿐. src/enroll-fee.ts 머리말). */
+        (p.base_fee_krw && Number(p.length_multiplier) !== 1
+          ? line(L('요금 근거', 'How'),
+              '<span style="color:#5b21b6">' +
+              L('20분 기준 ', '20min base ₩') + Number(p.base_fee_krw).toLocaleString() +
+              L('원 × ' + p.minutes + '분 ' + p.length_multiplier + '배', ' × ' + p.minutes + 'min (' + p.length_multiplier + '×)') +
+              '</span>')
+          : '') +
       '</div>' +
     '</div>' +
 

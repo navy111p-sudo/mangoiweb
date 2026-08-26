@@ -23,7 +23,7 @@
  *      실제 청구는 기존 정기결제 자동화가 그 레코드를 보고 한다.
  */
 import { json, parseJsonBody } from './api-util';
-import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES } from './class-policy';
+import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classLengthMultiplier } from './class-policy';
 import {
   enrollTimeToMin, enrollDates, enrollConflicts, teachersFreeAt,
   holidaySet, ensureEnrollTables, kstToday
@@ -472,6 +472,12 @@ export async function handleEnrollActivateApi(request: Request, url: URL, env: a
       student_name: plan.enrollment.student_name,
       package: plan.enrollment.package,
       monthly_fee_krw: plan.enrollment.monthly_fee_krw,
+      /* 💰 (2026-08-26 사장님 지시) 「이 금액이 왜 이 금액인가」를 확정 화면이 사람에게 보여 준다.
+         ⛔ 여기서 «다시 곱하지» 않는다 — `monthly_fee_krw` 는 저장할 때 이미 곱해진 최종값이다
+            (곱하는 곳은 api-admin.ts 의 INSERT 한 자리뿐. src/enroll-fee.ts 머리말 참고).
+            아래 둘은 «근거를 적어 두는 값» 일 뿐 계산에 쓰이지 않는다. */
+      base_fee_krw: (plan.enrollment as any).base_fee_krw ?? null,
+      length_multiplier: classLengthMultiplier(plan.minutes),
       days: plan.days, days_label: dowLabel(plan.days), times: plan.times,
       minutes: plan.minutes, sessions: plan.sessions, start_date: plan.start_date,
       dates: plan.dates, dates_count: plan.dates.length,

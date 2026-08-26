@@ -14,6 +14,10 @@ import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바�
 import { ensureRateOverrideTable } from './org-settlement';   // 💰 수수료·수강료 설정표 — DDL 정본은 그 파일 한 곳
 import { teacherPresenceByRoom } from './no-show-truth';   // 🔎 「강사 미입장」이 오판인지 출석 기록과 대조
 import { DEFAULT_CLASS_MINUTES, ALLOWED_CLASS_MINUTES, classTenMinUnits } from './class-policy';  // 기본 20분 · 허용 길이 · 급여용 10분 토막 수
+/* 💰 (2026-08-26 사장님 지시) 「수업 시간 배수대로 수강료도 자동 계산」 — 곱하는 곳은 저장하는 순간 딱 한 번이다.
+   규칙 정본은 src/enroll-fee.ts 하나뿐(두 곳에 두면 «두 번 곱하기» 로 40분이 4배가 된다). */
+import { computeMonthlyFee, weeklyCountFromDays } from './enroll-fee';
+import { priceForUid } from './enroll-ops';   // 🏪 대리점 주1회 단가 — 기준가가 없을 때만 쓴다
 import { findScheduleConflicts } from './schedule-conflict';  // ⛔ 수업 시간 겹침 판정 (한 곳에서만)
 import { sendPaymentOverdueAlert, sendKakaoAlimtalk, sendClassRenewalAlert, buildClassRenewalText, CLASS_RENEWAL_FROM_PHONE } from './solapi-client';
 /* 🔗 미연장 안내 문자에 넣는 «그 학생 전용» 1회용 연장 링크. 학부모 폰에 학생 로그인이
@@ -9870,6 +9874,9 @@ LIMIT $limit`;
       // ⏱ (2026-08-26 사장님 지시) 수업 시간(분) — 20/30/40 중 선택, 안 고르면 기본 20분.
       //   enroll-activate.ts 의 buildEnrollPlan() 이 이 컬럼을 읽어 class_schedules.duration_min 을 정한다.
       await _addEnrCol2('duration_min', 'INTEGER');
+      // 💰 (2026-08-26 사장님 지시) 곱하기 «전» 20분 기준가. `monthly_fee_krw` 는 «이미 곱해진 최종값» 이라
+      //   되돌아볼 근거가 사라진다 — 그래서 기준가를 따로 남긴다(감사·재계산용).
+      await _addEnrCol2('base_fee_krw', 'INTEGER');
       if (method === 'GET') {
         // 🥭 Phase 37b — user_id 필터 추가 (학생별 스케줄 fetch)
         const statusF = url.searchParams.get('status');
@@ -9907,19 +9914,37 @@ LIMIT $limit`;
       //   모르는 값은 저장하지 않는다(null) — enroll-activate.ts 의 buildEnrollPlan() 이 null 이면
       //   기본 20분(DEFAULT_CLASS_MINUTES)으로 읽으므로 «안 고름» 과 «모르는 값» 이 같은 결과가 된다.
       const _classMin = ALLOWED_CLASS_MINUTES.includes(Number(b.duration_min)) ? Number(b.duration_min) : null;
+      /* 💰 (2026-08-26 사장님 지시) 월 수강료 = 20분 기준가 × 길이배수 (10원 절사).
+         ⛔ **여기가 곱하는 유일한 자리다.** 저장 뒤 `monthly_fee_krw` 는 이미 곱해진 최종값이라
+            확정 단계·정기결제 예약·CSV·워드 요약 어디서도 다시 곱하지 않는다.
+         ⚠️ 기준가가 없으면 대리점 단가(`priceForUid`) × 주 횟수로 세운다. 그것도 못 구하면
+            **지어내지 않고 null** — 확정 단계가 예전 그대로 「월 수강료가 0원입니다」 로 멈춘다.
+         ⚠️ 단가 조회는 try/catch 로 감싼다: 요금을 못 구한다고 등록 자체가 막히면 안 된다. */
+      let _w1 = 0;
+      if (!(Number(b.monthly_fee_krw) > 0) && b.student_user_id) {
+        try { _w1 = Number((await priceForUid(env, String(b.student_user_id)))?.weekly1Price) || 0; }
+        catch (e: any) { console.warn('[enroll fee] 대리점 단가 조회 실패:', e?.message || e); }
+      }
+      const _fee = computeMonthlyFee({
+        baseFeeKrw: b.monthly_fee_krw,
+        minutes: _classMin,
+        weekly1Price: _w1,
+        weekly: weeklyCountFromDays(b.days_of_week),
+      });
       const r = await env.DB.prepare(
-        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO enrollments (student_user_id, student_name, package, started_at, ended_at, monthly_fee_krw, status, notes, created_at, updated_at, days_of_week, time, class_size, type, teacher_name, end_date, assign_priority, duration_months, duration_min, base_fee_krw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.student_user_id || null, b.student_name, b.package,
         b.started_at ? Number(b.started_at) : now,
         b.ended_at ? Number(b.ended_at) : null,
-        b.monthly_fee_krw != null ? Number(b.monthly_fee_krw) : null,
+        _fee.monthlyFeeKrw,
         b.status || 'pending', b.notes || null, now, now,
         b.days_of_week || null, b.time || null, b.class_size || null,
         b.type || null, b.teacher_name || null, b.end_date || null,
-        _prio, _dur, _classMin
+        _prio, _dur, _classMin, _fee.baseFeeKrw
       ).run();
-      return json({ ok: true, id: r.meta.last_row_id });
+      // 화면이 «얼마로 잡혔는지» 를 그 자리에서 보여 줄 수 있게 계산 결과를 함께 돌려준다
+      return json({ ok: true, id: r.meta.last_row_id, fee: _fee });
     }
 
     // 수강신청 상태 변경 (pending → confirmed → cancelled 등)
