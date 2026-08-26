@@ -68,8 +68,11 @@ check('checkin 이 서버 시각 전용 변수(srvNow)를 별도로 잡는다',
   /const\s+srvNow\s*=\s*Date\.now\(\)/.test(SRC));
 check('checkin 의 now 는 srvNow 에서 출발한다(클라 timestamp 로 대체 가능)',
   /let\s+now\s*=\s*srvNow/.test(SRC));
+// ⚠️ 칸 개수(placeholder 9개)를 그대로 못 박지 않는다 — CLAUDE.md 2장 「하니스가 «객체
+//   모양» 을 정규식으로 못 박아 두어 칸 하나 늘렸더니 FAIL」. 새 진단 칸(host 등)이 늘어도
+//   뜻(= INSERT 가 last_seen_at 자리에 srvNow 를 바인딩한다)만 지키면 통과해야 한다.
 check('checkin INSERT 의 last_seen_at 바인딩이 srvNow 다',
-  /VALUES \(\?, \?, \?, \?, \?, \?, \?, \?, \?\)`[\s\S]{0,240}?srvNow\)\.run\(\)/.test(SRC));
+  /VALUES \(\?(?:, \?)+\)`[\s\S]{0,300}?\.bind\([^)]*\bsrvNow\b[^)]*\)\.run\(\)/.test(SRC));
 
 if (!ALTER_SQL || !CHECKIN_INS || !SPEAK_SQL || !LEAVE_SQL || !GAZE_SQL) {
   console.log('\n❌ 필수 SQL 을 소스에서 찾지 못해 중단합니다.');
@@ -84,7 +87,8 @@ db.exec(`CREATE TABLE attendance (
   username TEXT, role TEXT DEFAULT 'student', joined_at INTEGER NOT NULL, left_at INTEGER,
   status TEXT DEFAULT 'present', date TEXT, attended_at INTEGER,
   total_session_ms INTEGER DEFAULT 0, total_active_ms INTEGER DEFAULT 0, disconnect_count INTEGER DEFAULT 0,
-  gaze_score REAL, gaze_samples INTEGER, gaze_forward_samples INTEGER
+  gaze_score REAL, gaze_samples INTEGER, gaze_forward_samples INTEGER,
+  host TEXT
 )`);
 
 const cols = () => db.prepare(`PRAGMA table_info(attendance)`).all().map(r => r.name);
@@ -115,8 +119,13 @@ const T = (hh, mm, ss = 0) => Date.UTC(2026, 6, 28, hh - 9, mm, ss); // KST → 
 const START = T(14, 0);
 
 // checkin (소스의 INSERT SQL 을 그대로 실행)
-db.prepare(CHECKIN_INS).run('class-848-20260728', 'teacher_kang', '강선생', 'teacher',
-  START, START, 'attended', '2026-07-28', START);
+// ⚠️ CHECKIN_INS 의 placeholder 개수는 소스가 바뀌면 함께 바뀐다(host 등 새 진단 칸 추가).
+//   하드코딩된 인자 개수 대신 실제 placeholder 수만큼 채운다 — 마지막 칸(host)은 값이 없어도
+//   시나리오 판정(③~⑥)에 영향이 없으므로 null 로 채운다.
+const checkinArgCount = (CHECKIN_INS.match(/\?/g) || []).length;
+const checkinFixedArgs = ['class-848-20260728', 'teacher_kang', '강선생', 'teacher',
+  START, START, 'attended', '2026-07-28', START];
+db.prepare(CHECKIN_INS).run(...checkinFixedArgs, ...Array(Math.max(0, checkinArgCount - checkinFixedArgs.length)).fill(null));
 
 // 30초마다 speaking-time 하트비트 — 14:00 ~ 14:26 까지만 도착하고 그 뒤로는 끊김
 const LAST_HB = T(14, 26);
@@ -150,8 +159,9 @@ check('클라이언트 누적값은 서버 실측보다 부풀려져 있다(신�
 eq('서버 실측 수업 길이(분)', Math.round(serverMinutes), 26);
 
 // ═══════════════ ④ 정상 퇴장 ═══════════════
-db.prepare(CHECKIN_INS).run('class-848-20260728', 'student_lee', '이학생', 'student',
-  START, START, 'attended', '2026-07-28', START);
+const studentFixedArgs = ['class-848-20260728', 'student_lee', '이학생', 'student',
+  START, START, 'attended', '2026-07-28', START];
+db.prepare(CHECKIN_INS).run(...studentFixedArgs, ...Array(Math.max(0, checkinArgCount - studentFixedArgs.length)).fill(null));
 const STU_LEAVE = T(14, 26);
 db.prepare(LEAVE_SQL).run(STU_LEAVE, STU_LEAVE, 900, 1_560_000, 0, 'left',
   'class-848-20260728', 'student_lee');
