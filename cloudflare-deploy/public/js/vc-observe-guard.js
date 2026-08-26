@@ -33,6 +33,27 @@
    ⛔ 원본 함수를 고치지 않는다 — idx-main.js 는 첫 화면 blocking 예산에 들어간다.
       window 의 함수를 감싸서 «그린 뒤에» 이름표만 덧쓴다.
 
+   [2026-08-26 추가 — ⑤ 「나는 Teacher 로 보이는데 Mel 선생님은 안 보인다」]
+   운영 D1 실측 결과 «계정 차이» 가 아니라 «누른 버튼» 이 달랐다. 참관(/?observe=)은 유령이라
+   출석 행조차 안 남는데, 같은 방에 이름 「교사」인 실제 참가자가 있었다 — 그 이름은
+   직접 입장 링크에 vc_name 이 없을 때의 기본값(idx-main.js)이라 출처가 하나뿐이다.
+   ⚠️ 8/20 에 ③(카메라 끄기)으로 고친 것은 증상의 «절반» 이었다. 카메라는 꺼졌지만
+      사람은 그대로 보였고, 그래서 이번엔 「이름이 Teacher 로 보인다」로 다시 올라왔다.
+   → 들어간 «뒤에» 화면이 지금 상태를 계속 말해 준다. 참관이면 «안 보입니다»,
+     직접 입장이면 «보입니다». 기억에 맡기지 않는다(Zoom 웨비나의 attendee 표시와 같은 취지).
+   ⛔ pointer-events:none 을 반드시 유지할 것 — 수업 화면 위에 뜨는 상자는 «가려서 안 눌린다»
+      사고를 반복해서 냈다(CLAUDE.md 2장). 이 배지는 읽기만 하는 것이라 클릭을 받을 이유가 없다.
+   ⛔ 자리는 «상단바 아래» 로 계산한다(고정 좌표 금지) — 상단바 높이가 화면마다 다르고,
+      맨 위에 두면 상단바 버튼을 덮는다.
+
+   [2026-08-26 추가 — ⑥ 학생 화면의 «교재 업로드» 감추기]
+   마이마이 요청(8/20 ①) — 학생은 수업 중에 교재를 올릴 일이 없다. 실측해 보니 그 버튼에
+   역할 구분이 «전혀» 없어 학생에게 그대로 보이고 있었다(index.html 의 pdf-controls).
+   ⚠️ 판정은 vcIsStudentNow() «확실한 학생만 true» 정본을 쓴다. !vcIsStaffNow() 로 뒤집어
+      쓰면 역할이 아직 확정되지 않은 강사가 학생으로 오판돼 «강사가 교재를 못 올리는» 사고가
+      난다(2026-08-10 필리핀 매니저 재신고와 같은 뿌리). 모르면 그대로 보여 준다.
+   ℹ️ 서버는 이미 막고 있다(video-call-room.ts 의 staffOnly) — 이건 화면에서 지우는 것뿐이다.
+
    [일부러 안 한 것]
    · 채팅·나가기·설정은 참관자에게도 남긴다 — 나가야 하고, 보기는 해야 한다.
    · 참관 사실을 학생에게 «알리지» 않는다. 서버(video-call-room.ts handleJoinObserve)가
@@ -77,7 +98,20 @@
     st.textContent =
       'body.vc-observer #vc-dock-mic,body.vc-observer #vc-dock-cam,' +
       'body.vc-observer #vc-dock-share,body.vc-observer #vc-btn-mic,' +
-      'body.vc-observer #vc-btn-cam,body.vc-observer #vc-mic-select{display:none!important}';
+      'body.vc-observer #vc-btn-cam,body.vc-observer #vc-mic-select{display:none!important}' +
+      /* ⑥ 학생에게는 교재 «업로드» 버튼을 감춘다. 라이브러리·다운로드는 그대로 둔다
+         (요청은 «올리기» 만이고, 보는 기능까지 뺏으면 복습이 막힌다). */
+      'body.vc-hide-upload .pdf-controls > button[onclick*="triggerUpload(\'pdf\')"]{display:none!important}' +
+      /* ⑤ 모드 배지 — 읽기 전용이라 클릭을 통과시킨다(pointer-events:none) */
+      '#vc-mode-badge{position:fixed;left:50%;transform:translateX(-50%);z-index:2147483000;' +
+        /* width:max-content 가 없으면 left:50% 때문에 «화면의 오른쪽 절반» 만 쓸 수 있는 것으로
+           계산돼, 390px 폰에서 250px 로 좁아져 두 줄이 된다(실측). */
+        'pointer-events:none;width:max-content;max-width:min(92vw,460px);' +
+        'padding:6px 14px;border-radius:99px;' +
+        'font-size:12.5px;font-weight:800;line-height:1.45;text-align:center;' +
+        'box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}' +
+      /* 참관 실패 안내(#vc-observe-note)와 겹치지 않게 그 상자를 아래로 내린다 */
+      'body.vc-mode-badge-on #vc-observe-note{top:64px}';
     (document.head || document.documentElement).appendChild(st);
   }
 
@@ -86,14 +120,115 @@
         (index.html 에 같은 사고 주석이 있다). 두 겹으로 막는다 —
         ① classList.toggle 은 값이 같으면 attribute 를 안 건드린다(콜백이 안 돈다)
         ② 그래도 busy 플래그로 재진입을 막는다. */
+  /* ── ⑥ 학생 화면의 «교재 업로드» 감추기 ─────────────────────────────────
+     ⛔ !vcIsStaffNow() 로 뒤집어 쓰지 말 것 — 역할이 아직 확정되지 않은 강사를 학생으로
+        오판해 «강사가 교재를 못 올리는» 사고가 난다. «확실한 학생만 true» 정본을 쓴다.
+     모르면 그대로 보여 준다(고치기 전과 같은 상태 = 안전한 실패). */
+  function syncUploadVisibility(inCall) {
+    try {
+      var student = false;
+      if (typeof window.vcIsStudentNow === 'function') student = window.vcIsStudentNow() === true;
+      var hide = inCall && student;
+      if (hide) ensureStyle();
+      document.body.classList.toggle('vc-hide-upload', hide);
+    } catch (_) {}
+  }
+
+  /* ── ⑤ 모드 배지 — «지금 내가 보이는가» 를 화면이 계속 말해 준다 ──────────
+     [판정] 두 가지뿐이다. 그 외(평소 학생·강사 수업)에는 아무것도 그리지 않는다.
+       · 참관   = observing()            → 학생·강사에게 안 보임
+       · 직접입장 = ?vc_autojoin=1 & vc_cam=off  → 관리자·매니저 화면의 «직접 입장» 버튼 셋이
+                  만드는 링크. 강사 화면(teacher.html)·마이페이지 링크에는 vc_cam=off 가
+                  없으므로 진짜 강사에게는 이 빨간 배지가 뜨지 않는다. */
+  function visibleEntry() {
+    var q = location.search || '';
+    return /[?&]vc_autojoin=1(?:&|$)/i.test(q) && /[?&]vc_cam=off(?:&|$)/i.test(q);
+  }
+
+  function badgeText(mode) {
+    var en = isEn();
+    if (mode === 'observe') {
+      return en ? '\uD83D\uDC41 Observing \u00B7 students and the teacher cannot see you'
+                : '\uD83D\uDC41 \uCC38\uAD00 \uC911 \u00B7 \uD559\uC0DD\u00B7\uAC15\uC0AC\uC5D0\uAC8C \uBCF4\uC774\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4';
+    }
+    return en ? '\uD83D\uDD34 Joined as a participant \u00B7 students and the teacher see you'
+              : '\uD83D\uDD34 \uCC38\uAC00\uC790\uB85C \uC785\uC7A5 \u00B7 \uD559\uC0DD\u00B7\uAC15\uC0AC\uC5D0\uAC8C \uBCF4\uC785\uB2C8\uB2E4';
+  }
+
+  /* 자리는 «상단바 아래» 로 잰다. 고정 좌표로 두면 상단바 버튼을 덮는다 —
+     상단바 높이는 화면·방향마다 다르고, 세로 수업화면에서는 min-height 로 자리를 잡는다. */
+  function placeBadge(el) {
+    try {
+      var top = 8;
+      var tb = document.querySelector('.toolbar');
+      if (tb) {
+        var r = tb.getBoundingClientRect();
+        if (r && r.bottom > 0) top = Math.round(r.bottom) + 6;
+      }
+      el.style.top = top + 'px';
+    } catch (_) { el.style.top = '8px'; }
+  }
+
+  var badgeMode = '';
+  function syncModeBadge(inCall) {
+    try {
+      var mode = observing() ? 'observe' : (visibleEntry() ? 'visible' : '');
+      var el = document.getElementById('vc-mode-badge');
+      if (!inCall || !mode) {
+        if (el) el.remove();
+        badgeMode = '';
+        document.body.classList.remove('vc-mode-badge-on');
+        return;
+      }
+      ensureStyle();
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'vc-mode-badge';
+        el.setAttribute('role', 'status');
+        document.body.appendChild(el);
+      }
+      if (badgeMode !== mode) {
+        badgeMode = mode;
+        el.style.cssText += (mode === 'observe')
+          /* 보라 = 참관. 관리자 화면의 색 규칙과 같게 둔다(참관 보라 · 직접입장 주황·빨강) */
+          ? ';background:#2e1065;border:1px solid #a78bfa;color:#ede9fe'
+          : ';background:#3b1111;border:1px solid #f87171;color:#fecaca';
+      }
+      el.textContent = badgeText(mode);
+      placeBadge(el);
+      document.body.classList.add('vc-mode-badge-on');
+    } catch (_) {}
+  }
+
+  /* 화면이 돌아가거나 상단바 높이가 바뀌면 자리를 다시 잡는다.
+     ⛔ 상주 setInterval·MutationObserver 를 새로 두지 않는다 — 홈에 머무는 학생 폰을
+        계속 깨우고, body class 감시는 홈 전체를 멎게 한 전력이 있다(CLAUDE.md 2장). */
+  try {
+    ['resize', 'orientationchange'].forEach(function (ev) {
+      window.addEventListener(ev, function () {
+        var el = document.getElementById('vc-mode-badge');
+        if (el) placeBadge(el);
+      }, { passive: true });
+    });
+    window.addEventListener('mangoi:lang-changed', function () {
+      setTimeout(function () {
+        var el = document.getElementById('vc-mode-badge');
+        if (el && badgeMode) el.textContent = badgeText(badgeMode);
+      }, 60);
+    });
+  } catch (_) {}
+
   var busy = false;
   function sync() {
     if (busy) return;
     busy = true;
     try {
-      var want = observing() && document.body.classList.contains('vc-in-call');
+      var inCall = document.body.classList.contains('vc-in-call');
+      var want = observing() && inCall;
       if (want) ensureStyle();
       document.body.classList.toggle('vc-observer', want);
+      syncUploadVisibility(inCall);
+      syncModeBadge(inCall);
     } catch (_) {} finally { busy = false; }
   }
 
@@ -106,7 +241,9 @@
       }
       /* 참관 입장은 DOMContentLoaded + 500ms 라, 관찰자를 붙이기 전에 이미 끝났을 수 있다.
          (그때는 class 가 더 안 바뀌어 콜백이 영영 안 돈다) → 몇 번 더 확인한다. */
-      [300, 1200, 3000].forEach(function (ms) { setTimeout(sync, ms); });
+      /* ⑤⑥ 은 역할·상단바가 «입장 뒤에» 확정되므로 확인이 몇 번 더 필요하다.
+         끝이 있는 확인만 둔다(상주 타이머 금지). */
+      [300, 1200, 3000, 6000, 12000].forEach(function (ms) { setTimeout(sync, ms); });
     } catch (_) {}
   }
   watchBody();
