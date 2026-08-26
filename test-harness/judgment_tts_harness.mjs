@@ -123,15 +123,18 @@ if (/MangoiTTS\.speak\(text, rate\(\)/.test(bare))
   ok('⑪ 낭독은 언제나 지금 고른 속도로 나간다(speak 에 rate() 를 넘긴다)');
 else no('⑪ speak 에 고정 속도를 넘긴다 — 속도 버튼이 다음 문장부터 무시된다');
 
+/* 눈금은 두 번 내려갔다: 0.75/0.9/1.0 → 0.6/0.75/0.9 (「0.75 도 빠르다」 2026-08-26).
+   ⛔ 0.5 아래는 playbackRate 가 소리를 뭉갠다 — 더 느려야 하면 화자·엔진을 바꾸는 별건이다. */
 const ratesLine = bare.match(/var RATES = \[([^\]]+)\]/);
-if (ratesLine && /0\.75/.test(ratesLine[1]) && /0\.9/.test(ratesLine[1]) && /1(\.0)?\s*\]?/.test(ratesLine[1]))
-  ok(`⑪ 세 단계로만 돈다 (${ratesLine[1].trim()}) — 폰에서 슬라이더보다 집기 쉽다`);
-else no('⑪ 속도 단계 목록(RATES)이 없다');
+const rateVals = ratesLine ? ratesLine[1].split(',').map(Number) : [];
+if (rateVals.length === 3 && rateVals.every(v => v >= 0.5 && v <= 1) && rateVals[0] < rateVals[1] && rateVals[1] < rateVals[2])
+  ok(`⑪ 세 단계로만, 느린 것부터 (${rateVals.join(' · ')}) — 폰에서 슬라이더보다 집기 쉽다`);
+else no(`⑪ 속도 단계가 이상하다 (${ratesLine ? ratesLine[1] : '목록 없음'}) — 0.5~1.0 안에서 오름차순 세 개여야 한다`);
 
-// 기본값 = 0.9(보통). 「조금 빠르다」는 제보로 1.0 에서 낮춰 둔 값이라 되돌릴 때는 사람이 정한다.
-if (/return 1;\s*\/\/ 기본 = 0\.9/.test(bare) || /return 1;/.test(bare.split('function rate()')[0].split('RATE_I')[1] || ''))
-  ok('⑪ 기본은 «보통»(0.9) — 1.0 은 빠르다는 제보로 낮춰 둔 값');
-else no('⑪ 기본 속도가 바뀌었다 — 사람이 정할 일이니 확인할 것');
+// 기본은 «제일 느린 단계». 두 번 연속 「빠르다」였으므로 아무것도 안 눌러도 느린 쪽에서 시작한다.
+if (/return 0;\s*\/\/ 기본 = /.test(bare))
+  ok('⑪ 기본은 제일 느린 단계 — 빠르게 듣고 싶으면 한 번 누르면 된다');
+else no('⑪ 기본 속도가 바뀌었다 — 「빠르다」 제보로 내려 둔 값이니 사람이 정할 일이다');
 
 if (/localStorage\.setItem\(RATE_KEY/.test(bare) && /localStorage\.getItem\(RATE_KEY\)/.test(bare))
   ok('⑪ 고른 속도를 기억한다(다음 방문에도)');

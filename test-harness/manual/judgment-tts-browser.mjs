@@ -263,8 +263,8 @@ const said = page => page.evaluate(() => (window.__said || []).slice());
         return { text: b.textContent, title: b.title, h: Math.round(r.height), scrollH: b.scrollHeight,
                  stored: localStorage.getItem('mangoi_judgment_rate') };
       });
-      // 기본은 «보통»(0.9) — 「조금 빠르다」는 제보로 1.0 에서 낮춰 둔 값이다
-      check('⑨ 처음엔 «보통» 으로 시작한다', /보통|Normal|正常/.test(first.text), first.text);
+      // 기본은 «느리게»(0.6) — 「0.75 도 빠르다」(2026-08-26)로 눈금을 한 칸씩 내렸다
+      check('⑨ 처음엔 «느리게» 로 시작한다', /느리게|Slow|慢速/.test(first.text), first.text);
       check('⑨ 버튼 안에 글자가 넘치지 않는다', first.scrollH <= first.h + 2, JSON.stringify(first));
 
       /* 🪤 여기서도 «요청 수» 가 아니라 speak 에 넘어간 «속도 값» 을 봐야 한다.
@@ -274,24 +274,24 @@ const said = page => page.evaluate(() => (window.__said || []).slice());
         const orig = window.MangoiTTS.speak;
         window.MangoiTTS.speak = function (t, r, cb) { window.__rates.push(r); return orig.apply(this, arguments); };
       });
-      await page.click('#speedBtn');            // 보통 → 빠르게
+      await page.click('#speedBtn');            // 느리게 → 보통
       await page.waitForTimeout(400);
-      const fast = await page.evaluate(() => ({
+      const mid = await page.evaluate(() => ({
         text: document.getElementById('speedBtn').textContent,
         rates: window.__rates.slice(), stored: localStorage.getItem('mangoi_judgment_rate'),
       }));
-      check('⑨ 누르면 «빠르게» 로 바뀐다', /빠르게|Fast|快速/.test(fast.text), fast.text);
-      check('⑨ 바뀐 속도로 그 자리에서 한 번 들려준다', fast.rates.length === 1 && fast.rates[0] === 1, JSON.stringify(fast.rates));
-      check('⑨ 고른 속도를 기억한다', fast.stored === '1', String(fast.stored));
+      check('⑨ 누르면 «보통» 으로 바뀐다', /보통|Normal|正常/.test(mid.text), mid.text);
+      check('⑨ 바뀐 속도로 그 자리에서 한 번 들려준다', mid.rates.length === 1 && mid.rates[0] === 0.75, JSON.stringify(mid.rates));
+      check('⑨ 고른 속도를 기억한다', mid.stored === '0.75', String(mid.stored));
 
-      await page.click('#speedBtn');            // 빠르게 → 느리게
-      await page.waitForTimeout(400);
+      await page.click('#speedBtn'); await page.waitForTimeout(300);   // 보통 → 빠르게
+      await page.click('#speedBtn'); await page.waitForTimeout(400);   // 빠르게 → 느리게 (한 바퀴)
       const slow = await page.evaluate(() => ({
         text: document.getElementById('speedBtn').textContent,
         rates: window.__rates.slice(), stored: localStorage.getItem('mangoi_judgment_rate'),
       }));
-      check('⑨ 한 번 더 누르면 «느리게» 로 돈다(세 단계 순환)', /느리게|Slow|慢速/.test(slow.text), slow.text);
-      check('⑨ 느리게는 0.75 로 읽는다', slow.rates.slice(-1)[0] === 0.75, JSON.stringify(slow.rates));
+      check('⑨ 세 번 누르면 제자리로 돌아온다(세 단계 순환)', /느리게|Slow|慢速/.test(slow.text), slow.text);
+      check('⑨ 느리게는 0.6 으로 읽는다', slow.rates.slice(-1)[0] === 0.6, JSON.stringify(slow.rates));
 
       /* 스피커를 눌렀을 때도 그 속도가 따라가는가(속도가 «바꾼 그때만» 적용되면 안 된다).
          ⚠️ 이 절은 채점 결과 화면에서 돈다 — 보기(.opt)는 이미 사라졌으므로 표 줄의 스피커를 쓴다. */
@@ -300,7 +300,7 @@ const said = page => page.evaluate(() => (window.__said || []).slice());
       await opt.scrollIntoViewIfNeeded(); await opt.click();
       await page.waitForTimeout(400);
       const kept = await page.evaluate(() => window.__rates.slice());
-      check('⑨ 🔴 이후 모든 낭독이 그 속도로 나간다', kept.length === 1 && kept[0] === 0.75, JSON.stringify(kept));
+      check('⑨ 🔴 이후 모든 낭독이 그 속도로 나간다', kept.length === 1 && kept[0] === 0.6, JSON.stringify(kept));
 
       /* 🌐 언어를 바꾸면 «느리게» 라는 글자가 그 언어로 따라오는가.
          ⚠️ 언어는 ko → en → zh 로 «돈다». 앞 절(⑧)에서 이미 한 번 눌렀으므로 여기서는
