@@ -3,7 +3,8 @@
  * 원장 검수 피드백 2·6번 수정이 «화면에서 실제로» 동작하는가 (11건)
  *   (2026-08-24, PR #445 — docs/작업기록/260824_원장피드백_… 참고)
  *
- *   A. index.html — 중국어 복습퀴즈 조건 표시 + 「레벨 테스트」 타일
+ *   A. index.html — 중국어 복습퀴즈 조건 표시 + 「레벨 테스트」 타일이 «없는지»
+ *      (그 타일은 2026-08-26 사장님 지시로 뺐습니다 — 첫 설정 카드가 같은 자리를 대신합니다)
  *      · 비수강생: 드로어·퀵버튼·「AI와 친구하기」 목록의 중국어 항목 전부 숨김
  *      · mangoi_zh_learner=1 이면 전부 복귀
  *   B. judgment.html — 「레벨 다시 재기」 상시 버튼 + ?placement=1 즉시 시작
@@ -81,7 +82,7 @@ const { chromium, exe } = requireBrowser();
 const browser = await chromium.launch({ executablePath: exe, headless: true });
 
 try {
-  /* ══ A. index.html — 중국어 메뉴 조건 표시 + 레벨 테스트 타일 ══ */
+  /* ══ A. index.html — 중국어 메뉴 조건 표시 + 레벨 테스트 타일이 «없는지» ══ */
   {
     const ctx = await browser.newContext({ viewport: { width: 900, height: 900 } });
     await stubApis(ctx);
@@ -114,12 +115,18 @@ try {
       return g ? Array.prototype.map.call(g.querySelectorAll('.mgam-card span:last-child'), (s) => s.textContent.trim()) : null;
     });
     check('A3 비수강생: 전체메뉴에 중국어 복습퀴즈 없음', !!tiles && !tiles.includes('중국어 복습퀴즈'), tiles ? tiles.length + '타일' : '그리드 없음');
-    check('A4 전체메뉴에 「레벨 테스트」 타일 있음', !!tiles && tiles.includes('레벨 테스트'));
+    /* ⚠️ A4·A5 는 2026-08-26 에 «있음» → «없음» 으로 뒤집혔습니다(사장님 지시).
+     *   판단력 훈련이 첫 진입에 설정 카드를 띄우게 되면서(PR #512) 그 카드의
+     *   「🎯 내 레벨을 찾아 주세요」가 이 타일과 «같은 것 둘»이 됐습니다.
+     *   ⛔ 타일을 되살리는 방향으로 이 검사를 되돌리지 마세요. 입구는 셋 남아 있고
+     *      B절이 그중 둘(「레벨 다시 재기」·?placement=1)을 그대로 못 박습니다. */
+    check('A4 전체메뉴에 「레벨 테스트」 타일 없음(2026-08-26 제거)', !!tiles && !tiles.includes('레벨 테스트'),
+      tiles ? tiles.length + '타일' : '그리드 없음');
     const lvUrl = await page.evaluate(() => {
       const a = Array.prototype.find.call(document.querySelectorAll('#mgam-grid a'), (x) => x.textContent.indexOf('레벨 테스트') >= 0);
       return a ? a.getAttribute('href') : '';
     });
-    check('A5 레벨 테스트 타일 → /judgment.html?placement=1', lvUrl === '/judgment.html?placement=1', lvUrl);
+    check('A5 그 타일로 가는 링크도 없다', lvUrl === '', lvUrl);
 
     await page.evaluate(() => localStorage.setItem('mangoi_zh_learner', '1'));
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 });

@@ -68,7 +68,13 @@ async function open(browser, width, height) {
   const ctx = await browser.newContext({ viewport: { width, height } });
   const page = await ctx.newPage();
   // 서버 TTS 는 부르지 않는다 — «무엇을 어떤 목소리로 달라고 했는가» 만 받아 적고 소리는 만든다.
-  await page.addInitScript(() => { window.__tts = []; });
+  /* 🪤 빈 브라우저는 늘 «첫 방문자» 다 — 2026-08-26 에 들어온 «시작하기 전에 두 가지만
+        정할게요» 카드가 첫 진입을 가로채서, 그대로 재면 `.opt` 를 영영 못 기다린다
+        (관리자 #aw-overlay·환영 안내와 같은 사정). 본 것으로 표시하고 연다. */
+  await page.addInitScript(() => {
+    window.__tts = [];
+    try { localStorage.setItem('mangoi_judg_setup_v1', '1'); } catch (e) { /* 시크릿 모드 */ }
+  });
   await ctx.route('**/api/voice/tts', async route => {
     let body = {};
     try { body = JSON.parse(route.request().postData() || '{}'); } catch { /* 무시 */ }
@@ -248,10 +254,67 @@ const said = page => page.evaluate(() => (window.__said || []).slice());
       check('⑧ 무음 버튼 안내도 언어를 따라간다', /sound/i.test(m.title), m.title);
       check('⑧ 언어를 바꿔도 스피커는 그대로 있다', m.rows === 4, String(m.rows));
     }
+    /* ── ⑨ 🐢 읽기 속도 — 눌러서 바뀌고, 그 속도로 읽고, 기억하는가 ────────── */
+    console.log('\n[5] 읽기 속도 버튼');
+    {
+      const first = await page.evaluate(() => {
+        const b = document.getElementById('speedBtn');
+        const r = b.getBoundingClientRect();
+        return { text: b.textContent, title: b.title, h: Math.round(r.height), scrollH: b.scrollHeight,
+                 stored: localStorage.getItem('mangoi_judgment_rate') };
+      });
+      // 기본은 «보통»(0.9) — 「조금 빠르다」는 제보로 1.0 에서 낮춰 둔 값이다
+      check('⑨ 처음엔 «보통» 으로 시작한다', /보통|Normal|正常/.test(first.text), first.text);
+      check('⑨ 버튼 안에 글자가 넘치지 않는다', first.scrollH <= first.h + 2, JSON.stringify(first));
+
+      /* 🪤 여기서도 «요청 수» 가 아니라 speak 에 넘어간 «속도 값» 을 봐야 한다.
+            같은 문장은 캐시라 요청이 안 나가고, 속도는 재생할 때 playbackRate 로 붙는다. */
+      await page.evaluate(() => {
+        window.__rates = [];
+        const orig = window.MangoiTTS.speak;
+        window.MangoiTTS.speak = function (t, r, cb) { window.__rates.push(r); return orig.apply(this, arguments); };
+      });
+      await page.click('#speedBtn');            // 보통 → 빠르게
+      await page.waitForTimeout(400);
+      const fast = await page.evaluate(() => ({
+        text: document.getElementById('speedBtn').textContent,
+        rates: window.__rates.slice(), stored: localStorage.getItem('mangoi_judgment_rate'),
+      }));
+      check('⑨ 누르면 «빠르게» 로 바뀐다', /빠르게|Fast|快速/.test(fast.text), fast.text);
+      check('⑨ 바뀐 속도로 그 자리에서 한 번 들려준다', fast.rates.length === 1 && fast.rates[0] === 1, JSON.stringify(fast.rates));
+      check('⑨ 고른 속도를 기억한다', fast.stored === '1', String(fast.stored));
+
+      await page.click('#speedBtn');            // 빠르게 → 느리게
+      await page.waitForTimeout(400);
+      const slow = await page.evaluate(() => ({
+        text: document.getElementById('speedBtn').textContent,
+        rates: window.__rates.slice(), stored: localStorage.getItem('mangoi_judgment_rate'),
+      }));
+      check('⑨ 한 번 더 누르면 «느리게» 로 돈다(세 단계 순환)', /느리게|Slow|慢速/.test(slow.text), slow.text);
+      check('⑨ 느리게는 0.75 로 읽는다', slow.rates.slice(-1)[0] === 0.75, JSON.stringify(slow.rates));
+
+      /* 스피커를 눌렀을 때도 그 속도가 따라가는가(속도가 «바꾼 그때만» 적용되면 안 된다).
+         ⚠️ 이 절은 채점 결과 화면에서 돈다 — 보기(.opt)는 이미 사라졌으므로 표 줄의 스피커를 쓴다. */
+      await page.evaluate(() => { window.__rates.length = 0; });
+      const opt = page.locator('.ot-row .spk').first();
+      await opt.scrollIntoViewIfNeeded(); await opt.click();
+      await page.waitForTimeout(400);
+      const kept = await page.evaluate(() => window.__rates.slice());
+      check('⑨ 🔴 이후 모든 낭독이 그 속도로 나간다', kept.length === 1 && kept[0] === 0.75, JSON.stringify(kept));
+
+      /* 🌐 언어를 바꾸면 «느리게» 라는 글자가 그 언어로 따라오는가.
+         ⚠️ 언어는 ko → en → zh 로 «돈다». 앞 절(⑧)에서 이미 한 번 눌렀으므로 여기서는
+            영어가 아니라 중국어가 나온다 — 「Slow 가 나와야 한다」로 적으면 멀쩡한 화면이
+            거짓 실패한다(2026-08-26 실제로 밟음). 한국어만 아니면 «따라온 것» 이다. */
+      await page.click('#langBtn');
+      await page.waitForTimeout(500);
+      const langed = await page.evaluate(() => document.getElementById('speedBtn').textContent);
+      check('⑨ 언어를 바꾸면 속도 글자도 따라간다', /Slow|慢速/.test(langed) && !/느리게/.test(langed), langed);
+    }
     await ctx.close();
 
-    /* ── ⑨ 휴대폰 폭 — 넘치지 않고 스피커가 맨 위에 있는가 ─────────────── */
-    console.log('\n[5] 휴대폰 폭 390px');
+    /* ── ⑩ 휴대폰 폭 — 넘치지 않고 스피커가 맨 위에 있는가 ─────────────── */
+    console.log('\n[6] 휴대폰 폭 390px');
     {
       const { ctx: c2, page: p2 } = await open(browser, 390, 844);
       const m = await p2.evaluate(() => {
@@ -266,9 +329,9 @@ const said = page => page.evaluate(() => (window.__said || []).slice());
           top: stack.length ? (stack[0] === spk ? 'spk' : (stack[0].className || stack[0].tagName)) : 'offscreen',
         };
       });
-      check('⑨ 문서가 옆으로 밀리지 않는다', m.docOverflow <= 0, '넘침 ' + m.docOverflow + 'px');
-      check('⑨ 보기 안에서도 넘치지 않는다', m.optOverflow === 0, String(m.optOverflow) + '개 넘침');
-      check('⑨ 스피커가 «맨 위» 에 있다(가려서 못 누르는 일이 없다)', m.top === 'spk', m.top + ' / ' + m.spk);
+      check('⑩ 문서가 옆으로 밀리지 않는다', m.docOverflow <= 0, '넘침 ' + m.docOverflow + 'px');
+      check('⑩ 보기 안에서도 넘치지 않는다', m.optOverflow === 0, String(m.optOverflow) + '개 넘침');
+      check('⑩ 스피커가 «맨 위» 에 있다(가려서 못 누르는 일이 없다)', m.top === 'spk', m.top + ' / ' + m.spk);
       await c2.close();
     }
   } finally {

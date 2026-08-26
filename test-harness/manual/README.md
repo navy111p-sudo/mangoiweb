@@ -295,7 +295,7 @@ PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
 
 ---
 
-## judgment-tts-browser.mjs — 판단력 훈련의 원어민 음성·무음 버튼 (21건)
+## judgment-tts-browser.mjs — 판단력 훈련의 원어민 음성·무음·읽기 속도 (30건)
 
 「여기도 원어민 음성을 달아 줘. 듣기 연습도 같이.」(2026-08-26 사장님) 를 눌러서 확인한다.
 
@@ -305,7 +305,8 @@ PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
 3. **스피커를 눌러도 답이 골라지지 않는가** — 스피커가 보기 «안» 에 있어서 전파를 멈춰야 한다
 4. 무음이 새 재생을 막고, 켜는 즉시 끊고, 새로고침 뒤에도 기억하는가
 5. 🌐 언어 토글이 문장을 **다시 읽지 않는가**(재렌더는 낭독이 아니다)
-6. 휴대폰 폭(390)에서 넘치지 않고 스피커가 «맨 위» 에 있는가
+6. **🐢 읽기 속도**(느리게/보통/빠르게)가 눌러서 바뀌고, **그 뒤 모든 낭독에** 붙고, 기억되는가
+7. 휴대폰 폭(390)에서 넘치지 않고 스피커가 «맨 위» 에 있는가
 
 > **🪤 여기서 오독하기 쉬운 것 둘**
 > · «소리가 났는가» 를 `/api/voice/tts` **요청 수로 세면 안 된다** — 이 화면은 문제를 그릴 때
@@ -313,6 +314,9 @@ PW_DIR=/tmp/pw node test-harness/manual/manager-today-classes-browser.mjs
 >   멀쩡한 동작이 «소리가 안 난다» 로 보인다. 그래서 speak 호출을 받아 적어 판정한다.
 > · 주석 안에 route glob 을 그대로 적으면 **별표+슬래시가 블록주석을 거기서 닫아**
 >   뒷부분이 코드가 되고 「api is not defined」 로 죽는다(실제로 밟았다).
+> · 빈 브라우저는 늘 «첫 방문자» 다 — 2026-08-26 에 들어온 **«시작하기 전에 두 가지만 정할게요»**
+>   카드가 첫 진입을 가로채므로 `mangoi_judg_setup_v1='1'` 로 본 것 표시하고 열어야 한다.
+> · 🌐 언어는 **ko → en → zh 로 돈다.** 「두 번째 토글이면 영어」로 적으면 멀쩡한 화면이 거짓 실패한다.
 
 ```bash
 PW_DIR=/tmp/pw node test-harness/manual/judgment-tts-browser.mjs
@@ -364,6 +368,27 @@ PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
 
 ```
 PW_DIR=/tmp/pw node test-harness/manual/observer-whisper-browser.mjs
+```
+
+---
+
+## observer-no-recording-browser.mjs — 참관자는 녹화하지 않는다 (5건)
+
+「관찰자는 녹화 안 하게 해줘」(2026-08-26 사장님)를 **네트워크로** 확인한다.
+
+자동녹화는 «2초 폴링 + 3초 지연» 으로 시작하고, 보는 조건은 `body.vc-in-call` 하나뿐이라
+**참관자도 함께 녹화를 켜고 있었다**(실측: `class-943` 에 「관찰자」 이름의 녹화 두 건이
+30분 넘게 「● 녹화중」 — 참관자가 창을 닫으면 종료 신호가 안 가 크론이 12시간 뒤에야 정리).
+
+조건이 한 줄만 어긋나도 «코드는 있는데 그래도 켜지는» 상태가 되므로, 소스가 아니라
+**`/api/recordings/start` 가 나가는지**를 본다.
+
+> **🪤 2부가 핵심이다** — 「참관이 아니면 여전히 켜지는가」를 함께 재지 않으면
+> **녹화가 통째로 죽은 상태도 «통과»** 한다. 막는 검사에는 반드시 «막히지 않아야 하는 쪽» 을
+> 함께 둘 것.
+
+```bash
+PW_DIR=/tmp/pw node test-harness/manual/observer-no-recording-browser.mjs
 ```
 
 ---

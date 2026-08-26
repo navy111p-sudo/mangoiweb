@@ -26,6 +26,10 @@ const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catc
 const auth = rd('../cloudflare-deploy/src/auth-admin.ts');
 const legacy = rd('../cloudflare-deploy/src/legacy-teacher-auth.ts');
 const tapi = rd('../cloudflare-deploy/src/api-teacher.ts');
+const stuApi = rd('../cloudflare-deploy/src/api-students.ts');
+const guard = rd('../cloudflare-deploy/public/js/session-guard.js');
+const admLogin = rd('../cloudflare-deploy/public/admin/login.html');
+const parentHtml = rd('../cloudflare-deploy/public/parent.html');
 
 let PASS = 0, FAIL = 0; const FAILS = [];
 const check = (name, ok, extra) => {
@@ -189,6 +193,94 @@ console.log('\n════ ⑤ 학생 계정(students_erp)도 대소문자를 �
     && /const childUid = exists \? String\(exists\.user_id\) : cUid;/.test(sstu));
   check('무엇과 부딪혔는지 알려 준다 (대소문자만 다르면 눈으로 못 찾는다)',
     /대소문자만 다릅니다/.test(sadmin) && /대소문자만 다릅니다/.test(sstu));
+}
+
+/* ══ ⑥ 학생 «로그인» 도 정확일치 우선인가 (실제 SQLite) ═════════════════════
+   ⑤는 «계정을 만들 때» 중복을 잡는지만 봤다. 정작 매일 도는 것은 «로그인» 인데
+   그쪽은 ORDER BY 없는 NOCASE 조회라 **둘 중 아무 행이나** 집고 있었다.
+   운영 실측(2026-08-26): `Kim`/`kim`, `Lee`/`lee` 네 행이 실재한다 — 남의 계정으로
+   들어가면 출석·포인트가 통째로 갈린다. 그래서 여기도 «정확일치 먼저» 를 못 박는다. */
+console.log('\n════ ⑥ 학생 로그인이 대소문자가 갈린 두 계정에서 무엇을 고르는가 ════');
+{
+  const m = /`SELECT user_id, student_name, parent_name, parent_phone, parent_user_id, password_hash\s*\n\s*FROM students_erp WHERE user_id = \? COLLATE NOCASE\s*\n\s*ORDER BY[^`]*`/.exec(stuApi);
+  check('소스에서 학생 로그인 조회 SQL 을 찾았다', !!m);
+  if (m) {
+    const sql = m[0].slice(1, -1).replace(/\s+/g, ' ').trim();
+    check('정확일치를 먼저 세우는 정렬절이 있다 (없으면 아래 순서 검사가 무의미)',
+      /ORDER BY \(user_id = \?\) DESC/.test(sql), sql);
+
+    const db = new DatabaseSync(':memory:');
+    db.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, student_name TEXT,
+             parent_name TEXT, parent_phone TEXT, parent_user_id TEXT, password_hash TEXT);`);
+    // 운영 실측 그대로 — 대문자 행이 먼저 들어가 있어도 정확일치가 이겨야 한다.
+    for (const [u, n] of [['Kim', 'Kim'], ['kim', '김민수'], ['Lee', 'Lee'], ['lee', '이병엽']]) {
+      db.prepare(`INSERT INTO students_erp (user_id, student_name) VALUES (?, ?)`).run(u, n);
+    }
+    const nParams = (sql.match(/\?/g) || []).length;
+    const pick = (typed) => {
+      const r = db.prepare(sql).all(...Array(nParams).fill(typed));
+      return r.length ? r[0].user_id : null;
+    };
+    check('🔴 «kim» 으로 치면 정확히 kim (Kim 이 아니다)', pick('kim') === 'kim', pick('kim'));
+    check('🔴 «Kim» 으로 치면 정확히 Kim', pick('Kim') === 'Kim', pick('Kim'));
+    check('🔤 «KIM» — 정확일치가 없으면 대소문자만 다른 행으로 들어간다 (로그인은 된다)',
+      pick('KIM') !== null, pick('KIM'));
+    check('한 행만 돌려준다 (LIMIT 1 — 여러 행이 오면 호출부가 아무거나 쓴다)',
+      db.prepare(sql).all(...Array(nParams).fill('kim')).length === 1);
+    check('상관없는 아이디는 안 걸린다 (과잉 매칭 아님)', pick('kimchi') === null);
+  }
+
+  /* 로그인만 고쳐서는 반쪽이다 — 아이디를 «치는» 다른 화면도 같은 규칙이어야 한다.
+     빠지면 「로그인은 되는데 연장 결제만 학생을 못 찾는」 상태가 된다. */
+  check('연장 결제 본인확인(/api/student/lookup)도 대소문자 무시 + 정확일치 우선',
+    /SELECT \* FROM students_erp WHERE user_id = \? COLLATE NOCASE\s*\n\s*ORDER BY \(user_id = \?\) DESC/.test(stuApi));
+  check('비밀번호 설정(/api/student/set-password)도 대소문자 무시 + 정확일치 우선',
+    /SELECT user_id, password_hash FROM students_erp WHERE user_id = \? COLLATE NOCASE\s*\n\s*ORDER BY \(user_id = \?\) DESC/.test(stuApi));
+  /* ⚠️ 0건 UPDATE 는 에러를 내지 않는다 — 입력 표기로 쓰면 «저장했다는데 안 바뀌는» 상태가 된다. */
+  check('⛔ 비밀번호 UPDATE 는 입력 표기가 아니라 DB 표기(canonUid)로 나간다',
+    /UPDATE students_erp SET password_hash = \? WHERE user_id = \?`\)\.bind\(newHash, canonUid\)/.test(stuApi));
+  check('학부모 대시보드도 대소문자 무시 + 이후 조회를 DB 표기로 통일한다',
+    /FROM students_erp WHERE user_id = \? COLLATE NOCASE\s*\n\s*ORDER BY \(user_id = \?\) DESC[^;]*;\s*\n[\s\S]{0,400}?childUid = String\(student\.user_id\);/.test(stuApi));
+  check('본인확인 비교도 대소문자를 무시한다 (여기만 남으면 401 로 막힌다)',
+    /_authUid\.toLowerCase\(\) !== childUid\.toLowerCase\(\)/.test(stuApi));
+}
+
+/* ══ ⑦ 화면 — 폰 키보드가 아이디를 대문자로 만들지 않는가 ═══════════════════
+   서버가 대소문자를 무시해도 이건 남는다 —
+     ① 화면에 대문자가 찍히는 것 자체가 아이를 멈춰 세운다
+     ② 자동고침(autocorrect)은 «다른 글자» 를 만들어 실제로 로그인을 깨뜨린다
+   ⚠️ index.html 은 공동 금지구역이라 그 안의 칸에 속성을 직접 못 적는다 →
+      defer 파일(session-guard.js)이 밖에서 입혀 준다. 그래서 그 파일을 검사한다. */
+console.log('\n════ ⑦ 아이디 칸 자동 대문자·자동 고침 차단 ════');
+{
+  check('아이디 칸 보정 코드가 session-guard.js 에 있다', /__mangoiIdNoCaps/.test(guard));
+  check('세 속성을 모두 끈다 (하나만 끄면 자동고침이 남는다)',
+    /autocapitalize'?,\s*'off'/.test(guard) && /autocorrect'?,\s*'off'/.test(guard)
+    && /spellcheck'?,\s*'false'/.test(guard));
+  check('나중에 만들어지는 로그인 칸(lm-uid)도 잡는다 — 누를 때·포커스 때 둘 다',
+    /addEventListener\('pointerdown'/.test(guard) && /addEventListener\('focusin'/.test(guard));
+  /* ⚠️ 부정 검사는 **주석을 벗겨 낸 사본**으로 판정한다 — 안 그러면 「왜 안 쓰는지」 적어 둔
+     설명 주석에 그 낱말이 들어 있어 검사가 자기 주석을 잡는다(CLAUDE.md 2장, 실제로 밟았다). */
+  const stripComments = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('⛔ 상주 감시자(DOM 변화 관찰)로 지켜보지 않는다 (홈 전체를 멎게 한 전력)',
+    !/MutationObserver/.test(stripComments(guard)));
+  check('⛔ 비밀번호 칸은 건드리지 않는다 (text/search 만 손본다)',
+    /t !== 'text' && t !== 'search'/.test(guard));
+  check('autocomplete="username" 만 달아도 새 화면이 자동으로 걸린다',
+    /getAttribute\('autocomplete'\) === 'username'/.test(guard));
+
+  /* 정적 HTML 은 밖에서 입히지 말고 마크업에 직접 적는다 — 첫 글자 입력보다 빠르다. */
+  check('관리자·강사 로그인 아이디 칸에 autocapitalize=off 가 박혀 있다',
+    /id="username"[^>]*autocapitalize="off"[^>]*autocorrect="off"[^>]*spellcheck="false"/.test(admLogin));
+  check('학부모 화면 자녀 아이디 칸에도 박혀 있다',
+    /id="uid-input"[^>]*autocapitalize="off"[^>]*autocorrect="off"[^>]*spellcheck="false"/.test(parentHtml));
+
+  /* 🔠 비밀번호는 대소문자를 «그대로» 본다(2026-08-26 사장님 결정 — 급여·회계 계정 49개).
+     그래서 「틀렸습니다」 뒤가 아니라 치기 전에 원인을 보여 준다. */
+  check('Caps Lock 안내가 관리자·강사 로그인에 있다',
+    /id="capsWarn"/.test(admLogin) && /getModifierState/.test(admLogin));
+  check('keydown·keyup 둘 다 본다 (한쪽만 보면 켠 직후 한 박자 늦는다)',
+    /addEventListener\('keydown', check\)/.test(admLogin) && /addEventListener\('keyup', check\)/.test(admLogin));
 }
 
 console.log('\n' + '─'.repeat(58));
