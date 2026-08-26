@@ -5093,6 +5093,22 @@ function _enPanelHtml(p, en) {
           : '<span style="color:#b45309">' + L('연락처 없음', 'no phone') + '</span>') +
         line(L('다음 청구', 'Next billing'), _esc(p.next_billing || '—') + ' · ' +
           (p.monthly_fee_krw ? '₩' + Number(p.monthly_fee_krw).toLocaleString() : L('금액 없음', 'no amount'))) +
+        /* 💰 (2026-08-26 사장님 지시) 「이 금액이 왜 이 금액인가」 — 수업 시간 배수가 실제로 먹혔는지
+           사람이 확정 «전에» 눈으로 확인하는 자리다. 금액은 정기결제가 실제로 청구하므로
+           숫자만 보여 주고 근거를 안 보여 주면 틀려도 아무도 모른다.
+           ⛔ 여기서 다시 곱하지 않는다 — p.monthly_fee_krw 는 이미 곱해진 최종값이다
+              (곱하는 곳은 서버 INSERT 한 자리뿐. src/enroll-fee.ts 머리말). */
+        (p.base_fee_krw
+          ? line(L('요금 근거', 'How'),
+              '<span style="color:' + (p.fee_source === 'agency_price' ? '#b45309' : '#5b21b6') + '">' +
+              (p.fee_source === 'agency_price'
+                ? L('\u26A0 자동 — 대리점 단가 ', '\u26A0 auto — agency rate \u20A9')
+                : L('입력값 ', 'entered \u20A9')) +
+              Number(p.base_fee_krw).toLocaleString() +
+              L('원(20분 기준) × ' + p.minutes + '분 ' + p.length_multiplier + '배',
+                ' (20min base) × ' + p.minutes + 'min (' + p.length_multiplier + '\u00D7)') +
+              '</span>')
+          : '') +
       '</div>' +
     '</div>' +
 
@@ -6655,7 +6671,11 @@ async function addEnrollment() {
         student_name: r.student_name,
         student_user_id: r.student_user_id || '—',
         package: r.package,
-        monthly_fee_krw: r.monthly_fee_krw || 0,
+        /* 💰 (2026-08-26) 서버가 «수업 시간 배수를 곱해 저장한» 최종 금액을 쓴다.
+           ⛔ 폼에서 읽은 r.monthly_fee_krw 는 곱하기 «전» 기준가(대개 빈 값)라, 그걸 쓰면
+              40분 수강신청이 DB·구독에는 20만원인데 카톡·CSV·워드에는 10만원으로 나간다.
+              화면이 곱해서 맞추면 안 된다(두 번 곱하기) — 서버가 준 값을 그대로 받아 적는다. */
+        monthly_fee_krw: (d.fee && d.fee.monthlyFeeKrw != null) ? d.fee.monthlyFeeKrw : (r.monthly_fee_krw || 0),
         started_at: r._started_at_str || new Date().toISOString().slice(0,10),
         types_ko: (r._types_ko || []).join(', ') || '—',
         days_ko: (r._days_ko || []).join('') || '—',
@@ -6718,7 +6738,10 @@ async function addEnrollment() {
       const j = await res.json().catch(() => ({}));
       if (res.ok && j.ok !== false) {
         ok++;
-        successList.push(r);
+        /* 💰 (2026-08-26) 일괄 등록의 내보내기도 «서버가 저장한 최종 금액» 을 쓴다
+           (위 단건 경로와 같은 이유 — 폼 값은 곱하기 «전» 기준가라 문서만 절반이 된다). */
+        successList.push((j.fee && j.fee.monthlyFeeKrw != null)
+          ? Object.assign({}, r, { monthly_fee_krw: j.fee.monthlyFeeKrw }) : r);
         // ✅ 등록 = 확정. 한 건씩 바로 이어 돌린다(별도 확정 클릭 없음).
         const cf = await _enAutoConfirm(j.id || j.enrollment_id);
         if (cf.ok) confirmed++;
