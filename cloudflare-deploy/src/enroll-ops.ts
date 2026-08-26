@@ -181,6 +181,20 @@ export async function holidaySet(env: any, fromDay: string): Promise<Set<string>
   return s;
 }
 
+/* 🟡 (2026-08-26 실사고) LMS·시드 «자리표시» 행은 충돌로 세지 않는다.
+ *   class_schedules 활성 행의 대부분은 진짜 수업이 아니라 자리표시다(user_id='lms'·'type_seed' —
+ *   schedule-conflict.ts 97행 주석과 같은 사정). 그런데 이 파일(수강신청 확정 전용 충돌검사)만
+ *   그 제외를 빠뜨리고 있었다 — schedule-conflict.ts 의 «단 한 건 등록/이동» 충돌검사는
+ *   2026-08-24 에 이미 고쳐졌는데, 「여러 날짜를 한꺼번에」 보는 이 파일의 검사기(enrollConflicts·
+ *   busyTimesForTeacher·teachersFreeAt)는 원래도 서로 다른 검사기라(schedule-conflict.ts 22행
+ *   주석 「목적이 달라 그대로 둔다」) 그 수리에 포함되지 않았다.
+ *   실사고: FAR(mangoi_018)가 수요일 20:40 에 실제 수업이 없는데도 옛 LMS 자리표시 행 하나
+ *   때문에 «다른 수업 있음» 으로 판정돼, 수강신청 확정에서 그 요일의 첫 4주가 «충돌» 로 건너뛰어졌다.
+ *   ⚠️ 제외식은 schedule-conflict.ts·api-admin.ts·api-teacher.ts·churn-graph.ts 의
+ *      `NOT IN ('lms','type_seed')` 와 **글자 하나까지 같게** 유지할 것.
+ *   ⛔ 데이터는 지우지 않는다 — 되돌리려면 이 조건절만 빼면 된다. */
+const NOT_PLACEHOLDER = `AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`;
+
 /** 강사의 기존 수업과 충돌하는 날짜들 (날짜지정 + 요일반복 모두 검사)
  *  🕐 (2026-07-30) 요일별 다른 시간 지정 — 제보 #2-3. startMin(공통 시각) 하나 대신
  *  timesMinByDow(요일→분) 맵을 받는다 — 날짜마다 그 날의 요일에 맞는 시각으로 충돌을 검사한다.
@@ -192,7 +206,7 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
     // D1 파라미터 한도 분할은 공용 selectInChunks 로 일원화(2026-08-07)
     const rows: any[] = await selectInChunks<any>(env.DB, dates,
       (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`,
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph}) ${NOT_PLACEHOLDER}`,
       { lead: [teacherId] });
     for (const r of rows) {
       const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
@@ -203,7 +217,7 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
     }
     const rs2: any = await env.DB.prepare(
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
     const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     const badDows = new Set<number>();
@@ -261,7 +275,7 @@ export async function busyTimesForTeacher(env: any, teacherId: string, days: num
   try {
     const rs1: any = await env.DB.prepare(
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+       WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
     const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
@@ -274,7 +288,7 @@ export async function busyTimesForTeacher(env: any, teacherId: string, days: num
     const probe = probeDatesForDows(days, 12);
     const probeRows: any[] = await selectInChunks<any>(env.DB, probe,
       (ph) => `SELECT scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph})`,
+         WHERE teacher_id = ? AND status = 'active' AND scheduled_date IN (${ph}) ${NOT_PLACEHOLDER}`,
       { lead: [teacherId] });
     for (const r of probeRows) {
       const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
@@ -303,7 +317,7 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
   try {
     const rs1: any = await env.DB.prepare(
       `SELECT teacher_id, day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-       WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+       WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).all();
     const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
@@ -318,7 +332,7 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
     const probe = probeDatesForDows(days, 12);
     const probeRows: any[] = await selectInChunks<any>(env.DB, probe,
       (ph) => `SELECT teacher_id, scheduled_date, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
-         WHERE status = 'active' AND scheduled_date IN (${ph})`);
+         WHERE status = 'active' AND scheduled_date IN (${ph}) ${NOT_PLACEHOLDER}`);
     for (const r of probeRows) {
       const dow = new Date(String(r.scheduled_date) + 'T00:00:00Z').getUTCDay();
       const startMin = timesMinByDow[dow];
@@ -342,7 +356,7 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
         // 요일별 긴 수업 수 — 정원이 걸린 강사만 세면 되므로 한 번에 훑는다
         const rsL: any = await env.DB.prepare(
           `SELECT teacher_id, day_of_week, COALESCE(duration_min, 20) AS dm FROM class_schedules
-            WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL`
+            WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
         ).all();
         const DOW2: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
         const perTeacherDay = new Map<string, number>();

@@ -139,9 +139,9 @@ interface AlimtalkRow {
       · user_id='type_seed' → 2026-06 시연용 시드
    이 둘을 예정 수업으로 세면 «결석 25연속» 같은 유령 결석이 만들어지고, 학습 인사이트의
    위험도가 통째로 그 두 계정에 지배된다(실측: 케어 대상 상위 = lms·type_seed).
-   ⚠️ 제외식은 api-admin.ts·api-teacher.ts 의 `NOT IN ('lms','type_seed')` 와
-      **글자 하나까지 같게** 유지할 것 — 두 화면이 같은 행을 다르게 세면 어느 쪽이 맞는지
-      아무도 모르게 된다. */
+   ⚠️ 제외식은 api-admin.ts·api-teacher.ts·schedule-conflict.ts·enroll-ops.ts 의
+      `NOT IN ('lms','type_seed')` 와 **글자 하나까지 같게** 유지할 것 — 화면마다 같은 행을
+      다르게 세면 어느 쪽이 맞는지 아무도 모르게 된다. */
 async function loadSchedules(env: ChurnEnv): Promise<Map<string, ScheduleRow[]>> {
   const rows = await safe(async () => {
     const rs = await env.DB.prepare(

@@ -642,6 +642,13 @@ function addMsg(text, who){
       if(e.target.closest && (e.target.closest('.replay-btn') || e.target.closest('.mean-btn') || e.target.closest('.ko-chip'))) return;
       d.classList.toggle('sub-shown');
     });
+    /* 🇰🇷 (3단계) 낮은 단계는 «탭하지 않아도» 한국어 뜻을 바로 보여 준다.
+       「뜻」 버튼은 초보가 있는 줄도 모른다 — Duolingo 가 초보에게만 자막을 기본으로 켜는 것과 같은 이유.
+       ⚠️ 자막이 「가리기·완전 끄기」(듣기 훈련)면 열지 않는다 — 열면 그 훈련이 통째로 무의미해진다.
+       ⚠️ 레벨 3 이상은 켜지 않는다(스스로 읽는 것이 훈련이고, 번역 호출도 그만큼 준다). */
+    if(_warmLevel <= 2 && _subMode === 'on'){
+      try{ toggleMeaning(text, mb, d); }catch(e){}
+    }
   }
   log.appendChild(d); log.scrollTop = log.scrollHeight;
   /* 🪞 (2026-08-12 강사 Shas 1번) 「학생이 입력한 글이 강사 화면에 보이지 않는다」
@@ -1443,7 +1450,55 @@ function _startSttSession(){
    ① /api/warmup/context 로 로그인 학생의 오늘 교재/레벨/핵심 문장을 조회
    ② 교재가 있으면 AI가 그 교재 내용으로 첫 워밍업 질문을 하며 시작
    ③ 조회/AI 실패 시 기존 자유 대화 인사로 폴백 (화면은 절대 안 깨짐) */
+/* 🎚️ 낮은 단계 첫 인사 — «손으로 쓴 고정 문자열» 이다. LLM 에 맡기지 않는다.
+   ───────────────────────────────────────────────────────────────────────
+   발단(2026-08-26 사장님): 「낮은 단계 학생은 처음 인사말도 잘 이해 못 한다」.
+   실측해 보니 첫 인사가 «레벨을 안 보고» 있었다 — 서버 WARMUP_LEVELS 는 레벨 1 을
+   「3~5단어·현재시제」로 못 박아 두었는데, 이 자리의 인사는 레벨과 무관한 15단어
+   («Let's warm up before class» — 관용구까지 들어 있다)였다. 즉 AI 가 눈높이를
+   못 맞춘 게 아니라, 첫 문장이 «AI 를 거치지 않는» 자리였다.
+   그 문장이 어렵다는 증거는 이미 이 파일에 있었다 — 기계번역이 「수업 전에 따뜻하게하자」로
+   직역해서 curatedMeaning() 에 손으로 의역을 박아 두었다(2026-08-24).
+
+   ⚠️ 여기를 LLM 생성으로 바꾸지 마세요. 낮은 단계에서 단어 수를 조이면 모델이 to·is·a 를
+      떨어뜨립니다 — 판단력 훈련이 「선택지 5단어 이하」 상한 때문에 «Want play with me»(비문)를
+      학생에게 내보낸 전례가 있습니다(CLAUDE.md). 첫 문장은 실패하면 안 되는 자리라 고정입니다.
+   ⚠️ 한국어를 영어 말풍선(en)에 «절대» 섞지 마세요 — AI 말풍선은 자동 낭독되고(addMsg → speak),
+      영어 TTS 가 한글을 읽으면 소리가 뭉개집니다. 한국어는 아래 sys 줄에 따로 씁니다.
+   ⚠️ 질문은 «답이 문장 안에 들어 있는» 형태로만 씁니다(Yes/No 또는 양자택일).
+      길이를 줄여도 열린 질문이면 초보는 그대로 막힙니다 — 초보에게는 열린 질문 자체가 벽입니다.
+      이 파일의 WARMUP_FALLBACK_QUESTIONS.low 가 이미 그 형태입니다(«Do you like pizza or chicken?»).
+   ⚠️ 3단계 이상은 «지금 문장 그대로» 둡니다(아래 폴백). 고치는 범위를 낮은 단계로 한정합니다.
+   ⚠️ 낮은 단계에서는 주제 문장(«Today's topic is …»)을 영어 말풍선에 넣지 않습니다 —
+      길어지기만 하고 학생이 답할 것은 늘지 않습니다. 주제는 아래 한국어 줄에서 알려 줍니다.
+   ─────────────────────────────────────────────────────────────────────── */
+/* ⚠️ chips 는 손으로 적었지만 «지어낸 것이 아닙니다» — 서버 정본 `warmupAnswerChips()`
+      (src/warmup-answers.ts)에 이 인사말을 넣었을 때 나오는 값 그대로입니다.
+      하니스가 그 함수를 «실제로 돌려» 여기 값과 대조하므로 둘이 어긋날 수 없습니다.
+      (첫 인사는 서버를 안 거치는 화면 전용 경로라 값을 여기 둘 수밖에 없습니다) */
+var BEGINNER_GREETINGS = {
+  // 1단계(첫걸음) — 서버 규칙: 3~5단어·현재시제. 질문은 Yes/No.
+  1: { en: "Hi! I'm Mango. 🥭 Are you happy today?",
+       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 좋아요?',
+       chips: ['Yes, I am.', "No, I'm not.", 'One more time, please.'] },
+  // 2단계(기초) — 서버 규칙: 5~7단어. 질문은 양자택일(고를 말이 문장 안에 있다).
+  2: { en: "Hi! I'm Mango. 🥭 How are you today, happy or tired?",
+       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
+       chips: ['I am happy.', 'I am tired.', 'One more time, please.'] }
+};
 function fallbackGreeting(){
+  var g = BEGINNER_GREETINGS[_warmLevel];
+  if(g){
+    // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
+    _koCache[g.en] = g.ko;
+    addMsg(g.en, 'ai');
+    /* ⚠️ 여기에 「아래 보기를 눌러 보세요」 같은 안내 줄을 «따로» 두지 마세요 —
+       초록 보기 카드의 제목이 이미 같은 말입니다. 초보 화면일수록 줄이 겹치면 읽지 않습니다.
+       (한국어 뜻도 아래 3단계 자동 뜻이 말풍선 안에 열어 줍니다) */
+    if(LESSON_TOPIC) addMsg('📌 오늘의 주제: ' + LESSON_TOPIC, 'sys');
+    showAnswerChips(g.chips);
+    return;
+  }
   addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
 }
 function withCtx(body){
@@ -1470,6 +1525,12 @@ async function initGreeting(){
   try{
     var qs = new URLSearchParams();
     var uid = getLoginId(); if(uid) qs.set('user_id', uid);
+    /* 📊 이 호출은 «설정 화면을 닫은 뒤» 딱 한 번 온다 — 서버가 「학생이 몇 단계·어느 연령대로
+       시작했는가」를 여기서 기록한다(src/warmup-log.ts). 화면 localStorage 에만 있던 값이라
+       그동안 «낮은 단계 학생이 몇 명인지» 조차 셀 수 없었다. 응답은 이 값을 안 쓴다. */
+    qs.set('session_id', SESSION_ID);
+    qs.set('diff', String(_warmLevel));
+    qs.set('age', _warmAge);
     if(WCTX.textbook) qs.set('textbook', WCTX.textbook);
     if(WCTX.level) qs.set('level', WCTX.level);
     if(WCTX.lesson_no) qs.set('lesson', String(WCTX.lesson_no));
@@ -1510,13 +1571,18 @@ async function initGreeting(){
     typing.className = 'typing'; typing.textContent = 'AI 친구가 오늘 배울 교재를 확인하는 중…';
     log.appendChild(typing); log.scrollTop = log.scrollHeight;
     try{
-      var body = withCtx({ session_id: SESSION_ID,
-        student_input: "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson." });
+      /* 🚀 kickoff — 이건 «학생이 한 말» 이 아니라 화면이 AI 에게 첫 인사를 시키는 합성 발화다.
+         서버가 「학생이 입을 뗐다」로 세지 않게 표시해서 보낸다(src/warmup-log.ts).
+         ⚠️ 아래 낮은 단계 한 줄은 «보조» 다 — 지시만으로는 안 지켜진다는 게 이 저장소의 반복
+            실측이라, 실패해도 되도록 되어 있다(교재 조회가 실패하면 고정 인사말로 떨어진다). */
+      var kick = "Let's start today's pre-class warm-up! Greet me briefly in English and ask me ONE very easy question about today's lesson.";
+      if(_warmLevel <= 2) kick += " I am a beginner: keep every sentence under 7 words, and make the question a yes/no question or an either/or question so the answer is inside your question.";
+      var body = withCtx({ session_id: SESSION_ID, kickoff: 1, student_input: kick });
       var kr = await fetch(warmupEndpoint(), { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       typing.remove();
       if(kr.ok){
         var kd = await kr.json();
-        if(kd && kd.ai_response){ addMsg(kd.ai_response, 'ai'); return; }
+        if(kd && kd.ai_response){ addMsg(kd.ai_response, 'ai'); showAnswerChips(kd.answer_chips); return; }
       }
     }catch(e){ try{ typing.remove(); }catch(_){} }
   }
@@ -1613,6 +1679,44 @@ function fanfare(){
    없애지 않고 '대화창 안'으로 옮긴다 — 대화 흐름 끝에 카드로 붙으므로 화면 높이를 전혀
    빼앗지 않고, 길어지면 대화창 스크롤로 함께 읽힌다. */
 function qsCardClear(){ var old = document.getElementById('qsCard'); if(old) old.remove(); }
+
+/* ══ 💬 대답 보기 칩 — 「어떻게 대답하면 되지?」 가 초보가 멈추는 진짜 자리다 ══
+   ⚠️ 목록을 화면에서 «만들지» 않는다. 정본은 서버 `warmupAnswerChips()`(src/warmup-answers.ts)이고
+      화면은 받아서 그리기만 한다. 규칙을 두 곳에 복제하면 반드시 어긋난다.
+   ⚠️ 못 만들면 서버가 빈 배열을 준다 — 그때는 아무것도 안 그린다(지어내지 않는다).
+   ⚠️ 누르면 «입력칸에 넣고 평소 전송 경로(sendMsg)» 로 보낸다. 따로 보내면 콤보·마이크 정리·
+      히스토리가 갈라진다(이 화면은 마이크가 늦게 자동전송하는 사고 전력이 있다). */
+function ansCardClear(){ var o = document.getElementById('ansCard'); if(o) o.remove(); }
+function showAnswerChips(list){
+  ansCardClear();
+  if(!list || !list.length) return;
+  var card = document.createElement('div');
+  card.id = 'ansCard'; card.className = 'ans-card';
+  var t = document.createElement('div');
+  t.className = 'ans-title';
+  /* 🌐 JS 로 그린 라벨은 data-ko/data-en 을 함께 박아야 🌐 를 눌렀을 때 따라온다(CLAUDE.md 2장) */
+  t.setAttribute('data-ko', '💬 이렇게 대답해 보세요 (눌러서 말하기)');
+  t.setAttribute('data-en', '💬 Try answering like this (tap to send)');
+  t.textContent = '💬 이렇게 대답해 보세요 (눌러서 말하기)';
+  card.appendChild(t);
+  for(var i=0;i<list.length;i++){
+    (function(txt){
+      var c = document.createElement('button');
+      c.type = 'button'; c.className = 'ans-chip'; c.textContent = txt;
+      c.onclick = function(){ pickAnswer(txt); };
+      card.appendChild(c);
+    })(String(list[i]||''));
+  }
+  log.appendChild(card); log.scrollTop = log.scrollHeight;
+}
+function pickAnswer(txt){
+  if(sending) return;
+  var inp = document.getElementById('inp');
+  if(!inp || !txt) return;
+  inp.value = txt;
+  ansCardClear();
+  sendMsg();
+}
 async function loadFollowups(){
   var btn = document.getElementById('qsBtn');
   if(!btn || btn.disabled) return;
@@ -1630,9 +1734,11 @@ async function loadFollowups(){
       card.id = 'qsCard'; card.className = 'qs-card';
       var t = document.createElement('div');
       t.className = 'qs-title';
-      t.setAttribute('data-ko', '💡 이 중에서 골라 대답해 보세요');
-      t.setAttribute('data-en', '💡 Pick one of these and answer');
-      t.textContent = '💡 이 중에서 골라 대답해 보세요';
+      /* ⚠️ 이름표를 사실과 맞춘다 — 이 목록은 «내가 할 대답» 이 아니라 «AI 가 물어볼 질문» 이다.
+         옛 문구(「골라 대답해 보세요」)는 아래 초록 «대답 보기» 카드와 뜻이 겹쳐 혼동을 준다. */
+      t.setAttribute('data-ko', '💡 골라 누르면 AI 가 이 질문을 해요');
+      t.setAttribute('data-en', '💡 Tap one and Mango will ask it');
+      t.textContent = '💡 골라 누르면 AI 가 이 질문을 해요';
       card.appendChild(t);
       d.questions.forEach(function(q){
         var c = document.createElement('button');
@@ -1653,13 +1759,17 @@ async function loadFollowups(){
 }
 function pickFollowup(q){
   qsCardClear();                          // 고른 순간 추천 카드는 걷어낸다
+  ansCardClear();
   addMsg(q, 'ai');                        // AI가 그 질문을 말함(자동 낭독 포함)
   // 서버 대화 히스토리에도 AI 발화로 기록 → 다음 답변에서 문맥 유지 (실패해도 대화는 계속)
+  // 💬 같은 응답으로 «대답 보기» 도 받는다 — 이 경로만 빠지면 「어떤 질문엔 보기가 없다」가 된다
   try{
     fetch((API_BASE||'') + '/api/warmup/questions', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ session_id: SESSION_ID, pick: q })
-    });
+      body: JSON.stringify(withCtx({ session_id: SESSION_ID, pick: q }))
+    }).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){ if(d && d.answer_chips) showAnswerChips(d.answer_chips); })
+      .catch(function(){});
   }catch(e){}
 }
 
@@ -1685,6 +1795,7 @@ async function sendMsg(){
   maybeAdjustRate(text);                    // 🐢 "천천히 말해줘" → 듣기 속도 슬라이더를 실제로 한 칸 낮춤
 
   addMsg(text, 'me'); inp.value = '';
+  ansCardClear();                           // 💬 내가 말했으니 이전 «대답 보기» 는 걷는다
   bumpCombo();                              // 🔥 한 마디마다 콤보 적립 + 고비마다 축하
   sending = true; document.getElementById('sendBtn').disabled = true;
 
@@ -1706,6 +1817,7 @@ async function sendMsg(){
     } else {
       var d = await r.json();
       addMsg(d.ai_response || '(응답이 비어 있어요)', 'ai');
+      showAnswerChips(d.answer_chips);      // 💬 서버가 만든 «대답 보기»(못 만들면 빈 배열)
     }
   }catch(e){
     typing.remove();
@@ -1747,6 +1859,24 @@ async function sendMsg(){
 @media (min-width:760px){
   .qs-card .qs-title{ font-size:15px; }
   .qs-card .qs-chip{ font-size:16px; }
+}
+/* ①-2 💬 대답 보기 카드 — «질문 추천»(노랑)과 «색으로» 갈라 둔다.
+   두 카드가 같은 색이면 «AI 가 물어볼 질문»과 «내가 할 대답»이 눈으로 구분되지 않는다. */
+.ans-card{ align-self:flex-start; max-width:88%; display:flex; flex-direction:column; gap:7px;
+  padding:11px 13px; border-radius:16px; border:1px solid rgba(52,211,153,.38);
+  background:linear-gradient(180deg,rgba(52,211,153,.13),rgba(52,211,153,.04));
+  animation:msgIn .22s ease both; }
+.ans-card .ans-title{ font-size:13px; font-weight:800; color:#6ee7b7; }
+.ans-card .ans-chip{ width:100%; text-align:left; font-family:inherit; cursor:pointer;
+  background:rgba(52,211,153,.13); border:1px solid rgba(52,211,153,.32); color:var(--text);
+  border-radius:14px; padding:9px 13px; font-size:15px; font-weight:700; line-height:1.35;
+  transition:background .15s,transform .08s; }
+.ans-card .ans-chip:hover{ background:rgba(52,211,153,.26); }
+.ans-card .ans-chip:active{ transform:scale(.97); }
+.ans-card .ans-chip:disabled{ opacity:.55; cursor:wait; }
+@media (min-width:760px){
+  .ans-card .ans-title{ font-size:15px; }
+  .ans-card .ans-chip{ font-size:17px; }
 }
 /* 빈 껍데기가 된 옛 칩 자리는 줄 간격만 남기지 않게 */
 #qsChips:empty{ display:none!important; }

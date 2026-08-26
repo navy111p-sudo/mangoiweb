@@ -607,6 +607,19 @@
             '<div class="sg-note" id="sg-mic-note" data-ko="누르고 3초간 말해 보세요" data-en="Press, then speak for 3s">누르고 3초간 말해 보세요</div>' +
           '</div></div>' +
         '<div class="sg-row"><label data-ko="스피커" data-en="Speaker">스피커</label><button class="sg-test" data-act="spk" data-ko="🔔 소리 확인" data-en="🔔 Play sound">🔔 소리 확인</button></div>' +
+        /* 🔊 (2026-08-26 학생 제보) 안드로이드에서 하드웨어 볼륨키가 "통화" 스트림을 움직이는데
+           실제 출력은 "미디어" 스트림을 따라가는 기기(특히 삼성)가 있어, 버튼을 눌러도 소리가 안 커졌다.
+           OS 가 어느 스트림을 쓸지는 웹페이지가 정할 수 없어서(브라우저에 그 API가 없음) 스트림 자체를
+           "하나로 통일"할 수는 없다 — 대신 OS 스트림과 무관하게 항상 먹는 자체 음량을 하나 둔다.
+           ⛔ 상한이 100% 면 이 제보를 못 푼다 — element.volume 은 1 이 «지금 소리» 라 «작게» 만 된다.
+              그래서 300% 까지 두고, 100% 를 넘는 구간은 idx-vc-outputvolume.js 가 WebAudio 로 실제 증폭한다.
+           ⚠️ 값(%)을 «글자로» 함께 보여준다 — 슬라이더만 있으면 지금 몇 %인지 알 수 없고,
+              «100% 가 원래 소리» 라는 것도 안 보인다. */
+        '<div class="sg-row"><label data-ko="출력 음량" data-en="Output volume">출력 음량</label>' +
+          '<span style="display:flex;align-items:center;gap:8px;min-width:0">' +
+            '<input type="range" id="sg-out-vol" min="0" max="300" step="10" value="100" style="flex:1;min-width:96px">' +
+            '<b id="sg-out-vol-num" style="color:#e6edf6;font-size:13px;min-width:44px;text-align:right">100%</b>' +
+          '</span></div>' +
         '<div class="sg-row"><label data-ko="카메라" data-en="Camera">카메라</label><select id="sg-cam-dev"><option data-ko="기본 카메라" data-en="Default camera">기본 카메라</option></select></div>' +
         '<div class="sg-row"><label data-ko="잡음 제거" data-en="Noise removal">잡음 제거</label><div class="sg-sw on" data-act="noise"></div></div>' +
       '</div>' +
@@ -636,6 +649,14 @@
     camDev.onchange = function(){ call('vcSetCamDevice', camDev.value); };
     setPop.querySelector('[data-act="mic"]').onclick = micTest;
     setPop.querySelector('[data-act="spk"]').onclick = beep;
+    var outVol = setPop.querySelector('#sg-out-vol');
+    if (outVol) outVol.oninput = function(){
+      /* ⚠️ 증폭은 «사용자 제스처» 안에서 켜져야 AudioContext 가 resume 된다 —
+         그래서 여기서 바로 부른다(나중에 몰아서 부르면 자동재생 정책에 막힌다). */
+      call('vcSetOutputVolume', outVol.value / 100);
+      var n = setPop.querySelector('#sg-out-vol-num');
+      if (n) n.textContent = outVol.value + '%';
+    };
     setPop.querySelector('[data-act="noise"]').onclick = function(){ this.classList.toggle('on'); call('vcSetNoiseSuppression', this.classList.contains('on')); };
     // 영상·녹화
     setPop.querySelectorAll('#sg-quality button').forEach(function(b){
@@ -675,6 +696,15 @@
     try {
       var b = setPop.querySelector('[data-act="blur"]');
       if (b) b.classList.toggle('on', !!(window.vcBg && window.vcBg.mode === 'blur'));
+    } catch(_){}
+    // 🔊 저장된 출력 음량을 보여준다(idx-vc-outputvolume.js 가 아직 안 붙었으면 100%로 둔다)
+    try {
+      var ov = setPop.querySelector('#sg-out-vol');
+      if (ov) {
+        ov.value = Math.round((typeof window.vcSavedOutputVolume === 'function' ? window.vcSavedOutputVolume() : 1) * 100);
+        var ovn = setPop.querySelector('#sg-out-vol-num');
+        if (ovn) ovn.textContent = ov.value + '%';
+      }
     } catch(_){}
   }
   // 설정 팝업 위치 — 도크 위, 화면 중앙 정렬 + 양옆 8px 안으로 클램프(모든 폰 폭에서 안 잘림)

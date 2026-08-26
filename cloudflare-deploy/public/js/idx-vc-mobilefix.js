@@ -616,6 +616,52 @@
         'box-shadow:0 0 0 2px rgba(251,191,36,.6),0 10px 26px rgba(0,0,0,.5) !important}' +
     '}';
 
+  /* ⑨-3 «이 방의 교사가 누구인가» — 상대 타일에 교사가 있으면 내가 무엇이든 상대가 주인공이다.
+     ──────────────────────────────────────────────────────────────
+     [사고] 2026-08-26 사장님 신고 「학생 수업 입장인데 내가 크고 교사가 작다」.
+       원인은 CSS 가 아니라 «역할» 이었다. jeong 은 홈 통합 로그인에서 관리자 폴백으로 들어가
+       학생 세션(mangoi_logged_user)이 없다 → 입장 역할 판정이 계정 역할을 못 찾고
+       관리자 세션 하나만 보고 admin 으로 떨어진다(idx-main.js «else if (_admUid)» 줄).
+       그러면 아래 ⑨ 의 「교사 화면에서는 자기 자신이 크게」가 그대로 걸려 얼굴이 맞바뀐다.
+     ⚠️ 그 오판을 서버가 되돌려 주지 못한다 — /api/class/verify-room 은 role=admin 이면
+        «privileged» 로 즉시 통과시키고 resolved_role 을 주지 않는다(api-mango.ts).
+        그래서 idx-main.js 의 «이 예약의 학생이면 역할을 내린다» 교정이 admin 에서만 안 돈다
+        → 한 번 admin 으로 잡히면 수업 내내 뒤집힌 채로 간다(실측 10분).
+     [고침] 판정을 «내가 스태프인가» 에서 «상대 중에 교사가 있는가» 로 옮긴다.
+       교사가 상대편에 있으면 내가 admin 이든 teacher 든 상대가 크다. 사장님·매니저가
+       학생 자리로 들어가도, 강사가 다른 강사 수업을 참관 삼아 들어가도 「교사가 크다」가 지켜진다.
+     ⛔ 역할 판정 정본(vcIsStaffNow)이나 idx-main.js 를 고쳐서 풀지 않는다 —
+        그 값은 화면공유·교재 넘김·장치 도우미까지 걸린 «권한» 이고, 여기서 필요한 것은
+        «화면에서 누가 주인공인가» 뿐이다. 권한은 그대로 두고 크기만 바로잡는다.
+     ℹ️ 상대 타일의 역할이 아직 안 왔으면 기본값이 'student' 라(idx-main.js) 진짜 교사 화면은
+        예전처럼 즉시 자기 자신이 커진다. 늦게 도착하면 vcApplySpotlight 를 감싸 다시 본다. */
+  function mgBoxIsTeacher(b) {
+    try {
+      /* 판정 정본은 idx-main.js 의 vcBoxIsStudent — 역할 + 이름 휴리스틱을 이미 함께 본다.
+         ⚠️ 그 이름이 바뀌면 조용히 헛돌므로 아래에 같은 뜻의 대비책을 둔다(하니스가 둘 다 본다). */
+      if (typeof window.vcBoxIsStudent === 'function') return !window.vcBoxIsStudent(b);
+      var uid = String(b.id || '').replace('vc-video-', '');
+      var role = (b.dataset && b.dataset.role) || (window.vcPeerRoles && window.vcPeerRoles[uid]) || 'student';
+      if (role === 'teacher' || role === 'admin' || role === 'observer') return true;
+      var lbl = b.querySelector('.video-label');
+      return /교사|강사|선생님|teacher|tutor/i.test((lbl && lbl.textContent) || '');
+    } catch (e) { return false; }
+  }
+  function mgRemoteTeacherPresent() {
+    try {
+      var grid = document.getElementById('vc-video-grid');
+      if (!grid) return false;
+      var bs = grid.querySelectorAll('.video-box');
+      for (var i = 0; i < bs.length; i++) {
+        var b = bs[i];
+        if (!b.id || b.id === 'vc-local-box') continue;
+        if (b.dataset && b.dataset.demo === '1') continue;   // 시연용 선생님 타일은 사람이 아니다
+        if (mgBoxIsTeacher(b)) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
   /* 내가 교사·관리자인가 — 역할은 입장 뒤에 정해지므로 «끝이 있는» 확인으로 몇 번 다시 본다.
      ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력이 있다).
      ⛔ 있을 때만 지우고 없을 때만 더한다 — 무조건 classList 를 쓰면 class 속성이 다시 쓰여
@@ -634,13 +680,30 @@
          ⚠️ 선택자에도 :not(.vc-observer) 를 함께 걸어 뒀다. 그 클래스를 붙이는
          js/vc-observe-guard.js 와 이 파일의 실행 순서에 기대지 않기 위해서다. */
       var observing = document.body.classList.contains('vc-observer');
-      var want = staff && !observing && document.body.classList.contains('vc-in-call');
+      /* 🧑‍🏫 상대편에 교사가 있으면 주인공은 그쪽이다 — 위 ⑨-3 참고 */
+      var want = staff && !observing && !mgRemoteTeacherPresent()
+              && document.body.classList.contains('vc-in-call');
       var has = document.body.classList.contains('mg-teacher-self');
       if (want && !has) document.body.classList.add('mg-teacher-self');
       else if (!want && has) document.body.classList.remove('mg-teacher-self');
     } catch (e) {}
   }
   window.mgSyncTeacherSelf = syncTeacherSelf;   // 검사·콘솔에서 부를 수 있게
+  window.mgRemoteTeacherPresent = mgRemoteTeacherPresent;
+
+  /* 교사가 «나중에» 들어오거나 역할이 늦게 도착하는 경우 — 그때 다시 본다.
+     vcApplySpotlight 는 ① 타일을 만들 때 ② 로스터에서 역할이 올 때 불린다(idx-main.js).
+     ⛔ 상주 setInterval·body class 감시를 두지 않는다(둘 다 이 저장소에서 사고를 낸 방식).
+     ℹ️ vc-spotlight.js 는 이 파일보다 «먼저» 오는 defer 라(index.html 15092 대 16367)
+        여기서 감싸면 원본이 안전하게 잡힌다. */
+  var _spot = window.vcApplySpotlight;
+  if (typeof _spot === 'function') {
+    window.vcApplySpotlight = function () {
+      var r = _spot.apply(this, arguments);
+      try { syncTeacherSelf(); } catch (e) {}
+      return r;
+    };
+  }
 
   (function injectHeroCss() {
     function put() {
