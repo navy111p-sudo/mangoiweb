@@ -52,7 +52,7 @@ npx wrangler@latest secret put 이름 --env production
 | 방 보안 | `REQUIRE_ROOM_TOKEN` | 방 토큰 강제 여부 | |
 | 주소 | `PUBLIC_BASE_URL` | 외부 콜백용 기본 URL | |
 | LiveKit | `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` `LIVEKIT_URL` | LiveKit 화상 (보조) | |
-| TURN | `TURN_KEY_ID` `TURN_KEY_API_TOKEN` | Cloudflare TURN (화상 연결 중계) | 🔴 **2026-08-26 실측 «미설정»** — 확인·조치는 아래 「TURN 경로 확인」 |
+| TURN | `TURN_KEY_ID` `TURN_KEY_API_TOKEN` | Cloudflare TURN (화상 연결 중계) | ✅ **`-prod` 에 둘 다 등록 확인**(2026-08-26 대시보드 실측). 그런데도 24시간 넘게 발급이 실패한 구간이 있었습니다 → 아래 「TURN 경로 확인」 |
 | 알림톡 | `SOLAPI_API_KEY` `SOLAPI_API_SECRET` `SOLAPI_FROM_PHONE` `SOLAPI_PFID` | SOLAPI 카카오 알림톡/SMS | |
 | 알림톡 | `SOLAPI_TEST_MODE` `AUTO_ALIMTALK` `ALIMTALK_TRACK` | 발송 on/off 스위치 | 미발송 시 1순위 확인 |
 | 알림톡 템플릿 | `SOLAPI_TEMPLATE_ABSENCE` `_ATTENDANCE_RISK` `_CHAT_SUMMARY` `_LESSON_END` `_LESSON_START` `_MENTION` `_PAYMENT_OVERDUE` | 승인된 템플릿 ID 7종 | |
@@ -67,9 +67,95 @@ npx wrangler@latest secret put 이름 --env production
 떨어지고, 그 코드의 주석이 직접 경고합니다 — 「50명을 받을 수 있는 서버가 아니라서,
 **아무 에러 없이 «영상만 안 나오는»** 상태가 된다」.
 
-2026-08-26 에 실제로 그 상태였습니다. 사장님 제보는 「무거우면 자꾸 튕겨나가」 였고,
+### 📌 관측 기록 (2026-08-26) — 코드 밖 상태이므로 «누가·언제·어떻게» 를 함께 적습니다
+
+| 시각(UTC) | 무엇 | 누가·어떻게 |
+|---|---|---|
+| 07:1x 이전 | `X-Turn-Source: **public-fallback**` | 사장님이 브라우저 F12 → Network 에서 `mangoi.ai/api/turn-config` 응답 헤더 확인 |
+| **07:40:54** | `X-Turn-Source: **kv-cache**` (기본·production 둘 다) | 배포 run #2717 의 「TURN 경로 점검」 단계가 GitHub 러너에서 `workers.dev` 두 주소로 실측 |
+| 08:0x | **시크릿 `TURN_KEY_ID`·`TURN_KEY_API_TOKEN` 이 «워커 두 벌 모두» 있음** | 사장님이 Cloudflare 대시보드 → 각 워커 → production → 설정 → 변수 및 비밀 에서 눈으로 확인 (`webrtc-unified-platform-prod`·`webrtc-unified-platform` 둘 다) |
+| 08:0x | 사장님은 **그날 시크릿을 넣지 않으셨음** | 직접 확인 |
+
+✅ **두 벌 다 등록돼 있습니다 — 넣을 것이 없습니다.**
+
+`TURN_CACHE_KEY`(`turn:ice-servers:v1`)는 **Cloudflare TURN API 호출이 성공했을 때만**
+기록되고 수명은 1시간입니다(`src/index.ts` 4204행). 무료 폴백은 캐시에 들어가지 않습니다.
+→ **07:40 기준 최근 1시간 안에 Cloudflare TURN 발급이 실제로 성공했습니다. 지금은 정상입니다.**
+
+### 🔴 결론 — 「시크릿이 없다」는 **틀린 추론이었습니다** (대시보드로 확정)
+
+시크릿은 **워커 두 벌 모두에 있습니다.** 대시보드에서 직접 확인했고, 코드에서도 같은 결론이 나옵니다.
+
+* `turn:ice-servers:v1` 을 **쓰는 곳은 `src/index.ts:4213` 단 한 곳**이고,
+  `if (env.TURN_KEY_ID && env.TURN_KEY_API_TOKEN)` 안 + `cfResp.ok` 일 때만 실행됩니다
+* 그 KV 네임스페이스(`7fc5f228…`)를 쓰는 워커는 **이 워커 한 벌뿐**입니다
+  (`wrangler.toml` 62·189행 = 같은 워커의 기본/production 두 환경 — 그래서 **KV 는 공유**입니다)
+
+> **⟹ 시크릿은 있는데도, 최근 24시간 동안 Cloudflare TURN 발급이 «단 한 번도»
+> 성공하지 못한 구간이 있었고, 그것이 그날 아침에 끝난 것입니다.**
+>
+> 즉 고칠 것은 «키 등록» 이 아니라 **«왜 그 키로 발급이 24시간 넘게 실패했나»** 입니다.
+
+LKG(`turn:ice-servers:last-good`)는 24시간 보관인데 두 워커가 같은 KV 를 쓰므로,
+**어느 쪽이든 한 번만 성공하면 채워집니다.** 그게 비어 있었다는 것이 위 결론의 근거입니다.
+
+⚠️ 왜 24시간 넘게 실패했는지는 **응답만 봐서는 구분할 수 없습니다** — CF 쪽 장애, 키
+만료·회수, 사용량 한도 초과가 모두 같은 모습입니다(바로 아래 항목).
+
+✅ **다만 답이 남아 있을 곳이 하나 있습니다 — Workers 로그.** 그 워커는 관찰 가능성
+(Workers 로그)이 **켜져 있습니다**(2026-08-26 대시보드 확인). 코드가
+`console.error('Cloudflare TURN API error:', cfResp.status, …)` 로 **HTTP 상태 코드를
+그대로 남기므로**(`src/index.ts` 4209행), 대시보드 → 해당 워커 → **관찰 가능성 → 로그**
+에서 `Cloudflare TURN` 또는 `turn-config` 로 검색하면 **403(키 문제)인지 429(한도)인지
+5xx(CF 장애)인지가 그대로 보입니다.** 보존 기간 안이라면 그것이 유일한 확답입니다.
+
+### ✅ `X-Turn-Detail` — «왜 그 경로였나» (2026-08-26 추가)
+
+`X-Turn-Source` 하나로는 `public-fallback` 이 **서로 완전히 다른 세 가지**를 뭉뚱그렸습니다.
+**2026-08-26 에 그것 때문에 반나절을 잘못 짚었습니다** — 「시크릿이 없다」고 단정하고
+키 발급을 안내했는데, 실제로는 워커 두 벌 모두 등록돼 있었습니다.
+
+그래서 **사장님 지시로 이유를 헤더에 함께 싣습니다.**
+
+```bash
+curl -sI https://mangoi.ai/api/turn-config | grep -i '^x-turn-'
+```
+
+| `X-Turn-Detail` | 뜻 | 할 일 |
+|---|---|---|
+| `cache` | 1시간 캐시에서 바로 응답 | — 정상 |
+| `ok` | 방금 Cloudflare 에서 새로 발급 | — 정상 |
+| `no-secrets` | 시크릿이 워커에 없다 | **키 등록** |
+| `cf-http-401` `cf-http-403` | 키가 무효·회수됨 | **키 재발급** (등록 아님) |
+| `cf-http-429` | 사용량 한도 | Calls/TURN 사용량·요금제 확인 |
+| `cf-http-5xx` · `cf-fetch-error` | Cloudflare 쪽 장애 | 기다린다 — 우리가 할 일 없음 |
+
+⛔ **`no-secrets` 가 아니면 키를 새로 넣지 마세요.** 이미 있는 키를 덮어쓰면
+「고쳤다」는 기록만 남고 원인은 그대로입니다.
+
+⛔ 값에 **자격증명·CF 응답 본문을 넣지 마세요.** 이 API 는 로그인 없이 누구나 부릅니다
+(`Access-Control-Allow-Origin: *`). 상태 «코드» 까지만 싣습니다.
+
+⚠️ 값은 앞으로 늘어날 수 있습니다. 읽는 쪽(`deploy.yml`·`ops/mangoi-watchdog.sh`)은
+**모르는 값이면 표시만 하고 판정하지 않습니다.** 새로 읽는 코드를 쓸 때도 그렇게 하세요.
+
+감시는 `test-harness/turn_detail_harness.mjs`(29건 — `handleTurnConfig` 를 소스에서
+오려 내 **실제로 돌려** 갈래마다 어떤 값이 나오는지 확인합니다. 되돌리면 4건이 FAIL 납니다).
+
+⛔ 원인을 **단정해 적지 마세요.** 「하기로 한 것」이 「했다」로 적혔다가 6일 뒤 같은 사고가
+재발한 전례가 있습니다(CLAUDE.md 2장). 확인되면 위 표에 **한 줄을 덧붙이세요** —
+윗줄을 지우지 말고. 그래야 「한 번 이랬던 적이 있다」가 남습니다.
+
+✅ 지금부터는 사람이 기억할 필요가 없습니다 — 배포마다 `deploy.yml` 이 두 워커를 찍고,
+2층 감시견이 15분 연속 `public-fallback` 이면 문자를 보냅니다.
+
+---
+
+그날 사장님 제보는 「무거우면 자꾸 튕겨나가」 였고,
 D1 실측은 **RTT 389~629ms 인데 손실은 0.7~4.2%(낮음)** — 회선 불량이 아니라
 릴레이 경유의 지문이었습니다. 강사 재입장률 21세션 중 13세션(61.9%).
+⚠️ 그 측정 자체는 사실이지만, **그것이 곧 「시크릿이 없다」의 증거는 아니었습니다** —
+무료 폴백을 타고 있었다는 것까지가 관측이고, 그 원인 세 가지는 모두 같은 증상을 냅니다.
 
 **확인**
 
@@ -87,7 +173,11 @@ curl -sI https://mangoi.ai/api/turn-config | grep -i x-turn-source
 (`turn:ice-servers:last-good`)이 비어 있어야 합니다 — 잠깐 흔들린 게 아니라
 **한 번도 성공한 적이 없다**는 뜻입니다.
 
-**조치** — 워커가 두 벌이므로 **둘 다** 넣어야 합니다
+**조치** — 🔴 **2026-08-26 기준 두 벌 다 등록돼 있으므로 아래를 실행할 일이 없습니다.**
+같은 증상을 또 만나면 **먼저 「정말 없는지」부터 눈으로 확인하세요** —
+Cloudflare 대시보드 → Workers & Pages → 해당 워커 → **Settings → Variables and Secrets**
+에 이름이 뜹니다(값은 안 보입니다). ⛔ 있는데 덮어쓰면 «고쳤다» 는 기록만 남고 원인은
+그대로 남습니다. 정말 없을 때만, 워커가 두 벌이므로 **둘 다** 넣습니다
 (`test.mangoi.co.kr` = 기본 워커, `mangoi.ai` = `-prod`).
 
 ```bash

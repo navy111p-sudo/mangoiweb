@@ -231,12 +231,15 @@ fi
 #  ⛔ 측정에 «실패» 했을 때는 경보하지 않는다(TURN_SRC 가 빈 값). 그 경우는 사이트
 #     자체가 이상한 것이고, 위 얕은/심층 점검이 이미 담당한다. 여기서 또 울면 이중 경보다.
 #  ⛔ 사이트가 이미 이상할 때(REASON 있음)는 아예 재지 않는다.
-TURN_SRC=""
+TURN_SRC=""; TURN_DET=""
 if [ -z "$REASON" ]; then
   _tbase="$PRIMARY"; [ "$PRIMARY_OK" = "1" ] || _tbase="$FALLBACK"
   # 헤더 이름은 HTTP/2 에서 소문자로 온다 — 양쪽 다 받는다.
-  TURN_SRC=$("$CURL" -s -o /dev/null -m "$CURL_TIMEOUT" -D - "$_tbase/api/turn-config" 2>/dev/null \
-    | tr -d '\r' | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+  _thdr=$("$CURL" -s -o /dev/null -m "$CURL_TIMEOUT" -D - "$_tbase/api/turn-config" 2>/dev/null | tr -d '\r')
+  TURN_SRC=$(printf '%s\n' "$_thdr" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Ss][Oo][Uu][Rr][Cc][Ee]: *//p' | tail -n1)
+  # 📶 X-Turn-Detail — «왜 그 경로였나». 이게 없으면 «키를 넣어라» 와 «키를 다시 발급해라» 를
+  #    구분할 수 없다(2026-08-26 실사고: 키가 있는데 없다고 오진해 등록을 안내했다).
+  TURN_DET=$(printf '%s\n' "$_thdr" | sed -n 's/^[Xx]-[Tt][Uu][Rr][Nn]-[Dd][Ee][Tt][Aa][Ii][Ll]: *//p' | tail -n1)
 fi
 
 # ── 3) 판정 : 연속 실패 누적 ──────────────────────────────────────────────
@@ -269,10 +272,10 @@ elif [ "$FAILS" -eq 0 ]; then
   CUR_STATE=up
 fi
 
-log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn='${TURN_SRC:-unknown}' tfails=$TFAILS turnstate=$PREV_TURN->$CUR_TURN"
+log "probe reason='${REASON:-none}' primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn='${TURN_SRC:-unknown}' turndetail='${TURN_DET:--}' tfails=$TFAILS turnstate=$PREV_TURN->$CUR_TURN"
 
 if [ "$TEST_MODE" = "1" ]; then
-  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn=${TURN_SRC:-unknown} turnstate=$PREV_TURN->$CUR_TURN"
+  echo "reason=${REASON:-none} primary=$PRIMARY_OK fallback=$FALLBACK_OK fails=$FAILS state=$PREV_STATE->$CUR_STATE turn=${TURN_SRC:-unknown} turndetail=${TURN_DET:--} turnstate=$PREV_TURN->$CUR_TURN"
   echo "(--test 는 상태를 저장하지도, 문자를 보내지도 않습니다)"
   exit 0
 fi
@@ -302,7 +305,15 @@ fi
 #  장애 문자와 «따로» 보낸다. 같은 문장에 섞으면 복구 안내가 서로를 가린다.
 if [ "$CUR_TURN" != "$PREV_TURN" ]; then
   if [ "$CUR_TURN" = "bad" ]; then
-    TMSG="[망고아이] 📶 화상수업이 «무료 공용 TURN» 으로 연결되고 있습니다(15분 연속). 사이트는 정상이지만 영상 지연·끊김이 잦아집니다. Cloudflare TURN 키(TURN_KEY_ID / TURN_KEY_API_TOKEN)를 워커 두 벌 모두에 넣어 주세요."
+    # ⚠️ 모르는 detail 값은 «그대로 실어 보내기만» 한다 — 값이 늘어날 수 있으므로 단정하지 않는다.
+    case "$TURN_DET" in
+      no-secrets)              _tw="Cloudflare TURN 키(TURN_KEY_ID / TURN_KEY_API_TOKEN)가 워커에 없습니다. 두 벌 모두에 넣어 주세요." ;;
+      cf-http-401|cf-http-403) _tw="키가 무효·회수됐습니다(${TURN_DET}). Cloudflare 에서 TURN 키를 다시 발급해 주세요. ※ 키는 이미 등록돼 있으니 «없다» 가 아닙니다." ;;
+      cf-http-429)             _tw="Cloudflare TURN 사용량 한도입니다(429). 사용량·요금제를 확인해 주세요." ;;
+      cf-fetch-error)          _tw="Cloudflare 에 연결 자체가 실패하고 있습니다. CF 쪽 장애일 수 있어 기다리면 풀릴 수 있습니다." ;;
+      *)                       _tw="원인 표시: ${TURN_DET:-없음}. Cloudflare 대시보드 > 해당 워커 > 관찰 가능성 > 로그 에서 turn-config 를 검색해 주세요." ;;
+    esac
+    TMSG="[망고아이] 📶 화상수업이 «무료 공용 TURN» 으로 연결되고 있습니다(15분 연속). 사이트는 정상이지만 영상 지연·끊김이 잦아집니다. ${_tw}"
   else
     TMSG="[망고아이] ✅ 화상수업 TURN 경로가 정상(Cloudflare)으로 돌아왔습니다."
   fi
