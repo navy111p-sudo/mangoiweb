@@ -36,7 +36,7 @@ const ok = (name, cond, detail = '') => {
 /* 네 크기의 «정본» 이름. 세 곳이 이것과 같아야 한다. */
 const CANON = {
   quarter: '교재 크게',
-  half: '반반',
+  half: '기본',
   threequarter: '얼굴 크게',
   full: '모두 보기',
 };
