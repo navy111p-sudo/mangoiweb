@@ -78,13 +78,20 @@ check("admin-whisper 메시지 타입을 실제로 내보낸다", /type:\s*'admi
 // ── ② 학생에게 새지 않는다 (가장 중요) ──────────────────────────────────────
 console.log('\n[ ② 🔒 학생 차단 — 이 게이트가 이 기능의 핵심이다 ]');
 {
-  // '/whisper' 블록만 잘라서 본다 — 파일 전체에 isStaffAtt 가 있다고 통과시키면 의미가 없다.
-  const i = DO_CODE.indexOf("url.pathname === '/whisper'");
-  const seg = i >= 0 ? DO_CODE.slice(i, i + 2200) : '';
+  /* '/whisper' 블록만 잘라서 본다 — 파일 전체에 isStaffAtt 가 있다고 통과시키면 의미가 없다.
+     ⚠️ slice(i, i+N) 으로 «대충» 자르지 않는다. 2026-08-26 에 이 블록에 «콕 집은 한 사람»
+        분기가 붙어 길어졌고, 폭이 좁으면 뒤쪽 staff 경로를 아예 못 본다. */
+  const seg = blockAt(DO_CODE, "url.pathname === '/whisper'");
+  check("'/whisper' 블록을 찾았다", !!seg);
   check("'/whisper' 가 isStaffAtt 로 staff 소켓만 고른다", /isStaffAtt\(/.test(seg),
-        i < 0 ? '/whisper 블록을 못 찾음' : '블록 안에 isStaffAtt 가 없다 — 학생에게 샌다');
-  check("'/whisper' 가 broadcastAll 로 방 전체에 뿌리지 않는다", !/broadcastAll\s*\(/.test(seg),
+        !seg ? '/whisper 블록을 못 찾음' : '블록 안에 isStaffAtt 가 없다 — 학생에게 샌다');
+  check("'/whisper' 가 broadcastAll 로 방 전체에 뿌리지 않는다", !!seg && !/broadcastAll\s*\(/.test(seg),
         'broadcastAll 은 학생 소켓까지 포함한다');
+  /* «대상 없음» 경로는 예전 그대로여야 한다 — 옛 화면·다른 호출자가 그대로 쓴다.
+     for 문 안의 isStaffAtt 가 그 경로다(대상 지정 분기의 isStaffAtt(ta) 와 다른 것). */
+  check('대상을 안 고른 경로는 여전히 강사 전원 루프다',
+        /for \(const ws of this\.state\.getWebSockets\(\)\)[\s\S]{0,200}?isStaffAtt\(att\)/.test(seg),
+        '이 루프가 사라지면 옛 화면의 「강사에게 귓속말」이 조용히 죽는다');
 }
 
 // ── ③ 참관자 채팅을 버리지 않고 staff 로 돌린다 ─────────────────────────────
@@ -237,6 +244,64 @@ console.log('\n[ ⑩ 참관 중 이름표가 사실과 맞다 ]');
         !/api\/chat\/messages/.test(GUARD),
         '참관자 글은 소켓으로만 보낸다 — 서버가 귓속말로 돌린다');
   check('대상을 고른 경우 toUserId 를 실어 보낸다', /toUserId:\s*t\.userId/.test(GUARD));
+}
+
+// ── ⑪ 관리자 「수업 관찰」 화면에서도 학생에게 (2026-08-26 사장님 지시) ─────
+//   [왜] 방 안 참관 화면에는 PR #514 로 길을 냈지만, 방 밖에서 보는
+//     /admin/ghost-view.html 은 「📢 강사에게 귓속말」 하나뿐이었다.
+//   [무엇이 위험한가] ① 오배달(학생에게 보내려던 글이 강사에게) ② «보낸 척»
+//     (아무도 안 받았는데 화면이 「전송 완료」라고 하는 것).
+console.log('\n[ ⑪ 관리자 수업 관찰 화면 — 콕 집어 보내기 ]');
+{
+  const seg = blockAt(DO_CODE, "url.pathname === '/whisper'");
+  const dir = blockAt(seg, 'if (toUserId || toName)');
+  check('DO 가 대상(to·to_name)을 읽는다', /body\?\.to\b/.test(seg) && /body\?\.to_name/.test(seg));
+  check('«대상 지정» 분기가 있다', !!dir);
+  check('그 분기가 broadcast 로 새지 않는다', !!dir && !/broadcast(All)?\s*\(/.test(dir),
+        '방 전체에 뿌리면 학생 전원이 남에게 간 지시를 본다');
+  check('이름은 후보가 «정확히 하나» 일 때만 쓴다',
+        /hits\.length === 1/.test(dir),
+        '둘 이상인데 아무거나 고르면 남에게 보낸다 (CLAUDE.md 2장 「남의 이름이 뜸」과 같은 규칙)');
+  check('못 찾으면 강사 전원으로 폴백하지 않는다',
+        /resolved_by/.test(dir) && !/isStaffAtt\(att\)/.test(dir),
+        '학생에게 보내려던 글이 강사에게 가면 그것이 오배달이다');
+  check('학생에게는 보낸 사람 이름을 넘기지 않는다', /from:\s*toStaff\s*\?/.test(dir));
+  check('받는 쪽 이중 방어 표시를 함께 보낸다 (direct·to)',
+        /direct:\s*true/.test(dir) && /\bto:\s*ta\.userId/.test(dir));
+}
+{
+  const seg = blockAt(ADMIN_CODE, "path === '/api/admin/whisper/send'");
+  check('API 가 target_uid·target_name 을 받는다',
+        /b\.target_uid/.test(seg) && /b\.target_name/.test(seg), !seg ? '핸들러를 못 찾음' : '');
+  check('대상을 안 보내면 예전 그대로 강사 전원 (옛 화면 호환)',
+        /const directed = !!\(targetUid \|\| targetName\)/.test(seg) && /directed \? \{ to: targetUid/.test(seg));
+  check('번호와 이름을 둘 다 넘긴다 (번호는 재접속하면 죽는다)',
+        /to: targetUid, to_name: targetName/.test(seg));
+  check('전달 못 했을 때 왜인지까지 말해 준다', /ambiguous_name/.test(seg),
+        '«보낸 척» 하면 관리자가 학생이 받은 줄 알고 기다린다');
+}
+{
+  const GV = strip(R('cloudflare-deploy/public/admin/ghost-view.html'));
+  check('화면에 «받는 사람» 고르는 칸이 있다', /id="ghd-whisper-to"/.test(GV));
+  check('참가자 목록으로 그 칸을 채운다', /ghdFillWhisperTargets/.test(GV));
+  check('사람 이름을 화면에 하드코딩하지 않았다',
+        !/<option value="[^"]+">[^<]*(Hannah|delaware)/i.test(GV),
+        '기본값은 «강사 전원» 하나뿐이어야 한다 — 나머지는 실제 접속자로 그린다');
+  check('학생 카드에도 귓속말 버튼이 있다',
+        /ghdFocusWhisper\('\$\{esc\(m\.user_id\)\}'\)/.test(GV) &&
+        !/m\.role === 'teacher' \? `<button onclick="ghdFocusWhisper/.test(GV),
+        '강사 카드에만 있으면 학생에게 보낼 입구가 없다');
+  check('보낼 때 대상 번호·이름·역할을 함께 싣는다',
+        /body\.target_uid/.test(GV) && /body\.target_name/.test(GV) && /body\.target_role/.test(GV));
+  check('«성공이라고 말했는가» 로 판정한다 (d.ok === true)',
+        /d\.ok !== true/.test(GV),
+        '종단 404 본문에는 ok 칸이 없어 d.ok === false 검사는 그냥 통과한다 (CLAUDE.md 2장)');
+  check('delivered 를 보고 «갔다/안 갔다» 를 가른다',
+        /Number\(d\.delivered \|\| 0\) > 0/.test(GV),
+        '기록은 남으므로 ok:true 만 보면 아무도 안 받았는데 «전송 완료» 가 된다');
+  check('서버가 준 이유(note)를 화면에 그대로 남긴다', /d\.note/.test(GV) && /ghdWhisperNote/.test(GV));
+  check('목록이 갱신돼도 고른 대상을 잃지 않는다', /const keep = sel\.value/.test(GV),
+        '5초마다 도는 새로고침에 대상이 «강사 전원» 으로 돌아가면 오배달이 난다');
 }
 
 // ── 결과 ───────────────────────────────────────────────────────────────────
