@@ -672,12 +672,15 @@ async function writeBandState(env: MangoEnv, uid: string, st: BandState): Promis
  *      화면은 아무것도 표시하지 않습니다(없는 값을 기본값으로 채워 보여주면 강사가 오해합니다).
  */
 export async function getReadingBandFor(env: MangoEnv, uid: string): Promise<
-  { band: number; mode: BandMode; src: string; name_ko: string; name_en: string; lv: string } | null
+  { band: number; mode: BandMode; src: string; age_group: AgeGroup; name_ko: string; name_en: string; lv: string } | null
 > {
   const st = await readBandState(env, String(uid || '').trim());
   if (!st) return null;
   return {
     band: st.band, mode: st.mode, src: st.src,
+    // 🧑‍🎓 나이대도 함께 — 학생 화면의 첫 설정 카드가 «이미 정해 둔 값» 을 표시하는 데 씁니다.
+    //    (강사 화면은 이 칸을 안 읽습니다 — 더하기만 했으므로 기존 호출부는 그대로입니다)
+    age_group: st.ageGroup,
     // 강사 다수가 필리핀이라 한/영 둘 다 내려보냅니다(운영 원칙)
     name_ko: bandName(st.band, 'ko'), name_en: bandName(st.band, 'en'), lv: bandLabel(st.band),
   };
@@ -798,6 +801,14 @@ export async function generatePersonalizedScenario(
   const probeRaw = Math.round(+(bandOpts?.probeBand as any));
   const probing = Number.isFinite(probeRaw) && probeRaw >= 1 && probeRaw <= 8;
 
+  // 🧑‍🎓 나이대는 밴드(실력)와 독립인 축이라 **배치테스트 중에도** 받아 저장합니다.
+  //   ⚠️ 예전에는 이 줄이 아래 `if (!probing)` 안에 있었습니다. 그래서 첫 설정 카드에서
+  //      「성인」 + 「레벨 찾기」를 한 번에 고르면, 배치 6문항이 전부 **아이 소재**로 나오고
+  //      (probe 요청의 age_group 이 조용히 버려짐) 배치가 끝난 뒤에야 성인으로 바뀌었습니다.
+  //      에러가 안 나서 «성인을 골랐는데 학교 이야기가 나온다» 로만 보입니다.
+  //      밴드는 탐색 중 흔들리면 안 되지만 소재 축은 흔들릴 것이 없습니다 — 그래서 여기만 밖으로 뺍니다.
+  if (wantAgeGroup) bandState = { ...bandState, ageGroup: wantAgeGroup, at: Date.now() };
+
   if (!probing) {
     if (picked) {
       const pickedSrc = (bandOpts?.src === 'placement') ? 'placement' : 'student';
@@ -809,8 +820,11 @@ export async function generatePersonalizedScenario(
         bandState = { ...bandState, band: bandMove.band, hist: [], src: 'student', at: Date.now() };
       }
     }
-    if (wantAgeGroup) bandState = { ...bandState, ageGroup: wantAgeGroup, at: Date.now() };
     if (!bandRes.existed || bandRes.changedByHuman || nudge !== 0 || picked || modeChanged || ageGroupChanged) await writeBandState(env, studentUid, bandState);
+  } else if (ageGroupChanged) {
+    // 배치 중에는 밴드를 저장하지 않습니다 — bandState.band 는 저장돼 있던 값 그대로라
+    //   여기서 써도 탐색 밴드(probeRaw)가 새어 들어가지 않습니다. 바뀐 것은 나이대 하나뿐입니다.
+    await writeBandState(env, studentUid, bandState);
   }
   // 이 요청의 문제를 만들 밴드 — 배치 중이면 탐색 밴드, 아니면 학생의 밴드
   const askBand = probing ? probeRaw : bandState.band;
