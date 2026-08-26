@@ -209,10 +209,30 @@ check('lang 컬럼 마이그레이션 존재', /ALTER TABLE review_quizzes ADD C
 check('rqAiGenerate 가 lang 파라미터를 받음', /rqAiGenerate\s*=\s*async\s*\(o:\s*\{[^}]*lang\?:\s*string/.test(API));
 check('🔒 중국어는 listen/speak 강제 0 (깨진 CF 구글TTS·미검증 STT 회피)', /isZh\s*\?\s*0\s*:\s*lim\(c\.listen/.test(API) && /isZh\s*\?\s*0\s*:\s*lim\(c\.speak/.test(API));
 check('중국어 프롬프트가 실제 zh_vocab 어휘로 그라운딩됨(할루시네이션 방지)', /rqZhVocabSample/.test(API) && /Use ONLY the Chinese words below/.test(API));
-check('/api/review-quiz/auto 가 body.lang 을 읽음', /const lang = String\(b\.lang \|\| ''\)\.trim\(\) === 'zh'/.test(API));
+/* ⚠️ 예전엔 `const lang = …` 를 «글자 그대로» 못 박아 두어, 2026-08-26 에 교재로 언어를
+   판정하려고 const → let 으로 바꾸자 **뜻은 그대로인데 검사만** FAIL 했다.
+   CLAUDE.md 「하니스가 객체 모양을 정규식으로 못 박아…」 함정 그대로다 → «뜻» 으로 검사한다. */
+check('/api/review-quiz/auto 가 body.lang 을 읽음', /\b(?:const|let) lang = String\(b\.lang \|\| ''\)\.trim\(\) === 'zh'/.test(API));
 check('중국어 매칭은 lang=\'zh\' 로 엄격 필터(영어 문항과 안 섞임)', /langCond = lang === 'zh' \? `lang = \?`/.test(API));
 check('영어는 lang IS NULL(기존 행) 도 계속 매칭 — 하위호환', /lang = \? OR lang IS NULL/.test(API));
 check('교재/레벨 미상이어도 중국어는 다락원/Lv 3 기본값으로 폴백', /textbook = '다락원'; level = 'Lv 3'/.test(API));
+
+/* 🈶 (2026-08-26) 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」 회귀가드.
+   원인 셋 중 서버 몫 둘을 여기서 못 박는다(③ 진도 고르기는 화면 몫 — 아래 [F-2]).
+     ① 클라이언트가 보내는 lang 은 «학생이 예전에 골라둔 값» 이라 수업 언어를 말해 주지 못한다
+        → 교재로 판정해 zh 로 «올린다».
+     ② 라이브러리 이름(「다락원 중국어 마스터 3」)과 콘텐츠 표기(「다락원」)가 달라
+        LOWER(textbook)=LOWER(?) 정확일치가 영영 안 맞았다 → 별칭 해석으로 잇는다. */
+check('auto 가 교재로 중국어를 판정한다(클라 lang 만 믿지 않음)',
+  /resolveZhTextbook\(textbook, known\)/.test(API) && /if \(zhBook\) \{ lang = 'zh'; textbook = zhBook; \}/.test(API));
+check('중국어 교재 후보는 zh_passage·zh_vocab 에서 «읽어» 온다(이름 하드코딩 금지)',
+  /FROM \$\{t\} WHERE textbook IS NOT NULL/.test(API) && /\['zh_passage', 'zh_vocab'\]/.test(API));
+check('교재 해석이 실패해도 수업이 멈추지 않는다(try/catch)',
+  /zh textbook resolve skip/.test(API));
+check('과(진도) 목록을 응답에 실어 준다 — 화면의 과 고르기 줄이 쓴다',
+  /SELECT DISTINCT lesson_no FROM zh_passage/.test(API) && /lessons: zhLessons/.test(API));
+check('교재 이름은 「중국어 마스터」로 보여준다(D1 값은 안 건드림)',
+  /zhDisplayTextbook\(row\.textbook\)/.test(API) && /textbook_key: row\.textbook/.test(API));
 check('소스 일치(프론트): rqvToggleLang 존재', /window\.rqvToggleLang\s*=\s*function/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
 check('소스 일치(프론트): auto 호출이 lang 을 전송', /lang:st\.lang/.test(read('cloudflare-deploy/public/js/idx-x8.js')));
 

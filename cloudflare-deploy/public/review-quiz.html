@@ -292,10 +292,39 @@
       if(resp.correct){ var sc=document.querySelector('.rq-chip.score'); if(sc){ var r=sc.getBoundingClientRect(); floatPop('+10', r.left+r.width/2, r.top); } }
     }
 
+    /* 🈶 (2026-08-26) 「중국어 수업 끝났는데 왜 영어가 나와?」 — 사장님 제보.
+       이 화면은 lang=en 하드코딩이라 «구조적으로» 영어만 나온다. 중국어는 /review-quiz-cn.html
+       이라는 «다른 페이지» 인데, 그리로 가는 길이 목록 **맨 아래** 에만 있어 아무도 못 찾았다
+       (퀴즈가 여러 개면 스크롤 밖이다 — 「띄웠다」와 「보인다」는 다르다).
+       → 마지막으로 중국어를 본 학생에게는 **맨 위** 에도 같은 길을 놓는다.
+       ⛔ 자동으로 넘기지는 않는다 — 영어 퀴즈를 풀러 온 학생을 납치하게 된다.
+       ⚠️ 판정 키는 수업 화면(idx-x8.js·idx-vc-mobilefix.js ⑩)이 쓰는 바로 그 칸이다. */
+    function zhHintTop() {
+      var last = '';
+      try { last = localStorage.getItem('mangoi_review_lang') || localStorage.getItem('mangoi_game_lang') || ''; } catch(e){}
+      if (last !== 'zh') return;
+      if (document.getElementById('rq-zh-top')) return;
+      var box = document.getElementById('quizList');
+      if (!box || !box.parentNode) return;
+      var a = document.createElement('a');
+      a.id = 'rq-zh-top';
+      a.href = '/review-quiz-cn.html';
+      a.setAttribute('style', 'display:flex;align-items:center;gap:9px;margin:0 0 14px;padding:13px 16px;'
+        + 'border-radius:12px;text-decoration:none;font-weight:800;font-size:14.5px;font-family:inherit;'
+        + 'color:var(--text);background:linear-gradient(135deg,rgba(220,38,38,.22),rgba(245,158,11,.12));'
+        + 'border:1px solid rgba(220,38,38,.55);line-height:1.35');
+      a.innerHTML = '<span style="font-size:20px;flex:0 0 auto">\uD83C\uDDE8\uD83C\uDDF3</span><span>'
+        + (isEn() ? 'You were studying Chinese \u2014 open the Chinese review quiz'
+                  : '\uC911\uAD6D\uC5B4 \uC218\uC5C5\uC744 \uB4E4\uC73C\uC168\uB124\uC694 \u2014 \uC911\uAD6D\uC5B4 \uBCF5\uC2B5\uD034\uC988\uB85C \uAC00\uAE30')
+        + '</span>';
+      box.parentNode.insertBefore(a, box);
+    }
+
     // ───── 목록 ─────
     async function loadList() {
       var box = document.getElementById('quizList');
       try {
+        zhHintTop();
         // 🈶 lang=en — 중국어 퀴즈는 /review-quiz-cn.html 쪽 몫이다. 안 붙이면 여기에 섞여 나온다.
         //    서버는 en 을 「lang='en' 또는 예전 NULL 행」으로 읽는다(하위호환).
         var r = await fetch('/api/review-quiz/list?user_id=' + encodeURIComponent(ME.uid) + '&token=' + encodeURIComponent((function(){ try { return localStorage.getItem('mango_token')||''; } catch(e){ return ''; } })()) + '&lang=en').then(function(x){ return x.json(); });
