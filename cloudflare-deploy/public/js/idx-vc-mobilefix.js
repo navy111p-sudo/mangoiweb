@@ -14,7 +14,8 @@
  *   ④ 폰에 확대·축소 버튼이 하나도 없던 것 — 교재 위에 띄운다.
  *   ⑤ 「배경화면」 탭을 두 번 누르면 본문이 통째로 접히던 것 — 교재·칠판과 같게.
  *   ⑥ 막아 세우는 안내에 중국어를 함께 적는다(화면 언어는 KO/EN 뿐이라 강사가 못 읽었다).
- *   ⑦ 얼굴 꾸미기 모델이 안 올 때 이유를 말해 준다(구글 서버가 중국에서 막혀 있다).
+ *   ⑦ 얼굴 꾸미기(가면) 파일을 우리 서버(/vendor/mediapipe-face/)에서 쓴다 —
+ *      지금까지 구글·jsdelivr 에서 받아 와 중국에서 통째로 막혀 있었다.
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -349,22 +350,82 @@
   /* ══════════════════════════════════════════════════════════════
      ⑦ 얼굴 꾸미기(가면·모자)가 눌러도 아무 일이 없던 것
      ──────────────────────────────────────────────────────────────
-     얼굴인식 모델을 storage.googleapis.com 과 cdn.jsdelivr.net 에서 그때 받아 온다
-     (js/idx-x6.js). 둘 다 중국 본토에서 닿지 않는다 → 모델이 영영 안 오고
-     화면은 「얼굴인식 모델 로딩 중…」에서 멈춘다. 실패해도 작은 회색 글씨 한 줄뿐이라
-     «고장» 으로 읽힌다.
-     ✅ 여기서는 «왜 안 되는지» 를 말해 주는 데까지만 한다.
-        진짜 해결은 그 파일들을 우리 서버로 복사하는 것인데(가상 배경은 2026-07-23 에
-        이미 그렇게 옮겼다 — /vendor/mediapipe/), wasm 까지 합쳐 약 15MB 라
-        저장소에 넣을지는 사람이 결정할 일이다.
+     [원인] 얼굴인식 파일을 «클릭한 그 순간에» 바깥에서 받아 온다(js/idx-x6.js) —
+       · 실행 파일  cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35
+       · 모델       storage.googleapis.com/mediapipe-models/…/face_landmarker.task
+       둘 다 중국 본토에서 닿지 않는다 → 모델이 영영 안 오고 「로딩 중…」에서 멈춘다.
+     [고침] 두 파일을 우리 서버에 두고(/vendor/mediapipe-face/, 15MB) 그것부터 쓴다.
+       가상 배경이 2026-07-23 에 이미 같은 길을 갔다(/vendor/mediapipe/ · idx-main.js).
+       덤으로 필리핀 회선도 빨라진다 — 수업 중에 바깥 도메인 두 곳을 새로 여는 일이 없어진다.
+
+     ⚠️ **왜 idx-x6.js 를 직접 안 고쳤나** — 그 파일은 blocking 이라 한 글자만 더해도
+        첫 화면 예산(여유 73바이트)을 넘긴다. 대신 그 파일이 «이미 받아 둔 것» 을 담아 두는
+        칸(vcFx._vision · vcFx._fileset)에 우리 것을 미리 넣어 둔다. 그러면 그쪽 코드의
+        `vcFx._vision || (await import(CDN))` 이 앞쪽에서 끝나 CDN 을 아예 안 부른다.
+     ⚠️ 그 칸 이름이 바뀌면 이 미리넣기는 조용히 헛돈다(= CDN 으로 되돌아가 오늘과 같아진다).
+        그래서 face_model_local_harness 가 그 두 칸과 모델 주소의 «모양» 을 못 박아 둔다.
+     ⚠️ SIMD 를 못 쓰는 옛 기기는 nosimd 판 wasm(10MB 더)을 찾는데 그건 안 올렸다.
+        그런 기기에서는 미리넣기를 아예 하지 않고 원래대로 CDN 에 맡긴다.
   ══════════════════════════════════════════════════════════════ */
+  var FACE_LOCAL = '/vendor/mediapipe-face';
+
+  /* WebAssembly SIMD 를 쓸 수 있는가 — MediaPipe 가 wasm 파일 이름을 이걸로 가른다
+     (…/vision_wasm_internal.wasm ↔ …/vision_wasm_nosimd_internal.wasm).
+     우리는 SIMD 판만 올렸으므로, 못 쓰는 기기에는 손대지 않는다. */
+  function hasSimd() {
+    try {
+      return WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0,
+        1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    } catch (e) { return false; }
+  }
+
+  var _primed = null;
+  function primeFaceModel() {
+    if (_primed) return _primed;
+    _primed = (async function () {
+      var fx = window.vcFx;
+      if (!fx) return false;
+      if (fx._vision || fx._fileset) return false;   // 이미 받아 둔 것이 있으면 건드리지 않는다
+      if (!hasSimd()) return false;                  // 옛 기기 → 원래대로 CDN
+      var mod = await import(FACE_LOCAL + '/vision_bundle.mjs');
+      var fileset = await mod.FilesetResolver.forVisionTasks(FACE_LOCAL + '/wasm');
+      /* 모델 주소는 idx-x6.js 안에 박혀 있어 밖에서 못 고친다 →
+         createFromOptions 를 한 겹 감싸 그 자리에서 우리 것으로 바꿔 넣는다.
+         나머지 옵션(델리게이트·민감도 등)은 그대로 넘긴다. */
+      fx._vision = {
+        FilesetResolver: mod.FilesetResolver,
+        FaceLandmarker: {
+          createFromOptions: function (fs, opts) {
+            var o = {}, k;
+            for (k in opts) o[k] = opts[k];
+            o.baseOptions = {};
+            for (k in (opts && opts.baseOptions) || {}) o.baseOptions[k] = opts.baseOptions[k];
+            o.baseOptions.modelAssetPath = FACE_LOCAL + '/face_landmarker.task';
+            return mod.FaceLandmarker.createFromOptions(fs, o);
+          }
+        }
+      };
+      fx._fileset = fileset;
+      try { console.log('[mobilefix] 얼굴인식 파일을 우리 서버에서 씁니다 — ' + FACE_LOCAL); } catch (e) {}
+      return true;
+    })().catch(function (e) {
+      /* 실패하면 «손대지 않은 상태» 로 되돌린다 — idx-x6.js 가 원래대로 CDN 에서 받는다.
+         즉 최악의 경우도 오늘과 같고, 이 파일 때문에 더 나빠지지는 않는다. */
+      try { if (window.vcFx) { window.vcFx._vision = null; window.vcFx._fileset = null; } } catch (_) {}
+      try { console.warn('[mobilefix] 로컬 얼굴인식 파일 사용 실패 → CDN 으로', e && e.message); } catch (_) {}
+      return false;
+    });
+    return _primed;
+  }
+
   var _setFace = window.vcSetFace;
   if (typeof _setFace === 'function') {
-    window.vcSetFace = function (mode) {
-      var r;
-      try { r = _setFace.apply(this, arguments); } catch (e) { r = null; }
-      if (mode && mode !== 'off') armFxWatch();
-      return r;
+    window.vcSetFace = async function (mode) {
+      if (mode && mode !== 'off') {
+        try { await primeFaceModel(); } catch (e) {}   // 우리 서버 파일을 먼저 물려 준다
+        armFxWatch();
+      }
+      try { return await _setFace.apply(this, arguments); } catch (e) { return null; }
     };
   }
   var _fxTimer = null;
@@ -375,15 +436,15 @@
       var on = false;
       try { on = !!(window.vcFx && window.vcFx.active); } catch (e) {}
       if (on) { clearInterval(_fxTimer); return; }
-      if (Date.now() - t0 < 12000) return;
+      if (Date.now() - t0 < 15000) return;
       clearInterval(_fxTimer);
       var el = document.getElementById('vc-fx-status');
       var en = false;
       try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
       var msg = en
-        ? '⚠ Could not download the face model — some networks block it (e.g. mainland China).'
-        : '⚠ 얼굴인식 파일을 받지 못했어요 — 일부 지역(중국 등)에서는 막혀 있어요.';
-      if (isZh()) msg = '⚠ 无法下载人脸识别模型 — 中国大陆网络已屏蔽该服务，此功能暂时无法使用。';
+        ? '⚠ Could not load the face model. Please try once more.'
+        : '⚠ 얼굴인식 파일을 불러오지 못했어요. 한 번만 다시 눌러 주세요.';
+      if (isZh()) msg = '⚠ 无法加载人脸识别模型，请再点一次试试。';
       if (el) el.textContent = msg;
       toast(msg);
     }, 1000);

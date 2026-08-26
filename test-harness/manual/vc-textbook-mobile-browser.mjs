@@ -20,7 +20,10 @@ const PORT = 9351;
 let pass = 0, fail = 0;
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
 
-const chrome = spawn(CHROME, ['--headless=new', '--no-sandbox', '--disable-gpu',
+/* ⚠️ --disable-gpu 로 띄우면 MediaPipe 가 WebGL 이 없어 죽는다(CPU 델리게이트에서도 GL 을 쓴다).
+   그러면 «파일이 잘못됐다» 로 오진하게 된다 — 소프트웨어 GL(SwiftShader)로 띄운다. */
+const chrome = spawn(CHROME, ['--headless=new', '--no-sandbox',
+  '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader',
   '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${PORT}`, 'about:blank'], { stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 2500));
 
@@ -235,6 +238,38 @@ const port = await evalJs(`(()=>{ document.body.classList.add('vc-in-call');
   return JSON.stringify({dir:getComputedStyle(document.getElementById('vc-main-row')).flexDirection,
     videoTop:Math.round(a.top), contentTop:Math.round(b.top), above:a.top<=b.top}); })()`);
 ok(JSON.parse(port).dir === 'column' && JSON.parse(port).above, '세로: 얼굴이 위에 그대로 있다 (사장님 지시 — 바꾸지 않음)', port);
+
+/* ── 7부. 가면(얼굴 꾸미기)이 우리 서버 파일로 도는가 ──────────────
+   ⚠️ 이 검사가 없으면 15MB 를 올려 두고도 «여전히 CDN 을 부르는» 상태를 못 본다.
+      실제로 네트워크 요청을 지켜보며 바깥 도메인을 한 번도 안 부르는지까지 확인한다. */
+console.log('\n⑦ 가면 — 우리 서버 파일로 도는가 (강선생님)');
+await load(844, 390, 3, 'zh-CN');
+await evalJs(OPEN_CALL);
+
+const reqs = [];
+await cdp('Network.enable');
+const onReq = (m) => { if (m.method === 'Network.requestWillBeSent') reqs.push(m.params.request.url); };
+ws.addEventListener('message', (e) => { try { onReq(JSON.parse(e.data)); } catch (_) {} });
+
+// 카메라 대신 캔버스 스트림을 물려 준다 — vcSetFace 는 영상 트랙이 없으면 앞에서 되돌아간다
+await evalJs(`(()=>{ var c=document.createElement('canvas'); c.width=320; c.height=240;
+  c.getContext('2d').fillRect(0,0,320,240); window.vcLocalStream = c.captureStream(10); return true; })()`);
+const faceRan = await evalJs(`(async()=>{ try { await window.vcSetFace('sunglasses1'); } catch(e){}
+  await new Promise(r=>setTimeout(r,1500));
+  return JSON.stringify({ primed: !!(window.vcFx && window.vcFx._vision && window.vcFx._fileset),
+    fl: !!(window.vcFx && window.vcFx.fl), active: !!(window.vcFx && window.vcFx.active),
+    err: (window.vcFx && window.vcFx._lastErr) ? String(window.vcFx._lastErr.message||window.vcFx._lastErr) : null }); })()`);
+const F = JSON.parse(faceRan);
+ok(F.primed, '얼굴인식 파일이 «우리 서버 것» 으로 물려졌다', faceRan);
+ok(F.fl, '얼굴인식기가 실제로 만들어졌다 (모델·wasm 이 우리 서버에서 왔다)', faceRan);
+const outside = reqs.filter(u => /jsdelivr\.net|storage\.googleapis\.com/.test(u));
+const local = reqs.filter(u => /\/vendor\/mediapipe-face\//.test(u));
+ok(outside.length === 0, '바깥 도메인(jsdelivr·구글 스토리지)을 한 번도 부르지 않는다 — 중국에서 막히던 그 두 곳',
+  outside.slice(0, 3).join(' , '));
+ok(local.some(u => /face_landmarker\.task$/.test(u)), '모델을 /vendor/mediapipe-face/ 에서 받았다',
+  local.slice(0, 4).join(' , '));
+ok(local.some(u => /vision_wasm_internal\.wasm$/.test(u)), 'wasm 도 우리 서버에서 받았다 (nosimd 판이 아니다 — 그건 안 올렸다)',
+  local.slice(0, 4).join(' , '));
 
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();
