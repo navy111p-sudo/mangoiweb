@@ -218,14 +218,86 @@ export class VideoCallRoom {
         return new Response(JSON.stringify({ ok: false, error: 'payload_required' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } });
       }
+      const wBody = text.slice(0, 500);
+      const wType = String(body?.message_type || 'text');
+      const wUrg  = String(body?.urgency || 'normal');
+      const wFrom = String(body?.from || '관리자').slice(0, 40);
+      const wAt   = Date.now();
+
+      /* 🎯 «콕 집은 한 사람» 에게 보내기  (2026-08-26 사장님 지시 — 관리자 수업 관찰 화면)
+         ═════════════════════════════════════════════════════════════════════════
+         방 안 참관 화면(handleObserverWhisper)에는 이미 있던 길을, 방 밖에서 보는
+         관리자 「수업 관찰」 화면(/admin/ghost-view.html)에도 낸다.
+
+         ⚠️ **번호가 두 갈래다.** 이 DO 의 userId 는 generateUserId() 가 접속마다 새로
+            발급하는 임시 번호이고, 계정 아이디(delaware 등)와 아무 상관이 없다.
+            관리자 화면이 보는 attendance.user_id 가 «마침» 그 임시 번호라 이어지지만
+            (mango-attendance.js 가 vcUserId 를 그대로 적는다), 재접속하면 새 번호가
+            발급되어 옛 행의 번호는 죽는다. 그래서 이름(to_name)으로 한 번 더 찾는다.
+         ⛔ 이름은 **완전일치**일 때만, 그리고 **후보가 정확히 하나일 때만** 쓴다.
+            둘 이상이면 붙이지 않는다 — 모르는 것보다 «남에게 보내는 것» 이 나쁘다
+            (CLAUDE.md 2장 「강사 이름을 붙였는데 남의 이름이 뜸」과 같은 규칙).
+         ⛔ 못 찾으면 staff 전원으로 «폴백하지 않는다». 학생에게 보내려던 글이 강사에게
+            가는 것은 오배달이다 — delivered:0 으로 정직하게 답한다. */
+      const toUserId = String(body?.to || '').trim();
+      const toName   = String(body?.to_name || '').trim();
+      if (toUserId || toName) {
+        let target: WebSocket | null = null;
+        let resolvedBy = '';
+        const live: WebSocket[] = [];
+        for (const ws of this.state.getWebSockets()) {
+          const a = this.attOf(ws);
+          if (!a || !a.joined || ws.readyState !== WebSocket.OPEN) continue;
+          live.push(ws);
+        }
+        if (toUserId) {
+          for (const ws of live) {
+            if (this.attOf(ws)?.userId === toUserId) { target = ws; resolvedBy = 'user_id'; break; }
+          }
+        }
+        if (!target && toName) {
+          const hits = live.filter(ws => (this.attOf(ws)?.username || '') === toName);
+          if (hits.length === 1) { target = hits[0]; resolvedBy = 'username'; }
+          else if (hits.length > 1) resolvedBy = 'ambiguous_name';   // 붙이지 않는다
+        }
+        let delivered = 0;
+        let toStaff = false;
+        if (target) {
+          const ta = this.attOf(target)!;
+          toStaff = this.isStaffAtt(ta);
+          const one = JSON.stringify({
+            type: 'admin-whisper',
+            data: {
+              message: wBody,
+              message_type: wType,
+              urgency: wUrg,
+              /* 학생에게는 보낸 사람 이름을 넘기지 않는다 — 참관은 인원수·입퇴장 어디에도
+                 안 나오는 «투명 유령» 설계라(handleJoinObserve), 낯선 이름이 학생 화면에
+                 뜨면 그 설계가 화면에서만 깨진다. 받는 화면이 «사무실» 로 그린다. */
+              from: toStaff ? wFrom : '',
+              at: wAt,
+              direct: true,          // 🔒 받는 쪽 이중 방어 ① — «콕 집어 보낸 것» 표시
+              to: ta.userId,         // 🔒 이중 방어 ② — 내 id 가 아니면 화면이 그리지 않는다
+              toStaff,
+            },
+          });
+          try { target.send(one); delivered = 1; } catch { /* delivered:0 으로 정직하게 */ }
+        }
+        return new Response(JSON.stringify({
+          ok: true, roomId: this.roomId, delivered, staff: 0,
+          direct: true, resolved_by: resolvedBy || 'not_found', to_staff: toStaff,
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+
+      // 대상을 안 고르면 지금까지처럼 «방에 있는 강사 전원» 에게 간다.
       const msg = JSON.stringify({
         type: 'admin-whisper',
         data: {
-          message: text.slice(0, 500),
-          message_type: String(body?.message_type || 'text'),
-          urgency: String(body?.urgency || 'normal'),
-          from: String(body?.from || '관리자').slice(0, 40),
-          at: Date.now(),
+          message: wBody,
+          message_type: wType,
+          urgency: wUrg,
+          from: wFrom,
+          at: wAt,
         },
       });
       let delivered = 0, staff = 0;

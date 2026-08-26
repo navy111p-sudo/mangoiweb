@@ -365,3 +365,28 @@ PW_DIR=/tmp/pw node test-harness/manual/recording-storage-kpi-browser.mjs
 ```
 PW_DIR=/tmp/pw node test-harness/manual/observer-whisper-browser.mjs
 ```
+
+---
+
+## ghostview-whisper-browser.mjs — 관리자 「수업 관찰」 화면의 귓속말 (23건)
+
+**언제 부르나** — `/admin/ghost-view.html` 의 귓속말·참가자 목록, `POST /api/admin/whisper/send`,
+화상수업 DO 의 `/whisper` 를 건드렸을 때.
+
+**왜 손으로 만들었나** — 문자열 하니스는 «그 줄이 있는가» 만 본다. 이 화면에서 실제로 틀릴 수
+있는 것은 «눌렀을 때 무엇이 나가고 무엇이 보이나» 다:
+
+- 학생을 골랐는데 강사에게 가는가 — **오배달이 이 기능에서 제일 나쁜 실패다**
+- 아무도 안 받았는데 「전송 완료」라고 하는가 (기록은 남으므로 `ok:true` 가 온다)
+- 라우팅 관문이 빠져 404 가 왔는데 «성공» 으로 그리는가 (종단 404 본문에는 `ok` 칸이 없다)
+- 5초마다 도는 새로고침이 «고른 대상» 을 강사 전원으로 되돌리는가
+- 어두운 상자 위 결과 글자가 실제로 읽히는가 (WCAG 4.5:1)
+
+⚠️ **대비를 잴 때 반투명 배경을 합성해야 한다.** 이 화면의 귓속말 상자는
+`rgba(245,158,11,0.1)` 이라 «불투명한 첫 조상» 으로 읽으면 밝은 주황이 되어,
+실제로는 잘 읽히는 글자가 «안 읽힌다» 는 거짓 실패를 낸다(2026-08-26 실제로 밟음 — 1.53:1 로
+나왔지만 합성하면 9.73:1).
+
+```
+PW_DIR=/tmp/pw node test-harness/manual/ghostview-whisper-browser.mjs
+```
