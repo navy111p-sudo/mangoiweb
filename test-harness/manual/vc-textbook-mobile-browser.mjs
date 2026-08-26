@@ -271,6 +271,54 @@ ok(local.some(u => /face_landmarker\.task$/.test(u)), '모델을 /vendor/mediapi
 ok(local.some(u => /vision_wasm_internal\.wasm$/.test(u)), 'wasm 도 우리 서버에서 받았다 (nosimd 판이 아니다 — 그건 안 올렸다)',
   local.slice(0, 4).join(' , '));
 
+/* ── 8부. 교사 화면이 칸을 꽉 채우는가 (신고 2) ──────────────────
+   ⚠️ 카메라 스트림으로 재면 메타데이터 타이밍 때문에 결과가 들쭉날쭉하다(실제로 밟았다).
+      칸 크기와 영상 해상도를 **고정해 넣고** 판정만 읽는다 — 흔들릴 요소가 없다.
+   ℹ️ «채움률» = 칸 안에서 얼굴 그림이 실제로 차지하는 비율. contain 이면 검은 띠만큼 줄어든다. */
+console.log('\n⑧ 교사 화면 크기 — 칸을 꽉 채우는가');
+const PROBE = `(function(bw,bh,vw,vh,opts){
+  opts=opts||{};
+  var host=document.getElementById('__probe')||document.createElement('div');
+  host.id='__probe'; host.style.cssText='position:fixed;left:-9999px;top:0';
+  if(!host.parentNode) document.body.appendChild(host);
+  host.innerHTML='';
+  var box=document.createElement('div'); box.className='video-box';
+  if(opts.local) box.id='vc-local-box';
+  box.style.cssText='width:'+bw+'px;height:'+bh+'px;position:relative';
+  var vid=document.createElement('video');
+  Object.defineProperty(vid,'videoWidth',{get:function(){return vw;}});
+  Object.defineProperty(vid,'videoHeight',{get:function(){return vh;}});
+  box.appendChild(vid);
+  if(opts.share){var b=document.createElement('span');b.className='vc-ss-badge';box.appendChild(b);}
+  host.appendChild(box);
+  try{ vcSmartFitVideo(vid); }catch(e){ return 'ERR:'+e.message; }
+  return vid.style.objectFit||'(없음)';
+})`;
+const fit = (bw, bh, vw, vh, opts) => evalJs(`${PROBE}(${bw},${bh},${vw},${vh},${JSON.stringify(opts || {})})`);
+
+// PC·태블릿의 «오른쪽 세로 컬럼» — 사장님 화면이 이 모양이었다(교사 28.2% / 학생 42.3% 실측)
+await load(1280, 800, 2, 'ko-KR');
+ok(await fit(345, 687, 1280, 720) === 'cover',
+  '교사의 가로(16:9) 웹캠이 세로로 긴 칸을 꽉 채운다 (고치기 전 contain·채움 28.2%)');
+ok(await fit(132, 180, 1280, 720) === 'cover', '좁은 세로 컬럼에서도 꽉 채운다 (전 contain·41.3%)');
+ok(await fit(295, 139, 1280, 720) === 'cover', '가로로 넓은 칸은 원래대로 꽉 찬다 (회귀 없음)');
+
+/* ⛔ 화면 공유는 잘리면 «공유한 화면의 좌우가 사라진다» — 반드시 전체 보이기 */
+ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
+  '화면 공유는 잘리지 않는다 (배지 .vc-ss-badge 로 판별)');
+ok(await fit(132, 180, 1920, 1080, { share: true }) === 'contain', '좁은 칸에서도 화면 공유는 전체가 보인다');
+
+/* 건드리지 않기로 한 것 — 되돌아가면 이 줄이 FAIL 한다 */
+ok(await fit(345, 687, 720, 1280) === 'cover', '교사가 폰 세로로 들어오면 원래 판정 그대로');
+ok(await fit(345, 687, 1280, 720, { local: true }) === 'contain',
+  '내 타일(자기 얼굴)은 건드리지 않는다 — 가상배경 켜면 턱·목이 잘린다(2026-07-13 결정)');
+
+// 세로폰: 원래 로직이 «상대 타일은 무조건 cover» 라 화면 공유까지 잘리고 있었다(기존 버그)
+await load(390, 844, 3, 'ko-KR');
+ok(await fit(345, 687, 1280, 720) === 'cover', '세로폰에서 교사 얼굴은 그대로 꽉 찬다 (2026-07-14 지시 유지)');
+ok(await fit(345, 687, 1920, 1080, { share: true }) === 'contain',
+  '세로폰에서 화면 공유가 더는 잘리지 않는다 — 고치기 전에는 cover 로 좌우가 날아갔다');
+
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();
 process.exit(fail ? 1 : 0);
