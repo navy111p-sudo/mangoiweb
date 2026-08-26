@@ -47,6 +47,7 @@ import { teacherMatchRouter, runTeacherGraphSync } from './teacher-match';
 import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmup-graph';
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
+import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -4013,8 +4014,12 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     } catch {}
 
     const turnCount = Math.floor(history.length / 2) + 1;
-    return new Response(JSON.stringify({ session_id: sessionId, ai_response: aiText, turn_count: turnCount }),
-      { status: 200, headers: _MS_JSON });
+    // 💬 「어떻게 대답하면 되나」 보기 칩 — AI 질문에서 «결정론적으로» 유도한다(src/warmup-answers.ts).
+    //    LLM 을 한 번 더 부르지 않으므로 응답이 느려지지 않고, 못 만들면 빈 배열이라 화면이 아무것도 안 그린다.
+    return new Response(JSON.stringify({
+      session_id: sessionId, ai_response: aiText, turn_count: turnCount,
+      answer_chips: warmupAnswerChips(aiText, ctxDifficulty),
+    }), { status: 200, headers: _MS_JSON });
   } catch (e: any) {
     return new Response(JSON.stringify({ detail: 'warmup_failed: ' + String(e?.message || e) }), { status: 500, headers: _MS_JSON });
   }
@@ -4078,7 +4083,9 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
           await env.SESSION_STATE.put(hkey, JSON.stringify(history), { expirationTtl: 6 * 3600 });
         } catch {}
       }
-      return new Response(JSON.stringify({ ok: true, picked: pick }), { status: 200, headers: _MS_JSON });
+      // 고른 질문도 곧바로 AI 발화가 되므로 «대답 보기» 를 같이 내려준다(대화 응답과 같은 규칙).
+      return new Response(JSON.stringify({ ok: true, picked: pick, answer_chips: warmupAnswerChips(pick, difficulty) }),
+        { status: 200, headers: _MS_JSON });
     }
 
     if (!env.AI) {

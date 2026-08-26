@@ -127,6 +127,10 @@ console.log('\n[ F. 🎯 수준 찾기 — 서버를 부르지 않고 3문항으
   check('찾은 결과가 실제로 대화 수준으로 저장된다', /function finishProbe\(\)\{?[\s\S]{0,120}setLevel\(_pbBand/.test(HTML));
 }
 
+// ⚠️ 「'」 가 든 값("No, I'm not.")을 «따옴표 종류만» 보고 자르면 조용히 잘린다 — 실제로 밟았다.
+const jsStrings = (src) => [...String(src).matchAll(/'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"/g)]
+  .map((m) => (m[1] !== undefined ? m[1] : m[2]).replace(/\\(.)/g, '$1'));
+
 console.log('\n[ G. 🎚️ 낮은 단계 첫 인사 — 레벨을 실제로 지키는가 ]');
 // 🔴 발단(2026-08-26): 첫 인사가 «레벨을 안 보고» 있었다. 서버는 레벨 1 을 「3~5단어」로
 //    못 박아 두었는데 화면의 고정 인사는 15단어였다 — 즉 시스템이 첫 문장부터 자기 규칙을
@@ -135,8 +139,9 @@ console.log('\n[ G. 🎚️ 낮은 단계 첫 인사 — 레벨을 실제로 지
 {
   const gBlock = (HTML.match(/var BEGINNER_GREETINGS\s*=\s*\{([\s\S]*?)\n\};/) || [])[1] || '';
   const greet = {};
-  for (const m of gBlock.matchAll(/(\d):\s*\{\s*en:\s*"([^"]+)"\s*,\s*ko:\s*'([^']+)'\s*,\s*tip:\s*'([^']+)'/g)) {
-    greet[Number(m[1])] = { en: m[2], ko: m[3], tip: m[4] };
+  for (const m of gBlock.matchAll(/(\d):\s*\{\s*en:\s*"([^"]+)"\s*,\s*ko:\s*'([^']+)'\s*,\s*chips:\s*\[([^\]]*)\]/g)) {
+    const chips = jsStrings(m[4]);
+    greet[Number(m[1])] = { en: m[2], ko: m[3], chips };
   }
   check('낮은 단계 인사말 표를 읽었다', Object.keys(greet).length >= 2, `읽은 단계: ${Object.keys(greet).join(',')}`);
   check('1·2단계에 인사말이 있다', !!greet[1] && !!greet[2]);
@@ -176,10 +181,13 @@ console.log('\n[ G. 🎚️ 낮은 단계 첫 인사 — 레벨을 실제로 지
   for (const lv of [1, 2]) {
     if (!greet[lv]) continue;
     check(`${lv}단계 영어 말풍선에 한글이 없다`, !/[가-힣]/.test(greet[lv].en), greet[lv].en);
-    check(`${lv}단계 한국어 뜻·도움말이 준비되어 있다`, /[가-힣]/.test(greet[lv].ko) && /[가-힣]/.test(greet[lv].tip));
+    check(`${lv}단계 한국어 뜻이 준비되어 있다`, /[가-힣]/.test(greet[lv].ko));
   }
-  check('한국어는 말풍선 «밖»(sys)으로 나간다',
-    /addMsg\(g\.en, 'ai'\)/.test(HTML) && /addMsg\(g\.ko \+ '\\n' \+ g\.tip/.test(HTML));
+  // 한국어는 말풍선 «안에 글자로» 들어가면 안 된다 — 영어 TTS 가 그 한글을 읽는다.
+  //    (뜻은 아래 J절의 «자동 뜻» 이 별도 칩으로 열어 준다)
+  check('영어 말풍선은 영어만 넣어 부른다', /addMsg\(g\.en, 'ai'\)/.test(HTML));
+  check('겹치는 안내 줄을 따로 두지 않는다(보기 카드 제목과 같은 말)',
+    !/아래 보기를 눌러 말해 보세요/.test(HTML));
   // 「뜻」 은 손으로 다듬은 의역을 쓴다 — 기계번역이 "warm up" 을 「따뜻하게하자」로 옮긴 전례(2026-08-24)
   check('「뜻」이 기계번역을 부르지 않는다(_koCache 선주입)', /_koCache\[g\.en\] = g\.ko/.test(HTML));
 }
@@ -269,6 +277,110 @@ console.log('\n[ H. 📊 웜업 기록 — 「몇 단계로 쓰는가」를 셀 
     /qs\.set\('session_id', SESSION_ID\)/.test(HTML) && /qs\.set\('diff', String\(_warmLevel\)\)/.test(HTML)
     && /qs\.set\('age', _warmAge\)/.test(HTML));
   check('화면이 kickoff 를 표시해 보낸다', /kickoff: 1/.test(HTML));
+}
+
+console.log('\n[ I. 💬 대답 보기 칩 — 결정론으로 «맞는 영어» 만 내는가 ]');
+// 🔴 이 칩은 학생이 «그대로 따라 말하는» 문장이다. 틀린 문장이 하나라도 섞이면 그걸 배운다.
+//    그래서 LLM 을 쓰지 않고 AI 질문에서 유도하며, 여기서는 그 함수를 «실제로 돌려» 확인한다.
+{
+  const A = await import('file://' + P('src/warmup-answers.ts').replace(/\\/g, '/'));
+  const E = await import('file://' + P('src/english-only.ts').replace(/\\/g, '/'));
+
+  // ① 서버 단어 수 상한과 «짝» 인가 — 한쪽만 고치면 「레벨 1인데 8단어 보기」가 조용히 나간다
+  const srvCap = {};
+  for (const m of srvBlock.matchAll(/^\s*(\d):\s*"[^"]*?(\d+)~(\d+)단어/gm)) srvCap[Number(m[1])] = Number(m[3]);
+  for (const lv of [1, 2, 3]) {
+    check(`${lv}단계 보기 상한이 서버 WARMUP_LEVELS 와 같다`, A.WARMUP_CHIP_WORD_CAP[lv] === srvCap[lv],
+      `칩 ${A.WARMUP_CHIP_WORD_CAP[lv]} vs 서버 ${srvCap[lv]}`);
+  }
+
+  // ② 실제 질문을 넣어 «나온 문장» 을 본다
+  const words = (s) => s.trim().split(/\s+/).filter(Boolean).length;
+  const cases = [
+    { q: "Hi! I'm Mango. 🥭 Are you happy today?", lv: 1, want: ['Yes, I am.', "No, I'm not."] },
+    { q: 'Hi! I\'m Mango. 🥭 How are you today, happy or tired?', lv: 2, want: ['I am happy.', 'I am tired.'] },
+    { q: 'Nice! Do you like pizza or chicken?', lv: 1, want: ['I like pizza.', 'I like chicken.'] },
+    { q: 'Do you like ice cream or cake?', lv: 2, want: ['I like ice cream.', 'I like cake.'] },
+    { q: 'Are you a student or a teacher?', lv: 2, want: ['I am a student.', 'I am a teacher.'] },
+    { q: 'Wow! Do you have a pet?', lv: 1, want: ['Yes, I do.', "No, I don't."] },
+    { q: 'Can you swim?', lv: 2, want: ['Yes, I can.', "No, I can't."] },
+    { q: 'Would you like some water?', lv: 2, want: ['Yes, please.', 'No, thank you.'] },
+    { q: 'Is it hot today?', lv: 3, want: ['Yes, it is.', "No, it isn't."] },
+  ];
+  for (const c of cases) {
+    const got = A.warmupAnswerChips(c.q, c.lv);
+    check(`보기가 맞다 — "${c.q.slice(-34)}"`, c.want.every((w, i) => got[i] === w), `나온 값: ${JSON.stringify(got)}`);
+  }
+
+  // ③ 🔴 실제로 밟은 사고 — 관사를 떼어 「I am student.」 가 나왔다. 다시는 안 나와야 한다.
+  const all = cases.flatMap((c) => A.warmupAnswerChips(c.q, c.lv));
+  check('관사가 빠진 비문(I am student.)이 없다', !all.some((x) => /^I am (student|teacher)\./.test(x)), all.join(' | '));
+  check('모든 보기가 마침표로 끝난다', all.every((x) => /[.!]$/.test(x)));
+  check('보기에 물음표가 없다(칩은 «대답» 이다)', all.every((x) => x.indexOf('?') < 0));
+  check('모든 보기가 그 단계의 단어 수 상한 안이다',
+    cases.every((c) => A.warmupAnswerChips(c.q, c.lv).every((x) => words(x) <= A.WARMUP_CHIP_WORD_CAP[c.lv])));
+  check('보기는 3개를 넘지 않는다(폰에서 입력칸이 밀린다)',
+    cases.every((c) => A.warmupAnswerChips(c.q, c.lv).length <= 3));
+
+  // ④ ⛔ 만들 수 없으면 «만들지 않는다» — 모르는 것보다 틀린 게 나쁘다
+  check('열린 질문(wh-)에는 보기를 지어내지 않는다',
+    A.warmupAnswerChips('What is your favorite color?', 3).length === 0);
+  check('부정사가 섞이면 억지로 만들지 않는다',
+    !A.warmupAnswerChips('Do you like to swim or to run?', 2).some((x) => /I like (swim|run)\./.test(x)));
+  check('4단계 이상은 보기를 내지 않는다(스스로 답하는 것이 훈련)',
+    A.warmupAnswerChips('Do you like soccer?', 4).length === 0 && A.warmupAnswerChips('Are you okay?', 8).length === 0);
+  check('낮은 단계는 막혔을 때 탈출구를 준다',
+    A.warmupAnswerChips('What did you eat today?', 1).length === 2);
+  check('망가진 입력에도 죽지 않는다',
+    A.warmupAnswerChips(null, 1).length >= 0 && A.warmupAnswerChips('Are you ok?', null).length === 0);
+
+  // ⑤ 병음·한자가 칩으로 새면 안 된다 — english-only 정본과 «같은 말» 을 하는지 대조
+  const bad = ['cāochǎng', '你好', 'こんにちは', '안녕'];
+  for (const b of bad) {
+    const chips = A.warmupAnswerChips(`Do you like ${b} or cake?`, 2);
+    check(`영어가 아닌 보기는 안 나온다 — ${b}`,
+      !chips.some((x) => x.indexOf(b) >= 0) && !E.isEnglishText(b, 30), JSON.stringify(chips));
+  }
+
+  // ⑥ 첫 인사의 보기는 «손으로 적었지만» 정본 함수의 결과와 같아야 한다(둘이 어긋날 수 없게)
+  const gB = (HTML.match(/var BEGINNER_GREETINGS\s*=\s*\{([\s\S]*?)\n\};/) || [])[1] || '';
+  for (const m of gB.matchAll(/(\d):\s*\{\s*en:\s*"([^"]+)"[\s\S]*?chips:\s*\[([^\]]*)\]/g)) {
+    const lv = Number(m[1]);
+    const chips = jsStrings(m[3]);
+    const want = A.warmupAnswerChips(m[2], lv);
+    check(`${lv}단계 인사말 보기 == 서버 정본이 만드는 값`, chips.join(' | ') === want.join(' | '),
+      `화면 ${JSON.stringify(chips)} vs 정본 ${JSON.stringify(want)}`);
+  }
+
+  // ⑦ 배선 — 서버 세 자리, 화면 네 자리
+  check('대화 응답이 보기를 함께 내려준다', /answer_chips: warmupAnswerChips\(aiText, ctxDifficulty\)/.test(IDX));
+  check('고른 질문(pick)에도 보기를 내려준다', /picked: pick, answer_chips: warmupAnswerChips\(pick, difficulty\)/.test(IDX));
+  check('화면이 목록을 «만들지» 않고 받아서 그린다',
+    !/Yes, I do\./.test(HTML.replace(/chips:\s*\[[^\]]*\]/g, '')), '화면에 칩 문구가 흩어져 있으면 정본이 둘이 된다');
+  for (const [name, re] of [['첫 인사', /showAnswerChips\(g\.chips\)/], ['대화 답변', /showAnswerChips\(d\.answer_chips\)/],
+                            ['교재 첫 인사', /showAnswerChips\(kd\.answer_chips\)/], ['고른 질문', /showAnswerChips\(d\.answer_chips\)/]]) {
+    check(`${name} 뒤에 보기를 그린다`, re.test(HTML));
+  }
+  check('누르면 «평소 전송 경로»로 보낸다(콤보·마이크 정리가 갈라지지 않게)',
+    /function pickAnswer\(txt\)\{[\s\S]{0,260}sendMsg\(\)/.test(HTML.replace(/\n/g, '')));
+  check('내가 말하면 이전 보기는 걷는다', /ansCardClear\(\);\s*\/\/ 💬 내가 말했으니/.test(HTML));
+  check('보기 카드 제목에 data-ko·data-en 이 달려 있다(🌐 를 눌러도 따라온다)',
+    /ans-title[\s\S]{0,200}data-ko[\s\S]{0,200}data-en/.test(HTML));
+  // ⚠️ 「질문 추천」 카드는 «AI 가 물어볼 질문» 이다 — 옛 이름표가 «내 대답» 처럼 읽혀 새 카드와 겹쳤다
+  check('「질문 추천」 카드 이름표가 사실과 맞다', /골라 누르면 AI 가 이 질문을 해요/.test(HTML)
+    && !/💡 이 중에서 골라 대답해 보세요/.test(HTML));
+}
+
+console.log('\n[ J. 🇰🇷 낮은 단계 자동 뜻 — 탭하지 않아도 보이는가 ]');
+{
+  // 「뜻」 버튼은 초보가 있는 줄도 모른다. 다만 «듣기 훈련» 을 깨면 안 된다.
+  check('레벨 1~2 에서만 자동으로 연다', /if\(_warmLevel <= 2 && _subMode === 'on'\)\{/.test(HTML));
+  check('그 자리가 AI 말풍선 분기 안이다',
+    /mb\.onclick[\s\S]{0,700}_warmLevel <= 2 && _subMode === 'on'/.test(HTML));
+  check('자막이 「가리기·완전 끄기」면 열지 않는다(듣기 훈련 보호)',
+    /_subMode === 'on'\)\{\s*try\{ toggleMeaning/.test(HTML.replace(/\n\s*/g, ' ').replace(/ \{/g, '{')));
+  check('실패해도 대화가 멈추지 않는다(try/catch)',
+    /try\{ toggleMeaning\(text, mb, d\); \}catch\(e\)\{\}/.test(HTML));
 }
 
 console.log(`\n${'─'.repeat(60)}`);
