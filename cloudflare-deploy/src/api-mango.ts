@@ -1615,12 +1615,44 @@ export async function handleMangoApi(
           } catch {}
         }
       } else {
-        if (userId) { condsUid.push('cs.user_id = ?'); bindsUid.push(userId); }
+        if (userId) {
+          condsUid.push('cs.user_id = ?'); bindsUid.push(userId);
+          /* 🔤 (2026-08-27) 예약 행의 아이디는 표기가 어긋난 채 들어오기도 한다 — 실측: 같은 학생의
+             예약이 'Jjy2323'(수강신청 확정)과 'jjy2323' 두 표기로 나란히 존재했다. 로그인으로 확정된
+             uid 를 NOCASE 로 넓히는 것은 학생 로그인의 대소문자 무시 결정(2026-08-26 사장님)을 따르는
+             확장이다. ⚠️ 전제: 대소문자만 다른 두 계정이 «다른 사람»인 사례는 실측상 아직 없다
+             (Kim/kim·Lee/lee 전부 동일인 — CLAUDE.md 2장). 그런 사례가 생기면 이 줄부터 다시 보라. */
+          condsUid.push('LOWER(cs.user_id) = LOWER(?)'); bindsUid.push(userId);
+        }
         if (nameParam) {
           condsName.push('cs.student_name = ?'); bindsName.push(nameParam);
+          /* 🔑 (2026-08-27 실사고 — heyst 김사랑 · ubckt01 조연희) 로비 입력칸은 «아이디» 를 묻는데
+             («아이디·비밀번호만 입력하면…»), 이 폴백은 이름 칸(korean_name·username)만 대조했다.
+             그래서 비로그인 학생이 아이디를 치면 예약이 있어도 항상 「오늘 예약된 수업이 없어요」
+             → 공용방 폴백으로 흘러 강사와 영영 못 만났다(둘 다 그날 밤 수업 불성립).
+             아이디로도 찾는다 — 규칙은 학생 로그인과 동일(CLAUDE.md 2장 대소문자 항목):
+             ① 정확일치 우선 ② 대소문자만 다른 후보는 정확히 1건일 때만. 모르면 안 붙인다. */
           try {
-            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(nameParam, nameParam).all<any>();
-            for (const x of (rs.results || [])) { if (x.uid) { condsName.push('cs.user_id = ?'); bindsName.push(x.uid); } }
+            const rs2 = await env.DB.prepare(
+              `SELECT user_id, (user_id = ?) AS exact FROM students_erp WHERE user_id = ? COLLATE NOCASE OR login_id = ? COLLATE NOCASE`
+            ).bind(nameParam, nameParam, nameParam).all<any>();
+            const cand = (rs2.results || []).filter((x: any) => x.user_id);
+            const ex = cand.filter((x: any) => Number(x.exact) === 1);
+            const pick = ex.length ? ex : (cand.length === 1 ? cand : []);
+            // 예약 행 쪽 표기 어긋남(위 'Jjy2323' 실측)도 함께 구제 — 이미 계정 1건으로 확정된 뒤라 안전
+            for (const x of pick) { condsName.push('LOWER(cs.user_id) = LOWER(?)'); bindsName.push(x.user_id); }
+          } catch {}
+          /* ⚠️ 아래 «이름 → 계정» 구제는 2026-08-27 까지 없는 컬럼('stu_' || id)을 참조해
+             조용히 죽어 있었다(no such column: id → catch 가 삼킴) — 이름 구제의 실체는
+             cs.student_name 한 줄뿐이었다. SQL 을 고치되, 동명이인이 실재하므로(김민서 71명·
+             김민준 56명) **이름이 정확히 한 계정으로만 떨어질 때만** 잇는다. 둘 이상이면 남의
+             수업에 들어갈 수 있어 안 붙인다(cs.student_name 직접 일치는 기존대로 유지). */
+          try {
+            const rs = await env.DB.prepare(
+              `SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+            ).bind(nameParam, nameParam).all<any>();
+            const uids = Array.from(new Set((rs.results || []).map((x: any) => x.uid).filter(Boolean)));
+            if (uids.length === 1) { condsName.push('LOWER(cs.user_id) = LOWER(?)'); bindsName.push(uids[0]); }
           } catch {}
         }
       }
