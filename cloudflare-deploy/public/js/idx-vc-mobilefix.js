@@ -22,6 +22,8 @@
  *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
  *   ⑪ 교재를 넘기면 «지금 몇 과인지» 를 기록한다 — 교재를 과별로 다시 올리면
  *      진도가 저절로 따라간다(그 전엔 저장하는 코드가 저장소 전체에 0곳이었다).
+ *   ⑫ 공유 영상에 학생용 「일시정지」·「소리 끄기」 버튼 — 「소리 켜기」 는 한 번 누르면
+ *      사라져서 되끄기·멈추기가 아예 불가능했다(2026-08-27 사장님·Karl 테스트 제보).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -963,5 +965,143 @@
     }
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑫ 🎬 공유 영상에 학생용 「일시정지」·「소리 끄기」 버튼
+     ──────────────────────────────────────────────────────────────
+     [왜 필요한가] 강사가 공유한 영상은 학생 쪽 iframe 이 pointer-events:none 으로
+       잠겨 있다(2026-08-12 Melca 피드백 — 학생이 빨리감기로 수업을 건너뛰지 못하게).
+       그런데 「🔊 소리 켜기」 버튼이 한 번 누르면 스스로 사라지는(btn.remove) 구조라,
+       소리를 한 번 켜면 다시 끌 방법도, 영상을 멈출 방법도 화면에 하나도 없었다
+       (2026-08-27 사장님·Karl 테스트: 「계속 플레이하게 됩니다」).
+     [무엇을 다나] idx-main.js 의 vpAddSoundOverlay 를 감싸, 잠긴 시청자(학생)에게만
+       무대 오른쪽 아래에 작은 버튼 두 개를 얹는다 — [⏸/▶ 일시정지·재생] [🔇/🔊 소리].
+       둘 다 «내 화면에만» 적용된다(방에 아무것도 전송하지 않는다) — 재생 위치 이동(seek)은
+       여전히 막혀 있으므로 Melca 결정(강사만 제어)과 충돌하지 않는다.
+     ⚠️ 가운데 큰 「소리 켜기」 버튼은 그대로 둔다(첫 사용자 제스처가 필요해서 없앨 수 없다).
+        그 버튼이 소리를 켜면 우리 🔇 아이콘도 🔊 로 따라온다(onclick 을 한 겹 감쌈).
+     ⚠️ data-ko/data-en 을 달지 않는다 — i18n 엔진이 textContent 를 통째로 갈아끼워
+        아이콘이 문장으로 바뀐다(CLAUDE.md 2장). 설명은 title·aria-label 로만.
+     ⚠️ 아이콘은 ⏸(U+23F8, Unicode 7.0)·▶(U+25B6)·🔊(U+1F50A)·🔇(U+1F507) — 전부
+        Unicode 7 이하라 Win10 두부 표시 걱정이 없다(Unicode 13+ 금지 규칙).
+  ══════════════════════════════════════════════════════════════ */
+  (function () {
+    function viewerLocked() {
+      // vpLoadUrlRemote 의 _vpViewerLocked 판정과 같은 식 — 강사·관리자는 원래 컨트롤이 있다
+      try { return typeof window.vcCanControlTextbook === 'function' && !window.vcCanControlTextbook(); }
+      catch (e) { return false; }
+    }
+    function isEn() {
+      try { return typeof window.miIsEn === 'function' && window.miIsEn(); } catch (e) { return false; }
+    }
+    function ytCmd(stage, fn, args) {
+      var f = stage.querySelector('iframe');
+      if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: args || [] }), '*');
+    }
+    function vmCmd(stage, method, value) {
+      var f = stage.querySelector('iframe');
+      if (!(f && f.contentWindow)) return;
+      var m = { method: method };
+      if (value !== undefined) m.value = value;
+      f.contentWindow.postMessage(JSON.stringify(m), '*');
+    }
+    function fileEl(stage) { return stage.querySelector('video'); }
+
+    function attach(stage, kind) {
+      if (!stage || !viewerLocked()) return;
+      var old = stage.querySelector('.vp-viewer-ctrl');
+      if (old) old.remove();
+
+      var st = { muted: true, paused: false };   // 수신 영상은 음소거 자동재생으로 시작한다
+
+      var wrap = document.createElement('div');
+      wrap.className = 'vp-viewer-ctrl';
+      wrap.style.cssText = 'position:absolute;right:10px;bottom:14px;z-index:31;display:flex;gap:8px;';
+
+      function mkBtn() {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.style.cssText = 'width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.6);'
+          + 'color:#fff;font-size:17px;line-height:1;cursor:pointer;display:flex;align-items:center;'
+          + 'justify-content:center;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.4);';
+        return b;
+      }
+      var pauseBtn = mkBtn();
+      var muteBtn = mkBtn();
+
+      /* 설명은 title·aria 로만 — data-ko/data-en 은 textContent 를 갈아끼우니 금지.
+         data-ko-title/data-en-title·data-ko-aria/data-en-aria 는 두 i18n 엔진이 지원해
+         🌐 토글 때도 따라온다(상태가 바뀌는 라벨이라 paint 마다 함께 갱신). */
+      function setLabel(b, ko, en) {
+        b.setAttribute('data-ko-title', ko); b.setAttribute('data-en-title', en);
+        b.setAttribute('data-ko-aria', ko); b.setAttribute('data-en-aria', en);
+        var cur = isEn() ? en : ko;
+        b.title = cur; b.setAttribute('aria-label', cur);
+      }
+      function paint() {
+        pauseBtn.textContent = st.paused ? '▶' : '⏸';
+        if (st.paused) setLabel(pauseBtn, '다시 재생', 'Play');
+        else setLabel(pauseBtn, '일시정지', 'Pause');
+        muteBtn.textContent = st.muted ? '🔇' : '🔊';
+        if (st.muted) setLabel(muteBtn, '소리 켜기', 'Sound on');
+        else setLabel(muteBtn, '소리 끄기', 'Sound off');
+      }
+
+      function setPaused(p) {
+        st.paused = p;
+        try {
+          if (kind === 'youtube') ytCmd(stage, p ? 'pauseVideo' : 'playVideo');
+          else if (kind === 'vimeo') vmCmd(stage, p ? 'pause' : 'play');
+          else { var v = fileEl(stage); if (v) { if (p) v.pause(); else v.play().catch(function () {}); } }
+        } catch (e) {}
+        paint();
+      }
+      function setMuted(m) {
+        st.muted = m;
+        try {
+          if (kind === 'youtube') {
+            if (m) ytCmd(stage, 'mute');
+            else { ytCmd(stage, 'unMute'); ytCmd(stage, 'setVolume', [100]); if (!st.paused) ytCmd(stage, 'playVideo'); }
+          } else if (kind === 'vimeo') {
+            vmCmd(stage, 'setVolume', m ? 0 : 1);
+            if (!m && !st.paused) vmCmd(stage, 'play');
+          } else {
+            var v = fileEl(stage);
+            if (v) { v.muted = m; if (!m) { v.volume = 1; if (!st.paused) v.play().catch(function () {}); } }
+          }
+        } catch (e) {}
+        // 우리 버튼으로 소리를 켰으면 가운데 큰 「소리 켜기」 는 볼일이 끝났다
+        if (!m) { var big = stage.querySelector('.vp-sound-overlay'); if (big) big.remove(); }
+        paint();
+      }
+
+      pauseBtn.onclick = function () { setPaused(!st.paused); };
+      muteBtn.onclick = function () { setMuted(!st.muted); };
+
+      // 가운데 큰 「소리 켜기」 와 상태를 맞춘다 — 그쪽으로 켜도 🔇 → 🔊 로 따라오게
+      var big = stage.querySelector('.vp-sound-overlay');
+      if (big) {
+        var orig = big.onclick;
+        big.onclick = function () {
+          try { if (orig) orig.apply(this, arguments); } catch (e) {}
+          st.muted = false; paint();
+        };
+      }
+
+      wrap.appendChild(pauseBtn);
+      wrap.appendChild(muteBtn);
+      paint();
+      stage.appendChild(wrap);
+    }
+
+    var _ov = window.vpAddSoundOverlay;
+    if (typeof _ov === 'function') {
+      window.vpAddSoundOverlay = function (stage, kind) {
+        var r = _ov.apply(this, arguments);
+        try { attach(stage, kind); } catch (e) {}
+        return r;
+      };
+    }
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 준비됨'); } catch (e) {}
 })();
