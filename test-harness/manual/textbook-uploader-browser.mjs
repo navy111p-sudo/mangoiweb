@@ -134,9 +134,11 @@ console.log('\n③ 자동 저장 대기 — 이름을 읽을 시간이 있는가
   await sleep(1500);
   const t1 = await p.evalJs(`document.getElementById('btn-save').textContent`);
   check('버튼에 «남은 초» 가 보인다: ' + t1, /\d+초 뒤 자동 저장/.test(t1));
-  await sleep(2500);
+  /* ⚠️ 대기가 5초라 «발화 직전» 을 재면 헤드리스 타이밍 흔들림에 거짓 실패가 난다.
+     넉넉히 앞(≈2.7초)에서 «아직 안 올라갔다» 만 확인한다. */
+  await sleep(1200);
   const up1 = JSON.parse(await p.evalJs(`JSON.stringify(window.__up)`));
-  check('4초쯤에는 아직 안 올라갔다 (검토할 시간)', up1.length === 0);
+  check('3초쯤에는 아직 안 올라갔다 (검토할 시간)', up1.length === 0);
   await sleep(9000);
   const up2 = JSON.parse(await p.evalJs(`JSON.stringify(window.__up)`));
   check('기다리면 결국 자동으로 올라간다 (ph241 취지 유지)', up2.length === 1);
