@@ -149,7 +149,16 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <div class="dropzone" id="dropzone">
   <div class="dz-ico">📁</div>
   <div class="dz-title">교재 폴더를 여기로 드래그하세요</div>
-  <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원/마스터3/제1과/p001.pdf</code><br>
+  <!-- 📁 (2026-08-27) 예시를 «안전한 구조» 로 바꿨다.
+       그전 예시는 `다락원/마스터3/제1과/…` 였는데, 분류기는 교재명을 **2단계 폴더명**에서
+       가져오므로 그대로 따르면 교재 이름이 **「마스터3」** 가 된다. 그런데 콘텐츠 표
+       (zh_passage·zh_vocab·review_quizzes)와 라이브러리는 그 책을 다른 이름으로 부르고
+       있어서, 그 이름으로 올리면 중국어 퀴즈·진도 연결이 통째로 끊긴다
+       (CLAUDE.md 2장 · docs/중국어교재_과별_재업로드_절차_2026-08-26.md).
+       ⛔ 예시를 «출판사/교재/과» 3단계로 되돌리지 마세요 — 사람은 예시를 그대로 따릅니다. -->
+  <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원 중국어 마스터 3/제1과/p001.pdf</code><br>
+  <b style="color:#fcd34d">맨 위 폴더 이름이 그대로 «교재 이름»</b> 이 되고, 그 안의 폴더가 «과» 가 됩니다.<br>
+  <span style="opacity:.85">과 폴더는 <code style="font-size:10.5px">제1과</code> · <code style="font-size:10.5px">Unit 1</code> · <code style="font-size:10.5px">001</code> 다 됩니다.</span><br>
   PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) · 🗜 <b>ZIP 자동 풀기</b> 지원</div>
   <div class="dz-or">— 또는 —</div>
   <label class="dz-btn">📂 폴더 선택하기
@@ -174,6 +183,12 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <!-- 자동 분류 결과 -->
 <div class="classify-result" id="cr">
   <h2>🤖 AI 자동 분류 결과 <span class="badge">검토 후 저장</span></h2>
+  <!-- 💡 (2026-08-27) «고칠 수 있다» 는 것을 화면에 적는다 — 입력칸이 있는 줄 모르는 채
+       자동 저장을 기다리다 틀린 이름이 그대로 들어갔다. 자동 저장은 이 칸을 만지면 멈춘다. -->
+  <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:12.5px;line-height:1.6;color:#fcd34d;overflow:hidden">
+    💡 <b>교재명·레벨은 아래 칸에서 바로 고칠 수 있습니다.</b>
+    칸을 누르면 자동 저장이 <b>멈추고</b> 기다립니다 — 다 고친 뒤 [💾 라이브러리에 저장] 을 누르세요.
+  </div>
   <div id="cr-groups"></div>
   <div class="cr-actions">
     <button class="btn btn-cancel" id="btn-cancel">취소</button>
