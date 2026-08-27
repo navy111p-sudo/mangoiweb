@@ -1,8 +1,8 @@
 // 🌐 Mangoi Service Worker — PWA 오프라인 캐시 + 빠른 로딩
 // 버전 갱신 시 CACHE_NAME 의 숫자만 바꾸면 모든 사용자에게 즉시 새 버전 전파
 
-const CACHE_NAME = 'mangoi-20260813015745-fresh';
-const RUNTIME_CACHE = 'mangoi-20260813015745-fresh-rt';
+const CACHE_NAME = 'mangoi-20260827095512-fresh';
+const RUNTIME_CACHE = 'mangoi-20260827095512-fresh-rt';
 
 // 🔒 버전이 박힌 자산 전용 캐시 — 이름에 **배포 시각을 넣지 않는다**(2026-08-08).
 //   위 두 이름은 deploy.ps1 이 배포할 때마다 새 값으로 갈아끼우고, activate 가

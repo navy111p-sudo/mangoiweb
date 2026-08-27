@@ -105,7 +105,7 @@ VC_STICKY_UID = "on"
 #   ⚠️ [env.production.vars] 에도 같은 값이 있어야 운영에 적용됨.
 VC_STUDENT_ROOM_GATE = "off"
 # /admin/health "Last Deploy" tile identifier - auto-updated by fix-and-deploy.ps1
-BUILD_STAMP = "2026-08-13T18:22:16Z"
+BUILD_STAMP = "2026-08-27T09:55:12Z"
 # 📟 UptimeRobot 장애 웹훅 → 관리자 문자(SMS) 알림 (api-uptime.ts)
 #   UPTIME_HOOK_KEY: 웹훅 URL 의 ?key= 토큰(무단 호출 방지). OWNER_ALERT_PHONE: 문자 받을 번호.
 # 2026-08-07 key rotation DONE - the old shared keys were removed from this file.
@@ -214,7 +214,7 @@ ADMIN_2FA_DISABLED = "true"
 SINGLE_SESSION = "on"    # 🔒 동시접속 1세션(운영). 2026-08-08 켬. 문제 시 "off"+재배포로 즉시 원복
 VC_STICKY_UID = "on"   # 🔁 무중단 재연결 스위치(운영). 실측 후 'on'. 문제 시 'off'+재배포로 즉시 원복
 VC_STUDENT_ROOM_GATE = "off"   # 🚪 학생 공용방 차단(운영). ⛔ 실제 학생 예약이 6건뿐이라 켜면 대다수가 입장 불가. 예약 이관 후 'on'
-BUILD_STAMP = "2026-08-13T18:22:16Z"
+BUILD_STAMP = "2026-08-27T09:55:12Z"
 # 2026-08-07 key rotation DONE - the old shared keys were removed from this file.
 #   They had been committed here while this repo was PUBLIC, so they were rotated:
 #     PAYROLL_INGEST_KEY -> secret PAYROLL_INGEST_KEY_NEW   (cafe24 teacher-payroll-sync.sh / student-retention-sync.sh)
