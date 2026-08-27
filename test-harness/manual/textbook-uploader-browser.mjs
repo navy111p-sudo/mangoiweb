@@ -171,6 +171,52 @@ console.log('\n④ 사람이 교재명을 고칠 수 있는가');
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   ④-2 🔴 카운트다운 중에 «곧바로» 저장을 누르면 (분류 카드를 만지지 않고)
+   ═══════════════════════════════════════════════════════════════════════ */
+console.log('\n④-2 🔴 카드를 안 만지고 바로 [저장] — 진행률이 덮이지 않는가');
+/* `#btn-save` 는 `#cr-groups` 의 «형제» 라 focusin/input/change 가 안 걸린다. 그래서
+   그전에는 타이머가 계속 돌며 ① 「💾 저장 중… n/m」 진행률을 매초 덮고 ② 저장이 끝난 뒤에도
+   몇 초간 버튼이 «또 저장한다» 고 말했다(2026-08-27 trap-check 실측).
+   ⚠️ 업로드 응답을 «지연» 시켜야 그 구간이 보인다 — 즉시 응답하면 재현되지 않는다. */
+{
+  const p = await newPage();
+  await p.send('Runtime.enable'); await p.send('Page.enable');
+  await p.send('Page.navigate', { url: BASE + '/textbook-uploader.html' });
+  await sleep(2500);
+  await p.evalJs(`
+    window.__up = []; window.__alerts = [];
+    window.alert = function (m) { window.__alerts.push(String(m)); };
+    window.__of = window.fetch;
+    window.fetch = function (u, o) {
+      var url = String(u);
+      if (url.indexOf('/api/admin/textbook-files') >= 0 && o && o.method === 'POST') {
+        window.__up.push(o.body.get('name'));
+        return new Promise(function (res) { setTimeout(function () {
+          res(new Response(JSON.stringify({ ok: true, id: 1 }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        }, 1500); });
+      }
+      return window.__of.apply(window, arguments);
+    };
+    'ok'`);
+  await p.evalJs(MAKE(['BTS 2/001/a.JPG', 'BTS 2/001/b.JPG', 'BTS 2/002/c.JPG']));
+  await p.evalJs(`processFiles(window.__files)`);
+  await sleep(1600);
+  await p.evalJs(`document.getElementById('btn-save').click()`);
+  const seen = [];
+  for (let i = 0; i < 8; i++) {
+    await sleep(1000);
+    seen.push(JSON.parse(await p.evalJs(`JSON.stringify({ btn: document.getElementById('btn-save').textContent, timer: !!window._ph241Timer })`)));
+  }
+  check('저장을 누른 뒤 «자동 저장» 문구가 한 번도 안 나타난다',
+    !seen.some((s) => /자동 저장/.test(s.btn)));
+  check('카운트다운 타이머가 저장 시작과 함께 꺼진다', !seen.some((s) => s.timer));
+  const al = JSON.parse(await p.evalJs(`JSON.stringify(window.__alerts.map(function (a) { return a.split('\\n')[0]; }))`));
+  check('완료 알림이 한 번만 뜬다 (실측 ' + al.length + '건)', al.length === 1);
+  check('«저장할 교재가 없습니다» 가 안 뜬다', !al.some((m) => /저장할 교재가 없습니다/.test(m)));
+  await p.close();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    ⑤ 권한이 없을 때 «완료» 라고 말하지 않는다
    ═══════════════════════════════════════════════════════════════════════ */
 console.log('\n⑤ 403(권한 없음) — 정직하게 말하는가');

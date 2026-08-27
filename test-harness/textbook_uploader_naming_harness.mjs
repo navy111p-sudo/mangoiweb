@@ -41,6 +41,22 @@ const eq = (name, got, want) => check(`${name} → «${got}»`, got === want);
 
 console.log('📚 교재 업로더 이름 하니스 · ' + new Date().toISOString());
 
+/* ✂️ (2026-08-27) 검사 범위는 «길이» 로 자르지 않는다 — 그 사이에 줄이 들어가면
+   보장은 그대로인데 검사만 깨진다(CLAUDE.md 2장 「검사 범위를 «길이» 로 자르지 마세요」).
+   여는 중괄호부터 짝이 맞는 닫는 중괄호까지 잘라 «그 블록 안» 을 본다. */
+const blockAt = (src, anchor) => {
+  const i = src.indexOf(anchor);
+  if (i < 0) return '';
+  let j = src.indexOf('{', i);
+  if (j < 0) return '';
+  let depth = 0;
+  for (let k = j; k < src.length; k++) {
+    if (src[k] === '{') depth++;
+    else if (src[k] === '}') { depth--; if (depth === 0) return src.slice(i, k + 1); }
+  }
+  return src.slice(i);
+};
+
 const UP = read('cloudflare-deploy/public/textbook-uploader.html');
 check('교재 업로더 화면이 있다', UP.length > 0);
 
@@ -147,8 +163,23 @@ check('리스너를 한 번만 묶는다 (렌더마다 쌓이지 않게)', /wrap
       «저장이 안 됐다» 로 읽힌다. */
 check('이미 저장된 뒤에는 자동 트리거를 건너뛴다',
   /if \(!pendingGroups\.length \|\| btn\.disabled\)/.test(UP));
-check('❌ 취소가 카운트다운 타이머까지 끈다',
-  /_autoSaveCancelled = true;[\s\S]{0,200}clearInterval\(window\._ph241Timer\)/.test(UP));
+{
+  const cancelBlk = blockAt(UP, "document.getElementById('btn-cancel').onclick");
+  check('❌ 취소 핸들러를 오려 냈다', cancelBlk.length > 0);
+  check('❌ 취소가 카운트다운 타이머까지 끈다',
+    /_autoSaveCancelled = true/.test(cancelBlk) && /clearInterval\(window\._ph241Timer\)/.test(cancelBlk));
+}
+/* 🔴 (2026-08-27) `#btn-save` 는 `#cr-groups` 의 «형제» 라, 분류 카드를 만지지 않고 곧바로
+   [저장] 을 누르면 focusin/input/change 가 안 걸려 타이머가 계속 돈다 → 「💾 저장 중… n/m」
+   진행률을 매초 덮고, 저장이 끝난 뒤에도 몇 초간 «또 저장한다» 고 말한다(실측). */
+{
+  const saveBlk = blockAt(UP, "document.getElementById('btn-save').onclick");
+  check('💾 저장 핸들러를 오려 냈다', saveBlk.length > 0);
+  check('저장이 시작되면 카운트다운을 끈다 (진행률을 덮지 않게)',
+    /clearInterval\(window\._ph241Timer\)/.test(saveBlk));
+  check('카운트다운도 «저장 중»(btn.disabled)이면 손을 뗀다 (이중 방어)',
+    /window\._autoSaveCancelled \|\| btn\.disabled/.test(UP));
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    [F] 완료 알림이 «어디까지 갔는지» 를 말한다
@@ -159,9 +190,49 @@ console.log('\n[F] 📡 «내 PC» 와 «공용 자료실» 을 갈라 말하는
    알림을 닫는 순간 버튼이 되돌아가 아무도 못 읽었다. */
 check('완료 알림에 공용 자료실 결과를 적는다', /📡 공용 자료실: 새로 ' \+ srvOk/.test(UP));
 check('완료 알림에 저장한 «교재 이름» 을 적는다', /savedNames\.slice\(0, 6\)/.test(UP));
-check('공용 자료실에 한 장도 못 올렸으면 «완료» 라고 쓰지 않는다',
-  /srvOk === 0 && srvFail > 0[\s\S]{0,160}이 컴퓨터에만 저장되었습니다/.test(UP));
+{
+  // 「var head = (조건) ? A : B;」 한 문장만 잘라 본다 — 길이로 자르지 않는다
+  const headStmt = (UP.match(/var head = [\s\S]*?;\n/) || [''])[0];
+  check('완료 알림 머리글을 조건으로 정한다', /srvOk === 0 && srvFail > 0/.test(headStmt));
+  check('공용 자료실에 한 장도 못 올렸으면 «완료» 라고 쓰지 않는다',
+    /이 컴퓨터에만 저장되었습니다/.test(headStmt) && /'✅ 저장 완료!'/.test(headStmt));
+}
 check('건너뜀(중복)을 올린 것처럼 세지 않는다', /srvDup \? ' · 이미 있어 건너뜀 '/.test(UP));
+
+/* ═══════════════════════════════════════════════════════════════════════
+   [G] 화면 안내가 서로 반대를 말하지 않는가 (2026-08-27 trap-check 가 잡은 것)
+   ═══════════════════════════════════════════════════════════════════════ */
+console.log('\n[G] 🗣 한 화면이 «한 가지» 를 말하는가');
+/* [왜] 드롭존 예시와 팁 상자가 같은 것을 두고 반대를 말하고 있었다.
+     드롭존: 「과 폴더는 제1과 · Unit 1 · 001 다 됩니다」
+     팁 상자(8/26): 「⚠️ 숫자 폴더(001)는 유닛마다 다른 책으로 쪼개집니다 — 제1과 처럼 쓰세요」
+   사람은 위에 있는 쪽을 따르고, 하필 그 문구가 다락원 예시 바로 아래였다.
+   ⚠️ 주석은 벗겨 내고 본다 — 「왜 이렇게 적었나」 설명에 그 문구가 들어가면 자기 주석을 잡는다
+      (CLAUDE.md 2장 「부정 검사가 자기 주석 때문에 FAIL」). */
+{
+  const strip = (t) => t
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^[ \t]*\/\/.*$/gm, '');
+  const body = strip(UP);
+  check('드롭존이 «001 도 된다» 고 말하지 않는다',
+    !/<code[^>]*>001<\/code>\s*다 됩니다/.test(body) && !/001<\/code>\s*·?\s*다 됩니다/.test(body));
+  check('팁 상자의 «숫자 폴더는 쪼개진다» 경고가 그대로 있다 (8/26)',
+    /숫자 폴더\(<code>001<\/code>\)는 <b>유닛마다 다른 책<\/b>/.test(body));
+  check('팁 첫 줄이 «출판사 / 교재명 / 레슨 가장 정확» 이라고 말하지 않는다',
+    !/출판사 \/ 교재명 \/ 레슨<\/code> 구조로 정리하면 가장 정확/.test(body));
+  check('팁 첫 줄과 드롭존이 같은 규칙(«교재 이름을 맨 위 폴더»)을 말한다',
+    /<b>교재 이름을 맨 위 폴더<\/b>/.test(body) && /맨 위 폴더 이름이 그대로 «교재 이름»/.test(body));
+  /* ⚠️ 「다락원/마스터3/제1과」 가 파일에 «있는가» 로 묻지 마세요 — 팁 상자의 ⛔ 경고가
+        「이렇게 쓰지 마세요」라며 그 경로를 **일부러** 적습니다(멀쩡한 안내를 잡습니다).
+        물어야 할 것은 «사람이 따라 하는 예시»(드롭존)가 안전한 쪽인가입니다. */
+  const dzSub = (body.match(/<div class="dz-sub">[\s\S]*?<\/div>/) || [''])[0];
+  check('드롭존 예시 블록을 오려 냈다', dzSub.length > 0);
+  check('드롭존 예시가 «다락원 중국어 마스터 3/제1과» 다 (교재명이 안 바뀌는 구조)',
+    /다락원 중국어 마스터 3\/제1과/.test(dzSub) && !/다락원\/마스터3\/제1과/.test(dzSub));
+  check('분류 결과 카드가 «여기서 고칠 수 있다» 를 화면에 적는다',
+    /교재명·레벨은 아래 칸에서 바로 고칠 수 있습니다/.test(body));
+}
 
 console.log('\n' + '═'.repeat(60));
 console.log(`총 ${pass + fail}건 중 ✅ ${pass} 통과 / ❌ ${fail} 실패`);

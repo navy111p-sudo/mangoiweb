@@ -158,7 +158,8 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
        ⛔ 예시를 «출판사/교재/과» 3단계로 되돌리지 마세요 — 사람은 예시를 그대로 따릅니다. -->
   <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원 중국어 마스터 3/제1과/p001.pdf</code><br>
   <b style="color:#fcd34d">맨 위 폴더 이름이 그대로 «교재 이름»</b> 이 되고, 그 안의 폴더가 «과» 가 됩니다.<br>
-  <span style="opacity:.85">과 폴더는 <code style="font-size:10.5px">제1과</code> · <code style="font-size:10.5px">Unit 1</code> · <code style="font-size:10.5px">001</code> 다 됩니다.</span><br>
+  <span style="opacity:.85">과 폴더는 <code style="font-size:10.5px">제1과</code> · <code style="font-size:10.5px">Unit 1</code> 처럼 <b>낱말과 함께</b> 써 주세요.
+  숫자만(<code style="font-size:10.5px">001</code>) 이면 <b>유닛마다 다른 권</b>이 됩니다(아래 팁 참고).</span><br>
   PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) · 🗜 <b>ZIP 자동 풀기</b> 지원</div>
   <div class="dz-or">— 또는 —</div>
   <label class="dz-btn">📂 폴더 선택하기
@@ -312,7 +313,13 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
 <div class="tips">
   <b>💡 자동 분류 정확도를 높이는 팁</b><br>
-  • 폴더명에 <code>출판사 / 교재명 / 레슨</code> 구조로 정리하면 가장 정확합니다 — 예: <code>다락원/마스터3/제1과</code><br>
+  <!-- 📌 (2026-08-27) 이 줄이 «출판사 / 교재명 / 레슨 구조가 가장 정확» 이라고 말하고 있었다.
+       그런데 바로 아래 8/26 경고와 드롭존 예시는 «교재 이름을 맨 위 폴더로» 라고 말한다 —
+       한 화면이 서로 반대를 말하면 사람은 위에 있는 쪽을 따른다. 그래서 첫 줄을 아래 경고와
+       같은 규칙으로 맞췄다. ⛔ «출판사/교재명/레슨» 3단계 예시로 되돌리지 마세요 — 교재 이름이
+       2단계 폴더명으로 정해져 지금 쓰던 이름과 달라지고, 그 사정은 아래 ⛔ 줄에 적혀 있습니다. -->
+  • <b>교재 이름을 맨 위 폴더</b>로 두고 그 안에 <b>과 폴더</b>만 넣으면 가장 정확합니다 —
+  예: <code>다락원 중국어 마스터 3/제1과/…</code>(교재명 그대로 · 과도 인식됨)<br>
   <span style="color:#fca5a5">⛔ <b>이미 라이브러리에 있는 교재를 «다시» 올릴 때는 위 구조를 쓰지 마세요.</b>
   교재 이름이 <b>2단계 폴더명</b>으로 정해지므로 <code>다락원/마스터3/제1과</code> 는 교재명이
   <code>마스터3</code> 가 되어 <b>지금 쓰던 이름과 달라집니다</b> — 복습퀴즈·수업 연결이 조용히 끊깁니다.
@@ -925,7 +932,8 @@ function renderClassifyResult() {
 
   var ph241Left = 8;
   var ph241Tick = function () {
-    if (window._autoSaveCancelled) { ph241Stop('취소'); return; }
+    // btn.disabled = 저장이 도는 중 → 진행률 글자를 덮지 않도록 여기서도 손을 뗀다(이중 방어)
+    if (window._autoSaveCancelled || btn.disabled) { ph241Stop(btn.disabled ? '저장이 시작됨' : '취소'); return; }
     if (ph241Left > 0) {
       btn.textContent = '🤖 ' + ph241Left + '초 뒤 자동 저장 — 이름을 고치려면 위 칸을 누르세요';
       ph241Left--;
@@ -982,6 +990,17 @@ document.getElementById('btn-save').onclick = async () => {
   }
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
+  /* ⏱ (2026-08-27) 저장이 시작되면 ph241 카운트다운을 «그 자리에서» 끈다.
+     [왜] `#btn-save` 는 `#cr-groups` 의 **형제**라, 사람이 분류 카드를 만지지 않고 곧바로
+        [저장] 을 누르면 `focusin`/`input`/`change` 가 안 걸려 타이머가 계속 돈다. 그러면
+        ① 아래에서 쓰는 「💾 저장 중… n / m」 진행률을 매초 「🤖 N초 뒤 자동 저장」 이 덮어쓰고
+        ② 저장이 끝난 뒤에도 몇 초간 버튼이 «또 저장한다» 고 말한다(2026-08-27 실측:
+           t+3~6초 구간이 enabled + 「자동 저장」 문구).
+        ③ 그 상태에서 헷갈려 한 번 더 누르면 없애려던 «⚠️ 저장할 교재가 없습니다» 가 그대로 뜬다.
+     ⚠️ 타이머가 스스로 부른 click 은 이미 `clearInterval` 을 지난 뒤라 여기서 또 꺼도 무해하다.
+     (CLAUDE.md 2장 「완료 메시지를 띄웠는데 곧바로 사라짐 — 성공 뒤에 상태를 다시 읽는 코드」) */
+  window._autoSaveCancelled = true;
+  if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
 
   // 전체 파일 개수 계산
   let totalFiles = 0;
