@@ -148,8 +148,11 @@ check('⑫ 이모지가 전부 Unicode 13 미만이다 (Win10 두부 방지)', A
 check('⑬ 버튼이 손가락으로 누를 만하다 (40px 이상)', A.minSide >= 40, A.size);
 check('⑭ 폰 390px 에서 무대 밖으로 안 나간다', A.inside === true);
 
-/* ── B. 강사·관리자(잠기지 않은 사람)에게는 안 붙는다 ──────────────────────
-   원래 컨트롤이 있는 쪽이라 일부러 제외한 설계다. 되돌아가면 버튼이 두 벌 겹친다. */
+/* ── B. 강사·관리자(잠기지 않은 사람)에게도 붙는다 ─────────────────────────
+   2026-08-27 사장님 지시. 「원래 유튜브 컨트롤이 있다」는 이유로 빼 뒀지만, 폰에서는 그
+   컨트롤바가 하단 독(#vc-dock)에 가려 손이 닿지 않는다(제보 사진의 「0:49 / 4:12」).
+   ⚠️ 다만 그 화면에는 네이티브 컨트롤바가 실제로 깔려 있으므로 우리 버튼은 그 위로 비켜서야
+      한다 — 같은 자리에 두면 유튜브의 전체화면·설정 버튼을 덮어 새 사고를 만든다. */
 console.log('\n▶ B. 강사·관리자 화면');
 const B = await page.evaluate(async () => {
   window.vcCanControlTextbook = () => true;
@@ -160,15 +163,25 @@ const B = await page.evaluate(async () => {
   await new Promise((r) => { if (f.contentWindow) r(); else f.onload = r; setTimeout(r, 500); });
   f.contentWindow.postMessage = () => {};
   window.vpAddSoundOverlay(stage, 'youtube');
+  const bar = stage.querySelector('.vp-viewer-ctrl');
   const out = {
     ours: stage.querySelectorAll('.vp-viewer-ctrl').length,
     big: stage.querySelectorAll('.vp-sound-overlay').length,
+    btns: bar ? bar.querySelectorAll('button').length : 0,
+    bottom: bar ? getComputedStyle(bar).bottom : '',
   };
+  if (bar) {   // 네이티브 컨트롤바(바닥 ~40px)를 비켜섰는가 — 무대 바닥에서 얼마나 떠 있나
+    const br = bar.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    out.gapFromBottom = Math.round(sr.bottom - br.bottom);
+  }
   stage.remove();
   return out;
 });
-check('⑮ 잠기지 않은 사람에게는 우리 조작바를 안 붙인다 (원래 컨트롤이 있다)', B.ours === 0, B.ours + '개');
-check('⑯ 가운데 「소리 켜기」 알약은 그대로 둔다 (첫 제스처가 필요해 없앨 수 없다)', B.big === 1, B.big + '개');
+check('⑮ 강사·관리자에게도 조작바가 붙는다 (폰에서 유튜브 컨트롤이 독에 가린다)',
+  B.ours === 1 && B.btns === 2, '조작바 ' + B.ours + '개 / 버튼 ' + B.btns + '개');
+check('⑯ 그 화면에서는 네이티브 컨트롤바 위로 비켜선다 (전체화면·설정 버튼을 덮지 않게)',
+  B.gapFromBottom >= 40, '무대 바닥에서 ' + B.gapFromBottom + 'px (bottom=' + B.bottom + ')');
+check('⑰ 가운데 「소리 켜기」 알약은 그대로 둔다 (첫 제스처가 필요해 없앨 수 없다)', B.big === 1, B.big + '개');
 
 /* ── C. 파일 영상(mp4 등) — 진짜 muted 값이 오갔다 돌아오는가 ─────────────── */
 console.log('\n▶ C. 학생 화면 · 파일 영상');
@@ -187,10 +200,10 @@ const C = await page.evaluate(() => {
   stage.remove();
   return { n: btns.length, off, on, alive };
 });
-check('⑰ 파일 영상에도 버튼이 둘이다', C.n === 2, C.n + '개');
-check('⑱ 음소거를 껐다 켤 수 있다 (video.muted 가 실제로 오간다)', C.off === true && C.on === true,
+check('⑱ 파일 영상에도 버튼이 둘이다', C.n === 2, C.n + '개');
+check('⑲ 음소거를 껐다 켤 수 있다 (video.muted 가 실제로 오간다)', C.off === true && C.on === true,
   'off→' + C.off + ' / on→' + C.on);
-check('⑲ 버튼이 계속 살아 있다', C.alive === true);
+check('⑳ 버튼이 계속 살아 있다', C.alive === true);
 
 await browser.close();
 server.close();
