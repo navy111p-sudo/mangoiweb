@@ -496,8 +496,8 @@
       return '<tr><td>'+esc(d.center_name)+'</td><td>'+esc(d.contract_date)+'</td><td>'+esc(d.retention_due||'')+'</td>'
         + '<td class="row-actions">'
         + (STATE.canEdit
-            ? '<button class="btn ghost ret" data-id="'+d.id+'" data-v="1" type="button">유지됨</button>'
-              + '<button class="btn ghost ret" data-id="'+d.id+'" data-v="0" type="button">이탈</button>'
+            ? '<button class="btn ghost ret" data-id="'+d.id+'" data-rep="'+(d.rep_id||'')+'" data-v="1" type="button">유지됨</button>'
+              + '<button class="btn ghost ret" data-id="'+d.id+'" data-rep="'+(d.rep_id||'')+'" data-v="0" type="button">이탈</button>'
             : '<span class="muted">본사가 확인합니다</span>')
         + '</td></tr>'
         + (d.why ? '<tr><td colspan="4" class="why">'+esc(d.why)+'</td></tr>' : '');
@@ -1300,9 +1300,12 @@
     }).catch(function(){ btn.disabled=false; g('dl_msg').textContent='등록 실패(통신 오류)'; });
   }
 
-  function markRetention(id, v){
+  /* ⚠️ rep_id 는 «그 계약의 담당자»(행의 data-rep) — STATE.repId(드롭다운 선택)를 보내면
+     본사 화면에서 남의 계약을 확인하는 순간 계약·성과급이 선택된 담당자로 재배정된다.
+     서버도 유지-전용 페이로드는 유지 칸만 갱신하도록 막았지만(2026-08-27), 값 자체도 맞게. */
+  function markRetention(id, v, repId){
     api('/api/admin/sales/deals', { method:'POST', body: JSON.stringify({
-      id: Number(id), rep_id: STATE.repId, retained_3m: Number(v), retention_checked_at: todayISO()
+      id: Number(id), rep_id: Number(repId || STATE.repId), retained_3m: Number(v), retention_checked_at: todayISO()
     })}).then(function(){ load(); }).catch(function(){});
   }
 
@@ -1410,7 +1413,7 @@
     if(g('dl_save')) g('dl_save').addEventListener('click', saveDeal);
     bindRepForm();
     Array.prototype.forEach.call(document.querySelectorAll('.ret'), function(b){
-      b.addEventListener('click', function(){ markRetention(b.getAttribute('data-id'), b.getAttribute('data-v')); });
+      b.addEventListener('click', function(){ markRetention(b.getAttribute('data-id'), b.getAttribute('data-v'), b.getAttribute('data-rep')); });
     });
     fillLeadSelects();
   }

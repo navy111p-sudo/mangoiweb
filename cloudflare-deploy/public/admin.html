@@ -9734,7 +9734,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=172" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=173" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=172: 2026-08-26 요금 근거를 «배수가 1배여도 항상» 보여 주고(자동 금액은 대개 20분=1배라 안 보였다),
      등록 직후 카톡·CSV·워드가 서버가 준 «최종» 금액을 쓰게 함(폼 값은 곱하기 전 기준가)
    · v=171: 2026-08-26 수강신청 확정 패널에 «요금 근거» 줄 — 20분 기준가 × 수업 시간 배수.
@@ -10276,7 +10276,9 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
           <a href="/admin/postponed-classes" data-ko="⏸ 연기 수업 현황" data-en="⏸ Postponed Classes">⏸ 연기 수업 현황</a>
           <div class="th-user-popup-divider"></div>
           <a href="/admin/teacher-payroll" data-ko="🧾 강사 급여(자동)" data-en="🧾 Teacher Payroll">🧾 강사 급여(자동)</a>
-          <a href="/admin/sales-hr" data-ko="🚗 영업 실적·인사평가" data-en="🚗 Sales Performance">🚗 영업 실적·인사평가</a>
+          <!-- ⚠️ 반드시 .html 까지 — 확장자 없는 /admin/sales-hr 는 src/index.ts 재작성 목록에
+               없어 404 다(adm-ia6.js 215행의 경고와 같은 함정. 2026-08-27 실제로 죽은 링크였음) -->
+          <a href="/admin/sales-hr.html" data-ko="🚗 영업 실적·인사평가" data-en="🚗 Sales Performance">🚗 영업 실적·인사평가</a>
           <a href="/admin/retention" data-ko="🔁 수강권 만료·재활성" data-en="🔁 Retention">🔁 수강권 만료·재활성</a>
           <a href="/admin/duplicate-payments" data-ko="💸 이중결제 감사" data-en="💸 Duplicate Audit">💸 이중결제 감사</a>
           <a href="/admin/send-pay-link.html" data-ko="💳 결제 센터" data-en="💳 Payment Center">💳 결제 센터</a>

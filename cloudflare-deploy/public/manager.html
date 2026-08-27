@@ -84,6 +84,10 @@ html.dark .clk b{color:#e8eef5}
   font-family:inherit;white-space:nowrap;min-height:44px;
 }
 .tbtn:active{background:#eef1f5}
+/* ⚠️ .tbtn/.qlink 이 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다
+   (CLAUDE.md 「el.hidden 인데 그대로 보임」) — 본사 전용 링크(#toRoster 등)가
+   지사·대리점에게 첫 화면부터 보이던 원인. 이 한 줄이 안전망이다. */
+[hidden]{display:none !important}
 .tbtn-out{color:#8c1d18;border-color:#e6b3ae}
 .tbtn-out:active{background:#fdecea}
 @media (max-width:420px){
@@ -1454,6 +1458,10 @@ try{if(localStorage.getItem('mangoi_manager_theme')==='dark')document.documentEl
     if (D.live) paintLive();
     if (D.outage) paintOutage();
     if (D.bugs) paintBugs();
+    // 🗒 새로 붙은 두 구역도 언어를 따라간다 — 빠뜨리면 KO/EN 토글 뒤에도
+    //    「오늘 봐야 할 것」·「오늘 전체 수업」 만 옛 언어로 남는다(JS로 그린 라벨 함정).
+    try { paintTodo(); } catch (e) {}
+    if (D.todayAll) { try { paintTodayAll(); } catch (e) {} }
     // 🔔 배너 문구도 언어를 따라간다 / the reminder banner follows the language too
     try { if (window.__crbRepaint) window.__crbRepaint(); } catch (e) {}
   }

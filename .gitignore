@@ -43,8 +43,18 @@ dist-drycheck/
 *.prev-*.png
 *.prev-*.mp4
 
-# 게임 소스 미디어 원본 (56MB, 배포본은 public/ 아래 최적화본 사용)
+# 게임 소스 미디어 원본 (배포본은 public/ 아래 최적화본 사용)
+# ⚠️ 실제 폴더는 «리포 루트» game_image/ 다 — cloudflare-deploy/ 경로만 적혀 있어
+#    146MB 원본이 git status 를 계속 어지럽혔다(2026-08-27). 두 경로 다 막는다.
+game_image/
 cloudflare-deploy/game_image/
+# 배경제거용 파이썬 가상환경(611MB, pip 로 재생성 가능)·프레임 추출 중간산출물
+cloudflare-deploy/.venv-rembg/
+cloudflare-deploy/temp/
+# Mr.mango 원본 실사(6.6MB — build-mrmango-mask.py 입력, 로컬 보관)
+cloudflare-deploy/Mr.Mango실사.png
+# 삭제 대기 상자 (_trash_*/ 규칙과 이름이 달라 안 걸리던 것)
+_to_delete/
 cloudflare-deploy/menu_image/
 cloudflare-deploy/parent_icon_src/
 cloudflare-deploy/vocab_bg_src/
