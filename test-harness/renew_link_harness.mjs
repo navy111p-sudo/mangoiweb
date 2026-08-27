@@ -57,9 +57,13 @@ check('auth-token.ts 에 연장토큰 관련 코드가 없다',
 check('renew-link.ts 가 authUidFromRequest 를 쓰지 않는다 (권한이 서로 흘러들지 않게 단방향 유지)',
   !/authUidFromRequest/.test(linkC));
 
-console.log('\n[ B. 토큰이 통하는 곳은 «연장» 3개뿐이다 ]');
+console.log('\n[ B. 토큰이 통하는 곳은 «연장» 4개뿐이다 ]');
 const users = [...enrollC.matchAll(/resolveRenewToken\s*\(/g)].length;
-check('enroll-ops.ts 안에서만 3번 쓴다 (my-current · renew-link · renew-order)', users === 3, `실제 ${users}번`);
+// 2026-08-27 quote 추가 — RT(비로그인) 화면의 «표시 금액» 이 본사 기본가로 계산돼
+// 결제창 금액(renew-order 가 토큰 uid 로 계산)과 갈리던 것. 견적은 가격 숫자만 돌려주고
+// 개인정보·쓰기 권한이 없으므로 토큰 권한 확장이 아니다. 새 사용처를 또 늘리려면
+// 같은 기준(읽기 전용·연장 흐름 안)인지 여기서 다시 판단할 것.
+check('enroll-ops.ts 안에서만 4번 쓴다 (my-current · renew-link · renew-order · quote)', users === 4, `실제 ${users}번`);
 {
   // 다른 모듈이 몰래 가져다 쓰지 않는지 — src 전체를 훑는다
   const others = readdirSync(SRC).filter(f => f.endsWith('.ts') && f !== 'renew-link.ts' && f !== 'enroll-ops.ts')

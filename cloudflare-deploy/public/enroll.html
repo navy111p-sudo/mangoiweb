@@ -548,8 +548,10 @@ document.getElementById('navBack').addEventListener('click', function(){
   }
   function renewQuote(){
     if (!CUR || !CUR.renewable) return;
+    /* renew_token — RT(비로그인 문자 링크) 모드에선 uid 가 빈 값이라, 토큰을 함께 보내야
+       서버가 실제 uid 로 대리점 단가를 잡는다(안 보내면 본사 기본가가 표시돼 결제창 금액과 갈림) */
     fetch('/api/pay/enroll/quote', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ uid:UID||'', weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
+      body: JSON.stringify({ uid:UID||'', renew_token:RT||'', weekly:CUR.days.length, months:renewMonths, minutes:CUR.minutes, teacher_id:CUR.teacher_id }) })
       .then(function(r){return r.json();}).then(function(d){
         if (d && d.ok) {
           RENEW_AMT = Number(d.amount) || 0;
@@ -618,7 +620,22 @@ document.getElementById('navBack').addEventListener('click', function(){
      지금까지는 아무 설명 없이 신규 폼만 떠서 「자동결제가 왜 안 보이지?」가 됐다(사장님 제보).
      ⚠️ rt(문자 링크) 모드는 자체 안내가 이미 있으므로 건드리지 않는다. */
   function showNoRenewNote(){
-    if (RT) return;
+    if (RT) {
+      /* 문자 링크(renew-only) 모드는 다른 단계가 전부 감춰져 있어, 여기서 그냥 돌아가면
+         제목만 남는 «빈 화면» 이 된다 — 링크 자체는 유효한데 이어받을 요일·시간이 확실치
+         않은 경우(days/times_resolved 실패 등). 이유와 다음 길을 화면에 적는다. */
+      var st2 = el('stRenew');
+      if (st2 && st2.style.display !== 'block') {
+        st2.style.display = 'block';
+        st2.innerHTML = '<div style="font-size:13px;color:#cbd5e1;line-height:1.8;padding:6px 2px">'
+          + '🛈 <b>지금은 이 링크로 바로 연장할 수 없어요.</b><br>'
+          + '<span style="color:#94a3b8;font-size:12px">이어받을 요일·시간 정보가 바뀌었거나 확인이 필요한 상태예요. '
+          + '카카오 채널로 문의 주시면 바로 도와드릴게요.</span><br>'
+          + '<a href="https://pf.kakao.com/_xlqnSxd" target="_blank" rel="noopener" style="color:#fbbf24;font-weight:700;font-size:13px">💬 카카오 상담 열기 →</a>'
+          + '<a href="/" style="color:#94a3b8;font-size:12px;margin-left:12px">홈으로</a></div>';
+      }
+      return;
+    }
     var st = el('stRenew'); if (!st || st.style.display === 'block') return;
     var box = document.createElement('div');
     box.className = 'step';

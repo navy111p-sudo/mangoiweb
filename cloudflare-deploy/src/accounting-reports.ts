@@ -747,9 +747,16 @@ async function buildMonthly(env: Env, period: string) {
     const r = await env.DB.prepare(`
       SELECT trans_at, COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
       WHERE kind='out' AND COALESCE(category,'기타출금')='기타출금' AND substr(trans_at,1,7)=?
-      ORDER BY amount DESC LIMIT 30
+      ORDER BY amount DESC
     `).bind(period).all();
-    return (r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>;
+    /* 🧭 «분류가 필요한 출금» 목록 — DB 의 1차 분류(기타출금)를 그대로 보여 주면,
+       resolveExpenseAccount() 가 이미 계정과목을 붙인 행(지사수수료·지정표 등)까지 남아
+       머리숫자(unclassified_krw = 판정 후 잔여)보다 목록 합이 커진다 — 사장님이 방금
+       분류한 행이 «확인 필요» 목록에 계속 보이는 모양. 같은 판정을 거른 뒤 30건만 남긴다. */
+    const rules = await loadExpenseAccountRules(env);
+    return ((r.results || []) as Array<{ trans_at: string; remark: string; amount: number }>)
+      .filter(row => resolveExpenseAccount(rules, row.remark, '기타출금') === '기타출금')
+      .slice(0, 30);
   }, []);
   const unclassified = ax.bankRows.find(b => b.category === '기타출금');
   const unclassifiedTotal = Number(unclassified?.total) || 0;
@@ -2985,6 +2992,11 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
           ...(cardSpend > 0 ? [{ name: '법인카드 지출 (신한·실데이터)', amount: -cardSpend }] : []),
           ...bankOpexRows.map(b => ({ name: `계좌 출금 — ${b.category} (신한·실데이터)`, amount: -(Number(b.total) || 0) })),
           ...(bankDup > 0 ? [{ name: `※ 계좌 출금 중 급여이체·카드대금 ₩${bankDup.toLocaleString('ko-KR')} 은 강사급여·법인카드 항목과 중복이라 제외`, sub: true }] : []),
+          /* 📅 «실데이터 달 + 추정 달» 이 섞인 분기 — 추정 달의 10% 추정분은 합계(opCost)에는
+             들어 있는데 위 내역(전부 실데이터)에는 줄이 없어서 내역 합 ≠ 합계가 됐다.
+             그 차액을 줄로 밝힌다(내역 합이 합계와 1원도 안 어긋나게). */
+          ...(opCost - (cardSpend + bankOpex) > 0
+            ? [{ name: '운영비 추정분 (신한 자료가 없는 달 — 그 달 매출의 10% 추정)', amount: -(opCost - (cardSpend + bankOpex)) }] : []),
           { name: '판관비 합계', amount: -opCost, total: true },
         ] : [
           { name: '운영비 (서버·임대·기타, 추정 10%)', amount: -opCost },
@@ -3015,8 +3027,10 @@ async function statementReport(env: Env, url: URL, fmt: string): Promise<Respons
         ]}] : []),
       ],
       summary: { revenue: rev.revenue, cost: totalCost, net: netIncome, margin_pct: rev.revenue>0?Number(((netIncome/rev.revenue)*100).toFixed(2)):0,
-        // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정
-        opex_source: hasActual ? 'actual' : 'estimated', card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup,
+        // 운영비 출처 — actual = 신한 실지출(카드+계좌), estimated = 매출 10% 추정,
+        // mixed = 분기 안에 실데이터 달과 추정 달이 섞임(«전부 실데이터» 로 읽히면 안 된다)
+        opex_source: hasActual ? (opCost - (cardSpend + bankOpex) > 0 ? 'mixed' : 'actual') : 'estimated',
+        card_spend: cardSpend, bank_opex: bankOpex, bank_dup_excluded: bankDup,
         seed_excluded_krw: seedEx.amount, seed_excluded_count: seedEx.count,
         deposit_pg_krw: plCash.pg, revenue_gap_krw: plGap,
         cash_in_krw: plCash.cin, cash_out_krw: plCash.cout, cash_net_krw: plCash.cin - plCash.cout },

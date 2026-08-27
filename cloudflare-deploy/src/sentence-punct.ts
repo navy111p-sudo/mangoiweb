@@ -36,6 +36,13 @@ const QUOTE_PAIRS: Record<string, string> = { '"': '"', "'": "'", '“': '”', 
 /** 영어 의문문의 첫 낱말 — 여기에 걸리면 마침표가 아니라 물음표를 붙입니다. */
 const QUESTION_HEAD = /^(?:do|does|did|is|are|am|was|were|can|could|will|would|shall|should|may|might|must|have|has|had|what|what's|where|where's|when|who|whom|whose|why|how|which|aren't|isn't|don't|doesn't|didn't|can't|couldn't|won't|wouldn't|shouldn't|haven't|hasn't)\b/i;
 
+/** ⚠️ do·have 는 명령문 머리로도 온다 — «Have a great day» · «Do your homework».
+ *  바로 뒤가 주어스러운 낱말일 때만 의문문으로 확신하고(«Do you…» · «Have they…»),
+ *  아니면 이 모듈의 원칙대로 손대지 않는다(마침표를 «찍는» 쪽으로도 확신하지 않는다 —
+ *  «Have a great day.» 로 굳히는 것도 «?» 만큼은 아니지만 넘겨짚기다). */
+const AMBIG_Q_HEAD = /^(?:do|have)\s+(?:i|you|we|they|he|she|it|there|anyone|anybody|someone|somebody|everyone|everybody|nobody)\b/i;
+const AMBIG_HEAD = /^(?:do|have)\b/i;
+
 // 🇰🇷 한국어 종결어미 — 물음표 쪽을 «먼저» 봅니다(「맞나요」의 «요» 를 평서문으로 읽으면 안 됩니다).
 //    ⚠️ 확신이 서는 어미만 넣습니다. 「…단어는」 처럼 어느 쪽도 아니면 손대지 않는 것이 정답입니다.
 const KO_QUESTION_TAIL = /(?:까|죠|나요|가요|은가|는가|는지|ㄴ지|니|냐|을까|ㄹ까)$/u;
@@ -62,6 +69,7 @@ export function endsWithTerminalPunct(text: any): boolean {
 export function terminalMarkFor(text: any): '' | '.' | '?' {
   const t = String(text == null ? '' : text).trim();
   if (!t) return '';
+  if (AMBIG_HEAD.test(t)) return AMBIG_Q_HEAD.test(t) ? '?' : '';
   if (QUESTION_HEAD.test(t)) return '?';
   const last = String(Array.from(t).pop() || '');
   // 한글로 끝나면 한국어 어미로 판정 — 어느 쪽도 아니면 손대지 않습니다.
