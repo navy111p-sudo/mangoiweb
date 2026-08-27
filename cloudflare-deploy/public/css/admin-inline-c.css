@@ -9832,3 +9832,59 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
 #card-accounting-mgmt #c24fin-sortnote.c24fin-note-on {
   color: #b45309 !important; font-weight: 700 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   🎬 (2026-08-27) 녹화 관리 — 복합 필터 칩 (.rec-fchip)
+   ───────────────────────────────────────────────────────────────────────
+   [왜 여기에 있나] 옛 알약 넷(전체·정상·영상없음·기록없음)은 인라인 style 로
+   초록·주황·빨강을 적어 두었는데 화면에서는 **전부 같은 파란 알약**이었다.
+   이 파일 3319행 `details.menu-card button:not(…){background:인디고 !important;
+   padding:9px 18px !important}` 가 인라인을 이기기 때문이다(작성자 !important > 인라인).
+   그래서 어느 것이 켜져 있는지 눈으로 가릴 수 없었다 — 필터인데 상태가 안 보였다.
+
+   [특이성] 3319행은 (0,4,2). 아래 기본 규칙은 `button.rec-fchip` + :not() 5개 = (0,6,1)
+   이라 이긴다. 켜짐(.rec-on)·색조([data-tone])는 한 칸씩 더 세다.
+   9491행 「참관/직접 입장 버튼」 블록이 쓴 방식과 같다.
+
+   ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
+   ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면엔 안 나오는데 코드만 보면 나오는 줄 안다.
+   ⚠️ 색이 «켜짐/꺼짐» 을 지고 가므로 js/adm-light-surfaces.js 의 SKIP_SEL 에 함께 등재했다
+      (안 하면 페인터가 밝게 눌러 켜진 칩과 꺼진 칩이 똑같아진다 — .rm-act 와 같은 사정).
+   ═══════════════════════════════════════════════════════════════════════ */
+#card-recording-storage .rec-frow{
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center; min-height: 26px;
+}
+#card-recording-storage .rec-flabel{
+  font-size: 11px; font-weight: 800; color: #475467; letter-spacing: .2px;
+  min-width: 50px; line-height: 1.2; white-space: nowrap;
+}
+/* 꺼짐(기본) — 흰 바탕 + 색 테두리 */
+button.rec-fchip:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  padding: 4px 11px !important; border-radius: 14px !important;
+  font-size: 12px !important; font-weight: 700 !important; line-height: 1.5 !important;
+  cursor: pointer !important; background-image: none !important; box-shadow: none !important;
+  transform: none !important; background: #ffffff !important; color: #475467 !important;
+  border: 1px solid #d0d5dd !important;
+}
+button.rec-fchip[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  color: #15803d !important; border-color: #86efac !important;
+}
+button.rec-fchip[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  color: #b45309 !important; border-color: #fcd34d !important;
+}
+button.rec-fchip[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  color: #b91c1c !important; border-color: #fca5a5 !important;
+}
+/* 켜짐 — 채운 색 + 흰 글씨. 대비는 본문 4.5:1 이상이 되게 진한 값만 쓴다. */
+button.rec-fchip.rec-on:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  color: #ffffff !important; border-color: transparent !important; background: #334155 !important;
+}
+button.rec-fchip.rec-on[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  background: #15803d !important;
+}
+button.rec-fchip.rec-on[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  background: #b45309 !important;
+}
+button.rec-fchip.rec-on[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+  background: #b91c1c !important;
+}

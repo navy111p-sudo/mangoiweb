@@ -165,7 +165,7 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
   const ALLOW = {
     'api-admin.ts': '강사 1명의 하루치 room_id / 요일 폼(최대 7) — 하루 수업 수로 상한',
     'api-ai.ts': '바로 위 쿼리가 LIMIT 10',
-    'api-mango.ts': '학생 1명의 이름 후보 4개(student_name·korean_name·english_name·username)',
+    'api-mango.ts': '학생 1명의 이름 후보 4개(student_name·korean_name·english_name·username) · 녹화 상태 필터는 허용목록 6개 상한(목록/CSV 두 곳)',
     'index.ts': 'keys.slice(0, 50)',
     'd1-chunk.ts': '이 모듈 자신(주석 및 헬퍼 구현)',
     // 🪙 GAME_QUIZ_RULES 는 코드에 박힌 상수 배열(현재 7개)이라 사용자 입력으로 늘지 않는다.

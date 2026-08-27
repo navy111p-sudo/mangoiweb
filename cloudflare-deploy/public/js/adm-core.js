@@ -812,10 +812,20 @@ async function loadStudentRankings() {
 
 // 통합 녹화 목록 상태 (필터링을 위해 전역 보관)
 var _unifiedRecRows = [];
-var _currentRecFilter = 'all';
+/* 🔀 복합 필터 (2026-08-27) — 세 축을 동시에 건다.
+     한 축 «안» 은 OR(여럿 중 하나라도) · 축 «끼리» 는 AND(모두 만족).
+     비어 있는 축 = 조건 없음(그 축은 안 거른다).
+   ⚠️ 거르는 자리가 다르다 —
+     · _recQuery.status : D1 컬럼이라 **서버**에서 거른다(콤마로 보낸다) → 총 건수·페이지가 정확.
+     · _recSourceSel    : R2 목록과 대조해야 알 수 있어 **받아 온 페이지 안에서** 거른다.
+     · _recPartSel      : 두 점수의 파생값이라 역시 **페이지 안에서** 거른다.
+     그래서 요약줄(#rec-cond-summary)이 «현재 페이지 N건 중 M건» 이라고 말한다.
+     이 문구를 지우면 다음 페이지에 더 있는 것을 «없다» 로 읽게 된다. */
+var _recSourceSel = [];   // 'both' | 'd1only' | 'orphan'
+var _recPartSel   = [];   // 'high'(80+) | 'mid'(50~79) | 'low'(<50) | 'na'(미집계)
 
 // 🔎 녹화 검색·페이지네이션 상태 (Phase 3)
-var _recQuery  = { q: '', date_from: '', date_to: '', status: 'all' };
+var _recQuery  = { q: '', date_from: '', date_to: '', status: [] };  // status 는 «배열» (복합 필터)
 var _recOffset = 0;
 var _recLimit  = 50;
 var _recTotal  = 0;
@@ -826,7 +836,8 @@ function _buildRecordingsURL() {
   if (_recQuery.q)         p.set('q',         _recQuery.q);
   if (_recQuery.date_from) p.set('date_from', _recQuery.date_from);
   if (_recQuery.date_to)   p.set('date_to',   _recQuery.date_to);
-  if (_recQuery.status && _recQuery.status !== 'all') p.set('status', _recQuery.status);
+  // 상태는 콤마로 여러 개 — 서버가 IN (...) 으로 받는다(api-mango.ts GET /api/recordings)
+  if (_recQuery.status && _recQuery.status.length) p.set('status', _recQuery.status.join(','));
   p.set('limit',  String(_recLimit));
   p.set('offset', String(_recOffset));
   return '/api/recordings?' + p.toString();
@@ -1001,11 +1012,85 @@ function renderRecordingsPagination() {
   next.disabled = _recOffset + _recLimit >= _recTotal;
 }
 
+/* 총 참여도 — 시선·말하기의 평균. 한쪽만 있으면 그쪽 값. 둘 다 없으면 null(=미집계).
+   ⚠️ 정본은 이 함수 하나다. 표 셀과 «참여도 필터» 가 같은 값을 봐야
+      「80% 이상으로 걸렀는데 79.9 가 보인다」 같은 어긋남이 안 생긴다. */
+function _recParticipation(r) {
+  const num = v => (v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+  const gn = num(r && r.gaze_score), sn = num(r && r.speaking_score);
+  if (gn === null && sn === null) return null;
+  if (gn === null) return sn;
+  if (sn === null) return gn;
+  return (gn + sn) / 2;
+}
+// 참여도 밴드 — 표의 색 구간(80/50)과 «같은 경계» 를 쓴다(partCell 참고)
+function _recPartBand(p) {
+  if (p === null) return 'na';
+  return p >= 80 ? 'high' : (p >= 50 ? 'mid' : 'low');
+}
+
+/* 복합 필터 적용 — 축 «끼리» 는 AND, 축 «안» 은 OR. 빈 축은 안 거른다.
+   (상태 축은 서버가 이미 걸러서 왔으므로 여기서 또 안 본다.) */
+function _recApplyClientFilters(rows) {
+  const statusOn = !!(_recQuery.status && _recQuery.status.length);
+  return (rows || []).filter(r => {
+    /* 🧭 «고아»(R2 에만 있는 파일)는 D1 기록이 없어 상태 자체가 없다.
+       그런데 그 행은 서버 조회를 안 거치고 화면에서 붙이므로, 손대지 않으면
+       「상태: 완료」로 걸러도 목록에 그대로 남는다(실측으로 그랬다 — 13건 중 5건이 고아).
+       상태를 고른 사람에게 «상태가 없는 행» 을 섞어 주면 필터가 고장난 것으로 보인다.
+       찾는 길은 그대로 있다 — 스토리지의 «⚠️ 기록 없음» 칩(상태 칩은 끄고). */
+    if (statusOn && r.source === 'orphan') return false;
+    if (_recSourceSel.length && _recSourceSel.indexOf(r.source) < 0) return false;
+    if (_recPartSel.length && _recPartSel.indexOf(_recPartBand(_recParticipation(r))) < 0) return false;
+    return true;
+  });
+}
+
+// 지금 걸린 조건을 «사람 말» 로 요약 — 무엇이 걸려 있는지, 어디까지 거른 것인지 함께 적는다
+function renderRecordingsCondSummary(pageCount, shownCount) {
+  const el = document.getElementById('rec-cond-summary');
+  if (!el) return;
+  const en = adminLang === 'en';
+  const label = (sel, dict) => sel.map(k => dict[k]).join(', ');
+  const parts = [];
+  if (_recQuery.status && _recQuery.status.length) parts.push((en ? 'Status: ' : '상태: ') + label(_recQuery.status, en
+    ? { completed:'Done', recording:'Recording', upload_failed:'Upload failed', aborted:'Aborted', deleted:'Deleted' }
+    : { completed:'완료', recording:'녹화중', upload_failed:'저장 실패', aborted:'중단', deleted:'삭제됨' }));
+  if (_recSourceSel.length) parts.push((en ? 'Storage: ' : '스토리지: ') + label(_recSourceSel, en
+    ? { both:'Healthy', d1only:'Video missing', orphan:'Record missing' }
+    : { both:'정상', d1only:'영상 없음', orphan:'기록 없음' }));
+  if (_recPartSel.length) parts.push((en ? 'Engagement: ' : '참여도: ') + label(_recPartSel, en
+    ? { high:'80%+', mid:'50-79%', low:'Under 50%', na:'No score' }
+    : { high:'80% 이상', mid:'50~79%', low:'50% 미만', na:'미집계' }));
+  if (_recQuery.q)  parts.push((en ? 'Search: ' : '검색: ') + _recQuery.q);
+  if (_recQuery.date_from || _recQuery.date_to) parts.push((_recQuery.date_from || '…') + ' ~ ' + (_recQuery.date_to || '…'));
+
+  if (!parts.length) {
+    el.textContent = en ? 'No filters — showing everything on this page' : '조건 없음 — 이 페이지 전체를 봅니다';
+    el.style.color = '#667085';
+    return;
+  }
+  /* ⚠️ «이 페이지 안에서 걸렀다» 는 사실을 반드시 함께 적는다.
+        스토리지·참여도는 서버가 모르는 축이라 다음 페이지에 더 있을 수 있는데,
+        건수만 적으면 그것을 «전부» 로 읽는다. */
+  const clientSide = _recSourceSel.length || _recPartSel.length;
+  let tail;
+  if (clientSide) {
+    tail = en
+      ? ('  ·  ' + shownCount + ' of ' + pageCount + ' on this page (Storage/Engagement are filtered within the loaded page only)')
+      : ('  ·  현재 페이지 ' + pageCount + '건 중 ' + shownCount + '건 (스토리지·참여도는 «받아 온 페이지 안에서만» 거릅니다)');
+  } else {
+    tail = en ? ('  ·  ' + shownCount + ' shown') : ('  ·  ' + shownCount + '건');
+  }
+  el.textContent = (en ? 'Filters: ' : '조건: ') + parts.join('  ·  ') + tail;
+  el.style.color = '#b45309';
+}
+
 function renderRecordingsTable() {
   const tb = document.getElementById('recordings-table');
   const rows = _unifiedRecRows || [];
-  const filter = _currentRecFilter || 'all';
-  const filtered = filter === 'all' ? rows : rows.filter(r => r.source === filter);
+  const filtered = _recApplyClientFilters(rows);
+  renderRecordingsCondSummary(rows.length, filtered.length);
 
   // 카운트 배지 업데이트
   const cBoth = rows.filter(r => r.source === 'both').length;
@@ -1125,14 +1210,6 @@ function renderRecordingsTable() {
       if (r.speaking_zero_count > 0) return '참여자 ' + r.speaking_zero_count + '명이 마이크 OFF 또는 무발화 (임계값 미만)';
       return '집계 대기 중';
     }
-    function calcParticipation(g, s) {
-      const gn = (g === null || g === undefined || isNaN(Number(g))) ? null : Number(g);
-      const sn = (s === null || s === undefined || isNaN(Number(s))) ? null : Number(s);
-      if (gn === null && sn === null) return null;
-      if (gn === null) return sn;
-      if (sn === null) return gn;
-      return (gn + sn) / 2;
-    }
     function partCell(p) {
       if (p === null) return '<td class="score-cell score-na">—</td>';
       // 80 이상=녹색, 50~79=노랑, 그 미만=빨강
@@ -1143,7 +1220,7 @@ function renderRecordingsTable() {
     const speakTooltip = (r.speaking_score === null || r.speaking_score === undefined) ? speakingNullReason(r) : null;
     const gazeCell    = '<td class="score-cell">' + fmtScore(r.gaze_score, gazeTooltip) + '</td>';
     const speakCell   = '<td class="score-cell">' + fmtScore(r.speaking_score, speakTooltip) + '</td>';
-    const partValue   = calcParticipation(r.gaze_score, r.speaking_score);
+    const partValue   = _recParticipation(r);   // 정본은 위 _recParticipation — 필터와 같은 값을 봐야 한다
     const partCellHtml = partCell(partValue);
 
     return '<tr>'
@@ -1163,52 +1240,98 @@ function renderRecordingsTable() {
   }).join('');
 }
 
-// 필터 버튼 바인딩 (+ "전체" 버튼은 토글 — 열림/닫힘)
-document.addEventListener('click', function(ev) {
-  const btn = ev.target.closest('.rec-filter');
-  if (!btn) return;
-  const filter = btn.getAttribute('data-filter') || 'all';
+/* ═══ 🔀 복합 필터 칩 바인딩 (2026-08-27) ═══════════════════════════════
+   [무엇이 바뀌었나] 예전에는 알약 넷이 «하나만 골라지는» 라디오였다. 이제 칩마다
+     따로 켜고 끌 수 있고, 세 축(스토리지·상태·참여도)이 동시에 걸린다.
+   [어디서 거르나] 상태만 서버(재조회) · 나머지 둘은 화면(즉시 다시 그리기).
+     그래서 상태 칩을 누르면 첫 페이지로 돌아가고, 나머지는 페이지를 유지한다.
+   ⚠️ 「전체」 칩은 «필터» 가 아니라 예전부터 목록 열기/닫기 토글이었다(툴팁도 그렇게 적혀 있다).
+      그 동작을 그대로 두고, 여는 김에 스토리지 조건만 비운다.
+   ⛔ 칩 색을 여기서 인라인으로 칠하지 말 것 — `details.menu-card button{…!important}` 에
+      먹혀 화면엔 안 나온다. 켜짐 표시는 .rec-on 클래스만 붙이고 색은 CSS 가 정한다. */
 
-  // 🔓 "전체" 버튼 — 토글 동작 (열림/닫힘)
-  if (filter === 'all') {
-    const promptEl = document.getElementById('rec-prompt-empty');
-    const tableWrap = document.getElementById('rec-table-wrap');
-    const isOpen = tableWrap && tableWrap.style.display !== 'none';
+// 칩 화면 상태 = 데이터 상태. 그릴 때마다 세 축을 한 번에 다시 입힌다.
+function _recSyncChipUI() {
+  document.querySelectorAll('#rec-filters .rec-fchip').forEach(function (b) {
+    const f = b.getAttribute('data-filter');
+    const st = b.getAttribute('data-status');
+    const pt = b.getAttribute('data-part');
+    let on = false;
+    if (f && f !== 'all') on = _recSourceSel.indexOf(f) >= 0;
+    else if (st)          on = (_recQuery.status || []).indexOf(st) >= 0;
+    else if (pt)          on = _recPartSel.indexOf(pt) >= 0;
+    b.classList.toggle('rec-on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function _recToggleIn(arr, v) {
+  const i = arr.indexOf(v);
+  if (i >= 0) arr.splice(i, 1); else arr.push(v);
+  return arr;
+}
+
+// 목록이 닫혀 있으면 열고 «로드가 필요한지» 를 돌려준다 (열기 로직이 세 곳에 흩어지지 않게 한곳으로)
+function _recEnsureOpen() {
+  const wrap = document.getElementById('rec-table-wrap');
+  const prompt = document.getElementById('rec-prompt-empty');
+  const wasClosed = !wrap || wrap.style.display === 'none';
+  if (wrap) wrap.style.display = '';
+  if (prompt) prompt.style.display = 'none';
+  return wasClosed;
+}
+
+document.addEventListener('click', function (ev) {
+  const btn = ev.target.closest('#rec-filters .rec-fchip, #rec-cond-clear');
+  if (!btn) return;
+
+  // ── 조건 초기화 — 세 축을 모두 비운다. 목록은 «닫지 않는다» ──
+  if (btn.id === 'rec-cond-clear') {
+    const hadStatus = !!(_recQuery.status && _recQuery.status.length);
+    _recSourceSel = []; _recPartSel = []; _recQuery.status = [];
+    _recSyncChipUI();
+    if (hadStatus) { _recOffset = 0; if (typeof loadRecordings === 'function') loadRecordings(); }
+    else renderRecordingsTable();
+    return;
+  }
+
+  const f = btn.getAttribute('data-filter');
+  const st = btn.getAttribute('data-status');
+  const pt = btn.getAttribute('data-part');
+
+  // ── 「전체」 = 목록 열기/닫기 토글 (예전 동작 유지) + 스토리지 조건 비우기 ──
+  if (f === 'all') {
+    const wrap = document.getElementById('rec-table-wrap');
+    const prompt = document.getElementById('rec-prompt-empty');
+    const isOpen = wrap && wrap.style.display !== 'none';
     if (isOpen) {
-      // 현재 열림 → 닫기
-      if (tableWrap) tableWrap.style.display = 'none';
-      if (promptEl) promptEl.style.display = '';
-      btn.classList.remove('active');
-      btn.style.background = '#fff';
-      btn.style.color = '#111827';
+      if (wrap) wrap.style.display = 'none';
+      if (prompt) prompt.style.display = '';
       return;
     }
-    // 닫힘 → 열기 + 전체 데이터 로드
-    if (tableWrap) tableWrap.style.display = '';
-    if (promptEl) promptEl.style.display = 'none';
+    _recSourceSel = [];
+    _recEnsureOpen();
+    _recSyncChipUI();
+    if (typeof loadRecordings === 'function') loadRecordings();
+    return;
   }
 
-  _currentRecFilter = filter;
-  document.querySelectorAll('.rec-filter').forEach(b => {
-    b.classList.remove('active');
-    b.style.background = '#fff';
-    b.style.color = '#111827';
-  });
-  btn.classList.add('active');
-  btn.style.background = '#111827';
-  btn.style.color = '#fff';
-
-  // 필터 (정상 / 영상 없음 / 기록 없음) 클릭 시 — 자동 열고 데이터 로드
-  const tableWrap2 = document.getElementById('rec-table-wrap');
-  if (tableWrap2 && tableWrap2.style.display === 'none') {
-    tableWrap2.style.display = '';
-    const promptEl2 = document.getElementById('rec-prompt-empty');
-    if (promptEl2) promptEl2.style.display = 'none';
-    if (typeof loadRecordings === 'function') { loadRecordings(); return; }
+  // ── 상태 = 서버 축 ── 조건이 바뀌면 첫 페이지부터 다시 (건수·페이지도 함께 맞아야 한다)
+  if (st) {
+    _recQuery.status = _recToggleIn((_recQuery.status || []).slice(), st);
+    _recSyncChipUI();
+    _recOffset = 0;
+    _recEnsureOpen();
+    if (typeof loadRecordings === 'function') loadRecordings();
+    return;
   }
 
-  // 데이터가 비어있으면 한 번 로드, 아니면 즉시 다시 렌더
-  if (!_unifiedRecRows || _unifiedRecRows.length === 0) {
+  // ── 스토리지·참여도 = 화면 축 ── 받아 온 페이지 안에서 즉시 다시 그린다
+  if (f) _recSourceSel = _recToggleIn(_recSourceSel, f);
+  if (pt) _recPartSel  = _recToggleIn(_recPartSel,  pt);
+  _recSyncChipUI();
+  const needLoad = _recEnsureOpen();
+  if (needLoad || !_unifiedRecRows || _unifiedRecRows.length === 0) {
     if (typeof loadRecordings === 'function') loadRecordings();
   } else {
     renderRecordingsTable();
@@ -1220,7 +1343,9 @@ document.addEventListener('click', function(ev) {
   const qEl        = document.getElementById('rec-q');
   const dfEl       = document.getElementById('rec-date-from');
   const dtEl       = document.getElementById('rec-date-to');
-  const statusEl   = document.getElementById('rec-status-2');   // 녹화 상태 필터(전체/종료/녹화중/중단/삭제) — #rec-status 는 영업본부 폼이라 오작동했음
+  /* ⚠️ 상태는 예전의 <select id="rec-status-2"> 가 아니라 «상태 칩» 이 정본이다(2026-08-27).
+        두 벌로 두면 어느 쪽이 이기는지 갈려 «골랐는데 안 걸리는» 상태가 남는다.
+        (옛 select 는 값이 ended/aborted… 였는데 DB 엔 ended 행이 0건이라 늘 빈 표였다.) */
   const pageSizeEl = document.getElementById('rec-pagesize');
   const applyBtn   = document.getElementById('rec-apply');
   const resetBtn   = document.getElementById('rec-reset');
@@ -1231,7 +1356,7 @@ document.addEventListener('click', function(ev) {
     _recQuery.q         = (qEl && qEl.value || '').trim();
     _recQuery.date_from = (dfEl && dfEl.value || '');
     _recQuery.date_to   = (dtEl && dtEl.value || '');
-    _recQuery.status    = (statusEl && statusEl.value || 'all');
+    // status 는 칩이 정하므로 여기서 건드리지 않는다 (검색은 «다른 축» 이다 — 함께 AND 로 걸린다)
     _recLimit  = parseInt((pageSizeEl && pageSizeEl.value) || '50', 10) || 50;
     _recOffset = 0; // 검색 변경 시 첫 페이지로
     loadRecordings();
@@ -1242,8 +1367,11 @@ document.addEventListener('click', function(ev) {
     if (qEl)        qEl.value = '';
     if (dfEl)       dfEl.value = '';
     if (dtEl)       dtEl.value = '';
-    if (statusEl)   statusEl.value = 'all';
     if (pageSizeEl) pageSizeEl.value = '50';
+    // 「초기화」는 검색어·날짜뿐 아니라 켜 둔 칩 세 축도 함께 비운다
+    // (한쪽만 지우면 «초기화했는데 여전히 안 나오는» 상태가 된다)
+    _recSourceSel = []; _recPartSel = []; _recQuery.status = [];
+    if (typeof _recSyncChipUI === 'function') _recSyncChipUI();
     applyCurrent();
   });
   // 엔터키로 검색
@@ -9758,11 +9886,23 @@ async function seedDemoTeachers() {
 
 // 📥 Phase 6: CSV 다운로드 (window.location 으로 GET 다운로드 — Authorization 자동 첨부됨)
 function exportRecordingsCSV() {
+  /* ⚠️ 서버가 모르는 축(스토리지·참여도)은 CSV 에 안 걸린다 — 조용히 빼면
+        「걸러서 받은 줄 알았는데 다 들어 있는」 파일을 손으로 다시 걸러야 한다.
+        못 하는 것은 못 한다고 «미리» 말한다. */
+  if (_recSourceSel.length || _recPartSel.length) {
+    const en = adminLang === 'en';
+    const ok = confirm(en
+      ? 'CSV keeps the search / date / status filters, but NOT Storage or Engagement\n(the server does not know those two — they are computed on screen).\n\nDownload anyway?'
+      : 'CSV 에는 검색어·날짜·상태만 적용됩니다. «스토리지»·«참여도» 는 빠집니다\n(그 둘은 서버가 모르는 축이라 화면에서 계산합니다).\n\n그대로 받으시겠습니까?');
+    if (!ok) return;
+  }
   const p = new URLSearchParams();
   if (_recQuery.q)         p.set('q',         _recQuery.q);
   if (_recQuery.date_from) p.set('date_from', _recQuery.date_from);
   if (_recQuery.date_to)   p.set('date_to',   _recQuery.date_to);
-  if (_recQuery.status && _recQuery.status !== 'all') p.set('status', _recQuery.status);
+  // ⚠️ 화면과 «같은» 조건이어야 한다 — 한쪽만 고치면 보이는 것과 받는 것이 달라진다.
+  //    다만 스토리지·참여도는 서버가 모르는 축이라 CSV 에는 안 걸린다(아래 안내로 알린다).
+  if (_recQuery.status && _recQuery.status.length) p.set('status', _recQuery.status.join(','));
   const url = '/api/admin/export/recordings.csv' + (p.toString() ? '?' + p.toString() : '');
   window.open(url, '_blank');
 }

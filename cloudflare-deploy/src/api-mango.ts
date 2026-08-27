@@ -1251,7 +1251,11 @@ export async function handleMangoApi(
       const qSearch  = (url.searchParams.get('q') || '').trim();
       const dateFrom = url.searchParams.get('date_from');
       const dateTo   = url.searchParams.get('date_to');
-      const statusF  = url.searchParams.get('status');
+      /* 상태는 화면과 «같은 규칙» 으로 여러 개를 받는다 — 한쪽만 고치면
+         화면에 보이는 것과 CSV 가 달라진다(허용목록은 GET /api/recordings 와 동일). */
+      const CSV_REC_STATUSES = ['completed', 'recording', 'upload_failed', 'aborted', 'deleted', 'ended'];
+      const statusFList = Array.from(new Set(String(url.searchParams.get('status') || '')
+        .split(',').map(s => s.trim()).filter(s => s && s !== 'all' && CSV_REC_STATUSES.indexOf(s) >= 0)));
       const where: string[] = [];
       const binds: any[] = [];
       if (qSearch) {
@@ -1267,7 +1271,10 @@ export async function handleMangoApi(
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { where.push('r.started_at <= ?'); binds.push(ms); }
       }
-      if (statusF && statusF !== 'all') { where.push('r.status = ?'); binds.push(statusF); }
+      if (statusFList.length) {
+        where.push('r.status IN (' + statusFList.map(() => '?').join(',') + ')');
+        binds.push(...statusFList);
+      }
       const whereSQL = where.length ? 'WHERE ' + where.join(' AND ') : '';
       const sql = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.started_at, r.ended_at,
                           r.duration_ms, r.size_bytes, r.status, r.storage,
@@ -3637,7 +3644,20 @@ ${numbered}`;
       const qSearch   = (url.searchParams.get('q') || '').trim();           // 방ID / 교사명 / 교사ID LIKE
       const dateFrom  = url.searchParams.get('date_from');                  // YYYY-MM-DD (KST 기준 00:00)
       const dateTo    = url.searchParams.get('date_to');                    // YYYY-MM-DD (KST 기준 23:59:59)
-      const status    = url.searchParams.get('status');                     // ended | recording | aborted | deleted | all
+      /* 🔀 상태 — 콤마로 여러 개를 받는다(복합 필터).  status=completed,upload_failed
+         ⚠️ 실제 DB 에 있는 값은 5종뿐이다(2026-08-27 운영 실측:
+            deleted 1236 · completed 542 · aborted 162 · upload_failed 76 · recording 3).
+            옛 화면 드롭다운은 «종료 = ended» 를 보냈는데 그런 행은 **0건**이라
+            고르면 언제나 빈 표였고, 정작 눈에 보이는 upload_failed 는 고를 수가 없었다.
+         ⚠️ 모르는 값은 조용히 버린다 — 넓히는 쪽으로 실패하면 필터가 헛돈다.
+            바인드는 이 허용목록(5개) 상한이라 D1 100개 한도에 닿을 수 없다. */
+      const REC_STATUSES = ['completed', 'recording', 'upload_failed', 'aborted', 'deleted', 'ended'];
+      const statusRaw = url.searchParams.get('status');                     // 'all' 또는 콤마 목록
+      /* ⚠️ 중복은 접는다 — ?status=completed,completed,… 를 500번 적어 보내면
+            그대로 바인드 500개가 되어 D1 100개 한도를 넘는다(이 API 는 URL 로 부른다).
+            허용목록 안에서 중복을 접으면 바인드는 목록 크기를 넘을 수 없다. */
+      const statusList = Array.from(new Set(String(statusRaw || '')
+        .split(',').map(s => s.trim()).filter(s => s && s !== 'all' && REC_STATUSES.indexOf(s) >= 0)));
       const limit     = Math.max(1,  Math.min(200, parseInt(url.searchParams.get('limit')  || '50', 10)));
       const offset    = Math.max(0,                parseInt(url.searchParams.get('offset') || '0',  10));
 
@@ -3659,9 +3679,9 @@ ${numbered}`;
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { whereParts.push('r.started_at <= ?'); whereBinds.push(ms); }
       }
-      if (status && status !== 'all') {
-        whereParts.push('r.status = ?');
-        whereBinds.push(status);
+      if (statusList.length) {
+        whereParts.push('r.status IN (' + statusList.map(() => '?').join(',') + ')');
+        whereBinds.push(...statusList);
       }
       /* 🧹 (2026-08-05) 0초짜리 «부산물» 행은 기본 목록에서 감춘다.
          [무엇인가] R2 멀티파트는 마지막이 아닌 파트가 «5MiB 고정» 이라, 그만큼 안 모이면
@@ -3672,7 +3692,7 @@ ${numbered}`;
          [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
            강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
          ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
-      if (!status || status === 'all') {
+      if (!statusList.length) {
         whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
       }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
