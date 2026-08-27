@@ -415,6 +415,10 @@ const worker = {
             //    강사는 자기 수업만 보면 되고 그것은 teacher.html 이 이미 준다. 핸들러도 403 을
             //    내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
             '/api/admin/classes-now',
+            // ── 📶 화상 회선품질·강제 릴레이 (2026-08-27, 관문 등록과 동시) — quality 는
+            //    전사 강사·학생 이름+회선 지표 200행이 한 응답에 담긴다(classes-now 와 같은 사유).
+            //    relay 는 핸들러가 강사를 403 으로 막지만 URL 직접 호출은 여기서 끊는다.
+            '/api/admin/vc/',
             // ── 📅 (2026-08-25) 오늘 전체 수업 목록 — 위와 같은 사유(전사 학생 이름·강사 배정).
             //    카페24 예약까지 합쳐 주게 되면서 한 화면에 모이는 양이 더 늘었다.
             //    핸들러도 403 을 내지만(이중 방어), URL 직접 호출은 여기서 끊는다.
@@ -1243,6 +1247,11 @@ const worker = {
         path === '/api/admin/live-classes' ||
         // 🔴 (2026-08-20) 예약 기준 «지금 진행 중이어야 할 수업». 핸들러가 스코프로 자르고 강사는 막는다.
         path === '/api/admin/classes-now' ||
+        // 📶 (2026-08-27) 화상 회선품질 조회(admin.html 「회선 품질」 패널)·강제 릴레이 지정(vc_relay_force).
+        //    핸들러(api-admin.ts)는 각각 7/19·8/21 부터 있었는데 이 목록과 api-mango 위임 가드에
+        //    빠져 있어 «조용한 404» 였다 — 중국 회선 강제 릴레이 기능이 켤 방법이 없는 죽은 코드였음.
+        path === '/api/admin/vc/quality' ||
+        path === '/api/admin/vc/relay' ||
         // 🙈 (2026-08-13) 라이브러리에서 숨길 교재 묶음 (관리자가 고른다)
         path === '/api/admin/textbook-hidden-books' ||
         path === '/api/textbook-files' ||
