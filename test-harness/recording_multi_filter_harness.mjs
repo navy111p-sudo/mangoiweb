@@ -231,6 +231,46 @@ check('모든 칩에 색조(data-tone)가 있다', chipTags.every(t => /data-ton
 check('칩에 인라인 배경색이 없다', !chipTags.some(t => /style="[^"]*background/.test(t)),
   '인라인은 전역 !important 에 먹혀 화면엔 안 나오는데 코드만 보면 나오는 줄 안다');
 
+console.log('\nG. hover·글자색이 전역 규칙에 안 먹히는가 (2026-08-27 실측으로 밟은 것들)');
+/* 🔴 진짜 상대는 «평상시» 규칙이 아니라 3329행의 **hover** 규칙이다.
+   `details.table-card.menu-card button:not()×3:hover` = (0,6,2).
+   :not() 다섯 개짜리 (0,6,1) 로는 진다 — 실측: 꺼진 칩에 마우스를 올리면
+   파란 인디고 그라데이션이 되는데 글자는 초록 그대로라 대비 약 1.2:1 이었고,
+   `transform: translateY(-1px)` 까지 걸려 CLAUDE.md 1-3(hover translate 금지)을 어겼다. */
+/* ⚠️ 주석을 먼저 벗긴다 — 이 블록의 «설명 주석» 이 `button.rec-fchip` 과 `:not()` 을
+      글자로 적고 있어서, 안 벗기면 검사가 자기 주석을 규칙으로 세어 거짓 FAIL 을 낸다
+      (CLAUDE.md 2장 「부정 검사가 자기 주석을 잡는다」의 CSS 판 — 실제로 밟았다).
+      CSS 에는 `//` 주석이 없고 URL 의 `//` 를 지우면 안 되므로 블록주석만 벗긴다. */
+const cssNoCmt = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const chipRules = cssNoCmt.slice(cssNoCmt.indexOf('button.rec-fchip'));
+const notCounts = [...chipRules.matchAll(/button\.rec-fchip[^{]*\{/g)]
+  .map(m => (m[0].match(/:not\(/g) || []).length);
+check('모든 칩 규칙이 :not() 을 여섯 개 이상 쓴다 ((0,7,1) — hover (0,6,2) 를 이긴다)',
+  notCounts.length > 0 && notCounts.every(n => n >= 6),
+  '실제: ' + notCounts.join(',') + ' → 다섯 개면 hover 에서 파란 알약 + translateY 로 되돌아간다');
+check('hover 규칙이 있고 «켜진 칩» 은 비켜 간다',
+  /button\.rec-fchip:not\(\.rec-on\)[^{]*:hover\s*\{/.test(chipRules),
+  '켜짐 색이 곧 상태 정보다 — hover 가 덮으면 안 된다');
+check('hover 에서도 transform·box-shadow 를 끈다',
+  /:hover\s*\{[^}]*transform:\s*none\s*!important[^}]*box-shadow:\s*none\s*!important/.test(chipRules)
+  || /:hover\s*\{[^}]*box-shadow:\s*none\s*!important[^}]*transform:\s*none\s*!important/.test(chipRules),
+  'CLAUDE.md 1-3 — hover 강조는 색만, 크기·위치는 고정');
+/* 🔴 8798행 `html[…ivory][…slate] [id^="card-"] :is(p,span,div,…):not(…)` 가 #101828 !important.
+   `.rec-flabel`·`#rec-cond-summary` 는 그 :not() 목록(btn·chip·pill·tag)에 안 걸려 그대로 잡힌다.
+   인라인도 el.style.color 도 진다 — 조상 id 로만 이긴다(실측 전: 둘 다 rgb(16,24,40)). */
+check('라벨 색을 조상 id 로 못 박았다', /#card-recording-storage \.rec-flabel\s*\{[^}]*color:[^}]*!important/.test(cssNoCmt));
+check('요약줄 색도 조상 id 로 못 박았다', /#card-recording-storage #rec-cond-summary\s*\{[^}]*color:[^}]*!important/.test(cssNoCmt));
+check('요약줄 «조건 걸림» 색이 따로 있다', /#rec-cond-summary\.rec-cond-on\s*\{[^}]*color:[^}]*!important/.test(cssNoCmt));
+check('JS 가 요약줄 색을 직접 칠하지 않는다 (클래스만 붙인다)',
+  !/rec-cond-summary[\s\S]{0,400}?style\.color/.test(coreS) && /classList\.(add|remove)\('rec-cond-on'\)/.test(coreS),
+  'el.style.color 는 #101828 !important 에 져서 «코드엔 있는데 화면엔 없는» 줄이 된다');
+/* 🌐 이 표와 요약줄은 textContent 로 그려서 data-ko/data-en 루프가 못 고친다.
+   놔두면 «칩만 영어, 그 밑 요약·상태 배지는 한국어» 인 반쪽이 남는다. */
+check('언어 토글에 표를 다시 그린다', /mangoi:lang-changed[\s\S]{0,600}?renderRecordingsTable\(\)/.test(coreS));
+check('언어 토글이 서버를 다시 부르지는 않는다',
+  !/mangoi:lang-changed[\s\S]{0,600}?loadRecordings\(\)/.test(coreS),
+  '언어는 «축» 이 아니다 — 다시 부르면 페이지가 첫 장으로 튄다');
+
 console.log('\n' + '─'.repeat(56));
 console.log(`  ${PASS} PASS · ${FAIL} FAIL`);
 if (FAIL) { console.log('\n  실패:'); FAILS.forEach(x => console.log('   - ' + x)); }

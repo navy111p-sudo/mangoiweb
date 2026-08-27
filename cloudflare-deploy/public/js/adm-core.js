@@ -1067,7 +1067,7 @@ function renderRecordingsCondSummary(pageCount, shownCount) {
 
   if (!parts.length) {
     el.textContent = en ? 'No filters — showing everything on this page' : '조건 없음 — 이 페이지 전체를 봅니다';
-    el.style.color = '#667085';
+    el.classList.remove('rec-cond-on');
     return;
   }
   /* ⚠️ «이 페이지 안에서 걸렀다» 는 사실을 반드시 함께 적는다.
@@ -1083,7 +1083,10 @@ function renderRecordingsCondSummary(pageCount, shownCount) {
     tail = en ? ('  ·  ' + shownCount + ' shown') : ('  ·  ' + shownCount + '건');
   }
   el.textContent = (en ? 'Filters: ' : '조건: ') + parts.join('  ·  ') + tail;
-  el.style.color = '#b45309';
+  /* ⛔ el.style.color 로 칠하지 말 것 — 8798행의 `#101828 !important` 가 이겨서
+        «코드엔 색이 있는데 화면엔 없는» 상태가 된다(실측 rgb(16,24,40)).
+        색은 클래스만 붙이고 admin-inline-c.css 맨 끝의 #card-recording-storage 블록이 정한다. */
+  el.classList.add('rec-cond-on');
 }
 
 function renderRecordingsTable() {
@@ -1336,6 +1339,20 @@ document.addEventListener('click', function (ev) {
   } else {
     renderRecordingsTable();
   }
+});
+
+/* 🌐 언어 토글을 따라오게 — 이 표와 요약줄은 `textContent` 로 그려서
+   data-ko/data-en 루프도 i18n-sweep 의 restore() 도 못 고친다(CLAUDE.md 2장 「JS 로 그린 라벨」).
+   칩 자체는 data-ko/data-en 이 있어 저절로 바뀌므로, 놔두면 «칩만 영어이고 그 밑 요약과
+   표의 상태 배지(완료/Done)는 한국어» 인 반쪽 상태가 남는다.
+   ⚠️ 이미 받아 둔 행을 다시 그리기만 한다 — 서버를 다시 부르지 않는다(언어는 «축» 이 아니다). */
+document.addEventListener('mangoi:lang-changed', function () {
+  try {
+    if (!_unifiedRecRows || !_unifiedRecRows.length) return;
+    var wrap = document.getElementById('rec-table-wrap');
+    if (!wrap || wrap.style.display === 'none') return;   // 안 보이는 표는 다음에 열 때 그려진다
+    renderRecordingsTable();
+  } catch (e) {}
 });
 
 // 🔎 Phase 3: 녹화 검색·페이지네이션 바인딩

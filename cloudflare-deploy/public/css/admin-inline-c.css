@@ -9842,9 +9842,17 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
    padding:9px 18px !important}` 가 인라인을 이기기 때문이다(작성자 !important > 인라인).
    그래서 어느 것이 켜져 있는지 눈으로 가릴 수 없었다 — 필터인데 상태가 안 보였다.
 
-   [특이성] 3319행은 (0,4,2). 아래 기본 규칙은 `button.rec-fchip` + :not() 5개 = (0,6,1)
+   [특이성] 3319행은 (0,5,2). 아래 기본 규칙은 `button.rec-fchip` + :not() 6개 = (0,7,1)
    이라 이긴다. 켜짐(.rec-on)·색조([data-tone])는 한 칸씩 더 세다.
    9491행 「참관/직접 입장 버튼」 블록이 쓴 방식과 같다.
+
+   🔴 :not() 을 «다섯 개» 로 줄이지 말 것 — 진짜 상대는 3329행의 **hover** 규칙이다.
+      `details.table-card.menu-card button:not()×3:hover` = (0,6,2) 라 (0,6,1) 을 이긴다.
+      실제로 다섯 개였을 때 헤드리스 실측: 꺼진 칩에 마우스를 올리면 배경이
+      **파란 인디고 그라데이션**이 되는데 글자는 초록 그대로라 대비 약 1.2:1 로 안 읽혔고,
+      `transform: translateY(-1px)` 까지 걸려 CLAUDE.md 1-3 「hover 확대(translate) 금지 —
+      hover 강조는 색만」을 어겼다. 여섯 개(0,7,1)로 만들면 hover 에서도 우리 값이 남는다.
+      선례 `button.rm-act` 가 :not() 을 여섯 개 쓰는 이유가 바로 이것이다.
 
    ⛔ 클래스 이름을 «-btn» 으로 끝내지 말 것 — [class$="-btn"] 규칙(3894·9012행)에 걸린다.
    ⛔ 색을 JS 인라인으로 되돌리지 말 것 — 화면엔 안 나오는데 코드만 보면 나오는 줄 안다.
@@ -9859,32 +9867,54 @@ button.tp-login-pw:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.pri
   min-width: 50px; line-height: 1.2; white-space: nowrap;
 }
 /* 꺼짐(기본) — 흰 바탕 + 색 테두리 */
-button.rec-fchip:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   padding: 4px 11px !important; border-radius: 14px !important;
   font-size: 12px !important; font-weight: 700 !important; line-height: 1.5 !important;
   cursor: pointer !important; background-image: none !important; box-shadow: none !important;
   transform: none !important; background: #ffffff !important; color: #475467 !important;
   border: 1px solid #d0d5dd !important;
 }
-button.rec-fchip[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   color: #15803d !important; border-color: #86efac !important;
 }
-button.rec-fchip[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   color: #b45309 !important; border-color: #fcd34d !important;
 }
-button.rec-fchip[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   color: #b91c1c !important; border-color: #fca5a5 !important;
 }
 /* 켜짐 — 채운 색 + 흰 글씨. 대비는 본문 4.5:1 이상이 되게 진한 값만 쓴다. */
-button.rec-fchip.rec-on:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip.rec-on:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   color: #ffffff !important; border-color: transparent !important; background: #334155 !important;
 }
-button.rec-fchip.rec-on[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip.rec-on[data-tone="ok"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   background: #15803d !important;
 }
-button.rec-fchip.rec-on[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip.rec-on[data-tone="warn"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   background: #b45309 !important;
 }
-button.rec-fchip.rec-on[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on){
+button.rec-fchip.rec-on[data-tone="bad"]:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
   background: #b91c1c !important;
 }
+
+/* hover 강조는 «색만» — 크기·위치는 고정(CLAUDE.md 1-3).
+   `:not(.rec-on)` 으로 켜진 칩은 아예 비켜 간다(켜짐 색이 곧 상태 정보다). */
+button.rec-fchip:not(.rec-on):not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active):hover{
+  /* ⚠️ 배경을 더 진하게 하지 말 것 — 칩 글자가 색이라 바탕이 어두워질수록 대비가 깎인다.
+        #f2f4f7 은 초록·주황 글자에서 4.55:1 로 4.5 턱걸이였다(계산). #f8fafc 는 4.79:1.
+        hover 신호는 배경이 아니라 «테두리» 가 지고 간다. */
+  background: #f8fafc !important; border-color: #98a2b3 !important;
+  transform: none !important; box-shadow: none !important; background-image: none !important;
+}
+
+/* ── 라벨·요약줄 글자색 ────────────────────────────────────────────────
+   ⚠️ 인라인 style 도, JS 의 el.style.color 도 여기서는 «화면에 안 나온다».
+      8798행 `html[…ivory][…slate] [id^="card-"] :is(p,span,div,…):not(…)` 가
+      #101828 !important 로 덮기 때문이다(CLAUDE.md 2장 「카드 안 글자에 색을 줬는데」).
+      `.rec-flabel` 도 `#rec-cond-summary` 도 그 :not() 목록(btn·chip·pill·tag)에
+      안 걸려 그대로 잡힌다 — 실측으로 둘 다 rgb(16,24,40) 이었다.
+   ✅ 조상 id 를 앞에 붙이면(1,1,0 / 2,0,0) 클래스를 아무리 쌓은 규칙도 못 이긴다.
+   ⛔ 그래서 JS 는 색을 직접 칠하지 말고 «클래스만» 붙인다(adm-core.js). */
+#card-recording-storage .rec-flabel{ color: #475467 !important; }
+#card-recording-storage #rec-cond-summary{ color: #667085 !important; }
+#card-recording-storage #rec-cond-summary.rec-cond-on{ color: #b45309 !important; }
