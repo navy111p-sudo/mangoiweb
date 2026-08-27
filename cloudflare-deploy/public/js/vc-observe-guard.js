@@ -177,7 +177,11 @@
       if (!inCall || !mode) {
         if (el) el.remove();
         badgeMode = '';
-        document.body.classList.remove('vc-mode-badge-on');
+        /* ⛔ contains 확인 없이 remove() 를 부르면 안 된다 — remove() 는 토큰이 «없어도»
+           class attribute 를 다시 써서(121줄의 toggle 과 다르다) 위의 MutationObserver 가
+           재발화한다. sync → remove → 재발화 → sync … 마이크로태스크 무한루프로
+           2026-08-27 아침 홈 화면 전체(PC·모바일)가 멎었다. */
+        if (document.body.classList.contains('vc-mode-badge-on')) document.body.classList.remove('vc-mode-badge-on');
         return;
       }
       ensureStyle();
@@ -196,7 +200,9 @@
       }
       el.textContent = badgeText(mode);
       placeBadge(el);
-      document.body.classList.add('vc-mode-badge-on');
+      /* add() 는 이미 있으면 attribute 를 안 건드리지만(스펙), 위 remove 와 짝을 맞춰
+         «바뀔 때만 쓴다» 를 눈에 보이게 남긴다 — 이 파일의 관찰자는 body class 다. */
+      if (!document.body.classList.contains('vc-mode-badge-on')) document.body.classList.add('vc-mode-badge-on');
     } catch (_) {}
   }
 
