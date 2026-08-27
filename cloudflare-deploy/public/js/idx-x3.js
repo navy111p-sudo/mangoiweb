@@ -68,40 +68,9 @@
   window._libCurrentCategory = null;
   window._tbfUrlCache = window._tbfUrlCache || {};
 
-  function _loadAllIDB(){
-    return new Promise(function(resolve){
-      var done = false;
-      var to = setTimeout(function(){
-        if (done) return; done = true;
-        resolve({textbooks:[], files:{}, err:'timeout'});
-      }, 5000);
-      try {
-        var req = indexedDB.open('mangoi-textbooks', 3);
-        req.onupgradeneeded = function(e){
-          var d = e.target.result;
-          if (!d.objectStoreNames.contains('textbooks')) {
-            var s = d.createObjectStore('textbooks', {keyPath:'id'});
-            try { s.createIndex('publisher','publisher'); } catch(_){}
-          }
-          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath:'id'});
-        };
-        req.onsuccess = function(){
-          var db = req.result;
-          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
-            db.close();
-            if (done) return; done = true; clearTimeout(to);
-            resolve({textbooks:[], files:{}, err:'store_missing'}); return;
-          }
-          var tx = db.transaction(['textbooks','files'], 'readonly');
-          var tbR = tx.objectStore('textbooks').getAll();
-          var flR = tx.objectStore('files').getAll();
-          var tbs = null, fls = null;
-          function chk(){
-            if (tbs === null || fls === null) return;
-            var fm = {};
-            fls.forEach(function(f){ fm[f.id] = f; });
-            db.close();
-            if (done) return; done = true; clearTimeout(to);
+  /* 🔴 (2026-08-27) 이 함수는 오래도록 _loadAllIDB «성공 콜백 안» 에 정의돼 있었다 —
+     업로더가 IDB 를 블롭으로 채운 뒤에는 읽기가 5초를 넘거나 실패해 영영 undefined 가 되고,
+     라이브러리에서 교재를 골라도 window.open 폴백만 떠서 수업에 적용되지 않았다. 최상위 고정. */
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
     /* 🎬 교재 → 예습/복습 동영상 «자동 연결» 은 여기서 완전히 끊었다.
@@ -169,6 +138,40 @@
     }
   };
 
+  function _loadAllIDB(){
+    return new Promise(function(resolve){
+      var done = false;
+      var to = setTimeout(function(){
+        if (done) return; done = true;
+        resolve({textbooks:[], files:{}, err:'timeout'});
+      }, 5000);
+      try {
+        var req = indexedDB.open('mangoi-textbooks', 3);
+        req.onupgradeneeded = function(e){
+          var d = e.target.result;
+          if (!d.objectStoreNames.contains('textbooks')) {
+            var s = d.createObjectStore('textbooks', {keyPath:'id'});
+            try { s.createIndex('publisher','publisher'); } catch(_){}
+          }
+          if (!d.objectStoreNames.contains('files')) d.createObjectStore('files', {keyPath:'id'});
+        };
+        req.onsuccess = function(){
+          var db = req.result;
+          if (!db.objectStoreNames.contains('textbooks') || !db.objectStoreNames.contains('files')) {
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
+            resolve({textbooks:[], files:{}, err:'store_missing'}); return;
+          }
+          var tx = db.transaction(['textbooks','files'], 'readonly');
+          var tbR = tx.objectStore('textbooks').getAll();
+          var flR = tx.objectStore('files').getAll();
+          var tbs = null, fls = null;
+          function chk(){
+            if (tbs === null || fls === null) return;
+            var fm = {};
+            fls.forEach(function(f){ fm[f.id] = f; });
+            db.close();
+            if (done) return; done = true; clearTimeout(to);
             console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
             resolve({textbooks:tbs, files:fm, err:null});
           }

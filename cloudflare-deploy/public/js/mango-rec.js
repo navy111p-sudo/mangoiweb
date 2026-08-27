@@ -34,6 +34,14 @@
   let audioRescanTimer = null; // 녹화 중에만 도는 오디오 트랙 재스캔 (stopRecording 이 끈다)
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
+  /* ⛔ 서버가 «학생 미동의(consent_required)» 로 녹화를 거절한 상태.
+     서버는 이걸 일부러 HTTP 200 + ok:false 로 준다(재시도 폭주 방지, api-mango.ts 참고).
+     그래서 예외도 안 나고 배지는 그냥 «눌러서 시작» 으로 되돌아갔는데 — 몇 번을 눌러도
+     절대 성공할 수 없는 상태라, 강사에게는 「녹화 버튼 고장」 으로 보였다
+     (2026-08-27 Teacher Shas 제보 — class-971, 학생이 동의 팝업을 거부한 수업).
+     → 이 플래그가 켜지면 배지가 «왜 안 되는지» 를 글자로 말한다. 탭하면 재시도는 그대로
+     된다(학생이 뒤늦게 동의하면 그때부터는 성공한다). */
+  let consentBlocked = false;
 
   /* 👁 참관(Ghost) 중에는 녹화하지 않는다 (2026-08-26 사장님 지시)
      ─────────────────────────────────────────────────────────────────────
@@ -596,6 +604,11 @@
   // 배지 툴팁 — 세 가지 상태(꺼짐 / 정체 / 정상)를 한 곳에서 결정한다.
   function recTitle() {
     const en = isEn();
+    if (!isRecording && consentBlocked) {
+      return en
+        ? '⛔ Recording is blocked — the student (or parent) has not agreed to recording. It starts once they accept the consent popup. Tap to retry.'
+        : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화할 수 없습니다. 학생이 동의 팝업을 수락하면 시작됩니다 — 눌러서 다시 시도';
+    }
     if (!isRecording) return en ? 'Recording is OFF — tap to start again' : '녹화가 꺼져 있습니다 — 눌러서 다시 시작';
     if (isStalled)    return en ? '⚠ Nothing is being recorded — bring this class window to the front'
                                 : '⚠ 녹화가 기록되지 않고 있습니다 — 이 수업 창을 화면 앞으로 두세요';
@@ -628,11 +641,16 @@
     if (!recBadge) return;
     const en = isEn();
     recBadge.classList.toggle('mango-rec-off', !isRecording);
+    // ⛔ 미동의 차단은 «꺼짐» 의 하위 상태 — mango-rec-off 는 그대로 두고 색·글자만 바꾼다.
+    //    사유를 title 에만 두면 폰에서는 영영 안 보인다(툴팁은 마우스 전용) — 본문 글자로 쓴다.
+    recBadge.classList.toggle('mango-rec-consent', !isRecording && consentBlocked);
     const timeEl = recBadge.querySelector('.mango-rec-time-text');
     const stopEl = recBadge.querySelector('.mango-rec-stop');
     if (!isRecording) {
       recBadge.classList.remove('mango-rec-expanded');
-      if (timeEl) timeEl.textContent = en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작';
+      if (timeEl) timeEl.textContent = consentBlocked
+        ? (en ? '⛔ No student consent — REC blocked' : '⛔ 녹화불가 · 학생 미동의')
+        : (en ? 'REC OFF · Tap to start' : '녹화 꺼짐 · 눌러서 시작');
       if (stopEl) stopEl.textContent = '▶';
     } else {
       if (stopEl) stopEl.textContent = '⏹';
@@ -734,7 +752,12 @@
           '#mango-rec-badge.mango-rec-off .mango-rec-stop{display:inline !important;font-size:13px;}' +
           // 툴바 REC 버튼도 모바일에서는 컴팩트
           '#mango-rec-btn{padding:4px 8px !important;font-size:14px !important;min-width:auto !important;}' +
-        '}'
+        '}',
+        // ⛔ «학생 미동의로 차단» — 꺼짐(회색)과 구별되는 진한 빨강.
+        //    ⚠️ 반드시 시트 맨 끝: .mango-rec-off 의 background !important(위 + 모바일 미디어쿼리)와
+        //    특정성이 겹치므로 «뒤에 온 것» 이어야 이긴다. 이중 클래스로 특정성도 한 칸 올려 둔다.
+        '#mango-rec-badge.mango-rec-off.mango-rec-consent{background:#991b1b !important;box-shadow:0 0 0 3px rgba(220,38,38,.25) !important;}',
+        '#mango-rec-badge.mango-rec-off.mango-rec-consent .mango-rec-dot{animation:none;background:#fecaca;}'
       ].join('\n');
       document.head.appendChild(s);
     }
@@ -965,10 +988,18 @@
     });
  
     if (!startRes?.ok) {
-      if (!auto) alert('녹화 시작 실패');
+      consentBlocked = (startRes?.error === 'consent_required');
+      if (!auto) {
+        alert(consentBlocked
+          ? (isEn()
+              ? '⛔ Recording is blocked: the student (or parent) has not agreed to recording.\nIt will work once they accept the consent popup on their screen.'
+              : '⛔ 학생(학부모)이 촬영 동의를 하지 않아 녹화를 시작할 수 없습니다.\n학생 화면의 동의 팝업을 수락하면 녹화할 수 있습니다.')
+          : '녹화 시작 실패');
+      }
       console.warn('[mango-rec] 녹화 시작 실패:', startRes);
       return;
     }
+    consentBlocked = false;
     // 자동 녹화 시 동의 팝업 건너뜀 (수업 녹화는 필수이므로)
     if (!auto) {
       const nonConsented = startRes.non_consented || [];
@@ -1250,6 +1281,8 @@
     if (!inCall && autoRecStarted) {
       autoRecStarted = false;
     }
+    // 미동의 차단도 방을 나가면 푼다 — 다음 수업(다른 학생)까지 끌고 가면 멀쩡한 방에 ⛔ 가 뜬다
+    if (!inCall && consentBlocked) consentBlocked = false;
   }, 2000);
  
   // vcLeaveRoom 후킹 — 나가기 버튼 클릭 시 자동으로 녹화 종료
