@@ -22,8 +22,10 @@
  *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
  *   ⑪ 교재를 넘기면 «지금 몇 과인지» 를 기록한다 — 교재를 과별로 다시 올리면
  *      진도가 저절로 따라간다(그 전엔 저장하는 코드가 저장소 전체에 0곳이었다).
- *   ⑫ 공유 영상에 학생용 「일시정지」·「소리 끄기」 버튼 — 「소리 켜기」 는 한 번 누르면
+ *   ⑫ 공유 영상에 「일시정지」·「소리 끄기」 버튼 — 「소리 켜기」 는 한 번 누르면
  *      사라져서 되끄기·멈추기가 아예 불가능했다(2026-08-27 사장님·Karl 테스트 제보).
+ *      같은 날 지시로 강사·관리자 화면에도 붙인다(폰에서는 유튜브 자체 컨트롤바가
+ *      하단 독에 가려 손이 안 닿는다). 그쪽만 네이티브 컨트롤 위로 비켜선다.
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -973,7 +975,7 @@
        그런데 「🔊 소리 켜기」 버튼이 한 번 누르면 스스로 사라지는(btn.remove) 구조라,
        소리를 한 번 켜면 다시 끌 방법도, 영상을 멈출 방법도 화면에 하나도 없었다
        (2026-08-27 사장님·Karl 테스트: 「계속 플레이하게 됩니다」).
-     [무엇을 다나] idx-main.js 의 vpAddSoundOverlay 를 감싸, 잠긴 시청자(학생)에게만
+     [무엇을 다나] idx-main.js 의 vpAddSoundOverlay 를 감싸, 영상을 받은 사람 화면의
        무대 오른쪽 아래에 작은 버튼 두 개를 얹는다 — [⏸/▶ 일시정지·재생] [🔇/🔊 소리].
        둘 다 «내 화면에만» 적용된다(방에 아무것도 전송하지 않는다) — 재생 위치 이동(seek)은
        여전히 막혀 있으므로 Melca 결정(강사만 제어)과 충돌하지 않는다.
@@ -1007,15 +1009,23 @@
     function fileEl(stage) { return stage.querySelector('video'); }
 
     function attach(stage, kind) {
-      if (!stage || !viewerLocked()) return;
+      if (!stage) return;
       var old = stage.querySelector('.vp-viewer-ctrl');
       if (old) old.remove();
+      /* 🙋 (2026-08-27 사장님 지시) 잠기지 않은 사람(강사·관리자)에게도 붙인다.
+         [왜 바꿨나] 처음에는 «원래 유튜브 자체 컨트롤이 있으니 필요 없다» 고 뺐다.
+           그런데 폰에서는 그 컨트롤바가 **하단 독(#vc-dock, z-index 99993)에 가린다** —
+           2026-08-27 제보 사진에서 「0:49 / 4:12」가 「나가기」 버튼에 덮여 있었다.
+           «버튼이 있다» 와 «손이 닿는다» 는 다르다.
+         ⚠️ 다만 잠기지 않은 화면에는 네이티브 컨트롤바가 실제로 깔려 있으므로 그 위로 비켜선다 —
+            같은 자리에 두면 유튜브의 전체화면·설정 버튼을 우리가 덮어 「전체화면이 안 눌린다」가 된다. */
+      var locked = viewerLocked();
 
       var st = { muted: true, paused: false };   // 수신 영상은 음소거 자동재생으로 시작한다
 
       var wrap = document.createElement('div');
       wrap.className = 'vp-viewer-ctrl';
-      wrap.style.cssText = 'position:absolute;right:10px;bottom:14px;z-index:31;display:flex;gap:8px;';
+      wrap.style.cssText = 'position:absolute;right:10px;bottom:' + (locked ? '14px' : '54px') + ';z-index:31;display:flex;gap:8px;';
 
       function mkBtn() {
         var b = document.createElement('button');
