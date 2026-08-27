@@ -149,6 +149,12 @@ html[data-t="dark"] .wk-jump input[type="date"]{background:#1b2330;border-color:
 html[data-t="dark"] .wk-nav button{background:#1b2330;border-color:#2c3949;color:#c9d4e0}
 html[data-t="dark"] .wk-day{border-color:#2a3542}
 .cls-meta{font-size:13px;color:#5d6b7a;margin-top:2px}
+/* ↩ 지난 수업(이전 강사·이전 일지) 접이식 — 펼치기 전엔 한 줄. hover 확대 금지 규칙대로
+   강조는 색만. summary 의 기본 ▶ 마커는 남겨 둔다(펼칠 수 있다는 유일한 신호다). */
+.cls-prev{margin-top:3px;font-size:12.5px}
+.cls-prev summary{cursor:pointer;color:#3b5bd6;font-weight:600;user-select:none}
+.cls-prev-body{margin-top:3px;padding:6px 10px;background:#f4f6fa;border-radius:6px;color:#3d4a58;line-height:1.5}
+.cls-prev-score{color:#8a6d1a;font-weight:700}
 .cls-act{width:100%;display:flex;gap:8px;flex-wrap:wrap}
 
 /* ── 큼직한 액션 버튼 (터치 최소 48px) ── */
@@ -333,6 +339,9 @@ html[data-t="dark"] .tbtn-out{color:#f1a9a2;border-color:#6b3b36}
 html[data-t="dark"] .cls{border-top-color:#2b3541}
 html[data-t="dark"] .cls-time,
 html[data-t="dark"] .cls-name{color:#e6ecf2}
+html[data-t="dark"] .cls-prev summary{color:#8fa7ff}
+html[data-t="dark"] .cls-prev-body{background:#1b2330;color:#c9d4e0}
+html[data-t="dark"] .cls-prev-score{color:#e0b463}
 html[data-t="dark"] .cls-info .cls-time,
 html[data-t="dark"] .cls-info .cls-name{color:#9dabb9}
 html[data-t="dark"] .kpi{background:#1d2630;border-color:#2b3541}
@@ -422,6 +431,11 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <button class="tbtn" type="button" onclick="openCard('c-pay')" data-en="Pay" data-ko="급여">Pay</button>
     <button class="tbtn" type="button" onclick="openCard('c-rate')" data-en="My ratings" data-ko="내 평점">My ratings</button>
     <button class="tbtn" type="button" onclick="openCard('c-report')" data-en="Reports" data-ko="수업 리포트">Reports</button>
+    <!-- ✍ (2026-08-27 마이마이 8/26 ①) 쓴 일지로 가는 문을 눈에 보이는 곳에 하나 더 -->
+    <button class="tbtn" type="button" onclick="openCard('c-myevals')" data-en="My logs" data-ko="내가 쓴 일지">My logs</button>
+    <!-- 📖 (2026-08-27 마이마이 8/26 ②) 수업 입장 안내 — 매뉴얼(teacher-training.html)은
+         전부터 있었는데 이 화면 어디에서도 링크되지 않아 «안내가 없다» 가 됐다. 새 문서 대신 연결만. -->
+    <a class="tbtn" href="/teacher-training.html" data-en="📖 Manual" data-ko="📖 수업 매뉴얼">📖 Manual</a>
   </nav>
 
   <div id="boot" class="card"><div class="empty" data-en="Loading your classes…" data-ko="수업을 불러오는 중…">Loading your classes…</div></div>
@@ -619,8 +633,20 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     <div id="rateBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
+  <!-- ✍ (2026-08-27 마이마이 8/26 ①) 내가 쓴 일지 — 쓰기(/api/eval/create)는 있는데
+       되보는 화면이 0곳이라 «피드백이 안 보인다» 제보가 됐다. Hannah 는 실제로 썼었다(DB 실측).
+       아래 «Lesson reports» 는 강사가 쓴 글이 아니라 녹취 기반 AI 리포트다 — 둘을 섞지 않는다.
+       ⚠️ 펼칠 때만 부른다(첫 화면 API 1회 계약). 서버는 같은 포털 경로의 ?part=my_evals. -->
+  <details class="card mycard" id="c-myevals" ontoggle="if(this.open)loadMyEvals()">
+    <summary data-en="My class logs (what I wrote)" data-ko="내가 쓴 일지">My class logs (what I wrote)</summary>
+    <div id="myevalBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
+  </details>
+
+  <!-- ⚠️ 여기 «Lesson reports» 는 강사가 쓴 일지가 아니다 — 수업 녹음으로 사무실이 만든
+       AI 리포트다. 강사가 쓴 것은 위 «내가 쓴 일지» 카드. 라벨에도 (AI) 를 못박는다 —
+       마이마이가 «방금 일지를 썼는데 No lesson reports yet» 을 보고 혼동한 지점이다. -->
   <details class="card mycard" id="c-insight" ontoggle="if(this.open)loadInsight()">
-    <summary data-en="Lesson reports" data-ko="수업 리포트">Lesson reports</summary>
+    <summary data-en="Lesson reports (AI, from recordings)" data-ko="수업 리포트 (AI · 녹음 기반)">Lesson reports (AI, from recordings)</summary>
     <div id="insightBody" class="mini" data-en="Open to load." data-ko="펼치면 불러옵니다.">Open to load.</div>
   </details>
 
@@ -1356,7 +1382,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       //    시간·상태가 같아서 «바뀐 게 없다» 로 보고 화면이 옛 라벨을 그대로 둔다.
       sig += sc.schedule_id + ':' + (sc.kind || 'class') + ':' + st + ':' + (sc.class_state || '')
            + ':' + (sc.no_show_role || '') + ':' + sc.start_time + ':' + stuName(sc)
-           + ':' + (sc.level || '') + ':' + (sc.textbook || '') + ',';
+           + ':' + (sc.level || '') + ':' + (sc.textbook || '')
+           // ✍ 일지 배지·지난수업 도착도 지문에 넣는다 — 안 넣으면 캐시를 먼저 그린 뒤
+           //    서버 응답이 와도 «바뀐 게 없다» 로 보고 배지가 영영 안 뜬다.
+           + ':' + (sc.eval_written ? 'E' : '') + (sc.prev_lesson ? 'P' : '') + ',';
     }
     if (sig === lastSig) return;
     lastSig = sig;
@@ -1473,6 +1502,26 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         continue;
       }
 
+      /* ↩ (2026-08-27 마이마이 8/26 ②) 이 학생의 «지난 수업» 한 줄 — 이전 강사·이전 일지.
+         대타·레벨테스트에서 강사가 학생 이력 없이 맨손으로 들어가던 것. 서버가 prev_lesson 을
+         내려줄 때만 그린다(옛 캐시 응답엔 없다 — 없는 것을 지어내지 않는다).
+         ⚠️ <details> 라 펼치기 전엔 한 줄이고, 라벨은 renderClasses 가 언어 전환 때마다
+            처음부터 다시 그리므로 textContent 갈아끼우기 함정(i18n)이 없다. */
+      var prevHtml = '';
+      if (c.prev_lesson){
+        var pv = c.prev_lesson;
+        var ptxt = EN() ? (pv.note_en || pv.note_ko || '') : (pv.note_ko || pv.note_en || '');
+        prevHtml = '<details class="cls-prev"><summary>↩ '
+          + esc(T('Last class','지난 수업'))
+          + esc((pv.date ? ' · ' + pv.date : '')
+              + (pv.teacher_name ? ' · ' + pv.teacher_name : ''))
+          + '</summary><div class="cls-prev-body">'
+          + (ptxt ? esc(ptxt) : esc(T('(no note was written)','(남긴 내용이 없습니다)')))
+          + (pv.score_overall != null
+              ? ' <span class="cls-prev-score">⭐ ' + esc(String(pv.score_overall)) + '/5</span>' : '')
+          + '</div></details>';
+      }
+
       h += '<div class="cls">'
         +   '<div class="cls-time">' + esc(c.start_time) + '</div>'
         +   '<div class="cls-main">'
@@ -1484,6 +1533,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         +       stPill(c, live, done, open)
         +     '</div>'
         +     '<div class="cls-meta">' + meta.join(' &middot; ') + '</div>'
+        +     prevHtml
         +   '</div>'
         +   '<div class="cls-act">';
 
@@ -1501,10 +1551,18 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
               ? '<button class="btn btn-join btn-reenter" type="button" data-join="' + i + '">'
                 +   esc(T('Re-enter','다시 입장')) + '</button>'
               : '<button class="btn btn-off" type="button" disabled>' + esc(T('Done','완료')) + '</button>')
-          +  '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
           //  📝 (2026-08-10) 「평가하기」 → 「일지」. 강사가 실제로 하는 일이 «평가»가 아니라
           //     «오늘 무슨 일이 있었는지 한 줄 남기기» 라서 이름을 일에 맞췄다.
-          +    esc(T('Class log','일지 쓰기')) + '</button>'
+          //  ✍ (2026-08-27 마이마이 8/26 ①) 이미 쓴 수업에는 「일지 ✓ 보기」 — 쓴 것이
+          //     화면에 안 보여 «피드백이 안 보인다» 가 된 지점. 보기는 학부모와 같은
+          //     eval.html 을 연다(강사가 학부모가 받은 그대로를 확인한다).
+          +  (c.eval_written
+              ? '<button class="btn btn-gray" type="button" data-evview="' + i + '" title="'
+                +  esc(T('Your log for this class is saved — tap to read it',
+                         '이 수업의 일지가 저장돼 있습니다 — 눌러서 확인')) + '">'
+                +  esc(T('Log ✓ View','일지 ✓ 보기')) + '</button>'
+              : '<button class="btn btn-eval" type="button" data-eval="' + i + '">'
+                +  esc(T('Class log','일지 쓰기')) + '</button>')
           /* 🎙 (2026-08-15) AI 리포트는 «요청» 만 한다 — 강사가 직접 돌리지 않는다.
              녹음 전사는 브라우저가 60초 조각으로 잘라 올리는데 45분 수업이면 약 86MB 다.
              필리핀 회선에서는 못 버틴다. 그래서 버튼은 요청만 보내고(200바이트),
@@ -1551,6 +1609,9 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     for (var j=0;j<b.length;j++) b[j].onclick = function(){ joinClass(list[+this.getAttribute('data-join')]); };
     var e = box.querySelectorAll('[data-eval]');
     for (var k=0;k<e.length;k++) e[k].onclick = function(){ openEval(list[+this.getAttribute('data-eval')]); };
+    // ✍ 이미 쓴 일지 열기 — 학부모가 받는 eval.html 그대로.
+    var ev2 = box.querySelectorAll('[data-evview]');
+    for (var v=0;v<ev2.length;v++) ev2[v].onclick = function(){ openEvalView(list[+this.getAttribute('data-evview')]); };
     var rq = box.querySelectorAll('[data-rep]');
     for (var q=0;q<rq.length;q++) rq[q].onclick = function(){ askReport(list[+this.getAttribute('data-rep')], this); };
     // (연기 버튼 제거 2026-08-08 — 위 주석 참고. 버튼을 되살리면 이 2줄도 함께 되살릴 것)
@@ -2396,7 +2457,7 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
   //      순간 방금 그린 표가 "펼치면 불러옵니다." 로 되돌아간다(이 화면의 알려진 함정).
   //      대신 언어가 바뀌면 repaintMy() 가 캐시로 다시 그린다.
   // ══════════════════════════════════════════════════════════════════════════
-  var MY = { pay:null, rate:null, insight:null, report:null, lt:null };
+  var MY = { pay:null, rate:null, insight:null, report:null, lt:null, myev:null };
   var myBusy = Object.create(null);
 
   function fill(id, html){
@@ -2555,6 +2616,45 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         + '</div>';
     });
     fill('insightBody', h);
+  }
+
+  // ── ✍ 내가 쓴 일지 (2026-08-27 마이마이 8/26 ①) ─────────────────────────
+  //   서버는 같은 포털 경로의 ?part=my_evals — 새 API 를 만들지 않았다(게이트 등록 함정 회피,
+  //   신원 판정도 포털과 한 벌). 내용은 강사가 승인한 영어(note_en)를 우선 보여준다 —
+  //   필리핀 강사가 «자기가 무엇을 보냈는지» 확인하는 카드라서다. 한국어 화면이면 한국어 우선.
+  window.loadMyEvals = function(){
+    if (MY.myev) { paintMyEvals(); return; }
+    loading('myevalBody');
+    myGet('myev', '/api/teacher/portal?part=my_evals')
+      .then(function(j){ MY.myev = j; paintMyEvals(); }).catch(function(){ failed('myevalBody'); });
+  };
+  function paintMyEvals(){
+    var items = (MY.myev && MY.myev.items) || [];
+    if (!items.length){
+      fill('myevalBody', '<div class="mini">'
+        + esc(T('No class logs yet. When a class is done, tap [Class log] on that class row above.',
+                '아직 쓴 일지가 없습니다. 수업이 끝나면 위 수업 줄의 [일지 쓰기]를 눌러 주세요.'))
+        + '</div>');
+      return;
+    }
+    var h = '';
+    items.slice(0, 40).forEach(function(it){
+      var txt = EN() ? (it.note_en || it.note_ko || '') : (it.note_ko || it.note_en || '');
+      h += '<div class="draft" style="border-color:#e4e9ee">'
+        +   '<div class="cls-name">' + esc(it.student_name || '-')
+        +     ' <span class="cls-meta">' + esc(it.lesson_date || '')
+        +       (it.score_overall != null ? ' · ⭐ ' + esc(String(it.score_overall)) + '/5' : '')
+        +     '</span></div>'
+        +   (txt ? '<div class="draft-txt">' + esc(txt) + '</div>' : '')
+        //  학부모에게 나갔는지·읽었는지 — 마이마이(매니저)가 이 카드에서 확인하는 핵심.
+        +   '<div class="mini">'
+        +     (it.parent_notified ? esc(T('Sent to parent ✓','학부모에게 발송됨 ✓'))
+                                  : esc(T('Not sent to parent yet','학부모 미발송')))
+        +     (it.viewed_by_parent ? ' · ' + esc(T('Parent read it','학부모 열람함')) : '')
+        +   '</div>'
+        + '</div>';
+    });
+    fill('myevalBody', h);
   }
 
   // ── 🌟 성적표 승인 ────────────────────────────────────────────────────────
@@ -3025,9 +3125,28 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
         headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(payload)
       })
       .then(function(r){ return r.json(); })
-      .then(function(j){ if (!j || !j.ok) qPush(payload); })
+      .then(function(j){
+        if (!j || !j.ok){ qPush(payload); return; }
+        // ✍ (2026-08-27) 방금 쓴 일지를 화면에 바로 반영 — 수업 줄 배지가 「일지 ✓ 보기」로
+        //    바뀌고, «내가 쓴 일지» 카드 캐시를 비워 다음 펼침 때 새로 불러온다.
+        c.eval_written = true;
+        if (j.id) c.eval_id = j.id;
+        MY.myev = null;
+        if (DATA) renderClasses(DATA.classes || []);
+      })
       .catch(function(){ qPush(payload); });
     };
+  }
+
+  /* ✍ 쓴 일지 열기 — 학부모가 받는 eval.html 을 그대로 연다(따로 만든 화면이 아니라
+     «학부모에게 이렇게 나갔다» 를 확인하는 것이 목적이라 같은 화면이 정답이다).
+     ⚠️ 인앱 브라우저는 window.open 이 예외 없이 null 만 돌려준다(CLAUDE.md 함정) —
+        반환값이 비면 같은 창으로 연다. */
+  function openEvalView(c){
+    if (!c || !c.eval_id) return;
+    var u = '/eval.html?id=' + encodeURIComponent(c.eval_id);
+    var w = null; try { w = window.open(u, '_blank'); } catch (e) {}
+    if (!w) location.href = u;
   }
   function chip(key, label){
     return '<button type="button" class="tchip" data-chip="' + key + '">' + esc(label) + '</button>';

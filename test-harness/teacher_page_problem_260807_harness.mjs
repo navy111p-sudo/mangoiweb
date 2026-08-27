@@ -88,8 +88,15 @@ check('시작 전에는 [미리 입장] 이 눌린다 (비활성 «N분 뒤 입�
 check('끝난 수업도 [다시 입장] 이 된다 (연장·마무리)', /btn-reenter/.test(thtml));
 check('🔴 옛 응답(캐시)에는 없는 권한을 지어내지 않는다',
   /c\.enter_from_ts != null && c\.enter_until_ts != null[\s\S]{0,160}: open;/.test(thtml));
-check('평가하기 버튼은 그대로 남는다 (재입장이 평가를 대체하지 않는다)',
-  /btn-reenter[\s\S]{0,400}data-eval/.test(thtml));
+/* (2026-08-27 마이마이 8/26 ①) 계약 갱신: 끝난 수업에는 일지 버튼이 «반드시 하나» 붙는다 —
+   안 썼으면 [일지 쓰기](data-eval), 이미 썼으면 [일지 ✓ 보기](data-evview).
+   옛 계약(항상 data-eval)은 «쓴 일지가 화면에 안 보인다» 는 제보의 원인이라 뒤집었다.
+   재입장이 일지를 대체하지 않는다는 원래 의도는 그대로다(버튼이 항상 공존). */
+check('일지 버튼은 그대로 남는다 (재입장이 일지를 대체하지 않는다 — 쓰기 또는 보기)',
+  /btn-reenter[\s\S]{0,1200}data-eval(view)?=/.test(thtml)
+  && /data-evview/.test(thtml) && /data-eval="/.test(thtml));
+check('✍ 이미 쓴 수업은 «일지 ✓ 보기» 로 바뀐다 (쓴 것이 화면에 보인다)',
+  /c\.eval_written[\s\S]{0,300}data-evview/.test(thtml) && /openEvalView/.test(thtml));
 
 console.log('\n[ ⑥  주간 스케줄을 날짜로 바로 이동 ]');
 /* "Add quick option for years, months and dates — the new teacher's page just Prev and Next." */

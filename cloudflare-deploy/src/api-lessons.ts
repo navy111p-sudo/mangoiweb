@@ -374,11 +374,14 @@ export async function handleLessonsApi(
       const row: any = await env.DB.prepare(`SELECT * FROM student_evaluations WHERE id=?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
       // 🔐 [PII] 본인 평가 또는 관리자만 — 평가서(교사코멘트·신원) 정수 id 열거 IDOR 차단. [공용 헬퍼, strict=게스트 미허용]
-      if (!['admin', 'self'].includes(await resolveOwnerScope(request, url, env as any, String(row.student_uid || '')))) {
+      const evScope = await resolveOwnerScope(request, url, env as any, String(row.student_uid || ''));
+      if (!['admin', 'self'].includes(evScope)) {
         return json({ ok: false, error: 'auth_required' }, 401);
       }
-      // 학부모가 본 적 없으면 view 기록
-      if (!row.viewed_by_parent) {
+      // 학부모(서명토큰 = self)가 본 적 없으면 view 기록.
+      // ⚠️ 강사·관리자 세션(admin)의 확인 열람까지 찍으면 «학부모 열람함» 신호가
+      //    거짓이 된다 — 강사 포털 «내가 쓴 일지» 카드가 이 칸을 그대로 보여준다.
+      if (evScope === 'self' && !row.viewed_by_parent) {
         await env.DB.prepare(`UPDATE student_evaluations SET viewed_by_parent=1, viewed_at=? WHERE id=?`).bind(Date.now(), id).run();
       }
       return json({ ok: true, eval: row });
