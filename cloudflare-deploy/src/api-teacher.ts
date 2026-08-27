@@ -100,6 +100,47 @@ export async function handleTeacherApi(
     }, 403);
   }
 
+  /* ✍ `?part=my_evals` — «내가 쓴 일지» 카드 전용 경량 응답 (2026-08-27 마이마이 8/26 ①)
+   *
+   *  [왜] 강사가 쓴 일지(student_evaluations)를 되볼 화면이 없었다. 쓰기(/api/eval/create)는
+   *       되는데 조회 API(/api/eval/list)는 학생 서명토큰 기준이라 강사 세션과 안 맞는다.
+   *  [왜 여기] 새 경로를 만들면 index.ts 게이트에 또 등록해야 하고(빠뜨리면 조용히 죽는
+   *       CLAUDE.md 함정), 신원 판정도 두 벌이 된다. `?only=next` 와 같은 이유로 같은
+   *       경로에 얹는다 — 신원은 위 getAdminActor 한 벌 그대로.
+   *  [매칭] teacher_uid 는 이 화면이 저장할 때 넣는 값 = 로그인 아이디(DATA.me.username)다.
+   *       아이디 완전일치(NOCASE)만 쓴다 — 이름 매칭은 'Anna → HANNAH' 사고의 길이다.
+   *       teacher_uid 가 비어 있는 옛 행만 이름 **완전일치** 로 보조한다.
+   *  [카드는 펼칠 때만 부른다] — 이 화면의 설계 계약 4번(첫 화면 API 1회)을 지키기 위해
+   *       포털 본 응답에 싣지 않고 별도 part 로 뒀다. */
+  if (url.searchParams.get('part') === 'my_evals') {
+    const uname = String(actor.username || '').trim();
+    const aname = String(actor.name || '').trim();
+    if (!uname && !aname) return json({ ok: true, items: [] });
+    // 빈 값을 바인드하면 teacher_uid='' 행 · teacher_name='' 행과 맞아 남의 행이 섞인다
+    // — 값이 있는 축만 조건으로 만든다.
+    const ors: string[] = []; const binds: string[] = [];
+    if (uname) { ors.push(`(teacher_uid = ? COLLATE NOCASE)`); binds.push(uname); }
+    if (aname) { ors.push(`((teacher_uid IS NULL OR teacher_uid = '') AND teacher_name = ? COLLATE NOCASE)`); binds.push(aname); }
+    // note_en/note_ko/room_id 는 강사 1분 일지(/api/eval/create)만 채우는 칸 —
+    // AI 자동보고(ai-lesson-report 자동저장)·관리자 일괄평가(bulk-create) 행이
+    // «내가 쓴 일지» 로 둔갑하지 않게 이 표식으로 거른다.
+    const rs: any = await env.DB.prepare(
+      `SELECT id, student_name, lesson_date, score_overall,
+              substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 600) AS note_en,
+              substr(COALESCE(note_ko, ''), 1, 600) AS note_ko,
+              parent_notified, viewed_by_parent, created_at
+         FROM student_evaluations
+        WHERE (${ors.join(' OR ')})
+          AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
+        ORDER BY created_at DESC LIMIT 40`
+    ).bind(...binds).all<any>().catch((e: any) => {
+      console.warn('[teacher-portal] my_evals:', e?.message); return null;
+    });
+    // DB 실패를 «일지 없음» 으로 위장하지 않는다 — 화면의 실패 문구가 뜨게 한다.
+    if (!rs) return json({ ok: false, error: 'db_error' }, 500);
+    return json({ ok: true, items: rs.results || [] });
+  }
+
   const now = Date.now();
   const KST = 9 * 3600 * 1000;
   const k = new Date(now + KST);
@@ -687,6 +728,69 @@ export async function handleTeacherApi(
       }
     }
   } catch { /* 노쇼 표시가 없어도 목록은 정상 */ }
+
+  /* ✍ 일지 배지 + 학생별 «지난 수업» (2026-08-27 마이마이 8/26 ①②)
+   *
+   *  (a) eval_written — 이 수업 방(room_id)에 일지가 이미 있으면 표시한다.
+   *      마이마이 제보의 뿌리: Hannah 가 일지를 «썼는데»(DB 실측) 화면 어디에도
+   *      흔적이 없어 «피드백이 안 보인다» 가 됐다. room_id 완전일치로만 판정한다 —
+   *      /api/eval/create 가 저장하는 room_id 와 여기 room_id 는 같은 결정론 규칙이다.
+   *  (b) prev_lesson — 오늘 학생마다 «오늘 이전» 마지막 일지 1건(날짜·강사·내용)을
+   *      붙인다. 대타·레벨테스트에서 「이 학생을 지난번엔 누가 어떻게 가르쳤나」 가
+   *      화면에 없어서 강사가 맨손으로 들어가던 것. 내용은 400자로 자른다(목록용).
+   *  ⚠️ 실패해도 오늘 목록은 그대로 나온다 — 배지 하나 때문에 수업 목록을 막지 않는다.
+   *  ⚠️ 배너용(?only=next)은 건너뛴다 — 그쪽은 «다음 수업 한 건» 만 쓰는 가벼운 경로다. */
+  if (!onlyNext) try {
+    const rooms = [...new Set(classes.filter((c: any) => c.room_id).map((c: any) => String(c.room_id)))];
+    if (rooms.length) {
+      const evs = await selectInChunks<any>(
+        env.DB, rooms,
+        (ph) => `SELECT room_id, MAX(id) AS eval_id FROM student_evaluations
+                  WHERE room_id IN (${ph}) GROUP BY room_id`,
+        { swallowErrors: true },
+      );
+      const written = new Map<string, number>();
+      for (const r of evs) if (r.room_id) written.set(String(r.room_id), Number(r.eval_id));
+      for (const c of (classes as any[])) {
+        const eid = written.get(String(c.room_id || ''));
+        if (eid) { c.eval_written = true; c.eval_id = eid; }
+      }
+    }
+    const dayStartMs = Date.UTC(kY, kMo, kD, 0, 0, 0) - KST;   // 오늘 00:00 KST — «오늘 이전» 경계
+    const uids = [...new Set(
+      classes.filter((c: any) => c.kind === 'class' && c.student_uid)
+             .map((c: any) => String(c.student_uid)))];
+    if (uids.length) {
+      // 옛 행은 student_uid 가 비고 user_id 만 있다(api-mango 경로) → COALESCE 로 한 키로 본다.
+      // MAX(created_at) 곁의 나머지 열은 SQLite 규칙상 그 최댓값 행에서 온다(학생당 최신 1건).
+      const prevRows = await selectInChunks<any>(
+        env.DB, uids,
+        (ph) => `SELECT COALESCE(NULLIF(student_uid, ''), user_id) AS suid,
+                        teacher_name, lesson_date, score_overall,
+                        substr(COALESCE(note_en, teacher_comment, strengths, ''), 1, 400) AS note_en,
+                        substr(COALESCE(note_ko, ''), 1, 400) AS note_ko,
+                        MAX(created_at) AS created_at
+                   FROM student_evaluations
+                  WHERE COALESCE(NULLIF(student_uid, ''), user_id) IN (${ph}) AND created_at < ?
+                    AND (note_en IS NOT NULL OR note_ko IS NOT NULL OR room_id IS NOT NULL)
+                  GROUP BY suid`,
+        { tail: [dayStartMs], swallowErrors: true },
+      );
+      const prevBy = new Map<string, any>();
+      for (const r of prevRows) if (r.suid) prevBy.set(String(r.suid), r);
+      for (const c of (classes as any[])) {
+        const p = prevBy.get(String(c.student_uid || ''));
+        if (!p) continue;
+        c.prev_lesson = {
+          date: p.lesson_date || (p.created_at ? new Date(Number(p.created_at) + KST).toISOString().slice(0, 10) : null),
+          teacher_name: p.teacher_name || null,
+          note_en: p.note_en || null,
+          note_ko: p.note_ko || null,
+          score_overall: p.score_overall != null ? p.score_overall : null,
+        };
+      }
+    }
+  } catch { /* 배지·지난수업이 없어도 목록은 정상 */ }
 
   /* 🔔 `?only=next` — 여기서 끝낸다. 아래 매니저 블록·주간 스케줄·반환문은 타지 않는다.
    *
