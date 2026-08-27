@@ -6,7 +6,16 @@
 (function(){
   'use strict';
   function $(id){ return document.getElementById(id); }
-  function isEn(){ try { return localStorage.getItem('adminLang') === 'en' || localStorage.getItem('mango_lang') === 'en'; } catch(e){ return false; } }
+  /* 🌐 언어 판정 — 정본은 window.adminLang (adm-lang-boot.js 가 정하고, adm-core.js 의
+     `var adminLang` 이 같은 바인딩이라 KO/EN 토글까지 따라온다. 저장 키는 mangoi_lang).
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 **아무도 저장하지 않는 죽은 키**라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것.
+     ⚠️ 함께 보던 `mango_lang` 도 뺐다 — 구버전 키이고, 그걸 쓰는 화면(judgment.html)은
+        같은 자리에서 mangoi_lang 도 함께 저장하므로 잃는 값이 없다. */
+  function isEn(){
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){ return false; }
+  }
   function T(ko, en){ return isEn() ? en : ko; }
 
   var lastPreview = null;   // 마지막 dry 결과 { targets, ... } — 실행 전 미리보기 강제용

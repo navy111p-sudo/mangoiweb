@@ -39,8 +39,13 @@
   var HALF_LIFE = 7;                     // 가중치 반감기(일)
   var KEEP_DAYS = 30;                    // 이보다 오래된 기록은 잊는다
 
+  /* 🌐 언어 판정 — 정본은 window.adminLang (adm-lang-boot.js 가 정하고, adm-core.js 의
+     `var adminLang` 이 같은 바인딩이라 KO/EN 토글까지 따라온다. 저장 키는 mangoi_lang).
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 **아무도 저장하지 않는 죽은 키**라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것. */
   function isEn() {
-    try { return localStorage.getItem('adminLang') === 'en'; } catch (e) { return false; }
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
 
   /* ── 기본 순서 10개 ──────────────────────────────────────────────────────
