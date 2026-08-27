@@ -2129,7 +2129,7 @@ function _renderQuestBar(){
     (next ? '<span>열린 게임 중 <b>안 깬 게임 하나</b>를 클리어하면 <b>' + next.ico + ' ' + next.ttl.split(' (')[0] + '</b> 해금!</span>'
           : '<span>👑 모든 게임을 다 열었어요!</span>') +
     // 두 번째 해금 경로 — 잠긴 카드를 눌러야만 보이면 존재를 모르는 학생이 생긴다
-    (next ? _qbtn('🎫 레벨테스트로 한 번에 열기', QBTN_LT, 'hubGoLeveltest()') : '') +
+    (next ? _qbtn('🎫 레벨테스트로 한 번에 열기', QBTN_LT, 'hubGoLeveltestSafe()') : '') +
     _qbtn('🔓 전체 열기', QBTN_ALL, 'toggleQuestMode()');
 }
 
@@ -2262,6 +2262,13 @@ function _applyGameTheme(mode){
   if(mode==='brick'||mode==='match'||mode==='fill'||mode==='balloon') area.classList.add('themed');
 }
 
+/* 🎫 레벨테스트 버튼 — hubGoLeveltest 는 defer 파일(js/game-preview.js)에 있어서
+   느린 회선에서는 «아직 안 왔을» 수 있다. 그대로 부르면 ReferenceError 로 조용히
+   무반응(=고장으로 보임) → hubOpenGame 의 잠금 폴백과 같은 방식으로 토스트를 준다. */
+function hubGoLeveltestSafe(){
+  if (typeof window.hubGoLeveltest === 'function') { window.hubGoLeveltest(); return; }
+  _toastHub('⏳ 준비 중이에요 — 잠시 후 다시 눌러 주세요!');
+}
 function hubOpenGame(mode){
   var g = _hubGame(mode); if(!g) return;
   /* 🔒 잠긴 게임 → 미리보기(js/game-preview.js). ⛔ 여기서 실제 게임을 시작하는 길을 열지 말 것.

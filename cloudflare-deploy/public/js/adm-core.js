@@ -1810,7 +1810,7 @@ function _payrollMinutesCell(p) {
   if (p.length_recorded) {
     if (p.length_source === 'ingest') {
       const t = _L ? 'From the Cafe24 monthly sync' : '카페24가 보낸 값 (자동)';
-      return `${fmtNum(mins)} <span style="font-size:11px;color:#0f766e;" title="${t}">자동</span>`;
+      return `${fmtNum(mins)} <span style="font-size:11px;color:#0f766e;" title="${t}">${_L ? 'auto' : '자동'}</span>`;
     }
     return fmtNum(mins);
   }
@@ -4311,7 +4311,12 @@ async function leveltestMakeClass(id, opts) {
       삭제 전에 먼저 cancelled 로 정리해 강사·학생 달력에 유령 수업이 남지 않게 한다. */
 async function leveltestDeleteApp(id, name) {
   const en = (adminLang === 'en');
-  const label = name ? (' — ' + name) : '';
+  /* 이름은 목록(__ltShown)에서 찾는다 — onclick 속성에 학생 입력값(student_name)을
+     문자열로 심으면 " 한 글자로 속성이 닫혀 마크업이 깨지고(공개 신청 폼 값이라
+     저장형 XSS 벡터), 따옴표 제거만으로는 못 막는다. name 인자는 옛 호출 호환용. */
+  const row = (__ltShown || []).find(a => a && String(a.id) === String(id));
+  const nm = (row && row.student_name) || name || '';
+  const label = nm ? (' — ' + nm) : '';
   if (!confirm((en ? 'Delete this application' : '이 신청을 삭제할까요') + label + '?\n' +
     (en ? 'This cannot be undone. A linked class (if any) will be cancelled.' : '되돌릴 수 없습니다. 연결된 수업이 있으면 함께 취소 처리됩니다.'))) return;
   let d = {};
@@ -4351,7 +4356,9 @@ async function ltDeleteAllVisible() {
     alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
     return;
   }
-  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  // 성공은 «ok:true 라고 말했는가» 로 판정 — 관문 404 본문({error:'Not Found'})은 ok 칸이
+  // 없어 === false 를 그냥 통과해 「0건 삭제」 정상 문구로 위장한다(CLAUDE.md 2장).
+  if (!d || d.ok !== true) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
   const n = (d.deleted || []).length;
   loadLeveltestApps();
   if (rows.length > 90) {
@@ -4517,7 +4524,7 @@ function _ltPaint(tb, items) {
     /* 🗑️ (2026-08-21) 삭제 — 본사(경영진·관리자)만. 서버가 같은 조건으로 403 을 던지니
        여기서는 "눌러도 안 되는 버튼"을 만들지 않기 위해 화면에서도 감춘다. */
     const deleteBtn = (typeof window !== 'undefined' && window._isHqMgrOrUp)
-      ? `<button onclick="leveltestDeleteApp(${a.id},'${String(a.student_name||'').replace(/['\\]/g,'')}')" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
+      ? `<button onclick="leveltestDeleteApp(${Number(a.id)||0})" title="${adminLang==='en'?'Delete this application (cannot be undone)':'이 신청을 삭제합니다 (되돌릴 수 없음)'}" style="padding:3px 7px;font-size:11px;border:1px solid #fecaca;border-radius:6px;background:#fff5f5;color:#b91c1c;cursor:pointer;margin-left:4px">🗑️</button>`
       : '';
     return `<tr><td>${_fmtDate(a.created_at)}</td><td>${nameCell}</td><td style="white-space:nowrap">${uidCell}${linkBtn}</td><td>${when}</td><td>${_ltTeacherCell(a)}</td><td style="text-align:center">${ai}</td><td style="text-align:center">${pron}</td><td style="text-align:center">${lvl}</td><td><span style="font-size:11px;font-weight:700;color:${st[2]}">${stLabel}</span></td><td style="text-align:center">${clsCell}</td><td style="text-align:right;white-space:nowrap">${ticketCell}${actions}${deleteBtn}</td></tr>`;
   }).join('');
@@ -4800,6 +4807,10 @@ const EN_STATUS_META = {
 const EN_LIVE = ['pending', 'confirmed', 'active'];   // 아직 «살아 있는» 신청
 let _enItems = [];        // 마지막으로 받아온 원본 — 검색·중복필터는 재요청 없이 다시 그린다
 let _enDupOnly = false;
+let __enShown = [];       // 🗑️ _renderEnrollments() 가 방금 그린 목록(검색·상태·중복필터 반영)
+                          //    — 일괄 삭제는 «반드시» 이것만 지운다. 삭제 쪽에서 조건을 다시
+                          //    계산하면 필터 하나(중복만 보기)가 빠지는 날 안 보이는 행까지
+                          //    지워진다(레벨테스트 __ltShown 과 같은 규칙, 2026-08-27 실제 발견).
 let _enQuery = '';
 let _enToastT = null;
 
@@ -4890,6 +4901,7 @@ function _renderEnrollments() {
     String(it.teacher_name || '').toLowerCase().includes(q)
   ));
   if (_enDupOnly) rows = rows.filter(isDup);
+  __enShown = rows;   // 일괄 삭제(enDeleteAllVisible)가 보는 «화면에 실제로 그린» 목록
 
   if (!rows.length) {
     tb.innerHTML = '<tr><td colspan="6" class="empty">' +
@@ -7024,17 +7036,10 @@ async function enDeleteOne(id) {
    ⚠️ 최대 90건까지 한 번에 보낸다(D1 IN 바인드 한도) — 그 이상이면 나눠서 다시 누르게 안내. */
 async function enDeleteAllVisible() {
   const en = (adminLang === 'en');
-  const q = String(_enQuery || '').trim().toLowerCase();
-  const sel = document.getElementById('en-status-filter');
-  const fs = sel ? sel.value : '';
-  let rows = _enItems;
-  if (fs) rows = rows.filter(it => String(it.status || '') === fs);
-  if (q) rows = rows.filter(it => (
-    String(it.student_name || '').toLowerCase().includes(q) ||
-    String(it.student_user_id || '').toLowerCase().includes(q) ||
-    String(it.package || '').toLowerCase().includes(q) ||
-    String(it.teacher_name || '').toLowerCase().includes(q)
-  ));
+  /* «보이는 것» 은 렌더러가 남긴 __enShown 이 정본이다. 여기서 필터를 다시 계산하면
+     렌더러와 조건이 어긋나는 순간(실제로 중복만 보기 _enDupOnly 가 빠져 있었다)
+     화면에 안 보이는 신청까지 지워진다 — 복구 불가 삭제라 특히 위험. */
+  const rows = (__enShown || []).filter(it => it && it.id != null);
   if (!rows.length) { alert(en ? 'Nothing to delete.' : '지울 항목이 없습니다.'); return; }
   const ids = rows.slice(0, 90).map(it => it.id);
   if (!confirm((en
@@ -7051,7 +7056,9 @@ async function enDeleteAllVisible() {
     alert(en ? 'Network error while deleting.' : '삭제 중 통신 오류가 났습니다.');
     return;
   }
-  if (!d || d.ok === false) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
+  // 성공은 «ok:true 라고 말했는가» 로 판정 — 관문 404 본문({error:'Not Found'})은 ok 칸이
+  // 없어 === false 를 그냥 통과해 「0건 삭제」 정상 문구로 위장한다(CLAUDE.md 2장).
+  if (!d || d.ok !== true) { alert('⚠ ' + ((en ? d.message_en : d.message) || d.message || d.error || (en ? 'Failed' : '삭제에 실패했습니다'))); return; }
   const n = (d.deleted || []).length;
   _enToast(en ? (n + ' enrollment(s) deleted') : (n + '건 삭제했습니다'));
   loadEnrollments();
@@ -10003,8 +10010,8 @@ async function testR2() {
       var cut = (d.rec && d.rec.truncated) || (d.legacy && d.legacy.truncated);
       el.style.color = '#22c55e';
       el.textContent = adminLang==='en'
-        ? '✅ R2 OK — read/write OK. Files: ' + totalN + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + legacyN + ')')
-        : '✅ R2 연결 성공 — 쓰기/읽기 OK. 녹화 파일 ' + totalN + '개' + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + legacyN + ')');
+        ? '✅ R2 OK — read/write OK. Files: ' + totalN + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + (legacyN == null ? 0 : legacyN) + ')')
+        : '✅ R2 연결 성공 — 쓰기/읽기 OK. 녹화 파일 ' + totalN + '개' + (recN == null ? '' : ' (rec/ ' + recN + ' · recordings/ ' + (legacyN == null ? 0 : legacyN) + ')');
       if (cut) el.textContent += adminLang==='en' ? ' · list truncated at 1000' : ' · 목록이 1000개에서 잘림';
       var sample = d.recordingFiles || [];
       if (sample.length) {
@@ -12997,37 +13004,46 @@ window.rebuildGlobalSearchIndex = function() {
     var redraw = function(){ drawTools(); drawHead(); drawBody(); };
 
     /* 조작은 «위임» 으로 받는다 — 다시 그릴 때마다 리스너를 새로 달면 겹쳐 쌓인다.
-       ⛔ 같은 요소에 두 번 달리지 않게 표식을 둔다(탭을 오갈 때마다 이 함수가 다시 불린다). */
+       ⛔ 같은 요소에 두 번 달리지 않게 표식을 둔다(탭을 오갈 때마다 이 함수가 다시 불린다).
+       🔁 단, 리스너가 «첫 호출의 클로저» 를 계속 보면 안 된다 — 탭 재진입·🌐 전환으로
+          c24FinLoad 가 다시 돌면 rows/언어가 바뀌는데, 옛 클로저의 redraw() 가 첫 로드의
+          자료로 화면을 «되돌린다»(2026-08-27 발견). 상태·그리기 함수는 요소에 실어
+          매 호출 바꿔 끼우고, 리스너는 그 칸을 통해서만 부른다. */
+    tools.__c24 = { state: state, redraw: redraw, drawBody: drawBody, pick: pick, list: list, en: en };
+    head.__c24 = { state: state, drawHead: drawHead, drawBody: drawBody };
     if (!tools.__c24wired) {
       tools.__c24wired = true;
       var hit = function(e){
+        var c = tools.__c24; if (!c) return;
         var el = e.target.closest ? e.target.closest('.c24x-chip') : null;
         if (!el) return;
         if (el.hasAttribute('data-st')) {
           var v = el.getAttribute('data-st');
-          state.st = (state.st === v) ? null : v;      // 한 번 더 누르면 해제
-        } else { state.kind = el.getAttribute('data-k'); }
-        redraw();
+          c.state.st = (c.state.st === v) ? null : v;      // 한 번 더 누르면 해제
+        } else { c.state.kind = el.getAttribute('data-k'); }
+        c.redraw();
       };
       tools.addEventListener('click', hit);
       tools.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hit(e); } });
       tools.addEventListener('input', function(e){
+        var c = tools.__c24; if (!c) return;
         if (!e.target || e.target.id !== 'c24x-q') return;
-        state.q = e.target.value;
-        drawBody();
+        c.state.q = e.target.value;
+        c.drawBody();
         // 입력칸을 다시 그리면 포커스가 날아가므로 «건수» 만 갱신한다
         var n = tools.querySelector('.c24x-n');
-        if (n) n.textContent = en ? (pick().length + ' / ' + list.length + ' shown') : (list.length + '건 중 ' + pick().length + '건');
+        if (n) n.textContent = c.en ? (c.pick().length + ' / ' + c.list.length + ' shown') : (c.list.length + '건 중 ' + c.pick().length + '건');
       });
     }
     if (!head.__c24wired) {
       head.__c24wired = true;
       var sortHit = function(e){
+        var c = head.__c24; if (!c) return;
         var th = e.target.closest ? e.target.closest('.c24x-th') : null;
         if (!th) return;
         var k = th.getAttribute('data-s');
-        if (state.sort === k) state.dir = -state.dir; else { state.sort = k; state.dir = (k === 'reg_date' || k === 'pay_date') ? -1 : 1; }
-        drawHead(); drawBody();
+        if (c.state.sort === k) c.state.dir = -c.state.dir; else { c.state.sort = k; c.state.dir = (k === 'reg_date' || k === 'pay_date') ? -1 : 1; }
+        c.drawHead(); c.drawBody();
       };
       head.addEventListener('click', sortHit);
       head.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortHit(e); } });

@@ -709,7 +709,9 @@ async function buildMonthly(env: Env, period: string) {
      「케이씨피」 정산분만 센다. 실패하면 null → reconcileMonth 가 종전(같은 달)으로 돈다. */
   const lagPg = await safe(async () => {
     const { startMs, endMs } = monthRange(period);
-    const shift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000).toISOString().slice(0, 10);
+    // startMs 는 «KST 자정» 의 epoch 라 UTC ISO 로 자르면 하루 이른 날짜가 나온다
+    // (실효 시차 20일 — reconcileReport 의 날짜문자열 +21일과 하루 어긋남). +9h 로 맞춘다.
+    const shift = (ms: number) => new Date(ms + PG_SETTLE_LAG_DAYS * 86400000 + 9 * 3600 * 1000).toISOString().slice(0, 10);
     const r = await env.DB.prepare(`
       SELECT COALESCE(remark,'') AS remark, amount FROM bankacct_transactions
        WHERE kind='in' AND substr(trans_at,1,10) >= ? AND substr(trans_at,1,10) < ?
@@ -1801,6 +1803,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
      전제였는데, 맞춘 값이면 그렇게 벌어질 이유가 없다. */
   else if (Math.abs(pct) <= (lagPg == null ? 15 : 10)) verdict = 'ok';
   else if (Math.abs(pct) <= (lagPg == null ? 30 : 25)) verdict = 'warn';
+  // ⚠️ else 가 없으면 verdict 가 undefined 로 남아, «가장 크게 어긋난 달» 일수록
+  //    배너가 아예 안 뜨고 마감 경고(closeWarnings)도 건너뛰어진다(2026-08-27 발견).
+  else verdict = 'alert';
   const short = (diff ?? 0) < 0;
   const MSG: Record<typeof verdict, string> = {
     ok: '장부와 통장이 맞습니다(정산 시차를 맞춘 비교).',
@@ -1818,7 +1823,9 @@ function reconcileMonth(revenueBook: number, dep: MonthDeposits, lagPg: number |
     lag_days: lagPg == null ? null : PG_SETTLE_LAG_DAYS,
     // 통장 기준 매출 = 실제 들어온 정산금을 수수료만큼 되돌린 값
     bank_revenue: hasBank ? Math.round(pgUsed / (1 - PG_FEE_RATE)) : null,
-    deposit_b2b: dep.b2b, deposit_transfer: dep.transfer, deposit_other: dep.other,
+    // ⚠️ reconcileReport 쪽 deposit_transfer 는 «성격 미확인만» 이다 — 같은 이름에
+    //    확인된 자금이체(케이씨피M)까지 실으면 1-3 장 금지(화면 부활)가 되살아난다.
+    deposit_b2b: dep.b2b, deposit_transfer: dep.transferUnknown, deposit_other: dep.other,
     diff, diff_pct: Number(pct.toFixed(1)), verdict, message: MSG[verdict],
     /* ⚠️ 확인이 끝난 내부 자금이체는 안내하지 않는다(2026-08-18 사장님 지시 — 설명이
        오히려 혼동을 준다). 아직 «모르는» 입금만 묻는다. */

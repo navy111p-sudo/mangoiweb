@@ -419,7 +419,9 @@ function maturedBy(contractDate: string, asOfISO: string): boolean {
 }
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  // KST 기준 — UTC 로 자르면 한국 아침(00~09시)에 «오늘» 이 어제가 되어
+  // 영업일지 logged_today, 활동일 기본값, 다음방문 판정이 하루씩 밀린다.
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1768,7 +1770,10 @@ export async function handleSalesHrApi(
       Math.max(0, num(body?.target_visits, SALES_DEFAULTS.target_visits)),
       Math.max(0, num(body?.target_leads, SALES_DEFAULTS.target_leads)),
       Math.max(0, num(body?.target_care, SALES_DEFAULTS.target_care)),
-      String(body?.program_started_at || '').trim() || todayISO(),
+      // 빈 값이면: UPDATE 는 기존 날짜 유지(COALESCE(NULLIF(?,''),…)), INSERT 는 SQL 쪽
+      // 기본값(오늘 KST). 여기서 todayISO() 를 채워 넣으면 «날짜 없이 저장» 이
+      // 기존 시작일을 오늘로 덮어써 90일 자문 기준선이 리셋된다.
+      String(body?.program_started_at || '').trim(),
       body?.active === 0 || body?.active === false ? 0 : 1,
       String(body?.notes || '').trim() || null,
     ];
@@ -1777,7 +1782,7 @@ export async function handleSalesHrApi(
         `UPDATE sales_reps SET name=?, phone=?, email=?, admin_username=?, region=?, hired_at=?,
            base_salary_krw=?, incentive_per_deal_krw=?, target_deals=?, target_students=?,
            target_visits=?, target_leads=?, target_care=?,
-           program_started_at=COALESCE(program_started_at, ?), active=?, notes=?, updated_at=?
+           program_started_at=COALESCE(NULLIF(?, ''), program_started_at), active=?, notes=?, updated_at=?
          WHERE id=?`
       ).bind(...vals, now, id).run();
       return json({ ok: true, id });
@@ -1786,7 +1791,7 @@ export async function handleSalesHrApi(
       `INSERT INTO sales_reps (name, phone, email, admin_username, region, hired_at,
          base_salary_krw, incentive_per_deal_krw, target_deals, target_students,
          target_visits, target_leads, target_care, program_started_at, active, notes, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,COALESCE(NULLIF(?,''), date('now','+9 hours')),?,?,?,?)`
     ).bind(...vals, now, now).run();
     return json({ ok: true, id: ins?.meta?.last_row_id ?? null });
   }
@@ -1831,12 +1836,14 @@ export async function handleSalesHrApi(
       String(body?.notes || '').trim() || null,
     ];
     if (id > 0) {
+      // 본사가 아니면 «내 후보 학원» 만 고칠 수 있다 — WHERE id=? 만으로는 남의 lead 를
+      // id 하나로 집어 내 것으로 재배정할 수 있다(활동 기록 쪽 :1896 과 같은 스코프).
       await env.DB.prepare(
         `UPDATE sales_leads SET rep_id=?, name=COALESCE(NULLIF(?,''),name), region=?, address=?,
            contact_name=?, contact_phone=?, stage=?, status=?, source=?, center_id=?,
            next_action=?, next_action_at=?, last_contact_at=?, lost_reason=?, notes=?, updated_at=?
-         WHERE id=?`
-      ).bind(...vals, now, id).run();
+         WHERE id=?${hq ? '' : ' AND rep_id=?'}`
+      ).bind(...vals, now, id, ...(hq ? [] : [myRepId])).run();
       return json({ ok: true, id });
     }
     const ins: any = await env.DB.prepare(
@@ -1960,6 +1967,20 @@ export async function handleSalesHrApi(
       String(body?.notes || '').trim() || null,
     ];
     if (id > 0) {
+      /* 「🔔 3개월 유지 확인」 버튼은 {id, rep_id, retained_3m, retention_checked_at} 만
+         보낸다. 이 부분 페이로드를 아래 전체 UPDATE 에 태우면 students_initial→0,
+         lead_id·notes·성과급 조정액→NULL 로 씻기고, rep_id 가 화면 드롭다운의 담당자로
+         바뀌어 남의 계약(과 성과급)이 재배정된다. 유지 판정만 온 요청은 유지 칸만 만진다. */
+      const retentionOnly = retained != null
+        && body?.center_name == null && body?.contract_date == null
+        && body?.students_initial == null && body?.notes == null;
+      if (retentionOnly) {
+        await env.DB.prepare(
+          `UPDATE sales_deals SET retained_3m=?, retention_checked_at=COALESCE(?,retention_checked_at),
+             retention_source='manual', updated_at=? WHERE id=?`
+        ).bind(retained, checkedAt, now, id).run();
+        return json({ ok: true, id });
+      }
       await env.DB.prepare(
         `UPDATE sales_deals SET rep_id=?, lead_id=?, center_id=?,
            center_name=COALESCE(NULLIF(?,''),center_name), region=?,
@@ -2445,10 +2466,12 @@ export async function handleSalesHrApi(
     const rep = await getRep(env, repId);
     if (!rep) return json({ ok: false, error: 'rep_not_found' }, 404);
 
-    // 확정 평가 이력 — 반기 평가만. 최근 것이 앞.
+    // 확정 평가 이력 — 반기 평가만(GLOB). 월간(YYYY-MM)을 섞으면 문자열 정렬에서
+    // '2026-H1' 이 '2026-12' 보다 «뒤» 라('H' > 숫자) 옛 반기가 최신으로 둔갑한다.
     const evRs: any = await env.DB.prepare(
       `SELECT period, grade, final_total, bonus_krw, advisory, evaluator, evaluated_at
-         FROM sales_evaluations WHERE rep_id = ? ORDER BY period DESC LIMIT 8`
+         FROM sales_evaluations WHERE rep_id = ? AND period GLOB '*-H[12]'
+        ORDER BY period DESC LIMIT 8`
     ).bind(repId).all().catch(() => ({ results: [] }));
     const evals: any[] = (evRs?.results || []).map((e: any) => ({ ...e, advisory: !!Number(e.advisory) }));
 
