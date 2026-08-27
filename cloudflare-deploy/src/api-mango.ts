@@ -1950,7 +1950,10 @@ export async function handleMangoApi(
         if (!ok) {
           // 이름 기반 학생 uid 병합(동명/키 다양성 대비)
           try {
-            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
+            /* ⚠️ (2026-08-27) 여기 있던 ('stu_' || id) 는 students_erp 에 없는 컬럼이라
+               `no such column: id` 로 죽었고 catch 가 삼켰다 — 이 폴백 자체가 무동작이었다.
+               동명이인이 여럿이어도 아래는 «내 uid 와 같은가» 만 보므로 넓혀도 안전하다. */
+            const rs = await env.DB.prepare(`SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`).bind(row.student_name || '', row.student_name || '').all<any>();
             for (const x of (rs.results || [])) { if (String(x.uid) === userId) { ok = true; resolvedRole = 'student'; break; } }
           } catch {}
         }

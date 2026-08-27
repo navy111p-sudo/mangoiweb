@@ -5474,8 +5474,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         let nameForUid: string | null = null;
         try {
           const r = await env.DB.prepare(
-            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE user_id = ? OR login_id = ? OR ('stu_' || id) = ? OR ('stu_id_' || id) = ? LIMIT 1`
-          ).bind(userId, userId, userId, userId).first<any>();
+            // ⚠️ (2026-08-27) ('stu_' || id)·('stu_id_' || id) 는 students_erp 에 없는 컬럼이라
+            //    `no such column: id` 로 죽어 이 조회가 통째로 무동작이었다(catch 가 삼킴).
+            `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
+          ).bind(userId, userId).first<any>();
           if (r?.name) nameForUid = r.name;
         } catch {}
         // 2) studentName 파라미터가 있으면 그것도 우선 사용 (프론트가 알고 있는 이름)
@@ -5485,7 +5487,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         if (effectiveName) {
           try {
             const rs = await env.DB.prepare(
-              `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+              // ⚠️ (2026-08-27) 없는 컬럼 id 참조로 죽어 있었다 → allUids 가 늘 [userId] 하나였다.
+              `SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
             ).bind(effectiveName, effectiveName).all<any>();
             const ids = (rs.results || []).map((r: any) => r.uid).filter(Boolean);
             allUids = [...new Set([userId, ...ids])];
@@ -5497,8 +5500,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //       한 이름이 이미 71명(운영 DB 실측)이라 D1 바인드 100개 한도에 근접했습니다.
         //       allUids 를 만든 쿼리를 **그대로 서브쿼리로** 넣으면 결과는 같으면서
         //       바인드는 2개로 고정됩니다(이름 수가 아무리 늘어도 안전).
+        /* 🔴 (2026-08-27) 여기 있던 ('stu_' || id) 는 students_erp 에 없는 컬럼이다. 단독으로 돌리면
+           `no such column: id` 인데, 이 문자열은 class_schedules 를 도는 쿼리 «안» 에 서브쿼리로 들어가서
+           SQLite 가 그 id 를 **바깥 class_schedules.id** 로 해석했다 — 죽지 않고 «상관 서브쿼리» 가 되어
+           매 행마다 students_erp 를 전수 스캔했다(운영 D1 실측: 4.3초 / 2,348만 행 읽기).
+           빼면 상관관계가 끊겨 의미도 정확해지고 빨라진다. */
         const SAME_NAME_UIDS =
-          `SELECT COALESCE(user_id, login_id, ('stu_' || id)) FROM students_erp WHERE korean_name = ? OR username = ?`;
+          `SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?`;
         if (effectiveName) {
           where.push(`(user_id = ? OR user_id IN (${SAME_NAME_UIDS}) OR student_name = ?)`);
           binds.push(userId, effectiveName, effectiveName, effectiveName);
@@ -5512,7 +5520,8 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         //     동명이인이 100명을 넘으면 D1 바인드 한도에 걸립니다(현재 최다 71명).
         //     동명이인이 하나도 없으면 IN 이 공집합이라 student_name 조건만 남습니다 — 기존과 동일.
         where.push(
-          `(user_id IN (SELECT COALESCE(user_id, login_id, ('stu_' || id)) FROM students_erp WHERE korean_name = ? OR username = ?) OR student_name = ?)`);
+          // ⚠️ (2026-08-27) 위 SAME_NAME_UIDS 와 같은 상관 서브쿼리 문제 — id 제거로 해소.
+          `(user_id IN (SELECT COALESCE(user_id, login_id) FROM students_erp WHERE korean_name = ? OR username = ?) OR student_name = ?)`);
         binds.push(studentName, studentName, studentName);
       }
       if (fromDate) { where.push('(scheduled_date IS NULL OR scheduled_date >= ?)'); binds.push(fromDate); }
@@ -5642,6 +5651,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         for (const g of (groups.results || [])) {
           const name = g.name;
           // 2) 같은 이름의 모든 학생 - id 오름차순 (가장 오래된이 canonical)
+          /* 🔴 (2026-08-27) 이 쿼리는 students_erp 에 없는 컬럼 id 를 SELECT·ORDER BY 하므로
+             `no such column: id` 로 죽는다 = 이 병합 API 는 지금 아무 일도 하지 않는다.
+             ⛔ 일부러 안 고쳤다 — 되살리는 순간 실제 학생 계정을 «병합» 하기 시작하는데,
+                개발·운영이 같은 D1 이라 되돌릴 수 없다(CLAUDE.md 1-1). 고치려면 rowid 로 바꾸고
+                dry_run → 사람 확인 2단계를 함께 붙여야 한다. 사장님 판단이 필요한 별건. */
           const dups = await env.DB.prepare(
             `SELECT id, COALESCE(user_id, login_id, ('stu_' || id)) AS uid, korean_name, username, signup_date
              FROM students_erp
@@ -5923,6 +5937,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           if (t?.id) seedTeacherId = String(t.id);
         } catch {}
       }
+      /* 🔴 (2026-08-27) 아래 두 조회도 없는 컬럼 id 를 참조해 죽는다(catch 가 삼킴) →
+         user_id 를 안 주면 이 API 는 no_student 로 끝난다 = 데모 시드가 만들어지지 않는다.
+         ⛔ 일부러 안 고쳤다 — 되살리면 class_schedules 에 시드 행이 다시 생기는데, 6월 시드
+            140행이 «이미 예약된» 자리표시로 배정을 막던 사고가 이미 있었다(CLAUDE.md 2장).
+            지금은 죽어 있는 편이 안전하다. 필요해지면 그때 사람이 판단해서 되살릴 것. */
       // user_id 안 주면 students_erp 첫 학생 사용
       if (!userId) {
         try {
@@ -5997,10 +6016,17 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let userId = String(body.user_id || '').trim();
       if (!userId && studentName) {
         try {
-          const r = await env.DB.prepare(
-            `SELECT COALESCE(user_id, login_id, ('stu_' || id)) AS uid FROM students_erp WHERE korean_name = ? OR username = ? LIMIT 1`
-          ).bind(studentName, studentName).first<any>();
-          if (r?.uid) userId = String(r.uid);
+          /* ⚠️ (2026-08-27) 여기 있던 ('stu_' || id) 는 students_erp 에 없는 컬럼이라 죽어 있었고
+             (catch 가 삼킴) 그래서 «이름만 주고 등록» 은 늘 student_not_found 로 끝났다.
+             ⛔ 되살릴 때 옛 `LIMIT 1` 을 그대로 두면 안 된다 — 동명이인이 실재하므로(김민서 71명)
+                «아무나» 집어 남의 계정에 수업이 등록된다. 이름이 **정확히 한 계정으로만** 떨어질
+                때만 쓰고, 아니면 안 채운다(아래에서 student_not_found 로 사람에게 되묻는다).
+             — sessions/today 의 이름 구제와 같은 규칙(CLAUDE.md 2장 «모르는 것보다 틀린 게 나쁘다»). */
+          const rs = await env.DB.prepare(
+            `SELECT COALESCE(user_id, login_id) AS uid FROM students_erp WHERE korean_name = ? OR username = ?`
+          ).bind(studentName, studentName).all<any>();
+          const uids = Array.from(new Set((rs.results || []).map((x: any) => x.uid).filter(Boolean)));
+          if (uids.length === 1) userId = String(uids[0]);
         } catch {}
       }
       if (!userId) return bad('student_not_found', '학생을 찾지 못했습니다. 이름을 확인하거나 user_id 를 함께 보내주세요.', 'Student not found. Check the name or send user_id as well.');
@@ -8198,7 +8224,7 @@ LIMIT $limit`;
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_textbook_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, textbook_id INTEGER, textbook_name TEXT, level TEXT, started_at INTEGER, ended_at INTEGER, progress_pct REAL, status TEXT DEFAULT 'active', created_at INTEGER)`);
         await env.DB.prepare(
           `INSERT INTO student_textbook_assignments (user_id, textbook_name, level, started_at, status, created_at)
-           SELECT COALESCE(user_id, login_id, 'stu_' || id), ?, CASE WHEN ? = '' THEN level ELSE ? END, ?, 'active', ? FROM students_erp ${where}`
+           SELECT COALESCE(user_id, login_id), ?, CASE WHEN ? = '' THEN level ELSE ? END, ?, 'active', ? FROM students_erp ${where}`
         ).bind(title, level, level, now, now, ...binds).run();
       } catch (e: any) { console.warn('[bulk-assign-textbook] history insert skipped:', e?.message); }
       const upd: any = await env.DB.prepare(
