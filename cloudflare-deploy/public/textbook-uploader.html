@@ -149,7 +149,17 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <div class="dropzone" id="dropzone">
   <div class="dz-ico">📁</div>
   <div class="dz-title">교재 폴더를 여기로 드래그하세요</div>
-  <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원/마스터3/제1과/p001.pdf</code><br>
+  <!-- 📁 (2026-08-27) 예시를 «안전한 구조» 로 바꿨다.
+       그전 예시는 `다락원/마스터3/제1과/…` 였는데, 분류기는 교재명을 **2단계 폴더명**에서
+       가져오므로 그대로 따르면 교재 이름이 **「마스터3」** 가 된다. 그런데 콘텐츠 표
+       (zh_passage·zh_vocab·review_quizzes)와 라이브러리는 그 책을 다른 이름으로 부르고
+       있어서, 그 이름으로 올리면 중국어 퀴즈·진도 연결이 통째로 끊긴다
+       (CLAUDE.md 2장 · docs/중국어교재_과별_재업로드_절차_2026-08-26.md).
+       ⛔ 예시를 «출판사/교재/과» 3단계로 되돌리지 마세요 — 사람은 예시를 그대로 따릅니다. -->
+  <div class="dz-sub">예) <code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:4px;font-size:11px;color:#fcd34d">다락원 중국어 마스터 3/제1과/p001.pdf</code><br>
+  <b style="color:#fcd34d">맨 위 폴더 이름이 그대로 «교재 이름»</b> 이 되고, 그 안의 폴더가 «과» 가 됩니다.<br>
+  <span style="opacity:.85">과 폴더는 <code style="font-size:10.5px">제1과</code> · <code style="font-size:10.5px">Unit 1</code> 처럼 <b>낱말과 함께</b> 써 주세요.
+  숫자만(<code style="font-size:10.5px">001</code>) 이면 <b>유닛마다 다른 권</b>이 됩니다(아래 팁 참고).</span><br>
   PDF · 이미지(JPG/PNG/WebP) · 동영상(MP4) · 🗜 <b>ZIP 자동 풀기</b> 지원</div>
   <div class="dz-or">— 또는 —</div>
   <label class="dz-btn">📂 폴더 선택하기
@@ -174,6 +184,12 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 <!-- 자동 분류 결과 -->
 <div class="classify-result" id="cr">
   <h2>🤖 AI 자동 분류 결과 <span class="badge">검토 후 저장</span></h2>
+  <!-- 💡 (2026-08-27) «고칠 수 있다» 는 것을 화면에 적는다 — 입력칸이 있는 줄 모르는 채
+       자동 저장을 기다리다 틀린 이름이 그대로 들어갔다. 자동 저장은 이 칸을 만지면 멈춘다. -->
+  <div style="background:rgba(251,191,36,0.12);border:1px solid rgba(251,191,36,0.4);border-radius:8px;padding:9px 11px;margin-bottom:10px;font-size:12.5px;line-height:1.6;color:#fcd34d;overflow:hidden">
+    💡 <b>교재명·레벨은 아래 칸에서 바로 고칠 수 있습니다.</b>
+    칸을 누르면 자동 저장이 <b>멈추고</b> 기다립니다 — 다 고친 뒤 [💾 라이브러리에 저장] 을 누르세요.
+  </div>
   <div id="cr-groups"></div>
   <div class="cr-actions">
     <button class="btn btn-cancel" id="btn-cancel">취소</button>
@@ -297,7 +313,13 @@ header.hero .home:hover{background:rgba(255,255,255,0.28)}
 
 <div class="tips">
   <b>💡 자동 분류 정확도를 높이는 팁</b><br>
-  • 폴더명에 <code>출판사 / 교재명 / 레슨</code> 구조로 정리하면 가장 정확합니다 — 예: <code>다락원/마스터3/제1과</code><br>
+  <!-- 📌 (2026-08-27) 이 줄이 «출판사 / 교재명 / 레슨 구조가 가장 정확» 이라고 말하고 있었다.
+       그런데 바로 아래 8/26 경고와 드롭존 예시는 «교재 이름을 맨 위 폴더로» 라고 말한다 —
+       한 화면이 서로 반대를 말하면 사람은 위에 있는 쪽을 따른다. 그래서 첫 줄을 아래 경고와
+       같은 규칙으로 맞췄다. ⛔ «출판사/교재명/레슨» 3단계 예시로 되돌리지 마세요 — 교재 이름이
+       2단계 폴더명으로 정해져 지금 쓰던 이름과 달라지고, 그 사정은 아래 ⛔ 줄에 적혀 있습니다. -->
+  • <b>교재 이름을 맨 위 폴더</b>로 두고 그 안에 <b>과 폴더</b>만 넣으면 가장 정확합니다 —
+  예: <code>다락원 중국어 마스터 3/제1과/…</code>(교재명 그대로 · 과도 인식됨)<br>
   <span style="color:#fca5a5">⛔ <b>이미 라이브러리에 있는 교재를 «다시» 올릴 때는 위 구조를 쓰지 마세요.</b>
   교재 이름이 <b>2단계 폴더명</b>으로 정해지므로 <code>다락원/마스터3/제1과</code> 는 교재명이
   <code>마스터3</code> 가 되어 <b>지금 쓰던 이름과 달라집니다</b> — 복습퀴즈·수업 연결이 조용히 끊깁니다.
@@ -531,9 +553,36 @@ function classifyFile(file) {
   let textbook = '';
   const lvlOnlyPat = /^(Lv\.?\s*\d+|Level\s*\d+|레벨\s*\d+|A1|A2|B1|B2|C1|C2|HSK\s*\d+)$/i;
   const lsnOnlyPat = /^(제\s*\d+\s*과|Lesson\s*\d+|Unit\s*\d+|U\d+|L\d+|Chapter\s*\d+|Ch\.?\s*\d+|\d+과)$/i;
-  if (dirParts.length >= 2 && !lvlOnlyPat.test(dirParts[1]) && !lsnOnlyPat.test(dirParts[1])) {
+  /* 🔢 (2026-08-27) 「001」·「A」 처럼 «유닛 번호뿐인» 2단계 폴더는 책 이름이 아니다
+     ═══════════════════════════════════════════════════════════════════════
+     [증상] `BTS 2/001/Slide1.JPG` 를 올리면 교재 이름이 **「001」** 이 됐다.
+        아래 8/14 규칙이 「BTS 2 001」 을 약속하고 주석에도 그렇게 적혀 있지만,
+        그 규칙은 «교재 이름에 유닛 번호가 없을 때만» 번호를 붙인다 — 이미 교재
+        이름 자체가 「001」 이어서 `textbook.indexOf('001') < 0` 이 늘 거짓이라
+        **한 번도 붙지 않았다**(2026-08-27 브라우저 실측: 001 · 002 · 034 그대로).
+     [왜 심각한가] 공용 자료실(서버)의 묶음 이름은 파일명 앞 [대괄호] 하나뿐이다
+        (`js/idx-x3.js` `_serverFilesToBooks`). 출판사는 그 이름에 안 실리므로
+        **BTS 2 의 001 과 BTS 3 의 001 이 같은 「001」 묶음으로 합쳐진다.**
+        내 PC(IndexedDB)에서는 출판사로 갈라져 멀쩡해 보여 발견이 늦는다.
+     [고침] 유닛뿐인 폴더는 «상위 폴더 이름 + 그 폴더 이름» 으로 만든다 →
+        「BTS 2 001」·「BTS 3 001. Welcome」. 이름이 붙은 유닛 폴더는 제목을 살린다
+        (BTS 1 이 이미 「BTS 1 001 (Welcome to school)」 모양이라 그쪽과 맞는다).
+     ⚠️ 「제1과」·「Unit 1」 은 위 lsnOnlyPat 이 먼저 잡아 1단계 이름을 쓰므로
+        기존 교재(다락원 중국어 마스터 3/제N과)의 분류는 **바뀌지 않는다.**
+     ⚠️ 네 자리(2019 같은 연도)는 일부러 안 걸리게 뒀다 — 아래 8/14 규칙과 같은 이유.
+     ⚠️ 「Mangoi Phonics A」 처럼 이름이 함께 있는 폴더는 여기 안 걸린다(구분자가 없다)
+        → 그 폴더명이 그대로 권 이름이 되는 8/14 결정이 그대로 유지된다. */
+  //   숫자는 제목이 붙어도 유닛(001 · 12. Title), 글자는 «한 글자뿐일 때만» 유닛(A).
+  //   「B. Advanced」 처럼 글자+제목은 책 이름으로 남긴다 — 8/14 결정(글자만 있는 폴더)보다
+  //   넓히면 멀쩡한 책 이름까지 유닛으로 읽는다.
+  const unitOnlyPat = /^(?:\d{1,3}(?:\s*[.\-_)]\s*.+)?|[A-Za-z])$/;
+  const d1 = String(dirParts[1] || '').trim();
+  if (dirParts.length >= 2 && !lvlOnlyPat.test(d1) && !lsnOnlyPat.test(d1) && !unitOnlyPat.test(d1)) {
     // 2단계 폴더가 책 이름인 경우 (Phonics/Phonics 1/Lv1/...)
     textbook = dirParts[1];
+  } else if (dirParts.length >= 2 && unitOnlyPat.test(d1) && dirParts[0]) {
+    // 2단계 폴더가 «유닛뿐» — 책 이름은 1단계이고, 유닛을 붙여 권을 가른다
+    textbook = String(dirParts[0]).trim() + ' ' + d1;
   } else if (dirParts[0]) {
     // 1단계 폴더만 의미있음 (Phonics/Lv1/...)
     textbook = dirParts[0];
@@ -843,32 +892,75 @@ function renderClassifyResult() {
   cr.classList.add('show');
   cr.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  // 🤖 ph241 AI 자동 저장 — 강화된 단순 버전 (즉시 작동 보장)
+  /* 🤖 ph241 AI 자동 저장 — 사람이 «이름을 고칠 틈» 을 준다 (2026-08-27)
+     ═══════════════════════════════════════════════════════════════════════
+     [그전] 2초 뒤 무조건 `btn.click()`. 위 `cr.scrollIntoView` 가 smooth 라
+        카드가 화면에 들어오는 데만 0.5초쯤 걸린다 — 즉 교재명을 **읽을** 시간조차
+        없었다. 그래서 분류가 틀렸을 때(바로 위 「001」 사고) 고칠 방법이 사실상
+        없었고, 틀린 이름이 그대로 공용 자료실에 쌓였다.
+     [지금] ① 대기를 늘리고(2026-08-27 사장님 지시로 **5초**) 남은 초를 버튼에 적는다
+        ② **분류 카드를 만지면 멈춘다**
+        (이름을 고치는 중이면 기다린다 — 다 고치고 버튼을 누르면 된다).
+     ⛔ 자동 저장 자체는 없애지 않는다 — «폴더만 던져 놓고 기다리는» 흐름이 ph241 의
+        취지다. 여기서 바꾼 것은 «언제 누르는가» 뿐이다.
+     ⚠️ 리스너는 `cr-groups` 에 **한 번만** 묶는다 — 이 함수는 폴더를 올릴 때마다 다시 도는데
+        그때마다 달면 같은 이벤트에 핸들러가 업로드 횟수만큼 쌓이고, 옛 렌더의 클로저가
+        남아 «어느 타이머를 끄는지» 를 따라가기 어려워진다(지금은 `window._ph241Timer` 를
+        읽으므로 두 번째 업로드에서도 그때의 타이머를 끈다 — 브라우저로 확인했다). */
   window._autoSaveCancelled = false;
   var btn = document.getElementById('btn-save');
   if (!btn) { console.warn('[ph241] btn-save 없음'); return; }
+  if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
   btn.style.background = 'linear-gradient(135deg,#fbbf24,#f59e0b)';
   btn.style.color = '#1a1a1a';
-  btn.textContent = '🤖 AI 자동 저장 진행 중… (검토 후 2초 안에 ❌ 클릭하면 취소)';
-  console.log('[ph241] 자동 저장 카운트다운 시작 — 2초 후 트리거');
-  setTimeout(function(){
-    if (window._autoSaveCancelled) {
-      console.log('[ph241] 자동 저장 취소됨');
-      btn.style.background = '';
-      btn.style.color = '';
-      btn.textContent = '💾 라이브러리에 저장';
-      return;
-    }
-    console.log('[ph241] AI 자동 저장 트리거 — btn.click()');
+
+  var ph241Stop = function (why) {
+    if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
+    window._autoSaveCancelled = true;
     btn.style.background = '';
     btn.style.color = '';
     btn.textContent = '💾 라이브러리에 저장';
+    console.log('[ph241] 자동 저장 멈춤 —', why);
+  };
+  if (!wrap.__ph241Bound) {
+    wrap.__ph241Bound = true;
+    ['focusin', 'input', 'change'].forEach(function (ev) {
+      wrap.addEventListener(ev, function () {
+        if (!window._autoSaveCancelled) ph241Stop('사람이 분류 결과를 고치는 중');
+      });
+    });
+  }
+
+  var ph241Left = 5;
+  var ph241Tick = function () {
+    // btn.disabled = 저장이 도는 중 → 진행률 글자를 덮지 않도록 여기서도 손을 뗀다(이중 방어)
+    if (window._autoSaveCancelled || btn.disabled) { ph241Stop(btn.disabled ? '저장이 시작됨' : '취소'); return; }
+    if (ph241Left > 0) {
+      btn.textContent = '🤖 ' + ph241Left + '초 뒤 자동 저장 — 이름을 고치려면 위 칸을 누르세요';
+      ph241Left--;
+      return;
+    }
+    if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
+    btn.style.background = '';
+    btn.style.color = '';
+    btn.textContent = '💾 라이브러리에 저장';
+    /* 🔁 (2026-08-27) 이미 저장이 끝났으면 누르지 않는다 — 사람이 먼저 버튼을 눌렀을 때
+       이 타이머가 뒤늦게 또 눌러 «✅ 저장 완료» 바로 뒤에 «⚠️ 저장할 교재가 없습니다» 가
+       떴다(실측). 성공한 직후에 경고가 뜨면 저장이 안 된 줄로 읽는다. */
+    if (!pendingGroups.length || btn.disabled) {
+      console.log('[ph241] 이미 저장됨(또는 저장 중) — 자동 트리거 건너뜀');
+      return;
+    }
+    console.log('[ph241] AI 자동 저장 트리거 — btn.click()');
     try { btn.click(); }
     catch(e) {
       console.error('[ph241] 자동 저장 실패:', e);
       alert('❌ 자동 저장 실행 중 오류:\n' + (e.message || e));
     }
-  }, 2000);
+  };
+  console.log('[ph241] 자동 저장 카운트다운 시작 — ' + ph241Left + '초 후 트리거');
+  ph241Tick();
+  window._ph241Timer = setInterval(ph241Tick, 1000);
 }
 
 function escapeHtml(s) {
@@ -877,6 +969,8 @@ function escapeHtml(s) {
 
 document.getElementById('btn-cancel').onclick = () => {
   window._autoSaveCancelled = true; // 자동 저장 중단
+  // (2026-08-27) 카운트다운이 «초 세는 글자» 로 버튼을 다시 덮지 않게 타이머도 끈다
+  if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
   pendingGroups = [];
   document.getElementById('cr').classList.remove('show');
   var btn = document.getElementById('btn-save');
@@ -897,12 +991,26 @@ document.getElementById('btn-save').onclick = async () => {
   }
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
+  /* ⏱ (2026-08-27) 저장이 시작되면 ph241 카운트다운을 «그 자리에서» 끈다.
+     [왜] `#btn-save` 는 `#cr-groups` 의 **형제**라, 사람이 분류 카드를 만지지 않고 곧바로
+        [저장] 을 누르면 `focusin`/`input`/`change` 가 안 걸려 타이머가 계속 돈다. 그러면
+        ① 아래에서 쓰는 「💾 저장 중… n / m」 진행률을 매초 「🤖 N초 뒤 자동 저장」 이 덮어쓰고
+        ② 저장이 끝난 뒤에도 몇 초간 버튼이 «또 저장한다» 고 말한다(2026-08-27 실측:
+           t+3~6초 구간이 enabled + 「자동 저장」 문구).
+        ③ 그 상태에서 헷갈려 한 번 더 누르면 없애려던 «⚠️ 저장할 교재가 없습니다» 가 그대로 뜬다.
+     ⚠️ 타이머가 스스로 부른 click 은 이미 `clearInterval` 을 지난 뒤라 여기서 또 꺼도 무해하다.
+     (CLAUDE.md 2장 「완료 메시지를 띄웠는데 곧바로 사라짐 — 성공 뒤에 상태를 다시 읽는 코드」) */
+  window._autoSaveCancelled = true;
+  if (window._ph241Timer) { clearInterval(window._ph241Timer); window._ph241Timer = null; }
 
   // 전체 파일 개수 계산
   let totalFiles = 0;
   pendingGroups.forEach(g => g.lessons.forEach(files => totalFiles += files.length));
   let done = 0;
   let savedBooks = 0;
+  /* 📖 (2026-08-27) 저장한 «교재 이름» 을 모아 완료 알림에 적는다 — 분류가 틀린 이름으로
+     들어갔는지 그 자리에서 알아채려면 사람이 이름을 봐야 한다(「001」 사고). */
+  const savedNames = [];
   /* 📡 (2026-08-13) 공용 자료실(서버) 업로드 결과 — «내 PC 에만 저장» 을 성공이라 말하지 않기 위해.
      srvDenied 는 «권한이 없어서» 다(401/403). 강사에게는 이게 가장 흔한 경우다. */
   const srvJobs = [];
@@ -984,6 +1092,7 @@ document.getElementById('btn-save').onclick = async () => {
       };
       await dbPut('textbooks', meta);
       savedBooks++;
+      savedNames.push(meta.textbook);
       console.log('[save] 교재 저장 완료:', meta.publisher, '/', meta.textbook, '·', meta.lessons.length, '레슨,', meta.totalFiles, '파일');
     }
 
@@ -1068,8 +1177,29 @@ document.getElementById('btn-save').onclick = async () => {
       console.log('[ph256] BroadcastChannel 송신 — 다른 탭에 알림');
     } catch(e) { console.warn('[ph256] BC 송신 실패', e); }
 
+    /* 📡 (2026-08-27) «어디까지 갔는지» 를 성공 알림에도 적는다.
+       그전에는 위 srvOk/srvDup 분기가 버튼 글자에만 적었는데, 이 알림을 닫는 순간
+       바로 아래에서 버튼이 «💾 라이브러리에 저장» 으로 되돌아가 그 숫자를 아무도
+       못 읽었다. 「이 컴퓨터」와 「공용 자료실」을 갈라 말해야 8/13 제보(강사가
+       자기 PC 에만 저장하고 성공으로 읽던 것)가 재발하지 않는다. */
+    var srvLine = srvJobs.length
+      ? ('📡 공용 자료실: 새로 ' + srvOk + '개'
+          + (srvDup ? ' · 이미 있어 건너뜀 ' + srvDup + '개' : '')
+          + (srvFail ? ' · 실패 ' + srvFail + '개' : ''))
+      : '📡 공용 자료실: 올린 파일 없음 (pdf·jpg·png·webp 만 올라갑니다)';
+    var bookLine = '📖 ' + savedNames.slice(0, 6).join(' · ')
+      + (savedNames.length > 6 ? ' … 그 외 ' + (savedNames.length - 6) + '권' : '');
+    /* ⚠️ (2026-08-27) 공용 자료실에 «한 장도» 안 올라갔으면 머리글을 «완료» 라고 쓰지 않는다.
+       바로 위 srvDenied 안내가 「이 컴퓨터에만 저장되었습니다」 라고 말한 직후에 이 알림이
+       「✅ 저장 완료!」 라고 하면 앞말이 지워진다(실측: 403 경로에서 두 알림이 연달아 떴다). */
+    var head = (srvJobs.length && srvOk === 0 && srvFail > 0)
+      ? '⚠️ 이 컴퓨터에만 저장되었습니다 — 공용 자료실에는 못 올렸습니다'
+      : '✅ 저장 완료!';
     // 명확한 성공 알림 (raw 검증 결과 포함)
-    alert('✅ 저장 완료!\n\n📚 ' + savedBooks + '개 교재 · ' + totalFiles + '개 파일\n🔍 IDB 검증: ' + rawCount + '개 textbooks 저장됨\n\n💡 화상수업 룸의 라이브러리는 자동으로 갱신됩니다.\n   안 보이면 라이브러리 [🔄 새로고침] 클릭.');
+    alert(head + '\n\n📚 ' + savedBooks + '개 교재 · ' + totalFiles + '개 파일\n'
+      + bookLine + '\n' + srvLine + '\n🔍 IDB 검증: ' + rawCount + '개 textbooks 저장됨\n\n'
+      + '💡 교재 이름이 위와 다르면 다시 올리기 전에 폴더 이름을 고쳐 주세요.\n'
+      + '💡 화상수업 룸의 라이브러리는 자동으로 갱신됩니다.\n   안 보이면 라이브러리 [🔄 새로고침] 클릭.');
 
     // UI 복원
     document.getElementById('cr').classList.remove('show');
