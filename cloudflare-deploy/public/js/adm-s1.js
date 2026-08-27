@@ -21,6 +21,36 @@
     el.focus();
     try { el.style.outline = '2px solid #8b5cf6'; setTimeout(function(){ el.style.outline = ''; }, 1200); } catch(e){}
   };
+  /* 👤 내 관리자 아이디 — 로그인 세션(localStorage)에서 읽는다. 없으면 UID 칸의 값.
+     (실시간 수업 현황의 observeRoom 과 같은 방식 — adm-core.js) */
+  function _ghMyUid(){
+    try {
+      const s = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+      if (s.uid) return String(s.uid).trim();
+    } catch(e){}
+    return v('gh-admin-uid');
+  }
+  /* 👁 (2026-08-27 사장님 「하나하나 입력해야 해서 관찰이 어렵다 — 보다는 줄마다 버튼 하나였다」)
+     한 번 클릭으로 참관. UID 는 로그인 세션에서, 사유는 사유 칸에 글이 있으면 그 글로,
+     비어 있으면 자동 문구로 감사 로그에 남긴다(기록 없이 들어가지 않는다 — 학생 사생활 보호 정책 그대로).
+     기록이 실패해도 참관 자체는 막지 않는다(수업 대응이 우선 — adm-core observeRoom 과 같은 판단).
+     새 탭으로 열리므로 여러 수업을 동시에 참관할 수 있다(방마다 참관 동시 2명 제한은 서버 그대로). */
+  window.ghQuickObserve = function(roomId){
+    const en = _ghIsEn();
+    const uid = _ghMyUid();
+    const reason = v('gh-reason')
+      || (en ? 'Quick observe from the live list (Class Observation card)'
+             : '라이브 목록에서 즉시 참관 (수업 관찰 카드)');
+    try {
+      if (uid) fetch('/api/admin/ghost/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+        body: JSON.stringify({ admin_uid: uid, room_id: roomId, reason: reason })
+      }).catch(function(){});
+    } catch(e){}
+    const url = location.origin + '/?observe=' + encodeURIComponent(roomId);
+    if (window.mangoiOpenTab) window.mangoiOpenTab(url, en ? 'Observe class' : '수업 관찰 열기');
+    else window.open(url, '_blank', 'noopener');
+  };
   /* 🚪 매니저 직접 입장 — 강사가 못 들어왔을 때 대신 수업을 맡기 위한 통로.
      참관(ghost)과 달리 실제 참가자로 들어간다. 새 창으로 열어 관리자 화면은 그대로 둔다. */
   /* 📷 (2026-08-20) 직접 입장은 카메라를 끈 채로 들어간다 — &vc_cam=off (js/vc-observe-guard.js 가 처리).
@@ -48,16 +78,36 @@
     const en = _ghIsEn();
     if (!box) return;
     box.textContent = en ? 'Loading…' : '불러오는 중…';
+    /* 👤 UID 칸이 비어 있으면 로그인 세션으로 미리 채운다 — 타이핑 한 칸 절약 */
     try {
-      const r = await fetch('/api/active-rooms', { credentials: 'include' });
+      const uEl = $('gh-admin-uid');
+      const su = JSON.parse(localStorage.getItem('mangoi_admin_session') || '{}') || {};
+      if (uEl && !uEl.value.trim() && su.uid) uEl.value = String(su.uid).trim();
+    } catch(e){}
+    try {
+      /* 📅 예약 기준 «지금 수업» 도 함께 받는다 — 카페24 수업은 망고아이 방을 안 거쳐
+         이 목록에 안 뜬다(CLAUDE.md 2장 「실시간 수업 현황이 비었는데 수업은 돌고 있음」).
+         비어 보이는 이유를 화면이 직접 말하게 한다. 실패해도 방 목록은 종전대로 그린다. */
+      const [r, cr] = await Promise.all([
+        fetch('/api/active-rooms', { credentials: 'include' }),
+        fetch('/api/admin/classes-now', { credentials: 'include', cache: 'no-store' }).catch(function(){ return null; })
+      ]);
       const rooms = await r.json();
+      let sched2 = [];
+      try { if (cr) { const cj = await cr.json(); if (cj && cj.ok) sched2 = cj.classes || []; } } catch(e){}
+      const schedHtml = _ghSchedHtml(sched2, en);
+      const cntTxt = function(nRooms){
+        return (en ? ('· ' + nRooms + ' room(s)') : ('· 화상방 ' + nRooms + '개'))
+          + (sched2.length ? (en ? (' · ' + sched2.length + ' booked') : (' · 예약 수업 ' + sched2.length + '건')) : '');
+      };
       if (!Array.isArray(rooms) || !rooms.length) {
         box.innerHTML = '<div style="padding:10px 0;color:#94a3b8">'
-          + (en ? 'No classes in progress right now.' : '지금 진행 중인 수업이 없습니다.') + '</div>';
-        if (cnt) cnt.textContent = '';
+          + (en ? 'No one is connected to a Mango-i video room right now.'
+                : '지금 망고아이 화상방에 접속해 있는 사람이 없습니다.') + '</div>' + schedHtml;
+        if (cnt) cnt.textContent = cntTxt(0);
         return;
       }
-      if (cnt) cnt.textContent = en ? ('· ' + rooms.length + ' room(s)') : ('· ' + rooms.length + '개 방');
+      if (cnt) cnt.textContent = cntTxt(rooms.length);
       /* 👥 (2026-08-19 제보 2-①) 「누구 수업인지」 — 방 번호만으로는 알 수 없다.
          ⚠️ 참가자 칸(rm.users)은 «지금 접속해 있는 사람»이라 강사가 아직 안 들어왔으면 비어 있다.
             그때가 바로 급히 참관해야 할 때이므로, 예약된 강사·학생을 D1 에서 따로 받아 채운다.
@@ -105,9 +155,16 @@
               + '<td style="padding:6px 8px">' + (rm.userCount || 0) + '</td>'
               + '<td style="padding:6px 8px;color:#cbd5e1">' + names + '</td>'
               + '<td style="padding:6px 8px;white-space:nowrap">'
-              +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              /* 👁 원클릭 — UID·사유 자동 기록, 새 탭. 여러 줄을 연달아 누르면 동시 참관(보다 방식) */
+              +   '<button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     'title="' + (en ? 'One click — audit log recorded automatically, live view opens in a new tab'
+                                    : '한 번 클릭 — 감사 기록 자동, 새 탭으로 라이브 화면이 열립니다') + '" '
               +     '>'
-              +     (en ? '👁 Select' : '👁 참관 선택') + '</button>'
+              +     (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
+              +   '<button type="button" class="gh-act gh-act-observe" onclick="ghPickRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
+              +     'title="' + (en ? 'Fill the form below (write your own reason)' : '아래 양식에 방 번호만 채웁니다 (사유를 직접 적을 때)') + '" '
+              +     '>'
+              +     (en ? '📋 Fill form' : '📋 양식 채우기') + '</button>'
               /* 🚪 직접 입장은 «학생에게 보이는» 조작이라 참관(보라)과 색을 갈라 둔다.
                  초록은 «안전한 기본» 으로 읽혀 참관과 구분이 안 됐다 — 주황 + (보임) 표시. */
               +   '<button type="button" class="gh-act gh-act-enter" onclick="ghEnterRoom(decodeURIComponent(\'' + ridAttr + '\'))" '
@@ -117,11 +174,68 @@
               +     (en ? '🚪 Enter (visible)' : '🚪 직접 입장(보임)') + '</button>'
               + '</td></tr>';
           }).join('')
-        + '</tbody></table>';
+        + '</tbody></table>' + schedHtml;
     } catch(e) {
       box.innerHTML = '<div style="padding:10px 0;color:#fca5a5">⚠ ' + esc(e.message || e) + '</div>';
     }
   };
+
+  /* 📅 예약 기준 «지금 수업» 줄들 — 카페24에서 도는 수업. 망고아이 방이 아니어서 참관할
+     «방» 자체가 없다 → 참관 버튼이 생기지 않는 것이 정상. 접속이 확인돼 방이 잡힌 줄
+     (live_room)에만 바로 참관을 단다.
+     ⛔ «접속 기록 없음» 을 «미접속» 이라고 쓰지 않는다 — 우리가 아는 것은 «기록이 없다» 까지다. */
+  function _ghSchedHtml(list, en){
+    if (!list || !list.length) return '';
+    return '<div style="margin-top:10px;border-top:1px dashed rgba(148,163,184,0.35);padding-top:8px">'
+      + '<b style="font-size:12.5px;color:#94a3b8">' + (en ? '📅 Booked classes for this moment (cafe24)' : '📅 예약 기준 지금 수업 (카페24)') + '</b>'
+      + '<div style="font-size:11.5px;color:#64748b;margin:2px 0 6px">'
+      + (en ? 'These run on cafe24, not in a Mango-i room — there is no room to observe. «No connection record» is normal.'
+            : '카페24에서 도는 수업이라 망고아이 방이 없어 참관 버튼이 생기지 않습니다. «접속 기록 없음» 은 정상입니다.')
+      + '</div>'
+      + list.map(function(c){
+          const ph = c.phase === 'soon' ? (en ? 'Starts soon' : '곧 시작')
+                   : c.phase === 'ended' ? (en ? 'Just ended' : '방금 끝남')
+                   : (en ? 'In progress' : '진행 중');
+          const obsBtn = c.live_room
+            ? ' <button type="button" class="gh-act gh-act-quick" onclick="ghQuickObserve(decodeURIComponent(\'' + encodeURIComponent(c.live_room) + '\'))">'
+              + (en ? '👁 Observe now' : '👁 바로 참관') + '</button>'
+            : '';
+          return '<div style="padding:4px 0;font-size:12.5px;color:#cbd5e1">'
+            + '<b>' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '') + '</b>'
+            + ' <span style="color:#94a3b8">' + esc(ph) + '</span> · '
+            + esc(c.student_name || (en ? '(unknown)' : '(학생 미상)'))
+            + ' <span style="color:#64748b">·</span> '
+            + esc(c.teacher_name || (en ? '(teacher unknown)' : '(강사 미상)'))
+            + (c.connected
+                ? ' <span style="color:#86efac;font-weight:700">✅ ' + (en ? 'Connected' : '접속 확인') + '</span>'
+                : ' <span style="color:#fbbf24">' + (en ? 'No connection record' : '접속 기록 없음') + '</span>')
+            + obsBtn
+            + '</div>';
+        }).join('')
+      + '</div>';
+  }
+
+  /* 🔓 (2026-08-27) 카드를 열면 목록을 자동으로 불러온다 — 예전엔 새로고침을 눌러야 했다.
+     toggle 은 버블링하지 않으므로 document «캡처» 로 듣는다(adm-core 의 카드 지연로드와 같은 방식).
+     실패해도 다시 쏘지 않는다 — 카드 안에 🔄 새로고침 버튼이 따로 있다. */
+  document.addEventListener('toggle', function(e){
+    const d = e.target;
+    if (!d || d.id !== 'card-admin-ghost' || !d.open) return;
+    if (window.__ghLiveAutoLoaded) return;
+    window.__ghLiveAutoLoaded = true;
+    try { window.ghLoadLive(); } catch(err){}
+  }, true);
+  /* 🌐 언어를 바꾸면 목록을 새 언어로 다시 그린다.
+     ⚠️ #gh-live-list 에는 data-ko/data-en 을 달지 않았다(달면 i18n 엔진이 목록을 통째로
+        갈아끼운다 — CLAUDE.md 2장). 그래서 JS 가 그린 문자열은 여기서 직접 다시 그린다.
+     ⚠️ admin.html 의 발행처는 adm-core.js 의 «document».dispatchEvent 이고 CustomEvent 는
+        bubbles:false 라 window 까지 안 올라온다 — 반드시 document 에도 단다(둘 다 들어 안전). */
+  function _ghOnLangChanged(){
+    if (!window.__ghLiveAutoLoaded) return;
+    try { window.ghLoadLive(); } catch(err){}
+  }
+  document.addEventListener('mangoi:lang-changed', _ghOnLangChanged);
+  window.addEventListener('mangoi:lang-changed', _ghOnLangChanged);
 
   window.ghStart = async function(){
     const admin_uid = v('gh-admin-uid'), room_id = v('gh-room-id'), reason = v('gh-reason');

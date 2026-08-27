@@ -30,6 +30,8 @@
   const STALL_WINDOW_MS = 30000, STALL_MIN_BYTES = 300 * 1024;
   let audioCtx = null;
   let audioDest = null;
+  let mixedTrackIds = null;    // 믹서에 이미 연결한 오디오 트랙 id — 재스캔 중복 방지
+  let audioRescanTimer = null; // 녹화 중에만 도는 오디오 트랙 재스캔 (stopRecording 이 끈다)
   let recBadge = null;
   let isAutoMode = false;  // 자동 녹화 모드 여부
 
@@ -500,16 +502,43 @@
     return composeCanvas.captureStream(15);
   }
  
+  // 트랙 하나를 믹서에 연결 — 이미 연결한 트랙(id 기준)·끝난 트랙은 건너뛴다.
+  // 죽은 트랙에 연결된 옛 소스는 무음만 내보내므로 굳이 끊지 않는다(끊을 API 추적이 더 위험).
+  function mixTrackIn(item) {
+    if (!audioCtx || !audioDest || !item || !item.track) return;
+    if (item.track.readyState === 'ended') return;
+    if (mixedTrackIds && mixedTrackIds.has(item.track.id)) return;
+    try {
+      const src = audioCtx.createMediaStreamSource(item.stream);
+      src.connect(audioDest);
+      if (mixedTrackIds) mixedTrackIds.add(item.track.id);
+    } catch (e) { console.warn('오디오 믹스 실패', e); }
+  }
+
   function startAudioMix() {
     const AC = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AC();
     audioDest = audioCtx.createMediaStreamDestination();
-    collectAudioTracks().forEach(({ stream }) => {
-      try {
-        const src = audioCtx.createMediaStreamSource(stream);
-        src.connect(audioDest);
-      } catch (e) { console.warn('오디오 믹스 실패', e); }
-    });
+    mixedTrackIds = new Set();
+    collectAudioTracks().forEach(mixTrackIn);
+    // 🔴 (2026-08-27 사장님 제보 — «학생 목소리가 안 담겼고, 5분쯤부터는 전부 무음»)
+    //   예전엔 여기서 «녹화 시작 순간에 있는 트랙» 만 한 번 연결하고 끝이었다. 그런데
+    //   ① 자동녹화는 수업 화면에 들어가는 «순간» 시작된다 — 상대가 아직 안 들어왔으면
+    //      (녹화 행의 「참가자 1명」이 그 증거) 상대 목소리는 영영 안 담긴다.
+    //   ② 수업 중 끊겼다 재연결되면 WebRTC 피어가 새로 만들어져 «새 오디오 트랙» 이
+    //      생기는데, 믹서는 옛(죽은) 트랙만 물고 있어 그 시점부터 무음이 된다.
+    //   영상은 collectVideos() 가 매 프레임 DOM 을 다시 읽어 저절로 복구되는데 오디오만
+    //   한 번짜리였던 것 — 그래서 «영상만 나오는» 녹화가 됐다.
+    //   → 녹화 중에만 3초마다 다시 훑어 «아직 연결 안 된 트랙» 만 이어 붙인다.
+    //   ⛔ body class MutationObserver·상주 인터벌로 바꾸지 말 것(CLAUDE.md 2장 — 홈 정지 전력).
+    //      이 인터벌은 녹화 동안만 살고 stopRecording 이 끈다.
+    if (audioRescanTimer) clearInterval(audioRescanTimer);
+    audioRescanTimer = setInterval(() => {
+      if (!audioCtx || !audioDest) return;
+      // 자동재생 정책에 걸려 컨텍스트가 잠들면 믹스 출력이 통째로 무음이 된다 — 깨운다
+      try { if (audioCtx.state === 'suspended') audioCtx.resume(); } catch (_) {}
+      try { collectAudioTracks().forEach(mixTrackIn); } catch (_) {}
+    }, 3000);
     return audioDest.stream;
   }
  
@@ -1100,6 +1129,9 @@
     if (composeKeepAlive) clearInterval(composeKeepAlive);
     composeKeepAlive = null;
     stopStallWatch();
+    if (audioRescanTimer) clearInterval(audioRescanTimer);
+    audioRescanTimer = null;
+    mixedTrackIds = null;
     if (audioCtx) try { audioCtx.close(); } catch (_) {}
     audioCtx = null;
     audioDest = null;
