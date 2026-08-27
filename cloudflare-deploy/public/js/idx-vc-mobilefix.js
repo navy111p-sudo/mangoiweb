@@ -16,6 +16,12 @@
  *   ⑥ 막아 세우는 안내에 중국어를 함께 적는다(화면 언어는 KO/EN 뿐이라 강사가 못 읽었다).
  *   ⑦ 얼굴 꾸미기(가면) 파일을 우리 서버(/vendor/mediapipe-face/)에서 쓴다 —
  *      지금까지 구글·jsdelivr 에서 받아 와 중국에서 통째로 막혀 있었다.
+ *   ⑧ 「교사 화면이 작고 학생 화면이 크다」 — 상대 타일이 검은 띠에 둘러싸이던 것.
+ *   ⑨ 1:1 수업에서 «교사» 얼굴을 크게(상대:나 = 1.6:1, PC 는 누가 PIP 인가로).
+ *   ⑩ 중국어 복습퀴즈 — 수업 교재로 언어를 판정하고, 「진도(과)」를 학생이 고르게 한다
+ *      (2026-08-26 사장님 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」).
+ *   ⑪ 교재를 넘기면 «지금 몇 과인지» 를 기록한다 — 교재를 과별로 다시 올리면
+ *      진도가 저절로 따라간다(그 전엔 저장하는 코드가 저장소 전체에 0곳이었다).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -740,5 +746,210 @@
   window.addEventListener('orientationchange', function () { setTimeout(zoomBtnsSync, 500); });
   window.addEventListener('resize', function () { setTimeout(zoomBtnsSync, 300); });
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 준비됨'); } catch (e) {}
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑩ 🈶 중국어 복습퀴즈 — 「이 수업 언어」 자동 판정 + 「과(진도)」 고르기
+     ──────────────────────────────────────────────────────────────
+     [신고] 2026-08-26 사장님 — 「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」
+            「수업교재와 진도에 맞게 중국어 퀴즈가 나와야 하는데 안 되네」
+
+     [무엇이 문제였나] 중국어 퀴즈가 없어서가 아니다 — 다락원 제1~14과가 이미 다 있다
+       (review_quizzes 활성 16건, source='passage' = 사람이 만든 교재본문 기반).
+       닿지 못한 이유가 셋이었다.
+         ① 언어를 «수업» 에서 안 읽었다 — idx-x8.js 의 st.lang 은 localStorage
+            (mangoi_review_lang·mangoi_game_lang)만 보고 기본값이 'en' 이다. 즉
+            «학생이 예전에 게임탭에서 골라둔 값» 이지 «이 수업이 무슨 언어인가» 가 아니다.
+         ② 교재 이름이 서로 달랐다 — 라이브러리 「다락원 중국어 마스터 3」 대 콘텐츠 「다락원」.
+            서버 매칭이 LOWER(textbook)=LOWER(?) 정확일치라 영영 안 맞았다.
+         ③ 진도(과)를 아무도 안 적었다 — mangoi_current_lesson 은 «읽는» 코드만 둘이고
+            **저장하는 코드가 저장소 전체에 0곳**이었다. 그래서 lesson_no 는 늘 0.
+
+     [고침] ①②는 서버에서 끝냈다(src/zh-textbook.ts + /api/review-quiz/auto 가 교재로
+       언어를 판정하고 이름을 이어 준다). 여기서 하는 것은 ③ — **학생이 과를 고르게** 한다
+       (2026-08-26 사장님 결정). 자동으로는 못 정한다: 그 교재 583쪽이 전부 「미분류 레슨」이고
+       unit_no 도 583개 전부 NULL 이라, 몇 과인지가 시스템 어디에도 없다.
+
+     ⛔ 교재 파일 이름에서 과를 «짐작» 하지 말 것 — 단서가 한 글자도 없다.
+     ⚠️ 이 파일에 두는 이유: idx-x8.js 는 blocking 이라 첫 화면 예산(여유 ~1.8KB)을 먹는다.
+        여기는 defer 라 첫 그림에 0바이트를 더한다(CLAUDE.md 「blocking 파일을 못 고칠 때」).
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var LS_LESSON = 'mangoi_current_lesson';   // idx-x8.js 의 ctx() 가 읽는 바로 그 칸
+    var probed = false, meta = null, autoSwitched = false;
+
+    function body() { return document.getElementById('rqv-body'); }
+    function curLesson() {
+      try { return parseInt(localStorage.getItem(LS_LESSON) || '0', 10) || 0; } catch (e) { return 0; }
+    }
+    /* 이 수업의 교재·레벨 — idx-x8.js 의 ctx() 와 «같은 자리» 를 읽는다.
+       ⛔ 여기서 새로 추정하지 말 것. 두 곳이 서로 다른 교재를 보면 고른 과가 엉뚱한 퀴즈에 붙는다. */
+    function classCtx() {
+      var tb = '', lv = '';
+      try { tb = window.__mangoiCurrentBookId || window.__mangoiLastVideoBook || ''; } catch (e) {}
+      try { lv = localStorage.getItem('mangoi_current_level') || ''; } catch (e) {}
+      return { textbook: String(tb || '').trim(), level: String(lv || '').trim() };
+    }
+    /* 서버에 «이 수업이 무슨 언어이고 과가 몇 개인가» 만 물어본다.
+       ⚠️ auto_generate:0 — 물어보기만 하고 **퀴즈를 만들지 않는다**. 이걸 빠뜨리면 탭을 열 때마다
+          AI 가 새 퀴즈를 찍어내 review_quizzes 에 쓰레기가 쌓인다. */
+    async function probe() {
+      if (probed) return meta;
+      probed = true;
+      var c = classCtx();
+      if (!c.textbook && !c.level) return null;
+      try {
+        var r = await fetch('/api/review-quiz/auto', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ textbook: c.textbook, level: c.level, auto_generate: 0 })
+        }).then(function (x) { return x.json(); });
+        if (r && r.ok && r.lang === 'zh') meta = r;
+      } catch (e) { try { console.warn('[mobilefix ⑩] probe skip', e); } catch (_) {} }
+      return meta;
+    }
+    /* 화면이 영어로 잡혀 있으면 한 번만 中文 으로 돌린다.
+       ⚠️ st.lang 은 idx-x8.js 안에 갇혀 있어 밖에서 못 읽는다 — 버튼 «글자» 로 현재 상태를 본다.
+       ⛔ 두 번 부르면 도로 영어가 된다(토글이라). autoSwitched 로 한 번만. */
+    function switchToZhOnce() {
+      if (autoSwitched) return;
+      var b = document.getElementById('rqv-lang-btn');
+      if (!b || String(b.textContent || '').indexOf('EN') < 0) return;   // 이미 中文 이면 둔다
+      autoSwitched = true;
+      try { localStorage.setItem('mangoi_review_lang', 'zh'); } catch (e) {}
+      try { if (typeof window.rqvToggleLang === 'function') window.rqvToggleLang(); } catch (e) {}
+    }
+    function pick(n) {
+      try { localStorage.setItem(LS_LESSON, String(n || 0)); } catch (e) {}
+      paint();
+      try { if (typeof window.rqvAuto === 'function') window.rqvAuto(true); } catch (e) {}
+    }
+    window.__rqvPickLesson = pick;
+
+    function paint() {
+      if (!meta || !meta.lessons || !meta.lessons.length) return;
+      var host = body();
+      if (!host || !host.parentNode) return;
+      var bar = document.getElementById('rqv-lesson-bar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'rqv-lesson-bar';
+        /* ⚠️ #rqv-body «밖» 에 둔다 — renderQ() 가 body 를 통째로 다시 그리므로
+              안에 넣으면 문항을 넘길 때마다 이 줄이 사라진다(#rqv-live 와 같은 이유). */
+        host.parentNode.insertBefore(bar, host);
+      }
+      bar.setAttribute('style', 'flex-shrink:0;padding:8px 14px;background:rgba(239,68,68,.08);'
+        + 'border-bottom:1px solid rgba(239,68,68,.25);display:flex;align-items:center;gap:6px;'
+        + 'flex-wrap:wrap;font-size:12px;color:#fecaca;line-height:1.2');
+      var cur = curLesson();
+      var en = false;
+      try { en = (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); } catch (e) {}
+      var html = '<span style="font-weight:800;white-space:nowrap">📖 '
+        + (en ? 'Lesson' : '진도') + '</span>';
+      html += btn(0, en ? 'All' : '전체', cur === 0);
+      for (var i = 0; i < meta.lessons.length; i++) {
+        var n = meta.lessons[i];
+        html += btn(n, (en ? 'L' + n : '제' + n + '과'), cur === n);
+      }
+      bar.innerHTML = html;
+    }
+    function btn(n, label, on) {
+      return '<button onclick="__rqvPickLesson(' + n + ')" style="padding:4px 9px;border-radius:7px;'
+        + 'cursor:pointer;font-family:inherit;font-size:12px;font-weight:800;white-space:nowrap;'
+        + (on ? 'border:1px solid #fbbf24;background:#fbbf24;color:#1a1a1a'
+              : 'border:1px solid rgba(148,163,184,.4);background:rgba(255,255,255,.06);color:#e6ecff')
+        + '">' + label + '</button>';
+    }
+
+    async function ensureBar() {
+      await probe();
+      if (!meta) return;
+      switchToZhOnce();
+      paint();
+    }
+    /* idx-x8.js 가 복습퀴즈 화면을 그리는 «세 입구» 를 모두 감싼다.
+       ⚠️ 한 곳만 감싸면 다른 경로로 들어왔을 때 줄이 안 생긴다(수업 종료 흐름은 rqvAuto 로 곧장 온다). */
+    ['rqvOnEnter', 'rqvAuto', 'rqvLoadList'].forEach(function (name) {
+      var orig = window[name];
+      if (typeof orig !== 'function') return;      // 원본이 없으면 조용히 건너뛴다
+      window[name] = function () {
+        var r;
+        try { r = orig.apply(this, arguments); } finally { setTimeout(ensureBar, 0); }
+        return r;
+      };
+    });
+  })();
+
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑪ 🈶 교재를 넘기면 «지금 몇 과인지» 를 기록한다
+     ──────────────────────────────────────────────────────────────
+     [왜 필요한가] ⑩절에서 학생이 과를 손으로 고르게 했지만, 그건 교재에 과 정보가
+       하나도 없어서 어쩔 수 없이 택한 길이었다(583쪽 전부 「미분류 레슨」·unit_no 전부 NULL).
+       교재를 과별 폴더로 다시 올리면 그 정보가 생긴다 — 그런데 **올리기만 해서는 소용이 없다.**
+       `mangoi_current_lesson` 은 읽는 코드만 둘이고 **저장하는 코드가 저장소 전체에 0곳**이라,
+       교재에 과가 생겨도 복습퀴즈까지 이어지는 고리가 여전히 끊겨 있다.
+       이 절이 그 마지막 한 칸을 잇는다 — 교재를 넘기면 진도가 저절로 따라간다.
+
+     [어디서 읽나] 교재 시퀀스 항목의 이름은 업로더가 「[교재명] 레슨명 / 파일명」 으로 만든다
+       (js/idx-x3.js buildBookSequence). 그 «레슨명» 이 곧 과다.
+     [언제 도나] window.pdfSyncSeqIdx — 보이는 파일이 바뀔 때마다 도는 정본이다
+       (다른 기기가 넘겨도 여기로 온다). ⛔ 상주 setInterval·MutationObserver 를 두지 않는다
+       (CLAUDE.md: body class 감시가 홈 전체를 멎게 한 전력).
+
+     ⚠️ 과를 «모르면» 0 으로 지운다 — 안 지우면 앞 교재의 과가 남아 엉뚱한 퀴즈가 붙는다.
+     ⚠️ 학생이 ⑩절에서 손으로 고른 값을 덮어쓰지 않는다 — 교재가 «실제로 다른 과로 옮겨갔을 때» 만 쓴다.
+     ══════════════════════════════════════════════════════════════ */
+  (function () {
+    var LS_LESSON = 'mangoi_current_lesson';
+    var lastAuto = null;                      // 마지막으로 «자동» 으로 쓴 값
+
+    /* 「[다락원 중국어 마스터 3] 제7과 / Slide3.JPG」 → 7
+       ⛔ 파일 이름은 보지 않는다 — Slide3.JPG 의 3 을 과로 잘못 읽는다(업로더가 밟았던 함정). */
+    function lessonOf(name) {
+      var s = String(name || '');
+      var m = /^\s*\[[^\]]*\]\s*([^/]*)/.exec(s);   // 대괄호 교재명 다음 ~ 첫 슬래시 앞 = 레슨명
+      if (!m) return 0;
+      var seg = m[1];
+      var n = /제\s*(\d+)\s*과|Lesson\s*(\d+)|Unit\s*(\d+)|Chapter\s*(\d+)/i.exec(seg);
+      if (!n) return 0;                            // 「미분류 레슨」·「A 유닛」 → 모름
+      for (var i = 1; i < n.length; i++) { if (n[i]) return parseInt(n[i], 10) || 0; }
+      return 0;
+    }
+    function currentName() {
+      try {
+        var seq = window._libSequence;
+        if (!seq || !seq.length) return '';
+        var it = seq[window._libSeqIdx || 0];
+        return (it && it.name) || '';
+      } catch (e) { return ''; }
+    }
+    function record(name) {
+      var n = lessonOf(name || currentName());
+      if (n === lastAuto) return;                  // 교재가 그 과에 그대로 있다 → 학생 선택을 건드리지 않는다
+      lastAuto = n;
+      try { localStorage.setItem(LS_LESSON, String(n)); } catch (e) {}
+      try { console.log('[mobilefix ⑪] 진도 기록: ' + (n ? '제' + n + '과' : '(모름)')); } catch (e) {}
+    }
+    window.__mgRecordLesson = record;             // ⑩절·검사에서 부를 수 있게
+
+    // 보이는 파일이 바뀌는 정본 — 다른 기기가 넘겨도 여기로 온다
+    var _sync = window.pdfSyncSeqIdx;
+    if (typeof _sync === 'function') {
+      window.pdfSyncSeqIdx = function (url) {
+        var r;
+        try { r = _sync.apply(this, arguments); } finally { try { record(''); } catch (e) {} }
+        return r;
+      };
+    }
+    // 교재를 처음 열 때 — 이름이 인자로 바로 온다(시퀀스가 아직 안 잡혔을 수 있다)
+    var _sel = window.selectFromTextbookLibrary;
+    if (typeof _sel === 'function') {
+      window.selectFromTextbookLibrary = function (id, url, kind, name) {
+        var r;
+        try { r = _sel.apply(this, arguments); } finally { try { record(name); } catch (e) {} }
+        return r;
+      };
+    }
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 준비됨'); } catch (e) {}
 })();

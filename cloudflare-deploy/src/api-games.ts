@@ -19,6 +19,9 @@ import type { MangoEnv } from './api-mango';
 //    ⛔ 보기(opts)는 「어려운」·「你好」·「go to school」 같은 «낱말·구» 라 찍지 않습니다.
 //    ℹ️ answer_text 를 다듬어도 채점은 안 흔들립니다 — rqNorm 이 구두점을 통째로 지웁니다.
 import { endSentence, PUNCTUATION_PROMPT_RULE } from './sentence-punct';
+// 🈶 중국어 교재 이름 해석 정본 — 라이브러리(「다락원 중국어 마스터 3」)와 콘텐츠(「다락원」)의
+//    표기가 달라 매칭이 영영 안 되던 것을 잇습니다. 표시 이름은 「중국어 마스터」(2026-08-26 사장님).
+import { resolveZhTextbook, zhDisplayTextbook, zhDisplayDesc } from './zh-textbook';
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1287,6 +1290,24 @@ ${synList ? `\n🔗 비슷한 표현: ${synList}` : ''}
       }
       return [];
     };
+    /* 🈶 (2026-08-26) 중국어 «콘텐츠» 교재 표기 목록 — zh_passage·zh_vocab 에 실제로 있는 이름.
+     *   교재 이름 해석(zh-textbook.ts)의 후보로 쓴다. ⛔ 이름을 코드에 하드코딩하지 않는 이유가 이것.
+     *   ⚠️ active=1 을 «일부러» 안 건다 — 하는 일이 «중국어인지 알아보기» 라 넓게 잡는 쪽이 안전하다
+     *      (좁게 잡으면 비활성 과만 있는 교재가 «영어» 로 새어 나간다).
+     *   ⚠️ 표가 없을 수도 있으니 각각 try 로 감싼다 — 한쪽이 없다고 영어 수업까지 멈추면 안 된다. */
+    let _zhBookCache: string[] | null = null;
+    const loadZhTextbookNames = async (): Promise<string[]> => {
+      if (_zhBookCache) return _zhBookCache;
+      const out = new Set<string>();
+      for (const t of ['zh_passage', 'zh_vocab']) {
+        try {
+          const rs: any = await env.DB.prepare(`SELECT DISTINCT textbook FROM ${t} WHERE textbook IS NOT NULL AND textbook <> ''`).all();
+          for (const r of (((rs.results as any[]) || []))) { const v = String(r.textbook || '').trim(); if (v) out.add(v); }
+        } catch {}
+      }
+      _zhBookCache = Array.from(out);
+      return _zhBookCache;
+    };
     // 🈶 (2026-07-31) zh_passage(다락원 과별 본문 — 사람이 직접 쓴 지문+정답 있는 이해문제) 조회.
     //   textbook+lesson 정확매칭 우선, 없으면 그 교재의 첫 과(제일 낮은 lesson_no)로.
     const rqZhPassageFind = async (textbook?: string, level?: string, lessonNo?: number | null) => {
@@ -1537,7 +1558,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         let count = 0; try { count = (JSON.parse(row.questions) || []).length; } catch {}
         let drawTotal = 0; try { if (row.draw) { const d = JSON.parse(row.draw); drawTotal = (d.listen || 0) + (d.speak || 0) + (d.choice || 0) + (d.write || 0); } } catch {}
         const shown = drawTotal > 0 ? Math.min(drawTotal, count) : count;
-        const item: any = { id: row.id, title: row.title, description: row.description || '', question_count: shown, bank_size: count, draw_total: drawTotal, level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', lang: row.lang || 'en', created_at: row.created_at, best_score: null, attempts: 0 };
+        const item: any = { id: row.id, title: row.title, description: zhDisplayDesc(row.description || '', row.lang), question_count: shown, bank_size: count, draw_total: drawTotal, level: row.level || '', textbook: zhDisplayTextbook(row.textbook) || '', textbook_key: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', lang: row.lang || 'en', created_at: row.created_at, best_score: null, attempts: 0 };
         if (userId) {
           const best: any = await env.DB.prepare(`SELECT MAX(score) AS best, COUNT(*) AS n FROM review_quiz_results WHERE quiz_id = ? AND user_id = ?`).bind(row.id, userId).first();
           if (best && Number(best.n) > 0) { item.best_score = best.best; item.attempts = Number(best.n); }
@@ -1762,22 +1783,57 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
     if (method === 'POST' && path === '/api/review-quiz/auto') {
       await ensureReviewQuizTables();
       const b: any = await request.json().catch(() => ({}));
-      const lang = String(b.lang || '').trim() === 'zh' ? 'zh' : 'en';
+      let lang = String(b.lang || '').trim() === 'zh' ? 'zh' : 'en';
       let level = String(b.level || '').trim();
       let textbook = String(b.textbook || '').trim();
+      /* 🈶 (2026-08-26) 언어를 «수업 교재» 로 판정한다 — 사장님 제보
+       *   「중국어 수업 끝났는데 복습퀴즈가 왜 영어가 나와?」의 뿌리.
+       *   [무엇이 문제였나] 클라이언트가 보내는 b.lang 은 «이 수업이 무슨 언어인가» 가 아니라
+       *     **학생이 예전에 게임탭에서 골라둔 값**이다(js/idx-x8.js 의 st.lang — 기본값 'en').
+       *     그래서 중국어 교재로 수업해도 영어로 조회했다. 게다가 교재 이름이 라이브러리와
+       *     콘텐츠에서 서로 달라(「다락원 중국어 마스터 3」 대 「다락원」) 정확일치가 영영 안 맞았다.
+       *   [고침] 교재가 zh_passage·zh_vocab 에 있는 중국어 교재로 «이어지면» 그것을 근거로
+       *     zh 로 올리고, 교재 이름도 콘텐츠 표기로 바꿔 매칭이 성립하게 한다.
+       *   ⛔ 이름만 보고 짐작하지 않는다 — 판정 근거는 그 두 표에 실제로 있는가이다(zh-textbook.ts).
+       *   ⚠️ 반대 방향(zh → en)으로는 내리지 않는다. 학생이 손으로 中文 을 고른 것은 존중한다. */
+      let zhBook: string | null = null;
+      try {
+        const known = await loadZhTextbookNames();
+        zhBook = resolveZhTextbook(textbook, known);
+        if (zhBook) { lang = 'zh'; textbook = zhBook; }
+      } catch (e: any) { console.warn('[review-quiz/auto] zh textbook resolve skip:', e?.message); }
       // 🈶 (2026-07-31) 중국어는 아직 다락원 Lv3 단일 커리큘럼뿐이라, 수업 화면이 교재를 못 읽어와도
       //   비어 있지 않게 안전한 기본값으로 채운다(교재/레벨이 늘면 이 fallback 은 자연히 무해해짐).
       if (lang === 'zh' && !textbook && !level) { textbook = '다락원'; level = 'Lv 3'; }
       const lessonNo = Number(b.lesson_no) > 0 ? Number(b.lesson_no) : null;
       const topic = String(b.topic || '').trim().slice(0, 300);
       const allowGenerate = b.auto_generate !== 0 && b.auto_generate !== false;
+      /* 🈶 (2026-08-26) 이 교재에 «몇 과» 가 있는지 함께 내려준다 — 화면의 과 고르기 줄이 쓴다.
+       *   [왜 필요한가] 진도(과)를 자동으로 알아낼 방법이 지금은 없다. 교재 라이브러리의
+       *     「다락원 중국어 마스터 3」 583쪽이 **전부 「미분류 레슨」이고 unit_no 도 583개 전부 NULL**
+       *     이다(2026-08-26 D1 실측). 그래서 localStorage 의 mangoi_current_lesson 은 읽는 코드만
+       *     둘이고 **저장하는 코드가 저장소 전체에 0곳**이었다 — 과별 퀴즈 14개가 있어도 영영 안 닿았다.
+       *   [결정] 사장님 결정(2026-08-26): **학생이 과를 고르게** 한다. 그 목록이 이 값이다.
+       *   ⛔ 교재에서 과를 «짐작» 하지 말 것 — 파일 이름에 단서가 한 글자도 없다. */
+      let zhLessons: number[] = [];
+      if (lang === 'zh') {
+        try {
+          const lr: any = await env.DB.prepare(`SELECT DISTINCT lesson_no FROM zh_passage WHERE active=1 AND lesson_no IS NOT NULL${textbook ? ' AND LOWER(textbook)=LOWER(?)' : ''} ORDER BY lesson_no ASC`)
+            .bind(...(textbook ? [textbook] : [])).all();
+          for (const r of (((lr.results as any[]) || []))) { const n = Number(r.lesson_no); if (n > 0) zhLessons.push(n); }
+        } catch (e: any) { console.warn('[review-quiz/auto] zh lessons skip:', e?.message); }
+      }
+      // 모든 응답에 함께 실어 «지금 무슨 언어·교재·몇 과인지» 를 화면이 알 수 있게 한다.
+      const meta = { lang, textbook: zhDisplayTextbook(textbook), lessons: zhLessons, lesson_no: lessonNo };
       const pickSafe = (row: any) => {
         let qs: any[] = []; try { qs = JSON.parse(row.questions) || []; } catch {}
         let draw: any = null; try { draw = row.draw ? JSON.parse(row.draw) : null; } catch {}
         let safe: any[];
         if (draw && qs.length) { const idxs = rqDrawIndices(qs, draw); safe = idxs.map((i: number) => rqSafeOne(qs[i], i)); }
         else { safe = rqSafeQuestions(qs); }
-        return { id: row.id, title: row.title, description: row.description || '', level: row.level || '', textbook: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, lang: row.lang || 'en', questions: safe };
+        // 🈶 화면에 보여줄 교재 이름은 콘텐츠 표기(「다락원」)가 아니라 「중국어 마스터」(2026-08-26 사장님).
+        //   ⚠️ D1 값은 그대로 둔다 — 매칭은 콘텐츠 표기로 하고, 바꾸는 것은 «보여줄 때» 뿐이다.
+        return { id: row.id, title: row.title, description: zhDisplayDesc(row.description || '', row.lang), level: row.level || '', textbook: zhDisplayTextbook(row.textbook) || '', textbook_key: row.textbook || '', lesson_no: row.lesson_no, source: row.source || 'manual', draw: draw || null, lang: row.lang || 'en', questions: safe };
       };
       // 🈶 언어 필터: en 은 예전에 만들어진 lang=NULL 행도 포함(하위호환), zh 는 lang='zh' 행만.
       const langCond = lang === 'zh' ? `lang = ?` : `(lang = ? OR lang IS NULL)`;
@@ -1792,9 +1848,9 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
       if (level) tries.push({ sql: `SELECT * FROM review_quizzes WHERE active=1 AND ${langCond} AND level IS NOT NULL AND LOWER(level)=LOWER(?) AND (textbook IS NULL OR textbook='') ORDER BY id DESC LIMIT 1`, binds: [langBind, level] });
       for (const t of tries) {
         const row: any = await env.DB.prepare(t.sql).bind(...t.binds).first();
-        if (row) return json({ ok: true, matched: true, quiz: pickSafe(row) });
+        if (row) return json({ ok: true, matched: true, quiz: pickSafe(row), ...meta });
       }
-      if (!allowGenerate || (!textbook && !level && !topic)) return json({ ok: true, matched: false, quiz: null });
+      if (!allowGenerate || (!textbook && !level && !topic)) return json({ ok: true, matched: false, quiz: null, ...meta });
       // 🈶 중국어 1순위: 다락원 본문(zh_passage) 기반 조립 — 사람이 만든 정답이라 AI보다 정확하고,
       //   듣기/말하기까지 전부 실제 교재 문장으로 채울 수 있다(영어 퀴즈와 동급 4유형 구성).
       if (lang === 'zh') {
@@ -1821,7 +1877,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
               .bind(title, desc, JSON.stringify(qsList), level || passRow.level || null, textbook || passRow.textbook || null, lessonNo, now, now).run();
             const newId = (ins as any).meta?.last_row_id;
             const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
-            return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });
+            return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow), ...meta });
           }
         }
         // 본문이 아예 없는 교재/레벨이면(향후 커리큘럼 확장 대비) zh_vocab 그라운딩 AI로 폴백.
@@ -1838,7 +1894,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         .bind(title, desc, JSON.stringify(gen.questions), level || null, textbook || null, lessonNo, lang === 'zh' ? 'zh' : null, now, now).run();
       const newId = (ins as any).meta?.last_row_id;
       const nrow: any = await env.DB.prepare(`SELECT * FROM review_quizzes WHERE id=?`).bind(newId).first();
-      return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow) });
+      return json({ ok: true, matched: false, generated: true, quiz: pickSafe(nrow), ...meta });
     }
 
     // ── POST /api/admin/review-quiz/ai-generate — 관리자: AI 자동 출제 (저장 전 미리보기) ──
