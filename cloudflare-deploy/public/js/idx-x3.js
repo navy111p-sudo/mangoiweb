@@ -76,7 +76,15 @@
         resolve({textbooks:[], files:{}, err:'timeout'});
       }, 5000);
       try {
-        var req = indexedDB.open('mangoi-textbooks', 3);
+        /* 🪤 (2026-08-27) 버전을 «지정하지 않고» 연다.
+           [왜] 버전을 주면 DB 가 이미 «더 높은» 버전일 때 VersionError 로 **열기 자체가
+              실패**한다(`req.onerror`). 그런데 교재 업로더(textbook-uploader.html 의 openDB)
+              에는 store 가 없을 때 «버전을 올려» store 를 만드는 길이 있어 실제로 4 가 될 수
+              있다. 그러면 이 화면은 IDB 를 영영 못 읽고, **재시작·캐시삭제·새로고침으로도
+              안 풀린다**(IndexedDB 는 캐시가 아니다). 2026-08-27 실측으로 재현했다.
+           ⚠️ 버전을 안 주면 `onupgradeneeded` 는 «DB 가 아예 없을 때» 만 돈다 — 그때만
+              store 를 만든다. 이 화면에서 버전을 올려 store 를 만들지는 않는다(업로더 몫). */
+        var req = indexedDB.open('mangoi-textbooks');
         req.onupgradeneeded = function(e){
           var d = e.target.result;
           if (!d.objectStoreNames.contains('textbooks')) {
@@ -102,6 +110,43 @@
             fls.forEach(function(f){ fm[f.id] = f; });
             db.close();
             if (done) return; done = true; clearTimeout(to);
+            console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
+            resolve({textbooks:tbs, files:fm, err:null});
+          }
+          tbR.onsuccess = function(){ tbs = tbR.result || []; chk(); };
+          tbR.onerror = function(){ tbs = []; chk(); };
+          flR.onsuccess = function(){ fls = flR.result || []; chk(); };
+          flR.onerror = function(){ fls = []; chk(); };
+        };
+        req.onerror = function(){
+          if (done) return; done = true; clearTimeout(to);
+          resolve({textbooks:[], files:{}, err:'open_failed'});
+        };
+        req.onblocked = function(){
+          if (done) return; done = true; clearTimeout(to);
+          resolve({textbooks:[], files:{}, err:'blocked'});
+        };
+      } catch(e){
+        if (done) return; done = true; clearTimeout(to);
+        resolve({textbooks:[], files:{}, err:'exception:' + e.message});
+      }
+    });
+  }
+
+  /* 🔴 (2026-08-27) 이 함수는 **`_loadAllIDB` 안의 `chk()` 한가운데에 잘못 들어가 있었다.**
+     ═══════════════════════════════════════════════════════════════════════
+     [증상] 교재 라이브러리에서 교재를 골라도 «아무 일도 안 일어난다». 수업 화면은
+        「선생님이 교재를 여는 중이에요」 대기 카드 그대로 남는다. 에러도 안 난다.
+     [뿌리] 정의가 `chk()` 의 `if (done) return;` **뒤**에 있었다. 그래서 이 함수는
+        «IndexedDB 읽기가 5초 안에 성공했을 때만» 정의됐다. 그 밖의 모든 경우 —
+        읽기 시간 초과(교재를 많이 올린 뒤), DB 열기 실패(버전 불일치), store 누락,
+        예외 — 에서는 **영영 정의되지 않는다.** 라이브러리 목록은 서버에서 받아 와
+        멀쩡히 그려지므로 «목록은 보이는데 눌러도 안 되는» 상태가 된다.
+        2026-08-27 브라우저 실측: 페이지 로드 직후 `typeof window.selectFromTextbookLibrary`
+        가 **undefined**(같은 파일의 open/load/closeTextbookLibrary 는 function).
+     [고침] 정의를 파일 최상위로 되돌린다 — 읽기 성공 여부와 무관하게 항상 있어야 한다.
+     ⛔ 다시 `_loadAllIDB` 안으로 넣지 마세요. 감시는
+        `test-harness/textbook_library_open_harness.mjs`. */
   window.selectFromTextbookLibrary = async function(id, url, kind, name) {
     console.log('[ph247] selectFromTextbookLibrary:', id, kind, name);
     /* 🎬 교재 → 예습/복습 동영상 «자동 연결» 은 여기서 완전히 끊었다.
@@ -168,29 +213,6 @@
       alert('❌ 교재 로딩 실패: ' + (e.message || e));
     }
   };
-
-            console.log('[ph245] IDB 교재', tbs.length, '· 파일', fls.length);
-            resolve({textbooks:tbs, files:fm, err:null});
-          }
-          tbR.onsuccess = function(){ tbs = tbR.result || []; chk(); };
-          tbR.onerror = function(){ tbs = []; chk(); };
-          flR.onsuccess = function(){ fls = flR.result || []; chk(); };
-          flR.onerror = function(){ fls = []; chk(); };
-        };
-        req.onerror = function(){
-          if (done) return; done = true; clearTimeout(to);
-          resolve({textbooks:[], files:{}, err:'open_failed'});
-        };
-        req.onblocked = function(){
-          if (done) return; done = true; clearTimeout(to);
-          resolve({textbooks:[], files:{}, err:'blocked'});
-        };
-      } catch(e){
-        if (done) return; done = true; clearTimeout(to);
-        resolve({textbooks:[], files:{}, err:'exception:' + e.message});
-      }
-    });
-  }
 
   // fix (2026-06-01) — 서버(R2/D1) 저장 교재를 모든 기기(휴대폰 포함)에서 보이게.
   //   /api/textbook-files 의 name 은 "[교재] 레슨 / 파일" 형식 → 파싱해서 교재·레슨별로 묶음.
@@ -297,6 +319,37 @@
       window.__mangoiCurrentBookId = book._serverBook;
       if (window.mangoiPlayLessonVideo) window.mangoiPlayLessonVideo(book._serverBook);
     } catch(_) {}
+  }
+
+  /* 📢 (2026-08-27) `mangoToast` 는 **호출부만 있고 정의가 없다** — 저장소 안에서도
+     `js/idx-chatbot-frame.js` 가 그 사실을 적어 두었다. 그래서 `vcTextbookDenied()`
+     (idx-main.js)가 「교재는 선생님만 바꿀 수 있어요」를 띄우려 해도 `typeof mangoToast`
+     가 'undefined' 라 **아무것도 안 뜬다** → 학생·매니저에게는 «버튼이 고장났다» 로 보인다.
+     ⚠️ classic script 끼리는 전역을 공유하므로 여기서 `window.mangoToast` 를 채우면
+        idx-main.js 의 bare `mangoToast` 도 이 함수를 찾는다(idx-main.js 는 안 건드린다 —
+        849KB blocking 이고 첫 화면 예산이 빠듯하다).
+     ⚠️ z-index 는 홈 위젯(2147483000) «바로 한 칸 위» 까지만 — 재연결 안내
+        (`#vc-reconnect-banner`, 2147483646)를 가리면 수업이 끊긴 걸 모른다. */
+  if (typeof window.mangoToast !== 'function') {
+    window.mangoToast = function(msg){
+      try {
+        var el = document.getElementById('mgo-toast-fallback');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'mgo-toast-fallback';
+          el.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);'
+            + 'max-width:86vw;padding:11px 16px;border-radius:12px;background:rgba(17,24,39,0.96);'
+            + 'color:#fff;font-size:14px;font-weight:700;line-height:1.5;text-align:center;'
+            + 'box-shadow:0 10px 30px -8px rgba(0,0,0,0.6);z-index:2147483001;pointer-events:none;'
+            + 'overflow:hidden';
+          document.body.appendChild(el);
+        }
+        el.textContent = String(msg || '');
+        el.style.display = 'block';
+        clearTimeout(window.__mgoToastT);
+        window.__mgoToastT = setTimeout(function(){ try { el.style.display = 'none'; } catch(_){} }, 3600);
+      } catch(_){}
+    };
   }
 
   window.openTextbookLibrary = function(){
