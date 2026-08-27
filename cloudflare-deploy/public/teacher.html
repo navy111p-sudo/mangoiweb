@@ -101,6 +101,15 @@ html[data-t="dark"] details.mycard > summary{color:#c9d4e0}
 .payrow{border-top:1px solid #eaeef2;padding:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13.5px}
 .payrow:first-of-type{border-top:0}
 .payrow .g{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
+/* 🧾 수업료 건별 명세 — 한 줄 = 날짜·학생·상태·순지급, 아랫줄 = 공제 사유.
+   hover 강조는 색만(확대·이동 금지 규칙). */
+.payls-wrap{margin-top:10px;font-size:12.5px}
+.payls-wrap>summary{cursor:pointer;font-weight:700;color:#0b7a3d;user-select:none;padding:4px 0}
+.payls{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid #eaeef2;padding:6px 0}
+.payls-when{font-variant-numeric:tabular-nums;color:#5d6b7a;white-space:nowrap}
+.payls-who{font-weight:600}
+.payls-amt{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700}
+.payls-sub{width:100%;font-size:11.5px;color:#b3261e;padding-left:2px}
 .neg{color:#b3261e}
 .pos{color:#0b7a3d}
 
@@ -330,6 +339,10 @@ html[data-t="dark"] .row span,
 html[data-t="dark"] .modal p.sub,
 html[data-t="dark"] .mini,
 html[data-t="dark"] .empty{color:#9dabb9}
+html[data-t="dark"] .payls{border-color:#2b3541}
+html[data-t="dark"] .payls-when{color:#9dabb9}
+html[data-t="dark"] .payls-wrap>summary{color:#7bc496}
+html[data-t="dark"] .payls-sub{color:#f7897f}
 html[data-t="dark"] .card{background:#171e26;border-color:#2b3541}
 html[data-t="dark"] .card > h2{color:#dbe4ed}
 html[data-t="dark"] .card > h2 small{color:#9dabb9}
@@ -2560,6 +2573,58 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
     h += '<div class="mini" style="padding-top:8px">' + esc(T('My rate','내 10분 단가')) + ': '
        + (rate ? esc(peso(rate))
                : '<b>' + esc(T('not set — ask your manager','미설정 — 관리자에게 요청해 주세요')) + '</b>') + '</div>';
+
+    /* 🧾 건별 명세 (2026-08-27 마이마이 8/7 ② 마무리 — 「lesson time · student · status · deductions」)
+       데이터는 같은 응답의 j.lessons[] 에 처음부터 다 들어 있었다(서버 수정 0) — 여기까지 오는
+       동안 화면이 합계만 그리고 있었을 뿐이다. 예정(upcoming)은 아직 돈이 아니므로 뺀다.
+       ⚠️ 라벨은 renderClasses 와 같은 이유로 T() 렌더 — 언어 전환 시 paintPay 가 다시 돈다. */
+    var ls = (j.lessons || []).filter(function(l){ return l.status && l.status !== 'upcoming'; });
+    if (ls.length){
+      ls.sort(function(a,b){ return (b.date + (b.start_time||'')).localeCompare(a.date + (a.start_time||'')); });
+      var CAP = 80;   // 한 달 20분 수업 기준 넉넉한 상한 — 넘치면 «몇 건 더» 를 말한다(조용한 절단 금지)
+      var stL = function(l){
+        if (l.status === 'finish')          return '<span class="pill p-done">'   + esc(T('Done','완료')) + '</span>';
+        if (l.status === 'student_absent')  return '<span class="pill p-plan">'   + esc(T('Student absent','학생 결석')) + '</span>';
+        if (l.status === 'teacher_no_show') return '<span class="pill p-noshow">' + esc(T('No-show','미입장')) + '</span>';
+        if (l.status === 'postponed')
+          //  왜 이 금액인지 — 30분 이내 연기는 전액, 사전 연기는 0 (2026-08-13 사장님 결정)
+          return '<span class="pill p-cancel">' + esc(l.postpone_fee_type === 'free'
+            ? T('Postponed early','사전 연기') : T('Postponed','연기')) + '</span>';
+        return esc(l.status);
+      };
+      var DED = {
+        no_feedback_day: T('no feedback','피드백 미작성'),
+        late_no_extend:  T('late','지각'),
+        teacher_no_show: T('no-show','미입장')
+      };
+      var lh = '';
+      ls.slice(0, CAP).forEach(function(l){
+        var dd = (l.date || '').slice(5).replace('-', '/');
+        var subs = [];
+        (l.deductions || []).forEach(function(dx){
+          subs.push('&minus;' + esc(peso(dx.amount)) + ' ' + esc(DED[dx.code] || dx.code)
+            + (dx.minutes ? ' ' + esc(dx.minutes + T('min','분')) : ''));
+        });
+        if (l.status === 'postponed' && l.postpone_fee_type === 'free')
+          subs.push(esc(T('postponed >30min before → 0','시작 30분보다 이른 연기 → 0')));
+        lh += '<div class="payls">'
+          +   '<span class="payls-when">' + esc(dd + ' ' + (l.start_time || '')) + '</span>'
+          +   '<span class="payls-who">' + esc(l.student_name || '-') + '</span>'
+          +   stL(l)
+          +   '<span class="payls-amt">' + esc(peso(l.net_amount != null ? l.net_amount : l.amount)) + '</span>'
+          +   (subs.length ? '<div class="payls-sub">' + subs.join(' &middot; ') + '</div>' : '')
+          + '</div>';
+      });
+      if (ls.length > CAP)
+        lh += '<div class="mini">' + esc(T('+ ' + (ls.length - CAP) + ' more lessons not shown',
+                                           '+ ' + (ls.length - CAP) + '건 더 있음 (표시 생략)')) + '</div>';
+      h += '<details class="payls-wrap"><summary>'
+        +    esc(T('Per-lesson detail','건별 명세')) + ' (' + ls.length + ')'
+        + '</summary>' + lh
+        + '<div class="mini">' + esc(T('Unit: PHP. Amount = per-lesson net (after its deductions).',
+                                       '단위: 페소. 금액 = 그 수업의 공제까지 반영한 순지급.')) + '</div>'
+        + '</details>';
+    }
     fill('payBody', h);
   }
 
