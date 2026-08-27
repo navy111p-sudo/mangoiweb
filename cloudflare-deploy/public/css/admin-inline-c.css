@@ -9547,6 +9547,15 @@ button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.
   background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
   border: 1px solid rgba(139,92,246,0.45) !important;
 }
+/* 「👀 수업 관찰」 — 한 번 클릭 «바로 참관» 은 채운 보라 (2026-08-27 사장님 「하나하나 입력해야
+   해서 관찰이 어렵다」 — 가장 먼저 손이 가는 버튼이라 옅은 칩과 갈라 «채운» 보라로).
+   보라 = 참관(학생에게 안 보임) 규칙은 그대로다. */
+button.gh-act-quick:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: #8b5cf6 !important; color: #fff !important;
+  border: none !important; margin-right: 4px !important; font-weight: 800 !important;
+}
+/* hover 는 기본 규칙(0,7,1)을 이겨야 실제로 보인다 — 같은 :not() 꼬리를 다 달아 (0,8,1) 로 */
+button.gh-act-quick:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active):hover{ background: #7c3aed !important; }
 /* 다크(기본) 테마에서는 옅은 칩의 «글자»가 배경에 묻힌다 — 밝은 쪽으로 */
 html:not([data-admin-theme="ivory"]) button.gh-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary),
 html:not([data-admin-theme="ivory"]) button.tc-act-observe:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #ddd6fe !important; }
