@@ -74,7 +74,9 @@ for (const f of FILES) {
   }
 }
 check('ALLOW 를 뺀 곳에 students_erp 의 id 참조가 없다', leftover.length === 0, leftover);
-check('ALLOW 는 근거가 적힌 4건뿐이다 (근거 없이 늘리지 말 것)', ALLOW.length === 4 && ALLOW.every(a => a.why.length > 20));
+// ⚠️ `=== 4` 로 두면 나중에 merge-duplicates 를 «제대로 고쳐» ALLOW 에서 빼는 순간 FAIL 이 난다
+//    (부정 검사가 옳은 변경을 막는 형태 — CLAUDE.md 2장). 늘어나는 것만 막는다.
+check('ALLOW 가 근거 없이 늘지 않았다 (4건 이하 · 각 근거 기재)', ALLOW.length <= 4 && ALLOW.every(a => a.why.length > 20));
 
 /* ══ ③ 2026-08-27 에 고친 SQL 들이 실제로 돈다 (컴파일이 아니라 실행으로) ═════════ */
 console.log('\n③ 고친 SQL 을 진짜 SQLite 에 돌려 본다');
