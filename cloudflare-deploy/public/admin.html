@@ -10912,6 +10912,12 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         if (el.closest('.pm-kpi')) return; // 🎨 결제관리 KPI 카드는 파스텔 유지 (다크화 제외)
         // (다크 모드: 신규상담 카드도 다른 카드처럼 어둡게 — 예외처리 제거)
 
+        // 🐢 (2026-08-27) 이미 처리된 element 는 getComputedStyle 을 부르기 «전에» 걸러낸다.
+        //   순서가 반대(계산 뒤에 캐시 확인)였을 때는, 학생명부처럼 큰 표가 스크롤될 때마다
+        //   생기는 DOM mutation 이 이 옵저버를 깨워 88개 카드 안 «이미 처리된» element 까지
+        //   전부 getComputedStyle 을 다시 불러 사이트 전체가 버벅였다(제보: 학생 명부 클릭 시 버퍼링).
+        if (el.__ph103) return;
+
         var cs = window.getComputedStyle(el);
         var bg = cs.backgroundColor;
         var m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
@@ -10925,8 +10931,6 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         var avg = (r + g + b) / 3;
         if (avg < 220) return; // 충분히 어두우면 건드리지 않음
 
-        // 다크화 (이미 ph103 처리됨 flag)
-        if (el.__ph103) return;
         el.__ph103 = true;
         el.style.setProperty('background', 'rgba(15,23,42,0.7)', 'important');
         el.style.setProperty('color', '#F8FAFC', 'important');
@@ -11009,6 +11013,10 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
       // 카드 내부 모든 input 강제 다크 (마지막 안전망)
       card.querySelectorAll('input, textarea, select').forEach(function(el){
         if (el.type === 'checkbox' || el.type === 'radio') return;
+        // 🐢 (2026-08-27) ph103 과 같은 이유 — 캐시 없이 매번 재적용하면 큰 표 스크롤마다
+        //   88개 카드의 input 전체를 다시 훑는다. 한 번 칠했으면 다시 안 건드린다.
+        if (el.__ph105inp) return;
+        el.__ph105inp = true;
         el.style.setProperty('background', 'rgba(15,23,42,0.85)', 'important');
         el.style.setProperty('color', '#F8FAFC', 'important');
         el.style.setProperty('border-color', 'rgba(59,130,246,0.45)', 'important');
