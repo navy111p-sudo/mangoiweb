@@ -1442,6 +1442,9 @@ export async function handleMangoApi(
         //    있었는데 이 위임 가드에만 빠져 있어 라이브에서 GET/POST 전부 404 였다.
         //    (「🔗 강사 연결」 화면·프로필 연결 API 가 통째로 먹통이던 원인)
         || path.startsWith('/api/admin/teacher-contacts')
+        // 📶 (2026-08-27) 화상 회선품질·강제 릴레이 — teacher-contacts 와 똑같이 «핸들러와
+        //    index.ts 게이트는 있는데 이 위임 가드에만 빠져» GET/POST 전부 404 였다.
+        || path.startsWith('/api/admin/vc/')
         // 💳 (2026-08-13) 법인카드 CODEF 연동
         || path.startsWith('/api/admin/corpcard/')
         // 🏦 (2026-08-14) 신한은행 계좌 입출금 — 바로빌 계좌조회

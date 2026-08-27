@@ -4148,6 +4148,16 @@ function vcHandleMessage(msg) {
             // 📷 내 카메라가 꺼져 있다면 새로 들어온 사람에게도 알려 준다.
             //   안 알리면 그 사람 화면에서는 '이유 없는 검은 화면' 이 되고 워치독이 재협상을 시도한다.
             try { if (window.vcCamOn === false) vcBroadcastCamState(false, 'user'); } catch(e){}
+            // 🖥 (2026-08-27) 공유 «중» 에 들어온(재접속 포함) 사람은 screen-share-state 를 못 받아
+            //   타일에 .vc-ss-badge 가 없다 → 공유 화면이 cover 로 좌우가 크게 잘린다
+            //   (idx-vc-mobilefix ⑧의 예외가 배지로 판별). DO 는 이 상태를 저장하지 않으므로
+            //   공유자가 입장을 보고 한 번 더 알린다. 4초 지연 = 새 사람 화면에 내 타일이
+            //   만들어질 시간. resync 표시는 받는 쪽이 토스트 없이 배지만 다시 단다.
+            try {
+                if (window.__vcScreenSharing) setTimeout(function(){
+                    try { if (window.__vcScreenSharing && vcConn) vcConn.send({ type: 'screen-share-state', data: { on: true, resync: true } }); } catch(_){}
+                }, 4000);
+            } catch(e){}
             try { (window.vcPeerRoles = window.vcPeerRoles || {})[msg.data.userId] = msg.data.role || 'student'; window.vcApplySpotlight && window.vcApplySpotlight(); } catch(e){}
             try { vcEnsureParticipantBox(msg.data.userId, msg.data.username); } catch(e){}   // 영상 전이라도 박스 미리 생성
             updateUserCount(msg.data.userCount);
@@ -4430,7 +4440,8 @@ function vcHandleMessage(msg) {
                 var _ssOn = !!(msg.data && msg.data.on);
                 var _ssUid = msg.data && msg.data.fromUserId;
                 var _ssEn = (typeof getLang === 'function' && getLang() === 'en');
-                if (typeof showToast === 'function') showToast(_ssOn
+                // resync(늦입장자용 재알림)는 조용히 배지만 — 토스트를 또 띄우면 방 전체가 시끄럽다
+                if (!(msg.data && msg.data.resync) && typeof showToast === 'function') showToast(_ssOn
                     ? (_ssEn ? '🖥 The teacher is sharing their screen.' : '🖥 선생님이 화면 공유를 시작했어요.')
                     : (_ssEn ? '🖥 Screen sharing ended.' : '🖥 화면 공유가 끝났어요.'));
                 var _ssBox = _ssUid ? document.getElementById('vc-video-' + _ssUid) : null;
@@ -5510,8 +5521,13 @@ function vcAddRemoteVideo(userId, username, stream) {
     //   재시도 사다리(0.4s/1.2s/2.8s/5s) + volume=1 강제 + unmute가 재생을 멈추면 즉시 play 재시도.
     vid.play().then(() => {
         const tryUnmute = (n) => {
+            // 🔊 증폭 중(vcOutBoost)엔 이 타일 소리가 WebAudio 게인으로 나간다(요소는 일부러
+            //    muted). 여기서 되살리면 같은 트랙이 요소+게인으로 «두 번» 재생돼 최대 4배가
+            //    되고, 다시 음소거해 줄 계기가 없다 — 재접속·강제 재연결마다 재현(2026-08-27).
+            //    vcEnsureRemoteAudio(1598행)·vcAudioWatchdog 과 같은 규칙.
+            if (window.vcOutBoost) return;
             try {
-                vid.volume = 1;
+                vid.volume = vcOutVol();
                 vid.muted = false;
                 if (vid.paused) vid.play().catch(() => {});
             } catch(_) {}

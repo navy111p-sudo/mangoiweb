@@ -430,6 +430,10 @@
       if (mode && mode !== 'off') {
         try { await primeFaceModel(); } catch (e) {}   // 우리 서버 파일을 먼저 물려 준다
         armFxWatch();
+      } else {
+        // «끄기» 를 고르면 감시를 함께 끈다 — 안 끄면 15초 뒤 vcFx.active=false 를 보고
+        // 「얼굴인식 파일을 못 불러왔다」 는 거짓 경고가 뜬다(사용자가 일부러 끈 것인데).
+        clearInterval(_fxTimer);
       }
       try { return await _setFace.apply(this, arguments); } catch (e) { return null; }
     };
@@ -794,9 +798,12 @@
           AI 가 새 퀴즈를 찍어내 review_quizzes 에 쓰레기가 쌓인다. */
     async function probe() {
       if (probed) return meta;
-      probed = true;
       var c = classCtx();
+      /* 교재·레벨이 «아직» 없으면 잠그지 않는다 — 수업 초반에 복습 탭부터 열면
+         probed=true 가 영영 남아, 교재가 뜬 뒤에도 中文 전환·진도 줄이 그 세션 내내
+         안 나온다(= 이 패치가 고치려던 「중국어 수업인데 영어 퀴즈」 재현). */
       if (!c.textbook && !c.level) return null;
+      probed = true;
       try {
         var r = await fetch('/api/review-quiz/auto', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -841,7 +848,9 @@
         + 'flex-wrap:wrap;font-size:12px;color:#fecaca;line-height:1.2');
       var cur = curLesson();
       var en = false;
-      try { en = (window.langCurrent === 'en') || (document.documentElement.lang === 'en'); } catch (e) {}
+      // ⚠️ window.langCurrent 는 어디에서도 대입되지 않는 이름이고, 이 화면은
+      //    documentElement.lang 도 안 바꾼다 — 언어 판정 정본은 getLang() 하나(CLAUDE.md 2장).
+      try { en = (typeof window.getLang === 'function' && window.getLang() === 'en'); } catch (e) {}
       var html = '<span style="font-weight:800;white-space:nowrap">📖 '
         + (en ? 'Lesson' : '진도') + '</span>';
       html += btn(0, en ? 'All' : '전체', cur === 0);
@@ -900,7 +909,10 @@
      ══════════════════════════════════════════════════════════════ */
   (function () {
     var LS_LESSON = 'mangoi_current_lesson';
-    var lastAuto = null;                      // 마지막으로 «자동» 으로 쓴 값
+    /* 마지막으로 «자동» 으로 쓴 값. ⚠️ 0 으로 시작해야 한다 — null 로 두면 첫 record()
+       에서 과를 모르는 교재(n=0)가 0!==null 을 타고 localStorage 를 '0' 으로 덮어써,
+       학생이 ⑩절에서 방금 고른 과를 지운다(«전환일 때만 덮어쓴다» 약속 위반). */
+    var lastAuto = 0;
 
     /* 「[다락원 중국어 마스터 3] 제7과 / Slide3.JPG」 → 7
        ⛔ 파일 이름은 보지 않는다 — Slide3.JPG 의 3 을 과로 잘못 읽는다(업로더가 밟았던 함정). */
