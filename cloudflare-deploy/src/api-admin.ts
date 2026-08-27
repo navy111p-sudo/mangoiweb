@@ -5242,6 +5242,10 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           'sat': 'Sat', 'saturday': 'Sat', '토': 'Sat', '토요일': 'Sat',
           'sun': 'Sun', 'sunday': 'Sun', '일': 'Sun', '일요일': 'Sun',
         };
+        // 숫자('0'~'6', 0=일…6=토)도 받는다 — 주간스케줄 마법사(wizFinalize)가 숫자로
+        // 저장하고, 학생·강사 화면(dowMatches)은 숫자를 이미 읽는데 이 캘린더만 못 읽어
+        // «저장은 됐는데 새로고침하면 사라지는» 반쪽이 됐다(2026-08-27 발견).
+        if (/^[0-6]$/.test(v)) return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][Number(v)];
         return map[v] || '';
       };
 
@@ -8759,7 +8763,10 @@ LIMIT $limit`;
           return json({ ok: false, error: 'reserved_username',
             message: '이 아이디는 시스템 전체권한 계정이라 쓸 수 없습니다.' }, 403);
         }
-        const dup = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? LIMIT 1`)
+        // NOCASE — 로그인이 대소문자를 무시하므로(staff-create 와 같은 규칙) 여기만
+        // 구분하면 Busan_Agency/busan_agency 두 벌이 생겨 «계정이 두 개» 사고가 재현된다.
+        const dup = await env.DB.prepare(
+          `SELECT username FROM admin_account WHERE username = ? COLLATE NOCASE LIMIT 1`)
           .bind(loginUsername).first<{ username: string }>();
         if (dup) {
           return json({ ok: false, error: 'already_exists',

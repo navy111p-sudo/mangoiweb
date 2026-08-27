@@ -2814,7 +2814,8 @@ function openReschedule(id) {
     + (oneOff
         ? '<label style="' + lab + '">새 날짜 / New date<input type="date" id="rs-date-' + id + '" value="' + (it.scheduled_date || '') + '" style="' + inp + '"></label>'
         : '<label style="' + lab + '">새 요일 / New day<select id="rs-dow-' + id + '" style="' + inp + '">' + dowSel + '</select></label>')
-    + '<label style="' + lab + '">새 시간 / New time<input type="time" id="rs-time-' + id + '" value="' + (it.start_time || '') + '" style="' + inp + '"></label>'
+    /* ⏰ '9:00' 처럼 안 채워진 시(옛 LMS 임포트)는 input[type=time] 에 무효라 칸이 비어 보인다 → 0 을 채운다 */
+    + '<label style="' + lab + '">새 시간 / New time<input type="time" id="rs-time-' + id + '" value="' + String(it.start_time || '').replace(/^(\d):/, '0$1') + '" style="' + inp + '"></label>'
     + '<label style="' + lab + '">분 / Min<input type="number" id="rs-dur-' + id + '" value="' + (it.duration_min || 20) + '" min="10" max="180" step="10" style="' + inp + ';width:66px"></label>'
     + '<button type="button" onclick="submitReschedule(' + id + ')" style="padding:7px 16px;border:0;border-radius:7px;background:linear-gradient(135deg,#38bdf8,#0284c7);color:#04223a;font-weight:800;font-size:12px;cursor:pointer">저장 / Save</button>'
     + '<button type="button" onclick="openReschedule(' + id + ')" style="padding:7px 12px;border:1px solid #475569;background:transparent;color:#94a3b8;border-radius:7px;font-size:12px;cursor:pointer">닫기 / Close</button>'

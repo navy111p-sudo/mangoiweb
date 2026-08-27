@@ -334,7 +334,7 @@ function load(){
         g('hi').innerHTML='영업 화면<small>준비가 필요합니다</small>';
         g('wrap').innerHTML='<div class="card"><div class="empty">아직 등록된 영업담당자가 없습니다.<br>'
           + '사무실 화면에서 먼저 등록해 주세요.<br><br>'
-          + '<a class="linkish" href="/admin/sales-hr">사무실 화면 열기</a></div></div>';
+          + '<a class="linkish" href="/admin/sales-hr.html">사무실 화면 열기</a></div></div>';
         return;
       }
       if(!j || !j.ok) throw new Error('bad');
@@ -691,7 +691,7 @@ function paintMoney(){
     + '</div></div>';
 
   h += '<div class="card"><div class="sub" style="margin:0">더 자세한 표·평가는 사무실 화면에서 보실 수 있습니다.<br>'
-    + '<a class="linkish" href="/admin/sales-hr">사무실 화면 열기</a></div></div>';
+    + '<a class="linkish" href="/admin/sales-hr.html">사무실 화면 열기</a></div></div>';
 
   g('wrap').innerHTML=h;
 }

@@ -892,9 +892,13 @@ export async function handleAdminAuthApi(
       } catch { /* 집계 실패 시 가용성 우선 — 계속 진행 */ }
       await recordLogin(env, username, ip, request.headers.get('user-agent') || '', false, 'pwreset_req').catch(() => {});
 
+      // 로그인(:1155 부근)과 같은 규칙 — 정확일치 우선 + NOCASE 보조. 폰 키보드 첫 글자
+      // 대문자(Mangoi_167 사고)로 로그인은 되는데 비번찾기만 «조용히» 실패하던 것.
+      // 이후 로직은 전부 acct.username(DB 표기)을 쓴다.
       const acct = await env.DB.prepare(
-        `SELECT username, name, phone, email, nationality FROM admin_account WHERE username = ? LIMIT 1`
-      ).bind(username).first<{ username: string; name: string | null; phone: string | null; email: string | null; nationality: string | null }>();
+        `SELECT username, name, phone, email, nationality FROM admin_account
+          WHERE username = ? COLLATE NOCASE ORDER BY (username = ?) DESC LIMIT 1`
+      ).bind(username, username).first<{ username: string; name: string | null; phone: string | null; email: string | null; nationality: string | null }>();
       if (!acct) return json(GENERIC);
 
       const contact = pickResetContact(acct);
@@ -971,9 +975,11 @@ export async function handleAdminAuthApi(
         message: '인증번호가 올바르지 않거나 만료됐습니다. 다시 요청해 주세요.',
         message_en: 'The code is wrong or expired. Please request a new one.' };
 
+      // 요청 단계와 같은 규칙(정확일치 우선 + NOCASE) — 갈리면 코드가 영영 안 맞는다.
       const acct = await env.DB.prepare(
-        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
-      ).bind(username).first<{ username: string }>();
+        `SELECT username FROM admin_account
+          WHERE username = ? COLLATE NOCASE ORDER BY (username = ?) DESC LIMIT 1`
+      ).bind(username, username).first<{ username: string }>();
       if (!acct) return json(BAD, 401);
 
       const row: any = await env.DB.prepare(`SELECT * FROM admin_pw_reset WHERE username = ?`).bind(acct.username).first().catch(() => null);
@@ -1233,23 +1239,26 @@ export async function handleAdminAuthApi(
           message: '강사·해외 스태프 계정(mangoi_*, hq_t*)만 재설정할 수 있습니다.',
           message_en: 'Only teacher / overseas staff accounts (mangoi_*, hq_t*) can be reset here.' }, 403);
       }
+      // 정확일치 우선 + NOCASE — 찾은 뒤에는 반드시 DB 표기(trow.username)로 쓴다.
+      // 입력 표기로 UPDATE 하면 «0건 갱신인데 에러도 없는» 반쪽이 된다(set-password 전례).
       const trow = await env.DB.prepare(
-        `SELECT username FROM admin_account WHERE username = ? LIMIT 1`
-      ).bind(target).first<{ username: string }>();
+        `SELECT username FROM admin_account
+          WHERE username = ? COLLATE NOCASE ORDER BY (username = ?) DESC LIMIT 1`
+      ).bind(target, target).first<{ username: string }>();
       if (!trow) {
         return json({ ok: false, error: 'unknown_user',
           message: '그런 계정이 없습니다.', message_en: 'No such account.' }, 404);
       }
       await env.DB.prepare(
         `UPDATE admin_account SET password_hash = ?, updated_at = ? WHERE username = ?`
-      ).bind(await hashPassword(next), Date.now(), target).run();
+      ).bind(await hashPassword(next), Date.now(), trow.username).run();
       // 재설정 후에는 그 계정의 기존 로그인 세션을 모두 끊는다(분실·유출 대응의 핵심).
-      await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(target).run().catch(() => {});
+      await env.DB.prepare(`DELETE FROM admin_sessions WHERE username = ?`).bind(trow.username).run().catch(() => {});
       // 감사 기록 — 대상 계정 이력에 "누가 재설정했는지" 를 남긴다.
       const rIp = request.headers.get('cf-connecting-ip') || '';
       const rUa = request.headers.get('user-agent') || '';
-      await recordLogin(env, target, rIp, rUa, true, 'password_reset_by:' + actor.username).catch(() => {});
-      return json({ ok: true, username: target,
+      await recordLogin(env, trow.username, rIp, rUa, true, 'password_reset_by:' + actor.username).catch(() => {});
+      return json({ ok: true, username: trow.username,
         message: '비밀번호를 재설정했습니다. 기존 로그인은 모두 해제됐습니다.',
         message_en: 'Password reset. All existing sessions for this account were signed out.' });
     }
@@ -1304,10 +1313,19 @@ export async function handleAdminAuthApi(
           message: '전체권한 계정의 연락처는 본인이 마이페이지에서 직접 등록해야 합니다.',
           message_en: 'Full-access accounts must set their own contact from My Page.' }, 403);
       }
-      const trow = await env.DB.prepare(`SELECT username FROM admin_account WHERE username = ? LIMIT 1`)
-        .bind(target).first<{ username: string }>();
+      // 정확일치 우선 + NOCASE — 아래 UPDATE/조회는 전부 DB 표기(trow.username)로.
+      const trow = await env.DB.prepare(
+        `SELECT username FROM admin_account
+          WHERE username = ? COLLATE NOCASE ORDER BY (username = ?) DESC LIMIT 1`)
+        .bind(target, target).first<{ username: string }>();
       if (!trow) return json({ ok: false, error: 'unknown_user',
         message: '그런 계정이 없습니다.', message_en: 'No such account.' }, 404);
+      // 대소문자 변형으로 위 전체권한 차단을 우회하지 못하게, 찾은 DB 표기로 한 번 더.
+      if (FULL_ACCESS_ACCOUNTS.has(trow.username)) {
+        return json({ ok: false, error: 'target_not_allowed',
+          message: '전체권한 계정의 연락처는 본인이 마이페이지에서 직접 등록해야 합니다.',
+          message_en: 'Full-access accounts must set their own contact from My Page.' }, 403);
+      }
 
       const sets: string[] = [];
       const vals: any[] = [];
@@ -1333,16 +1351,16 @@ export async function handleAdminAuthApi(
       }
       if (!sets.length) return json({ ok: false, error: 'nothing_to_update' }, 400);
       sets.push('updated_at = ?'); vals.push(Date.now());
-      vals.push(target);
+      vals.push(trow.username);
       await env.DB.prepare(`UPDATE admin_account SET ${sets.join(', ')} WHERE username = ?`).bind(...vals).run();
 
       const after = await env.DB.prepare(`SELECT phone, email, nationality FROM admin_account WHERE username = ? LIMIT 1`)
-        .bind(target).first<{ phone: string | null; email: string | null; nationality: string | null }>();
+        .bind(trow.username).first<{ phone: string | null; email: string | null; nationality: string | null }>();
       const c = pickResetContact(after || {});
       const rIp = request.headers.get('cf-connecting-ip') || '';
       const rUa = request.headers.get('user-agent') || '';
-      await recordLogin(env, target, rIp, rUa, true, 'contact_set_by:' + actor.username).catch(() => {});
-      return json({ ok: true, username: target,
+      await recordLogin(env, trow.username, rIp, rUa, true, 'contact_set_by:' + actor.username).catch(() => {});
+      return json({ ok: true, username: trow.username,
         recoverable: !!(c.phone || c.email), has_phone: !!c.phone, has_email: !!c.email,
         message: (c.phone || c.email)
           ? '연락처를 저장했습니다. 이제 이 계정은 «비밀번호 찾기» 를 쓸 수 있습니다.'

@@ -984,6 +984,15 @@ async function loadData(){
                  SLOTS 는 (강사·날짜·분) 하나에 한 칸이라 그냥 넣으면 **나중 행이 앞 행을 덮어써**
                  학생 3명짜리 수업이 화면에는 1명으로 보인다. 같은 칸이면 학생을 합친다. */
               var exist0=getSlotAt(s.teacher_id,s.date,hh*60+mm);
+              /* 🟡 (2026-08-27) 자리표시(LMS·시드) 칸에도 진짜 수업을 배정할 수 있게 된 뒤로
+                 같은 (강사·날짜·분) 키에 자리표시 행과 진짜 수업 행이 «둘 다» 올 수 있다.
+                 SLOTS 는 칸 하나에 슬롯 하나 — 진짜 수업이 이겨야 한다. 그냥 두면
+                 로드 순서에 따라 ①수업 학생이 자리표시 칸으로 흡수돼 「LMS 점유」로 그려지고
+                 cellBusy 가 그 칸을 «빈 시간» 으로 봐 이중배정이 열리거나 ②자리표시가
+                 수업을 통째로 덮어써 학생이 캘린더에서 사라진다. */
+              var inGhost=(String(s.origin||'')==='lms'||String(s.origin||'')==='sample');
+              if(exist0&&isGhostSlot(exist0)&&!inGhost){ exist0=null; }      // 수업이 자리표시를 대체(아래 addSlot 이 덮어씀)
+              else if(exist0&&!isGhostSlot(exist0)&&inGhost){ return; }      // 자리표시는 수업을 덮지 못한다
               if(exist0&&exist0.type!=='blocked'&&(s.type||'1on1')!=='blocked'&&(s.students||[]).length){
                 var have={};(exist0.students||[]).forEach(function(x){have[x.uid||x.name]=1;});
                 (s.students||[]).forEach(function(x){if(!have[x.uid||x.name]){exist0.students.push(x);have[x.uid||x.name]=1;}});
@@ -991,6 +1000,9 @@ async function loadData(){
                 return;
               }
               addSlot(s.teacher_id,s.date,hh,{
+                /* 🆔 서버 행 id — 없으면 deleteSlotConfirm 의 서버 DELETE 분기가 영영 안 타서
+                   «화면에서 지웠는데 새로고침하면 되살아나는» 반쪽이 된다(2026-08-27 발견) */
+                id:s.id,
                 type:s.type||'1on1',students:s.students||[],
                 start_date:s.start_date,end_date:s.end_date,note:s.note,
                 duration_min:Number(s.duration_min)>0?Number(s.duration_min):20,

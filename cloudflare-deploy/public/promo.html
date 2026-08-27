@@ -211,6 +211,9 @@
       video = null;
       playBtn.style.display = '';
       if (badge) badge.style.display = '';
+      // 포스터도 되살린다 — 안 되살리면 무대가 밋밋한 남색 상자로 남는다
+      var po = document.getElementById('poster');
+      if (po) po.style.display = '';
       showWarn(T[lang][SRC === DEFAULT_SRC ? 'nosrc' : 'err']);
     });
 
