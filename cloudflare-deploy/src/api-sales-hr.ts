@@ -497,17 +497,28 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
   const t = await resolveTargets(env, rep, range);
   const items: ScoreItem[] = [];
 
+  /* ⚠️ 조회가 «실패» 한 축은 0점이 아니라 해당없음(null)이어야 한다 — 설계 원칙 ③.
+     .catch 로 빈 결과를 돌려 그대로 채점하면, D1 이 잠깐 흔들린 순간의 «그럴듯한 0점» 이
+     확정 평가(grade·bonus_krw 스냅샷)에 얼어붙는다. 실패 축은 applicable 에서 빠지므로
+     환산(100점 만점)은 나머지 축으로만 계산된다. */
+  const failedItem = (key: string): ScoreItem => ({
+    key, label: SALES_LABELS[key], weight: (SALES_EVAL_WEIGHTS as any)[key] as number,
+    actual: null, target: null, rate: null, score: null,
+    reason: '기록을 읽지 못해 채점하지 않았습니다(해당없음 — 잠시 후 다시 계산해 주세요).',
+  });
+
   // ── 실적 ──────────────────────────────────────────────────────────────
+  let dealsFailed = false;
   const dealRows: any = await env.DB.prepare(
     `SELECT id, center_name, contract_date, students_initial, students_3m, retained_3m, retention_source
        FROM sales_deals WHERE rep_id = ? AND contract_date >= ? AND contract_date <= ?`
-  ).bind(rep.id, range.start, range.end).all().catch(() => ({ results: [] }));
+  ).bind(rep.id, range.start, range.end).all().catch(() => { dealsFailed = true; return { results: [] }; });
   const deals: any[] = dealRows?.results || [];
 
-  items.push(scoreOf('deals', deals.length, t.deals));
+  items.push(dealsFailed ? failedItem('deals') : scoreOf('deals', deals.length, t.deals));
 
   const students = deals.reduce((a, d) => a + num(d.students_3m, num(d.students_initial, 0)), 0);
-  items.push(scoreOf('students', students, t.students));
+  items.push(dealsFailed ? failedItem('students') : scoreOf('students', students, t.students));
 
   // 유지율 — 90일이 지났고 «판정이 끝난» 계약만 분모.
   //   ⚠️ (2026-08-18 수정) 처음엔 «90일 지난 계약» 전부를 분모에 넣었다. 그러면
@@ -517,7 +528,9 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
   const matured = deals.filter(d => maturedBy(String(d.contract_date), asOf));
   const decided = matured.filter(d => Number(d.retained_3m) === 1 || Number(d.retained_3m) === 0);
   const pending = matured.length - decided.length;
-  if (decided.length === 0) {
+  if (dealsFailed) {
+    items.push(failedItem('retention'));
+  } else if (decided.length === 0) {
     items.push({
       key: 'retention', label: SALES_LABELS.retention, weight: SALES_EVAL_WEIGHTS.retention,
       actual: null, target: null, rate: null, score: null,
@@ -538,6 +551,7 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
   }
 
   // ── 활동 ──────────────────────────────────────────────────────────────
+  let actFailed = false;
   const actAgg: any = await env.DB.prepare(
     `SELECT
        SUM(CASE WHEN kind IN ('visit','meeting','demo') THEN 1 ELSE 0 END) AS new_sales,
@@ -545,21 +559,22 @@ export async function computeAutoScores(env: SalesEnv, rep: any, range: PeriodRa
        COUNT(DISTINCT activity_date)                                        AS days
      FROM sales_activities
      WHERE rep_id = ? AND activity_date >= ? AND activity_date <= ?`
-  ).bind(rep.id, range.start, range.end).first().catch(() => null);
+  ).bind(rep.id, range.start, range.end).first().catch(() => { actFailed = true; return null; });
 
-  items.push(scoreOf('visits', num(actAgg?.new_sales, 0), t.visits));
+  items.push(actFailed ? failedItem('visits') : scoreOf('visits', num(actAgg?.new_sales, 0), t.visits));
 
+  let leadFailed = false;
   const leadAgg: any = await env.DB.prepare(
     `SELECT COUNT(*) AS c FROM sales_leads
       WHERE rep_id = ? AND date(created_at/1000,'unixepoch') >= ? AND date(created_at/1000,'unixepoch') <= ?`
-  ).bind(rep.id, range.start, range.end).first().catch(() => null);
-  items.push(scoreOf('new_leads', num(leadAgg?.c, 0), t.leads));
+  ).bind(rep.id, range.start, range.end).first().catch(() => { leadFailed = true; return null; });
+  items.push(leadFailed ? failedItem('new_leads') : scoreOf('new_leads', num(leadAgg?.c, 0), t.leads));
 
-  items.push(scoreOf('care_visits', num(actAgg?.care, 0), t.care));
+  items.push(actFailed ? failedItem('care_visits') : scoreOf('care_visits', num(actAgg?.care, 0), t.care));
 
   // 영업일지 성실도 — 근무일 중 일지를 남긴 날의 비율. 분모가 0 이면 채점하지 않는다.
   const diaryDays = num(actAgg?.days, 0);
-  items.push(scoreOf('diary', diaryDays, t.workdays));
+  items.push(actFailed ? failedItem('diary') : scoreOf('diary', diaryDays, t.workdays));
 
   const applicable = items.filter(i => i.score != null);
   const earned = applicable.reduce((a, i) => a + (i.score as number), 0);
@@ -760,10 +775,20 @@ export async function judgeRetention(env: SalesEnv, deal: any, asOf: string): Pr
     const since = new Date(new Date(asOf + 'T00:00:00Z').getTime() - RETENTION_RECENT_DAYS * 86400000)
       .toISOString().slice(0, 10);
     // ⚠️ IN (서브쿼리) 로 쓴다 — 학생 uid 를 목록으로 만들면 D1 파라미터 100개 제한에 걸린다.
+    // ⚠️ 망고아이 화상방 출석은 attendance.user_id 가 «접속마다 새 임시번호» 고 계정은
+    //    account_uid 에 있다(CLAUDE.md 2장) — user_id 만 보면 그런 학원은 영영 recent=0
+    //    이라 유지 자동판정이 «판정 불가» 로만 남는다. 두 칸 다 본다.
+    //    account_uid 는 첫 체크인의 ALTER 로만 생기는 칸이라(attendance.host 와 같은 방식)
+    //    없으면 예전처럼 user_id 만으로 폴백한다 — 새 DB 에서 조회가 통째로 죽지 않게.
     const r: any = await env.DB.prepare(
       `SELECT COUNT(*) AS c FROM attendance
-        WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
-    ).bind(since, matched.shop).first();
+        WHERE date >= ? AND (user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)
+           OR COALESCE(account_uid,'') IN (SELECT user_id FROM students_erp WHERE shop_name = ?))`
+    ).bind(since, matched.shop, matched.shop).first().catch(async () =>
+      env.DB.prepare(
+        `SELECT COUNT(*) AS c FROM attendance
+          WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
+      ).bind(since, matched.shop).first());
     recent = num(r?.c, 0);
   } catch {
     return { decided: null, reason: '학생·수업 기록을 읽지 못했습니다. 사람이 확인해 주세요.', evidence: { matched: true, error: true } };
@@ -1143,13 +1168,23 @@ export async function computeAtRisk(env: SalesEnv, repId: number | null, asOf: s
       ).bind(asOf, until30, matched.shop).first();
       active = num(a?.active, 0);
       expiring = num(a?.expiring, 0);
+      // user_id + account_uid 둘 다 — 위 유지판정과 같은 이유(임시번호 함정).
+      // account_uid 칸이 없는 새 DB 는 user_id 만으로 폴백(위와 같은 이유).
       const c: any = await env.DB.prepare(
         `SELECT
            SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS recent30,
            SUM(CASE WHEN date >= ? AND date < ? THEN 1 ELSE 0 END) AS prev30
          FROM attendance
-        WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
-      ).bind(since30, since60, since30, since60, matched.shop).first();
+        WHERE date >= ? AND (user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)
+           OR COALESCE(account_uid,'') IN (SELECT user_id FROM students_erp WHERE shop_name = ?))`
+      ).bind(since30, since60, since30, since60, matched.shop, matched.shop).first().catch(async () =>
+        env.DB.prepare(
+          `SELECT
+             SUM(CASE WHEN date >= ? THEN 1 ELSE 0 END) AS recent30,
+             SUM(CASE WHEN date >= ? AND date < ? THEN 1 ELSE 0 END) AS prev30
+           FROM attendance
+          WHERE date >= ? AND user_id IN (SELECT user_id FROM students_erp WHERE shop_name = ?)`
+        ).bind(since30, since60, since30, since60, matched.shop).first());
       recent30 = num(c?.recent30, 0);
       prev30 = num(c?.prev30, 0);
     } catch {

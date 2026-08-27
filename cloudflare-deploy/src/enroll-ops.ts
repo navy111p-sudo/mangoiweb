@@ -778,7 +778,15 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
   /* ── (b) 가격 견적 (공개) ── */
   if (path === '/api/pay/enroll/quote' && method === 'POST') {
     const body = await parseJsonBody(request) || {};
-    const uid = String(body.uid || '').trim();
+    let uid = String(body.uid || '').trim();
+    /* 🔗 문자 갱신 링크(RT)로 온 비로그인 화면은 uid 를 모른다(빈 값으로 온다).
+       그대로 두면 priceForUid('') 가 본사 기본단가로 계산되는데, 실제 결제(renew-order)는
+       토큰으로 uid 를 풀어 대리점 단가(agency_pricing)를 쓴다 — «카드에는 A원, 결제창에는
+       B원» 이 되는 결제 신뢰 사고. 견적도 같은 토큰으로 uid 를 해석해 같은 단가를 쓴다. */
+    if (!uid) {
+      const rtScope = await resolveRenewToken(env, url, body, request);
+      if (rtScope) uid = rtScope.uid;
+    }
     const weekly = Number(body.weekly || 0), months = Number(body.months || 0), minutes = Number(body.minutes || 20);
     if (!ENROLL_WEEKLY.includes(weekly) || !ENROLL_MONTHS.includes(months) || !ALLOWED_CLASS_MINUTES.includes(minutes)) {
       return json({ ok: false, error: 'bad_options' }, 400);

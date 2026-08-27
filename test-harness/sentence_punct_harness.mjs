@@ -70,6 +70,13 @@ console.log('\n[ C. ⛔ 확신이 없으면 «찍지 않는 쪽» 으로 실패�
   eq('Sorry,', 'Sorry,');
   // TOEIC 빈칸 문제문 — 밑줄로 끝나면 그대로
   eq('The manager ____', 'The manager ____');
+  // ⚠️ do·have 는 명령문 머리로도 온다(2026-08-27 수리) — 뒤가 주어스러운 낱말일 때만 의문문.
+  //    «Have a great day?» 가 실제로 나갈 뻔했던 오판. 명령문 쪽도 «.» 로 굳히지 않는다.
+  eq('Have a great day', 'Have a great day');
+  eq('Do your homework', 'Do your homework');
+  check('«Do you…»·«Have you…» 는 여전히 의문문으로 확신한다',
+    P.terminalMarkFor('Do you like pizza') === '?' && P.terminalMarkFor('Have you eaten lunch') === '?'
+    && P.terminalMarkFor('Does she like pizza') === '?');
   // 🔴 그런데 «빈칸 표시 없이 그냥 잘린» 미완성 문장은 이 함수로 못 걸러 냅니다 —
   //    「I like to eat」(+ 보기 apple)에 마침표를 찍으면 문제가 깨집니다.
   //    그래서 그런 칸(시험 question_text)은 «호출하지 않는 것» 이 방어선입니다(E절에서 확인).
