@@ -13,7 +13,14 @@
   /* 🔴 (2026-07-23) 진행 중인 수업 목록 — 매니저가 강의실 ID 를 몰라도 바로 참관/입장.
      기존 /api/active-rooms 를 그대로 쓴다(신규 API 없음).
      줄을 누르면 강의실 ID 칸이 채워지고, 버튼으로 참관 또는 직접 입장까지 이어진다. */
-  function _ghIsEn(){ try { return localStorage.getItem('adminLang') === 'en'; } catch(e){ return false; } }
+  /* 🌐 언어 판정 — 정본은 window.adminLang (adm-lang-boot.js 가 정하고, adm-core.js 의
+     `var adminLang` 이 같은 바인딩이라 KO/EN 토글까지 따라온다. 저장 키는 mangoi_lang).
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 **아무도 저장하지 않는 죽은 키**라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것. */
+  function _ghIsEn(){
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){ return false; }
+  }
   window.ghPickRoom = function(roomId){
     const el = $('gh-room-id');
     if (!el) return;

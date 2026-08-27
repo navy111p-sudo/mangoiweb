@@ -1167,7 +1167,12 @@ footer b{color:var(--ink2);font-weight:700}
 (function(){
   if (!/[?&]speak=1(?:&|$)/.test(location.search)) return;
 
-  function isEn(){ try { return localStorage.getItem('adminLang') === 'en'; } catch(e){ return false; } }
+  /* 🌐 언어 판정 — 저장 정본은 localStorage 'mangoi_lang' 이다.
+     ⚠️ 이 페이지는 adm-lang-boot.js 를 안 싣는 독립 화면이라 window.adminLang 이 없다.
+        그래서 admin.html 쪽 파일들과 달리 저장 키를 직접 읽는다.
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 «아무도 저장하지 않는 죽은 키»라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것. */
+  function isEn(){ try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch(e){ return false; } }
   function voiceOn(){ try { return localStorage.getItem('ph85VoiceOn') !== '0'; } catch(e){ return true; } }
 
   /* 주소 청소는 음성이 꺼져 있어도 한다 — 남겨 두면 다음에 켤 때 엉뚱한 시점에 읽는다. */

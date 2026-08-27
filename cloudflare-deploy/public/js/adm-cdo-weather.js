@@ -48,8 +48,13 @@
           + '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code'
           + '&timezone=Asia%2FManila';
 
+  /* 🌐 언어 판정 — 정본은 window.adminLang (adm-lang-boot.js 가 정하고, adm-core.js 의
+     `var adminLang` 이 같은 바인딩이라 KO/EN 토글까지 따라온다. 저장 키는 mangoi_lang).
+     ⚠️ 예전엔 localStorage 'adminLang' 을 읽었는데 그 키는 **아무도 저장하지 않는 죽은 키**라
+        EN 스태프에게도 늘 한국어였다(2026-08-27 수리). ⛔ 그 키에 쓰는 방식으로 되살리지 말 것. */
   function isEn() {
-    try { return localStorage.getItem('adminLang') === 'en'; } catch (e) { return false; }
+    if (window.adminLang === 'en' || window.adminLang === 'ko') return window.adminLang === 'en';
+    try { return (localStorage.getItem('mangoi_lang') || '') === 'en'; } catch (e) { return false; }
   }
 
   /* 아이콘은 **글자가 아니라 SVG** 로 그린다.
@@ -221,6 +226,16 @@
     if (document.body && document.body.classList.contains('mga-open')) sync();
     else whenClockReady(function () { var c = load(); if (c) paint(c.d); });   // 네트워크 없이 캐시만
   }
+
+  /* 🌐 KO/EN 토글에 따라오게 — 이 줄은 `textContent` 로 직접 그리므로 data-ko/data-en 루프가
+     못 고친다(CLAUDE.md 2장 「JS 로 그린 라벨」). 캐시만 다시 그리므로 네트워크는 안 쓴다.
+     ⚠️ 2026-08-27 이전에는 판정이 죽은 키(localStorage 'adminLang')라 **늘 한국어**였고,
+        그래서 토글해도 어긋날 일이 없어 이 구멍이 안 보였다. 정본으로 고치면서 드러났다.
+     ⚠️ 이벤트를 쏘는 곳이 둘이다 — adm-core.js 는 `document`, mango-i18n.js 는 `window`.
+        한쪽만 들으면 화면에 따라 조용히 안 먹는다(adm-s1.js 도 둘 다 듣는다). */
+  function repaintForLang() { try { var c = load(); if (c) paint(c.d); } catch (e) { /* 날씨 때문에 토글이 깨지면 안 된다 */ } }
+  try { document.addEventListener('mangoi:lang-changed', repaintForLang); } catch (e) {}
+  try { window.addEventListener('mangoi:lang-changed', repaintForLang); } catch (e) {}
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook);
   else hook();
