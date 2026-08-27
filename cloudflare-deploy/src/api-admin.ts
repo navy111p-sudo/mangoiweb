@@ -5478,7 +5478,23 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
             //    `no such column: id` 로 죽어 이 조회가 통째로 무동작이었다(catch 가 삼킴).
             `SELECT COALESCE(korean_name, username) AS name FROM students_erp WHERE user_id = ? OR login_id = ? LIMIT 1`
           ).bind(userId, userId).first<any>();
-          if (r?.name) nameForUid = r.name;
+          /* 🔴 (2026-08-27 trap-check) 이 이름은 «uid 에서 유추한» 것이라 근거가 약하다.
+             그대로 effectiveName 이 되면 아래 WHERE 가
+               (user_id = ? OR user_id IN (같은 이름 전원) OR student_name = ?)
+             로 넓어져 **남의 수업**이 섞인다. 화면은 그 목록으로 일정변경(PATCH)·삭제(DELETE)까지
+             하므로(admin/student.html) 잘못 섞이면 남의 수업을 지울 수 있다.
+             ⚠️ 2026-08-27 까지는 이 조회 자체가 없는 컬럼 id 로 죽어 늘 null 이었다 — 되살리는
+                김에 그 시절의 «넓은» 동작을 그대로 켜면 안 된다.
+             ✅ 이름이 **한 계정으로만** 떨어질 때만 쓴다(같은 파일 POST 경로·sessions/today 와 같은 규칙).
+             ℹ️ 사람이 직접 넣은 studentName 은 «의도한 통합 조회» 이므로 그대로 둔다.
+             📌 실측(2026-08-27): 예약이 걸린 학생 중 동명이인 계정을 가진 사람은 0명 —
+                지금 사고가 안 나는 것은 «아직» 겹치는 쌍이 없어서일 뿐이다. */
+          if (r?.name) {
+            const dupN = await env.DB.prepare(
+              `SELECT COUNT(*) AS n FROM students_erp WHERE korean_name = ? OR username = ?`
+            ).bind(r.name, r.name).first<any>();
+            if (Number(dupN?.n || 0) === 1) nameForUid = r.name;
+          }
         } catch {}
         // 2) studentName 파라미터가 있으면 그것도 우선 사용 (프론트가 알고 있는 이름)
         const effectiveName = studentName || nameForUid;
