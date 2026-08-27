@@ -1066,6 +1066,18 @@ function renderRecordingsTable() {
       const playUrl = '/api/recordings/blob/' + encodeURIComponent(r.blobKey);
       const titleText = '방 ' + (r.room_id || '-') + ' - ' + String(r.teacher || '').replace(/'/g,"");
       playBtn = '<button onclick="playRecording(\''+playUrl+'\', \''+titleText.replace(/'/g,"\\'")+'\')" style="background:#2563eb;color:#fff;padding:5px 14px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;border:none;box-shadow:0 2px 5px rgba(37,99,235,0.40);">▶ '+(adminLang==='en'?'Play':'재생')+'</button>';
+      // ⬇ 저장 (2026-08-27 사장님) — 재생 모달의 우클릭 «다른 이름으로 저장»·플레이어 ⋮ 가
+      //   비활성이라 관리자에게는 녹화를 받을 길이 아예 없었다. 같은 오리진 URL 은
+      //   <a download="파일명"> 만으로 브라우저가 강제 다운로드하므로 서버 수정이 필요 없다.
+      //   파일명은 방번호+시작시각(웹M) — blob 키 그대로 받으면 'rec%2F…' 처럼 읽기 어렵다.
+      const dlName = (String(r.room_id || 'recording')
+        + (d ? '_' + d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0')
+             + '-' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') : ''))
+        .replace(/[\\/:*?"<>|\s]/g, '-') + '.webm';
+      playBtn += '<a href="' + playUrl + '" download="' + dlName + '" title="'
+        + (adminLang === 'en' ? 'Save this recording to my device' : '이 녹화 영상을 내 PC·휴대폰에 저장합니다')
+        + '" style="display:inline-block;background:#fff;color:#2563eb;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid #93c5fd;margin-left:6px;text-decoration:none;vertical-align:middle;">⬇ '
+        + (adminLang === 'en' ? 'Save' : '저장') + '</a>';
     } else if (r.status === 'recording') {
       playBtn = '<span style="color:#94a3b8;font-size:11px;">'+(adminLang==='en'?'In progress':'녹화중')+'</span>';
     } else {
