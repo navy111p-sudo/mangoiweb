@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수업 관제탑 — 망고아이</title>
+<link rel="stylesheet" href="/css/mangoi-han.css?v=2"><!-- 한자 글꼴 통일 (hanzi_font_harness) — /css 루트 자산이라 admin/ 자산 금지 규칙에 안 걸림 -->
+<!--
+  🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시
+  「관리자가 신속하게 전체 상황을 한눈에 보면서 수업도 모니터링」 (보다 솔루션 벤치마킹)
+
+  [설계 원칙 — 왜 이렇게 가벼운가]
+  · admin.html(1.3MB) 에 얹지 않고 «별도 초경량 한 파일» — manager.html 과 같은 정신.
+  · /admin/ 밑은 default-deny 라 이 화면도 자동으로 로그인 게이트가 걸린다(index.ts 무수정).
+    ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙(index.ts isAdminPath 주석) → 전부 인라인.
+  · 새 서버 API 0개 — 기존 4개(active-rooms · classes-now · alerts · live-classes) 폴링 조합.
+  · 영상은 «상시» 로 틀지 않는다 — 타일에서 골라 눌렀을 때만 /?observe= 새 탭.
+    (전 방 영상 상주는 화상수업 DO·강사 업로드 회선에 부담 — 제안서에서 제외한 유일한 무거운 것)
+  · 15초 폴링 + 탭이 숨겨지면 일시정지(visibilitychange) — 하루 종일 켜 놔도 부담 없음.
+  · 표 위에 마우스가 있는 동안은 다시 그리지 않는다 — 자동 갱신이 조준한 줄을 갈아치워
+    «엉뚱한 방을 누르게» 되던 사고(2026-08-12 수정요청 #01)의 재발 방지.
+    클릭은 위임 리스너가 «실제로 클릭된 타일» 의 data-room 을 읽는다.
+  · 동적 영역에 data-ko/data-en 을 달지 않는다(본문 갈아끼우기 함정) — 언어는 JS 가 직접 그림.
+-->
+<style>
+/* comments in this block stay ASCII or « » - CJK corner brackets here trip the hanzi-font harness */
+:root{
+  --paper:#f5f6fa; --card:#ffffff; --ink:#101828; --sub:#475467; --muted:#667085;
+  --line:#e4e7ec; --accent:#b45309; --violet:#6d28d9; --violet-bg:#f3eefe;
+  --ok:#15803d; --ok-bg:#e8f5ec; --warn:#b45309; --warn-bg:#fdf3e2;
+  --crit:#b91c1c; --crit-bg:#fdecea; --mono:Consolas,"Courier New",monospace;
+}
+*{ box-sizing:border-box; }
+body{ margin:0; background:var(--paper); color:var(--ink);
+      font-family:MangoiHanSC,"Malgun Gothic","Apple SD Gothic Neo",sans-serif; font-size:14px; line-height:1.6; }
+.wrap{ max-width:1180px; margin:0 auto; padding:18px 16px 60px; }
+header{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+h1{ font-size:19px; margin:0; }
+.hd-note{ font-size:12px; color:var(--muted); }
+.hd-right{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+button, .btn{ font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line);
+  background:var(--card); color:var(--ink); padding:6px 12px; font-size:12.5px; font-weight:700; }
+button:focus-visible, .btn:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
+.chips{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 14px; }
+.chip{ background:var(--card); border:1px solid var(--line); border-radius:999px;
+  padding:5px 14px; font-size:12.5px; font-weight:700; color:var(--sub); }
+.chip b{ font-size:15px; margin-left:4px; font-variant-numeric:tabular-nums; }
+.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr)); gap:10px; }
+.tile{ background:var(--card); border:1px solid var(--line); border-left:5px solid var(--line);
+  border-radius:10px; padding:10px 12px; min-width:0; }
+.tile.st-ok{ border-left-color:var(--ok); }
+.tile.st-alone{ border-left-color:var(--warn); background:var(--warn-bg); }
+.tile.st-alert{ border-left-color:var(--crit); background:var(--crit-bg); }
+.tile .who{ font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tile .rid{ font-family:var(--mono); font-size:11px; color:var(--muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tile .meta{ font-size:12px; color:var(--sub); margin:2px 0 8px; }
+.badge{ display:inline-block; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; }
+.badge.alone{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
+.badge.alert{ background:var(--crit-bg); color:var(--crit); border:1px solid var(--crit); }
+.badge.obs{ background:var(--violet-bg); color:var(--violet); }
+.acts{ display:flex; gap:6px; flex-wrap:wrap; }
+.acts .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
+.acts .enter{ background:#fff7ed; border-color:#f0c48a; color:var(--warn); }
+.sec{ margin-top:22px; }
+.sec h2{ font-size:14.5px; margin:0 0 4px; color:var(--sub); }
+.sec .note{ font-size:12px; color:var(--muted); margin:0 0 8px; }
+.rows{ background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+.row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:7px 12px;
+  border-top:1px solid var(--line); font-size:13px; }
+.row:first-child{ border-top:0; }
+.row .t{ font-weight:800; font-variant-numeric:tabular-nums; }
+.row .st{ font-size:12px; font-weight:700; }
+.empty{ padding:14px; color:var(--muted); font-size:13px; }
+.err{ padding:12px 14px; border:1px solid var(--crit); background:var(--crit-bg);
+  color:var(--crit); border-radius:10px; margin:10px 0; font-size:13px; }
+footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="hd-title">🗼 수업 관제탑</h1>
+    <span class="hd-note" id="hd-note"></span>
+    <div class="hd-right">
+      <span class="hd-note" id="hd-updated"></span>
+      <button type="button" id="btn-refresh">🔄</button>
+      <button type="button" id="btn-lang">EN</button>
+      <a class="btn" href="/admin.html" id="lnk-admin">← 관리자 홈</a>
+    </div>
+  </header>
+
+  <div class="chips" id="chips"></div>
+  <div id="auth-warn"></div>
+
+  <div class="grid" id="rooms"></div>
+
+  <div class="sec">
+    <h2 id="sched-title"></h2>
+    <p class="note" id="sched-note"></p>
+    <div class="rows" id="sched"></div>
+  </div>
+
+  <footer id="ft"></footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); };
+  /* 언어: 저장 정본은 localStorage «mangoi_lang» (adm-core.js 가 저장하는 공통 키).
+     ⛔ 'adminLang' 키를 읽거나 쓰지 말 것 — 그 키는 아무도 저장하지 않는 죽은 키인데
+        읽는 코드가 10곳 잠들어 있어, 한 번이라도 쓰면 그 10곳만 깨어나 반쪽 언어가 된다
+        (2026-08-27 trap-check 실측). 이 화면의 토글은 «화면 안에서만» 바꾸고 저장하지 않는다. */
+  var EN = false;
+  try { EN = localStorage.getItem('mangoi_lang') === 'en'; } catch(e){}
+  var L = function(ko, en){ return EN ? en : ko; };
+  /* 세션은 클릭 «시점» 에 읽는다 — 페이지가 세션보다 먼저 열려 있어도 기록이 빠지지 않게 */
+  function myUid(){
+    try { return String((JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid||'').trim(); }
+    catch(e){ return ''; }
+  }
+
+  var POLL_MS = 15000;
+  var state = { rooms:[], sched:[], counts:null, alerts:{}, names:{}, authFail:false, lastAt:0 };
+  var hoverGrid = false;   /* 마우스가 표 위에 있는 동안 재렌더 금지 — 오클릭 방지 */
+  var pendingRender = false;
+
+  /* ── 데이터 수집 — 실패는 각자 조용히, 있는 것만 그린다 ───────────── */
+  function load(){
+    var pAR = fetch('/api/active-rooms', { credentials:'include' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var pCN = fetch('/api/admin/classes-now', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var pAL = fetch('/api/admin/alerts', { credentials:'include' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    return Promise.all([pAR, pCN, pAL]).then(function(res){
+      var rooms = Array.isArray(res[0]) ? res[0] : [];
+      /* 판정은 «성공이라고 말했는가»(d.ok === true) — 404 위장 함정 회피 */
+      var cn = res[1];
+      state.authFail = !(cn && cn.ok === true);
+      state.sched  = (cn && cn.ok === true && Array.isArray(cn.classes)) ? cn.classes : [];
+      state.counts = (cn && cn.ok === true) ? (cn.counts || null) : null;
+      var alerts = {};
+      var al = res[2];
+      if (al && al.ok !== false && Array.isArray(al.items)) al.items.forEach(function(it){
+        if (!it.acknowledged_at) alerts[String(it.room_id)] = it;
+      });
+      state.alerts = alerts;
+      state.rooms = rooms;
+      state.lastAt = Date.now();
+      /* 예약된 강사·학생 이름 — 실패해도 타일은 이름 없이 그린다 */
+      var ids = rooms.map(function(r){ return r.roomId; }).filter(Boolean);
+      if (!ids.length) { state.names = {}; return; }
+      return fetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')), { credentials:'include' })
+        .then(function(r){ return r.json(); })
+        .then(function(d){ state.names = (d && d.ok && d.rooms) ? d.rooms : {}; })
+        .catch(function(){ state.names = {}; });
+    }).then(render).catch(function(){ render(); });
+  }
+
+  /* ── 그리기 ──────────────────────────────────────────────────────── */
+  function render(){
+    if (hoverGrid) { pendingRender = true; return; }   /* 다음 틱에 그린다 */
+    pendingRender = false;
+    document.title = L('수업 관제탑 — 망고아이', 'Class Control Tower — Mangoi');
+    $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Control Tower');
+    $('hd-note').textContent = L('15초마다 자동 갱신 · 탭을 내려놓으면 일시정지', 'Refreshes every 15s · pauses when tab is hidden');
+    $('btn-lang').textContent = EN ? 'KO' : 'EN';
+    $('lnk-admin').textContent = L('← 관리자 홈', '← Admin home');
+    $('hd-updated').textContent = state.lastAt
+      ? (L('갱신 ', 'updated ') + new Date(state.lastAt).toLocaleTimeString(EN ? 'en-US' : 'ko-KR')) : '';
+
+    var alertCount = Object.keys(state.alerts).length;
+    var chips = [];
+    if (state.counts) chips.push([L('📅 예약 기준 지금 수업', '📅 Booked now'), state.counts.now || 0]);
+    chips.push([L('🎥 화상방', '🎥 Mango-i rooms'), state.rooms.length]);
+    chips.push([L('🚨 이상 알림', '🚨 Alerts'), alertCount]);
+    var alone = state.rooms.filter(function(r){ return r.userCount === 1; }).length;
+    if (alone) chips.push([L('⚠ 혼자 대기', '⚠ Waiting alone'), alone]);
+    $('chips').innerHTML = chips.map(function(c){
+      return '<span class="chip">' + c[0] + '<b>' + c[1] + '</b></span>'; }).join('');
+
+    $('auth-warn').innerHTML = state.authFail
+      ? '<div class="err">' + L('관리자 로그인이 필요하거나 예약 정보를 불러오지 못했습니다. 화상방 목록만 표시 중 — ',
+                                'Admin login required, or booked-class info failed to load. Showing video rooms only — ')
+        + '<a href="/admin/login.html">' + L('로그인 화면', 'Log in') + '</a></div>' : '';
+
+    /* 화상방 타일 — 심각한 것부터: 알림 > 혼자 대기 > 정상 */
+    var sorted = state.rooms.slice().sort(function(a, b){
+      var sa = state.alerts[String(a.roomId)] ? 2 : (a.userCount === 1 ? 1 : 0);
+      var sb = state.alerts[String(b.roomId)] ? 2 : (b.userCount === 1 ? 1 : 0);
+      return sb - sa;
+    });
+    $('rooms').innerHTML = sorted.length ? sorted.map(tileHtml).join('')
+      : '<div class="empty">' + L('지금 망고아이 화상방에 접속해 있는 수업이 없습니다.',
+                                   'No one is connected to a Mango-i video room right now.') + '</div>';
+
+    /* 카페24 예약 줄 — 참관할 «방» 이 없으니 버튼이 없는 것이 정상.
+       «접속 기록 없음» 을 «미접속» 이라고 단정하지 않는다. */
+    $('sched-title').textContent = L('📅 예약 기준 지금 수업 (카페24)', '📅 Booked classes for this moment (cafe24)');
+    $('sched-note').textContent = L('카페24에서 도는 수업이라 망고아이 방이 없어 영상 참관이 불가능합니다. «접속 기록 없음» 은 정상입니다.',
+      'These run on cafe24, not in a Mango-i room, so video observation is not possible. «No connection record» is normal.');
+    $('sched').innerHTML = state.sched.length ? state.sched.map(schedHtml).join('')
+      : '<div class="empty">' + L('이 시각에 예약된 카페24 수업이 없습니다.', 'No cafe24 class is booked for this moment.') + '</div>';
+
+    $('ft').innerHTML = L(
+      '👁 참관은 학생·강사에게 보이지 않고 방당 동시 2명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
+      + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다.',
+      '👁 Observation is invisible to students/teachers (max 2 observers per room); every observation is auto-recorded in the audit log. '
+      + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students.');
+  }
+
+  function tileHtml(rm){
+    var rid = String(rm.roomId == null ? '' : rm.roomId);
+    var al = state.alerts[rid];
+    var cls = al ? 'st-alert' : (rm.userCount === 1 ? 'st-alone' : 'st-ok');
+    var sc = state.names[rid] || {};
+    var who = (sc.teacher_name || sc.student_name)
+      ? esc(sc.teacher_name || '') + (sc.teacher_name && sc.student_name ? ' · ' : '') + esc(sc.student_name || '')
+      : (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || L('(이름 미상)', '(unknown)');
+    var badges = '';
+    if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
+    if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
+    if (rm.observerCount > 0) badges += ' <span class="badge obs">' + L('관찰 ', 'obs ') + rm.observerCount + '</span>';
+    return '<div class="tile ' + cls + '" data-room="' + esc(rid) + '">'
+      + '<div class="who">' + who + '</div>'
+      + '<div class="rid">' + esc(rid) + (sc.start_time ? ' · ' + esc(sc.start_time) : '') + '</div>'
+      + '<div class="meta">' + L('인원 ', 'people ') + (rm.userCount || 0) + badges + '</div>'
+      + '<div class="acts">'
+      +   '<button type="button" class="go" data-act="observe">' + L('👁 참관', '👁 Observe') + '</button>'
+      +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
+      + '</div></div>';
+  }
+
+  function schedHtml(c){
+    var ph = c.phase === 'soon' ? L('곧 시작', 'soon') : c.phase === 'ended' ? L('방금 끝남', 'ended') : L('진행 중', 'live');
+    var conn = c.connected
+      ? '<span class="st" style="color:var(--ok)">✅ ' + L('접속 확인', 'connected') + '</span>'
+      : '<span class="st" style="color:var(--warn)">' + L('접속 기록 없음', 'no connection record') + '</span>';
+    var btn = c.live_room
+      ? ' <button type="button" class="go" data-act="observe" data-room="' + esc(c.live_room) + '">' + L('👁 참관', '👁 Observe') + '</button>' : '';
+    return '<div class="row"><span class="t">' + esc(c.start_kst || '') + '~' + esc(c.end_kst || '') + '</span>'
+      + '<span>' + esc(ph) + '</span>'
+      + '<span>' + esc(c.student_name || L('(학생 미상)', '(unknown)')) + ' · ' + esc(c.teacher_name || L('(강사 미상)', '(unknown)')) + '</span>'
+      + conn + btn + '</div>';
+  }
+
+  /* ── 참관 / 입장 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
+  function openTab(url){
+    var w = null;
+    try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
+    if (!w) alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
+                    'Your browser blocked the new window. Please allow pop-ups for this site.'));
+  }
+  function observe(roomId){
+    /* 사유 자동 기록 — 기록이 실패해도 참관은 막지 않는다(수업 대응 우선) */
+    try {
+      var uid = myUid();
+      if (uid) fetch('/api/admin/ghost/start', { method:'POST', credentials:'include',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ admin_uid:uid, room_id:roomId,
+          reason: L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall') }) }).catch(function(){});
+    } catch(e){}
+    openTab(location.origin + '/?observe=' + encodeURIComponent(roomId));
+  }
+  function enterRoom(roomId){
+    if (!confirm(L('수업 "' + roomId + '" 에 직접 입장할까요?\n\n· 참관이 아니라 실제 참가자 — 학생·강사에게 보입니다.\n· 카메라는 꺼진 채로 입장합니다.',
+                   'Enter class "' + roomId + '" as a participant?\n\n· NOT observation — students and the teacher see you.\n· Camera starts OFF.'))) return;
+    openTab(location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId));
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!btn) return;
+    var holder = btn.hasAttribute('data-room') ? btn : btn.closest('[data-room]');
+    var rid = holder ? holder.getAttribute('data-room') : '';
+    if (!rid) return;
+    if (btn.getAttribute('data-act') === 'observe') observe(rid);
+    else enterRoom(rid);
+  });
+
+  /* ── 폴링 — 탭이 숨겨지면 멈추고, 돌아오면 즉시 갱신 ─────────────── */
+  var timer = null;
+  function tick(){ if (!document.hidden) load(); }
+  function start(){ if (!timer) timer = setInterval(tick, POLL_MS); }
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+  var grid = $('rooms');
+  grid.addEventListener('pointerenter', function(){ hoverGrid = true; });
+  grid.addEventListener('pointerleave', function(){ hoverGrid = false; if (pendingRender) render(); });
+  $('btn-refresh').addEventListener('click', load);
+  $('btn-lang').addEventListener('click', function(){
+    EN = !EN;   /* 저장하지 않는다 — 정본(mangoi_lang) 저장은 admin.html 의 🌐 담당 */
+    render();
+  });
+  render();   /* 뼈대 문구 먼저 */
+  load();
+  start();
+})();
+</script>
+</body>
+</html>
