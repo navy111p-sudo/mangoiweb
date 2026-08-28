@@ -3659,9 +3659,16 @@ ${numbered}`;
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { whereParts.push('r.started_at <= ?'); whereBinds.push(ms); }
       }
-      if (status && status !== 'all') {
+      /* 🔤 상태값 정규화 (2026-08-28) — 화면 필터 「종료」의 value 가 'ended' 인데
+         D1 에 실제로 들어가는 값은 'completed' 다(운영 실측: completed·deleted·aborted·
+         upload_failed·recording 다섯 뿐, 'ended' 행은 **0건**). 그래서 「종료」를 고르면
+         조건이 `r.status='ended'` 가 되어 **에러 없이 늘 0건**이었다.
+         ⚠️ 화면 option value 만 바꾸면 옛 북마크·옛 캐시가 그대로 0건을 본다 —
+            서버가 두 이름을 같은 것으로 받아 준다. */
+      const statusNorm = status === 'ended' ? 'completed' : status;
+      if (statusNorm && statusNorm !== 'all') {
         whereParts.push('r.status = ?');
-        whereBinds.push(status);
+        whereBinds.push(statusNorm);
       }
       /* 🧹 (2026-08-05) 0초짜리 «부산물» 행은 기본 목록에서 감춘다.
          [무엇인가] R2 멀티파트는 마지막이 아닌 파트가 «5MiB 고정» 이라, 그만큼 안 모이면
@@ -3672,8 +3679,18 @@ ${numbered}`;
          [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
            강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
          ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
-      if (!status || status === 'all') {
+      /* 🗑️ (2026-08-28 사장님 지시) «삭제됨» 도 기본 목록에서 감춘다 — 위 0초 행과 같은 이유.
+         [무엇인가] 보관기간 3개월이 끝나면 R2 파일이 규정대로 지워지고 행은 status='deleted'
+           로 남는다. 파일이 없으니 관리자 화면은 그 행마다 「⚠ 영상 없음」을 붙인다.
+         [얼마나] 2026-08-28 운영 실측 — 목록 1,862건 중 **1,236건(66%)이 이것**이었고
+           **1,236건 전부 만료일이 지나 있었다**(고장이 아니라 정상 정리분).
+         [왜 감추나] 진짜 봐야 할 「저장 실패 76건」이 그 66% 에 파묻혀 안 보였다.
+           사장님이 「영상 없는 이유가 뭐냐」고 물으신 화면이 정확히 이 상태였다.
+         ⛔ 지우지 않는다. 감추기만 한다 — ?status=deleted 로 부르면 그대로 다 보이고
+            복원 버튼도 그대로다(0초 행과 같은 방식). */
+      if (!statusNorm || statusNorm === 'all') {
         whereParts.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
+        whereParts.push("r.status != 'deleted'");
       }
       const whereSQL = whereParts.length ? ('WHERE ' + whereParts.join(' AND ')) : 'WHERE 1=1';
 

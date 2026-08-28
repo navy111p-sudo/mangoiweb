@@ -9625,10 +9625,17 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
     <input id="rec-date-to"   type="date" title="종료 날짜" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" />
     <select id="rec-status-2" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
       <option value="all"       data-ko="상태: 전체"    data-en="Status: all">상태: 전체</option>
-      <option value="ended"     data-ko="종료"           data-en="ended">종료</option>
-      <option value="recording" data-ko="녹화 중"        data-en="recording">녹화 중</option>
-      <option value="aborted"   data-ko="중단"           data-en="aborted">중단</option>
-      <option value="deleted"   data-ko="삭제됨"         data-en="deleted">삭제됨</option>
+      <!-- 🔴 2026-08-28 — value 가 'ended' 였는데 D1 에 실제로 들어가는 값은 'completed' 라
+           「종료」를 고르면 **에러 없이 늘 0건**이었다(운영 실측: 'ended' 행 0개).
+           서버도 'ended' 를 'completed' 로 받아 주지만(옛 북마크 대비) 정본은 이쪽이다.
+           ⛔ 'ended' 로 되돌리지 말 것. 감시: recording_status_label_harness -->
+      <option value="completed"     data-ko="완료"            data-en="Done">완료</option>
+      <option value="upload_failed" data-ko="저장 실패"       data-en="Save failed">저장 실패</option>
+      <option value="recording"     data-ko="녹화 중"         data-en="Recording">녹화 중</option>
+      <option value="aborted"       data-ko="녹화 없음"       data-en="Nothing recorded">녹화 없음</option>
+      <!-- 「삭제됨」은 기본 목록에서 감춰져 있다(보관만료분 1,236건이 「영상 없음」을 뒤덮었다).
+           여기서 고르면 그대로 다 보이고 복원 버튼도 살아 있다. -->
+      <option value="deleted"       data-ko="삭제됨(보관만료)" data-en="Deleted (expired)">삭제됨(보관만료)</option>
     </select>
     <select id="rec-pagesize" style="padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
       <option value="25">25/쪽</option>
@@ -9741,7 +9748,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=174" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=176" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=172: 2026-08-26 요금 근거를 «배수가 1배여도 항상» 보여 주고(자동 금액은 대개 20분=1배라 안 보였다),
      등록 직후 카톡·CSV·워드가 서버가 준 «최종» 금액을 쓰게 함(폼 값은 곱하기 전 기준가)
    · v=171: 2026-08-26 수강신청 확정 패널에 «요금 근거» 줄 — 20분 기준가 × 수업 시간 배수.
