@@ -24,7 +24,7 @@ import {
   DEFAULT_LONG_CLASS_DAILY_CAP,  // 🪑 긴 수업 하루 정원 기본값 (0 = 무제한)
   isLongClass, longClassCapReached,
 } from './class-policy';
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, getAdminActor } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 
 /** 🔑 수강신청·자동결제용 로그인 판정 — 학생 토큰이 우선, 없으면 «관리자 세션 쿠키» 를
@@ -99,6 +99,38 @@ function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): numbe
     return dw !== undefined && dw === targetDow ? targetDow : null;
   }
   return null;
+}
+
+/** 🔄 (2026-08-28 trap-check 지적으로 추가) 대체강사가 "같은 날짜에 이미 다른 회차의
+ *  대체로도" 잡혀 있는지 — enrollConflicts/teachersFreeAt 은 class_schedules 만 보므로
+ *  class_substitutions 오버레이끼리의 겹침은 몰랐다(같은 강사가 같은 날 두 반의 대체로
+ *  동시에 배정될 수 있었음). excludeScheduleId 는 "지금 편집 중인 그 회차 자신의 기존
+ *  오버레이"를 스스로와의 충돌로 잘못 세지 않기 위함. */
+async function subOverlayBusyIds(env: any, date: string, excludeScheduleId?: number): Promise<Map<string, { startMin: number; minutes: number }[]>> {
+  const byTeacher = new Map<string, { startMin: number; minutes: number }[]>();
+  try {
+    const rs: any = await env.DB.prepare(
+      `SELECT cs2.schedule_id, cs2.substitute_teacher_id, cs.start_time, COALESCE(cs.duration_min,20) AS dm
+         FROM class_substitutions cs2 JOIN class_schedules cs ON cs.id = cs2.schedule_id
+        WHERE cs2.status = 'active' AND cs2.sub_date = ?`
+    ).bind(date).all();
+    for (const r of ((rs?.results as any[]) || [])) {
+      if (excludeScheduleId != null && Number(r.schedule_id) === excludeScheduleId) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s < 0) continue;
+      const tid = String(r.substitute_teacher_id);
+      if (!byTeacher.has(tid)) byTeacher.set(tid, []);
+      byTeacher.get(tid)!.push({ startMin: s, minutes: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+    }
+  } catch (e) { console.warn('[enroll] subOverlayBusyIds:', (e as any)?.message); }
+  return byTeacher;
+}
+
+/** 위 맵에서 특정 강사가 그 시간대에 실제로 겹치는지. */
+function subOverlayHasOverlap(byTeacher: Map<string, { startMin: number; minutes: number }[]>, teacherId: string, startMin: number, minutes: number): boolean {
+  const slots = byTeacher.get(String(teacherId));
+  if (!slots) return false;
+  return slots.some((s) => enrollOverlap(startMin, minutes, s.startMin, s.minutes));
 }
 
 /** 시작일부터 선택 요일(0=일~6=토)로 sessions 회차 날짜 생성. blocked(공휴일·충돌)는 건너뛰고 뒤로 밀림 → 회차 수 보존 */
@@ -1156,8 +1188,14 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
      'recurring' 행은 한 행이 무기한 반복이라, 손대면 앞으로 계속 바뀐다 — 그래서 그 행은
      건드리지 않고 class_substitutions 에 "그 날짜만" 겹쳐 보여줄 오버레이를 남긴다. */
   if (path === '/api/pay/enroll/admin/substitute-candidates' && method === 'GET') {
-    const sess = await checkAdminSession(request, env);
-    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    /* 🔴 (2026-08-28 trap-check 지적) checkAdminSession 만으로는 강사 세션도 통과한다 —
+       강사가 이 API 를 직접 불러 남의 수업의 담당 강사를 마음대로 바꿀 수 있었다.
+       CLAUDE.md 2장 "관리자 «쓰기» API 를 본사 전용으로 막았는데 강사가 그대로 실행됨" 과
+       같은 함정. getAdminActor().isTeacher 로 강사를 명시적으로 막는다(읽기 전용인 이
+       GET 도 남의 수업 정보를 보여주므로 함께 막는다). */
+    const actor = await getAdminActor(request, env as any);
+    if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
     await ensureEnrollTables(env);
     const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
     const date = String(url.searchParams.get('date') || '').trim();
@@ -1177,10 +1215,17 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const isRecurring = !row.scheduled_date;
 
     const freeIds = await teachersFreeAt(env, [dow], { [dow]: startMin }, minutes);
+    /* 🟡 (2026-08-28 trap-check 지적) teachersFreeAt 은 class_schedules 만 보고
+       class_substitutions 오버레이는 몰랐다 — 같은 강사가 같은 날 두 반의 대체로
+       동시에 배정될 수 있었다. 그 날짜의 기존 오버레이도 함께 본다. */
+    const subBusy = await subOverlayBusyIds(env, date, scheduleId);
     const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
     const candidates = ((tRows?.results as any[]) || [])
       .filter((t: any) => String(t.id) !== String(row.teacher_id || ''))
-      .map((t: any) => ({ id: String(t.id), name: t.name, free: freeIds.has(String(t.id)) }))
+      .map((t: any) => ({
+        id: String(t.id), name: t.name,
+        free: freeIds.has(String(t.id)) && !subOverlayHasOverlap(subBusy, String(t.id), startMin, minutes),
+      }))
       .sort((a: any, b: any) => (a.free === b.free ? 0 : a.free ? -1 : 1));
 
     let existingSub: any = null;
@@ -1214,8 +1259,10 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
      "충돌" 검사를 해서는 안 된다(그 행 자체가 이미 그 강사의 그 시간 커밋이라 스스로와
      충돌 판정이 나 버린다 — 2026-08-28 설계 중 실제로 밟고 고침). */
   if (path === '/api/pay/enroll/admin/substitute' && method === 'POST') {
-    const sess = await checkAdminSession(request, env);
-    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    // 🔴 (2026-08-28 trap-check 지적) 위 GET 과 같은 이유 — 강사는 이 쓰기 API 를 아예 못 쓴다.
+    const actor = await getAdminActor(request, env as any);
+    if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
     await ensureEnrollTables(env);
     const body = await parseJsonBody(request) || {};
     const scheduleId = Number(body.schedule_id || 0);
@@ -1239,15 +1286,30 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const isSelfRevert = isRecurring && currentTeacherId && subTeacherId === currentTeacherId;
     if (!isSelfRevert && subTeacherId === currentTeacherId) return json({ ok: false, error: 'same_teacher' }, 400);
 
+    /* 🟡 (2026-08-28 trap-check 지적) substitute_teacher_id 가 실제 teachers 행인지 검증하지
+       않았다 — 정상 UI(드롭다운)로는 항상 유효한 값만 오지만, API 를 직접 호출하면 임의
+       문자열이 그대로 저장돼 화면엔 강사명이 빈 값으로 뜬다. 되돌리기(isSelfRevert)는
+       currentTeacherId 가 이미 이 행에서 온 값이라 다시 검증할 필요가 없다. */
+    if (!isSelfRevert) {
+      const tExists = await env.DB.prepare(`SELECT id FROM teachers WHERE id = ? AND active = 1 LIMIT 1`).bind(subTeacherId).first();
+      if (!tExists) return json({ ok: false, error: 'invalid_teacher' }, 400);
+    }
+
     if (!isSelfRevert) {
       const startMin = enrollTimeToMin(String(row.start_time || ''));
       const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
       const conf = await enrollConflicts(env, subTeacherId, [date], { [dow]: startMin }, minutes, [dow]);
       if (conf.has(date)) return json({ ok: false, error: 'substitute_busy', message: '대체 강사도 그 시간에 다른 수업이 있습니다.' }, 409);
+      /* 🟡 (2026-08-28 trap-check 지적) — 위 GET 후보조회와 같은 이유로, 이 강사가 같은 날
+         "다른 회차의 대체" 로 이미 잡혀 있는지도 봐야 한다(class_schedules 만으로는 모른다). */
+      const subBusy = await subOverlayBusyIds(env, date, scheduleId);
+      if (subOverlayHasOverlap(subBusy, subTeacherId, startMin, minutes)) {
+        return json({ ok: false, error: 'substitute_busy', message: '대체 강사가 같은 날 다른 회차의 대체로 이미 배정돼 있습니다.' }, 409);
+      }
     }
 
     const now = Date.now();
-    const actor = (sess as any)?.username || (sess as any)?.name || 'admin';
+    const actorName = actor.username || actor.name || 'admin';
 
     if (isRecurring) {
       if (isSelfRevert) {
@@ -1261,7 +1323,7 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
            ON CONFLICT(schedule_id, sub_date) DO UPDATE SET
              substitute_teacher_id = excluded.substitute_teacher_id, reason = excluded.reason,
              created_by = excluded.created_by, updated_at = excluded.updated_at, status = 'active'`
-        ).bind(scheduleId, date, currentTeacherId || null, subTeacherId, reason, actor, now, now).run();
+        ).bind(scheduleId, date, currentTeacherId || null, subTeacherId, reason, actorName, now, now).run();
       }
     } else {
       /* dated 행 — 그 회차 자체가 그 날 하루뿐이라 오버레이가 필요 없다. 바로 바꾼다. */
@@ -1274,13 +1336,18 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       action: isSelfRevert ? 'substitute_cancelled' : 'teacher_change',
       schedule_id: scheduleId, student_name: row.student_name || null,
       lesson_date: date, lesson_time: String(row.start_time || '') || null,
-      actor, actor_role: 'admin',
+      actor: actorName, actor_role: 'admin',
       source: isRecurring ? 'admin-substitute-recurring' : 'admin-substitute-dated',
       reason: isSelfRevert ? '대체강사 취소(원래 강사로 복귀)' : ('1회성 대체 · ' + reason),
-      detail: JSON.stringify({ from_teacher_id: currentTeacherId, to_teacher_id: subTeacherId, one_time: isRecurring, date }),
+      /* 📜 (2026-08-28 trap-check 지적) 필드명을 `one_time` 대신 `via_overlay` 로 —
+         dated 행의 변경도 "하루뿐"이라는 점에서 결과는 둘 다 1회성이라 이름이 헷갈렸다.
+         이 필드는 "정본 행을 직접 고쳤나(false, dated) / class_substitutions 오버레이로
+         겹쳐 보였나(true, recurring)" 를 말한다 — 나중에 급여 담당자가 이 로그로 대체
+         내역을 사람이 직접 확인할 때 구분 근거가 된다. */
+      detail: JSON.stringify({ from_teacher_id: currentTeacherId, to_teacher_id: subTeacherId, via_overlay: isRecurring, date }),
     });
 
-    return json({ ok: true, schedule_id: scheduleId, date, cancelled: isSelfRevert, one_time: isRecurring, substitute_teacher_id: isSelfRevert ? null : subTeacherId });
+    return json({ ok: true, schedule_id: scheduleId, date, cancelled: isSelfRevert, via_overlay: isRecurring, substitute_teacher_id: isSelfRevert ? null : subTeacherId });
   }
 
   /* ── (n) 환불 계산기 (관리자, 4단계 — 계산만. 실제 환불 실행은 사람이) ── */

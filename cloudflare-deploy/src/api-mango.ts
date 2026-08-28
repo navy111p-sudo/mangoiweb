@@ -2067,7 +2067,11 @@ export async function handleMangoApi(
               const stripRolePrefix = (s: string) => String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
               const subName = String(sub.sub_name || '');
               const hit = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
-              if (hit(subName, nameParam) || hit(subName, stripRolePrefix(nameParam))) { ok = true; resolvedRole = 'teacher'; }
+              /* ⚠️ (2026-08-28 trap-check 지적) 이름 부분일치는 위(1991행 근처)의 원래 교사
+                 매칭과 같은 이유로 resolvedRole 을 올리지 않는다 — 짧은 이름이면 우연히
+                 걸릴 수 있어 "강사로 올리는" 근거로 쓰면 안 된다. ok 만 세워 입장은
+                 허용하되, 화면이 역할을 스스로 내리는 데는 이 값을 쓰지 않는다. */
+              if (hit(subName, nameParam) || hit(subName, stripRolePrefix(nameParam))) { ok = true; }
             }
             if (!ok) {
               const sess2 = await checkAdminSession(request, env as any).catch(() => null);
