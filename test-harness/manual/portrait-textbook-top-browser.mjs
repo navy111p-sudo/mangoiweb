@@ -297,8 +297,23 @@ await load(390, 844, 3);
 await setup('video-half', 'student', 'teacher');
 await evalJs(`(function(){ try{ window.vcTogglePheroMenu && window.vcTogglePheroMenu(); }catch(e){} return 1; })()`);
 await new Promise(r => setTimeout(r, 400));
-/* 메뉴는 최대 66vh 짜리 «스크롤되는» 시트다. 새 항목은 맨 뒤라 화면 밖에 있을 수 있고,
-   그 상태로 재면 «다른 것이 덮고 있다» 는 거짓 실패가 난다 — 사람이 하듯 굴려서 보이게 한다. */
+/* 🔴 굴리기 «전에» 먼저 잰다 — 스크롤해야 나오는 항목은 사람에게 «없는» 것과 같다.
+   2026-08-28 사장님 「햄버거에서 기능이 안 보이는데」 제보가 정확히 그 상태였다. */
+const firstView = JSON.parse(await evalJs(`(function(){
+  var b=document.getElementById('mg-tbtop-btn');
+  var tb=document.querySelector('#vc-main-row .content-pane .tab-bar');
+  if(!b||!tb) return JSON.stringify({found:false});
+  var br=b.getBoundingClientRect(), tr=tb.getBoundingClientRect();
+  return JSON.stringify({ found:true, top:Math.round(br.top), bottom:Math.round(br.bottom),
+    sheetTop:Math.round(tr.top), sheetBottom:Math.round(tr.bottom),
+    idx:Array.prototype.indexOf.call(tb.children, b), n:tb.children.length,
+    scrolled:Math.round(tb.scrollTop) });
+})()`));
+ok(firstView.found && firstView.bottom <= firstView.sheetBottom && firstView.top >= firstView.sheetTop - 1,
+  `메뉴를 열자마자 «스크롤 없이» 보인다 (항목 ${firstView.idx + 1}/${firstView.n}번째)`,
+  JSON.stringify(firstView));
+
+/* 그 다음에 굴려서 겹침·글자를 잰다 */
 await evalJs(`(function(){ var b=document.getElementById('mg-tbtop-btn');
   if(b && b.scrollIntoView) b.scrollIntoView({block:'center'}); return 1; })()`);
 await new Promise(r => setTimeout(r, 250));
@@ -316,6 +331,26 @@ ok(menu.found && menu.display !== 'none' && menu.w > 40 && menu.h > 30,
   `메뉴를 열면 큰 버튼으로 보인다 (${menu.w}×${menu.h})`, JSON.stringify(menu));
 ok(menu.onTop === true, '그 자리에서 맨 위에 있다 — 다른 것이 덮고 있지 않다', JSON.stringify(menu));
 ok(menu.text === '⇅ 교재를 위로', '글자가 «무엇을 하는지» 그대로 말한다', menu.text);
+
+/* ── ⑨ 사장님이 실제로 쓰신 창 크기에서도 보이는가 ──────────────────────
+   2026-08-28 제보 스크린샷의 창은 482×832 였다. 390×844 만 재고 «보인다» 라고 하면
+   정작 제보하신 화면을 안 잰 것이다. */
+console.log('\n⑨ 제보 창 크기(482×832)에서도 스크롤 없이 보이는가');
+await load(482, 832, 2);
+await setup('video-half', 'student', 'teacher');
+await evalJs(`(function(){ try{ window.vcTogglePheroMenu && window.vcTogglePheroMenu(); }catch(e){} return 1; })()`);
+await new Promise(r => setTimeout(r, 450));
+const wide = JSON.parse(await evalJs(`(function(){
+  var b=document.getElementById('mg-tbtop-btn');
+  var tb=document.querySelector('#vc-main-row .content-pane .tab-bar');
+  if(!b||!tb) return JSON.stringify({found:false});
+  var br=b.getBoundingClientRect(), tr=tb.getBoundingClientRect();
+  return JSON.stringify({ found:true, top:Math.round(br.top), bottom:Math.round(br.bottom),
+    sheetTop:Math.round(tr.top), sheetBottom:Math.round(tr.bottom),
+    w:Math.round(br.width), text:b.textContent });
+})()`));
+ok(wide.found && wide.bottom <= wide.sheetBottom && wide.top >= wide.sheetTop - 1,
+  `482×832 에서도 메뉴를 열자마자 보인다 (${wide.w}px 폭)`, JSON.stringify(wide));
 
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close();

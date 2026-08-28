@@ -197,12 +197,16 @@ check('④ 900px 이다 (2단으로 쌓는 규칙이 사는 미디어쿼리와 �
   !/max-width:920px/.test(GENCSS));
 check('④ 통화 중에만 건다 (body.vc-in-call)', /body\.vc-in-call\.mg-tb-top/.test(GENCSS));
 /* ⚠️ 「order:」 를 그냥 세면 «border:» 안의 order 까지 걸린다 — 첫 판에 실제로 밟았다.
-   여는 중괄호·세미콜론 바로 뒤의 것만 «진짜 order 선언» 이다. */
-const orderDecls = (GENCSS.match(/[;{]order:/g) || []).length;
-check('④ 배치 규칙이 «전부» 통화 중 + 세로 조건 안에 있다',
-  orderDecls === 2 &&
-  GENCSS.split(/[;{]order:/).slice(0, -1).every(seg => /body\.vc-in-call\.mg-tb-top/.test(seg)),
-  'order 선언 ' + orderDecls + '개');
+   여는 중괄호·세미콜론 바로 뒤의 것만 «진짜 order 선언» 이다.
+   ⚠️ order 선언은 셋이다 — 두 칸의 «위아래»(mg-tb-top) 둘 + 메뉴 항목의 «자리»(-1) 하나.
+      셋 다 통화 중 조건 안에 있어야 하고, 그중 «위아래» 둘만 mg-tb-top 이 붙어야 한다. */
+const segs = GENCSS.split(/[;{]order:/).slice(0, -1);
+check('④ order 선언이 전부 통화 중 조건 안에 있다',
+  segs.length === 3 && segs.every(seg => /body\.vc-in-call/.test(seg)),
+  'order 선언 ' + segs.length + '개');
+check('④ «위아래» 규칙 둘만 mg-tb-top 에 걸린다 (안 켠 학생 화면은 그대로여야 한다)',
+  segs.filter(seg => /body\.vc-in-call\.mg-tb-top/.test(seg)).length === 2,
+  segs.map(x => x.slice(-90)).join(' || '));
 
 /* ══════════════════════════════════════════════════════════════════════════
    ⑤ 떠 있는 모드 제외 — CSS 목록과 JS 목록이 «같은 말» 을 해야 한다
@@ -250,6 +254,13 @@ furniture.forEach(sel => {
     !!pair && pair[1].test(pair[0]),
     pair ? '만드는 파일에서 못 찾았습니다' : '이 하니스가 모르는 선택자입니다 — 짝을 함께 등록하세요');
 });
+
+/* 🔴 ☰ 메뉴는 최대 66vh 짜리 «스크롤되는» 시트다. 탭바 맨 뒤에 붙이면 화면 밖으로 밀려
+   «메뉴에 없다» 가 된다 — 2026-08-28 사장님 제보가 그 상태였다. */
+check('⑥ 메뉴에서 맨 앞에 놓는다 (스크롤해야 보이면 «없는» 것과 같다)',
+  /order:-1 !important/.test(GENCSS), GENCSS.slice(-300));
+check('⑥ 두 칸 폭으로 놓는다 (나머지 기능 타일의 2열 짝을 안 깨게)',
+  /grid-column:1 \/ -1 !important/.test(GENCSS));
 
 /* ══════════════════════════════════════════════════════════════════════════
    ⑦ CLAUDE.md 금지 두 건

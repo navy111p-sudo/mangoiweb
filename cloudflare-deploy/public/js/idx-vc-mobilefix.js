@@ -1190,9 +1190,16 @@
           'padding-bottom:var(--mg-tb-gap,76px) !important;' +
           'border-bottom:none !important;' +
           'border-top:1px solid rgba(148,163,184,0.22) !important}' +
-        /* ☰ 메뉴 안에서의 색 — «크기 바꾸기»(파랑)·«내 얼굴»(회색)과 눈으로 구별되게 초록.
+        /* ☰ 메뉴 안에서의 자리와 색.
+           🔴 **맨 앞(order:-1) + 두 칸 폭** 으로 둔다. 그냥 붙이면 탭바의 «맨 뒤» 라
+              메뉴 그리드에서도 마지막 칸이 되는데, 그 시트는 최대 66vh 짜리 «스크롤되는»
+              상자다 — 항목이 12개가 넘으면 화면 밖으로 밀려 «메뉴에 없다» 가 된다.
+              2026-08-28 사장님 제보가 그 상태였다(같은 이유로 «학생 크게»·«내 얼굴» 도 안 보였다).
+           ℹ️ 두 칸 폭으로 두는 이유 — 나머지는 «기능 타일» 2열 짝이라, 한 칸만 차지하면
+              교재·칠판 짝이 어긋난다. 제목 바로 아래 «가로 줄» 이면 그 짝을 안 건드린다.
            ⚠️ .vc-phero-menu-item 은 index.html 이 크기·여백만 주고 색은 항목별로 준다. */
         'body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .' + BTN + '{' +
+          'order:-1 !important;grid-column:1 / -1 !important;' +
           'background:rgba(16,185,129,0.18) !important;color:#a7f3d0 !important;' +
           'border:1px solid rgba(52,211,153,0.5) !important}' +
       '}';
