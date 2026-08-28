@@ -1009,13 +1009,19 @@ function renderRecordingsTable() {
 
   // 카운트 배지 업데이트
   const cBoth = rows.filter(r => r.source === 'both').length;
-  const cD1 = rows.filter(r => r.source === 'd1only').length;
+  /* 🔴 2026-08-28 — 「영상 없음」에 «보관기간이 끝나 규정대로 지운» 행까지 섞여 있었다.
+     그래서 사장님 화면에 「영상 없음 1,862」처럼 뜨고, 정작 손봐야 할 「저장 실패 76」이
+     그 안에 파묻혀 보이지 않았다. 이제 세 갈래로 나눠 «무엇이 사고인지» 를 드러낸다.
+     ⛔ 다시 한 숫자로 합치지 말 것. 감시: recording_status_label_harness */
+  const cExpired = rows.filter(r => r.source === 'd1only' && r.status === 'deleted').length;
+  const cFailed  = rows.filter(r => r.source === 'd1only' && r.status === 'upload_failed').length;
+  const cD1      = rows.filter(r => r.source === 'd1only' && r.status !== 'deleted' && r.status !== 'upload_failed').length;
   const cOrphan = rows.filter(r => r.source === 'orphan').length;
   const cEl = document.getElementById('rec-counts');
   if (cEl) {
     cEl.textContent = adminLang === 'en'
-      ? ('Total ' + rows.length + '  ·  ✅ Healthy ' + cBoth + '  ·  ⚠️ Video missing ' + cD1 + '  ·  ⚠️ Record missing ' + cOrphan)
-      : ('총 ' + rows.length + '건  ·  ✅ 정상(영상+기록) ' + cBoth + '  ·  ⚠️ 영상 없음 ' + cD1 + '  ·  ⚠️ 기록 없음 ' + cOrphan);
+      ? ('Total ' + rows.length + '  ·  ✅ Healthy ' + cBoth + '  ·  🔴 Save failed ' + cFailed + '  ·  ⚠️ Video missing ' + cD1 + '  ·  ⚠️ Record missing ' + cOrphan + (cExpired ? '  ·  Retention expired ' + cExpired : ''))
+      : ('총 ' + rows.length + '건  ·  ✅ 정상(영상+기록) ' + cBoth + '  ·  🔴 저장 실패 ' + cFailed + '  ·  ⚠️ 영상 없음 ' + cD1 + '  ·  ⚠️ 기록 없음 ' + cOrphan + (cExpired ? '  ·  보관 만료 ' + cExpired : ''));
     // ⚠️ R2 목록이 잘렸으면 「영상 없음」은 «파일이 없다» 가 아니라 «못 찾았다» 일 수 있다.
     //   조용히 놔두면 멀쩡한 녹화를 없어진 것으로 읽게 된다(2026-08-25 이 화면이 실제로 그랬다).
     if (_recBlobTruncated) {
@@ -1050,14 +1056,34 @@ function renderRecordingsTable() {
     let statusBadge;
     if (r.status === 'completed')      statusBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;">'+(adminLang==='en'?'Done':'완료')+'</span>';
     else if (r.status === 'recording') statusBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;">'+(adminLang==='en'?'● Recording':'● 녹화중')+'</span>';
-    else if (r.status === 'deleted')   statusBadge = '<span style="'+badgeBase+'background:#ef4444;color:#fff;">'+(adminLang==='en'?'Deleted':'삭제됨')+'</span>';
+    /* 2026-08-28 — 같은 줄의 저장소 배지·재생 칸은 회색(사고 아님)인데 여기만 빨강이라
+       한 줄이 서로 다른 말을 했다. 색과 말을 맞춘다. */
+    else if (r.status === 'deleted')   statusBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간이 지났거나 관리자가 목록에서 내린 녹화입니다.">'+(adminLang==='en'?'Off the list':'목록에서 내림')+'</span>';
     else if (r.status === 'orphan')    statusBadge = '<span style="'+badgeBase+'background:#ea580c;color:#fff;">'+(adminLang==='en'?'Orphan':'고아')+'</span>';
+    /* 🔴 2026-08-28 — 'upload_failed'·'aborted' 는 여기 없어서 배지 자리에 **영문 코드가
+       날것으로** 떴다(사장님 화면의 «upload_failed»). 상태 이름은 사람 말로 적는다. */
+    else if (r.status === 'upload_failed') statusBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다.">'+(adminLang==='en'?'Save failed':'저장 실패')+'</span>';
+    else if (r.status === 'aborted')   statusBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="찍힌 것이 없습니다(들어왔다 바로 나감).">'+(adminLang==='en'?'Nothing recorded':'녹화 없음')+'</span>';
     else                                statusBadge = r.status || '-';
 
     // 스토리지 배지 (D1=메타데이터 DB, R2=파일 저장소) — 진한 단색 필로 판독성 확보
     let storageBadge;
     if (r.source === 'both')         storageBadge = '<span style="'+badgeBase+'background:#16a34a;color:#fff;" title="영상 파일과 기록 모두 정상">'+(adminLang==='en'?'✔ Healthy':'✔ 정상')+'</span>';
-    else if (r.source === 'd1only')  storageBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;" title="기록은 있는데 영상 파일이 없습니다 (업로드 실패 또는 진행 중)">'+(adminLang==='en'?'⚠ Video missing':'⚠ 영상 없음')+'</span>';
+    else if (r.source === 'd1only') {
+      /* 🔴 2026-08-28 — 「⚠ 영상 없음」도 위 재생 칸과 같은 병을 앓고 있었다. 파일이 없는
+         이유가 «사고» 인지 «규정대로 지운 것» 인지 가리지 않아, 보관만료분까지 경고색으로
+         떴다(실측 1,236건). 상태로 갈라 준다 — ⛔ 다시 하나로 합치지 말 것. */
+      if (r.status === 'deleted')
+        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="보관기간 3개월이 지나 목록에서 내린 녹화입니다. 고장이 아닙니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다 — 여기서는 R2 목록에서 이 녹화의 파일을 찾지 못했다는 것까지입니다.">'+(adminLang==='en'?'Retention expired':'보관 만료')+'</span>';
+      else if (r.status === 'upload_failed')
+        storageBadge = '<span style="'+badgeBase+'background:#b42318;color:#fff;" title="업로드가 실패해 클라우드에 영상이 없습니다. 다시 올라오지 않습니다.">'+(adminLang==='en'?'⚠ Save failed':'⚠ 저장 실패')+'</span>';
+      else if (r.status === 'recording')
+        storageBadge = '<span style="'+badgeBase+'background:#b45309;color:#fff;" title="아직 녹화 중이라 파일이 없는 것이 정상입니다. 수업이 끝나면 올라갑니다.">'+(adminLang==='en'?'Uploading later':'수업 중')+'</span>';
+      else if (r.status === 'aborted')
+        storageBadge = '<span style="'+badgeBase+'background:#98a2b3;color:#fff;" title="찍힌 것이 없어 올릴 파일도 없습니다(들어왔다 바로 나감). 사고가 아닙니다.">'+(adminLang==='en'?'Nothing to store':'저장할 것 없음')+'</span>';
+      else
+        storageBadge = '<span style="'+badgeBase+'background:#f59e0b;color:#fff;" title="기록은 있는데 영상 파일이 없습니다 (업로드 실패 또는 진행 중)">'+(adminLang==='en'?'⚠ Video missing':'⚠ 영상 없음')+'</span>';
+    }
     else                              storageBadge = '<span style="'+badgeBase+'background:#dc2626;color:#fff;" title="영상은 있는데 어떤 수업인지 기록이 없습니다 (정리 필요)">'+(adminLang==='en'?'⚠ Record missing':'⚠ 기록 없음')+'</span>';
 
     // 재생/액션 버튼
@@ -1078,17 +1104,45 @@ function renderRecordingsTable() {
         + (adminLang === 'en' ? 'Save this recording to my device' : '이 녹화 영상을 내 PC·휴대폰에 저장합니다')
         + '" style="display:inline-block;background:#fff;color:#2563eb;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;border:1px solid #93c5fd;margin-left:6px;text-decoration:none;vertical-align:middle;">⬇ '
         + (adminLang === 'en' ? 'Save' : '저장') + '</a>';
-    } else if (r.status === 'recording') {
-      playBtn = '<span style="color:#94a3b8;font-size:11px;">'+(adminLang==='en'?'In progress':'녹화중')+'</span>';
     } else {
-      playBtn = '<span style="color:#94a3b8;font-size:11px;">'+(adminLang==='en'?'Pending upload':'업로드 대기')+'</span>';
+      /* 🔴 2026-08-28 수리 — 여기는 오래도록 «재생할 파일이 없다 + 녹화중이 아니다» 단 하나로
+         판정해, 성격이 전혀 다른 것들에 전부 「업로드 대기」를 붙였다. 그런데 그중 어느 것도
+         «기다리면 올라오는» 것이 아니다 — 실패분을 다시 올리는 코드가 저장소에 0곳이고,
+         보관만료분은 올라올 파일 자체가 없다. ⇒ 화면이 «곧 될 것처럼» 말해서 아무도 손을
+         쓰지 않았다(2026-08-28 실측 1,312건 = 저장실패 76 + 보관만료 1,236).
+         ✅ 상태마다 «사실» 을 말한다. ⛔ 다시 한 줄로 합치지 말 것
+            (CLAUDE.md 2장 «화면이 모르면 모른다고 말하게 하라»).
+         감시: test-harness/recording_status_label_harness.mjs */
+      var _pL = (adminLang === 'en');
+      var pend;
+      if (r.status === 'recording')
+        pend = { t: _pL ? 'Recording' : '녹화중', c: '#b45309',
+                 h: _pL ? 'Still recording. It is uploaded when the class ends.' : '아직 녹화 중입니다. 수업이 끝나면 올라갑니다.' };
+      else if (r.status === 'upload_failed')
+        pend = { t: _pL ? 'Save failed' : '저장 실패', c: '#b42318',
+                 h: _pL ? 'Upload failed - the video is not in the cloud and will NOT arrive later. There is nothing to wait for.' : '업로드가 실패해 클라우드에 영상이 없습니다. 나중에도 올라오지 않습니다 — 기다릴 것이 없습니다.' };
+      else if (r.status === 'deleted')
+        pend = { t: _pL ? 'Retention expired' : '보관기간 만료', c: '#667085',
+                 h: _pL ? 'Past the 3-month retention window, so it was taken off the list. No video file was found for it here. (Whether the file itself was purged is a separate matter - see retention.ts)' : '보관 3개월이 지나 목록에서 내린 녹화입니다. 이 목록에서는 영상 파일을 찾지 못했습니다. ⚠️ 파일 실물이 파기됐다는 뜻은 아닙니다(실제 파기는 아직 켜지 않은 별건입니다 — retention.ts).' };
+      else if (r.status === 'aborted')
+        pend = { t: _pL ? 'Nothing recorded' : '녹화 없음', c: '#98a2b3',
+                 h: _pL ? 'Joined and left before anything was recorded. No video was lost.' : '찍힌 것이 없습니다(들어왔다 바로 나감). 잃은 영상은 없습니다.' };
+      else if (r.status === 'completed')
+        /* 🔴 «완료» 라는데 파일이 없다 = 2026-08-26 에 고친 바로 그 사고의 잔여분이다.
+           「처리 중」이라 말하면 그 거짓말을 되살린다 — 모르면 모른다고 말한다. */
+        pend = { t: _pL ? 'Marked done, no file' : '완료 표시인데 영상 없음', c: '#b42318',
+                 h: _pL ? 'The record says completed but no file was found in the recording storage listing. Press 진단 to re-check.' : '기록은 「완료」인데 녹화 저장소 목록에서 파일을 찾지 못했습니다. 위 「진단」으로 다시 확인해 보세요.' };
+      else
+        pend = { t: _pL ? 'Processing' : '처리 중', c: '#667085',
+                 h: _pL ? 'The server is still finishing this recording.' : '서버가 마무리하고 있습니다.' };
+      playBtn = '<span title="' + pend.h + '" style="color:' + pend.c + ';font-size:11px;font-weight:700;">' + pend.t + '</span>';
     }
 
     // 🗑️ Phase 4: 삭제/복원 버튼 (D1 id 가 있는 row 에만 — orphan 은 제외)
     let actionBtn = '';
     if (r.id) {
       if (r.status === 'deleted') {
-        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'ended\')" title="' + (adminLang==='en'?'Restore this recording':'삭제된 녹화를 복원합니다') + '" style="background:#10b981;color:#fff;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;margin-left:6px;">↩ ' + (adminLang==='en'?'Restore':'복원') + '</button>';
+        actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'completed\')" title="' + (adminLang==='en'?'Restore this recording':'삭제된 녹화를 복원합니다') + '" style="background:#10b981;color:#fff;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;margin-left:6px;">↩ ' + (adminLang==='en'?'Restore':'복원') + '</button>';
       } else if (r.status !== 'recording') {
         actionBtn = '<button onclick="setRecordingStatus(' + r.id + ', \'deleted\')" title="' + (adminLang==='en'?'Soft-delete this recording (reversible)':'녹화를 삭제 처리합니다 (복원 가능)') + '" style="background:#fff;color:#dc2626;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #f5a3a3;margin-left:6px;">🗑 ' + (adminLang==='en'?'Delete':'삭제') + '</button>';
       }
@@ -9896,8 +9950,10 @@ async function sendTestNotification() {
 // 🗑️ 녹화 상태 변경 (Phase 4) — 삭제/복원 공용
 async function setRecordingStatus(id, nextStatus) {
   const _L = adminLang==='en';
-  const label = nextStatus === 'deleted' ? (_L?'delete':'삭제')
-              : nextStatus === 'ended'   ? (_L?'restore':'복원')
+  // ⚠️ 'ended' 는 D1 에 없는 값이었다(2026-08-28 수리) — 복원은 'completed' 로 보낸다.
+  const label = nextStatus === 'deleted'   ? (_L?'delete':'삭제')
+              : nextStatus === 'completed' ? (_L?'restore':'복원')
+              : nextStatus === 'ended'     ? (_L?'restore':'복원')
               : nextStatus;
   const confirmMsg = _L ? `Change recording #${id} status to "${nextStatus}"?`
                         : `녹화 #${id} 의 상태를 "${nextStatus}" (으)로 변경하시겠습니까?`;
@@ -9911,7 +9967,11 @@ async function setRecordingStatus(id, nextStatus) {
     });
     const body = await r.json().catch(() => ({}));
     if (!r.ok || body.ok === false) {
-      alert((_L ? 'Failed: ' : '실패: ') + (body.error || ('HTTP ' + r.status)));
+      /* 🔴 2026-08-28 — 서버가 «왜 안 되는지» 를 사람 말로 보내 주는데(file_gone 등)
+         화면은 error 코드만 띄웠다. 사람 말이 있으면 그것을 먼저 보여 준다. */
+      var msg = (_L ? (body.message_en || body.message) : body.message)
+             || body.error || ('HTTP ' + r.status);
+      alert((_L ? 'Failed: ' : '실패: ') + msg);
       return;
     }
     loadRecordings();
