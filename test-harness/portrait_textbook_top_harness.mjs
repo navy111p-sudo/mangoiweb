@@ -229,6 +229,28 @@ check('⑥ #vc-dock 하나만 재지 않는다 (폰에서 독은 ⋯ 뒤에 접�
   /'#vc-dock-more'/.test(SEC) && /'\.vc-phero-ctrl'/.test(SEC));
 check('⑥ 못 재도 화면이 깨지지 않게 기본값이 있다', /var\(--mg-tb-gap,\s*76px\)/.test(GENCSS));
 
+/* 🔴 그 기본값이 «안전망» 이지 «정답» 은 아니다 — 선택자 이름이 바뀌면 measureGap 이
+   아무것도 못 재고 조용히 76px 로 떨어진다. 에러도 안 나고, 그 상태로도 화면은 그럴듯해서
+   «얼굴이 조금 가려지는» 것을 아무도 모른다. 그래서 네 이름이 **실제로 만들어지는지**를
+   그 요소를 만드는 파일에서 대조한다(«여러 곳이 서로 같은 말을 하는가» — CLAUDE.md 2장). */
+const DOCK_JS = readFileSync(join(PUB, 'js', 'vc-dock.js'), 'utf8');
+const SCREENMODE_JS = readFileSync(join(PUB, 'js', 'idx-vc-screenmode.js'), 'utf8');
+const FURNITURE_MADE_BY = {
+  '#vc-dock':        [DOCK_JS, /\bdock\.id = 'vc-dock'/],
+  '#vc-dock-more':   [DOCK_JS, /\bmore\.id = 'vc-dock-more'/],
+  '#vc-dock-handle': [DOCK_JS, /\bhandle\.id = 'vc-dock-handle'/],
+  '.vc-phero-ctrl':  [SCREENMODE_JS, /className = 'vc-phero-ctrl'/],
+};
+const furniture = ((SEC.match(/var BOTTOM_FURNITURE = \[([^\]]*)\]/) || ['', ''])[1])
+  .split(',').map(x => x.trim().replace(/['"]/g, '')).filter(Boolean);
+check('⑥ 재는 대상이 네 개다 (독·⋯·손잡이·☰ 기능)', furniture.length === 4, JSON.stringify(furniture));
+furniture.forEach(sel => {
+  const pair = FURNITURE_MADE_BY[sel];
+  check('⑥ ' + sel + ' 는 화면에 «실제로 만들어지는» 이름이다 (바뀌면 조용히 76px 로 떨어진다)',
+    !!pair && pair[1].test(pair[0]),
+    pair ? '만드는 파일에서 못 찾았습니다' : '이 하니스가 모르는 선택자입니다 — 짝을 함께 등록하세요');
+});
+
 /* ══════════════════════════════════════════════════════════════════════════
    ⑦ CLAUDE.md 금지 두 건
    ══════════════════════════════════════════════════════════════════════════ */
