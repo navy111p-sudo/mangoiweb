@@ -2314,6 +2314,17 @@ const worker = {
     const hour = date.getUTCHours();
     // KST 기준 요일 (UTC + 9시간) — Friday = 5
     const kstDay = new Date(event.scheduledTime + 9 * 3600 * 1000).getUTCDay();
+    // 🕐 «어느 cron 이 울렸나» — 야간 작업을 시(hour)로 가르면 안 된다 (2026-08-28 수리)
+    //   wrangler.toml 의 crons 에는 15분마다 도는 감시견 트리거가 함께 들어 있다.
+    //   그래서 `hour === 18` 같은 조건은 그 시간대에 «네 번»(정각·15·30·45분) 참이 되고,
+    //   정각에는 전용 cron 이 **별도 호출**로 한 번 더 들어와 같은 작업이 «동시에» 돈다
+    //   → 하루 5회 실행 + 정각 동시 2회. 그 결과가 문자 이중 발송·이중 청구다.
+    //   이 파일은 이미 그 사실을 알고 있었다 — 아래 법인카드 블록 한 곳만
+    //   `cron === '0 0 * * *'` 로 걸러 두고 나머지 여섯 곳이 hour 비교로 남아 있었다.
+    //   ⚠️ 새 야간 작업은 반드시 cronIs() 로 가를 것. hour 비교를 다시 쓰지 말 것.
+    const cronIs = (spec: string) => String((event as any).cron || '') === spec;
+    // 감시견(15분) 트리거인가 — 정각 전용 cron 과 구분해야 하는 곳에서만 쓴다
+    const isWatchdogTick = !!String((event as any).cron || '').startsWith('*');
 
     ctx.waitUntil((async () => {
       // 🐕 사이트 자체 감시견 — 매 cron(특히 */15분)마다 사이트 확인, 죽으면 관리자 문자.
@@ -2484,7 +2495,7 @@ const worker = {
       }
 
       // 📨 수강권 만료·휴면 자동 연락 (KST 10:00 = UTC 01:00) — 설정에서 켰을 때만 발송(기본 OFF, 하루 상한·재발송갭 안전장치 내장).
-      if (hour === 1) {
+      if (cronIs('0 1 * * *')) {
         try {
           const rs = await runRetentionAutoSend(env as any);
           console.log('[retention-autosend] cron ran', JSON.stringify(rs));
@@ -2526,7 +2537,8 @@ const worker = {
 
       // 🎌 공휴일 자동 연기 (KST 06:00 = UTC 21:00) — 부장님 답변 23번: 새벽 6시에 그날 수업을 자동 연기.
       //   확인답변 ⑤: 그 회차를 맨 뒤로 밀어 종료일이 늦어짐(회차 수 보존). 공휴일이 없으면 아무 일도 안 함.
-      if (hour === 21) {
+      // 이 작업만은 전용 cron 이 없다 — 15분 트리거를 타고 그 시간대에만 돈다(종전 동작 그대로).
+      if (isWatchdogTick && hour === 21) {
         try {
           const hs = await runHolidayShiftSweep(env as any);
           if (hs && (hs.moved > 0 || !hs.ok)) console.log('[holiday-shift]', JSON.stringify({ ok: hs.ok, holidays: hs.holidays, moved: hs.moved, failed: hs.failed }));
@@ -2536,7 +2548,7 @@ const worker = {
       }
 
       // ── UTC 18:00 — retention purge
-      if (hour === 18) {
+      if (cronIs('0 18 * * *')) {
         try {
           const result = await purgeExpired(env);
           console.log('[retention] purged', JSON.stringify(result));
@@ -2718,7 +2730,7 @@ const worker = {
       }
 
       // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
-      if (hour === 0) {
+      if (cronIs('0 0 * * *')) {
         try {
           const subUrl = new URL('https://internal.local/api/admin/subscription/cron-check');
           const subReq = new Request(subUrl.toString(), { method: 'POST' });
@@ -2740,7 +2752,7 @@ const worker = {
       }
 
       // ── UTC 01:00 + day===1 KST (KST 1일 10:00) — 월간 NPS 자동 발송 (Phase NPS)
-      if (hour === 1) {
+      if (cronIs('0 1 * * *')) {
         const kstDate = new Date(event.scheduledTime + 9 * 3600 * 1000);
         if (kstDate.getUTCDate() === 1) {
           try {
@@ -2766,7 +2778,7 @@ const worker = {
       }
 
       // ── UTC 10:00 (KST 19:00) — 일일 streak/참여 푸시
-      if (hour === 10) {
+      if (cronIs('0 10 * * *')) {
         try {
           await sendDailyStreakPush(env);
         } catch (err) {

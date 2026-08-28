@@ -8403,6 +8403,12 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                  · ⛔ 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
                    갈아치워 아이콘 자리에 문장이 들어앉는다. 설명은 data-ko-title/-aria 로 단다.
                    (글자를 그리는 <span class="vsb-t"> 에만 data-ko/data-en 을 단다)
+                 · 🔁 (2026-08-28) 그림이 실제 화면과 «좌우가 반대» 였다 — 2026-07-28 「교재 왼쪽 /
+                   얼굴 오른쪽」 개편(#mg-vc-right-sidebar 의 order)에 이 그림이 안 딸려갔다.
+                   → 채운 칸(얼굴)을 «오른쪽» 으로 옮기고, 폭도 실제 CSS 값(얼굴 18/27/45%)에 맞췄다.
+                   ⛔ 25/50/75 로 되돌리지 말 것 — 그건 이름이 약속하는 값이지 실제 폭이 아니다.
+                 · 얼굴 칸의 사람(머리+어깨)은 «어느 칸이 얼굴인가» 를 글자 없이 알리기 위한 것.
+                   라벨이 KO/EN 뿐이라 중국인 강사가 못 읽는다. 감시: vc_sizebar_labels_harness ④
                  · 동작(표시 맞추기·⋯ 메뉴)은 /js/idx-vc-sizebar.js — 첫 화면 예산 때문에 defer 외부 파일 -->
             <div class="video-size-bar vsb2" id="vc-size-bar" role="group"
                  data-ko-aria="얼굴 화면 크기" data-en-aria="Face screen size" aria-label="얼굴 화면 크기">
@@ -8410,28 +8416,28 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                         onclick="vcSetVideoSize('quarter', this)"
                         title="교재를 크게 — 얼굴은 작게" data-ko-title="교재를 크게 — 얼굴은 작게" data-en-title="Bigger material, smaller faces"
                         data-ko-aria="교재를 크게 — 얼굴은 작게" data-en-aria="Bigger material, smaller faces">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="5" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="7.3" y=".7" width="14" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="15.6" height="12.6" rx="1.2"/><rect x="17.9" y=".7" width="3.4" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="19.6" cy="6.26" r=".84" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M18.05 8.82a1.55 1.55 0 0 1 3.1 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="교재 크게" data-en="Material">교재 크게</span>
                 </button>
                 <button type="button" class="vsb-seg active" data-size="half" aria-pressed="true"
                         onclick="vcSetVideoSize('half', this)"
                         title="교재와 얼굴을 함께 (기본 크기)" data-ko-title="교재와 얼굴을 함께 (기본 크기)" data-en-title="Material and faces together (default)"
                         data-ko-aria="교재와 얼굴을 함께 (기본 크기)" data-en-aria="Material and faces together (default)">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="13.9" height="12.6" rx="1.2"/><rect x="16.2" y=".7" width="5.1" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="18.75" cy="5.85" r="1.29" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M16.35 9.82a2.4 2.4 0 0 1 4.8 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="기본" data-en="Standard">기본</span>
                 </button>
                 <button type="button" class="vsb-seg" data-size="threequarter" aria-pressed="false"
                         onclick="vcSetVideoSize('threequarter', this)"
                         title="얼굴을 크게 — 교재는 작게" data-ko-title="얼굴을 크게 — 교재는 작게" data-en-title="Bigger faces, smaller material"
                         data-ko-aria="얼굴을 크게 — 교재는 작게" data-en-aria="Bigger faces, smaller material">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="14" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="16.3" y=".7" width="5" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="10.4" height="12.6" rx="1.2"/><rect x="12.7" y=".7" width="8.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="17" cy="5.57" r="1.61" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M14.01 10.51a2.99 2.99 0 0 1 5.98 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="얼굴 크게" data-en="Faces">얼굴 크게</span>
                 </button>
                 <button type="button" class="vsb-seg" data-size="full" aria-pressed="false"
                         onclick="vcSetVideoSize('full', this)"
                         title="참가자 얼굴만 전체 화면으로" data-ko-title="참가자 얼굴만 전체 화면으로" data-en-title="All participants, full screen"
                         data-ko-aria="참가자 얼굴만 전체 화면으로" data-en-aria="All participants, full screen">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="5.5" cy="2.94" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M4 5.41a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="16.5" cy="2.94" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M15.01 5.41a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="5.5" cy="9.64" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M4 12.11a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="16.5" cy="9.64" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M15.01 12.11a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="모두 보기" data-en="Gallery">모두 보기</span>
                 </button>
                 <span class="vsb-more-wrap">
@@ -9157,7 +9163,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 👁 (2026-08-20) 참관 안전장치 + «직접 입장» 카메라 끄기(&vc_cam=off).
      관리자·매니저만 쓰는 기능이라 defer. idx-main.js 는 한 줄도 안 고친다(첫 화면 예산·캐시).
      되돌리기: 이 줄만 지우면 즉시 원복된다. -->
-<script src="/js/vc-observe-guard.js?v=6" defer></script>
+<script src="/js/vc-observe-guard.js?v=7" defer></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -10964,7 +10970,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   .gl-progress-bar{height:100%;background:linear-gradient(90deg,#10b981,#34d399);transition:width .5s ease}
   .gl-meta{font-size:11.5px;color:#94a3b8;margin-top:6px;display:flex;justify-content:space-between}
 </style>
-<script defer src="/js/idx-daily-checkin.js?v=1"></script>
+<script defer src="/js/idx-daily-checkin.js?v=2"></script>
 
 <!-- 📱 PWA — Service Worker 등록 + 홈화면 추가 안내 -->
 <script defer src="/js/idx-push-sw.js?v=2"></script>
@@ -11491,7 +11497,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=11"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=12"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 <!-- 📑 교재 「페이지 창」 — 강사 전용이라 defer 로 뺐다(학생 첫 화면 blocking 예산 0KB).
      고치면 여기 ?v= 를 함께 올릴 것 — asset_version_harness 가 막는다. -->
 <script defer src="/js/idx-tb-preview.js?v=1"></script>
@@ -15102,7 +15108,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <!-- 🎥 녹화 동의 — 학생이 수업에 들어갈 때 한 번 묻는다.
      vcJoinRoom 에 이 파일이 «스스로» 붙는다(idx-main.js 는 안 건드린다 — 두 사람이 같이 만지는
      파일이라 ?v= 번호가 자꾸 겹쳤다). 동의를 안 해도 수업은 들어가고, 녹화만 하지 않는다. -->
-<script src="/js/mango-consent.js?v=2" defer></script>
+<script src="/js/mango-consent.js?v=3" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
 <script src="/js/mango-i18n.js?v=38" defer></script>
 <script src="/js/session-guard.js" defer></script>
@@ -16917,7 +16923,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=7"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=7"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=8"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->
@@ -17713,7 +17719,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
 <script defer src="/js/flow.js?v=21"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
-<script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
+<script defer src="/js/vc-judgment-capture.js?v=2"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
 <!-- ══════════════════════════════════════════════════════════════════════
      🚪 (2026-07-29 사장님 지시) 회의방 — 방 번호만 주면 즉석에서 만난다
@@ -17745,7 +17751,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
         (밖에 심은 것은 '회의방이면 건너뛴다' 3줄뿐 — 아래 주석에 위치를 적어 뒀습니다)
      ══════════════════════════════════════════════════════════════════════ -->
-<script src="/js/idx-vc-room.js?v=1"></script>
+<script src="/js/idx-vc-room.js?v=2"></script>
 <!-- ══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-29 사장님 지시) 수업 채팅 번역 — 한↔영 · 한↔중
      ─────────────────────────────────────────────────────────────────────
@@ -17768,7 +17774,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
         서버는 /api/translate 에 target='zh' 를 더한 것뿐(en/ko 기존 동작 그대로).
      ══════════════════════════════════════════════════════════════════════ -->
-<script src="/js/idx-vc-chat.js?v=1"></script>
+<script src="/js/idx-vc-chat.js?v=2"></script>
 
 <!-- ══════════════════════════════════════════════════════════════════════
      💬 (2026-08-10) 「떠 있는 영상창이 채팅창을 가린다」 — 채팅 안전지대

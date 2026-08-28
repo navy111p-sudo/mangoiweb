@@ -193,7 +193,7 @@
         var role = String((cu && cu.role) || '').toLowerCase();
         var isStaff = /teacher|tutor|admin|hq/.test(role);
         var observing = false;
-        try { observing = (window.vcIsObserver === true) || (window._vcObserverMode === true); } catch (_) {}
+        try { observing = (typeof vcIsObserver !== 'undefined' && vcIsObserver === true) || (window._vcObserverMode === true); } catch (_) {}
         if (uid && !isStaff && !observing) {
           var nm = '';
           try { nm = (document.getElementById('vc-name-input') || {}).value || (cu && cu.name) || ''; } catch (_) {}

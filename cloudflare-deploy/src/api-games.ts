@@ -548,6 +548,12 @@ export async function handleGamesApi(
       if (!id) return json({ ok: false, error: 'id_required' }, 400);
       const row: any = await env.DB.prepare(`SELECT user_id, level, correct_count, wrong_count FROM vocabulary WHERE id = ?`).bind(id).first();
       if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      /* 🔐 (2026-08-28) 그 단어의 «주인» 인지 확인한다 — 바로 아래 DELETE /api/vocab/:id 는
+         같은 검사를 하는데 이 쓰기 경로만 빠져 있었다. 정수 id 를 훑으며 남의 단어에
+         복습 기록을 밀어 넣어 그 학생의 복습 일정과 주간 단어왕 순위를 오염시킬 수 있었다. */
+      if ((await resolveOwnerScope(request, url, env as any, String(row.user_id || ''), b)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       // 간격 반복: 정답 시 level+1, 오답 시 level=0 으로 리셋
       const newLevel = correct ? Math.min((row.level || 0) + 1, 7) : 0;
       // 다음 복습 간격 (일): 0=1, 1=2, 2=4, 3=7, 4=14, 5=30, 6=60, 7=120 (망각곡선 기반)
@@ -574,6 +580,15 @@ export async function handleGamesApi(
       const uid = String(b.user_id || '').trim();
       const kind = String(b.kind || '').trim();
       if (!uid || !['session', 'mission', 'speak'].includes(kind)) return json({ ok: false, error: 'user_id_and_valid_kind_required' }, 400);
+      /* 🔐 (2026-08-28) 소유자 판정 — 바로 옆 /api/vocab/list·due 는 gateVocabOwner 로 막혀 있는데
+         **정작 포인트를 주는 이 경로에만 아무 검사가 없었다.** uid 를 본문에서 그대로 받으므로
+         무인증 요청이 남의 계정에도 포인트를 찍을 수 있었고, 그 포인트는 기프티콘으로 나간다.
+         ⚠️ 게스트(guest_*)는 종전대로 통과 — 비로그인 체험 흐름은 안 깨진다.
+         ⛔ kind:'session' 의 correct_count 를 본문 그대로 믿는 문제는 **따로 남아 있다**
+            (일일 상한 안에서는 부풀릴 수 있다). 서버 집계로 바꾸는 건 별건 — 작업기록 참고. */
+      if ((await resolveOwnerScope(request, url, env as any, uid, b)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       const now = Date.now();
       const today = vocabKstDay(now);
       const dayStart = today * 86400000 - 32400000;
