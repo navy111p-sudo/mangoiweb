@@ -1267,7 +1267,16 @@ export async function handleMangoApi(
         const ms = Date.parse(dateTo + 'T23:59:59+09:00');
         if (!isNaN(ms)) { where.push('r.started_at <= ?'); binds.push(ms); }
       }
-      if (statusF && statusF !== 'all') { where.push('r.status = ?'); binds.push(statusF); }
+      /* 🔴 2026-08-28 — CSV 가 화면 목록과 «다른 말» 을 하고 있었다. 위 /api/recordings 는
+         0초 부산물과 «목록에서 내린» 행을 기본에서 감추는데 여기엔 그 규칙이 없어서,
+         화면 「총 626건」인데 CSV 는 2,022행이 나왔다(어느 쪽이 맞는지 알 수 없게 된다).
+         ⛔ 규칙을 여기에 새로 쓰지 말고 «같은 문장» 을 쓸 것 — 어긋나면 그대로 사고다. */
+      const statusFNorm = statusF === 'ended' ? 'completed' : statusF;
+      if (statusFNorm && statusFNorm !== 'all') { where.push('r.status = ?'); binds.push(statusFNorm); }
+      if (!statusFNorm || statusFNorm === 'all') {
+        where.push("NOT (r.status = 'aborted' AND COALESCE(r.size_bytes, 0) = 0)");
+        where.push("r.status != 'deleted'");
+      }
       const whereSQL = where.length ? 'WHERE ' + where.join(' AND ') : '';
       const sql = `SELECT r.id, r.room_id, r.teacher_id, r.teacher_name, r.started_at, r.ended_at,
                           r.duration_ms, r.size_bytes, r.status, r.storage,
@@ -3637,7 +3646,7 @@ ${numbered}`;
       const qSearch   = (url.searchParams.get('q') || '').trim();           // 방ID / 교사명 / 교사ID LIKE
       const dateFrom  = url.searchParams.get('date_from');                  // YYYY-MM-DD (KST 기준 00:00)
       const dateTo    = url.searchParams.get('date_to');                    // YYYY-MM-DD (KST 기준 23:59:59)
-      const status    = url.searchParams.get('status');                     // ended | recording | aborted | deleted | all
+      const status    = url.searchParams.get('status');                     // completed | upload_failed | recording | aborted | deleted | all  ('ended' 는 옛 이름 — completed 로 정규화)
       const limit     = Math.max(1,  Math.min(200, parseInt(url.searchParams.get('limit')  || '50', 10)));
       const offset    = Math.max(0,                parseInt(url.searchParams.get('offset') || '0',  10));
 
@@ -3679,9 +3688,14 @@ ${numbered}`;
          [왜 감추나] 진짜 봐야 할 것은 「저장 실패」와 「준비중」이다. 0초 행이 목록을 채우면
            강사·관리자가 그 둘을 못 찾는다. 실제 수업 영상이 아니므로 숨겨도 잃는 것이 없다.
          ⚠️ 지우지 않는다. 감추기만 한다 — ?status=aborted 로 부르면 그대로 다 보인다(원인 추적용). */
-      /* 🗑️ (2026-08-28 사장님 지시) «삭제됨» 도 기본 목록에서 감춘다 — 위 0초 행과 같은 이유.
-         [무엇인가] 보관기간 3개월이 끝나면 R2 파일이 규정대로 지워지고 행은 status='deleted'
-           로 남는다. 파일이 없으니 관리자 화면은 그 행마다 「⚠ 영상 없음」을 붙인다.
+      /* 🗑️ (2026-08-28 사장님 승인 — 「이거 영상 없는 이유가 뭐야?」 제보의 조치 ①)
+         «삭제됨» 도 기본 목록에서 감춘다 — 위 0초 행과 같은 이유.
+         [무엇인가] 보관기간 3개월이 지나면 `retention.ts` 가 그 행을 status='deleted' 로
+           내린다. 그러면 관리자 화면이 그 행마다 「⚠ 영상 없음」을 붙인다.
+         ⚠️ **«파일이 지워졌다» 는 뜻이 아니다.** `retention.ts:50` 이 명시한다 —
+            그 단계는 D1 표시만 바꾸고 **R2 실물은 그대로 두며**, 고아 청소기가 그 key 를
+            «살아있는 파일» 로 보고 보호한다. 실제 파기는 아직 켜지 않은 별건이다.
+            그러니 이 행을 두고 «지웠다» 고 단정하지 말 것 — 화면 문구도 그렇게 쓰지 않는다.
          [얼마나] 2026-08-28 운영 실측 — 목록 1,862건 중 **1,236건(66%)이 이것**이었고
            **1,236건 전부 만료일이 지나 있었다**(고장이 아니라 정상 정리분).
          [왜 감추나] 진짜 봐야 할 「저장 실패 76건」이 그 66% 에 파묻혀 안 보였다.

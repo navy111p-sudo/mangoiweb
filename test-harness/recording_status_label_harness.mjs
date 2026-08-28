@@ -52,7 +52,9 @@ if (mBlock) {
 
   const KO = {
     recording: '녹화중', upload_failed: '저장 실패', deleted: '보관기간 만료',
-    aborted: '녹화 없음', completed: '처리 중',
+    aborted: '녹화 없음',
+    // «완료» 인데 파일이 없는 행 — 8/26 에 고친 거짓말을 되살리지 않게 별도 문구를 쓴다(⑦절)
+    completed: '완료 표시인데 영상 없음',
   };
   for (const [st, want] of Object.entries(KO)) {
     let out = '';
@@ -156,6 +158,52 @@ check('실물이 없으면 file_gone 으로 거절한다', /error: 'file_gone'/.
 check('조회 자체가 실패하면 막지 않는다(통과시키는 쪽으로 실패)', /if \(checked && !proven\)/.test(S_ADM));
 check('화면 복원 버튼이 completed 를 보낸다', /setRecordingStatus\(' \+ r\.id \+ ', \\'completed\\'\)/.test(CORE));
 check('거절 사유를 사람 말(message)로 보여 준다', /body\.message_en \|\| body\.message/.test(CORE));
+
+/* ══ ⑥ 사실이 아닌 단정을 하지 않는가 (2026-08-28 trap-check 지적) ═══════════ */
+console.log('\n⑥ 「파일을 지웠다」고 단정하지 않는가 — retention.ts 는 정반대를 말한다');
+const RET = rd('../cloudflare-deploy/src/retention.ts');
+// 전제: retention 은 «표시만» 바꾸고 R2 실물은 그대로 둔다(그 전제가 바뀌면 문구도 다시 판단해야 한다)
+check('retention.ts 는 여전히 «파기가 아니다» 라고 말한다',
+  /여기는 «파기» 가 아니다/.test(RET) && /R2 의 실제 영상 파일[\s\S]{0,40}그대로 남는다/.test(RET),
+  '이 전제가 바뀌었다면 아래 화면 문구도 사람이 다시 판단해야 한다');
+// 화면 문구가 «지웠다/deleted» 로 단정하면 안 된다
+const delLabels = (CORE.match(/보관[^']*만료[^']*'|3개월 보관[^']*'/g) || []).join(' ');
+check('화면 문구가 «규정대로 지운» 이라고 단정하지 않는다',
+  !/규정대로 지운 녹화입니다\. 정상입니다/.test(CORE) && !/then deleted as scheduled/.test(CORE),
+  delLabels.slice(0, 160));
+check('대신 «파일 실물 파기 여부는 별건» 임을 밝힌다',
+  /파기됐다는 뜻은 아닙니다/.test(CORE));
+check('서버 주석도 «파일이 지워진다» 고 적지 않는다',
+  !/보관기간 3개월이 끝나면 R2 파일이 규정대로 지워지고/.test(MANGO));
+
+/* ══ ⑦ 「완료인데 영상 없음」을 「처리 중」이라 말하지 않는가 ════════════════ */
+console.log('\n⑦ 완료 표시인데 파일이 없는 행 — 8/26 에 고친 거짓말을 되살리지 않는가');
+if (mBlock) {
+  const runLabel2 = (status) => new Function('adminLang', 'r', 'var playBtn;' + mBlock[0] + 'return playBtn;')('ko', { status });
+  const done = runLabel2('completed');
+  check('「완료」인데 파일이 없으면 «완료 표시인데 영상 없음» 이라 말한다', done.includes('>완료 표시인데 영상 없음<'), done);
+  check('그 자리를 「처리 중」으로 얼버무리지 않는다', !done.includes('>처리 중<'), done);
+}
+
+/* ══ ⑧ CSV 가 화면과 같은 말을 하는가 ═════════════════════════════════════ */
+console.log('\n⑧ CSV 내보내기 — 화면 목록과 같은 기준인가');
+const csvBlk = MANGO.match(/const statusFNorm[\s\S]{0,700}?const whereSQL = where\.length/);
+check('CSV 도 «내림/0초» 를 같은 기준으로 감춘다', !!csvBlk
+  && /r\.status != 'deleted'/.test(csvBlk[0])
+  && /NOT \(r\.status = 'aborted' AND COALESCE\(r\.size_bytes, 0\) = 0\)/.test(csvBlk[0]),
+  csvBlk ? csvBlk[0].slice(0, 200) : '(블록 없음)');
+check("CSV 도 'ended' 를 정규화한다", !!csvBlk && /statusF === 'ended' \? 'completed'/.test(csvBlk[0]));
+
+/* ══ ⑨ 복원 가드에 빠져나가는 길이 없는가 ═════════════════════════════════ */
+console.log('\n⑨ 복원 — 확인할 키조차 없는 행을 「완료」로 올리지 않는가');
+check('키가 없거나 쓰레기면 file_gone 으로 거절한다', /if \(!key \|\| isJunk\)/.test(S_ADM));
+check('외부 http\(s\) 주소는 예전처럼 통과시킨다(우리가 확인할 수 없다)', /const isExternal = /.test(S_ADM));
+
+/* ══ ⑩ 한 줄 안에서 세 칸이 같은 말을 하는가 ══════════════════════════════ */
+console.log('\n⑩ 같은 줄의 상태·저장소·재생 칸이 서로 다른 말을 하지 않는가');
+check('«내림» 행의 상태 배지도 경고색이 아니다(#98a2b3)',
+  /r\.status === 'deleted'\)   statusBadge[^\n]*#98a2b3/.test(CORE),
+  '저장소·재생 칸은 회색인데 여기만 빨강이면 한 줄이 서로 다른 말을 한다');
 
 console.log(`\n${PASS} PASS / ${FAIL} 실패`);
 if (FAIL) console.log('실패 목록:\n  · ' + FAILS.join('\n  · '));

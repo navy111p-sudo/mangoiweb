@@ -12781,7 +12781,7 @@ LIMIT $limit`;
     }
 
     // ===== 관리자 개입: 녹화 상태 변경 (Phase 4) =====
-    //   PATCH /api/recordings/:id/status  body: { status: 'ended' | 'deleted' }
+    //   PATCH /api/recordings/:id/status  body: { status: 'completed' | 'deleted' | 'aborted' }  ('ended' 는 옛 이름)
     //     - 기존 DELETE /api/recordings/:id 는 deleted 로만 변경 가능 → 복원(ended) 을 이걸로 처리
     if (method === 'PATCH' && /^\/api\/recordings\/\d+\/status$/.test(path)) {
       const m = path.match(/^\/api\/recordings\/(\d+)\/status$/);
@@ -12807,8 +12807,19 @@ LIMIT $limit`;
         const cur = await env.DB.prepare(`SELECT file_url FROM recordings WHERE id = ?`)
           .bind(id).first<{ file_url: string | null }>();
         const key = String(cur?.file_url || '');
-        const looksLikeKey = !!key && !/^https?:\/\//.test(key)
-          && !key.startsWith('CLIENT_ERR:') && !key.startsWith('DEBUG:');
+        /* ⚠️ 키가 «아예 없는» 행(옛 local 저장분 등)은 확인할 대상조차 없다 —
+           그대로 「완료」로 올리면 «완료인데 영상 없음» 이 새로 생긴다. 그건 막는다.
+           반대로 외부 http(s) 주소는 우리가 확인할 수 없으니 예전처럼 통과시킨다. */
+        const isExternal = /^https?:\/\//.test(key);
+        const isJunk = key.startsWith('CLIENT_ERR:') || key.startsWith('DEBUG:');
+        if (!key || isJunk) {
+          return json({
+            ok: false, error: 'file_gone',
+            message: '이 녹화에는 영상 파일 위치가 남아 있지 않아 복원할 수 없습니다. 기록만 남아 있습니다.',
+            message_en: 'This recording has no stored file location, so it cannot be restored.',
+          }, 409);
+        }
+        const looksLikeKey = !isExternal;
         const bucket = (env as any).RECORDINGS as R2Bucket | undefined;
         if (looksLikeKey && bucket) {
           let proven = false, checked = false;
