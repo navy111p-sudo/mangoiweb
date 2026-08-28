@@ -12781,7 +12781,7 @@ LIMIT $limit`;
     }
 
     // ===== 관리자 개입: 녹화 상태 변경 (Phase 4) =====
-    //   PATCH /api/recordings/:id/status  body: { status: 'ended' | 'deleted' }
+    //   PATCH /api/recordings/:id/status  body: { status: 'completed' | 'deleted' | 'aborted' }  ('ended' 는 옛 이름)
     //     - 기존 DELETE /api/recordings/:id 는 deleted 로만 변경 가능 → 복원(ended) 을 이걸로 처리
     if (method === 'PATCH' && /^\/api\/recordings\/\d+\/status$/.test(path)) {
       const m = path.match(/^\/api\/recordings\/(\d+)\/status$/);
@@ -12789,12 +12789,52 @@ LIMIT $limit`;
       if (!id) return invalidBody(['id(path)']);
       const b = await parseJsonBody(request);
       if (!b || !b.status) return invalidBody(['status']);
-      const allowed = new Set(['ended', 'deleted', 'aborted']);
+      const allowed = new Set(['ended', 'completed', 'deleted', 'aborted']);
       if (!allowed.has(b.status)) {
         return json({ ok: false, error: 'invalid_status', allowed: Array.from(allowed) }, 400);
       }
-      await env.DB.prepare(`UPDATE recordings SET status = ? WHERE id = ?`).bind(b.status, id).run();
-      return json({ ok: true, id, status: b.status });
+      /* 🔴 2026-08-28 두 가지를 함께 고쳤다.
+         ① 「복원」이 status='ended' 를 썼는데 **저장소 어디도 그 값을 모른다** — D1 실측
+            2,022행의 상태는 completed·deleted·aborted·upload_failed·recording 다섯뿐이고
+            'ended' 는 0건이다. 복원하면 배지 자리에 영문 코드가 날것으로 뜨고 「완료」
+            집계에서도 빠졌다. → 'completed' 로 옮겨 적는다(옛 이름도 계속 받아 준다).
+         ② 보관기간이 끝난 녹화는 R2 파일이 이미 지워졌다. 그걸 그대로 「완료」로 되돌리면
+            **«완료인데 영상 없음»** — 이 저장소가 8/26 에 고친 바로 그 사고를 다시 만든다.
+            → 되살릴 때는 실물을 head() 로 «봤을 때만» 완료로 올린다.
+         ⚠️ 조회 자체가 실패하면(예외) 막지 않는다 — 통과시키는 쪽으로 실패한다. */
+      let nextStatus = b.status === 'ended' ? 'completed' : b.status;
+      if (nextStatus === 'completed') {
+        const cur = await env.DB.prepare(`SELECT file_url FROM recordings WHERE id = ?`)
+          .bind(id).first<{ file_url: string | null }>();
+        const key = String(cur?.file_url || '');
+        /* ⚠️ 키가 «아예 없는» 행(옛 local 저장분 등)은 확인할 대상조차 없다 —
+           그대로 「완료」로 올리면 «완료인데 영상 없음» 이 새로 생긴다. 그건 막는다.
+           반대로 외부 http(s) 주소는 우리가 확인할 수 없으니 예전처럼 통과시킨다. */
+        const isExternal = /^https?:\/\//.test(key);
+        const isJunk = key.startsWith('CLIENT_ERR:') || key.startsWith('DEBUG:');
+        if (!key || isJunk) {
+          return json({
+            ok: false, error: 'file_gone',
+            message: '이 녹화에는 영상 파일 위치가 남아 있지 않아 복원할 수 없습니다. 기록만 남아 있습니다.',
+            message_en: 'This recording has no stored file location, so it cannot be restored.',
+          }, 409);
+        }
+        const looksLikeKey = !isExternal;
+        const bucket = (env as any).RECORDINGS as R2Bucket | undefined;
+        if (looksLikeKey && bucket) {
+          let proven = false, checked = false;
+          try { proven = !!(await bucket.head(key)); checked = true; } catch { checked = false; }
+          if (checked && !proven) {
+            return json({
+              ok: false, error: 'file_gone',
+              message: '영상 파일이 이미 지워져 복원할 수 없습니다(보관기간 3개월 경과). 기록만 남아 있습니다.',
+              message_en: 'The video file is already deleted (3-month retention passed), so it cannot be restored.',
+            }, 409);
+          }
+        }
+      }
+      await env.DB.prepare(`UPDATE recordings SET status = ? WHERE id = ?`).bind(nextStatus, id).run();
+      return json({ ok: true, id, status: nextStatus });
     }
 
     /* ── 🚷 GET /api/admin/attendance/long-absent — 장기 결석생 (2026-08-13 수정요청 #05) ──
