@@ -374,6 +374,12 @@
   }
   var _USER = resolveUser();
   var UID = _USER.uid;
+  /* 🔐 (2026-08-28) 본인 확인용 서명 토큰 — 서버가 이 화면의 세 API(growth·scenario·answer)에
+     소유자 판정을 걸었다. 예전에는 검사가 아예 없어서 아이디만 알면 남의 아이 판단력 기록을
+     읽고 오답까지 밀어 넣을 수 있었다(무인증 실측으로 확인).
+     ⚠️ 게스트(guest_*)는 토큰 없이 그대로 통과한다 — 비로그인 체험 흐름은 안 깨진다.
+     본보기: review-quiz.html·idx-x8.js 가 쓰는 것과 같은 방식(localStorage 'mango_token'). */
+  function authTok(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }
   var NAME = _USER.name || localStorage.getItem('mango_name') || localStorage.getItem('studentName') || '';
   var TEXTBOOK = localStorage.getItem('mangoi_default_textbook') || localStorage.getItem('mango_textbook') || localStorage.getItem('textbook') || '';
   // 🌐 언어: ?lang= → 사이트 공통 mangoi_lang(홈 토글과 자동 동기화) → 구키 폴백 → 기본 ko
@@ -662,6 +668,7 @@
     if(probeBand) body.probe_band = probeBand; // 레벨 찾기 — 저장값은 안 건드리고 이 밴드로만 출제
     if(src) body.band_src = src;              // 밴드를 누가 정했는지 기록('placement')
     if(ageGroup) body.age_group = ageGroup;    // 🧑‍🎓 누구를 위한 문제인가('child'/'adult') — 실력과 독립인 축
+    body.token = authTok();                    // 🔐 본인 확인(게스트는 빈 값 그대로)
     return fetch('/api/judgment/scenario', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
       body:JSON.stringify(body)})
       .then(function(r){ return r.json(); })
@@ -1009,7 +1016,7 @@
     loading(T('준비하고 있어요…','Getting ready…','正在准备…'));
     var d = null;
     try{
-      var r = await fetch('/api/judgment/growth?only=band&uid='+encodeURIComponent(UID), {credentials:'include'});
+      var r = await fetch('/api/judgment/growth?only=band&uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authTok()), {credentials:'include'});
       d = await r.json();
     }catch(e){ d = null; }
     if(d && d.ok){
@@ -1270,7 +1277,7 @@
     loading(T('망고 선생님이 채점하고 있어요…','Teacher Mango is grading…','芒果老师正在批改…'));
     try{
       var r = await fetch('/api/judgment/answer', {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include',
-        body:JSON.stringify({ uid:UID, student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
+        body:JSON.stringify({ uid:UID, token:authTok(), student_name:NAME, situation:scenario.situation, skill_tag:scenario.skill_tag,
           options:scenario.options, chosen_index:chosen, correct_index:scenario.correct_index, reasoning:reasoning, lang:LANG,
           option_scores:scenario.option_scores, difficulty:scenario.difficulty, sid:scenario.sid })});
       var d = await r.json();
@@ -1405,7 +1412,7 @@
     view='growth';
     loading(T('내 성장을 불러오고 있어요…','Loading your growth…','正在加载你的成长记录…'));
     try{
-      var r = await fetch('/api/judgment/growth?uid='+encodeURIComponent(UID), {credentials:'include'});
+      var r = await fetch('/api/judgment/growth?uid='+encodeURIComponent(UID)+'&token='+encodeURIComponent(authTok()), {credentials:'include'});
       var d = await r.json();
       if(!d || d.ok===false) throw new Error('no growth');
       window._lastGrowth = d;

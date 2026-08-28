@@ -425,14 +425,24 @@ export async function handlePointsApi(
       if (!roomId || !studentUid) return json({ ok: false, error: 'room_id_and_student_uid_required' }, 400);
       if (!Number.isInteger(score) || score < 1 || score > 7) return json({ ok: false, error: 'score_must_be_1_to_7' }, 400);
 
-      // 강사 이름: 클라이언트가 못 넘기면 attendance 에서 그 방의 강사 조회
-      let teacherName = (body.teacher_name || '').trim();
-      if (!teacherName) {
-        try {
-          const t: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='teacher' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
-          if (t?.username) teacherName = String(t.username);
-        } catch { /* attendance 없으면 빈 값 허용 */ }
-      }
+      /* 👤 강사 이름은 **서버가 그 방의 출석 기록에서** 정한다 (2026-08-28).
+         [왜 바꿨나] 예전엔 body.teacher_name 을 그대로 믿고, 비었을 때만 조회했다.
+         이 경로에는 인증이 없어서(호출자가 index.html — 공동 금지구역이라 토큰을 못 싣는다)
+         누구나 «아무 강사 이름 + 1점» 을 반복해 그 강사의 평점을 무너뜨릴 수 있었다.
+         그 평점은 관리자 품질 대시보드가 그대로 읽는 숫자다.
+         이제 방 기록으로만 정하므로, 이름을 지어내도 그 방에 실제로 있던 강사에게만 붙는다.
+         ⚠️ 근거가 `attendance.role='teacher'` 하나로 좁아졌다 — CLAUDE.md 2장이 경고하는
+            값이다(클라이언트가 보내는 값 + 「먼저 들어온 학생이 강사 역할을 받는」 전례).
+            그 전례가 걸리면 학생 이름이 평점에 붙을 수 있다. 그래도 «아무 강사나 지목해
+            평점을 무너뜨리는 것» 보다는 반경이 훨씬 작아 이쪽을 택했다. 모르면 빈 값이다.
+         ⚠️ 남은 것: 이 경로는 여전히 무인증이라 «있는 방에 대한» 평점 자체는 위조할 수
+            있고 10P 도 적립된다. 막으려면 화면이 토큰을 실어야 하는데 그 화면(index.html)이
+            공동 금지구역 + 첫화면 예산이 빠듯해 별건으로 남긴다(작업기록 참고). */
+      let teacherName = '';
+      try {
+        const t: any = await env.DB.prepare(`SELECT username FROM attendance WHERE room_id=? AND role='teacher' AND username IS NOT NULL ORDER BY joined_at DESC LIMIT 1`).bind(roomId).first();
+        if (t?.username) teacherName = String(t.username);
+      } catch { /* attendance 없으면 빈 값 허용 — 모르면 안 붙인다 */ }
 
       const tags = Array.isArray(body.tags) ? body.tags.map((t: any) => String(t)).slice(0, 12) : [];
       const feedback = String(body.feedback || '').slice(0, 1000).trim();
@@ -729,6 +739,13 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/judgment/growth') {
       const uid = (url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      /* 🔐 (2026-08-28) 위 머리말이 「본인(토큰) 또는 관리자(세션)만. IDOR 차단」이라고
+         적어 두었는데 **실제로는 아무 검사도 없었다** — 무인증 GET 으로 남의 아이를
+         레이더 5축·판단력 지수·취약 유형까지 그대로 읽을 수 있었다(실측 확인).
+         게스트(guest_*)는 종전대로 통과한다 — resolveOwnerScope 가 그렇게 판정한다. */
+      if ((await resolveOwnerScope(request, url, env as any, uid)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       // ⚡ only=band — 성장 리포트(D1 여러 번)를 건너뛰고 «이 학생이 난이도를 정한 적 있나» 만 KV 1회로 답합니다.
       //   🎬 학생 화면의 첫 진입 설정 카드가 이 답을 기다립니다. 시나리오 요청으로 알아내려 하면
       //      LLM 생성(운영 실측 평균 11초)을 기다려야 해서 «첫 화면이 안 뜨는» 것이 됩니다.
@@ -754,6 +771,10 @@ Return STRICT JSON only, in BOTH Korean and English:
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || url.searchParams.get('uid') || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      // 🔐 (2026-08-28) 남의 아이디로 LLM 생성을 돌리고 그 학생 기록에 얹는 것을 막는다(위 growth 와 같은 이유).
+      if ((await resolveOwnerScope(request, url, env as any, uid, body)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       try {
         // focus_misconception — 학생이 "이 유형 더 연습하기"를 누른 경우. 사전에 없는 코드는 생성기가 무시합니다.
         // 읽기 난이도 조작 두 가지 — 새 API 경로를 만들지 않으려고 이 요청에 실어 받습니다
@@ -783,6 +804,11 @@ Return STRICT JSON only, in BOTH Korean and English:
       const body: any = await request.json().catch(() => ({}));
       const uid = (body.uid || '').trim();
       if (!uid) return json({ ok: false, error: 'uid_required' }, 400);
+      /* 🔐 (2026-08-28) 남의 아이디로 오답을 밀어 넣어 그 학생의 판단력 지수를 떨어뜨리는 것을 막는다
+         — 그 지수는 학부모에게 나가는 주간 문자에 실린다(api-students 위클리 다이제스트). */
+      if ((await resolveOwnerScope(request, url, env as any, uid, body)) === 'deny') {
+        return json({ ok: false, error: 'auth_required' }, 401);
+      }
       if (!Array.isArray(body.options) || body.options.length < 2) return json({ ok: false, error: 'options_required' }, 400);
       if (!Number.isInteger(body.chosen_index)) return json({ ok: false, error: 'chosen_index_required' }, 400);
       try {
@@ -1055,11 +1081,24 @@ Return STRICT JSON only, in BOTH Korean and English:
     if (method === 'GET' && path === '/api/points/leaderboard') {
       await ensurePointTables(env);
       const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 50);
+      const meUid = (url.searchParams.get('uid') || '').trim();
       const rs = await env.DB.prepare(
         `SELECT user_id, student_name, lifetime_earned FROM student_points ORDER BY lifetime_earned DESC, updated_at DESC LIMIT ?`
       ).bind(limit).all();
-      // user_id 는 본인 하이라이트용으로만 필요 → 그대로 두되 balance 등 민감 필드는 제외.
-      return json({ ok: true, rows: rs.results || [] });
+      /* 🔴 (2026-08-28) user_id 를 더는 내려주지 않는다.
+         [왜] 학생 로그인은 «비밀번호가 설정된 경우만» 검사하는데(api-students.ts) 실측상
+              비밀번호가 있는 학생이 0명이다 → **아이디를 아는 것이 곧 로그인**이다.
+              그런데 이 공개 엔드포인트가 아이디를 이름과 함께 최대 50개 내주고 있었다
+              (무인증 GET 실측으로 확인). 그 아이디로 판단력 기록 조회까지 이어졌다.
+         [본인 표시] 「(나)」 하이라이트에만 쓰이던 값이라 서버가 판정해 `me` 로만 준다 —
+              같은 저장소의 단어왕 리더보드(/api/vocab/leaderboard)가 이미 그 방식이다.
+         ⛔ user_id 를 되살리지 말 것. 이름이 없을 때 아이디로 폴백하지도 말 것. */
+      const rows = ((rs.results || []) as any[]).map((r) => ({
+        student_name: r.student_name || null,
+        lifetime_earned: Number(r.lifetime_earned) || 0,
+        me: !!meUid && String(r.user_id || '').toLowerCase() === meUid.toLowerCase(),
+      }));
+      return json({ ok: true, rows });
     }
 
     // ── GET /api/admin/gifts/catalog — 관리자 카탈로그 (전체) ──
@@ -1256,6 +1295,11 @@ Return STRICT JSON only, in BOTH Korean and English:
     //   body: { status: 'sent'|'delivered'|'failed'|'refunded', coupon_code?, error_message? }
     //   refunded 일 때는 포인트 환불도 자동 처리
     if (method === 'POST' && /^\/api\/admin\/gifts\/redemptions\/\d+\/mark$/.test(path)) {
+      /* 🔐 (2026-08-28) 본사만 — 이 경로가 «환불» 을 일으킨다(아래 refunded 분기).
+         같은 파일의 포인트 지급·규칙·카탈로그는 전부 denyTeacher 로 막혀 있는데
+         («포인트는 기프티콘으로 교환된다» 는 같은 이유) 정작 환불을 하는 여기만 빠져 있었다.
+         `/api/admin/gifts/` 는 TEACHER_BLOCKED_PREFIXES 에도 없어 강사가 그대로 닿는다. */
+      const _dt = await denyTeacher(); if (_dt) return _dt;
       await ensurePointTables(env);
       const id = parseInt(path.split('/')[5] || '0', 10);
       if (!id) return json({ ok: false, error: 'invalid_id' }, 400);
@@ -1403,9 +1447,23 @@ Return STRICT JSON only, in BOTH Korean and English:
       //  D1(SQLite) 은 쓰기를 직렬화하므로, 두 요청이 동시에 와도 UPDATE ... WHERE txn_refund_id IS NULL 은
       //  한 번만 changes=1 이 되어 정확히 한 번만 환불된다.
       if (ev.status === 'failed' && !red.txn_refund_id) {
+        /* 🔐 (2026-08-28) 환불 대상 «상태» 를 좁힌다.
+           [왜] 이 웹훅에는 서명 검증이 없다(공개 경로 + parseWebhook 은 형만 본다).
+                누구나 {bizTrId, status:'failed'} 를 보내면 환불이 돌았고, 교환 id 는
+                작은 정수라 훑기도 쉽다.
+           [무엇을 막았나] 관리자가 «전달됨(delivered)» 으로 표시한 건과 이미 환불된 건.
+                즉 사람이 «학생이 받았다» 고 확인한 교환은 이 경로로 되돌릴 수 없다.
+           ⚠️ 'sent'(발송 성공·쿠폰코드까지 받은 상태)는 **여전히 환불 가능하다** —
+                그 뒤에 진짜 실패 콜백이 오는 정상 흐름이 있어 막으면 진짜 환불이 멈춘다.
+                그러니 이 한 줄로 위조 콜백이 다 막히는 것은 아니다(과장해 적지 말 것).
+           ⚠️ 근본 해결은 서명 검증이다 — 공급사 콜백 규격·시크릿이 필요해 사람이 정한다.
+              (그때 이 조건은 그대로 둘 것 — 두 방어는 서로를 대신하지 않는다) */
         const claim = await env.DB.prepare(
-          `UPDATE gift_redemptions SET status='refunded', refunded_at=? WHERE id=? AND txn_refund_id IS NULL AND status!='refunded'`
+          `UPDATE gift_redemptions SET status='refunded', refunded_at=? WHERE id=? AND txn_refund_id IS NULL AND status IN ('pending','sent','failed')`
         ).bind(now, redId).run();
+        if (!claim?.meta?.changes) {
+          console.warn('[gift-webhook] 환불 안 함 — 이미 전달·환불된 교환입니다:', redId, red.status);
+        }
         if (claim?.meta?.changes) {   // 이 요청이 환불 슬롯을 차지했을 때만 실제 포인트 환불
           try {
             const refundTxn = await applyPointTransaction(env, {

@@ -287,6 +287,13 @@
   </div>
 
   <script>
+/* 🔐 (2026-08-28) 본인 확인 토큰 — 서버가 포인트 적립·복습 기록에 소유자 판정을 걸었다.
+   예전에는 검사가 없어 남의 아이디로 포인트를 무한히 찍어 기프티콘까지 갈 수 있었다.
+   게스트(guest_*)는 토큰 없이 그대로 통과한다.
+   ⚠️ **반드시 최상위 스코프**에 둔다 — 함수 안에 선언하면 그 함수 밖 호출부는 전부
+      ReferenceError 로 죽는다(이 PR 에서 실제로 한 번 그렇게 넣었다가 trap-check 가 잡았다).
+      본보기: judgment.html 의 authTok(). */
+function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }
     function getUid() {
       try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && u.user_id) return u.user_id; } catch(e){}
       // 게스트도 uid 고정 저장 — 호출마다 바뀌면 AI 생성 단어와 퀴즈 조회 uid 가 어긋나 영원히 no_words
@@ -721,7 +728,7 @@
           const uid = getUid();
           if (uid.indexOf('guest_') !== 0) {
             fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'speak', session_id: 'mq:' + Q.serverId + ':speak' }) })
+              body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'speak', session_id: 'mq:' + Q.serverId + ':speak' }) })
               .then(r => r.json()).then(function(d){ if (d.ok && d.awarded > 0) fb.innerHTML += ' <span class="xp-plus">💰 +20P</span>'; }).catch(function(){});
           }
         } catch(e){}
@@ -887,7 +894,7 @@
       const sessionId = 'mq:' + (serverQuizzesRaw[0] && serverQuizzesRaw[0].id || Date.now()) + (retryCount ? ':r' + retryCount : '');
       try {
         const r = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'session', correct_count: correct, session_id: sessionId }) });
+          body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: correct, session_id: sessionId }) });
         const d = await r.json();
         if (d.ok && d.awarded > 0) {
           slot.innerHTML = `<div class="mq-earn"><span class="amt">💰 +${d.awarded}P</span><span>${tt('적립!','earned!')}</span><span class="bal">${tt('내 포인트','Balance')} ${Number(d.balance).toLocaleString()}P</span></div>`;
@@ -900,7 +907,7 @@
         const sd = await sr.json();
         if (sd.ok && sd.today_reviewed >= 10 && !sd.mission_done) {
           const mr = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ user_id: uid, student_name: getName(), kind: 'mission' }) });
+            body: JSON.stringify({ user_id: uid, token: __mgTok(), student_name: getName(), kind: 'mission' }) });
           const md = await mr.json();
           if (md.ok && md.awarded > 0) {
             slot.innerHTML += `<div class="mq-mission">🎯 ${tt('오늘의 미션 완료! 보너스 +50P','Daily mission complete! Bonus +50P')}</div>`;

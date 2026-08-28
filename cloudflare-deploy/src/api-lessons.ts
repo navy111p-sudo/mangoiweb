@@ -231,6 +231,19 @@ export async function handleLessonsApi(
 
     // ── POST /api/eval/create — 강사가 평가서 작성 ──
     if (method === 'POST' && path === '/api/eval/create') {
+      /* 🔐 (2026-08-28) 강사·관리자 세션 필수.
+         [무엇이 뚫려 있었나] 이 경로에는 인증이 **한 줄도 없었다** — `isAdminPath` 는
+         `/api/eval/…` 를 안 잡고(이 파일의 DELETE 만 2026-07-19 자가점검으로 막혔다),
+         라우팅 허용목록은 «인증» 이 아니다. 무인증 POST 가 핸들러 본문까지 닿는 것을
+         라이브에서 확인했다(401 이 아니라 이 아래 400 이 돌아왔다).
+         그래서 아이디만 알면 서버가 **학부모 번호를 직접 찾아** 공격자가 쓴 문구로
+         문자를 보냈다(발송 비용·망고아이 이름으로 나가는 메시지·가짜 평가 기록).
+         [왜 이 게이트가 안전한가] 실제 호출자 셋이 전부 같은 출처 + 관리자 쿠키다 —
+         teacher.html(credentials:'same-origin')·adm-q1.js·adm-r6.js(fetch 기본값 same-origin).
+         ⚠️ teacher.html 의 오프라인 큐는 ok 가 아니면 큐에 남긴다 — 세션이 끊긴 동안
+            일지가 사라지지 않고, 다시 로그인하면 그대로 올라간다. */
+      const _ev = await checkAdminSession(request, env as any);
+      if (!_ev.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureEvalTable();
       const body: any = await request.json().catch(() => ({}));
       if (!body.student_uid) return json({ ok: false, error: 'student_uid_required' }, 400);
@@ -433,10 +446,21 @@ export async function handleLessonsApi(
       const ensureEval = async () => {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_evaluations (id INTEGER PRIMARY KEY AUTOINCREMENT, student_uid TEXT NOT NULL, student_name TEXT, teacher_uid TEXT, teacher_name TEXT, room_id TEXT, lesson_title TEXT, lesson_date TEXT, score_participation INTEGER, score_comprehension INTEGER, score_homework INTEGER, score_attitude INTEGER, score_speaking INTEGER, score_overall INTEGER, strengths TEXT, improvements TEXT, next_goals TEXT, teacher_comment TEXT, parent_notified INTEGER DEFAULT 0, parent_notified_at INTEGER, viewed_by_parent INTEGER DEFAULT 0, viewed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
       };
+      // 🔐 (2026-08-28) /api/eval/create 와 같은 구멍 — 호출자는 관리자 콘솔(adm-r3.js) 하나뿐이다.
+      const _bk = await checkAdminSession(request, env as any);
+      if (!_bk.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureEval();
       const body: any = await request.json().catch(() => ({}));
       const students = Array.isArray(body.students) ? body.students : [];
       if (!students.length) return json({ ok: false, error: 'no_students' }, 400);
+      /* ⚠️ 건수 상한 — 아래 루프가 학생 1명당 INSERT 를 하나씩 «순차로» await 한다.
+         상한이 없으면 큰 배열 하나로 Worker 의 subrequest·CPU 한도를 넘겨 중간에 죽고,
+         그때까지 들어간 행만 남는다(실패는 failed[] 로 삼켜져 응답은 ok:true 였다).
+         한 반 인원을 훨씬 넘는 값으로 잡는다 — 정상 사용을 막지 않는 선. */
+      if (students.length > 60) {
+        return json({ ok: false, error: 'too_many_students',
+          message: '한 번에 60명까지만 작성할 수 있습니다. 나눠서 저장해 주세요.' }, 400);
+      }
       const common = body.common || {};
       const now = Date.now();
       const created: any[] = [];
@@ -605,6 +629,12 @@ export async function handleLessonsApi(
     //   body: { recording_id?, recording_url?, audio_base64?, student_uid, student_name?,
     //           teacher_uid?, teacher_name?, lesson_title?, lesson_date?, auto_save?=true }
     if (method === 'POST' && path === '/api/eval/ai-lesson-report') {
+      /* 🔐 (2026-08-28) 조회 두 경로(/list, /:id)는 2026-07-10 PII 감사로 잠갔는데
+         **정작 일을 하는 POST 는 빠져 있었다.** 무인증으로 Whisper 전사 + 70B 모델 호출을
+         무제한 돌릴 수 있었고(호출마다 비용), 아무 학생 아이디로 «AI 가 쓴 평가» 행을
+         그 학생 기록에 남길 수 있었다. 호출자는 관리자 콘솔·참관 화면뿐이라 세션이 있다. */
+      const _ai = await checkAdminSession(request, env as any);
+      if (!_ai.ok) return json({ ok: false, error: 'auth_required' }, 401);
       await ensureAiLessonReportSchema();
       const b: any = await request.json().catch(() => ({}));
       const studentUid = String(b.student_uid || '').trim();
