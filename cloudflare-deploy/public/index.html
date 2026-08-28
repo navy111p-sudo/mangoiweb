@@ -8403,6 +8403,12 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                  · ⛔ 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
                    갈아치워 아이콘 자리에 문장이 들어앉는다. 설명은 data-ko-title/-aria 로 단다.
                    (글자를 그리는 <span class="vsb-t"> 에만 data-ko/data-en 을 단다)
+                 · 🔁 (2026-08-28) 그림이 실제 화면과 «좌우가 반대» 였다 — 2026-07-28 「교재 왼쪽 /
+                   얼굴 오른쪽」 개편(#mg-vc-right-sidebar 의 order)에 이 그림이 안 딸려갔다.
+                   → 채운 칸(얼굴)을 «오른쪽» 으로 옮기고, 폭도 실제 CSS 값(얼굴 18/27/45%)에 맞췄다.
+                   ⛔ 25/50/75 로 되돌리지 말 것 — 그건 이름이 약속하는 값이지 실제 폭이 아니다.
+                 · 얼굴 칸의 사람(머리+어깨)은 «어느 칸이 얼굴인가» 를 글자 없이 알리기 위한 것.
+                   라벨이 KO/EN 뿐이라 중국인 강사가 못 읽는다. 감시: vc_sizebar_labels_harness ④
                  · 동작(표시 맞추기·⋯ 메뉴)은 /js/idx-vc-sizebar.js — 첫 화면 예산 때문에 defer 외부 파일 -->
             <div class="video-size-bar vsb2" id="vc-size-bar" role="group"
                  data-ko-aria="얼굴 화면 크기" data-en-aria="Face screen size" aria-label="얼굴 화면 크기">
@@ -8410,28 +8416,28 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
                         onclick="vcSetVideoSize('quarter', this)"
                         title="교재를 크게 — 얼굴은 작게" data-ko-title="교재를 크게 — 얼굴은 작게" data-en-title="Bigger material, smaller faces"
                         data-ko-aria="교재를 크게 — 얼굴은 작게" data-en-aria="Bigger material, smaller faces">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="5" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="7.3" y=".7" width="14" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="15.6" height="12.6" rx="1.2"/><rect x="17.9" y=".7" width="3.4" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="19.6" cy="6.26" r=".84" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M18.05 8.82a1.55 1.55 0 0 1 3.1 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="교재 크게" data-en="Material">교재 크게</span>
                 </button>
                 <button type="button" class="vsb-seg active" data-size="half" aria-pressed="true"
                         onclick="vcSetVideoSize('half', this)"
                         title="교재와 얼굴을 함께 (기본 크기)" data-ko-title="교재와 얼굴을 함께 (기본 크기)" data-en-title="Material and faces together (default)"
                         data-ko-aria="교재와 얼굴을 함께 (기본 크기)" data-en-aria="Material and faces together (default)">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="13.9" height="12.6" rx="1.2"/><rect x="16.2" y=".7" width="5.1" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="18.75" cy="5.85" r="1.29" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M16.35 9.82a2.4 2.4 0 0 1 4.8 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="기본" data-en="Standard">기본</span>
                 </button>
                 <button type="button" class="vsb-seg" data-size="threequarter" aria-pressed="false"
                         onclick="vcSetVideoSize('threequarter', this)"
                         title="얼굴을 크게 — 교재는 작게" data-ko-title="얼굴을 크게 — 교재는 작게" data-en-title="Bigger faces, smaller material"
                         data-ko-aria="얼굴을 크게 — 교재는 작게" data-en-aria="Bigger faces, smaller material">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="14" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="16.3" y=".7" width="5" height="12.6" rx="1.2"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="10.4" height="12.6" rx="1.2"/><rect x="12.7" y=".7" width="8.6" height="12.6" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="17" cy="5.57" r="1.61" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M14.01 10.51a2.99 2.99 0 0 1 5.98 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="얼굴 크게" data-en="Faces">얼굴 크게</span>
                 </button>
                 <button type="button" class="vsb-seg" data-size="full" aria-pressed="false"
                         onclick="vcSetVideoSize('full', this)"
                         title="참가자 얼굴만 전체 화면으로" data-ko-title="참가자 얼굴만 전체 화면으로" data-en-title="All participants, full screen"
                         data-ko-aria="참가자 얼굴만 전체 화면으로" data-en-aria="All participants, full screen">
-                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".35"/></svg>
+                    <svg class="vsb-i" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><rect x=".7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="5.5" cy="2.94" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M4 5.41a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x="11.7" y=".7" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="16.5" cy="2.94" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M15.01 5.41a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x=".7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="5.5" cy="9.64" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M4 12.11a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/><rect x="11.7" y="7.4" width="9.6" height="5.9" rx="1.2" fill="currentColor" fill-opacity=".22"/><circle cx="16.5" cy="9.64" r=".81" fill="currentColor" stroke="none" fill-opacity=".8"/><path d="M15.01 12.11a1.49 1.49 0 0 1 2.99 0z" fill="currentColor" stroke="none" fill-opacity=".8"/></svg>
                     <span class="vsb-t" data-ko="모두 보기" data-en="Gallery">모두 보기</span>
                 </button>
                 <span class="vsb-more-wrap">

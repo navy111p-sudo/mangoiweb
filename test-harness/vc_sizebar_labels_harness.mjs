@@ -97,5 +97,67 @@ for (const s of ['quarter', 'half', 'threequarter', 'full']) {
      html.includes(`vcSetVideoSize('${s}', this)`));
 }
 
+/* ── ④ 그림이 «실제 화면» 과 같은 말을 하는가 (2026-08-28) ──────────────────
+   🔴 사고: 2026-07-28 에 배치를 「교재 왼쪽 / 얼굴 오른쪽」 으로 뒤집었는데(order),
+      그것을 설명하는 이 그림 4칸이 안 딸려가 **넉 달 가까이 좌우가 반대** 였다.
+      비율도 이름이 약속하는 25/50/75 로 그려져 실제 CSS(18/27/45%)와 달랐다.
+      에러가 안 나고 라벨 검사(①~③)도 전부 통과해서 아무도 못 봤다.
+   ✅ 그래서 «글자가 있는가» 가 아니라 **«CSS 와 그림이 서로 같은 말을 하는가»** 로 검사한다
+      (CLAUDE.md 2장 「여러 곳이 서로 같은 말을 하는가」). CSS 폭을 바꾸면 여기가 FAIL 나서
+      그림도 함께 고치게 된다. */
+const cssPct = {};
+for (const size of ['quarter', 'half', 'threequarter']) {
+  const m = html.match(new RegExp(`#vc-main-row\\.video-${size}\\s*>\\s*#vc-video-pane\\s*\\{[^}]*?clamp\\([^,]+,\\s*([\\d.]+)%`));
+  ok(`CSS 에서 ${size} 얼굴 폭(%)을 읽었다`, !!m, m ? `${m[1]}%` : '규칙을 못 찾음');
+  if (m) cssPct[size] = parseFloat(m[1]);
+}
+
+/** 한 칸의 <svg> 에서 rect·circle 을 뽑는다 */
+function iconOf(size) {
+  const seg = barBlock.match(new RegExp(`data-size="${size}"[\\s\\S]{0,1600}?(<svg[\\s\\S]*?</svg>)`));
+  if (!seg) return null;
+  const svg = seg[1];
+  const rects = [...svg.matchAll(/<rect\b[^>]*>/g)].map(t => ({
+    x: parseFloat((t[0].match(/\bx="([^"]+)"/) || [0, 'NaN'])[1]),
+    w: parseFloat((t[0].match(/\bwidth="([^"]+)"/) || [0, 'NaN'])[1]),
+    filled: /fill="currentColor"/.test(t[0]),
+  }));
+  const heads = [...svg.matchAll(/<circle\b[^>]*>/g)].map(t => ({
+    cx: parseFloat((t[0].match(/\bcx="([^"]+)"/) || [0, 'NaN'])[1]),
+  }));
+  return { rects, heads };
+}
+
+for (const size of ['quarter', 'half', 'threequarter']) {
+  const ic = iconOf(size);
+  if (!ic || ic.rects.length !== 2) { ok(`${size} 그림에서 두 칸을 읽었다`, false, ic ? `rect ${ic.rects.length}개` : '<svg> 를 못 찾음'); continue; }
+  const face = ic.rects.find(r => r.filled);
+  const board = ic.rects.find(r => !r.filled);
+  if (!face || !board) { ok(`${size} 그림에 «채운 칸(얼굴)» 과 «빈 칸(칠판)» 이 하나씩 있다`, false); continue; }
+
+  /* 4-1. 방향 — 실제 화면이 「교재 왼쪽 / 얼굴 오른쪽」 이므로 채운 칸이 오른쪽이어야 한다 */
+  ok(`${size} — 얼굴 칸이 «오른쪽» 에 있다`, face.x > board.x,
+     `얼굴 x=${face.x} / 칠판 x=${board.x}`);
+
+  /* 4-2. 비율 — CSS 값과 ±1.5%p 안 */
+  const ratio = (face.w / (face.w + board.w)) * 100;
+  const want = cssPct[size];
+  ok(`${size} — 그림 비율 ${ratio.toFixed(1)}% 가 CSS ${want}% 와 맞는다`,
+     want != null && Math.abs(ratio - want) <= 1.5, `차이 ${want != null ? (ratio - want).toFixed(1) : '?'}%p`);
+
+  /* 4-3. 사람 — 얼굴 칸 안에 머리가 있어야 «어느 칸이 얼굴인지» 글자 없이 안다.
+     ⛔ 라벨은 KO/EN 뿐이라 중국인 강사는 못 읽는다(CLAUDE.md 2장). 지우지 말 것. */
+  ok(`${size} — 얼굴 칸 안에 사람(머리)이 있다`,
+     ic.heads.some(h => h.cx >= face.x && h.cx <= face.x + face.w),
+     `머리 ${ic.heads.length}개 / 얼굴 칸 ${face.x}~${(face.x + face.w).toFixed(2)}`);
+}
+
+/* 4-4. 「모두 보기」는 네 칸 전부가 얼굴이므로 머리도 넷 */
+const full = iconOf('full');
+ok('모두 보기 — 네 칸에 각각 사람이 있다',
+   !!full && full.rects.length === 4 && full.heads.length === 4,
+   full ? `rect ${full.rects.length} / 머리 ${full.heads.length}` : '<svg> 를 못 찾음');
+
+
 console.log(`\n  ${fail ? '❌' : '🎉'} ${pass} PASS / ${fail} FAIL`);
 process.exit(fail ? 1 : 0);
