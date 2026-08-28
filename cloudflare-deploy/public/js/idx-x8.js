@@ -77,7 +77,7 @@
         : String(a);
     }
     var u = me();
-    rqvSend('quiz-pick', { uid: u.uid, name: u.name || (window.vcUsername || ''),
+    rqvSend('quiz-pick', { uid: u.uid, name: u.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''),
                            idx: i, total: st.quiz.questions.length, text: text.slice(0, 80) });
   }
   /* 수업 메시지 수신 — idx-main.js 의 소켓 switch 가 여기로 넘겨 준다. */
@@ -168,7 +168,7 @@
        예전엔 학생 화면에서만 퀴즈가 사라져 「내 화면엔 남아 있는데?」가 됐다. */
     if (!rqvIsStaff() && st.quiz) {
       var _uq = me();
-      rqvSend('quiz-done', { uid: _uq.uid, name: _uq.name || (window.vcUsername || ''), quit: true });
+      rqvSend('quiz-done', { uid: _uq.uid, name: _uq.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''), quit: true });
       st.quiz = null;
     }
     setCtxLabel();
@@ -390,7 +390,7 @@
          이제 강사가 그 순간을 눈으로 본다. */
       if (!rqvIsStaff() && st.quiz) {
         var _u2 = me();
-        rqvSend('quiz-done', { uid: _u2.uid, name: _u2.name || (window.vcUsername || ''),
+        rqvSend('quiz-done', { uid: _u2.uid, name: _u2.name || ((typeof vcUsername !== 'undefined' && vcUsername) || ''),
                                total: st.quiz.questions.length,
                                score: (r.score != null ? r.score : null) });
       }

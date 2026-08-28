@@ -84,7 +84,7 @@
   /* 참관 중인가 — vcIsObserver 는 idx-main.js 안의 let 이라 window 에 없을 수 있다.
      _vcObserverMode 가 «별도 스크립트용 미러» 로 만들어진 값이라 이것을 정본으로 본다. */
   function observing() {
-    return window._vcObserverMode === true || window.vcIsObserver === true;
+    return window._vcObserverMode === true || (typeof vcIsObserver !== 'undefined' && vcIsObserver === true);
   }
 
   /* ── ① 참관 중에는 «보내는» 버튼을 화면에서 없앤다 ──────────────────────────

@@ -22,7 +22,7 @@
   /* 지금 있는 방 id — 관찰자 모드는 '(관찰 중)' 같은 꼬리표가 붙는다 */
   function currentRoom(){
     try {
-      var r = (window.vcRoomId || '') + '';
+      var r = ((typeof vcRoomId !== 'undefined' && vcRoomId) || '') + '';
       if (r) return r;
     } catch(e){}
     try {
