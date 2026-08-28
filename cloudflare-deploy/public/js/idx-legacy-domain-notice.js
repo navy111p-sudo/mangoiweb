@@ -1,9 +1,11 @@
-/* 🧭 (2026-08-28) test.mangoi.co.kr 로 들어온 사람에게 mangoi.ai 로 옮겨 달라고 "안내"만 함.
-   ⛔ 서버 리다이렉트가 아니다 — CLAUDE.md 0장/2장에 이미 못 박혀 있듯 test.mangoi.co.kr 을
-   자동으로 mangoi.ai 로 돌리면 그 도메인에 등록된 패스키(6건)가 무효화되고 앱 사용자의
-   localStorage 로그인이 날아간다. 여기서는 "눌러야만" 이동하는 배너 하나만 띄운다 —
-   패스키·로그인이 걸린 계정(교사·관리자)이 실수로 튕기지 않게, 그리고 아직 옛 주소로
-   시작하는 설치된 앱(WebView)의 흐름을 건드리지 않게 하기 위함.
+/* 🧭 (2026-08-28) test.mangoi.co.kr 로 들어온 사람에게 "잘못된 주소" 라는 것만 인지시킴.
+   ⛔ 서버 리다이렉트가 아니고, 클릭 한 번으로 넘어가는 "바로가기" 버튼·링크도 일부러 안 둔다
+   (사장님 결정 2026-08-28 — 그런 바로가기는 또 다른 문제를 만들 수 있어, 인지만 시키면 충분).
+   그 이유의 배경: CLAUDE.md 0장에 이미 못 박혀 있듯 test.mangoi.co.kr 을 자동으로
+   mangoi.ai 로 돌리면(또는 한 번의 클릭으로 옮기면) 그 도메인에 등록된 패스키(6건)가
+   무효화되고 앱 사용자의 localStorage 로그인이 날아갈 수 있다 — 링크를 없애면 이 위험도
+   함께 없어진다. 대상은 역할 구분 없이 test.mangoi.co.kr 로 들어온 사람 전원(학생·교사·
+   관리자 모두 이제 mangoi.ai 만 쓰는 것이 맞다는 사장님 확인).
    닫으면 이 기기에서는 다시 안 뜬다(관리자 "환영 안내"와 같은 방식). */
 (function(){
   'use strict';
@@ -16,7 +18,6 @@
     try { return String(localStorage.getItem('mangoi_lang') || document.documentElement.lang || 'ko').toLowerCase().indexOf('en') === 0; } catch(e){ return false; }
   }
   var en = isEn();
-  var target = 'https://mangoi.ai' + location.pathname + location.search + location.hash;
 
   var style = document.createElement('style');
   style.textContent = 'body.vc-in-call #mg-legacy-domain-notice{display:none!important}';
@@ -29,9 +30,8 @@
     '<div style="display:flex;align-items:flex-start;gap:8px">'
     + '<div style="font-size:19px;line-height:1.3;flex:0 0 auto">⚠️</div>'
     + '<div style="flex:1;min-width:0">'
-    + '<div style="font-size:13px;font-weight:800;color:#fcd34d;margin-bottom:5px">' + (en ? 'Please use mangoi.ai' : '새 주소로 접속해 주세요') + '</div>'
-    + '<div style="font-size:12px;color:#e2e8f0;line-height:1.5;margin-bottom:11px">' + (en ? 'This address will stop working soon. Please switch to mangoi.ai.' : '이 주소(test.mangoi.co.kr)는 곧 사용할 수 없어요. mangoi.ai 로 접속해 주세요.') + '</div>'
-    + '<a href="' + target + '" style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-weight:800;font-size:12.5px;padding:8px 14px;border-radius:999px;text-decoration:none">' + (en ? 'Go to mangoi.ai' : 'mangoi.ai로 이동') + '</a>'
+    + '<div style="font-size:13px;font-weight:800;color:#fcd34d;margin-bottom:5px">' + (en ? 'Wrong address' : '잘못된 주소로 접속했습니다') + '</div>'
+    + '<div style="font-size:12px;color:#e2e8f0;line-height:1.5">' + (en ? 'This is an old address (test.mangoi.co.kr). Please use mangoi.ai instead.' : '이 주소(test.mangoi.co.kr)는 옛 주소입니다. mangoi.ai 로 접속해 주세요.') + '</div>'
     + '</div>'
     + '<button type="button" id="mg-legacy-domain-notice-x" aria-label="' + (en ? 'Close' : '닫기') + '" style="flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);color:#fff;font-size:13px;font-weight:800;cursor:pointer;line-height:1">✕</button>'
     + '</div>';
