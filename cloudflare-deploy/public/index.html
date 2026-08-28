@@ -9157,7 +9157,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <!-- 👁 (2026-08-20) 참관 안전장치 + «직접 입장» 카메라 끄기(&vc_cam=off).
      관리자·매니저만 쓰는 기능이라 defer. idx-main.js 는 한 줄도 안 고친다(첫 화면 예산·캐시).
      되돌리기: 이 줄만 지우면 즉시 원복된다. -->
-<script src="/js/vc-observe-guard.js?v=6" defer></script>
+<script src="/js/vc-observe-guard.js?v=7" defer></script>
 
 <!-- v3 명세서 신규 기능: 출석 자동기록 / VAD / 비상 카카오 / 보상 / 대시보드 / 녹화 -->
 
@@ -11491,7 +11491,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   </div>
 </div>
 
-<script src="/js/idx-x3.js?v=11"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x3.js?v=12"></script><!-- 분할추출:idx-x3 (원복: 이 위치에 인라인) -->
 <!-- 📑 교재 「페이지 창」 — 강사 전용이라 defer 로 뺐다(학생 첫 화면 blocking 예산 0KB).
      고치면 여기 ?v= 를 함께 올릴 것 — asset_version_harness 가 막는다. -->
 <script defer src="/js/idx-tb-preview.js?v=1"></script>
@@ -15102,7 +15102,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <!-- 🎥 녹화 동의 — 학생이 수업에 들어갈 때 한 번 묻는다.
      vcJoinRoom 에 이 파일이 «스스로» 붙는다(idx-main.js 는 안 건드린다 — 두 사람이 같이 만지는
      파일이라 ?v= 번호가 자꾸 겹쳤다). 동의를 안 해도 수업은 들어가고, 녹화만 하지 않는다. -->
-<script src="/js/mango-consent.js?v=2" defer></script>
+<script src="/js/mango-consent.js?v=3" defer></script>
 <script src="/js/mango-gaze.js?v=36" defer></script>
 <script src="/js/mango-i18n.js?v=38" defer></script>
 <script src="/js/session-guard.js" defer></script>
@@ -16917,7 +16917,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/idx-x7.js?v=7"></script><!-- 분할추출:idx-x7 (원복: 이 위치에 인라인) -->
 
 <!-- 🧠 복습퀴즈 탭 (화상수업) — 학생 사이드바와 동일 API + AI 자동 출제(듣기/쓰기/말하기) -->
-<script src="/js/idx-x8.js?v=7"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
+<script src="/js/idx-x8.js?v=8"></script><!-- 분할추출:idx-x8 (원복: 이 위치에 인라인) -->
 <!-- 🌐 i18n-sweep 은 <head> 로 이동(2026-07-22) — 여기 두면 앞의 외부 스크립트 수십 개 뒤에 내려받혀
      강사(영문 계정)가 들어와도 화면이 한동안 한국어로 남았다. admin.html 과 동일 조치. -->
 <!-- 📊 기능 사용률 측정 + 🧭 첫 로그인 온보딩 (2026-07-21 UX 결정 — 뷰어: /ux-stats.html) -->
@@ -17713,7 +17713,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script src="/js/mango-worldclock.js?v=7" data-clock-go="/" defer></script><!-- 🇰🇷/🇵🇭 플로팅 듀얼 시계(드래그·반투명·위치기억). **수업 화면(로비·통화중)에서만 표시**(2026-08-03). 빼면 즉시 원복 -->
 <script defer src="/js/flow.js?v=21"></script><!-- 🚀 학습 흐름 연결(웜업·게임·수업·복습·게임 → 다음 활동 메뉴). 빼면 즉시 원복. v=6: 재생불가 화면 전체목록 버튼도 목록화면 연결(parent.html 완전제거)(2026-07-13) -->
 <script defer src="/js/teacher-feedback.js?v=3"></script><!-- 🤖 교사 수업 종료 AI 코칭 카드(잘한점/개선점 한·영, 반응형 확대). 빼면 즉시 원복 -->
-<script defer src="/js/vc-judgment-capture.js?v=1"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
+<script defer src="/js/vc-judgment-capture.js?v=2"></script><!-- 🧠 수업 중 실시간 판단 캡처(학생 공개채팅만, DM 제외, 수업 통신 무접촉). 빼면 즉시 원복 -->
 
 <!-- ══════════════════════════════════════════════════════════════════════
      🚪 (2026-07-29 사장님 지시) 회의방 — 방 번호만 주면 즉석에서 만난다
@@ -17745,7 +17745,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
         (밖에 심은 것은 '회의방이면 건너뛴다' 3줄뿐 — 아래 주석에 위치를 적어 뒀습니다)
      ══════════════════════════════════════════════════════════════════════ -->
-<script src="/js/idx-vc-room.js?v=1"></script>
+<script src="/js/idx-vc-room.js?v=2"></script>
 <!-- ══════════════════════════════════════════════════════════════════════
      🌐 (2026-07-29 사장님 지시) 수업 채팅 번역 — 한↔영 · 한↔중
      ─────────────────────────────────────────────────────────────────────
@@ -17768,7 +17768,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
      🧹 순수 추가 블록입니다. 이 주석부터 아래 </script> 까지 지우면 완전 원복됩니다.
         서버는 /api/translate 에 target='zh' 를 더한 것뿐(en/ko 기존 동작 그대로).
      ══════════════════════════════════════════════════════════════════════ -->
-<script src="/js/idx-vc-chat.js?v=1"></script>
+<script src="/js/idx-vc-chat.js?v=2"></script>
 
 <!-- ══════════════════════════════════════════════════════════════════════
      💬 (2026-08-10) 「떠 있는 영상창이 채팅창을 가린다」 — 채팅 안전지대
