@@ -5695,9 +5695,18 @@ window.vcRenderTextbookControls = function(){
         var SEL = ['button[onclick*="triggerUpload"]',
                    'button[onclick*="openTextbookLibrary"]',
                    'button[onclick*="pdfStopShare"]'];
+        /* 🔴 (2026-08-28) `b.style.display='none'` 로는 **안 숨겨진다.**
+           index.html 의 `.pdf-controls > button{display:inline-flex !important}` 가
+           작성자 !important 라 인라인 style 을 이긴다(CLAUDE.md 「CSS 를 JS 로 덮었는데
+           안 먹음」). 그래서 이 이중 방어의 «버튼 숨기기» 절반이 죽어 있었고, 학생에게
+           📁교재 업로드·📎파일 업로드·📚라이브러리·공유 중지가 그대로 보였다 —
+           누르면 게이트가 거절하므로 「보이는데 안 눌리는 버튼」이 됐다(사장님 제보).
+           ⚠️ 확인은 코드가 아니라 브라우저 getComputedStyle 로 할 것 — 인라인엔
+              display:none 이 들어가 있는데 계산값이 flex 다. */
         SEL.forEach(function(sel){
             bar.querySelectorAll(sel).forEach(function(b){
-                b.style.display = staff ? '' : 'none';
+                if (staff) b.style.removeProperty('display');
+                else b.style.setProperty('display', 'none', 'important');
             });
         });
     } catch(_){}
