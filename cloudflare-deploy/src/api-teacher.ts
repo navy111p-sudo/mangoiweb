@@ -277,6 +277,42 @@ export async function handleTeacherApi(
   //    전자는 이름을 채워 넣는 일, 후자는 둘 중 누구인지 고르는 일이다. 문구도 갈라 준다.
   const identityAmbiguous = !isManager && ambiguousNames.length > 0;
 
+  /* 🔄 (2026-08-28) 1회성 대체강사 — 오늘 하루만. 강사 병가·휴가로 다른 강사가 이 회차를
+   *  맡으면 원래 강사의 class_schedules.teacher_id 는 그대로다(다음 회차 자동복귀를 위해 —
+   *  enroll-ops.ts (m-2)/(m-3) 참고). 그래서 위의 `conds`(teacher_id 매칭)만으로는:
+   *    · 원래 강사 쪽엔 "오늘도 내 수업" 으로 여전히 뜬다 → 대체가 있는 날은 숨겨야 한다.
+   *    · 대체강사 쪽엔 애초에 안 뜬다(teacher_id 가 자기가 아니므로) → 따로 끼워 넣어야 한다.
+   *  ⚠️ **오늘 하루만** 처리한다 — 주간표(weekDays)·앞으로 7일(upcoming)은 day_of_week 로
+   *     매주 반복 매칭하므로, 그 특정 날짜만 겹치는 오버레이를 거기에 정확히 끼워 넣으려면
+   *     날짜별로 훨씬 더 손볼 곳이 많다(이 파일은 이미 사고 이력이 많은 파일이라 최소침습 우선).
+   *     그래서 대체 회차는 오늘 목록에서만 정확하고, 주간표에는 아직 안 보인다(알려진 한계). */
+  const hiddenToday = new Set<number>();
+  const subToday: any[] = [];
+  try {
+    const myKeys = [...new Set([...linkedTeacherIds.map(String), actor.username ? String(actor.username) : ''].filter(Boolean))];
+    if (myKeys.length) {
+      const ph = myKeys.map(() => '?').join(',');
+      const subRows: any = await env.DB.prepare(
+        `SELECT cs2.schedule_id, cs2.substitute_teacher_id, cs2.original_teacher_id, cs2.reason,
+                cs.user_id, cs.student_name, cs.start_time, COALESCE(cs.duration_min,20) AS dm,
+                cs.class_type, cs.notes, cs.source,
+                se.level AS level, se.textbook AS textbook, se.english_name AS student_en,
+                t.name AS sub_name, t0.name AS orig_name
+           FROM class_substitutions cs2
+           JOIN class_schedules cs ON cs.id = cs2.schedule_id
+           LEFT JOIN students_erp se ON se.user_id = cs.user_id
+           LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+           LEFT JOIN teachers t0 ON CAST(t0.id AS TEXT) = CAST(cs2.original_teacher_id AS TEXT)
+          WHERE cs2.status = 'active' AND cs2.sub_date = ?
+            AND (cs2.substitute_teacher_id IN (${ph}) OR cs2.original_teacher_id IN (${ph}))`
+      ).bind(todayStr, ...myKeys, ...myKeys).all<any>().catch(() => ({ results: [] } as any));
+      for (const sr of ((subRows?.results as any[]) || [])) {
+        if (myKeys.includes(String(sr.original_teacher_id || ''))) hiddenToday.add(Number(sr.schedule_id));
+        if (myKeys.includes(String(sr.substitute_teacher_id || ''))) subToday.push(sr);
+      }
+    }
+  } catch (e) { console.warn('[teacher-portal] substitution overlay:', (e as any)?.message); }
+
   const classes: any[] = [];
   // 📅 앞으로 7일 안의 일회성 수업 — 선언은 여기(반환문과 같은 스코프). 채우는 건 아래 루프.
   const upcoming: any[] = [];
@@ -423,6 +459,9 @@ export async function handleTeacherApi(
       if (s.scheduled_date) occurs = (s.scheduled_date === todayStr);
       else if (s.day_of_week != null && s.day_of_week !== '') occurs = dowMatches(s.day_of_week, kDow);
 
+      // 🔄 오늘은 다른 강사가 대체 — 내 「오늘 수업」 목록에는 안 뜬다(위 hiddenToday 주석 참고).
+      if (occurs && hiddenToday.has(Number(s.id))) continue;
+
       if (!occurs) {
         /* 오늘이 아니면 «앞으로 7일» 안에 열리는지 본다.
            ⚠️ 반복 수업(day_of_week)은 매주 도니 여기 넣으면 목록이 그 강사의 시간표로
@@ -530,6 +569,50 @@ export async function handleTeacherApi(
         join_open: now >= open_at_ts && now <= close_at_ts,
         // ⚠️ join_open 은 «수업 시간인가» 다. «들어갈 수 있나» 는 이 값 — 둘을 섞지 말 것.
         can_enter: now >= enterFromTs && now <= enterUntilTs,
+      });
+    }
+
+    /* 🔄 오늘 내가 대체로 들어가는 회차 — 위 hiddenToday/subToday 주석 참고.
+       원래 강사 쪽 배정(cs.teacher_id)과 무관하게 여기서 직접 채운다. */
+    for (const sr of subToday) {
+      const [hh2, mm2] = String(sr.start_time || '00:00').split(':').map((x: string) => Number(x));
+      const start_ts2 = Date.UTC(kY, kMo, kD, hh2 || 0, mm2 || 0, 0) - KST;
+      const dur2 = Number(sr.dm) || 30;
+      const end_ts2 = start_ts2 + dur2 * 60000;
+      const kind2 = classKindOf(sr);
+      const open_at_ts2 = start_ts2 - (kind2 === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE);
+      const close_at_ts2 = end_ts2 + LATE_AFTER;
+      let status2: string;
+      if (now < open_at_ts2) status2 = 'early';
+      else if (now < start_ts2) status2 = 'open';
+      else if (now <= close_at_ts2) status2 = 'live';
+      else status2 = 'done';
+      classes.push({
+        kind: 'class',
+        schedule_id: sr.schedule_id,
+        room_id: `class-${sr.schedule_id}-${ymd}`,
+        student_uid: sr.user_id,
+        student_name: sr.student_name || sr.student_en || null,
+        student_name_en: sr.student_en || null,
+        level: sr.level || null,
+        textbook: sr.textbook || null,
+        eval_band: null,
+        note: sr.notes || null,
+        class_kind: kind2,
+        is_level_test: kind2 === 'level_test',
+        open_lead_min: Math.round((start_ts2 - open_at_ts2) / 60000),
+        student_open_lead_min: Math.round((kind2 === 'level_test' ? OPEN_BEFORE_LEVELTEST : OPEN_BEFORE_STUDENT) / 60000),
+        start_time: `${pad(hh2 || 0)}:${pad(mm2 || 0)}`,
+        start_ts: start_ts2, end_ts: end_ts2, open_at_ts: open_at_ts2, close_at_ts: close_at_ts2,
+        enter_from_ts: enterFromTs, enter_until_ts: enterUntilTs,
+        duration_min: dur2,
+        status: status2,
+        class_state: status2 === 'live' ? 'ongoing' : (status2 === 'done' ? 'done' : 'scheduled'),
+        join_open: now >= open_at_ts2 && now <= close_at_ts2,
+        can_enter: now >= enterFromTs && now <= enterUntilTs,
+        // 🔄 대체강사로 들어가는 회차 — 「이거 내 수업 아닌데?」 를 화면이 바로 답할 수 있게.
+        substitute: true,
+        covering_for: sr.orig_name || null,
       });
     }
     classes.sort((a, b) => a.start_ts - b.start_ts);

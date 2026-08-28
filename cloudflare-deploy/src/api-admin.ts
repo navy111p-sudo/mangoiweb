@@ -2991,6 +2991,10 @@ export async function handleAdminApi(
       const _ctActor = await getAdminActor(request, env as any);
       if (_ctActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
+      /* 🔄 (2026-08-28) 1회성 대체강사 오버레이 표 — enroll-ops.ts 의 ensureEnrollTables() 와 같은
+         정의를 여기서도 방어적으로 한 번 더 만든다(그 핸들러가 먼저 안 돌았을 수도 있어서 —
+         위 class_schedules 방어 생성과 같은 이유). */
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_substitutions (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, sub_date TEXT NOT NULL, original_teacher_id TEXT, substitute_teacher_id TEXT NOT NULL, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, status TEXT NOT NULL DEFAULT 'active');`); } catch {}
       /* ⚡ 하루치를 날짜로 집는 인덱스가 없었다(있는 것은 room_id 단독·(user_id,date)·(teacher_uid,date)).
          `date = ?` 로 거르므로 이 인덱스가 없으면 attendance 전체를 훑는다. 인덱스 추가는
          데이터 변경이 아니라 안전하다(CLAUDE.md 1-1 은 DELETE/UPDATE/DROP 금지). */
@@ -3039,6 +3043,20 @@ export async function handleAdminApi(
         ).all<any>().catch(() => ({ results: [] } as any));
       }
 
+      /* 🔄 (2026-08-28) 이 날짜의 1회성 대체강사 오버레이 — schedule_id → 대체강사 id/이름.
+         recurring 행의 teacher_id 는 그대로(=원래 강사)이므로, 화면에 보일 이름만 여기서 덮는다. */
+      const subOverlay = new Map<string, { id: string; name: string | null }>();
+      try {
+        const subRows: any = await env.DB.prepare(
+          `SELECT cs2.schedule_id, cs2.substitute_teacher_id, t2.name AS sub_name
+             FROM class_substitutions cs2 LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+            WHERE cs2.sub_date = ? AND cs2.status = 'active'`
+        ).bind(dateStr).all();
+        for (const r of ((subRows?.results as any[]) || [])) {
+          subOverlay.set(String(r.schedule_id), { id: String(r.substitute_teacher_id), name: r.sub_name || null });
+        }
+      } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
+
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
@@ -3060,6 +3078,11 @@ export async function handleAdminApi(
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
 
+        /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
+           substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
+        const sub = subOverlay.get(String(s.id));
+        const origTeacherName = s.t_name || s.teacher_name || null;
+
         sessions.push({
           schedule_id: s.id,
           source: 'mangoi',            // 🏷 망고아이 예약 = 우리 방이 있다 → 입장·참관 가능
@@ -3073,8 +3096,10 @@ export async function handleAdminApi(
           level: s.se_level || null,
           textbook: s.se_textbook || null,
           textbook_assigned: !!String(s.se_textbook || '').trim(),
-          teacher_id: s.teacher_id || null,
-          teacher_name: s.t_name || s.teacher_name || null,
+          teacher_id: sub ? sub.id : (s.teacher_id || null),
+          teacher_name: sub ? sub.name : origTeacherName,
+          substituted: !!sub,
+          substituted_from: sub ? origTeacherName : null,
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,

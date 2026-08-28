@@ -1921,7 +1921,7 @@ export async function handleMangoApi(
       const userId = (url.searchParams.get('user_id') || '').trim();
       const nameParam = (url.searchParams.get('student_name') || '').trim();
       const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
-      const m = /^class-(\d+)-\d{8}$/.exec(roomId);
+      const m = /^class-(\d+)-(\d{8})$/.exec(roomId);
       if (!m) return json({ ok: true, authorized: true, reason: 'not_managed_room' }); // 예약제 방이 아니면 게이트 안 함
       /* 🔓 (2026-08-26 사장님 지시) 예전에는 admin 도 여기서 함께 빠졌다. 그런데 그 조기 통과가
          「이 예약의 학생이면 역할을 내린다」 교정을 **admin 에서만 통째로 건너뛰게** 만들었다 —
@@ -2047,6 +2047,44 @@ export async function handleMangoApi(
       //     (2026-08-26 부터 admin 은 «통과하되 역할은 사실대로» 로 바뀌었다. 막고 안 막고는 그대로).
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
+      /* 🔄 (2026-08-28) 이 날짜에 1회성 대체강사가 배정돼 있으면 그 강사도 "담당 강사" 로 인정한다.
+         'recurring' 행은 정본 teacher_id 를 그대로 두므로(다음 회차 자동복귀를 위해 —
+         enroll-ops.ts 의 (m-2)/(m-3) 참고) 위의 모든 검사는 여전히 "원래 강사" 기준이라
+         대체강사는 매번 이 경고를 본다. 'dated' 행(수강신청 자동생성)은 teacher_id 를
+         그 자리에서 바로 바꾸므로 이미 위에서 잡힌다 — 여기는 recurring 오버레이 전용. */
+      if (!ok && /teacher/.test(role) && m[2]) {
+        try {
+          const subDate = m[2].slice(0, 4) + '-' + m[2].slice(4, 6) + '-' + m[2].slice(6, 8);
+          const sub = await env.DB.prepare(
+            `SELECT cs2.substitute_teacher_id, t2.name AS sub_name FROM class_substitutions cs2
+               LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+              WHERE cs2.schedule_id = ? AND cs2.sub_date = ? AND cs2.status = 'active' LIMIT 1`
+          ).bind(schedId, subDate).first<any>();
+          if (sub && sub.substitute_teacher_id) {
+            const subId = String(sub.substitute_teacher_id);
+            if (userId && userId === subId) { ok = true; resolvedRole = 'teacher'; }
+            if (!ok && nameParam) {
+              const stripRolePrefix = (s: string) => String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
+              const subName = String(sub.sub_name || '');
+              const hit = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+              if (hit(subName, nameParam) || hit(subName, stripRolePrefix(nameParam))) { ok = true; resolvedRole = 'teacher'; }
+            }
+            if (!ok) {
+              const sess2 = await checkAdminSession(request, env as any).catch(() => null);
+              if (sess2 && (sess2 as any).ok && (sess2 as any).username) {
+                const su2 = String((sess2 as any).username);
+                if (su2 === subId) { ok = true; resolvedRole = 'teacher'; }
+                if (!ok) {
+                  const link = await env.DB.prepare(
+                    `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+                  ).bind(su2).first<any>().catch(() => null);
+                  if (link && link.teacher_id && String(link.teacher_id) === subId) { ok = true; resolvedRole = 'teacher'; }
+                }
+              }
+            }
+          }
+        } catch { /* 실패해도 기존 폴백(경고만, 입장은 안 막음)으로 이어진다 */ }
+      }
       if (!ok && /teacher/.test(role)) {
         return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
       }

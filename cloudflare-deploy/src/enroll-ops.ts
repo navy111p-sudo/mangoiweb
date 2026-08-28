@@ -85,6 +85,22 @@ export function enrollOverlap(aStart: number, aMin: number, bStart: number, bMin
   return aStart < bStart + bMin && bStart < aStart + aMin;
 }
 
+/** 🔄 (2026-08-28) 대체강사 배정용 — 이 class_schedules 행이 그 날짜(date)에 실제로 열리는지,
+ *  열린다면 그날의 요일(0=일~6=토)을 돌려준다. 안 열리면 null.
+ *  ⚠️ day_of_week 는 이 파일의 다른 함수(enrollConflicts 등)와 같이 "단일 요일" 로만 본다 —
+ *     admin classes/today 의 admDowMatches 는 콤마 나열도 허용하지만, 그 값은 이 파일이 만드는
+ *     행(schedule_kind='dated')에는 나오지 않는다(day_of_week 는 admin 이 만드는 recurring 행만 씀). */
+function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): number | null {
+  const targetDow = new Date(date + 'T00:00:00Z').getUTCDay();
+  if (scheduledDate) return String(scheduledDate).slice(0, 10) === date ? targetDow : null;
+  if (dayOfWeek != null && String(dayOfWeek).trim() !== '') {
+    const DOWMAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
+    const dw = DOWMAP[String(dayOfWeek).toLowerCase().slice(0, 3)];
+    return dw !== undefined && dw === targetDow ? targetDow : null;
+  }
+  return null;
+}
+
 /** 시작일부터 선택 요일(0=일~6=토)로 sessions 회차 날짜 생성. blocked(공휴일·충돌)는 건너뛰고 뒤로 밀림 → 회차 수 보존 */
 export function enrollDates(startDate: string, days: number[], sessions: number, blocked?: Set<string>): string[] {
   const out: string[] = [];
@@ -139,6 +155,15 @@ export async function ensureEnrollTables(env: any): Promise<void> {
     try { await env.DB.prepare(`ALTER TABLE payment_orders ADD COLUMN enroll_json TEXT`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sched_user_date ON class_schedules(user_id, scheduled_date)`).run(); } catch (_) {}
+    /* 🔄 (2026-08-28) 1회성 대체강사 배정 — "매주 반복 수업"의 정본 행(class_schedules)은 하루치
+       예외를 기록할 칸이 없다(teacher_id 를 바꾸면 그 요일 전체가 영구히 바뀐다 — 그건 이미 있는
+       /api/pay/enroll/admin/teacher-leave 의 몫). 이 표는 "그 날짜 하루만" 강사를 겹쳐 보여주는
+       오버레이다 — class_schedules 의 teacher_id 는 손대지 않으므로 다음 주는 저절로 원래 강사로
+       돌아간다. (schedule_id, sub_date) 는 한 쌍에 하루 한 명만 있어야 하므로 UNIQUE — 등록·취소는
+       DELETE 없이 UPSERT 로 status 만 바꾼다(이력은 class_audit_log 가 따로 남긴다). */
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_substitutions (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, sub_date TEXT NOT NULL, original_teacher_id TEXT, substitute_teacher_id TEXT NOT NULL, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, status TEXT NOT NULL DEFAULT 'active')`);
+    try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_class_sub_slot ON class_substitutions(schedule_id, sub_date)`).run(); } catch (_) {}
+    try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_class_sub_date ON class_substitutions(sub_date, status)`).run(); } catch (_) {}
   } catch (e) { console.warn('[enroll] ensure tables:', (e as any)?.message); }
 }
 
@@ -1121,6 +1146,141 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       moved.push({ id: r.id, student: r.student_name, time: r.start_time });
     }
     return json({ ok: true, day, from, to, dry, moved_count: moved.length, skipped_count: skipped.length, moved, skipped });
+  }
+
+  /* ── (m-2) 1회성 대체강사 배정 — 후보 조회 (관리자) ──
+     사장님 요청(2026-08-28) "강사 휴가·병가로 다른 강사로 대체" — 위 (m)과 다른 것은
+     "그 요일 전체를 영구히 바꾸는" 게 아니라 "이번 회차 하루만" 이라는 점. 그 판단 근거는
+     schedule_kind: 수강신청이 만드는 행(schedule_kind='dated')은 회차마다 행이 따로 있어
+     teacher_id 를 바꿔도 그 날짜 하나만 바뀐다(다음 주는 다른 행). 반면 admin 이 만드는
+     'recurring' 행은 한 행이 무기한 반복이라, 손대면 앞으로 계속 바뀐다 — 그래서 그 행은
+     건드리지 않고 class_substitutions 에 "그 날짜만" 겹쳐 보여줄 오버레이를 남긴다. */
+  if (path === '/api/pay/enroll/admin/substitute-candidates' && method === 'GET') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    await ensureEnrollTables(env);
+    const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
+    const date = String(url.searchParams.get('date') || '').trim();
+    if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ ok: false, error: 'bad_params' }, 400);
+    const row: any = await env.DB.prepare(
+      `SELECT cs.id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date,
+              cs.start_time, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status,
+              t.name AS teacher_name
+         FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+        WHERE cs.id = ? LIMIT 1`
+    ).bind(scheduleId).first();
+    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
+    if (dow === null) return json({ ok: false, error: 'not_on_that_date', message: '이 수업은 그 날짜에 열리지 않습니다.' }, 400);
+    const startMin = enrollTimeToMin(String(row.start_time || ''));
+    const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+    const isRecurring = !row.scheduled_date;
+
+    const freeIds = await teachersFreeAt(env, [dow], { [dow]: startMin }, minutes);
+    const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
+    const candidates = ((tRows?.results as any[]) || [])
+      .filter((t: any) => String(t.id) !== String(row.teacher_id || ''))
+      .map((t: any) => ({ id: String(t.id), name: t.name, free: freeIds.has(String(t.id)) }))
+      .sort((a: any, b: any) => (a.free === b.free ? 0 : a.free ? -1 : 1));
+
+    let existingSub: any = null;
+    if (isRecurring) {
+      const ex: any = await env.DB.prepare(
+        `SELECT substitute_teacher_id, original_teacher_id, reason FROM class_substitutions
+          WHERE schedule_id = ? AND sub_date = ? AND status = 'active' LIMIT 1`
+      ).bind(scheduleId, date).first();
+      if (ex) {
+        const t2: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(ex.substitute_teacher_id).first();
+        existingSub = {
+          substitute_teacher_id: String(ex.substitute_teacher_id), substitute_teacher_name: t2?.name || null,
+          original_teacher_id: ex.original_teacher_id ? String(ex.original_teacher_id) : null, reason: ex.reason || null,
+        };
+      }
+    }
+    return json({
+      ok: true,
+      schedule: {
+        id: row.id, student_name: row.student_name, start_time: row.start_time,
+        duration_min: minutes, teacher_id: row.teacher_id ? String(row.teacher_id) : null,
+        teacher_name: row.teacher_name, schedule_kind: row.schedule_kind, is_recurring: isRecurring,
+      },
+      candidates, existing_substitution: existingSub,
+    });
+  }
+
+  /* ── (m-3) 1회성 대체강사 배정 — 등록/취소 (관리자) ──
+     substitute_teacher_id 가 "지금 정본 담당 강사"(recurring 행은 항상 원래 강사, dated 행은
+     현재 값)와 같으면 "취소·복귀" 로 다룬다 — recurring 행은 자기 자신에 대해서는 절대
+     "충돌" 검사를 해서는 안 된다(그 행 자체가 이미 그 강사의 그 시간 커밋이라 스스로와
+     충돌 판정이 나 버린다 — 2026-08-28 설계 중 실제로 밟고 고침). */
+  if (path === '/api/pay/enroll/admin/substitute' && method === 'POST') {
+    const sess = await checkAdminSession(request, env);
+    if (!sess.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    await ensureEnrollTables(env);
+    const body = await parseJsonBody(request) || {};
+    const scheduleId = Number(body.schedule_id || 0);
+    const date = String(body.date || '').trim();
+    const subTeacherId = String(body.substitute_teacher_id || '').trim();
+    const reason = String(body.reason || '기타').slice(0, 200);
+    if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !subTeacherId) return json({ ok: false, error: 'bad_params' }, 400);
+
+    const row: any = await env.DB.prepare(
+      `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time,
+              COALESCE(duration_min,20) AS dm, teacher_id, status
+         FROM class_schedules WHERE id = ? LIMIT 1`
+    ).bind(scheduleId).first();
+    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
+    const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
+    if (dow === null) return json({ ok: false, error: 'not_on_that_date' }, 400);
+
+    const isRecurring = !row.scheduled_date;
+    const currentTeacherId = row.teacher_id ? String(row.teacher_id) : '';
+    const isSelfRevert = isRecurring && currentTeacherId && subTeacherId === currentTeacherId;
+    if (!isSelfRevert && subTeacherId === currentTeacherId) return json({ ok: false, error: 'same_teacher' }, 400);
+
+    if (!isSelfRevert) {
+      const startMin = enrollTimeToMin(String(row.start_time || ''));
+      const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+      const conf = await enrollConflicts(env, subTeacherId, [date], { [dow]: startMin }, minutes, [dow]);
+      if (conf.has(date)) return json({ ok: false, error: 'substitute_busy', message: '대체 강사도 그 시간에 다른 수업이 있습니다.' }, 409);
+    }
+
+    const now = Date.now();
+    const actor = (sess as any)?.username || (sess as any)?.name || 'admin';
+
+    if (isRecurring) {
+      if (isSelfRevert) {
+        await env.DB.prepare(
+          `UPDATE class_substitutions SET status = 'cancelled', updated_at = ? WHERE schedule_id = ? AND sub_date = ? AND status = 'active'`
+        ).bind(now, scheduleId, date).run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO class_substitutions (schedule_id, sub_date, original_teacher_id, substitute_teacher_id, reason, created_by, created_at, updated_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+           ON CONFLICT(schedule_id, sub_date) DO UPDATE SET
+             substitute_teacher_id = excluded.substitute_teacher_id, reason = excluded.reason,
+             created_by = excluded.created_by, updated_at = excluded.updated_at, status = 'active'`
+        ).bind(scheduleId, date, currentTeacherId || null, subTeacherId, reason, actor, now, now).run();
+      }
+    } else {
+      /* dated 행 — 그 회차 자체가 그 날 하루뿐이라 오버레이가 필요 없다. 바로 바꾼다. */
+      await env.DB.prepare(
+        `UPDATE class_schedules SET teacher_id = ?, updated_at = ?, notes = COALESCE(notes,'') || ' · 대체강사 배정(' || ? || ')' WHERE id = ? AND status = 'active'`
+      ).bind(subTeacherId, now, reason, scheduleId).run();
+    }
+
+    await writeClassAudit(env, {
+      action: isSelfRevert ? 'substitute_cancelled' : 'teacher_change',
+      schedule_id: scheduleId, student_name: row.student_name || null,
+      lesson_date: date, lesson_time: String(row.start_time || '') || null,
+      actor, actor_role: 'admin',
+      source: isRecurring ? 'admin-substitute-recurring' : 'admin-substitute-dated',
+      reason: isSelfRevert ? '대체강사 취소(원래 강사로 복귀)' : ('1회성 대체 · ' + reason),
+      detail: JSON.stringify({ from_teacher_id: currentTeacherId, to_teacher_id: subTeacherId, one_time: isRecurring, date }),
+    });
+
+    return json({ ok: true, schedule_id: scheduleId, date, cancelled: isSelfRevert, one_time: isRecurring, substitute_teacher_id: isSelfRevert ? null : subTeacherId });
   }
 
   /* ── (n) 환불 계산기 (관리자, 4단계 — 계산만. 실제 환불 실행은 사람이) ── */
