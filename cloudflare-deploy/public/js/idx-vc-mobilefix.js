@@ -200,7 +200,11 @@
       if (Number(z) === 1 && (Date.now() - _pinchEndAt) < 500) {
         return (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1;
       }
-      return _setZoom.apply(this, arguments);
+      var out = _setZoom.apply(this, arguments);
+      /* 핀치·더블탭처럼 «우리 버튼 밖» 에서 바뀐 배율도 ④ 의 표시에 따라오게 한다.
+         안 하면 100% 인데 되돌리기가 떠 있는 어긋난 상태가 남는다(2026-08-28 실측). */
+      try { syncPct(); } catch (e) {}
+      return out;
     };
   }
 
@@ -214,18 +218,42 @@
      ⛔ 아래 버튼은 «교재 탭 + 수업 중 + 좁은 화면» 일 때만 나온다. PC 는 원래 버튼을 쓴다.
   ══════════════════════════════════════════════════════════════ */
   var CSS =
-    '#mgz-zoom{position:absolute;right:8px;bottom:96px;z-index:40;display:none;' +
-      'flex-direction:column;gap:6px;pointer-events:auto}' +
+    /* 알약 하나 + 필요할 때만 나오는 되돌리기.
+       그전에는 40px 동그라미 넷이 세로 164px 로 쌓여 교재 오른쪽을 관통했다 —
+       그림자가 넷이라 «한 기능» 으로 안 읽혔고, 터치 목표도 권장 44px 에 못 미쳤다.
+       ⚠️ 알약 «안» 의 배율칸은 `#mgz-zoom .mgz-pill button`(1,1,1) 이 44px 을 걸어 두므로
+          클래스 하나짜리 규칙으로는 못 이긴다 — `button.mgz-pct`(1,2,1) 로 적는다. */
+    '#mgz-zoom{position:absolute;right:10px;bottom:96px;z-index:40;display:none;' +
+      'flex-direction:column;align-items:center;gap:8px;pointer-events:auto;' +
+      'transition:opacity .25s ease}' +
+    '#mgz-zoom.mgz-idle{opacity:.35}' +
     'body.vc-in-call #tab-pdf{position:relative}' +
-    '#mgz-zoom button{width:40px;height:40px;border:none;border-radius:50%;' +
-      'background:rgba(15,23,42,.72);color:#fff;font-size:19px;font-weight:800;line-height:1;' +
-      'cursor:pointer;-webkit-tap-highlight-color:transparent;' +
-      'box-shadow:0 2px 8px rgba(0,0,0,.35);backdrop-filter:blur(6px);' +
+    '#mgz-zoom .mgz-pill{width:44px;border-radius:22px;overflow:hidden;' +
+      'display:flex;flex-direction:column;background:rgba(15,23,42,.74);' +
+      'box-shadow:0 3px 14px rgba(0,0,0,.3);backdrop-filter:blur(8px);' +
+      '-webkit-backdrop-filter:blur(8px)}' +
+    '#mgz-zoom button{border:0;background:transparent;color:#fff;font-family:inherit;' +
+      'font-weight:800;line-height:1;cursor:pointer;padding:0;' +
+      '-webkit-tap-highlight-color:transparent;' +
       'display:flex;align-items:center;justify-content:center;overflow:hidden}' +
-    '#mgz-zoom button:active{background:rgba(37,99,235,.85)}' +
-    '#mgz-zoom .mgz-pct{height:26px;width:40px;border-radius:13px;font-size:11px;font-weight:700;' +
-      'background:rgba(15,23,42,.72);color:#fbbf24;display:flex;align-items:center;' +
-      'justify-content:center;font-variant-numeric:tabular-nums;overflow:hidden}' +
+    '#mgz-zoom .mgz-pill button{width:44px;height:44px;font-size:19px}' +
+    '#mgz-zoom button:active{background:rgba(255,255,255,.18)}' +
+    '#mgz-zoom .mgz-pill button.mgz-pct{height:26px;font-size:11px;font-weight:700;' +
+      'color:#fcd34d;font-variant-numeric:tabular-nums;' +
+      'border-top:1px solid rgba(255,255,255,.14);' +
+      'border-bottom:1px solid rgba(255,255,255,.14)}' +
+    /* ⚠️ 되돌리기는 «흐름 밖» 에 둔다 — 흐름 안에 두면 숨어 있을 때도 42px 을 차지해
+       세로가 156px 로 남았다(실측). 위로 띄운다: 아래로 내리면 독에 가까워진다. */
+    '#mgz-zoom .mgz-reset{position:absolute;bottom:calc(100% + 8px);left:50%;' +
+      'width:34px;height:34px;border-radius:50%;font-size:15px;' +
+      'background:rgba(15,23,42,.74);box-shadow:0 3px 14px rgba(0,0,0,.3);' +
+      'backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);' +
+      'opacity:0;transform:translateX(-50%) scale(.6);pointer-events:none;' +
+      'transition:opacity .16s ease,transform .16s ease}' +
+    '#mgz-zoom .mgz-reset.mgz-on{opacity:1;transform:translateX(-50%) scale(1);' +
+      'pointer-events:auto}' +
+    '@media (prefers-reduced-motion:reduce){' +
+      '#mgz-zoom,#mgz-zoom .mgz-reset{transition:none}}' +
     '@media (min-width:1025px){#mgz-zoom{display:none !important}}';
 
   function injectCss() {
@@ -250,18 +278,47 @@
     return b;
   }
 
-  var pctEl = null;
+  var pctEl = null, resetEl = null, idleTimer = 0, lastPct = '';
+
+  /* 만지면 또렷해지고 3초 손 떼면 가라앉는다.
+     ⛔ 상주 setInterval 로 만들지 말 것 — 홈 전체를 멎게 한 전력이 있다.
+        한 번짜리 타이머라 그 사이 숨겨져도 무해하다. */
+  function armIdle() {
+    var wrap = document.getElementById('mgz-zoom');
+    if (!wrap) return;
+    if (wrap.classList.contains('mgz-idle')) wrap.classList.remove('mgz-idle');
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(function () {
+      var w = document.getElementById('mgz-zoom');
+      if (w) w.classList.add('mgz-idle');
+    }, 3000);
+  }
+
   function syncPct() {
-    if (!pctEl) return;
     var z = 1;
     try { z = (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1; } catch (e) {}
-    pctEl.textContent = Math.round(z * 100) + '%';
+    /* ⚠️ 핀치 중에는 이 함수가 손가락 움직임마다 불린다 — 값이 그대로면 아무것도 쓰지 않는다
+       (구형 폰에서 글자를 다시 그리는 값이 싸지 않다). */
+    var txt = Math.round(z * 100) + '%';
+    if (txt !== lastPct) {
+      lastPct = txt;
+      if (pctEl) pctEl.textContent = txt;
+      /* 100% 면 되돌리기는 할 일이 없다 — 그때만 감춘다 */
+      if (resetEl) resetEl.classList.toggle('mgz-on', Math.abs(z - 1) > 0.005);
+    }
   }
+
   function bump(d) {
     try {
       var z = (typeof window.pdfGetZoom === 'function') ? window.pdfGetZoom() : 1;
       if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(z + d);
     } catch (e) {}
+    syncPct();
+  }
+
+  function resetZoom() {
+    _pinchEndAt = 0;                       // 버튼으로 부른 되돌리기는 ③ 의 차단 대상이 아니다
+    try { if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1); } catch (e) {}
     syncPct();
   }
 
@@ -271,19 +328,27 @@
     injectCss();
     var wrap = document.createElement('div');
     wrap.id = 'mgz-zoom';
-    wrap.appendChild(makeBtn('＋', '교재 크게', 'Zoom in', function () { bump(0.2); }));
-    pctEl = document.createElement('div');
+
+    var pill = document.createElement('div');
+    pill.className = 'mgz-pill';
+    pill.appendChild(makeBtn('＋', '교재 크게', 'Zoom in', function () { bump(0.2); }));
+    /* 배율칸은 «버튼» 이다 — 사람들은 이미 여기를 눌러 100% 로 가리라 기대하고 있었다
+       (그전에는 div 라 눌러도 아무 일이 없었다). */
+    pctEl = makeBtn('100%', '원래 크기로', 'Reset zoom', resetZoom);
     pctEl.className = 'mgz-pct';
-    pctEl.textContent = '100%';
-    wrap.appendChild(pctEl);
-    wrap.appendChild(makeBtn('－', '교재 작게', 'Zoom out', function () { bump(-0.2); }));
-    wrap.appendChild(makeBtn('↺', '원래 크기로', 'Reset zoom', function () {
-      _pinchEndAt = 0;                       // 버튼으로 부른 되돌리기는 ③ 의 차단 대상이 아니다
-      try { if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1); } catch (e) {}
-      syncPct();
-    }));
+    pill.appendChild(pctEl);
+    pill.appendChild(makeBtn('－', '교재 작게', 'Zoom out', function () { bump(-0.2); }));
+    wrap.appendChild(pill);
+
+    resetEl = makeBtn('↺', '원래 크기로', 'Reset zoom', resetZoom);
+    resetEl.className = 'mgz-reset';
+    wrap.appendChild(resetEl);
+
+    wrap.addEventListener('pointerdown', armIdle);
     panel.appendChild(wrap);
+    lastPct = '';        // 새로 만든 칸이라 «값이 같으니 건너뛴다» 를 여기서는 쓰면 안 된다
     syncPct();
+    armIdle();
   }
 
   function zoomBtnsSync() {
@@ -294,8 +359,12 @@
       var inCall = document.body.classList.contains('vc-in-call');
       var narrow = false;
       try { narrow = window.matchMedia('(max-width:1024px)').matches; } catch (e) {}
-      wrap.style.display = (onPdf && inCall && narrow) ? 'flex' : 'none';
-      if (wrap.style.display === 'flex') syncPct();
+      var want = (onPdf && inCall && narrow) ? 'flex' : 'none';
+      if (wrap.style.display !== want) {
+        wrap.style.display = want;
+        if (want === 'flex') armIdle();   // 나타난 순간부터 3초 뒤 가라앉는다
+      }
+      if (want === 'flex') syncPct();
     } catch (e) {}
   }
 
