@@ -187,6 +187,91 @@ ok(!I.hasKo, '아이콘 버튼에 data-ko/data-en 을 달지 않았다 (달면 �
 ok(I.tips, '설명은 data-ko-title 로 달았다 (두 엔진 모두 title 만 건드린다)');
 ok(!I.over, '버튼 안에서 글자가 넘치지 않는다');
 
+/* ── 3부-2. A안(한 덩어리 알약) — 2026-08-28 ────────────────────
+   그전에는 40px 동그라미 «넷» 이 세로 164px 로 쌓여 교재 오른쪽을 관통했다.
+   여기서 재는 것은 「모양이 예쁜가」가 아니라 ①덩어리가 하나인가 ②손가락이 닿는가
+   ③할 일 없는 버튼이 숨는가 ④배율칸이 진짜 눌리는가 ⑤손을 떼면 가라앉는가 다섯이다.
+   ⚠️ 전부 «함수도 값도 다 있는데 몇 px 인가 / 무엇이 보이는가» 라 글자 검사로는 안 잡힌다. */
+console.log('\n③-2 한 덩어리 알약 (A안)');
+await evalJs('window.pdfSetZoom(1)');
+await new Promise(r => setTimeout(r, 250));
+const pillM = await evalJs(`(()=>{ var w=document.getElementById('mgz-zoom');
+  var pill=w.querySelector('.mgz-pill'), pct=w.querySelector('.mgz-pct'), rs=w.querySelector('.mgz-reset');
+  var bs=[].slice.call(pill.querySelectorAll('button'));
+  var cs=getComputedStyle(pill), rcs=getComputedStyle(rs);
+  return JSON.stringify({
+    wrapH: Math.round(w.getBoundingClientRect().height),
+    shadows: [].slice.call(w.querySelectorAll('*')).filter(function(e){
+      var b=getComputedStyle(e).boxShadow; return b && b!=='none'; }).length,
+    pillRadius: parseFloat(cs.borderRadius),
+    tap: bs.filter(function(b){ return b!==pct; })
+           .map(function(b){ return Math.round(b.getBoundingClientRect().height); }),
+    pctIsButton: pct.tagName === 'BUTTON',
+    pctH: Math.round(pct.getBoundingClientRect().height),
+    resetShown: rs.classList.contains('mgz-on'),
+    resetHit: rcs.pointerEvents,
+    idle: w.classList.contains('mgz-idle')
+  }); })()`);
+const P = JSON.parse(pillM);
+ok(P.wrapH <= 120, '세로가 120px 이하로 줄었다 (고치기 전 164px — 교재 오른쪽을 관통했다)', '실측 ' + P.wrapH + 'px');
+ok(P.shadows <= 2, '그림자가 «넷» 이 아니다 = 한 기능으로 읽힌다', '그림자 요소 ' + P.shadows + '개 (알약 + 되돌리기)');
+ok(P.pillRadius >= 20, '알약 하나로 묶였다', 'border-radius ' + P.pillRadius);
+ok(P.tap.length === 2 && P.tap.every(function (h) { return h >= 44; }),
+  '＋ / － 터치 목표가 44px 이상이다 (고치기 전 40px — 권장 최소 미만)', '실측 ' + JSON.stringify(P.tap));
+ok(P.pctH >= 24 && P.pctH <= 30,
+  '배율칸은 44px 규칙에 먹히지 않고 26px 을 지킨다 (button.mgz-pct 특정성)', '실측 ' + P.pctH + 'px');
+
+// (가) 100% 면 되돌리기는 할 일이 없다 → 숨는다
+ok(!P.resetShown && P.resetHit === 'none',
+  '100% 일 때 ↺ 는 숨어 있고 눌리지도 않는다 (고치기 전 늘 떠 있었다)',
+  'on=' + P.resetShown + ' pointer-events=' + P.resetHit);
+
+// (나) 크게 하면 그때 나타난다
+await evalJs(`document.querySelector('#mgz-zoom .mgz-pill button').click()`);
+await new Promise(r => setTimeout(r, 300));
+const afterUp = await evalJs(`(()=>{ var w=document.getElementById('mgz-zoom');
+  var rs=w.querySelector('.mgz-reset');
+  return JSON.stringify({ on: rs.classList.contains('mgz-on'),
+    hit: getComputedStyle(rs).pointerEvents, pct: w.querySelector('.mgz-pct').textContent }); })()`);
+const U = JSON.parse(afterUp);
+ok(U.on && U.hit === 'auto', '100% 가 아니면 ↺ 가 나타나고 눌린다', JSON.stringify(U));
+/* 되돌리기는 «흐름 밖» 이라 알약 위로 뜬다 — 화면 밖으로 밀리지 않는지 함께 잰다 */
+const rsBox = await evalJs(`(()=>{ var r=document.querySelector('#mgz-zoom .mgz-reset').getBoundingClientRect();
+  var top=document.elementsFromPoint(Math.round(r.left+r.width/2), Math.round(r.top+r.height/2))[0];
+  return JSON.stringify({ inView: r.top>=-1 && r.left>=-1 && r.right<=innerWidth+1 && r.bottom<=innerHeight+1,
+    topTag:(top&&top.tagName)||'', cls:(top&&top.className)||'' }); })()`);
+const R = JSON.parse(rsBox);
+ok(R.inView, '↺ 가 화면 안에 있다 (알약 위로 띄운 것이 밖으로 안 밀린다)', rsBox);
+ok(R.topTag === 'BUTTON', '↺ 자리에서 «맨 위» 다 = 덮이지 않는다', rsBox);
+ok(/^\d+%$/.test(U.pct) && U.pct !== '100%', '배율 글자가 실제 배율을 따라간다', '표시 ' + U.pct);
+
+// (다) 배율 글자를 누르면 100% 로 — 사람들이 이미 기대하고 누르던 자리
+await evalJs(`document.querySelector('#mgz-zoom .mgz-pct').click()`);
+await new Promise(r => setTimeout(r, 300));
+const zPct = await evalJs('window.pdfGetZoom()');
+ok(Math.abs(zPct - 1) < 0.01, '배율 글자를 누르면 100% 로 돌아간다 (고치기 전 div 라 무반응이었다)', '실측 ' + zPct);
+ok(!(await evalJs(`document.querySelector('#mgz-zoom .mgz-reset').classList.contains('mgz-on')`)),
+  '100% 로 돌아오면 ↺ 가 다시 숨는다');
+
+// (라) 손을 떼면 가라앉고, 만지면 또렷해진다
+await evalJs(`document.getElementById('mgz-zoom').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`);
+const awake = await evalJs(`getComputedStyle(document.getElementById('mgz-zoom')).opacity`);
+ok(parseFloat(awake) > 0.9, '만지면 또렷해진다', 'opacity ' + awake);
+await new Promise(r => setTimeout(r, 3400));
+const sunk = await evalJs(`(()=>{ var w=document.getElementById('mgz-zoom');
+  return JSON.stringify({ idle: w.classList.contains('mgz-idle'), op: getComputedStyle(w).opacity }); })()`);
+const S = JSON.parse(sunk);
+ok(S.idle && parseFloat(S.op) < 0.6, '3초 손 떼면 반투명으로 가라앉는다 (교재를 덜 가린다)', JSON.stringify(S));
+/* ⛔ 상주 setInterval 로 만들면 홈이 멎는다 — 한 번짜리 타이머인지 소스로 못 박는다 */
+const noInterval = await (async () => {
+  const { readFileSync } = await import('node:fs');
+  const t = readFileSync('cloudflare-deploy/public/js/idx-vc-mobilefix.js', 'utf8');
+  const i = t.indexOf('function armIdle');
+  return i > 0 && !/setInterval/.test(t.slice(i, i + 600));
+})();
+ok(noInterval, '가라앉히기가 상주 setInterval 이 아니다 (홈 전체를 멎게 한 전력)');
+await evalJs(`document.getElementById('mgz-zoom').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))`);
+
 /* ── 4부. 배경화면 탭을 두 번 눌러도 본문이 안 접히는가 ────────── */
 console.log('\n④ 배경화면 탭 두 번 누르기');
 const bg = await evalJs(`(()=>{ if(typeof vcToggleContentTab!=='function') return JSON.stringify({err:'no fn'});
