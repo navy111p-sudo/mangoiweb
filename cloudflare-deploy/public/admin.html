@@ -4397,7 +4397,12 @@ npx wrangler@4 secret put GIFTISHOW_USER_ID --env production --config wrangler.t
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
         <b style="font-size:13px;color:#c4b5fd" data-ko="🔴 지금 진행 중인 수업" data-en="🔴 Classes in progress now">🔴 지금 진행 중인 수업</b>
         <span id="gh-live-count" style="font-size:11.5px;color:#94a3b8"></span>
-        <button type="button" onclick="ghLoadLive()" style="margin-left:auto;padding:5px 12px;font-size:12px;background:rgba(99,102,241,0.20);color:#c7d2fe;border:1px solid rgba(99,102,241,0.45);border-radius:7px;font-weight:700;cursor:pointer"
+        <!-- 🗼 (2026-08-27) 전체 현황을 한눈에 보는 별도 초경량 화면 — 사장님 「전체 상황을 한눈에」.
+             admin.html 에 카드를 더 얹지 않고 새 탭으로 연다(경량화 방침). -->
+        <a href="/admin/monitor-wall.html" target="_blank" rel="noopener"
+           style="margin-left:auto;padding:5px 12px;font-size:12px;background:rgba(139,92,246,0.20);color:#ddd6fe;border:1px solid rgba(139,92,246,0.45);border-radius:7px;font-weight:700;text-decoration:none"
+           data-ko="🗼 관제탑 (전체 현황, 새 탭)" data-en="🗼 Control Tower (new tab)">🗼 관제탑 (전체 현황, 새 탭)</a>
+        <button type="button" onclick="ghLoadLive()" style="padding:5px 12px;font-size:12px;background:rgba(99,102,241,0.20);color:#c7d2fe;border:1px solid rgba(99,102,241,0.45);border-radius:7px;font-weight:700;cursor:pointer"
                 data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
       </div>
       <!-- 2026-08-27: 카드를 열면 자동으로 불러온다(adm-s1.js 의 toggle 캡처).
