@@ -1113,5 +1113,282 @@
     }
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 준비됨'); } catch (e) {}
+
+  /* ══════════════════════════════════════════════════════════════
+     ⑬ 📖 세로 «교재를 위로» — 학생 전용 옵션
+     ──────────────────────────────────────────────────────────────
+     [지시] 사장님 2026-08-28 「휴대폰 세로에서 위 얼굴 / 아래 교재를 맞바꾸는 옵션을
+            ☰ 기능 메뉴에 넣어줘. 강사는 되었고 «학생만» 켜게 해줘.」
+
+     [무엇을 하나] body 에 mg-tb-top 을 붙였다 뗀다. 그게 전부다.
+       · 교재 칸(.content-pane) order:1 → 위,  얼굴 칸(.video-pane) order:2 → 아래
+       · 크기는 하나도 안 바뀐다 — 순서만 뒤집힌다. 그래서 교재 그림·필기 겹칩 캔버스를
+         다시 잴 일이 없고, 영상 연결·화질·소리와도 무관하다.
+       · 첫 화면 예산 0바이트 — 이 파일은 defer 이고 CSS 도 스스로 만들어 붙인다.
+
+     ⛔ index.html 3248행의 «위: 얼굴 / 아래: 교재»(2026-07-14 사장님 지시)는 손대지 않는다.
+        그 줄은 그대로 두고 «켠 사람에게만» 위에 덧씌운다. 되돌리려면 이 절만 지우면 된다.
+        기본은 꺼짐이라 아무것도 안 한 학생의 화면은 지금과 한 픽셀도 다르지 않다.
+
+     ⚠️ [겹침] 하단 독(#vc-dock, z-index 99993)과 ☰ 기능 버튼(.vc-phero-ctrl)은 화면 아래에
+        «떠» 있다. 지금은 아래가 교재라 교재 여백을 덮고 있어 아무도 몰랐지만, 얼굴이
+        내려오면 학생 얼굴 아랫부분이 그대로 가려진다. 그래서 얼굴 칸 아래에 독 높이만큼
+        빈자리를 둔다(--mg-tb-gap). 그 값은 하드코딩하지 않고 «독을 실제로 재서» 넣는다 —
+        독은 접힘·화면폭·안전영역에 따라 높이가 달라지므로 숫자를 박으면 반드시 어긋난다.
+        ⚠️ 빈자리만큼 얼굴 칸을 줄인다(32vh−gap). 교재 칸을 줄이지 않는 쪽을 골랐다 —
+           이 기능의 목적 자체가 «교재를 크게 위에서 보는 것» 이기 때문이다.
+
+     ⚠️ [모드] 세로에는 «2단으로 쌓이는» 모드(기본·half)와 «떠 있는» 모드(pip·facepip·
+        full·solo·free)가 있다. 뒤쪽에는 위아래라는 개념 자체가 없다(pip 는 얼굴이
+        position:absolute 로 우상단에 뜬다). CSS 선택자에서 그 모드들을 빼 두었으므로
+        모드를 바꾸면 **JS 가 아무것도 안 해도** 규칙이 저절로 꺼지고 켜진다.
+        ℹ️ 세로 기본이 pip 인 학생이 눌렀을 때 «아무 일도 안 일어나는» 것을 막으려고,
+           떠 있는 모드에서 켜면 먼저 half(기본)로 옮긴 뒤 적용한다.
+           ⚠️ 끌 때는 pip 로 되돌리지 않는다 — «되돌리기» 를 흉내내려면 이전 모드를
+              기억해야 하는데, 그 사이 사람이 크기바로 또 바꿀 수 있어 더 헷갈린다.
+
+     🧑‍🎓 [학생만] 판정은 «내가 스태프인가» 하나로 하지 않는다. jeong(사장님)처럼 홈 통합
+        로그인에서 관리자 폴백으로 들어오면 vcMyRole 이 admin 으로 굳어 수업 내내 안 풀린다
+        (⑨-3 주석 참고 — 실측 10분). 그래서 스태프로 잡혀도 «상대편에 교사가 있으면»
+        나는 학생 자리로 본다. 어느 쪽으로 틀려도 피해는 «버튼이 보이거나 안 보이거나» 뿐이고,
+        이 옵션은 자기 화면만 바꾼다 — 남의 화면에는 아무 영향이 없다.
+        ⚠️ 그래서 사장님이 jeong 으로 들어가시면 «상대에 강사가 있을 때만» 버튼이 보인다.
+           혼자 방을 열어 확인하시면 안 보이는 것이 정상이다.
+     ⛔ 참관(Ghost)에게는 안 준다 — 참관자의 #vc-local-box 는 빈 타일이라 배치를 건드리면
+        ⑨ 에서 밟았던 «빈 타일이 주인공» 사고가 이쪽에서 재현된다.
+
+     ⛔ body class 를 MutationObserver 로 지켜보지 않는다(홈 전체를 멎게 한 전력).
+     ⛔ 상주 setInterval 을 남기지 않는다 — 입장 직후 «끝이 있는» 확인만 한다.
+     ══════════════════════════════════════════════════════════════ */
+  (function tbTopOption() {
+    var LS  = 'mangoi_vc_portrait_order';   // 'tbtop' 이면 켜짐. 없으면 꺼짐(기본)
+    var CLS = 'mg-tb-top';
+    var BTN = 'mg-tbtop-btn';
+
+    /* 떠 있는 모드 — 여기서는 «위아래» 가 없다. CSS 선택자와 반드시 같은 목록이어야 한다. */
+    var FLOATING = ['video-pip', 'video-facepip', 'video-full', 'video-solo', 'video-free'];
+    var NOT_FLOAT = ':not(.video-pip):not(.video-facepip):not(.video-full):not(.video-solo):not(.video-free)';
+
+    /* ⚠️ 900px 이다(920 아님) — 2단으로 쌓는 규칙(index.html 3253·3275행)이 사는
+       미디어쿼리가 max-width:900px 이라, 그보다 넓게 잡으면 901~920px 에서 이기는
+       규칙이 없는 채로 order 만 걸린다. */
+    /* 🔴 선택자에 **id 를 두 개** 쓴다(#vc-main-row > #vc-video-pane). 클래스로 쓰면 진다 —
+       index.html 17472행(2026-07-28 「교재 왼쪽」 개편)이 이미 같은 두 칸의 order 를
+       «id 두 개» 로 못 박아 두었고, 세로에서는 그것이 다시 «얼굴=1 / 교재=2» 로 되돌린다.
+       클래스를 아무리 쌓아도 id 수가 적으면 못 이긴다(CLAUDE.md 2장 특정성 함정).
+       ⚠️ 첫 판에 실제로 밟았다 — 규칙이 «있는데» 화면은 그대로였고, 브라우저 실측
+          (getComputedStyle(...).order 가 1/2 로 뒤집혀 나옴)으로만 보였다. */
+    var TBTOP_CSS =
+      '@media (max-width:900px) and (orientation:portrait){' +
+        'body.vc-in-call.' + CLS + ' #vc-main-row' + NOT_FLOAT + ' > #vc-content-pane{order:1 !important}' +
+        'body.vc-in-call.' + CLS + ' #vc-main-row' + NOT_FLOAT + ' > #vc-video-pane{' +
+          'order:2 !important;' +
+          /* 빈자리는 얼굴 칸 «안» 에 padding 으로 둔다 — 이 저장소는 box-sizing:border-box 라
+             칸의 «바깥 크기» 가 안 변한다 → 교재 칸이 한 픽셀도 안 줄어든다.
+             ⚠️ margin 으로 두면 그만큼을 교재 칸이 내놓는다(실측 −15px). 이 기능의 목적이
+                «교재를 크게 위에서 보는 것» 이라 그쪽은 목적에 어긋난다. */
+          'padding-bottom:var(--mg-tb-gap,76px) !important;' +
+          'border-bottom:none !important;' +
+          'border-top:1px solid rgba(148,163,184,0.22) !important}' +
+        /* ☰ 메뉴 안에서의 자리와 색.
+           🔴 **맨 앞(order:-1) + 두 칸 폭** 으로 둔다. 그냥 붙이면 탭바의 «맨 뒤» 라
+              메뉴 그리드에서도 마지막 칸이 되는데, 그 시트는 최대 66vh 짜리 «스크롤되는»
+              상자다 — 항목이 12개가 넘으면 화면 밖으로 밀려 «메뉴에 없다» 가 된다.
+              2026-08-28 사장님 제보가 그 상태였다(같은 이유로 «학생 크게»·«내 얼굴» 도 안 보였다).
+           ℹ️ 두 칸 폭으로 두는 이유 — 나머지는 «기능 타일» 2열 짝이라, 한 칸만 차지하면
+              교재·칠판 짝이 어긋난다. 제목 바로 아래 «가로 줄» 이면 그 짝을 안 건드린다.
+           ⚠️ .vc-phero-menu-item 은 index.html 이 크기·여백만 주고 색은 항목별로 준다. */
+        'body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > .' + BTN + '{' +
+          'order:-1 !important;grid-column:1 / -1 !important;' +
+          'background:rgba(16,185,129,0.18) !important;color:#a7f3d0 !important;' +
+          'border:1px solid rgba(52,211,153,0.5) !important}' +
+      '}';
+
+    (function injectTbTopCss() {
+      function put() {
+        if (document.getElementById('mg-tbtop-css')) return;
+        if (!document.body) return;
+        var st = document.createElement('style');
+        st.id = 'mg-tbtop-css';
+        st.textContent = TBTOP_CSS;
+        document.body.appendChild(st);   // 이 저장소의 화면 CSS 는 body 안에서 링크된다 — 뒤에 와야 이긴다
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+      else put();
+    })();
+
+    function isOn() {
+      try { return localStorage.getItem(LS) === 'tbtop'; } catch (e) { return false; }
+    }
+    function save(v) {
+      try { if (v) localStorage.setItem(LS, 'tbtop'); else localStorage.removeItem(LS); } catch (e) {}
+    }
+
+    /* 🧑‍🎓 내가 «학생 자리» 인가 — 위 머리말의 jeong 사고 참고 */
+    function isStudentSide() {
+      try {
+        if (document.body.classList.contains('vc-observer')) return false;   // 참관은 제외
+        var staff = false;
+        try {
+          staff = (typeof window.vcIsStaffNow === 'function') ? !!window.vcIsStaffNow()
+                : (window.vcMyRole === 'teacher' || window.vcMyRole === 'admin');
+        } catch (e) {}
+        if (!staff) return true;
+        /* 스태프로 잡혔어도 상대편에 교사가 있으면 나는 학생 자리다 */
+        return (typeof mgRemoteTeacherPresent === 'function') ? !!mgRemoteTeacherPresent() : false;
+      } catch (e) { return false; }
+    }
+
+    function row() { return document.getElementById('vc-main-row'); }
+
+    function isFloatingMode() {
+      var r = row(); if (!r) return false;
+      for (var i = 0; i < FLOATING.length; i++) if (r.classList.contains(FLOATING[i])) return true;
+      return false;
+    }
+
+    /* 화면 아래에 «떠 있는 것들» 이 실제로 덮는 높이를 재서 넣는다. 숫자를 박으면
+       접힘·안전영역·화면폭에 따라 반드시 어긋난다.
+       ⚠️ #vc-dock 하나만 재면 안 된다 — 폰에서 독은 «⋯» 뒤에 접혀 display:none 이고,
+          실제로 아래를 덮는 것은 ☰ 기능 버튼과 «⋯» 다.
+          390×844 실측(2026-08-28): ☰ 53px · ⋯ 42px · 독 0px(접힘).
+          그래서 «지금 보이는 것들» 을 전부 훑어 제일 높이 올라온 것을 쓴다.
+       ℹ️ 학생이 «⋯» 를 눌러 독을 펴면 그동안은 독이 얼굴 위를 덮는다 — 지금도 교재 위를
+          덮고 있고, 누른 사람이 곧 닫는 «잠깐» 이라 그대로 둔다. */
+    var BOTTOM_FURNITURE = ['#vc-dock', '#vc-dock-more', '#vc-dock-handle', '.vc-phero-ctrl'];
+    function measureGap() {
+      var g = 0;
+      try {
+        for (var i = 0; i < BOTTOM_FURNITURE.length; i++) {
+          var el = document.querySelector(BOTTOM_FURNITURE[i]);   // ⚠️ 이름을 e 로 두지 않는다 — 감싼 catch(e) 와 헷갈린다
+          if (!el) continue;
+          var r = el.getBoundingClientRect();
+          if (r.height <= 0) continue;                 // 접혀 있으면 안 덮는다
+          /* 화면 아래끝에서 그 윗변까지 = 덮는 띠. +6 은 얼굴이 거기 닿지 않게. */
+          var cover = Math.round((window.innerHeight - r.top) + 6);
+          if (cover > g) g = cover;
+        }
+      } catch (e) {}
+      if (!g) g = 76;              // 하나도 못 쟀을 때만 — 넉넉한 쪽으로
+      if (g < 40) g = 40;          // 너무 작으면 가리는 것을 못 막는다
+      if (g > 160) g = 160;        // 너무 크면 얼굴이 사라진다 — 이상한 값이 화면을 망가뜨리지 않게
+      try { document.documentElement.style.setProperty('--mg-tb-gap', g + 'px'); } catch (e) {}
+    }
+
+    /* ⛔ 있을 때만 지우고 없을 때만 더한다 — 무조건 classList 를 쓰면 class 속성이 다시 쓰여
+       남의 감시자를 깨운다(2026-07-14 라이브 장애와 같은 뿌리). */
+    function apply() {
+      try {
+        var want = isOn() && isStudentSide();
+        var has  = document.body.classList.contains(CLS);
+        if (want && !has) { measureGap(); document.body.classList.add(CLS); }
+        else if (!want && has) { document.body.classList.remove(CLS); }
+      } catch (e) {}
+    }
+
+    function isEn() {
+      try { return (typeof window.getLang === 'function') && window.getLang() === 'en'; } catch (e) { return false; }
+    }
+
+    /* 🌐 상태에 따라 글자가 바뀌는 버튼이므로 그릴 때 data-ko/data-en 도 «함께» 갱신한다.
+       (textContent 로만 쓰면 🌐 를 눌러도 안 따라온다 — CLAUDE.md 2장)
+       ⚠️ 설명 말풍선은 data-ko-title/data-en-title 로만 단다. data-ko/data-en 은
+          textContent 를 통째로 갈아끼우는 속성이라 «설명» 용도로 쓰면 안 된다. */
+    function paint() {
+      var b = document.getElementById(BTN); if (!b) return;
+      var on = isOn();
+      var ko = on ? '⇅ 얼굴을 위로'   : '⇅ 교재를 위로';
+      var en = on ? '⇅ Faces on top' : '⇅ Textbook on top';
+      var kt = on ? '얼굴을 다시 위로 올립니다' : '교재를 위로, 얼굴을 아래로 바꿉니다';
+      var et = on ? 'Put the faces back on top' : 'Move the textbook above the faces';
+      b.setAttribute('data-ko', ko);       b.setAttribute('data-en', en);
+      b.setAttribute('data-ko-title', kt); b.setAttribute('data-en-title', et);
+      var e = isEn();
+      b.textContent = e ? en : ko;
+      b.title = e ? et : kt;
+    }
+
+    function onClick() {
+      var turningOn = !isOn();
+      /* 떠 있는 모드에서 켜면 «아무 일도 안 일어난다» — 먼저 2단(기본)으로 옮긴다. */
+      if (turningOn && isFloatingMode()) {
+        try {
+          if (typeof window.vcScreenSet === 'function') window.vcScreenSet('half');
+          if (typeof window.vcUpdatePheroLabels === 'function') window.vcUpdatePheroLabels();
+        } catch (e) {}
+      }
+      save(turningOn);
+      apply();
+      paint();
+      try { window.closePheroMenu(); } catch (e) {}   // 메뉴 안 항목 — 누르면 닫아 결과가 바로 보이게
+    }
+
+    /* ☰ 기능 메뉴(=탭바 그리드) 안에 항목을 넣는다. 강사·관리자·참관에게는 만들지 않는다. */
+    function ensureBtn() {
+      try {
+        var tb = document.querySelector('#vc-main-row .content-pane .tab-bar');
+        if (!tb) return;
+        var b = document.getElementById(BTN);
+        if (!isStudentSide()) { if (b) { try { b.remove(); } catch (e) {} } return; }
+        if (b) { paint(); return; }
+        b = document.createElement('button');
+        b.type = 'button';
+        b.id = BTN;
+        b.className = 'vc-phero-menu-item ' + BTN;
+        b.addEventListener('click', onClick);
+        tb.appendChild(b);
+        paint();
+      } catch (e) {}
+    }
+
+    /* ── 언제 다시 보나 ────────────────────────────────────────
+       ⛔ 상주 감시자를 두지 않는다. 아래 네 가지 «순간» 에만 본다. */
+
+    /* ① ☰ 메뉴를 열기 직전 (탭바가 늦게 그려져도 항목이 있게) */
+    var _menu = window.vcTogglePheroMenu;
+    if (typeof _menu === 'function') {
+      window.vcTogglePheroMenu = function () {
+        try { ensureBtn(); } catch (e) {}
+        return _menu.apply(this, arguments);
+      };
+    }
+
+    /* ② 수업에 들어간 직후 — 역할이 늦게 오므로 «끝이 있는» 확인 */
+    var _join2 = window.vcJoinRoom;
+    if (typeof _join2 === 'function') {
+      window.vcJoinRoom = function () {
+        var r = _join2.apply(this, arguments);
+        var n = 0;
+        var iv = setInterval(function () {
+          try { ensureBtn(); apply(); } catch (e) {}
+          if (++n >= 12) clearInterval(iv);      // 6초까지만 — 상주 타이머를 남기지 않는다
+        }, 500);
+        return r;
+      };
+    }
+
+    /* ③ 상대 타일·역할이 바뀔 때 (교사가 나중에 들어오는 경우) */
+    var _spot2 = window.vcApplySpotlight;
+    if (typeof _spot2 === 'function') {
+      window.vcApplySpotlight = function () {
+        var r = _spot2.apply(this, arguments);
+        try { ensureBtn(); apply(); } catch (e) {}
+        return r;
+      };
+    }
+
+    /* ④ 화면이 돌거나 크기가 바뀔 때 — 독 높이가 달라지므로 다시 잰다 */
+    function relayout() { try { if (document.body.classList.contains(CLS)) measureGap(); } catch (e) {} }
+    window.addEventListener('orientationchange', function () { setTimeout(relayout, 500); });
+    window.addEventListener('resize', function () { setTimeout(relayout, 300); });
+    window.addEventListener('mangoi:lang-changed', function () { try { paint(); } catch (e) {} });
+
+    /* 검사·콘솔에서 부를 수 있게 */
+    window.mgTbTopApply       = apply;
+    window.mgTbTopEnsureBtn   = ensureBtn;
+    window.mgTbTopIsStudent   = isStudentSide;
+    window.mgTbTopMeasureGap  = measureGap;
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) 준비됨'); } catch (e) {}
 })();
