@@ -127,14 +127,41 @@ export async function importCafe24Payments(env: SyncEnv): Promise<{ imported: nu
   return { imported };
 }
 
-/** 👨‍🎓 학생(2.9만) 한 페이지 → D1 students_erp (INSERT OR REPLACE, user_id PK 스키마 대응). */
+/** 👨‍🎓 학생(2.9만) 한 페이지 → D1 students_erp (UPSERT — 카페24 칸만 덮고 우리 칸은 보존, 2026-08-28). */
 export async function importCafe24Students(env: SyncEnv, off: number, lim: number): Promise<{ imported: number; done: boolean }> {
   if (off === 0) {
     // franchise·hq_name 컬럼 보강 (정산 트리 rebuildTree 가 이 3개로 org_nodes 구성).
     // 첫 페이지에서만 1회 — 이후 페이지는 컬럼이 이미 존재하므로 불필요.
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN franchise TEXT`); } catch {}
     try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN hq_name TEXT`); } catch {}
-    await env.DB.prepare(`DELETE FROM students_erp WHERE created_at = ?`).bind(CAFE24_STUDENT_SENTINEL).run();
+    /* 🔒 (2026-08-28) 아래 DELETE 의 보존 조건이 이 세 칸을 읽는다. 그런데 셋 다 «처음 쓰일 때»
+       ALTER 로 생기는 지연 컬럼이라(api-lessons·api-students 참고) 없는 DB 에서는
+       DELETE 가 no such column 으로 죽고, 그 예외를 nightlyCafe24Refresh 가 삼켜서
+       **학생 29,000명 동기화가 조용히 멈춘다.** 멱등 ALTER 로 먼저 있게 만든다.
+       (attendance.host·vc_quality.novideo 와 같은 방식 — 있으면 catch 로 넘어간다) */
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN password_hash TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN parent_user_id TEXT`); } catch {}
+    try { await env.DB.exec(`ALTER TABLE students_erp ADD COLUMN eval_band TEXT`); } catch {}
+    /* 🔒 (2026-08-28) «우리가 D1 에서만 관리하는 값» 이 든 행은 지우지 않는다.
+       [왜] 이 DELETE 는 카페24 학생 전원(현재 29,428행)을 매일 밤 지우고 다시 넣는다.
+            아래 INSERT 컬럼 목록에 없는 칸은 그때 전부 사라진다 — 그 목록에 없는 칸이 25개고
+            그중 password_hash·parent_user_id·eval_band 는 **카페24가 아니라 우리 코드가 쓰는 값**이다
+            (/api/student/set-password · /api/parent/link-child · 수업평가 밴드).
+            즉 학생이 오늘 비밀번호를 정해도 오늘 밤 사라진다 → 학생 비밀번호를 도입할 수 없다.
+       [지금 피해가 없는 이유] 2026-08-28 실측으로 그 세 칸이 모두 0건이다. 잃을 것이 아직 없다.
+            바꿔 말하면 «앞으로 쓰기 시작하는 순간» 사고가 된다 — 그래서 지금 막는다.
+       [순서가 전부다] 아래 INSERT 를 UPSERT 로 바꾼 것과 짝이다. DELETE 가 전부 지우면
+            ON CONFLICT 가 영영 발동하지 않아 UPSERT 가 무의미해진다.
+       ⚠️ 카페24를 떠난 학생인데 이 칸들에 값이 있으면 행이 남는다(status 갱신도 멈춘다).
+          그 편이 «비밀번호·학부모 연결을 파괴하는 것» 보다 낫다는 판단이다.
+       📜 같은 수리를 franchises·centers 는 2026-08-14 에 이미 했다(위 UPSERT). 학생만 남아 있었다. */
+    await env.DB.prepare(
+      `DELETE FROM students_erp
+        WHERE created_at = ?
+          AND (password_hash  IS NULL OR TRIM(password_hash)  = '')
+          AND (parent_user_id IS NULL OR TRIM(parent_user_id) = '')
+          AND (eval_band      IS NULL OR TRIM(eval_band)      = '')`
+    ).bind(CAFE24_STUDENT_SENTINEL).run();
   }
   /* 📞 (2026-08-18 사장님) 학부모·학생 전화번호를 함께 가져온다.
        왜 필요했나 — D1 의 students_erp 29,398행 중 전화번호가 parent_phone 3개 · phone 9개뿐이라
@@ -166,9 +193,22 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
             coalesce(parent_phone_g, s.parent_phone) AS parent_phone,
             s.student_phone AS student_phone
      ORDER BY user_id SKIP $off LIMIT $lim`, { off, lim }, 'READ');
+  /* ⚠️ INSERT OR REPLACE 를 쓰면 안 된다 — SQLite 의 REPLACE 는 «기존 행을 지우고 새로 넣는» 것이라
+     이 컬럼 목록에 없는 25개 칸이 매일 밤 NULL 이 된다(전화번호가 그렇게 전멸했던 것이 2026-08-18 건).
+     카페24가 주는 칸만 덮어쓰고 우리가 관리하는 칸은 보존한다 — franchises 와 같은 방식(2026-08-14).
+     ⛔ created_at 은 갱신하지 않는다: 그 값이 «카페24가 정본» 임을 나타내는 표식이라,
+        로컬에서 만든 행(체험계정 lt* 등)을 이 동기화가 자기 것으로 바꿔 버리면 안 된다. */
   const ins = env.DB.prepare(
-    `INSERT OR REPLACE INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, parent_phone, student_phone, phone, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    `INSERT INTO students_erp (user_id, student_id, login_id, username, korean_name, grade, school, status, signup_date, end_date, shop_name, franchise, hq_name, points, parent_phone, student_phone, phone, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       student_id = excluded.student_id, login_id = excluded.login_id, username = excluded.username,
+       korean_name = excluded.korean_name, grade = excluded.grade, school = excluded.school,
+       status = excluded.status, signup_date = excluded.signup_date, end_date = excluded.end_date,
+       shop_name = excluded.shop_name, franchise = excluded.franchise, hq_name = excluded.hq_name,
+       points = excluded.points, parent_phone = excluded.parent_phone,
+       student_phone = excluded.student_phone, phone = excluded.phone,
+       updated_at = excluded.updated_at`);
   let imported = 0;
   for (let i = 0; i < values.length; i += 400) {
     const rows = rowsToObjects(fields, values.slice(i, i + 400));
@@ -188,7 +228,7 @@ export async function importCafe24Students(env: SyncEnv, off: number, lim: numbe
   }
   const done = values.length < lim;
   /* 🧹 (2026-08-20) 마지막 페이지를 넣은 «직후» 우리 지정을 다시 입힌다.
-        위 INSERT OR REPLACE 가 korean_name 을 카페24 값으로 덮기 때문에,
+        위 UPSERT 가 korean_name 을 카페24 값으로 덮기 때문에,
         여기서 되돌리지 않으면 D1 에서 고친 이름은 하룻밤이면 사라진다.
         ⚠️ 순서가 전부다 — 이 호출이 «동기화 앞» 으로 옮겨가면 그 순간 무의미해진다.
         ⚠️ 마지막 페이지에서만 부른다. 중간 페이지에서 불러 봐야 뒤 페이지가 다시 덮는다.
