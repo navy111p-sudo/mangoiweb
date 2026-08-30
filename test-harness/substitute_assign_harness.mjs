@@ -29,6 +29,8 @@ const CF = resolve(__dir, '..', 'cloudflare-deploy');
 const rd = (p) => { try { return readFileSync(resolve(__dir, p), 'utf8'); } catch { return ''; } };
 
 const enroll = rd('../cloudflare-deploy/src/enroll-ops.ts');
+const auth = rd('../cloudflare-deploy/src/auth-admin.ts');
+const todayJs = rd('../cloudflare-deploy/public/js/adm-today-classes.js');
 const admin = rd('../cloudflare-deploy/src/api-admin.ts');
 const teacher = rd('../cloudflare-deploy/src/api-teacher.ts');
 const mango = rd('../cloudflare-deploy/src/api-mango.ts');
@@ -38,6 +40,29 @@ const check = (name, ok, extra) => {
   if (ok) { PASS++; console.log('  ✅ ' + name); }
   else { FAIL++; FAILS.push(name); console.log('  ❌ ' + name + (extra !== undefined ? '  →  ' + JSON.stringify(extra) : '')); }
 };
+
+/** 부정 검사(«이 글자가 없어야 한다»)는 반드시 주석을 벗겨 낸 사본으로 — 안 그러면
+ *  「왜 그렇게 안 했는지」 적어 둔 설명이 자기 검사에 걸린다(CLAUDE.md 2장).
+ *  ⚠️ 블록주석을 정규식 한 줄로 지우지 말 것 — 문자열 안의 «/*» 하나에 그 뒤가 통째로
+ *     사라진다(같은 장). 줄 단위로 «지금 블록주석 안인가» 를 추적한다. */
+function stripComments(src) {
+  const out = [];
+  let inBlock = false;
+  for (let line of String(src).split('\n')) {
+    let res = '';
+    for (let i = 0; i < line.length; i++) {
+      if (inBlock) {
+        if (line[i] === '*' && line[i + 1] === '/') { inBlock = false; i++; }
+        continue;
+      }
+      if (line[i] === '/' && line[i + 1] === '*') { inBlock = true; i++; continue; }
+      if (line[i] === '/' && line[i + 1] === '/') break;
+      res += line[i];
+    }
+    out.push(res);
+  }
+  return out.join('\n');
+}
 
 /** 중괄호 짝으로 블록을 자른다 — 길이(slice(i, i+N))로 자르면 옆 함수가 딸려 들어와
  *  「대상 지정이 방 전체로 샌다」 같은 거짓 FAIL 이 난다(CLAUDE.md 2장). */
@@ -137,6 +162,58 @@ for (const [label, anchor] of [
 }
 check('강사 차단이 checkAdminSession «만» 에 기대지 않는다',
   /getAdminActor/.test(blockAt(enroll, "path === '/api/pay/enroll/admin/substitute'")));
+
+/* ══ ②-2 지사·대리점·지사본사 차단 (2026-08-30 사장님 지시) ═══════════════════
+   🔴 이 API 는 «전국 강사 명부» 를 내려주고 «남의 학생 수업의 담당 강사» 를 바꾼다.
+   ⛔ canEditOrg() 로 막으면 안 된다 — 그 함수는 'none'(내부직원·교사)에도 true 라
+      강사를 못 막는다(CLAUDE.md 2장). 두 가드는 «따로» 있어야 한다. */
+console.log('\n②-2 대체강사 API — 지사·대리점·지사본사 차단');
+{
+  const roleFn = blockAt(auth, 'export function isOrgScopedRole');
+  check('isOrgScopedRole 판정이 auth-admin 에 있다', roleFn.length > 40);
+  check("판정이 branch·agency·franchise 셋을 모두 본다",
+    /'branch'/.test(roleFn) && /'agency'/.test(roleFn) && /'franchise'/.test(roleFn), roleFn.slice(0, 120));
+  if (esbuildApi && roleFn) {
+    const js2 = esbuildApi.transformSync(roleFn.replace('export ', '') + '\nexport { isOrgScopedRole };',
+      { loader: 'ts', format: 'esm' }).code;
+    const m2 = await import('data:text/javascript;base64,' + Buffer.from(js2).toString('base64'));
+    for (const [role, want] of [['branch', true], ['agency', true], ['franchise', true],
+      ['hq', false], ['none', false], ['staff', false], ['teacher', false], ['', false], [null, false]]) {
+      check('isOrgScopedRole(' + JSON.stringify(role) + ')', m2.isOrgScopedRole(role) === want);
+    }
+  }
+  for (const [label, anchor] of [
+    ['후보 조회(GET)', "path === '/api/pay/enroll/admin/substitute-candidates'"],
+    ['배정·취소(POST)', "path === '/api/pay/enroll/admin/substitute'"],
+  ]) {
+    const blk = blockAt(enroll, anchor);
+    const at = blk.indexOf('isOrgScopedRole');
+    const firstDb = Math.min(...['env.DB.prepare', 'env.DB.exec', 'ensureEnrollTables']
+      .map((k) => { const i = blk.indexOf(k); return i < 0 ? Number.MAX_SAFE_INTEGER : i; }));
+    check(label + ' — 조직 계정 403 가드가 있다', at > 0 && /forbidden_scope/.test(blk));
+    check(label + ' — 그 가드가 DB 접근보다 앞에 온다', at > 0 && at < firstDb, { at, firstDb });
+    check(label + ' — 강사 가드와 «따로» 있다(canEditOrg 로 대체하지 않았다)',
+      /isTeacher/.test(blk) && !/canEditOrg/.test(stripComments(blk)));
+  }
+}
+
+/* ══ ②-3 화면도 함께 감춘다 — 서버만 막으면 «눌러도 안 되는 버튼» 이 남는다 ══════ */
+console.log('\n②-3 관리자 화면이 그 버튼·안내를 함께 감춘다');
+{
+  check('버튼을 그리기 전에 역할을 본다(subAllowed)',
+    /subAllowed\(\)/.test(todayJs) && /tc-sub-act/.test(todayJs));
+  const fn = blockAt(todayJs, 'function subAllowed');
+  check('화면 판정도 branch·agency·franchise·teacher 를 본다',
+    /'branch'/.test(fn) && /'agency'/.test(fn) && /'franchise'/.test(fn) && /'teacher'/.test(fn), fn.slice(0, 140));
+  check('신원을 모를 때는 막지 않는다(서버가 최종 판정)', /if \(!role\) return true/.test(fn));
+  check('신원 정본은 서버가 확인한 window.__ADM_ME 다', /__ADM_ME/.test(fn));
+  check('안내 문구도 같이 감춘다(tc-sub-help)',
+    /tc-sub-help/.test(todayJs) && /tc-sub-help/.test(rd('../cloudflare-deploy/public/admin.html')));
+  check("신원이 도착하면 다시 그린다 — document 에서 듣는다(발행처가 document)",
+    /document\.addEventListener\('mangoi:identity'/.test(todayJs));
+  check('⛔ 상주 감시(MutationObserver·setInterval)를 쓰지 않는다',
+    !/MutationObserver|setInterval/.test(stripComments(todayJs)));
+}
 
 /* ══ ③ CREATE 두 벌이 같은 표를 만드는가 (진짜 SQLite) ════════════════════════ */
 console.log('\n③ class_substitutions — CREATE 두 벌이 같은 표를 만든다');

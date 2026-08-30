@@ -24,7 +24,7 @@ import {
   DEFAULT_LONG_CLASS_DAILY_CAP,  // 🪑 긴 수업 하루 정원 기본값 (0 = 무제한)
   isLongClass, longClassCapReached,
 } from './class-policy';
-import { checkAdminSession, getAdminActor } from './auth-admin';
+import { checkAdminSession, getAdminActor, isOrgScopedRole } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 
 /** 🔑 수강신청·자동결제용 로그인 판정 — 학생 토큰이 우선, 없으면 «관리자 세션 쿠키» 를
@@ -1226,6 +1226,11 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
     if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    /* 🔒 (2026-08-30 사장님 지시) 지사·대리점·지사본사는 못 쓴다 — 이 API 는 «전국 강사 명부» 를
+       내려주고 «남의 학생 수업의 담당 강사» 를 바꾼다. 조직 계정에는 그 반경이 자기 칸을 넘는다.
+       ⛔ `canEditOrg()` 로 막지 말 것 — 그 함수는 'none'(내부직원·교사)에도 true 라 강사를 못
+          막는다(CLAUDE.md 2장). 강사는 위 `isTeacher`, 조직 계정은 이 줄이 «따로» 막는다. */
+    if (isOrgScopedRole(actor.role)) return json({ ok: false, error: 'forbidden_scope', message: '지사·대리점 권한으로는 사용할 수 없는 기능입니다.' }, 403);
     await ensureEnrollTables(env);
     const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
     const date = String(url.searchParams.get('date') || '').trim();
@@ -1293,6 +1298,11 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
     const actor = await getAdminActor(request, env as any);
     if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
     if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    /* 🔒 (2026-08-30 사장님 지시) 지사·대리점·지사본사는 못 쓴다 — 이 API 는 «전국 강사 명부» 를
+       내려주고 «남의 학생 수업의 담당 강사» 를 바꾼다. 조직 계정에는 그 반경이 자기 칸을 넘는다.
+       ⛔ `canEditOrg()` 로 막지 말 것 — 그 함수는 'none'(내부직원·교사)에도 true 라 강사를 못
+          막는다(CLAUDE.md 2장). 강사는 위 `isTeacher`, 조직 계정은 이 줄이 «따로» 막는다. */
+    if (isOrgScopedRole(actor.role)) return json({ ok: false, error: 'forbidden_scope', message: '지사·대리점 권한으로는 사용할 수 없는 기능입니다.' }, 403);
     await ensureEnrollTables(env);
     const body = await parseJsonBody(request) || {};
     const scheduleId = Number(body.schedule_id || 0);
