@@ -181,6 +181,10 @@ console.log('\nG. 회귀 감시 — src 의 손수 만든 IN 목록');
     //    class_schedules·attendance 에서 «학생이 안 붙은 자리표시» 계정을 빼는 용도이고,
     //    같은 목록을 api-admin.ts·api-teacher.ts 도 리터럴로 쓴다.
     'learning-insights.ts': '데모 계정 DEMO_UIDS 코드 상수 배열(고정 2개) — 입력으로 늘지 않음',
+    // 🔄 (2026-08-28) 대체강사 오버레이 — myKeys = 로그인한 강사 «본인» 의 teachers.id 후보
+    //    (resolvedRows, 보통 0~1개) + username 1개. teachers 표 전체가 40행 안팎이라
+    //    설령 이름이 겹쳐도 100개를 넘을 수 없다 — 사용자 입력으로 늘지 않는 값이다.
+    'api-teacher.ts': '로그인한 강사 본인의 teachers.id 후보(보통 0~1개) + username 1개 — teachers 표 전체가 100행 미만',
   };
   const offenders = [];
   for (const f of readdirSync(SRC).filter(x => x.endsWith('.ts'))) {
