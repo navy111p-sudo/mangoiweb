@@ -442,6 +442,13 @@
 </div>
 
 <script>
+/* 🔐 (2026-08-28) 본인 확인 토큰 — 서버가 포인트 적립·복습 기록에 소유자 판정을 걸었다.
+   예전에는 검사가 없어 남의 아이디로 포인트를 무한히 찍어 기프티콘까지 갈 수 있었다.
+   게스트(guest_*)는 토큰 없이 그대로 통과한다.
+   ⚠️ **반드시 최상위 스코프**에 둔다 — 함수 안에 선언하면 그 함수 밖 호출부는 전부
+      ReferenceError 로 죽는다(이 PR 에서 실제로 한 번 그렇게 넣었다가 trap-check 가 잡았다).
+      본보기: judgment.html 의 authTok(). */
+function __mgTok(){ try { return localStorage.getItem('mango_token') || ''; } catch(e){ return ''; } }
 const esc = (s) => String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 function getName(){ try { const u = JSON.parse(localStorage.getItem('mango_user')||'null'); return u?.name || u?.user_name || ''; } catch(e){ return ''; } }
 /* 신원(uid+토큰): 로그인=실제 학생, 비로그인=기기별 서버서명 게스트 신원.
@@ -734,7 +741,7 @@ async function addPreviewWord(btn){
   if (!word || btn.disabled) return;
   btn.disabled = true; btn.textContent = '⏳';
   try {
-    const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, word, korean: '' }) });
+    const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), word, korean: '' }) });
     const d = await r.json();
     if (d.ok) { btn.classList.add('active'); btn.textContent = '✅ 담음'; sndCorrect(); loadDueCount(); loadStats(); }
     else { btn.disabled = false; btn.textContent = '+ '+word; }
@@ -780,7 +787,7 @@ async function addWord(){
   const fb = document.getElementById('add-feedback');
   fb.innerHTML = '<span style="color:#8b9bbd">⏳ 추가 중… (AI 자동 생성 3~5초)</span>';
   try {
-    const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, word, korean: ko }) });
+    const r = await fetch('/api/vocab/add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), word, korean: ko }) });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error);
     fb.innerHTML = `✅ <b style="color:#34d399">${esc(d.word)}</b> — <span style="color:#fbbf24">${esc(d.korean)}</span><br><span style="color:#a3b3d1;font-style:italic;font-size:14px">💬 ${esc(d.example)}</span>`;
@@ -932,7 +939,7 @@ async function doBulkAdd(){
     for (let i = 0; i < sel.length; i += 20){
       const chunk = sel.slice(i, i+20);
       st.innerHTML = '<span style="color:#8b9bbd">⏳ 추가 중… '+Math.min(i+chunk.length, sel.length)+'/'+sel.length+' <span style="font-size:12.5px">(빈 뜻은 AI 가 생성해서 조금 걸려요)</span></span>';
-      const r = await fetch('/api/vocab/bulk-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, items: chunk }) });
+      const r = await fetch('/api/vocab/bulk-add', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ user_id: UID, token: __mgTok(), items: chunk }) });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error || '추가 실패');
       added += d.added || 0; dup += d.skipped_dup || 0;
@@ -1271,7 +1278,7 @@ function pickMissReaction(){ return MISS_REACTIONS[Math.floor(Math.random()*MISS
 
 /* 정답/오답 공통 처리: 포인트/콤보/사운드 + 서버 SRS 기록 */
 function applyAnswer(id, correct){
-  fetch('/api/vocab/review', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, correct }) }).catch(()=>{});
+  fetch('/api/vocab/review', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id, correct, token: __mgTok() }) }).catch(()=>{});
   if (correct) {
     S.correct++; S.combo++;
     S.maxCombo = Math.max(S.maxCombo, S.combo);
@@ -1315,7 +1322,7 @@ async function trySpeak(w){
       fb.innerHTML = '🌟 <b style="color:#34d399">발음 성공! +20P</b>';
       floatPt('+20P'); sndFanfare(); confetti();
       fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, student_name: getName(), kind: 'speak', session_id: S.id + ':' + w.id }) })
+        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'speak', session_id: S.id + ':' + w.id }) })
         .then(()=>loadStats()).catch(()=>{});
     } else {
       fb.textContent = said ? ('아깝다! AI 가 들은 말: "' + said + '" — 다시 눌러 도전!') : '잘 안 들렸어요. 다시 도전!';
@@ -1354,14 +1361,14 @@ async function endSession(){
   try {
     if (earn > 0) {
       await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
+        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'session', correct_count: S.correct, bonus: S.bonus, session_id: S.id }) });
     }
     // 일일 미션 (10단어) — 서버가 검증
     const sr = await fetch('/api/vocab/stats?uid='+encodeURIComponent(UID));
     const sd = await sr.json();
     if (sd.ok && sd.today_reviewed >= 10 && !sd.mission_done) {
       const mr = await fetch('/api/vocab/reward', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ user_id: UID, student_name: getName(), kind: 'mission' }) });
+        body: JSON.stringify({ user_id: UID, token: __mgTok(), student_name: getName(), kind: 'mission' }) });
       const md = await mr.json();
       if (md.ok && md.awarded > 0) {
         document.getElementById('mission-slot').innerHTML = '<div class="mission-banner">🎯 오늘의 미션 완료! 보너스 +50P</div>';

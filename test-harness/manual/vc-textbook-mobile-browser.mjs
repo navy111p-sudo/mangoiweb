@@ -567,6 +567,51 @@ let a5 = await tiles('video-half', 2, false, 'student', false, { role: 'teacher'
 ok(a5.cls === false && a5.ratio > 2,
   `학생 화면은 그대로 교사가 크다 (실측 ${a5.ratio}배)`, JSON.stringify(a5));
 
+/* ── ⑩ 크기 버튼이 교재 넘김 화살표에 가리지 않는가 (세로·가로) ──
+   2026-08-28 사장님 「휴대폰 가로에서도 되게 해야 하는데」 에서 나온 검사.
+   크기 알약과 「다음장」 화살표는 둘 다 오른쪽 가장자리에 붙어 있었고, 화살표가
+   «맨 위» 라 크기 버튼이 눌리지 않았다 — 가로에서는 vc-dock.js 가 화살표를
+   52x88 로 키워(2026-07-01 엄지 지시) 알약 높이의 77% 를 덮었다.
+   ⚠️ 「보인다」와 「눌린다」는 다르다 — display 만 보면 이 사고를 못 본다.
+   ⚠️ 화살표는 여러 장짜리 교재일 때만 뜬다. 여기서는 그 상태를 만들어 잰다.
+   ⚠️ 화살표를 52x88 로 키우는 CSS 는 vc-dock.js 가 «독을 만들 때» 주입한다 —
+      독이 서기 전에 재면 44x64 로 나와 가로의 진짜 겹침을 놓친다(실제로 밟았다). */
+console.log('\n⑩ 크기 버튼 대 교재 넘김 화살표 (겹치면 안 눌린다)');
+for (const [w, h, label] of [[390, 844, '세로 390×844'], [844, 390, '가로 844×390'], [932, 430, '가로 932×430']]) {
+  await load(w, h, 3, 'ko-KR');
+  await evalJs(OPEN_CALL);
+  await new Promise(r => setTimeout(r, 2600));      // 독이 서고 그 CSS 가 들어올 때까지
+  const dockCss = await evalJs(`!!document.getElementById('vc-dock-style')`);
+  ok(dockCss, `${label} — 독 CSS 가 실제로 들어왔다 (없으면 화살표 크기를 잘못 잰다)`);
+  await evalJs(`(()=>{ ['.pdf-nav-prev','.pdf-nav-next'].forEach(function(s){
+    var e=document.querySelector('#tab-pdf '+s); if(e) e.style.display='flex'; }); })()`);
+  await new Promise(r => setTimeout(r, 200));
+  const geo = await evalJs(`(()=>{
+    var z=document.getElementById('mgz-zoom'); if(!z) return JSON.stringify({exists:false});
+    var zr=z.getBoundingClientRect();
+    var nx=document.querySelector('#tab-pdf .pdf-nav-next'); if(!nx) return JSON.stringify({noArrow:true});
+    var nr=nx.getBoundingClientRect();
+    var x=Math.min(zr.right,nr.right)-Math.max(zr.left,nr.left);
+    var y=Math.min(zr.bottom,nr.bottom)-Math.max(zr.top,nr.top);
+    var mid=[Math.round(zr.left+zr.width/2), Math.round(zr.top+zr.height/2)];
+    var top=document.elementsFromPoint(mid[0],mid[1])[0];
+    return JSON.stringify({
+      overlap: (x>0&&y>0) ? {x:Math.round(x),y:Math.round(y)} : null,
+      gap: Math.round(nr.left - zr.right),
+      arrow: {w:Math.round(nr.width), h:Math.round(nr.height)},
+      topIsOurs: !!(top && top.closest && top.closest('#mgz-zoom')),
+      topTag: (top && (top.tagName+'.'+String(top.className||'').split(' ')[0])) || '',
+      inView: zr.left>=0 && zr.right<=innerWidth && zr.top>=0 && zr.bottom<=innerHeight
+    });
+  })()`);
+  const G = JSON.parse(geo);
+  ok(G.overlap === null, `${label} — 크기 버튼이 넘김 화살표와 겹치지 않는다`,
+    `겹침 ${JSON.stringify(G.overlap)} · 화살표 ${G.arrow && G.arrow.w}×${G.arrow && G.arrow.h} · 사이 ${G.gap}px`);
+  ok(G.topIsOurs, `${label} — 알약 한가운데에서 «맨 위» 가 우리 버튼이다 (보인다 ≠ 눌린다)`,
+    `맨 위 = ${G.topTag}`);
+  ok(G.inView, `${label} — 화면 안에 있다`, geo);
+}
+
 console.log(`\n──────────────────────────────────────────\n  ✅ PASS ${pass}   ❌ FAIL ${fail}   (총 ${pass + fail})\n`);
 ws.close(); chrome.kill();
 process.exit(fail ? 1 : 0);

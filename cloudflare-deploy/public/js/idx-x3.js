@@ -93,8 +93,16 @@
       }
       if (typeof window.pdfLoad === 'function') {
         window.pdfCurrentId = 'lib_' + id;
-        // ph258: 새 파일 띄울 때 zoom 100% reset (자동 fit)
-        if (typeof window.pdfZoom !== 'undefined') window.pdfZoom = 1.0;
+        /* ph258: 새 파일 띄울 때 zoom 100% reset (자동 fit)
+           🔴 (2026-08-28) 이 줄은 **한 번도 실행된 적이 없었다.** 배율은 idx-main.js 의
+              `let pdfZoom` 인데 let 은 window 의 속성이 되지 않아 `typeof window.pdfZoom` 이
+              늘 'undefined' → 조건이 항상 거짓. 그래서 교재를 바꿔도 앞 교재의 확대가
+              그대로 남았다(사장님 화면 실측: 새 교재를 여는 중인데 320%).
+              ⚠️ 같은 함정을 핀치·더블탭에서 이미 밟고 pdfSetZoom() 을 만들어 뒀는데
+                 (idx-main.js 의 그 함수 머리말이 경위를 적고 있다) 이 마지막 한 곳만
+                 옛 방식으로 남아 있었다. 정본 함수를 쓰면 렌더와 «320%» 라벨까지 함께 갱신된다.
+              ⛔ window.pdfZoom 으로 되돌리지 말 것 — 조용히 아무 일도 안 하게 된다. */
+        if (typeof window.pdfSetZoom === 'function') window.pdfSetZoom(1);
         await window.pdfLoad(url, kind);
         console.log('[ph247] pdfLoad OK');
       } else {

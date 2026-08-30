@@ -227,7 +227,13 @@
        그림자가 넷이라 «한 기능» 으로 안 읽혔고, 터치 목표도 권장 44px 에 못 미쳤다.
        ⚠️ 알약 «안» 의 배율칸은 `#mgz-zoom .mgz-pill button`(1,1,1) 이 44px 을 걸어 두므로
           클래스 하나짜리 규칙으로는 못 이긴다 — `button.mgz-pct`(1,2,1) 로 적는다. */
-    '#mgz-zoom{position:absolute;right:10px;bottom:96px;z-index:40;display:none;' +
+    /* ⚠️ right 는 «화면 가장자리» 가 아니라 «교재 넘김 화살표를 피한 자리» 다.
+       그 화살표(.pdf-nav-next)는 오른쪽 가장자리 세로중앙에 붙어 있고, 폰 가로에서는
+       vc-dock.js 가 52x88 로 키운다(2026-07-01 사장님 지시 — 엄지로 누르기 좋게).
+       right:10px 이던 동안 알약과 겹쳐 «맨 위» 가 화살표였다 — 즉 크기 버튼이 눌리지
+       않았다. 실측(2026-08-28): 세로 390 겹침 37x64 · 가로 844 겹침 35x88(알약 높이의 77%).
+       ⛔ 화살표를 옮겨서 풀지 말 것. 알약이 비켜선다. */
+    '#mgz-zoom{position:absolute;right:80px;bottom:96px;z-index:40;display:none;' +
       'flex-direction:column;align-items:center;gap:8px;pointer-events:auto;' +
       'transition:opacity .25s ease}' +
     '#mgz-zoom.mgz-idle{opacity:.35}' +
