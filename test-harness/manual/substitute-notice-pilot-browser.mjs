@@ -236,11 +236,13 @@ async function sectionAdmin(browser) {
   check('배정에 성공하면 모달이 닫힌다',
     await page.evaluate(() => !document.getElementById('tc-sub-modal')));
 
-  /* 🔒 지사 계정으로 열면 🔄 버튼도 안내 문구도 없어야 한다 (2026-08-30 사장님 지시).
-     서버도 403 으로 막지만, 화면만 있으면 URL 로 뚫리고 서버만 있으면 «눌러도 안 되는 버튼» 이
-     남는다 — 그래서 둘 다 확인한다. */
-  for (const [roleLabel, role, wantBtn] of [['지사(branch)', 'branch', false], ['대리점(agency)', 'agency', false],
-    ['지사본사(franchise)', 'franchise', false], ['본사(hq)', 'hq', true]]) {
+  /* 🔒 역할별 버튼 노출 (2026-08-30 사장님 지시 2차 — «차단» 이 아니라 «자기 소속 수업만»).
+     · 지사·대리점·지사본사 → **보인다.** 이 표 자체가 `scopeStudentCond()` 로 이미 잘려 있고
+       (`/api/admin/classes/today`), 서버도 회차마다 같은 조건으로 다시 확인한다.
+     · 강사 → 안 보인다(서버도 403). 
+     ⚠️ 「보이는가」만 보지 말 것 — 실제로 맨 위에서 눌리는지도 함께 잰다. */
+  for (const [roleLabel, role, wantBtn] of [['지사(branch)', 'branch', true], ['대리점(agency)', 'agency', true],
+    ['지사본사(franchise)', 'franchise', true], ['강사(teacher)', 'teacher', false], ['본사(hq)', 'hq', true]]) {
     const pr = await ctx.newPage();
     await pr.route('**/api/**', async (route) => {
       const u = route.request().url();
@@ -267,17 +269,27 @@ async function sectionAdmin(browser) {
     await pr.waitForTimeout(900);
     const r = await pr.evaluate(() => {
       const help = document.getElementById('tc-sub-help');
+      const b = document.querySelector('#tc-body .tc-sub-act');
+      let clickable = null;
+      if (b) {
+        b.scrollIntoView({ block: 'center' });
+        const rect = b.getBoundingClientRect();
+        const st = document.elementsFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        clickable = st[0] === b || (st[0] && b.contains(st[0]));
+      }
       return {
         btns: document.querySelectorAll('#tc-body .tc-sub-act').length,
         rows: document.querySelectorAll('#tc-body tbody tr').length,
         helpShown: !!help && getComputedStyle(help).display !== 'none',
         role: (window.__ADM_ME || {}).role || null,
+        clickable,
       };
     });
     check(`[${roleLabel}] 신원을 서버에서 받아 왔다`, r.role === role, r);
     check(`[${roleLabel}] 표는 그대로 그려진다(수업 3줄)`, r.rows === 3, r.rows);
     check(`[${roleLabel}] 🔄 버튼이 ${wantBtn ? '보인다' : '안 보인다'}`, (r.btns > 0) === wantBtn, r.btns);
     check(`[${roleLabel}] 안내 문구도 ${wantBtn ? '보인다' : '함께 감춰진다'}`, r.helpShown === wantBtn, r.helpShown);
+    if (wantBtn) check(`[${roleLabel}] 그 버튼이 맨 위에서 실제로 눌린다`, r.clickable === true, r.clickable);
     await pr.close();
   }
 
