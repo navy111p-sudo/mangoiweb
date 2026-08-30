@@ -4806,6 +4806,148 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
     }
 
     // CSV — Mangoi 평가 + 급여 통합 (회계 + 평가팀 공용)
+    /* ═══════════════════════════════════════════════════════════════════
+       🤖 GET /api/admin/payroll/auto-evaluate?year=&month=
+          5대 평가 항목을 **LMS 실제 기록에서 계산해 «제안»** 한다 (2026-08-30).
+
+       [왜] 강사 평가 5개 항목을 매달 사람이 손으로 넣어야 했다. 안 넣으면 grade 가
+            «미평가» 로 남고, 그 상태가 급여 인센티브 근거가 되지 못한다.
+
+       ⛔ **자동으로 저장하지 않는다.** 이 값은 급여로 이어진다 — 틀리면 곧 임금 사고다.
+          화면이 제안값을 채워 주고, 사람이 확인해 [저장] 을 눌러야 teacher_evaluations 에 들어간다.
+       ⛔ **표본이 없으면 숫자를 지어내지 않는다.** 못 잰 항목은 null 로 두고 이유를 함께 준다
+          (CLAUDE.md 「화면에 «측정할 수 없는 값» 을 그럴듯하게 채우고 싶을 때」).
+          지금 잴 수 있는 것은 두 축뿐이다:
+            · 수업(instruction)   ← class_ratings 학생 별점 평균
+            · 행정/조직(admin)     ← 수업일지(student_evaluations) 작성률
+          나머지 셋(유지·근태·기여)은 이 저장소에 «그 달의 사실» 을 담은 표가 아직 없다.
+          ⚠️ 근태를 노쇼 기록으로 계산하고 싶어질 텐데, 그 기록은 **학생 브라우저가 만든**
+             「내 화면에 안 보였다」이고 실측 13건 중 11건이 오판이었다(CLAUDE.md 2장).
+             그대로 감점 근거로 쓰면 멀쩡한 강사의 급여가 깎인다. 그래서 여기서는 안 쓴다.
+       ⚠️ 이름으로 잇는다 — 번호로 이으면 **다른 사람**이 걸린다(강사 번호가 세 벌).
+          normTeacherName() 으로 정규화해 **후보가 정확히 하나일 때만** 붙이고, 아니면 비운다.
+       ═══════════════════════════════════════════════════════════════════ */
+    if (method === 'GET' && path === '/api/admin/payroll/auto-evaluate') {
+      const _aeActor = await getAdminActor(request, env as any);
+      if (_aeActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사는 전체 자동 평가를 조회할 수 없습니다.' }, 403);
+      await ensurePayrollSchema(env);
+      const year  = parseInt(url.searchParams.get('year')  || '0', 10);
+      const month = parseInt(url.searchParams.get('month') || '0', 10);
+      if (!year || !month) return invalidBody(['year', 'month']);
+      const ym = `${year}-${String(month).padStart(2, '0')}`;
+
+      const safeAllAE = async (sql: string, ...b: any[]): Promise<any[]> => {
+        try { const rs = await env.DB.prepare(sql).bind(...b).all<any>(); return rs.results || []; }
+        catch { return []; }
+      };
+
+      const [tRows, ratingRows, logRows, classRows] = await Promise.all([
+        safeAllAE(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name ASC`),
+        // 학생 별점 — rated_date 는 'YYYY-MM-DD'
+        safeAllAE(`SELECT teacher_name, COUNT(*) AS n, AVG(score) AS avg_score
+                     FROM class_ratings
+                    WHERE teacher_name IS NOT NULL AND teacher_name <> ''
+                      AND substr(COALESCE(rated_date,''),1,7) = ?
+                    GROUP BY teacher_name`, ym),
+        /* 수업일지 — ⚠️ student_evaluations 에는 «서로 다른 두 기능» 이 같이 산다(CLAUDE.md).
+           강사의 1분 수업일지는 student_uid 가 채워진 행이다. 그 조건이 없으면
+           옛 «학생 상세» 월간평가까지 섞여 작성률이 부풀려진다. */
+        safeAllAE(`SELECT teacher_name, COUNT(*) AS n
+                     FROM student_evaluations
+                    WHERE student_uid IS NOT NULL AND teacher_name IS NOT NULL AND teacher_name <> ''
+                      AND substr(COALESCE(lesson_date,''),1,7) = ?
+                    GROUP BY teacher_name`, ym),
+        // 그 달 수업 수 — 급여 계산이 쓰는 것과 같은 표를 본다(둘이 다른 이야기를 하면 안 된다)
+        safeAllAE(`SELECT teacher_id, class_count FROM teacher_monthly_classes WHERE year = ? AND month = ?`, year, month),
+      ]);
+
+      // 이름 → 값. 같은 이름이 둘이면 «잇지 않는다»(모르는 것이 틀린 것보다 낫다).
+      const byName = (rows: any[], key: string) => {
+        const m: Record<string, any> = {}; const dupe = new Set<string>();
+        for (const r of rows) {
+          const k = normTeacherName(r[key]);
+          if (!k) continue;
+          if (m[k]) dupe.add(k); else m[k] = r;
+        }
+        for (const k of dupe) delete m[k];
+        return m;
+      };
+      const ratingBy = byName(ratingRows, 'teacher_name');
+      const logBy    = byName(logRows, 'teacher_name');
+      const classBy: Record<string, number> = {};
+      for (const c of classRows) classBy[String(c.teacher_id)] = Number(c.class_count) || 0;
+
+      const MIN_N = 3;   // 표본이 이보다 적으면 «잴 수 없다» 로 둔다
+      const rateToScore = (r: number) =>
+        r >= 0.95 ? 5 : r >= 0.80 ? 4 : r >= 0.60 ? 3 : r >= 0.40 ? 2 : 1;
+
+      const out = tRows.map((t: any) => {
+        const key = normTeacherName(t.name);
+        const rt = key ? ratingBy[key] : null;
+        const lg = key ? logBy[key] : null;
+        const lessons = classBy[String(t.id)] || 0;
+
+        const unmeasured: Array<{ axis: string; reason: string; reason_en: string }> = [];
+        let sInst: number | null = null;
+        if (rt && Number(rt.n) >= MIN_N) {
+          sInst = Math.round(Number(rt.avg_score) * 10) / 10;
+        } else {
+          unmeasured.push({
+            axis: 'score_instruction',
+            reason: rt ? `학생 별점이 ${Number(rt.n)}건뿐입니다(최소 ${MIN_N}건).` : '이 달 학생 별점이 없습니다.',
+            reason_en: rt ? `Only ${Number(rt.n)} student rating(s) (need ${MIN_N}).` : 'No student ratings this month.',
+          });
+        }
+
+        let sAdmin: number | null = null;
+        let logRate: number | null = null;
+        if (lessons >= MIN_N) {
+          logRate = Math.min(1, (lg ? Number(lg.n) : 0) / lessons);
+          sAdmin = rateToScore(logRate);
+        } else {
+          unmeasured.push({
+            axis: 'score_admin',
+            reason: `이 달 수업 수가 ${lessons}건이라 작성률을 낼 수 없습니다(최소 ${MIN_N}건).`,
+            reason_en: `Only ${lessons} lesson(s) recorded this month (need ${MIN_N}).`,
+          });
+        }
+
+        for (const [axis, ko, en] of [
+          ['score_retention',    '유지율을 그 달 기준으로 담은 표가 아직 없습니다. 사람이 넣어 주세요.', 'No monthly retention source yet — enter manually.'],
+          ['score_punctuality',  '노쇼 기록은 학생 화면이 만든 «안 보였다» 라 감점 근거로 쓰지 않습니다. 사람이 넣어 주세요.', 'No-show records are student-reported and unreliable for scoring — enter manually.'],
+          ['score_contribution', '조직 기여는 시스템이 잴 수 있는 값이 아닙니다. 사람이 넣어 주세요.', 'Contribution cannot be measured by the system — enter manually.'],
+        ] as const) {
+          unmeasured.push({ axis, reason: ko, reason_en: en });
+        }
+
+        return {
+          teacher_id: t.id,
+          teacher_name: t.name,
+          matched: !!key && (!!rt || !!lg || lessons > 0),
+          suggested: { score_instruction: sInst, score_admin: sAdmin },
+          basis: {
+            rating_n: rt ? Number(rt.n) : 0,
+            rating_avg: rt ? Math.round(Number(rt.avg_score) * 100) / 100 : null,
+            lesson_count: lessons,
+            lesson_log_n: lg ? Number(lg.n) : 0,
+            lesson_log_rate: logRate == null ? null : Math.round(logRate * 1000) / 10,
+          },
+          unmeasured,
+        };
+      });
+
+      return json({
+        ok: true, year, month,
+        min_sample: MIN_N,
+        teachers: out,
+        measurable_axes: ['score_instruction', 'score_admin'],
+        note: '이 값은 «제안» 입니다. 확인하고 저장해야 평가에 반영됩니다. 잴 수 없는 항목은 빈칸으로 두었습니다 — 0 으로 채우지 않습니다(0점과 미평가는 다른 사실이고, 이 점수는 급여 인센티브 근거가 됩니다).',
+        note_en: 'These are suggestions only — review and save to apply. Unmeasurable axes are left blank on purpose (a blank is not a zero, and these scores feed pay incentives).',
+        weights: { instruction: 25, retention: 30, punctuality: 20, admin: 15, contribution: 10 },
+        weights_note: '보고서의 «행정/조직 25%» 는 이 시스템에서 행정 15% + 조직기여 10% 로 나뉘어 있습니다(합계 동일).',
+      });
+    }
+
     if (method === 'GET' && path === '/api/admin/export/payroll.csv') {
       await ensurePayrollSchema(env);
       const year  = parseInt(url.searchParams.get('year')  || '0', 10);
@@ -4858,6 +5000,11 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
           grade:              r.grade,
           strengths:          e.strengths,
           improvements:       e.improvements,
+          /* ✅ «평가했는가» 를 칸으로 못 박는다.
+             ⛔ 미평가를 0 으로 채우지 않는다 — 0점과 «아직 평가 안 함» 은 다른 사실이고,
+                이 표는 인센티브 근거로 쓰인다. 0 으로 적으면 안 한 평가가 «최하점» 이 된다.
+                대신 이 칸(0/1)과 grade='미평가' 로 화면·엑셀이 갈라 볼 수 있게 한다. */
+          evaluated:          r.evaluation ? 1 : 0,
         });
       }
       const csv = toCSV(rows, [
@@ -4880,6 +5027,7 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         { key: 'score_contribution', label: 'contrib_10%' },
         { key: 'weighted_total',     label: 'weighted_total' },
         { key: 'grade',              label: 'grade' },
+        { key: 'evaluated',          label: 'evaluated(1=yes)' },
         { key: 'strengths',          label: 'strengths' },
         { key: 'improvements',       label: 'improvements' },
       ]);
@@ -7728,6 +7876,12 @@ ${chatSampleText}
     //   body: { user_id, action_type, message?, gift_type?, event_id? }
     //   action_type: 'kakao' | 'sms' | 'gift' | 'event' | 'comeback_bundle'
     // ════════════════════════════════════════════════
+    /* 📵 로그·화면에 전화번호를 통째로 남기지 않는다 — 케어 기록은 관리자 여럿이 본다. */
+    const maskPhoneForLog = (v: any) => {
+      const d = String(v || '').replace(/[^0-9]/g, '');
+      if (!d) return '';
+      return d.length <= 4 ? d : d.slice(0, d.length - 4).replace(/\d/g, '*') + d.slice(-4);
+    };
     if (method === 'POST' && path === '/api/admin/retention/care') {
       try {
         const b = await request.json<any>().catch(() => ({}));
@@ -7745,31 +7899,54 @@ ${chatSampleText}
         let detail = '';
 
         // 학생/학부모 정보
-        let parentPhone = '', studentName = uid;
+        let parentPhone = '', studentPhone = '', studentName = uid;
         try {
           const cols: any = await env.DB.prepare(`PRAGMA table_info(students_erp)`).all();
           const colNames = ((cols.results || []) as any[]).map(c => c.name);
           const nCol = colNames.includes('student_name') ? 'student_name' : (colNames.includes('korean_name') ? 'korean_name' : (colNames.includes('name') ? 'name' : 'user_id'));
           const pPhoneCol = colNames.includes('parent_phone') ? 'parent_phone' : `''`;
-          const s: any = await env.DB.prepare(`SELECT ${nCol} AS sn, ${pPhoneCol} AS pp FROM students_erp WHERE user_id = ?`).bind(uid).first();
-          if (s) { studentName = s.sn || uid; parentPhone = s.pp || ''; }
+          // 학부모 번호가 없을 때 학생 번호로 떨어질 수 있게 함께 읽는다 — 없는 번호로 «보냈다» 고 하면 안 된다
+          const sPhoneCol = colNames.includes('student_phone') ? 'student_phone' : (colNames.includes('phone') ? 'phone' : `''`);
+          const s: any = await env.DB.prepare(`SELECT ${nCol} AS sn, ${pPhoneCol} AS pp, ${sPhoneCol} AS sp FROM students_erp WHERE user_id = ?`).bind(uid).first();
+          if (s) { studentName = s.sn || uid; parentPhone = s.pp || ''; studentPhone = s.sp || ''; }
         } catch {}
 
-        // 액션 분기
-        if (actionType === 'kakao') {
-          // 카카오 알림톡 — 기존 인프라 재사용 (가입 시), 아니면 카톡 채널 메시지
-          detail = `카톡 발송: ${studentName} → ${message.slice(0, 80)}`;
-          // 실제 발송 로직 hook
-          try {
-            if ((env as any).KAKAO_TOKEN && parentPhone) {
-              // TODO: 실 카톡 발송 (Solapi/Aligo 등)
-              detail += ' [KAKAO_TOKEN ok]';
-            } else { status = 'queued'; detail += ' [실 API 없음 - 큐 보관]'; }
-          } catch (kk: any) { status = 'failed'; detail = kk?.message || 'kakao_fail'; }
+        /* 📮 액션 분기 — 2026-08-30 수리: 카톡·문자가 **실제로 나가게** 했다.
+           [무엇이 틀렸었나] 예전에는 둘 다 로그 한 줄만 남기고 status='queued' 로 응답했고,
+           화면은 `if (!d.ok) throw` 만 보고 «✅ 발송됨» 을 띄웠다. 그런데 그 큐를 읽어
+           보내는 코드는 저장소에 없다 — 즉 아무 데도 안 가는데 화면은 보냈다고 말하고 있었다
+           (CLAUDE.md 「그럴듯한 거짓말」·「시연 껍데기」와 같은 종류).
+           이제 solapi 로 실제로 보내고, 못 보내면 **못 보냈다고** 말한다.
+           ⚠️ 자유 문구는 **알림톡으로 못 보낸다** — 알림톡은 사전 승인 템플릿만 나간다.
+              그래서 [카톡] 버튼도 문자(LMS)로 보내고, 그 사실을 detail 에 적는다.
+           ℹ️ 「장기 결석생」 화면의 퀵케어는 이 경로가 아니라 sms:·tel: 링크라 손대지 않았다
+              (그쪽은 폰의 문자앱을 열어 줄 뿐이라 «보냈다» 고 말하지 않는다). */
+        const _careTo = parentPhone || studentPhone || '';
+        if (actionType === 'kakao' || actionType === 'sms') {
+          if (!message) { status = 'failed'; detail = '보낼 내용이 비어 있습니다.'; }
+          else if (!_careTo) {
+            status = 'failed';
+            detail = '보낼 번호가 없습니다 — 학부모·학생 연락처가 모두 비어 있습니다.';
+          } else {
+            const r = await sendPlainSms(env as any, _careTo, message, { subject: '망고아이 안내' });
+            if (r.ok) {
+              status = (r.mode === 'mock') ? 'mock' : 'sent';
+              detail = (actionType === 'kakao'
+                ? '카톡 자유문구는 알림톡으로 못 보내 문자(LMS)로 보냈습니다 → '
+                : '문자 발송 → ') + maskPhoneForLog(_careTo)
+                + (r.mode === 'mock' ? ' [테스트 모드 — 실제로는 안 나갔습니다]' : '');
+            } else {
+              status = 'failed';
+              detail = '발송 실패: ' + (r.message || r.error || 'unknown') + ' (' + r.mode + ')';
+            }
+          }
         }
-        else if (actionType === 'sms') {
-          detail = `문자: ${parentPhone || '학생'} → ${message.slice(0, 80)}`;
-          status = 'queued';
+        /* 📞 전화 — «보내는» 것이 아니라 «사람이 한 일» 을 적는 것이다.
+           그래서 status 를 sent 로 쓰지 않는다. 통화 내용은 message 로 함께 남긴다. */
+        else if (actionType === 'call') {
+          status = 'logged';
+          detail = '📞 통화 기록: ' + (maskPhoneForLog(_careTo) || '번호 없음')
+                 + (message ? ' — ' + message.slice(0, 120) : '');
         }
         else if (actionType === 'gift') {
           // 포인트 보너스 적립
@@ -7781,9 +7958,11 @@ ${chatSampleText}
             detail = `🎁 ${giftAmt}P 보너스 적립`;
           } catch (ge: any) { status = 'failed'; detail = ge?.message || 'gift_fail'; }
         }
+        /* 🎪 이벤트 초대 — 기록만 남는다. 이 저장소에 이 큐를 읽어 보내는 코드는 없다.
+           그래서 status 를 sent 로 두지 않는다(그게 카톡·문자가 오래 하던 거짓말이었다). */
         else if (actionType === 'event') {
-          detail = `이벤트 초대: ${eventId}`;
-          // 초대 큐에만 기록 — 실 발송은 push 시스템이 처리
+          status = 'queued';
+          detail = `이벤트 초대 기록: ${eventId} — 안내는 아직 자동으로 나가지 않습니다(문자 버튼으로 따로 보내 주세요).`;
         }
         else if (actionType === 'comeback_bundle') {
           // 컴백 번들: 카톡 + 기프트(500P) + 무료 보강 1회
@@ -7791,7 +7970,12 @@ ${chatSampleText}
             await env.DB.exec(`CREATE TABLE IF NOT EXISTS student_points (user_id TEXT PRIMARY KEY, student_name TEXT, balance INTEGER DEFAULT 0, lifetime_earned INTEGER DEFAULT 0, lifetime_spent INTEGER DEFAULT 0, last_earned_at INTEGER, last_spent_at INTEGER, updated_at INTEGER);`);
             await env.DB.prepare(`INSERT INTO student_points (user_id, student_name, balance, lifetime_earned, last_earned_at, updated_at) VALUES (?, ?, 500, 500, ?, ?) ON CONFLICT(user_id) DO UPDATE SET balance = balance + 500, lifetime_earned = lifetime_earned + 500, last_earned_at = ?, updated_at = ?`)
               .bind(uid, studentName, now, now, now, now).run();
-            detail = '🎁 컴백 번들: 500P + 무료 보강 1회 + 카톡 안내';
+            /* ⚠️ 실제로 일어난 일만 적는다 — 이 갈래는 포인트만 적립한다.
+               카톡 안내도, 보강 예약도 여기서 하지 않는다(보내는 코드가 없다).
+               ⛔ 여기에 문자 발송을 붙이지 말 것 — 이 액션에는 «일괄» 버튼이 있어
+                  그 순간 학부모 전원 대량 발송이 된다. 안내는 [문자] 로 한 명씩. */
+            status = 'sent';
+            detail = '🎁 컴백 보너스 500P 적립 완료 — 안내 문자와 보강 배정은 따로 해 주세요.';
           } catch (ce: any) { status = 'failed'; detail = ce?.message || 'bundle_fail'; }
         } else {
           return json({ ok: false, error: 'unknown action_type' }, 400);
