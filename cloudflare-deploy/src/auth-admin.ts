@@ -523,6 +523,17 @@ export interface AdminActor {
   isTeacher: boolean;
 }
 
+/** 🔒 (2026-08-30) 「본사 밖 조직 계정인가」 — 지사·대리점·지사본사.
+ *  ⚠️ `canEditOrg(scope)` 와 헷갈리지 말 것. 그 함수는 `'none'`(내부직원·**교사**)에도 true 라
+ *     강사를 못 막는다(CLAUDE.md 2장 「관리자 «쓰기» API 를 본사 전용으로 막았는데 강사가
+ *     그대로 실행됨」). 강사는 `actor.isTeacher` 로, 조직 계정은 이 함수로 «따로» 막는다.
+ *  ℹ️ 판정 근거는 `resolveRole()` 이 정한 role 이다 — 그 함수가 스코프보다 강사 판정을 먼저
+ *     하므로, 여기서 다시 `admin_scope` 를 읽지 않는다(두 벌이 되면 또 갈린다). */
+export function isOrgScopedRole(role: string | null | undefined): boolean {
+  const r = String(role || '');
+  return r === 'branch' || r === 'agency' || r === 'franchise';
+}
+
 export async function getAdminActor(request: Request, env: AuthEnv): Promise<AdminActor> {
   const sess = await checkAdminSession(request, env);
   if (!sess.ok || !sess.username) {

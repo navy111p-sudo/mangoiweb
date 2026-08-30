@@ -236,6 +236,51 @@ async function sectionAdmin(browser) {
   check('배정에 성공하면 모달이 닫힌다',
     await page.evaluate(() => !document.getElementById('tc-sub-modal')));
 
+  /* 🔒 지사 계정으로 열면 🔄 버튼도 안내 문구도 없어야 한다 (2026-08-30 사장님 지시).
+     서버도 403 으로 막지만, 화면만 있으면 URL 로 뚫리고 서버만 있으면 «눌러도 안 되는 버튼» 이
+     남는다 — 그래서 둘 다 확인한다. */
+  for (const [roleLabel, role, wantBtn] of [['지사(branch)', 'branch', false], ['대리점(agency)', 'agency', false],
+    ['지사본사(franchise)', 'franchise', false], ['본사(hq)', 'hq', true]]) {
+    const pr = await ctx.newPage();
+    await pr.route('**/api/**', async (route) => {
+      const u = route.request().url();
+      const j = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+      if (u.includes('/api/admin/classes/today')) return j({ ok: true, sessions: SESSIONS, date: TODAY });
+      if (u.includes('/api/admin/me')) {
+        return j({ ok: true, user: { username: 'demo_' + role, name: '데모' }, role,
+          roleLabel, scope: { type: role, value: null, label: roleLabel } });
+      }
+      if (u.includes('/api/pay/enroll/admin/substitute')) {
+        return route.fulfill({ status: 403, contentType: 'application/json',
+          body: JSON.stringify({ ok: false, error: 'forbidden_scope', message: '지사·대리점 권한으로는 사용할 수 없는 기능입니다.' }) });
+      }
+      return j({ ok: true });
+    });
+    await pr.addInitScript(() => { try { localStorage.removeItem('admin_session'); localStorage.setItem('mangoi_admin_welcome_v1_done', '1'); } catch (e) {} });
+    await pr.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
+    await pr.waitForTimeout(2500);
+    await pr.evaluate(() => {
+      const d = document.getElementById('sm-today-classes');
+      if (d && d.tagName === 'DETAILS') d.open = true;
+      if (typeof window.tcLoadToday === 'function') window.tcLoadToday();
+    });
+    await pr.waitForTimeout(900);
+    const r = await pr.evaluate(() => {
+      const help = document.getElementById('tc-sub-help');
+      return {
+        btns: document.querySelectorAll('#tc-body .tc-sub-act').length,
+        rows: document.querySelectorAll('#tc-body tbody tr').length,
+        helpShown: !!help && getComputedStyle(help).display !== 'none',
+        role: (window.__ADM_ME || {}).role || null,
+      };
+    });
+    check(`[${roleLabel}] 신원을 서버에서 받아 왔다`, r.role === role, r);
+    check(`[${roleLabel}] 표는 그대로 그려진다(수업 3줄)`, r.rows === 3, r.rows);
+    check(`[${roleLabel}] 🔄 버튼이 ${wantBtn ? '보인다' : '안 보인다'}`, (r.btns > 0) === wantBtn, r.btns);
+    check(`[${roleLabel}] 안내 문구도 ${wantBtn ? '보인다' : '함께 감춰진다'}`, r.helpShown === wantBtn, r.helpShown);
+    await pr.close();
+  }
+
   /* 📱 세로가 짧은 폰 — 모달이 잘려 맨 아래 [배정] 을 못 누르는 사고(CLAUDE.md 2장) */
   const p2 = await ctx.newPage();
   await p2.route('**/api/**', async (route) => {
