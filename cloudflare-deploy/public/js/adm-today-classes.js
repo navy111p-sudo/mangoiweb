@@ -86,6 +86,114 @@
     } catch (e) {}
   };
 
+  /* 🔄 (2026-08-28) 대체강사 배정 — 강사 휴가·병가 대응(사장님 요청).
+     "매주 반복 수업" 은 정본 행을 손대지 않고 그 날짜만 겹쳐 보이는 오버레이라
+     다음 회차는 자동으로 원래 강사로 돌아간다(백엔드 src/enroll-ops.ts 의 (m-2)/(m-3) 참고).
+     ⚠️ 날짜지정(수강신청) 수업은 그 회차 자체가 그 날 하루뿐이라 되돌리기 버튼이 없다 —
+        되돌리려면 그 목록에서 원래 강사를 다시 고르면 된다(오버레이가 필요 없는 경우라 생략). */
+  function kstTodayStr() {
+    var k = new Date(Date.now() + 9 * 3600 * 1000);
+    return k.getUTCFullYear() + '-' + String(k.getUTCMonth() + 1).padStart(2, '0') + '-' + String(k.getUTCDate()).padStart(2, '0');
+  }
+
+  function tcSubModalClose() {
+    var box = $('tc-sub-modal');
+    if (box && box.parentNode) box.parentNode.removeChild(box);
+  }
+
+  window.tcOpenSubModal = async function (scheduleId) {
+    var dEl = $('tc-date');
+    var date = (dEl && /^\d{4}-\d{2}-\d{2}$/.test(dEl.value || '')) ? dEl.value : kstTodayStr();
+    tcSubModalClose();
+    var box = document.createElement('div');
+    box.id = 'tc-sub-modal';
+    /* ⚠️ 세로가 짧은 폰에서 넘친 부분이 잘려 맨 아래 [배정] 을 못 누르는 사고를 막는다
+       — flex 정렬 대신 자식 margin:auto + overflow-y:auto (CLAUDE.md 2장 도크 모달 항목). */
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
+      + '<div id="tc-sub-body">' + T('불러오는 중…', 'Loading…') + '</div>'
+      + '<div style="text-align:right;margin-top:12px"><button type="button" id="tc-sub-close" style="padding:6px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer">' + T('닫기', 'Close') + '</button></div>'
+      + '</div>';
+    document.body.appendChild(box);
+    document.getElementById('tc-sub-close').addEventListener('click', tcSubModalClose);
+    box.addEventListener('click', function (e) { if (e.target === box) tcSubModalClose(); });
+
+    try {
+      var r = await fetch('/api/pay/enroll/admin/substitute-candidates?schedule_id=' + encodeURIComponent(scheduleId) + '&date=' + encodeURIComponent(date), { credentials: 'include' });
+      var d = await r.json().catch(function () { return null; });
+      if (!r.ok || !d || d.ok !== true) throw new Error((d && (d.message || d.error)) || ('HTTP ' + r.status));
+      tcRenderSubModal(scheduleId, date, d);
+    } catch (e) {
+      var b = $('tc-sub-body');
+      if (b) b.innerHTML = '<div style="color:#dc2626">⚠ ' + T('불러오기 실패: ', 'Load failed: ') + esc(e.message || e) + '</div>';
+    }
+  };
+
+  function tcRenderSubModal(scheduleId, date, d) {
+    var b = $('tc-sub-body');
+    if (!b) return;
+    var sc = d.schedule;
+    var recurNote = sc.is_recurring
+      ? T('⚠ 매주 반복되는 수업입니다 — 이번 회차(이 날짜)만 바뀌고, 다음 회차부터는 원래 강사로 자동 복귀합니다.',
+          '⚠ This is a weekly recurring class — only this occurrence changes; it reverts to the original teacher next time.')
+      : T('이 날짜의 수업만 바뀝니다.', 'Only this date changes.');
+    var existingHtml = '';
+    if (d.existing_substitution) {
+      existingHtml = '<div id="tc-sub-existing" style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:8px 10px;margin-bottom:10px;font-size:12.5px">'
+        + T('현재 대체: ', 'Current substitute: ') + '<b>' + esc(d.existing_substitution.substitute_teacher_name || d.existing_substitution.substitute_teacher_id) + '</b>'
+        + (d.existing_substitution.reason ? ' · ' + esc(d.existing_substitution.reason) : '')
+        + ' <button type="button" id="tc-sub-revert" data-orig="' + esc(d.existing_substitution.original_teacher_id || '') + '" '
+        + 'style="margin-left:6px;padding:2px 8px;border-radius:6px;border:1px solid #d97706;background:#fff;cursor:pointer;font-size:11.5px">'
+        + T('🔙 되돌리기', '🔙 Revert') + '</button></div>';
+    }
+    var cands = (d.candidates || []).map(function (c) {
+      return '<option value="' + esc(c.id) + '">' + (c.free ? '🟢 ' : '🔴 ') + esc(c.name)
+        + (c.free ? '' : T(' (그 시간 다른 수업 있음)', ' (busy at that time)')) + '</option>';
+    }).join('');
+    b.innerHTML =
+      '<div style="font-weight:800;margin-bottom:4px">' + T('대체강사 배정', 'Assign substitute teacher') + '</div>'
+      + '<div style="font-size:12px;color:#6b7280;margin-bottom:8px">' + esc(sc.student_name || '-') + ' · ' + esc(sc.start_time || '')
+      + ' · ' + T('현재', 'current') + ': ' + esc(sc.teacher_name || T('미배정', 'unassigned')) + '</div>'
+      + '<div style="font-size:11.5px;color:#92400e;background:rgba(245,158,11,0.1);border-radius:6px;padding:6px 8px;margin-bottom:10px">' + recurNote + '</div>'
+      + existingHtml
+      + '<label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">' + T('대체 강사 선택 (🟢 그 시간 가능 · 🔴 다른 수업 있음)', 'Pick substitute (🟢 available · 🔴 busy)') + '</label>'
+      + '<select id="tc-sub-teacher" style="width:100%;padding:6px;border-radius:6px;border:1px solid #d1d5db;margin-bottom:8px;box-sizing:border-box">' + cands + '</select>'
+      + '<label style="font-size:12px;color:#374151;display:block;margin-bottom:4px">' + T('사유', 'Reason') + '</label>'
+      + '<input id="tc-sub-reason" type="text" placeholder="' + T('예: 병가, 휴가', 'e.g. sick leave, vacation') + '" style="width:100%;padding:6px;border-radius:6px;border:1px solid #d1d5db;box-sizing:border-box;margin-bottom:10px" />'
+      + '<div id="tc-sub-msg" style="font-size:12px;margin-bottom:8px"></div>'
+      + '<button type="button" id="tc-sub-go" style="width:100%;padding:9px;border:0;border-radius:8px;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">' + T('배정', 'Assign') + '</button>';
+
+    document.getElementById('tc-sub-go').addEventListener('click', function () {
+      var sel = document.getElementById('tc-sub-teacher');
+      var reasonEl = document.getElementById('tc-sub-reason');
+      if (!sel || !sel.value) return;
+      tcSubmitSub(scheduleId, date, sel.value, reasonEl ? reasonEl.value : '');
+    });
+    var revertBtn = document.getElementById('tc-sub-revert');
+    if (revertBtn) revertBtn.addEventListener('click', function () {
+      var origId = revertBtn.getAttribute('data-orig');
+      if (!origId) return;
+      tcSubmitSub(scheduleId, date, origId, '');
+    });
+  }
+
+  window.tcSubmitSub = async function (scheduleId, date, teacherId, reason) {
+    var msg = $('tc-sub-msg');
+    if (msg) msg.textContent = T('처리 중…', 'Working…');
+    try {
+      var r = await fetch('/api/pay/enroll/admin/substitute', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule_id: scheduleId, date: date, substitute_teacher_id: teacherId, reason: reason || '' })
+      });
+      var d = await r.json().catch(function () { return null; });
+      if (!r.ok || !d || d.ok !== true) throw new Error((d && (d.message || d.error)) || ('HTTP ' + r.status));
+      tcSubModalClose();
+      window.tcLoadToday();
+    } catch (e) {
+      if (msg) msg.innerHTML = '<span style="color:#dc2626">⚠ ' + esc(e.message || e) + '</span>';
+    }
+  };
+
   var _rows = [];
 
   function render() {
@@ -137,6 +245,12 @@
           var teacher = s.teacher_name
             ? esc(s.teacher_name)
             : '<span style="color:#b45309;font-weight:800">' + T('⚠ 미배정', '⚠ unassigned') + '</span>';
+          /* 🔄 (2026-08-28) 대체강사가 배정된 회차 — 「오늘 왜 다른 선생님이냐」 를 바로 답할 수 있게
+             원래 강사 이름을 함께 보인다. teacher 는 이미 대체강사 이름으로 덮여 온다(api-admin.ts). */
+          if (s.substituted && s.substituted_from) {
+            teacher += '<div style="font-size:10px;color:#7c3aed;font-weight:700;white-space:nowrap">🔄 '
+              + T('대체 · 원래 ', 'sub for ') + esc(s.substituted_from) + '</div>';
+          }
           /* 🏷 (2026-08-25) 카페24 수업에는 버튼을 주지 않는다 — 망고아이 방이 없어 들어갈 데가 없다.
              ⛔ 「일단 눌러 보게」 두면 아무도 없는 방이 열리고, 매니저는 «수업이 깨졌다» 고 읽는다.
                 왜 없는지를 그 자리에 적어 준다(버튼이 없는 것보다 «이유 없이 없는 것» 이 나쁘다). */
@@ -179,6 +293,17 @@
               + 'background:rgba(245,158,11,0.16);color:#b45309;border:1px solid rgba(245,158,11,0.45)">'
               + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
             : '';
+          /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
+             예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유).
+             ⛔ (2026-08-30) 클래스 이름을 «-btn» 으로 끝내지 말 것 — admin-inline-c.css 의
+                `html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"]:not(…)×8` (0,11,1) 이
+                `button.tc-act:not(…)×6` (0,7,1) 을 이겨 이 버튼만 «흰 버튼» 이 된다(실측:
+                background #ffffff · color #344054 — 옆 참관 칩은 보라). 그 파일 9503·9710·9737 행에
+                같은 경고가 세 번 적혀 있다. 그래서 `tc-sub-act` 다. */
+          if (!isC24 && s.schedule_id) {
+            teacher += '<button type="button" class="tc-act tc-sub-act" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
+              + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
+          }
           return '<tr>'
             + '<td style="white-space:nowrap">' + hhmm(s.start_ts) + '</td>'
             + '<td>' + badge(s.status) + '</td>'
