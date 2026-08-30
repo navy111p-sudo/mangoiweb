@@ -86,21 +86,24 @@
     } catch (e) {}
   };
 
-  /* 🔒 (2026-08-30 사장님 지시) 대체강사 배정은 «본사·내부직원» 만 — 지사·대리점·지사본사와
-     강사에게는 버튼 자체를 그리지 않는다. 서버도 403 으로 막지만(enroll-ops.ts 의 두 라우트),
-     ⛔ 한쪽만 두면 안 된다 — 서버만 있으면 «눌러도 안 되는 버튼» 이 남고, 화면만 있으면
-        URL 로 뚫린다(CLAUDE.md 2장 「카드를 역할에 열었는데 그 안의 다른 칸까지 열림」).
+  /* 🔒 (2026-08-30 사장님 지시 2차) 대체강사 배정은 **강사만** 못 한다.
+     처음엔 지사·대리점도 통째로 막았는데, 사장님 지시로 «차단» 이 아니라 «자기 소속 수업만»
+     으로 바꿨다 — 「우리 학원 강사가 병가」일 때 본사에 매번 요청하지 않아도 된다.
+     ⚠️ 그래서 이 화면은 조직 계정에게도 버튼을 그린다. 안전한 이유는 **이 표 자체가 이미
+        잘려 있기** 때문이다 — `/api/admin/classes/today` 가 `scopeStudentCond()` 로 자기 학생의
+        수업만 내려준다. 서버도 회차마다 같은 조건으로 다시 확인한다(enroll-ops.ts `subScopeDenied`).
+        두 판정이 어긋나면 «화면엔 있는데 눌러도 안 되는 버튼» 이 되므로 같은 함수를 쓴다.
      ⚠️ 신원은 서버가 확인해 주는 window.__ADM_ME(js/adm-identity.js)가 정본이다. 아직 안 왔으면
-        «막지 않는다» — 본사 화면이 잠깐 비는 것보다 낫고, 그 사이 눌러도 서버가 거절한다.
-        신원이 도착하면 `mangoi:identity` 로 다시 그린다(발행처가 document 라 거기서 듣는다 —
-        CLAUDE.md 2장 「mangoi:lang-changed 를 듣게 해 뒀는데 한 번도 안 불림」과 같은 사정). */
+        «막지 않는다» — 그 사이 눌러도 서버가 거절한다. 신원이 도착하면 `mangoi:identity` 로
+        다시 그린다(발행처가 document 라 거기서 듣는다 — CLAUDE.md 2장). */
   function subAllowed() {
     var me = null;
     try { me = window.__ADM_ME || (typeof window.admIdentity === 'function' ? window.admIdentity() : null); } catch (e) {}
     var role = (me && me.role) ? String(me.role) : '';
     if (!role) return true;                       // 아직 모름 — 서버가 최종 판정
-    return !(role === 'branch' || role === 'agency' || role === 'franchise' || role === 'teacher');
+    return role !== 'teacher';
   }
+
   /* 🔗 초대 링크 (2026-08-30 v4 제안서 16)
      [왜] 「화상강의실 초대 관리」가 사이드바에 독립 메뉴로 따로 있었다. 그 화면에서 하는 일은
        «방 번호를 손으로 적고 학생 아이디를 적는 것» 뿐인데, 그 두 값은 바로 이 목록에 이미 있다.
