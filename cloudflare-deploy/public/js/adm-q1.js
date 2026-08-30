@@ -118,7 +118,7 @@
             🟡 ${isEn?'Low':'관찰'}: <b style="color:#cbd5e1;font-size:14px">${lowN}</b>
           </div>
           <div style="margin-left:auto;display:flex;gap:6px">
-            <button onclick="arrBulkAction('comeback_bundle')" style="padding:7px 14px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'Comeback Bundle (All High)':'전체 심각 → 컴백 번들'}</button>
+            <button onclick="arrBulkAction('comeback_bundle')" style="padding:7px 14px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'500P bonus (all high risk)':'전체 심각 → 500P 보너스'}</button>
             <button onclick="arrShowLogs()" style="padding:7px 14px;font-size:11.5px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#e6ecff;border-radius:6px;font-weight:700;cursor:pointer">📜 ${isEn?'Care Log':'발송 기록'}</button>
           </div>
         </div>
@@ -150,7 +150,7 @@
                   <button onclick="arrCare('${esc(r.user_id)}','sms','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:#3b82f6;color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">📱 ${isEn?'SMS':'문자'}</button>
                   <button onclick="arrCare('${esc(r.user_id)}','gift','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#ec4899,#f43f5e);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎁 ${isEn?'Gift Points':'기프트 포인트'}</button>
                   <button onclick="arrCare('${esc(r.user_id)}','event','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🎉 ${isEn?'Event Invite':'이벤트 초대'}</button>
-                  <button onclick="arrCare('${esc(r.user_id)}','comeback_bundle','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🚀 ${isEn?'Comeback Bundle':'컴백 번들'}</button>
+                  <button onclick="arrCare('${esc(r.user_id)}','comeback_bundle','${esc(r.student_name)}')" style="padding:6px 12px;font-size:11.5px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;border:0;border-radius:6px;font-weight:700;cursor:pointer">🚀 ${isEn?'500P bonus':'컴백 500P'}</button>
                 </div>
                 <div id="arr-status-${i}" style="margin-top:6px;font-size:11px;color:#94a3b8;min-height:14px"></div>
               </div>
@@ -258,8 +258,9 @@
       kakao: isEn ? 'KakaoTalk message' : '카톡 메시지',
       sms: isEn ? 'SMS' : '문자',
       gift: isEn ? 'Gift points' : '기프트 포인트',
+      call: isEn ? 'Parent phone call (logged)' : '학부모 안부 전화 (기록)',
       event: isEn ? 'Event invitation' : '이벤트 초대',
-      comeback_bundle: isEn ? 'Comeback bundle (500P + free lesson)' : '컴백 번들 (500P + 무료 보강)',
+      comeback_bundle: isEn ? 'Comeback bonus (500P)' : '컴백 보너스 (500P 적립)',
     };
     let message = '', giftType = '', eventId = '';
     if (actionType === 'kakao' || actionType === 'sms') {
@@ -274,8 +275,14 @@
     } else if (actionType === 'event') {
       eventId = prompt(isEn ? 'Event ID or name:' : '이벤트 ID 또는 이름:', 'monthly-winter-2026');
       if (eventId === null) return;
+    } else if (actionType === 'call') {
+      /* 📞 전화는 «보내는» 것이 아니라 사람이 하고 나서 적는 것이다 — 통화 내용을 남긴다. */
+      message = prompt(isEn ? 'What did you talk about? (saved to the care log)' : '통화 내용을 적어 주세요 (케어 기록에 남습니다):', '');
+      if (message === null) return;
     } else if (actionType === 'comeback_bundle') {
-      if (!confirm(isEn ? `Send Comeback Bundle to ${studentName}?\n• 500P bonus\n• Free supplementary lesson\n• KakaoTalk message to parent` : `${studentName} 학생에게 컴백 번들을 보낼까요?\n• 500P 보너스\n• 무료 보강 수업 1회\n• 학부모 카톡 안내`)) return;
+      /* ⚠️ 약속은 «실제로 일어나는 것» 까지만 적는다 — 이 액션은 포인트만 적립한다.
+         예전 문구는 「무료 보강 1회 + 학부모 카톡 안내」까지 약속했지만 둘 다 안 나갔다. */
+      if (!confirm(isEn ? `Give ${studentName} the 500P comeback bonus?\n\n• 500P is credited now.\n• No message is sent — use the SMS button separately.\n• A free lesson must be scheduled by a person.` : `${studentName} 학생에게 컴백 보너스 500P 를 적립할까요?\n\n• 500P 는 지금 바로 적립됩니다.\n• 안내 문자는 나가지 않습니다 — [📱 문자] 로 따로 보내 주세요.\n• 무료 보강은 사람이 배정해야 합니다.`)) return;
     }
     try {
       const r = await fetch('/api/admin/retention/care', {
@@ -287,8 +294,16 @@
       // 카드에 결과 표시
       const idx = (window._arrAtRisk||[]).findIndex(x => x.user_id === uid);
       const el = document.getElementById('arr-status-' + idx);
-      if (el) el.innerHTML = `<span style="color:#34d399">✅ ${esc(labels[actionType] || actionType)} — ${esc(d.detail || d.status)}</span>`;
-      else alert((isEn?'✅ Sent: ':'✅ 발송됨: ') + (d.detail || d.status));
+      /* ⚠️ 서버는 «요청은 처리했다»(ok) 와 «실제로 나갔다»(status) 를 따로 말한다.
+         ok 만 보고 ✅ 를 띄우면 못 보낸 문자도 «발송됨» 으로 보인다 — 그게 이 화면이
+         오랫동안 하던 거짓말이었다(status='queued' 인데 ✅). 반드시 status 로 가른다. */
+      var bad = (d.status === 'failed');
+      var soft = (d.status === 'queued' || d.status === 'mock' || d.status === 'logged');
+      var mark = bad ? '❌' : (soft ? 'ℹ️' : '✅');
+      var color = bad ? '#fca5a5' : (soft ? '#fcd34d' : '#34d399');
+      var text = mark + ' ' + (labels[actionType] || actionType) + ' — ' + (d.detail || d.status);
+      if (el) el.innerHTML = `<span style="color:${color}">${esc(text)}</span>`;
+      else alert(text);
     } catch (e) {
       alert((isEn?'❌ Failed: ':'❌ 실패: ') + e.message);
     }
@@ -297,6 +312,16 @@
   // 🚀 벌크 — 모든 high 위험 학생에게 컴백 번들 발송
   window.arrBulkAction = async function(actionType) {
     const isEn = (window.adminLang === 'en');
+    /* ⛔ 카톡·문자 «일괄» 은 막는다 — 이제 이 경로는 진짜로 문자를 보낸다.
+       일괄에는 문구가 없어 어차피 한 건도 못 나가고, 문구를 붙여 열어 주면
+       그 순간 «학부모 전원에게 한 번에» 가 되어 되돌릴 수 없다
+       (CLAUDE.md 「학부모에게 문자가 두 번 감」과 같은 반경). 한 명씩 보내세요. */
+    if (actionType === 'kakao' || actionType === 'sms') {
+      alert(isEn
+        ? 'Bulk text/KakaoTalk is intentionally disabled — these now really send. Send them one by one.'
+        : '카톡·문자 일괄 발송은 일부러 막아 두었습니다 — 이제 실제로 나가기 때문입니다. 한 명씩 보내 주세요.');
+      return;
+    }
     const highs = (window._arrAtRisk || []).filter(x => x.risk_level === 'high');
     if (!highs.length) return alert(isEn ? 'No high-risk students.' : '심각 위험 학생이 없습니다.');
     if (!confirm(isEn ? `Send ${actionType} to ${highs.length} high-risk students?` : `${highs.length}명의 심각 위험 학생 모두에게 ${actionType} 발송할까요?`)) return;
@@ -308,10 +333,11 @@
           body: JSON.stringify({ user_id: s.user_id, action_type: actionType })
         });
         const d = await r.json();
-        if (d.ok) ok++; else fail++;
+        /* ok 는 «요청을 처리했다» 일 뿐이다 — 실제 결과는 status 가 말한다. */
+        if (d.ok && d.status !== 'failed') ok++; else fail++;
       } catch { fail++; }
     }
-    alert((isEn?`✅ Sent: ${ok}, ❌ Failed: ${fail}`:`✅ 발송: ${ok}건, ❌ 실패: ${fail}건`));
+    alert((isEn?`✅ Done: ${ok}, ❌ Failed: ${fail}`:`✅ 처리: ${ok}건, ❌ 실패: ${fail}건`));
     arrLoad();  // 새로고침
   };
 
