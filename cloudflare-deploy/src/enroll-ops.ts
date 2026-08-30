@@ -24,7 +24,7 @@ import {
   DEFAULT_LONG_CLASS_DAILY_CAP,  // 🪑 긴 수업 하루 정원 기본값 (0 = 무제한)
   isLongClass, longClassCapReached,
 } from './class-policy';
-import { checkAdminSession } from './auth-admin';
+import { checkAdminSession, getAdminActor } from './auth-admin';
 import { authUidFromRequest as authUidGlobal } from './auth-token';
 
 /** 🔑 수강신청·자동결제용 로그인 판정 — 학생 토큰이 우선, 없으면 «관리자 세션 쿠키» 를
@@ -85,6 +85,81 @@ export function enrollOverlap(aStart: number, aMin: number, bStart: number, bMin
   return aStart < bStart + bMin && bStart < aStart + aMin;
 }
 
+/** 🔄 (2026-08-28) 대체강사 배정용 — 이 class_schedules 행이 그 날짜(date)에 실제로 열리는지,
+ *  열린다면 그날의 요일(0=일~6=토)을 돌려준다. 안 열리면 null.
+ *  ⚠️ day_of_week 는 이 파일의 다른 함수(enrollConflicts 등)와 같이 "단일 요일" 로만 본다 —
+ *     admin classes/today 의 admDowMatches 는 콤마 나열도 허용하지만, 그 값은 이 파일이 만드는
+ *     행(schedule_kind='dated')에는 나오지 않는다(day_of_week 는 admin 이 만드는 recurring 행만 씀). */
+/** 🗓 (2026-08-30) `class_schedules.day_of_week` 는 «단일 값이 아니다» — 숫자 `4` 말고도
+ *  `Thu`·`목`·`목요일`·`1,3,5`·`Mon,Thu` 가 실제로 들어 있다. 그래서 api-admin.ts 가
+ *  `admDowMatches()`(+ADM_DOW_MAP)를 따로 두고 있다. 이 파일의 «가용성·충돌» 판정이
+ *  단일 값만 보면, 그런 반복수업을 가진 강사가 후보 목록에 🟢(그 시간 가능)으로 나오고
+ *  충돌검사도 통과해 **이중배정**이 된다(에러 없음). 그 판정을 한 곳으로 모은다.
+ *  ⛔ api-admin 의 함수를 import 하지 않는다 — 이 파일은 다른 도메인을 import 하지 않는
+ *     원칙이라(NOT_PLACEHOLDER 복제와 같은 방식) 같은 판정을 여기에 둔다.
+ *     대신 substitute_assign_harness ①·⑦절이 두 판정을 실제로 돌려 답을 대조한다. */
+const ENROLL_DOW_MAP: Record<string, number> = {
+  sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+  tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+  thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+  sat: 6, saturday: 6, '토': 6, '토요일': 6,
+};
+export function enrollDowList(raw: any): number[] {
+  const out: number[] = [];
+  for (const part of String(raw ?? '').split(/[,\s/·]+/)) {
+    const t = part.trim();
+    if (!t) continue;
+    if (/^\d+$/.test(t)) { const n = Number(t); if (n >= 0 && n <= 6 && !out.includes(n)) out.push(n); continue; }
+    const dw = ENROLL_DOW_MAP[t.toLowerCase()];
+    if (dw !== undefined && !out.includes(dw)) out.push(dw);
+  }
+  return out;
+}
+
+function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): number | null {
+  const targetDow = new Date(date + 'T00:00:00Z').getUTCDay();
+  if (scheduledDate) return String(scheduledDate).slice(0, 10) === date ? targetDow : null;
+  if (dayOfWeek != null && String(dayOfWeek).trim() !== '') {
+    /* 판정은 위 enrollDowList 하나로 — 이 파일 안에서 «두 벌» 이 되면 또 갈린다. */
+    return enrollDowList(dayOfWeek).includes(targetDow) ? targetDow : null;
+  }
+  return null;
+}
+
+/** 🔄 (2026-08-28 trap-check 지적으로 추가) 대체강사가 "같은 날짜에 이미 다른 회차의
+ *  대체로도" 잡혀 있는지 — enrollConflicts/teachersFreeAt 은 class_schedules 만 보므로
+ *  class_substitutions 오버레이끼리의 겹침은 몰랐다(같은 강사가 같은 날 두 반의 대체로
+ *  동시에 배정될 수 있었음). excludeScheduleId 는 "지금 편집 중인 그 회차 자신의 기존
+ *  오버레이"를 스스로와의 충돌로 잘못 세지 않기 위함. */
+async function subOverlayBusyIds(env: any, date: string, excludeScheduleId?: number): Promise<Map<string, { startMin: number; minutes: number }[]>> {
+  const byTeacher = new Map<string, { startMin: number; minutes: number }[]>();
+  try {
+    const rs: any = await env.DB.prepare(
+      /* ⚠️ (2026-08-30) 원 수업의 status 도 본다 — 오버레이만 'active' 로 보면 수업이 나중에
+         취소돼도 그 대체가 남아 «그 시간 바쁨» 으로 잡힌다(그 강사가 후보에서 빠진다). */
+      `SELECT cs2.schedule_id, cs2.substitute_teacher_id, cs.start_time, COALESCE(cs.duration_min,20) AS dm
+         FROM class_substitutions cs2 JOIN class_schedules cs ON cs.id = cs2.schedule_id
+        WHERE cs2.status = 'active' AND cs.status = 'active' AND cs2.sub_date = ?`
+    ).bind(date).all();
+    for (const r of ((rs?.results as any[]) || [])) {
+      if (excludeScheduleId != null && Number(r.schedule_id) === excludeScheduleId) continue;
+      const s = enrollTimeToMin(String(r.start_time || ''));
+      if (s < 0) continue;
+      const tid = String(r.substitute_teacher_id);
+      if (!byTeacher.has(tid)) byTeacher.set(tid, []);
+      byTeacher.get(tid)!.push({ startMin: s, minutes: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+    }
+  } catch (e) { console.warn('[enroll] subOverlayBusyIds:', (e as any)?.message); }
+  return byTeacher;
+}
+
+/** 위 맵에서 특정 강사가 그 시간대에 실제로 겹치는지. */
+function subOverlayHasOverlap(byTeacher: Map<string, { startMin: number; minutes: number }[]>, teacherId: string, startMin: number, minutes: number): boolean {
+  const slots = byTeacher.get(String(teacherId));
+  if (!slots) return false;
+  return slots.some((s) => enrollOverlap(startMin, minutes, s.startMin, s.minutes));
+}
+
 /** 시작일부터 선택 요일(0=일~6=토)로 sessions 회차 날짜 생성. blocked(공휴일·충돌)는 건너뛰고 뒤로 밀림 → 회차 수 보존 */
 export function enrollDates(startDate: string, days: number[], sessions: number, blocked?: Set<string>): string[] {
   const out: string[] = [];
@@ -139,6 +214,15 @@ export async function ensureEnrollTables(env: any): Promise<void> {
     try { await env.DB.prepare(`ALTER TABLE payment_orders ADD COLUMN enroll_json TEXT`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_sched_teacher_slot ON class_schedules(teacher_id, scheduled_date, start_time) WHERE status='active' AND scheduled_date IS NOT NULL AND teacher_id IS NOT NULL`).run(); } catch (_) {}
     try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_sched_user_date ON class_schedules(user_id, scheduled_date)`).run(); } catch (_) {}
+    /* 🔄 (2026-08-28) 1회성 대체강사 배정 — "매주 반복 수업"의 정본 행(class_schedules)은 하루치
+       예외를 기록할 칸이 없다(teacher_id 를 바꾸면 그 요일 전체가 영구히 바뀐다 — 그건 이미 있는
+       /api/pay/enroll/admin/teacher-leave 의 몫). 이 표는 "그 날짜 하루만" 강사를 겹쳐 보여주는
+       오버레이다 — class_schedules 의 teacher_id 는 손대지 않으므로 다음 주는 저절로 원래 강사로
+       돌아간다. (schedule_id, sub_date) 는 한 쌍에 하루 한 명만 있어야 하므로 UNIQUE — 등록·취소는
+       DELETE 없이 UPSERT 로 status 만 바꾼다(이력은 class_audit_log 가 따로 남긴다). */
+    await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_substitutions (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, sub_date TEXT NOT NULL, original_teacher_id TEXT, substitute_teacher_id TEXT NOT NULL, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, status TEXT NOT NULL DEFAULT 'active')`);
+    try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_class_sub_slot ON class_substitutions(schedule_id, sub_date)`).run(); } catch (_) {}
+    try { await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_class_sub_date ON class_substitutions(sub_date, status)`).run(); } catch (_) {}
   } catch (e) { console.warn('[enroll] ensure tables:', (e as any)?.message); }
 }
 
@@ -219,15 +303,16 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     const badDows = new Set<number>();
     for (const r of ((rs2?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !days.includes(dw)) continue;
-      const startMin = timesMinByDow[dw];
-      if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다(위 enrollDowList)
+        if (!days.includes(dw)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+      }
     }
     if (badDows.size) {
       for (const iso of dates) {
@@ -277,12 +362,13 @@ export async function busyTimesForTeacher(env: any, teacherId: string, days: num
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !busyByDow[dw]) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0) busyByDow[dw].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다
+        if (!busyByDow[dw]) continue;
+        busyByDow[dw].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+      }
     }
 
     const probe = probeDatesForDows(days, 12);
@@ -319,14 +405,15 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
       `SELECT teacher_id, day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !days.includes(dw)) continue;
-      const startMin = timesMinByDow[dw];
-      if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다
+        if (!days.includes(dw)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+      }
     }
 
     const probe = probeDatesForDows(days, 12);
@@ -358,14 +445,14 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
           `SELECT teacher_id, day_of_week, COALESCE(duration_min, 20) AS dm FROM class_schedules
             WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
         ).all();
-        const DOW2: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
         const perTeacherDay = new Map<string, number>();
         for (const r of ((rsL?.results as any[]) || [])) {
           if (!isLongClass(Number(r.dm) || DEFAULT_CLASS_MINUTES)) continue;
-          const dw = DOW2[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-          if (dw === undefined || !days.includes(dw)) continue;
-          const k = String(r.teacher_id) + '|' + dw;
-          perTeacherDay.set(k, (perTeacherDay.get(k) || 0) + 1);
+          for (const dw of enrollDowList(r.day_of_week)) {      // '1,3,5'·'목' 도 받는다
+            if (!days.includes(dw)) continue;
+            const k = String(r.teacher_id) + '|' + dw;
+            perTeacherDay.set(k, (perTeacherDay.get(k) || 0) + 1);
+          }
         }
         for (const [k, n] of perTeacherDay) {
           const tid = k.split('|')[0];
@@ -1121,6 +1208,176 @@ export async function handleEnrollApi(request: Request, url: URL, env: any): Pro
       moved.push({ id: r.id, student: r.student_name, time: r.start_time });
     }
     return json({ ok: true, day, from, to, dry, moved_count: moved.length, skipped_count: skipped.length, moved, skipped });
+  }
+
+  /* ── (m-2) 1회성 대체강사 배정 — 후보 조회 (관리자) ──
+     사장님 요청(2026-08-28) "강사 휴가·병가로 다른 강사로 대체" — 위 (m)과 다른 것은
+     "그 요일 전체를 영구히 바꾸는" 게 아니라 "이번 회차 하루만" 이라는 점. 그 판단 근거는
+     schedule_kind: 수강신청이 만드는 행(schedule_kind='dated')은 회차마다 행이 따로 있어
+     teacher_id 를 바꿔도 그 날짜 하나만 바뀐다(다음 주는 다른 행). 반면 admin 이 만드는
+     'recurring' 행은 한 행이 무기한 반복이라, 손대면 앞으로 계속 바뀐다 — 그래서 그 행은
+     건드리지 않고 class_substitutions 에 "그 날짜만" 겹쳐 보여줄 오버레이를 남긴다. */
+  if (path === '/api/pay/enroll/admin/substitute-candidates' && method === 'GET') {
+    /* 🔴 (2026-08-28 trap-check 지적) checkAdminSession 만으로는 강사 세션도 통과한다 —
+       강사가 이 API 를 직접 불러 남의 수업의 담당 강사를 마음대로 바꿀 수 있었다.
+       CLAUDE.md 2장 "관리자 «쓰기» API 를 본사 전용으로 막았는데 강사가 그대로 실행됨" 과
+       같은 함정. getAdminActor().isTeacher 로 강사를 명시적으로 막는다(읽기 전용인 이
+       GET 도 남의 수업 정보를 보여주므로 함께 막는다). */
+    const actor = await getAdminActor(request, env as any);
+    if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    await ensureEnrollTables(env);
+    const scheduleId = Number(url.searchParams.get('schedule_id') || 0);
+    const date = String(url.searchParams.get('date') || '').trim();
+    if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ ok: false, error: 'bad_params' }, 400);
+    const row: any = await env.DB.prepare(
+      `SELECT cs.id, cs.student_name, cs.schedule_kind, cs.day_of_week, cs.scheduled_date,
+              cs.start_time, COALESCE(cs.duration_min,20) AS dm, cs.teacher_id, cs.status,
+              t.name AS teacher_name
+         FROM class_schedules cs LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs.teacher_id AS TEXT)
+        WHERE cs.id = ? LIMIT 1`
+    ).bind(scheduleId).first();
+    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
+    if (dow === null) return json({ ok: false, error: 'not_on_that_date', message: '이 수업은 그 날짜에 열리지 않습니다.' }, 400);
+    const startMin = enrollTimeToMin(String(row.start_time || ''));
+    const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+    const isRecurring = !row.scheduled_date;
+
+    const freeIds = await teachersFreeAt(env, [dow], { [dow]: startMin }, minutes);
+    /* 🟡 (2026-08-28 trap-check 지적) teachersFreeAt 은 class_schedules 만 보고
+       class_substitutions 오버레이는 몰랐다 — 같은 강사가 같은 날 두 반의 대체로
+       동시에 배정될 수 있었다. 그 날짜의 기존 오버레이도 함께 본다. */
+    const subBusy = await subOverlayBusyIds(env, date, scheduleId);
+    const tRows: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name`).all();
+    const candidates = ((tRows?.results as any[]) || [])
+      .filter((t: any) => String(t.id) !== String(row.teacher_id || ''))
+      .map((t: any) => ({
+        id: String(t.id), name: t.name,
+        free: freeIds.has(String(t.id)) && !subOverlayHasOverlap(subBusy, String(t.id), startMin, minutes),
+      }))
+      .sort((a: any, b: any) => (a.free === b.free ? 0 : a.free ? -1 : 1));
+
+    let existingSub: any = null;
+    if (isRecurring) {
+      const ex: any = await env.DB.prepare(
+        `SELECT substitute_teacher_id, original_teacher_id, reason FROM class_substitutions
+          WHERE schedule_id = ? AND sub_date = ? AND status = 'active' LIMIT 1`
+      ).bind(scheduleId, date).first();
+      if (ex) {
+        const t2: any = await env.DB.prepare(`SELECT name FROM teachers WHERE id = ? LIMIT 1`).bind(ex.substitute_teacher_id).first();
+        existingSub = {
+          substitute_teacher_id: String(ex.substitute_teacher_id), substitute_teacher_name: t2?.name || null,
+          original_teacher_id: ex.original_teacher_id ? String(ex.original_teacher_id) : null, reason: ex.reason || null,
+        };
+      }
+    }
+    return json({
+      ok: true,
+      schedule: {
+        id: row.id, student_name: row.student_name, start_time: row.start_time,
+        duration_min: minutes, teacher_id: row.teacher_id ? String(row.teacher_id) : null,
+        teacher_name: row.teacher_name, schedule_kind: row.schedule_kind, is_recurring: isRecurring,
+      },
+      candidates, existing_substitution: existingSub,
+    });
+  }
+
+  /* ── (m-3) 1회성 대체강사 배정 — 등록/취소 (관리자) ──
+     substitute_teacher_id 가 "지금 정본 담당 강사"(recurring 행은 항상 원래 강사, dated 행은
+     현재 값)와 같으면 "취소·복귀" 로 다룬다 — recurring 행은 자기 자신에 대해서는 절대
+     "충돌" 검사를 해서는 안 된다(그 행 자체가 이미 그 강사의 그 시간 커밋이라 스스로와
+     충돌 판정이 나 버린다 — 2026-08-28 설계 중 실제로 밟고 고침). */
+  if (path === '/api/pay/enroll/admin/substitute' && method === 'POST') {
+    // 🔴 (2026-08-28 trap-check 지적) 위 GET 과 같은 이유 — 강사는 이 쓰기 API 를 아예 못 쓴다.
+    const actor = await getAdminActor(request, env as any);
+    if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+    if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher', message: '강사 권한으로는 사용할 수 없는 기능입니다.' }, 403);
+    await ensureEnrollTables(env);
+    const body = await parseJsonBody(request) || {};
+    const scheduleId = Number(body.schedule_id || 0);
+    const date = String(body.date || '').trim();
+    const subTeacherId = String(body.substitute_teacher_id || '').trim();
+    const reason = String(body.reason || '기타').slice(0, 200);
+    if (!scheduleId || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !subTeacherId) return json({ ok: false, error: 'bad_params' }, 400);
+
+    const row: any = await env.DB.prepare(
+      `SELECT id, user_id, student_name, schedule_kind, day_of_week, scheduled_date, start_time,
+              COALESCE(duration_min,20) AS dm, teacher_id, status
+         FROM class_schedules WHERE id = ? LIMIT 1`
+    ).bind(scheduleId).first();
+    if (!row || row.status !== 'active') return json({ ok: false, error: 'schedule_not_found' }, 404);
+    if (['lms', 'type_seed'].includes(String(row.user_id || '').toLowerCase())) return json({ ok: false, error: 'placeholder_row' }, 400);
+    const dow = subScheduleDow(row.scheduled_date, row.day_of_week, date);
+    if (dow === null) return json({ ok: false, error: 'not_on_that_date' }, 400);
+
+    const isRecurring = !row.scheduled_date;
+    const currentTeacherId = row.teacher_id ? String(row.teacher_id) : '';
+    const isSelfRevert = isRecurring && currentTeacherId && subTeacherId === currentTeacherId;
+    if (!isSelfRevert && subTeacherId === currentTeacherId) return json({ ok: false, error: 'same_teacher' }, 400);
+
+    /* 🟡 (2026-08-28 trap-check 지적) substitute_teacher_id 가 실제 teachers 행인지 검증하지
+       않았다 — 정상 UI(드롭다운)로는 항상 유효한 값만 오지만, API 를 직접 호출하면 임의
+       문자열이 그대로 저장돼 화면엔 강사명이 빈 값으로 뜬다. 되돌리기(isSelfRevert)는
+       currentTeacherId 가 이미 이 행에서 온 값이라 다시 검증할 필요가 없다. */
+    if (!isSelfRevert) {
+      const tExists = await env.DB.prepare(`SELECT id FROM teachers WHERE id = ? AND active = 1 LIMIT 1`).bind(subTeacherId).first();
+      if (!tExists) return json({ ok: false, error: 'invalid_teacher' }, 400);
+    }
+
+    if (!isSelfRevert) {
+      const startMin = enrollTimeToMin(String(row.start_time || ''));
+      const minutes = Number(row.dm) || DEFAULT_CLASS_MINUTES;
+      const conf = await enrollConflicts(env, subTeacherId, [date], { [dow]: startMin }, minutes, [dow]);
+      if (conf.has(date)) return json({ ok: false, error: 'substitute_busy', message: '대체 강사도 그 시간에 다른 수업이 있습니다.' }, 409);
+      /* 🟡 (2026-08-28 trap-check 지적) — 위 GET 후보조회와 같은 이유로, 이 강사가 같은 날
+         "다른 회차의 대체" 로 이미 잡혀 있는지도 봐야 한다(class_schedules 만으로는 모른다). */
+      const subBusy = await subOverlayBusyIds(env, date, scheduleId);
+      if (subOverlayHasOverlap(subBusy, subTeacherId, startMin, minutes)) {
+        return json({ ok: false, error: 'substitute_busy', message: '대체 강사가 같은 날 다른 회차의 대체로 이미 배정돼 있습니다.' }, 409);
+      }
+    }
+
+    const now = Date.now();
+    const actorName = actor.username || actor.name || 'admin';
+
+    if (isRecurring) {
+      if (isSelfRevert) {
+        await env.DB.prepare(
+          `UPDATE class_substitutions SET status = 'cancelled', updated_at = ? WHERE schedule_id = ? AND sub_date = ? AND status = 'active'`
+        ).bind(now, scheduleId, date).run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO class_substitutions (schedule_id, sub_date, original_teacher_id, substitute_teacher_id, reason, created_by, created_at, updated_at, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+           ON CONFLICT(schedule_id, sub_date) DO UPDATE SET
+             substitute_teacher_id = excluded.substitute_teacher_id, reason = excluded.reason,
+             created_by = excluded.created_by, updated_at = excluded.updated_at, status = 'active'`
+        ).bind(scheduleId, date, currentTeacherId || null, subTeacherId, reason, actorName, now, now).run();
+      }
+    } else {
+      /* dated 행 — 그 회차 자체가 그 날 하루뿐이라 오버레이가 필요 없다. 바로 바꾼다. */
+      await env.DB.prepare(
+        `UPDATE class_schedules SET teacher_id = ?, updated_at = ?, notes = COALESCE(notes,'') || ' · 대체강사 배정(' || ? || ')' WHERE id = ? AND status = 'active'`
+      ).bind(subTeacherId, now, reason, scheduleId).run();
+    }
+
+    await writeClassAudit(env, {
+      action: isSelfRevert ? 'substitute_cancelled' : 'teacher_change',
+      schedule_id: scheduleId, student_name: row.student_name || null,
+      lesson_date: date, lesson_time: String(row.start_time || '') || null,
+      actor: actorName, actor_role: 'admin',
+      source: isRecurring ? 'admin-substitute-recurring' : 'admin-substitute-dated',
+      reason: isSelfRevert ? '대체강사 취소(원래 강사로 복귀)' : ('1회성 대체 · ' + reason),
+      /* 📜 (2026-08-28 trap-check 지적) 필드명을 `one_time` 대신 `via_overlay` 로 —
+         dated 행의 변경도 "하루뿐"이라는 점에서 결과는 둘 다 1회성이라 이름이 헷갈렸다.
+         이 필드는 "정본 행을 직접 고쳤나(false, dated) / class_substitutions 오버레이로
+         겹쳐 보였나(true, recurring)" 를 말한다 — 나중에 급여 담당자가 이 로그로 대체
+         내역을 사람이 직접 확인할 때 구분 근거가 된다. */
+      detail: JSON.stringify({ from_teacher_id: currentTeacherId, to_teacher_id: subTeacherId, via_overlay: isRecurring, date }),
+    });
+
+    return json({ ok: true, schedule_id: scheduleId, date, cancelled: isSelfRevert, via_overlay: isRecurring, substitute_teacher_id: isSelfRevert ? null : subTeacherId });
   }
 
   /* ── (n) 환불 계산기 (관리자, 4단계 — 계산만. 실제 환불 실행은 사람이) ── */

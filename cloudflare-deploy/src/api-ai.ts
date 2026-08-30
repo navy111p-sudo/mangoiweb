@@ -43,6 +43,7 @@ export async function handleAiApi(
 3. List 2-5 specific issues found, each with: original phrase, suggested phrase, brief reason (in Korean).
 4. Provide one encouraging tip in Korean (1-2 sentences).
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
+6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" must be a short Korean sentence. If nothing is worth upgrading, use an empty list.
 
 Respond in this strict JSON format only, no markdown:
 {
@@ -50,7 +51,8 @@ Respond in this strict JSON format only, no markdown:
   "score": 85,
   "issues": [{"original":"...","suggested":"...","reason":"..."}],
   "tip": "...",
-  "reply": "..."
+  "reply": "...",
+  "upgrades": [{"from":"...","to":"...","why":"..."}]
 }
 
 Student text: """${text}"""`;
@@ -128,6 +130,25 @@ Student text: """${text}"""`;
       const tip = String(parsed.tip || '꾸준히 영작 연습을 이어가세요! 매일 한 문장씩만 써도 한 달이면 30문장입니다.');
       // 💬 망고 선생님의 답장 — 첨삭을 '검사'가 아니라 '대화'로 만드는 펜팔 답장
       const reply = String(parsed.reply || '').trim().slice(0, 400);
+      // ⬆️ [2026-08-30] 어휘 업그레이드 — 쉬운 단어를 더 자연스러운 원어민 표현으로.
+      //   ⚠️ 모델이 «학생이 쓰지도 않은 단어» 를 고쳐 준 것처럼 지어내는 일이 있다.
+      //      그러면 학생 화면에 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다 →
+      //      from 이 실제 원문에 있는 경우만 통과시킨다(없으면 그 항목을 버린다).
+      //   ⚠️ to 는 화면에 «따라 쓸 영어» 로 나가므로 한글·한자가 섞이면 안 된다.
+      const _lowText = text.toLowerCase();
+      const upgrades = (Array.isArray(parsed.upgrades) ? parsed.upgrades : [])
+        .slice(0, 6)
+        .map((u: any) => ({
+          from: String(u?.from || '').trim().slice(0, 60),
+          to: String(u?.to || '').trim().slice(0, 60),
+          why: String(u?.why || '').trim().slice(0, 160) || '더 자연스럽고 어른스러운 표현이에요.',
+        }))
+        .filter((u: any) =>
+          u.from && u.to &&
+          u.from.toLowerCase() !== u.to.toLowerCase() &&
+          /^[A-Za-z][A-Za-z' -]{0,59}$/.test(u.to) &&
+          _lowText.includes(u.from.toLowerCase()))
+        .slice(0, 3);
 
       // 📚 미션 단어 검증 — 클라이언트가 보낸 미션 단어 중 실제 글에 쓰인 단어를 서버가 판정
       //   (보너스 포인트 지급 근거이므로 클라이언트 자가신고를 믿지 않고 서버가 단어경계로 확인)
@@ -146,7 +167,7 @@ Student text: """${text}"""`;
         const now = Date.now();
         await env.DB.prepare(
           `INSERT INTO ai_writing_corrections (student_uid, original_text, corrected_text, feedback, level, score, created_at) VALUES (?,?,?,?,?,?,?)`
-        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, reply, mission_words: missionWords, mission_used: missionUsed, meta }), level, score, now).run();
+        ).bind(uid || null, text, corrected, JSON.stringify({ issues, tip, reply, upgrades, mission_words: missionWords, mission_used: missionUsed, meta }), level, score, now).run();
       } catch (e: any) {
         console.error('[write-correct] DB insert failed:', e?.message || e);
       }
@@ -258,7 +279,7 @@ Student text: """${text}"""`;
       // 단 진짜로 AI 가 완전히 안 됐으면 errCode 도 표시
       return json({
         ok: true,
-        corrected, score, issues, tip, reply, level,
+        corrected, score, issues, tip, reply, upgrades, level,
         mission_words: missionWords, mission_used: missionUsed,
         points: pointsEarned, mission_bonus: missionBonus, streak_bonus: streakBonus,
         earned_badges: earnedBadges, vocab_saved: vocabSaved,

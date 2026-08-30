@@ -118,6 +118,57 @@
       '</div>';
   }
 
+  /* 🚨 이탈 위험 배지 (2026-08-30 v4 제안서 17)
+     ⚠️ «AI 가 계산한 점수» 가 아니라 **연속 결석 횟수 하나**로 정한다. 그 사실을 title 로 적어 둔다 —
+        근거를 숨기면 다음 사람이 «AI 가 왜 이렇게 봤지» 로 엉뚱한 곳을 뒤진다. */
+  function riskBadge(streak, en) {
+    var lv, bg, fg, ko, txt;
+    if (streak >= 5)      { lv='critical'; bg='#7f1d1d'; fg='#fff';    ko='심각'; txt='HIGH'; }
+    else if (streak >= 3) { lv='high';     bg='#b91c1c'; fg='#fff';    ko='심각'; txt='HIGH'; }
+    else if (streak >= 2) { lv='watch';    bg='#fef3c7'; fg='#92400e'; ko='주의'; txt='WATCH'; }
+    else                  { lv='low';      bg='#f3f4f6'; fg='#6b7280'; ko='보통'; txt='LOW'; }
+    var why = en ? ('promoted by ' + streak + ' consecutive absences')
+                 : ('연속 결석 ' + streak + '회로 자동 승격 (AI 점수와 별개로 결석만으로 판정)');
+    return '<span title="' + esc(why) + '" style="display:inline-block;padding:2px 9px;border-radius:99px;'
+      + 'font-size:10.5px;font-weight:800;background:' + bg + ';color:' + fg + '">'
+      + (en ? txt : ko) + '</span>';
+  }
+
+  /* 🎯 퀵 케어 버튼 (2026-08-30 v4 제안서 17)
+     [무엇] 「목록에서 바로 연락할 수 있게」가 지시다. 여기서 **직접 발송하지 않는다** —
+       버튼은 «도구를 열어 주기» 까지만 한다. 목록 화면에서 한 번의 오클릭으로 학부모에게
+       문자가 나가면 되돌릴 수 없다(CLAUDE.md — 학부모 발송 경로는 이중발송 전력이 있다).
+     · 💬 카톡  — 채널 홈. ⛔ 주소 뒤에 /chat 을 붙이지 말 것(비로그인 PC 가 로그인 화면으로 튕긴다).
+     · 📱 SMS   — sms: 링크. 폰에서는 문자앱이 열리고, PC 에서는 번호를 보여 준다.
+     · 🎁 보강·포인트 — 포인트 관리 카드로 점프(지급은 거기서 사람이 한다).
+     · 📞 전화  — tel: 링크.
+     ⚠️ 번호가 없으면 버튼을 «회색 안내» 로 둔다 — 눌리는데 아무 일도 안 나는 버튼이 제일 나쁘다. */
+  function careButtons(s, en) {
+    var out = [];
+    var B = function (href, label, title, color) {
+      return '<a href="' + href + '" ' + (/^https?:/.test(href) ? 'target="_blank" rel="noopener" ' : '')
+        + 'title="' + esc(title) + '" style="display:inline-block;margin-right:3px;padding:3px 7px;border-radius:6px;'
+        + 'font-size:11px;font-weight:700;text-decoration:none;border:1px solid ' + color + '55;color:' + color
+        + ';background:' + color + '14">' + label + '</a>';
+    };
+    out.push(B('https://pf.kakao.com/_xlqnSxd', '💬', en ? 'Open the KakaoTalk channel' : '카카오 상담 채널 열기', '#a16207'));
+    var parent = String(s.parent_phone || '').replace(/[^0-9+]/g, '');
+    var stu = String(s.student_phone || '').replace(/[^0-9+]/g, '');
+    var phone = parent || stu;
+    if (phone) {
+      out.push(B('sms:' + phone, '📱', en ? 'Send a text' : '문자 보내기 (문자앱이 열립니다)', '#0e7490'));
+      out.push(B('tel:' + phone, '📞', en ? 'Call the parent' : '학부모에게 전화', '#047857'));
+    } else {
+      out.push('<span title="' + (en ? 'no phone on file' : '등록된 연락처가 없습니다')
+        + '" style="margin-right:3px;font-size:11px;color:#9ca3af">📱📞 —</span>');
+    }
+    out.push('<a href="#" onclick="event.preventDefault();if(window.jumpToMenu)window.jumpToMenu(\'card-points-mgmt\');" '
+      + 'title="' + (en ? 'Open points / make-up class management' : '보강·포인트 지급 화면 열기')
+      + '" style="display:inline-block;padding:3px 7px;border-radius:6px;font-size:11px;font-weight:700;'
+      + 'text-decoration:none;border:1px solid #7c3aed55;color:#7c3aed;background:#7c3aed14">🎁</a>');
+    return out.join('');
+  }
+
   function renderTable(rows, d, en) {
     var box = document.getElementById('la-list');
     if (!box) return;
@@ -135,9 +186,14 @@
         '<thead style="background:#f3f4f6"><tr>' +
           H('학생명', 'Student') + H('아이디', 'ID') +
           H('연속 결석', 'Streak', ';text-align:right') +
+          /* 🚨 (2026-08-30 v4 제안서 17) 연속 3회 이상 = 이탈 위험 «심각». 판정은 이 줄의
+             streak 하나로 하며, 관리자 대시보드의 이탈예측(/api/admin/retention/risk)도
+             같은 규칙으로 등급을 올린다(api-admin.ts S11). 두 화면이 다른 말을 하면 안 된다. */
+          H('이탈 위험', 'Churn risk') +
           H('마지막 출석', 'Last check-in') + H('최근 수업일', 'Last class') +
           H('담당 강사', 'Teacher') + H('대리점(학원)', 'Center') + H('지사', 'Branch') +
           H('학생 연락처', 'Student phone') + H('학부모 연락처', 'Parent phone') +
+          H('퀵 케어', 'Quick care') +
         '</tr></thead><tbody>' +
         rows.map(function (s) {
           var gone = daysSince(s.last_present, d.as_of);
@@ -153,6 +209,7 @@
                 ? '<span title="' + (en ? 'not final yet (last 14 days)' : '최근 14일 — 아직 확정 전') + '" style="font-size:10.5px;color:#92400e"> ⏳' + s.recent_unsettled + '</span>'
                 : '') +
             '</td>' +
+            '<td style="padding:9px 10px;white-space:nowrap">' + riskBadge(Number(s.streak) || 0, en) + '</td>' +
             '<td style="padding:9px 10px;white-space:nowrap">' + dash(s.last_present) +
               (gone != null ? '<br><span style="font-size:11px;color:#6b7280">' + (en ? (gone + ' days ago') : (gone + '일 전')) + '</span>' : '') +
             '</td>' +
@@ -162,6 +219,7 @@
             '<td style="padding:9px 10px">' + dash(s.franchise) + '</td>' +
             '<td style="padding:9px 10px;white-space:nowrap">' + dash(s.student_phone) + '</td>' +
             '<td style="padding:9px 10px;white-space:nowrap">' + dash(s.parent_phone) + '</td>' +
+            '<td style="padding:9px 10px;white-space:nowrap">' + careButtons(s, en) + '</td>' +
           '</tr>';
         }).join('') +
       '</tbody></table></div>';

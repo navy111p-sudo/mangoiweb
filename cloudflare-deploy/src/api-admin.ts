@@ -730,9 +730,13 @@ export async function handleAdminApi(
         };
 
         const [scheds, teachers, blocks] = await Promise.all([
+          /* 🧹 (2026-08-30) LMS·시드 «자리표시» 행 제외 — 학생이 안 붙은 점유 행이라 진짜 수업이 아니다.
+             같은 제외식이 schedule-conflict.ts·api-teacher.ts·churn-graph.ts·enroll-ops.ts 에도 있다
+             (CLAUDE.md 2장 「주간 스케줄에서 어떤 요일만 수업이 안 들어감」). 다섯 곳의 문자열을 맞춰 둔다. */
           safeAll(`SELECT teacher_id, day_of_week, start_time, duration_min FROM class_schedules
-                    WHERE status = 'active' AND schedule_kind = 'recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''`),
-          safeAll(`SELECT id, name FROM teachers`),
+                    WHERE status = 'active' AND schedule_kind = 'recurring' AND teacher_id IS NOT NULL AND teacher_id <> ''
+                      AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`),
+          safeAll(`SELECT id, name, COALESCE(active, 1) AS active FROM teachers`),
           safeAll(`SELECT teacher_id, day_of_week, start_time, end_time FROM teacher_unavailability WHERE kind = 'weekly'`),
         ]);
 
@@ -757,6 +761,17 @@ export async function handleAdminApi(
           if (!agg.has(id)) agg.set(id, { assigned: 0, classes: 0, blocked: 0, byDow: [0, 0, 0, 0, 0, 0, 0] });
           return agg.get(id)!;
         };
+
+        /* 🔴 (2026-08-30 v4 제안서 13) 예전에는 agg 가 «class_schedules 에 나온 강사» 로만 채워져,
+           수업이 한 건도 안 잡힌 강사는 목록에서 **통째로 사라졌다.** 그게 「전체 강사가 안 나온다」의
+           정체다 — 2026-08-30 운영 D1 실측: 활성 강사 **29명**인데 활성 정기수업에 나오는 강사는 **1명**.
+           즉 화면에 한 줄만 떴다. 가동률 0% 인 강사야말로 이 지표로 봐야 할 사람이다.
+           ⟹ 먼저 «활성 강사 전원» 을 0으로 깔고, 그 위에 배정을 더한다.
+           ⚠️ 퇴사자(active=0)는 넣지 않는다 — 그건 «전수» 가 아니라 «과거» 다. */
+        for (const t of teachers) {
+          if (Number(t.active) === 0) continue;
+          ensure(String(t.id));
+        }
 
         for (const s of scheds) {
           const id = String(s.teacher_id);
@@ -799,7 +814,8 @@ export async function handleAdminApi(
             busiest_dow_ko: a.byDow[top] > 0 ? DOW_KO[top] : null,
             busiest_dow_en: a.byDow[top] > 0 ? DOW_EN[top] : null,
           };
-        }).sort((x, y) => (y.utilization_pct ?? -1) - (x.utilization_pct ?? -1));
+        }).sort((x, y) => ((y.utilization_pct ?? -1) - (x.utilization_pct ?? -1))
+                      || String(x.name).localeCompare(String(y.name)));
 
         const withUtil = rows.filter(r => r.utilization_pct != null);
         const totalAssigned = rows.reduce((s, r) => s + r.assigned_min, 0);
@@ -820,8 +836,8 @@ export async function handleAdminApi(
             observed_from_schedules: scheds.length > 0,
           },
           teachers: rows,
-          note: '가동률 = 주간 배정 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 일회성 수업은 제외합니다.',
-          note_en: 'Utilization = weekly assigned class minutes ÷ (operating window × 7 days − the teacher\'s weekly unavailability). One-off classes are excluded.',
+          note: '가동률 = 주간 배정 수업시간 ÷ (운영시간대 7일 − 강사가 등록한 주간 근무불가). 일회성 수업과 LMS·시드 자리표시는 제외하고, 활성 강사는 수업이 없어도 0%로 함께 표시합니다.',
+          note_en: 'Utilization = weekly assigned class minutes ÷ (operating window × 7 days − the teacher\'s weekly unavailability). One-off classes and LMS/seed placeholders are excluded; active teachers with no class are listed at 0%.',
         });
       } catch (e: any) {
         return json({ ok: false, error: 'utilization_failed', message: String(e?.message || e).slice(0, 300) }, 500);
@@ -2991,6 +3007,13 @@ export async function handleAdminApi(
       const _ctActor = await getAdminActor(request, env as any);
       if (_ctActor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
       try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, teacher_id TEXT, student_name TEXT, schedule_kind TEXT, day_of_week INTEGER, scheduled_date TEXT, start_time TEXT, duration_min INTEGER, status TEXT);`); } catch {}
+      /* 🔄 (2026-08-28) 1회성 대체강사 오버레이 표 — enroll-ops.ts 의 ensureEnrollTables() 와 같은
+         정의를 여기서도 방어적으로 한 번 더 만든다(그 핸들러가 먼저 안 돌았을 수도 있어서 —
+         위 class_schedules 방어 생성과 같은 이유). */
+      try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_substitutions (id INTEGER PRIMARY KEY AUTOINCREMENT, schedule_id INTEGER NOT NULL, sub_date TEXT NOT NULL, original_teacher_id TEXT, substitute_teacher_id TEXT NOT NULL, reason TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, status TEXT NOT NULL DEFAULT 'active');`); } catch {}
+      /* ⚠️ (2026-08-30) 인덱스도 «같이» 만든다 — CREATE 만 베껴 두면 이 핸들러가 먼저 돌 새 DB 에서는
+         (schedule_id, sub_date) UNIQUE 가 없는 표가 만들어져 UPSERT 가 «하루 한 명» 을 못 지킨다. */
+      try { await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS uq_class_sub_slot ON class_substitutions(schedule_id, sub_date)`).run(); } catch {}
       /* ⚡ 하루치를 날짜로 집는 인덱스가 없었다(있는 것은 room_id 단독·(user_id,date)·(teacher_uid,date)).
          `date = ?` 로 거르므로 이 인덱스가 없으면 attendance 전체를 훑는다. 인덱스 추가는
          데이터 변경이 아니라 안전하다(CLAUDE.md 1-1 은 DELETE/UPDATE/DROP 금지). */
@@ -3039,6 +3062,20 @@ export async function handleAdminApi(
         ).all<any>().catch(() => ({ results: [] } as any));
       }
 
+      /* 🔄 (2026-08-28) 이 날짜의 1회성 대체강사 오버레이 — schedule_id → 대체강사 id/이름.
+         recurring 행의 teacher_id 는 그대로(=원래 강사)이므로, 화면에 보일 이름만 여기서 덮는다. */
+      const subOverlay = new Map<string, { id: string; name: string | null }>();
+      try {
+        const subRows: any = await env.DB.prepare(
+          `SELECT cs2.schedule_id, cs2.substitute_teacher_id, t2.name AS sub_name
+             FROM class_substitutions cs2 LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+            WHERE cs2.sub_date = ? AND cs2.status = 'active'`
+        ).bind(dateStr).all();
+        for (const r of ((subRows?.results as any[]) || [])) {
+          subOverlay.set(String(r.schedule_id), { id: String(r.substitute_teacher_id), name: r.sub_name || null });
+        }
+      } catch (e: any) { console.warn('[classes/today] substitution overlay:', e?.message); }
+
       const sessions: any[] = [];
       for (const s of (rows.results || [])) {
         // 오늘 열리는 수업인가? (일회성=날짜 일치 / 반복=요일 일치)
@@ -3060,6 +3097,11 @@ export async function handleAdminApi(
         else if (nowMs <= close_at_ts) status = 'live';
         else status = 'ended';
 
+        /* 🔄 대체강사가 배정된 회차면 화면에는 대체강사만 보인다 — 원래 강사 이름은
+           substituted_from 에 남겨 「오늘 왜 다른 선생님이냐」 물었을 때 바로 답할 수 있게. */
+        const sub = subOverlay.get(String(s.id));
+        const origTeacherName = s.t_name || s.teacher_name || null;
+
         sessions.push({
           schedule_id: s.id,
           source: 'mangoi',            // 🏷 망고아이 예약 = 우리 방이 있다 → 입장·참관 가능
@@ -3073,8 +3115,10 @@ export async function handleAdminApi(
           level: s.se_level || null,
           textbook: s.se_textbook || null,
           textbook_assigned: !!String(s.se_textbook || '').trim(),
-          teacher_id: s.teacher_id || null,
-          teacher_name: s.t_name || s.teacher_name || null,
+          teacher_id: sub ? sub.id : (s.teacher_id || null),
+          teacher_name: sub ? sub.name : origTeacherName,
+          substituted: !!sub,
+          substituted_from: sub ? origTeacherName : null,
           start_time: s.start_time || null,
           duration_min: dur,
           start_ts, end_ts, status,
@@ -4767,11 +4811,30 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       const year  = parseInt(url.searchParams.get('year')  || '0', 10);
       const month = parseInt(url.searchParams.get('month') || '0', 10);
       if (!year || !month) return invalidBody(['year', 'month']);
-      const rs = await env.DB.prepare(`SELECT id FROM teachers WHERE active = 1 ORDER BY name ASC`).all();
+      const rs = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1 ORDER BY name ASC`).all();
       const rows: any[] = [];
       for (const t of (rs.results || []) as any[]) {
-        const r = await calcPayrollOne(env, t.id, year, month);
-        if (!r.ok) continue;
+        /* 🛡 (2026-08-30 v4 제안서 08) 한 강사 계산이 터져도 파일 전체를 잃지 않는다.
+           예전에는 여기서 예외가 나면 요청이 500 이 되고, 그것을 새 탭으로 열던 화면에는
+           «흰 화면» 만 남았다(그게 「CSV 백화」의 정체 절반이다. 나머지 절반은 화면 쪽 —
+           adm-core.js downloadPayrollCSV 주석 참고).
+           ⚠️ 조용히 빠뜨리지 않는다 — 이름과 사유를 한 줄로 남겨 «왜 이 사람이 비었나» 를 남긴다.
+              (CLAUDE.md 2장 「화면이 모르면 모른다고 말하게」) */
+        let r: any;
+        try {
+          r = await calcPayrollOne(env, t.id, year, month);
+        } catch (e: any) {
+          r = { ok: false, error: String(e?.message || e).slice(0, 120) };
+        }
+        if (!r || !r.ok) {
+          rows.push({
+            teacher_id: t.id,
+            teacher_name: t.name || ('#' + t.id),
+            year, month,
+            improvements: '계산 실패: ' + String(r?.error || 'unknown'),
+          });
+          continue;
+        }
         const e = r.evaluation || {};
         rows.push({
           teacher_id:         r.teacher_id,
@@ -7484,7 +7547,7 @@ ${chatSampleText}
         };
         try { await env.DB.exec(`CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, amount INTEGER, due_at INTEGER, paid_at INTEGER, status TEXT);`); } catch {}
 
-        const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows] = await Promise.all([
+        const [att30M, att60M, att90M, lastJoinM, evalM, payM, hwM, ptM, _trendRows, absentStreakM] = await Promise.all([
           _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? GROUP BY user_id`, [since30], 'user_id', r => _num(r.d)),
           _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since60, since30], 'user_id', r => _num(r.d)),
           _groupMap(ph => `SELECT user_id, COUNT(DISTINCT date) d FROM attendance WHERE user_id IN (${ph}) AND joined_at >= ? AND joined_at < ? GROUP BY user_id`, [since90, since60], 'user_id', r => _num(r.d)),
@@ -7497,6 +7560,26 @@ ${chatSampleText}
           selectInChunks<any>(env.DB, _ids,
             (ph) => `SELECT student_uid, score_overall, rn FROM (SELECT student_uid, score_overall, ROW_NUMBER() OVER (PARTITION BY student_uid ORDER BY created_at DESC) rn FROM student_evaluations WHERE student_uid IN (${ph})) WHERE rn <= 6`,
             { swallowErrors: true }),
+          /* 🚷 (2026-08-30 v4 제안서 17) 연속 결석 횟수 — 「3회 이상이면 위험도를 심각으로 올려 달라」.
+             ⚠️ 「최근 30일 출석 0」(S2)과는 **다른 사실**이다. 수업이 원래 드문 학생은 S2 만으로는
+                안 걸리고, 반대로 방학처럼 수업 자체가 없던 기간은 «연속 결석» 이 아니다.
+             🧮 판정은 「장기 결석생」 화면(/api/admin/attendance/long-absent)과 **같은 식**이다 —
+                최신 수업일부터 거꾸로 세다가 출석(present)을 만나면 멈춘다. 두 화면이 다른 숫자를
+                말하면 그 자체가 사고이므로 식을 복제하지 말고 같은 모양을 유지할 것.
+             ⚠️ 미래 예약(status='scheduled', joined_at 이 2030년까지 있다)을 결석으로 세지 않도록
+                date <= 오늘(KST) 로 자른다. */
+          _groupMap(
+            (ph) => `WITH ranked AS (
+                       SELECT user_id, date, status,
+                              ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY date DESC, id DESC) AS rn
+                         FROM attendance
+                        WHERE COALESCE(role,'student') = 'student' AND user_id IN (${ph})
+                          AND date IS NOT NULL AND date <= ?
+                     )
+                     SELECT user_id,
+                            COALESCE(MIN(CASE WHEN status = 'present' THEN rn END) - 1, MAX(rn)) AS streak
+                       FROM ranked GROUP BY user_id`,
+            [today()], 'user_id', r => _num(r.streak)),
         ]);
 
         // 평가 추세 — 최근3회 vs 직전3회 평균 (원본 recent3/prev3 동등)
@@ -7530,6 +7613,7 @@ ${chatSampleText}
 
           const hwMissed = hwM.get(s.user_id) || 0;
           const recentPoints = ptM.get(s.user_id) || 0;
+          const absentStreak = absentStreakM.get(s.user_id) || 0;   // 🚷 연속 결석 (v4 제안서 17)
 
           // ════════════════════════════════════════════════
           // 🧮 위험 점수 — 10가지 신호 가중 합산 (Babbel / VIPKID / 학원CRM 벤치마킹)
@@ -7577,8 +7661,19 @@ ${chatSampleText}
           // S10: 포인트/활동 정지
           if (recentPoints === 0 && daysSinceLastJoin < 30) { risk += 6; reasons.push('🎮 최근 2주 학습 활동 정지'); signals.engagement = 'frozen'; }
 
-          if (risk >= 25) {
-            const riskLevel = risk >= 70 ? 'high' : risk >= 50 ? 'medium' : 'low';
+          /* S11: 🚷 연속 결석 (2026-08-30 v4 제안서 17)
+             「연속 3회 이상이면 이탈 위험도를 HIGH(심각)로 자동 승격」이 지시다.
+             ⚠️ 점수만 올리면 승격이 «가끔» 된다 — 다른 신호가 없는 학생은 합계가 70에 못 미친다.
+                그래서 점수와 **별개로** 등급을 못 박는다(아래 forcedHigh).
+             ⚠️ 그래도 점수는 함께 올린다 — 목록이 위험도 내림차순 정렬이라, 점수를 안 올리면
+                «심각» 인데 목록 아래쪽에 묻힌다. */
+          const forcedHigh = absentStreak >= 3;
+          if (absentStreak >= 5)      { risk += 40; reasons.push(`🚷 연속 결석 ${absentStreak}회`); signals.absentStreak = 'critical'; }
+          else if (forcedHigh)        { risk += 30; reasons.push(`🚷 연속 결석 ${absentStreak}회`); signals.absentStreak = 'high'; }
+          else if (absentStreak === 2) { risk += 10; reasons.push('🚷 연속 결석 2회'); signals.absentStreak = 'watch'; }
+
+          if (risk >= 25 || forcedHigh) {
+            const riskLevel = (forcedHigh || risk >= 70) ? 'high' : risk >= 50 ? 'medium' : 'low';
             // 💡 추천 액션 — 위험 신호 조합 기반 정교화
             const actions: string[] = [];
             if (overdueDays >= 7) actions.push('💳 결제 안내 카톡');
@@ -7597,6 +7692,8 @@ ${chatSampleText}
               parent_phone: s.parent_phone || null,
               risk_score: Math.min(risk, 100),
               risk_level: riskLevel,
+              absent_streak: absentStreak,                 // 🚷 연속 결석 (v4 제안서 17)
+              promoted_by_absence: forcedHigh,             // «점수가 아니라 결석 때문에 심각» 임을 화면이 말할 수 있게
               reasons,
               signals,
               attendance_30d: attRecent,

@@ -1816,6 +1816,91 @@ export async function handleMangoApi(
     //        반복 요일은 "다음에 오는 날짜"까지 계산해 준다. 방 조회·입장 로직은 건드리지 않는다.
     //   ⚠️ 요일 파서(dowList)는 /sessions/today 의 dowMatches 와 반드시 같은 표기를 인식해야
     //      한다 — 한쪽만 알아듣는 표기가 있으면 "화면엔 있는데 입장은 안 되는" 어긋남이 생긴다.
+    /* ═══════════════════════════════════════════════════════════════════════
+       🛠 원격 수리·점검 PIN (2026-08-30, v4 제안서 07)
+       ───────────────────────────────────────────────────────────────────────
+       [무엇] 관리자·강사가 6자리 PIN 을 만들고, 학생이 그 PIN 을 자기 화면에 넣으면
+         «원격 지원을 허용했다» 는 사실이 서버에 남는다. 그 다음 실제 화면 제어는
+         **Quick Assist / Chrome 원격 데스크톱**(index.html 의 원격 지원 안내)이 한다.
+       ⛔ 우리가 화면을 직접 제어하지 않는다 — 그런 코드를 만들지 말 것. 여기서 PIN 이 하는 일은
+          «누가 언제 허락했는가» 를 남기는 것뿐이고, 그게 이 기능에 필요한 전부다.
+          (허락 기록이 없으면 「누가 내 컴퓨터를 봤나」에 답할 수가 없다.)
+
+       [왜 /api/class/ 밑인가] 이 접두사는 src/index.ts 라우팅에 **이미** 올라와 있어
+         공동 금지구역을 한 줄도 안 건드린다. 대신 라우팅과 인증은 다른 것이므로
+         발급 경로는 **핸들러 안에서 관리자 세션을 직접 확인**한다
+         (CLAUDE.md 2장 「라우팅 허용목록에 올렸으니 인증도 된 것」).
+
+       ⚠️ 학생 쪽(claim)은 로그인 없이도 눌러야 한다 — 컴퓨터가 고장 나서 부르는 자리다.
+          그래서 무인증이지만 ① 6자리 · ② 10분 만료 · ③ 시도 5회 제한 · ④ 1회용으로 좁힌다.
+       ⛔ 응답에 학생 이름·연락처를 넣지 말 것 — 무인증 경로다. «맞다/틀리다» 까지만 말한다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    if (path === '/api/class/remote-support/issue' && method === 'POST') {
+      const rsSess: any = await checkAdminSession(request, env as any);
+      if (!rsSess || !rsSess.ok) return json({ ok: false, error: 'admin_session_required' }, 401);
+      await ensureSchemaOnce('remote_support_pins', async () => {
+        await env.DB.exec(`CREATE TABLE IF NOT EXISTS remote_support_pins (pin TEXT PRIMARY KEY, student_uid TEXT, student_name TEXT, issued_by TEXT, issued_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER DEFAULT 0, claimed_at INTEGER)`);
+      });
+      const rsBody: any = await request.json().catch(() => ({}));
+      const now = Date.now();
+      const TTL_MS = 10 * 60 * 1000;
+
+      /* 🔢 6자리 — 예측 가능한 Math.random 대신 crypto 로 뽑는다. 앞자리 0 도 허용한다
+         (000123 을 버리면 후보가 줄고, 사람에게 읽어 주는 데는 아무 문제가 없다). */
+      let pin = '';
+      for (let i = 0; i < 6; i++) {
+        const b = new Uint32Array(1); crypto.getRandomValues(b);
+        pin += String(b[0] % 10);
+      }
+      try {
+        // 만료된 옛 PIN 은 그때그때 치운다 — 따로 도는 청소 작업을 만들지 않는다
+        await env.DB.prepare(`DELETE FROM remote_support_pins WHERE expires_at < ?`).bind(now).run();
+        await env.DB.prepare(
+          `INSERT OR REPLACE INTO remote_support_pins (pin, student_uid, student_name, issued_by, issued_at, expires_at, attempts, claimed_at)
+           VALUES (?,?,?,?,?,?,0,NULL)`
+        ).bind(pin, String(rsBody.student_uid || '').trim() || null, String(rsBody.student_name || '').trim() || null,
+                String(rsSess.username || rsSess.uid || 'admin'), now, now + TTL_MS).run();
+      } catch (e: any) {
+        return json({ ok: false, error: 'issue_failed', message: String(e?.message || e).slice(0, 200) }, 500);
+      }
+      return json({ ok: true, pin, expires_at: now + TTL_MS, ttl_sec: Math.round(TTL_MS / 1000) });
+    }
+
+    if (path === '/api/class/remote-support/claim' && method === 'POST') {
+      const rcBody: any = await request.json().catch(() => ({}));
+      const rcPin = String(rcBody.pin || '').replace(/\D/g, '');
+      if (rcPin.length !== 6) return json({ ok: false, error: 'bad_pin' }, 400);
+      let row: any = null;
+      try {
+        row = await env.DB.prepare(`SELECT pin, student_uid, expires_at, attempts, claimed_at FROM remote_support_pins WHERE pin = ?`).bind(rcPin).first();
+      } catch {
+        /* 표가 아직 없다 = 아무도 PIN 을 만든 적이 없다. «틀렸다» 로 답한다(내부 사정을 알리지 않는다) */
+        return json({ ok: false, error: 'not_found' }, 404);
+      }
+      const now2 = Date.now();
+      if (!row) return json({ ok: false, error: 'not_found' }, 404);
+      if (Number(row.attempts) >= 5) return json({ ok: false, error: 'too_many_attempts' }, 429);
+      if (Number(row.expires_at) < now2) return json({ ok: false, error: 'expired' }, 410);
+      if (row.claimed_at) return json({ ok: false, error: 'already_used' }, 409);
+
+      /* 학생 아이디를 함께 보냈으면 «발급할 때 지정한 학생» 과 맞는지 본다.
+         ⚠️ 지정 없이 발급했으면(현장에서 이름을 모를 때) 이 검사는 건너뛴다 —
+            그때는 PIN 을 «읽어 준 사람» 이 곧 확인 절차다. */
+      const rcUid = String(rcBody.user_id || '').trim();
+      if (row.student_uid && rcUid && String(row.student_uid).toLowerCase() !== rcUid.toLowerCase()) {
+        try { await env.DB.prepare(`UPDATE remote_support_pins SET attempts = attempts + 1 WHERE pin = ?`).bind(rcPin).run(); } catch {}
+        return json({ ok: false, error: 'uid_mismatch' }, 403);
+      }
+      try {
+        await env.DB.prepare(`UPDATE remote_support_pins SET claimed_at = ?, attempts = attempts + 1 WHERE pin = ?`).bind(now2, rcPin).run();
+      } catch (e: any) {
+        /* 🔴 «허락했다» 는 기록을 못 남기면 이 기능의 존재 이유가 사라진다 — 조용히 넘기지 않는다.
+           그렇다고 학생을 막지도 않는다(컴퓨터가 고장 나서 부르는 자리다). 로그로 남기고 통과. */
+        console.warn('[remote-support] claim 기록 실패:', (e as any)?.message);
+      }
+      return json({ ok: true, claimed_at: now2 });
+    }
+
     if (method === 'GET' && path === '/api/class/schedule/mine') {
       await ensureSchemaOnce('class_schedules', async () => {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS class_schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, student_name TEXT, schedule_kind TEXT NOT NULL DEFAULT 'recurring', class_type TEXT NOT NULL DEFAULT 'regular', day_of_week TEXT, scheduled_date TEXT, start_time TEXT NOT NULL, duration_min INTEGER DEFAULT 20, teacher_id TEXT, status TEXT DEFAULT 'active', source TEXT, created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER, notes TEXT)`);
@@ -1921,7 +2006,7 @@ export async function handleMangoApi(
       const userId = (url.searchParams.get('user_id') || '').trim();
       const nameParam = (url.searchParams.get('student_name') || '').trim();
       const role = (url.searchParams.get('role') || 'student').trim().toLowerCase();
-      const m = /^class-(\d+)-\d{8}$/.exec(roomId);
+      const m = /^class-(\d+)-(\d{8})$/.exec(roomId);
       if (!m) return json({ ok: true, authorized: true, reason: 'not_managed_room' }); // 예약제 방이 아니면 게이트 안 함
       /* 🔓 (2026-08-26 사장님 지시) 예전에는 admin 도 여기서 함께 빠졌다. 그런데 그 조기 통과가
          「이 예약의 학생이면 역할을 내린다」 교정을 **admin 에서만 통째로 건너뛰게** 만들었다 —
@@ -2047,6 +2132,48 @@ export async function handleMangoApi(
       //     (2026-08-26 부터 admin 은 «통과하되 역할은 사실대로» 로 바뀌었다. 막고 안 막고는 그대로).
       //   ※ role 표기가 경로마다 다르다 — 마이페이지 입장 버튼은 'teacher', 홈 통합로그인 폴백은 'hq_teacher'
       //     를 쓴다(index.html tryAdminLoginFallback). 정확히 'teacher' 만 보면 안전장치가 새 경로에서 빠진다.
+      /* 🔄 (2026-08-28) 이 날짜에 1회성 대체강사가 배정돼 있으면 그 강사도 "담당 강사" 로 인정한다.
+         'recurring' 행은 정본 teacher_id 를 그대로 두므로(다음 회차 자동복귀를 위해 —
+         enroll-ops.ts 의 (m-2)/(m-3) 참고) 위의 모든 검사는 여전히 "원래 강사" 기준이라
+         대체강사는 매번 이 경고를 본다. 'dated' 행(수강신청 자동생성)은 teacher_id 를
+         그 자리에서 바로 바꾸므로 이미 위에서 잡힌다 — 여기는 recurring 오버레이 전용. */
+      if (!ok && /teacher/.test(role) && m[2]) {
+        try {
+          const subDate = m[2].slice(0, 4) + '-' + m[2].slice(4, 6) + '-' + m[2].slice(6, 8);
+          const sub = await env.DB.prepare(
+            `SELECT cs2.substitute_teacher_id, t2.name AS sub_name FROM class_substitutions cs2
+               LEFT JOIN teachers t2 ON CAST(t2.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
+              WHERE cs2.schedule_id = ? AND cs2.sub_date = ? AND cs2.status = 'active' LIMIT 1`
+          ).bind(schedId, subDate).first<any>();
+          if (sub && sub.substitute_teacher_id) {
+            const subId = String(sub.substitute_teacher_id);
+            if (userId && userId === subId) { ok = true; resolvedRole = 'teacher'; }
+            if (!ok && nameParam) {
+              const stripRolePrefix = (s: string) => String(s || '').replace(/^\s*(?:교사|강사|선생님|Teacher|Tutor)\s+/i, '').trim();
+              const subName = String(sub.sub_name || '');
+              const hit = (a: string, b: string) => !!a && !!b && (a === b || a.includes(b) || b.includes(a));
+              /* ⚠️ (2026-08-28 trap-check 지적) 이름 부분일치는 위(1991행 근처)의 원래 교사
+                 매칭과 같은 이유로 resolvedRole 을 올리지 않는다 — 짧은 이름이면 우연히
+                 걸릴 수 있어 "강사로 올리는" 근거로 쓰면 안 된다. ok 만 세워 입장은
+                 허용하되, 화면이 역할을 스스로 내리는 데는 이 값을 쓰지 않는다. */
+              if (hit(subName, nameParam) || hit(subName, stripRolePrefix(nameParam))) { ok = true; }
+            }
+            if (!ok) {
+              const sess2 = await checkAdminSession(request, env as any).catch(() => null);
+              if (sess2 && (sess2 as any).ok && (sess2 as any).username) {
+                const su2 = String((sess2 as any).username);
+                if (su2 === subId) { ok = true; resolvedRole = 'teacher'; }
+                if (!ok) {
+                  const link = await env.DB.prepare(
+                    `SELECT teacher_id FROM teacher_account_links WHERE username = ? COLLATE NOCASE LIMIT 1`
+                  ).bind(su2).first<any>().catch(() => null);
+                  if (link && link.teacher_id && String(link.teacher_id) === subId) { ok = true; resolvedRole = 'teacher'; }
+                }
+              }
+            }
+          }
+        } catch { /* 실패해도 기존 폴백(경고만, 입장은 안 막음)으로 이어진다 */ }
+      }
       if (!ok && /teacher/.test(role)) {
         return json({ ok: true, authorized: 'unknown', reason: 'teacher_not_assigned', owner_name: row.student_name || null, teacher_name: row.teacher_name || null, resolved_role: resolvedRole });
       }

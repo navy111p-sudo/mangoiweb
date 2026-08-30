@@ -583,7 +583,7 @@
     var len = compose(ctx.currentTime + 0.06);
     endTimer = setTimeout(function () {
       endTimer = null;
-      if (playing) { playing = false; markDone(); teardown(); }
+      if (playing) { playing = false; markDone(); teardown(); syncBtn(); }
     }, (len + 0.5) * 1000);
   }
 
@@ -610,7 +610,16 @@
       /* ⛔ hover 로 크기를 바꾸지 않는다 — 「hover 확대 금지」(CLAUDE.md 1-3) */
       '#' + BTN_ID + ':hover{background:rgba(245,158,11,.22);border-color:rgba(245,158,11,.95);}',
       '#' + BTN_ID + '.mgo-off{color:#94a3b8;border-color:rgba(148,163,184,.5);box-shadow:none;}',
-      '@media (max-width:640px){#' + BTN_ID + '{bottom:72px;width:32px;height:32px;font-size:14px;}}'
+      '@media (max-width:640px){#' + BTN_ID + '{bottom:72px;width:32px;height:32px;font-size:14px;}}',
+      /* 🌊 재생 중 «파동» (v4 제안서 18). 상자 밖으로 번지는 링이라 overflow:hidden 에 잘리지
+         않도록 box-shadow 로 그린다(가상요소를 쓰면 위 overflow 에 잘린다).
+         ⛔ 크기(transform)는 건드리지 않는다 — 「hover 확대 금지」와 같은 이유로 자리가 흔들린다.
+         ⚠️ 저사양(html.lite-mode)·«움직임 줄이기» 설정에서는 끈다. */
+      '@keyframes mgoWave{0%{box-shadow:0 0 0 0 rgba(245,158,11,.45),0 0 0 0 rgba(245,158,11,.28);}',
+      '  100%{box-shadow:0 0 0 10px rgba(245,158,11,0),0 0 0 18px rgba(245,158,11,0);}}',
+      '#' + BTN_ID + '.mgo-playing{animation:mgoWave 1.6s ease-out infinite;}',
+      '@media (prefers-reduced-motion:reduce){#' + BTN_ID + '.mgo-playing{animation:none;}}',
+      'html.lite-mode #' + BTN_ID + '.mgo-playing{animation:none;}'
     ].join('');
     (document.body || document.documentElement).appendChild(st);
   }
@@ -622,6 +631,8 @@
     //    🔊 U+1F50A · 🔇 U+1F507 은 둘 다 Unicode 6.0 이라 안전하다.
     btn.textContent = off ? '🔇' : '🔊';
     btn.classList.toggle('mgo-off', off);
+    // 🌊 재생 중에만 파동 (v4 제안서 18) — 아이콘·설명은 그대로 두고 «상태» 만 더한다
+    btn.classList.toggle('mgo-playing', !!playing && !off);
     var ko = off ? '오프닝 소리 켜기' : '오프닝 소리 끄기';
     var en = off ? 'Turn opening sound on' : 'Turn opening sound off';
     // 🔴 이 버튼에는 data-ko/data-en 을 «절대» 달지 않는다.
