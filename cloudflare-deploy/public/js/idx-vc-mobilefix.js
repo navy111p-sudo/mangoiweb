@@ -26,6 +26,10 @@
  *      사라져서 되끄기·멈추기가 아예 불가능했다(2026-08-27 사장님·Karl 테스트 제보).
  *      같은 날 지시로 강사·관리자 화면에도 붙인다(폰에서는 유튜브 자체 컨트롤바가
  *      하단 독에 가려 손이 안 닿는다). 그쪽만 네이티브 컨트롤 위로 비켜선다.
+ *   ⑬ 세로 «교재를 위로» — 학생 전용 옵션(2026-08-28 사장님 지시. 본문에만 있고
+ *      이 목차에 빠져 있어 병합하며 함께 채웠다).
+ *   ⑭ 「👥 학생 제어」 이름표가 세로폰 ☰ 기능 메뉴에서 «죽은 버튼» 처럼 보이던 것 —
+ *      그 메뉴에서만 한 줄짜리 소제목으로 그린다(2026-08-28 사장님 확인 요청).
  *
  * ⚠️ idx-main.js 의 전역을 «덮어쓰는» 방식이다. 그쪽 함수 이름이 바뀌면 여기도 같이 고칠 것.
  *    원본이 없으면 조용히 건너뛴다(아래 typeof 검사) — 이 파일 때문에 수업이 멈추지는 않는다.
@@ -1465,5 +1469,60 @@
     window.mgTbTopMeasureGap  = measureGap;
   })();
 
-  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) 준비됨'); } catch (e) {}
+  /* ══════════════════════════════════════════════════════════════
+     ⑭ 👥 「학생 제어」 이름표 — ☰ 기능 메뉴에서 «죽은 버튼» 으로 보이던 것
+     ──────────────────────────────────────────────────────────────
+     [무엇이 문제였나] index.html 8501 의 #vc-studentctl-label 은 버튼이 아니라
+       «묶음 이름표» 다(2026-08-12 강사 Shas ③번 — 「Lock Student Drawing 을 찾기까지
+       여러 번 시도해야 했다」). 가로 툴바에서는 왼쪽 세로선(border-left)이 구분선 노릇을
+       해서 읽히지만, 세로폰 ☰ 기능 메뉴는 탭바를 «2열 그리드» 로 펼친다
+       (index.html 16199~, @media (max-width:920px) and (orientation:portrait)).
+       그 그리드 CSS 는 «> button»·«> .mango-tool-chip»·«> .vc-phero-menu-item» 셋만
+       큰 버튼으로 그리므로, <span> 인 이 이름표는 규칙이 하나도 안 걸린 채 한 칸을
+       차지한다 → 회색 잔글씨만 있는 «눌러도 아무 일 없는 버튼» 으로 보인다
+       (2026-08-28 사장님 「이건 안 돼서 이렇게 만든 거야? 오류야?」).
+     [무엇을 하나] 그 메뉴에서만 한 줄을 통째로 쓰는 «소제목» 으로 바꾼다. 형식은 이미
+       같은 메뉴 맨 위에 있는 «📋 기능 메뉴 — 원하는 것을 누르세요»(::before, grid-column
+       1/-1)를 그대로 따른다. 아래 셋(🎤 전체 음소거·✋ 학생 필기 잠그기·🎯 집중 모드)이
+       한 묶음이라는 신호가 폰에서도 살아난다.
+     ⛔ 이름표를 «숨기는» 쪽으로 풀지 않는다 — 폰으로 수업하는 강사에게는 이 메뉴가
+        그 셋을 만나는 유일한 통로라, 숨기면 Shas 제보 이전 상태로 되돌아간다.
+     ⚠️ display 는 건드리지 않는다. 노출은 vcClassLockChipsRender 가 인라인 style 로
+        정한다(강사·관리자 inline-flex / 그 외 none). 여기서 display 를 쓰면 «학생 화면에
+        이름표만 남는» 사고가 난다. 그리드 자식은 inline-flex 가 flex 로 승격되므로
+        그대로 두어도 한 줄로 잘 그려진다.
+     ⚠️ 나머지 값에는 !important 가 필요하다 — 그 span 은 색·여백·border-left 를 «인라인»
+        style 로 들고 있고, 작성자 !important 만이 인라인을 이긴다(CLAUDE.md 2장).
+     ⚠️ 미디어쿼리를 반드시 함께 둔다. 빼면 PC·가로의 가로 툴바에서도 구분선이 사라진다.
+     ℹ️ index.html 은 공동 금지구역이고 첫 화면 예산 여유도 CI 기준 ~660B 뿐이라,
+        규칙을 그 파일에 넣지 않고 여기(defer)에서 body 끝에 얹는다 — ⑨절과 같은 방식.
+  ══════════════════════════════════════════════════════════════ */
+  (function injectStudentCtlCss() {
+    var CSS = [
+      '@media (max-width:920px) and (orientation:portrait){',
+      '  body.vc-in-call.vc-phero-menu-open #vc-main-row .content-pane .tab-bar > #vc-studentctl-label{',
+      '    grid-column:1 / -1 !important;',
+      '    justify-content:center !important;',
+      '    border-left:none !important;',
+      '    border-top:1px solid rgba(148,163,184,.25) !important;',
+      '    margin:6px 0 0 !important;',
+      '    padding:9px 2px 3px !important;',
+      '    font-size:12.5px !important;',
+      '    color:#93c5fd !important;',
+      '  }',
+      '}'
+    ].join('\n');
+    function put() {
+      if (document.getElementById('mg-studentctl-css')) return;
+      if (!document.body) return;
+      var st = document.createElement('style');
+      st.id = 'mg-studentctl-css';
+      st.textContent = CSS;
+      document.body.appendChild(st);   // body 끝 — 이 저장소의 화면 CSS 는 body 안에서 링크된다
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', put);
+    else put();
+  })();
+
+  try { console.log('[mobilefix] 교재 배율 ' + window._pdfDPR + '배 · 핀치 유지 · 확대버튼 · 배경탭 · 중국어 안내 · 복습퀴즈 과선택 · 진도 기록 · 영상 학생버튼 · 세로 교재위(학생) · 학생제어 소제목 준비됨'); } catch (e) {}
 })();
