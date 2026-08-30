@@ -2252,13 +2252,54 @@ async function saveEvalAndClasses() {
   } catch (e) { alert((adminLang === 'en' ? 'Network error: ' : '네트워크 에러: ') + e.message); }
 }
 
-function downloadPayrollCSV() {
+/* 📥 (2026-08-30 v4 제안서 08) 급여·평가 CSV — «백화(빈 흰 화면)» 수리.
+   [무엇이 문제였나] 예전에는 `window.open(...csv...)` 한 줄이었다. 그 새 탭은
+     ① 서버가 활성 강사 전원을 한 명씩 계산하는 동안 **몇 초~수십 초 흰 화면**으로 떠 있고,
+     ② 실패하면(세션 만료 302, 500) 다운로드 대신 **빈 페이지나 JSON 원문**이 남는다 —
+        쓰는 사람에게는 «눌렀더니 하얘졌다» 로 보인다. 어디가 잘못됐는지 알 길이 없다.
+     ③ 카톡·문자 인앱 브라우저는 새 창을 못 여는데 **예외도 안 던지고 null 만** 돌려준다
+        (CLAUDE.md 2장) → 아무 일도 안 일어난다.
+   [고침] 지금 창에서 비동기로 받아 blob 으로 저장한다. 받는 동안 버튼이 «내려받는 중…» 이 되고,
+     실패하면 사유를 그 자리에서 말한다. 새 탭을 아예 열지 않으므로 ①②③ 이 함께 사라진다. */
+async function downloadPayrollCSV() {
   const _L = adminLang === 'en';
   if (_payrollTeacherView()) { try{ window._payrollGuardToast(_L?'Only HQ managers/executives can export payroll.':'전체 급여 내보내기는 본사 관리자·경영진만 가능합니다.'); }catch(e){} return; } // 🔐
   const year  = parseInt(document.getElementById('payroll-year').value, 10);
   const month = parseInt(document.getElementById('payroll-month').value, 10);
   if (!year || !month) { alert(_L ? 'Enter year/month' : '연도/월을 입력하세요'); return; }
-  window.open(`/api/admin/export/payroll.csv?year=${year}&month=${month}`, '_blank');
+
+  const btn = document.getElementById('payroll-csv-btn');
+  const label0 = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = _L ? 'Downloading…' : '내려받는 중…'; }
+  let url = '';
+  try {
+    const r = await fetch(`/api/admin/export/payroll.csv?year=${year}&month=${month}`,
+                          { credentials: 'include', cache: 'no-store' });
+    if (!r.ok) {
+      /* 세션이 끊기면 서버가 로그인으로 보내거나 401 을 준다 — «흰 화면» 대신 사실을 말한다 */
+      alert(_L ? ('Export failed (HTTP ' + r.status + '). Please sign in again and retry.')
+               : ('내보내기 실패 (HTTP ' + r.status + '). 다시 로그인한 뒤 시도해 주세요.'));
+      return;
+    }
+    const blob = await r.blob();
+    if (!blob || blob.size === 0) {
+      alert(_L ? 'The server returned an empty file.' : '서버가 빈 파일을 돌려주었습니다.');
+      return;
+    }
+    url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mangoi_payroll_${year}-${String(month).padStart(2, '0')}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) {
+    alert((_L ? 'Network error: ' : '네트워크 에러: ') + (e && e.message ? e.message : e));
+  } finally {
+    // ⚠️ revoke 를 즉시 하면 브라우저가 저장을 시작하기 전에 주소가 죽는 기기가 있다
+    if (url) setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 60000);
+    if (btn) { btn.disabled = false; btn.textContent = label0; }
+  }
 }
 
 async function finalizePayroll() {
@@ -2830,6 +2871,9 @@ async function loadTeacherProfiles() {
         '<button class="tp-act-btn tp-act--video" onclick="window.open(\'/?room=mangoi-class\',\'_blank\')" title="수업 입장 — 학생들과 같은 공용 수업방으로 들어갑니다 (이 링크를 강사에게 주세요)" style="' + _TP_ACT_BTN + '" aria-label="수업 입장">' + _TP_IC.video + '</button>' +
         // 💬 (2026-08-13) 이 강사에게 바로 메시지 — 카카오톡(원클릭 붙여넣기) + 문자(자동발송)
         '<button class="tp-act-btn tp-act--kakao" onclick="window.tkOpenSend && window.tkOpenSend(' + t.id + ')" title="카카오·문자로 메시지 보내기" data-en-title="Message by KakaoTalk / SMS" style="' + _TP_ACT_BTN + 'background:#fee500;color:#191919" aria-label="카카오·문자 전달">' + _TP_IC.chat + '</button>' +
+        /* 👁 (2026-08-30 v4 제안서 09) 수업관찰 «즉시 입장» — 이 강사의 지금 수업으로 바로 들어간다.
+           ⚠️ 학생·강사에게 보이지 않는 «참관» 이다. 실제 참가자로 들어가는 🎥 버튼과 색을 갈라 둔다. */
+        '<button class="tp-act-btn tp-act--ghost" onclick="window.tpGhostObserve && window.tpGhostObserve(' + t.id + ')" title="수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)" data-en-title="Observe this teacher\'s live class (hidden from the participant list)" style="' + _TP_ACT_BTN + '" aria-label="수업관찰">👁</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
@@ -2845,6 +2889,75 @@ async function loadTeacherProfiles() {
   // 📊 인사평가 점수·순위 채우기 — 실제 수업기록 기반. 표 렌더를 막지 않도록 비동기.
   if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores();
 }
+
+
+/* 👁 수업관찰 (Ghost Mode) — 강사 목록 액션 열 (2026-08-30, v4 제안서 09)
+   ═══════════════════════════════════════════════════════════════════════════
+   [무엇] 이 강사가 «지금» 하고 있는 수업을 찾아 참관으로 바로 연다.
+     참관은 `/?observe=<방번호>` 뿐이다 — 서버(video-call-room.ts handleJoinObserve)가
+     참여자 목록·인원수·입퇴장 어디에도 넣지 않는 «투명» 접속이고, 화면 쪽은
+     js/vc-observe-guard.js 가 마이크·카메라·화면공유를 함수째 잠근다.
+   ⛔ `/?vc_autojoin=1` 로 열지 말 것 — 그건 «실제 참가자» 라 학생에게 보인다
+      (adm-today-classes.js 의 🚪 입장 버튼이 그쪽이다. 둘을 섞으면 몰래 보려던 것이 드러난다).
+   ⛔ `/admin/ghost-view.html` 로 보내지 않는다 — 그 화면에는 «영상이 오지 않는다»
+      (CLAUDE.md 2장). 「수업 관찰을 눌렀는데 아무것도 안 뜬다」의 정체가 그것이다.
+   ⚠️ 강사↔수업 매칭은 **이름 완전일치** 로만 한다. 강사 번호는 세 벌(카페24·원부·프로필)이고
+      겹치는 자리에서 서로 다른 사람이라 번호로 이으면 조용히 남의 수업을 연다(CLAUDE.md 2장).
+      후보가 둘 이상이면 고르게 하고, 못 찾으면 «없다» 고 말한다 — 아무 방이나 열지 않는다.
+   ⚠️ 동시 참관은 서버가 2명까지만 받는다. 자리가 없으면 그쪽에서 거절한다. */
+window.tpGhostObserve = async function (teacherId) {
+  const _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  const T = (ko, en) => (_L ? en : ko);
+  const t = (window._tpRowById || {})[teacherId] || {};
+  const names = [t.korean_name, t.english_name].filter(Boolean).map(function (n) {
+    return String(n).trim().toLowerCase().replace(/^teacher\s+/, '');
+  });
+  if (!names.length) { alert(T('이 강사의 이름을 알 수 없어 수업을 찾을 수 없습니다.', 'This teacher has no name on file, so the class cannot be found.')); return; }
+
+  let rows = [];
+  try {
+    const r = await fetch('/api/admin/classes/today', { credentials: 'include', cache: 'no-store' });
+    const d = await r.json().catch(() => null);
+    /* ✅ «성공이라고 말했는가» 로 판정한다 — 종단 404 본문에는 ok 칸이 아예 없어서
+       `d.ok === false` 로만 거르면 그냥 통과하고 «오늘은 수업이 없나 보다» 로 읽힌다
+       (CLAUDE.md 2장 「404 는 「Not Found」로 안 보일 수 있습니다」). */
+    if (!r.ok || !d || d.ok !== true || !Array.isArray(d.sessions)) {
+      alert(T('수업 목록을 불러오지 못했습니다. 다시 로그인한 뒤 시도해 주세요.',
+              'Could not load today\'s classes. Please sign in again and retry.'));
+      return;
+    }
+    rows = d.sessions;
+  } catch (e) {
+    alert(T('네트워크 오류입니다.', 'Network error.'));
+    return;
+  }
+
+  const mine = rows.filter(function (s) {
+    if (!s || !s.room_id || !s.join_open) return false;      // 지금 들어갈 수 있는 수업만
+    if (/^c24-/.test(String(s.room_id))) return false;        // 카페24 수업엔 망고아이 방이 없다
+    const tn = String(s.teacher_name || '').trim().toLowerCase().replace(/^teacher\s+/, '');
+    return !!tn && names.indexOf(tn) >= 0;                    // ⛔ 부분일치 금지
+  });
+
+  if (!mine.length) {
+    alert(T('지금 진행 중인 수업이 없습니다.\n(수업이 시작되면 이 버튼으로 바로 관찰할 수 있습니다.)',
+            'No class is in progress right now.\n(Once a class starts, this button takes you straight in.)'));
+    return;
+  }
+  let room = mine[0].room_id;
+  if (mine.length > 1) {
+    const list = mine.map(function (s, i) { return (i + 1) + ') ' + (s.start_time || '') + ' ' + (s.student_name || ''); }).join('\n');
+    const pick = prompt(T('수업이 여러 건입니다. 번호를 고르세요:\n', 'Several classes. Pick a number:\n') + list, '1');
+    const idx = parseInt(pick, 10);
+    if (!idx || idx < 1 || idx > mine.length) return;
+    room = mine[idx - 1].room_id;
+  }
+
+  const url = location.origin + '/?observe=' + encodeURIComponent(room);
+  /* 팝업이 막히면 조용히 실패한다(window.open 은 예외 없이 null 만 준다 — CLAUDE.md 2장) */
+  if (window.mangoiOpenTab) window.mangoiOpenTab(url, T('수업관찰', 'Observe'));
+  else if (!window.open(url, '_blank', 'noopener')) location.href = url;
+};
 
 // ═══ 🔑 강사 비밀번호 재설정 (2026-07-23) ═══════════════════════════════
 //   왜: 강사가 비번을 잊으면 풀어줄 방법이 없었다. `change-password` 는 본인이 현재
@@ -3452,7 +3565,13 @@ async function viewTeacherProfile(id) {
   // 각 탭 = 캐시(_tpRowById) 데이터 요약 + 전체 도구(기존 카드) 바로가기. 새 API 없이 안전.
   const _jump = function(card, label){ return '<div style="margin-top:16px"><button type="button" onclick="var m=this.closest(\'.tp-detail-modal\');if(m)m.remove();if(typeof jumpToMenu===\'function\')jumpToMenu(\'' + card + '\');" style="padding:9px 16px;background:#6366f1;color:#fff;border:0;border-radius:8px;font-weight:700;cursor:pointer">' + label + '</button></div>'; };
   const _note = function(txt){ return '<div style="color:#9ca3af;font-size:12px;padding:4px 0 2px">' + txt + '</div>'; };
+  /* 📚 (2026-08-30 v4 제안서 15) 「수업 데이터가 없다」의 정체는 «번호가 세 벌» 이다.
+     원부(teachers.id)로만 조인하면 카페24에서 돌아간 수업이 통째로 안 보인다 — Janice 실측:
+     teachers 28 / 카페24 37, 실제 수업 64건은 카페24 번호에만 달려 있었다.
+     여기서는 서버(/api/admin/reports/teacher-classes)가 «두 갈래를 다 세어» 준다.
+     ⚠️ 못 이었으면 «못 이었다» 고 그대로 적는다 — 숫자를 0으로 채우지 않는다. */
   const classesPane = _tpField(T('가능 요일','Available Days'), t.available_days) + _tpField(T('가능 시간','Available Hours'), t.available_hours) + _tpField(T('활동 지역','Active Region'), t.active_region) +
+      '<div data-sum="classes" style="margin-top:10px;font-size:12.5px;color:#475467">' + T('수업 기록 확인 중…','Checking class records…') + '</div>' +
       _note(T('이 강사의 주간 수업 배정·시간표는 아래에서 관리합니다.','Manage weekly schedule and timetable below.')) + _jump('card-timetable', T('🗓 시간표 · 수업 배정 열기','🗓 Open Timetable · Schedule'));
   const payPane = '<div data-sum="pay"></div>' + _tpField(T('10분당 수수료','Fee / 10 min'), t.fee_per_10min ? Number(t.fee_per_10min).toLocaleString('ko-KR') + ' KRW' : null) +
       _tpField(T('구분/그룹','Group'), t.group_name) + _tpField(T('은행','Bank'), t.bank_name) + _tpField(T('계좌','Account'), t.bank_account) +
@@ -3479,7 +3598,41 @@ async function viewTeacherProfile(id) {
     '</div></div>';
   const div = document.createElement('div');
   div.innerHTML = html;
-  document.body.appendChild(div.firstChild);
+  const modalEl = div.firstChild;
+  document.body.appendChild(modalEl);
+
+  // 📚 «수업 배정» 탭 요약 — 망고아이 예약 + 카페24 실제 수업을 함께 (v4 제안서 15)
+  (async function () {
+    const box = modalEl.querySelector('[data-sum="classes"]');
+    if (!box) return;
+    try {
+      const r = await fetch('/api/admin/reports/teacher-classes?teacher_id=' + encodeURIComponent(t.id) + '&days=90',
+                            { credentials: 'include', cache: 'no-store' });
+      const d = await r.json().catch(function () { return null; });
+      if (!r.ok || !d || d.ok !== true) {
+        box.textContent = T('수업 기록을 불러오지 못했습니다.', 'Could not load class records.');
+        return;
+      }
+      const c = d.cafe24 || {};
+      let html2 = '<div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:9px 11px">'
+        + '<div><b>' + T('망고아이 예약', 'Mangoi schedules') + '</b>: ' + d.mangoi_schedules + T('건', '')
+        + (d.placeholder_or_cancelled ? ('<span style="color:#9ca3af"> · ' + T('자리표시·취소 ', 'placeholder/cancelled ') + d.placeholder_or_cancelled + '</span>') : '')
+        + '</div>';
+      if (c.teacher_id) {
+        html2 += '<div style="margin-top:3px"><b>' + T('카페24 수업(90일)', 'cafe24 classes (90d)') + '</b>: '
+          + c.class_count + T('건', '') + (c.last_date ? (' · ' + T('최근 ', 'last ') + c.last_date) : '')
+          + ' <span style="color:#9ca3af">(' + T('강사번호 ', 'teacher #') + c.teacher_id + ')</span></div>';
+      } else {
+        /* ⚠️ 못 이었으면 «0건» 이라고 하지 않는다 — 표본이 없는 것과 0은 다른 사실이다 */
+        html2 += '<div style="margin-top:3px;color:#b45309">' + T('카페24 수업', 'cafe24 classes') + ': '
+          + T('강사번호를 잇지 못했습니다', 'teacher number could not be matched') + '</div>';
+      }
+      html2 += '<div style="margin-top:4px;color:#6b7280;font-size:11.5px">' + _aiEsc(d.note_ko || '') + '</div></div>';
+      box.innerHTML = html2;
+    } catch (e) {
+      box.textContent = T('수업 기록을 불러오지 못했습니다.', 'Could not load class records.');
+    }
+  })();
 }
 // 강사 상세 모달 탭 전환 (A2-2)
 window._tpDetailTab = function(btn, key){
@@ -12718,8 +12871,78 @@ window.rebuildGlobalSearchIndex = function() {
       const r = await fetch('/api/admin/reports/payments-list?' + qs.toString(), { credentials:'include' });
       const d = await r.json();
       if (!d.ok) throw new Error(d.error||'API error');
-      if (!d.rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
-      tbody.innerHTML = d.rows.map(p => {
+      if (!d.rows.length) { _accPayRows = []; tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+      _accPayRows = d.rows;
+      accRenderPayments();
+    } catch(e) { _showErr(tbody, e, 11); }
+  };
+
+  /* ▲▼ (2026-08-30 v4 제안서 11) 결제/주문 내역 정렬.
+     · 머리글 클릭 → 오름차순(▲) ↔ 내림차순(▼) 토글
+     · Shift+클릭  → 다중 정렬(1차·2차… 우선순위 번호를 화살표 옆에 표시)
+     · 정렬하지 않은 칸은 «↕» 로 «누르면 정렬된다» 는 것을 먼저 알린다.
+     ⚠️ 이 표는 «서버가 준 한 페이지» 를 그대로 정렬한다 — 전체 결과 정렬이 아니다.
+        (전체 정렬이 필요하면 서버 ORDER BY 를 받아야 하는 별건이다.)
+     ⚠️ 숫자 칸은 문자열로 비교하지 않는다 — '9' > '10' 이 되어 조용히 틀린다. */
+  var _accPayRows = [];
+  var _accPaySort = [];   // [{key, dir}] — dir: 1=오름차순 ▲ / -1=내림차순 ▼
+  const _ACC_PAY_NUM = { paid_at: 1, id: 1, amount_krw: 1 };
+
+  function _accPayVal(row, key) {
+    if (key === 'channel') return row.channel || '';
+    if (key === 'franchise_name') return row.franchise_name || '';
+    return row[key];
+  }
+  function _accPayCmp(a, b) {
+    for (var i = 0; i < _accPaySort.length; i++) {
+      var k = _accPaySort[i].key, dir = _accPaySort[i].dir;
+      var x = _accPayVal(a, k), y = _accPayVal(b, k), c;
+      if (_ACC_PAY_NUM[k]) {
+        c = (Number(x) || 0) - (Number(y) || 0);
+      } else {
+        c = String(x == null ? '' : x).localeCompare(String(y == null ? '' : y), 'ko');
+      }
+      if (c) return c * dir;
+    }
+    return 0;
+  }
+  function _accPayArrows() {
+    document.querySelectorAll('#acc-pay-table th[data-sort-key]').forEach(function (th) {
+      var key = th.getAttribute('data-sort-key');
+      var idx = -1;
+      for (var i = 0; i < _accPaySort.length; i++) if (_accPaySort[i].key === key) { idx = i; break; }
+      var sp = th.querySelector('.accpay-arrow');
+      if (!sp) return;
+      if (idx < 0) { sp.textContent = '↕'; sp.style.opacity = '.35'; return; }
+      sp.textContent = (_accPaySort[idx].dir > 0 ? '▲' : '▼') + (_accPaySort.length > 1 ? String(idx + 1) : '');
+      sp.style.opacity = '1';
+    });
+  }
+  window.accSortPayments = function (key, shiftKey) {
+    if (!key) return;
+    var idx = -1;
+    for (var i = 0; i < _accPaySort.length; i++) if (_accPaySort[i].key === key) { idx = i; break; }
+    if (!shiftKey) {
+      _accPaySort = (idx === 0 && _accPaySort.length === 1)
+        ? [{ key: key, dir: -_accPaySort[0].dir }]    // 같은 칸을 또 누르면 방향만 뒤집는다
+        : [{ key: key, dir: 1 }];
+    } else if (idx >= 0) {
+      _accPaySort[idx].dir = -_accPaySort[idx].dir;
+    } else {
+      _accPaySort.push({ key: key, dir: 1 });
+    }
+    accRenderPayments();
+  };
+
+  window.accRenderPayments = function () {
+    const tbody = document.getElementById('acc-pay-tbody');
+    if (!tbody) return;
+    var rows = _accPayRows.slice();
+    if (_accPaySort.length) rows.sort(_accPayCmp);
+    _accPayArrows();
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="11" class="empty">조건에 맞는 결제 내역이 없습니다.</td></tr>'; return; }
+    {
+      tbody.innerHTML = rows.map(p => {
         /* 🐛 (2026-08-16) paid_at 은 이미 «밀리초» 다. ×1000 을 하고 있어서 화면에
            서기 58,000년대 날짜가 찍혔다(CSV 는 정상이라 눈에 안 띄었다). */
         const t = new Date((p.paid_at||0)+9*3600*1000).toISOString().slice(0,16).replace('T',' ');
@@ -12741,7 +12964,7 @@ window.rebuildGlobalSearchIndex = function() {
                 <td>${_esc(p.memo||'-')}</td><td style="text-align:right">${_fmt(p.amount_krw)}</td>
                 <td>${_esc(p.method||'')}</td><td>${_badge(p.status, c)}</td></tr>`;
       }).join('');
-    } catch(e) { _showErr(tbody, e, 11); }
+    }
   };
   window.accDownloadPaymentsCsv = async function(fmt){
     // 지사 목록을 먼저 확보해야 «고른 지사 하나»(franchise_id)로 정확히 내려받는다.
@@ -14897,37 +15120,97 @@ window.rebuildGlobalSearchIndex = function() {
     student:    { icon:'🎓', name:'학생',         name_en:'Student',        color:'#a855f7' },
   };
 
-  window.renderUsersByRole = function() {
+  /* 👤 (2026-08-30 v4 제안서 12) 역할별 사용자 관리 — «실제» 계정으로 개편.
+     [무엇이 문제였나] 이 표는 화면에 박아 둔 예시 18명(홍길동·김민수 …)을 그리고 있었다.
+       실제 조직과 아무 관계가 없는데 «관리자 화면의 표» 라 사실처럼 읽힌다 — 그 표를 근거로
+       「누가 무엇을 볼 수 있나」를 판단하면 그대로 오판이 된다.
+     [고침] 서버가 admin_account 를 읽어 실무 6대 역할로 갈라 준다
+       (경영진 · 한국 관리자 · 필리핀 관리자 · 대표지사 · 지사 · 대리점).
+       ⛔ 학부모·학생은 넣지 않는다 — 관리자 포털에 로그인하지 않는다(사장님 지시).
+       ⛔ 강사는 「강사 관리」가 정본이라 여기서 빼고, 몇 명인지 숫자만 밝힌다.
+     ⚠️ 한국/필리핀은 admin_account.nationality 를 그대로 쓴다. 비어 있으면 «미지정» —
+        이름·아이디로 추측하지 않는다(추측하면 조용히 틀린다).
+     ⚠️ 판정은 «성공이라고 말했는가» 로 한다 — 종단 404 본문에는 ok 칸이 없어서
+        `d.ok === false` 로만 거르면 그냥 통과하고 «사용자가 없다» 로 보인다(CLAUDE.md 2장). */
+  var _roleUsersCache = null;
+
+  window.renderUsersByRole = async function() {
+    const L = (typeof adminLang !== 'undefined' && adminLang === 'en');
     const roleFilter = document.getElementById('role-filter')?.value || '';
     const search = (document.getElementById('role-user-search')?.value || '').toLowerCase();
     const tbody = document.getElementById('role-user-rows');
+    const cardsEl = document.getElementById('role-counts');
+    const noteEl = document.getElementById('role-counts-note');
     if (!tbody) return;
-    const rows = SAMPLE_USERS.filter(u => {
+
+    if (!_roleUsersCache) {
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#9ca3af">' + (L ? 'Loading…' : '불러오는 중…') + '</td></tr>';
+      try {
+        const r = await fetch('/api/admin/reports/staff-roles', { credentials: 'include', cache: 'no-store' });
+        const d = await r.json().catch(() => null);
+        if (!r.ok || !d || d.ok !== true || !Array.isArray(d.users)) {
+          tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#b91c1c">'
+            + (L ? 'Could not load the staff list. Please sign in again and retry.'
+                 : '직원 명부를 불러오지 못했습니다. 다시 로그인한 뒤 시도해 주세요.') + '</td></tr>';
+          return;
+        }
+        _roleUsersCache = d;
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:20px;text-align:center;color:#b91c1c">'
+          + (L ? 'Network error.' : '네트워크 오류입니다.') + '</td></tr>';
+        return;
+      }
+    }
+    const d = _roleUsersCache;
+
+    // 역할 카드 — 서버가 준 순서 그대로(6대 실무 역할)
+    if (cardsEl) {
+      const COLORS = { exec:'#7f1d1d', mgr_kr:'#b91c1c', mgr_ph:'#c2410c', franchise:'#a16207', branch:'#b45309', agency:'#047857' };
+      cardsEl.innerHTML = (d.roles || []).map(function (r) {
+        return '<div style="background:#fff;border:1px solid #e5e7eb;padding:10px 12px;border-radius:8px">'
+          + '<div style="font-size:11px;color:#6b7280">' + r.icon + ' ' + _esc(L ? r.en : r.ko) + '</div>'
+          + '<div style="font-size:18px;font-weight:800;color:' + (COLORS[r.key] || '#334155') + '">'
+          + r.count + (L ? '' : '명') + '</div></div>';
+      }).join('');
+    }
+    if (noteEl) {
+      const ex = d.excluded || {};
+      const bits = [];
+      if (ex.teachers) bits.push(L ? ('Teachers ' + ex.teachers + ' (see Teacher Management)') : ('강사 ' + ex.teachers + '명은 「강사 관리」에서 봅니다'));
+      if (d.unassigned_region) bits.push(L ? ('Region unset ' + d.unassigned_region) : ('국적 미지정 관리자 ' + d.unassigned_region + '명'));
+      if (ex.other) bits.push(L ? ('Unclassified ' + ex.other) : ('분류 밖 계정 ' + ex.other + '개'));
+      noteEl.textContent = bits.join(' · ') + (bits.length ? ' · ' : '') + (L ? d.note_en : d.note_ko);
+    }
+
+    const rows = (d.users || []).filter(function (u) {
       if (roleFilter && u.role !== roleFilter) return false;
-      if (search && !((u.uid + ' ' + u.name + ' ' + u.branch).toLowerCase().includes(search))) return false;
+      if (search && (u.username + ' ' + (u.name || '')).toLowerCase().indexOf(search) < 0) return false;
       return true;
     });
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af">조건에 맞는 사용자가 없습니다.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" style="padding:24px;text-align:center;color:#9ca3af">'
+        + (L ? 'No user matches.' : '조건에 맞는 사용자가 없습니다.') + '</td></tr>';
       return;
     }
-    tbody.innerHTML = rows.map(u => {
-      const r = ROLE_LABEL[u.role] || { icon:'?', name:u.role, color:'#6b7280' };
-      const statusBadge = u.status === 'active'
-        ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">● 활성</span>'
-        : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700">⏸ 대기</span>';
-      return `<tr style="border-bottom:1px solid #f3f4f6">
-        <td style="padding:8px 10px;font-family:MangoiHanSC,Consolas,monospace;color:#0ea5e9;font-size:11.5px">${u.uid}</td>
-        <td style="padding:8px 10px;color:#111;font-weight:600">${u.name}</td>
-        <td style="padding:8px 10px;text-align:center"><span style="background:${r.color}22;color:${r.color};padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">${r.icon} ${r.name}</span></td>
-        <td style="padding:8px 10px;color:#6b7280;font-size:11.5px">${u.branch}</td>
-        <td style="padding:8px 10px;text-align:center">${statusBadge}</td>
-        <td style="padding:8px 10px;text-align:center">
-          <button onclick="alert('역할 변경 기능 — 추후 백엔드 연동')" style="padding:3px 8px;font-size:11px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:4px;cursor:pointer">역할 변경</button>
-        </td>
-      </tr>`;
+    const COLORS2 = { exec:'#7f1d1d', mgr_kr:'#b91c1c', mgr_ph:'#c2410c', franchise:'#a16207', branch:'#b45309', agency:'#047857' };
+    tbody.innerHTML = rows.map(function (u) {
+      const color = COLORS2[u.role] || '#6b7280';
+      return '<tr style="border-bottom:1px solid #f3f4f6">'
+        + '<td style="padding:8px 10px;font-family:MangoiHanSC,Consolas,monospace;color:#0ea5e9;font-size:11.5px">' + _esc(u.username) + '</td>'
+        + '<td style="padding:8px 10px;color:#111;font-weight:600">' + _esc(u.name || '') + '</td>'
+        + '<td style="padding:8px 10px;text-align:center"><span style="background:' + color + '22;color:' + color
+        + ';padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700">' + u.role_icon + ' ' + _esc(L ? u.role_en : u.role_ko) + '</span></td>'
+        + '<td style="padding:8px 10px;color:#6b7280;font-size:11.5px">' + _esc(u.email || '—') + '</td>'
+        /* «상태» 칸 — admin_account 에는 활성/정지 칸이 없다. 지어내지 않고 «—» 로 둔다
+           (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」). */
+        + '<td style="padding:8px 10px;text-align:center;color:#9ca3af">—</td>'
+        + '<td style="padding:8px 10px;text-align:center;color:#9ca3af;font-size:11px">'
+        + _esc(u.nationality || (L ? 'region unset' : '국적 미지정')) + '</td>'
+        + '</tr>';
     }).join('');
   };
+  /* 다시 불러오기 — 직원 등록·삭제 뒤에 부른다 */
+  window.reloadUsersByRole = function(){ _roleUsersCache = null; return window.renderUsersByRole(); };
 
   // ━━━━━━━━━━ ➕ 본사 직원 등록 (직급별) ━━━━━━━━━━
   const HQE_KEY = 'mangoi_hq_employees';

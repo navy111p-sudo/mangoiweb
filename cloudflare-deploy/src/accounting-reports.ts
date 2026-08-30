@@ -642,6 +642,10 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
     if (p === 'payers') return await payersRouter(env, request, url);
     // 🏦 배정 못 한 B2B 통장 입금 — 목록 + 지사 직접 지정 (2026-08-18)
     if (p === 'b2b-payees') return await b2bPayeesRouter(env, request, url);
+    // 👤 역할별 «실제» 직원 명부 (2026-08-30, v4 제안서 12)
+    if (p === 'staff-roles') return await staffRolesReport(env, url);
+    // 🧑‍🏫 강사 한 명의 «실제» 수업 기록 (2026-08-30, v4 제안서 15)
+    if (p === 'teacher-classes') return await teacherClassesReport(env, url);
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
@@ -3913,4 +3917,207 @@ function nextSettlementDate(period: string): string {
   const [y, m] = period.split('-').map(Number);
   const next = new Date(Date.UTC(y, m, 15));
   return next.toISOString().slice(0, 10);
+}
+
+
+// ────────────────────────────────────────────────────────────────────
+// 👤 역할별 «실제» 직원 명부 (2026-08-30, v4 제안서 12)
+// ────────────────────────────────────────────────────────────────────
+/* [왜] 관리자 › 권한 설정 › 「역할별 사용자 관리」가 **화면에 박아 둔 예시 18명**을
+     보여 주고 있었다(홍길동·김민수 …). 실제 조직과 아무 관계가 없어서, 그 표를 근거로
+     「누가 무엇을 볼 수 있나」를 판단하면 그대로 오판이 된다.
+     (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」의 같은 뿌리 —
+      여기서는 «측정할 수 있는데» 예시를 그리고 있었다.)
+
+   [무엇] admin_account(로그인 계정)를 읽어 **실무 6대 역할** 로 갈라 준다:
+     경영진 · 한국 관리자 · 필리핀 관리자 · 대표지사 · 지사 · 대리점.
+   ⛔ 학부모·학생은 넣지 않는다 — 관리자 포털에 로그인하지 않는 사람들이고,
+      그 둘을 이 표에 섞어 두면 «권한이 있는 것처럼» 읽힌다(사장님 지시 2026-08-30).
+   ⛔ 강사(hq_t_* · mangoi_*)도 이 표에서 뺀다 — 강사 관리 카드가 정본이고,
+      여기 섞으면 20명이 넘어 실무 역할이 묻힌다. 대신 몇 명인지 숫자만 함께 알려 준다.
+
+   ⚠️ 한국/필리핀 구분은 **추측하지 않는다** — admin_account.nationality 칸을 그대로 쓴다
+      (2026-08-30 실측: KR 4명 · PH 다수로 실제 채워져 있다). 값이 비면 «미지정» 으로 두고
+      한쪽으로 몰지 않는다. 이름·아이디로 국적을 추측하면 조용히 틀린다.
+   ⚠️ 접두사 규칙 자체의 정본은 auth-admin.ts 의 resolveUiIdentity() 다. 여기서는 «표시용»
+      으로만 한 겹 더 묶는다 — 권한 판정에 이 함수를 쓰지 말 것.
+   ⛔ SELECT 만 한다. 비밀번호 해시는 한 글자도 내보내지 않는다. */
+export function classifyStaffRole(username: string, nationality: string): string {
+  const u = String(username || '').toLowerCase();
+  const nat = String(nationality || '').toUpperCase();
+  if (u === 'admin' || u === 'hq_exec' || u === 'exec' || u === 'cfo' || u.indexOf('cfo') === 0) return 'exec';
+  if (u === 'capitown') return 'franchise';                       // 대표지사(캐피타운 본사)
+  if (u.indexOf('capi') === 0 || u.indexOf('branch_') === 0) return 'branch';
+  if (u.indexOf('agency_') === 0) return 'agency';
+  if (u.indexOf('hq_t') === 0 || /^mangoi[_-]?\d+$/i.test(u)) return 'teacher';   // 이 표에서는 제외 대상
+  if (u.indexOf('mgr_') === 0 || u.indexOf('hq_') === 0 || u === 'ops_lead') {
+    if (nat === 'PH') return 'mgr_ph';
+    if (nat === 'KR') return 'mgr_kr';
+    return 'mgr_unknown';                                          // ⛔ 한쪽으로 몰지 않는다
+  }
+  return 'other';
+}
+
+const STAFF_ROLE_LABELS: Record<string, { ko: string; en: string; icon: string }> = {
+  exec:        { ko: '경영진',        en: 'Executive',      icon: '👑' },
+  mgr_kr:      { ko: '한국 관리자',   en: 'Manager (KR)',   icon: '🇰🇷' },
+  mgr_ph:      { ko: '필리핀 관리자', en: 'Manager (PH)',   icon: '🇵🇭' },
+  franchise:   { ko: '대표지사',      en: 'Master Branch',  icon: '🏢' },
+  branch:      { ko: '지사',          en: 'Branch',         icon: '🏬' },
+  agency:      { ko: '대리점',        en: 'Agency',         icon: '🤝' },
+  mgr_unknown: { ko: '관리자(국적 미지정)', en: 'Manager (region unset)', icon: '❓' },
+  other:       { ko: '기타',          en: 'Other',          icon: '·' },
+};
+/** 화면이 카드로 그릴 «6대 실무 역할» 순서. 이 순서 그대로 그린다. */
+const STAFF_ROLE_ORDER = ['exec', 'mgr_kr', 'mgr_ph', 'franchise', 'branch', 'agency'];
+
+async function staffRolesReport(env: Env, url: URL): Promise<Response> {
+  const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+  let rows: any[] = [];
+  try {
+    const rs = await env.DB.prepare(
+      `SELECT username, name, email, phone, COALESCE(nationality,'') AS nationality, created_at
+         FROM admin_account ORDER BY username ASC`
+    ).all<any>();
+    rows = rs.results || [];
+  } catch (e: any) {
+    return err('staff_list_failed: ' + String(e?.message || e), 500);
+  }
+
+  let teacherCount = 0;
+  let otherCount = 0;
+  const users: any[] = [];
+  const counts: Record<string, number> = {};
+  for (const k of STAFF_ROLE_ORDER) counts[k] = 0;
+  counts.mgr_unknown = 0;
+
+  for (const r of rows) {
+    const role = classifyStaffRole(r.username, r.nationality);
+    if (role === 'teacher') { teacherCount++; continue; }   // ⛔ 강사는 이 표에 넣지 않는다
+    if (role === 'other') { otherCount++; continue; }
+    counts[role] = (counts[role] || 0) + 1;
+    if (q && String(r.username + ' ' + (r.name || '')).toLowerCase().indexOf(q) < 0) continue;
+    users.push({
+      username: r.username,
+      name: r.name || r.username,
+      role,
+      role_ko: STAFF_ROLE_LABELS[role].ko,
+      role_en: STAFF_ROLE_LABELS[role].en,
+      role_icon: STAFF_ROLE_LABELS[role].icon,
+      nationality: r.nationality || null,
+      email: r.email || null,
+      created_at: r.created_at || null,
+    });
+  }
+
+  return json({
+    ok: true,
+    roles: STAFF_ROLE_ORDER.map(k => ({ key: k, ...STAFF_ROLE_LABELS[k], count: counts[k] || 0 })),
+    /* 국적이 비어 관리자 국가를 못 가른 계정 — 숫자로 «모른다» 를 드러낸다. 0 이면 화면이 안 그린다. */
+    unassigned_region: counts.mgr_unknown || 0,
+    users,
+    /* 이 표에서 뺀 사람들 — 왜 합계가 계정 수와 다른지 화면이 설명할 수 있게 함께 준다 */
+    excluded: { teachers: teacherCount, other: otherCount },
+    total_accounts: rows.length,
+    note_ko: '학부모·학생은 관리자 포털에 로그인하지 않으므로 이 표에 넣지 않습니다. 강사는 「강사 관리」가 정본입니다.',
+    note_en: 'Parents and students never sign in to the admin portal, so they are not listed here. Teachers are managed in Teacher Management.',
+  });
+}
+
+
+// ────────────────────────────────────────────────────────────────────
+// 🧑‍🏫 강사 한 명의 «실제» 수업 기록 (2026-08-30, v4 제안서 15)
+// ────────────────────────────────────────────────────────────────────
+/* [무엇이 문제였나] 「Teacher Janice 수업 데이터가 없다」는 제보. 2026-08-30 운영 D1 실측:
+     · teachers.id            = 28  (name 'JANICE')
+     · 카페24 강사번호         = 37  (teacher_payroll_auto.teacher_name 'Teacher Janice')
+     · teacher_profiles.id    = 26
+     즉 **한 사람에게 번호가 셋**이다(CLAUDE.md 2장 「강사 번호가 «세 벌» 입니다」).
+     실제 수업은 `attendance.teacher_uid = 37` 에 **64건** 살아 있다(최근 2026-08-27).
+     그런데 강사 화면들은 `class_schedules.teacher_id`(= teachers.id = 28)로 조인하는데,
+     28 번으로 잡힌 33행은 **전부 status='cancelled' 인 LMS 자리표시**(source='lms_import_w26')다.
+     ⟹ 데이터가 «사라진» 것이 아니라 **두 번호가 이어지지 않아 화면이 못 찾는** 것이다.
+
+   [무엇을 하나] 원부 강사(teachers.id)를 받아 ① 망고아이 예약(class_schedules)과
+     ② 카페24 실제 수업(attendance.teacher_uid)을 **둘 다** 세어 돌려준다.
+     번호를 잇는 근거(how)를 함께 실어, 화면이 «추측인지 확정인지» 를 말할 수 있게 한다.
+
+   ⛔ 아무것도 고치지 않는다(SELECT 전용). 번호를 D1 에 «맞춰 넣는» 것은 사람이 결정할 일이다 —
+      개발·운영이 같은 DB라 UPDATE 는 되돌릴 수 없다(CLAUDE.md 1-1).
+   ⛔ 이름 부분일치 금지. 정규화(소문자 + 'teacher ' 접두 제거) 완전일치이고, 후보가 둘 이상이면
+      **잇지 않는다** — 모르는 것보다 틀린 게 나쁘다(CLAUDE.md 2장).
+   ⛔ LMS·시드 자리표시는 «수업» 으로 세지 않는다(다섯 곳과 같은 제외식). */
+function normTeacherNameLocal(v: any): string {
+  return String(v ?? '').trim().toLowerCase().replace(/^teacher\s*[-·]?\s*/, '').replace(/\s+/g, ' ');
+}
+
+async function teacherClassesReport(env: Env, url: URL): Promise<Response> {
+  const tid = String(url.searchParams.get('teacher_id') || '').trim();
+  if (!tid) return err('teacher_id required', 400);
+  const days = Math.max(1, Math.min(365, parseInt(url.searchParams.get('days') || '90', 10)));
+  const sinceMs = Date.now() - days * 86400000;
+
+  const t: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE CAST(id AS TEXT) = ?`).bind(tid).first();
+  if (!t) return err('teacher_not_found', 404);
+
+  // ① 망고아이 예약 — 자리표시(LMS·시드)와 취소분은 빼고 «진짜 수업» 만
+  const sched: any = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM class_schedules
+      WHERE teacher_id = ? AND status = 'active'
+        AND LOWER(COALESCE(user_id,'')) NOT IN ('lms','type_seed')`
+  ).bind(tid).first();
+  const placeholders: any = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM class_schedules
+      WHERE teacher_id = ? AND (status <> 'active' OR LOWER(COALESCE(user_id,'')) IN ('lms','type_seed'))`
+  ).bind(tid).first();
+
+  // ② 원부 번호 → 카페24 강사번호 (이름 완전일치, 유일할 때만)
+  const key = normTeacherNameLocal(t.name);
+  let cafe24Id: string | null = null;
+  let how: 'name_unique' | 'ambiguous' | 'not_found' = 'not_found';
+  if (key) {
+    try {
+      const rs = await env.DB.prepare(
+        `SELECT DISTINCT CAST(teacher_id AS TEXT) AS c24, teacher_name
+           FROM teacher_payroll_auto WHERE teacher_name IS NOT NULL AND teacher_name <> ''`
+      ).all<any>();
+      const hits: string[] = [];
+      for (const r of (rs.results || [])) {
+        if (normTeacherNameLocal(r.teacher_name) === key && hits.indexOf(r.c24) < 0) hits.push(r.c24);
+      }
+      if (hits.length === 1) { cafe24Id = hits[0]; how = 'name_unique'; }
+      else if (hits.length > 1) how = 'ambiguous';       // ⛔ 둘 이상이면 잇지 않는다
+    } catch { /* 급여 인제스트 표가 없는 옛 DB */ }
+  }
+
+  let c24Count = 0, c24Last: string | null = null, c24Students = 0;
+  if (cafe24Id) {
+    const r: any = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, MAX(date) AS last_date, COUNT(DISTINCT user_id) AS students
+         FROM attendance WHERE teacher_uid = ? AND joined_at >= ? AND COALESCE(status,'') <> 'scheduled'`
+    ).bind(Number(cafe24Id), sinceMs).first();
+    c24Count = Number(r?.n) || 0;
+    c24Last = r?.last_date || null;
+    c24Students = Number(r?.students) || 0;
+  }
+
+  return json({
+    ok: true,
+    teacher: { id: String(t.id), name: t.name },
+    window_days: days,
+    mangoi_schedules: Number(sched?.n) || 0,
+    placeholder_or_cancelled: Number(placeholders?.n) || 0,
+    cafe24: {
+      teacher_id: cafe24Id,
+      resolved_by: how,          // name_unique | ambiguous | not_found — «추측» 을 감추지 않는다
+      class_count: c24Count,
+      last_date: c24Last,
+      student_count: c24Students,
+    },
+    note_ko: cafe24Id
+      ? '카페24 수업은 강사번호가 달라 원부(teachers) 조인만으로는 보이지 않습니다. 이름이 유일하게 맞아 이어 붙였습니다.'
+      : (how === 'ambiguous'
+          ? '이름이 같은 카페24 강사가 둘 이상이라 잇지 않았습니다. 사람이 확인해야 합니다.'
+          : '카페24 급여 표에서 이 이름을 찾지 못했습니다. 카페24 쪽 표기를 확인해 주세요.'),
+  });
 }

@@ -128,6 +128,15 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
         <div style="font-size:14px;color:rgba(255,255,255,0.6);margin-top:6px">구글/MS 인증 앱에 표시된 6자리 숫자를 입력하세요.</div>
       </div>
       <button type="submit" class="login-btn" id="loginBtn">✅ 로그인</button>
+      <!-- 😊 (2026-08-30 v4 제안서 06) 지문 · Face ID 로그인 (WebAuthn / FIDO2).
+           · 기기에 등록해 둔 사람에게만 보인다 — 안 보이는 것이 정상이고, 그때는 위에서
+             아이디·비밀번호로 로그인한 뒤 관리자 화면에서 «이 기기 등록» 을 하면 된다.
+           · 서버 판정·세션·첫 화면 경로는 비밀번호 로그인과 **같은 함수**를 탄다.
+           ⛔ 비밀번호 입력칸을 없애지 말 것 — 기기를 바꾸거나 잃어버리면 그것뿐이다. -->
+      <button type="button" class="login-btn" id="bioBtn"
+              style="display:none;margin-top:10px;background:linear-gradient(135deg,#10b981,#059669);box-shadow:0 8px 22px -4px rgba(16,185,129,.55)">
+        😊 지문 · Face ID 로 로그인
+      </button>
       <div class="err" id="errMsg"></div>
     </form>
     <div class="divider">또는 소셜 계정으로 로그인</div>
@@ -255,39 +264,11 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
     });
     if (IN_APP) showInappWarn(false);
   })();
-  document.getElementById('loginForm').addEventListener('submit', async function(e){
-    e.preventDefault();
-    var btn = document.getElementById('loginBtn');
-    var err = document.getElementById('errMsg');
-    var uid = document.getElementById('username').value.trim();
-    var pw = document.getElementById('password').value;
-    err.classList.remove('show');
-    if (!uid || !pw) { err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.'; err.classList.add('show'); return; }
-    btn.disabled = true;
-    btn.textContent = '🔄 로그인 중...';
-    try {
-      var otpEl = document.getElementById('otpCode');
-      var otpVal = (otpEl && otpEl.value || '').replace(/\D/g,'');
-      var payload = { username: uid, password: pw, remember: true };
-      if (otpVal) payload.code = otpVal;
-      var res = await fetch('/api/admin/login', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload),
-        credentials:'include'
-      });
-      var data = await res.json().catch(function(){ return {}; });
-      // 🔐 2단계 인증: 비번은 맞고 코드가 필요한 상태 → 6자리 입력란 표시
-      if (data && data.need_2fa) {
-        document.getElementById('otpField').style.display = 'block';
-        setTimeout(function(){ otpEl && otpEl.focus(); }, 50);
-        err.textContent = '📱 인증 앱의 6자리 코드를 입력해 주세요.';
-        err.classList.add('show');
-        btn.disabled = false;
-        btn.textContent = '🔓 인증하고 로그인';
-        return;
-      }
-      if (res.ok && data.ok) {
+  /* ✅ 로그인 성공 뒤 처리 — 아이디·비밀번호와 «지문·Face ID» 가 **같은 길**을 타게 하려고
+     함수로 뺐습니다 (2026-08-30 v4 제안서 06). ⚠️ 본문은 옮기기만 했고 한 줄도 안 고쳤습니다.
+     ⛔ 여기 판정을 패스키 쪽에 복사하지 마세요 — 「어디로 로그인했느냐에 따라 다른 화면」이
+        되는 사고가 이 저장소에 이미 있었습니다(위 home_path 주석 참고). */
+  async function onAdminLoginSuccess(data, uid, btn, err) {
         btn.textContent = '✅ 로그인 성공!';
         // 아이디 자동 저장 처리
         try {
@@ -417,6 +398,42 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
             showInappWarn(true);
           }
         }
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    var btn = document.getElementById('loginBtn');
+    var err = document.getElementById('errMsg');
+    var uid = document.getElementById('username').value.trim();
+    var pw = document.getElementById('password').value;
+    err.classList.remove('show');
+    if (!uid || !pw) { err.textContent = '⚠️ 아이디와 비밀번호를 입력해 주세요.'; err.classList.add('show'); return; }
+    btn.disabled = true;
+    btn.textContent = '🔄 로그인 중...';
+    try {
+      var otpEl = document.getElementById('otpCode');
+      var otpVal = (otpEl && otpEl.value || '').replace(/\D/g,'');
+      var payload = { username: uid, password: pw, remember: true };
+      if (otpVal) payload.code = otpVal;
+      var res = await fetch('/api/admin/login', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload),
+        credentials:'include'
+      });
+      var data = await res.json().catch(function(){ return {}; });
+      // 🔐 2단계 인증: 비번은 맞고 코드가 필요한 상태 → 6자리 입력란 표시
+      if (data && data.need_2fa) {
+        document.getElementById('otpField').style.display = 'block';
+        setTimeout(function(){ otpEl && otpEl.focus(); }, 50);
+        err.textContent = '📱 인증 앱의 6자리 코드를 입력해 주세요.';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = '🔓 인증하고 로그인';
+        return;
+      }
+      if (res.ok && data.ok) {
+        await onAdminLoginSuccess(data, uid, btn, err);
       } else {
         var msg = (data && (data.error || data.message)) || '아이디 또는 비밀번호가 올바르지 않습니다.';
         err.textContent = '❌ ' + msg;
@@ -431,6 +448,108 @@ input:focus{outline:none;border-color:#60a5fa;background:rgba(255,255,255,0.11);
       btn.textContent = '✅ 로그인';
     }
   });
+  /* ═══════════════════════════════════════════════════════════════════════
+     😊 지문 · Face ID 로그인 (WebAuthn / FIDO2) — 2026-08-30, v4 제안서 06
+     ───────────────────────────────────────────────────────────────────────
+     [무엇] 서버가 챌린지를 주고, 기기(Windows Hello · Touch ID · Face ID · 안드로이드 지문)가
+       서명하고, 서버가 그 서명을 검증해 **비밀번호 로그인과 똑같은 세션**을 만든다.
+     ⚠️ 비밀번호를 대신하는 것이지 «없애는» 것이 아니다 — 기기를 바꾸면 비밀번호로 들어와
+        새 기기를 등록해야 한다. 그래서 이 버튼은 «있으면 편한 길» 로만 둔다.
+     ⚠️ 지원하지 않는 브라우저·기기에서는 **버튼을 아예 안 그린다** — 눌러도 안 되는 버튼이
+        제일 나쁘다(CLAUDE.md 2장). `PublicKeyCredential` 이 없으면 조용히 지나간다.
+     ⚠️ 이 화면은 **관리자 범위**다. 요청에 scope:'admin' 을 실어 보내고, 서버는 저장할 때
+        붙인 접두사로 관리자 자격증명인지 다시 확인한다(본문 값을 믿지 않는다).
+     🔑 rpId 는 서버가 apex(mangoi.ai)로 묶는다 — www 로 열어도 같은 패스키가 쓰인다
+        (src/api-passkey.ts resolveRpId. CLAUDE.md 0장 「어제까진 지문으로 됐는데」).
+     ═══════════════════════════════════════════════════════════════════════ */
+  (function bioLogin(){
+    var btn = document.getElementById('bioBtn');
+    if (!btn) return;
+    if (!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.get)) return;
+    if (!window.isSecureContext) return;     // http 로 열면 브라우저가 아예 거부한다
+
+    var b64u = {
+      dec: function (s) {
+        s = String(s).replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        var bin = atob(s), out = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      },
+      enc: function (buf) {
+        var b = new Uint8Array(buf), s = '';
+        for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+        return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      }
+    };
+
+    btn.style.display = 'block';
+    btn.addEventListener('click', async function () {
+      var err = document.getElementById('errMsg');
+      var uid = (document.getElementById('username').value || '').trim();
+      err.classList.remove('show');
+      btn.disabled = true;
+      var label0 = btn.textContent;
+      btn.textContent = '🔄 기기에 확인 중...';
+      try {
+        var r1 = await fetch('/api/passkey/login/options', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ scope: 'admin', username: uid })
+        });
+        var o = await r1.json().catch(function () { return null; });
+        if (!r1.ok || !o || o.ok !== true || !o.options) throw new Error('options');
+
+        var pk = {
+          challenge: b64u.dec(o.options.challenge),
+          rpId: o.options.rpId,
+          timeout: o.options.timeout || 60000,
+          userVerification: o.options.userVerification || 'required',
+          allowCredentials: (o.options.allowCredentials || []).map(function (c) {
+            return { type: 'public-key', id: b64u.dec(c.id), transports: c.transports };
+          })
+        };
+        var cred = await navigator.credentials.get({ publicKey: pk });
+        if (!cred) throw new Error('cancelled');
+
+        var r2 = await fetch('/api/passkey/login/verify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({
+            scope: 'admin', remember: true,
+            credential: {
+              id: cred.id, rawId: b64u.enc(cred.rawId), type: cred.type,
+              response: {
+                clientDataJSON: b64u.enc(cred.response.clientDataJSON),
+                authenticatorData: b64u.enc(cred.response.authenticatorData),
+                signature: b64u.enc(cred.response.signature),
+                userHandle: cred.response.userHandle ? b64u.enc(cred.response.userHandle) : null
+              }
+            }
+          })
+        });
+        var d2 = await r2.json().catch(function () { return null; });
+        if (r2.ok && d2 && d2.ok === true) {
+          btn.textContent = '✅ 로그인 성공!';
+          /* 비밀번호 로그인과 **같은 함수** — 세션 저장·언어·첫 화면이 어긋날 수 없다 */
+          await onAdminLoginSuccess(d2, d2.username || uid, btn, err);
+          return;
+        }
+        var msg = (d2 && (d2.message || d2.error)) || '기기 인증에 실패했어요.';
+        err.textContent = '❌ ' + msg + ' 아이디·비밀번호로 로그인해 주세요.';
+        err.classList.add('show');
+      } catch (e) {
+        /* 사용자가 취소한 것도 여기로 온다 — «실패» 라고 겁주지 않는다 */
+        var nm = (e && (e.name || e.message)) || '';
+        err.textContent = (nm === 'NotAllowedError' || nm === 'cancelled')
+          ? 'ℹ️ 기기 인증이 취소됐어요. 아이디·비밀번호로도 로그인할 수 있어요.'
+          : '❌ 이 기기에 등록된 관리자 지문·Face ID 가 없어요. 아이디·비밀번호로 로그인한 뒤 등록해 주세요.';
+        err.classList.add('show');
+      } finally {
+        btn.disabled = false;
+        if (btn.textContent !== '✅ 로그인 성공!') btn.textContent = label0;
+      }
+    });
+  })();
+
   setTimeout(function(){
     var pw = document.getElementById('password');
     if (document.getElementById('username').value) pw.focus();

@@ -255,7 +255,7 @@ async function buildMonthlyReportData(env: MangoEnv, uid: string, period: string
   const start = new Date(year, month + 1 - Math.max(1, spanMonths), 1).getTime();
   let student: any = null, att: any = { d: 0 }, voiceStats: any = {}, evalRows: any[] = [];
   try { student = await env.DB.prepare(`SELECT user_id, student_name, parent_name, parent_phone, phone, birth_date FROM students_erp WHERE user_id = ?`).bind(uid).first(); } catch {}
-  try { att = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`).bind(uid, start, end).first(); } catch {}
+  try { att = await env.DB.prepare(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ? AND COALESCE(status,'') <> 'scheduled'`).bind(uid, start, end).first(); } catch {}
   try {
     const evals = await env.DB.prepare(`SELECT id, lesson_date, score_overall, score_vocab, score_grammar, score_attitude, score_participation, strengths, improvements, next_goals, teacher_comment, teacher_name, created_at FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ? ORDER BY created_at ASC`).bind(uid, start, end).all();
     evalRows = (evals.results || []) as any[];

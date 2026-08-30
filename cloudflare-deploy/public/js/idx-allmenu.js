@@ -13,10 +13,18 @@
   // 🖼 아이콘 = 실사 사진(/img/menu/*.webp, Higgsfield 생성 · build-allmenu-icons.py 로 재생성).
   //    emoji 는 지우지 말 것 — 사진 로드 실패 시 되돌아갈 폴백이다(아래 '아이콘 폴백' 배선 참고).
   var ALLMENU_ITEMS = [
-    {emoji:'🛠', img:'/img/menu/admin.webp', name:'관리자 페이지', url:'/admin.html'},
+    /* 🛠 (2026-08-30 v4 제안서 04) 「관리자 페이지」와 「관리자 로그인」이 전체 메뉴에
+       두 칸으로 갈려 있어 «어느 쪽을 눌러야 하나» 가 매번 헷갈렸다. 한 칸으로 합치고,
+       세션이 있으면 대시보드로 · 없으면 로그인으로 **동적으로** 갈린다(아래 smartAdminUrl).
+       ⛔ 두 칸으로 되돌리지 말 것 — 이 파일 아래 wire 로직과 짝이다. */
+    {emoji:'🛠', img:'/img/menu/admin.webp', name:'관리자 포털', url:'/admin.html', adminPortal:true, staff:true},
     {emoji:'👤', img:'/img/menu/mypage.webp', name:'마이페이지', url:'/parent.html'},
-    {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt'},
-    {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/admin/weekly-schedule.html?role=student'},
+    {emoji:'👨‍🎓', img:'/img/menu/students.webp', name:'학생 관리', url:'/admin.html#card-students-mgmt', staff:true},
+    /* 📅 (2026-08-30 v4 제안서 01) 예전 주소는 /admin/weekly-schedule.html?role=student 였다.
+       그런데 src/index.ts 의 isAdminPath 는 «/admin/ 으로 시작하면 무조건 인증» 이라
+       **학생은 관리자 로그인 화면으로 튕겼다.** 학생 전용 읽기 화면으로 바꾼다.
+       ⛔ /admin/ 밑으로 되돌리지 말 것 — 그 순간 같은 사고가 그대로 재현된다. */
+    {emoji:'📅', img:'/img/menu/schedule.webp', name:'내 주간 스케줄', url:'/my-schedule.html'},
     {emoji:'💬', img:'/img/menu/contact.webp', name:'카카오 상담', url:'https://pf.kakao.com/_xlqnSxd'},  // 2026-08-14 피드백 ⑤: 문의 페이지 폐지 → 카카오 채널 하나로
     {emoji:'📚', img:'/img/menu/curriculum.webp', name:'커리큘럼', url:'/curriculum.html'},
     {emoji:'📖', img:'/img/menu/lessons.webp', name:'수업 자료', url:'/lessons.html'},
@@ -26,7 +34,7 @@
     {emoji:'✍', img:'/img/menu/ai-write.webp', name:'AI 작문', url:'/ai-write.html'},
     {emoji:'🗣', img:'/img/menu/speech.webp', name:'영어 발음 코치', url:'/speech-coach.html'},
     {emoji:'🇨🇳', img:'/img/menu/speech-cn.webp', name:'중국어 발음 코치', url:'/speech-coach-cn.html'},
-    {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html'},
+    {emoji:'📚', img:'/img/menu/uploader.webp', name:'교재 업로더', url:'/textbook-uploader.html', staff:true},
     {emoji:'📖', img:'/img/menu/vocab.webp', name:'단어장', url:'/vocab.html'},
     {emoji:'🎯', img:'/img/menu/quiz.webp', name:'AI 단어 퀴즈', url:'/micro-quiz.html'},
     /* 🧠 2026-08-17 — 복습퀴즈 두 종을 전체메뉴에 추가. 여기 없어서 전체메뉴로는 갈 수 없었다.
@@ -52,9 +60,8 @@
     {emoji:'📝', img:'/img/menu/booking.webp', name:'수업 신청', url:'/lesson-booking-demo.html'},
     {emoji:'📅', img:'/img/menu/postpone.webp', name:'수업 연기·변경', url:'/lesson-postpone-demo.html'},
     {emoji:'👨‍👩‍👧', img:'/img/menu/parent.webp', name:'학부모 페이지', url:'/parent.html'},
-    {emoji:'🩺', img:'/img/menu/health.webp', name:'시스템 진단', url:'/admin/health.html'},
-    {emoji:'👀', img:'/img/menu/observe.webp', name:'수업 관찰', url:'/admin/ghost-view.html'},
-    {emoji:'🔐', img:'/img/menu/login.webp', name:'관리자 로그인', url:'/admin/login'}
+    {emoji:'🩺', img:'/img/menu/health.webp', name:'시스템 진단', url:'/admin/health.html', staff:true},
+    {emoji:'👀', img:'/img/menu/observe.webp', name:'수업 관찰', url:'/admin/ghost-view.html', staff:true}
   ];
   var ALLMENU_EMO_CSS = 'font-size:42px;line-height:1;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.45))';
 
@@ -65,6 +72,19 @@
    *   둘 다 아니면 중국어 메뉴를 감춘다. 직접 주소·AI 명령 검색(idx-ai-home.js)으로는 여전히
    *   열리고, 한 번 열면 ②가 남아 그 뒤로는 메뉴에도 보인다.
    *   ⚠️ localStorage 접근이 막히면 «보이는 쪽» — 수강생이 기능을 잃는 쪽이 더 나쁘다. */
+  /* 👤 (2026-08-30 v4 제안서 03) 「학생·학부모에게 불필요한 관리자성 메뉴를 없애 달라」.
+   *   전체 메뉴에는 관리자 전용 화면 타일이 섞여 있었다 — 관리자 포털·학생 관리·시스템 진단·
+   *   수업 관찰·교재 업로더. 학생이 눌러도 로그인 게이트에 막혀 «되지도 않는 칸» 이었다.
+   *   ⚠️ 판정은 «관리자 세션이 있는가» 하나로만 한다(mangoi_admin_session — 교사·본사·지사가
+   *      로그인하면 만들어지는 키). 학생 로그인은 이 키를 만들지 않는다(CLAUDE.md 2장
+   *      「로그인 세션이 두 갈래」).
+   *   ⚠️ localStorage 가 막히면 «보이는 쪽» 으로 실패한다 — 직원이 기능을 잃는 쪽이 더 나쁘고,
+   *      실제 접근은 서버 게이트가 어차피 막는다. 이건 «정돈» 이지 «보안» 이 아니다.
+   *   ⛔ 화면에서 감췄다고 서버 게이트를 느슨하게 하지 말 것. */
+  function mangoiIsStaff(){
+    try{ return !!localStorage.getItem('mangoi_admin_session'); }catch(e){ return true; }
+  }
+
   function mangoiZhLearner(){
     try{
       if((localStorage.getItem('mangoi_lang')||'')==='zh') return true;
@@ -124,8 +144,10 @@
     h += '<div style="overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px;flex:1 1 auto">';
     h += '<div id="mgam-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(157px,1fr));gap:18px">';
     var _zhOk = mangoiZhLearner();
+    var _staff = mangoiIsStaff();
     ALLMENU_ITEMS.forEach(function(m){
       if(m.zh && !_zhOk) return;   // 🇨🇳 중국어 타일은 중국어 수강생에게만
+      if(m.staff && !_staff) return; // 🛠 관리자 전용 타일은 직원에게만 (v4 제안서 03)
       // 실사 아이콘 64x64. width/height 속성은 로딩 중 레이아웃 흔들림 방지용이고,
       // 실제 크기는 CSS 가 확정한다(속성이 CSS 를 이기는 사고를 피하려고 둘 다 명시).
       var ico = m.img
@@ -133,7 +155,7 @@
         : '<span style="' + ALLMENU_EMO_CSS + '">' + m.emoji + '</span>';
       // justify-content 는 center 가 아니라 flex-start — 라벨이 2줄로 접히는 카드('내 주간 스케줄' 등)만
       // 세로 중앙정렬 때문에 아이콘이 아래로 밀려 한 줄 안에서 아이콘 높이가 들쭉날쭉해진다.
-      h += '<a href="' + m.url + '" class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
+      h += '<a href="' + m.url + '"' + (m.adminPortal ? ' data-admin-portal="1"' : '') + ' class="mgam-card" style="display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:9px;padding:25px 11px;background:linear-gradient(160deg,rgba(255,255,255,0.10),rgba(6,9,18,0.64));border:1px solid rgba(255,255,255,0.16);border-radius:18px;color:#F8FAFC;text-decoration:none;min-height:146px;text-align:center;font-size:18px;font-weight:600;line-height:1.3;text-shadow:0 1px 5px rgba(0,0,0,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);transition:transform .15s,background .15s,border-color .15s;-webkit-tap-highlight-color:rgba(96,165,250,0.3)">'
         + ico + '<span>' + m.name + '</span></a>';
     });
     h += '</div></div>';
@@ -196,6 +218,28 @@
       }
       im.addEventListener('error', toEmoji);
       if (im.complete && !im.naturalWidth) toEmoji();
+    });
+
+    /* 🔐 (2026-08-30 v4 제안서 04) 「관리자 포털」 동적 분기.
+       · 세션이 살아 있으면  → /admin.html (대시보드)
+       · 없으면              → /admin/login?next=/admin.html (로그인 화면)
+       ⚠️ 판정은 «성공이라고 말했는가» 로 한다 — 종단 404 본문에는 ok 칸이 아예 없어서
+          `d.ok === false` 로 거르면 그냥 통과한다(CLAUDE.md 2장).
+       ⚠️ 조회가 실패하면 **기존 동작 그대로**(/admin.html) 둔다. 서버가 미인증이면 어차피
+          로그인으로 보내 주므로, 통신이 흔들렸다고 로그인 화면으로 몰지 않는다. */
+    ov.querySelectorAll('a[data-admin-portal]').forEach(function(a){
+      a.addEventListener('click', function(ev){
+        ev.preventDefault();
+        var go = function(u){ location.href = u; };
+        var t = setTimeout(function(){ t = 0; go('/admin.html'); }, 1500);   // 느린 회선 안전망
+        fetch('/api/admin/me', { credentials: 'include' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(d){
+            if (!t) return; clearTimeout(t); t = 0;
+            go((d && d.ok === true) ? '/admin.html' : '/admin/login?next=%2Fadmin.html');
+          })
+          .catch(function(){ if (!t) return; clearTimeout(t); t = 0; go('/admin.html'); });
+      });
     });
 
     // 호버 효과 (마우스 환경)
