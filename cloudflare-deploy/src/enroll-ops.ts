@@ -94,9 +94,29 @@ function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): numbe
   const targetDow = new Date(date + 'T00:00:00Z').getUTCDay();
   if (scheduledDate) return String(scheduledDate).slice(0, 10) === date ? targetDow : null;
   if (dayOfWeek != null && String(dayOfWeek).trim() !== '') {
-    const DOWMAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
-    const dw = DOWMAP[String(dayOfWeek).toLowerCase().slice(0, 3)];
-    return dw !== undefined && dw === targetDow ? targetDow : null;
+    /* ⚠️ (2026-08-30) 이 칸은 «단일 요일» 이 아니다 — 관리자가 만든 반복 행에는 'Thu' 같은
+       영어 표기와 '1,3,5' 같은 나열이 실제로 들어 있어서, api-admin.ts 가 그것을 읽으려고
+       admDowMatches() 를 따로 두고 있다. 여기서 단일 값만 보면 「오늘 수업」 표에는 🔄 버튼이
+       뜨는데 누르면 «이 수업은 그 날짜에 열리지 않습니다» 로 거절하는, 두 API 가 같은 배정을
+       서로 다르게 읽는 상태가 된다(CLAUDE.md 2장 「같은 배정을 두 API 가…」와 같은 뿌리).
+       ⛔ api-admin 의 함수를 import 하지 않는다 — 이 파일은 다른 도메인을 import 하지 않는
+          원칙이라 같은 판정을 여기에 둔다(NOT_PLACEHOLDER 문자열을 복제한 것과 같은 방식). */
+    /* ⚠️ 한글 표기('목'·'목요일')도 받는다 — api-admin.ts 의 ADM_DOW_MAP 이 그렇게 되어 있고,
+       그쪽이 받는 값을 여기서 못 받으면 그 수업만 조용히 «열리지 않는» 것이 된다. */
+    const DOWMAP: Record<string, number> = {
+      sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+      tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+      thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+      sat: 6, saturday: 6, '토': 6, '토요일': 6,
+    };
+    for (const part of String(dayOfWeek).split(/[,\s/·]+/)) {
+      const t = part.trim();
+      if (!t) continue;
+      if (/^\d+$/.test(t)) { if (Number(t) === targetDow) return targetDow; continue; }
+      const dw = DOWMAP[t.toLowerCase()];
+      if (dw !== undefined && dw === targetDow) return targetDow;
+    }
+    return null;
   }
   return null;
 }
