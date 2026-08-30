@@ -9183,7 +9183,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 -->
 
 <!-- 🥭 AI 홈 검색창 핸들러 (2026-05-03 추가) -->
-<script defer src="/js/idx-ai-home.js?v=10"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
+<script defer src="/js/idx-ai-home.js?v=11"></script><!-- 분할추출:ai-home (원복: 이 파일을 이 위치에 인라인) / defer(2026-07-21): 파스타임 호출부 없음 — 저사양 PC 첫 로딩 단축 -->
 
 
 <!-- 💬 신규상담 → 카카오톡 실시간 상담으로 통합 (2026-08-14 피드백 ⑤)
@@ -10935,7 +10935,7 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
 <script src="/js/idx-user-session.js?v=8"></script><!-- v=8: 2026-08-25 비로그인 로그인 버튼 색을 무채색→골드로 -->
 
 <!-- 💻 PC 원격지원 — 3옵션 모달 (Quick Assist / Chrome Remote / AnyDesk) -->
-<script defer src="/js/idx-remote-support.js?v=1"></script>
+<script defer src="/js/idx-remote-support.js?v=2"></script>
 
 <!-- 🆕 출석체크 + 학원 랭킹 + 학습목표 — 3개 신규 카드 핸들러 -->
 <style>
@@ -14794,7 +14794,9 @@ document.addEventListener('keydown', function(e){
 </script>
 
 <!-- fix v22 (2026-05-27) — 전체메뉴 버튼 capture-phase 핸들러 (다른 핸들러 우회) -->
-<script defer src="/js/idx-allmenu.js?v=6"></script>
+<script defer src="/js/idx-allmenu.js?v=7"></script>
+<!-- 📱 (2026-08-30 v4 제안서 05) 모바일은 다크 고정 + 상단 테마 칩 숨김. 사연은 그 파일 머리말에. -->
+<script defer src="/js/idx-theme-mobile.js?v=1"></script>
 
 <!-- 💬 채팅 ✕ 가 «가려져» 안 눌리던 것 (2026-08-19 사장님 제보) — 좌표로 닫는 안전장치 -->
 <script defer src="/js/idx-vc-chat-close.js?v=1"></script>
@@ -16305,7 +16307,7 @@ console.log('[v28] 룸 ✕ → 홈 강제 이동 안전망 활성');
 <script defer src="/js/idx-vc-roomcode.js?v=1"></script>
 <!-- 🧭 (2026-08-20 사장님 지시) 세로 수업화면 맨 윗줄을 «한 줄» 로 합침 — 첫 페인트에 필요 없어 defer -->
 <script defer src="/js/idx-vc-toprow.js?v=1"></script>
-<script defer src="/js/idx-home-opening.js?v=8"></script><!-- 홈 오프닝 사운드(웹오디오 합성, 음원 파일 0바이트) / defer 필수 — blocking 이면 첫 화면 예산 FAIL -->
+<script defer src="/js/idx-home-opening.js?v=9"></script><!-- 홈 오프닝 사운드(웹오디오 합성, 음원 파일 0바이트) / defer 필수 — blocking 이면 첫 화면 예산 FAIL -->
 <style id="vc-teacher-first">
 /* 🧑‍🏫 (2026-07-14 사장님 지시) 학생 입장 시 '교사 얼굴이 맨 위 + 크게'.
    ① 어떤 레이아웃(가로·세로·태블릿·PC)에서든 내 타일(#vc-local-box)은 항상 맨 아래.

@@ -366,9 +366,10 @@ function showKakaoShareDialog(url) {
       <!-- 출석 카드 -->
       <div class="card">
         <h3><img class="pd-ico-sm pd-ico-fb" data-emoji="📅" src="/img/menu/schedule.webp" alt="" loading="lazy" decoding="async"> <span data-ko="최근 30일 출석" data-en="Last 30 Days Attendance">최근 30일 출석</span></h3>
-        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span></span></div>
+        <div class="stat"><span data-ko="출석률" data-en="Attendance rate">출석률</span><span class="v gold" id="pd-att-rate">—</span></div>
+        <div class="stat"><span data-ko="출석 일수" data-en="Days attended">출석 일수</span><span class="v gold"><span id="pd-att-days">0</span> <span data-ko="일" data-en="days">일</span> <span id="pd-att-of" style="font-size:11px;color:#94a3b8"></span></span></div>
         <div class="stat"><span data-ko="제시간 입장" data-en="On-time">제시간 입장</span><span class="v green"><span id="pd-on-time">0</span> <span data-ko="일" data-en="days">일</span></span></div>
-        <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">0%</span></div>
+        <div class="stat"><span data-ko="제시간율" data-en="On-time rate">제시간율</span><span class="v gold" id="pd-on-time-rate">—</span></div>
         <div id="pd-att-grid" style="margin-top:10px"></div>
       </div>
 
@@ -790,9 +791,16 @@ function pdRender(d){
 
   // 출석
   const att = d.attendance || {};
+  /* 🔴 (2026-08-30 v4 제안서 02) 예전에는 `(att.on_time_rate||0)+'%'` 였다. 서버가 «잴 수 없음»
+     을 돌려줘도 화면은 **0%** 라고 단정해 「출석했는데 0%」 제보의 절반이 여기서 났다.
+     이제 서버가 null 을 주면 «—» 로 그린다 — 못 잰 것과 0 은 다른 사실이다.
+     (CLAUDE.md 2장 「측정할 수 없는 값을 그럴듯하게 채우고 싶을 때」) */
+  const pct = (v) => (v === null || v === undefined) ? '—' : (v + '%');
+  document.getElementById('pd-att-rate').textContent = pct(att.attendance_rate);
   document.getElementById('pd-att-days').textContent = fmt(att.last_30d_days);
+  document.getElementById('pd-att-of').textContent = att.scheduled_days ? ('/ ' + fmt(att.scheduled_days)) : '';
   document.getElementById('pd-on-time').textContent = fmt(att.on_time_days);
-  document.getElementById('pd-on-time-rate').textContent = (att.on_time_rate||0) + '%';
+  document.getElementById('pd-on-time-rate').textContent = pct(att.on_time_rate);
   // 30일 그리드
   const today = new Date();
   let grid = '<div style="display:grid;grid-template-columns:repeat(15,14px);gap:2px;margin-top:6px">';

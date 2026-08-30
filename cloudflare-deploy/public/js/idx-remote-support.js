@@ -132,6 +132,23 @@
         '<div style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.25);border-left:4px solid #60a5fa;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#bfdbfe;line-height:1.6">'+
           (isKo?'💡 <b>Windows 사용자는 Quick Assist 가장 권장</b> — 설치도 필요 없고 가장 안전합니다. AnyDesk는 한 번 써본 학생만 추천.':'💡 <b>Windows users: Quick Assist recommended</b> — no install needed, safest.')+
         '</div>'+
+        /* 🔑 (2026-08-30 v4 제안서 07) 원격 지원 허용 PIN.
+           관리자·강사가 만든 6자리 번호를 여기에 넣으면 «학생이 허락했다» 가 서버에 남는다.
+           ⛔ 이 번호가 화면을 여는 열쇠가 아니다 — 실제 화면 제어는 아래 도구들이 한다.
+              번호의 목적은 «누가 언제 허락했는가» 를 남기는 것이다.
+           ⚠️ 필수가 아니다. 번호가 없어도 아래 도구는 그대로 쓸 수 있다 — 컴퓨터가 고장 나서
+              부르는 자리라, 번호 하나로 도움을 막으면 안 된다. */
+        '<div id="rs-pin-box" style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.28);border-radius:10px;padding:11px 14px;margin-bottom:12px">'+
+          '<div style="font-size:12px;color:#fde68a;font-weight:700;margin-bottom:6px">'+
+            (isKo?'🔑 선생님이 알려 준 6자리 번호가 있나요? (선택)':'🔑 Have a 6-digit code from your teacher? (optional)')+'</div>'+
+          '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">'+
+            '<input id="rs-pin-input" type="text" inputmode="numeric" maxlength="7" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" '+
+              'placeholder="000000" style="width:132px;padding:7px 10px;border-radius:8px;border:1px solid rgba(251,191,36,.4);background:#0f1626;color:#fde68a;font-size:17px;letter-spacing:4px;text-align:center;font-family:MangoiHanSC,Consolas,monospace">'+
+            '<button type="button" onclick="rsClaimPin()" style="padding:8px 14px;border-radius:8px;border:0;background:linear-gradient(135deg,#f59e0b,#d97706);color:#1a1206;font-weight:800;font-size:12.5px;cursor:pointer">'+
+              (isKo?'확인':'Verify')+'</button>'+
+            '<span id="rs-pin-msg" style="font-size:11.5px;color:#94a3b8"></span>'+
+          '</div>'+
+        '</div>'+
         cards +
         '<div style="margin-top:14px;text-align:center;font-size:11.5px;color:#94a3b8">'+
           (isKo?'어떤 방법이든 연결 후엔 카카오상담 또는 1:1 채팅으로 강사와 연락하세요':'After connecting, message your teacher via KakaoTalk or 1:1 chat')+
@@ -149,6 +166,49 @@
     document.body.style.overflow = '';
     stopRsGreeting();    // 모달 닫으면 음성 즉시 정지
   };
+  /* 🔑 PIN 확인 (2026-08-30 v4 제안서 07)
+     ⚠️ 실패 사유를 «사실대로» 말한다 — 만료·이미 사용됨·틀림은 다음 행동이 서로 다르다
+        (다시 받아야 하나 / 새로 만들어 달라 해야 하나 / 다시 눌러야 하나).
+     ⚠️ 이 화면은 로그인 없이도 열린다. 로그인돼 있으면 아이디를 함께 보내 «지정된 학생인지»
+        서버가 한 번 더 볼 수 있게 한다(지정 없이 발급했으면 서버가 그 검사를 건너뛴다). */
+  window.rsClaimPin = async function(){
+    var isKo = L();
+    var el = document.getElementById('rs-pin-input');
+    var msg = document.getElementById('rs-pin-msg');
+    var pin = ((el && el.value) || '').replace(/\D/g, '');
+    if (!msg) return;
+    if (pin.length !== 6) { msg.style.color = '#fca5a5'; msg.textContent = isKo ? '6자리 숫자를 넣어 주세요.' : 'Enter 6 digits.'; return; }
+    var uid = '';
+    try { var u = JSON.parse(localStorage.getItem('mangoi_logged_user') || 'null'); if (u && u.uid) uid = u.uid; } catch (e) {}
+    msg.style.color = '#94a3b8';
+    msg.textContent = isKo ? '확인 중…' : 'Checking…';
+    try {
+      var r = await fetch('/api/class/remote-support/claim', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: pin, user_id: uid })
+      });
+      var d = await r.json().catch(function(){ return null; });
+      if (d && d.ok === true) {
+        msg.style.color = '#86efac';
+        msg.textContent = isKo ? '✅ 확인됐어요. 아래에서 방법을 고르세요.' : '✅ Confirmed. Now pick a tool below.';
+        if (el) el.disabled = true;
+        return;
+      }
+      var e2 = (d && d.error) || 'failed';
+      var ko = { expired:'번호가 만료됐어요. 새 번호를 받아 주세요.', already_used:'이미 사용된 번호예요. 새 번호를 받아 주세요.',
+                 too_many_attempts:'시도가 너무 많았어요. 새 번호를 받아 주세요.', uid_mismatch:'다른 학생에게 발급된 번호예요.',
+                 not_found:'번호가 맞지 않아요.', bad_pin:'6자리 숫자를 넣어 주세요.' }[e2] || '확인하지 못했어요.';
+      var enTxt = { expired:'This code has expired — ask for a new one.', already_used:'This code was already used.',
+                 too_many_attempts:'Too many attempts — ask for a new code.', uid_mismatch:'This code was issued to another student.',
+                 not_found:'That code is not correct.', bad_pin:'Enter 6 digits.' }[e2] || 'Could not verify.';
+      msg.style.color = '#fca5a5';
+      msg.textContent = isKo ? ko : enTxt;
+    } catch (e) {
+      msg.style.color = '#fca5a5';
+      msg.textContent = isKo ? '네트워크 오류입니다.' : 'Network error.';
+    }
+  };
+
   window.rsRun = function(idx){
     var o = (window._rsOptions||[])[idx];
     if (o && o.action) o.action();

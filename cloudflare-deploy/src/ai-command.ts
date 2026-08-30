@@ -1631,7 +1631,7 @@ export const STUDENT_ROUTES: StudentRoute[] = [
   { kws: ['mbti매칭', 'mbti 매칭', '엠비티아이 매칭', '강사매칭', '강사 매칭', '성향매칭', '성향 매칭', 'mbti match'], url: '/mbti.html', label: '🧠 MBTI 매칭' },
   { kws: ['mbti테스트', 'mbti 테스트', '엠비티아이 테스트', '성향테스트', '성격테스트', '성격 테스트', 'mbti test', 'mbti'], url: '/mbti-test.html', label: '🧪 MBTI 테스트' },
   // 📅 스케줄 / 수업신청
-  { kws: ['주간스케줄', '주간 스케줄', '내스케줄', '내 스케줄', '스케줄', '시간표', '주간시간표', '수업일정', '수업 일정', '일정표', 'schedule', 'timetable'], url: '/admin/weekly-schedule.html?role=student', label: '📅 내 주간 스케줄' },
+  { kws: ['주간스케줄', '주간 스케줄', '내스케줄', '내 스케줄', '스케줄', '시간표', '주간시간표', '수업일정', '수업 일정', '일정표', 'schedule', 'timetable'], url: '/my-schedule.html', label: '📅 내 주간 스케줄' },
   { kws: ['수업신청', '수업 신청', '수강신청', '수강 신청', '예약하기', '시간선택', '교사선택', 'book', 'booking'], url: '/lesson-booking-demo.html', label: '📝 수업 신청' },
   // 🎥 수업입장 (SPA view)
   { kws: ['수업입장', '수업 입장', '수업시작', '수업 시작', '강의실', '들어가기', '입장', '공부시작', '공부 시작', '화상수업', '화상통화', '화상 통화', '클래스', '방 들어가기', 'class'], view: 'view-videocall-lobby', label: '🎥 수업 입장' },
