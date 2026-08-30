@@ -68,12 +68,15 @@ check('admDowMatches 를 소스에서 찾았다', admFn.length > 50);
 if (!esbuildApi) {
   console.log('  ⏭ esbuild 없음 — 실행 검증 건너뜀 (정적 검사만 유효)');
 } else if (subFn && admFn) {
+  const dowMap = (enroll.match(/const ENROLL_DOW_MAP[\s\S]*?\n\};/) || [])[0] || '';
+  const dowFn = blockAt(enroll, 'export function enrollDowList');
   const js = esbuildApi.transformSync(
-    admMap + '\n' + subFn + '\n' + admFn + '\nexport { subScheduleDow, admDowMatches };',
+    admMap + '\n' + dowMap + '\n' + dowFn.replace('export ', '') + '\n' + subFn + '\n' + admFn +
+    '\nexport { subScheduleDow, admDowMatches, enrollDowList };',
     { loader: 'ts', format: 'esm' }
   ).code;
   const mod = await import('data:text/javascript;base64,' + Buffer.from(js).toString('base64'));
-  const { subScheduleDow, admDowMatches } = mod;
+  const { subScheduleDow, admDowMatches, enrollDowList } = mod;
 
   // 2026-09-03 은 목요일(UTC 기준 4)
   const THU = '2026-09-03', SUN = '2026-09-06';
@@ -97,6 +100,17 @@ if (!esbuildApi) {
   for (const [label, sd, dw, date, want] of cases) {
     check('subScheduleDow: ' + label, subScheduleDow(sd, dw, date) === want, { got: subScheduleDow(sd, dw, date), want });
   }
+  // 요일 «목록» 자체 — 나열은 여러 날을 다 돌려줘야 한다(한 날만 돌려주면 충돌검사가 나머지를 놓친다)
+  const listCases = [
+    ['4', [4]], [4, [4]], ['Thu', [4]], ['목', [4]], ['목요일', [4]],
+    ['1,3,5', [1, 3, 5]], ['Mon,Thu', [1, 4]], ['월,수,금', [1, 3, 5]],
+    ['Tue/Thu', [2, 4]], ['', []], [null, []], ['9', []], ['월수금', []],
+  ];
+  for (const [raw, want] of listCases) {
+    const got = enrollDowList(raw);
+    check('enrollDowList(' + JSON.stringify(raw) + ')', JSON.stringify(got) === JSON.stringify(want), { got, want });
+  }
+
   // 반복 행에서는 «오늘 수업» 표(admDowMatches)와 답이 같아야 한다
   for (const dw of [4, '4', 'Thu', 'thu', 'Thursday', '목', '목요일', '월,목', '1,3,5', '2,4,6', 'Mon,Thu', 'Mon Thu', 'Tue/Thu', '0', 'sun']) {
     const target = new Date(THU + 'T00:00:00Z').getUTCDay();
@@ -191,6 +205,43 @@ console.log('\n⑥ LMS·시연 시드 자리표시 행 제외');
     /FROM teachers WHERE id = \? AND active = 1/.test(blk) && /invalid_teacher/.test(blk));
   check('대체 내역을 class_audit_log 에 남긴다(급여 확인 근거)',
     /writeClassAudit/.test(blk) && /teacher_change/.test(blk));
+}
+
+/* ══ ⑦ 가용성·충돌 판정 «네 곳» 이 전부 같은 판정을 쓰는가 ══════════════════════
+   🔴 여기가 갈리면 조용히 이중배정이 난다 — 후보 목록에는 🟢(그 시간 가능)으로 나오고
+   충돌검사도 통과한다. 2026-08-30 trap-check 가 실제로 이 반쪽 상태를 잡았다. */
+console.log('\n⑦ 충돌·가용성 판정이 한 곳(enrollDowList)으로 모여 있는가');
+{
+  check('day_of_week 를 «앞 세 글자» 로 읽는 코드가 남아 있지 않다',
+    !/day_of_week[^\n]*slice\(0, 3\)/.test(enroll) && !/DOW2?\[String\(r\.day_of_week/.test(enroll));
+  const users = (enroll.match(/enrollDowList\(/g) || []).length;
+  check('enrollDowList 를 쓰는 곳이 5곳 이상(선언 1 + 판정 4)', users >= 5, users);
+  for (const [label, anchor] of [
+    ['enrollConflicts', 'export async function enrollConflicts'],
+    ['busyTimesForTeacher', 'export async function busyTimesForTeacher'],
+    ['teachersFreeAt', 'export async function teachersFreeAt'],
+  ]) {
+    const blk = blockAt(enroll, anchor);
+    check(label + ' 이 enrollDowList 를 쓴다', blk.includes('enrollDowList('), blk.slice(0, 60));
+  }
+}
+
+/* ══ ⑧ 취소된 수업의 대체가 «그 시간 바쁨» 으로 남지 않는가 ═══════════════════ */
+console.log('\n⑧ 원 수업이 취소되면 그 대체도 함께 빠진다');
+for (const [label, src] of [['enroll-ops', enroll], ['api-teacher', teacher]]) {
+  const joins = src.match(/class_substitutions cs2[\s\S]{0,600}?(?=`)/g) || [];
+  const bad = joins.filter((s) => /JOIN class_schedules/.test(s) && !/cs\.status = 'active'/.test(s));
+  check(label + ' — class_schedules 를 이을 때 그 수업의 status 도 본다', bad.length === 0,
+    bad.map((s) => s.slice(0, 100)));
+}
+
+/* ══ ⑨ 방어 CREATE 쪽에도 UNIQUE 인덱스가 있는가 ═════════════════════════════ */
+console.log('\n⑨ CREATE 를 베낀 곳에 인덱스도 함께 있다');
+{
+  const blk = admin.slice(admin.indexOf('CREATE TABLE IF NOT EXISTS class_substitutions'),
+    admin.indexOf('CREATE TABLE IF NOT EXISTS class_substitutions') + 900);
+  check('api-admin 의 방어 CREATE 옆에 uq_class_sub_slot 도 만든다',
+    /uq_class_sub_slot/.test(blk));
 }
 
 console.log(`\n${FAIL === 0 ? '✅' : '❌'} PASS ${PASS} · FAIL ${FAIL}`);

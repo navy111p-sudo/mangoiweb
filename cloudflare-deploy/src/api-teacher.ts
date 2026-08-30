@@ -303,7 +303,7 @@ export async function handleTeacherApi(
            LEFT JOIN students_erp se ON se.user_id = cs.user_id
            LEFT JOIN teachers t ON CAST(t.id AS TEXT) = CAST(cs2.substitute_teacher_id AS TEXT)
            LEFT JOIN teachers t0 ON CAST(t0.id AS TEXT) = CAST(cs2.original_teacher_id AS TEXT)
-          WHERE cs2.status = 'active' AND cs2.sub_date = ?
+          WHERE cs2.status = 'active' AND cs.status = 'active' AND cs2.sub_date = ?
             AND (cs2.substitute_teacher_id IN (${ph}) OR cs2.original_teacher_id IN (${ph}))`
       ).bind(todayStr, ...myKeys, ...myKeys).all<any>().catch(() => ({ results: [] } as any));
       for (const sr of ((subRows?.results as any[]) || [])) {

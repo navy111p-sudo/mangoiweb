@@ -148,7 +148,7 @@ async function sectionAdmin(browser) {
   await page.waitForTimeout(900);
 
   const rows = await page.evaluate(() => {
-    const btns = [...document.querySelectorAll('#tc-body .tc-sub-btn')];
+    const btns = [...document.querySelectorAll('#tc-body .tc-sub-act')];
     const b = btns[0];
     let box = null, topMost = null;
     if (b) {
@@ -160,11 +160,19 @@ async function sectionAdmin(browser) {
       const stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
       topMost = stack[0] === b || (stack[0] && b.contains(stack[0]));
     }
+    /* 🎨 옆 칩(참관)과 «같은 계열» 인지 — 이 표의 칩 스타일(button.tc-act)이 이겨야 한다.
+       클래스 이름이 «-btn» 으로 끝나면 admin-inline-c.css 의 ivory 규칙(0,11,1)이 이겨
+       이 버튼만 흰 버튼이 된다(2026-08-30 실측으로 밟음). */
+    const obs = document.querySelector('#tc-body .tc-act-observe');
     return {
       count: btns.length,
       box, topMost,
       bodyText: (document.getElementById('tc-body') || {}).innerText || '',
       bg: b ? getComputedStyle(b).backgroundImage : null,
+      bgColor: b ? getComputedStyle(b).backgroundColor : null,
+      fontSize: b ? getComputedStyle(b).fontSize : null,
+      obsFontSize: obs ? getComputedStyle(obs).fontSize : null,
+      classAttr: b ? b.getAttribute('class') : null,
     };
   });
 
@@ -173,11 +181,17 @@ async function sectionAdmin(browser) {
     !!rows.box && rows.box.w <= 60 && rows.box.h <= 34, rows.box);
   check('🔄 버튼에 전역 인디고 그라데이션이 안 먹었다', rows.bg === 'none', rows.bg);
   check('🔄 버튼이 맨 위에 있어 실제로 눌린다', rows.topMost === true, rows.topMost);
+  check('🔄 버튼 클래스가 «-btn» 으로 끝나지 않는다([class$="-btn"] 규칙에 걸린다)',
+    !/-btn$/.test(String(rows.classAttr || '')), rows.classAttr);
+  check('🔄 버튼이 «혼자 흰 버튼» 이 아니다(ivory 규칙에 안 먹혔다)',
+    rows.bgColor !== 'rgb(255, 255, 255)', rows.bgColor);
+  check('🔄 버튼 글자 크기가 옆 칩과 같다(표 칩 스타일이 이겼다)',
+    !!rows.obsFontSize && rows.fontSize === rows.obsFontSize, { sub: rows.fontSize, observe: rows.obsFontSize });
   check('대체가 걸린 줄에 「대체 · 원래 HANNAH」 가 보인다',
     /대체/.test(rows.bodyText) && rows.bodyText.includes('HANNAH') && rows.bodyText.includes('MELCA'),
     rows.bodyText.slice(0, 160));
 
-  await page.evaluate(() => document.querySelectorAll('#tc-body .tc-sub-btn')[1].click());
+  await page.evaluate(() => document.querySelectorAll('#tc-body .tc-sub-act')[1].click());
   await page.waitForTimeout(700);
   const modal = await page.evaluate(() => {
     const m = document.getElementById('tc-sub-modal');
@@ -222,6 +236,40 @@ async function sectionAdmin(browser) {
   check('배정에 성공하면 모달이 닫힌다',
     await page.evaluate(() => !document.getElementById('tc-sub-modal')));
 
+  /* 📱 세로가 짧은 폰 — 모달이 잘려 맨 아래 [배정] 을 못 누르는 사고(CLAUDE.md 2장) */
+  const p2 = await ctx.newPage();
+  await p2.route('**/api/**', async (route) => {
+    const u = route.request().url();
+    const j = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
+    if (u.includes('/api/admin/classes/today')) return j({ ok: true, sessions: SESSIONS, date: TODAY });
+    if (u.includes('/api/pay/enroll/admin/substitute-candidates')) return j(CANDIDATES);
+    return j({ ok: true });
+  });
+  await p2.addInitScript(() => { try { localStorage.setItem('mangoi_admin_welcome_v1_done', '1'); } catch (e) {} });
+  await p2.setViewportSize({ width: 390, height: 640 });
+  await p2.goto(BASE + '/admin.html', { waitUntil: 'domcontentloaded' });
+  await p2.waitForTimeout(2500);
+  await p2.evaluate(() => {
+    const d = document.getElementById('sm-today-classes');
+    if (d && d.tagName === 'DETAILS') d.open = true;
+    if (typeof window.tcLoadToday === 'function') window.tcLoadToday();
+  });
+  await p2.waitForTimeout(900);
+  await p2.evaluate(() => document.querySelectorAll('#tc-body .tc-sub-act')[1].click());
+  await p2.waitForTimeout(700);
+  const phone = await p2.evaluate(() => {
+    const m = document.getElementById('tc-sub-modal');
+    if (!m) return { open: false };
+    const scrollable = getComputedStyle(m).overflowY === 'auto' || getComputedStyle(m).overflowY === 'scroll';
+    const go = m.querySelector('#tc-sub-go');
+    go.scrollIntoView({ block: 'center' });
+    const r = go.getBoundingClientRect();
+    const st = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { open: true, scrollable, reachable: st[0] === go, inViewport: r.top >= 0 && r.bottom <= innerHeight };
+  });
+  check('[폰 390x640] 모달이 열린다', phone.open === true);
+  check('[폰 390x640] 모달이 스크롤된다(넘친 부분이 잘리지 않는다)', phone.scrollable === true, phone);
+  check('[폰 390x640] 맨 아래 [배정] 버튼에 손이 닿는다', phone.reachable === true && phone.inViewport === true, phone);
   await ctx.close();
 }
 

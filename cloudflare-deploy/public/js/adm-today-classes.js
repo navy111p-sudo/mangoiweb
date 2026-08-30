@@ -107,8 +107,10 @@
     tcSubModalClose();
     var box = document.createElement('div');
     box.id = 'tc-sub-modal';
-    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;padding:16px';
-    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
+    /* ⚠️ 세로가 짧은 폰에서 넘친 부분이 잘려 맨 아래 [배정] 을 못 누르는 사고를 막는다
+       — flex 정렬 대신 자식 margin:auto + overflow-y:auto (CLAUDE.md 2장 도크 모달 항목). */
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
       + '<div id="tc-sub-body">' + T('불러오는 중…', 'Loading…') + '</div>'
       + '<div style="text-align:right;margin-top:12px"><button type="button" id="tc-sub-close" style="padding:6px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer">' + T('닫기', 'Close') + '</button></div>'
       + '</div>';
@@ -292,9 +294,14 @@
               + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
             : '';
           /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
-             예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유). */
+             예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유).
+             ⛔ (2026-08-30) 클래스 이름을 «-btn» 으로 끝내지 말 것 — admin-inline-c.css 의
+                `html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"]:not(…)×8` (0,11,1) 이
+                `button.tc-act:not(…)×6` (0,7,1) 을 이겨 이 버튼만 «흰 버튼» 이 된다(실측:
+                background #ffffff · color #344054 — 옆 참관 칩은 보라). 그 파일 9503·9710·9737 행에
+                같은 경고가 세 번 적혀 있다. 그래서 `tc-sub-act` 다. */
           if (!isC24 && s.schedule_id) {
-            teacher += '<button type="button" class="tc-act tc-sub-btn" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
+            teacher += '<button type="button" class="tc-act tc-sub-act" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
               + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
           }
           return '<tr>'
