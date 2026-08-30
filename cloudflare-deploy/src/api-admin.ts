@@ -584,6 +584,26 @@ export async function handleAdminApi(
     if (method === 'GET' && path === '/api/admin/vc/quality') {
       try {
         await env.DB.exec(`CREATE TABLE IF NOT EXISTS vc_quality (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, room TEXT, uid TEXT, name TEXT, role TEXT, avg_loss REAL, max_loss REAL, avg_rtt REAL, aao INTEGER, samples INTEGER)`);
+        /* 📶 (2026-08-30) live=1 — «지금 이 방» 의 회선 신호. 수업 관제탑이 방마다 신호등으로 그린다.
+           [왜 방 단위인가] 위 기본 집계는 «어느 강사 인터넷이 나쁜가»(uid·7일)를 보는 눈이고,
+              관제탑은 «지금 이 수업이 흔들리고 있나»(room·최근 몇 분)를 봐야 한다. 같은 표에서
+              묶는 축만 다르다 — 새 표를 만들지 않는다.
+           ⚠️ avg_loss 가 음수인 행은 «영상이 없던 틱»(loss = -1 로 넘어온 것)이라 평균에서 뺀다.
+              넣으면 영상이 죽은 사람이 «회선이 제일 좋은 사람» 으로 뒤집힌다(CLAUDE.md 2장).
+           ⚠️ novideo 칸은 ALTER 로 나중에 붙은 것이라 첫 로그 전에는 없다 — 여기서 읽지 않는다. */
+        if (url.searchParams.get('live') === '1') {
+          const mins = Math.max(1, Math.min(60, parseInt(url.searchParams.get('mins') || '5', 10) || 5));
+          const liveSince = Date.now() - mins * 60000;
+          const lr: any = await env.DB.prepare(
+            `SELECT room, COUNT(*) AS windows,
+                    ROUND(AVG(avg_loss), 1) AS avg_loss, ROUND(MAX(max_loss), 1) AS worst_loss,
+                    ROUND(AVG(avg_rtt)) AS avg_rtt, MAX(ts) AS last_ts
+               FROM vc_quality
+              WHERE ts >= ? AND room IS NOT NULL AND room <> '' AND avg_loss >= 0
+              GROUP BY room ORDER BY avg_loss DESC LIMIT 200`
+          ).bind(liveSince).all();
+          return json({ ok: true, mins, rooms: lr.results || [] });
+        }
         const days = Math.max(1, Math.min(90, parseInt(url.searchParams.get('days') || '7', 10) || 7));
         const since = Date.now() - days * 86400000;
         const rs: any = await env.DB.prepare(

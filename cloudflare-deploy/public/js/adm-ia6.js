@@ -58,6 +58,14 @@
         { ko: '장기 결석생', en: 'Long absent',     cards: ['card-long-absent'],
           tip: '🚨 연속 결석이 쌓인 학생 — 연락할 순서대로', tipEn: '🚨 Students with the longest absence streaks' },
         { ko: '수업 관찰',  en: 'Observe class',   cards: ['card-admin-ghost', 'card-admin-whisper'] },
+        /* 🗼 (2026-08-30 사장님 「하나하나 입력하지 않고 바로바로」) — 전체 수업을 한 표로 보고
+           줄마다 참관·입장·종료까지 하는 별도 화면. 별도 페이지라 href 다(「수업 길이 변경」과 같은 꼴).
+           ⚠️ href 항목은 카드가 없어 역할 필터(applyRoleFilter)를 못 받는다 — 강사·지사에게도 «보인다».
+              그래서 화면 쪽이 스스로 막는다: monitor-wall 은 classes-now 가 forbidden_teacher 로
+              답하면 목록을 아예 안 그린다(그 화면 머리말 참고). */
+        { ko: '수업 관제탑', en: 'Control tower', href: '/admin/monitor-wall.html',
+          tip: '🗼 지금 열린 수업을 한 표로 — 참관·입장·종료·순회 참관',
+          tipEn: '🗼 Every live class in one table - observe, enter, end, rotate' },
         { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
           tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
         { ko: '방 초대',    en: 'Room invites',    cards: ['card-room-invite'] },

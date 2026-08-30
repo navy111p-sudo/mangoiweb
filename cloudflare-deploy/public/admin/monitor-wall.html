@@ -9,18 +9,26 @@
   🗼 수업 관제탑 (monitor-wall) — 2026-08-27 사장님 지시
   「관리자가 신속하게 전체 상황을 한눈에 보면서 수업도 모니터링」 (보다 솔루션 벤치마킹)
 
+  📌 2026-08-30 2차 (사장님 「STEP 1 + 순회 참관」) — 보다 「개설된 룸 목록」에 맞춰 표로 바꾸고
+     검색·정렬·자동 새로고침 주기·강제 종료·회선 신호등을 얹었다. 그리고 보다에 없는 «순회 참관»:
+     창 하나가 정해진 초마다 방을 옮겨 다닌다(탭을 여러 개 열지 않아도 전 교실을 훑는다).
+
   [설계 원칙 — 왜 이렇게 가벼운가]
   · admin.html(1.3MB) 에 얹지 않고 «별도 초경량 한 파일» — manager.html 과 같은 정신.
   · /admin/ 밑은 default-deny 라 이 화면도 자동으로 로그인 게이트가 걸린다(index.ts 무수정).
     ⚠️ /admin/ 밑에는 js·css 정적자산을 두지 않는 규칙(index.ts isAdminPath 주석) → 전부 인라인.
-  · 새 서버 API 0개 — 기존 4개(active-rooms · classes-now · alerts · live-classes) 폴링 조합.
+  · 새 서버 API 0개가 원칙이었는데, 2차에서 «방 단위 회선 지표» 하나만 기존 엔드포인트에
+    모드로 더했다(/api/admin/vc/quality?live=1). 새 경로가 아니라 이미 관문 3곳에 등록된
+    /api/admin/vc/ 밑이라 등록 누락 함정에 걸리지 않는다.
   · 영상은 «상시» 로 틀지 않는다 — 타일에서 골라 눌렀을 때만 /?observe= 새 탭.
     (전 방 영상 상주는 화상수업 DO·강사 업로드 회선에 부담 — 제안서에서 제외한 유일한 무거운 것)
-  · 15초 폴링 + 탭이 숨겨지면 일시정지(visibilitychange) — 하루 종일 켜 놔도 부담 없음.
+  · 폴링 주기는 사람이 고른다(기본 15초) + 탭이 숨겨지면 일시정지(visibilitychange).
   · 표 위에 마우스가 있는 동안은 다시 그리지 않는다 — 자동 갱신이 조준한 줄을 갈아치워
     «엉뚱한 방을 누르게» 되던 사고(2026-08-12 수정요청 #01)의 재발 방지.
-    클릭은 위임 리스너가 «실제로 클릭된 타일» 의 data-room 을 읽는다.
+    클릭은 위임 리스너가 «실제로 클릭된 줄» 의 data-room 을 읽는다.
   · 동적 영역에 data-ko/data-en 을 달지 않는다(본문 갈아끼우기 함정) — 언어는 JS 가 직접 그림.
+  · 강사 계정은 이 화면을 못 본다 — classes-now 가 forbidden_teacher 로 답하면 목록 자체를
+    안 그린다(사이드바 href 항목은 역할 필터를 못 받으므로 화면이 스스로 막는다).
 -->
 <style>
 /* comments in this block stay ASCII or « » - CJK corner brackets here trip the hanzi-font harness */
@@ -40,28 +48,55 @@ h1{ font-size:19px; margin:0; }
 .hd-right{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 button, .btn{ font:inherit; cursor:pointer; border-radius:8px; border:1px solid var(--line);
   background:var(--card); color:var(--ink); padding:6px 12px; font-size:12.5px; font-weight:700; }
-button:focus-visible, .btn:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
-.chips{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 14px; }
+button:focus-visible, .btn:focus-visible, input:focus-visible, select:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
+.chips{ display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 12px; }
 .chip{ background:var(--card); border:1px solid var(--line); border-radius:999px;
   padding:5px 14px; font-size:12.5px; font-weight:700; color:var(--sub); }
 .chip b{ font-size:15px; margin-left:4px; font-variant-numeric:tabular-nums; }
-.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr)); gap:10px; }
-.tile{ background:var(--card); border:1px solid var(--line); border-left:5px solid var(--line);
-  border-radius:10px; padding:10px 12px; min-width:0; }
-.tile.st-ok{ border-left-color:var(--ok); }
-.tile.st-alone{ border-left-color:var(--warn); background:var(--warn-bg); }
-.tile.st-alert{ border-left-color:var(--crit); background:var(--crit-bg); }
-.tile .who{ font-weight:800; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tile .rid{ font-family:var(--mono); font-size:11px; color:var(--muted);
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tile .meta{ font-size:12px; color:var(--sub); margin:2px 0 8px; }
+.chip.st-bad{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
+.chip.st-good{ background:var(--ok-bg); border-color:var(--ok); color:var(--ok); }
+
+/* toolbar - search / sort / refresh interval / rotation */
+.tools{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 10px; }
+.tools input[type=search]{ font:inherit; font-size:12.5px; padding:6px 11px; border-radius:8px;
+  border:1px solid var(--line); background:var(--card); color:var(--ink); flex:1 1 210px; min-width:150px; }
+.tools select{ font:inherit; font-size:12.5px; padding:6px 9px; border-radius:8px;
+  border:1px solid var(--line); background:var(--card); color:var(--ink); font-weight:700; }
+.tools .lbl{ font-size:12px; color:var(--muted); }
+.tools .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
+.rotbar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:0 0 12px;
+  padding:8px 12px; border:1px solid var(--violet); background:var(--violet-bg);
+  border-radius:10px; font-size:12.5px; color:var(--violet); font-weight:700; }
+.rotbar .rb-now{ font-family:var(--mono); }
+.rotbar .rb-left{ font-variant-numeric:tabular-nums; }
+[hidden]{ display:none !important; }
+
+/* room table */
+.tablewrap{ overflow-x:auto; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+table{ border-collapse:collapse; width:100%; min-width:820px; }
+th, td{ text-align:left; padding:8px 12px; border-top:1px solid var(--line); vertical-align:top; font-size:13px; }
+thead th{ border-top:0; background:#f8f9fc; color:var(--sub); font-size:12px; white-space:nowrap; }
+tbody tr{ border-left:5px solid transparent; }
+tbody tr.st-ok{ border-left-color:var(--ok); }
+tbody tr.st-alone{ border-left-color:var(--warn); background:var(--warn-bg); }
+tbody tr.st-alert{ border-left-color:var(--crit); background:var(--crit-bg); }
+tbody tr.st-rot{ box-shadow:inset 0 0 0 2px var(--violet); }
+td.t{ font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.who b{ font-size:13.5px; }
+td.rid{ font-family:var(--mono); font-size:11.5px; color:var(--muted); word-break:break-all; }
+td.n{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+td.acts{ white-space:nowrap; }
+td.acts button{ padding:5px 9px; font-size:12px; margin:1px 2px 1px 0; }
 .badge{ display:inline-block; font-size:11px; font-weight:800; border-radius:999px; padding:1px 8px; }
 .badge.alone{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn); }
 .badge.alert{ background:var(--crit-bg); color:var(--crit); border:1px solid var(--crit); }
 .badge.obs{ background:var(--violet-bg); color:var(--violet); }
-.acts{ display:flex; gap:6px; flex-wrap:wrap; }
+.sig-ok{ color:var(--ok); font-weight:700; }
+.sig-warn{ color:var(--warn); font-weight:700; }
+.sig-bad{ color:var(--crit); font-weight:800; }
 .acts .go{ background:var(--violet); border-color:var(--violet); color:#fff; }
 .acts .enter{ background:#fff7ed; border-color:#f0c48a; color:var(--warn); }
+.acts .kill{ background:var(--crit-bg); border-color:var(--crit); color:var(--crit); }
 .sec{ margin-top:22px; }
 .sec h2{ font-size:14.5px; margin:0 0 4px; color:var(--sub); }
 .sec .note{ font-size:12px; color:var(--muted); margin:0 0 8px; }
@@ -93,7 +128,40 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
   <div class="chips" id="chips"></div>
   <div id="auth-warn"></div>
 
-  <div class="grid" id="rooms"></div>
+  <div class="tools" id="tools">
+    <input type="search" id="q" autocomplete="off">
+    <span class="lbl" id="lb-sort"></span>
+    <select id="sel-sort">
+      <option value="sev"></option>
+      <option value="time"></option>
+      <option value="people"></option>
+      <option value="name"></option>
+    </select>
+    <span class="lbl" id="lb-poll"></span>
+    <select id="sel-poll">
+      <option value="0"></option>
+      <option value="10"></option>
+      <option value="15" selected></option>
+      <option value="30"></option>
+      <option value="60"></option>
+    </select>
+    <button type="button" class="go" id="btn-rot"></button>
+    <select id="sel-dwell">
+      <option value="15"></option>
+      <option value="20" selected></option>
+      <option value="30"></option>
+      <option value="60"></option>
+    </select>
+  </div>
+
+  <div class="rotbar" id="rotbar" hidden></div>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr id="thead-row"></tr></thead>
+      <tbody id="rooms"></tbody>
+    </table>
+  </div>
 
   <div class="sec">
     <h2 id="sched-title"></h2>
@@ -122,11 +190,23 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     try { return String((JSON.parse(localStorage.getItem('mangoi_admin_session')||'{}')||{}).uid||'').trim(); }
     catch(e){ return ''; }
   }
+  /* 화면 설정(주기·정렬·순회 간격)은 이 브라우저에만 남는 편의값이다 — 서버에 올리지 않는다.
+     읽기·쓰기를 전부 try 로 감싼다(시크릿 창·저장 차단에서 예외가 난다). */
+  function pref(k, v){
+    try {
+      if (v === undefined) return localStorage.getItem('mangoi_mw_' + k);
+      localStorage.setItem('mangoi_mw_' + k, v);
+    } catch(e){}
+    return null;
+  }
 
-  var POLL_MS = 15000;
-  var state = { rooms:[], sched:[], counts:null, alerts:{}, names:{}, authFail:false, lastAt:0 };
+  var state = { rooms:[], sched:[], counts:null, alerts:{}, names:{}, quality:{},
+                turn:'', authFail:false, forbidden:false, lastAt:0, turnAt:0 };
   var hoverGrid = false;   /* 마우스가 표 위에 있는 동안 재렌더 금지 — 오클릭 방지 */
   var pendingRender = false;
+
+  function pollMs(){ return (parseInt($('sel-poll').value, 10) || 0) * 1000; }
+  function dwellSec(){ return parseInt($('sel-dwell').value, 10) || 20; }
 
   /* ── 데이터 수집 — 실패는 각자 조용히, 있는 것만 그린다 ───────────── */
   function load(){
@@ -136,11 +216,17 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       .then(function(r){ return r.json(); }).catch(function(){ return null; });
     var pAL = fetch('/api/admin/alerts', { credentials:'include' })
       .then(function(r){ return r.json(); }).catch(function(){ return null; });
-    return Promise.all([pAR, pCN, pAL]).then(function(res){
+    /* 📶 방 단위 회선 신호 — 최근 5분. 실패하면 신호등만 «—» 로 두고 표는 그대로 그린다 */
+    var pQ = fetch('/api/admin/vc/quality?live=1&mins=5', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.json(); }).catch(function(){ return null; });
+    loadTurn();
+    return Promise.all([pAR, pCN, pAL, pQ]).then(function(res){
       var rooms = Array.isArray(res[0]) ? res[0] : [];
       /* 판정은 «성공이라고 말했는가»(d.ok === true) — 404 위장 함정 회피 */
       var cn = res[1];
       state.authFail = !(cn && cn.ok === true);
+      /* 🚷 강사 계정 — 서버가 이름으로 거절한다. 목록 자체를 그리지 않는다(아래 render) */
+      state.forbidden = !!(cn && cn.ok === false && cn.error === 'forbidden_teacher');
       state.sched  = (cn && cn.ok === true && Array.isArray(cn.classes)) ? cn.classes : [];
       state.counts = (cn && cn.ok === true) ? (cn.counts || null) : null;
       var alerts = {};
@@ -149,10 +235,16 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
         if (!it.acknowledged_at) alerts[String(it.room_id)] = it;
       });
       state.alerts = alerts;
-      state.rooms = rooms;
+      var q = {};
+      var qj = res[3];
+      if (qj && qj.ok === true && Array.isArray(qj.rooms)) qj.rooms.forEach(function(r){
+        if (r && r.room) q[String(r.room)] = r;
+      });
+      state.quality = q;
+      state.rooms = state.forbidden ? [] : rooms;
       state.lastAt = Date.now();
-      /* 예약된 강사·학생 이름 — 실패해도 타일은 이름 없이 그린다 */
-      var ids = rooms.map(function(r){ return r.roomId; }).filter(Boolean);
+      /* 예약된 강사·학생 이름 — 실패해도 줄은 이름 없이 그린다 */
+      var ids = state.rooms.map(function(r){ return r.roomId; }).filter(Boolean);
       if (!ids.length) { state.names = {}; return; }
       return fetch('/api/admin/live-classes?rooms=' + encodeURIComponent(ids.join(',')), { credentials:'include' })
         .then(function(r){ return r.json(); })
@@ -161,42 +253,112 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     }).then(render).catch(function(){ render(); });
   }
 
+  /* 📡 영상 중계(TURN) 상태 — 응답 «헤더» 만 본다(본문에는 자격증명이 들어 있다).
+     public-fallback 이면 모든 수업이 무료 공개 TURN 으로 흐르는 상태다(CLAUDE.md 2장).
+     ⚠️ 이 조회는 서버에서 자격증명 발급 경로를 건드리므로 폴링마다 부르지 않는다 — 5분에 한 번. */
+  function loadTurn(){
+    if (state.turnAt && Date.now() - state.turnAt < 300000) return;
+    state.turnAt = Date.now();
+    fetch('/api/turn-config', { credentials:'include', cache:'no-store' }).then(function(r){
+      var src = r.headers.get('x-turn-source') || '';
+      var det = r.headers.get('x-turn-detail') || '';
+      state.turn = src + (det ? (' · ' + det) : '');
+      renderChips();
+    }).catch(function(){ /* 조용히 — 상태등만 비워 둔다 */ });
+  }
+
+  /* ── 검색·정렬 ───────────────────────────────────────────────────── */
+  function roomText(rm){
+    var sc = state.names[String(rm.roomId)] || {};
+    return [rm.roomId, sc.teacher_name, sc.student_name,
+            (rm.users || []).map(function(u){ return u.username; }).join(' ')].join(' ').toLowerCase();
+  }
+  function severity(rm){
+    var rid = String(rm.roomId);
+    if (state.alerts[rid]) return 3;
+    var q = state.quality[rid];
+    if (q && (q.avg_loss >= 5 || q.avg_rtt >= 400)) return 2;
+    if (rm.userCount === 1) return 1;
+    return 0;
+  }
+  function visibleRooms(){
+    var kw = ($('q').value || '').trim().toLowerCase();
+    var list = state.rooms.filter(function(rm){ return !kw || roomText(rm).indexOf(kw) >= 0; });
+    var mode = $('sel-sort').value;
+    var startOf = function(rm){
+      var sc = state.names[String(rm.roomId)] || {};
+      return sc.start_time || '';
+    };
+    var nameOf = function(rm){
+      var sc = state.names[String(rm.roomId)] || {};
+      return (sc.teacher_name || sc.student_name || String(rm.roomId)).toLowerCase();
+    };
+    return list.sort(function(a, b){
+      if (mode === 'time')   return String(startOf(a)).localeCompare(String(startOf(b)));
+      if (mode === 'people') return (b.userCount || 0) - (a.userCount || 0);
+      if (mode === 'name')   return nameOf(a).localeCompare(nameOf(b));
+      return severity(b) - severity(a);   /* 기본 — 심각한 것부터 */
+    });
+  }
+
   /* ── 그리기 ──────────────────────────────────────────────────────── */
+  function renderChips(){
+    var alertCount = Object.keys(state.alerts).length;
+    var chips = [];
+    if (state.counts) chips.push('<span class="chip">' + L('📅 예약 기준 지금 수업', '📅 Booked now')
+      + '<b>' + (state.counts.now || 0) + '</b></span>');
+    chips.push('<span class="chip">' + L('🎥 화상방', '🎥 Mango-i rooms') + '<b>' + state.rooms.length + '</b></span>');
+    chips.push('<span class="chip' + (alertCount ? ' st-bad' : '') + '">' + L('🚨 이상 알림', '🚨 Alerts')
+      + '<b>' + alertCount + '</b></span>');
+    var alone = state.rooms.filter(function(r){ return r.userCount === 1; }).length;
+    if (alone) chips.push('<span class="chip st-bad">' + L('⚠ 혼자 대기', '⚠ Waiting alone') + '<b>' + alone + '</b></span>');
+    if (state.turn) {
+      var bad = state.turn.indexOf('public-fallback') === 0;
+      chips.push('<span class="chip ' + (bad ? 'st-bad' : 'st-good') + '" title="' + esc(state.turn) + '">'
+        + (bad ? L('📡 영상 중계 이상', '📡 Relay degraded') : L('📡 영상 중계 정상', '📡 Relay OK')) + '</span>');
+    }
+    $('chips').innerHTML = chips.join('');
+  }
+
   function render(){
     if (hoverGrid) { pendingRender = true; return; }   /* 다음 틱에 그린다 */
     pendingRender = false;
     document.title = L('수업 관제탑 — 망고아이', 'Class Control Tower — Mangoi');
     $('hd-title').textContent = L('🗼 수업 관제탑', '🗼 Class Control Tower');
-    $('hd-note').textContent = L('15초마다 자동 갱신 · 탭을 내려놓으면 일시정지', 'Refreshes every 15s · pauses when tab is hidden');
+    $('hd-note').textContent = pollMs()
+      ? L('자동 갱신 · 탭을 내려놓으면 일시정지', 'Auto refresh · pauses when tab is hidden')
+      : L('자동 갱신 꺼짐 — 🔄 로 새로고침', 'Auto refresh off - use 🔄');
     $('btn-lang').textContent = EN ? 'KO' : 'EN';
     $('lnk-admin').textContent = L('← 관리자 홈', '← Admin home');
     $('hd-updated').textContent = state.lastAt
       ? (L('갱신 ', 'updated ') + new Date(state.lastAt).toLocaleTimeString(EN ? 'en-US' : 'ko-KR')) : '';
+    renderTools();
+    renderChips();
 
-    var alertCount = Object.keys(state.alerts).length;
-    var chips = [];
-    if (state.counts) chips.push([L('📅 예약 기준 지금 수업', '📅 Booked now'), state.counts.now || 0]);
-    chips.push([L('🎥 화상방', '🎥 Mango-i rooms'), state.rooms.length]);
-    chips.push([L('🚨 이상 알림', '🚨 Alerts'), alertCount]);
-    var alone = state.rooms.filter(function(r){ return r.userCount === 1; }).length;
-    if (alone) chips.push([L('⚠ 혼자 대기', '⚠ Waiting alone'), alone]);
-    $('chips').innerHTML = chips.map(function(c){
-      return '<span class="chip">' + c[0] + '<b>' + c[1] + '</b></span>'; }).join('');
+    $('auth-warn').innerHTML = state.forbidden
+      ? '<div class="err">' + L('이 화면은 본사·매니저 전용입니다. 강사 계정으로는 볼 수 없습니다.',
+                                'This screen is for HQ and managers only. Teacher accounts cannot view it.') + '</div>'
+      : (state.authFail
+        ? '<div class="err">' + L('관리자 로그인이 필요하거나 예약 정보를 불러오지 못했습니다. 화상방 목록만 표시 중 — ',
+                                  'Admin login required, or booked-class info failed to load. Showing video rooms only — ')
+          + '<a href="/admin/login.html">' + L('로그인 화면', 'Log in') + '</a></div>'
+        : '');
 
-    $('auth-warn').innerHTML = state.authFail
-      ? '<div class="err">' + L('관리자 로그인이 필요하거나 예약 정보를 불러오지 못했습니다. 화상방 목록만 표시 중 — ',
-                                'Admin login required, or booked-class info failed to load. Showing video rooms only — ')
-        + '<a href="/admin/login.html">' + L('로그인 화면', 'Log in') + '</a></div>' : '';
+    $('thead-row').innerHTML = [
+      L('상태', 'State'), L('시각', 'Time'), L('수업', 'Class'), L('강의실', 'Room'),
+      L('인원', 'People'), L('회선', 'Line'), L('액션', 'Actions')
+    ].map(function(h){ return '<th>' + h + '</th>'; }).join('');
 
-    /* 화상방 타일 — 심각한 것부터: 알림 > 혼자 대기 > 정상 */
-    var sorted = state.rooms.slice().sort(function(a, b){
-      var sa = state.alerts[String(a.roomId)] ? 2 : (a.userCount === 1 ? 1 : 0);
-      var sb = state.alerts[String(b.roomId)] ? 2 : (b.userCount === 1 ? 1 : 0);
-      return sb - sa;
-    });
-    $('rooms').innerHTML = sorted.length ? sorted.map(tileHtml).join('')
-      : '<div class="empty">' + L('지금 망고아이 화상방에 접속해 있는 수업이 없습니다.',
-                                   'No one is connected to a Mango-i video room right now.') + '</div>';
+    var list = visibleRooms();
+    $('rooms').innerHTML = list.length ? list.map(rowHtml).join('')
+      : '<tr><td colspan="7" class="empty">'
+        + (state.forbidden
+            ? L('권한이 없어 목록을 표시하지 않습니다.', 'Not shown - no permission.')
+            : (state.rooms.length
+                ? L('검색어와 맞는 수업이 없습니다.', 'No class matches your search.')
+                : L('지금 망고아이 화상방에 접속해 있는 수업이 없습니다.',
+                    'No one is connected to a Mango-i video room right now.')))
+        + '</td></tr>';
 
     /* 카페24 예약 줄 — 참관할 «방» 이 없으니 버튼이 없는 것이 정상.
        «접속 기록 없음» 을 «미접속» 이라고 단정하지 않는다. */
@@ -208,31 +370,78 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
 
     $('ft').innerHTML = L(
       '👁 참관은 학생·강사에게 보이지 않고 방당 동시 2명까지, 모든 참관은 감사 로그에 자동 기록됩니다. '
-      + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다.',
+      + '🚪 직접 입장은 실제 참가자로 들어가며(카메라 꺼짐 시작) 학생에게 보입니다. '
+      + '🛑 강제 종료는 그 수업의 모든 참가자 연결을 즉시 끊습니다. '
+      + '🔁 순회 참관은 창 하나가 정해진 초마다 방을 옮겨 다닙니다 — 옮길 때마다 수업 화면을 새로 여느라 몇 초가 걸리므로 15초보다 짧게 두지 않았습니다.',
       '👁 Observation is invisible to students/teachers (max 2 observers per room); every observation is auto-recorded in the audit log. '
-      + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students.');
+      + '🚪 Enter joins as a real participant (camera starts off) and IS visible to students. '
+      + '🛑 Force end disconnects everyone in that class immediately. '
+      + '🔁 Rotating observation moves one window from room to room; each hop reloads the class screen, so the shortest step is 15s.');
+    renderRotBar();
   }
 
-  function tileHtml(rm){
+  function renderTools(){
+    $('q').placeholder = L('🔎 강사 · 학생 · 방 번호 검색', '🔎 Search teacher / student / room');
+    $('lb-sort').textContent = L('정렬', 'Sort');
+    $('lb-poll').textContent = L('자동 새로고침', 'Auto refresh');
+    var so = $('sel-sort').options;
+    so[0].textContent = L('심각한 것부터', 'Most urgent first');
+    so[1].textContent = L('시작 시각', 'Start time');
+    so[2].textContent = L('인원', 'People');
+    so[3].textContent = L('강사·학생 이름', 'Teacher / student');
+    var po = $('sel-poll').options;
+    po[0].textContent = L('안함', 'Off');
+    for (var i = 1; i < po.length; i++) po[i].textContent = po[i].value + L('초', 's');
+    var d = $('sel-dwell').options;
+    for (var j = 0; j < d.length; j++) d[j].textContent = d[j].value + L('초씩', 's each');
+    $('btn-rot').textContent = rot.on ? L('⏹ 순회 정지', '⏹ Stop rotation') : L('🔁 순회 참관', '🔁 Rotate');
+  }
+
+  /* 📶 회선 신호등 — 최근 5분 평균. 표본이 없으면 «—» 로 둔다(0% 로 적지 않는다:
+     표본 없음과 손실 0% 는 다른 사실이고, 0 으로 적으면 영상이 죽은 방이 «제일 좋은 방» 이 된다). */
+  function sigHtml(rid){
+    var q = state.quality[String(rid)];
+    if (!q) return '<span style="color:var(--muted)">—</span>';
+    var loss = (q.avg_loss == null) ? null : Number(q.avg_loss);
+    var rtt  = (q.avg_rtt == null) ? null : Number(q.avg_rtt);
+    var cls = 'sig-ok', dot = '🟢';
+    if ((loss != null && loss >= 5) || (rtt != null && rtt >= 400)) { cls = 'sig-bad'; dot = '🔴'; }
+    else if ((loss != null && loss >= 2) || (rtt != null && rtt >= 250)) { cls = 'sig-warn'; dot = '🟡'; }
+    return '<span class="' + cls + '">' + dot + ' '
+      + (rtt != null ? (rtt + 'ms') : '—') + ' · ' + (loss != null ? (loss + '%') : '—') + '</span>';
+  }
+
+  function rowHtml(rm){
     var rid = String(rm.roomId == null ? '' : rm.roomId);
     var al = state.alerts[rid];
-    var cls = al ? 'st-alert' : (rm.userCount === 1 ? 'st-alone' : 'st-ok');
+    var sev = severity(rm);
+    var cls = al ? 'st-alert' : (sev === 2 ? 'st-alert' : (rm.userCount === 1 ? 'st-alone' : 'st-ok'));
+    if (rot.on && rot.room === rid) cls += ' st-rot';
     var sc = state.names[rid] || {};
     var who = (sc.teacher_name || sc.student_name)
-      ? esc(sc.teacher_name || '') + (sc.teacher_name && sc.student_name ? ' · ' : '') + esc(sc.student_name || '')
-      : (rm.users || []).map(function(u){ return esc(u.username); }).join(', ') || L('(이름 미상)', '(unknown)');
+      ? '<b>' + esc(sc.teacher_name || '') + '</b>'
+        + (sc.teacher_name && sc.student_name ? ' · ' : '') + esc(sc.student_name || '')
+      : esc((rm.users || []).map(function(u){ return u.username; }).join(', ')) || L('(이름 미상)', '(unknown)');
     var badges = '';
     if (al) badges += ' <span class="badge alert">🚨 ' + esc(al.alert_type || 'alert') + '</span>';
     if (rm.userCount === 1) badges += ' <span class="badge alone">' + L('⚠ 혼자 대기중', '⚠ waiting alone') + '</span>';
     if (rm.observerCount > 0) badges += ' <span class="badge obs">' + L('관찰 ', 'obs ') + rm.observerCount + '</span>';
-    return '<div class="tile ' + cls + '" data-room="' + esc(rid) + '">'
-      + '<div class="who">' + who + '</div>'
-      + '<div class="rid">' + esc(rid) + (sc.start_time ? ' · ' + esc(sc.start_time) : '') + '</div>'
-      + '<div class="meta">' + L('인원 ', 'people ') + (rm.userCount || 0) + badges + '</div>'
-      + '<div class="acts">'
+    var stateTxt = al ? '🚨' : (sev === 2 ? '🔴' : (rm.userCount === 1 ? '⚠' : '🟢'));
+    /* ⏱ 시각은 «예약» 에서 온다 — 화상방 자체는 시작 시각을 알려 주지 않는다.
+       모르면 «—» 로 둔다(방이 열린 시각을 추측해서 적지 않는다). */
+    var when = sc.start_time ? esc(sc.start_time) : '—';
+    return '<tr class="' + cls + '" data-room="' + esc(rid) + '">'
+      + '<td>' + stateTxt + '</td>'
+      + '<td class="t">' + when + '</td>'
+      + '<td class="who">' + who + badges + '</td>'
+      + '<td class="rid">' + esc(rid) + '</td>'
+      + '<td class="n">' + (rm.userCount || 0) + '</td>'
+      + '<td class="n">' + sigHtml(rid) + '</td>'
+      + '<td class="acts">'
       +   '<button type="button" class="go" data-act="observe">' + L('👁 참관', '👁 Observe') + '</button>'
       +   '<button type="button" class="enter" data-act="enter">' + L('🚪 입장(보임)', '🚪 Enter (visible)') + '</button>'
-      + '</div></div>';
+      +   '<button type="button" class="kill" data-act="end">' + L('🛑 종료', '🛑 End') + '</button>'
+      + '</td></tr>';
   }
 
   function schedHtml(c){
@@ -248,22 +457,26 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
       + conn + btn + '</div>';
   }
 
-  /* ── 참관 / 입장 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
+  /* ── 참관 / 입장 / 종료 — «클릭된 요소» 의 data-room 을 읽는다(위임) ────── */
   function openTab(url){
     var w = null;
     try { w = window.open(url, '_blank', 'noopener'); } catch(e){}
     if (!w) alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
                     'Your browser blocked the new window. Please allow pop-ups for this site.'));
+    return w;
   }
-  function observe(roomId){
-    /* 사유 자동 기록 — 기록이 실패해도 참관은 막지 않는다(수업 대응 우선) */
+  /* 📜 참관 기록 — 사유와 함께 감사 로그에 남긴다. 기록이 실패해도 참관은 막지 않는다
+     (수업 대응이 먼저 — adm-core observeRoom·adm-s1 ghQuickObserve 와 같은 판단). */
+  function logObserve(roomId, reason){
     try {
       var uid = myUid();
       if (uid) fetch('/api/admin/ghost/start', { method:'POST', credentials:'include',
         headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ admin_uid:uid, room_id:roomId,
-          reason: L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall') }) }).catch(function(){});
+        body: JSON.stringify({ admin_uid:uid, room_id:roomId, reason:reason }) }).catch(function(){});
     } catch(e){}
+  }
+  function observe(roomId){
+    logObserve(roomId, L('관제탑에서 즉시 참관 (monitor-wall)', 'Quick observe from monitor-wall'));
     openTab(location.origin + '/?observe=' + encodeURIComponent(roomId));
   }
   function enterRoom(roomId){
@@ -271,20 +484,126 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
                    'Enter class "' + roomId + '" as a participant?\n\n· NOT observation — students and the teacher see you.\n· Camera starts OFF.'))) return;
     openTab(location.origin + '/?vc_autojoin=1&vc_cam=off&vc_role=teacher&vc_room=' + encodeURIComponent(roomId));
   }
+  /* 🛑 강제 종료 — 되돌릴 수 없다. 확인창 + 사유 두 단계를 거친다(admin.html 과 같은 절차·같은 API). */
+  function endRoom(roomId){
+    var sc = state.names[String(roomId)] || {};
+    var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ');
+    if (!confirm(L('수업 "' + roomId + '"' + (who ? ' — ' + who : '') + ' 을 강제 종료할까요?\n모든 참가자 연결이 즉시 해제됩니다.',
+                   'Force-end class "' + roomId + '"' + (who ? ' - ' + who : '') + '?\nAll participants are disconnected immediately.'))) return;
+    var reason = (prompt(L('종료 사유 (선택 — 참가자에게 표시됩니다):', 'Reason (optional, shown to participants):'), '') || '').trim();
+    fetch('/api/admin/room/' + encodeURIComponent(roomId) + '/force-end', {
+      method:'POST', credentials:'include', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(reason ? { reason:reason } : {})
+    }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(b){ return { r:r, b:b }; }); })
+      .then(function(x){
+        if (!x.r.ok || x.b.ok === false) {
+          alert(L('실패: ', 'Failed: ') + (x.b.error || ('HTTP ' + x.r.status)));
+          return;
+        }
+        alert(L('강제 종료 완료. ' + (x.b.notified || 0) + '명에게 알림을 보냈습니다.',
+                'Ended. Notified ' + (x.b.notified || 0) + ' participants.'));
+        load();
+      }).catch(function(e){ alert(L('네트워크 오류: ', 'Network error: ') + e.message); });
+  }
   document.addEventListener('click', function(e){
     var btn = e.target && e.target.closest ? e.target.closest('[data-act]') : null;
     if (!btn) return;
     var holder = btn.hasAttribute('data-room') ? btn : btn.closest('[data-room]');
     var rid = holder ? holder.getAttribute('data-room') : '';
     if (!rid) return;
-    if (btn.getAttribute('data-act') === 'observe') observe(rid);
-    else enterRoom(rid);
+    var act = btn.getAttribute('data-act');
+    if (act === 'observe') observe(rid);
+    else if (act === 'enter') enterRoom(rid);
+    else if (act === 'end') endRoom(rid);
   });
+
+  /* ── 🔁 순회 참관 ────────────────────────────────────────────────────
+     [무엇을 푸는가] 「방 번호를 하나하나 넣지 않고 빨리빨리 확인하고 싶다」.
+        탭을 여러 개 여는 대신 **창 하나가 방을 옮겨 다닌다**. 10개 반이면 20초씩 3분 20초에 한 바퀴.
+     [왜 창을 다시 여는 방식인가] 수업 화면(index.html)은 공동 금지구역이고 첫 화면 예산이
+        수백 바이트뿐이라 «방 갈아타기» 코드를 그쪽에 넣을 수 없다. 대신 우리가 연 창의 주소만
+        바꾼다 — 같은 오리진이라 팝업 차단에 걸리지 않고(창은 사람이 누른 그 순간에 연다),
+        수업 화면은 한 줄도 고치지 않는다.
+     ⚠️ 옮길 때마다 수업 화면을 새로 여느라 몇 초 걸린다 → 최소 간격을 15초로 뒀다.
+     ⚠️ 방마다 참관 기록을 그대로 남긴다(기록 없이 들어가는 길은 만들지 않는다). */
+  var rot = { on:false, win:null, room:'', idx:-1, left:0, paused:false, timer:null };
+
+  function rotStart(){
+    var list = visibleRooms();
+    if (!list.length) {
+      alert(L('지금 참관할 수 있는 화상방이 없습니다.', 'There is no room to observe right now.'));
+      return;
+    }
+    /* 창은 «사람이 누른 이 순간» 에 연다 — 타이머 안에서 열면 팝업 차단에 걸린다.
+       ⚠️ 여기서는 noopener 를 쓰지 않는다 — 그 옵션을 주면 window.open 이 **null 을 돌려주도록**
+          정해져 있어서(웹 표준), 창은 열리는데 우리가 주소를 바꿀 손잡이가 없어진다.
+          이름을 주어 같은 창을 계속 재사용한다. */
+    try { rot.win = window.open('about:blank', 'mangoiObserveRotate'); } catch(e){ rot.win = null; }
+    if (!rot.win) {
+      alert(L('브라우저가 새 창을 막았습니다. 이 사이트의 팝업을 허용해 주세요.',
+              'Your browser blocked the new window. Please allow pop-ups for this site.'));
+      return;
+    }
+    rot.on = true; rot.idx = -1; rot.room = ''; rot.paused = false;
+    rotHop(1);
+    if (!rot.timer) rot.timer = setInterval(rotTick, 1000);
+    renderTools(); renderRotBar();
+  }
+  function rotStop(){
+    rot.on = false; rot.paused = false; rot.room = '';
+    if (rot.timer) { clearInterval(rot.timer); rot.timer = null; }
+    renderTools(); renderRotBar();
+  }
+  function rotHop(step){
+    var list = visibleRooms().map(function(r){ return String(r.roomId); });
+    if (!list.length) { rotStop(); return; }
+    var cur = list.indexOf(rot.room);
+    var i = (cur >= 0 ? cur : rot.idx) + step;
+    if (i < 0) i = list.length - 1;
+    if (i >= list.length) i = 0;
+    rot.idx = i; rot.room = list[i]; rot.left = dwellSec();
+    logObserve(rot.room, L('순회 참관 (관제탑)', 'Rotating observation (monitor-wall)'));
+    try { rot.win.location.href = location.origin + '/?observe=' + encodeURIComponent(rot.room); }
+    catch(e){ rotStop(); return; }
+    renderRotBar();
+  }
+  function rotTick(){
+    if (!rot.on) return;
+    /* 사람이 그 창을 닫으면 순회도 끝난다 */
+    if (!rot.win || rot.win.closed) { rotStop(); return; }
+    if (rot.paused) return;
+    rot.left--;
+    if (rot.left <= 0) rotHop(1);
+    else renderRotBar();
+  }
+  function renderRotBar(){
+    var bar = $('rotbar');
+    if (!rot.on) { bar.hidden = true; bar.innerHTML = ''; return; }
+    var list = visibleRooms().map(function(r){ return String(r.roomId); });
+    var pos = list.indexOf(rot.room);
+    var sc = state.names[rot.room] || {};
+    var who = [sc.teacher_name, sc.student_name].filter(Boolean).join(' · ');
+    bar.hidden = false;
+    bar.innerHTML = '<span>' + L('🔁 순회 참관 중', '🔁 Rotating') + '</span>'
+      + '<span>' + (pos >= 0 ? (pos + 1) : '-') + ' / ' + list.length + '</span>'
+      + '<span class="rb-now">' + esc(who || rot.room) + '</span>'
+      + '<span class="rb-left">' + (rot.paused ? L('머무는 중', 'holding') : (L('다음 ', 'next in ') + Math.max(0, rot.left) + L('초', 's'))) + '</span>'
+      + '<button type="button" id="rb-hold">' + (rot.paused ? L('▶ 순회 재개', '▶ Resume') : L('⏸ 이 방에 머물기', '⏸ Hold here')) + '</button>'
+      + '<button type="button" id="rb-next">' + L('⏭ 다음 방', '⏭ Next room') + '</button>'
+      + '<button type="button" id="rb-stop">' + L('⏹ 정지', '⏹ Stop') + '</button>';
+    $('rb-hold').addEventListener('click', function(){ rot.paused = !rot.paused; renderRotBar(); });
+    $('rb-next').addEventListener('click', function(){ rotHop(1); });
+    $('rb-stop').addEventListener('click', rotStop);
+  }
 
   /* ── 폴링 — 탭이 숨겨지면 멈추고, 돌아오면 즉시 갱신 ─────────────── */
   var timer = null;
   function tick(){ if (!document.hidden) load(); }
-  function start(){ if (!timer) timer = setInterval(tick, POLL_MS); }
+  function startPoll(){
+    if (timer) { clearInterval(timer); timer = null; }
+    var ms = pollMs();
+    if (ms) timer = setInterval(tick, ms);
+  }
   document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
   var grid = $('rooms');
   grid.addEventListener('pointerenter', function(){ hoverGrid = true; });
@@ -294,9 +613,23 @@ footer{ margin-top:26px; font-size:12px; color:var(--muted); line-height:1.8; }
     EN = !EN;   /* 저장하지 않는다 — 정본(mangoi_lang) 저장은 admin.html 의 🌐 담당 */
     render();
   });
+  $('q').addEventListener('input', render);
+  $('sel-sort').addEventListener('change', function(){ pref('sort', this.value); render(); });
+  $('sel-poll').addEventListener('change', function(){ pref('poll', this.value); startPoll(); render(); });
+  $('sel-dwell').addEventListener('change', function(){ pref('dwell', this.value); renderRotBar(); });
+  $('btn-rot').addEventListener('click', function(){ rot.on ? rotStop() : rotStart(); });
+
+  /* 지난번에 고른 값 되살리기 — 없으면 기본값 그대로 */
+  (function restore(){
+    var s = pref('sort'), p = pref('poll'), d = pref('dwell');
+    if (s) $('sel-sort').value = s;
+    if (p !== null && p !== undefined && p !== '') $('sel-poll').value = p;
+    if (d) $('sel-dwell').value = d;
+  })();
+
   render();   /* 뼈대 문구 먼저 */
   load();
-  start();
+  startPoll();
 })();
 </script>
 </body>
