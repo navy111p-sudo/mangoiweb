@@ -4215,8 +4215,20 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
       + '<textarea id="vc-rate-fb" maxlength="1000" placeholder="' + (en?'Anything you want to tell your teacher? (optional)':'선생님이나 수업에 바라는 점이 있다면 적어 주세요 (선택)') + '" style="width:100%;min-height:60px;border-radius:10px;border:1px solid rgba(148,163,184,0.35);background:rgba(255,255,255,0.06);color:#e6ecff;font-size:13px;padding:10px;resize:none;box-sizing:border-box;font-family:inherit"></textarea>'
       + '<button id="vc-rate-submit" disabled style="width:100%;margin-top:12px;padding:13px;border:0;border-radius:11px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1a1a;font-size:15px;font-weight:800;cursor:pointer;opacity:.45">' + (en?'Send rating & get +10P':'평가 보내고 +10 포인트 받기') + '</button>'
       + '<p style="margin-top:10px;font-size:11.5px;color:#64748b">' + (en?'A rating is required to leave the class.':'평가를 남겨야 수업에서 나갈 수 있어요.') + '</p>'
+      + '<button type="button" id="vc-pilot-fb-btn" style="margin-top:8px;padding:9px 14px;border:1px solid rgba(148,163,184,0.35);border-radius:9px;background:transparent;color:#93c5fd;font-size:12px;cursor:pointer">' + (en?'📝 Leave class feedback':'📝 수업 피드백 남기기') + '</button>'
       + '</div>';
     document.body.appendChild(ov);
+    // 🧪 (2026-08-28) 파일럿 테스트 기간 한정 — 수업 피드백 구글폼 바로가기. 당분간만 두는 임시 버튼.
+    (function(){
+      var b = document.getElementById('vc-pilot-fb-btn');
+      if (!b) return;
+      var FB_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSfXE_y6emnTSRjI-WRWvqzkaXg4Ae4_Ii6me6tE8B0LAsal4A/viewform?usp=sharing';
+      b.addEventListener('click', function(){
+        var w = null;
+        try { w = window.open(FB_URL, '_blank'); } catch(e){}
+        if (!w) { try { location.href = FB_URL; } catch(e){} }   // 인앱 브라우저는 window.open이 null만 반환
+      });
+    })();
 
     function paint(n){
       var cols = ov.querySelectorAll('.vc-rate-star');
@@ -16372,7 +16384,7 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <!-- 📱 (2026-08-25) 휴대폰 수업 화면 수리 묶음 — 교재 선명도(화면 배율)·핀치 확대 유지·확대 버튼·
      배경화면 탭 접힘·중국어 안내. defer 필수: index.html 첫 화면 예산 여유가 104바이트뿐이라
      idx-main.js 에는 한 줄도 못 넣는다(first_paint_budget_harness). -->
-<script defer src="/js/idx-vc-mobilefix.js?v=19"></script>
+<script defer src="/js/idx-vc-mobilefix.js?v=20"></script>
 <!-- 📶 (2026-08-26) 회선품질 로깅 — idx-main.js 에서 «떼어 낸» 것이다(새 기능이 아니다).
      849KB blocking 에서 1.5KB 를 덜어 첫 화면 예산이 오히려 늘었다.
      같이 고친 것: 영상 표본이 없는 사람(카메라 끔·영상 죽음)도 이제 기록이 남는다 —
@@ -16380,6 +16392,9 @@ body.vc-theme-light #vc-wait-card .vwc-sub{ color:#6b7280; }
 <script defer src="/js/idx-vc-qlog.js?v=1"></script>
 <!-- 🔊 (2026-08-26 학생 제보) 안드로이드 볼륨키가 안 먹는 기기용 자체 출력 음량. 사연은 그 파일 머리말에. -->
 <script defer src="/js/idx-vc-outputvolume.js?v=3"></script>
+<!-- 🧭 (2026-08-28) test.mangoi.co.kr 접속자에게 mangoi.ai 로 옮기라고 "안내"만 함(자동 리다이렉트 아님).
+     이유는 그 파일 머리말 참고 — 패스키 무효화·앱 로그인 유실 방지. -->
+<script defer src="/js/idx-legacy-domain-notice.js?v=3"></script>
 <style id="mg-theme-toggle-topright">
   /* 🌙/☀ 다크·라이트(밝기) 토글 버튼 — 수업 화면 '우측 상단' 복원.
      ─────────────────────────────────────────────────────────────────────────

@@ -210,7 +210,8 @@
     .hero { position: relative; overflow: hidden; }
     .fx { position: absolute; font-size: 20px; opacity: 0.5; pointer-events: none; animation: bob 3.4s ease-in-out infinite; }
     /* 📕 동화책 오버레이 (팝업 차단·웹뷰에서도 안전) */
-    #bookModal { display: none; position: fixed; inset: 0; z-index: 99600; background: #f7f2e8; overflow-y: auto; }
+    /* z-index: 위 #sheetModal 주석과 같은 사정 — 홈/EN 칩이 인쇄 버튼을 덮었다 */
+    #bookModal { display: none; position: fixed; inset: 0; z-index: 100002; background: #f7f2e8; overflow-y: auto; }
     body.book-open { overflow: hidden; }
     .book-tools { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; justify-content: flex-end;
       padding: 12px 16px; background: rgba(247,242,232,0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
@@ -267,6 +268,107 @@
       .submit-btn { font-size: 18.5px; padding: 19px; }
       .toast-wrap { right: 8px; left: 8px; align-items: stretch; }
     }
+    /* ═══ 🧭 4단계 파이프라인 배너 — ①주제·그림 ②브레인스토밍 ③AI첨삭 ④고쳐쓰기·출력 ═══
+       (2026-08-30 제안서 «AI 영작 첨삭 및 브레인스토밍 통합» 반영)
+       ⚠️ .flow-steps 는 flex 지만 «칸(블록)» 을 늘어놓는 것뿐이다.
+          글자가 흐르는 요소에 flex 를 걸면 낱글자로 쪼개진다(CLAUDE.md 2장). */
+    .flow-steps { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+    .fstep { flex: 1 1 195px; min-width: 0; padding: 11px 15px; border-radius: 13px;
+      background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.22); }
+    .fs-no { font-size: 12px; font-weight: 900; color: var(--text2); letter-spacing: .3px; }
+    .fs-t { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.35; }
+    .fs-d { font-size: 12.5px; color: var(--text2); line-height: 1.45; margin-top: 2px; }
+    .fstep.on { background: rgba(251,191,36,0.14); border-color: rgba(251,191,36,0.5); }
+    .fstep.on .fs-no, .fstep.on .fs-t { color: var(--gold); }
+    .fstep.done { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.42); }
+    .fstep.done .fs-no, .fstep.done .fs-t { color: #6ee7b7; }
+    /* ═══ 🧠 그래픽 오가나이저 (브레인스토밍) ═══ */
+    .go-card { background: rgba(56,189,248,0.08); border: 1px solid rgba(125,211,252,0.35);
+      border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
+    .go-title { font-size: 17.5px; font-weight: 900; color: #bae6fd; }
+    .go-sub { font-size: 13.5px; color: var(--text2); margin: 6px 0 12px; line-height: 1.55; }
+    .go-themes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .go-theme { padding: 10px 17px; border-radius: 99px; cursor: pointer; font-family: inherit;
+      font-size: 14.5px; font-weight: 800; background: rgba(15,23,42,0.45);
+      border: 1.5px solid rgba(125,211,252,0.3); color: #e0f2fe; }
+    .go-theme:hover { background: rgba(56,189,248,0.2); }
+    .go-theme.on { background: linear-gradient(135deg,#38bdf8,#2563eb); color: #fff; border-color: #38bdf8; }
+    .go-qs { margin-top: 14px; display: grid; gap: 10px; }
+    .go-q { background: rgba(15,23,42,0.45); border: 1px solid rgba(148,163,184,0.2);
+      border-radius: 12px; padding: 11px 14px; }
+    .go-q-label { font-size: 14.5px; font-weight: 800; color: #bae6fd; line-height: 1.45; }
+    .go-q input { width: 100%; margin-top: 8px; padding: 11px 13px; border-radius: 10px;
+      background: var(--card); color: var(--text); border: 1.5px solid rgba(148,163,184,0.25);
+      font-size: 16px; font-family: inherit; }
+    .go-q input:focus { outline: 0; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.2); }
+    .go-preview { margin-top: 14px; background: rgba(2,6,23,0.45); border: 1px dashed rgba(125,211,252,0.42);
+      border-radius: 12px; padding: 13px 16px; }
+    .go-pv-h { font-size: 13.5px; font-weight: 900; color: #7dd3fc; margin-bottom: 8px; }
+    .go-part { margin-bottom: 11px; }
+    .go-part-t { font-size: 12.5px; font-weight: 900; margin-bottom: 3px; color: var(--gold); }
+    .go-part-b { font-size: 15.5px; line-height: 1.8; color: #e2e8f0; }
+    .go-part-memo { color: #94a3b8; font-size: 13.5px; }
+    .go-actions { display: flex; gap: 8px; margin-top: 13px; flex-wrap: wrap; }
+    .go-go { flex: 1 1 220px; padding: 14px 18px; border: 0; border-radius: 12px; cursor: pointer;
+      font-family: inherit; font-size: 16.5px; font-weight: 900; color: #fff;
+      background: linear-gradient(135deg,#38bdf8,#2563eb); box-shadow: 0 6px 18px -6px rgba(37,99,235,0.9); }
+    .go-go:disabled { background: #475569; box-shadow: none; cursor: not-allowed; }
+    .go-ghost { padding: 12px 16px; border-radius: 12px; cursor: pointer; font-family: inherit;
+      font-size: 14px; font-weight: 800; background: rgba(255,255,255,0.08); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.18); }
+    /* 📝 메모 — 글 쓰는 동안 브레인스토밍 답을 옆에 두고 볼 수 있게 */
+    .go-memo { margin-bottom: 10px; background: rgba(56,189,248,0.08);
+      border: 1px solid rgba(125,211,252,0.3); border-radius: 12px; padding: 11px 15px; }
+    .go-memo summary { cursor: pointer; font-size: 14.5px; font-weight: 800; color: #bae6fd; }
+    .go-memo-b { margin-top: 9px; font-size: 14.5px; color: #e2e8f0; line-height: 1.75; }
+    /* ⬆️ 어휘 업그레이드 (3단계 정밀 첨삭) */
+    .up-box { background: rgba(139,92,246,0.10); border-left: 4px solid #a78bfa;
+      padding: 14px 16px; border-radius: 11px; margin-bottom: 15px; }
+    .up-row { font-size: 16.5px; margin-bottom: 9px; }
+    .up-from { color: #fca5a5; }
+    .up-to { color: #ddd6fe; font-weight: 800; }
+    .up-why { font-size: 14px; color: var(--text2); margin-top: 3px; }
+    /* ═══ 📄 한 장 출력 — 초안·첨삭·완성본을 한 페이지에 (4단계) ═══ */
+    /* ⚠️ z-index 는 «홈/EN 칩»(#mangoi-global-bar 99999)·«사이드 드로어»(#mg-drawer 100000) 보다 위여야 한다.
+       99600 이었을 때 그 칩이 «인쇄 / PDF 저장» 버튼 글자를 덮고 있었다(2026-08-30 실측).
+       ⛔ 칩을 숨기는 방식으로 풀지 말 것 — 오버레이를 닫으면 되살려야 해서 상태가 하나 더 는다. */
+    #sheetModal { display: none; position: fixed; inset: 0; z-index: 100002; background: #e7e5e4; overflow-y: auto; }
+    body.sheet-open { overflow: hidden; }
+    .sh-tools { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; justify-content: flex-end;
+      padding: 12px 16px; background: rgba(231,229,228,0.96); box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .sh-tools button { padding: 12px 22px; font-size: 15.5px; font-weight: 900; border: 0; border-radius: 11px;
+      cursor: pointer; font-family: inherit; }
+    .sh-paper { max-width: 860px; margin: 0 auto 40px; background: #fff; color: #1c1917;
+      padding: 34px 40px 52px; }
+    .sh-h1 { font-size: 25px; font-weight: 900; color: #b45309; margin: 0 0 5px; }
+    .sh-meta { font-size: 13.5px; color: #78716c; margin-bottom: 20px; }
+    .sh-sec { margin-bottom: 18px; border: 1px solid #e7e5e4; border-radius: 12px; padding: 14px 17px; }
+    .sh-sec h3 { font-size: 15.5px; margin: 0 0 9px; color: #b45309; }
+    .sh-en { font-size: 17px; line-height: 1.85; white-space: pre-wrap; color: #1c1917; }
+    .sh-fin { background: #f0fdf4; border-color: #86efac; }
+    .sh-row { font-size: 14.5px; line-height: 1.7; padding: 7px 0; border-bottom: 1px dashed #e7e5e4; }
+    .sh-row:last-child { border-bottom: 0; }
+    .sh-q { font-weight: 800; color: #0369a1; }
+    .sh-bad { color: #b91c1c; text-decoration: line-through; }
+    .sh-good { color: #047857; font-weight: 800; }
+    .sh-why { color: #78716c; font-size: 13.5px; }
+    @media print {
+      body.sheet-open > *:not(#sheetModal) { display: none !important; }
+      body.sheet-open #bookModal { display: none !important; }
+      #sheetModal { position: static; overflow: visible; background: #fff; }
+      .sh-tools { display: none; }
+      .sh-paper { max-width: none; margin: 0; padding: 0 6mm; }
+    }
+    @media (max-width: 640px) {
+      .fstep { flex: 1 1 100%; padding: 9px 13px; }
+      .fs-t { font-size: 14px; }
+      .go-card { padding: 14px 15px; }
+      .go-title { font-size: 15.5px; }
+      .go-theme { font-size: 13.5px; padding: 9px 14px; }
+      .go-q-label { font-size: 13.5px; }
+      .go-go { font-size: 15px; }
+      .sh-paper { padding: 20px 16px 40px; }
+    }
   </style>
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
@@ -289,6 +391,30 @@
         </p>
         <div class="hero-stats" id="heroStats" style="display:none"></div>
         <div class="wlevel" id="writerLevel" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- 🧭 4단계 파이프라인 — 지금 어느 단계인지 한눈에 -->
+    <div class="flow-steps" id="flowSteps">
+      <div class="fstep on" data-step="1">
+        <div class="fs-no">STEP 1</div>
+        <div class="fs-t" data-ko="주제 &amp; 그림 고르기" data-en="Pick a topic &amp; picture">주제 &amp; 그림 고르기</div>
+        <div class="fs-d" data-ko="난이도(A1~C1)와 오늘의 장면" data-en="Level (A1–C1) and today's scene">난이도(A1~C1)와 오늘의 장면</div>
+      </div>
+      <div class="fstep" data-step="2">
+        <div class="fs-no">STEP 2</div>
+        <div class="fs-t" data-ko="브레인스토밍" data-en="Brainstorming">브레인스토밍</div>
+        <div class="fs-d" data-ko="그래픽 오가나이저 — 6하원칙 질문 → 서론·본론·결론 뼈대" data-en="Graphic organizer — 5W1H → intro·body·ending outline">그래픽 오가나이저 — 6하원칙 질문 → 서론·본론·결론 뼈대</div>
+      </div>
+      <div class="fstep" data-step="3">
+        <div class="fs-no">STEP 3</div>
+        <div class="fs-t" data-ko="AI 정밀 첨삭" data-en="AI smart feedback">AI 정밀 첨삭</div>
+        <div class="fs-d" data-ko="문법·시제 교정 + 어휘 업그레이드" data-en="Grammar·tense fixes + vocabulary upgrades">문법·시제 교정 + 어휘 업그레이드</div>
+      </div>
+      <div class="fstep" data-step="4">
+        <div class="fs-no">STEP 4</div>
+        <div class="fs-t" data-ko="고쳐쓰기 &amp; 완성본 출력" data-en="Rewrite &amp; print">고쳐쓰기 &amp; 완성본 출력</div>
+        <div class="fs-d" data-ko="따라쓰기 미션 · 한 장 출력 · 에세이 북" data-en="Rewrite mission · one-page print · essay book">따라쓰기 미션 · 한 장 출력 · 에세이 북</div>
       </div>
     </div>
 
@@ -325,6 +451,21 @@
       <!-- 칩은 JS가 채움 -->
       <button class="topic-chip" onclick="shuffleTopics()" style="background:rgba(251,191,36,0.14);border-color:rgba(251,191,36,0.4);color:var(--gold)" data-ko="🔀 다른 주제" data-en="🔀 Shuffle">🔀 다른 주제</button>
     </div>
+
+    <!-- 🧠 STEP 2 · 그래픽 오가나이저 — 질문에 답하면 서론·본론·결론 «뼈대» 가 만들어진다.
+         ⚠️ 한글로 적은 답은 글쓰기 칸에 넣지 않는다(그 칸의 글은 그대로 영어 AI 첨삭으로 간다).
+            한글 답은 아래 «내 브레인스토밍 메모» 로만 남겨 보면서 쓰게 한다. -->
+    <div class="go-card" id="goCard">
+      <div class="go-title">🧠 <span data-ko="STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요" data-en="STEP 2 · Brainstorming — plan before you write">STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요</span></div>
+      <div class="go-sub" data-ko="주제를 하나 고르면 6하원칙 질문이 나와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (건너뛰고 바로 써도 괜찮아요!)" data-en="Pick a topic and answer the 5W1H questions. Your intro·body·ending outline is built automatically. (You can skip and write right away!)">주제를 하나 고르면 6하원칙 질문이 나와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (건너뛰고 바로 써도 괜찮아요!)</div>
+      <div class="go-themes" id="goThemes"><!-- 주제 칩은 JS가 채움 --></div>
+      <div id="goBody"><!-- 질문·뼈대는 주제를 고르면 JS가 그림 --></div>
+    </div>
+
+    <details class="go-memo" id="goMemo" style="display:none">
+      <summary>📝 <span data-ko="내 브레인스토밍 메모 (쓰면서 보기)" data-en="My brainstorming notes (keep them handy)">내 브레인스토밍 메모 (쓰면서 보기)</span></summary>
+      <div class="go-memo-b" id="goMemoBody"></div>
+    </details>
 
     <textarea id="text" placeholder="여기에 영어로 입력하세요 (3 ~ 2000자)..." oninput="updateCharCount()"></textarea>
     <div class="mic-row">
@@ -374,6 +515,9 @@
 
   <!-- 📕 동화책 오버레이 -->
   <div id="bookModal"></div>
+
+  <!-- 📄 한 장 출력(초안·AI 첨삭·완성본) 오버레이 -->
+  <div id="sheetModal"></div>
 
   <!-- 복습 모달 (저장된 첨삭 클릭 시) -->
   <div id="reviewModal" style="display:none;position:fixed;inset:0;background:rgba(5,7,18,0.85);backdrop-filter:blur(8px);z-index:99000;padding:30px 14px;overflow-y:auto" onclick="if(event.target===this)closeReview()">
@@ -577,6 +721,7 @@
       if (!ta.value.trim()) { ta.value = sc.starter; updateCharCount(); }
       ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
       ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      try { flowMark(1); } catch(e){}
     };
     // 오늘의 그림은 하루 동안 고정 (KST 날짜 기반)
     renderPic(Math.floor((Date.now() + 9*3600*1000) / 86400000) % PIC_SCENES.length);
@@ -666,6 +811,17 @@
     }
 
     // ═══ ✏️ 고쳐쓰기 미션 — 교정문을 직접 따라 쓰면 +5P ═══
+    //   ⚠️ 브레인스토밍 뼈대로 쓰면 글이 길어진다. 그때 «전문 따라쓰기» 는 벌처럼 느껴져
+    //      아무도 안 한다 → 긴 글은 «실제로 고쳐진 문장» 만 골라 따라 쓰게 한다.
+    //   (문장 나누기에 lookbehind 를 쓰지 않는다 — 구형 사파리에서 통째로 죽는다)
+    function pickRewriteTarget(d) {
+      const full = String(d.corrected || '').trim();
+      if (full.length <= 220) return full;
+      const sents = (full.match(/[^.!?\n]+[.!?]*/g) || [full]).map(x => x.trim()).filter(Boolean);
+      const wants = (d.issues || []).map(i => String(i.suggested || '').trim()).filter(Boolean);
+      const hit = sents.filter(x => wants.some(w => x.toLowerCase().indexOf(w.toLowerCase()) >= 0)).slice(0, 3);
+      return (hit.length ? hit : sents.slice(0, 2)).join(' ').trim();
+    }
     let _lastCorrected = '';
     const _norm = s => String(s || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
     window.checkRewrite = async function(){
@@ -674,6 +830,7 @@
       if (!inp || !_lastCorrected) return;
       if (_norm(inp.value) === _norm(_lastCorrected)) {
         out.innerHTML = '<span class="rewrite-ok">🎉 완벽해요! 손으로 직접 쓰면 기억에 오래 남아요.</span>';
+        flowMark(4);
         inp.disabled = true;
         document.getElementById('rewriteCheckBtn').disabled = true;
         fireConfetti();
@@ -765,6 +922,7 @@
       if (text.length < 3) { alert('3글자 이상 입력하세요.'); return; }
       if (text.length > 2000) { alert('2000자 이내로 입력하세요.'); return; }
       const btn = document.getElementById('submitBtn');
+      _lastDraft = text;                     // 📄 한 장 출력의 «내 초안» — 교정 전 원문
       btn.disabled = true; btn.innerHTML = '⏳ AI 분석 중… (5~15초)';
       const resultBox = document.getElementById('resultBox');
       resultBox.style.display = 'none';
@@ -807,6 +965,12 @@
           <span class="issue-orig">${escapeHtml(i.original)}</span> → <span class="issue-sug">${escapeHtml(i.suggested)}</span>
           <div class="issue-reason">💡 ${escapeHtml(i.reason)}</div>
         </div>`).join('');
+      // ⬆️ 어휘 업그레이드 — 단순한 단어를 더 자연스러운 원어민 표현으로 (3단계 정밀 첨삭)
+      const upgradesHtml = (d.upgrades || []).length ? `
+        <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⬆️ 어휘 업그레이드 — 이렇게 바꾸면 더 자연스러워요</div>
+        <div class="up-box">${(d.upgrades || []).map(u =>
+          `<div class="up-row"><span class="up-from">${escapeHtml(u.from)}</span> → <span class="up-to">${escapeHtml(u.to)}</span>
+            <div class="up-why">💡 ${escapeHtml(u.why)}</div></div>`).join('')}</div>` : '';
       // 💬 망고 선생님의 답장 (내용에 대한 펜팔 답장 + 🔊 낭독)
       const replyHtml = d.reply ? `
         <div class="reply-bubble">
@@ -817,6 +981,7 @@
           </div>
           <button onclick="speakReply('${encodeURIComponent(d.reply)}')" title="들어보기" style="background:rgba(251,191,36,0.2);border:1px solid rgba(251,191,36,0.45);color:var(--gold);width:40px;height:40px;border-radius:50%;cursor:pointer;font-size:17px;flex-shrink:0">🔊</button>
         </div>` : '';
+      const rwTarget = pickRewriteTarget(d);
       document.getElementById('resultBox').style.display = '';
       document.getElementById('resultBox').innerHTML = `
         <div class="result">
@@ -833,9 +998,13 @@
           <div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">✅ 수정된 문장</div>
           <div class="corrected">${escapeHtml(d.corrected)}</div>
           ${issuesHtml ? '<div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점</div><div class="issues">' + issuesHtml + '</div>' : ''}
+          ${upgradesHtml}
           <div class="rewrite-box">
             <div class="rewrite-head">✏️ 고쳐쓰기 미션 <span style="font-size:13px;color:var(--text2)">(+5P)</span></div>
-            <div class="rewrite-sub">위의 초록색 문장을 보고 그대로 따라 써보세요 — 직접 써야 진짜 내 실력이 돼요!</div>
+            <div class="rewrite-sub">${rwTarget === (d.corrected || '').trim()
+              ? '위의 초록색 문장을 보고 그대로 따라 써보세요 — 직접 써야 진짜 내 실력이 돼요!'
+              : '글이 길어서 <b>고쳐진 문장만</b> 골랐어요. 아래 문장을 그대로 따라 써보세요!'}</div>
+            <div class="corrected" style="font-size:16.5px">${escapeHtml(rwTarget)}</div>
             <textarea id="rewriteInput" placeholder="여기에 수정된 문장을 따라 써보세요..."></textarea>
             <div class="rewrite-actions">
               <button class="rewrite-check" id="rewriteCheckBtn" onclick="checkRewrite()">✅ 다 썼어요!</button>
@@ -845,11 +1014,14 @@
           <div class="tip">💬 ${escapeHtml(d.tip || '')}</div>
           <div style="display:flex;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(148,163,184,0.18)">
             <button onclick="resetForm()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--gold),#f59e0b);color:#1a1a1a;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:14px;font-family:inherit">🔄 <span data-ko="새 글 작성하기" data-en="Write New">새 글 작성하기</span></button>
+            <button onclick="openSheet()" style="padding:12px 18px;background:linear-gradient(135deg,#38bdf8,#2563eb);color:#fff;border:0;border-radius:10px;font-weight:800;cursor:pointer;font-size:13px;font-family:inherit">🖨 <span data-ko="한 장으로 출력 (초안·첨삭·완성본)" data-en="Print one page (draft·feedback·final)">한 장으로 출력 (초안·첨삭·완성본)</span></button>
             <button onclick="document.getElementById('histList').scrollIntoView({behavior:'smooth'})" style="padding:12px 18px;background:rgba(255,255,255,0.08);color:var(--text);border:1px solid rgba(255,255,255,0.18);border-radius:10px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">📜 <span data-ko="기록 보기" data-en="History">기록 보기</span></button>
           </div>
         </div>`;
-      // ✏️ 고쳐쓰기 미션 대상 문장 기억
-      _lastCorrected = d.corrected || '';
+      // ✏️ 고쳐쓰기 미션 대상 문장 기억 + 📄 한 장 출력용 결과 보관
+      _lastCorrected = rwTarget;
+      _lastResult = d;
+      flowMark(3);
       // 📚 미션 단어 사용 표시 (서버 판정 결과)
       if (d.mission_used) renderMission(d.mission_used);
       // 🎁 포인트/보너스/배지 축하
@@ -995,6 +1167,7 @@
       let feedback = {};
       try { feedback = JSON.parse(item.feedback || '{}'); } catch(e){}
       const issues = feedback.issues || [];
+      const upgrades = feedback.upgrades || [];
       const tip = feedback.tip || '';
       const reply = feedback.reply || '';
       const sc = item.score || 0;
@@ -1008,6 +1181,8 @@
         </div>`
       ).join('');
 
+      const upHtml = upgrades.length ? `<div style="margin-bottom:14px"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⬆️ 어휘 업그레이드</div><div class="up-box">${upgrades.map(u =>
+          `<div class="up-row" style="font-size:14px"><span class="up-from">${escapeHtml(u.from||'')}</span> → <span class="up-to">${escapeHtml(u.to||'')}</span><div class="up-why" style="font-size:12px">💡 ${escapeHtml(u.why||'')}</div></div>`).join('')}</div></div>` : '';
       document.getElementById('reviewDate').textContent = '📅 ' + dt + '  ·  ' + (item.level||'') + '  ·  점수 ' + sc + '점';
       document.getElementById('reviewBody').innerHTML = `
         <div style="margin-bottom:14px">
@@ -1026,6 +1201,8 @@
         </div>
 
         ${issuesHtml ? `<div style="margin-bottom:14px"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:6px">⚠️ 발견된 점 (${issues.length}건)</div>${issuesHtml}</div>` : ''}
+
+        ${upHtml}
 
         ${reply ? `<div class="reply-bubble" style="margin-bottom:14px"><img src="/img/mango-char.png" alt="망고"><div style="flex:1"><div style="font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px">💬 망고 선생님의 답장</div><div class="reply-text">${escapeHtml(reply)}</div></div></div>` : ''}
 
@@ -1080,7 +1257,7 @@
     };
 
     // ESC 키로 모달 닫기
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeReview(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeReview(); closeSheet(); } });
 
     // ═══ 📈 성장 리포트 — 히어로 칩(🔥스트릭·편수·평균) + 30일 점수 그래프 ═══
     async function loadStats() {
@@ -1166,6 +1343,296 @@
     document.querySelectorAll('.level-btn').forEach(btn => {
       btn.addEventListener('click', () => loadMission());
     });
+
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       🧠 STEP 1~2 — 그래픽 오가나이저 (브레인스토밍)
+       왜 넣었나: 아이들이 «무엇을 쓸지 몰라» 빈 칸 앞에서 멈춘다.
+         주제를 고르고 6하원칙 질문에 한 줄씩만 답하면
+         서론·본론·결론 «뼈대» 가 만들어지고, 그 뼈대를 글쓰기 칸에 넣어
+         이어 쓰기만 하면 된다. (막연한 글쓰기 → 구조화된 글쓰기)
+       ⚠️ 한글로 적은 답은 글쓰기 칸에 «넣지 않는다» — 그 칸의 글은 그대로
+          영어 AI 첨삭으로 가기 때문이다. 한글 답은 «내 브레인스토밍 메모» 로만
+          남겨 옆에 두고 보게 한다. 영어로 적은 답만 문장에 합쳐진다.
+       ═══════════════════════════════════════════════════════════════════════ */
+    // 6하원칙 기본 질문 — 주제별로 What/Why/How 만 갈아끼운다(나머지는 공통)
+    const GO_BASE = [
+      { k:'when',  ko:'🕒 When — 언제 있었던 일인가요?',        en:'🕒 When — When did it happen?',      starter:'It happened ',         ph:'예) last Sunday · on my birthday' },
+      { k:'where', ko:'📍 Where — 어디에서 있었던 일인가요?',   en:'📍 Where — Where did it happen?',    starter:'I was at ',            ph:'예) at the park · in my room' },
+      { k:'who',   ko:'🧑 Who — 누구와 함께였나요?',            en:'🧑 Who — Who was with you?',         starter:'I was with ',          ph:'예) my mom · my best friend' },
+      { k:'what',  ko:'💡 What — 무슨 일이 있었나요?',          en:'💡 What — What happened?',           starter:'First, ',              ph:'예) I played soccer' },
+      { k:'why',   ko:'❓ Why — 왜 그런 일이 생겼나요?',        en:'❓ Why — Why did it happen?',        starter:'It happened because ', ph:'예) I ran too fast' },
+      { k:'how',   ko:'💗 How — 그때 기분이 어땠나요?',         en:'💗 How — How did you feel?',         starter:'I felt ',              ph:'예) sad · excited · proud' },
+    ];
+    // 스토리 연계 주제 8종 — 제안서의 «소중한 물건을 잃어버린 경험», «특별한 생일» 계열
+    const GO_THEMES = [
+      { id:'lost', icon:'🔎', ko:'소중한 물건을 잃어버린 날', en:'The day I lost something precious',
+        open:'One day, I lost something very important to me.',
+        q:{ what:{ ko:'💡 What — 무엇을 잃어버렸나요?', en:'💡 What — What did you lose?', starter:'I lost ', ph:'예) my favorite watch' },
+            why: { ko:'❓ Why — 그 물건이 왜 소중했나요?', en:'❓ Why — Why was it precious?', starter:'It was special because ', ph:'예) my mom gave it to me' },
+            how: { ko:'💗 How — 그때 기분이 어땠고, 그다음엔 어떻게 했나요?', en:'💗 How — How did you feel and what did you do?', starter:'I felt ', ph:'예) sad, so I looked for it' } } },
+      { id:'bday', icon:'🎂', ko:'특별했던 생일', en:'A special birthday',
+        open:'I want to tell you about my special birthday.',
+        q:{ what:{ ko:'💡 What — 그날 무엇을 했나요?', en:'💡 What — What did you do that day?', starter:'First, we ', ph:'예) ate a big cake' },
+            why: { ko:'❓ Why — 왜 그 생일이 특별했나요?', en:'❓ Why — Why was it special?', starter:'It was special because ', ph:'예) my cousin came' },
+            how: { ko:'💗 How — 기분이 어땠나요? 무슨 소원을 빌었나요?', en:'💗 How — How did you feel? What did you wish for?', starter:'I felt ', ph:'예) so happy' } } },
+      { id:'trip', icon:'✈️', ko:'잊지 못할 여행', en:'An unforgettable trip',
+        open:'Last year, I went on a trip I will never forget.',
+        q:{ what:{ ko:'💡 What — 거기서 무엇을 했나요?', en:'💡 What — What did you do there?', starter:'First, we ', ph:'예) went swimming' },
+            why: { ko:'❓ Why — 왜 그 여행이 기억에 남나요?', en:'❓ Why — Why do you remember it?', starter:'I remember it because ', ph:'예) I saw the sea for the first time' },
+            how: { ko:'💗 How — 그때 기분이 어땠나요?', en:'💗 How — How did you feel?', starter:'I felt ', ph:'예) excited' } } },
+      { id:'friend', icon:'💛', ko:'가장 친한 친구', en:'My best friend',
+        open:'I want to tell you about my best friend.',
+        q:{ what:{ ko:'💡 What — 그 친구와 무엇을 함께 하나요?', en:'💡 What — What do you do together?', starter:'We usually ', ph:'예) play soccer after school' },
+            why: { ko:'❓ Why — 왜 그 친구가 좋은가요?', en:'❓ Why — Why do you like your friend?', starter:'I like my friend because ', ph:'예) he is very kind' },
+            how: { ko:'💗 How — 그 친구와 있을 때 기분이 어떤가요?', en:'💗 How — How do you feel together?', starter:'I feel ', ph:'예) happy and safe' } } },
+      { id:'first', icon:'🌟', ko:'처음 해 본 일', en:'Something I tried for the first time',
+        open:'I still remember the first time I tried something new.',
+        q:{ what:{ ko:'💡 What — 무엇을 처음 해 봤나요?', en:'💡 What — What did you try?', starter:'I tried ', ph:'예) riding a bike' },
+            why: { ko:'❓ Why — 왜 그것을 해 보고 싶었나요?', en:'❓ Why — Why did you want to try it?', starter:'I wanted to try it because ', ph:'예) my friend could do it' },
+            how: { ko:'💗 How — 해 보니 기분이 어땠나요?', en:'💗 How — How did you feel after?', starter:'After that, I felt ', ph:'예) proud of myself' } } },
+      { id:'scary', icon:'😮', ko:'깜짝 놀랐던 순간', en:'A surprising moment',
+        open:'One day, something really surprised me.',
+        q:{ what:{ ko:'💡 What — 무슨 일이 있었나요?', en:'💡 What — What happened?', starter:'Suddenly, ', ph:'예) a big dog ran to me' },
+            why: { ko:'❓ Why — 왜 그런 일이 생겼나요?', en:'❓ Why — Why did it happen?', starter:'It happened because ', ph:'예) the door was open' },
+            how: { ko:'💗 How — 그때 기분이 어땠고 어떻게 했나요?', en:'💗 How — How did you feel and what did you do?', starter:'I felt ', ph:'예) surprised, so I stopped' } } },
+      { id:'proud', icon:'🏅', ko:'내가 자랑스러웠던 날', en:'The day I was proud of myself',
+        open:'I want to tell you about the day I was proud of myself.',
+        q:{ what:{ ko:'💡 What — 무엇을 해냈나요?', en:'💡 What — What did you achieve?', starter:'I ', ph:'예) finished my first book' },
+            why: { ko:'❓ Why — 그게 왜 어려웠나요?', en:'❓ Why — Why was it hard?', starter:'It was hard because ', ph:'예) I practiced every day' },
+            how: { ko:'💗 How — 해내고 나서 기분이 어땠나요?', en:'💗 How — How did you feel after?', starter:'After that, I felt ', ph:'예) very proud' } } },
+      { id:'family', icon:'👨‍👩‍👧', ko:'우리 가족의 특별한 날', en:'A special day with my family',
+        open:'My family had a very special day together.',
+        q:{ what:{ ko:'💡 What — 가족과 무엇을 했나요?', en:'💡 What — What did you do together?', starter:'We ', ph:'예) made pizza together' },
+            why: { ko:'❓ Why — 왜 그날이 특별했나요?', en:'❓ Why — Why was the day special?', starter:'It was special because ', ph:'예) we were all together' },
+            how: { ko:'💗 How — 그날 기분이 어땠나요?', en:'💗 How — How did you feel?', starter:'I felt ', ph:'예) warm and happy' } } },
+    ];
+    // 서론·본론·결론 — 어떤 질문이 어느 문단에 들어가는지
+    const GO_PARTS = [
+      { ko:'🟡 서론 (시작)',    en:'🟡 Opening', keys:['when','where'] },
+      { ko:'🔵 본론 (가운데)',  en:'🔵 Body',    keys:['who','what'] },
+      { ko:'🟢 결론 (마무리)',  en:'🟢 Ending',  keys:['why','how'] },
+    ];
+    const GO_KEY = 'mangoi_aiwrite_go_v1';
+    let _goTheme = null;       // 고른 주제 (없으면 질문 안 보임)
+    let _goAnswers = {};       // { when:'...', where:'...', ... }
+
+    const goHasKo = s => /[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(String(s || ''));
+    const goIsEn  = s => { const t = String(s || '').trim(); return !!t && !goHasKo(t); };
+    function goLangKo() { try { return (window.getLang ? window.getLang() : 'ko') !== 'en'; } catch(e) { return true; } }
+    function goQuestions() {
+      const ov = (_goTheme && _goTheme.q) || {};
+      return GO_BASE.map(q => Object.assign({}, q, ov[q.k] || {}));
+    }
+    function goSave() {
+      try { localStorage.setItem(GO_KEY, JSON.stringify({ t: _goTheme ? _goTheme.id : '', a: _goAnswers, ts: Date.now() })); } catch(e){}
+    }
+    function goRestore() {
+      try {
+        const d = JSON.parse(localStorage.getItem(GO_KEY) || 'null');
+        // 하루가 지난 메모는 안 되살린다 — 어제 주제가 오늘 글에 섞이면 더 헷갈린다
+        if (!d || !d.ts || Date.now() - d.ts > 86400000) return;
+        _goAnswers = d.a && typeof d.a === 'object' ? d.a : {};
+        _goTheme = GO_THEMES.find(t => t.id === d.t) || null;
+      } catch(e){}
+    }
+    function renderGoThemes() {
+      document.getElementById('goThemes').innerHTML = GO_THEMES.map(t =>
+        `<button class="go-theme${_goTheme && _goTheme.id === t.id ? ' on' : ''}" onclick="goSelectTheme('${t.id}')"
+           data-ko="${escapeHtml(t.icon + ' ' + t.ko)}" data-en="${escapeHtml(t.icon + ' ' + t.en)}">${escapeHtml(t.icon + ' ' + t.ko)}</button>`
+      ).join('');
+      try { window.applyI18n && window.applyI18n(document.getElementById('goThemes')); } catch(e){}
+    }
+    function renderGoQuestions() {
+      const body = document.getElementById('goBody');
+      if (!_goTheme) { body.innerHTML = ''; return; }
+      const qs = goQuestions();
+      body.innerHTML =
+        `<div class="go-qs">` + qs.map(q =>
+          `<div class="go-q">
+             <div class="go-q-label" data-ko="${escapeHtml(q.ko)}" data-en="${escapeHtml(q.en)}">${escapeHtml(q.ko)}</div>
+             <input type="text" id="go-${q.k}" maxlength="120" value="${escapeHtml(_goAnswers[q.k] || '')}"
+               placeholder="${escapeHtml(q.ph)}" data-ko-ph="${escapeHtml(q.ph)}" data-en-ph="${escapeHtml(q.ph)}"
+               oninput="goInput('${q.k}', this.value)">
+           </div>`).join('') + `</div>
+         <div class="go-preview" id="goPreview"></div>
+         <div class="go-actions">
+           <button class="go-go" id="goApplyBtn" onclick="goApply()">✍️ <span data-ko="이 뼈대로 글쓰기 시작" data-en="Start writing with this outline">이 뼈대로 글쓰기 시작</span></button>
+           <button class="go-ghost" onclick="goClear()">🧹 <span data-ko="메모 지우기" data-en="Clear notes">메모 지우기</span></button>
+         </div>`;
+      renderGoPreview();
+      try { window.applyI18n && window.applyI18n(body); } catch(e){}
+    }
+    // 답 → 문장 조각. 영어로 적었으면 문장에 합치고, 한글이면 시작 문장만 넣는다.
+    //   ⚠️ 시작 문장을 «무조건» 앞에 붙이면 «I lost I lost my watch» 처럼 겹친다.
+    //      (아이들은 대개 시작 문장을 그대로 다시 쓴다 — 실제로 밟았다)
+    //      ① 답이 이미 그 시작 문장으로 시작하면 그대로 쓰고
+    //      ② 첫 낱말이 시작 문장의 끝 낱말과 같으면 그 한 낱말을 떼고
+    //      ③ 이미 «대문자로 시작해 마침표로 끝나는» 완성된 문장이면 손대지 않는다.
+    function goLineFor(q) {
+      let ans = String(_goAnswers[q.k] || '').trim();
+      if (!ans) return null;
+      if (!goIsEn(ans)) return { en: q.starter, memo: ans };   // 한글 답 = 메모로만
+      const st = q.starter, stTrim = st.trim(), low = ans.toLowerCase();
+      let line;
+      if (low.indexOf(stTrim.toLowerCase()) === 0) {
+        line = ans;
+      } else if (/^[A-Z]/.test(ans) && /[.!?]$/.test(ans)) {
+        line = ans;
+      } else {
+        const lastW = stTrim.split(/\s+/).pop().toLowerCase().replace(/[^a-z']/g, '');
+        const w = ans.split(/\s+/);
+        if (w.length > 1 && w[0].toLowerCase().replace(/[^a-z']/g, '') === lastW) ans = w.slice(1).join(' ');
+        line = st + ans;
+      }
+      line = line.trim();
+      if (!/[.!?]$/.test(line)) line += '.';
+      return { en: line, memo: '' };
+    }
+    function goOutline() {
+      const qs = goQuestions(), byKey = {};
+      qs.forEach(q => { byKey[q.k] = q; });
+      const parts = GO_PARTS.map((p, pi) => {
+        const lines = [];
+        if (pi === 0 && _goTheme && _goTheme.open) lines.push({ en: _goTheme.open, memo: '' });
+        p.keys.forEach(k => { const l = goLineFor(byKey[k]); if (l) lines.push(l); });
+        return { ko: p.ko, en: p.en, lines };
+      });
+      const filled = parts.reduce((n, p) => n + p.lines.length, 0);
+      const text = parts.filter(p => p.lines.length)
+        .map(p => p.lines.map(l => l.en).join('\n')).join('\n\n');
+      return { parts, text, filled, answered: Object.keys(_goAnswers).filter(k => String(_goAnswers[k] || '').trim()).length };
+    }
+    function renderGoPreview() {
+      const box = document.getElementById('goPreview');
+      if (!box) return;
+      const o = goOutline();
+      const ko = goLangKo();
+      const head = ko ? '🗂 이렇게 써보면 돼요 — 서론 · 본론 · 결론'
+                      : '🗂 Your outline — Opening · Body · Ending';
+      const empty = ko ? '위 질문에 한 줄씩만 답해보세요. 답을 적는 순간 뼈대가 만들어져요.'
+                       : 'Answer the questions above — your outline appears right away.';
+      box.innerHTML = `<div class="go-pv-h">${escapeHtml(head)}</div>` + (o.answered
+        ? o.parts.filter(p => p.lines.length).map(p =>
+            `<div class="go-part">
+               <div class="go-part-t">${escapeHtml(ko ? p.ko : p.en)}</div>
+               <div class="go-part-b">${p.lines.map(l =>
+                 escapeHtml(l.en) + (l.memo ? ` <span class="go-part-memo">(${escapeHtml(l.memo)})</span>` : '')).join('<br>')}</div>
+             </div>`).join('')
+        : `<div class="go-part-memo">${escapeHtml(empty)}</div>`);
+      const btn = document.getElementById('goApplyBtn');
+      if (btn) btn.disabled = !o.answered;   // 주제 첫 문장 한 줄만으로는 열지 않는다
+      renderGoMemo();
+    }
+    function renderGoMemo() {
+      const wrap = document.getElementById('goMemo');
+      const body = document.getElementById('goMemoBody');
+      const qs = goQuestions();
+      const rows = qs.map(q => {
+        const a = String(_goAnswers[q.k] || '').trim();
+        if (!a) return '';
+        const label = goLangKo() ? q.ko : q.en;
+        return `<div>${escapeHtml(label)}<br><b style="color:#bae6fd">${escapeHtml(a)}</b></div>`;
+      }).filter(Boolean);
+      if (!rows.length) { wrap.style.display = 'none'; body.innerHTML = ''; return; }
+      body.innerHTML = rows.join('');
+      wrap.style.display = '';
+    }
+    window.goSelectTheme = function(id) {
+      const t = GO_THEMES.find(x => x.id === id) || null;
+      _goTheme = (_goTheme && t && _goTheme.id === t.id) ? null : t;   // 다시 누르면 접기
+      renderGoThemes(); renderGoQuestions(); goSave();
+      flowMark(1);
+      if (_goTheme) document.getElementById('goCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+    window.goInput = function(k, v) {
+      _goAnswers[k] = String(v || '').slice(0, 120);
+      renderGoPreview(); goSave();
+    };
+    window.goClear = function() {
+      if (!confirm('브레인스토밍 메모를 모두 지울까요?')) return;
+      _goAnswers = {};
+      renderGoQuestions(); goSave();
+    };
+    window.goApply = function() {
+      const o = goOutline();
+      if (!o.answered) return;
+      const ta = document.getElementById('text');
+      if (ta.value.trim() && !confirm('이미 쓴 글이 있어요. 뼈대로 바꿀까요? (지금 쓴 글은 사라져요)')) return;
+      ta.value = o.text + '\n';
+      updateCharCount();
+      flowMark(2);
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      showToast('🧠 뼈대를 넣었어요! 한 줄씩 이어서 써보세요.');
+    };
+    // 🧭 파이프라인 단계 표시 — n 단계까지 «완료», 그다음 칸을 «지금»
+    let _flowDone = 0;
+    function flowMark(n) {
+      if (n > _flowDone) _flowDone = n;
+      document.querySelectorAll('#flowSteps .fstep').forEach(el => {
+        const i = Number(el.dataset.step || 0);
+        el.classList.toggle('done', i <= _flowDone);
+        el.classList.toggle('on', i === _flowDone + 1);
+      });
+    }
+
+    /* ═══ 📄 STEP 4 — 한 장 출력 (초안 · AI 첨삭 · 완성본) ═══
+       제안서 «출력 및 보관: 초안, AI 첨삭 피드백, 완성본을 한 페이지에 연동 출력».
+       ⛔ 인쇄용이라고 높이를 A4 로 못 박지 않는다 — 글 길이에 따라 넘치면 잘려 사라진다. */
+    let _lastResult = null;      // 방금 받은 첨삭 결과 (한 장 출력에 씀)
+    let _lastDraft = '';         // 그때 제출한 초안
+    window.openSheet = function() {
+      if (!_lastResult) { alert('먼저 AI 첨삭을 받아주세요!'); return; }
+      const d = _lastResult;
+      let userName = '나';
+      try { const u = JSON.parse(localStorage.getItem('mango_user') || 'null'); if (u && (u.name || u.user_id)) userName = u.name || u.user_id; } catch(e){}
+      const now = new Date().toLocaleDateString('ko-KR');
+      const qs = goQuestions();
+      const memoRows = qs.map(q => {
+        const a = String(_goAnswers[q.k] || '').trim();
+        return a ? `<div class="sh-row"><span class="sh-q">${escapeHtml(q.ko)}</span><br>${escapeHtml(a)}</div>` : '';
+      }).filter(Boolean).join('');
+      const issueRows = (d.issues || []).map(i =>
+        `<div class="sh-row"><span class="sh-bad">${escapeHtml(i.original)}</span> → <span class="sh-good">${escapeHtml(i.suggested)}</span>
+          <div class="sh-why">💡 ${escapeHtml(i.reason)}</div></div>`).join('');
+      const upRows = (d.upgrades || []).map(u =>
+        `<div class="sh-row"><span class="sh-bad">${escapeHtml(u.from)}</span> → <span class="sh-good">${escapeHtml(u.to)}</span>
+          <div class="sh-why">⬆️ ${escapeHtml(u.why)}</div></div>`).join('');
+      document.getElementById('sheetModal').innerHTML = `
+        <div class="sh-tools">
+          <button style="background:#059669;color:#fff" onclick="window.print()">🖨 인쇄 / PDF 저장</button>
+          <button style="background:#e7e5e4;color:#44403c" onclick="closeSheet()">✕ 닫기</button>
+        </div>
+        <div class="sh-paper">
+          <div class="sh-h1">✍️ ${escapeHtml(userName)}의 영작 한 장 정리</div>
+          <div class="sh-meta">📅 ${escapeHtml(now)} · CEFR ${escapeHtml(d.level || '')} · 점수 ${d.score || 0}점${_goTheme ? ' · 주제: ' + escapeHtml(_goTheme.ko) : ''}</div>
+          ${memoRows ? `<div class="sh-sec"><h3>① 브레인스토밍 (그래픽 오가나이저)</h3>${memoRows}</div>` : ''}
+          <div class="sh-sec"><h3>② 내 초안 (Draft)</h3><div class="sh-en">${escapeHtml(_lastDraft)}</div></div>
+          <div class="sh-sec"><h3>③ AI 첨삭 피드백</h3>
+            ${issueRows || '<div class="sh-row">고칠 곳이 거의 없었어요! 아주 잘 썼습니다 🎉</div>'}
+            ${upRows ? `<div class="sh-row" style="border:0;padding-top:12px"><b>⬆️ 어휘 업그레이드</b></div>${upRows}` : ''}
+            ${d.tip ? `<div class="sh-row"><b>💬 선생님 한마디</b><br>${escapeHtml(d.tip)}</div>` : ''}
+          </div>
+          <div class="sh-sec sh-fin"><h3>④ 완성본 (Final)</h3><div class="sh-en">${escapeHtml(d.corrected || '')}</div></div>
+          <div class="sh-meta" style="margin-top:18px">Mangoi · AI 영작 첨삭 — 브레인스토밍부터 완성본까지</div>
+        </div>`;
+      document.getElementById('sheetModal').style.display = 'block';
+      document.body.classList.add('sheet-open');
+      document.getElementById('sheetModal').scrollTop = 0;
+      flowMark(4);
+    };
+    window.closeSheet = function() {
+      document.getElementById('sheetModal').style.display = 'none';
+      document.body.classList.remove('sheet-open');
+    };
+
+    goRestore();
+    renderGoThemes();
+    renderGoQuestions();
+    renderGoMemo();
+    flowMark(0);
 
     loadHistory();
     loadMission();

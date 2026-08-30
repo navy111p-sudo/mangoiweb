@@ -1444,6 +1444,10 @@ html[data-t="dark"] .qlbl{color:#9dabb9}
       var live = (t >= c.start_ts && t <= c.close_at_ts);
 
       var meta = [];
+      /* 🔄 (2026-08-28) 대체강사로 들어가는 회차 — 「이거 내 수업 아닌데?」 를 바로 답할 수 있게
+         맨 앞에 둔다. api-teacher.ts 의 substitute/covering_for(오늘 목록 전용) 참고. */
+      if (c.substitute) meta.push('<span style="color:#7c3aed;font-weight:700">🔄 '
+        + esc(T('Covering for ', '대신 · ')) + esc(c.covering_for || '-') + '</span>');
       if (c.level)    meta.push(esc(c.level));
       if (c.textbook) meta.push(esc(c.textbook));
       // 🎚️ 판단력 훈련의 읽기 난이도 — 수업 전에 "이 아이가 지금 어느 정도 문장을 읽나"를 알려준다.
