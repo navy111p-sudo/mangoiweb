@@ -566,6 +566,146 @@ export function sameTeacherName(a?: string | null, b?: string | null): boolean {
 // ────────────────────────────────────────────────────────────
 // 🚪 8개 엔드포인트 디스패처
 // ────────────────────────────────────────────────────────────
+/* 🔐 로그인 성공 «뒤» — 세션 발급 + 응답 만들기 (2026-08-30 추출)
+   ─────────────────────────────────────────────────────────────────────────
+   [왜 함수로 뺐나] 비밀번호 로그인 안에 인라인으로 있던 블록이다. 그런데 v4 제안서 06
+     (관리자 지문·Face ID 로그인)이 **같은 일**을 해야 한다 — 세션 쿠키·역할 판정·
+     첫 화면 경로·언어까지 전부. 그 판정을 한 벌 더 쓰면 「로그인 경로마다 역할이 다른」
+     사고가 난다(CLAUDE.md 2장 「로그인 역할 판정 로직이 세 곳에 복제」와 같은 뿌리).
+   ⚠️ 본문은 옮기기만 했다 — 한 줄도 고치지 않았다. 비밀번호 경로의 동작은 그대로다.
+   ⚠️ `method` 는 «어떻게 로그인했나» 를 로그·응답에 남기기 위한 것이고 판정에는 안 쓴다. */
+export async function issueAdminSession(
+  env: AuthEnv,
+  acctUser: string,
+  opts: { remember?: boolean; ip?: string; ua?: string; method?: 'password' | 'passkey' } = {}
+): Promise<Response> {
+  const remember = !!opts.remember;
+  const ip = opts.ip || '';
+  const ua = opts.ua || '';
+  const now = Date.now();
+  const ttl = remember ? SESSION_REMEMBER_MS : SESSION_DEFAULT_MS;
+  const token = randomToken(32);
+  await env.DB.prepare(
+    `INSERT INTO admin_sessions (token, username, ip, user_agent, created_at, expires_at, last_seen_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).bind(token, acctUser, ip, ua, now, now + ttl, now).run();
+
+  // 🔔 로그인 알림(2026-07-10): 이 계정+IP 조합의 '이전 성공 로그인'이 하나도 없으면
+  //   = 낯선 기기/장소에서의 첫 로그인 → 사장님 폰(OWNER_ALERT_PHONE)으로 문자.
+  //   recordLogin(성공) 전에 검사해야 현재 로그인이 카운트에 안 섞인다. 실패해도 로그인은 계속.
+  try {
+    const prior = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM admin_login_history WHERE username = ? AND ip = ? AND success = 1`
+    ).bind(acctUser, ip).first<{ n: number }>();
+    if ((prior?.n || 0) === 0) {
+      const anyEnv = env as any;
+      const toPhone = anyEnv.OWNER_ALERT_PHONE;
+      if (toPhone) {
+        const kst = new Date(now + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
+        const text = `[망고아이] 관리자 로그인 알림\n계정: ${acctUser}\n시간: ${kst} (KST)\nIP: ${ip || '알수없음'}\n본인이 아니면 즉시 비밀번호를 변경하세요.`;
+        await sendPlainSms(anyEnv, toPhone, text);
+      }
+    }
+  } catch (e) { console.warn('[auth-admin] login alert:', (e as any)?.message); }
+
+  await recordLogin(env, acctUser, ip, ua, true, null);
+
+  // 🪪 로그인 성공 시 서버가 권위 있는 역할을 판정해 응답에 실어 보낸다(2026-07-05).
+  //   기존엔 login.html 이 아이디 접두사(hq_t_*)만으로 역할을 '추측'해서, 접두사가 없는
+  //   강사 계정(예: 'jeong')이 관리자로 잘못 표시됐다. 여기서 이름+스코프 기반으로 정확히
+  //   판정하고, 클라이언트가 쓰기 쉬운 role(hq_teacher 등)로 변환해 내려준다.
+  let acctName = '';
+  let acctPrefLang = '';
+  let acctNationality = '';
+  let scopeType = 'none';
+  try {
+    const acc = await env.DB.prepare(`SELECT name, pref_lang, nationality FROM admin_account WHERE username = ? LIMIT 1`).bind(acctUser).first<{ name: string; pref_lang: string; nationality: string }>();
+    acctName = acc?.name || '';
+    acctPrefLang = String(acc?.pref_lang || '').toLowerCase();
+    acctNationality = String(acc?.nationality || '').trim().toUpperCase();
+    const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(acctUser).first<{ scope_type: string }>();
+    if (sc?.scope_type) scopeType = sc.scope_type;
+  } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
+
+  // 🌏 계정에 국적이 없으면 **강사 등록부(teacher_profiles)에서 이름으로 찾아** 한 번 채운다.
+  //   등록 폼에서 국적을 받으므로, 그 값이 로그인 계정으로 자동으로 흘러오게 하는 다리다.
+  //   한 번 채워지면 다음 로그인부터는 위 SELECT 에서 바로 읽어 이 조회를 건너뛴다.
+  if (!acctNationality && acctName) {
+    try {
+      const tp = await env.DB.prepare(
+        `SELECT nationality FROM teacher_profiles
+          WHERE nationality IS NOT NULL AND nationality <> ''
+            AND (LOWER(TRIM(korean_name)) = LOWER(TRIM(?)) OR LOWER(TRIM(english_name)) = LOWER(TRIM(?)))
+          LIMIT 1`
+      ).bind(acctName, acctName).first<{ nationality: string }>();
+      const nat = String(tp?.nationality || '').trim().toUpperCase();
+      if (nat) {
+        acctNationality = nat;
+        await env.DB.prepare(`UPDATE admin_account SET nationality = ?, updated_at = ? WHERE username = ?`)
+          .bind(nat, now, acctUser).run();
+      }
+    } catch (e) { console.warn('[auth-admin] nationality from teacher_profiles:', (e as any)?.message); }
+  }
+  const rr = resolveRole(scopeType, acctUser, acctName);
+  const isTeacher = rr.role === 'teacher';
+
+  // 🌏 (2026-07-23 사장님 지시) **국적으로 언어를 정한다** — 한국인은 한국어, 외국인은 모두 영어.
+  //   판정 순서 (위에서 걸리면 아래는 안 본다):
+  //     ① pref_lang — 개인별로 못박은 값. 국적과 무관하게 이게 이긴다(예: 한국인 강사 예외).
+  //     ② nationality — 'KR' 이면 ko, 다른 나라면 en. 이게 정식 기준이다.
+  //     ③ 아이디 컨벤션 — 국적이 아직 안 들어간 계정용 안전망.
+  //        `mangoi_NNN`(실제 강사·해외 스태프) / `hq_t_*`(시연) → en
+  //     ④ 이름에 한글이 없으면 en
+  //     ⑤ 그 외 → ko
+  //   ③④는 국적이 다 채워지면 사실상 안 쓰이지만, 새 계정이 국적 없이 만들어져도
+  //   한국어 화면에 갇히지 않도록 남겨 둔다(읽지 못하는 언어로 갇히면 스스로 못 되돌린다).
+  //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
+  //   ※ 이름 칸에 **직함이 섞여 있다**(`Maimai (본사 매니저)`). 괄호 이후를 잘라 사람 이름만 본다.
+  const isForeignStaffId = /^(hq_t|mangoi_)/i.test(acctUser);
+  const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
+  const namedOk = !!baseName && baseName !== acctUser;
+  const prefLang: 'en' | 'ko' =
+    (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
+    : acctNationality ? (acctNationality === 'KR' ? 'ko' : 'en')
+    : (isTeacher || isForeignStaffId) ? 'en'
+    : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
+    : 'ko';
+
+  /* 🏠 로그인 뒤 첫 화면 — **서버가 정한다.**
+     [왜] 이 판정이 화면 세 곳에 복제돼 있었다(admin/login.html · idx-user-session.js 두 군데).
+          필리핀 매니저를 가벼운 화면으로 보내려면 세 곳을 다 고쳐야 하고, 하나만 빠뜨리면
+          «어디서 로그인했느냐에 따라 다른 화면» 이 된다. 그래서 정본을 여기 하나로 모은다.
+     [왜 필리핀 매니저는 /manager 인가] admin.html 은 gzip 934KB·요청 145개인데, 거기서 부르는
+          관리자 API 231개 중 매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는
+          열어도 403 이다. 못 쓰는 화면을 필리핀 회선으로 받게 할 이유가 없다.
+          /manager 는 72KB 이고 결재함 버튼도 이미 거기 있다. **권한은 달라지지 않는다.**
+     ⚠️ 화면은 `next` 딥링크가 있으면 그쪽을 우선한다(여기 값은 next 가 없을 때만 쓴다). */
+  const homePath =
+    isTeacher ? '/teacher'
+    : (rr.role === 'branch' || rr.role === 'agency') ? '/manager'
+    : PH_MANAGERS.indexOf(acctUser) >= 0 ? '/manager'
+    : '/admin.html';
+
+  return json(
+    {
+      /* 🔤 (2026-08-24) 화면에는 **DB 에 적힌 그대로의 아이디**를 돌려준다 —
+         입력한 대소문자를 그대로 주면 화면·저장값이 계정과 어긋난 채로 남는다. */
+      ok: true, username: acctUser, expires_at: now + ttl, redirect: '/admin.html',
+      home_path: homePath,   // 🏠 화면은 next 가 없을 때 이 값으로 간다
+      name: acctName || acctUser,
+      server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
+      // 🪪 (2026-08-09) 화면 어휘의 완전한 신원 — 이제 화면은 «추측하지 않는다».
+      //   login.html:216 이 지적한 두 가지 결핍(hq_exec/hq_mgr 구분 · branch_id/agency_id 부재)을
+      //   여기서 채운다. 접두사 규칙의 정본은 resolveUiIdentity() 하나뿐이다.
+      ...(() => { const ui = resolveUiIdentity(acctUser, acctName, isTeacher);
+        return { ui_role: ui.ui_role, branch_id: ui.branch_id, agency_id: ui.agency_id, display_name: ui.display_name }; })(),
+      pref_lang: prefLang, nationality: acctNationality || null,
+    },
+    200,
+    { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }
+  );
+}
+
 export async function handleAdminAuthApi(
   request: Request,
   url: URL,
@@ -713,128 +853,7 @@ export async function handleAdminAuthApi(
         }
       }
 
-      const now = Date.now();
-      const ttl = remember ? SESSION_REMEMBER_MS : SESSION_DEFAULT_MS;
-      const token = randomToken(32);
-      await env.DB.prepare(
-        `INSERT INTO admin_sessions (token, username, ip, user_agent, created_at, expires_at, last_seen_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).bind(token, acctUser, ip, ua, now, now + ttl, now).run();
-
-      // 🔔 로그인 알림(2026-07-10): 이 계정+IP 조합의 '이전 성공 로그인'이 하나도 없으면
-      //   = 낯선 기기/장소에서의 첫 로그인 → 사장님 폰(OWNER_ALERT_PHONE)으로 문자.
-      //   recordLogin(성공) 전에 검사해야 현재 로그인이 카운트에 안 섞인다. 실패해도 로그인은 계속.
-      try {
-        const prior = await env.DB.prepare(
-          `SELECT COUNT(*) AS n FROM admin_login_history WHERE username = ? AND ip = ? AND success = 1`
-        ).bind(acctUser, ip).first<{ n: number }>();
-        if ((prior?.n || 0) === 0) {
-          const anyEnv = env as any;
-          const toPhone = anyEnv.OWNER_ALERT_PHONE;
-          if (toPhone) {
-            const kst = new Date(now + 9 * 3600 * 1000).toISOString().replace('T', ' ').slice(0, 16);
-            const text = `[망고아이] 관리자 로그인 알림\n계정: ${acctUser}\n시간: ${kst} (KST)\nIP: ${ip || '알수없음'}\n본인이 아니면 즉시 비밀번호를 변경하세요.`;
-            await sendPlainSms(anyEnv, toPhone, text);
-          }
-        }
-      } catch (e) { console.warn('[auth-admin] login alert:', (e as any)?.message); }
-
-      await recordLogin(env, acctUser, ip, ua, true, null);
-
-      // 🪪 로그인 성공 시 서버가 권위 있는 역할을 판정해 응답에 실어 보낸다(2026-07-05).
-      //   기존엔 login.html 이 아이디 접두사(hq_t_*)만으로 역할을 '추측'해서, 접두사가 없는
-      //   강사 계정(예: 'jeong')이 관리자로 잘못 표시됐다. 여기서 이름+스코프 기반으로 정확히
-      //   판정하고, 클라이언트가 쓰기 쉬운 role(hq_teacher 등)로 변환해 내려준다.
-      let acctName = '';
-      let acctPrefLang = '';
-      let acctNationality = '';
-      let scopeType = 'none';
-      try {
-        const acc = await env.DB.prepare(`SELECT name, pref_lang, nationality FROM admin_account WHERE username = ? LIMIT 1`).bind(acctUser).first<{ name: string; pref_lang: string; nationality: string }>();
-        acctName = acc?.name || '';
-        acctPrefLang = String(acc?.pref_lang || '').toLowerCase();
-        acctNationality = String(acc?.nationality || '').trim().toUpperCase();
-        const sc = await env.DB.prepare(`SELECT scope_type FROM admin_scope WHERE username = ? LIMIT 1`).bind(acctUser).first<{ scope_type: string }>();
-        if (sc?.scope_type) scopeType = sc.scope_type;
-      } catch (e) { console.warn('[auth-admin] login role resolve:', (e as any)?.message); }
-
-      // 🌏 계정에 국적이 없으면 **강사 등록부(teacher_profiles)에서 이름으로 찾아** 한 번 채운다.
-      //   등록 폼에서 국적을 받으므로, 그 값이 로그인 계정으로 자동으로 흘러오게 하는 다리다.
-      //   한 번 채워지면 다음 로그인부터는 위 SELECT 에서 바로 읽어 이 조회를 건너뛴다.
-      if (!acctNationality && acctName) {
-        try {
-          const tp = await env.DB.prepare(
-            `SELECT nationality FROM teacher_profiles
-              WHERE nationality IS NOT NULL AND nationality <> ''
-                AND (LOWER(TRIM(korean_name)) = LOWER(TRIM(?)) OR LOWER(TRIM(english_name)) = LOWER(TRIM(?)))
-              LIMIT 1`
-          ).bind(acctName, acctName).first<{ nationality: string }>();
-          const nat = String(tp?.nationality || '').trim().toUpperCase();
-          if (nat) {
-            acctNationality = nat;
-            await env.DB.prepare(`UPDATE admin_account SET nationality = ?, updated_at = ? WHERE username = ?`)
-              .bind(nat, now, acctUser).run();
-          }
-        } catch (e) { console.warn('[auth-admin] nationality from teacher_profiles:', (e as any)?.message); }
-      }
-      const rr = resolveRole(scopeType, acctUser, acctName);
-      const isTeacher = rr.role === 'teacher';
-
-      // 🌏 (2026-07-23 사장님 지시) **국적으로 언어를 정한다** — 한국인은 한국어, 외국인은 모두 영어.
-      //   판정 순서 (위에서 걸리면 아래는 안 본다):
-      //     ① pref_lang — 개인별로 못박은 값. 국적과 무관하게 이게 이긴다(예: 한국인 강사 예외).
-      //     ② nationality — 'KR' 이면 ko, 다른 나라면 en. 이게 정식 기준이다.
-      //     ③ 아이디 컨벤션 — 국적이 아직 안 들어간 계정용 안전망.
-      //        `mangoi_NNN`(실제 강사·해외 스태프) / `hq_t_*`(시연) → en
-      //     ④ 이름에 한글이 없으면 en
-      //     ⑤ 그 외 → ko
-      //   ③④는 국적이 다 채워지면 사실상 안 쓰이지만, 새 계정이 국적 없이 만들어져도
-      //   한국어 화면에 갇히지 않도록 남겨 둔다(읽지 못하는 언어로 갇히면 스스로 못 되돌린다).
-      //   ⚠️ 화면(adm-lang-boot.js)에도 같은 순서의 폴백이 있다. 한쪽만 고치지 말 것.
-      //   ※ 이름 칸에 **직함이 섞여 있다**(`Maimai (본사 매니저)`). 괄호 이후를 잘라 사람 이름만 본다.
-      const isForeignStaffId = /^(hq_t|mangoi_)/i.test(acctUser);
-      const baseName = acctName.replace(/\s*[(（[【].*$/, '').trim();
-      const namedOk = !!baseName && baseName !== acctUser;
-      const prefLang: 'en' | 'ko' =
-        (acctPrefLang === 'en' || acctPrefLang === 'ko') ? (acctPrefLang as 'en' | 'ko')
-        : acctNationality ? (acctNationality === 'KR' ? 'ko' : 'en')
-        : (isTeacher || isForeignStaffId) ? 'en'
-        : (namedOk && !/[가-힣]/.test(baseName)) ? 'en'
-        : 'ko';
-
-      /* 🏠 로그인 뒤 첫 화면 — **서버가 정한다.**
-         [왜] 이 판정이 화면 세 곳에 복제돼 있었다(admin/login.html · idx-user-session.js 두 군데).
-              필리핀 매니저를 가벼운 화면으로 보내려면 세 곳을 다 고쳐야 하고, 하나만 빠뜨리면
-              «어디서 로그인했느냐에 따라 다른 화면» 이 된다. 그래서 정본을 여기 하나로 모은다.
-         [왜 필리핀 매니저는 /manager 인가] admin.html 은 gzip 934KB·요청 145개인데, 거기서 부르는
-              관리자 API 231개 중 매니저에게 서버가 허용하는 것은 25개(10%)뿐이다. 나머지 90%는
-              열어도 403 이다. 못 쓰는 화면을 필리핀 회선으로 받게 할 이유가 없다.
-              /manager 는 72KB 이고 결재함 버튼도 이미 거기 있다. **권한은 달라지지 않는다.**
-         ⚠️ 화면은 `next` 딥링크가 있으면 그쪽을 우선한다(여기 값은 next 가 없을 때만 쓴다). */
-      const homePath =
-        isTeacher ? '/teacher'
-        : (rr.role === 'branch' || rr.role === 'agency') ? '/manager'
-        : PH_MANAGERS.indexOf(acctUser) >= 0 ? '/manager'
-        : '/admin.html';
-
-      return json(
-        {
-          /* 🔤 (2026-08-24) 화면에는 **DB 에 적힌 그대로의 아이디**를 돌려준다 —
-             입력한 대소문자를 그대로 주면 화면·저장값이 계정과 어긋난 채로 남는다. */
-          ok: true, username: acctUser, expires_at: now + ttl, redirect: '/admin.html',
-          home_path: homePath,   // 🏠 화면은 next 가 없을 때 이 값으로 간다
-          name: acctName || acctUser,
-          server_role: rr.role, role_label: rr.roleLabel, is_teacher: isTeacher,
-          // 🪪 (2026-08-09) 화면 어휘의 완전한 신원 — 이제 화면은 «추측하지 않는다».
-          //   login.html:216 이 지적한 두 가지 결핍(hq_exec/hq_mgr 구분 · branch_id/agency_id 부재)을
-          //   여기서 채운다. 접두사 규칙의 정본은 resolveUiIdentity() 하나뿐이다.
-          ...(() => { const ui = resolveUiIdentity(acctUser, acctName, isTeacher);
-            return { ui_role: ui.ui_role, branch_id: ui.branch_id, agency_id: ui.agency_id, display_name: ui.display_name }; })(),
-          pref_lang: prefLang, nationality: acctNationality || null,
-        },
-        200,
-        { 'Set-Cookie': setSessionCookieHeader(token, Math.floor(ttl / 1000)) }
-      );
+      return await issueAdminSession(env, acctUser, { remember, ip, ua, method: 'password' });
     }
 
     // ── 로그아웃 (인증 없이도 항상 200 — 쿠키만 지움) ──
