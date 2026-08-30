@@ -50,7 +50,13 @@
       key: 'today', ko: '오늘', en: 'Today',
       ico: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
       items: [
-        { ko: '오늘의 수업', en: "Today's classes", cards: ['card-active-rooms'] },
+        /* 🔐 (2026-08-30 v4 제안서 16) 「방 초대」 독립 항목을 없애고 이 항목에 함께 묶었다.
+           그 화면이 하는 일(방 번호·학생 아이디 입력)은 오늘의 수업 목록에 이미 있는 값이라
+           «같은 것 둘» 이었다. 목록 각 줄의 [🔗 초대 링크] 버튼이 그 자리를 대신한다.
+           ⛔ card-room-invite 를 목록에서 빼지 말 것 — 이 카드를 맡은 사이드바 항목이
+              여기 하나뿐이라, 빼면 토큰 발급·회수 화면 자체가 메뉴에서 사라진다
+              (CLAUDE.md 2장 — card-inquiry-mgmt 에서 같은 사고가 있었다). */
+        { ko: '오늘의 수업', en: "Today's classes", cards: ['card-active-rooms', 'card-room-invite'] },
         { ko: '출결',       en: 'Attendance',      cards: ['card-attendance-status', 'card-auto-attendance', 'card-class-attendance'] },
         /* 🚷 (2026-08-13 수정요청 #05) 「담당자가 클릭 한 번으로」 가 요구사항이라 「출결」 안에
            끼워 넣지 않고 자기 항목을 준다. 출결 항목은 카드 3장을 한 화면에 펴 놓기 때문에,
@@ -68,7 +74,6 @@
           tipEn: '🗼 Every live class in one table - observe, enter, end, rotate' },
         { ko: '연기·변경',  en: 'Reschedule',      cards: ['card-schedule-requests'],
           tip: '📅 수업 연기·시간 변경 요청 처리', tipEn: '📅 Handle postpone / time-change requests' },
-        { ko: '방 초대',    en: 'Room invites',    cards: ['card-room-invite'] },
         /* 🐞 (2026-08-13 수정요청 #04) 「문의·버그」 한 항목이 신규상담 카드와 버그 카드를
            **함께** 띄우고 있었다. 버그·문의를 보러 온 사람 화면 맨 위에 «신규상담 → 등록 전환»
            (대기자 명단·전환율·상담 목록)이 통째로 깔려서 «이 화면에 왜 이게 있나» 가 됐다.

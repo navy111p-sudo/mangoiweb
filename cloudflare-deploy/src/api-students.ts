@@ -14,6 +14,7 @@ import { sendPlainSms } from './solapi-client';   // 🔑 비밀번호 재설정
 import { MANGOI_KNOWLEDGE, matchMangoiFaq } from './mangoi-facts';   // 📚 챗봇 «사실» 정본(홈 상담봇과 공유)
 import { isStudentHidden } from './student-override';   // 🧹 숨김 지정된 중복 계정은 로그인도 막는다
 import type { MangoEnv } from './api-mango';
+import { summarizeAttendance } from './attendance-truth';
 
 export async function handleStudentsApi(
   request: Request,
@@ -79,15 +80,17 @@ export async function handleStudentsApi(
       //   테이블)과 자주 어긋났다 — 마이페이지·월간 리포트 출석 숫자가 서로 다르게 보이던 원인(2026-07-31).
       //   status='attended' 는 수업 시간 내 입장으로 확정된 행(api-mango.ts checkin)만 표시하므로
       //   on_time_days 는 항상 attDays 의 부분집합이 되어 on_time_rate 가 100%를 넘는 일이 없다.
+      //   🔴 (2026-08-30 v4 제안서 02) 여기서 두 가지가 틀려 있었다 — 실측 근거와 규칙은
+      //   src/attendance-truth.ts 머리말에 있다. 요약하면
+      //     ① 「제시간율」을 status='attended' 로만 셌는데 그 값은 전체의 0.06% 다
+      //        → 출석 상위 학생조차 분자가 0이라 화면이 늘 «0%» 였다(제보 내용 그대로).
+      //     ② 「출석 일수」에 status='scheduled' 인 **미래 예약**까지 들어갔다.
+      //   ⛔ 판정을 여기서 다시 쓰지 말 것 — summarizeAttendance 하나가 정본이다.
       const sinceMs = Date.now() - 30 * 86400000;
-      const attRows = await env.DB.prepare(`SELECT date, status FROM attendance WHERE user_id = ? AND joined_at >= ? AND date IS NOT NULL`).bind(childUid, sinceMs).all();
-      const attDays = new Set<string>();
-      const onTimeDays = new Set<string>();
-      (attRows.results || []).forEach((r: any) => {
-        if (!r.date) return;
-        attDays.add(r.date);
-        if (r.status === 'attended') onTimeDays.add(r.date);
-      });
+      const attRows = await env.DB.prepare(
+        `SELECT date, status, attended_at, joined_at FROM attendance WHERE user_id = ? AND joined_at >= ? AND date IS NOT NULL`
+      ).bind(childUid, sinceMs).all();
+      const attSummary = summarizeAttendance((attRows.results || []) as any[]);
 
       // 결제내역 (최근 6개)
       const pays = await env.DB.prepare(`SELECT id, paid_at, period_start, period_end, amount_krw, method, memo, status FROM student_payments WHERE user_id = ? ORDER BY paid_at DESC LIMIT 6`).bind(childUid).all();
@@ -102,12 +105,7 @@ export async function handleStudentsApi(
           recent_tx: ptsTx.results || [],
         },
         evaluations: evals.results || [],
-        attendance: {
-          last_30d_days: attDays.size,
-          on_time_days: onTimeDays.size,
-          on_time_rate: attDays.size ? Math.round((onTimeDays.size / attDays.size) * 100) : 0,
-          days: Array.from(attDays).sort(),
-        },
+        attendance: attSummary,
         payments: pays.results || [],
         generated_at: Date.now(),
       });
@@ -1150,7 +1148,7 @@ export async function buildWeeklyParentDigest(env: any, uid: string): Promise<an
   const q1 = async (sql: string, ...binds: any[]) => { try { return await env.DB.prepare(sql).bind(...binds).first(); } catch { return null; } };
 
   const student: any = await q1(`SELECT user_id, student_name, parent_name, parent_phone FROM students_erp WHERE user_id = ?`, uid);
-  const att: any = await q1(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ?`, uid, startTs, endTs);
+  const att: any = await q1(`SELECT COUNT(DISTINCT date) AS d FROM attendance WHERE user_id = ? AND joined_at >= ? AND joined_at < ? AND COALESCE(status,'') <> 'scheduled'`, uid, startTs, endTs);
   const evals: any = await q1(`SELECT AVG(score_overall) AS avg, COUNT(*) AS n, GROUP_CONCAT(next_goals,'|') AS goals FROM student_evaluations WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
   const voice: any = await q1(`SELECT COUNT(*) AS n, AVG(accuracy_score) AS acc FROM voice_coaching WHERE student_uid = ? AND created_at >= ? AND created_at < ?`, uid, startTs, endTs);
   // 🥭 차별 지표 (테이블 미존재 방어 = 조용히 0)

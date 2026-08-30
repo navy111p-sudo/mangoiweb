@@ -2127,6 +2127,19 @@
       </div>
       <button class="btn-primary" id="pwSaveBtn" data-ko="🔐 비밀번호 변경" data-en="🔐 Change password">🔐 비밀번호 변경</button>
 
+      <!-- ───── 😊 지문 · Face ID (패스키) — 2026-08-30, v4 제안서 06 ───── -->
+      <div class="info-box" style="margin-top:26px">
+        😊 <b data-ko="지문 · Face ID 로그인" data-en="Fingerprint · Face ID sign-in">지문 · Face ID 로그인</b><span data-ko=" — 이 기기를 한 번 등록해 두면, 다음부터 로그인 화면에서 지문이나 얼굴로 바로 들어올 수 있습니다. 비밀번호는 그대로 남아 있어요(기기를 바꾸면 그때 씁니다)." data-en=" — Register this device once and you can sign in with your fingerprint or face. Your password still works (you need it on a new device)."> — 이 기기를 한 번 등록해 두면, 다음부터 로그인 화면에서 지문이나 얼굴로 바로 들어올 수 있습니다. 비밀번호는 그대로 남아 있어요(기기를 바꾸면 그때 씁니다).</span>
+      </div>
+      <div id="pkBox" style="border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-top:12px;background:var(--bg-card-2)">
+        <div id="pkUnsupported" style="display:none;font-size:13px;color:var(--text-dim)" data-ko="이 브라우저·기기는 지문/얼굴 인증을 지원하지 않습니다. 아이디·비밀번호로 로그인해 주세요." data-en="This browser or device does not support biometric sign-in. Please use your ID and password.">이 브라우저·기기는 지문/얼굴 인증을 지원하지 않습니다. 아이디·비밀번호로 로그인해 주세요.</div>
+        <div id="pkSupported" style="display:none">
+          <button class="btn-primary" id="pkAddBtn" style="background:linear-gradient(135deg,#10b981,#059669)" data-ko="😊 이 기기 등록하기" data-en="😊 Register this device">😊 이 기기 등록하기</button>
+          <div id="pkMsg" style="margin-top:10px;font-size:13px"></div>
+          <div id="pkList" style="margin-top:12px;font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- ───── 2단계 인증 (2FA) ───── -->
       <div class="info-box" style="margin-top:26px">
         🔐 <b data-ko="2단계 인증 (강력 추천)" data-en="Two-factor auth (recommended)">2단계 인증 (강력 추천)</b><span data-ko=" — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요." data-en=" — Even if your password leaks, no one can sign in without the 6-digit code from your authenticator app."> — 비밀번호가 유출돼도, 인증 앱의 6자리 코드가 없으면 로그인할 수 없습니다. 관리자 계정을 지키는 가장 강력한 방법이에요.</span>
@@ -3048,6 +3061,123 @@
       .catch(function(){ alert(EN()?'⚠️ Network error.':'⚠️ 네트워크 오류.'); })
       .finally(function(){ el('profSaveBtn').disabled = false; });
   });
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     😊 지문 · Face ID 등록 (WebAuthn / FIDO2) — 2026-08-30, v4 제안서 06
+     ⚠️ 요청에 scope:'admin' 을 실어 «관리자 범위» 임을 밝힌다. 서버는 그 값을 그대로
+        믿지 않고, 저장할 때 붙인 접두사(admin:)로 다시 확인한다.
+     ⚠️ 지원하지 않는 기기에서는 버튼을 아예 안 그리고 «왜 없는지» 를 적는다 —
+        눌러도 안 되는 버튼이 제일 나쁘다(CLAUDE.md 2장).
+     🔑 rpId 는 서버가 apex 로 묶는다 — www 로 등록해도 apex 에서 그대로 쓰인다.
+     ═══════════════════════════════════════════════════════════════════════ */
+  (function adminPasskey(){
+    var box = document.getElementById('pkBox');
+    if (!box) return;
+    var sup = document.getElementById('pkSupported');
+    var uns = document.getElementById('pkUnsupported');
+    var ok = !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create && window.isSecureContext);
+    if (!ok) { if (uns) uns.style.display = 'block'; return; }
+    if (sup) sup.style.display = 'block';
+
+    function decB(str){
+      str = String(str).replace(/-/g,'+').replace(/_/g,'/');
+      while (str.length % 4) str += '=';
+      var bin = atob(str), out = new Uint8Array(bin.length);
+      for (var i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function encB(buf){
+      var b = new Uint8Array(buf), s2 = '';
+      for (var i=0;i<b.length;i++) s2 += String.fromCharCode(b[i]);
+      return btoa(s2).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    }
+    function say(t, good){
+      var m = document.getElementById('pkMsg');
+      if (!m) return;
+      m.textContent = t;
+      m.style.color = good ? '#059669' : '#b91c1c';
+    }
+    async function loadList(){
+      var el = document.getElementById('pkList');
+      if (!el) return;
+      try {
+        var r = await fetch('/api/passkey/list', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scope:'admin' }) });
+        var d = await r.json().catch(function(){ return null; });
+        if (!r.ok || !d || d.ok !== true || !Array.isArray(d.items)) { el.textContent = ''; return; }
+        if (!d.items.length) { el.textContent = '아직 등록된 기기가 없습니다.'; el.style.color = 'var(--text-dim)'; return; }
+        el.style.color = '';
+        el.innerHTML = d.items.map(function(it){
+          var when = it.created_at ? new Date(it.created_at).toLocaleDateString('ko-KR') : '';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--border)">'
+            + '<span>😊 ' + (it.device_label ? String(it.device_label).replace(/[<>&]/g,'') : '등록된 기기') + '</span>'
+            + '<span style="color:var(--text-dim);font-size:12px">' + when + '</span>'
+            + '<button type="button" data-cid="' + it.credential_id + '" class="pk-del" style="margin-left:auto;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:transparent;cursor:pointer;font-size:12px">삭제</button>'
+            + '</div>';
+        }).join('');
+        el.querySelectorAll('.pk-del').forEach(function(b){
+          b.addEventListener('click', async function(){
+            if (!confirm('이 기기의 지문·Face ID 등록을 지울까요? (비밀번호 로그인은 그대로입니다)')) return;
+            await fetch('/api/passkey/remove', { method:'POST', credentials:'include',
+              headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ scope:'admin', credential_id: b.getAttribute('data-cid') }) });
+            loadList();
+          });
+        });
+      } catch(e){ el.textContent = ''; }
+    }
+
+    var addBtn = document.getElementById('pkAddBtn');
+    if (addBtn) addBtn.addEventListener('click', async function(){
+      addBtn.disabled = true;
+      var l0 = addBtn.textContent;
+      addBtn.textContent = '🔄 기기에 등록 중...';
+      say('', true);
+      try {
+        var r1 = await fetch('/api/passkey/register/options', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'}, body: JSON.stringify({ scope:'admin' }) });
+        var o = await r1.json().catch(function(){ return null; });
+        if (!r1.ok || !o || o.ok !== true || !o.options) {
+          say((o && (o.message || o.error)) || '등록 준비에 실패했어요. 다시 로그인한 뒤 시도해 주세요.', false);
+          return;
+        }
+        var op = o.options;
+        var pk = {
+          challenge: decB(op.challenge),
+          rp: op.rp,
+          user: { id: decB(op.user.id), name: op.user.name, displayName: op.user.displayName },
+          pubKeyCredParams: op.pubKeyCredParams,
+          timeout: op.timeout,
+          attestation: op.attestation,
+          excludeCredentials: (op.excludeCredentials || []).map(function(c){ return { type:'public-key', id: decB(c.id), transports: c.transports }; }),
+          authenticatorSelection: op.authenticatorSelection
+        };
+        var cred = await navigator.credentials.create({ publicKey: pk });
+        if (!cred) { say('등록이 취소됐어요.', false); return; }
+        var label = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '이 기기';
+        var r2 = await fetch('/api/passkey/register/verify', { method:'POST', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            scope:'admin', device_label: String(label).slice(0,60),
+            credential: {
+              id: cred.id, rawId: encB(cred.rawId), type: cred.type,
+              transports: (cred.response.getTransports ? cred.response.getTransports() : undefined),
+              response: { clientDataJSON: encB(cred.response.clientDataJSON), attestationObject: encB(cred.response.attestationObject) }
+            }
+          }) });
+        var d2 = await r2.json().catch(function(){ return null; });
+        if (r2.ok && d2 && d2.ok === true) { say('✅ 등록됐어요! 다음부터 로그인 화면에서 지문·얼굴로 들어올 수 있어요.', true); loadList(); }
+        else say((d2 && (d2.message || d2.error)) || '등록에 실패했어요.', false);
+      } catch(e){
+        var nm = (e && (e.name || e.message)) || '';
+        say(nm === 'NotAllowedError' ? '등록이 취소됐어요.' : ('등록에 실패했어요: ' + nm), false);
+      } finally {
+        addBtn.disabled = false; addBtn.textContent = l0;
+      }
+    });
+
+    loadList();
+  })();
 
   // ── 비밀번호 변경 ──
   if (el('pwSaveBtn')) el('pwSaveBtn').addEventListener('click', function(){

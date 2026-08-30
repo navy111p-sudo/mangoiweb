@@ -738,9 +738,17 @@ body.dragging{cursor:crosshair}
   <div class="search-wrap"><input type="search" id="search-input" placeholder="교사·학생·아이디 검색…" data-ko-placeholder="교사·학생·아이디 검색…" data-en-placeholder="Search teacher / student / ID…"></div>
   <!-- 분류: 0명인 분류는 JS 가 아예 넣지 않는다 (홈·원어민·매니저가 늘 0이라 버튼만 차지하던 문제) -->
   <select class="ctl-sel" id="cat-select"></select>
+  <!-- 🔃 (2026-08-30 v4 제안서 14) 「수업수 · 가동률」 양방향 정렬 추가.
+       예전에는 «많은 순»·«여유 많은 순» 만 있어서 «적은 순»·«낮은 순» 을 볼 방법이 없었다 —
+       배정이 덜 된 강사를 찾는 것이 이 화면의 실제 용도인데 그쪽으로는 정렬이 안 됐다.
+       ⚠️ 가동률은 teacherLoad() 의 util(수업칸 ÷ (수업칸+빈칸)) 을 쓴다. 관리자 대시보드의
+          「강사 가동률」(주간 배정분 ÷ 운영시간)과는 «다른 정의» 다 — 숫자를 서로 비교하지 말 것. -->
   <select class="ctl-sel" id="sort-select">
     <option value="name" data-ko="이름순" data-en="By name">이름순</option>
-    <option value="most" data-ko="수업 많은 순" data-en="Most classes">수업 많은 순</option>
+    <option value="most" data-ko="수업수 많은 순" data-en="Classes: most first">수업수 많은 순</option>
+    <option value="least" data-ko="수업수 적은 순" data-en="Classes: fewest first">수업수 적은 순</option>
+    <option value="util_high" data-ko="가동률 높은 순" data-en="Utilization: high first">가동률 높은 순</option>
+    <option value="util_low" data-ko="가동률 낮은 순" data-en="Utilization: low first">가동률 낮은 순</option>
     <option value="free" data-ko="여유 많은 순" data-en="Most free">여유 많은 순</option>
   </select>
   <div class="view-toggle"><button class="active" data-view="week" data-ko="주간" data-en="Week">주간</button><button data-view="day" data-ko="일간" data-en="Day">일간</button></div>
@@ -1143,12 +1151,18 @@ function render(){
     return tMatch(t);
   });
   list.forEach(function(t){t.__st=teacherLoad(t.id);});
-  if(sortMode==='most')      list.sort(function(a,b){return b.__st.classes-a.__st.classes;});
-  else if(sortMode==='free') list.sort(function(a,b){return b.__st.free-a.__st.free;});
-  else list.sort(function(a,b){
+  /* 🔃 (2026-08-30 v4 제안서 14) 같은 값일 때는 «이름» 으로 한 번 더 가른다.
+     안 그러면 수업 0건인 강사들끼리 렌더마다 순서가 튀어 «화면이 흔들린다» 로 보인다. */
+  function _byName(a,b){
     var an=(currentLang==='en'&&a.name_en)?a.name_en:a.name, bn=(currentLang==='en'&&b.name_en)?b.name_en:b.name;
     return String(an).localeCompare(String(bn));
-  });
+  }
+  if(sortMode==='most')           list.sort(function(a,b){return (b.__st.classes-a.__st.classes)||_byName(a,b);});
+  else if(sortMode==='least')     list.sort(function(a,b){return (a.__st.classes-b.__st.classes)||_byName(a,b);});
+  else if(sortMode==='util_high') list.sort(function(a,b){return (b.__st.util-a.__st.util)||_byName(a,b);});
+  else if(sortMode==='util_low')  list.sort(function(a,b){return (a.__st.util-b.__st.util)||_byName(a,b);});
+  else if(sortMode==='free')      list.sort(function(a,b){return (b.__st.free-a.__st.free)||_byName(a,b);});
+  else list.sort(_byName);
 
   var totalFree=0;list.forEach(function(t){totalFree+=t.__st.free;});
   var freeEl=document.getElementById('st-free');
@@ -2771,14 +2785,44 @@ window.openSlotDetail = function(teacherName, dateISO, hour, slot, minute){
     changeBtn.innerHTML = '🔄 '+(L?'변경':'Change');
     changeBtn.onclick = function(){ openRescheduleModal(teacherName, dateISO, hour, 'change', minute); };
 
+    /* 🔗 (2026-08-30 v4 제안서 16) 초대 링크 — 「화상강의실 초대 관리」 독립 메뉴를 없애고
+       «수업이 있는 자리» 로 옮긴 것. 방 번호는 예약 id 로 결정론적이라(class-{id}-{YYYYMMDD})
+       사람이 옮겨 적을 이유가 없다 — 옮겨 적다 틀리면 아무도 없는 방 링크가 나간다.
+       ⚠️ 예약 id 가 없는 칸(LMS 자리표시 등)에는 버튼을 두지 않는다 — 만들 근거가 없다. */
+    /* ⚠️ «차단(근무불가·휴가)» 칸에는 초대 링크가 있으면 안 된다 — 수업이 아니다.
+       데모로 그려진 칸은 서버 id 가 없어 저절로 걸러진다(그때는 만들 근거가 없다). */
+    var sid = (slot && slot.type !== 'blocked') ? (slot.schedule_id || slot.id) : null;
+    var inviteBtn = null;
+    if (sid) {
+      inviteBtn = document.createElement('button');
+      inviteBtn.className = 'modal-btn ghost';
+      inviteBtn.setAttribute('data-rsc','invite');
+      inviteBtn.style.cssText = 'border-color:#06b6d4;color:#67e8f9';
+      inviteBtn.innerHTML = '🔗 '+(L?'초대 링크':'Invite link');
+      inviteBtn.onclick = function(){
+        var ymd = String(dateISO||'').replace(/-/g,'');
+        var url = location.origin + '/?vc_room=' + encodeURIComponent('class-' + sid + '-' + ymd);
+        function fallback(){ window.prompt(L?'아래 링크를 복사해 보내세요':'Copy this link and send it', url); }
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(function(){
+            inviteBtn.innerHTML = '✅ '+(L?'복사됨':'Copied');
+            setTimeout(function(){ inviteBtn.innerHTML = '🔗 '+(L?'초대 링크':'Invite link'); }, 1600);
+          }, fallback);
+          else fallback();
+        } catch(e){ fallback(); }
+      };
+    }
+
     // 닫기 버튼 뒤, 삭제 버튼 앞에 삽입
     var firstBtn = actions.querySelector('button');
     if (firstBtn && firstBtn.nextSibling){
       actions.insertBefore(postponeBtn, firstBtn.nextSibling);
       actions.insertBefore(changeBtn, postponeBtn.nextSibling);
+      if (inviteBtn) actions.insertBefore(inviteBtn, changeBtn.nextSibling);
     } else {
       actions.appendChild(postponeBtn);
       actions.appendChild(changeBtn);
+      if (inviteBtn) actions.appendChild(inviteBtn);
     }
   }, 30);
 };

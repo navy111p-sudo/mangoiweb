@@ -37,6 +37,40 @@
     + '</div>';
   document.body.appendChild(box);
 
+  /* 📐 (2026-08-30) 우상단은 «비어 있는 자리» 가 아니다 — 홈 첫 화면의 칩 한 줄
+     (#ph50-chip-row: 🌤 밝기·⭐ 포인트·🌐 EN·🔐 관리자)이 바로 거기에 있다. 16px 에 그냥
+     띄웠더니 실측(2026-08-30 헤드리스)에서 PC 는 밝기·포인트 칩을, 폰 390 은 EN·관리자 칩을
+     통째로 덮었다 — 「보이는데 안 눌린다」 가 되는 자리다(CLAUDE.md 2장의 그 함정).
+     ⛔ 칩을 옮기거나 배너를 화면 밖으로 밀지 않는다 — 비켜서는 쪽은 «나중에 온» 이 배너다.
+     ⚠️ 칩 줄은 JS(ph50MoveChips)가 나중에 만든다 — 그래서 «지금» 재고, 그 줄이 생긴 뒤
+        한 번 더 재고, 창 크기가 바뀌면 다시 잰다. ⛔ 상주 MutationObserver·setInterval 금지
+        (body class 감시가 홈을 통째로 멎게 한 전력이 있다 — 같은 장). */
+  var TOP_SEL = ['#ph50-chip-row', '#home-theme-toggle', '#points-chip', '#lang-toggle', '#admin-shortcut-chip', '#topUserBtn'];
+  function place(){
+    if (!box.parentNode) return;
+    box.style.top = '16px';                      // 잰 값이 «지금 밀린 위치» 에 끌려가지 않게 먼저 되돌린다
+    var bb = box.getBoundingClientRect();
+    var bottom = 0;
+    for (var i = 0; i < TOP_SEL.length; i++) {
+      var el = document.querySelector(TOP_SEL[i]);
+      if (!el) continue;
+      var cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+      var r = el.getBoundingClientRect();
+      if (r.width <= 0 || r.height <= 0) continue;
+      if (r.top > 200) continue;                 // 위쪽 줄만 본다(본문 버튼까지 피하지는 않는다)
+      /* 가로로 «내 자리와 겹치는» 것만 — 화면 폭으로 어림하면 폰에서 왼쪽 요소까지 걸려
+         배너가 이유 없이 아래로 밀린다. 내 상자의 좌우와 실제로 겹치는지로 판정한다. */
+      if (r.right <= bb.left || bb.right <= r.left) continue;
+      if (r.bottom > bottom) bottom = r.bottom;
+    }
+    var top = bottom > 0 ? Math.min(Math.round(bottom) + 10, 160) : 16;
+    box.style.top = Math.max(16, top) + 'px';
+  }
+  place();
+  setTimeout(place, 1200);      // 칩 줄이 만들어진 뒤 한 번 더 — 끝이 있는 확인(상주 아님)
+  window.addEventListener('resize', place, { passive: true });
+
   function dismiss(){
     try { localStorage.setItem('mangoi_legacy_domain_notice_dismissed', '1'); } catch(e){}
     if (box.parentNode) box.parentNode.removeChild(box);

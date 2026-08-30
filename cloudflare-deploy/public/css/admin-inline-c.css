@@ -9547,6 +9547,13 @@ button.tc-act-observe:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.
   background: rgba(139,92,246,0.16) !important; color: #6d28d9 !important;
   border: 1px solid rgba(139,92,246,0.45) !important;
 }
+/* 🔗 (2026-08-30 v4 제안서 16) 초대 링크 — 청록 칩. 입장(주황)·참관(보라)과 색을 갈라
+   «학생에게 보이나 안 보이나» 축과 헷갈리지 않게 한다. 이 버튼은 방을 열지 않는다. */
+button.tc-act-invite:not(.ph85-head):not(.ph85-sub):not(.ph86-action-btn):not(.primary):not(.on):not(.active){
+  background: rgba(6,182,212,0.16) !important; color: #0e7490 !important;
+  border: 1px solid rgba(6,182,212,0.45) !important; margin-left: 4px !important;
+}
+html:not([data-admin-theme="ivory"]) button.tc-act-invite:not(.ph85-head):not(.ph86-action-btn):not(.primary){ color: #a5f3fc !important; }
 /* 「👀 수업 관찰」 — 한 번 클릭 «바로 참관» 은 채운 보라 (2026-08-27 사장님 「하나하나 입력해야
    해서 관찰이 어렵다」 — 가장 먼저 손이 가는 버튼이라 옅은 칩과 갈라 «채운» 보라로).
    보라 = 참관(학생에게 안 보임) 규칙은 그대로다. */

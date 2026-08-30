@@ -86,6 +86,32 @@
     } catch (e) {}
   };
 
+  /* 🔗 초대 링크 (2026-08-30 v4 제안서 16)
+     [왜] 「화상강의실 초대 관리」가 사이드바에 독립 메뉴로 따로 있었다. 그 화면에서 하는 일은
+       «방 번호를 손으로 적고 학생 아이디를 적는 것» 뿐인데, 그 두 값은 바로 이 목록에 이미 있다.
+       옮겨 적다 한 글자만 틀려도 아무도 없는 방 링크가 나가서 「학생이 못 들어와요」가 된다.
+     [무엇] 이 줄의 방 번호로 입장 링크를 만들어 클립보드에 넣는다. 링크 자체는 서버 토큰이 아니라
+       **입장 주소**다 — 실제 입장 인증은 /api/class/verify-room 이 한다(그 게이트는 안 건드린다).
+     ⛔ JWT 토큰을 여기서 발급해 링크에 박지 않는다 — 5분짜리라 카톡으로 보내면 대개 이미 만료다.
+        토큰 발급·회수가 필요하면 「방 초대」 카드가 그대로 남아 있다(오늘의 수업 항목에 함께 묶었다).
+     ⚠️ 클립보드는 https·사용자 제스처 안에서만 된다. 실패하면 링크를 그대로 보여 준다
+        (조용히 실패하면 「눌렀는데 아무 일도 안 일어난다」가 된다). */
+  window.tcInviteLink = function (roomId, studentUid) {
+    var url = location.origin + '/?vc_room=' + encodeURIComponent(roomId);
+    if (studentUid) url += '&uid=' + encodeURIComponent(studentUid);
+    function fallback() {
+      window.prompt(T('아래 링크를 복사해 학생에게 보내세요', 'Copy this link and send it to the student'), url);
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+          if (window.mangoiToast) window.mangoiToast(T('초대 링크를 복사했습니다', 'Invite link copied'));
+          else fallback();
+        }, fallback);
+      } else fallback();
+    } catch (e) { fallback(); }
+  };
+
   /* 🔄 (2026-08-28) 대체강사 배정 — 강사 휴가·병가 대응(사장님 요청).
      "매주 반복 수업" 은 정본 행을 손대지 않고 그 날짜만 겹쳐 보이는 오버레이라
      다음 회차는 자동으로 원래 강사로 돌아간다(백엔드 src/enroll-ops.ts 의 (m-2)/(m-3) 참고).
@@ -107,8 +133,10 @@
     tcSubModalClose();
     var box = document.createElement('div');
     box.id = 'tc-sub-modal';
-    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;align-items:center;justify-content:center;padding:16px';
-    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
+    /* ⚠️ 세로가 짧은 폰에서 넘친 부분이 잘려 맨 아래 [배정] 을 못 누르는 사고를 막는다
+       — flex 정렬 대신 자식 margin:auto + overflow-y:auto (CLAUDE.md 2장 도크 모달 항목). */
+    box.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(15,23,42,0.55);display:flex;justify-content:center;padding:16px;overflow-y:auto';
+    box.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:420px;width:100%;margin:auto;padding:18px;box-shadow:0 20px 50px -10px rgba(0,0,0,0.4);color:#111827">'
       + '<div id="tc-sub-body">' + T('불러오는 중…', 'Loading…') + '</div>'
       + '<div style="text-align:right;margin-top:12px"><button type="button" id="tc-sub-close" style="padding:6px 14px;border-radius:8px;border:1px solid #d1d5db;background:#f9fafb;cursor:pointer">' + T('닫기', 'Close') + '</button></div>'
       + '</div>';
@@ -273,6 +301,11 @@
                   + '>'
                   + T('👁 참관', '👁 Observe') + '</button>';
             }
+            /* 🔐 (2026-08-30 v4 제안서 16) 초대 링크 — 독립 메뉴를 없애고 «수업 옆» 으로 옮긴 것.
+               방 번호를 손으로 옮겨 적던 일이 사라진다(옮겨 적다 틀리면 빈 방이 열린다). */
+            act += '<button type="button" class="tc-act tc-act-invite" onclick="tcInviteLink(decodeURIComponent(\'' + rid + '\'),decodeURIComponent(\'' + esc(encodeURIComponent(s.student_uid || '')) + '\'))" '
+                + 'title="' + T('이 수업의 입장 링크를 만들어 복사합니다', 'Create and copy the join link for this class') + '">'
+                + T('🔗 초대 링크', '🔗 Invite link') + '</button>';
           }
           /* 📚 (2026-08-25 보고서 ①) 옛 LMS 한 줄에 있던 「TEXTBOOK 배정 없음」 배지의 대응.
              수업 «전에» 손써야 하는 줄이라 눈에 띄어야 한다 — 배정된 줄은 조용히 교재명만. */
@@ -292,9 +325,14 @@
               + T('🧪 레벨테스트', '🧪 Level test') + '</span>'
             : '';
           /* 🔄 (2026-08-28) 대체강사 배정 — 강사 병가·휴가 대응. 카페24 수업은 망고아이 쪽
-             예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유). */
+             예약(schedule_id)이 없어 대상이 아니다(위 「입장 불가」 와 같은 이유).
+             ⛔ (2026-08-30) 클래스 이름을 «-btn» 으로 끝내지 말 것 — admin-inline-c.css 의
+                `html[data-admin-theme="ivory"] [id^="card-"] [class$="-btn"]:not(…)×8` (0,11,1) 이
+                `button.tc-act:not(…)×6` (0,7,1) 을 이겨 이 버튼만 «흰 버튼» 이 된다(실측:
+                background #ffffff · color #344054 — 옆 참관 칩은 보라). 그 파일 9503·9710·9737 행에
+                같은 경고가 세 번 적혀 있다. 그래서 `tc-sub-act` 다. */
           if (!isC24 && s.schedule_id) {
-            teacher += '<button type="button" class="tc-act tc-sub-btn" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
+            teacher += '<button type="button" class="tc-act tc-sub-act" onclick="tcOpenSubModal(' + Number(s.schedule_id) + ')" '
               + 'title="' + T('대체강사 배정', 'Assign substitute teacher') + '">🔄</button>';
           }
           return '<tr>'

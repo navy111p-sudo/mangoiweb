@@ -90,13 +90,38 @@ export function enrollOverlap(aStart: number, aMin: number, bStart: number, bMin
  *  ⚠️ day_of_week 는 이 파일의 다른 함수(enrollConflicts 등)와 같이 "단일 요일" 로만 본다 —
  *     admin classes/today 의 admDowMatches 는 콤마 나열도 허용하지만, 그 값은 이 파일이 만드는
  *     행(schedule_kind='dated')에는 나오지 않는다(day_of_week 는 admin 이 만드는 recurring 행만 씀). */
+/** 🗓 (2026-08-30) `class_schedules.day_of_week` 는 «단일 값이 아니다» — 숫자 `4` 말고도
+ *  `Thu`·`목`·`목요일`·`1,3,5`·`Mon,Thu` 가 실제로 들어 있다. 그래서 api-admin.ts 가
+ *  `admDowMatches()`(+ADM_DOW_MAP)를 따로 두고 있다. 이 파일의 «가용성·충돌» 판정이
+ *  단일 값만 보면, 그런 반복수업을 가진 강사가 후보 목록에 🟢(그 시간 가능)으로 나오고
+ *  충돌검사도 통과해 **이중배정**이 된다(에러 없음). 그 판정을 한 곳으로 모은다.
+ *  ⛔ api-admin 의 함수를 import 하지 않는다 — 이 파일은 다른 도메인을 import 하지 않는
+ *     원칙이라(NOT_PLACEHOLDER 복제와 같은 방식) 같은 판정을 여기에 둔다.
+ *     대신 substitute_assign_harness ①·⑦절이 두 판정을 실제로 돌려 답을 대조한다. */
+const ENROLL_DOW_MAP: Record<string, number> = {
+  sun: 0, sunday: 0, '일': 0, '일요일': 0, mon: 1, monday: 1, '월': 1, '월요일': 1,
+  tue: 2, tuesday: 2, '화': 2, '화요일': 2, wed: 3, wednesday: 3, '수': 3, '수요일': 3,
+  thu: 4, thursday: 4, '목': 4, '목요일': 4, fri: 5, friday: 5, '금': 5, '금요일': 5,
+  sat: 6, saturday: 6, '토': 6, '토요일': 6,
+};
+export function enrollDowList(raw: any): number[] {
+  const out: number[] = [];
+  for (const part of String(raw ?? '').split(/[,\s/·]+/)) {
+    const t = part.trim();
+    if (!t) continue;
+    if (/^\d+$/.test(t)) { const n = Number(t); if (n >= 0 && n <= 6 && !out.includes(n)) out.push(n); continue; }
+    const dw = ENROLL_DOW_MAP[t.toLowerCase()];
+    if (dw !== undefined && !out.includes(dw)) out.push(dw);
+  }
+  return out;
+}
+
 function subScheduleDow(scheduledDate: any, dayOfWeek: any, date: string): number | null {
   const targetDow = new Date(date + 'T00:00:00Z').getUTCDay();
   if (scheduledDate) return String(scheduledDate).slice(0, 10) === date ? targetDow : null;
   if (dayOfWeek != null && String(dayOfWeek).trim() !== '') {
-    const DOWMAP: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
-    const dw = DOWMAP[String(dayOfWeek).toLowerCase().slice(0, 3)];
-    return dw !== undefined && dw === targetDow ? targetDow : null;
+    /* 판정은 위 enrollDowList 하나로 — 이 파일 안에서 «두 벌» 이 되면 또 갈린다. */
+    return enrollDowList(dayOfWeek).includes(targetDow) ? targetDow : null;
   }
   return null;
 }
@@ -110,9 +135,11 @@ async function subOverlayBusyIds(env: any, date: string, excludeScheduleId?: num
   const byTeacher = new Map<string, { startMin: number; minutes: number }[]>();
   try {
     const rs: any = await env.DB.prepare(
+      /* ⚠️ (2026-08-30) 원 수업의 status 도 본다 — 오버레이만 'active' 로 보면 수업이 나중에
+         취소돼도 그 대체가 남아 «그 시간 바쁨» 으로 잡힌다(그 강사가 후보에서 빠진다). */
       `SELECT cs2.schedule_id, cs2.substitute_teacher_id, cs.start_time, COALESCE(cs.duration_min,20) AS dm
          FROM class_substitutions cs2 JOIN class_schedules cs ON cs.id = cs2.schedule_id
-        WHERE cs2.status = 'active' AND cs2.sub_date = ?`
+        WHERE cs2.status = 'active' AND cs.status = 'active' AND cs2.sub_date = ?`
     ).bind(date).all();
     for (const r of ((rs?.results as any[]) || [])) {
       if (excludeScheduleId != null && Number(r.schedule_id) === excludeScheduleId) continue;
@@ -276,15 +303,16 @@ export async function enrollConflicts(env: any, teacherId: string, dates: string
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     const badDows = new Set<number>();
     for (const r of ((rs2?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !days.includes(dw)) continue;
-      const startMin = timesMinByDow[dw];
-      if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다(위 enrollDowList)
+        if (!days.includes(dw)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) badDows.add(dw);
+      }
     }
     if (badDows.size) {
       for (const iso of dates) {
@@ -334,12 +362,13 @@ export async function busyTimesForTeacher(env: any, teacherId: string, days: num
       `SELECT day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE teacher_id = ? AND status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).bind(teacherId).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !busyByDow[dw]) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0) busyByDow[dw].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다
+        if (!busyByDow[dw]) continue;
+        busyByDow[dw].push({ start: s, dur: Number(r.dm) || DEFAULT_CLASS_MINUTES });
+      }
     }
 
     const probe = probeDatesForDows(days, 12);
@@ -376,14 +405,15 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
       `SELECT teacher_id, day_of_week, start_time, COALESCE(duration_min, 20) AS dm FROM class_schedules
        WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
     ).all();
-    const DOW: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
     for (const r of ((rs1?.results as any[]) || [])) {
-      const dw = DOW[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-      if (dw === undefined || !days.includes(dw)) continue;
-      const startMin = timesMinByDow[dw];
-      if (startMin === undefined) continue;
       const s = enrollTimeToMin(String(r.start_time || ''));
-      if (s >= 0 && enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+      if (s < 0) continue;
+      for (const dw of enrollDowList(r.day_of_week)) {          // '1,3,5'·'목' 도 받는다
+        if (!days.includes(dw)) continue;
+        const startMin = timesMinByDow[dw];
+        if (startMin === undefined) continue;
+        if (enrollOverlap(startMin, minutes, s, Number(r.dm) || DEFAULT_CLASS_MINUTES)) busyTeacherIds.add(String(r.teacher_id));
+      }
     }
 
     const probe = probeDatesForDows(days, 12);
@@ -415,14 +445,14 @@ export async function teachersFreeAt(env: any, days: number[], timesMinByDow: Re
           `SELECT teacher_id, day_of_week, COALESCE(duration_min, 20) AS dm FROM class_schedules
             WHERE status = 'active' AND schedule_kind = 'recurring' AND day_of_week IS NOT NULL ${NOT_PLACEHOLDER}`
         ).all();
-        const DOW2: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, '0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6 };
         const perTeacherDay = new Map<string, number>();
         for (const r of ((rsL?.results as any[]) || [])) {
           if (!isLongClass(Number(r.dm) || DEFAULT_CLASS_MINUTES)) continue;
-          const dw = DOW2[String(r.day_of_week || '').toLowerCase().slice(0, 3)];
-          if (dw === undefined || !days.includes(dw)) continue;
-          const k = String(r.teacher_id) + '|' + dw;
-          perTeacherDay.set(k, (perTeacherDay.get(k) || 0) + 1);
+          for (const dw of enrollDowList(r.day_of_week)) {      // '1,3,5'·'목' 도 받는다
+            if (!days.includes(dw)) continue;
+            const k = String(r.teacher_id) + '|' + dw;
+            perTeacherDay.set(k, (perTeacherDay.get(k) || 0) + 1);
+          }
         }
         for (const [k, n] of perTeacherDay) {
           const tid = k.split('|')[0];
