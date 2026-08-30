@@ -53,13 +53,51 @@ check('학생 본인 번호도 가져온다 (s.student_phone)',
       /s\.student_phone\s+AS\s+student_phone/.test(blk));
 
 console.log('\n  B. INSERT 목록에 번호 칸이 있다 (빠지면 야간에 전멸)');
-const insMatch = blk.match(/INSERT OR REPLACE INTO students_erp \(([^)]*)\)\s*\n?\s*VALUES \(([^)]*)\)/);
+const insMatch = blk.match(/INSERT INTO students_erp \(([^)]*)\)\s*\n?\s*VALUES \(([^)]*)\)/);
 check('INSERT 문을 찾았다', !!insMatch);
+/* 🔁 (2026-08-28) 계약이 바뀌었다 — INSERT OR REPLACE → «카페24 칸만 덮는» UPSERT.
+   REPLACE 는 «행을 지우고 다시 넣는» 것이라 컬럼 목록에 없는 25개 칸이 매일 밤 NULL 이 됐다.
+   전화번호가 그렇게 전멸했던 것이 2026-08-18 건이고, password_hash·parent_user_id·eval_band 는
+   그 상태로 남아 있었다(2026-08-28 실측 0건 — 그래서 학생 비밀번호를 도입할 수 없었다).
+   ⛔ 옛 형태로 되돌리지 말 것. D절이 «두 번 돌린 뒤에도 남아 있는가» 로 실제로 잡는다. */
+/* 부정 검사는 주석을 벗겨 낸 사본으로 — 설명 주석에 그 문장을 인용하는 순간 자기 주석을 잡는다
+   (CLAUDE.md 2장 등재 함정. 지금 안 걸리는 건 주석이 'INTO students_erp' 를 안 붙였기 때문일 뿐이다) */
+const blkNC = blk.replace(/\/\*[\s\S]*?\*\//g, ' ').split(/\r?\n/).filter((l) => !l.trim().startsWith('//')).join(' ');
+check('⛔ INSERT OR REPLACE 로 되돌아가지 않았다', !blkNC.includes('INSERT OR REPLACE INTO students_erp'),
+      'REPLACE 는 컬럼 목록 밖의 칸을 매일 밤 NULL 로 만든다 — franchises 는 2026-08-14 에 이미 UPSERT 로 바꿨다');
+check('ON CONFLICT(user_id) DO UPDATE 로 카페24 칸만 덮는다', blk.includes('ON CONFLICT(user_id) DO UPDATE SET'),
+      '이것이 없으면 위 INSERT 가 중복 키에서 그냥 실패한다');
+{
+  /* «덮어쓰기 목록» 만 잘라서 본다 — 정규식 이스케이프에 기대지 않고 문자열로 자른다. */
+  const _si = blk.indexOf('DO UPDATE SET');
+  const setBlk = _si < 0 ? '' : blk.slice(_si, blk.indexOf('\`)', _si) + 1);
+  check('덮어쓰기 목록을 실제로 잘라 냈다', setBlk.length > 0,
+        '못 자르면 아래 4건이 «빈 문자열» 을 검사해 전부 헛통과한다');
+  check('⛔ created_at 은 갱신하지 않는다', !setBlk.includes('created_at = excluded'),
+        'created_at 은 «카페24가 정본» 표식이라, 로컬 행(체험계정 lt*)을 동기화가 자기 것으로 바꾸면 안 된다');
+  for (const c of ['password_hash', 'parent_user_id', 'eval_band']) {
+    check(c + ' 는 덮어쓰기 목록에 없다', !setBlk.includes(c + ' ='),
+          '이 칸은 카페24가 아니라 우리 코드가 쓰는 값이다 — 덮으면 보존이 무의미해진다');
+  }
+}
 const cols = insMatch ? insMatch[1].split(',').map(s => s.trim()) : [];
 const qs   = insMatch ? insMatch[2].split(',').map(s => s.trim()) : [];
+/* 🔁 이번 버그의 «거울상» 을 막는다 — 카페24 칸을 INSERT 목록에만 더하면
+   새 행에는 들어가는데 기존 29,000행은 영영 갱신되지 않고 **에러도 안 난다**.
+   (전화번호가 목록에서 빠져 전멸했던 사고의 정확한 반대 방향) */
+{
+  const _s2 = blk.indexOf('DO UPDATE SET');
+  const _set2 = _s2 < 0 ? '' : blk.slice(_s2, blk.indexOf('`)', _s2) + 1);
+  // 머리말 'DO UPDATE SET' 을 떼지 않으면 첫 칸이 늘 «누락» 으로 읽힌다(검사기 자신의 함정)
+  const setCols = _set2.replace('DO UPDATE SET', '').split(',').map((t) => (t.split('=')[0] || '').trim()).filter((t) => /^[a-z_]+$/.test(t));
+  const want = cols.filter((c) => c !== 'user_id' && c !== 'created_at');
+  const missing = want.filter((c) => !setCols.includes(c));
+  check('덮어쓰기 목록이 INSERT 목록과 짝이다 (user_id·created_at 제외)', missing.length === 0,
+        '갱신에서 빠진 칸: ' + missing.join(', ') + ' — 새 행에만 들어가고 기존 행은 영영 옛 값이다');
+}
 for (const c of ['parent_phone', 'student_phone', 'phone']) {
   check(`컬럼 목록에 ${c} 가 있다`, cols.includes(c),
-        '이 칸이 빠지면 INSERT OR REPLACE 가 매일 밤 NULL 로 덮는다');
+        '이 칸이 빠지면 야간 동기화가 번호를 NULL 로 덮는다');
 }
 
 console.log('\n  C. 컬럼 수 = ? 수 = bind 인자 수');
@@ -115,7 +153,8 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   sq.exec(`CREATE TABLE students_erp (user_id TEXT PRIMARY KEY, student_id TEXT, login_id TEXT,
     username TEXT, korean_name TEXT, grade TEXT, school TEXT, status TEXT, signup_date TEXT,
     end_date TEXT, shop_name TEXT, franchise TEXT, hq_name TEXT, points INTEGER,
-    parent_phone TEXT, student_phone TEXT, phone TEXT, created_at INTEGER, updated_at INTEGER)`);
+    parent_phone TEXT, student_phone TEXT, phone TEXT, created_at INTEGER, updated_at INTEGER,
+    password_hash TEXT, parent_user_id TEXT, eval_band TEXT, last_login_at INTEGER)`);
   const DB = {
     exec: async (s) => { try { sq.exec(s); } catch {} },
     prepare: (sql) => { const mk = (b) => ({ sql, _b: b, bind: (...a) => mk(a),
@@ -155,10 +194,29 @@ export async function runCypher(env: any, q: string, params: any): Promise<any> 
   check('지정이 없는 학생의 이름은 카페24 값 그대로다',
         g('s1','korean_name') === '김민준', String(g('s1','korean_name')));
 
+  /* 🔒 (2026-08-28) «우리가 D1 에서만 관리하는 값» 이 야간 동기화에서 살아남는가.
+     [왜 검사하나] 이 임포트는 카페24 학생 전원을 지우고 다시 넣는다. 컬럼 목록에 없는 칸은
+        그때 전부 사라진다 — 전화번호가 그렇게 전멸했던 것이 2026-08-18 건이고,
+        password_hash·parent_user_id·eval_band 는 아직 그 상태였다(2026-08-28 실측 0건).
+        즉 학생이 비밀번호를 정해도 그날 밤 사라져서 «학생 비밀번호» 를 도입할 수 없었다.
+     [문자열로는 못 잡는다] INSERT OR REPLACE 로 되돌려도 코드는 «있고» 값도 맞다.
+        틀리는 것은 «다시 돌린 뒤에 남아 있는가» 뿐이라 실제로 두 번 돌려서 본다. */
+  sq.prepare(`UPDATE students_erp SET password_hash=?, parent_user_id=?, eval_band=?, last_login_at=? WHERE user_id='s1'`)
+    .run('HASH_KEEP_ME', 'parent_s1', 'band3', 1700000000000);
+
   // 야간 동기화가 매일 도는 상황 — 두 번 돌려도 지워지면 안 된다
   off = 0; for (;;) { const r = await M.importCafe24Students({ DB }, off, 2); if (r.done) break; off += 2; }
   check('다시 동기화해도 번호가 남아 있다 (야간 재실행)', g('s1','parent_phone') === '010-1111-2222',
         '재실행에서 지워지면 매일 밤 전멸한다');
+  check('야간 동기화가 학생 비밀번호를 지우지 않는다',
+        g('s1','password_hash') === 'HASH_KEEP_ME', '지워지면 학생이 정한 비밀번호가 하룻밤이면 사라진다');
+  check('야간 동기화가 학부모 연결을 지우지 않는다',
+        g('s1','parent_user_id') === 'parent_s1', '지워지면 학부모가 자녀 화면을 영영 못 본다');
+  check('야간 동기화가 수업평가 밴드를 지우지 않는다',
+        g('s1','eval_band') === 'band3', '지워지면 강사가 정한 밴드가 매일 밤 초기화된다');
+  check('그래도 카페24 값은 계속 덮어쓴다 (동기화가 죽으면 안 된다)',
+        g('s1','shop_name') === '강남점' && g('s1','korean_name') === '김민준',
+        '보존을 넣느라 카페24 갱신이 멈추면 그것대로 사고다');
 } catch (e) {
   check('실제 실행 검사', false, e?.message);
 } finally {
