@@ -173,9 +173,25 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   ok(/scFriend === 'emma'[\s\S]{0,80}SAY_CLIPS/.test(SC),
     '미리 만든 립싱크 클립(SAY_CLIPS)은 Emma 일 때만 쓴다',
     '다른 친구에게 틀면 「Jake 를 골랐는데 Emma 가 말한다」가 되고 에러는 안 난다');
-  ok(/ttsCache\[lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(SC),
+  /* ⚠️ 이 검사는 «코드 모양» 이 아니라 «뜻» 으로 묻는다.
+     2026-08-31 에 두 벌로 복사돼 있던 fetch 블록을 scFetchTtsUrl·scTtsKey 한 곳으로
+     모으자, 옛 형태(한 줄짜리 키 조립)를 통째로 못 박아 둔 검사가 «보장은 그대로인데»
+     FAIL 했다(CLAUDE.md 「객체 모양을 정규식으로 못 박아 두어 칸 하나 늘렸더니 FAIL」).
+     물어야 할 것은 ① 키를 만드는 자리가 화자를 넣는가 ② 캐시를 그 키로만 읽고 쓰는가 다. */
+  const scKeyFn = SC.match(/function scTtsKey\([^)]*\)\s*\{[^}]*\}/);
+  const scKeyHasSpeaker = (!!scKeyFn && /scSpeaker\(\)/.test(scKeyFn[0]))
+    || /ttsCache\[lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(SC);
+  const scKeyUses = [...SC.matchAll(/ttsCache\[([^\]]*)\]/g)].map((m) => m[1].trim());
+  // 지역 변수로 받아 쓰는 것도 «그 키에서 온 것» 이면 통과시킨다(const key = scTtsKey(…))
+  const scFromKeyVar = (k) => /^[A-Za-z_$][\w$]*$/.test(k)
+    && new RegExp('\\b(?:const|let|var)\\s+' + k + '\\s*=\\s*scTtsKey\\(').test(SC);
+  const scAllViaKey = scKeyUses.length > 0 && scKeyUses.every((k) =>
+    k.startsWith('scTtsKey(') || scFromKeyVar(k)
+    || /^lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(k));
+  ok(scKeyHasSpeaker && scAllViaKey,
     'TTS 캐시 키에 화자가 들어 있다',
-    '안 넣으면 친구를 바꿔도 먼저 받아 둔 남의 목소리가 그대로 재생된다');
+    '안 넣으면 친구를 바꿔도 먼저 받아 둔 남의 목소리가 그대로 재생된다'
+      + ` (키 사용 ${scKeyUses.length}곳: ${scKeyUses.join(' / ') || '없음'})`);
 
   if (WUV && AFP && CH) {
     const people = ['emma', 'jake', 'lily', 'noah'];

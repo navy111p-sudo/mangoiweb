@@ -226,6 +226,54 @@ ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오�
   ok(/function _ttsSpeak\(/.test(WU2) && !/\n\s{2,}function _ttsSpeak\(/.test(WU2),
     'warmup: _ttsSpeak 이 스크립트 «최상위» 에 있다',
     '다른 함수 안에 넣으면 바깥 호출부가 ReferenceError 인데 문자열 검사는 통과한다');
+
+  /* ⑦-2 같은 규칙이 «세 화면 전부» 에 있는가 (2026-08-31 사장님 「영어친구랑 음성코치도」)
+     화면마다 소리를 내는 통로가 다르다 — 웜업은 자기 fetch, AI 영어친구·게임들은 공용
+     모듈 js/game-tts.js, 음성코치는 자기 fetch. 한 곳만 고치면 「어떤 화면은 되고
+     어떤 화면은 그대로」가 되는데 에러는 안 난다(이 저장소가 반복해 밟은 형태). */
+  const GT = readFileSync(join(PUB, 'js', 'game-tts.js'), 'utf8');
+  ok(/tryNo\s*===\s*0|!tryNo/.test(GT) && /setTimeout\([^)]*attempt\(1\)|attempt\(1\)/.test(GT),
+    'game-tts: 한 번 실패했다고 곧바로 기기 목소리로 가지 않는다',
+    'AI 영어친구·판단력 훈련·게임 여러 종이 이 모듈 하나로 소리를 낸다');
+  ok(/synthSpeak\(text,/.test(GT), 'game-tts: 그래도 안 되면 기기 목소리로 읽는다(폴백 유지)');
+  ok(/X-TTS-Speaker/.test(GT) && /if\(!want \|\| !o\.got \|\| o\.got===want\) cache\[key\]=u;/.test(GT),
+    'game-tts: 서버가 대체한 화자의 음성은 캐시하지 않는다',
+    '캐시하면 그 문장이 세션 내내 남의 목소리로 굳는다');
+  ok(/noRetry\s*=\s*\(r\.status===429\|\|r\.status===503\)/.test(GT),
+    'game-tts: 뉴런 소진(429·503)에는 재시도하지 않는다');
+  /* ⚠️ 재시도가 «멈춘 뒤» 도착하면 마이크가 열린 채 AI 목소리가 재생된다
+     — 2026-07-23 「음성인식이 AI 말을 받아 적던」 사고의 재발 경로다. */
+  ok(/function stop\(\)\{\s*\n\s*seq\+\+;/.test(GT) && /mine!==seq/.test(GT),
+    'game-tts: stop() 이 번호를 올리고 늦게 온 응답이 물러난다',
+    '없으면 마이크를 켠 뒤에 AI 목소리가 재생돼 음성인식이 그것을 받아 적는다');
+
+  const SC = readFileSync(join(PUB, 'speech-coach.html'), 'utf8');
+  const scFn = SC.match(/async function scFetchTtsUrl\([\s\S]*?\n\}/);
+  ok(!!scFn, '음성코치: 서버 TTS 요청이 scFetchTtsUrl 한 곳에 모여 있다',
+    '예전에는 speakWord·speakTarget 이 같은 블록을 각자 복사해 갖고 있었다');
+  if (scFn) {
+    ok(/scFetchTtsUrl\(t, lang, 1\)/.test(scFn[0]),
+      '음성코치: 한 번 실패했다고 곧바로 기기 목소리로 가지 않는다');
+    ok(/X-TTS-Speaker/.test(scFn[0]) && /if \(!want \|\| !got \|\| got === want\)/.test(scFn[0]),
+      '음성코치: 서버가 대체한 화자의 음성은 캐시하지 않는다');
+    ok(/noRetry = \(resp\.status === 429 \|\| resp\.status === 503\)/.test(scFn[0]),
+      '음성코치: 뉴런 소진(429·503)에는 재시도하지 않는다');
+  }
+  ok((SC.match(/mine !== scTtsSeq/g) || []).length >= 2,
+    '음성코치: 두 발화 함수 모두 늦게 온 응답이 물러난다(scTtsSeq)',
+    '한쪽만 고치면 그 함수에서만 옛 문장이 새 문장을 덮는다');
+  ok(!/const resp = await fetch\('\/api\/voice\/tts'/.test(SC.replace(scFn ? scFn[0] : '', '')),
+    '음성코치: 헬퍼 밖에 남은 서버 TTS 복사본이 없다',
+    '복사본이 남으면 한쪽만 고쳐지는 사고가 그대로 재현된다');
+
+  // 공용 모듈을 «고정 버전» 으로 싣는 화면은 ?v= 가 함께 올라가야 옛 파일이 안 남는다
+  const pinned = ['ai-friend.html', 'judgment.html', 'battle-3d.html'];
+  for (const f of pinned) {
+    const h = readFileSync(join(PUB, f), 'utf8');
+    const m = h.match(/game-tts\.js\?v=(\d+)/);
+    ok(!!m && Number(m[1]) >= 6, `${f}: game-tts.js ?v= 가 6 이상이다`,
+      'immutable 캐시에 옛 모듈이 남으면 고친 화면만 안 고쳐진 것처럼 보인다');
+  }
 }
 
 console.log(`\n${pass} PASS / ${fail} 실패`);
