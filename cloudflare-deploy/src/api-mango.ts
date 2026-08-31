@@ -12,7 +12,7 @@
 import { runCypher } from './teacher-match';  // 🕸️ Neo4j 그래프 학생 명부
 import { studentScopeWhere, getScope } from './scope';
 import { selectInChunks } from './d1-chunk';   // 🔢 IN(...) 목록을 D1 바인드 100개 한도에 맞춰 분할
-import { checkAdminSession, resolveOwnerScope } from './auth-admin';  // 🔐 공용 소유자 판정
+import { checkAdminSession, resolveOwnerScope, getAdminActor } from './auth-admin';  // 🔐 공용 소유자 판정
 import { signRecDlSig } from './auth-token';  // 📼 녹화 1건 전용 다운로드 서명 (쿠키 못 싣는 모바일 다운로드용)
 import { applyPIIScope, canViewPII, maskRecordPII, isMaskedValue } from './pii-mask';  // 🔒 PII 권한별 마스킹
 import { type GiftishowEnv } from './giftishow-client';  // (MangoEnv 가 상속하는 타입만 사용)
@@ -34,7 +34,7 @@ import { authUidFromRequest as authUidGlobal, signUidToken } from './auth-token'
 import { sendPlainSms, type SolapiEnv } from './solapi-client';
 import { type EmailEnv } from './email';   // 📧 이메일(Resend) — MangoEnv 가 상속하는 타입만 사용
 import { broadcastWebPush } from './web-push';
-import { hiddenExcludeCond } from './student-override';   // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { hiddenExcludeCond, ensureStudentOverrideTable, applyStudentErpOverrides } from './student-override';   // 🧹 중복 학생계정 숨김·이름 고정(카페24 덮어쓰기 방지)
 
 export interface MangoEnv extends GiftishowEnv, SolapiEnv, EmailEnv {
   DB: D1Database;
@@ -3316,6 +3316,12 @@ ${numbered}`;
     {
       const m = path.match(/^\/api\/admin\/student\/([^\/]+)\/contact$/);
       if (m && method === 'PATCH') {
+        // 🔒 (2026-08-31) 강사 차단 — 이 경로는 학생 비밀번호·전화번호까지 바꿀 수 있는데
+        //   `/api/admin/` default-deny 게이트는 역할을 안 가려 강사 세션도 그대로 통과한다.
+        //   이름 편집을 추가하며 발견한 기존 구멍이라 같이 막는다(패턴은 대체강사 API와 동일).
+        const actor = await getAdminActor(request, env as any);
+        if (!actor.ok) return json({ ok: false, error: 'auth_required' }, 401);
+        if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
         await ensureStudentDetailSchema();
         const uid = decodeURIComponent(m[1]);
         const b = await parseJsonBody(request);
@@ -3339,18 +3345,62 @@ ${numbered}`;
           sets.push('password_hash = ?'); vals.push(ph);
           passwordChanged = true;
         }
-        if (sets.length === 0) {
+        // 🏷️ 이름(화면·검색이 읽는 students_erp.username/korean_name) — 카페24가 정본인 필드라
+        //   여기서 곧장 UPDATE 하면 다음 새벽 03:00 KST 동기화(importCafe24Students)가 통째로
+        //   되돌려 놓는다(CLAUDE.md 2장 「학생 이름·계정을 D1 에서 고치거나 지웠는데 다음날
+        //   원복됨」). student_erp_override 에 지정해 두면 동기화 «직후» 다시 입혀져 유지된다
+        //   — 정본 src/student-override.ts. uid(URL)는 student_id/login_id/username 중
+        //   하나로만 매칭되고 override는 진짜 PK(user_id)로 키를 잡으므로 먼저 조회해 확정한다.
+        let nameChanged = false;
+        let nameError: string | null = null;
+        if (typeof b.name === 'string') {
+          const newName = b.name.trim();
+          if (!newName) {
+            nameError = 'empty_name';
+          } else {
+            const row = await env.DB.prepare(
+              `SELECT user_id FROM students_erp WHERE student_id = ? OR login_id = ? OR username = ? LIMIT 1`
+            ).bind(uid, uid, uid).first<{ user_id: string }>();
+            if (!row || !row.user_id) {
+              nameError = 'student_not_found';
+            } else if (await ensureStudentOverrideTable(env as any)) {
+              const now = Date.now();
+              await env.DB.prepare(
+                `INSERT INTO student_erp_override (user_id, korean_name, hidden, memo, created_at, updated_at)
+                 VALUES (?, ?, 0, NULL, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET korean_name = excluded.korean_name, updated_at = excluded.updated_at`
+              ).bind(row.user_id, newName, now, now).run();
+              await applyStudentErpOverrides(env as any);   // 다음 동기화까지 기다리지 않고 즉시 반영
+              nameChanged = true;
+            } else {
+              nameError = 'override_table_unavailable';
+            }
+          }
+        }
+        if (sets.length === 0 && !nameChanged) {
+          if (nameError) return json({ ok: false, error: nameError }, nameError === 'empty_name' ? 400 : 404);
           return skippedMasked.length
             ? json({ ok: false, error: 'masked_values_rejected', skipped_masked: skippedMasked }, 400)
             : json({ ok: false, error: 'nothing_to_update' }, 400);
         }
-        sets.push('updated_at = ?'); vals.push(Date.now());
-        // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
-        vals.push(uid, uid, uid);
-        await env.DB.prepare(
-          `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
-        ).bind(...vals).run();
-        return json({ ok: true, updated_fields: sets.length - 1, skipped_masked: skippedMasked, password_changed: passwordChanged });
+        let updatedCount = 0;
+        if (sets.length > 0) {
+          sets.push('updated_at = ?'); vals.push(Date.now());
+          // student_id 우선, 없으면 login_id, 없으면 username 으로 매칭
+          vals.push(uid, uid, uid);
+          await env.DB.prepare(
+            `UPDATE students_erp SET ${sets.join(', ')} WHERE student_id = ? OR login_id = ? OR username = ?`
+          ).bind(...vals).run();
+          updatedCount = sets.length - 1;
+        }
+        return json({
+          ok: true,
+          updated_fields: updatedCount + (nameChanged ? 1 : 0),
+          name_changed: nameChanged,
+          name_error: nameError,
+          skipped_masked: skippedMasked,
+          password_changed: passwordChanged
+        });
       }
     }
 

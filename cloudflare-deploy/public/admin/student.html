@@ -566,7 +566,13 @@
       <div class="panel" data-panel="contact">
         <div class="add-form-card">
           <h4 data-ko="👨‍👩‍👧 학생 정보 편집" data-en="👨‍👩‍👧 Edit Student Info">👨‍👩‍👧 학생 정보 편집</h4>
+          <div style="font-size:11.5px;color:var(--mut);margin:-4px 0 10px"
+               data-ko="이름은 카페24 동기화 후에도 유지되도록 별도로 고정됩니다. 사이트 전체(검색·로그인 표시)에 즉시 반영됩니다."
+               data-en="The name is fixed so it survives the nightly Cafe24 sync. Takes effect site-wide (search, login display) immediately.">
+            이름은 카페24 동기화 후에도 유지되도록 별도로 고정됩니다. 사이트 전체(검색·로그인 표시)에 즉시 반영됩니다.
+          </div>
           <div class="grid-2">
+            <div class="form-row"><label data-ko="학생 이름"      data-en="Student Name">학생 이름</label><input id="cName" type="text" maxlength="40"></div>
             <div class="form-row"><label data-ko="학생 전화"      data-en="Student Phone">학생 전화</label><input id="cStudentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="부모님 전화"    data-en="Parent Phone">부모님 전화</label><input id="cParentPhone" type="tel"></div>
             <div class="form-row"><label data-ko="담임 교사 전화" data-en="Teacher Phone">담임 교사 전화</label><input id="cTeacherPhone" type="tel"></div>
@@ -829,6 +835,8 @@ const T = {
   pwMismatch:{ko:'비밀번호가 서로 일치하지 않습니다', en:'Passwords do not match'},
   pwTooShort:{ko:'비밀번호는 4자 이상이어야 합니다', en:'Password must be at least 4 characters'},
   pwChanged:{ko:' · 비밀번호 변경됨', en:' · password changed'},
+  nameReq:{ko:'이름을 입력하세요', en:'Enter a name'},
+  nameSaveFailed:{ko:' · ⚠️ 이름은 저장되지 않았습니다', en:' · ⚠️ Name was not saved'},
   // 리포트 카드
   rpReport:{ko:'학습 리포트', en:'Learning Report'},
   rpScore:{ko:'/100점', en:'/100'},
@@ -1633,7 +1641,7 @@ $('csAddBtn').addEventListener('click', async () => {
 function renderContact(){
   const erp = _state.full.erp || {};
   const map = {
-    cStudentPhone: erp.student_phone, cParentPhone: erp.parent_phone, cTeacherPhone: erp.teacher_phone,
+    cName: erp.username, cStudentPhone: erp.student_phone, cParentPhone: erp.parent_phone, cTeacherPhone: erp.teacher_phone,
     cKakao: erp.kakao_id, cParentKakao: erp.parent_kakao_id,
     cSchool: erp.school, cGrade: erp.grade, cBirth: erp.birth_date,
     cFranchise: erp.franchise, cShop: erp.shop_name,
@@ -1645,12 +1653,15 @@ function renderContact(){
 }
 
 $('cSaveBtn').addEventListener('click', async () => {
+  const newName = $('cName').value.trim();
+  if (!newName) { toast(t('nameReq'), true); return; }
   const pw = $('cPassword').value, pwConfirm = $('cPasswordConfirm').value;
   if (pw || pwConfirm) {
     if (pw !== pwConfirm) { toast(t('pwMismatch'), true); return; }
     if (pw.length < 4) { toast(t('pwTooShort'), true); return; }
   }
   const body = {
+    name: newName,
     student_phone: $('cStudentPhone').value || null,
     parent_phone: $('cParentPhone').value || null,
     teacher_phone: $('cTeacherPhone').value || null,
@@ -1673,8 +1684,19 @@ $('cSaveBtn').addEventListener('click', async () => {
     });
     const j = await r.json();
     if (r.ok && j.ok) {
-      toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')' + (j.password_changed ? t('pwChanged') : ''));
+      // ⚠️ (2026-08-31 trap-check 지적) 다른 필드는 저장됐는데 이름만 조용히 실패할 수 있음
+      //   (student_not_found 등) — ok:true 뒤에 숨지 않게 토스트에 그 사실을 함께 표시한다.
+      toast(t('contactSaved') + ' (' + (j.updated_fields||0) + t('contactFields') + ')'
+        + (j.password_changed ? t('pwChanged') : '')
+        + (!j.name_changed && j.name_error ? t('nameSaveFailed') : ''),
+        !j.name_changed && !!j.name_error);
       $('cPassword').value = ''; $('cPasswordConfirm').value = '';
+      // 이름은 별도 고정(override) 경로로 저장됨 — 성공했으면 화면 헤더·목록도 즉시 맞춘다
+      if (j.name_changed) {
+        _state.full.erp = _state.full.erp || {};
+        _state.full.erp.username = newName;
+        renderCard();
+      }
     }
     else toast(t('saveFailed') + ': ' + (j.error||r.status), true);
   } catch (e) { toast(t('netError'), true); }
