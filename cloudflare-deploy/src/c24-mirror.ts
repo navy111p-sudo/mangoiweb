@@ -46,6 +46,14 @@ export type MirrorMode = 'off' | 'whitelist' | 'all';
 export const MIRROR_SOURCE = 'c24-mirror';
 /** 사람이 손댄 미러 행 — 「사람 손이 이긴다」의 도장 */
 export const MIRROR_SOURCE_MANUAL = 'c24-mirror:manual';
+/** 미러 행의 notes 접두사 — `c24:511923` 처럼 카페24 수업 번호를 적어 둔다.
+    ⛔ 이 형식을 바꾸면 «사라진 수업 되짚기» 가 조용히 헛돈다(취소가 한 건도 안 된다). */
+export const MIRROR_NOTE_PREFIX = 'c24:';
+/** notes 에서 카페24 수업 번호를 되읽는다. 형식이 아니면 null. */
+export function mirrorNoteClassId(notes: any): string | null {
+  const m = String(notes ?? '').match(/(?:^|\s)c24:([A-Za-z0-9_-]+)/);
+  return m ? m[1] : null;
+}
 
 /** 카페24에서 읽어 온 수업 한 건 (Neo4j :Class 그대로) */
 export interface C24Class {
@@ -68,6 +76,9 @@ export interface ExistingRow {
   duration_min: number | null;
   source: string | null;
   status: string | null;
+  /** 미러가 «어느 카페24 수업으로 만든 행인가» 를 적어 두는 자리 (`c24:<class_id>`).
+      ⚠️ 이게 있어야 «카페24에서 사라진 수업» 을 되짚어 취소할 수 있다. */
+  notes?: string | null;
 }
 
 /** 카페24 강사번호 → 이름·원부번호 */
@@ -104,6 +115,8 @@ export interface PlanRow {
   student_name: string | null;
   verdict: Verdict;
   detail?: string;
+  /** 이 계획이 가리키는 기존 class_schedules 행(있을 때만). update 가 이 번호로 고친다. */
+  existing_id?: number | null;
 }
 
 /* ═══════════════ 순수 함수 (하니스가 이걸 실제로 돌린다) ═══════════════ */
@@ -212,7 +225,8 @@ export function planMirror(
       c24_teacher_id: c24tid, teacher_name: teacherName, teacher_id: teacherId,
       student_uid: uid, student_name: students.get(uid) ?? null,
     };
-    const push = (verdict: Verdict, detail?: string) => out.push({ ...base, verdict, detail });
+    const push = (verdict: Verdict, detail?: string, existingId?: number | null) =>
+      out.push({ ...base, verdict, detail, existing_id: existingId ?? null });
 
     // ── 1) 만들 수 없는 것부터 걸러 낸다. ⛔ 추측해서 잇지 않는다 ──
     if (!uid || !students.has(uid)) { push('no_student', uid ? `학생 계정 ${uid} 없음` : '학생 없음'); continue; }
@@ -233,16 +247,16 @@ export function planMirror(
     if (manual) {
       // 🔒 사람이 손댄 수업. 미러는 손대지 않는다. 값이 다르면 «어긋남» 으로 알린다.
       const sameTime = String(manual.start_time || '').slice(0, 5) === time;
-      if (sameTime) push('manual_locked', '사람이 고친 수업 — 미러가 건드리지 않습니다');
-      else push('diverged', `카페24 ${time} ↔ 망고아이 ${String(manual.start_time || '').slice(0, 5)} (사람이 고침)`);
+      if (sameTime) push('manual_locked', '사람이 고친 수업 — 미러가 건드리지 않습니다', manual.id);
+      else push('diverged', `카페24 ${time} ↔ 망고아이 ${String(manual.start_time || '').slice(0, 5)} (사람이 고침)`, manual.id);
       continue;
     }
     const mirrored = mine.find(e => String(e.source || '') === MIRROR_SOURCE);
     if (mirrored) {
       const sameTeacher = String(mirrored.teacher_id || '') === teacherId;
       const sameDur = Number(mirrored.duration_min || 0) === dur;
-      if (sameTeacher && sameDur) push('already');
-      else push('update', sameTeacher ? `수업 길이 ${mirrored.duration_min}분 → ${dur}분` : `강사 변경 → ${teacherName}`);
+      if (sameTeacher && sameDur) push('already', undefined, mirrored.id);
+      else push('update', sameTeacher ? `수업 길이 ${mirrored.duration_min}분 → ${dur}분` : `강사 변경 → ${teacherName}`, mirrored.id);
       continue;
     }
     const other = mine.find(e => String(e.source || '') !== MIRROR_SOURCE);
@@ -361,7 +375,7 @@ export async function loadStudents(env: MirrorEnv, uids: string[]): Promise<Map<
 export async function loadExisting(env: MirrorEnv, since: string, until: string): Promise<ExistingRow[]> {
   try {
     const rs: any = await env.DB.prepare(
-      `SELECT id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status
+      `SELECT id, user_id, teacher_id, scheduled_date, start_time, duration_min, source, status, notes
          FROM class_schedules
         WHERE scheduled_date IS NOT NULL AND scheduled_date >= ? AND scheduled_date <= ?`
     ).bind(since, until).all();
@@ -447,4 +461,179 @@ export async function c24MirrorReport(
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
   };
+}
+
+/* ═══════════════ 2단계 — 실제로 만든다 (쓰기) ═══════════════
+   2026-08-31 사장님 승인: 「Ana 한 사람만 켜서 실제로 만들어 보자」.
+
+   ⛔ 절대 규칙 (위 머리말 1~4번의 실행판)
+     · 손대는 행은 `source='c24-mirror'` **하나뿐**. 파일럿(`adm-enroll:*`)·수동 수업·
+       도장 찍힌 행(`c24-mirror:manual`)은 SQL 조건에서 애초에 제외한다.
+     · 만들 수 있는 것(`ok`)만 만든다. 강사·학생을 못 이었으면 **안 만든다**.
+     · 지우지 않는다 — `status='cancelled'` 로만 내린다(되돌릴 수 있다).
+     · dry_run 이 **기본값**이다. 「건수 확인 → 사람 확인 → 실행」 두 단계
+       (`purge-placeholders` 가 쓰는 것과 같은 방식).
+*/
+
+/** 실행 결과 — 계획과 실제를 «따로» 센다. 계획만 세고 못 쓴 것이 있으면 그대로 드러난다. */
+export interface MirrorApplyResult {
+  ok: true;
+  dry_run: boolean;
+  mode: MirrorMode;
+  since: string;
+  until: string;
+  enabled_teachers: string[];
+  planned: { create: number; update: number; cancel: number };
+  applied: { created: number; updated: number; cancelled: number };
+  summary: Record<Verdict, number>;
+  by_state: Record<string, number>;
+  /** 실제로 만든/고친/내린 것 (사람이 눈으로 확인할 수 있게) */
+  changes: { action: 'create' | 'update' | 'cancel'; class_id: string | null; date: string | null;
+             start_time: string | null; student: string | null; teacher_id: string | null; id?: number }[];
+  /** 못 한 것 — 조용히 삼키지 않는다 */
+  errors: string[];
+  /** ⚠️ 취소 단계를 건너뛴 이유(있을 때만). 「0건이었다」와 「안 봤다」는 다르다. */
+  cancel_skipped?: string;
+}
+
+/**
+ * 🔧 미러 실행. `dry_run` 이 true(기본)면 **한 줄도 쓰지 않고** 계획만 돌려준다.
+ *
+ * @param opt.dry_run  기본 true. false 로 줘야 실제로 쓴다.
+ * @param opt.only_teacher_id  원부번호 하나로 더 좁힌다(첫 시험용). 화이트리스트와 **둘 다** 만족해야 한다.
+ */
+export async function applyMirror(
+  env: MirrorEnv,
+  runCypher: (env: any, q: string, p: Record<string, unknown>, m: 'READ' | 'WRITE') => Promise<{ fields: string[]; values: any[][] }>,
+  opt: { since?: string; until?: string; dry_run?: boolean; only_teacher_id?: string; actor?: string } = {},
+): Promise<MirrorApplyResult> {
+  await ensureMirrorTables(env);
+  const dryRun = opt.dry_run !== false;         // ⛔ 기본은 «안 쓴다». 명시적으로 false 를 줘야 쓴다.
+  const actor = String(opt.actor || 'c24-mirror');
+  const kstToday = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+  const since = opt.since || kstToday;
+  const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
+
+  const [mode, enabled] = await Promise.all([getMirrorMode(env), getMirrorTeachers(env)]);
+  const classes = await fetchC24Classes(env, runCypher, since, until);
+  const [links, students, existing] = await Promise.all([
+    loadTeacherLinks(env, classes.map(c => c.teacher_id)),
+    loadStudents(env, classes.map(c => c.user_id)),
+    loadExisting(env, since, until),
+  ]);
+
+  const rows = planMirror(classes, links, students, existing, mode, enabled);
+  const summary = summarize(rows);
+  const byState: Record<string, number> = {};
+  for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
+
+  /* 「이번 실행이 손댈 강사」 — 화이트리스트 ∩ only_teacher_id.
+     ⛔ only_teacher_id 를 준다고 화이트리스트를 건너뛰지 않는다(둘 다 만족해야 함). */
+  const touch = (tid: string | null): boolean => {
+    if (!tid) return false;
+    if (opt.only_teacher_id && String(opt.only_teacher_id) !== tid) return false;
+    return mode === 'all' || enabled.has(tid);
+  };
+
+  const creates = rows.filter(r => r.verdict === 'ok' && touch(r.teacher_id));
+  const updates = rows.filter(r => r.verdict === 'update' && touch(r.teacher_id) && r.existing_id);
+
+  /* ── 카페24에서 «사라진» 수업 되짚기 ──────────────────────────────
+     카페24가 정본이므로 없어진 수업은 망고아이에서도 내려야 한다.
+     🔴 그런데 이 단계가 제일 위험하다 — 카페24 조회가 한 번 비면 그 순간 전부 내려간다.
+        그래서 «비면 아예 손대지 않는다». teacher-match.ts 의 「강사 0건이면 전체
+        비활성화 사고 방지로 skip」 과 같은 방어다. 건너뛰면 그 이유를 결과에 적는다. */
+  let cancels: ExistingRow[] = [];
+  let cancelSkipped: string | undefined;
+  if (!classes.length) {
+    cancelSkipped = '카페24에서 읽은 수업이 0건 — 취소 단계를 건너뜁니다(조회 실패와 구분할 수 없습니다)';
+  } else {
+    const liveIds = new Set(classes.map(c => String(c.class_id)));
+    cancels = existing.filter(e =>
+      String(e.source || '') === MIRROR_SOURCE          // ⛔ 내가 만든 행만
+      && String(e.status || '') !== 'cancelled'
+      && touch(e.teacher_id == null ? null : String(e.teacher_id))
+      && (() => { const cid = mirrorNoteClassId(e.notes); return !!cid && !liveIds.has(cid); })());
+  }
+
+  const result: MirrorApplyResult = {
+    ok: true, dry_run: dryRun, mode, since, until,
+    enabled_teachers: Array.from(enabled).sort(),
+    planned: { create: creates.length, update: updates.length, cancel: cancels.length },
+    applied: { created: 0, updated: 0, cancelled: 0 },
+    summary, by_state: byState, changes: [], errors: [],
+  };
+  if (cancelSkipped) result.cancel_skipped = cancelSkipped;
+
+  const brief = (action: 'create' | 'update' | 'cancel', r: PlanRow) => ({
+    action, class_id: r.class_id, date: r.date, start_time: r.start_time,
+    student: r.student_name || r.student_uid, teacher_id: r.teacher_id,
+  });
+  if (dryRun) {
+    for (const r of creates) result.changes.push(brief('create', r));
+    for (const r of updates) result.changes.push(brief('update', r));
+    for (const e of cancels) result.changes.push({ action: 'cancel', class_id: mirrorNoteClassId(e.notes),
+      date: e.scheduled_date, start_time: e.start_time, student: e.user_id, teacher_id: e.teacher_id, id: e.id });
+    return result;
+  }
+
+  const now = Date.now();
+  for (const r of creates) {
+    try {
+      await env.DB.prepare(
+        `INSERT INTO class_schedules
+           (user_id, student_name, schedule_kind, class_type, scheduled_date, start_time,
+            duration_min, teacher_id, status, source, created_by, created_at, notes)
+         VALUES (?, ?, 'one_off', 'regular', ?, ?, ?, ?, 'active', ?, ?, ?, ?)`
+      ).bind(r.student_uid, r.student_name, r.date, r.start_time, r.duration_min,
+             r.teacher_id, MIRROR_SOURCE, actor, now, MIRROR_NOTE_PREFIX + r.class_id).run();
+      result.applied.created++;
+      result.changes.push(brief('create', r));
+    } catch (e: any) { result.errors.push(`create ${r.class_id}: ${String(e?.message || e)}`); }
+  }
+  for (const r of updates) {
+    try {
+      /* ⛔ WHERE 에 source 를 반드시 건다 — 그 사이 사람이 손댔으면(도장이 찍혔으면)
+         이 UPDATE 는 0행이 되어 «사람 손이 이긴다» 가 경합 상황에서도 지켜진다. */
+      await env.DB.prepare(
+        `UPDATE class_schedules SET start_time = ?, duration_min = ?, teacher_id = ?, updated_at = ?
+          WHERE id = ? AND source = ?`
+      ).bind(r.start_time, r.duration_min, r.teacher_id, now, r.existing_id, MIRROR_SOURCE).run();
+      result.applied.updated++;
+      result.changes.push({ ...brief('update', r), id: r.existing_id ?? undefined });
+    } catch (e: any) { result.errors.push(`update ${r.class_id}: ${String(e?.message || e)}`); }
+  }
+  for (const e of cancels) {
+    try {
+      await env.DB.prepare(
+        `UPDATE class_schedules SET status='cancelled', updated_at = ? WHERE id = ? AND source = ?`
+      ).bind(now, e.id, MIRROR_SOURCE).run();
+      result.applied.cancelled++;
+      result.changes.push({ action: 'cancel', class_id: mirrorNoteClassId(e.notes), date: e.scheduled_date,
+        start_time: e.start_time, student: e.user_id, teacher_id: e.teacher_id, id: e.id });
+    } catch (err: any) { result.errors.push(`cancel ${e.id}: ${String(err?.message || err)}`); }
+  }
+  return result;
+}
+
+/** 모드 바꾸기 (off | whitelist | all) */
+export async function setMirrorMode(env: MirrorEnv, mode: MirrorMode): Promise<void> {
+  await ensureMirrorTables(env);
+  await env.DB.prepare(
+    `INSERT INTO c24_mirror_config (k, v, updated_at) VALUES ('mode', ?, ?)
+       ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at`
+  ).bind(mode, Date.now()).run();
+}
+
+/** 강사 한 명 켜기/끄기 (원부번호 기준) */
+export async function setMirrorTeacher(
+  env: MirrorEnv, teacherId: string, enabled: boolean, actor?: string, note?: string,
+): Promise<void> {
+  await ensureMirrorTables(env);
+  await env.DB.prepare(
+    `INSERT INTO c24_mirror_teachers (teacher_id, enabled, note, updated_by, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(teacher_id) DO UPDATE SET enabled = excluded.enabled, note = excluded.note,
+         updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+  ).bind(String(teacherId), enabled ? 1 : 0, note ?? null, actor ?? null, Date.now()).run();
 }

@@ -29,7 +29,8 @@ import { selectInChunks } from './d1-chunk';   // 🔢 IN 목록은 공용 헬�
 import { loadRateOverrides, resolveHqRate, DEFAULT_HQ_RATE, type RateOverrides } from './org-settlement';
 import { xlsxResponse, type Sheet as XlsxSheet } from './xlsx';   // 📊 진짜 엑셀(.xlsx) 내보내기
 import { bankacctStatus } from './bankacct-sync';   // 🏦 계좌 연동 상태 한 줄 — «왜 비어 있는지» 를 화면에 그대로 말해 준다   // 🔒 마감·해제는 본사(hq)만 — 권한 판정은 scope.ts 한 곳에서
-import { c24MirrorReport } from './c24-mirror';     // 🪞 카페24 → 망고아이 시간표 미러(그림자 리포트)
+import { c24MirrorReport, applyMirror, setMirrorMode, setMirrorTeacher } from './c24-mirror';  // 🪞 카페24 → 망고아이 시간표 미러
+import { getAdminActor, isOrgScopedRole } from './auth-admin';   // 🔐 쓰기 API 는 강사·조직계정을 각각 따로 막는다
 import { runCypher } from './teacher-match';        //    ↑ 가 쓰는 Neo4j 조회기 — 주입해서 넘긴다(테스트에서 갈아끼우려고)
 
 interface Env {
@@ -663,6 +664,55 @@ export async function reportsRouter(request: Request, env: Env): Promise<Respons
         return json({ ok: false, error: 'c24_unreachable', message: String(e?.message || e) }, 502);
       }
     }
+
+    /* 🔧 미러 «실행» (쓰기) — 2026-08-31 사장님 승인 「Ana 한 사람만 켜서 실제로 만들어 보자」
+         POST /api/admin/reports/c24-mirror/apply     { dry_run?, since?, until?, only_teacher_id? }
+         POST /api/admin/reports/c24-mirror/mode      { mode: 'off'|'whitelist'|'all' }
+         POST /api/admin/reports/c24-mirror/teacher   { teacher_id, enabled, note? }
+
+       🔐 게이트가 **둘**이다. 하나로 뭉치면 반드시 새어 나간다(CLAUDE.md 2장):
+         · 강사      — getAdminActor().isTeacher
+         · 지사·대리점 — isOrgScopedRole(role)
+       ⛔ canEditOrg() 로 막지 말 것 — 그 함수는 'none'(내부직원·**교사**)에도 true 다. */
+    if (p.startsWith('c24-mirror/')) {
+      if (request.method.toUpperCase() !== 'POST') return err('method not allowed', 405);
+      const actor = await getAdminActor(request, env as any);
+      if (actor.isTeacher) return json({ ok: false, error: 'forbidden_teacher' }, 403);
+      if (isOrgScopedRole((actor as any).role)) return json({ ok: false, error: 'forbidden_scope' }, 403);
+      const body: any = await request.json().catch(() => ({}));
+
+      if (p === 'c24-mirror/mode') {
+        const m = String(body?.mode || '');
+        if (m !== 'off' && m !== 'whitelist' && m !== 'all') return json({ ok: false, error: 'invalid_mode' }, 400);
+        await setMirrorMode(env as any, m);
+        return json({ ok: true, mode: m });
+      }
+      if (p === 'c24-mirror/teacher') {
+        const tid = String(body?.teacher_id ?? '').trim();
+        if (!tid) return json({ ok: false, error: 'teacher_id_required' }, 400);
+        await setMirrorTeacher(env as any, tid, body?.enabled !== false, actor.name || 'admin',
+          body?.note == null ? undefined : String(body.note).slice(0, 200));
+        return json({ ok: true, teacher_id: tid, enabled: body?.enabled !== false });
+      }
+      if (p === 'c24-mirror/apply') {
+        try {
+          /* ⛔ dry_run 은 «명시적으로 false 일 때만» 실행이다.
+             빠뜨리거나 오타가 나면 «세어 보기» 로 안전하게 떨어진다. */
+          const r = await applyMirror(env as any, runCypher as any, {
+            since: url.searchParams.get('since') || body?.since || undefined,
+            until: url.searchParams.get('until') || body?.until || undefined,
+            dry_run: body?.dry_run === false ? false : true,
+            only_teacher_id: body?.only_teacher_id == null ? undefined : String(body.only_teacher_id),
+            actor: actor.name || 'admin',
+          });
+          return json(r);
+        } catch (e: any) {
+          return json({ ok: false, error: 'c24_unreachable', message: String(e?.message || e) }, 502);
+        }
+      }
+      return err('not found: ' + p, 404);
+    }
+
     return err('not found: ' + p, 404);
   } catch (e: any) {
     return err(e?.message || 'internal error', 500);
