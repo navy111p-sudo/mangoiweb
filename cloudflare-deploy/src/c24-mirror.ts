@@ -89,6 +89,14 @@ export interface PlanRow {
   date: string;
   start_time: string;
   duration_min: number;
+  /* 🔎 (2026-08-31) 카페24 원본 상태값을 «뭉개지 말고 그대로» 싣는다.
+     발단: 그림자 1일차에 사장님이 「허윤아 17:00 은 Zee 뿐이고 Kes·Sid 는 없다」고 확인해 주셨다.
+     그런데 그 넷이 `attendance` 에서는 전부 status='scheduled' 로 똑같이 보인다 —
+     importCafe24Attendance 가 «2면 present, 아니면 scheduled» 로 **두 값으로 뭉개기** 때문이다.
+     ⟹ 유령 수업을 가려낼 단서가 그 뭉갬에서 사라진다. 그래서 여기서는 원본을 그대로 둔다.
+     ⛔ 이 값의 «뜻» 을 추측해서 판정에 쓰지 말 것 — 무엇이 취소인지는 카페24가 정한다.
+        지금은 **보여 주기만** 하고, 뜻이 확인된 뒤에 거르는 것이 순서다. */
+  class_state: number;
   c24_teacher_id: string | null;
   teacher_name: string | null;
   teacher_id: string | null;
@@ -200,7 +208,7 @@ export function planMirror(
 
     const base = {
       class_id: String(c.class_id || ''),
-      date, start_time: time, duration_min: dur,
+      date, start_time: time, duration_min: dur, class_state: Number(c.class_state) || 0,
       c24_teacher_id: c24tid, teacher_name: teacherName, teacher_id: teacherId,
       student_uid: uid, student_name: students.get(uid) ?? null,
     };
@@ -399,6 +407,7 @@ export async function c24MirrorReport(
 ): Promise<{
   ok: true; mode: MirrorMode; since: string; until: string;
   total: number; summary: Record<Verdict, number>;
+  by_state: Record<string, number>;
   by_date: { date: string; total: number; ok: number; blocked: number }[];
   rows: PlanRow[];
 }> {
@@ -427,9 +436,14 @@ export async function c24MirrorReport(
     byDate.set(r.date, d);
   }
 
+  /* 🔎 카페24 원본 상태값 분포 — «유령 수업» 을 가려낼 단서가 여기 있는지 보려는 것이다.
+     값이 한 가지뿐이면 상태로는 못 가른다는 뜻이고, 그때는 다른 속성을 찾아야 한다. */
+  const byState: Record<string, number> = {};
+  for (const r of rows) byState[String(r.class_state)] = (byState[String(r.class_state)] || 0) + 1;
+
   return {
     ok: true, mode, since, until,
-    total: rows.length, summary,
+    total: rows.length, summary, by_state: byState,
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
   };
