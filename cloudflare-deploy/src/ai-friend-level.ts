@@ -47,8 +47,20 @@
  */
 
 export interface AiFriendLevelSpec {
-  /** 한 문장의 최대 단어 수. 0 = 제한 없음(C1) */
+  /** 프롬프트에 적는 «목표» 단어 수. 0 = 제한 없음(C1) */
   maxWordsPerSentence: number;
+  /**
+   * 이 수를 «넘겨야» 다시 뽑기가 걸립니다(목표 + 여유 2~3).
+   * 🔴 2026-08-31 사고 — 목표를 곧 상한으로 쓰면 모델이 단어 수를 맞추려고 «문법 낱말» 부터 버립니다.
+   *    사장님 화면 실측(S1): 「Great try! You have dog?」·「Nice sentence! Dog is healthy?」·
+   *    「Great try! Dog is big?」 — Do·Is·a·the 가 통째로 빠진 전보문입니다.
+   *    ⚠️ 길이 검사는 셋 다 ok 로 통과시켰습니다(단어만 세니까요).
+   *    ⚠️ 정작 «올바른» 문장은 「Do you have a dog?」5단어 ·「Is the dog big?」4단어로 상한 «안» 입니다
+   *       — 즉 길이가 원인이 아니라 «문법이 우선이라고 안 적은 것» 이 원인이었습니다.
+   *    📜 같은 뿌리가 CLAUDE.md 에 이미 있습니다(판단력 훈련 「선택지 5단어 이하」가 to 를 떨어뜨린 건).
+   *       그 줄을 읽고도 같은 실수를 했으므로, 이제 규격이 «문법이 이긴다» 를 코드로 들고 있습니다.
+   */
+  hardMaxWordsPerSentence: number;
   /** 답변 전체의 최대 문장 수 — 되묻는 질문 1개를 «포함한» 수입니다 */
   maxSentences: number;
   /** 프롬프트에 넣을 영어 지시 */
@@ -66,36 +78,36 @@ export const AI_FRIEND_LEVELS: Record<string, AiFriendLevelSpec> = {
      "How are you?" 도 초보에게는 벽입니다(답을 스스로 만들어야 하니까요).
      고를 말이 질문 «안» 에 있어야 합니다. 그래서 S1 은 Yes/No 만, S2 는 양자택일까지입니다. */
   S1: {
-    maxWordsPerSentence: 5, maxSentences: 2, plain: true,
-    rule: 'CEFR A1 (absolute beginner). Every sentence must be 3-5 words long. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Ask ONLY yes/no questions the student can answer with "Yes." or "No." — never a wh- question, never "or". Your whole reply must be at most 2 sentences: one short cheer and ONE short question.',
+    maxWordsPerSentence: 5, hardMaxWordsPerSentence: 7, maxSentences: 2, plain: true,
+    rule: 'CEFR A1 (absolute beginner). GRAMMAR COMES FIRST — a short broken sentence is worse than a slightly longer correct one. Never drop "a", "an", "the", "do", "does", "is" or "are" to save a word. Every question must begin with Do / Does / Is / Are / Can. Correct: "Do you have a dog?" "Is the dog big?" — NEVER "You have dog?" or "Dog is big?". Aim for 3-5 words per sentence. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Ask ONLY yes/no questions the student can answer with "Yes." or "No." — never a wh- question, never "or". Your whole reply must be at most 2 sentences: one short cheer and ONE short question.',
   },
   S2: {
-    maxWordsPerSentence: 7, maxSentences: 3, plain: true,
-    rule: 'CEFR A2 (beginner). Every sentence must be 5-7 words long. Everyday words only, present tense mostly. Ask a yes/no question or an either/or question where BOTH choices are inside your question — the student must be able to answer by copying words you just said. Your whole reply must be at most 3 short sentences, ending with ONE short question.',
+    maxWordsPerSentence: 7, hardMaxWordsPerSentence: 9, maxSentences: 3, plain: true,
+    rule: 'CEFR A2 (beginner). GRAMMAR COMES FIRST — a short broken sentence is worse than a slightly longer correct one. Never drop "a", "an", "the", "do", "does", "is" or "are" to save a word. Every question must begin with Do / Does / Is / Are / Can. Correct: "Do you have a dog?" "Is the dog big?" — NEVER "You have dog?" or "Dog is big?". Aim for 5-7 words per sentence. Everyday words only, present tense mostly. Ask a yes/no question or an either/or question where BOTH choices are inside your question — the student must be able to answer by copying words you just said. Your whole reply must be at most 3 short sentences, ending with ONE short question.',
   },
   S3: {
-    maxWordsPerSentence: 9, maxSentences: 3, plain: true,
-    rule: 'CEFR A2+ (beginner, moving up). Every sentence must be 7-9 words long. Everyday words; present and present-continuous, and simple past is fine now. Your whole reply must be at most 3 sentences, ending with ONE question.',
+    maxWordsPerSentence: 9, hardMaxWordsPerSentence: 11, maxSentences: 3, plain: true,
+    rule: 'CEFR A2+ (beginner, moving up). GRAMMAR COMES FIRST — a short broken sentence is worse than a slightly longer correct one. Never drop articles or auxiliaries to save a word. Every question must begin with Do / Does / Is / Are / Can or a question word (What / Where / Who / How). Correct: "Do you have a dog?" "Is the dog big?" — NEVER "You have dog?" or "Dog is big?". Aim for 7-9 words per sentence. Everyday words; present and present-continuous, and simple past is fine now. Your whole reply must be at most 3 sentences, ending with ONE question.',
   },
   S4: {
-    maxWordsPerSentence: 12, maxSentences: 3, plain: false,
-    rule: 'CEFR B1 (lower-intermediate). Keep every sentence under 12 words. You may use past tense and simple linkers (and / but / because). Your whole reply must be at most 3 sentences, ending with ONE question.',
+    maxWordsPerSentence: 12, hardMaxWordsPerSentence: 14, maxSentences: 3, plain: false,
+    rule: 'CEFR B1 (lower-intermediate). Every sentence must be complete, grammatically correct English — never drop articles or auxiliaries just to be short. Keep every sentence under 12 words. You may use past tense and simple linkers (and / but / because). Your whole reply must be at most 3 sentences, ending with ONE question.',
   },
   S5: {
-    maxWordsPerSentence: 15, maxSentences: 3, plain: false,
-    rule: 'CEFR B1+ (intermediate). Keep every sentence under 15 words. Varied tenses, reasons and comparisons are fine. At most 3 sentences, ending with ONE question.',
+    maxWordsPerSentence: 15, hardMaxWordsPerSentence: 17, maxSentences: 3, plain: false,
+    rule: 'CEFR B1+ (intermediate). Every sentence must be complete, grammatically correct English — never drop articles or auxiliaries just to be short. Keep every sentence under 15 words. Varied tenses, reasons and comparisons are fine. At most 3 sentences, ending with ONE question.',
   },
   S6: {
-    maxWordsPerSentence: 18, maxSentences: 4, plain: false,
-    rule: 'CEFR B2 (upper-intermediate). Keep every sentence under 18 words. Natural phrasing, conditionals, relative clauses and easy idioms are fine. At most 4 sentences, ending with ONE question.',
+    maxWordsPerSentence: 18, hardMaxWordsPerSentence: 20, maxSentences: 4, plain: false,
+    rule: 'CEFR B2 (upper-intermediate). Every sentence must be complete, grammatically correct English — never drop articles or auxiliaries just to be short. Keep every sentence under 18 words. Natural phrasing, conditionals, relative clauses and easy idioms are fine. At most 4 sentences, ending with ONE question.',
   },
   S7: {
-    maxWordsPerSentence: 22, maxSentences: 4, plain: false,
-    rule: 'CEFR B2+ (advanced-ish). Keep every sentence under 22 words. Use the phrasal verbs, linkers and idioms a native friend really uses, and ask a deeper follow-up. At most 4 sentences, ending with ONE question.',
+    maxWordsPerSentence: 22, hardMaxWordsPerSentence: 24, maxSentences: 4, plain: false,
+    rule: 'CEFR B2+ (advanced-ish). Every sentence must be complete, grammatically correct English — never drop articles or auxiliaries just to be short. Keep every sentence under 22 words. Use the phrasal verbs, linkers and idioms a native friend really uses, and ask a deeper follow-up. At most 4 sentences, ending with ONE question.',
   },
   S8: {
-    maxWordsPerSentence: 0, maxSentences: 4, plain: false,
-    rule: 'CEFR C1 (advanced). Speak naturally and fluently like a native friend. Nuance and abstract topics are welcome. At most 4 sentences, ending with ONE question.',
+    maxWordsPerSentence: 0, hardMaxWordsPerSentence: 0, maxSentences: 4, plain: false,
+    rule: 'CEFR C1 (advanced). Every sentence must be complete, grammatically correct English — never drop articles or auxiliaries just to be short. Speak naturally and fluently like a native friend. Nuance and abstract topics are welcome. At most 4 sentences, ending with ONE question.',
   },
 };
 
@@ -165,6 +177,53 @@ export function aiFriendSplitSentences(text: string): string[] {
     .filter(function (s) { return aiFriendCountWords(s) > 0; });
 }
 
+/* ── 전보문 의문문 검출 ─────────────────────────────────────────────────────
+   🔴 2026-08-31 사장님 화면에서 나온 것: 「You have dog?」·「Dog is healthy?」·「Dog is big?」
+      단어 수는 규격 «안» 이라 길이 검사가 전부 통과시켰습니다. 틀린 것은 «문장의 꼴» 입니다.
+   ⚠️ 기초 단계(plain)에서만 봅니다 — 상급에서는 「So you like dogs?」 같은 구어체가 정상이라
+      넓히면 멀쩡한 문장을 잡습니다.
+   ⛔ 관사 빠짐(「Do you have dog?」)까지는 못 잡습니다 — 품사 분석이 필요하고, 명사 목록을
+      손으로 박으면 대부분을 놓치면서 엉뚱한 것만 잡습니다. 그쪽은 프롬프트의 예시가 맡습니다. */
+const Q_AUX = new Set(['do', 'does', 'did', 'is', 'are', 'am', 'was', 'were', 'can', 'could', 'will',
+  'would', 'shall', 'should', 'have', 'has', 'had', 'may', 'might', 'must',
+  "don't", "doesn't", "didn't", "isn't", "aren't", "wasn't", "weren't", "can't", "couldn't",
+  "won't", "wouldn't", "shouldn't", "haven't", "hasn't", "hadn't"]);
+const Q_WH = new Set(['who', 'what', 'when', 'where', 'why', 'how', 'which', 'whose', 'whom']);
+/** 한 낱말짜리 되묻기는 자연스럽습니다 — 「Really?」·「And you?」 */
+const Q_ONEWORD = new Set(['really', 'right', 'ok', 'okay', 'yes', 'no', 'yeah', 'sure', 'huh', 'pardon', 'sorry',
+  'you', 'me', 'him', 'her', 'them', 'us', 'what', 'why', 'how', 'when', 'where']);
+/** 조동사 뒤에 와야 하는 것 — 대명사·한정사(아니면 고유명사) */
+const Q_AFTER_AUX = new Set(['i', 'you', 'he', 'she', 'it', 'we', 'they', 'there', 'this', 'that', 'these', 'those',
+  'a', 'an', 'the', 'my', 'your', 'his', 'her', 'its', 'our', 'their',
+  'any', 'some', 'many', 'much', 'one', 'two', 'three', 'both', 'all', 'everyone', 'everybody', 'anyone', 'anybody']);
+const Q_LEAD = new Set(['oh', 'ok', 'okay', 'so', 'well', 'hey', 'wow', 'hmm', 'and', 'but', 'great', 'nice', 'cool', 'yes', 'no']);
+
+/**
+ * 그 답변에서 «꼴이 깨진 의문문» 을 골라냅니다. 없으면 빈 배열.
+ * ⛔ 여기서 문장을 «고치려» 하지 마세요 — 고쳐 쓰면 아이가 따라 읽을 문장을 코드가 지어내는 것이
+ *    됩니다. 여기서는 «틀렸다» 만 말하고, 고치는 것은 모델에게 다시 시킵니다(aiFriendShortenHint).
+ */
+export function aiFriendBrokenQuestions(reply: string, level: string): string[] {
+  const spec = aiFriendLevelSpec(level);
+  if (!spec.plain) return [];
+  const bad: string[] = [];
+  for (const sent of aiFriendSplitSentences(reply)) {
+    if (sent.indexOf('?') < 0) continue;
+    const raw = sent.match(/[A-Za-z][A-Za-z'’-]*/g) || [];
+    if (!raw.length) continue;
+    let i = 0;
+    while (i < raw.length - 1 && Q_LEAD.has(raw[i].toLowerCase())) i++;   // 「Oh, do you …?」
+    const first = raw[i].toLowerCase();
+    if (raw.length - i === 1) { if (!Q_ONEWORD.has(first)) bad.push(sent); continue; }
+    if (Q_WH.has(first)) continue;
+    if (!Q_AUX.has(first)) { bad.push(sent); continue; }                  // 「You have dog?」·「Dog is big?」
+    const nextRaw = raw[i + 1];
+    const isProper = /^[A-Z]/.test(nextRaw);                             // 「Is Noah your friend?」
+    if (!isProper && !Q_AFTER_AUX.has(nextRaw.toLowerCase())) bad.push(sent);  // 「Is dog big?」
+  }
+  return bad;
+}
+
 /**
  * 눈높이에 맞는 길이인가. 넘치면 왜 넘쳤는지도 함께 돌려줍니다(로그·하니스용).
  * ⚠️ «판별 유니온» 으로 만들지 마세요 — 이 저장소는 strictNullChecks:false 라 좁히기가
@@ -172,18 +231,26 @@ export function aiFriendSplitSentences(text: string): string[] {
  */
 export function aiFriendMeasureReply(reply: string, level: string): {
   ok: boolean; sentences: number; maxSentences: number;
-  worstWords: number; maxWordsPerSentence: number;
+  worstWords: number; maxWordsPerSentence: number; hardMaxWordsPerSentence: number;
+  broken: string[]; score: number;
 } {
   const spec = aiFriendLevelSpec(level);
   const parts = aiFriendSplitSentences(reply);
   let worst = 0;
   for (const p of parts) worst = Math.max(worst, aiFriendCountWords(p));
-  const overSentences = parts.length > spec.maxSentences;
-  const overWords = spec.maxWordsPerSentence > 0 && worst > spec.maxWordsPerSentence;
+  const broken = aiFriendBrokenQuestions(reply, level);
+  const overSentences = Math.max(0, parts.length - spec.maxSentences);
+  // ⚠️ 판정은 «목표» 가 아니라 «여유 상한» 으로 합니다 — 문법을 지키다 한두 낱말 넘는 것은 봐줍니다.
+  const overWords = spec.hardMaxWordsPerSentence > 0 ? Math.max(0, worst - spec.hardMaxWordsPerSentence) : 0;
   return {
-    ok: !overSentences && !overWords,
+    ok: !overSentences && !overWords && broken.length === 0,
     sentences: parts.length, maxSentences: spec.maxSentences,
     worstWords: worst, maxWordsPerSentence: spec.maxWordsPerSentence,
+    hardMaxWordsPerSentence: spec.hardMaxWordsPerSentence,
+    broken: broken,
+    /* 다시 뽑은 답을 «더 나을 때만» 받기 위한 점수(낮을수록 좋음).
+       ⚠️ 깨진 문법에 제일 큰 무게를 둡니다 — 조금 길어도 «올바른» 문장이 낫습니다. */
+    score: broken.length * 100 + overWords * 10 + overSentences,
   };
 }
 
@@ -192,12 +259,18 @@ export function aiFriendShortenHint(reply: string, level: string): string {
   const m = aiFriendMeasureReply(reply, level);
   const spec = aiFriendLevelSpec(level);
   const bits: string[] = [];
+  if (m.broken.length) {
+    // 틀린 문장을 그대로 보여 줍니다 — «어디가» 틀렸는지 모르면 모델이 같은 것을 또 만듭니다.
+    bits.push('this is not correct English: "' + m.broken.join('" "') + '"'
+      + ' (a question must begin with Do / Does / Is / Are / Can or a question word, and must keep "a", "an", "the")');
+  }
   if (m.sentences > m.maxSentences) bits.push('you wrote ' + m.sentences + ' sentences but the limit is ' + m.maxSentences);
-  if (spec.maxWordsPerSentence > 0 && m.worstWords > spec.maxWordsPerSentence) {
+  if (spec.hardMaxWordsPerSentence > 0 && m.worstWords > spec.hardMaxWordsPerSentence) {
     bits.push('your longest sentence has ' + m.worstWords + ' words but the limit is ' + spec.maxWordsPerSentence);
   }
-  return '(That reply is too hard for this student — ' + bits.join(', ') + '. Say the SAME idea again, much shorter. '
-    + spec.rule + ' Keep the cheer and the question, drop everything else.)';
+  return '(That reply does not work for this student — ' + bits.join('; ') + '. Say the SAME idea again. '
+    + spec.rule + ' Keep the cheer and the question, drop everything else. '
+    + 'Correct grammar matters more than being short.)';
 }
 
 /**
