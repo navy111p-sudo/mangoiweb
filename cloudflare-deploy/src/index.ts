@@ -9,6 +9,7 @@ import { HealthResponse, TurnConfigResponse, PdfUploadResponse } from './types';
 import { handleMangoApi } from './api-mango';
 import { handleDurationQueue } from './duration-change-queue';   // 📅 수업 길이 변경 신청함(월 1회 일괄 반영)
 import { wrapDbDdlOnce } from './db-ddl-once';                              // ⚡ 같은 DDL 은 격리당 한 번만
+import { beginNightlyRun, markNightlyStep, endNightlyRun } from './nightly-run';  // 🌙 야간 배치가 어디까지 갔나
 import { runMonthlyReports } from './api-reports';  // 20차 이동
 import { reconcileAllStreaks } from './api-games';  // 3차 이동(2026-07-14)
 import { handlePayApi, runPaymentAudit, runAutoRenewChargeSweep } from './api-pay';
@@ -2570,12 +2571,21 @@ const worker = {
 
       // ── UTC 18:00 — retention purge
       if (cronIs('0 18 * * *')) {
+        /* 🌙 (2026-08-31) 이 블록은 «하나의 순차 체인» 이라, CPU·subrequest 한도를 넘기면
+           격리가 통째로 종료되고 그 뒤 작업들은 **아무 로그도 없이** 안 돈다(try/catch 가 못 본다).
+           그래서 «어디까지 갔는지» 를 D1(corpcard_meta)에 남긴다. 기록만 하고 작업 순서·내용은
+           바꾸지 않는다 — 어느 작업이 오래 걸리는지 먼저 알아야 무엇을 뗄지 정할 수 있고,
+           지금은 «블록 전체가 몇 분인가» 를 아무도 모른다(그것을 재려고 넣은 기록이다).
+           ⚠️ 표시(markNightlyStep)는 try…catch «밖» 이어야 한다. catch 안에 넣으면 뜻이 뒤집혀
+              «그 작업이 에러를 던졌다» 가 되고 정상적인 밤에는 기록이 한 줄도 안 남는다. */
+        const _nightly = await beginNightlyRun(env as any, '0 18 * * *').catch(() => null);
         try {
           const result = await purgeExpired(env);
           console.log('[retention] purged', JSON.stringify(result));
         } catch (err) {
           console.error('[retention] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'retention');
 
         // 🔄 카페24 → D1 야간 자동 새로고침 (KST 03:00)
         //   서버 cron(KST 02:00)이 MySQL→Neo4j 를 갱신한 뒤, 여기서 Neo4j→D1 을 갱신.
@@ -2586,6 +2596,7 @@ const worker = {
         } catch (err) {
           console.error('[cafe24-sync] nightly error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'cafe24-sync');
 
         /* 🪞 카페24 → 망고아이 시간표 미러 «넓은 창» (오늘~+14일)
            위 좁은 창(15분)이 당일치를 따라잡고, 여기서 멀리 있는 예약까지 맞춘다.
@@ -2600,6 +2611,7 @@ const worker = {
         } catch (err) {
           console.error('[c24-mirror] nightly error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'c24-mirror');
 
         // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
         //   이상 발견 시에만 사장님 SMS (정상일 땐 조용).
@@ -2609,6 +2621,7 @@ const worker = {
         } catch (err) {
           console.error('[pay-audit] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'pay-audit');
 
         // 🧹 R2 고아 파일 청소 (KST 03:00) — D1 메타 없는 R2 객체 자동 삭제
         //   매일 돌려도 안전: 50% 안전장치 + 24h grace 로 in-flight 보호.
@@ -2625,6 +2638,7 @@ const worker = {
         } catch (err) {
           console.error('[recordings-cleanup] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'recordings-cleanup');
 
         // 🌅 Daily briefing (KST 03:00)
         try {
@@ -2635,6 +2649,7 @@ const worker = {
         } catch (err) {
           console.error('[daily-briefing] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'daily-briefing');
 
         // 💰 Auto dunning (KST 03:00)
         try {
@@ -2645,6 +2660,7 @@ const worker = {
         } catch (err) {
           console.error('[auto-dunning] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'auto-dunning');
 
         // 💸 재무 스냅샷 — 어제·오늘분 일일 스냅샷 자동 저장 (KST 03:00)
         //   전일 마감 + 당일 초기값을 finance_snapshots 에 upsert. 실패해도 다른 cron 무영향.
@@ -2659,6 +2675,7 @@ const worker = {
         } catch (err) {
           console.error('[finance-snapshot] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'finance-snapshot');
 
         // 🎓 학습 인사이트 — 당월 위험도 스냅샷 자동 저장 (KST 03:00)
         //   learning_trend_snapshots 에 당월 코호트 위험도 upsert. 실패해도 무영향.
@@ -2670,6 +2687,7 @@ const worker = {
         } catch (err) {
           console.error('[learning-snapshot] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'learning-snapshot');
 
         // 🚨 이탈위험 — 어제 결석 감지 + 케어 대상 집계 (KST 03:00)
         //   감지는 항상 수행. 학부모 알림톡 발송은 게이트(AUTO_ALIMTALK='on' + SOLAPI_TEMPLATE_ABSENCE)
@@ -2683,6 +2701,7 @@ const worker = {
         } catch (err) {
           console.error('[absence-sweep] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'absence-sweep');
 
         // 🔥 Streak 일괄 정합화 (KST 03:00) — 출결(attendance) 기준 단일 권위로
         //   student_streaks 의 current/longest 를 동기화(gems 보존). gaps-and-islands
@@ -2694,6 +2713,7 @@ const worker = {
         } catch (err) {
           console.error('[streak-reconcile] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'streak-reconcile');
 
         // 🎯 강사 매칭 그래프 동기화 (KST 03:00) — D1(teacher_mbti·students_erp) → Neo4j Aura
         //   Neo4j 미설정(NEO4J_QUERY_URL 없음)이면 조용히 건너뜀. 멱등 MERGE 라 반복 안전.
@@ -2704,6 +2724,7 @@ const worker = {
           } catch (err) {
             console.error('[teacher-match-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'teacher-match-sync');
         }
 
         // 🗣️ 웜업 개인화 그래프 동기화 (KST 03:00) — D1(students_erp·review_quizzes·review_quiz_results) → Neo4j Aura
@@ -2715,6 +2736,7 @@ const worker = {
           } catch (err) {
             console.error('[warmup-graph-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'warmup-graph-sync');
         }
 
         // 🕸 이탈 전염 그래프 동기화 (KST 03:00) — D1(students_erp·family_members·attendance) → Neo4j Aura
@@ -2726,6 +2748,7 @@ const worker = {
           } catch (err) {
             console.error('[churn-contagion-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'churn-contagion-sync');
         }
 
         // 🧠 판단 경로 그래프 동기화 (KST 03:00) — D1(judgment_events·judgment_analysis) → Neo4j Aura
@@ -2737,6 +2760,7 @@ const worker = {
           } catch (err) {
             console.error('[decision-graph-sync] error', err);
           }
+          await markNightlyStep(env as any, _nightly, 'decision-graph-sync');
         }
 
         // 📈 판단력 성장 스냅샷 (KST 03:00) — 이번 달 이벤트가 있는 학생의 5축 지수·delta 재계산(순수 D1)
@@ -2746,6 +2770,7 @@ const worker = {
         } catch (err) {
           console.error('[growth-snapshot] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'growth-snapshot');
 
         // 📅 Weekly schedule auto-generation — every Sunday only (KST Monday 03:00)
         // KST 일요일에 cron 이 돌면 ScheduledEvent 의 UTC 18:00 이 KST 03:00 인데
@@ -2762,6 +2787,8 @@ const worker = {
         } catch (err) {
           console.error('[auto-schedule] error', err);
         }
+        await markNightlyStep(env as any, _nightly, 'auto-schedule');
+        await endNightlyRun(env as any, _nightly);
       }
 
       // ── UTC 00:00 (KST 09:00) — 정기결제 자동 청구 cron (Phase RB)
