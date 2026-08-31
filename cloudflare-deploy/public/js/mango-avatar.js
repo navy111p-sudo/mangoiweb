@@ -44,7 +44,11 @@
        ⚠️ 투명 PNG 는 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 — keyFrame() 이 매번
           clearRect 로 지우고 그린다. 초록 영상(불투명)일 때는 원래 동작과 같다.
        ⚠️ 이미지 파일이 없으면(아직 안 올렸거나 깨졌으면) fallback 캐릭터(옛 영상)로
-          조용히 되돌아간다 — 얼굴 자리가 «빈 카드» 로 남는 것이 제일 나쁘기 때문. */
+          조용히 되돌아간다 — 얼굴 자리가 «빈 카드» 로 남는 것이 제일 나쁘기 때문.
+
+   v7: (2026-08-31) 고를 수 있는 친구가 «둘»(여자·남자)에서 «넷» 이 되면서 캐릭터를
+       성별이 아니라 이름으로 부른다 — emma·jake(성인, 기존) / lily·noah(19세, 새 얼굴).
+       옛 이름('female'|'male')은 CHAR_ALIAS 로 계속 받는다. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -60,23 +64,30 @@
   //   멈춰 보여준다(초 단위 타임스탬프). 같은 인물이라 어색한 합성 없이 정체성이 그대로 유지되고,
   //   소리 크기가 바뀔 때만 그 타임스탬프로 seek 하므로 추가 지연이 없다. 발음(비셈) 자체를
   //   맞추는 건 아니고 "조용함/보통/큼"에 맞는 입모양을 고르는 근사치다.
-  // 🧒 (2026-08-31) 19세 안팎 Emma·Jake — 입모양 3장(배경이 지워진 투명 PNG).
-  //   ⛔ 아래 옛 캐릭터(*_classic)를 지우지 마세요: 이미지가 없을 때의 폴백이고,
-  //      playClip() 의 미리 만든 립싱크 클립(teacher-say-*)이 옛 얼굴과 짝입니다.
+  // 🧑 (2026-08-31) 캐릭터를 «성별» 이 아니라 «사람 이름» 으로 부릅니다 — 사장님 지시로
+  //   고를 수 있는 친구가 둘(여자·남자)에서 넷이 되었기 때문입니다. 이름과 얼굴이 어긋나면
+  //   「Lily 를 골랐는데 Emma 가 나온다」가 되고, 그건 화면만 봐서는 원인이 안 보입니다.
+  //     Emma·Jake = 지금까지 쓰던 성인 얼굴(초록 배경 영상 크로마키). 그대로 둡니다.
+  //     Lily·Noah = 새로 만든 19세 얼굴(입모양 이미지 3장, 배경이 지워진 투명 PNG).
+  //   ⛔ Emma·Jake 를 지우지 마세요: Lily·Noah 의 PNG 가 없을 때의 폴백이고,
+  //      playClip() 의 미리 만든 립싱크 클립(teacher-say-*)이 Emma 얼굴과 짝입니다.
   var CHARACTERS = {
-    female: { frames:{ closed:'/img/emma19-closed.png', medium:'/img/emma19-mid.png', wide:'/img/emma19-wide.png' },
-              still:'/img/emma19-closed.png', rect:{ l:0, t:0, r:1, b:1 },
-              aspect:0.8, keyed:false, fallback:'female_classic' },
-    male:   { frames:{ closed:'/img/jake19-closed.png', medium:'/img/jake19-mid.png', wide:'/img/jake19-wide.png' },
-              still:'/img/jake19-closed.png', rect:{ l:0, t:0, r:1, b:1 },
-              aspect:0.8, keyed:false, fallback:'male_classic' },
-    female_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
-              still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
-              poses:{ closed:3.3, medium:0.2, wide:4.0 } },
-    male_classic:   { sources:[['/img/hero-avatar.mp4','video/mp4']],
-              still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
-              poses:{ closed:3.2, medium:7.1, wide:3.5 } }
+    emma: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
+            still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
+            poses:{ closed:3.3, medium:0.2, wide:4.0 } },
+    jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
+            still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
+            poses:{ closed:3.2, medium:7.1, wide:3.5 } },
+    lily: { frames:{ closed:'/img/lily-closed.png', medium:'/img/lily-mid.png', wide:'/img/lily-wide.png' },
+            still:'/img/lily-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:0.8, keyed:false, fallback:'emma' },
+    noah: { frames:{ closed:'/img/noah-closed.png', medium:'/img/noah-mid.png', wide:'/img/noah-wide.png' },
+            still:'/img/noah-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+            aspect:0.8, keyed:false, fallback:'jake' }
   };
+  // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
+  // ⚠️ 화면이 새 이름으로만 부르도록 고쳤지만, 이 표를 지우면 옛 호출이 «아무 일도 안 일어남» 이 됩니다.
+  var CHAR_ALIAS = { female:'emma', male:'jake', female_classic:'emma', male_classic:'jake' };
   var BASE_W = 320;   // 캔버스 내부 해상도 기준 폭(캐릭터별 비율에 맞춰 높이만 재계산)
 
   function build(){
@@ -87,11 +98,11 @@
     if(!video || !canvas) return;
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
-    var curChar = 'female', cropRect = CHARACTERS.female.rect;
-    var curPoses = CHARACTERS.female.poses || CHARACTERS.female.frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
+    var curChar = 'emma', cropRect = CHARACTERS.emma.rect;
+    var curPoses = CHARACTERS.emma.poses || CHARACTERS.emma.frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
     // 🖼 v6 이미지 캐릭터 상태 — imgFrames 가 null 이 아니면 «영상이 아니라 그림» 을 그리는 중이다.
     var imgFrames = null, imgCur = null, imgAspectDone = false;
-    var keyedNow = (CHARACTERS.female.keyed !== false);   // 초록 제거가 필요한 캐릭터인가
+    var keyedNow = (CHARACTERS.emma.keyed !== false);   // 초록 제거가 필요한 캐릭터인가
     // 캐릭터의 crop 사각형에 맞춰 캔버스 해상도 + 카드 화면비를 함께 갱신(왜곡 방지).
     //   같은 <canvas> 를 여러 캐릭터가 공유하므로, 비율이 다른 캐릭터로 바뀌어도
     //   "캔버스 내부 해상도"와 "화면에 보이는 CSS 박스"가 항상 같은 비율을 유지해야 늘어나 보이지 않는다.
@@ -343,8 +354,9 @@
           try{ if(actx.state==='suspended') actx.resume(); }catch(e){}
         }catch(e){ /* 이미 물렸거나 실패 → 연속 재생 폴백 */ }
       },
-      // 캐릭터 전환('female' 기본 / 'male'). 목소리 성별 선택에 맞춰 얼굴 교체.
+      // 캐릭터 전환 — 'emma'|'jake'|'lily'|'noah' (옛 'female'|'male' 도 받습니다).
       setCharacter: function(name){
+        name = CHAR_ALIAS[name] || name;
         var c = CHARACTERS[name]; if(!c || name===curChar) return;
         curChar = name; IDLE = null;
         applyFrame(name);
