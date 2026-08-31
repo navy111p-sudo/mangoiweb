@@ -574,6 +574,31 @@
       { ko: '🎬 재미있게 본 영화', en: '🎬 A movie I enjoyed', starter: 'I watched a movie called ' },
       { ko: '💛 나의 친한 친구', en: '💛 My best friend', starter: 'My best friend is ' },
       { ko: '🚀 미래의 나', en: '🚀 Me in the future', starter: 'In the future, I will ' },
+      /* ➕ (2026-08-31 사장님 지시) 글감 20개 추가 — 15 → 35.
+         ⚠️ 이모지는 Unicode 12 이하만(Win10 두부 방지, CLAUDE.md 1-4).
+         ⚠️ starter 는 «학생이 이어 쓸» 문장 시작이라 완성 문장이 아니어도 된다.
+            브레인스토밍 첫 질문이 이 문장을 그대로 쓰므로(goThemeFromTopic) 뒤에 낱말이
+            자연스럽게 붙는 형태로만 쓸 것. */
+      { ko: '🐱 우리 집 반려동물', en: '🐱 My pet', starter: 'My pet is ' },
+      { ko: '🏫 우리 학교', en: '🏫 My school', starter: 'My school is ' },
+      { ko: '👩‍🏫 좋아하는 선생님', en: '👩‍🏫 My favorite teacher', starter: 'My favorite teacher is ' },
+      { ko: '📖 재미있게 읽은 책', en: '📖 A book I enjoyed', starter: 'I read a book about ' },
+      { ko: '🎵 좋아하는 노래', en: '🎵 My favorite song', starter: 'My favorite song is ' },
+      { ko: '🍜 엄마가 해주시는 음식', en: '🍜 Food my mom cooks', starter: 'My mom cooks ' },
+      { ko: '🧸 내가 아끼는 물건', en: '🧸 My treasure', starter: 'My favorite thing is ' },
+      { ko: '🌧️ 비 오는 날', en: '🌧️ On a rainy day', starter: 'On a rainy day, I ' },
+      { ko: '❄️ 겨울에 하고 싶은 것', en: '❄️ What I want to do in winter', starter: 'In winter, I want to ' },
+      { ko: '🚲 지난 주말에 한 일', en: '🚲 What I did last weekend', starter: 'Last weekend, I ' },
+      { ko: '🎨 내가 잘하는 것', en: '🎨 What I am good at', starter: 'I am good at ' },
+      { ko: '😀 나를 웃게 하는 것', en: '😀 What makes me smile', starter: 'It makes me happy when ' },
+      { ko: '🧑‍🚀 커서 되고 싶은 것', en: '🧑‍🚀 What I want to be', starter: 'When I grow up, I want to be ' },
+      { ko: '🏝️ 무인도에 가져갈 것', en: '🏝️ What I would take to an island', starter: 'I would take ' },
+      { ko: '🎁 받고 싶은 선물', en: '🎁 A gift I want', starter: 'I really want ' },
+      { ko: '🕹️ 친구와 하는 놀이', en: '🕹️ What I play with friends', starter: 'My friends and I like to ' },
+      { ko: '🍳 내가 만들 수 있는 요리', en: '🍳 Food I can make', starter: 'I can make ' },
+      { ko: '🌏 배우고 싶은 것', en: '🌏 What I want to learn', starter: 'I want to learn ' },
+      { ko: '🐣 어렸을 때 이야기', en: '🐣 When I was little', starter: 'When I was little, I ' },
+      { ko: '🙏 고마운 사람', en: '🙏 Someone I thank', starter: 'I want to say thank you to ' },
     ];
     function shuffleTopics() {
       const row = document.getElementById('topicRow');
