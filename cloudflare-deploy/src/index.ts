@@ -21,7 +21,7 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
-import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
+import { resolveFriendName, wrongSelfName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -4088,6 +4088,29 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; }
         } catch {}
         if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
+      }
+      /* 🏷️ 이름을 어기면 다시 뽑는다 (2026-08-31 사장님 지시).
+         프롬프트에 「너는 ${ctxFriend} 야」가 이미 들어가는데도 모델이 가끔 어긴다 —
+         제보가 두 번 왔고 그때마다 «다른» 이름이었다(루이 → 로이). 즉 매번 지어내는 것이라
+         화면 이름을 바꿔 맞추는 것은 움직이는 과녁을 쫓는 일이다.
+         ⛔ 이름만 갈아 끼우지 않는다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있다. 다시 뽑게만 한다.
+         ⚠️ 두 번째도 어기면 «그냥 내보낸다» — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫다. */
+      const badName = aiText ? wrongSelfName(aiText, ctxFriend) : '';
+      if (badName) {
+        console.warn('[warmup] wrong self-name:', badName, 'expected=' + ctxFriend);
+        try {
+          const again: any = await env.AI.run(WARMUP_MODEL, {
+            messages: messages.concat([
+              { role: 'assistant', content: aiText },
+              { role: 'user', content: `(You said your name is ${badName}, but your name is ${ctxFriend}. Say it again correctly.)` },
+            ]),
+            max_tokens: 200, temperature: 0.7,
+          });
+          const againText = (again && (again.response || again.result || '')).toString().trim();
+          if (againText && !wrongSelfName(againText, ctxFriend) && !replyRejectReason(againText, sanityCap)) {
+            aiText = againText;
+          }
+        } catch {}
       }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
       if (aiText && warmupIsRepeat(aiText, history)) {
