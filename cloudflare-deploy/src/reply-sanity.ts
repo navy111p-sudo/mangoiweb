@@ -33,13 +33,17 @@ export function replyBreakReason(text: string): string {
   const w = words(t);
 
   /* ① 같은 낱말이 지나치게 반복 — degenerate 출력의 가장 뚜렷한 지문.
-     실사고 문장은 'of' 가 40회를 넘었습니다. 정상 문장은 그 비율까지 가지 않습니다. */
+     🔴 임계값을 «비율» 로만 가르면 안 됩니다. 실사고는 of 59회/279낱말 = 21%,
+        그런데 정상 열거형 답변("I like dogs. I like cats. …")도 i 6회/24낱말 = 25% 입니다.
+        비율이 겹치므로 갈리는 것은 «개수» 뿐입니다(59 대 6) — 그래서 10회로 둡니다.
+        ⛔ 불용어(of·the·i)를 빼는 방식으로 풀지 마세요 — 실사고에서 폭주한 낱말이 바로 'of' 입니다.
+        ⚠️ 6회로 되돌리면 정상 답변이 버려집니다(하니스 ②절이 그 세 문장을 들고 있습니다). */
   if (w.length >= 12) {
     const cnt: Record<string, number> = Object.create(null);
     for (const x of w) cnt[x] = (cnt[x] || 0) + 1;
     let top = '', n = 0;
     for (const k of Object.keys(cnt)) if (cnt[k] > n) { n = cnt[k]; top = k; }
-    if (n >= 6 && n / w.length >= 0.15) return 'repeat:' + top + 'x' + n;
+    if (n >= 10 && n / w.length >= 0.15) return 'repeat:' + top + 'x' + n;
   }
 
   /* ② 서로 다른 낱말이 너무 적다 — 길게 늘어놓았는데 어휘가 없으면 문장이 아니다. */
@@ -48,11 +52,16 @@ export function replyBreakReason(text: string): string {
     if (uniq < 0.42) return 'lowvariety:' + uniq.toFixed(2);
   }
 
-  /* ③ 길게 이어지는데 문장이 끝나지 않는다 — 마침표·물음표 없이 40낱말이면 문장이 아니다. */
+  /* ③ 길게 이어지는데 문장이 끝나지 않는다.
+     · nostop — 40낱말인데 마침표가 하나도 없다. max_tokens 로 잘린 답의 지문이라 잡는 것이 맞다.
+     · runon  — 한 문장이 지나치게 길다.
+       ⚠️ 이 규칙은 «레벨을 모른 채» 돕니다. 45로 두었더니 최상급(상한 없음)의 46낱말 정상
+          문장이 걸렸습니다 — WARMUP_WORD_CAP[8]=0 으로 「길이로 안 잡는다」고 해 둔 것을
+          이 규칙이 우회한 것입니다. C1 한 문장 46낱말은 있을 수 있어 60으로 넓혔습니다. */
   if (w.length >= 40) {
     const enders = (t.match(/[.!?]/g) || []).length;
     if (enders === 0) return 'nostop';
-    if (w.length / enders >= 45) return 'runon';
+    if (w.length / enders >= 60) return 'runon';
   }
 
   /* ④ 제어문자·역슬래시가 섞임 — 실사고 문장에 «\ering» 이 있었다.
@@ -72,8 +81,11 @@ export function replyTooLongFor(text: string, maxWordsPerSentence: number): bool
   return String(text || '').split(/(?<=[.!?])\s+/).some((s) => words(s).length > cap);
 }
 
-/** 내보내도 되는가 — 이유가 없으면 빈 문자열(통과). */
-export function replyIsSane(text: string, maxWordsPerSentence = 0): string {
+/** 🔴 «버릴 이유» 를 돌려줍니다 — 멀쩡하면 빈 문자열입니다.
+ *  ⛔ 이름을 replyIsSane 같은 «참/거짓처럼 읽히는» 말로 바꾸지 마세요. 그러면 다음 사람이
+ *     `if (replyIsSane(t)) send(t)` 로 쓰게 되고, 그건 «무너진 답만 내보내는» 코드입니다.
+ *     타입체크도 하니스도 그것을 못 잡습니다(2026-08-31 trap-check 지적으로 이름을 바꿨습니다). */
+export function replyRejectReason(text: string, maxWordsPerSentence = 0): string {
   const r = replyBreakReason(text);
   if (r) return r;
   return replyTooLongFor(text, maxWordsPerSentence) ? 'toolong' : '';

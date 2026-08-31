@@ -57,10 +57,21 @@ const GOOD = [
   [6, 'My cousin is visiting this weekend, and I have not seen her since last winter, so I am really looking forward to it.'],
   [8, 'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it '
     + 'was worth acting on, and I think that is the right instinct.'],
+  /* 🔴 2026-08-31 trap-check 가 «실제로 돌려서» 찾은 거짓경보 3종.
+     같은 문형을 여러 번 늘어놓는 답은 정상인데, 반복 임계값이 6회였을 때 전부 버려졌습니다
+     (i×6 = 25% 로, 실사고의 of×59 = 21% 보다 오히려 비율이 높습니다 — 비율로는 안 갈립니다).
+     ⛔ 이 세 줄을 지우지 마세요. 임계값을 낮추면 여기서 바로 걸립니다. */
+  [3, 'You can say: I like apples, I like bananas, I like oranges, I like grapes, I like pears, I like peaches.'],
+  [3, 'I like dogs. I like cats. I like birds. I like fish. I like horses. I like rabbits.'],
+  [3, 'Do you like it? I like it too! It is a nice day. It is warm. It is sunny. It is my favorite kind of day.'],
+  /* 최상급(상한 없음)의 긴 한 문장 — runon 이 레벨을 모른 채 돌아 46낱말을 잡던 자리 */
+  [8, 'I honestly think the most interesting part of that whole conversation was the way she listened so '
+    + 'carefully before she said anything at all, and I keep coming back to it because it is exactly the '
+    + 'kind of patience that I would like to learn for myself one day.'],
 ];
 let falseAlarm = 0;
 for (const [n, s] of GOOD) {
-  const r = M.replyIsSane(s, CAP(n));
+  const r = M.replyRejectReason(s, CAP(n));
   if (r) { falseAlarm++; console.log(`     ↳ ${n}단계 «${s.slice(0, 44)}…» → ${r}`); }
 }
 ok(falseAlarm === 0, `정상 문장 ${GOOD.length}종에 거짓경보가 없다`, falseAlarm);
@@ -98,15 +109,22 @@ ok(!M.replyTooLongFor('a '.repeat(200), 0), '상한이 없는 칸(S8)은 길이�
 /* ── ⑤ 절대 «고쳐 쓰지» 않는다 ─────────────────────────────────────────
    아이가 그대로 따라 읽을 문장을 코드가 지어내면 안 된다(이 저장소의 반복 규칙). */
 console.log('\n[ ⑤ 문장을 고쳐 쓰지 않는가 ]');
+/* ⚠️ 부정 검사(«이 코드가 없어야 한다»)는 «주석을 벗긴 사본» 으로 판정한다 — CLAUDE.md 2장.
+   여기가 특히 위험하다: 다음 사람이 「⛔ return text.replace(…) 로 잘라 돌려주지 말 것」이라고
+   주석에 적는 순간, 그 경고문 자체가 이 검사에 걸려 FAIL 한다(c24_finance_kcpm_harness ③ 선례).
+   ✅ 긍정 검사는 원본으로 둔다 — 주석이 섞여도 무해하다. */
+const strip = (t) => String(t).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 const SRC = readFileSync(join(SRCDIR, 'reply-sanity.ts'), 'utf8');
 const exported = [...SRC.matchAll(/export function (\w+)\(/g)].map((m) => m[1]);
-ok(exported.length === 3, '내보내는 함수가 셋이다(판정만)', exported);
+/* ⚠️ 개수를 못 박지 않는다 — 함수를 하나 더해도 FAIL 나는 «객체 모양» 검사가 된다.
+   물어야 할 것은 «판정만 내보내는가» 다(이름이 전부 reply* + 문장을 안 만든다). */
+ok(exported.length >= 3, '판정 함수를 셋 이상 내보낸다', exported);
 ok(exported.every((f) => /^(reply)/.test(f)), '이름이 전부 reply* 다(판정 모듈)', exported);
 /* 돌려주는 값이 «문자열 판정» 이지 «고친 문장» 이 아니어야 한다 */
-ok(M.replyIsSane('Hi! Are you happy?', 5) === '', '통과하면 빈 문자열만 돌려준다(문장을 안 만든다)');
+ok(M.replyRejectReason('Hi! Are you happy?', 5) === '', '통과하면 빈 문자열만 돌려준다(문장을 안 만든다)');
 ok(typeof M.replyBreakReason(BROKEN) === 'string' && M.replyBreakReason(BROKEN).length < 40,
   '잡아도 «이유» 만 돌려준다(고친 문장을 만들지 않는다)');
-ok(!/return\s+(t|text)\s*\.\s*(replace|slice|substring)/.test(SRC),
+ok(!/return\s+(t|text)\s*\.\s*(replace|slice|substring)/.test(strip(SRC)),
   '소스에 «문장을 잘라 돌려주는» 코드가 없다');
 
 /* ── ⑦ 배선 — 웜업이 «실제로» 이 판정을 거치는가 ────────────────────────
@@ -114,7 +132,7 @@ ok(!/return\s+(t|text)\s*\.\s*(replace|slice|substring)/.test(SRC),
       (프롬프트에 「3~5단어」라고 적어 두고 지켜졌는지 보는 곳이 없었다). */
 console.log('\n[ ⑦ 웜업 배선 ]');
 const IDX = readFileSync(join(SRCDIR, 'index.ts'), 'utf8');
-ok(/import \{[^}]*replyIsSane[^}]*\} from '\.\/reply-sanity'/.test(IDX),
+ok(/import \{[^}]*replyRejectReason[^}]*\} from '\.\/reply-sanity'/.test(IDX),
   'index.ts 가 판정 정본을 불러온다');
 /* ⚠️ 검사 범위를 길이로 자르지 말 것 — 중괄호 짝으로 handleWarmupChat 본문만 잘라 낸다
       (같은 파일의 다른 핸들러에 똑같이 생긴 멀쩡한 줄이 있다). */
@@ -132,14 +150,16 @@ ok(chat.length > 1000, 'handleWarmupChat 본문을 읽었다', chat.length);
 /* ⚠️ «replyIsSane( 이 어딘가 있는가» 로 쓰면 안 된다 — 바로 아래 재시도 줄에도 있어서,
       정작 «모델이 준 답을 검사하는» 첫 관문을 빼도 통과한다(실제로 되돌리기 시험에서 밟았다).
       물어야 할 것은 «모델 출력(aiText)을 그 판정에 넣는가» 다. */
-ok(/replyIsSane\(\s*aiText\b/.test(chat), '모델이 준 답(aiText)을 그 판정에 넣는다');
-ok(/\bbroke\b[\s\S]{0,200}aiText = ''/.test(chat),
+ok(/replyRejectReason\(\s*aiText\b/.test(chat), '모델이 준 답(aiText)을 그 판정에 넣는다');
+/* ⚠️ «인접 창» 검사라 사이에 코드가 늘면 조용히 깨진다 — 그래서 창을 넉넉히 둔다.
+   물어야 할 것은 «무너졌다고 판정한 뒤 답을 비우는가» 다. */
+ok(/\bbroke\b[\s\S]{0,800}aiText = ''/.test(chat),
   '둘 다 무너지면 답을 비워 «안전 문구» 로 넘긴다(깨진 글을 그대로 안 내보낸다)');
 ok(/console\.warn\('\[warmup\] broken reply/.test(chat),
   '무너진 답을 조용히 버리지 않고 로그를 남긴다(원인 추적이 가능해야 한다)');
-ok(/if \(freshText && !replyIsSane\(/.test(chat),
+ok(/if \(freshText && !replyRejectReason\(/.test(chat),
   '다시 뽑은 답도 «멀쩡할 때만» 받는다(둘 다 무너지면 안전 문구로 간다)');
-ok(!/aiText\s*=\s*aiText\.(replace|slice|substring)/.test(chat),
+ok(!/aiText\s*=\s*aiText\.(replace|slice|substring)/.test(strip(chat)),
   '웜업이 문장을 «고쳐 쓰지» 않는다(다시 뽑게만 한다)');
 
 /* 레벨별 상한이 세 곳에서 같은 말을 하는가 — 서버 문자열 · 상한표 · AI 영어친구 */
@@ -157,7 +177,7 @@ for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
 }
 
 /* ── ⑥ import 가 없어야 한다 — 하니스가 그대로 불러 돌린다 ─────────────── */
-ok(!/^\s*import\s/m.test(SRC), 'import 가 없다(하니스가 그대로 불러 실제로 돌릴 수 있다)');
+ok(!/^\s*import\s/m.test(strip(SRC)), 'import 가 없다(하니스가 그대로 불러 실제로 돌릴 수 있다)');
 
 console.log('\n─────────────────────────────────────────────');
 console.log(`  통과 ${pass} · 실패 ${fail}`);

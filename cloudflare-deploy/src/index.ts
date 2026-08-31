@@ -49,7 +49,7 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
-import { replyIsSane } from './reply-sanity';                          // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
+import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -4041,14 +4041,18 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
             깨진 문장 하나보다 나쁘다. 그래서 «누가 봐도 무너진» 것만 잡는다(거짓경보 0 을 하니스가 못 박는다).
          ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다. 아이가 따라 읽을 문장을 코드가 지어내면 안 된다. */
       const sanityCap = WARMUP_WORD_CAP[ctxDifficulty] || 0;
-      let broke = aiText ? replyIsSane(aiText, sanityCap) : '';
+      let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
       if (broke) {
-        console.warn('[warmup] broken reply (' + broke + '), retrying:', aiText.slice(0, 80));
+        /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
+           원인 추적에는 «무슨 이유로, 얼마나 길게» 면 충분합니다. */
+        console.warn('[warmup] broken reply:', broke, 'len=' + aiText.length, 'lv=' + ctxDifficulty);
         try {
-          const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.5 });
+          /* ⚠️ 온도를 «낮추지» 않는다 — 같은 프롬프트에서 낮은 온도는 오히려 같은 방향으로
+             다시 무너지기 쉽습니다. 이 파일의 다른 재시도도 올리는 쪽입니다(빈 응답 0.8·반복 0.95). */
+          const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
           const freshText = (fresh && (fresh.response || fresh.result || '')).toString().trim();
           // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
-          if (freshText && !replyIsSane(freshText, sanityCap)) { aiText = freshText; broke = ''; }
+          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; }
         } catch {}
         if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
       }
