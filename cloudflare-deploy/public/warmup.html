@@ -723,8 +723,18 @@ var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 �
       거기 없는 이름을 보내면 서버가 조용히 여성 기본값(asteria)으로 떨어뜨립니다.
    🔴 char 는 아바타 캐릭터 이름(js/mango-avatar.js)과 «짝» 입니다 — 한쪽만 고치면
       「Lily 를 골랐는데 Emma 얼굴이 나온다」가 되고 에러는 안 납니다. */
-var VOICE_TRY_F = { delia:1, amalthea:1, thalia:1, aurora:1, cora:1, phoebe:1, andromeda:1, asteria:1 };
-var VOICE_TRY_M = { aries:1, atlas:1, hermes:1, orion:1, arcas:1, apollo:1 };
+/* 🎚️ 「들어볼 수 있는 화자」 — 2026-08-31 사장님 제보 「Lily 목소리가 슬퍼 보이고 톤이 다운돼 있다」로
+   서버가 아는 Aura-2 화자 «전부» 로 넓혔습니다. 아래 두 목록은 src/api-games.ts 의
+   AURA2 / AURA2_MALE 를 성별로 가른 것과 «같은 말» 이어야 합니다(voice_fallback_harness 가 대조).
+   ⛔ 「자유 문자열 허용」으로 바꾸지 마세요 — 이 값이 그대로 TTS 요청의 speaker 로 실리고,
+      서버 목록 밖 이름은 조용히 여성 기본값(asteria = Emma 목소리)으로 떨어집니다.
+   ℹ️ Aura 에는 «음높이·톤» 파라미터가 없습니다. 톤을 바꾸는 길은 화자 교체 하나뿐입니다
+      (배속 슬라이더는 preservesPitch=true 라 음높이가 안 따라옵니다 — 일부러 그렇게 뒀습니다). */
+var VOICE_TRY_F = { amalthea:1, andromeda:1, asteria:1, athena:1, aurora:1, callista:1, cora:1,
+  cordelia:1, delia:1, electra:1, harmonia:1, helena:1, hera:1, iris:1, juno:1, luna:1,
+  minerva:1, ophelia:1, pandora:1, phoebe:1, thalia:1, theia:1, vesta:1 };
+var VOICE_TRY_M = { apollo:1, arcas:1, aries:1, atlas:1, draco:1, hermes:1, hyperion:1, janus:1,
+  jupiter:1, mars:1, neptune:1, odysseus:1, orion:1, orpheus:1, pluto:1, saturn:1, zeus:1 };
 var VOICE_PEOPLE = ['emma','jake','lily','noah'];      // 「번갈아」가 도는 순서
 var VOICE_MODES = {
   emma: { label:'👩 Emma', speaker:'asteria', g:'female', char:'emma',

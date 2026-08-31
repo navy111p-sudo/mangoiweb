@@ -73,6 +73,22 @@ const readMap = (file, re, keyIdx, spkIdx) => {
 const WARM = readMap('warmup.html', /(emma|jake|lily|noah):\s*\{[^}]*speaker:\s*'([a-z]+)'/g, 1, 2);
 ok(Object.keys(WARM).length === 4, `웜업에서 네 친구의 화자를 읽었다 (${JSON.stringify(WARM)})`);
 
+/* 🔴 같은 친구가 화면마다 다른 목소리를 내면 안 된다 — 「웜업에서는 Lily 인데
+   AI 영어친구에서는 딴 사람」. 화자 이름이 세 파일에 복제돼 있어서, 톤을 바꾸려고
+   한 곳만 고치면 정확히 그렇게 된다(에러는 안 난다). */
+{
+  const FRIEND_RE = () => /(emma|jake|lily|noah):\s*\{[^}]*speaker:\s*'([a-z]+)'/g;
+  for (const f of ['ai-friend.html', 'speech-coach.html']) {
+    let other = {};
+    try { other = readMap(f, FRIEND_RE(), 1, 2); } catch { }
+    ok(Object.keys(other).length === 4, `${f} 에서도 네 친구의 화자를 읽었다`, JSON.stringify(other));
+    for (const who of ['emma', 'jake', 'lily', 'noah']) {
+      ok(other[who] === WARM[who], `${f}: ${who} 화자가 웜업과 같다 (${other[who] || '없음'})`,
+        `웜업 ${WARM[who]} — 한 곳만 고치면 화면마다 다른 목소리가 난다`);
+    }
+  }
+}
+
 /* ── ① 폴백해도 서로 겹치지 않는가 ─────────────────────────────────────────── */
 if (SUB && AURA1) {
   const after = {};
@@ -128,6 +144,43 @@ if (AURA2) for (const [who, spk] of Object.entries(WARM)) {
 ok(/'X-TTS-Engine'/.test(G) && /'X-TTS-Speaker'/.test(G),
   '응답에 실제 사용한 엔진·화자를 실어 준다(X-TTS-Engine · X-TTS-Speaker)',
   '없으면 「고른 목소리가 아니다」 제보를 코드 추측으로만 가려야 한다');
+
+/* ── ⑥ «들어볼 수 있는 화자» 목록이 서버와 같은 말을 하는가 ─────────────────
+   2026-08-31 사장님 제보 「Lily 목소리가 슬퍼 보인다」로 화면의 ?vf=·?vm= 후보를
+   서버가 아는 Aura-2 전부로 넓혔다. 이 목록이 서버와 어긋나면 «주소로 바꿔 봤는데
+   아무 일도 안 일어나거나 엉뚱한 목소리가 나는» 상태가 되는데 에러는 안 난다
+   (목록 밖 이름을 서버가 조용히 asteria = Emma 목소리로 바꾸기 때문). */
+{
+  const WU = readFileSync(join(PUB, 'warmup.html'), 'utf8');
+  const keys = (name) => {
+    const m = WU.match(new RegExp('var ' + name + ' = \\{([\\s\\S]*?)\\};'));
+    return m ? new Set([...m[1].matchAll(/([a-z]+)\s*:\s*1/g)].map((x) => x[1])) : null;
+  };
+  const tryF = keys('VOICE_TRY_F'), tryM = keys('VOICE_TRY_M');
+  ok(!!tryF && !!tryM, '화면의 들어보기 후보 목록 둘을 읽었다',
+    `F=${tryF ? tryF.size : 0} · M=${tryM ? tryM.size : 0}`);
+  if (tryF && tryM && AURA2 && AURA2_MALE) {
+    const outF = [...tryF].filter((x) => !AURA2.has(x));
+    const outM = [...tryM].filter((x) => !AURA2.has(x));
+    ok(outF.length === 0 && outM.length === 0,
+      '후보가 전부 서버 Aura-2 허용목록 안이다', `목록 밖: ${outF.concat(outM).join(',') || '없음'}`);
+    // 성별이 섞이면 「Noah 를 골랐는데 여자 목소리」가 된다 — 얼굴은 그대로다
+    ok([...tryM].every((x) => AURA2_MALE.has(x)), '남자 후보에 여자 화자가 섞이지 않았다',
+      [...tryM].filter((x) => !AURA2_MALE.has(x)).join(',') || '없음');
+    ok([...tryF].every((x) => !AURA2_MALE.has(x)), '여자 후보에 남자 화자가 섞이지 않았다',
+      [...tryF].filter((x) => AURA2_MALE.has(x)).join(',') || '없음');
+    // 서버가 아는 화자를 «들어볼 수 없는» 채로 두지 않는다(톤을 고르려면 다 들어봐야 한다)
+    const missF = [...AURA2].filter((x) => !AURA2_MALE.has(x) && !tryF.has(x));
+    const missM = [...AURA2].filter((x) => AURA2_MALE.has(x) && !tryM.has(x));
+    ok(missF.length === 0 && missM.length === 0,
+      '서버가 아는 화자를 전부 들어볼 수 있다', `빠진 화자: ${missF.concat(missM).join(',') || '없음'}`);
+  }
+  /* ⚠️ Aura 에는 음높이·톤 파라미터가 없다 — 있는 것처럼 보내면 조용히 무시된다.
+     톤을 바꾸는 길은 «화자 교체» 하나뿐이라는 것을 코드에도 못 박아 둔다. */
+  ok(/preservesPitch\s*=\s*true/.test(WU),
+    '배속 슬라이더가 음높이를 안 건드린다(preservesPitch=true)',
+    'false 로 두면 «천천히» 를 고른 학생의 목소리가 함께 낮아진다');
+}
 
 /* 캐시 세대 — 오염된 옛 캐시가 그대로 재생되지 않게 */
 ok(/'v4\|' \+ lang/.test(G), '캐시 세대가 v4 로 올라갔다 (폴백 오염분 무효화)',
