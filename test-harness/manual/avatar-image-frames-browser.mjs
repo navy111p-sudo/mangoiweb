@@ -20,7 +20,7 @@
  *       그래서 검사마다 포트를 새로 씁니다.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync, rmSync, mkdtempSync, renameSync } from 'node:fs';
+import { existsSync, writeFileSync, rmSync, mkdtempSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -40,18 +40,23 @@ const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++,
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* 실제 얼굴 그림은 2026-08-31 부터 저장소에 있다(webp).
-   ⚠️ 마지막 «폴백» 절은 «파일이 없는 상태» 를 봐야 하므로, 있으면 잠깐 옆으로 치웠다가 되돌린다.
-      치운 파일은 같은 폴더에 .bak 으로 두어(‥/img/lily-closed.webp.bak) 중간에 죽어도
-      git status 에 보이게 한다. 다음 실행이 시작할 때 남은 .bak 을 먼저 되돌린다.
+   ⚠️ 마지막 «폴백» 절은 «파일이 없는 상태» 를 봐야 하므로, 있으면 잠깐 치웠다가 되돌린다.
+   ⛔ 치우는 곳을 public/ «안» 에 두지 말 것 — deploy.ps1 은 public/ 을 통째로 올리므로,
+      하니스가 중간에 죽은 상태에서 배포가 나가면 «얼굴 6장 없음 + 쓰레기 파일 6장» 이
+      그대로 실서비스로 갑니다. (.gitignore 가 public 밑의 .bak 을 무시해서 git status
+      에도 안 보입니다 — «보이니까 괜찮다» 는 전제가 성립하지 않습니다.)
+      그래서 OS 임시폴더에 둡니다. 사라진 .webp 는 git status 에 ' D' 로 보입니다.
    파일이 아예 없을 때는 «같은 비율의 더미 PNG» 로 경로만 확인하고 반드시 지운다. */
 const FRAMES = ['lily-closed', 'lily-mid', 'lily-wide', 'noah-closed', 'noah-mid', 'noah-wide'];
 const EXT = '.webp';                                  // mango-avatar.js 의 CHARACTERS 와 짝
 const framePath = n => join(PUB, 'img', n + EXT);
-FRAMES.forEach(n => { const b = framePath(n) + '.bak';   // 앞선 실행이 죽어 남긴 것 복구
-  if (existsSync(b)) renameSync(b, framePath(n)); });
+const STASH = join(tmpdir(), 'mangoi-avatar-stash');   // public/ 밖 — 배포에 안 섞인다
+const stashPath = n => join(STASH, n + EXT);
+if (!existsSync(STASH)) mkdirSync(STASH, { recursive: true });
+FRAMES.forEach(n => { if (existsSync(stashPath(n))) renameSync(stashPath(n), framePath(n)); });  // 앞선 실행이 죽어 남긴 것 복구
 const realPresent = FRAMES.every(n => existsSync(framePath(n)));
-const hideFrames = () => FRAMES.forEach(n => { if (existsSync(framePath(n))) renameSync(framePath(n), framePath(n) + '.bak'); });
-const restoreFrames = () => FRAMES.forEach(n => { const b = framePath(n) + '.bak'; if (existsSync(b)) renameSync(b, framePath(n)); });
+const hideFrames = () => FRAMES.forEach(n => { if (existsSync(framePath(n))) renameSync(framePath(n), stashPath(n)); });
+const restoreFrames = () => FRAMES.forEach(n => { if (existsSync(stashPath(n))) renameSync(stashPath(n), framePath(n)); });
 /* ⚠️ 더미는 PNG 바이트다 — 파일이 «아예 없는» 비상 경로에서만 쓰며, 이름이 .webp 라도
    브라우저가 내용으로 알아본다. 정상 상태(그림이 저장소에 있음)에서는 한 번도 안 돈다. */
 function dummyPng(path, w, h, rgb) {
@@ -154,6 +159,17 @@ async function run(pagePath, mode) {
     ok(typeof real === 'number' && Math.abs(p2.aspect - real) < 0.02,
       `카드 화면비가 «그림의 실제 비율» 을 따라왔다 (캔버스 ${p2.aspect} / 그림 ${real})`,
       '다른 비율 그림으로 갈아 끼워도 카드가 따라와야 한다 — setAspect 가 그 일을 한다');
+    /* ⚠️ 위 한 줄만으로는 «따라오는가» 를 증명하지 못한다 — 지금 그림이 640x800 = 정확히 0.8
+       이고 선언값도 0.8 이라, setAspect 가 아예 안 돌아도 통과한다.
+       그래서 «비율이 다른 캐릭터»(jake = 512x496, 1.03)로 바꿔 캔버스가 실제로 움직이는지 본다. */
+    const beforeSwap = p2.aspect;
+    await ev("window.MangoAvatar.setCharacter('jake')"); await sleep(2200);
+    const jakeAsp = await ev(`(function(){var c=document.getElementById('tavatar-canvas');
+      return +(c.width/c.height).toFixed(3);})()`);
+    ok(typeof jakeAsp === 'number' && Math.abs(jakeAsp - beforeSwap) > 0.05,
+      `비율이 다른 캐릭터로 바꾸면 카드도 실제로 따라 움직인다 (${beforeSwap} → ${jakeAsp})`,
+      '값이 그대로면 setAspect 가 안 도는 것이다 — 지금 그림이 4:5 라 위 검사만으로는 안 걸린다');
+    await ev("window.MangoAvatar.setCharacter('lily')"); await sleep(2000);
     ok(p2.ringH > 0 && Math.abs(p2.ringW / p2.ringH - p2.aspect) < 0.05,
       `보이는 카드 상자도 같은 비율이다 (${p2.ringW}x${p2.ringH})`);
     await ev("window.MangoAvatar.setCharacter('noah')"); await sleep(2000);
