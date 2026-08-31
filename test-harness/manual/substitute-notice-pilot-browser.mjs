@@ -332,7 +332,7 @@ async function sectionAdmin(browser) {
 
 async function sectionNotice(browser) {
   console.log('\n② test.mangoi.co.kr 안내 배너 (index.html)');
-  for (const vp of [{ width: 1280, height: 800, label: 'PC 1280' }, { width: 390, height: 844, label: '폰 390' }]) {
+  for (const vp of [{ width: 1280, height: 800, label: 'PC 1280' }, { width: 390, height: 844, label: '폰 세로 390' }, { width: 844, height: 390, label: '폰 가로 844' }]) {
     const ctx = await browser.newContext({ viewport: { width: vp.width, height: vp.height } });
     const page = await ctx.newPage();
     await page.route('**/api/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true}' }));
@@ -361,6 +361,18 @@ async function sectionNotice(browser) {
         if (r.width <= 0 || r.height <= 0) continue;
         if (r.right > bb.left && bb.right > r.left && r.bottom > bb.top && bb.bottom > r.top) chipsCovered.push(sel);
       }
+      /* 🔎 (2026-08-31) 반대 방향도 본다 — «배너 위» 를 남이 덮고 있지 않은가.
+         폰 가로(844x390)에서 세로용 크기 그대로 두면 A.i 상담사 위젯(z=2147483000)·
+         ➕ FAB(2147483200) 밑에 깔린다(그 둘은 이 배너보다 위에 있어야 하는 것들이라
+         z-index 로 이길 수 없다 — 비켜서는 쪽이 배너다). ⚠️ 모서리는 border-radius 로
+         비어 있으니 24px 안쪽만 훑는다(안 그러면 둥근 귀퉁이가 «가려짐» 으로 잡힌다). */
+      const selfBlocked = [];
+      for (let px = bb.left + 24; px < bb.right - 24; px += 24) {
+        for (let py = bb.top + 24; py < bb.bottom - 24; py += 18) {
+          const st = document.elementsFromPoint(px, py);
+          if (st[0] && st[0] !== b && !b.contains(st[0])) selfBlocked.push((st[0].id || st[0].className || st[0].tagName).toString().slice(0, 30));
+        }
+      }
       const title = b.querySelector('#mg-legacy-domain-notice-title');
       return {
         shown: true,
@@ -368,6 +380,7 @@ async function sectionNotice(browser) {
         onTop: topAt[0] === b || b.contains(topAt[0]),
         closeOnTop: xAt[0] === x,
         chipsCovered,
+        selfBlocked: [...new Set(selfBlocked)],
         /* ⚠️ 「화면 한가운데」를 innerWidth 나 documentElement.clientWidth 로 재지 말 것 —
            둘 다 «세로 스크롤바 폭(15px)» 만큼 어긋나 정중앙인데도 FAIL 이 난다
            (2026-08-31 실측: 1280 창에서 배너 중심 632.5 = (1280-15)/2 인데 clientWidth 는 1280).
@@ -396,8 +409,12 @@ async function sectionNotice(browser) {
       check(`[${vp.label}] 닫기 ✕ 가 맨 위에서 실제로 눌린다`, r.closeOnTop === true);
       check(`[${vp.label}] 배너가 화면 «정중앙» 에 있다(2026-08-31 사장님 지시)`, r.centered === true, r);
       check(`[${vp.label}] 우상단 칩 줄(밝기·포인트·EN·관리자)을 덮지 않는다`, (r.chipsCovered || []).length === 0, r.chipsCovered);
-      check(`[${vp.label}] 제목이 «크게» 보인다(≥21px, 옛 13px 의 1.6배 이상)`, r.titlePx >= 21, r.titlePx);
-      check(`[${vp.label}] 본문도 «크게» 보인다(≥15px, 옛 12px 보다 큼)`, r.bodyPx >= 15, r.bodyPx);
+      check(`[${vp.label}] 배너 위를 남이 덮지 않는다(A.i 위젯·FAB 밑에 깔리지 않음)`, (r.selfBlocked || []).length === 0, r.selfBlocked);
+      /* 세로가 짧은 화면(폰 가로)은 «일부러» 한 단계 줄인다 — 안 줄이면 상자가 화면을
+         거의 다 채워 A.i 위젯·FAB 밑에 깔린다(위 selfBlocked). 그래도 옛 13px/12px 보다는 크다. */
+      const minT = vp.height <= 520 ? 19 : 21, minB = vp.height <= 520 ? 13 : 15;
+      check(`[${vp.label}] 제목이 «크게» 보인다(≥${minT}px, 옛 13px 보다 큼)`, r.titlePx >= minT, r.titlePx);
+      check(`[${vp.label}] 본문도 «크게» 보인다(≥${minB}px, 옛 12px 보다 큼)`, r.bodyPx >= minB, r.bodyPx);
       check(`[${vp.label}] 제목 글자 대비비 ≥ 4.5`, r.contrast && r.contrast.ratio >= 4.5, r.contrast);
       check(`[${vp.label}] 「바로가기」 링크가 없다(사장님 결정)`, r.noLink === true);
     }
