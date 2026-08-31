@@ -5508,6 +5508,12 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         const src = String(r.source || '');
         const sd = String(r.scheduled_date || '');
         if (!src || !sd) continue;
+        /* 🪞 (2026-08-31) 카페24 미러 행은 이 «기간 묶기» 에서 뺀다.
+           위 계산은 «같은 source = 같은 수강신청» 을 전제로 하는데(enroll-activate 가
+           신청마다 source 를 다르게 단다), 미러는 학생·날짜가 달라도 source 가 전부
+           'c24-mirror' 로 **하나**다. 그대로 두면 9/1 수업 카드에도 「9/1~9/15」 가 붙어
+           «이 학생이 6주짜리 코스를 등록했다» 로 읽힌다. 미러 행은 한 행이 하루 하나다. */
+        if (src === MIRROR_SOURCE || src === MIRROR_SOURCE_MANUAL) continue;
         const cur = sourceRange[src];
         if (!cur) sourceRange[src] = { min: sd, max: sd };
         else { if (sd < cur.min) cur.min = sd; if (sd > cur.max) cur.max = sd; }
