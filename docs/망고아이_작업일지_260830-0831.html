@@ -4,7 +4,7 @@
 <style>
   @page { size: A4; margin: 15mm 14mm 16mm 14mm; }
   * { box-sizing: border-box; }
-  body { font-family:'WenQuanYi Zen Hei','Noto Sans KR',sans-serif; color:#1a2233; font-size:10.2pt; line-height:1.62; margin:0; }
+  body { font-family:'WenQuanYi Zen Hei','Noto Sans KR','Noto Color Emoji','FreeSans',sans-serif; color:#1a2233; font-size:10.2pt; line-height:1.62; margin:0; }
   h1 { font-size:21pt; margin:0 0 4px; letter-spacing:-.4px; }
   .sub { color:#5a6a7d; font-size:10pt; margin:0 0 14px; }
   .cover { border-bottom:3px solid #f59e0b; padding-bottom:12px; margin-bottom:16px; }
@@ -27,7 +27,7 @@
   dd { margin:0 0 0 0; font-size:9.7pt; }
   ul { margin:3px 0 0; padding-left:17px; }
   li { margin:1.5px 0; }
-  code { font-family:'WenQuanYi Zen Hei Mono',monospace; background:#f1f5f9; padding:0 3px; border-radius:3px; font-size:8.9pt; }
+  code { font-family:'WenQuanYi Zen Hei Mono','Noto Color Emoji',monospace; background:#f1f5f9; padding:0 3px; border-radius:3px; font-size:8.9pt; }
   table { width:100%; border-collapse:collapse; margin:5px 0 2px; font-size:9pt; }
   th,td { border:1px solid #e2e8f0; padding:3.5px 6px; text-align:left; vertical-align:top; }
   th { background:#f8fafc; font-weight:bold; color:#334155; }
@@ -43,6 +43,7 @@
 
 <div class="cover">
   <h1>망고아이 작업 일지 — 2026년 8월 30일 · 31일</h1>
+  <p class="sub" style="color:#b45309"><b>2026-08-31 19:38 KST 정정판</b> — 초판을 구운 뒤 <code>main</code> 이 움직여 아바타 관련 2건이 사실과 달라졌습니다. 순번 20 과 확인 목록 1·2번을 <code>origin/main</code> 실측으로 고쳤습니다(초판 서술은 지우지 않고 «그 뒤 이렇게 바뀌었습니다» 로 덧붙였습니다).</p>
   <p class="sub">저장소 <code>navy111p-sudo/mangoiweb</code> · 작성 2026-08-31 11:45 KST · 근거: git 기록 56커밋 · 병합 PR 21건 · <code>docs/작업기록/</code> 8편</p>
 </div>
 
@@ -440,7 +441,7 @@
     ⚠️ <b>「나이대」 설명 문서가 이 작업 환경에서 프록시에 막혀 읽히지 않았습니다</b> — 그래서 이 둘은 <b>「귀로 확인해야 할 후보」이지 측정된 값이 아닙니다.</b> 대신 배포 없이 비교할 수 있게 주소 인자(<code>?vf=</code>·<code>?vm=</code>)를 두었습니다(허용목록 안의 이름만 받습니다).</dd>
     <dd>덤으로 찾은 것: AI영어친구가 옛 화자 이름을 그대로 비교하고 있어 <b>「남자를 골랐는데 얼굴은 여자」</b> 가 되던 자리가 있었습니다 → 짝을 맞췄습니다.</dd>
     <dt>얼굴 — 「입모양 이미지 3장」 캐릭터로 (19세 Emma·Jake)</dt>
-    <dd>아바타가 <b>「초록 배경 영상」 말고 「입모양 정지 이미지 3장」도</b> 되게 넓혔습니다. 얼굴 PNG 는 Higgsfield 로 만들었고 <b>사장님이 <code>/img</code> 에 넣어 주시면 그 자리에서 바뀝니다</b>(그때까지는 옛 얼굴로 조용히 폴백 — 빈 얼굴 카드로 남지 않게).</dd>
+    <dd>아바타가 <b>「초록 배경 영상」 말고 「입모양 정지 이미지 3장」도</b> 되게 넓혔습니다. 이 커밋 시점에는 얼굴 그림이 아직 저장소에 없어 <b>넣어 주시기 전까지 옛 얼굴로 조용히 폴백</b>하는 상태였습니다(빈 얼굴 카드로 남지 않게).</dd><dd class="note">📌 <b>그 뒤 이렇게 바뀌었습니다 (2026-08-31 오전, PR #610·#612·#615·#629 — 같은 날 <code>origin/main</code> 실측)</b> — 「Emma·Jake 를 어린 얼굴로 <u>교체</u>」가 아니라 <b>친구를 «넷» 으로 넓히는 쪽</b>으로 갔습니다. Emma(asteria)·Jake(apollo)는 <b>원래 얼굴·원래 목소리 그대로</b> 남고, 19세는 <b>Lily(thalia)·Noah(aries)</b> 라는 <b>새 친구</b>로 들어왔습니다(+🔀 번갈아). <b>그림 6장은 이미 저장소에 있습니다</b> — <code>lily-{closed,mid,wide}.webp</code>·<code>noah-*.webp</code>, 캐릭터 표가 가리키는 파일과 실제 파일이 일치함을 확인했습니다. ⟹ <b>이 일지 원본이 남긴 「그림을 넣어 주세요」 숙제는 없어졌습니다</b>(아래 확인 목록 1번). PR #615 가 「표가 가리키는 그림이 저장소에 있는가」 검사까지 하니스에 넣어 같은 누락은 이제 CI 가 잡습니다.</dd>
     <dd><b>왜 영상이 아니라 이미지인가</b> — 7/29 사고(「남자 아바타가 한 번 움직이고 멈춘다」)의 뿌리가 <b>영상 seek</b> 이었는데, 이미지는 seek 이 없어 그 사고 유형이 <b>구조적으로 사라집니다.</b></dd>
     <dd>덤: <code>&lt;video&gt;</code> 안의 태그 두 줄을 지웠습니다 — 그 태그 때문에 JS 가 돌기 전에 <b>942KB 영상을 미리 받고</b> 있었습니다(실측).</dd>
     <dt>야간 배치가 「어디까지 갔는지」를 남깁니다 (병합 대기)</dt>
@@ -478,8 +479,8 @@
 <p style="font-size:9.4pt;margin:0 0 8px">작업 환경의 프록시가 <code>mangoi.ai</code> 를 막아 <b>Claude 는 배포된 실제 화면을 볼 수 없습니다.</b> 코드가 나간 것까지만 확인했습니다.</p>
 <table>
   <tr><th>#</th><th>확인할 것</th><th>어디서</th></tr>
-  <tr><td>1</td><td><b>얼굴 PNG 를 <code>/img</code> 에 넣어 주시기</b> — 그전까지는 옛 얼굴이 나옵니다(고장 아님)</td><td>웜업 · AI영어친구</td></tr>
-  <tr><td>2</td><td><b>새 목소리가 실제로 어리게 들리는지</b> — 안 맞으면 <code>?vf=</code>·<code>?vm=</code> 로 배포 없이 비교 가능</td><td>웜업</td></tr>
+  <tr><td>1</td><td><s>얼굴 PNG 를 <code>/img</code> 에 넣어 주시기</s> → <b>✅ 2026-08-31 해결 — 넣어 주실 것이 없습니다.</b> Lily·Noah 그림 6장이 저장소에 들어왔습니다(PR #615). 대신 <b>☰ 에서 네 친구(Emma·Jake·Lily·Noah)와 🔀 번갈아가 고르는 대로 얼굴·목소리가 함께 바뀌는지</b> 봐 주세요 — 기본은 Emma 입니다</td><td>웜업 · AI영어친구 · 음성코치</td></tr>
+  <tr><td>2</td><td><b>어린 목소리가 실제로 어리게 들리는지</b> — ⚠️ 대상이 바뀌었습니다: 어린 쪽은 이제 <b>Lily(<code>thalia</code>)·Noah(<code>aries</code>)</b> 이고, Emma(<code>asteria</code>)·Jake(<code>apollo</code>)는 <b>원래 목소리로 돌아왔습니다</b>. 안 맞으면 <code>?vf=</code>·<code>?vm=</code> 로 배포 없이 비교 가능(이제 <b>Lily·Noah 에 적용</b>됩니다)</td><td>웜업</td></tr>
   <tr><td>3</td><td>지문·Face ID 로그인 한 바퀴(등록 → 로그아웃 → 지문). <b>등록을 마이페이지에서 먼저</b> 해야 합니다</td><td>관리자 로그인</td></tr>
   <tr><td>4</td><td>원격 수리 PIN 발급 → 학생 홈에서 입력까지</td><td>관리자 · 학생 홈</td></tr>
   <tr><td>5</td><td>지사·대리점 계정에서 <b>자기 학원 수업에만</b> 🔄 가 뜨고 눌리는지</td><td>오늘의 수업</td></tr>
@@ -504,7 +505,7 @@
 
 <div class="foot">
   망고아이 작업 일지 · 2026-08-30 ~ 08-31 · 근거: git 커밋 56건 · 병합 PR 21건 · <code>docs/작업기록/</code> 8편 ·
-  모든 수치는 저장소와 운영 D1 <b>SELECT 실측</b>입니다. 확인하지 못한 것은 「확인하지 못했다」로 적었습니다.
+  모든 수치는 저장소와 운영 D1 <b>SELECT 실측</b>입니다. 확인하지 못한 것은 「확인하지 못했다」로 적었습니다. 정정판에서 고친 곳은 순번 20 · 확인 목록 1·2번 세 곳뿐이고, 초판 서술은 지우지 않았습니다.
 </div>
 
 </body></html>
