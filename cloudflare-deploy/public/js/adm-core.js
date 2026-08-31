@@ -2849,7 +2849,7 @@ async function loadTeacherProfiles() {
   const _tpEff = (typeof window._effectiveRole === 'function') ? window._effectiveRole() : null;
   if (_tpEff === 'branch' || _tpEff === 'agency' || _tpEff === 'parent' || _tpEff === 'student') {
     if (cnt) cnt.textContent = '0명';
-    tbody.innerHTML = '<tr><td colspan="14" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="empty">열람 권한이 없습니다. (본사 관리자·경영진 전용)</td></tr>';
     return;
   }
   if (_tpEff === 'hq_teacher') {
@@ -2874,7 +2874,7 @@ async function loadTeacherProfiles() {
   }
   if (cnt) cnt.textContent = items.length + '명';
   if (items.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="14" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="15" class="empty">강사 데이터 없음 — 위에서 신규 등록</td></tr>';
     return;
   }
   // 🚀 행 데이터 캐시 — 목록이 SELECT * 라 모든 필드 보유. 상세/수정 버튼이 재요청 없이 즉시 열도록.
@@ -2909,11 +2909,14 @@ async function loadTeacherProfiles() {
         'title="카카오ID 복사" aria-label="카카오ID 복사" ' +
         'style="margin-left:5px;padding:0 5px;font-size:10px;line-height:17px;border:1px solid #e5e7eb;border-radius:4px;background:#fff;cursor:pointer">📋</button>'
       : '<span style="color:#9ca3af">—</span>';
-    return '<tr>' +
+    return '<tr data-tid="' + t.id + '">' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + img + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb"><b>' + _aiEsc(t.korean_name||'') + '</b>' + _tpMbtiBadge(t.mbti) +
         (t.english_name ? '<br><span style="font-size:11px;color:#6b7280">' + _aiEsc(t.english_name) + '</span>' : '') + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpStatusBadge(t.status)) + '</td>' +
+      /* 🟢 «지금» — 이 강사가 지금 수업 중인가. 표를 그린 뒤 tpLoadLiveNow() 가 비동기로 채운다
+         (인사평가 점수와 같은 방식). 여기서 값을 그리지 않는 이유: 목록 API 에 그 정보가 없다. */
+      '<td class="tp-now-col" id="tpnow-' + t.id + '" style="padding:6px;border:1px solid #e5e7eb;text-align:center;white-space:nowrap"><span style="color:#d1d5db">…</span></td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpGroupBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb;text-align:center">' + (_tpWorkplaceBadge(t.group_name)) + '</td>' +
       '<td style="padding:6px;border:1px solid #e5e7eb">' + _aiEsc(t.active_region||'—') + '</td>' +
@@ -2939,7 +2942,7 @@ async function loadTeacherProfiles() {
         '<button class="tp-act-btn tp-act--kakao" onclick="window.tkOpenSend && window.tkOpenSend(' + t.id + ')" title="카카오·문자로 메시지 보내기" data-en-title="Message by KakaoTalk / SMS" style="' + _TP_ACT_BTN + 'background:#fee500;color:#191919" aria-label="카카오·문자 전달">' + _TP_IC.chat + '</button>' +
         /* 👁 (2026-08-30 v4 제안서 09) 수업관찰 «즉시 입장» — 이 강사의 지금 수업으로 바로 들어간다.
            ⚠️ 학생·강사에게 보이지 않는 «참관» 이다. 실제 참가자로 들어가는 🎥 버튼과 색을 갈라 둔다. */
-        '<button class="tp-act-btn tp-act--ghost" onclick="window.tpGhostObserve && window.tpGhostObserve(' + t.id + ')" title="수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)" data-en-title="Observe this teacher\'s live class (hidden from the participant list)" style="' + _TP_ACT_BTN + '" aria-label="수업관찰">👁</button>' +
+        '<button class="tp-act-btn tp-act--ghost" id="tpobs-' + t.id + '" onclick="window.tpGhostObserve && window.tpGhostObserve(' + t.id + ')" title="수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)" data-en-title="Observe this teacher\'s live class (hidden from the participant list)" style="' + _TP_ACT_BTN + '" aria-label="수업관찰">👁</button>' +
         '<button class="tp-act-btn tp-act--view" onclick="viewTeacherProfile(' + t.id + ')" title="상세 보기" style="' + _TP_ACT_BTN + '" aria-label="상세 보기">' + _TP_IC.view + '</button>' +
         '<button class="tp-act-btn tp-act--edit" onclick="editTeacherProfile(' + t.id + ')" title="수정" style="' + _TP_ACT_BTN + '" aria-label="수정">' + _TP_IC.edit + '</button>' +
         // 🔑 비밀번호 재설정 — 강사가 비번을 잊으면 아무도 풀어줄 수 없던 문제(2026-07-23).
@@ -2954,8 +2957,226 @@ async function loadTeacherProfiles() {
 
   // 📊 인사평가 점수·순위 채우기 — 실제 수업기록 기반. 표 렌더를 막지 않도록 비동기.
   if (typeof window.hrFillTeacherScores === 'function') window.hrFillTeacherScores();
+  // 🟢 «지금 수업 중» 신호등 채우기 — 아래 _TP_LIVE 절. 마찬가지로 표 렌더를 막지 않는다.
+  if (typeof window.tpLoadLiveNow === 'function') window.tpLoadLiveNow();
 }
 
+
+/* 🟢 «지금 수업 중» 신호등 — 강사 명부 (2026-08-31, 사장님 「하나하나 눌러볼 수 없고 바로 전체에서」)
+   ═══════════════════════════════════════════════════════════════════════════
+   [왜] 아래 tpGhostObserve(👁)는 «누른 뒤에야» 그 강사의 수업을 찾는다. 그래서 수업 중인
+      강사를 고르려면 「눌러본다 → 없다 → 확인 → 다음 강사」를 강사 수만큼 반복해야 했다.
+      표에 미리 그려 두면 클릭이 0번이 된다. 전체 현황을 한 표로 보는 화면은 따로 있다
+      (🗼 /admin/monitor-wall.html) — 이건 «명부에서 고르는 사람» 을 위한 것이다.
+   [무엇을 근거로] 두 가지를 겹쳐 본다. 둘은 서로 다른 사실이라 갈라서 표시한다.
+      · /api/admin/classes/today  → 예약. `join_open` = «지금 들어갈 수 있는 시간대»
+        (시작 10분 전 ~ 종료 15분 후). ⚠️ 이것은 «실제로 접속해 있다» 가 아니다.
+      · /api/active-rooms         → 망고아이 화상방에 «실제로» 붙어 있는 방 목록.
+      🟢 수업 중   = 예약 + 그 방이 실제로 열려 있음  → 참관하면 사람이 있다
+      🟡 수업 시간 = 예약은 지금인데 방에 아직 아무도 없음 → 참관은 되지만 빈 방일 수 있다
+      ⚪ 카페24    = 카페24에서 도는 수업(`c24-*`). 망고아이 방이 없어 **참관 불가**가 정상.
+                     ⛔ 이걸 안 갈라 놓으면 「배지는 있는데 눌러도 안 되는 버튼」이 다시 생긴다.
+   ⚠️ 강사↔수업 잇기는 **이름 완전일치** 뿐이다. 강사 번호는 세 벌(카페24 9~196 · 원부 1~29 ·
+      프로필 4~37)이고 겹치는 자리에서 서로 다른 사람이라, 번호로 이으면 조용히 남의 수업이
+      «수업 중» 으로 뜬다(CLAUDE.md 2장). 못 찾으면 «—» 로 둔다 — 추측하지 않는다.
+   ⚠️ 색은 인라인 `!important` 로 준다 — admin-inline-c.css 가 카드 안 글자를
+      `#101828 !important` 로 통째로 덮어서, 그냥 쓰면 초록·주황이 조용히 죽는다.
+   ⛔ 👁 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로 갈아끼워
+      34px 짜리 아이콘 버튼에 문장이 들어앉는다. 설명은 data-ko-title/data-en-title 로만. */
+var _TP_LIVE = { byName: {}, ts: 0, off: false, loaded: false };
+var _TP_LIVE_RANK = { c24: 1, open: 2, live: 3 };
+
+/* 이름 정규화 — 소문자 + 앞의 「teacher 」 떼기. classes/today 의 teacher_name 과
+   teacher_profiles 의 korean_name/english_name 을 같은 자로 재려는 것뿐이다. */
+function _tpNormName(v) {
+  return String(v == null ? '' : v).trim().toLowerCase().replace(/^teacher\s+/, '');
+}
+
+window.tpLiveOnly = false;
+
+/* 지금 수업 현황을 한 번에 읽어 온다. 강사 수만큼 부르지 않는다(표당 1회). */
+window.tpLoadLiveNow = async function () {
+  if (_TP_LIVE.off) { _tpPaintLive(); return; }
+  var cr = null, ar = null;
+  try {
+    var rs = await Promise.all([
+      fetch('/api/admin/classes/today', { credentials: 'include', cache: 'no-store' }).catch(function () { return null; }),
+      fetch('/api/active-rooms', { credentials: 'include', cache: 'no-store' }).catch(function () { return null; })
+    ]);
+    cr = rs[0]; ar = rs[1];
+  } catch (e) { return; }
+
+  /* 강사·지사 계정은 이 API 를 못 본다(403). 그때는 «모른다» 고 말하고 다시 묻지 않는다 —
+     조용히 «수업 없음» 으로 그리면 그것이 거짓말이 된다. */
+  if (cr && cr.status === 403) { _TP_LIVE.off = true; _TP_LIVE.loaded = true; _tpPaintLive(); return; }
+
+  var cd = null;
+  try { cd = cr ? await cr.json() : null; } catch (e) { cd = null; }
+  /* ✅ «성공이라고 말했는가» 로 판정한다 — 종단 404 본문에는 ok 칸이 아예 없어서
+     `cd.ok === false` 로만 거르면 그냥 통과하고 «오늘은 수업이 없나 보다» 로 읽힌다
+     (CLAUDE.md 2장). 실패하면 **직전 값을 그대로 둔다** — 지우면 멀쩡한 수업이 사라진다. */
+  if (!cr || !cr.ok || !cd || cd.ok !== true || !Array.isArray(cd.sessions)) { _tpPaintLive(); return; }
+
+  var liveRooms = {};
+  try {
+    var ad = ar ? await ar.json() : null;
+    (Array.isArray(ad) ? ad : []).forEach(function (r) {
+      if (r && r.roomId != null) liveRooms[String(r.roomId)] = true;
+    });
+  } catch (e) { /* 방 목록만 실패하면 🟡 로 떨어진다 — 예약 정보는 살아 있다 */ }
+
+  var byName = {};
+  cd.sessions.forEach(function (s) {
+    if (!s || !s.room_id || !s.join_open) return;         // 지금 들어갈 수 있는 수업만
+    var nm = _tpNormName(s.teacher_name);
+    if (!nm) return;                                       // 이름을 모르면 아무에게도 안 붙인다
+    var st = /^c24-/.test(String(s.room_id)) ? 'c24'
+           : (liveRooms[String(s.room_id)] ? 'live' : 'open');
+    var cur = byName[nm];
+    if (!cur) cur = byName[nm] = { state: st, room_id: s.room_id, start: s.start_time || '', student: s.student_name || '', n: 0 };
+    cur.n++;
+    if (_TP_LIVE_RANK[st] > _TP_LIVE_RANK[cur.state]) {    // 여러 건이면 «더 확실한 쪽» 을 보여준다
+      cur.state = st; cur.room_id = s.room_id; cur.start = s.start_time || ''; cur.student = s.student_name || '';
+    }
+  });
+
+  _TP_LIVE.byName = byName; _TP_LIVE.ts = Date.now(); _TP_LIVE.loaded = true;
+  _tpPaintLive();
+};
+
+/* 표를 «다시 그리지 않고» 칸만 칠한다 — 45초마다 행을 갈아치우면 조준한 버튼이 움직인다. */
+function _tpPaintLive() {
+  var _L = (typeof adminLang !== 'undefined' && adminLang === 'en');
+  var T = function (ko, en) { return _L ? en : ko; };
+  var rows = document.querySelectorAll('#tp-list-body tr[data-tid]');
+  var n = { live: 0, open: 0, c24: 0 };
+
+  for (var i = 0; i < rows.length; i++) {
+    var tr = rows[i];
+    var tid = tr.getAttribute('data-tid');
+    var t = (window._tpRowById || {})[tid] || {};
+    var hit = null;
+    if (!_TP_LIVE.off) {
+      var names = [t.korean_name, t.english_name].map(_tpNormName).filter(Boolean);
+      for (var j = 0; j < names.length && !hit; j++) hit = _TP_LIVE.byName[names[j]] || null;
+    }
+    if (hit) n[hit.state]++;
+
+    var cell = document.getElementById('tpnow-' + tid);
+    if (cell) {
+      if (_TP_LIVE.off) {
+        cell.innerHTML = '<span style="color:#9ca3af">—</span>';
+      } else if (!_TP_LIVE.loaded) {
+        cell.innerHTML = '<span style="color:#d1d5db">…</span>';
+      } else if (!hit) {
+        cell.innerHTML = '<span style="color:#9ca3af">—</span>';
+      } else {
+        var look = hit.state === 'live' ? { ko: '🟢 수업 중', en: '🟢 In class', c: '#16a34a' }
+                 : hit.state === 'open' ? { ko: '🟡 수업 시간', en: '🟡 Class window', c: '#b45309' }
+                 : { ko: '⚪ 카페24', en: '⚪ cafe24', c: '#6b7280' };
+        var sub = [hit.start, hit.student].filter(Boolean).join(' · ')
+                + (hit.n > 1 ? ' ' + T('외 ' + (hit.n - 1) + '건', '+' + (hit.n - 1)) : '');
+        cell.innerHTML =
+          '<span data-ko="' + look.ko + '" data-en="' + look.en + '" '
+          + 'style="font-size:11.5px;font-weight:800;color:' + look.c + ' !important">'
+          + (_L ? look.en : look.ko) + '</span>'
+          + (sub ? '<div style="font-size:10.5px;color:#9ca3af !important">' + _aiEsc(sub) + '</div>' : '');
+      }
+    }
+
+    /* 👁 버튼 — 참관할 «방» 이 있을 때만 진하게. 카페24 수업은 방이 없어 눌러도 못 들어간다. */
+    var btn = document.getElementById('tpobs-' + tid);
+    if (btn) {
+      var can = !!hit && (hit.state === 'live' || hit.state === 'open');
+      var dim = _TP_LIVE.loaded && !_TP_LIVE.off && !can;
+      btn.disabled = dim;
+      btn.style.opacity = dim ? '0.32' : '1';
+      btn.style.cursor = dim ? 'not-allowed' : 'pointer';
+      var tipKo = !_TP_LIVE.loaded || _TP_LIVE.off ? '수업관찰 — 이 강사의 진행 중인 수업을 몰래 봅니다 (참여자 목록에 안 뜹니다)'
+                : can ? '수업관찰 — 지금 하고 있는 수업으로 바로 들어갑니다 (참여자 목록에 안 뜹니다)'
+                : hit ? '카페24에서 도는 수업이라 참관할 망고아이 화상방이 없습니다'
+                      : '지금 진행 중인 수업이 없습니다';
+      var tipEn = !_TP_LIVE.loaded || _TP_LIVE.off ? 'Observe this teacher’s live class (hidden from the participant list)'
+                : can ? 'Observe the class this teacher is running right now (hidden from the participant list)'
+                : hit ? 'This class runs on cafe24, so there is no Mango-i room to observe'
+                      : 'No class is in progress right now';
+      btn.setAttribute('data-ko-title', tipKo);
+      btn.setAttribute('data-en-title', tipEn);
+      btn.title = _L ? tipEn : tipKo;
+    }
+
+    /* 🔎 «수업 중만 보기» — 참관 불가한 카페24 수업도 남긴다(빼면 «한가하다» 로 읽힌다). */
+    tr.style.display = (window.tpLiveOnly && !hit) ? 'none' : '';
+  }
+
+  _tpPaintLiveSummary(n, _L);
+  _tpPaintLiveToggle(n, _L);
+}
+
+function _tpPaintLiveSummary(n, _L) {
+  var box = document.getElementById('tp-live-summary');
+  if (!box) return;
+  var T = function (ko, en) { return _L ? en : ko; };
+  if (_TP_LIVE.off) {
+    var offKo = 'ℹ️ 이 계정에서는 수업 현황을 볼 수 없습니다';
+    var offEn = 'ℹ️ Live class status is not available for this account';
+    box.setAttribute('data-ko', offKo); box.setAttribute('data-en', offEn);
+    box.textContent = _L ? offEn : offKo;
+    return;
+  }
+  if (!_TP_LIVE.loaded) { box.textContent = T('수업 현황 확인 중…', 'Checking live classes…'); return; }
+  var ko = '🟢 수업 중 ' + n.live + ' · 🟡 수업 시간 ' + n.open + (n.c24 ? ' · ⚪ 카페24 ' + n.c24 + ' (참관 불가)' : '');
+  var en = '🟢 In class ' + n.live + ' · 🟡 Class window ' + n.open + (n.c24 ? ' · ⚪ cafe24 ' + n.c24 + ' (not observable)' : '');
+  /* JS 로 그린 글자는 🌐 를 눌러도 안 따라온다 — 그릴 때 data-ko/data-en 을 함께 박는다 */
+  box.setAttribute('data-ko', ko); box.setAttribute('data-en', en);
+  box.textContent = _L ? en : ko;
+}
+
+function _tpPaintLiveToggle(n, _L) {
+  var btn = document.getElementById('tp-live-only');
+  if (!btn) return;
+  var cnt = n.live + n.open + n.c24;
+  var ko = window.tpLiveOnly ? '↩︎ 전체 강사 보기' : '🟢 수업 중만 보기' + (_TP_LIVE.loaded && !_TP_LIVE.off ? ' (' + cnt + ')' : '');
+  var en = window.tpLiveOnly ? '↩︎ Show all teachers' : '🟢 In-class only' + (_TP_LIVE.loaded && !_TP_LIVE.off ? ' (' + cnt + ')' : '');
+  btn.setAttribute('data-ko', ko); btn.setAttribute('data-en', en);
+  btn.textContent = _L ? en : ko;
+  btn.disabled = _TP_LIVE.off;
+  btn.style.opacity = _TP_LIVE.off ? '0.4' : '1';
+  btn.style.backgroundColor = window.tpLiveOnly ? '#dcfce7' : '#ffffff';
+}
+
+window.tpToggleLiveOnly = function () {
+  if (_TP_LIVE.off) return;
+  window.tpLiveOnly = !window.tpLiveOnly;
+  _tpPaintLive();
+};
+
+/* ⏱ 45초마다 다시 읽는다. 카드가 닫혀 있거나 탭이 뒤에 있으면 부르지 않는다.
+   ⛔ MutationObserver 로 표를 지켜보지 말 것 — 홈 전체를 멎게 한 전력이 있다(CLAUDE.md 2장). */
+function _tpLiveTick() {
+  if (_TP_LIVE.off || document.hidden) return;
+  var card = document.getElementById('card-teacher-mgmt');
+  if (!card || !card.open) return;
+  if (window.__tpNowHover) return;                       // 마우스가 표 위면 건드리지 않는다
+  if (!document.querySelector('#tp-list-body tr[data-tid]')) return;
+  window.tpLoadLiveNow();
+}
+if (!window.__tpLiveTimer) window.__tpLiveTimer = setInterval(_tpLiveTick, 45000);
+
+/* 🌐 언어 전환 — 관리자 화면의 이 이벤트는 «document» 에서 발행되고 bubbles:false 라
+   window 로 올라가지 않는다. 화면마다 발행처가 달라 둘 다 듣는다(CLAUDE.md 2장). */
+if (!window.__tpLiveLangBound) {
+  window.__tpLiveLangBound = 1;
+  document.addEventListener('mangoi:lang-changed', function () { _tpPaintLive(); });
+  window.addEventListener('mangoi:lang-changed', function () { _tpPaintLive(); });
+  document.addEventListener('DOMContentLoaded', function () {
+    var tbl = document.getElementById('tp-list-table');
+    if (!tbl || tbl.__tpNowHoverBound) return;
+    tbl.__tpNowHoverBound = 1;
+    tbl.addEventListener('pointerenter', function () { window.__tpNowHover = true; });
+    tbl.addEventListener('pointerleave', function () { window.__tpNowHover = false; });
+  });
+}
 
 /* 👁 수업관찰 (Ghost Mode) — 강사 목록 액션 열 (2026-08-30, v4 제안서 09)
    ═══════════════════════════════════════════════════════════════════════════

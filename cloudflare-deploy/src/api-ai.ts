@@ -48,7 +48,7 @@ export async function handleAiApi(
 3. List 2-5 specific issues found, each with: original phrase, suggested phrase, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
 4. Provide one encouraging tip in Korean (1-2 sentences).
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
-6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" must be a short Korean sentence. If nothing is worth upgrading, use an empty list.
+6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
 
 Respond in this strict JSON format only, no markdown:
 {
@@ -138,18 +138,29 @@ Student text: """${text}"""`;
       //      그러면 학생 화면에 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다 →
       //      from 이 실제 원문에 있는 경우만 통과시킨다(없으면 그 항목을 버린다).
       //   ⚠️ to 는 화면에 «따라 쓸 영어» 로 나가므로 한글·한자가 섞이면 안 된다.
+      /* 🔤 [2026-08-31] why 가 비면 **그 항목을 아예 내보내지 않는다**(사장님 결정 — A안).
+         운영 D1 실측: 이 기능이 나간 뒤 실제로 나온 업그레이드 1건의 why 가
+         **서버 폴백 문구 그대로**였다(「더 자연스럽고 어른스러운 표현이에요」) — 즉 모델이
+         why 를 비워 보내고 서버가 채우고 있었다. 교정 이유(reason)가 21/21 폴백이던 것과 같은 패턴.
+         ⛔ 어휘 «왜» 는 의미 판단이라 교정 이유처럼 결정론으로 만들 수 없다
+            (`special → memorable` 이 왜 나은지는 낱말 diff 로 셀 수 없다).
+            그래서 지어내는 대신 **버립니다** — 같은 화면의 교정 이유(issues)가 이미 그 규칙이다.
+         ⚠️ 그래서 업그레이드는 «가끔 0건» 이 정상입니다. 화면이 비었다고 고장이 아닙니다. */
       const _lowText = text.toLowerCase();
       const upgrades = (Array.isArray(parsed.upgrades) ? parsed.upgrades : [])
         .slice(0, 6)
         .map((u: any) => ({
           from: String(u?.from || '').trim().slice(0, 60),
           to: String(u?.to || '').trim().slice(0, 60),
-          why: String(u?.why || '').trim().slice(0, 160) || '더 자연스럽고 어른스러운 표현이에요.',
+          why: String(u?.why || '').trim().slice(0, 160),
         }))
         .filter((u: any) =>
           u.from && u.to &&
           u.from.toLowerCase() !== u.to.toLowerCase() &&
           /^[A-Za-z][A-Za-z' -]{0,59}$/.test(u.to) &&
+          // ⚠️ 이유는 «한국어로 6자 이상» 일 때만 인정한다(issues 와 같은 기준).
+          //    빈 값·영어 한 낱말이 그대로 학생 화면에 나가던 것을 막는다.
+          /[가-힣]/.test(u.why) && u.why.length >= 6 &&
           _lowText.includes(u.from.toLowerCase()))
         .slice(0, 3);
 
@@ -745,7 +756,9 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
             });
             const st2 = aiFriendStripHanzi(String((shorter && (shorter.response || shorter.result)) || '').trim());
             const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
-            if (st2 && m2 && (m2.ok || (m2.worstWords <= lvBefore.worstWords && m2.sentences <= lvBefore.sentences))) {
+            // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
+            //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
+            if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
               reply = st2;
             }
           } catch (e: any) {
@@ -755,10 +768,13 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
         reply = aiFriendTrimSentences(reply, level) || reply;
         const lvAfter = aiFriendMeasureReply(reply, level);
         if (!lvAfter.ok) {
-          // 한 문장이 여전히 길 수 있다(단어는 안 자르므로). 조용히 넘기지 말고 남긴다.
-          console.error('[chat-friend] level ' + level + ' still long: '
+          /* 한 문장이 여전히 길거나 꼴이 깨져 있을 수 있다 — 낱말을 자르거나 문장을 «고쳐 쓰지» 는
+             않기 때문이다(아이가 그대로 따라 읽는 문장이라 코드가 지어내면 안 된다).
+             ⛔ 조용히 넘기지 마세요. 이 줄이 없었다면 「Dog is big?」 이 화면까지 갔는지조차 몰랐습니다. */
+          console.error('[chat-friend] level ' + level + ' not clean: '
             + lvAfter.sentences + '/' + lvAfter.maxSentences + ' sentences, worst '
-            + lvAfter.worstWords + '/' + lvAfter.maxWordsPerSentence + ' words');
+            + lvAfter.worstWords + '/' + lvAfter.hardMaxWordsPerSentence + ' words'
+            + (lvAfter.broken.length ? ', broken questions: ' + JSON.stringify(lvAfter.broken) : ''));
         }
       }
 
