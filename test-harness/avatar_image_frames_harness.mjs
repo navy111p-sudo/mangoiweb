@@ -139,6 +139,26 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   if (afSrc) { try { AFP = new Function(afSrc[0] + ' return PEOPLE;')(); } catch {} }
   ok(!!AFP, 'ai-friend.html 의 PEOPLE 을 읽을 수 있다');
 
+  // 🎙 음성코치 — 2026-08-31 까지 아바타 코드를 «한 벌 더» 갖고 있던 화면.
+  const SC = readFileSync(join(PUB, 'speech-coach.html'), 'utf8');
+  const scSrc = SC.match(/const SC_PEOPLE = \{[\s\S]*?\n\};/);
+  let SCP = null;
+  if (scSrc) { try { SCP = new Function(scSrc[0] + ' return SC_PEOPLE;')(); } catch {} }
+  ok(!!SCP, 'speech-coach.html 의 SC_PEOPLE 을 읽을 수 있다');
+  ok(/<script src="\/js\/mango-avatar\.js\?v=\d+"/.test(SC),
+    'speech-coach 가 공용 아바타 모듈을 쓴다',
+    '자기 인라인 복제본으로 되돌아가면 «다른 화면은 바뀌는데 음성코치만 안 바뀜» 이 재현된다');
+  ok(!/window\.MangoAvatar = \(function\(\)\{/.test(SC),
+    'speech-coach 안에 아바타 복제본이 다시 생기지 않았다');
+  ok(!/mango-avatar\.css/.test(SC.replace(/<!--[\s\S]*?-->/g, '')),
+    'speech-coach 는 공용 아바타 CSS 를 싣지 않는다(카드 크기가 자기 CSS 대로여야 한다)');
+  ok(/scFriend === 'emma'[\s\S]{0,80}SAY_CLIPS/.test(SC),
+    '미리 만든 립싱크 클립(SAY_CLIPS)은 Emma 일 때만 쓴다',
+    '다른 친구에게 틀면 「Jake 를 골랐는데 Emma 가 말한다」가 되고 에러는 안 난다');
+  ok(/ttsCache\[lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(SC),
+    'TTS 캐시 키에 화자가 들어 있다',
+    '안 넣으면 친구를 바꿔도 먼저 받아 둔 남의 목소리가 그대로 재생된다');
+
   if (WUV && AFP && CH) {
     const people = ['emma', 'jake', 'lily', 'noah'];
     for (const k of people) {
@@ -150,6 +170,11 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
       ok(WUV[k].char === AFP[k].char && !!CH[WUV[k].char],
         `${k}: 두 화면이 같은 얼굴을 가리키고 그 얼굴이 실재한다 (${WUV[k].char})`,
         '한쪽만 고치면 「그 친구를 골랐는데 딴 얼굴」이 되고 에러는 안 난다');
+      if (SCP) {
+        ok(!!SCP[k] && SCP[k].speaker === WUV[k].speaker && SCP[k].char === WUV[k].char,
+          `${k}: 음성코치도 같은 목소리·얼굴이다 (${SCP[k] && SCP[k].speaker} / ${SCP[k] && SCP[k].char})`,
+          '세 화면 중 하나만 어긋나면 같은 이름이 화면마다 다른 사람이 된다');
+      }
     }
     // 네 사람의 목소리가 서로 겹치면 «누가 말하는지» 를 귀로 구분할 수 없다
     const spk = people.map(k => WUV[k] && WUV[k].speaker);
@@ -168,6 +193,9 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
     const afBtns = [...AF.matchAll(/data-voice="(\w+)"/g)].map(m => m[1]);
     ok(people.concat('mix').every(k => afBtns.includes(k)),
       `AI 영어친구 버튼이 다섯 개다 (${afBtns.join(', ')})`);
+    const scBtns = [...SC.matchAll(/data-p="(\w+)"/g)].map(m => m[1]);
+    ok(people.every(k => scBtns.includes(k)),
+      `음성코치 햄버거에 네 친구가 다 있다 (${scBtns.join(', ')})`);
   }
 }
 
