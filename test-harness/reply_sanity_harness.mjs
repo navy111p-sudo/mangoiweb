@@ -162,6 +162,40 @@ ok(/if \(freshText && !replyRejectReason\(/.test(chat),
 ok(!/aiText\s*=\s*aiText\.(replace|slice|substring)/.test(strip(chat)),
   '웜업이 문장을 «고쳐 쓰지» 않는다(다시 뽑게만 한다)');
 
+/* 🔴 형제 경로도 막혔는가 — /api/warmup/questions.
+   같은 모델로 «학생 화면에 뜨는 질문 칩» 을 만드는데 검증이 「5~200자 + ? 로 끝남」 뿐이었다.
+   200자짜리 낱말 죽이 ? 로 끝나면 그대로 통과했다.
+   CLAUDE.md 의 반복 패턴 — «같은 판정이 두 곳에 있으면 한쪽만 고쳐진다» 그대로다. */
+const qh = (() => {
+  const i = IDX.indexOf('async function handleWarmupQuestions');
+  if (i < 0) return '';
+  let d = 0; const st = IDX.indexOf('{', i);
+  for (let j = st; j < IDX.length; j++) {
+    if (IDX[j] === '{') d++;
+    else if (IDX[j] === '}' && --d === 0) return IDX.slice(st, j + 1);
+  }
+  return '';
+})();
+ok(qh.length > 1000, 'handleWarmupQuestions 본문을 읽었다', qh.length);
+ok(/replyRejectReason\(/.test(qh), '질문 칩도 같은 판정을 거친다(형제 경로가 안 뚫려 있다)');
+ok(/questions = questions\.filter\(\(q\) => !replyRejectReason\(q\)\)/.test(qh),
+  '무너진 질문을 목록에서 «걸러» 낸다');
+/* ⚠️ 전부 걸러져 비었을 때 화면이 비면 안 된다 — 준비 질문 폴백이 그 뒤에 있어야 한다 */
+/* ⚠️ 「어느 쪽이 먼저 나오는가」도 «주석을 벗긴 사본» 으로 봐야 한다 — 바로 위 설명 주석에
+   WARMUP_FALLBACK_QUESTIONS 라고 적어 둔 것이 첫 등장으로 잡혀 실제로 FAIL 났다.
+   (이 하니스가 방금 고친 그 함정을 자기 자신에게서 다시 잡은 것이다) */
+/* ⚠️ «replyRejectReason 이 먼저 나오는가» 로 물으면 안 된다 — 바로 위 로그 줄에도 그 이름이
+   있어서, 정작 거르기를 폴백 «뒤» 로 옮겨도 통과한다(되돌리기 시험에서 실제로 밟았다).
+   물어야 할 것은 «거르는 그 줄» 의 자리다. */
+const qhc = strip(qh);
+const iFilter = qhc.indexOf('questions.filter((q) => !replyRejectReason(q))');
+const iFallback = qhc.indexOf('WARMUP_FALLBACK_QUESTIONS');
+ok(iFilter >= 0 && iFallback >= 0 && iFilter < iFallback,
+  '거르기가 준비 질문 폴백 «앞» 에 있다(비면 폴백이 받아 준다)', { 거르기: iFilter, 폴백: iFallback });
+/* ⛔ 여기서는 길이 상한을 넘기지 않는다 — 레벨은 프롬프트가 이미 정한다 */
+ok(!/replyRejectReason\(q,\s*[A-Za-z_]/.test(qh),
+  '질문 칩에는 길이 상한을 걸지 않는다(멀쩡한 질문이 사라지지 않게)');
+
 /* 레벨별 상한이 세 곳에서 같은 말을 하는가 — 서버 문자열 · 상한표 · AI 영어친구 */
 const capTbl = (IDX.match(/const WARMUP_WORD_CAP: Record<number, number> = \{([^}]*)\}/) || [])[1] || '';
 const CAPS = {};

@@ -4248,6 +4248,17 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       console.error('[warmup-questions] AI error:', dbgErr);
     }
 
+    /* 🧯 무너진 질문 차단 (2026-08-31) — 웜업 대화와 «같은 사고» 가 여기서도 성립한다.
+       같은 모델·같은 온도로 만드는데 검증이 「5~200자 + ? 로 끝남」 뿐이라,
+       200자짜리 낱말 죽이 ? 로 끝나면 그대로 학생 화면의 질문 칩이 된다.
+       ⚠️ 길이 상한은 넘기지 않는다(0) — 이 칩은 «AI 가 물어볼 질문» 이라 레벨별 단어 수를
+          이미 프롬프트가 정하고, 여기서 또 자르면 멀쩡한 질문이 사라진다. 무너진 모양만 본다.
+       ✅ 전부 걸러져 비면 아래 WARMUP_FALLBACK_QUESTIONS 가 받아 준다(화면이 안 빈다). */
+    const brokenQs = questions.filter((q) => replyRejectReason(q));
+    if (brokenQs.length) console.warn('[warmup-questions] dropped', brokenQs.length, 'broken:',
+      brokenQs.map((q) => replyRejectReason(q)).join(','));
+    questions = questions.filter((q) => !replyRejectReason(q));
+
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));
     questions = questions.filter((q) => !seen.has(warmupNormSent(q))).slice(0, count);
