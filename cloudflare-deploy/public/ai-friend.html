@@ -47,6 +47,12 @@
       color: var(--text); border-radius: 999px; cursor: pointer; font-size: 11.5px;
       font-weight: 700; white-space: nowrap; }
     .opt.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold); }
+    /* 🪜 레벨 버튼만 «숫자 + CEFR» 두 줄. 여덟 개가 폰 한 줄에 들어가야 하므로 좁게 잡는다.
+       ⚠️ .opts 는 flex-wrap 이라 넘치면 다음 줄로 흐른다 — 잘리지는 않는다. */
+    .opt[data-level] { display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+      padding: 4px 9px; line-height: 1.15; }
+    .opt[data-level] i { font-style: normal; font-size: 9px; font-weight: 600; opacity: .72;
+      letter-spacing: .02em; }
 
     /* ══ 🎮 게임 HUD: 레벨·XP·스트릭·오늘의 단어·퀘스트 ══ */
     .hud { display: flex; gap: 8px; align-items: center; padding: 8px 14px;
@@ -311,11 +317,18 @@
   </div>
   <div class="opts">
     <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
-    <button class="opt" data-level="A1">A1</button>
-    <button class="opt active" data-level="A2">A2</button>
-    <button class="opt" data-level="B1">B1</button>
-    <button class="opt" data-level="B2">B2</button>
-    <button class="opt" data-level="C1">C1</button>
+    <!-- 🪜 여덟 칸 (2026-08-31 사장님 결정). 숫자가 눈금이고 CEFR 은 그 위에 얹은 라벨이다 —
+         학부모·강사가 A1·B1 로 이야기하므로 둘 다 보여 준다.
+         ⚠️ data-level 값(S1…S8)이 서버로 가는 값이다. 서버 표(src/ai-friend-level.ts)와 «짝».
+         ⚠️ 옛 값(A1…C1)은 학생 브라우저에 남아 있어 계속 받는다(AIF_LEGACY). -->
+    <button class="opt" data-level="S1">1<i>A1</i></button>
+    <button class="opt" data-level="S2">2<i>A2</i></button>
+    <button class="opt active" data-level="S3">3<i>A2+</i></button>
+    <button class="opt" data-level="S4">4<i>B1</i></button>
+    <button class="opt" data-level="S5">5<i>B1+</i></button>
+    <button class="opt" data-level="S6">6<i>B2</i></button>
+    <button class="opt" data-level="S7">7<i>B2+</i></button>
+    <button class="opt" data-level="S8">8<i>C1</i></button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="스타일:" data-en="Style:">스타일:</span>
     <button class="opt active" data-persona="friendly" data-ko="친근한" data-en="Friendly">친근한</button>
     <button class="opt" data-persona="playful" data-ko="장난스러운" data-en="Playful">장난스러운</button>
@@ -463,15 +476,26 @@
        그전에는 let currentLevel='B1' 이고 저장 코드가 없어서, 아이가 A1 을 눌러도
        새로고침하면 B1 으로 돌아갔다. 속도·목소리·자막·주제는 전부 기억하는데 레벨만 빠져 있었다.
        실측(운영 D1 ai_friend_chats): 답변 313건 중 290건(93%)이 B1 으로 저장돼 있었다.
-       ⚠️ 기본값 'A2' 는 서버 기본값(src/ai-friend-level.ts 의 AI_FRIEND_DEFAULT_LEVEL)과 «짝» 이다.
-          예전에는 화면 B1 · 서버 A2 로 서로 달랐다. 한쪽만 고치면 그 어긋남이 그대로 돌아온다.
+       ⚠️ 기본값(아래 AIF_DEFAULT)은 서버 기본값(src/ai-friend-level.ts 의 AI_FRIEND_DEFAULT_LEVEL)과
+          «짝» 이다. 예전에는 화면 B1 · 서버 A2 로 서로 달랐다. 한쪽만 고치면 그 어긋남이 그대로 돌아온다.
        ⚠️ 목록도 서버 AI_FRIEND_LEVELS 와 짝이다 — 화면에만 늘리면 서버가 모르는 값이라
           조용히 기본값으로 떨어진다(CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
-    const AIF_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1'];
+    /* 🪜 여덟 칸 — 서버 src/ai-friend-level.ts 의 AI_FRIEND_LEVELS 와 «짝» 이다.
+       ⚠️ 화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
+          (CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+    const AIF_LEVELS = ['S1','S2','S3','S4','S5','S6','S7','S8'];
+    /* ⛔ 옛 키를 지우지 말 것 — 학생 브라우저에 A1…C1 이 남아 있다.
+       지우면 지금까지 고른 레벨이 전부 리셋된다(친구 이름을 넷으로 늘릴 때
+       female → emma 로 이어받은 것과 같은 처리다). */
+    const AIF_LEGACY = { A1:'S1', A2:'S2', B1:'S4', B2:'S6', C1:'S8' };
+    const AIF_DEFAULT = 'S3';                       // 서버 AI_FRIEND_DEFAULT_LEVEL 과 같아야 한다
     const AIF_LEVEL_KEY = 'mangoi_aifriend_level';
     let currentLevel = (function(){
-      try { const v = localStorage.getItem(AIF_LEVEL_KEY); return AIF_LEVELS.indexOf(v) >= 0 ? v : 'A2'; }
-      catch(e){ return 'A2'; }
+      try {
+        let v = localStorage.getItem(AIF_LEVEL_KEY);
+        if (Object.prototype.hasOwnProperty.call(AIF_LEGACY, v)) v = AIF_LEGACY[v];
+        return AIF_LEVELS.indexOf(v) >= 0 ? v : AIF_DEFAULT;
+      } catch(e){ return AIF_DEFAULT; }
     })();
     let currentPersona = 'friendly';
     // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
@@ -1579,7 +1603,14 @@ body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba
   function summary(){
     var lv = document.querySelector('.opts .opt.active[data-level]');
     var sb = document.querySelector('.opts .opt.active[data-sub]');
-    var s = lv ? lv.textContent.trim() : '';
+    /* ⚠️ 레벨 버튼은 두 줄이다(숫자 + <i>CEFR</i>). textContent 를 그대로 쓰면 「3A2+」 가 된다
+       — 2026-08-31 trap-check 가 잡았다. 숫자와 CEFR 을 «사람이 읽는 모양» 으로 붙인다. */
+    var s = '';
+    if (lv) {
+      var num = (lv.firstChild && lv.firstChild.nodeValue || '').trim();
+      var cefr = lv.querySelector('i');
+      s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
+    }
     if (sb && sb.dataset.sub !== 'on') s = (s ? s + ' ' : '') + '👁';
     return s;
   }

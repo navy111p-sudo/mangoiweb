@@ -11,7 +11,8 @@ import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // �
 import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
-         aiFriendTrimSentences, AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+         aiFriendTrimSentences, aiFriendNormalizeLevel,
+         AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
@@ -568,7 +569,10 @@ Student text: """${text}"""`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
-      const level = String(b.level || AI_FRIEND_DEFAULT_LEVEL).trim();
+      /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
+         ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
+            학생이 고른 레벨이 리셋된 것처럼 보입니다. */
+      const level = aiFriendNormalizeLevel(b.level);
       const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
       /* 🗺 (2026-07-29 학생 제보) "영화 주제로 들어왔는데 처음엔 동물 얘기를 물어봤어요".
          지금까지 주제 카드는 영어 문장 한 줄을 대신 보내주는 게 전부였고, 그 다음 턴부터는

@@ -17,10 +17,33 @@
  *    그래서 여기서는 ① 프롬프트에 숫자를 주입하고 ② 만든 뒤 실제로 세어 보고
  *    ③ 넘치면 다시 뽑고 ④ 그래도 넘치면 문장 수만 결정론으로 줄입니다.
  *
- * ⚠️ 숫자는 웜업(src/index.ts 의 WARMUP_LEVELS)과 «짝» 입니다 — 2026-08-31 사장님 지시로
- *    A1 = 웜업 레벨 1 과 같은 「한 문장 3~5단어」로 맞췄습니다. 두 화면이 다른 기준을 쓰면
+ * ⚠️ 숫자는 웜업(src/index.ts 의 WARMUP_LEVELS)과 «짝» 입니다 — 두 화면이 다른 기준을 쓰면
  *    그때부터 «화면마다 답이 다른» 사고가 시작됩니다.
  *    ai_friend_level_harness 가 index.ts 에서 그 숫자를 읽어 대조하므로 한쪽만 고치면 FAIL 입니다.
+ *
+ * 🪜 여덟 칸 (2026-08-31 사장님 결정 — 「웜업과 친구하기 레벨을 8개 단계로」)
+ *    다섯 칸(A1·A2·B1·B2·C1)에서 여덟 칸으로 넓혔습니다. 그런데 «새 눈금을 발명한» 것이
+ *    아닙니다 — 웜업은 이미 여덟 칸이었고(WARMUP_LEVELS, 교재 Lv 1~34 밴드), 영어친구만
+ *    다섯 칸이라 7 → 12 처럼 크게 뛰었습니다. 그래서 **웜업의 여덟 칸을 그대로 가져왔습니다.**
+ *
+ *      S1 A1   5단어(3~5)   ← 웜업 1 첫걸음 · 옛 A1 (값 그대로)
+ *      S2 A2   7단어(5~7)   ← 웜업 2 기초   · 옛 A2 (값 그대로)
+ *      S3 A2+  9단어(7~9)   ← 웜업 3 초급   · 새 칸 · **기본값**
+ *      S4 B1  12단어(9~12)  ← 웜업 4 초중급 · 옛 B1 (값 그대로)
+ *      S5 B1+ 15단어(12~15) ← 웜업 5 중급   · 새 칸
+ *      S6 B2  18단어(15~18) ← 웜업 6 중고급 · 옛 B2 자리(16→18)
+ *      S7 B2+ 22단어(18~22) ← 웜업 7 고급   · 새 칸
+ *      S8 C1  제한없음       ← 웜업 8 최상급 · 옛 C1 (값 그대로)
+ *
+ *    ⛔ 눈금을 «한 칸 밀어» 맨 아래에 더 쉬운 칸을 만들려고 하지 마세요. 2026-08-31 에 실제로
+ *       그렇게 짰다가 되돌렸습니다 — 웜업 저장값(mangoi_warmup_level)의 «뜻» 이 말없이 바뀌고,
+ *       같은 밴드 이름(중급)을 판단력 훈련과 웜업이 서로 다른 단어 수로 부르게 됩니다.
+ *       기초를 쉽게 하는 길은 «길이» 가 아니라 «열린 질문을 없애는 것» 입니다(S1 Yes/No, S2 양자택일).
+ *       실측이 그것을 뒷받침합니다 — A1 이 이미 3~5단어 규격이었는데 실제 답변은 28.5단어였습니다.
+ *       모자랐던 것은 더 낮은 칸이 아니라 **지키게 만드는 장치**였습니다.
+ *    ⚠️ 옛 키(A1…C1)는 «학생 브라우저에 저장돼 있어» 계속 받습니다(LEGACY_LEVEL_MAP).
+ *       지우면 지금까지 고른 레벨이 전부 리셋됩니다. 옛 키는 «같은 CEFR 이름을 단 칸» 으로 갑니다.
+ *    ⚠️ CEFR 이름을 없애지 마세요 — 학부모·강사가 A1·B1 로 이야기합니다. 화면이 둘 다 보여 줍니다.
  */
 
 export interface AiFriendLevelSpec {
@@ -39,38 +62,82 @@ export interface AiFriendLevelSpec {
 
 /** 화면(ai-friend.html)의 레벨 버튼과 1:1 입니다. 늘리면 화면도 함께 고쳐야 합니다. */
 export const AI_FRIEND_LEVELS: Record<string, AiFriendLevelSpec> = {
-  A1: {
+  /* 🌱 맨 아래 칸 — 여기서 중요한 것은 길이가 아니라 «질문 형식» 입니다. 3단어짜리
+     "How are you?" 도 초보에게는 벽입니다(답을 스스로 만들어야 하니까요).
+     고를 말이 질문 «안» 에 있어야 합니다. 그래서 S1 은 Yes/No 만, S2 는 양자택일까지입니다. */
+  S1: {
     maxWordsPerSentence: 5, maxSentences: 2, plain: true,
-    rule: 'CEFR A1 (absolute beginner). Every sentence must be 3-5 words long. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Your whole reply must be at most 2 sentences: one short cheer and ONE short question.',
+    rule: 'CEFR A1 (absolute beginner). Every sentence must be 3-5 words long. Use only the most basic words (like, have, want, good, big). Present tense only. No commas, no "because", no "but". Ask ONLY yes/no questions the student can answer with "Yes." or "No." — never a wh- question, never "or". Your whole reply must be at most 2 sentences: one short cheer and ONE short question.',
   },
-  A2: {
+  S2: {
     maxWordsPerSentence: 7, maxSentences: 3, plain: true,
-    rule: 'CEFR A2 (beginner). Every sentence must be 5-7 words long. Everyday words only, present tense mostly. Your whole reply must be at most 3 short sentences, ending with ONE short question.',
+    rule: 'CEFR A2 (beginner). Every sentence must be 5-7 words long. Everyday words only, present tense mostly. Ask a yes/no question or an either/or question where BOTH choices are inside your question — the student must be able to answer by copying words you just said. Your whole reply must be at most 3 short sentences, ending with ONE short question.',
   },
-  B1: {
+  S3: {
+    maxWordsPerSentence: 9, maxSentences: 3, plain: true,
+    rule: 'CEFR A2+ (beginner, moving up). Every sentence must be 7-9 words long. Everyday words; present and present-continuous, and simple past is fine now. Your whole reply must be at most 3 sentences, ending with ONE question.',
+  },
+  S4: {
     maxWordsPerSentence: 12, maxSentences: 3, plain: false,
     rule: 'CEFR B1 (lower-intermediate). Keep every sentence under 12 words. You may use past tense and simple linkers (and / but / because). Your whole reply must be at most 3 sentences, ending with ONE question.',
   },
-  B2: {
-    maxWordsPerSentence: 16, maxSentences: 4, plain: false,
-    rule: 'CEFR B2 (upper-intermediate). Keep every sentence under 16 words. Natural phrasing, varied tenses, easy idioms are fine. At most 4 sentences, ending with ONE question.',
+  S5: {
+    maxWordsPerSentence: 15, maxSentences: 3, plain: false,
+    rule: 'CEFR B1+ (intermediate). Keep every sentence under 15 words. Varied tenses, reasons and comparisons are fine. At most 3 sentences, ending with ONE question.',
   },
-  C1: {
+  S6: {
+    maxWordsPerSentence: 18, maxSentences: 4, plain: false,
+    rule: 'CEFR B2 (upper-intermediate). Keep every sentence under 18 words. Natural phrasing, conditionals, relative clauses and easy idioms are fine. At most 4 sentences, ending with ONE question.',
+  },
+  S7: {
+    maxWordsPerSentence: 22, maxSentences: 4, plain: false,
+    rule: 'CEFR B2+ (advanced-ish). Keep every sentence under 22 words. Use the phrasal verbs, linkers and idioms a native friend really uses, and ask a deeper follow-up. At most 4 sentences, ending with ONE question.',
+  },
+  S8: {
     maxWordsPerSentence: 0, maxSentences: 4, plain: false,
-    rule: 'CEFR C1 (advanced). Speak naturally and fluently like a native friend. At most 4 sentences, ending with ONE question.',
+    rule: 'CEFR C1 (advanced). Speak naturally and fluently like a native friend. Nuance and abstract topics are welcome. At most 4 sentences, ending with ONE question.',
   },
 };
 
 /**
- * 모르는 값은 A2 로 봅니다.
- * ⚠️ 이 기본값은 서버가 원래 쓰던 값(b.level 이 비었을 때의 'A2')이고, 화면 기본값도 여기에 맞췄습니다.
- *    예전에는 화면 B1 · 서버 A2 로 서로 달라서, 화면이 보내지 않으면 조용히 다른 레벨이 됐습니다.
+ * 옛 키 → 새 키. 학생 브라우저(localStorage)와 D1 ai_friend_chats.level 에 옛 값이 남아 있습니다.
+ * ⛔ 지우지 마세요 — 지금까지 고른 레벨이 전부 리셋되고, 옛 대화 기록의 레벨도 읽을 수 없게 됩니다.
  */
-export const AI_FRIEND_DEFAULT_LEVEL = 'A2';
+export const LEGACY_LEVEL_MAP: Record<string, string> = {
+  // 옛 키는 «같은 CEFR 이름을 단 칸» 으로 갑니다 — 학생이 고른 난이도가 그대로 유지됩니다.
+  A1: 'S1', A2: 'S2', B1: 'S4', B2: 'S6', C1: 'S8',
+};
+
+/** 화면에 함께 보여 줄 CEFR 이름 — 학부모·강사가 이 말로 이야기합니다.
+ *  ⚠️ 웜업 화면(warmup.html 의 LEVEL_CATALOG.cefr)과 «같은 말» 이어야 합니다(하니스가 대조).
+ *  ⚠️ 「+」 가 붙은 셋은 공식 CEFR 등급이 아니라 그 사이를 가리키는 통용 표기입니다 —
+ *     여덟 칸을 다섯 등급 위에 얹으려면 그 사이가 필요합니다. */
+export const AI_FRIEND_CEFR: Record<string, string> = {
+  S1: 'A1', S2: 'A2', S3: 'A2+', S4: 'B1',
+  S5: 'B1+', S6: 'B2', S7: 'B2+', S8: 'C1',
+};
+
+/**
+ * 기본값은 S3(초급·A2+, 7~9단어) — 2026-08-31 사장님 결정 「기본은 STEP 3」.
+ * ⚠️ 화면 기본값(ai-friend.html 의 AIF_DEFAULT)과 «짝» 입니다. 예전에는 화면 B1 · 서버 A2 로
+ *    서로 달라서, 화면이 안 보내면 조용히 다른 레벨이 됐습니다.
+ * ⚠️ 웜업 화면의 기본값(_warmLevel = 3)과도 같은 칸입니다 — 두 화면이 같은 눈금이니까요.
+ */
+export const AI_FRIEND_DEFAULT_LEVEL = 'S3';
+
+/**
+ * 화면·저장소에서 온 값을 «아는 칸» 으로 바꿉니다.
+ * ⚠️ `LEVELS[k] || 기본값` 만으로는 안 됩니다 — 평범한 객체 리터럴이라 'constructor' 같은
+ *    프로토타입 키가 그대로 조회됩니다(2026-08-31 같은 뿌리의 사고를 ai-friends.ts 에서 밟았습니다).
+ */
+export function aiFriendNormalizeLevel(level: unknown): string {
+  const raw = String(level || '').trim().toUpperCase();
+  const key = Object.prototype.hasOwnProperty.call(LEGACY_LEVEL_MAP, raw) ? LEGACY_LEVEL_MAP[raw] : raw;
+  return Object.prototype.hasOwnProperty.call(AI_FRIEND_LEVELS, key) ? key : AI_FRIEND_DEFAULT_LEVEL;
+}
 
 export function aiFriendLevelSpec(level: string): AiFriendLevelSpec {
-  const key = String(level || '').trim().toUpperCase();
-  return AI_FRIEND_LEVELS[key] || AI_FRIEND_LEVELS[AI_FRIEND_DEFAULT_LEVEL];
+  return AI_FRIEND_LEVELS[aiFriendNormalizeLevel(level)];
 }
 
 /**

@@ -144,21 +144,44 @@ console.log('\n[ G. 🎚️ 낮은 단계 첫 인사 — 레벨을 실제로 지
     greet[Number(m[1])] = { en: m[2], ko: m[3], chips };
   }
   check('낮은 단계 인사말 표를 읽었다', Object.keys(greet).length >= 2, `읽은 단계: ${Object.keys(greet).join(',')}`);
-  check('1·2단계에 인사말이 있다', !!greet[1] && !!greet[2]);
-  // 고치는 범위를 낮은 단계로 한정했다 — 3단계 이상은 지금 문장 그대로다
-  check('3단계 이상은 표에 없다(범위 한정)', !greet[3] && !greet[4]);
-  // ⚠️ 화면 소스에는 작은따옴표가 «\'» 로 이스케이프돼 있다 — 그대로 찾으면 멀쩡한 문장을 못 찾는다
-  check('3단계 이상 폴백 문장이 그대로 남아 있다', /Let\\?'s warm up before class\. How are you today\?/.test(HTML));
+  /* 🪜 2026-08-31 — 「1·2단계만」에서 «여덟 단계 모두» 로 넓혔다.
+     전에는 3단계 이상이 공용 문장 하나를 써서 「8단계인데 첫마디는 사실상 3단계」였고,
+     그 문장은 고른 친구 이름도 안 따라갔다(Lily 를 골라도 "Mangoi AI friend").
+     ⛔ 이 검사를 「3단계 이상은 표에 없다」로 되돌리지 마세요 — 그때로 돌아갑니다. */
+  check('여덟 단계 모두 전용 인사가 있다', [1,2,3,4,5,6,7,8].every((n) => !!greet[n]),
+    `있는 단계: ${Object.keys(greet).join(',')}`);
+  check('단계마다 서로 다른 인사다(복사본이 아니다)',
+    new Set([1,2,3,4,5,6,7,8].map((n) => (greet[n] || {}).en)).size === 8);
+  /* 폴백은 «지우는» 것이 아니라 «안전망으로 남기는» 것이다 — 레벨이 1~8 밖일 때 온다.
+     ⚠️ 이 두 줄을 파일 전체(HTML)에 대고 물으면 안 된다 — 옛 문장을 «설명하는» 주석과
+        옛 문장을 번역해 주는 curatedMeaning() 정규식에 그대로 걸린다(실제로 밟았다).
+        중괄호 짝으로 fallbackGreeting() 본문만 잘라 내고 주석을 벗겨서 묻는다. */
+  const fbBody = (() => {
+    const i = HTML.indexOf('function fallbackGreeting()');
+    if (i < 0) return '';
+    let d = 0, st = HTML.indexOf('{', i);
+    for (let j = st; j < HTML.length; j++) {
+      if (HTML[j] === '{') d++;
+      else if (HTML[j] === '}' && --d === 0) return HTML.slice(st, j + 1);
+    }
+    return '';
+  })().replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+  check('폴백 인사 본문을 읽었다', fbBody.length > 200);
+  check('폴백 인사가 안전망으로 남아 있다', /Let\\?'s warm up before class\. How are you today\?/.test(fbBody));
+  // ⚠️ 그 폴백도 «고른 친구 이름» 을 써야 한다(예전에는 "your Mangoi AI friend" 로 박혀 있었다)
+  check('폴백 인사가 고른 친구 이름을 쓴다', /_friendLabelNow\(\)/.test(fbBody));
+  check('폴백 인사에 옛 고정 이름이 남아 있지 않다', !/your Mangoi AI friend/.test(fbBody));
 
   // ── 서버가 정한 단어 수 상한을 «화면이 지키는가» — 두 파일이 같은 말을 하는지 대조한다 ──
   const srvMax = {};
   for (const m of srvBlock.matchAll(/^\s*(\d):\s*"[^"]*?(\d+)~(\d+)단어/gm)) srvMax[Number(m[1])] = Number(m[3]);
-  check('서버에서 1·2단계 단어 수 상한을 읽었다', srvMax[1] > 0 && srvMax[2] > 0, `상한: ${srvMax[1]}/${srvMax[2]}`);
+  check('서버에서 단어 수 상한을 읽었다(1~7단계)', [1,2,3,4,5,6,7].every((n) => srvMax[n] > 0),
+    `상한: ${[1,2,3,4,5,6,7].map((n) => srvMax[n]).join('/')}`);
   // 문장별로 센다 — 서버 규칙이 「한 번에 N단어의 짧은 문장」이라 문장 단위가 맞는 눈금이다.
   const sentences = (en) => String(en).split(/[.?!]+/).map((s) => s.trim()).filter(Boolean);
   const words = (s) => s.replace(/[^\x20-\x7E]/g, ' ').replace(/[,;:—-]/g, ' ')
     .split(/\s+/).filter(Boolean).length;
-  for (const lv of [1, 2]) {
+  for (const lv of [1, 2, 3, 4, 5, 6, 7, 8]) {
     if (!greet[lv] || !srvMax[lv]) continue;
     const longest = Math.max(...sentences(greet[lv].en).map(words));
     check(`${lv}단계 인사말이 서버 상한(${srvMax[lv]}단어)을 지킨다`, longest <= srvMax[lv],

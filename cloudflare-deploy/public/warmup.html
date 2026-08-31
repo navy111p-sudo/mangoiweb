@@ -808,7 +808,10 @@ function setSubMode(m, announce){
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
 /* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
-   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24). 주제 구간만 동적이라 패턴으로 맞춘다. */
+   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24).
+   ⚠️ 이제 인사말에 «고른 친구 이름» 이 들어가서 패턴으로는 못 맞춘다 — 만드는 쪽에서
+      _koCache 에 의역을 미리 넣는다(여덟 단계 인사·안전망 둘 다). 이 함수는 옛 문장이
+      어딘가에 남아 있을 때를 위한 안전망으로만 둔다. */
 function curatedMeaning(text){
   var m = String(text||'').trim().match(
     /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
@@ -887,25 +890,31 @@ function maybeAdjustRate(text){
 /* 🏷️ 이름·교재 Lv 구간은 판단력 훈련과 «같은 말» 을 쓴다 — 정본은 서버 judgment-level.ts 의
    BAND_SPECS(8단계, 교재 Lv 1~34). 두 화면이 같은 Lv 을 서로 다른 이름으로 부르면
    학생·강사가 「어느 쪽이 맞느냐」를 매번 묻게 된다.
+   🆕 cefr 은 «새로 더한 칸» 이다 (2026-08-31 사장님 결정: 「새 칸 만들고 CEFR 이름 함께 보여줘」).
+      학부모·강사가 A1·B1 로 이야기하기 때문에 이름 옆에 함께 보여 준다.
+      ⛔ 이 칸으로 ko·lv 를 «대체» 하지 마세요 — 그 둘은 BAND_SPECS 와 짝이고
+         하니스 C절이 대조합니다. 실제로 한 번 갈아 끼웠다가 FAIL 로 잡혔습니다.
+      ⚠️ 같은 CEFR 표기를 AI 영어친구(src/ai-friend-level.ts 의 AI_FRIEND_CEFR)도 씁니다.
+         두 화면이 다른 이름을 쓰면 「어느 쪽이 내 레벨이냐」가 다시 시작됩니다.
    ⚠️ 숫자(1~8)가 서버로 가는 값이다 — 이름을 바꿔도 서버 WARMUP_LEVELS 는 숫자로 받는다.
    ⚠️ 여기 목록과 서버가 아는 범위(1~8)는 «짝» 이다. 화면에만 늘리면 그 값은 조용히
       무시된다(CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
 var LEVEL_CATALOG = [
-  {n:1, ko:'첫걸음', lv:'Lv 1-4',   d:'아주 짧은 문장 (3~5단어)',
+  {n:1, ko:'첫걸음', lv:'Lv 1-4',   cefr:'A1',  d:'아주 짧은 문장 (3~5단어)',
    s:'I like apples.'},
-  {n:2, ko:'기초',   lv:'Lv 5-8',   d:'짧고 쉬운 문장 (5~7단어)',
+  {n:2, ko:'기초',   lv:'Lv 5-8',   cefr:'A2',  d:'짧고 쉬운 문장 (5~7단어)',
    s:'I can ride my bike now.'},
-  {n:3, ko:'초급',   lv:'Lv 9-12',  d:'과거형이 나오는 문장 (7~9단어)',
+  {n:3, ko:'초급',   lv:'Lv 9-12',  cefr:'A2+', d:'과거형이 나오는 문장 (7~9단어)',
    s:'I went to the park with my friend.'},
-  {n:4, ko:'초중급', lv:'Lv 13-17', d:'두 문장이 이어진 문장 (9~12단어)',
+  {n:4, ko:'초중급', lv:'Lv 13-17', cefr:'B1',  d:'두 문장이 이어진 문장 (9~12단어)',
    s:'I wanted to go outside, but it started raining very hard.'},
-  {n:5, ko:'중급',   lv:'Lv 18-21', d:'조금 긴 문장 (12~15단어)',
+  {n:5, ko:'중급',   lv:'Lv 18-21', cefr:'B1+', d:'조금 긴 문장 (12~15단어)',
    s:'My brother keeps borrowing my headphones without asking, and it really annoys me.'},
-  {n:6, ko:'중고급', lv:'Lv 22-25', d:'관계절·가정법이 나와요 (15~18단어)',
+  {n:6, ko:'중고급', lv:'Lv 22-25', cefr:'B2',  d:'관계절·가정법이 나와요 (15~18단어)',
    s:'If I had known that the museum closes early on Mondays, I would have gone on Sunday.'},
-  {n:7, ko:'고급',   lv:'Lv 26-30', d:'관용표현이 섞여요 (18~22단어)',
+  {n:7, ko:'고급',   lv:'Lv 26-30', cefr:'B2+', d:'관용표현이 섞여요 (18~22단어)',
    s:'She was on the fence about taking the job, so we talked it through until she finally made up her mind.'},
-  {n:8, ko:'최상급', lv:'Lv 31-34', d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
+  {n:8, ko:'최상급', lv:'Lv 31-34', cefr:'C1',  d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
    s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.'}
 ];
 var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
@@ -1027,7 +1036,8 @@ function renderSetup(){
     lv.innerHTML = LEVEL_CATALOG.map(function(b){
       var on = (b.n === _warmLevel);
       return '<button type="button" class="wus-item'+(on?' on':'')+'" data-lvl="'+b.n+'">'
-        + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
+        + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'
+        + ' <span class="wus-cefr">'+b.cefr+'</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
         + '<span class="wus-desc">'+b.d+'</span></button>';
     }).join('');
   }
@@ -1529,7 +1539,8 @@ function _startSttSession(){
    ⚠️ 질문은 «답이 문장 안에 들어 있는» 형태로만 씁니다(Yes/No 또는 양자택일).
       길이를 줄여도 열린 질문이면 초보는 그대로 막힙니다 — 초보에게는 열린 질문 자체가 벽입니다.
       이 파일의 WARMUP_FALLBACK_QUESTIONS.low 가 이미 그 형태입니다(«Do you like pizza or chicken?»).
-   ⚠️ 3단계 이상은 «지금 문장 그대로» 둡니다(아래 폴백). 고치는 범위를 낮은 단계로 한정합니다.
+   ⚠️ 2026-08-31 에 여덟 단계 모두로 넓혔습니다 — 3단계 이상이 공용 문장 하나를 쓰던 것이
+      「8단계인데 첫마디는 3단계」를 만들고 있었습니다. 폴백은 안전망으로만 남깁니다.
    ⚠️ 낮은 단계에서는 주제 문장(«Today's topic is …»)을 영어 말풍선에 넣지 않습니다 —
       길어지기만 하고 학생이 답할 것은 늘지 않습니다. 주제는 아래 한국어 줄에서 알려 줍니다.
    ─────────────────────────────────────────────────────────────────────── */
@@ -1542,14 +1553,47 @@ function _startSttSession(){
    하필 1~2단계(첫걸음·기초) 학생만 이 경로를 타므로 제일 취약한 쪽에서 어긋났다.
    ⛔ 문장을 길게 늘이지 말 것 — 서버 규칙(WARMUP_LEVELS)의 단어 수 상한을 하니스가 센다. */
 var BEGINNER_GREETINGS = {
-  // 1단계(첫걸음) — 서버 규칙: 3~5단어·현재시제. 질문은 Yes/No.
+  /* 🪜 여덟 단계 «모두» 전용 인사를 둔다 (2026-08-31).
+     전에는 1·2단계만 있고 3단계 이상은 공용 문장 하나("Hi! I'm your Mangoi AI friend …")를
+     썼다. 그래서 「8단계」라고 적혀 있어도 첫마디에서는 사실상 3단계(1 / 2 / 나머지 전부)로
+     동작했고, 그 공용 문장은 친구 이름도 안 따라가 Lily 를 골라도 "Mangoi AI friend" 라고 말했다.
+     ⚠️ 눈금은 «안 밀었다» — 1단계는 그대로 3~5단어(BAND_SPECS 첫걸음)다. 낮은 단계를 쉽게 하는
+        길은 길이를 더 줄이는 것이 아니라 «열린 질문을 없애는 것» 이다(1단계 Yes/No, 2단계 양자택일).
+     ⚠️ 문장을 길게 늘이지 말 것 — 서버 WARMUP_LEVELS 의 단어 수 상한을 하니스가 센다.
+     ⚠️ chips 는 정본 warmupAnswerChips() 가 이 문장에서 «실제로 만들어 내는» 값이다.
+        4단계 이상은 정본이 빈 배열을 준다(「스스로 답하는 것이 훈련」) — 지어내 채우지 말 것. */
+  // 1단계(첫걸음·A1) — 3~5단어. Yes/No 만(wh-·or 금지).
   1: { en: "Hi! I'm {name}. 🥭 Are you happy today?",
        ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 좋아요?',
        chips: ['Yes, I am.', "No, I'm not.", 'One more time, please.'] },
-  // 2단계(기초) — 서버 규칙: 5~7단어. 질문은 양자택일(고를 말이 문장 안에 있다).
+  // 2단계(기초·A2) — 5~7단어. 양자택일(고를 말이 문장 안에 있다).
   2: { en: "Hi! I'm {name}. 🥭 How are you today, happy or tired?",
        ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
-       chips: ['I am happy.', 'I am tired.', 'One more time, please.'] }
+       chips: ['I am happy.', 'I am tired.', 'One more time, please.'] },
+  // 3단계(초급·A2+) — 7~9단어. 아직 양자택일로 받쳐 준다.
+  3: { en: "Hi, I'm {name}! 🥭 Do you like sports or music?",
+       ko: '안녕하세요, 저는 {name} 예요! 운동이 좋아요, 아니면 음악이 좋아요?',
+       chips: ['I like sports.', 'I like music.'] },
+  // 4단계(초중급·B1) — 9~12단어. 여기서부터 열린 질문이 훈련이다(보기 없음).
+  4: { en: "Hi, I'm {name}! 🥭 What did you do at school today?",
+       ko: '안녕하세요, 저는 {name} 예요! 오늘 학교에서 뭐 했어요?',
+       chips: [] },
+  // 5단계(중급·B1+) — 12~15단어.
+  5: { en: "Hi, I'm {name}! 🥭 What was the best part of your day so far?",
+       ko: '안녕하세요, 저는 {name} 예요! 오늘 하루 중 지금까지 제일 좋았던 건 뭐예요?',
+       chips: [] },
+  // 6단계(중고급·B2) — 15~18단어. 이유를 함께 묻는다.
+  6: { en: "Hey, I'm {name}! 🥭 What are you looking forward to this week, and why does it matter to you?",
+       ko: '안녕하세요, 저는 {name} 예요! 이번 주에 기대되는 일이 뭐예요? 왜 그게 중요해요?',
+       chips: [] },
+  // 7단계(고급·B2+) — 18~22단어. 가정·의견.
+  7: { en: "Hey! {name} here. 🥭 If you could change one thing about how today went, what would you change and why?",
+       ko: '안녕하세요! {name} 예요. 오늘 하루에서 딱 하나를 바꿀 수 있다면 뭘 바꾸고 싶어요? 왜요?',
+       chips: [] },
+  // 8단계(최상급·C1) — 길이 제한 없음. 추상적 주제로 바로 들어간다.
+  8: { en: "Hey, {name} here. 🥭 What's been on your mind lately — is there anything you keep circling back to, even when you try not to?",
+       ko: '안녕하세요, {name} 예요. 요즘 마음에 걸리는 게 있어요? 자꾸 다시 떠오르는 일이요.',
+       chips: [] }
 };
 /* 지금 말할 친구의 표시 이름 — 이름표·인사말이 같은 값을 쓰게 한 곳으로 모은다 */
 function _friendLabelNow(){
@@ -1572,7 +1616,16 @@ function fallbackGreeting(){
     showAnswerChips(g.chips);
     return;
   }
-  addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
+  /* 안전망 — 레벨이 1~8 밖일 때만 온다(정상 경로에서는 위 여덟 칸이 다 받는다).
+     ⚠️ 여기도 «고른 친구 이름» 을 쓴다. 예전에는 "your Mangoi AI friend" 로 박혀 있어서
+        Lily 를 골라도 다른 이름을 말했다. */
+  var _fb = _friendLabelNow();
+  var fbEn = "Hi! I'm " + _fb + ". 🥭 " + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '')
+    + "Let's warm up before class. How are you today?";
+  _koCache[fbEn] = '안녕하세요! 저는 ' + _fb + ' 예요 🥭 '
+    + (LESSON_TOPIC ? ('오늘의 주제는 "' + LESSON_TOPIC + '"예요. ') : '')
+    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
+  addMsg(fbEn, 'ai');
 }
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
