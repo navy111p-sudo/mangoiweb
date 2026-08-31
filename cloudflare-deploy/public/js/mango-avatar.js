@@ -78,11 +78,11 @@
     jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 } },
-    lily: { frames:{ closed:'/img/lily-closed.png', medium:'/img/lily-mid.png', wide:'/img/lily-wide.png' },
-            still:'/img/lily-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+    lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
+            still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'emma' },
-    noah: { frames:{ closed:'/img/noah-closed.png', medium:'/img/noah-mid.png', wide:'/img/noah-wide.png' },
-            still:'/img/noah-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+    noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
+            still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'jake' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
