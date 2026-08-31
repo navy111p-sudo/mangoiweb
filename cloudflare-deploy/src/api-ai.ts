@@ -10,6 +10,8 @@ import { processAiCommand, executeAction, processStudentCommand } from './ai-com
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
 import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
+import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
+         aiFriendTrimSentences, AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -565,7 +567,7 @@ Student text: """${text}"""`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
-      const level = String(b.level || 'A2').trim();
+      const level = String(b.level || AI_FRIEND_DEFAULT_LEVEL).trim();
       const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
       /* 🗺 (2026-07-29 학생 제보) "영화 주제로 들어왔는데 처음엔 동물 얘기를 물어봤어요".
          지금까지 주제 카드는 영어 문장 한 줄을 대신 보내주는 게 전부였고, 그 다음 턴부터는
@@ -598,6 +600,9 @@ Student text: """${text}"""`;
       };
       // 🎓 개인화(26-07-21) — 그 학생의 이름·교재·약점 단어를 아는 친구 (웜업 엔진과 동일 데이터 재사용).
       //    실패하면 조용히 일반 친구로 동작 — 채팅 흐름에 절대 영향 금지.
+      /* 🎚 눈높이 규격 — 이 아래의 프롬프트·검사가 전부 이 하나를 봅니다(정본 src/ai-friend-level.ts).
+         ⚠️ 여기서 만들어야 합니다 — 아래 stuCtx(약점 단어)가 lvSpec.plain 을 읽습니다. */
+      const lvSpec = aiFriendLevelSpec(level);
       let stuCtx = '';
       try {
         const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
@@ -606,7 +611,7 @@ Student text: """${text}"""`;
         const parts: string[] = [];
         if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
-        if (weak.length) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
+        if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
         if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
       } catch { /* 개인화 실패 무시 */ }
 
@@ -615,17 +620,23 @@ Student text: """${text}"""`;
       const topicCtx = topic
         ? `\nThe student chose the topic "${topic}". Stay on THIS topic for the whole chat — every question you ask must be about "${topic}". Do NOT switch to another subject on your own. (If the student clearly starts a different subject, follow them.)`
         : '';
+      /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
+         재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
+         A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
+         위 stuCtx 에서 함께 껐습니다. ⛔ 대신 «오늘의 단어» 는 남깁니다 — 그건 학생이 쓰면
+         포인트를 받는 퀘스트라, 빼면 기초 학생만 그 퀘스트를 못 깨게 됩니다. */
+      const funFactRule = lvSpec.plain ? ''
+        : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
-- Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
-- Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
+- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
+- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.
 - When the student writes in English, start with a short cheer like "Nice sentence!" or "Great try!".
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
 - The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
-- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.
-- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 - A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
@@ -706,6 +717,40 @@ Rules:
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
+
+      /* 🎚 눈높이 강제 (2026-08-31) — 「지시만으로는 안 지켜진다」의 그 자리입니다.
+         만든 답을 실제로 세어 보고 ① 넘치면 한 번 더 뽑고 ② 그래도 넘치면 문장 «수» 만 줄입니다.
+         ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
+         ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
+      const lvBefore = aiFriendMeasureReply(reply, level);
+      if (!lvBefore.ok) {
+        if (usedModel) {
+          try {
+            const shorter: any = await env.AI.run(usedModel, {
+              messages: messages.concat([
+                { role: 'assistant', content: reply },
+                { role: 'user', content: aiFriendShortenHint(reply, level) },
+              ]),
+              max_tokens: 160, temperature: 0.4,
+            });
+            const st2 = aiFriendStripHanzi(String((shorter && (shorter.response || shorter.result)) || '').trim());
+            const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
+            if (st2 && m2 && (m2.ok || (m2.worstWords <= lvBefore.worstWords && m2.sentences <= lvBefore.sentences))) {
+              reply = st2;
+            }
+          } catch (e: any) {
+            console.error('[chat-friend] level shorten retry failed:', e?.message || e);
+          }
+        }
+        reply = aiFriendTrimSentences(reply, level) || reply;
+        const lvAfter = aiFriendMeasureReply(reply, level);
+        if (!lvAfter.ok) {
+          // 한 문장이 여전히 길 수 있다(단어는 안 자르므로). 조용히 넘기지 말고 남긴다.
+          console.error('[chat-friend] level ' + level + ' still long: '
+            + lvAfter.sentences + '/' + lvAfter.maxSentences + ' sentences, worst '
+            + lvAfter.worstWords + '/' + lvAfter.maxWordsPerSentence + ' words');
+        }
+      }
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가
