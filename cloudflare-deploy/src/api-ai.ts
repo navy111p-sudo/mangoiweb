@@ -9,6 +9,7 @@ import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
+import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -40,7 +41,7 @@ export async function handleAiApi(
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
 1. Provide a corrected version (preserve student's meaning).
 2. Provide a numeric score 0-100 for overall quality.
-3. List 2-5 specific issues found, each with: original phrase, suggested phrase, brief reason (in Korean).
+3. List 2-5 specific issues found, each with: original phrase, suggested phrase, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
 4. Provide one encouraging tip in Korean (1-2 sentences).
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
 6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" must be a short Korean sentence. If nothing is worth upgrading, use an empty list.
@@ -106,24 +107,22 @@ Student text: """${text}"""`;
       //     ① 이유가 비면 원본/교정 형태를 보고 규칙 기반으로 최소한의 설명을 채운다
       //     ② 그래도 못 채우면 그 항목은 아예 내보내지 않는다(빈 "💡" 만 뜨는 것보다 낫다)
       //   문구는 학생 대상이므로 '틀렸다'가 아니라 '이렇게 하면 더 자연스럽다' 톤을 지킨다.
-      const _guessReason = (orig: string, sug: string): string => {
-        const o = orig.trim().toLowerCase(), s = sug.trim().toLowerCase();
-        if (!o || !s) return '';
-        const PREP = ['in','on','at','to','for','with','about','of','from','by','into','over'];
-        if (PREP.includes(o) && PREP.includes(s)) return `이 표현에는 '${sug.trim()}'가 함께 쓰이는 게 더 자연스러워요. 짝지어 외워 두면 좋아요.`;
-        if (o.replace(/[^a-z]/g, '') === s.replace(/[^a-z]/g, '')) return '철자·대소문자만 다듬었어요. 뜻은 그대로예요.';
-        if (/^(a|an|the)$/.test(o) || /^(a|an|the)$/.test(s)) return '관사를 다듬었어요. 셀 수 있는 명사인지, 이미 아는 대상인지에 따라 달라져요.';
-        if (/(ed|ing|s)$/.test(o) && o.replace(/(ed|ing|s)$/, '') === s.replace(/(ed|ing|s)$/, '')) return '시제·수 형태를 문장에 맞게 맞췄어요.';
-        if (s.split(/\s+/).length > o.split(/\s+/).length) return '조금 더 자연스럽게 읽히도록 표현을 보탰어요.';
-        return '더 자연스러운 표현으로 바꿨어요.';
-      };
+      /* 🔤 [2026-08-31] «왜 고쳤는지» 는 프롬프트에 기대지 않는다.
+         운영 D1 실측: 최근 8건의 교정 **21건 전부** 이유가 폴백 일반 문구였다 —
+         즉 모델이 reason 을 매번 비워 보낸다. 학생은 «무엇을» 만 보고 «왜» 는 못 배웠다.
+         정본은 `src/correction-reason.ts` 의 explainCorrection(원문→교정 낱말 diff 분류).
+         ⛔ 분류가 안 되면 null 을 돌려주고, 그때만 일반 문구를 쓴다 — 지어내지 않는다. */
+      const _guessReason = (orig: string, sug: string): string =>
+        explainCorrection(orig, sug) || '더 자연스러운 표현으로 바꿨어요.';
       const issues = (Array.isArray(parsed.issues) ? parsed.issues : [])
         .slice(0, 8)
         .map((it: any) => {
           const original = String(it?.original || '').trim();
           const suggested = String(it?.suggested || '').trim();
           let reason = String(it?.reason || '').trim();
-          if (!reason) reason = _guessReason(original, suggested);
+          /* ⚠️ 모델 이유는 «한국어로 6자 이상» 일 때만 씁니다 — 빈 값·영어 한 낱말이 그대로
+             학생 화면에 나가던 것을 막습니다. 그 밖에는 결정론 설명(explainCorrection). */
+          if (!/[가-힣]/.test(reason) || reason.length < 6) reason = _guessReason(original, suggested);
           return { original, suggested, reason };
         })
         .filter((it: any) => it.original && it.suggested && it.reason);
