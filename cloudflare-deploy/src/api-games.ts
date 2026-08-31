@@ -2338,10 +2338,18 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         if (cacheKey && r2) {
           try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
         }
-        const putCache = async (bytes: ArrayBuffer | Uint8Array) => {
-          if (!cacheKey || !r2) return;
-          try { await r2.put(cacheKey, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
+           «실제로 쓴 화자» 키로 저장해야 하기 때문이다(아래 폴백 블록 주석 참고). */
+        const ttsKey = async (spk: string) => {
+          const e = new TextEncoder().encode('v4|' + lang + '|' + spk + '|' + text);
+          const d = await crypto.subtle.digest('SHA-256', e);
+          return 'tts/' + [...new Uint8Array(d)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         };
+        const putCacheAs = async (key: string, bytes: ArrayBuffer | Uint8Array) => {
+          if (!key || !r2) return;
+          try { await r2.put(key, bytes, { httpMetadata: { contentType: 'audio/mpeg' } }); } catch {}
+        };
+        const putCache = (bytes: ArrayBuffer | Uint8Array) => putCacheAs(cacheKey, bytes);
         const isQuota = (m: any) => /429|neuron|allocation|free allocation|capacity/i.test(String(m || ''));
         // MeloTTS — base64 MP3 반환 (en/zh 지원)
         //   ⚠️ 캐시 금지: Aura 일시 장애 때 만들어진 기계음이 Aura 화자 키에 저장되면
@@ -2448,14 +2456,7 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
              이 한 단계만 빠져 있었다. 실제로 쓴 화자(spk1) 키로 저장하면
              ① 요청 화자 키는 비어 있어 다음에 Aura-2 가 살아나면 제대로 만들고
              ② 그 화자를 진짜로 고른 사람은 이 캐시를 정상적으로 재사용한다. */
-          try {
-            if (r2) {
-              const encA1 = new TextEncoder().encode('v4|' + lang + '|' + spk1 + '|' + text);
-              const digA1 = await crypto.subtle.digest('SHA-256', encA1);
-              const keyA1 = 'tts/' + [...new Uint8Array(digA1)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
-              await r2.put(keyA1, buf, { httpMetadata: { contentType: 'audio/mpeg' } });
-            }
-          } catch {}
+          await putCacheAs(await ttsKey(spk1), buf);
           return new Response(buf, { headers: { ...audioHeaders, 'X-TTS-Engine': 'aura-1', 'X-TTS-Speaker': spk1 } });
         } catch (auraErr: any) {
           if (isQuota(auraErr?.message)) quota = true;

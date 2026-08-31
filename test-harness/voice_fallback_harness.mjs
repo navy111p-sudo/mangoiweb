@@ -113,7 +113,9 @@ if (a1Block) {
   ok(!/await putCache\(/.test(a1Block[0]),
     'Aura-1 폴백은 putCache(요청 화자 키)를 쓰지 않는다',
     '요청 화자 키로 저장하면 일시 장애가 영구가 된다 — 2026-08-31 실사고의 «두 번째 겹»');
-  ok(/spk1 \+ '\|' \+ text/.test(a1Block[0]),
+  /* ⚠️ 이 검사를 «그 코드 모양이 있는가» 로 쓰면 안 된다 — 표현만 바꿔도 FAIL 난다.
+     물어야 할 것은 «저장 키를 실제로 쓴 화자(spk1)로 만드는가» 다. */
+  ok(/putCacheAs\(\s*await ttsKey\(spk1\)|ttsKey\(spk1\)|spk1 \+ '\|' \+ text/.test(a1Block[0]),
     '폴백 캐시 키는 «실제로 쓴 화자(spk1)» 로 만든다',
     '그래야 ① 요청 화자 키가 비어 다음에 제대로 만들고 ② 그 화자를 진짜 고른 사람이 재사용한다');
 }

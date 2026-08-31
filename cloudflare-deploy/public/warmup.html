@@ -621,8 +621,14 @@ var log = document.getElementById('log');
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
+  /* 🧑 이름표는 «지금 말하는 친구» 로 — Mango 로 하드코딩돼 있어서, Lily 를 골라도
+     말풍선마다 「Mango」가 붙었다. 서버 프롬프트도 같은 이름을 받는다(withCtx 의 body.friend).
+     ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
+        사람 얼굴을 넣으면 말풍선마다 사진이 붙어 시끄러워진다. */
+  var friendLabel = 'Mango';
+  try{ var _fp = _voicePerson(); friendLabel = (VOICE_MODES[_fp] && VOICE_MODES[_fp].label || 'Mango').replace(/^[^A-Za-z]+/, '') || 'Mango'; }catch(e){}
   var whoHtml = who==='ai'
-      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
+      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="' + friendLabel + '">' + friendLabel + '</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
   /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
      .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
@@ -1548,6 +1554,11 @@ function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
   body.age_group = _warmAge;      // 🧑‍🎓 현재 연령대(kid/child/teen/adult) — 소재·말투 축
+  // 🧑 지금 말할 친구 — 서버가 「너는 Lily 야」로 프롬프트를 만든다.
+  //    ⚠️ 안 보내면 AI 는 자기가 'Mango' 인 줄 알고, 「Hi! I'm Lily」로 인사해 놓고
+  //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
+  //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
+  try{ body.friend = _voicePerson(); }catch(e){}
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
