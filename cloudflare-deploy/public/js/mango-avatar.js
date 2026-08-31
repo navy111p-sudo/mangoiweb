@@ -78,11 +78,11 @@
     jake: { sources:[['/img/hero-avatar.mp4','video/mp4']],
             still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
             poses:{ closed:3.2, medium:7.1, wide:3.5 } },
-    lily: { frames:{ closed:'/img/lily-closed.png', medium:'/img/lily-mid.png', wide:'/img/lily-wide.png' },
-            still:'/img/lily-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+    lily: { frames:{ closed:'/img/lily-closed.webp', medium:'/img/lily-mid.webp', wide:'/img/lily-wide.webp' },
+            still:'/img/lily-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'emma' },
-    noah: { frames:{ closed:'/img/noah-closed.png', medium:'/img/noah-mid.png', wide:'/img/noah-wide.png' },
-            still:'/img/noah-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+    noah: { frames:{ closed:'/img/noah-closed.webp', medium:'/img/noah-mid.webp', wide:'/img/noah-wide.webp' },
+            still:'/img/noah-closed.webp', rect:{ l:0, t:0, r:1, b:1 },
             aspect:0.8, keyed:false, fallback:'jake' }
   };
   // 옛 이름으로 부르는 코드가 남아 있어도 조용히 죽지 않게 — setCharacter 가 먼저 풀어 준다.
@@ -166,8 +166,12 @@
           if(!drawing) drawStill();
         };
         im.onerror = function(){
-          // 🔴 파일이 아직 안 올라왔거나 깨졌을 때 «빈 얼굴 카드» 로 남지 않게 옛 아바타로 되돌린다.
+          // 🔴 파일이 아직 안 올라왔거나 깨졌을 때 «빈 얼굴 카드» 로 남지 않게 성인 얼굴로 되돌린다.
           //    「얼굴이 옛날 것이다」 = 그 PNG 가 /img/ 에 없다는 뜻이다.
+          // ⚠️ 되돌리는 것은 «쉬는 얼굴(closed)» 이 없을 때만이다 — medium·wide 는 말할 때만 쓰는
+          //    보조 장이라, 그것 하나가 없다고 얼굴 전체를 옛것으로 되돌리면 잃는 것이 더 크다
+          //    (그 단계만 안 쓰고 나머지로 말한다). 2026-08-31 실제로 한 장이 늦게 도착했다.
+          if(k !== 'closed') { imgFrames[k] = null; return; }
           if(failed || name !== curChar) return;
           failed = true;
           var fb = c.fallback;

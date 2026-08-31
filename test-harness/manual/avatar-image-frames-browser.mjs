@@ -20,7 +20,7 @@
  *       그래서 검사마다 포트를 새로 씁니다.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
+import { existsSync, writeFileSync, rmSync, mkdtempSync, renameSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -39,10 +39,26 @@ let pass = 0, fail = 0;
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/* 실제 얼굴 PNG 가 아직 저장소에 없을 수도 있다(사장님이 Higgsfield 에서 내려받아 넣는 파일).
-   없으면 «같은 비율의 더미» 를 잠깐 만들어 이미지 경로를 확인하고 반드시 지운다. */
+/* 실제 얼굴 그림은 2026-08-31 부터 저장소에 있다(webp).
+   ⚠️ 마지막 «폴백» 절은 «파일이 없는 상태» 를 봐야 하므로, 있으면 잠깐 치웠다가 되돌린다.
+   ⛔ 치우는 곳을 public/ «안» 에 두지 말 것 — deploy.ps1 은 public/ 을 통째로 올리므로,
+      하니스가 중간에 죽은 상태에서 배포가 나가면 «얼굴 6장 없음 + 쓰레기 파일 6장» 이
+      그대로 실서비스로 갑니다. (.gitignore 가 public 밑의 .bak 을 무시해서 git status
+      에도 안 보입니다 — «보이니까 괜찮다» 는 전제가 성립하지 않습니다.)
+      그래서 OS 임시폴더에 둡니다. 사라진 .webp 는 git status 에 ' D' 로 보입니다.
+   파일이 아예 없을 때는 «같은 비율의 더미 PNG» 로 경로만 확인하고 반드시 지운다. */
 const FRAMES = ['lily-closed', 'lily-mid', 'lily-wide', 'noah-closed', 'noah-mid', 'noah-wide'];
-const realPresent = FRAMES.every(n => existsSync(join(PUB, 'img', n + '.png')));
+const EXT = '.webp';                                  // mango-avatar.js 의 CHARACTERS 와 짝
+const framePath = n => join(PUB, 'img', n + EXT);
+const STASH = join(tmpdir(), 'mangoi-avatar-stash');   // public/ 밖 — 배포에 안 섞인다
+const stashPath = n => join(STASH, n + EXT);
+if (!existsSync(STASH)) mkdirSync(STASH, { recursive: true });
+FRAMES.forEach(n => { if (existsSync(stashPath(n))) renameSync(stashPath(n), framePath(n)); });  // 앞선 실행이 죽어 남긴 것 복구
+const realPresent = FRAMES.every(n => existsSync(framePath(n)));
+const hideFrames = () => FRAMES.forEach(n => { if (existsSync(framePath(n))) renameSync(framePath(n), stashPath(n)); });
+const restoreFrames = () => FRAMES.forEach(n => { if (existsSync(stashPath(n))) renameSync(stashPath(n), framePath(n)); });
+/* ⚠️ 더미는 PNG 바이트다 — 파일이 «아예 없는» 비상 경로에서만 쓰며, 이름이 .webp 라도
+   브라우저가 내용으로 알아본다. 정상 상태(그림이 저장소에 있음)에서는 한 번도 안 돈다. */
 function dummyPng(path, w, h, rgb) {
   const rows = [];
   for (let y = 0; y < h; y++) {
@@ -135,8 +151,25 @@ async function run(pagePath, mode) {
     ok(lily.every(([, st]) => good(st)), `3장 모두 정상으로 받았다 (${lily.map(x => x[1]).join(',')})`);
     ok(p2.op > 0.05, `Lily 얼굴이 실제로 그려졌다 (불투명 ${p2.op})`);
     ok(p2.op < 0.98, '투명한 부분이 살아 있다 — 크로마키를 건너뛰어도 알파가 보존된다');
-    ok(Math.abs(p2.aspect - 0.806) < 0.01,
-      `카드 화면비를 «선언값 0.8» 이 아니라 «이미지 실측» 으로 다시 맞췄다 (${p2.aspect})`);
+    /* ⚠️ 이 검사를 «선언값 0.8 과 다른가» 로 쓰면 안 된다 — 그림을 카드 비율에 맞춰 만들면
+       선언값과 실측이 같아져 멀쩡한 코드가 FAIL 한다(2026-08-31 실제로 밟음).
+       물어야 할 것은 «캔버스가 그 그림의 실제 비율을 따라왔는가» 다. */
+    const real = await ev(`(async()=>{ const im=new Image(); im.src='/img/lily-closed.webp';
+      await im.decode(); return +(im.naturalWidth/im.naturalHeight).toFixed(3); })()`);
+    ok(typeof real === 'number' && Math.abs(p2.aspect - real) < 0.02,
+      `카드 화면비가 «그림의 실제 비율» 을 따라왔다 (캔버스 ${p2.aspect} / 그림 ${real})`,
+      '다른 비율 그림으로 갈아 끼워도 카드가 따라와야 한다 — setAspect 가 그 일을 한다');
+    /* ⚠️ 위 한 줄만으로는 «따라오는가» 를 증명하지 못한다 — 지금 그림이 640x800 = 정확히 0.8
+       이고 선언값도 0.8 이라, setAspect 가 아예 안 돌아도 통과한다.
+       그래서 «비율이 다른 캐릭터»(jake = 512x496, 1.03)로 바꿔 캔버스가 실제로 움직이는지 본다. */
+    const beforeSwap = p2.aspect;
+    await ev("window.MangoAvatar.setCharacter('jake')"); await sleep(2200);
+    const jakeAsp = await ev(`(function(){var c=document.getElementById('tavatar-canvas');
+      return +(c.width/c.height).toFixed(3);})()`);
+    ok(typeof jakeAsp === 'number' && Math.abs(jakeAsp - beforeSwap) > 0.05,
+      `비율이 다른 캐릭터로 바꾸면 카드도 실제로 따라 움직인다 (${beforeSwap} → ${jakeAsp})`,
+      '값이 그대로면 setAspect 가 안 도는 것이다 — 지금 그림이 4:5 라 위 검사만으로는 안 걸린다');
+    await ev("window.MangoAvatar.setCharacter('lily')"); await sleep(2000);
     ok(p2.ringH > 0 && Math.abs(p2.ringW / p2.ringH - p2.aspect) < 0.05,
       `보이는 카드 상자도 같은 비율이다 (${p2.ringW}x${p2.ringH})`);
     await ev("window.MangoAvatar.setCharacter('noah')"); await sleep(2000);
@@ -243,17 +276,21 @@ async function runSpeechCoach() {
 try {
   await sleep(3500);
   if (!realPresent) {
-    console.log('ℹ️  실제 얼굴 PNG 가 /img 에 없어 «같은 비율의 더미» 로 이미지 경로를 확인합니다.');
+    console.log('ℹ️  실제 얼굴 그림이 /img 에 없어 «같은 비율의 더미» 로 이미지 경로를 확인합니다.');
+    console.log('   (그림은 저장소에 있어야 정상입니다 — avatar_image_frames_harness 가 그것을 감시합니다)');
     const C = [[220,120,60],[120,220,60],[60,120,220],[200,200,60],[200,60,200],[60,200,200]];
-    FRAMES.forEach((n, i) => dummyPng(join(PUB, 'img', n + '.png'), 464, 576, C[i]));
+    FRAMES.forEach((n, i) => dummyPng(framePath(n), 464, 576, C[i]));
   }
   await run('/warmup.html?setup=0', 'images');
   await run('/ai-friend.html', 'images');
   await runSpeechCoach();
-  if (!realPresent) FRAMES.forEach(n => rmSync(join(PUB, 'img', n + '.png'), { force: true }));
-  await run('/warmup.html?setup=0', 'fallback');     // 파일이 없는 상태 = 폴백
+  // 폴백 절은 «파일이 없는 상태» 를 봐야 한다 — 진짜 그림은 치우고, 더미는 지운다
+  if (realPresent) hideFrames();
+  else FRAMES.forEach(n => rmSync(framePath(n), { force: true }));
+  await run('/warmup.html?setup=0', 'fallback');
 } finally {
-  if (!realPresent) FRAMES.forEach(n => rmSync(join(PUB, 'img', n + '.png'), { force: true }));
+  if (realPresent) restoreFrames();
+  else FRAMES.forEach(n => rmSync(framePath(n), { force: true }));
   cleanup();
 }
 console.log(`\n${pass} PASS / ${fail} 실패`);
