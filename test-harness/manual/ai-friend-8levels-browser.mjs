@@ -111,5 +111,20 @@ await ev(`(function(){try{localStorage.setItem('mangoi_admin_welcome_v1','1');}c
 const shown = await ev(`(function(){var b=document.querySelectorAll('#wusLevels .wus-cefr');
   return Array.prototype.map.call(b,function(x){return x.textContent.trim();});})()`);
 ok(shown && shown.length===8, `설정 화면에 CEFR 이 여덟 개 그려진다 (${shown?shown.length:0})`, shown);
+/* ⋮ 설정 패널 — 학생이 대화 중에 실제로 보는 자리다(설정 화면은 처음 한 번만 본다).
+   여기 첫 표시 글자가 HTML 에 손으로 박혀 있어서 눈금을 손볼 때마다 옛 값으로 남았다. */
+console.log('\n■ ⋮ 설정 패널이 CEFR 을 함께 말하는가');
+await open('/warmup.html?setup=0&diff=4');
+const panel = await ev(`(function(){
+  var v=document.getElementById('lvlVal');
+  var b=document.querySelectorAll('#lvlBtns button');
+  return { now: v?v.textContent.trim():'', n: b.length,
+           t4: b[3]?b[3].title:'', on: (function(){for(var i=0;i<b.length;i++) if(b[i].classList.contains('on')) return i+1; return 0;})() };
+})()`);
+ok(panel.n === 8, `눈금 버튼이 여덟 개다 (${panel.n})`);
+ok(panel.on === 4, `고른 단계가 켜져 있다 (${panel.on})`);
+ok(panel.now === '4단계 · 초중급 · B1', `지금 값에 CEFR 이 함께 나온다 «${panel.now}»`);
+ok(panel.t4 === '4단계 · 초중급 · B1', `버튼 툴팁에도 CEFR 이 붙는다 «${panel.t4}»`);
+
 console.log(`\n${pass} PASS / ${fail} 실패`);
 process.exit(fail?1:0);
