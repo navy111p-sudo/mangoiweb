@@ -33,7 +33,18 @@
    API: plainStart()/plainStop()  — 말하기 시작/끝(음성합성 등 분석 불가 음성)
         attach(audioEl)           — TTS 오디오를 물려 음량 립싱크(요소당 1회 바인딩)
         playClip(id)              — 미리 만든 클립 재생(음성코치 전용)
-        setCharacter(name)        — 표시 캐릭터 전환('female' 기본 / 'male') */
+        setCharacter(name)        — 표시 캐릭터 전환('female' 기본 / 'male')
+
+   v6: (2026-08-31) 「아바타를 더 어리게」 지시로 19세 안팎 Emma·Jake 로 교체하면서,
+       캐릭터가 «영상» 말고 «입모양 정지 이미지 3장» 도 될 수 있게 넓혔다(frames).
+       왜 영상이 아닌가 — ① v5 사고(입이 멈춤)의 뿌리가 «영상 seek» 이었는데 이미지는
+       seek 이 아예 없어 그 사고 유형이 구조적으로 사라진다. ② 8초 영상(1.3MB) 대신
+       장당 수백 KB 라 필리핀 회선에서 가볍다. ③ 배경이 이미 투명(alpha)이라 크로마키
+       픽셀 루프를 통째로 건너뛴다(keyed:false).
+       ⚠️ 투명 PNG 는 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 — keyFrame() 이 매번
+          clearRect 로 지우고 그린다. 초록 영상(불투명)일 때는 원래 동작과 같다.
+       ⚠️ 이미지 파일이 없으면(아직 안 올렸거나 깨졌으면) fallback 캐릭터(옛 영상)로
+          조용히 되돌아간다 — 얼굴 자리가 «빈 카드» 로 남는 것이 제일 나쁘기 때문. */
 (function(){
   function noop(){}
   if(!window.MangoAvatar){
@@ -49,11 +60,20 @@
   //   멈춰 보여준다(초 단위 타임스탬프). 같은 인물이라 어색한 합성 없이 정체성이 그대로 유지되고,
   //   소리 크기가 바뀔 때만 그 타임스탬프로 seek 하므로 추가 지연이 없다. 발음(비셈) 자체를
   //   맞추는 건 아니고 "조용함/보통/큼"에 맞는 입모양을 고르는 근사치다.
+  // 🧒 (2026-08-31) 19세 안팎 Emma·Jake — 입모양 3장(배경이 지워진 투명 PNG).
+  //   ⛔ 아래 옛 캐릭터(*_classic)를 지우지 마세요: 이미지가 없을 때의 폴백이고,
+  //      playClip() 의 미리 만든 립싱크 클립(teacher-say-*)이 옛 얼굴과 짝입니다.
   var CHARACTERS = {
-    female: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
+    female: { frames:{ closed:'/img/emma19-closed.png', medium:'/img/emma19-mid.png', wide:'/img/emma19-wide.png' },
+              still:'/img/emma19-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+              aspect:0.8, keyed:false, fallback:'female_classic' },
+    male:   { frames:{ closed:'/img/jake19-closed.png', medium:'/img/jake19-mid.png', wide:'/img/jake19-wide.png' },
+              still:'/img/jake19-closed.png', rect:{ l:0, t:0, r:1, b:1 },
+              aspect:0.8, keyed:false, fallback:'male_classic' },
+    female_classic: { sources:[['/img/teacher-avatar.webm','video/webm'],['/img/teacher-avatar.mp4','video/mp4']],
               still:'/img/teacher-avatar.png', rect:{ l:67/512, t:40/512, r:445/512, b:1 },
               poses:{ closed:3.3, medium:0.2, wide:4.0 } },
-    male:   { sources:[['/img/hero-avatar.mp4','video/mp4']],
+    male_classic:   { sources:[['/img/hero-avatar.mp4','video/mp4']],
               still:'/img/hero-avatar.png', rect:{ l:0, t:16/512, r:1, b:1 },
               poses:{ closed:3.2, medium:7.1, wide:3.5 } }
   };
@@ -68,16 +88,15 @@
     var ctx = canvas.getContext('2d', { willReadFrequently:true });
     var raf = 0, drawing = false, IDLE = null, clipActive = false;
     var curChar = 'female', cropRect = CHARACTERS.female.rect;
-    var curPoses = CHARACTERS.female.poses, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프 + 지금 보여주는 단계
+    var curPoses = CHARACTERS.female.poses || CHARACTERS.female.frames, curTier = null;   // 🗣 현재 캐릭터의 입모양 타임스탬프(영상) 또는 장 목록(이미지) + 지금 보여주는 단계
+    // 🖼 v6 이미지 캐릭터 상태 — imgFrames 가 null 이 아니면 «영상이 아니라 그림» 을 그리는 중이다.
+    var imgFrames = null, imgCur = null, imgAspectDone = false;
+    var keyedNow = (CHARACTERS.female.keyed !== false);   // 초록 제거가 필요한 캐릭터인가
     // 캐릭터의 crop 사각형에 맞춰 캔버스 해상도 + 카드 화면비를 함께 갱신(왜곡 방지).
     //   같은 <canvas> 를 여러 캐릭터가 공유하므로, 비율이 다른 캐릭터로 바뀌어도
     //   "캔버스 내부 해상도"와 "화면에 보이는 CSS 박스"가 항상 같은 비율을 유지해야 늘어나 보이지 않는다.
-    function applyFrame(name){
-      var c = CHARACTERS[name]; if(!c) return;
-      cropRect = c.rect;
-      curPoses = c.poses; curTier = null;   // 🗣 캐릭터가 바뀌면 타임스탬프도 바뀌므로 다음 프레임에 새로 seek
-      fadeData = null;                      // 🎞 캔버스 크기가 바뀌므로 이전 스냅샷은 버린다
-      var aspect = (cropRect.r - cropRect.l) / (cropRect.b - cropRect.t);
+    function setAspect(aspect){
+      if(!(aspect > 0)) return;
       canvas.width = BASE_W; canvas.height = Math.round(BASE_W / aspect);
       // CSS aspect-ratio 로 카드 높이를 자동 계산하려 했으나, 전환(transition) 시 실제
       // 레이아웃에 반영 안 되는 문제가 있어 폭(고정 CSS 값)을 읽어 높이를 직접 px 로 계산해 덮어쓴다.
@@ -86,7 +105,68 @@
         ring.style.height = Math.round(ringW / aspect) + 'px';
       }
     }
+    function applyFrame(name){
+      var c = CHARACTERS[name]; if(!c) return;
+      cropRect = c.rect;
+      curPoses = c.poses || c.frames; curTier = null;   // 🗣 캐릭터가 바뀌면 타임스탬프도 바뀌므로 다음 프레임에 새로 seek
+      fadeData = null;                      // 🎞 캔버스 크기가 바뀌므로 이전 스냅샷은 버린다
+      // ⚠️ 영상 캐릭터의 rect 는 «정사각 원본» 기준이라 rect 만으로 화면비가 나온다.
+      //    이미지 캐릭터는 원본이 정사각이 아니므로 c.aspect 로 시작해 두고, 'closed' 장이
+      //    실제로 로드된 뒤 naturalWidth/Height 로 다시 정확히 맞춘다(mountImages) —
+      //    파일을 다른 비율로 갈아 끼워도 저절로 따라오게 하려는 것.
+      setAspect(c.aspect || ((cropRect.r - cropRect.l) / (cropRect.b - cropRect.t)));
+    }
     applyFrame(curChar);
+
+    // 캐릭터를 실제로 «장착» 한다 — 영상이면 <video> 소스 교체, 이미지면 입모양 3장 미리 받기.
+    function mountCharacter(name){
+      var c = CHARACTERS[name]; if(!c) return;
+      keyedNow = (c.keyed !== false);
+      if (c.frames){ mountImages(name, c); return; }
+      imgFrames = null; imgCur = null;
+      try{
+        while(video.firstChild) video.removeChild(video.firstChild);
+        for(var i=0;i<c.sources.length;i++){
+          var so=document.createElement('source'); so.src=c.sources[i][0]; so.type=c.sources[i][1];
+          video.appendChild(so);
+        }
+        video.loop=true; video.muted=true; video.load();
+      }catch(e){}
+      preloadStill(c.still);   // 새 영상 디코드 전에도 곧바로 정지 얼굴을 보여줌
+    }
+    // 🖼 이미지 캐릭터 장착 — 입모양 3장을 미리 받아 두고 showTier 가 갈아 끼운다.
+    function mountImages(name, c){
+      try{ video.pause();
+           while(video.firstChild) video.removeChild(video.firstChild);
+           video.removeAttribute('src'); video.load(); }catch(e){}   // 영상은 확실히 세워 둔다
+      imgFrames = {}; imgCur = null; imgAspectDone = false;
+      var failed = false;
+      ['closed','medium','wide'].forEach(function(k){
+        var im = new Image();
+        im.onload = function(){
+          if(name !== curChar) return;            // 그 사이 캐릭터가 또 바뀌었으면 버린다
+          if(k === 'closed' && !imgAspectDone && im.naturalWidth && im.naturalHeight){
+            imgAspectDone = true;                 // 실측 비율로 카드 높이를 정확히 다시 맞춘다
+            setAspect((im.naturalWidth  * (cropRect.r - cropRect.l)) /
+                      (im.naturalHeight * (cropRect.b - cropRect.t)));
+          }
+          // 쉬는 얼굴(다문 입)이 오면 그것을 우선한다 — 다른 장이 먼저 도착해도 첫 화면은 입을 다문 얼굴.
+          if(k === 'closed' || !imgCur){ imgCur = im; curTier = k; }
+          if(!drawing) drawStill();
+        };
+        im.onerror = function(){
+          // 🔴 파일이 아직 안 올라왔거나 깨졌을 때 «빈 얼굴 카드» 로 남지 않게 옛 아바타로 되돌린다.
+          //    「얼굴이 옛날 것이다」 = 그 PNG 가 /img/ 에 없다는 뜻이다.
+          if(failed || name !== curChar) return;
+          failed = true;
+          var fb = c.fallback;
+          if(!fb || !CHARACTERS[fb] || fb === name) return;
+          curChar = fb; IDLE = null; applyFrame(fb); mountCharacter(fb);
+        };
+        im.src = c.frames[k];
+        imgFrames[k] = im;
+      });
+    }
 
     // ── 음량 분석(Web Audio) — attach 로 오디오를 물릴 때 1회 그래프 생성 ──
     var actx=null, boundEl=null, analyser=null, lipData=null, audioFailed=false;
@@ -105,7 +185,9 @@
     }
 
     function setSpeaking(on){ if (wrap) wrap.classList.toggle('speaking', !!on); }
-    function ensureIdle(){ if(!IDLE) IDLE = video.currentSrc || CHARACTERS[curChar].sources[0][0]; }
+    // ⚠️ 이미지 캐릭터에는 sources 가 없다 — 예전처럼 sources[0][0] 을 바로 읽으면 여기서 죽는다.
+    function ensureIdle(){ if(IDLE) return; var c = CHARACTERS[curChar] || {};
+      IDLE = video.currentSrc || (c.sources && c.sources[0] && c.sources[0][0]) || ''; }
     function preloadStill(url){
       try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{ ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(im,0,0,canvas.width,canvas.height); }catch(e){} } }; im.src=url; }catch(e){}
     }
@@ -119,18 +201,31 @@
     var fadeData = null, fadeT0 = 0;
     var FADE_MS = 130;
     function keyFrame(){
-      if (video.readyState < 2) return;
-      var vw = video.videoWidth||canvas.width, vh = video.videoHeight||canvas.height;
+      var srcEl, vw, vh;
+      if (imgFrames){
+        srcEl = imgCur;
+        if (!srcEl || !srcEl.complete || !srcEl.naturalWidth) return;   // 아직 안 받았으면 다음 프레임에
+        vw = srcEl.naturalWidth; vh = srcEl.naturalHeight;
+      } else {
+        if (video.readyState < 2) return;
+        srcEl = video; vw = video.videoWidth||canvas.width; vh = video.videoHeight||canvas.height;
+      }
       var sx = Math.round(vw*cropRect.l), sy = Math.round(vh*cropRect.t);
       var sw = Math.round(vw*(cropRect.r-cropRect.l)), sh = Math.round(vh*(cropRect.b-cropRect.t));
-      try { ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height); } catch(e){ return; }
+      // 🖼 배경이 이미 투명한 PNG 는 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 — 항상 지우고 그린다.
+      //    (초록 영상은 불투명이라 지우든 안 지우든 결과가 같다)
+      try { ctx.clearRect(0,0,canvas.width,canvas.height);
+            ctx.drawImage(srcEl, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height); } catch(e){ return; }
+      // 초록을 지울 필요도 없고(이미 투명) 섞을 것도 없으면 픽셀을 아예 만지지 않는다 —
+      // getImageData/putImageData 가 폰에서 제일 비싼 구간이라 그만큼 가벼워진다.
+      if (!keyedNow && !fadeData) return;
       var im; try { im = ctx.getImageData(0,0,canvas.width,canvas.height); } catch(e){ return; }
       var d = im.data;
       // (2026-07-26) 상반신 크롭이 프레임 가장자리에 가까워지며, 머리카락 올올이
       // 초록 배경빛을 살짝 반사한 픽셀(diff 가 작아 기존엔 완전 불투명 그대로 통과)이
       // 드러나 초록 잔광으로 보였다 — diff>0 인 모든 픽셀은 알파는 그대로 두고
       // 초록만 mx 로 눌러 색만 지운다(디테일 보존 + 잔광 제거).
-      for (var i=0;i<d.length;i+=4){
+      if (keyedNow) for (var i=0;i<d.length;i+=4){
         var r=d[i], g=d[i+1], b=d[i+2];
         var mx = r>b?r:b;
         var diff = g - mx;
@@ -176,8 +271,19 @@
       //   아바타로 바꾼 뒤 첫 발화의 입이 영원히 멈춰 있던 원인. 여자는 페이지 로드시 이미
       //   기본 캐릭터라 이 리로드 경합이 없어서 안 걸렸다. → 준비 전이면 curTier 를 그대로 두고
       //   다음 프레임에 다시 시도한다(성공했을 때만 확정).
-      if(video.readyState < 2) return;
       var now = Date.now();
+      if(imgFrames){
+        // 🖼 이미지 캐릭터 — seek 이 없으므로 v5 사고(입이 멈춤)가 구조적으로 안 난다.
+        //    아직 안 받은 장이면 curTier 를 «확정하지 않고» 다음 프레임에 다시 시도한다
+        //    (v3 사고와 같은 자리 — 확정해버리면 다 받은 뒤에도 영영 안 바꾼다).
+        var imN = imgFrames[tier];
+        if(!imN || !imN.complete || !imN.naturalWidth) return;
+        if(now - lastSwitchAt < MIN_SWITCH_MS) return;
+        try { fadeData = ctx.getImageData(0,0,canvas.width,canvas.height); fadeT0 = now; } catch(e){ fadeData = null; }
+        curTier = tier; lastSwitchAt = now; imgCur = imN;
+        return;
+      }
+      if(video.readyState < 2) return;
       if(now - lastSwitchAt < MIN_SWITCH_MS) return;
       var t = curPoses[tier];
       if(typeof t !== 'number') return;
@@ -200,8 +306,17 @@
       } else {
         // 🔇 분석 불가능한 음성(브라우저 speechSynthesis) — 실제 음량을 모르니 poses 대신
         //    기존처럼 루프를 계속 재생해 "말하는 느낌"만 흉내낸다.
-        idleTicks = 0; curTier = null;
-        if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
+        idleTicks = 0;
+        if(imgFrames){
+          // 🖼 이미지 캐릭터는 '재생' 이 없으므로 세 장을 일정 간격으로 번갈아 보여 준다.
+          //    ⚠️ 간격은 MIN_SWITCH_MS(90) 보다 커야 한다 — 작으면 showTier 가 매번 되돌아가
+          //       입이 한 장에 굳는다.
+          var SEQ = ['closed','medium','wide','medium'];
+          showTier(SEQ[Math.floor(Date.now() / 150) % SEQ.length]);
+        } else {
+          curTier = null;
+          if(video.paused){ try{ video.playbackRate=1; video.play(); }catch(e){} }
+        }
       }
       keyFrame();
       raf=requestAnimationFrame(loop);
@@ -212,7 +327,7 @@
     function doStop(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
     video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
     video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
-    preloadStill(CHARACTERS[curChar].still);
+    mountCharacter(curChar);   // 🖼 이미지 캐릭터면 입모양 3장을 여기서 받기 시작한다(영상이면 옛 동작 그대로)
 
     window.MangoAvatar = {
       // TTS 오디오(HTMLAudioElement)를 물려 음량 립싱크. 요소당 MediaElementSource 1회.
@@ -228,20 +343,12 @@
           try{ if(actx.state==='suspended') actx.resume(); }catch(e){}
         }catch(e){ /* 이미 물렸거나 실패 → 연속 재생 폴백 */ }
       },
-      // 캐릭터 전환('female' 기본 / 'male'=히어로). 목소리 성별 선택에 맞춰 얼굴 교체.
+      // 캐릭터 전환('female' 기본 / 'male'). 목소리 성별 선택에 맞춰 얼굴 교체.
       setCharacter: function(name){
         var c = CHARACTERS[name]; if(!c || name===curChar) return;
         curChar = name; IDLE = null;
         applyFrame(name);
-        try{
-          while(video.firstChild) video.removeChild(video.firstChild);
-          for(var i=0;i<c.sources.length;i++){
-            var so=document.createElement('source'); so.src=c.sources[i][0]; so.type=c.sources[i][1];
-            video.appendChild(so);
-          }
-          video.loop=true; video.muted=true; video.load();
-        }catch(e){}
-        preloadStill(c.still);   // 새 영상 디코드 전에도 곧바로 정지 얼굴을 보여줌
+        mountCharacter(name);
       },
       // 말하기 시작: 그리기 루프 시작(오디오가 물려 재생 중이면 자동으로 음량 립싱크)
       plainStart: function(){ ensureIdle(); setSpeaking(true); try{ if(actx&&actx.state==='suspended') actx.resume(); }catch(e){} startDraw(); },
@@ -249,6 +356,9 @@
       // 미리 만든 립싱크 클립 재생(음성코치 전용) → 캔버스 키잉. 끝나면 idle 복귀.
       playClip: function(id){
         return new Promise(function(resolve, reject){
+          // ⚠️ 미리 만든 립싱크 클립(teacher-say-*)은 «옛 강사 얼굴» 과 짝이다 —
+          //    이미지 캐릭터 위에 틀면 다른 사람 얼굴이 튀어나온다. 쓰려면 female_classic 으로 바꿔서.
+          if(imgFrames){ reject(new Error('clip_needs_video_character')); return; }
           ensureIdle();
           var useWebm = (video.currentSrc||'').indexOf('.webm')>=0 ||
                         (video.canPlayType && video.canPlayType('video/webm')!=='');
