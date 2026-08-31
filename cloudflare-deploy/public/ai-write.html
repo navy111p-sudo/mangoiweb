@@ -562,7 +562,7 @@
       { ko: '🍕 내가 좋아하는 음식', en: '🍕 My favorite food', starter: 'My favorite food is ' },
       { ko: '🌤️ 오늘 하루', en: '🌤️ My day today', starter: 'Today I ' },
       { ko: '👨‍👩‍👧 우리 가족', en: '👨‍👩‍👧 My family', starter: 'My family ' },
-      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have a ' },
+      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have ', ph: '예) a puppy · two cats' },
       { ko: '✈️ 가고 싶은 나라', en: '✈️ A country I want to visit', starter: 'I want to visit ' },
       { ko: '🎮 좋아하는 게임', en: '🎮 My favorite game', starter: 'My favorite game is ' },
       { ko: '📚 학교에서 있었던 일', en: '📚 Something at school', starter: 'At school, ' },
@@ -1514,7 +1514,7 @@
                srcKo: '오늘의 글감', srcEn: "Today's topic",
                q: { what: { ko: '💡 ' + name + ' — 한 문장으로 써 보세요',
                             en: '💡 ' + nameEn + ' — say it in one sentence',
-                            starter: t.starter, ph: t.starter + '…' } } };
+                            starter: t.starter, ph: t.ph || (t.starter + '…') } } };
     }
     const GO_KEY = 'mangoi_aiwrite_go_v1';
     let _goTheme = null;       // 고른 주제 (없으면 질문 안 보임)
@@ -1611,7 +1611,9 @@
       let line;
       if (!stTrim) {
         line = ans;
-      } else if (low.indexOf(stTrim.toLowerCase()) === 0) {
+      } else if (low === stTrim.toLowerCase() || low.indexOf(stTrim.toLowerCase() + ' ') === 0) {
+        /* ⚠️ «낱말 경계» 로 본다 — 부분문자열로 보면 시작 문장 「I 」 가 답 「in my house」 와
+           맞는 것으로 판정되어 주어가 통째로 사라진다(「in my house.」). 2026-08-31 전수검사에서 잡음. */
         line = ans;
       } else if (/^[A-Z]/.test(ans) && /[.!?]$/.test(ans)) {
         line = ans;
@@ -1631,6 +1633,8 @@
         line = st + ans;
       }
       line = line.trim();
+      // 학생이 소문자로 적은 답을 그대로 쓸 때가 있다(「my school is big」) — 문장 첫 글자는 대문자로
+      line = line.replace(/^[a-z]/, c => c.toUpperCase());
       if (!/[.!?]$/.test(line)) line += '.';
       return { en: line, memo: '' };
     }

@@ -86,10 +86,11 @@ if (SRC.length > 800) {
     '\nlet _goTheme = typeof theme === "string" ? (GO_THEMES.find(t => t.id === theme) || null)' +
     ' : (theme && theme.pic !== undefined) ? goThemeFromScene(theme.pic)' +
     ' : (theme && theme.topic !== undefined) ? goThemeFromTopic(theme.topic) : null;' +
-    '\nreturn { out: goOutline(), qs: goQuestions(), theme: _goTheme };');
+    '\nreturn { out: goOutline(), qs: goQuestions(), theme: _goTheme, topics: TOPICS, scenes: PIC_SCENES };');
   check('뼈대 생성기가 실행된다', Array.isArray(RUN('lost', {}).out.parts));
 }
 const outline = RUN ? ((t, a) => RUN(t, a).out) : null;
+const meta_topics = RUN ? RUN(null, {}).topics : [];
 
 if (outline) {
   // ① 한글 답은 글쓰기 칸에 절대 안 들어간다
@@ -134,6 +135,27 @@ if (outline) {
   eq('⑤ 「I was at 」 + 「on the beach」', prep('on the beach'), 'I was on the beach.');
   eq('⑤ 전치사가 하나뿐이면 그대로', prep('at the park'), 'I was at the park.');
   eq('⑤ 전치사가 없으면 시작 문장 그대로', prep('my house'), 'I was at my house.');
+
+  /* ⑤-2 🔴 2026-08-31 «문법 전수검사»(13,344 조합)에서 잡은 세 가지.
+     되돌리면 아이들이 따라 쓸 문장이 비문이 된다. */
+  const line1 = (theme, k, a) => {
+    const o = RUN(theme, { [k]: a }).out;
+    return o.parts.flatMap(p2 => p2.lines.map(l => l.en)).filter(Boolean).slice(-1)[0] || '';
+  };
+  // ① «답이 이미 시작 문장으로 시작하는가» 를 부분문자열로 보면 주어가 사라진다
+  //    starter 「I 」 + 「in my house」 → 「in my house.」(주어 없음) 였다
+  check('⑤-2 시작 문장 판정은 낱말 경계로 (주어가 사라지지 않는다)',
+    /^I\b/.test(line1('proud', 'what', 'in my house')), line1('proud', 'what', 'in my house'));
+  check('⑤-2 답이 진짜로 시작 문장을 포함하면 겹쳐 쓰지 않는다',
+    line1('lost', 'what', 'I lost my watch') === 'I lost my watch.', line1('lost', 'what', 'I lost my watch'));
+  // ② 시작 문장이 관사로 끝나면 「a at the park」·「a an elephant」 가 된다 → 관사는 학생이 쓴다
+  check('⑤-2 글감 시작 문장이 관사(a/an)로 끝나지 않는다',
+    !meta_topics.some(t => /\b(a|an)\s$/.test(t.starter)),
+    meta_topics.filter(t => /\b(a|an)\s$/.test(t.starter)).map(t => t.ko).join(','));
+  // ③ 학생이 소문자로 적은 답을 그대로 쓸 때 문장 첫 글자가 소문자로 남았다
+  check('⑤-2 문장 첫 글자는 대문자',
+    /^M/.test(line1({ topic: meta_topics.findIndex(t => t.starter === 'My school is ') }, 'what', 'my school is big')),
+    line1({ topic: meta_topics.findIndex(t => t.starter === 'My school is ') }, 'what', 'my school is big'));
 
   /* ⑥ 🔗 그림·글감에서 온 주제 — 목록은 셋이어도 뼈대는 같은 규칙으로 만들어진다 */
   const pic = RUN({ pic: 3 }, { where: 'a jungle', who: 'a lion', what: 'the elephant walked to me', how: 'we ran away' });
