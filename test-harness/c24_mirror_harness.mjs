@@ -150,6 +150,38 @@ console.log('\n[ F. 강사 이름 정규화가 api-admin 정본과 같은 답을
   }
 }
 
+console.log('\n[ F-2. 🔗 원부 이름 판정 — 접두어(HT)를 넘되 «스치는» 매칭은 금지 ]');
+{
+  // 2026-08-31 그림자 1일차: 막힌 14건 중 13건이 «Teacher Ness ↔ HT NESS» 하나였다.
+  const ROSTER = [
+    { id: 22, name: 'FAR' }, { id: 3, name: 'HT FARRAH' }, { id: 10, name: 'HT NESS' },
+    { id: 27, name: 'MAIMAI' }, { id: 8, name: 'KAYE' }, { id: 28, name: 'JANICE' },
+    { id: 30, name: 'WAN' }, { id: 29, name: '중국어 강선생님' },
+  ];
+  const R = M.buildRosterResolver(ROSTER);
+  check('🔴 「Teacher Ness」 → 10 (HT NESS 를 낱말 단위로 찾는다)', R('Teacher Ness') === '10', String(R('Teacher Ness')));
+  check('완전일치가 먼저 — 「Teacher Far」 → 22 (HT FARRAH 3 이 아니다)', R('Teacher Far') === '22');
+  check('접두사 없는 이름도 찾는다 (MAIMAI → 27)', R('MAIMAI') === '27');
+  check('「Teacher Janice」 → 28', R('Teacher Janice') === '28');
+  check('「Teacher Wan」 → 30', R('Teacher Wan') === '30');
+  check('한글 이름도 완전일치 (중국어 강선생님 → 29)', R('중국어 강선생님') === '29');
+  check('⛔ «스치는» 매칭 금지 — 「Teacher Farr」 는 FARRAH 에 안 걸린다', R('Teacher Farr') === null, String(R('Teacher Farr')));
+  check('⛔ 부분일치 금지 — 「Ne」 는 NESS 에 안 걸린다', R('Ne') === null);
+  check('⛔ 여럿이 나눠 갖는 낱말은 «모름» — 「HT」 는 null', R('HT') === null, String(R('HT')));
+  check('모르는 이름은 null (엉뚱한 사람으로 안 떨어진다)', R('Teacher Nobody') === null);
+  check('빈 입력에 안 죽는다', R('') === null && R(null) === null && R(undefined) === null);
+  // 같은 이름이 둘이면 잇지 않는다
+  const R2 = M.buildRosterResolver([{ id: 1, name: 'KIM' }, { id: 2, name: 'Teacher Kim' }]);
+  check('⛔ 같은 이름이 둘이면 잇지 않는다', R2('Teacher Kim') === null, String(R2('Teacher Kim')));
+  // 같은 사람이 두 번 실려도(중복 행) 흔들리지 않는다
+  const R3 = M.buildRosterResolver([{ id: 7, name: 'ANA' }, { id: 7, name: 'ANA' }]);
+  check('같은 id 가 두 번 실려도 정상 (7)', R3('Teacher Ana') === '7');
+  // 실제로 미러 판정까지 이어지는가 — no_teacher 가 사라져야 한다
+  const links = new Map([['68', { name: 'Teacher Ness', teacherId: R('Teacher Ness') }]]);
+  const v = M.planMirror([cls({ tid: '68' })], links, STUDENTS, [], 'all', new Set())[0];
+  check('🔴 그래서 Ness 수업이 no_teacher 를 벗어난다', v.verdict === 'ok', `${v.verdict} / ${v.detail || ''}`);
+}
+
 console.log('\n[ G. 창(window)은 양쪽 경계가 있다 ]');
 {
   const cy = MIRROR_TS.match(/MATCH \(c:Class\)[\s\S]*?LIMIT \$lim/);

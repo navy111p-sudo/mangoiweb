@@ -120,6 +120,46 @@ export function classMinutes(start: number, end: number): number {
   return raw;
 }
 
+/**
+ * 🔗 강사 원부(teachers) 이름 → 원부번호 판정기. **순수 함수라 하니스가 그대로 돌린다.**
+ *
+ *   ① 접두사(`Teacher `)를 뗀 **완전일치**
+ *   ② 그래도 없으면 «접두어가 붙은 경우» 만 **낱말 단위**로 한 번 더
+ *      (카페24 «Teacher Ness» → 'ness' ↔ 원부 «HT NESS» → 'ht ness')
+ *
+ * 🔴 왜 ②가 필요한가 — 2026-08-31 그림자 1일차 실측에서 막힌 14건 중 **13건이 이 한 사람**이었다.
+ *    이름은 한 글자도 안 틀렸고 접두어 «HT » 때문에 못 이었다.
+ * ℹ️ 내가 새로 만든 규칙이 아니다 — `js/adm-q6.js` 의 ph54ResolveTeacherId 가 이미 같은 방식이고
+ *    `teacher_weekly_calendar_id_space_harness` 가 「HT NESS 는 단어 단위로 맞다」로 못 박아 두었다.
+ * ⛔ 부분일치(substring)는 절대 금지 — 'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가 있었다.
+ *    낱말 **전체** 가 같을 때만이라 'farr' 는 'farrah' 에 안 걸린다.
+ * ⛔ 후보가 둘 이상이면 **잇지 않는다**(null). 모르는 것보다 틀린 것이 나쁘다(CLAUDE.md 2장).
+ *    그래서 'ht' 처럼 여럿이 나눠 갖는 낱말은 자동으로 «모름» 이 된다.
+ */
+export function buildRosterResolver(
+  roster: { id: any; name: any }[],
+): (name: any) => string | null {
+  const byName = new Map<string, string | null>();
+  const byWord = new Map<string, string | null>();
+  for (const t of (roster || [])) {
+    const k = mirrorNormTeacherName(t?.name);
+    if (!k) continue;
+    const id = String(t.id);
+    byName.set(k, byName.has(k) && byName.get(k) !== id ? null : id);
+    for (const w of k.split(/\s+/)) {
+      if (!w) continue;
+      byWord.set(w, byWord.has(w) && byWord.get(w) !== id ? null : id);
+    }
+  }
+  return (name: any): string | null => {
+    const k = mirrorNormTeacherName(name);
+    if (!k) return null;
+    if (byName.has(k)) return byName.get(k) ?? null;
+    if (!k.includes(' ')) return byWord.get(k) ?? null;   // 한 낱말일 때만 낱말 조회
+    return null;
+  };
+}
+
 /** 같은 수업인가 — 학생·날짜·시작시각이 모두 같으면 같은 수업으로 본다. */
 function sameSlot(a: { user_id: string; date: string; time: string }, b: ExistingRow): boolean {
   return String(b.user_id || '') === a.user_id
@@ -258,16 +298,23 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
   const want = new Set(uids.map(u => String(u ?? '').trim()).filter(Boolean));
   if (!want.size) return out;
 
-  // 원부 이름 → id. 같은 이름이 둘 이상이면 «잇지 않음»(null) 으로 못 박는다.
-  const byName = new Map<string, string | null>();
+  /* 원부 이름 → id. 같은 이름이 둘 이상이면 «잇지 않음»(null) 으로 못 박는다.
+     🔴 (2026-08-31 그림자 1일차 실측) 이름이 한 글자도 안 틀렸는데 **접두어** 때문에
+        못 잇는 강사가 있었다 — 카페24 «Teacher Ness» → 'ness' 인데 원부는 «HT NESS» → 'ht ness'.
+        막힌 14건 중 13건이 이 한 사람이었다.
+     ✅ 그래서 «접두어가 붙은 경우만 단어 단위로» 한 번 더 본다. 이 규칙은 내가 새로 만든 것이
+        아니라 이 저장소가 이미 쓰는 것이다(`js/adm-q6.js` 의 ph54ResolveTeacherId,
+        `teacher_weekly_calendar_id_space_harness` 가 「HT NESS 는 단어 단위로 맞다」로 못 박음).
+     ⛔ 부분일치(substring)는 절대 금지 — 'FAR' 가 'HT FARRAH' 에 걸려 남의 일정이 뜬 사고가
+        실제로 있었다. 낱말 «전체» 가 같을 때만이고, 그래서 'farr' 는 'farrah' 에 안 걸린다.
+     ⛔ 그리고 후보가 둘 이상이면 잇지 않는다 — 모르는 것보다 틀린 것이 나쁘다(CLAUDE.md 2장).
+        (실제로 'ht' 라는 낱말은 HT NESS·HT FARRAH 둘이 나눠 가지므로 자동으로 «모름» 이 된다) */
+  let roster: { id: any; name: any }[] = [];
   try {
     const rs: any = await env.DB.prepare(`SELECT id, name FROM teachers WHERE active = 1`).all();
-    for (const t of (rs.results || [])) {
-      const k = mirrorNormTeacherName(t.name);
-      if (!k) continue;
-      byName.set(k, byName.has(k) ? null : String(t.id));
-    }
+    roster = (rs.results || []) as any[];
   } catch { /* 원부가 없으면 이름만 준다 */ }
+  const resolveRoster = buildRosterResolver(roster);
 
   try {
     // 오름차순 — 같은 번호가 여러 달 있으면 «최근 달 이름» 이 남는다(개명 반영)
@@ -279,7 +326,7 @@ export async function loadTeacherLinks(env: MirrorEnv, uids: (string | null)[]):
       const c24 = String(r.c24 || '');
       if (!want.has(c24)) continue;
       const nm = String(r.teacher_name || '').trim();
-      out.set(c24, { name: nm || null, teacherId: byName.get(mirrorNormTeacherName(nm)) ?? null });
+      out.set(c24, { name: nm || null, teacherId: resolveRoster(nm) });
     }
   } catch { /* 급여 표가 없으면 이름 없이 진행 */ }
   return out;
