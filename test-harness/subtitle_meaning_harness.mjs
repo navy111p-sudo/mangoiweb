@@ -10,6 +10,9 @@
 //        - CSS 의 감춤 규칙은 전부 :not(.sub-shown) 을 달고 있어야 하고
 //        - 그 sub-shown 을 실제로 붙여 주는 클릭 배선이 있어야 하고
 //        - «완전 끄기»는 빈 말풍선이 아니라 안내(.sub-veil)를 남겨야 한다
+//        - «가리기»도 마찬가지다. 흐린 글자만 남으면 «글자가 잘 안 나온다»=고장 으로 읽힌다
+//          (2026-08-31 실제 제보). 그래서 .sub-hint 로 «왜 흐린지 + 눌러서 보기»를 말풍선이 직접 말한다.
+//          그 안내는 반드시 흐림 대상 «밖»에 있어야 한다 — 같이 흐려지면 없는 것과 같다
 //        - 설정 줄이 접혀 있어도 지금 자막이 꺼져 있다는 표시가 보여야 한다(ai-friend ⚙ 요약)
 //     ③ 감춤은 filter/display 로만 한다. opacity+transition 금지 —
 //        백그라운드 탭·저전력 모드에서 transition 이 멈추면 영영 안 보인다(CLAUDE.md 함정).
@@ -76,6 +79,14 @@ for (const [name, t] of [['ai-friend', aif], ['warmup', wup]]) {
   check(`${name}: 완전 끄기에서 안내(.sub-veil)가 보인다`,
     /\[data-sub="off"\][^{]*\.sub-veil[^{]*\{[^}]*display:\s*(inline|block)/.test(css));
   check(`${name}: 안내 문구가 «탭하면 보인다»를 알려 준다`, /탭하면 보/.test(t));
+  // «가리기»도 왜 흐린지 말해 줘야 한다 — 안 그러면 고장으로 읽힌다(2026-08-31 제보)
+  check(`${name}: 가리기에서도 «왜 흐린지» 안내(.sub-hint)가 보인다`,
+    /\[data-sub="blur"\][^{]*\.sub-hint[^{]*\{[^}]*display:\s*(inline|block)/.test(css)
+    && /class="sub-hint"/.test(t));
+  // 그 안내가 흐림 대상에 들어가 있으면 함께 흐려져 아무 소용이 없다
+  const blurTargets = (css.match(/\[data-sub="blur"\][^{]*\{[^}]*filter:\s*blur\([^}]*\}/g) || []).join('\n');
+  check(`${name}: 그 안내 자신은 흐림 대상이 아니다`, !/\.sub-hint/.test(blurTargets), blurTargets);
+  check(`${name}: 안내가 눌러서 보는 길을 알려 준다`, /sub-hint[\s\S]{0,160}?눌러서 보기/.test(t));
   // 단계를 바꾸면 이전에 열어 둔 것들을 닫는가 (안 닫으면 가리기로 바꿔도 계속 보인다)
   check(`${name}: 단계를 바꾸면 이전 sub-shown 을 지운다`,
     /sub-shown[\s\S]{0,220}?classList\.remove\(\s*['"]sub-shown['"]/.test(t)

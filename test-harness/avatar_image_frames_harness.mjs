@@ -3,17 +3,17 @@
  * 왜 필요한가
  *   사장님 지시 「아바타를 지금보다 어린 얼굴·목소리로」 로 웜업·AI영어친구의 아바타를
  *   19세 안팎 Emma·Jake 로 바꾸면서, 캐릭터가 «초록 배경 영상» 말고 «입모양 정지 이미지
- *   3장(투명 PNG)» 도 될 수 있게 mango-avatar.js 를 넓혔다(v6).
+ *   3장(투명 WebP)» 도 될 수 있게 mango-avatar.js 를 넓혔다(v6).
  *   영상을 버린 이유는 취향이 아니라 사고 이력이다 —
  *     · v5(2026-07-29) 「남자 아바타가 한 번 움직이고 멈춘다」의 뿌리가 «영상 seek» 이었다.
  *       이미지는 seek 이 없어 그 사고 유형이 구조적으로 사라진다.
- *     · 8초 영상 1.3MB 대신 장당 수백 KB — 필리핀 회선에서 가볍다.
+ *     · 8초 영상 1.3MB 대신 장당 33~46KB(WebP) — 필리핀 회선에서 가볍다.
  *
  * 이 검사가 지키는 것 (문자열 훑기가 아니라 «표를 실제로 읽어» 판정한다)
  *   ① 이미지 캐릭터에는 반드시 «살아 있는» fallback 이 있어야 한다.
- *      PNG 가 아직 안 올라왔을 때 얼굴 자리가 «빈 카드» 로 남는 것이 제일 나쁘다.
+ *      그림이 아직 안 올라왔을 때 얼굴 자리가 «빈 카드» 로 남는 것이 제일 나쁘다.
  *      그래서 로드 실패 시 옛 영상 캐릭터로 되돌아간다 — 그 되돌아갈 곳이 실재해야 한다.
- *   ② 투명 PNG 는 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 → keyFrame 이 clearRect 로 지워야 한다.
+ *   ② 투명 그림은 «겹쳐 그리면» 앞 입모양이 유령처럼 남는다 → keyFrame 이 clearRect 로 지워야 한다.
  *   ③ 옛 영상 캐릭터(*_classic)를 지우면 안 된다 — 폴백이자 playClip 클립의 짝이다.
  *   ④ 화면 HTML 의 <video> 안에 <source> 를 되살리면, JS 가 돌기 전에 브라우저가
  *      teacher-avatar.webm 942KB 를 먼저 받기 시작한다(실측 206 요청). 첫 화면 낭비다.
@@ -23,13 +23,14 @@
  * ⚠️ 이 검사로는 «그려졌는가» 를 볼 수 없다. 좌표·픽셀은 진짜 브라우저가 필요하다 →
  *    test-harness/manual/avatar-image-frames-browser.mjs (사람이 직접 부른다)
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PUB = join(ROOT, 'cloudflare-deploy', 'public');
 let pass = 0, fail = 0;
+const statSafe = p => { try { return statSync(p); } catch { return null; } };
 const ok = (c, m, extra) => { c ? (pass++, console.log('  ✅ ' + m)) : (fail++, console.log('  ❌ ' + m + (extra ? '\n       · ' + extra : ''))); };
 
 console.log('■ 아바타 입모양 이미지 캐릭터 (js/mango-avatar.js v6)');
@@ -60,13 +61,30 @@ if (CH) {
     ok(['closed', 'medium', 'wide'].every(t => typeof c.frames[t] === 'string' && c.frames[t]),
       `${k}: 입모양 3단계(closed·medium·wide)가 모두 있다`,
       '한 단계라도 비면 showTier 가 그 단계에서 조용히 멈춘다');
-    ok(c.keyed === false, `${k}: keyed:false — 이미 투명한 PNG 라 크로마키를 건너뛴다`,
+    ok(c.keyed === false, `${k}: keyed:false — 이미 투명한 그림이라 크로마키를 건너뛴다`,
       '초록 제거 루프를 그냥 돌리면 얼굴의 초록빛 픽셀이 지워진다');
     ok(!!c.fallback && !!CH[c.fallback] && !!(CH[c.fallback].sources),
       `${k}: fallback «${c.fallback}» 이 실재하는 영상 캐릭터다`,
-      'PNG 가 아직 없을 때 되돌아갈 곳이 없으면 얼굴 자리가 빈 카드로 남는다');
+      '그림이 아직 없을 때 되돌아갈 곳이 없으면 얼굴 자리가 빈 카드로 남는다');
     ok(c.fallback !== k, `${k}: fallback 이 자기 자신이 아니다 (무한 되돌기 방지)`);
     ok(c.still === c.frames.closed, `${k}: 정지 얼굴이 «입 다문 장» 과 같다`);
+
+    /* ①-2 «그 파일이 저장소에 실제로 있는가»
+       2026-08-31 실사고: 표는 새 얼굴을 가리키는데 그림 파일을 커밋에 안 담아,
+       사장님 화면에서 며칠간 조용히 폴백(옛 얼굴)이 돌았다. 에러도 404 표시도 없어
+       「목소리는 바뀌었는데 얼굴이 안 바뀌었어」로만 보였다.
+       ⚠️ fallback 이 있다고 이 검사를 빼면 안 된다 — fallback 은 «런타임 사고» 대비이고
+          이 검사는 «커밋에 파일을 빠뜨리는 것» 을 막는다. 둘은 다른 방어다. */
+    for (const t of ['closed', 'medium', 'wide']) {
+      const rel = String(c.frames[t] || '').replace(/^\//, '');
+      const abs = join(PUB, rel);
+      const st = statSafe(abs);
+      ok(!!st, `${k}: ${t} 그림 파일이 저장소에 있다 (${rel})`,
+        '표만 고치고 그림을 안 넣으면 폴백이 조용히 돌아 «얼굴이 안 바뀐다»');
+      if (st) ok(st.size <= 300 * 1024,
+        `${k}: ${t} 그림이 300KB 이하다 (${Math.round(st.size / 1024)}KB)`,
+        '학생은 한 친구당 3장을 받는다 — 필리핀 회선을 생각해 크게 넣지 말 것');
+    }
   }
 
   /* ③ 성인 얼굴 보존 — 폴백이자 playClip(teacher-say-*) 클립의 짝 */
@@ -87,9 +105,9 @@ if (CH) {
     'setCharacter 가 이름을 먼저 풀어 준다');
 }
 
-/* ② 투명 PNG 유령 방지 + 키잉 건너뛰기 */
+/* ② 투명 그림 유령 방지 + 키잉 건너뛰기 */
 ok(/ctx\.clearRect\(0,0,canvas\.width,canvas\.height\);\s*\n?\s*ctx\.drawImage\(srcEl/.test(AV),
-  'keyFrame 이 «지우고 그린다» (투명 PNG 가 겹쳐 유령으로 남지 않게)',
+  'keyFrame 이 «지우고 그린다» (투명 그림이 겹쳐 유령으로 남지 않게)',
   '⛔ clearRect 를 빼면 입모양이 바뀔 때마다 앞 장이 뒤에 남는다');
 ok(/if \(keyedNow\) for \(var i=0/.test(AV),
   '초록 제거 루프가 keyedNow 일 때만 돈다');
@@ -155,9 +173,25 @@ for (const f of ['warmup.html', 'ai-friend.html']) {
   ok(/scFriend === 'emma'[\s\S]{0,80}SAY_CLIPS/.test(SC),
     '미리 만든 립싱크 클립(SAY_CLIPS)은 Emma 일 때만 쓴다',
     '다른 친구에게 틀면 「Jake 를 골랐는데 Emma 가 말한다」가 되고 에러는 안 난다');
-  ok(/ttsCache\[lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(SC),
+  /* ⚠️ 이 검사는 «코드 모양» 이 아니라 «뜻» 으로 묻는다.
+     2026-08-31 에 두 벌로 복사돼 있던 fetch 블록을 scFetchTtsUrl·scTtsKey 한 곳으로
+     모으자, 옛 형태(한 줄짜리 키 조립)를 통째로 못 박아 둔 검사가 «보장은 그대로인데»
+     FAIL 했다(CLAUDE.md 「객체 모양을 정규식으로 못 박아 두어 칸 하나 늘렸더니 FAIL」).
+     물어야 할 것은 ① 키를 만드는 자리가 화자를 넣는가 ② 캐시를 그 키로만 읽고 쓰는가 다. */
+  const scKeyFn = SC.match(/function scTtsKey\([^)]*\)\s*\{[^}]*\}/);
+  const scKeyHasSpeaker = (!!scKeyFn && /scSpeaker\(\)/.test(scKeyFn[0]))
+    || /ttsCache\[lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(SC);
+  const scKeyUses = [...SC.matchAll(/ttsCache\[([^\]]*)\]/g)].map((m) => m[1].trim());
+  // 지역 변수로 받아 쓰는 것도 «그 키에서 온 것» 이면 통과시킨다(const key = scTtsKey(…))
+  const scFromKeyVar = (k) => /^[A-Za-z_$][\w$]*$/.test(k)
+    && new RegExp('\\b(?:const|let|var)\\s+' + k + '\\s*=\\s*scTtsKey\\(').test(SC);
+  const scAllViaKey = scKeyUses.length > 0 && scKeyUses.every((k) =>
+    k.startsWith('scTtsKey(') || scFromKeyVar(k)
+    || /^lang \+ '\|' \+ \(lang === 'en' \? scSpeaker\(\)/.test(k));
+  ok(scKeyHasSpeaker && scAllViaKey,
     'TTS 캐시 키에 화자가 들어 있다',
-    '안 넣으면 친구를 바꿔도 먼저 받아 둔 남의 목소리가 그대로 재생된다');
+    '안 넣으면 친구를 바꿔도 먼저 받아 둔 남의 목소리가 그대로 재생된다'
+      + ` (키 사용 ${scKeyUses.length}곳: ${scKeyUses.join(' / ') || '없음'})`);
 
   if (WUV && AFP && CH) {
     const people = ['emma', 'jake', 'lily', 'noah'];

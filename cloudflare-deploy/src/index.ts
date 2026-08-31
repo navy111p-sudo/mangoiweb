@@ -21,6 +21,7 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
+import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -2991,8 +2992,13 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
  *      _speechText() 의 동작이라, 거기를 고치면 이 프롬프트도 같이 고쳐야 한다.
  *   ⚠️ 프롬프트가 길어진 만큼 매 요청 토큰이 조금 늘어난다(체감 지연은 교재 조회 캐시로 상쇄).
  *      새 규칙은 «실제로 겪은 증상» 이 있을 때만 추가할 것. */
-const WARMUP_SYSTEM = [
-  "너는 망고아이의 AI 대화 친구 '망고(Mango)'야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.",
+/* 🧑 친구 이름은 학생이 고른다(Emma·Jake·Lily·Noah). 이 프롬프트는 그 이름을 «값» 으로 받는다 —
+   예전에는 '망고(Mango)' 로 하드코딩돼 있어서, 화면이 "Hi! I'm Lily." 라고 인사해 놓고
+   학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
+   ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
+const warmupSystem = (friendName: string) => [
+  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
+  `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
   "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
   "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
@@ -3006,17 +3012,26 @@ const WARMUP_SYSTEM = [
 const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
 // 📊 대화 난이도 8단계(1 기초 ~ 8 최고) — 프론트 warmup.html 레벨 슬라이더와 1:1 대응.
 //    각 단계별 어휘·문법·문장 길이 가이드를 시스템 프롬프트에 주입해 AI가 눈높이를 맞춘다.
+/* 🪜 여덟 칸 — 화면 warmup.html 의 LEVEL_CATALOG, 그리고 AI 영어친구
+     (src/ai-friend-level.ts 의 AI_FRIEND_LEVELS)와 «같은 눈금» 이다.
+     이름·교재 Lv 구간의 정본은 판단력 훈련 judgment-level.ts 의 BAND_SPECS 이고,
+     단어 수는 여기가 정본이다 — 세 파일이 같은 말을 해야 한다(하니스가 대조).
+     ⛔ 눈금을 «한 칸 밀어» 쉽게 만들려고 하지 마세요. 2026-08-31 에 실제로 그렇게 했다가
+        되돌렸습니다 — 저장된 mangoi_warmup_level 이 그대로인 채 «뜻» 만 바뀌어
+        레벨 5 학생이 말없이 한 단계 쉬운 대화를 받고, 같은 밴드 이름(중급)을
+        판단력 훈련과 웜업이 서로 다른 단어 수로 부르게 됩니다.
+        낮은 단계를 쉽게 하는 길은 «길이» 가 아니라 «열린 질문을 없애는 것» 입니다(아래 1·2번).
+     ⚠️ 한국어 도움말은 «괄호 안» 이라고 못박는다 — 위 [언어] 규칙과 어긋나면 모델이 괄호 밖에
+        한국어를 쓰고, 그걸 영어 TTS 가 읽어 소리가 뭉개진다(레벨 1이 가장 자주 걸리는 자리다). */
 const WARMUP_LEVELS: Record<number, string> = {
-  // ⚠️ 한국어 도움말은 «괄호 안» 이라고 못박는다 — 위 [언어] 규칙과 어긋나면 모델이 괄호 밖에
-  //    한국어를 쓰고, 그걸 영어 TTS 가 읽어 소리가 뭉개진다(레벨 1이 가장 자주 걸리는 자리다).
-  1: "레벨 1(기초): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 학생이 어려워하면 더 쉽게 바꿔주고, 한국어 도움말이 필요하면 영어 문장 뒤 괄호 안에 짧게만 덧붙여.",
-  2: "레벨 2(초급): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘.",
-  3: "레벨 3(초급+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
-  4: "레벨 4(초중급): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
-  5: "레벨 5(중급): 다양한 시제와 이유·비교 표현을 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
-  6: "레벨 6(중상급): 조건·가정·의견 표현과 쉬운 관용구를 조금씩 섞어 자연스럽게 대화해줘.",
-  7: "레벨 7(상급): 원어민이 실제로 쓰는 구동사·연결어·표현을 활용해 좀 더 깊이 있는 후속 질문을 해줘.",
-  8: "레벨 8(최고): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
+  1: "레벨 1(첫걸음·A1): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 질문은 학생이 'Yes.' 'No.' 로 답할 수 있는 것만 해 — wh- 질문이나 'or' 질문은 하지 마. 학생이 어려워하면 더 쉽게 바꿔주고, 한국어 도움말이 필요하면 영어 문장 뒤 괄호 안에 짧게만 덧붙여.",
+  2: "레벨 2(기초·A2): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘. 질문은 Yes/No 이거나, 고를 말이 질문 안에 들어 있는 양자택일로 해줘(학생이 네 말을 그대로 따라 답할 수 있게).",
+  3: "레벨 3(초급·A2+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
+  4: "레벨 4(초중급·B1): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
+  5: "레벨 5(중급·B1+): 다양한 시제와 이유·비교 표현을 12~15단어 문장으로 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
+  6: "레벨 6(중고급·B2): 조건·가정·관계절과 쉬운 관용구를 조금씩 섞어 15~18단어 문장으로 자연스럽게 대화해줘.",
+  7: "레벨 7(고급·B2+): 원어민이 실제로 쓰는 구동사·연결어·관용표현을 활용해 18~22단어 문장으로 좀 더 깊이 있는 후속 질문을 해줘.",
+  8: "레벨 8(최상급·C1): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
 };
 
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
@@ -3913,6 +3928,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
     //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
     const ctxKickoff = !!(body && body.kickoff);
+    // 🧑 학생이 고른 AI 친구 이름 — 정본 표를 거쳐 «아는 이름» 으로만 바꾼다(프롬프트 주입 차단).
+    //    「번갈아」는 화면이 «그 턴에 말할 사람» 을 보낸다. 안 보내면 예전처럼 'Mango'.
+    const ctxFriend = resolveFriendName(body && body.friend);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3947,7 +3965,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = WARMUP_SYSTEM;
+    let sys = warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;

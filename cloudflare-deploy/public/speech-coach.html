@@ -287,7 +287,7 @@
 <!-- 👩‍🏫 공용 아바타 모듈. ⛔ /css/mango-avatar.css 는 «싣지 마세요» —
      이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
      공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
-<script src="/js/mango-avatar.js?v=15" defer></script>
+<script src="/js/mango-avatar.js?v=16" defer></script>
 </head>
 <body>
 <!-- ☰ AI 친구 고르기 — 고르면 목소리와 얼굴이 함께 바뀐다.
@@ -801,7 +801,7 @@ window.scPlayNativeOnce = function(){
 const SC_PEOPLE = {
   emma: { speaker:'asteria', char:'emma', g:'female' },
   jake: { speaker:'apollo',  char:'jake', g:'male'   },
-  lily: { speaker:'delia',   char:'lily', g:'female' },
+  lily: { speaker:'thalia',  char:'lily', g:'female' },
   noah: { speaker:'aries',   char:'noah', g:'male'   },
 };
 let scFriend = (function(){
@@ -994,31 +994,64 @@ function renderWordMap(words) {
   };
 }
 
+/* 🎙️ «목소리가 계속 변해» — 고른 친구를 그대로 두었는데 문장마다 다른 사람이 읽는다
+   (2026-08-31 사장님 제보, 웜업에서 시작). 화면이 화자를 바꾼 게 아니라 «소리를 만들어
+   오는 길» 이 문장마다 달라지는 것이고, 셋 다 에러 없이 조용히 일어난다.
+     ① 서버 Aura-2 가 «한 번» 흔들리면 그 문장만 Aura-1 이 읽는다(Noah aries → orion)
+     ② 요청이 한 번 실패하면 곧바로 «기기 목소리»(speakFallback)로 읽었다 — 원어민 음성과
+        전혀 달라 제일 크게 들린다
+     ③ 그렇게 받은 «남의 목소리» 를 요청 화자 키로 캐시하면 그 문장은 세션 내내 그 소리로
+        굳는다(서버 R2 캐시가 «실제로 쓴 화자» 키만 쓰는 것과 같은 이유)
+   ✅ 그래서 실패는 400ms 뒤 한 번 더 물어보고, 서버가 대체한 음성은 캐시하지 않는다.
+   ⛔ 기기 목소리 폴백 자체는 없애지 마세요 — 소리가 아예 안 나는 것이 더 나쁩니다.
+   ⚠️ 뉴런 소진(429·503)은 다시 물어도 같은 답이라 재시도하지 않습니다.
+   📌 이 헬퍼가 «한 곳» 인 이유 — 예전에는 speakWord·speakTarget 이 같은 fetch 블록을
+      각자 복사해 갖고 있었습니다. 그런 형태는 한쪽만 고쳐지는 사고로 이어집니다. */
+let scTtsSeq = 0;   // «지금 몇 번째 발화인가» — 늦게 온 응답이 다음 문장을 덮지 않게
+function scTtsKey(t, lang) { return lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t; }
+async function scFetchTtsUrl(t, lang, tryNo) {
+  const key = scTtsKey(t, lang), want = (lang === 'en') ? String(scSpeaker() || '').toLowerCase() : '';
+  try {
+    const resp = await fetch('/api/voice/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lang === 'en' ? { text: t, lang, speaker: scSpeaker() } : { text: t, lang })
+    });
+    if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) {
+      const e = new Error('tts_unavailable'); e.noRetry = (resp.status === 429 || resp.status === 503); throw e;
+    }
+    let got = ''; try { got = String(resp.headers.get('X-TTS-Speaker') || '').toLowerCase(); } catch (_) {}
+    const blob = await resp.blob();
+    if (blob.size < 200) throw new Error('tts_empty');
+    const url = URL.createObjectURL(blob);
+    // 서버가 다른 화자로 대체했으면 캐시하지 않는다. 헤더가 없으면(옛 배포·중국어) 판정하지 않는다.
+    if (!want || !got || got === want) ttsCache[key] = url;
+    return url;
+  } catch (err) {
+    if (!tryNo && !(err && err.noRetry)) {
+      await new Promise(r => setTimeout(r, 400));
+      return scFetchTtsUrl(t, lang, 1);
+    }
+    throw err;
+  }
+}
+
 /** 단어 하나만 읽어 준다 (모범 문장 재생과 같은 통로를 쓴다). */
 async function speakWord(w) {
   const t = String(w || '').trim();
   if (!t) return;
   const lang = detectTtsLang(t) || 'en';
   if (lang === 'ko') { speakFallback(t, lang); return; }
+  const mine = ++scTtsSeq;
   try {
     if (ttsAudio) { try { ttsAudio.pause(); } catch (e) {} }
     try { window.speechSynthesis.cancel(); } catch (e) {}
-    let url = ttsCache[lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t];
-    if (!url) {
-      const resp = await fetch('/api/voice/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lang === 'en' ? { text: t, lang, speaker: scSpeaker() } : { text: t, lang })
-      });
-      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts');
-      const blob = await resp.blob();
-      if (blob.size < 200) throw new Error('tts_empty');
-      url = URL.createObjectURL(blob);
-      ttsCache[lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t] = url;
-    }
+    let url = ttsCache[scTtsKey(t, lang)];
+    if (!url) url = await scFetchTtsUrl(t, lang, 0);
+    if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
     await ttsAudio.play();
-  } catch (e) { speakFallback(t, lang); }   // 서버 TTS 가 안 되면 브라우저 음성으로
+  } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
 }
 
 async function speakTarget() {
@@ -1035,24 +1068,16 @@ async function speakTarget() {
   if (lang === 'ko') { speakFallback(t, lang); return; } // 한국어는 브라우저 TTS
   if (ttsAudio) { try { ttsAudio.pause(); } catch(_){} }
   try { window.speechSynthesis.cancel(); } catch(_){}
+  const mine = ++scTtsSeq;
   try {
-    let url = ttsCache[lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t];
-    if (!url) {
-      const resp = await fetch('/api/voice/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(lang === 'en' ? { text: t, lang, speaker: scSpeaker() } : { text: t, lang })
-      });
-      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts_unavailable');
-      const blob = await resp.blob();
-      if (blob.size < 200) throw new Error('tts_empty');
-      url = URL.createObjectURL(blob);
-      ttsCache[lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t] = url;
-    }
+    let url = ttsCache[scTtsKey(t, lang)];
+    if (!url) url = await scFetchTtsUrl(t, lang, 0);
+    if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
     await ttsAudio.play();
-  } catch (e) { speakFallback(t, lang); } // 서버 TTS 실패 시 브라우저 TTS 폴백
+  } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }
 
 function resetUI() {

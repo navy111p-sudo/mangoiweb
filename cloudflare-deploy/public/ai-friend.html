@@ -47,6 +47,12 @@
       color: var(--text); border-radius: 999px; cursor: pointer; font-size: 11.5px;
       font-weight: 700; white-space: nowrap; }
     .opt.active { background: linear-gradient(135deg, var(--gold), #f59e0b); color: #1a1a1a; border-color: var(--gold); }
+    /* 🪜 레벨 버튼만 «숫자 + CEFR» 두 줄. 여덟 개가 폰 한 줄에 들어가야 하므로 좁게 잡는다.
+       ⚠️ .opts 는 flex-wrap 이라 넘치면 다음 줄로 흐른다 — 잘리지는 않는다. */
+    .opt[data-level] { display: inline-flex; flex-direction: column; align-items: center; gap: 0;
+      padding: 4px 9px; line-height: 1.15; }
+    .opt[data-level] i { font-style: normal; font-size: 9px; font-weight: 600; opacity: .72;
+      letter-spacing: .02em; }
 
     /* ══ 🎮 게임 HUD: 레벨·XP·스트릭·오늘의 단어·퀘스트 ══ */
     .hud { display: flex; gap: 8px; align-items: center; padding: 8px 14px;
@@ -247,6 +253,14 @@
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .ai-text,
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .tip-chip { display: none; }
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .sub-veil { display: inline; }
+    /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31 사장님 제보)
+       흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다. 실제로 그렇게 제보가 왔다.
+       «완전 끄기» 에는 안내(.sub-veil)가 있었는데 «가리기» 에만 아무 표시가 없었다.
+       ⚠️ .ai-text 밖에 두어야 한다 — 안에 두면 이 안내까지 함께 흐려져 아무 소용이 없다.
+       ⚠️ display:flex 금지 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 함정). */
+    .sub-hint { display: none; margin-top: 6px; font-size: 12px; font-weight: 800;
+      color: var(--text2); cursor: pointer; white-space: normal; }
+    .chat[data-sub="blur"] .ai-row:not(.sub-shown) .sub-hint { display: block; }
     /* 뜻 카드 — 파랑. 노란 팁 카드(문법)와 색으로 구분된다 */
     .ko-chip { margin-top: 8px; padding: 7px 10px; border-radius: 10px; font-size: 12.5px;
       background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
@@ -283,7 +297,7 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=15" defer></script>
+<script src="/js/mango-avatar.js?v=16" defer></script>
 </head>
 <body>
   <div class="top">
@@ -303,11 +317,18 @@
   </div>
   <div class="opts">
     <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px" data-ko="레벨:" data-en="Level:">레벨:</span>
-    <button class="opt" data-level="A1">A1</button>
-    <button class="opt" data-level="A2">A2</button>
-    <button class="opt active" data-level="B1">B1</button>
-    <button class="opt" data-level="B2">B2</button>
-    <button class="opt" data-level="C1">C1</button>
+    <!-- 🪜 여덟 칸 (2026-08-31 사장님 결정). 숫자가 눈금이고 CEFR 은 그 위에 얹은 라벨이다 —
+         학부모·강사가 A1·B1 로 이야기하므로 둘 다 보여 준다.
+         ⚠️ data-level 값(S1…S8)이 서버로 가는 값이다. 서버 표(src/ai-friend-level.ts)와 «짝».
+         ⚠️ 옛 값(A1…C1)은 학생 브라우저에 남아 있어 계속 받는다(AIF_LEGACY). -->
+    <button class="opt" data-level="S1">1<i>A1</i></button>
+    <button class="opt" data-level="S2">2<i>A2</i></button>
+    <button class="opt active" data-level="S3">3<i>A2+</i></button>
+    <button class="opt" data-level="S4">4<i>B1</i></button>
+    <button class="opt" data-level="S5">5<i>B1+</i></button>
+    <button class="opt" data-level="S6">6<i>B2</i></button>
+    <button class="opt" data-level="S7">7<i>B2+</i></button>
+    <button class="opt" data-level="S8">8<i>C1</i></button>
     <span style="font-size:11px;color:var(--text2);align-self:center;margin:0 4px 0 8px" data-ko="스타일:" data-en="Style:">스타일:</span>
     <button class="opt active" data-persona="friendly" data-ko="친근한" data-en="Friendly">친근한</button>
     <button class="opt" data-persona="playful" data-ko="장난스러운" data-en="Playful">장난스러운</button>
@@ -451,7 +472,31 @@
       } catch(e){}
       return null;
     }
-    let currentLevel = 'B1';
+    /* 🎚 레벨(눈높이)은 «기억» 한다 — 2026-08-31 수리.
+       그전에는 let currentLevel='B1' 이고 저장 코드가 없어서, 아이가 A1 을 눌러도
+       새로고침하면 B1 으로 돌아갔다. 속도·목소리·자막·주제는 전부 기억하는데 레벨만 빠져 있었다.
+       실측(운영 D1 ai_friend_chats): 답변 313건 중 290건(93%)이 B1 으로 저장돼 있었다.
+       ⚠️ 기본값(아래 AIF_DEFAULT)은 서버 기본값(src/ai-friend-level.ts 의 AI_FRIEND_DEFAULT_LEVEL)과
+          «짝» 이다. 예전에는 화면 B1 · 서버 A2 로 서로 달랐다. 한쪽만 고치면 그 어긋남이 그대로 돌아온다.
+       ⚠️ 목록도 서버 AI_FRIEND_LEVELS 와 짝이다 — 화면에만 늘리면 서버가 모르는 값이라
+          조용히 기본값으로 떨어진다(CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+    /* 🪜 여덟 칸 — 서버 src/ai-friend-level.ts 의 AI_FRIEND_LEVELS 와 «짝» 이다.
+       ⚠️ 화면에만 늘리면 서버가 모르는 값이라 조용히 기본값으로 떨어진다
+          (CLAUDE.md 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
+    const AIF_LEVELS = ['S1','S2','S3','S4','S5','S6','S7','S8'];
+    /* ⛔ 옛 키를 지우지 말 것 — 학생 브라우저에 A1…C1 이 남아 있다.
+       지우면 지금까지 고른 레벨이 전부 리셋된다(친구 이름을 넷으로 늘릴 때
+       female → emma 로 이어받은 것과 같은 처리다). */
+    const AIF_LEGACY = { A1:'S1', A2:'S2', B1:'S4', B2:'S6', C1:'S8' };
+    const AIF_DEFAULT = 'S3';                       // 서버 AI_FRIEND_DEFAULT_LEVEL 과 같아야 한다
+    const AIF_LEVEL_KEY = 'mangoi_aifriend_level';
+    let currentLevel = (function(){
+      try {
+        let v = localStorage.getItem(AIF_LEVEL_KEY);
+        if (Object.prototype.hasOwnProperty.call(AIF_LEGACY, v)) v = AIF_LEGACY[v];
+        return AIF_LEVELS.indexOf(v) >= 0 ? v : AIF_DEFAULT;
+      } catch(e){ return AIF_DEFAULT; }
+    })();
     let currentPersona = 'friendly';
     // 🔊 원어민 음성 재생 속도 (localStorage 로 유지, 기본 1 = 보통)
     let currentRate = (function(){
@@ -459,7 +504,12 @@
     })();
 
     document.querySelectorAll('.opt[data-level]').forEach(b => {
-      b.onclick = () => { document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentLevel = b.dataset.level; };
+      b.classList.toggle('active', b.dataset.level === currentLevel);   // 기억해 둔 레벨을 화면에 입힌다
+      b.onclick = () => {
+        document.querySelectorAll('.opt[data-level]').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); currentLevel = b.dataset.level;
+        try { localStorage.setItem(AIF_LEVEL_KEY, currentLevel); } catch(e){}
+      };
     });
     document.querySelectorAll('.opt[data-persona]').forEach(b => {
       b.onclick = () => { document.querySelectorAll('.opt[data-persona]').forEach(x=>x.classList.remove('active')); b.classList.add('active'); currentPersona = b.dataset.persona; };
@@ -473,7 +523,7 @@
     const PEOPLE = {
       emma: { speaker:'asteria', char:'emma' },
       jake: { speaker:'apollo',  char:'jake' },
-      lily: { speaker:'delia',   char:'lily' },
+      lily: { speaker:'thalia',  char:'lily' },
       noah: { speaker:'aries',   char:'noah' },
     };
     const PEOPLE_ORDER = ['emma','jake','lily','noah'];   // 「번갈아」가 도는 순서
@@ -873,6 +923,7 @@
           + '<div class="msg ai">'
           + '<span class="ai-text">' + escapeHtml(body).replace(/\n/g, '<br>') + '</span>'
           + '<span class="sub-veil" data-ko="🔊 듣고 맞혀 보세요 (탭하면 보여요)" data-en="🔊 Listen and guess (tap to see)">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
+          + '<span class="sub-hint" data-ko="👁 자막을 가려 뒀어요 — 눌러서 보기" data-en="👁 Subtitles hidden — tap to reveal">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
           + (tip ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
           + '</div>'
           + '<button class="replay-btn" aria-label="다시 듣기" data-ko-aria="다시 듣기" data-en-aria="Play again" title="다시 듣기">🔊</button>'
@@ -1117,7 +1168,7 @@
       ).join('');
       chat.innerHTML = '<div class="empty-state">'
         + '<div class="hero-mango"><img src="/img/mango-char.png" alt="Mango" loading="lazy" decoding="async"/></div>'
-        + "<h2>👋 Hi! I'm Mango</h2>"
+        + "<h2>👋 Hi! I'm " + friendOf(personNow()).name + "</h2>"
         + '<p>' + (en ? "Let's chat in English! Every message earns points ⭐" : "Let's chat in English! 한 마디 할 때마다 포인트가 쌓여요 ⭐") + '</p>'
         /* 🧑 친구 고르기를 주제보다 «먼저» 둔다 — 누구와 이야기할지가 먼저고 무슨 이야기를 할지가 그다음이다.
            고르지 않고 주제만 눌러도 그대로 진행된다(관문이 아니라 안내). */
@@ -1126,7 +1177,10 @@
         + '<p style="color:var(--text2);margin-top:16px">' + (en ? 'Pick an adventure topic:' : '모험 주제를 골라볼까요?') + '</p>'
         + '<div class="topics">' + cards + '</div>'
         + '<div class="quick">'
-        + '<button onclick="quickSend(\'Hi Mango! How are you today?\')">Hi Mango! 👋</button>'
+        /* 🧑 이 버튼은 «학생이 AI 를 부르는» 말이라 이름이 들어간다 — 고른 친구로.
+           바로 위 인사를 「Hi! I'm Lily」로 고쳐 놓고 여기만 Mango 면 한 화면이 두 이름을 말한다. */
+        + '<button onclick="quickSend(\'Hi ' + friendOf(personNow()).name + '! How are you today?\')">Hi '
+        + friendOf(personNow()).name + '! 👋</button>'
         + '<button onclick="quickSend(\'Can you teach me a new word?\')">' + (en ? 'New word 📚' : '새 단어 📚') + '</button>'
         + '<button onclick="quickSend(\'Tell me a fun fact!\')">' + (en ? 'Fun fact 🌟' : '재미난 사실 🌟') + '</button>'
         + '</div></div>';
@@ -1137,7 +1191,9 @@
       setTopic(t);                                   // 🗺 고른 주제를 대화 내내 유지
       const p = document.getElementById('topicPicker');
       if (p) p.remove();
-      quickSend(t.msg);
+      // 🧑 이 문장은 «학생이 AI 를 부르는» 말이라 이름이 들어 있다 — 고른 친구로 바꿔 보낸다.
+      //    Lily 를 골랐는데 "…, Mango?" 라고 부르면 그 순간 누구와 이야기하는지가 흐려진다.
+      quickSend(String(t.msg || '').replace(/\bMango\b/g, friendOf(personNow()).name));
     }
     async function sendMsg(e) {
       if (e) e.preventDefault();
@@ -1161,7 +1217,11 @@
       try {
         const r = await fetch('/api/ai/chat-friend', {
           method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + auth.token },
+          // 🧑 friend — 서버가 「너는 Lily 야」로 프롬프트를 만든다. 안 보내면 AI 가 자기를
+          //    'Mango' 로 알고, 「Hi! I'm Lily」로 인사해 놓고 이름을 물으면 다른 이름을 댄다
+          //    (2026-08-31 사장님 제보). 「번갈아」면 personNow() 가 그 턴의 사람을 준다.
           body: JSON.stringify({ uid: auth.uid, msg, level: currentLevel, persona: currentPersona,
+                                 friend: personNow(),
                                  topic: currentTopic ? currentTopic.id : '', via: wasVoice ? 'voice' : 'text',
                                  sub: currentSub })   // 🎧 자막을 끄고 대화하면 서버가 덤 1P (하루 5회)
         });
@@ -1410,6 +1470,7 @@
   /* 👁 뜻 버튼도 같이 키운다 — 안 키우면 확대 화면에서 이것만 눌리지 않을 만큼 작게 남는다 */
   .mean-btn{height:40px;padding:0 14px;font-size:16px}
   .sub-veil{font-size:19px}
+  .sub-hint{font-size:15px}
   .ko-chip{font-size:19px;padding:11px 15px}
   .typing span{width:8px;height:8px}
   .input-bar{padding:16px 18px}
@@ -1430,7 +1491,7 @@
   .cele-banner .cb-sub{font-size:16px}
 }
 </style>
-<script defer src="/js/game-tts.js?v=5"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크) -->
+<script defer src="/js/game-tts.js?v=6"></script><!-- 🔊 원어민 TTS(Aura-2 화자선택+이모지 낭독 방지+stop()) 공용 모듈. v4: getAudioEl(아바타 음량 립싱크). v6: 서버 실패 시 400ms 뒤 한 번 더 물어본 뒤에만 기기 목소리로 — 「목소리가 계속 변해」 -->
 <script defer src="/js/mangoi-voice-input.js?v=4"></script><!-- 🎤 음성인식 미지원 브라우저용 녹음+Whisper 폴백 -->
 <script defer src="/js/back-nav.js"></script>
 <script defer src="/js/mg-sidebar.js"></script>
@@ -1542,7 +1603,14 @@ body.opts-open .opts-toggle{ background:rgba(251,191,36,0.18); border-color:rgba
   function summary(){
     var lv = document.querySelector('.opts .opt.active[data-level]');
     var sb = document.querySelector('.opts .opt.active[data-sub]');
-    var s = lv ? lv.textContent.trim() : '';
+    /* ⚠️ 레벨 버튼은 두 줄이다(숫자 + <i>CEFR</i>). textContent 를 그대로 쓰면 「3A2+」 가 된다
+       — 2026-08-31 trap-check 가 잡았다. 숫자와 CEFR 을 «사람이 읽는 모양» 으로 붙인다. */
+    var s = '';
+    if (lv) {
+      var num = (lv.firstChild && lv.firstChild.nodeValue || '').trim();
+      var cefr = lv.querySelector('i');
+      s = num ? (cefr ? num + '단계 · ' + cefr.textContent.trim() : num + '단계') : lv.textContent.trim();
+    }
     if (sb && sb.dataset.sub !== 'on') s = (s ? s + ' ' : '') + '👁';
     return s;
   }
