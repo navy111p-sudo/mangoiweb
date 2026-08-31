@@ -4332,7 +4332,13 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
     if (!el || !el.closest) return false;
     return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, #vc-dock-leave, button.ctrl-btn.danger, a.ctrl-btn.danger');
   }
-  ['pointerdown','touchstart','mousedown','click'].forEach(function(ev){
+  // 🔧 (2026-08-31) 'touchend' 추가 — trap-check 로 실제 터치 이벤트를 재현해 확인:
+  //   'touchstart'만 듣고 있으면 그 뒤에 오는 'touchend'가 이 목록을 완전히 비켜가
+  //   v29-leave-capture(title="...나가기" 매칭)로 그대로 흘러가 즉시 전체 새로고침이
+  //   일어난다(평가 모달이 잠깐 보였다가 같은 탭 안에서 튕겨나감). touchstart 단계에서
+  //   이미 STATE.triggered=true 가 되므로 touchend는 아래 "이미 처리 중" 분기로 흡수될
+  //   뿐 중복 실행되지 않는다.
+  ['pointerdown','touchstart','touchend','mousedown','click'].forEach(function(ev){
     window.addEventListener(ev, function(e){
       try {
         if (!isExitBtnEl(e.target)) return;
