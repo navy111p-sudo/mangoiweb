@@ -17,12 +17,14 @@
 //     F. 강사 이름 정규화가 api-admin.ts 의 정본과 «같은 답» 을 낸다
 //     G. 창(window)은 양쪽 경계가 있다 — 상한 없이 지우면 미래 예약이 전멸한다
 //     H. Neo4j 가 안 되면 «0건(깨끗함)» 이 아니라 «못 냈다» 고 말한다
+//     I. 화면 겹쳐 그리기 — 카페24 수업을 «보기 전용» 으로만 그린다(class_schedules 를 안 만든다)
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 const __dir = dirname(fileURLToPath(import.meta.url));
 const SRC = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/src/' + f), 'utf8');
+const PUB = (f) => readFileSync(resolve(__dir, '../cloudflare-deploy/public/' + f), 'utf8');
 
 /* 📦 대상 모듈을 «있는 그대로» 돌린다(빌드 도구 없이).
    node 22 는 .ts 를 타입만 벗겨 실행하지만 확장자 없는 상대 import(`./d1-chunk`)는
@@ -150,6 +152,38 @@ console.log('\n[ F. 강사 이름 정규화가 api-admin 정본과 같은 답을
   }
 }
 
+console.log('\n[ F-2. 🔗 원부 이름 판정 — 접두어(HT)를 넘되 «스치는» 매칭은 금지 ]');
+{
+  // 2026-08-31 그림자 1일차: 막힌 14건 중 13건이 «Teacher Ness ↔ HT NESS» 하나였다.
+  const ROSTER = [
+    { id: 22, name: 'FAR' }, { id: 3, name: 'HT FARRAH' }, { id: 10, name: 'HT NESS' },
+    { id: 27, name: 'MAIMAI' }, { id: 8, name: 'KAYE' }, { id: 28, name: 'JANICE' },
+    { id: 30, name: 'WAN' }, { id: 29, name: '중국어 강선생님' },
+  ];
+  const R = M.buildRosterResolver(ROSTER);
+  check('🔴 「Teacher Ness」 → 10 (HT NESS 를 낱말 단위로 찾는다)', R('Teacher Ness') === '10', String(R('Teacher Ness')));
+  check('완전일치가 먼저 — 「Teacher Far」 → 22 (HT FARRAH 3 이 아니다)', R('Teacher Far') === '22');
+  check('접두사 없는 이름도 찾는다 (MAIMAI → 27)', R('MAIMAI') === '27');
+  check('「Teacher Janice」 → 28', R('Teacher Janice') === '28');
+  check('「Teacher Wan」 → 30', R('Teacher Wan') === '30');
+  check('한글 이름도 완전일치 (중국어 강선생님 → 29)', R('중국어 강선생님') === '29');
+  check('⛔ «스치는» 매칭 금지 — 「Teacher Farr」 는 FARRAH 에 안 걸린다', R('Teacher Farr') === null, String(R('Teacher Farr')));
+  check('⛔ 부분일치 금지 — 「Ne」 는 NESS 에 안 걸린다', R('Ne') === null);
+  check('⛔ 여럿이 나눠 갖는 낱말은 «모름» — 「HT」 는 null', R('HT') === null, String(R('HT')));
+  check('모르는 이름은 null (엉뚱한 사람으로 안 떨어진다)', R('Teacher Nobody') === null);
+  check('빈 입력에 안 죽는다', R('') === null && R(null) === null && R(undefined) === null);
+  // 같은 이름이 둘이면 잇지 않는다
+  const R2 = M.buildRosterResolver([{ id: 1, name: 'KIM' }, { id: 2, name: 'Teacher Kim' }]);
+  check('⛔ 같은 이름이 둘이면 잇지 않는다', R2('Teacher Kim') === null, String(R2('Teacher Kim')));
+  // 같은 사람이 두 번 실려도(중복 행) 흔들리지 않는다
+  const R3 = M.buildRosterResolver([{ id: 7, name: 'ANA' }, { id: 7, name: 'ANA' }]);
+  check('같은 id 가 두 번 실려도 정상 (7)', R3('Teacher Ana') === '7');
+  // 실제로 미러 판정까지 이어지는가 — no_teacher 가 사라져야 한다
+  const links = new Map([['68', { name: 'Teacher Ness', teacherId: R('Teacher Ness') }]]);
+  const v = M.planMirror([cls({ tid: '68' })], links, STUDENTS, [], 'all', new Set())[0];
+  check('🔴 그래서 Ness 수업이 no_teacher 를 벗어난다', v.verdict === 'ok', `${v.verdict} / ${v.detail || ''}`);
+}
+
 console.log('\n[ G. 창(window)은 양쪽 경계가 있다 ]');
 {
   const cy = MIRROR_TS.match(/MATCH \(c:Class\)[\s\S]*?LIMIT \$lim/);
@@ -174,6 +208,45 @@ console.log('\n[ H. 못 냈으면 «못 냈다» 고 말한다 · 배선 ]');
   check('모드 기본값은 가장 안전한 off(그림자)', /return 'off'/.test(MIRROR_TS));
   const sum = M.summarize([plan1(cls({}), [], 'all'), plan1(cls({ uid: 'x' }), [], 'all')]);
   check('요약이 판정별로 세어진다', sum.ok === 1 && sum.no_student === 1);
+}
+
+/* ═══ I. 화면 겹쳐 그리기 (js/adm-q6.js — 강사 스케줄 주간 캘린더) ═══
+   발단(2026-08-31 사장님): 「카페24에 있는 수업이 mangoi.ai 도 잡히도록. 바로 잡는 게 어렵다면
+   잡힌 것처럼 보이게라도」. 같은 날 카페24에 «없는 수업»(허윤아 17:00 의 Kes·Sid)이 확인돼
+   행을 «만드는» 것은 아직 못 합니다 — 그래서 보기 전용 겹쳐 그리기가 먼저입니다.
+   ⛔ 여기서 못 박는 것은 «그 겹쳐 그리기가 진짜 시간표를 건드리지 않는다» 입니다. */
+console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
+{
+  const Q6 = PUB('js/adm-q6.js');
+  const HTML = PUB('admin.html');
+  const cardFn = (Q6.match(/function ph54C24Card\(s\)\{[\s\S]*?\n  \}/) || [''])[0];
+
+  check('캘린더가 그림자 성적표를 그대로 읽는다(판정을 화면에서 다시 만들지 않는다)',
+    /\/api\/admin\/reports\/c24-mirror\?since=/.test(Q6));
+  check('카페24 카드 함수가 있다', cardFn.length > 200);
+  // 🔴 이게 이 절의 핵심 — records 인덱스와 섞이면 «카페24 카드를 끌었더니 엉뚱한 수업에 PATCH»
+  check('🔴 카페24 카드에 data-idx 를 달지 않는다', !/data-idx/.test(cardFn));
+  check('🔴 카페24 카드는 드래그할 수 없다(draggable 없음)', !/draggable/.test(cardFn));
+  check('카페24 카드는 차단 삭제 경로에 안 걸린다(data-block 없음)', !/data-block/.test(cardFn));
+  check('카드가 «카페24에만 있음» 이라고 사실을 말한다',
+    /카페24에만 있음/.test(cardFn) && /Cafe24 only/.test(cardFn));
+  // 이미 망고아이에 행이 있는 판정은 그리지 않는다 — 그리면 같은 수업이 두 번 보인다
+  const show = (Q6.match(/var PH54_C24_SHOW = \{[^}]*\}/) || [''])[0];
+  check('이미 행이 있는 판정(already/update/conflict/manual_locked/diverged)은 안 그린다',
+    !!show && !/already|update|conflict|manual_locked|diverged/.test(show));
+  check('그릴 것은 «망고아이에 아직 없는» 것뿐', /ok\s*:\s*1/.test(show) && /not_whitelisted\s*:\s*1/.test(show));
+  // 강사를 못 이은 것은 «아무 칸에나» 놓지 않는다
+  check('강사를 못 이으면 그리지 않고 건수만 알린다', /if \(!r\.teacher_id\)\{ c24NoTeacher\+\+; return; \}/.test(Q6));
+  // 화면이 class_schedules 를 만들지 않는다(겹쳐 그리기는 «보기» 다)
+  check('🔴 캘린더가 수업 행을 새로 만들지 않는다',
+    !/fetch\('\/api\/admin\/class-schedules'[\s\S]{0,200}POST/.test(Q6));
+  // 못 읽었으면 «없다» 가 아니라 «못 읽었다»
+  check('못 읽으면 이유를 화면에 적는다', /ph54State\.c24Msg/.test(Q6) && /읽지 못했습니다/.test(Q6));
+  check('권한 없음(403/401)은 «고장» 으로 알리지 않는다', /r\.status === 403 \|\| r\.status === 401/.test(Q6));
+  check('성공은 «ok === true» 로만 판정한다(404 본문에는 ok 칸이 없다)', /j\.ok !== true/.test(Q6));
+  // 캐시 무효화 — 파일이 바뀌었으면 ?v= 도 올라가야 한다(asset_version_harness 와 같은 계약)
+  const v = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
+  check('admin.html 의 adm-q6.js ?v= 가 9 이상', v >= 9, `v=${v}`);
 }
 
 console.log(`\n${'─'.repeat(52)}`);
