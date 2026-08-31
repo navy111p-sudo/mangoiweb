@@ -29,26 +29,9 @@ jobs:
           mkdir -p "$OUT" raw
           # 파일이름:생성물이름
           LIST="
-          farm:hf_20260831_024315_0b981323-a5c3-4c72-9efe-1ff18929e909.png
-          zoo:hf_20260831_024315_36fb5eb8-58b6-4735-b325-25d5a6495eb4.png
-          bakery:hf_20260831_024315_92977853-f8b9-4502-8649-2a820c552172.png
-          library:hf_20260831_024315_fb5eee1a-75e1-48bd-a75f-c70440b5d067.png
-          playground:hf_20260831_024315_7512d905-44ae-497c-969a-66a9e4b0a230.png
-          snow:hf_20260831_024315_13bbbcdc-b461-4eda-a5f7-ce4735eae8c2.png
-          rain:hf_20260831_024315_f3fa12e5-42d9-4396-8c6d-217af418b5dc.png
-          market:hf_20260831_024315_714f63fc-c2a4-47df-9ddf-96915abd7f43.png
-          camping:hf_20260831_024315_c02f888b-76df-46df-939b-1979a4789f33.png
-          train:hf_20260831_024315_d340d79e-f200-4b36-902e-413725f1bc5a.png
-          airport:hf_20260831_024331_c312afdd-b9a9-4f47-b06b-bb735c4d2c11.png
-          clinic:hf_20260831_024331_3a5cdee3-059a-4669-95c1-35982db7864f.png
-          firestation:hf_20260831_024331_e32bbed6-dc1d-428e-8a2d-8f9483691b81.png
-          aquarium:hf_20260831_024331_694c1b49-a87b-42e3-b5fa-3149a2700815.png
-          musicroom:hf_20260831_024331_f78c5181-d973-43ab-b168-5ed8efdc3742.png
-          artroom:hf_20260831_024331_693398c9-c4e0-4637-80f9-16ef1c4c4af2.png
-          sportsday:hf_20260831_024331_eb8ae714-81a0-4155-9ca2-d762be253f49.png
-          picnic:hf_20260831_024331_ded4d344-9912-418f-900e-9e542898027f.png
-          treehouse:hf_20260831_024331_328eb681-25ed-4a7f-8d0d-873a99ebd2eb.png
-          balloon:hf_20260831_024331_8ab2af26-d7d9-45f6-bbb3-953bb3d1c1c6.png
+          snow:hf_20260831_025634_b172d34a-eb36-4614-8ec7-d92e6af0ff4c.png
+          sportsday:hf_20260831_025634_9a095fb3-6861-4107-9ce3-45995fc3e0ce.png
+          airport:hf_20260831_025634_f4d93565-252e-4f83-b40c-88bb8428700f.png
           "
           for row in $LIST; do
             name="${row%%:*}"; src="${row##*:}"
