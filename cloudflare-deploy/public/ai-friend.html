@@ -283,7 +283,7 @@
     @keyframes micPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.55); } 50% { box-shadow: 0 0 0 8px rgba(239,68,68,0); } }
   </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=13" defer></script>
+<script src="/js/mango-avatar.js?v=14" defer></script>
 </head>
 <body>
   <div class="top">
@@ -365,8 +365,10 @@
     <div id="tavatar-ring">
       <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-        <source src="/img/teacher-avatar.webm" type="video/webm">
-        <source src="/img/teacher-avatar.mp4" type="video/mp4">
+        <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
+             장착하므로(mountCharacter) 여기 적어 두면 JS 가 돌기 전에 브라우저가 teacher-avatar.webm
+             942KB 를 먼저 받기 시작합니다(실측: 206 요청 1건). 지금 기본 얼굴은 이미지라 그 영상은
+             폴백일 때만 필요합니다. ⛔ 「비어 있으니 채우자」 하고 되살리지 마세요. -->
       </video>
     </div>
     <div id="tavatar-status">
