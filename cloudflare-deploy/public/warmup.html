@@ -714,8 +714,11 @@ var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 �
      Lily·Noah = 새로 만든 19세 얼굴·목소리.
      mix       = 네 명이 한 마디씩 돌아가며.
    ⚠️ Deepgram 의 화자별 「나이대」 설명은 이 작업 환경에서 프록시에 막혀 읽지 못했습니다
-      (developers.deepgram.com·deepgram.com 둘 다 403). 그러니 delia·aries 는
+      (developers.deepgram.com·deepgram.com 둘 다 403). 그러니 아래 화자들은
       «귀로 확인해야 할 후보» 이지 측정된 값이 아닙니다.
+   🔊 Lily 는 delia → thalia 로 바꿨습니다 (2026-08-31 사장님 「너무 슬퍼 보이고 톤이
+      다운돼 있다. 20대 초반인데 더 발랄하게」). ⛔ delia 로 되돌리지 마세요 — 그 제보가
+      그 화자에 대한 것입니다. 더 밝게 하려면 aurora·iris·phoebe 를 ?vf= 로 들어보세요.
    ✅ 주소 뒤에 ?vf=·?vm= 을 붙이면 배포 없이 그 자리에서 다른 화자로 들어볼 수 있습니다
       (vf=Lily, vm=Noah 의 화자를 갈아 끼웁니다 — 예: /warmup.html?vf=amalthea&vm=atlas).
    ⛔ 아래 두 목록을 «자유 문자열 허용» 으로 바꾸지 마세요 — 이 값은 그대로 TTS 요청 본문의
@@ -741,7 +744,7 @@ var VOICE_MODES = {
           hi:"Hi! I'm Emma. Nice to meet you!" },
   jake: { label:'🦸 Jake', speaker:'apollo',  g:'male',   char:'jake',
           hi:"Hey! I'm Jake. Let's talk!" },
-  lily: { label:'👧 Lily', speaker:'delia',   g:'female', char:'lily',
+  lily: { label:'👧 Lily', speaker:'thalia',  g:'female', char:'lily',
           hi:"Hi! I'm Lily. Nice to meet you!" },
   noah: { label:'👦 Noah', speaker:'aries',   g:'male',   char:'noah',
           hi:"Hey! I'm Noah. Let's talk!" },
