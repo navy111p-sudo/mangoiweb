@@ -35,5 +35,12 @@ export const AI_FRIEND_DEFAULT = 'Mango';
  */
 export function resolveFriendName(raw: unknown): string {
   const k = String(raw || '').trim().toLowerCase();
-  return AI_FRIEND_NAMES[k] || AI_FRIEND_DEFAULT;
+  /* ⚠️ `NAMES[k] || 기본값` 만으로는 «모르는 값이면 기본값» 이 지켜지지 않는다 —
+     평범한 객체 리터럴이라 프로토타입 키가 그대로 조회된다.
+       'constructor' → function Object() { [native code] }
+       '__proto__'   → [object Object]
+     그 값이 시스템 프롬프트에 「너는 '…' 야」로 들어간다. 반드시 자기 칸인지 확인한다. */
+  if (!Object.prototype.hasOwnProperty.call(AI_FRIEND_NAMES, k)) return AI_FRIEND_DEFAULT;
+  const v = AI_FRIEND_NAMES[k];
+  return typeof v === 'string' && v ? v : AI_FRIEND_DEFAULT;
 }
