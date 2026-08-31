@@ -145,7 +145,8 @@ async function ensureSubscriptionsSchema(env: any): Promise<void> {
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, student_name TEXT, plan TEXT, amount INTEGER, status TEXT DEFAULT 'active', next_billing_at INTEGER, last_billed_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);`);
   } catch {}
-  for (const col of ['billing_key TEXT', 'customer_key TEXT', 'fail_count INTEGER DEFAULT 0', 'teacher_id TEXT', 'weekly INTEGER', 'minutes INTEGER']) {
+  /* charge_lock_at — «지금 이 구독을 청구하는 중» 표식(2026-08-31). chargeSubscriptionOnce 참고. */
+  for (const col of ['billing_key TEXT', 'customer_key TEXT', 'fail_count INTEGER DEFAULT 0', 'teacher_id TEXT', 'weekly INTEGER', 'minutes INTEGER', 'charge_lock_at INTEGER']) {
     try { await env.DB.exec(`ALTER TABLE subscriptions ADD COLUMN ${col}`); } catch {}
   }
 }
@@ -180,8 +181,68 @@ function nextBillingFromLastDate(lastDate: string): number {
 /** 토스 빌링키로 실제 청구 1회 — 관리자 "지금 청구" 버튼과 cron 자동청구가 공용으로 쓴다.
  *  성공: payment_orders 에 실제 결제로 기록 + enrollCreateSchedules 로 다음 달 수업 실제 생성.
  *  실패: fail_count 누적, 3회째면 자동 해지(카드가 계속 막히는데 계속 시도하지 않음). */
+/** ⏱ 한 구독을 «동시에 두 번 청구하지 않기» 위한 선점 시간(밀리초).
+ *  이보다 오래된 표식은 죽은 것으로 보고 다음 실행이 가져간다 — 워커가 청구 도중 죽어도
+ *  스스로 풀린다. 토스 호출 + 수업 생성까지 넉넉히 덮으면서, 막혀도 다음 스윕에서 곧 재시도된다. */
+const CHARGE_LEASE_MS = 10 * 60 * 1000;
+
+/**
+ * 💳 빌링키로 실제 청구 — **네 경로가 모두 이 함수를 지난다**
+ *   ① cron 스윕(runAutoRenewChargeSweep) ② 관리자 「지금 청구」 ③ 학부모 「즉시 결제」(charge-now)
+ *   ④ 관리자 화면의 스윕 수동 실행
+ *
+ * [왜 선점이 필요한가] 이 함수는 «주문을 새로 만들고 → 토스에 청구» 한다. 주문번호가 매번
+ * 새로 만들어지므로 **토스는 두 요청을 서로 다른 주문으로 보고 카드를 두 번 긁는다.**
+ * 예전에는 아무 선점도 없어서 같은 구독이 두 경로에서 동시에 불리면(예: cron 과 관리자 수동)
+ * 그대로 이중청구였다. charge-now 에 60초 가드가 있었지만 «읽고 나서 쓰는» 방식이라
+ * 동시에 들어온 두 요청은 둘 다 통과한다.
+ *
+ * [무엇을 하나] 청구를 시작하기 전에 선점 칸을 조건부 UPDATE 로 «차지» 한다. D1(SQLite)은
+ * 쓰기를 직렬화하므로 두 요청이 동시에 와도 **정확히 하나만** changes=1 이 된다.
+ * 진 쪽은 청구하지 않고 already_charging 으로 돌아간다.
+ *
+ * ⚠️ 실패 쪽으로 닫는다 — 선점 자체가 실패하면(칸이 없거나 DB 오류) 청구하지 **않는다**.
+ *    돈이 걸린 자리에서는 «안 긁는 것» 이 «두 번 긁는 것» 보다 낫다. 대신 조용히 넘어가지 않고
+ *    로그를 남긴다(다음 스윕에서 다시 시도된다).
+ * ⛔ 선점을 «성공했을 때만» 푸는 식으로 바꾸지 말 것 — 카드 거절·네트워크 오류로 빠져나가는
+ *    길이 여럿이라 한 곳만 빠뜨려도 그 구독이 10분간 청구되지 않는다. finally 로 항상 푼다.
+ */
 export async function chargeSubscriptionOnce(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
   if (!sub.billing_key || !sub.customer_key) return { ok: false, error: 'no_billing_key' };
+  /* 선점 칸이 없는 DB 에서도 돌게 한다 — 관리자 「지금 청구」(api-admin.ts)는 이 함수를
+     부르기 전에 스키마를 보장하지 않는다. 매번 불러도 싸다: src/index.ts 의 fetch·scheduled
+     양쪽 진입부가 env.DB 를 wrapDbDdlOnce 로 감싸 **같은 DDL 문자열은 격리당 한 번만** 나간다
+     (src/db-ddl-once.ts). ⚠️ 그 래핑이 사라지면 이 호출이 구독 1건마다 8건씩 나간다. */
+  await ensureSubscriptionsSchema(env);
+  const _lockNow = Date.now();
+  let _claim: any = null;
+  try {
+    _claim = await env.DB.prepare(
+      `UPDATE subscriptions SET charge_lock_at = ? WHERE id = ? AND (charge_lock_at IS NULL OR charge_lock_at < ?)`
+    ).bind(_lockNow, sub.id, _lockNow - CHARGE_LEASE_MS).run();
+  } catch (e: any) {
+    console.error('[billing] 선점 실패 — 청구하지 않는다(이중청구 방지):', sub.id, e?.message);
+    return { ok: false, error: 'claim_failed' };
+  }
+  if (!_claim?.meta?.changes) {
+    console.warn('[billing] 이미 청구 중인 구독이라 건너뜀:', sub.id);
+    return { ok: false, error: 'already_charging' };
+  }
+  try {
+    return await chargeSubscriptionOnceInner(env, sub, months);
+  } finally {
+    /* ⚠️ «내가 잡은 표식» 일 때만 푼다. Inner 가 리스(10분)를 넘기면 다른 실행이 만료로
+       정당하게 선점하는데, 그때 이 finally 가 남의 표식을 지우면 세 번째가 들어와
+       결국 이중청구가 된다. charge_lock_at 이 내 값 그대로일 때만 NULL 로 되돌린다.
+       ⚠️ 해제 실패는 삼키되(진짜 청구 결과를 가리면 안 된다) 조용히 넘기지는 않는다 —
+          실패하면 그 구독은 최대 10분간 already_charging 이라 원인을 알아야 한다. */
+    await env.DB.prepare(`UPDATE subscriptions SET charge_lock_at = NULL WHERE id = ? AND charge_lock_at = ?`)
+      .bind(sub.id, _lockNow).run()
+      .catch((e: any) => { console.warn('[billing] 선점 해제 실패(최대 10분 뒤 자동 해제):', sub.id, e?.message); });
+  }
+}
+
+async function chargeSubscriptionOnceInner(env: any, sub: any, months = 1): Promise<{ ok: boolean; error?: string; amount?: number }> {
   const q = await autoRenewQuote(env, sub.user_id, months);
   if (!('ok' in q) || !q.ok) {
     // 현재 요일·시간 패턴을 더 이상 확신할 수 없음(수동으로 스케줄이 바뀐 경우 등) — 잘못된 금액 청구 방지, 해지 처리
@@ -290,14 +351,19 @@ export async function runAutoRenewChargeSweep(env: any): Promise<any> {
      «결제 예정» 이라는 문자 자체가 거짓말이 된다. 실패해도 청구 루프는 막지 않는다. */
   let notified = 0;
   try { notified = await sendPrebillNotices(env); } catch (e) { console.warn('[auto-renew] prebill notice:', (e as any)?.message); }
-  let charged = 0, failed = 0;
+  let charged = 0, failed = 0, skipped = 0;
   const results: any[] = [];
   for (const sub of rows) {
     const r = await chargeSubscriptionOnce(env, sub);
-    if (r.ok) charged++; else failed++;
+    /* ⏭ «건너뜀» 은 실패가 아니다 — 다른 경로가 같은 구독을 청구 중이거나(already_charging)
+       선점 자체를 못 한 것(claim_failed)이다. 이것을 failed 에 섞으면 관리자 화면이
+       «카드 거절» 로 읽어, 있지도 않은 결제 문제를 쫓게 된다. */
+    if (r.ok) charged++;
+    else if (r.error === 'already_charging' || r.error === 'claim_failed') skipped++;
+    else failed++;
     results.push({ id: sub.id, user_id: sub.user_id, ...r });
   }
-  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, notified, results };
+  return { ok: true, dry_run: false, due_count: rows.length, charged, failed, skipped, notified, results };
 }
 
 /** 📨 자동청구 사전고지 — next_billing_at 이 3일 안인 활성 구독의 학부모 폰에 금액·날짜·해지 안내.
@@ -920,6 +986,14 @@ export async function handlePayApi(request: Request, url: URL, env: any): Promis
       return json({ ok: false, error: 'too_soon', message: '방금 결제가 진행됐어요. 잠시 후 결제 내역을 확인해 주세요.' }, 429);
     }
     const r = await chargeSubscriptionOnce(env, sub, months);
+    /* 🛡️ «이미 청구 중» 은 실패가 아니다. 더블클릭이면 두 요청이 60초 가드를 나란히 통과한 뒤
+       하나만 선점하는데, 진 쪽에 「결제에 실패했어요」라고 말하면 학부모가 **다시 누른다** —
+       60초가 지난 뒤라면 그때는 진짜 두 번째 청구가 된다. 이중청구를 막으려 넣은 장치가
+       사람을 통해 이중청구로 되돌아오는 모양이라, 문구와 상태코드를 갈라 둔다. */
+    if (!r.ok && (r.error === 'already_charging' || r.error === 'claim_failed')) {
+      return json({ ok: false, error: r.error,
+        message: '결제를 이미 처리하고 있어요. 잠시 후 결제 내역을 확인해 주세요.' }, 409);
+    }
     if (!r.ok) return json({ ok: false, error: r.error, message: '결제에 실패했어요: ' + String(r.error || '') }, 400);
     return json({ ok: true, amount: r.amount, months });
   }
