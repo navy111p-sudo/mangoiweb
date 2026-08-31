@@ -83,9 +83,9 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   check('② 주제를 고르면 질문 6개', (await page.locator('#goBody .go-q input').count()) === 6);
   check('② 답이 없으면 «뼈대로 쓰기» 가 잠겨 있다', await page.locator('#goApplyBtn').isDisabled());
 
-  // ③ 영어 4 + 한글 1 로 답하기
+  // ③ 영어 4 + 한글 1 로 답하기 (where 는 «전치사로 시작하는» 답 — 2026-08-31 실사고 형태)
   await page.fill('#go-when', 'last Sunday');
-  await page.fill('#go-where', 'the park');
+  await page.fill('#go-where', 'in my house');
   await page.fill('#go-what', 'I lost my favorite watch');
   await page.fill('#go-how', 'sad');
   await page.fill('#go-who', '엄마랑 동생');
@@ -101,6 +101,9 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
   await page.click('#goApplyBtn');
   const ta = await page.inputValue('#text');
   check('④ 글쓰기 칸에 뼈대가 들어간다', ta.includes('It happened last Sunday.') && ta.includes('I lost my favorite watch.'), JSON.stringify(ta.slice(0, 90)));
+  /* 🔴 사장님 화면에 「I was at in my house.」 가 찍혔던 자리 — 전치사가 겹치면 안 된다 */
+  check('④ 🔴 전치사가 겹치지 않는다 (I was at in my house)',
+    ta.includes('I was in my house.') && !/I was at in/.test(ta), JSON.stringify((ta.match(/I was[^\n]*/) || [''])[0]));
   check('④ 🔴 글쓰기 칸에 한글이 섞이지 않는다', !/[가-힣]/.test(ta));
   check('④ 시작 문장이 답과 겹치지 않는다 (I lost I lost …)', !/I lost I lost/.test(ta));
   check('④ 브레인스토밍 메모 줄이 뜬다', await page.locator('#goMemo').isVisible());
@@ -170,6 +173,42 @@ for (const [label, w, h] of [['PC 1280', 1280, 900], ['휴대폰 390', 390, 844]
     q: (document.querySelector('.go-q-label') || {}).textContent || '',
   }));
   check('⑧ EN 화면에서 새 UI 도 영어로 바뀐다', !/[가-힣]/.test(en.t + en.th + en.q), JSON.stringify(en));
+
+  /* 🔗 ⑩ 주제 목록 셋이 «한 길» 로 모이는가 — 그림·글감을 눌러도 브레인스토밍이 그 주제로 열린다
+     ⚠️ 바로 위 ⑧ 이 화면을 EN 으로 바꿔 놓는다 — 한국어 라벨로 누를 거라 되돌려 놓고 시작한다. */
+  await page.evaluate(() => window.setLang && window.setLang('ko'));
+  await page.waitForTimeout(200);
+  await page.evaluate(() => { document.getElementById('text').value = ''; updateCharCount(); });
+  await page.click('#picCard .pic-btn.go');                       // 🖼 이 장면으로 쓰기
+  await page.waitForTimeout(450);
+  const scene = await page.evaluate(() => ({
+    qs: document.querySelectorAll('#goBody .go-q input').length,
+    cur: (document.querySelector('.go-cur-t') || {}).textContent || '',
+    src: (document.querySelector('.go-cur-src') || {}).textContent || '',
+    cap: (document.getElementById('picCapTxt') || {}).textContent || '',
+  }));
+  check('⑩ 그림을 누르면 브레인스토밍이 그 장면으로 열린다 (5문항)', scene.qs === 5, JSON.stringify(scene));
+  check('⑩ «지금 주제» 가 그림에서 왔다고 말한다', /그림|picture/i.test(scene.src), scene.src);
+  check('⑩ 그 주제 이름이 화면의 그림 설명과 같다',
+    scene.cap.replace(/^🖼\s*/, '').slice(0, 12) !== '' && scene.cur.includes(scene.cap.replace(/^🖼\s*/, '').slice(0, 12)),
+    scene.cur + ' / ' + scene.cap);
+
+  await page.click('#topicRow .topic-chip[data-topic]');           // 🎲 오늘의 글감
+  await page.waitForTimeout(450);
+  const topic = await page.evaluate(() => ({
+    qs: document.querySelectorAll('#goBody .go-q input').length,
+    src: (document.querySelector('.go-cur-src') || {}).textContent || '',
+    ph: (document.querySelector('#goBody .go-q input') || {}).placeholder || '',
+  }));
+  check('⑩ 글감을 누르면 브레인스토밍이 그 글감으로 열린다 (4문항)', topic.qs === 4, JSON.stringify(topic));
+  check('⑩ «지금 주제» 가 글감에서 왔다고 말한다', /글감|topic/i.test(topic.src), topic.src);
+
+  // ⑪ 예전 동작(시작 문장 한 줄만 넣기)이 「질문 없이 바로 쓰기」로 살아 있다
+  await page.click('#goBody button:has-text("질문 없이 바로 쓰기")');
+  await page.waitForTimeout(250);
+  const skipped = await page.inputValue('#text');
+  check('⑪ 「질문 없이 바로 쓰기」가 시작 문장 한 줄을 넣는다',
+    skipped.trim().length > 3 && !/\n/.test(skipped.trim()) && !/[가-힣]/.test(skipped), JSON.stringify(skipped));
 
   check('⑨ 페이지 오류(예외) 없음', errs.length === 0, errs.join(' | '));
   await ctx.close();
