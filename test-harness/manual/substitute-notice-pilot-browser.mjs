@@ -11,7 +11,7 @@
  *
  * [무엇을 확인하나]
  *   ① 오늘 수업 표 — 🔄 대체강사 버튼: 크기(알약 아님)·맨 위에서 눌림·대체 표시·모달 동작
- *   ② test.mangoi.co.kr 안내 배너 — 그 호스트에서만 뜸·상단 요소와 안 겹침·닫으면 영구히 안 뜸
+ *   ② test.mangoi.co.kr 안내 배너 — 그 호스트에서만 뜸·정중앙·큰 글자·닫으면 영구히 안 뜸
  *   ③ 수업 종료 평가 모달 — 📝 파일럿 피드백 버튼: 별점 버튼을 안 가림·클릭 시 폼으로 감
  *
  * [돌리는 법]  README 규약 그대로 — 게이트는 이 파일을 물어 가지 않는다(사람이 부른다).
@@ -347,29 +347,43 @@ async function sectionNotice(browser) {
       const xr = x.getBoundingClientRect();
       const topAt = document.elementsFromPoint(bb.left + bb.width / 2, bb.top + 8);
       const xAt = document.elementsFromPoint(xr.left + xr.width / 2, xr.top + xr.height / 2);
-      const covered = [];
-      for (let px = bb.left + 6; px < bb.right; px += 40) {
-        for (let py = bb.top + 6; py < bb.bottom; py += 20) {
-          for (const el of document.elementsFromPoint(px, py)) {
-            if (el === b || b.contains(el)) continue;
-            const t = el.tagName;
-            if (t === 'BUTTON' || t === 'A' || t === 'INPUT' || t === 'SELECT') {
-              const cs = getComputedStyle(el);
-              if (cs.display !== 'none' && cs.visibility !== 'hidden' && cs.pointerEvents !== 'none') {
-                covered.push((el.id || el.className || t).toString().slice(0, 40));
-              }
-            }
-            break;
-          }
-        }
+      /* 📣 (2026-08-31) 배너가 «화면 정중앙 · 크게» 로 바뀌었다 — 가운데라 본문 위를 덮는 것이
+         이제는 «의도» 다. 그래서 「아무것도 안 덮는다」 대신 «원래 걱정하던 그 줄»
+         (우상단 칩 #ph50-chip-row: 밝기·포인트·EN·관리자)을 안 덮는지로 판정한다. */
+      const CHIPS = ['#ph50-chip-row', '#home-theme-toggle', '#points-chip', '#lang-toggle', '#admin-shortcut-chip', '#topUserBtn'];
+      const chipsCovered = [];
+      for (const sel of CHIPS) {
+        const el = document.querySelector(sel);
+        if (!el) continue;
+        const cs = getComputedStyle(el);
+        if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+        const r = el.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) continue;
+        if (r.right > bb.left && bb.right > r.left && r.bottom > bb.top && bb.bottom > r.top) chipsCovered.push(sel);
       }
-      const title = b.querySelector('div > div > div');
+      const title = b.querySelector('#mg-legacy-domain-notice-title');
       return {
         shown: true,
         inViewport: bb.left >= 0 && bb.top >= 0 && bb.right <= innerWidth && bb.bottom <= innerHeight,
         onTop: topAt[0] === b || b.contains(topAt[0]),
         closeOnTop: xAt[0] === x,
-        covered: [...new Set(covered)],
+        chipsCovered,
+        /* ⚠️ 「화면 한가운데」를 innerWidth 나 documentElement.clientWidth 로 재지 말 것 —
+           둘 다 «세로 스크롤바 폭(15px)» 만큼 어긋나 정중앙인데도 FAIL 이 난다
+           (2026-08-31 실측: 1280 창에서 배너 중심 632.5 = (1280-15)/2 인데 clientWidth 는 1280).
+           position:fixed 요소의 기준은 «초기 컨테이닝 블록» 이므로, 같은 조건의 자를
+           그 자리에 잠깐 놓아 재고 곧바로 치운다. */
+        centered: (() => {
+          const ruler = document.createElement('div');
+          ruler.setAttribute('style', 'position:fixed;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden');
+          document.body.appendChild(ruler);
+          const rr = ruler.getBoundingClientRect();
+          ruler.remove();
+          return Math.abs((bb.left + bb.width / 2) - (rr.left + rr.width / 2)) <= 2
+            && Math.abs((bb.top + bb.height / 2) - (rr.top + rr.height / 2)) <= 2;
+        })(),
+        titlePx: title ? parseFloat(getComputedStyle(title).fontSize) : 0,
+        bodyPx: title && title.nextElementSibling ? parseFloat(getComputedStyle(title.nextElementSibling).fontSize) : 0,
         contrast: (${CONTRAST_FN})(title),
         noLink: b.querySelectorAll('a[href],[onclick]').length === 0,
       };
@@ -380,7 +394,10 @@ async function sectionNotice(browser) {
       check(`[${vp.label}] 배너가 화면 안에 들어온다`, r.inViewport === true, r);
       check(`[${vp.label}] 배너가 맨 위에 있어 가려지지 않는다`, r.onTop === true);
       check(`[${vp.label}] 닫기 ✕ 가 맨 위에서 실제로 눌린다`, r.closeOnTop === true);
-      check(`[${vp.label}] 배너가 다른 «누를 수 있는» 요소를 덮지 않는다`, (r.covered || []).length === 0, r.covered);
+      check(`[${vp.label}] 배너가 화면 «정중앙» 에 있다(2026-08-31 사장님 지시)`, r.centered === true, r);
+      check(`[${vp.label}] 우상단 칩 줄(밝기·포인트·EN·관리자)을 덮지 않는다`, (r.chipsCovered || []).length === 0, r.chipsCovered);
+      check(`[${vp.label}] 제목이 «크게» 보인다(≥21px, 옛 13px 의 1.6배 이상)`, r.titlePx >= 21, r.titlePx);
+      check(`[${vp.label}] 본문도 «크게» 보인다(≥15px, 옛 12px 보다 큼)`, r.bodyPx >= 15, r.bodyPx);
       check(`[${vp.label}] 제목 글자 대비비 ≥ 4.5`, r.contrast && r.contrast.ratio >= 4.5, r.contrast);
       check(`[${vp.label}] 「바로가기」 링크가 없다(사장님 결정)`, r.noLink === true);
     }
