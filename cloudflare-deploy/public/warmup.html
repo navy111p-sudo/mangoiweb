@@ -1237,7 +1237,12 @@ setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초�
    speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
    실패(네트워크/429 등) 시에만 브라우저 음성합성으로 폴백. */
 var _ttsCache={}, _ttsAudio=null;
+/* 🔢 «지금 몇 번째 발화인가». 아래 _ttsSpeak 이 실패하면 400ms 뒤 한 번 더 물어보는데,
+   그 사이 학생이 다음 말을 보내면 옛 문장이 새 문장 위로 겹쳐 재생된다.
+   _stopSpeak 이 이 번호를 올리므로, 늦게 도착한 응답은 스스로 물러난다. */
+var _speakSeq=0;
 function _stopSpeak(){
+  _speakSeq++;
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
   try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}   // 👩‍🏫 아바타 입 멈춤
@@ -1271,6 +1276,55 @@ function _speechText(s){
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
+/* 🎙️ 「목소리가 계속 변해」 — Noah 를 골라 뒀는데 문장마다 다른 사람이 읽는다
+   (2026-08-31 사장님 제보). 화면이 화자를 바꾼 게 아니라 «소리를 만들어 오는 길» 이
+   문장마다 달라진 것이고, 셋 다 에러 없이 조용히 일어난다.
+     ① 서버 Aura-2 가 한 번 흔들리면 Aura-1 이 읽는다 → Noah(aries)를 orion 이 읽는다
+        (서버에서 «한 번 더 물어보기» 로 좁혔다 — src/api-games.ts 의 /api/voice/tts)
+     ② 요청이 한 번 실패하면 그 문장만 곧바로 «기기 목소리»(speechSynthesis)로 읽었다
+        — 기기 목소리는 원어민 음성과 전혀 달라서 제일 크게 들린다
+     ③ 그렇게 받은 «남의 목소리» 를 요청 화자 키로 캐시하면 그 문장은 세션 내내 그 소리
+        (서버 R2 캐시가 같은 이유로 «실제로 쓴 화자» 키만 쓴다 — 2026-08-31 수리)
+   ✅ 그래서 (a) 실패는 400ms 뒤 한 번 더 물어보고 (b) 서버가 대체한 음성은 캐시하지 않는다.
+   ⛔ 기기 목소리 폴백을 없애지 마세요 — 소리가 아예 안 나는 것이 더 나쁩니다
+      (앱 WebView·뉴런 소진 때는 그것뿐입니다). 「한 번 더」 뒤에만 갑니다.
+   ⚠️ 뉴런 소진(429·503)은 다시 물어도 같은 답이라 재시도하지 않습니다.
+   ⚠️ 이 함수는 반드시 «스크립트 최상위» 에 둡니다 — 다른 함수 안에 넣으면
+      바깥 호출부가 전부 ReferenceError 인데 문자열 검사는 통과합니다(CLAUDE.md 2장). */
+var _ttsFellBack=false;   // 이 세션에서 기기 목소리로 읽은 적이 있는가(안내는 한 번만)
+function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
+  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
+    .then(function(r){
+      var ct=r.headers.get('content-type')||'';
+      if(!r.ok || ct.indexOf('audio')<0){
+        var e=new Error('tts'); e.noRetry=(r.status===429||r.status===503); throw e;
+      }
+      var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(e2){}
+      return r.blob().then(function(b){ return { blob:b, got:got }; });
+    })
+    .then(function(o){
+      if(seq!==_speakSeq) return;                 // 그 사이 다음 말이 시작됐다 — 물러난다
+      var u=URL.createObjectURL(o.blob);
+      // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
+      // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
+      if(!o.got || o.got===spk) _ttsCache[key]=u;
+      play(u);
+    })
+    .catch(function(err){
+      if(seq!==_speakSeq) return;
+      if(tryNo===0 && !(err&&err.noRetry)){
+        setTimeout(function(){ if(seq===_speakSeq) _ttsSpeak(text, spk, key, btn, seq, done, play, 1); }, 400);
+        return;
+      }
+      if(!_ttsFellBack){        // 왜 목소리가 달라졌는지 한 번은 말해 준다(추측하지 않게)
+        _ttsFellBack=true;
+        try{ if(typeof addMsg==='function')
+          addMsg('🔊 지금은 원어민 목소리를 받아오지 못해서 기기 목소리로 읽었어요. 잠시 뒤 원래 목소리로 돌아와요.', 'sys'); }catch(e3){}
+      }
+      _synthSpeak(text, btn, done);   // 서버 TTS 실패 → 브라우저 음성 폴백
+    });
+}
 function speak(text, btn){
   if(!_speechOn || !text) return;
   text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
@@ -1298,15 +1352,11 @@ function speak(text, btn){
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
     }catch(e){ done(); _synthSpeak(text, btn, done); }
   };
-  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 남녀 교대)
+  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key]); return; }
-  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
-    .then(function(r){ var ct=r.headers.get('content-type')||'';
-      if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
-    .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[key]=u; play(u); })
-    .catch(function(){ _synthSpeak(text, btn, done); });   // 서버 TTS 실패 → 브라우저 음성 폴백
+  // _stopSpeak() 이 방금 올려 둔 번호 — 늦게 온 응답이 새 발화를 덮지 않게 함께 넘긴다
+  _ttsSpeak(text, spk, key, btn, _speakSeq, done, play, 0);
 }
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
 function unlockAudio(){

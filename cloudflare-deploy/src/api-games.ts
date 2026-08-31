@@ -2336,7 +2336,14 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
           cacheKey = 'tts/' + [...new Uint8Array(dig)].map((x) => x.toString(16).padStart(2, '0')).join('') + '.mp3';
         } catch {}
         if (cacheKey && r2) {
-          try { const hit = await r2.get(cacheKey); if (hit) return new Response(hit.body, { headers: audioHeaders }); } catch {}
+          /* 캐시본은 «실제로 쓴 화자» 키로만 저장하므로(아래 폴백 블록) 이 바이트는
+             요청 화자 그대로다 → 진단 헤더도 그렇게 실어 준다. 없으면 화면이
+             「지금 소리가 고른 목소리인가」를 캐시 적중 때만 판정하지 못한다. */
+          try {
+            const hit = await r2.get(cacheKey);
+            if (hit) return new Response(hit.body, { headers: { ...audioHeaders,
+              'X-TTS-Engine': 'r2-cache', 'X-TTS-Speaker': String(b.speaker || 'asteria').toLowerCase() } });
+          } catch {}
         }
         /* 캐시 저장 — 키를 받는 형태로 둔다. Aura-1 폴백은 «요청 화자» 가 아니라
            «실제로 쓴 화자» 키로 저장해야 하기 때문이다(아래 폴백 블록 주석 참고). */
@@ -2425,7 +2432,21 @@ Reply with a JSON array ONLY. No markdown, no commentary.`;
         const AURA1 = new Set(['angus','asteria','arcas','orion','orpheus','athena','luna','zeus','perseus','helios','hera','stella']);
         try {
           const spk2 = AURA2.has(requested) ? requested : 'asteria';
-          const buf = await auraRun('@cf/deepgram/aura-2-en', spk2);
+          /* 🔁 한 번 더 물어본다 — 「목소리가 계속 변해」(2026-08-31 사장님 제보)의 첫 겹.
+             Aura-2 가 «한 번» 흔들리면 그 문장만 Aura-1 이 읽는데, 화자가 바뀌므로
+             (Noah=aries → orion) 대화 중간에 다른 사람이 끼어든 것처럼 들린다.
+             한 번 더 물어보면 일시적 흔들림은 여기서 끝나고 고른 목소리가 유지된다.
+             ⛔ 뉴런 소진(429)에는 재시도하지 않는다 — 답이 같고 시간만 늘어난다.
+             ⛔ 폴백 자체를 없애지는 않는다 — 소리가 아예 안 나는 것이 더 나쁘다. */
+          let buf: ArrayBuffer;
+          try {
+            buf = await auraRun('@cf/deepgram/aura-2-en', spk2);
+          } catch (firstErr: any) {
+            if (quota || isQuota(firstErr?.message)) throw firstErr;
+            console.warn('[voice/tts] aura-2 retry after:', firstErr?.message);
+            await new Promise((r) => setTimeout(r, 150));
+            buf = await auraRun('@cf/deepgram/aura-2-en', spk2);
+          }
           await putCache(buf);
           // 진단 헤더 — 「고른 목소리가 아닌 소리가 난다」 제보를 코드가 아니라 응답으로 가른다
           return new Response(buf, { headers: { ...audioHeaders, 'X-TTS-Engine': 'aura-2', 'X-TTS-Speaker': spk2 } });
