@@ -50,6 +50,7 @@ import { chargeSubscriptionOnce, runAutoRenewChargeSweep } from './api-pay';  //
 import { handleTeacherKakaoApi } from './teacher-kakao';                     // 💬 강사 카카오ID 명부 + 전달
 import { handlePaymentsBoardApi } from './payments-board';                   // 💳 결제관리 화면(ph106) 실데이터
 import { hiddenExcludeCond } from './student-override';                       // 🧹 중복 학생계정 숨김(카페24 덮어쓰기 방지)
+import { MIRROR_SOURCE, MIRROR_SOURCE_MANUAL } from './c24-mirror';            // 🪞 카페24 미러 — 「사람 손이 이긴다」 도장
 import type { MangoEnv } from './api-mango';
 /* ⚠️ selectInChunks 는 위(12행)에서 이미 들여온다 — 병합 때 양쪽이 각각 추가해 둘이 됐다.
    중복 import 는 tsc 가 «Duplicate identifier» 로 잡지만 esbuild 는 그냥 넘어가므로,
@@ -6454,8 +6455,13 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
       let _delReason: string | null = null;
       try { const b: any = await request.json(); _delReason = (b && b.reason) ? String(b.reason).slice(0, 300) : null; } catch {}
       try {
+        /* 🪞 (2026-08-31) 지우는 것도 «사람 손» 이다 — 도장을 함께 찍는다.
+           안 찍으면 미러가 다음 실행에서 그 수업을 «없네?» 하고 다시 만든다. */
+        const _delMirror = _delRow && String(_delRow.source || '') === MIRROR_SOURCE;
         await env.DB.prepare(
-          `UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`
+          _delMirror
+            ? `UPDATE class_schedules SET status='cancelled', source='${MIRROR_SOURCE_MANUAL}', updated_at=? WHERE id=?`
+            : `UPDATE class_schedules SET status='cancelled', updated_at=? WHERE id=?`
         ).bind(Date.now(), id).run();
         // 📜 수업 변경 이력(삭제) 기록 — best-effort
         await writeClassAudit(env, {
@@ -6656,11 +6662,20 @@ Return STRICT JSON only: { "ko": "<Korean report>", "en": "<English report>" }`;
         sets.push('scheduled_date = ?'); binds.push(String(body.scheduled_date));
       }
       if (!sets.length) return json({ ok: false, error: 'no_valid_fields' }, 400);
-      sets.push('updated_at = ?'); binds.push(Date.now());
-      binds.push(id);
       // 📜 이동 전 정보(이력용) + 행위자
       const _pchActor = await getAdminActor(request, env as any);
       const _pchRow: any = await env.DB.prepare(`SELECT * FROM class_schedules WHERE id = ? LIMIT 1`).bind(id).first().catch(() => null);
+      /* 🪞 (2026-08-31) 「사람 손이 이긴다」 도장 — 사장님 결정.
+         카페24 미러가 만든 행(source='c24-mirror')을 사람이 고치면 그 자리에서
+         'c24-mirror:manual' 로 바꾼다. 그 뒤로 미러는 그 행을 **영영 안 건드린다**
+         (c24-mirror.ts 의 UPDATE 가 WHERE source='c24-mirror' 라 0행이 된다).
+         ⛔ 도장을 나중에 «따로» 찍는 방식으로 바꾸지 말 것 — 그 사이에 야간 미러가 돌면
+            사람이 고친 값이 카페24 값으로 되돌아간다. 같은 UPDATE 안에서 찍어야 한다. */
+      if (_pchRow && String(_pchRow.source || '') === MIRROR_SOURCE) {
+        sets.push('source = ?'); binds.push(MIRROR_SOURCE_MANUAL);
+      }
+      sets.push('updated_at = ?'); binds.push(Date.now());
+      binds.push(id);
       try {
         await env.DB.prepare(`UPDATE class_schedules SET ${sets.join(', ')} WHERE id = ?`).bind(...binds).run();
         // 📜 수업 변경 이력(이동/재조정) — 날짜·시간·요일이 바뀐 경우만 기록

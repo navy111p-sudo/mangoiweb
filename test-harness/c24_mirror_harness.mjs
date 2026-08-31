@@ -17,6 +17,7 @@
 //     F. 강사 이름 정규화가 api-admin.ts 의 정본과 «같은 답» 을 낸다
 //     G. 창(window)은 양쪽 경계가 있다 — 상한 없이 지우면 미래 예약이 전멸한다
 //     H. Neo4j 가 안 되면 «0건(깨끗함)» 이 아니라 «못 냈다» 고 말한다
+//     J. 2단계 «실제로 만든다» — applyMirror 를 가짜 D1 에 물려 실제로 돌린다
 //     I. 화면 겹쳐 그리기 — 카페24 수업을 «보기 전용» 으로만 그린다(class_schedules 를 안 만든다)
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -195,9 +196,22 @@ console.log('\n[ G. 창(window)은 양쪽 경계가 있다 ]');
   // ⚠️ `selectInChunks<any>(` 처럼 제네릭이 붙으므로 여는 괄호를 붙여 찾으면 못 잡는다(실제로 밟음)
   check('IN 목록은 공용 selectInChunks 로 자른다', /\bselectInChunks\b/.test(MIRROR_TS));
   check('손수 만든 90개 청크 루프가 없다', !/i \+= 90/.test(MIRROR_TS) && !/map\(\(\) => '\?'\)/.test(MIRROR_TS));
-  // 그림자 단계에서는 쓰기가 한 줄도 없어야 한다
-  const writes = (MIRROR_TS.match(/\b(INSERT INTO|UPDATE |DELETE FROM)\s+class_schedules/g) || []);
-  check('그림자 단계 — class_schedules 에 쓰는 문장이 0건', writes.length === 0, `발견: ${writes.join(', ')}`);
+  /* 🔴 2단계(2026-08-31 사장님 승인 «Ana 한 사람만»)부터 쓰기가 생겼다.
+     그래서 못은 「쓰지 마라」가 아니라 **「무엇을 쓰느냐」** 로 바뀐다.
+     ⛔ 지우기는 여전히 0건이어야 한다 — 되돌릴 수 없는 것은 만들지 않는다. */
+  check('⛔ class_schedules 를 물리적으로 지우는 문장이 0건',
+    !/\bDELETE\s+FROM\s+class_schedules/.test(MIRROR_TS));
+  check('내리는 것은 status=cancelled 뿐(되돌릴 수 있다)',
+    /SET status='cancelled'/.test(MIRROR_TS));
+  // 미러가 손대는 UPDATE 는 전부 «내 행인지» 를 WHERE 에서 확인해야 한다
+  const upd = [...MIRROR_TS.matchAll(/UPDATE class_schedules SET[\s\S]{0,200}?WHERE[^`]*/g)].map(m => m[0]);
+  check('UPDATE 가 최소 2개(고치기·내리기)', upd.length >= 2, upd.length);
+  check('🔴 모든 UPDATE 가 source = ? 로 «내 행» 만 손댄다',
+    upd.length >= 2 && upd.every(u => /source\s*=\s*\?/.test(u)), upd);
+  check('INSERT 가 source 를 미러 표식으로 넣는다',
+    /INSERT INTO class_schedules[\s\S]{0,400}?MIRROR_SOURCE/.test(MIRROR_TS));
+  check('INSERT 가 notes 에 카페24 수업번호를 남긴다(사라진 수업 되짚기용)',
+    /MIRROR_NOTE_PREFIX \+ r\.class_id/.test(MIRROR_TS));
 }
 
 console.log('\n[ H. 못 냈으면 «못 냈다» 고 말한다 · 배선 ]');
@@ -247,6 +261,204 @@ console.log('\n[ I. 화면 겹쳐 그리기 — 보기 전용 ]');
   // 캐시 무효화 — 파일이 바뀌었으면 ?v= 도 올라가야 한다(asset_version_harness 와 같은 계약)
   const v = Number((HTML.match(/adm-q6\.js\?v=(\d+)/) || [])[1] || 0);
   check('admin.html 의 adm-q6.js ?v= 가 9 이상', v >= 9, `v=${v}`);
+}
+
+
+/* ═══ J. 2단계 «실제로 만든다» — applyMirror 를 진짜로 돌린다 ═══
+   2026-08-31 사장님 승인: 「Ana 한 사람만 켜서 실제로 만들어 보자」.
+
+   문자열 검사로는 «무엇을 쓰는가» 를 못 봅니다. 그래서 가짜 D1 을 물려 **함수를 실행하고
+   실제로 나간 SQL 을 세어** 봅니다. 되돌리면 여기서 FAIL 납니다.
+
+   ⛔ 이 절이 지키는 것
+     · dry_run 이 기본 — 실수로 인자를 빠뜨려도 한 줄도 안 쓴다
+     · 화이트리스트 밖 강사는 손대지 않는다 (only_teacher_id 를 줘도 화이트리스트를 못 건너뛴다)
+     · 사람이 손댄 행(c24-mirror:manual)·다른 출처 행은 절대 안 건드린다
+     · 카페24 조회가 0건이면 «취소» 단계를 통째로 건너뛴다(조회 실패와 구분할 수 없으므로)
+*/
+console.log('\n[ J. 2단계 — 실제로 만든다 (함수를 돌려서 확인) ]');
+{
+  // 가짜 D1 — 나간 SQL 을 전부 적어 두고, 조회에는 시나리오 값을 돌려준다
+  const makeDb = (scn) => {
+    const sqls = [];
+    const pick = (sql) => {
+      if (/FROM c24_mirror_config/.test(sql)) return { first: { v: scn.mode } };
+      if (/FROM c24_mirror_teachers/.test(sql)) return { all: (scn.enabled || []).map((t) => ({ teacher_id: t })) };
+      if (/FROM teachers WHERE active/.test(sql)) return { all: scn.roster || [] };
+      if (/FROM teacher_payroll_auto/.test(sql)) return { all: scn.payroll || [] };
+      if (/FROM students_erp/.test(sql)) return { all: scn.students || [] };
+      if (/FROM class_schedules/.test(sql)) return { all: scn.existing || [] };
+      return { all: [], first: null };
+    };
+    return {
+      sqls,
+      exec: async () => {},
+      prepare(sql) {
+        const r = pick(sql);
+        const stmt = {
+          bind: (...b) => { stmt._b = b; return stmt; },
+          all: async () => ({ results: r.all || [] }),
+          first: async () => r.first ?? null,
+          run: async () => { sqls.push({ sql: sql.replace(/\s+/g, ' ').trim(), binds: stmt._b || [] }); return {}; },
+        };
+        return stmt;
+      },
+    };
+  };
+  const cls = (o) => ({
+    class_id: o.cid, user_id: o.uid, date: o.date || '2026-09-01',
+    start_ms: Date.UTC(2026, 8, 1, 6, 0) , end_ms: Date.UTC(2026, 8, 1, 6, 20),
+    class_state: 1, teacher_id: o.t24 || '182',
+  });
+  const runCypherFake = (rows) => async () => ({
+    fields: ['class_id', 'user_id', 'start_ms', 'end_ms', 'date', 'class_state', 'teacher_id'],
+    values: rows.map((c) => [c.class_id, c.user_id, c.start_ms, c.end_ms, c.date, c.class_state, c.teacher_id]),
+  });
+  const BASE = {
+    mode: 'whitelist', enabled: ['7'],
+    roster: [{ id: 7, name: 'ANA' }, { id: 9, name: 'HT NESS' }],
+    payroll: [{ c24: '182', teacher_name: 'Teacher Ana' }, { c24: '150', teacher_name: 'Teacher Ness' }],
+    students: [{ user_id: 'stu1', korean_name: '이도혁' }, { user_id: 'stu2', korean_name: '김나은' }],
+    existing: [],
+  };
+  const run = async (scn, classes, opt) => {
+    const db = makeDb(scn);
+    const r = await M.applyMirror({ DB: db }, runCypherFake(classes), opt);
+    return { r, writes: db.sqls };
+  };
+
+  // ① dry_run 이 «기본» — 인자를 안 주면 한 줄도 안 쓴다
+  {
+    const { r, writes } = await run(BASE, [cls({ cid: 'c1', uid: 'stu1' })], {});
+    check('① dry_run 이 기본값이다', r.dry_run === true);
+    check('① 계획은 1건 세운다', r.planned.create === 1, r.planned);
+    check('🔴 ① 인자를 빠뜨리면 한 줄도 안 쓴다', writes.length === 0, writes);
+  }
+  // ② dry_run:false 여야 실제로 쓴다
+  {
+    const { r, writes } = await run(BASE, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('② 실행하면 만들어진다', r.applied.created === 1, r.applied);
+    check('② INSERT 한 건이 나갔다', writes.filter((w) => /^INSERT INTO class_schedules/.test(w.sql)).length === 1, writes.map(w => w.sql));
+    const ins = writes.find((w) => /^INSERT INTO class_schedules/.test(w.sql));
+    check('② source 가 미러 표식이다', ins.binds.includes('c24-mirror'), ins && ins.binds);
+    check('② notes 에 카페24 수업번호가 남는다', ins.binds.includes('c24:c1'), ins && ins.binds);
+    check('② status 는 active 로 만든다', /'active'/.test(ins.sql));
+  }
+  // ③ 🔴 화이트리스트 밖 강사는 손대지 않는다
+  {
+    const scn = { ...BASE, enabled: ['9'] };   // Ness 만 켜 둠
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1', t24: '182' })], { dry_run: false });
+    check('🔴 ③ 안 켠 강사(Ana)는 만들지 않는다', r.applied.created === 0 && writes.length === 0, r.applied);
+    check('③ 판정은 not_whitelisted 로 남는다', r.summary.not_whitelisted === 1, r.summary);
+  }
+  // ④ 🔴 only_teacher_id 는 «더 좁히는» 것이지 화이트리스트를 건너뛰는 것이 아니다
+  {
+    const scn = { ...BASE, enabled: [] };      // 아무도 안 켬
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false, only_teacher_id: '7' });
+    check('🔴 ④ only_teacher_id 로 화이트리스트를 건너뛸 수 없다', r.applied.created === 0 && writes.length === 0, r.applied);
+  }
+  {
+    const { r } = await run(BASE, [cls({ cid: 'c1', uid: 'stu1', t24: '182' }), cls({ cid: 'c2', uid: 'stu2', t24: '150' })],
+      { dry_run: true });
+    check('④ 화이트리스트가 Ana 만이면 계획도 Ana 것만', r.planned.create === 1, r.planned);
+  }
+  // ⑤ 🔴 사람이 손댄 행·다른 출처 행은 건드리지 않는다
+  {
+    const scn = { ...BASE, existing: [
+      { id: 11, user_id: 'stu1', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '15:00',
+        duration_min: 30, source: 'c24-mirror:manual', status: 'active', notes: 'c24:c1' },
+    ] };
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('🔴 ⑤ 도장 찍힌 행은 안 만들고 안 고친다', writes.length === 0, writes.map(w => w.sql));
+    check('⑤ 대신 «어긋남» 으로 알린다', r.summary.diverged === 1 || r.summary.manual_locked === 1, r.summary);
+  }
+  {
+    const scn = { ...BASE, existing: [
+      { id: 12, user_id: 'stu1', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '15:00',
+        duration_min: 20, source: 'adm-enroll:78', status: 'active', notes: null },
+    ] };
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('🔴 ⑤ 파일럿 수업(adm-enroll)과 겹치면 만들지 않는다', writes.length === 0 && r.summary.conflict === 1, r.summary);
+  }
+  // ⑥ 고칠 때는 «내 행» 만 (WHERE source)
+  {
+    const scn = { ...BASE, existing: [
+      { id: 13, user_id: 'stu1', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '15:00',
+        duration_min: 30, source: 'c24-mirror', status: 'active', notes: 'c24:c1' },
+    ] };
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('⑥ 길이가 달라졌으면 고친다', r.applied.updated === 1, r.applied);
+    const up = writes.find((w) => /^UPDATE class_schedules SET start_time/.test(w.sql));
+    check('🔴 ⑥ UPDATE 가 source 로 «내 행» 인지 확인한다', !!up && /source = \?/.test(up.sql) && up.binds.includes('c24-mirror'), up);
+  }
+  // ⑦ 카페24에서 사라진 수업은 «취소» 로만 내린다
+  {
+    const scn = { ...BASE, existing: [
+      { id: 14, user_id: 'stu2', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '20:00',
+        duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:gone' },
+    ] };
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('⑦ 사라진 수업을 1건 내린다', r.applied.cancelled === 1, r.applied);
+    const cn = writes.find((w) => /status='cancelled'/.test(w.sql));
+    check("⑦ 지우지 않고 status='cancelled' 로만", !!cn && !/DELETE/.test(cn.sql));
+    check('🔴 ⑦ 그 UPDATE 도 source 로 «내 행» 인지 확인한다', !!cn && /source = \?/.test(cn.sql), cn);
+  }
+  // ⑧ 🔴 카페24 조회가 0건이면 취소 단계를 통째로 건너뛴다 (조회 실패로 전멸 방지)
+  {
+    const scn = { ...BASE, existing: [
+      { id: 15, user_id: 'stu2', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '20:00',
+        duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:gone' },
+    ] };
+    const { r, writes } = await run(scn, [], { dry_run: false });
+    check('🔴 ⑧ 카페24가 0건이면 아무것도 안 내린다', r.applied.cancelled === 0 && writes.length === 0, r.applied);
+    check('⑧ 건너뛴 «이유» 를 말한다(0건과 구분)', typeof r.cancel_skipped === 'string' && r.cancel_skipped.length > 5, r.cancel_skipped);
+  }
+  // ⑨ 이미 만들어져 있고 값도 같으면 아무 일도 하지 않는다
+  {
+    const scn = { ...BASE, existing: [
+      { id: 16, user_id: 'stu1', teacher_id: '7', scheduled_date: '2026-09-01', start_time: '15:00',
+        duration_min: 20, source: 'c24-mirror', status: 'active', notes: 'c24:c1' },
+    ] };
+    const { r, writes } = await run(scn, [cls({ cid: 'c1', uid: 'stu1' })], { dry_run: false });
+    check('⑨ 두 번 돌려도 두 번 만들지 않는다(멱등)', writes.length === 0 && r.summary.already === 1, { w: writes.length, s: r.summary });
+  }
+  // ⑩ 학생 계정이 없으면 만들지 않는다
+  {
+    const { r, writes } = await run(BASE, [cls({ cid: 'c9', uid: 'nobody' })], { dry_run: false });
+    check('🔴 ⑩ 학생 계정이 없으면 만들지 않는다', writes.length === 0 && r.summary.no_student === 1, r.summary);
+  }
+  // ⑪ 「사람 손이 이긴다」 도장이 화면 쪽(PATCH·DELETE)에 실제로 붙어 있다
+  {
+    const ADMIN = SRC('api-admin.ts');
+    check('⑪ PATCH 가 미러 행에 도장을 찍는다',
+      /=== MIRROR_SOURCE\)\s*\{[\s\S]{0,120}?sets\.push\('source = \?'\)/.test(ADMIN));
+    check('⑪ 도장을 «같은 UPDATE 안에서» 찍는다(따로 찍으면 그 사이 미러가 되돌린다)',
+      /sets\.push\('source = \?'\); binds\.push\(MIRROR_SOURCE_MANUAL\);/.test(ADMIN));
+    check('⑪ DELETE(취소)도 도장을 찍는다', /_delMirror[\s\S]{0,200}MIRROR_SOURCE_MANUAL/.test(ADMIN));
+  }
+  // ⑫ 쓰기 API 가 강사·조직계정을 «따로» 막는다
+  {
+    const R = SRC('accounting-reports.ts');
+    /* ⚠️ 검사 범위를 «길이» 로 자르면 블록이 잘려 멀쩡한 코드가 FAIL 한다(실제로 밟음).
+       중괄호 짝으로 그 if 블록만 정확히 오려 낸다(CLAUDE.md 2장 «범위를 길이로 자르지 말 것»). */
+    const blockAt = (src, marker) => {
+      const i = src.indexOf(marker); if (i < 0) return '';
+      let j = src.indexOf('{', i); if (j < 0) return '';
+      let d = 0;
+      for (let k = j; k < src.length; k++) {
+        if (src[k] === '{') d++;
+        else if (src[k] === '}') { d--; if (!d) return src.slice(i, k + 1); }
+      }
+      return src.slice(i);
+    };
+    const blk = blockAt(R, "if (p.startsWith('c24-mirror/'))");
+    check('⑫ 쓰기 블록을 찾았다', blk.length > 800, blk.length);
+    check('⑫ 쓰기는 POST 만 받는다', /method[\s\S]{0,40}!== 'POST'/.test(blk));
+    check('🔴 ⑫ 강사를 막는다(getAdminActor.isTeacher)', /actor\.isTeacher\)? return json\(\{ ok: false, error: 'forbidden_teacher'/.test(blk));
+    check('🔴 ⑫ 지사·대리점을 막는다(isOrgScopedRole)', /isOrgScopedRole\([\s\S]{0,80}forbidden_scope/.test(blk));
+    check('⑫ canEditOrg 로 막지 않는다(그 함수는 교사에게도 true)', !/canEditOrg/.test(blk));
+    check('⑫ dry_run 은 «false 일 때만» 실행', /dry_run: body\?\.dry_run === false \? false : true/.test(blk));
+  }
 }
 
 console.log(`\n${'─'.repeat(52)}`);
