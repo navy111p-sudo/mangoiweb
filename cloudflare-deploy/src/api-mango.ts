@@ -3965,7 +3965,27 @@ ${numbered}`;
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         b.user_id, b.username || null, b.role || 'student', b.consent_version || 'v1.0',
-        b.recording ? 1 : 0, b.voice_analysis ? 1 : 0, b.attendance ? 1 : 0, b.reward ? 1 : 0, b.kakao ? 1 : 0,
+        /* 🔐 (2026-09-01) 「안 물어봤다」와 「거절했다」를 갈라 적는다.
+           그 전에는 둘 다 **0** 이었다. 그런데 동의 화면(js/mango-consent.js)은 recording·attendance
+           만 묻고 voice_analysis·reward·kakao 는 **키 자체를 안 보낸다** → 그 셋은 구조적으로 늘 0.
+           [잰 것] 2026-09-01 D1: consents 11행 — 녹화 7 · 출석 7 · **음성분석 0 · 보상 0 · 카카오 0**.
+           그 0 을 읽는 쪽들이 「거절」로 읽고 있었다:
+             · admin/student.html 이 빨간 «미동의» 배지를 띄워 **묻지도 않은 것을 거절했다고** 직원에게 말했다
+             · retention.ts 가 그 값으로 kakao_ids 를 파기한다(매일 밤 도는 크론이다).
+           [거기서 내린 판단 — 측정 아님] 카카오를 연결한 학생이 수업에 한 번 들어가 동의를 남기는
+             순간(동의는 입장 때 자동으로 남는다) 그날 밤 연결이 지워졌을 것이다.
+             ⚠️ 「지금까지 지워진 적이 없다」는 **증명할 수 없다** — 지워지면 흔적이 안 남는다.
+                2026-09-01 현재 kakao_ids(50행)와 consents(11행) 사이에 겹치는 계정이 없다는 것까지가 잰 것이다.
+           ⛔ 없는 값을 0 으로 채우지 말 것 — 이 저장소가 가장 오래 속은 방식이다(규칙서 2장).
+           ⚠️ 화면이 그 항목을 묻기 시작해도 **이미 동의 행이 있는 사람에게는 다시 안 묻는다** —
+              js/mango-consent.js 의 askedBefore() 가 행이 있으면 즉시 반환하고 consent_version 을
+              비교하지 않는다. 그 사람들의 칸은 계속 NULL 로 남는다(다시 묻게 하려면 그쪽을 함께 고쳐야 한다). */
+        b.recording ? 1 : 0,
+        /* «== null» 은 undefined 와 명시적 null 을 함께 잡는다 — 둘 다 «모름» 이다. */
+        b.voice_analysis == null ? null : (b.voice_analysis ? 1 : 0),
+        b.attendance ? 1 : 0,
+        b.reward == null ? null : (b.reward ? 1 : 0),
+        b.kakao == null ? null : (b.kakao ? 1 : 0),
         b.guardian_required ? 1 : 0, b.guardian_status || (b.guardian_required ? 'pending' : 'not_required'), b.guardian_contact || null,
         ip, ua, now, JSON.stringify(b)
       ).run();
