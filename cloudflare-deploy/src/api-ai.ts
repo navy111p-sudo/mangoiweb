@@ -13,7 +13,7 @@ import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤�
 import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
          aiFriendTrimSentences, aiFriendNormalizeLevel,
          AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
-import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
+import { resolveFriendName, wrongSelfName } from './ai-friends';   // 🧑 AI 친구 이름 정본 + «다른 이름으로 소개했나» 판정
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -738,6 +738,34 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
+
+      /* 🏷️ 이름을 어기면 다시 뽑는다 (2026-08-31 사장님 지시).
+         바로 위 프롬프트가 「Your name is ${friendName} … never invent a different name」라고
+         적어 두는데도 모델이 가끔 어깁니다 — 제보가 두 번 왔고 그때마다 «다른» 이름이었습니다
+         (루이 → 로이). 매번 지어내는 것이라 화면 이름을 바꿔 맞추는 것은 과녁을 쫓는 일입니다.
+         ⛔ 이름만 갈아 끼우지 않습니다 — 뒤따르는 말과 앞뒤가 안 맞을 수 있습니다.
+         ⚠️ 두 번째도 어기면 그냥 내보냅니다 — 이름 한 번 틀린 것이 대화가 끊기는 것보다 낫습니다. */
+      const badName = wrongSelfName(reply, friendName);
+      if (badName && usedModel) {
+        console.warn('[chat-friend] wrong self-name:', badName, 'expected=' + friendName);
+        try {
+          const again: any = await env.AI.run(usedModel, {
+            messages: messages.concat([
+              { role: 'assistant', content: reply },
+              { role: 'user', content: `(You said your name is ${badName}, but your name is ${friendName}. Say it again correctly.)` },
+            ]),
+            max_tokens: 160, temperature: 0.5,
+          });
+          const rn = aiFriendStripHanzi(String((again && (again.response || again.result)) || '').trim());
+          // 다시 뽑은 것이 «이름도 맞고 눈높이도 나빠지지 않을 때만» 받는다
+          if (rn && !wrongSelfName(rn, friendName)
+              && aiFriendMeasureReply(rn, level).score <= aiFriendMeasureReply(reply, level).score) {
+            reply = rn;
+          }
+        } catch (e: any) {
+          console.error('[chat-friend] name retry failed:', e?.message || e);
+        }
+      }
 
       /* 🎚 눈높이 강제 (2026-08-31) — 「지시만으로는 안 지켜진다」의 그 자리입니다.
          만든 답을 실제로 세어 보고 ① 넘치면 한 번 더 뽑고 ② 그래도 넘치면 문장 «수» 만 줄입니다.
