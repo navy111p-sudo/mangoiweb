@@ -9,8 +9,16 @@
     weekOffset: 0,         // 0 = 이번 주, -1 = 지난 주, +1 = 다음 주
     teacherFilter: '',     // '' = 전체, 또는 강사 id
     teachers: [],          // [{id, name, korean_name, english_name}]
-    records: []            // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
+    records: [],           // [{teacher_id, teacher_name, date, scheduled, actual, late_min}]
+    /* 🪞 (2026-08-31) 카페24에만 있는 수업을 이 캘린더에 «겹쳐» 보여주기 위한 자리.
+       class_schedules 와 섞지 않는다 — 드래그·삭제·차단이 전부 records 의 인덱스로 도는데
+       여기에 섞으면 «카페24 카드를 끌었더니 엉뚱한 수업에 PATCH 가 나가는» 사고가 난다. */
+    c24: [],               // [{teacher_id, date, start_time, duration_min, student_name, verdict}]
+    c24On: true,           // 「카페24 수업 함께 보기」 체크박스
+    c24Msg: '',            // 못 읽었을 때 이유(빈 화면을 «수업 없음» 으로 오해하지 않게)
+    c24Cache: {}           // 주(월요일) → { t, rows, msg }
   };
+  try { ph54State.c24On = (localStorage.getItem('ph54_c24_overlay') !== '0'); } catch(e){}
 
   /* 🌐 (2026-08-07) 이 캘린더를 하루 종일 쓰는 사람은 **필리핀 매니저**다.
      그런데 차단/삭제 안내문이 전부 한국어였다 — 「매주 반복할까요?」 를 못 읽고 확인을 누르면
@@ -131,7 +139,7 @@
     });
   }
 
-  async function ph54LoadRecords(){
+  async function ph54LoadSchedules(){
     // 🗓 강사 '수업 스케줄'(class_schedules)을 로드한다.
     //    - /api/admin/schedules?week=<해당 주 월요일> 가 그 주(월~일)로 펼친 슬롯 배열을 돌려줌.
     //    - ⚠️ 각 슬롯의 teacher_id 는 **teachers.id** 다. (예전 주석은 teacher_profiles.id 라고
@@ -149,6 +157,60 @@
       }
     } catch(e){ console.warn('[ph54] schedules load', e); }
     ph54State.records = [];   // 실패 시 빈 상태(가짜 데이터로 채우지 않음)
+  }
+
+  /* 🪞 (2026-08-31 사장님) 「카페24에 있는 수업이 mangoi.ai 에도 잡히도록. 바로 잡는 게
+     어렵다면 잡힌 것처럼 보이게라도」 — 그래서 **보기 전용 겹쳐 그리기**로 먼저 넣는다.
+     ⛔ class_schedules 에 행을 만들지 않는다. 만드는 순간 «실제로 열리는 수업» 이 되는데,
+        카페24에 «없는 수업»(취소·강사변경 잔재)이 섞여 있는 것이 8/31 에 확인됐다
+        (허윤아 17:00 에 Kes·Sid 두 건이 있는데 실제로는 Zee 한 명뿐이었다).
+        그것을 그대로 만들면 학생·강사가 «있지도 않은 수업» 을 기다린다.
+     ✅ 그래서 지금 단계는 «카페24에는 이렇게 잡혀 있습니다» 를 그대로 비춰 주기만 한다.
+     ℹ️ 자료는 그림자 성적표(/api/admin/reports/c24-mirror)를 그대로 쓴다 —
+        판정(강사 잇기·학생 확인·중복)이 이미 그 한 곳에 있고, 화면이 규칙을 또 만들면 갈라진다. */
+  var PH54_C24_TTL = 120000;   // 같은 주를 다시 그릴 때 2분은 다시 안 묻는다(Neo4j 왕복)
+  /* 그릴 것 = «망고아이 시간표에 아직 그 행이 없는» 것뿐.
+     already·update·manual_locked·diverged·conflict 는 이미 진짜 카드로 그려지므로 겹치면 두 번 보인다. */
+  var PH54_C24_SHOW = { ok:1, not_whitelisted:1, no_student:1 };
+  var PH54_C24_WHY = {
+    ok:              { ko:'✅ 미러를 켜면 이 수업이 망고아이에도 만들어집니다.', en:'✅ Will be created in Mangoi once the mirror is on.' },
+    not_whitelisted: { ko:'⏸ 아직 미러를 켜지 않은 강사입니다 (그림자 단계).',   en:'⏸ Mirror is not enabled for this instructor yet (shadow stage).' },
+    no_student:      { ko:'⚠️ 이 학생 계정이 망고아이에 없습니다 — 그대로는 만들 수 없습니다.', en:'⚠️ This student account does not exist in Mangoi.' }
+  };
+
+  async function ph54LoadC24(){
+    if (!ph54State.c24On){ ph54State.c24 = []; ph54State.c24Msg = ''; return; }
+    var days  = ph54GetWeekDays();
+    var since = ph54FmtDate(days[0]), until = ph54FmtDate(days[6]);
+    var hit = ph54State.c24Cache[since];
+    if (hit && (Date.now() - hit.t) < PH54_C24_TTL){ ph54State.c24 = hit.rows; ph54State.c24Msg = hit.msg; return; }
+    var rows = [], msg = '';
+    try {
+      var r = await fetch('/api/admin/reports/c24-mirror?since='+since+'&until='+until, { credentials:'include' });
+      var j = await r.json().catch(function(){ return null; });
+      /* 🔴 «성공이라고 말했는가» 로 판정한다. 404 본문에는 ok 칸이 아예 없어서
+         `if (d.ok === false)` 는 그냥 통과하고 빈 배열이 «오늘은 없나 보다» 로 읽힌다(CLAUDE.md 2장). */
+      if (r.status === 403 || r.status === 401){
+        /* 권한이 없는 계정(강사·지사)은 «고장» 이 아니다. 경고를 띄우면 매니저가 장애로 신고한다. */
+        msg = '';
+      } else if (!r.ok || !j || j.ok !== true){
+        msg = ph54T('카페24 수업을 읽지 못했습니다', 'Could not read Cafe24 classes')
+            + ' (' + ((j && (j.error || j.message)) || ('HTTP ' + r.status)) + ')';
+      } else {
+        rows = (Array.isArray(j.rows) ? j.rows : []).filter(function(x){ return x && PH54_C24_SHOW[x.verdict]; });
+      }
+    } catch(e){
+      msg = ph54T('카페24 수업을 읽지 못했습니다 (네트워크)', 'Could not read Cafe24 classes (network)');
+    }
+    ph54State.c24 = rows; ph54State.c24Msg = msg;
+    ph54State.c24Cache[since] = { t: Date.now(), rows: rows, msg: msg };
+  }
+
+  /* 두 가지를 함께 읽는다 — 호출부(주 이동·저장 후 새로고침)가 여러 곳이라 여기서 묶는다.
+     ⚠️ 카페24 쪽이 느리거나 죽어도 스케줄은 그려져야 하므로 Promise.all 이되 ph54LoadC24 는
+        스스로 예외를 삼키고 이유만 남긴다. */
+  async function ph54LoadRecords(){
+    await Promise.all([ ph54LoadSchedules(), ph54LoadC24() ]);
   }
 
   // HTML 이스케이프 (학생 이름 등 안전 출력)
@@ -283,6 +345,38 @@
       + '</div>';
   }
 
+  /* 🪞 카페24 수업 카드 — **보기 전용**.
+     · 드래그 불가: draggable 을 안 달았으므로 dragstart 자체가 안 난다.
+     · 클릭해도 아무 일 없음: 차단 삭제는 data-block 이 있을 때만 돈다.
+     · data-idx 를 «안 단다» — records 의 인덱스와 섞이면 엉뚱한 수업에 PATCH 가 나간다.
+     ⚠️ 글자를 «수업» 이라고만 쓰면 매니저가 진짜 잡힌 수업으로 읽는다. 배지와 아랫줄에
+        «카페24에만 있음» 을 적어 화면이 사실을 말하게 한다(CLAUDE.md — 지어내지 말 것). */
+  function ph54C24Card(s){
+    var startMin = ph54MinOf(s);
+    var dur      = s.duration_min || 20;
+    var top      = Math.max(0, (startMin - PH54_START_H*60) / 60 * PH54_HOUR_PX);
+    var height   = Math.max(dur / 60 * PH54_HOUR_PX, 22);
+    var timeTxt  = ph54FmtMin(startMin) + ' · ' + dur + ph54T('분', 'm');
+    var who      = s.student_name || s.student_uid || ph54T('학생 미확인', 'unknown student');
+    var why      = PH54_C24_WHY[s.verdict];
+    var tip = timeTxt + ' · ' + ph54T('카페24 수업', 'Cafe24 class') + ' · ' + who + '\n'
+      + ph54T('카페24에 잡혀 있는 수업입니다. 망고아이 시간표에는 아직 만들어지지 않았습니다 (보기 전용 — 옮기거나 지울 수 없습니다).',
+              'This class is scheduled in Cafe24. It has not been created in the Mangoi timetable yet (view only — cannot be moved or deleted).')
+      + (why ? ('\n' + ph54T(why.ko, why.en)) : '');
+    /* 인라인 색은 background-color 로 쓴다 — `background:linear-gradient(135deg` 를 노리는
+       admin-inline-c.css 의 옛 규칙과 adm-s13 페인터에 안 걸리는 형태다(CLAUDE.md 2장). */
+    return '<div class="ph54-ev ph54-c24 ph54-locked"'
+      + ' style="top:'+top+'px;height:'+height+'px;cursor:default;box-shadow:none;'
+      +   'background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(15,23,42,.07) 6px,rgba(15,23,42,.07) 12px);'
+      +   'border:1.5px dashed #2563eb"'
+      + ' title="'+ph54Esc(tip)+'">'
+      +   '<div class="ph54-ev-time">'+ph54Esc(timeTxt)
+      +     '<span class="ph54-ev-tag" style="background:#1d4ed8">'+ph54T('카페24','C24')+'</span></div>'
+      +   '<div class="ph54-ev-name">'+ph54Esc(who)+'</div>'
+      +   '<div class="ph54-ev-type">'+ph54Esc(ph54T('카페24에만 있음','Cafe24 only'))+'</div>'
+      + '</div>';
+  }
+
   function ph54Render(){
     var wrap = document.getElementById('ph54-sched-wrap');
     if (!wrap) return;
@@ -306,6 +400,17 @@
       events.push({ idx: idx, rec: r, col: dateToCol[r.date] });
     });
 
+    /* 🪞 카페24 수업(보기 전용) — 강사가 이어진 것만 그린다.
+       강사를 못 이은 것(no_teacher)은 «누구 칸에» 놓아야 할지 모르므로 그리지 않고 아래에서 건수만 알린다.
+       ⛔ 모르는 것을 아무 칸에나 놓지 않는다 — 모르는 것보다 틀린 것이 나쁘다. */
+    var c24Events = [], c24NoTeacher = 0;
+    (ph54State.c24 || []).forEach(function(r){
+      if (!r || !(r.date in dateToCol)) return;
+      if (!r.teacher_id){ c24NoTeacher++; return; }
+      if (filterId && String(r.teacher_id) !== String(filterId)) return;
+      c24Events.push({ rec: r, col: dateToCol[r.date] });
+    });
+
     // ── 컨트롤 바
     var html = ''
       + '<div id="ph54-sched-controls">'
@@ -322,6 +427,13 @@
               }).join('')
       +     '</select>'
       +   '</label>'
+      +   '<label style="margin-left:8px;white-space:nowrap" title="'
+      +     ph54Esc(ph54T('카페24에 잡혀 있는 수업을 이 표에 겹쳐 보여줍니다 (보기 전용).',
+                          'Overlays classes scheduled in Cafe24 (view only).'))+'">'
+      +     '<input type="checkbox" id="ph54-c24-toggle"'+(ph54State.c24On?' checked':'')
+      +       ' style="vertical-align:middle;margin-right:4px">'
+      +     ph54T('카페24 수업 함께 보기','Show Cafe24 classes')
+      +   '</label>'
       +   '<button id="ph54-clear-filter">전체 보기</button>'
       + '</div>';
 
@@ -331,6 +443,11 @@
       /* 🚫 (2026-08-08 마이마이 요청) 「강사가 언더타임이면 매니저가 그 시간을 막을 수 있게」
          강사를 고른 뒤에만 안내한다 — 전체 보기에서는 «누구를 막을지» 를 알 수 없다. */
       html += '<div class="ph54-hint">🚫 빈 칸을 <b>클릭</b>하면 그 시간을 <b>차단</b>할 수 있어요 (언더타임·회의 등). 차단된 시간엔 수업을 넣을 수 없습니다.</div>';
+    }
+
+    /* ⚠️ 못 읽었으면 «없다» 가 아니라 «못 읽었다» 고 말한다 — 빈 화면이 «오늘은 수업이 없나 보다» 로 읽힌다. */
+    if (ph54State.c24On && ph54State.c24Msg){
+      html += '<div class="ph54-hint">⚠️ '+ph54Esc(ph54State.c24Msg)+'</div>';
     }
 
     // ── 타임라인: 헤더(요일) + 시간 거터 + 7일 컬럼
@@ -351,7 +468,9 @@
     for (var ci=0; ci<7; ci++){
       var isToday2 = ph54FmtDate(days[ci]) === todayStr;
       var cardsHtml = events.filter(function(e){ return e.col === ci; })
-                            .map(function(e){ return ph54EventCard(e.idx, e.rec); }).join('');
+                            .map(function(e){ return ph54EventCard(e.idx, e.rec); }).join('')
+                    + c24Events.filter(function(e){ return e.col === ci; })
+                            .map(function(e){ return ph54C24Card(e.rec); }).join('');
       cols += '<div class="ph54-cal-col'+(isToday2?' today':'')+'" data-day="'+ci+'" '
         + 'style="height:'+bodyH+'px;background-size:100% '+PH54_HOUR_PX+'px">'
         + cardsHtml + '</div>';
@@ -377,9 +496,17 @@
       +   '<span><i style="background:'+PH54_TYPE_COLOR['leveltest']+'"></i>'+ph54T('레벨테스트','Level test')+'</span>'
       +   '<span><i style="background:'+PH54_TYPE_COLOR['blocked']+'"></i>'+ph54T('휴무','Off')+'</span>'
       +   '<span><i class="ph54-legend-nonclass"></i>'+ph54T('LMS 점유·시드 (수업 아님)','LMS busy / seed (not a class)')+'</span>'
+      +   (ph54State.c24On
+            ? '<span><i style="background-color:#dbeafe;background-image:repeating-linear-gradient(45deg,transparent,transparent 3px,rgba(15,23,42,.2) 3px,rgba(15,23,42,.2) 6px);border:1px dashed #2563eb;box-sizing:border-box"></i>'
+              + ph54T('카페24 수업 (망고아이엔 아직 없음)','Cafe24 class (not in Mangoi yet)')+'</span>'
+            : '')
       +   '<span class="ph54-legend-count">'
       +     ph54T('수업 ','Classes ')+nReal+ph54T('개','')
       +     (nOther ? '<b class="ph54-count-warn"> · '+ph54T('LMS 점유·시드 ','LMS busy / seed ')+nOther+ph54T('개','')+'</b>' : '')
+      +     (ph54State.c24On && c24Events.length
+              ? ' · '+ph54T('카페24 ','Cafe24 ')+c24Events.length+ph54T('개','') : '')
+      +     (ph54State.c24On && c24NoTeacher
+              ? '<b class="ph54-count-warn"> · '+ph54T('카페24 강사 못 이음 ','Cafe24 unmatched instructor ')+c24NoTeacher+ph54T('개','')+'</b>' : '')
       +     ph54T(' · 카드를 드래그해 이동',' · drag a card to move it')
       +   '</span>'
       + '</div>';
@@ -392,6 +519,13 @@
     document.getElementById('ph54-next-week').addEventListener('click', async function(){ ph54State.weekOffset++; await ph54LoadRecords(); ph54Render(); });
     document.getElementById('ph54-teacher-filter').addEventListener('change', function(e){ ph54State.teacherFilter = e.target.value; ph54Render(); });
     document.getElementById('ph54-clear-filter').addEventListener('click', function(){ ph54State.teacherFilter = ''; ph54Render(); });
+    var ph54C24Tg = document.getElementById('ph54-c24-toggle');
+    if (ph54C24Tg) ph54C24Tg.addEventListener('change', async function(e){
+      ph54State.c24On = !!e.target.checked;
+      try { localStorage.setItem('ph54_c24_overlay', ph54State.c24On ? '1' : '0'); } catch(err){}
+      await ph54LoadC24();
+      ph54Render();
+    });
 
     /* ── 🚫 빈 칸 클릭 → 그 시간 차단 (teacher_unavailability) ──────────────────
        마이마이 요청: 「강사가 언더타임이라 수업을 못 하면 매니저가 그 시간을 막게 해 달라」

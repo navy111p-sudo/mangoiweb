@@ -3962,6 +3962,11 @@
               <option value="office">🏢 Office</option>
             </select>
             <button id="tp-refresh-btn" type="button" style="padding:5px 12px;font-size:12px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer" data-ko="🔄 새로고침" data-en="🔄 Refresh">🔄 새로고침</button>
+            <!-- 🟢 (2026-08-31 사장님 「하나하나 눌러볼 수 없고 바로 전체에서」) 수업 중인 강사만 남긴다.
+                 ⚠️ 참관 불가한 카페24 수업도 남긴다 — 빼면 그 강사가 «한가하다» 로 읽힌다.
+                 색은 background-color 로만 준다(admin-inline-c.css 의 옛 규칙이 background: 를 !important 로 덮는다). -->
+            <button id="tp-live-only" type="button" onclick="window.tpToggleLiveOnly && window.tpToggleLiveOnly()" style="padding:5px 12px;font-size:12px;border:1px solid #86efac;border-radius:6px;background-color:#fff;color:#166534;cursor:pointer;font-weight:700" data-ko="🟢 수업 중만 보기" data-en="🟢 In-class only" data-ko-title="지금 수업 중인 강사만 표에 남깁니다" data-en-title="Show only teachers who are in class right now">🟢 수업 중만 보기</button>
+            <span id="tp-live-summary" style="font-size:11.5px;color:#6b7280;align-self:center">—</span>
             <!-- 📇 (2026-08-17) 복구 연락처 채우기 — 셀프 비번찾기가 실제로 돌게 만드는 짝.
                  연락처가 없는 계정은 비번을 잊어도 스스로 못 푼다. 서버가 hq·staff 로 한 번 더 막는다. -->
             <button id="tp-contact-fill-btn" type="button" onclick="window.openContactFill && window.openContactFill()" style="padding:5px 12px;font-size:12px;border:1px solid #fcd34d;border-radius:6px;background:#fffbeb;color:#92400e;cursor:pointer;font-weight:600" data-ko="📇 복구 연락처 채우기" data-en="📇 Fill recovery contacts" title="비밀번호 찾기에 쓸 휴대폰·이메일이 없는 계정을 찾아 채웁니다">📇 복구 연락처 채우기</button>
@@ -3983,6 +3988,11 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="사진" data-en="Photo">사진</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="이름" data-en="Name">이름</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="상태" data-en="Status">상태</th>
+                  <!-- 🟢 (2026-08-31) «지금» — 이 강사가 지금 수업 중인가. 값은 js/adm-core.js 의
+                       tpLoadLiveNow() 가 표를 그린 뒤 채운다(강사 목록 API 에는 그 정보가 없다).
+                       🟢 수업 중(방 열림) / 🟡 수업 시간대(예약은 지금인데 방은 비어 있음) /
+                       ⚪ 카페24(망고아이 방이 없어 참관 불가 — 그게 정상) -->
+                  <th class="tp-now-col" style="padding:6px;border:1px solid #e5e7eb;background:linear-gradient(135deg,rgba(34,197,94,0.18),rgba(16,185,129,0.18))" data-ko="지금" data-en="Now" data-ko-title="지금 수업 중인 강사 — 👁 수업관찰을 눌러볼 필요 없이 여기서 바로 보입니다 (45초마다 갱신)" data-en-title="Teachers in class right now - no need to click Observe one by one (refreshes every 45s)">지금</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="그룹" data-en="Group">그룹</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="근무지" data-en="Workplace">근무지</th>
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="활동지역" data-en="Region">활동지역</th>
@@ -3998,7 +4008,7 @@
                   <th style="padding:6px;border:1px solid #e5e7eb" data-ko="액션" data-en="Actions">액션</th>
                 </tr>
               </thead>
-              <tbody id="tp-list-body"><tr><td colspan="14" class="empty">—</td></tr></tbody>
+              <tbody id="tp-list-body"><tr><td colspan="15" class="empty">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -9816,7 +9826,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
      이 파일이 생긴 이유: 저 네 파일이 admin_session 이 비면 { name:'정우영' } 로 메꾸고 그걸 저장까지 해서,
      다른 계정으로 로그인해도 「정우영」이 남는 문제가 있었다. -->
 <script src="/js/adm-identity.js?v=1" defer></script>
-<script src="/js/adm-core.js?v=179" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
+<script src="/js/adm-core.js?v=180" defer></script><!-- 분할추출:adm-core (원복: 이 파일을 이 위치에 인라인)
    · v=172: 2026-08-26 요금 근거를 «배수가 1배여도 항상» 보여 주고(자동 금액은 대개 20분=1배라 안 보였다),
      등록 직후 카톡·CSV·워드가 서버가 준 «최종» 금액을 쓰게 함(폼 값은 곱하기 전 기준가)
    · v=171: 2026-08-26 수강신청 확정 패널에 «요금 근거» 줄 — 20분 기준가 × 수업 시간 배수.
@@ -9982,7 +9992,7 @@ npx wrangler@4 secret put SOLAPI_TEMPLATE_MENTION      --env production --config
         → 해당 강사만 캘린더에 표시하고 자동으로 카드 펼침/스크롤 -->
 
 
-<script src="/js/adm-q6.js?v=8" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
+<script src="/js/adm-q6.js?v=9" defer></script><!-- 분할추출:adm-q6 (원복: 이 위치에 인라인) -->
 
 <!-- Phase 81 admin (2026-05-24) — ▲ 강제 제거 + 칩 한 줄 작게 (모든 폭) -->
 

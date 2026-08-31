@@ -158,6 +158,11 @@
   #log[data-sub="blur"] .msg.ai:not(.sub-shown) .wu-text{filter:blur(6px);cursor:pointer;user-select:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .wu-text{display:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .sub-veil{display:inline}
+  /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31) — ai-friend 와 같은 사정.
+     흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다.
+     ⚠️ .wu-text 밖에 두어야 한다 — 안에 두면 이 안내까지 흐려진다. */
+  .sub-hint{display:none;margin-top:6px;font-size:13px;font-weight:800;color:var(--muted,#a5b4cf);cursor:pointer;white-space:normal}
+  #log[data-sub="blur"] .msg.ai:not(.sub-shown) .sub-hint{display:block}
   .mean-btn{display:inline-flex;align-items:center;gap:4px;margin-top:10px;margin-left:8px;
     background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.45);color:#c4b5fd;
     border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -192,8 +197,12 @@
     color:#04283a;border-color:var(--accent);box-shadow:0 3px 10px rgba(56,189,248,.4)}
   .ls-ends{display:flex;justify-content:space-between;margin-top:8px;
     font-size:12px;font-weight:700;color:var(--text2)}
-  /* 🎙️ AI 목소리 선택 (여자/남자/번갈아) — 레벨 버튼과 같은 톤 */
-  .voice-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  /* 🎙️ AI 친구 고르기 (Emma·Jake·Lily·Noah + 번갈아) — 레벨 버튼과 같은 톤.
+     (2026-08-31) 둘 → 넷이 되면서 3열로는 이름이 잘려서 2열 + «번갈아» 만 한 줄 전체로 둔다.
+     ⚠️ 이 주석에 CJK 홑낫표를 쓰지 말 것 — subtitle_meaning·admin_lazyload 하니스가
+        <style> 안의 그 글자를 «한자 폰트 983KB 를 받는 화면» 으로 판정한다(실제로 밟았다). */
+  .voice-btns{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+  .voice-btns button[data-v="mix"]{grid-column:1/-1}
   .voice-btns button{appearance:none;-webkit-appearance:none;cursor:pointer;font-family:inherit;
     padding:10px 0;border-radius:10px;border:1px solid var(--border);background:rgba(56,189,248,.06);
     color:var(--text2);font-size:14px;font-weight:800;transition:transform .08s,background .15s,color .15s}
@@ -361,7 +370,7 @@
   }
 </style>
 <link rel="stylesheet" href="/css/mango-avatar.css?v=3"><!-- 👩‍🏫 강사 아바타 -->
-<script src="/js/mango-avatar.js?v=13" defer></script>
+<script src="/js/mango-avatar.js?v=16" defer></script>
 <script src="/js/game-track.js?v=3" defer></script>
 </head>
 <body>
@@ -429,7 +438,7 @@
 
         <!-- 📊 대화 난이도: 1(기초) ~ 8(최고) — 눈금에서 골라 AI 눈높이를 맞춤 -->
         <div class="menu-group">
-          <div class="menu-label"><span>📊 대화 레벨</span><span class="ls-now" id="lvlVal">3단계 · 초급+</span></div>
+          <div class="menu-label"><span>📊 대화 레벨</span><span class="ls-now" id="lvlVal">3단계 · 초급 · A2+</span></div>
           <div class="ls-btns" id="lvlBtns" role="radiogroup" aria-label="대화 난이도 선택"></div>
           <div class="ls-ends"><span>🌱 기초</span><span>최고 🚀</span></div>
         </div>
@@ -440,12 +449,15 @@
           <div class="age-btns" id="ageBtns" role="radiogroup" aria-label="연령대 선택"></div>
         </div>
 
-        <!-- 🎙️ AI 목소리: 여자/남자 원어민 선택 + 번갈아(둘 다 섞어서) -->
+        <!-- 🎙️ AI 친구: 네 명 중 고르기 + 번갈아(네 명이 돌아가며).
+             고르면 «목소리와 얼굴이 함께» 바뀐다 — 그래서 이름표가 「목소리」가 아니라 「친구」다. -->
         <div class="menu-group">
-          <div class="menu-label"><span>🎙️ AI 목소리</span><span class="ls-now" id="voiceVal">👩 여자</span></div>
-          <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 목소리 선택">
-            <button type="button" data-v="female" onclick="setVoiceMode('female',true)">👩 여자</button>
-            <button type="button" data-v="male" onclick="setVoiceMode('male',true)">👨 남자</button>
+          <div class="menu-label"><span>🎙️ AI 친구 (목소리·얼굴)</span><span class="ls-now" id="voiceVal">👩 Emma</span></div>
+          <div class="voice-btns" id="voiceBtns" role="radiogroup" aria-label="AI 친구 선택">
+            <button type="button" data-v="emma" onclick="setVoiceMode('emma',true)">👩 Emma</button>
+            <button type="button" data-v="jake" onclick="setVoiceMode('jake',true)">🦸 Jake</button>
+            <button type="button" data-v="lily" onclick="setVoiceMode('lily',true)">👧 Lily</button>
+            <button type="button" data-v="noah" onclick="setVoiceMode('noah',true)">👦 Noah</button>
             <button type="button" data-v="mix" onclick="setVoiceMode('mix',true)">🔀 번갈아</button>
           </div>
         </div>
@@ -472,8 +484,10 @@
       <div id="tavatar-ring">
         <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
         <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-          <source src="/img/teacher-avatar.webm" type="video/webm">
-          <source src="/img/teacher-avatar.mp4" type="video/mp4">
+          <!-- ⚠️ (2026-08-31) 옛 <source> 두 줄을 뺐습니다 — 캐릭터는 mango-avatar.js 가 «항상»
+               장착하므로(mountCharacter) 여기 적어 두면 JS 가 돌기 전에 브라우저가 teacher-avatar.webm
+               942KB 를 먼저 받기 시작합니다(실측: 206 요청 1건). 지금 기본 얼굴은 이미지라 그 영상은
+               폴백일 때만 필요합니다. ⛔ 「비어 있으니 채우자」 하고 되살리지 마세요. -->
         </video>
       </div>
       <div id="tavatar-status">
@@ -586,6 +600,13 @@ var apiInput = document.getElementById('apiInput'); if(apiInput) apiInput.value 
    ★ 선언이 addMsg 정의보다 위에 있어야 함 — 첫 인사(addMsg)가 스크립트 파싱 중에 실행되는데,
      선언이 뒤에 있으면 var 초기화가 이미 무장된 타이머 ID 를 null 로 덮어써 취소가 안 된다. */
 var _idleTimer=null, _idleShownForTurn=false;
+/* ⏳ «대답 보기» 지연 — 선언이 여기 있어야 한다(바로 위 ★ 와 같은 이유).
+   첫 인사(fallbackGreeting)가 «스크립트 파싱 중» 에 showAnswerChips 를 부르는데,
+   선언이 그보다 아래면 그 순간 ANS_DELAY_MS 가 undefined 라
+   setTimeout(fn, undefined) = «0ms» 가 되어 즉시 떠 버린다.
+   ⚠️ 2026-08-31 실제로 밟았다 — 8초로 고쳐 놓고도 화면은 그대로 즉시였고,
+      브라우저로 재 보고서야 알았다(문자열 검사로는 안 보인다). */
+var _ansTimer = 0, ANS_DELAY_MS = 8000;
 function scheduleIdleSuggest(){
   clearTimeout(_idleTimer);
   _idleTimer=setTimeout(function(){
@@ -612,14 +633,20 @@ var log = document.getElementById('log');
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
+  /* 🧑 이름표는 «지금 말하는 친구» 로 — Mango 로 하드코딩돼 있어서, Lily 를 골라도
+     말풍선마다 「Mango」가 붙었다. 서버 프롬프트도 같은 이름을 받는다(withCtx 의 body.friend).
+     ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
+        사람 얼굴을 넣으면 말풍선마다 사진이 붙어 시끄러워진다. */
+  var friendLabel = _friendLabelNow();
   var whoHtml = who==='ai'
-      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
+      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="' + friendLabel + '">' + friendLabel + '</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
   /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
      .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
   d.innerHTML = whoHtml + (who==='ai'
     ? '<span class="wu-text">' + renderMsg(text) + '</span>'
       + '<span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
+      + '<span class="sub-hint">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
     : renderMsg(text));
   if(who==='ai'){
     // 각 AI 메시지에 🔊 다시 듣기 버튼
@@ -681,40 +708,87 @@ function renderMsg(s){
 var _enVoice = null, _speechOn = true, _audioUnlocked = false;
 var _lastAiSpeak = null, _speechEverStarted = false;   // 모바일: 차단된 첫 인사를 첫 터치 때 재낭독하기 위한 기록
 
-/* 🎙️ AI 목소리 선택 — 서버 원어민 TTS(Deepgram Aura-2)의 speaker 지정.
-   여자=Emma(asteria) / 남자=Jake(apollo·자연스러운 미국 남성) / 번갈아=한 마디씩 남녀 교대. */
+/* 🎙️ AI 친구 고르기 — 고르면 «목소리(서버 Aura-2 speaker)와 얼굴(아바타)» 이 함께 바뀝니다.
+   (2026-08-31) 사장님 지시로 «여자·남자» 둘에서 «네 명» 으로 넓혔습니다.
+     Emma·Jake = 지금까지 쓰던 성인 얼굴·목소리 — 그대로 둡니다(쓰던 학생이 안 바뀌게).
+     Lily·Noah = 새로 만든 19세 얼굴·목소리.
+     mix       = 네 명이 한 마디씩 돌아가며.
+   ⚠️ Deepgram 의 화자별 「나이대」 설명은 이 작업 환경에서 프록시에 막혀 읽지 못했습니다
+      (developers.deepgram.com·deepgram.com 둘 다 403). 그러니 아래 화자들은
+      «귀로 확인해야 할 후보» 이지 측정된 값이 아닙니다.
+   🔊 Lily 는 delia → thalia 로 바꿨습니다 (2026-08-31 사장님 「너무 슬퍼 보이고 톤이
+      다운돼 있다. 20대 초반인데 더 발랄하게」). ⛔ delia 로 되돌리지 마세요 — 그 제보가
+      그 화자에 대한 것입니다. 더 밝게 하려면 aurora·iris·phoebe 를 ?vf= 로 들어보세요.
+   ✅ 주소 뒤에 ?vf=·?vm= 을 붙이면 배포 없이 그 자리에서 다른 화자로 들어볼 수 있습니다
+      (vf=Lily, vm=Noah 의 화자를 갈아 끼웁니다 — 예: /warmup.html?vf=amalthea&vm=atlas).
+   ⛔ 아래 두 목록을 «자유 문자열 허용» 으로 바꾸지 마세요 — 이 값은 그대로 TTS 요청 본문의
+      speaker 로 실립니다. 목록의 이름은 전부 서버 허용목록(src/api-games.ts 의 AURA2)에 있고,
+      거기 없는 이름을 보내면 서버가 조용히 여성 기본값(asteria)으로 떨어뜨립니다.
+   🔴 char 는 아바타 캐릭터 이름(js/mango-avatar.js)과 «짝» 입니다 — 한쪽만 고치면
+      「Lily 를 골랐는데 Emma 얼굴이 나온다」가 되고 에러는 안 납니다. */
+/* 🎚️ 「들어볼 수 있는 화자」 — 2026-08-31 사장님 제보 「Lily 목소리가 슬퍼 보이고 톤이 다운돼 있다」로
+   서버가 아는 Aura-2 화자 «전부» 로 넓혔습니다. 아래 두 목록은 src/api-games.ts 의
+   AURA2 / AURA2_MALE 를 성별로 가른 것과 «같은 말» 이어야 합니다(voice_fallback_harness 가 대조).
+   ⛔ 「자유 문자열 허용」으로 바꾸지 마세요 — 이 값이 그대로 TTS 요청의 speaker 로 실리고,
+      서버 목록 밖 이름은 조용히 여성 기본값(asteria = Emma 목소리)으로 떨어집니다.
+   ℹ️ Aura 에는 «음높이·톤» 파라미터가 없습니다. 톤을 바꾸는 길은 화자 교체 하나뿐입니다
+      (배속 슬라이더는 preservesPitch=true 라 음높이가 안 따라옵니다 — 일부러 그렇게 뒀습니다). */
+var VOICE_TRY_F = { amalthea:1, andromeda:1, asteria:1, athena:1, aurora:1, callista:1, cora:1,
+  cordelia:1, delia:1, electra:1, harmonia:1, helena:1, hera:1, iris:1, juno:1, luna:1,
+  minerva:1, ophelia:1, pandora:1, phoebe:1, thalia:1, theia:1, vesta:1 };
+var VOICE_TRY_M = { apollo:1, arcas:1, aries:1, atlas:1, draco:1, hermes:1, hyperion:1, janus:1,
+  jupiter:1, mars:1, neptune:1, odysseus:1, orion:1, orpheus:1, pluto:1, saturn:1, zeus:1 };
+var VOICE_PEOPLE = ['emma','jake','lily','noah'];      // 「번갈아」가 도는 순서
 var VOICE_MODES = {
-  female: { label:'👩 여자',  speaker:'asteria' },
-  male:   { label:'👨 남자',  speaker:'apollo'  },
-  mix:    { label:'🔀 번갈아' }
+  emma: { label:'👩 Emma', speaker:'asteria', g:'female', char:'emma',
+          hi:"Hi! I'm Emma. Nice to meet you!" },
+  jake: { label:'🦸 Jake', speaker:'apollo',  g:'male',   char:'jake',
+          hi:"Hey! I'm Jake. Let's talk!" },
+  lily: { label:'👧 Lily', speaker:'thalia',  g:'female', char:'lily',
+          hi:"Hi! I'm Lily. Nice to meet you!" },
+  noah: { label:'👦 Noah', speaker:'aries',   g:'male',   char:'noah',
+          hi:"Hey! I'm Noah. Let's talk!" },
+  mix:  { label:'🔀 번갈아',
+          hi:"Cool! We will take turns talking to you!" }
 };
-var _voiceMode = 'female', _mixNext = 'female';
-try{ var _sv = localStorage.getItem('mangoi_warmup_voice'); if(VOICE_MODES[_sv]) _voiceMode = _sv; }catch(e){}
-function _voiceGender(){ return _voiceMode==='mix' ? _mixNext : _voiceMode; }
+try{
+  var _vq = new URLSearchParams(location.search);
+  var _vfTry = String(_vq.get('vf')||'').toLowerCase(), _vmTry = String(_vq.get('vm')||'').toLowerCase();
+  if(VOICE_TRY_F[_vfTry]) VOICE_MODES.lily.speaker = _vfTry;
+  if(VOICE_TRY_M[_vmTry]) VOICE_MODES.noah.speaker = _vmTry;
+}catch(e){}
+var _voiceMode = 'emma', _mixIdx = 0;
+try{
+  var _sv = localStorage.getItem('mangoi_warmup_voice');
+  // 옛 저장값 이어받기 — 「여자」를 쓰던 학생은 Emma, 「남자」는 Jake 로 그대로 간다.
+  if(_sv === 'female') _sv = 'emma'; else if(_sv === 'male') _sv = 'jake';
+  if(VOICE_MODES[_sv]) _voiceMode = _sv;
+}catch(e){}
+// 지금 «말할 사람». 번갈아면 순번이 가리키는 사람.
+function _voicePerson(){ return _voiceMode==='mix' ? VOICE_PEOPLE[_mixIdx % VOICE_PEOPLE.length] : _voiceMode; }
+// ⚠️ 브라우저 폴백 보이스 고르기(pickVoice)가 'male'|'female' 을 기대하므로 그 약속은 유지한다.
+function _voiceGender(){ return (VOICE_MODES[_voicePerson()] || VOICE_MODES.emma).g; }
 function nextSpeaker(){
-  var g = _voiceGender();
-  if(_voiceMode==='mix') _mixNext = (_mixNext==='female') ? 'male' : 'female';
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(g); }catch(e){}  // 👨‍🦸 번갈아 모드는 턴마다 성별에 맞춰 얼굴도 교체
-  return VOICE_MODES[g].speaker;
+  var p = _voicePerson();
+  if(_voiceMode==='mix') _mixIdx = (_mixIdx + 1) % VOICE_PEOPLE.length;   // 다음 차례로
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[p].char); }catch(e){}  // 얼굴도 그 사람으로
+  return VOICE_MODES[p].speaker;
 }
 function setVoiceMode(m, announce){
-  if(!VOICE_MODES[m]) m = 'female';
+  if(!VOICE_MODES[m]) m = 'emma';
   var changed = (m !== _voiceMode);
-  _voiceMode = m; _mixNext = 'female';
+  _voiceMode = m; _mixIdx = 0;
   try{ localStorage.setItem('mangoi_warmup_voice', m); }catch(e){}
   var box = document.getElementById('voiceBtns');
   if(box){ var bs = box.querySelectorAll('button');
     for(var i=0;i<bs.length;i++){ var on = (bs[i].getAttribute('data-v')===m);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
   var v = document.getElementById('voiceVal'); if(v) v.textContent = VOICE_MODES[m].label;
-  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(m==='mix' ? _mixNext : m); }catch(e){}  // 👨‍🦸 남자=히어로 아바타로 즉시 교체
+  // 고른 사람의 얼굴로 즉시 교체(다음 답변까지 기다리지 않게). 번갈아면 첫 차례 사람.
+  try{ window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter(VOICE_MODES[_voicePerson()].char); }catch(e){}
   _enVoice = null; pickVoice();          // 브라우저 폴백 보이스도 성별에 맞춰 재선택
-  // 바꾸자마자 새 목소리가 직접 인사 → 어떤 목소리인지 바로 들어볼 수 있게
-  if(announce && changed){
-    speak(m==='male' ? "Hi! I'm Jake, your new voice. Let's talk!"
-        : m==='female' ? "Hi! I'm Emma. Nice to meet you!"
-        : "Cool! Now we'll take turns talking to you!");
-  }
+  // 바꾸자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
+  if(announce && changed) speak(VOICE_MODES[m].hi);
 }
 
 /* ══ 👁 자막 3단계 (2026-08-07) ══
@@ -747,7 +821,10 @@ function setSubMode(m, announce){
    같은 문장은 두 번째부터 공짜고, 화면에서도 _koCache 로 두 번 부르지 않는다. */
 var _koCache = {};
 /* 고정 인사말은 손으로 다듬은 의역을 쓴다 — 기계번역이 "Let's warm up before class" 를
-   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24). 주제 구간만 동적이라 패턴으로 맞춘다. */
+   「수업 전에 따뜻하게하자」로 직역한 제보(2026-08-24).
+   ⚠️ 이제 인사말에 «고른 친구 이름» 이 들어가서 패턴으로는 못 맞춘다 — 만드는 쪽에서
+      _koCache 에 의역을 미리 넣는다(여덟 단계 인사·안전망 둘 다). 이 함수는 옛 문장이
+      어딘가에 남아 있을 때를 위한 안전망으로만 둔다. */
 function curatedMeaning(text){
   var m = String(text||'').trim().match(
     /^Hi! I'm your Mangoi AI friend 🥭\s*(?:Today's topic is "([\s\S]+?)"\.\s*)?Let's warm up before class\. How are you today\?$/);
@@ -826,28 +903,41 @@ function maybeAdjustRate(text){
 /* 🏷️ 이름·교재 Lv 구간은 판단력 훈련과 «같은 말» 을 쓴다 — 정본은 서버 judgment-level.ts 의
    BAND_SPECS(8단계, 교재 Lv 1~34). 두 화면이 같은 Lv 을 서로 다른 이름으로 부르면
    학생·강사가 「어느 쪽이 맞느냐」를 매번 묻게 된다.
+   🆕 cefr 은 «새로 더한 칸» 이다 (2026-08-31 사장님 결정: 「새 칸 만들고 CEFR 이름 함께 보여줘」).
+      학부모·강사가 A1·B1 로 이야기하기 때문에 이름 옆에 함께 보여 준다.
+      ⛔ 이 칸으로 ko·lv 를 «대체» 하지 마세요 — 그 둘은 BAND_SPECS 와 짝이고
+         하니스 C절이 대조합니다. 실제로 한 번 갈아 끼웠다가 FAIL 로 잡혔습니다.
+      ⚠️ 같은 CEFR 표기를 AI 영어친구(src/ai-friend-level.ts 의 AI_FRIEND_CEFR)도 씁니다.
+         두 화면이 다른 이름을 쓰면 「어느 쪽이 내 레벨이냐」가 다시 시작됩니다.
    ⚠️ 숫자(1~8)가 서버로 가는 값이다 — 이름을 바꿔도 서버 WARMUP_LEVELS 는 숫자로 받는다.
    ⚠️ 여기 목록과 서버가 아는 범위(1~8)는 «짝» 이다. 화면에만 늘리면 그 값은 조용히
       무시된다(CLAUDE.md 2장 「화면에서 골랐는데 그 값만 저장이 안 됨」). */
 var LEVEL_CATALOG = [
-  {n:1, ko:'첫걸음', lv:'Lv 1-4',   d:'아주 짧은 문장 (3~5단어)',
+  {n:1, ko:'첫걸음', lv:'Lv 1-4',   cefr:'A1',  d:'아주 짧은 문장 (3~5단어)',
    s:'I like apples.'},
-  {n:2, ko:'기초',   lv:'Lv 5-8',   d:'짧고 쉬운 문장 (5~7단어)',
+  {n:2, ko:'기초',   lv:'Lv 5-8',   cefr:'A2',  d:'짧고 쉬운 문장 (5~7단어)',
    s:'I can ride my bike now.'},
-  {n:3, ko:'초급',   lv:'Lv 9-12',  d:'과거형이 나오는 문장 (7~9단어)',
+  {n:3, ko:'초급',   lv:'Lv 9-12',  cefr:'A2+', d:'과거형이 나오는 문장 (7~9단어)',
    s:'I went to the park with my friend.'},
-  {n:4, ko:'초중급', lv:'Lv 13-17', d:'두 문장이 이어진 문장 (9~12단어)',
+  {n:4, ko:'초중급', lv:'Lv 13-17', cefr:'B1',  d:'두 문장이 이어진 문장 (9~12단어)',
    s:'I wanted to go outside, but it started raining very hard.'},
-  {n:5, ko:'중급',   lv:'Lv 18-21', d:'조금 긴 문장 (12~15단어)',
+  {n:5, ko:'중급',   lv:'Lv 18-21', cefr:'B1+', d:'조금 긴 문장 (12~15단어)',
    s:'My brother keeps borrowing my headphones without asking, and it really annoys me.'},
-  {n:6, ko:'중고급', lv:'Lv 22-25', d:'관계절·가정법이 나와요 (15~18단어)',
+  {n:6, ko:'중고급', lv:'Lv 22-25', cefr:'B2',  d:'관계절·가정법이 나와요 (15~18단어)',
    s:'If I had known that the museum closes early on Mondays, I would have gone on Sunday.'},
-  {n:7, ko:'고급',   lv:'Lv 26-30', d:'관용표현이 섞여요 (18~22단어)',
+  {n:7, ko:'고급',   lv:'Lv 26-30', cefr:'B2+', d:'관용표현이 섞여요 (18~22단어)',
    s:'She was on the fence about taking the job, so we talked it through until she finally made up her mind.'},
-  {n:8, ko:'최상급', lv:'Lv 31-34', d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
+  {n:8, ko:'최상급', lv:'Lv 31-34', cefr:'C1',  d:'가장 긴 문장 · 뉘앙스 중심 (18~30단어)',
    s:'Rather than dismissing the criticism outright, he took a moment to consider whether any part of it was worth acting on.'}
 ];
 var LEVEL_NAMES = (function(){ var m={}; for(var i=0;i<LEVEL_CATALOG.length;i++) m[LEVEL_CATALOG[i].n]=LEVEL_CATALOG[i].ko; return m; })();
+/* 🏷️ 「4단계 · 초중급 · B1」처럼 CEFR 까지 붙인 한 줄. ⋮ 설정 패널·안내 문구가 함께 씁니다.
+   ⛔ 이름을 손으로 적지 마세요 — 여기 한 곳에서만 만들어야 설정 화면과 어긋나지 않습니다
+      (실제로 «3단계 · 초급+» 이 HTML 에 박혀 있어 설정 화면과 다른 말을 하고 있었습니다). */
+function levelLabel(n){
+  var b = LEVEL_CATALOG[Math.max(1,Math.min(8,parseInt(n,10)||3)) - 1];
+  return b ? (b.n + '단계 · ' + b.ko + ' · ' + b.cefr) : (n + '단계');
+}
 var _warmLevel = 3;
 try{
   var savedLvl = parseInt((Q.get('diff')||localStorage.getItem('mangoi_warmup_level')||'3'),10);
@@ -861,8 +951,8 @@ try{
       var b=document.createElement('button');
       b.type='button'; b.textContent=String(n);
       b.setAttribute('role','radio');
-      b.title = n + '단계 · ' + LEVEL_NAMES[n];
-      b.setAttribute('aria-label', n + '단계 ' + LEVEL_NAMES[n]);
+      b.title = levelLabel(n);
+      b.setAttribute('aria-label', levelLabel(n));
       b.onclick=function(){ setLevel(n, true); };
       box.appendChild(b);
     })(i);
@@ -878,10 +968,10 @@ function setLevel(lv, announce){
   if(box){ var bs=box.querySelectorAll('button');
     for(var i=0;i<bs.length;i++){ var on=(i+1===lv);
       bs[i].classList.toggle('on', on); bs[i].setAttribute('aria-checked', on?'true':'false'); } }
-  var v=document.getElementById('lvlVal'); if(v) v.textContent = lv + '단계 · ' + LEVEL_NAMES[lv];
+  var v=document.getElementById('lvlVal'); if(v) v.textContent = levelLabel(lv);
   // 사용자가 직접 바꾸면 안내 한 줄(다음 대화부터 이 레벨로 반영됨)
   if(announce && changed && typeof addMsg==='function'){
-    addMsg('📊 대화 레벨을 ' + lv + '단계(' + LEVEL_NAMES[lv] + ')로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
+    addMsg('📊 대화 레벨을 ' + levelLabel(lv) + ' 로 바꿨어요. 다음 대화부터 이 난이도로 이야기할게요!', 'sys');
   }
 }
 setLevel(_warmLevel);   // 저장된 레벨로 눈금/표시 초기화
@@ -966,7 +1056,8 @@ function renderSetup(){
     lv.innerHTML = LEVEL_CATALOG.map(function(b){
       var on = (b.n === _warmLevel);
       return '<button type="button" class="wus-item'+(on?' on':'')+'" data-lvl="'+b.n+'">'
-        + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
+        + '<span class="wus-name">'+b.ko+' <span class="wus-lv">('+b.lv+')</span>'
+        + ' <span class="wus-cefr">'+b.cefr+'</span>'+(on?'<span class="wus-now">지금</span>':'')+'</span>'
         + '<span class="wus-desc">'+b.d+'</span></button>';
     }).join('');
   }
@@ -1102,7 +1193,7 @@ function startWarmup(){
   closeSetup();
   if(_warmStarted){
     if(typeof addMsg==='function'){
-      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + _warmLevel + '단계(' + LEVEL_NAMES[_warmLevel] + ')로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
+      addMsg('🎚️ ' + ageInfo(_warmAge).ko + ' · ' + levelLabel(_warmLevel) + ' 로 이어갈게요. 다음 대화부터 이 눈높이로 이야기해요!', 'sys');
     }
     return;
   }
@@ -1146,7 +1237,12 @@ setSubMode(_subMode);       // 👁 저장된 자막 단계로 버튼/#log 초�
    speechSynthesis 가 없거나 무음인 기기에서도 소리가 나게 한다.
    실패(네트워크/429 등) 시에만 브라우저 음성합성으로 폴백. */
 var _ttsCache={}, _ttsAudio=null;
+/* 🔢 «지금 몇 번째 발화인가». 아래 _ttsSpeak 이 실패하면 400ms 뒤 한 번 더 물어보는데,
+   그 사이 학생이 다음 말을 보내면 옛 문장이 새 문장 위로 겹쳐 재생된다.
+   _stopSpeak 이 이 번호를 올리므로, 늦게 도착한 응답은 스스로 물러난다. */
+var _speakSeq=0;
 function _stopSpeak(){
+  _speakSeq++;
   try{ window.speechSynthesis && window.speechSynthesis.cancel(); }catch(e){}
   try{ if(_ttsAudio){ _ttsAudio.onended=null; _ttsAudio.onerror=null; _ttsAudio.pause(); } }catch(e){}
   try{ window.MangoAvatar && MangoAvatar.plainStop(); }catch(e){}   // 👩‍🏫 아바타 입 멈춤
@@ -1180,6 +1276,55 @@ function _speechText(s){
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
+/* 🎙️ 「목소리가 계속 변해」 — Noah 를 골라 뒀는데 문장마다 다른 사람이 읽는다
+   (2026-08-31 사장님 제보). 화면이 화자를 바꾼 게 아니라 «소리를 만들어 오는 길» 이
+   문장마다 달라진 것이고, 셋 다 에러 없이 조용히 일어난다.
+     ① 서버 Aura-2 가 한 번 흔들리면 Aura-1 이 읽는다 → Noah(aries)를 orion 이 읽는다
+        (서버에서 «한 번 더 물어보기» 로 좁혔다 — src/api-games.ts 의 /api/voice/tts)
+     ② 요청이 한 번 실패하면 그 문장만 곧바로 «기기 목소리»(speechSynthesis)로 읽었다
+        — 기기 목소리는 원어민 음성과 전혀 달라서 제일 크게 들린다
+     ③ 그렇게 받은 «남의 목소리» 를 요청 화자 키로 캐시하면 그 문장은 세션 내내 그 소리
+        (서버 R2 캐시가 같은 이유로 «실제로 쓴 화자» 키만 쓴다 — 2026-08-31 수리)
+   ✅ 그래서 (a) 실패는 400ms 뒤 한 번 더 물어보고 (b) 서버가 대체한 음성은 캐시하지 않는다.
+   ⛔ 기기 목소리 폴백을 없애지 마세요 — 소리가 아예 안 나는 것이 더 나쁩니다
+      (앱 WebView·뉴런 소진 때는 그것뿐입니다). 「한 번 더」 뒤에만 갑니다.
+   ⚠️ 뉴런 소진(429·503)은 다시 물어도 같은 답이라 재시도하지 않습니다.
+   ⚠️ 이 함수는 반드시 «스크립트 최상위» 에 둡니다 — 다른 함수 안에 넣으면
+      바깥 호출부가 전부 ReferenceError 인데 문자열 검사는 통과합니다(CLAUDE.md 2장). */
+var _ttsFellBack=false;   // 이 세션에서 기기 목소리로 읽은 적이 있는가(안내는 한 번만)
+function _ttsSpeak(text, spk, key, btn, seq, done, play, tryNo){
+  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
+    .then(function(r){
+      var ct=r.headers.get('content-type')||'';
+      if(!r.ok || ct.indexOf('audio')<0){
+        var e=new Error('tts'); e.noRetry=(r.status===429||r.status===503); throw e;
+      }
+      var got=''; try{ got=String(r.headers.get('X-TTS-Speaker')||'').toLowerCase(); }catch(e2){}
+      return r.blob().then(function(b){ return { blob:b, got:got }; });
+    })
+    .then(function(o){
+      if(seq!==_speakSeq) return;                 // 그 사이 다음 말이 시작됐다 — 물러난다
+      var u=URL.createObjectURL(o.blob);
+      // 서버가 다른 화자로 대체했으면 캐시하지 않는다(캐시하면 그 문장이 그 목소리로 굳는다).
+      // 헤더가 없으면(옛 배포) 판정하지 않고 예전처럼 캐시한다 — 모르는 것을 단정하지 않는다.
+      if(!o.got || o.got===spk) _ttsCache[key]=u;
+      play(u);
+    })
+    .catch(function(err){
+      if(seq!==_speakSeq) return;
+      if(tryNo===0 && !(err&&err.noRetry)){
+        setTimeout(function(){ if(seq===_speakSeq) _ttsSpeak(text, spk, key, btn, seq, done, play, 1); }, 400);
+        return;
+      }
+      if(!_ttsFellBack){        // 왜 목소리가 달라졌는지 한 번은 말해 준다(추측하지 않게)
+        _ttsFellBack=true;
+        try{ if(typeof addMsg==='function')
+          addMsg('🔊 지금은 원어민 목소리를 받아오지 못해서 기기 목소리로 읽었어요. 잠시 뒤 원래 목소리로 돌아와요.', 'sys'); }catch(e3){}
+      }
+      _synthSpeak(text, btn, done);   // 서버 TTS 실패 → 브라우저 음성 폴백
+    });
+}
 function speak(text, btn){
   if(!_speechOn || !text) return;
   text=_speechText(text); if(!text){ if(btn) btn.classList.remove('playing'); return; }
@@ -1207,15 +1352,11 @@ function speak(text, btn){
         .catch(function(){ done(); });   // 자동재생 차단 — 첫 터치(unlockAudio)에서 재시도됨
     }catch(e){ done(); _synthSpeak(text, btn, done); }
   };
-  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 남녀 교대)
+  var spk = nextSpeaker();                     // 🎙️ 선택된 목소리(번갈아 모드면 네 명 교대)
   var key = spk + '|' + text;                  // 캐시도 목소리별로 분리
   if(_ttsCache[key]){ play(_ttsCache[key]); return; }
-  fetch('/api/voice/tts', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ text:text, lang:'en', speaker:spk }) })
-    .then(function(r){ var ct=r.headers.get('content-type')||'';
-      if(!r.ok || ct.indexOf('audio')<0) throw new Error('tts'); return r.blob(); })
-    .then(function(b){ var u=URL.createObjectURL(b); _ttsCache[key]=u; play(u); })
-    .catch(function(){ _synthSpeak(text, btn, done); });   // 서버 TTS 실패 → 브라우저 음성 폴백
+  // _stopSpeak() 이 방금 올려 둔 번호 — 늦게 온 응답이 새 발화를 덮지 않게 함께 넘긴다
+  _ttsSpeak(text, spk, key, btn, _speakSeq, done, play, 0);
 }
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 speechSynthesis 를 깨워둔다(무음 발화)
 function unlockAudio(){
@@ -1468,7 +1609,8 @@ function _startSttSession(){
    ⚠️ 질문은 «답이 문장 안에 들어 있는» 형태로만 씁니다(Yes/No 또는 양자택일).
       길이를 줄여도 열린 질문이면 초보는 그대로 막힙니다 — 초보에게는 열린 질문 자체가 벽입니다.
       이 파일의 WARMUP_FALLBACK_QUESTIONS.low 가 이미 그 형태입니다(«Do you like pizza or chicken?»).
-   ⚠️ 3단계 이상은 «지금 문장 그대로» 둡니다(아래 폴백). 고치는 범위를 낮은 단계로 한정합니다.
+   ⚠️ 2026-08-31 에 여덟 단계 모두로 넓혔습니다 — 3단계 이상이 공용 문장 하나를 쓰던 것이
+      「8단계인데 첫마디는 3단계」를 만들고 있었습니다. 폴백은 안전망으로만 남깁니다.
    ⚠️ 낮은 단계에서는 주제 문장(«Today's topic is …»)을 영어 말풍선에 넣지 않습니다 —
       길어지기만 하고 학생이 답할 것은 늘지 않습니다. 주제는 아래 한국어 줄에서 알려 줍니다.
    ─────────────────────────────────────────────────────────────────────── */
@@ -1476,22 +1618,67 @@ function _startSttSession(){
       (src/warmup-answers.ts)에 이 인사말을 넣었을 때 나오는 값 그대로입니다.
       하니스가 그 함수를 «실제로 돌려» 여기 값과 대조하므로 둘이 어긋날 수 없습니다.
       (첫 인사는 서버를 안 거치는 화면 전용 경로라 값을 여기 둘 수밖에 없습니다) */
+/* ⚠️ 이름은 «고른 친구» 를 끼운다({name}) — 예전에는 "Hi! I'm Mango." 로 박혀 있어서,
+   말풍선 이름표가 Lily 인데 본문은 Mango 라고 말했다(2026-08-31 trap-check 발견).
+   하필 1~2단계(첫걸음·기초) 학생만 이 경로를 타므로 제일 취약한 쪽에서 어긋났다.
+   ⛔ 문장을 길게 늘이지 말 것 — 서버 규칙(WARMUP_LEVELS)의 단어 수 상한을 하니스가 센다. */
 var BEGINNER_GREETINGS = {
-  // 1단계(첫걸음) — 서버 규칙: 3~5단어·현재시제. 질문은 Yes/No.
-  1: { en: "Hi! I'm Mango. 🥭 Are you happy today?",
-       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 좋아요?',
+  /* 🪜 여덟 단계 «모두» 전용 인사를 둔다 (2026-08-31).
+     전에는 1·2단계만 있고 3단계 이상은 공용 문장 하나("Hi! I'm your Mangoi AI friend …")를
+     썼다. 그래서 「8단계」라고 적혀 있어도 첫마디에서는 사실상 3단계(1 / 2 / 나머지 전부)로
+     동작했고, 그 공용 문장은 친구 이름도 안 따라가 Lily 를 골라도 "Mangoi AI friend" 라고 말했다.
+     ⚠️ 눈금은 «안 밀었다» — 1단계는 그대로 3~5단어(BAND_SPECS 첫걸음)다. 낮은 단계를 쉽게 하는
+        길은 길이를 더 줄이는 것이 아니라 «열린 질문을 없애는 것» 이다(1단계 Yes/No, 2단계 양자택일).
+     ⚠️ 문장을 길게 늘이지 말 것 — 서버 WARMUP_LEVELS 의 단어 수 상한을 하니스가 센다.
+     ⚠️ chips 는 정본 warmupAnswerChips() 가 이 문장에서 «실제로 만들어 내는» 값이다.
+        4단계 이상은 정본이 빈 배열을 준다(「스스로 답하는 것이 훈련」) — 지어내 채우지 말 것. */
+  // 1단계(첫걸음·A1) — 3~5단어. Yes/No 만(wh-·or 금지).
+  1: { en: "Hi! I'm {name}. 🥭 Are you happy today?",
+       ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 좋아요?',
        chips: ['Yes, I am.', "No, I'm not.", 'One more time, please.'] },
-  // 2단계(기초) — 서버 규칙: 5~7단어. 질문은 양자택일(고를 말이 문장 안에 있다).
-  2: { en: "Hi! I'm Mango. 🥭 How are you today, happy or tired?",
-       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
-       chips: ['I am happy.', 'I am tired.', 'One more time, please.'] }
+  // 2단계(기초·A2) — 5~7단어. 양자택일(고를 말이 문장 안에 있다).
+  2: { en: "Hi! I'm {name}. 🥭 How are you today, happy or tired?",
+       ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
+       chips: ['I am happy.', 'I am tired.', 'One more time, please.'] },
+  // 3단계(초급·A2+) — 7~9단어. 아직 양자택일로 받쳐 준다.
+  3: { en: "Hi, I'm {name}! 🥭 Do you like sports or music?",
+       ko: '안녕하세요, 저는 {name} 예요! 운동이 좋아요, 아니면 음악이 좋아요?',
+       chips: ['I like sports.', 'I like music.'] },
+  // 4단계(초중급·B1) — 9~12단어. 여기서부터 열린 질문이 훈련이다(보기 없음).
+  4: { en: "Hi, I'm {name}! 🥭 What did you do at school today?",
+       ko: '안녕하세요, 저는 {name} 예요! 오늘 학교에서 뭐 했어요?',
+       chips: [] },
+  // 5단계(중급·B1+) — 12~15단어.
+  5: { en: "Hi, I'm {name}! 🥭 What was the best part of your day so far?",
+       ko: '안녕하세요, 저는 {name} 예요! 오늘 하루 중 지금까지 제일 좋았던 건 뭐예요?',
+       chips: [] },
+  // 6단계(중고급·B2) — 15~18단어. 이유를 함께 묻는다.
+  6: { en: "Hey, I'm {name}! 🥭 What are you looking forward to this week, and why does it matter to you?",
+       ko: '안녕하세요, 저는 {name} 예요! 이번 주에 기대되는 일이 뭐예요? 왜 그게 중요해요?',
+       chips: [] },
+  // 7단계(고급·B2+) — 18~22단어. 가정·의견.
+  7: { en: "Hey! {name} here. 🥭 If you could change one thing about how today went, what would you change and why?",
+       ko: '안녕하세요! {name} 예요. 오늘 하루에서 딱 하나를 바꿀 수 있다면 뭘 바꾸고 싶어요? 왜요?',
+       chips: [] },
+  // 8단계(최상급·C1) — 길이 제한 없음. 추상적 주제로 바로 들어간다.
+  8: { en: "Hey, {name} here. 🥭 What's been on your mind lately — is there anything you keep circling back to, even when you try not to?",
+       ko: '안녕하세요, {name} 예요. 요즘 마음에 걸리는 게 있어요? 자꾸 다시 떠오르는 일이요.',
+       chips: [] }
 };
+/* 지금 말할 친구의 표시 이름 — 이름표·인사말이 같은 값을 쓰게 한 곳으로 모은다 */
+function _friendLabelNow(){
+  try{ var p = _voicePerson();
+       return (VOICE_MODES[p] && VOICE_MODES[p].label || '').replace(/^[^A-Za-z]+/, '') || 'Mango'; }
+  catch(e){ return 'Mango'; }
+}
 function fallbackGreeting(){
   var g = BEGINNER_GREETINGS[_warmLevel];
   if(g){
     // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
-    _koCache[g.en] = g.ko;
-    addMsg(g.en, 'ai');
+    var _fn = _friendLabelNow();
+    var gEn = g.en.replace(/\{name\}/g, _fn), gKo = g.ko.replace(/\{name\}/g, _fn);
+    _koCache[gEn] = gKo;
+    addMsg(gEn, 'ai');
     /* ⚠️ 여기에 「아래 보기를 눌러 보세요」 같은 안내 줄을 «따로» 두지 마세요 —
        초록 보기 카드의 제목이 이미 같은 말입니다. 초보 화면일수록 줄이 겹치면 읽지 않습니다.
        (한국어 뜻도 아래 3단계 자동 뜻이 말풍선 안에 열어 줍니다) */
@@ -1499,12 +1686,26 @@ function fallbackGreeting(){
     showAnswerChips(g.chips);
     return;
   }
-  addMsg('Hi! I\'m your Mangoi AI friend 🥭 ' + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '') + 'Let\'s warm up before class. How are you today?', 'ai');
+  /* 안전망 — 레벨이 1~8 밖일 때만 온다(정상 경로에서는 위 여덟 칸이 다 받는다).
+     ⚠️ 여기도 «고른 친구 이름» 을 쓴다. 예전에는 "your Mangoi AI friend" 로 박혀 있어서
+        Lily 를 골라도 다른 이름을 말했다. */
+  var _fb = _friendLabelNow();
+  var fbEn = "Hi! I'm " + _fb + ". 🥭 " + (LESSON_TOPIC ? ('Today\'s topic is "'+LESSON_TOPIC+'". ') : '')
+    + "Let's warm up before class. How are you today?";
+  _koCache[fbEn] = '안녕하세요! 저는 ' + _fb + ' 예요 🥭 '
+    + (LESSON_TOPIC ? ('오늘의 주제는 "' + LESSON_TOPIC + '"예요. ') : '')
+    + '수업 전에 저랑 같이 가볍게 입을 풀어 봐요. 오늘 기분이 어때요?';
+  addMsg(fbEn, 'ai');
 }
 function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
   body.age_group = _warmAge;      // 🧑‍🎓 현재 연령대(kid/child/teen/adult) — 소재·말투 축
+  // 🧑 지금 말할 친구 — 서버가 「너는 Lily 야」로 프롬프트를 만든다.
+  //    ⚠️ 안 보내면 AI 는 자기가 'Mango' 인 줄 알고, 「Hi! I'm Lily」로 인사해 놓고
+  //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
+  //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
+  try{ body.friend = _voicePerson(); }catch(e){}
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
@@ -1686,9 +1887,41 @@ function qsCardClear(){ var old = document.getElementById('qsCard'); if(old) old
    ⚠️ 못 만들면 서버가 빈 배열을 준다 — 그때는 아무것도 안 그린다(지어내지 않는다).
    ⚠️ 누르면 «입력칸에 넣고 평소 전송 경로(sendMsg)» 로 보낸다. 따로 보내면 콤보·마이크 정리·
       히스토리가 갈라진다(이 화면은 마이크가 늦게 자동전송하는 사고 전력이 있다). */
-function ansCardClear(){ var o = document.getElementById('ansCard'); if(o) o.remove(); }
+function ansCardClear(){
+  var o = document.getElementById('ansCard'); if(o) o.remove();
+  if(_ansTimer){ clearTimeout(_ansTimer); _ansTimer = 0; }   // 예약된 것도 함께 취소
+}
+/* ⏳ «먼저 스스로 만들어 볼 틈» — 2026-08-31 사장님 지시
+     (「샘플질문이 시작하자마자 나와요. 전에는 학생이 대답을 안 하고 있으면 나왔었는데」).
+   도입(8/26) 때는 AI 가 말하자마자 같이 띄웠는데, 그러면 답을 보여 준 뒤에 묻는 순서라
+   학생이 자기 문장을 만들어 볼 자리가 없다. 이제 몇 초 기다렸다가, «아직 아무 말도
+   안 하고 있을 때만» 띄운다.
+   ⚠️ 이 화면에는 «머뭇거림 감지»(scheduleIdleSuggest, 위쪽)가 이미 있다 — 25초 무응답이면
+      «새 질문 추천» 을 띄운다. 사장님이 기억하신 «기다렸다 나오던 것» 이 그쪽이다.
+      둘은 하는 일이 다르므로 겹쳐 두는 것이 맞다:
+        8초  → «이 질문에 어떻게 답하지?» (대답 보기)
+        25초 → «이 질문 자체가 어렵다»   (질문 바꾸기)
+      ⛔ 8초를 25초에 맞추지 말 것 — 그러면 초보가 한 질문에서 25초를 헤맨다.
+   ⚠️ 입력칸을 건드렸거나(타이핑·마이크) 이미 보내는 중이면 띄우지 않는다 —
+      스스로 하고 있는 아이에게 답을 들이미는 것이 이 기능의 반대편 실패다.
+   ⚠️ 새 카드를 예약할 때 앞 예약을 반드시 취소한다(ansCardClear). 안 그러면 대화가
+      빨라질수록 타이머가 쌓여 «지난 질문의 보기» 가 뒤늦게 튀어나온다. */
 function showAnswerChips(list){
   ansCardClear();
+  if(!list || !list.length) return;
+  _ansTimer = setTimeout(function(){
+    _ansTimer = 0;
+    try{
+      if(sending) return;                                   // 이미 보내는 중
+      var inp = document.getElementById('inp');
+      if(inp && (inp.value || '').trim()) return;            // 뭔가 쓰고 있다
+      if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 마이크로 말하는 중
+      if(document.getElementById('ansCard')) return;         // 이미 떠 있다
+    }catch(e){}
+    _renderAnswerChips(list);
+  }, ANS_DELAY_MS);
+}
+function _renderAnswerChips(list){
   if(!list || !list.length) return;
   var card = document.createElement('div');
   card.id = 'ansCard'; card.className = 'ans-card';

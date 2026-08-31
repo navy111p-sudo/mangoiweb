@@ -29,7 +29,7 @@
 //        PW_DIR=/tmp/pw node test-harness/manual/ai-write-brainstorm-browser.mjs
 //
 //   실행: node test-harness/ai_write_brainstorm_harness.mjs
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync, statSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
@@ -86,10 +86,11 @@ if (SRC.length > 800) {
     '\nlet _goTheme = typeof theme === "string" ? (GO_THEMES.find(t => t.id === theme) || null)' +
     ' : (theme && theme.pic !== undefined) ? goThemeFromScene(theme.pic)' +
     ' : (theme && theme.topic !== undefined) ? goThemeFromTopic(theme.topic) : null;' +
-    '\nreturn { out: goOutline(), qs: goQuestions(), theme: _goTheme };');
+    '\nreturn { out: goOutline(), qs: goQuestions(), theme: _goTheme, topics: TOPICS, scenes: PIC_SCENES };');
   check('뼈대 생성기가 실행된다', Array.isArray(RUN('lost', {}).out.parts));
 }
 const outline = RUN ? ((t, a) => RUN(t, a).out) : null;
+const meta_topics = RUN ? RUN(null, {}).topics : [];
 
 if (outline) {
   // ① 한글 답은 글쓰기 칸에 절대 안 들어간다
@@ -135,6 +136,27 @@ if (outline) {
   eq('⑤ 전치사가 하나뿐이면 그대로', prep('at the park'), 'I was at the park.');
   eq('⑤ 전치사가 없으면 시작 문장 그대로', prep('my house'), 'I was at my house.');
 
+  /* ⑤-2 🔴 2026-08-31 «문법 전수검사»(13,344 조합)에서 잡은 세 가지.
+     되돌리면 아이들이 따라 쓸 문장이 비문이 된다. */
+  const line1 = (theme, k, a) => {
+    const o = RUN(theme, { [k]: a }).out;
+    return o.parts.flatMap(p2 => p2.lines.map(l => l.en)).filter(Boolean).slice(-1)[0] || '';
+  };
+  // ① «답이 이미 시작 문장으로 시작하는가» 를 부분문자열로 보면 주어가 사라진다
+  //    starter 「I 」 + 「in my house」 → 「in my house.」(주어 없음) 였다
+  check('⑤-2 시작 문장 판정은 낱말 경계로 (주어가 사라지지 않는다)',
+    /^I\b/.test(line1('proud', 'what', 'in my house')), line1('proud', 'what', 'in my house'));
+  check('⑤-2 답이 진짜로 시작 문장을 포함하면 겹쳐 쓰지 않는다',
+    line1('lost', 'what', 'I lost my watch') === 'I lost my watch.', line1('lost', 'what', 'I lost my watch'));
+  // ② 시작 문장이 관사로 끝나면 「a at the park」·「a an elephant」 가 된다 → 관사는 학생이 쓴다
+  check('⑤-2 글감 시작 문장이 관사(a/an)로 끝나지 않는다',
+    !meta_topics.some(t => /\b(a|an)\s$/.test(t.starter)),
+    meta_topics.filter(t => /\b(a|an)\s$/.test(t.starter)).map(t => t.ko).join(','));
+  // ③ 학생이 소문자로 적은 답을 그대로 쓸 때 문장 첫 글자가 소문자로 남았다
+  check('⑤-2 문장 첫 글자는 대문자',
+    /^M/.test(line1({ topic: meta_topics.findIndex(t => t.starter === 'My school is ') }, 'what', 'my school is big')),
+    line1({ topic: meta_topics.findIndex(t => t.starter === 'My school is ') }, 'what', 'my school is big'));
+
   /* ⑥ 🔗 그림·글감에서 온 주제 — 목록은 셋이어도 뼈대는 같은 규칙으로 만들어진다 */
   const pic = RUN({ pic: 3 }, { where: 'a jungle', who: 'a lion', what: 'the elephant walked to me', how: 'we ran away' });
   check('⑥ 그림 주제는 장면용 5문항 (언제는 묻지 않는다)',
@@ -164,6 +186,56 @@ if (outline) {
   check('⑨ 모든 질문에 문단 번호(p)가 있다',
     [RUN('lost', {}), pic, top].every(r => r.qs.every(q => q.p === 0 || q.p === 1 || q.p === 2)));
   check('⑨ GO_PARTS 에는 질문 목록(keys)이 없다', !/const GO_PARTS[\s\S]{0,400}keys:/.test(HTML));
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   [A-2] 🖼 오늘의 그림 · 🎲 오늘의 글감 — 목록과 «실물 파일» 이 짝인가
+   🔴 그림 항목만 늘리고 파일을 안 넣으면 그 날짜에 걸린 학생은 «빈 카드» 를 본다.
+      에러도 안 나고(사진만 안 뜸) 화면 코드도 멀쩡하므로 여기서 파일을 직접 센다.
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n[A-2] 🖼 그림·🎲 글감 목록 ↔ 실물 파일');
+{
+  const scenes = [...(HTML.match(/const PIC_SCENES = \[[\s\S]*?\n    \];/) || [''])[0]
+    .matchAll(/\{ img:'([a-z-]+)',\s*bg:'(#[0-9a-f]{6})',\s*ko:'([^']*)',\s*en:'([^']*)',\s*starter:'([^']*)'/g)]
+    .map(m => ({ img: m[1], bg: m[2], ko: m[3], en: m[4], starter: m[5] }));
+  const topics = [...(HTML.match(/const TOPICS = \[[\s\S]*?\n    \];/) || [''])[0]
+    .matchAll(/\{ ko: '([^']*)', en: '([^']*)', starter: '([^']*)' \}/g)]
+    .map(m => ({ ko: m[1], en: m[2], starter: m[3] }));
+
+  // 2026-08-31 사장님 지시로 각각 20개씩 늘렸다. 아래로 다시 줄이면 그때 판단이 사라진다.
+  check(`🖼 그림이 30개 이상 (지금 ${scenes.length}개)`, scenes.length >= 30, String(scenes.length));
+  check(`🎲 글감이 30개 이상 (지금 ${topics.length}개)`, topics.length >= 30, String(topics.length));
+
+  const missing = scenes.filter(s2 => !existsSync(join(root, 'cloudflare-deploy/public/img/write-scenes', s2.img + '.webp')));
+  check('🔴 그림 항목마다 실물 webp 파일이 있다', missing.length === 0, missing.map(m => m.img).join(','));
+
+  const tooBig = scenes.filter(s2 => {
+    const f = join(root, 'cloudflare-deploy/public/img/write-scenes', s2.img + '.webp');
+    return existsSync(f) && statSync(f).size > 400 * 1024;      // 필리핀 회선 — 한 장 400KB 넘기지 않는다
+  });
+  check('그림 한 장이 400KB 를 넘지 않는다', tooBig.length === 0, tooBig.map(x => x.img).join(','));
+
+  const dupImg = scenes.map(x => x.img).filter((v, i, a) => a.indexOf(v) !== i);
+  check('그림 파일 이름이 겹치지 않는다', dupImg.length === 0, dupImg.join(','));
+
+  /* 🔴 starter 는 브레인스토밍 서론의 «첫 줄» 로 그대로 들어간다(goThemeFromScene 의 open).
+     미완성 문장이면 뼈대 첫 줄이 「I went to the」 처럼 끊긴 채로 학생 글에 박힌다. */
+  const badStarter = scenes.filter(x => !/[.!?]\s*$/.test(x.starter));
+  check('🖼 그림 starter 는 «완성된 한 문장» 이다', badStarter.length === 0, badStarter.map(x => x.img).join(','));
+  const badScene = scenes.filter(x => !x.ko || !x.en || !x.bg);
+  check('🖼 그림마다 ko·en·대표색이 다 있다', badScene.length === 0, badScene.map(x => x.img).join(','));
+
+  /* 글감 starter 는 반대로 «이어 쓰는 조각» 이라 공백으로 끝나야 한다
+     (goThemeFromTopic 이 첫 질문의 시작 문장으로 그대로 쓴다). */
+  const badTopic = topics.filter(t => !t.en || !/ $/.test(t.starter));
+  check('🎲 글감마다 영어 이름이 있고 starter 가 공백으로 끝난다', badTopic.length === 0, badTopic.map(t => t.ko).join(','));
+  const dupTopic = topics.map(t => t.ko).filter((v, i, a) => a.indexOf(v) !== i);
+  check('🎲 글감 이름이 겹치지 않는다', dupTopic.length === 0, dupTopic.join(','));
+
+  // ⚠️ Win10 두부 방지 — 이모지는 Unicode 12 이하만 (CLAUDE.md 1-4)
+  const cp13 = [...scenes.map(x => x.ko + x.en).join(''), ...topics.map(t => t.ko + t.en).join('')]
+    .filter(c => c.codePointAt(0) >= 0x1FA70);
+  check('Unicode 13 이상 이모지를 쓰지 않았다', cp13.length === 0, cp13.join(' '));
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -212,24 +284,46 @@ check('업그레이드 검증부를 오려 냈다', upSrc.length > 100);
 if (upSrc) {
   const runUp = new Function('text', 'parsed',
     'const _lowText = text.toLowerCase();\n' + upSrc.replace(/: any/g, '') + '\nreturn upgrades;');
-  const T = 'I have many thing in my room and a bad man took my bag.';
+  const T = 'I have many thing in my room and a bad man took my bag and my old cup.';
   const got = runUp(T, { upgrades: [
     { from: 'thing', to: 'property', why: '소유물을 뜻하는 어른스러운 단어예요.' },
-    { from: 'unicorn', to: 'stallion', why: '원문에 없는 단어' },
-    { from: 'bad man', to: '도둑', why: '한글이 섞임' },
-    { from: 'bag', to: 'bag', why: '같은 단어' },
-    { from: 'room', to: 'chamber', why: '' },
+    { from: 'unicorn', to: 'stallion', why: '원문에 없는 단어예요.' },
+    { from: 'bad man', to: '도둑', why: '한글이 섞였어요.' },
+    { from: 'bag', to: 'bag', why: '같은 단어예요.' },
+    { from: 'room', to: 'chamber', why: '' },                 // 이유 없음 → 버린다
+    { from: 'old', to: 'ancient', why: 'more natural' },       // 영어 이유 → 버린다
+    { from: 'cup', to: 'mug', why: '자연스러움' },              // 6자 미만 → 버린다
   ] });
-  eq('원문에 있는 말만 남는다 (건수)', got.length, 2);
+  eq('걸러 내고 남는 건수', got.length, 1);
   check('정상 업그레이드는 그대로 통과', got[0] && got[0].from === 'thing' && got[0].to === 'property');
   check('원문에 없는 단어(unicorn)는 버린다', !got.some(u => u.from === 'unicorn'));
   check('to 에 한글이 섞이면 버린다', !got.some(u => HANGUL.test(u.to)));
   check('from 과 to 가 같으면 버린다', !got.some(u => u.from === u.to));
-  check('이유가 비면 기본 문구를 채운다', !!(got[1] && got[1].why && got[1].why.length > 3), JSON.stringify(got[1]));
+  /* 🔤 [2026-08-31 · A안] 이유가 비면 **기본 문구로 채우지 않고 그 항목을 버린다**.
+     운영 D1 실측에서 실제로 나온 업그레이드 1건의 why 가 서버 폴백 문구 그대로였다
+     (모델이 why 를 비워 보냄 — 교정 이유가 21/21 폴백이던 것과 같은 패턴).
+     어휘 «왜» 는 의미 판단이라 결정론으로 만들 수 없으므로 지어내는 대신 버린다. */
+  check('⛔ 이유가 비면 그 항목을 버린다 (기본 문구를 채우지 않는다)',
+    !got.some(u => u.from === 'room'), JSON.stringify(got));
+  check('⛔ 영어로만 쓴 이유는 버린다', !got.some(u => u.from === 'old'));
+  check('⛔ 너무 짧은 이유(6자 미만)는 버린다', !got.some(u => u.from === 'cup'));
+  check('⛔ 옛 폴백 문구가 소스에 남아 있지 않다', !/더 자연스럽고 어른스러운 표현이에요/.test(upSrc), upSrc.slice(0, 0));
+  check('남은 항목의 이유는 전부 한국어 6자 이상',
+    got.every(u => /[가-힣]/.test(u.why) && u.why.length >= 6));
   // ⚠️ to 는 «따라 쓸 영어» 라 숫자도 안 받는다 — 검사 데이터에 숫자를 넣지 말 것
-  const many = runUp('a b c d e f', { upgrades: 'abcdef'.split('').map(c => ({ from: 'a', to: 'alpha' + c, why: 'x' })) });
+  const many = runUp('a b c d e f', { upgrades: 'abcdef'.split('').map(c => ({ from: 'a', to: 'alpha' + c, why: '더 자연스러운 표현이에요.' })) });
   check('최대 3건까지만 내보낸다', many.length === 3, String(many.length));
   check('upgrades 가 없어도 안전하다 (빈 배열)', runUp('hello', {}).length === 0);
+
+  /* 되돌리면 FAIL — 게이트를 빼면 이유 없는 항목이 그대로 학생 화면으로 나간다 */
+  const mutated = upSrc.replace(/\/\[가-힣\]\/\.test\(u\.why\) && u\.why\.length >= 6 &&/, '');
+  check('변이 대상이 소스에 있다 (why 게이트)', mutated !== upSrc);
+  if (mutated !== upSrc) {
+    const runBad = new Function('text', 'parsed',
+      'const _lowText = text.toLowerCase();\n' + mutated.replace(/: any/g, '') + '\nreturn upgrades;');
+    const bad = runBad(T, { upgrades: [{ from: 'room', to: 'chamber', why: '' }] });
+    check('되돌리면 깨진다: 이유 없는 항목이 통과한다', bad.length === 1, JSON.stringify(bad));
+  }
 }
 
 console.log('\n' + '═'.repeat(60));

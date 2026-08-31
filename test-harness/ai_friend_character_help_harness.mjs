@@ -7,8 +7,10 @@
 //       우리는 반대로 — 기본은 직접 말하기, **막혔을 때만** 도움 칩.
 //
 //   이 하니스가 고정하는 것:
-//     ① 있지도 않은 얼굴로 캐릭터를 늘리지 않는다. 아바타는 실제로 female/male 둘뿐이다.
+//     ① 있지도 않은 얼굴로 캐릭터를 늘리지 않는다.
 //        이름만 다른 같은 얼굴은 «고른 느낌» 이 아니라 «속은 느낌» 이 된다.
+//        (2026-08-31) 사장님 지시로 친구가 둘 → 넷이 되었다: emma·jake(성인, 기존)
+//        + lily·noah(19세, 새 얼굴). 얼굴이 진짜로 넷이므로 이 규칙은 그대로 지켜진다.
 //     ② 저장 키를 새로 만들지 않는다(mangoi_aifriend_voice 재사용) — 새 키를 만들면 지금까지
 //        고른 목소리가 한 번 리셋된다.
 //     ③ 도움 칩은 **눌러야만** 열린다. 늘 떠 있으면 «고르는 학습» 이 되어 자유 발화가 죽는다.
@@ -48,10 +50,17 @@ if (fm) FRIENDS = eval(fm[1]);
 // 아바타가 실제로 그릴 수 있는 얼굴 목록
 const chars = [...avatarJs.matchAll(/^\s{4}(\w+):\s*\{/gm)].map((m) => m[1]);
 const faceSet = new Set(chars.length ? chars : ['female', 'male']);
-check(`아바타가 가진 얼굴은 ${[...faceSet].join('/')} 뿐이다(전제 확인)`, faceSet.has('female') && faceSet.has('male'));
-check('친구는 3개 — 얼굴 2개 + 번갈아 1개', FRIENDS.length === 3, FRIENDS.map((f) => f.v));
-check('친구의 v 값이 기존 목소리 값과 완전히 같다(설정이 리셋되지 않게)',
-  FRIENDS.map((f) => f.v).sort().join() === 'female,male,mix', FRIENDS.map((f) => f.v));
+check(`아바타가 가진 얼굴은 ${[...faceSet].join('/')} 이다(전제 확인)`,
+  ['emma', 'jake', 'lily', 'noah'].every((k) => faceSet.has(k)), [...faceSet]);
+check('친구는 5개 — 얼굴 4개 + 번갈아 1개', FRIENDS.length === 5, FRIENDS.map((f) => f.v));
+// ⚠️ v 값이 바뀌면 저장된 설정이 한 번 리셋된다 — 그래서 «옛 값을 이어받는 코드» 를 함께 못 박는다.
+//    (옛 값: female·male → 지금: emma·jake)
+check('친구의 v 값이 네 사람 + 번갈아다',
+  FRIENDS.map((f) => f.v).sort().join() === 'emma,jake,lily,mix,noah', FRIENDS.map((f) => f.v));
+check('옛 저장값(female·male)을 이어받는다 — 지금까지 고른 친구가 리셋되지 않게',
+  /v === 'female'\) v = 'emma'/.test(aif) && /v === 'male'\) v = 'jake'/.test(aif));
+check('친구마다 얼굴이 서로 다르다(이름만 다른 같은 얼굴 금지)',
+  new Set(FRIENDS.filter((f) => f.v !== 'mix').map((f) => f.v)).size === FRIENDS.length - 1);
 check('없는 얼굴로 캐릭터를 늘리지 않았다',
   FRIENDS.every((f) => f.v === 'mix' || faceSet.has(f.v)));
 check('친구마다 이름·설명·기본 말투·인사말이 다 있다',

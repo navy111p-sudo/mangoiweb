@@ -9,6 +9,11 @@ import { checkAndAwardBadges, BADGE_CATALOG } from './api-games';
 import { processAiCommand, executeAction, processStudentCommand } from './ai-command';
 import { recordJudgmentEvents, guessMisconception } from './api-judgment';  // 🧠 판단력 캡처(D3)
 import { checkAdminSession } from './auth-admin';
+import { explainCorrection } from './correction-reason';   // 🔤 «왜 고쳤는지» 결정론 설명
+import { aiFriendLevelSpec, aiFriendMeasureReply, aiFriendShortenHint,
+         aiFriendTrimSentences, aiFriendNormalizeLevel,
+         AI_FRIEND_DEFAULT_LEVEL } from './ai-friend-level';   // 🎚 눈높이(레벨) 정본
+import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { parseJsonBody } from './api-util';
 import type { MangoEnv } from './api-mango';
 
@@ -40,10 +45,10 @@ export async function handleAiApi(
       const prompt = `You are Mango, a friendly English writing tutor for a Korean student at CEFR level ${level}. The student wrote the following text. Your job:
 1. Provide a corrected version (preserve student's meaning).
 2. Provide a numeric score 0-100 for overall quality.
-3. List 2-5 specific issues found, each with: original phrase, suggested phrase, brief reason (in Korean).
+3. List 2-5 specific issues found, each with: original phrase, suggested phrase, and a REQUIRED brief reason IN KOREAN (one short sentence explaining WHY, e.g. tense, article, preposition, word order). Never leave "reason" empty.
 4. Provide one encouraging tip in Korean (1-2 sentences).
 5. Reply to the CONTENT of the student's writing like a pen-pal friend, in English appropriate for ${level} level (1-2 short sentences, warm, may end with a small question).
-6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" must be a short Korean sentence. If nothing is worth upgrading, use an empty list.
+6. Suggest 1-3 vocabulary upgrades: pick a plain word or phrase the student ACTUALLY WROTE and offer a more natural / more advanced English word for CEFR ${level} (e.g. "thing you own" -> "property", "bad guy who steals" -> "thief"). "from" MUST appear in the student's text exactly. "why" is REQUIRED and must be a short Korean sentence saying WHY the new word is better (nuance, register, precision) — an item with an empty "why" is DISCARDED, so never leave it blank. If nothing is worth upgrading, use an empty list.
 
 Respond in this strict JSON format only, no markdown:
 {
@@ -106,24 +111,22 @@ Student text: """${text}"""`;
       //     ① 이유가 비면 원본/교정 형태를 보고 규칙 기반으로 최소한의 설명을 채운다
       //     ② 그래도 못 채우면 그 항목은 아예 내보내지 않는다(빈 "💡" 만 뜨는 것보다 낫다)
       //   문구는 학생 대상이므로 '틀렸다'가 아니라 '이렇게 하면 더 자연스럽다' 톤을 지킨다.
-      const _guessReason = (orig: string, sug: string): string => {
-        const o = orig.trim().toLowerCase(), s = sug.trim().toLowerCase();
-        if (!o || !s) return '';
-        const PREP = ['in','on','at','to','for','with','about','of','from','by','into','over'];
-        if (PREP.includes(o) && PREP.includes(s)) return `이 표현에는 '${sug.trim()}'가 함께 쓰이는 게 더 자연스러워요. 짝지어 외워 두면 좋아요.`;
-        if (o.replace(/[^a-z]/g, '') === s.replace(/[^a-z]/g, '')) return '철자·대소문자만 다듬었어요. 뜻은 그대로예요.';
-        if (/^(a|an|the)$/.test(o) || /^(a|an|the)$/.test(s)) return '관사를 다듬었어요. 셀 수 있는 명사인지, 이미 아는 대상인지에 따라 달라져요.';
-        if (/(ed|ing|s)$/.test(o) && o.replace(/(ed|ing|s)$/, '') === s.replace(/(ed|ing|s)$/, '')) return '시제·수 형태를 문장에 맞게 맞췄어요.';
-        if (s.split(/\s+/).length > o.split(/\s+/).length) return '조금 더 자연스럽게 읽히도록 표현을 보탰어요.';
-        return '더 자연스러운 표현으로 바꿨어요.';
-      };
+      /* 🔤 [2026-08-31] «왜 고쳤는지» 는 프롬프트에 기대지 않는다.
+         운영 D1 실측: 최근 8건의 교정 **21건 전부** 이유가 폴백 일반 문구였다 —
+         즉 모델이 reason 을 매번 비워 보낸다. 학생은 «무엇을» 만 보고 «왜» 는 못 배웠다.
+         정본은 `src/correction-reason.ts` 의 explainCorrection(원문→교정 낱말 diff 분류).
+         ⛔ 분류가 안 되면 null 을 돌려주고, 그때만 일반 문구를 쓴다 — 지어내지 않는다. */
+      const _guessReason = (orig: string, sug: string): string =>
+        explainCorrection(orig, sug) || '더 자연스러운 표현으로 바꿨어요.';
       const issues = (Array.isArray(parsed.issues) ? parsed.issues : [])
         .slice(0, 8)
         .map((it: any) => {
           const original = String(it?.original || '').trim();
           const suggested = String(it?.suggested || '').trim();
           let reason = String(it?.reason || '').trim();
-          if (!reason) reason = _guessReason(original, suggested);
+          /* ⚠️ 모델 이유는 «한국어로 6자 이상» 일 때만 씁니다 — 빈 값·영어 한 낱말이 그대로
+             학생 화면에 나가던 것을 막습니다. 그 밖에는 결정론 설명(explainCorrection). */
+          if (!/[가-힣]/.test(reason) || reason.length < 6) reason = _guessReason(original, suggested);
           return { original, suggested, reason };
         })
         .filter((it: any) => it.original && it.suggested && it.reason);
@@ -135,18 +138,29 @@ Student text: """${text}"""`;
       //      그러면 학생 화면에 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다 →
       //      from 이 실제 원문에 있는 경우만 통과시킨다(없으면 그 항목을 버린다).
       //   ⚠️ to 는 화면에 «따라 쓸 영어» 로 나가므로 한글·한자가 섞이면 안 된다.
+      /* 🔤 [2026-08-31] why 가 비면 **그 항목을 아예 내보내지 않는다**(사장님 결정 — A안).
+         운영 D1 실측: 이 기능이 나간 뒤 실제로 나온 업그레이드 1건의 why 가
+         **서버 폴백 문구 그대로**였다(「더 자연스럽고 어른스러운 표현이에요」) — 즉 모델이
+         why 를 비워 보내고 서버가 채우고 있었다. 교정 이유(reason)가 21/21 폴백이던 것과 같은 패턴.
+         ⛔ 어휘 «왜» 는 의미 판단이라 교정 이유처럼 결정론으로 만들 수 없다
+            (`special → memorable` 이 왜 나은지는 낱말 diff 로 셀 수 없다).
+            그래서 지어내는 대신 **버립니다** — 같은 화면의 교정 이유(issues)가 이미 그 규칙이다.
+         ⚠️ 그래서 업그레이드는 «가끔 0건» 이 정상입니다. 화면이 비었다고 고장이 아닙니다. */
       const _lowText = text.toLowerCase();
       const upgrades = (Array.isArray(parsed.upgrades) ? parsed.upgrades : [])
         .slice(0, 6)
         .map((u: any) => ({
           from: String(u?.from || '').trim().slice(0, 60),
           to: String(u?.to || '').trim().slice(0, 60),
-          why: String(u?.why || '').trim().slice(0, 160) || '더 자연스럽고 어른스러운 표현이에요.',
+          why: String(u?.why || '').trim().slice(0, 160),
         }))
         .filter((u: any) =>
           u.from && u.to &&
           u.from.toLowerCase() !== u.to.toLowerCase() &&
           /^[A-Za-z][A-Za-z' -]{0,59}$/.test(u.to) &&
+          // ⚠️ 이유는 «한국어로 6자 이상» 일 때만 인정한다(issues 와 같은 기준).
+          //    빈 값·영어 한 낱말이 그대로 학생 화면에 나가던 것을 막는다.
+          /[가-힣]/.test(u.why) && u.why.length >= 6 &&
           _lowText.includes(u.from.toLowerCase()))
         .slice(0, 3);
 
@@ -566,7 +580,10 @@ Student text: """${text}"""`;
       const b: any = await request.json().catch(() => ({}));
       const uid = String(b.uid || '').trim();
       const msg = String(b.msg || '').trim();
-      const level = String(b.level || 'A2').trim();
+      /* 🪜 여덟 칸으로 넓히면서, 학생 브라우저에 남아 있는 옛 키(A1…C1)도 그대로 받습니다.
+         ⛔ 정규화를 빼면 옛 값이 «모르는 값» 이 되어 조용히 기본값으로 떨어집니다 —
+            학생이 고른 레벨이 리셋된 것처럼 보입니다. */
+      const level = aiFriendNormalizeLevel(b.level);
       const persona = String(b.persona || 'friendly').trim(); // friendly | playful | serious | tutor
       /* 🗺 (2026-07-29 학생 제보) "영화 주제로 들어왔는데 처음엔 동물 얘기를 물어봤어요".
          지금까지 주제 카드는 영어 문장 한 줄을 대신 보내주는 게 전부였고, 그 다음 턴부터는
@@ -591,14 +608,21 @@ Student text: """${text}"""`;
       ]);
       const history = (recent.results || []).reverse();
 
+      /* 🧑 이름은 학생이 고른다(Emma·Jake·Lily·Noah) — 예전에는 네 갈래가 전부 "named Mango" 라,
+         화면이 "Hi! I'm Lily." 라고 인사해 놓고 학생이 이름을 물으면 AI 가 다른 이름을 댔다
+         (2026-08-31 사장님 제보). ⛔ 화면이 보낸 문자열을 그대로 넣지 말 것 — 정본 표를 거친다. */
+      const friendName = resolveFriendName(b.friend);
       const personaMap: any = {
-        friendly: 'a warm, cheerful mango-shaped English friend named Mango who loves cheering kids on',
-        playful: 'a silly, joke-loving mango buddy named Mango who makes English feel like a game',
-        serious: 'a calm, kind English study partner named Mango who explains things clearly',
-        tutor: 'a supportive English tutor named Mango who gently corrects mistakes and celebrates progress',
+        friendly: `a warm, cheerful English friend named ${friendName} who loves cheering kids on`,
+        playful: `a silly, joke-loving English buddy named ${friendName} who makes English feel like a game`,
+        serious: `a calm, kind English study partner named ${friendName} who explains things clearly`,
+        tutor: `a supportive English tutor named ${friendName} who gently corrects mistakes and celebrates progress`,
       };
       // 🎓 개인화(26-07-21) — 그 학생의 이름·교재·약점 단어를 아는 친구 (웜업 엔진과 동일 데이터 재사용).
       //    실패하면 조용히 일반 친구로 동작 — 채팅 흐름에 절대 영향 금지.
+      /* 🎚 눈높이 규격 — 이 아래의 프롬프트·검사가 전부 이 하나를 봅니다(정본 src/ai-friend-level.ts).
+         ⚠️ 여기서 만들어야 합니다 — 아래 stuCtx(약점 단어)가 lvSpec.plain 을 읽습니다. */
+      const lvSpec = aiFriendLevelSpec(level);
       let stuCtx = '';
       try {
         const sname = String(st?.english_name || st?.korean_name || '').trim().slice(0, 40);
@@ -607,7 +631,7 @@ Student text: """${text}"""`;
         const parts: string[] = [];
         if (sname) parts.push(`Their name is "${sname}" — greet or cheer them by name sometimes.`);
         if (textbook) parts.push(`They study the textbook "${textbook}" — occasionally relate the chat to what they learn there.`);
-        if (weak.length) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
+        if (weak.length && !lvSpec.plain) parts.push(`Words they recently got wrong in games/quizzes: ${weak.join(', ')}. Once in a while, weave ONE of these words naturally into your reply or question (never quiz the whole list at once). Cheer loudly when they use one correctly.`);
         if (parts.length) stuCtx = `\nAbout THIS student (use naturally in conversation — never recite this list):\n- ${parts.join('\n- ')}`;
       } catch { /* 개인화 실패 무시 */ }
 
@@ -616,17 +640,24 @@ Student text: """${text}"""`;
       const topicCtx = topic
         ? `\nThe student chose the topic "${topic}". Stay on THIS topic for the whole chat — every question you ask must be about "${topic}". Do NOT switch to another subject on your own. (If the student clearly starts a different subject, follow them.)`
         : '';
+      /* 🎚 기초 단계(A1·A2)에서는 «길이를 늘리는 규칙» 을 끕니다.
+         재미있는 사실 한 줄이 붙는 순간 3~5단어 문장은 지킬 수 없습니다 — 실측된 45단어짜리
+         A1 답변이 정확히 그 모양이었습니다(칭찬+사실+설명+질문). 약점 단어 끼워 넣기도 같은 이유로
+         위 stuCtx 에서 함께 껐습니다. ⛔ 대신 «오늘의 단어» 는 남깁니다 — 그건 학생이 쓰면
+         포인트를 받는 퀘스트라, 빼면 기초 학생만 그 퀘스트를 못 깨게 됩니다. */
+      const funFactRule = lvSpec.plain ? ''
+        : '- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.\n';
       const system = `You are ${personaMap[persona] || personaMap.friendly}. You chat with a young Korean student at CEFR level ${level}.${stuCtx}${topicCtx}
 Rules:
-- Reply in English matched to ${level} (A1 = very short simple sentences with easy words; C1 = natural and fluent).
-- Keep replies 1-3 short sentences, then ask exactly ONE fun follow-up question so the student answers again.
+- Your name is ${friendName}. If the student asks your name, say "${friendName}" — never invent a different name.
+- LEVEL — this is the MOST IMPORTANT rule. Obey it even if it means dropping something else you wanted to say. ${lvSpec.rule}
+- Always finish with exactly ONE short follow-up question so the student answers again. That question is counted inside the sentence limit above.
 - When the student writes in English, start with a short cheer like "Nice sentence!" or "Great try!".
 - Use 1-2 fun emojis per reply. Kids love them.
 - If the student writes Korean, warmly invite them to try English and give one simple example sentence they can copy.
 - If you spot a grammar or spelling mistake, add ONE short Korean tip at the very end in exactly this format: (💡 ~가 더 자연스러워요)
 - The Korean tip must be written ONLY in Hangul. NEVER use Chinese characters (한자) or Japanese anywhere in your reply.
-- Sprinkle in tiny fun facts kids enjoy when it fits — but the fact must be about whatever you are BOTH talking about right now. Never drag in a new subject just to share a fact.
-- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
+${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Use it naturally sometimes, and cheer loudly if the student uses it.
 - NEVER repeat a reply you already gave. Every reply must be new — new words, a new question.
 - A short answer is a GOOD answer. "Yes.", "Movies!", "I like it." are complete — just reply happily and keep the chat going. Only ask them to repeat when the message truly breaks off mid-word ("I", "and my"), and NEVER ask twice in a row: if your last reply already asked them to repeat, answer whatever you did understand this time.
 - If the student asks you to slow down, repeat, or speak more simply (in English or Korean), FIRST say yes to that request and then do it — use shorter, easier sentences right away. Never ignore the request and carry on with your own topic.
@@ -707,6 +738,45 @@ Rules:
       }
       // 🈚 한자 섞임 정리 — 프롬프트 지시만으로는 모델이 가끔 어겨서, 저장·응답 전에 결정론적으로 거른다.
       reply = aiFriendStripHanzi(reply) || reply;
+
+      /* 🎚 눈높이 강제 (2026-08-31) — 「지시만으로는 안 지켜진다」의 그 자리입니다.
+         만든 답을 실제로 세어 보고 ① 넘치면 한 번 더 뽑고 ② 그래도 넘치면 문장 «수» 만 줄입니다.
+         ⛔ 문장 «안» 의 단어는 자르지 마세요 — 아이가 그대로 따라 읽는 문장이라 깨진 영어를 배웁니다.
+         ⛔ 다시 뽑은 것을 무조건 받지 마세요 — 빈 답이나 더 긴 답으로 바꾸면 고치려던 것이 나빠집니다. */
+      const lvBefore = aiFriendMeasureReply(reply, level);
+      if (!lvBefore.ok) {
+        if (usedModel) {
+          try {
+            const shorter: any = await env.AI.run(usedModel, {
+              messages: messages.concat([
+                { role: 'assistant', content: reply },
+                { role: 'user', content: aiFriendShortenHint(reply, level) },
+              ]),
+              max_tokens: 160, temperature: 0.4,
+            });
+            const st2 = aiFriendStripHanzi(String((shorter && (shorter.response || shorter.result)) || '').trim());
+            const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
+            // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
+            //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
+            if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
+              reply = st2;
+            }
+          } catch (e: any) {
+            console.error('[chat-friend] level shorten retry failed:', e?.message || e);
+          }
+        }
+        reply = aiFriendTrimSentences(reply, level) || reply;
+        const lvAfter = aiFriendMeasureReply(reply, level);
+        if (!lvAfter.ok) {
+          /* 한 문장이 여전히 길거나 꼴이 깨져 있을 수 있다 — 낱말을 자르거나 문장을 «고쳐 쓰지» 는
+             않기 때문이다(아이가 그대로 따라 읽는 문장이라 코드가 지어내면 안 된다).
+             ⛔ 조용히 넘기지 마세요. 이 줄이 없었다면 「Dog is big?」 이 화면까지 갔는지조차 몰랐습니다. */
+          console.error('[chat-friend] level ' + level + ' not clean: '
+            + lvAfter.sentences + '/' + lvAfter.maxSentences + ' sentences, worst '
+            + lvAfter.worstWords + '/' + lvAfter.hardMaxWordsPerSentence + ' words'
+            + (lvAfter.broken.length ? ', broken questions: ' + JSON.stringify(lvAfter.broken) : ''));
+        }
+      }
 
       // ⚠️ 이 저장은 반드시 기다린다 — 바로 아래 gam 스냅샷("오늘 몇 번째 대화")이
       //   이 INSERT 가 끝난 뒤의 개수를 세어야 정확하다. 백그라운드로 미루면 그 숫자가

@@ -562,7 +562,7 @@
       { ko: '🍕 내가 좋아하는 음식', en: '🍕 My favorite food', starter: 'My favorite food is ' },
       { ko: '🌤️ 오늘 하루', en: '🌤️ My day today', starter: 'Today I ' },
       { ko: '👨‍👩‍👧 우리 가족', en: '👨‍👩‍👧 My family', starter: 'My family ' },
-      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have a ' },
+      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have ', ph: '예) a puppy · two cats' },
       { ko: '✈️ 가고 싶은 나라', en: '✈️ A country I want to visit', starter: 'I want to visit ' },
       { ko: '🎮 좋아하는 게임', en: '🎮 My favorite game', starter: 'My favorite game is ' },
       { ko: '📚 학교에서 있었던 일', en: '📚 Something at school', starter: 'At school, ' },
@@ -574,6 +574,31 @@
       { ko: '🎬 재미있게 본 영화', en: '🎬 A movie I enjoyed', starter: 'I watched a movie called ' },
       { ko: '💛 나의 친한 친구', en: '💛 My best friend', starter: 'My best friend is ' },
       { ko: '🚀 미래의 나', en: '🚀 Me in the future', starter: 'In the future, I will ' },
+      /* ➕ (2026-08-31 사장님 지시) 글감 20개 추가 — 15 → 35.
+         ⚠️ 이모지는 Unicode 12 이하만(Win10 두부 방지, CLAUDE.md 1-4).
+         ⚠️ starter 는 «학생이 이어 쓸» 문장 시작이라 완성 문장이 아니어도 되지만,
+            브레인스토밍 첫 질문이 이 문장을 그대로 쓰므로(goThemeFromTopic)
+            뒤에 낱말이 자연스럽게 붙는 형태 + 끝에 공백 하나로 끝나야 한다. */
+      { ko: '🐱 우리 집 반려동물', en: '🐱 My pet', starter: 'My pet is ' },
+      { ko: '🏫 우리 학교', en: '🏫 My school', starter: 'My school is ' },
+      { ko: '👩‍🏫 좋아하는 선생님', en: '👩‍🏫 My favorite teacher', starter: 'My favorite teacher is ' },
+      { ko: '📖 재미있게 읽은 책', en: '📖 A book I enjoyed', starter: 'I read a book about ' },
+      { ko: '🎵 좋아하는 노래', en: '🎵 My favorite song', starter: 'My favorite song is ' },
+      { ko: '🍜 엄마가 해주시는 음식', en: '🍜 Food my mom cooks', starter: 'My mom cooks ' },
+      { ko: '🧸 내가 아끼는 물건', en: '🧸 My treasure', starter: 'My favorite thing is ' },
+      { ko: '🌧️ 비 오는 날', en: '🌧️ On a rainy day', starter: 'On a rainy day, I ' },
+      { ko: '❄️ 겨울에 하고 싶은 것', en: '❄️ What I want to do in winter', starter: 'In winter, I want to ' },
+      { ko: '🚲 지난 주말에 한 일', en: '🚲 What I did last weekend', starter: 'Last weekend, I ' },
+      { ko: '🎨 내가 잘하는 것', en: '🎨 What I am good at', starter: 'I am good at ' },
+      { ko: '😀 나를 웃게 하는 것', en: '😀 What makes me smile', starter: 'It makes me happy when ' },
+      { ko: '🧑‍🚀 커서 되고 싶은 것', en: '🧑‍🚀 What I want to be', starter: 'When I grow up, I want to be ' },
+      { ko: '🏝️ 무인도에 가져갈 것', en: '🏝️ What I would take to an island', starter: 'I would take ' },
+      { ko: '🎁 받고 싶은 선물', en: '🎁 A gift I want', starter: 'I really want ' },
+      { ko: '🕹️ 친구와 하는 놀이', en: '🕹️ What I play with friends', starter: 'My friends and I like to ' },
+      { ko: '🍳 내가 만들 수 있는 요리', en: '🍳 Food I can make', starter: 'I can make ' },
+      { ko: '🌏 배우고 싶은 것', en: '🌏 What I want to learn', starter: 'I want to learn ' },
+      { ko: '🐣 어렸을 때 이야기', en: '🐣 When I was little', starter: 'When I was little, I ' },
+      { ko: '🙏 고마운 사람', en: '🙏 Someone I thank', starter: 'I want to say thank you to ' },
     ];
     function shuffleTopics() {
       const row = document.getElementById('topicRow');
@@ -701,6 +726,31 @@
       { img:'soccer',      bg:'#1f6b34', ko:'축구 경기! 우리 팀이 이길 수 있을까?', en:'The big game! Can your team win?', starter:'Today is the big soccer game. ' },
       { img:'birthday',    bg:'#a03a6b', ko:'생일 파티! 소원을 빌어볼까?', en:'A birthday party! What will you wish for?', starter:'It is my birthday party today. ' },
       { img:'haunted',     bg:'#3b2a5c', ko:'유령의 집! 용감하게 들어가 볼까?', en:'A haunted house! Are you brave enough to go in?', starter:'I walked into the spooky haunted house. ' },
+      /* ➕ (2026-08-31 사장님 지시) 그림 20장 추가 — 12 → 32.
+         이미지는 /img/write-scenes/<img>.webp (Higgsfield 생성 · 1440x611 webp, 기존 12장과 같은 규격).
+         ⚠️ starter 는 «완성된 한 문장» 이어야 합니다 — 브레인스토밍의 서론 첫 줄로 그대로 들어갑니다
+            (goThemeFromScene 의 open). 미완성 문장을 넣으면 뼈대 첫 줄이 깨집니다.
+         ⚠️ bg 는 사진이 뜨기 전 깔리는 대표색입니다(흰 화면 번쩍임 방지). 사진의 어두운 편 색으로. */
+      { img:'farm',        bg:'#5b7a2e', ko:'농장의 아침! 어떤 동물이 있을까?', en:'Morning at the farm! Which animals are there?', starter:'This morning, I visited a big farm. ' },
+      { img:'zoo',         bg:'#2f6b4f', ko:'동물원 나들이! 제일 보고 싶은 동물은?', en:'A day at the zoo! Which animal do you want to see most?', starter:'Today I went to the zoo with my class. ' },
+      { img:'bakery',      bg:'#8a5a2b', ko:'빵집에 왔어요! 무엇을 고를까?', en:'At the bakery! What will you choose?', starter:'The bakery smells so good today. ' },
+      { img:'library',     bg:'#4a5a86', ko:'도서관! 어떤 책을 읽을까?', en:'At the library! Which book will you read?', starter:'I found a great book at the library. ' },
+      { img:'playground',  bg:'#3f7fae', ko:'놀이터! 친구들과 무엇을 하고 놀까?', en:'The playground! What will you play with your friends?', starter:'After school, I ran to the playground. ' },
+      { img:'snow',        bg:'#5f7fa6', ko:'눈 오는 날! 무엇을 만들어 볼까?', en:'A snowy day! What will you build?', starter:'It snowed all night, so we went outside. ' },
+      { img:'rain',        bg:'#3c5a70', ko:'비 오는 날! 우산 쓰고 어디 갈까?', en:'A rainy day! Where will you go with your umbrella?', starter:'It was raining, so I took my umbrella. ' },
+      { img:'market',      bg:'#8a6a2f', ko:'시장 구경! 무엇을 살까?', en:'At the market! What will you buy?', starter:'My mom and I went to the market. ' },
+      { img:'camping',     bg:'#22304a', ko:'캠핑장의 밤! 모닥불 앞에서 무슨 이야기를 할까?', en:'A night at the campsite! What story will you tell?', starter:'We put up our tent before the sun went down. ' },
+      { img:'train',       bg:'#3a5f7a', ko:'기차 여행! 창밖에 무엇이 보일까?', en:'A train trip! What can you see out the window?', starter:'I am on a train, and the window is full of green hills. ' },
+      { img:'airport',     bg:'#3f6d9c', ko:'공항에 왔어요! 어디로 떠날까?', en:'At the airport! Where are you flying to?', starter:'I am at the airport with my family. ' },
+      { img:'clinic',      bg:'#4f7f8a', ko:'병원에 갔어요! 의사 선생님이 뭐라고 하실까?', en:'A visit to the clinic! What will the doctor say?', starter:'I went to see the doctor today. ' },
+      { img:'firestation', bg:'#8a3a2f', ko:'소방서 견학! 소방차를 타 볼까?', en:'A visit to the fire station! Will you ride the fire truck?', starter:'Our class visited the fire station. ' },
+      { img:'aquarium',    bg:'#1f5f86', ko:'아쿠아리움! 어떤 물고기를 만났을까?', en:'At the aquarium! Which fish did you meet?', starter:'Inside the aquarium tunnel, fish swam over my head. ' },
+      { img:'musicroom',   bg:'#6b4a86', ko:'음악실! 어떤 악기를 연주해 볼까?', en:'The music room! Which instrument will you play?', starter:'In the music room, I picked up an instrument. ' },
+      { img:'artroom',     bg:'#8a5a6b', ko:'미술 시간! 무엇을 그릴까?', en:'Art class! What will you draw?', starter:'In art class today, I started a new picture. ' },
+      { img:'sportsday',   bg:'#3f7a4a', ko:'운동회 날! 우리 팀이 이길 수 있을까?', en:'Sports day! Can your team win?', starter:'Today is sports day at my school. ' },
+      { img:'picnic',      bg:'#5f8a3f', ko:'공원 소풍! 도시락에 무엇이 들었을까?', en:'A picnic in the park! What is in your lunch box?', starter:'We spread our blanket under the blossom trees. ' },
+      { img:'treehouse',   bg:'#4a6b2f', ko:'나무 위 오두막! 여기서 무엇을 할까?', en:'A treehouse! What will you do up there?', starter:'I climbed the rope ladder up to my treehouse. ' },
+      { img:'balloon',     bg:'#7a5f9c', ko:'열기구를 타고 하늘로! 아래에 무엇이 보일까?', en:'Up in a hot air balloon! What can you see below?', starter:'The hot air balloon lifted me above the hills. ' },
     ];
     let _picIdx = -1;
     function renderPic(idx) {
@@ -1464,7 +1514,7 @@
                srcKo: '오늘의 글감', srcEn: "Today's topic",
                q: { what: { ko: '💡 ' + name + ' — 한 문장으로 써 보세요',
                             en: '💡 ' + nameEn + ' — say it in one sentence',
-                            starter: t.starter, ph: t.starter + '…' } } };
+                            starter: t.starter, ph: t.ph || (t.starter + '…') } } };
     }
     const GO_KEY = 'mangoi_aiwrite_go_v1';
     let _goTheme = null;       // 고른 주제 (없으면 질문 안 보임)
@@ -1561,7 +1611,9 @@
       let line;
       if (!stTrim) {
         line = ans;
-      } else if (low.indexOf(stTrim.toLowerCase()) === 0) {
+      } else if (low === stTrim.toLowerCase() || low.indexOf(stTrim.toLowerCase() + ' ') === 0) {
+        /* ⚠️ «낱말 경계» 로 본다 — 부분문자열로 보면 시작 문장 「I 」 가 답 「in my house」 와
+           맞는 것으로 판정되어 주어가 통째로 사라진다(「in my house.」). 2026-08-31 전수검사에서 잡음. */
         line = ans;
       } else if (/^[A-Z]/.test(ans) && /[.!?]$/.test(ans)) {
         line = ans;
@@ -1581,6 +1633,8 @@
         line = st + ans;
       }
       line = line.trim();
+      // 학생이 소문자로 적은 답을 그대로 쓸 때가 있다(「my school is big」) — 문장 첫 글자는 대문자로
+      line = line.replace(/^[a-z]/, c => c.toUpperCase());
       if (!/[.!?]$/.test(line)) line += '.';
       return { en: line, memo: '' };
     }

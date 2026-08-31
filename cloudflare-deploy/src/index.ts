@@ -22,6 +22,7 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
+import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -49,6 +50,7 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
+import { replyRejectReason } from './reply-sanity';                    // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -2548,6 +2550,25 @@ const worker = {
         }
       }
 
+      /* 🪞 카페24 → 망고아이 시간표 미러 «좁은 창» (오늘~+2일) — 2026-08-31 사장님 지시
+         카페24 예약은 당일에도 채워진다(실측: Ana 의 8/31 11건 대 9월 이후 4건).
+         하루 한 번만 돌면 그날 오후에 들어온 수업을 놓치므로 15분 트리거를 함께 탄다.
+         ⛔ 새 cron 을 못 만든다 — 계정 한도 5/5 가 이미 꽉 찼다(wrangler.toml).
+         ⛔ hour 비교를 쓰지 않는다. isWatchdogTick 하나로만 가른다.
+         ✅ 끄는 스위치는 c24_mirror_config.mode='off' 하나 — 그러면 카페24를 부르지도 않는다.
+         ⚠️ runMirrorSweep 은 스스로 예외를 삼킨다(감시견을 같이 죽이면 안 된다). */
+      if (isWatchdogTick) {
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 2, label: 'watchdog' });
+          if (!mr.skipped) console.log('[c24-mirror] watchdog', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] watchdog error', err);
+        }
+      }
+
       // ── UTC 18:00 — retention purge
       if (cronIs('0 18 * * *')) {
         /* 🌙 (2026-08-31) 이 블록은 «하나의 순차 체인» 이라, CPU·subrequest 한도를 넘기면
@@ -2576,6 +2597,20 @@ const worker = {
           console.error('[cafe24-sync] nightly error', err);
         }
         await markNightlyStep(env as any, _nightly, 'cafe24-sync');
+
+        /* 🪞 카페24 → 망고아이 시간표 미러 «넓은 창» (오늘~+14일)
+           위 좁은 창(15분)이 당일치를 따라잡고, 여기서 멀리 있는 예약까지 맞춘다.
+           동기화 «뒤» 에 두는 이유: 이 미러는 Neo4j 를 직접 읽지만, 학생 계정 확인은
+           D1(students_erp)을 보므로 그날 새로 들어온 학생이 먼저 채워져 있어야 한다. */
+        try {
+          const [{ runMirrorSweep }, { runCypher }] = await Promise.all([
+            import('./c24-mirror'), import('./teacher-match'),
+          ]);
+          const mr = await runMirrorSweep(env as any, runCypher as any, { days: 14, label: 'nightly' });
+          console.log('[c24-mirror] nightly', JSON.stringify(mr));
+        } catch (err) {
+          console.error('[c24-mirror] nightly error', err);
+        }
 
         // 🔍 결제 대사(장부 맞추기) — 동기화 직후 최신 데이터로 이중결제·수업연결 누락 점검.
         //   이상 발견 시에만 사장님 SMS (정상일 땐 조용).
@@ -3017,8 +3052,13 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
  *      _speechText() 의 동작이라, 거기를 고치면 이 프롬프트도 같이 고쳐야 한다.
  *   ⚠️ 프롬프트가 길어진 만큼 매 요청 토큰이 조금 늘어난다(체감 지연은 교재 조회 캐시로 상쇄).
  *      새 규칙은 «실제로 겪은 증상» 이 있을 때만 추가할 것. */
-const WARMUP_SYSTEM = [
-  "너는 망고아이의 AI 대화 친구 '망고(Mango)'야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.",
+/* 🧑 친구 이름은 학생이 고른다(Emma·Jake·Lily·Noah). 이 프롬프트는 그 이름을 «값» 으로 받는다 —
+   예전에는 '망고(Mango)' 로 하드코딩돼 있어서, 화면이 "Hi! I'm Lily." 라고 인사해 놓고
+   학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
+   ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
+const warmupSystem = (friendName: string) => [
+  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
+  `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
   "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
   "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
@@ -3032,18 +3072,36 @@ const WARMUP_SYSTEM = [
 const WARMUP_MAX_TURNS = 12;   // 저장할 최근 대화(사용자/AI) 최대 개수
 // 📊 대화 난이도 8단계(1 기초 ~ 8 최고) — 프론트 warmup.html 레벨 슬라이더와 1:1 대응.
 //    각 단계별 어휘·문법·문장 길이 가이드를 시스템 프롬프트에 주입해 AI가 눈높이를 맞춘다.
+/* 🪜 여덟 칸 — 화면 warmup.html 의 LEVEL_CATALOG, 그리고 AI 영어친구
+     (src/ai-friend-level.ts 의 AI_FRIEND_LEVELS)와 «같은 눈금» 이다.
+     이름·교재 Lv 구간의 정본은 판단력 훈련 judgment-level.ts 의 BAND_SPECS 이고,
+     단어 수는 여기가 정본이다 — 세 파일이 같은 말을 해야 한다(하니스가 대조).
+     ⛔ 눈금을 «한 칸 밀어» 쉽게 만들려고 하지 마세요. 2026-08-31 에 실제로 그렇게 했다가
+        되돌렸습니다 — 저장된 mangoi_warmup_level 이 그대로인 채 «뜻» 만 바뀌어
+        레벨 5 학생이 말없이 한 단계 쉬운 대화를 받고, 같은 밴드 이름(중급)을
+        판단력 훈련과 웜업이 서로 다른 단어 수로 부르게 됩니다.
+        낮은 단계를 쉽게 하는 길은 «길이» 가 아니라 «열린 질문을 없애는 것» 입니다(아래 1·2번).
+     ⚠️ 한국어 도움말은 «괄호 안» 이라고 못박는다 — 위 [언어] 규칙과 어긋나면 모델이 괄호 밖에
+        한국어를 쓰고, 그걸 영어 TTS 가 읽어 소리가 뭉개진다(레벨 1이 가장 자주 걸리는 자리다). */
 const WARMUP_LEVELS: Record<number, string> = {
-  // ⚠️ 한국어 도움말은 «괄호 안» 이라고 못박는다 — 위 [언어] 규칙과 어긋나면 모델이 괄호 밖에
-  //    한국어를 쓰고, 그걸 영어 TTS 가 읽어 소리가 뭉개진다(레벨 1이 가장 자주 걸리는 자리다).
-  1: "레벨 1(기초): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 학생이 어려워하면 더 쉽게 바꿔주고, 한국어 도움말이 필요하면 영어 문장 뒤 괄호 안에 짧게만 덧붙여.",
-  2: "레벨 2(초급): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘.",
-  3: "레벨 3(초급+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
-  4: "레벨 4(초중급): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
-  5: "레벨 5(중급): 다양한 시제와 이유·비교 표현을 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
-  6: "레벨 6(중상급): 조건·가정·의견 표현과 쉬운 관용구를 조금씩 섞어 자연스럽게 대화해줘.",
-  7: "레벨 7(상급): 원어민이 실제로 쓰는 구동사·연결어·표현을 활용해 좀 더 깊이 있는 후속 질문을 해줘.",
-  8: "레벨 8(최고): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
+  1: "레벨 1(첫걸음·A1): 아주 쉬운 기초 단어만 쓰고, 현재시제로 한 번에 3~5단어의 짧은 문장만 말해줘. 질문은 학생이 'Yes.' 'No.' 로 답할 수 있는 것만 해 — wh- 질문이나 'or' 질문은 하지 마. 학생이 어려워하면 더 쉽게 바꿔주고, 한국어 도움말이 필요하면 영어 문장 뒤 괄호 안에 짧게만 덧붙여.",
+  2: "레벨 2(기초·A2): 기초 일상 단어, 현재시제 위주로 5~7단어의 짧고 쉬운 문장으로 말해줘. 질문은 Yes/No 이거나, 고를 말이 질문 안에 들어 있는 양자택일로 해줘(학생이 네 말을 그대로 따라 답할 수 있게).",
+  3: "레벨 3(초급·A2+): 익숙한 일상 표현과 현재/현재진행 시제로 7~9단어 정도의 문장을 써줘.",
+  4: "레벨 4(초중급·B1): 과거시제와 and/but/because 같은 간단한 접속사를 섞어 9~12단어 문장으로 말해줘.",
+  5: "레벨 5(중급·B1+): 다양한 시제와 이유·비교 표현을 12~15단어 문장으로 쓰고, 필요하면 두 문장까지 자연스럽게 이어서 말해줘.",
+  6: "레벨 6(중고급·B2): 조건·가정·관계절과 쉬운 관용구를 조금씩 섞어 15~18단어 문장으로 자연스럽게 대화해줘.",
+  7: "레벨 7(고급·B2+): 원어민이 실제로 쓰는 구동사·연결어·관용표현을 활용해 18~22단어 문장으로 좀 더 깊이 있는 후속 질문을 해줘.",
+  8: "레벨 8(최상급·C1): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
 };
+
+
+/* 🧯 레벨별 «한 문장 단어 상한» — 무너진 출력 판정(replyIsSane)의 길이 안전망에만 쓴다.
+   ⚠️ AI 영어친구(src/ai-friend-level.ts 의 AI_FRIEND_LEVELS S1~S8)와 «같은 눈금» 이다.
+      여기서 import 하지 않는 이유는 위 WARMUP_LEVELS 문자열이 이미 그 숫자를 들고 있어서,
+      두 곳이 어긋나면 하니스가 문자열에서 읽어 대조하기 때문이다(reply_sanity_harness).
+   ⚠️ 이 값은 «버릴 기준» 이 아니다 — replyTooLongFor 가 두 배 + 6낱말로 넉넉히 잡는다.
+      문법을 지키다 한두 낱말 넘는 것을 버리면 안 된다(PR #626 「문법이 길이에 진다」). */
+const WARMUP_WORD_CAP: Record<number, number> = { 1: 5, 2: 7, 3: 9, 4: 12, 5: 15, 6: 18, 7: 22, 8: 0 };
 
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
  * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
@@ -3939,6 +3997,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
     //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
     const ctxKickoff = !!(body && body.kickoff);
+    // 🧑 학생이 고른 AI 친구 이름 — 정본 표를 거쳐 «아는 이름» 으로만 바꾼다(프롬프트 주입 차단).
+    //    「번갈아」는 화면이 «그 턴에 말할 사람» 을 보낸다. 안 보내면 예전처럼 'Mango'.
+    const ctxFriend = resolveFriendName(body && body.friend);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3973,7 +4034,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = WARMUP_SYSTEM;
+    let sys = warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;
@@ -4030,6 +4091,29 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
           aiText = (retryEmpty && (retryEmpty.response || retryEmpty.result || '')).toString().trim();
         } catch {}
+      }
+      /* 🧯 무너진 출력 차단 (2026-08-31 사장님 화면 실사고 — 1단계인데 200토큰짜리 낱말 죽이
+             그대로 나갔다. 「뜻」 버튼이 그 한국어 번역까지 나란히 그렸다).
+         여기까지 «출력을 보는 단계» 가 한 곳도 없었다 — 재시도 조건이 «비었나»·«직전과 같나» 둘뿐이라
+         모델이 무너지면 그게 학생 화면으로 직행했다. 판정 정본은 src/reply-sanity.ts.
+         ⚠️ 느슨한 쪽으로 실패한다 — 멀쩡한 답을 버리면 대화가 그 자리에서 끊기고, 그건 학생에게
+            깨진 문장 하나보다 나쁘다. 그래서 «누가 봐도 무너진» 것만 잡는다(거짓경보 0 을 하니스가 못 박는다).
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다. 아이가 따라 읽을 문장을 코드가 지어내면 안 된다. */
+      const sanityCap = WARMUP_WORD_CAP[ctxDifficulty] || 0;
+      let broke = aiText ? replyRejectReason(aiText, sanityCap) : '';
+      if (broke) {
+        /* ⚠️ 본문을 로그에 남기지 않는다 — 학생 이름·대화 내용이 섞입니다.
+           원인 추적에는 «무슨 이유로, 얼마나 길게» 면 충분합니다. */
+        console.warn('[warmup] broken reply:', broke, 'len=' + aiText.length, 'lv=' + ctxDifficulty);
+        try {
+          /* ⚠️ 온도를 «낮추지» 않는다 — 같은 프롬프트에서 낮은 온도는 오히려 같은 방향으로
+             다시 무너지기 쉽습니다. 이 파일의 다른 재시도도 올리는 쪽입니다(빈 응답 0.8·반복 0.95). */
+          const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
+          const freshText = (fresh && (fresh.response || fresh.result || '')).toString().trim();
+          // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
+          if (freshText && !replyRejectReason(freshText, sanityCap)) { aiText = freshText; broke = ''; }
+        } catch {}
+        if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
       }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
       if (aiText && warmupIsRepeat(aiText, history)) {
@@ -4222,6 +4306,17 @@ async function handleWarmupQuestions(request: Request, env: Env): Promise<Respon
       dbgErr = String(e?.message || e);
       console.error('[warmup-questions] AI error:', dbgErr);
     }
+
+    /* 🧯 무너진 질문 차단 (2026-08-31) — 웜업 대화와 «같은 사고» 가 여기서도 성립한다.
+       같은 모델·같은 온도로 만드는데 검증이 「5~200자 + ? 로 끝남」 뿐이라,
+       200자짜리 낱말 죽이 ? 로 끝나면 그대로 학생 화면의 질문 칩이 된다.
+       ⚠️ 길이 상한은 넘기지 않는다(0) — 이 칩은 «AI 가 물어볼 질문» 이라 레벨별 단어 수를
+          이미 프롬프트가 정하고, 여기서 또 자르면 멀쩡한 질문이 사라진다. 무너진 모양만 본다.
+       ✅ 전부 걸러져 비면 아래 WARMUP_FALLBACK_QUESTIONS 가 받아 준다(화면이 안 빈다). */
+    const brokenQs = questions.filter((q) => replyRejectReason(q));
+    if (brokenQs.length) console.warn('[warmup-questions] dropped', brokenQs.length, 'broken:',
+      brokenQs.map((q) => replyRejectReason(q)).join(','));
+    questions = questions.filter((q) => !replyRejectReason(q));
 
     // 반복 제거(기존 사용분과 정규화 비교) + 개수 보정
     const seen = new Set(recentQs.map(warmupNormSent));

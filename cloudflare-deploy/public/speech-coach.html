@@ -258,12 +258,52 @@
     .rec-btn { width: 64px; height: 64px; font-size: 22px; }
     .rec-status { font-size: 10.5px; margin-top: 8px; }
   }
+
+  /* ☰ AI 친구 고르기 (2026-08-31) — 이 화면엔 설정 UI 가 없어서 우상단 햄버거로 연다.
+     ⚠️ mango-i18n 의 홈/EN 칩은 이 화면에서 meta 로 꺼 두었으므로 그 자리가 비어 있다. */
+  #sc-friend-btn{position:fixed;top:12px;right:12px;z-index:99998;width:42px;height:42px;
+    display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
+    border-radius:12px;cursor:pointer;background:rgba(15,20,38,0.92);color:#ddd6fe;
+    border:1px solid rgba(167,139,250,0.45);box-shadow:0 6px 18px -6px rgba(0,0,0,.6)}
+  #sc-friend-btn:hover{background:rgba(139,92,246,0.3);color:#fff}
+  #sc-friend-menu{position:fixed;top:60px;right:12px;z-index:99998;width:214px;padding:11px;
+    border-radius:14px;background:rgba(15,20,38,0.97);border:1px solid rgba(167,139,250,0.4);
+    box-shadow:0 16px 40px -10px rgba(0,0,0,.75)}
+  /* 🔴 작성자 CSS 가 display 를 정하면 브라우저 기본 [hidden]{display:none} 을 이긴다 —
+        그래서 «숨겼는데 그대로 보이는» 사고가 난다. 여기서 못 박아 둔다. */
+  #sc-friend-menu[hidden]{display:none!important}
+  #sc-friend-menu .scf-title{font-size:11.5px;font-weight:800;color:#a5b4cf;margin:0 2px 8px}
+  #sc-friend-menu button{display:block;width:100%;margin-bottom:6px;padding:9px 10px;
+    font-family:inherit;font-size:13.5px;font-weight:800;text-align:left;cursor:pointer;
+    border-radius:10px;border:1px solid rgba(167,139,250,0.28);
+    background:rgba(139,92,246,0.10);color:#ddd6fe}
+  #sc-friend-menu button:hover{background:rgba(139,92,246,0.28);color:#fff}
+  #sc-friend-menu button.on{background:linear-gradient(135deg,#8b5cf6,#a78bfa);color:#150c2e;
+    border-color:#a78bfa}
 </style>
 <script src="/js/game-track.js?v=3" defer></script>
 <!-- 🎤 Azure 발음평가 공용 서비스 계층(EN/CN 공유) — SDK 로드·토큰·VAD 트리밍·과금 집계 -->
 <script src="/js/speech-azure.js?v=1" defer></script>
+<!-- 👩‍🏫 공용 아바타 모듈. ⛔ /css/mango-avatar.css 는 «싣지 마세요» —
+     이 화면은 아바타 크기·모양 CSS 를 이미 자기 <style> 안에 갖고 있고(150·260·118·92px),
+     공용 CSS 가 뒤에 오면 같은 명시도에서 이겨 카드 크기가 136px 로 줄어듭니다. -->
+<script src="/js/mango-avatar.js?v=16" defer></script>
 </head>
 <body>
+<!-- ☰ AI 친구 고르기 — 고르면 목소리와 얼굴이 함께 바뀐다.
+     ⛔ 이 아이콘 버튼에 data-ko/data-en 을 달지 말 것 — i18n 엔진이 textContent 를 통째로
+        갈아끼워 42px 상자에 문장이 들어앉는다. 설명은 title/aria 용 속성으로만 단다. -->
+<button id="sc-friend-btn" type="button" onclick="scToggleFriends(event)"
+        aria-haspopup="true" aria-expanded="false" aria-label="AI 친구 고르기"
+        title="AI 친구 고르기" data-ko-title="AI 친구 고르기" data-en-title="Choose your AI friend"
+        data-ko-aria="AI 친구 고르기" data-en-aria="Choose your AI friend">&#9776;</button>
+<div id="sc-friend-menu" hidden role="menu" aria-label="AI 친구">
+  <div class="scf-title">🎙️ <span data-ko="AI 친구 (목소리·얼굴)" data-en="AI friend (voice &amp; face)">AI 친구 (목소리·얼굴)</span></div>
+  <button type="button" role="menuitemradio" data-p="emma" onclick="scSetFriend('emma',true)">👩 Emma</button>
+  <button type="button" role="menuitemradio" data-p="lily" onclick="scSetFriend('lily',true)">👧 Lily</button>
+  <button type="button" role="menuitemradio" data-p="noah" onclick="scSetFriend('noah',true)">👦 Noah</button>
+  <button type="button" role="menuitemradio" data-p="jake" onclick="scSetFriend('jake',true)">🦸 Jake</button>
+</div>
 
 <!-- 🏠 자체 홈 버튼도 제거 (2026-08-04) — ← 바로 앞이 홈이라 같은 일을 하는 버튼이 둘이었다.
      .home-btn 스타일/숨김 규칙은 남겨 둔다(되살릴 때 이 자리에 <a class="home-btn" href="/"> 만 넣으면 됨). -->
@@ -367,8 +407,8 @@
     <div id="tavatar-ring">
       <canvas id="tavatar-canvas" width="320" height="400" aria-label="강사"></canvas>
       <video id="tavatar-video" muted loop playsinline preload="auto" disablepictureinpicture crossorigin="anonymous">
-        <source src="/img/teacher-avatar.webm" type="video/webm">
-        <source src="/img/teacher-avatar.mp4" type="video/mp4">
+        <!-- ⚠️ (2026-08-31) <source> 를 뺐습니다 — 캐릭터는 mango-avatar.js 가 항상 장착하므로
+             여기 적어 두면 JS 가 돌기 전에 teacher-avatar.webm 942KB 를 먼저 받기 시작합니다. -->
       </video>
     </div>
     <div id="tavatar-status">
@@ -754,6 +794,59 @@ window.scPlayNativeOnce = function(){
   try { speakTarget(); } catch(e){}
 };
 
+/* 🎙️ AI 친구 (2026-08-31) — 고르면 목소리(Aura-2 speaker)와 얼굴(아바타)이 함께 바뀐다.
+   ⚠️ 화자·얼굴 값은 warmup.html 의 VOICE_MODES · ai-friend.html 의 PEOPLE 과 «같아야» 한다.
+      같은 이름이 화면마다 다른 목소리로 말하면 그때부터 «화면마다 답이 다른» 사고가 시작된다.
+      감시(avatar_image_frames_harness)가 세 화면을 대조한다. */
+const SC_PEOPLE = {
+  emma: { speaker:'asteria', char:'emma', g:'female' },
+  jake: { speaker:'apollo',  char:'jake', g:'male'   },
+  lily: { speaker:'thalia',  char:'lily', g:'female' },
+  noah: { speaker:'aries',   char:'noah', g:'male'   },
+};
+let scFriend = (function(){
+  try { const v = localStorage.getItem('mangoi_speechcoach_friend'); return SC_PEOPLE[v] ? v : 'emma'; }
+  catch(e){ return 'emma'; }
+})();
+function scSpeaker(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).speaker; }
+function scGender(){ return (SC_PEOPLE[scFriend] || SC_PEOPLE.emma).g; }
+function scSyncFriendUI(){
+  const box = document.getElementById('sc-friend-menu');
+  if (box) box.querySelectorAll('button[data-p]').forEach(b => b.classList.toggle('on', b.dataset.p === scFriend));
+  try { window.MangoAvatar && MangoAvatar.setCharacter && MangoAvatar.setCharacter((SC_PEOPLE[scFriend]||SC_PEOPLE.emma).char); } catch(e){}
+}
+function scToggleFriends(e){
+  if (e) e.stopPropagation();
+  const m = document.getElementById('sc-friend-menu'), b = document.getElementById('sc-friend-btn');
+  if (!m) return;
+  m.hidden = !m.hidden;
+  if (b) b.setAttribute('aria-expanded', m.hidden ? 'false' : 'true');
+  if (!m.hidden) scSyncFriendUI();
+}
+function scSetFriend(p, announce){
+  if (!SC_PEOPLE[p]) p = 'emma';
+  const changed = (p !== scFriend);
+  scFriend = p;
+  try { localStorage.setItem('mangoi_speechcoach_friend', p); } catch(e){}
+  scSyncFriendUI();
+  const m = document.getElementById('sc-friend-menu'), b = document.getElementById('sc-friend-btn');
+  if (m) m.hidden = true;
+  if (b) b.setAttribute('aria-expanded', 'false');
+  // 고르자마자 그 친구가 자기 목소리로 인사 → 누구를 골랐는지 «귀로» 확인시켜 준다
+  // ⚠️ 이 화면의 낭독 함수 이름은 speakWord 다(speakText 는 없다 — 이름을 틀리면
+  //    try/catch 에 삼켜져 «인사가 조용히 안 나가는» 상태가 된다).
+  if (announce && changed) { try { speakWord("Hi! Let's practice together."); } catch(e){} }
+}
+// 바깥을 누르면 닫힌다 (메뉴 자신과 여는 버튼은 예외)
+document.addEventListener('click', function(ev){
+  const m = document.getElementById('sc-friend-menu');
+  if (!m || m.hidden) return;
+  if (ev.target.closest && (ev.target.closest('#sc-friend-menu') || ev.target.closest('#sc-friend-btn'))) return;
+  m.hidden = true;
+  const b = document.getElementById('sc-friend-btn'); if (b) b.setAttribute('aria-expanded','false');
+});
+document.addEventListener('DOMContentLoaded', scSyncFriendUI);
+
 let ttsAudio = null;
 const ttsCache = {};
 function detectTtsLang(t) {
@@ -766,7 +859,15 @@ function speakFallback(t, lang, _retried) {
     const u = new SpeechSynthesisUtterance(t);
     const voices = window.speechSynthesis.getVoices();
     const pref = lang === 'ko' ? 'ko' : lang === 'zh' ? 'zh' : 'en';
-    const v = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(pref));
+    const cand = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(pref));
+    // 🎙 고른 친구의 성별에 맞는 브라우저 보이스를 먼저 찾는다(없으면 종전대로 첫 번째).
+    const wantMale = (pref === 'en' && scGender() === 'male');
+    const nameHit = (v, re) => re.test((v.name || '').toLowerCase());
+    const MALE_RE = /\b(male|guy|david|mark|george|ryan|james|eric|liam|noah|daniel|brian|tom|christopher)\b/;
+    const FEMALE_RE = /\b(female|woman|zira|hazel|aria|jenny|emma|libby|michelle|susan|linda|catherine)\b/;
+    const v = (pref === 'en'
+        ? cand.find(x => nameHit(x, wantMale ? MALE_RE : FEMALE_RE))
+        : null) || cand[0];
     // 🔇 (2026-07-27 사장님 신고 "안내 후 이상한 한국말") 목표 언어 보이스가 없으면 말하지 않는다.
     //    없는 채로 speak() 하면 윈도우가 기본(한국어) 보이스로 영어 문장을 "아이 러브…" 식으로
     //    읽어버려, 한국어 안내 직후 이상한 한국말처럼 들리는 사고가 났다(한국어 Win10 은 첫
@@ -893,31 +994,64 @@ function renderWordMap(words) {
   };
 }
 
+/* 🎙️ «목소리가 계속 변해» — 고른 친구를 그대로 두었는데 문장마다 다른 사람이 읽는다
+   (2026-08-31 사장님 제보, 웜업에서 시작). 화면이 화자를 바꾼 게 아니라 «소리를 만들어
+   오는 길» 이 문장마다 달라지는 것이고, 셋 다 에러 없이 조용히 일어난다.
+     ① 서버 Aura-2 가 «한 번» 흔들리면 그 문장만 Aura-1 이 읽는다(Noah aries → orion)
+     ② 요청이 한 번 실패하면 곧바로 «기기 목소리»(speakFallback)로 읽었다 — 원어민 음성과
+        전혀 달라 제일 크게 들린다
+     ③ 그렇게 받은 «남의 목소리» 를 요청 화자 키로 캐시하면 그 문장은 세션 내내 그 소리로
+        굳는다(서버 R2 캐시가 «실제로 쓴 화자» 키만 쓰는 것과 같은 이유)
+   ✅ 그래서 실패는 400ms 뒤 한 번 더 물어보고, 서버가 대체한 음성은 캐시하지 않는다.
+   ⛔ 기기 목소리 폴백 자체는 없애지 마세요 — 소리가 아예 안 나는 것이 더 나쁩니다.
+   ⚠️ 뉴런 소진(429·503)은 다시 물어도 같은 답이라 재시도하지 않습니다.
+   📌 이 헬퍼가 «한 곳» 인 이유 — 예전에는 speakWord·speakTarget 이 같은 fetch 블록을
+      각자 복사해 갖고 있었습니다. 그런 형태는 한쪽만 고쳐지는 사고로 이어집니다. */
+let scTtsSeq = 0;   // «지금 몇 번째 발화인가» — 늦게 온 응답이 다음 문장을 덮지 않게
+function scTtsKey(t, lang) { return lang + '|' + (lang === 'en' ? scSpeaker() : '-') + '|' + t; }
+async function scFetchTtsUrl(t, lang, tryNo) {
+  const key = scTtsKey(t, lang), want = (lang === 'en') ? String(scSpeaker() || '').toLowerCase() : '';
+  try {
+    const resp = await fetch('/api/voice/tts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(lang === 'en' ? { text: t, lang, speaker: scSpeaker() } : { text: t, lang })
+    });
+    if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) {
+      const e = new Error('tts_unavailable'); e.noRetry = (resp.status === 429 || resp.status === 503); throw e;
+    }
+    let got = ''; try { got = String(resp.headers.get('X-TTS-Speaker') || '').toLowerCase(); } catch (_) {}
+    const blob = await resp.blob();
+    if (blob.size < 200) throw new Error('tts_empty');
+    const url = URL.createObjectURL(blob);
+    // 서버가 다른 화자로 대체했으면 캐시하지 않는다. 헤더가 없으면(옛 배포·중국어) 판정하지 않는다.
+    if (!want || !got || got === want) ttsCache[key] = url;
+    return url;
+  } catch (err) {
+    if (!tryNo && !(err && err.noRetry)) {
+      await new Promise(r => setTimeout(r, 400));
+      return scFetchTtsUrl(t, lang, 1);
+    }
+    throw err;
+  }
+}
+
 /** 단어 하나만 읽어 준다 (모범 문장 재생과 같은 통로를 쓴다). */
 async function speakWord(w) {
   const t = String(w || '').trim();
   if (!t) return;
   const lang = detectTtsLang(t) || 'en';
   if (lang === 'ko') { speakFallback(t, lang); return; }
+  const mine = ++scTtsSeq;
   try {
     if (ttsAudio) { try { ttsAudio.pause(); } catch (e) {} }
     try { window.speechSynthesis.cancel(); } catch (e) {}
-    let url = ttsCache[lang + '|' + t];
-    if (!url) {
-      const resp = await fetch('/api/voice/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: t, lang })
-      });
-      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts');
-      const blob = await resp.blob();
-      if (blob.size < 200) throw new Error('tts_empty');
-      url = URL.createObjectURL(blob);
-      ttsCache[lang + '|' + t] = url;
-    }
+    let url = ttsCache[scTtsKey(t, lang)];
+    if (!url) url = await scFetchTtsUrl(t, lang, 0);
+    if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
     await ttsAudio.play();
-  } catch (e) { speakFallback(t, lang); }   // 서버 TTS 가 안 되면 브라우저 음성으로
+  } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); }   // 두 번 다 안 되면 브라우저 음성으로
 }
 
 async function speakTarget() {
@@ -925,31 +1059,25 @@ async function speakTarget() {
   if (!t) return;
   const lang = detectTtsLang(t);
   // 👩‍🏫 커리큘럼 문장이면 미리 만든 립싱크 클립을 재생(정확한 입모양+음성). 실패 시 아래 TTS 로 폴백.
-  if (lang === 'en' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
+  // ⚠️ SAY_CLIPS 는 Emma 얼굴·목소리로 미리 만든 립싱크 영상이다 — 다른 친구를 골랐는데 틀면
+  //    «Jake 를 골랐는데 Emma 가 말한다» 가 된다(에러는 안 난다). Emma 일 때만 쓴다.
+  if (lang === 'en' && scFriend === 'emma' && window.MangoAvatar && MangoAvatar.playClip && SAY_CLIPS.hasOwnProperty(t)) {
     try { await MangoAvatar.playClip(SAY_CLIPS[t]); return; }
     catch (e) { /* 클립 미배포/로드실패 → 기존 TTS 경로로 진행 */ }
   }
   if (lang === 'ko') { speakFallback(t, lang); return; } // 한국어는 브라우저 TTS
   if (ttsAudio) { try { ttsAudio.pause(); } catch(_){} }
   try { window.speechSynthesis.cancel(); } catch(_){}
+  const mine = ++scTtsSeq;
   try {
-    let url = ttsCache[lang + '|' + t];
-    if (!url) {
-      const resp = await fetch('/api/voice/tts', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: t, lang })
-      });
-      if (!resp.ok || !((resp.headers.get('content-type') || '').includes('audio'))) throw new Error('tts_unavailable');
-      const blob = await resp.blob();
-      if (blob.size < 200) throw new Error('tts_empty');
-      url = URL.createObjectURL(blob);
-      ttsCache[lang + '|' + t] = url;
-    }
+    let url = ttsCache[scTtsKey(t, lang)];
+    if (!url) url = await scFetchTtsUrl(t, lang, 0);
+    if (mine !== scTtsSeq) return;   // 그 사이 다음 문장이 시작됐다 — 물러난다
     // 👩‍🏫 아바타 립싱크: 매번 새 Audio 대신 영속 요소 재사용(MediaElementSource는 요소당 1회)
     if (!ttsAudio) { ttsAudio = new Audio(); ttsAudio.preload = 'auto'; if (window.MangoAvatar) MangoAvatar.attach(ttsAudio); }
     ttsAudio.src = url;
     await ttsAudio.play();
-  } catch (e) { speakFallback(t, lang); } // 서버 TTS 실패 시 브라우저 TTS 폴백
+  } catch (e) { if (mine === scTtsSeq) speakFallback(t, lang); } // 두 번 다 안 되면 브라우저 TTS 폴백
 }
 
 function resetUI() {
@@ -1264,106 +1392,12 @@ async function checkGrammar(text) {
   }
 }
 
-/* 👩‍🏫 강사 아바타 (Phase 1, 2026-07-25) — 캔버스 실시간 크로마키
-   초록 배경 영상(커리큘럼 문장별 Wav2Lip 립싱크 클립 + idle 루프)을 <canvas>에 그리며
-   초록을 픽셀 단위로 제거 → '진짜 투명'. 알파 코덱(webm alpha)이 이 환경 ffmpeg에서
-   안 만들어져, 런타임 키잉으로 모든 기기에서 투명 배경을 보장한다.
-   키잉은 말하는 몇 초 동안만 rAF로 돌아 저사양에도 부담이 적다(정지 시 1프레임만). */
-window.MangoAvatar = (function(){
-  var video  = document.getElementById('tavatar-video');
-  var canvas = document.getElementById('tavatar-canvas');
-  var wrap   = document.getElementById('tavatar-wrap');
-  if (!video || !canvas) return { attach:function(){}, plainStart:function(){}, plainStop:function(){}, playClip:function(){ return Promise.reject(new Error('no_avatar')); } };
-  var ctx = canvas.getContext('2d', { willReadFrequently:true });
-  var W = canvas.width, H = canvas.height;
-  var raf = 0, drawing = false, IDLE = null;
-  // 👩‍🏫 (2026-07-26) 얼굴만이 아니라 어깨·옷깃까지 보이는 "상반신" 프레임.
-  //   teacher-avatar.png 의 alpha 채널을 실측해 계산한 crop(머리 위 여백만 트림, 어깨까지 포함).
-  //   캔버스가 이미 이 비율(4:5, width=320 height=400)로 만들어져 있어 왜곡 없이 그려진다.
-  var CROP = { l:67/512, t:40/512, r:445/512, b:1 };
-  function setSpeaking(on){ if (wrap) wrap.classList.toggle('speaking', !!on); }
-  function ensureIdle(){ if(!IDLE) IDLE = video.currentSrc || '/img/teacher-avatar.webm'; }
-  // 초록 제거 크로마키: 초록 우세도(g - max(r,b))로 판정 + 가장자리 페더 + 스필 억제
-  function keyFrame(){
-    if (video.readyState < 2) return;
-    var vw = video.videoWidth||W, vh = video.videoHeight||H;
-    var sx = Math.round(vw*CROP.l), sy = Math.round(vh*CROP.t);
-    var sw = Math.round(vw*(CROP.r-CROP.l)), sh = Math.round(vh*(CROP.b-CROP.t));
-    try { ctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H); } catch(e){ return; }
-    var im; try { im = ctx.getImageData(0,0,W,H); } catch(e){ return; }
-    var d = im.data;
-    // 상반신 크롭이 프레임 가장자리에 가까워지며 머리카락 올올이 초록 배경빛을 살짝
-    // 반사한 픽셀(잔광)이 드러난다 — diff>0 인 모든 픽셀은 알파는 그대로 두고 초록만
-    // mx 로 눌러 색만 지운다(디테일 보존 + 잔광 제거).
-    for (var i=0;i<d.length;i+=4){
-      var r=d[i], g=d[i+1], b=d[i+2];
-      var mx = r>b?r:b;
-      var diff = g - mx;                       // 초록 우세도
-      if (diff > 38){ d[i+3]=0; }               // 확실한 초록 → 완전 투명
-      else if (diff > 10){                      // 가장자리 → 부분 투명(페더) + 스필 억제
-        d[i+3] = ((38-diff)*255/28)|0;
-        d[i+1] = mx;
-      }
-      else if (diff > 0){ d[i+1] = mx; }        // 불투명 잔광 — 색만 제거
-    }
-    ctx.putImageData(im,0,0);
-  }
-  function loop(){ if(!drawing){ raf=0; return; } keyFrame(); raf=requestAnimationFrame(loop); }
-  function startDraw(){ drawing=true; if(!raf) raf=requestAnimationFrame(loop); }
-  function stopDraw(){ drawing=false; if(raf){ try{cancelAnimationFrame(raf);}catch(e){} raf=0; } }
-  function drawStill(){ keyFrame(); }         // 정지 얼굴 1프레임만 키잉
-  // 로드/시크 시 정지 얼굴 갱신
-  video.addEventListener('loadeddata', function(){ if(!drawing) drawStill(); });
-  video.addEventListener('seeked',     function(){ if(!drawing) drawStill(); });
-  // 초기 정지 얼굴(투명 포스터) — 영상 디코드 전 잠깐 표시
-  (function(){ try{ var im=new Image(); im.onload=function(){ if(!drawing){ try{
-    var iw=im.naturalWidth||512, ih=im.naturalHeight||512;
-    var sx=Math.round(iw*CROP.l), sy=Math.round(ih*CROP.t), sw=Math.round(iw*(CROP.r-CROP.l)), sh=Math.round(ih*(CROP.b-CROP.t));
-    ctx.clearRect(0,0,W,H); ctx.drawImage(im,sx,sy,sw,sh,0,0,W,H);
-  }catch(e){} } }; im.src='/img/teacher-avatar.png'; }catch(e){} })();
-  return {
-    // 커리큘럼 문장 클립 재생(정확한 립싱크 + 음성) → 캔버스 키잉. 끝나면 idle 복귀.
-    playClip: function(id){
-      return new Promise(function(resolve, reject){
-        ensureIdle();
-        var useWebm = (video.currentSrc||'').indexOf('.webm')>=0 ||
-                      (video.canPlayType && video.canPlayType('video/webm')!=='');
-        var url = '/img/teacher-say-' + id + (useWebm ? '.webm' : '.mp4');
-        var done=false;
-        function end(ok, err){
-          if(done) return; done=true;
-          video.removeEventListener('ended', onEnd);
-          video.removeEventListener('error', onErr);
-          stopDraw(); setSpeaking(false);
-          try{ video.muted=true; video.loop=true; video.src=IDLE; video.load(); }catch(e){}
-          ok ? resolve() : reject(err||new Error('clip_failed'));
-        }
-        var onEnd=function(){ end(true); };
-        var onErr=function(){ end(false, new Error('clip_load_error')); };
-        video.addEventListener('ended', onEnd);
-        video.addEventListener('error', onErr);
-        try{
-          setSpeaking(true);
-          video.loop=false; video.muted=false; video.src=url; video.currentTime=0;
-          var p=video.play(); startDraw();
-          if(p&&p.catch) p.catch(function(e){ end(false, e); });
-        }catch(e){ end(false, e); }
-      });
-    },
-    // 자유 입력 문장(서버 TTS): idle 영상을 재생하며 키잉(일반 말하기 모션). 음성분석 불필요.
-    attach: function(audioEl){
-      if (!audioEl) return;
-      audioEl.addEventListener('playing', function(){ ensureIdle(); setSpeaking(true); try{ video.muted=true; video.loop=true; video.play(); }catch(e){} startDraw(); });
-      var stop=function(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); };
-      audioEl.addEventListener('ended', stop);
-      audioEl.addEventListener('pause', stop);
-      audioEl.addEventListener('error', stop);
-    },
-    // SpeechSynthesis(한국어/폴백): idle 영상 재생 + 키잉
-    plainStart: function(){ ensureIdle(); setSpeaking(true); try{ video.muted=true; video.play(); }catch(e){} startDraw(); },
-    plainStop:  function(){ setSpeaking(false); stopDraw(); try{ video.pause(); }catch(e){} drawStill(); }
-  };
-})();
+/* 👩‍🏫 강사 아바타 — (2026-08-31) 여기 있던 «인라인 복제본» 을 걷어내고 공용 모듈을 씁니다.
+   왜: 사장님 지시로 친구가 넷(Emma·Jake·Lily·Noah)이 되었는데, 이 화면만 자기 아바타
+   코드를 따로 갖고 있어서 «웜업·AI영어친구에서는 바뀌는데 음성코치만 안 바뀌는» 상태가
+   됩니다. 마크업(id)이 같으므로 <head> 의 /js/mango-avatar.js 가 그대로 이어받습니다.
+   ⚠️ 그 모듈은 defer 라 이 파일의 인라인 코드보다 «나중에» 옵니다 — MangoAvatar 를 쓰는 곳은
+      전부 `window.MangoAvatar &&` 로 감싸 두었으니 그대로 두세요(안 감싸면 초기화 중에 죽습니다). */
 // 모바일 자동재생 정책: 첫 사용자 제스처에서 영상 잠금 해제(무음이라 소리 안 남)
 (function(){
   var v=document.getElementById('tavatar-video'); if(!v) return;

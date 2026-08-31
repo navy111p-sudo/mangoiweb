@@ -53,7 +53,9 @@ export interface AbsentSweepResult {
       ⚠️ 부분일치는 금지 — 'Anna' 가 'HANNAH' 에 붙는 사고가 이미 있었다. api-teacher.ts 와 같은
          **낱말 경계** 규칙을 쓰고, 애매하면(후보 2명 이상) **아무에게도 안 보낸다**.
       ⚠️ `teacher_profiles.linked_teacher_id` 는 현재 전 행이 NULL 이라 못 쓴다(실측). */
-async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; email: string | null; why: string }> {
+/* 📵 (2026-09-01) `/api/notify/*` 도 이 판정을 씁니다 — 복제하지 마세요(notify-contacts.ts).
+   판정을 여러 곳에 복제하면 반드시 어긋납니다(규칙서 2장, no-show-truth.ts 가 그 선례). */
+export async function findTeacherContact(env: any, teacherId: any): Promise<{ name: string; phone: string | null; email: string | null; why: string }> {
   const out = { name: '', phone: null as string | null, email: null as string | null, why: 'no_teacher_id' };
   const tid = String(teacherId || '').trim();
   if (!tid) return out;
