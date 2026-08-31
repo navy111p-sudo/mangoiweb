@@ -4323,9 +4323,14 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
   }
 
   // ── 트리거 A: ✕/나가기 버튼 — 터치(모바일)·클릭(PC) 모두 첫 이벤트에서 확실히 가로챔 ──
+  // 🔧 (2026-08-31) #vc-dock-leave 추가 — 하단 독(vc-dock.js)의 실제 '나가기' 버튼은
+  //   이 목록에 없어 평가·피드백 모달이 통째로 안 떴다(클릭이 곧장 vc-dock.js의
+  //   onclick→vcLeaveRoom()으로 감, 뒤쪽 v29/v31의 title="...나가기" 매칭 캡처가
+  //   대신 가로채 즉시 location.replace('/')). #vc-exit-btn-v32~v34는 2026-07-14에
+  //   이미 삭제된 옛 상단 버튼이라 지금은 이 목록 중 실제로 존재하는 것이 하나도 없었다.
   function isExitBtnEl(el){
     if (!el || !el.closest) return false;
-    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, #vc-dock-leave, button.ctrl-btn.danger, a.ctrl-btn.danger');
   }
   ['pointerdown','touchstart','mousedown','click'].forEach(function(ev){
     window.addEventListener(ev, function(e){
@@ -4576,9 +4581,12 @@ try{ if(window.mgIsSlowNet()) document.documentElement.classList.add('mg-lite');
     try { if (typeof showView === 'function') showView('view-home'); } catch(e){}
   };
 
+  // 🔧 (2026-08-31) #vc-dock-leave 추가 — 학생 흐름과 같은 사정. 이 목록에 없으면
+  //   강사/관리자도 뒤쪽 v29/v31의 title 매칭 캡처가 먼저 가로채 SPA 대신
+  //   location.replace('/') 전체 새로고침으로 튕겨나간다.
   function isExitBtnEl(el){
     if (!el || !el.closest) return false;
-    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, button.ctrl-btn.danger, a.ctrl-btn.danger');
+    return !!el.closest('a#vc-exit-btn-v34, a#vc-exit-btn-v33, #vc-exit-btn-v32, #vc-dock-leave, button.ctrl-btn.danger, a.ctrl-btn.danger');
   }
   function isStudentInClass(){
     try {
