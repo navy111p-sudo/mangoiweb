@@ -287,7 +287,17 @@
       border-radius: 18px; padding: 18px 20px; margin-bottom: 16px; }
     .go-title { font-size: 17.5px; font-weight: 900; color: #bae6fd; }
     .go-sub { font-size: 13.5px; color: var(--text2); margin: 6px 0 12px; line-height: 1.55; }
-    .go-themes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .go-themes-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* 지금 주제 표시줄 — 그림·글감에서 넘어온 주제를 여기서 말해 준다 */
+    .go-cur { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin-bottom: 11px;
+      padding: 10px 14px; border-radius: 12px; background: rgba(251,191,36,0.13);
+      border: 1px solid rgba(251,191,36,0.42); }
+    .go-cur-t { font-size: 15.5px; font-weight: 900; color: var(--gold); }
+    .go-cur-src { font-size: 12.5px; font-weight: 800; color: #fde68a; padding: 3px 10px;
+      border-radius: 99px; background: rgba(15,23,42,0.45); }
+    .go-cur-x { margin-left: auto; padding: 7px 13px; border-radius: 9px; cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 800; color: var(--text);
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.2); }
     .go-theme { padding: 10px 17px; border-radius: 99px; cursor: pointer; font-family: inherit;
       font-size: 14.5px; font-weight: 800; background: rgba(15,23,42,0.45);
       border: 1.5px solid rgba(125,211,252,0.3); color: #e0f2fe; }
@@ -457,7 +467,7 @@
             한글 답은 아래 «내 브레인스토밍 메모» 로만 남겨 보면서 쓰게 한다. -->
     <div class="go-card" id="goCard">
       <div class="go-title">🧠 <span data-ko="STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요" data-en="STEP 2 · Brainstorming — plan before you write">STEP 2 · 브레인스토밍 — 무엇을 쓸지 먼저 정리해요</span></div>
-      <div class="go-sub" data-ko="주제를 하나 고르면 6하원칙 질문이 나와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (건너뛰고 바로 써도 괜찮아요!)" data-en="Pick a topic and answer the 5W1H questions. Your intro·body·ending outline is built automatically. (You can skip and write right away!)">주제를 하나 고르면 6하원칙 질문이 나와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (건너뛰고 바로 써도 괜찮아요!)</div>
+      <div class="go-sub" data-ko="위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)" data-en="The picture and topic chips above also bring you here. Just answer briefly — your intro·body·ending outline is built for you. (You can skip the questions too!)">위의 🖼 오늘의 그림이나 🎲 오늘의 글감을 눌러도 여기로 와요. 짧게 답만 적으면 서론·본론·결론 뼈대가 자동으로 만들어져요. (질문 없이 바로 써도 괜찮아요!)</div>
       <div class="go-themes" id="goThemes"><!-- 주제 칩은 JS가 채움 --></div>
       <div id="goBody"><!-- 질문·뼈대는 주제를 고르면 JS가 그림 --></div>
     </div>
@@ -549,40 +559,43 @@
     }
     // 🎲 오늘의 글감 — 클릭하면 문장 시작을 넣어줌
     const TOPICS = [
-      { ko: '🍕 내가 좋아하는 음식', starter: 'My favorite food is ' },
-      { ko: '🌤️ 오늘 하루', starter: 'Today I ' },
-      { ko: '👨‍👩‍👧 우리 가족', starter: 'My family ' },
-      { ko: '🐶 내가 키우고 싶은 동물', starter: 'I want to have a ' },
-      { ko: '✈️ 가고 싶은 나라', starter: 'I want to visit ' },
-      { ko: '🎮 좋아하는 게임', starter: 'My favorite game is ' },
-      { ko: '📚 학교에서 있었던 일', starter: 'At school, ' },
-      { ko: '🌙 어젯밤 꿈', starter: 'Last night, I dreamed ' },
-      { ko: '⚽ 좋아하는 운동', starter: 'I like playing ' },
-      { ko: '🎂 최고의 생일', starter: 'My best birthday was ' },
-      { ko: '🦸 내가 슈퍼히어로라면', starter: 'If I were a superhero, ' },
-      { ko: '🍦 여름에 하고 싶은 것', starter: 'This summer, I want to ' },
-      { ko: '🎬 재미있게 본 영화', starter: 'I watched a movie called ' },
-      { ko: '💛 나의 친한 친구', starter: 'My best friend is ' },
-      { ko: '🚀 미래의 나', starter: 'In the future, I will ' },
+      { ko: '🍕 내가 좋아하는 음식', en: '🍕 My favorite food', starter: 'My favorite food is ' },
+      { ko: '🌤️ 오늘 하루', en: '🌤️ My day today', starter: 'Today I ' },
+      { ko: '👨‍👩‍👧 우리 가족', en: '👨‍👩‍👧 My family', starter: 'My family ' },
+      { ko: '🐶 내가 키우고 싶은 동물', en: '🐶 A pet I want', starter: 'I want to have a ' },
+      { ko: '✈️ 가고 싶은 나라', en: '✈️ A country I want to visit', starter: 'I want to visit ' },
+      { ko: '🎮 좋아하는 게임', en: '🎮 My favorite game', starter: 'My favorite game is ' },
+      { ko: '📚 학교에서 있었던 일', en: '📚 Something at school', starter: 'At school, ' },
+      { ko: '🌙 어젯밤 꿈', en: '🌙 Last night I dreamed', starter: 'Last night, I dreamed ' },
+      { ko: '⚽ 좋아하는 운동', en: '⚽ My favorite sport', starter: 'I like playing ' },
+      { ko: '🎂 최고의 생일', en: '🎂 My best birthday', starter: 'My best birthday was ' },
+      { ko: '🦸 내가 슈퍼히어로라면', en: '🦸 If I were a superhero', starter: 'If I were a superhero, ' },
+      { ko: '🍦 여름에 하고 싶은 것', en: '🍦 What I want to do this summer', starter: 'This summer, I want to ' },
+      { ko: '🎬 재미있게 본 영화', en: '🎬 A movie I enjoyed', starter: 'I watched a movie called ' },
+      { ko: '💛 나의 친한 친구', en: '💛 My best friend', starter: 'My best friend is ' },
+      { ko: '🚀 미래의 나', en: '🚀 Me in the future', starter: 'In the future, I will ' },
     ];
     function shuffleTopics() {
       const row = document.getElementById('topicRow');
       row.querySelectorAll('.topic-chip[data-topic]').forEach(c => c.remove());
-      const picks = TOPICS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+      /* 🔗 (2026-08-31) 글감 칩을 누르면 «브레인스토밍» 이 그 글감으로 열린다.
+         왜: 주제 목록이 셋(그림 12 · 글감 15 · 이야기 주제 8)으로 흩어져 있는데 서로 이어지지 않아
+             사장님이 「1번과 2번이 같은 내용이냐」고 물으셨다. 목록은 셋이어도 «가는 길» 은 하나로 만든다.
+         ⛔ 예전처럼 «시작 문장 한 줄만» 넣는 길도 남긴다(브레인스토밍 카드의 「질문 없이 바로 쓰기」). */
+      const idxs = TOPICS.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
       const shuffleBtn = row.querySelector('.topic-chip:not([data-topic])');
-      picks.forEach(t => {
+      idxs.forEach(i => {
+        const t = TOPICS[i];
         const chip = document.createElement('button');
         chip.className = 'topic-chip';
         chip.dataset.topic = '1';
+        chip.setAttribute('data-ko', t.ko);
+        chip.setAttribute('data-en', t.en || t.ko);
         chip.textContent = t.ko;
-        chip.onclick = () => {
-          const ta = document.getElementById('text');
-          if (!ta.value.trim()) { ta.value = t.starter; updateCharCount(); }
-          ta.focus();
-          ta.setSelectionRange(ta.value.length, ta.value.length);
-        };
+        chip.onclick = () => { try { goSelectTopic(i); } catch(e){} };
         row.insertBefore(chip, shuffleBtn);
       });
+      try { window.applyI18n && window.applyI18n(row); } catch(e){}
     }
     function updateCharCount() {
       const n = (document.getElementById('text').value || '').length;
@@ -716,6 +729,10 @@
       renderPic(n);
     };
     window.usePicPrompt = function(){
+      /* 🔗 (2026-08-31) 예전엔 글쓰기 칸에 시작 문장 한 줄만 넣었다.
+         지금은 «그 장면으로» 브레인스토밍을 연다 — 한 줄만 넣고 싶으면 그 카드의
+         「질문 없이 바로 쓰기」가 예전과 똑같이 해 준다(기존 동작을 없애지 않았다). */
+      try { goSelectScene(_picIdx); return; } catch(e){}
       const sc = PIC_SCENES[_picIdx];
       const ta = document.getElementById('text');
       if (!ta.value.trim()) { ta.value = sc.starter; updateCharCount(); }
@@ -1355,14 +1372,32 @@
           영어 AI 첨삭으로 가기 때문이다. 한글 답은 «내 브레인스토밍 메모» 로만
           남겨 옆에 두고 보게 한다. 영어로 적은 답만 문장에 합쳐진다.
        ═══════════════════════════════════════════════════════════════════════ */
-    // 6하원칙 기본 질문 — 주제별로 What/Why/How 만 갈아끼운다(나머지는 공통)
+    /* 6하원칙 기본 질문 — 주제별로 What/Why/How 만 갈아끼운다(나머지는 공통).
+       p = 몇 번째 문단(0 서론 · 1 본론 · 2 결론). 세트마다 질문 수가 달라도
+       이 값만 보면 문단이 정해지므로 «질문 목록» 과 «문단 배치» 가 어긋날 수 없다. */
     const GO_BASE = [
-      { k:'when',  ko:'🕒 When — 언제 있었던 일인가요?',        en:'🕒 When — When did it happen?',      starter:'It happened ',         ph:'예) last Sunday · on my birthday' },
-      { k:'where', ko:'📍 Where — 어디에서 있었던 일인가요?',   en:'📍 Where — Where did it happen?',    starter:'I was at ',            ph:'예) at the park · in my room' },
-      { k:'who',   ko:'🧑 Who — 누구와 함께였나요?',            en:'🧑 Who — Who was with you?',         starter:'I was with ',          ph:'예) my mom · my best friend' },
-      { k:'what',  ko:'💡 What — 무슨 일이 있었나요?',          en:'💡 What — What happened?',           starter:'First, ',              ph:'예) I played soccer' },
-      { k:'why',   ko:'❓ Why — 왜 그런 일이 생겼나요?',        en:'❓ Why — Why did it happen?',        starter:'It happened because ', ph:'예) I ran too fast' },
-      { k:'how',   ko:'💗 How — 그때 기분이 어땠나요?',         en:'💗 How — How did you feel?',         starter:'I felt ',              ph:'예) sad · excited · proud' },
+      { k:'when',  p:0, ko:'🕒 When — 언제 있었던 일인가요?',        en:'🕒 When — When did it happen?',      starter:'It happened ',         ph:'예) last Sunday · on my birthday' },
+      { k:'where', p:0, ko:'📍 Where — 어디에서 있었던 일인가요?',   en:'📍 Where — Where did it happen?',    starter:'I was at ',            ph:'예) at the park · in my room' },
+      { k:'who',   p:1, ko:'🧑 Who — 누구와 함께였나요?',            en:'🧑 Who — Who was with you?',         starter:'I was with ',          ph:'예) my mom · my best friend' },
+      { k:'what',  p:1, ko:'💡 What — 무슨 일이 있었나요?',          en:'💡 What — What happened?',           starter:'First, ',              ph:'예) I played soccer' },
+      { k:'why',   p:2, ko:'❓ Why — 왜 그런 일이 생겼나요?',        en:'❓ Why — Why did it happen?',        starter:'It happened because ', ph:'예) I ran too fast' },
+      { k:'how',   p:2, ko:'💗 How — 그때 기분이 어땠나요?',         en:'💗 How — How did you feel?',         starter:'I felt ',              ph:'예) sad · excited · proud' },
+    ];
+    /* 🖼 그림 세트 — «지금 보이는 장면» 을 묘사하는 질문(언제 = 그림엔 없으므로 뺀다) */
+    const GO_SCENE_Q = [
+      { k:'where', p:0, ko:'📍 Where — 여기는 어디인가요?',            en:'📍 Where — Where is this place?',      starter:'This place is ',       ph:'예) a jungle · under the sea' },
+      { k:'who',   p:0, ko:'🧑 Who — 누가 보이나요?',                  en:'🧑 Who — Who can you see?',            starter:'I can see ',           ph:'예) a big lion · two children' },
+      { k:'what',  p:1, ko:'💡 What — 무슨 일이 벌어지고 있나요?',     en:'💡 What — What is happening?',         starter:'First, ',              ph:'예) the elephant walked to me' },
+      { k:'why',   p:1, ko:'❓ Why — 왜 그런 일이 생겼을까요?',        en:'❓ Why — Why is it happening?',        starter:'It happened because ', ph:'예) the door was open' },
+      { k:'how',   p:2, ko:'💗 How — 그다음엔 어떻게 됐나요?',         en:'💗 How — What happened next?',         starter:'Then, ',               ph:'예) we ran away together' },
+    ];
+    /* 🎲 글감 세트 — «사건» 이 아니라 «이야기 하나» 라 언제·어디서·누구는 묻지 않는다.
+       첫 질문의 시작 문장은 그 글감의 것을 그대로 쓴다(내가 좋아하는 음식 → My favorite food is …). */
+    const GO_TOPIC_Q = [
+      { k:'what', p:0, ko:'💡 한 문장으로 써 보세요',                 en:'💡 Say it in one sentence',            starter:'',                     ph:'예) pizza' },
+      { k:'more', p:1, ko:'➕ More — 한 가지 더 말해 보세요',          en:'➕ More — tell me one more thing',      starter:'Also, ',               ph:'예) I eat it every Friday' },
+      { k:'why',  p:1, ko:'❓ Why — 왜 그런가요?',                     en:'❓ Why — Why is that?',                starter:'It is because ',       ph:'예) it tastes sweet' },
+      { k:'how',  p:2, ko:'💗 How — 그래서 기분이 어떤가요?',          en:'💗 How — How does it make you feel?',  starter:'I feel ',              ph:'예) happy' },
     ];
     // 스토리 연계 주제 8종 — 제안서의 «소중한 물건을 잃어버린 경험», «특별한 생일» 계열
     const GO_THEMES = [
@@ -1408,11 +1443,29 @@
             how: { ko:'💗 How — 그날 기분이 어땠나요?', en:'💗 How — How did you feel?', starter:'I felt ', ph:'예) warm and happy' } } },
     ];
     // 서론·본론·결론 — 어떤 질문이 어느 문단에 들어가는지
+    /* 문단 이름표만 둔다 — «어느 질문이 어느 문단인가» 는 질문 자신의 p 가 정한다.
+       ⛔ 여기에 질문 목록(keys)을 다시 적지 말 것: 세트가 셋이라 곧 어긋난다. */
     const GO_PARTS = [
-      { ko:'🟡 서론 (시작)',    en:'🟡 Opening', keys:['when','where'] },
-      { ko:'🔵 본론 (가운데)',  en:'🔵 Body',    keys:['who','what'] },
-      { ko:'🟢 결론 (마무리)',  en:'🟢 Ending',  keys:['why','how'] },
+      { ko:'🟡 서론 (시작)',    en:'🟡 Opening' },
+      { ko:'🔵 본론 (가운데)',  en:'🔵 Body' },
+      { ko:'🟢 결론 (마무리)',  en:'🟢 Ending' },
     ];
+    /* 🔗 그림·글감을 «브레인스토밍 주제» 로 바꿔 주는 두 함수.
+       ⛔ 새 주제 목록을 또 만들지 않는다 — 이미 화면에 있는 PIC_SCENES·TOPICS 를 그대로 쓴다. */
+    function goThemeFromScene(idx) {
+      const sc = PIC_SCENES[idx]; if (!sc) return null;
+      return { id: 'pic:' + sc.img, icon: '🖼', ko: sc.ko, en: sc.en, set: 'scene',
+               srcKo: '오늘의 그림', srcEn: "Today's picture", open: String(sc.starter || '').trim() };
+    }
+    function goThemeFromTopic(idx) {
+      const t = TOPICS[idx]; if (!t) return null;
+      const name = t.ko.replace(/^\S+\s*/, ''), nameEn = (t.en || t.ko).replace(/^\S+\s*/, '');
+      return { id: 'topic:' + idx, icon: '🎲', ko: t.ko, en: t.en || t.ko, set: 'topic',
+               srcKo: '오늘의 글감', srcEn: "Today's topic",
+               q: { what: { ko: '💡 ' + name + ' — 한 문장으로 써 보세요',
+                            en: '💡 ' + nameEn + ' — say it in one sentence',
+                            starter: t.starter, ph: t.starter + '…' } } };
+    }
     const GO_KEY = 'mangoi_aiwrite_go_v1';
     let _goTheme = null;       // 고른 주제 (없으면 질문 안 보임)
     let _goAnswers = {};       // { when:'...', where:'...', ... }
@@ -1421,8 +1474,10 @@
     const goIsEn  = s => { const t = String(s || '').trim(); return !!t && !goHasKo(t); };
     function goLangKo() { try { return (window.getLang ? window.getLang() : 'ko') !== 'en'; } catch(e) { return true; } }
     function goQuestions() {
+      const set = (_goTheme && _goTheme.set) || 'story';
+      const base = set === 'scene' ? GO_SCENE_Q : set === 'topic' ? GO_TOPIC_Q : GO_BASE;
       const ov = (_goTheme && _goTheme.q) || {};
-      return GO_BASE.map(q => Object.assign({}, q, ov[q.k] || {}));
+      return base.map(q => Object.assign({}, q, ov[q.k] || {}));
     }
     function goSave() {
       try { localStorage.setItem(GO_KEY, JSON.stringify({ t: _goTheme ? _goTheme.id : '', a: _goAnswers, ts: Date.now() })); } catch(e){}
@@ -1433,15 +1488,39 @@
         // 하루가 지난 메모는 안 되살린다 — 어제 주제가 오늘 글에 섞이면 더 헷갈린다
         if (!d || !d.ts || Date.now() - d.ts > 86400000) return;
         _goAnswers = d.a && typeof d.a === 'object' ? d.a : {};
-        _goTheme = GO_THEMES.find(t => t.id === d.t) || null;
+        const id = String(d.t || '');
+        if (id.indexOf('pic:') === 0) {
+          const i = PIC_SCENES.findIndex(x => 'pic:' + x.img === id);
+          _goTheme = i >= 0 ? goThemeFromScene(i) : null;
+        } else if (id.indexOf('topic:') === 0) {
+          _goTheme = goThemeFromTopic(Number(id.slice(6)));
+        } else {
+          _goTheme = GO_THEMES.find(t => t.id === id) || null;
+        }
       } catch(e){}
     }
+    // 주제 이름 — 이미 이모지로 시작하는 이름(글감)에는 아이콘을 또 붙이지 않는다
+    function goCurName(ko) {
+      const nm = (ko ? _goTheme.ko : _goTheme.en) || '';
+      return /^[A-Za-z0-9가-힣]/.test(nm) ? (_goTheme.icon + ' ' + nm) : nm;
+    }
     function renderGoThemes() {
-      document.getElementById('goThemes').innerHTML = GO_THEMES.map(t =>
+      /* 지금 주제 표시줄 — 그림·글감에서 넘어왔을 때 «어디서 온 주제인지» 를 말해 준다.
+         (이게 없으면 그림은 정글인데 브레인스토밍은 생일인 상태를 아무도 눈치채지 못한다) */
+      const ko = goLangKo();
+      const cur = _goTheme ? `
+        <div class="go-cur">
+          <span class="go-cur-t">${escapeHtml((ko ? '지금 주제: ' : 'Topic: ') + goCurName(ko))}</span>
+          <span class="go-cur-src">${escapeHtml(ko ? (_goTheme.srcKo || '이야기 주제') : (_goTheme.srcEn || 'Story topic'))}</span>
+          <button class="go-cur-x" onclick="goClearTheme()">${escapeHtml(ko ? '✕ 주제 바꾸기' : '✕ Change topic')}</button>
+        </div>` : '';
+      const chips = GO_THEMES.map(t =>
         `<button class="go-theme${_goTheme && _goTheme.id === t.id ? ' on' : ''}" onclick="goSelectTheme('${t.id}')"
            data-ko="${escapeHtml(t.icon + ' ' + t.ko)}" data-en="${escapeHtml(t.icon + ' ' + t.en)}">${escapeHtml(t.icon + ' ' + t.ko)}</button>`
       ).join('');
-      try { window.applyI18n && window.applyI18n(document.getElementById('goThemes')); } catch(e){}
+      const el = document.getElementById('goThemes');
+      el.innerHTML = cur + `<div class="go-themes-row">${chips}</div>`;
+      try { window.applyI18n && window.applyI18n(el); } catch(e){}
     }
     function renderGoQuestions() {
       const body = document.getElementById('goBody');
@@ -1458,11 +1537,14 @@
          <div class="go-preview" id="goPreview"></div>
          <div class="go-actions">
            <button class="go-go" id="goApplyBtn" onclick="goApply()">✍️ <span data-ko="이 뼈대로 글쓰기 시작" data-en="Start writing with this outline">이 뼈대로 글쓰기 시작</span></button>
+           <button class="go-ghost" onclick="goSkipToWrite()">⏭ <span data-ko="질문 없이 바로 쓰기" data-en="Skip questions, just write">질문 없이 바로 쓰기</span></button>
            <button class="go-ghost" onclick="goClear()">🧹 <span data-ko="메모 지우기" data-en="Clear notes">메모 지우기</span></button>
          </div>`;
       renderGoPreview();
       try { window.applyI18n && window.applyI18n(body); } catch(e){}
     }
+    // 시작 문장과 답이 «둘 다 전치사» 로 만나면 하나만 남긴다 (I was at + in my house)
+    const GO_PREP = new Set(['at','in','on','to','with','from','by','for','about','into','over','under','near','around','inside','outside']);
     // 답 → 문장 조각. 영어로 적었으면 문장에 합치고, 한글이면 시작 문장만 넣는다.
     //   ⚠️ 시작 문장을 «무조건» 앞에 붙이면 «I lost I lost my watch» 처럼 겹친다.
     //      (아이들은 대개 시작 문장을 그대로 다시 쓴다 — 실제로 밟았다)
@@ -1472,17 +1554,30 @@
     function goLineFor(q) {
       let ans = String(_goAnswers[q.k] || '').trim();
       if (!ans) return null;
-      if (!goIsEn(ans)) return { en: q.starter, memo: ans };   // 한글 답 = 메모로만
-      const st = q.starter, stTrim = st.trim(), low = ans.toLowerCase();
+      // 한글 답 = 메모로만. 시작 문장조차 없으면 «빈 줄» 이 되므로 아예 넣지 않는다.
+      if (!goIsEn(ans)) return q.starter ? { en: q.starter, memo: ans } : { en: '', memo: ans };
+      let st = q.starter, stTrim = st.trim();
+      const low = ans.toLowerCase();
       let line;
-      if (low.indexOf(stTrim.toLowerCase()) === 0) {
+      if (!stTrim) {
+        line = ans;
+      } else if (low.indexOf(stTrim.toLowerCase()) === 0) {
         line = ans;
       } else if (/^[A-Z]/.test(ans) && /[.!?]$/.test(ans)) {
         line = ans;
       } else {
-        const lastW = stTrim.split(/\s+/).pop().toLowerCase().replace(/[^a-z']/g, '');
-        const w = ans.split(/\s+/);
-        if (w.length > 1 && w[0].toLowerCase().replace(/[^a-z']/g, '') === lastW) ans = w.slice(1).join(' ');
+        const clean = w => w.toLowerCase().replace(/[^a-z']/g, '');
+        const sw = stTrim.split(/\s+/), aw = ans.split(/\s+/);
+        const lastW = clean(sw[sw.length - 1]), firstW = clean(aw[0]);
+        if (aw.length > 1 && firstW === lastW) {
+          ans = aw.slice(1).join(' ');                 // 「I lost 」 + 「I lost my watch」
+        } else if (GO_PREP.has(lastW) && GO_PREP.has(firstW)) {
+          /* 🔴 2026-08-31 사장님 화면 「I was at in my house.」 —
+             시작 문장이 전치사로 끝나는데 답도 «다른» 전치사로 시작하면 둘이 겹친다.
+             (같은 낱말만 보던 앞의 검사로는 at + in 을 못 잡았다.)
+             이때는 학생이 적은 전치사를 살리고 시작 문장 쪽을 뗀다. */
+          st = sw.slice(0, -1).join(' ') + ' ';
+        }
         line = st + ans;
       }
       line = line.trim();
@@ -1490,17 +1585,16 @@
       return { en: line, memo: '' };
     }
     function goOutline() {
-      const qs = goQuestions(), byKey = {};
-      qs.forEach(q => { byKey[q.k] = q; });
+      const qs = goQuestions();
       const parts = GO_PARTS.map((p, pi) => {
         const lines = [];
         if (pi === 0 && _goTheme && _goTheme.open) lines.push({ en: _goTheme.open, memo: '' });
-        p.keys.forEach(k => { const l = goLineFor(byKey[k]); if (l) lines.push(l); });
+        qs.filter(q => (q.p || 0) === pi).forEach(q => { const l = goLineFor(q); if (l) lines.push(l); });
         return { ko: p.ko, en: p.en, lines };
       });
       const filled = parts.reduce((n, p) => n + p.lines.length, 0);
-      const text = parts.filter(p => p.lines.length)
-        .map(p => p.lines.map(l => l.en).join('\n')).join('\n\n');
+      const text = parts.map(p => p.lines.map(l => l.en).filter(Boolean).join('\n'))
+        .filter(Boolean).join('\n\n');
       return { parts, text, filled, answered: Object.keys(_goAnswers).filter(k => String(_goAnswers[k] || '').trim()).length };
     }
     function renderGoPreview() {
@@ -1538,12 +1632,33 @@
       body.innerHTML = rows.join('');
       wrap.style.display = '';
     }
-    window.goSelectTheme = function(id) {
-      const t = GO_THEMES.find(x => x.id === id) || null;
-      _goTheme = (_goTheme && t && _goTheme.id === t.id) ? null : t;   // 다시 누르면 접기
+    function goApplyTheme(t, toggle) {
+      _goTheme = (toggle && _goTheme && t && _goTheme.id === t.id) ? null : t;   // 같은 것을 다시 누르면 접기
       renderGoThemes(); renderGoQuestions(); goSave();
       flowMark(1);
-      if (_goTheme) document.getElementById('goCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (_goTheme) {
+        document.getElementById('goCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // 첫 질문에 바로 쓸 수 있게 (폰에서는 키보드가 올라오지 않게 포커스만)
+        setTimeout(() => { const f = document.querySelector('#goBody .go-q input'); if (f) f.focus({ preventScroll: true }); }, 350);
+      }
+    }
+    window.goSelectTheme = function(id) { goApplyTheme(GO_THEMES.find(x => x.id === id) || null, true); };
+    window.goSelectScene = function(idx) { goApplyTheme(goThemeFromScene(idx), false); };
+    window.goSelectTopic = function(idx) { goApplyTheme(goThemeFromTopic(idx), false); };
+    window.goClearTheme = function() { goApplyTheme(null, false); };
+    /* ⏭ 예전 동작 보존 — 질문 없이 «시작 문장 한 줄» 만 넣고 바로 쓰기.
+       그림·글감 칩이 원래 하던 일이 이것이라, 없애지 않고 여기로 옮겨 두었다. */
+    window.goSkipToWrite = function() {
+      const ta = document.getElementById('text');
+      let seed = '';
+      if (_goTheme) {
+        if (_goTheme.set === 'topic') seed = ((_goTheme.q || {}).what || {}).starter || '';
+        else if (_goTheme.open) seed = _goTheme.open + ' ';
+      }
+      if (!ta.value.trim() && seed) { ta.value = seed; updateCharCount(); }
+      flowMark(2);
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
     };
     window.goInput = function(k, v) {
       _goAnswers[k] = String(v || '').slice(0, 120);

@@ -51,7 +51,12 @@ console.log('monitor_wall_harness — 관제탑이 «가볍고, 수업에 무해
 {
   const ALLOW = new Set([
     '/api/active-rooms', '/api/admin/classes-now', '/api/admin/alerts',
-    '/api/admin/live-classes', '/api/admin/ghost/start'
+    '/api/admin/live-classes', '/api/admin/ghost/start',
+    /* 2026-08-30 2차 — 셋 다 «이미 있는» 경로다(새 경로가 아니다):
+       · vc/quality  는 기존 엔드포인트에 live=1 모드만 더한 것 (/api/admin/vc/ 는 관문 3곳에 등록됨)
+       · room/…/force-end 는 admin.html 의 «강제 종료» 가 쓰던 그 API
+       · turn-config 는 로그인 없이 열려 있는 공개 경로 (헤더로 중계 상태만 읽는다) */
+    '/api/admin/vc/quality', '/api/admin/room/', '/api/turn-config'
   ]);
   const used = [...new Set((bare.match(/\/api\/[a-z0-9\-\/]+/gi) || []))];
   const unknown = used.filter(u => ![...ALLOW].some(a => u === a || u.startsWith(a + '?')));
@@ -101,6 +106,66 @@ check('⑨ «접속 기록 없음» 사용, «미접속» 단정 없음',
 /* ── ⑪ 진입 링크 — admin.html 수업 관찰 카드에서 새 탭으로 연다 ── */
 check('⑪ admin.html 에 관제탑 진입 링크가 있다 (href="/admin/monitor-wall.html")',
       /href="\/admin\/monitor-wall\.html"/.test(adminHtml));
+
+/* ═══ 2026-08-30 2차 (사장님 「STEP 1 + 순회 참관」) ═══════════════════════ */
+
+/* ── ⑫ 보다 「개설된 룸 목록」에서 가져온 것 — 검색·정렬·자동 새로고침 주기 ── */
+check('⑫ 검색칸·정렬·자동 새로고침 주기 셀렉트가 있다',
+      /id="q"/.test(html) && /id="sel-sort"/.test(html) && /id="sel-poll"/.test(html));
+check('⑫-2 «안함»(0초)을 고르면 폴링 타이머를 걸지 않는다',
+      /var ms = pollMs\(\);[\s\S]{0,80}?if \(ms\) timer = setInterval\(tick, ms\);/.test(bare));
+check('⑫-3 표는 가로 스크롤 상자 안에 있다 (좁은 화면에서 문서가 옆으로 밀리지 않게)',
+      /class="tablewrap"/.test(html) && /\.tablewrap\{[^}]*overflow-x:auto/.test(html));
+
+/* ── ⑬ 순회 참관 — 창 하나를 재사용한다.
+       🔴 noopener 를 주면 window.open 이 «null 을 돌려주도록» 표준에 정해져 있어,
+          창은 열리는데 주소를 바꿀 손잡이가 없어진다 → 순회가 통째로 죽는다(에러도 없다). ── */
+check('⑬ 순회용 창은 이름 있는 창으로 열고 noopener 를 주지 않는다',
+      /window\.open\('about:blank', 'mangoiObserveRotate'\)/.test(bare)
+      && !/openTab\('about:blank'\)/.test(bare));
+check('⑬-2 방을 옮길 때마다 참관 기록을 남긴다 (기록 없이 들어가는 길을 만들지 않는다)',
+      /function rotHop[\s\S]{0,600}?logObserve\(rot\.room/.test(bare));
+check('⑬-3 사람이 그 창을 닫으면 순회가 멈춘다 (rot.win.closed 확인)',
+      /rot\.win\.closed/.test(bare));
+check('⑬-4 머물기·다음·정지 조작이 있다',
+      /rb-hold/.test(bare) && /rb-next/.test(bare) && /rb-stop/.test(bare));
+{
+  /* 간격 최솟값 — 옮길 때마다 수업 화면을 새로 여느라 몇 초 걸린다. 너무 짧으면 로딩만 하다 끝난다 */
+  const dwell = (html.match(/<select id="sel-dwell">[\s\S]*?<\/select>/) || [''])[0];
+  const vals = [...dwell.matchAll(/value="(\d+)"/g)].map(m => Number(m[1]));
+  check(`⑬-5 순회 간격 최솟값이 15초 이상 (실측 ${vals.length ? Math.min(...vals) : '없음'}초)`,
+        vals.length > 0 && Math.min(...vals) >= 15);
+}
+
+/* ── ⑭ 강제 종료 — 되돌릴 수 없는 조작이라 확인창 + 사유 두 단계 ── */
+check('⑭ 강제 종료가 확인창과 사유 입력을 모두 거친다',
+      /function endRoom[\s\S]{0,900}?confirm\(/.test(bare) && /function endRoom[\s\S]{0,900}?prompt\(/.test(bare));
+check('⑭-2 강제 종료 성공 판정이 HTTP 상태와 ok 를 함께 본다 (404 위장 함정)',
+      /!x\.r\.ok \|\| x\.b\.ok === false/.test(bare));
+
+/* ── ⑮ 강사 차단 — 사이드바 href 항목은 역할 필터를 못 받으므로 화면이 스스로 막는다 ── */
+check('⑮ classes-now 가 forbidden_teacher 면 목록을 그리지 않는다',
+      /forbidden_teacher/.test(bare) && /state\.rooms = state\.forbidden \? \[\] : rooms/.test(bare));
+
+/* ── ⑯ 입구 — 급할 때 어느 쪽에서 출발해도 닿아야 한다(카드 2곳 + 사이드바 + 자주 쓰는 기능) ── */
+{
+  const ia6 = readFileSync(join(PUB, 'js', 'adm-ia6.js'), 'utf8');
+  const qa  = readFileSync(join(PUB, 'js', 'adm-quick-access.js'), 'utf8');
+  const inAdmin = (adminHtml.match(/\/admin\/monitor-wall\.html/g) || []).length;
+  check(`⑯ admin.html 안 입구 2곳 이상 (수업 관찰 카드 + 실시간 수업 현황 카드, 실측 ${inAdmin}곳)`, inAdmin >= 2);
+  check('⑯-2 사이드바(adm-ia6.js)에 관제탑 항목이 있다', /monitor-wall\.html/.test(ia6));
+  check('⑯-3 ⚡ 자주 쓰는 기능(adm-quick-access.js)에 관제탑 칸이 있다', /monitor-wall\.html/.test(qa));
+}
+
+/* ── ⑰ 회선 신호등 — 표본이 없을 때 «0%» 로 적지 않는다.
+       0 으로 적으면 영상이 죽은 방이 «회선이 제일 좋은 방» 이 된다(CLAUDE.md 2장) ── */
+check('⑰ 회선 표본이 없으면 «—» 로 둔다 (0 으로 채우지 않는다)',
+      /if \(!q\) return '<span style="color:var\(--muted\)">—<\/span>'/.test(bare));
+{
+  const api = readFileSync(join(PUB, '..', 'src', 'api-admin.ts'), 'utf8');
+  check('⑰-2 서버 집계가 음수 손실(영상 없던 틱)을 평균에서 뺀다 (avg_loss >= 0)',
+        /live[\s\S]{0,900}?avg_loss >= 0/.test(api));
+}
 
 console.log(`\n  결과: PASS ${pass} · FAIL ${fail}`);
 process.exit(fail ? 1 : 0);

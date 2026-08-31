@@ -72,6 +72,13 @@
       card: 'card-admin-ghost', sub: null,
       ico: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>' },
 
+    /* 🗼 (2026-08-30) 수업 관제탑 — 지금 열린 수업을 한 표로 보고 그 자리에서 참관·입장·종료.
+       ⚠️ 결재함과 같은 href 항목이다(card 가 없으므로 usable()·roleHidden() 판정 대상이 아니다).
+          강사·지사에게도 칸이 보이지만 화면 쪽이 스스로 막는다(monitor-wall 머리말 참고). */
+    { key: '관제탑',     ko: '수업 관제탑 (전체 현황)', en: 'Class control tower',
+      card: null, sub: null, href: '/admin/monitor-wall.html',
+      ico: '<path d="M12 2v20"/><path d="M5 22l7-9 7 9"/><path d="M7 8h10"/><circle cx="12" cy="5" r="2"/>' },
+
     { key: '수업종료연장', ko: '수업 종료 / 연장', en: 'End / extend classes',
       card: 'card-active-rooms', sub: null,
       ico: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>' },

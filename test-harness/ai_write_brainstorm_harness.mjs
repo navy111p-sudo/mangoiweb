@@ -18,6 +18,12 @@
 //        그대로 내보내면 «내가 안 쓴 말» 이 내 글에서 고쳐진 것처럼 뜬다. 서버 검증부를
 //        오려 내 실제로 돌린다. to 에 한글·한자가 섞이면 버린다(따라 쓸 영어라서).
 //     ⑤ 한 장 출력(초안·첨삭·완성본)의 인쇄 규칙과 4단계 배너가 살아 있다.
+//     ⑥ 🔴 시작 문장과 답이 «둘 다 전치사» 여도 겹치지 않는다 —
+//        2026-08-31 사장님 화면에 「I was at in my house.」 가 그대로 찍혔다.
+//        (같은 낱말만 보던 앞의 검사가 at + in 을 못 잡았다.)
+//     ⑦ 🔗 주제 목록이 셋(그림·글감·이야기)인데 «가는 길» 은 하나다 —
+//        그림·글감을 눌러도 브레인스토밍이 그 주제로 열린다. 예전의 «한 줄만 넣기» 는
+//        「질문 없이 바로 쓰기」로 남아 있다.
 //
 //   ⚠️ 이 하니스는 «값» 만 본다. 「눌러서 진짜 그렇게 되는가」는 브라우저로 봐야 한다:
 //        PW_DIR=/tmp/pw node test-harness/manual/ai-write-brainstorm-browser.mjs
@@ -55,23 +61,35 @@ const cut = (re, label) => {
   return m ? m[0] : '';
 };
 const SRC = [
+  cut(/const PIC_SCENES = \[[\s\S]*?\n    \];/, 'PIC_SCENES'),
+  cut(/const TOPICS = \[[\s\S]*?\n    \];/, 'TOPICS'),
   cut(/const GO_BASE = \[[\s\S]*?\n    \];/, 'GO_BASE'),
+  cut(/const GO_SCENE_Q = \[[\s\S]*?\n    \];/, 'GO_SCENE_Q'),
+  cut(/const GO_TOPIC_Q = \[[\s\S]*?\n    \];/, 'GO_TOPIC_Q'),
   cut(/const GO_THEMES = \[[\s\S]*?\n    \];/, 'GO_THEMES'),
   cut(/const GO_PARTS = \[[\s\S]*?\n    \];/, 'GO_PARTS'),
+  cut(/const GO_PREP = [^\n]+\n/, 'GO_PREP'),
   cut(/const goHasKo = [^\n]+\n/, 'goHasKo'),
   cut(/const goIsEn  = [^\n]+\n/, 'goIsEn'),
+  cut(/function goThemeFromScene\(idx\) \{[\s\S]*?\n    \}/, 'goThemeFromScene'),
+  cut(/function goThemeFromTopic\(idx\) \{[\s\S]*?\n    \}/, 'goThemeFromTopic'),
   cut(/function goQuestions\(\) \{[\s\S]*?\n    \}/, 'goQuestions'),
   cut(/function goLineFor\(q\) \{[\s\S]*?\n    \}/, 'goLineFor'),
   cut(/function goOutline\(\) \{[\s\S]*?\n    \}/, 'goOutline'),
 ].join('\n');
 
-let outline = null;
-if (!/오려 냄/.test('') && SRC.length > 500) {
-  outline = new Function('themeId', 'answers',
-    'let _goTheme = null, _goAnswers = answers || {};\n' + SRC +
-    '\n_goTheme = GO_THEMES.find(t => t.id === themeId) || null;\nreturn goOutline();');
-  check('뼈대 생성기가 실행된다', Array.isArray(outline('lost', {}).parts));
+// theme: 'lost' 같은 문자열 · {pic:i}(오늘의 그림) · {topic:i}(오늘의 글감) · null
+let RUN = null;
+if (SRC.length > 800) {
+  RUN = new Function('theme', 'answers',
+    'let _goAnswers = answers || {};\n' + SRC +
+    '\nlet _goTheme = typeof theme === "string" ? (GO_THEMES.find(t => t.id === theme) || null)' +
+    ' : (theme && theme.pic !== undefined) ? goThemeFromScene(theme.pic)' +
+    ' : (theme && theme.topic !== undefined) ? goThemeFromTopic(theme.topic) : null;' +
+    '\nreturn { out: goOutline(), qs: goQuestions(), theme: _goTheme };');
+  check('뼈대 생성기가 실행된다', Array.isArray(RUN('lost', {}).out.parts));
 }
+const outline = RUN ? ((t, a) => RUN(t, a).out) : null;
 
 if (outline) {
   // ① 한글 답은 글쓰기 칸에 절대 안 들어간다
@@ -108,6 +126,44 @@ if (outline) {
     if (n !== 7) bad.push(id + ':' + n);      // 주제 첫 문장 1 + 질문 6
   });
   check('④ 주제 8종 모두 6하원칙 6문항 + 첫 문장', ids.length === 8 && bad.length === 0, ids.length + '종 ' + JSON.stringify(bad));
+
+  /* ⑤ 🔴 전치사 겹침 — 2026-08-31 사장님 화면 「I was at in my house.」
+     ⚠️ 이 검사를 지우면 그 문장이 그대로 되살아난다. */
+  const prep = a => outline('bday', { where: a }).parts[0].lines.map(l => l.en).slice(-1)[0];
+  eq('⑤ 「I was at 」 + 「in my house」', prep('in my house'), 'I was in my house.');
+  eq('⑤ 「I was at 」 + 「on the beach」', prep('on the beach'), 'I was on the beach.');
+  eq('⑤ 전치사가 하나뿐이면 그대로', prep('at the park'), 'I was at the park.');
+  eq('⑤ 전치사가 없으면 시작 문장 그대로', prep('my house'), 'I was at my house.');
+
+  /* ⑥ 🔗 그림·글감에서 온 주제 — 목록은 셋이어도 뼈대는 같은 규칙으로 만들어진다 */
+  const pic = RUN({ pic: 3 }, { where: 'a jungle', who: 'a lion', what: 'the elephant walked to me', how: 'we ran away' });
+  check('⑥ 그림 주제는 장면용 5문항 (언제는 묻지 않는다)',
+    pic.qs.map(q => q.k).join(',') === 'where,who,what,why,how', pic.qs.map(q => q.k).join(','));
+  check('⑥ 그림 주제의 첫 문장 = 그 장면의 시작 문장',
+    pic.out.text.indexOf('In the jungle, I saw many animals.') === 0, pic.out.text.slice(0, 60));
+  check('⑥ 그림 주제도 3문단', pic.out.text.split('\n\n').length === 3);
+  check('⑥ 그림 주제에 «어디서 왔는지» 가 붙는다', pic.theme.srcKo === '오늘의 그림' && pic.theme.icon === '🖼');
+
+  const top = RUN({ topic: 0 }, { what: 'pizza', more: 'I eat it every Friday', why: 'it tastes good', how: 'happy' });
+  check('⑦ 글감 주제는 4문항 (사건이 아니라 이야기 하나)',
+    top.qs.map(q => q.k).join(',') === 'what,more,why,how', top.qs.map(q => q.k).join(','));
+  check('⑦ 글감의 시작 문장을 첫 질문이 그대로 쓴다',
+    top.out.text.indexOf('My favorite food is pizza.') === 0, top.out.text.slice(0, 60));
+  check('⑦ 글감 주제도 3문단', top.out.text.split('\n\n').length === 3);
+
+  /* ⑧ 한글 답은 그림·글감에서도 글에 안 들어간다 (빈 줄도 남기지 않는다) */
+  const koPic = RUN({ pic: 3 }, { who: '사자' }), koTop = RUN({ topic: 0 }, { what: '피자', why: '맛있어서' });
+  check('⑧ 그림 주제 — 한글 답이 뼈대 글에 없다', !HANGUL.test(koPic.out.text), koPic.out.text);
+  check('⑧ 글감 주제 — 한글 답이 뼈대 글에 없다', !HANGUL.test(koTop.out.text), koTop.out.text);
+  check('⑧ 한글 답은 메모로 남는다',
+    koTop.out.parts.some(p => p.lines.some(l => l.memo === '피자')));
+  check('⑧ 빈 줄로 시작하거나 끝나지 않는다',
+    !/^\n|\n\n\n|\n$/.test(koTop.out.text), JSON.stringify(koTop.out.text));
+
+  /* ⑨ 문단 배치는 «질문 자신» 이 안다 — 목록을 두 벌로 적으면 곧 어긋난다 */
+  check('⑨ 모든 질문에 문단 번호(p)가 있다',
+    [RUN('lost', {}), pic, top].every(r => r.qs.every(q => q.p === 0 || q.p === 1 || q.p === 2)));
+  check('⑨ GO_PARTS 에는 질문 목록(keys)이 없다', !/const GO_PARTS[\s\S]{0,400}keys:/.test(HTML));
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -130,6 +186,15 @@ check('EN 화면에서도 읽히게 새 UI 에 data-en 이 붙어 있다',
 check('오가나이저 라벨은 글자 흐름을 flex 로 쪼개지 않는다',
   !/\.go-q-label\s*\{[^}]*display:\s*flex/.test(HTML) && !/\.go-part-b\s*\{[^}]*display:\s*flex/.test(HTML));
 check('긴 글은 «고쳐진 문장만» 따라 쓰게 한다', /function pickRewriteTarget/.test(HTML) && /_lastCorrected = rwTarget/.test(HTML));
+/* 🔗 주제 목록 셋이 한 길로 모인다 — 화면 배선 */
+check('🔗 그림 「이 장면으로 쓰기」가 브레인스토밍을 연다', /window\.usePicPrompt[\s\S]{0,400}goSelectScene\(_picIdx\)/.test(HTML));
+check('🔗 글감 칩이 브레인스토밍을 연다', /chip\.onclick = \(\) => \{ try \{ goSelectTopic\(i\)/.test(HTML));
+check('🔗 예전 동작(시작 문장 한 줄)은 «질문 없이 바로 쓰기» 로 남아 있다',
+  /window\.goSkipToWrite/.test(HTML) && /질문 없이 바로 쓰기/.test(HTML));
+check('🔗 «지금 주제» 표시줄이 어디서 온 주제인지 말한다',
+  /go-cur-src/.test(HTML) && /goClearTheme/.test(HTML));
+check('🔗 글감 칩도 EN 에서 영어로 보인다 (TOPICS 에 en)',
+  /\{ ko: '🍕 내가 좋아하는 음식', en: '/.test(HTML) && /chip\.setAttribute\('data-en'/.test(HTML));
 check('문장 나누기에 lookbehind 를 쓰지 않는다 (구형 사파리)', !/\(\?<=/.test(HTML));
 
 /* ═══════════════════════════════════════════════════════════════════

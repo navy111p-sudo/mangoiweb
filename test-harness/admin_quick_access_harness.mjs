@@ -12,7 +12,7 @@
 //     → 대신 그 항목의 **사이드바 버튼을 대신 눌러 준다.** 버튼은 `data-card` 로 찾는다.
 //
 //   ── 2차(08-08 오후) 개편으로 새로 못박는 것 ────────────────────────────
-//   ③ 기본 11개 (결재함 ＋ 출결 현황 · 결제/미납 · 평가서 · 문의/신규상담)
+//   ③ 기본 12개 (결재함 ＋ 출결 현황 · 결제/미납 · 평가서 · 문의/신규상담 ＋ 수업 관제탑)
 //   ④ 🐞 역할 권한으로 감춰진 카드의 바로가기는 그리지 않는다.
 //      역할 숨김(adm-core `_applyMenuVisibility`)은 **class**(.rbac-hide) 이고
 //      ia6 의 카드 필터도 **class**(.ia6-hide) 다 — 이름이 달라 서로 구분된다.
@@ -162,11 +162,13 @@ const DAY = Math.floor((Date.now() + 32400000) / 86400000);   // KST 기준 일�
    그 전에는 이 표 «위» 에 초록 줄이 따로 떠 있었는데, 표 밖에 혼자 있어 어색했고
    사이드바에도 결재함이 생기면서 같은 입구가 셋이 됐다(사장님 지적) → 표 안으로 들였다.
    ⚠️ 다른 칸과 달리 **카드가 없다**(href 로 딴 페이지로 간다) — 아래 ④ 가 그래서 따로 검사한다. */
-console.log('\n[ ① 기본 11개가 정해진 순서로 그려진다 ]');
+console.log('\n[ ① 기본 12개가 정해진 순서로 그려진다 ]');
 const dom1 = makeDom({ cardIds: ALL });
 const win1 = runQa(dom1);
 const labels = labelsOf(dom1.box.innerHTML);
-check(`항목이 11개 렌더된다 (실제: ${labels.length})`, labels.length === 11);
+/* 2026-08-30 「수업 관제탑」이 들어와 12개가 되었다(사장님 「바로바로 들어가서 볼 수 있게」).
+   ⚠️ 결재함과 같은 href 칸이라 카드가 없다 — 아래 ④ 의 검사 대상이 하나 더 늘었다. */
+check(`항목이 12개 렌더된다 (실제: ${labels.length})`, labels.length === 12);
 check(`첫 항목이 「결재함」이다 (실제: "${labels[0] || ''}")`, labels[0] === '결재함');
 check(`그 다음이 「오늘 수업」이다 (실제: "${labels[1] || ''}")`, /^오늘 수업/.test(labels[1] || ''));
 ['출결 현황', '결제 · 미납', '평가서', '문의 · 신규상담'].forEach((l) =>
@@ -213,7 +215,7 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const ls = labelsOf(dom.box.innerHTML);
   check('권한 없는 「평가서」가 목록에서 빠진다', !ls.includes('평가서'));
   check('권한 없는 「결제 · 미납」이 목록에서 빠진다', !ls.includes('결제 · 미납'));
-  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 9 && ls.includes('출결 현황'));
+  check(`나머지는 그대로 남는다 (실제: ${ls.length}개)`, ls.length === 10 && ls.includes('출결 현황'));
   /* 🪤 결재함은 «가리킬 카드» 가 없다 — 카드의 display 만 보고 판정하면 조용히 사라진다.
      결재는 지사·대리점도 올려야 하는 일이라 사라지면 안 된다. */
   check('카드가 없는 「결재함」은 권한 판정에서 빠지지 않는다', ls[0] === '결재함');
@@ -223,8 +225,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   const dom = makeDom({ cardIds: ALL });
   ALL.forEach((id) => dom.cards[id].classList.add('ia6-hide'));
   runQa(dom);
-  check('.ia6-hide 는 권한 숨김이 아니다 — 11개가 그대로 남는다',
-    labelsOf(dom.box.innerHTML).length === 11);
+  check('.ia6-hide 는 권한 숨김이 아니다 — 12개가 그대로 남는다',
+    labelsOf(dom.box.innerHTML).length === 12);
 }
 {
   // 🔴 (2026-08-08 실측 회귀) 바깥 컨테이너 #legacy-cards 가 display:none 인 순간이 있다.
@@ -232,8 +234,8 @@ console.log('\n[ ④ 역할 권한으로 감춰진 카드는 «바로가기도»
   //    컨테이너의 display 는 «지금 무엇을 보여 주는가» 이지 «이 사람이 볼 수 있는가» 가 아니다.
   const dom = makeDom({ cardIds: ALL, containerHidden: true });
   runQa(dom);
-  check('바깥 컨테이너가 감춰져 있어도 11개가 그대로 남는다 (권한과 화면전환을 구분한다)',
-    labelsOf(dom.box.innerHTML).length === 11);
+  check('바깥 컨테이너가 감춰져 있어도 12개가 그대로 남는다 (권한과 화면전환을 구분한다)',
+    labelsOf(dom.box.innerHTML).length === 12);
 }
 
 console.log('\n[ ⑤ 🐞 data-ko 는 «span 에만» — 바깥 div 에 붙으면 아이콘이 지워진다 ]');
@@ -282,7 +284,7 @@ check('망가진 사용기록(JSON 아님)에도 죽지 않는다', (() => {
     const bad = memStore({ mangoi_qa_use: '{{{망가짐' });
     const dom = makeDom({ cardIds: ALL });
     runQa(dom, bad);
-    return labelsOf(dom.box.innerHTML).length === 11;
+    return labelsOf(dom.box.innerHTML).length === 12;
   } catch { return false; }
 })());
 
