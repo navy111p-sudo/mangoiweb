@@ -158,6 +158,11 @@
   #log[data-sub="blur"] .msg.ai:not(.sub-shown) .wu-text{filter:blur(6px);cursor:pointer;user-select:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .wu-text{display:none}
   #log[data-sub="off"] .msg.ai:not(.sub-shown) .sub-veil{display:inline}
+  /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31) — ai-friend 와 같은 사정.
+     흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다.
+     ⚠️ .wu-text 밖에 두어야 한다 — 안에 두면 이 안내까지 흐려진다. */
+  .sub-hint{display:none;margin-top:6px;font-size:13px;font-weight:800;color:var(--muted,#a5b4cf);cursor:pointer;white-space:normal}
+  #log[data-sub="blur"] .msg.ai:not(.sub-shown) .sub-hint{display:block}
   .mean-btn{display:inline-flex;align-items:center;gap:4px;margin-top:10px;margin-left:8px;
     background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.45);color:#c4b5fd;
     border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
@@ -629,6 +634,7 @@ function addMsg(text, who){
   d.innerHTML = whoHtml + (who==='ai'
     ? '<span class="wu-text">' + renderMsg(text) + '</span>'
       + '<span class="sub-veil">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
+      + '<span class="sub-hint">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
     : renderMsg(text));
   if(who==='ai'){
     // 각 AI 메시지에 🔊 다시 듣기 버튼

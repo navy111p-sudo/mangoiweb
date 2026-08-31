@@ -247,6 +247,14 @@
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .ai-text,
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .tip-chip { display: none; }
     .chat[data-sub="off"] .ai-row:not(.sub-shown) .sub-veil { display: inline; }
+    /* 👁 «가리기» 상태를 말풍선 자신이 말하게 한다 (2026-08-31 사장님 제보)
+       흐린 글자만 있으면 «글자가 잘 안 나온다»=고장 으로 읽힌다. 실제로 그렇게 제보가 왔다.
+       «완전 끄기» 에는 안내(.sub-veil)가 있었는데 «가리기» 에만 아무 표시가 없었다.
+       ⚠️ .ai-text 밖에 두어야 한다 — 안에 두면 이 안내까지 함께 흐려져 아무 소용이 없다.
+       ⚠️ display:flex 금지 — 짧은 문장이 낱글자로 쪼개진다(CLAUDE.md 함정). */
+    .sub-hint { display: none; margin-top: 6px; font-size: 12px; font-weight: 800;
+      color: var(--text2); cursor: pointer; white-space: normal; }
+    .chat[data-sub="blur"] .ai-row:not(.sub-shown) .sub-hint { display: block; }
     /* 뜻 카드 — 파랑. 노란 팁 카드(문법)와 색으로 구분된다 */
     .ko-chip { margin-top: 8px; padding: 7px 10px; border-radius: 10px; font-size: 12.5px;
       background: rgba(56,189,248,0.12); border: 1px solid rgba(56,189,248,0.35);
@@ -873,6 +881,7 @@
           + '<div class="msg ai">'
           + '<span class="ai-text">' + escapeHtml(body).replace(/\n/g, '<br>') + '</span>'
           + '<span class="sub-veil" data-ko="🔊 듣고 맞혀 보세요 (탭하면 보여요)" data-en="🔊 Listen and guess (tap to see)">🔊 듣고 맞혀 보세요 (탭하면 보여요)</span>'
+          + '<span class="sub-hint" data-ko="👁 자막을 가려 뒀어요 — 눌러서 보기" data-en="👁 Subtitles hidden — tap to reveal">👁 자막을 가려 뒀어요 — 눌러서 보기</span>'
           + (tip ? '<div class="tip-chip">' + escapeHtml(tip) + '</div>' : '')
           + '</div>'
           + '<button class="replay-btn" aria-label="다시 듣기" data-ko-aria="다시 듣기" data-en-aria="Play again" title="다시 듣기">🔊</button>'
@@ -1410,6 +1419,7 @@
   /* 👁 뜻 버튼도 같이 키운다 — 안 키우면 확대 화면에서 이것만 눌리지 않을 만큼 작게 남는다 */
   .mean-btn{height:40px;padding:0 14px;font-size:16px}
   .sub-veil{font-size:19px}
+  .sub-hint{font-size:15px}
   .ko-chip{font-size:19px;padding:11px 15px}
   .typing span{width:8px;height:8px}
   .input-bar{padding:16px 18px}
