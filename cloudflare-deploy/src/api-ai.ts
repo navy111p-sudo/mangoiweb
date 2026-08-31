@@ -756,7 +756,9 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
             });
             const st2 = aiFriendStripHanzi(String((shorter && (shorter.response || shorter.result)) || '').trim());
             const m2 = st2 ? aiFriendMeasureReply(st2, level) : null;
-            if (st2 && m2 && (m2.ok || (m2.worstWords <= lvBefore.worstWords && m2.sentences <= lvBefore.sentences))) {
+            // ⚠️ «더 나은 쪽» 판정은 score 하나로 합니다(깨진 문법 100 · 길이 10 · 문장 수 1).
+            //    조금 길어도 «올바른» 문장이 낫기 때문입니다 — 길이만 비교하면 전보문이 이깁니다.
+            if (st2 && m2 && (m2.ok || m2.score < lvBefore.score)) {
               reply = st2;
             }
           } catch (e: any) {
@@ -766,10 +768,13 @@ ${funFactRule}- Today's special word is "${wodNow.w}" (Korean: ${wodNow.ko}). Us
         reply = aiFriendTrimSentences(reply, level) || reply;
         const lvAfter = aiFriendMeasureReply(reply, level);
         if (!lvAfter.ok) {
-          // 한 문장이 여전히 길 수 있다(단어는 안 자르므로). 조용히 넘기지 말고 남긴다.
-          console.error('[chat-friend] level ' + level + ' still long: '
+          /* 한 문장이 여전히 길거나 꼴이 깨져 있을 수 있다 — 낱말을 자르거나 문장을 «고쳐 쓰지» 는
+             않기 때문이다(아이가 그대로 따라 읽는 문장이라 코드가 지어내면 안 된다).
+             ⛔ 조용히 넘기지 마세요. 이 줄이 없었다면 「Dog is big?」 이 화면까지 갔는지조차 몰랐습니다. */
+          console.error('[chat-friend] level ' + level + ' not clean: '
             + lvAfter.sentences + '/' + lvAfter.maxSentences + ' sentences, worst '
-            + lvAfter.worstWords + '/' + lvAfter.maxWordsPerSentence + ' words');
+            + lvAfter.worstWords + '/' + lvAfter.hardMaxWordsPerSentence + ' words'
+            + (lvAfter.broken.length ? ', broken questions: ' + JSON.stringify(lvAfter.broken) : ''));
         }
       }
 

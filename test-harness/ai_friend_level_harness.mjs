@@ -136,13 +136,73 @@ check('S1 눈높이에 맞는 짧은 답은 통과시킨다(멀쩡한 것까지 
   M.aiFriendMeasureReply('Nice try! 😊 Do you like cats?', 'S1'));
 /* S1(5단어)과 S2(7단어)의 차이를 «한 문장» 으로 보인다 — 6단어짜리는 S2 는 되고 S1 은 안 된다.
    ⚠️ 예문을 아무거나 쓰면 안 된다. "Do you like cats?" 는 4단어라 S1 도 통과한다(실제로 밟았다). */
-const SIX = 'Do you like cats or dogs?';
-check('S1 은 S2 보다 한 칸 더 짧다 (6단어짜리가 S2 는 되고 S1 은 안 된다)',
-  M.aiFriendMeasureReply(SIX, 'S2').ok && !M.aiFriendMeasureReply(SIX, 'S1').ok,
-  { S2: M.aiFriendMeasureReply(SIX, 'S2'), S1: M.aiFriendMeasureReply(SIX, 'S1') });
+/* ⚠️ 2026-08-31 «문법 우선» 수리로 판정 기준이 «목표» 에서 «여유 상한(hardMax)» 으로 바뀌었다.
+   문법을 지키다 한두 낱말 넘는 것을 봐주기 위해서다(그러지 않으면 모델이 Do·a·the 를 버린다).
+   그래서 6단어짜리는 이제 S1 도 통과한다 — 그것이 «고친 것» 이지 회귀가 아니다.
+   칸 사이가 여전히 벌어져 있는지는 그 상한을 실제로 넘는 문장(8단어)으로 확인한다. */
+const EIGHT = 'Do you like cats or dogs or birds?';
+check('S1 은 S2 보다 한 칸 더 짧다 (8단어짜리가 S2 는 되고 S1 은 안 된다)',
+  M.aiFriendMeasureReply(EIGHT, 'S2').ok && !M.aiFriendMeasureReply(EIGHT, 'S1').ok,
+  { S2: M.aiFriendMeasureReply(EIGHT, 'S2'), S1: M.aiFriendMeasureReply(EIGHT, 'S1') });
+check('여유 상한이 목표보다 크되 다음 칸을 넘지 않는다 (칸 순서가 뒤집히지 않는다)',
+  ['S1','S2','S3','S4','S5','S6','S7'].every((k, i, a) => {
+    const sp = M.AI_FRIEND_LEVELS[k];
+    const next = i + 1 < a.length ? M.AI_FRIEND_LEVELS[a[i + 1]] : null;
+    return sp.hardMaxWordsPerSentence > sp.maxWordsPerSentence
+      && (!next || sp.hardMaxWordsPerSentence <= next.hardMaxWordsPerSentence);
+  }));
 check('S8(C1) 은 단어 상한이 없다(자유롭게 말한다)',
   M.AI_FRIEND_LEVELS.S8.maxWordsPerSentence === 0
   && M.aiFriendMeasureReply('I genuinely think that documentary changed how I see the whole subject.', 'S8').ok);
+
+/* ── B-2. 🔴 전보문 의문문 — 2026-08-31 사장님 화면 실사고 ────────────── */
+console.log('\n[ B-2. 문법이 길이에 지지 않는가 (전수 검사) ]');
+/* 사장님 화면에 실제로 나온 것. 단어 수는 규격 «안» 이라 길이 검사만으로는 셋 다 통과했다
+   — 틀린 것은 «문장의 꼴» 이고, 그것을 안 보면 화면까지 그대로 나간다. */
+const REAL_BROKEN = ['Great try! You have dog? 🐶', 'Nice sentence! Dog is healthy? 🐕', 'Great try! Dog is big? 🐕'];
+for (const r of REAL_BROKEN) {
+  check(`실사고 답변을 잡는다: ${r}`, !M.aiFriendMeasureReply(r, 'S1').ok, M.aiFriendMeasureReply(r, 'S1').broken);
+  check('  └ 길이만으로는 «안» 걸렸다(그래서 이 검사가 필요하다)',
+    M.aiFriendSplitSentences(r).every((x) => M.aiFriendCountWords(x) <= M.AI_FRIEND_LEVELS.S1.hardMaxWordsPerSentence));
+}
+for (const r of ['Great try! Do you have a dog? 🐶', 'Nice sentence! Is the dog healthy? 🐕', 'Great try! Is the dog big? 🐕'])
+  check(`사장님이 나와야 한다고 하신 모양은 통과: ${r}`, M.aiFriendMeasureReply(r, 'S1').ok, M.aiFriendMeasureReply(r, 'S1'));
+
+/* 전수 — «올바른 것을 잡지 않는가» 가 «깨진 것을 잡는가» 보다 중요하다.
+   거짓 경보는 멀쩡한 답을 버리고 다시 뽑게 만들어, 학생을 기다리게 하고 답을 나쁘게 바꾼다. */
+const AUX = ['Do', 'Does', 'Is', 'Are', 'Can', 'Will', 'Did', 'Was', 'Have', 'Has'];
+const SUBJ = ['you', 'he', 'she', 'it', 'they', 'we', 'I', 'the dog', 'a cat', 'the book', 'your mom', 'Noah', 'Emma', 'this', 'that', 'there'];
+const REST = ['like cats', 'happy', 'big', 'have a pet', 'go to school', 'play soccer', 'your friend', 'see the bird', 'eat rice', 'red'];
+const GOOD = [];
+for (const a of AUX) for (const su of SUBJ) for (const r of REST) GOOD.push(`${a} ${su} ${r}?`);
+for (const w of ['What', 'Where', 'Who', 'How', 'Why', 'When', 'Which']) for (const a of ['is', 'are', 'do', 'does', 'can']) for (const su of SUBJ) GOOD.push(`${w} ${a} ${su}?`);
+for (const o of ['Really?', 'Right?', 'And you?', 'Ok?', 'Why?', 'How?', 'Sure?']) GOOD.push(o);
+for (const l of ['Oh', 'Ok', 'So', 'Well', 'Hey', 'Wow', 'And', 'But']) for (const su of SUBJ.slice(0, 6)) GOOD.push(`${l}, do ${su} like it?`);
+const BAD = [];
+for (const su of ['You', 'He', 'She', 'They', 'Dog', 'The dog', 'Cat', 'Your mom', 'It'])
+  for (const r of ['have dog', 'is big', 'is healthy', 'like cats', 'want juice', 'play soccer']) BAD.push(`${su} ${r}?`);
+for (const a of ['Is', 'Are', 'Was', 'Were', 'Does', 'Do']) for (const n of ['dog', 'cat', 'book', 'mom', 'friend', 'ball']) BAD.push(`${a} ${n} big?`);
+
+let fp = 0, fn = 0, hi = 0; const fpEx = [], fnEx = [];
+for (const g of GOOD) for (const lv of ['S1', 'S2', 'S3']) if (M.aiFriendBrokenQuestions('Nice! ' + g, lv).length) { fp++; if (fpEx.length < 5) fpEx.push(lv + ' | ' + g); }
+for (const b of BAD) for (const lv of ['S1', 'S2', 'S3']) if (!M.aiFriendBrokenQuestions('Nice! ' + b, lv).length) { fn++; if (fnEx.length < 5) fnEx.push(lv + ' | ' + b); }
+for (const b of BAD) for (const lv of ['S4', 'S5', 'S6', 'S7', 'S8']) if (M.aiFriendBrokenQuestions('Nice! ' + b, lv).length) hi++;
+check(`올바른 의문문 ${GOOD.length}종 × 3칸(${GOOD.length * 3}회) — 거짓 경보 0`, fp === 0, fpEx);
+check(`깨진 전보문 ${BAD.length}종 × 3칸(${BAD.length * 3}회) — 놓침 0`, fn === 0, fnEx);
+check('상급 5칸에서는 아예 검사하지 않는다(「So you like dogs?」 같은 구어체를 잡으면 안 된다)', hi === 0, hi);
+check('물음표가 없는 문장은 건드리지 않는다',
+  ['I have a dog.', 'You are happy.', 'Dog is big.', 'He like cats.'].every((d) => M.aiFriendBrokenQuestions(d, 'S1').length === 0));
+check('⛔ 알려진 한계 — 관사만 빠진 것은 못 잡는다(품사 분석이 필요하다. 프롬프트 예시가 맡는다)',
+  M.aiFriendBrokenQuestions('Do you have dog?', 'S1').length === 0);
+check('점수는 «깨진 문법» 을 길이보다 무겁게 매긴다 (조금 길어도 올바른 문장이 낫다)',
+  M.aiFriendMeasureReply('Nice! Dog is big?', 'S1').score
+  > M.aiFriendMeasureReply('Nice! Do you have a very big brown dog?', 'S1').score);
+check('규격이 «문법 우선» 을 프롬프트로도 말한다(다섯 칸 전부)',
+  ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].every((k) => /never drop/i.test(M.AI_FRIEND_LEVELS[k].rule)));
+check('기초 세 칸은 올바른 예·틀린 예를 함께 보여 준다(지시만으로는 안 지켜진다)',
+  ['S1', 'S2', 'S3'].every((k) => /NEVER "You have dog\?"/.test(M.AI_FRIEND_LEVELS[k].rule)));
+check('다시 뽑기 지시가 «어느 문장이» 틀렸는지 그대로 보여 준다',
+  M.aiFriendShortenHint('Nice! Dog is big?', 'S1').includes('Dog is big?'));
 
 /* ── C. 줄이기 — 문장 수만, 질문은 남기고, 낱말은 자르지 않는다 ────── */
 console.log('\n[ C. 줄이기는 문장 «수» 만 줄인다 ]');
@@ -186,11 +246,12 @@ check('기초 단계에서 «최근 틀린 단어 끼워 넣기»를 끈다', /w
 check('만든 뒤 실제로 재 본다', /aiFriendMeasureReply\(reply,\s*level\)/.test(CF));
 check('넘치면 한 번 더 뽑는다', /aiFriendShortenHint\(reply,\s*level\)/.test(CF));
 check('그래도 넘치면 문장 수를 줄인다', /aiFriendTrimSentences\(reply,\s*level\)/.test(CF));
-check('다시 뽑은 것을 «더 나을 때만» 받는다(빈 답·더 긴 답으로 바꾸지 않는다)',
-  /m2\.ok\s*\|\|\s*\(m2\.worstWords\s*<=/.test(CF));
+check('다시 뽑은 것을 «더 나을 때만» 받는다(빈 답·더 나쁜 답으로 바꾸지 않는다)',
+  /m2\.ok\s*\|\|\s*m2\.score\s*<\s*lvBefore\.score/.test(CF));
 check('기본 레벨을 하드코딩하지 않고 정본을 거친다',
   /aiFriendNormalizeLevel\(b\.level\)/.test(CF) && !/b\.level \|\| '(A2|S3)'/.test(CF));
-check('넘친 채로 나가면 조용히 넘기지 않고 로그를 남긴다', /still long/.test(CF));
+check('깨진 채로 나가면 조용히 넘기지 않고 로그를 남긴다',
+  /not clean/.test(CF) && /broken questions/.test(CF));
 
 /* ── F. 웜업과 «짝» 인가 — 여덟 칸 «전부» 를 대조한다 ───────────────
    2026-08-31 사장님 결정으로 두 화면이 같은 여덟 눈금을 쓴다. 한 칸만 어긋나도
