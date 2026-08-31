@@ -21,6 +21,7 @@ import { runLessonInsightSweep } from './lesson-insight';   // 🎥 수업 종�
 import { runLessonReminderSweep, runFeedbackReminderSweep } from './lesson-reminder';
 import { runLeveltestReminderSweep, runLeveltestDayBeforeSweep, runLeveltestHourBeforeSweep } from './leveltest-ticket';   // 🎟️ 레벨테스트 T-10 «확인+입장» 링크
 import { handleTraitsApi } from './api-traits';
+import { resolveFriendName } from './ai-friends';   // 🧑 AI 친구 이름 정본(Emma·Jake·Lily·Noah)
 import { getDuplicatePayments, resolveDuplicate } from './api-refund-audit';
 import { runSiteWatchdog } from './api-uptime';   // 🐕 사이트 자체 감시견(cron */15)
 import { purgeExpired } from './retention';
@@ -2991,8 +2992,13 @@ const WARMUP_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
  *      _speechText() 의 동작이라, 거기를 고치면 이 프롬프트도 같이 고쳐야 한다.
  *   ⚠️ 프롬프트가 길어진 만큼 매 요청 토큰이 조금 늘어난다(체감 지연은 교재 조회 캐시로 상쇄).
  *      새 규칙은 «실제로 겪은 증상» 이 있을 때만 추가할 것. */
-const WARMUP_SYSTEM = [
-  "너는 망고아이의 AI 대화 친구 '망고(Mango)'야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.",
+/* 🧑 친구 이름은 학생이 고른다(Emma·Jake·Lily·Noah). 이 프롬프트는 그 이름을 «값» 으로 받는다 —
+   예전에는 '망고(Mango)' 로 하드코딩돼 있어서, 화면이 "Hi! I'm Lily." 라고 인사해 놓고
+   학생이 이름을 물으면 AI 가 다른 이름을 대는 어긋남이 있었다(2026-08-31 사장님 제보).
+   ⛔ 화면이 보낸 문자열을 그대로 끼우지 말 것 — 정본 표(src/ai-friends.ts)를 거친 이름만 넣는다. */
+const warmupSystem = (friendName: string) => [
+  `너는 망고아이의 AI 대화 친구 '${friendName}' 야. 수업 전에 학생의 입을 풀어 주는 영어 워밍업 상대야. 밝고 장난기 많은 단짝 친구처럼 신나게 리액션해줘.`,
+  `[이름] 학생이 이름을 물으면 반드시 '${friendName}' 라고 답해. 다른 이름을 지어내지 마.`,
   "[언어] 네 대사는 반드시 영어로 말해. 한국어가 꼭 필요하면 영어 문장 뒤 «괄호 안» 에만 짧게 덧붙여 — 괄호 안은 음성으로 읽히지 않고 자막에만 보인다. 괄호 밖에 한국어를 쓰면 영어 목소리가 그대로 읽어서 소리가 뭉개진다.",
   "[길이] 한 번에 2문장을 넘기지 마. 그리고 질문은 «한 번에 하나만» 해 — 두세 개를 몰아 묻지 마.",
   "[형식] 사람이 말하듯 평문으로만 써. 마크다운(**, *, #, 목록)·'Mango:' 같은 이름표·(웃으며) 같은 지문은 쓰지 마. 이모지는 1~2개까지.",
@@ -3913,6 +3919,9 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     // 🚀 kickoff — 화면이 «학생 대신» AI 에게 첫 인사를 시키는 합성 발화(교재 연동 경로)다.
     //    학생이 한 말이 아니므로 「입을 뗐다」로 세면 안 된다(src/warmup-log.ts 주석 참고).
     const ctxKickoff = !!(body && body.kickoff);
+    // 🧑 학생이 고른 AI 친구 이름 — 정본 표를 거쳐 «아는 이름» 으로만 바꾼다(프롬프트 주입 차단).
+    //    「번갈아」는 화면이 «그 턴에 말할 사람» 을 보낸다. 안 보내면 예전처럼 'Mango'.
+    const ctxFriend = resolveFriendName(body && body.friend);
 
     // ── 입력 검증(Pydantic 대응) ──
     if (!sessionId) {
@@ -3947,7 +3956,7 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
     if (warmupShouldMarkFirstReply(history, ctxKickoff)) await markWarmupFirstReply(env, sessionId);
 
     // ── 시스템 프롬프트(주제 + 오늘 배울 교재 반영) + 히스토리 + 이번 발화로 messages 구성 ──
-    let sys = WARMUP_SYSTEM;
+    let sys = warmupSystem(ctxFriend);
     sys += ' ' + warmupAgeLine(ctxAge);
     if (ctxDifficulty) sys += ` [난이도] ${WARMUP_LEVELS[ctxDifficulty]}`;
     if (lessonTopic) sys += ` 오늘의 대화 주제는 '${lessonTopic}' 이야.`;

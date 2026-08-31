@@ -600,6 +600,13 @@ var apiInput = document.getElementById('apiInput'); if(apiInput) apiInput.value 
    ★ 선언이 addMsg 정의보다 위에 있어야 함 — 첫 인사(addMsg)가 스크립트 파싱 중에 실행되는데,
      선언이 뒤에 있으면 var 초기화가 이미 무장된 타이머 ID 를 null 로 덮어써 취소가 안 된다. */
 var _idleTimer=null, _idleShownForTurn=false;
+/* ⏳ «대답 보기» 지연 — 선언이 여기 있어야 한다(바로 위 ★ 와 같은 이유).
+   첫 인사(fallbackGreeting)가 «스크립트 파싱 중» 에 showAnswerChips 를 부르는데,
+   선언이 그보다 아래면 그 순간 ANS_DELAY_MS 가 undefined 라
+   setTimeout(fn, undefined) = «0ms» 가 되어 즉시 떠 버린다.
+   ⚠️ 2026-08-31 실제로 밟았다 — 8초로 고쳐 놓고도 화면은 그대로 즉시였고,
+      브라우저로 재 보고서야 알았다(문자열 검사로는 안 보인다). */
+var _ansTimer = 0, ANS_DELAY_MS = 8000;
 function scheduleIdleSuggest(){
   clearTimeout(_idleTimer);
   _idleTimer=setTimeout(function(){
@@ -626,8 +633,13 @@ var log = document.getElementById('log');
 function addMsg(text, who){
   var d = document.createElement('div');
   d.className = 'msg ' + who;
+  /* 🧑 이름표는 «지금 말하는 친구» 로 — Mango 로 하드코딩돼 있어서, Lily 를 골라도
+     말풍선마다 「Mango」가 붙었다. 서버 프롬프트도 같은 이름을 받는다(withCtx 의 body.friend).
+     ⚠️ 아이콘은 브랜드 캐릭터 그대로 둔다 — 얼굴은 왼쪽 큰 카드에 이미 있고, 여기까지
+        사람 얼굴을 넣으면 말풍선마다 사진이 붙어 시끄러워진다. */
+  var friendLabel = _friendLabelNow();
   var whoHtml = who==='ai'
-      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="Mango">Mango</span>'
+      ? '<span class="who"><img class="who-ava" src="/img/mango-char.png" alt="' + friendLabel + '">' + friendLabel + '</span>'
       : who==='me' ? '<span class="who"><img class="who-ava me" src="/img/me-avatar.svg" alt="나">나</span>' : '';
   /* 👁 AI 본문은 .wu-text 로 감싼다 — 자막 단계가 이 span 하나만 건드리고, 이름표·버튼은 늘 남는다.
      .sub-veil 은 「완전 끄기」일 때 그 자리에 뜨는 안내(탭하면 열린다). */
@@ -1525,22 +1537,34 @@ function _startSttSession(){
       (src/warmup-answers.ts)에 이 인사말을 넣었을 때 나오는 값 그대로입니다.
       하니스가 그 함수를 «실제로 돌려» 여기 값과 대조하므로 둘이 어긋날 수 없습니다.
       (첫 인사는 서버를 안 거치는 화면 전용 경로라 값을 여기 둘 수밖에 없습니다) */
+/* ⚠️ 이름은 «고른 친구» 를 끼운다({name}) — 예전에는 "Hi! I'm Mango." 로 박혀 있어서,
+   말풍선 이름표가 Lily 인데 본문은 Mango 라고 말했다(2026-08-31 trap-check 발견).
+   하필 1~2단계(첫걸음·기초) 학생만 이 경로를 타므로 제일 취약한 쪽에서 어긋났다.
+   ⛔ 문장을 길게 늘이지 말 것 — 서버 규칙(WARMUP_LEVELS)의 단어 수 상한을 하니스가 센다. */
 var BEGINNER_GREETINGS = {
   // 1단계(첫걸음) — 서버 규칙: 3~5단어·현재시제. 질문은 Yes/No.
-  1: { en: "Hi! I'm Mango. 🥭 Are you happy today?",
-       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 좋아요?',
+  1: { en: "Hi! I'm {name}. 🥭 Are you happy today?",
+       ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 좋아요?',
        chips: ['Yes, I am.', "No, I'm not.", 'One more time, please.'] },
   // 2단계(기초) — 서버 규칙: 5~7단어. 질문은 양자택일(고를 말이 문장 안에 있다).
-  2: { en: "Hi! I'm Mango. 🥭 How are you today, happy or tired?",
-       ko: '안녕하세요! 저는 망고예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
+  2: { en: "Hi! I'm {name}. 🥭 How are you today, happy or tired?",
+       ko: '안녕하세요! 저는 {name} 예요. 오늘 기분이 어때요? 좋아요, 아니면 피곤해요?',
        chips: ['I am happy.', 'I am tired.', 'One more time, please.'] }
 };
+/* 지금 말할 친구의 표시 이름 — 이름표·인사말이 같은 값을 쓰게 한 곳으로 모은다 */
+function _friendLabelNow(){
+  try{ var p = _voicePerson();
+       return (VOICE_MODES[p] && VOICE_MODES[p].label || '').replace(/^[^A-Za-z]+/, '') || 'Mango'; }
+  catch(e){ return 'Mango'; }
+}
 function fallbackGreeting(){
   var g = BEGINNER_GREETINGS[_warmLevel];
   if(g){
     // 「뜻」 버튼은 손으로 다듬은 의역을 쓴다 — 미리 넣어 두면 fetchMeaning 이 번역 서버를 안 부른다
-    _koCache[g.en] = g.ko;
-    addMsg(g.en, 'ai');
+    var _fn = _friendLabelNow();
+    var gEn = g.en.replace(/\{name\}/g, _fn), gKo = g.ko.replace(/\{name\}/g, _fn);
+    _koCache[gEn] = gKo;
+    addMsg(gEn, 'ai');
     /* ⚠️ 여기에 「아래 보기를 눌러 보세요」 같은 안내 줄을 «따로» 두지 마세요 —
        초록 보기 카드의 제목이 이미 같은 말입니다. 초보 화면일수록 줄이 겹치면 읽지 않습니다.
        (한국어 뜻도 아래 3단계 자동 뜻이 말풍선 안에 열어 줍니다) */
@@ -1554,6 +1578,11 @@ function withCtx(body){
   var uid = getLoginId(); if(uid) body.user_id = uid;
   body.difficulty = _warmLevel;   // 📊 현재 대화 레벨(1~8)을 항상 함께 전송
   body.age_group = _warmAge;      // 🧑‍🎓 현재 연령대(kid/child/teen/adult) — 소재·말투 축
+  // 🧑 지금 말할 친구 — 서버가 「너는 Lily 야」로 프롬프트를 만든다.
+  //    ⚠️ 안 보내면 AI 는 자기가 'Mango' 인 줄 알고, 「Hi! I'm Lily」로 인사해 놓고
+  //       이름을 물으면 다른 이름을 댄다(2026-08-31 사장님 제보).
+  //    「번갈아」면 _voicePerson() 이 그 턴의 사람을 준다 — 목소리와 같은 사람이 된다.
+  try{ body.friend = _voicePerson(); }catch(e){}
 
   if(WCTX.textbook) body.textbook = WCTX.textbook;
   if(WCTX.level) body.level = WCTX.level;
@@ -1735,9 +1764,41 @@ function qsCardClear(){ var old = document.getElementById('qsCard'); if(old) old
    ⚠️ 못 만들면 서버가 빈 배열을 준다 — 그때는 아무것도 안 그린다(지어내지 않는다).
    ⚠️ 누르면 «입력칸에 넣고 평소 전송 경로(sendMsg)» 로 보낸다. 따로 보내면 콤보·마이크 정리·
       히스토리가 갈라진다(이 화면은 마이크가 늦게 자동전송하는 사고 전력이 있다). */
-function ansCardClear(){ var o = document.getElementById('ansCard'); if(o) o.remove(); }
+function ansCardClear(){
+  var o = document.getElementById('ansCard'); if(o) o.remove();
+  if(_ansTimer){ clearTimeout(_ansTimer); _ansTimer = 0; }   // 예약된 것도 함께 취소
+}
+/* ⏳ «먼저 스스로 만들어 볼 틈» — 2026-08-31 사장님 지시
+     (「샘플질문이 시작하자마자 나와요. 전에는 학생이 대답을 안 하고 있으면 나왔었는데」).
+   도입(8/26) 때는 AI 가 말하자마자 같이 띄웠는데, 그러면 답을 보여 준 뒤에 묻는 순서라
+   학생이 자기 문장을 만들어 볼 자리가 없다. 이제 몇 초 기다렸다가, «아직 아무 말도
+   안 하고 있을 때만» 띄운다.
+   ⚠️ 이 화면에는 «머뭇거림 감지»(scheduleIdleSuggest, 위쪽)가 이미 있다 — 25초 무응답이면
+      «새 질문 추천» 을 띄운다. 사장님이 기억하신 «기다렸다 나오던 것» 이 그쪽이다.
+      둘은 하는 일이 다르므로 겹쳐 두는 것이 맞다:
+        8초  → «이 질문에 어떻게 답하지?» (대답 보기)
+        25초 → «이 질문 자체가 어렵다»   (질문 바꾸기)
+      ⛔ 8초를 25초에 맞추지 말 것 — 그러면 초보가 한 질문에서 25초를 헤맨다.
+   ⚠️ 입력칸을 건드렸거나(타이핑·마이크) 이미 보내는 중이면 띄우지 않는다 —
+      스스로 하고 있는 아이에게 답을 들이미는 것이 이 기능의 반대편 실패다.
+   ⚠️ 새 카드를 예약할 때 앞 예약을 반드시 취소한다(ansCardClear). 안 그러면 대화가
+      빨라질수록 타이머가 쌓여 «지난 질문의 보기» 가 뒤늦게 튀어나온다. */
 function showAnswerChips(list){
   ansCardClear();
+  if(!list || !list.length) return;
+  _ansTimer = setTimeout(function(){
+    _ansTimer = 0;
+    try{
+      if(sending) return;                                   // 이미 보내는 중
+      var inp = document.getElementById('inp');
+      if(inp && (inp.value || '').trim()) return;            // 뭔가 쓰고 있다
+      if(typeof _recognizing !== 'undefined' && _recognizing) return;   // 마이크로 말하는 중
+      if(document.getElementById('ansCard')) return;         // 이미 떠 있다
+    }catch(e){}
+    _renderAnswerChips(list);
+  }, ANS_DELAY_MS);
+}
+function _renderAnswerChips(list){
   if(!list || !list.length) return;
   var card = document.createElement('div');
   card.id = 'ansCard'; card.className = 'ans-card';
