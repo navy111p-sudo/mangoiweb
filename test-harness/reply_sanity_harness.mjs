@@ -109,6 +109,53 @@ ok(typeof M.replyBreakReason(BROKEN) === 'string' && M.replyBreakReason(BROKEN).
 ok(!/return\s+(t|text)\s*\.\s*(replace|slice|substring)/.test(SRC),
   '소스에 «문장을 잘라 돌려주는» 코드가 없다');
 
+/* ── ⑦ 배선 — 웜업이 «실제로» 이 판정을 거치는가 ────────────────────────
+   🔴 모듈만 만들고 안 부르면 아무것도 안 막힌다. 그것이 이번 사고의 모양이었다
+      (프롬프트에 「3~5단어」라고 적어 두고 지켜졌는지 보는 곳이 없었다). */
+console.log('\n[ ⑦ 웜업 배선 ]');
+const IDX = readFileSync(join(SRCDIR, 'index.ts'), 'utf8');
+ok(/import \{[^}]*replyIsSane[^}]*\} from '\.\/reply-sanity'/.test(IDX),
+  'index.ts 가 판정 정본을 불러온다');
+/* ⚠️ 검사 범위를 길이로 자르지 말 것 — 중괄호 짝으로 handleWarmupChat 본문만 잘라 낸다
+      (같은 파일의 다른 핸들러에 똑같이 생긴 멀쩡한 줄이 있다). */
+const chat = (() => {
+  const i = IDX.indexOf('async function handleWarmupChat');
+  if (i < 0) return '';
+  let d = 0; const st = IDX.indexOf('{', i);
+  for (let j = st; j < IDX.length; j++) {
+    if (IDX[j] === '{') d++;
+    else if (IDX[j] === '}' && --d === 0) return IDX.slice(st, j + 1);
+  }
+  return '';
+})();
+ok(chat.length > 1000, 'handleWarmupChat 본문을 읽었다', chat.length);
+/* ⚠️ «replyIsSane( 이 어딘가 있는가» 로 쓰면 안 된다 — 바로 아래 재시도 줄에도 있어서,
+      정작 «모델이 준 답을 검사하는» 첫 관문을 빼도 통과한다(실제로 되돌리기 시험에서 밟았다).
+      물어야 할 것은 «모델 출력(aiText)을 그 판정에 넣는가» 다. */
+ok(/replyIsSane\(\s*aiText\b/.test(chat), '모델이 준 답(aiText)을 그 판정에 넣는다');
+ok(/\bbroke\b[\s\S]{0,200}aiText = ''/.test(chat),
+  '둘 다 무너지면 답을 비워 «안전 문구» 로 넘긴다(깨진 글을 그대로 안 내보낸다)');
+ok(/console\.warn\('\[warmup\] broken reply/.test(chat),
+  '무너진 답을 조용히 버리지 않고 로그를 남긴다(원인 추적이 가능해야 한다)');
+ok(/if \(freshText && !replyIsSane\(/.test(chat),
+  '다시 뽑은 답도 «멀쩡할 때만» 받는다(둘 다 무너지면 안전 문구로 간다)');
+ok(!/aiText\s*=\s*aiText\.(replace|slice|substring)/.test(chat),
+  '웜업이 문장을 «고쳐 쓰지» 않는다(다시 뽑게만 한다)');
+
+/* 레벨별 상한이 세 곳에서 같은 말을 하는가 — 서버 문자열 · 상한표 · AI 영어친구 */
+const capTbl = (IDX.match(/const WARMUP_WORD_CAP: Record<number, number> = \{([^}]*)\}/) || [])[1] || '';
+const CAPS = {};
+for (const m of capTbl.matchAll(/(\d)\s*:\s*(\d+)/g)) CAPS[+m[1]] = +m[2];
+ok(Object.keys(CAPS).length === 8, '상한표 여덟 칸을 읽었다', CAPS);
+const lvBlock = (IDX.match(/const WARMUP_LEVELS: Record<number, string> = \{([\s\S]*?)\n\};/) || [])[1] || '';
+for (const m of lvBlock.matchAll(/^\s*(\d):\s*"[^"]*?(\d+)~(\d+)단어/gm)) {
+  const n = +m[1];
+  ok(CAPS[n] === +m[3], `${n}단계 상한이 서버 프롬프트 문구와 같다 (${CAPS[n]} / ${m[3]})`);
+}
+for (const n of [1, 2, 3, 4, 5, 6, 7, 8]) {
+  ok(CAPS[n] === CAP(n), `${n}단계 상한이 AI 영어친구(S${n})와 같다 (${CAPS[n]} / ${CAP(n)})`);
+}
+
 /* ── ⑥ import 가 없어야 한다 — 하니스가 그대로 불러 돌린다 ─────────────── */
 ok(!/^\s*import\s/m.test(SRC), 'import 가 없다(하니스가 그대로 불러 실제로 돌릴 수 있다)');
 

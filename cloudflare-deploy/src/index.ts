@@ -49,6 +49,7 @@ import { warmupGraphRouter, runWarmupGraphSync, getWeakSentences } from './warmu
 import { warmupAgeLine, normalizeWarmupAge } from './warmup-audience';    // 🧑‍🎓 웜업 연령대(소재·말투 축)
 import { logWarmupSessionStart, markWarmupFirstReply, warmupShouldMarkFirstReply } from './warmup-log';  // 📊 웜업 «몇 단계로 쓰는가» 기록
 import { warmupAnswerChips } from './warmup-answers';                    // 💬 웜업 «이렇게 대답해 보세요» 보기 칩
+import { replyIsSane } from './reply-sanity';                          // 🧯 무너진 AI 출력 차단(학생에게 안 내보낸다)
 // «영어만» 게이트 — review_quizzes 는 영어 전용 표가 아니다(중국어 교재 「다락원」이 함께 들어 있다).
 // 라틴 글자 유무로 판정하면 병음이 그대로 통과한다. 정본은 english-only.ts 한 곳뿐.
 import { isEnglishText, isEnglishQuestion } from './english-only';
@@ -3034,6 +3035,15 @@ const WARMUP_LEVELS: Record<number, string> = {
   8: "레벨 8(최상급·C1): 유창한 원어민 수준으로 관용구·뉘앙스·추상적 주제까지 다루며 도전적인 질문으로 대화를 이끌어줘.",
 };
 
+
+/* 🧯 레벨별 «한 문장 단어 상한» — 무너진 출력 판정(replyIsSane)의 길이 안전망에만 쓴다.
+   ⚠️ AI 영어친구(src/ai-friend-level.ts 의 AI_FRIEND_LEVELS S1~S8)와 «같은 눈금» 이다.
+      여기서 import 하지 않는 이유는 위 WARMUP_LEVELS 문자열이 이미 그 숫자를 들고 있어서,
+      두 곳이 어긋나면 하니스가 문자열에서 읽어 대조하기 때문이다(reply_sanity_harness).
+   ⚠️ 이 값은 «버릴 기준» 이 아니다 — replyTooLongFor 가 두 배 + 6낱말로 넉넉히 잡는다.
+      문법을 지키다 한두 낱말 넘는 것을 버리면 안 된다(PR #626 「문법이 길이에 진다」). */
+const WARMUP_WORD_CAP: Record<number, number> = { 1: 5, 2: 7, 3: 9, 4: 12, 5: 15, 6: 18, 7: 22, 8: 0 };
+
 /* 오늘 배울 교재 컨텍스트 — students_erp(학생 배정 교재/레벨) + review_quizzes(그 교재의 실제 영어 문장)
  * textbook/level 을 직접 넘기면 그 값을 우선, 없으면 user_id 로 학생 명부에서 조회.
  * 문장 샘플은 해당 교재(→레벨) 복습퀴즈 은행의 audio_text/answer_text 에서 추출. */
@@ -4022,6 +4032,25 @@ async function handleWarmupChat(request: Request, env: Env): Promise<Response> {
           const retryEmpty: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.8 });
           aiText = (retryEmpty && (retryEmpty.response || retryEmpty.result || '')).toString().trim();
         } catch {}
+      }
+      /* 🧯 무너진 출력 차단 (2026-08-31 사장님 화면 실사고 — 1단계인데 200토큰짜리 낱말 죽이
+             그대로 나갔다. 「뜻」 버튼이 그 한국어 번역까지 나란히 그렸다).
+         여기까지 «출력을 보는 단계» 가 한 곳도 없었다 — 재시도 조건이 «비었나»·«직전과 같나» 둘뿐이라
+         모델이 무너지면 그게 학생 화면으로 직행했다. 판정 정본은 src/reply-sanity.ts.
+         ⚠️ 느슨한 쪽으로 실패한다 — 멀쩡한 답을 버리면 대화가 그 자리에서 끊기고, 그건 학생에게
+            깨진 문장 하나보다 나쁘다. 그래서 «누가 봐도 무너진» 것만 잡는다(거짓경보 0 을 하니스가 못 박는다).
+         ⛔ 문장을 고쳐 쓰지 않는다 — 다시 뽑게만 한다. 아이가 따라 읽을 문장을 코드가 지어내면 안 된다. */
+      const sanityCap = WARMUP_WORD_CAP[ctxDifficulty] || 0;
+      let broke = aiText ? replyIsSane(aiText, sanityCap) : '';
+      if (broke) {
+        console.warn('[warmup] broken reply (' + broke + '), retrying:', aiText.slice(0, 80));
+        try {
+          const fresh: any = await env.AI.run(WARMUP_MODEL, { messages, max_tokens: 200, temperature: 0.5 });
+          const freshText = (fresh && (fresh.response || fresh.result || '')).toString().trim();
+          // 다시 뽑은 것이 «멀쩡할 때만» 받는다 — 둘 다 무너졌으면 아래 안전 문장으로 간다
+          if (freshText && !replyIsSane(freshText, sanityCap)) { aiText = freshText; broke = ''; }
+        } catch {}
+        if (broke) aiText = '';   // 아래 «잠깐의 딸꾹질» 문구가 받아 준다
       }
       // 🔁 그래도 직전 AI 발화와 (거의) 같은 문장이 나오면 1회 재생성 — temperature 를 올리고 명시적으로 지시
       if (aiText && warmupIsRepeat(aiText, history)) {
