@@ -174,6 +174,72 @@ async function run(pagePath, mode) {
   ws.close();
 }
 
+/* 🎙 음성코치 — 이 화면은 2026-08-31 까지 «아바타 코드를 자기 것으로 한 벌 더» 갖고 있었다.
+   공용 모듈로 갈아탄 뒤에도 (ㄱ) 얼굴이 그려지는가 (ㄴ) 카드 크기가 자기 CSS 대로인가
+   (ㄷ) 햄버거에서 네 친구를 고를 수 있는가 를 실제로 눌러 본다. */
+async function runSpeechCoach() {
+  const port = serve(); await sleep(1200);
+  const tabs = await (await fetch(`http://127.0.0.1:${CDP}/json/list`)).json();
+  const page = tabs.find(t => t.type === 'page');
+  if (!page) { console.log('  ⏭  붙을 탭이 없습니다'); return; }
+  const ws = new WebSocket(page.webSocketDebuggerUrl);
+  let id = 0; const waiting = new Map(); const net = [];
+  const send = (m, p2 = {}) => new Promise(res => { const i = ++id; waiting.set(i, res); ws.send(JSON.stringify({ id: i, method: m, params: p2 })); });
+  ws.onmessage = e => { const m = JSON.parse(e.data);
+    if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m.result); waiting.delete(m.id); }
+    if (m.method === 'Network.responseReceived') net.push([m.params.response.url, m.params.response.status]); };
+  await new Promise(r => (ws.onopen = r));
+  await send('Network.enable'); await send('Page.enable'); await send('Runtime.enable');
+  await send('Page.navigate', { url: `http://127.0.0.1:${port}/speech-coach.html` });
+  await sleep(5000);
+  const ev = async expr => (await send('Runtime.evaluate', { expression: expr, returnByValue: true, awaitPromise: true })).result?.value;
+  const paint = async () => (await ev(`(function(){var c=document.getElementById('tavatar-canvas');if(!c)return 0;try{var d=c.getContext('2d').getImageData(0,0,c.width,c.height).data;var n=0;for(var i=0;i<d.length;i+=4)if(d[i+3]>200)n++;return +(n/(d.length/4)).toFixed(3);}catch(e){return 0;}})()`)) || 0;
+  for (let t = 0; t < 12 && (await paint()) <= 0.05; t++) await sleep(700);
+
+  console.log('\n── /speech-coach.html ──');
+  const st = await ev(`(function(){
+    var r=document.getElementById('tavatar-ring'), rb=r&&r.getBoundingClientRect();
+    return { ready: typeof window.MangoAvatar==='object' && !!window.MangoAvatar.setCharacter,
+             ringW: rb&&Math.round(rb.width), ringH: rb&&Math.round(rb.height),
+             btn: !!document.getElementById('sc-friend-btn'),
+             menuHidden: (document.getElementById('sc-friend-menu')||{}).hidden };
+  })()`);
+  console.log('   ', JSON.stringify(st), '| 그려짐', await paint());
+  ok(st.ready, '공용 아바타 모듈이 실렸다 (인라인 복제본을 걷어낸 뒤에도)');
+  ok((await paint()) > 0.05, '얼굴이 실제로 그려졌다');
+  ok([150, 260, 118, 92].includes(st.ringW),
+    `카드 크기가 이 화면 자기 CSS 대로다 (${st.ringW}x${st.ringH})`,
+    '136px 이 나오면 공용 mango-avatar.css 를 잘못 실은 것이다');
+  ok(st.ringH > 0 && Math.abs(st.ringW / st.ringH - 0.8) < 0.02, '카드 비율 4:5 유지');
+  ok(st.btn, '☰ 햄버거 버튼이 있다');
+  ok(st.menuHidden === true, '메뉴는 처음에 닫혀 있다');
+
+  const opened = await ev(`(function(){ document.getElementById('sc-friend-btn').click();
+    var m=document.getElementById('sc-friend-menu');
+    return { hidden:m.hidden, n:m.querySelectorAll('button[data-p]').length,
+             names:[...m.querySelectorAll('button[data-p]')].map(b=>b.dataset.p) };
+  })()`);
+  ok(opened.hidden === false, '☰ 를 누르면 메뉴가 열린다');
+  ok(opened.n === 4 && ['emma','lily','noah','jake'].every(k => opened.names.includes(k)),
+    `네 친구가 다 있다 (${opened.names.join(', ')})`);
+
+  await ev(`document.querySelector('#sc-friend-menu button[data-p="lily"]').click()`);
+  await sleep(2200);
+  const lily = net.filter(([u]) => u.includes('lily-'));
+  const after = await ev(`(function(){var m=document.getElementById('sc-friend-menu');
+    return { hidden:m.hidden, on:[...m.querySelectorAll('button.on')].map(b=>b.dataset.p) };})()`);
+  ok(lily.length === 3, `Lily 를 고르면 입모양 3장을 요청한다 (${lily.length}건)`);
+  ok(after.hidden === true, '고르면 메뉴가 닫힌다');
+  ok(after.on.join() === 'lily', `고른 친구에 선택 표시가 남는다 (${after.on.join()})`);
+  ok((await paint()) > 0.05, 'Lily 로 바꾼 뒤에도 얼굴이 그려져 있다');
+
+  await ev(`document.getElementById('sc-friend-btn').click()`); await sleep(300);
+  const outside = await ev(`(function(){ document.body.click();
+    return (document.getElementById('sc-friend-menu')||{}).hidden; })()`);
+  ok(outside === true, '바깥을 누르면 메뉴가 닫힌다');
+  ws.close();
+}
+
 try {
   await sleep(3500);
   if (!realPresent) {
@@ -183,6 +249,7 @@ try {
   }
   await run('/warmup.html?setup=0', 'images');
   await run('/ai-friend.html', 'images');
+  await runSpeechCoach();
   if (!realPresent) FRAMES.forEach(n => rmSync(join(PUB, 'img', n + '.png'), { force: true }));
   await run('/warmup.html?setup=0', 'fallback');     // 파일이 없는 상태 = 폴백
 } finally {
