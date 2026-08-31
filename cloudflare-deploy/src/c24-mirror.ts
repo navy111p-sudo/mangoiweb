@@ -292,6 +292,16 @@ export async function ensureMirrorTables(env: MirrorEnv): Promise<void> {
   try {
     await env.DB.exec(`CREATE TABLE IF NOT EXISTS c24_mirror_teachers (teacher_id TEXT PRIMARY KEY, enabled INTEGER DEFAULT 1, note TEXT, updated_by TEXT, updated_at INTEGER)`);
   } catch { /* 같음 */ }
+  /* 🔴 «같은 카페24 수업을 두 번 만들지 않는다» 를 DB 가 보증한다 (2026-08-31 자동 실행과 함께).
+     왜 필요한가 — 자동 실행이 두 갈래(15분 감시견 · 야간 cron)인데, **18:00 UTC 정각에는
+     둘이 동시에 운다.** 두 호출이 각각 «아직 없네» 로 읽고 나란히 INSERT 하면 같은 수업이
+     두 벌 생긴다(코드로는 못 막는다 — 서로 다른 워커 호출이라 순서를 알 수 없다).
+     부분 유니크 인덱스라 **미러 행에만** 걸리고 사람이 만든 수업은 건드리지 않는다.
+     ⚠️ 두 번째 INSERT 는 실패하고 그 사유가 결과의 errors 에 남는다 — 조용히 삼켜지지 않는다.
+     ⛔ notes 형식(`c24:<class_id>`)을 바꾸면 이 보증이 통째로 풀린다. */
+  try {
+    await env.DB.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_c24_mirror_class ON class_schedules(notes) WHERE source='c24-mirror'`);
+  } catch { /* 이미 있거나, 옛 중복이 남아 있으면 만들지 않는다(사람이 정리) */ }
 }
 
 /** 지금 모드. 읽기 실패·미설정이면 **가장 안전한 'off'**(그림자)로 떨어진다. */
@@ -422,6 +432,9 @@ export async function c24MirrorReport(
   ok: true; mode: MirrorMode; since: string; until: string;
   total: number; summary: Record<Verdict, number>;
   by_state: Record<string, number>;
+  /** 마지막 «자동 실행» 기록 — 「cron 이 정말 돌고 있나」를 성적표에서 바로 본다.
+      비어 있으면 아직 한 번도 안 돌았다는 뜻이다(모드가 off 면 건너뛴 기록이 남는다). */
+  last_runs: Record<string, any>;
   by_date: { date: string; total: number; ok: number; blocked: number }[];
   rows: PlanRow[];
 }> {
@@ -430,7 +443,9 @@ export async function c24MirrorReport(
   const since = opt.since || kstToday;
   const until = opt.until || new Date(Date.now() + 9 * 3600 * 1000 + 14 * 86400000).toISOString().slice(0, 10);
 
-  const [mode, enabled] = await Promise.all([getMirrorMode(env), getMirrorTeachers(env)]);
+  const [mode, enabled, lastRuns] = await Promise.all([
+    getMirrorMode(env), getMirrorTeachers(env), getMirrorLastRuns(env),
+  ]);
   const classes = await fetchC24Classes(env, runCypher, since, until);
   const [links, students, existing] = await Promise.all([
     loadTeacherLinks(env, classes.map(c => c.teacher_id)),
@@ -457,7 +472,7 @@ export async function c24MirrorReport(
 
   return {
     ok: true, mode, since, until,
-    total: rows.length, summary, by_state: byState,
+    total: rows.length, summary, by_state: byState, last_runs: lastRuns,
     by_date: Array.from(byDate.values()).sort((a, b) => a.date.localeCompare(b.date)),
     rows,
   };
@@ -636,4 +651,108 @@ export async function setMirrorTeacher(
        ON CONFLICT(teacher_id) DO UPDATE SET enabled = excluded.enabled, note = excluded.note,
          updated_by = excluded.updated_by, updated_at = excluded.updated_at`
   ).bind(String(teacherId), enabled ? 1 : 0, note ?? null, actor ?? null, Date.now()).run();
+}
+
+/* ═══════════════ 3단계 — 자동 실행 (cron 이 부른다) ═══════════════
+   2026-08-31 사장님 지시: 「자동 실행도 넣어줘」.
+
+   ⛔ **새 cron 은 못 만든다** — Cloudflare 계정 cron 한도가 5개이고 이미 5개를 다 쓴다
+      (`wrangler.toml` crons). 여섯 번째를 등록하면 배포가 code 10072 로 거절된다.
+      그래서 기존 트리거에 «얹는다».
+
+   두 갈래로 도는 이유 — 카페24 예약이 «당일에도» 채워지기 때문이다.
+   2026-08-31 실측: Ana 의 8/31 수업이 11건인데 9월 이후 예약은 4건뿐이었다.
+   하루 한 번만 돌면 그날 오후에 들어온 수업을 놓친다.
+
+     ① 좁은 창 (오늘~+2일)  — 15분 감시견 트리거를 탄다. 당일 추가분을 빨리 따라잡는다.
+     ② 넓은 창 (오늘~+14일) — 야간 cron `0 18 * * *`(KST 03:00). 멀리 있는 예약까지 맞춘다.
+
+   ⛔ 「시(hour)」로 가르지 말 것 — 15분 트리거 때문에 하루 네 번 참이 되고 정각에는
+      전용 cron 이 별도 호출로 한 번 더 들어와 «동시에» 돈다(CLAUDE.md 2장·index.ts 주석).
+   ✅ 끄는 방법은 **모드 하나**다 — `c24_mirror_config.mode='off'` 면 이 함수가 카페24를
+      부르지도 않고 그 자리에서 돌아온다(Neo4j 왕복 96회/일을 아끼는 것도 겸한다).
+*/
+
+/** 자동 실행 결과 — 「돌았는데 아무것도 안 했다」와 「아예 안 돌았다」를 구분해서 적는다. */
+export interface MirrorSweepResult {
+  ok: true;
+  label: string;
+  /** 건너뛴 이유(있을 때만). 없으면 실제로 돌았다는 뜻이다. */
+  skipped?: 'mode_off' | 'no_teacher_enabled';
+  mode?: MirrorMode;
+  since?: string;
+  until?: string;
+  applied?: { created: number; updated: number; cancelled: number };
+  errors?: string[];
+  cancel_skipped?: string;
+}
+
+/**
+ * 🕐 cron 이 부르는 자동 실행. **실패해도 절대 던지지 않는다** — 부르는 쪽이 감시견이라
+ *   여기서 예외가 나면 사이트 감시까지 함께 죽는다.
+ *
+ * @param days  창 길이(일). 좁은 창 2, 넓은 창 14.
+ * @param label 기록용 이름('watchdog' | 'nightly'). 마지막 실행이 이 이름으로 남는다.
+ */
+export async function runMirrorSweep(
+  env: MirrorEnv,
+  runCypher: (env: any, q: string, p: Record<string, unknown>, m: 'READ' | 'WRITE') => Promise<{ fields: string[]; values: any[][] }>,
+  opt: { days: number; label: string },
+): Promise<MirrorSweepResult> {
+  const label = String(opt.label || 'cron');
+  try {
+    await ensureMirrorTables(env);
+    const mode = await getMirrorMode(env);
+    // ⛔ 꺼져 있으면 카페24를 부르지도 않는다 — 이것이 유일한 «끄는 스위치» 다.
+    if (mode === 'off') return { ok: true, label, skipped: 'mode_off' };
+    const enabled = await getMirrorTeachers(env);
+    // 화이트리스트인데 켠 강사가 없으면 할 일이 없다(빈 조회를 아낀다)
+    if (mode === 'whitelist' && !enabled.size) return { ok: true, label, skipped: 'no_teacher_enabled' };
+
+    const kstNow = Date.now() + 9 * 3600 * 1000;
+    const since = new Date(kstNow).toISOString().slice(0, 10);
+    const until = new Date(kstNow + Math.max(0, opt.days) * 86400000).toISOString().slice(0, 10);
+
+    const r = await applyMirror(env, runCypher, { since, until, dry_run: false, actor: `cron:${label}` });
+    const out: MirrorSweepResult = {
+      ok: true, label, mode: r.mode, since, until, applied: r.applied,
+      errors: r.errors, cancel_skipped: r.cancel_skipped,
+    };
+    /* 마지막 실행을 남긴다 — 「자동으로 도는가」를 사람이 확인할 방법이 이것뿐이다.
+       ⚠️ 이 기록이 실패해도 본 작업은 이미 끝났으므로 조용히 넘긴다. */
+    try {
+      await env.DB.prepare(
+        `INSERT INTO c24_mirror_config (k, v, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at`
+      ).bind(`last_run:${label}`, JSON.stringify(out).slice(0, 4000), Date.now()).run();
+    } catch { /* 기록 실패는 무시 */ }
+    return out;
+  } catch (e: any) {
+    /* ⛔ 던지지 않는다. 대신 «못 돌았다» 를 남겨, 조용히 멈춘 것을 나중에 알아챌 수 있게 한다. */
+    const out: MirrorSweepResult = { ok: true, label, errors: [String(e?.message || e)] };
+    try {
+      await env.DB.prepare(
+        `INSERT INTO c24_mirror_config (k, v, updated_at) VALUES (?, ?, ?)
+           ON CONFLICT(k) DO UPDATE SET v = excluded.v, updated_at = excluded.updated_at`
+      ).bind(`last_run:${label}`, JSON.stringify(out).slice(0, 4000), Date.now()).run();
+    } catch { /* 기록 실패는 무시 */ }
+    return out;
+  }
+}
+
+/** 마지막 자동 실행 기록 — 성적표가 「자동으로 돌고 있나」를 함께 보여 준다 */
+export async function getMirrorLastRuns(env: MirrorEnv): Promise<Record<string, any>> {
+  const out: Record<string, any> = {};
+  try {
+    const rs: any = await env.DB.prepare(
+      `SELECT k, v, updated_at FROM c24_mirror_config WHERE k LIKE 'last_run:%'`
+    ).all();
+    for (const r of (rs.results || [])) {
+      const key = String(r.k || '').replace(/^last_run:/, '');
+      let parsed: any = null;
+      try { parsed = JSON.parse(String(r.v || '')); } catch { parsed = String(r.v || ''); }
+      out[key] = { at: Number(r.updated_at) || 0, result: parsed };
+    }
+  } catch { /* 표가 없으면 «아직 안 돌았다» */ }
+  return out;
 }
